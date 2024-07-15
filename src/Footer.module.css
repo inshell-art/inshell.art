@@ -1,0 +1,11 @@
+.link {
+  margin-right: 15px; /* For GitHub link, to maintain spacing */
+}
+
+.link:last-child {
+  margin-right: 0; /* Remove right margin for the last link */
+}
+
+.link:hover {
+  color: #006100; /* Change link color on hover */
+}
