@@ -9,6 +9,15 @@ const App = () => {
 
   console.log("projectOpacity", projectOpacity);
 
+  // Decrease the opacity every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setProjectOpacity((prevOpacity) => Math.max(prevOpacity - 0.1, 0.1));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Handle any click event on the document
   useEffect(() => {
     const handleDocumentClick = () => {
@@ -23,15 +32,6 @@ const App = () => {
     return () => {
       document.removeEventListener("click", handleDocumentClick);
     };
-  }, []);
-
-  // Decrease the opacity every second
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setProjectOpacity((prevOpacity) => Math.max(prevOpacity - 0.1, 0.1));
-    }, 1000);
-
-    return () => clearInterval(interval);
   }, []);
 
   // Track mouse movement
@@ -49,8 +49,8 @@ const App = () => {
       }
 
       const speed = distance / deltaTime;
-      console.log("deltaTime", deltaTime);
-      const opacityIncrease = Math.min(speed * 0.05, 0.01);
+
+      const opacityIncrease = Math.min(speed * 0.05, 0.05);
 
       setProjectOpacity((prevOpacity) =>
         Math.min(prevOpacity + opacityIncrease, 1)
