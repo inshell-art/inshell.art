@@ -1,1 +1,8 @@
 npm run test
+npm run emu &
+EMU_PID=$!
+
+npm run wait:emu
+npm run e2e:emu
+
+./scripts/kill_all_descendants.sh $EMU_PID
