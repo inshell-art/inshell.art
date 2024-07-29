@@ -1,11 +1,22 @@
 .container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* Center content vertically */
+  align-items: center; /* Center content horizontally */
+  min-height: 100vh;
+  padding-bottom: 4rem; /* Add padding to avoid content overlap with footer */
+}
+
+.content {
   display: grid;
   grid-template-columns: repeat(3, 2fr);
   gap: 30px;
+  width: 100%; /* Make sure the content takes the full width of the container */
+  justify-content: center; /* Center the grid items horizontally */
 }
 
 .project {
-  font-weight: 200;
+  font-weight: 300;
   opacity: 0.1;
   text-align: right;
   transition: opacity 1s;
