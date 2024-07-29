@@ -1,13 +1,17 @@
 import styles from "./App.module.css";
 import { useState, useEffect, useRef } from "react";
+import { isDesktopDevice } from "./device";
 
 const App = () => {
   const [projectOpacity, setProjectOpacity] = useState(0);
   const [yearOpacity, setYearOpacity] = useState(0);
   const lastMousePosition = useRef({ x: 0, y: 0 });
   const lastTimestamp = useRef(Date.now());
+  const [isDesktop, setIsDesktop] = useState(false);
 
-  console.log("projectOpacity", projectOpacity);
+  useEffect(() => {
+    setIsDesktop(isDesktopDevice());
+  }, []);
 
   // Decrease the opacity every second
   useEffect(() => {
@@ -79,40 +83,48 @@ const App = () => {
   }, [projectOpacity]);
 
   return (
-    <div
-      className={styles.container}
-      tabIndex={0}
-      onKeyDown={(e) =>
-        e.key &&
-        setProjectOpacity((prevOpacity) => Math.min(prevOpacity + 0.1, 1))
-      }
-    >
-      <div>
-        <div className={styles.year} style={{ opacity: yearOpacity }}>
-          In 2024
+    <>
+      {isDesktop ? (
+        <div
+          className={styles.container}
+          tabIndex={0}
+          onKeyDown={(e) =>
+            e.key &&
+            setProjectOpacity((prevOpacity) => Math.min(prevOpacity + 0.1, 1))
+          }
+        >
+          <div>
+            <div className={styles.year} style={{ opacity: yearOpacity }}>
+              In 2024
+            </div>
+            <div className={styles.project} style={{ opacity: projectOpacity }}>
+              THOUGHT
+            </div>
+          </div>
+          <div>
+            <div className={styles.year} style={{ opacity: yearOpacity }}>
+              {" "}
+              In 2025
+            </div>
+            <div className={styles.project} style={{ opacity: projectOpacity }}>
+              WILL
+            </div>
+          </div>
+          <div>
+            <div className={styles.year} style={{ opacity: yearOpacity }}>
+              In 2026
+            </div>
+            <div className={styles.project} style={{ opacity: projectOpacity }}>
+              AWA!
+            </div>
+          </div>
         </div>
-        <div className={styles.project} style={{ opacity: projectOpacity }}>
-          THOUGHT
+      ) : (
+        <div className={styles.mobileMessage}>
+          This application is only available on desktop devices.
         </div>
-      </div>
-      <div>
-        <div className={styles.year} style={{ opacity: yearOpacity }}>
-          {" "}
-          In 2025
-        </div>
-        <div className={styles.project} style={{ opacity: projectOpacity }}>
-          WILL
-        </div>
-      </div>
-      <div>
-        <div className={styles.year} style={{ opacity: yearOpacity }}>
-          In 2026
-        </div>
-        <div className={styles.project} style={{ opacity: projectOpacity }}>
-          AWA!
-        </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 };
 
