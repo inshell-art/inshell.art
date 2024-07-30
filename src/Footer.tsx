@@ -1,34 +1,38 @@
 import React from "react";
-import styles from "./Footer.module.css"; // Import the CSS module
-import githubIcon from "./assets/icon-github.svg";
-import xIcon from "./assets/icon-x.svg";
+import styles from "./Footer.module.css";
 
 const Footer: React.FC = () => {
   return (
-    <footer
-      style={{
-        position: "fixed",
-        bottom: "20px",
-        right: "20px",
-        textAlign: "right",
-      }}
-    >
-      <a
-        className={styles.link} // Apply styles from CSS module
-        href="https://github.com/inshell-art"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        <img src={githubIcon} alt="GitHub" />
-      </a>
-      <a
-        className={styles.link} // Apply styles from CSS module
-        href="https://x.com/inshell_art"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        <img src={xIcon} alt="X" />
-      </a>
+    <footer className={styles.footer}>
+      <ul className={styles.footerList}>
+        <li className={styles.footerItem}>
+          <a
+            href="https://prime.inshell.art"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            prime
+          </a>
+        </li>
+        <li className={styles.footerItem}>
+          <a
+            href="https://twitter.com/inshell_art"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            twitter
+          </a>
+        </li>
+        <li className={styles.footerItem}>
+          <a
+            href="https://github.com/inshell-art"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            github
+          </a>
+        </li>
+      </ul>
     </footer>
   );
 };

@@ -11,6 +11,7 @@ export default {
     "^@/(.*)$": "<rootDir>/src/$1",
     "\\.css$": "identity-obj-proxy",
   },
+  setupFilesAfterEnv: ["<rootDir>/tests/jest.setup.js"],
 
   testMatch: ["<rootDir>/tests/**/*.test.{ts,tsx}"],
 };

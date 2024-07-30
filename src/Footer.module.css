@@ -1,11 +1,27 @@
-.link {
-  margin-right: 15px; /* For GitHub link, to maintain spacing */
+.footer {
+  padding: 1rem;
+  text-align: center;
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center; /* Center the content horizontally */
+  align-items: center; /* Center the content vertically */
 }
 
-.link:last-child {
-  margin-right: 0; /* Remove right margin for the last link */
+.footerList {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center; /* Center the list items horizontally */
+  gap: 1rem;
 }
 
-.link:hover {
-  color: #006100; /* Change link color on hover */
+.footerItem a {
+  text-decoration: none;
+}
+
+.footerItem a:hover {
+  text-decoration: underline;
 }
