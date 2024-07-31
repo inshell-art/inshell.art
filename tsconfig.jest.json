@@ -11,5 +11,11 @@
     "lib": ["ES2020", "DOM"],
     "typeRoots": ["./node_modules/@types", "./tests"]
   },
-  "include": ["tests/**/*.ts", "tests/**/*.tsx", "src/**/*.ts", "src/**/*.tsx"]
+  "include": [
+    "tests/**/*.ts",
+    "tests/**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "./firebaseConfig.ts"
+  ]
 }
