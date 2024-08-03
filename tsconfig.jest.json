@@ -16,6 +16,7 @@
     "tests/**/*.tsx",
     "src/**/*.ts",
     "src/**/*.tsx",
-    "./firebaseConfig.ts"
+    "./firebaseConfig.ts",
+    "./scripts/**/*.ts"
   ]
 }
