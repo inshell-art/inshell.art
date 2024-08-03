@@ -35,11 +35,8 @@ jobs:
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
-      - name: Set Firebase project to staging
-        run: firebase use inshell-art-staging --token ${{ secrets.FIREBASE_TOKEN }}
-
-      - name: Deploy to Firebase
-        run: npm run deploy
+      - name: Deploy to Firebase Staging
+        run: npm run deploy:staging
 
       - name: wait for Staging env to be ready
         run: npm run wait:staging
@@ -59,6 +56,10 @@ jobs:
       NODE_ENV: prod
       FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
       BASE_URL: "https://inshell-art-prod.web.app"
+      VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+      VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+      VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+      VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
 
     steps:
       - name: Checkout
@@ -76,11 +77,8 @@ jobs:
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
-      - name: Set Firebase project to prod
-        run: firebase use inshell-art-prod --token ${{ secrets.FIREBASE_TOKEN }}
-
-      - name: Deploy to Firebase
-        run: npm run deploy
+      - name: Deploy to Firebase Prod
+        run: npm run deploy:prod
 
       - name: wait for Prod env to be ready
         run: npm run wait:prod
