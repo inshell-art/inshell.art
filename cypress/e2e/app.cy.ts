@@ -6,6 +6,9 @@ describe("App Initialization", () => {
     cy.get("[class*=year]").should("have.length", 3).and("be.visible");
 
     // Test cases for footer links
+    cy.get('footer a[href="https://hone.inshell.art"]')
+      .should("have.text", "hone")
+      .and("be.visible");
     cy.get('footer a[href="https://prime.inshell.art"]')
       .should("have.text", "prime")
       .and("be.visible");

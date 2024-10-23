@@ -7,6 +7,15 @@ const Footer: React.FC = () => {
       <ul className={styles.footerList}>
         <li className={styles.footerItem}>
           <a
+            href="https://hone.inshell.art"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            hone
+          </a>
+        </li>
+        <li className={styles.footerItem}>
+          <a
             href="https://prime.inshell.art"
             target="_blank"
             rel="noopener noreferrer"
