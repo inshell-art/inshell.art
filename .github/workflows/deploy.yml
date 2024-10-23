@@ -86,6 +86,14 @@ jobs:
       - name: Run e2e test as smoke tests on Prod
         run: npm run e2e:prod
 
+      - name: Git tag succeeded deployment
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
+          git tag -f succeeded-deployment 
+          git push origin succeeded-deployment --force
+
       - name: Set Firebase project to staging for cleanup
         run: firebase use inshell-art-staging --token ${{ secrets.FIREBASE_TOKEN }}
 

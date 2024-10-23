@@ -1,3 +1,8 @@
+if [ "$CI" = "true" ]; then
+echo "Skipping pre-push hook in CI environment"
+exit 0
+fi
+
 npm run test
 npm run emu &
 EMU_PID=$!
