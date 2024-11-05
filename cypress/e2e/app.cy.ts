@@ -9,8 +9,8 @@ describe("App Initialization", () => {
     cy.get('footer a[href="https://hone.inshell.art"]')
       .should("have.text", "hone")
       .and("be.visible");
-    cy.get('footer a[href="https://prime.inshell.art"]')
-      .should("have.text", "prime")
+    cy.get('footer a[href="https://facets.inshell.art"]')
+      .should("have.text", "facets")
       .and("be.visible");
     cy.get('footer a[href="https://twitter.com/inshell_art"]')
       .should("have.text", "twitter")
