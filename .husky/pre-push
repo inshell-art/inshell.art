@@ -1,6 +1,6 @@
 if [ "$CI" = "true" ]; then
-echo "Skipping pre-push hook in CI environment"
-exit 0
+    echo "Skipping pre-push hook in CI environment"
+    exit 0
 fi
 
 npm run test
@@ -9,5 +9,3 @@ EMU_PID=$!
 
 npm run wait:emu
 npm run e2e:emu
-
-./scripts/kill_all_descendants.sh $EMU_PID
