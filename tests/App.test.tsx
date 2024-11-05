@@ -78,7 +78,7 @@ describe("App Component", () => {
       }
     });
 
-    const yearElements = screen.getAllByText(/In 2024|In 2025|In 2026/i);
+    const yearElements = screen.getAllByText(/First Half 2024| 2025| 2026/i);
     yearElements.forEach((element: HTMLElement) => {
       expect(parseFloat(element.style.opacity)).toBeGreaterThanOrEqual(0.5);
     });
