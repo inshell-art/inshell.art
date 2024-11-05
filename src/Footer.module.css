@@ -7,6 +7,9 @@
   display: flex;
   justify-content: center; /* Center the content horizontally */
   align-items: center; /* Center the content vertically */
+  color: inherit;
+  font-weight: 200;
+  font-size: 13px;
 }
 
 .footerList {
@@ -20,6 +23,7 @@
 
 .footerItem a {
   text-decoration: none;
+  color: inherit;
 }
 
 .footerItem a:hover {
