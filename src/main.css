@@ -6,8 +6,8 @@
   font-family: "Source Code Pro", monospace;
   color-scheme: light dark;
 
-  --black: #0f;
-  --white: #f0;
+  --black: #0f0f0f;
+  --white: #f0f0f0;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -32,9 +32,11 @@ body {
   min-height: 100vh;
   justify-content: center;
   align-items: center;
+  height: 100%;
 }
 
 @media (prefers-color-scheme: dark) {
+  html,
   body {
     background-color: var(--black);
   }
