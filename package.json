@@ -26,7 +26,7 @@
     "firebase": "^11.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "vite": "^5.4.14"
+    "vite": "^6.2.0"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",
@@ -38,7 +38,7 @@
     "@types/testing-library__react": "^10.2.0",
     "@typescript-eslint/eslint-plugin": "^7.13.1",
     "@typescript-eslint/parser": "^7.13.1",
-    "@vitejs/plugin-react-swc": "^3.5.0",
+    "@vitejs/plugin-react-swc": "^3.8.0",
     "cypress": "^13.13.1",
     "dotenv": "^16.4.5",
     "eslint": "^8.57.0",
