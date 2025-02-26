@@ -97,7 +97,7 @@ const App = () => {
           >
             <div>
               <div className={styles.year} style={{ opacity: yearOpacity }}>
-                First Half 2025
+                in 2025
               </div>
               <div
                 className={styles.project}
@@ -109,7 +109,7 @@ const App = () => {
             <div>
               <div className={styles.year} style={{ opacity: yearOpacity }}>
                 {" "}
-                2025
+                in 2026
               </div>
               <div
                 className={styles.project}
@@ -120,7 +120,7 @@ const App = () => {
             </div>
             <div>
               <div className={styles.year} style={{ opacity: yearOpacity }}>
-                2026
+                in 2027
               </div>
               <div
                 className={styles.project}
