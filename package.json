@@ -50,5 +50,8 @@
     "picomatch": "^4.0.2",
     "ts-jest": "^29.2.2",
     "typescript": "^5.5.3"
+  },
+  "overrides": {
+    "vite": "6.2.0"
   }
 }
