@@ -1,7 +1,6 @@
 import styles from "./App.module.css";
 import { useState, useEffect, useRef } from "react";
 import { isDesktopDevice } from "./device";
-import Footer from "./Footer";
 
 const App = () => {
   const [projectOpacity, setProjectOpacity] = useState(0);
@@ -136,7 +135,6 @@ const App = () => {
           </div>
         )}
       </>
-      <Footer />
     </div>
   );
 };
