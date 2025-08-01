@@ -14,5 +14,10 @@ export default defineConfig(({ mode }) => {
     define: {
       "import.meta.env.MODE": JSON.stringify(mode),
     },
+    resolve: {
+      alias: {
+        "@": "/src",
+      },
+    },
   };
 });

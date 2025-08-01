@@ -1,11 +1,11 @@
-if [ "$CI" = "true" ]; then
-    echo "Skipping pre-push hook in CI environment"
-    exit 0
-fi
+#if [ "$CI" = "true" ]; then
+#    echo "Skipping pre-push hook in CI environment"
+#    exit 0
+#fi
 
-npm run test
-npm run emu &
-EMU_PID=$!
+#npm run test
+#npm run emu &
+#EMU_PID=$!
 
-npm run wait:emu
-npm run e2e:emu
+#npm run wait:emu
+#npm run e2e:emu

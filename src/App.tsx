@@ -1,142 +1,38 @@
-import styles from "./App.module.css";
-import { useState, useEffect, useRef } from "react";
-import { isDesktopDevice } from "./device";
+import { createSystem, defaultConfig, ChakraProvider } from "@chakra-ui/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import Hero from "./components/Hero";
+import Footer from "./components/Footer/Footer";
+import { ErrorBoundary } from "react-error-boundary";
 
-const App = () => {
-  const [projectOpacity, setProjectOpacity] = useState(0);
-  const [yearOpacity, setYearOpacity] = useState(0);
-  const lastMousePosition = useRef({ x: 0, y: 0 });
-  const lastTimestamp = useRef(Date.now());
-  const [isDesktop, setIsDesktop] = useState(false);
+//todo: implement the font later
+//todo: refactor the App to present Hero in main.tsx
 
-  useEffect(() => {
-    setIsDesktop(isDesktopDevice());
-  }, []);
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      staleTime: 10_000, // 10 seconds
+    },
+  },
+});
 
-  // Decrease the opacity every second
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setProjectOpacity((prevOpacity) => Math.max(prevOpacity - 0.1, 0.1));
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // Handle any click event on the document
-  useEffect(() => {
-    const handleDocumentClick = () => {
-      setProjectOpacity((prevOpacity) => Math.min(prevOpacity + 0.2, 1));
-    };
-
-    handleDocumentClick();
-
-    document.addEventListener("click", handleDocumentClick);
-
-    // Cleanup the event listener
-    return () => {
-      document.removeEventListener("click", handleDocumentClick);
-    };
-  }, []);
-
-  // Track mouse movement
-  useEffect(() => {
-    const handleMouseMove = (event: MouseEvent) => {
-      const currentTimestamp = Date.now();
-      let deltaTime = currentTimestamp - lastTimestamp.current;
-      const distance = Math.sqrt(
-        Math.pow(event.clientX - lastMousePosition.current.x, 2) +
-          Math.pow(event.clientY - lastMousePosition.current.y, 2)
-      );
-
-      if (deltaTime === 0) {
-        deltaTime = 1;
-      }
-
-      const speed = distance / deltaTime;
-
-      const opacityIncrease = Math.min(speed * 0.05, 0.05);
-
-      setProjectOpacity((prevOpacity) =>
-        Math.min(prevOpacity + opacityIncrease, 1)
-      );
-
-      lastMousePosition.current = { x: event.clientX, y: event.clientY };
-      lastTimestamp.current = currentTimestamp;
-    };
-
-    document.addEventListener("mousemove", handleMouseMove);
-
-    // Cleanup the event listener
-    return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-    };
-  }, []);
-
-  // Convert opacity for project to the opacity for year
-  useEffect(() => {
-    if (projectOpacity > 0.9) {
-      setYearOpacity(projectOpacity);
-    }
-    if (projectOpacity <= 0.9) {
-      setYearOpacity(Math.max(projectOpacity / 50, 0));
-    }
-  }, [projectOpacity]);
-
+export default function App() {
+  const system = createSystem(defaultConfig, { preflight: true });
   return (
-    <div className={styles.container}>
-      <>
-        {isDesktop ? (
-          <div
-            className={styles.content}
-            tabIndex={0}
-            onKeyDown={(e) =>
-              e.key &&
-              setProjectOpacity((prevOpacity) => Math.min(prevOpacity + 0.1, 1))
-            }
-          >
-            <div>
-              <div className={styles.year} style={{ opacity: yearOpacity }}>
-                in 2025
-              </div>
-              <div
-                className={styles.project}
-                style={{ opacity: projectOpacity }}
-              >
-                THOUGHT
-              </div>
-            </div>
-            <div>
-              <div className={styles.year} style={{ opacity: yearOpacity }}>
-                {" "}
-                in 2026
-              </div>
-              <div
-                className={styles.project}
-                style={{ opacity: projectOpacity }}
-              >
-                WILL
-              </div>
-            </div>
-            <div>
-              <div className={styles.year} style={{ opacity: yearOpacity }}>
-                in 2027
-              </div>
-              <div
-                className={styles.project}
-                style={{ opacity: projectOpacity }}
-              >
-                AWA!
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className={styles.mobileMessage}>
-            This application is only available on desktop devices.
-          </div>
-        )}
-      </>
-    </div>
+    <ErrorBoundary
+      FallbackComponent={({ error }) => (
+        <div style={{ padding: "20px", color: "red" }}>
+          <h1>Something went wrong</h1>
+          <p>{error.message}</p>
+        </div>
+      )}
+    >
+      <QueryClientProvider client={queryClient}>
+        <ChakraProvider value={system}>
+          <Hero />
+          <Footer />
+        </ChakraProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
-};
-
-export default App;
+}

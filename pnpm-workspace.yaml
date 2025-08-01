@@ -1,0 +1,8 @@
+onlyBuiltDependencies:
+  - '@firebase/util'
+  - '@swc/core'
+  - cypress
+  - esbuild
+  - msw
+  - protobufjs
+  - unrs-resolver
