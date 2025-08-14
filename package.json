@@ -1,7 +1,7 @@
 {
   "name": "inshell.art",
   "private": true,
-  "version": "0.0.0",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -20,7 +20,14 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "type-check": "tsc --noEmit",
     "preview": "vite preview",
-    "prepare": "husky"
+    "prepare": "husky",
+    "abi-gen": "npx abi-wan-kanabi   --input  src/abi/PulseAuction.contract_class.json   --output src/generated/PulseAuction.abi.ts",
+    "contract:build": "cd contracts/pulse && scarb build",
+    "postcontract:build": "node scripts/copyAbi.js && npx abi-wan-kanabi --input src/generated/pulse_PulseAuction.contract_class.json --output src/generated/pulse_PulseAuction.abi.ts",
+    "predeploy:contract": "pnpm run contract:build",
+    "deploy:contract": "pnpm tsx scripts/deploy.ts",
+    "pulse:update": "git submodule update --init --recursive",
+    "postpulse:update": "pnpm -C contracts/pulse exec scarb build && npx abi-wan-kanabi --input contracts/pulse/target/dev/pulse_PulseAuction.contract_class.json --output src/generated/PulseAuction.abi.ts"
   },
   "dependencies": {
     "@chakra-ui/react": "^3.22.0",
@@ -43,7 +50,6 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-error-boundary": "^6.0.0",
-    "starknet": "^7.6.4",
     "vite": "^7.0.5"
   },
   "devDependencies": {
@@ -51,12 +57,15 @@
     "@testing-library/jest-dom": "^6.4.6",
     "@testing-library/react": "^16.0.0",
     "@types/cypress": "^1.1.6",
+    "@types/node": "^24.2.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.7",
     "@types/testing-library__react": "^10.2.0",
     "@typescript-eslint/eslint-plugin": "^8.37.0",
     "@typescript-eslint/parser": "^8.37.0",
     "@vitejs/plugin-react-swc": "^3.10.2",
+    "abi-wan-kanabi": "^2.2.4",
+    "concurrently": "^9.2.0",
     "cypress": "^13.13.1",
     "dotenv": "^17.2.0",
     "eslint": "^9.31.0",
@@ -66,8 +75,14 @@
     "identity-obj-proxy": "^3.0.0",
     "jest-environment-jsdom": "^29.7.0",
     "picomatch": "^4.0.3",
+    "seedrandom": "^3.0.5",
+    "starknet": "^7.6.4",
+    "starknet-devnet": "^0.4.3",
     "ts-jest": "^29.2.2",
-    "typescript": "^5.8.3"
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "wait-on": "^8.0.4"
   },
   "msw": {
     "workerDirectory": [

@@ -3,11 +3,7 @@ import { scaleLinear } from "@visx/scale";
 import { LinePath, Line } from "@visx/shape";
 import { Group } from "@visx/group";
 import { Box, useToken } from "@chakra-ui/react";
-
-type Sale = {
-  timestamp: number; // seconds
-  price: bigint; // wei
-};
+import { Sale } from "@/types/types";
 
 type Props = {
   sales: Sale[]; // already decoded & sorted

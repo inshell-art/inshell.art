@@ -1,124 +1,93 @@
-export type PulseMockOpts = {
-  sales: number | [number, number]; // count or range
-  startTimestamp: number; // seconds
-  duration?: [number, number]; // optional total span
-  interval?: number | [number, number]; // or per‑sale span
+import type { Sale } from "@/types/types"; // { buyer, token_id, price, timestamp }
+
+/* ---------- tiny deterministic RNG so mocks are reproducible ---------- */
+function mulberry32(seed: number) {
+  return () => {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/* ---------- configuration type ---------- */
+export interface PulseSalesConfig {
+  /** total number of sale events to produce */
+  count: number;
+  /** unix‑seconds timestamp of the first sale */
+  startTimestamp: number;
+  /** total duration (seconds) across which sales are spread  */
+  durationSec: number;
+  /** first L2 block number */
   startBlock: number;
+  /** auction economics */
   k: bigint;
   floor0: bigint;
   genesisPrice: bigint;
   pts: bigint;
-  contract: `0x${string}`; // hard‑coded once
-  saleSelector: string; // event selector
-  buyer?: `0x${string}`; // optional fixed buyer
-};
+  /** contract address that emits events */
+  contract: string;
+  /** poseidon hash of "Sale" (key[0]) */
+  saleSelector: string;
+  /** optional pool of buyers; will be cycled if shorter than `count` */
+  buyerPool?: string[];
+  /** optional RNG seed for reproducible mocks */
+  seed?: number;
+}
 
-const rand = (min: number, max: number) =>
-  Math.floor(Math.random() * (max - min + 1) + min);
-
-/** 64‑byte hex string deterministically derived from an index */
-const idxHash = (i: number) =>
-  `0x${(i + 1).toString(16).padStart(64, "0")}` as const;
-
-/** Default pseudo‑random buyer (constant) */
-const DEFAULT_BUYER =
-  "0xBEEF000000000000000000000000000000000000000000000000000000000000" as const;
-
-/** Generate an array of Sale‑wrapper objects identical to starknet_getEvents */
-export function generatePulseSales(opts: PulseMockOpts) {
-  // ---------- resolve counts ----------
-  const n =
-    typeof opts.sales === "number"
-      ? opts.sales
-      : rand(opts.sales[0], opts.sales[1]);
-
-  // ---------- build interval schedule ----------
-  let intervals: number[] = [];
-  if (opts.duration) {
-    const total = rand(opts.duration[0], opts.duration[1]);
-    // naive equal split then random jitter
-    const base = Math.floor(total / (n - 1));
-    intervals = Array.from({ length: n - 1 }, () => base);
-    let leftover = total - base * (n - 1);
-    let i = 0;
-    while (leftover-- > 0) intervals[i++ % intervals.length] += 1;
-  } else {
-    const pick =
-      typeof opts.interval === "number"
-        ? () => opts.interval as number
-        : () =>
-            rand(
-              (opts.interval as [number, number])[0],
-              (opts.interval as [number, number])[1]
-            );
-    intervals = Array.from({ length: n - 1 }, () => pick());
-  }
-
-  // ---------- economic constants ----------
+/* ---------- main generator ---------- */
+export function generatePulseSales(cfg: PulseSalesConfig): Sale[] {
   const {
+    count,
     startTimestamp,
+    durationSec,
     startBlock,
     k,
     floor0,
     genesisPrice,
     pts,
-    contract,
-    saleSelector,
-    buyer = DEFAULT_BUYER,
-  } = opts;
-
-  let events = [];
-
-  // state variables across rounds
-  let t = startTimestamp;
-  let blk = startBlock;
-  let floor = floor0;
-  let tokenId = 0;
-
-  // helper to wrap event with RPC metadata
-  const toU256 = (x: bigint) => {
-    const low = x & ((1n << 128n) - 1n);
-    const high = x >> 128n;
-    return [`0x${low.toString(16)}`, `0x${high.toString(16)}`] as const;
-  };
-
-  const wrap = (price: bigint, ts: number, idx: number) => ({
-    block_number: blk,
-    block_hash: idxHash(idx),
-    transaction_hash: idxHash(idx + 10_000),
-    from_address: contract,
-    keys: [
-      saleSelector,
-      buyer, // hard‑coded buyer
-      `0x${tokenId.toString(16)}`, // token_id key
+    buyerPool = [
+      "0x1111111111111111111111111111111111111111111111111111111111111111",
     ],
-    data: [
-      ...toU256(price), // price.low, price.high
-      `0x${ts.toString(16)}`, // timestamp
-    ],
-  });
+    seed = 42,
+  } = cfg;
 
-  // ---------- genesis sale ----------
-  events.push(wrap(genesisPrice, t, 0));
+  const rand = mulberry32(seed);
 
-  // derive anchor for first curve
-  let a = t - Number(k / (genesisPrice - floor));
+  /* --- helper to compute the dynamically‑falling price floor --- */
+  const floorAt = (dtSec: bigint) => floor0 + pts * dtSec;
 
-  // ---------- regular sales ----------
-  intervals.forEach((Δ, idx) => {
-    t += Δ;
-    blk += 1;
-    tokenId += 1;
+  const sales: Sale[] = [];
+  let timestamp = BigInt(startTimestamp);
+  let block = startBlock;
+  let tokenId = 0n;
 
-    const price = k / (BigInt(t) - BigInt(a)) + floor; // y = k/(t‑a)+b
-    events.push(wrap(price, t, idx + 1));
+  for (let i = 0; i < count; i++) {
+    const buyer = buyerPool[i % buyerPool.length];
 
-    // reset curve
-    const premium = pts * BigInt(Δ);
-    const ask0 = price + premium;
-    floor = price;
-    a = t - Number(k / (ask0 - floor));
-  });
+    /* Spread timestamps randomly but monotonically across duration */
+    const jump = BigInt(Math.round(rand() * (durationSec / count)));
+    timestamp += jump;
 
-  return events;
+    /* price = max(floor(t), k / tokenId) – simplified example */
+    const demandPrice = tokenId === 0n ? genesisPrice : k / tokenId; // Dutch curve
+    const floorPrice = floorAt(timestamp - BigInt(startTimestamp));
+    const price = demandPrice > floorPrice ? demandPrice : floorPrice;
+
+    /* assemble the event object */
+    sales.push({
+      buyer,
+      token_id: tokenId,
+      price,
+      timestamp,
+    });
+
+    /* advance state */
+    tokenId++;
+    block++;
+  }
+
+  /* Sort by timestamp just in case RNG produced ties */
+  return sales.sort((a, b) => Number(a.timestamp - b.timestamp));
 }

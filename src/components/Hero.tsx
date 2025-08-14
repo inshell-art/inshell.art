@@ -11,7 +11,7 @@ import { PulseCurve } from "./PulseCurve";
 import Movements from "./Movements";
 import { AuctionBanner } from "./AuctionBanner";
 import {
-  useInitParams,
+  useAuctionConfig,
   useCurrentPrice,
   useAuctionStatus,
   usePulseSales,
@@ -22,7 +22,7 @@ export default function Hero() {
   const { data: sales = [], isLoading, isError, error } = usePulseSales(100); // fetch sales data
   const auctionStatus = useAuctionStatus(); // fetch auction status
   const { data: currentPrice } = useCurrentPrice(); // fetch current price
-  const { data: initParams } = useInitParams(); // fetch initial parameters
+  const { data: auctionConfig } = useAuctionConfig(); // fetch initial parameters
 
   if (isLoading) return <Spinner size="xl" />; // loading state
   if (isError) return <Alert.Root status="error">{error.message}</Alert.Root>; // error state
@@ -30,7 +30,7 @@ export default function Hero() {
   console.log("Hero component rendered", {
     auctionStatus,
     currentPrice,
-    initParams,
+    auctionConfig,
     salesCount: sales.length,
   });
 
@@ -43,24 +43,24 @@ export default function Hero() {
     >
       {isDesktop ? (
         <Stack w="full" gap={10} align="center">
-          <AuctionBanner
-            status={auctionStatus}
-            price={currentPrice ?? BigInt(0)}
-            openTime={initParams?.open_time ?? 0}
-          />
           {auctionStatus === "LIVE" &&
-            initParams &&
+            auctionConfig &&
             currentPrice !== undefined && (
-              <AspectRatio ratio={5 / 3} w="full" minW="320px">
-                <PulseCurve
-                  sales={sales}
-                  k={initParams?.k}
-                  pts={initParams?.pts}
+              <>
+                <AuctionBanner
+                  status={auctionStatus}
+                  price={currentPrice}
+                  openTime={auctionConfig?.open_time ?? 0}
                 />
-              </AspectRatio>
+                <AspectRatio ratio={5 / 3} w="full" minW="320px">
+                  <PulseCurve
+                    sales={sales}
+                    k={auctionConfig?.k}
+                    pts={auctionConfig?.pts}
+                  />
+                </AspectRatio>
+              </>
             )}
-
-          {/* --- words appear below curve --- */}
           <Movements />
         </Stack>
       ) : (

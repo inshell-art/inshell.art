@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import * as pulseServices from "@/services/pulseAuction";
-import { Sale } from "@/types/sale";
+import * as pulseServices from "@/services/pulseServices";
 
 /* ---------- constants ---------- */
 const POLL_FAST = 12_000; // 12 s   – live info (price, active, now)
@@ -29,10 +28,10 @@ export const useIsDeployed = () =>
   });
 
 /** immutable constructor params (k, open_time, genesis_price, floor₀) */
-export const useInitParams = () =>
+export const useAuctionConfig = () =>
   useQuery({
-    queryKey: ["initParams"],
-    queryFn: pulseServices.fetchInitParams,
+    queryKey: ["auctionConfig"],
+    queryFn: pulseServices.fetchAuctionConfig,
     enabled: useIsDeployed().data === true,
     staleTime: Infinity,
   });
@@ -59,7 +58,7 @@ export const useCurveActive = () =>
 export const useCurrentPrice = () => {
   const deployed = useIsDeployed().data;
   const now = useNow().data;
-  const openTime = useInitParams().data?.open_time ?? 0;
+  const openTime = useAuctionConfig().data?.open_time ?? 0;
   return useQuery({
     queryKey: ["currentPrice"],
     queryFn: pulseServices.fetchCurrentPrice,
@@ -72,7 +71,7 @@ export const useCurrentPrice = () => {
 
 export const useAuctionStatus = (): AuctionStatus => {
   const isDeployed = useIsDeployed().data;
-  const initParams = useInitParams().data;
+  const initParams = useAuctionConfig().data;
   const now = useNow().data ?? 0;
   const curveActive = useCurveActive().data;
 
@@ -89,14 +88,5 @@ export const usePulseSales = (limit = 100) =>
     queryKey: ["sales", limit],
     queryFn: () => pulseServices.fetchSales(limit),
     enabled: useCurveActive().data === true,
-    select: (events): Sale[] =>
-      events.map((ev) => {
-        const [lowHex, highHex, tsHex] = ev.data;
-        const price = (BigInt(highHex) << 128n) + BigInt(lowHex);
-        return {
-          timestamp: parseInt(tsHex, 16),
-          price,
-        };
-      }),
     refetchInterval: POLL_FAST,
   });

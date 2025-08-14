@@ -1,6 +1,11 @@
 import { http, HttpResponse } from "msw";
-import { mockInitParams, mockGenesisFloor, mockSales, mockNow } from "./data";
-import * as SELECTORS from "@/constants/PulseAuction";
+import {
+  mockAuctionConfig,
+  mockGenesisFloor,
+  mockSales,
+  mockNow,
+} from "./data";
+import * as SELECTORS from "@/constants/Constants";
 
 /** Utility: wrap result into JSON-RPC 2.0 envelope */
 const ok = (id: number, result: unknown) =>
@@ -37,13 +42,8 @@ export const handlers = [
           body.params?.[0]?.entry_point_selector;
 
         switch (selector) {
-          case SELECTORS.GET_CLASS_HASH_AT_POSEIDON: // Double interception for node lacks of syscall selectors
-            console.log("isDeployed", id);
-            return ok(id, ["0xDEADBEEF"]); // or ['0x1']
-
-          case SELECTORS.GET_INIT_PARAMS:
-            console.log("get_init_params", id);
-            return ok(id, mockInitParams);
+          case SELECTORS.GET_AUCTION_CONFIG:
+            return ok(id, mockAuctionConfig);
 
           case SELECTORS.CURVE_ACTIVE:
             console.log("curve_active", id);
