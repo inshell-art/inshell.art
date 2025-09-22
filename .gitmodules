@@ -1,3 +1,0 @@
-[submodule "pulse"]
-	path = contracts/pulse
-	url = https://github.com/inshell-art/pulse.git
