@@ -1,19 +1,34 @@
-import { rpc } from "../infra/provider/rpcProvider";
+import { addresses } from "@/config/env";
+import { makeContractAt } from "./contracts";
+import { rpc } from "@/infra/provider/rpcProvider";
 
-export async function adapter_get_config(adapter: string) {
-  // returns [auction, minter]
-  const { result } = await rpc.callContract({
-    contractAddress: adapter,
-    entrypoint: "get_config",
-    calldata: [],
-  });
-  return { auction: result?.[0], minter: result?.[1] };
+export async function getAdapter() {
+  return await makeContractAt(addresses.PATH_ADAPTER);
 }
 
-import { Contract } from "starknet";
-import AdapterAbi from "../../abi/PathMinterAdapter.json";
+export async function loadAdapterConfig() {
+  const adapter = await getAdapter();
+  const result = await rpc.callContract(
+    {
+      contractAddress: adapter.address,
+      entrypoint: "get_config",
+      calldata: [],
+    },
+    "latest"
+  );
 
-import { addrs } from "../config/env";
+  const [auction, minter] = result;
+  return { auction, minter };
+}
 
-const adapter = new Contract(AdapterAbi, addrs.PATH_ADAPTER, rpc);
-const { auction, minter } = await adapter.get_config(); // decoded fields
+export async function loadAdapterConfig1() {
+  const adapter = await getAdapter();
+
+  const out = await adapter.call("get_config", [], {
+    blockIdentifier: "latest",
+  });
+  const { auction, minter } = out as { auction: string; minter: string };
+  return { auction, minter };
+}
+
+//todo: the code looks useless, remove it?

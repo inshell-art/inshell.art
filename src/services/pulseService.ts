@@ -1,5 +1,5 @@
-import { addrs } from "../config/env";
-import { adapter_get_config } from "../protocol/adapter";
+import { addresses } from "../config/env";
+import { loadAdapterConfig, loadAdapterConfig1 } from "../protocol/adapter";
 import { minter_has_role } from "../protocol/minter";
 import { nft_has_role } from "../protocol/nft";
 import { MINTER_ROLE, SALES_ROLE } from "../domain/roles";
@@ -16,32 +16,32 @@ export type PulseStatus = {
   ok: boolean;
 };
 
+const { auction, minter } = await loadAdapterConfig1();
+
 const eq = (a?: string, b?: string) =>
   (a ?? "").toLowerCase() === (b ?? "").toLowerCase();
 
 export async function readPulseStatus(): Promise<PulseStatus> {
-  const cfg = await adapter_get_config(addrs.PATH_ADAPTER); // { auction, minter }
-
   const nftMinterRole = await nft_has_role(
-    addrs.PATH_NFT,
+    addresses.PATH_NFT,
     MINTER_ROLE,
-    addrs.PATH_MINTER
+    addresses.PATH_MINTER
   );
   const minterSalesRole = await minter_has_role(
-    addrs.PATH_MINTER,
+    addresses.PATH_MINTER,
     SALES_ROLE,
-    addrs.PATH_ADAPTER
+    addresses.PATH_ADAPTER
   );
 
-  const adapterAuctionOk = eq(cfg.auction, addrs.PULSE_AUCTION);
-  const adapterMinterOk = eq(cfg.minter, addrs.PATH_MINTER);
+  const adapterAuctionOk = eq(auction, addresses.PULSE_AUCTION);
+  const adapterMinterOk = eq(minter, addresses.PATH_MINTER);
 
   return {
     nftMinterRole,
     minterSalesRole,
     adapterAuctionOk,
     adapterMinterOk,
-    details: { adapterAuction: cfg.auction, adapterMinter: cfg.minter },
+    details: { adapterAuction: auction, adapterMinter: minter },
     ok: nftMinterRole && minterSalesRole && adapterAuctionOk && adapterMinterOk,
   };
 }

@@ -9,6 +9,8 @@ lerna-debug.log*
 .vscode/
 src/generated
 tmp/
+src/abi/devnet
+
 
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
