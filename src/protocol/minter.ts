@@ -5,10 +5,13 @@ export async function minter_has_role(
   roleId: string,
   who: string
 ) {
-  const { result } = await rpc.callContract({
-    contractAddress: minter,
-    entrypoint: "has_role",
-    calldata: [roleId, who],
-  });
+  const result = await rpc.callContract(
+    {
+      contractAddress: minter,
+      entrypoint: "has_role",
+      calldata: [roleId, who],
+    },
+    "latest"
+  );
   return result?.[0] !== "0x0";
 }

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { readPulseStatus, PulseStatus } from "../services/pulseService";
+import { readStatus, Status } from "../services/statusService";
 
 export function usePulseStatus(pollMs = 3000) {
-  const [data, setData] = useState<PulseStatus | null>(null);
+  const [data, setData] = useState<Status | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -10,7 +10,7 @@ export function usePulseStatus(pollMs = 3000) {
 
     async function tick() {
       try {
-        const res = await readPulseStatus();
+        const res = await readStatus();
         if (!stop) {
           setData(res);
           setError(null);

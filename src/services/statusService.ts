@@ -1,10 +1,11 @@
 import { addresses } from "../config/env";
-import { loadAdapterConfig, loadAdapterConfig1 } from "../protocol/adapter";
+import { loadAdapterConfig } from "../protocol/adapter";
 import { minter_has_role } from "../protocol/minter";
 import { nft_has_role } from "../protocol/nft";
 import { MINTER_ROLE, SALES_ROLE } from "../domain/roles";
+import { validateAndParseAddress } from "starknet";
 
-export type PulseStatus = {
+export type Status = {
   nftMinterRole: boolean;
   minterSalesRole: boolean;
   adapterAuctionOk: boolean;
@@ -16,12 +17,18 @@ export type PulseStatus = {
   ok: boolean;
 };
 
-const { auction, minter } = await loadAdapterConfig1();
+const { auction, minter } = await loadAdapterConfig();
+console.log(auction, addresses.PULSE_AUCTION);
 
-const eq = (a?: string, b?: string) =>
-  (a ?? "").toLowerCase() === (b ?? "").toLowerCase();
+const sameAddress = (a: string, b: string) => {
+  try {
+    return validateAndParseAddress(a) === validateAndParseAddress(b);
+  } catch {
+    return false;
+  }
+};
 
-export async function readPulseStatus(): Promise<PulseStatus> {
+export async function readStatus(): Promise<Status> {
   const nftMinterRole = await nft_has_role(
     addresses.PATH_NFT,
     MINTER_ROLE,
@@ -33,8 +40,8 @@ export async function readPulseStatus(): Promise<PulseStatus> {
     addresses.PATH_ADAPTER
   );
 
-  const adapterAuctionOk = eq(auction, addresses.PULSE_AUCTION);
-  const adapterMinterOk = eq(minter, addresses.PATH_MINTER);
+  const adapterAuctionOk = sameAddress(auction, addresses.PULSE_AUCTION);
+  const adapterMinterOk = sameAddress(minter, addresses.PATH_MINTER);
 
   return {
     nftMinterRole,
