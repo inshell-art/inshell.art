@@ -54,8 +54,8 @@ if (!ADDR_FILE && !ADDR_URL) {
     const outPath = resolve(`.env.${net}.local`);
     const lines: string[] = [];
 
-    // RPC (private)
-    lines.push(`VITE_${net.toUpperCase()}_RPC=${RPC}`);
+    // RPC (private), always as STARKNET_RPC consumed uniformly
+    lines.push(`VITE_STARKNET_RPC=${RPC}`);
 
     // Addresses (public) — expose as VITE_* for easy use in FE if you prefer
     // Alternatively, you can import addresses JSON directly in FE and skip these.
