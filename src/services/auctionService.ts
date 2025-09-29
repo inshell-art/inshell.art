@@ -1,76 +1,63 @@
-import { Abi, Contract, RpcProvider } from "starknet";
+// src/services/auctionService.ts
+import type { ProviderInterface, Abi } from "starknet";
+import { Contract } from "starknet";
+import { createAuctionContract } from "@/contracts/auction";
 
-// Minimal ABI slice for the views we need (Cairo 1 ABI style)
-const PULSE_AUCTION_ABI = [
-  {
-    type: "function",
-    name: "get_current_price",
-    inputs: [],
-    outputs: [{ name: "price", type: "core::integer::u256" }],
-    state_mutability: "view",
-  },
-  {
-    type: "function",
-    name: "curve_active",
-    inputs: [],
-    outputs: [{ name: "active", type: "core::bool" }],
-    state_mutability: "view",
-  },
-  {
-    type: "function",
-    name: "get_config",
-    inputs: [],
-    outputs: [
-      { name: "open_time", type: "core::integer::u64" },
-      { name: "genesis_price", type: "core::integer::u256" },
-      { name: "genesis_floor", type: "core::integer::u256" },
-      { name: "k", type: "core::integer::u256" },
-      { name: "pts", type: "core::felt252" },
-    ],
-    state_mutability: "view",
-  },
-] as const satisfies Abi;
+// ---- Contract view names (change here if your names differ)
+const VIEW = {
+  GET_CURRENT_PRICE: "get_current_price",
+  GET_CONFIG: "get_config",
+  CURVE_ACTIVE: "curve_active",
+} as const;
 
-// ---------- helpers ----------
-function toBigIntFromHexOrDec(x: string | bigint): bigint {
+// ---- helpers
+type U256 = { low: string | number | bigint; high: string | number | bigint };
+
+function toBig(x: string | number | bigint): bigint {
   if (typeof x === "bigint") return x;
-  const s = x.toString().trim();
+  const s = String(x);
   return s.startsWith("0x") || s.startsWith("0X") ? BigInt(s) : BigInt(s);
 }
-export function u256ToBigInt(u256: {
-  low: string | bigint;
-  high: string | bigint;
-}): bigint {
-  const low = toBigIntFromHexOrDec(u256.low);
-  const high = toBigIntFromHexOrDec(u256.high);
+function readU256(v: any): U256 {
+  // support {low,high} or [low,high]
+  if (v && typeof v === "object" && "low" in v && "high" in v) {
+    return { low: v.low, high: v.high };
+  }
+  if (Array.isArray(v) && v.length >= 2) {
+    return { low: v[0], high: v[1] };
+  }
+  throw new Error("Unexpected u256 shape");
+}
+function u256ToBigint(u: U256): bigint {
+  const low = toBig(u.low);
+  const high = toBig(u.high);
   return (high << 128n) + low;
 }
-export function bigintToDecimalString(n: bigint): string {
-  return n.toString(10);
-}
 
-// ---------- types ----------
-export type AuctionConfig = {
-  openTimeSec: number; // u64 as JS number (safe for near-future timestamps)
-  genesisPrice: {
-    raw: { low: string; high: string };
-    asBigInt: bigint;
-    asDec: string;
-  };
-  genesisFloor: {
-    raw: { low: string; high: string };
-    asBigInt: bigint;
-    asDec: string;
-  };
-  k: { raw: { low: string; high: string }; asBigInt: bigint; asDec: string };
-  pts: string; // felt252 -> string
-};
-
-export type CurrentPrice = {
+export type BigNum = {
   raw: { low: string; high: string };
   asBigInt: bigint;
   asDec: string;
 };
+
+function normalizeU256(u: U256): BigNum {
+  const big = u256ToBigint(u);
+  return {
+    raw: { low: String(u.low), high: String(u.high) },
+    asBigInt: big,
+    asDec: big.toString(10),
+  };
+}
+
+export type AuctionConfig = {
+  openTimeSec: number;
+  genesisPrice: BigNum;
+  genesisFloor: BigNum;
+  k: BigNum;
+  pts: string; // felt252 serialized
+};
+
+export type CurrentPrice = BigNum;
 
 export type AuctionSnapshot = {
   address: string;
@@ -79,105 +66,71 @@ export type AuctionSnapshot = {
   config: AuctionConfig;
 };
 
-// ---------- service factory ----------
-export type AuctionServiceDeps = {
-  provider?: RpcProvider;
-  rpcUrl?: string; // used if provider not supplied
-  auctionAddress?: string; // defaults to env
+export type CreateAuctionServiceDeps = {
+  provider?: ProviderInterface;
+  address?: string;
+  contract?: Contract; // if you already built one elsewhere
 };
 
-export class AuctionService {
-  private provider: RpcProvider;
-  private contract: Contract;
-  public readonly address: string;
+export type AuctionService = ReturnType<typeof createAuctionService>;
 
-  constructor(deps: AuctionServiceDeps = {}) {
-    // Prefer injected provider (from your existing pulseService), else build local RpcProvider
-    const rpcUrl = deps.rpcUrl ?? import.meta.env.VITE_STARKNET_RPC;
-    if (!deps.provider && !rpcUrl) {
-      throw new Error("Missing RpcProvider or VITE_STARKNET_RPC");
-    }
-    this.provider = deps.provider ?? new RpcProvider({ nodeUrl: rpcUrl! });
+/**
+ * Factory: lets you inject provider/address/contract (devnet, testnet, tests).
+ * Also export a default singleton below for convenience.
+ */
+export function createAuctionService(deps: CreateAuctionServiceDeps = {}) {
+  const contract =
+    deps.contract ?? createAuctionContract(deps.provider, deps.address);
 
-    const addr = deps.auctionAddress ?? import.meta.env.VITE_PULSE_AUCTION;
-    if (!addr) {
-      throw new Error("Missing auction address (VITE_PULSE_AUCTION)");
-    }
-    this.address = addr;
-
-    this.contract = new Contract(
-      PULSE_AUCTION_ABI as unknown as Abi,
-      this.address,
-      this.provider
-    );
-  }
-
-  async getCurrentPrice(): Promise<CurrentPrice> {
+  async function getCurrentPrice(): Promise<CurrentPrice> {
     // get_current_price() -> u256
-    const res = await this.contract.get_current_price();
-    // starknet.js returns structs with .low/.high (hex strings or decimals)
-    const low = String(res.price.low);
-    const high = String(res.price.high);
-    const asBig = u256ToBigInt({ low, high });
+    const out = await (contract as any)[VIEW.GET_CURRENT_PRICE]();
+    const raw = readU256(out.price ?? out[0] ?? out); // handle different shapes
+    return normalizeU256(raw);
+  }
+
+  async function getCurveActive(): Promise<boolean> {
+    const out = await (contract as any)[VIEW.CURVE_ACTIVE]();
+    // starknet.js usually returns { active: true/false }; also support tuple/bool
+    return Boolean(out.active ?? out[0] ?? out);
+  }
+
+  async function getConfig(): Promise<AuctionConfig> {
+    const r = await (contract as any)[VIEW.GET_CONFIG]();
+
+    // Accept either named fields or tuple positions
+    const open = Number(r.open_time ?? r.openTime ?? r[0]);
+    const gp = readU256(r.genesis_price ?? r[1]);
+    const gf = readU256(r.genesis_floor ?? r[2]);
+    const k = readU256(r.k ?? r[3]);
+    const pts = String(r.pts ?? r[4]);
+
     return {
-      raw: { low, high },
-      asBigInt: asBig,
-      asDec: bigintToDecimalString(asBig),
+      openTimeSec: open,
+      genesisPrice: normalizeU256(gp),
+      genesisFloor: normalizeU256(gf),
+      k: normalizeU256(k),
+      pts,
     };
   }
 
-  async getCurveActive(): Promise<boolean> {
-    const r = await this.contract.curve_active();
-    // r.active is boolean in starknet.js for Cairo bool
-    return Boolean(r.active);
-  }
-
-  async getConfig(): Promise<AuctionConfig> {
-    const r = await this.contract.get_config();
-    const gpLow = String(r.genesis_price.low);
-    const gpHigh = String(r.genesis_price.high);
-    const gfLow = String(r.genesis_floor.low);
-    const gfHigh = String(r.genesis_floor.high);
-    const kLow = String(r.k.low);
-    const kHigh = String(r.k.high);
-
-    const gpBig = u256ToBigInt({ low: gpLow, high: gpHigh });
-    const gfBig = u256ToBigInt({ low: gfLow, high: gfHigh });
-    const kBig = u256ToBigInt({ low: kLow, high: kHigh });
-
-    return {
-      openTimeSec: Number(r.open_time),
-      genesisPrice: {
-        raw: { low: gpLow, high: gpHigh },
-        asBigInt: gpBig,
-        asDec: gpBig.toString(10),
-      },
-      genesisFloor: {
-        raw: { low: gfLow, high: gfHigh },
-        asBigInt: gfBig,
-        asDec: gfBig.toString(10),
-      },
-      k: {
-        raw: { low: kLow, high: kHigh },
-        asBigInt: kBig,
-        asDec: kBig.toString(10),
-      },
-      pts: String(r.pts),
-    };
-  }
-
-  async snapshot(): Promise<AuctionSnapshot> {
+  async function snapshot(): Promise<AuctionSnapshot> {
     const [active, price, config] = await Promise.all([
-      this.getCurveActive(),
-      this.getCurrentPrice(),
-      this.getConfig(),
+      getCurveActive(),
+      getCurrentPrice(),
+      getConfig(),
     ]);
-    return { address: this.address, active, price, config };
+    return { address: contract.address, active, price, config };
   }
+
+  return {
+    contract,
+    getCurrentPrice,
+    getCurveActive,
+    getConfig,
+    snapshot,
+  };
 }
 
-// Optional: a default singleton that will read Vite envs
-export const auctionService = new AuctionService();
-
-// Tip: If you already expose a provider/addresses in `pulseServices.ts`,
-// you can inject them: `new AuctionService({ provider: pulseProvider, auctionAddress })`.
+// Default singleton (uses whatever your contracts/auction.ts uses by default)
+export const auctionService = createAuctionService();

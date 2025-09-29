@@ -18,7 +18,6 @@ export type Status = {
 };
 
 const { auction, minter } = await loadAdapterConfig();
-console.log(auction, addresses.PULSE_AUCTION);
 
 const sameAddress = (a: string, b: string) => {
   try {
