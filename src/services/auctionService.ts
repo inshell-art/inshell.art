@@ -1,7 +1,6 @@
-// src/services/auctionService.ts
-import type { ProviderInterface, Abi } from "starknet";
+import type { ProviderInterface } from "starknet";
 import { Contract } from "starknet";
-import { createAuctionContract } from "@/contracts/auction";
+import { createAuctionContract } from "@/protocol/auction";
 
 // ---- Contract view names (change here if your names differ)
 const VIEW = {
@@ -60,7 +59,6 @@ export type AuctionConfig = {
 export type CurrentPrice = BigNum;
 
 export type AuctionSnapshot = {
-  address: string;
   active: boolean;
   price: CurrentPrice;
   config: AuctionConfig;
@@ -69,7 +67,7 @@ export type AuctionSnapshot = {
 export type CreateAuctionServiceDeps = {
   provider?: ProviderInterface;
   address?: string;
-  contract?: Contract; // if you already built one elsewhere
+  contract?: Contract; // if already built one elsewhere
 };
 
 export type AuctionService = ReturnType<typeof createAuctionService>;
@@ -80,7 +78,8 @@ export type AuctionService = ReturnType<typeof createAuctionService>;
  */
 export function createAuctionService(deps: CreateAuctionServiceDeps = {}) {
   const contract =
-    deps.contract ?? createAuctionContract(deps.provider, deps.address);
+    deps.contract ??
+    createAuctionContract({ provider: deps.provider, address: deps.address });
 
   async function getCurrentPrice(): Promise<CurrentPrice> {
     // get_current_price() -> u256
@@ -120,7 +119,7 @@ export function createAuctionService(deps: CreateAuctionServiceDeps = {}) {
       getCurrentPrice(),
       getConfig(),
     ]);
-    return { address: contract.address, active, price, config };
+    return { active, price, config };
   }
 
   return {
