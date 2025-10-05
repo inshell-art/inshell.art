@@ -9,6 +9,13 @@ import {
 
 export type AbiSource = "artifact" | "node" | "auto";
 
+export type BlockType = "latest" | "pending" | "pre_confirmed" | "l1_accepted";
+export function getDefaultBlockTag(): BlockType {
+  return (
+    ((import.meta as any).env?.VITE_DEFAULT_BLOCK_TAG as BlockType) ?? "latest"
+  );
+}
+
 /** Default provider: RPC from env, else local devnet. */
 export function getDefaultProvider(): ProviderInterface {
   const rpcUrl = (import.meta as any).env?.VITE_STARKNET_RPC as
@@ -30,13 +37,6 @@ export function typedFromAbi<const ABI extends readonly any[]>(
     (c as any).typedv1?.(abiForTyping) ??
     (c as any)
   );
-}
-
-/** Resolve an address from env or throw early. */
-export function getEnvAddress(key: string, alt?: string): string {
-  const val = ((import.meta as any).env?.[key] as string | undefined) ?? alt;
-  if (!val) throw new Error(`Missing address in env: ${key}`);
-  return val;
 }
 
 function findFn(abi: readonly any[], name: string) {
