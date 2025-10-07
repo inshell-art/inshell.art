@@ -117,6 +117,7 @@ export function createAuctionService(
   } = {}
 ) {
   const blockIdentifier = deps.blockTag ?? getDefaultBlockTag();
+  console.log("AuctionService using blockIdentifier", blockIdentifier);
 
   // keep contract as a Promise (createAuctionContract is async)
   const contractP = createAuctionContract({

@@ -21,7 +21,10 @@ export function getDefaultProvider(): ProviderInterface {
   const rpcUrl = (import.meta as any).env?.VITE_STARKNET_RPC as
     | string
     | undefined;
-  return new RpcProvider({ nodeUrl: rpcUrl ?? "http://127.0.0.1:5050/rpc" });
+  const p = new RpcProvider({ nodeUrl: rpcUrl ?? "http://127.0.0.1:5050/rpc" });
+  (p as any).blockIdentifier = getDefaultBlockTag();
+  console.log("using default id tag", (p as any).blockIdentifier);
+  return p;
 }
 
 /** Build a typed contract: runtime ABI for encode/decode, static ABI for TS types. */
