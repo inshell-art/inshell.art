@@ -5,27 +5,38 @@ import {
   type Abi,
   hash,
   type TypedContractV2,
+  type BlockIdentifier,
 } from "starknet";
+import {
+  DEFAULT_SAFE_TAG,
+  normalizeBlockId,
+  type SafeBlockId,
+  type StarkBlockId,
+} from "@/protocol/blockId";
 
 export type AbiSource = "artifact" | "node" | "auto";
+export const DEFAULT_ABI_SOURCE: AbiSource =
+  ((import.meta as any).env?.VITE_DEFAULT_ABI_SOURCE as AbiSource) ??
+  "artifact";
 
-export type BlockType = "latest" | "pending" | "pre_confirmed" | "l1_accepted";
-export function getDefaultBlockTag(): BlockType {
-  return (
-    ((import.meta as any).env?.VITE_DEFAULT_BLOCK_TAG as BlockType) ?? "latest"
-  );
-}
+// -------------------- Provider & defaults --------------------
 
 /** Default provider: RPC from env, else local devnet. */
 export function getDefaultProvider(): ProviderInterface {
-  const rpcUrl = (import.meta as any).env?.VITE_STARKNET_RPC as
-    | string
-    | undefined;
-  const p = new RpcProvider({ nodeUrl: rpcUrl ?? "http://127.0.0.1:5050/rpc" });
-  (p as any).blockIdentifier = getDefaultBlockTag();
-  console.log("using default id tag", (p as any).blockIdentifier);
-  return p;
+  const rpcUrl =
+    ((import.meta as any).env?.VITE_STARKNET_RPC as string | undefined) ??
+    "http://127.0.0.1:5050/rpc";
+  return new RpcProvider({ nodeUrl: rpcUrl });
 }
+
+/** Build read call options with a safe block id. */
+export function readOpts(id?: StarkBlockId): {
+  blockIdentifier: BlockIdentifier;
+} {
+  return { blockIdentifier: normalizeBlockId(id) as BlockIdentifier };
+}
+
+// -------------------- Typed contract construction --------------------
 
 /** Build a typed contract: runtime ABI for encode/decode, static ABI for TS types. */
 export function typedFromAbi<const ABI extends readonly any[]>(
@@ -52,7 +63,7 @@ export function assertCompatibleAbi(
   runtimeAbi: readonly any[] | undefined,
   requiredFns?: readonly string[]
 ) {
-  if (!requiredFns || !requiredFns.length || !runtimeAbi) return;
+  if (!requiredFns?.length || !runtimeAbi) return;
   for (const n of requiredFns) {
     const s = findFn(staticAbi, n);
     const r = findFn(runtimeAbi, n);
@@ -73,24 +84,26 @@ export async function makeTypedContract<
   const ABI extends readonly any[]
 >(params: {
   address: string;
-  abiStatic: ABI; // `as const` literal ABI (artifact/codegen)
-  provider?: ProviderInterface; // default: getDefaultProvider()
-  abiSource?: AbiSource; // 'artifact' | 'node' | 'auto' (default from env)
-  requiredFns?: readonly string[]; // optional compatibility check
+  abiStatic: ABI;
+  provider?: ProviderInterface;
+  abiSource?: "artifact" | "node" | "auto";
+  requiredFns?: readonly string[];
   fetchAbiFromNode?: (
     provider: ProviderInterface,
-    address: string
+    address: string,
+    id?: SafeBlockId
   ) => Promise<Abi | undefined>;
 }): Promise<TypedContractV2<ABI>> {
   const {
     address,
     abiStatic,
     provider = getDefaultProvider(),
-    abiSource = ((import.meta as any).env?.VITE_ABI_SOURCE as AbiSource) ??
-      "artifact",
+    abiSource,
     requiredFns,
     fetchAbiFromNode,
   } = params;
+
+  const safeId = DEFAULT_SAFE_TAG;
 
   if (abiSource === "artifact") {
     return typedFromAbi(
@@ -105,9 +118,14 @@ export async function makeTypedContract<
     let runtimeAbi: Abi | undefined;
     try {
       runtimeAbi = fetchAbiFromNode
-        ? await fetchAbiFromNode(provider, address)
+        ? await fetchAbiFromNode(provider, address, safeId)
         : await (async () => {
-            const klass = await (provider as any).getClassAt(address);
+            // Narrow to RpcProvider to keep typings for getClassAt.
+            const rpc = provider as RpcProvider;
+            const klass = await rpc.getClassAt(
+              address,
+              safeId as BlockIdentifier
+            );
             return (klass as any)?.abi as Abi | undefined;
           })();
     } catch {

@@ -31,7 +31,7 @@ export function useAuction(opts?: {
         setError(null);
         setLoading(true);
         serviceRef.current = await createAuctionService({
-          blockTag: "latest",
+          blockId: "latest",
           provider: opts?.provider,
           address: opts?.address,
         });

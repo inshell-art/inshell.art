@@ -1,9 +1,9 @@
-import type { BlockTag, ProviderInterface } from "starknet";
+import type { ProviderInterface } from "starknet";
 import { Contract } from "starknet";
 import { createAuctionContract } from "@/protocol/auction";
-import { getDefaultBlockTag } from "@/protocol/contracts";
+import { DEFAULT_SAFE_TAG, StarkBlockId } from "@/protocol/blockId";
 
-// ---- Contract view names (change here if your names differ)
+// ---- Contract view names
 const VIEW = {
   GET_CURRENT_PRICE: "get_current_price",
   GET_CONFIG: "get_config",
@@ -111,12 +111,13 @@ export type AuctionService = ReturnType<typeof createAuctionService>;
  */
 export function createAuctionService(
   deps: {
-    blockTag?: BlockTag;
+    blockId?: StarkBlockId;
     provider?: ProviderInterface;
     address?: string;
   } = {}
 ) {
-  const blockIdentifier = deps.blockTag ?? getDefaultBlockTag();
+  // guard block id to safe value
+  const blockIdentifier = deps.blockId ?? DEFAULT_SAFE_TAG;
   console.log("AuctionService using blockIdentifier", blockIdentifier);
 
   // keep contract as a Promise (createAuctionContract is async)
@@ -125,24 +126,9 @@ export function createAuctionService(
     address: deps.address,
   });
 
-  // helper: call a 0-arg view with a blockIdentifier
   async function call0(name: string) {
     const c: any = await contractP;
-
-    // 1) Prefer low-level Contract.call: (entrypoint, args, { blockIdentifier })
-    try {
-      return await c.call(name, [], { blockIdentifier });
-    } catch (e1) {
-      // 2) Try typed wrappers: options as first or second arg (different starknet.js versions)
-      try {
-        return await c[name]({ blockIdentifier });
-      } catch (e2) {}
-      try {
-        return await c[name]({}, { blockIdentifier });
-      } catch (e3) {}
-      // 3) Last resort (will use provider default)
-      return await c[name]();
-    }
+    return c.call(name, [], { blockIdentifier });
   }
 
   async function getCurrentPrice(): Promise<CurrentPrice> {
@@ -190,5 +176,5 @@ export function createAuctionService(
   };
 }
 
-// Default singleton (uses whatever your contracts/auction.ts uses by default)
+// Default singleton
 export const auctionService = createAuctionService();
