@@ -1,39 +1,42 @@
 import { useEffect, useRef, useState } from "react";
 import type { ProviderInterface } from "starknet";
-import {
-  createAuctionService,
-  type AuctionSnapshot,
-} from "@/services/auctionService";
+import { createAuctionService } from "@/services/auctionService";
+import { AbiSource } from "@/types/types";
+import type { AuctionSnapshot } from "@/types/types";
 
 export function useAuction(opts?: {
-  provider?: ProviderInterface;
   address?: string;
-  abiSource?: "artifact" | "node" | "auto";
-  refreshMs?: number;
-  enabled?: boolean;
+  provider?: ProviderInterface;
+  abiSource?: AbiSource;
+  refreshMs?: number; // default 4000ms
+  enabled?: boolean; // default true
+  blockId?: any; // optional; if you expose block pinning
 }) {
   const refreshMs = opts?.refreshMs ?? 4000;
   const enabled = opts?.enabled ?? true;
 
   const [ready, setReady] = useState(false);
-  const [data, setData] = useState<AuctionSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
-  const serviceRef = useRef<Awaited<
-    ReturnType<typeof createAuctionService>
-  > | null>(null);
+  const [data, setData] = useState<AuctionSnapshot | null>(null);
+
+  const serviceRef = useRef<ReturnType<typeof createAuctionService> | null>(
+    null
+  );
   const timerRef = useRef<number | null>(null);
 
+  // Build the domain service once per config change
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         setError(null);
         setLoading(true);
-        serviceRef.current = await createAuctionService({
-          blockId: "latest",
-          provider: opts?.provider,
+        serviceRef.current = createAuctionService({
           address: opts?.address,
+          provider: opts?.provider,
+          blockId: opts?.blockId,
+          abiSource: opts?.abiSource as AbiSource,
         });
         if (!cancelled) setReady(true);
       } catch (e) {
@@ -46,8 +49,9 @@ export function useAuction(opts?: {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opts?.provider, opts?.address, opts?.abiSource]);
+  }, [opts?.address, opts?.provider, opts?.blockId]);
 
+  // One-off fetch
   const fetchOnce = async () => {
     if (!serviceRef.current) return;
     try {
@@ -61,6 +65,7 @@ export function useAuction(opts?: {
     }
   };
 
+  // Poll
   useEffect(() => {
     if (!enabled || !ready) return;
     fetchOnce();
@@ -74,5 +79,5 @@ export function useAuction(opts?: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, ready, refreshMs]);
 
-  return { data, loading, error, refresh: fetchOnce, ready };
+  return { data, loading, error, ready, refresh: fetchOnce };
 }

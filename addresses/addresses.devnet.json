@@ -1,6 +1,6 @@
 {
-  "path_minter": "0x01af26234795898b886151a606e862011229ab288322545fc5d932c77dbe2efe",
-  "path_minter_adapter": "0x06cbc6766d2da949b5e551b2ca181e756cdabb1047404e4fb0039a330b9aaadd",
-  "path_nft": "0x01a3ee1c6bdeff479a8c5a32f6675b1a7c318bca8f3a15d570d6077f79ac9361",
-  "pulse_auction": "0x027ad49f33afa3f7e6cdc457f9a062cbf0fad6bfed946531693c3c736fa852b8"
+  "path_minter": "0x07dcc6ab417f33a5d6af565402298260850ebb122b7b8fdd670c706d368c673b",
+  "path_minter_adapter": "0x043af99ddc06edaa914069f82633e81bd910fdb6fbbdc5b93f922982d31fea5e",
+  "path_nft": "0x0700103f56bd22f70c620bfa13958f743b2b29d9569cd69bcf538c90d47bef73",
+  "pulse_auction": "0x02028fce79290a0a289b6def6cd24af663919f85d9b42d9c09bf0b2440fc40c3"
 }

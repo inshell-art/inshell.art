@@ -13,8 +13,8 @@ import {
   type SafeBlockId,
   type StarkBlockId,
 } from "@/protocol/blockId";
+import { type AbiSource } from "@/types/types";
 
-export type AbiSource = "artifact" | "node" | "auto";
 export const DEFAULT_ABI_SOURCE: AbiSource =
   ((import.meta as any).env?.VITE_DEFAULT_ABI_SOURCE as AbiSource) ??
   "artifact";
@@ -86,7 +86,7 @@ export async function makeTypedContract<
   address: string;
   abiStatic: ABI;
   provider?: ProviderInterface;
-  abiSource?: "artifact" | "node" | "auto";
+  abiSource?: AbiSource;
   requiredFns?: readonly string[];
   fetchAbiFromNode?: (
     provider: ProviderInterface,
@@ -126,6 +126,8 @@ export async function makeTypedContract<
               address,
               safeId as BlockIdentifier
             );
+            console.log("address", address);
+            console.log("Fetched runtime ABI from node:", klass);
             return (klass as any)?.abi as Abi | undefined;
           })();
     } catch {

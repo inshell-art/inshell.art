@@ -1,7 +1,8 @@
 import type { ProviderInterface } from "starknet";
-import { Contract } from "starknet";
 import { createAuctionContract } from "@/protocol/auction";
 import { DEFAULT_SAFE_TAG, StarkBlockId } from "@/protocol/blockId";
+import { toU256Num, U256Num, readU256 } from "@/num";
+import { AbiSource } from "@/types/types";
 
 // ---- Contract view names
 const VIEW = {
@@ -10,86 +11,15 @@ const VIEW = {
   CURVE_ACTIVE: "curve_active",
 } as const;
 
-// ---- helpers
-
-type U256 = { low: string | number | bigint; high: string | number | bigint };
-
-const MASK128 = (1n << 128n) - 1n;
-
-function toBig(x: string | number | bigint): bigint {
-  if (typeof x === "bigint") return x;
-  const s = String(x).trim();
-  return s.startsWith("0x") || s.startsWith("0X") ? BigInt(s) : BigInt(s);
-}
-
-function dumpShape(v: unknown): string {
-  try {
-    return JSON.stringify(
-      v,
-      (_, val) => (typeof val === "bigint" ? `0x${val.toString(16)}` : val),
-      2
-    );
-  } catch {
-    return String(v);
-  }
-}
-
-/** Accept {low,high} | [low,high] | BigNumberish | nested {price|value|0,1} */
-function readU256(v: any): U256 {
-  if (v == null) throw new Error("Unexpected u256: null/undefined");
-
-  // direct BigNumberish
-  if (typeof v === "string" || typeof v === "number" || typeof v === "bigint") {
-    const b = toBig(v);
-    return { low: b & MASK128, high: b >> 128n };
-  }
-
-  // array [low,high]
-  if (Array.isArray(v) && v.length >= 2) return { low: v[0], high: v[1] };
-
-  if (typeof v === "object") {
-    // { low, high }
-    if ("low" in v && "high" in v)
-      return { low: (v as any).low, high: (v as any).high };
-    // tuple-ish object {0:…,1:…}
-    if (0 in (v as any) && 1 in (v as any))
-      return { low: (v as any)[0], high: (v as any)[1] };
-    // nested common fields
-    if ("price" in v) return readU256((v as any).price);
-    if ("value" in v) return readU256((v as any).value);
-  }
-
-  throw new Error(`Unexpected u256 shape:\n${dumpShape(v)}`);
-}
-
-function u256ToBigint(u: U256): bigint {
-  return (toBig(u.high) << 128n) + toBig(u.low);
-}
-
-export type BigNum = {
-  raw: { low: string; high: string };
-  asBigInt: bigint;
-  asDec: string;
-};
-
-function normalizeU256(u: U256): BigNum {
-  const big = u256ToBigint(u);
-  return {
-    raw: { low: String(u.low), high: String(u.high) },
-    asBigInt: big,
-    asDec: big.toString(10),
-  };
-}
-
 export type AuctionConfig = {
   openTimeSec: number;
-  genesisPrice: BigNum;
-  genesisFloor: BigNum;
-  k: BigNum;
+  genesisPrice: U256Num;
+  genesisFloor: U256Num;
+  k: U256Num;
   pts: string; // felt252 serialized
 };
 
-export type CurrentPrice = BigNum;
+export type CurrentPrice = U256Num;
 
 export type AuctionSnapshot = {
   active: boolean;
@@ -97,33 +27,29 @@ export type AuctionSnapshot = {
   config: AuctionConfig;
 };
 
-export type CreateAuctionServiceDeps = {
-  provider?: ProviderInterface;
-  address?: string;
-  contract?: Contract; // if already built one elsewhere
-};
-
 export type AuctionService = ReturnType<typeof createAuctionService>;
 
 /**
- * Factory: lets you inject provider/address/contract (devnet, testnet, tests).
+ * Domain service for interacting with a Pulse auction contract.
+ * Wraps a contract instance and provides higher-level methods.
  * Also export a default singleton below for convenience.
  */
 export function createAuctionService(
-  deps: {
+  params: {
     blockId?: StarkBlockId;
     provider?: ProviderInterface;
     address?: string;
+    abiSource?: AbiSource;
   } = {}
 ) {
   // guard block id to safe value
-  const blockIdentifier = deps.blockId ?? DEFAULT_SAFE_TAG;
-  console.log("AuctionService using blockIdentifier", blockIdentifier);
+  const blockIdentifier = params.blockId ?? DEFAULT_SAFE_TAG;
 
   // keep contract as a Promise (createAuctionContract is async)
   const contractP = createAuctionContract({
-    provider: deps.provider,
-    address: deps.address,
+    provider: params.provider,
+    address: params.address,
+    abiSource: params.abiSource as AbiSource,
   });
 
   async function call0(name: string) {
@@ -134,7 +60,7 @@ export function createAuctionService(
   async function getCurrentPrice(): Promise<CurrentPrice> {
     const out = await call0(VIEW.GET_CURRENT_PRICE);
     const raw = readU256(out.price ?? out[0] ?? out);
-    return normalizeU256(raw);
+    return toU256Num(raw);
   }
 
   async function getCurveActive(): Promise<boolean> {
@@ -151,9 +77,9 @@ export function createAuctionService(
     const pts = String(r.pts ?? r[4]);
     return {
       openTimeSec: open,
-      genesisPrice: normalizeU256(gp),
-      genesisFloor: normalizeU256(gf),
-      k: normalizeU256(k),
+      genesisPrice: toU256Num(gp),
+      genesisFloor: toU256Num(gf),
+      k: toU256Num(k),
       pts,
     };
   }

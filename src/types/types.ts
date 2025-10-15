@@ -1,14 +1,24 @@
+import { U256Num } from "@/num";
+
+export type AuctionConfig = {
+  openTimeSec: number;
+  genesisPrice: U256Num;
+  genesisFloor: U256Num;
+  k: U256Num;
+  pts: string;
+};
+
+export type AuctionSnapshot = {
+  active: boolean;
+  price: U256Num;
+  config: AuctionConfig;
+};
+
+export type AbiSource = "artifact" | "node" | "auto";
+
 export type Sale = {
   buyer: string;
   token_id: bigint;
   price: bigint;
   timestamp: bigint;
-};
-
-export type AuctionConfig = {
-  open_time: bigint;
-  k: bigint;
-  genesis_price: bigint;
-  genesis_floor: bigint;
-  pts: bigint;
 };

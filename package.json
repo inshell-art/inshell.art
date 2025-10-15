@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:devnet": "vite --mode devnet",
     "build": "vite build",
     "build:prod": "vite build --mode prod",
     "test": "jest",
