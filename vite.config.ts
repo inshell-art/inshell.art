@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
     server: {
       host: true,
     },
-    envDir: "./config",
+    envDir: "./",
     define: {
       "import.meta.env.MODE": JSON.stringify(mode),
     },

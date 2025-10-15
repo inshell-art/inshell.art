@@ -2,12 +2,14 @@ import { ErrorBoundary } from "react-error-boundary";
 import AuctionCurve from "./components/AuctionCurve";
 
 // Control ABI source selection via env vars for demo purposes
+// VITE_STRICT_ABI=true  => node only, fail if missing to avoid drift ABI
+// VITE_OFFLINE_MODE=true => artifact only, for testing or CI
+// VITE_DEFAULT_ABI_SOURCE=artifact|node|auto  => explicit choice, overrides above
 import { AbiSource } from "@/types/types";
 
 const pickAbiSource = (env = import.meta.env): AbiSource => {
-  const explicit = (env as any)?.VITE_DEFAULT_ABI_SOURCE as
-    | AbiSource
-    | undefined;
+  const explicit = (env as any)?.VITE_DEFAULT_ABI_SOURCE;
+
   console.log("Explicit ABI source:", explicit);
   if (explicit) return explicit;
 

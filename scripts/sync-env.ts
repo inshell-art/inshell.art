@@ -57,10 +57,10 @@ if (!ADDR_FILE && !ADDR_URL) {
     // RPC (private), always as STARKNET_RPC consumed uniformly
     lines.push(`VITE_STARKNET_RPC=${RPC}`);
 
-    // Addresses (public) — expose as VITE_* for easy use in FE if you prefer
-    // Alternatively, you can import addresses JSON directly in FE and skip these.
+    const toEnvName = (k: string) =>
+      "VITE_" + k.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase();
     for (const [k, v] of Object.entries(addrs)) {
-      lines.push(`VITE_${k}=${v}`);
+      lines.push(`${toEnvName(k)}=${v}`);
     }
     lines.push(""); // trailing newline
 
