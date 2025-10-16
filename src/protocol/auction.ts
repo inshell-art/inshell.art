@@ -18,7 +18,6 @@ export async function createAuctionContract(opts?: {
   abiSource?: AbiSource;
 }) {
   const address = opts?.address ?? resolveAddress("pulse_auction");
-  console.log("Using Pulse Auction address:", address);
   return makeTypedContract({
     address,
     abiStatic: PulseAuctionAbi,

@@ -53,23 +53,47 @@ export function typedFromAbi<const ABI extends readonly any[]>(
   );
 }
 
-function findFn(abi: readonly any[], name: string) {
-  return abi.find((e) => e?.type === "function" && e?.name === name);
+/** Optional safety: assert required entrypoints exist and match selectors. */
+// --- helpers ---
+function collectFns(abi: readonly any[] | undefined): Record<string, true> {
+  const out: Record<string, true> = {};
+  if (!abi) return out;
+
+  for (const e of abi) {
+    // Cairo-0: top-level functions
+    if (e?.type === "function" && typeof e?.name === "string") {
+      out[e.name] = true;
+      continue;
+    }
+    // Cairo-1: functions nested under interface.items
+    if (e?.type === "interface" && Array.isArray(e?.items)) {
+      for (const it of e.items) {
+        if (it?.type === "function" && typeof it?.name === "string") {
+          out[it.name] = true;
+        }
+      }
+    }
+  }
+  return out;
 }
 
-/** Optional safety: assert required entrypoints exist and match selectors. */
 export function assertCompatibleAbi(
   staticAbi: readonly any[],
   runtimeAbi: readonly any[] | undefined,
   requiredFns?: readonly string[]
 ) {
   if (!requiredFns?.length || !runtimeAbi) return;
+
+  const haveStatic = collectFns(staticAbi);
+  const haveRuntime = collectFns(runtimeAbi);
+
   for (const n of requiredFns) {
-    const s = findFn(staticAbi, n);
-    const r = findFn(runtimeAbi, n);
-    if (!s || !r) throw new Error(`ABI mismatch: missing function ${n}`);
-    const selS = hash.getSelectorFromName(s.name);
-    const selR = hash.getSelectorFromName(r.name);
+    if (!haveStatic[n] || !haveRuntime[n]) {
+      throw new Error(`ABI mismatch: missing function ${n}`);
+    }
+    // Optional (still valid for Cairo‑1): check selector equality
+    const selS = hash.getSelectorFromName(n);
+    const selR = hash.getSelectorFromName(n);
     if (selS !== selR)
       throw new Error(`ABI mismatch: selector differs for ${n}`);
   }
@@ -97,12 +121,13 @@ export async function makeTypedContract<
   const {
     address,
     abiStatic,
-    provider = getDefaultProvider(),
+    provider: provided,
     abiSource,
     requiredFns,
     fetchAbiFromNode,
   } = params;
 
+  const provider = provided ?? getDefaultProvider();
   const safeId = DEFAULT_SAFE_TAG;
 
   if (abiSource === "artifact") {
@@ -120,14 +145,11 @@ export async function makeTypedContract<
       runtimeAbi = fetchAbiFromNode
         ? await fetchAbiFromNode(provider, address, safeId)
         : await (async () => {
-            // Narrow to RpcProvider to keep typings for getClassAt.
             const rpc = provider as RpcProvider;
             const klass = await rpc.getClassAt(
               address,
               safeId as BlockIdentifier
             );
-            console.log("address", address);
-            console.log("Fetched runtime ABI from node:", klass);
             return (klass as any)?.abi as Abi | undefined;
           })();
     } catch {
@@ -137,7 +159,7 @@ export async function makeTypedContract<
     if (!runtimeAbi) {
       if (abiSource === "node")
         throw new Error("Failed to fetch ABI from node");
-      // auto → fallback to artifact
+      // auto → fetch failed → fall back to artifact
       return typedFromAbi(
         abiStatic as unknown as Abi,
         abiStatic,
@@ -146,7 +168,22 @@ export async function makeTypedContract<
       );
     }
 
-    assertCompatibleAbi(abiStatic, runtimeAbi as any, requiredFns);
+    try {
+      // Now works for Cairo‑1 thanks to collectFns()
+      assertCompatibleAbi(abiStatic, runtimeAbi as any, requiredFns);
+    } catch (e) {
+      if (abiSource === "auto") {
+        console.warn(`[abi:auto] ${String(e)} — falling back to artifact.`);
+        return typedFromAbi(
+          abiStatic as unknown as Abi,
+          abiStatic,
+          address,
+          provider
+        );
+      }
+      throw e; // node → strict
+    }
+
     return typedFromAbi(runtimeAbi, abiStatic, address, provider);
   }
 

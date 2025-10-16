@@ -40,8 +40,6 @@ export function resolveAddress(id: string, explicit?: string): string {
 
   // 2) Vite env override if present
   const viaEnv = (import.meta as any).env?.[envKey] as string | undefined;
-  console.log("import.meta.env:", (import.meta as any).env);
-  console.log(`Looking for address ${id} as env ${envKey} =>`, viaEnv);
   if (viaEnv && viaEnv !== "") return viaEnv;
 
   // 3) JSON address book by network

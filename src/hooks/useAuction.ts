@@ -23,7 +23,6 @@ export function useAuction(opts?: {
   const serviceRef = useRef<ReturnType<typeof createAuctionService> | null>(
     null
   );
-  const timerRef = useRef<number | null>(null);
 
   // Build the domain service once per config change
   useEffect(() => {
@@ -48,8 +47,7 @@ export function useAuction(opts?: {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opts?.address, opts?.provider, opts?.blockId]);
+  }, [opts?.address, opts?.provider, opts?.blockId, opts?.abiSource]);
 
   // One-off fetch
   const fetchOnce = async () => {
@@ -69,14 +67,13 @@ export function useAuction(opts?: {
   useEffect(() => {
     if (!enabled || !ready) return;
     fetchOnce();
+
     if (refreshMs > 0) {
-      // @ts-ignore DOM typings
-      timerRef.current = window.setInterval(fetchOnce, refreshMs);
+      const id = window.setInterval(fetchOnce, refreshMs);
       return () => {
-        if (timerRef.current) window.clearInterval(timerRef.current);
+        window.clearInterval(id);
       };
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, ready, refreshMs]);
 
   return { data, loading, error, ready, refresh: fetchOnce };
