@@ -1,5 +1,7 @@
 import { ErrorBoundary } from "react-error-boundary";
 import AuctionCurve from "./components/AuctionCurve";
+import AuctionData from "@/components/AuctionData";
+import { resolveAddress } from "@/protocol/addressBook";
 
 // Control ABI source selection via env vars for demo purposes
 // VITE_STRICT_ABI=true  => node only, fail if missing to avoid drift ABI
@@ -35,7 +37,13 @@ export default function App() {
         </div>
       )}
     >
-      <AuctionCurve abiSource={pickAbiSource()} />
+      <div style={{ display: "grid", gap: 16 }}>
+        <AuctionData
+          address={resolveAddress("pulse_auction")}
+          abiSource={pickAbiSource()}
+        />
+        <AuctionCurve address={resolveAddress("pulse_auction")} />
+      </div>
     </ErrorBoundary>
   );
 }

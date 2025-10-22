@@ -1,8 +1,17 @@
-import type { ProviderInterface } from "starknet";
+/**
+ * Domain service for interacting with a Pulse auction contract.
+ * Core service, time-agnostic, one-shot methods only.
+ * No interval here, the hook or caller is responsible for refresh.
+ * Snapshots state, gets config, current price, curve active.
+ * Also export a default singleton below for convenience.
+ */
+
+import type { ProviderInterface, TypedContractV2 } from "starknet";
 import { createAuctionContract } from "@/protocol/auction";
 import { DEFAULT_SAFE_TAG, StarkBlockId } from "@/protocol/blockId";
 import { toU256Num, U256Num, readU256 } from "@/num";
 import { AbiSource } from "@/types/types";
+import PulseAuctionAbi from "@/abi/typed/PulseAuction.abi";
 
 // ---- Contract view names
 const VIEW = {
@@ -11,6 +20,7 @@ const VIEW = {
   CURVE_ACTIVE: "curve_active",
 } as const;
 
+// ---- Types ----
 export type AuctionConfig = {
   openTimeSec: number;
   genesisPrice: U256Num;
@@ -27,14 +37,9 @@ export type AuctionSnapshot = {
   config: AuctionConfig;
 };
 
-export type AuctionService = ReturnType<typeof createAuctionService>;
+export type CoreService = ReturnType<typeof createCoreService>;
 
-/**
- * Domain service for interacting with a Pulse auction contract.
- * Wraps a contract instance and provides higher-level methods.
- * Also export a default singleton below for convenience.
- */
-export function createAuctionService(
+export function createCoreService(
   params: {
     blockId?: StarkBlockId;
     provider?: ProviderInterface;
@@ -42,18 +47,34 @@ export function createAuctionService(
     abiSource?: AbiSource;
   } = {}
 ) {
+  let cfg = {
+    blockId: params.blockId ?? DEFAULT_SAFE_TAG,
+    provider: params.provider,
+    address: params.address,
+    abiSource: (params.abiSource as AbiSource) ?? "auto",
+  };
+
   // guard block id to safe value
   const blockIdentifier = params.blockId ?? DEFAULT_SAFE_TAG;
 
-  // keep contract as a Promise (createAuctionContract is async)
-  const contractP = createAuctionContract({
-    provider: params.provider,
-    address: params.address,
-    abiSource: params.abiSource as AbiSource,
-  });
+  // lazy contract instance
+  let contractP: Promise<TypedContractV2<typeof PulseAuctionAbi>> | null = null;
+  function getContract(): Promise<TypedContractV2<typeof PulseAuctionAbi>> {
+    if (!contractP) {
+      contractP = createAuctionContract({
+        address: cfg.address,
+        provider: cfg.provider,
+        abiSource: cfg.abiSource,
+      }).catch((err) => {
+        contractP = null;
+        throw err;
+      });
+    }
+    return contractP;
+  }
 
   async function call0(name: string) {
-    const c: any = await contractP;
+    const c: any = await getContract();
     return c.call(name, [], { blockIdentifier });
   }
 
@@ -93,14 +114,28 @@ export function createAuctionService(
     return { active, price, config };
   }
 
+  function reset(next?: Partial<typeof cfg>) {
+    if (next) cfg = { ...cfg, ...next }; // update effective config
+    contractP = null; // reset contract without next
+  }
+
+  function configure(next: Partial<typeof cfg>) {
+    reset(next);
+  }
+
   return {
-    contractPromise: contractP,
+    // pure I/O
     getCurrentPrice,
     getCurveActive,
     getConfig,
     snapshot,
+    // lifecycle helpers
+    reset,
+    configure,
+    // expose promise if needed
+    contractPromise: () => getContract(),
   };
 }
 
 // Default singleton
-export const auctionService = createAuctionService();
+export const auctionService = createCoreService();

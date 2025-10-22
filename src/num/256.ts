@@ -1,3 +1,12 @@
+export type U256Input =
+  | U256Num
+  | { low: unknown; high: unknown }
+  | [unknown, unknown]
+  | string
+  | number
+  | bigint
+  | { raw?: { low: unknown; high: unknown }; value?: unknown; dec?: unknown };
+
 export type BigNumberish = string | number | bigint;
 
 // Pure ABI representation (keep limbs as strings to avoid precision traps if serialized)
@@ -78,9 +87,30 @@ export function toU256Num(u: {
   };
 }
 
-/** Optional pretty printer (decimal with group separators) */
-export function formatU256Dec(u: U256Num, locale = "en-US"): string {
-  return Number.isSafeInteger(Number(u.dec))
-    ? Number(u.dec).toLocaleString(locale)
-    : u.dec; // keep as plain string for huge values
+/** Best-effort coercion into U256Num using num/256 primitives. */
+export function asU256Num(x: U256Input): U256Num {
+  // Already a U256Num
+  if (x && typeof x === "object" && "value" in x && "raw" in x) {
+    return x as U256Num;
+  }
+  // Has .raw
+  if (x && typeof x === "object" && "raw" in (x as any) && (x as any).raw) {
+    const r = (x as any).raw;
+    return toU256Num({ low: r.low, high: r.high });
+  }
+  // Tuple
+  if (Array.isArray(x) && x.length >= 2) {
+    return toU256Num({ low: (x as any)[0], high: (x as any)[1] });
+  }
+  // Struct {low, high}
+  if (
+    x &&
+    typeof x === "object" &&
+    "low" in (x as any) &&
+    "high" in (x as any)
+  ) {
+    return toU256Num({ low: (x as any).low, high: (x as any).high });
+  }
+  // Scalar or nested unknown → delegate to readU256
+  return toU256Num(readU256(x as any));
 }

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { ProviderInterface } from "starknet";
-import { createAuctionService } from "@/services/auctionService";
+import { createCoreService } from "@/services/auction/coreService";
 import { AbiSource } from "@/types/types";
 import type { AuctionSnapshot } from "@/types/types";
 
-export function useAuction(opts?: {
+export function useAuctionCore(opts?: {
   address?: string;
   provider?: ProviderInterface;
   abiSource?: AbiSource;
@@ -20,9 +20,7 @@ export function useAuction(opts?: {
   const [error, setError] = useState<unknown>(null);
   const [data, setData] = useState<AuctionSnapshot | null>(null);
 
-  const serviceRef = useRef<ReturnType<typeof createAuctionService> | null>(
-    null
-  );
+  const serviceRef = useRef<ReturnType<typeof createCoreService> | null>(null);
 
   // Build the domain service once per config change
   useEffect(() => {
@@ -31,7 +29,7 @@ export function useAuction(opts?: {
       try {
         setError(null);
         setLoading(true);
-        serviceRef.current = createAuctionService({
+        serviceRef.current = createCoreService({
           address: opts?.address,
           provider: opts?.provider,
           blockId: opts?.blockId,
