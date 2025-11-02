@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toFixed, formatU256Dec, type U256Num } from "@/num";
+import Decimal from "decimal.js";
+import { priceAtMs, makeEpochParams } from "@/domain/pulseMath";
 import type { AbiSource } from "@/types/types";
 import type { ProviderInterface } from "starknet";
 import { useAuctionCore } from "@/hooks/useAuctionCore";
@@ -12,7 +14,7 @@ const mono = {
   lineHeight: 1.45,
 };
 
-type Point = { t: number; y: number };
+// no chart/graph/curve in this component
 
 // ---- Bid types & helpers ----------------------------------------------------
 type BidLite = {
@@ -55,6 +57,10 @@ function normalizeBid(b: BidLite): ServiceBid {
   };
 }
 
+function formatIntString(s: string): string {
+  return /[^0-9]/.test(s) ? s : s.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
 export default function AuctionData(props: {
   address?: string;
   abiSource?: AbiSource;
@@ -80,6 +86,7 @@ export default function AuctionData(props: {
     loading: bidsLoading,
     error: bidsError,
     ready: bidsReady,
+    epoch: bidsEpoch,
   } = useAuctionBids({
     address: props.address ?? "0x0",
     refreshMs: props.refreshMs ?? 4000,
@@ -88,34 +95,9 @@ export default function AuctionData(props: {
   });
 
   const decimals = props.decimals ?? 18;
-  const W = props.width ?? 760;
-  const H = props.height ?? 280;
-  const PAD = 36;
-  const MAX = props.maxPoints ?? 120;
   const MAX_BIDS = props.maxBids ?? 100;
 
-  // ---- Sparkline series (price over time) -----------------------------------
-  const [series, setSeries] = useState<Point[]>([]);
-  const lastPriceRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!data) return;
-    const now = Date.now();
-    const price: U256Num = data.price;
-
-    const scaledStr = toFixed(price, decimals); // exact scaling as string
-    if (scaledStr === lastPriceRef.current) return;
-
-    const y = Number.parseFloat(scaledStr); // only for plotting
-    if (!Number.isFinite(y)) return;
-
-    lastPriceRef.current = scaledStr;
-    setSeries((prev) => {
-      const next = [...prev, { t: now, y }];
-      if (next.length > MAX) next.shift();
-      return next;
-    });
-  }, [data, decimals, MAX]);
+  // no sparkline series: we keep this component to present data only
 
   // ---- Bids list (append-only, de-duplicated) --------------------------------
   const [bids, setBids] = useState<ServiceBid[]>([]);
@@ -168,29 +150,62 @@ export default function AuctionData(props: {
     }
   }, [bidsEnabled, bidsReady, liveBids, data, decimals, MAX_BIDS]);
 
-  // ---- Path for sparkline ----------------------------------------------------
-  const pathD = useMemo(() => {
-    if (series.length === 0) return "";
-    const xs = series.map((p) => p.t);
-    const ys = series.map((p) => p.y);
-    const minX = Math.min(...xs);
-    const maxX = Math.max(...xs);
-    const minY = Math.min(...ys);
-    const maxY = Math.max(...ys);
+  // no sparkline path
+  const sortedBids = useMemo(
+    () => bids.slice().sort((a, b) => a.atMs - b.atMs),
+    [bids]
+  );
 
-    const xRange = maxX > minX ? maxX - minX : 1;
-    const yRange = maxY > minY ? maxY - minY : 1;
+  const genesisMs = useMemo(() => {
+    if (!sortedBids.length) return undefined;
+    return sortedBids[0].atMs;
+  }, [sortedBids]);
 
-    const xToPx = (t: number) => PAD + ((t - minX) / xRange) * (W - PAD * 2);
-    const yToPx = (v: number) =>
-      PAD + (H - PAD * 2) - ((v - minY) / yRange) * (H - PAD * 2);
-
-    let d = `M ${xToPx(series[0].t)} ${yToPx(series[0].y)}`;
-    for (let i = 1; i < series.length; i++) {
-      d += ` L ${xToPx(series[i].t)} ${yToPx(series[i].y)}`;
+  const kMsDec = useMemo(() => {
+    const kStr =
+      bidsEpoch?.k?.dec ?? (data as any)?.config?.k?.dec ?? undefined;
+    if (!kStr) return undefined;
+    try {
+      return new Decimal(kStr).times(1000);
+    } catch {
+      return undefined;
     }
-    return d;
-  }, [series, W, H]);
+  }, [bidsEpoch?.k?.dec, data]);
+
+  const computeInitPoint = (
+    idx: number
+  ): { xSec: number; yFri: string } | null => {
+    if (!kMsDec) return null;
+    if (typeof genesisMs !== "number") return null;
+    const bid = sortedBids[idx];
+    if (!bid) return null;
+    if (idx === 0) return null;
+    const prev = sortedBids[idx - 1];
+    const anchorMs =
+      typeof bid.anchorMs === "number"
+        ? bid.anchorMs
+        : typeof prev.anchorMs === "number"
+        ? prev.anchorMs
+        : prev.atMs;
+    const floorDec =
+      bid.floor?.dec ??
+      prev.floor?.dec ??
+      bidsEpoch?.b?.dec ??
+      prev.amount.dec;
+    if (typeof anchorMs !== "number" || !floorDec) return null;
+    try {
+      const params = makeEpochParams(kMsDec, anchorMs, floorDec);
+      const evalMs = anchorMs + 1;
+      if (!(evalMs > anchorMs)) return null;
+      const yDec = priceAtMs(evalMs, params);
+      if (!yDec.isFinite()) return null;
+      const prevSec = (prev.atMs - genesisMs) / 1000;
+      const xSec = Math.max(0, Math.floor(prevSec));
+      return { xSec, yFri: yDec.toFixed(0) };
+    } catch {
+      return null;
+    }
+  };
 
   // ---- Early states ----------------------------------------------------------
   if (!ready || loading) return <div style={mono}>loading…</div>;
@@ -205,6 +220,8 @@ export default function AuctionData(props: {
 
   const { config, active } = data;
   const price = data.price;
+  const openMs = config.openTimeSec * 1000;
+  // no separate pointsList; Points section is generated inline below
 
   // ---- UI --------------------------------------------------------------------
   return (
@@ -244,32 +261,7 @@ export default function AuctionData(props: {
         </div>
       </div>
 
-      {/* Sparkline */}
-      <svg
-        width={W}
-        height={H}
-        role="img"
-        aria-label="current price sparkline"
-        style={{ display: "block" }}
-      >
-        {/* axes */}
-        <line
-          x1={PAD}
-          y1={H - PAD}
-          x2={W - PAD}
-          y2={H - PAD}
-          stroke="#e5e7eb"
-        />
-        <line x1={PAD} y1={PAD} x2={PAD} y2={H - PAD} stroke="#e5e7eb" />
-        {/* path */}
-        {pathD ? (
-          <path d={pathD} fill="none" stroke="currentColor" strokeWidth={2} />
-        ) : (
-          <text x={PAD} y={H / 2} fill="#9ca3af">
-            no samples yet
-          </text>
-        )}
-      </svg>
+      {/* chart removed: this component only presents data */}
 
       {/* Bids list */}
       <div style={{ marginTop: 12 }}>
@@ -303,10 +295,25 @@ export default function AuctionData(props: {
                     Bidder
                   </th>
                   <th style={{ textAlign: "right", padding: "6px 8px" }}>
-                    Amount (int)
+                    Amount (fri)
                   </th>
                   <th style={{ textAlign: "right", padding: "6px 8px" }}>
                     Amount (scaled)
+                  </th>
+                  <th style={{ textAlign: "right", padding: "6px 8px" }}>
+                    a - open (ms)
+                  </th>
+                  <th style={{ textAlign: "right", padding: "6px 8px" }}>
+                    b (int)
+                  </th>
+                  <th style={{ textAlign: "right", padding: "6px 8px" }}>
+                    epoch
+                  </th>
+                  <th style={{ textAlign: "right", padding: "6px 8px" }}>
+                    bid (t_s, p_fri)
+                  </th>
+                  <th style={{ textAlign: "right", padding: "6px 8px" }}>
+                    init ask (t_s, p_fri)
                   </th>
                   <th style={{ textAlign: "left", padding: "6px 8px" }}>
                     Tx Hash / ID
@@ -314,7 +321,7 @@ export default function AuctionData(props: {
                 </tr>
               </thead>
               <tbody>
-                {bids.map((b) => (
+                {sortedBids.map((b, idx) => (
                   <tr key={b.key} style={{ borderTop: "1px solid #f1f5f9" }}>
                     <td style={{ padding: "6px 8px" }}>
                       {new Date(b.atMs)
@@ -336,6 +343,36 @@ export default function AuctionData(props: {
                     <td style={{ padding: "6px 8px", textAlign: "right" }}>
                       {decimalStr(b.amount, decimals)}
                     </td>
+                    <td style={{ padding: "6px 8px", textAlign: "right" }}>
+                      {typeof b.anchorMs === "number"
+                        ? b.anchorMs - openMs
+                        : ""}
+                    </td>
+                    <td style={{ padding: "6px 8px", textAlign: "right" }}>
+                      {b.floor ? formatU256Dec(b.floor) : ""}
+                    </td>
+                    <td style={{ padding: "6px 8px", textAlign: "right" }}>
+                      {typeof b.epochIndex === "number" ? b.epochIndex : ""}
+                    </td>
+                    <td style={{ padding: "6px 8px", textAlign: "right" }}>
+                      {typeof genesisMs === "number"
+                        ? `(${Math.floor(
+                            (b.atMs - genesisMs) / 1000
+                          )}, ${formatU256Dec(b.amount)})`
+                        : ""}
+                    </td>
+                    <td style={{ padding: "6px 8px", textAlign: "right" }}>
+                      {typeof genesisMs === "number"
+                        ? (() => {
+                            const init = computeInitPoint(idx);
+                            return init
+                              ? `(${init.xSec}, ${formatIntString(
+                                  init.yFri
+                                )})`
+                              : "";
+                          })()
+                        : ""}
+                    </td>
                     <td style={{ padding: "6px 8px" }}>
                       {b.txHash ? (
                         <span title={b.txHash}>
@@ -353,9 +390,32 @@ export default function AuctionData(props: {
         )}
       </div>
 
+      {/* Points list: epoch n: init ask(x,y), bid(x,y) */}
+      <div style={{ marginTop: 12 }}>
+      <div style={{ fontWeight: 700, marginBottom: 6 }}>Points</div>
+      {typeof genesisMs !== "number" || bids.length === 0 ? (
+        <div style={{ color: "#6b7280" }}>no points yet</div>
+      ) : (
+        <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>
+          {sortedBids
+            .map((b, idx) => {
+              const epochIdx =
+                typeof b.epochIndex === "number" ? b.epochIndex : "-";
+              const bidX = Math.floor((b.atMs - genesisMs) / 1000);
+              const bidY = formatU256Dec(b.amount);
+              const init = computeInitPoint(idx);
+              const initPair = init
+                ? `(${init.xSec}, ${formatIntString(init.yFri)})`
+                : "(—)";
+              return `epoch ${epochIdx}: init ask${initPair}, bid(${bidX}, ${bidY})`;
+            })
+            .join("\n")}
+        </pre>
+      )}
+      </div>
+
       <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>
-        Sampling current_price every {props.refreshMs ?? 4000}ms · decimals=
-        {decimals} · points={series.length} · bids={bids.length}
+        decimals={decimals} · bids={bids.length}
         {bidsEnabled && (
           <>
             {" "}
