@@ -2,8 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import * as pulseServices from "@/services/pulseServices";
 
 /* ---------- constants ---------- */
-const POLL_FAST = 12_000; // 12 s   – live info (price, active, now)
-const POLL_SLOW = 30_000; // 30 s   – one‑off deployment check
+const POLL_FAST = 12_000; // 12s - live info (price, active, now)
+const POLL_SLOW = 30_000; // 30s - one-off deployment check
 
 /* ---------- enum ---------- */
 export enum AuctionStatus {
@@ -13,9 +13,9 @@ export enum AuctionStatus {
   LIVE = "LIVE",
 }
 
-/* ---------- single‑responsibility hooks ---------- */
+/* ---------- single-responsibility hooks ---------- */
 
-/** one‑time check: has the contract been declared & deployed? */
+/** one-time check: has the contract been declared & deployed? */
 export const useIsDeployed = () =>
   useQuery({
     queryKey: ["isDeployed"],
@@ -27,7 +27,7 @@ export const useIsDeployed = () =>
     staleTime: POLL_SLOW,
   });
 
-/** immutable constructor params (k, open_time, genesis_price, floor₀) */
+/** immutable constructor params (k, open_time, genesis_price, floor0) */
 export const useAuctionConfig = () =>
   useQuery({
     queryKey: ["auctionConfig"],
@@ -36,7 +36,7 @@ export const useAuctionConfig = () =>
     staleTime: Infinity,
   });
 
-/** chain‑time “now” (seconds since epoch) */
+/** chain-time "now" (seconds since epoch) */
 export const useNow = () =>
   useQuery({
     queryKey: ["now"],
@@ -54,7 +54,7 @@ export const useCurveActive = () =>
     refetchInterval: POLL_FAST,
   });
 
-/** current ask price (u256 → bigint) */
+/** current ask price (u256 -> bigint) */
 export const useCurrentPrice = () => {
   const deployed = useIsDeployed().data;
   const now = useNow().data;

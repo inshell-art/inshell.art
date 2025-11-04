@@ -1,5 +1,4 @@
 import { ErrorBoundary } from "react-error-boundary";
-import AuctionCurve from "./components/AuctionCurve";
 import AuctionData from "@/components/AuctionData";
 import { resolveAddress } from "@/protocol/addressBook";
 
@@ -42,7 +41,6 @@ export default function App() {
           address={resolveAddress("pulse_auction")}
           abiSource={pickAbiSource()}
         />
-        <AuctionCurve address={resolveAddress("pulse_auction")} />
       </div>
     </ErrorBoundary>
   );

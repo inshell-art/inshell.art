@@ -23,18 +23,19 @@ export const PulseCurve: React.FC<Props> = ({
   height = 400,
   margin = { top: 10, right: 10, bottom: 40, left: 60 },
 }) => {
-  if (typeof pts !== "bigint" || typeof k !== "bigint") {
+  const invalidParams = typeof pts !== "bigint" || typeof k !== "bigint";
+  if (invalidParams) {
     console.error("PulseCurve: pts must be a bigint");
-    return null;
   }
-  //todo: and convert the raw bigint to numbers for the context here then
-  //todo: detect the requirement of ABIs by the curve component first
-  //todo: and then implement the interfaces to contract
+  // TODO: convert the raw bigint to numbers for the context here
+  // TODO: detect the requirement of ABIs by the curve component first
+  // TODO: and then implement the interfaces to contract
 
   const [stroke] = useToken("colors", "teal.400");
   const [dotFill] = useToken("colors", "teal.500");
 
   const rounds = useMemo(() => {
+    if (invalidParams) return [];
     if (sales.length < 1) return [];
     const r = [];
     for (let i = 0; i < sales.length; i++) {
@@ -58,7 +59,9 @@ export const PulseCurve: React.FC<Props> = ({
       });
     }
     return r;
-  }, [sales, pts]);
+  }, [invalidParams, sales, pts]);
+
+  if (invalidParams) return null;
 
   // x/y domains
   const minX = rounds[0]?.ring.x ?? 0;

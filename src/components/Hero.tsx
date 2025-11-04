@@ -37,9 +37,9 @@ export default function Hero() {
   return (
     <Container
       as="main" // renders <main>
-      maxW="7xl" // 7xl → 80 rem ≈ 1280 px
+      maxW="7xl" // 7xl ~ 80rem (~1280px)
       h="100vh"
-      centerContent // shortcut for flex‑center
+      centerContent // shortcut for flex-center
     >
       {isDesktop ? (
         <Stack w="full" gap={10} align="center">
