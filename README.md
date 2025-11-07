@@ -8,12 +8,16 @@ A minimal runbook to bring up **devnet + protocol + FE** in the right order, wit
 
 - **Node 18+** and **pnpm** (`corepack enable`)
 - **starknet-devnet** (Rust) in `$PATH`
-- The on-chain repo **`../path`** available locally (same parent as this repo)
+- **`../path` cloned next to this repo.** All contract declare/deploy/config scripts run there; this repo consumes their outputs.
 
 > Optional (recommended):
 >
 > - `direnv` for auto-loading `.env.*`
 > - `jq` for script utilities
+
+> **Protocol deployment**  
+> Until the docs fully live upstream, follow `README.md` from inside
+> `../path` to bring the contracts up, then return here for FE sync.
 
 ---
 
@@ -27,71 +31,7 @@ export VITE_STARKNET_BLOCK_TAG=latest    # or pre_confirmed
 
 ---
 
-## 2) Deploy protocol (in ../path)
-
-From the `../path` repo:
-
-### 2.1 Declare classes (build → declare → class hashes)
-
-```bash
-./scripts/declare-devnet.sh
-# Outputs:
-#   output/classes.devnet.json   # { "path_nft": "<class_hash>", ... }
-#   output/classes.env           # export CLASS_* envs
-
-# Usage:
-source output/classes.env
-```
-
-Declares four packages: `path_nft`, `path_minter`, `path_minter_adapter`, `pulse_auction` and records class hashes.
-
-### 2.2 Deploy contracts (uses class hashes + params)
-
-```bash
-./scripts/deploy-devnet.sh
-# Outputs:
-#   output/addresses.devnet.json # { "path_nft": "<addr>", "path_minter": "...", "path_minter_adapter": "...", "pulse_auction": "..." }
-#   output/addresses.env         # export PATH_NFT, PATH_MINTER, PATH_ADAPTER, PULSE_AUCTION, RPC_URL, PROFILE
-
-# Next: load addresses & profile into the shell
-source output/addresses.env
-```
-
-Constructor calldata is encoded (ByteArray/u256). Deployment order:
-`PathNFT` → `PathMinter` → `PathMinterAdapter` → `PulseAuction`.
-
-### 2.3 Configure roles & wiring (idempotent‑friendly)
-
-```bash
-./scripts/config-devnet.sh
-# Verifies / sets:
-#   - NFT.grant(MINTER_ROLE, MINTER)
-#   - MINTER.grant(SALES_ROLE, ADAPTER)
-#   - Adapter.set_minter, Adapter.set_auction
-#   - Adapter.get_config() matches expected addresses
-# Exits non‑zero only on definite mismatches.
-```
-
-### 2.4 (Optional) Smoke / Seed bids for FE data
-
-**Smoke (simple sanity, N bids with approval):**
-
-```bash
-./scripts/smoke.sh
-# Produces JSONL log in output/smoke_*.jsonl
-```
-
-**Seeder (quote‑driven, one bid per block):**
-
-```bash
-./scripts/seed-bids.sh
-# Produces JSONL log in output/seed_bids_*.jsonl
-# Uses get_current_price -> add premium bps -> ensure allowance -> bid
-```
-
----
-
-## 3) Sync into FE (this repo)
+## 2) Sync into FE (this repo)
 
 From the `inshell.art` repo:
 
@@ -122,9 +62,7 @@ pnpm tsx scripts/abi-json-to-ts.ts src/abi/devnet/PathNFT.json           src/abi
 
 ````
 
----
-
-## 4) Run the FE
+## 3) Run the FE
 
 ```bash
 # Minimum FE env
@@ -144,9 +82,7 @@ pnpm dev
 >
 > Keep `addresses.*.json` keys in **snake_case**, Vite env overrides in **`VITE_*` UPPER_SNAKE**.
 
----
-
-## 5) FE data flow (one screen)
+## 4) FE data flow (one screen)
 
 ```
 protocol/
@@ -163,9 +99,7 @@ components/
 - **ABI typing**: use `src/abi/typed/PulseAuction.abi.ts` (const literal) for TypeScript types.
 - **Runtime ABI**: can still be fetched from node; a compatibility guard checks required entrypoints.
 
----
-
-## 6) Example: render raw auction data
+## 5) Example: render raw auction data
 
 ```tsx
 // src/components/AuctionRaw.tsx
