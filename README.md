@@ -8,30 +8,20 @@ A minimal runbook to bring up **devnet + protocol + FE** in the right order, wit
 
 - **Node 18+** and **pnpm** (`corepack enable`)
 - **starknet-devnet** (Rust) in `$PATH`
-- **`../path` cloned next to this repo.** All contract declare/deploy/config scripts run there; this repo consumes their outputs.
+- **`../path` cloned next to this repo.** All devnet/protocol scripts run there; this repo consumes their outputs.
 
 > Optional (recommended):
 >
 > - `direnv` for auto-loading `.env.*`
 > - `jq` for script utilities
 
-> **Protocol deployment**  
-> Until the docs fully live upstream, follow `README.md` from inside
-> `../path` to bring the contracts up, then return here for FE sync.
+> **Protocol + devnet**  
+> Kick off devnet and deploy contracts via `path/README.md` from inside `../path`,
+> then return here to sync the FE.
 
 ---
 
-## 1) Start devnet
-
-```bash
-starknet-devnet --seed -0
-# Devnet often rejects "pending"; default to a safe tag.
-export VITE_STARKNET_BLOCK_TAG=latest    # or pre_confirmed
-```
-
----
-
-## 2) Sync into FE (this repo)
+## 1) Sync into FE (this repo)
 
 From the `inshell.art` repo:
 
@@ -62,7 +52,7 @@ pnpm tsx scripts/abi-json-to-ts.ts src/abi/devnet/PathNFT.json           src/abi
 
 ````
 
-## 3) Run the FE
+## 2) Run the FE
 
 ```bash
 # Minimum FE env
@@ -82,7 +72,7 @@ pnpm dev
 >
 > Keep `addresses.*.json` keys in **snake_case**, Vite env overrides in **`VITE_*` UPPER_SNAKE**.
 
-## 4) FE data flow (one screen)
+## 3) FE data flow (one screen)
 
 ```
 protocol/
@@ -99,7 +89,7 @@ components/
 - **ABI typing**: use `src/abi/typed/PulseAuction.abi.ts` (const literal) for TypeScript types.
 - **Runtime ABI**: can still be fetched from node; a compatibility guard checks required entrypoints.
 
-## 5) Example: render raw auction data
+## 4) Example: render raw auction data
 
 ```tsx
 // src/components/AuctionRaw.tsx
