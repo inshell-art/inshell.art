@@ -1,5 +1,5 @@
-import { Flex, Text } from "@chakra-ui/react";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import "./Movements.css";
 
 export default function Movements() {
   const [opacity, setOpacity] = useState(0.4);
@@ -10,24 +10,12 @@ export default function Movements() {
   }, []);
 
   return (
-    <Flex w="100%" mx="auto" justify="space-between" align="center">
+    <div className="movements" style={{ opacity }}>
       {["THOUGHT", "WILL", "AWA!"].map((word) => (
-        <Text
-          key={word}
-          flex="1" /* each cell gets equal width        */
-          textAlign="center" /* word centred inside its cell      */
-          fontFamily="'Source Code Pro', monospace"
-          fontWeight="200"
-          fontSize="6xl"
-          color={"grey"}
-          opacity={opacity}
-          transition="opacity 0.3s"
-          gap={20}
-          px={2} /* horizontal padding for each cell */
-        >
+        <div key={word} className="movements__word">
           {word}
-        </Text>
+        </div>
       ))}
-    </Flex>
+    </div>
   );
 }

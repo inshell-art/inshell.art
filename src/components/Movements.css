@@ -1,0 +1,21 @@
+.movements {
+  width: 100%;
+  max-width: 1024px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  justify-items: center;
+  align-items: center;
+  transition: opacity 0.3s ease;
+}
+
+.movements__word {
+  font-family: "Source Code Pro", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, "Liberation Mono", "Courier New", monospace;
+  font-weight: 200;
+  font-size: clamp(36px, 6vw, 64px);
+  letter-spacing: 0.08em;
+  color: #9fb3c8;
+  text-align: center;
+}

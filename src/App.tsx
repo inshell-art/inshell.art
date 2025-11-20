@@ -1,5 +1,7 @@
 import { ErrorBoundary } from "react-error-boundary";
 import AuctionStatus from "@/components/AuctionStatus";
+import Movements from "@/components/Movements";
+import Footer from "@/components/footer/Footer";
 import { resolveAddress } from "@/protocol/addressBook";
 
 // Control ABI source selection via env vars for demo purposes
@@ -36,11 +38,19 @@ export default function App() {
         </div>
       )}
     >
-      <AuctionStatus
-        address={resolveAddress("pulse_auction")}
-        abiSource={pickAbiSource()}
-        refreshMs={4500}
-      />
+      <div className="shell">
+        <div className="content">
+          <AuctionStatus
+            address={resolveAddress("pulse_auction")}
+            abiSource={pickAbiSource()}
+            refreshMs={4500}
+          />
+          <div className="hero">
+            <Movements />
+          </div>
+        </div>
+        <Footer />
+      </div>
     </ErrorBoundary>
   );
 }
