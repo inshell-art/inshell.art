@@ -139,11 +139,11 @@ export default function AuctionStatus({
     <div className="page">
       <header className="page__header">
         <div>
-          <div className="eyebrow">Pulse Auction · Devnet</div>
-          <h1 className="headline">Live auction monitor</h1>
-          <div className="muted">
-            Reading on-chain data from your devnet node and streaming bids in
-            near real time.
+          <div className="eyebrow">Pulse · Decentralized Automatic Auction</div>
+          <h1 className="headline">$PATH by the Pulse auction model</h1>
+          <div className="muted subtitle">
+            Hyperbolic price curve f(x) = k / (x − a) + b; each bid pins floor b
+            at the last price and shifts a to start the next descent.
           </div>
         </div>
         <div className="actions">
