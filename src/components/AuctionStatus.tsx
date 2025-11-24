@@ -139,30 +139,30 @@ export default function AuctionStatus({
     <div className="page">
       <header className="page__header">
         <div>
-          <div className="eyebrow">Pulse Auction · Devnet</div>
-          <h1 className="headline">Live auction monitor</h1>
+          <div className="eyebrow">PULSE · price is belief unfolding in time</div>
+          <h1 className="headline">PATH · pulse field</h1>
           <div className="muted">
-            Reading on-chain data from your devnet node and streaming bids in
-            near real time.
+            Live Decentralized Automatic Auction for PATH passes — each bid a
+            beat on the belief curve.
           </div>
         </div>
         <div className="actions">
-          <button className="ghost" onClick={handleRefresh}>
-            Refresh
-          </button>
+          <button className="ghost" onClick={handleRefresh}>Sync now</button>
           <div className={statusClass}>{statusLabel}</div>
         </div>
       </header>
 
       <section className="grid">
         <div className="card emphasis">
-          <div className="card__label">Current price</div>
+          <div className="card__label">Ask now</div>
           <div className="card__value">{price.scaled} STRK</div>
-          <div className="card__meta">Live on-chain price</div>
+          <div className="card__meta">
+            Live on-chain ask · current point on the pulse curve.
+          </div>
         </div>
 
         <div className="card">
-          <div className="card__label">Latest bid</div>
+          <div className="card__label">Last beat</div>
           <div className="card__value">
             {lastBid ? `${toFixed(lastBid.amount, decimals)} STRK` : "—"}
           </div>
@@ -171,26 +171,27 @@ export default function AuctionStatus({
               ? `${shorten(lastBid.bidder)} · ${new Date(
                   lastBid.atMs
                 ).toLocaleTimeString()}`
-              : "waiting for bids"}
+              : "Most recent step cleared · waiting for bids"}
           </div>
         </div>
 
         <div className="card">
-          <div className="card__label">Opens</div>
+          <div className="card__label">Opened</div>
           <div className="card__value">
             {new Date(openMs).toLocaleString()}
           </div>
           <div className="card__meta">
             {fmtRelative(openMs)}
-            {awaitingGenesis && " · awaiting first bid"}
+            {awaitingGenesis && " · awaiting first beat"}
           </div>
         </div>
 
         <div className="card">
-          <div className="card__label">Genesis price</div>
+          <div className="card__label">Curve seed</div>
           <div className="card__value">{genesisPrice.scaled} STRK</div>
           <div className="card__meta">
-            floor {genesisFloor.scaled} STRK · k {formatU256Dec(config.k)}
+            floor {genesisFloor.scaled} STRK · k {formatU256Dec(config.k)} · pts{" "}
+            {config.pts}
           </div>
         </div>
       </section>
@@ -198,10 +199,26 @@ export default function AuctionStatus({
       <section className="panel">
         <div className="panel__title">
           <div>
-            <div className="title">Live bids</div>
+            <div className="title">Mathematical canvas</div>
             <div className="muted small">
-              Streaming from contract events · showing {topBids.length} of{" "}
-              {bids.length} captured
+              Hyperbola f(x) = k / (x − a) + b · updated with each beat.
+            </div>
+          </div>
+        </div>
+        <div className="muted">
+          One constant (k), one floor (b), one anchor (a) — price is belief
+          unfolding in time. Each bid resets a and b; waiting lets the ask
+          descend along the curve.
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel__title">
+          <div>
+            <div className="title">Crowd rhythm</div>
+            <div className="muted small">
+              Streaming from contract events · each bid sets the next beat ·
+              showing {topBids.length} of {bids.length} moments
             </div>
           </div>
           <div className="muted small">
@@ -222,9 +239,9 @@ export default function AuctionStatus({
                   {toFixed(bid.amount, decimals)} STRK
                 </div>
                 <div className="bid__meta">
-                  <span>{new Date(bid.atMs).toLocaleTimeString()}</span>
+                  <span>{new Date(bid.atMs).toLocaleString()}</span>
                   <span>{shorten(bid.bidder)}</span>
-                  <span>block {bid.blockNumber ?? "—"}</span>
+                  <span>block {bid.blockNumber ?? "—"} · beat</span>
                   <span className="muted">
                     {bid.txHash
                       ? `${bid.txHash.slice(0, 10)}…${bid.txHash.slice(-6)}`

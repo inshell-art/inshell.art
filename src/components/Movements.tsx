@@ -3,9 +3,9 @@ import { isDesktopDevice } from "@/device";
 import "./Movements.css";
 
 const WORDS = [
-  { label: "THOUGHT", year: "2025" },
-  { label: "WILL", year: "2026" },
-  { label: "AWA!", year: "2027" },
+  { label: "THOUGHT", line: "THOUGHT · inward fields in code · arriving 2026" },
+  { label: "WILL", line: "WILL · force and thresholds · arriving 2027" },
+  { label: "AWA!", line: "AWA! · afterglow in motion · arriving 2028" },
 ];
 
 export default function Movements() {
@@ -75,7 +75,7 @@ export default function Movements() {
       {WORDS.map((word) => (
         <div key={word.label} className="movements__cell">
           <div className="movements__year" style={{ opacity: yearOpacity }}>
-            in {word.year}
+            {word.line}
           </div>
           <div
             className="movements__word"
