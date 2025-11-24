@@ -99,7 +99,7 @@ body {
   align-items: center;
   background: var(--panel-soft);
   border: 1px solid var(--panel-border);
-  border-radius: 14px;
+  border-radius: 0;
   padding: 18px 20px;
   backdrop-filter: blur(6px);
 }
@@ -125,7 +125,7 @@ body {
 
 .pill {
   padding: 6px 12px;
-  border-radius: 999px;
+  border-radius: 0;
   font-weight: 600;
   font-size: 12px;
   border: 1px solid var(--panel-border);
@@ -163,7 +163,7 @@ body {
 .panel {
   background: var(--panel);
   border: 1px solid var(--panel-border);
-  border-radius: 12px;
+  border-radius: 0;
   padding: 16px;
 }
 
@@ -231,7 +231,7 @@ body {
   color: var(--text);
   border: 1px solid var(--ghost-border);
   padding: 10px 14px;
-  border-radius: 10px;
+  border-radius: 0;
   cursor: pointer;
   transition: all 120ms ease;
 }
@@ -257,7 +257,7 @@ body {
 
 .bid {
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: 0;
   border: 1px solid var(--bid-border);
   background: var(--bid-bg);
   display: flex;

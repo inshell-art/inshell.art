@@ -4,17 +4,14 @@ import React from "react";
 import AuctionStatus from "../src/components/AuctionStatus";
 
 // Mocks
-jest.mock("../src/hooks/useAuctionCore", () => ({
-  useAuctionCore: jest.fn(),
-}));
-jest.mock("../src/hooks/useAuctionBids", () => ({
-  useAuctionBids: jest.fn(),
-}));
+jest.mock("../src/hooks/useAuctionCore");
+jest.mock("../src/hooks/useAuctionBids");
 
 const mockUseAuctionCore =
-  require("../src/hooks/useAuctionCore").useAuctionCore as jest.Mock;
+  (jest.requireMock("../src/hooks/useAuctionCore") as any)
+    .useAuctionCore as jest.Mock;
 const mockUseAuctionBids =
-  require("../src/hooks/useAuctionBids").useAuctionBids as jest.Mock;
+  (jest.requireMock("../src/hooks/useAuctionBids") as any).useAuctionBids as jest.Mock;
 
 const mkU256 = (n: number) => ({
   raw: { low: String(n), high: "0" },
