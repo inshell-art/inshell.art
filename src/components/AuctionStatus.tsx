@@ -118,6 +118,19 @@ export default function AuctionStatus({
 
   const { config, active } = data;
   const openMs = config.openTimeSec * 1000;
+  const nowSec = Date.now() / 1000;
+  const upcoming = nowSec < config.openTimeSec;
+  const awaitingGenesis = !upcoming && !active;
+  const statusLabel = upcoming
+    ? "Upcoming"
+    : active
+    ? "Active"
+    : "Awaiting genesis";
+  const statusClass = upcoming
+    ? "pill pill--pending"
+    : active
+    ? "pill pill--on"
+    : "pill pill--open";
   const price = amountPair(data.price, decimals);
   const genesisPrice = amountPair(config.genesisPrice, decimals);
   const genesisFloor = amountPair(config.genesisFloor, decimals);
@@ -137,9 +150,7 @@ export default function AuctionStatus({
           <button className="ghost" onClick={handleRefresh}>
             Refresh
           </button>
-          <div className={`pill ${active ? "pill--on" : "pill--off"}`}>
-            {active ? "Active" : "Paused"}
-          </div>
+          <div className={statusClass}>{statusLabel}</div>
         </div>
       </header>
 
@@ -169,7 +180,10 @@ export default function AuctionStatus({
           <div className="card__value">
             {new Date(openMs).toLocaleString()}
           </div>
-          <div className="card__meta">{fmtRelative(openMs)}</div>
+          <div className="card__meta">
+            {fmtRelative(openMs)}
+            {awaitingGenesis && " · awaiting first bid"}
+          </div>
         </div>
 
         <div className="card">

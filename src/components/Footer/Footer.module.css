@@ -1,15 +1,15 @@
 .footer {
   padding: 1rem;
   text-align: center;
-  position: fixed;
-  bottom: 0;
-  width: 100%;
+  position: static;
+  width: auto;
   display: flex;
   justify-content: center; /* Center the content horizontally */
   align-items: center; /* Center the content vertically */
   color: inherit;
   font-weight: 200;
   font-size: 13px;
+  margin-top: 32px;
 }
 
 .footerList {
