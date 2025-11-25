@@ -1,32 +1,8 @@
 import { ErrorBoundary } from "react-error-boundary";
-import AuctionStatus from "@/components/AuctionStatus";
+import ArtDots from "@/components/ArtDots";
 import Movements from "@/components/Movements";
-import Footer from "@/components/footer/Footer";
+import Footer from "@/components/Footer/Footer";
 import { resolveAddress } from "@/protocol/addressBook";
-
-// Control ABI source selection via env vars for demo purposes
-// VITE_STRICT_ABI=true  => node only, fail if missing to avoid drift ABI
-// VITE_OFFLINE_MODE=true => artifact only, for testing or CI
-// VITE_DEFAULT_ABI_SOURCE=artifact|node|auto  => explicit choice, overrides above
-import { AbiSource } from "@/types/types";
-
-const pickAbiSource = (env = import.meta.env): AbiSource => {
-  const explicit = (env as any)?.VITE_DEFAULT_ABI_SOURCE;
-
-  console.log("Explicit ABI source:", explicit);
-  if (explicit) return explicit;
-
-  if (env?.VITE_STRICT_ABI === "true") {
-    return "node";
-  }
-  if (env?.VITE_OFFLINE_MODE === "true") {
-    return "artifact";
-  }
-  console.log("No ABI source specified, defaulting to 'auto'");
-
-  return "auto";
-};
-//todo: check the way to compose env vars in .env files
 
 export default function App() {
   return (
@@ -40,11 +16,7 @@ export default function App() {
     >
       <div className="shell">
         <div className="content">
-          <AuctionStatus
-            address={resolveAddress("pulse_auction")}
-            abiSource={pickAbiSource()}
-            refreshMs={4500}
-          />
+          <ArtDots address={resolveAddress("pulse_auction")} />
           <div className="hero">
             <Movements />
           </div>

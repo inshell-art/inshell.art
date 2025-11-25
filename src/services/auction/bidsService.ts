@@ -12,6 +12,7 @@ export type NormalizedBid = {
   txHash?: string;
   id?: number;
   blockNumber?: number;
+  epochIndex?: number;
 };
 
 export function createBidsService(opts: {
@@ -105,6 +106,10 @@ export function createBidsService(opts: {
       id: ev.event_id ?? ev.index,
       blockNumber:
         typeof ev.block_number === "number" ? ev.block_number : undefined,
+      epochIndex:
+        dataArr.length >= 7 && Number.isFinite(Number(dataArr[6]))
+          ? Number(dataArr[6])
+          : undefined,
     };
   }
 

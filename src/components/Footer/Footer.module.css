@@ -2,14 +2,14 @@
   padding: 1rem;
   text-align: center;
   position: static;
-  width: auto;
+  width: 100%;
   display: flex;
   justify-content: center; /* Center the content horizontally */
   align-items: center; /* Center the content vertically */
   color: inherit;
   font-weight: 200;
   font-size: 13px;
-  margin-top: 32px;
+  margin-top: auto;
 }
 
 .footerList {
