@@ -21,6 +21,7 @@
   --ghost-border: rgba(255, 255, 255, 0.14);
   --bid-border: rgba(255, 255, 255, 0.07);
   --bid-bg: rgba(255, 255, 255, 0.02);
+  --halo-stroke: var(--accent);
 }
 
 @media (prefers-color-scheme: light) {
@@ -41,6 +42,7 @@
     --ghost-border: rgba(0, 0, 0, 0.08);
     --bid-border: rgba(0, 0, 0, 0.08);
     --bid-bg: rgba(0, 0, 0, 0.02);
+    --halo-stroke: var(--accent);
   }
 }
 
@@ -300,11 +302,40 @@ body {
 .dotfield__dot {
   fill: var(--accent);
   opacity: 0.65;
-  transition: opacity 120ms ease;
+  transition: opacity 140ms ease-in-out;
+}
+
+.dotfield__dot:focus {
+  outline: none;
 }
 
 .dotfield__dot:hover {
   opacity: 1;
+}
+
+.dotfield__halo {
+  fill: none;
+  stroke: var(--halo-stroke);
+  stroke-width: 0.35;
+  opacity: 0;
+  transition: opacity 160ms ease-in-out;
+  pointer-events: none;
+}
+
+.dotfield__dot:hover + .dotfield__halo {
+  animation: haloFlash 0.35s ease-in-out infinite;
+}
+
+@keyframes haloFlash {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 .dotfield__axes {

@@ -143,21 +143,23 @@ export default function ArtDots({
           aria-label="Pulse dots"
         >
           {dots.points.map((p) => (
-            <circle
-              key={p.key}
-              cx={p.x}
-              cy={p.y}
-              r="0.5"
-              className="dotfield__dot"
-              onMouseMove={(e) => {
-                setHover({
-                  ...p,
-                  screenX: e.clientX + 8,
-                  screenY: e.clientY + 8,
-                });
-              }}
-              onMouseLeave={() => setHover(null)}
-            />
+            <g key={p.key} className="dotfield__point">
+              <circle
+                cx={p.x}
+                cy={p.y}
+                r="0.5"
+                className="dotfield__dot"
+                onMouseMove={(e) => {
+                  setHover({
+                    ...p,
+                    screenX: e.clientX + 8,
+                    screenY: e.clientY + 8,
+                  });
+                }}
+                onMouseLeave={() => setHover(null)}
+              />
+              <circle cx={p.x} cy={p.y} r="0.65" className="dotfield__halo" />
+            </g>
           ))}
         </svg>
         {hover && (
