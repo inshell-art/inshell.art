@@ -257,6 +257,9 @@ body {
   width: 100%;
   max-width: 960px;
   margin: 0 auto;
+  border: none;
+  background: #fff;
+  padding: 16px 16px 8px;
 }
 
 .dotfield__header {
@@ -273,10 +276,19 @@ body {
 
 .dotfield__canvas {
   width: 100%;
-  border: 1px solid var(--panel-border);
-  background: var(--panel-soft);
-  padding: 8px;
+  border: none;
+  background: var(--bg-body);
+  padding: 0;
   position: relative;
+}
+
+@media (prefers-color-scheme: dark) {
+  .dotfield {
+    background: var(--panel);
+  }
+  .dotfield__canvas {
+    background: var(--bg-body);
+  }
 }
 
 .dotfield__canvas svg {

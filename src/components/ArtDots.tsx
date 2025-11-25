@@ -123,7 +123,7 @@ export default function ArtDots({
   if (!dots.points.length) {
     return (
       <div className="panel">
-        <div className="muted">no dots yet</div>
+        <div className="muted">no bids yet</div>
       </div>
     );
   }
