@@ -67,8 +67,7 @@ describe("ArtDots", () => {
       clientY: 10,
     });
 
-    expect(screen.getByText(/bid · epoch/i)).toBeTruthy();
+    expect(screen.getByText(/bid #/i)).toBeTruthy();
     expect(screen.getByText(/STRK/)).toBeTruthy();
-    expect(screen.getByText(/block/)).toBeTruthy();
   });
 });

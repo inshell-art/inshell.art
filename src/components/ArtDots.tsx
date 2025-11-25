@@ -165,7 +165,7 @@ export default function ArtDots({
             className="dotfield__popover"
             style={{ left: hover.screenX, top: hover.screenY }}
           >
-            <div className="muted small">bid · epoch {hover.epoch ?? "—"}</div>
+            <div className="muted small">bid #{hover.epoch ?? "—"}</div>
             <div className="dotfield__poprow">
               <span>amount</span>
               <span>{shortAmount(hover.amount)} STRK</span>
@@ -176,11 +176,12 @@ export default function ArtDots({
             </div>
             <div className="dotfield__poprow">
               <span>time</span>
-              <span>{new Date(hover.atMs).toLocaleString()}</span>
-            </div>
-            <div className="dotfield__poprow">
-              <span>block</span>
-              <span>{hover.block ?? "—"}</span>
+              <span>
+                {new Date(hover.atMs)
+                  .toISOString()
+                  .replace("T", " ")
+                  .slice(0, 19)}
+              </span>
             </div>
           </div>
         )}
