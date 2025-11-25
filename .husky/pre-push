@@ -1,11 +1,4 @@
-#if [ "$CI" = "true" ]; then
-#    echo "Skipping pre-push hook in CI environment"
-#    exit 0
-#fi
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
 
-#npm run test
-#npm run emu &
-#EMU_PID=$!
-
-#npm run wait:emu
-#npm run e2e:emu
+pnpm lint && pnpm type-check && pnpm test -- --runTestsByPath tests/ArtDots.test.tsx

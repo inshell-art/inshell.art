@@ -3,6 +3,7 @@ import { useAuctionBids } from "@/hooks/useAuctionBids";
 import type { ProviderInterface } from "starknet";
 import { toFixed } from "@/num";
 import type { AbiSource } from "@/types/types";
+import type { NormalizedBid } from "@/services/auction/bidsService";
 
 type Props = {
   address?: string;
@@ -66,15 +67,21 @@ export default function ArtDots({
 
     // Throttle density: sample when too many
     const step = Math.max(1, Math.ceil(bids.length / 400));
-    const sampled = bids.filter((_, idx) => idx % step === 0);
+    const sampled: NormalizedBid[] = bids.filter(
+      (_: NormalizedBid, idx: number) => idx % step === 0
+    );
 
-    const minX = Math.min(...sampled.map((b) => b.atMs));
-    const maxX = Math.max(...sampled.map((b) => b.atMs));
+    const minX = Math.min(...sampled.map((b: NormalizedBid) => b.atMs));
+    const maxX = Math.max(...sampled.map((b: NormalizedBid) => b.atMs));
     const minY = Math.min(
-      ...sampled.map((b) => toNumberSafe(toFixed(b.amount, decimals)))
+      ...sampled.map((b: NormalizedBid) =>
+        toNumberSafe(toFixed(b.amount, decimals))
+      )
     );
     const maxY = Math.max(
-      ...sampled.map((b) => toNumberSafe(toFixed(b.amount, decimals)))
+      ...sampled.map((b: NormalizedBid) =>
+        toNumberSafe(toFixed(b.amount, decimals))
+      )
     );
 
     const padY = (maxY - minY || 1) * 0.1;
@@ -89,7 +96,7 @@ export default function ArtDots({
       return { x: xN * w, y: h - yN * h };
     };
 
-    const points: DotPoint[] = sampled.map((b) => {
+    const points: DotPoint[] = sampled.map((b: NormalizedBid) => {
       const p = toSvg(b.atMs, toNumberSafe(toFixed(b.amount, decimals)));
       return {
         ...p,

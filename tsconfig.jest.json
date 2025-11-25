@@ -10,7 +10,11 @@
     "skipLibCheck": true,
     "lib": ["ES2020", "DOM"],
     "typeRoots": ["./node_modules/@types", "./tests"],
-    "types": ["jest", "node"]
+    "types": ["jest", "node"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
   },
   "include": [
     "tests/**/*.ts",
