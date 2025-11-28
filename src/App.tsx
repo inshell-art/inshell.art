@@ -1,5 +1,5 @@
 import { ErrorBoundary } from "react-error-boundary";
-import ArtDots from "@/components/ArtDots";
+import AuctionCanvas from "@/components/AuctionCanvas";
 import Movements from "@/components/Movements";
 import Footer from "@/components/Footer/Footer";
 import { resolveAddress } from "@/protocol/addressBook";
@@ -16,7 +16,7 @@ export default function App() {
     >
       <div className="shell">
         <div className="content">
-          <ArtDots address={resolveAddress("pulse_auction")} />
+          <AuctionCanvas address={resolveAddress("pulse_auction")} />
           <div className="hero">
             <Movements />
           </div>

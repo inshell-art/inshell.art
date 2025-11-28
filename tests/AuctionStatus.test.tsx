@@ -1,6 +1,7 @@
-import "@testing-library/jest-dom";
+import "@testing-library/jest-dom/extend-expect";
 import { render, screen } from "@testing-library/react";
 import React from "react";
+import { describe, test, expect, jest, afterEach } from "@jest/globals";
 import AuctionStatus from "../src/components/AuctionStatus";
 
 // Mocks
@@ -9,9 +10,10 @@ jest.mock("../src/hooks/useAuctionBids");
 
 const mockUseAuctionCore =
   (jest.requireMock("../src/hooks/useAuctionCore") as any)
-    .useAuctionCore as jest.Mock;
+    .useAuctionCore as jest.MockedFunction<any>;
 const mockUseAuctionBids =
-  (jest.requireMock("../src/hooks/useAuctionBids") as any).useAuctionBids as jest.Mock;
+  (jest.requireMock("../src/hooks/useAuctionBids") as any)
+    .useAuctionBids as jest.MockedFunction<any>;
 
 const mkU256 = (n: number) => ({
   raw: { low: String(n), high: "0" },

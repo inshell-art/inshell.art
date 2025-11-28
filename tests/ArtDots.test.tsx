@@ -9,7 +9,7 @@ import {
 } from "@jest/globals";
 import { render, screen, fireEvent } from "@testing-library/react";
 import React from "react";
-import ArtDots from "../src/components/ArtDots";
+import AuctionCanvas from "../src/components/AuctionCanvas";
 
 const mockUseAuctionBids = jest.fn();
 
@@ -36,7 +36,7 @@ const sampleBids = [
   },
 ];
 
-describe("ArtDots", () => {
+describe("AuctionCanvas", () => {
   beforeEach(() => {
     mockUseAuctionBids.mockReturnValue({
       bids: sampleBids,
@@ -51,7 +51,7 @@ describe("ArtDots", () => {
   });
 
   test("renders mint button and dots", () => {
-    const { container } = render(<ArtDots address="0xabc" />);
+    const { container } = render(<AuctionCanvas address="0xabc" />);
     expect(screen.getByText(/mint/i)).toBeTruthy();
 
     const circles = container.querySelectorAll("circle");
@@ -59,7 +59,7 @@ describe("ArtDots", () => {
   });
 
   test("shows popover on hover with shortened info", () => {
-    const { container } = render(<ArtDots address="0xabc" />);
+    const { container } = render(<AuctionCanvas address="0xabc" />);
     const circle = container.querySelector("circle");
     expect(circle).toBeTruthy();
     fireEvent.mouseMove(circle as unknown as HTMLElement, {

@@ -9,6 +9,13 @@ const BOOKS: Record<string, Book> = {
   // mainnet,
 };
 
+const envCache: Record<string, any> | undefined =
+  (globalThis as any).__VITE_ENV__;
+
+function getEnv(name: string): any {
+  return envCache?.[name];
+}
+
 // Normalize an identifier to match Vite env var naming conventions
 function normalizeKey(id: string): string {
   // strip optional Vite prefix
@@ -27,7 +34,7 @@ function keyToViteEnv(key: string): string {
 
 // Pick current network (default devnet)
 function currentNetwork(): string {
-  return (import.meta as any).env?.VITE_NETWORK ?? "devnet";
+  return getEnv("VITE_NETWORK") ?? "devnet";
 }
 
 /** Robust address resolver: explicit > VITE_* > addresses.<net>.json > throw */
@@ -39,7 +46,7 @@ export function resolveAddress(id: string, explicit?: string): string {
   const envKey = keyToViteEnv(key);
 
   // 2) Vite env override if present
-  const viaEnv = (import.meta as any).env?.[envKey] as string | undefined;
+  const viaEnv = getEnv(envKey) as string | undefined;
   if (viaEnv && viaEnv !== "") return viaEnv;
 
   // 3) JSON address book by network

@@ -271,6 +271,27 @@ body {
   margin-bottom: 12px;
 }
 
+.dotfield__tabs {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.dotfield__tab {
+  border: 1px solid var(--ghost-border);
+  background: transparent;
+  color: var(--text);
+  padding: 6px 12px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.dotfield__tab.is-active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .dotfield__title {
   margin: 2px 0 0;
   font-weight: 400;
@@ -311,6 +332,18 @@ body {
 
 .dotfield__dot:hover {
   opacity: 1;
+}
+
+.dotfield__curve {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 0.5;
+}
+
+.dotfield__ask {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 0.5;
 }
 
 .dotfield__halo {

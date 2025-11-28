@@ -12,8 +12,15 @@ export type SafeBlockId =
   | { block_hash: string }
   | { block_number: number };
 
+const envCache: Record<string, any> | undefined =
+  (globalThis as any).__VITE_ENV__;
+
+function getEnv(name: string): any {
+  return envCache?.[name];
+}
+
 export const DEFAULT_SAFE_TAG: Extract<SafeBlockId, string> =
-  ((import.meta as any).env?.VITE_DEFAULT_BLOCK_TAG as any) ?? "latest";
+  (getEnv("VITE_DEFAULT_BLOCK_TAG") as any) ?? "latest";
 
 export function normalizeBlockId(id?: StarkBlockId): SafeBlockId {
   if (id == null || id === "pending") return DEFAULT_SAFE_TAG;

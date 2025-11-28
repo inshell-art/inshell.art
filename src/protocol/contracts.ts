@@ -15,16 +15,22 @@ import {
 } from "@/protocol/blockId";
 import { type AbiSource } from "@/types/types";
 
+const envCache: Record<string, any> | undefined =
+  (globalThis as any).__VITE_ENV__;
+
+function getEnv(name: string): any {
+  return envCache?.[name];
+}
+
 export const DEFAULT_ABI_SOURCE: AbiSource =
-  ((import.meta as any).env?.VITE_DEFAULT_ABI_SOURCE as AbiSource) ??
-  "artifact";
+  (getEnv("VITE_DEFAULT_ABI_SOURCE") as AbiSource) ?? "artifact";
 
 // -------------------- Provider & defaults --------------------
 
 /** Default provider: RPC from env, else local devnet. */
 export function getDefaultProvider(): ProviderInterface {
   const rpcUrl =
-    ((import.meta as any).env?.VITE_STARKNET_RPC as string | undefined) ??
+    (getEnv("VITE_STARKNET_RPC") as string | undefined) ??
     "http://127.0.0.1:5050/rpc";
   return new RpcProvider({ nodeUrl: rpcUrl });
 }
@@ -45,7 +51,7 @@ export function typedFromAbi<const ABI extends readonly any[]>(
   address: string,
   provider?: ProviderInterface
 ): TypedContractV2<ABI> {
-  const c = new Contract(abiForRuntime, address, provider);
+  const c = new (Contract as any)(abiForRuntime, address, provider);
   return (
     (c as any).typedv2?.(abiForTyping) ??
     (c as any).typedv1?.(abiForTyping) ??
