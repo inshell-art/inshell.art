@@ -1,5 +1,7 @@
 /* eslint-env node */
-import { TextDecoder, TextEncoder } from "node:util";
+/* eslint-env node */
+/* eslint-disable @typescript-eslint/no-require-imports, no-undef */
+const { TextDecoder, TextEncoder } = require("node:util");
 
 Object.defineProperty(window.navigator, "userAgent", {
   value:
