@@ -47,10 +47,28 @@ type DotPoint = {
   screenY?: number;
   bidder?: string;
   amount: string;
+  amountDec?: string;
+  amountRaw?: string;
   atMs: number;
   block?: number;
   epoch?: number;
 };
+
+function formatAmount(val: string | undefined, decimals: number): string {
+  const raw = val ?? "";
+  const s = String(raw);
+  if (/e[+-]/i.test(s)) {
+    const n = Number(s);
+    if (Number.isFinite(n)) return `${n.toFixed(2)} STRK`;
+  }
+  try {
+    return `${toFixed(raw, decimals)} STRK`;
+  } catch {
+    const n = Number(raw);
+    if (Number.isFinite(n)) return `${n.toFixed(2)} STRK`;
+    return `${String(raw)} STRK`;
+  }
+}
 
 function toSafeNumber(val: string | number | bigint | undefined): number {
   if (val === undefined) return Number.NaN;
@@ -92,7 +110,7 @@ export default function AuctionCanvas({
   address,
   provider,
   abiSource,
-  refreshMs = 4000,
+  refreshMs = 0,
   decimals = 18,
   maxBids = 800,
 }: Props) {
@@ -219,12 +237,15 @@ export default function AuctionCanvas({
     };
 
     const points: DotPoint[] = sampled.map((b: NormalizedBid) => {
-      const p = toSvg(b.atMs, toNumberSafe(toFixed(b.amount, decimals)));
+      const decStr = toFixed(b.amount, decimals);
+      const p = toSvg(b.atMs, toNumberSafe(decStr));
       return {
         ...p,
         key: b.key,
         bidder: b.bidder,
-        amount: toFixed(b.amount, decimals),
+        amount: decStr,
+        amountDec: decStr,
+        amountRaw: b.amount.dec,
         atMs: b.atMs,
         block: b.blockNumber,
         epoch: b.epochIndex,
@@ -267,14 +288,16 @@ export default function AuctionCanvas({
 
     if (!bids.length) {
       // no bids yet → seed with genesis price/floor for a flat baseline
-      const k = kParsed;
-      const pts = ptsParsed;
+      const decFactor = Math.pow(10, decimals);
+      const k = kParsed / decFactor;
+      const pts = ptsParsed / decFactor;
       if (pts <= 0) return { curve: null, reason: "pts<=0 (no bids)" };
       if (!Number.isFinite(baseFloor))
         return { curve: null, reason: "no floor (no bids)" };
+      const baseFloorHuman = baseFloor / decFactor;
       const nowSec = Date.now() / 1000;
       const startSec = activeConfig.openTimeSec;
-      const ask = baseFloor + pts * Math.max(1, nowSec - startSec);
+      const ask = baseFloorHuman + pts * Math.max(1, nowSec - startSec); // synthetic ask above floor
       return {
         curve: {
           points: [
@@ -282,7 +305,7 @@ export default function AuctionCanvas({
             { x: nowSec, y: ask },
           ],
           ask,
-          floor: baseFloor,
+          floor: baseFloorHuman,
           startSec,
           endSec: nowSec,
         },
@@ -292,10 +315,27 @@ export default function AuctionCanvas({
 
     const last = bids[bids.length - 1];
     const prev = bids[bids.length - 2];
+    const lastDecStr =
+      (last as any).amountDec ??
+      (() => {
+        try {
+          return toFixed(last.amount, decimals);
+        } catch {
+          return String(last.amount?.dec ?? "");
+        }
+      })();
+    const floorHuman = Number(lastDecStr);
+    if (!Number.isFinite(floorHuman))
+      return { curve: null, reason: "floor nan" };
 
-    const k = kParsed;
-    const pts = ptsParsed;
-    if (k <= 0 || pts <= 0) {
+    const decFactor = Math.pow(10, decimals);
+    const kHuman = kParsed / decFactor;
+    const ptsHuman = ptsParsed / decFactor;
+    if (!Number.isFinite(kHuman) || !Number.isFinite(ptsHuman)) {
+      return { curve: null, reason: "k/pts nan" };
+    }
+
+    if (kHuman <= 0 || ptsHuman <= 0) {
       return { curve: null, reason: "non-positive k/pts" };
     }
 
@@ -304,24 +344,17 @@ export default function AuctionCanvas({
       (prev?.atMs ?? activeConfig.openTimeSec * 1000) / 1000 || lastSec;
     const dtSec = Math.max(1, lastSec - prevSec);
 
-    const premium = pts * dtSec;
-    if (!Number.isFinite(premium)) {
+    const premiumHuman = ptsHuman * dtSec;
+    if (!Number.isFinite(premiumHuman)) {
       return { curve: null, reason: "premium not finite" };
     }
 
-    const floor = pickNumber(
-      (last as any)?.floor?.dec,
-      last.amount?.dec,
-      last.amount?.value,
-      baseFloor
-    );
-    if (!Number.isFinite(floor)) {
-      return { curve: null, reason: "floor not finite" };
-    }
-    const ask = floor + premium;
+    const floor = floorHuman;
+    const ask = floor + premiumHuman; // ask sits above last bid
 
-    const anchor = lastSec - k / premium;
-    const nowSec = Math.max(lastSec + 1, Date.now() / 1000);
+    const anchor = lastSec - kHuman / premiumHuman;
+    const realNow = Date.now() / 1000;
+    const nowSec = Math.max(realNow, lastSec + 1);
 
     const samples = 120;
     const points: { x: number; y: number }[] = [];
@@ -329,7 +362,7 @@ export default function AuctionCanvas({
       const t = lastSec + ((nowSec - lastSec) * i) / samples;
       const denom = t - anchor;
       if (denom <= 0) continue;
-      const y = k / denom + floor;
+      const y = kHuman / denom + floor;
       if (Number.isFinite(y)) points.push({ x: t, y });
     }
 
@@ -342,27 +375,26 @@ export default function AuctionCanvas({
         floor,
         startSec: lastSec,
         endSec: nowSec,
+        lastDecStr,
+        lastDecValue: Number.isFinite(Number(lastDecStr))
+          ? Number(lastDecStr)
+          : null,
+        askDecStr: Number.isFinite(ask) ? ask.toFixed(2) : lastDecStr,
+        floorDecStr: Number.isFinite(floor) ? floor.toFixed(2) : lastDecStr,
+        lastEpoch: (last as any)?.epochIndex ?? (last as any)?.epoch ?? null,
       },
       reason: null,
     };
-  }, [bids, coreLoading, activeConfig, fallbackError]);
+  }, [bids, coreLoading, activeConfig, fallbackError, decimals]);
 
   const showBids = view === "bids";
   const showCurve = view === "curve";
 
   return (
     <div className="panel dotfield">
-      <div className="dotfield__header">
-        <div>
-          <h1 className="headline dotfield__title thin">$PATH</h1>
-        </div>
+      <div className="dotfield__nav">
+        <h1 className="headline dotfield__title thin">$PATH</h1>
         <div className="dotfield__tabs">
-          <button
-            className={`dotfield__tab ${showCurve ? "is-active" : ""}`}
-            onClick={() => setView("curve")}
-          >
-            mint
-          </button>
           <button
             className={`dotfield__tab ${showBids ? "is-active" : ""}`}
             onClick={() => {
@@ -372,7 +404,15 @@ export default function AuctionCanvas({
           >
             bids
           </button>
+          <span className="dotfield__tab-sep">|</span>
+          <button
+            className={`dotfield__tab ${showCurve ? "is-active" : ""}`}
+            onClick={() => setView("curve")}
+          >
+            curve
+          </button>
         </div>
+        <button className="dotfield__mint">[ mint ]</button>
       </div>
       {showCurve && (
         <>
@@ -406,8 +446,11 @@ export default function AuctionCanvas({
                       curve.ask,
                       curve.floor,
                     ];
-                    const minY = Math.min(...ys);
-                    const maxY = Math.max(...ys);
+                    const minYRaw = Math.min(...ys);
+                    const maxYRaw = Math.max(...ys);
+                    const pad = (maxYRaw - minYRaw || 1) * 0.15;
+                    const minY = minYRaw - pad;
+                    const maxY = maxYRaw + pad;
                     const toSvg = (x: number, y: number) => {
                       const xN = (x - minX) / (maxX - minX || 1);
                       const yN = (y - minY) / (maxY - minY || 1);
@@ -419,8 +462,16 @@ export default function AuctionCanvas({
                         return `${i === 0 ? "M" : "L"} ${x} ${y}`;
                       })
                       .join(" ");
-                    const askPt = toSvg(curve.startSec, curve.ask);
+                    const askPt =
+                      pts.length > 0
+                        ? toSvg(pts[0].x, pts[0].y)
+                        : toSvg(curve.startSec, curve.ask);
                     const floorPt = toSvg(curve.startSec, curve.floor);
+                    const lastDecStr = (curve as any).lastDecStr ?? "";
+                    const askDecStr = (curve as any).askDecStr ?? lastDecStr;
+                    const floorDecStr =
+                      (curve as any).floorDecStr ?? lastDecStr;
+                    const lastEpoch = (curve as any).lastEpoch ?? null;
                     return (
                       <>
                         <path
@@ -428,17 +479,57 @@ export default function AuctionCanvas({
                           d={pathD}
                           vectorEffect="non-scaling-stroke"
                         />
+                        <line
+                          x1={askPt.x}
+                          y1={askPt.y}
+                          x2={floorPt.x}
+                          y2={floorPt.y}
+                          stroke="var(--accent)"
+                          strokeDasharray="0.4 2"
+                          strokeWidth={0.65}
+                          vectorEffect="non-scaling-stroke"
+                        />
                         <circle
                           cx={askPt.x}
                           cy={askPt.y}
-                          r={0.9}
+                          r={0.4}
                           className="dotfield__ask"
+                          onMouseMove={(e) =>
+                            setHover({
+                              key: "ask",
+                              x: askPt.x,
+                              y: askPt.y,
+                              screenX: e.clientX + 8,
+                              screenY: e.clientY + 8,
+                              amount: askDecStr,
+                              amountDec: askDecStr,
+                              amountRaw: askDecStr,
+                              epoch: lastEpoch ?? undefined,
+                              atMs: curve.startSec * 1000,
+                            })
+                          }
+                          onMouseLeave={() => setHover(null)}
                         />
                         <circle
                           cx={floorPt.x}
                           cy={floorPt.y}
-                          r={0.7}
+                          r={0.5}
                           className="dotfield__dot"
+                          onMouseMove={(e) =>
+                            setHover({
+                              key: "floor",
+                              x: floorPt.x,
+                              y: floorPt.y,
+                              screenX: e.clientX + 8,
+                              screenY: e.clientY + 8,
+                              amount: floorDecStr,
+                              amountDec: floorDecStr,
+                              amountRaw: floorDecStr,
+                              epoch: lastEpoch ?? undefined,
+                              atMs: curve.startSec * 1000,
+                            })
+                          }
+                          onMouseLeave={() => setHover(null)}
                         />
                       </>
                     );
@@ -449,14 +540,44 @@ export default function AuctionCanvas({
                 <span>time →</span>
                 <span>price ↑</span>
               </div>
+              {hover && (
+                <div
+                  className="dotfield__popover"
+                  style={{ left: hover.screenX, top: hover.screenY }}
+                >
+                  <div className="muted small">
+                    {hover.key === "ask"
+                      ? "initial ask"
+                      : (() => {
+                          const idx = hover.epoch ?? hover.key?.split("#")[1];
+                          return `last bid · #${idx ?? "—"}`;
+                        })()}
+                  </div>
+                  <div className="dotfield__poprow">
+                    <span>amount</span>
+                    <span>
+                      {formatAmount(
+                        (hover as any).amountRaw ?? hover.amount,
+                        decimals
+                      )}
+                    </span>
+                  </div>
+                  <div className="dotfield__poprow">
+                    <span>time</span>
+                    <span>
+                      {new Date(hover.atMs)
+                        .toISOString()
+                        .replace("T", " ")
+                        .slice(0, 19)}
+                    </span>
+                  </div>
+                </div>
+              )}
             </>
           )}
           {coreReady && !curve && (
             <div className="dotfield__canvas">
-              <div className="muted">
-                waiting for bids…
-                {reason ? <span className="small"> ({reason})</span> : null}
-              </div>
+              <div className="muted">&nbsp;</div>
             </div>
           )}
         </>

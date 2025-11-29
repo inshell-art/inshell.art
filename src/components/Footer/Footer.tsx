@@ -31,7 +31,7 @@ const Footer: React.FC = () => {
             target="_blank"
             rel="noopener noreferrer"
           >
-            twitter
+            X
           </a>
         </li>
         <li className={styles.footerItem}>

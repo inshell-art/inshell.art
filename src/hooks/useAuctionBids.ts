@@ -68,6 +68,12 @@ export function useAuctionBids(opts: {
     };
   }, [ready]);
 
+  // Kick off an initial fetch when ready even if polling is disabled.
+  useEffect(() => {
+    if (!ready || !serviceRef.current) return;
+    void serviceRef.current.pullOnce();
+  }, [ready]);
+
   const pullOnce = useMemo(() => {
     return async () => {
       if (!serviceRef.current) return [] as NormalizedBid[];
