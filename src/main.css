@@ -362,7 +362,7 @@ body {
 .dotfield__curve {
   fill: none;
   stroke: var(--accent);
-  stroke-width: 0.5;
+  stroke-width: 3;
 }
 
 .dotfield__ask {
