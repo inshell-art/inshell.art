@@ -386,21 +386,19 @@ export default function AuctionCanvas({
     }
 
     const lastSec = last.atMs / 1000;
-    // Use config pts to shape the curve directly.
-    if (ptsHumanCfg <= 0) {
-      return { curve: null, reason: "pts<=0" };
+    const metaDtSec = Math.max(1, nowSec - lastSec);
+    const premiumHuman = ptsHumanCfg * metaDtSec; // premium accrued since last bid until now
+    if (!Number.isFinite(premiumHuman) || premiumHuman <= 0) {
+      return { curve: null, reason: "premium not finite" };
     }
-    const shift = Math.sqrt(kHuman / ptsHumanCfg);
-    if (!Number.isFinite(shift) || shift <= 0) {
+    const floor = floorHuman;
+    const ask = floor + premiumHuman;
+    const anchor = lastSec - kHuman / premiumHuman;
+    if (!Number.isFinite(anchor)) {
       return { curve: null, reason: "anchor nan" };
     }
-    const anchor = lastSec - shift;
-    const asymptoteB = floorHuman - kHuman / shift; // y when t→∞
-    const floor = floorHuman;
-    const ask = floorHuman; // start at last price
+    const asymptoteB = floor; // as t → ∞
     const ptsHumanEff = ptsHumanCfg;
-    const metaDtSec = Math.max(1, nowSec - lastSec);
-    const premiumHuman = ptsHumanCfg * metaDtSec; // informational
     const nowSecTick = nowSec;
 
     const samples = 120;
@@ -901,6 +899,22 @@ export default function AuctionCanvas({
                           )}
                         </span>
                       </div>
+                      <div className="dotfield__poprow">
+                        <span>above floor</span>
+                        <span>
+                          {hover.floorHuman != null && hover.amountRaw
+                            ? (() => {
+                                const f = Number((hover as any).floorHuman);
+                                const amt = Number((hover as any).amountRaw);
+                                if (Number.isFinite(f) && Number.isFinite(amt) && f > 0) {
+                                  const pct = ((amt - f) / f) * 100;
+                                  return `${pct.toFixed(2)}%`;
+                                }
+                                return "—";
+                              })()
+                            : "—"}
+                        </span>
+                      </div>
                       <div className="dotfield__note" style={{ marginTop: 4 }}>
                         y = k/(t-a)+b
                       </div>
@@ -921,6 +935,24 @@ export default function AuctionCanvas({
                         amount = floor b + time premium
                       </div>
                     </>
+                  )}
+                  {hover.key === "curve-point" && (
+                    <div className="dotfield__poprow">
+                      <span>above floor</span>
+                      <span>
+                        {hover.floorHuman != null && hover.amountRaw
+                          ? (() => {
+                              const f = Number((hover as any).floorHuman);
+                              const amt = Number((hover as any).amountRaw);
+                              if (Number.isFinite(f) && Number.isFinite(amt) && f > 0) {
+                                const pct = ((amt - f) / f) * 100;
+                                return `${pct.toFixed(2)}%`;
+                              }
+                              return "—";
+                            })()
+                          : "—"}
+                      </span>
+                    </div>
                   )}
                   {hover.key !== "ask" &&
                     hover.key !== "curve-point" &&
