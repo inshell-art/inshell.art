@@ -853,6 +853,42 @@ export default function AuctionCanvas({
                           )}
                     </span>
                   </div>
+                  {hover.key === "ask" && (
+                    <div className="dotfield__poprow">
+                      <span>above floor</span>
+                      <span>
+                        {hover.floorHuman != null && hover.amountRaw
+                          ? (() => {
+                              const f = Number((hover as any).floorHuman);
+                              const amt = Number((hover as any).amountRaw);
+                              if (Number.isFinite(f) && Number.isFinite(amt) && f > 0) {
+                                const pct = ((amt - f) / f) * 100;
+                                return `${pct.toFixed(2)}%`;
+                              }
+                              return "—";
+                            })()
+                          : "—"}
+                      </span>
+                    </div>
+                  )}
+                  {hover.key === "curve-point" && (
+                    <div className="dotfield__poprow">
+                      <span>above floor</span>
+                      <span>
+                        {hover.floorHuman != null && hover.amountRaw
+                          ? (() => {
+                              const f = Number((hover as any).floorHuman);
+                              const amt = Number((hover as any).amountRaw);
+                              if (Number.isFinite(f) && Number.isFinite(amt) && f > 0) {
+                                const pct = ((amt - f) / f) * 100;
+                                return `${pct.toFixed(2)}%`;
+                              }
+                              return "—";
+                            })()
+                          : "—"}
+                      </span>
+                    </div>
+                  )}
                   {hover.key === "premium" && (
                     <>
                       <div className="dotfield__poprow">
@@ -878,6 +914,13 @@ export default function AuctionCanvas({
                       <span>{formatLocalTime(hover.atMs)}</span>
                     </div>
                   )}
+                  {hover.key !== "ask" &&
+                    hover.key !== "curve-point" &&
+                    hover.key !== "premium" && (
+                      <div className="dotfield__note" style={{ marginTop: 4 }}>
+                        sets floor b for this curve
+                      </div>
+                  )}
                   {hover.key === "curve-point" && (
                     <>
                       <div className="dotfield__poprow">
@@ -897,22 +940,6 @@ export default function AuctionCanvas({
                           {formatHms(
                             Math.max(0, (Date.now() - hover.atMs) / 1000)
                           )}
-                        </span>
-                      </div>
-                      <div className="dotfield__poprow">
-                        <span>above floor</span>
-                        <span>
-                          {hover.floorHuman != null && hover.amountRaw
-                            ? (() => {
-                                const f = Number((hover as any).floorHuman);
-                                const amt = Number((hover as any).amountRaw);
-                                if (Number.isFinite(f) && Number.isFinite(amt) && f > 0) {
-                                  const pct = ((amt - f) / f) * 100;
-                                  return `${pct.toFixed(2)}%`;
-                                }
-                                return "—";
-                              })()
-                            : "—"}
                         </span>
                       </div>
                       <div className="dotfield__note" style={{ marginTop: 4 }}>
@@ -935,31 +962,6 @@ export default function AuctionCanvas({
                         amount = floor b + time premium
                       </div>
                     </>
-                  )}
-                  {hover.key === "curve-point" && (
-                    <div className="dotfield__poprow">
-                      <span>above floor</span>
-                      <span>
-                        {hover.floorHuman != null && hover.amountRaw
-                          ? (() => {
-                              const f = Number((hover as any).floorHuman);
-                              const amt = Number((hover as any).amountRaw);
-                              if (Number.isFinite(f) && Number.isFinite(amt) && f > 0) {
-                                const pct = ((amt - f) / f) * 100;
-                                return `${pct.toFixed(2)}%`;
-                              }
-                              return "—";
-                            })()
-                          : "—"}
-                      </span>
-                    </div>
-                  )}
-                  {hover.key !== "ask" &&
-                    hover.key !== "curve-point" &&
-                    hover.key !== "premium" && (
-                      <div className="dotfield__note" style={{ marginTop: 4 }}>
-                        sets floor b for this curve
-                      </div>
                   )}
                 </div>
               )}
