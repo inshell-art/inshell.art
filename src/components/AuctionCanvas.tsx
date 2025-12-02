@@ -1029,7 +1029,7 @@ export default function AuctionCanvas({
                     style={{ left: hover.screenX, top: hover.screenY }}
                   >
                     <div className="muted small">
-                      {hover.epoch === 1 || hover.epoch === "1"
+                      {hover.epoch === 1
                         ? "bid #1 · genesis"
                         : `bid #${hover.epoch ?? "—"}`}
                     </div>
@@ -1046,7 +1046,7 @@ export default function AuctionCanvas({
                       <span>{formatLocalTime(hover.atMs)}</span>
                     </div>
                     <div className="dotfield__note" style={{ marginTop: 4 }}>
-                      {hover.epoch === 1 || hover.epoch === "1"
+                      {hover.epoch === 1
                         ? "mints the first $PATH and starts the first curve"
                         : "mints 1 $PATH and starts the next curve"}
                     </div>
