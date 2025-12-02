@@ -10,28 +10,29 @@ const Footer: React.FC = () => {
             href="https://facets.inshell.art"
             target="_blank"
             rel="noopener noreferrer"
+            title="facets"
           >
-            facets
+            ■■■■■■
           </a>
-        </li>{" "}
-        |
+        </li>
         <li className={styles.footerItem}>
           <a
             href="https://hone.inshell.art"
             target="_blank"
             rel="noopener noreferrer"
+            title="hone"
           >
-            hone
+            ■■■■
           </a>
         </li>
-        |
         <li className={styles.footerItem}>
           <a
             href="https://twitter.com/inshell_art"
             target="_blank"
             rel="noopener noreferrer"
+            title="X"
           >
-            X
+            ■
           </a>
         </li>
         <li className={styles.footerItem}>
@@ -39,8 +40,9 @@ const Footer: React.FC = () => {
             href="https://github.com/inshell-art"
             target="_blank"
             rel="noopener noreferrer"
+            title="github"
           >
-            github
+            ■■■■■■
           </a>
         </li>
       </ul>

@@ -5,6 +5,8 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
+  --weight-thin: 200;
+  --weight-mid: 400;
   --bg-body: #0f0f0f;
   --bg-hero: #0f0f0f;
   --text: #e8edf7;
@@ -282,7 +284,7 @@ body {
   gap: 10px;
   align-items: center;
   justify-content: center;
-  color: #9ea0a1; /* muted base for inactive/separator */
+  color: #9ea0a1; /* muted base for inactive/separator (light) */
 }
 
 .dotfield__tab {
@@ -292,18 +294,18 @@ body {
   font-size: 14px;
   letter-spacing: 0.05em;
   cursor: pointer;
-  font-weight: 200;
+  font-weight: var(--weight-thin, 200);
 }
 
 .dotfield__tab.is-active {
-  color: #fff; /* lighter for active */
-  font-weight: 300;
+  color: #2c2c2c; /* visible in light mode */
+  font-weight: var(--weight-mid, 400);
 }
 
 .dotfield__tab-sep {
   color: #9ea0a1; /* muted */
   letter-spacing: 0.08em;
-  font-weight: 200;
+  font-weight: var(--weight-thin, 200);
 }
 
 .dotfield__mint {
@@ -315,6 +317,18 @@ body {
   letter-spacing: 0.06em;
   cursor: pointer;
   padding: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .dotfield__tabs {
+    color: #9ea0a1;
+  }
+  .dotfield__tab.is-active {
+    color: #f5f5f5;
+  }
+  .dotfield__tab-sep {
+    color: #9ea0a1;
+  }
 }
 
 .dotfield__title {
@@ -401,6 +415,8 @@ body {
   display: flex;
   justify-content: space-between;
   margin-top: 8px;
+  color: var(--muted);
+  font-weight: var(--weight-thin, 200);
 }
 
 .dotfield__popover {
@@ -419,6 +435,13 @@ body {
   gap: 8px;
   font-size: 12px;
   color: var(--text);
+}
+
+.dotfield__note {
+  font-size: 12px;
+  font-style: italic;
+  font-synthesis: style;
+  color: var(--muted, var(--text));
 }
 
 .cta-btn {

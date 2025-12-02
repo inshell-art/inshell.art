@@ -55,11 +55,30 @@ type DotPoint = {
   epoch?: number;
   durationSec?: number;
   ptsHuman?: number;
+  lastSec?: number;
+  anchor?: number;
+  kHuman?: number;
+  floorHuman?: number;
 };
 
 function formatDuration(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "—";
   return `${Math.round(seconds)}s`;
+}
+
+function formatHms(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return "—";
+  const s = Math.floor(seconds);
+  const hh = Math.floor(s / 3600)
+    .toString()
+    .padStart(2, "0");
+  const mm = Math.floor((s % 3600) / 60)
+    .toString()
+    .padStart(2, "0");
+  const ss = Math.floor(s % 60)
+    .toString()
+    .padStart(2, "0");
+  return `${hh}:${mm}:${ss}`;
 }
 
 function formatLocalTime(atMs: number): string {
@@ -162,6 +181,7 @@ export default function AuctionCanvas({
     pts: string;
   }>(null);
   const [fallbackError, setFallbackError] = useState<unknown>(null);
+  const loggedCurveRef = useRef(false);
   const lastLoggedEndRef = useRef<number | null>(null);
 
   // If the core service is ready but data hasn't landed, trigger a fetch.
@@ -355,7 +375,7 @@ export default function AuctionCanvas({
       return { curve: null, reason: "floor nan" };
 
     const decFactor = Math.pow(10, decimals);
-    const kHuman = kParsed / decFactor;
+    const kHuman = kParsed / decFactor; // scale k into price units
     const ptsHumanCfg = ptsParsed / decFactor; // STRK per second (config hint)
     if (!Number.isFinite(kHuman) || !Number.isFinite(ptsHumanCfg)) {
       return { curve: null, reason: "k/pts nan" };
@@ -366,24 +386,21 @@ export default function AuctionCanvas({
     }
 
     const lastSec = last.atMs / 1000;
-    const prevSec =
-      (prev?.atMs ?? activeConfig.openTimeSec * 1000) / 1000 || lastSec;
-    const dtSecExact = Math.max(1, lastSec - prevSec);
-    const dtSecRounded = Math.max(1, Math.round(dtSecExact));
-
-    // Premium from config: STRK/sec * seconds (rounded) to keep integers clean.
-    const premiumHuman = ptsHumanCfg * dtSecRounded; // STRK bump over dt
-
-    // ptsHuman is STRK/sec. dtSec is seconds. premiumHuman in STRK.
-    if (!Number.isFinite(premiumHuman) || premiumHuman <= 0) {
-      return { curve: null, reason: "premium not finite" };
+    // Use config pts to shape the curve directly.
+    if (ptsHumanCfg <= 0) {
+      return { curve: null, reason: "pts<=0" };
     }
-
-    const ptsHumanEff = premiumHuman / dtSecRounded; // derived STRK/sec
+    const shift = Math.sqrt(kHuman / ptsHumanCfg);
+    if (!Number.isFinite(shift) || shift <= 0) {
+      return { curve: null, reason: "anchor nan" };
+    }
+    const anchor = lastSec - shift;
+    const asymptoteB = floorHuman - kHuman / shift; // y when t→∞
     const floor = floorHuman;
-    const ask = floor + premiumHuman; // ask sits above last bid
-
-    const anchor = lastSec - kHuman / premiumHuman;
+    const ask = floorHuman; // start at last price
+    const ptsHumanEff = ptsHumanCfg;
+    const metaDtSec = Math.max(1, nowSec - lastSec);
+    const premiumHuman = ptsHumanCfg * metaDtSec; // informational
     const nowSecTick = nowSec;
 
     const samples = 120;
@@ -428,17 +445,20 @@ export default function AuctionCanvas({
         });
       }
     }
-    const ysAll = [...points.map((p) => p.y), ask, floor];
+    const ysAll = [...points.map((p) => p.y), ask, floor, asymptoteB];
     const minY = Math.min(...ysAll);
     const maxY = Math.max(...ysAll);
 
-    return {
+    const curveObj = {
       curve: {
         points,
         ask,
         floor,
         startSec: lastSec,
         endSec: nowSecTick,
+        anchor,
+        k: kHuman,
+        asymptoteB,
         lastDecStr,
         lastDecValue: Number.isFinite(Number(lastDecStr))
           ? Number(lastDecStr)
@@ -447,7 +467,7 @@ export default function AuctionCanvas({
         floorDecStr: Number.isFinite(floor) ? floor.toFixed(2) : lastDecStr,
         lastEpoch: (last as any)?.epochIndex ?? (last as any)?.epoch ?? null,
         premiumHuman,
-        dtSec: dtSecRounded,
+        dtSec: metaDtSec,
         ptsHuman: ptsHumanEff,
         minX,
         maxX,
@@ -456,6 +476,22 @@ export default function AuctionCanvas({
       },
       reason: null,
     };
+    if (typeof window !== "undefined" && !loggedCurveRef.current) {
+      console.log("[curve-debug]", {
+        kHuman,
+        floor,
+        premiumHuman,
+        ptsHumanCfg,
+        ptsHumanEff,
+        anchor,
+        lastSec,
+        endSec: nowSecTick,
+        firstPoint: points[0],
+        lastPoint: points[points.length - 1],
+      });
+      loggedCurveRef.current = true;
+    }
+    return curveObj;
   }, [bids, coreLoading, activeConfig, fallbackError, decimals, nowSec]);
 
   const showBids = view === "bids";
@@ -608,6 +644,10 @@ export default function AuctionCanvas({
                               amountDec: amountStr,
                               amountRaw: amountStr,
                               atMs,
+                              lastSec: curve.startSec,
+                              anchor: (curve as any).anchor,
+                              kHuman: (curve as any).k,
+                              floorHuman: curve.floor,
                             });
                           }}
                           onMouseLeave={() => setHover(null)}
@@ -661,6 +701,10 @@ export default function AuctionCanvas({
                               amountRaw: askDecStr,
                               epoch: lastEpoch ?? undefined,
                               atMs: curve.startSec * 1000,
+                              lastSec: curve.startSec,
+                              anchor: (curve as any).anchor,
+                              kHuman: (curve as any).k,
+                              floorHuman: curve.floor,
                             })
                           }
                           onMouseLeave={() => setHover(null)}
@@ -682,6 +726,10 @@ export default function AuctionCanvas({
                               amountRaw: askDecStr,
                               epoch: lastEpoch ?? undefined,
                               atMs: curve.startSec * 1000,
+                              lastSec: curve.startSec,
+                              anchor: (curve as any).anchor,
+                              kHuman: (curve as any).k,
+                              floorHuman: curve.floor,
                             })
                           }
                           onMouseLeave={() => setHover(null)}
@@ -783,7 +831,7 @@ export default function AuctionCanvas({
                       : hover.key === "curve-point"
                       ? "ask"
                       : hover.key === "premium"
-                      ? "bumped premium"
+                      ? "time premium"
                       : (() => {
                           const idx = hover.epoch ?? hover.key?.split("#")[1];
                           return `last bid · #${idx ?? "—"}`;
@@ -798,7 +846,7 @@ export default function AuctionCanvas({
                               (hover as any).amountRaw ?? hover.amount ?? "0";
                             const n = Number(raw);
                             return Number.isFinite(n)
-                              ? `${n.toFixed(2)} STRK`
+                              ? `${n.toFixed(0)} STRK`
                               : `${String(raw)} STRK`;
                           })()
                         : formatAmount(
@@ -814,26 +862,72 @@ export default function AuctionCanvas({
                         <span>{formatDuration(hover.durationSec ?? 0)}</span>
                       </div>
                       <div className="dotfield__poprow">
-                        <span>pts</span>
+                        <span>PTS</span>
                         <span>
                           {hover.ptsHuman != null
-                            ? hover.ptsHuman.toFixed(2)
+                            ? hover.ptsHuman.toFixed(0)
                             : "—"}
                         </span>
                       </div>
+                      <div className="dotfield__note" style={{ marginTop: 4 }}>
+                        amount = duration × PTS
+                      </div>
                     </>
                   )}
-                  {hover.key === "curve-point" && (
+                  {hover.key !== "premium" && (
                     <div className="dotfield__poprow">
                       <span>time</span>
                       <span>{formatLocalTime(hover.atMs)}</span>
                     </div>
                   )}
-                  {hover.key !== "curve-point" && (
-                    <div className="dotfield__poprow">
-                      <span>time</span>
-                      <span>{formatLocalTime(hover.atMs)}</span>
-                    </div>
+                  {hover.key === "curve-point" && (
+                    <>
+                      <div className="dotfield__poprow">
+                        <span>since last bid</span>
+                        <span>
+                          {formatHms(
+                            Math.max(
+                              0,
+                              (hover.atMs - (hover.lastSec ?? 0) * 1000) / 1000
+                            )
+                          )}
+                        </span>
+                      </div>
+                      <div className="dotfield__poprow">
+                        <span>before now</span>
+                        <span>
+                          {formatHms(
+                            Math.max(0, (Date.now() - hover.atMs) / 1000)
+                          )}
+                        </span>
+                      </div>
+                      <div className="dotfield__note" style={{ marginTop: 4 }}>
+                        y = k/(t-a)+b
+                      </div>
+                      <div className="dotfield__note">
+                        k = {(hover as any).kHuman ?? "?"}
+                      </div>
+                      <div className="dotfield__note">
+                        a = {(hover as any).anchor ?? "?"}
+                      </div>
+                      <div className="dotfield__note">
+                        b = {(hover as any).floorHuman ?? "?"}
+                      </div>
+                    </>
+                  )}
+                  {hover.key === "ask" && (
+                    <>
+                      <div className="dotfield__note" style={{ marginTop: 4 }}>
+                        amount = floor b + time premium
+                      </div>
+                    </>
+                  )}
+                  {hover.key !== "ask" &&
+                    hover.key !== "curve-point" &&
+                    hover.key !== "premium" && (
+                      <div className="dotfield__note" style={{ marginTop: 4 }}>
+                        sets floor b for this curve
+                      </div>
                   )}
                 </div>
               )}
@@ -900,7 +994,11 @@ export default function AuctionCanvas({
                     className="dotfield__popover"
                     style={{ left: hover.screenX, top: hover.screenY }}
                   >
-                    <div className="muted small">bid #{hover.epoch ?? "—"}</div>
+                    <div className="muted small">
+                      {hover.epoch === 1 || hover.epoch === "1"
+                        ? "bid #1 · genesis"
+                        : `bid #${hover.epoch ?? "—"}`}
+                    </div>
                     <div className="dotfield__poprow">
                       <span>amount</span>
                       <span>{shortAmount(hover.amount)} STRK</span>
@@ -912,6 +1010,11 @@ export default function AuctionCanvas({
                     <div className="dotfield__poprow">
                       <span>time</span>
                       <span>{formatLocalTime(hover.atMs)}</span>
+                    </div>
+                    <div className="dotfield__note" style={{ marginTop: 4 }}>
+                      {hover.epoch === 1 || hover.epoch === "1"
+                        ? "mints the first $PATH and starts the first curve"
+                        : "mints 1 $PATH and starts the next curve"}
                     </div>
                   </div>
                 )}
