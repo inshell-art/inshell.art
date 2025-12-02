@@ -667,15 +667,15 @@ export default function AuctionCanvas({
                               screenX: e.clientX + 8,
                               screenY: e.clientY + 8,
                               amount:
-                                curve.premiumHuman != null
-                                  ? curve.premiumHuman.toFixed(2)
+                                (curve as any).premiumHuman != null
+                                  ? (curve as any).premiumHuman.toFixed(2)
                                   : "",
                               amountRaw:
-                                curve.premiumHuman != null
-                                  ? curve.premiumHuman.toString()
+                                (curve as any).premiumHuman != null
+                                  ? (curve as any).premiumHuman.toString()
                                   : "",
-                              durationSec: curve.dtSec ?? 0,
-                              ptsHuman: curve.ptsHuman ?? undefined,
+                              durationSec: (curve as any).dtSec ?? 0,
+                              ptsHuman: (curve as any).ptsHuman ?? undefined,
                               epoch: lastEpoch ?? undefined,
                               atMs: curve.startSec * 1000,
                             })
@@ -753,8 +753,8 @@ export default function AuctionCanvas({
                                 (curve as any).premiumHuman?.toFixed(2) ?? "",
                               amountRaw:
                                 (curve as any).premiumHuman?.toString() ?? "",
-                              durationSec: curve.dtSec ?? 0,
-                              ptsHuman: curve.ptsHuman ?? undefined,
+                              durationSec: (curve as any).dtSec ?? 0,
+                              ptsHuman: (curve as any).ptsHuman ?? undefined,
                               epoch: lastEpoch ?? undefined,
                               atMs: curve.startSec * 1000,
                             })
@@ -780,8 +780,8 @@ export default function AuctionCanvas({
                                 (curve as any).premiumHuman?.toFixed(2) ?? "",
                               amountRaw:
                                 (curve as any).premiumHuman?.toString() ?? "",
-                              durationSec: curve.dtSec ?? 0,
-                              ptsHuman: curve.ptsHuman ?? undefined,
+                              durationSec: (curve as any).dtSec ?? 0,
+                              ptsHuman: (curve as any).ptsHuman ?? undefined,
                               epoch: lastEpoch ?? undefined,
                               atMs: curve.startSec * 1000,
                             })
