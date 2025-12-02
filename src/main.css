@@ -396,7 +396,7 @@ body {
 }
 
 .dotfield__dot:hover + .dotfield__halo {
-  animation: haloFlash 0.35s ease-in-out infinite;
+  animation: haloFlash 0.8s ease-in-out infinite;
 }
 
 @keyframes haloFlash {

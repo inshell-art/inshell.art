@@ -10,7 +10,8 @@ const Footer: React.FC = () => {
             href="https://facets.inshell.art"
             target="_blank"
             rel="noopener noreferrer"
-            title="facets"
+            data-label="facets"
+            className={styles.footerLink}
           >
             ■■■■■■
           </a>
@@ -20,7 +21,8 @@ const Footer: React.FC = () => {
             href="https://hone.inshell.art"
             target="_blank"
             rel="noopener noreferrer"
-            title="hone"
+            data-label="hone"
+            className={styles.footerLink}
           >
             ■■■■
           </a>
@@ -30,7 +32,8 @@ const Footer: React.FC = () => {
             href="https://twitter.com/inshell_art"
             target="_blank"
             rel="noopener noreferrer"
-            title="X"
+            data-label="X"
+            className={styles.footerLink}
           >
             ■
           </a>
@@ -40,7 +43,8 @@ const Footer: React.FC = () => {
             href="https://github.com/inshell-art"
             target="_blank"
             rel="noopener noreferrer"
-            title="github"
+            data-label="github"
+            className={styles.footerLink}
           >
             ■■■■■■
           </a>
