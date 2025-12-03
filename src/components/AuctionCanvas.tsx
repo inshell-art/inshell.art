@@ -863,7 +863,7 @@ export default function AuctionCanvas({
                               const amt = Number((hover as any).amountRaw);
                               if (Number.isFinite(f) && Number.isFinite(amt) && f > 0) {
                                 const pct = ((amt - f) / f) * 100;
-                                return `${pct.toFixed(2)}%`;
+                                return `${pct.toFixed(5)}%`;
                               }
                               return "—";
                             })()
@@ -881,7 +881,7 @@ export default function AuctionCanvas({
                               const amt = Number((hover as any).amountRaw);
                               if (Number.isFinite(f) && Number.isFinite(amt) && f > 0) {
                                 const pct = ((amt - f) / f) * 100;
-                                return `${pct.toFixed(2)}%`;
+                                return `${pct.toFixed(5)}%`;
                               }
                               return "—";
                             })()
