@@ -10,6 +10,7 @@ import huge from "./fixtures/pulse_huge_pump.json";
 import tiny from "./fixtures/pulse_tiny_pump.json";
 import epoch2 from "./fixtures/pulse_epoch2.json";
 import stale from "./fixtures/pulse_stale.json";
+import invalid from "./fixtures/pulse_invalid.json";
 
 const EPS = 1e-3;
 
@@ -77,6 +78,16 @@ describe("buildPulseCurvePoints", () => {
     const pts = buildPulseCurvePoints(epoch, { uMax: 5, steps: 10 });
     const last = pts[pts.length - 1];
     expect(last.price - epoch.floor).toBeLessThan(100); // small premium
+  });
+
+  test("returns empty when k or D are non-positive", () => {
+    const ptsZeroK = buildPulseCurvePoints(withK(invalid));
+    expect(ptsZeroK).toEqual([]);
+    const ptsZeroD = buildPulseCurvePoints({
+      ...withK(normal),
+      D: 0,
+    });
+    expect(ptsZeroD).toEqual([]);
   });
 });
 
