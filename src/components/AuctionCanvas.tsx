@@ -690,7 +690,7 @@ export default function AuctionCanvas({
       {!isDesktop && (
         <div className="dotfield__overlay">
           <div className="muted small">
-            Desktop-only experience. Please use a larger screen for the curve view.
+            This view needs more room. Please widen your window or use a larger screen.
           </div>
         </div>
       )}
