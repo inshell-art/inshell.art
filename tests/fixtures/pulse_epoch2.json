@@ -1,0 +1,14 @@
+{
+  "k": 1000000,
+  "genesis": {
+    "floorGenesis": 1000,
+    "priceGenesis": 10000
+  },
+  "epoch": {
+    "epochIndex": 2,
+    "floor": 1000,
+    "D": null,
+    "tStart": 1700000000,
+    "tNow": 1700000600
+  }
+}

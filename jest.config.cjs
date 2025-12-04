@@ -13,6 +13,7 @@ module.exports = {
     "<rootDir>/src/App.tsx",
     "<rootDir>/src/components/AuctionCanvas.tsx",
     "<rootDir>/src/components/Movements.tsx",
+    "<rootDir>/src/pulse/**/*.{ts,tsx}",
     "<rootDir>/src/num/**/*.{ts,tsx}",
   ],
   coverageDirectory: "<rootDir>/coverage",
