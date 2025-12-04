@@ -59,6 +59,42 @@ type DotPoint = {
   anchor?: number;
   kHuman?: number;
   floorHuman?: number;
+  metaDtSec?: number;
+  beforeNowSec?: number;
+  hoverSetSec?: number;
+  tHalf?: number;
+};
+
+type CurvePoint = {
+  x: number;
+  y: number;
+  u: number;
+};
+
+type CurveData = {
+  points: CurvePoint[];
+  ask: number;
+  floor: number;
+  startSec: number;
+  endSec: number;
+  anchor?: number;
+  k?: number;
+  asymptoteB?: number;
+  lastDecStr?: string;
+  lastDecValue?: number | null;
+  askDecStr?: string;
+  floorDecStr?: string;
+  lastEpoch?: number | null;
+  premiumHuman?: number;
+  dtSec?: number;
+  ptsHuman?: number;
+  minX?: number;
+  maxX?: number;
+  minY?: number;
+  maxY?: number;
+  tHalf?: number;
+  metaU?: number;
+  metaDtSec?: number;
 };
 
 function formatDuration(seconds: number): string {
@@ -300,7 +336,10 @@ export default function AuctionCanvas({
 
   const activeConfig = core?.config ?? fallbackConfig ?? null;
 
-  const { curve, reason } = useMemo(() => {
+  const { curve, reason } = useMemo<{
+    curve: CurveData | null;
+    reason: string | null;
+  }>(() => {
     if (!activeConfig)
       return {
         curve: null,
@@ -340,18 +379,26 @@ export default function AuctionCanvas({
       const baseFloorHuman = baseFloor / decFactor;
       const nowSecTick = Date.now() / 1000;
       const startSec = activeConfig.openTimeSec;
+      const dtSinceOpen = Math.max(0, nowSecTick - startSec);
+      const tHalf = Math.max(k / Math.max(ptsPerSec, 1e-9), 1e-9);
+      const uEnd = dtSinceOpen / tHalf;
       const ask =
         baseFloorHuman + ptsPerSec * Math.max(1, nowSecTick - startSec); // synthetic ask above floor
       return {
         curve: {
           points: [
-            { x: startSec, y: ask },
-            { x: nowSecTick, y: ask },
+            { x: startSec, y: ask, u: 0 },
+            { x: nowSecTick, y: ask, u: uEnd },
           ],
           ask,
           floor: baseFloorHuman,
           startSec,
           endSec: nowSecTick,
+          tHalf,
+          metaDtSec: dtSinceOpen,
+          metaU: uEnd,
+          maxX: uEnd,
+          minX: 0,
         },
         reason: null,
       };
@@ -408,7 +455,7 @@ export default function AuctionCanvas({
     const ask = askSeed;
     const priceAtU = (u: number) => floor + premiumHuman / Math.max(u + 1, 1e-9);
     const samples = 120;
-    const points: { x: number; y: number; u: number }[] = [];
+    const points: CurvePoint[] = [];
     for (let i = 0; i <= samples; i++) {
       const u = (uMax * i) / samples;
       const tau = u * tHalf; // seconds since last bid

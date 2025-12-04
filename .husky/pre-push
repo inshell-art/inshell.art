@@ -1,4 +1,1 @@
-#!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
-
-pnpm lint && pnpm type-check && pnpm test -- --runTestsByPath tests/ArtDots.test.tsx
+pnpm lint && pnpm type-check && pnpm test -- --runTestsByPath tests/App.test.tsx tests/AuctionCanvas.test.tsx tests/Movements.test.tsx tests/num.test.ts

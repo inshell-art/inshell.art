@@ -8,6 +8,15 @@ module.exports = {
   transform: {
     "^.+\\.tsx?$": ["ts-jest", { tsconfig: "tsconfig.jest.json" }],
   },
+  collectCoverage: true,
+  collectCoverageFrom: [
+    "<rootDir>/src/App.tsx",
+    "<rootDir>/src/components/AuctionCanvas.tsx",
+    "<rootDir>/src/components/Movements.tsx",
+    "<rootDir>/src/num/**/*.{ts,tsx}",
+  ],
+  coverageDirectory: "<rootDir>/coverage",
+  coverageReporters: ["text-summary", "lcov"],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
     "\\.css$": "identity-obj-proxy",

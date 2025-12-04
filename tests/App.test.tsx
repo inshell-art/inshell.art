@@ -1,5 +1,20 @@
+import React from "react";
+import { describe, test, expect, jest } from "@jest/globals";
 import { fireEvent, render, screen, act } from "@testing-library/react";
 import "@testing-library/jest-dom";
+
+jest.mock("react-error-boundary", () => ({
+  __esModule: true,
+  ErrorBoundary: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
+}));
+
+jest.mock("../src/components/AuctionCanvas", () => ({
+  __esModule: true,
+  default: () => <div data-testid="auction-canvas" />,
+}));
+
 import App from "../src/App";
 
 describe("App Component", () => {
