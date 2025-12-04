@@ -21,6 +21,18 @@ type Props = {
   maxBids?: number;
 };
 
+function useDesktopOnly(minWidth = 768) {
+  const [isDesktop, setIsDesktop] = useState(
+    typeof window === "undefined" ? true : window.innerWidth >= minWidth
+  );
+  useEffect(() => {
+    const onResize = () => setIsDesktop(window.innerWidth >= minWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [minWidth]);
+  return isDesktop;
+}
+
 function toNumberSafe(v: string | number): number {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
@@ -288,6 +300,7 @@ export default function AuctionCanvas({
     () => (fixture ? fixtureToState(fixture, decimals) : null),
     [fixture, decimals]
   );
+  const isDesktop = useDesktopOnly();
   const {
     bids: bidsHook,
     ready: bidsReady,
@@ -674,6 +687,13 @@ export default function AuctionCanvas({
 
   return (
     <div className="panel dotfield">
+      {!isDesktop && (
+        <div className="dotfield__overlay">
+          <div className="muted small">
+            Desktop-only experience. Please use a larger screen for the curve view.
+          </div>
+        </div>
+      )}
       <div className="dotfield__nav">
         <h1 className="headline dotfield__title thin">$PATH</h1>
         <div className="dotfield__tabs">
