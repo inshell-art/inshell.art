@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuctionBids } from "@/hooks/useAuctionBids";
 import type { ProviderInterface } from "starknet";
 import { toFixed } from "@/num";
-import type { AbiSource } from "@/types/types";
+import type { AbiSource, AuctionSnapshot } from "@/types/types";
 import type { NormalizedBid } from "@/services/auction/bidsService";
 import { useAuctionCore } from "@/hooks/useAuctionCore";
 import { Contract } from "starknet";
@@ -97,6 +97,106 @@ type CurveData = {
   metaDtSec?: number;
 };
 
+type PulseFixture = {
+  k: number;
+  epoch: {
+    epochIndex: number;
+    floor: number;
+    D: number | null;
+    tStart: number;
+    tNow: number;
+  };
+};
+
+function readPulseFixture(): PulseFixture | null {
+  if (typeof window === "undefined") return null;
+  const raw =
+    (window as any).__PULSE_FIXTURE__ ??
+    (() => {
+      try {
+        const stored = window.localStorage.getItem("__PULSE_FIXTURE__");
+        if (stored) return JSON.parse(stored);
+      } catch {
+        /* ignore */
+      }
+      return null;
+    })();
+  const fx = raw;
+  if (!fx || typeof fx !== "object" || !fx.epoch) return null;
+  try {
+    const k = Number((fx as any).k);
+    const epoch = (fx as any).epoch ?? {};
+    const floor = Number(epoch.floor);
+    const tStart = Number(epoch.tStart);
+    const tNow = Number(epoch.tNow);
+    const D =
+      epoch.D == null ? null : Number.isFinite(Number(epoch.D)) ? Number(epoch.D) : null;
+    if (
+      !Number.isFinite(k) ||
+      !Number.isFinite(floor) ||
+      !Number.isFinite(tStart) ||
+      !Number.isFinite(tNow)
+    ) {
+      return null;
+    }
+    const parsed = {
+      k,
+      epoch: {
+        epochIndex: Number.isFinite(Number(epoch.epochIndex))
+          ? Number(epoch.epochIndex)
+          : 0,
+        floor,
+        D,
+        tStart,
+        tNow,
+      },
+    };
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function fixtureToState(
+  fx: PulseFixture,
+  decimals: number
+): { config: AuctionSnapshot["config"]; bids: NormalizedBid[]; nowSec: number } {
+  const scale = 10n ** BigInt(decimals);
+  const clampInt = (n: number, min = 0) =>
+    BigInt(Math.max(min, Math.round(Number.isFinite(n) ? n : 0)));
+  const floorScaled = clampInt(fx.epoch.floor) * scale;
+  const kScaled = clampInt(fx.k, 1) * scale;
+  const ptsScaled = clampInt(fx.epoch.D ?? 1, 1) * scale;
+  const toU256 = (val: bigint) => toU256Num({ low: val.toString(), high: "0" });
+  const amountU256 = toU256(floorScaled);
+  const bids: NormalizedBid[] = [
+    {
+      key: `fx#${Math.max(0, fx.epoch.epochIndex - 1)}`,
+      atMs: (fx.epoch.tStart - 1) * 1000,
+      bidder: "0xfixture-prev",
+      amount: amountU256,
+      blockNumber: 1,
+      epochIndex: Math.max(0, fx.epoch.epochIndex - 1),
+    },
+    {
+      key: `fx#${fx.epoch.epochIndex}`,
+      atMs: fx.epoch.tStart * 1000,
+      bidder: "0xfixture-last",
+      amount: amountU256,
+      blockNumber: 2,
+      epochIndex: fx.epoch.epochIndex,
+    },
+  ];
+  const config: AuctionSnapshot["config"] = {
+    openTimeSec: fx.epoch.tStart,
+    genesisPrice: amountU256,
+    genesisFloor: amountU256,
+    k: toU256(kScaled),
+    pts: ptsScaled.toString(),
+  };
+  return { config, bids, nowSec: fx.epoch.tNow || Date.now() / 1000 };
+}
+
 function formatDuration(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "—";
   return `${Math.round(seconds)}s`;
@@ -183,30 +283,55 @@ export default function AuctionCanvas({
   decimals = 18,
   maxBids = 800,
 }: Props) {
-  const { bids, ready, loading } = useAuctionBids({
+  const fixture = useMemo(() => readPulseFixture(), []);
+  const fixtureState = useMemo(
+    () => (fixture ? fixtureToState(fixture, decimals) : null),
+    [fixture, decimals]
+  );
+  const {
+    bids: bidsHook,
+    ready: bidsReady,
+    loading: bidsLoading,
+  } = useAuctionBids({
     address: address ?? "0x0",
     provider,
     refreshMs,
-    enabled: Boolean(address),
+    enabled: !fixtureState && Boolean(address),
     maxBids,
   });
   const {
-    data: core,
-    ready: coreReady,
-    loading: coreLoading,
-    error: coreError,
-    refresh: refreshCore,
+    data: coreData,
+    ready: coreReadyHook,
+    loading: coreLoadingHook,
+    error: coreErrorHook,
+    refresh: refreshCoreHook,
   } = useAuctionCore({
     address,
     provider,
     refreshMs,
     abiSource,
   });
+  const bids = fixtureState?.bids ?? bidsHook;
+  const ready = fixtureState ? true : bidsReady;
+  const loading = fixtureState ? false : bidsLoading;
+  const core = useMemo(
+    () => (fixtureState ? { config: fixtureState.config } : coreData),
+    [fixtureState, coreData]
+  );
+  const coreReady = fixtureState ? true : coreReadyHook;
+  const coreLoading = fixtureState ? false : coreLoadingHook;
+  const coreError = fixtureState ? null : coreErrorHook;
+  const refreshCore = useMemo(
+    () => (fixtureState ? async () => {} : refreshCoreHook),
+    [fixtureState, refreshCoreHook]
+  );
 
   const [hover, setHover] = useState<DotPoint | null>(null);
   const [view, setView] = useState<"curve" | "bids">("curve");
   const svgRef = useRef<SVGSVGElement | null>(null);
-  const [nowSec, setNowSec] = useState(() => Date.now() / 1000);
+  const [nowSec, setNowSec] = useState(
+    () => fixtureState?.nowSec ?? Date.now() / 1000
+  );
   const [fallbackConfig, setFallbackConfig] = useState<null | {
     openTimeSec: number;
     genesisPrice: { dec: string; value: bigint };
@@ -220,19 +345,25 @@ export default function AuctionCanvas({
 
   // If the core service is ready but data hasn't landed, trigger a fetch.
   useEffect(() => {
+    if (fixtureState) return;
     if (coreReady && !core && !coreLoading) {
       void refreshCore();
     }
-  }, [coreReady, core, coreLoading, refreshCore]);
+  }, [coreReady, core, coreLoading, refreshCore, fixtureState]);
 
   // Keep a ticking wall clock so the curve endpoint advances.
   useEffect(() => {
+    if (fixtureState) {
+      if (fixtureState.nowSec) setNowSec(fixtureState.nowSec);
+      return;
+    }
     const id = window.setInterval(() => setNowSec(Date.now() / 1000), 1000);
     return () => window.clearInterval(id);
-  }, []);
+  }, [fixtureState]);
 
   // Fallback: fetch config directly if the core hook never fills it.
   useEffect(() => {
+    if (fixtureState) return;
     let cancelled = false;
     if (core?.config) {
       if (fallbackConfig) setFallbackConfig(null);
@@ -279,7 +410,7 @@ export default function AuctionCanvas({
     return () => {
       cancelled = true;
     };
-  }, [core, address, provider, abiSource, fallbackConfig]);
+  }, [core, address, provider, abiSource, fallbackConfig, fixtureState]);
 
   const dots = useMemo(() => {
     if (!bids.length) return { points: [], label: "" };
@@ -533,18 +664,6 @@ export default function AuctionCanvas({
       reason: null,
     };
     if (typeof window !== "undefined" && !loggedCurveRef.current) {
-      console.log("[curve-debug]", {
-        kHuman,
-        floor,
-        premiumHuman,
-        ptsHumanCfg,
-        ptsHumanEff,
-        anchor,
-        lastSec,
-        endSec: nowSecTick,
-        firstPoint: points[0],
-        lastPoint: points[points.length - 1],
-      });
       loggedCurveRef.current = true;
     }
     return curveObj;
