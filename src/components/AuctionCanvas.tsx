@@ -178,7 +178,8 @@ function fixtureToState(
     BigInt(Math.max(min, Math.round(Number.isFinite(n) ? n : 0)));
   const floorScaled = clampInt(fx.epoch.floor) * scale;
   const kScaled = clampInt(fx.k, 1) * scale;
-  const ptsScaled = clampInt(fx.epoch.D ?? 1, 1) * scale;
+  // PTS is fixed to 1 on-chain; keep it constant while allowing fixture D to exercise math elsewhere.
+  const ptsScaled = 1n * scale;
   const toU256 = (val: bigint) => toU256Num({ low: val.toString(), high: "0" });
   const amountU256 = toU256(floorScaled);
   const bids: NormalizedBid[] = [
