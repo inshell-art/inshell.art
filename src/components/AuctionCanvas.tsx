@@ -5,11 +5,9 @@ import { toFixed } from "@/num";
 import type { AbiSource, AuctionSnapshot } from "@/types/types";
 import type { NormalizedBid } from "@/services/auction/bidsService";
 import { useAuctionCore } from "@/hooks/useAuctionCore";
-import { Contract } from "starknet";
 import { resolveAddress } from "@/protocol/addressBook";
 import { getDefaultProvider } from "@/protocol/contracts";
 import { readU256, toU256Num } from "@/num";
-import PulseAuctionRaw from "@/abi/devnet/PulseAuction.json";
 /* global SVGSVGElement, SVGElement */
 
 type Props = {
@@ -50,6 +48,78 @@ function shortAmount(val: string) {
     return val.slice(0, 8) + "…";
   }
   return val;
+}
+
+function splitTokenId(id: number): [string, string] {
+  const n = BigInt(Math.max(0, Math.trunc(id)));
+  const low = n & ((1n << 128n) - 1n);
+  const high = n >> 128n;
+  return [low.toString(), high.toString()];
+}
+
+function feltToBytes(value: string, count: number): number[] {
+  let n = 0n;
+  try {
+    n = BigInt(value);
+  } catch {
+    n = 0n;
+  }
+  const out: number[] = new Array(count);
+  for (let i = 0; i < count; i += 1) {
+    const shift = BigInt(8 * (count - 1 - i));
+    out[i] = Number((n >> shift) & 0xffn);
+  }
+  return out;
+}
+
+function decodeByteArray(raw: string[] | undefined): string {
+  if (!raw?.length) return "";
+  const fullWords = Number(raw[0] ?? 0);
+  let idx = 1;
+  const bytes: number[] = [];
+
+  for (let i = 0; i < fullWords; i += 1) {
+    const word = raw[idx++] ?? "0";
+    bytes.push(...feltToBytes(word, 31));
+  }
+
+  const pendingWord = raw[idx++] ?? "0";
+  const pendingLen = Number(raw[idx] ?? 0);
+  if (pendingLen > 0) {
+    bytes.push(...feltToBytes(pendingWord, pendingLen));
+  }
+
+  try {
+    return new TextDecoder().decode(new Uint8Array(bytes));
+  } catch {
+    return "";
+  }
+}
+
+function parseTokenUri(uri: string): { image?: string; name?: string } | null {
+  if (!uri) return null;
+  if (uri.startsWith("data:application/json;base64,")) {
+    const raw = uri.slice("data:application/json;base64,".length);
+    try {
+      const jsonText = atob(raw);
+      return JSON.parse(jsonText);
+    } catch {
+      return null;
+    }
+  }
+  if (uri.startsWith("data:application/json,")) {
+    const raw = uri.slice("data:application/json,".length);
+    const jsonText =
+      raw.startsWith("%7B") || raw.startsWith("%7b")
+        ? decodeURIComponent(raw)
+        : raw;
+    try {
+      return JSON.parse(jsonText);
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }
 
 type DotPoint = {
@@ -341,7 +411,12 @@ export default function AuctionCanvas({
   );
 
   const [hover, setHover] = useState<DotPoint | null>(null);
-  const [view, setView] = useState<"curve" | "bids">("curve");
+  const [view, setView] = useState<"curve" | "bids" | "look">("curve");
+  const [lookTokenId, setLookTokenId] = useState(1);
+  const [lookSvg, setLookSvg] = useState<string | null>(null);
+  const [lookTitle, setLookTitle] = useState<string | null>(null);
+  const [lookLoading, setLookLoading] = useState(false);
+  const [lookError, setLookError] = useState<string | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [nowSec, setNowSec] = useState(
     () => fixtureState?.nowSec ?? Date.now() / 1000
@@ -425,6 +500,46 @@ export default function AuctionCanvas({
       cancelled = true;
     };
   }, [core, address, provider, abiSource, fallbackConfig, fixtureState]);
+
+  useEffect(() => {
+    if (view !== "look") return;
+    let cancelled = false;
+    setLookLoading(true);
+    setLookError(null);
+    (async () => {
+      try {
+        const nftAddr = resolveAddress("path_nft");
+        const prov = provider ?? (getDefaultProvider() as any);
+        const [low, high] = splitTokenId(lookTokenId);
+        const res: any = await prov.callContract({
+          contractAddress: nftAddr,
+          entrypoint: "token_uri",
+          calldata: [low, high],
+        });
+        const raw: string[] | undefined = res?.result ?? res;
+        if (!Array.isArray(raw)) {
+          throw new Error("unexpected token_uri response");
+        }
+        const tokenUri = decodeByteArray(raw);
+        if (!tokenUri) throw new Error("empty token_uri");
+        const meta = parseTokenUri(tokenUri);
+        if (!meta?.image) throw new Error("missing image");
+        if (cancelled) return;
+        setLookSvg(meta.image);
+        setLookTitle(meta.name ?? `PATH #${lookTokenId}`);
+      } catch (err) {
+        if (cancelled) return;
+        setLookSvg(null);
+        setLookTitle(null);
+        setLookError(String(err));
+      } finally {
+        if (!cancelled) setLookLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [view, lookTokenId, provider]);
 
   const dots = useMemo(() => {
     if (!bids.length) return { points: [], label: "" };
@@ -685,6 +800,7 @@ export default function AuctionCanvas({
 
   const showBids = view === "bids";
   const showCurve = view === "curve";
+  const showLook = view === "look";
 
   return (
     <div className="panel dotfield">
@@ -710,9 +826,25 @@ export default function AuctionCanvas({
           <span className="dotfield__tab-sep">|</span>
           <button
             className={`dotfield__tab ${showCurve ? "is-active" : ""}`}
-            onClick={() => setView("curve")}
+            onClick={() => {
+              setHover(null);
+              setView("curve");
+            }}
           >
             curve
+          </button>
+          <span className="dotfield__tab-sep">|</span>
+          <button
+            className={`dotfield__tab ${showLook ? "is-active" : ""}`}
+            onClick={() => {
+              setHover(null);
+              setLookTokenId(1);
+              setLookSvg(null);
+              setLookError(null);
+              setView("look");
+            }}
+          >
+            look
           </button>
         </div>
         <button className="dotfield__mint">[ mint ]</button>
@@ -1262,6 +1394,34 @@ export default function AuctionCanvas({
             </div>
           )}
         </>
+      )}
+
+      {showLook && (
+        <div className="dotfield__canvas dotfield__look">
+          {lookLoading && <div className="muted">loading look…</div>}
+          {lookError && (
+            <div className="muted">error loading look: {lookError}</div>
+          )}
+          {!lookLoading && !lookError && lookSvg && (
+            <img
+              className="dotfield__look-img"
+              src={lookSvg}
+              alt={lookTitle ?? `PATH #${lookTokenId}`}
+            />
+          )}
+          {!lookLoading && !lookError && !lookSvg && (
+            <div className="muted">no svg yet</div>
+          )}
+          <div className="dotfield__look-label">token #{lookTokenId}</div>
+          <button
+            className="dotfield__look-next"
+            onClick={() => setLookTokenId((v) => v + 1)}
+            disabled={lookLoading}
+            aria-label="Next token"
+          >
+            &gt;
+          </button>
+        </div>
       )}
 
       {showBids && (

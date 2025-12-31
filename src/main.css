@@ -359,6 +359,51 @@ body {
   display: block;
 }
 
+.dotfield__look {
+  display: grid;
+  place-items: center;
+}
+
+.dotfield__look-img {
+  width: 100%;
+  height: min(60vh, 420px);
+  object-fit: contain;
+  display: block;
+}
+
+.dotfield__look-label {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dotfield__look-next {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--accent-border);
+  background: var(--panel);
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.dotfield__look-next:hover {
+  background: var(--accent-bg);
+}
+
+.dotfield__look-next:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .dotfield__dot {
   fill: var(--accent);
   opacity: 0.65;

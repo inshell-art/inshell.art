@@ -18,6 +18,8 @@ const browserGlobals = {
   Request: "readonly",
   Response: "readonly",
   Headers: "readonly",
+  TextDecoder: "readonly",
+  atob: "readonly",
 };
 
 const testGlobals = {
