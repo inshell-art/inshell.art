@@ -49,17 +49,6 @@ const Footer: React.FC = () => {
             ■■■■■■
           </a>
         </li>
-        <li className={styles.footerItem}>
-          <a
-            href="/gallery/index.html"
-            target="_blank"
-            rel="noopener noreferrer"
-            data-label="gallery"
-            className={styles.footerLink}
-          >
-            ■■■■■■■
-          </a>
-        </li>
       </ul>
     </footer>
   );
