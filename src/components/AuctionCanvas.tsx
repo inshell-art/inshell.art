@@ -190,7 +190,21 @@ type PulseFixture = {
   };
 };
 
-function readPulseFixture(): PulseFixture | null {
+function fixtureEnabled(): boolean {
+  if (typeof window === "undefined") return false;
+  const query = window.location.search ?? "";
+  const match = /(?:[?&])fixture=([^&]+)/.exec(query);
+  if (match) {
+    const value = match[1].toLowerCase();
+    return value !== "0" && value !== "false";
+  }
+  const env = (globalThis as any)?.__VITE_ENV__?.VITE_PULSE_FIXTURE;
+  if (env === "1" || env === "true") return true;
+  return false;
+}
+
+function readPulseFixture(enabled: boolean): PulseFixture | null {
+  if (!enabled) return null;
   if (typeof window === "undefined") return null;
   const raw =
     (window as any).__PULSE_FIXTURE__ ??
@@ -362,11 +376,12 @@ export default function AuctionCanvas({
   address,
   provider,
   abiSource,
-  refreshMs = 0,
+  refreshMs = 4000,
   decimals = 18,
   maxBids = 800,
 }: Props) {
-  const fixture = useMemo(() => readPulseFixture(), []);
+  const useFixture = useMemo(() => fixtureEnabled(), []);
+  const fixture = useMemo(() => readPulseFixture(useFixture), [useFixture]);
   const fixtureState = useMemo(
     () => (fixture ? fixtureToState(fixture, decimals) : null),
     [fixture, decimals]
