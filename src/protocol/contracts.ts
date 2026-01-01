@@ -17,6 +17,10 @@ import { type AbiSource } from "@/types/types";
 
 const envCache: Record<string, any> | undefined =
   (globalThis as any).__VITE_ENV__;
+const isTestEnv =
+  typeof globalThis !== "undefined" &&
+  typeof globalThis.process !== "undefined" &&
+  globalThis.process?.env?.NODE_ENV === "test";
 
 function getEnv(name: string): any {
   return envCache?.[name];
@@ -179,7 +183,9 @@ export async function makeTypedContract<
       assertCompatibleAbi(abiStatic, runtimeAbi as any, requiredFns);
     } catch (e) {
       if (abiSource === "auto") {
-        console.warn(`[abi:auto] ${String(e)} — falling back to artifact.`);
+        if (!isTestEnv) {
+          console.warn(`[abi:auto] ${String(e)} — falling back to artifact.`);
+        }
         return typedFromAbi(
           abiStatic as unknown as Abi,
           abiStatic,

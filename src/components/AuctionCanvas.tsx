@@ -50,6 +50,11 @@ function shortAmount(val: string) {
   return val;
 }
 
+const isTestEnv =
+  typeof globalThis !== "undefined" &&
+  typeof globalThis.process !== "undefined" &&
+  globalThis.process?.env?.NODE_ENV === "test";
+
 function splitTokenId(id: number): [string, string] {
   const n = BigInt(Math.max(0, Math.trunc(id)));
   const low = n & ((1n << 128n) - 1n);
@@ -913,7 +918,7 @@ export default function AuctionCanvas({
     const minX = 0;
     const maxX = uMax;
     // Debug log to verify endpoints align with wall clock (throttled)
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && !isTestEnv) {
       const lastPt = points[points.length - 1];
       if (
         lastPt &&
