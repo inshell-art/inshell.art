@@ -144,7 +144,7 @@ describe("AuctionCanvas with pulse fixtures", () => {
         clientX: 10,
         clientY: 10,
       });
-      expect(screen.getByText(/amount/i)).toBeTruthy();
+      expect(screen.getByText(/price/i)).toBeTruthy();
     });
   });
 
@@ -159,7 +159,7 @@ describe("AuctionCanvas with pulse fixtures", () => {
       clientX: 15,
       clientY: 10,
     });
-    expect(screen.getByText(/amount/i)).toBeTruthy();
+    expect(screen.getByText(/price/i)).toBeTruthy();
   });
 
   test("epoch 2 fixture renders with synthetic curve", () => {
@@ -173,7 +173,7 @@ describe("AuctionCanvas with pulse fixtures", () => {
       clientX: 12,
       clientY: 8,
     });
-    expect(screen.getByText(/amount/i)).toBeTruthy();
+    expect(screen.getByText(/price/i)).toBeTruthy();
   });
 
   test("bids tab popover renders amounts", () => {
@@ -186,7 +186,7 @@ describe("AuctionCanvas with pulse fixtures", () => {
       clientX: 5,
       clientY: 5,
     });
-    expect(screen.getByText(/bid #/i)).toBeTruthy();
+    expect(screen.getByText(/sale #/i)).toBeTruthy();
     expect(screen.getByText(/STRK/i)).toBeTruthy();
   });
 });

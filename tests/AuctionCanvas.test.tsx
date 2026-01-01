@@ -88,7 +88,7 @@ describe("AuctionCanvas", () => {
       clientY: 10,
     });
 
-    expect(screen.getByText(/bid #/i)).toBeTruthy();
+    expect(screen.getByText(/sale #/i)).toBeTruthy();
     expect(screen.getByText(/STRK/)).toBeTruthy();
   });
 
@@ -110,7 +110,7 @@ describe("AuctionCanvas", () => {
       clientY: 10,
     });
     await waitFor(() => {
-      expect(screen.getByText(/above floor/i)).toBeTruthy();
+      expect(screen.getByText(/premium vs floor/i)).toBeTruthy();
     });
   });
 
