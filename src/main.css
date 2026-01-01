@@ -342,6 +342,7 @@ body {
   background: var(--bg-body);
   padding: 0;
   position: relative;
+  height: min(60vh, 420px);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -362,14 +363,14 @@ body {
 .dotfield__look {
   display: grid;
   place-items: center;
-  height: min(60vh, 420px);
   overflow: hidden;
+  height: 100%;
+  background: #000;
 }
 
 .dotfield__look-img {
+  width: 100%;
   height: 100%;
-  width: auto;
-  max-width: 100%;
   object-fit: contain;
   display: block;
 }
@@ -405,6 +406,10 @@ body {
 .dotfield__look-next:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.dotfield__axes--ghost {
+  visibility: hidden;
 }
 
 .dotfield__dot {

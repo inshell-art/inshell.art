@@ -1412,31 +1412,37 @@ export default function AuctionCanvas({
       )}
 
       {showLook && (
-        <div className="dotfield__canvas dotfield__look">
-          {lookLoading && <div className="muted">loading look…</div>}
-          {lookError && (
-            <div className="muted">error loading look: {lookError}</div>
-          )}
-          {!lookLoading && !lookError && lookSvg && (
-            <img
-              className="dotfield__look-img"
-              src={lookSvg}
-              alt={lookTitle ?? `PATH #${lookTokenId}`}
-            />
-          )}
-          {!lookLoading && !lookError && !lookSvg && (
-            <div className="muted">no svg yet</div>
-          )}
-          <div className="dotfield__look-label">token #{lookTokenId}</div>
-          <button
-            className="dotfield__look-next"
-            onClick={() => setLookTokenId((v) => v + 1)}
-            disabled={lookLoading}
-            aria-label="Next token"
-          >
-            &gt;
-          </button>
-        </div>
+        <>
+          <div className="dotfield__canvas dotfield__look">
+            {lookLoading && <div className="muted">loading look…</div>}
+            {lookError && (
+              <div className="muted">error loading look: {lookError}</div>
+            )}
+            {!lookLoading && !lookError && lookSvg && (
+              <img
+                className="dotfield__look-img"
+                src={lookSvg}
+                alt={lookTitle ?? `PATH #${lookTokenId}`}
+              />
+            )}
+            {!lookLoading && !lookError && !lookSvg && (
+              <div className="muted">no svg yet</div>
+            )}
+            <div className="dotfield__look-label">token #{lookTokenId}</div>
+            <button
+              className="dotfield__look-next"
+              onClick={() => setLookTokenId((v) => v + 1)}
+              disabled={lookLoading}
+              aria-label="Next token"
+            >
+              &gt;
+            </button>
+          </div>
+          <div className="dotfield__axes dotfield__axes--ghost muted small">
+            <span>time →</span>
+            <span>price ↑</span>
+          </div>
+        </>
       )}
 
       {showBids && (
