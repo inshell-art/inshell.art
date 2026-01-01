@@ -96,13 +96,47 @@ function decodeByteArray(raw: string[] | undefined): string {
   }
 }
 
-function parseTokenUri(uri: string): { image?: string; name?: string } | null {
+type MetaAttribute = { trait_type: string; value: string };
+
+function normalizeAttrValue(value: unknown): string {
+  if (value == null) return "—";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean")
+    return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function normalizeAttributes(raw: unknown): MetaAttribute[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const entry = item as { trait_type?: unknown; value?: unknown };
+      const trait =
+        entry.trait_type != null ? String(entry.trait_type) : "attribute";
+      return { trait_type: trait, value: normalizeAttrValue(entry.value) };
+    })
+    .filter((item): item is MetaAttribute => Boolean(item));
+}
+
+function parseTokenUri(
+  uri: string
+): { image?: string; name?: string; attributes?: MetaAttribute[] } | null {
   if (!uri) return null;
   if (uri.startsWith("data:application/json;base64,")) {
     const raw = uri.slice("data:application/json;base64,".length);
     try {
       const jsonText = atob(raw);
-      return JSON.parse(jsonText);
+      const parsed = JSON.parse(jsonText);
+      return {
+        image: parsed?.image,
+        name: parsed?.name,
+        attributes: normalizeAttributes(parsed?.attributes),
+      };
     } catch {
       return null;
     }
@@ -114,7 +148,12 @@ function parseTokenUri(uri: string): { image?: string; name?: string } | null {
         ? decodeURIComponent(raw)
         : raw;
     try {
-      return JSON.parse(jsonText);
+      const parsed = JSON.parse(jsonText);
+      return {
+        image: parsed?.image,
+        name: parsed?.name,
+        attributes: normalizeAttributes(parsed?.attributes),
+      };
     } catch {
       return null;
     }
@@ -135,6 +174,7 @@ type DotPoint = {
   atMs: number;
   block?: number;
   epoch?: number;
+  tokenId?: number;
   durationSec?: number;
   ptsHuman?: number;
   lastSec?: number;
@@ -431,7 +471,49 @@ export default function AuctionCanvas({
   const [lookSvg, setLookSvg] = useState<string | null>(null);
   const [lookTitle, setLookTitle] = useState<string | null>(null);
   const [lookLoading, setLookLoading] = useState(false);
+  const [lookLoadingVisible, setLookLoadingVisible] = useState(false);
+  const [lookEmptyVisible, setLookEmptyVisible] = useState(false);
   const [lookError, setLookError] = useState<string | null>(null);
+  const [lookAttrs, setLookAttrs] = useState<MetaAttribute[]>([]);
+  const [lookHover, setLookHover] = useState<{ x: number; y: number } | null>(
+    null
+  );
+  const [lookNotice, setLookNotice] = useState<{
+    text: string;
+    side: "left" | "right";
+  } | null>(null);
+  const lookAttrDisplay = useMemo(() => {
+    if (!lookAttrs.length) return [];
+    const labelMap: Record<string, string> = {
+      Steps: "segments",
+      Voice: "stroke-width",
+      Tension: "sharpness",
+      Margin: "padding-pct",
+      Breath: "sigma",
+    };
+    return lookAttrs.map((attr) => ({
+      label: labelMap[attr.trait_type] ?? attr.trait_type,
+      value: attr.value.replace(/Manifested/gi, "Minted"),
+    }));
+  }, [lookAttrs]);
+  const lookMovementDisplay = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const attr of lookAttrDisplay) {
+      const cleaned = attr.value
+        .replace(/\b(?:Minted|Manifested)\b/gi, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      map.set(attr.label, cleaned || "—");
+    }
+    return ["THOUGHT", "WILL", "AWA"].map((label) => ({
+      label,
+      value: map.get(label) ?? "—",
+    }));
+  }, [lookAttrDisplay]);
+  const bidSvgCache = useRef<Map<number, string>>(new Map());
+  const [bidSvgTokenId, setBidSvgTokenId] = useState<number | null>(null);
+  const [bidSvg, setBidSvg] = useState<string | null>(null);
+  const [bidSvgLoading, setBidSvgLoading] = useState(false);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [nowSec, setNowSec] = useState(
     () => fixtureState?.nowSec ?? Date.now() / 1000
@@ -521,6 +603,7 @@ export default function AuctionCanvas({
     let cancelled = false;
     setLookLoading(true);
     setLookError(null);
+    setLookAttrs([]);
     (async () => {
       try {
         const nftAddr = resolveAddress("path_nft");
@@ -542,10 +625,12 @@ export default function AuctionCanvas({
         if (cancelled) return;
         setLookSvg(meta.image);
         setLookTitle(meta.name ?? `PATH #${lookTokenId}`);
+        setLookAttrs(meta.attributes ?? []);
       } catch (err) {
         if (cancelled) return;
         setLookSvg(null);
         setLookTitle(null);
+        setLookAttrs([]);
         setLookError(String(err));
       } finally {
         if (!cancelled) setLookLoading(false);
@@ -555,6 +640,79 @@ export default function AuctionCanvas({
       cancelled = true;
     };
   }, [view, lookTokenId, provider]);
+
+  useEffect(() => {
+    if (!lookLoading) {
+      setLookLoadingVisible(false);
+      setLookEmptyVisible(false);
+      return;
+    }
+    const id = window.setTimeout(() => setLookLoadingVisible(true), 300);
+    return () => window.clearTimeout(id);
+  }, [lookLoading]);
+
+  useEffect(() => {
+    if (lookLoading || lookError || lookSvg) {
+      setLookEmptyVisible(false);
+      return;
+    }
+    const id = window.setTimeout(() => setLookEmptyVisible(true), 300);
+    return () => window.clearTimeout(id);
+  }, [lookLoading, lookError, lookSvg]);
+
+  useEffect(() => {
+    if (!lookNotice) return;
+    const id = window.setTimeout(() => setLookNotice(null), 1200);
+    return () => window.clearTimeout(id);
+  }, [lookNotice]);
+
+  useEffect(() => {
+    if (view !== "bids") return;
+    const tokenId = hover?.tokenId ?? hover?.epoch;
+    if (tokenId == null) return;
+    const cached = bidSvgCache.current.get(tokenId);
+    if (cached) {
+      setBidSvgTokenId(tokenId);
+      setBidSvg(cached);
+      setBidSvgLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setBidSvgTokenId(tokenId);
+    setBidSvg(null);
+    setBidSvgLoading(true);
+    (async () => {
+      try {
+        const nftAddr = resolveAddress("path_nft");
+        const prov = provider ?? (getDefaultProvider() as any);
+        const [low, high] = splitTokenId(tokenId);
+        const res: any = await prov.callContract({
+          contractAddress: nftAddr,
+          entrypoint: "token_uri",
+          calldata: [low, high],
+        });
+        const raw: string[] | undefined = res?.result ?? res;
+        if (!Array.isArray(raw)) {
+          throw new Error("unexpected token_uri response");
+        }
+        const tokenUri = decodeByteArray(raw);
+        if (!tokenUri) throw new Error("empty token_uri");
+        const meta = parseTokenUri(tokenUri);
+        if (!meta?.image) throw new Error("missing image");
+        if (cancelled) return;
+        bidSvgCache.current.set(tokenId, meta.image);
+        setBidSvg(meta.image);
+      } catch {
+        if (cancelled) return;
+        setBidSvg(null);
+      } finally {
+        if (!cancelled) setBidSvgLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [view, hover?.tokenId, hover?.epoch, provider]);
 
   const dots = useMemo(() => {
     if (!bids.length) return { points: [], label: "" };
@@ -603,6 +761,7 @@ export default function AuctionCanvas({
         atMs: b.atMs,
         block: b.blockNumber,
         epoch: b.epochIndex,
+        tokenId: b.tokenId ?? b.epochIndex,
       };
     });
 
@@ -816,6 +975,22 @@ export default function AuctionCanvas({
   const showBids = view === "bids";
   const showCurve = view === "curve";
   const showLook = view === "look";
+  const maxTokenId = useMemo(() => {
+    if (!bids.length) return null;
+    let max = 0;
+    for (const bid of bids) {
+      const id = bid.tokenId ?? bid.epochIndex ?? 0;
+      if (id > max) max = id;
+    }
+    return max > 0 ? max : null;
+  }, [bids]);
+
+  useEffect(() => {
+    if (view !== "look") return;
+    if (maxTokenId != null && lookTokenId > maxTokenId) {
+      setLookTokenId(maxTokenId);
+    }
+  }, [view, maxTokenId, lookTokenId]);
 
   return (
     <div className="panel dotfield">
@@ -1240,12 +1415,12 @@ export default function AuctionCanvas({
                       ? "time premium"
                       : (() => {
                           const idx = hover.epoch ?? hover.key?.split("#")[1];
-                          return `last bid · #${idx ?? "—"}`;
+                          return `last sale · #${idx ?? "—"}`;
                         })()}
-                  </div>
-                  <div className="dotfield__poprow">
-                    <span>amount</span>
-                    <span>
+                    </div>
+                    <div className="dotfield__poprow">
+                      <span>price</span>
+                      <span>
                           {hover.key === "premium"
                             ? (() => {
                                 const raw =
@@ -1273,7 +1448,7 @@ export default function AuctionCanvas({
                   </div>
                   {hover.key === "ask" && (
                     <div className="dotfield__poprow">
-                      <span>above floor</span>
+                      <span>premium vs floor</span>
                       <span>
                         {hover.floorHuman != null && hover.amountRaw
                           ? (() => {
@@ -1291,7 +1466,7 @@ export default function AuctionCanvas({
                   )}
                   {hover.key === "curve-point" && (
                     <div className="dotfield__poprow">
-                      <span>above floor</span>
+                      <span>premium vs floor</span>
                       <span>
                         {hover.floorHuman != null && hover.amountRaw
                           ? (() => {
@@ -1342,13 +1517,13 @@ export default function AuctionCanvas({
                   {hover.key === "curve-point" && (
                     <>
                       <div className="dotfield__poprow">
-                        <span>since last bid</span>
+                        <span>since last sale</span>
                         <span>
                           {formatHms((hover as any).durationSec ?? 0)}
                         </span>
                       </div>
                       <div className="dotfield__poprow">
-                        <span>before now</span>
+                        <span>ago</span>
                         <span>
                           {formatHms(
                             Math.max(
@@ -1414,33 +1589,97 @@ export default function AuctionCanvas({
       {showLook && (
         <>
           <div className="dotfield__canvas dotfield__look">
-            {lookLoading && <div className="muted">loading look…</div>}
+            {lookLoadingVisible && <div className="muted">loading look…</div>}
             {lookError && (
               <div className="muted">error loading look: {lookError}</div>
             )}
             {!lookLoading && !lookError && lookSvg && (
-              <img
-                className="dotfield__look-img"
-                src={lookSvg}
-                alt={lookTitle ?? `PATH #${lookTokenId}`}
-              />
+              <div
+                className="dotfield__look-viewport"
+                onMouseMove={(e) =>
+                  setLookHover({ x: e.clientX + 8, y: e.clientY + 8 })
+                }
+                onMouseLeave={() => setLookHover(null)}
+              >
+                <img
+                  className="dotfield__look-img"
+                  src={lookSvg}
+                  alt={lookTitle ?? `PATH #${lookTokenId}`}
+                />
+              </div>
             )}
-            {!lookLoading && !lookError && !lookSvg && (
-              <div className="muted">no svg yet</div>
-            )}
-            <div className="dotfield__look-label">token #{lookTokenId}</div>
+            {lookEmptyVisible && <div className="muted">no svg yet</div>}
             <button
-              className="dotfield__look-next"
-              onClick={() => setLookTokenId((v) => v + 1)}
-              disabled={lookLoading}
+              className="dotfield__look-nav dotfield__look-prev"
+              data-disabled={lookLoading || lookTokenId <= 1}
+              aria-disabled={lookLoading || lookTokenId <= 1}
+              onClick={() => {
+                if (lookLoading) return;
+                if (lookTokenId <= 1) {
+                  setLookNotice({ text: "no more", side: "left" });
+                  return;
+                }
+                setLookTokenId((v) => Math.max(1, v - 1));
+              }}
+              aria-label="Previous token"
+            >
+              &lt;
+            </button>
+            <button
+              className="dotfield__look-nav dotfield__look-next"
+              data-disabled={
+                lookLoading || (maxTokenId != null && lookTokenId >= maxTokenId)
+              }
+              aria-disabled={
+                lookLoading || (maxTokenId != null && lookTokenId >= maxTokenId)
+              }
+              onClick={() => {
+                if (lookLoading) return;
+                if (maxTokenId != null && lookTokenId >= maxTokenId) {
+                  setLookNotice({ text: "no more", side: "right" });
+                  return;
+                }
+                setLookTokenId((v) => v + 1);
+              }}
               aria-label="Next token"
             >
               &gt;
             </button>
+            {lookNotice && (
+              <div
+                className={`dotfield__look-notice dotfield__look-notice--${lookNotice.side}`}
+              >
+                {lookNotice.text}
+              </div>
+            )}
+            {!lookLoading &&
+              !lookError &&
+              lookAttrDisplay.length > 0 &&
+              lookHover && (
+                <div
+                  className="dotfield__popover"
+                  style={{ left: lookHover.x, top: lookHover.y }}
+                >
+                  <div className="muted small">attributes</div>
+                  {lookAttrDisplay.map((attr, idx) => (
+                    <div className="dotfield__poprow" key={`${attr.label}-${idx}`}>
+                      <span>{attr.label}</span>
+                      <span>{attr.value}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
           </div>
-          <div className="dotfield__axes dotfield__axes--ghost muted small">
-            <span>time →</span>
-            <span>price ↑</span>
+          <div className="dotfield__axes muted small dotfield__look-axes">
+            <span>token #{lookTokenId}</span>
+            <span className="dotfield__look-axes-right">
+              {lookMovementDisplay.map((movement) => (
+                <span key={movement.label}>
+                  {movement.label}
+                  {movement.value}
+                </span>
+              ))}
+            </span>
           </div>
         </>
       )}
@@ -1500,20 +1739,44 @@ export default function AuctionCanvas({
                   >
                     <div className="muted small">
                       {hover.epoch === 1
-                        ? "bid #1 · genesis"
-                        : `bid #${hover.epoch ?? "—"}`}
+                        ? "sale #1 · genesis"
+                        : `sale #${hover.epoch ?? "—"}`}
                     </div>
-                    <div className="dotfield__poprow">
-                      <span>amount</span>
-                      <span>{formatAmount(hover.amountDec ?? hover.amount, decimals)}</span>
-                    </div>
-                    <div className="dotfield__poprow">
-                      <span>bidder</span>
-                      <span>{shortAddr(hover.bidder)}</span>
-                    </div>
-                    <div className="dotfield__poprow">
-                      <span>time</span>
-                      <span>{formatLocalTime(hover.atMs)}</span>
+                    <div className="dotfield__popover-body">
+                      <div className="dotfield__popover-thumb">
+                        {(() => {
+                          const tokenId = hover.tokenId ?? hover.epoch;
+                          if (tokenId == null) {
+                            return <div className="muted small">no svg</div>;
+                          }
+                          if (bidSvgLoading && bidSvgTokenId === tokenId) {
+                            return <div className="muted small">loading...</div>;
+                          }
+                          if (bidSvg && bidSvgTokenId === tokenId) {
+                            return <img src={bidSvg} alt={`PATH #${tokenId}`} />;
+                          }
+                          return <div className="muted small">no svg</div>;
+                        })()}
+                      </div>
+                      <div className="dotfield__popover-meta">
+                        <div className="dotfield__poprow">
+                          <span>price</span>
+                          <span>
+                            {formatAmount(
+                              hover.amountDec ?? hover.amount,
+                              decimals
+                            )}
+                          </span>
+                        </div>
+                        <div className="dotfield__poprow">
+                          <span>bidder</span>
+                          <span>{shortAddr(hover.bidder)}</span>
+                        </div>
+                        <div className="dotfield__poprow">
+                          <span>time</span>
+                          <span>{formatLocalTime(hover.atMs)}</span>
+                        </div>
+                      </div>
                     </div>
                     <div className="dotfield__note" style={{ marginTop: 4 }}>
                       {hover.epoch === 1
