@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, test, beforeEach, afterEach, expect, jest } from "@jest/globals";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import AuctionCanvas from "../src/components/AuctionCanvas";
 import normal from "./fixtures/pulse_normal.json";
 import huge from "./fixtures/pulse_huge_pump.json";
@@ -144,7 +144,9 @@ describe("AuctionCanvas with pulse fixtures", () => {
         clientX: 10,
         clientY: 10,
       });
-      expect(screen.getByText(/price/i)).toBeTruthy();
+      const popover = container.querySelector(".dotfield__popover");
+      expect(popover).toBeTruthy();
+      expect(within(popover as HTMLElement).getByText(/^price$/i)).toBeTruthy();
     });
   });
 
@@ -159,7 +161,9 @@ describe("AuctionCanvas with pulse fixtures", () => {
       clientX: 15,
       clientY: 10,
     });
-    expect(screen.getByText(/price/i)).toBeTruthy();
+    const popover = container.querySelector(".dotfield__popover");
+    expect(popover).toBeTruthy();
+    expect(within(popover as HTMLElement).getByText(/^price$/i)).toBeTruthy();
   });
 
   test("epoch 2 fixture renders with synthetic curve", () => {
@@ -173,7 +177,9 @@ describe("AuctionCanvas with pulse fixtures", () => {
       clientX: 12,
       clientY: 8,
     });
-    expect(screen.getByText(/price/i)).toBeTruthy();
+    const popover = container.querySelector(".dotfield__popover");
+    expect(popover).toBeTruthy();
+    expect(within(popover as HTMLElement).getByText(/^price$/i)).toBeTruthy();
   });
 
   test("bids tab popover renders amounts", () => {
