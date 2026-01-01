@@ -10,6 +10,7 @@ import {
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import React from "react";
 import AuctionCanvas from "../src/components/AuctionCanvas";
+import { mockAuctionCore } from "./testUtils";
 
 const mockUseAuctionBids = jest.fn();
 const mockUseAuctionCore = jest.fn();
@@ -56,21 +57,7 @@ describe("AuctionCanvas", () => {
       loading: false,
       error: null,
     });
-    mockUseAuctionCore.mockReturnValue({
-      data: {
-        config: {
-          openTimeSec: Date.UTC(2024, 0, 1) / 1000,
-          genesisPrice: { dec: "1" },
-          genesisFloor: { dec: "1" },
-          k: { dec: "10" },
-          pts: "1",
-        },
-      },
-      ready: true,
-      loading: false,
-      error: null,
-      refresh: jest.fn(),
-    });
+    mockAuctionCore(mockUseAuctionCore);
   });
 
   afterEach(() => {
