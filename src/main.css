@@ -342,6 +342,7 @@ body {
   background: var(--bg-body);
   padding: 0;
   position: relative;
+  height: min(60vh, 420px);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -355,8 +356,128 @@ body {
 
 .dotfield__canvas svg {
   width: 100%;
-  height: min(60vh, 420px);
+  height: 100%;
   display: block;
+}
+
+.dotfield__look {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.dotfield__look-viewport {
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dotfield__look-img {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  object-position: center;
+  display: block;
+}
+
+.dotfield__look-label {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dotfield__look-attrs {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
+  max-width: calc(100% - 24px);
+}
+
+.dotfield__look-attr {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 200px;
+}
+
+.dotfield__look-attr span:last-child {
+  color: var(--text);
+  text-align: right;
+}
+
+.dotfield__look-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.dotfield__look-nav:hover {
+  background: var(--ghost-bg);
+}
+
+.dotfield__look-nav[data-disabled="true"] {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.dotfield__look-prev {
+  left: 12px;
+}
+
+.dotfield__look-next {
+  right: 12px;
+}
+
+.dotfield__look-notice {
+  position: absolute;
+  right: 52px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  pointer-events: none;
+}
+
+.dotfield__look-notice--left {
+  right: auto;
+  left: 52px;
+}
+
+.dotfield__look-axes-right {
+  display: flex;
+  gap: 12px;
+  text-align: right;
+}
+
+.dotfield__axes--ghost {
+  visibility: hidden;
 }
 
 .dotfield__dot {
@@ -425,8 +546,44 @@ body {
   border: 1px solid var(--panel-border);
   padding: 10px 12px;
   min-width: 200px;
+  --popover-row-height: 14px;
+  --popover-row-gap: 6px;
+  --popover-thumb-size: calc(
+    (var(--popover-row-height) * 3) + (var(--popover-row-gap) * 2)
+  );
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
   pointer-events: none;
+}
+
+.dotfield__popover-body {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-top: 6px;
+}
+
+.dotfield__popover-thumb {
+  width: var(--popover-thumb-size);
+  height: var(--popover-thumb-size);
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dotfield__popover-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.dotfield__popover-meta {
+  display: grid;
+  gap: var(--popover-row-gap);
+  min-width: 140px;
+  flex: 1;
 }
 
 .dotfield__poprow {
@@ -434,6 +591,7 @@ body {
   justify-content: space-between;
   gap: 8px;
   font-size: 12px;
+  line-height: var(--popover-row-height);
   color: var(--text);
 }
 

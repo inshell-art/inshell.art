@@ -13,6 +13,7 @@ export type NormalizedBid = {
   id?: number;
   blockNumber?: number;
   epochIndex?: number;
+  tokenId?: number;
 };
 
 export function createBidsService(opts: {
@@ -97,6 +98,20 @@ export function createBidsService(opts: {
       ? `tx:${txHash.toLowerCase()}`
       : `mix:${sel}|${amount.raw.low}|${amount.raw.high}|${atMs}`;
 
+    let tokenId: number | undefined;
+    if (keysArr.length >= 4) {
+      try {
+        const low = BigInt(keysArr[2]);
+        const high = BigInt(keysArr[3]);
+        const big = low + (high << 128n);
+        if (big >= 0 && big <= BigInt(Number.MAX_SAFE_INTEGER)) {
+          tokenId = Number(big);
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
     return {
       key,
       atMs,
@@ -110,6 +125,7 @@ export function createBidsService(opts: {
         dataArr.length >= 7 && Number.isFinite(Number(dataArr[6]))
           ? Number(dataArr[6])
           : undefined,
+      tokenId,
     };
   }
 

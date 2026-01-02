@@ -18,6 +18,8 @@ const browserGlobals = {
   Request: "readonly",
   Response: "readonly",
   Headers: "readonly",
+  TextDecoder: "readonly",
+  atob: "readonly",
 };
 
 const testGlobals = {
@@ -72,7 +74,7 @@ const reactRefresh = require("eslint-plugin-react-refresh");
 
 export default [
   {
-    ignores: ["dist/**", "node_modules/**", ".eslintrc.cjs"],
+    ignores: ["coverage/**", "dist/**", "node_modules/**", ".eslintrc.cjs"],
   },
   {
     files: ["**/*.{js,jsx,ts,tsx}"],

@@ -22,3 +22,11 @@ if (typeof globalThis.fetch === "undefined") {
 if (typeof globalThis.__VITE_ENV__ === "undefined") {
   globalThis.__VITE_ENV__ = {};
 }
+
+const originalInfo = console.info;
+console.info = (...args) => {
+  if (typeof args[0] === "string") {
+    if (args[0].includes("Download the React DevTools")) return;
+  }
+  originalInfo(...args);
+};

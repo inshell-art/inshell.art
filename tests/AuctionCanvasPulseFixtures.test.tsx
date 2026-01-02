@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, test, beforeEach, afterEach, expect, jest } from "@jest/globals";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within, act } from "@testing-library/react";
 import AuctionCanvas from "../src/components/AuctionCanvas";
 import normal from "./fixtures/pulse_normal.json";
 import huge from "./fixtures/pulse_huge_pump.json";
@@ -10,6 +10,12 @@ import stale from "./fixtures/pulse_stale.json";
 
 const mockUseAuctionBids = jest.fn();
 const mockUseAuctionCore = jest.fn();
+const mockCallContract = jest.fn<
+  (...args: any[]) => Promise<{ result: string[] }>
+>();
+const mockProvider = {
+  callContract: mockCallContract,
+};
 
 jest.mock("../src/hooks/useAuctionBids", () => ({
   useAuctionBids: (...args: any[]) => mockUseAuctionBids(...args),
@@ -114,6 +120,8 @@ function stubSvg(container: HTMLElement) {
 
 describe("AuctionCanvas with pulse fixtures", () => {
   beforeEach(() => {
+    mockCallContract.mockReset();
+    mockCallContract.mockResolvedValue({ result: [] });
     jest.useFakeTimers();
     jest.setSystemTime(new Date(normal.epoch.tNow * 1000));
   });
@@ -133,7 +141,9 @@ describe("AuctionCanvas with pulse fixtures", () => {
     test(`renders and shows tooltip for ${label} fixture`, () => {
       withFixture(fx);
       jest.setSystemTime(new Date((fx as any).epoch.tNow * 1000));
-      const { container } = render(<AuctionCanvas address="0xabc" />);
+      const { container } = render(
+        <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+      );
       stubSvg(container);
       expect(screen.getByRole("img", { name: /pulse curve/i })).toBeTruthy();
       expect(screen.getByText(/time/i)).toBeTruthy();
@@ -144,14 +154,18 @@ describe("AuctionCanvas with pulse fixtures", () => {
         clientX: 10,
         clientY: 10,
       });
-      expect(screen.getByText(/amount/i)).toBeTruthy();
+      const popover = container.querySelector(".dotfield__popover");
+      expect(popover).toBeTruthy();
+      expect(within(popover as HTMLElement).getByText(/^price$/i)).toBeTruthy();
     });
   });
 
   test("renders without cliff for huge pump fixture", () => {
     withFixture(huge);
     jest.setSystemTime(new Date((huge as any).epoch.tNow * 1000));
-    const { container } = render(<AuctionCanvas address="0xdef" />);
+    const { container } = render(
+      <AuctionCanvas address="0xdef" provider={mockProvider as any} />
+    );
     stubSvg(container);
     const path = container.querySelector(".dotfield__curve");
     expect(path).toBeTruthy();
@@ -159,13 +173,17 @@ describe("AuctionCanvas with pulse fixtures", () => {
       clientX: 15,
       clientY: 10,
     });
-    expect(screen.getByText(/amount/i)).toBeTruthy();
+    const popover = container.querySelector(".dotfield__popover");
+    expect(popover).toBeTruthy();
+    expect(within(popover as HTMLElement).getByText(/^price$/i)).toBeTruthy();
   });
 
   test("epoch 2 fixture renders with synthetic curve", () => {
     withFixture(epoch2);
     jest.setSystemTime(new Date((epoch2 as any).epoch.tNow * 1000));
-    const { container } = render(<AuctionCanvas address="0xghi" />);
+    const { container } = render(
+      <AuctionCanvas address="0xghi" provider={mockProvider as any} />
+    );
     stubSvg(container);
     const path = container.querySelector(".dotfield__curve");
     expect(path).toBeTruthy();
@@ -173,20 +191,27 @@ describe("AuctionCanvas with pulse fixtures", () => {
       clientX: 12,
       clientY: 8,
     });
-    expect(screen.getByText(/amount/i)).toBeTruthy();
+    const popover = container.querySelector(".dotfield__popover");
+    expect(popover).toBeTruthy();
+    expect(within(popover as HTMLElement).getByText(/^price$/i)).toBeTruthy();
   });
 
-  test("bids tab popover renders amounts", () => {
+  test("bids tab popover renders amounts", async () => {
     withFixture(normal);
-    const { container } = render(<AuctionCanvas address="0xabc" />);
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
     fireEvent.click(screen.getByText(/bids/i));
     const dot = container.querySelector(".dotfield__dot");
     expect(dot).toBeTruthy();
-    fireEvent.mouseMove(dot as unknown as HTMLElement, {
-      clientX: 5,
-      clientY: 5,
+    await act(async () => {
+      fireEvent.mouseMove(dot as unknown as HTMLElement, {
+        clientX: 5,
+        clientY: 5,
+      });
+      await Promise.resolve();
     });
-    expect(screen.getByText(/bid #/i)).toBeTruthy();
+    expect(screen.getByText(/sale #/i)).toBeTruthy();
     expect(screen.getByText(/STRK/i)).toBeTruthy();
   });
 });
