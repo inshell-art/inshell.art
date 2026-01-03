@@ -5,6 +5,7 @@ import {
   fireEvent,
   waitFor,
   act,
+  within,
 } from "@testing-library/react";
 import React from "react";
 import { describe, test, beforeEach, afterEach, expect, jest } from "@jest/globals";
@@ -90,7 +91,13 @@ describe("AuctionCanvas look tab", () => {
 
     expect(screen.getByText(/attributes/i)).toBeTruthy();
     expect(screen.getByText(/steps/i)).toBeTruthy();
-    expect(screen.getByText(/Manifested\(1\/2\)/i)).toBeTruthy();
+    const popover = container.querySelector(
+      ".dotfield__popover"
+    ) as HTMLElement;
+    expect(popover).toBeTruthy();
+    expect(
+      within(popover).getByText(/Manifested\(1\/2\)/i)
+    ).toBeTruthy();
   });
 
   test("look nav shows no more at lower bound", async () => {
@@ -152,7 +159,7 @@ describe("AuctionCanvas look tab", () => {
     fireEvent.click(screen.getByText(/look/i));
 
     await waitFor(() => {
-      expect(screen.getByText(/token #1/i)).toBeTruthy();
+      expect(screen.getByRole("img", { name: /path #1/i })).toBeTruthy();
     });
 
     fireEvent.click(screen.getByLabelText(/next token/i));

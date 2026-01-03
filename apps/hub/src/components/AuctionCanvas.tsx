@@ -104,6 +104,12 @@ function decodeByteArray(raw: string[] | undefined): string {
 }
 
 type MetaAttribute = { trait_type: string; value: string };
+type LookData = {
+  svg: string;
+  title: string;
+  attrs: MetaAttribute[];
+  tokenId: number;
+};
 
 function normalizeAttrValue(value: unknown): string {
   if (value == null) return "—";
@@ -475,6 +481,7 @@ export default function AuctionCanvas({
   const [hover, setHover] = useState<DotPoint | null>(null);
   const [view, setView] = useState<"curve" | "bids" | "look">("curve");
   const [lookTokenId, setLookTokenId] = useState(1);
+  const [lookDisplayTokenId, setLookDisplayTokenId] = useState(1);
   const [lookSvg, setLookSvg] = useState<string | null>(null);
   const [lookTitle, setLookTitle] = useState<string | null>(null);
   const [lookLoading, setLookLoading] = useState(false);
@@ -486,6 +493,16 @@ export default function AuctionCanvas({
     useState(false);
   const [lookError, setLookError] = useState<string | null>(null);
   const [lookAttrs, setLookAttrs] = useState<MetaAttribute[]>([]);
+  const [lookIncoming, setLookIncoming] = useState<LookData | null>(null);
+  const [lookSlideDir, setLookSlideDir] = useState<"next" | "prev" | null>(
+    null
+  );
+  const [lookSlidePhase, setLookSlidePhase] = useState<
+    "idle" | "prep" | "animating"
+  >("idle");
+  const lookSvgRef = useRef<string | null>(null);
+  const lookSlideDirRef = useRef<"next" | "prev" | null>(null);
+  const lookSlidePhaseRef = useRef<"idle" | "prep" | "animating">("idle");
   const [lookHover, setLookHover] = useState<{ x: number; y: number } | null>(
     null
   );
@@ -534,6 +551,9 @@ export default function AuctionCanvas({
   const [fallbackError, setFallbackError] = useState<unknown>(null);
   const loggedCurveRef = useRef(false);
   const lastLoggedEndRef = useRef<number | null>(null);
+  lookSvgRef.current = lookSvg;
+  lookSlideDirRef.current = lookSlideDir;
+  lookSlidePhaseRef.current = lookSlidePhase;
 
   // If the core service is ready but data hasn't landed, trigger a fetch.
   useEffect(() => {
@@ -609,7 +629,6 @@ export default function AuctionCanvas({
     let cancelled = false;
     setLookLoading(true);
     setLookError(null);
-    setLookAttrs([]);
     (async () => {
       try {
         const nftAddr = resolveAddress("path_nft");
@@ -629,15 +648,38 @@ export default function AuctionCanvas({
         const meta = parseTokenUri(tokenUri);
         if (!meta?.image) throw new Error("missing image");
         if (cancelled) return;
-        setLookSvg(meta.image);
-        setLookTitle(meta.name ?? `PATH #${lookTokenId}`);
-        setLookAttrs(meta.attributes ?? []);
+        const nextData: LookData = {
+          svg: meta.image,
+          title: meta.name ?? `PATH #${lookTokenId}`,
+          attrs: meta.attributes ?? [],
+          tokenId: lookTokenId,
+        };
+        const canSlide =
+          !isTestEnv &&
+          lookSvgRef.current &&
+          lookSlideDirRef.current &&
+          lookSlidePhaseRef.current === "idle";
+        if (canSlide) {
+          setLookIncoming(nextData);
+          setLookSlidePhase("prep");
+        } else {
+          setLookSvg(nextData.svg);
+          setLookTitle(nextData.title);
+          setLookAttrs(nextData.attrs);
+          setLookDisplayTokenId(nextData.tokenId);
+          setLookIncoming(null);
+          setLookSlidePhase("idle");
+          setLookSlideDir(null);
+        }
       } catch (err) {
         if (cancelled) return;
         setLookSvg(null);
         setLookTitle(null);
         setLookAttrs([]);
         setLookError(String(err));
+        setLookIncoming(null);
+        setLookSlidePhase("idle");
+        setLookSlideDir(null);
       } finally {
         if (!cancelled) setLookLoading(false);
       }
@@ -646,6 +688,14 @@ export default function AuctionCanvas({
       cancelled = true;
     };
   }, [view, lookTokenId, provider]);
+
+  useEffect(() => {
+    if (lookSlidePhase !== "prep") return;
+    const id = window.requestAnimationFrame(() => {
+      setLookSlidePhase("animating");
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [lookSlidePhase]);
 
   useEffect(() => {
     if (!lookLoading) {
@@ -1035,6 +1085,23 @@ export default function AuctionCanvas({
   const showBids = view === "bids";
   const showCurve = view === "curve";
   const showLook = view === "look";
+  const lookSliding =
+    lookSlidePhase !== "idle" &&
+    Boolean(lookIncoming && lookSvg && lookSlideDir);
+  const currentLookTitle = lookTitle ?? `PATH #${lookDisplayTokenId}`;
+  const slideIsPrev = lookSlideDir === "prev";
+  const lookTrackTransform =
+    lookSlidePhase === "prep"
+      ? slideIsPrev
+        ? "translateX(-100%)"
+        : "translateX(0%)"
+      : lookSlidePhase === "animating"
+      ? slideIsPrev
+        ? "translateX(0%)"
+        : "translateX(-100%)"
+      : "translateX(0%)";
+  const lookTrackTransition =
+    lookSlidePhase === "animating" ? "transform 420ms ease" : "none";
   const maxTokenId = useMemo(() => {
     if (!bids.length) return null;
     let max = 0;
@@ -1047,10 +1114,11 @@ export default function AuctionCanvas({
 
   useEffect(() => {
     if (view !== "look") return;
-    if (maxTokenId != null && lookTokenId > maxTokenId) {
+    if (maxTokenId != null && lookDisplayTokenId > maxTokenId) {
       setLookTokenId(maxTokenId);
+      setLookDisplayTokenId(maxTokenId);
     }
-  }, [view, maxTokenId, lookTokenId]);
+  }, [view, maxTokenId, lookDisplayTokenId]);
 
   return (
     <div className="panel dotfield">
@@ -1089,7 +1157,13 @@ export default function AuctionCanvas({
             onClick={() => {
               setHover(null);
               setLookTokenId(1);
+              setLookDisplayTokenId(1);
               setLookSvg(null);
+              setLookTitle(null);
+              setLookAttrs([]);
+              setLookIncoming(null);
+              setLookSlideDir(null);
+              setLookSlidePhase("idle");
               setLookError(null);
               setView("look");
             }}
@@ -1649,11 +1723,13 @@ export default function AuctionCanvas({
       {showLook && (
         <>
           <div className="dotfield__canvas dotfield__look">
-            {lookLoadingVisible && <div className="muted">loading look…</div>}
+            {lookLoadingVisible && !lookSvg && !lookIncoming && (
+              <div className="muted">loading look…</div>
+            )}
             {lookError && (
               <div className="muted">error loading look: {lookError}</div>
             )}
-            {!lookLoading && !lookError && lookSvg && (
+            {!lookError && (lookSvg || lookIncoming) && (
               <div
                 className="dotfield__look-viewport"
                 onMouseMove={(e) =>
@@ -1661,25 +1737,89 @@ export default function AuctionCanvas({
                 }
                 onMouseLeave={() => setLookHover(null)}
               >
-                <img
-                  className="dotfield__look-img"
-                  src={lookSvg}
-                  alt={lookTitle ?? `PATH #${lookTokenId}`}
-                />
+                {lookSliding ? (
+                  <div
+                    className="dotfield__look-track"
+                    style={{
+                      transform: lookTrackTransform,
+                      transition: lookTrackTransition,
+                    }}
+                    onTransitionEnd={(event) => {
+                      if (event.propertyName !== "transform") return;
+                      if (!lookIncoming) return;
+                      setLookSvg(lookIncoming.svg);
+                      setLookTitle(lookIncoming.title);
+                      setLookAttrs(lookIncoming.attrs);
+                      setLookDisplayTokenId(lookIncoming.tokenId);
+                      setLookIncoming(null);
+                      setLookSlidePhase("idle");
+                      setLookSlideDir(null);
+                    }}
+                  >
+                    {slideIsPrev ? (
+                      <>
+                        <div className="dotfield__look-frame">
+                          <img
+                            className="dotfield__look-img"
+                            src={lookIncoming!.svg}
+                            alt={lookIncoming!.title}
+                          />
+                        </div>
+                        <div className="dotfield__look-frame">
+                          <img
+                            className="dotfield__look-img"
+                            src={lookSvg!}
+                            alt={currentLookTitle}
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="dotfield__look-frame">
+                          <img
+                            className="dotfield__look-img"
+                            src={lookSvg!}
+                            alt={currentLookTitle}
+                          />
+                        </div>
+                        <div className="dotfield__look-frame">
+                          <img
+                            className="dotfield__look-img"
+                            src={lookIncoming!.svg}
+                            alt={lookIncoming!.title}
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <img
+                    className="dotfield__look-img"
+                    src={lookSvg ?? lookIncoming?.svg ?? ""}
+                    alt={currentLookTitle}
+                  />
+                )}
               </div>
             )}
-            {lookEmptyVisible && <div className="muted">no svg yet</div>}
+            {lookEmptyVisible && !lookSvg && !lookIncoming && (
+              <div className="muted">no svg yet</div>
+            )}
             <button
               className="dotfield__look-nav dotfield__look-prev"
-              data-disabled={lookLoading || lookTokenId <= 1}
-              aria-disabled={lookLoading || lookTokenId <= 1}
+              data-disabled={
+                lookLoading || lookSliding || lookDisplayTokenId <= 1
+              }
+              aria-disabled={
+                lookLoading || lookSliding || lookDisplayTokenId <= 1
+              }
               onClick={() => {
-                if (lookLoading) return;
-                if (lookTokenId <= 1) {
+                if (lookLoading || lookSliding) return;
+                if (lookDisplayTokenId <= 1) {
                   setLookNotice({ text: "no more", side: "left" });
                   return;
                 }
-                setLookTokenId((v) => Math.max(1, v - 1));
+                setLookSlideDir("prev");
+                setLookTokenId(Math.max(1, lookDisplayTokenId - 1));
               }}
               aria-label="Previous token"
             >
@@ -1688,18 +1828,23 @@ export default function AuctionCanvas({
             <button
               className="dotfield__look-nav dotfield__look-next"
               data-disabled={
-                lookLoading || (maxTokenId != null && lookTokenId >= maxTokenId)
+                lookLoading ||
+                lookSliding ||
+                (maxTokenId != null && lookDisplayTokenId >= maxTokenId)
               }
               aria-disabled={
-                lookLoading || (maxTokenId != null && lookTokenId >= maxTokenId)
+                lookLoading ||
+                lookSliding ||
+                (maxTokenId != null && lookDisplayTokenId >= maxTokenId)
               }
               onClick={() => {
-                if (lookLoading) return;
-                if (maxTokenId != null && lookTokenId >= maxTokenId) {
+                if (lookLoading || lookSliding) return;
+                if (maxTokenId != null && lookDisplayTokenId >= maxTokenId) {
                   setLookNotice({ text: "no more", side: "right" });
                   return;
                 }
-                setLookTokenId((v) => v + 1);
+                setLookSlideDir("next");
+                setLookTokenId(lookDisplayTokenId + 1);
               }}
               aria-label="Next token"
             >
@@ -1731,7 +1876,7 @@ export default function AuctionCanvas({
               )}
           </div>
           <div className="dotfield__axes muted small dotfield__look-axes">
-            <span>token #{lookTokenId}</span>
+            <span>token #{lookDisplayTokenId}</span>
             <span className="dotfield__look-axes-right">
               {lookMovementDisplay.map((movement) => (
                 <span key={movement.label}>
