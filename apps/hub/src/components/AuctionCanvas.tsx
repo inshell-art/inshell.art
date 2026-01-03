@@ -495,23 +495,16 @@ export default function AuctionCanvas({
   } | null>(null);
   const lookAttrDisplay = useMemo(() => {
     if (!lookAttrs.length) return [];
-    const labelMap: Record<string, string> = {
-      Steps: "segments",
-      Voice: "stroke-width",
-      Tension: "sharpness",
-      Margin: "padding-pct",
-      Breath: "sigma",
-    };
     return lookAttrs.map((attr) => ({
-      label: labelMap[attr.trait_type] ?? attr.trait_type,
-      value: attr.value.replace(/Manifested/gi, "Minted"),
+      label: attr.trait_type,
+      value: attr.value,
     }));
   }, [lookAttrs]);
   const lookMovementDisplay = useMemo(() => {
     const map = new Map<string, string>();
     for (const attr of lookAttrDisplay) {
       const cleaned = attr.value
-        .replace(/\b(?:Minted|Manifested)\b/gi, "")
+        .replace(/\bMinted\b\s*/gi, "")
         .replace(/\s+/g, " ")
         .trim();
       map.set(attr.label, cleaned || "—");

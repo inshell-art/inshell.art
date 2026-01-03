@@ -89,8 +89,8 @@ describe("AuctionCanvas look tab", () => {
     fireEvent.mouseMove(viewport, { clientX: 10, clientY: 10 });
 
     expect(screen.getByText(/attributes/i)).toBeTruthy();
-    expect(screen.getByText(/segments/i)).toBeTruthy();
-    expect(screen.getByText(/Minted\(1\/2\)/i)).toBeTruthy();
+    expect(screen.getByText(/steps/i)).toBeTruthy();
+    expect(screen.getByText(/Manifested\(1\/2\)/i)).toBeTruthy();
   });
 
   test("look nav shows no more at lower bound", async () => {
