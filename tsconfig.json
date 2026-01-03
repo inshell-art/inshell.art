@@ -2,13 +2,22 @@
   "files": [],
   "references": [
     {
-      "path": "./tsconfig.app.json"
+      "path": "./apps/hub"
     },
     {
-      "path": "./tsconfig.node.json"
+      "path": "./apps/thought"
     },
     {
-      "path": "./tsconfig.jest.json"
+      "path": "./packages/contracts"
+    },
+    {
+      "path": "./packages/starknet"
+    },
+    {
+      "path": "./packages/utils"
+    },
+    {
+      "path": "./packages/wallet"
     }
   ]
 }

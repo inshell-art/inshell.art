@@ -15,6 +15,51 @@ overrides:
 importers:
 
   .:
+    devDependencies:
+      '@types/node':
+        specifier: ^24.2.0
+        version: 24.2.0
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^8.37.0
+        version: 8.38.0(@typescript-eslint/parser@8.38.0(eslint@9.32.0)(typescript@5.8.3))(eslint@9.32.0)(typescript@5.8.3)
+      '@typescript-eslint/parser':
+        specifier: ^8.37.0
+        version: 8.38.0(eslint@9.32.0)(typescript@5.8.3)
+      abi-wan-kanabi:
+        specifier: ^2.2.4
+        version: 2.2.4
+      cypress:
+        specifier: ^13.13.1
+        version: 13.17.0
+      dotenv:
+        specifier: ^17.2.0
+        version: 17.2.1
+      eslint:
+        specifier: ^9.31.0
+        version: 9.32.0
+      eslint-plugin-react-hooks:
+        specifier: ^5.2.0
+        version: 5.2.0(eslint@9.32.0)
+      eslint-plugin-react-refresh:
+        specifier: ^0.4.20
+        version: 0.4.20(eslint@9.32.0)
+      husky:
+        specifier: ^9.1.7
+        version: 9.1.7
+      starknet:
+        specifier: ^7.6.4
+        version: 7.6.4
+      tsx:
+        specifier: ^4.20.3
+        version: 4.20.3
+      typescript:
+        specifier: ^5.8.3
+        version: 5.8.3
+      wait-on:
+        specifier: ^8.0.4
+        version: 8.0.4
+
+  apps/hub:
     dependencies:
       '@chakra-ui/react':
         specifier: ^3.22.0
@@ -25,6 +70,18 @@ importers:
       '@fontsource/source-code-pro':
         specifier: ^5.2.6
         version: 5.2.6
+      '@inshell/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@inshell/starknet':
+        specifier: workspace:*
+        version: link:../../packages/starknet
+      '@inshell/utils':
+        specifier: workspace:*
+        version: link:../../packages/utils
+      '@inshell/wallet':
+        specifier: workspace:*
+        version: link:../../packages/wallet
       '@starknet-react/core':
         specifier: ^3.7.4
         version: 3.7.4(get-starknet-core@4.0.0)(react@18.3.1)(starknet@7.6.4)(typescript@5.8.3)
@@ -113,18 +170,9 @@ importers:
       '@vitejs/plugin-react-swc':
         specifier: ^3.10.2
         version: 3.11.0(@swc/helpers@0.5.17)(vite@7.3.0(@types/node@24.2.0)(tsx@4.20.3))
-      abi-wan-kanabi:
-        specifier: ^2.2.4
-        version: 2.2.4
-      concurrently:
-        specifier: ^9.2.0
-        version: 9.2.0
       cypress:
         specifier: ^13.13.1
         version: 13.17.0
-      dotenv:
-        specifier: ^17.2.0
-        version: 17.2.1
       eslint:
         specifier: ^9.31.0
         version: 9.32.0
@@ -134,18 +182,12 @@ importers:
       eslint-plugin-react-refresh:
         specifier: ^0.4.20
         version: 0.4.20(eslint@9.32.0)
-      husky:
-        specifier: ^9.1.7
-        version: 9.1.7
       identity-obj-proxy:
         specifier: ^3.0.0
         version: 3.0.0
       jest-environment-jsdom:
         specifier: ^29.7.0
         version: 29.7.0
-      picomatch:
-        specifier: ^4.0.3
-        version: 4.0.3
       seedrandom:
         specifier: ^3.0.5
         version: 3.0.5
@@ -167,9 +209,81 @@ importers:
       typescript:
         specifier: ^5.8.3
         version: 5.8.3
-      wait-on:
-        specifier: ^8.0.4
-        version: 8.0.4
+
+  apps/thought:
+    dependencies:
+      '@fontsource/source-code-pro':
+        specifier: ^5.2.6
+        version: 5.2.6
+      '@inshell/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@inshell/wallet':
+        specifier: workspace:*
+        version: link:../../packages/wallet
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+      vite:
+        specifier: ^7.0.7
+        version: 7.3.0(@types/node@24.2.0)(tsx@4.20.3)
+    devDependencies:
+      '@types/node':
+        specifier: ^24.2.0
+        version: 24.2.0
+      '@types/react':
+        specifier: ^18.3.3
+        version: 18.3.23
+      '@types/react-dom':
+        specifier: ^18.3.7
+        version: 18.3.7(@types/react@18.3.23)
+      '@vitejs/plugin-react-swc':
+        specifier: ^3.10.2
+        version: 3.11.0(@swc/helpers@0.5.17)(vite@7.3.0(@types/node@24.2.0)(tsx@4.20.3))
+      typescript:
+        specifier: ^5.8.3
+        version: 5.8.3
+
+  packages/contracts:
+    dependencies:
+      '@inshell/starknet':
+        specifier: workspace:*
+        version: link:../starknet
+      starknet:
+        specifier: ^7.6.4
+        version: 7.6.4
+
+  packages/starknet:
+    dependencies:
+      starknet:
+        specifier: ^7.6.4
+        version: 7.6.4
+
+  packages/utils: {}
+
+  packages/wallet:
+    dependencies:
+      '@starknet-react/chains':
+        specifier: ^3.1.3
+        version: 3.1.3
+      '@starknet-react/core':
+        specifier: ^3.7.4
+        version: 3.7.4(get-starknet-core@4.0.0)(react@18.3.1)(starknet@7.6.4)(typescript@5.8.3)
+      '@tanstack/react-query':
+        specifier: ^5.83.0
+        version: 5.83.0(react@18.3.1)
+      get-starknet-core:
+        specifier: ^4.0.0
+        version: 4.0.0
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      starknet:
+        specifier: ^7.6.4
+        version: 7.6.4
 
 packages:
 
@@ -2590,11 +2704,6 @@ packages:
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
 
-  concurrently@9.2.0:
-    resolution: {integrity: sha512-IsB/fiXTupmagMW4MNp2lx2cdSN2FfZq78vF90LBB+zZHArbIQZjQtzXCiXnvTxCZSvXanTqFLWBjw2UkLx1SQ==}
-    engines: {node: '>=18'}
-    hasBin: true
-
   convert-source-map@1.9.0:
     resolution: {integrity: sha512-ASFBup0Mz1uyiIjANan1jzLQami9z1PoYSZCiiYW2FczPbenXc45FZdBZLzOT+r6+iciuEModtmCti+hjaAk0A==}
 
@@ -4341,10 +4450,6 @@ packages:
     resolution: {integrity: sha512-7++dFhtcx3353uBaq8DDR4NuxBetBzC7ZQOhmTQInHEd6bSrXdiEyzCvG07Z44UYdLShWUyXt5M/yhz8ekcb1A==}
     engines: {node: '>=8'}
 
-  shell-quote@1.8.3:
-    resolution: {integrity: sha512-ObmnIF4hXNg1BqhnHmgbDETF8dLPCggZWBjkQfhZpbszZnYur5DUljTcCHii5LC3J5E0yeO/1LIMyH+UvHQgyw==}
-    engines: {node: '>= 0.4'}
-
   side-channel-list@1.0.0:
     resolution: {integrity: sha512-FCLHtRD/gnpCiCHEiJLOwdmFP+wzCmDEkc9y7NsYxeF4u7Btsn1ZuwgwJGxImImHicJArLP4R0yX4c2KCrMrTA==}
     engines: {node: '>= 0.4'}
@@ -4762,6 +4867,7 @@ packages:
   whatwg-encoding@2.0.0:
     resolution: {integrity: sha512-p41ogyeMUrw3jWclHWTQg1k05DSVXPLcVxRTYsXUk+ZooOCZLcoYgPZ/HL/D/N+uQPOtcp1me1WhBEaX02mhWg==}
     engines: {node: '>=12'}
+    deprecated: Use @exodus/bytes instead for a more spec-conformant and faster implementation
 
   whatwg-mimetype@3.0.0:
     resolution: {integrity: sha512-nt+N2dzIutVRxARx1nghPKGv1xHikU7HKdfafKkLNLindmPU/ch3U31NOCGGA/dmPcmb1VlofO0vnKAcsm0o/Q==}
@@ -6577,7 +6683,7 @@ snapshots:
 
   '@types/d3-interpolate@3.0.1':
     dependencies:
-      '@types/d3-color': 3.1.0
+      '@types/d3-color': 3.1.3
 
   '@types/d3-interpolate@3.0.4':
     dependencies:
@@ -6597,7 +6703,7 @@ snapshots:
 
   '@types/d3-scale@4.0.2':
     dependencies:
-      '@types/d3-time': 3.0.0
+      '@types/d3-time': 3.0.4
 
   '@types/d3-scale@4.0.9':
     dependencies:
@@ -7842,16 +7948,6 @@ snapshots:
 
   concat-map@0.0.1: {}
 
-  concurrently@9.2.0:
-    dependencies:
-      chalk: 4.1.2
-      lodash: 4.17.21
-      rxjs: 7.8.2
-      shell-quote: 1.8.3
-      supports-color: 8.1.1
-      tree-kill: 1.2.2
-      yargs: 17.7.2
-
   convert-source-map@1.9.0: {}
 
   convert-source-map@2.0.0: {}
@@ -7999,7 +8095,7 @@ snapshots:
 
   d3-geo@3.1.0:
     dependencies:
-      d3-array: 3.2.1
+      d3-array: 3.2.4
 
   d3-geo@3.1.1:
     dependencies:
@@ -9996,8 +10092,6 @@ snapshots:
       shebang-regex: 3.0.0
 
   shebang-regex@3.0.0: {}
-
-  shell-quote@1.8.3: {}
 
   side-channel-list@1.0.0:
     dependencies:

@@ -1,12 +1,12 @@
 //
 // Pull ABIs from a live node (Devnet/Sepolia/Mainnet) and write:
-//   1) src/abi/<net>/<ContractName>.json
-//   2) src/abi/by-class/<CLASS_HASH>.abi.json
-//   3) src/abi/<net>/manifest.json
+//   1) packages/contracts/src/abi/<net>/<ContractName>.json
+//   2) packages/contracts/src/abi/by-class/<CLASS_HASH>.abi.json
+//   3) packages/contracts/src/abi/<net>/manifest.json
 //
 // Usage:
-//   pnpm tsx scripts/sync-abi.ts --net devnet  --rpc http://127.0.0.1:5050 --addr addresses/addresses.devnet.json
-//   pnpm tsx scripts/sync-abi.ts --net sepolia --rpc "$VITE_SEPOLIA_RPC"    --addr addresses/addresses.sepolia.json
+//   pnpm tsx scripts/sync-abi.ts --net devnet  --rpc http://127.0.0.1:5050 --addr packages/contracts/src/addresses/addresses.devnet.json
+//   pnpm tsx scripts/sync-abi.ts --net sepolia --rpc "$VITE_SEPOLIA_RPC"    --addr packages/contracts/src/addresses/addresses.sepolia.json
 
 import { RpcProvider, validateAndParseAddress } from "starknet";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -136,11 +136,28 @@ for (const [k, v] of Object.entries(addrMap)) {
 const provider = new RpcProvider({ nodeUrl: RPC });
 
 // ---------- Outputs ----------
-const OUT_ABI_BY_NET_DIR = resolve(process.cwd(), "src/abi", NET);
-const OUT_ABI_BY_CLASS_DIR = resolve(process.cwd(), "src/abi/by-class");
+const OUT_ABI_BY_NET_DIR = resolve(
+  process.cwd(),
+  "packages",
+  "contracts",
+  "src",
+  "abi",
+  NET
+);
+const OUT_ABI_BY_CLASS_DIR = resolve(
+  process.cwd(),
+  "packages",
+  "contracts",
+  "src",
+  "abi",
+  "by-class"
+);
 const OUT_MANIFEST_FILE = resolve(
   process.cwd(),
-  "src/abi",
+  "packages",
+  "contracts",
+  "src",
+  "abi",
   NET,
   "manifest.json"
 );

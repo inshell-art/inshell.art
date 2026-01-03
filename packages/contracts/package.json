@@ -1,0 +1,13 @@
+{
+  "name": "@inshell/contracts",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@inshell/starknet": "workspace:*",
+    "starknet": "^7.6.4"
+  }
+}

@@ -5,7 +5,7 @@
 //   pnpm tsx scripts/sync-addresses.ts --net sepolia --url https://raw.githubusercontent.com/inshell-art/path/main/output/addresses.sepolia.json
 //
 // Output:
-//   addresses/addresses.<net>.json   // values normalized to 0x + 64-hex
+//   packages/contracts/src/addresses/addresses.<net>.json   // values normalized to 0x + 64-hex
 
 import {
   AddrMap,
@@ -29,7 +29,7 @@ const net = NET as Net;
 const SRC = flag("--from"); // local JSON file
 const URL = flag("--url"); // remote JSON URL
 
-const OUT_DIR = resolve(process.cwd(), "addresses");
+const OUT_DIR = resolve(process.cwd(), "packages", "contracts", "src", "addresses");
 const OUT = resolve(OUT_DIR, `addresses.${net}.json`);
 ensureDir(OUT_DIR);
 

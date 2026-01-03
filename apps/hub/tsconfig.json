@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "tsBuildInfoFile": "../../node_modules/.tmp/tsconfig.hub.tsbuildinfo",
+    "types": ["vite/client", "node"],
+    "jsx": "react-jsx",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@inshell/*": ["../../packages/*/src"]
+    }
+  },
+  "include": ["src", "tests", "./firebaseConfig.ts"]
+}
