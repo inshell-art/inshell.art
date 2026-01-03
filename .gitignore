@@ -7,9 +7,9 @@ yarn-error.log*
 lerna-debug.log*
 .pnpm-debug.log*
 .vscode/
-src/generated
+packages/contracts/src/generated
 tmp/
-src/abi/devnet
+packages/contracts/src/abi/devnet
 
 
 

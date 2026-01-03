@@ -1,4 +1,5 @@
 import path from "path";
+import { existsSync } from "fs";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 
@@ -7,6 +8,14 @@ const __dirname = path.dirname(__filename);
 
 const env = process.env.NODE_ENV || "dev";
 
-const envFile = path.resolve(__dirname, `../config/.env.${env}`);
+const candidates = [
+  path.resolve(__dirname, `../apps/hub/.env.${env}.local`),
+  path.resolve(__dirname, `../apps/hub/.env.${env}`),
+  path.resolve(__dirname, `../.env.${env}.local`),
+  path.resolve(__dirname, `../.env.${env}`),
+];
 
-dotenv.config({ path: envFile });
+const envFile = candidates.find((p) => existsSync(p));
+if (envFile) {
+  dotenv.config({ path: envFile });
+}

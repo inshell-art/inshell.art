@@ -28,27 +28,27 @@ From the `inshell.art` repo:
 ````bash
 # Copy addresses into FE
 pnpm tsx scripts/sync-addresses.ts --net devnet --from ../path/output/addresses.devnet.json
-# -> writes addresses/addresses.devnet.json
+# -> writes packages/contracts/src/addresses/addresses.devnet.json
 
 # Write Vite env (convenience; JSON fallback exists)
-pnpm tsx scripts/sync-env.ts --net devnet --rpc http://127.0.0.1:5050/rpc --addr addresses/addresses.devnet.json
-# -> writes .env.devnet.local with VITE_* entries
+pnpm tsx scripts/sync-env.ts --net devnet --rpc http://127.0.0.1:5050/rpc --addr packages/contracts/src/addresses/addresses.devnet.json
+# -> writes apps/hub/.env.devnet.local and apps/thought/.env.devnet.local
 
 # Pull ABIs from the node (runtime artifacts)
-pnpm tsx scripts/sync-abi.ts --net devnet --rpc http://127.0.0.1:5050/rpc --addr addresses/addresses.devnet.json
-# -> writes src/abi/devnet/*.json
+pnpm tsx scripts/sync-abi.ts --net devnet --rpc http://127.0.0.1:5050/rpc --addr packages/contracts/src/addresses/addresses.devnet.json
+# -> writes packages/contracts/src/abi/devnet/*.json
 
 ## Generate TypeScript const-typed ABIs (from runtime JSON)
 
-We convert JSON ABIs (in `src/abi/<net>/*.json`) into TS const-literals (`src/abi/typed/*.abi.ts`)
+We convert JSON ABIs (in `packages/contracts/src/abi/<net>/*.json`) into TS const-literals (`packages/contracts/src/abi/typed/*.abi.ts`)
 so `TypedContractV2<typeof ABI>` gets exact types.
 
 ### One-off (per contract)
 ```bash
-pnpm tsx scripts/abi-json-to-ts.ts src/abi/devnet/PulseAuction.json      src/abi/typed/PulseAuction.abi.ts      AUCTION_ABI
-pnpm tsx scripts/abi-json-to-ts.ts src/abi/devnet/PathMinter.json        src/abi/typed/PathMinter.abi.ts        MINTER_ABI
-pnpm tsx scripts/abi-json-to-ts.ts src/abi/devnet/PathMinterAdapter.json src/abi/typed/PathMinterAdapter.abi.ts ADAPTER_ABI
-pnpm tsx scripts/abi-json-to-ts.ts src/abi/devnet/PathNFT.json           src/abi/typed/PathNFT.abi.ts           NFT_ABI
+pnpm tsx scripts/abi-json-to-ts.ts packages/contracts/src/abi/devnet/PulseAuction.json      packages/contracts/src/abi/typed/PulseAuction.abi.ts      AUCTION_ABI
+pnpm tsx scripts/abi-json-to-ts.ts packages/contracts/src/abi/devnet/PathMinter.json        packages/contracts/src/abi/typed/PathMinter.abi.ts        MINTER_ABI
+pnpm tsx scripts/abi-json-to-ts.ts packages/contracts/src/abi/devnet/PathMinterAdapter.json packages/contracts/src/abi/typed/PathMinterAdapter.abi.ts ADAPTER_ABI
+pnpm tsx scripts/abi-json-to-ts.ts packages/contracts/src/abi/devnet/PathNFT.json           packages/contracts/src/abi/typed/PathNFT.abi.ts           NFT_ABI
 
 ````
 
@@ -59,7 +59,8 @@ pnpm tsx scripts/abi-json-to-ts.ts src/abi/devnet/PathNFT.json           src/abi
 export VITE_STARKNET_RPC="http://127.0.0.1:5050/rpc"
 export VITE_NETWORK="devnet"                 # optional; default is devnet
 
-pnpm dev
+pnpm dev:hub
+pnpm dev:thought
 ```
 
 > **Address resolution policy (FE)**  
@@ -67,7 +68,7 @@ pnpm dev
 >
 > 1. **Explicit prop** passed to a factory/hook/component
 > 2. `import.meta.env.**VITE_***` (e.g., `VITE_PULSE_AUCTION`)
-> 3. `addresses/addresses.<net>.json` (e.g., key `pulse_auction`)
+> 3. `packages/contracts/src/addresses/addresses.<net>.json` (e.g., key `pulse_auction`)
 > 4. Throw a clear error
 >
 > Keep `addresses.*.json` keys in **snake_case**, Vite env overrides in **`VITE_*` UPPER_SNAKE**.
@@ -75,18 +76,18 @@ pnpm dev
 ## 3) FE data flow (one screen)
 
 ```
-protocol/
+packages/contracts/src/
   contracts.ts        # provider + ABI source policy + typed factory helpers
   auction.ts          # createAuctionContract (TypedContractV2 from ABI literal)
-services/
-  auctionService.ts   # get_config/get_current_price/curve_active + u256 normalize + blockTag
-hooks/
-  useAuction.ts       # lifecycle + polling + error/loading state
-components/
-  AuctionRaw.tsx      # renders a raw snapshot (no chart libs)
+apps/hub/src/services/auction/
+  coreService.ts      # get_config/get_current_price/curve_active + u256 normalize + blockTag
+apps/hub/src/hooks/
+  useAuctionCore.ts   # lifecycle + polling + error/loading state
+apps/hub/src/components/
+  AuctionCanvas.tsx   # renders hub views
 ```
 
-- **ABI typing**: use `src/abi/typed/PulseAuction.abi.ts` (const literal) for TypeScript types.
+- **ABI typing**: use `packages/contracts/src/abi/typed/PulseAuction.abi.ts` (const literal) for TypeScript types.
 - **Runtime ABI**: can still be fetched from node; a compatibility guard checks required entrypoints.
 
 ## 4) Example: render raw auction data
@@ -161,12 +162,12 @@ Mount it in a page (e.g., `src/pages/dev/AuctionPage.tsx`) and run `pnpm dev`.
 
 - **ABIs**
 
-  - Raw runtime JSONs live in `src/abi/devnet/` (and friends).
-  - Typed ABIs live in `src/abi/typed/` as `*.abi.ts` (`export const ... as const`).
+  - Raw runtime JSONs live in `packages/contracts/src/abi/devnet/` (and friends).
+  - Typed ABIs live in `packages/contracts/src/abi/typed/` as `*.abi.ts` (`export const ... as const`).
 
 - **Addresses**
 
-  - Keep network JSONs under `addresses/addresses.<net>.json` with **snake_case** keys.
+  - Keep network JSONs under `packages/contracts/src/addresses/addresses.<net>.json` with **snake_case** keys.
   - Vite overrides use **`VITE_*`** UPPER_SNAKE; the resolver bridges both.
 
 - **Docs vs Source**
@@ -182,7 +183,7 @@ Mount it in a page (e.g., `src/pages/dev/AuctionPage.tsx`) and run `pnpm dev`.
 export VITE_STARKNET_RPC="http://127.0.0.1:5050/rpc"
 
 # Optional quality-of-life
-export VITE_NETWORK="devnet"            # selects addresses/addresses.devnet.json
+export VITE_NETWORK="devnet"            # selects packages/contracts/src/addresses/addresses.devnet.json
 export VITE_STARKNET_BLOCK_TAG="latest" # service default for views
 # export VITE_PULSE_AUCTION="0x..."     # override JSON via Vite env if needed
 ```
