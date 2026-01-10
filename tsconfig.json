@@ -2,7 +2,7 @@
   "files": [],
   "references": [
     {
-      "path": "./apps/hub"
+      "path": "./apps/home"
     },
     {
       "path": "./apps/thought"

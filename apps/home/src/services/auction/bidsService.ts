@@ -32,7 +32,7 @@ export function createBidsService(opts: {
     [...getBidEventSelectors(PulseAuctionAbi)].map((s) => s.toLowerCase())
   ); // Normalize selectors to lowercase
 
-  let lastBlock = opts.fromBlock ?? 0;
+  let lastBlock = opts.fromBlock;
   const seen = new Set<string>();
   let bids: NormalizedBid[] = [];
   const listeners = new Set<
@@ -131,7 +131,22 @@ export function createBidsService(opts: {
   async function pullOnce(): Promise<NormalizedBid[]> {
     const fresh: NormalizedBid[] = [];
     let token: string | undefined;
-    const from_block = { block_number: Math.max(0, lastBlock - reorgDepth) };
+
+    async function resolveFromBlock(): Promise<number> {
+      if (typeof lastBlock === "number" && Number.isFinite(lastBlock)) {
+        return Math.max(0, lastBlock - reorgDepth);
+      }
+      try {
+        const latest = await (provider as RpcProvider).getBlockNumber();
+        lastBlock = latest;
+        return Math.max(0, latest - reorgDepth);
+      } catch {
+        lastBlock = 0;
+        return 0;
+      }
+    }
+
+    const from_block = { block_number: await resolveFromBlock() };
 
     type EventsChunk = Awaited<ReturnType<RpcProvider["getEvents"]>>;
 
@@ -160,7 +175,7 @@ export function createBidsService(opts: {
         }
 
         if (typeof ev.block_number === "number") {
-          lastBlock = Math.max(lastBlock, ev.block_number + 1);
+          lastBlock = Math.max(lastBlock ?? 0, ev.block_number + 1);
         }
       }
 

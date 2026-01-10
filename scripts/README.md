@@ -6,7 +6,7 @@ Task scripts for syncing **addresses**, **ABIs**, and **env** across Devnet / Se
 
 - `utils.ts` — shared CLI + I/O helpers (flags, fetch, JSON, address normalization).
 - `sync-addresses.ts` — writes `packages/contracts/src/addresses/addresses.<net>.json` from a local file or URL.
-- `sync-env.ts` — writes `apps/hub/.env.<net>.local` and `apps/thought/.env.<net>.local` from RPC + addresses.
+- `sync-env.ts` — writes `apps/home/.env.<net>.local` and `apps/thought/.env.<net>.local` from RPC + addresses.
 - `sync-abi.ts` — pulls on-chain ABIs by address via RPC and writes:
   - `packages/contracts/src/abi/<net>/<NAME>.json` (per-network fallback)
   - `packages/contracts/src/abi/by-class/<CLASS_HASH>.abi.json` (canonical, deduped)

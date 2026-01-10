@@ -23,6 +23,21 @@ jest.mock("../src/hooks/useAuctionBids", () => ({
 jest.mock("../src/hooks/useAuctionCore", () => ({
   useAuctionCore: (...args: any[]) => mockUseAuctionCore(...args),
 }));
+jest.mock("@inshell/wallet", () => ({
+  useWallet: () => ({
+    address: "0x1111222233334444555566667777888899990000",
+    isConnected: true,
+    isConnecting: false,
+    isReconnecting: false,
+    status: "connected",
+    chain: { name: "Starknet Sepolia Testnet" },
+    chainId: BigInt("0x534e5f5345504f4c4941"),
+    connect: jest.fn(),
+    disconnect: jest.fn(),
+    connectors: [],
+    connectStatus: "idle",
+  }),
+}));
 
 type Fixture = {
   k: number;

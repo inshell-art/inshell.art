@@ -70,9 +70,9 @@ export function useAuctionBids(opts: {
 
   // Kick off an initial fetch when ready even if polling is disabled.
   useEffect(() => {
-    if (!ready || !serviceRef.current) return;
+    if (!enabled || !ready || !serviceRef.current) return;
     void serviceRef.current.pullOnce();
-  }, [ready]);
+  }, [enabled, ready]);
 
   const pullOnce = useMemo(() => {
     return async () => {

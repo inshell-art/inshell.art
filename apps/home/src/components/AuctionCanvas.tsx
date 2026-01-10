@@ -9,6 +9,7 @@ import { useAuctionCore } from "@/hooks/useAuctionCore";
 import { resolveAddress } from "@inshell/contracts";
 import { callContract, getDefaultProvider } from "@inshell/starknet";
 import { readU256, toU256Num } from "@inshell/utils";
+import HeaderWalletCTA from "@/components/HeaderWalletCTA";
 /* global SVGSVGElement, SVGElement */
 
 type Props = {
@@ -51,11 +52,49 @@ function shortAmount(val: string) {
   return val;
 }
 
+function getEnvValue(name: string): unknown {
+  const envCache: Record<string, any> | undefined =
+    (globalThis as any).__VITE_ENV__;
+  const procEnv = (globalThis as any)?.process?.env;
+  return envCache?.[name] ?? procEnv?.[name];
+}
+
+function parseBlockNumber(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.max(0, Math.trunc(value));
+  }
+  if (typeof value === "string" && value.trim()) {
+    const raw = value.trim();
+    const parsed = raw.startsWith("0x")
+      ? parseInt(raw, 16)
+      : parseInt(raw, 10);
+    if (Number.isFinite(parsed)) return Math.max(0, parsed);
+  }
+  return undefined;
+}
+
+function resolveBidsFromBlock(): number | undefined {
+  const raw = getEnvValue("VITE_PULSE_AUCTION_DEPLOY_BLOCK");
+  const parsed = parseBlockNumber(raw);
+  if (typeof parsed === "number") return parsed;
+  const network = getEnvValue("VITE_NETWORK");
+  if (typeof network === "string" && network === "devnet") return 0;
+  return undefined;
+}
+
+function isTransientRpcError(err: unknown): boolean {
+  const msg = String((err as any)?.message ?? err ?? "");
+  return /insufficient_resources/i.test(msg);
+}
+
 const isTestEnv =
   typeof globalThis !== "undefined" &&
   typeof globalThis.process !== "undefined" &&
   globalThis.process?.env?.NODE_ENV === "test";
 const DELAY_MS = 500;
+const ERROR_DELAY_MS = 700;
+const STARTUP_ERROR_DELAY_MS = 2500;
+const FALLBACK_DELAY_MS = 1200;
 
 function splitTokenId(id: number): [string, string] {
   const n = BigInt(Math.max(0, Math.trunc(id)));
@@ -389,6 +428,114 @@ function formatAmount(val: string | undefined, decimals: number): string {
   return `${String(raw)} STRK`;
 }
 
+type AuctionStatus = "loading" | "pre_open" | "genesis_waiting" | "active" | "error";
+
+function normalizeAuctionStatus(value: unknown): AuctionStatus | null {
+  if (typeof value !== "string") return null;
+  const raw = value.trim().toLowerCase();
+  if (!raw || raw === "0" || raw === "false" || raw === "auto") return null;
+  if (raw === "pre_open" || raw === "pre-open" || raw === "preopen") {
+    return "pre_open";
+  }
+  if (
+    raw === "genesis_waiting" ||
+    raw === "genesis-waiting" ||
+    raw === "genesis" ||
+    raw === "waiting"
+  ) {
+    return "genesis_waiting";
+  }
+  if (raw === "active") return "active";
+  if (raw === "loading") return "loading";
+  if (raw === "error") return "error";
+  return null;
+}
+
+function readAuctionStatusOverride(): AuctionStatus | null {
+  if (typeof window === "undefined") return null;
+  const query = window.location.search ?? "";
+  const match = /(?:[?&])auction_status=([^&]+)/i.exec(query);
+  if (match) {
+    return normalizeAuctionStatus(decodeURIComponent(match[1]));
+  }
+  const env = getEnvValue("VITE_PULSE_STATUS");
+  const envOverride = normalizeAuctionStatus(typeof env === "string" ? env : "");
+  if (envOverride) return envOverride;
+  const fromGlobal = (window as any).__PULSE_STATUS__;
+  if (fromGlobal != null) return normalizeAuctionStatus(String(fromGlobal));
+  try {
+    const stored = window.localStorage.getItem("__PULSE_STATUS__");
+    if (stored) return normalizeAuctionStatus(JSON.parse(stored));
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+function useAuctionStatus(params: {
+  nowSec: number;
+  openTimeSec?: number | null;
+  coreActive?: boolean | null;
+  coreLoading: boolean;
+  coreErrorVisible: unknown;
+  bidsLength: number;
+}) {
+  const {
+    nowSec,
+    openTimeSec,
+    coreActive,
+    coreLoading,
+    coreErrorVisible,
+    bidsLength,
+  } = params;
+  const [status, setStatus] = useState<AuctionStatus>("loading");
+  const statusOverride = useMemo(() => readAuctionStatusOverride(), []);
+  const openAtLabel = useMemo(() => {
+    if (typeof openTimeSec !== "number" || !Number.isFinite(openTimeSec)) {
+      return null;
+    }
+    return formatLocalTime(openTimeSec * 1000);
+  }, [openTimeSec]);
+
+  useEffect(() => {
+    if (statusOverride) {
+      setStatus(statusOverride);
+      return;
+    }
+    if (coreErrorVisible) {
+      setStatus("error");
+      return;
+    }
+    if (typeof openTimeSec !== "number" || !Number.isFinite(openTimeSec)) {
+      setStatus("loading");
+      return;
+    }
+    if (nowSec < openTimeSec) {
+      setStatus("pre_open");
+      return;
+    }
+    if (bidsLength > 0) {
+      setStatus("active");
+      return;
+    }
+    if (coreActive === false) {
+      setStatus("genesis_waiting");
+      return;
+    }
+    setStatus(coreLoading ? "loading" : "loading");
+  }, [
+    statusOverride,
+    coreErrorVisible,
+    openTimeSec,
+    nowSec,
+    bidsLength,
+    coreActive,
+    coreLoading,
+  ]);
+
+  return { status, openAtLabel };
+}
+
 function toSafeNumber(val: string | number | bigint | undefined): number {
   if (val === undefined) return Number.NaN;
   if (typeof val === "number") return val;
@@ -440,6 +587,7 @@ export default function AuctionCanvas({
     [fixture, decimals]
   );
   const isDesktop = useDesktopOnly();
+  const bidsFromBlock = useMemo(() => resolveBidsFromBlock(), []);
   const {
     bids: bidsHook,
     ready: bidsReady,
@@ -447,16 +595,15 @@ export default function AuctionCanvas({
   } = useAuctionBids({
     address: address ?? "0x0",
     provider,
+    fromBlock: bidsFromBlock,
     refreshMs,
     enabled: !fixtureState && Boolean(address),
     maxBids,
   });
   const {
     data: coreData,
-    ready: coreReadyHook,
     loading: coreLoadingHook,
     error: coreErrorHook,
-    refresh: refreshCoreHook,
   } = useAuctionCore({
     address,
     provider,
@@ -470,13 +617,9 @@ export default function AuctionCanvas({
     () => (fixtureState ? { config: fixtureState.config } : coreData),
     [fixtureState, coreData]
   );
-  const coreReady = fixtureState ? true : coreReadyHook;
   const coreLoading = fixtureState ? false : coreLoadingHook;
   const coreError = fixtureState ? null : coreErrorHook;
-  const refreshCore = useMemo(
-    () => (fixtureState ? async () => {} : refreshCoreHook),
-    [fixtureState, refreshCoreHook]
-  );
+  const [coreErrorVisible, setCoreErrorVisible] = useState<unknown>(null);
 
   const [hover, setHover] = useState<DotPoint | null>(null);
   const [view, setView] = useState<"curve" | "bids" | "look">("curve");
@@ -492,6 +635,7 @@ export default function AuctionCanvas({
   const [lookMovementEmptyVisible, setLookMovementEmptyVisible] =
     useState(false);
   const [lookError, setLookError] = useState<string | null>(null);
+  const [lookErrorVisible, setLookErrorVisible] = useState<string | null>(null);
   const [lookAttrs, setLookAttrs] = useState<MetaAttribute[]>([]);
   const [lookIncoming, setLookIncoming] = useState<LookData | null>(null);
   const [lookSlideDir, setLookSlideDir] = useState<"next" | "prev" | null>(
@@ -517,6 +661,34 @@ export default function AuctionCanvas({
       value: attr.value,
     }));
   }, [lookAttrs]);
+  const coreWarm = Boolean(core?.config);
+  const lookWarm = Boolean(lookSvg || lookIncoming);
+
+  useEffect(() => {
+    if (!coreError || isTransientRpcError(coreError)) {
+      setCoreErrorVisible(null);
+      return;
+    }
+    const delay = coreWarm ? ERROR_DELAY_MS : STARTUP_ERROR_DELAY_MS;
+    const id = window.setTimeout(
+      () => setCoreErrorVisible(coreError),
+      delay
+    );
+    return () => window.clearTimeout(id);
+  }, [coreError, coreWarm]);
+
+  useEffect(() => {
+    if (!lookError || isTransientRpcError(lookError)) {
+      setLookErrorVisible(null);
+      return;
+    }
+    const delay = lookWarm ? ERROR_DELAY_MS : STARTUP_ERROR_DELAY_MS;
+    const id = window.setTimeout(
+      () => setLookErrorVisible(lookError),
+      delay
+    );
+    return () => window.clearTimeout(id);
+  }, [lookError, lookWarm]);
   const lookMovementDisplay = useMemo(() => {
     const map = new Map<string, string>();
     for (const attr of lookAttrDisplay) {
@@ -554,14 +726,15 @@ export default function AuctionCanvas({
   lookSvgRef.current = lookSvg;
   lookSlideDirRef.current = lookSlideDir;
   lookSlidePhaseRef.current = lookSlidePhase;
-
-  // If the core service is ready but data hasn't landed, trigger a fetch.
-  useEffect(() => {
-    if (fixtureState) return;
-    if (coreReady && !core && !coreLoading) {
-      void refreshCore();
+  const maxTokenId = useMemo(() => {
+    if (!bids.length) return null;
+    let max = 0;
+    for (const bid of bids) {
+      const id = bid.tokenId ?? bid.epochIndex ?? 0;
+      if (id > max) max = id;
     }
-  }, [coreReady, core, coreLoading, refreshCore, fixtureState]);
+    return max > 0 ? max : null;
+  }, [bids]);
 
   // Keep a ticking wall clock so the curve endpoint advances.
   useEffect(() => {
@@ -576,56 +749,80 @@ export default function AuctionCanvas({
   // Fallback: fetch config directly if the core hook never fills it.
   useEffect(() => {
     if (fixtureState) return;
-    let cancelled = false;
     if (core?.config) {
       if (fallbackConfig) setFallbackConfig(null);
       return;
     }
-    (async () => {
-      try {
-        setFallbackError(null);
-        const addr = address ?? resolveAddress("pulse_auction");
-        const prov = provider ?? (getDefaultProvider() as any);
-        const res: any = await callContract(prov, {
-          contractAddress: addr,
-          entrypoint: "get_config",
-          calldata: [],
-        });
-        const out: any[] = res?.result ?? res;
-        if (!Array.isArray(out) || out.length < 5) {
-          throw new Error("unexpected get_config shape");
+    if (fallbackConfig) return;
+    if (!coreError || isTransientRpcError(coreError)) return;
+    let cancelled = false;
+    const id = window.setTimeout(() => {
+      (async () => {
+        try {
+          setFallbackError(null);
+          const addr = address ?? resolveAddress("pulse_auction");
+          const prov = provider ?? (getDefaultProvider() as any);
+          const res: any = await callContract(prov, {
+            contractAddress: addr,
+            entrypoint: "get_config",
+            calldata: [],
+          });
+          const out: any[] = res?.result ?? res;
+          if (!Array.isArray(out) || out.length < 5) {
+            throw new Error("unexpected get_config shape");
+          }
+          const r: any = {
+            open_time: out[0],
+            genesis_price: { low: out[1], high: out[2] },
+            genesis_floor: { low: out[3], high: out[4] },
+            k: { low: out[5], high: out[6] },
+            pts: out[7],
+          };
+          if (cancelled) return;
+          const open = Number(r.open_time);
+          const gp = readU256(r.genesis_price);
+          const gf = readU256(r.genesis_floor);
+          const k = readU256(r.k);
+          const pts = String(r.pts);
+          setFallbackConfig({
+            openTimeSec: open,
+            genesisPrice: toU256Num(gp),
+            genesisFloor: toU256Num(gf),
+            k: toU256Num(k),
+            pts,
+          });
+        } catch (e) {
+          if (!cancelled) setFallbackError(e);
         }
-        const r: any = {
-          open_time: out[0],
-          genesis_price: { low: out[1], high: out[2] },
-          genesis_floor: { low: out[3], high: out[4] },
-          k: { low: out[5], high: out[6] },
-          pts: out[7],
-        };
-        if (cancelled) return;
-        const open = Number(r.open_time);
-        const gp = readU256(r.genesis_price);
-        const gf = readU256(r.genesis_floor);
-        const k = readU256(r.k);
-        const pts = String(r.pts);
-        setFallbackConfig({
-          openTimeSec: open,
-          genesisPrice: toU256Num(gp),
-          genesisFloor: toU256Num(gf),
-          k: toU256Num(k),
-          pts,
-        });
-      } catch (e) {
-        if (!cancelled) setFallbackError(e);
-      }
-    })();
+      })();
+    }, FALLBACK_DELAY_MS);
     return () => {
       cancelled = true;
+      window.clearTimeout(id);
     };
-  }, [core, address, provider, abiSource, fallbackConfig, fixtureState]);
+  }, [
+    core,
+    coreError,
+    address,
+    provider,
+    abiSource,
+    fallbackConfig,
+    fixtureState,
+  ]);
 
   useEffect(() => {
     if (view !== "look") return;
+    if (maxTokenId == null) {
+      setLookLoading(false);
+      setLookError(null);
+      setLookSvg(null);
+      setLookTitle(null);
+      setLookAttrs([]);
+      setLookIncoming(null);
+      setLookSlidePhase("idle");
+      setLookSlideDir(null);
+      return;
+    }
     let cancelled = false;
     setLookLoading(true);
     setLookError(null);
@@ -676,7 +873,7 @@ export default function AuctionCanvas({
         setLookSvg(null);
         setLookTitle(null);
         setLookAttrs([]);
-        setLookError(String(err));
+        setLookError(isTransientRpcError(err) ? null : String(err));
         setLookIncoming(null);
         setLookSlidePhase("idle");
         setLookSlideDir(null);
@@ -687,7 +884,7 @@ export default function AuctionCanvas({
     return () => {
       cancelled = true;
     };
-  }, [view, lookTokenId, provider]);
+  }, [view, lookTokenId, provider, maxTokenId]);
 
   useEffect(() => {
     if (lookSlidePhase !== "prep") return;
@@ -721,32 +918,18 @@ export default function AuctionCanvas({
       setLookMovementLoadingVisible(false);
       return;
     }
-    if (!lookLoading) {
-      setLookMovementLoadingVisible(false);
-      return;
-    }
-    const id = window.setTimeout(
-      () => setLookMovementLoadingVisible(true),
-      DELAY_MS
-    );
-    return () => window.clearTimeout(id);
-  }, [view, lookLoading, lookTokenId]);
+    setLookMovementLoadingVisible(lookLoading);
+  }, [view, lookLoading]);
 
   useEffect(() => {
     if (view !== "look") {
       setLookMovementEmptyVisible(false);
       return;
     }
-    if (lookLoading || lookError || lookAttrs.length > 0) {
-      setLookMovementEmptyVisible(false);
-      return;
-    }
-    const id = window.setTimeout(
-      () => setLookMovementEmptyVisible(true),
-      DELAY_MS
+    setLookMovementEmptyVisible(
+      !lookLoading && !lookError && lookAttrs.length === 0
     );
-    return () => window.clearTimeout(id);
-  }, [view, lookLoading, lookError, lookAttrs.length, lookTokenId]);
+  }, [view, lookLoading, lookError, lookAttrs.length]);
 
   useEffect(() => {
     if (!lookNotice) return;
@@ -905,51 +1088,24 @@ export default function AuctionCanvas({
       };
     }
 
-    const baseFloor = pickNumber(
-      activeConfig.genesisFloor?.dec,
+    const genesisPriceRaw = pickNumber(
       activeConfig.genesisPrice?.dec,
-      (activeConfig as any).genesisFloor?.value,
       (activeConfig as any).genesisPrice?.value
+    );
+    const genesisFloorRaw = pickNumber(
+      activeConfig.genesisFloor?.dec,
+      (activeConfig as any).genesisFloor?.value
     );
 
     if (!bids.length) {
-      // no bids yet → seed with genesis price/floor for a flat baseline
-      const decFactor = Math.pow(10, decimals);
-      const k = kParsed / decFactor;
-      const ptsPerSec = ptsParsed / decFactor;
-      if (ptsPerSec <= 0) return { curve: null, reason: "pts<=0 (no bids)" };
-      if (!Number.isFinite(baseFloor))
-        return { curve: null, reason: "no floor (no bids)" };
-      const baseFloorHuman = baseFloor / decFactor;
-      const nowSecTick = Date.now() / 1000;
-      const startSec = activeConfig.openTimeSec;
-      const dtSinceOpen = Math.max(0, nowSecTick - startSec);
-      const tHalf = Math.max(k / Math.max(ptsPerSec, 1e-9), 1e-9);
-      const uEnd = dtSinceOpen / tHalf;
-      const ask =
-        baseFloorHuman + ptsPerSec * Math.max(1, nowSecTick - startSec); // synthetic ask above floor
-      return {
-        curve: {
-          points: [
-            { x: startSec, y: ask, u: 0 },
-            { x: nowSecTick, y: ask, u: uEnd },
-          ],
-          ask,
-          floor: baseFloorHuman,
-          startSec,
-          endSec: nowSecTick,
-          tHalf,
-          metaDtSec: dtSinceOpen,
-          metaU: uEnd,
-          maxX: uEnd,
-          minX: 0,
-        },
-        reason: null,
-      };
+      return { curve: null, reason: "no bids" };
     }
 
     const last = bids[bids.length - 1];
     const prev = bids[bids.length - 2];
+    const lastEpoch = (last as any)?.epochIndex ?? (last as any)?.epoch ?? null;
+    const isGenesis =
+      bids.length === 1 && (lastEpoch == null || lastEpoch === 1);
     const lastDecStr =
       (last as any).amountDec ??
       (() => {
@@ -959,11 +1115,87 @@ export default function AuctionCanvas({
           return String(last.amount?.dec ?? "");
         }
       })();
+    const decFactor = Math.pow(10, decimals);
+
+    if (isGenesis) {
+      const genesisPriceHuman = Number.isFinite(genesisPriceRaw)
+        ? genesisPriceRaw / decFactor
+        : Number.NaN;
+      const genesisFloorHuman = Number.isFinite(genesisFloorRaw)
+        ? genesisFloorRaw / decFactor
+        : Number.NaN;
+      const premiumHuman = genesisPriceHuman - genesisFloorHuman;
+      const kHuman = kParsed / decFactor;
+      if (!Number.isFinite(genesisPriceHuman) || !Number.isFinite(genesisFloorHuman)) {
+        return { curve: null, reason: "invalid genesis price/floor" };
+      }
+      if (!Number.isFinite(kHuman) || premiumHuman <= 0) {
+        return { curve: null, reason: "invalid genesis gap" };
+      }
+      const lastSec = last.atMs / 1000;
+      const tHalf = kHuman / Math.max(premiumHuman, 1e-9);
+      const metaDtSec = Math.max(0, nowSec - lastSec);
+      const metaU = tHalf > 0 ? metaDtSec / tHalf : 0;
+      const uMax = Math.max(10, metaU);
+      const ask = genesisPriceHuman;
+      const floor = genesisFloorHuman;
+      const priceAtU = (u: number) => floor + premiumHuman / Math.max(u + 1, 1e-9);
+      const samples = 120;
+      const points: CurvePoint[] = [];
+      for (let i = 0; i <= samples; i++) {
+        const u = (uMax * i) / samples;
+        const tau = u * tHalf;
+        const t = lastSec + tau;
+        const y = priceAtU(u);
+        if (Number.isFinite(y)) points.push({ x: t, y, u });
+      }
+      const endTau = uMax * tHalf;
+      const endT = lastSec + endTau;
+      const yEnd = priceAtU(uMax);
+      if (Number.isFinite(yEnd)) {
+        const lastPoint = points[points.length - 1];
+        if (!lastPoint || Math.abs(lastPoint.u - uMax) > 1e-6) {
+          points[points.length - 1] = { x: endT, y: yEnd, u: uMax };
+        }
+      }
+      if (!points.length) return { curve: null, reason: "no curve points" };
+      const ysAll = [...points.map((p) => p.y), ask, floor];
+      const minY = Math.min(...ysAll);
+      const maxY = Math.max(...ysAll);
+      return {
+        curve: {
+          points,
+          ask,
+          floor,
+          startSec: lastSec,
+          endSec: lastSec + uMax * tHalf,
+          anchor: lastSec - tHalf,
+          k: kHuman,
+          asymptoteB: floor,
+          lastDecStr,
+          lastDecValue: Number.isFinite(Number(lastDecStr))
+            ? Number(lastDecStr)
+            : null,
+          askDecStr: Number.isFinite(ask) ? ask.toFixed(2) : lastDecStr,
+          floorDecStr: Number.isFinite(floor) ? floor.toFixed(2) : lastDecStr,
+          lastEpoch,
+          premiumHuman,
+          dtSec: 0,
+          minX: 0,
+          maxX: uMax,
+          minY,
+          maxY,
+          tHalf,
+          metaU,
+          metaDtSec,
+        },
+        reason: null,
+      };
+    }
     const floorHuman = Number(lastDecStr);
     if (!Number.isFinite(floorHuman))
       return { curve: null, reason: "floor nan" };
 
-    const decFactor = Math.pow(10, decimals);
     const kHuman = kParsed / decFactor; // scale k into price units
     const ptsHumanCfg = ptsParsed / decFactor; // STRK per second (config hint)
     if (!Number.isFinite(kHuman) || !Number.isFinite(ptsHumanCfg)) {
@@ -1085,6 +1317,17 @@ export default function AuctionCanvas({
   const showBids = view === "bids";
   const showCurve = view === "curve";
   const showLook = view === "look";
+  const { status: auctionStatus, openAtLabel } = useAuctionStatus({
+    nowSec,
+    openTimeSec: activeConfig?.openTimeSec,
+    coreActive: core?.active,
+    coreLoading,
+    coreErrorVisible,
+    bidsLength: bids.length,
+  });
+  const showPreOpenNotice = showCurve && auctionStatus === "pre_open";
+  const showGenesisWaiting = showCurve && auctionStatus === "genesis_waiting";
+  const showCurveLoading = showCurve && auctionStatus === "loading";
   const lookSliding =
     lookSlidePhase !== "idle" &&
     Boolean(lookIncoming && lookSvg && lookSlideDir);
@@ -1102,15 +1345,6 @@ export default function AuctionCanvas({
       : "translateX(0%)";
   const lookTrackTransition =
     lookSlidePhase === "animating" ? "transform 420ms ease" : "none";
-  const maxTokenId = useMemo(() => {
-    if (!bids.length) return null;
-    let max = 0;
-    for (const bid of bids) {
-      const id = bid.tokenId ?? bid.epochIndex ?? 0;
-      if (id > max) max = id;
-    }
-    return max > 0 ? max : null;
-  }, [bids]);
 
   useEffect(() => {
     if (view !== "look") return;
@@ -1171,23 +1405,35 @@ export default function AuctionCanvas({
             look
           </button>
         </div>
-        <button className="dotfield__mint">[ mint ]</button>
+        <HeaderWalletCTA />
       </div>
       {showCurve && (
         <>
-          {!coreReady && coreLoading && (
+          {showPreOpenNotice && (
+            <div className="dotfield__canvas dotfield__look">
+              <div className="muted">
+                Auction will open at {openAtLabel ?? "—"}
+              </div>
+            </div>
+          )}
+          {showGenesisWaiting && (
+            <div className="dotfield__canvas dotfield__look">
+              <div className="muted">Genesis is waiting for bid</div>
+            </div>
+          )}
+          {showCurveLoading && (
             <div className="dotfield__canvas">
               <div className="muted">loading curve…</div>
             </div>
           )}
-          {coreError && !curve && (
+          {coreErrorVisible && !curve && (
             <div className="dotfield__canvas">
               <div className="muted">
-                error loading curve: {String(coreError)}
+                error loading curve: {String(coreErrorVisible)}
               </div>
             </div>
           )}
-          {coreReady && curve && (
+          {curve && (
             <>
               <div className="dotfield__canvas" onMouseLeave={() => setHover(null)}>
                 <svg
@@ -1531,10 +1777,6 @@ export default function AuctionCanvas({
                   })()}
                 </svg>
               </div>
-              <div className="dotfield__axes muted small">
-                <span>time (half-lives) →</span>
-                <span>price ↑</span>
-              </div>
               {hover && (
                 <div
                   className="dotfield__popover"
@@ -1712,11 +1954,10 @@ export default function AuctionCanvas({
               )}
             </>
           )}
-          {coreReady && !curve && (
-            <div className="dotfield__canvas">
-              <div className="muted">&nbsp;</div>
-            </div>
-          )}
+          <div className="dotfield__axes muted small">
+            <span>time (half-lives) →</span>
+            <span>price ↑</span>
+          </div>
         </>
       )}
 
@@ -1726,9 +1967,9 @@ export default function AuctionCanvas({
             {lookLoadingVisible && !lookSvg && !lookIncoming && (
               <div className="muted">loading look…</div>
             )}
-            {lookError && (
-              <div className="muted">error loading look: {lookError}</div>
-            )}
+          {lookErrorVisible && (
+            <div className="muted">error loading look: {lookErrorVisible}</div>
+          )}
             {!lookError && (lookSvg || lookIncoming) && (
               <div
                 className="dotfield__look-viewport"
@@ -1807,10 +2048,16 @@ export default function AuctionCanvas({
             <button
               className="dotfield__look-nav dotfield__look-prev"
               data-disabled={
-                lookLoading || lookSliding || lookDisplayTokenId <= 1
+                lookLoading ||
+                lookSliding ||
+                maxTokenId == null ||
+                lookDisplayTokenId <= 1
               }
               aria-disabled={
-                lookLoading || lookSliding || lookDisplayTokenId <= 1
+                lookLoading ||
+                lookSliding ||
+                maxTokenId == null ||
+                lookDisplayTokenId <= 1
               }
               onClick={() => {
                 if (lookLoading || lookSliding) return;
@@ -1830,11 +2077,13 @@ export default function AuctionCanvas({
               data-disabled={
                 lookLoading ||
                 lookSliding ||
+                maxTokenId == null ||
                 (maxTokenId != null && lookDisplayTokenId >= maxTokenId)
               }
               aria-disabled={
                 lookLoading ||
                 lookSliding ||
+                maxTokenId == null ||
                 (maxTokenId != null && lookDisplayTokenId >= maxTokenId)
               }
               onClick={() => {
@@ -1903,7 +2152,7 @@ export default function AuctionCanvas({
             </div>
           )}
           {ready && !dots.points.length && (
-            <div className="dotfield__canvas">
+            <div className="dotfield__canvas dotfield__look">
               <div className="muted">no bids yet</div>
             </div>
           )}
@@ -2003,11 +2252,13 @@ export default function AuctionCanvas({
                   </div>
                 )}
               </div>
-              <div className="dotfield__axes muted small">
-                <span>time →</span>
-                <span>price ↑</span>
-              </div>
             </>
+          )}
+          {ready && (
+            <div className="dotfield__axes muted small">
+              <span>time →</span>
+              <span>price ↑</span>
+            </div>
           )}
         </>
       )}

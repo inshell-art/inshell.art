@@ -319,6 +319,136 @@ body {
   padding: 0;
 }
 
+.dotfield__mint[disabled] {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.dotfield__cta {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+}
+
+.dotfield__cta-address {
+  background: transparent;
+  border: none;
+  padding: 0;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.dotfield__cta-address:focus-visible {
+  outline: 1px solid var(--accent-border);
+  outline-offset: 2px;
+}
+
+.dotfield__cta-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
+  transition: transform 140ms ease, opacity 140ms ease;
+}
+
+.dotfield__cta-dot.is-off {
+  background: transparent;
+  border: 1px solid var(--muted);
+  box-shadow: none;
+  opacity: 0.7;
+}
+
+.dotfield__cta-dot.is-on {
+  background: var(--accent);
+  box-shadow: 0 0 6px rgba(0, 97, 0, 0.6);
+}
+
+.dotfield__cta-dot.is-warning {
+  background: #d59a00;
+  box-shadow: 0 0 6px rgba(213, 154, 0, 0.6);
+}
+
+.dotfield__cta-dot.is-pending {
+  background: #d59a00;
+  box-shadow: 0 0 6px rgba(213, 154, 0, 0.6);
+  animation: dotfield-pulse 1.1s ease-in-out infinite;
+}
+
+.dotfield__cta-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+  min-width: 180px;
+  z-index: 12;
+}
+
+.dotfield__cta-menu-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  align-items: flex-start;
+}
+
+.dotfield__cta-menu-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.dotfield__cta-menu-value {
+  color: var(--text);
+  text-transform: none;
+  text-align: right;
+  word-break: break-all;
+  max-width: 200px;
+}
+
+.dotfield__cta-menu-item {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+  text-align: left;
+  cursor: pointer;
+  padding: 4px 0;
+  text-decoration: none;
+  display: block;
+}
+
+.dotfield__cta-menu-item:hover {
+  color: var(--accent);
+}
+
+@keyframes dotfield-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.65;
+  }
+  50% {
+    transform: scale(1.4);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.65;
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   .dotfield__tabs {
     color: #9ea0a1;

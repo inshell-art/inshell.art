@@ -27,6 +27,21 @@ jest.mock("../src/hooks/useAuctionBids", () => ({
 jest.mock("../src/hooks/useAuctionCore", () => ({
   useAuctionCore: (...args: any[]) => mockUseAuctionCore(...args),
 }));
+jest.mock("@inshell/wallet", () => ({
+  useWallet: () => ({
+    address: "0x1111222233334444555566667777888899990000",
+    isConnected: true,
+    isConnecting: false,
+    isReconnecting: false,
+    status: "connected",
+    chain: { name: "Starknet Sepolia Testnet" },
+    chainId: BigInt("0x534e5f5345504f4c4941"),
+    connect: jest.fn(),
+    disconnect: jest.fn(),
+    connectors: [],
+    connectStatus: "idle",
+  }),
+}));
 
 const sampleBids = [
   {
@@ -120,14 +135,7 @@ describe("AuctionCanvas", () => {
 
   test("shows loading placeholder when curve is still loading", () => {
     mockUseAuctionCore.mockReturnValue({
-      data: {
-        config: {
-          openTimeSec: Date.UTC(2024, 0, 1) / 1000,
-          genesisPrice: { dec: "1" },
-          genesisFloor: { dec: "1" },
-          k: { dec: "10" },
-          pts: "1" },
-      },
+      data: null,
       ready: false,
       loading: true,
       error: null,
@@ -138,6 +146,7 @@ describe("AuctionCanvas", () => {
   });
 
   test("shows error message when curve load fails", () => {
+    jest.useFakeTimers();
     mockUseAuctionCore.mockReturnValue({
       data: {
         config: {
@@ -155,11 +164,31 @@ describe("AuctionCanvas", () => {
       refresh: jest.fn(),
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    act(() => {
+      jest.advanceTimersByTime(800);
+    });
     expect(screen.getByText(/error loading curve/i)).toBeTruthy();
     expect(screen.getByText(/boom/i)).toBeTruthy();
+    jest.useRealTimers();
   });
 
-  test("renders baseline curve when there are no bids", () => {
+  test("shows genesis waiting message when there are no bids", () => {
+    mockUseAuctionCore.mockReturnValue({
+      data: {
+        active: false,
+        config: {
+          openTimeSec: Math.floor(Date.now() / 1000) - 60,
+          genesisPrice: { dec: "1" },
+          genesisFloor: { dec: "1" },
+          k: { dec: "10" },
+          pts: "1",
+        },
+      },
+      ready: true,
+      loading: false,
+      error: null,
+      refresh: jest.fn(),
+    });
     mockUseAuctionBids.mockReturnValue({
       bids: [],
       ready: true,
@@ -167,7 +196,33 @@ describe("AuctionCanvas", () => {
       error: null,
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    expect(screen.getByRole("img", { name: /pulse curve/i })).toBeTruthy();
-    expect(screen.getByText(/time \(half-lives\)/i)).toBeTruthy();
+    expect(screen.getByText(/Genesis is waiting for bid/i)).toBeTruthy();
+  });
+
+  test("shows pre-open message when open time is in the future", () => {
+    mockUseAuctionCore.mockReturnValue({
+      data: {
+        active: false,
+        config: {
+          openTimeSec: Math.floor(Date.now() / 1000) + 3600,
+          genesisPrice: { dec: "1" },
+          genesisFloor: { dec: "1" },
+          k: { dec: "10" },
+          pts: "1",
+        },
+      },
+      ready: true,
+      loading: false,
+      error: null,
+      refresh: jest.fn(),
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids: [],
+      ready: true,
+      loading: false,
+      error: null,
+    });
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    expect(screen.getByText(/Auction will open at/i)).toBeTruthy();
   });
 });
