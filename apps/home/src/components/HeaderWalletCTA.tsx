@@ -1,3 +1,4 @@
+/* global HTMLDivElement, MouseEvent, KeyboardEvent, Node */
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Connector } from "@starknet-react/core";
 import { useWallet } from "@inshell/wallet";
