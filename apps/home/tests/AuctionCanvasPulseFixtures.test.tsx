@@ -41,6 +41,7 @@ jest.mock("@inshell/wallet", () => ({
     connectors: [],
     connectStatus: "idle",
     requestAccounts: jest.fn(),
+    watchAsset: jest.fn(),
   }),
 }));
 

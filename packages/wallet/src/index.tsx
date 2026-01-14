@@ -18,7 +18,6 @@ import {
   WalletAccount,
   type ProviderInterface,
   type StarknetWindowObject,
-  requestAccounts as walletRequestAccounts,
 } from "starknet";
 
 function getEnv(name: string): any {
@@ -31,6 +30,14 @@ function getEnv(name: string): any {
 type InjectedWallet = {
   id: string;
   wallet: StarknetWindowObject;
+};
+
+export type WalletAsset = {
+  address: string;
+  symbol: string;
+  decimals: number;
+  name?: string;
+  icon?: string;
 };
 
 function findInjectedWallet(): InjectedWallet | null {
@@ -53,12 +60,6 @@ async function requestInjectedAccounts(
   wallet: StarknetWindowObject
 ): Promise<string[]> {
   try {
-    const res = await walletRequestAccounts(wallet, false);
-    if (Array.isArray(res)) return res as string[];
-  } catch {
-    // fall back to direct request
-  }
-  try {
     const anyWallet = wallet as any;
     if (typeof anyWallet.requestAccounts === "function") {
       const res = await anyWallet.requestAccounts(false);
@@ -76,6 +77,34 @@ async function requestInjectedAccounts(
     return [];
   }
   return [];
+}
+
+async function watchInjectedAsset(
+  wallet: StarknetWindowObject,
+  asset: WalletAsset
+): Promise<boolean> {
+  try {
+    const anyWallet = wallet as any;
+    if (typeof anyWallet.request === "function") {
+      const res = await anyWallet.request({
+        type: "wallet_watchAsset",
+        params: {
+          type: "ERC20",
+          options: {
+            address: asset.address,
+            symbol: asset.symbol,
+            decimals: asset.decimals,
+            name: asset.name,
+            icon: asset.icon,
+          },
+        },
+      });
+      return Boolean(res);
+    }
+  } catch {
+    return false;
+  }
+  return false;
 }
 
 function createFallbackProvider(chain?: {
@@ -231,6 +260,12 @@ export function useWallet() {
     return accounts.length ? accounts : null;
   }, []);
 
+  const watchAsset = useCallback(async (asset: WalletAsset) => {
+    const injected = findInjectedWallet();
+    if (!injected?.wallet) return false;
+    return watchInjectedAsset(injected.wallet, asset);
+  }, []);
+
   return {
     ...account,
     account: account.account ?? fallbackAccount ?? undefined,
@@ -245,6 +280,7 @@ export function useWallet() {
     connectStatus: status,
     connectError: error,
     requestAccounts,
+    watchAsset,
   };
 }
 

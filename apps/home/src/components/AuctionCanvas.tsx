@@ -639,7 +639,7 @@ export default function AuctionCanvas({
   const coreLoading = fixtureState ? false : coreLoadingHook;
   const coreError = fixtureState ? null : coreErrorHook;
   const [coreErrorVisible, setCoreErrorVisible] = useState<unknown>(null);
-  const { account, address: walletAddress } = useWallet();
+  const { account, address: walletAddress, watchAsset } = useWallet();
 
   const [hover, setHover] = useState<DotPoint | null>(null);
   const [view, setView] = useState<"curve" | "bids" | "look">("curve");
@@ -743,6 +743,7 @@ export default function AuctionCanvas({
   const [fallbackError, setFallbackError] = useState<unknown>(null);
   const loggedCurveRef = useRef(false);
   const lastLoggedEndRef = useRef<number | null>(null);
+  const watchAssetAttemptedRef = useRef(false);
   lookSvgRef.current = lookSvg;
   lookSlideDirRef.current = lookSlideDir;
   lookSlidePhaseRef.current = lookSlidePhase;
@@ -1382,6 +1383,19 @@ export default function AuctionCanvas({
     try {
       const auctionAddr = address ?? resolveAddress("pulse_auction");
       const paymentToken = resolvePaymentToken();
+      if (
+        !watchAssetAttemptedRef.current &&
+        watchAsset &&
+        paymentToken.toLowerCase() === SEPOLIA_STRK.toLowerCase()
+      ) {
+        watchAssetAttemptedRef.current = true;
+        void watchAsset({
+          address: paymentToken,
+          symbol: "STRK",
+          decimals: 18,
+          name: "Starknet Token",
+        });
+      }
       const readProvider =
         provider ?? (getDefaultProvider() as ProviderInterface);
       const priceRes: any = await callContract(readProvider, {
@@ -1652,9 +1666,12 @@ export default function AuctionCanvas({
                               }
                             }
                             const tHalf = (curve as any).tHalf ?? 1;
-                            const timeU = clampedX;
                             const metaDt = (curve as any).metaDtSec ?? 0;
-                            const tau = Math.max(0, timeU * tHalf); // seconds since last bid at this point
+                            const frac = maxX > 0 ? clampedX / maxX : 0;
+                            const tau = Math.max(
+                              0,
+                              Math.min(metaDt, frac * metaDt)
+                            ); // seconds since last bid at this point
                             const atMs =
                               (curve.startSec ?? 0) * 1000 + tau * 1000;
                             const amountStr = Number.isFinite(yAt)
