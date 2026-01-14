@@ -279,4 +279,26 @@ describe("AuctionCanvas", () => {
     });
     expect(execute.mock.calls[0][0].entrypoint).toBe("bid");
   });
+
+  test("shows inline error when balance is insufficient", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const execute = jest.fn().mockResolvedValue({});
+    mockWalletState.account = { execute };
+    mockCallContract
+      .mockResolvedValueOnce({ price: { low: "100", high: "0" } })
+      .mockResolvedValueOnce({ balance: { low: "50", high: "0" } })
+      .mockResolvedValueOnce({ remaining: { low: "0", high: "0" } });
+
+    try {
+      render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+      await act(async () => {
+        fireEvent.click(screen.getByText(/mint/i));
+      });
+
+      expect(screen.getByText(/Insufficient STRK/i)).toBeTruthy();
+      expect(execute).not.toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
 });

@@ -53,6 +53,14 @@ function shortAmount(val: string) {
   return val;
 }
 
+function formatTokenAmount(u: { dec: string }, decimals: number): string {
+  const fixed = toFixed(u, decimals);
+  if (!fixed.includes(".")) return fixed;
+  const [intPart, fracPart] = fixed.split(".");
+  const trimmed = fracPart.slice(0, 4).replace(/0+$/, "");
+  return trimmed ? `${intPart}.${trimmed}` : intPart;
+}
+
 function getEnvValue(name: string): unknown {
   const envCache: Record<string, any> | undefined =
     (globalThis as any).__VITE_ENV__;
@@ -640,6 +648,11 @@ export default function AuctionCanvas({
   const coreError = fixtureState ? null : coreErrorHook;
   const [coreErrorVisible, setCoreErrorVisible] = useState<unknown>(null);
   const { account, address: walletAddress, watchAsset } = useWallet();
+  const [mintNotice, setMintNotice] = useState<{
+    type: "error" | "info";
+    message: string;
+  } | null>(null);
+  const mintNoticeTimerRef = useRef<number | null>(null);
 
   const [hover, setHover] = useState<DotPoint | null>(null);
   const [view, setView] = useState<"curve" | "bids" | "look">("curve");
@@ -1378,9 +1391,33 @@ export default function AuctionCanvas({
     }
   }, [view, maxTokenId, lookDisplayTokenId]);
 
+  useEffect(() => {
+    if (!mintNotice) return;
+    if (mintNoticeTimerRef.current) {
+      window.clearTimeout(mintNoticeTimerRef.current);
+    }
+    mintNoticeTimerRef.current = window.setTimeout(
+      () => setMintNotice(null),
+      5000
+    );
+    return () => {
+      if (mintNoticeTimerRef.current) {
+        window.clearTimeout(mintNoticeTimerRef.current);
+        mintNoticeTimerRef.current = null;
+      }
+    };
+  }, [mintNotice]);
+
   const handleMint = async () => {
-    if (!account || !walletAddress) return;
+    if (!account || !walletAddress) {
+      setMintNotice({
+        type: "error",
+        message: "Connect wallet to mint.",
+      });
+      return;
+    }
     try {
+      setMintNotice(null);
       const auctionAddr = address ?? resolveAddress("pulse_auction");
       const paymentToken = resolvePaymentToken();
       if (
@@ -1415,6 +1452,12 @@ export default function AuctionCanvas({
         readU256(balanceRes?.balance ?? balanceRes?.[0] ?? balanceRes)
       );
       if (balance.value < price.value) {
+        const priceLabel = formatTokenAmount(price, decimals);
+        const balanceLabel = formatTokenAmount(balance, decimals);
+        setMintNotice({
+          type: "error",
+          message: `Insufficient STRK. Need ${priceLabel}, have ${balanceLabel}.`,
+        });
         console.warn("mint failed: insufficient STRK", {
           balance: balance.dec,
           price: price.dec,
@@ -1444,6 +1487,14 @@ export default function AuctionCanvas({
         calldata: [price.raw.low, price.raw.high],
       });
     } catch (err) {
+      const msg = String((err as any)?.message ?? err ?? "");
+      const rejected = /USER_REFUSED/i.test(msg);
+      setMintNotice({
+        type: "error",
+        message: rejected
+          ? "Transaction rejected in wallet."
+          : "Mint failed. Check wallet.",
+      });
       console.error("mint failed", err);
     }
   };
@@ -1501,6 +1552,15 @@ export default function AuctionCanvas({
         </div>
         <HeaderWalletCTA onMint={handleMint} />
       </div>
+      {mintNotice && (
+        <div
+          className={`dotfield__mint-notice ${
+            mintNotice.type === "error" ? "is-error" : ""
+          }`}
+        >
+          {mintNotice.message}
+        </div>
+      )}
       {showCurve && (
         <>
           {showPreOpenNotice && (
