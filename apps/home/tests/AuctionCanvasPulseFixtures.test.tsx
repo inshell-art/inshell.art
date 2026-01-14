@@ -181,6 +181,39 @@ describe("AuctionCanvas with pulse fixtures", () => {
     });
   });
 
+  test("curve tooltip uses elapsed time for since/ago rows", () => {
+    const fx: Fixture = {
+      k: 1000,
+      epoch: {
+        epochIndex: 2,
+        floor: 10,
+        D: 1,
+        tStart: 1000,
+        tNow: 1000 + 3661,
+      },
+    };
+    withFixture(fx);
+    jest.setSystemTime(new Date(fx.epoch.tNow * 1000));
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
+    stubSvg(container);
+    const path = container.querySelector(".dotfield__curve");
+    expect(path).toBeTruthy();
+    fireEvent.mouseMove(path as unknown as HTMLElement, {
+      clientX: 10,
+      clientY: 10,
+    });
+    const popover = container.querySelector(".dotfield__popover") as HTMLElement;
+    expect(popover).toBeTruthy();
+    const sinceRow = within(popover).getByText(/since last sale/i).parentElement;
+    expect(sinceRow).toBeTruthy();
+    expect(within(sinceRow as HTMLElement).getByText("00:00:00")).toBeTruthy();
+    const agoRow = within(popover).getByText(/^ago$/i).parentElement;
+    expect(agoRow).toBeTruthy();
+    expect(within(agoRow as HTMLElement).getByText("01:01:01")).toBeTruthy();
+  });
+
   test("renders without cliff for huge pump fixture", () => {
     withFixture(huge);
     jest.setSystemTime(new Date((huge as any).epoch.tNow * 1000));

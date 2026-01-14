@@ -20,6 +20,27 @@ const mockCallContract = jest.fn<
 const mockProvider = {
   callContract: mockCallContract,
 };
+const createWalletState = (overrides: Partial<any> = {}) => ({
+  address: "0x1111222233334444555566667777888899990000",
+  isConnected: true,
+  isConnecting: false,
+  isReconnecting: false,
+  status: "connected",
+  chain: { name: "Starknet Sepolia Testnet" },
+  chainId: BigInt("0x534e5f5345504f4c4941"),
+  account: null,
+  accountMissing: false,
+  connect: jest.fn(),
+  connectAsync: jest.fn(),
+  disconnect: jest.fn(),
+  disconnectAsync: jest.fn(),
+  connectors: [],
+  connectStatus: "idle",
+  requestAccounts: jest.fn(),
+  watchAsset: jest.fn(),
+  ...overrides,
+});
+let mockWalletState = createWalletState();
 
 jest.mock("../src/hooks/useAuctionBids", () => ({
   useAuctionBids: (...args: any[]) => mockUseAuctionBids(...args),
@@ -28,25 +49,7 @@ jest.mock("../src/hooks/useAuctionCore", () => ({
   useAuctionCore: (...args: any[]) => mockUseAuctionCore(...args),
 }));
 jest.mock("@inshell/wallet", () => ({
-  useWallet: () => ({
-    address: "0x1111222233334444555566667777888899990000",
-    isConnected: true,
-    isConnecting: false,
-    isReconnecting: false,
-    status: "connected",
-    chain: { name: "Starknet Sepolia Testnet" },
-    chainId: BigInt("0x534e5f5345504f4c4941"),
-    account: null,
-    accountMissing: false,
-    connect: jest.fn(),
-    connectAsync: jest.fn(),
-    disconnect: jest.fn(),
-    disconnectAsync: jest.fn(),
-    connectors: [],
-    connectStatus: "idle",
-    requestAccounts: jest.fn(),
-    watchAsset: jest.fn(),
-  }),
+  useWallet: () => mockWalletState,
 }));
 
 const sampleBids = [
@@ -70,6 +73,8 @@ const sampleBids = [
 
 describe("AuctionCanvas", () => {
   beforeEach(() => {
+    mockWalletState = createWalletState();
+    (globalThis as any).__VITE_ENV__ = {};
     mockCallContract.mockReset();
     mockCallContract.mockResolvedValue({ result: [] });
     mockUseAuctionBids.mockReturnValue({
@@ -83,6 +88,7 @@ describe("AuctionCanvas", () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    delete (globalThis as any).__VITE_ENV__;
   });
 
   test("renders mint button and dots", () => {
@@ -230,5 +236,47 @@ describe("AuctionCanvas", () => {
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     expect(screen.getByText(/Auction will open at/i)).toBeTruthy();
+  });
+
+  test("mint flow approves then bids when allowance is low", async () => {
+    const execute = jest.fn().mockResolvedValue({});
+    mockWalletState.account = { execute };
+    mockWalletState.watchAsset = jest.fn().mockResolvedValue(true);
+    mockCallContract
+      .mockResolvedValueOnce({ price: { low: "100", high: "0" } })
+      .mockResolvedValueOnce({ balance: { low: "200", high: "0" } })
+      .mockResolvedValueOnce({ remaining: { low: "0", high: "0" } });
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    await act(async () => {
+      fireEvent.click(screen.getByText(/mint/i));
+    });
+
+    await waitFor(() => {
+      expect(execute).toHaveBeenCalledTimes(2);
+    });
+    expect(execute.mock.calls[0][0].entrypoint).toBe("approve");
+    expect(execute.mock.calls[1][0].entrypoint).toBe("bid");
+    expect(mockWalletState.watchAsset).toHaveBeenCalled();
+  });
+
+  test("mint flow skips approve when allowance is sufficient", async () => {
+    const execute = jest.fn().mockResolvedValue({});
+    mockWalletState.account = { execute };
+    mockWalletState.watchAsset = jest.fn().mockResolvedValue(true);
+    mockCallContract
+      .mockResolvedValueOnce({ price: { low: "100", high: "0" } })
+      .mockResolvedValueOnce({ balance: { low: "200", high: "0" } })
+      .mockResolvedValueOnce({ remaining: { low: "150", high: "0" } });
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    await act(async () => {
+      fireEvent.click(screen.getByText(/mint/i));
+    });
+
+    await waitFor(() => {
+      expect(execute).toHaveBeenCalledTimes(1);
+    });
+    expect(execute.mock.calls[0][0].entrypoint).toBe("bid");
   });
 });
