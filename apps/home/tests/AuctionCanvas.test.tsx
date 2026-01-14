@@ -36,10 +36,15 @@ jest.mock("@inshell/wallet", () => ({
     status: "connected",
     chain: { name: "Starknet Sepolia Testnet" },
     chainId: BigInt("0x534e5f5345504f4c4941"),
+    account: null,
+    accountMissing: false,
     connect: jest.fn(),
+    connectAsync: jest.fn(),
     disconnect: jest.fn(),
+    disconnectAsync: jest.fn(),
     connectors: [],
     connectStatus: "idle",
+    requestAccounts: jest.fn(),
   }),
 }));
 

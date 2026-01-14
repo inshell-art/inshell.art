@@ -36,10 +36,15 @@ jest.mock("@inshell/wallet", () => ({
     status: "connected",
     chain: { name: "Starknet Sepolia Testnet" },
     chainId: BigInt("0x534e5f5345504f4c4941"),
+    account: null,
+    accountMissing: false,
     connect: jest.fn(),
+    connectAsync: jest.fn(),
     disconnect: jest.fn(),
+    disconnectAsync: jest.fn(),
     connectors: [],
     connectStatus: "idle",
+    requestAccounts: jest.fn(),
   }),
 }));
 
@@ -144,17 +149,17 @@ describe("AuctionCanvas look tab", () => {
       render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
       fireEvent.click(screen.getByText(/look/i));
 
-      expect(screen.queryByText(/loading look/i)).toBeNull();
+      expect(screen.queryByText(/loading svg/i)).toBeNull();
 
       await act(async () => {
         jest.advanceTimersByTime(499);
       });
-      expect(screen.queryByText(/loading look/i)).toBeNull();
+      expect(screen.queryByText(/loading svg/i)).toBeNull();
 
       await act(async () => {
         jest.advanceTimersByTime(2);
       });
-      expect(screen.getByText(/loading look/i)).toBeTruthy();
+      expect(screen.getByText(/loading svg/i)).toBeTruthy();
       expect(screen.queryByText(/no svg yet/i)).toBeNull();
     } finally {
       jest.useRealTimers();

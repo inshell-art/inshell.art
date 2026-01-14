@@ -96,9 +96,13 @@ export default function HeaderWalletCTA({ onMint }: HeaderWalletCTAProps) {
     chain,
     chainId,
     connect,
+    connectAsync,
     disconnect,
+    disconnectAsync,
     connectors,
     connectStatus,
+    requestAccounts,
+    accountMissing,
   } = useWallet();
   const [menuOpen, setMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -179,29 +183,54 @@ export default function HeaderWalletCTA({ onMint }: HeaderWalletCTAProps) {
   const ctaLabel = isBusy
     ? "connecting..."
     : isConnected
-      ? wrongNetwork
-        ? "wrong network"
-        : "mint"
+      ? accountMissing
+        ? "unlock wallet"
+        : wrongNetwork
+          ? "wrong network"
+          : "mint"
       : "connect";
-  const ctaDisabled = isBusy || (isConnected && wrongNetwork);
+  const ctaDisabled = isBusy || (isConnected && wrongNetwork && !accountMissing);
   const dotState = isBusy
     ? "is-pending"
     : isConnected
-      ? wrongNetwork
+      ? accountMissing || wrongNetwork
         ? "is-warning"
         : "is-on"
       : "is-off";
   const dotTooltip = isBusy
     ? "connecting..."
     : isConnected && address
-      ? `${shortAddress(address)} - ${wrongNetwork ? "wrong network" : networkLabel}`
+      ? accountMissing
+        ? "unlock wallet to continue"
+        : `${shortAddress(address)} - ${wrongNetwork ? "wrong network" : networkLabel}`
       : "not connected";
 
-  const handlePrimaryClick = () => {
+  const reconnectWallet = async () => {
+    if (!primaryConnector) return;
+    try {
+      await disconnectAsync?.();
+    } catch {
+      // no-op
+    }
+    if (connectAsync) {
+      await connectAsync({ connector: primaryConnector });
+    } else {
+      connect({ connector: primaryConnector });
+    }
+  };
+
+  const handlePrimaryClick = async () => {
     if (ctaDisabled) return;
     if (!isConnected) {
       if (!primaryConnector) return;
       connect({ connector: primaryConnector });
+      return;
+    }
+    if (accountMissing) {
+      if (requestAccounts) {
+        await requestAccounts();
+      }
+      void reconnectWallet();
       return;
     }
     if (!wrongNetwork) {
@@ -209,11 +238,18 @@ export default function HeaderWalletCTA({ onMint }: HeaderWalletCTAProps) {
     }
   };
 
-  const handleDotClick = () => {
+  const handleDotClick = async () => {
     if (isBusy) return;
     if (!isConnected) {
       if (!primaryConnector) return;
       connect({ connector: primaryConnector });
+      return;
+    }
+    if (accountMissing) {
+      if (requestAccounts) {
+        await requestAccounts();
+      }
+      void reconnectWallet();
       return;
     }
     setMenuOpen((open) => !open);

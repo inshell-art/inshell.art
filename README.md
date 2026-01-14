@@ -90,6 +90,12 @@ apps/home/src/components/
 - **ABI typing**: use `packages/contracts/src/abi/typed/PulseAuction.abi.ts` (const literal) for TypeScript types.
 - **Runtime ABI**: can still be fetched from node; a compatibility guard checks required entrypoints.
 
+### Curve rendering (half-lives)
+
+- X-axis uses half-lives: `u = (t - last_bid_time) / t_half`.
+- The FE draws a fixed window of 10 half-lives (`CURVE_HALF_LIVES`) to keep the curve smooth across parameter ranges.
+- Tooltip timing converts back via `tau = u * t_half`, then uses `(now - last_bid_time) - tau` for "ago".
+
 ## 4) Example: render raw auction data
 
 ```tsx

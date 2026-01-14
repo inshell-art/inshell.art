@@ -3,7 +3,7 @@ import { isDesktopDevice } from "@inshell/utils";
 import "./Movements.css";
 
 const WORDS = [
-  { label: "THOUGHT", year: "2025" },
+  { label: "THOUGHT", year: "2026" },
   { label: "WILL", year: "2026" },
   { label: "AWA!", year: "2027" },
 ];
