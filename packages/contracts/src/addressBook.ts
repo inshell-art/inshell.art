@@ -1,11 +1,11 @@
 import devnet from "./addresses/addresses.devnet.json";
-// import sepolia from "./addresses/addresses.sepolia.json";
+import sepolia from "./addresses/addresses.sepolia.json";
 // import mainnet from "./addresses/addresses.mainnet.json";
 
 type Book = Record<string, string>;
 const BOOKS: Record<string, Book> = {
   devnet,
-  // sepolia,
+  sepolia,
   // mainnet,
 };
 

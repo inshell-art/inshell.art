@@ -2,14 +2,14 @@
 //          Use this to prep FE env for Vite. Secrets (RPC keys) stay local.
 //
 // Usage examples:
-//   # with local addresses file (writes apps/hub + apps/thought .env.<net>.local)
+//   # with local addresses file (writes apps/home + apps/thought .env.<net>.local)
 //   pnpm tsx scripts/sync-env.ts --net devnet  --rpc http://127.0.0.1:5050 --addr packages/contracts/src/addresses/addresses.devnet.json
 //
 //   # or fetch addresses from a URL you host
 //   pnpm tsx scripts/sync-env.ts --net sepolia --rpc "$VITE_SEPOLIA_RPC" --addr-url https://.../addresses.sepolia.json
 //
 // Output:
-//   apps/hub/.env.<net>.local
+//   apps/home/.env.<net>.local
 //   apps/thought/.env.<net>.local
 //   (gitignore these!)
 
@@ -57,7 +57,7 @@ if (!ADDR_FILE && !ADDR_URL) {
     const targets = OUT
       ? [resolve(OUT)]
       : [
-          resolve(`apps/hub/.env.${net}.local`),
+          resolve(`apps/home/.env.${net}.local`),
           resolve(`apps/thought/.env.${net}.local`),
         ];
 

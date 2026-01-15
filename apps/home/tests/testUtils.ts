@@ -30,6 +30,7 @@ export function mockAuctionCore(
 ) {
   mockFn.mockReturnValue({
     data: {
+      active: false,
       config: {
         openTimeSec: Date.UTC(2024, 0, 1) / 1000,
         genesisPrice: { dec: "1" },

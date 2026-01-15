@@ -3,7 +3,7 @@ import { isDesktopDevice } from "@inshell/utils";
 import "./Movements.css";
 
 const WORDS = [
-  { label: "THOUGHT", year: "2025" },
+  { label: "THOUGHT", year: "2026" },
   { label: "WILL", year: "2026" },
   { label: "AWA!", year: "2027" },
 ];
@@ -14,7 +14,7 @@ function resolveThoughtUrl() {
   const isDev =
     env?.DEV === true || env?.MODE === "development" || nodeEnv === "development";
   if (isDev) {
-    const devPort = String(env?.VITE_THOUGHT_DEV_PORT ?? "5174");
+    const devPort = String(env?.VITE_THOUGHT_DEV_PORT ?? "5173");
     const devHost =
       typeof window !== "undefined" ? window.location.hostname : "localhost";
     const devProtocol =

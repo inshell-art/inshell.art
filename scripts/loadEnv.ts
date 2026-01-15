@@ -9,8 +9,8 @@ const __dirname = path.dirname(__filename);
 const env = process.env.NODE_ENV || "dev";
 
 const candidates = [
-  path.resolve(__dirname, `../apps/hub/.env.${env}.local`),
-  path.resolve(__dirname, `../apps/hub/.env.${env}`),
+  path.resolve(__dirname, `../apps/home/.env.${env}.local`),
+  path.resolve(__dirname, `../apps/home/.env.${env}`),
   path.resolve(__dirname, `../.env.${env}.local`),
   path.resolve(__dirname, `../.env.${env}`),
 ];

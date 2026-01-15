@@ -32,7 +32,7 @@ pnpm tsx scripts/sync-addresses.ts --net devnet --from ../path/output/addresses.
 
 # Write Vite env (convenience; JSON fallback exists)
 pnpm tsx scripts/sync-env.ts --net devnet --rpc http://127.0.0.1:5050/rpc --addr packages/contracts/src/addresses/addresses.devnet.json
-# -> writes apps/hub/.env.devnet.local and apps/thought/.env.devnet.local
+# -> writes apps/home/.env.devnet.local and apps/thought/.env.devnet.local
 
 # Pull ABIs from the node (runtime artifacts)
 pnpm tsx scripts/sync-abi.ts --net devnet --rpc http://127.0.0.1:5050/rpc --addr packages/contracts/src/addresses/addresses.devnet.json
@@ -59,7 +59,7 @@ pnpm tsx scripts/abi-json-to-ts.ts packages/contracts/src/abi/devnet/PathNFT.jso
 export VITE_STARKNET_RPC="http://127.0.0.1:5050/rpc"
 export VITE_NETWORK="devnet"                 # optional; default is devnet
 
-pnpm dev:hub
+pnpm dev:home
 pnpm dev:thought
 ```
 
@@ -79,16 +79,22 @@ pnpm dev:thought
 packages/contracts/src/
   contracts.ts        # provider + ABI source policy + typed factory helpers
   auction.ts          # createAuctionContract (TypedContractV2 from ABI literal)
-apps/hub/src/services/auction/
+apps/home/src/services/auction/
   coreService.ts      # get_config/get_current_price/curve_active + u256 normalize + blockTag
-apps/hub/src/hooks/
+apps/home/src/hooks/
   useAuctionCore.ts   # lifecycle + polling + error/loading state
-apps/hub/src/components/
-  AuctionCanvas.tsx   # renders hub views
+apps/home/src/components/
+  AuctionCanvas.tsx   # renders home views
 ```
 
 - **ABI typing**: use `packages/contracts/src/abi/typed/PulseAuction.abi.ts` (const literal) for TypeScript types.
 - **Runtime ABI**: can still be fetched from node; a compatibility guard checks required entrypoints.
+
+### Curve rendering (half-lives)
+
+- X-axis uses half-lives: `u = (t - last_bid_time) / t_half`.
+- The FE draws a fixed window of 10 half-lives (`CURVE_HALF_LIVES`) to keep the curve smooth across parameter ranges.
+- Tooltip timing converts back via `tau = u * t_half`, then uses `(now - last_bid_time) - tau` for "ago".
 
 ## 4) Example: render raw auction data
 

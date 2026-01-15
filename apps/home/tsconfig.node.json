@@ -2,7 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "composite": true,
-    "tsBuildInfoFile": "../../node_modules/.tmp/tsconfig.hub.node.tsbuildinfo",
+    "tsBuildInfoFile": "../../node_modules/.tmp/tsconfig.home.node.tsbuildinfo",
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,

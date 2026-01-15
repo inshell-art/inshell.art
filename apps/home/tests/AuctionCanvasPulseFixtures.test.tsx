@@ -23,6 +23,27 @@ jest.mock("../src/hooks/useAuctionBids", () => ({
 jest.mock("../src/hooks/useAuctionCore", () => ({
   useAuctionCore: (...args: any[]) => mockUseAuctionCore(...args),
 }));
+jest.mock("@inshell/wallet", () => ({
+  useWallet: () => ({
+    address: "0x1111222233334444555566667777888899990000",
+    isConnected: true,
+    isConnecting: false,
+    isReconnecting: false,
+    status: "connected",
+    chain: { name: "Starknet Sepolia Testnet" },
+    chainId: BigInt("0x534e5f5345504f4c4941"),
+    account: null,
+    accountMissing: false,
+    connect: jest.fn(),
+    connectAsync: jest.fn(),
+    disconnect: jest.fn(),
+    disconnectAsync: jest.fn(),
+    connectors: [],
+    connectStatus: "idle",
+    requestAccounts: jest.fn(),
+    watchAsset: jest.fn(),
+  }),
+}));
 
 type Fixture = {
   k: number;
@@ -158,6 +179,39 @@ describe("AuctionCanvas with pulse fixtures", () => {
       expect(popover).toBeTruthy();
       expect(within(popover as HTMLElement).getByText(/^price$/i)).toBeTruthy();
     });
+  });
+
+  test("curve tooltip uses elapsed time for since/ago rows", () => {
+    const fx: Fixture = {
+      k: 1000,
+      epoch: {
+        epochIndex: 2,
+        floor: 10,
+        D: 1,
+        tStart: 1000,
+        tNow: 1000 + 3661,
+      },
+    };
+    withFixture(fx);
+    jest.setSystemTime(new Date(fx.epoch.tNow * 1000));
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
+    stubSvg(container);
+    const path = container.querySelector(".dotfield__curve");
+    expect(path).toBeTruthy();
+    fireEvent.mouseMove(path as unknown as HTMLElement, {
+      clientX: 10,
+      clientY: 10,
+    });
+    const popover = container.querySelector(".dotfield__popover") as HTMLElement;
+    expect(popover).toBeTruthy();
+    const sinceRow = within(popover).getByText(/since last sale/i).parentElement;
+    expect(sinceRow).toBeTruthy();
+    expect(within(sinceRow as HTMLElement).getByText("00:00:00")).toBeTruthy();
+    const agoRow = within(popover).getByText(/^ago$/i).parentElement;
+    expect(agoRow).toBeTruthy();
+    expect(within(agoRow as HTMLElement).getByText("01:01:01")).toBeTruthy();
   });
 
   test("renders without cliff for huge pump fixture", () => {

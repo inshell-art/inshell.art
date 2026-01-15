@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
     root: rootDir,
     plugins: [react()],
     build: {
-      outDir: path.resolve(__dirname, "../../dist/hub"),
+      outDir: path.resolve(__dirname, "../../dist/home"),
     },
     server: {
       host: true,

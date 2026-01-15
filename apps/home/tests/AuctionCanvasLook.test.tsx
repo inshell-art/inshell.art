@@ -27,6 +27,27 @@ jest.mock("../src/hooks/useAuctionBids", () => ({
 jest.mock("../src/hooks/useAuctionCore", () => ({
   useAuctionCore: (...args: any[]) => mockUseAuctionCore(...args),
 }));
+jest.mock("@inshell/wallet", () => ({
+  useWallet: () => ({
+    address: "0x1111222233334444555566667777888899990000",
+    isConnected: true,
+    isConnecting: false,
+    isReconnecting: false,
+    status: "connected",
+    chain: { name: "Starknet Sepolia Testnet" },
+    chainId: BigInt("0x534e5f5345504f4c4941"),
+    account: null,
+    accountMissing: false,
+    connect: jest.fn(),
+    connectAsync: jest.fn(),
+    disconnect: jest.fn(),
+    disconnectAsync: jest.fn(),
+    connectors: [],
+    connectStatus: "idle",
+    requestAccounts: jest.fn(),
+    watchAsset: jest.fn(),
+  }),
+}));
 
 describe("AuctionCanvas look tab", () => {
   beforeEach(() => {
@@ -129,17 +150,17 @@ describe("AuctionCanvas look tab", () => {
       render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
       fireEvent.click(screen.getByText(/look/i));
 
-      expect(screen.queryByText(/loading look/i)).toBeNull();
+      expect(screen.queryByText(/loading svg/i)).toBeNull();
 
       await act(async () => {
         jest.advanceTimersByTime(499);
       });
-      expect(screen.queryByText(/loading look/i)).toBeNull();
+      expect(screen.queryByText(/loading svg/i)).toBeNull();
 
       await act(async () => {
         jest.advanceTimersByTime(2);
       });
-      expect(screen.getByText(/loading look/i)).toBeTruthy();
+      expect(screen.getByText(/loading svg/i)).toBeTruthy();
       expect(screen.queryByText(/no svg yet/i)).toBeNull();
     } finally {
       jest.useRealTimers();
@@ -172,13 +193,19 @@ describe("AuctionCanvas look tab", () => {
   });
 
   test("shows error when token_uri response is invalid", async () => {
+    jest.useFakeTimers();
     mockCallContract.mockResolvedValue({ result: ["0", "0", "0"] });
 
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     fireEvent.click(screen.getByText(/look/i));
 
-    await waitFor(() => {
-      expect(screen.getByText(/error loading look/i)).toBeTruthy();
+    await act(async () => {
+      await Promise.resolve();
     });
+    act(() => {
+      jest.advanceTimersByTime(2600);
+    });
+    expect(screen.getByText(/error loading look/i)).toBeTruthy();
+    jest.useRealTimers();
   });
 });

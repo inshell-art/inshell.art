@@ -2,7 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "composite": true,
-    "tsBuildInfoFile": "../../node_modules/.tmp/tsconfig.hub.jest.tsbuildinfo",
+    "tsBuildInfoFile": "../../node_modules/.tmp/tsconfig.home.jest.tsbuildinfo",
     "module": "ESNext",
     "moduleResolution": "node",
     "jsx": "react-jsx",
