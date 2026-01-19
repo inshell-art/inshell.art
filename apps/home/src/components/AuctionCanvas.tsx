@@ -1,14 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuctionBids } from "@/hooks/useAuctionBids";
 import type { ProviderInterface } from "starknet";
-import { toFixed } from "@inshell/utils";
+import { toFixed, readU256, toU256Num, type U256Num } from "@inshell/utils";
 import type { AuctionSnapshot } from "@/types/types";
 import type { AbiSource } from "@inshell/contracts";
 import type { NormalizedBid } from "@/services/auction/bidsService";
 import { useAuctionCore } from "@/hooks/useAuctionCore";
 import { resolveAddress } from "@inshell/contracts";
 import { callContract, getDefaultProvider } from "@inshell/starknet";
-import { readU256, toU256Num } from "@inshell/utils";
 import HeaderWalletCTA from "@/components/HeaderWalletCTA";
 import { useWallet } from "@inshell/wallet";
 /* global SVGSVGElement, SVGElement */
@@ -20,6 +19,16 @@ type Props = {
   refreshMs?: number;
   decimals?: number;
   maxBids?: number;
+};
+
+type TxState = "idle" | "awaiting_signature" | "submitted" | "confirmed" | "failed";
+type TxPhase = "approve" | "bid";
+type NoticeKind = "info" | "warn" | "error";
+type Notice = { kind: NoticeKind; text: string; delayMs?: number };
+type PreflightResult = {
+  ask: U256Num;
+  balance: U256Num;
+  allowance: U256Num;
 };
 
 function useDesktopOnly(minWidth = 768) {
@@ -44,6 +53,11 @@ function shortAddr(a?: string) {
   return `${a.slice(0, 6)}…${a.slice(-4)}`;
 }
 
+function shortHash(hash?: string) {
+  if (!hash) return "—";
+  return `${hash.slice(0, 6)}…${hash.slice(-4)}`;
+}
+
 function shortAmount(val: string) {
   if (val.length > 8) {
     const n = Number(val);
@@ -66,6 +80,71 @@ function getEnvValue(name: string): unknown {
     (globalThis as any).__VITE_ENV__;
   const procEnv = (globalThis as any)?.process?.env;
   return envCache?.[name] ?? procEnv?.[name];
+}
+
+function resolveExplorerBase(): string {
+  const base = getEnvValue("VITE_EXPLORER_BASE_URL");
+  if (typeof base === "string" && base.trim()) return base.trim();
+  return "https://sepolia.voyager.online";
+}
+
+function resolveExplorerTxUrl(hash: string): string {
+  const base = resolveExplorerBase().replace(/\/$/, "");
+  return `${base}/tx/${hash}`;
+}
+
+function findInjectedWallet(): { request?: (...args: any[]) => Promise<any> } | null {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as Record<string, any>;
+  const priority = ["starknet_ready", "starknet"];
+  for (const key of priority) {
+    const wallet = w[key];
+    if (wallet?.request) return wallet;
+  }
+  for (const key of Object.keys(w)) {
+    if (!key.startsWith("starknet_")) continue;
+    const wallet = w[key];
+    if (wallet?.request) return wallet;
+  }
+  return null;
+}
+
+async function requestChainSwitch(chainIdHex: string): Promise<boolean> {
+  const wallet = findInjectedWallet();
+  if (!wallet?.request) return false;
+  try {
+    await wallet.request({
+      type: "wallet_switchStarknetChain",
+      params: { chainId: chainIdHex },
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const SEPOLIA_CHAIN_ID_HEX = "0x534e5f5345504f4c4941";
+
+function parseChainId(value: unknown): bigint | null {
+  if (value == null) return null;
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return BigInt(Math.trunc(value));
+  }
+  if (typeof value === "string" && value.trim().length) {
+    try {
+      return BigInt(value.trim());
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function resolveTargetChainIdHex(): string {
+  const raw = getEnvValue("VITE_EXPECTED_CHAIN_ID");
+  if (typeof raw === "string" && raw.trim()) return raw.trim();
+  return SEPOLIA_CHAIN_ID_HEX;
 }
 
 function parseBlockNumber(value: unknown): number | undefined {
@@ -114,6 +193,9 @@ const FALLBACK_DELAY_MS = 1200;
 const CURVE_HALF_LIVES = 10;
 const SEPOLIA_STRK =
   "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d";
+const DEBUG_ASK_LABEL = "25.2577";
+const DEBUG_BALANCE_LABEL = "5.8346";
+const DEBUG_TX_HASH = "0xdeadbeefcafebabe";
 
 function splitTokenId(id: number): [string, string] {
   const n = BigInt(Math.max(0, Math.trunc(id)));
@@ -647,12 +729,70 @@ export default function AuctionCanvas({
   const coreLoading = fixtureState ? false : coreLoadingHook;
   const coreError = fixtureState ? null : coreErrorHook;
   const [coreErrorVisible, setCoreErrorVisible] = useState<unknown>(null);
-  const { account, address: walletAddress, watchAsset } = useWallet();
-  const [mintNotice, setMintNotice] = useState<{
-    type: "error" | "info";
-    message: string;
+  const {
+    account,
+    address: walletAddress,
+    isConnected,
+    chainId,
+    connectAsync,
+    connectors,
+    accountMissing,
+    requestAccounts,
+    watchAsset,
+  } = useWallet();
+  const [walletUnlockAttempted, setWalletUnlockAttempted] = useState(false);
+  const [txState, setTxState] = useState<TxState>("idle");
+  const [txPhase, setTxPhase] = useState<TxPhase | null>(null);
+  const [txHash, setTxHash] = useState<string | null>(null);
+  const [lastTxHash, setLastTxHash] = useState<string | null>(null);
+  const [txError, setTxError] = useState<string | null>(null);
+  const [toastNotice, setToastNotice] = useState<Notice | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
+  const queuedToastRef = useRef<Notice | null>(null);
+  const showToast = useCallback((notice: Notice) => {
+    setToastNotice(notice);
+  }, []);
+  const queueToast = useCallback(
+    (notice: Notice) => {
+      if (!toastNotice) {
+        setToastNotice(notice);
+        return;
+      }
+      queuedToastRef.current = notice;
+    },
+    [toastNotice]
+  );
+  const [pendingMint, setPendingMint] = useState<{
+    txHash: string;
+    address: string;
+    baselineTokenId: number | null;
   } | null>(null);
-  const mintNoticeTimerRef = useRef<number | null>(null);
+  const [persistentNoticeVisible, setPersistentNoticeVisible] =
+    useState<Notice | null>(null);
+  const persistentNoticeTimerRef = useRef<number | null>(null);
+  const ctaTimerRef = useRef<number | null>(null);
+  const ctaDisplayKeyRef = useRef<string | null>(null);
+  const [ctaDisplay, setCtaDisplay] = useState<{
+    label: string;
+    disabled: boolean;
+    onClick: () => void;
+  } | null>(null);
+  const [preflight, setPreflight] = useState<{
+    ask: U256Num | null;
+    balance: U256Num | null;
+    allowance: U256Num | null;
+    loading: boolean;
+    attempted: boolean;
+    error: string | null;
+  }>({
+    ask: null,
+    balance: null,
+    allowance: null,
+    loading: false,
+    attempted: false,
+    error: null,
+  });
+  const preflightRef = useRef<Promise<PreflightResult | null> | null>(null);
 
   const [hover, setHover] = useState<DotPoint | null>(null);
   const [view, setView] = useState<"curve" | "bids" | "look">("curve");
@@ -667,6 +807,9 @@ export default function AuctionCanvas({
     useState(false);
   const [lookMovementEmptyVisible, setLookMovementEmptyVisible] =
     useState(false);
+  const [preflightErrorVisible, setPreflightErrorVisible] =
+    useState<string | null>(null);
+  const [preflightWarm, setPreflightWarm] = useState(false);
   const [lookError, setLookError] = useState<string | null>(null);
   const [lookErrorVisible, setLookErrorVisible] = useState<string | null>(null);
   const [lookAttrs, setLookAttrs] = useState<MetaAttribute[]>([]);
@@ -696,6 +839,397 @@ export default function AuctionCanvas({
   }, [lookAttrs]);
   const coreWarm = Boolean(core?.config);
   const lookWarm = Boolean(lookSvg || lookIncoming);
+  const targetChainIdHex = useMemo(() => resolveTargetChainIdHex(), []);
+  const targetChainId = useMemo(
+    () => parseChainId(targetChainIdHex),
+    [targetChainIdHex]
+  );
+  const chainIdValue = useMemo(() => parseChainId(chainId), [chainId]);
+  const chainKnown = chainIdValue !== null;
+  const chainOk =
+    chainKnown && targetChainId !== null && chainIdValue === targetChainId;
+  const availableConnectors = useMemo(() => {
+    if (!connectors?.length) return [];
+    return connectors.filter((connector) => {
+      try {
+        if (typeof (connector as any).available === "function") {
+          return Boolean((connector as any).available());
+        }
+      } catch {
+        return false;
+      }
+      return true;
+    });
+  }, [connectors]);
+  const walletDetected = availableConnectors.length > 0;
+  const walletConnected = Boolean(isConnected);
+  const walletAddressPresent = walletConnected && Boolean(walletAddress);
+  const walletUnlocked =
+    walletConnected && (Boolean(account) || (walletUnlockAttempted && !accountMissing));
+  const walletNeedsUnlock =
+    walletDetected && walletAddressPresent && (!walletUnlocked || accountMissing);
+  const preflightOk =
+    Boolean(preflight.ask) && Boolean(preflight.balance) && Boolean(preflight.allowance);
+  const balanceOk =
+    preflightOk && (preflight.balance as U256Num).value >= (preflight.ask as U256Num).value;
+  const allowanceOk =
+    preflightOk && (preflight.allowance as U256Num).value >= (preflight.ask as U256Num).value;
+  const askLabel = preflight.ask
+    ? formatTokenAmount(preflight.ask, decimals)
+    : "—";
+  const balanceLabel = preflight.balance
+    ? formatTokenAmount(preflight.balance, decimals)
+    : "—";
+  const devFlag = getEnvValue("DEV");
+  const isDevMode =
+    !isTestEnv &&
+    (devFlag === true ||
+      devFlag === "true" ||
+      getEnvValue("MODE") === "development");
+  const debugDefaults = {
+    enabled: false,
+    cta: "auto",
+    notice: "auto",
+    walletDetected: "auto",
+    walletUnlocked: "auto",
+    address: "auto",
+    chain: "auto",
+    txState: "auto",
+    txPhase: "auto",
+    txError: "auto",
+  };
+  const [debugOpen, setDebugOpen] = useState(false);
+  const [debugOverride, setDebugOverride] = useState<{
+    enabled: boolean;
+    cta:
+      | "auto"
+      | "connect"
+      | "unlock"
+      | "switch"
+      | "mint"
+      | "mint-disabled"
+      | "sign"
+      | "pending"
+      | "retry";
+    notice:
+      | "auto"
+      | "none"
+      | "no_wallet"
+      | "wallet_locked"
+      | "wrong_network"
+      | "rpc_error"
+      | "insufficient"
+      | "approval"
+      | "minting"
+      | "invalid_signature"
+      | "user_refused"
+      | "invalid_block_id"
+      | "overflow"
+      | "generic";
+    walletDetected: "auto" | "yes" | "no";
+    walletUnlocked: "auto" | "yes" | "no";
+    address: "auto" | "present" | "none";
+    chain: "auto" | "ok" | "wrong" | "unknown";
+    txState: "auto" | "idle" | "awaiting_signature" | "submitted" | "failed";
+    txPhase: "auto" | "approve" | "bid";
+    txError:
+      | "auto"
+      | "invalid_signature"
+      | "user_refused"
+      | "invalid_block_id"
+      | "overflow"
+      | "generic";
+  }>(debugDefaults);
+  const debugActive = isDevMode && debugOverride.enabled;
+  const debugCtaOverride = debugActive ? debugOverride.cta : "auto";
+  const ctaOverrideActive = debugActive && debugCtaOverride !== "auto";
+  const noticeOverrideActive =
+    debugActive && !ctaOverrideActive && debugOverride.notice !== "auto";
+  let effectiveWalletDetected = debugActive
+    ? debugOverride.walletDetected === "auto"
+      ? walletDetected
+      : debugOverride.walletDetected === "yes"
+    : walletDetected;
+  let effectiveWalletAddressPresent = debugActive
+    ? debugOverride.address === "auto"
+      ? walletAddressPresent
+      : debugOverride.address === "present"
+    : walletAddressPresent;
+  let effectiveWalletUnlocked = debugActive
+    ? debugOverride.walletUnlocked === "auto"
+      ? walletUnlocked
+      : debugOverride.walletUnlocked === "yes"
+    : walletUnlocked;
+  if (debugActive && debugOverride.walletDetected === "no") {
+    effectiveWalletUnlocked = false;
+  }
+  let effectiveChainKnown = debugActive
+    ? debugOverride.chain === "auto"
+      ? chainKnown
+      : debugOverride.chain !== "unknown"
+    : chainKnown;
+  let effectiveChainOk = debugActive
+    ? debugOverride.chain === "auto"
+      ? chainOk
+      : debugOverride.chain === "ok"
+    : chainOk;
+  let effectivePreflightOk = preflightOk;
+  let effectiveBalanceOk = balanceOk;
+  let effectiveAllowanceOk = allowanceOk;
+  let effectivePreflightAttempted = preflight.attempted;
+  let effectivePreflightLoading = preflight.loading;
+  let effectiveAskLabel = askLabel;
+  let effectiveBalanceLabel = balanceLabel;
+  const debugTxErrorMap: Record<string, string> = {
+    invalid_signature: "argent invalid signature length",
+    user_refused: "USER_REFUSED_OP",
+    invalid_block_id: "Invalid block id",
+    overflow: "u256_sub Overflow",
+    generic: "Mint failed",
+  };
+  let effectiveTxState: TxState =
+    debugActive && debugOverride.txState !== "auto"
+      ? (debugOverride.txState as TxState)
+      : txState;
+  let effectiveTxPhase: TxPhase | null =
+    debugActive && debugOverride.txPhase !== "auto"
+      ? (debugOverride.txPhase as TxPhase)
+      : txPhase;
+  let effectiveTxError =
+    debugActive && debugOverride.txError !== "auto"
+      ? debugTxErrorMap[debugOverride.txError] ?? "Mint failed"
+      : txError;
+  if (ctaOverrideActive) {
+    effectiveWalletDetected = true;
+    effectiveWalletUnlocked = true;
+    effectiveWalletAddressPresent = true;
+    effectiveChainKnown = true;
+    effectiveChainOk = true;
+    effectivePreflightAttempted = true;
+    effectivePreflightOk = true;
+    effectiveBalanceOk = true;
+    effectiveAllowanceOk = true;
+    effectiveAskLabel = DEBUG_ASK_LABEL;
+    effectiveBalanceLabel = DEBUG_BALANCE_LABEL;
+    effectiveTxState = "idle";
+    effectiveTxPhase =
+      debugOverride.txPhase === "auto"
+        ? null
+        : (debugOverride.txPhase as TxPhase);
+    effectiveTxError =
+      debugOverride.txError === "auto"
+        ? null
+        : debugTxErrorMap[debugOverride.txError] ?? "Mint failed";
+    switch (debugCtaOverride) {
+      case "connect":
+        effectiveWalletAddressPresent = false;
+        effectivePreflightAttempted = false;
+        effectivePreflightOk = false;
+        effectiveBalanceOk = false;
+        effectiveAllowanceOk = false;
+        break;
+      case "unlock":
+        effectiveWalletUnlocked = false;
+        effectivePreflightAttempted = false;
+        effectivePreflightOk = false;
+        effectiveBalanceOk = false;
+        effectiveAllowanceOk = false;
+        break;
+      case "switch":
+        effectiveChainOk = false;
+        effectivePreflightAttempted = false;
+        effectivePreflightOk = false;
+        effectiveBalanceOk = false;
+        effectiveAllowanceOk = false;
+        break;
+      case "mint":
+        effectiveTxError = null;
+        break;
+      case "mint-disabled":
+        effectiveBalanceOk = false;
+        effectiveAllowanceOk = false;
+        break;
+      case "sign":
+        effectiveTxState = "awaiting_signature";
+        if (debugOverride.txPhase === "auto") {
+          effectiveTxPhase = "approve";
+        }
+        break;
+      case "pending":
+        effectiveTxState = "submitted";
+        if (debugOverride.txPhase === "auto") {
+          effectiveTxPhase = "bid";
+        }
+        break;
+      case "retry":
+        effectiveTxState = "failed";
+        if (debugOverride.txError === "auto") {
+          effectiveTxError = "Mint failed";
+        }
+        break;
+      default:
+        break;
+    }
+  } else if (noticeOverrideActive) {
+    effectiveWalletDetected = true;
+    effectiveWalletUnlocked = true;
+    effectiveWalletAddressPresent = true;
+    effectiveChainKnown = true;
+    effectiveChainOk = true;
+    effectivePreflightAttempted = true;
+    effectivePreflightOk = true;
+    effectiveBalanceOk = true;
+    effectiveAllowanceOk = true;
+    effectiveAskLabel = DEBUG_ASK_LABEL;
+    effectiveBalanceLabel = DEBUG_BALANCE_LABEL;
+    effectiveTxState = "idle";
+    effectiveTxPhase = null;
+    effectiveTxError = null;
+    switch (debugOverride.notice) {
+      case "none":
+        break;
+      case "no_wallet":
+        effectiveWalletDetected = false;
+        effectiveWalletUnlocked = false;
+        effectiveWalletAddressPresent = false;
+        effectiveChainKnown = false;
+        effectiveChainOk = false;
+        effectivePreflightAttempted = false;
+        effectivePreflightOk = false;
+        effectiveBalanceOk = false;
+        effectiveAllowanceOk = false;
+        break;
+      case "wallet_locked":
+        effectiveWalletUnlocked = false;
+        break;
+      case "wrong_network":
+        effectiveChainOk = false;
+        break;
+      case "rpc_error":
+        effectivePreflightOk = false;
+        effectiveBalanceOk = false;
+        effectiveAllowanceOk = false;
+        break;
+      case "insufficient":
+        effectiveBalanceOk = false;
+        effectiveAllowanceOk = false;
+        break;
+      case "approval":
+        effectiveTxState = "awaiting_signature";
+        effectiveTxPhase = "approve";
+        break;
+      case "minting":
+        effectiveTxState = "submitted";
+        effectiveTxPhase = "bid";
+        break;
+      case "invalid_signature":
+        effectiveTxState = "failed";
+        effectiveTxError = debugTxErrorMap.invalid_signature;
+        break;
+      case "user_refused":
+        effectiveTxState = "failed";
+        effectiveTxError = debugTxErrorMap.user_refused;
+        break;
+      case "invalid_block_id":
+        effectiveTxState = "failed";
+        effectiveTxError = debugTxErrorMap.invalid_block_id;
+        break;
+      case "overflow":
+        effectiveTxState = "failed";
+        effectiveTxError = debugTxErrorMap.overflow;
+        break;
+      case "generic":
+        effectiveTxState = "failed";
+        effectiveTxError = debugTxErrorMap.generic;
+        break;
+      default:
+        break;
+    }
+  }
+  let effectiveTxHash =
+    debugActive && effectiveTxState === "submitted"
+      ? txHash ?? lastTxHash ?? DEBUG_TX_HASH
+      : txHash;
+  let effectiveLastTxHash =
+    debugActive && effectiveTxState === "submitted"
+      ? effectiveTxHash
+      : lastTxHash;
+  if (ctaOverrideActive && effectiveTxState !== "submitted") {
+    effectiveTxHash = null;
+  }
+  const effectiveWalletNeedsUnlock =
+    effectiveWalletDetected &&
+    effectiveWalletAddressPresent &&
+    !effectiveWalletUnlocked;
+
+  useEffect(() => {
+    if (!debugActive) return;
+    setDebugOverride((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      const setField = <K extends keyof typeof prev,>(
+        key: K,
+        value: (typeof prev)[K]
+      ) => {
+        if (next[key] !== value) {
+          next[key] = value;
+          changed = true;
+        }
+      };
+      const ctaActive = prev.cta !== "auto";
+      const noticeActive = prev.notice !== "auto";
+      if (ctaActive) {
+        setField("notice", "auto");
+        ([
+          "walletDetected",
+          "walletUnlocked",
+          "address",
+          "chain",
+          "txState",
+          "txPhase",
+          "txError",
+        ] as const).forEach((key) => setField(key, "auto"));
+      } else if (noticeActive) {
+        setField("cta", "auto");
+        ([
+          "walletDetected",
+          "walletUnlocked",
+          "address",
+          "chain",
+          "txState",
+          "txPhase",
+          "txError",
+        ] as const).forEach((key) => setField(key, "auto"));
+      } else {
+        const walletDetectedNo = prev.walletDetected === "no";
+        if (walletDetectedNo) {
+          setField("walletUnlocked", "auto");
+          setField("address", "auto");
+          setField("chain", "auto");
+        }
+        const walletUnlockedNo = prev.walletUnlocked === "no";
+        const addressNone = prev.address === "none";
+        const chainBlocked = prev.chain === "wrong" || prev.chain === "unknown";
+        const connectionBlocked =
+          walletDetectedNo || walletUnlockedNo || addressNone || chainBlocked;
+        if (connectionBlocked) {
+          setField("txState", "auto");
+          setField("txPhase", "auto");
+          setField("txError", "auto");
+        }
+        if (prev.txState !== "failed") {
+          setField("txError", "auto");
+        }
+        if (
+          prev.txState !== "awaiting_signature" &&
+          prev.txState !== "submitted"
+        ) {
+          setField("txPhase", "auto");
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [debugActive, debugOverride]);
 
   useEffect(() => {
     if (!coreError || isTransientRpcError(coreError)) {
@@ -711,6 +1245,29 @@ export default function AuctionCanvas({
   }, [coreError, coreWarm]);
 
   useEffect(() => {
+    if (!preflight.error || isTransientRpcError(preflight.error)) {
+      setPreflightErrorVisible(null);
+      return;
+    }
+    if (preflightOk) {
+      setPreflightErrorVisible(null);
+      return;
+    }
+    const delay = preflightWarm ? 0 : STARTUP_ERROR_DELAY_MS;
+    const id = window.setTimeout(
+      () => setPreflightErrorVisible(preflight.error ?? null),
+      delay
+    );
+    return () => window.clearTimeout(id);
+  }, [preflight.error, preflightOk, preflightWarm]);
+
+  useEffect(() => {
+    if (preflightOk) {
+      setPreflightWarm(true);
+    }
+  }, [preflightOk]);
+
+  useEffect(() => {
     if (!lookError || isTransientRpcError(lookError)) {
       setLookErrorVisible(null);
       return;
@@ -722,6 +1279,33 @@ export default function AuctionCanvas({
     );
     return () => window.clearTimeout(id);
   }, [lookError, lookWarm]);
+
+  useEffect(() => {
+    if (prevWalletRef.current !== walletAddress) {
+      prevWalletRef.current = walletAddress ?? null;
+      setPreflight({
+        ask: null,
+        balance: null,
+        allowance: null,
+        loading: false,
+        attempted: false,
+        error: null,
+      });
+      setPreflightErrorVisible(null);
+      setPreflightWarm(false);
+    }
+    if (!walletAddress || !walletConnected) {
+      setWalletUnlockAttempted(false);
+      setTxState("idle");
+      setTxPhase(null);
+      setTxHash(null);
+      setTxError(null);
+      setLastTxHash(null);
+      setPreflightErrorVisible(null);
+      setPreflightWarm(false);
+      setPendingMint(null);
+    }
+  }, [walletAddress, walletConnected]);
   const lookMovementDisplay = useMemo(() => {
     const map = new Map<string, string>();
     for (const attr of lookAttrDisplay) {
@@ -757,6 +1341,8 @@ export default function AuctionCanvas({
   const loggedCurveRef = useRef(false);
   const lastLoggedEndRef = useRef<number | null>(null);
   const watchAssetAttemptedRef = useRef(false);
+  const txIdleTimerRef = useRef<number | null>(null);
+  const prevWalletRef = useRef<string | null>(null);
   lookSvgRef.current = lookSvg;
   lookSlideDirRef.current = lookSlideDir;
   lookSlidePhaseRef.current = lookSlidePhase;
@@ -769,6 +1355,34 @@ export default function AuctionCanvas({
     }
     return max > 0 ? max : null;
   }, [bids]);
+
+  useEffect(() => {
+    if (!pendingMint || !bids.length) return;
+    const targetHash = pendingMint.txHash.toLowerCase();
+    const match = bids.find(
+      (bid) => bid.txHash && bid.txHash.toLowerCase() === targetHash
+    );
+    let tokenId: number | null = null;
+    if (match) {
+      tokenId = match.tokenId ?? match.epochIndex ?? match.id ?? null;
+    } else if (
+      maxTokenId != null &&
+      pendingMint.baselineTokenId != null &&
+      maxTokenId > pendingMint.baselineTokenId
+    ) {
+      const lastBid = bids[bids.length - 1];
+      const bidderMatch =
+        pendingMint.address &&
+        lastBid?.bidder &&
+        lastBid.bidder.toLowerCase() === pendingMint.address.toLowerCase();
+      if (bidderMatch) {
+        tokenId = lastBid.tokenId ?? lastBid.epochIndex ?? maxTokenId;
+      }
+    }
+    if (tokenId == null) return;
+    queueToast({ kind: "info", text: `Minted #${tokenId}.` });
+    setPendingMint(null);
+  }, [pendingMint, bids, maxTokenId, queueToast]);
 
   // Keep a ticking wall clock so the curve endpoint advances.
   useEffect(() => {
@@ -1392,112 +2006,497 @@ export default function AuctionCanvas({
   }, [view, maxTokenId, lookDisplayTokenId]);
 
   useEffect(() => {
-    if (!mintNotice) return;
-    if (mintNoticeTimerRef.current) {
-      window.clearTimeout(mintNoticeTimerRef.current);
+    if (!toastNotice) return;
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current);
     }
-    mintNoticeTimerRef.current = window.setTimeout(
-      () => setMintNotice(null),
-      5000
-    );
+    toastTimerRef.current = window.setTimeout(() => {
+      if (queuedToastRef.current) {
+        const next = queuedToastRef.current;
+        queuedToastRef.current = null;
+        setToastNotice(next);
+      } else {
+        setToastNotice(null);
+      }
+      toastTimerRef.current = null;
+    }, 3000);
     return () => {
-      if (mintNoticeTimerRef.current) {
-        window.clearTimeout(mintNoticeTimerRef.current);
-        mintNoticeTimerRef.current = null;
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = null;
       }
     };
-  }, [mintNotice]);
+  }, [toastNotice]);
 
-  const handleMint = async () => {
-    if (!account || !walletAddress) {
-      setMintNotice({
-        type: "error",
-        message: "Connect wallet to mint.",
-      });
-      return;
-    }
-    try {
-      setMintNotice(null);
-      const auctionAddr = address ?? resolveAddress("pulse_auction");
-      const paymentToken = resolvePaymentToken();
-      if (
-        !watchAssetAttemptedRef.current &&
-        watchAsset &&
-        paymentToken.toLowerCase() === SEPOLIA_STRK.toLowerCase()
-      ) {
-        watchAssetAttemptedRef.current = true;
-        void watchAsset({
-          address: paymentToken,
-          symbol: "STRK",
-          decimals: 18,
-          name: "Starknet Token",
-        });
-      }
+  const runPreflight = useCallback(async (): Promise<PreflightResult | null> => {
+    if (!walletAddress) return null;
+    if (preflightRef.current) return preflightRef.current;
+    const task = (async () => {
+      setPreflight((prev) => ({
+        ...prev,
+        loading: true,
+        attempted: true,
+        error: null,
+      }));
       const readProvider =
         provider ?? (getDefaultProvider() as ProviderInterface);
-      const priceRes: any = await callContract(readProvider, {
-        contractAddress: auctionAddr,
-        entrypoint: "get_current_price",
-        calldata: [],
-      });
-      const price = toU256Num(
-        readU256(priceRes?.price ?? priceRes?.[0] ?? priceRes)
-      );
-      const balanceRes: any = await callContract(readProvider, {
-        contractAddress: paymentToken,
-        entrypoint: "balance_of",
-        calldata: [walletAddress],
-      });
-      const balance = toU256Num(
-        readU256(balanceRes?.balance ?? balanceRes?.[0] ?? balanceRes)
-      );
-      if (balance.value < price.value) {
-        const priceLabel = formatTokenAmount(price, decimals);
-        const balanceLabel = formatTokenAmount(balance, decimals);
-        setMintNotice({
-          type: "error",
-          message: `Insufficient STRK. Need ${priceLabel}, have ${balanceLabel}.`,
+      const auctionAddr = address ?? resolveAddress("pulse_auction");
+      const paymentToken = resolvePaymentToken();
+      try {
+        const priceRes: any = await callContract(readProvider, {
+          contractAddress: auctionAddr,
+          entrypoint: "get_current_price",
+          calldata: [],
         });
-        console.warn("mint failed: insufficient STRK", {
-          balance: balance.dec,
-          price: price.dec,
-        });
-        return;
-      }
-      const allowanceRes: any = await callContract(readProvider, {
-        contractAddress: paymentToken,
-        entrypoint: "allowance",
-        calldata: [walletAddress, auctionAddr],
-      });
-      const allowance = toU256Num(
-        readU256(
-          allowanceRes?.remaining ?? allowanceRes?.[0] ?? allowanceRes
-        )
-      );
-      if (allowance.value < price.value) {
-        await account.execute({
+        const ask = toU256Num(
+          readU256(priceRes?.price ?? priceRes?.[0] ?? priceRes)
+        );
+        const balanceRes: any = await callContract(readProvider, {
           contractAddress: paymentToken,
-          entrypoint: "approve",
-          calldata: [auctionAddr, price.raw.low, price.raw.high],
+          entrypoint: "balance_of",
+          calldata: [walletAddress],
         });
+        const balance = toU256Num(
+          readU256(balanceRes?.balance ?? balanceRes?.[0] ?? balanceRes)
+        );
+        const allowanceRes: any = await callContract(readProvider, {
+          contractAddress: paymentToken,
+          entrypoint: "allowance",
+          calldata: [walletAddress, auctionAddr],
+        });
+        const allowance = toU256Num(
+          readU256(
+            allowanceRes?.remaining ?? allowanceRes?.[0] ?? allowanceRes
+          )
+        );
+        setPreflight({
+          ask,
+          balance,
+          allowance,
+          loading: false,
+          attempted: true,
+          error: null,
+        });
+        return { ask, balance, allowance };
+      } catch (err) {
+        const msg = String((err as any)?.message ?? err ?? "");
+        setPreflight({
+          ask: null,
+          balance: null,
+          allowance: null,
+          loading: false,
+          attempted: true,
+          error: msg,
+        });
+        return null;
       }
-      await account.execute({
-        contractAddress: auctionAddr,
-        entrypoint: "bid",
-        calldata: [price.raw.low, price.raw.high],
+    })();
+    preflightRef.current = task;
+    try {
+      return await task;
+    } finally {
+      preflightRef.current = null;
+    }
+  }, [walletAddress, provider, address]);
+
+  useEffect(() => {
+    if (debugActive) return;
+    if (!walletUnlocked || !chainOk || !walletAddress) return;
+    void runPreflight();
+  }, [debugActive, walletUnlocked, chainOk, walletAddress, runPreflight]);
+
+  const maybeWatchAsset = async (): Promise<boolean> => {
+    if (!watchAsset) return false;
+    if (watchAssetAttemptedRef.current) return false;
+    const paymentToken = resolvePaymentToken();
+    if (paymentToken.toLowerCase() !== SEPOLIA_STRK.toLowerCase()) return false;
+    watchAssetAttemptedRef.current = true;
+    try {
+      return await watchAsset({
+        address: paymentToken,
+        symbol: "STRK",
+        decimals: 18,
+        name: "Starknet Token",
       });
-    } catch (err) {
-      const msg = String((err as any)?.message ?? err ?? "");
-      const rejected = /USER_REFUSED/i.test(msg);
-      setMintNotice({
-        type: "error",
-        message: rejected
-          ? "Transaction rejected in wallet."
-          : "Mint failed. Check wallet.",
-      });
-      console.error("mint failed", err);
+    } catch {
+      return false;
     }
   };
+
+  const handleConnect = async () => {
+    if (!walletDetected) {
+      showToast({ kind: "error", text: "No Starknet wallet found." });
+      return;
+    }
+    const connector = availableConnectors[0];
+    try {
+      if (connector) {
+        await connectAsync({ connector } as any);
+      } else {
+        await connectAsync();
+      }
+    } catch (err) {
+      console.warn("wallet connect failed", err);
+    }
+  };
+
+  const handleUnlock = async () => {
+    if (requestAccounts) {
+      const accounts = await requestAccounts();
+      if (accounts?.length) setWalletUnlockAttempted(true);
+    }
+    await handleConnect();
+  };
+
+  const handleSwitch = async () => {
+    const ok = await requestChainSwitch(targetChainIdHex);
+    if (!ok) {
+      showToast({ kind: "warn", text: "Switch to Sepolia in your wallet." });
+    }
+  };
+
+  const handlePending = () => {
+    const hash = effectiveTxHash ?? lastTxHash;
+    if (!hash) return;
+    const url = resolveExplorerTxUrl(hash);
+    if (typeof window !== "undefined") {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  };
+
+  const handleRetry = async () => {
+    setTxError(null);
+    setTxState("idle");
+    setTxPhase(null);
+    setTxHash(null);
+    await handleMint();
+  };
+
+  const runTx = async (
+    phase: TxPhase,
+    call: () => Promise<any>
+  ): Promise<boolean> => {
+    try {
+      if (txIdleTimerRef.current) {
+        window.clearTimeout(txIdleTimerRef.current);
+        txIdleTimerRef.current = null;
+      }
+      setTxPhase(phase);
+      setTxState("awaiting_signature");
+      setTxError(null);
+      const res = await call();
+      const hash =
+        res?.transaction_hash ??
+        res?.transactionHash ??
+        res?.hash ??
+        res?.tx_hash;
+      if (!hash) {
+        throw new Error("Missing transaction hash");
+      }
+      setTxHash(hash);
+      setLastTxHash(hash);
+      setTxState("submitted");
+      showToast({ kind: "info", text: `Submitted: ${shortHash(hash)}.` });
+      const waitProvider =
+        provider ?? (getDefaultProvider() as ProviderInterface);
+      const waiter =
+        (account as any)?.waitForTransaction ??
+        (waitProvider as any)?.waitForTransaction;
+      if (typeof waiter === "function") {
+        await waiter.call(account ?? waitProvider, hash);
+      }
+      setTxState("confirmed");
+      showToast({ kind: "info", text: "Confirmed." });
+      if (phase === "bid" && walletAddress) {
+        setPendingMint({
+          txHash: hash,
+          address: walletAddress,
+          baselineTokenId: maxTokenId ?? null,
+        });
+      }
+      txIdleTimerRef.current = window.setTimeout(() => {
+        setTxState("idle");
+        txIdleTimerRef.current = null;
+      }, 800);
+      return true;
+    } catch (err) {
+      const msg = String((err as any)?.message ?? err ?? "");
+      setTxError(msg);
+      setTxState("failed");
+      const lower = msg.toLowerCase();
+      if (lower.includes("invalid block id") || lower.includes("u256_sub overflow")) {
+        void runPreflight();
+      }
+      console.error("mint failed", err);
+      return false;
+    } finally {
+      setTxHash(null);
+      setTxPhase(null);
+    }
+  };
+
+  const handleMint = async () => {
+    if (debugActive) return;
+    if (!account || !walletAddress) return;
+    await maybeWatchAsset();
+    const data = await runPreflight();
+    if (!data) return;
+    if (data.balance.value < data.ask.value) {
+      return;
+    }
+    const auctionAddr = address ?? resolveAddress("pulse_auction");
+    const paymentToken = resolvePaymentToken();
+    if (data.allowance.value < data.ask.value) {
+      const ok = await runTx("approve", () =>
+        account.execute({
+          contractAddress: paymentToken,
+          entrypoint: "approve",
+          calldata: [auctionAddr, data.ask.raw.low, data.ask.raw.high],
+        })
+      );
+      if (!ok) return;
+    }
+    await runTx("bid", () =>
+      account.execute({
+        contractAddress: auctionAddr,
+        entrypoint: "bid",
+        calldata: [data.ask.raw.low, data.ask.raw.high],
+      })
+    );
+  };
+
+  const persistentNotice = useMemo<Notice | null>(() => {
+    if (effectiveTxState === "awaiting_signature") {
+      const text =
+        effectiveTxPhase === "approve"
+          ? "Approve in wallet (1/2)..."
+          : "Sign mint (2/2)...";
+      return { kind: "info", text };
+    }
+    if (effectiveTxState === "submitted") {
+      const text =
+        effectiveTxPhase === "approve"
+          ? "Approval (1/2) pending..."
+          : "Minting (2/2) pending...";
+      return { kind: "info", text };
+    }
+    if (effectiveTxState === "failed") {
+      const msg = String(effectiveTxError ?? "");
+      const lower = msg.toLowerCase();
+      if (lower.includes("invalid signature length")) {
+        return {
+          kind: "error",
+          text: "Account needs upgrade/activation.",
+        };
+      }
+      if (lower.includes("user_refused") || lower.includes("user rejected")) {
+        return { kind: "warn", text: "Signature cancelled." };
+      }
+      if (
+        lower.includes("invalid block id") ||
+        lower.includes("tip statistics") ||
+        lower.includes("starting block number") ||
+        lower.includes("failed to fetch") ||
+        lower.includes("rpc")
+      ) {
+        return { kind: "error", text: "RPC read failed." };
+      }
+      if (lower.includes("u256_sub overflow")) {
+        return {
+          kind: "warn",
+          text: "Insufficient STRK (price moved).",
+        };
+      }
+      return { kind: "error", text: "Mint failed." };
+    }
+    if (!effectiveWalletDetected) {
+      return {
+        kind: "error",
+        text: "No Starknet wallet found.",
+        delayMs: DELAY_MS,
+      };
+    }
+    if (effectiveWalletDetected && !effectiveWalletAddressPresent) {
+      return null;
+    }
+    if (effectiveWalletNeedsUnlock) {
+      return null;
+    }
+    if (effectiveWalletUnlocked && effectiveChainKnown && !effectiveChainOk) {
+      return {
+        kind: "error",
+        text: "Sepolia only.",
+        delayMs: DELAY_MS,
+      };
+    }
+    if (
+      effectiveWalletUnlocked &&
+      effectiveChainOk &&
+      effectivePreflightAttempted &&
+      !effectivePreflightOk &&
+      preflightErrorVisible
+    ) {
+      return { kind: "error", text: "RPC read failed." };
+    }
+    if (
+      effectiveWalletUnlocked &&
+      effectiveChainOk &&
+      (effectivePreflightLoading || !effectivePreflightAttempted)
+    ) {
+      return {
+        kind: "info",
+        text: "Loading...",
+        delayMs: DELAY_MS,
+      };
+    }
+    if (
+      effectiveWalletUnlocked &&
+      effectiveChainOk &&
+      effectivePreflightOk &&
+      !effectiveBalanceOk
+    ) {
+      return {
+        kind: "warn",
+        text: `Need ${effectiveAskLabel}, have ${effectiveBalanceLabel}.`,
+      };
+    }
+    if (
+      effectiveWalletUnlocked &&
+      effectiveChainOk &&
+      effectivePreflightOk &&
+      effectiveBalanceOk &&
+      !effectiveAllowanceOk &&
+      effectiveTxState === "idle"
+    ) {
+      return { kind: "info", text: "Approval required (1/2)." };
+    }
+    return null;
+  }, [
+    effectiveTxState,
+    effectiveTxPhase,
+    effectiveTxError,
+    effectiveWalletDetected,
+    effectiveWalletUnlocked,
+    effectiveWalletAddressPresent,
+    effectiveWalletNeedsUnlock,
+    effectiveChainKnown,
+    effectiveChainOk,
+    effectivePreflightOk,
+    effectiveBalanceOk,
+    effectiveAllowanceOk,
+    effectivePreflightAttempted,
+    effectivePreflightLoading,
+    effectiveAskLabel,
+    effectiveBalanceLabel,
+    preflightErrorVisible,
+  ]);
+
+  useEffect(() => {
+    if (persistentNoticeTimerRef.current) {
+      window.clearTimeout(persistentNoticeTimerRef.current);
+      persistentNoticeTimerRef.current = null;
+    }
+    if (!persistentNotice) {
+      setPersistentNoticeVisible(null);
+      return;
+    }
+    const delay = persistentNotice.delayMs ?? 0;
+    if (delay === 0) {
+      setPersistentNoticeVisible(persistentNotice);
+      return;
+    }
+    setPersistentNoticeVisible(null);
+    persistentNoticeTimerRef.current = window.setTimeout(() => {
+      setPersistentNoticeVisible(persistentNotice);
+      persistentNoticeTimerRef.current = null;
+    }, delay);
+    return () => {
+      if (persistentNoticeTimerRef.current) {
+        window.clearTimeout(persistentNoticeTimerRef.current);
+        persistentNoticeTimerRef.current = null;
+      }
+    };
+  }, [persistentNotice]);
+
+  const displayNotice = toastNotice ?? persistentNoticeVisible;
+  const dotState =
+    effectiveTxState === "awaiting_signature" || effectiveTxState === "submitted"
+      ? "amber"
+      : effectiveTxState === "failed"
+      ? "error"
+      : effectiveWalletUnlocked &&
+        effectiveChainOk &&
+        effectivePreflightOk &&
+        effectiveBalanceOk
+      ? "on"
+      : effectiveWalletUnlocked && effectiveChainKnown && !effectiveChainOk
+      ? "error"
+      : effectivePreflightOk && !effectiveBalanceOk
+      ? "error"
+      : "off";
+
+  const ctaState = (() => {
+    if (effectiveTxState === "submitted") {
+      return { label: "pending", disabled: false, onClick: handlePending };
+    }
+    if (effectiveTxState === "awaiting_signature") {
+      return { label: "sign", disabled: true, onClick: () => {} };
+    }
+    if (effectiveTxState === "failed") {
+      return { label: "retry", disabled: false, onClick: handleRetry };
+    }
+    if (effectiveWalletUnlocked && effectiveChainKnown && !effectiveChainOk) {
+      return { label: "switch", disabled: false, onClick: handleSwitch };
+    }
+    if (effectiveWalletNeedsUnlock) {
+      return { label: "unlock", disabled: false, onClick: handleUnlock };
+    }
+    if (effectiveWalletDetected && !effectiveWalletAddressPresent) {
+      return { label: "connect", disabled: false, onClick: handleConnect };
+    }
+    if (!effectiveWalletDetected) {
+      return { label: "connect", disabled: false, onClick: handleConnect };
+    }
+    if (effectiveWalletUnlocked && effectiveChainOk && effectivePreflightOk) {
+      return {
+        label: "mint",
+        disabled: !effectiveBalanceOk,
+        onClick: handleMint,
+      };
+    }
+    return { label: "mint", disabled: true, onClick: handleMint };
+  })();
+  const ctaDelayMs =
+    ctaState.label === "connect" ||
+    ctaState.label === "unlock" ||
+    ctaState.label === "switch"
+      ? DELAY_MS
+      : 0;
+  useEffect(() => {
+    const nextKey = `${ctaState.label}:${ctaState.disabled ? "1" : "0"}`;
+    if (ctaDisplayKeyRef.current === nextKey && ctaDisplay) return;
+    if (ctaTimerRef.current) {
+      window.clearTimeout(ctaTimerRef.current);
+      ctaTimerRef.current = null;
+    }
+    if (!ctaDisplay || ctaDelayMs === 0) {
+      ctaDisplayKeyRef.current = nextKey;
+      setCtaDisplay(ctaState);
+      return;
+    }
+    ctaTimerRef.current = window.setTimeout(() => {
+      ctaDisplayKeyRef.current = nextKey;
+      setCtaDisplay(ctaState);
+      ctaTimerRef.current = null;
+    }, ctaDelayMs);
+    return () => {
+      if (ctaTimerRef.current) {
+        window.clearTimeout(ctaTimerRef.current);
+        ctaTimerRef.current = null;
+      }
+    };
+  }, [ctaState, ctaDelayMs, ctaDisplay]);
+  const resetDebug = () => setDebugOverride(debugDefaults);
 
   return (
     <div className="panel dotfield">
@@ -1550,15 +2549,194 @@ export default function AuctionCanvas({
             look
           </button>
         </div>
-        <HeaderWalletCTA onMint={handleMint} />
+        <div className="dotfield__cta-stack">
+          <HeaderWalletCTA
+            ctaLabel={(ctaDisplay ?? ctaState).label}
+            ctaDisabled={(ctaDisplay ?? ctaState).disabled}
+            onCtaClick={(ctaDisplay ?? ctaState).onClick}
+            dotState={dotState}
+            lastTxHash={effectiveLastTxHash}
+            onCopyNotice={() => showToast({ kind: "info", text: "Copied." })}
+            onDisconnectNotice={() => {
+              setWalletUnlockAttempted(false);
+              setTxState("idle");
+              setTxPhase(null);
+              setTxHash(null);
+              setTxError(null);
+              setLastTxHash(null);
+              setPreflight({
+                ask: null,
+                balance: null,
+                allowance: null,
+                loading: false,
+                attempted: false,
+                error: null,
+              });
+              showToast({ kind: "info", text: "Disconnected." });
+            }}
+          />
+        </div>
       </div>
-      {mintNotice && (
-        <div
-          className={`dotfield__mint-notice ${
-            mintNotice.type === "error" ? "is-error" : ""
-          }`}
-        >
-          {mintNotice.message}
+      <div
+        className={`dotfield__mint-notice ${
+          displayNotice
+            ? displayNotice.kind === "error"
+              ? "is-error"
+              : displayNotice.kind === "warn"
+              ? "is-warn"
+              : "is-info"
+            : "is-empty"
+        }`}
+      >
+        {displayNotice?.text ?? ""}
+      </div>
+      {isDevMode && (
+        <div className="dotfield__debug">
+          <button
+            type="button"
+            className="dotfield__debug-toggle"
+            onClick={() => setDebugOpen((open) => !open)}
+          >
+            debug
+          </button>
+          {debugOpen && (
+            <div className="dotfield__debug-panel">
+              <div className="dotfield__debug-row">
+                <span>override</span>
+                <input
+                  type="checkbox"
+                  checked={debugOverride.enabled}
+                  onChange={(event) =>
+                    setDebugOverride((prev) => ({
+                      ...prev,
+                      enabled: event.target.checked,
+                    }))
+                  }
+                />
+                <button type="button" onClick={resetDebug}>
+                  reset
+                </button>
+              </div>
+              <div className="dotfield__debug-row">
+                <span>cta</span>
+                <select
+                  value={debugOverride.cta}
+                  disabled={noticeOverrideActive}
+                  onChange={(event) =>
+                    setDebugOverride((prev) => ({
+                      ...prev,
+                      cta: event.target.value as
+                        | "auto"
+                        | "connect"
+                        | "unlock"
+                        | "switch"
+                        | "mint"
+                        | "mint-disabled"
+                        | "sign"
+                        | "pending"
+                        | "retry",
+                    }))
+                  }
+                >
+                  <option value="auto">auto</option>
+                  <option value="connect">connect</option>
+                  <option value="unlock">unlock</option>
+                  <option value="switch">switch</option>
+                  <option value="mint">mint</option>
+                  <option value="mint-disabled">mint (disabled)</option>
+                  <option value="sign">sign</option>
+                  <option value="pending">pending</option>
+                  <option value="retry">retry</option>
+                </select>
+              </div>
+              <div className="dotfield__debug-row">
+                <span>notice</span>
+                <select
+                  value={debugOverride.notice}
+                  disabled={ctaOverrideActive}
+                  onChange={(event) =>
+                    setDebugOverride((prev) => ({
+                      ...prev,
+                      notice: event.target.value as
+                        | "auto"
+                        | "none"
+                        | "no_wallet"
+                        | "wallet_locked"
+                        | "wrong_network"
+                        | "rpc_error"
+                        | "insufficient"
+                        | "approval"
+                        | "minting"
+                        | "invalid_signature"
+                        | "user_refused"
+                        | "invalid_block_id"
+                        | "overflow"
+                        | "generic",
+                    }))
+                  }
+                >
+                  <option value="auto">auto</option>
+                  <option value="none">none</option>
+                  <option value="no_wallet">no wallet</option>
+                  <option value="wallet_locked">wallet locked</option>
+                  <option value="wrong_network">wrong network</option>
+                  <option value="rpc_error">rpc error</option>
+                  <option value="insufficient">insufficient</option>
+                  <option value="approval">approval</option>
+                  <option value="minting">minting</option>
+                  <option value="invalid_signature">invalid signature</option>
+                  <option value="user_refused">user refused</option>
+                  <option value="invalid_block_id">invalid block id</option>
+                  <option value="overflow">overflow</option>
+                  <option value="generic">generic</option>
+                </select>
+              </div>
+              <div className="dotfield__debug-row">
+                <span>toasts</span>
+                <div className="dotfield__debug-actions">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      showToast({ kind: "info", text: "Copied." })
+                    }
+                  >
+                    copied
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      showToast({
+                        kind: "info",
+                        text: `Submitted: ${shortHash(DEBUG_TX_HASH)}.`,
+                      })
+                    }
+                  >
+                    submitted
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      showToast({ kind: "info", text: "Confirmed." })
+                    }
+                  >
+                    confirmed
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      showToast({ kind: "info", text: "Disconnected." })
+                    }
+                  >
+                    disconnected
+                  </button>
+                </div>
+              </div>
+              <div className="dotfield__debug-note muted">
+                Overrides only affect UI state; use auto to return to live data. CTA or notice
+                overrides drive wallet/tx state and lock other selectors.
+              </div>
+            </div>
+          )}
         </div>
       )}
       {showCurve && (

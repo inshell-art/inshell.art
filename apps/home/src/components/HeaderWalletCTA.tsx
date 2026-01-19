@@ -1,6 +1,5 @@
 /* global HTMLDivElement, MouseEvent, KeyboardEvent, Node */
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { Connector } from "@starknet-react/core";
+import { useEffect, useRef, useState } from "react";
 import { useWallet } from "@inshell/wallet";
 
 function getEnvValue(name: string): unknown {
@@ -8,22 +7,6 @@ function getEnvValue(name: string): unknown {
     (globalThis as any).__VITE_ENV__;
   const procEnv = (globalThis as any)?.process?.env;
   return envCache?.[name] ?? procEnv?.[name];
-}
-
-function parseChainId(value: unknown): bigint | null {
-  if (value == null) return null;
-  if (typeof value === "bigint") return value;
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return BigInt(Math.trunc(value));
-  }
-  if (typeof value === "string" && value.trim().length) {
-    try {
-      return BigInt(value.trim());
-    } catch {
-      return null;
-    }
-  }
-  return null;
 }
 
 function shortAddress(address?: string) {
@@ -35,18 +18,6 @@ function resolveExplorerBase(): string {
   const base = getEnvValue("VITE_EXPLORER_BASE_URL");
   if (typeof base === "string" && base.trim()) return base.trim();
   return "https://sepolia.voyager.online";
-}
-
-function resolveExpectedChainId(): bigint | null {
-  return parseChainId(getEnvValue("VITE_EXPECTED_CHAIN_ID"));
-}
-
-function describeExpectedChain(chainId: bigint | null): string {
-  if (!chainId) return "the expected network";
-  const hex = chainId.toString(16).toLowerCase();
-  if (hex === "534e5f5345504f4c4941") return "Sepolia";
-  if (hex === "534e5f4d41494e") return "Mainnet";
-  return "the expected network";
 }
 
 async function copyToClipboard(text: string): Promise<boolean> {
@@ -78,77 +49,37 @@ async function copyToClipboard(text: string): Promise<boolean> {
 }
 
 type HeaderWalletCTAProps = {
-  onMint?: () => void;
+  ctaLabel: string;
+  ctaDisabled?: boolean;
+  onCtaClick: () => void;
+  dotState?: "off" | "on" | "amber" | "error";
+  dotTooltip?: string;
+  lastTxHash?: string | null;
+  onCopyNotice?: () => void;
+  onDisconnectNotice?: () => void;
 };
 
-type ConnectorState = {
-  connector: Connector;
-  available: boolean;
-};
-
-export default function HeaderWalletCTA({ onMint }: HeaderWalletCTAProps) {
-  const {
-    address,
-    isConnected,
-    isConnecting,
-    isReconnecting,
-    status,
-    chain,
-    chainId,
-    connect,
-    connectAsync,
-    disconnect,
-    disconnectAsync,
-    connectors,
-    connectStatus,
-    requestAccounts,
-    accountMissing,
-  } = useWallet();
+export default function HeaderWalletCTA({
+  ctaLabel,
+  ctaDisabled,
+  onCtaClick,
+  dotState = "off",
+  dotTooltip,
+  lastTxHash,
+  onCopyNotice,
+  onDisconnectNotice,
+}: HeaderWalletCTAProps) {
+  const { address, chain, disconnect, isConnected } = useWallet();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
-
-  const expectedChainId = useMemo(() => resolveExpectedChainId(), []);
-  const currentChainId = useMemo(() => parseChainId(chainId), [chainId]);
-  const wrongNetwork =
-    Boolean(isConnected) &&
-    expectedChainId !== null &&
-    currentChainId !== null &&
-    expectedChainId !== currentChainId;
-
-  const isBusy =
-    Boolean(isConnecting) ||
-    Boolean(isReconnecting) ||
-    connectStatus === "pending" ||
-    connectStatus === "loading" ||
-    status === "connecting" ||
-    status === "reconnecting";
-
-  const expectedLabel = describeExpectedChain(expectedChainId);
   const explorerBase = resolveExplorerBase();
-  const explorerUrl = address
-    ? `${explorerBase.replace(/\/$/, "")}/contract/${address}`
+  const explorerRoot = explorerBase.replace(/\/$/, "");
+  const connectedAddress = isConnected ? address : undefined;
+  const explorerUrl = connectedAddress
+    ? `${explorerRoot}/contract/${connectedAddress}`
     : null;
+  const txUrl = lastTxHash ? `${explorerRoot}/tx/${lastTxHash}` : null;
   const networkLabel = chain?.network ?? chain?.name ?? "unknown";
-
-  const connectorsState = useMemo<ConnectorState[]>(() => {
-    return connectors.map((connector) => {
-      let available = true;
-      if (typeof window !== "undefined") {
-        try {
-          available = connector.available();
-        } catch {
-          available = false;
-        }
-      }
-      return { connector, available };
-    });
-  }, [connectors]);
-
-  const primaryConnector = useMemo(() => {
-    const available = connectorsState.find((item) => item.available);
-    return available?.connector ?? connectors[0];
-  }, [connectorsState, connectors]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -168,97 +99,31 @@ export default function HeaderWalletCTA({ onMint }: HeaderWalletCTAProps) {
     };
   }, [menuOpen]);
 
-  useEffect(() => {
-    if (!isConnected || !address) {
-      setMenuOpen(false);
-    }
-  }, [isConnected, address]);
-
-  useEffect(() => {
-    if (!copied) return;
-    const timer = window.setTimeout(() => setCopied(false), 1000);
-    return () => window.clearTimeout(timer);
-  }, [copied]);
-
-  const ctaLabel = isBusy
-    ? "connecting..."
-    : isConnected
-      ? accountMissing
-        ? "unlock wallet"
-        : wrongNetwork
-          ? "wrong network"
-          : "mint"
-      : "connect";
-  const ctaDisabled = isBusy || (isConnected && wrongNetwork && !accountMissing);
-  const dotState = isBusy
-    ? "is-pending"
-    : isConnected
-      ? accountMissing || wrongNetwork
-        ? "is-warning"
-        : "is-on"
+  const dotClass =
+    dotState === "on"
+      ? "is-on"
+      : dotState === "amber"
+      ? "is-pending"
+      : dotState === "error"
+      ? "is-error"
       : "is-off";
-  const dotTooltip = isBusy
-    ? "connecting..."
-    : isConnected && address
-      ? accountMissing
-        ? "unlock wallet to continue"
-        : `${shortAddress(address)} - ${wrongNetwork ? "wrong network" : networkLabel}`
-      : "not connected";
-
-  const reconnectWallet = async () => {
-    if (!primaryConnector) return;
-    try {
-      await disconnectAsync?.();
-    } catch {
-      // no-op
-    }
-    if (connectAsync) {
-      await connectAsync({ connector: primaryConnector });
-    } else {
-      connect({ connector: primaryConnector });
-    }
-  };
-
-  const handlePrimaryClick = async () => {
-    if (ctaDisabled) return;
-    if (!isConnected) {
-      if (!primaryConnector) return;
-      connect({ connector: primaryConnector });
-      return;
-    }
-    if (accountMissing) {
-      if (requestAccounts) {
-        await requestAccounts();
-      }
-      void reconnectWallet();
-      return;
-    }
-    if (!wrongNetwork) {
-      onMint?.();
-    }
-  };
-
-  const handleDotClick = async () => {
-    if (isBusy) return;
-    if (!isConnected) {
-      if (!primaryConnector) return;
-      connect({ connector: primaryConnector });
-      return;
-    }
-    if (accountMissing) {
-      if (requestAccounts) {
-        await requestAccounts();
-      }
-      void reconnectWallet();
-      return;
-    }
-    setMenuOpen((open) => !open);
-  };
+  const tooltip =
+    dotTooltip ??
+    (connectedAddress
+      ? `${shortAddress(connectedAddress)} - ${networkLabel}`
+      : "not connected");
 
   const handleCopy = async () => {
-    if (!address) return;
-    const ok = await copyToClipboard(address);
-    if (ok) setCopied(true);
+    if (!connectedAddress) return;
+    const ok = await copyToClipboard(connectedAddress);
+    if (ok) onCopyNotice?.();
+  };
+
+  const handleDisconnect = () => {
+    if (!connectedAddress) return;
+    disconnect();
+    onDisconnectNotice?.();
+    setMenuOpen(false);
   };
 
   return (
@@ -266,28 +131,29 @@ export default function HeaderWalletCTA({ onMint }: HeaderWalletCTAProps) {
       <button
         className="dotfield__mint"
         type="button"
-        onClick={handlePrimaryClick}
+        onClick={onCtaClick}
         disabled={ctaDisabled}
-        title={wrongNetwork ? `Switch wallet network to ${expectedLabel}` : undefined}
       >
         [ {ctaLabel} ]
       </button>
       <button
         type="button"
         className="dotfield__cta-address"
-        onClick={handleDotClick}
+        onClick={() => setMenuOpen((open) => !open)}
         aria-expanded={menuOpen}
         aria-haspopup="menu"
-        aria-label={dotTooltip}
-        title={dotTooltip}
+        aria-label={tooltip}
+        title={tooltip}
       >
-        <span className={`dotfield__cta-dot ${dotState}`} aria-hidden="true" />
+        <span className={`dotfield__cta-dot ${dotClass}`} aria-hidden="true" />
       </button>
-      {menuOpen && isConnected && address && (
+      {menuOpen && (
         <div className="dotfield__cta-menu" role="menu">
           <div className="dotfield__cta-menu-meta">
             <span className="dotfield__cta-menu-label">address</span>
-            <span className="dotfield__cta-menu-value">{address}</span>
+            <span className="dotfield__cta-menu-value">
+              {connectedAddress ?? "—"}
+            </span>
           </div>
           <div className="dotfield__cta-menu-meta">
             <span className="dotfield__cta-menu-label">network</span>
@@ -297,8 +163,9 @@ export default function HeaderWalletCTA({ onMint }: HeaderWalletCTAProps) {
             type="button"
             className="dotfield__cta-menu-item"
             onClick={handleCopy}
+            disabled={!connectedAddress}
           >
-            {copied ? "copied" : "copy address"}
+            copy address
           </button>
           {explorerUrl && (
             <a
@@ -310,13 +177,21 @@ export default function HeaderWalletCTA({ onMint }: HeaderWalletCTAProps) {
               open in explorer
             </a>
           )}
+          {txUrl && (
+            <a
+              className="dotfield__cta-menu-item"
+              href={txUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              last tx
+            </a>
+          )}
           <button
             type="button"
             className="dotfield__cta-menu-item"
-            onClick={() => {
-              disconnect();
-              setMenuOpen(false);
-            }}
+            onClick={handleDisconnect}
+            disabled={!connectedAddress}
           >
             disconnect
           </button>
