@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuctionBids } from "@/hooks/useAuctionBids";
 import type { ProviderInterface } from "starknet";
-import { toFixed, readU256, toU256Num, type U256Num } from "@inshell/utils";
+import {
+  scaleIntegerString,
+  toFixed,
+  readU256,
+  toU256Num,
+  type U256Num,
+} from "@inshell/utils";
 import type { AuctionSnapshot } from "@/types/types";
 import type { AbiSource } from "@inshell/contracts";
 import type { NormalizedBid } from "@/services/auction/bidsService";
@@ -68,7 +74,11 @@ function shortAmount(val: string) {
 }
 
 function formatTokenAmount(u: { dec: string }, decimals: number): string {
-  const fixed = toFixed(u, decimals);
+  const raw = String(u?.dec ?? "").trim();
+  if (!raw) return "—";
+  const fixed = /^[0-9]+$/.test(raw)
+    ? scaleIntegerString(raw, decimals)
+    : raw;
   if (!fixed.includes(".")) return fixed;
   const [intPart, fracPart] = fixed.split(".");
   const trimmed = fracPart.slice(0, 4).replace(/0+$/, "");
@@ -1301,6 +1311,8 @@ export default function AuctionCanvas({
       setTxHash(null);
       setTxError(null);
       setLastTxHash(null);
+      setCtaDisplay(null);
+      ctaDisplayKeyRef.current = null;
       setPreflightErrorVisible(null);
       setPreflightWarm(false);
       setPendingMint(null);

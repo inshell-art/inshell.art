@@ -231,7 +231,7 @@ describe("AuctionCanvas", () => {
       error: null,
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    expect(screen.getByText(/Genesis is waiting for bid/i)).toBeTruthy();
+    expect(screen.getByText(/Genesis not yet minted/i)).toBeTruthy();
   });
 
   test("shows pre-open message when open time is in the future", () => {
@@ -755,7 +755,7 @@ describe("AuctionCanvas", () => {
         fireEvent.click(mintButton);
       });
       await waitFor(() => {
-        expect(screen.getByText(/RPC busy\. Retry\./i)).toBeTruthy();
+        expect(screen.getByText(/RPC read failed/i)).toBeTruthy();
       });
       expect(screen.getByText(/\[\s*retry\s*\]/i)).toBeTruthy();
     } finally {
@@ -798,7 +798,7 @@ describe("AuctionCanvas", () => {
         fireEvent.click(mintButton);
       });
       await waitFor(() => {
-        expect(screen.getByText(/RPC read failed/i)).toBeTruthy();
+        expect(screen.getByText(/RPC busy\. Retry\./i)).toBeTruthy();
       });
       expect(screen.getByText(/\[\s*retry\s*\]/i)).toBeTruthy();
     } finally {
