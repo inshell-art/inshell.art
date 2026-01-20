@@ -1710,6 +1710,10 @@ export default function AuctionCanvas({
   }, [bids, decimals]);
 
   const activeConfig = core?.config ?? fallbackConfig ?? null;
+  const genesisAskLabel = useMemo(() => {
+    if (!activeConfig?.genesisPrice) return "—";
+    return formatTokenAmount(activeConfig.genesisPrice, decimals);
+  }, [activeConfig?.genesisPrice, decimals]);
 
   const { curve, reason } = useMemo<{
     curve: CurveData | null;
@@ -2269,14 +2273,14 @@ export default function AuctionCanvas({
     if (effectiveTxState === "awaiting_signature") {
       const text =
         effectiveTxPhase === "approve"
-          ? "Approve in wallet (1/2)..."
+          ? "Wallet open: Approve in wallet (1/2)..."
           : "Sign mint (2/2)...";
       return { kind: "info", text };
     }
     if (effectiveTxState === "submitted") {
       const text =
         effectiveTxPhase === "approve"
-          ? "Approval (1/2) pending..."
+          ? "Submitted: Approval pending (1/2)..."
           : "Minting (2/2) pending...";
       return { kind: "info", text };
     }
@@ -2292,11 +2296,13 @@ export default function AuctionCanvas({
       if (lower.includes("user_refused") || lower.includes("user rejected")) {
         return { kind: "warn", text: "Signature cancelled." };
       }
+      if (lower.includes("failed to fetch") || lower.includes("network error")) {
+        return { kind: "error", text: "RPC busy. Retry." };
+      }
       if (
         lower.includes("invalid block id") ||
         lower.includes("tip statistics") ||
         lower.includes("starting block number") ||
-        lower.includes("failed to fetch") ||
         lower.includes("rpc")
       ) {
         return { kind: "error", text: "RPC read failed." };
@@ -2304,7 +2310,7 @@ export default function AuctionCanvas({
       if (lower.includes("u256_sub overflow")) {
         return {
           kind: "warn",
-          text: "Insufficient STRK (price moved).",
+          text: "Insufficient STRK at execution.",
         };
       }
       return { kind: "error", text: "Mint failed." };
@@ -2368,7 +2374,7 @@ export default function AuctionCanvas({
       !effectiveAllowanceOk &&
       effectiveTxState === "idle"
     ) {
-      return { kind: "info", text: "Approval required (1/2)." };
+      return { kind: "info", text: "Approve STRK (1/2)" };
     }
     return null;
   }, [
@@ -2750,7 +2756,11 @@ export default function AuctionCanvas({
           )}
           {showGenesisWaiting && (
             <div className="dotfield__canvas dotfield__look">
-              <div className="muted">Genesis is waiting for bid</div>
+              <div className="muted dotfield__status-copy">
+                Genesis not yet minted.
+                <br />
+                Ask: {genesisAskLabel} STRK
+              </div>
             </div>
           )}
           {showCurveLoading && (
@@ -3462,7 +3472,9 @@ export default function AuctionCanvas({
                   className="dotfield__popover"
                   style={{ left: lookHover.x, top: lookHover.y }}
                 >
-                  <div className="muted small">attributes</div>
+                  <div className="muted small">
+                    attributes · #{lookDisplayTokenId}
+                  </div>
                   {lookAttrDisplay.map((attr, idx) => (
                     <div className="dotfield__poprow" key={`${attr.label}-${idx}`}>
                       <span>{attr.label}</span>

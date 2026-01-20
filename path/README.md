@@ -44,6 +44,18 @@ source output/addresses.env
 Constructor calldata is encoded (ByteArray/u256). Deployment order:
 `PathNFT` → `PathMinter` → `PathMinterAdapter` → `PulseAuction`.
 
+## Redeploy notes (PulseAuction + token continuity)
+
+If you need to redeploy `PulseAuction`, decide what continuity you want:
+
+- Preserve existing tokens (same `PathNFT` contract + token IDs): do NOT redeploy
+  `PathNFT` or `PathMinter`; redeploy only `PulseAuction` (and `PathMinterAdapter`
+  if needed), then re-run `./scripts/config-devnet.sh` and re-sync addresses/ABIs
+  into the FE.
+- Fresh continuity for a clean series: redeploy the full stack in order
+  (`PathNFT` → `PathMinter` → `PathMinterAdapter` → `PulseAuction`) so the auction,
+  minter, and NFT contracts stay aligned.
+
 ## 3) Configure roles & wiring (idempotent-friendly)
 
 ```bash

@@ -380,7 +380,7 @@ describe("AuctionCanvas", () => {
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />
     );
     await waitFor(() => {
-      expect(screen.getByText(/Approval required/i)).toBeTruthy();
+      expect(screen.getByText(/Approve STRK/i)).toBeTruthy();
     });
     mockWalletState = createWalletState({
       isConnected: false,
@@ -389,7 +389,7 @@ describe("AuctionCanvas", () => {
     });
     rerender(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     await waitFor(() => {
-      expect(screen.queryByText(/Approval required/i)).toBeNull();
+      expect(screen.queryByText(/Approve STRK/i)).toBeNull();
       expect(screen.getByText(/\[\s*connect\s*\]/i)).toBeTruthy();
     });
   });
@@ -503,7 +503,7 @@ describe("AuctionCanvas", () => {
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     await waitFor(() => {
-      expect(screen.getByText(/Approval required/i)).toBeTruthy();
+      expect(screen.getByText(/Approve STRK/i)).toBeTruthy();
     });
     expect(screen.getByText(/\[\s*mint\s*\]/i)).toBeTruthy();
   });
@@ -536,7 +536,7 @@ describe("AuctionCanvas", () => {
       fireEvent.click(mintButton);
     });
     await waitFor(() => {
-      expect(screen.getByText(/Approve in wallet/i)).toBeTruthy();
+      expect(screen.getByText(/Wallet open: Approve in wallet/i)).toBeTruthy();
       expect(screen.getByText(/\[\s*sign\s*\]/i)).toBeTruthy();
     });
   });
@@ -608,7 +608,7 @@ describe("AuctionCanvas", () => {
     act(() => {
       jest.advanceTimersByTime(3000);
     });
-    expect(screen.getByText(/Approval .* pending/i)).toBeTruthy();
+    expect(screen.getByText(/Submitted: Approval pending/i)).toBeTruthy();
     jest.useRealTimers();
   });
 
@@ -755,7 +755,7 @@ describe("AuctionCanvas", () => {
         fireEvent.click(mintButton);
       });
       await waitFor(() => {
-        expect(screen.getByText(/RPC read failed/i)).toBeTruthy();
+        expect(screen.getByText(/RPC busy\. Retry\./i)).toBeTruthy();
       });
       expect(screen.getByText(/\[\s*retry\s*\]/i)).toBeTruthy();
     } finally {
@@ -763,7 +763,7 @@ describe("AuctionCanvas", () => {
     }
   });
 
-  test("shows rpc read failed notice after fee tip stats failure", async () => {
+  test("shows rpc busy notice after fee tip stats failure", async () => {
     const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     const execute = jest
       .fn()
@@ -835,7 +835,7 @@ describe("AuctionCanvas", () => {
         fireEvent.click(mintButton);
       });
       await waitFor(() => {
-        expect(screen.getByText(/price moved/i)).toBeTruthy();
+        expect(screen.getByText(/Insufficient STRK at execution/i)).toBeTruthy();
       });
       expect(screen.getByText(/\[\s*retry\s*\]/i)).toBeTruthy();
       await waitFor(() => {
@@ -981,7 +981,7 @@ describe("AuctionCanvas", () => {
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />
     );
     await waitFor(() => {
-      expect(screen.getByText(/Approval required/i)).toBeTruthy();
+      expect(screen.getByText(/Approve STRK/i)).toBeTruthy();
     });
     const dotButton = container.querySelector(
       ".dotfield__cta-address"
@@ -995,7 +995,7 @@ describe("AuctionCanvas", () => {
     act(() => {
       jest.advanceTimersByTime(3000);
     });
-    expect(screen.getByText(/Approval required/i)).toBeTruthy();
+    expect(screen.getByText(/Approve STRK/i)).toBeTruthy();
     jest.useRealTimers();
   });
 

@@ -621,6 +621,11 @@ body {
   overflow: hidden;
 }
 
+.dotfield__status-copy {
+  text-align: center;
+  line-height: 1.4;
+}
+
 .dotfield__look-viewport {
   height: 100%;
   width: auto;

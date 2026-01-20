@@ -8,29 +8,12 @@ const WORDS = [
   { label: "AWA!", year: "2027" },
 ];
 
-function resolveThoughtUrl() {
-  const env: Record<string, any> | undefined = (globalThis as any)?.__VITE_ENV__;
-  const nodeEnv = (globalThis as any)?.process?.env?.NODE_ENV;
-  const isDev =
-    env?.DEV === true || env?.MODE === "development" || nodeEnv === "development";
-  if (isDev) {
-    const devPort = String(env?.VITE_THOUGHT_DEV_PORT ?? "5173");
-    const devHost =
-      typeof window !== "undefined" ? window.location.hostname : "localhost";
-    const devProtocol =
-      typeof window !== "undefined" ? window.location.protocol : "http:";
-    return `${devProtocol}//${devHost}:${devPort}`;
-  }
-  return env?.VITE_THOUGHT_URL ?? "https://thought.inshell.art";
-}
-
 export default function Movements() {
   const [projectOpacity, setProjectOpacity] = useState(0);
   const [yearOpacity, setYearOpacity] = useState(0);
   const lastMousePosition = useRef({ x: 0, y: 0 });
   const lastTimestamp = useRef(Date.now());
   const [isDesktop, setIsDesktop] = useState(true);
-  const thoughtUrl = resolveThoughtUrl();
 
   useEffect(() => {
     setIsDesktop(isDesktopDevice());
@@ -95,15 +78,12 @@ export default function Movements() {
             in {word.year}
           </div>
           {word.label === "THOUGHT" ? (
-            <a
-              className="movements__word movements__word--link"
+            <div
+              className="movements__word"
               style={{ opacity: projectOpacity }}
-              href={thoughtUrl}
-              target="_blank"
-              rel="noreferrer noopener"
             >
               {word.label}
-            </a>
+            </div>
           ) : (
             <div
               className="movements__word"

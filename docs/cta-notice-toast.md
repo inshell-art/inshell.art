@@ -42,20 +42,21 @@ Notice colors:
 - Error: `#a84242` via `.dotfield__mint-notice.is-error`
 
 Persistent notice text (default mapping):
-- Tx signing: `Approve in wallet (1/2)...` or `Sign mint (2/2)...`
-- Tx pending: `Approval (1/2) pending...` or `Minting (2/2) pending...`
+- Tx signing: `Wallet open: Approve in wallet (1/2)...` or `Sign mint (2/2)...`
+- Tx pending: `Submitted: Approval pending (1/2)...` or `Minting (2/2) pending...`
 - Tx failed:
   - invalid signature length → `Account needs upgrade/activation.`
   - user refused → `Signature cancelled.`
+  - failed to fetch / network error → `RPC busy. Retry.`
   - invalid block id / RPC error → `RPC read failed.`
-  - overflow → `Insufficient STRK (price moved).`
+  - overflow → `Insufficient STRK at execution.`
   - fallback → `Mint failed.`
 - No wallet: `No Starknet wallet found.`
 - Wrong network: `Sepolia only.`
 - Preflight loading: `Loading...`
 - Preflight error: `RPC read failed.`
 - Insufficient balance: `Need X, have Y.`
-- Needs approval: `Approval required (1/2).`
+- Needs approval: `Approve STRK (1/2)`
 
 Debug notice override (`debug -> override -> notice`) forces a notice by
 driving wallet/chain/preflight/tx state. It only applies when CTA override is
