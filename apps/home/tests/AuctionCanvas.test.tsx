@@ -112,6 +112,7 @@ describe("AuctionCanvas", () => {
   afterEach(() => {
     jest.clearAllMocks();
     delete (globalThis as any).__VITE_ENV__;
+    delete (globalThis as any).__PULSE_STATUS__;
   });
 
   test("renders mint button and dots", () => {
@@ -232,6 +233,61 @@ describe("AuctionCanvas", () => {
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     expect(screen.getByText(/Genesis not yet minted/i)).toBeTruthy();
+  });
+
+  test("genesis ask label scales by token decimals", () => {
+    mockUseAuctionCore.mockReturnValue({
+      data: {
+        active: false,
+        config: {
+          openTimeSec: Math.floor(Date.now() / 1000) - 60,
+          genesisPrice: { dec: "1000000000000000000" },
+          genesisFloor: { dec: "1000000000000000000" },
+          k: { dec: "10" },
+          pts: "1",
+        },
+      },
+      ready: true,
+      loading: false,
+      error: null,
+      refresh: jest.fn(),
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids: [],
+      ready: true,
+      loading: false,
+      error: null,
+    });
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    expect(screen.getByText(/Ask: 1 STRK/i)).toBeTruthy();
+  });
+
+  test("auction status override wins over live state", () => {
+    (globalThis as any).__PULSE_STATUS__ = "pre_open";
+    mockUseAuctionCore.mockReturnValue({
+      data: {
+        active: true,
+        config: {
+          openTimeSec: Math.floor(Date.now() / 1000) - 60,
+          genesisPrice: { dec: "1" },
+          genesisFloor: { dec: "1" },
+          k: { dec: "10" },
+          pts: "1",
+        },
+      },
+      ready: true,
+      loading: false,
+      error: null,
+      refresh: jest.fn(),
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids: sampleBids,
+      ready: true,
+      loading: false,
+      error: null,
+    });
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    expect(screen.getByText(/Auction will open at/i)).toBeTruthy();
   });
 
   test("shows pre-open message when open time is in the future", () => {

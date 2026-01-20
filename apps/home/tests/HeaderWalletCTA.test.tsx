@@ -1,12 +1,13 @@
 import "@testing-library/jest-dom";
 import React from "react";
 import { describe, test, beforeEach, afterEach, expect, jest } from "@jest/globals";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import HeaderWalletCTA from "../src/components/HeaderWalletCTA";
 
 const createWalletState = (overrides: Partial<any> = {}) => ({
   address: "0x1111222233334444555566667777888899990000",
   chain: { name: "Starknet Sepolia Testnet", network: "sepolia" },
+  isConnected: true,
   disconnect: jest.fn(),
   ...overrides,
 });
@@ -60,15 +61,43 @@ describe("HeaderWalletCTA", () => {
       ".dotfield__cta-address"
     ) as HTMLElement;
     fireEvent.click(dotButton);
-    expect(screen.getByText(/address/i)).toBeTruthy();
+    expect(screen.getByText(/^address$/i)).toBeTruthy();
     const copyButton = screen.getByText(/copy address/i);
     fireEvent.click(copyButton);
-    expect(onCopyNotice).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(onCopyNotice).toHaveBeenCalled();
+    });
     const lastTxLink = screen.getByText(/last tx/i);
     expect(lastTxLink).toBeTruthy();
     const disconnectButton = screen.getByText(/disconnect/i);
     fireEvent.click(disconnectButton);
     expect(mockWalletState.disconnect).toHaveBeenCalled();
     expect(onDisconnectNotice).toHaveBeenCalled();
+  });
+
+  test("menu disables actions when not connected", () => {
+    const onCopyNotice = jest.fn();
+    mockWalletState = createWalletState({
+      address: null,
+      chain: undefined,
+      isConnected: false,
+    });
+    const { container } = render(
+      <HeaderWalletCTA
+        ctaLabel="connect"
+        onCtaClick={() => {}}
+        onCopyNotice={onCopyNotice}
+      />
+    );
+    const dotButton = container.querySelector(
+      ".dotfield__cta-address"
+    ) as HTMLElement;
+    fireEvent.click(dotButton);
+    const copyButton = screen.getByText(/copy address/i);
+    const disconnectButton = screen.getByText(/disconnect/i);
+    expect(copyButton).toBeDisabled();
+    expect(disconnectButton).toBeDisabled();
+    fireEvent.click(copyButton);
+    expect(onCopyNotice).not.toHaveBeenCalled();
   });
 });
