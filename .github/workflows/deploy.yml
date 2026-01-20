@@ -27,22 +27,26 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: "npm"
+          cache: "pnpm"
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Enable pnpm
+        run: corepack enable
 
       - name: Install dependencies
-        run: npm install
+        run: pnpm install --frozen-lockfile
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
       - name: Deploy to Firebase Staging
-        run: npm run deploy:staging
+        run: pnpm run deploy:staging
 
       - name: wait for Staging env to be ready
-        run: npm run wait:staging
+        run: pnpm run wait:staging
 
       - name: Run e2e tests on Staging
-        run: npm run e2e:staging
+        run: pnpm run e2e:staging
 
   prod:
     runs-on: ubuntu-latest
@@ -69,22 +73,26 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: "npm"
+          cache: "pnpm"
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Enable pnpm
+        run: corepack enable
 
       - name: Install dependencies
-        run: npm install
+        run: pnpm install --frozen-lockfile
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
       - name: Deploy to Firebase Prod
-        run: npm run deploy:prod
+        run: pnpm run deploy:prod
 
       - name: wait for Prod env to be ready
-        run: npm run wait:prod
+        run: pnpm run wait:prod
 
       - name: Run e2e test as smoke tests on Prod
-        run: npm run e2e:prod
+        run: pnpm run e2e:prod
 
       - name: Git tag succeeded deployment
         run: |
