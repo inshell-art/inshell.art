@@ -19,7 +19,6 @@
     "tests/**/*.tsx",
     "src/**/*.ts",
     "src/**/*.tsx",
-    "./firebaseConfig.ts",
     "./jest-dom.d.ts"
   ]
 }

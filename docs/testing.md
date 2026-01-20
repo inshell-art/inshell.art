@@ -17,9 +17,8 @@
 
 ## E2E (optional)
 
-- `npm run emu` (build + start Firebase emulator)
-- `npm run wait:emu`
-- `npm run e2e:emu`
+- `BASE_URL=https://your-env.example pnpm run e2e:staging`
+- `BASE_URL=https://your-env.example pnpm run e2e:prod`
 
 ## Notes
 

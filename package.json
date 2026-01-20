@@ -17,14 +17,7 @@
     "type-check": "tsc --noEmit",
     "check": "pnpm run lint && pnpm run type-check && pnpm run test:unit",
     "preview:home": "pnpm --filter @inshell/home preview",
-    "emu": "pnpm run build:home && firebase emulators:start --only hosting",
-    "wait:emu": "npx wait-on http://127.0.0.1:5002 && echo Emulator is ready",
-    "e2e:emu": "NODE_ENV=emu cypress run --config-file cypress/cypress.config.ts",
-    "deploy:staging": "firebase use inshell-art-staging && pnpm run build:home && firebase deploy --only hosting --token $FIREBASE_TOKEN",
-    "wait:staging": "npx wait-on https://inshell-art-staging.web.app && echo Staging is ready",
     "e2e:staging": "NODE_ENV=staging cypress run --config-file cypress/cypress.config.ts",
-    "deploy:prod": "firebase use inshell-art-prod && pnpm run build:home:prod && firebase deploy --only hosting --token $FIREBASE_TOKEN",
-    "wait:prod": "npx wait-on https://inshell-art-prod.web.app && echo Production is ready",
     "e2e:prod": "NODE_ENV=prod cypress run --config-file cypress/cypress.config.ts",
     "prepare": "husky",
     "abi-gen": "npx abi-wan-kanabi --input packages/contracts/src/abi/PulseAuction.contract_class.json --output packages/contracts/src/generated/PulseAuction.abi.ts",
@@ -48,8 +41,7 @@
     "husky": "^9.1.7",
     "starknet": "^7.6.4",
     "tsx": "^4.20.3",
-    "typescript": "^5.8.3",
-    "wait-on": "^8.0.4"
+    "typescript": "^5.8.3"
   },
   "pnpm": {
     "overrides": {

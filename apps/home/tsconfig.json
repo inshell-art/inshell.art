@@ -10,5 +10,5 @@
       "@inshell/*": ["../../packages/*/src"]
     }
   },
-  "include": ["src", "tests", "./firebaseConfig.ts"]
+  "include": ["src", "tests"]
 }
