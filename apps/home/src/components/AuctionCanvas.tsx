@@ -1995,6 +1995,8 @@ export default function AuctionCanvas({
   const showPreOpenNotice = showCurve && auctionStatus === "pre_open";
   const showGenesisWaiting = showCurve && auctionStatus === "genesis_waiting";
   const showCurveLoading = showCurve && auctionStatus === "loading";
+  const showCurvePlot =
+    showCurve && !showPreOpenNotice && !showCurveLoading && !showGenesisWaiting;
   const lookSliding =
     lookSlidePhase !== "idle" &&
     Boolean(lookIncoming && lookSvg && lookSlideDir);
@@ -2787,7 +2789,7 @@ export default function AuctionCanvas({
               </div>
             </div>
           )}
-          {curve && (
+          {showCurvePlot && curve && (
             <>
               <div className="dotfield__canvas" onMouseLeave={() => setHover(null)}>
                 <svg

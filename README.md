@@ -6,7 +6,7 @@ A minimal runbook to bring up **devnet + protocol + FE** in the right order, wit
 
 ## 0) Prereqs
 
-- **Node 18+** and **pnpm** (`corepack enable`)
+- **Node 22+** and **pnpm** (`corepack enable`)
 - **starknet-devnet** (Rust) in `$PATH`
 - **`../path` cloned next to this repo.** All devnet/protocol scripts run there; this repo consumes their outputs.
 
@@ -18,6 +18,27 @@ A minimal runbook to bring up **devnet + protocol + FE** in the right order, wit
 > **Protocol + devnet**  
 > Kick off devnet and deploy contracts via `path/README.md` from inside `../path`,
 > then return here to sync the FE.
+
+## 0.5) Cloudflare Pages build (production)
+
+- Build command: `corepack enable && pnpm install --frozen-lockfile && pnpm run build:home`
+- Output dir: `dist/home`
+- Build-time env vars: `VITE_*` (e.g., `VITE_STARKNET_RPC`, `VITE_NETWORK`)
+- Node version: 22 (set `NODE_VERSION=22` in Pages)
+
+## 0.6) Local env (out of repo)
+
+Keep local env values outside the repo and source them in your shell:
+
+```bash
+mkdir -p ~/.config/inshell.art
+cat > ~/.config/inshell.art/home.env <<'EOF'
+VITE_STARKNET_RPC=http://127.0.0.1:5050/rpc
+VITE_NETWORK=devnet
+VITE_PAYTOKEN=0x...
+EOF
+source ~/.config/inshell.art/home.env
+```
 
 ---
 
