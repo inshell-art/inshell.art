@@ -85,6 +85,14 @@ function formatTokenAmount(u: { dec: string }, decimals: number): string {
   return trimmed ? `${intPart}.${trimmed}` : intPart;
 }
 
+function formatHumanTokenAmount(value: number): string {
+  if (!Number.isFinite(value)) return "—";
+  const fixed = value.toFixed(4);
+  return fixed.replace(/\.?0+$/, "");
+}
+
+const BASE_HALF_LIVES = 100;
+
 function getEnvValue(name: string): unknown {
   const envCache: Record<string, any> | undefined =
     (globalThis as any).__VITE_ENV__;
@@ -200,7 +208,6 @@ const DELAY_MS = 500;
 const ERROR_DELAY_MS = 700;
 const STARTUP_ERROR_DELAY_MS = 2500;
 const FALLBACK_DELAY_MS = 1200;
-const CURVE_HALF_LIVES = 10;
 const SEPOLIA_STRK =
   "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d";
 const DEBUG_ASK_LABEL = "25.2577";
@@ -1800,11 +1807,17 @@ export default function AuctionCanvas({
       const tHalf = kHuman / Math.max(premiumHuman, 1e-9);
       const metaDtSec = Math.max(0, nowSec - lastSec);
       const metaU = tHalf > 0 ? metaDtSec / tHalf : 0;
-      const uMax = CURVE_HALF_LIVES;
-      const ask = genesisPriceHuman;
+      const metaUClamped = Number.isFinite(metaU) ? Math.max(0, metaU) : 0;
+      const uMax = Math.max(
+        BASE_HALF_LIVES,
+        Math.ceil(metaUClamped / BASE_HALF_LIVES) * BASE_HALF_LIVES
+      );
       const floor = genesisFloorHuman;
       const priceAtU = (u: number) => floor + premiumHuman / Math.max(u + 1, 1e-9);
-      const samples = 120;
+      const samples = Math.min(
+        800,
+        Math.max(160, Math.ceil(uMax * 12))
+      );
       const points: CurvePoint[] = [];
       for (let i = 0; i <= samples; i++) {
         const u = (uMax * i) / samples;
@@ -1823,6 +1836,7 @@ export default function AuctionCanvas({
         }
       }
       if (!points.length) return { curve: null, reason: "no curve points" };
+      const ask = genesisPriceHuman;
       const ysAll = [...points.map((p) => p.y), ask, floor];
       const minY = Math.min(...ysAll);
       const maxY = Math.max(...ysAll);
@@ -1882,20 +1896,24 @@ export default function AuctionCanvas({
     const premiumSeed = ptsHumanCfg * dtBidSec;
     const askSeed = floor + premiumSeed;
     const anchor = lastSec - kHuman / Math.max(askSeed - floor, 1e-9);
-    // Half-life for normalization uses config pts (D): T1/2 = k / D
+    // Half-life for normalization uses initial premium (D): T1/2 = k / D
     const premiumHuman = premiumSeed;
-    const tHalf = kHuman / Math.max(ptsHumanCfg, 1e-9);
+    const tHalf = kHuman / Math.max(premiumHuman, 1e-9);
     const metaDtSec = Math.max(0, nowSec - lastSec);
     const metaU = tHalf > 0 ? metaDtSec / tHalf : 0;
-    const uMax = CURVE_HALF_LIVES;
+    const metaUClamped = Number.isFinite(metaU) ? Math.max(0, metaU) : 0;
+    const uMax = Math.max(
+      BASE_HALF_LIVES,
+      Math.ceil(metaUClamped / BASE_HALF_LIVES) * BASE_HALF_LIVES
+    );
     const asymptoteB = floor; // as t → ∞
     const ptsHumanEff = ptsHumanCfg;
-    const nowSecTick = lastSec + uMax * tHalf;
-
     // Current values in real units (on-chain truthful)
-    const ask = askSeed;
     const priceAtU = (u: number) => floor + premiumHuman / Math.max(u + 1, 1e-9);
-    const samples = 120;
+    const samples = Math.min(
+      800,
+      Math.max(160, Math.ceil(uMax * 12))
+    );
     const points: CurvePoint[] = [];
     for (let i = 0; i <= samples; i++) {
       const u = (uMax * i) / samples;
@@ -1919,6 +1937,7 @@ export default function AuctionCanvas({
 
     const minX = 0;
     const maxX = uMax;
+    const askInit = askSeed;
     // Debug log to verify endpoints align with wall clock (throttled)
     if (typeof window !== "undefined" && !isTestEnv) {
       const lastPt = points[points.length - 1];
@@ -1939,14 +1958,14 @@ export default function AuctionCanvas({
         });
       }
     }
-    const ysAll = [...points.map((p) => p.y), ask, floor, asymptoteB];
+    const ysAll = [...points.map((p) => p.y), askInit, floor, asymptoteB];
     const minY = Math.min(...ysAll);
     const maxY = Math.max(...ysAll);
 
     const curveObj = {
       curve: {
         points,
-        ask,
+        ask: askInit,
         floor,
         isGenesis: false,
         startSec: lastSec,
@@ -1958,7 +1977,7 @@ export default function AuctionCanvas({
         lastDecValue: Number.isFinite(Number(lastDecStr))
           ? Number(lastDecStr)
           : null,
-        askDecStr: Number.isFinite(ask) ? ask.toFixed(2) : lastDecStr,
+        askDecStr: Number.isFinite(askInit) ? askInit.toFixed(2) : lastDecStr,
         floorDecStr: Number.isFinite(floor) ? floor.toFixed(2) : lastDecStr,
         lastEpoch: (last as any)?.epochIndex ?? (last as any)?.epoch ?? null,
         premiumHuman,
@@ -1997,6 +2016,15 @@ export default function AuctionCanvas({
   const showCurveLoading = showCurve && auctionStatus === "loading";
   const showCurvePlot =
     showCurve && !showPreOpenNotice && !showCurveLoading && !showGenesisWaiting;
+  const liveAskLabel = useMemo(() => {
+    if (!curve) return null;
+    const premiumHuman = (curve as any).premiumHuman;
+    const metaU = (curve as any).metaU;
+    if (!Number.isFinite(premiumHuman) || !Number.isFinite(metaU)) return null;
+    const floor = curve.floor;
+    const askNow = floor + premiumHuman / Math.max(metaU + 1, 1e-9);
+    return formatHumanTokenAmount(askNow);
+  }, [curve]);
   const lookSliding =
     lookSlidePhase !== "idle" &&
     Boolean(lookIncoming && lookSvg && lookSlideDir);
@@ -2284,6 +2312,10 @@ export default function AuctionCanvas({
   };
 
   const persistentNotice = useMemo<Notice | null>(() => {
+    const noticeAskLabel =
+      ctaOverrideActive || noticeOverrideActive
+        ? effectiveAskLabel
+        : liveAskLabel ?? effectiveAskLabel;
     if (effectiveTxState === "awaiting_signature") {
       const text =
         effectiveTxPhase === "approve"
@@ -2377,7 +2409,7 @@ export default function AuctionCanvas({
     ) {
       return {
         kind: "warn",
-        text: `Need ${effectiveAskLabel}, have ${effectiveBalanceLabel}.`,
+        text: `Need ${noticeAskLabel}, have ${effectiveBalanceLabel}.`,
       };
     }
     if (
@@ -2392,6 +2424,8 @@ export default function AuctionCanvas({
     }
     return null;
   }, [
+    ctaOverrideActive,
+    noticeOverrideActive,
     effectiveTxState,
     effectiveTxPhase,
     effectiveTxError,
@@ -2407,6 +2441,7 @@ export default function AuctionCanvas({
     effectivePreflightAttempted,
     effectivePreflightLoading,
     effectiveAskLabel,
+    liveAskLabel,
     effectiveBalanceLabel,
     preflightErrorVisible,
   ]);
@@ -2801,8 +2836,11 @@ export default function AuctionCanvas({
                   {(() => {
                     const pts = curve.points;
                     if (!pts.length) return null;
-                    const minX = 0;
-                    const maxX = Math.max(...pts.map((p: any) => (p.u ?? p.x) || 0), curve.maxX ?? 0);
+                    const minX = (curve as any).minX ?? 0;
+                    const maxX = Math.max(
+                      ...pts.map((p: any) => (p.u ?? p.x) || 0),
+                      (curve as any).maxX ?? 0
+                    );
                     const ys = [
                       ...pts.map((p) => p.y),
                       curve.ask,
@@ -2825,15 +2863,58 @@ export default function AuctionCanvas({
                         return `${i === 0 ? "M" : "L"} ${x} ${y}`;
                       })
                       .join(" ");
-                    const askPt = toSvg(pts[0].u ?? 0, pts[0].y ?? curve.ask);
-                    const floorPt = toSvg(0, curve.floor);
+                    const askSource = pts[0];
+                    const askU = (askSource as any)?.u ?? minX;
+                    const askPt = toSvg(askU, askSource?.y ?? curve.ask);
+                    const floorPt = toSvg(minX, curve.floor);
                     const lastDecStr = (curve as any).lastDecStr ?? "";
                     const askDecStr = (curve as any).askDecStr ?? lastDecStr;
                     const floorDecStr =
                       (curve as any).floorDecStr ?? lastDecStr;
                     const lastEpoch = (curve as any).lastEpoch ?? null;
+                    const tHalf = (curve as any).tHalf ?? 1;
+                    const nowU = (curve as any).metaU;
+                    const premiumHuman = (curve as any).premiumHuman;
+                    const nowPrice =
+                      Number.isFinite(nowU) && Number.isFinite(premiumHuman)
+                        ? curve.floor + premiumHuman / Math.max(nowU + 1, 1e-9)
+                        : null;
+                    const showNow =
+                      nowPrice != null &&
+                      Number.isFinite(nowU) &&
+                      nowU >= minX &&
+                      nowU <= maxX;
+                    const nowPt = showNow
+                      ? toSvg(nowU as number, nowPrice as number)
+                      : null;
+                    const nowDecStr =
+                      nowPrice != null ? (nowPrice as number).toFixed(2) : "";
+                    const askTau = Math.max(0, askU * tHalf);
+                    const askAtMs =
+                      (curve.startSec ?? 0) * 1000 + askTau * 1000;
+                    const askBeforeNowSec = Math.max(
+                      0,
+                      ((curve as any).metaDtSec ?? 0) - askTau
+                    );
                     return (
                       <>
+                        {showNow && nowPt && (
+                          <>
+                            <circle
+                              cx={nowPt.x}
+                              cy={nowPt.y}
+                              r={0.3}
+                              className="dotfield__now"
+                            />
+                            <text
+                              x={nowPt.x + 1.8}
+                              y={nowPt.y - 1.2}
+                              className="dotfield__now-label"
+                            >
+                              now {nowDecStr} STRK
+                            </text>
+                          </>
+                        )}
                         <circle
                           cx={askPt.x}
                           cy={askPt.y}
@@ -2856,20 +2937,14 @@ export default function AuctionCanvas({
                               amountDec: askDecStr,
                               amountRaw: askDecStr,
                               epoch: lastEpoch ?? undefined,
-                              atMs:
-                                curve.startSec * 1000 +
-                                ((curve as any).metaDtSec ?? 0) * 1000,
+                              atMs: askAtMs,
                               lastSec: curve.startSec,
                               anchor: (curve as any).anchor,
                               kHuman: (curve as any).k,
                               floorHuman: curve.floor,
-                              durationSec: (curve as any).metaDtSec ?? 0,
+                              durationSec: askTau,
                               metaDtSec: (curve as any).metaDtSec ?? 0,
-                              beforeNowSec: Math.max(
-                                0,
-                                (curve as any).metaDtSec ?? 0 -
-                                  ((curve as any).metaDtSec ?? 0)
-                              ),
+                              beforeNowSec: askBeforeNowSec,
                               hoverSetSec: Date.now() / 1000,
                             })
                           }
@@ -2892,12 +2967,11 @@ export default function AuctionCanvas({
                               const xPos = Math.min(100, Math.max(0, loc.x));
                               xN = xPos / 100;
                             }
-                            const minX = 0;
-                            const maxX =
-                              curve.endSec && curve.startSec
-                                ? (curve.endSec - curve.startSec) /
-                                  Math.max((curve as any).tHalf ?? 1, 1)
-                                : curve.points[curve.points.length - 1].u ?? 0;
+                            const minX = (curve as any).minX ?? 0;
+                            const maxX = Math.max(
+                              (curve as any).maxX ?? 0,
+                              curve.points[curve.points.length - 1].u ?? 0
+                            );
                             const dataX = minX + (maxX - minX) * xN;
                             const clampedX = Math.min(
                               maxX,
@@ -2929,21 +3003,14 @@ export default function AuctionCanvas({
                             }
                             const tHalf = (curve as any).tHalf ?? 1;
                             const metaDt = (curve as any).metaDtSec ?? 0;
-                            const frac = maxX > 0 ? clampedX / maxX : 0;
-                            const tau = Math.max(
-                              0,
-                              Math.min(metaDt, frac * metaDt)
-                            ); // seconds since last bid at this point
+                            const tau = Math.max(0, clampedX * tHalf); // seconds since last bid at this point
                             const atMs =
                               (curve.startSec ?? 0) * 1000 + tau * 1000;
                             const amountStr = Number.isFinite(yAt)
                               ? yAt.toFixed(2)
                               : (curve as any).askDecStr ?? "";
                             const secondsSinceBid = Math.max(0, tau);
-                            const secondsBeforeNow = Math.max(
-                              0,
-                              metaDt - tau
-                            );
+                            const secondsBeforeNow = Math.max(0, metaDt - tau);
                           setHover({
                             key: "curve-point",
                             x: 0,
@@ -3079,15 +3146,14 @@ export default function AuctionCanvas({
                               amountDec: askDecStr,
                               amountRaw: askDecStr,
                               epoch: lastEpoch ?? undefined,
-                              atMs:
-                                curve.startSec * 1000 +
-                                ((curve as any).metaDtSec ?? 0) * 1000,
+                              atMs: askAtMs,
                               lastSec: curve.startSec,
                               anchor: (curve as any).anchor,
                               kHuman: (curve as any).k,
                               floorHuman: curve.floor,
-                              durationSec: (curve as any).metaDtSec ?? 0,
+                              durationSec: askTau,
                               metaDtSec: (curve as any).metaDtSec ?? 0,
+                              beforeNowSec: askBeforeNowSec,
                             })
                           }
                           onMouseLeave={() => setHover(null)}
@@ -3108,7 +3174,7 @@ export default function AuctionCanvas({
                               amountDec: askDecStr,
                               amountRaw: askDecStr,
                               epoch: lastEpoch ?? undefined,
-                              atMs: curve.startSec * 1000,
+                              atMs: askAtMs,
                               lastSec: curve.startSec,
                               anchor: (curve as any).anchor,
                               kHuman: (curve as any).k,
@@ -3163,8 +3229,8 @@ export default function AuctionCanvas({
                           return `last sale · #${idx ?? "—"}`;
                         })()}
                     </div>
-                    <div className="dotfield__poprow">
-                      <span>price</span>
+                  <div className="dotfield__poprow">
+                    <span>{hover.key === "premium" ? "amount" : "price"}</span>
                       <span>
                           {hover.key === "premium"
                             ? (() => {
@@ -3192,34 +3258,42 @@ export default function AuctionCanvas({
                     </span>
                   </div>
                   {hover.key === "ask" && (
-                    <div className="dotfield__poprow">
-                      <span>premium vs floor</span>
-                      <span>
-                        {hover.floorHuman != null && hover.amountRaw
-                          ? (() => {
-                              const f = Number((hover as any).floorHuman);
-                              const amt = Number((hover as any).amountRaw);
-                              if (Number.isFinite(f) && Number.isFinite(amt) && f > 0) {
-                                const pct = ((amt - f) / f) * 100;
-                                return formatPercent(pct);
-                              }
-                              return "—";
-                            })()
-                          : "—"}
-                      </span>
-                    </div>
+                    <>
+                      <div className="dotfield__poprow">
+                        <span>floor b</span>
+                        <span>
+                          {hover.floorHuman != null
+                            ? formatAmount(String(hover.floorHuman), decimals)
+                            : "—"}
+                        </span>
+                      </div>
+                      <div className="dotfield__poprow">
+                        <span>time premium</span>
+                        <span>
+                          {hover.floorHuman != null && hover.amountRaw
+                            ? (() => {
+                                const f = Number((hover as any).floorHuman);
+                                const amt = Number((hover as any).amountRaw);
+                                if (Number.isFinite(f) && Number.isFinite(amt)) {
+                                  return formatAmount(String(amt - f), decimals);
+                                }
+                                return "—";
+                              })()
+                            : "—"}
+                        </span>
+                      </div>
+                    </>
                   )}
                   {hover.key === "curve-point" && (
                     <div className="dotfield__poprow">
-                      <span>premium vs floor</span>
+                      <span>above floor</span>
                       <span>
                         {hover.floorHuman != null && hover.amountRaw
                           ? (() => {
                               const f = Number((hover as any).floorHuman);
                               const amt = Number((hover as any).amountRaw);
-                              if (Number.isFinite(f) && Number.isFinite(amt) && f > 0) {
-                                const pct = ((amt - f) / f) * 100;
-                                return formatPercent(pct);
+                              if (Number.isFinite(f) && Number.isFinite(amt)) {
+                                return formatAmount(String(amt - f), decimals);
                               }
                               return "—";
                             })()
@@ -3237,22 +3311,16 @@ export default function AuctionCanvas({
                         <span>PTS</span>
                         <span>
                           {hover.ptsHuman != null
-                            ? hover.ptsHuman.toFixed(0)
+                            ? formatHumanTokenAmount(hover.ptsHuman)
                             : "—"}
                         </span>
                       </div>
                       <div className="dotfield__note" style={{ marginTop: 4 }}>
-                        amount = duration × PTS
+                        price = duration × PTS
                       </div>
                     </>
                   )}
-                  {hover.key !== "premium" &&
-                    !(isGenesisCurve && hover.key === "floor") && (
-                    <div className="dotfield__poprow">
-                      <span>time</span>
-                      <span>{formatLocalTime(hover.atMs)}</span>
-                    </div>
-                  )}
+                  
                   {hover.key !== "ask" &&
                     hover.key !== "curve-point" &&
                     hover.key !== "premium" &&
@@ -3270,20 +3338,32 @@ export default function AuctionCanvas({
                         </span>
                       </div>
                       <div className="dotfield__poprow">
-                        <span>ago</span>
-                        <span>
-                          {formatHms(
-                            Math.max(
-                              0,
-                              ((hover as any).beforeNowSec ?? 0) +
-                                Math.max(
-                                  0,
-                                  (Date.now() / 1000) -
-                                    ((hover as any).hoverSetSec ?? 0)
-                                )
-                            )
-                          )}
-                        </span>
+                        {(() => {
+                          const elapsed =
+                            (Date.now() / 1000) -
+                            ((hover as any).hoverSetSec ?? 0);
+                          const delta =
+                            ((hover as any).durationSec ?? 0) -
+                            ((hover as any).metaDtSec ?? 0);
+                          const isFuture = delta > 0;
+                          const value = isFuture
+                            ? Math.max(0, delta - Math.max(0, elapsed))
+                            : Math.max(
+                                0,
+                                ((hover as any).beforeNowSec ?? 0) +
+                                  Math.max(0, elapsed)
+                              );
+                          return (
+                            <>
+                              <span>{isFuture ? "from now" : "ago"}</span>
+                              <span>{isFuture ? "+" : ""}{formatHms(value)}</span>
+                            </>
+                          );
+                        })()}
+                      </div>
+                      <div className="dotfield__poprow">
+                        <span>time</span>
+                        <span>{formatLocalTime(hover.atMs)}</span>
                       </div>
                       <div className="dotfield__poprow">
                         <span>half-lives</span>
@@ -3295,7 +3375,7 @@ export default function AuctionCanvas({
                                 ? ((hover as any).durationSec ?? 0) /
                                   Math.max((hover as any).tHalf ?? 1, 1e-9)
                                 : 0;
-                            return `${u.toFixed(5)}`;
+                            return `${u.toFixed(2)}`;
                           })()}
                         </span>
                       </div>
