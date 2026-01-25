@@ -28,16 +28,43 @@ A minimal runbook to bring up **devnet + protocol + FE** in the right order, wit
 
 ## 0.6) Local env (out of repo)
 
-Keep local env values outside the repo and source them in your shell:
+Keep local env values outside the repo and auto-load them with direnv:
 
 ```bash
 mkdir -p ~/.config/inshell.art
-cat > ~/.config/inshell.art/home.env <<'EOF'
-VITE_STARKNET_RPC=http://127.0.0.1:5050/rpc
+cat > ~/.config/inshell.art/home.devnet.env <<'EOF'
 VITE_NETWORK=devnet
-VITE_PAYTOKEN=0x...
+VITE_STARKNET_RPC=http://127.0.0.1:5050/rpc
+VITE_PUBLIC_TELEGRAM_CHANNEL_URL=https://t.me/inshell_art
 EOF
+
+cat > ~/.config/inshell.art/home.sepolia.env <<'EOF'
+VITE_NETWORK=sepolia
+VITE_STARKNET_RPC=https://your-sepolia-rpc
+VITE_PUBLIC_TELEGRAM_CHANNEL_URL=https://t.me/inshell_art
+EOF
+
+ln -sf ~/.config/inshell.art/home.devnet.env ~/.config/inshell.art/home.env
+```
+
+If you use `direnv`, allow the repo once and it will auto-load (and export) the vars:
+
+```bash
+direnv allow
+```
+
+To switch environments:
+
+```bash
+ln -sf ~/.config/inshell.art/home.sepolia.env ~/.config/inshell.art/home.env
+```
+
+Manual (without direnv):
+
+```bash
+set -a
 source ~/.config/inshell.art/home.env
+set +a
 ```
 
 ---
