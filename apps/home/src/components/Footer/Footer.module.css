@@ -58,6 +58,16 @@
   transform: translateX(-50%) translateY(-2px);
 }
 
+.footerItem a:focus-visible {
+  outline: 1px solid var(--accent-border);
+  outline-offset: 2px;
+}
+
+.footerItem a:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-2px);
+}
+
 @media (prefers-color-scheme: dark) {
   .footerItem a {
     color: rgba(255, 255, 255, 0.1);
