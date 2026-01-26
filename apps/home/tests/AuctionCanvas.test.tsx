@@ -145,7 +145,7 @@ describe("AuctionCanvas", () => {
     expect(screen.getByText(/STRK/)).toBeTruthy();
   });
 
-  test("curve hover shows above-floor percent", async () => {
+  test("curve hover shows above-floor amount", async () => {
     const { container } = render(
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />
     );
@@ -165,7 +165,7 @@ describe("AuctionCanvas", () => {
       clientY: 10,
     });
     await waitFor(() => {
-      expect(screen.getByText(/premium vs floor/i)).toBeTruthy();
+      expect(screen.getByText(/above floor/i)).toBeTruthy();
     });
   });
 
