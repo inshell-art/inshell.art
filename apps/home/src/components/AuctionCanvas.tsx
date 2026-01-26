@@ -91,7 +91,7 @@ function formatHumanTokenAmount(value: number): string {
   return fixed.replace(/\.?0+$/, "");
 }
 
-const BASE_HALF_LIVES = 100;
+const BASE_HALF_LIVES = 10;
 
 function getEnvValue(name: string): unknown {
   const envCache: Record<string, any> | undefined =
@@ -3316,7 +3316,7 @@ export default function AuctionCanvas({
                         </span>
                       </div>
                       <div className="dotfield__note" style={{ marginTop: 4 }}>
-                        price = duration × PTS
+                        amount = duration × PTS
                       </div>
                     </>
                   )}
@@ -3326,7 +3326,7 @@ export default function AuctionCanvas({
                     hover.key !== "premium" &&
                     !isGenesisCurve && (
                       <div className="dotfield__note" style={{ marginTop: 4 }}>
-                        sets floor b for this curve
+                        sets floor b for the current curve
                       </div>
                   )}
                   {hover.key === "curve-point" && (
@@ -3396,7 +3396,7 @@ export default function AuctionCanvas({
                   {!isGenesisCurve && hover.key === "ask" && (
                     <>
                       <div className="dotfield__note" style={{ marginTop: 4 }}>
-                        amount = floor b + time premium
+                        price = floor b + time premium
                       </div>
                     </>
                   )}
