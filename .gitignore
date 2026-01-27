@@ -92,7 +92,6 @@ web_modules/
 *.pem
 *keystore*.json
 *serviceAccount*.json
-path/workbook/artifacts/**/keystore*
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
