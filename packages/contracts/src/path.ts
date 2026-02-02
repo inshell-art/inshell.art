@@ -2,7 +2,7 @@ import type { ProviderInterface, TypedContractV2 } from "starknet";
 import { makeTypedContract } from "./contracts";
 import { resolveAddress } from "./addressBook";
 import { type AbiSource } from "./types";
-import PathNftAbiJson from "./abi/devnet/PathNFT.json";
+import PathNftAbiJson from "./abi/by-class/0x10c2902989392aad9093af9935b697987468cb46ab849f6ed9d2b64491ae332.abi.json";
 
 const PathNftAbi = PathNftAbiJson as unknown as readonly any[];
 
