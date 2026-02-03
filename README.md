@@ -1,22 +1,21 @@
-# inshell.art – Dev Runbook
+# inshell.art – FE Runbook
 
-A minimal runbook to bring up **devnet + protocol + FE** in the right order, with ABI-typed contracts and a resilient config pipeline.
+A minimal runbook to bring up **FE** with the right config, with ABI-typed contracts and a resilient pipeline.
 
 ---
 
 ## 0) Prereqs
 
 - **Node 22+** and **pnpm** (`corepack enable`)
-- **starknet-devnet** (Rust) in `$PATH`
-- **`../path` cloned next to this repo.** All devnet/protocol scripts run there; this repo consumes their outputs.
+- **`../path` cloned next to this repo.** Protocol deploys run there; this repo consumes their outputs.
 
 > Optional (recommended):
 >
 > - `direnv` for auto-loading `.env.*`
 > - `jq` for script utilities
 
-> **Protocol + devnet**  
-> Kick off devnet and deploy contracts via `path/README.md` from inside `../path`,
+> **Protocol**  
+> Deploy contracts via `path/README.md` from inside `../path`,
 > then return here to sync the FE.
 
 ## 0.5) Cloudflare Pages build (production)
@@ -32,30 +31,13 @@ Keep local env values outside the repo and auto-load them with direnv:
 
 ```bash
 mkdir -p ~/.config/inshell.art
-cat > ~/.config/inshell.art/home.devnet.env <<'EOF'
-VITE_NETWORK=devnet
-VITE_STARKNET_RPC=http://127.0.0.1:5050/rpc
-VITE_PUBLIC_TELEGRAM_CHANNEL_URL=https://t.me/inshell_art
-EOF
-
 cat > ~/.config/inshell.art/home.sepolia.env <<'EOF'
 VITE_NETWORK=sepolia
 VITE_STARKNET_RPC=https://your-sepolia-rpc
 VITE_PUBLIC_TELEGRAM_CHANNEL_URL=https://t.me/inshell_art
+VITE_PULSE_AUCTION_DEPLOY_BLOCK=123456
 EOF
 
-ln -sf ~/.config/inshell.art/home.devnet.env ~/.config/inshell.art/home.env
-```
-
-If you use `direnv`, allow the repo once and it will auto-load (and export) the vars:
-
-```bash
-direnv allow
-```
-
-To switch environments:
-
-```bash
 ln -sf ~/.config/inshell.art/home.sepolia.env ~/.config/inshell.art/home.env
 ```
 
@@ -75,16 +57,16 @@ From the `inshell.art` repo:
 
 ````bash
 # Copy addresses into FE
-pnpm tsx scripts/sync-addresses.ts --net devnet --from ../path/output/addresses.devnet.json
-# -> writes packages/contracts/src/addresses/addresses.devnet.json
+pnpm tsx scripts/sync-addresses.ts --net sepolia --from ../path/output/addresses.sepolia.json
+# -> writes packages/contracts/src/addresses/addresses.sepolia.json
 
 # Write Vite env (convenience; JSON fallback exists)
-pnpm tsx scripts/sync-env.ts --net devnet --rpc http://127.0.0.1:5050/rpc --addr packages/contracts/src/addresses/addresses.devnet.json
-# -> writes apps/home/.env.devnet.local and apps/thought/.env.devnet.local
+pnpm tsx scripts/sync-env.ts --net sepolia --rpc https://your-sepolia-rpc --addr packages/contracts/src/addresses/addresses.sepolia.json --deploy-block 123456
+# -> writes apps/home/.env.sepolia.local and apps/thought/.env.sepolia.local
 
 # Pull ABIs from the node (runtime artifacts)
-pnpm tsx scripts/sync-abi.ts --net devnet --rpc http://127.0.0.1:5050/rpc --addr packages/contracts/src/addresses/addresses.devnet.json
-# -> writes packages/contracts/src/abi/devnet/*.json
+pnpm tsx scripts/sync-abi.ts --net sepolia --rpc https://your-sepolia-rpc --addr packages/contracts/src/addresses/addresses.sepolia.json
+# -> writes packages/contracts/src/abi/sepolia/*.json
 
 ## Generate TypeScript const-typed ABIs (from runtime JSON)
 
@@ -93,10 +75,10 @@ so `TypedContractV2<typeof ABI>` gets exact types.
 
 ### One-off (per contract)
 ```bash
-pnpm tsx scripts/abi-json-to-ts.ts packages/contracts/src/abi/devnet/PulseAuction.json      packages/contracts/src/abi/typed/PulseAuction.abi.ts      AUCTION_ABI
-pnpm tsx scripts/abi-json-to-ts.ts packages/contracts/src/abi/devnet/PathMinter.json        packages/contracts/src/abi/typed/PathMinter.abi.ts        MINTER_ABI
-pnpm tsx scripts/abi-json-to-ts.ts packages/contracts/src/abi/devnet/PathMinterAdapter.json packages/contracts/src/abi/typed/PathMinterAdapter.abi.ts ADAPTER_ABI
-pnpm tsx scripts/abi-json-to-ts.ts packages/contracts/src/abi/devnet/PathNFT.json           packages/contracts/src/abi/typed/PathNFT.abi.ts           NFT_ABI
+pnpm tsx scripts/abi-json-to-ts.ts packages/contracts/src/abi/sepolia/PulseAuction.json      packages/contracts/src/abi/typed/PulseAuction.abi.ts      AUCTION_ABI
+pnpm tsx scripts/abi-json-to-ts.ts packages/contracts/src/abi/sepolia/PathMinter.json        packages/contracts/src/abi/typed/PathMinter.abi.ts        MINTER_ABI
+pnpm tsx scripts/abi-json-to-ts.ts packages/contracts/src/abi/sepolia/PathMinterAdapter.json packages/contracts/src/abi/typed/PathMinterAdapter.abi.ts ADAPTER_ABI
+pnpm tsx scripts/abi-json-to-ts.ts packages/contracts/src/abi/sepolia/PathNFT.json           packages/contracts/src/abi/typed/PathNFT.abi.ts           NFT_ABI
 
 ````
 
@@ -104,8 +86,9 @@ pnpm tsx scripts/abi-json-to-ts.ts packages/contracts/src/abi/devnet/PathNFT.jso
 
 ```bash
 # Minimum FE env
-export VITE_STARKNET_RPC="http://127.0.0.1:5050/rpc"
-export VITE_NETWORK="devnet"                 # optional; default is devnet
+export VITE_STARKNET_RPC="https://your-sepolia-rpc"
+export VITE_NETWORK="sepolia"
+export VITE_PULSE_AUCTION_DEPLOY_BLOCK="123456"
 
 pnpm dev:home
 pnpm dev:thought
@@ -141,7 +124,7 @@ apps/home/src/components/
 ### Curve rendering (half-lives)
 
 - X-axis uses half-lives: `u = (t - last_bid_time) / t_half`.
-- The FE draws a fixed window of 10 half-lives (`CURVE_HALF_LIVES`) to keep the curve smooth across parameter ranges.
+- The FE draws a fixed window of half-lives (smallest multiple of 10 that covers “now”) to keep the curve smooth across parameter ranges.
 - Tooltip timing converts back via `tau = u * t_half`, then uses `(now - last_bid_time) - tau` for "ago".
 
 ## 4) Example: render raw auction data
@@ -208,7 +191,23 @@ Mount it in a page (e.g., `src/pages/dev/AuctionPage.tsx`) and run `pnpm dev`.
   → Use the tolerant `readU256` (accepts `{low,high}`, `[low,high]`, bigNumberish, or nested fields).
 
 - **No data appears**  
-  Make sure you seeded at least one bid or your `curve_active` is true; otherwise current price may render but bids/views may look “empty”.
+  If bids never show up on Sepolia, set `VITE_PULSE_AUCTION_DEPLOY_BLOCK` so the FE backfills from the deployment block.
+
+---
+
+## Local devnet (optional)
+
+If you need a local devnet, keep it isolated from the production FE config:
+
+```bash
+cat > ~/.config/inshell.art/home.devnet.env <<'EOF'
+VITE_NETWORK=devnet
+VITE_STARKNET_RPC=http://127.0.0.1:5050/rpc
+VITE_PUBLIC_TELEGRAM_CHANNEL_URL=https://t.me/inshell_art
+EOF
+
+ln -sf ~/.config/inshell.art/home.devnet.env ~/.config/inshell.art/home.env
+```
 
 ---
 
@@ -234,10 +233,11 @@ Mount it in a page (e.g., `src/pages/dev/AuctionPage.tsx`) and run `pnpm dev`.
 
 ```bash
 # Required for FE
-export VITE_STARKNET_RPC="http://127.0.0.1:5050/rpc"
+export VITE_STARKNET_RPC="https://your-sepolia-rpc"
+export VITE_PULSE_AUCTION_DEPLOY_BLOCK="123456"
 
 # Optional quality-of-life
-export VITE_NETWORK="devnet"            # selects packages/contracts/src/addresses/addresses.devnet.json
+export VITE_NETWORK="sepolia"           # selects packages/contracts/src/addresses/addresses.sepolia.json
 export VITE_STARKNET_BLOCK_TAG="latest" # service default for views
 # export VITE_PULSE_AUCTION="0x..."     # override JSON via Vite env if needed
 ```

@@ -8,6 +8,9 @@
 //   # or fetch addresses from a URL you host
 //   pnpm tsx scripts/sync-env.ts --net sepolia --rpc "$VITE_SEPOLIA_RPC" --addr-url https://.../addresses.sepolia.json
 //
+//   # include deploy block for bids backfill
+//   pnpm tsx scripts/sync-env.ts --net sepolia --rpc "$VITE_SEPOLIA_RPC" --addr-url https://.../addresses.sepolia.json --deploy-block 123456
+//
 // Output:
 //   apps/home/.env.<net>.local
 //   apps/thought/.env.<net>.local
@@ -35,6 +38,8 @@ const RPC = required("--rpc"); // may contain key => keep private (local .env)
 const ADDR_FILE = flag("--addr"); // local addresses JSON
 const ADDR_URL = flag("--addr-url"); // remote addresses JSON
 const OUT = flag("--out"); // optional single output path
+const DEPLOY_BLOCK =
+  flag("--deploy-block") ?? process.env.VITE_PULSE_AUCTION_DEPLOY_BLOCK;
 
 if (ADDR_FILE && ADDR_URL) {
   throw new Error("Provide only one addresses source: --addr OR --addr-url");
@@ -64,6 +69,13 @@ if (!ADDR_FILE && !ADDR_URL) {
     // RPC (private), always as STARKNET_RPC consumed uniformly
     const lines: string[] = [];
     lines.push(`VITE_STARKNET_RPC=${RPC}`);
+    if (DEPLOY_BLOCK && String(DEPLOY_BLOCK).trim()) {
+      lines.push(`VITE_PULSE_AUCTION_DEPLOY_BLOCK=${DEPLOY_BLOCK}`);
+    } else if (net !== "devnet") {
+      console.warn(
+        "[env] WARNING: VITE_PULSE_AUCTION_DEPLOY_BLOCK missing; bids backfill may not load."
+      );
+    }
 
     const toEnvName = (k: string) =>
       "VITE_" + k.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase();

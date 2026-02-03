@@ -714,6 +714,14 @@ export default function AuctionCanvas({
   );
   const isDesktop = useDesktopOnly();
   const bidsFromBlock = useMemo(() => resolveBidsFromBlock(), []);
+  const network = useMemo(() => {
+    const raw = getEnvValue("VITE_NETWORK");
+    return typeof raw === "string" ? raw : undefined;
+  }, []);
+  const missingDeployBlock = useMemo(() => {
+    if (network === "devnet") return false;
+    return bidsFromBlock == null;
+  }, [network, bidsFromBlock]);
   const {
     bids: bidsHook,
     ready: bidsReady,
@@ -2014,8 +2022,17 @@ export default function AuctionCanvas({
   const showPreOpenNotice = showCurve && auctionStatus === "pre_open";
   const showGenesisWaiting = showCurve && auctionStatus === "genesis_waiting";
   const showCurveLoading = showCurve && auctionStatus === "loading";
+  const showMissingDeployBlock =
+    showCurve &&
+    auctionStatus === "loading" &&
+    missingDeployBlock &&
+    !coreLoading &&
+    bids.length === 0;
   const showCurvePlot =
-    showCurve && !showPreOpenNotice && !showCurveLoading && !showGenesisWaiting;
+    showCurve &&
+    !showPreOpenNotice &&
+    !showCurveLoading &&
+    !showGenesisWaiting;
   const liveAskLabel = useMemo(() => {
     if (!curve) return null;
     const premiumHuman = (curve as any).premiumHuman;
@@ -2812,7 +2829,16 @@ export default function AuctionCanvas({
               </div>
             </div>
           )}
-          {showCurveLoading && (
+          {showMissingDeployBlock && (
+            <div className="dotfield__canvas dotfield__look">
+              <div className="muted dotfield__status-copy">
+                No bids loaded.
+                <br />
+                Set VITE_PULSE_AUCTION_DEPLOY_BLOCK to backfill bids.
+              </div>
+            </div>
+          )}
+          {showCurveLoading && !showMissingDeployBlock && (
             <div className="dotfield__canvas dotfield__look">
               <div className="muted">loading curve…</div>
             </div>

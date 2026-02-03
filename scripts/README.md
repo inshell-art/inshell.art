@@ -2,6 +2,18 @@
 
 Task scripts for syncing **addresses**, **ABIs**, and **env** across Devnet / Sepolia / Mainnet.
 
+## Scripts overview
+
+| Script | Purpose |
+| --- | --- |
+| `sync-addresses.ts` | Normalize and write `packages/contracts/src/addresses/addresses.<net>.json` from a file or URL. |
+| `sync-abi.ts` | Fetch on-chain ABIs by address and write per-network ABI files plus class-hash cache. |
+| `sync-env.ts` | Generate `.env.<net>.local` for apps from RPC + addresses (supports deploy block). |
+| `abi-json-to-ts.ts` | Convert ABI JSON into a typed TS export for runtime/typing. |
+| `loadEnv.ts` | Load the best matching `.env.*` file for scripts/builds. |
+| `utils.ts` | Shared helpers for CLI flags, fetch/JSON, and address normalization. |
+| `kill_all_descendants.sh` | Kill a process tree by PID (cleanup for stuck dev servers). |
+
 ## What lives here
 
 - `utils.ts` — shared CLI + I/O helpers (flags, fetch, JSON, address normalization).
