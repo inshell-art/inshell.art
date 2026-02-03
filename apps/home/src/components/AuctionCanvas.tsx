@@ -2028,6 +2028,13 @@ export default function AuctionCanvas({
     missingDeployBlock &&
     !coreLoading &&
     bids.length === 0;
+  const showNoBidsLoaded =
+    showCurve &&
+    auctionStatus === "loading" &&
+    !showMissingDeployBlock &&
+    !coreLoading &&
+    !bidsLoading &&
+    bids.length === 0;
   const showCurvePlot =
     showCurve &&
     !showPreOpenNotice &&
@@ -2838,7 +2845,16 @@ export default function AuctionCanvas({
               </div>
             </div>
           )}
-          {showCurveLoading && !showMissingDeployBlock && (
+          {showNoBidsLoaded && (
+            <div className="dotfield__canvas dotfield__look">
+              <div className="muted dotfield__status-copy">
+                No bids loaded.
+                <br />
+                Check deploy block and RPC.
+              </div>
+            </div>
+          )}
+          {showCurveLoading && !showMissingDeployBlock && !showNoBidsLoaded && (
             <div className="dotfield__canvas dotfield__look">
               <div className="muted">loading curve…</div>
             </div>
