@@ -1,8 +1,8 @@
 //
 // Usage:
-//   pnpm tsx scripts/sync-addresses.ts --net devnet  --from ../path/output/addresses.devnet.json
-//   pnpm tsx scripts/sync-addresses.ts --net sepolia --from ../path/output/addresses.sepolia.json
-//   pnpm tsx scripts/sync-addresses.ts --net sepolia --url https://raw.githubusercontent.com/inshell-art/path/main/output/addresses.sepolia.json
+//   pnpm tsx scripts/sync-addresses.ts --net devnet  --from ./addresses.devnet.json
+//   pnpm tsx scripts/sync-addresses.ts --net sepolia --from ./addresses.sepolia.json
+//   pnpm tsx scripts/sync-addresses.ts --net sepolia --url https://example.com/addresses.sepolia.json
 //
 // Output:
 //   packages/contracts/src/addresses/addresses.<net>.json   // values normalized to 0x + 64-hex

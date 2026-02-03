@@ -7,7 +7,7 @@ A minimal runbook to bring up **FE** with the right config, with ABI-typed contr
 ## 0) Prereqs
 
 - **Node 22+** and **pnpm** (`corepack enable`)
-- **`../path` cloned next to this repo.** Protocol deploys run there; this repo consumes their outputs.
+- A published **addresses JSON** for the target network (from protocol deploy outputs).
 
 > Optional (recommended):
 >
@@ -15,8 +15,7 @@ A minimal runbook to bring up **FE** with the right config, with ABI-typed contr
 > - `jq` for script utilities
 
 > **Protocol**  
-> Deploy contracts via `path/README.md` from inside `../path`,
-> then return here to sync the FE.
+> Deploy contracts in the protocol repo, then publish the network addresses JSON.
 
 ## 0.5) Cloudflare Pages build (production)
 
@@ -57,7 +56,7 @@ From the `inshell.art` repo:
 
 ````bash
 # Copy addresses into FE
-pnpm tsx scripts/sync-addresses.ts --net sepolia --from ../path/output/addresses.sepolia.json
+pnpm tsx scripts/sync-addresses.ts --net sepolia --url https://example.com/addresses.sepolia.json
 # -> writes packages/contracts/src/addresses/addresses.sepolia.json
 
 # Write Vite env (convenience; JSON fallback exists)
