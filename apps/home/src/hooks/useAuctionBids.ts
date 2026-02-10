@@ -71,7 +71,9 @@ export function useAuctionBids(opts: {
   // Kick off an initial fetch when ready even if polling is disabled.
   useEffect(() => {
     if (!enabled || !ready || !serviceRef.current) return;
-    void serviceRef.current.pullOnce();
+    void serviceRef.current.pullOnce().catch((e) => {
+      setError(e);
+    });
   }, [enabled, ready]);
 
   const pullOnce = useMemo(() => {
@@ -91,9 +93,14 @@ export function useAuctionBids(opts: {
   // Optional polling
   useEffect(() => {
     if (!enabled || !ready || !serviceRef.current || !refreshMs) return;
-    void serviceRef.current.pullOnce();
+    void serviceRef.current.pullOnce().catch((e) => {
+      setError(e);
+    });
     const id = window.setInterval(
-      () => void serviceRef.current?.pullOnce(),
+      () =>
+        void serviceRef.current?.pullOnce().catch((e) => {
+          setError(e);
+        }),
       refreshMs
     );
     return () => window.clearInterval(id);

@@ -754,6 +754,8 @@ export default function AuctionCanvas({
   const coreLoading = fixtureState ? false : coreLoadingHook;
   const coreError = fixtureState ? null : coreErrorHook;
   const [coreErrorVisible, setCoreErrorVisible] = useState<unknown>(null);
+  const [missingDeployBlockVisible, setMissingDeployBlockVisible] =
+    useState(false);
   const [noBidsVisible, setNoBidsVisible] = useState(false);
   const {
     account,
@@ -2038,6 +2040,17 @@ export default function AuctionCanvas({
     !bidsLoading &&
     bids.length === 0;
   useEffect(() => {
+    if (!showMissingDeployBlock) {
+      setMissingDeployBlockVisible(false);
+      return;
+    }
+    const id = window.setTimeout(
+      () => setMissingDeployBlockVisible(true),
+      STARTUP_ERROR_DELAY_MS
+    );
+    return () => window.clearTimeout(id);
+  }, [showMissingDeployBlock]);
+  useEffect(() => {
     if (!showNoBidsLoaded) {
       setNoBidsVisible(false);
       return;
@@ -2849,7 +2862,7 @@ export default function AuctionCanvas({
               </div>
             </div>
           )}
-          {showMissingDeployBlock && (
+          {missingDeployBlockVisible && (
             <div className="dotfield__canvas dotfield__look">
               <div className="muted dotfield__status-copy">
                 No bids loaded.
@@ -2867,7 +2880,7 @@ export default function AuctionCanvas({
               </div>
             </div>
           )}
-          {showCurveLoading && !showMissingDeployBlock && !noBidsVisible && (
+          {showCurveLoading && !missingDeployBlockVisible && !noBidsVisible && (
             <div className="dotfield__canvas dotfield__look">
               <div className="muted">loading curve…</div>
             </div>
