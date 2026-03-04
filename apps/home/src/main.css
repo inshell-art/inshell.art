@@ -406,6 +406,33 @@ body {
   color: #9ea0a1; /* muted base for inactive/separator (light) */
 }
 
+.dotfield__tools {
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dotfield__tool {
+  background: transparent;
+  border: 1px solid var(--panel-border);
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: lowercase;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.dotfield__tool[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dotfield__tool-hint {
+  letter-spacing: 0.02em;
+}
+
 .dotfield__tab {
   background: transparent;
   border: none;
@@ -573,6 +600,24 @@ body {
   }
 }
 
+@keyframes dotfield-sale-hover {
+  0% {
+    opacity: 0.55;
+    width: var(--sale-dot-size);
+    height: var(--sale-dot-size);
+  }
+  50% {
+    opacity: 1;
+    width: var(--sale-dot-active-size);
+    height: var(--sale-dot-active-size);
+  }
+  100% {
+    opacity: 0.55;
+    width: var(--sale-dot-size);
+    height: var(--sale-dot-size);
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   .dotfield__tabs {
     color: #9ea0a1;
@@ -597,6 +642,12 @@ body {
   padding: 0;
   position: relative;
   height: min(60vh, 420px);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.dotfield__canvas.is-dragging {
+  cursor: grabbing;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -756,24 +807,63 @@ body {
   visibility: hidden;
 }
 
+.dotfield__hit {
+  fill: transparent;
+  cursor: pointer;
+}
+
+.dotfield__marks-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.dotfield__point {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  transform: translate(-50%, -50%);
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+
 .dotfield__dot {
-  fill: var(--accent);
+  --sale-dot-size: 6px;
+  --sale-dot-active-size: 10px;
+  display: block;
+  width: var(--sale-dot-size);
+  height: var(--sale-dot-size);
+  border-radius: 50%;
+  background: var(--accent);
   opacity: 0.65;
-  transition: opacity 140ms ease-in-out;
+  transition:
+    width 140ms ease-in-out,
+    height 140ms ease-in-out,
+    opacity 140ms ease-in-out;
+  pointer-events: none;
 }
 
 .dotfield__dot:focus {
   outline: none;
 }
 
-.dotfield__dot:hover {
-  opacity: 1;
-}
-
 .dotfield__curve {
   fill: none;
   stroke: var(--accent);
-  stroke-width: 3;
+  stroke-width: 2;
+}
+
+.dotfield__pump {
+  stroke: var(--accent);
+  stroke-width: 0.35;
+  opacity: 0.35;
 }
 
 .dotfield__ask {
@@ -784,10 +874,20 @@ body {
 }
 
 .dotfield__now {
-  fill: var(--accent);
-  stroke: var(--accent);
+  fill: #d59a00;
+  stroke: #d59a00;
   stroke-width: 0.3;
   opacity: 0.9;
+}
+
+.dotfield__point--now .dotfield__dot {
+  background: #d59a00;
+  opacity: 0.9;
+}
+
+.dotfield__point--ask .dotfield__dot {
+  background: #fff;
+  opacity: 0.65;
 }
 
 .dotfield__now-label {
@@ -796,29 +896,18 @@ body {
   dominant-baseline: middle;
 }
 
-.dotfield__halo {
-  fill: none;
-  stroke: var(--halo-stroke);
-  stroke-width: 0.35;
-  opacity: 0;
-  transition: opacity 160ms ease-in-out;
-  pointer-events: none;
+.dotfield__point:hover .dotfield__dot,
+.dotfield__point:focus-visible .dotfield__dot {
+  opacity: 1;
+  animation: dotfield-sale-hover 1.15s ease-in-out infinite;
 }
 
-.dotfield__dot:hover + .dotfield__halo {
-  animation: haloFlash 0.8s ease-in-out infinite;
-}
-
-@keyframes haloFlash {
-  0% {
-    opacity: 0;
-  }
-  50% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
+.dotfield__point.is-selected .dotfield__dot {
+  width: var(--sale-dot-active-size);
+  height: var(--sale-dot-active-size);
+  opacity: 1;
+  animation: none;
+  box-shadow: none;
 }
 
 .dotfield__axes {
@@ -837,35 +926,8 @@ body {
   min-width: 200px;
   --popover-row-height: 14px;
   --popover-row-gap: 6px;
-  --popover-thumb-size: calc(
-    (var(--popover-row-height) * 3) + (var(--popover-row-gap) * 2)
-  );
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
   pointer-events: none;
-}
-
-.dotfield__popover-body {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  margin-top: 6px;
-}
-
-.dotfield__popover-thumb {
-  width: var(--popover-thumb-size);
-  height: var(--popover-thumb-size);
-  background: transparent;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.dotfield__popover-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: block;
 }
 
 .dotfield__popover-meta {
@@ -889,6 +951,28 @@ body {
   font-style: italic;
   font-synthesis: style;
   color: var(--muted, var(--text));
+}
+
+.dotfield__inspect {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--panel-border);
+  display: grid;
+  gap: 8px;
+}
+
+.dotfield__inspect-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dotfield__inspect-meta {
+  display: grid;
+  gap: 6px;
+  flex: 1;
+  min-width: 200px;
 }
 
 .cta-btn {

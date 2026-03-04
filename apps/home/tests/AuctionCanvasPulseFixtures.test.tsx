@@ -139,6 +139,16 @@ function stubSvg(container: HTMLElement) {
   }
 }
 
+function parsePathEnd(pathD: string | null): { x: number; y: number } | null {
+  if (!pathD) return null;
+  const nums = pathD
+    .match(/-?\d*\.?\d+(?:e[+-]?\d+)?/gi)
+    ?.map((raw) => Number(raw))
+    .filter((n) => Number.isFinite(n));
+  if (!nums || nums.length < 2) return null;
+  return { x: nums[nums.length - 2], y: nums[nums.length - 1] };
+}
+
 describe("AuctionCanvas with pulse fixtures", () => {
   beforeEach(() => {
     mockCallContract.mockReset();
@@ -150,6 +160,7 @@ describe("AuctionCanvas with pulse fixtures", () => {
   afterEach(() => {
     jest.useRealTimers();
     jest.clearAllMocks();
+    window.history.pushState({}, "", "/");
   });
 
   const fixtures: Array<[string, Fixture]> = [
@@ -167,8 +178,8 @@ describe("AuctionCanvas with pulse fixtures", () => {
       );
       stubSvg(container);
       expect(screen.getByRole("img", { name: /pulse curve/i })).toBeTruthy();
-      expect(screen.getByText(/time/i)).toBeTruthy();
-      expect(screen.getByText(/price/i)).toBeTruthy();
+      expect(screen.getByText(/time \(t½\)/i)).toBeTruthy();
+      expect(screen.getByText(/price\s*\(eth\)\s*↑/i)).toBeTruthy();
       const path = container.querySelector(".dotfield__curve");
       expect(path).toBeTruthy();
       fireEvent.mouseMove(path as unknown as HTMLElement, {
@@ -181,7 +192,7 @@ describe("AuctionCanvas with pulse fixtures", () => {
     });
   });
 
-  test("curve tooltip uses elapsed time for since/ago rows", () => {
+  test("curve tooltip shows t½, u(t½), and 1 t½ drop rows", () => {
     const fx: Fixture = {
       k: 1000,
       epoch: {
@@ -206,12 +217,46 @@ describe("AuctionCanvas with pulse fixtures", () => {
     });
     const popover = container.querySelector(".dotfield__popover") as HTMLElement;
     expect(popover).toBeTruthy();
-    const sinceRow = within(popover).getByText(/since last sale/i).parentElement;
-    expect(sinceRow).toBeTruthy();
-    expect(within(sinceRow as HTMLElement).getByText("00:00:00")).toBeTruthy();
-    const agoRow = within(popover).getByText(/^ago$/i).parentElement;
-    expect(agoRow).toBeTruthy();
-    expect(within(agoRow as HTMLElement).getByText("01:01:01")).toBeTruthy();
+    const tHalfRow = within(popover).getByText(/^t½$/i).parentElement;
+    expect(tHalfRow).toBeTruthy();
+    expect(within(tHalfRow as HTMLElement).getByText(/^16m40s$/i)).toBeTruthy();
+    const uRow = within(popover).getByText(/^u\(t½\)$/i).parentElement;
+    expect(uRow).toBeTruthy();
+    expect(within(popover).getByText(/^1 t½ drop$/i)).toBeTruthy();
+    expect(within(popover).getByText(/^time$/i)).toBeTruthy();
+    expect(within(popover).queryByText(/since last sale/i)).toBeNull();
+    expect(within(popover).getByText(/^ago$/i)).toBeTruthy();
+  });
+
+  test("supports exponential decay mode via query override", () => {
+    window.history.pushState({}, "", "/?fixture=normal&decay=exp");
+    mockUseAuctionCore.mockReturnValue({
+      data: null,
+      ready: true,
+      loading: false,
+      error: null,
+      refresh: jest.fn(),
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids: [],
+      ready: true,
+      loading: false,
+      error: null,
+    });
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
+    stubSvg(container);
+    const path = container.querySelector(".dotfield__curve");
+    expect(path).toBeTruthy();
+    fireEvent.mouseMove(path as unknown as HTMLElement, {
+      clientX: 10,
+      clientY: 10,
+    });
+    const popover = container.querySelector(".dotfield__popover") as HTMLElement;
+    expect(popover).toBeTruthy();
+    expect(popover.textContent ?? "").toContain("2^-u");
+    window.history.pushState({}, "", "/");
   });
 
   test("renders without cliff for huge pump fixture", () => {
@@ -250,22 +295,150 @@ describe("AuctionCanvas with pulse fixtures", () => {
     expect(within(popover as HTMLElement).getByText(/^price$/i)).toBeTruthy();
   });
 
-  test("bids tab popover renders amounts", async () => {
+  test("sale dot popover renders amounts", async () => {
     withFixture(normal);
     const { container } = render(
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />
     );
-    fireEvent.click(screen.getByText(/bids/i));
-    const dot = container.querySelector(".dotfield__dot");
+    const dots = Array.from(
+      container.querySelectorAll(".dotfield__point--sale .dotfield__dot")
+    ) as HTMLElement[];
+    const dot = dots[Math.min(1, Math.max(0, dots.length - 1))] ?? null;
     expect(dot).toBeTruthy();
     await act(async () => {
-      fireEvent.mouseMove(dot as unknown as HTMLElement, {
+      fireEvent.mouseMove(dot as HTMLElement, {
         clientX: 5,
         clientY: 5,
       });
       await Promise.resolve();
     });
     expect(screen.getByText(/sale #/i)).toBeTruthy();
-    expect(screen.getByText(/STRK/i)).toBeTruthy();
+    const popover = container.querySelector(".dotfield__popover") as HTMLElement;
+    expect(popover).toBeTruthy();
+    expect(popover.textContent).toMatch(/ETH/i);
   });
+
+  test("normal fixture selects sale dots without rendering inspect panel", () => {
+    window.history.pushState({}, "", "/?fixture=normal");
+    mockUseAuctionCore.mockReturnValue({
+      data: null,
+      ready: true,
+      loading: false,
+      error: null,
+      refresh: jest.fn(),
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids: [],
+      ready: true,
+      loading: false,
+      error: null,
+    });
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
+    const points = Array.from(
+      container.querySelectorAll(".dotfield__point--sale")
+    ) as HTMLElement[];
+    expect(points.length).toBeGreaterThanOrEqual(2);
+    fireEvent.click(points[0]);
+    expect(points[0].classList.contains("is-selected")).toBe(true);
+    expect(container.querySelector(".dotfield__inspect")).toBeNull();
+    expect(screen.queryByText(/pinned sale/i)).toBeNull();
+
+    fireEvent.click(points[1]);
+    expect(points[0].classList.contains("is-selected")).toBe(false);
+    expect(points[1].classList.contains("is-selected")).toBe(true);
+
+    window.history.pushState({}, "", "/");
+  });
+
+  test.each(["mixeda", "mixedb", "mixedc"])(
+    "keeps segment endpoints aligned to next sale dot for %s",
+    (fixtureName) => {
+      window.history.pushState({}, "", `/?fixture=${fixtureName}`);
+      mockUseAuctionCore.mockReturnValue({
+        data: null,
+        ready: true,
+        loading: false,
+        error: null,
+        refresh: jest.fn(),
+      });
+      mockUseAuctionBids.mockReturnValue({
+        bids: [],
+        ready: true,
+        loading: false,
+        error: null,
+      });
+      const { container } = render(
+        <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+      );
+      const paths = Array.from(container.querySelectorAll(".dotfield__curve"));
+      const points = Array.from(
+        container.querySelectorAll(".dotfield__point--sale")
+      );
+      expect(paths.length).toBeGreaterThan(2);
+      expect(points.length).toBe(paths.length);
+
+      let maxDelta = 0;
+      for (let i = 0; i < paths.length - 1; i += 1) {
+        const end = parsePathEnd(paths[i].getAttribute("d"));
+        expect(end).toBeTruthy();
+        const nextPoint = points[i + 1] as HTMLElement;
+        const cx = Number(nextPoint.dataset.x ?? Number.NaN);
+        const cy = Number(nextPoint.dataset.y ?? Number.NaN);
+        const dx = Math.abs((end as { x: number; y: number }).x - cx);
+        const dy = Math.abs((end as { x: number; y: number }).y - cy);
+        maxDelta = Math.max(maxDelta, Math.hypot(dx, dy));
+      }
+      expect(maxDelta).toBeLessThan(1.5);
+      window.history.pushState({}, "", "/");
+    }
+  );
+
+  test("random fixture honors epoch count override from query", () => {
+    window.history.pushState({}, "", "/?fixture=random&epochs=37");
+    mockUseAuctionCore.mockReturnValue({
+      data: null,
+      ready: true,
+      loading: false,
+      error: null,
+      refresh: jest.fn(),
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids: [],
+      ready: true,
+      loading: false,
+      error: null,
+    });
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
+    const points = container.querySelectorAll(".dotfield__point--sale");
+    expect(points.length).toBe(37);
+    window.history.pushState({}, "", "/");
+  });
+
+  test("random fixture honors sale count override from query", () => {
+    window.history.pushState({}, "", "/?fixture=random&sales=13");
+    mockUseAuctionCore.mockReturnValue({
+      data: null,
+      ready: true,
+      loading: false,
+      error: null,
+      refresh: jest.fn(),
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids: [],
+      ready: true,
+      loading: false,
+      error: null,
+    });
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
+    const points = container.querySelectorAll(".dotfield__point--sale");
+    expect(points.length).toBe(13);
+    window.history.pushState({}, "", "/");
+  });
+
 });

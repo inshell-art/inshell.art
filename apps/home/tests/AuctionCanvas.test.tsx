@@ -7,10 +7,11 @@ import {
   beforeEach,
   afterEach,
 } from "@jest/globals";
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
 import React from "react";
 import AuctionCanvas from "../src/components/AuctionCanvas";
 import { mockAuctionCore } from "./testUtils";
+/* global SVGLineElement */
 
 const mockUseAuctionBids = jest.fn();
 const mockUseAuctionCore = jest.fn();
@@ -121,17 +122,42 @@ describe("AuctionCanvas", () => {
     );
     expect(container.querySelector(".dotfield__mint")).toBeTruthy();
 
-    const circles = container.querySelectorAll("circle");
-    expect(circles.length).toBeGreaterThan(0);
+    const dots = container.querySelectorAll(".dotfield__point, .dotfield__now-dot");
+    expect(dots.length).toBeGreaterThan(0);
+  });
+
+  test("renders one linked curve segment per sale", () => {
+    const threeBids = [
+      ...sampleBids,
+      {
+        key: "b3",
+        atMs: Date.UTC(2025, 0, 1, 2),
+        amount: { raw: { low: "3", high: "0" }, dec: "3", value: 3n },
+        bidder: "0x3333333333333333",
+        blockNumber: 12,
+        epochIndex: 3,
+      },
+    ];
+    mockUseAuctionBids.mockReturnValue({
+      bids: threeBids,
+      ready: true,
+      loading: false,
+      error: null,
+    });
+
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
+    expect(container.querySelectorAll(".dotfield__curve")).toHaveLength(3);
+    expect(container.querySelectorAll(".dotfield__pump")).toHaveLength(3);
   });
 
   test("shows popover on hover with shortened info", async () => {
     const { container } = render(
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />
     );
-    fireEvent.click(screen.getByText(/bids/i));
 
-    const dot = container.querySelector(".dotfield__dot");
+    const dot = container.querySelector(".dotfield__point--sale .dotfield__dot");
     expect(dot).toBeTruthy();
     await act(async () => {
       fireEvent.mouseMove(dot as unknown as HTMLElement, {
@@ -142,7 +168,50 @@ describe("AuctionCanvas", () => {
     });
 
     expect(screen.getByText(/sale #/i)).toBeTruthy();
-    expect(screen.getByText(/STRK/)).toBeTruthy();
+    const popover = container.querySelector(".dotfield__popover") as HTMLElement;
+    expect(popover).toBeTruthy();
+    expect(popover.textContent).toMatch(/ETH/i);
+  });
+
+  test("clicking blank area clears selected sale", async () => {
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
+
+    const svg = container.querySelector("svg") as HTMLElement | null;
+    expect(svg).toBeTruthy();
+    if (svg) {
+      Object.defineProperty(svg, "getBoundingClientRect", {
+        configurable: true,
+        value: () => ({
+          left: 0,
+          top: 0,
+          right: 1000,
+          bottom: 600,
+          width: 1000,
+          height: 600,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        }),
+      });
+    }
+
+    const dotButton = container.querySelector(
+      ".dotfield__point--sale"
+    ) as HTMLElement | null;
+    expect(dotButton).toBeTruthy();
+    fireEvent.click(dotButton as HTMLElement);
+    expect(dotButton?.classList.contains("is-selected")).toBe(true);
+
+    fireEvent.click(svg as HTMLElement, {
+      clientX: 980,
+      clientY: 580,
+    });
+
+    await waitFor(() => {
+      expect(container.querySelector(".dotfield__point--sale.is-selected")).toBeNull();
+    });
   });
 
   test("curve hover shows above-floor amount", async () => {
@@ -166,6 +235,281 @@ describe("AuctionCanvas", () => {
     });
     await waitFor(() => {
       expect(screen.getByText(/above floor/i)).toBeTruthy();
+      expect(screen.getByText(/^1 t½ drop$/i)).toBeTruthy();
+    });
+  });
+
+  test("hover near curve start ask area shows initial ask tooltip", async () => {
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
+    const svg = container.querySelector("svg") as HTMLElement | null;
+    expect(svg).toBeTruthy();
+    if (svg) {
+      Object.defineProperty(svg, "getBoundingClientRect", {
+        configurable: true,
+        value: () => ({
+          left: 0,
+          top: 0,
+          right: 100,
+          bottom: 60,
+          width: 100,
+          height: 60,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        }),
+      });
+    }
+    const pump = container.querySelector(".dotfield__pump") as SVGLineElement | null;
+    expect(pump).toBeTruthy();
+    const x = Number((pump as SVGLineElement).getAttribute("x1") ?? Number.NaN);
+    const y = Number((pump as SVGLineElement).getAttribute("y2") ?? Number.NaN);
+    expect(Number.isFinite(x)).toBe(true);
+    expect(Number.isFinite(y)).toBe(true);
+
+    fireEvent.mouseMove(svg as HTMLElement, {
+      clientX: x - 1.0,
+      clientY: y + 1.0,
+    });
+
+    await waitFor(() => {
+      const popover = container.querySelector(".dotfield__popover") as HTMLElement | null;
+      expect(popover).toBeTruthy();
+      expect(within(popover as HTMLElement).getByText(/^initial ask$/i)).toBeTruthy();
+      expect(within(popover as HTMLElement).getByText(/^floor b$/i)).toBeTruthy();
+      expect(within(popover as HTMLElement).getByText(/^time premium$/i)).toBeTruthy();
+      expect(within(popover as HTMLElement).queryByText(/^1 t½ drop$/i)).toBeNull();
+    });
+  });
+
+  test("hovering an init ask dot shows composition tooltip", async () => {
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
+    const askDot = container.querySelector(".dotfield__point--ask .dotfield__dot");
+    expect(askDot).toBeTruthy();
+    fireEvent.mouseEnter(askDot as HTMLElement, {
+      clientX: 12,
+      clientY: 12,
+    });
+    await waitFor(() => {
+      const popover = container.querySelector(".dotfield__popover") as HTMLElement | null;
+      expect(popover).toBeTruthy();
+      expect(within(popover as HTMLElement).getByText(/^initial ask$/i)).toBeTruthy();
+      expect(within(popover as HTMLElement).getByText(/^floor b$/i)).toBeTruthy();
+      expect(within(popover as HTMLElement).getByText(/^time premium$/i)).toBeTruthy();
+      expect(within(popover as HTMLElement).queryByText(/^1 t½ drop$/i)).toBeNull();
+      expect(
+        within(popover as HTMLElement).getByText(/amount = floor b \+ time premium/i)
+      ).toBeTruthy();
+    });
+  });
+
+  test("genesis ask dot shows genesis price tooltip without composition rows", async () => {
+    mockAuctionCore(mockUseAuctionCore, {
+      genesisPrice: { dec: "12" },
+      genesisFloor: { dec: "10" },
+      k: { dec: "1000000" },
+      pts: "1",
+    });
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
+    const askDot = container.querySelector(".dotfield__point--ask .dotfield__dot");
+    expect(askDot).toBeTruthy();
+    fireEvent.mouseEnter(askDot as HTMLElement, {
+      clientX: 12,
+      clientY: 12,
+    });
+    await waitFor(() => {
+      const popover = container.querySelector(".dotfield__popover") as HTMLElement | null;
+      expect(popover).toBeTruthy();
+      expect(within(popover as HTMLElement).getByText(/^genesis price$/i)).toBeTruthy();
+      expect(within(popover as HTMLElement).queryByText(/^floor b$/i)).toBeNull();
+      expect(within(popover as HTMLElement).queryByText(/^time premium$/i)).toBeNull();
+      expect(within(popover as HTMLElement).queryByText(/^1 t½ drop$/i)).toBeNull();
+      expect(
+        within(popover as HTMLElement).queryByText(/amount = floor b \+ time premium/i)
+      ).toBeNull();
+      expect(
+        within(popover as HTMLElement).getByText(/mints the first \$PATH and starts the first curve/i)
+      ).toBeTruthy();
+    });
+  });
+
+  test("genesis segment uses config genesis floor/price even when event floor_b/anchor_a differ", async () => {
+    const t1 = Date.UTC(2025, 0, 1, 0, 0, 0);
+    const t2 = t1 + 10_000;
+    mockUseAuctionBids.mockReturnValue({
+      bids: [
+        {
+          key: "b1",
+          atMs: t1,
+          amount: { raw: { low: "50", high: "0" }, dec: "50", value: 50n },
+          floorB: { raw: { low: "40", high: "0" }, dec: "40", value: 40n },
+          anchorASec: t1 / 1000 - 20,
+          bidder: "0x1111111111111111",
+          blockNumber: 10,
+          epochIndex: 1,
+        },
+        {
+          key: "b2",
+          atMs: t2,
+          amount: { raw: { low: "73", high: "0" }, dec: "73", value: 73n },
+          floorB: { raw: { low: "73", high: "0" }, dec: "73", value: 73n },
+          anchorASec: t2 / 1000 - 20,
+          bidder: "0x2222222222222222",
+          blockNumber: 11,
+          epochIndex: 2,
+        },
+      ],
+      ready: true,
+      loading: false,
+      error: null,
+    });
+    mockAuctionCore(mockUseAuctionCore, {
+      // Deliberately disagree with event floor/anchor so genesis must still follow config.
+      genesisPrice: { dec: "120" },
+      genesisFloor: { dec: "10" },
+      k: { dec: "1000" },
+      pts: "1",
+    });
+
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} decimals={0} />
+    );
+    const askDot = container.querySelector(".dotfield__point--ask .dotfield__dot");
+    expect(askDot).toBeTruthy();
+    fireEvent.mouseMove(askDot as HTMLElement, {
+      clientX: 8,
+      clientY: 8,
+    });
+    await waitFor(() => {
+      const popover = container.querySelector(".dotfield__popover") as HTMLElement | null;
+      expect(popover).toBeTruthy();
+      expect(within(popover as HTMLElement).getByText(/^genesis price$/i)).toBeTruthy();
+      const priceRow = within(popover as HTMLElement).getByText(/^price$/i).parentElement;
+      expect(priceRow).toBeTruthy();
+      expect((priceRow?.textContent ?? "").replace(/,/g, "")).toMatch(/120(?:\.00)?\s*ETH/i);
+    });
+  });
+
+  test("genesis sale floor dot shows genesis floor tooltip", async () => {
+    mockUseAuctionBids.mockReturnValue({
+      bids: [
+        {
+          key: "b1",
+          atMs: Date.UTC(2025, 0, 1),
+          amount: { raw: { low: "12", high: "0" }, dec: "12", value: 12n },
+          bidder: "0x1111111111111111",
+          blockNumber: 10,
+          epochIndex: 1,
+        },
+      ],
+      ready: true,
+      loading: false,
+      error: null,
+    });
+    mockAuctionCore(mockUseAuctionCore, {
+      genesisPrice: { dec: "12" },
+      genesisFloor: { dec: "10" },
+      k: { dec: "1000000" },
+      pts: "1",
+    });
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} decimals={0} />
+    );
+    const saleDot = container.querySelector(".dotfield__point--sale .dotfield__dot");
+    expect(saleDot).toBeTruthy();
+    fireEvent.mouseMove(saleDot as HTMLElement, {
+      clientX: 8,
+      clientY: 8,
+    });
+    await waitFor(() => {
+      const popover = container.querySelector(".dotfield__popover") as HTMLElement | null;
+      expect(popover).toBeTruthy();
+      expect(within(popover as HTMLElement).getByText(/^genesis floor$/i)).toBeTruthy();
+      expect(within(popover as HTMLElement).queryByText(/^sale #/i)).toBeNull();
+      expect(within(popover as HTMLElement).getByText(/^price$/i)).toBeTruthy();
+    });
+  });
+
+  test("hovering genesis pump line shows genesis premium tooltip", async () => {
+    mockUseAuctionBids.mockReturnValue({
+      bids: [
+        {
+          key: "b1",
+          atMs: Date.UTC(2025, 0, 1),
+          amount: { raw: { low: "40", high: "0" }, dec: "40", value: 40n },
+          bidder: "0x1111111111111111",
+          blockNumber: 10,
+          epochIndex: 1,
+        },
+        {
+          key: "b2",
+          atMs: Date.UTC(2025, 0, 1, 0, 5),
+          amount: { raw: { low: "50", high: "0" }, dec: "50", value: 50n },
+          bidder: "0x2222222222222222",
+          blockNumber: 11,
+          epochIndex: 2,
+        },
+      ],
+      ready: true,
+      loading: false,
+      error: null,
+    });
+    mockAuctionCore(mockUseAuctionCore, {
+      genesisPrice: { dec: "40" },
+      genesisFloor: { dec: "10" },
+      k: { dec: "1000000" },
+      pts: "1",
+    });
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} decimals={0} />
+    );
+    const svg = container.querySelector("svg") as HTMLElement | null;
+    expect(svg).toBeTruthy();
+    if (svg) {
+      Object.defineProperty(svg, "getBoundingClientRect", {
+        configurable: true,
+        value: () => ({
+          left: 0,
+          top: 0,
+          right: 100,
+          bottom: 60,
+          width: 100,
+          height: 60,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        }),
+      });
+    }
+    const pump = container.querySelector(".dotfield__pump") as SVGLineElement | null;
+    expect(pump).toBeTruthy();
+    const x = Number((pump as SVGLineElement).getAttribute("x1") ?? Number.NaN);
+    const y0 = Number((pump as SVGLineElement).getAttribute("y1") ?? Number.NaN);
+    const y1 = Number((pump as SVGLineElement).getAttribute("y2") ?? Number.NaN);
+    expect(Number.isFinite(x)).toBe(true);
+    expect(Number.isFinite(y0)).toBe(true);
+    expect(Number.isFinite(y1)).toBe(true);
+    const yMid = (y0 + y1) / 2;
+
+    fireEvent.mouseMove(svg as HTMLElement, {
+      clientX: x + 0.7,
+      clientY: yMid,
+    });
+
+    await waitFor(() => {
+      const popover = container.querySelector(".dotfield__popover") as HTMLElement | null;
+      expect(popover).toBeTruthy();
+      expect(within(popover as HTMLElement).getByText(/^genesis premium$/i)).toBeTruthy();
+      expect(
+        within(popover as HTMLElement).getByText(
+          /genesis price = genesis floor \+ genesis premium/i
+        )
+      ).toBeTruthy();
     });
   });
 
@@ -259,7 +603,7 @@ describe("AuctionCanvas", () => {
       error: null,
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    expect(screen.getByText(/Ask: 1 STRK/i)).toBeTruthy();
+    expect(screen.getByText(/Ask: 1 ETH/i)).toBeTruthy();
   });
 
   test("auction status override wins over live state", () => {
@@ -436,7 +780,7 @@ describe("AuctionCanvas", () => {
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />
     );
     await waitFor(() => {
-      expect(screen.getByText(/Approve STRK/i)).toBeTruthy();
+      expect(screen.getByText(/Approve ETH/i)).toBeTruthy();
     });
     mockWalletState = createWalletState({
       isConnected: false,
@@ -445,7 +789,7 @@ describe("AuctionCanvas", () => {
     });
     rerender(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     await waitFor(() => {
-      expect(screen.queryByText(/Approve STRK/i)).toBeNull();
+      expect(screen.queryByText(/Approve ETH/i)).toBeNull();
       expect(screen.getByText(/\[\s*connect\s*\]/i)).toBeTruthy();
     });
   });
@@ -559,7 +903,7 @@ describe("AuctionCanvas", () => {
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     await waitFor(() => {
-      expect(screen.getByText(/Approve STRK/i)).toBeTruthy();
+      expect(screen.getByText(/Approve ETH/i)).toBeTruthy();
     });
     expect(screen.getByText(/\[\s*mint\s*\]/i)).toBeTruthy();
   });
@@ -891,7 +1235,7 @@ describe("AuctionCanvas", () => {
         fireEvent.click(mintButton);
       });
       await waitFor(() => {
-        expect(screen.getByText(/Insufficient STRK at execution/i)).toBeTruthy();
+        expect(screen.getByText(/Insufficient ETH at execution/i)).toBeTruthy();
       });
       expect(screen.getByText(/\[\s*retry\s*\]/i)).toBeTruthy();
       await waitFor(() => {
@@ -1037,7 +1381,7 @@ describe("AuctionCanvas", () => {
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />
     );
     await waitFor(() => {
-      expect(screen.getByText(/Approve STRK/i)).toBeTruthy();
+      expect(screen.getByText(/Approve ETH/i)).toBeTruthy();
     });
     const dotButton = container.querySelector(
       ".dotfield__cta-address"
@@ -1051,7 +1395,7 @@ describe("AuctionCanvas", () => {
     act(() => {
       jest.advanceTimersByTime(3000);
     });
-    expect(screen.getByText(/Approve STRK/i)).toBeTruthy();
+    expect(screen.getByText(/Approve ETH/i)).toBeTruthy();
     jest.useRealTimers();
   });
 

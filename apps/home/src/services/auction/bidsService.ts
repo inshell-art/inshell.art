@@ -8,6 +8,8 @@ export type NormalizedBid = {
   atMs: number; // from block.timestamp when available
   bidder?: string;
   amount: U256Num; // compatible with your num helpers
+  floorB?: U256Num; // Sale.floor_b when present
+  anchorASec?: number; // Sale.anchor_a when present
   txHash?: string;
   id?: number;
   blockNumber?: number;
@@ -62,9 +64,11 @@ export function createBidsService(opts: {
     if (dataArr.length < 2) return null;
 
     // Prefer ABI-aware decode for PulseAuction::Sale:
-    // data = [price.low, price.high, timestamp]
+    // data = [price.low, price.high, timestamp, anchor_a, floor_b.low, floor_b.high, epoch_index]
     // keys = [selector, buyer, (token_id.low?), (token_id.high?)]
     let amount = toU256Num({ low: dataArr[0], high: dataArr[1] });
+    let floorB: U256Num | undefined;
+    let anchorASec: number | undefined;
     let atMs: number | undefined;
 
     // Timestamp felt when present
@@ -72,6 +76,15 @@ export function createBidsService(opts: {
       const tsFelt = dataArr[2];
       const tsNum = Number(tsFelt);
       if (Number.isFinite(tsNum) && tsNum > 0) atMs = tsNum * 1000;
+    }
+
+    if (dataArr.length >= 4) {
+      const a = Number(dataArr[3]);
+      if (Number.isFinite(a) && a > 0) anchorASec = a;
+    }
+
+    if (dataArr.length >= 6) {
+      floorB = toU256Num({ low: dataArr[4], high: dataArr[5] });
     }
 
     // Fallbacks if layout differs
@@ -116,6 +129,8 @@ export function createBidsService(opts: {
       atMs,
       bidder,
       amount,
+      floorB,
+      anchorASec,
       txHash,
       id: ev.event_id ?? ev.index,
       blockNumber:
