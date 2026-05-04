@@ -147,6 +147,9 @@ function formatHumanTokenAmount(value: number): string {
 
 const BASE_HALF_LIVES = 10;
 const EXTREME_HISTORY_TAIL_THRESHOLD = BASE_HALF_LIVES * 100;
+const SPARSE_LIVE_MAX_BIDS = 5;
+const SPARSE_LIVE_ACTIVE_WINDOW = BASE_HALF_LIVES * 4;
+const SPARSE_LIVE_ACTIVE_CONTEXT = BASE_HALF_LIVES * 0.5;
 const PLOT_LEFT_PAD = 1.6;
 const PLOT_RIGHT_PAD = PLOT_LEFT_PAD;
 const PLOT_X_SPAN = 100 - PLOT_LEFT_PAD - PLOT_RIGHT_PAD;
@@ -1497,6 +1500,7 @@ export default function AuctionCanvas({
   const [selectedAskKey, setSelectedAskKey] = useState<string | null>(null);
   const [selectedNow, setSelectedNow] = useState(false);
   const [viewport, setViewport] = useState<Viewport | null>(null);
+  const viewportDataKeyRef = useRef<string | null>(null);
   const [isPanning, setIsPanning] = useState(false);
   const initialAskTipCurveKeyRef = useRef<string | null>(null);
   const initialAskTipShownRef = useRef(false);
@@ -2441,9 +2445,10 @@ export default function AuctionCanvas({
   const useTailViewport = useMemo(() => {
     const hasSaleHistory = linked.segments.length > 1;
     const hasTinyLiveValues = linked.maxY > 0 && linked.maxY < 0.001;
+    const isSparseLiveHistory =
+      !fixtureState && bids.length > 0 && bids.length <= SPARSE_LIVE_MAX_BIDS;
     return (
-      !fixtureState &&
-      bids.length === 1 &&
+      isSparseLiveHistory &&
       hasSaleHistory &&
       hasTinyLiveValues &&
       linked.uEnd > EXTREME_HISTORY_TAIL_THRESHOLD
@@ -2452,17 +2457,17 @@ export default function AuctionCanvas({
 
   const defaultViewport = useMemo<Viewport | null>(() => {
     if (!linked.segments.length) return null;
-    const tailWindow = BASE_HALF_LIVES * 2;
     const lastSeg = linked.segments[linked.segments.length - 1];
 
     let xMin = 0;
     let xMax = Math.max(BASE_HALF_LIVES, linked.uEnd);
 
     if (useTailViewport && lastSeg) {
-      const recentWindowMin = Math.max(0, linked.uEnd - tailWindow);
-      const transitionWindowMin = Math.max(0, lastSeg.uStart - BASE_HALF_LIVES);
-      xMin = Math.max(recentWindowMin, transitionWindowMin);
-      xMax = Math.max(xMin + 0.5, linked.uEnd);
+      xMin = Math.max(0, lastSeg.uStart - SPARSE_LIVE_ACTIVE_CONTEXT);
+      xMax = Math.min(linked.uEnd, lastSeg.uStart + SPARSE_LIVE_ACTIVE_WINDOW);
+      if (xMax - xMin < BASE_HALF_LIVES) {
+        xMax = Math.min(linked.uEnd, xMin + BASE_HALF_LIVES);
+      }
     }
 
     const visibleY = getVisibleYExtents(linked, xMin, xMax);
@@ -2473,10 +2478,30 @@ export default function AuctionCanvas({
     return { xMin, xMax, yMin, yMax };
   }, [linked, useTailViewport]);
 
+  const viewportDataKey = useMemo(() => {
+    const lastSeg = linked.segments[linked.segments.length - 1];
+    if (!lastSeg) return null;
+    const mode = useTailViewport ? "sparse-tail" : "full";
+    const source = fixtureState ? "fixture" : "live";
+    return `${source}:${mode}:${bids.length}:${lastSeg.epoch}:${lastSeg.startSec}`;
+  }, [linked.segments, useTailViewport, fixtureState, bids.length]);
+
   const effectiveViewport = viewport ?? defaultViewport;
 
   useEffect(() => {
-    if (!linked.segments.length) return;
+    if (!linked.segments.length) {
+      viewportDataKeyRef.current = null;
+      return;
+    }
+    if (
+      defaultViewport &&
+      viewportDataKey &&
+      viewportDataKeyRef.current !== viewportDataKey
+    ) {
+      viewportDataKeyRef.current = viewportDataKey;
+      setViewport(defaultViewport);
+      return;
+    }
     setViewport((prev) => {
       if (!prev) {
         return defaultViewport ?? prev;
@@ -2502,7 +2527,7 @@ export default function AuctionCanvas({
       }
       return xMin === prev.xMin && xMax === prev.xMax ? prev : { ...prev, xMin, xMax };
     });
-  }, [defaultViewport, linked.uEnd, linked.segments.length]);
+  }, [defaultViewport, linked.uEnd, linked.segments.length, viewportDataKey]);
 
   useEffect(() => {
     if (!toastNotice) return;
