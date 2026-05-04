@@ -4358,9 +4358,26 @@ export default function AuctionCanvas({
             x: toSvgX(mark.u),
           }));
         const bidMarksVisible = [...contextBidMarks, ...marksVisible];
-        const askMarksVisible = askMarks.filter(
-          (m) => m.u >= vp.xMin - xPad && m.u <= vp.xMax + xPad
-        );
+        const contextAskMarks = contextBidMarks.flatMap(({ mark, x }) => {
+          const seg = linked.segments[mark.segIdx];
+          if (!seg) return [];
+          const x0 = Math.max(PLOT_LEFT_PAD, x - 2.1);
+          return askMarks
+            .filter((askMark) => askMark.segIdx === seg.idx)
+            .map((askMark) => ({
+              mark: askMark,
+              x: x0,
+            }));
+        });
+        const askMarksVisible = [
+          ...contextAskMarks,
+          ...askMarks
+            .filter((m) => m.u >= vp.xMin - xPad && m.u <= vp.xMax + xPad)
+            .map((mark) => ({
+              mark,
+              x: toSvgX(mark.u),
+            })),
+        ];
 
         return (
           <div
@@ -4497,10 +4514,9 @@ export default function AuctionCanvas({
                   <span className="dotfield__dot" />
                 </button>
               )}
-              {askMarksVisible.map((mark) => {
+              {askMarksVisible.map(({ mark, x }) => {
                 const seg = linked.segments[mark.segIdx];
                 if (!seg) return null;
-                const x = toSvgX(mark.u);
                 const y = toSvgY(mark.price);
                 if (x < -2 || x > 102 || y < -2 || y > 62) return null;
                 const isSelected = selectedAskKey === mark.key;

@@ -220,6 +220,8 @@ describe("AuctionCanvas", () => {
     expect(container.querySelectorAll(".dotfield__curve").length).toBeLessThan(3);
     expect(container.querySelectorAll(".dotfield__context-curve")).toHaveLength(1);
     expect(container.querySelectorAll(".dotfield__point--sale")).toHaveLength(2);
+    expect(container.querySelectorAll(".dotfield__point--opening-floor")).toHaveLength(1);
+    expect(container.querySelectorAll(".dotfield__point--ask").length).toBeGreaterThanOrEqual(1);
     expect(container.querySelectorAll(".dotfield__pump")).toHaveLength(2);
   });
 
