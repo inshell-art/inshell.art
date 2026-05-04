@@ -2,6 +2,13 @@
 
 A minimal runbook to bring up **FE** with the right config, with ABI-typed contracts and a resilient pipeline.
 
+This dApp supports EIP-1193 injected wallets (with EIP-6963 multi-provider discovery) and WalletConnect v2.
+
+Current migration status
+- Product direction is **Ethereum-only**.
+- Legacy Starknet packages and adapters still exist in the repo and are treated as migration debt until the contract/client stack is fully replaced.
+- The current removal inventory and blocker list lives in `docs/ethereum-migration-audit.md`.
+
 ---
 
 ## 0) Prereqs
@@ -21,7 +28,7 @@ A minimal runbook to bring up **FE** with the right config, with ABI-typed contr
 
 - Build command: `corepack enable && pnpm install --frozen-lockfile && pnpm run build:home`
 - Output dir: `dist/home`
-- Build-time env vars: `VITE_*` (e.g., `VITE_STARKNET_RPC`, `VITE_NETWORK`)
+- Build-time env vars: `VITE_*` (e.g., `VITE_ETH_RPC`, `VITE_NETWORK`)
 - Node version: 22 (set `NODE_VERSION=22` in Pages)
 
 ## 0.6) Local env (out of repo)
@@ -32,7 +39,8 @@ Keep local env values outside the repo and auto-load them with direnv:
 mkdir -p ~/.config/inshell.art
 cat > ~/.config/inshell.art/home.sepolia.env <<'EOF'
 VITE_NETWORK=sepolia
-VITE_STARKNET_RPC=https://your-sepolia-rpc
+VITE_ETH_RPC=https://your-sepolia-rpc
+VITE_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id
 VITE_PUBLIC_TELEGRAM_CHANNEL_URL=https://t.me/inshell_art
 VITE_PULSE_AUCTION_DEPLOY_BLOCK=123456
 EOF
@@ -63,35 +71,45 @@ pnpm tsx scripts/sync-addresses.ts --net sepolia --url https://example.com/addre
 pnpm tsx scripts/sync-env.ts --net sepolia --rpc https://your-sepolia-rpc --addr packages/contracts/src/addresses/addresses.sepolia.json --deploy-block 123456
 # -> writes apps/home/.env.sepolia.local and apps/thought/.env.sepolia.local
 
-# Pull ABIs from the node (runtime artifacts)
-pnpm tsx scripts/sync-abi.ts --net sepolia --rpc https://your-sepolia-rpc --addr packages/contracts/src/addresses/addresses.sepolia.json
-# -> writes packages/contracts/src/abi/sepolia/*.json
+# Validate imported PATH release artifacts before using them here
+pnpm tsx scripts/validate-path-artifacts.ts /path/to/fe-release
+# -> rejects stale spark/reserved PATH ABI or manifest surface
 
-## Generate TypeScript const-typed ABIs (from runtime JSON)
+## Optional ABI typing helper
 
-We convert JSON ABIs (in `packages/contracts/src/abi/<net>/*.json`) into TS const-literals (`packages/contracts/src/abi/typed/*.abi.ts`)
-so `TypedContractV2<typeof ABI>` gets exact types.
+`inshell.art` does not currently vendor a PATH ABI sync pipeline. If ABI snapshots are reintroduced,
+generate them from current `path/` source-of-truth contracts or fresh non-stale release artifacts,
+then use `scripts/abi-json-to-ts.ts` as a helper to emit const-typed TS ABI literals.
 
 ### One-off (per contract)
 ```bash
-pnpm tsx scripts/abi-json-to-ts.ts packages/contracts/src/abi/sepolia/PulseAuction.json      packages/contracts/src/abi/typed/PulseAuction.abi.ts      AUCTION_ABI
-pnpm tsx scripts/abi-json-to-ts.ts packages/contracts/src/abi/sepolia/PathMinter.json        packages/contracts/src/abi/typed/PathMinter.abi.ts        MINTER_ABI
-pnpm tsx scripts/abi-json-to-ts.ts packages/contracts/src/abi/sepolia/PathMinterAdapter.json packages/contracts/src/abi/typed/PathMinterAdapter.abi.ts ADAPTER_ABI
-pnpm tsx scripts/abi-json-to-ts.ts packages/contracts/src/abi/sepolia/PathNFT.json           packages/contracts/src/abi/typed/PathNFT.abi.ts           NFT_ABI
+pnpm tsx scripts/abi-json-to-ts.ts /absolute/path/to/PulseAuction.json      packages/contracts/src/abi/typed/PulseAuction.abi.ts      AUCTION_ABI
+pnpm tsx scripts/abi-json-to-ts.ts /absolute/path/to/PathMinter.json        packages/contracts/src/abi/typed/PathMinter.abi.ts        MINTER_ABI
+pnpm tsx scripts/abi-json-to-ts.ts /absolute/path/to/PathMinterAdapter.json packages/contracts/src/abi/typed/PathMinterAdapter.abi.ts ADAPTER_ABI
+pnpm tsx scripts/abi-json-to-ts.ts /absolute/path/to/PathNFT.json           packages/contracts/src/abi/typed/PathNFT.abi.ts           NFT_ABI
 
 ````
+
+PATH note:
+- after `path` removal commit `070ee8342833a4249027146d3ed61cf555e4762f`, do not import artifacts
+  that still expose `RESERVED_ROLE`, `SPARK_BASE`, `mintSparker`, `getReservedCap`,
+  `getReservedRemaining`, or `reserved_cap`
+- current canonical `PathMinter` surface is `nextId`, `freezeSalesCaller`, `mintPublic`
 
 ## 2) Run the FE
 
 ```bash
 # Minimum FE env
-export VITE_STARKNET_RPC="https://your-sepolia-rpc"
+export VITE_ETH_RPC="https://your-sepolia-rpc"
 export VITE_NETWORK="sepolia"
 export VITE_PULSE_AUCTION_DEPLOY_BLOCK="123456"
+export VITE_WALLETCONNECT_PROJECT_ID="your_walletconnect_project_id"
 
 pnpm dev:home
 pnpm dev:thought
 ```
+
+`VITE_ETH_RPC` is the RPC env var used by the frontend.
 
 > **Address resolution policy (FE)**  
 > The FE resolves contract addresses in this order:
@@ -169,7 +187,7 @@ Mount it in a page (e.g., `src/pages/dev/AuctionPage.tsx`) and run `pnpm dev`.
 
 ## 7) Block tag policy
 
-- Default: `getDefaultBlockTag()` → **`latest`** (set by `VITE_STARKNET_BLOCK_TAG` or fallback).
+- Default: `getDefaultBlockTag()` → **`latest`** (set by `VITE_ETH_BLOCK_TAG` or fallback).
 - Service passes the tag to every view call (low-level `Contract.call(..., { blockIdentifier })`).
 - Devnet usually rejects `"pending"`; use `"latest"` or `"pre_confirmed"`.
 
@@ -183,10 +201,10 @@ Mount it in a page (e.g., `src/pages/dev/AuctionPage.tsx`) and run `pnpm dev`.
 
 - **`Invalid block ID. Expected ... ('pre_confirmed' | 'latest' | 'l1_accepted')`**  
   Your node rejects `"pending"`.  
-  → `export VITE_STARKNET_BLOCK_TAG=latest` (and restart FE).
+  → `export VITE_ETH_BLOCK_TAG=latest` (and restart FE).
 
-- **`Unexpected u256 shape`**  
-  Different starknet.js decode paths.  
+- **`Unexpected u256 shape`**
+  Different SDK decode paths.
   → Use the tolerant `readU256` (accepts `{low,high}`, `[low,high]`, bigNumberish, or nested fields).
 
 - **No data appears**  
@@ -201,7 +219,7 @@ If you need a local devnet, keep it isolated from the production FE config:
 ```bash
 cat > ~/.config/inshell.art/home.devnet.env <<'EOF'
 VITE_NETWORK=devnet
-VITE_STARKNET_RPC=http://127.0.0.1:5050/rpc
+VITE_ETH_RPC=http://127.0.0.1:5050/rpc
 VITE_PUBLIC_TELEGRAM_CHANNEL_URL=https://t.me/inshell_art
 EOF
 
@@ -232,11 +250,11 @@ ln -sf ~/.config/inshell.art/home.devnet.env ~/.config/inshell.art/home.env
 
 ```bash
 # Required for FE
-export VITE_STARKNET_RPC="https://your-sepolia-rpc"
+export VITE_ETH_RPC="https://your-sepolia-rpc"
 export VITE_PULSE_AUCTION_DEPLOY_BLOCK="123456"
 
 # Optional quality-of-life
 export VITE_NETWORK="sepolia"           # selects packages/contracts/src/addresses/addresses.sepolia.json
-export VITE_STARKNET_BLOCK_TAG="latest" # service default for views
+export VITE_ETH_BLOCK_TAG="latest" # service default for views
 # export VITE_PULSE_AUCTION="0x..."     # override JSON via Vite env if needed
 ```

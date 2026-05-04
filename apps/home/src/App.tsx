@@ -2,9 +2,11 @@ import { ErrorBoundary } from "react-error-boundary";
 import AuctionCanvas from "@/components/AuctionCanvas";
 import Movements from "@/components/Movements";
 import Footer from "@/components/Footer/Footer";
-import { resolveAddress } from "@inshell/contracts";
+import { maybeResolveAddress } from "@inshell/contracts";
 
 export default function App() {
+  const pulseAuction = maybeResolveAddress("pulse_auction");
+
   return (
     <ErrorBoundary
       FallbackComponent={({ error }) => (
@@ -16,7 +18,7 @@ export default function App() {
     >
       <div className="shell">
         <div className="content">
-          <AuctionCanvas address={resolveAddress("pulse_auction")} />
+          <AuctionCanvas address={pulseAuction} />
           <div className="hero">
             <Movements />
           </div>

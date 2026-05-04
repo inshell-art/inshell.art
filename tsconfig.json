@@ -11,7 +11,7 @@
       "path": "./packages/contracts"
     },
     {
-      "path": "./packages/starknet"
+      "path": "./packages/ethereum"
     },
     {
       "path": "./packages/utils"

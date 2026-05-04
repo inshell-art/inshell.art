@@ -30,8 +30,8 @@ jest.mock("@inshell/wallet", () => ({
     isConnecting: false,
     isReconnecting: false,
     status: "connected",
-    chain: { name: "Starknet Sepolia Testnet" },
-    chainId: BigInt("0x534e5f5345504f4c4941"),
+    chain: { name: "Sepolia" },
+    chainId: 11155111n,
     account: null,
     accountMissing: false,
     connect: jest.fn(),
@@ -73,14 +73,18 @@ function withFixture(fx: Fixture) {
   const scale = 10n ** 18n;
   const kScaled = BigInt(Math.round(k)) * scale;
   const ptsScaled = BigInt(Math.round(D ?? 1)) * scale;
-  const amountDec = toDec(floor);
-  const amountU256 = { low: amountDec, high: "0" };
+  const floorRaw = BigInt(Math.round(Math.max(0, floor))) * scale;
+  const genesisPremium = Math.max(1, Math.round(D ?? 1));
+  const genesisPriceRaw = BigInt(Math.round(Math.max(0, floor + genesisPremium))) * scale;
+  const floorDec = floorRaw.toString();
+  const genesisPriceDec = genesisPriceRaw.toString();
+  const amountU256 = { low: floorRaw.toString(), high: "0" };
   mockUseAuctionCore.mockReturnValue({
     data: {
       config: {
-        openTimeSec: tStart,
-        genesisPrice: { dec: amountDec },
-        genesisFloor: { dec: amountDec },
+        openTimeSec: tStart - 2,
+        genesisPrice: { dec: genesisPriceDec },
+        genesisFloor: { dec: floorDec },
         k: { dec: kScaled.toString() },
         pts: ptsScaled.toString(),
       },
@@ -99,9 +103,9 @@ function withFixture(fx: Fixture) {
         key: `b#${epochIndex - 1}`,
         atMs: prevBidAt,
         amount: {
-          dec: amountDec,
+          dec: floorDec,
           raw: amountU256,
-          value: BigInt(Math.round(floor)) * scale,
+          value: floorRaw,
         },
         bidder: "0xprev",
         blockNumber: 1,
@@ -111,9 +115,9 @@ function withFixture(fx: Fixture) {
         key: `b#${epochIndex}`,
         atMs: lastBidAt,
         amount: {
-          dec: amountDec,
+          dec: floorDec,
           raw: amountU256,
-          value: BigInt(Math.round(floor)) * scale,
+          value: floorRaw,
         },
         bidder: "0xlast",
         blockNumber: 2,
@@ -226,37 +230,6 @@ describe("AuctionCanvas with pulse fixtures", () => {
     expect(within(popover).getByText(/^time$/i)).toBeTruthy();
     expect(within(popover).queryByText(/since last sale/i)).toBeNull();
     expect(within(popover).getByText(/^ago$/i)).toBeTruthy();
-  });
-
-  test("supports exponential decay mode via query override", () => {
-    window.history.pushState({}, "", "/?fixture=normal&decay=exp");
-    mockUseAuctionCore.mockReturnValue({
-      data: null,
-      ready: true,
-      loading: false,
-      error: null,
-      refresh: jest.fn(),
-    });
-    mockUseAuctionBids.mockReturnValue({
-      bids: [],
-      ready: true,
-      loading: false,
-      error: null,
-    });
-    const { container } = render(
-      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
-    );
-    stubSvg(container);
-    const path = container.querySelector(".dotfield__curve");
-    expect(path).toBeTruthy();
-    fireEvent.mouseMove(path as unknown as HTMLElement, {
-      clientX: 10,
-      clientY: 10,
-    });
-    const popover = container.querySelector(".dotfield__popover") as HTMLElement;
-    expect(popover).toBeTruthy();
-    expect(popover.textContent ?? "").toContain("2^-u");
-    window.history.pushState({}, "", "/");
   });
 
   test("renders without cliff for huge pump fixture", () => {
@@ -377,13 +350,13 @@ describe("AuctionCanvas with pulse fixtures", () => {
         container.querySelectorAll(".dotfield__point--sale")
       );
       expect(paths.length).toBeGreaterThan(2);
-      expect(points.length).toBe(paths.length);
+      expect(paths.length).toBe(points.length + 1);
 
       let maxDelta = 0;
-      for (let i = 0; i < paths.length - 1; i += 1) {
+      for (let i = 0; i < points.length; i += 1) {
         const end = parsePathEnd(paths[i].getAttribute("d"));
         expect(end).toBeTruthy();
-        const nextPoint = points[i + 1] as HTMLElement;
+        const nextPoint = points[i] as HTMLElement;
         const cx = Number(nextPoint.dataset.x ?? Number.NaN);
         const cy = Number(nextPoint.dataset.y ?? Number.NaN);
         const dx = Math.abs((end as { x: number; y: number }).x - cx);
@@ -438,6 +411,26 @@ describe("AuctionCanvas with pulse fixtures", () => {
     );
     const points = container.querySelectorAll(".dotfield__point--sale");
     expect(points.length).toBe(13);
+    window.history.pushState({}, "", "/");
+  });
+
+  test("random fixture does not remain stuck in loading state", () => {
+    window.history.pushState({}, "", "/?fixture=random");
+    mockUseAuctionCore.mockReturnValue({
+      data: null,
+      ready: true,
+      loading: false,
+      error: null,
+      refresh: jest.fn(),
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids: [],
+      ready: true,
+      loading: true,
+      error: null,
+    });
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    expect(screen.queryByText(/loading curve/i)).toBeNull();
     window.history.pushState({}, "", "/");
   });
 

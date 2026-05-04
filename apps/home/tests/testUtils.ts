@@ -32,8 +32,8 @@ export function mockAuctionCore(
     data: {
       active: false,
       config: {
-        openTimeSec: Date.UTC(2024, 0, 1) / 1000,
-        genesisPrice: { dec: "1" },
+        openTimeSec: Math.floor(Date.now() / 1000) - 3 * 60,
+        genesisPrice: { dec: "2" },
         genesisFloor: { dec: "1" },
         k: { dec: "10" },
         pts: "1",

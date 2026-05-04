@@ -8,6 +8,7 @@ import {
   jest,
 } from "@jest/globals";
 import { render, act } from "@testing-library/react";
+import "@testing-library/jest-dom";
 import Movements from "../src/components/Movements";
 
 const mockIsDesktopDevice = jest.fn();
@@ -43,5 +44,12 @@ describe("Movements", () => {
     projectElements.forEach((el) => {
       expect(parseFloat(el.style.opacity)).toBeGreaterThan(0);
     });
+  });
+
+  test("links THOUGHT to the local thought app in a new tab", () => {
+    const { getByRole } = render(<Movements />);
+    const link = getByRole("link", { name: "THOUGHT" });
+    expect(link).toHaveAttribute("href", "http://127.0.0.1:5178/");
+    expect(link).toHaveAttribute("target", "_blank");
   });
 });

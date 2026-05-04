@@ -1,4 +1,4 @@
-import { getAddresses } from "@inshell/contracts";
+import { maybeResolveAddress } from "@inshell/contracts";
 
 function short(value?: string) {
   if (!value) return "not set";
@@ -6,8 +6,7 @@ function short(value?: string) {
 }
 
 export default function App() {
-  const addresses = getAddresses();
-  const pulseAuction = addresses.pulse_auction;
+  const pulseAuction = maybeResolveAddress("pulse_auction");
 
   return (
     <div className="thought-shell">

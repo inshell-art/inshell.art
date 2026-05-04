@@ -26,8 +26,8 @@ jest.mock("@inshell/wallet", () => ({
     isConnecting: false,
     isReconnecting: false,
     status: "connected",
-    chain: { name: "Starknet Sepolia Testnet" },
-    chainId: BigInt("0x534e5f5345504f4c4941"),
+    chain: { name: "Sepolia" },
+    chainId: 11155111n,
     account: null,
     accountMissing: false,
     connect: jest.fn(),
@@ -43,12 +43,22 @@ jest.mock("@inshell/wallet", () => ({
 
 describe("AuctionCanvas sale tooltip", () => {
   beforeEach(() => {
+    const nowMs = Date.now();
     mockCallContract.mockReset();
     mockUseAuctionBids.mockReturnValue({
       bids: [
         {
+          key: "b1",
+          atMs: nowMs - 2 * 60 * 1000,
+          amount: { raw: { low: "1", high: "0" }, dec: "1", value: 1n },
+          bidder: "0x1111111111111111",
+          blockNumber: 10,
+          epochIndex: 1,
+          tokenId: 1,
+        },
+        {
           key: "b2",
-          atMs: Date.UTC(2025, 0, 1, 1),
+          atMs: nowMs - 60 * 1000,
           amount: { raw: { low: "2", high: "0" }, dec: "2", value: 2n },
           bidder: "0x2222222222222222",
           blockNumber: 11,

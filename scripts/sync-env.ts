@@ -66,9 +66,9 @@ if (!ADDR_FILE && !ADDR_URL) {
           resolve(`apps/thought/.env.${net}.local`),
         ];
 
-    // RPC (private), always as STARKNET_RPC consumed uniformly
+// RPC (private), always as ETH_RPC consumed uniformly
     const lines: string[] = [];
-    lines.push(`VITE_STARKNET_RPC=${RPC}`);
+    lines.push(`VITE_ETH_RPC=${RPC}`);
     if (DEPLOY_BLOCK && String(DEPLOY_BLOCK).trim()) {
       lines.push(`VITE_PULSE_AUCTION_DEPLOY_BLOCK=${DEPLOY_BLOCK}`);
     } else if (net !== "devnet") {

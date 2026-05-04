@@ -3,9 +3,9 @@ import { isDesktopDevice } from "@inshell/utils";
 import "./Movements.css";
 
 const WORDS = [
-  { label: "THOUGHT", year: "2026" },
-  { label: "WILL", year: "2026" },
-  { label: "AWA!", year: "2027" },
+  { label: "THOUGHT", year: "2026", href: "http://127.0.0.1:5178/" },
+  { label: "WILL", year: "2027" },
+  { label: "AWA!", year: "2028" },
 ];
 
 export default function Movements() {
@@ -78,12 +78,15 @@ export default function Movements() {
             in {word.year}
           </div>
           {word.label === "THOUGHT" ? (
-            <div
-              className="movements__word"
+            <a
+              href={word.href}
+              className="movements__word movements__word--link"
               style={{ opacity: projectOpacity }}
+              target="_blank"
+              rel="noreferrer"
             >
               {word.label}
-            </div>
+            </a>
           ) : (
             <div
               className="movements__word"

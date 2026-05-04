@@ -1,14 +1,14 @@
 # scripts/
 
-Task scripts for syncing **addresses**, **ABIs**, and **env** across Devnet / Sepolia / Mainnet.
+Task scripts for syncing **addresses**, writing **env**, and validating imported PATH artifacts.
 
 ## Scripts overview
 
 | Script | Purpose |
 | --- | --- |
 | `sync-addresses.ts` | Normalize and write `packages/contracts/src/addresses/addresses.<net>.json` from a file or URL. |
-| `sync-abi.ts` | Fetch on-chain ABIs by address and write per-network ABI files plus class-hash cache. |
 | `sync-env.ts` | Generate `.env.<net>.local` for apps from RPC + addresses (supports deploy block). |
+| `validate-path-artifacts.ts` | Reject stale PATH ABI/release JSON that still exposes deprecated spark/reserved mint surface. |
 | `abi-json-to-ts.ts` | Convert ABI JSON into a typed TS export for runtime/typing. |
 | `loadEnv.ts` | Load the best matching `.env.*` file for scripts/builds. |
 | `utils.ts` | Shared helpers for CLI flags, fetch/JSON, and address normalization. |
@@ -19,17 +19,29 @@ Task scripts for syncing **addresses**, **ABIs**, and **env** across Devnet / Se
 - `utils.ts` — shared CLI + I/O helpers (flags, fetch, JSON, address normalization).
 - `sync-addresses.ts` — writes `packages/contracts/src/addresses/addresses.<net>.json` from a local file or URL.
 - `sync-env.ts` — writes `apps/home/.env.<net>.local` and `apps/thought/.env.<net>.local` from RPC + addresses.
-- `sync-abi.ts` — pulls on-chain ABIs by address via RPC and writes:
-  - `packages/contracts/src/abi/<net>/<NAME>.json` (per-network fallback)
-  - `packages/contracts/src/abi/by-class/<CLASS_HASH>.abi.json` (canonical, deduped)
-  - `packages/contracts/src/abi/<net>/manifest.json`
+- `validate-path-artifacts.ts` — scans imported PATH JSON artifacts for deleted spark/reserved surface before syncing.
+
+## PATH artifact policy
+
+- `inshell.art` does not currently have a `sync-abi.ts` pipeline.
+- Treat imported PATH ABI/release bundles as untrusted until validated.
+- After `path/` spark-drop commit `070ee8342833a4249027146d3ed61cf555e4762f`, reject any imported artifact containing:
+  - `RESERVED_ROLE`
+  - `SPARK_BASE`
+  - `mintSparker`
+  - `getReservedCap`
+  - `getReservedRemaining`
+  - `reserved_cap`
+- Canonical `PathMinter` surface is now:
+  - `nextId`
+  - `freezeSalesCaller`
+  - `mintPublic`
 
 ## Requirements
 
 - Node 18+ (for `fetch`)
 - pnpm
 - TypeScript / tsx: `pnpm add -D typescript tsx @types/node`
-- starknet.js: `pnpm add starknet`
 
 ## Config precedence
 

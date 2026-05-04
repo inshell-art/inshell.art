@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuctionBids } from "@/hooks/useAuctionBids";
-import type { ProviderInterface } from "starknet";
+import type { ProviderInterface } from "@inshell/ethereum";
+import {
+  callContract,
+  getBalance,
+  getDefaultProvider,
+  ZERO_ADDRESS,
+} from "@inshell/ethereum";
 import {
   scaleIntegerString,
   toFixed,
@@ -9,11 +15,9 @@ import {
   type U256Num,
 } from "@inshell/utils";
 import type { AuctionSnapshot } from "@/types/types";
-import type { AbiSource } from "@inshell/contracts";
 import type { NormalizedBid } from "@/services/auction/bidsService";
 import { useAuctionCore } from "@/hooks/useAuctionCore";
-import { resolveAddress } from "@inshell/contracts";
-import { callContract, getDefaultProvider } from "@inshell/starknet";
+import { isEvmAddress, maybeResolveAddress } from "@inshell/contracts";
 import HeaderWalletCTA from "@/components/HeaderWalletCTA";
 import { useWallet } from "@inshell/wallet";
 /* global SVGSVGElement, SVGElement, HTMLDivElement, PointerEvent, URLSearchParams */
@@ -21,7 +25,6 @@ import { useWallet } from "@inshell/wallet";
 type Props = {
   address?: string;
   provider?: ProviderInterface;
-  abiSource?: AbiSource;
   refreshMs?: number;
   decimals?: number;
   maxBids?: number;
@@ -81,6 +84,41 @@ function shortHash(hash?: string) {
   return `${hash.slice(0, 6)}…${hash.slice(-4)}`;
 }
 
+function walletConnectorRank(connector: any): number {
+  const kind = String(connector?.kind ?? "");
+  const name = String(connector?.name ?? "").toLowerCase();
+  const rdns = String(connector?.detail?.info?.rdns ?? "").toLowerCase();
+  if (kind === "walletconnect") return 200;
+  if (rdns.includes("metamask") || name.includes("metamask")) return 0;
+  if (rdns.includes("rabby") || name.includes("rabby")) return 10;
+  if (rdns.includes("coinbase") || name.includes("coinbase")) return 20;
+  if (rdns === "window.ethereum" || name === "injected") return 100;
+  return 50;
+}
+
+function formatTinyDecimalString(
+  fixed: string,
+  significantDigits = 4
+): string {
+  const raw = String(fixed ?? "").trim();
+  if (!raw) return "—";
+
+  const negative = raw.startsWith("-");
+  const unsigned = negative ? raw.slice(1) : raw;
+  const [intRaw, fracRaw = ""] = unsigned.split(".");
+  const intPart = intRaw.replace(/^0+(?=\d)/, "") || "0";
+
+  if (!fracRaw) return negative ? `-${intPart}` : intPart;
+
+  const firstNonZero = fracRaw.search(/[1-9]/);
+  if (firstNonZero < 0) return "0";
+
+  const keepTo = Math.min(fracRaw.length, firstNonZero + significantDigits);
+  const frac = fracRaw.slice(0, keepTo).replace(/0+$/, "");
+  const sign = negative ? "-" : "";
+  return frac ? `${sign}${intPart}.${frac}` : `${sign}${intPart}`;
+}
+
 function formatTokenAmount(u: { dec: string }, decimals: number): string {
   const raw = String(u?.dec ?? "").trim();
   if (!raw) return "—";
@@ -89,17 +127,26 @@ function formatTokenAmount(u: { dec: string }, decimals: number): string {
     : raw;
   if (!fixed.includes(".")) return fixed;
   const [intPart, fracPart] = fixed.split(".");
+  if ((intPart.replace(/^0+(?=\d)/, "") || "0") === "0") {
+    return formatTinyDecimalString(fixed);
+  }
   const trimmed = fracPart.slice(0, 4).replace(/0+$/, "");
   return trimmed ? `${intPart}.${trimmed}` : intPart;
 }
 
 function formatHumanTokenAmount(value: number): string {
   if (!Number.isFinite(value)) return "—";
-  const fixed = value.toFixed(4);
+  if (value === 0) return "0";
+  const abs = Math.abs(value);
+  const fixed = abs < 0.01 ? value.toFixed(18) : value.toFixed(4);
+  if (abs < 0.01 && Number(fixed) !== 0) {
+    return formatTinyDecimalString(fixed);
+  }
   return fixed.replace(/\.?0+$/, "");
 }
 
 const BASE_HALF_LIVES = 10;
+const EXTREME_HISTORY_TAIL_THRESHOLD = BASE_HALF_LIVES * 100;
 const PLOT_LEFT_PAD = 1.6;
 const PLOT_RIGHT_PAD = PLOT_LEFT_PAD;
 const PLOT_X_SPAN = 100 - PLOT_LEFT_PAD - PLOT_RIGHT_PAD;
@@ -109,6 +156,7 @@ const FIXTURE_ARG_K_WEI = 100_000_000_000_000_000_000n; // 1e20
 const FIXTURE_ARG_PTS_WEI_PER_SEC = 100_000_000_000_000n; // 1e14
 const FIXTURE_ARG_GENESIS_PRICE_WEI = 1_000_000_000_000_000_000n; // 1e18
 const FIXTURE_ARG_GENESIS_FLOOR_WEI = 100_000_000_000_000_000n; // 1e17
+const RELEASE_SEPOLIA_PULSE_AUCTION_BLOCK = 10437999;
 
 function rescaleWeiToDecimals(valueWei: bigint, decimals: number): bigint {
   if (decimals === 18) return valueWei;
@@ -143,7 +191,7 @@ function getEnvValue(name: string): unknown {
 function resolveExplorerBase(): string {
   const base = getEnvValue("VITE_EXPLORER_BASE_URL");
   if (typeof base === "string" && base.trim()) return base.trim();
-  return "https://sepolia.voyager.online";
+  return "https://sepolia.etherscan.io";
 }
 
 function resolveExplorerTxUrl(hash: string): string {
@@ -154,17 +202,37 @@ function resolveExplorerTxUrl(hash: string): string {
 function findInjectedWallet(): { request?: (...args: any[]) => Promise<any> } | null {
   if (typeof window === "undefined") return null;
   const w = window as unknown as Record<string, any>;
-  const priority = ["starknet_ready", "starknet"];
+  const priority = ["ethereum"];
   for (const key of priority) {
     const wallet = w[key];
     if (wallet?.request) return wallet;
   }
   for (const key of Object.keys(w)) {
-    if (!key.startsWith("starknet_")) continue;
+    if (!key.startsWith("ethereum")) continue;
     const wallet = w[key];
     if (wallet?.request) return wallet;
   }
   return null;
+}
+
+function resolveSepoliaAddChainParams(chainIdHex: string) {
+  if (chainIdHex.toLowerCase() !== ETH_SEPOLIA_CHAIN_ID_HEX) return null;
+  const rpcUrl = getEnvValue("VITE_ETH_RPC");
+  const explorer = resolveExplorerBase();
+  const rpcUrls =
+    typeof rpcUrl === "string" && rpcUrl.trim() ? [rpcUrl.trim()] : [];
+  return {
+    chainId: ETH_SEPOLIA_CHAIN_ID_HEX,
+    chainName: "Sepolia",
+    nativeCurrency: {
+      name: "Ether",
+      symbol: "ETH",
+      decimals: 18,
+    },
+    rpcUrls,
+    blockExplorerUrls:
+      typeof explorer === "string" && explorer.trim() ? [explorer.trim()] : [],
+  };
 }
 
 async function requestChainSwitch(chainIdHex: string): Promise<boolean> {
@@ -172,16 +240,40 @@ async function requestChainSwitch(chainIdHex: string): Promise<boolean> {
   if (!wallet?.request) return false;
   try {
     await wallet.request({
-      type: "wallet_switchStarknetChain",
-      params: { chainId: chainIdHex },
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: chainIdHex }],
     });
     return true;
-  } catch {
-    return false;
+  } catch (err) {
+    const code = Number((err as any)?.code);
+    const msg = String((err as any)?.message ?? err ?? "").toLowerCase();
+    const shouldAddChain =
+      code === 4902 ||
+      msg.includes("unknown chain") ||
+      msg.includes("unrecognized chain") ||
+      msg.includes("chain has not been added") ||
+      msg.includes("does not exist");
+    if (!shouldAddChain) return false;
+
+    const addParams = resolveSepoliaAddChainParams(chainIdHex);
+    if (!addParams) return false;
+    try {
+      await wallet.request({
+        method: "wallet_addEthereumChain",
+        params: [addParams],
+      });
+      await wallet.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: chainIdHex }],
+      });
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 
-const SEPOLIA_CHAIN_ID_HEX = "0x534e5f5345504f4c4941";
+const ETH_SEPOLIA_CHAIN_ID_HEX = "0xaa36a7";
 
 function parseChainId(value: unknown): bigint | null {
   if (value == null) return null;
@@ -202,7 +294,7 @@ function parseChainId(value: unknown): bigint | null {
 function resolveTargetChainIdHex(): string {
   const raw = getEnvValue("VITE_EXPECTED_CHAIN_ID");
   if (typeof raw === "string" && raw.trim()) return raw.trim();
-  return SEPOLIA_CHAIN_ID_HEX;
+  return ETH_SEPOLIA_CHAIN_ID_HEX;
 }
 
 function parseBlockNumber(value: unknown): number | undefined {
@@ -225,25 +317,29 @@ function resolveBidsFromBlock(): number | undefined {
   if (typeof parsed === "number") return parsed;
   const network = getEnvValue("VITE_NETWORK");
   if (typeof network === "string" && network === "devnet") return 0;
+  if (typeof network === "string" && network === "sepolia") {
+    return RELEASE_SEPOLIA_PULSE_AUCTION_BLOCK;
+  }
   return undefined;
 }
 
-function resolvePaymentToken(): string {
-  const raw =
-    getEnvValue("VITE_PAYTOKEN") ?? getEnvValue("VITE_PAYMENT_TOKEN");
-  if (typeof raw === "string" && raw.trim()) return raw.trim();
-  return SEPOLIA_ETH;
+function resolvePaymentToken(): string | undefined {
+  const alias = getEnvValue("VITE_PAYTOKEN");
+  if (typeof alias === "string" && isEvmAddress(alias)) return alias.trim();
+  return maybeResolveAddress("payment_token");
 }
 
-function resolvePaymentSymbol(paymentToken: string): string {
+function resolvePaymentSymbol(paymentToken?: string): string {
   const raw =
     getEnvValue("VITE_PAYTOKEN_SYMBOL") ??
     getEnvValue("VITE_PAYMENT_TOKEN_SYMBOL");
   if (typeof raw === "string" && raw.trim()) return raw.trim();
-  const normalized = paymentToken.trim().toLowerCase();
-  if (normalized === SEPOLIA_STRK.toLowerCase()) return "STRK";
-  if (normalized === SEPOLIA_ETH.toLowerCase()) return "ETH";
+  if (paymentToken) return "ETH";
   return "ETH";
+}
+
+function isNativePaymentToken(paymentToken?: string): boolean {
+  return typeof paymentToken === "string" && paymentToken.trim().toLowerCase() === ZERO_ADDRESS;
 }
 
 function isTransientRpcError(err: unknown): boolean {
@@ -259,10 +355,6 @@ const DELAY_MS = 500;
 const ERROR_DELAY_MS = 700;
 const STARTUP_ERROR_DELAY_MS = 2500;
 const FALLBACK_DELAY_MS = 1200;
-const SEPOLIA_ETH =
-  "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7";
-const SEPOLIA_STRK =
-  "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d";
 const DEBUG_ASK_LABEL = "25.2577";
 const DEBUG_BALANCE_LABEL = "5.8346";
 const DEBUG_TX_HASH = "0xdeadbeefcafebabe";
@@ -271,7 +363,6 @@ type DotPoint = {
   x: number;
   y: number;
   key: string;
-  isGenesis?: boolean;
   screenX?: number;
   screenY?: number;
   bidder?: string;
@@ -298,12 +389,14 @@ type DotPoint = {
   uGlobal?: number;
   dtPrevSec?: number;
   dtNextSec?: number | null;
+  bLastHuman?: number;
+  bCurrentHuman?: number;
+  floorMoveCurrentHuman?: number;
 };
 
 type LinkedSegment = {
-  idx: number; // same as bid index
-  isGenesis: boolean;
-  bid: NormalizedBid;
+  idx: number; // render order index
+  bid: NormalizedBid | null; // sale that closes this segment; null for active segment
   epoch: number;
   uStart: number; // global half-life axis
   uLen: number; // local segment length in half-lives (or window for last)
@@ -340,13 +433,20 @@ type LinkedStatic = {
   reason: string | null;
 };
 
-type DecayModel = "rational" | "exp";
-
 type Viewport = {
   xMin: number;
   xMax: number;
   yMin: number;
   yMax: number;
+};
+
+type AskMark = {
+  key: string;
+  kind: "ask" | "opening-floor";
+  epoch: number;
+  segIdx: number;
+  u: number;
+  price: number;
 };
 
 type PulseFixture = {
@@ -363,6 +463,8 @@ type PulseFixture = {
     floors?: number[];
     // Gap between sale i and sale i+1, in seconds.
     gapsSec?: number[];
+    // Gap between auction open and sale #1, in seconds.
+    openGapSec?: number;
   };
 };
 
@@ -494,15 +596,6 @@ function randomInt(min: number, max: number): number {
   return Math.floor(randomFloat(lo, hi + 1));
 }
 
-function randomLogInt(min: number, max: number): number {
-  const lo = Math.max(1, Math.min(min, max));
-  const hi = Math.max(lo, Math.max(min, max));
-  if (lo === hi) return lo;
-  const ratio = hi / lo;
-  const sampled = lo * Math.pow(ratio, Math.random());
-  return Math.max(lo, Math.min(hi, Math.round(sampled)));
-}
-
 function clampRandomEpochCount(raw: number | null | undefined): number | null {
   if (raw == null || !Number.isFinite(raw)) return null;
   return Math.max(
@@ -533,66 +626,79 @@ function readRandomEpochCountOverride(): number | null {
   );
 }
 
-function normalizeDecayModel(raw: unknown): DecayModel | null {
-  if (raw == null) return null;
-  const value = String(raw).trim().toLowerCase();
-  if (!value) return null;
-  if (
-    value === "rational" ||
-    value === "hyper" ||
-    value === "hyperbolic" ||
-    value === "legacy" ||
-    value === "default" ||
-    value === "linear"
-  ) {
-    return "rational";
-  }
-  if (
-    value === "exp" ||
-    value === "exponential" ||
-    value === "half" ||
-    value === "halving" ||
-    value === "pow2"
-  ) {
-    return "exp";
-  }
-  return null;
-}
-
-function readDecayModel(): DecayModel {
-  if (typeof window !== "undefined") {
-    const params = new URLSearchParams(window.location.search ?? "");
-    const queryMode = normalizeDecayModel(params.get("decay"));
-    if (queryMode) return queryMode;
-  }
-  return normalizeDecayModel(getEnvValue("VITE_PULSE_DECAY_MODEL")) ?? "rational";
-}
-
-function premiumAtU(premium: number, uLocal: number, mode: DecayModel): number {
+function premiumAtU(premium: number, uLocal: number): number {
   const u = Math.max(0, Number.isFinite(uLocal) ? uLocal : 0);
   if (!Number.isFinite(premium) || premium <= 0) return 0;
-  if (mode === "exp") return premium * Math.pow(0.5, u);
   return premium / Math.max(u + 1, 1e-9);
 }
 
-function priceAtU(
-  floor: number,
-  premium: number,
-  uLocal: number,
-  mode: DecayModel
-): number {
-  return floor + premiumAtU(premium, uLocal, mode);
+function priceAtU(floor: number, premium: number, uLocal: number): number {
+  return floor + premiumAtU(premium, uLocal);
 }
 
-function oneHalfDropAtU(premium: number, uLocal: number, mode: DecayModel): number {
+function positiveDenominator(value: number): number {
+  return Number.isFinite(value) && value > 0 ? value : Number.MIN_VALUE;
+}
+
+function getVisibleYExtents(
+  linked: LinkedCurve,
+  xMin: number,
+  xMax: number
+): { minY: number; maxY: number } {
+  const eps = 1e-9;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  const includeY = (value: number) => {
+    if (!Number.isFinite(value)) return;
+    minY = Math.min(minY, value);
+    maxY = Math.max(maxY, value);
+  };
+
+  for (const seg of linked.segments) {
+    const segStart = seg.uStart;
+    const segEnd = seg.uStart + seg.uLen;
+    if (segEnd < xMin - eps || segStart > xMax + eps) continue;
+
+    const overlapStart = clamp(xMin, segStart, segEnd);
+    const overlapEnd = clamp(xMax, segStart, segEnd);
+    const u0 = Math.max(0, overlapStart - segStart);
+    const u1 = Math.max(0, overlapEnd - segStart);
+    const y0 = priceAtU(seg.floor, seg.premium, u0);
+    const y1 = priceAtU(seg.floor, seg.premium, u1);
+    includeY(y0);
+    includeY(y1);
+
+    if (segStart >= xMin - eps && segStart <= xMax + eps) {
+      includeY(seg.floor);
+      includeY(seg.ask);
+    }
+  }
+
+  if (
+    linked.nowU != null &&
+    linked.nowPrice != null &&
+    Number.isFinite(linked.nowU) &&
+    Number.isFinite(linked.nowPrice) &&
+    linked.nowU >= xMin - eps &&
+    linked.nowU <= xMax + eps
+  ) {
+    includeY(linked.nowPrice);
+  }
+
+  if (!Number.isFinite(minY) || !Number.isFinite(maxY)) {
+    return { minY: linked.minY, maxY: linked.maxY };
+  }
+  return { minY, maxY };
+}
+
+function oneHalfDropAtU(premium: number, uLocal: number): number {
   const u = Math.max(0, Number.isFinite(uLocal) ? uLocal : 0);
   if (!Number.isFinite(premium) || premium <= 0) return 0;
-  if (mode === "exp") return premiumAtU(premium, u, mode) * 0.5;
   return premium / Math.max((u + 1) * (u + 2), 1e-9);
 }
 
-function curveFormulaLabel(mode: DecayModel): string {
-  return mode === "exp" ? "y = b + D·2^-u" : "y = k/(t-a)+b";
+function curveFormulaLabel(): string {
+  return "y = k/(t-a)+b";
 }
 
 function makeRandomPulseFixture(epochCountOverride?: number | null): PulseFixture {
@@ -600,6 +706,7 @@ function makeRandomPulseFixture(epochCountOverride?: number | null): PulseFixtur
   const FIXED_K = 1e20;
   const FIXED_FLOOR = 0.1;
   const MIN_GAP_SEC = 60;
+  const FIRST_SALE_MAX_GAP_SEC = 10 * 60;
   const MAX_GAP_SEC = 86_400; // 1 day
 
   const nowSec = Math.floor(Date.now() / 1000);
@@ -607,6 +714,8 @@ function makeRandomPulseFixture(epochCountOverride?: number | null): PulseFixtur
   const epochIndex =
     forcedEpochCount ?? randomInt(RANDOM_FIXTURE_MIN_EPOCHS, RANDOM_FIXTURE_MAX_EPOCHS);
   const transitionCount = Math.max(0, epochIndex - 1);
+  // Keep sale #1 bid window short/random within 10 minutes.
+  const openGapSec = randomInt(MIN_GAP_SEC, FIRST_SALE_MAX_GAP_SEC);
   const gapsSec = Array.from({ length: transitionCount }, () =>
     randomInt(MIN_GAP_SEC, MAX_GAP_SEC)
   );
@@ -624,6 +733,7 @@ function makeRandomPulseFixture(epochCountOverride?: number | null): PulseFixtur
     },
     history: {
       gapsSec,
+      openGapSec,
     },
   };
 }
@@ -686,6 +796,7 @@ function clonePulseFixture(fx: PulseFixture): PulseFixture {
       ? {
           floors: fx.history.floors?.slice(),
           gapsSec: fx.history.gapsSec?.slice(),
+          openGapSec: fx.history.openGapSec,
         }
       : undefined,
   };
@@ -718,6 +829,7 @@ function parsePulseFixture(raw: unknown): PulseFixture | null {
       const gapsRaw = Array.isArray((historyRaw as any).gapsSec)
         ? ((historyRaw as any).gapsSec as unknown[])
         : [];
+      const openGapRaw = Number((historyRaw as any).openGapSec);
       const floors = floorsRaw
         .map((v) => Number(v))
         .filter((v) => Number.isFinite(v) && v > 0)
@@ -726,10 +838,15 @@ function parsePulseFixture(raw: unknown): PulseFixture | null {
         .map((v) => Number(v))
         .filter((v) => Number.isFinite(v))
         .map((v) => Math.max(1, Math.round(v)));
-      if (floors.length >= 2 || gapsSec.length >= 1) {
+      const openGapSec =
+        Number.isFinite(openGapRaw) && openGapRaw > 0
+          ? Math.max(1, Math.round(openGapRaw))
+          : undefined;
+      if (floors.length >= 2 || gapsSec.length >= 1 || openGapSec != null) {
         history = {
           floors: floors.length ? floors : undefined,
           gapsSec: gapsSec.length ? gapsSec : undefined,
+          openGapSec,
         };
       }
     }
@@ -769,15 +886,7 @@ function fixtureEnabled(): boolean {
   const envRaw = getEnvValue("VITE_PULSE_FIXTURE");
   if (envRaw != null) return !isFixtureDisabledToken(envRaw);
 
-  if (isTestEnv) return false;
-  const host = window.location.hostname.toLowerCase();
-  if (host === "localhost" || host === "127.0.0.1" || host === "::1") return true;
-  const devFlag = getEnvValue("DEV");
-  return (
-    devFlag === true ||
-    devFlag === "true" ||
-    getEnvValue("MODE") === "development"
-  );
+  return false;
 }
 
 function readPulseFixture(enabled: boolean): PulseFixture | null {
@@ -886,47 +995,65 @@ function fixtureToState(
     gapsSec[transitionCount - 1] = defaultGapSec;
   }
 
-  // Reconstruct a serial cascade that is internally consistent from sale #1 through now,
-  // using fixed constructor params (k, pts, genesis floor/price).
-  const floorSeries = new Array<number>(bidCount).fill(0);
-  floorSeries[0] = genesisFloorHuman;
-  for (let idx = 0; idx < bidCount - 1; idx += 1) {
-    const dtToNext = Math.max(1, gapsSec[idx] ?? defaultGapSec);
-    const premium =
-      idx === 0
-        ? genesisPremiumHuman
-        : ptsHuman * Math.max(1, gapsSec[idx - 1] ?? defaultGapSec);
-    const step =
-      premium /
-      Math.max(1 + (dtToNext * premium) / Math.max(kHuman, 1e-9), 1e-9);
-    floorSeries[idx + 1] = Math.max(0, floorSeries[idx] + step);
-  }
-
   const timeSeriesSec = new Array<number>(bidCount).fill(fx.epoch.tStart);
   timeSeriesSec[bidCount - 1] = fx.epoch.tStart;
   for (let idx = bidCount - 2; idx >= 0; idx -= 1) {
     timeSeriesSec[idx] = timeSeriesSec[idx + 1] - Math.max(1, gapsSec[idx] ?? defaultGapSec);
   }
 
+  // Pure-ratchet cascade for fixtures:
+  // each bid is a completed sale; its amount/floor is the executed sale price p_i.
+  const floorSeries = new Array<number>(bidCount).fill(0);
+  const premiumSeries = new Array<number>(bidCount).fill(0);
+  const openGapRaw = Number(fx.history?.openGapSec);
+  const openGapSec =
+    Number.isFinite(openGapRaw) && openGapRaw > 0
+      ? Math.max(1, Math.round(openGapRaw))
+      : defaultGapSec;
+  const firstBidAtSec = timeSeriesSec.length ? timeSeriesSec[0] : fx.epoch.tStart;
+  const openTimeSec = firstBidAtSec - openGapSec;
+  let prevFloor = genesisFloorHuman;
+  let prevPremium = genesisPremiumHuman;
+  let prevStartSec = openTimeSec;
+  for (let idx = 0; idx < bidCount; idx += 1) {
+    const saleTimeSec = timeSeriesSec[idx];
+    const dtLastSec = Math.max(1, saleTimeSec - prevStartSec);
+    const clearPrice =
+      prevFloor +
+      prevPremium /
+        Math.max(1 + (dtLastSec * prevPremium) / Math.max(kHuman, 1e-9), 1e-9);
+    floorSeries[idx] = Math.max(0, clearPrice);
+    premiumSeries[idx] = ptsHuman * dtLastSec;
+    prevFloor = floorSeries[idx];
+    prevPremium = premiumSeries[idx];
+    prevStartSec = saleTimeSec;
+  }
+  const floorSeriesScaled = floorSeries.map((floor) =>
+    humanToScaledBigInt(floor, decimals)
+  );
+
   const toU256 = (val: bigint) => toU256Num({ low: val.toString(), high: "0" });
-  const bids: NormalizedBid[] = floorSeries.map((floor, idx) => {
-    const floorScaled = humanToScaledBigInt(floor, decimals);
+  const bids: NormalizedBid[] = floorSeriesScaled.map((floorScaled, idx) => {
     const epoch = epochStartIndex + idx;
+    const premium = Math.max(premiumSeries[idx] ?? 0, 1e-9);
+    const anchorOffsetSec = Math.max(1, Math.floor(kHuman / premium));
+    const anchorASec = timeSeriesSec[idx] - anchorOffsetSec;
     return {
       key: `fx#${epoch}`,
       atMs: timeSeriesSec[idx] * 1000,
       bidder: `0xfixture-${epoch.toString(16)}`,
       amount: toU256(floorScaled),
+      floorB: toU256(floorScaled),
+      anchorASec,
       blockNumber: idx + 1,
       epochIndex: epoch,
       tokenId: epoch,
     };
   });
-  const firstBidAtSec = timeSeriesSec.length ? timeSeriesSec[0] : fx.epoch.tStart;
   const genesisFloorU256 = toU256(genesisFloorScaled);
   const genesisPriceU256 = toU256(genesisPriceScaled);
   const config: AuctionSnapshot["config"] = {
-    openTimeSec: firstBidAtSec,
+    openTimeSec,
     genesisPrice: genesisPriceU256,
     genesisFloor: genesisFloorU256,
     k: toU256(kScaled),
@@ -956,6 +1083,14 @@ function formatLocalTime(atMs: number): string {
   )}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
+function formatUtcTime(atMs: number): string {
+  const d = new Date(atMs);
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(
+    d.getUTCHours()
+  )}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
+}
+
 function formatAmount(
   val: string | undefined,
   _decimals: number,
@@ -965,6 +1100,13 @@ function formatAmount(
   const cleaned = String(raw).replace(/,/g, "");
   const n = Number(cleaned);
   if (Number.isFinite(n)) {
+    if (n !== 0 && Math.abs(n) < 0.01) {
+      const fixed = n.toFixed(18);
+      if (Number(fixed) !== 0) {
+        return `${formatTinyDecimalString(fixed)} ${symbol}`;
+      }
+      return `${n.toExponential(4)} ${symbol}`;
+    }
     const withSep = new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
@@ -1054,22 +1196,37 @@ function formatAmountWithMinNonZeroFrac(
   return `${n.toExponential(4)} ${symbol}`;
 }
 
-type AuctionStatus = "loading" | "pre_open" | "genesis_waiting" | "active" | "error";
+type AuctionStatus = "loading" | "before_open" | "open_not_active" | "active" | "error";
 
 function normalizeAuctionStatus(value: unknown): AuctionStatus | null {
   if (typeof value !== "string") return null;
   const raw = value.trim().toLowerCase();
   if (!raw || raw === "0" || raw === "false" || raw === "auto") return null;
-  if (raw === "pre_open" || raw === "pre-open" || raw === "preopen") {
-    return "pre_open";
+  if (
+    raw === "before_open" ||
+    raw === "before-open" ||
+    raw === "beforeopen" ||
+    raw === "pre_open" ||
+    raw === "pre-open" ||
+    raw === "preopen"
+  ) {
+    return "before_open";
   }
   if (
+    raw === "open_not_active" ||
+    raw === "open-not-active" ||
+    raw === "opennotactive" ||
+    raw === "open_not_actived" ||
+    raw === "open-not-actived" ||
+    raw === "inactive" ||
+    raw === "not_active" ||
+    raw === "not-active" ||
     raw === "genesis_waiting" ||
     raw === "genesis-waiting" ||
     raw === "genesis" ||
     raw === "waiting"
   ) {
-    return "genesis_waiting";
+    return "open_not_active";
   }
   if (raw === "active") return "active";
   if (raw === "loading") return "loading";
@@ -1101,26 +1258,26 @@ function readAuctionStatusOverride(): AuctionStatus | null {
 function useAuctionStatus(params: {
   nowSec: number;
   openTimeSec?: number | null;
-  coreActive?: boolean | null;
   coreLoading: boolean;
+  bidsLoading: boolean;
   coreErrorVisible: unknown;
   bidsLength: number;
 }) {
   const {
     nowSec,
     openTimeSec,
-    coreActive,
     coreLoading,
+    bidsLoading,
     coreErrorVisible,
     bidsLength,
   } = params;
   const [status, setStatus] = useState<AuctionStatus>("loading");
   const statusOverride = useMemo(() => readAuctionStatusOverride(), []);
-  const openAtLabel = useMemo(() => {
+  const openAtUtcLabel = useMemo(() => {
     if (typeof openTimeSec !== "number" || !Number.isFinite(openTimeSec)) {
       return null;
     }
-    return formatLocalTime(openTimeSec * 1000);
+    return formatUtcTime(openTimeSec * 1000);
   }, [openTimeSec]);
 
   useEffect(() => {
@@ -1137,29 +1294,29 @@ function useAuctionStatus(params: {
       return;
     }
     if (nowSec < openTimeSec) {
-      setStatus("pre_open");
+      setStatus("before_open");
+      return;
+    }
+    if (coreLoading || bidsLoading) {
+      setStatus("loading");
       return;
     }
     if (bidsLength > 0) {
       setStatus("active");
       return;
     }
-    if (coreActive === false) {
-      setStatus("genesis_waiting");
-      return;
-    }
-    setStatus(coreLoading ? "loading" : "loading");
+    setStatus("open_not_active");
   }, [
     statusOverride,
+    coreLoading,
+    bidsLoading,
     coreErrorVisible,
     openTimeSec,
     nowSec,
     bidsLength,
-    coreActive,
-    coreLoading,
   ]);
 
-  return { status, openAtLabel };
+  return { status, openAtUtcLabel };
 }
 
 function toSafeNumber(val: string | number | bigint | undefined): number {
@@ -1201,12 +1358,10 @@ function pickNumber(
 export default function AuctionCanvas({
   address,
   provider,
-  abiSource,
   refreshMs = 4000,
   decimals = 18,
   maxBids = 800,
 }: Props) {
-  const decayModel = useMemo(() => readDecayModel(), []);
   const useFixture = useMemo(() => fixtureEnabled(), []);
   const fixture = useMemo(() => readPulseFixture(useFixture), [useFixture]);
   const fixtureState = useMemo(
@@ -1223,29 +1378,39 @@ export default function AuctionCanvas({
     if (network === "devnet") return false;
     return bidsFromBlock == null;
   }, [network, bidsFromBlock]);
+  const auctionAddress = useMemo(
+    () => maybeResolveAddress("pulse_auction", address),
+    [address]
+  );
   const {
     bids: bidsHook,
     loading: bidsLoading,
+    pullOnce: pullBidsOnce = async () => [],
   } = useAuctionBids({
-    address: address ?? "0x0",
+    address: auctionAddress ?? "0x0000000000000000000000000000000000000000",
     provider,
     fromBlock: bidsFromBlock,
     refreshMs,
-    enabled: !fixtureState && Boolean(address),
+    enabled: !fixtureState && Boolean(auctionAddress),
     maxBids,
   });
   const {
     data: coreData,
     loading: coreLoadingHook,
     error: coreErrorHook,
+    refresh: refreshCore = async () => undefined,
   } = useAuctionCore({
-    address,
+    address: auctionAddress,
     provider,
     refreshMs,
-    abiSource,
+    enabled: !fixtureState && Boolean(auctionAddress),
   });
   const bids = fixtureState?.bids ?? bidsHook;
   const paymentToken = useMemo(() => resolvePaymentToken(), []);
+  const nativePayment = useMemo(
+    () => isNativePaymentToken(paymentToken),
+    [paymentToken]
+  );
   const displayTokenSymbol = useMemo(
     () => resolvePaymentSymbol(paymentToken),
     [paymentToken]
@@ -1254,6 +1419,7 @@ export default function AuctionCanvas({
     () => (fixtureState ? { config: fixtureState.config } : coreData),
     [fixtureState, coreData]
   );
+  const bidsLoadingVisible = fixtureState ? false : bidsLoading;
   const coreLoading = fixtureState ? false : coreLoadingHook;
   const coreError = fixtureState ? null : coreErrorHook;
   const [coreErrorVisible, setCoreErrorVisible] = useState<unknown>(null);
@@ -1270,6 +1436,7 @@ export default function AuctionCanvas({
     accountMissing,
     requestAccounts,
     watchAsset,
+    evm,
   } = useWallet();
   const [walletUnlockAttempted, setWalletUnlockAttempted] = useState(false);
   const [txState, setTxState] = useState<TxState>("idle");
@@ -1364,21 +1531,39 @@ export default function AuctionCanvas({
   const chainIdValue = useMemo(() => parseChainId(chainId), [chainId]);
   const chainKnown = chainIdValue !== null;
   const chainOk =
-    chainKnown && targetChainId !== null && chainIdValue === targetChainId;
+    chainKnown &&
+    chainIdValue !== null &&
+    targetChainId !== null &&
+    chainIdValue === targetChainId;
   const availableConnectors = useMemo(() => {
     if (!connectors?.length) return [];
-    return connectors.filter((connector) => {
-      try {
-        if (typeof (connector as any).available === "function") {
-          return Boolean((connector as any).available());
+    return connectors
+      .filter((connector) => {
+        try {
+          if (typeof (connector as any).available === "function") {
+            return Boolean((connector as any).available());
+          }
+        } catch {
+          return false;
         }
-      } catch {
-        return false;
-      }
-      return true;
-    });
+        return true;
+      })
+      .sort((a, b) => {
+        const rankDiff = walletConnectorRank(a) - walletConnectorRank(b);
+        if (rankDiff !== 0) return rankDiff;
+        return String((a as any)?.name ?? "").localeCompare(
+          String((b as any)?.name ?? "")
+        );
+      });
   }, [connectors]);
-  const walletDetected = availableConnectors.length > 0;
+  const walletConnectV2Enabled = useMemo(() => {
+    const raw = getEnvValue("VITE_WALLETCONNECT_PROJECT_ID");
+    return typeof raw === "string" && raw.trim().length > 0;
+  }, []);
+  const walletDetected =
+    availableConnectors.length > 0 ||
+    (evm?.providers?.length ?? 0) > 0 ||
+    walletConnectV2Enabled;
   const walletConnected = Boolean(isConnected);
   const walletAddressPresent = walletConnected && Boolean(walletAddress);
   const walletUnlocked =
@@ -1889,28 +2074,20 @@ export default function AuctionCanvas({
       (async () => {
         try {
           setFallbackError(null);
-          const addr = address ?? resolveAddress("pulse_auction");
-          const prov = provider ?? (getDefaultProvider() as any);
+          if (!auctionAddress) {
+            throw new Error("Auction contract address is missing.");
+          }
+          const prov = provider ?? (getDefaultProvider() as ProviderInterface);
           const res: any = await callContract(prov, {
-            contractAddress: addr,
+            contractAddress: auctionAddress,
             entrypoint: "get_config",
             calldata: [],
           });
-          const out: any[] = res?.result ?? res;
-          if (!Array.isArray(out) || out.length < 5) {
-            throw new Error("unexpected get_config shape");
-          }
-          const r: any = {
-            open_time: out[0],
-            genesis_price: { low: out[1], high: out[2] },
-            genesis_floor: { low: out[3], high: out[4] },
-            k: { low: out[5], high: out[6] },
-            pts: out[7],
-          };
+          const r = res ?? {};
           if (cancelled) return;
-          const open = Number(r.open_time);
-          const gp = readU256(r.genesis_price);
-          const gf = readU256(r.genesis_floor);
+          const open = Number(r.openTime ?? r.open_time ?? r.openTimeSec);
+          const gp = readU256(r.genesisPrice ?? r.genesis_price);
+          const gf = readU256(r.genesisFloor ?? r.genesis_floor);
           const k = readU256(r.k);
           const pts = String(r.pts);
           setFallbackConfig({
@@ -1932,15 +2109,14 @@ export default function AuctionCanvas({
   }, [
     core,
     coreError,
-    address,
+    auctionAddress,
     provider,
-    abiSource,
     fallbackConfig,
     fixtureState,
   ]);
 
   const activeConfig = core?.config ?? fallbackConfig ?? null;
-  const genesisAskLabel = useMemo(() => {
+  const openingAskLabel = useMemo(() => {
     if (!activeConfig?.genesisPrice) return "—";
     return formatTokenAmount(activeConfig.genesisPrice, decimals);
   }, [activeConfig?.genesisPrice, decimals]);
@@ -1982,7 +2158,10 @@ export default function AuctionCanvas({
       return { ...empty, reason: "non-positive k/pts" };
     }
 
-    if (!bids.length) return { ...empty, reason: "no bids" };
+    const openTimeSec = Number(activeConfig.openTimeSec);
+    if (!Number.isFinite(openTimeSec)) {
+      return { ...empty, reason: "invalid open time" };
+    }
 
     const genesisPriceRaw = pickNumber(
       activeConfig.genesisPrice?.dec,
@@ -1998,11 +2177,21 @@ export default function AuctionCanvas({
     const genesisFloorHuman = Number.isFinite(genesisFloorRaw)
       ? genesisFloorRaw / decFactor
       : Number.NaN;
+    const genesisPremiumHuman = genesisPriceHuman - genesisFloorHuman;
+    if (
+      !Number.isFinite(genesisPriceHuman) ||
+      !Number.isFinite(genesisFloorHuman) ||
+      !Number.isFinite(genesisPremiumHuman) ||
+      genesisPremiumHuman <= 0
+    ) {
+      return { ...empty, reason: "invalid opening curve" };
+    }
 
     const segments: LinkedSegment[] = [];
     let uCursor = 0;
     let minY = Number.POSITIVE_INFINITY;
     let maxY = Number.NEGATIVE_INFINITY;
+    const orderedBids = [...bids].sort((a, b) => a.atMs - b.atMs);
 
     const bidHuman = (bid: NormalizedBid): number => {
       const decStr =
@@ -2017,113 +2206,121 @@ export default function AuctionCanvas({
       return toNumberSafe(decStr);
     };
 
-    const bidFloorHuman = (bid: NormalizedBid): number => {
-      const raw = (bid as any).floorB;
-      if (!raw) return Number.NaN;
-      try {
-        return toNumberSafe(toFixed(raw, decimals));
-      } catch {
-        return toNumberSafe(String((raw as any)?.dec ?? ""));
-      }
-    };
+    let segStartSec = openTimeSec;
+    let segFloor = genesisFloorHuman;
+    let segPremium = genesisPremiumHuman;
+    let segDtPrevSec = segPremium / positiveDenominator(ptsHuman);
 
-    for (let i = 0; i < bids.length; i++) {
-      const bid = bids[i];
+    for (let i = 0; i < orderedBids.length; i += 1) {
+      const bid = orderedBids[i];
+      const saleSecRaw = bid.atMs / 1000;
+      if (!Number.isFinite(saleSecRaw)) {
+        return { ...empty, reason: "invalid bid time" };
+      }
+      const saleSec = Math.max(segStartSec, saleSecRaw);
       const epoch = Number.isFinite(Number(bid.epochIndex))
         ? Number(bid.epochIndex)
         : i + 1;
-      const startSec = bid.atMs / 1000;
-      const prevBid = i > 0 ? bids[i - 1] : null;
-      const nextBid = i + 1 < bids.length ? bids[i + 1] : null;
 
-      const wantsGenesis = i === 0 && epoch === 1;
-      const canGenesis =
-        wantsGenesis &&
-        Number.isFinite(genesisPriceHuman) &&
-        Number.isFinite(genesisFloorHuman) &&
-        genesisPriceHuman > genesisFloorHuman;
-      const floorFromEvent = bidFloorHuman(bid);
-      const hasFloorFromEvent =
-        Number.isFinite(floorFromEvent) && floorFromEvent > 0;
-      const anchorFromEvent = Number((bid as any).anchorASec);
-      const hasAnchorFromEvent =
-        Number.isFinite(anchorFromEvent) && anchorFromEvent > 0 && anchorFromEvent < startSec;
-
-      let isGenesis = wantsGenesis && canGenesis;
-      let floor = 0;
-      let premium = 0;
-      let dtPrevSec = 0;
-
-      if (isGenesis) {
-        floor = genesisFloorHuman;
-        premium = genesisPriceHuman - genesisFloorHuman;
-        dtPrevSec = 0;
-      } else {
-        if (hasFloorFromEvent) {
-          floor = floorFromEvent;
-        } else {
-          const amountHuman = bidHuman(bid);
-          if (!Number.isFinite(amountHuman)) {
-            return { ...empty, reason: "floor nan" };
-          }
-          floor = amountHuman;
-        }
-
-        if (hasAnchorFromEvent) {
-          premium = kHuman / Math.max(startSec - anchorFromEvent, 1e-9);
-          dtPrevSec = premium / Math.max(ptsHuman, 1e-9);
-        } else {
-          const prevSec =
-            (prevBid?.atMs ??
-              (activeConfig.openTimeSec ?? startSec - 1) * 1000) /
-              1000 || startSec - 1;
-          dtPrevSec = Math.max(1, startSec - prevSec);
-          premium = ptsHuman * dtPrevSec;
-        }
+      if (!Number.isFinite(segFloor) || !Number.isFinite(segPremium) || segPremium <= 0) {
+        return { ...empty, reason: "invalid premium" };
       }
 
-      if (!Number.isFinite(floor) || !Number.isFinite(premium) || premium <= 0) {
-        return {
-          ...empty,
-          reason: isGenesis ? "invalid genesis gap" : "invalid premium",
-        };
-      }
-
-      const tHalf = kHuman / Math.max(premium, 1e-9);
+      const tHalf = kHuman / positiveDenominator(segPremium);
       if (!Number.isFinite(tHalf) || tHalf <= 0) {
         return { ...empty, reason: "invalid half-life" };
       }
 
-      const dtNextSec =
-        nextBid != null ? Math.max(0, nextBid.atMs / 1000 - startSec) : null;
-      const uLen = dtNextSec != null ? dtNextSec / tHalf : 0;
-      const endSec = startSec + (dtNextSec ?? 0);
-      const ask = floor + premium;
-      const seg: LinkedSegment = {
-        idx: i,
-        isGenesis,
+      const dtToSaleSec = Math.max(0, saleSec - segStartSec);
+      const uLen = dtToSaleSec / tHalf;
+      const ask = segFloor + segPremium;
+      segments.push({
+        idx: segments.length,
         bid,
         epoch,
         uStart: uCursor,
         uLen,
-        startSec,
-        endSec,
-        floor,
-        premium,
+        startSec: segStartSec,
+        endSec: saleSec,
+        floor: segFloor,
+        premium: segPremium,
         ask,
         kHuman,
         ptsHuman,
         tHalf,
-        anchor: startSec - tHalf,
-        dtPrevSec,
-        dtNextSec,
-      };
-
-      segments.push(seg);
-      minY = Math.min(minY, floor, ask);
-      maxY = Math.max(maxY, floor, ask);
+        anchor: segStartSec - tHalf,
+        dtPrevSec: segDtPrevSec,
+        dtNextSec: dtToSaleSec,
+      });
+      minY = Math.min(minY, segFloor, ask);
+      maxY = Math.max(maxY, segFloor, ask);
       uCursor += uLen;
+
+      const salePriceHuman = bidHuman(bid);
+      if (!Number.isFinite(salePriceHuman)) {
+        return { ...empty, reason: "sale price nan" };
+      }
+      minY = Math.min(minY, salePriceHuman);
+      maxY = Math.max(maxY, salePriceHuman);
+
+      const deltaTLastSec = Math.max(1, saleSec - segStartSec);
+      let nextPremium = ptsHuman * deltaTLastSec;
+      let nextDtPrevSec = deltaTLastSec;
+      const anchorFromEvent = Number((bid as any).anchorASec);
+      const hasAnchorFromEvent =
+        Number.isFinite(anchorFromEvent) &&
+        anchorFromEvent > 0 &&
+        anchorFromEvent <= saleSec;
+      if (hasAnchorFromEvent) {
+        const anchorGap = saleSec - anchorFromEvent;
+        const premiumFromAnchor =
+          anchorGap <= 0 ? kHuman : kHuman / positiveDenominator(anchorGap);
+        if (Number.isFinite(premiumFromAnchor) && premiumFromAnchor > 0) {
+          nextPremium = premiumFromAnchor;
+          nextDtPrevSec = premiumFromAnchor / positiveDenominator(ptsHuman);
+        }
+      }
+
+      segStartSec = saleSec;
+      segFloor = salePriceHuman;
+      segPremium = nextPremium;
+      segDtPrevSec = nextDtPrevSec;
     }
+
+    if (!Number.isFinite(segFloor) || !Number.isFinite(segPremium) || segPremium <= 0) {
+      return { ...empty, reason: "invalid premium" };
+    }
+    const activeTHalf = kHuman / positiveDenominator(segPremium);
+    if (!Number.isFinite(activeTHalf) || activeTHalf <= 0) {
+      return { ...empty, reason: "invalid half-life" };
+    }
+    const lastEpoch = orderedBids.length
+      ? Number.isFinite(Number(orderedBids[orderedBids.length - 1].epochIndex))
+        ? Number(orderedBids[orderedBids.length - 1].epochIndex)
+        : orderedBids.length
+      : 0;
+    const activeEpoch = lastEpoch + 1;
+    const activeAsk = segFloor + segPremium;
+    segments.push({
+      idx: segments.length,
+      bid: null,
+      epoch: activeEpoch,
+      uStart: uCursor,
+      uLen: 0,
+      startSec: segStartSec,
+      endSec: segStartSec,
+      floor: segFloor,
+      premium: segPremium,
+      ask: activeAsk,
+      kHuman,
+      ptsHuman,
+      tHalf: activeTHalf,
+      anchor: segStartSec - activeTHalf,
+      dtPrevSec: segDtPrevSec,
+      dtNextSec: null,
+    });
+    minY = Math.min(minY, segFloor, activeAsk);
+    maxY = Math.max(maxY, segFloor, activeAsk);
 
     if (!Number.isFinite(minY) || !Number.isFinite(maxY)) {
       minY = 0;
@@ -2155,7 +2352,7 @@ export default function AuctionCanvas({
     const lastIdx = segments.length - 1;
     const lastBase = segments[lastIdx];
     const metaDtSec = Math.max(0, nowSec - lastBase.startSec);
-    const metaU = metaDtSec / Math.max(lastBase.tHalf, 1e-9);
+    const metaU = metaDtSec / positiveDenominator(lastBase.tHalf);
     const metaUClamped = Number.isFinite(metaU) ? Math.max(0, metaU) : 0;
     // End the visible serial curve exactly at "now" so the now-dot is the rightmost endpoint.
     const uMaxWindow = metaUClamped;
@@ -2173,12 +2370,7 @@ export default function AuctionCanvas({
     segments[lastIdx] = lastSeg;
 
     const nowU = lastSeg.uStart + metaUClamped;
-    const nowPrice = priceAtU(
-      lastSeg.floor,
-      lastSeg.premium,
-      metaUClamped,
-      decayModel
-    );
+    const nowPrice = priceAtU(lastSeg.floor, lastSeg.premium, metaUClamped);
 
     return {
       segments,
@@ -2189,18 +2381,18 @@ export default function AuctionCanvas({
       maxY: linkedStatic.maxY,
       reason: null,
     };
-  }, [linkedStatic, nowSec, decayModel]);
+  }, [linkedStatic, nowSec]);
 
-  const { status: auctionStatus, openAtLabel } = useAuctionStatus({
+  const { status: auctionStatus, openAtUtcLabel } = useAuctionStatus({
     nowSec,
     openTimeSec: activeConfig?.openTimeSec,
-    coreActive: (core as any)?.active,
     coreLoading,
+    bidsLoading: bidsLoadingVisible,
     coreErrorVisible,
     bidsLength: bids.length,
   });
-  const showPreOpenNotice = auctionStatus === "pre_open";
-  const showGenesisWaiting = auctionStatus === "genesis_waiting";
+  const showBeforeOpenNotice = auctionStatus === "before_open";
+  const showOpenNotActive = auctionStatus === "open_not_active";
   const showCurveLoading = auctionStatus === "loading";
   const showMissingDeployBlock =
     auctionStatus === "loading" &&
@@ -2211,7 +2403,7 @@ export default function AuctionCanvas({
     auctionStatus === "loading" &&
     !showMissingDeployBlock &&
     !coreLoading &&
-    !bidsLoading &&
+    !bidsLoadingVisible &&
     bids.length === 0;
   useEffect(() => {
     if (!showMissingDeployBlock) {
@@ -2237,8 +2429,8 @@ export default function AuctionCanvas({
   }, [showNoBidsLoaded]);
   const showCurvePlot =
     auctionStatus === "active" &&
-    !showPreOpenNotice &&
-    !showGenesisWaiting &&
+    !showBeforeOpenNotice &&
+    !showOpenNotActive &&
     linked.segments.length > 0 &&
     linked.reason === null;
   const liveAskLabel = useMemo(() => {
@@ -2246,24 +2438,42 @@ export default function AuctionCanvas({
     return formatHumanTokenAmount(linked.nowPrice);
   }, [linked.nowPrice]);
 
+  const useTailViewport = useMemo(() => {
+    const hasSaleHistory = linked.segments.length > 1;
+    const hasTinyLiveValues = linked.maxY > 0 && linked.maxY < 0.001;
+    return (
+      !fixtureState &&
+      bids.length === 1 &&
+      hasSaleHistory &&
+      hasTinyLiveValues &&
+      linked.uEnd > EXTREME_HISTORY_TAIL_THRESHOLD
+    );
+  }, [linked.maxY, linked.segments, linked.uEnd, fixtureState, bids.length]);
+
   const defaultViewport = useMemo<Viewport | null>(() => {
     if (!linked.segments.length) return null;
-    // Fit the full serial history by default so linked auctions are visible immediately.
-    const xMin = 0;
-    const xMax = Math.max(BASE_HALF_LIVES, linked.uEnd);
-    const ySpan = linked.maxY - linked.minY;
+    const tailWindow = BASE_HALF_LIVES * 2;
+    const lastSeg = linked.segments[linked.segments.length - 1];
+
+    let xMin = 0;
+    let xMax = Math.max(BASE_HALF_LIVES, linked.uEnd);
+
+    if (useTailViewport && lastSeg) {
+      const recentWindowMin = Math.max(0, linked.uEnd - tailWindow);
+      const transitionWindowMin = Math.max(0, lastSeg.uStart - BASE_HALF_LIVES);
+      xMin = Math.max(recentWindowMin, transitionWindowMin);
+      xMax = Math.max(xMin + 0.5, linked.uEnd);
+    }
+
+    const visibleY = getVisibleYExtents(linked, xMin, xMax);
+    const ySpan = visibleY.maxY - visibleY.minY;
     const pad = (ySpan || 1) * 0.15;
-    const yMin = linked.minY - pad;
-    const yMax = linked.maxY + pad;
+    const yMin = visibleY.minY - pad;
+    const yMax = visibleY.maxY + pad;
     return { xMin, xMax, yMin, yMax };
-  }, [linked.segments.length, linked.uEnd, linked.minY, linked.maxY]);
+  }, [linked, useTailViewport]);
 
   const effectiveViewport = viewport ?? defaultViewport;
-
-  const resetViewport = useCallback(() => {
-    if (!defaultViewport) return;
-    setViewport(defaultViewport);
-  }, [defaultViewport]);
 
   useEffect(() => {
     if (!linked.segments.length) return;
@@ -2341,36 +2551,70 @@ export default function AuctionCanvas({
         attempted: true,
         error: null,
       }));
+      if (!auctionAddress) {
+        const msg = "Auction contract address is missing.";
+        setPreflight({
+          ask: null,
+          balance: null,
+          allowance: null,
+          loading: false,
+          attempted: true,
+          error: msg,
+        });
+        return null;
+      }
+      if (!paymentToken) {
+        const msg = "Payment token address is missing.";
+        setPreflight({
+          ask: null,
+          balance: null,
+          allowance: null,
+          loading: false,
+          attempted: true,
+          error: msg,
+        });
+        return null;
+      }
       const readProvider =
         provider ?? (getDefaultProvider() as ProviderInterface);
-      const auctionAddr = address ?? resolveAddress("pulse_auction");
       try {
         const priceRes: any = await callContract(readProvider, {
-          contractAddress: auctionAddr,
+          contractAddress: auctionAddress,
           entrypoint: "get_current_price",
           calldata: [],
         });
         const ask = toU256Num(
           readU256(priceRes?.price ?? priceRes?.[0] ?? priceRes)
         );
-        const balanceRes: any = await callContract(readProvider, {
-          contractAddress: paymentToken,
-          entrypoint: "balance_of",
-          calldata: [walletAddress],
-        });
-        const balance = toU256Num(
-          readU256(balanceRes?.balance ?? balanceRes?.[0] ?? balanceRes)
-        );
-        const allowanceRes: any = await callContract(readProvider, {
-          contractAddress: paymentToken,
-          entrypoint: "allowance",
-          calldata: [walletAddress, auctionAddr],
-        });
-        const allowance = toU256Num(
-          readU256(
-            allowanceRes?.remaining ?? allowanceRes?.[0] ?? allowanceRes
-          )
-        );
+        let balance: U256Num;
+        let allowance: U256Num;
+        if (nativePayment) {
+          const balanceRaw = await getBalance(readProvider, walletAddress, "latest");
+          balance = toU256Num({
+            low: balanceRaw.toString(10),
+            high: "0",
+          });
+          allowance = ask;
+        } else {
+          const balanceRes: any = await callContract(readProvider, {
+            contractAddress: paymentToken,
+            entrypoint: "balance_of",
+            calldata: [walletAddress],
+          });
+          balance = toU256Num(
+            readU256(balanceRes?.balance ?? balanceRes?.[0] ?? balanceRes)
+          );
+          const allowanceRes: any = await callContract(readProvider, {
+            contractAddress: paymentToken,
+            entrypoint: "allowance",
+            calldata: [walletAddress, auctionAddress],
+          });
+          allowance = toU256Num(
+            readU256(
+              allowanceRes?.remaining ?? allowanceRes?.[0] ?? allowanceRes
+            )
+          );
+        }
         setPreflight({
           ask,
           balance,
@@ -2399,7 +2643,7 @@ export default function AuctionCanvas({
     } finally {
       preflightRef.current = null;
     }
-  }, [walletAddress, provider, address, fixtureState, paymentToken]);
+  }, [walletAddress, provider, auctionAddress, fixtureState, paymentToken, nativePayment]);
 
   useEffect(() => {
     if (debugActive) return;
@@ -2408,15 +2652,8 @@ export default function AuctionCanvas({
   }, [debugActive, walletUnlocked, chainOk, walletAddress, runPreflight]);
 
   const maybeWatchAsset = async (): Promise<boolean> => {
-    if (!watchAsset) return false;
+    if (!watchAsset || !paymentToken || nativePayment) return false;
     if (watchAssetAttemptedRef.current) return false;
-    const normalized = paymentToken.toLowerCase();
-    if (
-      normalized !== SEPOLIA_STRK.toLowerCase() &&
-      normalized !== SEPOLIA_ETH.toLowerCase()
-    ) {
-      return false;
-    }
     watchAssetAttemptedRef.current = true;
     try {
       const symbol = resolvePaymentSymbol(paymentToken);
@@ -2424,7 +2661,7 @@ export default function AuctionCanvas({
         address: paymentToken,
         symbol,
         decimals: 18,
-        name: symbol === "ETH" ? "Ether" : "Starknet Token",
+        name: symbol === "ETH" ? "Ether" : "ERC20 Token",
       });
     } catch {
       return false;
@@ -2432,19 +2669,56 @@ export default function AuctionCanvas({
   };
 
   const handleConnect = async () => {
-    if (!walletDetected) {
-      showToast({ kind: "error", text: "No Starknet wallet found." });
-      return;
-    }
-    const connector = availableConnectors[0];
     try {
-      if (connector) {
-        await connectAsync({ connector } as any);
-      } else {
-        await connectAsync();
+      if (availableConnectors.length > 0) {
+        let lastError: unknown = null;
+        for (const connector of availableConnectors) {
+          try {
+            await connectAsync({ connector } as any);
+            return;
+          } catch (err) {
+            lastError = err;
+            const msg = String((err as any)?.message ?? err ?? "").toLowerCase();
+            const code = Number((err as any)?.code);
+            if (
+              code === 4001 ||
+              msg.includes("user rejected") ||
+              msg.includes("user_refused")
+            ) {
+              throw err;
+            }
+          }
+        }
+        throw lastError ?? new Error("No wallet connector succeeded.");
       }
+      await connectAsync();
+      return;
     } catch (err) {
       console.warn("wallet connect failed", err);
+      const msg = String((err as any)?.message ?? err ?? "").toLowerCase();
+      const code = Number((err as any)?.code);
+      if (
+        code === -32002 ||
+        msg.includes("already processing") ||
+        msg.includes("already pending") ||
+        msg.includes("request of type 'eth_requestaccounts' already pending")
+      ) {
+        showToast({
+          kind: "warn",
+          text: "Open MetaMask and finish the pending request.",
+        });
+        return;
+      }
+      if (
+        msg.includes("no eip-1193 injected wallet found") ||
+        msg.includes("missing vite_walletconnect_project_id") ||
+        msg.includes("walletconnect v2 provider is unavailable")
+      ) {
+        showToast({ kind: "error", text: "No supported wallet found." });
+        return;
+      }
+      showToast({ kind: "error", text: "Wallet connect failed." });
+      return;
     }
   };
 
@@ -2516,6 +2790,11 @@ export default function AuctionCanvas({
       setTxState("confirmed");
       showToast({ kind: "info", text: "Confirmed." });
       if (phase === "bid" && walletAddress) {
+        void pullBidsOnce();
+        void refreshCore();
+        window.setTimeout(() => void pullBidsOnce(), 2_000);
+        window.setTimeout(() => void pullBidsOnce(), 6_000);
+        window.setTimeout(() => void refreshCore(), 2_000);
         setPendingMint({
           txHash: hash,
           address: walletAddress,
@@ -2545,29 +2824,29 @@ export default function AuctionCanvas({
 
   const handleMint = async () => {
     if (debugActive) return;
-    if (!account || !walletAddress) return;
+    if (!account || !walletAddress || !auctionAddress || !paymentToken) return;
     await maybeWatchAsset();
     const data = await runPreflight();
     if (!data) return;
     if (data.balance.value < data.ask.value) {
       return;
     }
-    const auctionAddr = address ?? resolveAddress("pulse_auction");
-    if (data.allowance.value < data.ask.value) {
+    if (!nativePayment && data.allowance.value < data.ask.value) {
       const ok = await runTx("approve", () =>
         account.execute({
           contractAddress: paymentToken,
           entrypoint: "approve",
-          calldata: [auctionAddr, data.ask.raw.low, data.ask.raw.high],
+          calldata: [auctionAddress, data.ask.raw.low, data.ask.raw.high],
         })
       );
       if (!ok) return;
     }
     await runTx("bid", () =>
       account.execute({
-        contractAddress: auctionAddr,
+        contractAddress: auctionAddress,
         entrypoint: "bid",
         calldata: [data.ask.raw.low, data.ask.raw.high],
+        value: nativePayment ? data.ask.value : undefined,
       })
     );
   };
@@ -2625,7 +2904,7 @@ export default function AuctionCanvas({
     if (!effectiveWalletDetected) {
       return {
         kind: "error",
-        text: "No Starknet wallet found.",
+        text: "No supported wallet found.",
         delayMs: DELAY_MS,
       };
     }
@@ -2821,15 +3100,16 @@ export default function AuctionCanvas({
 
   const bidMarks = useMemo(() => {
     if (!linkedStatic.segments.length) return [];
-    return linkedStatic.segments.map((seg) => {
+    return linkedStatic.segments.flatMap((seg) => {
       const bid = seg.bid;
+      if (!bid) return [];
       let amountDec = "";
       try {
         amountDec = toFixed(bid.amount, decimals);
       } catch {
         amountDec = String(bid.amount?.dec ?? "");
       }
-      const displayAmountDec = seg.isGenesis ? seg.floor.toFixed(2) : amountDec;
+      const amountHuman = toNumberSafe(amountDec);
       const tokenId =
         typeof bid.tokenId === "number"
           ? bid.tokenId
@@ -2838,31 +3118,44 @@ export default function AuctionCanvas({
           : typeof bid.id === "number"
           ? bid.id
           : undefined;
-      return {
+      return [{
         key: bid.key,
         epoch: seg.epoch,
         segIdx: seg.idx,
-        u: seg.uStart,
-        price: seg.floor,
-        amountDec: displayAmountDec,
+        u: seg.uStart + Math.max(seg.uLen, 0),
+        price: Number.isFinite(amountHuman) ? amountHuman : seg.floor,
+        amountDec,
         bidder: bid.bidder,
         atMs: bid.atMs,
         block: bid.blockNumber,
         tokenId,
         txHash: bid.txHash,
-      };
+      }];
     });
   }, [linkedStatic.segments, decimals]);
 
   const askMarks = useMemo(() => {
     if (!linkedStatic.segments.length) return [];
-    return linkedStatic.segments.map((seg) => ({
+    const marks: AskMark[] = linkedStatic.segments.map((seg) => ({
       key: `ask#${seg.idx}`,
+      kind: "ask",
       epoch: seg.epoch,
       segIdx: seg.idx,
       u: seg.uStart,
       price: seg.ask,
     }));
+    const first = linkedStatic.segments[0];
+    if (first) {
+      marks.unshift({
+        key: `opening-floor#${first.idx}`,
+        kind: "opening-floor",
+        epoch: first.epoch,
+        segIdx: first.idx,
+        u: first.uStart,
+        price: first.floor,
+      });
+    }
+    return marks;
   }, [linkedStatic.segments]);
 
   const selectedBid = useMemo(() => {
@@ -2891,7 +3184,10 @@ export default function AuctionCanvas({
     if (!showCurvePlot || !linked.segments.length) return null;
     const first = linked.segments[0];
     const last = linked.segments[linked.segments.length - 1];
-    return `${linked.segments.length}:${first.bid.key}:${last.bid.key}:${first.startSec}:${last.startSec}`;
+    const firstBidKey = linked.segments.find((seg) => seg.bid)?.bid?.key ?? "none";
+    const lastBidKey =
+      [...linked.segments].reverse().find((seg) => seg.bid)?.bid?.key ?? "none";
+    return `${linked.segments.length}:${firstBidKey}:${lastBidKey}:${first.startSec}:${last.startSec}`;
   }, [showCurvePlot, linked.segments]);
 
   useEffect(() => {
@@ -2915,15 +3211,10 @@ export default function AuctionCanvas({
 
       const vp = effectiveViewport;
       if (linked.nowU < vp.xMin || linked.nowU > vp.xMax) return false;
-
       const xRange = vp.xMax - vp.xMin || 1;
       const yRange = vp.yMax - vp.yMin || 1;
-      const toSvgX = (x: number) =>
-        PLOT_LEFT_PAD + ((x - vp.xMin) / xRange) * PLOT_X_SPAN;
-      const toSvgY = (y: number) => 60 - ((y - vp.yMin) / yRange) * 60;
-
-      const xSvg = toSvgX(linked.nowU);
-      const ySvg = toSvgY(linked.nowPrice);
+      const xSvg = PLOT_LEFT_PAD + ((linked.nowU - vp.xMin) / xRange) * PLOT_X_SPAN;
+      const ySvg = 60 - ((linked.nowPrice - vp.yMin) / yRange) * 60;
       if (!Number.isFinite(xSvg) || !Number.isFinite(ySvg)) return false;
 
       let idx = Math.max(0, upperBound(segmentStarts, linked.nowU) - 1);
@@ -3208,7 +3499,7 @@ export default function AuctionCanvas({
       clientX: number,
       clientY: number,
       threshold = 2
-    ): { kind: "sale" | "ask"; key: string } | null => {
+    ): { kind: "sale" | "ask" | "floor"; key: string } | null => {
       if (!showCurvePlot || !effectiveViewport) return null;
       const loc = getSvgLoc(clientX, clientY);
       if (!loc) return null;
@@ -3218,7 +3509,7 @@ export default function AuctionCanvas({
       const toSvgX = (x: number) =>
         PLOT_LEFT_PAD + ((x - vp.xMin) / xRange) * PLOT_X_SPAN;
       const toSvgY = (y: number) => 60 - ((y - vp.yMin) / yRange) * 60;
-      let best: { kind: "sale" | "ask"; key: string } | null = null;
+      let best: { kind: "sale" | "ask" | "floor"; key: string } | null = null;
       let bestD2 = threshold * threshold;
       for (const mark of bidMarks) {
         const bx = toSvgX(mark.u);
@@ -3239,7 +3530,10 @@ export default function AuctionCanvas({
         const d2 = dx * dx + dy * dy;
         if (d2 <= bestD2) {
           bestD2 = d2;
-          best = { kind: "ask", key: mark.key };
+          best = {
+            kind: mark.kind === "opening-floor" ? "floor" : "ask",
+            key: mark.key,
+          };
         }
       }
       return best;
@@ -3269,7 +3563,7 @@ export default function AuctionCanvas({
         setSelectedBidKey(point.key);
         setSelectedAskKey(null);
         setSelectedNow(false);
-      } else if (point?.kind === "ask") {
+      } else if (point?.kind === "ask" || point?.kind === "floor") {
         setSelectedAskKey(point.key);
         setSelectedBidKey(null);
         setSelectedNow(false);
@@ -3308,8 +3602,7 @@ export default function AuctionCanvas({
     const beforeNow = Math.max(0, metaDt - tau);
     const amountStr = Number.isFinite(seg.ask) ? seg.ask.toFixed(2) : "";
     setHover({
-      key: seg.isGenesis ? "genesis-ask" : "ask",
-      isGenesis: seg.isGenesis,
+      key: "ask",
       x,
       y,
       screenX: clientX + 8,
@@ -3317,6 +3610,46 @@ export default function AuctionCanvas({
       amount: amountStr,
       amountDec: amountStr,
       amountRaw: String(seg.ask),
+      atMs,
+      epoch: seg.epoch,
+      lastSec: seg.startSec,
+      anchor: seg.anchor,
+      kHuman: seg.kHuman,
+      floorHuman: seg.floor,
+      premiumHuman: seg.premium,
+      durationSec: tau,
+      metaDtSec: metaDt,
+      beforeNowSec: beforeNow,
+      hoverSetSec: Date.now() / 1000,
+      tHalf: seg.tHalf,
+      uLocal: 0,
+      uGlobal: seg.uStart,
+      dtPrevSec: seg.dtPrevSec,
+      dtNextSec: seg.dtNextSec,
+    });
+  };
+
+  const showOpeningFloorHover = (
+    seg: LinkedSegment,
+    x: number,
+    y: number,
+    clientX: number,
+    clientY: number
+  ) => {
+    const tau = 0;
+    const atMs = seg.startSec * 1000;
+    const metaDt = Math.max(0, nowSec - seg.startSec);
+    const beforeNow = Math.max(0, metaDt - tau);
+    const amountStr = Number.isFinite(seg.floor) ? seg.floor.toFixed(2) : "";
+    setHover({
+      key: "opening-floor",
+      x,
+      y,
+      screenX: clientX + 8,
+      screenY: clientY + 8,
+      amount: amountStr,
+      amountDec: amountStr,
+      amountRaw: String(seg.floor),
       atMs,
       epoch: seg.epoch,
       lastSec: seg.startSec,
@@ -3392,13 +3725,28 @@ export default function AuctionCanvas({
         bestStartAsk = { seg, x: xStart, y: yAsk };
       }
     }
+    let bestOpeningFloor: { seg: LinkedSegment; x: number; y: number } | null = null;
+    let bestOpeningFloorD2 = Number.POSITIVE_INFINITY;
+    let bestOpeningFloorScore = Number.POSITIVE_INFINITY;
+    const firstSeg = linked.segments[0];
+    if (firstSeg) {
+      const xFloor = toSvgX(firstSeg.uStart);
+      const yFloor = toSvgY(firstSeg.floor);
+      const dx = Math.abs(xFloor - loc.x);
+      const dy = Math.abs(yFloor - loc.y);
+      if (dx <= startAskXThreshold && dy <= startAskYThreshold) {
+        const nx = dx / startAskXThreshold;
+        const ny = dy / startAskYThreshold;
+        const score = nx * nx + ny * ny;
+        bestOpeningFloorD2 = dx * dx + dy * dy;
+        bestOpeningFloorScore = score;
+        bestOpeningFloor = { seg: firstSeg, x: xFloor, y: yFloor };
+      }
+    }
     if (best) {
       const seg = linked.segments[best.mark.segIdx];
-      const hoverKey = seg?.isGenesis
-        ? `genesis-floor#${best.mark.epoch}`
-        : `bid#${best.mark.epoch}`;
       setHover({
-        key: hoverKey,
+        key: `bid#${best.mark.epoch}`,
         x: best.bx,
         y: best.by,
         screenX: event.clientX + 8,
@@ -3433,8 +3781,15 @@ export default function AuctionCanvas({
       const yMin = Math.min(yAsk, yFloor);
       const yMax = Math.max(yAsk, yFloor);
       if (loc.y < yMin || loc.y > yMax) continue;
+      const prevSeg = seg.idx > 0 ? linked.segments[seg.idx - 1] : null;
+      const bLastHuman = prevSeg?.floor;
+      const bCurrentHuman = seg.floor;
+      const floorMoveCurrentHuman =
+        prevSeg && Number.isFinite(prevSeg.floor) && Number.isFinite(seg.floor)
+          ? Math.max(0, seg.floor - prevSeg.floor)
+          : undefined;
       setHover({
-        key: seg.isGenesis ? "genesis-premium" : "premium",
+        key: "premium",
         x: xLine,
         y: (yAsk + yFloor) / 2,
         screenX: event.clientX + 8,
@@ -3446,14 +3801,31 @@ export default function AuctionCanvas({
         ptsHuman: seg.ptsHuman,
         epoch: seg.epoch,
         atMs: seg.startSec * 1000,
+        bLastHuman,
+        bCurrentHuman,
+        floorMoveCurrentHuman,
       });
       return;
     }
-    if (bestStartAsk && (!best || bestStartAskD2 <= bestD2 + 1e-9)) {
+    if (
+      bestStartAsk &&
+      (!bestOpeningFloor || bestStartAskScore <= bestOpeningFloorScore + 1e-9) &&
+      (!best || bestStartAskD2 <= bestD2 + 1e-9)
+    ) {
       showStartAskHover(
         bestStartAsk.seg,
         bestStartAsk.x,
         bestStartAsk.y,
+        event.clientX,
+        event.clientY
+      );
+      return;
+    }
+    if (bestOpeningFloor && (!best || bestOpeningFloorD2 <= bestD2 + 1e-9)) {
+      showOpeningFloorHover(
+        bestOpeningFloor.seg,
+        bestOpeningFloor.x,
+        bestOpeningFloor.y,
         event.clientX,
         event.clientY
       );
@@ -3470,7 +3842,7 @@ export default function AuctionCanvas({
     }
     const seg = linked.segments[idx];
     const uLocal = clamp(xData - seg.uStart, 0, Math.max(0, seg.uLen));
-    const yAt = priceAtU(seg.floor, seg.premium, uLocal, decayModel);
+    const yAt = priceAtU(seg.floor, seg.premium, uLocal);
     const yCurve = toSvgY(yAt);
     const curveHoverThreshold = 1.2;
     const isCurveTarget =
@@ -3521,7 +3893,7 @@ export default function AuctionCanvas({
       setSelectedBidKey(point.key);
       setSelectedAskKey(null);
       setSelectedNow(false);
-    } else if (point?.kind === "ask") {
+    } else if (point?.kind === "ask" || point?.kind === "floor") {
       setSelectedAskKey(point.key);
       setSelectedBidKey(null);
       setSelectedNow(false);
@@ -3540,11 +3912,8 @@ export default function AuctionCanvas({
     clientX: number,
     clientY: number
   ) => {
-    const hoverKey = seg?.isGenesis
-      ? `genesis-floor#${mark.epoch}`
-      : `bid#${mark.epoch}`;
     setHover({
-      key: hoverKey,
+      key: `bid#${mark.epoch}`,
       x,
       y,
       screenX: clientX + 8,
@@ -3581,25 +3950,6 @@ export default function AuctionCanvas({
       )}
       <div className="dotfield__nav">
         <h1 className="headline dotfield__title thin">$PATH</h1>
-        <div className="dotfield__tools">
-          <button
-            type="button"
-            className="dotfield__tool"
-            disabled={!linked.segments.length}
-            onClick={() => {
-              setHover(null);
-              setSelectedBidKey(null);
-              setSelectedAskKey(null);
-              initialAskTipShownRef.current = false;
-              resetViewport();
-            }}
-          >
-            reset
-          </button>
-          <span className="muted small dotfield__tool-hint">
-            scroll to zoom, drag to pan, click a dot to pin
-          </span>
-        </div>
         <div className="dotfield__cta-stack">
           <HeaderWalletCTA
             ctaLabel={(ctaDisplay ?? ctaState).label}
@@ -3791,20 +4141,26 @@ export default function AuctionCanvas({
         </div>
       )}
       {(() => {
-        if (showPreOpenNotice) {
-          return (
-            <div className="dotfield__canvas dotfield__look">
-              <div className="muted">Auction will open at {openAtLabel ?? "—"}</div>
-            </div>
-          );
-        }
-        if (showGenesisWaiting) {
+        if (showBeforeOpenNotice) {
           return (
             <div className="dotfield__canvas dotfield__look">
               <div className="muted dotfield__status-copy">
-                Genesis not yet minted.
+                Auction will open at {openAtUtcLabel ?? "—"} UTC (± ~12s).
                 <br />
-                Ask: {genesisAskLabel} {displayTokenSymbol}
+                One bid per block—retry next block if it reverts.
+              </div>
+            </div>
+          );
+        }
+        if (showOpenNotActive) {
+          return (
+            <div className="dotfield__canvas dotfield__look">
+              <div className="muted dotfield__status-copy">
+                Auction is open now.
+                <br />
+                Waiting for first bid.
+                <br />
+                Opening ask: {openingAskLabel} {displayTokenSymbol}
               </div>
             </div>
           );
@@ -3872,12 +4228,10 @@ export default function AuctionCanvas({
         const inViewNow =
           nowU != null && nowU >= vp.xMin - 1e-6 && nowU <= vp.xMax + 1e-6;
         const showNow = hasNow && (selectedNow || inViewNow);
-        const nowDisplayU =
-          showNow && nowU != null ? clamp(nowU, vp.xMin, vp.xMax) : null;
 
-        const nowPt = showNow && nowDisplayU != null && nowPrice != null
+        const nowPt = showNow && nowU != null && nowPrice != null
           ? {
-              x: toSvgX(nowDisplayU),
+              x: toSvgX(nowU),
               y: toSvgY(nowPrice),
             }
           : null;
@@ -3898,7 +4252,7 @@ export default function AuctionCanvas({
           if (!(u1 > u0 + 1e-9)) continue;
 
           const evalPoint = (uLocal: number) => {
-            const price = priceAtU(seg.floor, seg.premium, uLocal, decayModel);
+            const price = priceAtU(seg.floor, seg.premium, uLocal);
             const xSvg = toSvgX(seg.uStart + uLocal);
             const ySvg = toSvgY(price);
             return { uLocal, xSvg, ySvg };
@@ -4074,18 +4428,21 @@ export default function AuctionCanvas({
                 const y = toSvgY(mark.price);
                 if (x < -2 || x > 102 || y < -2 || y > 62) return null;
                 const isSelected = selectedAskKey === mark.key;
+                const isOpeningFloor = mark.kind === "opening-floor";
                 return (
                   <button
                     key={mark.key}
                     type="button"
-                    className={`dotfield__point dotfield__point--ask${
+                    className={`dotfield__point ${
+                      isOpeningFloor ? "dotfield__point--opening-floor" : "dotfield__point--ask"
+                    }${
                       isSelected ? " is-selected" : ""
                     }`}
                     style={{
                       left: `${x}%`,
                       top: `${(y / 60) * 100}%`,
                     }}
-                    data-kind="ask"
+                    data-kind={isOpeningFloor ? "opening-floor" : "ask"}
                     data-x={x}
                     data-y={y}
                     onPointerDown={(e) => {
@@ -4093,11 +4450,19 @@ export default function AuctionCanvas({
                     }}
                     onMouseMove={(e) => {
                       e.stopPropagation();
-                      showStartAskHover(seg, x, y, e.clientX, e.clientY);
+                      if (isOpeningFloor) {
+                        showOpeningFloorHover(seg, x, y, e.clientX, e.clientY);
+                      } else {
+                        showStartAskHover(seg, x, y, e.clientX, e.clientY);
+                      }
                     }}
                     onMouseEnter={(e) => {
                       e.stopPropagation();
-                      showStartAskHover(seg, x, y, e.clientX, e.clientY);
+                      if (isOpeningFloor) {
+                        showOpeningFloorHover(seg, x, y, e.clientX, e.clientY);
+                      } else {
+                        showStartAskHover(seg, x, y, e.clientX, e.clientY);
+                      }
                     }}
                     onMouseLeave={(e) => {
                       e.stopPropagation();
@@ -4105,7 +4470,11 @@ export default function AuctionCanvas({
                     }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      showStartAskHover(seg, x, y, e.clientX, e.clientY);
+                      if (isOpeningFloor) {
+                        showOpeningFloorHover(seg, x, y, e.clientX, e.clientY);
+                      } else {
+                        showStartAskHover(seg, x, y, e.clientX, e.clientY);
+                      }
                       setSelectedAskKey(mark.key);
                       setSelectedBidKey(null);
                       setSelectedNow(false);
@@ -4169,7 +4538,7 @@ export default function AuctionCanvas({
                 {hover.key?.startsWith("bid#") ? (
                   <>
                     <div className="muted small">
-                      {hover.epoch === 1 ? "sale #1 · genesis" : `sale #${hover.epoch ?? "—"}`}
+                      {`sale #${hover.epoch ?? "—"}`}
                     </div>
                     <div className="dotfield__popover-meta" style={{ marginTop: 6 }}>
                       <div className="dotfield__poprow">
@@ -4188,43 +4557,26 @@ export default function AuctionCanvas({
                       </div>
                     </div>
                     <div className="dotfield__note" style={{ marginTop: 4 }}>
-                      {hover.epoch === 1
-                        ? "mints the first $PATH and starts the first curve"
-                        : "mints 1 $PATH and starts the next curve"}
-                    </div>
-                  </>
-                ) : hover.key?.startsWith("genesis-floor#") ? (
-                  <>
-                    <div className="muted small">genesis floor</div>
-                    <div className="dotfield__poprow">
-                      <span>price</span>
-                      <span>
-                        {formatAmount(hover.amountDec ?? hover.amount, decimals, displayTokenSymbol)}
-                      </span>
-                    </div>
-                    <div className="dotfield__poprow">
-                      <span>time</span>
-                      <span>{formatLocalTime(hover.atMs)}</span>
-                    </div>
-                    <div className="dotfield__note" style={{ marginTop: 4 }}>
-                      sets floor b for the first curve
+                      mints 1 $PATH and starts the next curve
                     </div>
                   </>
                 ) : (
                   <>
                     <div className="muted small">
-                      {hover.key === "genesis-ask"
-                        ? "genesis price"
-                        : hover.key === "genesis-premium"
-                        ? "genesis premium"
-                        : hover.key === "ask"
-                        ? "initial ask"
+                      {hover.key === "ask"
+                        ? Math.abs(Number((hover as any).uGlobal ?? Number.NaN)) < 1e-9
+                          ? "opening ask"
+                          : "initial ask"
+                        : hover.key === "opening-floor"
+                        ? "opening floor"
                         : hover.key === "premium"
                         ? "time premium"
                         : "ask"}
                     </div>
                     <div className="dotfield__poprow">
-                      <span>{hover.key === "premium" ? "amount" : "price"}</span>
+                      <span>
+                        {hover.key === "premium" ? "amount" : "price"}
+                      </span>
                       <span>
                         {hover.key === "curve-point"
                           ? formatAmountTinyAware(
@@ -4239,49 +4591,62 @@ export default function AuctionCanvas({
                             )}
                       </span>
                     </div>
-                    {hover.key === "ask" && !(hover as any).isGenesis && (
+                    {hover.key === "ask" && (
+                      Math.abs(Number((hover as any).uGlobal ?? Number.NaN)) < 1e-9 ? (
+                        <>
+                          <div className="dotfield__poprow">
+                            <span>time</span>
+                            <span>{formatLocalTime(hover.atMs)}</span>
+                          </div>
+                          <div className="dotfield__note" style={{ marginTop: 4 }}>
+                            ask price when the auction opens
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="dotfield__poprow">
+                            <span>floor b</span>
+                            <span>
+                              {hover.floorHuman != null
+                                ? formatAmount(String(hover.floorHuman), decimals, displayTokenSymbol)
+                                : "—"}
+                            </span>
+                          </div>
+                          <div className="dotfield__poprow">
+                            <span>time premium</span>
+                            <span>
+                              {hover.floorHuman != null && hover.amountRaw
+                                ? (() => {
+                                    const f = Number((hover as any).floorHuman);
+                                    const amt = Number((hover as any).amountRaw);
+                                    if (Number.isFinite(f) && Number.isFinite(amt)) {
+                                      return formatAmount(
+                                        String(amt - f),
+                                        decimals,
+                                        displayTokenSymbol
+                                      );
+                                    }
+                                    return "—";
+                                  })()
+                                : "—"}
+                            </span>
+                          </div>
+                          <div className="dotfield__note" style={{ marginTop: 4 }}>
+                            amount = floor b + time premium
+                          </div>
+                        </>
+                      )
+                    )}
+                    {hover.key === "opening-floor" && (
                       <>
                         <div className="dotfield__poprow">
-                          <span>floor b</span>
-                          <span>
-                            {hover.floorHuman != null
-                              ? formatAmount(String(hover.floorHuman), decimals, displayTokenSymbol)
-                              : "—"}
-                          </span>
-                        </div>
-                        <div className="dotfield__poprow">
-                          <span>time premium</span>
-                          <span>
-                            {hover.floorHuman != null && hover.amountRaw
-                              ? (() => {
-                                  const f = Number((hover as any).floorHuman);
-                                  const amt = Number((hover as any).amountRaw);
-                                  if (Number.isFinite(f) && Number.isFinite(amt)) {
-                                    return formatAmount(
-                                      String(amt - f),
-                                      decimals,
-                                      displayTokenSymbol
-                                    );
-                                  }
-                                  return "—";
-                                })()
-                              : "—"}
-                          </span>
+                          <span>time</span>
+                          <span>{formatLocalTime(hover.atMs)}</span>
                         </div>
                         <div className="dotfield__note" style={{ marginTop: 4 }}>
-                          amount = floor b + time premium
+                          floor price when the auction opens
                         </div>
                       </>
-                    )}
-                    {hover.key === "genesis-ask" && (
-                      <div className="dotfield__note" style={{ marginTop: 4 }}>
-                        mints the first $PATH and starts the first curve
-                      </div>
-                    )}
-                    {hover.key === "genesis-premium" && (
-                      <div className="dotfield__note" style={{ marginTop: 4 }}>
-                        genesis price = genesis floor + genesis premium
-                      </div>
                     )}
                     {hover.key === "curve-point" && (
                       <>
@@ -4294,7 +4659,7 @@ export default function AuctionCanvas({
                                   const u = Number((hover as any).uLocal);
                                   if (Number.isFinite(d) && Number.isFinite(u)) {
                                     return formatAmountTinyAware(
-                                      String(Math.max(0, premiumAtU(d, u, decayModel))),
+                                      String(Math.max(0, premiumAtU(d, u))),
                                       decimals,
                                       displayTokenSymbol
                                     );
@@ -4370,7 +4735,7 @@ export default function AuctionCanvas({
                               const u = Number((hover as any).uLocal);
                               if (Number.isFinite(d) && Number.isFinite(u)) {
                                 return formatAmountWithMinNonZeroFrac(
-                                  String(oneHalfDropAtU(d, u, decayModel)),
+                                  String(oneHalfDropAtU(d, u)),
                                   decimals,
                                   displayTokenSymbol
                                 );
@@ -4393,18 +4758,10 @@ export default function AuctionCanvas({
                           <span>{formatLocalTime(hover.atMs)}</span>
                         </div>
                         <div className="dotfield__note" style={{ marginTop: 4 }}>
-                          {curveFormulaLabel(decayModel)}
+                          {curveFormulaLabel()}
                         </div>
-                        {decayModel === "rational" ? (
-                          <>
-                            <div className="dotfield__note">k = {(hover as any).kHuman ?? "?"}</div>
-                            <div className="dotfield__note">a = {(hover as any).anchor ?? "?"}</div>
-                          </>
-                        ) : (
-                          <div className="dotfield__note">
-                            D = {(hover as any).premiumHuman ?? "?"}
-                          </div>
-                        )}
+                        <div className="dotfield__note">k = {(hover as any).kHuman ?? "?"}</div>
+                        <div className="dotfield__note">a = {(hover as any).anchor ?? "?"}</div>
                         <div className="dotfield__note">b = {(hover as any).floorHuman ?? "?"}</div>
                       </>
                     )}

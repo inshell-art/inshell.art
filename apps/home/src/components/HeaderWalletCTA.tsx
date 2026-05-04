@@ -14,10 +14,28 @@ function shortAddress(address?: string) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
+function resolveNetworkLabel(chain?: {
+  name?: string;
+  network?: string;
+}): string {
+  const rawName = typeof chain?.name === "string" ? chain.name.trim() : "";
+  const rawNetwork =
+    typeof chain?.network === "string" ? chain.network.trim() : "";
+  const haystack = `${rawNetwork} ${rawName}`.toLowerCase();
+  if (haystack.includes("sepolia")) return "Sepolia";
+  if (haystack.includes("mainnet")) return "Mainnet";
+  if (haystack.includes("devnet")) return "Local Devnet";
+  const cleaned = (rawName || rawNetwork || "unknown")
+    .replace(/\btestnet\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned || "unknown";
+}
+
 function resolveExplorerBase(): string {
   const base = getEnvValue("VITE_EXPLORER_BASE_URL");
   if (typeof base === "string" && base.trim()) return base.trim();
-  return "https://sepolia.voyager.online";
+  return "https://sepolia.etherscan.io";
 }
 
 async function copyToClipboard(text: string): Promise<boolean> {
@@ -76,10 +94,10 @@ export default function HeaderWalletCTA({
   const explorerRoot = explorerBase.replace(/\/$/, "");
   const connectedAddress = isConnected ? address : undefined;
   const explorerUrl = connectedAddress
-    ? `${explorerRoot}/contract/${connectedAddress}`
+    ? `${explorerRoot}/address/${connectedAddress}`
     : null;
   const txUrl = lastTxHash ? `${explorerRoot}/tx/${lastTxHash}` : null;
-  const networkLabel = chain?.network ?? chain?.name ?? "unknown";
+  const networkLabel = resolveNetworkLabel(chain);
 
   useEffect(() => {
     if (!menuOpen) return;

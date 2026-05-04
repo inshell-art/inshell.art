@@ -2,7 +2,6 @@
 
 import { readFileSync, writeFileSync, mkdirSync } from "fs";
 import { resolve, dirname } from "path";
-import { validateAndParseAddress } from "starknet";
 
 export type Net = "devnet" | "sepolia" | "mainnet";
 export type AddrMap = Record<string, string>;
@@ -71,7 +70,11 @@ export async function fetchJson<T = any>(url: string): Promise<T> {
 export function normalizeAddressMap(map: AddrMap): AddrMap {
   const out: AddrMap = {};
   for (const [k, v] of Object.entries(map)) {
-    out[k] = validateAndParseAddress(v); // -> 0x + 64 hex, padded, throws if invalid
+    const trimmed = v.trim();
+    if (!/^0x[a-fA-F0-9]{40}$/.test(trimmed)) {
+      throw new Error(`Invalid Ethereum address for ${k}: ${v}`);
+    }
+    out[k] = trimmed;
   }
   return out;
 }

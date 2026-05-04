@@ -1,7 +1,7 @@
 export type EpochParams = {
   epochIndex: number;
   floor: number;
-  D: number | null; // pump amount (STRK * seconds), null for epoch 2
+  D: number | null; // pump amount (token * seconds), null for epoch 2
   k: number; // hyperbola constant
   tStart: number; // unix seconds: epoch start (last bid)
   tNow: number; // unix seconds: current time
@@ -11,7 +11,7 @@ export type CurvePoint = {
   epochIndex: number;
   tau: number; // seconds since tStart
   u: number; // normalized time (tau / T_half), or tau when D is null
-  price: number; // ask in STRK
+  price: number; // ask in payment token units
 };
 
 export type CurveOptions = {

@@ -37,26 +37,39 @@ function currentNetwork(): string {
   return getEnv("VITE_NETWORK") ?? "devnet";
 }
 
-/** Robust address resolver: explicit > VITE_* > addresses.<net>.json > throw */
-export function resolveAddress(id: string, explicit?: string): string {
-  // 1) explicit param wins
-  if (explicit && explicit !== "") return explicit;
+export function isEvmAddress(value: string | undefined | null): value is string {
+  return typeof value === "string" && /^0x[a-fA-F0-9]{40}$/.test(value.trim());
+}
+
+export function maybeResolveAddress(
+  id: string,
+  explicit?: string
+): string | undefined {
+  if (explicit && isEvmAddress(explicit)) return explicit.trim();
 
   const key = normalizeKey(id);
   const envKey = keyToViteEnv(key);
 
-  // 2) Vite env override if present
   const viaEnv = getEnv(envKey) as string | undefined;
-  if (viaEnv && viaEnv !== "") return viaEnv;
+  if (isEvmAddress(viaEnv)) return viaEnv.trim();
 
-  // 3) JSON address book by network
   const net = currentNetwork();
   const book = BOOKS[net];
-  if (book && book[key]) return book[key];
+  const fromBook = book?.[key];
+  if (isEvmAddress(fromBook)) return fromBook.trim();
+  return undefined;
+}
 
-  // 4) fail clearly
+/** Robust address resolver: explicit > VITE_* > addresses.<net>.json > throw */
+export function resolveAddress(id: string, explicit?: string): string {
+  const resolved = maybeResolveAddress(id, explicit);
+  if (resolved) return resolved;
+
+  const key = normalizeKey(id);
+  const envKey = keyToViteEnv(key);
+  const net = currentNetwork();
   throw new Error(
-    `Missing contract address: ${key} (env ${envKey}) for network=${net}`
+    `Missing valid Ethereum contract address: ${key} (env ${envKey}) for network=${net}`
   );
 }
 
@@ -69,7 +82,8 @@ export function getAddresses(): AddressMap {
   const out: AddressMap = {};
 
   for (const key of Object.keys(book)) {
-    out[key] = resolveAddress(key);
+    const resolved = maybeResolveAddress(key);
+    if (resolved) out[key] = resolved;
   }
 
   return out;

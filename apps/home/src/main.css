@@ -303,6 +303,7 @@ body {
 }
 
 .dotfield__cta-stack {
+  grid-column: 3;
   justify-self: end;
   display: flex;
   flex-direction: column;
@@ -888,6 +889,12 @@ body {
 .dotfield__point--ask .dotfield__dot {
   background: #fff;
   opacity: 0.65;
+}
+
+@media (prefers-color-scheme: light) {
+  .dotfield__point--ask .dotfield__dot {
+    background: #000000;
+  }
 }
 
 .dotfield__now-label {
