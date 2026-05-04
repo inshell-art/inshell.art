@@ -177,7 +177,7 @@ describe("AuctionCanvas", () => {
     expect(container.querySelectorAll(".dotfield__pump")).toHaveLength(4);
   });
 
-  test("uses active-window viewport for sparse tiny live history", () => {
+  test("keeps sparse tiny live sales visible while focusing active window", () => {
     const nowSec = Math.floor(Date.now() / 1000);
     const openTimeSec = nowSec - 1_000_000;
     const sale1Sec = openTimeSec + 500_000;
@@ -218,7 +218,9 @@ describe("AuctionCanvas", () => {
     );
 
     expect(container.querySelectorAll(".dotfield__curve").length).toBeLessThan(3);
-    expect(container.querySelectorAll(".dotfield__pump")).toHaveLength(1);
+    expect(container.querySelectorAll(".dotfield__context-curve")).toHaveLength(1);
+    expect(container.querySelectorAll(".dotfield__point--sale")).toHaveLength(2);
+    expect(container.querySelectorAll(".dotfield__pump")).toHaveLength(2);
   });
 
   test("shows popover on hover with shortened info", async () => {

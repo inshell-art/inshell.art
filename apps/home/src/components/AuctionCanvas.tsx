@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuctionBids } from "@/hooks/useAuctionBids";
 import type { ProviderInterface } from "@inshell/ethereum";
 import {
@@ -4343,9 +4343,21 @@ export default function AuctionCanvas({
         }
 
         const xPad = xRange * 0.02;
-        const marksVisible = bidMarks.filter(
-          (m) => m.u >= vp.xMin - xPad && m.u <= vp.xMax + xPad
-        );
+        const contextBidMarks = useTailViewport
+          ? bidMarks
+              .filter((m) => m.u < vp.xMin - xPad)
+              .map((mark, index) => ({
+                mark,
+                x: PLOT_LEFT_PAD + 1.2 + index * 2.4,
+              }))
+          : [];
+        const marksVisible = bidMarks
+          .filter((m) => m.u >= vp.xMin - xPad && m.u <= vp.xMax + xPad)
+          .map((mark) => ({
+            mark,
+            x: toSvgX(mark.u),
+          }));
+        const bidMarksVisible = [...contextBidMarks, ...marksVisible];
         const askMarksVisible = askMarks.filter(
           (m) => m.u >= vp.xMin - xPad && m.u <= vp.xMax + xPad
         );
@@ -4377,6 +4389,45 @@ export default function AuctionCanvas({
               onMouseMove={handleSvgMouseMove}
               onClick={handleSvgClick}
             >
+              {contextBidMarks.map(({ mark, x }) => {
+                const seg = linked.segments[mark.segIdx];
+                if (!seg) return null;
+                const x0 = Math.max(PLOT_LEFT_PAD, x - 2.1);
+                const y0 = toSvgY(seg.floor);
+                const y1 = toSvgY(seg.ask);
+                const ySale = toSvgY(mark.price);
+                if (
+                  !Number.isFinite(x0) ||
+                  !Number.isFinite(x) ||
+                  !Number.isFinite(y0) ||
+                  !Number.isFinite(y1) ||
+                  !Number.isFinite(ySale)
+                ) {
+                  return null;
+                }
+                const c1x = x0 + (x - x0) * 0.16;
+                const c2x = x0 + (x - x0) * 0.68;
+                return (
+                  <Fragment key={`context-${mark.key}`}>
+                    <line
+                      x1={x0}
+                      y1={y0}
+                      x2={x0}
+                      y2={y1}
+                      className="dotfield__pump dotfield__pump--context"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                    <path
+                      className="dotfield__context-curve"
+                      d={`M ${x0} ${y1} C ${c1x} ${y1} ${c2x} ${ySale} ${x} ${ySale}`}
+                      vectorEffect="non-scaling-stroke"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Fragment>
+                );
+              })}
+
               {curveSegments.map((segPath) => (
                 <path
                   key={segPath.key}
@@ -4509,9 +4560,8 @@ export default function AuctionCanvas({
                   </button>
                 );
               })}
-              {marksVisible.map((mark) => {
+              {bidMarksVisible.map(({ mark, x }) => {
                 const seg = linked.segments[mark.segIdx];
-                const x = toSvgX(mark.u);
                 const y = toSvgY(mark.price);
                 if (x < -2 || x > 102 || y < -2 || y > 62) return null;
                 const isSelected = selectedBidKey === mark.key;

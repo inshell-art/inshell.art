@@ -861,10 +861,21 @@ body {
   stroke-width: 2;
 }
 
+.dotfield__context-curve {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  pointer-events: none;
+}
+
 .dotfield__pump {
   stroke: var(--accent);
   stroke-width: 0.35;
   opacity: 0.35;
+}
+
+.dotfield__pump--context {
+  pointer-events: none;
 }
 
 .dotfield__ask {
