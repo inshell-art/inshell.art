@@ -778,7 +778,7 @@ describe("AuctionCanvas", () => {
       error: null,
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    expect(screen.getByText(/Auction will open at/i)).toBeTruthy();
+    expect(screen.getByText(/Auction opens at/i)).toBeTruthy();
   });
 
   test("shows pre-open message when open time is in the future", () => {
@@ -805,7 +805,7 @@ describe("AuctionCanvas", () => {
       error: null,
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    expect(screen.getByText(/Auction will open at/i)).toBeTruthy();
+    expect(screen.getByText(/Auction opens at/i)).toBeTruthy();
   });
 
   test("shows no wallet notice when no connectors are available", () => {

@@ -1282,6 +1282,14 @@ function useAuctionStatus(params: {
     }
     return formatUtcTime(openTimeSec * 1000);
   }, [openTimeSec]);
+  const opensInLabel = useMemo(() => {
+    if (typeof openTimeSec !== "number" || !Number.isFinite(openTimeSec)) {
+      return null;
+    }
+    const remaining = openTimeSec - nowSec;
+    if (remaining <= 0) return null;
+    return formatDuration(remaining);
+  }, [nowSec, openTimeSec]);
 
   useEffect(() => {
     if (statusOverride) {
@@ -1319,7 +1327,7 @@ function useAuctionStatus(params: {
     bidsLength,
   ]);
 
-  return { status, openAtUtcLabel };
+  return { status, openAtUtcLabel, opensInLabel };
 }
 
 function toSafeNumber(val: string | number | bigint | undefined): number {
@@ -2387,7 +2395,7 @@ export default function AuctionCanvas({
     };
   }, [linkedStatic, nowSec]);
 
-  const { status: auctionStatus, openAtUtcLabel } = useAuctionStatus({
+  const { status: auctionStatus, openAtUtcLabel, opensInLabel } = useAuctionStatus({
     nowSec,
     openTimeSec: activeConfig?.openTimeSec,
     coreLoading,
@@ -4170,9 +4178,11 @@ export default function AuctionCanvas({
           return (
             <div className="dotfield__canvas dotfield__look">
               <div className="muted dotfield__status-copy">
-                Auction will open at {openAtUtcLabel ?? "—"} UTC (± ~12s).
+                Auction opens at {openAtUtcLabel ?? "—"} UTC.
                 <br />
-                One bid per block—retry next block if it reverts.
+                {opensInLabel ? `Opens in ${opensInLabel}.` : "Waiting for first eligible block."}
+                <br />
+                First bid can land in the first block with block.timestamp &gt;= openTime.
               </div>
             </div>
           );
