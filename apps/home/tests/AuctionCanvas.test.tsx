@@ -105,7 +105,10 @@ describe("AuctionCanvas", () => {
   beforeEach(() => {
     mockWalletState = createWalletState();
     (globalThis as any).__VITE_ENV__ = {
+      VITE_NETWORK: "sepolia",
+      VITE_EXPECTED_CHAIN_ID: "0xaa36a7",
       VITE_PULSE_AUCTION: TEST_AUCTION_ADDRESS,
+      VITE_PATH_ALLOW_DIRECT_AUCTION: "1",
       VITE_PAYMENT_TOKEN: TEST_PAYMENT_TOKEN,
       VITE_PAYMENT_TOKEN_SYMBOL: "ETH",
       VITE_ETH_RPC: "https://ethereum-sepolia-rpc.publicnode.com",
@@ -149,6 +152,80 @@ describe("AuctionCanvas", () => {
 
     const dots = container.querySelectorAll(".dotfield__point, .dotfield__now-dot");
     expect(dots.length).toBeGreaterThan(0);
+  });
+
+  test("renders current price in the dedicated now dot tooltip", () => {
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
+    expect(container.querySelector(".dotfield__now-label")).toBeNull();
+
+    const now = container.querySelector(".dotfield__point--now") as HTMLElement | null;
+    expect(now).toBeTruthy();
+    fireEvent.mouseEnter(now as HTMLElement, { clientX: 100, clientY: 100 });
+
+    const popover = container.querySelector(".dotfield__popover") as HTMLElement | null;
+    expect(popover).toBeTruthy();
+    expect(within(popover as HTMLElement).getByText("current")).toBeInTheDocument();
+    expect(within(popover as HTMLElement).getByText("price")).toBeInTheDocument();
+    expect(within(popover as HTMLElement).getByText("above floor")).toBeInTheDocument();
+  });
+
+  test("keeps now dot on the padded right edge after clock ticks", () => {
+    jest.useFakeTimers();
+    const nowMs = Date.UTC(2026, 0, 1, 0, 0, 0);
+    jest.setSystemTime(nowMs);
+    const nowSec = Math.floor(nowMs / 1000);
+    const saleSec = nowSec - 99;
+    const oneEth = 10n ** 18n;
+    mockAuctionCore(mockUseAuctionCore, {
+      openTimeSec: nowSec - 109,
+      genesisPrice: { dec: (2n * oneEth).toString() },
+      genesisFloor: { dec: oneEth.toString() },
+      k: { dec: (100n * oneEth).toString() },
+      pts: oneEth.toString(),
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids: [
+        {
+          key: "b1",
+          atMs: saleSec * 1000,
+          amount: {
+            raw: { low: (15n * oneEth / 10n).toString(), high: "0" },
+            dec: (15n * oneEth / 10n).toString(),
+            value: 15n * oneEth / 10n,
+          },
+          bidder: "0x1111111111111111",
+          blockNumber: 10,
+          epochIndex: 1,
+        },
+      ],
+      ready: true,
+      loading: false,
+      error: null,
+    });
+
+    try {
+      const { container } = render(
+        <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+      );
+      const readNowLeft = () => {
+        const now = container.querySelector(
+          ".dotfield__point--now"
+        ) as HTMLElement | null;
+        expect(now).toBeTruthy();
+        return Number.parseFloat(now?.style.left ?? "NaN");
+      };
+      const initialLeft = readNowLeft();
+      expect(initialLeft).toBeGreaterThan(95);
+      expect(initialLeft).toBeLessThan(99);
+      act(() => {
+        jest.advanceTimersByTime(1200);
+      });
+      expect(readNowLeft()).toBeCloseTo(initialLeft, 4);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   test("renders one linked segment per sale plus current active segment", () => {
@@ -617,6 +694,29 @@ describe("AuctionCanvas", () => {
     expect(screen.getByText(/loading curve/i)).toBeTruthy();
   });
 
+  test("shows no deployment message when no protocol release is loaded", () => {
+    (globalThis as any).__VITE_ENV__ = {
+      VITE_NETWORK: "sepolia",
+      VITE_EXPECTED_CHAIN_ID: "0xaa36a7",
+      VITE_PULSE_AUCTION: TEST_AUCTION_ADDRESS,
+      VITE_PAYMENT_TOKEN: TEST_PAYMENT_TOKEN,
+      VITE_PAYMENT_TOKEN_SYMBOL: "ETH",
+    };
+    mockUseAuctionCore.mockReturnValue({
+      data: null,
+      ready: false,
+      loading: false,
+      error: null,
+      refresh: jest.fn(),
+    });
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    expect(screen.getByText(/No PATH deployment loaded/i)).toBeTruthy();
+    expect(screen.getByText(/Waiting for protocol release/i)).toBeTruthy();
+    expect(mockUseAuctionCore).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enabled: false })
+    );
+  });
+
   test("shows error message when curve load fails", () => {
     jest.useFakeTimers();
     mockUseAuctionCore.mockReturnValue({
@@ -724,6 +824,7 @@ describe("AuctionCanvas", () => {
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     expect(screen.getByText(/Opening ask: 1 ETH/i)).toBeTruthy();
+    expect(screen.getByText(/Current price: 1 ETH/i)).toBeTruthy();
   });
 
   test("opening ask label preserves tiny ETH values instead of rounding to zero", () => {
@@ -751,6 +852,7 @@ describe("AuctionCanvas", () => {
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     expect(screen.getByText(/Opening ask: 0\.000000000000001 ETH/i)).toBeTruthy();
+    expect(screen.getByText(/Current price: 0\.0000000000000009 ETH/i)).toBeTruthy();
   });
 
   test("auction status override wins over live state", () => {
@@ -806,6 +908,62 @@ describe("AuctionCanvas", () => {
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     expect(screen.getByText(/Auction opens at/i)).toBeTruthy();
+  });
+
+  test("disables mint before open time", async () => {
+    const execute = jest.fn();
+    mockWalletState = createWalletState({
+      account: { execute },
+    });
+    mockUseAuctionCore.mockReturnValue({
+      data: {
+        active: false,
+        config: {
+          openTimeSec: Math.floor(Date.now() / 1000) + 3600,
+          genesisPrice: { dec: "100" },
+          genesisFloor: { dec: "10" },
+          k: { dec: "1000" },
+          pts: "1",
+        },
+      },
+      ready: true,
+      loading: false,
+      error: null,
+      refresh: jest.fn(),
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids: [],
+      ready: true,
+      loading: false,
+      error: null,
+    });
+    mockCallContract.mockReset();
+    mockCallContract.mockImplementation(async (args: any) => {
+      if (args?.entrypoint === "get_current_price") {
+        return { price: { low: "100", high: "0" } } as any;
+      }
+      if (args?.entrypoint === "balance_of") {
+        return { balance: { low: "200", high: "0" } } as any;
+      }
+      if (args?.entrypoint === "allowance") {
+        return { remaining: { low: "200", high: "0" } } as any;
+      }
+      return { result: [] } as any;
+    });
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    const mintButton = await waitFor(() =>
+      screen.getByText(/\[\s*mint\s*\]/i)
+    );
+    await waitFor(() => {
+      expect(mintButton).toBeDisabled();
+    });
+    expect(screen.getByText(/Auction opens at/i)).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(mintButton);
+    });
+    expect(execute).not.toHaveBeenCalled();
   });
 
   test("shows no wallet notice when no connectors are available", () => {
@@ -991,6 +1149,57 @@ describe("AuctionCanvas", () => {
       expect(request).toHaveBeenNthCalledWith(3, {
         method: "wallet_switchEthereumChain",
         params: [{ chainId: "0xaa36a7" }],
+      });
+    });
+  });
+
+  test("switch CTA adds PATH Local when devnet wallet reports unknown chain", async () => {
+    (globalThis as any).__VITE_ENV__ = {
+      VITE_NETWORK: "devnet",
+      VITE_EXPECTED_CHAIN_ID: "0x7a6a",
+      VITE_PULSE_AUCTION: TEST_AUCTION_ADDRESS,
+      VITE_PATH_ALLOW_DIRECT_AUCTION: "1",
+      VITE_PAYMENT_TOKEN: TEST_PAYMENT_TOKEN,
+      VITE_PAYMENT_TOKEN_SYMBOL: "ETH",
+      VITE_ETH_RPC: "http://127.0.0.1:8546",
+    };
+    const request = jest
+      .fn()
+      .mockRejectedValueOnce({ code: 4902, message: "Unknown chain" })
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+    (window as any).ethereum = { request };
+    mockWalletState = createWalletState({
+      account: {},
+      chainId: 1n,
+      chain: { name: "Othernet" },
+    });
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    await waitFor(() => {
+      expect(screen.getByText(/PATH Local only/i)).toBeTruthy();
+    });
+    const switchButton = await waitFor(() =>
+      screen.getByText(/\[\s*switch\s*\]/i)
+    );
+    fireEvent.click(switchButton);
+    await waitFor(() => {
+      expect(request).toHaveBeenNthCalledWith(1, {
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: "0x7a6a" }],
+      });
+      expect(request).toHaveBeenNthCalledWith(2, {
+        method: "wallet_addEthereumChain",
+        params: [
+          expect.objectContaining({
+            chainId: "0x7a6a",
+            chainName: "PATH Local",
+            rpcUrls: ["http://127.0.0.1:8546"],
+          }),
+        ],
+      });
+      expect(request).toHaveBeenNthCalledWith(3, {
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: "0x7a6a" }],
       });
     });
   });
@@ -1627,7 +1836,10 @@ describe("AuctionCanvas", () => {
     mockWalletState.account = { execute };
     mockWalletState.watchAsset = jest.fn().mockResolvedValue(true);
     (globalThis as any).__VITE_ENV__ = {
+      VITE_NETWORK: "sepolia",
+      VITE_EXPECTED_CHAIN_ID: "0xaa36a7",
       VITE_PULSE_AUCTION: TEST_AUCTION_ADDRESS,
+      VITE_PATH_ALLOW_DIRECT_AUCTION: "1",
       VITE_PAYMENT_TOKEN: ZERO_ADDRESS,
       VITE_PAYMENT_TOKEN_SYMBOL: "ETH",
     };

@@ -63,9 +63,13 @@ set +a
 From the `inshell.art` repo:
 
 ````bash
-# Copy addresses into FE
+# Preferred: import the complete PATH FE release bundle from path/
+pnpm sync:path-release -- --net sepolia --from ../path/artifacts/sepolia/current/fe-release
+# -> writes addresses, protocol-release, and ABI snapshots under packages/contracts/src/
+
+# Legacy fallback: copy addresses only
 pnpm tsx scripts/sync-addresses.ts --net sepolia --url https://example.com/addresses.sepolia.json
-# -> writes packages/contracts/src/addresses/addresses.sepolia.json
+# -> writes packages/contracts/src/addresses/addresses.sepolia.json only
 
 # Write Vite env (convenience; JSON fallback exists)
 pnpm tsx scripts/sync-env.ts --net sepolia --rpc https://your-sepolia-rpc --addr packages/contracts/src/addresses/addresses.sepolia.json --deploy-block 123456
@@ -117,9 +121,38 @@ pnpm dev:thought
 > 1. **Explicit prop** passed to a factory/hook/component
 > 2. `import.meta.env.**VITE_***` (e.g., `VITE_PULSE_AUCTION`)
 > 3. `packages/contracts/src/addresses/addresses.<net>.json` (e.g., key `pulse_auction`)
-> 4. Throw a clear error
+> 4. `packages/contracts/src/releases/release.<net>.json` contract addresses
+> 5. Throw a clear error
 >
 > Keep `addresses.*.json` keys in **snake_case**, Vite env overrides in **`VITE_*` UPPER_SNAKE**.
+>
+> Prefer `sync:path-release` over address-only sync. The protocol release also supplies chain id,
+> deploy blocks, code hashes, and constructor config for runtime validation.
+>
+> Without a protocol release, the home canvas intentionally shows `No PATH deployment loaded`
+> and does not call auction contracts. A direct auction address is only accepted when
+> `VITE_PATH_ALLOW_DIRECT_AUCTION=1` or `?direct_auction=1` is set for local debugging.
+
+## 1.5) Local PATH Rehearsal Flow
+
+Run this after starting a clean PATH local node and deploying local contracts from `path/`:
+
+```bash
+# In path/
+npm run ops:export:local-fe-release -- --rpc-url http://127.0.0.1:8546 --force
+
+# In inshell.art/
+pnpm sync:path-release -- --net devnet --from ../path/artifacts/devnet/current/fe-release
+VITE_NETWORK=devnet \
+VITE_ETH_RPC=http://127.0.0.1:8546 \
+pnpm --filter @inshell/home exec vite --host 127.0.0.1 --strictPort
+```
+
+Expected canvas states:
+- No release imported: `No PATH deployment loaded.`
+- Release imported, before `openTime`: countdown from on-chain `getConfig()`.
+- Release imported, after `openTime`, no bids: waiting for first bid/current ask.
+- After first bid: concatenated curves.
 
 ## 3) FE data flow (one screen)
 
@@ -209,6 +242,10 @@ Mount it in a page (e.g., `src/pages/dev/AuctionPage.tsx`) and run `pnpm dev`.
 
 - **No data appears**  
   If bids never show up on Sepolia, set `VITE_PULSE_AUCTION_DEPLOY_BLOCK` so the FE backfills from the deployment block.
+
+- **`No PulseAuction code at ...` or `No return data from get_config ...`**
+  The selected RPC network does not have code at the imported auction address.
+  → Check `VITE_ETH_RPC`, `VITE_NETWORK`, and import the latest PATH FE release with `pnpm sync:path-release`.
 
 ---
 

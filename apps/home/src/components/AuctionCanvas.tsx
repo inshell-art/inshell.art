@@ -4,7 +4,11 @@ import type { ProviderInterface } from "@inshell/ethereum";
 import {
   callContract,
   getBalance,
+  getChainId,
+  getCode,
   getDefaultProvider,
+  hashBytecode,
+  supportsRpcRequest,
   ZERO_ADDRESS,
 } from "@inshell/ethereum";
 import {
@@ -17,7 +21,14 @@ import {
 import type { AuctionSnapshot } from "@/types/types";
 import type { NormalizedBid } from "@/services/auction/bidsService";
 import { useAuctionCore } from "@/hooks/useAuctionCore";
-import { isEvmAddress, maybeResolveAddress } from "@inshell/contracts";
+import {
+  getProtocolRelease,
+  getProtocolReleaseChainId,
+  getProtocolReleaseCodeHash,
+  getProtocolReleaseDeployBlock,
+  isEvmAddress,
+  maybeResolveAddress,
+} from "@inshell/contracts";
 import HeaderWalletCTA from "@/components/HeaderWalletCTA";
 import { useWallet } from "@inshell/wallet";
 /* global SVGSVGElement, SVGElement, HTMLDivElement, PointerEvent, URLSearchParams */
@@ -134,13 +145,13 @@ function formatTokenAmount(u: { dec: string }, decimals: number): string {
   return trimmed ? `${intPart}.${trimmed}` : intPart;
 }
 
-function formatHumanTokenAmount(value: number): string {
+function formatHumanTokenAmount(value: number, fractionDigits = 4): string {
   if (!Number.isFinite(value)) return "—";
   if (value === 0) return "0";
   const abs = Math.abs(value);
-  const fixed = abs < 0.01 ? value.toFixed(18) : value.toFixed(4);
+  const fixed = abs < 0.01 ? value.toFixed(18) : value.toFixed(fractionDigits);
   if (abs < 0.01 && Number(fixed) !== 0) {
-    return formatTinyDecimalString(fixed);
+    return formatTinyDecimalString(fixed, fractionDigits);
   }
   return fixed.replace(/\.?0+$/, "");
 }
@@ -150,16 +161,25 @@ const EXTREME_HISTORY_TAIL_THRESHOLD = BASE_HALF_LIVES * 100;
 const SPARSE_LIVE_MAX_BIDS = 5;
 const SPARSE_LIVE_ACTIVE_WINDOW = BASE_HALF_LIVES * 4;
 const SPARSE_LIVE_ACTIVE_CONTEXT = BASE_HALF_LIVES * 0.5;
-const PLOT_LEFT_PAD = 1.6;
-const PLOT_RIGHT_PAD = PLOT_LEFT_PAD;
+const PLOT_EDGE_PAD = 2.4;
+const PLOT_LEFT_PAD = PLOT_EDGE_PAD;
+const PLOT_RIGHT_PAD = PLOT_EDGE_PAD;
 const PLOT_X_SPAN = 100 - PLOT_LEFT_PAD - PLOT_RIGHT_PAD;
+
+function halfLifeWindowEnd(uEnd: number): number {
+  if (!Number.isFinite(uEnd) || uEnd <= 0) return BASE_HALF_LIVES;
+  return Math.max(
+    BASE_HALF_LIVES,
+    Math.ceil(uEnd / BASE_HALF_LIVES) * BASE_HALF_LIVES
+  );
+}
+
 const FIXTURE_ASK_WEI = "1000000000000000000";
 const FIXTURE_BALANCE_WEI = "1000000000000000000000000";
 const FIXTURE_ARG_K_WEI = 100_000_000_000_000_000_000n; // 1e20
 const FIXTURE_ARG_PTS_WEI_PER_SEC = 100_000_000_000_000n; // 1e14
 const FIXTURE_ARG_GENESIS_PRICE_WEI = 1_000_000_000_000_000_000n; // 1e18
 const FIXTURE_ARG_GENESIS_FLOOR_WEI = 100_000_000_000_000_000n; // 1e17
-const RELEASE_SEPOLIA_PULSE_AUCTION_BLOCK = 10437999;
 
 function rescaleWeiToDecimals(valueWei: bigint, decimals: number): bigint {
   if (decimals === 18) return valueWei;
@@ -218,23 +238,50 @@ function findInjectedWallet(): { request?: (...args: any[]) => Promise<any> } | 
   return null;
 }
 
-function resolveSepoliaAddChainParams(chainIdHex: string) {
-  if (chainIdHex.toLowerCase() !== ETH_SEPOLIA_CHAIN_ID_HEX) return null;
+function resolveChainLabel(chainIdHex: string): string {
+  const normalized = chainIdHex.toLowerCase();
+  if (normalized === ETH_SEPOLIA_CHAIN_ID_HEX) return "Sepolia";
+  if (normalized === "0x7a6a") return "PATH Local";
+  const network = getEnvValue("VITE_NETWORK");
+  if (typeof network === "string" && network === "devnet") return "PATH Local";
+  const parsed = parseChainId(chainIdHex);
+  return parsed === null ? "target network" : `chain ${parsed.toString()}`;
+}
+
+function resolveAddChainParams(chainIdHex: string) {
+  const normalized = chainIdHex.toLowerCase();
   const rpcUrl = getEnvValue("VITE_ETH_RPC");
-  const explorer = resolveExplorerBase();
   const rpcUrls =
     typeof rpcUrl === "string" && rpcUrl.trim() ? [rpcUrl.trim()] : [];
+
+  if (normalized === ETH_SEPOLIA_CHAIN_ID_HEX) {
+    const explorer = resolveExplorerBase();
+    return {
+      chainId: ETH_SEPOLIA_CHAIN_ID_HEX,
+      chainName: "Sepolia",
+      nativeCurrency: {
+        name: "Ether",
+        symbol: "ETH",
+        decimals: 18,
+      },
+      rpcUrls,
+      blockExplorerUrls:
+        typeof explorer === "string" && explorer.trim() ? [explorer.trim()] : [],
+    };
+  }
+
+  const network = getEnvValue("VITE_NETWORK");
+  if (typeof network !== "string" || network !== "devnet") return null;
+
   return {
-    chainId: ETH_SEPOLIA_CHAIN_ID_HEX,
-    chainName: "Sepolia",
+    chainId: normalized,
+    chainName: resolveChainLabel(normalized),
     nativeCurrency: {
       name: "Ether",
       symbol: "ETH",
       decimals: 18,
     },
-    rpcUrls,
-    blockExplorerUrls:
-      typeof explorer === "string" && explorer.trim() ? [explorer.trim()] : [],
+    rpcUrls: rpcUrls.length ? rpcUrls : ["http://127.0.0.1:8546"],
   };
 }
 
@@ -258,7 +305,7 @@ async function requestChainSwitch(chainIdHex: string): Promise<boolean> {
       msg.includes("does not exist");
     if (!shouldAddChain) return false;
 
-    const addParams = resolveSepoliaAddChainParams(chainIdHex);
+    const addParams = resolveAddChainParams(chainIdHex);
     if (!addParams) return false;
     try {
       await wallet.request({
@@ -297,6 +344,10 @@ function parseChainId(value: unknown): bigint | null {
 function resolveTargetChainIdHex(): string {
   const raw = getEnvValue("VITE_EXPECTED_CHAIN_ID");
   if (typeof raw === "string" && raw.trim()) return raw.trim();
+  const releaseChainId = getProtocolReleaseChainId();
+  if (typeof releaseChainId === "number") {
+    return `0x${releaseChainId.toString(16)}`;
+  }
   return ETH_SEPOLIA_CHAIN_ID_HEX;
 }
 
@@ -318,12 +369,95 @@ function resolveBidsFromBlock(): number | undefined {
   const raw = getEnvValue("VITE_PULSE_AUCTION_DEPLOY_BLOCK");
   const parsed = parseBlockNumber(raw);
   if (typeof parsed === "number") return parsed;
+  const releaseBlock = getProtocolReleaseDeployBlock("pulse_auction");
+  if (typeof releaseBlock === "number") return releaseBlock;
   const network = getEnvValue("VITE_NETWORK");
   if (typeof network === "string" && network === "devnet") return 0;
-  if (typeof network === "string" && network === "sepolia") {
-    return RELEASE_SEPOLIA_PULSE_AUCTION_BLOCK;
-  }
   return undefined;
+}
+
+function useProtocolReleaseGuard(params: {
+  address?: string;
+  provider?: ProviderInterface;
+  enabled: boolean;
+}) {
+  const { address, provider, enabled } = params;
+  const release = useMemo(() => getProtocolRelease(), []);
+  const releaseChainId = release?.chain_id;
+  const releaseId = release?.deploy_run_id;
+  const releaseCodeHash = getProtocolReleaseCodeHash("pulse_auction");
+  const [state, setState] = useState<{
+    loading: boolean;
+    error: Error | null;
+    checked: boolean;
+  }>({ loading: false, error: null, checked: false });
+
+  useEffect(() => {
+    if (!enabled || !address) {
+      setState({ loading: false, error: null, checked: false });
+      return;
+    }
+    const prov = provider ?? (getDefaultProvider() as ProviderInterface);
+    if (!supportsRpcRequest(prov)) {
+      setState({ loading: false, error: null, checked: true });
+      return;
+    }
+
+    let cancelled = false;
+    setState({ loading: true, error: null, checked: false });
+
+    (async () => {
+      try {
+        if (typeof releaseChainId === "number") {
+          const actualChainId = await getChainId(prov);
+          if (actualChainId !== BigInt(releaseChainId)) {
+            throw new Error(
+              `PATH release chain mismatch: expected ${releaseChainId}, RPC returned ${actualChainId.toString()}. Check VITE_ETH_RPC and VITE_NETWORK.`
+            );
+          }
+        }
+
+        const code = await getCode(prov, address);
+        if (!code || code === "0x") {
+          throw new Error(
+            `No PulseAuction code at ${address} on the current RPC. Check VITE_ETH_RPC, VITE_NETWORK, and the imported PATH FE release.`
+          );
+        }
+
+        if (releaseCodeHash) {
+          const actualHash = hashBytecode(code);
+          if (
+            actualHash &&
+            actualHash.toLowerCase() !== releaseCodeHash.toLowerCase()
+          ) {
+            throw new Error(
+              `PATH release code hash mismatch for PulseAuction. Expected ${releaseCodeHash}, got ${actualHash}.`
+            );
+          }
+        }
+
+        if (!cancelled) setState({ loading: false, error: null, checked: true });
+      } catch (err) {
+        if (!cancelled) {
+          setState({
+            loading: false,
+            error: err instanceof Error ? err : new Error(String(err)),
+            checked: true,
+          });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [address, enabled, provider, releaseChainId, releaseCodeHash, releaseId]);
+
+  return {
+    loading: state.loading,
+    error: state.error,
+    ready: !enabled || (!state.loading && state.checked && !state.error),
+  };
 }
 
 function resolvePaymentToken(): string | undefined {
@@ -395,6 +529,7 @@ type DotPoint = {
   bLastHuman?: number;
   bCurrentHuman?: number;
   floorMoveCurrentHuman?: number;
+  liveNow?: boolean;
 };
 
 type LinkedSegment = {
@@ -452,8 +587,11 @@ type AskMark = {
   price: number;
 };
 
+type PulseFixtureState = "before_open" | "open_not_active";
+
 type PulseFixture = {
   k: number;
+  state?: PulseFixtureState;
   epoch: {
     epochIndex: number;
     floor: number;
@@ -579,6 +717,19 @@ const PULSE_FIXTURE_PRESET_ALIASES: Record<string, string> = {
   "huge-pump": "huge",
   huge_pump: "huge",
   epoch_2: "epoch2",
+  "before-open": "before_open",
+  beforeopen: "before_open",
+  "pre-open": "before_open",
+  pre_open: "before_open",
+  preopen: "before_open",
+  "after-open": "open_not_active",
+  afteropen: "open_not_active",
+  "open-no-mint": "open_not_active",
+  open_no_mint: "open_not_active",
+  "open-not-active": "open_not_active",
+  opennotactive: "open_not_active",
+  "not-active": "open_not_active",
+  not_active: "open_not_active",
   "mixed-a": "mixeda",
   mixed_a: "mixeda",
   "mixed-b": "mixedb",
@@ -588,6 +739,10 @@ const PULSE_FIXTURE_PRESET_ALIASES: Record<string, string> = {
 };
 const RANDOM_FIXTURE_MIN_EPOCHS = 1;
 const RANDOM_FIXTURE_MAX_EPOCHS = 100;
+const BEFORE_OPEN_FIXTURE_DELAY_SEC = 10 * 60;
+const BEFORE_OPEN_FIXTURE_OPEN_GAP_SEC = 10 * 60;
+const OPEN_NOT_ACTIVE_FIXTURE_ELAPSED_SEC = 5 * 60;
+const OPEN_NOT_ACTIVE_FIXTURE_OPEN_GAP_SEC = 10 * 60;
 
 function randomFloat(min: number, max: number): number {
   return min + Math.random() * (max - min);
@@ -741,6 +896,44 @@ function makeRandomPulseFixture(epochCountOverride?: number | null): PulseFixtur
   };
 }
 
+function makeBeforeOpenPulseFixture(): PulseFixture {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const openTimeSec = nowSec + BEFORE_OPEN_FIXTURE_DELAY_SEC;
+  return {
+    k: 1e20,
+    state: "before_open",
+    epoch: {
+      epochIndex: 0,
+      floor: 0.1,
+      D: BEFORE_OPEN_FIXTURE_OPEN_GAP_SEC,
+      tStart: openTimeSec + BEFORE_OPEN_FIXTURE_OPEN_GAP_SEC,
+      tNow: nowSec,
+    },
+    history: {
+      openGapSec: BEFORE_OPEN_FIXTURE_OPEN_GAP_SEC,
+    },
+  };
+}
+
+function makeOpenNotActivePulseFixture(): PulseFixture {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const openTimeSec = nowSec - OPEN_NOT_ACTIVE_FIXTURE_ELAPSED_SEC;
+  return {
+    k: 1e20,
+    state: "open_not_active",
+    epoch: {
+      epochIndex: 0,
+      floor: 0.1,
+      D: OPEN_NOT_ACTIVE_FIXTURE_OPEN_GAP_SEC,
+      tStart: openTimeSec + OPEN_NOT_ACTIVE_FIXTURE_OPEN_GAP_SEC,
+      tNow: nowSec,
+    },
+    history: {
+      openGapSec: OPEN_NOT_ACTIVE_FIXTURE_OPEN_GAP_SEC,
+    },
+  };
+}
+
 function normalizeFixtureSelector(raw: unknown): string | null {
   if (raw == null) return null;
   const value = String(raw).trim().toLowerCase();
@@ -788,6 +981,7 @@ function readFixtureSelector(): string | null {
 function clonePulseFixture(fx: PulseFixture): PulseFixture {
   return {
     k: fx.k,
+    state: fx.state,
     epoch: {
       epochIndex: fx.epoch.epochIndex,
       floor: fx.epoch.floor,
@@ -809,6 +1003,25 @@ function parsePulseFixture(raw: unknown): PulseFixture | null {
   if (!raw || typeof raw !== "object" || !(raw as any).epoch) return null;
   try {
     const k = Number((raw as any).k);
+    const stateRaw = String((raw as any).state ?? "").trim().toLowerCase();
+    const state: PulseFixtureState | undefined =
+      stateRaw === "before_open" ||
+      stateRaw === "before-open" ||
+      stateRaw === "beforeopen" ||
+      stateRaw === "pre_open" ||
+      stateRaw === "pre-open" ||
+      stateRaw === "preopen"
+        ? "before_open"
+        : stateRaw === "open_not_active" ||
+          stateRaw === "open-not-active" ||
+          stateRaw === "opennotactive" ||
+          stateRaw === "open_no_mint" ||
+          stateRaw === "open-no-mint" ||
+          stateRaw === "after_open" ||
+          stateRaw === "after-open" ||
+          stateRaw === "afteropen"
+        ? "open_not_active"
+        : undefined;
     const epoch = (raw as any).epoch ?? {};
     const floor = Number(epoch.floor);
     const tStart = Number(epoch.tStart);
@@ -855,6 +1068,7 @@ function parsePulseFixture(raw: unknown): PulseFixture | null {
     }
     return {
       k,
+      state,
       epoch: {
         epochIndex: Number.isFinite(Number(epoch.epochIndex))
           ? Number(epoch.epochIndex)
@@ -876,6 +1090,8 @@ function resolvePulseFixturePreset(
   opts?: { randomEpochCount?: number | null }
 ): PulseFixture | null {
   if (name === "random") return makeRandomPulseFixture(opts?.randomEpochCount ?? null);
+  if (name === "before_open") return makeBeforeOpenPulseFixture();
+  if (name === "open_not_active") return makeOpenNotActivePulseFixture();
   const preset = PULSE_FIXTURE_PRESETS[name];
   return preset ? clonePulseFixture(preset) : null;
 }
@@ -962,6 +1178,37 @@ function fixtureToState(
   const nowSec = Number.isFinite(Number(fx.epoch.tNow))
     ? Number(fx.epoch.tNow)
     : Date.now() / 1000;
+  const toU256 = (val: bigint) => toU256Num({ low: val.toString(), high: "0" });
+  const genesisFloorU256 = toU256(genesisFloorScaled);
+  const genesisPriceU256 = toU256(genesisPriceScaled);
+  if (fx.state) {
+    const openGapRaw = Number(fx.history?.openGapSec);
+    const openGapSec =
+      Number.isFinite(openGapRaw) && openGapRaw > 0
+        ? Math.max(1, Math.round(openGapRaw))
+        : fx.state === "before_open"
+        ? BEFORE_OPEN_FIXTURE_OPEN_GAP_SEC
+        : OPEN_NOT_ACTIVE_FIXTURE_OPEN_GAP_SEC;
+    const openTimeCandidate = fx.epoch.tStart - openGapSec;
+    const openTimeSec = Number.isFinite(openTimeCandidate)
+      ? fx.state === "before_open"
+        ? Math.max(openTimeCandidate, nowSec + 1)
+        : Math.min(openTimeCandidate, nowSec - 1)
+      : fx.state === "before_open"
+      ? nowSec + BEFORE_OPEN_FIXTURE_DELAY_SEC
+      : nowSec - OPEN_NOT_ACTIVE_FIXTURE_ELAPSED_SEC;
+    return {
+      config: {
+        openTimeSec,
+        genesisPrice: genesisPriceU256,
+        genesisFloor: genesisFloorU256,
+        k: toU256(kScaled),
+        pts: ptsScaled.toString(),
+      },
+      bids: [],
+      nowSec,
+    };
+  }
   const latestEpochIndex = Number.isFinite(Number(fx.epoch.epochIndex))
     ? Math.max(1, Math.round(Number(fx.epoch.epochIndex)))
     : 1;
@@ -1035,7 +1282,6 @@ function fixtureToState(
     humanToScaledBigInt(floor, decimals)
   );
 
-  const toU256 = (val: bigint) => toU256Num({ low: val.toString(), high: "0" });
   const bids: NormalizedBid[] = floorSeriesScaled.map((floorScaled, idx) => {
     const epoch = epochStartIndex + idx;
     const premium = Math.max(premiumSeries[idx] ?? 0, 1e-9);
@@ -1053,8 +1299,6 @@ function fixtureToState(
       tokenId: epoch,
     };
   });
-  const genesisFloorU256 = toU256(genesisFloorScaled);
-  const genesisPriceU256 = toU256(genesisPriceScaled);
   const config: AuctionSnapshot["config"] = {
     openTimeSec,
     genesisPrice: genesisPriceU256,
@@ -1163,6 +1407,33 @@ function formatAmountTinyAware(
   return `${withSep} ${symbol}`;
 }
 
+function formatAmountDetailed(
+  val: string | undefined,
+  _decimals: number,
+  symbol: string,
+  maxFractionDigits = 8
+): string {
+  const raw = val ?? "";
+  const cleaned = String(raw).replace(/,/g, "");
+  const n = Number(cleaned);
+  if (!Number.isFinite(n)) return `${String(raw)} ${symbol}`;
+  if (n === 0) return `0 ${symbol}`;
+
+  if (Math.abs(n) < 0.01) {
+    const fixed = n.toFixed(18);
+    if (Number(fixed) !== 0) {
+      return `${formatTinyDecimalString(fixed, maxFractionDigits)} ${symbol}`;
+    }
+    return `${n.toExponential(4)} ${symbol}`;
+  }
+
+  const withSep = new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: maxFractionDigits,
+  }).format(n);
+  return `${withSep} ${symbol}`;
+}
+
 function formatAmountWithMinNonZeroFrac(
   val: string | undefined,
   _decimals: number,
@@ -1199,12 +1470,29 @@ function formatAmountWithMinNonZeroFrac(
   return `${n.toExponential(4)} ${symbol}`;
 }
 
-type AuctionStatus = "loading" | "before_open" | "open_not_active" | "active" | "error";
+type AuctionStatus =
+  | "no_release"
+  | "loading"
+  | "before_open"
+  | "open_not_active"
+  | "active"
+  | "error";
 
 function normalizeAuctionStatus(value: unknown): AuctionStatus | null {
   if (typeof value !== "string") return null;
   const raw = value.trim().toLowerCase();
   if (!raw || raw === "0" || raw === "false" || raw === "auto") return null;
+  if (
+    raw === "no_release" ||
+    raw === "no-release" ||
+    raw === "norelease" ||
+    raw === "not_deployed" ||
+    raw === "not-deployed" ||
+    raw === "no_deployment" ||
+    raw === "no-deployment"
+  ) {
+    return "no_release";
+  }
   if (
     raw === "before_open" ||
     raw === "before-open" ||
@@ -1258,7 +1546,23 @@ function readAuctionStatusOverride(): AuctionStatus | null {
   return null;
 }
 
+function truthyEnv(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value !== "string") return false;
+  const raw = value.trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
+}
+
+function directAuctionOverrideAllowed(): boolean {
+  if (truthyEnv(getEnvValue("VITE_PATH_ALLOW_DIRECT_AUCTION"))) return true;
+  if (typeof window === "undefined") return false;
+  const query = window.location.search ?? "";
+  return /(?:[?&])direct_auction=(1|true|yes|on)(?:&|$)/i.test(query);
+}
+
 function useAuctionStatus(params: {
+  releaseMissing: boolean;
   nowSec: number;
   openTimeSec?: number | null;
   coreLoading: boolean;
@@ -1267,6 +1571,7 @@ function useAuctionStatus(params: {
   bidsLength: number;
 }) {
   const {
+    releaseMissing,
     nowSec,
     openTimeSec,
     coreLoading,
@@ -1296,6 +1601,10 @@ function useAuctionStatus(params: {
       setStatus(statusOverride);
       return;
     }
+    if (releaseMissing) {
+      setStatus("no_release");
+      return;
+    }
     if (coreErrorVisible) {
       setStatus("error");
       return;
@@ -1319,6 +1628,7 @@ function useAuctionStatus(params: {
     setStatus("open_not_active");
   }, [
     statusOverride,
+    releaseMissing,
     coreLoading,
     bidsLoading,
     coreErrorVisible,
@@ -1381,6 +1691,9 @@ export default function AuctionCanvas({
   );
   const isDesktop = useDesktopOnly();
   const bidsFromBlock = useMemo(() => resolveBidsFromBlock(), []);
+  const protocolRelease = useMemo(() => getProtocolRelease(), []);
+  const allowDirectAuction = useMemo(() => directAuctionOverrideAllowed(), []);
+  const releaseMissing = !fixtureState && !allowDirectAuction && !protocolRelease;
   const network = useMemo(() => {
     const raw = getEnvValue("VITE_NETWORK");
     return typeof raw === "string" ? raw : undefined;
@@ -1390,9 +1703,17 @@ export default function AuctionCanvas({
     return bidsFromBlock == null;
   }, [network, bidsFromBlock]);
   const auctionAddress = useMemo(
-    () => maybeResolveAddress("pulse_auction", address),
-    [address]
+    () =>
+      releaseMissing ? undefined : maybeResolveAddress("pulse_auction", address),
+    [address, releaseMissing]
   );
+  const protocolGuard = useProtocolReleaseGuard({
+    address: auctionAddress,
+    provider,
+    enabled: !fixtureState && !releaseMissing && Boolean(auctionAddress),
+  });
+  const liveAuctionEnabled =
+    !fixtureState && Boolean(auctionAddress) && protocolGuard.ready;
   const {
     bids: bidsHook,
     loading: bidsLoading,
@@ -1402,7 +1723,7 @@ export default function AuctionCanvas({
     provider,
     fromBlock: bidsFromBlock,
     refreshMs,
-    enabled: !fixtureState && Boolean(auctionAddress),
+    enabled: liveAuctionEnabled,
     maxBids,
   });
   const {
@@ -1414,7 +1735,7 @@ export default function AuctionCanvas({
     address: auctionAddress,
     provider,
     refreshMs,
-    enabled: !fixtureState && Boolean(auctionAddress),
+    enabled: liveAuctionEnabled,
   });
   const bids = fixtureState?.bids ?? bidsHook;
   const paymentToken = useMemo(() => resolvePaymentToken(), []);
@@ -1431,8 +1752,10 @@ export default function AuctionCanvas({
     [fixtureState, coreData]
   );
   const bidsLoadingVisible = fixtureState ? false : bidsLoading;
-  const coreLoading = fixtureState ? false : coreLoadingHook;
-  const coreError = fixtureState ? null : coreErrorHook;
+  const coreLoading = fixtureState
+    ? false
+    : protocolGuard.loading || coreLoadingHook;
+  const coreError = fixtureState ? null : protocolGuard.error ?? coreErrorHook;
   const [coreErrorVisible, setCoreErrorVisible] = useState<unknown>(null);
   const [missingDeployBlockVisible, setMissingDeployBlockVisible] =
     useState(false);
@@ -1536,6 +1859,10 @@ export default function AuctionCanvas({
   const [preflightWarm, setPreflightWarm] = useState(false);
   const coreWarm = Boolean(core?.config);
   const targetChainIdHex = useMemo(() => resolveTargetChainIdHex(), []);
+  const targetChainLabel = useMemo(
+    () => resolveChainLabel(targetChainIdHex),
+    [targetChainIdHex]
+  );
   const targetChainId = useMemo(
     () => parseChainId(targetChainIdHex),
     [targetChainIdHex]
@@ -2013,6 +2340,9 @@ export default function AuctionCanvas({
   const [nowSec, setNowSec] = useState(
     () => fixtureState?.nowSec ?? Date.now() / 1000
   );
+  const [liveNowSec, setLiveNowSec] = useState(
+    () => fixtureState?.nowSec ?? Date.now() / 1000
+  );
   const [fallbackConfig, setFallbackConfig] = useState<null | {
     openTimeSec: number;
     genesisPrice: { dec: string; value: bigint };
@@ -2062,15 +2392,32 @@ export default function AuctionCanvas({
     setPendingMint(null);
   }, [pendingMint, bids, maxTokenId, queueToast]);
 
-  // Keep a ticking wall clock so the curve endpoint advances.
+  // Live clock for text-only "now" data. Curve geometry uses nowSec separately.
+  useEffect(() => {
+    if (fixtureState) {
+      if (fixtureState.nowSec) setLiveNowSec(fixtureState.nowSec);
+      return;
+    }
+    const tick = () => setLiveNowSec(Date.now() / 1000);
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [fixtureState]);
+
+  // Before the first bid, keep notices/countdowns live. After a curve exists,
+  // keep the visual endpoint stable until the bid feed changes or the page reloads.
   useEffect(() => {
     if (fixtureState) {
       if (fixtureState.nowSec) setNowSec(fixtureState.nowSec);
       return;
     }
+    if (bids.length > 0) {
+      setNowSec(Date.now() / 1000);
+      return;
+    }
     const id = window.setInterval(() => setNowSec(Date.now() / 1000), 1000);
     return () => window.clearInterval(id);
-  }, [fixtureState]);
+  }, [fixtureState, bids.length]);
 
   // Fallback: fetch config directly if the core hook never fills it.
   useEffect(() => {
@@ -2396,6 +2743,7 @@ export default function AuctionCanvas({
   }, [linkedStatic, nowSec]);
 
   const { status: auctionStatus, openAtUtcLabel, opensInLabel } = useAuctionStatus({
+    releaseMissing,
     nowSec,
     openTimeSec: activeConfig?.openTimeSec,
     coreLoading,
@@ -2403,9 +2751,24 @@ export default function AuctionCanvas({
     coreErrorVisible,
     bidsLength: bids.length,
   });
+  const showNoReleaseNotice = auctionStatus === "no_release";
   const showBeforeOpenNotice = auctionStatus === "before_open";
   const showOpenNotActive = auctionStatus === "open_not_active";
   const showCurveLoading = auctionStatus === "loading";
+  const walletActionRequired =
+    !effectiveWalletDetected ||
+    !effectiveWalletAddressPresent ||
+    effectiveWalletNeedsUnlock ||
+    (effectiveWalletUnlocked && effectiveChainKnown && !effectiveChainOk);
+  const auctionBlocksMint =
+    !debugActive &&
+    !walletActionRequired &&
+    (showNoReleaseNotice || showBeforeOpenNotice || showCurveLoading);
+  const auctionBlockedMintNotice = showBeforeOpenNotice
+    ? `Auction opens ${opensInLabel ? `in ${opensInLabel}` : "soon"}.`
+    : showNoReleaseNotice
+    ? "Waiting for protocol release."
+    : "Loading auction state.";
   const showMissingDeployBlock =
     auctionStatus === "loading" &&
     missingDeployBlock &&
@@ -2439,8 +2802,17 @@ export default function AuctionCanvas({
     );
     return () => window.clearTimeout(id);
   }, [showNoBidsLoaded]);
+  useEffect(() => {
+    if (!auctionBlocksMint) return;
+    if (txState !== "awaiting_signature" && txState !== "submitted") return;
+    setTxState("idle");
+    setTxPhase(null);
+    setTxHash(null);
+    setPendingMint(null);
+  }, [auctionBlocksMint, txState]);
   const showCurvePlot =
     auctionStatus === "active" &&
+    !showNoReleaseNotice &&
     !showBeforeOpenNotice &&
     !showOpenNotActive &&
     linked.segments.length > 0 &&
@@ -2449,6 +2821,12 @@ export default function AuctionCanvas({
     if (linked.nowPrice == null || !Number.isFinite(linked.nowPrice)) return null;
     return formatHumanTokenAmount(linked.nowPrice);
   }, [linked.nowPrice]);
+  const openCurrentPriceLabel = useMemo(() => {
+    if (linked.nowPrice == null || !Number.isFinite(linked.nowPrice)) {
+      return openingAskLabel;
+    }
+    return formatHumanTokenAmount(linked.nowPrice, 8);
+  }, [linked.nowPrice, openingAskLabel]);
 
   const useTailViewport = useMemo(() => {
     const hasSaleHistory = linked.segments.length > 1;
@@ -2468,13 +2846,16 @@ export default function AuctionCanvas({
     const lastSeg = linked.segments[linked.segments.length - 1];
 
     let xMin = 0;
-    let xMax = Math.max(BASE_HALF_LIVES, linked.uEnd);
+    let xMax = Math.max(linked.uEnd, Number.EPSILON);
 
     if (useTailViewport && lastSeg) {
       xMin = Math.max(0, lastSeg.uStart - SPARSE_LIVE_ACTIVE_CONTEXT);
-      xMax = Math.min(linked.uEnd, lastSeg.uStart + SPARSE_LIVE_ACTIVE_WINDOW);
+      xMax = Math.min(
+        halfLifeWindowEnd(linked.uEnd),
+        lastSeg.uStart + SPARSE_LIVE_ACTIVE_WINDOW
+      );
       if (xMax - xMin < BASE_HALF_LIVES) {
-        xMax = Math.min(linked.uEnd, xMin + BASE_HALF_LIVES);
+        xMax = Math.min(halfLifeWindowEnd(linked.uEnd), xMin + BASE_HALF_LIVES);
       }
     }
 
@@ -2491,8 +2872,17 @@ export default function AuctionCanvas({
     if (!lastSeg) return null;
     const mode = useTailViewport ? "sparse-tail" : "full";
     const source = fixtureState ? "fixture" : "live";
-    return `${source}:${mode}:${bids.length}:${lastSeg.epoch}:${lastSeg.startSec}`;
-  }, [linked.segments, useTailViewport, fixtureState, bids.length]);
+    const xMin = defaultViewport?.xMin ?? 0;
+    const xMax = defaultViewport?.xMax ?? 0;
+    return `${source}:${mode}:${bids.length}:${lastSeg.epoch}:${lastSeg.startSec}:${xMin.toFixed(6)}:${xMax.toFixed(6)}`;
+  }, [
+    linked.segments,
+    useTailViewport,
+    fixtureState,
+    bids.length,
+    defaultViewport?.xMin,
+    defaultViewport?.xMax,
+  ]);
 
   const effectiveViewport = viewport ?? defaultViewport;
 
@@ -2520,18 +2910,22 @@ export default function AuctionCanvas({
         return prev;
       }
 
+      const xEnd = defaultViewport?.xMax ?? halfLifeWindowEnd(linked.uEnd);
       let xMin = prev.xMin;
       let xMax = prev.xMax;
-      if (xMax > linked.uEnd) {
-        xMax = linked.uEnd;
+      if (xMax > xEnd) {
+        xMax = xEnd;
         xMin = Math.max(0, xMax - xRange);
       }
       if (xMin < 0) {
         xMin = 0;
-        xMax = Math.min(linked.uEnd, xMin + xRange);
+        xMax = Math.min(xEnd, xMin + xRange);
+      }
+      if (xMax < linked.uEnd && xMin === 0) {
+        xMax = xEnd;
       }
       if (xMax - xMin < 1e-6) {
-        xMax = Math.min(linked.uEnd, xMin + BASE_HALF_LIVES);
+        xMax = Math.min(xEnd, xMin + BASE_HALF_LIVES);
       }
       return xMin === prev.xMin && xMax === prev.xMax ? prev : { ...prev, xMin, xMax };
     });
@@ -2766,7 +3160,10 @@ export default function AuctionCanvas({
   const handleSwitch = async () => {
     const ok = await requestChainSwitch(targetChainIdHex);
     if (!ok) {
-      showToast({ kind: "warn", text: "Switch to Sepolia in your wallet." });
+      showToast({
+        kind: "warn",
+        text: `Switch to ${targetChainLabel} in your wallet.`,
+      });
     }
   };
 
@@ -2857,6 +3254,10 @@ export default function AuctionCanvas({
 
   const handleMint = async () => {
     if (debugActive) return;
+    if (auctionBlocksMint) {
+      showToast({ kind: "info", text: auctionBlockedMintNotice });
+      return;
+    }
     if (!account || !walletAddress || !auctionAddress || !paymentToken) return;
     await maybeWatchAsset();
     const data = await runPreflight();
@@ -2889,6 +3290,9 @@ export default function AuctionCanvas({
       ctaOverrideActive || noticeOverrideActive
         ? effectiveAskLabel
         : liveAskLabel ?? effectiveAskLabel;
+    if (auctionBlocksMint) {
+      return { kind: "info", text: auctionBlockedMintNotice };
+    }
     if (effectiveTxState === "awaiting_signature") {
       const text =
         effectiveTxPhase === "approve"
@@ -2950,7 +3354,7 @@ export default function AuctionCanvas({
     if (effectiveWalletUnlocked && effectiveChainKnown && !effectiveChainOk) {
       return {
         kind: "error",
-        text: "Sepolia only.",
+        text: `${targetChainLabel} only.`,
         delayMs: DELAY_MS,
       };
     }
@@ -3018,6 +3422,9 @@ export default function AuctionCanvas({
     effectiveBalanceLabel,
     preflightErrorVisible,
     displayTokenSymbol,
+    targetChainLabel,
+    auctionBlocksMint,
+    auctionBlockedMintNotice,
   ]);
 
   useEffect(() => {
@@ -3065,15 +3472,6 @@ export default function AuctionCanvas({
       : "off";
 
   const ctaState = (() => {
-    if (effectiveTxState === "submitted") {
-      return { label: "pending", disabled: false, onClick: handlePending };
-    }
-    if (effectiveTxState === "awaiting_signature") {
-      return { label: "sign", disabled: true, onClick: () => {} };
-    }
-    if (effectiveTxState === "failed") {
-      return { label: "retry", disabled: false, onClick: handleRetry };
-    }
     if (effectiveWalletUnlocked && effectiveChainKnown && !effectiveChainOk) {
       return { label: "switch", disabled: false, onClick: handleSwitch };
     }
@@ -3085,6 +3483,18 @@ export default function AuctionCanvas({
     }
     if (!effectiveWalletDetected) {
       return { label: "connect", disabled: false, onClick: handleConnect };
+    }
+    if (auctionBlocksMint) {
+      return { label: "mint", disabled: true, onClick: handleMint };
+    }
+    if (effectiveTxState === "submitted") {
+      return { label: "pending", disabled: false, onClick: handlePending };
+    }
+    if (effectiveTxState === "awaiting_signature") {
+      return { label: "sign", disabled: true, onClick: () => {} };
+    }
+    if (effectiveTxState === "failed") {
+      return { label: "retry", disabled: false, onClick: handleRetry };
     }
     if (effectiveWalletUnlocked && effectiveChainOk && effectivePreflightOk) {
       return {
@@ -3260,14 +3670,10 @@ export default function AuctionCanvas({
       const seg = linked.segments[idx];
       if (!seg) return false;
 
-      const uLocal = clamp(linked.nowU - seg.uStart, 0, Math.max(0, seg.uLen));
-      const tau = uLocal * seg.tHalf;
-      const atMs = (seg.startSec + tau) * 1000;
-      const metaDt = Math.max(0, nowSec - seg.startSec);
-      const beforeNow = Math.max(0, metaDt - tau);
-      const amountStr = Number.isFinite(linked.nowPrice)
-        ? linked.nowPrice.toFixed(2)
-        : "";
+      const liveDurationSec = Math.max(0, liveNowSec - seg.startSec);
+      const liveULocal = liveDurationSec / Math.max(seg.tHalf, 1e-9);
+      const livePrice = priceAtU(seg.floor, seg.premium, liveULocal);
+      const amountStr = Number.isFinite(livePrice) ? livePrice.toFixed(2) : "";
 
       let screenX = 16;
       let screenY = 16;
@@ -3287,30 +3693,31 @@ export default function AuctionCanvas({
       }
 
       setHover({
-        key: "curve-point",
+        key: "now",
         x: xSvg,
         y: ySvg,
         screenX,
         screenY,
         amount: amountStr,
         amountDec: amountStr,
-        amountRaw: String(linked.nowPrice),
-        atMs,
+        amountRaw: String(livePrice),
+        atMs: (seg.startSec + liveDurationSec) * 1000,
         epoch: seg.epoch,
         lastSec: seg.startSec,
         anchor: seg.anchor,
         kHuman: seg.kHuman,
         floorHuman: seg.floor,
         premiumHuman: seg.premium,
-        durationSec: tau,
-        metaDtSec: metaDt,
-        beforeNowSec: beforeNow,
-        hoverSetSec: Date.now() / 1000,
+        durationSec: liveDurationSec,
+        metaDtSec: liveDurationSec,
+        beforeNowSec: 0,
+        hoverSetSec: liveNowSec,
         tHalf: seg.tHalf,
-        uLocal,
-        uGlobal: seg.uStart + uLocal,
+        uLocal: liveULocal,
+        uGlobal: seg.uStart + liveULocal,
         dtPrevSec: seg.dtPrevSec,
         dtNextSec: seg.dtNextSec,
+        liveNow: true,
       });
       return true;
     },
@@ -3321,9 +3728,57 @@ export default function AuctionCanvas({
       linked.nowU,
       linked.nowPrice,
       segmentStarts,
-      nowSec,
+      liveNowSec,
     ]
   );
+
+  useEffect(() => {
+    setHover((prev) => {
+      if (!prev || prev.key !== "now" || !(prev as any).liveNow) {
+        return prev;
+      }
+      const startSec = Number(prev.lastSec);
+      const tHalf = Number(prev.tHalf);
+      const floor = Number(prev.floorHuman);
+      const premium = Number(prev.premiumHuman);
+      if (
+        !Number.isFinite(startSec) ||
+        !Number.isFinite(tHalf) ||
+        tHalf <= 0 ||
+        !Number.isFinite(floor) ||
+        !Number.isFinite(premium)
+      ) {
+        return prev;
+      }
+
+      const durationSec = Math.max(0, liveNowSec - startSec);
+      const uLocal = durationSec / tHalf;
+      const price = priceAtU(floor, premium, uLocal);
+      if (!Number.isFinite(price)) return prev;
+
+      const prevULocal = Number(prev.uLocal);
+      const prevUGlobal = Number(prev.uGlobal);
+      const uBase =
+        Number.isFinite(prevULocal) && Number.isFinite(prevUGlobal)
+          ? prevUGlobal - prevULocal
+          : 0;
+      const amountStr = price.toFixed(2);
+
+      return {
+        ...prev,
+        amount: amountStr,
+        amountDec: amountStr,
+        amountRaw: String(price),
+        atMs: (startSec + durationSec) * 1000,
+        durationSec,
+        metaDtSec: durationSec,
+        beforeNowSec: 0,
+        hoverSetSec: liveNowSec,
+        uLocal,
+        uGlobal: uBase + uLocal,
+      };
+    });
+  }, [liveNowSec]);
 
   useEffect(() => {
     if (selectedBidKey || selectedAskKey || selectedNow) return;
@@ -3358,7 +3813,7 @@ export default function AuctionCanvas({
         return prev;
       }
 
-      const xEnd = Math.max(0, linked.uEnd);
+      const xEnd = halfLifeWindowEnd(linked.uEnd);
       let nextMax = clamp(targetNowU, 0, xEnd);
       let nextMin = nextMax - xRange;
       if (nextMin < 0) {
@@ -3407,7 +3862,7 @@ export default function AuctionCanvas({
   };
 
   const clampXWindow = useCallback((xMin: number, xMax: number, xRange: number) => {
-    const xEnd = Math.max(0, linked.uEnd);
+    const xEnd = halfLifeWindowEnd(linked.uEnd);
     if (!Number.isFinite(xMin) || !Number.isFinite(xMax) || xRange <= 0) {
       return { xMin: 0, xMax: xEnd };
     }
@@ -3435,7 +3890,7 @@ export default function AuctionCanvas({
     const nextRange = clamp(
       xRange * scale,
       0.5,
-      Math.max(0.5, linked.uEnd || BASE_HALF_LIVES)
+      Math.max(0.5, halfLifeWindowEnd(linked.uEnd))
     );
 
     const pinnedFocusU =
@@ -4174,6 +4629,19 @@ export default function AuctionCanvas({
         </div>
       )}
       {(() => {
+        if (showNoReleaseNotice) {
+          return (
+            <div className="dotfield__canvas dotfield__look">
+              <div className="muted dotfield__status-copy">
+                No PATH deployment loaded.
+                <br />
+                Waiting for protocol release.
+                <br />
+                Run PATH OPS deploy, export FE release, then sync it into inshell.art.
+              </div>
+            </div>
+          );
+        }
         if (showBeforeOpenNotice) {
           return (
             <div className="dotfield__canvas dotfield__look">
@@ -4196,6 +4664,8 @@ export default function AuctionCanvas({
                 Waiting for first bid.
                 <br />
                 Opening ask: {openingAskLabel} {displayTokenSymbol}
+                <br />
+                Current price: {openCurrentPriceLabel} {displayTokenSymbol}
               </div>
             </div>
           );
@@ -4270,7 +4740,6 @@ export default function AuctionCanvas({
               y: toSvgY(nowPrice),
             }
           : null;
-
         const curveSegments: Array<{ key: string; d: string }> = [];
         const MAX_CURVE_SEGMENT_DX_SVG = 1.2;
         const MAX_CURVE_MIDPOINT_ERR_SVG = 0.03;
@@ -4668,6 +5137,8 @@ export default function AuctionCanvas({
                         ? Math.abs(Number((hover as any).uGlobal ?? Number.NaN)) < 1e-9
                           ? "opening ask"
                           : "initial ask"
+                        : hover.key === "now"
+                        ? "current"
                         : hover.key === "opening-floor"
                         ? "opening floor"
                         : hover.key === "premium"
@@ -4676,11 +5147,15 @@ export default function AuctionCanvas({
                     </div>
                     <div className="dotfield__poprow">
                       <span>
-                        {hover.key === "premium" ? "amount" : "price"}
+                        {hover.key === "premium"
+                          ? "amount"
+                          : "price"}
                       </span>
                       <span>
-                        {hover.key === "curve-point"
-                          ? formatAmountTinyAware(
+                        {hover.key === "ask" ||
+                        hover.key === "curve-point" ||
+                        hover.key === "now"
+                          ? formatAmountDetailed(
                               (hover as any).amountRaw ?? hover.amount,
                               decimals,
                               displayTokenSymbol
@@ -4749,7 +5224,7 @@ export default function AuctionCanvas({
                         </div>
                       </>
                     )}
-                    {hover.key === "curve-point" && (
+                    {(hover.key === "curve-point" || hover.key === "now") && (
                       <>
                         <div className="dotfield__poprow">
                           <span>above floor</span>
@@ -4806,7 +5281,7 @@ export default function AuctionCanvas({
                         </div>
                       </>
                     )}
-                    {hover.key === "curve-point" && (
+                    {(hover.key === "curve-point" || hover.key === "now") && (
                       <>
                         <div className="dotfield__poprow">
                           <span>t½</span>

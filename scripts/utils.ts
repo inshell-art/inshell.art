@@ -41,7 +41,7 @@ export function readJson<T = any>(file: string): T {
 }
 export function writeJson(file: string, data: unknown) {
   ensureDir(dirname(file));
-  writeFileSync(file, JSON.stringify(data, null, 2));
+  writeFileSync(file, `${JSON.stringify(data, null, 2)}\n`);
 }
 
 // ----- fetch (Node 18+ or node-fetch fallback) -----

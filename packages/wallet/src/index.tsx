@@ -299,6 +299,7 @@ function readEvmChainIds(): number[] {
 
 function chainLabel(chainId: number | null): { name: string; network: string } {
   if (chainId === 11155111) return { name: "Sepolia", network: "sepolia" };
+  if (chainId === 31338) return { name: "PATH Local", network: "devnet" };
   if (chainId === 1) return { name: "Mainnet", network: "mainnet" };
   return { name: "Unknown", network: "unknown" };
 }

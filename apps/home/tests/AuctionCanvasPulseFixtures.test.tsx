@@ -155,6 +155,10 @@ function parsePathEnd(pathD: string | null): { x: number; y: number } | null {
 
 describe("AuctionCanvas with pulse fixtures", () => {
   beforeEach(() => {
+    (globalThis as any).__VITE_ENV__ = {
+      VITE_PATH_ALLOW_DIRECT_AUCTION: "1",
+      VITE_PAYMENT_TOKEN_SYMBOL: "ETH",
+    };
     mockCallContract.mockReset();
     mockCallContract.mockResolvedValue({ result: [] });
     jest.useFakeTimers();
@@ -164,6 +168,7 @@ describe("AuctionCanvas with pulse fixtures", () => {
   afterEach(() => {
     jest.useRealTimers();
     jest.clearAllMocks();
+    delete (globalThis as any).__VITE_ENV__;
     window.history.pushState({}, "", "/");
   });
 
@@ -431,6 +436,59 @@ describe("AuctionCanvas with pulse fixtures", () => {
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     expect(screen.queryByText(/loading curve/i)).toBeNull();
+    window.history.pushState({}, "", "/");
+  });
+
+  test("before_open fixture renders pre-open countdown state", async () => {
+    window.history.pushState({}, "", "/?fixture=before_open");
+    mockUseAuctionCore.mockReturnValue({
+      data: null,
+      ready: true,
+      loading: false,
+      error: null,
+      refresh: jest.fn(),
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids: [],
+      ready: true,
+      loading: false,
+      error: null,
+    });
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
+    expect(await screen.findByText(/Auction opens at/i)).toBeTruthy();
+    expect(screen.getByText(/Opens in 10m0s/i)).toBeTruthy();
+    expect(
+      screen.getByText(/First bid can land in the first block/i)
+    ).toBeTruthy();
+    expect(container.querySelector(".dotfield__curve")).toBeNull();
+    window.history.pushState({}, "", "/");
+  });
+
+  test("open_not_active fixture renders after-open before-mint state", async () => {
+    window.history.pushState({}, "", "/?fixture=open_not_active");
+    mockUseAuctionCore.mockReturnValue({
+      data: null,
+      ready: true,
+      loading: false,
+      error: null,
+      refresh: jest.fn(),
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids: [],
+      ready: true,
+      loading: false,
+      error: null,
+    });
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
+    expect(await screen.findByText(/Auction is open now/i)).toBeTruthy();
+    expect(screen.getByText(/Waiting for first bid/i)).toBeTruthy();
+    expect(screen.getByText(/Opening ask:/i)).toBeTruthy();
+    expect(screen.getByText(/Current price:/i)).toBeTruthy();
+    expect(container.querySelector(".dotfield__curve")).toBeNull();
     window.history.pushState({}, "", "/");
   });
 

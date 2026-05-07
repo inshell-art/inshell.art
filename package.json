@@ -20,6 +20,7 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "type-check": "tsc --noEmit",
     "check": "pnpm run lint && pnpm run type-check && pnpm run test:unit",
+    "sync:path-release": "tsx scripts/sync-path-release.ts",
     "preview:home": "pnpm --filter @inshell/home preview",
     "e2e:staging": "NODE_ENV=staging cypress run --config-file cypress/cypress.config.ts",
     "e2e:prod": "NODE_ENV=prod cypress run --config-file cypress/cypress.config.ts",

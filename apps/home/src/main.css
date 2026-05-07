@@ -675,7 +675,7 @@ body {
 
 .dotfield__status-copy {
   text-align: center;
-  line-height: 1.4;
+  line-height: 1.7;
 }
 
 .dotfield__look-viewport {
@@ -909,9 +909,18 @@ body {
 }
 
 .dotfield__now-label {
-  font-size: 1.8px;
-  fill: var(--muted);
-  dominant-baseline: middle;
+  position: absolute;
+  transform: translate(10px, -50%);
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.dotfield__now-label--left {
+  transform: translate(calc(-100% - 10px), -50%);
 }
 
 .dotfield__point:hover .dotfield__dot,

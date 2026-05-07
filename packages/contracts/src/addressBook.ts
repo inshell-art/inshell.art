@@ -1,5 +1,6 @@
 import devnet from "./addresses/addresses.devnet.json";
 import sepolia from "./addresses/addresses.sepolia.json";
+import { getProtocolReleaseAddress } from "./protocolRelease";
 // import mainnet from "./addresses/addresses.mainnet.json";
 
 type Book = Record<string, string>;
@@ -57,6 +58,8 @@ export function maybeResolveAddress(
   const book = BOOKS[net];
   const fromBook = book?.[key];
   if (isEvmAddress(fromBook)) return fromBook.trim();
+  const fromRelease = getProtocolReleaseAddress(key, net);
+  if (isEvmAddress(fromRelease)) return fromRelease.trim();
   return undefined;
 }
 

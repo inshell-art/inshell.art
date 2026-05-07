@@ -2,6 +2,7 @@ import {
   decodeFunctionResult,
   encodeFunctionData,
   getAddress,
+  keccak256,
   type Address,
   type Hex,
 } from "viem";
@@ -82,6 +83,10 @@ function assertRequestProvider(
   if (typeof provider?.request !== "function") {
     throw new Error("Ethereum provider does not support JSON-RPC requests.");
   }
+}
+
+export function supportsRpcRequest(provider: ProviderInterface): boolean {
+  return typeof provider?.request === "function";
 }
 
 function toHexQuantity(value: number | bigint): Hex {
@@ -172,7 +177,7 @@ export class JsonRpcProvider implements ProviderInterface {
 export function getDefaultProvider(): ProviderInterface {
   const rpcUrl =
     (getEnv("VITE_ETH_RPC") as string | undefined) ??
-    "http://127.0.0.1:8545";
+    "http://127.0.0.1:8546";
   return new JsonRpcProvider(rpcUrl);
 }
 
@@ -304,7 +309,38 @@ export async function callContract<T = unknown>(
       normalizeBlockTag(blockTag),
     ],
   })) as Hex;
+  if (!result || result === "0x") {
+    throw new Error(
+      `No return data from ${args.entrypoint} at ${normalizeAddress(
+        args.contractAddress
+      )}. Verify the RPC network, contract address, and PATH FE release.`
+    );
+  }
   return decode(result) as T;
+}
+
+export async function getChainId(provider: ProviderInterface): Promise<bigint> {
+  assertRequestProvider(provider);
+  const result = (await provider.request({ method: "eth_chainId" })) as string;
+  return BigInt(result);
+}
+
+export async function getCode(
+  provider: ProviderInterface,
+  address: string,
+  blockTag?: number | EthereumBlockTag
+): Promise<Hex> {
+  assertRequestProvider(provider);
+  const result = (await provider.request({
+    method: "eth_getCode",
+    params: [normalizeAddress(address), normalizeBlockTag(blockTag)],
+  })) as Hex;
+  return result ?? "0x";
+}
+
+export function hashBytecode(code: Hex): Hex | undefined {
+  if (!code || code === "0x") return undefined;
+  return keccak256(code);
 }
 
 export async function getBlockNumber(provider: ProviderInterface): Promise<number> {

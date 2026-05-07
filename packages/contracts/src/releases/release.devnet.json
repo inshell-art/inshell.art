@@ -1,0 +1,63 @@
+{
+  "schema_version": 2,
+  "protocol": "path",
+  "network": "devnet",
+  "chain_id": 31338,
+  "repo_commit": "1ef1270203a4fdc80328b47a34bdd7c64afcb879",
+  "deploy_run_id": "devnet-local-20260507T095008Z",
+  "release_tier": "temporary",
+  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "admin": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "treasury": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+  "payment_token": "0x0000000000000000000000000000000000000000",
+  "contracts": {
+    "path_nft": "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
+    "path_minter": "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e",
+    "path_minter_adapter": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0",
+    "pulse_auction": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82"
+  },
+  "deploy_txs": {
+    "path_nft": "0x02632fd5fdc725842c4f204c5716dd819e98da5f74096aaa441f63671c3006b8",
+    "path_minter": "0x6e2fa74580c619fc7d49d1a7bc5cfd9120e55060fff12999b95948b50f4845b7",
+    "path_minter_adapter": "0x263374d0c2bb2a12022ae1c7bd2e2599c2333c3a3489b42de312a5612871df4c",
+    "pulse_auction": "0xe429fc00d130df30e4118d87e033621e9dbe128abe1d270992707ecc4c566a3d"
+  },
+  "deploy_blocks": {
+    "path_nft": 11,
+    "path_minter": 12,
+    "path_minter_adapter": 13,
+    "pulse_auction": 14
+  },
+  "code_hashes": {
+    "path_nft": "0x8217055669395830ae6879dc7f547c43859a057fc52c819afdecf92fef088ed0",
+    "path_minter": "0x74e67da03e9379fd512b8230633faf55bf526526b2096c2543008ac9576a99b1",
+    "path_minter_adapter": "0x1f4785906e3b1a4decc227b524c8416a7b1406fe38d6a0b2f80e43f61ac11f93",
+    "pulse_auction": "0xc1718e12d990bff645d7c646af0725272c857ce7ebb612c85ff139f052d432ed"
+  },
+  "config": {
+    "name": "PATH NFT",
+    "symbol": "PATH",
+    "base_uri": "",
+    "open_time": 1778147700,
+    "open_time_iso": "2026-05-07T09:55:00.000Z",
+    "start_delay_sec": 307,
+    "k": "100000000000000000000",
+    "genesis_price": "1000000000000000000",
+    "genesis_floor": "100000000000000000",
+    "pts": "100000000000000",
+    "token_base": 1,
+    "epoch_base": 1
+  },
+  "status": {
+    "postconditions": "pass",
+    "audit": "none",
+    "audit_id": null,
+    "ready_for_fe": true,
+    "notes": "local devnet rehearsal release"
+  },
+  "source_artifacts": {
+    "deployment_relpath": "evm/deployments/localhost-eth.json",
+    "bundle_relpath": "evm/deployments"
+  },
+  "generated_at": "2026-05-07T09:50:08.390Z"
+}

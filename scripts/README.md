@@ -7,6 +7,7 @@ Task scripts for syncing **addresses**, writing **env**, and validating imported
 | Script | Purpose |
 | --- | --- |
 | `sync-addresses.ts` | Normalize and write `packages/contracts/src/addresses/addresses.<net>.json` from a file or URL. |
+| `sync-path-release.ts` | Import a full `path/` FE release bundle: addresses, protocol manifest, and ABI snapshots. |
 | `sync-env.ts` | Generate `.env.<net>.local` for apps from RPC + addresses (supports deploy block). |
 | `validate-path-artifacts.ts` | Reject stale PATH ABI/release JSON that still exposes deprecated spark/reserved mint surface. |
 | `abi-json-to-ts.ts` | Convert ABI JSON into a typed TS export for runtime/typing. |
@@ -18,6 +19,7 @@ Task scripts for syncing **addresses**, writing **env**, and validating imported
 
 - `utils.ts` — shared CLI + I/O helpers (flags, fetch, JSON, address normalization).
 - `sync-addresses.ts` — writes `packages/contracts/src/addresses/addresses.<net>.json` from a local file or URL.
+- `sync-path-release.ts` — validates a `path/artifacts/<net>/current/fe-release/` bundle, rejects stale protocol surface, then writes the FE address book, protocol release manifest, and ABI snapshots.
 - `sync-env.ts` — writes `apps/home/.env.<net>.local` and `apps/thought/.env.<net>.local` from RPC + addresses.
 - `validate-path-artifacts.ts` — scans imported PATH JSON artifacts for deleted spark/reserved surface before syncing.
 
@@ -47,6 +49,13 @@ Task scripts for syncing **addresses**, writing **env**, and validating imported
 
 **CLI flags > environment variables > `.env*` files > sane defaults**  
 Use flags for one-offs; use env for secrets / CI.
+
+## Deployment Gate
+
+The home app is release-gated by default. Import a full `path/` FE release with
+`sync-path-release.ts` before expecting live auction calls. Direct `VITE_PULSE_AUCTION`
+addresses are treated as a debugging escape hatch and require
+`VITE_PATH_ALLOW_DIRECT_AUCTION=1` or `?direct_auction=1`.
 
 ## Address files policy
 

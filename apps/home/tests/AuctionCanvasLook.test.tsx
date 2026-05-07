@@ -43,6 +43,10 @@ jest.mock("@inshell/wallet", () => ({
 
 describe("AuctionCanvas sale tooltip", () => {
   beforeEach(() => {
+    (globalThis as any).__VITE_ENV__ = {
+      VITE_PATH_ALLOW_DIRECT_AUCTION: "1",
+      VITE_PAYMENT_TOKEN_SYMBOL: "ETH",
+    };
     const nowMs = Date.now();
     mockCallContract.mockReset();
     mockUseAuctionBids.mockReturnValue({
@@ -75,6 +79,7 @@ describe("AuctionCanvas sale tooltip", () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    delete (globalThis as any).__VITE_ENV__;
   });
 
   test("shows sale details without loading token image", () => {
