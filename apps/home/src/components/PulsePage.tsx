@@ -109,41 +109,42 @@ export default function PulsePage() {
         </div>
       </header>
 
-      <section className="primitive-page__body" aria-label="Pulse primitive note">
+      <section className="primitive-page__body" aria-label="Pulse source note">
         <div className="primitive-page__copy">
-          <p>{PULSE.theory[0]}</p>
+          <p>{PULSE.explanation[0]}</p>
           <p>
-            {PULSE.theory[1]}
+            {PULSE.explanation[1]}
             <br />
-            {PULSE.theory[2]}
+            {PULSE.explanation[2]}
           </p>
           <p>
-            {PULSE.theory[3]}
+            {PULSE.explanation[3]}
             <br />
-            {PULSE.theory[4]}
+            {PULSE.explanation[4]}
           </p>
         </div>
 
-        <pre className="primitive-page__formula" aria-label="Pulse pricing sketch">
-          {PULSE.formulas.join("\n\n")}
+        <pre
+          className="primitive-page__formula pulse-page__math"
+          aria-label="Pulse pump and drop equations"
+        >
+          {PULSE.math}
         </pre>
 
-        <p className="primitive-page__note">
-          {PULSE.note[0]}
-          <br />
-          {PULSE.note[1]}
-        </p>
+        <div className="pulse-page__ending">
+          <p className="primitive-page__note">{PULSE.note}</p>
 
-        <nav className="primitive-page__links" aria-label="Pulse references">
-          <a href={PULSE.desmosUrl} target="_blank" rel="noopener noreferrer">
-            Open original Desmos sketch ↗
-          </a>
-          {PULSE.repositoryUrl ? (
-            <a href={PULSE.repositoryUrl} target="_blank" rel="noopener noreferrer">
-              View source ↗
+          <nav className="primitive-page__links" aria-label="Pulse references">
+            <a href={PULSE.desmosUrl} target="_blank" rel="noopener noreferrer">
+              Open original Desmos sketch ↗
             </a>
-          ) : null}
-        </nav>
+            {PULSE.repositoryUrl ? (
+              <a href={PULSE.repositoryUrl} target="_blank" rel="noopener noreferrer">
+                View source ↗
+              </a>
+            ) : null}
+          </nav>
+        </div>
       </section>
     </main>
   );

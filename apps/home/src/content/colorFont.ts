@@ -1,5 +1,5 @@
 export const COLOR_FONT_REPOSITORY_URL =
-  "https://github.com/inshell-art/inshell.art/blob/try/sparse-live-tail-viewport/apps/home/src/content/colorFont.ts";
+  "https://github.com/inshell-art/inshell.art/blob/main/spec/COLOR_FONT.v1.json";
 
 export const COLOR_FONT_GLYPHS = [
   { letter: "A", index: 1, name: "aqua", hex: "#00ffff" },
@@ -37,11 +37,11 @@ export const COLOR_FONT_RAW = COLOR_FONT_GLYPHS.map(
 export const COLOR_FONT = {
   title: "color font",
   subtitle: "Contract-defined A-Z color glyph system.",
-  id: "INSHELL_COLOR_FONT",
+  id: "thought.colorfont.v1",
   version: "v1",
   hash: "0x5d16e42e857c3d93524b679426a87d59ec414466b581a904a72992d64c21a12f",
   format: "LETTER:INDEX:ALIAS_TERM:HEX",
-  mirror: "inshell.art color font mirror",
+  mirror: "GitHub COLOR_FONT.v1.json",
   repositoryUrl: COLOR_FONT_REPOSITORY_URL,
   copy: [
     "The color rectangle is the glyph.",

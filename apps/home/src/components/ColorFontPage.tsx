@@ -26,6 +26,9 @@ type ColorFontDoc = {
   loadKind: "onchain" | "fallback";
   loadedFrom: string;
   authority: string;
+  authorityTitle?: string;
+  authorityUrl?: string;
+  chain: string;
   id: string;
   version: string;
   format: string;
@@ -76,27 +79,29 @@ const THOUGHT_NFT_COLOR_FONT_METHODS = {
 
 const COLOR_FONT_LOADED_FROM_ONCHAIN = "ThoughtNFT.colorFontData()";
 const COLOR_FONT_LOADED_FROM_FALLBACK = "frontend mirror fallback";
-const COLOR_FONT_AUTHORITY_ONCHAIN = "onchain color font ABI";
 const COLOR_FONT_AUTHORITY_UNAVAILABLE =
   "onchain color font ABI unavailable";
-const ONCHAIN_STATUS =
-  `source: ${COLOR_FONT_LOADED_FROM_ONCHAIN}\nmirror: ${COLOR_FONT.mirror}`;
 const FALLBACK_STATUS =
-  `source: ${COLOR_FONT_LOADED_FROM_FALLBACK}\nonchain: unavailable\nmirror: ${COLOR_FONT.mirror}`;
+  `authority: ${COLOR_FONT_AUTHORITY_UNAVAILABLE}\nsource: ${COLOR_FONT_LOADED_FROM_FALLBACK}\nmirror: ${COLOR_FONT.mirror}`;
 const FALLBACK_WARNING = [
-  "onchain source unavailable.",
+  "warning: onchain color font could not be loaded.",
   "showing bundled mirror copy.",
 ];
+const HASH_MISMATCH_WARNING = [
+  "warning: color font hash mismatch.",
+  "loaded data does not match contract hash.",
+];
 
-function dataTextHref(raw: string) {
-  return `data:text/plain;charset=utf-8,${encodeURIComponent(raw)}`;
+function dataHtmlHref(html: string) {
+  return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
 }
 
 function rawMappingDocument(doc: ColorFontDoc) {
   return [
     "THOUGHT Color Font v1",
     `source: ${doc.loadedFrom}`,
-    ...(doc.loadKind === "fallback" ? ["onchain: unavailable"] : []),
+    `authority: ${doc.authority}`,
+    `chain: ${doc.chain}`,
     `hash: ${doc.hash}`,
     "",
     ...(doc.warning ? [...doc.warning, ""] : []),
@@ -104,18 +109,53 @@ function rawMappingDocument(doc: ColorFontDoc) {
   ].join("\n");
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function rawMappingHtml(doc: ColorFontDoc) {
+  return [
+    "<!doctype html>",
+    '<html lang="en">',
+    "<head>",
+    '<meta charset="utf-8" />',
+    "<title>THOUGHT Color Font v1</title>",
+    "<style>",
+    "body{margin:24px;background:#fff;color:#111;font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}",
+    "pre{white-space:pre-wrap;margin:0;}",
+    "</style>",
+    "</head>",
+    "<body>",
+    `<pre>${escapeHtml(rawMappingDocument(doc))}</pre>`,
+    "</body>",
+    "</html>",
+  ].join("");
+}
+
 function createRawMappingHref(doc: ColorFontDoc) {
-  const raw = rawMappingDocument(doc);
+  const html = rawMappingHtml(doc);
   if (
     typeof globalThis.URL === "undefined" ||
     typeof globalThis.URL.createObjectURL !== "function" ||
     typeof globalThis.Blob === "undefined"
   ) {
-    return dataTextHref(raw);
+    return dataHtmlHref(html);
   }
   return globalThis.URL.createObjectURL(
-    new globalThis.Blob([raw], { type: "text/plain;charset=utf-8" })
+    new globalThis.Blob([html], { type: "text/html;charset=utf-8" })
   );
+}
+
+function getEnv(name: string): string | undefined {
+  const envCache: Record<string, unknown> | undefined =
+    (globalThis as any).__VITE_ENV__;
+  const procEnv = (globalThis as any)?.process?.env;
+  const value = envCache?.[name] ?? procEnv?.[name];
+  return typeof value === "string" ? value : undefined;
 }
 
 function resolveThoughtNftAddress() {
@@ -123,6 +163,55 @@ function resolveThoughtNftAddress() {
     maybeResolveAddress("thought_nft") ??
     maybeResolveAddress("thought_nft_address")
   );
+}
+
+function shortenAddress(address: string): string {
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+function chainLabelFromNetwork(network: string | undefined): string | undefined {
+  switch (network?.toLowerCase()) {
+    case "mainnet":
+    case "ethereum":
+    case "prod":
+    case "production":
+      return "Ethereum";
+    case "sepolia":
+      return "Sepolia (11155111)";
+    case "devnet":
+    case "local":
+    case "localhost":
+      return "Local Devnet";
+    default:
+      return undefined;
+  }
+}
+
+function chainLabelFromChainId(chainId: bigint): string {
+  if (chainId === 1n) return "Ethereum";
+  if (chainId === 11155111n) return "Sepolia (11155111)";
+  if (chainId === 31337n || chainId === 1337n) return "Local Devnet";
+  return `Chain ${chainId.toString()}`;
+}
+
+function fallbackChainLabel(): string {
+  return chainLabelFromNetwork(getEnv("VITE_NETWORK")) ?? "Local Devnet";
+}
+
+function explorerUrl(chainId: bigint, address: string): string | undefined {
+  if (chainId === 1n) return `https://etherscan.io/address/${address}`;
+  if (chainId === 11155111n) {
+    return `https://sepolia.etherscan.io/address/${address}`;
+  }
+  return undefined;
+}
+
+function onchainStatus(authority: string) {
+  return [
+    `authority: ${authority}`,
+    `source: ${COLOR_FONT_LOADED_FROM_ONCHAIN}`,
+    `mirror: ${COLOR_FONT.mirror}`,
+  ].join("\n");
 }
 
 function colorLabel(glyph: ColorGlyph): string {
@@ -135,6 +224,7 @@ function fallbackDoc(): ColorFontDoc {
     loadKind: "fallback",
     loadedFrom: COLOR_FONT_LOADED_FROM_FALLBACK,
     authority: COLOR_FONT_AUTHORITY_UNAVAILABLE,
+    chain: fallbackChainLabel(),
     id: COLOR_FONT.id,
     version: COLOR_FONT.version,
     format: COLOR_FONT.format,
@@ -199,6 +289,18 @@ async function ethCall(
   return result;
 }
 
+async function optionalEthCall(
+  provider: ProviderInterface,
+  contractAddress: string,
+  data: string
+) {
+  try {
+    return await ethCall(provider, contractAddress, data);
+  } catch {
+    return undefined;
+  }
+}
+
 function parseColorFontData(raw: string): ColorGlyph[] | null {
   const lines = raw.split("\n");
   if (lines.length !== 26) return null;
@@ -225,39 +327,67 @@ async function fetchOnchainColorFont(): Promise<ColorFontDoc | null> {
   const code = await getCode(provider, contractAddress);
   if (!code || code === "0x") throw new Error("RPC read failed.");
 
-  const [idResult, versionResult, hashResult, dataResult] = await Promise.all([
-    ethCall(provider, contractAddress, THOUGHT_NFT_COLOR_FONT_METHODS.colorFontId),
-    ethCall(provider, contractAddress, THOUGHT_NFT_COLOR_FONT_METHODS.colorFontVersion),
-    ethCall(provider, contractAddress, THOUGHT_NFT_COLOR_FONT_METHODS.colorFontHash),
-    ethCall(provider, contractAddress, THOUGHT_NFT_COLOR_FONT_METHODS.colorFontData),
+  const dataResult = await ethCall(
+    provider,
+    contractAddress,
+    THOUGHT_NFT_COLOR_FONT_METHODS.colorFontData
+  );
+  const [idResult, versionResult, hashResult] = await Promise.all([
+    optionalEthCall(
+      provider,
+      contractAddress,
+      THOUGHT_NFT_COLOR_FONT_METHODS.colorFontId
+    ),
+    optionalEthCall(
+      provider,
+      contractAddress,
+      THOUGHT_NFT_COLOR_FONT_METHODS.colorFontVersion
+    ),
+    optionalEthCall(
+      provider,
+      contractAddress,
+      THOUGHT_NFT_COLOR_FONT_METHODS.colorFontHash
+    ),
   ]);
 
   const raw = decodeAbiString(dataResult);
   if (!raw) throw new Error("contract returned no mapping data.");
 
-  const hash = decodeBytes32(hashResult);
   const computedHash = hashUtf8String(raw);
-  if (computedHash.toLowerCase() !== hash.toLowerCase()) {
-    throw new Error("color font hash mismatch.");
-  }
+  const hash = hashResult ? decodeBytes32(hashResult) : computedHash;
+  const warning = hashResult
+    ? computedHash.toLowerCase() === hash.toLowerCase()
+      ? undefined
+      : HASH_MISMATCH_WARNING
+    : [
+        "warning: ThoughtNFT.colorFontHash() unavailable.",
+        "showing computed hash for loaded data.",
+      ];
 
   const glyphs = parseColorFontData(raw);
   if (!glyphs) throw new Error("contract returned no mapping data.");
 
-  await getChainId(provider);
+  const chainId = await getChainId(provider);
+  const authority = `ThoughtNFT ${shortenAddress(contractAddress)}`;
 
   return {
     loadKind: "onchain",
     loadedFrom: COLOR_FONT_LOADED_FROM_ONCHAIN,
-    authority: COLOR_FONT_AUTHORITY_ONCHAIN,
-    id: decodeAbiString(idResult) || COLOR_FONT.id,
-    version: decodeAbiString(versionResult) || COLOR_FONT.version,
+    authority,
+    authorityTitle: `ThoughtNFT ${contractAddress}`,
+    authorityUrl: explorerUrl(chainId, contractAddress),
+    chain: chainLabelFromChainId(chainId),
+    id: idResult ? decodeAbiString(idResult) || COLOR_FONT.id : COLOR_FONT.id,
+    version: versionResult
+      ? decodeAbiString(versionResult) || COLOR_FONT.version
+      : COLOR_FONT.version,
     format: COLOR_FONT.format,
     hash,
     mirror: COLOR_FONT.mirror,
     raw,
     glyphs,
-    status: ONCHAIN_STATUS,
+    warning,
+    status: onchainStatus(authority),
     repositoryUrl: COLOR_FONT.repositoryUrl,
   };
 }
@@ -276,7 +406,9 @@ function getWordAt(text: string, offset: number): WordMatch | null {
 
 function getWordReplacementFromTextNode(
   node: globalThis.Node,
-  offset: number
+  offset: number,
+  x: number,
+  y: number
 ): WordReplacement | null {
   if (node.nodeType !== globalThis.Node.TEXT_NODE) return null;
 
@@ -287,8 +419,18 @@ function getWordReplacementFromTextNode(
   range.setStart(node, match.start);
   range.setEnd(node, match.end);
 
-  const rect = range.getBoundingClientRect();
-  if (rect.width === 0 && rect.height === 0) return null;
+  const rects = Array.from(range.getClientRects()).filter(
+    (rect) => rect.width > 0 && rect.height > 0
+  );
+  const rect =
+    rects.find(
+      (candidate) =>
+        x >= candidate.left &&
+        x <= candidate.right &&
+        y >= candidate.top &&
+        y <= candidate.bottom
+    ) ?? null;
+  if (!rect) return null;
 
   return {
     word: match.word,
@@ -305,12 +447,17 @@ function getWordReplacementFromPoint(x: number, y: number): WordReplacement | nu
   const doc = document as CaretDocument;
   const range = doc.caretRangeFromPoint?.(x, y);
   if (range) {
-    return getWordReplacementFromTextNode(range.startContainer, range.startOffset);
+    return getWordReplacementFromTextNode(
+      range.startContainer,
+      range.startOffset,
+      x,
+      y
+    );
   }
 
   const position = doc.caretPositionFromPoint?.(x, y);
   return position
-    ? getWordReplacementFromTextNode(position.offsetNode, position.offset)
+    ? getWordReplacementFromTextNode(position.offsetNode, position.offset, x, y)
     : null;
 }
 
@@ -334,6 +481,7 @@ function getReplacementBackground(target: globalThis.Element | null) {
 
 export default function ColorFontPage() {
   const [state, setState] = useState<ColorFontState>({ kind: "loading" });
+  const [reloadToken, setReloadToken] = useState(0);
   const [wordReplacement, setWordReplacement] =
     useState<WordReplacement | null>(null);
   const doc = state.kind === "ready" ? state.doc : null;
@@ -345,7 +493,7 @@ export default function ColorFontPage() {
     [doc]
   );
   const rawMappingHref = useMemo(
-    () => (doc ? createRawMappingHref(doc) : "#"),
+    () => (doc?.loadKind === "onchain" ? createRawMappingHref(doc) : null),
     [doc]
   );
 
@@ -360,15 +508,6 @@ export default function ColorFontPage() {
         setState({ kind: "ready", doc: onchainDoc ?? fallbackDoc() });
       } catch (error) {
         if (cancelled) return;
-        const message = error instanceof Error ? error.message : "";
-        if (message.includes("hash mismatch")) {
-          setState({
-            kind: "error",
-            title: "hash mismatch.",
-            detail: "contract data and displayed data do not match.",
-          });
-          return;
-        }
         setState({ kind: "ready", doc: fallbackDoc() });
       }
     }
@@ -378,11 +517,11 @@ export default function ColorFontPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadToken]);
 
   useEffect(() => {
     return () => {
-      if (rawMappingHref.startsWith("blob:")) {
+      if (rawMappingHref?.startsWith("blob:")) {
         globalThis.URL.revokeObjectURL(rawMappingHref);
       }
     };
@@ -496,12 +635,29 @@ export default function ColorFontPage() {
 
           <dl className="primitive-page__fields" aria-label="Color Font authority">
             <div>
-              <dt>loaded from</dt>
-              <dd>{state.doc.loadedFrom}</dd>
+              <dt>authority</dt>
+              <dd title={state.doc.authorityTitle}>
+                {state.doc.authorityUrl ? (
+                  <a
+                    href={state.doc.authorityUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={state.doc.authorityTitle}
+                  >
+                    {state.doc.authority}
+                  </a>
+                ) : (
+                  state.doc.authority
+                )}
+              </dd>
             </div>
             <div>
-              <dt>authority</dt>
-              <dd>{state.doc.authority}</dd>
+              <dt>chain</dt>
+              <dd>{state.doc.chain}</dd>
+            </div>
+            <div>
+              <dt>loaded from</dt>
+              <dd>{state.doc.loadedFrom}</dd>
             </div>
             <div>
               <dt>id</dt>
@@ -530,21 +686,22 @@ export default function ColorFontPage() {
           </pre>
 
           <nav className="primitive-page__links" aria-label="Color Font references">
-            <a
-              href={rawMappingHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Open raw color font mapping"
-            >
-              Open raw mapping ↗
-            </a>
+            {rawMappingHref ? (
+              <a href={rawMappingHref} target="_blank" rel="noopener noreferrer">
+                Open raw onchain data ↗
+              </a>
+            ) : (
+              <button type="button" onClick={() => setReloadToken((value) => value + 1)}>
+                Retry onchain load
+              </button>
+            )}
             <a
               href={state.doc.repositoryUrl}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Open color font mirror"
+              title={state.doc.repositoryUrl}
             >
-              View mirror ↗
+              View GitHub mirror ↗
             </a>
           </nav>
 

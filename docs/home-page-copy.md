@@ -220,7 +220,7 @@ Footer renders square glyphs visually; text appears in tooltips/aria labels.
 
 | Link | Current label / tooltip | Aria label | Notes |
 | --- | --- | --- | --- |
-| Pulse | `pulse` | `Open Pulse primitive page` | Opens `/pulse` in a new tab. |
+| Pulse | `pulse` | `Open Pulse` | Opens `/pulse` in a new tab. |
 | Color font | `color font` | `Open Color Font primitive page` | Opens `/color-font` in a new tab. |
 | Telegram | `telegram` | `Open Telegram announcements channel` | Only rendered if Telegram URL env var is valid; visual is `■■`. |
 | X | `X` | `Open X` | Visual square derived from label length. |
@@ -231,35 +231,41 @@ Footer renders square glyphs visually; text appears in tooltips/aria labels.
 | Route | Area | Current copy | Notes |
 | --- | --- | --- | --- |
 | `/pulse` | Title | `pulse` | Primitive page heading. |
-| `/pulse` | Subtitle | `An original pricing sketch for a decentralized automatic auction.` | Primitive page subtitle. |
-| `/pulse` | Body | `Pulse is the pricing primitive behind the current $PATH auction.` | Primitive page body copy. |
-| `/pulse` | Body | `A sale pumps the ask upward.` | Primitive page body copy. |
-| `/pulse` | Body | `Silence lets the ask drop.` | Primitive page body copy. |
-| `/pulse` | Body | `During the drop phase, time and price follow an offset constant-product curve.` | Primitive page body copy. |
-| `/pulse` | Body | `The hammer price is sampled at settlement time.` | Primitive page body copy. |
-| `/pulse` | Formula | `xy = k` | Primitive pricing sketch. |
-| `/pulse` | Formula | `f(x) = k / (x - a) + b` | Primitive pricing sketch. |
-| `/pulse` | Note | `This is not implementation code.` | Primitive page note. |
-| `/pulse` | Note | `It preserves the primitive pricing shape before implementation.` | Primitive page note. |
+| `/pulse` | Subtitle | `Pricing sketch for the $PATH auction.` | Pulse page subtitle. |
+| `/pulse` | Body | `Pulse shapes the ask over time.` | Pulse page body copy. |
+| `/pulse` | Body | `A successful bid closes the current epoch and starts the next one.` | Pulse page body copy. |
+| `/pulse` | Body | `The next ask is raised by a time premium.` | Pulse page body copy. |
+| `/pulse` | Body | `Between sales, the ask decays toward the floor.` | Pulse page body copy. |
+| `/pulse` | Body | `Settlement samples the ask at sale time.` | Pulse page body copy. |
+| `/pulse` | Formula | `PTS = price-time scale` | Pulse pump formula. |
+| `/pulse` | Formula | `elapsed time = sale time - previous curve start` | Pulse pump formula. |
+| `/pulse` | Formula | `premium = elapsed time × PTS` | Pulse pump formula. |
+| `/pulse` | Formula | `current ask = last price + premium` | Pulse pump formula. |
+| `/pulse` | Formula | `current floor = last price` | Pulse pump formula. |
+| `/pulse` | Formula | `ask(t) = b + floor(k / (t - a))` | Pulse drop formula. |
+| `/pulse` | Note | `This is the Desmos sketch behind Pulse. It is a source note, not implementation code.` | Pulse page note. |
 | `/pulse` | Link | `Open original Desmos sketch ↗` | Opens external Desmos sketch. |
 | `/pulse` | Link | `View source ↗` | Opens Pulse repository if configured. |
 | `/color-font` | Title | `color font` | Primitive page heading. |
 | `/color-font` | Subtitle | `Contract-defined A-Z color glyph system.` | Primitive page subtitle. |
-| `/color-font` | Warning | `onchain source unavailable.` | Shown when the page renders the bundled fallback. |
+| `/color-font` | Warning | `warning: onchain color font could not be loaded.` | Shown when the page renders the bundled fallback. |
 | `/color-font` | Warning | `showing bundled mirror copy.` | Shown when the page renders the bundled fallback. |
-| `/color-font` | Field label | `loaded from` | Current data path for the rendered mapping. |
 | `/color-font` | Field label | `authority` | Deployed authority for the mapping, or unavailable in fallback. |
+| `/color-font` | Field label | `chain` | Network where the authority contract was read. |
+| `/color-font` | Field label | `loaded from` | Current data path for the rendered mapping. |
 | `/color-font` | Field label | `id` | Color font metadata. |
 | `/color-font` | Field label | `version` | Color font metadata. |
 | `/color-font` | Field label | `format` | Color font metadata. |
 | `/color-font` | Field label | `hash` | Color font metadata. |
-| `/color-font` | Field label | `mirror` | Readable inshell.art mirror reference. |
-| `/color-font` | Link | `Open raw mapping ↗` | Opens a blob document from the currently loaded mapping data. |
-| `/color-font` | Link | `View mirror ↗` | Opens the color font mapping file in the inshell.art source mirror, not the authority. |
+| `/color-font` | Field label | `mirror` | Concrete GitHub mirror reference. |
+| `/color-font` | Link | `Open raw onchain data ↗` | Opens a blob document from `ThoughtNFT.colorFontData()` when RPC data loads. |
+| `/color-font` | Link | `Retry onchain load` | Shown instead of the raw onchain data link when the page is in fallback state. |
+| `/color-font` | Link | `View GitHub mirror ↗` | Opens `spec/COLOR_FONT.v1.json` in GitHub, not the authority. |
+| `/color-font` | Status | `authority: ThoughtNFT 0x1234...abcd` | Used when contract/RPC data loads. |
+| `/color-font` | Status | `authority: onchain color font ABI unavailable` | Used only with fallback warning. |
 | `/color-font` | Status | `source: ThoughtNFT.colorFontData()` | Used when contract/RPC data loads. |
 | `/color-font` | Status | `source: frontend mirror fallback` | Used only with fallback warning. |
-| `/color-font` | Status | `onchain: unavailable` | Used only with fallback warning. |
-| `/color-font` | Status | `mirror: inshell.art color font mirror` | Secondary source mirror line. |
+| `/color-font` | Status | `mirror: GitHub COLOR_FONT.v1.json` | Secondary source mirror line. |
 
 ## Error Boundary
 

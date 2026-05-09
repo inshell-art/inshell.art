@@ -77,7 +77,7 @@ const Footer: React.FC = () => {
       key: "pulse",
       label: "pulse",
       href: "/pulse",
-      ariaLabel: "Open Pulse primitive page",
+      ariaLabel: "Open Pulse",
       external: true,
     },
     {
