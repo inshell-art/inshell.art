@@ -1,4 +1,5 @@
 import React from "react";
+import { TextEncoder } from "node:util";
 import { afterEach, beforeEach, describe, test, expect, jest } from "@jest/globals";
 import { fireEvent, render, screen, act, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
@@ -24,10 +25,49 @@ jest.mock("@inshell/ethereum", () => ({
 }));
 
 import App from "../src/App";
+import { COLOR_FONT, COLOR_FONT_RAW } from "../src/content/colorFont";
+import {
+  getChainId,
+  getCode,
+  getDefaultProvider,
+  hashUtf8String,
+} from "@inshell/ethereum";
+
+const mockedGetChainId = getChainId as jest.MockedFunction<typeof getChainId>;
+const mockedGetCode = getCode as jest.MockedFunction<typeof getCode>;
+const mockedGetDefaultProvider = getDefaultProvider as jest.MockedFunction<
+  typeof getDefaultProvider
+>;
+const mockedHashUtf8String = hashUtf8String as jest.MockedFunction<
+  typeof hashUtf8String
+>;
+
+function bytesToHex(value: Uint8Array): string {
+  return Array.from(value, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function wordHex(value: bigint): string {
+  return value.toString(16).padStart(64, "0");
+}
+
+function encodeAbiString(value: string): string {
+  const data = bytesToHex(new TextEncoder().encode(value));
+  const paddedData = data.padEnd(Math.ceil(data.length / 64) * 64, "0");
+  return `0x${wordHex(32n)}${wordHex(BigInt(data.length / 2))}${paddedData}`;
+}
+
+function defaultRpcProvider() {
+  return { request: jest.fn(async () => "0x") };
+}
 
 describe("App Component", () => {
   beforeEach(() => {
     window.history.pushState({}, "", "/");
+    delete (globalThis as any).__VITE_ENV__;
+    mockedGetChainId.mockResolvedValue(31337n);
+    mockedGetCode.mockResolvedValue("0x");
+    mockedGetDefaultProvider.mockReturnValue(defaultRpcProvider());
+    mockedHashUtf8String.mockReturnValue(COLOR_FONT.hash);
   });
 
   afterEach(() => {
@@ -120,19 +160,35 @@ describe("App Component", () => {
     window.history.pushState({}, "", "/pulse");
     render(<App />);
 
-    expect(document.title).toBe("Pulse");
+    expect(document.title).toBe("pulse — inshell.art");
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/pulse.svg");
     expect(screen.getByRole("heading", { name: "pulse" })).toBeInTheDocument();
-    expect(screen.getByText("An original pricing sketch for a decentralized automatic auction.")).toBeInTheDocument();
-    expect(screen.getByText("Pulse is the pricing primitive behind the current $PATH auction.")).toBeInTheDocument();
-    expect(screen.getByText(/A sale pumps the ask upward\./)).toBeInTheDocument();
-    expect(screen.getByText(/Silence lets the ask drop\./)).toBeInTheDocument();
-    expect(screen.getByText(/During the drop phase, time and price follow an offset constant-product curve\./)).toBeInTheDocument();
-    expect(screen.getByText(/The hammer price is sampled at settlement time\./)).toBeInTheDocument();
-    expect(screen.getByText(/xy = k/)).toBeInTheDocument();
-    expect(screen.getByText(/f\(x\) = k \/ \(x - a\) \+ b/)).toBeInTheDocument();
-    expect(screen.getByText(/This is not implementation code\./)).toBeInTheDocument();
-    expect(screen.getByText(/It preserves the primitive pricing shape before implementation\./)).toBeInTheDocument();
+    expect(screen.getByText("Pricing sketch for the $PATH auction.")).toBeInTheDocument();
+    expect(screen.getByText("Pulse shapes the ask over time.")).toBeInTheDocument();
+    expect(screen.getByText(/A successful bid closes the current epoch and starts the next one\./)).toBeInTheDocument();
+    expect(screen.getByText(/The next ask is raised by a time premium\./)).toBeInTheDocument();
+    expect(screen.getByText(/Between sales, the ask decays toward the floor\./)).toBeInTheDocument();
+    expect(screen.getByText(/Settlement samples the ask at sale time\./)).toBeInTheDocument();
+    expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
+      /PTS = price-time scale/,
+    );
+    expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
+      /elapsed time = sale time - previous curve start/,
+    );
+    expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
+      /premium = elapsed time × PTS/,
+    );
+    expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
+      /current ask = last price \+ premium/,
+    );
+    expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
+      /ask\(t\) = b \+ floor\(k \/ \(t - a\)\)/,
+    );
+    expect(screen.getByLabelText("Pulse pump and drop equations")).not.toHaveTextContent(
+      /premium per second/,
+    );
+    expect(screen.getByText(/It is a source note, not implementation code\./)).toBeInTheDocument();
+    expect(screen.getByText(/This is the Desmos sketch behind Pulse\./)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open original Desmos sketch ↗" })).toHaveAttribute(
       "href",
       "https://www.desmos.com/calculator/1d89f93d21",
@@ -142,7 +198,7 @@ describe("App Component", () => {
       "https://github.com/inshell-art/pulse",
     );
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
-    expect(screen.queryByLabelText("Open Pulse primitive page")).toBeNull();
+    expect(screen.queryByLabelText("Open Pulse")).toBeNull();
   });
 
   test("renders the Color Font primitive page on /color-font", async () => {
@@ -155,7 +211,7 @@ describe("App Component", () => {
     expect(
       screen.getByText("Contract-defined A-Z color glyph system.")
     ).toBeInTheDocument();
-    expect(await screen.findByText("INSHELL_COLOR_FONT")).toBeInTheDocument();
+    expect(await screen.findByText("thought.colorfont.v1")).toBeInTheDocument();
     const glyphs = within(await screen.findByLabelText("A-Z color glyph preview"));
     expect(glyphs.getAllByRole("img")).toHaveLength(26);
     expect(glyphs.getByLabelText("A, aqua, #00ffff")).toHaveAttribute(
@@ -167,38 +223,89 @@ describe("App Component", () => {
       "data-label",
       "Z:Zombie gray:#778877",
     );
-    expect(screen.getByText("onchain source unavailable.")).toBeInTheDocument();
+    expect(screen.getByText("warning: onchain color font could not be loaded.")).toBeInTheDocument();
     expect(screen.getByText("showing bundled mirror copy.")).toBeInTheDocument();
-    expect(screen.getByText("loaded from")).toBeInTheDocument();
-    expect(screen.getByText("frontend mirror fallback")).toBeInTheDocument();
     expect(screen.getByText("authority")).toBeInTheDocument();
     expect(screen.getByText("onchain color font ABI unavailable")).toBeInTheDocument();
+    expect(screen.getByText("chain")).toBeInTheDocument();
+    expect(screen.getByText("Local Devnet")).toBeInTheDocument();
+    expect(screen.getByText("loaded from")).toBeInTheDocument();
+    expect(screen.getByText("frontend mirror fallback")).toBeInTheDocument();
     expect(screen.getByText("mirror")).toBeInTheDocument();
-    expect(screen.getByText("inshell.art color font mirror")).toBeInTheDocument();
+    expect(screen.getByText("GitHub COLOR_FONT.v1.json")).toBeInTheDocument();
     expect(screen.getByText(/A:1:aqua:#00ffff/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open raw color font mapping" })).toHaveAttribute(
+    expect(screen.queryByRole("link", { name: "Open raw onchain data ↗" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Retry onchain load" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View GitHub mirror ↗" })).toHaveAttribute(
       "href",
-      expect.stringContaining("data:text/plain;charset=utf-8,"),
+      "https://github.com/inshell-art/inshell.art/blob/main/spec/COLOR_FONT.v1.json",
     );
-    expect(screen.getByRole("link", { name: "Open color font mirror" })).toHaveAttribute(
-      "href",
-      "https://github.com/inshell-art/inshell.art/blob/try/sparse-live-tail-viewport/apps/home/src/content/colorFont.ts",
-    );
-    expect(screen.getByRole("link", { name: "Open color font mirror" })).not.toHaveAttribute(
+    expect(screen.getByRole("link", { name: "View GitHub mirror ↗" })).not.toHaveAttribute(
       "href",
       expect.stringContaining("github.com/inshell-art/thought"),
     );
+    expect(screen.getByText(/authority: onchain color font ABI unavailable/)).toBeInTheDocument();
     expect(screen.getByText(/source: frontend mirror fallback/)).toBeInTheDocument();
-    expect(screen.getByText(/mirror: inshell\.art color font mirror/)).toBeInTheDocument();
+    expect(screen.getByText(/mirror: GitHub COLOR_FONT\.v1\.json/)).toBeInTheDocument();
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
     expect(screen.queryByLabelText("Open Color Font primitive page")).toBeNull();
+  });
+
+  test("renders the Color Font primitive page with onchain authority metadata", async () => {
+    window.history.pushState({}, "", "/color-font");
+    (globalThis as any).__VITE_ENV__ = { VITE_NETWORK: "sepolia" };
+    const thoughtNftAddress = "0x627b9A657eac8c3463AD17009a424dFE3FDbd0b1";
+    const request = jest.fn(async ({ method, params }: any) => {
+      if (method === "eth_call") {
+        const data = params[0].data;
+        if (data === "0xa61ca744") return encodeAbiString(COLOR_FONT.id);
+        if (data === "0xdf495573") return encodeAbiString(COLOR_FONT.version);
+        if (data === "0x2d53d7de") return COLOR_FONT.hash;
+        if (data === "0xc6cc9e6f") return encodeAbiString(COLOR_FONT_RAW);
+      }
+      throw new Error(`unexpected RPC request: ${method}`);
+    });
+    mockedGetCode.mockResolvedValue("0x1234");
+    mockedGetChainId.mockResolvedValue(11155111n);
+    mockedGetDefaultProvider.mockReturnValue({ request });
+
+    render(<App />);
+
+    expect(await screen.findByText("thought.colorfont.v1")).toBeInTheDocument();
+    const authority = screen.getByText("ThoughtNFT 0x627b...d0b1");
+    expect(authority).toHaveAttribute(
+      "href",
+      `https://sepolia.etherscan.io/address/${thoughtNftAddress}`,
+    );
+    expect(authority).toHaveAttribute("title", `ThoughtNFT ${thoughtNftAddress}`);
+    expect(screen.getByText("Sepolia (11155111)")).toBeInTheDocument();
+    expect(screen.getByText("ThoughtNFT.colorFontData()")).toBeInTheDocument();
+    expect(screen.getByText("GitHub COLOR_FONT.v1.json")).toBeInTheDocument();
+    expect(screen.queryByText("frontend mirror fallback")).toBeNull();
+    expect(
+      screen.queryByText("warning: onchain color font could not be loaded.")
+    ).toBeNull();
+    expect(screen.getByRole("link", { name: "Open raw onchain data ↗" })).toHaveAttribute(
+      "href",
+      expect.stringMatching(/^(blob:|data:text\/html;charset=utf-8,)/),
+    );
+    expect(screen.queryByRole("button", { name: "Retry onchain load" })).toBeNull();
+    expect(screen.getByText(/authority: ThoughtNFT 0x627b\.\.\.d0b1/)).toBeInTheDocument();
+    expect(screen.getByText(/source: ThoughtNFT\.colorFontData\(\)/)).toBeInTheDocument();
+    expect(screen.getByText(/mirror: GitHub COLOR_FONT\.v1\.json/)).toBeInTheDocument();
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "eth_call",
+        params: [expect.objectContaining({ to: thoughtNftAddress, data: "0xc6cc9e6f" }), "latest"],
+      }),
+    );
   });
 
   test("footer links Pulse and color font without facets or hone", () => {
     render(<App />);
 
-    expect(screen.getByLabelText("Open Pulse primitive page")).toHaveAttribute("href", "/pulse");
-    expect(screen.getByLabelText("Open Pulse primitive page")).toHaveAttribute("target", "_blank");
+    expect(screen.getByLabelText("Open Pulse")).toHaveAttribute("href", "/pulse");
+    expect(screen.getByLabelText("Open Pulse")).toHaveAttribute("target", "_blank");
     expect(screen.getByLabelText("Open Color Font primitive page")).toHaveAttribute(
       "href",
       "/color-font",

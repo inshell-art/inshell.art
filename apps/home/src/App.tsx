@@ -34,7 +34,7 @@ export default function App() {
 
   useEffect(() => {
     if (primitiveRoute === "pulse") {
-      document.title = "Pulse";
+      document.title = "pulse — inshell.art";
       setFavicon("/pulse.svg");
       return;
     }
