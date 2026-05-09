@@ -3,7 +3,7 @@ import { isDesktopDevice } from "@inshell/utils";
 import "./Movements.css";
 
 const WORDS = [
-  { label: "THOUGHT", year: "2026", href: "http://127.0.0.1:5178/" },
+  { label: "THOUGHT", year: "2026", href: "http://127.0.0.1:5174/" },
   { label: "WILL", year: "2027" },
   { label: "AWA!", year: "2028" },
 ];
@@ -71,7 +71,7 @@ export default function Movements() {
   if (!isDesktop) return null;
 
   return (
-    <div className="movements" aria-label="movements-hero">
+    <div className="movements" aria-label="Movements">
       {WORDS.map((word) => (
         <div key={word.label} className="movements__cell">
           <div className="movements__year" style={{ opacity: yearOpacity }}>
@@ -82,8 +82,6 @@ export default function Movements() {
               href={word.href}
               className="movements__word movements__word--link"
               style={{ opacity: projectOpacity }}
-              target="_blank"
-              rel="noreferrer"
             >
               {word.label}
             </a>

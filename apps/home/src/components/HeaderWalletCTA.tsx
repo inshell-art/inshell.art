@@ -25,11 +25,11 @@ function resolveNetworkLabel(chain?: {
   if (haystack.includes("sepolia")) return "Sepolia";
   if (haystack.includes("mainnet")) return "Mainnet";
   if (haystack.includes("devnet")) return "Local Devnet";
-  const cleaned = (rawName || rawNetwork || "unknown")
+  const cleaned = (rawName || rawNetwork || "unknown network")
     .replace(/\btestnet\b/gi, "")
     .replace(/\s+/g, " ")
     .trim();
-  return cleaned || "unknown";
+  return cleaned || "unknown network";
 }
 
 function resolveExplorerBase(): string {
@@ -128,8 +128,8 @@ export default function HeaderWalletCTA({
   const tooltip =
     dotTooltip ??
     (connectedAddress
-      ? `${shortAddress(connectedAddress)} - ${networkLabel}`
-      : "not connected");
+      ? `${shortAddress(connectedAddress)} · ${networkLabel}`
+      : "wallet not connected");
 
   const handleCopy = async () => {
     if (!connectedAddress) return;

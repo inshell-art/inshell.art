@@ -31,7 +31,7 @@ describe("Movements", () => {
   test("renders nothing when not on desktop", () => {
     mockIsDesktopDevice.mockReturnValue(false);
     const { container, queryByLabelText } = render(<Movements />);
-    expect(queryByLabelText(/movements-hero/i)).toBeNull();
+    expect(queryByLabelText(/Movements/i)).toBeNull();
     expect(container.firstChild).toBeNull();
   });
 
@@ -46,10 +46,11 @@ describe("Movements", () => {
     });
   });
 
-  test("links THOUGHT to the local thought app in a new tab", () => {
+  test("links THOUGHT to the local thought app in the same window", () => {
     const { getByRole } = render(<Movements />);
     const link = getByRole("link", { name: "THOUGHT" });
-    expect(link).toHaveAttribute("href", "http://127.0.0.1:5178/");
-    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("href", "http://127.0.0.1:5174/");
+    expect(link).not.toHaveAttribute("target");
+    expect(link).not.toHaveAttribute("rel");
   });
 });

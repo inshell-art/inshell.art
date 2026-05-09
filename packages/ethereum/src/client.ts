@@ -3,6 +3,7 @@ import {
   encodeFunctionData,
   getAddress,
   keccak256,
+  stringToHex,
   type Address,
   type Hex,
 } from "viem";
@@ -341,6 +342,10 @@ export async function getCode(
 export function hashBytecode(code: Hex): Hex | undefined {
   if (!code || code === "0x") return undefined;
   return keccak256(code);
+}
+
+export function hashUtf8String(value: string): Hex {
+  return keccak256(stringToHex(value));
 }
 
 export async function getBlockNumber(provider: ProviderInterface): Promise<number> {

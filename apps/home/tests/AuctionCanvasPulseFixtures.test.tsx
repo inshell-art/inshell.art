@@ -186,8 +186,8 @@ describe("AuctionCanvas with pulse fixtures", () => {
         <AuctionCanvas address="0xabc" provider={mockProvider as any} />
       );
       stubSvg(container);
-      expect(screen.getByRole("img", { name: /pulse curve/i })).toBeTruthy();
-      expect(screen.getByText(/time \(t½\)/i)).toBeTruthy();
+      expect(screen.getByRole("img", { name: /pulse auction curve/i })).toBeTruthy();
+      expect(screen.getByText(/^time\s*→$/i)).toBeTruthy();
       expect(screen.getByText(/price\s*\(eth\)\s*↑/i)).toBeTruthy();
       const path = container.querySelector(".dotfield__curve");
       expect(path).toBeTruthy();
@@ -234,7 +234,7 @@ describe("AuctionCanvas with pulse fixtures", () => {
     expect(within(popover).getByText(/^1 t½ drop$/i)).toBeTruthy();
     expect(within(popover).getByText(/^time$/i)).toBeTruthy();
     expect(within(popover).queryByText(/since last sale/i)).toBeNull();
-    expect(within(popover).getByText(/^ago$/i)).toBeTruthy();
+    expect(within(popover).getByText(/^age$/i)).toBeTruthy();
   });
 
   test("renders without cliff for huge pump fixture", () => {
@@ -460,7 +460,7 @@ describe("AuctionCanvas with pulse fixtures", () => {
     expect(await screen.findByText(/Auction opens at/i)).toBeTruthy();
     expect(screen.getByText(/Opens in 10m0s/i)).toBeTruthy();
     expect(
-      screen.getByText(/First bid can land in the first block/i)
+      screen.getByText(/First bid can land at or after open time/i)
     ).toBeTruthy();
     expect(container.querySelector(".dotfield__curve")).toBeNull();
     window.history.pushState({}, "", "/");
@@ -484,10 +484,10 @@ describe("AuctionCanvas with pulse fixtures", () => {
     const { container } = render(
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />
     );
-    expect(await screen.findByText(/Auction is open now/i)).toBeTruthy();
+    expect(await screen.findByText(/Auction is open/i)).toBeTruthy();
     expect(screen.getByText(/Waiting for first bid/i)).toBeTruthy();
     expect(screen.getByText(/Opening ask:/i)).toBeTruthy();
-    expect(screen.getByText(/Current price:/i)).toBeTruthy();
+    expect(screen.getByText(/Current ask:/i)).toBeTruthy();
     expect(container.querySelector(".dotfield__curve")).toBeNull();
     window.history.pushState({}, "", "/");
   });

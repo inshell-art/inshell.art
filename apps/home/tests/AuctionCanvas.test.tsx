@@ -101,6 +101,24 @@ const sampleBids = [
   },
 ];
 
+async function clickMintForReview() {
+  const mintButton = await waitFor(() => screen.getByText(/\[\s*mint\s*\]/i));
+  await waitFor(() => {
+    expect(mintButton).not.toBeDisabled();
+  });
+  await act(async () => {
+    fireEvent.click(mintButton);
+  });
+  return waitFor(() => screen.getByText(/\[\s*confirm\s*\]/i));
+}
+
+async function clickMintThenSign() {
+  const signButton = await clickMintForReview();
+  await act(async () => {
+    fireEvent.click(signButton);
+  });
+}
+
 describe("AuctionCanvas", () => {
   beforeEach(() => {
     mockWalletState = createWalletState();
@@ -166,7 +184,7 @@ describe("AuctionCanvas", () => {
 
     const popover = container.querySelector(".dotfield__popover") as HTMLElement | null;
     expect(popover).toBeTruthy();
-    expect(within(popover as HTMLElement).getByText("current")).toBeInTheDocument();
+    expect(within(popover as HTMLElement).getByText("current ask")).toBeInTheDocument();
     expect(within(popover as HTMLElement).getByText("price")).toBeInTheDocument();
     expect(within(popover as HTMLElement).getByText("above floor")).toBeInTheDocument();
   });
@@ -431,7 +449,7 @@ describe("AuctionCanvas", () => {
       expect(within(popover as HTMLElement).queryByText(/^floor b$/i)).toBeNull();
       expect(within(popover as HTMLElement).queryByText(/^time premium$/i)).toBeNull();
       expect(
-        within(popover as HTMLElement).getByText(/ask price when the auction opens/i)
+        within(popover as HTMLElement).getByText(/ask when the auction opens/i)
       ).toBeTruthy();
       expect(within(popover as HTMLElement).queryByText(/^1 t½ drop$/i)).toBeNull();
     });
@@ -456,7 +474,7 @@ describe("AuctionCanvas", () => {
       expect(within(popover as HTMLElement).queryByText(/^time premium$/i)).toBeNull();
       expect(within(popover as HTMLElement).queryByText(/^1 t½ drop$/i)).toBeNull();
       expect(
-        within(popover as HTMLElement).getByText(/ask price when the auction opens/i)
+        within(popover as HTMLElement).getByText(/ask when the auction opens/i)
       ).toBeTruthy();
     });
   });
@@ -505,7 +523,7 @@ describe("AuctionCanvas", () => {
       expect(within(popover as HTMLElement).queryByText(/^time premium$/i)).toBeNull();
       expect(within(popover as HTMLElement).queryByText(/^1 t½ drop$/i)).toBeNull();
       expect(
-        within(popover as HTMLElement).getByText(/ask price when the auction opens/i)
+        within(popover as HTMLElement).getByText(/ask when the auction opens/i)
       ).toBeTruthy();
     });
   });
@@ -711,7 +729,7 @@ describe("AuctionCanvas", () => {
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     expect(screen.getByText(/No PATH deployment loaded/i)).toBeTruthy();
-    expect(screen.getByText(/Waiting for protocol release/i)).toBeTruthy();
+    expect(screen.getByText(/Protocol release not loaded/i)).toBeTruthy();
     expect(mockUseAuctionCore).toHaveBeenLastCalledWith(
       expect.objectContaining({ enabled: false })
     );
@@ -739,7 +757,7 @@ describe("AuctionCanvas", () => {
     act(() => {
       jest.advanceTimersByTime(800);
     });
-    expect(screen.getByText(/error loading curve/i)).toBeTruthy();
+    expect(screen.getByText(/curve error/i)).toBeTruthy();
     expect(screen.getByText(/boom/i)).toBeTruthy();
     jest.useRealTimers();
   });
@@ -824,7 +842,7 @@ describe("AuctionCanvas", () => {
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     expect(screen.getByText(/Opening ask: 1 ETH/i)).toBeTruthy();
-    expect(screen.getByText(/Current price: 1 ETH/i)).toBeTruthy();
+    expect(screen.getByText(/Current ask: 1 ETH/i)).toBeTruthy();
   });
 
   test("opening ask label preserves tiny ETH values instead of rounding to zero", () => {
@@ -852,7 +870,7 @@ describe("AuctionCanvas", () => {
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     expect(screen.getByText(/Opening ask: 0\.000000000000001 ETH/i)).toBeTruthy();
-    expect(screen.getByText(/Current price: 0\.0000000000000009 ETH/i)).toBeTruthy();
+    expect(screen.getByText(/Current ask: 0\.0000000000000009 ETH/i)).toBeTruthy();
   });
 
   test("auction status override wins over live state", () => {
@@ -1096,7 +1114,7 @@ describe("AuctionCanvas", () => {
     fireEvent.click(connectButton);
     await waitFor(() => {
       expect(
-        screen.getByText(/Open MetaMask and finish the pending request/i)
+        screen.getByText(/Finish the pending wallet request/i)
       ).toBeTruthy();
     });
   });
@@ -1322,15 +1340,15 @@ describe("AuctionCanvas", () => {
     await act(async () => {
       await Promise.resolve();
     });
-    expect(screen.queryByText(/Loading/i)).toBeNull();
+    expect(screen.queryByText(/Checking mint state/i)).toBeNull();
     act(() => {
       jest.advanceTimersByTime(DELAY_MS - 50);
     });
-    expect(screen.queryByText(/Loading/i)).toBeNull();
+    expect(screen.queryByText(/Checking mint state/i)).toBeNull();
     act(() => {
       jest.advanceTimersByTime(100);
     });
-    expect(screen.getByText(/Loading/i)).toBeTruthy();
+    expect(screen.getByText(/Checking mint state/i)).toBeTruthy();
     jest.useRealTimers();
   });
 
@@ -1385,6 +1403,53 @@ describe("AuctionCanvas", () => {
     expect(screen.getByText(/\[\s*mint\s*\]/i)).toBeTruthy();
   });
 
+  test("first mint click shows transaction review before wallet", async () => {
+    const execute = jest.fn().mockResolvedValue({ transaction_hash: "0x1" });
+    mockWalletState = createWalletState({
+      account: { execute },
+    });
+    mockCallContract.mockReset();
+    mockCallContract.mockImplementation(async (args: any) => {
+      if (args?.entrypoint === "get_current_price") {
+        return { price: { low: "100", high: "0" } } as any;
+      }
+      if (args?.entrypoint === "balance_of") {
+        return { balance: { low: "200", high: "0" } } as any;
+      }
+      if (args?.entrypoint === "allowance") {
+        return { remaining: { low: "200", high: "0" } } as any;
+      }
+      return { result: [] } as any;
+    });
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    await clickMintForReview();
+    const review = screen.getByText(/review before wallet/i).closest(".dotfield__mint-review");
+    expect(review).toBeTruthy();
+    expect(within(review as HTMLElement).getByText(/current ask/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getByText(/max bid/i)).toBeTruthy();
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  test("clicking outside the mint review dismisses it", async () => {
+    const execute = jest.fn().mockResolvedValue({ transaction_hash: "0x1" });
+    mockWalletState = createWalletState({
+      account: { execute },
+    });
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    await clickMintForReview();
+    expect(screen.getByText(/review before wallet/i)).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.pointerDown(document.body);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText(/review before wallet/i)).toBeNull();
+      expect(screen.getByText(/\[\s*mint\s*\]/i)).toBeTruthy();
+    });
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   test("awaiting signature shows approve notice", async () => {
     const deferred = createDeferred<any>();
     const execute = jest.fn(() => deferred.promise);
@@ -1405,16 +1470,10 @@ describe("AuctionCanvas", () => {
       return { result: [] } as any;
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    const mintButton = await waitFor(() => screen.getByText(/\[\s*mint\s*\]/i));
+    await clickMintThenSign();
     await waitFor(() => {
-      expect(mintButton).not.toBeDisabled();
-    });
-    await act(async () => {
-      fireEvent.click(mintButton);
-    });
-    await waitFor(() => {
-      expect(screen.getByText(/Wallet open: Approve in wallet/i)).toBeTruthy();
-      expect(screen.getByText(/\[\s*sign\s*\]/i)).toBeTruthy();
+      expect(screen.getByText(/Wallet open: approve ETH/i)).toBeTruthy();
+      expect(screen.getByText(/\[\s*signing\s*\]/i)).toBeTruthy();
     });
   });
 
@@ -1438,16 +1497,10 @@ describe("AuctionCanvas", () => {
       return { result: [] } as any;
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    const mintButton = await waitFor(() => screen.getByText(/\[\s*mint\s*\]/i));
+    await clickMintThenSign();
     await waitFor(() => {
-      expect(mintButton).not.toBeDisabled();
-    });
-    await act(async () => {
-      fireEvent.click(mintButton);
-    });
-    await waitFor(() => {
-      expect(screen.getByText(/Sign mint/i)).toBeTruthy();
-      expect(screen.getByText(/\[\s*sign\s*\]/i)).toBeTruthy();
+      expect(screen.getByText(/Wallet open: confirm mint/i)).toBeTruthy();
+      expect(screen.getByText(/\[\s*signing\s*\]/i)).toBeTruthy();
     });
   });
 
@@ -1472,20 +1525,14 @@ describe("AuctionCanvas", () => {
       return { result: [] } as any;
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    const mintButton = await waitFor(() => screen.getByText(/\[\s*mint\s*\]/i));
-    await waitFor(() => {
-      expect(mintButton).not.toBeDisabled();
-    });
-    await act(async () => {
-      fireEvent.click(mintButton);
-    });
+    await clickMintThenSign();
     await waitFor(() => {
       expect(screen.getByText(/\[\s*pending\s*\]/i)).toBeTruthy();
     });
     act(() => {
       jest.advanceTimersByTime(3000);
     });
-    expect(screen.getByText(/Submitted: Approval pending/i)).toBeTruthy();
+    expect(screen.getByText(/Approval submitted/i)).toBeTruthy();
     jest.useRealTimers();
   });
 
@@ -1510,20 +1557,14 @@ describe("AuctionCanvas", () => {
       return { result: [] } as any;
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    const mintButton = await waitFor(() => screen.getByText(/\[\s*mint\s*\]/i));
-    await waitFor(() => {
-      expect(mintButton).not.toBeDisabled();
-    });
-    await act(async () => {
-      fireEvent.click(mintButton);
-    });
+    await clickMintThenSign();
     await waitFor(() => {
       expect(screen.getByText(/\[\s*pending\s*\]/i)).toBeTruthy();
     });
     act(() => {
       jest.advanceTimersByTime(3000);
     });
-    expect(screen.getByText(/Minting .* pending/i)).toBeTruthy();
+    expect(screen.getByText(/Mint pending/i)).toBeTruthy();
     jest.useRealTimers();
   });
 
@@ -1548,16 +1589,10 @@ describe("AuctionCanvas", () => {
     });
     try {
       render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-      const mintButton = screen.getByText(/\[\s*mint\s*\]/i);
-      await waitFor(() => {
-        expect(mintButton).not.toBeDisabled();
-      });
-      await act(async () => {
-        fireEvent.click(mintButton);
-      });
+      await clickMintThenSign();
       await waitFor(() => {
         expect(
-          screen.getByText(/Account needs upgrade\/activation/i)
+          screen.getByText(/Account needs upgrade or activation/i)
         ).toBeTruthy();
       });
       expect(screen.getByText(/\[\s*retry\s*\]/i)).toBeTruthy();
@@ -1587,15 +1622,9 @@ describe("AuctionCanvas", () => {
     });
     try {
       render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-      const mintButton = screen.getByText(/\[\s*mint\s*\]/i);
+      await clickMintThenSign();
       await waitFor(() => {
-        expect(mintButton).not.toBeDisabled();
-      });
-      await act(async () => {
-        fireEvent.click(mintButton);
-      });
-      await waitFor(() => {
-        expect(screen.getByText(/Signature cancelled/i)).toBeTruthy();
+        expect(screen.getByText(/Wallet request cancelled/i)).toBeTruthy();
       });
       expect(screen.getByText(/\[\s*retry\s*\]/i)).toBeTruthy();
     } finally {
@@ -1624,13 +1653,7 @@ describe("AuctionCanvas", () => {
     });
     try {
       render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-      const mintButton = screen.getByText(/\[\s*mint\s*\]/i);
-      await waitFor(() => {
-        expect(mintButton).not.toBeDisabled();
-      });
-      await act(async () => {
-        fireEvent.click(mintButton);
-      });
+      await clickMintThenSign();
       await waitFor(() => {
         expect(screen.getByText(/RPC read failed/i)).toBeTruthy();
       });
@@ -1667,13 +1690,7 @@ describe("AuctionCanvas", () => {
     });
     try {
       render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-      const mintButton = screen.getByText(/\[\s*mint\s*\]/i);
-      await waitFor(() => {
-        expect(mintButton).not.toBeDisabled();
-      });
-      await act(async () => {
-        fireEvent.click(mintButton);
-      });
+      await clickMintThenSign();
       await waitFor(() => {
         expect(screen.getByText(/RPC busy\. Retry\./i)).toBeTruthy();
       });
@@ -1704,13 +1721,7 @@ describe("AuctionCanvas", () => {
     });
     try {
       render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-      const mintButton = screen.getByText(/\[\s*mint\s*\]/i);
-      await waitFor(() => {
-        expect(mintButton).not.toBeDisabled();
-      });
-      await act(async () => {
-        fireEvent.click(mintButton);
-      });
+      await clickMintThenSign();
       await waitFor(() => {
         expect(screen.getByText(/Insufficient ETH at execution/i)).toBeTruthy();
       });
@@ -1744,13 +1755,7 @@ describe("AuctionCanvas", () => {
     });
     try {
       render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-      const mintButton = screen.getByText(/\[\s*mint\s*\]/i);
-      await waitFor(() => {
-        expect(mintButton).not.toBeDisabled();
-      });
-      await act(async () => {
-        fireEvent.click(mintButton);
-      });
+      await clickMintThenSign();
       await waitFor(() => {
         expect(screen.getByText(/Mint failed\./i)).toBeTruthy();
       });
@@ -1782,13 +1787,7 @@ describe("AuctionCanvas", () => {
     });
 
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    const mintButton = screen.getByText(/\[\s*mint\s*\]/i);
-    await waitFor(() => {
-      expect(mintButton).not.toBeDisabled();
-    });
-    await act(async () => {
-      fireEvent.click(mintButton);
-    });
+    await clickMintThenSign();
 
     await waitFor(() => {
       expect(execute).toHaveBeenCalledTimes(2);
@@ -1817,13 +1816,7 @@ describe("AuctionCanvas", () => {
     });
 
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    const mintButton = screen.getByText(/\[\s*mint\s*\]/i);
-    await waitFor(() => {
-      expect(mintButton).not.toBeDisabled();
-    });
-    await act(async () => {
-      fireEvent.click(mintButton);
-    });
+    await clickMintThenSign();
 
     await waitFor(() => {
       expect(execute).toHaveBeenCalledTimes(1);
@@ -1853,13 +1846,7 @@ describe("AuctionCanvas", () => {
     mockGetBalance.mockResolvedValue(200n);
 
     render(<AuctionCanvas address={TEST_AUCTION_ADDRESS} provider={mockProvider as any} />);
-    const mintButton = screen.getByText(/\[\s*mint\s*\]/i);
-    await waitFor(() => {
-      expect(mintButton).not.toBeDisabled();
-    });
-    await act(async () => {
-      fireEvent.click(mintButton);
-    });
+    await clickMintThenSign();
 
     await waitFor(() => {
       expect(execute).toHaveBeenCalledTimes(1);
@@ -1978,13 +1965,7 @@ describe("AuctionCanvas", () => {
     const { rerender } = render(
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />
     );
-    const mintButton = await waitFor(() => screen.getByText(/\[\s*mint\s*\]/i));
-    await waitFor(() => {
-      expect(mintButton).not.toBeDisabled();
-    });
-    await act(async () => {
-      fireEvent.click(mintButton);
-    });
+    await clickMintThenSign();
     await waitFor(() => {
       expect(screen.getByText(/Confirmed\./i)).toBeTruthy();
     });
@@ -2011,7 +1992,7 @@ describe("AuctionCanvas", () => {
     act(() => {
       jest.advanceTimersByTime(3000);
     });
-    expect(screen.getByText(/Minted #5/i)).toBeTruthy();
+    expect(screen.getByText(/Minted \$PATH #5/i)).toBeTruthy();
     jest.useRealTimers();
   });
 
@@ -2037,7 +2018,7 @@ describe("AuctionCanvas", () => {
       render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
       const mintButton = screen.getByText(/\[\s*mint\s*\]/i);
       await waitFor(() => {
-        expect(screen.getByText(/Need .* have/i)).toBeTruthy();
+        expect(screen.getByText(/Need .*; have/i)).toBeTruthy();
       });
       expect(mintButton).toBeDisabled();
       expect(execute).not.toHaveBeenCalled();

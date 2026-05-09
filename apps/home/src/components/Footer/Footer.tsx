@@ -6,6 +6,7 @@ type FooterLink = {
   label: string;
   href: string;
   ariaLabel: string;
+  external?: boolean;
   tooltip?: string;
   squares?: string;
 };
@@ -73,16 +74,18 @@ const Footer: React.FC = () => {
 
   const links: FooterLink[] = [
     {
-      key: "facets",
-      label: "facets",
-      href: "https://facets.inshell.art",
-      ariaLabel: "Open facets",
+      key: "pulse",
+      label: "pulse",
+      href: "/pulse",
+      ariaLabel: "Open Pulse primitive page",
+      external: true,
     },
     {
-      key: "hone",
-      label: "hone",
-      href: "https://hone.inshell.art",
-      ariaLabel: "Open hone",
+      key: "color-font",
+      label: "color font",
+      href: "/color-font",
+      ariaLabel: "Open Color Font primitive page",
+      external: true,
     },
     ...(telegramUrl
       ? ([
@@ -91,6 +94,7 @@ const Footer: React.FC = () => {
             label: "telegram",
             href: telegramUrl,
             ariaLabel: "Open Telegram announcements channel",
+            external: true,
             tooltip: "telegram",
             squares: "■■",
           },
@@ -101,12 +105,14 @@ const Footer: React.FC = () => {
       label: "X",
       href: "https://twitter.com/inshell_art",
       ariaLabel: "Open X",
+      external: true,
     },
     {
       key: "github",
       label: "github",
       href: "https://github.com/inshell-art",
       ariaLabel: "Open GitHub",
+      external: true,
     },
   ];
 
@@ -117,8 +123,8 @@ const Footer: React.FC = () => {
           <li className={styles.footerItem} key={link.key}>
             <a
               href={link.href}
-              target="_blank"
-              rel="noopener noreferrer"
+              target={link.external === false ? undefined : "_blank"}
+              rel={link.external === false ? undefined : "noopener noreferrer"}
               data-label={link.tooltip ?? link.label}
               aria-label={link.ariaLabel}
               className={styles.footerLink}
