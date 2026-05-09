@@ -49,14 +49,14 @@ Persistent notice text (default mapping):
   - user refused → `Signature cancelled.`
   - failed to fetch / network error → `RPC busy. Retry.`
   - invalid block id / RPC error → `RPC read failed.`
-  - overflow → `Insufficient STRK at execution.`
+  - overflow → `Insufficient ETH at execution.`
   - fallback → `Mint failed.`
-- No wallet: `No Starknet wallet found.`
+- No wallet: `No injected wallet found.`
 - Wrong network: `Sepolia only.`
 - Preflight loading: `Loading...`
 - Preflight error: `RPC read failed.`
 - Insufficient balance: `Need X, have Y.`
-- Needs approval: `Approve STRK (1/2)`
+- Needs approval: `Approve ETH (1/2)`
 
 Debug notice override (`debug -> override -> notice`) forces a notice by
 driving wallet/chain/preflight/tx state. It only applies when CTA override is

@@ -1,11 +1,9 @@
 .footer {
-  padding: 1rem;
-  text-align: center;
+  padding: 1rem 0;
   position: static;
   width: 100%;
-  display: flex;
-  justify-content: center; /* Center the content horizontally */
-  align-items: center; /* Center the content vertically */
+  display: grid;
+  place-items: center;
   color: var(--muted);
   font-weight: 200;
   font-size: 13px;
@@ -17,9 +15,10 @@
   margin: 0;
   padding: 0;
   display: flex;
-  justify-content: center; /* Center the list items horizontally */
+  justify-content: center;
   gap: 0.75rem;
   letter-spacing: 0.1em;
+  width: max-content;
 }
 
 .footerItem a {
@@ -36,12 +35,12 @@
 .footerItem a::after {
   content: attr(data-label);
   position: absolute;
-  bottom: 140%;
+  bottom: calc(100% + 2px);
   left: 50%;
-  transform: translateX(-50%) translateY(2px);
+  transform: translateX(-50%) translateY(1px);
   background: var(--panel);
   color: var(--text);
-  padding: 6px 8px;
+  padding: 4px 7px;
   border-radius: 4px;
   border: 1px solid var(--panel-border);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
@@ -55,7 +54,7 @@
 
 .footerItem a:hover::after {
   opacity: 1;
-  transform: translateX(-50%) translateY(-2px);
+  transform: translateX(-50%) translateY(-1px);
 }
 
 .footerItem a:focus-visible {
@@ -65,7 +64,7 @@
 
 .footerItem a:focus-visible::after {
   opacity: 1;
-  transform: translateX(-50%) translateY(-2px);
+  transform: translateX(-50%) translateY(-1px);
 }
 
 @media (prefers-color-scheme: dark) {

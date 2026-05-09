@@ -2,7 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "composite": true,
-    "tsBuildInfoFile": "../../node_modules/.tmp/tsconfig.starknet.tsbuildinfo",
+    "tsBuildInfoFile": "../../node_modules/.tmp/tsconfig.ethereum.tsbuildinfo",
     "noEmit": true
   },
   "include": ["src"]

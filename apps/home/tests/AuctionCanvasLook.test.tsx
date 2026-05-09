@@ -1,16 +1,8 @@
 import "@testing-library/jest-dom";
-import {
-  render,
-  screen,
-  fireEvent,
-  waitFor,
-  act,
-  within,
-} from "@testing-library/react";
-import React from "react";
+import { render, fireEvent } from "@testing-library/react";
 import { describe, test, beforeEach, afterEach, expect, jest } from "@jest/globals";
 import AuctionCanvas from "../src/components/AuctionCanvas";
-import { encodeByteArray, mockAuctionCore } from "./testUtils";
+import { mockAuctionCore } from "./testUtils";
 
 const mockUseAuctionBids = jest.fn();
 const mockUseAuctionCore = jest.fn();
@@ -34,8 +26,8 @@ jest.mock("@inshell/wallet", () => ({
     isConnecting: false,
     isReconnecting: false,
     status: "connected",
-    chain: { name: "Starknet Sepolia Testnet" },
-    chainId: BigInt("0x534e5f5345504f4c4941"),
+    chain: { name: "Sepolia" },
+    chainId: 11155111n,
     account: null,
     accountMissing: false,
     connect: jest.fn(),
@@ -49,14 +41,28 @@ jest.mock("@inshell/wallet", () => ({
   }),
 }));
 
-describe("AuctionCanvas look tab", () => {
+describe("AuctionCanvas sale tooltip", () => {
   beforeEach(() => {
+    (globalThis as any).__VITE_ENV__ = {
+      VITE_PATH_ALLOW_DIRECT_AUCTION: "1",
+      VITE_PAYMENT_TOKEN_SYMBOL: "ETH",
+    };
+    const nowMs = Date.now();
     mockCallContract.mockReset();
     mockUseAuctionBids.mockReturnValue({
       bids: [
         {
+          key: "b1",
+          atMs: nowMs - 2 * 60 * 1000,
+          amount: { raw: { low: "1", high: "0" }, dec: "1", value: 1n },
+          bidder: "0x1111111111111111",
+          blockNumber: 10,
+          epochIndex: 1,
+          tokenId: 1,
+        },
+        {
           key: "b2",
-          atMs: Date.UTC(2025, 0, 1, 1),
+          atMs: nowMs - 60 * 1000,
           amount: { raw: { low: "2", high: "0" }, dec: "2", value: 2n },
           bidder: "0x2222222222222222",
           blockNumber: 11,
@@ -73,139 +79,26 @@ describe("AuctionCanvas look tab", () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    delete (globalThis as any).__VITE_ENV__;
   });
 
-  test("loads look metadata and shows attributes popover", async () => {
-    const meta = {
-      name: "PATH #1",
-      image: "data:image/svg+xml,<svg viewBox='0 0 1 1'></svg>",
-      attributes: [
-        { trait_type: "Steps", value: 47 },
-        { trait_type: "Voice", value: 2 },
-        { trait_type: "THOUGHT", value: "Manifested(1/2)" },
-        { trait_type: "WILL", value: "Manifested(0/2)" },
-        { trait_type: "AWA", value: "Manifested(0/1)" },
-      ],
-    };
-    const tokenUri = `data:application/json,${JSON.stringify(meta)}`;
-    mockCallContract.mockResolvedValue({ result: encodeByteArray(tokenUri) });
-
+  test("shows sale details without loading token image", () => {
     const { container } = render(
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />
     );
 
-    fireEvent.click(screen.getByText(/look/i));
-
-    await waitFor(() => {
-      expect(screen.getByRole("img", { name: /path #1/i })).toBeTruthy();
+    const dot = container.querySelector(".dotfield__point--sale .dotfield__dot");
+    expect(dot).toBeTruthy();
+    fireEvent.mouseMove(dot as unknown as HTMLElement, {
+      clientX: 10,
+      clientY: 10,
     });
 
-    expect(screen.getByText(/token #1/i)).toBeTruthy();
-    expect(screen.getByText(/THOUGHT/i)).toBeTruthy();
-    expect(screen.getByText(/\(1\/2\)/i)).toBeTruthy();
-
-    const viewport = container.querySelector(
-      ".dotfield__look-viewport"
-    ) as HTMLElement;
-    expect(viewport).toBeTruthy();
-    fireEvent.mouseMove(viewport, { clientX: 10, clientY: 10 });
-
-    expect(screen.getByText(/attributes/i)).toBeTruthy();
-    expect(screen.getByText(/steps/i)).toBeTruthy();
-    const popover = container.querySelector(
-      ".dotfield__popover"
-    ) as HTMLElement;
-    expect(popover).toBeTruthy();
-    expect(
-      within(popover).getByText(/Manifested\(1\/2\)/i)
-    ).toBeTruthy();
-  });
-
-  test("look nav shows no more at lower bound", async () => {
-    const meta = {
-      name: "PATH #1",
-      image: "data:image/svg+xml,<svg viewBox='0 0 1 1'></svg>",
-      attributes: [],
-    };
-    const tokenUri = `data:application/json,${JSON.stringify(meta)}`;
-    mockCallContract.mockResolvedValue({ result: encodeByteArray(tokenUri) });
-
-    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    fireEvent.click(screen.getByText(/look/i));
-
-    await waitFor(() => {
-      expect(screen.getByRole("img", { name: /path #1/i })).toBeTruthy();
-    });
-
-    fireEvent.click(screen.getByLabelText(/previous token/i));
-    expect(screen.getByText(/no more/i)).toBeTruthy();
-  });
-
-  test("loading look appears only after delay", async () => {
-    jest.useFakeTimers();
-    const pending = new Promise<{ result: string[] }>(() => {});
-    mockCallContract.mockReturnValue(pending);
-
-    try {
-      render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-      fireEvent.click(screen.getByText(/look/i));
-
-      expect(screen.queryByText(/loading svg/i)).toBeNull();
-
-      await act(async () => {
-        jest.advanceTimersByTime(499);
-      });
-      expect(screen.queryByText(/loading svg/i)).toBeNull();
-
-      await act(async () => {
-        jest.advanceTimersByTime(2);
-      });
-      expect(screen.getByText(/loading svg/i)).toBeTruthy();
-      expect(screen.queryByText(/no svg yet/i)).toBeNull();
-    } finally {
-      jest.useRealTimers();
-    }
-  });
-
-  test("look nav shows no more at upper bound", async () => {
-    const meta = {
-      name: "PATH #1",
-      image: "data:image/svg+xml,<svg viewBox='0 0 1 1'></svg>",
-      attributes: [],
-    };
-    const tokenUri = `data:application/json,${JSON.stringify(meta)}`;
-    mockCallContract.mockResolvedValue({ result: encodeByteArray(tokenUri) });
-
-    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    fireEvent.click(screen.getByText(/look/i));
-
-    await waitFor(() => {
-      expect(screen.getByRole("img", { name: /path #1/i })).toBeTruthy();
-    });
-
-    fireEvent.click(screen.getByLabelText(/next token/i));
-    await waitFor(() => {
-      expect(screen.getByText(/token #2/i)).toBeTruthy();
-    });
-
-    fireEvent.click(screen.getByLabelText(/next token/i));
-    expect(screen.getByText(/no more/i)).toBeTruthy();
-  });
-
-  test("shows error when token_uri response is invalid", async () => {
-    jest.useFakeTimers();
-    mockCallContract.mockResolvedValue({ result: ["0", "0", "0"] });
-
-    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    fireEvent.click(screen.getByText(/look/i));
-
-    await act(async () => {
-      await Promise.resolve();
-    });
-    act(() => {
-      jest.advanceTimersByTime(2600);
-    });
-    expect(screen.getByText(/error loading look/i)).toBeTruthy();
-    jest.useRealTimers();
+    expect(container.querySelector(".dotfield__popover")).toBeTruthy();
+    expect(container.querySelector("img[alt^='PATH #']")).toBeNull();
+    const tokenUriCalls = mockCallContract.mock.calls.filter(
+      (args) => args[0]?.entrypoint === "token_uri"
+    );
+    expect(tokenUriCalls).toHaveLength(0);
   });
 });

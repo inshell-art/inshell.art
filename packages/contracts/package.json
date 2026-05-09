@@ -5,9 +5,5 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
-  },
-  "dependencies": {
-    "@inshell/starknet": "workspace:*",
-    "starknet": "^7.6.4"
   }
 }

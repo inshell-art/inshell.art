@@ -6,7 +6,7 @@ import HeaderWalletCTA from "../src/components/HeaderWalletCTA";
 
 const createWalletState = (overrides: Partial<any> = {}) => ({
   address: "0x1111222233334444555566667777888899990000",
-  chain: { name: "Starknet Sepolia Testnet", network: "sepolia" },
+  chain: { name: "Sepolia", network: "sepolia" },
   isConnected: true,
   disconnect: jest.fn(),
   ...overrides,

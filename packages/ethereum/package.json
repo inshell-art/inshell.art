@@ -1,5 +1,5 @@
 {
-  "name": "@inshell/starknet",
+  "name": "@inshell/ethereum",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -7,6 +7,6 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "starknet": "^7.6.4"
+    "viem": "^2.47.0"
   }
 }

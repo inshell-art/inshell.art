@@ -8,6 +8,7 @@ import {
   jest,
 } from "@jest/globals";
 import { render, act } from "@testing-library/react";
+import "@testing-library/jest-dom";
 import Movements from "../src/components/Movements";
 
 const mockIsDesktopDevice = jest.fn();
@@ -30,7 +31,7 @@ describe("Movements", () => {
   test("renders nothing when not on desktop", () => {
     mockIsDesktopDevice.mockReturnValue(false);
     const { container, queryByLabelText } = render(<Movements />);
-    expect(queryByLabelText(/movements-hero/i)).toBeNull();
+    expect(queryByLabelText(/Movements/i)).toBeNull();
     expect(container.firstChild).toBeNull();
   });
 
@@ -43,5 +44,13 @@ describe("Movements", () => {
     projectElements.forEach((el) => {
       expect(parseFloat(el.style.opacity)).toBeGreaterThan(0);
     });
+  });
+
+  test("links THOUGHT to the local thought app in the same window", () => {
+    const { getByRole } = render(<Movements />);
+    const link = getByRole("link", { name: "THOUGHT" });
+    expect(link).toHaveAttribute("href", "http://127.0.0.1:5174/");
+    expect(link).not.toHaveAttribute("target");
+    expect(link).not.toHaveAttribute("rel");
   });
 });

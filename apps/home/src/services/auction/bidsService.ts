@@ -1,6 +1,13 @@
-import { RpcProvider, type ProviderInterface } from "starknet";
-import { getDefaultProvider, getBidEventSelectors } from "@inshell/starknet";
-import { PulseAuctionAbi } from "@inshell/contracts";
+import {
+  decodeSaleLog,
+  getBidEventSelectors,
+  getBlock,
+  getBlockNumber,
+  getDefaultProvider,
+  getLogs,
+  type EthereumLog,
+  type ProviderInterface,
+} from "@inshell/ethereum";
 import { toU256Num, type U256Num } from "@inshell/utils";
 
 export type NormalizedBid = {
@@ -8,6 +15,8 @@ export type NormalizedBid = {
   atMs: number; // from block.timestamp when available
   bidder?: string;
   amount: U256Num; // compatible with your num helpers
+  floorB?: U256Num; // Sale.floor_b when present
+  anchorASec?: number; // Sale.anchor_a when present
   txHash?: string;
   id?: number;
   blockNumber?: number;
@@ -20,17 +29,17 @@ export function createBidsService(opts: {
   provider?: ProviderInterface; // explicit > env > fallback
   fromBlock?: number; // seed at deploy block in prod; 0 on devnet is fine
   maxBids?: number; // default 200
-  chunkSize?: number; // default 200
+  chunkSize?: number; // default 40_000 blocks
   reorgDepth?: number; // default 2 blocks
 }) {
   const address = opts.address;
   const provider: ProviderInterface = opts.provider ?? getDefaultProvider();
   const maxBids = opts.maxBids ?? 200;
-  const chunkSize = opts.chunkSize ?? 200;
+  const chunkSize = Math.max(1, opts.chunkSize ?? 40_000);
   const reorgDepth = opts.reorgDepth ?? 2;
   const selectors = new Set(
-    [...getBidEventSelectors(PulseAuctionAbi)].map((s) => s.toLowerCase())
-  ); // Normalize selectors to lowercase
+    [...getBidEventSelectors()].map((s) => s.toLowerCase())
+  );
 
   let lastBlock = opts.fromBlock;
   const seen = new Set<string>();
@@ -55,29 +64,23 @@ export function createBidsService(opts: {
     return bids.slice();
   }
 
-  async function decode(ev: any): Promise<NormalizedBid | null> {
-    const dataArr: string[] = ev.data ?? [];
-    const keysArr: string[] = ev.keys ?? [];
+  async function decode(ev: EthereumLog): Promise<NormalizedBid | null> {
+    const decoded = decodeSaleLog(ev);
+    if (!decoded?.lastPrice) return null;
 
-    if (dataArr.length < 2) return null;
-
-    // Prefer ABI-aware decode for PulseAuction::Sale:
-    // data = [price.low, price.high, timestamp]
-    // keys = [selector, buyer, (token_id.low?), (token_id.high?)]
-    let amount = toU256Num({ low: dataArr[0], high: dataArr[1] });
-    let atMs: number | undefined;
-
-    // Timestamp felt when present
-    if (dataArr.length >= 3) {
-      const tsFelt = dataArr[2];
-      const tsNum = Number(tsFelt);
-      if (Number.isFinite(tsNum) && tsNum > 0) atMs = tsNum * 1000;
-    }
-
-    // Fallbacks if layout differs
+    let atMs =
+      typeof decoded.nowTs === "number" && Number.isFinite(decoded.nowTs)
+        ? decoded.nowTs * 1000
+        : undefined;
     if (!atMs) {
       try {
-        const blk = await provider.getBlock(ev.block_hash ?? ev.block_number);
+        const blockNumber = ev.blockNumber
+          ? Number.parseInt(ev.blockNumber, 16)
+          : NaN;
+        const blk = await getBlock(
+          provider,
+          Number.isFinite(blockNumber) ? blockNumber : "latest"
+        );
         if (blk?.timestamp) atMs = Number(blk.timestamp) * 1000;
       } catch {
         /* ignore */
@@ -85,59 +88,42 @@ export function createBidsService(opts: {
     }
     if (!atMs) atMs = Date.now();
 
-    const bidder = keysArr[1]?.startsWith("0x")
-      ? keysArr[1]
-      : dataArr[0]?.startsWith("0x")
-      ? dataArr[0]
-      : undefined;
-
-    const txHash: string | undefined = ev.transaction_hash ?? ev.tx_hash;
-    const sel = (ev.keys?.[0] ?? "").toLowerCase();
+    const amount = toU256Num({
+      low: decoded.lastPrice.toString(10),
+      high: "0",
+    });
+    const floorB =
+      decoded.floorPrice != null
+        ? toU256Num({ low: decoded.floorPrice.toString(10), high: "0" })
+        : undefined;
+    const txHash = ev.transactionHash;
     const key = txHash
       ? `tx:${txHash.toLowerCase()}`
-      : `mix:${sel}|${amount.raw.low}|${amount.raw.high}|${atMs}`;
-
-    let tokenId: number | undefined;
-    if (keysArr.length >= 4) {
-      try {
-        const low = BigInt(keysArr[2]);
-        const high = BigInt(keysArr[3]);
-        const big = low + (high << 128n);
-        if (big >= 0 && big <= BigInt(Number.MAX_SAFE_INTEGER)) {
-          tokenId = Number(big);
-        }
-      } catch {
-        /* ignore */
-      }
-    }
+      : `log:${ev.blockNumber ?? "na"}:${ev.logIndex ?? "na"}`;
 
     return {
       key,
       atMs,
-      bidder,
+      bidder: decoded.buyer,
       amount,
+      floorB,
+      anchorASec: decoded.anchorTime,
       txHash,
-      id: ev.event_id ?? ev.index,
-      blockNumber:
-        typeof ev.block_number === "number" ? ev.block_number : undefined,
-      epochIndex:
-        dataArr.length >= 7 && Number.isFinite(Number(dataArr[6]))
-          ? Number(dataArr[6])
-          : undefined,
-      tokenId,
+      id: ev.logIndex ? Number.parseInt(ev.logIndex, 16) : undefined,
+      blockNumber: ev.blockNumber ? Number.parseInt(ev.blockNumber, 16) : undefined,
+      epochIndex: decoded.epochIndex,
     };
   }
 
   async function pullOnce(): Promise<NormalizedBid[]> {
     const fresh: NormalizedBid[] = [];
-    let token: string | undefined;
 
     async function resolveFromBlock(): Promise<number> {
       if (typeof lastBlock === "number" && Number.isFinite(lastBlock)) {
         return Math.max(0, lastBlock - reorgDepth);
       }
       try {
-        const latest = await (provider as RpcProvider).getBlockNumber();
+        const latest = await getBlockNumber(provider);
         lastBlock = latest;
         return Math.max(0, latest - reorgDepth);
       } catch {
@@ -146,41 +132,36 @@ export function createBidsService(opts: {
       }
     }
 
-    const from_block = { block_number: await resolveFromBlock() };
+    const startBlock = await resolveFromBlock();
+    const latestBlock = await getBlockNumber(provider);
 
-    type EventsChunk = Awaited<ReturnType<RpcProvider["getEvents"]>>;
-
-    do {
-      const res: EventsChunk = await (provider as RpcProvider).getEvents({
+    for (
+      let chunkStart = startBlock;
+      chunkStart <= latestBlock;
+      chunkStart += chunkSize
+    ) {
+      const chunkEnd = Math.min(latestBlock, chunkStart + chunkSize - 1);
+      const events = await getLogs(provider, {
         address,
-        from_block,
-        to_block: "latest",
-        keys: [], // filter locally for robustness across ABIs
-        chunk_size: chunkSize,
-        continuation_token: token,
+        fromBlock: chunkStart,
+        toBlock: chunkEnd,
+        topics: [...selectors],
       });
 
-      for (const ev of res.events ?? []) {
-        const sel = (ev.keys?.[0] ?? "").toLowerCase();
-        const looksLikeBid = selectors.has(sel);
-
-        if (!looksLikeBid) continue;
-
+      for (const ev of events) {
+        const sel = (ev.topics?.[0] ?? "").toLowerCase();
+        if (!selectors.has(sel)) continue;
         const row = await decode(ev);
-        if (!row) continue;
-
-        if (!seen.has(row.key)) {
-          seen.add(row.key);
-          fresh.push(row);
-        }
-
-        if (typeof ev.block_number === "number") {
-          lastBlock = Math.max(lastBlock ?? 0, ev.block_number + 1);
+        if (!row || seen.has(row.key)) continue;
+        seen.add(row.key);
+        fresh.push(row);
+        if (typeof row.blockNumber === "number") {
+          lastBlock = Math.max(lastBlock ?? 0, row.blockNumber + 1);
         }
       }
+    }
 
-      token = res.continuation_token;
-    } while (token);
+    lastBlock = Math.max(lastBlock ?? 0, latestBlock + 1);
 
     if (fresh.length) {
       bids = [...bids, ...fresh].sort((a, b) => a.atMs - b.atMs);

@@ -5,7 +5,7 @@
 //   pnpm tsx scripts/sync-addresses.ts --net sepolia --url https://example.com/addresses.sepolia.json
 //
 // Output:
-//   packages/contracts/src/addresses/addresses.<net>.json   // values normalized to 0x + 64-hex
+//   packages/contracts/src/addresses/addresses.<net>.json   // values normalized to 0x + 40-hex
 
 import {
   AddrMap,

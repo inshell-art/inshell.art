@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ProviderInterface } from "starknet";
+import type { ProviderInterface } from "@inshell/ethereum";
 import {
   createBidsService,
   type NormalizedBid,
@@ -41,7 +41,6 @@ export function useAuctionBids(opts: {
       setReady(true);
     } catch (e) {
       setError(e);
-    } finally {
       setLoading(false);
     }
     return () => {
@@ -71,9 +70,19 @@ export function useAuctionBids(opts: {
   // Kick off an initial fetch when ready even if polling is disabled.
   useEffect(() => {
     if (!enabled || !ready || !serviceRef.current) return;
-    void serviceRef.current.pullOnce().catch((e) => {
-      setError(e);
-    });
+    let cancelled = false;
+    setLoading(true);
+    void serviceRef.current
+      .pullOnce()
+      .catch((e) => {
+        if (!cancelled) setError(e);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [enabled, ready]);
 
   const pullOnce = useMemo(() => {

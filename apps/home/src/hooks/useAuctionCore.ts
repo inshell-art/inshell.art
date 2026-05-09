@@ -1,13 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import type { ProviderInterface } from "starknet";
+import type { EthereumBlockTag, ProviderInterface } from "@inshell/ethereum";
 import { createCoreService } from "@/services/auction/coreService";
-import { type AbiSource } from "@inshell/contracts";
 import type { AuctionSnapshot } from "@/types/types";
 
 export function useAuctionCore(opts?: {
   address?: string;
   provider?: ProviderInterface;
-  abiSource?: AbiSource;
   refreshMs?: number; // default 4000ms
   enabled?: boolean; // default true
   blockId?: any; // optional; if you expose block pinning
@@ -32,8 +30,7 @@ export function useAuctionCore(opts?: {
         serviceRef.current = createCoreService({
           address: opts?.address,
           provider: opts?.provider,
-          blockId: opts?.blockId,
-          abiSource: opts?.abiSource as AbiSource,
+          blockId: opts?.blockId as number | EthereumBlockTag | undefined,
         });
         if (!cancelled) setReady(true);
       } catch (e) {
@@ -45,7 +42,7 @@ export function useAuctionCore(opts?: {
     return () => {
       cancelled = true;
     };
-  }, [opts?.address, opts?.provider, opts?.blockId, opts?.abiSource]);
+  }, [opts?.address, opts?.provider, opts?.blockId]);
 
   // One-off fetch
   const fetchOnce = async () => {
