@@ -253,8 +253,11 @@ describe("App Component", () => {
 
   test("renders the Color Font primitive page with onchain authority metadata", async () => {
     window.history.pushState({}, "", "/color-font");
-    (globalThis as any).__VITE_ENV__ = { VITE_NETWORK: "sepolia" };
     const thoughtNftAddress = "0x627b9A657eac8c3463AD17009a424dFE3FDbd0b1";
+    (globalThis as any).__VITE_ENV__ = {
+      VITE_NETWORK: "sepolia",
+      VITE_THOUGHT_NFT: thoughtNftAddress,
+    };
     const request = jest.fn(async ({ method, params }: any) => {
       if (method === "eth_call") {
         const data = params[0].data;
