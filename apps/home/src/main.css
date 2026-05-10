@@ -135,39 +135,50 @@ body {
   line-height: 1.55;
 }
 
-.pulse-page__mark {
+.pulse-page__demo {
   display: block;
-  width: clamp(220px, 30vw, 420px);
+  width: clamp(280px, 46vw, 560px);
+  max-width: 100%;
   height: auto;
-  margin: 20px auto 0;
+  margin: 24px auto 0;
   color: var(--accent);
   overflow: visible;
   shape-rendering: geometricPrecision;
 }
 
-.pulse-page__mark-guide,
-.pulse-page__mark-curve {
+.pulse-page__demo-guide,
+.pulse-page__demo-curve {
   fill: none;
   vector-effect: non-scaling-stroke;
 }
 
-.pulse-page__mark-guide {
+.pulse-page__demo-guide {
   stroke: currentColor;
-  stroke-width: 0.65;
-  opacity: 0.1;
+  stroke-width: 0.78;
+  opacity: 0.12;
 }
 
-.pulse-page__mark-curve {
+.pulse-page__demo-curve {
   stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 1.55;
-  opacity: 0.48;
+  stroke-width: 1.78;
+  opacity: 0.52;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: pulse-demo-play 4.6s ease-out 0.1s both;
 }
 
-.pulse-page__mark-dots {
+.pulse-page__demo-dots {
   fill: currentColor;
-  opacity: 0.32;
+  opacity: 0.34;
+}
+
+.pulse-page__demo-dots circle {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pulse-demo-dot 0.42s ease-out both;
 }
 
 .pulse-page__math {
@@ -179,6 +190,39 @@ body {
 .pulse-page__ending {
   display: grid;
   gap: 0;
+}
+
+@keyframes pulse-demo-play {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes pulse-demo-dot {
+  from {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-page__demo-curve,
+  .pulse-page__demo-dots circle {
+    animation: none;
+  }
+
+  .pulse-page__demo-curve {
+    stroke-dashoffset: 0;
+  }
+
+  .pulse-page__demo-dots circle {
+    opacity: 1;
+  }
 }
 
 .color-font-page__masthead {

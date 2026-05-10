@@ -1,15 +1,15 @@
 import { useMemo } from "react";
 import { PULSE } from "@/content/pulse";
 
-type PulseMarkDot = {
+type PulseDemoDot = {
   x: number;
   y: number;
 };
 
-type PulseMark = {
+type PulseDemo = {
   curveD: string;
   guideD: string;
-  dots: PulseMarkDot[];
+  dots: PulseDemoDot[];
 };
 
 function randomBetween(min: number, max: number) {
@@ -20,24 +20,24 @@ function coord(value: number) {
   return Number(value.toFixed(2));
 }
 
-function makePulseMark(): PulseMark {
-  const left = 14;
-  const right = 406;
-  const floorMin = 31;
-  const floorMax = 37;
-  const count = 10 + Math.floor(Math.random() * 11);
+function makePulseDemo(): PulseDemo {
+  const left = 0;
+  const right = 560;
+  const floorMin = 47;
+  const floorMax = 55;
+  const count = 12 + Math.floor(Math.random() * 11);
   const usableWidth = right - left;
   const unit = usableWidth / count;
   let x = left;
   let floorY = randomBetween(floorMin, floorMax);
   const curve: string[] = [`M${coord(x)} ${coord(floorY)}`];
   const guide: string[] = [];
-  const dots: PulseMarkDot[] = [{ x, y: floorY }];
+  const dots: PulseDemoDot[] = [{ x, y: floorY }];
 
   for (let i = 0; i < count; i += 1) {
     const width = unit * randomBetween(0.72, 1.28);
     const endX = i === count - 1 ? right : Math.min(right, x + width);
-    const topY = Math.max(7, floorY - randomBetween(7, 24));
+    const topY = Math.max(8, floorY - randomBetween(11, 32));
     const settleY = randomBetween(floorMin, floorMax);
     const c1x = x + (endX - x) * randomBetween(0.08, 0.2);
     const c2x = x + (endX - x) * randomBetween(0.4, 0.75);
@@ -46,7 +46,7 @@ function makePulseMark(): PulseMark {
 
     guide.push(`M${coord(x)} ${coord(floorY)}V${coord(topY)}`);
     curve.push(
-      `M${coord(x)} ${coord(topY)}`,
+      `V${coord(topY)}`,
       `C${coord(c1x)} ${coord(c1y)} ${coord(c2x)} ${coord(c2y)} ${coord(
         endX
       )} ${coord(settleY)}`
@@ -57,7 +57,7 @@ function makePulseMark(): PulseMark {
     floorY = settleY;
     if (i < count - 1) {
       const nextX = Math.min(right, x + unit * randomBetween(0.02, 0.16));
-      curve.push(`M${coord(x)} ${coord(floorY)}H${coord(nextX)}`);
+      curve.push(`H${coord(nextX)}`);
       x = nextX;
       dots.push({ x, y: floorY });
     }
@@ -71,7 +71,7 @@ function makePulseMark(): PulseMark {
 }
 
 export default function PulsePage() {
-  const pulseMark = useMemo(() => makePulseMark(), []);
+  const pulseDemo = useMemo(() => makePulseDemo(), []);
 
   return (
     <main className="primitive-page" aria-labelledby="pulse-page-title">
@@ -81,26 +81,28 @@ export default function PulsePage() {
             {PULSE.title}
           </h1>
           <svg
-            className="pulse-page__mark"
-            viewBox="0 0 420 44"
+            className="pulse-page__demo"
+            viewBox="0 0 560 72"
             role="img"
-            aria-label="Iconic linked pulse auction curves"
+            aria-label="Animated timeline of linked pulse auction curves"
           >
             <path
-              className="pulse-page__mark-guide"
-              d={pulseMark.guideD}
+              className="pulse-page__demo-guide"
+              d={pulseDemo.guideD}
             />
             <path
-              className="pulse-page__mark-curve"
-              d={pulseMark.curveD}
+              className="pulse-page__demo-curve"
+              d={pulseDemo.curveD}
+              pathLength={1}
             />
-            <g className="pulse-page__mark-dots">
-              {pulseMark.dots.map((dot, index) => (
+            <g className="pulse-page__demo-dots">
+              {pulseDemo.dots.map((dot, index) => (
                 <circle
                   key={`${index}-${dot.x}-${dot.y}`}
                   cx={coord(dot.x)}
                   cy={coord(dot.y)}
-                  r="1.65"
+                  r="2.05"
+                  style={{ animationDelay: `${0.34 + index * 0.045}s` }}
                 />
               ))}
             </g>
