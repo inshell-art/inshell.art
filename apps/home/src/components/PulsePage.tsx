@@ -20,7 +20,7 @@ type PulseDemo = {
 };
 
 const PULSE_DEMO_DROP_SECONDS = 1;
-const PULSE_DEMO_HOLD_SECONDS = 1;
+const PULSE_DEMO_HOLD_SECONDS = 0.2;
 const PULSE_DEMO_STEP_SECONDS =
   PULSE_DEMO_DROP_SECONDS + PULSE_DEMO_HOLD_SECONDS;
 const PULSE_DEMO_START_SECONDS = 0.14;
@@ -54,10 +54,12 @@ function makePulseDemo(): PulseDemo {
     const endX = i === count - 1 ? right : slotEnd - holdWidth;
     const topY = Math.max(8, floorY - randomBetween(11, 32));
     const settleY = randomBetween(floorMin, floorMax);
-    const c1x = x + (endX - x) * randomBetween(0.08, 0.2);
-    const c2x = x + (endX - x) * randomBetween(0.4, 0.75);
-    const c1y = topY + randomBetween(12, 22);
-    const c2y = settleY - randomBetween(2, 8);
+    const dropWidth = endX - x;
+    const dropHeight = settleY - topY;
+    const c1x = x + dropWidth * 0.12;
+    const c2x = x + dropWidth * 0.72;
+    const c1y = topY + dropHeight * 0.72;
+    const c2y = topY + dropHeight * 0.96;
     const stepDelay = PULSE_DEMO_START_SECONDS + i * PULSE_DEMO_STEP_SECONDS;
 
     pumps.push({
