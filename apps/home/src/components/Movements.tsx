@@ -2,8 +2,32 @@ import { useEffect, useRef, useState } from "react";
 import { isDesktopDevice } from "@inshell/utils";
 import "./Movements.css";
 
+function getEnvValue(name: string): unknown {
+  const envCache: Record<string, any> | undefined =
+    (globalThis as any).__VITE_ENV__;
+  const procEnv = (globalThis as any)?.process?.env;
+  return envCache?.[name] ?? procEnv?.[name];
+}
+
+function isDevLikeEnv(): boolean {
+  const dev = getEnvValue("DEV");
+  const mode = getEnvValue("MODE");
+  const nodeEnv = getEnvValue("NODE_ENV");
+  return dev === true || mode === "development" || nodeEnv === "test";
+}
+
+function resolveThoughtUrl(): string | null {
+  const explicit =
+    getEnvValue("VITE_THOUGHT_URL") ?? getEnvValue("VITE_THOUGHT_APP_URL");
+  if (typeof explicit === "string" && explicit.trim()) {
+    const value = explicit.trim();
+    if (/^https?:\/\//i.test(value)) return value;
+  }
+  return isDevLikeEnv() ? "http://127.0.0.1:5174/" : null;
+}
+
 const WORDS = [
-  { label: "THOUGHT", year: "2026", href: "http://127.0.0.1:5174/" },
+  { label: "THOUGHT" },
   { label: "WILL", year: "2027" },
   { label: "AWA!", year: "2028" },
 ];
@@ -70,17 +94,27 @@ export default function Movements() {
 
   if (!isDesktop) return null;
 
+  const thoughtUrl = resolveThoughtUrl();
+
   return (
     <div className="movements" aria-label="Movements">
       {WORDS.map((word) => (
         <div key={word.label} className="movements__cell">
-          <div className="movements__year" style={{ opacity: yearOpacity }}>
-            in {word.year}
+          <div
+            className={`movements__year${
+              word.year ? "" : " movements__year--empty"
+            }`}
+            style={{ opacity: word.year ? yearOpacity : 0 }}
+            aria-hidden={word.year ? undefined : "true"}
+          >
+            {word.year ? `in ${word.year}` : "\u00a0"}
           </div>
-          {word.label === "THOUGHT" ? (
+          {word.label === "THOUGHT" && thoughtUrl ? (
             <a
-              href={word.href}
+              href={thoughtUrl}
               className="movements__word movements__word--link"
+              target="_blank"
+              rel="noopener noreferrer"
               style={{ opacity: projectOpacity }}
             >
               {word.label}

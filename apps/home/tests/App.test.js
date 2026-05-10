@@ -9,7 +9,7 @@ describe("App Component", () => {
         projectElements.forEach((element) => {
             expect(parseFloat(element.style.opacity)).toBeCloseTo(0.2, 1);
         });
-        const yearElements = screen.getAllByText(/In 2024|In 2025|In 2026/i);
+        const yearElements = screen.getAllByText(/2027|2028/i);
         yearElements.forEach((element) => {
             expect(parseFloat(element.style.opacity)).toBeCloseTo(0, 1);
         });
@@ -68,7 +68,7 @@ describe("App Component", () => {
                 fireEvent.click(document);
             }
         });
-        const yearElements = screen.getAllByText(/In 2024|In 2025|In 2026/i);
+        const yearElements = screen.getAllByText(/2027|2028/i);
         yearElements.forEach((element) => {
             expect(parseFloat(element.style.opacity)).toBeGreaterThanOrEqual(0.5);
         });

@@ -82,7 +82,7 @@ describe("App Component", () => {
       expect(parseFloat(element.style.opacity)).toBeCloseTo(0.2, 1);
     });
 
-    const yearElements = screen.getAllByText(/First Half 2025|2025|2026/i);
+    const yearElements = screen.getAllByText(/2027|2028/i);
     yearElements.forEach((element: HTMLElement) => {
       expect(parseFloat(element.style.opacity)).toBeCloseTo(0, 1);
     });
@@ -150,7 +150,7 @@ describe("App Component", () => {
       }
     });
 
-    const yearElements = screen.getAllByText(/First Half 2025| 2025| 2026/i);
+    const yearElements = screen.getAllByText(/2027|2028/i);
     yearElements.forEach((element: HTMLElement) => {
       expect(parseFloat(element.style.opacity)).toBeGreaterThanOrEqual(0.5);
     });

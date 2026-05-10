@@ -30,6 +30,22 @@ const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const STARTUP_GRACE_MS = 2500;
 const DELAY_MS = 500;
 const SAMPLE_BASE_MS = Date.now() - 2 * 60 * 1000;
+function stubSvgRect(container: HTMLElement) {
+  const svg = container.querySelector("svg") as any;
+  if (!svg) return;
+  svg.getScreenCTM = () => null;
+  svg.getBoundingClientRect = () => ({
+    left: 0,
+    top: 0,
+    right: 1000,
+    bottom: 600,
+    width: 1000,
+    height: 600,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  });
+}
 const createDeferred = <T,>() => {
   let resolve!: (value: T) => void;
   let reject!: (reason?: any) => void;
@@ -160,6 +176,7 @@ describe("AuctionCanvas", () => {
     delete (globalThis as any).__VITE_ENV__;
     delete (globalThis as any).__PULSE_STATUS__;
     delete (window as any).ethereum;
+    window.history.pushState({}, "", "/");
   });
 
   test("renders mint button and dots", () => {
@@ -239,6 +256,146 @@ describe("AuctionCanvas", () => {
       expect(initialLeft).toBeLessThan(99);
       act(() => {
         jest.advanceTimersByTime(1200);
+      });
+      expect(readNowLeft()).toBeCloseTo(initialLeft, 4);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test("keeps user zoom while devnet mimics time", () => {
+    jest.useFakeTimers();
+    const nowMs = Date.UTC(2026, 0, 1, 0, 0, 0);
+    jest.setSystemTime(nowMs);
+    const nowSec = Math.floor(nowMs / 1000);
+    const saleSec = nowSec - 99;
+    const oneEth = 10n ** 18n;
+    (globalThis as any).__VITE_ENV__ = {
+      ...(globalThis as any).__VITE_ENV__,
+      VITE_NETWORK: "devnet",
+      VITE_EXPECTED_CHAIN_ID: "0x7a69",
+      VITE_ETH_RPC: "http://127.0.0.1:8546",
+    };
+    mockAuctionCore(mockUseAuctionCore, {
+      openTimeSec: nowSec - 109,
+      genesisPrice: { dec: (2n * oneEth).toString() },
+      genesisFloor: { dec: oneEth.toString() },
+      k: { dec: (100n * oneEth).toString() },
+      pts: oneEth.toString(),
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids: [
+        {
+          key: "b1",
+          atMs: saleSec * 1000,
+          amount: {
+            raw: { low: (15n * oneEth / 10n).toString(), high: "0" },
+            dec: (15n * oneEth / 10n).toString(),
+            value: 15n * oneEth / 10n,
+          },
+          bidder: "0x1111111111111111",
+          blockNumber: 10,
+          epochIndex: 1,
+        },
+      ],
+      ready: true,
+      loading: false,
+      error: null,
+    });
+
+    try {
+      const { container } = render(
+        <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+      );
+      stubSvgRect(container);
+      const svg = screen.getByRole("img", {
+        name: /pulse auction curve/i,
+      }) as HTMLElement;
+      const readNow = () => container.querySelector(".dotfield__point--now");
+      expect(readNow()).toBeTruthy();
+
+      fireEvent.wheel(svg, { deltaY: -120, clientX: 500, clientY: 300 });
+      expect(readNow()).toBeNull();
+
+      act(() => {
+        jest.advanceTimersByTime(1200);
+      });
+      expect(readNow()).toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test("keeps current ask visible at the right edge while panning", () => {
+    jest.useFakeTimers();
+    const nowMs = Date.UTC(2026, 0, 1, 0, 0, 0);
+    jest.setSystemTime(nowMs);
+    const nowSec = Math.floor(nowMs / 1000);
+    const saleSec = nowSec - 99;
+    const oneEth = 10n ** 18n;
+    mockAuctionCore(mockUseAuctionCore, {
+      openTimeSec: nowSec - 109,
+      genesisPrice: { dec: (2n * oneEth).toString() },
+      genesisFloor: { dec: oneEth.toString() },
+      k: { dec: (100n * oneEth).toString() },
+      pts: oneEth.toString(),
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids: [
+        {
+          key: "b1",
+          atMs: saleSec * 1000,
+          amount: {
+            raw: { low: (15n * oneEth / 10n).toString(), high: "0" },
+            dec: (15n * oneEth / 10n).toString(),
+            value: 15n * oneEth / 10n,
+          },
+          bidder: "0x1111111111111111",
+          blockNumber: 10,
+          epochIndex: 1,
+        },
+      ],
+      ready: true,
+      loading: false,
+      error: null,
+    });
+
+    try {
+      const { container } = render(
+        <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+      );
+      stubSvgRect(container);
+      const canvas = container.querySelector(".dotfield__canvas") as HTMLElement;
+      const readNowLeft = () => {
+        const now = container.querySelector(
+          ".dotfield__point--now"
+        ) as HTMLElement | null;
+        expect(now).toBeTruthy();
+        return Number.parseFloat(now?.style.left ?? "NaN");
+      };
+
+      const initialLeft = readNowLeft();
+      expect(initialLeft).toBeGreaterThan(95);
+      act(() => {
+        fireEvent.pointerDown(canvas, {
+          pointerId: 1,
+          pointerType: "mouse",
+          button: 0,
+          clientX: 500,
+          clientY: 300,
+        });
+        fireEvent.pointerMove(canvas, {
+          pointerId: 1,
+          pointerType: "mouse",
+          clientX: 0,
+          clientY: 300,
+        });
+        fireEvent.pointerUp(canvas, {
+          pointerId: 1,
+          pointerType: "mouse",
+          clientX: 0,
+          clientY: 300,
+        });
       });
       expect(readNowLeft()).toBeCloseTo(initialLeft, 4);
     } finally {
@@ -371,6 +528,10 @@ describe("AuctionCanvas", () => {
     expect(dotButton).toBeTruthy();
     fireEvent.click(dotButton as HTMLElement);
     expect(dotButton?.classList.contains("is-selected")).toBe(true);
+    expect(container.querySelector(".dotfield__popover")).toBeTruthy();
+
+    fireEvent.mouseLeave(dotButton as HTMLElement);
+    expect(container.querySelector(".dotfield__popover")).toBeTruthy();
 
     fireEvent.click(svg as HTMLElement, {
       clientX: 980,
@@ -380,6 +541,105 @@ describe("AuctionCanvas", () => {
     await waitFor(() => {
       expect(container.querySelector(".dotfield__point--sale.is-selected")).toBeNull();
     });
+    expect(container.querySelector(".dotfield__popover")).toBeNull();
+  });
+
+  test("clicking current ask pins its tooltip until blank click", async () => {
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
+
+    const svg = container.querySelector("svg") as HTMLElement | null;
+    expect(svg).toBeTruthy();
+    if (svg) {
+      Object.defineProperty(svg, "getBoundingClientRect", {
+        configurable: true,
+        value: () => ({
+          left: 0,
+          top: 0,
+          right: 1000,
+          bottom: 600,
+          width: 1000,
+          height: 600,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        }),
+      });
+    }
+
+    const nowButton = container.querySelector(
+      ".dotfield__point--now"
+    ) as HTMLElement | null;
+    expect(nowButton).toBeTruthy();
+    fireEvent.click(nowButton as HTMLElement);
+    expect(nowButton?.classList.contains("is-selected")).toBe(true);
+    expect(screen.getByText(/current ask/i)).toBeTruthy();
+
+    fireEvent.mouseLeave(nowButton as HTMLElement);
+    expect(screen.getByText(/current ask/i)).toBeTruthy();
+
+    fireEvent.click(svg as HTMLElement, {
+      clientX: 980,
+      clientY: 580,
+    });
+
+    await waitFor(() => {
+      expect(container.querySelector(".dotfield__point--now.is-selected")).toBeNull();
+    });
+    expect(container.querySelector(".dotfield__popover")).toBeNull();
+  });
+
+  test("dragging canvas clears selected sale tooltip", async () => {
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
+
+    const svg = container.querySelector("svg") as HTMLElement | null;
+    expect(svg).toBeTruthy();
+    if (svg) {
+      Object.defineProperty(svg, "getBoundingClientRect", {
+        configurable: true,
+        value: () => ({
+          left: 0,
+          top: 0,
+          right: 1000,
+          bottom: 600,
+          width: 1000,
+          height: 600,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        }),
+      });
+    }
+
+    const dotButton = container.querySelector(
+      ".dotfield__point--sale"
+    ) as HTMLElement | null;
+    expect(dotButton).toBeTruthy();
+    fireEvent.click(dotButton as HTMLElement);
+    expect(dotButton?.classList.contains("is-selected")).toBe(true);
+    expect(container.querySelector(".dotfield__popover")).toBeTruthy();
+
+    fireEvent.pointerDown(svg as HTMLElement, {
+      clientX: 900,
+      clientY: 300,
+      pointerId: 1,
+      pointerType: "mouse",
+      button: 0,
+    });
+    fireEvent.pointerMove(svg as HTMLElement, {
+      clientX: 850,
+      clientY: 300,
+      pointerId: 1,
+      pointerType: "mouse",
+    });
+
+    await waitFor(() => {
+      expect(container.querySelector(".dotfield__point--sale.is-selected")).toBeNull();
+    });
+    expect(container.querySelector(".dotfield__popover")).toBeNull();
   });
 
   test("curve hover shows above-floor amount", async () => {
@@ -407,7 +667,7 @@ describe("AuctionCanvas", () => {
     });
   });
 
-  test("hover near first curve start ask area shows opening ask tooltip", async () => {
+  test("hover near first start ask area shows opening ask tooltip", async () => {
     const { container } = render(
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />
     );
@@ -621,6 +881,66 @@ describe("AuctionCanvas", () => {
       expect(popover).toBeTruthy();
       expect(within(popover as HTMLElement).getByText(/^sale #1$/i)).toBeTruthy();
       expect(within(popover as HTMLElement).getByText(/^price$/i)).toBeTruthy();
+      expect(
+        within(popover as HTMLElement).getByText(
+          /mints one \$PATH and starts the next curve/i
+        )
+      ).toBeTruthy();
+      expect(within(popover as HTMLElement).queryByText(/^next floor b$/i)).toBeNull();
+    });
+  });
+
+  test("start ask tooltip explains floor b comes from the last sale", async () => {
+    mockUseAuctionBids.mockReturnValue({
+      bids: [
+        {
+          key: "b1",
+          atMs: Date.UTC(2025, 0, 1),
+          amount: { raw: { low: "40", high: "0" }, dec: "40", value: 40n },
+          bidder: "0x1111111111111111",
+          blockNumber: 10,
+          epochIndex: 1,
+        },
+        {
+          key: "b2",
+          atMs: Date.UTC(2025, 0, 1, 0, 5),
+          amount: { raw: { low: "50", high: "0" }, dec: "50", value: 50n },
+          bidder: "0x2222222222222222",
+          blockNumber: 11,
+          epochIndex: 2,
+        },
+      ],
+      ready: true,
+      loading: false,
+      error: null,
+    });
+    mockAuctionCore(mockUseAuctionCore, {
+      openTimeSec: Date.UTC(2024, 11, 31, 23, 55) / 1000,
+      genesisPrice: { dec: "40" },
+      genesisFloor: { dec: "10" },
+      k: { dec: "1000000" },
+      pts: "1",
+    });
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} decimals={0} />
+    );
+    const startAskDot = container.querySelector(
+      '.dotfield__point--ask[data-dot-key="ask#2"]'
+    ) as HTMLElement | null;
+    expect(startAskDot).toBeTruthy();
+    fireEvent.mouseMove(startAskDot as HTMLElement, {
+      clientX: 8,
+      clientY: 8,
+    });
+    await waitFor(() => {
+      const popover = container.querySelector(".dotfield__popover") as HTMLElement | null;
+      expect(popover).toBeTruthy();
+      expect(within(popover as HTMLElement).getByText(/^start ask$/i)).toBeTruthy();
+      expect(within(popover as HTMLElement).getByText(/^floor b$/i)).toBeTruthy();
+      expect(
+        within(popover as HTMLElement).getByText(/price = floor b \+ time premium/i)
+      ).toBeTruthy();
+      expect(within(popover as HTMLElement).getByText(/floor b = last sale/i)).toBeTruthy();
     });
   });
 
@@ -696,6 +1016,10 @@ describe("AuctionCanvas", () => {
       expect(popover).toBeTruthy();
       expect(within(popover as HTMLElement).getByText(/^time premium$/i)).toBeTruthy();
       expect(within(popover as HTMLElement).getByText(/^amount$/i)).toBeTruthy();
+      const durationRow = within(popover as HTMLElement).getByText(/^duration$/i)
+        .parentElement;
+      expect(durationRow?.textContent).toMatch(/^duration\d+s$/i);
+      expect(within(popover as HTMLElement).getByText(/^PTS \(ETH\/s\)$/i)).toBeTruthy();
       expect(within(popover as HTMLElement).getByText(/amount = duration × PTS/i)).toBeTruthy();
     });
   });
@@ -729,7 +1053,7 @@ describe("AuctionCanvas", () => {
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     expect(screen.getByText(/No PATH deployment loaded/i)).toBeTruthy();
-    expect(screen.getByText(/Protocol release not loaded/i)).toBeTruthy();
+    expect(screen.getByText(/PATH auction not loaded/i)).toBeTruthy();
     expect(mockUseAuctionCore).toHaveBeenLastCalledWith(
       expect.objectContaining({ enabled: false })
     );
@@ -1426,8 +1750,100 @@ describe("AuctionCanvas", () => {
     const review = screen.getByText(/review before wallet/i).closest(".dotfield__mint-review");
     expect(review).toBeTruthy();
     expect(within(review as HTMLElement).getByText(/current ask/i)).toBeTruthy();
-    expect(within(review as HTMLElement).getByText(/max bid/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getByText(/max charge/i)).toBeTruthy();
     expect(execute).not.toHaveBeenCalled();
+  });
+
+  test("devnet mint review and bid use projected ask instead of stale contract quote", async () => {
+    jest.useFakeTimers();
+    const nowMs = Date.UTC(2026, 0, 1, 0, 0, 0);
+    jest.setSystemTime(nowMs);
+    const nowSec = Math.floor(nowMs / 1000);
+    const saleSec = nowSec - 60;
+    const oneEth = 10n ** 18n;
+    const contractAsk = 5_349_700_000_000_000_000n;
+    (globalThis as any).__VITE_ENV__ = {
+      ...(globalThis as any).__VITE_ENV__,
+      VITE_NETWORK: "devnet",
+      VITE_EXPECTED_CHAIN_ID: "0x7a69",
+      VITE_ETH_RPC: "http://127.0.0.1:8546",
+      VITE_PAYTOKEN: ZERO_ADDRESS,
+    };
+    const execute = jest.fn().mockResolvedValue({ transaction_hash: "0x1" });
+    mockWalletState = createWalletState({
+      chain: { name: "Anvil" },
+      chainId: 31337n,
+      account: { execute },
+    });
+    mockGetBalance.mockResolvedValue(10n * oneEth);
+    mockCallContract.mockReset();
+    mockCallContract.mockImplementation(async (args: any) => {
+      if (args?.entrypoint === "get_current_price") {
+        return { price: { low: contractAsk.toString(), high: "0" } } as any;
+      }
+      return { result: [] } as any;
+    });
+    mockAuctionCore(mockUseAuctionCore, {
+      openTimeSec: nowSec - 120,
+      genesisPrice: { dec: (2n * oneEth).toString() },
+      genesisFloor: { dec: oneEth.toString() },
+      k: { dec: (100n * oneEth).toString() },
+      pts: "1000000000000000",
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids: [
+        {
+          key: "b1",
+          atMs: saleSec * 1000,
+          amount: {
+            raw: { low: "1200000000000000000", high: "0" },
+            dec: "1200000000000000000",
+            value: 1_200_000_000_000_000_000n,
+          },
+          amountDec: "1.2",
+          bidder: "0x1111111111111111",
+          blockNumber: 10,
+          epochIndex: 1,
+        },
+      ],
+      ready: true,
+      loading: false,
+      error: null,
+    });
+
+    try {
+      render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+      await clickMintForReview();
+      const review = screen.getByText(/review before wallet/i).closest(".dotfield__mint-review");
+      expect(review).toBeTruthy();
+      const rows = Array.from(
+        (review as HTMLElement).querySelectorAll(".dotfield__mint-review-row")
+      );
+      const currentAskRow = rows.find((row) => row.textContent?.includes("current ask"));
+      const txValueRow = rows.find((row) => row.textContent?.includes("tx value"));
+      const maxChargeRow = rows.find((row) => row.textContent?.includes("max charge"));
+      expect(currentAskRow?.textContent).toMatch(/current ask\s*1\.\d+ ETH/);
+      expect(currentAskRow?.textContent).not.toContain("5.3497 ETH");
+      expect(txValueRow?.textContent).toMatch(/tx value\s*1\.\d+ ETH/);
+      expect(txValueRow?.textContent).not.toContain("5.3497 ETH");
+      expect(maxChargeRow?.textContent).toMatch(/max charge\s*1\.\d+ ETH/);
+      expect(maxChargeRow?.textContent).not.toContain("5.3497 ETH");
+
+      await act(async () => {
+        fireEvent.click(screen.getByText(/\[\s*confirm\s*\]/i));
+      });
+      await waitFor(() => {
+        expect(execute).toHaveBeenCalled();
+      });
+      const bidCall = execute.mock.calls.find(
+        ([call]) => (call as any)?.entrypoint === "bid"
+      )?.[0] as any;
+      expect(bidCall).toBeTruthy();
+      expect(bidCall.value).toBeLessThan(contractAsk);
+      expect(BigInt(bidCall.calldata[0])).toBeLessThan(contractAsk);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   test("clicking outside the mint review dismisses it", async () => {
@@ -1859,6 +2275,39 @@ describe("AuctionCanvas", () => {
     });
     expect(mockWalletState.watchAsset).not.toHaveBeenCalled();
     expect(mockGetBalance.mock.calls.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test("shows return CTA after THOUGHT mint-path success", async () => {
+    const returnTo = "http://127.0.0.1:5174/";
+    window.history.pushState(
+      {},
+      "",
+      `/?intent=mint-path&from=thought&returnTo=${encodeURIComponent(returnTo)}`
+    );
+    const execute = jest.fn().mockResolvedValue({ transaction_hash: "0x1" });
+    const waitForTransaction = jest.fn().mockResolvedValue({});
+    mockWalletState.account = { execute, waitForTransaction };
+    mockWalletState.watchAsset = jest.fn().mockResolvedValue(true);
+    mockCallContract.mockReset();
+    mockCallContract.mockImplementation(async (args: any) => {
+      if (args?.entrypoint === "get_current_price") {
+        return { price: { low: "100", high: "0" } } as any;
+      }
+      if (args?.entrypoint === "balance_of") {
+        return { balance: { low: "200", high: "0" } } as any;
+      }
+      if (args?.entrypoint === "allowance") {
+        return { remaining: { low: "200", high: "0" } } as any;
+      }
+      return { result: [] } as any;
+    });
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    await clickMintThenSign();
+
+    await waitFor(() => {
+      expect(screen.getByText(/\[\s*return\s*\]/i)).toBeTruthy();
+    });
   });
 
   test("copied toast overrides notice then returns", async () => {

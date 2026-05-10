@@ -12,7 +12,9 @@ The earlier smooth drop on local Anvil came from browser-time projection: the UI
 
 ## Local Anvil Behavior
 
-Anvil only advances `block.timestamp` when it mines a block, unless it is started with interval mining. If no block is mined, `get_current_price()` returns the same value and the tooltip stays fixed.
+Anvil only advances `block.timestamp` when it mines a block, unless it is started with interval mining. If no block is mined, `get_current_price()` returns the same value.
+
+For local `devnet`, the UI intentionally uses browser-time projection for the live curve/current ask display. This mimics time passing and keeps curve development practical on idle Anvil nodes.
 
 ## Sepolia/Mainnet Behavior
 
@@ -20,4 +22,4 @@ On Sepolia and mainnet, blocks arrive continuously, so contract-sourced current 
 
 ## Decision For Now
 
-Do not patch this yet. Keep mint/preflight/current ask contract-sourced so wallet values match the contract. If smoother local rehearsal is needed later, use interval mining or add a clearly labeled projected ask separate from current ask.
+Keep mint/preflight contract-sourced so wallet values match the contract path. Let `devnet` display use browser-time projection for local rehearsal. Public networks should keep contract/block-time behavior.

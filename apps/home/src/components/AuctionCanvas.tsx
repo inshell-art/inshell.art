@@ -32,7 +32,7 @@ import {
 } from "@inshell/contracts";
 import HeaderWalletCTA from "@/components/HeaderWalletCTA";
 import { useWallet } from "@inshell/wallet";
-/* global SVGSVGElement, SVGElement, HTMLDivElement, PointerEvent, URLSearchParams */
+/* global Element, SVGSVGElement, SVGElement, HTMLDivElement, MouseEvent, PointerEvent, URL, URLSearchParams */
 
 type Props = {
   address?: string;
@@ -60,6 +60,10 @@ type MintReviewQuote = {
   nativePayment: boolean;
   requiresApproval: boolean;
 };
+type PathMintIntent = {
+  from: "thought";
+  returnTo: string;
+};
 
 function useDesktopOnly(minWidth = 768) {
   const [isDesktop, setIsDesktop] = useState(
@@ -71,6 +75,33 @@ function useDesktopOnly(minWidth = 768) {
     return () => window.removeEventListener("resize", onResize);
   }, [minWidth]);
   return isDesktop;
+}
+
+function normalizeReturnTo(raw: string | null): string | null {
+  if (!raw || typeof window === "undefined") return null;
+  try {
+    const url = new URL(raw, window.location.href);
+    const protocolOk = url.protocol === "http:" || url.protocol === "https:";
+    const host = url.hostname.toLowerCase();
+    const hostOk =
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host === "[::1]" ||
+      host === "inshell.art" ||
+      host.endsWith(".inshell.art");
+    return protocolOk && hostOk ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function readPathMintIntent(): PathMintIntent | null {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("intent") !== "mint-path") return null;
+  if (params.get("from") !== "thought") return null;
+  const returnTo = normalizeReturnTo(params.get("returnTo"));
+  return returnTo ? { from: "thought", returnTo } : null;
 }
 
 function toNumberSafe(v: string | number): number {
@@ -1374,6 +1405,11 @@ function formatDuration(seconds: number): string {
   return `${secs}s`;
 }
 
+function formatSecondsDuration(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return "—";
+  return `${Math.max(0, Math.round(seconds))}s`;
+}
+
 function formatLocalTime(atMs: number): string {
   const d = new Date(atMs);
   const pad = (n: number) => n.toString().padStart(2, "0");
@@ -1762,6 +1798,7 @@ export default function AuctionCanvas({
   const bidsFromBlock = useMemo(() => resolveBidsFromBlock(), []);
   const protocolRelease = useMemo(() => getProtocolRelease(), []);
   const allowDirectAuction = useMemo(() => directAuctionOverrideAllowed(), []);
+  const pathMintIntent = useMemo(() => readPathMintIntent(), []);
   const releaseMissing = !fixtureState && !allowDirectAuction && !protocolRelease;
   const network = useMemo(() => {
     const raw = getEnvValue("VITE_NETWORK");
@@ -1895,6 +1932,7 @@ export default function AuctionCanvas({
   });
   const [mintReview, setMintReview] = useState<MintReviewQuote | null>(null);
   const [currentAskQuoteDec, setCurrentAskQuoteDec] = useState<string | null>(null);
+  const [returnPromptVisible, setReturnPromptVisible] = useState(false);
   const preflightRef = useRef<Promise<PreflightResult | null> | null>(null);
   const ctaStackRef = useRef<HTMLDivElement | null>(null);
   const mintReviewRef = useRef<HTMLDivElement | null>(null);
@@ -1903,8 +1941,10 @@ export default function AuctionCanvas({
   const [selectedBidKey, setSelectedBidKey] = useState<string | null>(null);
   const [selectedAskKey, setSelectedAskKey] = useState<string | null>(null);
   const [selectedNow, setSelectedNow] = useState(false);
+  const pinnedDotRef = useRef(false);
   const [viewport, setViewport] = useState<Viewport | null>(null);
   const viewportDataKeyRef = useRef<string | null>(null);
+  const viewportUserLockedRef = useRef(false);
   const [isPanning, setIsPanning] = useState(false);
   const initialAskTipCurveKeyRef = useRef<string | null>(null);
   const initialAskTipShownRef = useRef(false);
@@ -1927,6 +1967,47 @@ export default function AuctionCanvas({
     moved: false,
     startViewport: null,
   });
+  const hasPinnedDot = selectedBidKey != null || selectedAskKey != null || selectedNow;
+  useEffect(() => {
+    pinnedDotRef.current = hasPinnedDot;
+  }, [hasPinnedDot]);
+  const clearPinnedDot = useCallback(() => {
+    pinnedDotRef.current = false;
+    setSelectedBidKey(null);
+    setSelectedAskKey(null);
+    setSelectedNow(false);
+    setHover(null);
+  }, []);
+  const pinBidDot = useCallback((key: string) => {
+    pinnedDotRef.current = true;
+    setSelectedBidKey(key);
+    setSelectedAskKey(null);
+    setSelectedNow(false);
+  }, []);
+  const pinAskDot = useCallback((key: string) => {
+    pinnedDotRef.current = true;
+    setSelectedAskKey(key);
+    setSelectedBidKey(null);
+    setSelectedNow(false);
+  }, []);
+  const pinNowDot = useCallback(() => {
+    pinnedDotRef.current = true;
+    setSelectedNow(true);
+    setSelectedBidKey(null);
+    setSelectedAskKey(null);
+  }, []);
+  useEffect(() => {
+    const handleDocumentClick = (event: MouseEvent) => {
+      if (!pinnedDotRef.current) return;
+      const target = event.target as Element | null;
+      if (target?.closest?.(".dotfield__point")) return;
+      clearPinnedDot();
+    };
+    document.addEventListener("click", handleDocumentClick, true);
+    return () => {
+      document.removeEventListener("click", handleDocumentClick, true);
+    };
+  }, [clearPinnedDot]);
   const [preflightErrorVisible, setPreflightErrorVisible] =
     useState<string | null>(null);
   const [preflightWarm, setPreflightWarm] = useState(false);
@@ -2491,14 +2572,29 @@ export default function AuctionCanvas({
     setPendingMint(null);
   }, [pendingMint, bids, maxTokenId, queueToast]);
 
-  // Live auction time should follow chain time, not browser time. On local
-  // Anvil, price only changes when block.timestamp changes.
+  const mimicLocalTime = network === "devnet" || protocolRelease?.network === "devnet";
+
+  // Devnet uses browser time to make local Anvil rehearsals usable even when
+  // idle blocks are not mined. Public networks keep following block time.
   useEffect(() => {
     let cancelled = false;
     if (fixtureState) {
       if (fixtureState.nowSec) setLiveNowSec(fixtureState.nowSec);
       return () => {
         cancelled = true;
+      };
+    }
+    if (mimicLocalTime) {
+      const tick = () => {
+        const nextNowSec = Date.now() / 1000;
+        liveNowSecRef.current = nextNowSec;
+        setLiveNowSec(nextNowSec);
+      };
+      tick();
+      const id = window.setInterval(tick, 1000);
+      return () => {
+        cancelled = true;
+        window.clearInterval(id);
       };
     }
     const tick = async () => {
@@ -2518,10 +2614,10 @@ export default function AuctionCanvas({
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [fixtureState, provider]);
+  }, [fixtureState, provider, mimicLocalTime]);
 
-  // Before the first bid, keep notices/countdowns live. After a curve exists,
-  // keep the visual endpoint stable until the bid feed changes or the page reloads.
+  // Before the first bid, keep notices/countdowns live. On devnet, keep the
+  // active curve growing with browser time for local visual development.
   useEffect(() => {
     let cancelled = false;
     const readNow = async () => {
@@ -2539,6 +2635,19 @@ export default function AuctionCanvas({
         cancelled = true;
       };
     }
+    if (mimicLocalTime) {
+      const tick = () => {
+        const nextNowSec = Date.now() / 1000;
+        nowSecRef.current = nextNowSec;
+        setNowSec(nextNowSec);
+      };
+      tick();
+      const id = window.setInterval(tick, 1000);
+      return () => {
+        cancelled = true;
+        window.clearInterval(id);
+      };
+    }
     if (bids.length > 0) {
       void readNow();
       return () => {
@@ -2553,7 +2662,7 @@ export default function AuctionCanvas({
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [fixtureState, bids.length, provider]);
+  }, [fixtureState, bids.length, provider, mimicLocalTime]);
 
   // Fallback: fetch config directly if the core hook never fills it.
   useEffect(() => {
@@ -2879,7 +2988,7 @@ export default function AuctionCanvas({
   }, [linkedStatic, nowSec]);
 
   const currentAskEstimate = useMemo(() => {
-    if (!fixtureState && currentAskQuoteDec != null) {
+    if (!fixtureState && !mimicLocalTime && currentAskQuoteDec != null) {
       const quoted = Number(currentAskQuoteDec);
       if (Number.isFinite(quoted)) return quoted;
     }
@@ -2891,11 +3000,24 @@ export default function AuctionCanvas({
     const uLocal = durationSec / Math.max(seg.tHalf, 1e-9);
     const price = priceAtU(seg.floor, seg.premium, uLocal);
     return Number.isFinite(price) ? Math.max(0, price) : null;
-  }, [fixtureState, currentAskQuoteDec, linkedStatic.reason, linkedStatic.segments, liveNowSec]);
+  }, [
+    fixtureState,
+    mimicLocalTime,
+    currentAskQuoteDec,
+    linkedStatic.reason,
+    linkedStatic.segments,
+    liveNowSec,
+  ]);
   const currentAskEstimateRef = useRef<number | null>(null);
   useEffect(() => {
     currentAskEstimateRef.current = currentAskEstimate;
   }, [currentAskEstimate]);
+  const projectedDevnetAsk = useCallback((): U256Num | null => {
+    if (!mimicLocalTime) return null;
+    const askEstimate = currentAskEstimateRef.current;
+    if (askEstimate == null || !Number.isFinite(askEstimate)) return null;
+    return humanToU256Num(askEstimate, decimals);
+  }, [decimals, mimicLocalTime]);
 
   const { status: auctionStatus, openAtUtcLabel, opensInLabel } = useAuctionStatus({
     releaseMissing,
@@ -2922,7 +3044,7 @@ export default function AuctionCanvas({
   const auctionBlockedMintNotice = showBeforeOpenNotice
     ? `Auction opens ${opensInLabel ? `in ${opensInLabel}` : "soon"}.`
     : showNoReleaseNotice
-    ? "Protocol release not loaded."
+    ? "PATH auction not loaded."
     : "Loading auction state.";
   const showMissingDeployBlock =
     auctionStatus === "loading" &&
@@ -2982,6 +3104,29 @@ export default function AuctionCanvas({
     }
     return formatHumanTokenAmount(currentAskEstimate, 8);
   }, [currentAskEstimate, openingAskLabel]);
+  const mintReviewCurrentAskLabel = useMemo(() => {
+    if (!mintReview) return null;
+    if (mimicLocalTime && currentAskEstimate != null && Number.isFinite(currentAskEstimate)) {
+      return formatHumanTokenAmount(currentAskEstimate, 8);
+    }
+    return mintReview.priceLabel;
+  }, [currentAskEstimate, mimicLocalTime, mintReview]);
+  const mintReviewTxValueLabel = useMemo(() => {
+    if (!mintReview) return null;
+    if (mimicLocalTime && currentAskEstimate != null && Number.isFinite(currentAskEstimate)) {
+      return mintReview.nativePayment
+        ? formatHumanTokenAmount(currentAskEstimate, 8)
+        : "0";
+    }
+    return mintReview.txValueLabel;
+  }, [currentAskEstimate, mimicLocalTime, mintReview]);
+  const mintReviewMaxPriceLabel = useMemo(() => {
+    if (!mintReview) return null;
+    if (mimicLocalTime && currentAskEstimate != null && Number.isFinite(currentAskEstimate)) {
+      return formatHumanTokenAmount(currentAskEstimate, 8);
+    }
+    return mintReview.maxPriceLabel;
+  }, [currentAskEstimate, mimicLocalTime, mintReview]);
 
   const useTailViewport = useMemo(() => {
     const hasSaleHistory = linked.segments.length > 1;
@@ -3027,16 +3172,12 @@ export default function AuctionCanvas({
     if (!lastSeg) return null;
     const mode = useTailViewport ? "sparse-tail" : "full";
     const source = fixtureState ? "fixture" : "live";
-    const xMin = defaultViewport?.xMin ?? 0;
-    const xMax = defaultViewport?.xMax ?? 0;
-    return `${source}:${mode}:${bids.length}:${lastSeg.epoch}:${lastSeg.startSec}:${xMin.toFixed(6)}:${xMax.toFixed(6)}`;
+    return `${source}:${mode}:${bids.length}:${lastSeg.epoch}:${lastSeg.startSec}:${lastSeg.floor}:${lastSeg.premium}:${lastSeg.tHalf}`;
   }, [
     linked.segments,
     useTailViewport,
     fixtureState,
     bids.length,
-    defaultViewport?.xMin,
-    defaultViewport?.xMax,
   ]);
 
   const effectiveViewport = viewport ?? defaultViewport;
@@ -3052,6 +3193,7 @@ export default function AuctionCanvas({
       viewportDataKeyRef.current !== viewportDataKey
     ) {
       viewportDataKeyRef.current = viewportDataKey;
+      viewportUserLockedRef.current = false;
       setViewport(defaultViewport);
       return;
     }
@@ -3065,7 +3207,11 @@ export default function AuctionCanvas({
         return prev;
       }
 
-      const xEnd = defaultViewport?.xMax ?? halfLifeWindowEnd(linked.uEnd);
+      const xEnd = Math.max(
+        Number.EPSILON,
+        linked.uEnd,
+        defaultViewport?.xMax ?? 0
+      );
       let xMin = prev.xMin;
       let xMax = prev.xMax;
       if (xMax > xEnd) {
@@ -3076,7 +3222,7 @@ export default function AuctionCanvas({
         xMin = 0;
         xMax = Math.min(xEnd, xMin + xRange);
       }
-      if (xMax < linked.uEnd && xMin === 0) {
+      if (!viewportUserLockedRef.current && xMax < linked.uEnd && xMin === 0) {
         xMax = xEnd;
       }
       if (xMax - xMin < 1e-6) {
@@ -3165,8 +3311,9 @@ export default function AuctionCanvas({
       const readProvider =
         provider ?? (getDefaultProvider() as ProviderInterface);
       try {
-        const ask = await readCurrentAskFromContract(readProvider, auctionAddress);
-        setCurrentAskQuoteDec(toFixed(ask, decimals));
+        const contractAsk = await readCurrentAskFromContract(readProvider, auctionAddress);
+        setCurrentAskQuoteDec(toFixed(contractAsk, decimals));
+        const ask = projectedDevnetAsk() ?? contractAsk;
         let balance: U256Num;
         let allowance: U256Num;
         if (nativePayment) {
@@ -3233,6 +3380,7 @@ export default function AuctionCanvas({
     activeConfig?.genesisPrice,
     paymentToken,
     nativePayment,
+    projectedDevnetAsk,
   ]);
 
   const mintReviewOpen = mintReview != null;
@@ -3242,7 +3390,7 @@ export default function AuctionCanvas({
       setCurrentAskQuoteDec(null);
       return;
     }
-    const quotePollActive = selectedNow || mintReviewOpen;
+    const quotePollActive = !mimicLocalTime && (mintReviewOpen || selectedNow);
     if (!quotePollActive) return;
 
     let cancelled = false;
@@ -3282,7 +3430,15 @@ export default function AuctionCanvas({
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [fixtureState, auctionAddress, provider, decimals, selectedNow, mintReviewOpen]);
+  }, [
+    fixtureState,
+    auctionAddress,
+    provider,
+    decimals,
+    selectedNow,
+    mintReviewOpen,
+    mimicLocalTime,
+  ]);
 
   useEffect(() => {
     if (debugActive) return;
@@ -3388,6 +3544,11 @@ export default function AuctionCanvas({
     }
   };
 
+  const handleReturnToThought = () => {
+    if (!pathMintIntent || typeof window === "undefined") return;
+    window.location.assign(pathMintIntent.returnTo);
+  };
+
   const handleRetry = async () => {
     setTxError(null);
     setTxState("idle");
@@ -3437,6 +3598,9 @@ export default function AuctionCanvas({
         window.setTimeout(() => void pullBidsOnce(), 2_000);
         window.setTimeout(() => void pullBidsOnce(), 6_000);
         window.setTimeout(() => void refreshCore(), 2_000);
+        if (pathMintIntent) {
+          setReturnPromptVisible(true);
+        }
         setPendingMint({
           txHash: hash,
           address: walletAddress,
@@ -3471,11 +3635,12 @@ export default function AuctionCanvas({
       return;
     }
     if (!account || !walletAddress || !auctionAddress || !paymentToken) return;
+    const reviewAsk = mintReview ? projectedDevnetAsk() ?? mintReview.ask : null;
     const data = mintReview
       ? {
-          ask: mintReview.ask,
+          ask: reviewAsk,
           balance: preflight.balance,
-          allowance: preflight.allowance,
+          allowance: nativePayment && reviewAsk ? reviewAsk : preflight.allowance,
         }
       : await runPreflight();
     if (!data?.ask || !data.balance || !data.allowance) return;
@@ -3498,6 +3663,7 @@ export default function AuctionCanvas({
     }
 
     setMintReview(null);
+    setReturnPromptVisible(false);
     await maybeWatchAsset();
     if (!nativePayment && data.allowance.value < data.ask.value) {
       const ok = await runTx("approve", () =>
@@ -3571,6 +3737,13 @@ export default function AuctionCanvas({
         };
       }
       return { kind: "error", text: "Mint failed." };
+    }
+    if (
+      pathMintIntent &&
+      returnPromptVisible &&
+      (effectiveTxState === "idle" || effectiveTxState === "confirmed")
+    ) {
+      return { kind: "info", text: "$PATH minted. Return to THOUGHT." };
     }
     if (!effectiveWalletDetected) {
       return {
@@ -3659,6 +3832,8 @@ export default function AuctionCanvas({
     targetChainLabel,
     auctionBlocksMint,
     auctionBlockedMintNotice,
+    pathMintIntent,
+    returnPromptVisible,
   ]);
 
   useEffect(() => {
@@ -3729,6 +3904,17 @@ export default function AuctionCanvas({
     }
     if (effectiveTxState === "failed") {
       return { label: "retry", disabled: false, onClick: handleRetry };
+    }
+    if (
+      pathMintIntent &&
+      returnPromptVisible &&
+      (effectiveTxState === "idle" || effectiveTxState === "confirmed")
+    ) {
+      return {
+        label: "return",
+        disabled: false,
+        onClick: handleReturnToThought,
+      };
     }
     if (
       mintReview &&
@@ -3914,7 +4100,9 @@ export default function AuctionCanvas({
       if (!seg) return false;
 
       const quotedPrice =
-        currentAskQuoteDec != null ? Number(currentAskQuoteDec) : Number.NaN;
+        !mimicLocalTime && currentAskQuoteDec != null
+          ? Number(currentAskQuoteDec)
+          : Number.NaN;
       let liveDurationSec = Math.max(0, liveNowSec - seg.startSec);
       let liveULocal = liveDurationSec / Math.max(seg.tHalf, 1e-9);
       let livePrice = priceAtU(seg.floor, seg.premium, liveULocal);
@@ -3928,7 +4116,7 @@ export default function AuctionCanvas({
       }
       const amountStr = Number.isFinite(livePrice) ? livePrice.toFixed(2) : "";
       const amountRaw =
-        currentAskQuoteDec != null && Number.isFinite(quotedPrice)
+        !mimicLocalTime && currentAskQuoteDec != null && Number.isFinite(quotedPrice)
           ? currentAskQuoteDec
           : String(livePrice);
 
@@ -3987,6 +4175,7 @@ export default function AuctionCanvas({
       segmentStarts,
       liveNowSec,
       currentAskQuoteDec,
+      mimicLocalTime,
     ]
   );
 
@@ -4010,7 +4199,9 @@ export default function AuctionCanvas({
       }
 
       const quotedPrice =
-        currentAskQuoteDec != null ? Number(currentAskQuoteDec) : Number.NaN;
+        !mimicLocalTime && currentAskQuoteDec != null
+          ? Number(currentAskQuoteDec)
+          : Number.NaN;
       let durationSec = Math.max(0, liveNowSec - startSec);
       let uLocal = durationSec / tHalf;
       let price = priceAtU(floor, premium, uLocal);
@@ -4032,7 +4223,7 @@ export default function AuctionCanvas({
           : 0;
       const amountStr = price.toFixed(2);
       const amountRaw =
-        currentAskQuoteDec != null && Number.isFinite(quotedPrice)
+        !mimicLocalTime && currentAskQuoteDec != null && Number.isFinite(quotedPrice)
           ? currentAskQuoteDec
           : String(price);
 
@@ -4050,7 +4241,7 @@ export default function AuctionCanvas({
         uGlobal: uBase + uLocal,
       };
     });
-  }, [liveNowSec, currentAskQuoteDec]);
+  }, [liveNowSec, currentAskQuoteDec, mimicLocalTime]);
 
   useEffect(() => {
     if (selectedBidKey || selectedAskKey || selectedNow) return;
@@ -4085,7 +4276,7 @@ export default function AuctionCanvas({
         return prev;
       }
 
-      const xEnd = halfLifeWindowEnd(linked.uEnd);
+      const xEnd = Math.max(Number.EPSILON, linked.uEnd);
       let nextMax = clamp(targetNowU, 0, xEnd);
       let nextMin = nextMax - xRange;
       if (nextMin < 0) {
@@ -4134,7 +4325,7 @@ export default function AuctionCanvas({
   };
 
   const clampXWindow = useCallback((xMin: number, xMax: number, xRange: number) => {
-    const xEnd = halfLifeWindowEnd(linked.uEnd);
+    const xEnd = Math.max(Number.EPSILON, linked.uEnd);
     if (!Number.isFinite(xMin) || !Number.isFinite(xMax) || xRange <= 0) {
       return { xMin: 0, xMax: xEnd };
     }
@@ -4162,7 +4353,7 @@ export default function AuctionCanvas({
     const nextRange = clamp(
       xRange * scale,
       0.5,
-      Math.max(0.5, halfLifeWindowEnd(linked.uEnd))
+      Math.max(0.5, linked.uEnd)
     );
 
     const pinnedFocusU =
@@ -4178,6 +4369,7 @@ export default function AuctionCanvas({
       const nextMin = pinnedFocusU - xN * nextRange;
       const nextMax = nextMin + nextRange;
       const clamped = clampXWindow(nextMin, nextMax, nextRange);
+      viewportUserLockedRef.current = true;
       setViewport((prev) => ({
         ...(prev ?? effectiveViewport),
         xMin: clamped.xMin,
@@ -4193,6 +4385,7 @@ export default function AuctionCanvas({
     const nextMin = focusX - xN * nextRange;
     const nextMax = nextMin + nextRange;
     const clamped = clampXWindow(nextMin, nextMax, nextRange);
+    viewportUserLockedRef.current = true;
     setViewport((prev) => ({
       ...(prev ?? effectiveViewport),
       xMin: clamped.xMin,
@@ -4222,7 +4415,11 @@ export default function AuctionCanvas({
     panRef.current.moved = false;
     panRef.current.startViewport = effectiveViewport;
     setIsPanning(true);
-    setHover(null);
+    if (pinnedDotRef.current) {
+      clearPinnedDot();
+    } else {
+      setHover(null);
+    }
   };
 
   const handleCanvasPointerMove = useCallback((event: any) => {
@@ -4239,7 +4436,12 @@ export default function AuctionCanvas({
     if (!panRef.current.moved && dxClient + dyClient < 3) {
       return;
     }
+    const dragStarted = !panRef.current.moved;
     panRef.current.moved = true;
+    if (dragStarted && pinnedDotRef.current) {
+      clearPinnedDot();
+    }
+    viewportUserLockedRef.current = true;
     const xRange = startVp.xMax - startVp.xMin;
     if (!Number.isFinite(xRange) || xRange <= 0) return;
     const dxSvg = loc.x - panRef.current.startSvgX;
@@ -4252,7 +4454,7 @@ export default function AuctionCanvas({
       xMin: clamped.xMin,
       xMax: clamped.xMax,
     }));
-  }, [clampXWindow]);
+  }, [clampXWindow, clearPinnedDot]);
 
   const pickPointAtClient = useCallback(
     (
@@ -4320,20 +4522,14 @@ export default function AuctionCanvas({
     if (!wasMoved && typeof event.clientX === "number" && typeof event.clientY === "number") {
       const point = pickPointAtClient(event.clientX, event.clientY, 2.2);
       if (point?.kind === "sale") {
-        setSelectedBidKey(point.key);
-        setSelectedAskKey(null);
-        setSelectedNow(false);
+        pinBidDot(point.key);
       } else if (point?.kind === "ask" || point?.kind === "floor") {
-        setSelectedAskKey(point.key);
-        setSelectedBidKey(null);
-        setSelectedNow(false);
+        pinAskDot(point.key);
       } else {
-        setSelectedBidKey(null);
-        setSelectedAskKey(null);
-        setSelectedNow(false);
+        clearPinnedDot();
       }
     }
-  }, [pickPointAtClient]);
+  }, [clearPinnedDot, pickPointAtClient, pinAskDot, pinBidDot]);
 
   useEffect(() => {
     if (!isPanning) return;
@@ -4349,24 +4545,41 @@ export default function AuctionCanvas({
     };
   }, [isPanning, handleCanvasPointerMove, endPan]);
 
-  const showStartAskHover = (
+  const screenFromSvgPoint = useCallback(
+    (x: number, y: number, clientX?: number, clientY?: number) => {
+      if (typeof clientX === "number" && typeof clientY === "number") {
+        return { screenX: clientX + 8, screenY: clientY + 8 };
+      }
+      const rect = canvasRef.current?.getBoundingClientRect();
+      return {
+        screenX:
+          rect && rect.width > 0 ? rect.left + (x / 100) * rect.width + 8 : 16,
+        screenY:
+          rect && rect.height > 0 ? rect.top + (y / 60) * rect.height + 8 : 16,
+      };
+    },
+    []
+  );
+
+  const showStartAskHover = useCallback((
     seg: LinkedSegment,
     x: number,
     y: number,
-    clientX: number,
-    clientY: number
+    clientX?: number,
+    clientY?: number
   ) => {
     const tau = 0;
     const atMs = seg.startSec * 1000;
     const metaDt = Math.max(0, nowSec - seg.startSec);
     const beforeNow = Math.max(0, metaDt - tau);
     const amountStr = Number.isFinite(seg.ask) ? seg.ask.toFixed(2) : "";
+    const { screenX, screenY } = screenFromSvgPoint(x, y, clientX, clientY);
     setHover({
       key: "ask",
       x,
       y,
-      screenX: clientX + 8,
-      screenY: clientY + 8,
+      screenX,
+      screenY,
       amount: amountStr,
       amountDec: amountStr,
       amountRaw: String(seg.ask),
@@ -4387,26 +4600,27 @@ export default function AuctionCanvas({
       dtPrevSec: seg.dtPrevSec,
       dtNextSec: seg.dtNextSec,
     });
-  };
+  }, [nowSec, screenFromSvgPoint]);
 
-  const showOpeningFloorHover = (
+  const showOpeningFloorHover = useCallback((
     seg: LinkedSegment,
     x: number,
     y: number,
-    clientX: number,
-    clientY: number
+    clientX?: number,
+    clientY?: number
   ) => {
     const tau = 0;
     const atMs = seg.startSec * 1000;
     const metaDt = Math.max(0, nowSec - seg.startSec);
     const beforeNow = Math.max(0, metaDt - tau);
     const amountStr = Number.isFinite(seg.floor) ? seg.floor.toFixed(2) : "";
+    const { screenX, screenY } = screenFromSvgPoint(x, y, clientX, clientY);
     setHover({
       key: "opening-floor",
       x,
       y,
-      screenX: clientX + 8,
-      screenY: clientY + 8,
+      screenX,
+      screenY,
       amount: amountStr,
       amountDec: amountStr,
       amountRaw: String(seg.floor),
@@ -4427,12 +4641,13 @@ export default function AuctionCanvas({
       dtPrevSec: seg.dtPrevSec,
       dtNextSec: seg.dtNextSec,
     });
-  };
+  }, [nowSec, screenFromSvgPoint]);
 
   const handleSvgMouseMove = (event: any) => {
     if (!showCurvePlot) return;
     if (!effectiveViewport) return;
     if (panRef.current.active) return;
+    if (pinnedDotRef.current) return;
     const loc = getSvgLoc(event.clientX, event.clientY);
     if (!loc) return;
 
@@ -4650,34 +4865,29 @@ export default function AuctionCanvas({
     if (panRef.current.active) return;
     const point = pickPointAtClient(event.clientX, event.clientY, 2.2);
     if (point?.kind === "sale") {
-      setSelectedBidKey(point.key);
-      setSelectedAskKey(null);
-      setSelectedNow(false);
+      pinBidDot(point.key);
     } else if (point?.kind === "ask" || point?.kind === "floor") {
-      setSelectedAskKey(point.key);
-      setSelectedBidKey(null);
-      setSelectedNow(false);
+      pinAskDot(point.key);
     } else {
-      setSelectedBidKey(null);
-      setSelectedAskKey(null);
-      setSelectedNow(false);
+      clearPinnedDot();
     }
   };
 
-  const showBidHover = (
+  const showBidHover = useCallback((
     mark: any,
     seg: LinkedSegment | undefined,
     x: number,
     y: number,
-    clientX: number,
-    clientY: number
+    clientX?: number,
+    clientY?: number
   ) => {
+    const { screenX, screenY } = screenFromSvgPoint(x, y, clientX, clientY);
     setHover({
       key: `bid#${mark.epoch}`,
       x,
       y,
-      screenX: clientX + 8,
-      screenY: clientY + 8,
+      screenX,
+      screenY,
       bidder: mark.bidder,
       amount: mark.amountDec,
       amountDec: mark.amountDec,
@@ -4697,7 +4907,61 @@ export default function AuctionCanvas({
       dtPrevSec: seg?.dtPrevSec,
       dtNextSec: seg?.dtNextSec ?? null,
     });
-  };
+  }, [screenFromSvgPoint]);
+
+  useEffect(() => {
+    if (!hasPinnedDot) return;
+    if (isPanning || panRef.current.active) return;
+    if (!showCurvePlot || !effectiveViewport) return;
+
+    const vp = effectiveViewport;
+    const xRange = vp.xMax - vp.xMin || 1;
+    const yRange = vp.yMax - vp.yMin || 1;
+    const toSvgX = (x: number) =>
+      PLOT_LEFT_PAD + ((x - vp.xMin) / xRange) * PLOT_X_SPAN;
+    const toSvgY = (y: number) => 60 - ((y - vp.yMin) / yRange) * 60;
+
+    if (selectedBid) {
+      const seg = linked.segments[selectedBid.segIdx];
+      showBidHover(
+        selectedBid,
+        seg,
+        toSvgX(selectedBid.u),
+        toSvgY(selectedBid.price)
+      );
+      return;
+    }
+
+    if (selectedAsk) {
+      const seg = linked.segments[selectedAsk.segIdx];
+      if (!seg) return;
+      const x = toSvgX(selectedAsk.u);
+      const y = toSvgY(selectedAsk.price);
+      if (selectedAsk.kind === "opening-floor") {
+        showOpeningFloorHover(seg, x, y);
+      } else {
+        showStartAskHover(seg, x, y);
+      }
+      return;
+    }
+
+    if (selectedNow) {
+      showNowCurveHover();
+    }
+  }, [
+    hasPinnedDot,
+    isPanning,
+    showCurvePlot,
+    effectiveViewport,
+    selectedBid,
+    selectedAsk,
+    selectedNow,
+    linked.segments,
+    showBidHover,
+    showOpeningFloorHover,
+    showStartAskHover,
+    showNowCurveHover,
+  ]);
 
   return (
     <div className="panel dotfield">
@@ -4762,20 +5026,26 @@ export default function AuctionCanvas({
           </div>
           <div className="dotfield__mint-review-row">
             <span>current ask</span>
-            <strong>{mintReview.priceLabel} {mintReview.symbol}</strong>
+            <strong>{mintReviewCurrentAskLabel ?? mintReview.priceLabel} {mintReview.symbol}</strong>
           </div>
           <div className="dotfield__mint-review-row">
             <span>tx value</span>
-            <strong>{mintReview.txValueLabel} {mintReview.nativePayment ? mintReview.symbol : "ETH"}</strong>
+            <strong>{mintReviewTxValueLabel ?? mintReview.txValueLabel} {mintReview.nativePayment ? mintReview.symbol : "ETH"}</strong>
           </div>
           <div className="dotfield__mint-review-row">
-            <span>max bid</span>
-            <strong>{mintReview.maxPriceLabel} {mintReview.symbol}</strong>
+            <span>max charge</span>
+            <strong>{mintReviewMaxPriceLabel ?? mintReview.maxPriceLabel} {mintReview.symbol}</strong>
           </div>
           <div className="dotfield__mint-review-note">
             {mintReview.requiresApproval
-              ? `wallet step 1 approves ${mintReview.symbol}; step 2 submits max bid.`
-              : "wallet opens next. final charge can be lower at execution."}
+              ? `wallet step 1 approves ${mintReview.symbol}; step 2 submits max charge.`
+              : (
+                <>
+                  wallet opens next.
+                  <br />
+                  final charge can be lower at execution.
+                </>
+              )}
           </div>
         </div>
       )}
@@ -4935,7 +5205,7 @@ export default function AuctionCanvas({
               <div className="muted dotfield__status-copy">
                 No PATH deployment loaded.
                 <br />
-                Protocol release not loaded.
+                PATH auction not loaded.
                 <br />
                 Deploy PATH, export the FE release, then sync inshell.art.
               </div>
@@ -5279,6 +5549,7 @@ export default function AuctionCanvas({
                       top: `${(y / 60) * 100}%`,
                     }}
                     data-kind={isOpeningFloor ? "opening-floor" : "ask"}
+                    data-dot-key={mark.key}
                     data-x={x}
                     data-y={y}
                     onPointerDown={(e) => {
@@ -5286,6 +5557,7 @@ export default function AuctionCanvas({
                     }}
                     onMouseMove={(e) => {
                       e.stopPropagation();
+                      if (pinnedDotRef.current) return;
                       if (isOpeningFloor) {
                         showOpeningFloorHover(seg, x, y, e.clientX, e.clientY);
                       } else {
@@ -5294,6 +5566,7 @@ export default function AuctionCanvas({
                     }}
                     onMouseEnter={(e) => {
                       e.stopPropagation();
+                      if (pinnedDotRef.current) return;
                       if (isOpeningFloor) {
                         showOpeningFloorHover(seg, x, y, e.clientX, e.clientY);
                       } else {
@@ -5302,7 +5575,9 @@ export default function AuctionCanvas({
                     }}
                     onMouseLeave={(e) => {
                       e.stopPropagation();
-                      setHover(null);
+                      if (!pinnedDotRef.current) {
+                        setHover(null);
+                      }
                     }}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -5311,9 +5586,7 @@ export default function AuctionCanvas({
                       } else {
                         showStartAskHover(seg, x, y, e.clientX, e.clientY);
                       }
-                      setSelectedAskKey(mark.key);
-                      setSelectedBidKey(null);
-                      setSelectedNow(false);
+                      pinAskDot(mark.key);
                     }}
                   >
                     <span className="dotfield__dot" />
@@ -5344,22 +5617,24 @@ export default function AuctionCanvas({
                     }}
                     onMouseMove={(e) => {
                       e.stopPropagation();
+                      if (pinnedDotRef.current) return;
                       showBidHover(mark, seg, x, y, e.clientX, e.clientY);
                     }}
                     onMouseEnter={(e) => {
                       e.stopPropagation();
+                      if (pinnedDotRef.current) return;
                       showBidHover(mark, seg, x, y, e.clientX, e.clientY);
                     }}
                     onMouseLeave={(e) => {
                       e.stopPropagation();
-                      setHover(null);
+                      if (!pinnedDotRef.current) {
+                        setHover(null);
+                      }
                     }}
                     onClick={(e) => {
                       e.stopPropagation();
                       showBidHover(mark, seg, x, y, e.clientX, e.clientY);
-                      setSelectedBidKey(mark.key);
-                      setSelectedAskKey(null);
-                      setSelectedNow(false);
+                      pinBidDot(mark.key);
                     }}
                   >
                     <span className="dotfield__dot" />
@@ -5382,22 +5657,24 @@ export default function AuctionCanvas({
                   }}
                   onMouseMove={(e) => {
                     e.stopPropagation();
+                    if (pinnedDotRef.current) return;
                     showNowCurveHover(e.clientX, e.clientY);
                   }}
                   onMouseEnter={(e) => {
                     e.stopPropagation();
+                    if (pinnedDotRef.current) return;
                     showNowCurveHover(e.clientX, e.clientY);
                   }}
                   onMouseLeave={(e) => {
                     e.stopPropagation();
-                    setHover(null);
+                    if (!pinnedDotRef.current) {
+                      setHover(null);
+                    }
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
                     showNowCurveHover(e.clientX, e.clientY);
-                    setSelectedNow(true);
-                    setSelectedBidKey(null);
-                    setSelectedAskKey(null);
+                    pinNowDot();
                   }}
                 >
                   <span className="dotfield__dot" />
@@ -5442,7 +5719,7 @@ export default function AuctionCanvas({
                       {hover.key === "ask"
                         ? Math.abs(Number((hover as any).uGlobal ?? Number.NaN)) < 1e-9
                           ? "opening ask"
-                          : "curve start ask"
+                          : "start ask"
                         : hover.key === "now"
                         ? "current ask"
                         : hover.key === "opening-floor"
@@ -5512,6 +5789,9 @@ export default function AuctionCanvas({
                           <div className="dotfield__note" style={{ marginTop: 4 }}>
                             price = floor b + time premium
                           </div>
+                          <div className="dotfield__note">
+                            floor b = last sale
+                          </div>
                         </>
                       )
                     )}
@@ -5568,7 +5848,7 @@ export default function AuctionCanvas({
                           </span>
                         </div>
                         <div className="dotfield__poprow">
-                          <span>age</span>
+                          <span>ago</span>
                           <span>
                             {formatDuration(
                               Math.max(0, Number((hover as any).beforeNowSec ?? 0))
@@ -5581,10 +5861,10 @@ export default function AuctionCanvas({
                       <>
                         <div className="dotfield__poprow">
                           <span>duration</span>
-                          <span>{formatDuration(hover.durationSec ?? 0)}</span>
+                          <span>{formatSecondsDuration(hover.durationSec ?? 0)}</span>
                         </div>
                         <div className="dotfield__poprow">
-                          <span>PTS</span>
+                          <span>PTS ({displayTokenSymbol}/s)</span>
                           <span>
                             {hover.ptsHuman != null ? formatHumanTokenAmount(hover.ptsHuman) : "—"}
                           </span>
@@ -5664,7 +5944,7 @@ export default function AuctionCanvas({
 
       {showCurvePlot && (
         <div className="dotfield__axes muted small">
-          <span>time →</span>
+          <span>time (t½) →</span>
           <span>price ({displayTokenSymbol}) ↑</span>
         </div>
       )}

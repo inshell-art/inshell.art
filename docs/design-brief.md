@@ -164,7 +164,7 @@ Copy suggestions:
 
 - **THOUGHT**
 
-  - Hover line: `THOUGHT · inward fields in code · arriving 2026`
+  - Hover line: `THOUGHT · inward fields in code`
 
 - **WILL**
 

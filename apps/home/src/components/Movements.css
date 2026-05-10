@@ -27,6 +27,10 @@
   font-weight: var(--weight-thin, 200);
 }
 
+.movements__year--empty {
+  visibility: hidden;
+}
+
 .movements__word {
   font-family: "Source Code Pro", ui-monospace, SFMono-Regular, Menlo, Monaco,
     Consolas, "Liberation Mono", "Courier New", monospace;

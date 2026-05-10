@@ -52,8 +52,8 @@ Shown after first `[ mint ]` click, before wallet opens.
 | Panel title | `review before wallet` | Local preflight review. |
 | Row label | `current ask` | Shows quoted auction price. |
 | Row label | `tx value` | Shows native ETH value if native payment, otherwise `0 ETH`. |
-| Row label | `max bid` | Shows contract bid parameter. |
-| Note, approval required | `wallet step 1 approves {symbol}; step 2 submits max bid.` | ERC20 approval path. |
+| Row label | `max charge` | Shows the transaction cap passed to the auction bid call. |
+| Note, approval required | `wallet step 1 approves {symbol}; step 2 submits max charge.` | ERC20 approval path. |
 | Note, no approval required | `wallet opens next. final charge can be lower at execution.` | Native payment or enough allowance. |
 
 ## Persistent Notices Under CTA
@@ -61,7 +61,7 @@ Shown after first `[ mint ]` click, before wallet opens.
 | Condition | Current copy | Notes |
 | --- | --- | --- |
 | Before open / mint blocked | `Auction opens in {duration}.` | Falls back to `Auction opens soon.` if duration unavailable. |
-| No protocol release / mint blocked | `Protocol release not loaded.` | Also used as blocked mint toast. |
+| No protocol release / mint blocked | `PATH auction not loaded.` | Public blocked mint notice. |
 | Loading auction / mint blocked | `Loading auction state.` | Auction loading guard. |
 | Wallet signing approve | `Wallet open: approve {symbol} (1/2).` | Awaiting signature. |
 | Wallet signing bid | `Wallet open: confirm mint (2/2).` | Awaiting signature. |
@@ -98,7 +98,7 @@ Shown after first `[ mint ]` click, before wallet opens.
 | State | Current copy | Notes |
 | --- | --- | --- |
 | No deployment line 1 | `No PATH deployment loaded.` | No FE release loaded. |
-| No deployment line 2 | `Protocol release not loaded.` | No FE release loaded. |
+| No deployment line 2 | `PATH auction not loaded.` | Public no-release state. |
 | No deployment line 3 | `Deploy PATH, export the FE release, then sync inshell.art.` | Operator guidance. |
 | Before open line 1 | `Auction opens at {time} UTC.` | `{time}` is UTC timestamp. |
 | Before open line 2 | `Opens in {duration}.` | Fallback below. |
@@ -155,11 +155,11 @@ These are internal reason strings mapped before being surfaced in `curve unavail
 | Field | `time` | Local timestamp. |
 | Note | `ask when the auction opens` | Opening ask explanation. |
 
-### Curve Start Ask Tooltip
+### Start Ask Tooltip
 
 | Area | Current copy | Notes |
 | --- | --- | --- |
-| Title | `curve start ask` | Ask point at start of a curve after a sale. |
+| Title | `start ask` | Ask point at start of a curve after a sale. |
 | Field | `price` | Ask price. |
 | Field | `floor b` | Floor component. |
 | Field | `time premium` | Time premium component. |
@@ -206,8 +206,7 @@ These are internal reason strings mapped before being surfaced in `curve unavail
 
 | Area | Current copy | Notes |
 | --- | --- | --- |
-| Movement label | `THOUGHT` | Link opens local THOUGHT app in the same window. |
-| Movement year | `in 2026` | Appears above THOUGHT. |
+| Movement label | `THOUGHT` | Link opens configured THOUGHT app in a new tab when `VITE_THOUGHT_URL` or `VITE_THOUGHT_APP_URL` is set. In dev/test, falls back to `http://127.0.0.1:5174/`. |
 | Movement label | `WILL` | Non-link. |
 | Movement year | `in 2027` | Appears above WILL. |
 | Movement label | `AWA!` | Non-link. |

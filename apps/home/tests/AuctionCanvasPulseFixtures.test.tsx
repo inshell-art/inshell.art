@@ -187,7 +187,7 @@ describe("AuctionCanvas with pulse fixtures", () => {
       );
       stubSvg(container);
       expect(screen.getByRole("img", { name: /pulse auction curve/i })).toBeTruthy();
-      expect(screen.getByText(/^time\s*→$/i)).toBeTruthy();
+      expect(screen.getByText(/^time\s*\(t½\)\s*→$/i)).toBeTruthy();
       expect(screen.getByText(/price\s*\(eth\)\s*↑/i)).toBeTruthy();
       const path = container.querySelector(".dotfield__curve");
       expect(path).toBeTruthy();
@@ -234,7 +234,7 @@ describe("AuctionCanvas with pulse fixtures", () => {
     expect(within(popover).getByText(/^1 t½ drop$/i)).toBeTruthy();
     expect(within(popover).getByText(/^time$/i)).toBeTruthy();
     expect(within(popover).queryByText(/since last sale/i)).toBeNull();
-    expect(within(popover).getByText(/^age$/i)).toBeTruthy();
+    expect(within(popover).getByText(/^ago$/i)).toBeTruthy();
   });
 
   test("renders without cliff for huge pump fixture", () => {
