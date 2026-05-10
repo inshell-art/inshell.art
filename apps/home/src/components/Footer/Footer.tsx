@@ -50,12 +50,13 @@ function resolvePublicUrl(
   validator: (value: string) => boolean
 ): string | null {
   const raw = readEnvUrl(names);
+  const shouldWarn = getEnvValue("NODE_ENV") !== "test";
   if (!raw) {
-    console.warn(`[footer] Missing ${kind} URL; hiding button.`);
+    if (shouldWarn) console.warn(`[footer] Missing ${kind} URL; hiding button.`);
     return null;
   }
   if (!isHttpsUrl(raw) || !validator(raw)) {
-    console.warn(`[footer] Invalid ${kind} URL; hiding button.`);
+    if (shouldWarn) console.warn(`[footer] Invalid ${kind} URL; hiding button.`);
     return null;
   }
   return raw;

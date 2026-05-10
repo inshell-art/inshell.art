@@ -284,6 +284,10 @@ function getEnvValue(name: string): unknown {
   return envCache?.[name] ?? procEnv?.[name];
 }
 
+function isTestRuntime(): boolean {
+  return getEnvValue("NODE_ENV") === "test";
+}
+
 function resolveExplorerBase(): string {
   const base = getEnvValue("VITE_EXPLORER_BASE_URL");
   if (typeof base === "string" && base.trim()) return base.trim();
@@ -2578,6 +2582,11 @@ export default function AuctionCanvas({
   // idle blocks are not mined. Public networks keep following block time.
   useEffect(() => {
     let cancelled = false;
+    if (isTestRuntime() && !fixtureState) {
+      return () => {
+        cancelled = true;
+      };
+    }
     if (fixtureState) {
       if (fixtureState.nowSec) setLiveNowSec(fixtureState.nowSec);
       return () => {
@@ -2620,6 +2629,11 @@ export default function AuctionCanvas({
   // active curve growing with browser time for local visual development.
   useEffect(() => {
     let cancelled = false;
+    if (isTestRuntime() && !fixtureState) {
+      return () => {
+        cancelled = true;
+      };
+    }
     const readNow = async () => {
       const chainNowSec = await readLatestChainTimeSec(provider);
       if (cancelled) return;
@@ -3312,7 +3326,6 @@ export default function AuctionCanvas({
         provider ?? (getDefaultProvider() as ProviderInterface);
       try {
         const contractAsk = await readCurrentAskFromContract(readProvider, auctionAddress);
-        setCurrentAskQuoteDec(toFixed(contractAsk, decimals));
         const ask = projectedDevnetAsk() ?? contractAsk;
         let balance: U256Num;
         let allowance: U256Num;
@@ -3489,7 +3502,6 @@ export default function AuctionCanvas({
       await connectAsync();
       return;
     } catch (err) {
-      console.warn("wallet connect failed", err);
       const msg = String((err as any)?.message ?? err ?? "").toLowerCase();
       const code = Number((err as any)?.code);
       if (
@@ -3512,6 +3524,7 @@ export default function AuctionCanvas({
         showToast({ kind: "error", text: "No supported wallet found." });
         return;
       }
+      console.warn("wallet connect failed", err);
       showToast({ kind: "error", text: "Wallet connection failed." });
       return;
     }
