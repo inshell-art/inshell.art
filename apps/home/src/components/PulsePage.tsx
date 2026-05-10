@@ -13,6 +13,7 @@ type PulseDemoSegment = {
 };
 
 type PulseDemo = {
+  durations: PulseDemoSegment[];
   drops: PulseDemoSegment[];
   pumps: PulseDemoSegment[];
   dots: PulseDemoDot[];
@@ -49,6 +50,7 @@ function makePulseDemo(): PulseDemo {
   let x = left;
   let floorY = randomBetween(floorMin, floorMax);
   let previousDuration = durations[0];
+  const durationRefs: PulseDemoSegment[] = [];
   const drops: PulseDemoSegment[] = [];
   const pumps: PulseDemoSegment[] = [];
   const dots: PulseDemoDot[] = [{ x, y: floorY, delay: 0 }];
@@ -66,6 +68,12 @@ function makePulseDemo(): PulseDemo {
     const c2y = topY + dropHeight * 0.96;
     const stepDelay = PULSE_DEMO_START_SECONDS + i * PULSE_DEMO_STEP_SECONDS;
 
+    if (i > 0) {
+      durationRefs.push({
+        d: `M${coord(x - previousDuration)} ${coord(floorY)}H${coord(x)}`,
+        delay: stepDelay,
+      });
+    }
     pumps.push({
       d: `M${coord(x)} ${coord(floorY)}V${coord(topY)}`,
       delay: stepDelay,
@@ -89,6 +97,7 @@ function makePulseDemo(): PulseDemo {
   }
 
   return {
+    durations: durationRefs,
     drops,
     pumps,
     dots,
@@ -118,6 +127,16 @@ export default function PulsePage() {
                   className="pulse-page__demo-drop"
                   d={segment.d}
                   pathLength={1}
+                  style={{ animationDelay: `${segment.delay}s` }}
+                />
+              ))}
+            </g>
+            <g className="pulse-page__demo-durations">
+              {pulseDemo.durations.map((segment, index) => (
+                <path
+                  key={`duration-${index}-${segment.d}`}
+                  className="pulse-page__demo-duration"
+                  d={segment.d}
                   style={{ animationDelay: `${segment.delay}s` }}
                 />
               ))}
