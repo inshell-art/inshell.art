@@ -20,9 +20,12 @@ type PulseDemo = {
 };
 
 const PULSE_DEMO_DROP_SECONDS = 1;
-const PULSE_DEMO_HOLD_SECONDS = 0.2;
+const PULSE_DEMO_REFERENCE_SECONDS = 0.5;
+const PULSE_DEMO_AFTER_REFERENCE_SECONDS = 0.5;
+const PULSE_DEMO_PRE_DROP_SECONDS =
+  PULSE_DEMO_REFERENCE_SECONDS + PULSE_DEMO_AFTER_REFERENCE_SECONDS;
 const PULSE_DEMO_STEP_SECONDS =
-  PULSE_DEMO_DROP_SECONDS + PULSE_DEMO_HOLD_SECONDS;
+  PULSE_DEMO_PRE_DROP_SECONDS + PULSE_DEMO_DROP_SECONDS;
 const PULSE_DEMO_START_SECONDS = 0.14;
 
 function randomBetween(min: number, max: number) {
@@ -67,6 +70,7 @@ function makePulseDemo(): PulseDemo {
     const c1y = topY + dropHeight * 0.72;
     const c2y = topY + dropHeight * 0.96;
     const stepDelay = PULSE_DEMO_START_SECONDS + i * PULSE_DEMO_STEP_SECONDS;
+    const dropDelay = stepDelay + PULSE_DEMO_PRE_DROP_SECONDS;
 
     if (i > 0) {
       durationRefs.push({
@@ -84,11 +88,11 @@ function makePulseDemo(): PulseDemo {
       )} ${coord(c2y)} ${coord(
         endX
       )} ${coord(settleY)}`,
-      delay: stepDelay,
+      delay: dropDelay,
     });
     dots.push(
       { x, y: topY, delay: stepDelay },
-      { x: endX, y: settleY, delay: stepDelay + PULSE_DEMO_DROP_SECONDS }
+      { x: endX, y: settleY, delay: dropDelay + PULSE_DEMO_DROP_SECONDS }
     );
 
     x = endX;

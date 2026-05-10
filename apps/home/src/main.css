@@ -160,14 +160,14 @@ body {
   stroke-width: 1.92;
   opacity: 0;
   visibility: hidden;
-  animation: pulse-demo-pump 0.22s ease-out both;
+  animation: pulse-demo-pump 0.22s ease-out forwards;
 }
 
 .pulse-page__demo-duration {
   stroke-width: 1.16;
   opacity: 0;
   visibility: hidden;
-  animation: pulse-demo-duration 0.34s ease-out both;
+  animation: pulse-demo-duration 0.5s linear forwards;
 }
 
 .pulse-page__demo-drop {
@@ -176,7 +176,7 @@ body {
   visibility: hidden;
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
-  animation: pulse-demo-drop 1s cubic-bezier(0.18, 0.82, 0.22, 1) both;
+  animation: pulse-demo-drop 1s cubic-bezier(0.18, 0.82, 0.22, 1) forwards;
 }
 
 .pulse-page__demo-dots {
@@ -189,7 +189,7 @@ body {
   visibility: hidden;
   transform-box: fill-box;
   transform-origin: center;
-  animation: pulse-demo-dot 0.42s ease-out both;
+  animation: pulse-demo-dot 0.42s ease-out forwards;
 }
 
 .pulse-page__math {
@@ -205,13 +205,8 @@ body {
 
 @keyframes pulse-demo-drop {
   0% {
-    opacity: 0;
-    stroke-dashoffset: 1;
-    visibility: hidden;
-  }
-
-  1% {
     opacity: 0.52;
+    stroke-dashoffset: 1;
     visibility: visible;
   }
 
@@ -224,11 +219,6 @@ body {
 
 @keyframes pulse-demo-pump {
   0% {
-    opacity: 0;
-    visibility: hidden;
-  }
-
-  2% {
     opacity: 0.86;
     visibility: visible;
   }
@@ -241,16 +231,11 @@ body {
 
 @keyframes pulse-demo-duration {
   0% {
-    opacity: 0;
-    visibility: hidden;
-  }
-
-  2% {
     opacity: 0.48;
     visibility: visible;
   }
 
-  72% {
+  98% {
     opacity: 0.36;
     visibility: visible;
   }
