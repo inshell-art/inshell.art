@@ -167,7 +167,7 @@ body {
   stroke-width: 1.16;
   opacity: 0;
   visibility: hidden;
-  animation: pulse-demo-duration 0.5s linear forwards;
+  animation: pulse-demo-duration 1.5s linear forwards;
 }
 
 .pulse-page__demo-drop {
