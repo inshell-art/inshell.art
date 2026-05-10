@@ -21,9 +21,9 @@ type PulseDemo = {
 
 const PULSE_DEMO_DROP_SECONDS = 1;
 const PULSE_DEMO_REFERENCE_SECONDS = 0.5;
-const PULSE_DEMO_AFTER_REFERENCE_SECONDS = 0.5;
+const PULSE_DEMO_AFTER_PUMP_SECONDS = 0.5;
 const PULSE_DEMO_PRE_DROP_SECONDS =
-  PULSE_DEMO_REFERENCE_SECONDS + PULSE_DEMO_AFTER_REFERENCE_SECONDS;
+  PULSE_DEMO_REFERENCE_SECONDS + PULSE_DEMO_AFTER_PUMP_SECONDS;
 const PULSE_DEMO_STEP_SECONDS =
   PULSE_DEMO_PRE_DROP_SECONDS + PULSE_DEMO_DROP_SECONDS;
 const PULSE_DEMO_START_SECONDS = 0.14;
@@ -70,6 +70,8 @@ function makePulseDemo(): PulseDemo {
     const c1y = topY + dropHeight * 0.72;
     const c2y = topY + dropHeight * 0.96;
     const stepDelay = PULSE_DEMO_START_SECONDS + i * PULSE_DEMO_STEP_SECONDS;
+    const pumpDelay =
+      i > 0 ? stepDelay + PULSE_DEMO_REFERENCE_SECONDS : stepDelay;
     const dropDelay = stepDelay + PULSE_DEMO_PRE_DROP_SECONDS;
 
     if (i > 0) {
@@ -80,7 +82,7 @@ function makePulseDemo(): PulseDemo {
     }
     pumps.push({
       d: `M${coord(x)} ${coord(floorY)}V${coord(topY)}`,
-      delay: stepDelay,
+      delay: pumpDelay,
     });
     drops.push({
       d: `M${coord(x)} ${coord(topY)}C${coord(c1x)} ${coord(c1y)} ${coord(
@@ -91,7 +93,7 @@ function makePulseDemo(): PulseDemo {
       delay: dropDelay,
     });
     dots.push(
-      { x, y: topY, delay: stepDelay },
+      { x, y: topY, delay: pumpDelay },
       { x: endX, y: settleY, delay: dropDelay + PULSE_DEMO_DROP_SECONDS }
     );
 
