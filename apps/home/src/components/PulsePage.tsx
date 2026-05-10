@@ -79,7 +79,7 @@ function makePulseDemo(): PulseDemo {
 
     if (i > 0) {
       durationRefs.push({
-        d: `M${coord(x - previousDuration)} ${coord(floorY)}H${coord(x)}`,
+        d: `M${coord(x - previousDuration)} ${coord(topY)}H${coord(x)}`,
         delay: stepDelay,
       });
     }
