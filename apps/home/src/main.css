@@ -158,15 +158,17 @@ body {
 .pulse-page__demo-pump {
   stroke-width: 1.92;
   opacity: 0;
+  visibility: hidden;
   animation: pulse-demo-pump 0.22s ease-out both;
 }
 
 .pulse-page__demo-drop {
   stroke-width: 1.78;
-  opacity: 0.52;
+  opacity: 0;
+  visibility: hidden;
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
-  animation: pulse-demo-stroke 1s cubic-bezier(0.18, 0.82, 0.22, 1) both;
+  animation: pulse-demo-drop 1s cubic-bezier(0.18, 0.82, 0.22, 1) both;
 }
 
 .pulse-page__demo-dots {
@@ -176,6 +178,7 @@ body {
 
 .pulse-page__demo-dots circle {
   opacity: 0;
+  visibility: hidden;
   transform-box: fill-box;
   transform-origin: center;
   animation: pulse-demo-dot 0.42s ease-out both;
@@ -192,23 +195,39 @@ body {
   gap: 0;
 }
 
-@keyframes pulse-demo-stroke {
+@keyframes pulse-demo-drop {
+  0% {
+    opacity: 0;
+    stroke-dashoffset: 1;
+    visibility: hidden;
+  }
+
+  1% {
+    opacity: 0.52;
+    visibility: visible;
+  }
+
   to {
+    opacity: 0.52;
     stroke-dashoffset: 0;
+    visibility: visible;
   }
 }
 
 @keyframes pulse-demo-pump {
   0% {
     opacity: 0;
+    visibility: hidden;
   }
 
   2% {
     opacity: 0.86;
+    visibility: visible;
   }
 
   100% {
     opacity: 0.44;
+    visibility: visible;
   }
 }
 
@@ -216,11 +235,17 @@ body {
   from {
     opacity: 0;
     transform: scale(0.55);
+    visibility: hidden;
+  }
+
+  1% {
+    visibility: visible;
   }
 
   to {
     opacity: 1;
     transform: scale(1);
+    visibility: visible;
   }
 }
 
@@ -232,15 +257,19 @@ body {
   }
 
   .pulse-page__demo-drop {
+    opacity: 0.52;
     stroke-dashoffset: 0;
+    visibility: visible;
   }
 
   .pulse-page__demo-pump {
     opacity: 0.44;
+    visibility: visible;
   }
 
   .pulse-page__demo-dots circle {
     opacity: 1;
+    visibility: visible;
   }
 }
 
