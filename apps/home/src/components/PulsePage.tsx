@@ -32,24 +32,31 @@ function coord(value: number) {
   return Number(value.toFixed(2));
 }
 
+function makeDurations(count: number, total: number) {
+  const weights = Array.from({ length: count }, () => randomBetween(0.9, 1.1));
+  const weightTotal = weights.reduce((sum, weight) => sum + weight, 0);
+  return weights.map((weight) => (weight / weightTotal) * total);
+}
+
 function makePulseDemo(): PulseDemo {
   const left = 0;
   const right = 560;
-  const floorMin = 47;
-  const floorMax = 55;
-  const count = 6 + Math.floor(Math.random() * 4);
+  const floorMin = 55;
+  const floorMax = 58;
+  const count = 15;
   const usableWidth = right - left;
-  const unit = usableWidth / count;
+  const durations = makeDurations(count, usableWidth);
   let x = left;
   let floorY = randomBetween(floorMin, floorMax);
+  let previousDuration = durations[0];
   const drops: PulseDemoSegment[] = [];
   const pumps: PulseDemoSegment[] = [];
   const dots: PulseDemoDot[] = [{ x, y: floorY, delay: 0 }];
 
   for (let i = 0; i < count; i += 1) {
-    const slotEnd = i === count - 1 ? right : left + unit * (i + 1);
-    const endX = slotEnd;
-    const topY = Math.max(8, floorY - randomBetween(11, 32));
+    const duration = i === count - 1 ? right - x : durations[i];
+    const endX = x + duration;
+    const topY = floorY - previousDuration;
     const settleY = randomBetween(floorMin, floorMax);
     const dropWidth = endX - x;
     const dropHeight = settleY - topY;
@@ -78,6 +85,7 @@ function makePulseDemo(): PulseDemo {
 
     x = endX;
     floorY = settleY;
+    previousDuration = duration;
   }
 
   return {
