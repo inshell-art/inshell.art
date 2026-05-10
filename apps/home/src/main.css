@@ -146,27 +146,36 @@ body {
   shape-rendering: geometricPrecision;
 }
 
-.pulse-page__demo-guide,
-.pulse-page__demo-curve {
+.pulse-page__demo-pump,
+.pulse-page__demo-drop,
+.pulse-page__demo-hold {
   fill: none;
-  vector-effect: non-scaling-stroke;
-}
-
-.pulse-page__demo-guide {
-  stroke: currentColor;
-  stroke-width: 0.78;
-  opacity: 0.12;
-}
-
-.pulse-page__demo-curve {
   stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.pulse-page__demo-pump {
+  stroke-width: 1.92;
+  opacity: 0;
+  animation: pulse-demo-pump 0.22s ease-out both;
+}
+
+.pulse-page__demo-drop {
   stroke-width: 1.78;
   opacity: 0.52;
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
-  animation: pulse-demo-play 4.6s ease-out 0.1s both;
+  animation: pulse-demo-stroke 1s cubic-bezier(0.18, 0.82, 0.22, 1) both;
+}
+
+.pulse-page__demo-hold {
+  stroke-width: 1.08;
+  opacity: 0.24;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: pulse-demo-stroke 1s linear both;
 }
 
 .pulse-page__demo-dots {
@@ -192,9 +201,23 @@ body {
   gap: 0;
 }
 
-@keyframes pulse-demo-play {
+@keyframes pulse-demo-stroke {
   to {
     stroke-dashoffset: 0;
+  }
+}
+
+@keyframes pulse-demo-pump {
+  0% {
+    opacity: 0;
+  }
+
+  2% {
+    opacity: 0.86;
+  }
+
+  100% {
+    opacity: 0.44;
   }
 }
 
@@ -211,13 +234,20 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pulse-page__demo-curve,
+  .pulse-page__demo-pump,
+  .pulse-page__demo-drop,
+  .pulse-page__demo-hold,
   .pulse-page__demo-dots circle {
     animation: none;
   }
 
-  .pulse-page__demo-curve {
+  .pulse-page__demo-drop,
+  .pulse-page__demo-hold {
     stroke-dashoffset: 0;
+  }
+
+  .pulse-page__demo-pump {
+    opacity: 0.44;
   }
 
   .pulse-page__demo-dots circle {

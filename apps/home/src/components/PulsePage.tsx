@@ -4,13 +4,26 @@ import { PULSE } from "@/content/pulse";
 type PulseDemoDot = {
   x: number;
   y: number;
+  delay: number;
+};
+
+type PulseDemoSegment = {
+  d: string;
+  delay: number;
 };
 
 type PulseDemo = {
-  curveD: string;
-  guideD: string;
+  drops: PulseDemoSegment[];
+  holds: PulseDemoSegment[];
+  pumps: PulseDemoSegment[];
   dots: PulseDemoDot[];
 };
+
+const PULSE_DEMO_DROP_SECONDS = 1;
+const PULSE_DEMO_HOLD_SECONDS = 1;
+const PULSE_DEMO_STEP_SECONDS =
+  PULSE_DEMO_DROP_SECONDS + PULSE_DEMO_HOLD_SECONDS;
+const PULSE_DEMO_START_SECONDS = 0.14;
 
 function randomBetween(min: number, max: number) {
   return min + Math.random() * (max - min);
@@ -25,47 +38,65 @@ function makePulseDemo(): PulseDemo {
   const right = 560;
   const floorMin = 47;
   const floorMax = 55;
-  const count = 12 + Math.floor(Math.random() * 11);
+  const count = 6 + Math.floor(Math.random() * 4);
   const usableWidth = right - left;
   const unit = usableWidth / count;
   let x = left;
   let floorY = randomBetween(floorMin, floorMax);
-  const curve: string[] = [`M${coord(x)} ${coord(floorY)}`];
-  const guide: string[] = [];
-  const dots: PulseDemoDot[] = [{ x, y: floorY }];
+  const drops: PulseDemoSegment[] = [];
+  const holds: PulseDemoSegment[] = [];
+  const pumps: PulseDemoSegment[] = [];
+  const dots: PulseDemoDot[] = [{ x, y: floorY, delay: 0 }];
 
   for (let i = 0; i < count; i += 1) {
-    const width = unit * randomBetween(0.72, 1.28);
-    const endX = i === count - 1 ? right : Math.min(right, x + width);
+    const slotEnd = i === count - 1 ? right : left + unit * (i + 1);
+    const holdWidth = i === count - 1 ? 0 : unit * randomBetween(0.07, 0.16);
+    const endX = i === count - 1 ? right : slotEnd - holdWidth;
     const topY = Math.max(8, floorY - randomBetween(11, 32));
     const settleY = randomBetween(floorMin, floorMax);
     const c1x = x + (endX - x) * randomBetween(0.08, 0.2);
     const c2x = x + (endX - x) * randomBetween(0.4, 0.75);
     const c1y = topY + randomBetween(12, 22);
     const c2y = settleY - randomBetween(2, 8);
+    const stepDelay = PULSE_DEMO_START_SECONDS + i * PULSE_DEMO_STEP_SECONDS;
 
-    guide.push(`M${coord(x)} ${coord(floorY)}V${coord(topY)}`);
-    curve.push(
-      `V${coord(topY)}`,
-      `C${coord(c1x)} ${coord(c1y)} ${coord(c2x)} ${coord(c2y)} ${coord(
+    pumps.push({
+      d: `M${coord(x)} ${coord(floorY)}V${coord(topY)}`,
+      delay: stepDelay,
+    });
+    drops.push({
+      d: `M${coord(x)} ${coord(topY)}C${coord(c1x)} ${coord(c1y)} ${coord(
+        c2x
+      )} ${coord(c2y)} ${coord(
         endX
-      )} ${coord(settleY)}`
+      )} ${coord(settleY)}`,
+      delay: stepDelay,
+    });
+    dots.push(
+      { x, y: topY, delay: stepDelay },
+      { x: endX, y: settleY, delay: stepDelay + PULSE_DEMO_DROP_SECONDS }
     );
-    dots.push({ x, y: topY }, { x: endX, y: settleY });
 
     x = endX;
     floorY = settleY;
     if (i < count - 1) {
-      const nextX = Math.min(right, x + unit * randomBetween(0.02, 0.16));
-      curve.push(`H${coord(nextX)}`);
-      x = nextX;
-      dots.push({ x, y: floorY });
+      holds.push({
+        d: `M${coord(x)} ${coord(floorY)}H${coord(slotEnd)}`,
+        delay: stepDelay + PULSE_DEMO_DROP_SECONDS,
+      });
+      x = slotEnd;
+      dots.push({
+        x,
+        y: floorY,
+        delay: stepDelay + PULSE_DEMO_STEP_SECONDS,
+      });
     }
   }
 
   return {
-    curveD: curve.join(" "),
-    guideD: guide.join(" "),
+    drops,
+    holds,
+    pumps,
     dots,
   };
 }
@@ -86,15 +117,38 @@ export default function PulsePage() {
             role="img"
             aria-label="Animated timeline of linked pulse auction curves"
           >
-            <path
-              className="pulse-page__demo-guide"
-              d={pulseDemo.guideD}
-            />
-            <path
-              className="pulse-page__demo-curve"
-              d={pulseDemo.curveD}
-              pathLength={1}
-            />
+            <g className="pulse-page__demo-holds">
+              {pulseDemo.holds.map((segment, index) => (
+                <path
+                  key={`hold-${index}-${segment.d}`}
+                  className="pulse-page__demo-hold"
+                  d={segment.d}
+                  pathLength={1}
+                  style={{ animationDelay: `${segment.delay}s` }}
+                />
+              ))}
+            </g>
+            <g className="pulse-page__demo-drops">
+              {pulseDemo.drops.map((segment, index) => (
+                <path
+                  key={`drop-${index}-${segment.d}`}
+                  className="pulse-page__demo-drop"
+                  d={segment.d}
+                  pathLength={1}
+                  style={{ animationDelay: `${segment.delay}s` }}
+                />
+              ))}
+            </g>
+            <g className="pulse-page__demo-pumps">
+              {pulseDemo.pumps.map((segment, index) => (
+                <path
+                  key={`pump-${index}-${segment.d}`}
+                  className="pulse-page__demo-pump"
+                  d={segment.d}
+                  style={{ animationDelay: `${segment.delay}s` }}
+                />
+              ))}
+            </g>
             <g className="pulse-page__demo-dots">
               {pulseDemo.dots.map((dot, index) => (
                 <circle
@@ -102,7 +156,7 @@ export default function PulsePage() {
                   cx={coord(dot.x)}
                   cy={coord(dot.y)}
                   r="2.05"
-                  style={{ animationDelay: `${0.34 + index * 0.045}s` }}
+                  style={{ animationDelay: `${dot.delay}s` }}
                 />
               ))}
             </g>
