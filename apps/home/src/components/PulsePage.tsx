@@ -14,7 +14,6 @@ type PulseDemoSegment = {
 
 type PulseDemo = {
   drops: PulseDemoSegment[];
-  holds: PulseDemoSegment[];
   pumps: PulseDemoSegment[];
   dots: PulseDemoDot[];
 };
@@ -44,14 +43,12 @@ function makePulseDemo(): PulseDemo {
   let x = left;
   let floorY = randomBetween(floorMin, floorMax);
   const drops: PulseDemoSegment[] = [];
-  const holds: PulseDemoSegment[] = [];
   const pumps: PulseDemoSegment[] = [];
   const dots: PulseDemoDot[] = [{ x, y: floorY, delay: 0 }];
 
   for (let i = 0; i < count; i += 1) {
     const slotEnd = i === count - 1 ? right : left + unit * (i + 1);
-    const holdWidth = i === count - 1 ? 0 : unit * randomBetween(0.07, 0.16);
-    const endX = i === count - 1 ? right : slotEnd - holdWidth;
+    const endX = slotEnd;
     const topY = Math.max(8, floorY - randomBetween(11, 32));
     const settleY = randomBetween(floorMin, floorMax);
     const dropWidth = endX - x;
@@ -81,23 +78,10 @@ function makePulseDemo(): PulseDemo {
 
     x = endX;
     floorY = settleY;
-    if (i < count - 1) {
-      holds.push({
-        d: `M${coord(x)} ${coord(floorY)}H${coord(slotEnd)}`,
-        delay: stepDelay + PULSE_DEMO_DROP_SECONDS,
-      });
-      x = slotEnd;
-      dots.push({
-        x,
-        y: floorY,
-        delay: stepDelay + PULSE_DEMO_STEP_SECONDS,
-      });
-    }
   }
 
   return {
     drops,
-    holds,
     pumps,
     dots,
   };
@@ -119,17 +103,6 @@ export default function PulsePage() {
             role="img"
             aria-label="Animated timeline of linked pulse auction curves"
           >
-            <g className="pulse-page__demo-holds">
-              {pulseDemo.holds.map((segment, index) => (
-                <path
-                  key={`hold-${index}-${segment.d}`}
-                  className="pulse-page__demo-hold"
-                  d={segment.d}
-                  pathLength={1}
-                  style={{ animationDelay: `${segment.delay}s` }}
-                />
-              ))}
-            </g>
             <g className="pulse-page__demo-drops">
               {pulseDemo.drops.map((segment, index) => (
                 <path

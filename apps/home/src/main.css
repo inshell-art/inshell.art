@@ -147,8 +147,7 @@ body {
 }
 
 .pulse-page__demo-pump,
-.pulse-page__demo-drop,
-.pulse-page__demo-hold {
+.pulse-page__demo-drop {
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
@@ -168,14 +167,6 @@ body {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
   animation: pulse-demo-stroke 1s cubic-bezier(0.18, 0.82, 0.22, 1) both;
-}
-
-.pulse-page__demo-hold {
-  stroke-width: 1.08;
-  opacity: 0.24;
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  animation: pulse-demo-stroke 0.2s linear both;
 }
 
 .pulse-page__demo-dots {
@@ -236,13 +227,11 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .pulse-page__demo-pump,
   .pulse-page__demo-drop,
-  .pulse-page__demo-hold,
   .pulse-page__demo-dots circle {
     animation: none;
   }
 
-  .pulse-page__demo-drop,
-  .pulse-page__demo-hold {
+  .pulse-page__demo-drop {
     stroke-dashoffset: 0;
   }
 
