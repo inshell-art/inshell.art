@@ -31,5 +31,5 @@ export const PULSE = {
     "k = curve constant",
     "a = anchor time",
   ].join("\n"),
-  note: "This is the Desmos sketch behind Pulse. It is a source note, not implementation code.",
+  note: "Here is the Desmos sketch for Pulse. It is a source note, not implementation code.",
 } as const;
