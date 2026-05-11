@@ -24,6 +24,19 @@ jest.mock("@inshell/ethereum", () => ({
   hashUtf8String: jest.fn(),
 }));
 
+const mockUseAuctionCore = jest.fn();
+const mockUseAuctionBids = jest.fn();
+
+jest.mock("@/hooks/useAuctionCore", () => ({
+  __esModule: true,
+  useAuctionCore: (...args: unknown[]) => mockUseAuctionCore(...args),
+}));
+
+jest.mock("@/hooks/useAuctionBids", () => ({
+  __esModule: true,
+  useAuctionBids: (...args: unknown[]) => mockUseAuctionBids(...args),
+}));
+
 import App from "../src/App";
 import { COLOR_FONT, COLOR_FONT_RAW } from "../src/content/colorFont";
 import {
@@ -68,6 +81,20 @@ describe("App Component", () => {
     mockedGetCode.mockResolvedValue("0x");
     mockedGetDefaultProvider.mockReturnValue(defaultRpcProvider());
     mockedHashUtf8String.mockReturnValue(COLOR_FONT.hash);
+    mockUseAuctionCore.mockReturnValue({
+      data: null,
+      loading: false,
+      error: null,
+      ready: true,
+      refresh: jest.fn(),
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids: [],
+      loading: false,
+      error: null,
+      ready: true,
+      pullOnce: jest.fn(),
+    });
   });
 
   afterEach(() => {
@@ -187,8 +214,10 @@ describe("App Component", () => {
     expect(screen.getByLabelText("Pulse pump and drop equations")).not.toHaveTextContent(
       /premium per second/,
     );
+    expect(screen.getByLabelText("Pulse current instance")).toBeInTheDocument();
+    expect(screen.getByText("$PATH is the current public auction using Pulse.")).toBeInTheDocument();
     expect(screen.getByText(/It is a source note, not implementation code\./)).toBeInTheDocument();
-    expect(screen.getByText(/This is the Desmos sketch behind Pulse\./)).toBeInTheDocument();
+    expect(screen.getByText(/Here is the Desmos sketch for Pulse\./)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open original Desmos sketch ↗" })).toHaveAttribute(
       "href",
       "https://www.desmos.com/calculator/1d89f93d21",
