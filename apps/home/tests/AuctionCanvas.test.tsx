@@ -1038,7 +1038,7 @@ describe("AuctionCanvas", () => {
 
   test("shows no deployment message when no protocol release is loaded", () => {
     (globalThis as any).__VITE_ENV__ = {
-      VITE_NETWORK: "sepolia",
+      VITE_NETWORK: "mainnet",
       VITE_EXPECTED_CHAIN_ID: "0xaa36a7",
       VITE_PULSE_AUCTION: TEST_AUCTION_ADDRESS,
       VITE_PAYMENT_TOKEN: TEST_PAYMENT_TOKEN,
@@ -1382,7 +1382,7 @@ describe("AuctionCanvas", () => {
     });
   });
 
-  test("connect CTA prefers MetaMask over generic injected fallback", async () => {
+  test("connect CTA opens wallet options sorted with MetaMask first", async () => {
     const genericConnector = {
       id: "window.ethereum",
       name: "Injected",
@@ -1397,6 +1397,13 @@ describe("AuctionCanvas", () => {
       available: () => true,
       detail: { info: { rdns: "io.metamask" } },
     };
+    const templeConnector = {
+      id: "temple",
+      name: "Temple Wallet",
+      kind: "injected",
+      available: () => true,
+      detail: { info: { rdns: "com.templewallet" } },
+    };
     const connectAsync = jest
       .fn()
       .mockResolvedValue({ address: "0xabc", chainId: 11155111 });
@@ -1404,7 +1411,7 @@ describe("AuctionCanvas", () => {
       isConnected: false,
       address: null,
       account: null,
-      connectors: [genericConnector, metaMaskConnector],
+      connectors: [genericConnector, templeConnector, metaMaskConnector],
       connectAsync,
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
@@ -1412,6 +1419,12 @@ describe("AuctionCanvas", () => {
       screen.getByText(/\[\s*connect\s*\]/i)
     );
     fireEvent.click(connectButton);
+    const options = await screen.findAllByRole("menuitem");
+    expect(options.map((item) => item.textContent)).toEqual([
+      "MetaMask",
+      "Injected",
+    ]);
+    fireEvent.click(options[0]);
     await waitFor(() => {
       expect(connectAsync).toHaveBeenCalledWith({
         connector: metaMaskConnector,

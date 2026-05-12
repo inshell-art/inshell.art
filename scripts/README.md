@@ -57,6 +57,19 @@ The home app is release-gated by default. Import a full `path/` FE release with
 addresses are treated as a debugging escape hatch and require
 `VITE_PATH_ALLOW_DIRECT_AUCTION=1` or `?direct_auction=1`.
 
+## Sepolia Readiness Gate
+
+Before moving a local rehearsal to Sepolia, run:
+
+```bash
+pnpm run check:presepolia
+```
+
+The gate runs focused home lint/tests/build, validates imported PATH release/ABI
+JSON for deprecated surfaces, and checks the working diff for whitespace errors.
+See `docs/sepolia-dev-readiness.md` for the manual local-node checks that still
+need browser/wallet confirmation.
+
 ## Address files policy
 
 - **Commit:** `packages/contracts/src/addresses/addresses.sepolia.json`, `packages/contracts/src/addresses/addresses.mainnet.json` (public, stable).

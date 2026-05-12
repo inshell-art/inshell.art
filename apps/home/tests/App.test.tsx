@@ -69,6 +69,14 @@ function encodeAbiString(value: string): string {
   return `0x${wordHex(32n)}${wordHex(BigInt(data.length / 2))}${paddedData}`;
 }
 
+function u256(value: bigint) {
+  return {
+    raw: { low: value.toString(), high: "0" },
+    value,
+    dec: value.toString(),
+  };
+}
+
 function defaultRpcProvider() {
   return { request: jest.fn(async () => "0x") };
 }
@@ -206,7 +214,10 @@ describe("App Component", () => {
       /premium = elapsed time × PTS/,
     );
     expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
-      /current ask = last price \+ premium/,
+      /next ask = last price \+ premium/,
+    );
+    expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
+      /next floor = last price/,
     );
     expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
       /ask\(t\) = b \+ floor\(k \/ \(t - a\)\)/,
@@ -215,9 +226,10 @@ describe("App Component", () => {
       /premium per second/,
     );
     expect(screen.getByLabelText("Pulse current instance")).toBeInTheDocument();
+    expect(screen.getByText("current instance")).toBeInTheDocument();
     expect(screen.getByText("$PATH is the current public auction using Pulse.")).toBeInTheDocument();
     expect(screen.getByText(/It is a source note, not implementation code\./)).toBeInTheDocument();
-    expect(screen.getByText(/Here is the Desmos sketch for Pulse\./)).toBeInTheDocument();
+    expect(screen.getByText(/This is the Desmos sketch behind Pulse\./)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open original Desmos sketch ↗" })).toHaveAttribute(
       "href",
       "https://www.desmos.com/calculator/1d89f93d21",
@@ -228,6 +240,103 @@ describe("App Component", () => {
     );
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
     expect(screen.queryByLabelText("Open Pulse")).toBeNull();
+  });
+
+  test("renders Pulse current instance live params with units", () => {
+    window.history.pushState({}, "", "/pulse");
+    const oneEth = 10n ** 18n;
+    mockUseAuctionCore.mockReturnValue({
+      data: {
+        active: true,
+        price: u256(420_000_000_000_000_000n),
+        config: {
+          openTimeSec: 1_778_240_550,
+          genesisPrice: u256(oneEth),
+          genesisFloor: u256(oneEth / 10n),
+          k: u256(100n * oneEth),
+          pts: "100000000000000",
+        },
+      },
+      loading: false,
+      error: null,
+      ready: true,
+      refresh: jest.fn(),
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids: [
+        {
+          key: "sale-2",
+          atMs: 1_778_241_000_000,
+          amount: u256(250_000_000_000_000_000n),
+          amountDec: "0.25",
+          bidder: "0x1111111111111111111111111111111111111111",
+          blockNumber: 42,
+          epochIndex: 2,
+          anchorASec: 1_778_240_900,
+        },
+      ],
+      loading: false,
+      error: null,
+      ready: true,
+      pullOnce: jest.fn(),
+    });
+
+    render(<App />);
+
+    const params = screen.getByLabelText("Pulse current instance contract params");
+    const scopedParams = within(params);
+    expect(scopedParams.getByText("authority")).toBeInTheDocument();
+    expect(scopedParams.getByText("PulseAuction 0x2A59...2e76")).toBeInTheDocument();
+    expect(scopedParams.getByText("chain")).toBeInTheDocument();
+    expect(scopedParams.getByText("Local Devnet")).toBeInTheDocument();
+    expect(scopedParams.getByText("payment")).toBeInTheDocument();
+    expect(scopedParams.getByText("ETH")).toBeInTheDocument();
+    expect(scopedParams.getByText("loaded from")).toBeInTheDocument();
+    expect(scopedParams.getByText("PulseAuction contract")).toBeInTheDocument();
+    expect(scopedParams.getByText("k")).toBeInTheDocument();
+    expect(scopedParams.getByText("100")).toBeInTheDocument();
+    expect(scopedParams.getByText("PTS")).toBeInTheDocument();
+    expect(scopedParams.getByText("0.0001 ETH/s")).toBeInTheDocument();
+    expect(scopedParams.getByText("opening ask")).toBeInTheDocument();
+    expect(scopedParams.getByText("1 ETH")).toBeInTheDocument();
+    expect(scopedParams.getByText("opening floor")).toBeInTheDocument();
+    expect(scopedParams.getByText("0.1 ETH")).toBeInTheDocument();
+    expect(scopedParams.getByText("current ask")).toBeInTheDocument();
+    expect(scopedParams.getByText("0.42 ETH")).toBeInTheDocument();
+    expect(scopedParams.getByText("floor b")).toBeInTheDocument();
+    expect(scopedParams.getByText("0.25 ETH")).toBeInTheDocument();
+    expect(scopedParams.getByText("epoch")).toBeInTheDocument();
+    expect(scopedParams.getByText("3")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open live Pulse params" })).toHaveAttribute(
+      "href",
+      expect.stringMatching(/^(blob:|data:text\/html;charset=utf-8,)/),
+    );
+  });
+
+  test("does not show stale Pulse params when live params fail", () => {
+    window.history.pushState({}, "", "/pulse");
+    mockUseAuctionCore.mockReturnValue({
+      data: null,
+      loading: false,
+      error: new Error("RPC read failed"),
+      ready: true,
+      refresh: jest.fn(),
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids: [],
+      loading: false,
+      error: new Error("RPC read failed"),
+      ready: false,
+      pullOnce: jest.fn(),
+    });
+
+    render(<App />);
+
+    expect(screen.getByText("live params unavailable.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Pulse current instance contract params")).toBeNull();
+    expect(screen.queryByRole("link", { name: "Open live params ↗" })).toBeNull();
+    expect(screen.queryByText("opening ask")).toBeNull();
+    expect(screen.queryByText("current ask")).toBeNull();
   });
 
   test("renders the Color Font primitive page on /color-font", async () => {
@@ -331,6 +440,75 @@ describe("App Component", () => {
         params: [expect.objectContaining({ to: thoughtNftAddress, data: "0xc6cc9e6f" }), "latest"],
       }),
     );
+  });
+
+  test("renders the PATH fixture for one WILL mint out of quota ten", () => {
+    window.history.pushState({}, "", "/path?fixture=will");
+    render(<App />);
+
+    expect(document.title).toBe("$PATH");
+    expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/path.svg");
+    expect(screen.getByRole("heading", { name: "$PATH" })).toBeInTheDocument();
+    expect(screen.getByText("Permission tokens for Inshell movement mints.")).toBeInTheDocument();
+    expect(screen.getByText("$PATH is minted by the public Pulse auction.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Each $PATH authorizes movement mints in order: THOUGHT, WILL, then AWA."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("The image and traits show movement progress for each token."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("fixture: WILL minted 1 of 10")).toBeInTheDocument();
+    expect(screen.getByText("mode")).toBeInTheDocument();
+    expect(screen.getByText("fixture state gallery")).toBeInTheDocument();
+    expect(screen.getByText("$PATH #1")).toBeInTheDocument();
+    expect(screen.getAllByText("WILL")).toHaveLength(2);
+    expect(screen.getByText("progress")).toBeInTheDocument();
+    expect(screen.getByText("1 / 10")).toBeInTheDocument();
+    expect(screen.queryByText("Minted(1/10)")).toBeNull();
+    const image = screen.getByRole("img", { name: "$PATH #1 token image" });
+    expect(image).toHaveAttribute("src", expect.stringContaining("will-fill"));
+    expect(image).toHaveAttribute("src", expect.stringContaining("r%3D'3'"));
+    expect(screen.queryByTestId("auction-canvas")).toBeNull();
+  });
+
+  test("renders the PATH state gallery fixture", () => {
+    window.history.pushState({}, "", "/path?fixture=states");
+    render(<App />);
+
+    expect(document.title).toBe("$PATH");
+    expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/path.svg");
+    expect(screen.getByText("fixture: $PATH state gallery")).toBeInTheDocument();
+    expect(screen.getByText("fixture state gallery")).toBeInTheDocument();
+    expect(screen.getByText("fixture tokenURI()")).toBeInTheDocument();
+    for (let tokenId = 1; tokenId <= 8; tokenId += 1) {
+      expect(screen.getByText(`$PATH #${tokenId}`)).toBeInTheDocument();
+    }
+    expect(screen.getByText("2 / 3")).toBeInTheDocument();
+    expect(screen.getByText("5 / 10")).toBeInTheDocument();
+    expect(screen.getByText("1 / 2")).toBeInTheDocument();
+    expect(screen.getByText("2 / 2")).toBeInTheDocument();
+    expect(screen.getByText("COMPLETE")).toBeInTheDocument();
+    expect(screen.queryByText("Minted(2/3)")).toBeNull();
+
+    const thoughtProgressImage = screen.getByRole("img", { name: "$PATH #2 token image" });
+    expect(thoughtProgressImage).toHaveAttribute(
+      "src",
+      expect.stringContaining("circle%20id%3D'thought-box'"),
+    );
+    expect(thoughtProgressImage).toHaveAttribute("src", expect.stringContaining("thought-fill"));
+    expect(thoughtProgressImage).toHaveAttribute("src", expect.stringContaining("r%3D'20'"));
+    expect(thoughtProgressImage).not.toHaveAttribute(
+      "src",
+      expect.stringContaining("clip-path"),
+    );
+    const oneWillImage = screen.getByRole("img", { name: "$PATH #4 token image" });
+    expect(oneWillImage).toHaveAttribute("src", expect.stringContaining("r%3D'3'"));
+    const midWillImage = screen.getByRole("img", { name: "$PATH #5 token image" });
+    expect(midWillImage).toHaveAttribute("src", expect.stringContaining("r%3D'15'"));
+    const awaProgressImage = screen.getByRole("img", { name: "$PATH #7 token image" });
+    expect(awaProgressImage).toHaveAttribute("src", expect.stringContaining("awa-fill"));
+    expect(awaProgressImage).toHaveAttribute("src", expect.stringContaining("r%3D'15'"));
+    expect(screen.queryByTestId("auction-canvas")).toBeNull();
   });
 
   test("footer links Pulse and color font without facets or hone", () => {

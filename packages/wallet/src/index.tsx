@@ -146,9 +146,12 @@ function normalizeProviderDetail(
       : "Injected";
   const rdns = typeof info?.rdns === "string" ? info.rdns.trim() : "";
   const icon = typeof info?.icon === "string" ? info.icon : "";
+  const providerTyped = provider as Eip1193Provider;
+  const normalizedInfo = { uuid, name, rdns, icon };
+  if (isUnsupportedInjectedProvider(normalizedInfo, providerTyped)) return null;
   return {
-    info: { uuid, name, rdns, icon },
-    provider: provider as Eip1193Provider,
+    info: normalizedInfo,
+    provider: providerTyped,
   };
 }
 
@@ -156,6 +159,20 @@ function providerDetailKey(detail: Eip6963ProviderDetail): string {
   const rdns = detail.info.rdns?.trim();
   if (rdns) return `rdns:${rdns.toLowerCase()}`;
   return `uuid:${detail.info.uuid.toLowerCase()}`;
+}
+
+function isUnsupportedInjectedProvider(
+  info: Eip6963ProviderInfo,
+  provider?: Eip1193Provider
+): boolean {
+  const name = info.name.toLowerCase();
+  const rdns = (info.rdns ?? "").toLowerCase();
+  const p = provider as any;
+  return (
+    name.includes("temple") ||
+    rdns.includes("temple") ||
+    Boolean(p?.isTemple || p?.isTempleWallet)
+  );
 }
 
 function mergeProviderDetails(
@@ -233,10 +250,9 @@ function fallbackWindowEthereumProviders(): Eip6963ProviderDetail[] {
       return;
     }
     seen.add(provider);
-    details.push({
-      info: inferFallbackProviderInfo(provider, index),
-      provider,
-    });
+    const info = inferFallbackProviderInfo(provider, index);
+    if (isUnsupportedInjectedProvider(info, provider)) return;
+    details.push({ info, provider });
   });
   return mergeProviderDetails([], details);
 }

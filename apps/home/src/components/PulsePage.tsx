@@ -147,6 +147,11 @@ function row(
   return clean ? { label, value: clean, ...meta } : null;
 }
 
+function withUnit(value: string | undefined, unit: string): string | undefined {
+  const clean = cleanValue(value);
+  return clean ? `${clean} ${unit}` : undefined;
+}
+
 function compactRows(rows: Array<InstanceRow | null>): InstanceGroup {
   return rows.filter((item): item is InstanceRow => Boolean(item));
 }
@@ -199,16 +204,16 @@ function pulseParamsDocument(params: {
     "config",
     "",
     rawLine("k", params.k),
-    rawLine("PTS", params.pts),
-    rawLine("opening ask", params.openingAsk),
-    rawLine("opening floor", params.openingFloor),
+    rawLine("PTS", withUnit(params.pts, `${params.paymentSymbol}/s`)),
+    rawLine("opening ask", withUnit(params.openingAsk, params.paymentSymbol)),
+    rawLine("opening floor", withUnit(params.openingFloor, params.paymentSymbol)),
     rawLine("payment", params.paymentSymbol),
     rawLine("open time", params.openTime),
     "",
     "current epoch",
     "",
-    rawLine("current ask", params.currentAsk),
-    rawLine("floor b", params.currentFloor),
+    rawLine("current ask", withUnit(params.currentAsk, params.paymentSymbol)),
+    rawLine("floor b", withUnit(params.currentFloor, params.paymentSymbol)),
     rawLine("epoch", params.epoch),
     rawLine("last price", params.lastPrice),
     rawLine("last sale", params.lastSale),
@@ -370,13 +375,13 @@ function PulseCurrentInstance() {
   ]);
   const configRows = compactRows([
     row("k", k),
-    row("PTS", pts),
-    row("opening ask", openingAsk),
-    row("opening floor", openingFloor),
+    row("PTS", withUnit(pts, `${paymentSymbol}/s`)),
+    row("opening ask", withUnit(openingAsk, paymentSymbol)),
+    row("opening floor", withUnit(openingFloor, paymentSymbol)),
   ]);
   const currentRows = compactRows([
-    row("current ask", currentAsk),
-    row("floor b", currentFloor),
+    row("current ask", withUnit(currentAsk, paymentSymbol)),
+    row("floor b", withUnit(currentFloor, paymentSymbol)),
     row("epoch", epoch),
   ]);
   const fieldGroups = [contextRows, configRows, currentRows].filter(
@@ -384,6 +389,7 @@ function PulseCurrentInstance() {
   );
   const loading = Boolean(auctionAddress) && !snapshot && !core.error;
   const failed = !auctionAddress || Boolean(core.error && !snapshot);
+  const visibleFieldGroups = failed ? [] : fieldGroups;
   const rawDocument = auctionAddress
     ? pulseParamsDocument({
         address: auctionAddress,
@@ -418,14 +424,11 @@ function PulseCurrentInstance() {
   return (
     <section className="pulse-page__current" aria-label="Pulse current instance">
       <div className="pulse-page__current-copy">
+        <div className="pulse-page__section-title">current instance</div>
         <p className="pulse-page__lead-line">
           $PATH is the current public auction using Pulse.
         </p>
-        <p>
-          Each successful bid mints one $PATH.
-          <br />
-          The sale starts the next Pulse epoch.
-        </p>
+        <p>Each successful bid mints one $PATH.</p>
       </div>
 
       {loading ? (
@@ -434,17 +437,16 @@ function PulseCurrentInstance() {
 
       {failed ? (
         <div className="pulse-page__instance-status" role="status">
-          <p>current instance unavailable.</p>
-          <p>contract params could not be loaded.</p>
+          <p>live params unavailable.</p>
         </div>
       ) : null}
 
-      {fieldGroups.length ? (
+      {visibleFieldGroups.length ? (
         <div
           className="pulse-page__instance-block"
           aria-label="Pulse current instance contract params"
         >
-          {fieldGroups.map((group, groupIndex) => (
+          {visibleFieldGroups.map((group, groupIndex) => (
             <dl className="pulse-page__instance-fields" key={groupIndex}>
               {group.map((item) => (
                 <div key={`${item.label}-${item.value}`}>

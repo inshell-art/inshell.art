@@ -18,8 +18,8 @@ export const PULSE = {
     "PTS = price-time scale",
     "elapsed time = sale time - previous curve start",
     "premium = elapsed time × PTS",
-    "current ask = last price + premium",
-    "current floor = last price",
+    "next ask = last price + premium",
+    "next floor = last price",
     "",
     "",
     "drop",
@@ -31,5 +31,5 @@ export const PULSE = {
     "k = curve constant",
     "a = anchor time",
   ].join("\n"),
-  note: "Here is the Desmos sketch for Pulse. It is a source note, not implementation code.",
+  note: "This is the Desmos sketch behind Pulse. It is a source note, not implementation code.",
 } as const;

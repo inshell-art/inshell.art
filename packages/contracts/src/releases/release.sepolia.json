@@ -1,1 +1,61 @@
-{}
+{
+  "schema_version": 2,
+  "protocol": "path",
+  "network": "sepolia",
+  "chain_id": 11155111,
+  "repo_commit": "0bed26d162513b696f278c78f5f8abff3a6e333a",
+  "deploy_run_id": "sepolia-deploy-20260313T06031773383225Z",
+  "release_tier": "temporary",
+  "deployer": "0x95ce72BE4DC51e1f5aA61b59c036BE1BfEB242Ad",
+  "treasury": "0xa868f2be37e4e819a3f38226ddbc7072793faea4",
+  "payment_token": "0x0000000000000000000000000000000000000000",
+  "contracts": {
+    "path_nft": "0x1D62FB2BBE09e3c77DC9D045A23C29578130bE3c",
+    "path_minter": "0x711ba7FF942681aa6e7875B2053696227EBFdf48",
+    "path_minter_adapter": "0x9Ab14F24E58E63351a2A54dE32A2173864bc7C4F",
+    "pulse_auction": "0xDd7F5A1EfD1A30A9457648de29B24CF1bd284a59"
+  },
+  "deploy_txs": {
+    "path_nft": "0x7b4fb24f7e9f62601b0b53e0d29e228ce1f2f194f3a6451e10f695ee6914312d",
+    "path_minter": "0x498420a9aac3e6bd4ef6a1c1346b1c1301f02e659ce2b81f72f0e515d086ffb2",
+    "path_minter_adapter": "0x8343b7d49299225a5a1741578f1ce01893ba2f3a21dba98389ef6e0c9c02275d",
+    "pulse_auction": "0x17c841815189224085fdf9412d97f1a784f98a3d3ce969250441d616ae0b59f2"
+  },
+  "deploy_blocks": {
+    "path_nft": 10437996,
+    "path_minter": 10437997,
+    "path_minter_adapter": 10437998,
+    "pulse_auction": 10437999
+  },
+  "code_hashes": {
+    "path_nft": "0x8217055669395830ae6879dc7f547c43859a057fc52c819afdecf92fef088ed0",
+    "path_minter": "0x1e5409a7b3a14d228f93de14ebccd7545cc091d6c56b6baf27c94eb1b8e189c5",
+    "path_minter_adapter": "0x6e6def284b4fc717dfe6724e302fa214332bb6dfe6cce05131ca665ae6e30dd9",
+    "pulse_auction": "0x2cdad53e813984a8346145335dd7c3adcc7d3e9e942ff67a1a4a506caaa87b75"
+  },
+  "config": {
+    "name": "PATH NFT",
+    "symbol": "PATH",
+    "base_uri": "",
+    "open_time": 1773390852,
+    "open_time_iso": "2026-03-13T08:34:12.000Z",
+    "start_delay_sec": 600,
+    "k": "600",
+    "genesis_price": "1000",
+    "genesis_floor": "900",
+    "token_base": 1,
+    "epoch_base": 1
+  },
+  "status": {
+    "postconditions": "pass",
+    "audit": "none",
+    "audit_id": null,
+    "ready_for_fe": true,
+    "notes": "temporary Sepolia integration target"
+  },
+  "source_artifacts": {
+    "deployment_relpath": "bundles/sepolia/sepolia-deploy-20260313T06031773383225Z/deployments/sepolia-eth.json",
+    "bundle_relpath": "bundles/sepolia/sepolia-deploy-20260313T06031773383225Z"
+  },
+  "generated_at": "2026-04-10T02:38:10.705049Z"
+}

@@ -1,0 +1,397 @@
+import {
+  decodeFunctionResult,
+  encodeFunctionData,
+  getAddress,
+  parseAbi,
+  toEventSelector,
+  type Address,
+  type Hex,
+} from "viem";
+import {
+  getBlockNumber,
+  getDefaultProvider,
+  supportsRpcRequest,
+  type EthereumBlockTag,
+  type EthereumLog,
+  type ProviderInterface,
+} from "@inshell/ethereum";
+
+const pathNftAbi = parseAbi([
+  "function balanceOf(address owner) view returns (uint256)",
+  "function ownerOf(uint256 tokenId) view returns (address)",
+  "function tokenURI(uint256 tokenId) view returns (string)",
+]);
+
+const TRANSFER_TOPIC = toEventSelector("Transfer(address,address,uint256)");
+const ZERO_TOPIC =
+  "0x0000000000000000000000000000000000000000000000000000000000000000";
+
+export type PathTokenAttribute = {
+  trait_type?: string;
+  value?: string | number | boolean;
+  [key: string]: unknown;
+};
+
+export type PathTokenMetadata = {
+  name?: string;
+  description?: string;
+  image?: string;
+  image_data?: string;
+  attributes?: PathTokenAttribute[];
+  [key: string]: unknown;
+};
+
+export type PathTokenInventoryItem = {
+  tokenId: bigint;
+  tokenIdLabel: string;
+  owner?: Address;
+  tokenUri: string;
+  metadata: PathTokenMetadata;
+};
+
+type RawLogsArgs = {
+  address: string;
+  fromBlock: number;
+  toBlock: number | EthereumBlockTag;
+  topics: Array<string | null>;
+};
+
+function normalizeProvider(provider?: ProviderInterface): ProviderInterface {
+  if (provider && supportsRpcRequest(provider)) return provider;
+  return getDefaultProvider();
+}
+
+function toBlockTag(value: number | EthereumBlockTag): string {
+  if (typeof value === "number") {
+    return `0x${Math.max(0, Math.trunc(value)).toString(16)}`;
+  }
+  return value;
+}
+
+function addressTopic(address: string): string {
+  return `0x${getAddress(address).slice(2).toLowerCase().padStart(64, "0")}`;
+}
+
+function topicToAddress(topic: string | undefined): Address | null {
+  if (!topic || topic === ZERO_TOPIC) return null;
+  return getAddress(`0x${topic.slice(-40)}`);
+}
+
+function topicToTokenId(topic: string | undefined): bigint | null {
+  if (!topic) return null;
+  try {
+    return BigInt(topic);
+  } catch {
+    return null;
+  }
+}
+
+function logOrdinal(log: EthereumLog): number {
+  const block = log.blockNumber ? Number.parseInt(log.blockNumber, 16) : 0;
+  const index = log.logIndex ? Number.parseInt(log.logIndex, 16) : 0;
+  return block * 1_000_000 + index;
+}
+
+function logKey(log: EthereumLog): string {
+  return `${log.transactionHash ?? "tx"}:${log.logIndex ?? "idx"}:${log.blockNumber ?? "block"}`;
+}
+
+async function ethCall<T>(
+  provider: ProviderInterface,
+  address: string,
+  functionName: "balanceOf" | "ownerOf" | "tokenURI",
+  args: readonly unknown[]
+): Promise<T> {
+  if (!supportsRpcRequest(provider)) {
+    throw new Error("Auction provider is missing JSON-RPC support.");
+  }
+  const data = encodeFunctionData({
+    abi: pathNftAbi,
+    functionName,
+    args,
+  } as any);
+  const result = (await provider.request?.({
+    method: "eth_call",
+    params: [{ to: getAddress(address), data }, "latest"],
+  })) as Hex;
+  if (!result || result === "0x") {
+    throw new Error(`No PATH token data returned from ${functionName}.`);
+  }
+  return decodeFunctionResult({
+    abi: pathNftAbi,
+    functionName,
+    data: result,
+  }) as T;
+}
+
+async function getRawLogs(
+  provider: ProviderInterface,
+  args: RawLogsArgs
+): Promise<EthereumLog[]> {
+  if (!supportsRpcRequest(provider)) {
+    throw new Error("Auction provider is missing JSON-RPC support.");
+  }
+  const result = (await provider.request?.({
+    method: "eth_getLogs",
+    params: [
+      {
+        address: getAddress(args.address),
+        fromBlock: toBlockTag(args.fromBlock),
+        toBlock: toBlockTag(args.toBlock),
+        topics: args.topics,
+      },
+    ],
+  })) as EthereumLog[];
+  return Array.isArray(result) ? result : [];
+}
+
+async function getTransferLogs(
+  provider: ProviderInterface,
+  args: {
+    pathNftAddress: string;
+    walletAddress: string;
+    fromBlock: number;
+    toBlock: number;
+    chunkSize: number;
+  }
+): Promise<EthereumLog[]> {
+  const ownerTopic = addressTopic(args.walletAddress);
+  const logsByKey = new Map<string, EthereumLog>();
+  for (let from = args.fromBlock; from <= args.toBlock; from += args.chunkSize) {
+    const to = Math.min(args.toBlock, from + args.chunkSize - 1);
+    const [incoming, outgoing] = await Promise.all([
+      getRawLogs(provider, {
+        address: args.pathNftAddress,
+        fromBlock: from,
+        toBlock: to,
+        topics: [TRANSFER_TOPIC, null, ownerTopic],
+      }),
+      getRawLogs(provider, {
+        address: args.pathNftAddress,
+        fromBlock: from,
+        toBlock: to,
+        topics: [TRANSFER_TOPIC, ownerTopic, null],
+      }),
+    ]);
+    for (const log of [...incoming, ...outgoing]) {
+      logsByKey.set(logKey(log), log);
+    }
+  }
+  return [...logsByKey.values()].sort((a, b) => logOrdinal(a) - logOrdinal(b));
+}
+
+async function getMintLogs(
+  provider: ProviderInterface,
+  args: {
+    pathNftAddress: string;
+    fromBlock: number;
+    toBlock: number;
+    chunkSize: number;
+  }
+): Promise<EthereumLog[]> {
+  const logsByKey = new Map<string, EthereumLog>();
+  for (let from = args.fromBlock; from <= args.toBlock; from += args.chunkSize) {
+    const to = Math.min(args.toBlock, from + args.chunkSize - 1);
+    const logs = await getRawLogs(provider, {
+      address: args.pathNftAddress,
+      fromBlock: from,
+      toBlock: to,
+      topics: [TRANSFER_TOPIC, ZERO_TOPIC, null],
+    });
+    for (const log of logs) {
+      logsByKey.set(logKey(log), log);
+    }
+  }
+  return [...logsByKey.values()].sort((a, b) => logOrdinal(a) - logOrdinal(b));
+}
+
+export async function readPathTokenOwner(args: {
+  provider?: ProviderInterface;
+  pathNftAddress: string;
+  tokenId: bigint;
+}): Promise<Address> {
+  const provider = normalizeProvider(args.provider);
+  return ethCall<Address>(provider, args.pathNftAddress, "ownerOf", [args.tokenId]);
+}
+
+export async function readPathTokenUri(args: {
+  provider?: ProviderInterface;
+  pathNftAddress: string;
+  tokenId: bigint;
+}): Promise<string> {
+  const provider = normalizeProvider(args.provider);
+  return ethCall<string>(provider, args.pathNftAddress, "tokenURI", [args.tokenId]);
+}
+
+export async function loadAllPathTokenIds(args: {
+  provider?: ProviderInterface;
+  pathNftAddress: string;
+  fromBlock?: number;
+  chunkSize?: number;
+}): Promise<bigint[]> {
+  if (args.fromBlock == null) {
+    throw new Error("PATH deploy block is missing; cannot backfill all tokens.");
+  }
+  const provider = normalizeProvider(args.provider);
+  const pathNftAddress = getAddress(args.pathNftAddress);
+  const latestBlock = await getBlockNumber(provider);
+  const mintLogs = await getMintLogs(provider, {
+    pathNftAddress,
+    fromBlock: args.fromBlock,
+    toBlock: latestBlock,
+    chunkSize: args.chunkSize ?? 5_000,
+  });
+  const tokenIds = new Set<bigint>();
+  for (const log of mintLogs) {
+    if (log.removed) continue;
+    const tokenId = topicToTokenId(log.topics[3]);
+    if (tokenId != null) tokenIds.add(tokenId);
+  }
+  return [...tokenIds].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+}
+
+export async function loadWalletPathTokenIds(args: {
+  provider?: ProviderInterface;
+  pathNftAddress: string;
+  walletAddress: string;
+  fromBlock?: number;
+  chunkSize?: number;
+}): Promise<bigint[]> {
+  if (args.fromBlock == null) {
+    throw new Error("PATH deploy block is missing; cannot backfill wallet tokens.");
+  }
+  const provider = normalizeProvider(args.provider);
+  const pathNftAddress = getAddress(args.pathNftAddress);
+  const walletAddress = getAddress(args.walletAddress);
+  const balance = await ethCall<bigint>(provider, pathNftAddress, "balanceOf", [
+    walletAddress,
+  ]);
+  if (balance === 0n) return [];
+
+  const latestBlock = await getBlockNumber(provider);
+  const transferLogs = await getTransferLogs(provider, {
+    pathNftAddress,
+    walletAddress,
+    fromBlock: args.fromBlock,
+    toBlock: latestBlock,
+    chunkSize: args.chunkSize ?? 5_000,
+  });
+  const owned = new Set<bigint>();
+  for (const log of transferLogs) {
+    if (log.removed) continue;
+    const from = topicToAddress(log.topics[1]);
+    const to = topicToAddress(log.topics[2]);
+    const tokenId = topicToTokenId(log.topics[3]);
+    if (tokenId == null) continue;
+    if (to?.toLowerCase() === walletAddress.toLowerCase()) {
+      owned.add(tokenId);
+    }
+    if (from?.toLowerCase() === walletAddress.toLowerCase()) {
+      owned.delete(tokenId);
+    }
+  }
+
+  const verified: bigint[] = [];
+  for (const tokenId of owned) {
+    try {
+      const owner = await ethCall<Address>(provider, pathNftAddress, "ownerOf", [tokenId]);
+      if (owner.toLowerCase() === walletAddress.toLowerCase()) {
+        verified.push(tokenId);
+      }
+    } catch {
+      // Burned or unavailable token ids are ignored.
+    }
+  }
+  return verified.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+}
+
+function decodeBase64Utf8(value: string): string {
+  const binary = globalThis.atob(value);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+function parseTokenMetadata(tokenUri: string): PathTokenMetadata {
+  const base64Prefix = "data:application/json;base64,";
+  const utf8Prefix = "data:application/json;utf8,";
+  try {
+    if (tokenUri.startsWith(base64Prefix)) {
+      return JSON.parse(decodeBase64Utf8(tokenUri.slice(base64Prefix.length)));
+    }
+    if (tokenUri.startsWith(utf8Prefix)) {
+      return JSON.parse(decodeURIComponent(tokenUri.slice(utf8Prefix.length)));
+    }
+    if (tokenUri.trim().startsWith("{")) {
+      return JSON.parse(tokenUri);
+    }
+  } catch {
+    return {};
+  }
+  return {};
+}
+
+export async function loadWalletPathTokens(args: {
+  provider?: ProviderInterface;
+  pathNftAddress: string;
+  walletAddress: string;
+  fromBlock?: number;
+  chunkSize?: number;
+}): Promise<PathTokenInventoryItem[]> {
+  const provider = normalizeProvider(args.provider);
+  const tokenIds = await loadWalletPathTokenIds({ ...args, provider });
+  const items = await Promise.all(
+    tokenIds.map(async (tokenId) => {
+      const tokenUri = await readPathTokenUri({
+        provider,
+        pathNftAddress: args.pathNftAddress,
+        tokenId,
+      });
+      return {
+        tokenId,
+        tokenIdLabel: tokenId.toString(),
+        owner: getAddress(args.walletAddress),
+        tokenUri,
+        metadata: parseTokenMetadata(tokenUri),
+      };
+    })
+  );
+  return items;
+}
+
+export async function loadAllPathTokens(args: {
+  provider?: ProviderInterface;
+  pathNftAddress: string;
+  fromBlock?: number;
+  chunkSize?: number;
+}): Promise<PathTokenInventoryItem[]> {
+  const provider = normalizeProvider(args.provider);
+  const tokenIds = await loadAllPathTokenIds({ ...args, provider });
+  const items: Array<PathTokenInventoryItem | null> = await Promise.all(
+    tokenIds.map(async (tokenId) => {
+      try {
+        const [owner, tokenUri] = await Promise.all([
+          readPathTokenOwner({
+            provider,
+            pathNftAddress: args.pathNftAddress,
+            tokenId,
+          }),
+          readPathTokenUri({
+            provider,
+            pathNftAddress: args.pathNftAddress,
+            tokenId,
+          }),
+        ]);
+        return {
+          tokenId,
+          tokenIdLabel: tokenId.toString(),
+          owner,
+          tokenUri,
+          metadata: parseTokenMetadata(tokenUri),
+        } satisfies PathTokenInventoryItem;
+      } catch {
+        return null;
+      }
+    })
+  );
+  return items.filter((item): item is PathTokenInventoryItem => Boolean(item));
+}

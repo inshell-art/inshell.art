@@ -148,6 +148,12 @@ function walletConnectorRank(connector: any): number {
   return 50;
 }
 
+function isUnsupportedWalletConnector(connector: any): boolean {
+  const name = String(connector?.name ?? "").toLowerCase();
+  const rdns = String(connector?.detail?.info?.rdns ?? "").toLowerCase();
+  return name.includes("temple") || rdns.includes("temple");
+}
+
 function formatTinyDecimalString(
   fixed: string,
   significantDigits = 4
@@ -1937,9 +1943,11 @@ export default function AuctionCanvas({
   const [mintReview, setMintReview] = useState<MintReviewQuote | null>(null);
   const [currentAskQuoteDec, setCurrentAskQuoteDec] = useState<string | null>(null);
   const [returnPromptVisible, setReturnPromptVisible] = useState(false);
+  const [walletPickerOpen, setWalletPickerOpen] = useState(false);
   const preflightRef = useRef<Promise<PreflightResult | null> | null>(null);
   const ctaStackRef = useRef<HTMLDivElement | null>(null);
   const mintReviewRef = useRef<HTMLDivElement | null>(null);
+  const walletPickerRef = useRef<HTMLDivElement | null>(null);
 
   const [hover, setHover] = useState<DotPoint | null>(null);
   const [selectedBidKey, setSelectedBidKey] = useState<string | null>(null);
@@ -2036,6 +2044,7 @@ export default function AuctionCanvas({
     if (!connectors?.length) return [];
     return connectors
       .filter((connector) => {
+        if (isUnsupportedWalletConnector(connector)) return false;
         try {
           if (typeof (connector as any).available === "function") {
             return Boolean((connector as any).available());
@@ -2497,6 +2506,11 @@ export default function AuctionCanvas({
   }, [walletAddress, walletConnected]);
 
   useEffect(() => {
+    if (!walletConnected) return;
+    setWalletPickerOpen(false);
+  }, [walletConnected]);
+
+  useEffect(() => {
     if (!mintReview) return;
     const handleOutsidePointerDown = (event: globalThis.Event) => {
       const target = event.target as globalThis.Node | null;
@@ -2510,6 +2524,21 @@ export default function AuctionCanvas({
       document.removeEventListener("pointerdown", handleOutsidePointerDown, true);
     };
   }, [mintReview]);
+
+  useEffect(() => {
+    if (!walletPickerOpen) return;
+    const handleOutsidePointerDown = (event: globalThis.Event) => {
+      const target = event.target as globalThis.Node | null;
+      if (!target) return;
+      if (walletPickerRef.current?.contains(target)) return;
+      if (ctaStackRef.current?.contains(target)) return;
+      setWalletPickerOpen(false);
+    };
+    document.addEventListener("pointerdown", handleOutsidePointerDown, true);
+    return () => {
+      document.removeEventListener("pointerdown", handleOutsidePointerDown, true);
+    };
+  }, [walletPickerOpen]);
 
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -3476,58 +3505,49 @@ export default function AuctionCanvas({
     }
   };
 
-  const handleConnect = async () => {
-    try {
-      if (availableConnectors.length > 0) {
-        let lastError: unknown = null;
-        for (const connector of availableConnectors) {
-          try {
-            await connectAsync({ connector } as any);
-            return;
-          } catch (err) {
-            lastError = err;
-            const msg = String((err as any)?.message ?? err ?? "").toLowerCase();
-            const code = Number((err as any)?.code);
-            if (
-              code === 4001 ||
-              msg.includes("user rejected") ||
-              msg.includes("user_refused")
-            ) {
-              throw err;
-            }
-          }
-        }
-        throw lastError ?? new Error("No wallet connector succeeded.");
-      }
-      await connectAsync();
-      return;
-    } catch (err) {
-      const msg = String((err as any)?.message ?? err ?? "").toLowerCase();
-      const code = Number((err as any)?.code);
-      if (
-        code === -32002 ||
-        msg.includes("already processing") ||
-        msg.includes("already pending") ||
-        msg.includes("request of type 'eth_requestaccounts' already pending")
-      ) {
-        showToast({
-          kind: "warn",
-          text: "Finish the pending wallet request.",
-        });
-        return;
-      }
-      if (
-        msg.includes("no eip-1193 injected wallet found") ||
-        msg.includes("missing vite_walletconnect_project_id") ||
-        msg.includes("walletconnect v2 provider is unavailable")
-      ) {
-        showToast({ kind: "error", text: "No supported wallet found." });
-        return;
-      }
-      console.warn("wallet connect failed", err);
-      showToast({ kind: "error", text: "Wallet connection failed." });
+  const handleWalletConnectionError = (err: unknown) => {
+    const msg = String((err as any)?.message ?? err ?? "").toLowerCase();
+    const code = Number((err as any)?.code);
+    if (
+      code === -32002 ||
+      msg.includes("already processing") ||
+      msg.includes("already pending") ||
+      msg.includes("request of type 'eth_requestaccounts' already pending")
+    ) {
+      showToast({
+        kind: "warn",
+        text: "Finish the pending wallet request.",
+      });
       return;
     }
+    if (
+      msg.includes("no eip-1193 injected wallet found") ||
+      msg.includes("missing vite_walletconnect_project_id") ||
+      msg.includes("walletconnect v2 provider is unavailable")
+    ) {
+      showToast({ kind: "error", text: "No supported wallet found." });
+      return;
+    }
+    console.warn("wallet connect failed", err);
+    showToast({ kind: "error", text: "Wallet connection failed." });
+  };
+
+  const connectWalletConnector = async (connector?: any) => {
+    try {
+      await connectAsync(connector ? ({ connector } as any) : undefined);
+      setWalletPickerOpen(false);
+    } catch (err) {
+      handleWalletConnectionError(err);
+    }
+  };
+
+  const handleConnect = async () => {
+    if (availableConnectors.length > 0) {
+      setMintReview(null);
+      setWalletPickerOpen((open) => !open);
+      return;
+    }
+    await connectWalletConnector();
   };
 
   const handleUnlock = async () => {
@@ -3535,7 +3555,7 @@ export default function AuctionCanvas({
       const accounts = await requestAccounts();
       if (accounts?.length) setWalletUnlockAttempted(true);
     }
-    await handleConnect();
+    await connectWalletConnector();
   };
 
   const handleSwitch = async () => {
@@ -4986,7 +5006,14 @@ export default function AuctionCanvas({
         </div>
       )}
       <div className="dotfield__nav">
-        <h1 className="headline dotfield__title thin">$PATH</h1>
+        <a
+          className="headline dotfield__title dotfield__title-link thin"
+          href="/path"
+          target="_blank"
+          rel="noreferrer"
+        >
+          $PATH
+        </a>
         <div className="dotfield__cta-stack" ref={ctaStackRef}>
           <HeaderWalletCTA
             ctaLabel={(ctaDisplay ?? ctaState).label}
@@ -5013,6 +5040,31 @@ export default function AuctionCanvas({
               showToast({ kind: "info", text: "Disconnected." });
             }}
           />
+          {walletPickerOpen && (
+            <div
+              className="dotfield__wallet-picker"
+              ref={walletPickerRef}
+              role="menu"
+              aria-label="Wallet options"
+            >
+              <div className="dotfield__wallet-picker-title">
+                wallet options
+              </div>
+              {availableConnectors.map((connector) => (
+                <button
+                  key={String((connector as any)?.id ?? (connector as any)?.name)}
+                  type="button"
+                  className="dotfield__wallet-picker-item"
+                  role="menuitem"
+                  onClick={() => {
+                    void connectWalletConnector(connector);
+                  }}
+                >
+                  {(connector as any)?.name ?? "Injected wallet"}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
       <div
@@ -5961,7 +6013,6 @@ export default function AuctionCanvas({
           <span>price ({displayTokenSymbol}) ↑</span>
         </div>
       )}
-
     </div>
   );
 }
