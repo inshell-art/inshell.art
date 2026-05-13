@@ -68,14 +68,15 @@ function movementProgressValue(item: PathTokenInventoryItem, traitType: string):
   const attribute = findAttribute(item, traitType);
   const raw = attribute ? attrValue(attribute) : "—";
   const match = /^Minted\((\d+)\/(\d+)\)$/i.exec(raw.trim());
-  if (match) return `${match[1]} / ${match[2]}`;
+  if (match) return match[2] === "0" ? "- / -" : `${match[1]} / ${match[2]}`;
   const spaced = /^(\d+)\s*\/\s*(\d+)(?:\s+minted)?$/i.exec(raw.trim());
-  if (spaced) return `${spaced[1]} / ${spaced[2]}`;
+  if (spaced) return spaced[2] === "0" ? "- / -" : `${spaced[1]} / ${spaced[2]}`;
   return raw;
 }
 
 function metadataName(item: PathTokenInventoryItem): string {
-  return `$PATH #${item.tokenIdLabel}`;
+  const name = item.metadata.name?.trim();
+  return name || `PATH #${item.tokenIdLabel}`;
 }
 
 function metadataImage(item: PathTokenInventoryItem): string | undefined {
@@ -192,7 +193,7 @@ function fixtureWillOneOfTen(): PathTokenInventoryItem {
     willMinted: 1,
     willQuota: 10,
     awaMinted: 0,
-    awaQuota: 1,
+    awaQuota: 0,
     slug: "will-1-of-10",
   });
 }
@@ -395,6 +396,8 @@ export default function PathPage() {
           <p>$PATH is minted by the public Pulse auction.</p>
           <p>Each $PATH authorizes movement mints in order: THOUGHT, WILL, then AWA.</p>
           <p>The image and traits show movement progress for each token.</p>
+          <p>Each movement has its own quota.</p>
+          <p>A movement mint consumes one unit from the selected PATH.</p>
         </div>
 
         <div className="path-page__toolbar">
@@ -420,12 +423,10 @@ export default function PathPage() {
         </div>
 
         <dl className="primitive-page__fields path-page__fields">
-          {fixtureItems && (
-            <div>
-              <dt>mode</dt>
-              <dd>fixture state gallery</dd>
-            </div>
-          )}
+          <div>
+            <dt>mode</dt>
+            <dd>{fixtureItems ? "fixture state gallery" : "live token gallery"}</dd>
+          </div>
           <div>
             <dt>source</dt>
             <dd>{fixtureItems ? "fixture tokenURI()" : "live tokenURI()"}</dd>

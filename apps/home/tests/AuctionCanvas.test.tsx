@@ -183,6 +183,8 @@ describe("AuctionCanvas", () => {
     const { container } = render(
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />
     );
+    expect(screen.getByRole("link", { name: "$PATH" })).toHaveAttribute("href", "/path");
+    expect(screen.getByRole("link", { name: "$PATH" })).toHaveAttribute("target", "_blank");
     expect(container.querySelector(".dotfield__mint")).toBeTruthy();
 
     const dots = container.querySelectorAll(".dotfield__point, .dotfield__now-dot");
@@ -1321,17 +1323,17 @@ describe("AuctionCanvas", () => {
     });
   });
 
-  test("shows unlock notice when wallet is locked", () => {
+  test("shows connect CTA when wallet is locked", () => {
     mockWalletState = createWalletState({
       account: null,
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     return waitFor(() => {
-      expect(screen.getByText(/\[\s*unlock\s*\]/i)).toBeTruthy();
+      expect(screen.getByText(/\[\s*connect\s*\]/i)).toBeTruthy();
     });
   });
 
-  test("unlock CTA requests accounts before reconnect", async () => {
+  test("locked wallet connect CTA requests accounts before reconnect", async () => {
     const requestAccounts = jest.fn().mockResolvedValue(["0xabc"]);
     mockWalletState = createWalletState({
       account: null,
@@ -1339,10 +1341,10 @@ describe("AuctionCanvas", () => {
       requestAccounts,
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    const unlockButton = await waitFor(() =>
-      screen.getByText(/\[\s*unlock\s*\]/i)
+    const connectButton = await waitFor(() =>
+      screen.getByText(/\[\s*connect\s*\]/i)
     );
-    fireEvent.click(unlockButton);
+    fireEvent.click(connectButton);
     await waitFor(() => {
       expect(requestAccounts).toHaveBeenCalled();
       expect(mockWalletState.connectAsync).toHaveBeenCalled();
@@ -1382,7 +1384,7 @@ describe("AuctionCanvas", () => {
     });
   });
 
-  test("connect CTA opens wallet options sorted with MetaMask first", async () => {
+  test("connect CTA opens supported wallet options sorted with MetaMask first", async () => {
     const genericConnector = {
       id: "window.ethereum",
       name: "Injected",
@@ -1396,6 +1398,13 @@ describe("AuctionCanvas", () => {
       kind: "injected",
       available: () => true,
       detail: { info: { rdns: "io.metamask" } },
+    };
+    const rabbyConnector = {
+      id: "rabby",
+      name: "Rabby Wallet",
+      kind: "injected",
+      available: () => true,
+      detail: { info: { rdns: "io.rabby" } },
     };
     const templeConnector = {
       id: "temple",
@@ -1411,7 +1420,7 @@ describe("AuctionCanvas", () => {
       isConnected: false,
       address: null,
       account: null,
-      connectors: [genericConnector, templeConnector, metaMaskConnector],
+      connectors: [genericConnector, templeConnector, rabbyConnector, metaMaskConnector],
       connectAsync,
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
@@ -1422,7 +1431,7 @@ describe("AuctionCanvas", () => {
     const options = await screen.findAllByRole("menuitem");
     expect(options.map((item) => item.textContent)).toEqual([
       "MetaMask",
-      "Injected",
+      "Rabby Wallet",
     ]);
     fireEvent.click(options[0]);
     await waitFor(() => {
@@ -1763,11 +1772,11 @@ describe("AuctionCanvas", () => {
     const review = screen.getByText(/review before wallet/i).closest(".dotfield__mint-review");
     expect(review).toBeTruthy();
     expect(within(review as HTMLElement).getByText(/current ask/i)).toBeTruthy();
-    expect(within(review as HTMLElement).getByText(/max charge/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getByText(/max bid/i)).toBeTruthy();
     expect(execute).not.toHaveBeenCalled();
   });
 
-  test("devnet mint review and bid use projected ask instead of stale contract quote", async () => {
+  test("devnet mint review and bid use live contract ask, not visual projection", async () => {
     jest.useFakeTimers();
     const nowMs = Date.UTC(2026, 0, 1, 0, 0, 0);
     jest.setSystemTime(nowMs);
@@ -1834,13 +1843,10 @@ describe("AuctionCanvas", () => {
       );
       const currentAskRow = rows.find((row) => row.textContent?.includes("current ask"));
       const txValueRow = rows.find((row) => row.textContent?.includes("tx value"));
-      const maxChargeRow = rows.find((row) => row.textContent?.includes("max charge"));
-      expect(currentAskRow?.textContent).toMatch(/current ask\s*1\.\d+ ETH/);
-      expect(currentAskRow?.textContent).not.toContain("5.3497 ETH");
-      expect(txValueRow?.textContent).toMatch(/tx value\s*1\.\d+ ETH/);
-      expect(txValueRow?.textContent).not.toContain("5.3497 ETH");
-      expect(maxChargeRow?.textContent).toMatch(/max charge\s*1\.\d+ ETH/);
-      expect(maxChargeRow?.textContent).not.toContain("5.3497 ETH");
+      const maxBidRow = rows.find((row) => row.textContent?.includes("max bid"));
+      expect(currentAskRow?.textContent).toContain("5.3497 ETH");
+      expect(txValueRow?.textContent).toContain("5.3497 ETH");
+      expect(maxBidRow?.textContent).toContain("5.3497 ETH");
 
       await act(async () => {
         fireEvent.click(screen.getByText(/\[\s*confirm\s*\]/i));
@@ -1852,8 +1858,99 @@ describe("AuctionCanvas", () => {
         ([call]) => (call as any)?.entrypoint === "bid"
       )?.[0] as any;
       expect(bidCall).toBeTruthy();
-      expect(bidCall.value).toBeLessThan(contractAsk);
-      expect(BigInt(bidCall.calldata[0])).toBeLessThan(contractAsk);
+      expect(bidCall.value).toBe(contractAsk);
+      expect(BigInt(bidCall.calldata[0])).toBe(contractAsk);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test("confirm reruns preflight and bids the refreshed live ask", async () => {
+    jest.useFakeTimers();
+    const nowMs = Date.UTC(2026, 0, 1, 0, 0, 0);
+    jest.setSystemTime(nowMs);
+    const nowSec = Math.floor(nowMs / 1000);
+    const saleSec = nowSec - 60;
+    const oneEth = 10n ** 18n;
+    const initialAsk = 1n * oneEth;
+    const reviewAsk = 2n * oneEth;
+    const confirmAsk = 3n * oneEth;
+    const askQueue = [initialAsk, reviewAsk, confirmAsk];
+    (globalThis as any).__VITE_ENV__ = {
+      ...(globalThis as any).__VITE_ENV__,
+      VITE_NETWORK: "devnet",
+      VITE_EXPECTED_CHAIN_ID: "0x7a69",
+      VITE_ETH_RPC: "http://127.0.0.1:8546",
+      VITE_PAYTOKEN: ZERO_ADDRESS,
+      VITE_PAYMENT_TOKEN: ZERO_ADDRESS,
+      VITE_PAYMENT_TOKEN_SYMBOL: "ETH",
+    };
+    const execute = jest.fn().mockResolvedValue({ transaction_hash: "0x1" });
+    mockWalletState = createWalletState({
+      chain: { name: "Anvil" },
+      chainId: 31337n,
+      account: { execute },
+    });
+    mockGetBalance.mockResolvedValue(10n * oneEth);
+    mockCallContract.mockReset();
+    mockCallContract.mockImplementation(async (args: any) => {
+      if (args?.entrypoint === "get_current_price") {
+        const price = askQueue.shift() ?? confirmAsk;
+        return { price: { low: price.toString(), high: "0" } } as any;
+      }
+      return { result: [] } as any;
+    });
+    mockAuctionCore(mockUseAuctionCore, {
+      openTimeSec: nowSec - 120,
+      genesisPrice: { dec: (2n * oneEth).toString() },
+      genesisFloor: { dec: oneEth.toString() },
+      k: { dec: (100n * oneEth).toString() },
+      pts: "1000000000000000",
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids: [
+        {
+          key: "b1",
+          atMs: saleSec * 1000,
+          amount: {
+            raw: { low: "1200000000000000000", high: "0" },
+            dec: "1200000000000000000",
+            value: 1_200_000_000_000_000_000n,
+          },
+          amountDec: "1.2",
+          bidder: "0x1111111111111111",
+          blockNumber: 10,
+          epochIndex: 1,
+        },
+      ],
+      ready: true,
+      loading: false,
+      error: null,
+    });
+
+    try {
+      render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+      await clickMintForReview();
+      const review = screen.getByText(/review before wallet/i).closest(".dotfield__mint-review");
+      expect(review).toBeTruthy();
+      const rows = Array.from(
+        (review as HTMLElement).querySelectorAll(".dotfield__mint-review-row")
+      );
+      const currentAskRow = rows.find((row) => row.textContent?.includes("current ask"));
+      expect(currentAskRow?.textContent).toMatch(/2(?:\.0+)? ETH/);
+
+      await act(async () => {
+        fireEvent.click(screen.getByText(/\[\s*confirm\s*\]/i));
+      });
+      await waitFor(() => {
+        expect(execute).toHaveBeenCalled();
+      });
+      const bidCall = execute.mock.calls.find(
+        ([call]) => (call as any)?.entrypoint === "bid"
+      )?.[0] as any;
+      expect(bidCall).toBeTruthy();
+      expect(bidCall.value).toBe(confirmAsk);
+      expect(BigInt(bidCall.calldata[0])).toBe(confirmAsk);
     } finally {
       jest.useRealTimers();
     }
@@ -1902,7 +1999,7 @@ describe("AuctionCanvas", () => {
     await clickMintThenSign();
     await waitFor(() => {
       expect(screen.getByText(/Wallet open: approve ETH/i)).toBeTruthy();
-      expect(screen.getByText(/\[\s*signing\s*\]/i)).toBeTruthy();
+      expect(screen.getByText(/\[\s*pending\s*\]/i)).toBeTruthy();
     });
   });
 
@@ -1929,7 +2026,7 @@ describe("AuctionCanvas", () => {
     await clickMintThenSign();
     await waitFor(() => {
       expect(screen.getByText(/Wallet open: confirm mint/i)).toBeTruthy();
-      expect(screen.getByText(/\[\s*signing\s*\]/i)).toBeTruthy();
+      expect(screen.getByText(/\[\s*pending\s*\]/i)).toBeTruthy();
     });
   });
 
@@ -2384,7 +2481,7 @@ describe("AuctionCanvas", () => {
     await act(async () => {
       fireEvent.click(disconnectButton);
     });
-    expect(screen.getByText(/Disconnected/i)).toBeTruthy();
+    expect(screen.getByText(/wallet disconnected/i)).toBeTruthy();
     mockWalletState = createWalletState({
       isConnected: false,
       address: null,

@@ -10,6 +10,8 @@
   --main-area-width: 1120px;
   --bg-body: #0f0f0f;
   --bg-hero: #0f0f0f;
+  --canvas-bg: var(--bg-body);
+  --canvas-frame-bg: var(--panel);
   --text: #e8edf7;
   --muted: #9ca3af;
   --primitive-label: var(--text);
@@ -33,6 +35,7 @@
   :root {
     --bg-body: #f0f0f0;
     --bg-hero: #f0f0f0;
+    --canvas-frame-bg: #fff;
     --text: #0f172a;
     --muted: #4b5563;
     --primitive-label: #0f172a;
@@ -676,7 +679,7 @@ body {
   max-width: 960px;
   margin: 0 auto;
   border: none;
-  background: #fff;
+  background: var(--canvas-frame-bg);
   padding: 20px 16px 8px;
   position: relative;
 }
@@ -1158,7 +1161,7 @@ body {
 .dotfield__canvas {
   width: 100%;
   border: none;
-  background: var(--bg-body);
+  background: var(--canvas-bg);
   padding: 0;
   position: relative;
   height: min(60vh, 420px);
@@ -1172,10 +1175,10 @@ body {
 
 @media (prefers-color-scheme: dark) {
   .dotfield {
-    background: var(--panel);
+    background: var(--canvas-frame-bg);
   }
   .dotfield__canvas {
-    background: var(--bg-body);
+    background: var(--canvas-bg);
   }
 }
 
@@ -1558,7 +1561,7 @@ body {
   gap: 12px;
   padding: 12px;
   border: 1px solid var(--panel-border);
-  background: var(--panel-soft);
+  background: var(--canvas-frame-bg);
 }
 
 .path-page-token__media {

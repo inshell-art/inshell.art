@@ -8,7 +8,7 @@ export const PULSE = {
   explanation: [
     "Pulse shapes the ask over time.",
     "A successful bid closes the current epoch and starts the next one.",
-    "The next ask is raised by a time premium.",
+    "The start ask is raised by a time premium.",
     "Between sales, the ask decays toward the floor.",
     "Settlement samples the ask at sale time.",
   ],
@@ -18,8 +18,8 @@ export const PULSE = {
     "PTS = price-time scale",
     "elapsed time = sale time - previous curve start",
     "premium = elapsed time × PTS",
-    "next ask = last price + premium",
-    "next floor = last price",
+    "start ask = last price + premium",
+    "floor b = last price",
     "",
     "",
     "drop",
@@ -31,5 +31,5 @@ export const PULSE = {
     "k = curve constant",
     "a = anchor time",
   ].join("\n"),
-  note: "This is the Desmos sketch behind Pulse. It is a source note, not implementation code.",
+  note: "Pulse began as the Desmos sketch below. This page preserves the pricing shape, not implementation code.",
 } as const;

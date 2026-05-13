@@ -3,44 +3,44 @@
   "protocol": "path",
   "network": "devnet",
   "chain_id": 31337,
-  "repo_commit": "1ef1270203a4fdc80328b47a34bdd7c64afcb879",
-  "deploy_run_id": "devnet-local-20260508T114317Z",
+  "repo_commit": "194d895bb6c775230c70cb4badfdac33a7bc474f",
+  "deploy_run_id": "devnet-local-20260512T102418Z",
   "release_tier": "temporary",
   "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
   "admin": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
   "treasury": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
   "payment_token": "0x0000000000000000000000000000000000000000",
   "contracts": {
-    "path_nft": "0x33E45b187da34826aBCEDA1039231Be46f1b05Af",
-    "path_minter": "0x0c626FC4A447b01554518550e30600136864640B",
-    "path_minter_adapter": "0xA21DDc1f17dF41589BC6A5209292AED2dF61Cc94",
-    "pulse_auction": "0x2A590C461Db46bca129E8dBe5C3998A8fF402e76"
+    "path_nft": "0xb007167714e2940013EC3bb551584130B7497E22",
+    "path_minter": "0x6b39b761b1b64C8C095BF0e3Bb0c6a74705b4788",
+    "path_minter_adapter": "0xeC827421505972a2AE9C320302d3573B42363C26",
+    "pulse_auction": "0x74Df809b1dfC099E8cdBc98f6a8D1F5c2C3f66f8"
   },
   "deploy_txs": {
-    "path_nft": "0x100470489f9cd9a38a63ce858625e8213cb909d2f9d3802f70ebf208033228e7",
-    "path_minter": "0x00d363c76001fbc14222c7be59a9c9a761f2c8d27c1c159510c95b302104ae4d",
-    "path_minter_adapter": "0xf227563ece459b81964636220c811ad450aca693d4e98f6dae628620112968b5",
-    "pulse_auction": "0xa25baae7f4cf377ccf4a6c6ce7feebc9504dd7eea57f3c0ef83e85aa0c377f6d"
+    "path_nft": "0xdc80bc4c4aa231500f7b4394b25202062fa47578439cf244d742b7d4c52d0043",
+    "path_minter": "0x154e93492c99dcda3fe3c7ac6a915defe78564005b89a50ae3ecad1cfcc80bd6",
+    "path_minter_adapter": "0xdc6627a839282485741cae0770ab98eb4fede0cba287c5eeaefd901837d87abd",
+    "pulse_auction": "0x22844443421804f88eac8e45b733976ee3f38ba909b43b5a68e685a331622f8b"
   },
   "deploy_blocks": {
-    "path_nft": 304,
-    "path_minter": 305,
-    "path_minter_adapter": 306,
-    "pulse_auction": 307
+    "path_nft": 332,
+    "path_minter": 333,
+    "path_minter_adapter": 334,
+    "pulse_auction": 335
   },
   "code_hashes": {
-    "path_nft": "0x8217055669395830ae6879dc7f547c43859a057fc52c819afdecf92fef088ed0",
-    "path_minter": "0x232261c720d12baf7f790e626d1ecd5a75219c9ec03facf3e7b038c3994243b3",
+    "path_nft": "0xf051c6d41d65e8c8ce4f43036922fa7a634baee4fcb5c84848223ed360d9ef6f",
+    "path_minter": "0x851c24f4a700fcf2694ee438205848947cc0e5353adb78288dd7df6259fb965b",
     "path_minter_adapter": "0x1f4785906e3b1a4decc227b524c8416a7b1406fe38d6a0b2f80e43f61ac11f93",
-    "pulse_auction": "0xc1718e12d990bff645d7c646af0725272c857ce7ebb612c85ff139f052d432ed"
+    "pulse_auction": "0xe84c54495632b1e16fb8e3996f538c11d73d4e2238468952ff29963f36d156e1"
   },
   "config": {
-    "name": "PATH NFT",
+    "name": "PATH",
     "symbol": "PATH",
     "base_uri": "",
-    "open_time": 1778240550,
-    "open_time_iso": "2026-05-08T11:42:30.000Z",
-    "start_delay_sec": 1,
+    "open_time": 1778581438,
+    "open_time_iso": "2026-05-12T10:23:58.000Z",
+    "start_delay_sec": 60,
     "k": "100000000000000000000",
     "genesis_price": "1000000000000000000",
     "genesis_floor": "100000000000000000",
@@ -59,5 +59,5 @@
     "deployment_relpath": "evm/deployments/localhost-eth.json",
     "bundle_relpath": "evm/deployments"
   },
-  "generated_at": "2026-05-08T11:43:17.063Z"
+  "generated_at": "2026-05-12T10:24:18.694Z"
 }

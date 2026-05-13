@@ -154,6 +154,29 @@ function isUnsupportedWalletConnector(connector: any): boolean {
   return name.includes("temple") || rdns.includes("temple");
 }
 
+function isVisibleWalletConnector(connector: any): boolean {
+  const name = String(connector?.name ?? "").toLowerCase();
+  const rdns = String(connector?.detail?.info?.rdns ?? "").toLowerCase();
+  return (
+    rdns.includes("metamask") ||
+    name.includes("metamask") ||
+    rdns.includes("rabby") ||
+    name.includes("rabby")
+  );
+}
+
+function isConnectorAvailable(connector: any): boolean {
+  if (isUnsupportedWalletConnector(connector)) return false;
+  try {
+    if (typeof connector?.available === "function") {
+      return Boolean(connector.available());
+    }
+  } catch {
+    return false;
+  }
+  return true;
+}
+
 function formatTinyDecimalString(
   fixed: string,
   significantDigits = 4
@@ -2040,20 +2063,17 @@ export default function AuctionCanvas({
     chainIdValue !== null &&
     targetChainId !== null &&
     chainIdValue === targetChainId;
+  const hasDetectedWalletConnector = useMemo(() => {
+    if (!connectors?.length) return false;
+    return connectors.some((connector) => isConnectorAvailable(connector));
+  }, [connectors]);
   const availableConnectors = useMemo(() => {
     if (!connectors?.length) return [];
     return connectors
-      .filter((connector) => {
-        if (isUnsupportedWalletConnector(connector)) return false;
-        try {
-          if (typeof (connector as any).available === "function") {
-            return Boolean((connector as any).available());
-          }
-        } catch {
-          return false;
-        }
-        return true;
-      })
+      .filter(
+        (connector) =>
+          isConnectorAvailable(connector) && isVisibleWalletConnector(connector)
+      )
       .sort((a, b) => {
         const rankDiff = walletConnectorRank(a) - walletConnectorRank(b);
         if (rankDiff !== 0) return rankDiff;
@@ -2068,6 +2088,7 @@ export default function AuctionCanvas({
   }, []);
   const walletDetected =
     availableConnectors.length > 0 ||
+    hasDetectedWalletConnector ||
     (evm?.providers?.length ?? 0) > 0 ||
     walletConnectV2Enabled;
   const walletConnected = Boolean(isConnected);
@@ -2110,11 +2131,11 @@ export default function AuctionCanvas({
     cta:
       | "auto"
       | "connect"
-      | "unlock"
+      | "connect-locked"
       | "switch"
       | "mint"
       | "mint-disabled"
-      | "sign"
+      | "wallet-request"
       | "pending"
       | "retry";
     notice:
@@ -2234,7 +2255,7 @@ export default function AuctionCanvas({
         effectiveBalanceOk = false;
         effectiveAllowanceOk = false;
         break;
-      case "unlock":
+      case "connect-locked":
         effectiveWalletUnlocked = false;
         effectivePreflightAttempted = false;
         effectivePreflightOk = false;
@@ -2255,7 +2276,7 @@ export default function AuctionCanvas({
         effectiveBalanceOk = false;
         effectiveAllowanceOk = false;
         break;
-      case "sign":
+      case "wallet-request":
         effectiveTxState = "awaiting_signature";
         if (debugOverride.txPhase === "auto") {
           effectiveTxPhase = "approve";
@@ -3055,13 +3076,6 @@ export default function AuctionCanvas({
   useEffect(() => {
     currentAskEstimateRef.current = currentAskEstimate;
   }, [currentAskEstimate]);
-  const projectedDevnetAsk = useCallback((): U256Num | null => {
-    if (!mimicLocalTime) return null;
-    const askEstimate = currentAskEstimateRef.current;
-    if (askEstimate == null || !Number.isFinite(askEstimate)) return null;
-    return humanToU256Num(askEstimate, decimals);
-  }, [decimals, mimicLocalTime]);
-
   const { status: auctionStatus, openAtUtcLabel, opensInLabel } = useAuctionStatus({
     releaseMissing,
     nowSec,
@@ -3149,27 +3163,16 @@ export default function AuctionCanvas({
   }, [currentAskEstimate, openingAskLabel]);
   const mintReviewCurrentAskLabel = useMemo(() => {
     if (!mintReview) return null;
-    if (mimicLocalTime && currentAskEstimate != null && Number.isFinite(currentAskEstimate)) {
-      return formatHumanTokenAmount(currentAskEstimate, 8);
-    }
     return mintReview.priceLabel;
-  }, [currentAskEstimate, mimicLocalTime, mintReview]);
+  }, [mintReview]);
   const mintReviewTxValueLabel = useMemo(() => {
     if (!mintReview) return null;
-    if (mimicLocalTime && currentAskEstimate != null && Number.isFinite(currentAskEstimate)) {
-      return mintReview.nativePayment
-        ? formatHumanTokenAmount(currentAskEstimate, 8)
-        : "0";
-    }
     return mintReview.txValueLabel;
-  }, [currentAskEstimate, mimicLocalTime, mintReview]);
+  }, [mintReview]);
   const mintReviewMaxPriceLabel = useMemo(() => {
     if (!mintReview) return null;
-    if (mimicLocalTime && currentAskEstimate != null && Number.isFinite(currentAskEstimate)) {
-      return formatHumanTokenAmount(currentAskEstimate, 8);
-    }
     return mintReview.maxPriceLabel;
-  }, [currentAskEstimate, mimicLocalTime, mintReview]);
+  }, [mintReview]);
 
   const useTailViewport = useMemo(() => {
     const hasSaleHistory = linked.segments.length > 1;
@@ -3354,8 +3357,7 @@ export default function AuctionCanvas({
       const readProvider =
         provider ?? (getDefaultProvider() as ProviderInterface);
       try {
-        const contractAsk = await readCurrentAskFromContract(readProvider, auctionAddress);
-        const ask = projectedDevnetAsk() ?? contractAsk;
+        const ask = await readCurrentAskFromContract(readProvider, auctionAddress);
         let balance: U256Num;
         let allowance: U256Num;
         if (nativePayment) {
@@ -3422,7 +3424,6 @@ export default function AuctionCanvas({
     activeConfig?.genesisPrice,
     paymentToken,
     nativePayment,
-    projectedDevnetAsk,
   ]);
 
   const mintReviewOpen = mintReview != null;
@@ -3668,14 +3669,7 @@ export default function AuctionCanvas({
       return;
     }
     if (!account || !walletAddress || !auctionAddress || !paymentToken) return;
-    const reviewAsk = mintReview ? projectedDevnetAsk() ?? mintReview.ask : null;
-    const data = mintReview
-      ? {
-          ask: reviewAsk,
-          balance: preflight.balance,
-          allowance: nativePayment && reviewAsk ? reviewAsk : preflight.allowance,
-        }
-      : await runPreflight();
+    const data = await runPreflight();
     if (!data?.ask || !data.balance || !data.allowance) return;
     if (data.balance.value < data.ask.value) {
       setMintReview(null);
@@ -3918,7 +3912,7 @@ export default function AuctionCanvas({
       return { label: "switch", disabled: false, onClick: handleSwitch };
     }
     if (effectiveWalletNeedsUnlock) {
-      return { label: "unlock", disabled: false, onClick: handleUnlock };
+      return { label: "connect", disabled: false, onClick: handleUnlock };
     }
     if (effectiveWalletDetected && !effectiveWalletAddressPresent) {
       return { label: "connect", disabled: false, onClick: handleConnect };
@@ -3933,7 +3927,7 @@ export default function AuctionCanvas({
       return { label: "pending", disabled: false, onClick: handlePending };
     }
     if (effectiveTxState === "awaiting_signature") {
-      return { label: "signing", disabled: true, onClick: () => {} };
+      return { label: "pending", disabled: true, onClick: () => {} };
     }
     if (effectiveTxState === "failed") {
       return { label: "retry", disabled: false, onClick: handleRetry };
@@ -3969,7 +3963,6 @@ export default function AuctionCanvas({
   })();
   const ctaDelayMs =
     ctaState.label === "connect" ||
-    ctaState.label === "unlock" ||
     ctaState.label === "switch"
       ? DELAY_MS
       : 0;
@@ -5037,7 +5030,7 @@ export default function AuctionCanvas({
                 attempted: false,
                 error: null,
               });
-              showToast({ kind: "info", text: "Disconnected." });
+              showToast({ kind: "info", text: "wallet disconnected." });
             }}
           />
           {walletPickerOpen && (
@@ -5098,17 +5091,19 @@ export default function AuctionCanvas({
             <strong>{mintReviewTxValueLabel ?? mintReview.txValueLabel} {mintReview.nativePayment ? mintReview.symbol : "ETH"}</strong>
           </div>
           <div className="dotfield__mint-review-row">
-            <span>max charge</span>
+            <span>max bid</span>
             <strong>{mintReviewMaxPriceLabel ?? mintReview.maxPriceLabel} {mintReview.symbol}</strong>
           </div>
           <div className="dotfield__mint-review-note">
             {mintReview.requiresApproval
-              ? `wallet step 1 approves ${mintReview.symbol}; step 2 submits max charge.`
+              ? `wallet step 1 approves ${mintReview.symbol}; step 2 submits max bid.`
               : (
                 <>
                   wallet opens next.
                   <br />
                   final charge can be lower at execution.
+                  <br />
+                  network gas is shown in wallet.
                 </>
               )}
           </div>
@@ -5152,11 +5147,11 @@ export default function AuctionCanvas({
                       cta: event.target.value as
                         | "auto"
                         | "connect"
-                        | "unlock"
+                        | "connect-locked"
                         | "switch"
                         | "mint"
                         | "mint-disabled"
-                        | "sign"
+                        | "wallet-request"
                         | "pending"
                         | "retry",
                     }))
@@ -5164,11 +5159,11 @@ export default function AuctionCanvas({
                 >
                   <option value="auto">auto</option>
                   <option value="connect">connect</option>
-                  <option value="unlock">unlock</option>
+                  <option value="connect-locked">connect locked</option>
                   <option value="switch">switch</option>
                   <option value="mint">mint</option>
                   <option value="mint-disabled">mint disabled</option>
-                  <option value="sign">sign</option>
+                  <option value="wallet-request">wallet request</option>
                   <option value="pending">pending</option>
                   <option value="retry">retry</option>
                 </select>
@@ -5248,7 +5243,7 @@ export default function AuctionCanvas({
                   <button
                     type="button"
                     onClick={() =>
-                      showToast({ kind: "info", text: "Disconnected." })
+                      showToast({ kind: "info", text: "wallet disconnected." })
                     }
                   >
                     disconnected

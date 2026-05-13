@@ -37,7 +37,7 @@ export const COLOR_FONT_RAW = COLOR_FONT_GLYPHS.map(
 export const COLOR_FONT = {
   title: "color font",
   subtitle: "Contract-defined A-Z color glyph system.",
-  id: "thought.colorfont.v1",
+  id: "inshell.colorfont.v1",
   version: "v1",
   hash: "0x5d16e42e857c3d93524b679426a87d59ec414466b581a904a72992d64c21a12f",
   format: "LETTER:INDEX:ALIAS_TERM:HEX",

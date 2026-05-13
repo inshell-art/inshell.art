@@ -1,4 +1,7 @@
 import React from "react";
+import { readFileSync } from "node:fs";
+import nodePath from "node:path";
+import { cwd } from "node:process";
 import { TextEncoder } from "node:util";
 import { afterEach, beforeEach, describe, test, expect, jest } from "@jest/globals";
 import { fireEvent, render, screen, act, within } from "@testing-library/react";
@@ -201,7 +204,7 @@ describe("App Component", () => {
     expect(screen.getByText("Pricing sketch for the $PATH auction.")).toBeInTheDocument();
     expect(screen.getByText("Pulse shapes the ask over time.")).toBeInTheDocument();
     expect(screen.getByText(/A successful bid closes the current epoch and starts the next one\./)).toBeInTheDocument();
-    expect(screen.getByText(/The next ask is raised by a time premium\./)).toBeInTheDocument();
+    expect(screen.getByText(/The start ask is raised by a time premium\./)).toBeInTheDocument();
     expect(screen.getByText(/Between sales, the ask decays toward the floor\./)).toBeInTheDocument();
     expect(screen.getByText(/Settlement samples the ask at sale time\./)).toBeInTheDocument();
     expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
@@ -214,10 +217,10 @@ describe("App Component", () => {
       /premium = elapsed time × PTS/,
     );
     expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
-      /next ask = last price \+ premium/,
+      /start ask = last price \+ premium/,
     );
     expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
-      /next floor = last price/,
+      /floor b = last price/,
     );
     expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
       /ask\(t\) = b \+ floor\(k \/ \(t - a\)\)/,
@@ -228,8 +231,12 @@ describe("App Component", () => {
     expect(screen.getByLabelText("Pulse current instance")).toBeInTheDocument();
     expect(screen.getByText("current instance")).toBeInTheDocument();
     expect(screen.getByText("$PATH is the current public auction using Pulse.")).toBeInTheDocument();
-    expect(screen.getByText(/It is a source note, not implementation code\./)).toBeInTheDocument();
-    expect(screen.getByText(/This is the Desmos sketch behind Pulse\./)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Pulse began as the Desmos sketch below\./),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/This page preserves the pricing shape, not implementation code\./),
+    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open original Desmos sketch ↗" })).toHaveAttribute(
       "href",
       "https://www.desmos.com/calculator/1d89f93d21",
@@ -286,7 +293,9 @@ describe("App Component", () => {
     const params = screen.getByLabelText("Pulse current instance contract params");
     const scopedParams = within(params);
     expect(scopedParams.getByText("authority")).toBeInTheDocument();
-    expect(scopedParams.getByText("PulseAuction 0x2A59...2e76")).toBeInTheDocument();
+    expect(
+      scopedParams.getByText(/^PulseAuction 0x[a-fA-F0-9]{4}\.\.\.[a-fA-F0-9]{4}$/),
+    ).toBeInTheDocument();
     expect(scopedParams.getByText("chain")).toBeInTheDocument();
     expect(scopedParams.getByText("Local Devnet")).toBeInTheDocument();
     expect(scopedParams.getByText("payment")).toBeInTheDocument();
@@ -346,10 +355,11 @@ describe("App Component", () => {
     expect(document.title).toBe("Color Font");
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/color-font.svg");
     expect(screen.getByRole("heading", { name: "color font" })).toBeInTheDocument();
+    expect(screen.queryByText(/THOUGHT Color Font/i)).toBeNull();
     expect(
       screen.getByText("Contract-defined A-Z color glyph system.")
     ).toBeInTheDocument();
-    expect(await screen.findByText("thought.colorfont.v1")).toBeInTheDocument();
+    expect(await screen.findByText("inshell.colorfont.v1")).toBeInTheDocument();
     const glyphs = within(await screen.findByLabelText("A-Z color glyph preview"));
     expect(glyphs.getAllByRole("img")).toHaveLength(26);
     expect(glyphs.getByLabelText("A, aqua, #00ffff")).toHaveAttribute(
@@ -383,26 +393,45 @@ describe("App Component", () => {
       expect.stringContaining("github.com/inshell-art/thought"),
     );
     expect(screen.getByText(/authority: onchain color font ABI unavailable/)).toBeInTheDocument();
-    expect(screen.getByText(/source: frontend mirror fallback/)).toBeInTheDocument();
+    expect(screen.getByText(/loaded from: frontend mirror fallback/)).toBeInTheDocument();
     expect(screen.getByText(/mirror: GitHub COLOR_FONT\.v1\.json/)).toBeInTheDocument();
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
     expect(screen.queryByLabelText("Open Color Font primitive page")).toBeNull();
   });
 
+  test("keeps PATH artwork frame background aligned with the auction frame", () => {
+    const css = readFileSync(
+      nodePath.resolve(cwd(), "src/main.css"),
+      "utf8",
+    );
+
+    expect(css).toMatch(/--canvas-frame-bg:\s*var\(--panel\);/);
+    expect(css).toMatch(/--canvas-frame-bg:\s*#fff;/);
+    expect(css).toMatch(
+      /\.dotfield\s*{[^}]*background:\s*var\(--canvas-frame-bg\);/s,
+    );
+    expect(css).toMatch(
+      /\.path-page-token\s*{[^}]*background:\s*var\(--canvas-frame-bg\);/s,
+    );
+    expect(css).toMatch(
+      /\.path-page-token__media\s*{[^}]*background:\s*#050505;/s,
+    );
+  });
+
   test("renders the Color Font primitive page with onchain authority metadata", async () => {
     window.history.pushState({}, "", "/color-font");
-    const thoughtNftAddress = "0x627b9A657eac8c3463AD17009a424dFE3FDbd0b1";
+    const colorFontV1Address = "0x627b9A657eac8c3463AD17009a424dFE3FDbd0b1";
     (globalThis as any).__VITE_ENV__ = {
       VITE_NETWORK: "sepolia",
-      VITE_THOUGHT_NFT: thoughtNftAddress,
+      VITE_COLOR_FONT_V1: colorFontV1Address,
     };
     const request = jest.fn(async ({ method, params }: any) => {
       if (method === "eth_call") {
         const data = params[0].data;
-        if (data === "0xa61ca744") return encodeAbiString(COLOR_FONT.id);
-        if (data === "0xdf495573") return encodeAbiString(COLOR_FONT.version);
-        if (data === "0x2d53d7de") return COLOR_FONT.hash;
-        if (data === "0xc6cc9e6f") return encodeAbiString(COLOR_FONT_RAW);
+        if (data === "0xaf640d0f") return encodeAbiString(COLOR_FONT.id);
+        if (data === "0x54fd4d50") return encodeAbiString(COLOR_FONT.version);
+        if (data === "0x09bd5a60") return COLOR_FONT.hash;
+        if (data === "0x73d4a13a") return encodeAbiString(COLOR_FONT_RAW);
       }
       throw new Error(`unexpected RPC request: ${method}`);
     });
@@ -412,15 +441,15 @@ describe("App Component", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("thought.colorfont.v1")).toBeInTheDocument();
-    const authority = screen.getByText("ThoughtNFT 0x627b...d0b1");
+    expect(await screen.findByText("inshell.colorfont.v1")).toBeInTheDocument();
+    const authority = screen.getByText("ColorFontV1 0x627b...d0b1");
     expect(authority).toHaveAttribute(
       "href",
-      `https://sepolia.etherscan.io/address/${thoughtNftAddress}`,
+      `https://sepolia.etherscan.io/address/${colorFontV1Address}`,
     );
-    expect(authority).toHaveAttribute("title", `ThoughtNFT ${thoughtNftAddress}`);
+    expect(authority).toHaveAttribute("title", `ColorFontV1 ${colorFontV1Address}`);
     expect(screen.getByText("Sepolia (11155111)")).toBeInTheDocument();
-    expect(screen.getByText("ThoughtNFT.colorFontData()")).toBeInTheDocument();
+    expect(screen.getByText("ColorFontV1.data()")).toBeInTheDocument();
     expect(screen.getByText("GitHub COLOR_FONT.v1.json")).toBeInTheDocument();
     expect(screen.queryByText("frontend mirror fallback")).toBeNull();
     expect(
@@ -431,13 +460,13 @@ describe("App Component", () => {
       expect.stringMatching(/^(blob:|data:text\/html;charset=utf-8,)/),
     );
     expect(screen.queryByRole("button", { name: "Retry onchain load" })).toBeNull();
-    expect(screen.getByText(/authority: ThoughtNFT 0x627b\.\.\.d0b1/)).toBeInTheDocument();
-    expect(screen.getByText(/source: ThoughtNFT\.colorFontData\(\)/)).toBeInTheDocument();
+    expect(screen.getByText(/authority: ColorFontV1 0x627b\.\.\.d0b1/)).toBeInTheDocument();
+    expect(screen.getByText(/loaded from: ColorFontV1\.data\(\)/)).toBeInTheDocument();
     expect(screen.getByText(/mirror: GitHub COLOR_FONT\.v1\.json/)).toBeInTheDocument();
     expect(request).toHaveBeenCalledWith(
       expect.objectContaining({
         method: "eth_call",
-        params: [expect.objectContaining({ to: thoughtNftAddress, data: "0xc6cc9e6f" }), "latest"],
+        params: [expect.objectContaining({ to: colorFontV1Address, data: "0x73d4a13a" }), "latest"],
       }),
     );
   });
@@ -457,15 +486,21 @@ describe("App Component", () => {
     expect(
       screen.getByText("The image and traits show movement progress for each token."),
     ).toBeInTheDocument();
+    expect(screen.getByText("Each movement has its own quota.")).toBeInTheDocument();
+    expect(
+      screen.getByText("A movement mint consumes one unit from the selected PATH."),
+    ).toBeInTheDocument();
     expect(screen.getByText("fixture: WILL minted 1 of 10")).toBeInTheDocument();
     expect(screen.getByText("mode")).toBeInTheDocument();
     expect(screen.getByText("fixture state gallery")).toBeInTheDocument();
-    expect(screen.getByText("$PATH #1")).toBeInTheDocument();
+    expect(screen.getByText("PATH #1")).toBeInTheDocument();
     expect(screen.getAllByText("WILL")).toHaveLength(2);
     expect(screen.getByText("progress")).toBeInTheDocument();
     expect(screen.getByText("1 / 10")).toBeInTheDocument();
+    expect(screen.getByText("- / -")).toBeInTheDocument();
     expect(screen.queryByText("Minted(1/10)")).toBeNull();
-    const image = screen.getByRole("img", { name: "$PATH #1 token image" });
+    expect(screen.queryByText("0 / 0")).toBeNull();
+    const image = screen.getByRole("img", { name: "PATH #1 token image" });
     expect(image).toHaveAttribute("src", expect.stringContaining("will-fill"));
     expect(image).toHaveAttribute("src", expect.stringContaining("r%3D'3'"));
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
@@ -481,7 +516,7 @@ describe("App Component", () => {
     expect(screen.getByText("fixture state gallery")).toBeInTheDocument();
     expect(screen.getByText("fixture tokenURI()")).toBeInTheDocument();
     for (let tokenId = 1; tokenId <= 8; tokenId += 1) {
-      expect(screen.getByText(`$PATH #${tokenId}`)).toBeInTheDocument();
+      expect(screen.getByText(`PATH #${tokenId}`)).toBeInTheDocument();
     }
     expect(screen.getByText("2 / 3")).toBeInTheDocument();
     expect(screen.getByText("5 / 10")).toBeInTheDocument();
@@ -490,7 +525,7 @@ describe("App Component", () => {
     expect(screen.getByText("COMPLETE")).toBeInTheDocument();
     expect(screen.queryByText("Minted(2/3)")).toBeNull();
 
-    const thoughtProgressImage = screen.getByRole("img", { name: "$PATH #2 token image" });
+    const thoughtProgressImage = screen.getByRole("img", { name: "PATH #2 token image" });
     expect(thoughtProgressImage).toHaveAttribute(
       "src",
       expect.stringContaining("circle%20id%3D'thought-box'"),
@@ -501,11 +536,11 @@ describe("App Component", () => {
       "src",
       expect.stringContaining("clip-path"),
     );
-    const oneWillImage = screen.getByRole("img", { name: "$PATH #4 token image" });
+    const oneWillImage = screen.getByRole("img", { name: "PATH #4 token image" });
     expect(oneWillImage).toHaveAttribute("src", expect.stringContaining("r%3D'3'"));
-    const midWillImage = screen.getByRole("img", { name: "$PATH #5 token image" });
+    const midWillImage = screen.getByRole("img", { name: "PATH #5 token image" });
     expect(midWillImage).toHaveAttribute("src", expect.stringContaining("r%3D'15'"));
-    const awaProgressImage = screen.getByRole("img", { name: "$PATH #7 token image" });
+    const awaProgressImage = screen.getByRole("img", { name: "PATH #7 token image" });
     expect(awaProgressImage).toHaveAttribute("src", expect.stringContaining("awa-fill"));
     expect(awaProgressImage).toHaveAttribute("src", expect.stringContaining("r%3D'15'"));
     expect(screen.queryByTestId("auction-canvas")).toBeNull();

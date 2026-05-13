@@ -71,18 +71,26 @@ type CaretDocument = globalThis.Document & {
 };
 
 const THOUGHT_NFT_COLOR_FONT_METHODS = {
-  colorFontId: "0xa61ca744",
-  colorFontVersion: "0xdf495573",
-  colorFontData: "0xc6cc9e6f",
-  colorFontHash: "0x2d53d7de",
+  id: "0xa61ca744",
+  version: "0xdf495573",
+  data: "0xc6cc9e6f",
+  hash: "0x2d53d7de",
 } as const;
 
-const COLOR_FONT_LOADED_FROM_ONCHAIN = "ThoughtNFT.colorFontData()";
+const COLOR_FONT_V1_METHODS = {
+  id: "0xaf640d0f",
+  version: "0x54fd4d50",
+  data: "0x73d4a13a",
+  hash: "0x09bd5a60",
+} as const;
+
+const COLOR_FONT_LOADED_FROM_COLOR_FONT_V1 = "ColorFontV1.data()";
+const COLOR_FONT_LOADED_FROM_THOUGHT_NFT = "ThoughtNFT.colorFontData()";
 const COLOR_FONT_LOADED_FROM_FALLBACK = "frontend mirror fallback";
 const COLOR_FONT_AUTHORITY_UNAVAILABLE =
   "onchain color font ABI unavailable";
 const FALLBACK_STATUS =
-  `authority: ${COLOR_FONT_AUTHORITY_UNAVAILABLE}\nsource: ${COLOR_FONT_LOADED_FROM_FALLBACK}\nmirror: ${COLOR_FONT.mirror}`;
+  `authority: ${COLOR_FONT_AUTHORITY_UNAVAILABLE}\nloaded from: ${COLOR_FONT_LOADED_FROM_FALLBACK}\nmirror: ${COLOR_FONT.mirror}`;
 const FALLBACK_WARNING = [
   "warning: onchain color font could not be loaded.",
   "showing bundled mirror copy.",
@@ -98,8 +106,8 @@ function dataHtmlHref(html: string) {
 
 function rawMappingDocument(doc: ColorFontDoc) {
   return [
-    "THOUGHT Color Font v1",
-    `source: ${doc.loadedFrom}`,
+    "Color Font v1",
+    `loaded from: ${doc.loadedFrom}`,
     `authority: ${doc.authority}`,
     `chain: ${doc.chain}`,
     `hash: ${doc.hash}`,
@@ -123,7 +131,7 @@ function rawMappingHtml(doc: ColorFontDoc) {
     '<html lang="en">',
     "<head>",
     '<meta charset="utf-8" />',
-    "<title>THOUGHT Color Font v1</title>",
+    "<title>Color Font v1</title>",
     "<style>",
     "body{margin:24px;background:#fff;color:#111;font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}",
     "pre{white-space:pre-wrap;margin:0;}",
@@ -156,6 +164,13 @@ function getEnv(name: string): string | undefined {
   const procEnv = (globalThis as any)?.process?.env;
   const value = envCache?.[name] ?? procEnv?.[name];
   return typeof value === "string" ? value : undefined;
+}
+
+function resolveColorFontV1Address() {
+  return (
+    maybeResolveAddress("color_font_v1") ??
+    maybeResolveAddress("color_font_v1_address")
+  );
 }
 
 function resolveThoughtNftAddress() {
@@ -206,10 +221,10 @@ function explorerUrl(chainId: bigint, address: string): string | undefined {
   return undefined;
 }
 
-function onchainStatus(authority: string) {
+function onchainStatus(authority: string, loadedFrom: string) {
   return [
     `authority: ${authority}`,
-    `source: ${COLOR_FONT_LOADED_FROM_ONCHAIN}`,
+    `loaded from: ${loadedFrom}`,
     `mirror: ${COLOR_FONT.mirror}`,
   ].join("\n");
 }
@@ -320,34 +335,32 @@ function parseColorFontData(raw: string): ColorGlyph[] | null {
 }
 
 async function fetchOnchainColorFont(): Promise<ColorFontDoc | null> {
-  const contractAddress = resolveThoughtNftAddress();
+  const colorFontAddress = resolveColorFontV1Address();
+  const thoughtNftAddress = resolveThoughtNftAddress();
+  const contractAddress = colorFontAddress ?? thoughtNftAddress;
   if (!contractAddress) return null;
+
+  const usingStandaloneColorFont = Boolean(colorFontAddress);
+  const methods = usingStandaloneColorFont
+    ? COLOR_FONT_V1_METHODS
+    : THOUGHT_NFT_COLOR_FONT_METHODS;
+  const loadedFrom = usingStandaloneColorFont
+    ? COLOR_FONT_LOADED_FROM_COLOR_FONT_V1
+    : COLOR_FONT_LOADED_FROM_THOUGHT_NFT;
+  const authorityName = usingStandaloneColorFont ? "ColorFontV1" : "ThoughtNFT";
+  const hashMethodName = usingStandaloneColorFont
+    ? "ColorFontV1.hash()"
+    : "ThoughtNFT.colorFontHash()";
 
   const provider = getDefaultProvider();
   const code = await getCode(provider, contractAddress);
   if (!code || code === "0x") throw new Error("RPC read failed.");
 
-  const dataResult = await ethCall(
-    provider,
-    contractAddress,
-    THOUGHT_NFT_COLOR_FONT_METHODS.colorFontData
-  );
+  const dataResult = await ethCall(provider, contractAddress, methods.data);
   const [idResult, versionResult, hashResult] = await Promise.all([
-    optionalEthCall(
-      provider,
-      contractAddress,
-      THOUGHT_NFT_COLOR_FONT_METHODS.colorFontId
-    ),
-    optionalEthCall(
-      provider,
-      contractAddress,
-      THOUGHT_NFT_COLOR_FONT_METHODS.colorFontVersion
-    ),
-    optionalEthCall(
-      provider,
-      contractAddress,
-      THOUGHT_NFT_COLOR_FONT_METHODS.colorFontHash
-    ),
+    optionalEthCall(provider, contractAddress, methods.id),
+    optionalEthCall(provider, contractAddress, methods.version),
+    optionalEthCall(provider, contractAddress, methods.hash),
   ]);
 
   const raw = decodeAbiString(dataResult);
@@ -360,7 +373,7 @@ async function fetchOnchainColorFont(): Promise<ColorFontDoc | null> {
       ? undefined
       : HASH_MISMATCH_WARNING
     : [
-        "warning: ThoughtNFT.colorFontHash() unavailable.",
+        `warning: ${hashMethodName} unavailable.`,
         "showing computed hash for loaded data.",
       ];
 
@@ -368,13 +381,13 @@ async function fetchOnchainColorFont(): Promise<ColorFontDoc | null> {
   if (!glyphs) throw new Error("contract returned no mapping data.");
 
   const chainId = await getChainId(provider);
-  const authority = `ThoughtNFT ${shortenAddress(contractAddress)}`;
+  const authority = `${authorityName} ${shortenAddress(contractAddress)}`;
 
   return {
     loadKind: "onchain",
-    loadedFrom: COLOR_FONT_LOADED_FROM_ONCHAIN,
+    loadedFrom,
     authority,
-    authorityTitle: `ThoughtNFT ${contractAddress}`,
+    authorityTitle: `${authorityName} ${contractAddress}`,
     authorityUrl: explorerUrl(chainId, contractAddress),
     chain: chainLabelFromChainId(chainId),
     id: idResult ? decodeAbiString(idResult) || COLOR_FONT.id : COLOR_FONT.id,
@@ -387,7 +400,7 @@ async function fetchOnchainColorFont(): Promise<ColorFontDoc | null> {
     raw,
     glyphs,
     warning,
-    status: onchainStatus(authority),
+    status: onchainStatus(authority, loadedFrom),
     repositoryUrl: COLOR_FONT.repositoryUrl,
   };
 }
