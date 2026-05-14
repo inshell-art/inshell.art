@@ -306,6 +306,28 @@ async function readCurrentAskFromContract(
   return toU256Num(readU256(priceRes?.price ?? priceRes?.[0] ?? priceRes));
 }
 
+async function syncDevnetTimeToBrowser(
+  provider: ProviderInterface,
+  targetTimeSec: number
+): Promise<boolean> {
+  if (!supportsRpcRequest(provider)) return false;
+  const target = Math.max(0, Math.floor(targetTimeSec));
+  const chainNow = await readLatestChainTimeSec(provider);
+  if (chainNow != null && target <= Math.floor(chainNow) + 1) return false;
+
+  const methods = ["evm_setNextBlockTimestamp", "anvil_setNextBlockTimestamp"];
+  for (const method of methods) {
+    try {
+      await provider.request?.({ method, params: [target] });
+      await provider.request?.({ method: "evm_mine", params: [] });
+      return true;
+    } catch {
+      // Try the next local-node dialect. Public networks never enter this path.
+    }
+  }
+  return false;
+}
+
 function getEnvValue(name: string): unknown {
   const envCache: Record<string, any> | undefined =
     (globalThis as any).__VITE_ENV__;
@@ -3357,7 +3379,17 @@ export default function AuctionCanvas({
       const readProvider =
         provider ?? (getDefaultProvider() as ProviderInterface);
       try {
-        const ask = await readCurrentAskFromContract(readProvider, auctionAddress);
+        let ask: U256Num | null = null;
+        if (mimicLocalTime) {
+          await syncDevnetTimeToBrowser(readProvider, liveNowSecRef.current);
+          const askEstimate = currentAskEstimateRef.current;
+          if (askEstimate != null && Number.isFinite(askEstimate)) {
+            ask = humanToU256Num(askEstimate, decimals);
+          }
+        }
+        if (!ask) {
+          ask = await readCurrentAskFromContract(readProvider, auctionAddress);
+        }
         let balance: U256Num;
         let allowance: U256Num;
         if (nativePayment) {
@@ -3424,9 +3456,37 @@ export default function AuctionCanvas({
     activeConfig?.genesisPrice,
     paymentToken,
     nativePayment,
+    mimicLocalTime,
   ]);
 
   const mintReviewOpen = mintReview != null;
+
+  useEffect(() => {
+    if (!mimicLocalTime || !mintReviewOpen) return;
+    const askEstimate = currentAskEstimate;
+    if (askEstimate == null || !Number.isFinite(askEstimate)) return;
+    const ask = humanToU256Num(askEstimate, decimals);
+    const priceLabel = formatHumanTokenAmount(askEstimate, 8);
+    setMintReview((prev) => {
+      if (!prev) return prev;
+      const txValueLabel = prev.nativePayment ? priceLabel : "0";
+      if (
+        prev.ask.value === ask.value &&
+        prev.priceLabel === priceLabel &&
+        prev.txValueLabel === txValueLabel &&
+        prev.maxPriceLabel === priceLabel
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        ask,
+        priceLabel,
+        txValueLabel,
+        maxPriceLabel: priceLabel,
+      };
+    });
+  }, [mimicLocalTime, mintReviewOpen, currentAskEstimate, decimals]);
 
   useEffect(() => {
     if (fixtureState || !auctionAddress) {
@@ -3676,7 +3736,11 @@ export default function AuctionCanvas({
       return;
     }
     if (!mintReview) {
-      const priceLabel = formatTokenAmount(data.ask, decimals);
+      const askEstimate = currentAskEstimateRef.current;
+      const priceLabel =
+        mimicLocalTime && askEstimate != null && Number.isFinite(askEstimate)
+          ? formatHumanTokenAmount(askEstimate, 8)
+          : formatTokenAmount(data.ask, decimals);
       setMintReview({
         ask: data.ask,
         symbol: displayTokenSymbol,

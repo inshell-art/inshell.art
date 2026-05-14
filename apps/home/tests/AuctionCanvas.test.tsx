@@ -1776,14 +1776,16 @@ describe("AuctionCanvas", () => {
     expect(execute).not.toHaveBeenCalled();
   });
 
-  test("devnet mint review and bid use live contract ask, not visual projection", async () => {
+  test("devnet mint review and bid use the local time-mimicked current ask", async () => {
     jest.useFakeTimers();
     const nowMs = Date.UTC(2026, 0, 1, 0, 0, 0);
     jest.setSystemTime(nowMs);
     const nowSec = Math.floor(nowMs / 1000);
     const saleSec = nowSec - 60;
     const oneEth = 10n ** 18n;
-    const contractAsk = 5_349_700_000_000_000_000n;
+    const visualAsk =
+      1.2 + 0.06 / (1 + 60 / (100 / 0.06));
+    const visualAskWei = BigInt(visualAsk.toFixed(18).replace(".", ""));
     (globalThis as any).__VITE_ENV__ = {
       ...(globalThis as any).__VITE_ENV__,
       VITE_NETWORK: "devnet",
@@ -1801,7 +1803,7 @@ describe("AuctionCanvas", () => {
     mockCallContract.mockReset();
     mockCallContract.mockImplementation(async (args: any) => {
       if (args?.entrypoint === "get_current_price") {
-        return { price: { low: contractAsk.toString(), high: "0" } } as any;
+        return { price: { low: "5349700000000000000", high: "0" } } as any;
       }
       return { result: [] } as any;
     });
@@ -1844,9 +1846,9 @@ describe("AuctionCanvas", () => {
       const currentAskRow = rows.find((row) => row.textContent?.includes("current ask"));
       const txValueRow = rows.find((row) => row.textContent?.includes("tx value"));
       const maxBidRow = rows.find((row) => row.textContent?.includes("max bid"));
-      expect(currentAskRow?.textContent).toContain("5.3497 ETH");
-      expect(txValueRow?.textContent).toContain("5.3497 ETH");
-      expect(maxBidRow?.textContent).toContain("5.3497 ETH");
+      expect(currentAskRow?.textContent).toContain(`${visualAsk.toFixed(8)} ETH`);
+      expect(txValueRow?.textContent).toContain(`${visualAsk.toFixed(8)} ETH`);
+      expect(maxBidRow?.textContent).toContain(`${visualAsk.toFixed(8)} ETH`);
 
       await act(async () => {
         fireEvent.click(screen.getByText(/\[\s*confirm\s*\]/i));
@@ -1858,8 +1860,8 @@ describe("AuctionCanvas", () => {
         ([call]) => (call as any)?.entrypoint === "bid"
       )?.[0] as any;
       expect(bidCall).toBeTruthy();
-      expect(bidCall.value).toBe(contractAsk);
-      expect(BigInt(bidCall.calldata[0])).toBe(contractAsk);
+      expect(bidCall.value).toBe(visualAskWei);
+      expect(BigInt(bidCall.calldata[0])).toBe(visualAskWei);
     } finally {
       jest.useRealTimers();
     }
@@ -1878,8 +1880,8 @@ describe("AuctionCanvas", () => {
     const askQueue = [initialAsk, reviewAsk, confirmAsk];
     (globalThis as any).__VITE_ENV__ = {
       ...(globalThis as any).__VITE_ENV__,
-      VITE_NETWORK: "devnet",
-      VITE_EXPECTED_CHAIN_ID: "0x7a69",
+      VITE_NETWORK: "sepolia",
+      VITE_EXPECTED_CHAIN_ID: "0xaa36a7",
       VITE_ETH_RPC: "http://127.0.0.1:8546",
       VITE_PAYTOKEN: ZERO_ADDRESS,
       VITE_PAYMENT_TOKEN: ZERO_ADDRESS,
@@ -1887,8 +1889,8 @@ describe("AuctionCanvas", () => {
     };
     const execute = jest.fn().mockResolvedValue({ transaction_hash: "0x1" });
     mockWalletState = createWalletState({
-      chain: { name: "Anvil" },
-      chainId: 31337n,
+      chain: { name: "Sepolia" },
+      chainId: 11155111n,
       account: { execute },
     });
     mockGetBalance.mockResolvedValue(10n * oneEth);
@@ -1937,7 +1939,7 @@ describe("AuctionCanvas", () => {
         (review as HTMLElement).querySelectorAll(".dotfield__mint-review-row")
       );
       const currentAskRow = rows.find((row) => row.textContent?.includes("current ask"));
-      expect(currentAskRow?.textContent).toMatch(/2(?:\.0+)? ETH/);
+      expect(currentAskRow?.textContent).toMatch(/3(?:\.0+)? ETH/);
 
       await act(async () => {
         fireEvent.click(screen.getByText(/\[\s*confirm\s*\]/i));
