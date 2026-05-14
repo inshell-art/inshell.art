@@ -88,8 +88,7 @@ then use `scripts/abi-json-to-ts.ts` as a helper to emit const-typed TS ABI lite
 ### One-off (per contract)
 ```bash
 pnpm tsx scripts/abi-json-to-ts.ts /absolute/path/to/PulseAuction.json      packages/contracts/src/abi/typed/PulseAuction.abi.ts      AUCTION_ABI
-pnpm tsx scripts/abi-json-to-ts.ts /absolute/path/to/PathMinter.json        packages/contracts/src/abi/typed/PathMinter.abi.ts        MINTER_ABI
-pnpm tsx scripts/abi-json-to-ts.ts /absolute/path/to/PathMinterAdapter.json packages/contracts/src/abi/typed/PathMinterAdapter.abi.ts ADAPTER_ABI
+pnpm tsx scripts/abi-json-to-ts.ts /absolute/path/to/PathPulseAdapter.json  packages/contracts/src/abi/typed/PathPulseAdapter.abi.ts  ADAPTER_ABI
 pnpm tsx scripts/abi-json-to-ts.ts /absolute/path/to/PathNFT.json           packages/contracts/src/abi/typed/PathNFT.abi.ts           NFT_ABI
 
 ````
@@ -98,7 +97,7 @@ PATH note:
 - after `path` removal commit `070ee8342833a4249027146d3ed61cf555e4762f`, do not import artifacts
   that still expose `RESERVED_ROLE`, `SPARK_BASE`, `mintSparker`, `getReservedCap`,
   `getReservedRemaining`, or `reserved_cap`
-- current canonical `PathMinter` surface is `nextId`, `freezeSalesCaller`, `mintPublic`
+- current canonical PATH issuance surface is `PathPulseAdapter` settling `PulseAuction` epochs directly into `PathNFT`
 
 ## 2) Run the FE
 

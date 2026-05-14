@@ -34,10 +34,11 @@ Task scripts for syncing **addresses**, writing **env**, and validating imported
   - `getReservedCap`
   - `getReservedRemaining`
   - `reserved_cap`
-- Canonical `PathMinter` surface is now:
-  - `nextId`
-  - `freezeSalesCaller`
-  - `mintPublic`
+- Canonical PATH issuance now uses `PathPulseAdapter`:
+  - `tokenBase`
+  - `epochBase`
+  - `settle`
+  - direct `PulseAuction` epoch settlement into `PathNFT`
 
 ## Requirements
 
