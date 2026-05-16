@@ -24,6 +24,65 @@ export type NormalizedBid = {
   tokenId?: number;
 };
 
+const DEFAULT_LOG_CHUNK_SIZE = 40_000;
+const MAX_LOG_FETCH_CONCURRENCY = 8;
+
+function chunkRanges(
+  startBlock: number,
+  endBlock: number,
+  chunkSize: number
+): Array<[number, number]> {
+  const ranges: Array<[number, number]> = [];
+  const size = Math.max(1, Math.trunc(chunkSize));
+  for (let chunkStart = startBlock; chunkStart <= endBlock; chunkStart += size) {
+    ranges.push([chunkStart, Math.min(endBlock, chunkStart + size - 1)]);
+  }
+  return ranges;
+}
+
+function inferProviderLogRangeLimit(error: unknown, currentSize: number): number | null {
+  const msg = String((error as any)?.message ?? error ?? "");
+  const explicitLimit = /up to a\s+(\d+)\s+block range/i.exec(msg);
+  if (explicitLimit) {
+    const parsed = Number(explicitLimit[1]);
+    return Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : null;
+  }
+
+  const suggestedRange = /\[\s*(0x[0-9a-f]+|\d+)\s*,\s*(0x[0-9a-f]+|\d+)\s*\]/i.exec(msg);
+  if (suggestedRange) {
+    const from = Number(BigInt(suggestedRange[1]));
+    const to = Number(BigInt(suggestedRange[2]));
+    const span = to - from + 1;
+    if (Number.isFinite(span) && span > 0) return Math.trunc(span);
+  }
+
+  if (/block range|range should work|too many blocks|exceed/i.test(msg)) {
+    return Math.max(1, Math.floor(currentSize / 2));
+  }
+  return null;
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<R>
+): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let nextIndex = 0;
+  const workerCount = Math.max(1, Math.min(concurrency, items.length));
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      for (;;) {
+        const index = nextIndex;
+        nextIndex += 1;
+        if (index >= items.length) return;
+        out[index] = await worker(items[index]);
+      }
+    })
+  );
+  return out;
+}
+
 export function createBidsService(opts: {
   address: string;
   provider?: ProviderInterface; // explicit > env > fallback
@@ -35,13 +94,15 @@ export function createBidsService(opts: {
   const address = opts.address;
   const provider: ProviderInterface = opts.provider ?? getDefaultProvider();
   const maxBids = opts.maxBids ?? 200;
-  const chunkSize = Math.max(1, opts.chunkSize ?? 40_000);
+  const initialChunkSize = Math.max(1, opts.chunkSize ?? DEFAULT_LOG_CHUNK_SIZE);
   const reorgDepth = opts.reorgDepth ?? 2;
   const selectors = new Set(
     [...getBidEventSelectors()].map((s) => s.toLowerCase())
   );
 
   let lastBlock = opts.fromBlock;
+  let effectiveChunkSize = initialChunkSize;
+  let inFlight: Promise<NormalizedBid[]> | null = null;
   const seen = new Set<string>();
   let bids: NormalizedBid[] = [];
   const listeners = new Set<
@@ -115,7 +176,41 @@ export function createBidsService(opts: {
     };
   }
 
-  async function pullOnce(): Promise<NormalizedBid[]> {
+  async function fetchLogsAdaptive(
+    startBlock: number,
+    latestBlock: number
+  ): Promise<EthereumLog[]> {
+    let size = effectiveChunkSize;
+    let lastError: unknown = null;
+
+    for (let attempt = 0; attempt < 16; attempt += 1) {
+      const ranges = chunkRanges(startBlock, latestBlock, size);
+      try {
+        const batches = await mapWithConcurrency(
+          ranges,
+          MAX_LOG_FETCH_CONCURRENCY,
+          ([fromBlock, toBlock]) =>
+            getLogs(provider, {
+              address,
+              fromBlock,
+              toBlock,
+              topics: [...selectors],
+            })
+        );
+        effectiveChunkSize = size;
+        return batches.flat();
+      } catch (err) {
+        lastError = err;
+        const nextSize = inferProviderLogRangeLimit(err, size);
+        if (!nextSize || nextSize >= size) throw err;
+        size = Math.max(1, nextSize);
+      }
+    }
+
+    throw lastError ?? new Error("Unable to fetch auction logs.");
+  }
+
+  async function pullOnceInternal(): Promise<NormalizedBid[]> {
     const fresh: NormalizedBid[] = [];
 
     async function resolveFromBlock(): Promise<number> {
@@ -134,30 +229,19 @@ export function createBidsService(opts: {
 
     const startBlock = await resolveFromBlock();
     const latestBlock = await getBlockNumber(provider);
+    if (startBlock > latestBlock) return fresh;
 
-    for (
-      let chunkStart = startBlock;
-      chunkStart <= latestBlock;
-      chunkStart += chunkSize
-    ) {
-      const chunkEnd = Math.min(latestBlock, chunkStart + chunkSize - 1);
-      const events = await getLogs(provider, {
-        address,
-        fromBlock: chunkStart,
-        toBlock: chunkEnd,
-        topics: [...selectors],
-      });
+    const events = await fetchLogsAdaptive(startBlock, latestBlock);
 
-      for (const ev of events) {
-        const sel = (ev.topics?.[0] ?? "").toLowerCase();
-        if (!selectors.has(sel)) continue;
-        const row = await decode(ev);
-        if (!row || seen.has(row.key)) continue;
-        seen.add(row.key);
-        fresh.push(row);
-        if (typeof row.blockNumber === "number") {
-          lastBlock = Math.max(lastBlock ?? 0, row.blockNumber + 1);
-        }
+    for (const ev of events) {
+      const sel = (ev.topics?.[0] ?? "").toLowerCase();
+      if (!selectors.has(sel)) continue;
+      const row = await decode(ev);
+      if (!row || seen.has(row.key)) continue;
+      seen.add(row.key);
+      fresh.push(row);
+      if (typeof row.blockNumber === "number") {
+        lastBlock = Math.max(lastBlock ?? 0, row.blockNumber + 1);
       }
     }
 
@@ -170,6 +254,14 @@ export function createBidsService(opts: {
     }
 
     return fresh;
+  }
+
+  async function pullOnce(): Promise<NormalizedBid[]> {
+    if (inFlight) return inFlight;
+    inFlight = pullOnceInternal().finally(() => {
+      inFlight = null;
+    });
+    return inFlight;
   }
 
   return { address, provider, onBids, getBids, pullOnce };
