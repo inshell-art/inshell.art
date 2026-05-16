@@ -19,6 +19,7 @@ const DEPLOY_WORKFLOW_SNIPPETS = [
   "deploy-thought",
   "dist/home",
   "dist/thought",
+  "/api/eth-rpc",
   "CLOUDFLARE_API_TOKEN",
   "CLOUDFLARE_ACCOUNT_ID",
   "CLOUDFLARE_PAGES_PROJECT_HOME",
@@ -267,6 +268,21 @@ function checkEthereumRpcGuard() {
   }
 }
 
+function checkCloudflareRpcProxy() {
+  const text = read("functions/api/eth-rpc.ts");
+  for (const snippet of [
+    "ETH_RPC_UPSTREAM",
+    "ALLOWED_METHODS",
+    "eth_call",
+    "eth_getLogs",
+    "eth_getTransactionReceipt",
+  ]) {
+    if (!text.includes(snippet)) {
+      fail(`functions/api/eth-rpc.ts is missing RPC proxy snippet: ${snippet}`);
+    }
+  }
+}
+
 checkPackageScripts();
 checkViteConfig("apps/home/vite.config.ts", 5173);
 checkViteConfig("apps/thought/vite.config.ts", 5174);
@@ -277,6 +293,7 @@ checkSepoliaRelease();
 checkNoLocalhostInProductionArtifacts();
 checkAbiAndReleaseJsonParse();
 checkEthereumRpcGuard();
+checkCloudflareRpcProxy();
 
 if (errors.length) {
   console.error("[validate-production-surface] FAIL");

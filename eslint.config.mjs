@@ -19,6 +19,7 @@ const browserGlobals = {
   Response: "readonly",
   Headers: "readonly",
   TextDecoder: "readonly",
+  TextEncoder: "readonly",
   atob: "readonly",
 };
 

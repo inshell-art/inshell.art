@@ -19,6 +19,16 @@ describe("Ethereum client production RPC guard", () => {
     expect(providerRpcUrl()).toBe("https://rpc.example/sepolia");
   });
 
+  test("allows same-origin RPC proxy URL for production deployments", () => {
+    (globalThis as any).__VITE_ENV__ = {
+      VITE_NETWORK: "sepolia",
+      VITE_PUBLIC_LAUNCH_MODE: "sepolia_invite",
+      VITE_ETH_RPC: "/api/eth-rpc",
+    };
+
+    expect(providerRpcUrl()).toBe("/api/eth-rpc");
+  });
+
   test("allows localhost RPC fallback only for local development", () => {
     delete (globalThis as any).__VITE_ENV__;
 

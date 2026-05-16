@@ -32,8 +32,8 @@ jobs:
     env:
       CLOUDFLARE_PAGES_PROJECT_HOME: ${{ vars.CLOUDFLARE_PAGES_PROJECT_HOME }}
       VITE_NETWORK: ${{ vars.VITE_NETWORK || 'sepolia' }}
-      VITE_ETH_RPC: ${{ secrets.VITE_ETH_RPC }}
-      VITE_WALLETCONNECT_PROJECT_ID: ${{ secrets.VITE_WALLETCONNECT_PROJECT_ID }}
+      VITE_ETH_RPC: ${{ vars.VITE_ETH_RPC || '/api/eth-rpc' }}
+      VITE_WALLETCONNECT_PROJECT_ID: ${{ vars.VITE_WALLETCONNECT_PROJECT_ID }}
       VITE_PUBLIC_LAUNCH_MODE: ${{ vars.VITE_PUBLIC_LAUNCH_MODE || 'sepolia_invite' }}
       VITE_REPORT_BUG_URL: ${{ vars.VITE_REPORT_BUG_URL }}
       VITE_GITHUB_URL: ${{ vars.VITE_GITHUB_URL || 'https://github.com/inshell-art/inshell.art' }}
@@ -80,7 +80,7 @@ jobs:
     env:
       CLOUDFLARE_PAGES_PROJECT_THOUGHT: ${{ vars.CLOUDFLARE_PAGES_PROJECT_THOUGHT }}
       VITE_NETWORK: ${{ vars.VITE_NETWORK || 'sepolia' }}
-      VITE_ETH_RPC: ${{ secrets.VITE_ETH_RPC }}
+      VITE_ETH_RPC: ${{ vars.VITE_ETH_RPC || '/api/eth-rpc' }}
     steps:
       - uses: actions/checkout@v4
       - name: Use Node.js
