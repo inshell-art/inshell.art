@@ -1,13 +1,16 @@
-import { describe, expect, test, afterEach } from "@jest/globals";
-import { getDefaultProvider } from "@inshell/ethereum";
+import { describe, expect, jest, test, afterEach } from "@jest/globals";
+import { getDefaultProvider, JsonRpcProvider } from "@inshell/ethereum";
 
 function providerRpcUrl() {
   return (getDefaultProvider() as any).rpcUrl as string;
 }
 
 describe("Ethereum client production RPC guard", () => {
+  const originalFetch = globalThis.fetch;
+
   afterEach(() => {
     delete (globalThis as any).__VITE_ENV__;
+    globalThis.fetch = originalFetch;
   });
 
   test("uses explicit VITE_ETH_RPC when configured", () => {
@@ -43,6 +46,20 @@ describe("Ethereum client production RPC guard", () => {
 
     expect(() => getDefaultProvider()).toThrow(
       "VITE_ETH_RPC is required outside local development.",
+    );
+  });
+
+  test("surfaces empty RPC responses with method context", async () => {
+    globalThis.fetch = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      text: async () => "",
+    })) as any;
+
+    const provider = new JsonRpcProvider("/api/eth-rpc");
+
+    await expect(provider.request({ method: "eth_getLogs", params: [] })).rejects.toThrow(
+      "RPC request returned an empty response for eth_getLogs."
     );
   });
 });

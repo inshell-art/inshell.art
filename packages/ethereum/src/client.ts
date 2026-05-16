@@ -160,11 +160,22 @@ export class JsonRpcProvider implements ProviderInterface {
           args.params == null
             ? []
             : Array.isArray(args.params)
-            ? args.params
-            : [args.params],
+              ? args.params
+              : [args.params],
       }),
     });
-    const payload = await response.json();
+    const responseText = await response.text();
+    if (!responseText.trim()) {
+      throw new Error(`RPC request returned an empty response for ${args.method}.`);
+    }
+
+    let payload: any;
+    try {
+      payload = JSON.parse(responseText);
+    } catch {
+      throw new Error(`RPC request returned invalid JSON for ${args.method}.`);
+    }
+
     if (!response.ok) {
       throw new Error(
         payload?.error?.message ?? `RPC request failed with ${response.status}`

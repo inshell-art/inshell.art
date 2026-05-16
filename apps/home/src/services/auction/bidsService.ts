@@ -25,7 +25,7 @@ export type NormalizedBid = {
 };
 
 const DEFAULT_LOG_CHUNK_SIZE = 40_000;
-const MAX_LOG_FETCH_CONCURRENCY = 8;
+const MAX_LOG_FETCH_CONCURRENCY = 3;
 
 function chunkRanges(
   startBlock: number,
@@ -56,7 +56,11 @@ function inferProviderLogRangeLimit(error: unknown, currentSize: number): number
     if (Number.isFinite(span) && span > 0) return Math.trunc(span);
   }
 
-  if (/block range|range should work|too many blocks|exceed/i.test(msg)) {
+  if (
+    /block range|range should work|too many blocks|exceed|empty response|invalid JSON/i.test(
+      msg
+    )
+  ) {
     return Math.max(1, Math.floor(currentSize / 2));
   }
   return null;
