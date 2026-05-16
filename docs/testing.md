@@ -15,6 +15,11 @@
 - `npm run check`
   - Lint + type-check + unit tests.
 
+## Production gate
+
+- `pnpm run check:production`
+  - Validates Cloudflare Pages deploy surface, security headers, redirects, dev-server binding, Sepolia release artifacts, imported ABI JSON, lint, type-check, unit tests, both app builds, and whitespace diff.
+
 ## E2E (optional)
 
 - `BASE_URL=https://your-env.example pnpm run e2e:staging`

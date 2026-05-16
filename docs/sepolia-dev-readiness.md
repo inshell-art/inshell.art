@@ -15,8 +15,15 @@ This checks:
 - home lint
 - focused home tests for auction UI, Pulse, `$PATH`, and PATH token loading
 - home production build
+- production-surface checks for Cloudflare headers, redirects, dev server binding, Sepolia release metadata, and missing public RPC guards
 - imported PATH release/ABI JSON has no deprecated spark/reserved surface
 - whitespace diff check
+
+Before production deploy, run the stricter gate:
+
+```bash
+pnpm run check:production
+```
 
 Run from `path/evm/`:
 

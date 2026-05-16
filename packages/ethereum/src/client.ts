@@ -175,11 +175,37 @@ export class JsonRpcProvider implements ProviderInterface {
   }
 }
 
+function isLocalBrowserHost(): boolean {
+  if (typeof window === "undefined") return true;
+  const host = window.location.hostname.toLowerCase();
+  return (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "::1" ||
+    host.endsWith(".localhost")
+  );
+}
+
+function requiresConfiguredRpc(): boolean {
+  const network = String(getEnv("VITE_NETWORK") ?? "").toLowerCase();
+  const launchMode = String(getEnv("VITE_PUBLIC_LAUNCH_MODE") ?? "").toLowerCase();
+  return (
+    network === "sepolia" ||
+    network === "mainnet" ||
+    launchMode === "sepolia_invite" ||
+    launchMode === "production"
+  );
+}
+
 export function getDefaultProvider(): ProviderInterface {
-  const rpcUrl =
-    (getEnv("VITE_ETH_RPC") as string | undefined) ??
-    "http://127.0.0.1:8546";
-  return new JsonRpcProvider(rpcUrl);
+  const configuredRpcUrl = getEnv("VITE_ETH_RPC") as string | undefined;
+  if (configuredRpcUrl?.trim()) {
+    return new JsonRpcProvider(configuredRpcUrl.trim());
+  }
+  if (!requiresConfiguredRpc() && isLocalBrowserHost()) {
+    return new JsonRpcProvider("http://127.0.0.1:8546");
+  }
+  throw new Error("VITE_ETH_RPC is required outside local development.");
 }
 
 function encodeCall(entrypoint: string, calldata: readonly unknown[] = []): {
