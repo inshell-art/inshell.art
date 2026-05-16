@@ -271,6 +271,23 @@ function encodeCall(entrypoint: string, calldata: readonly unknown[] = []): {
       },
     };
   }
+  if (resolved.functionName === "getState") {
+    return {
+      data: encodeFunctionData({
+        abi: resolved.abi,
+        functionName: resolved.functionName,
+      }),
+      decode: (result) => {
+        const decoded = decodeFunctionResult({
+          abi: resolved.abi,
+          functionName: resolved.functionName,
+          data: result,
+        }) as readonly [bigint, bigint, bigint, bigint, boolean];
+        const [epochIndex, startTime, anchorTime, floorPrice, active] = decoded;
+        return { epochIndex, startTime, anchorTime, floorPrice, active };
+      },
+    };
+  }
   if (resolved.functionName === "balanceOf") {
     return {
       data: encodeFunctionData({

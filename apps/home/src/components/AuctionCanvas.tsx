@@ -1745,6 +1745,7 @@ function useAuctionStatus(params: {
   coreActive: boolean;
   coreErrorVisible: unknown;
   bidsLength: number;
+  hasRenderableCurve: boolean;
 }) {
   const {
     releaseMissing,
@@ -1755,6 +1756,7 @@ function useAuctionStatus(params: {
     coreActive,
     coreErrorVisible,
     bidsLength,
+    hasRenderableCurve,
   } = params;
   const [status, setStatus] = useState<AuctionStatus>("loading");
   const statusOverride = useMemo(() => readAuctionStatusOverride(), []);
@@ -1798,7 +1800,7 @@ function useAuctionStatus(params: {
       setStatus("loading");
       return;
     }
-    if (bidsLoading && bidsLength === 0 && coreActive) {
+    if (bidsLoading && bidsLength === 0 && coreActive && !hasRenderableCurve) {
       setStatus("history_loading");
       return;
     }
@@ -1817,6 +1819,7 @@ function useAuctionStatus(params: {
     openTimeSec,
     nowSec,
     bidsLength,
+    hasRenderableCurve,
   ]);
 
   return { status, openAtUtcLabel, opensInLabel };
@@ -2957,9 +2960,64 @@ export default function AuctionCanvas({
           } catch {
             return String(bid.amount?.dec ?? "");
           }
-        })();
+      })();
       return toNumberSafe(decStr);
     };
+
+    const directState = !fixtureState ? coreData?.state : null;
+    if (orderedBids.length === 0 && directState?.active) {
+      const stateStartSec = Number(directState.startTimeSec);
+      const stateAnchorSec = Number(directState.anchorTimeSec);
+      const floorRaw = pickNumber(
+        directState.floorPrice?.dec,
+        (directState as any).floorPrice?.value
+      );
+      const floor = Number.isFinite(floorRaw)
+        ? floorRaw / decFactor
+        : Number.NaN;
+      const tHalf = stateStartSec - stateAnchorSec;
+      const premium = kHuman / positiveDenominator(tHalf);
+      if (
+        !Number.isFinite(stateStartSec) ||
+        !Number.isFinite(stateAnchorSec) ||
+        !Number.isFinite(floor) ||
+        !Number.isFinite(tHalf) ||
+        !Number.isFinite(premium) ||
+        tHalf <= 0 ||
+        premium <= 0
+      ) {
+        return { ...empty, reason: "invalid half-life" };
+      }
+      const ask = floor + premium;
+      const epoch = Number.isFinite(directState.epochIndex)
+        ? directState.epochIndex
+        : 1;
+      return {
+        segments: [
+          {
+            idx: 0,
+            bid: null,
+            epoch,
+            uStart: 0,
+            uLen: 0,
+            startSec: stateStartSec,
+            endSec: stateStartSec,
+            floor,
+            premium,
+            ask,
+            kHuman,
+            ptsHuman,
+            tHalf,
+            anchor: stateAnchorSec,
+            dtPrevSec: premium / positiveDenominator(ptsHuman),
+            dtNextSec: null,
+          },
+        ],
+        minY: Math.min(floor, ask),
+        maxY: Math.max(floor, ask),
+        reason: null,
+      };
+    }
 
     let segStartSec = openTimeSec;
     let segFloor = genesisFloorHuman;
@@ -3088,7 +3146,7 @@ export default function AuctionCanvas({
       maxY,
       reason: null,
     };
-  }, [activeConfig, bids, coreLoading, fallbackError, decimals]);
+  }, [activeConfig, bids, coreData?.state, coreLoading, fallbackError, decimals, fixtureState]);
 
   const linked = useMemo<LinkedCurve>(() => {
     const empty: LinkedCurve = {
@@ -3185,6 +3243,7 @@ export default function AuctionCanvas({
     coreActive: Boolean(coreData?.active),
     coreErrorVisible,
     bidsLength: bids.length,
+    hasRenderableCurve: linked.segments.length > 0 && linked.reason === null,
   });
   const showNoReleaseNotice = auctionStatus === "no_release";
   const showBeforeOpenNotice = auctionStatus === "before_open";

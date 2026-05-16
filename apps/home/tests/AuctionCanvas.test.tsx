@@ -1116,7 +1116,7 @@ describe("AuctionCanvas", () => {
     expect(screen.getByText(/Waiting for first bid/i)).toBeTruthy();
   });
 
-  test("shows current ask while active bid history backfill is pending", () => {
+  test("does not block active curve while bid history backfill is pending", () => {
     mockUseAuctionCore.mockReturnValue({
       data: {
         active: true,
@@ -1142,8 +1142,45 @@ describe("AuctionCanvas", () => {
     });
     const { container } = render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     expect(screen.queryByText(/loading curve/i)).toBeNull();
-    expect(screen.getByText(/Loading sale history/i)).toBeTruthy();
-    expect(container.textContent).toMatch(/Current ask:\s*[0-9.]+\s*ETH/i);
+    expect(screen.queryByText(/Loading sale history/i)).toBeNull();
+    expect(container.querySelector(".dotfield__curve")).toBeTruthy();
+  });
+
+  test("renders active curve from contract state before sale history finishes", () => {
+    const nowSec = Math.floor(Date.now() / 1000);
+    mockUseAuctionCore.mockReturnValue({
+      data: {
+        active: true,
+        price: { dec: "1200000000000000000" },
+        config: {
+          openTimeSec: nowSec - 120,
+          genesisPrice: { dec: "1000000000000000000" },
+          genesisFloor: { dec: "100000000000000000" },
+          k: { dec: "10000000000000000000" },
+          pts: "1000000000000000000",
+        },
+        state: {
+          epochIndex: 1,
+          startTimeSec: nowSec - 10,
+          anchorTimeSec: nowSec - 20,
+          floorPrice: { dec: "500000000000000000" },
+          active: true,
+        },
+      },
+      ready: true,
+      loading: false,
+      error: null,
+      refresh: jest.fn(),
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids: [],
+      ready: true,
+      loading: true,
+      error: null,
+    });
+    const { container } = render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    expect(screen.queryByText(/Loading sale history/i)).toBeNull();
+    expect(container.querySelector(".dotfield__curve")).toBeTruthy();
   });
 
   test("shows open waiting message even if inactive bid backfill is pending", () => {

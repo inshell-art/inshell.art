@@ -8,10 +8,19 @@ export type AuctionConfig = {
   pts: string;
 };
 
+export type AuctionRuntimeState = {
+  epochIndex: number;
+  startTimeSec: number;
+  anchorTimeSec: number;
+  floorPrice: U256Num;
+  active: boolean;
+};
+
 export type AuctionSnapshot = {
   active: boolean;
   price: U256Num;
   config: AuctionConfig;
+  state: AuctionRuntimeState | null;
 };
 
 export type Sale = {

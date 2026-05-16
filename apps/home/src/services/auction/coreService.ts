@@ -19,6 +19,7 @@ import { toU256Num, U256Num, readU256 } from "@inshell/utils";
 const VIEW = {
   GET_CURRENT_PRICE: "get_current_price",
   GET_CONFIG: "get_config",
+  GET_STATE: "get_state",
   CURVE_ACTIVE: "curve_active",
 } as const;
 
@@ -33,10 +34,19 @@ export type AuctionConfig = {
 
 export type CurrentPrice = U256Num;
 
+export type AuctionRuntimeState = {
+  epochIndex: number;
+  startTimeSec: number;
+  anchorTimeSec: number;
+  floorPrice: U256Num;
+  active: boolean;
+};
+
 export type AuctionSnapshot = {
   active: boolean;
   price: CurrentPrice;
   config: AuctionConfig;
+  state: AuctionRuntimeState | null;
 };
 
 export type CoreService = ReturnType<typeof createCoreService>;
@@ -95,13 +105,30 @@ export function createCoreService(
     };
   }
 
+  async function getState(): Promise<AuctionRuntimeState> {
+    const r = (await call0(VIEW.GET_STATE)) as any;
+    const epochIndex = Number(r.epoch_index ?? r.epochIndex ?? r[0]);
+    const startTimeSec = Number(r.start_time ?? r.startTime ?? r.startTimeSec ?? r[1]);
+    const anchorTimeSec = Number(r.anchor_time ?? r.anchorTime ?? r.anchorTimeSec ?? r[2]);
+    const floorPrice = readU256(r.floor_price ?? r.floorPrice ?? r[3]);
+    const active = Boolean(r.active ?? r[4]);
+    return {
+      epochIndex,
+      startTimeSec,
+      anchorTimeSec,
+      floorPrice: toU256Num(floorPrice),
+      active,
+    };
+  }
+
   async function snapshot(): Promise<AuctionSnapshot> {
-    const [active, price, config] = await Promise.all([
+    const [active, price, config, state] = await Promise.all([
       getCurveActive(),
       getCurrentPrice(),
       getConfig(),
+      getState().catch(() => null),
     ]);
-    return { active, price, config };
+    return { active: state?.active ?? active, price, config, state };
   }
 
   function reset(next?: Partial<typeof cfg>) {
@@ -117,6 +144,7 @@ export function createCoreService(
     getCurrentPrice,
     getCurveActive,
     getConfig,
+    getState,
     snapshot,
     // lifecycle helpers
     reset,

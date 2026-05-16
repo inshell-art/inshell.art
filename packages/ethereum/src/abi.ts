@@ -4,6 +4,7 @@ export const pulseAuctionAbi = parseAbi([
   "function getCurrentPrice() view returns (uint256)",
   "function curveActive() view returns (bool)",
   "function getConfig() view returns (uint64 openTime, uint256 genesisPrice, uint256 genesisFloor, uint256 k, uint256 pts)",
+  "function getState() view returns (uint64 epochIndex, uint64 startTime, uint64 anchorTime, uint256 floorPrice, bool active)",
   "function bid(uint256 amount)",
 ]);
 
@@ -21,6 +22,7 @@ export type LegacyEntrypoint =
   | "get_current_price"
   | "curve_active"
   | "get_config"
+  | "get_state"
   | "balance_of"
   | "allowance"
   | "approve"
@@ -32,6 +34,7 @@ type EntrypointDefinition = {
     | "getCurrentPrice"
     | "curveActive"
     | "getConfig"
+    | "getState"
     | "balanceOf"
     | "allowance"
     | "approve"
@@ -62,6 +65,14 @@ const ENTRYPOINTS: Record<string, EntrypointDefinition> = {
   getconfig: {
     abi: pulseAuctionAbi,
     functionName: "getConfig",
+  },
+  get_state: {
+    abi: pulseAuctionAbi,
+    functionName: "getState",
+  },
+  getstate: {
+    abi: pulseAuctionAbi,
+    functionName: "getState",
   },
   balance_of: {
     abi: erc20Abi,
