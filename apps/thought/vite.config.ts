@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "node:path";
 import type { RollupLog, RollupLogHandler } from "rollup";
@@ -16,6 +16,12 @@ function ignoreKnownRollupWarnings(warning: RollupLog, warn: RollupLogHandler) {
 export default defineConfig(({ mode }) => {
   const rootDir = process.cwd();
   const workspaceRoot = path.resolve(rootDir, "../..");
+  const publicEnv = {
+    ...loadEnv(mode, rootDir, "VITE_"),
+    ...Object.fromEntries(
+      Object.entries(process.env).filter(([key]) => key.startsWith("VITE_"))
+    ),
+  };
 
   return {
     root: rootDir,
@@ -38,6 +44,7 @@ export default defineConfig(({ mode }) => {
     },
     envDir: __dirname,
     define: {
+      "globalThis.__INSHELL_VITE_ENV__": JSON.stringify(publicEnv),
       "import.meta.env.MODE": JSON.stringify(mode),
     },
     resolve: {

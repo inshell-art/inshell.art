@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -21,6 +21,12 @@ export default defineConfig(({ mode }) => {
       : path.dirname(fileURLToPath(import.meta.url));
   const workspaceRoot = path.resolve(rootDir, "../..");
   const srcDir = path.resolve(rootDir, "src");
+  const publicEnv = {
+    ...loadEnv(mode, rootDir, "VITE_"),
+    ...Object.fromEntries(
+      Object.entries(process.env).filter(([key]) => key.startsWith("VITE_"))
+    ),
+  };
 
   return {
     root: rootDir,
@@ -43,6 +49,7 @@ export default defineConfig(({ mode }) => {
     },
     envDir: rootDir,
     define: {
+      "globalThis.__INSHELL_VITE_ENV__": JSON.stringify(publicEnv),
       "import.meta.env.MODE": JSON.stringify(mode),
     },
     resolve: {

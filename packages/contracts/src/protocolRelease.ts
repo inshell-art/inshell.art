@@ -40,8 +40,10 @@ const RELEASES: Record<string, ReleaseBook> = {
 function getEnv(name: string): any {
   const envCache: Record<string, any> | undefined =
     (globalThis as any).__VITE_ENV__;
+  const buildEnv: Record<string, any> | undefined =
+    (globalThis as any).__INSHELL_VITE_ENV__;
   const procEnv = (globalThis as any)?.process?.env;
-  return envCache?.[name] ?? procEnv?.[name];
+  return envCache?.[name] ?? buildEnv?.[name] ?? procEnv?.[name];
 }
 
 function currentNetwork(): string {
