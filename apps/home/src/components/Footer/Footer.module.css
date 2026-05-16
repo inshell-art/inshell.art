@@ -2,12 +2,20 @@
   padding: 1rem 0;
   position: static;
   width: 100%;
-  display: grid;
-  place-items: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
   color: var(--muted);
   font-weight: 200;
   font-size: 13px;
   margin-top: auto;
+}
+
+.footerNav {
+  display: flex;
+  justify-content: center;
 }
 
 .footerList {
@@ -65,6 +73,25 @@
 .footerItem a:focus-visible::after {
   opacity: 1;
   transform: translateX(-50%) translateY(-1px);
+}
+
+.reportBug {
+  color: var(--muted);
+  text-decoration: none;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.reportBug:hover,
+.reportBug:focus-visible {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 5px;
+}
+
+.reportBug:focus-visible {
+  outline: 1px solid var(--accent-border);
+  outline-offset: 3px;
 }
 
 @media (prefers-color-scheme: dark) {

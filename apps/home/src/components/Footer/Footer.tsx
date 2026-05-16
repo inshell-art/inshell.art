@@ -1,4 +1,9 @@
 import React, { useMemo } from "react";
+import {
+  buildReportBugUrl,
+  getGithubUrl,
+  shouldShowReportBug,
+} from "@/config/publicLaunch";
 import styles from "./Footer.module.css";
 
 type FooterLink = {
@@ -72,6 +77,14 @@ const Footer: React.FC = () => {
       ),
     []
   );
+  const githubUrl = useMemo(() => getGithubUrl(), []);
+  const reportBugUrl = useMemo(
+    () =>
+      shouldShowReportBug()
+        ? buildReportBugUrl({ page: "/", state: "footer", network: "Sepolia" })
+        : null,
+    []
+  );
 
   const links: FooterLink[] = [
     {
@@ -111,7 +124,7 @@ const Footer: React.FC = () => {
     {
       key: "github",
       label: "github",
-      href: "https://github.com/inshell-art",
+      href: githubUrl,
       ariaLabel: "Open GitHub",
       external: true,
     },
@@ -119,22 +132,35 @@ const Footer: React.FC = () => {
 
   return (
     <footer className={styles.footer}>
-      <ul className={styles.footerList}>
-        {links.map((link) => (
-          <li className={styles.footerItem} key={link.key}>
-            <a
-              href={link.href}
-              target={link.external === false ? undefined : "_blank"}
-              rel={link.external === false ? undefined : "noopener noreferrer"}
-              data-label={link.tooltip ?? link.label}
-              aria-label={link.ariaLabel}
-              className={styles.footerLink}
-            >
-              {renderSquares(link)}
-            </a>
-          </li>
-        ))}
-      </ul>
+      <nav className={styles.footerNav} aria-label="Project links">
+        <ul className={styles.footerList}>
+          {links.map((link) => (
+            <li className={styles.footerItem} key={link.key}>
+              <a
+                href={link.href}
+                target={link.external === false ? undefined : "_blank"}
+                rel={link.external === false ? undefined : "noopener noreferrer"}
+                data-label={link.tooltip ?? link.label}
+                aria-label={link.ariaLabel}
+                className={styles.footerLink}
+              >
+                {renderSquares(link)}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+      {reportBugUrl && (
+        <a
+          className={styles.reportBug}
+          href={reportBugUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Report a Sepolia bug"
+        >
+          report bug ↗
+        </a>
+      )}
     </footer>
   );
 };

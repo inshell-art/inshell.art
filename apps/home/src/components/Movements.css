@@ -21,7 +21,7 @@
 .movements__year {
   font-size: 18px;
   color: var(--muted);
-  transition: opacity 0.6s ease;
+  transition: opacity 320ms ease-out;
   align-self: flex-end;
   text-align: right;
   font-weight: var(--weight-thin, 200);
@@ -38,9 +38,10 @@
   font-size: clamp(36px, 6vw, 64px);
   letter-spacing: 0.08em;
   color: var(--muted);
-  transition: color 220ms ease, opacity 0.6s ease;
-  display: block;
-  width: 100%;
+  opacity: 0.2;
+  transition: color 320ms ease-out, opacity 320ms ease-out;
+  display: inline-block;
+  width: auto;
   text-align: right;
   cursor: default;
 }
@@ -50,6 +51,19 @@
   text-decoration: none;
 }
 
+.movements__cell--active .movements__word,
 .movements__word:hover {
+  opacity: 1;
+}
+
+.movements__cell--active .movements__word--thought,
+.movements__word--thought:hover {
   color: #006100;
+}
+
+.movements__cell--active .movements__word--will,
+.movements__cell--active .movements__word--awa,
+.movements__word--will:hover,
+.movements__word--awa:hover {
+  color: var(--muted);
 }

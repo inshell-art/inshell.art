@@ -1,0 +1,107 @@
+name: deploy-pages
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Pages app to deploy
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - home
+          - thought
+      branch:
+        description: Cloudflare Pages deployment branch
+        required: true
+        default: main
+
+permissions:
+  contents: read
+  deployments: write
+
+concurrency:
+  group: deploy-pages-${{ github.event.inputs.target }}-${{ github.event.inputs.branch }}
+  cancel-in-progress: false
+
+jobs:
+  deploy-home:
+    if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'home' }}
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_PAGES_PROJECT_HOME: ${{ vars.CLOUDFLARE_PAGES_PROJECT_HOME }}
+      VITE_NETWORK: ${{ vars.VITE_NETWORK || 'sepolia' }}
+      VITE_ETH_RPC: ${{ secrets.VITE_ETH_RPC }}
+      VITE_WALLETCONNECT_PROJECT_ID: ${{ secrets.VITE_WALLETCONNECT_PROJECT_ID }}
+      VITE_PUBLIC_LAUNCH_MODE: ${{ vars.VITE_PUBLIC_LAUNCH_MODE || 'sepolia_invite' }}
+      VITE_REPORT_BUG_URL: ${{ vars.VITE_REPORT_BUG_URL }}
+      VITE_GITHUB_URL: ${{ vars.VITE_GITHUB_URL || 'https://github.com/inshell-art/inshell.art' }}
+      VITE_DEBUG_PANEL: ${{ vars.VITE_DEBUG_PANEL || 'off' }}
+      VITE_THOUGHT_URL: ${{ vars.VITE_THOUGHT_URL || 'https://thought.inshell.art/' }}
+      VITE_PUBLIC_TELEGRAM_CHANNEL_URL: ${{ vars.VITE_PUBLIC_TELEGRAM_CHANNEL_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Enable corepack
+        run: corepack enable
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check deploy config
+        run: |
+          test -n "$CLOUDFLARE_PAGES_PROJECT_HOME"
+          test -n "$VITE_ETH_RPC"
+          test -n "$VITE_WALLETCONNECT_PROJECT_ID"
+      - name: Validate imported PATH release
+        run: pnpm tsx scripts/validate-path-artifacts.ts packages/contracts/src/releases packages/contracts/src/abi packages/contracts/src/addresses
+      - name: Lint home
+        run: pnpm --filter @inshell/home lint
+      - name: Test home launch surface
+        run: pnpm run test:presepolia
+      - name: Build home
+        run: pnpm --filter @inshell/home build
+      - name: Deploy home to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist/home --project-name="${{ vars.CLOUDFLARE_PAGES_PROJECT_HOME }}" --branch="${{ github.event.inputs.branch }}"
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy-thought:
+    if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'thought' }}
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_PAGES_PROJECT_THOUGHT: ${{ vars.CLOUDFLARE_PAGES_PROJECT_THOUGHT }}
+      VITE_NETWORK: ${{ vars.VITE_NETWORK || 'sepolia' }}
+      VITE_ETH_RPC: ${{ secrets.VITE_ETH_RPC }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Enable corepack
+        run: corepack enable
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check deploy config
+        run: |
+          test -n "$CLOUDFLARE_PAGES_PROJECT_THOUGHT"
+          test -n "$VITE_ETH_RPC"
+      - name: Type-check THOUGHT
+        run: pnpm --filter @inshell/thought type-check
+      - name: Build THOUGHT
+        run: pnpm --filter @inshell/thought build
+      - name: Deploy THOUGHT to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist/thought --project-name="${{ vars.CLOUDFLARE_PAGES_PROJECT_THOUGHT }}" --branch="${{ github.event.inputs.branch }}"
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}

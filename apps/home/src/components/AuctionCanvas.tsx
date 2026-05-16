@@ -32,6 +32,13 @@ import {
 } from "@inshell/contracts";
 import HeaderWalletCTA from "@/components/HeaderWalletCTA";
 import { useWallet } from "@inshell/wallet";
+import {
+  buildReportBugUrl,
+  getPublicNetworkNotice,
+  isSepoliaInviteMode,
+  shouldShowDebugPanel,
+  shouldShowReportBug,
+} from "@/config/publicLaunch";
 /* global Element, SVGSVGElement, SVGElement, HTMLDivElement, MouseEvent, PointerEvent, URL, URLSearchParams */
 
 type Props = {
@@ -45,7 +52,13 @@ type Props = {
 type TxState = "idle" | "awaiting_signature" | "submitted" | "confirmed" | "failed";
 type TxPhase = "approve" | "bid";
 type NoticeKind = "info" | "warn" | "error";
-type Notice = { kind: NoticeKind; text: string; delayMs?: number };
+type Notice = {
+  kind: NoticeKind;
+  text: string;
+  delayMs?: number;
+  reportState?: string;
+  reportError?: string;
+};
 type PreflightResult = {
   ask: U256Num;
   balance: U256Num;
@@ -470,6 +483,7 @@ function parseChainId(value: unknown): bigint | null {
 }
 
 function resolveTargetChainIdHex(): string {
+  if (isSepoliaInviteMode()) return ETH_SEPOLIA_CHAIN_ID_HEX;
   const raw = getEnvValue("VITE_EXPECTED_CHAIN_ID");
   if (typeof raw === "string" && raw.trim()) return raw.trim();
   const releaseChainId = getProtocolReleaseChainId();
@@ -2005,6 +2019,8 @@ export default function AuctionCanvas({
   const [isPanning, setIsPanning] = useState(false);
   const initialAskTipCurveKeyRef = useRef<string | null>(null);
   const initialAskTipShownRef = useRef(false);
+  const postMintNowTipPendingRef = useRef(false);
+  const postMintNowTipBaseCurveKeyRef = useRef<string | null>(null);
   const panRef = useRef<{
     active: boolean;
     pointerId: number | null;
@@ -2104,6 +2120,21 @@ export default function AuctionCanvas({
         );
       });
   }, [connectors]);
+  const publicNetworkNotice = getPublicNetworkNotice();
+  const sepoliaInviteMode = isSepoliaInviteMode();
+  const reportBugEnabled = shouldShowReportBug();
+  const walletConnected = Boolean(isConnected);
+  const reportWalletName = useMemo(() => {
+    const providerName = typeof evm?.providerName === "string" ? evm.providerName.trim() : "";
+    if (providerName) return providerName;
+    const visibleNames = availableConnectors
+      .map((connector) => String((connector as any)?.name ?? "").trim())
+      .filter(Boolean);
+    if (visibleNames.length === 1) return visibleNames[0];
+    if (visibleNames.some((name) => /metamask/i.test(name))) return "MetaMask";
+    if (visibleNames.some((name) => /rabby/i.test(name))) return "Rabby";
+    return walletConnected ? "Injected" : "Unknown";
+  }, [availableConnectors, evm?.providerName, walletConnected]);
   const walletConnectV2Enabled = useMemo(() => {
     const raw = getEnvValue("VITE_WALLETCONNECT_PROJECT_ID");
     return typeof raw === "string" && raw.trim().length > 0;
@@ -2113,7 +2144,6 @@ export default function AuctionCanvas({
     hasDetectedWalletConnector ||
     (evm?.providers?.length ?? 0) > 0 ||
     walletConnectV2Enabled;
-  const walletConnected = Boolean(isConnected);
   const walletAddressPresent = walletConnected && Boolean(walletAddress);
   const walletUnlocked =
     walletConnected && (Boolean(account) || (walletUnlockAttempted && !accountMissing));
@@ -2135,6 +2165,9 @@ export default function AuctionCanvas({
     (devFlag === true ||
       devFlag === "true" ||
       getEnvValue("MODE") === "development");
+  const debugPanelEnabled =
+    shouldShowDebugPanel() ||
+    (publicNetworkNotice == null && isDevMode && (globalThis as any).__PULSE_DEBUG__ === true);
   const debugDefaults = {
     enabled: false,
     cta: "auto",
@@ -2189,7 +2222,7 @@ export default function AuctionCanvas({
       | "overflow"
       | "generic";
   }>(debugDefaults);
-  const debugActive = isDevMode && debugOverride.enabled;
+  const debugActive = debugPanelEnabled && debugOverride.enabled;
   const debugCtaOverride = debugActive ? debugOverride.cta : "auto";
   const ctaOverrideActive = debugActive && debugCtaOverride !== "auto";
   const noticeOverrideActive =
@@ -2648,6 +2681,19 @@ export default function AuctionCanvas({
     setPendingMint(null);
   }, [pendingMint, bids, maxTokenId, queueToast]);
 
+  useEffect(() => {
+    if (!pendingMint) return;
+    const id = window.setTimeout(() => {
+      queueToast({
+        kind: "warn",
+        text: "Could not detect minted token yet.",
+        reportState: "event_detection_failed",
+        reportError: pendingMint.txHash,
+      });
+    }, 15_000);
+    return () => window.clearTimeout(id);
+  }, [pendingMint, queueToast]);
+
   const mimicLocalTime = network === "devnet" || protocolRelease?.network === "devnet";
 
   // Devnet uses browser time to make local Anvil rehearsals usable even when
@@ -3041,9 +3087,23 @@ export default function AuctionCanvas({
     const segments = linkedStatic.segments.slice();
     const lastIdx = segments.length - 1;
     const lastBase = segments[lastIdx];
-    const metaDtSec = Math.max(0, nowSec - lastBase.startSec);
-    const metaU = metaDtSec / positiveDenominator(lastBase.tHalf);
-    const metaUClamped = Number.isFinite(metaU) ? Math.max(0, metaU) : 0;
+    let metaDtSec = Math.max(0, liveNowSec - lastBase.startSec);
+    let metaU = metaDtSec / positiveDenominator(lastBase.tHalf);
+    let metaUClamped = Number.isFinite(metaU) ? Math.max(0, metaU) : 0;
+    let nowPrice = priceAtU(lastBase.floor, lastBase.premium, metaUClamped);
+    const quotedPrice =
+      !mimicLocalTime && currentAskQuoteDec != null
+        ? Number(currentAskQuoteDec)
+        : Number.NaN;
+    if (Number.isFinite(quotedPrice)) {
+      const quotedU = uFromPrice(lastBase.floor, lastBase.premium, quotedPrice);
+      if (quotedU != null) {
+        metaUClamped = quotedU;
+        metaU = quotedU;
+        metaDtSec = quotedU * lastBase.tHalf;
+        nowPrice = quotedPrice;
+      }
+    }
     // End the visible serial curve exactly at "now" so the now-dot is the rightmost endpoint.
     const uMaxWindow = metaUClamped;
     const endSec = lastBase.startSec + uMaxWindow * lastBase.tHalf;
@@ -3060,7 +3120,6 @@ export default function AuctionCanvas({
     segments[lastIdx] = lastSeg;
 
     const nowU = lastSeg.uStart + metaUClamped;
-    const nowPrice = priceAtU(lastSeg.floor, lastSeg.premium, metaUClamped);
 
     return {
       segments,
@@ -3071,7 +3130,7 @@ export default function AuctionCanvas({
       maxY: linkedStatic.maxY,
       reason: null,
     };
-  }, [linkedStatic, nowSec]);
+  }, [linkedStatic, liveNowSec, currentAskQuoteDec, mimicLocalTime]);
 
   const currentAskEstimate = useMemo(() => {
     if (!fixtureState && !mimicLocalTime && currentAskQuoteDec != null) {
@@ -3330,8 +3389,9 @@ export default function AuctionCanvas({
       const ask =
         askEstimate != null && Number.isFinite(askEstimate)
           ? humanToU256Num(askEstimate, decimals)
-          : activeConfig?.genesisPrice ??
-            toU256Num({ low: FIXTURE_ASK_WEI, high: "0" });
+          : activeConfig?.genesisPrice
+          ? toU256Num(readU256(activeConfig.genesisPrice))
+          : toU256Num({ low: FIXTURE_ASK_WEI, high: "0" });
       const balance = toU256Num({ low: FIXTURE_BALANCE_WEI, high: "0" });
       const allowance = toU256Num({ low: FIXTURE_BALANCE_WEI, high: "0" });
       setPreflight({
@@ -3586,11 +3646,21 @@ export default function AuctionCanvas({
       msg.includes("missing vite_walletconnect_project_id") ||
       msg.includes("walletconnect v2 provider is unavailable")
     ) {
-      showToast({ kind: "error", text: "No supported wallet found." });
+      showToast({
+        kind: "error",
+        text: "No supported wallet found.",
+        reportState: "no_supported_wallet",
+        reportError: String((err as any)?.message ?? err ?? ""),
+      });
       return;
     }
     console.warn("wallet connect failed", err);
-    showToast({ kind: "error", text: "Wallet connection failed." });
+    showToast({
+      kind: "error",
+      text: "Wallet connection failed.",
+      reportState: "connect_failed",
+      reportError: String((err as any)?.message ?? err ?? ""),
+    });
   };
 
   const connectWalletConnector = async (connector?: any) => {
@@ -3624,7 +3694,10 @@ export default function AuctionCanvas({
     if (!ok) {
       showToast({
         kind: "warn",
-        text: `Switch to ${targetChainLabel} in wallet.`,
+        text: sepoliaInviteMode && publicNetworkNotice
+          ? publicNetworkNotice
+          : `Switch to ${targetChainLabel} in wallet.`,
+        reportState: "switch_failed",
       });
     }
   };
@@ -3687,6 +3760,8 @@ export default function AuctionCanvas({
       setTxState("confirmed");
       showToast({ kind: "info", text: "Confirmed." });
       if (phase === "bid" && walletAddress) {
+        postMintNowTipPendingRef.current = true;
+        postMintNowTipBaseCurveKeyRef.current = initialAskTipCurveKeyRef.current;
         void pullBidsOnce();
         void refreshCore();
         window.setTimeout(() => void pullBidsOnce(), 2_000);
@@ -3805,13 +3880,20 @@ export default function AuctionCanvas({
         return {
           kind: "error",
           text: "Account needs upgrade or activation.",
+          reportState: "invalid_signature",
+          reportError: msg,
         };
       }
       if (lower.includes("user_refused") || lower.includes("user rejected")) {
         return { kind: "warn", text: "Wallet request cancelled." };
       }
       if (lower.includes("failed to fetch") || lower.includes("network error")) {
-        return { kind: "error", text: "RPC busy. Retry." };
+        return {
+          kind: "error",
+          text: "RPC busy. Retry.",
+          reportState: "rpc_busy",
+          reportError: msg,
+        };
       }
       if (
         lower.includes("invalid block id") ||
@@ -3819,15 +3901,27 @@ export default function AuctionCanvas({
         lower.includes("starting block number") ||
         lower.includes("rpc")
       ) {
-        return { kind: "error", text: "RPC read failed." };
+        return {
+          kind: "error",
+          text: "RPC read failed.",
+          reportState: "rpc_read_failed",
+          reportError: msg,
+        };
       }
       if (lower.includes("u256_sub overflow")) {
         return {
           kind: "warn",
           text: `Insufficient ${displayTokenSymbol} at execution.`,
+          reportState: "insufficient_at_execution",
+          reportError: msg,
         };
       }
-      return { kind: "error", text: "Mint failed." };
+      return {
+        kind: "error",
+        text: "Mint failed.",
+        reportState: "mint_failed",
+        reportError: msg,
+      };
     }
     if (
       pathMintIntent &&
@@ -3840,6 +3934,7 @@ export default function AuctionCanvas({
       return {
         kind: "error",
         text: "No supported wallet found.",
+        reportState: "no_supported_wallet",
         delayMs: DELAY_MS,
       };
     }
@@ -3852,7 +3947,10 @@ export default function AuctionCanvas({
     if (effectiveWalletUnlocked && effectiveChainKnown && !effectiveChainOk) {
       return {
         kind: "error",
-        text: `${targetChainLabel} only.`,
+        text:
+          sepoliaInviteMode && publicNetworkNotice
+            ? publicNetworkNotice
+            : `${targetChainLabel} only.`,
         delayMs: DELAY_MS,
       };
     }
@@ -3863,7 +3961,12 @@ export default function AuctionCanvas({
       !effectivePreflightOk &&
       preflightErrorVisible
     ) {
-      return { kind: "error", text: "RPC read failed." };
+      return {
+        kind: "error",
+        text: "RPC read failed.",
+        reportState: "rpc_read_failed",
+        reportError: preflight.error ?? undefined,
+      };
     }
     if (
       effectiveWalletUnlocked &&
@@ -3919,8 +4022,11 @@ export default function AuctionCanvas({
     liveAskLabel,
     effectiveBalanceLabel,
     preflightErrorVisible,
+    preflight.error,
     displayTokenSymbol,
     targetChainLabel,
+    publicNetworkNotice,
+    sepoliaInviteMode,
     auctionBlocksMint,
     auctionBlockedMintNotice,
     pathMintIntent,
@@ -3954,7 +4060,23 @@ export default function AuctionCanvas({
     };
   }, [persistentNotice]);
 
-  const displayNotice = toastNotice ?? persistentNoticeVisible;
+  const displayNotice =
+    toastNotice ??
+    persistentNoticeVisible ??
+    (publicNetworkNotice ? { kind: "info" as const, text: publicNetworkNotice } : null);
+  const displayNoticeReportUrl =
+    reportBugEnabled && displayNotice?.reportState
+      ? buildReportBugUrl({
+          page: "/",
+          network: targetChainLabel,
+          chainId: targetChainId?.toString() ?? null,
+          wallet: reportWalletName,
+          state: displayNotice.reportState,
+          address: walletAddress,
+          lastTx: effectiveLastTxHash,
+          error: displayNotice.reportError ?? displayNotice.text,
+        })
+      : null;
   const dotState =
     effectiveTxState === "awaiting_signature" || effectiveTxState === "submitted"
       ? "amber"
@@ -4348,6 +4470,23 @@ export default function AuctionCanvas({
     isPanning,
     showNowCurveHover,
   ]);
+
+  useEffect(() => {
+    if (!postMintNowTipPendingRef.current) return;
+    if (!initialAskTipCurveKey) return;
+    if (postMintNowTipBaseCurveKeyRef.current === initialAskTipCurveKey) return;
+    if (isPanning || panRef.current.active) return;
+
+    pinnedDotRef.current = false;
+    setSelectedBidKey(null);
+    setSelectedAskKey(null);
+    setSelectedNow(false);
+    if (!showNowCurveHover()) return;
+
+    postMintNowTipPendingRef.current = false;
+    postMintNowTipBaseCurveKeyRef.current = null;
+    initialAskTipShownRef.current = true;
+  }, [initialAskTipCurveKey, isPanning, showNowCurveHover]);
 
   useEffect(() => {
     if (!selectedNow) return;
@@ -5136,6 +5275,20 @@ export default function AuctionCanvas({
         }`}
       >
         {displayNotice?.text ?? ""}
+        {displayNoticeReportUrl && (
+          <>
+            {" "}
+            <a
+              href={displayNoticeReportUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Report a Sepolia bug"
+              className="dotfield__report-bug-link"
+            >
+              report bug ↗
+            </a>
+          </>
+        )}
       </div>
       {mintReview && effectiveTxState === "idle" && (
         <div
@@ -5158,22 +5311,39 @@ export default function AuctionCanvas({
             <span>max bid</span>
             <strong>{mintReviewMaxPriceLabel ?? mintReview.maxPriceLabel} {mintReview.symbol}</strong>
           </div>
+          <div className="dotfield__mint-review-row">
+            <span>max charge</span>
+            <strong>{mintReviewTxValueLabel ?? mintReview.txValueLabel} {mintReview.nativePayment ? mintReview.symbol : "ETH"}</strong>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>network gas</span>
+            <strong>shown in wallet</strong>
+          </div>
           <div className="dotfield__mint-review-note">
             {mintReview.requiresApproval
-              ? `wallet step 1 approves ${mintReview.symbol}; step 2 submits max bid.`
+              ? (
+                <>
+                  wallet step 1 approves {mintReview.symbol}.
+                  <br />
+                  wallet step 2 submits max bid.
+                </>
+              )
               : (
                 <>
                   wallet opens next.
                   <br />
                   final charge can be lower at execution.
-                  <br />
-                  network gas is shown in wallet.
                 </>
               )}
           </div>
+          {publicNetworkNotice && (
+            <div className="dotfield__mint-review-network">
+              {publicNetworkNotice}
+            </div>
+          )}
         </div>
       )}
-      {isDevMode && (
+      {debugPanelEnabled && (
         <div className="dotfield__debug">
           <button
             type="button"

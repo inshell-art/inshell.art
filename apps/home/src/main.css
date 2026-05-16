@@ -8,6 +8,8 @@
   --weight-thin: 200;
   --weight-mid: 400;
   --main-area-width: 1120px;
+  --primitive-copy-width: 720px;
+  --primitive-gallery-width: 960px;
   --bg-body: #0f0f0f;
   --bg-hero: #0f0f0f;
   --canvas-bg: var(--bg-body);
@@ -359,7 +361,7 @@ body {
 .primitive-page__body {
   display: grid;
   gap: 24px;
-  max-width: 720px;
+  max-width: var(--primitive-copy-width);
   margin-left: min(220px, 19vw);
 }
 
@@ -719,6 +721,18 @@ body {
   visibility: hidden;
 }
 
+.dotfield__report-bug-link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+
+.dotfield__report-bug-link:hover,
+.dotfield__report-bug-link:focus-visible {
+  color: var(--accent);
+}
+
 .dotfield__mint-review {
   position: absolute;
   z-index: 8;
@@ -762,6 +776,12 @@ body {
   margin-top: 10px;
   color: var(--muted);
   font-style: italic;
+}
+
+.dotfield__mint-review-network {
+  margin-top: 8px;
+  color: #a84242;
+  letter-spacing: 0.04em;
 }
 
 .dotfield__cta-stack {
@@ -1472,12 +1492,13 @@ body {
 }
 
 .path-page__body {
-  width: min(100%, 980px);
+  width: min(100%, var(--primitive-gallery-width));
   margin: 0 auto;
   color: var(--text);
 }
 
 .path-page__intro {
+  max-width: var(--primitive-copy-width);
   display: grid;
   gap: 3px;
   margin-bottom: 30px;
@@ -1489,6 +1510,10 @@ body {
   font-size: 12px;
   font-weight: 400;
   line-height: 1.65;
+}
+
+.path-page__links {
+  margin: -14px 0 30px;
 }
 
 .path-page__toolbar {
@@ -1536,7 +1561,7 @@ body {
 
 .path-page__fields {
   width: 100%;
-  max-width: none;
+  max-width: var(--primitive-copy-width);
   margin-bottom: 28px;
 }
 
@@ -1554,6 +1579,28 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 16px;
+}
+
+@media (max-width: 760px) {
+  .primitive-page__body {
+    max-width: none;
+    margin-left: 0;
+  }
+
+  .path-page__body,
+  .path-page__intro,
+  .path-page__fields {
+    width: 100%;
+    max-width: none;
+  }
+
+  .path-page__toolbar {
+    display: grid;
+  }
+
+  .path-page__grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .path-page-token {

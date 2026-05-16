@@ -97,8 +97,8 @@ function toHexQuantity(value: number | bigint): Hex {
 }
 
 function normalizeBlockTag(blockTag?: number | EthereumBlockTag): string {
-  if (typeof blockTag === "number" && Number.isFinite(blockTag)) {
-    return toHexQuantity(blockTag);
+  if (typeof blockTag === "number") {
+    return Number.isFinite(blockTag) ? toHexQuantity(blockTag) : DEFAULT_BLOCK_TAG;
   }
   return blockTag ?? DEFAULT_BLOCK_TAG;
 }

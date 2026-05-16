@@ -17,7 +17,7 @@ type LoadState =
 
 const FIXTURE_OWNER = "0x1111222233334444555566667777888899990000";
 const PATH_DESCRIPTION =
-  "PATH is a permission token for Inshell generative artworks. Holding PATH authorizes movement mints in order: THOUGHT, WILL, then AWA. The image and traits show this PATH token's movement progress.";
+  "$PATH is the permission token. It is minted by the public Pulse auction and authorizes Inshell movement mints in order: THOUGHT, WILL, then AWA. The token image and traits show movement progress.";
 const FIXTURE_QUOTAS = {
   thought: 3,
   will: 10,
@@ -32,6 +32,9 @@ function shortAddress(address?: string): string {
 
 function readPathFixture(): string | null {
   if (typeof window === "undefined") return null;
+  const envCache: Record<string, unknown> | undefined =
+    (globalThis as any).__VITE_ENV__;
+  if (envCache?.MODE === "production" || envCache?.PROD === true) return null;
   const fixture = new globalThis.URLSearchParams(window.location.search).get("fixture");
   return fixture?.trim().toLowerCase() || null;
 }
@@ -76,7 +79,11 @@ function movementProgressValue(item: PathTokenInventoryItem, traitType: string):
 
 function metadataName(item: PathTokenInventoryItem): string {
   const name = item.metadata.name?.trim();
-  return name || `PATH #${item.tokenIdLabel}`;
+  return name || `$PATH #${item.tokenIdLabel}`;
+}
+
+function displayTokenName(item: PathTokenInventoryItem): string {
+  return `$PATH #${item.tokenIdLabel}`;
 }
 
 function metadataImage(item: PathTokenInventoryItem): string | undefined {
@@ -124,7 +131,7 @@ function makePathProgressSvg(args: {
   const awaFill = fillCircle("awa-fill", 390, args.awaMinted, args.awaQuota);
 
   return [
-    "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 600' width='600' height='600' role='img' aria-label='PATH progress'>",
+    "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 600' width='600' height='600' role='img' aria-label='PATH movement progress'>",
     "<rect width='600' height='600' fill='black'/>",
     blankThought,
     blankWill,
@@ -159,7 +166,7 @@ function makeFixturePathToken(args: {
   const will = progressLabel(args.willMinted, args.willQuota);
   const awa = progressLabel(args.awaMinted, args.awaQuota);
   const metadata = {
-    name: `PATH #${args.tokenId}`,
+    name: `$PATH #${args.tokenId}`,
     description: PATH_DESCRIPTION,
     image: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
     attributes: [
@@ -306,20 +313,6 @@ function pathFixtureItems(fixture: string | null): PathTokenInventoryItem[] | nu
   return null;
 }
 
-function pathFixtureLabel(fixture: string | null): string {
-  if (fixture === "will" || fixture === "will-1-of-10") {
-    return "fixture: WILL minted 1 of 10";
-  }
-  if (
-    fixture === "states" ||
-    fixture === "path-states" ||
-    fixture === "all-states"
-  ) {
-    return "fixture: $PATH state gallery";
-  }
-  return "fixture";
-}
-
 export default function PathPage() {
   const fixture = useMemo(() => readPathFixture(), []);
   const fixtureItems = useMemo(() => pathFixtureItems(fixture), [fixture]);
@@ -395,18 +388,30 @@ export default function PathPage() {
         <div className="path-page__intro">
           <p>$PATH is minted by the public Pulse auction.</p>
           <p>Each $PATH authorizes movement mints in order: THOUGHT, WILL, then AWA.</p>
-          <p>The image and traits show movement progress for each token.</p>
           <p>Each movement has its own quota.</p>
-          <p>A movement mint consumes one unit from the selected PATH.</p>
+          <p>A movement mint consumes one quota unit from the selected PATH.</p>
+          <p>The token image and traits show movement progress.</p>
         </div>
+
+        <nav
+          className="primitive-page__links path-page__links"
+          aria-label="PATH page links"
+        >
+          <a
+            href="/pulse"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="View Pulse pricing"
+          >
+            View Pulse pricing ↗
+          </a>
+        </nav>
 
         <div className="path-page__toolbar">
           <div>
             <div className="path-page__section-title">all tokens</div>
             <div className="path-page__sub">
-              {fixtureItems
-                ? pathFixtureLabel(fixture)
-                : state.status === "ready"
+              {state.status === "ready"
                 ? `${state.items.length} token${state.items.length === 1 ? "" : "s"}`
                 : state.status === "loading"
                   ? "loading tokens..."
@@ -458,21 +463,26 @@ export default function PathPage() {
         )}
 
         {state.status === "ready" && state.items.length === 0 && (
-          <div className="path-page__notice">no $PATH tokens minted yet.</div>
+          <div className="path-page__notice">no PATH minted yet.</div>
         )}
 
         {state.items.length > 0 && (
           <div className="path-page__grid">
             {state.items.map((item) => {
               const image = metadataImage(item);
-              const name = metadataName(item);
+              const metadataLabel = metadataName(item);
+              const name = displayTokenName(item);
               return (
                 <article className="path-page-token" key={item.tokenIdLabel}>
                   <div className="path-page-token__media">
                     {image ? (
-                      <img src={image} alt={`${name} token image`} />
+                      <img
+                        src={image}
+                        alt={`PATH #${item.tokenIdLabel} movement progress`}
+                        title={metadataLabel}
+                      />
                     ) : (
-                      <div className="path-page-token__missing">$PATH</div>
+                      <div className="path-page-token__missing">image unavailable</div>
                     )}
                   </div>
                   <div className="path-page-token__body">
@@ -484,7 +494,7 @@ export default function PathPage() {
                       <span>stage</span>
                       <strong>{stageValue(item)}</strong>
                     </div>
-                    <div className="path-page-token__progress-title">progress</div>
+                    <div className="path-page-token__progress-title">units</div>
                     <dl className="path-page-token__attrs">
                       {MOVEMENT_TRAITS.map((traitType) => (
                         <div

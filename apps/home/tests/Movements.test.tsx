@@ -7,7 +7,7 @@ import {
   afterEach,
   jest,
 } from "@jest/globals";
-import { render, act } from "@testing-library/react";
+import { fireEvent, render } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import Movements from "../src/components/Movements";
 
@@ -39,14 +39,33 @@ describe("Movements", () => {
     expect(container.firstChild).toBeNull();
   });
 
-  test("opacity ticks toward baseline over time", () => {
+  test("keeps launch years hidden until the matching movement is hovered", () => {
     const { getAllByText } = render(<Movements />);
-    act(() => {
-      jest.advanceTimersByTime(1000);
-    });
-    const projectElements = getAllByText(/THOUGHT|WILL|AWA!/i);
-    projectElements.forEach((el) => {
-      expect(parseFloat(el.style.opacity)).toBeGreaterThan(0);
+    const will = getAllByText("WILL")[0] as HTMLElement;
+    const willCell = will.closest(".movements__cell") as HTMLElement;
+    const willYear = getAllByText(/2027/i)[0] as HTMLElement;
+    const awaYear = getAllByText(/2028/i)[0] as HTMLElement;
+
+    expect(willYear.style.opacity).toBe("0");
+    expect(awaYear.style.opacity).toBe("0");
+
+    fireEvent.mouseEnter(willCell);
+    expect(willYear.style.opacity).toBe("0");
+
+    fireEvent.mouseEnter(will);
+    expect(willYear.style.opacity).toBe("1");
+    expect(awaYear.style.opacity).toBe("0");
+
+    fireEvent.mouseLeave(will);
+    expect(willYear.style.opacity).toBe("0");
+  });
+
+  test("does not reveal launch years from global mouse movement", () => {
+    const { getAllByText } = render(<Movements />);
+    fireEvent.mouseMove(document, { clientX: 100, clientY: 100 });
+    const yearElements = getAllByText(/2027|2028/i);
+    yearElements.forEach((el) => {
+      expect((el as HTMLElement).style.opacity).toBe("0");
     });
   });
 

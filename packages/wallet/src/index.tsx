@@ -549,7 +549,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
   }, [walletConnectProvider]);
 
   const connectors = useMemo<WalletConnector[]>(() => {
-    const injected = evmProviders.map((detail) => ({
+    const injected: WalletConnector[] = evmProviders.map((detail) => ({
       id: detail.info.uuid,
       name: detail.info.name || "Injected",
       available: () => true,

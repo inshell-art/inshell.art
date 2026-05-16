@@ -10,5 +10,5 @@
       "@inshell/*": ["../../packages/*/src"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "../../packages/*/src"]
 }

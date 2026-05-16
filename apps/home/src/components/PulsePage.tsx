@@ -176,6 +176,7 @@ function pulseParamsDocument(params: {
   address: string;
   chainName: string;
   paymentSymbol: string;
+  readAt?: string;
   blockNumber?: number;
   k?: string;
   pts?: string;
@@ -194,6 +195,7 @@ function pulseParamsDocument(params: {
     "",
     rawLine("loaded from", `PulseAuction ${params.address}`),
     rawLine("chain", params.chainName),
+    rawLine("read at", params.readAt),
     rawLine(
       "block",
       Number.isFinite(params.blockNumber)
@@ -362,6 +364,10 @@ function PulseCurrentInstance() {
     ? formatTimestampSec(latestBid.atMs / 1000)
     : undefined;
   const anchorTime = formatTimestampSec(latestBid?.anchorASec);
+  const readAt = useMemo(
+    () => (snapshot ? new Date().toISOString() : undefined),
+    [snapshot]
+  );
   const contextRows = compactRows([
     auctionAddress
       ? row("authority", `PulseAuction ${shortenAddress(auctionAddress)}`, {
@@ -395,6 +401,7 @@ function PulseCurrentInstance() {
         address: auctionAddress,
         chainName,
         paymentSymbol,
+        readAt,
         k,
         pts,
         openingAsk,
@@ -470,9 +477,12 @@ function PulseCurrentInstance() {
             href={rawParamsHref}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="Open live Pulse params"
+            aria-label="Open live params"
           >
             Open live params ↗
+          </a>
+          <a href="/path" target="_blank" rel="noopener noreferrer" aria-label="View PATH tokens">
+            View $PATH tokens ↗
           </a>
         </nav>
       ) : null}
@@ -494,7 +504,7 @@ export default function PulsePage() {
             className="pulse-page__mark"
             viewBox="0 0 420 44"
             role="img"
-            aria-label="Iconic linked pulse auction curves"
+            aria-label="Linked Pulse auction curves"
           >
             <path
               className="pulse-page__mark-guide"
@@ -522,15 +532,16 @@ export default function PulsePage() {
       <section className="primitive-page__body" aria-label="Pulse source note">
         <div className="primitive-page__copy">
           <p className="pulse-page__lead-line">{PULSE.explanation[0]}</p>
+          <p>{PULSE.explanation[1]}</p>
           <p>
-            {PULSE.explanation[1]}
-            <br />
             {PULSE.explanation[2]}
+            <br />
+            {PULSE.explanation[3]}
           </p>
           <p>
-            {PULSE.explanation[3]}
-            <br />
             {PULSE.explanation[4]}
+            <br />
+            {PULSE.explanation[5]}
           </p>
         </div>
 
@@ -544,7 +555,13 @@ export default function PulsePage() {
         <PulseCurrentInstance />
 
         <div className="pulse-page__ending">
-          <p className="primitive-page__note">{PULSE.note}</p>
+          <div className="primitive-page__copy">
+            {PULSE.note.map((line) => (
+              <p className="primitive-page__note" key={line}>
+                {line}
+              </p>
+            ))}
+          </div>
 
           <nav className="primitive-page__links" aria-label="Pulse references">
             <a href={PULSE.desmosUrl} target="_blank" rel="noopener noreferrer">

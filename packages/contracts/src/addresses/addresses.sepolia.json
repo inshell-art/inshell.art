@@ -1,8 +1,7 @@
 {
-  "path_nft": "0x1D62FB2BBE09e3c77DC9D045A23C29578130bE3c",
-  "path_minter": "0x711ba7FF942681aa6e7875B2053696227EBFdf48",
-  "path_minter_adapter": "0x9Ab14F24E58E63351a2A54dE32A2173864bc7C4F",
-  "pulse_auction": "0xDd7F5A1EfD1A30A9457648de29B24CF1bd284a59",
-  "treasury": "0xa868f2be37e4e819a3f38226ddbc7072793faea4",
+  "path_nft": "0x84915746a1f06850CF41a3E90C60c2DcA3fa116D",
+  "path_pulse_adapter": "0x8Cd52b431F4e932c5fDd8E49073c2c5bc1bfabF2",
+  "pulse_auction": "0x1071e99928Bdf020794a5E3e5B9c920450Ac9b39",
+  "treasury": "0xe524edf82c2d0d8243ee4ff21fb020bd8b45d47f",
   "payment_token": "0x0000000000000000000000000000000000000000"
 }

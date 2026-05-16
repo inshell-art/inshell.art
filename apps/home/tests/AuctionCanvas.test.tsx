@@ -176,6 +176,7 @@ describe("AuctionCanvas", () => {
     delete (globalThis as any).__VITE_ENV__;
     delete (globalThis as any).__PULSE_STATUS__;
     delete (window as any).ethereum;
+    window.localStorage.removeItem("inshellDebug");
     window.history.pushState({}, "", "/");
   });
 
@@ -1323,6 +1324,68 @@ describe("AuctionCanvas", () => {
     });
   });
 
+  test("sepolia invite shows testnet notice and hides debug by default", () => {
+    (globalThis as any).__VITE_ENV__ = {
+      ...(globalThis as any).__VITE_ENV__,
+      VITE_PUBLIC_LAUNCH_MODE: "sepolia_invite",
+      VITE_REPORT_BUG_URL: "https://github.com/inshell-art/inshell.art/issues/new",
+      VITE_DEBUG_PANEL: "off",
+    };
+    (globalThis as any).__PULSE_DEBUG__ = true;
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+
+    expect(screen.getByText("Sepolia testnet only.")).toBeTruthy();
+    expect(screen.queryByText(/^debug$/i)).toBeNull();
+  });
+
+  test("sepolia invite wrong network uses exact testnet notice", () => {
+    (globalThis as any).__VITE_ENV__ = {
+      ...(globalThis as any).__VITE_ENV__,
+      VITE_PUBLIC_LAUNCH_MODE: "sepolia_invite",
+      VITE_REPORT_BUG_URL: "https://github.com/inshell-art/inshell.art/issues/new",
+      VITE_DEBUG_PANEL: "off",
+    };
+    mockWalletState = createWalletState({
+      account: {},
+      chainId: 1n,
+      chain: { name: "Othernet" },
+    });
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+
+    return waitFor(() => {
+      expect(screen.getByText("Sepolia testnet only.")).toBeTruthy();
+      expect(screen.getByText(/\[\s*switch\s*\]/i)).toBeTruthy();
+      expect(screen.queryByText(/Sepolia only/i)).toBeNull();
+    });
+  });
+
+  test("sepolia invite no-wallet failure exposes contextual report bug link", () => {
+    (globalThis as any).__VITE_ENV__ = {
+      ...(globalThis as any).__VITE_ENV__,
+      VITE_PUBLIC_LAUNCH_MODE: "sepolia_invite",
+      VITE_REPORT_BUG_URL: "https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md",
+      VITE_DEBUG_PANEL: "off",
+    };
+    mockWalletState = createWalletState({
+      connectors: [],
+      address: null,
+      account: null,
+    });
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+
+    return waitFor(() => {
+      expect(screen.getByText(/No supported wallet found/i)).toBeTruthy();
+      const report = screen.getByRole("link", { name: "Report a Sepolia bug" });
+      expect(report).toHaveTextContent("report bug ↗");
+      const url = new window.URL(report.getAttribute("href") ?? "");
+      expect(url.searchParams.get("body")).toContain("state: no_supported_wallet");
+      expect(url.searchParams.get("body")).toContain("Remove anything private");
+    });
+  });
+
   test("shows connect CTA when wallet is locked", () => {
     mockWalletState = createWalletState({
       account: null,
@@ -1750,7 +1813,9 @@ describe("AuctionCanvas", () => {
   });
 
   test("first mint click shows transaction review before wallet", async () => {
-    const execute = jest.fn().mockResolvedValue({ transaction_hash: "0x1" });
+    const execute = jest
+      .fn<(...args: any[]) => Promise<any>>()
+      .mockResolvedValue({ transaction_hash: "0x1" });
     mockWalletState = createWalletState({
       account: { execute },
     });
@@ -1774,6 +1839,116 @@ describe("AuctionCanvas", () => {
     expect(within(review as HTMLElement).getByText(/current ask/i)).toBeTruthy();
     expect(within(review as HTMLElement).getByText(/max bid/i)).toBeTruthy();
     expect(execute).not.toHaveBeenCalled();
+  });
+
+  test("sepolia invite mint review shows public labels and testnet notice", async () => {
+    (globalThis as any).__VITE_ENV__ = {
+      ...(globalThis as any).__VITE_ENV__,
+      VITE_PUBLIC_LAUNCH_MODE: "sepolia_invite",
+      VITE_REPORT_BUG_URL: "https://github.com/inshell-art/inshell.art/issues/new",
+      VITE_DEBUG_PANEL: "off",
+    };
+    const execute = jest
+      .fn<(...args: any[]) => Promise<any>>()
+      .mockResolvedValue({ transaction_hash: "0x1" });
+    mockWalletState = createWalletState({
+      account: { execute },
+    });
+    mockCallContract.mockReset();
+    mockCallContract.mockImplementation(async (args: any) => {
+      if (args?.entrypoint === "get_current_price") {
+        return { price: { low: "100", high: "0" } } as any;
+      }
+      if (args?.entrypoint === "balance_of") {
+        return { balance: { low: "200", high: "0" } } as any;
+      }
+      if (args?.entrypoint === "allowance") {
+        return { remaining: { low: "200", high: "0" } } as any;
+      }
+      return { result: [] } as any;
+    });
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    await clickMintForReview();
+
+    const review = screen.getByText(/review before wallet/i).closest(".dotfield__mint-review");
+    expect(review).toBeTruthy();
+    expect(within(review as HTMLElement).getByText(/current ask/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getByText(/tx value/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getByText(/max bid/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getByText(/max charge/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getByText(/network gas/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getByText("Sepolia testnet only.")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Report a Sepolia bug" })).toBeNull();
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  test("confirmed mint reopens the current ask tooltip on the next curve", async () => {
+    const execute = jest
+      .fn<(...args: any[]) => Promise<any>>()
+      .mockResolvedValue({ transaction_hash: "0xmint" });
+    mockWalletState = createWalletState({
+      account: { execute },
+    });
+    let bids: any[] = [...sampleBids];
+    mockUseAuctionBids.mockImplementation(() => ({
+      bids,
+      ready: true,
+      loading: false,
+      error: null,
+      pullOnce: jest.fn(async () => bids),
+    }));
+
+    const { container, rerender } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
+    stubSvgRect(container);
+
+    await waitFor(() => {
+      expect(container.querySelector(".dotfield__popover")).toBeTruthy();
+    });
+    expect(
+      within(container.querySelector(".dotfield__popover") as HTMLElement).getByText(
+        /current ask/i
+      )
+    ).toBeTruthy();
+
+    const svg = container.querySelector("svg") as unknown as HTMLElement;
+    fireEvent.click(svg, { clientX: 900, clientY: 40 });
+    await waitFor(() => {
+      expect(container.querySelector(".dotfield__popover")).toBeNull();
+    });
+
+    await clickMintForReview();
+    await act(async () => {
+      fireEvent.click(screen.getByText(/\[\s*confirm\s*\]/i));
+    });
+    await waitFor(() => {
+      expect(execute).toHaveBeenCalled();
+    });
+
+    bids = [
+      ...bids,
+      {
+        key: "b3",
+        atMs: SAMPLE_BASE_MS + 120 * 1000,
+        amount: { raw: { low: "3", high: "0" }, dec: "3", value: 3n },
+        amountDec: "3",
+        bidder: mockWalletState.address,
+        blockNumber: 12,
+        epochIndex: 3,
+        txHash: "0xmint",
+      },
+    ];
+    await act(async () => {
+      rerender(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    });
+
+    await waitFor(() => {
+      const popover = container.querySelector(".dotfield__popover");
+      expect(popover).toBeTruthy();
+      expect(within(popover as HTMLElement).getByText(/current ask/i)).toBeTruthy();
+    });
   });
 
   test("devnet mint review and bid use the local time-mimicked current ask", async () => {

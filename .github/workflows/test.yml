@@ -10,25 +10,27 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [20.x]
-
     steps:
       - uses: actions/checkout@v4
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: "npm"
+          node-version-file: .nvmrc
+          cache: "pnpm"
+      - name: Enable corepack
+        run: corepack enable
       - name: Install dependencies
-        run: npm install
+        run: pnpm install --frozen-lockfile
       - name: Run linter
-        run: npm run lint
+        run: pnpm run lint
       - name: Run type-check
-        run: npm run type-check
+        run: pnpm run type-check
       - name: Run tests
-        run: npm test
+        run: pnpm run test:presepolia
+      - name: Build home
+        run: pnpm run build:home
+      - name: Build THOUGHT
+        run: pnpm run build:thought
 
   gitleaks:
     runs-on: ubuntu-latest

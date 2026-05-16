@@ -3,46 +3,44 @@
   "protocol": "path",
   "network": "sepolia",
   "chain_id": 11155111,
-  "repo_commit": "0bed26d162513b696f278c78f5f8abff3a6e333a",
-  "deploy_run_id": "sepolia-deploy-20260313T06031773383225Z",
-  "release_tier": "temporary",
-  "deployer": "0x95ce72BE4DC51e1f5aA61b59c036BE1BfEB242Ad",
-  "treasury": "0xa868f2be37e4e819a3f38226ddbc7072793faea4",
+  "repo_commit": "e078ac33a354ae0783ba382fddb7ecde29d931de",
+  "deploy_run_id": "sepolia-deploy-20260514T122153Z-safe-treasury-curator",
+  "release_tier": "candidate",
+  "deployer": "0x3e4fA9f09d8EDe66561145E1ef3bc127F80ED396",
+  "admin": "0xa31fe4bc2a9a4eea01275a6c4b4be2aa994a0981",
+  "treasury": "0xe524edf82c2d0d8243ee4ff21fb020bd8b45d47f",
   "payment_token": "0x0000000000000000000000000000000000000000",
   "contracts": {
-    "path_nft": "0x1D62FB2BBE09e3c77DC9D045A23C29578130bE3c",
-    "path_minter": "0x711ba7FF942681aa6e7875B2053696227EBFdf48",
-    "path_minter_adapter": "0x9Ab14F24E58E63351a2A54dE32A2173864bc7C4F",
-    "pulse_auction": "0xDd7F5A1EfD1A30A9457648de29B24CF1bd284a59"
+    "path_nft": "0x84915746a1f06850CF41a3E90C60c2DcA3fa116D",
+    "path_pulse_adapter": "0x8Cd52b431F4e932c5fDd8E49073c2c5bc1bfabF2",
+    "pulse_auction": "0x1071e99928Bdf020794a5E3e5B9c920450Ac9b39"
   },
   "deploy_txs": {
-    "path_nft": "0x7b4fb24f7e9f62601b0b53e0d29e228ce1f2f194f3a6451e10f695ee6914312d",
-    "path_minter": "0x498420a9aac3e6bd4ef6a1c1346b1c1301f02e659ce2b81f72f0e515d086ffb2",
-    "path_minter_adapter": "0x8343b7d49299225a5a1741578f1ce01893ba2f3a21dba98389ef6e0c9c02275d",
-    "pulse_auction": "0x17c841815189224085fdf9412d97f1a784f98a3d3ce969250441d616ae0b59f2"
+    "path_nft": "0xdaf7ddeb75fec4ce691bfaada4745ba88d7f413cf8da4b9c8544a6bd45fc9457",
+    "path_pulse_adapter": "0x5e5382a8d4036ed6a625da9bd391268b79e9764a0e0f4be43c02e60e4282fef4",
+    "pulse_auction": "0x0115753b829b648985919f79a150b98d992b763e47e1082cd0df8417a2c55a7d"
   },
   "deploy_blocks": {
-    "path_nft": 10437996,
-    "path_minter": 10437997,
-    "path_minter_adapter": 10437998,
-    "pulse_auction": 10437999
+    "path_nft": 10854121,
+    "path_pulse_adapter": 10854122,
+    "pulse_auction": 10854123
   },
   "code_hashes": {
-    "path_nft": "0x8217055669395830ae6879dc7f547c43859a057fc52c819afdecf92fef088ed0",
-    "path_minter": "0x1e5409a7b3a14d228f93de14ebccd7545cc091d6c56b6baf27c94eb1b8e189c5",
-    "path_minter_adapter": "0x6e6def284b4fc717dfe6724e302fa214332bb6dfe6cce05131ca665ae6e30dd9",
-    "pulse_auction": "0x2cdad53e813984a8346145335dd7c3adcc7d3e9e942ff67a1a4a506caaa87b75"
+    "path_nft": "0xf051c6d41d65e8c8ce4f43036922fa7a634baee4fcb5c84848223ed360d9ef6f",
+    "path_pulse_adapter": "0x89c724bb3d5ab81bb0b2663e46cd00553b84aa0298edbfbcac152539822379d8",
+    "pulse_auction": "0x376d9a5fa6554ec6e0007ce5ef66e4b1f331c9d6d9356ce08bc6477291566fc4"
   },
   "config": {
-    "name": "PATH NFT",
+    "name": "PATH",
     "symbol": "PATH",
     "base_uri": "",
-    "open_time": 1773390852,
-    "open_time_iso": "2026-03-13T08:34:12.000Z",
+    "open_time": 1778804388,
+    "open_time_iso": "2026-05-15T00:19:48.000Z",
     "start_delay_sec": 600,
-    "k": "600",
-    "genesis_price": "1000",
-    "genesis_floor": "900",
+    "k": "100000000000000000000",
+    "genesis_price": "1000000000000000000",
+    "genesis_floor": "100000000000000000",
+    "pts": "100000000000000",
     "token_base": 1,
     "epoch_base": 1
   },
@@ -51,11 +49,11 @@
     "audit": "none",
     "audit_id": null,
     "ready_for_fe": true,
-    "notes": "temporary Sepolia integration target"
+    "notes": ""
   },
   "source_artifacts": {
-    "deployment_relpath": "bundles/sepolia/sepolia-deploy-20260313T06031773383225Z/deployments/sepolia-eth.json",
-    "bundle_relpath": "bundles/sepolia/sepolia-deploy-20260313T06031773383225Z"
+    "deployment_relpath": "bundles/sepolia/sepolia-deploy-20260514T122153Z-safe-treasury-curator/deployments/sepolia-eth.json",
+    "bundle_relpath": "bundles/sepolia/sepolia-deploy-20260514T122153Z-safe-treasury-curator"
   },
-  "generated_at": "2026-04-10T02:38:10.705049Z"
+  "generated_at": "2026-05-15T01:24:28.226767Z"
 }

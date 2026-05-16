@@ -6,8 +6,26 @@ This dApp supports EIP-1193 injected wallets (with EIP-6963 multi-provider disco
 
 Current migration status
 - Product direction is **Ethereum-only**.
-- Legacy Starknet packages and adapters still exist in the repo and are treated as migration debt until the contract/client stack is fully replaced.
-- The current removal inventory and blocker list lives in `docs/ethereum-migration-audit.md`.
+- Legacy/deprecated contract and FE assumptions are archived in `docs/archive/legacy-migration.md`.
+- Active FE contract bindings are Ethereum-only and live under `packages/contracts/src`.
+
+---
+
+## 0.1) FE Architecture
+
+`inshell.art` is the single frontend monorepo.
+
+- `apps/home` builds the main site deployed at `inshell.art`.
+- `apps/thought` builds the THOUGHT surface deployed at `thought.inshell.art`.
+- `packages/*` holds shared frontend contract bindings, wallet code, Ethereum client utilities, and common helpers.
+- Protocol contracts remain in separate repos (`pulse/`, `path/`, `THOUGHT/`) and export FE release artifacts into this repo.
+
+Local dev ports are fixed:
+
+- Home: `http://127.0.0.1:5173`
+- THOUGHT: `http://127.0.0.1:5174`
+
+Run Vite only with `127.0.0.1` and `--strictPort`; stop the existing process before reusing a port.
 
 ---
 
@@ -26,10 +44,60 @@ Current migration status
 
 ## 0.5) Cloudflare Pages build (production)
 
-- Build command: `corepack enable && pnpm install --frozen-lockfile && pnpm run build:home`
-- Output dir: `dist/home`
-- Build-time env vars: `VITE_*` (e.g., `VITE_ETH_RPC`, `VITE_NETWORK`)
-- Node version: 22 (set `NODE_VERSION=22` in Pages)
+Cloudflare Pages targets:
+- Home: `inshell.art` -> `apps/home` -> `dist/home`
+- THOUGHT: `thought.inshell.art` -> `apps/thought` -> `dist/thought`
+
+Recommended path: deploy prebuilt assets from GitHub Actions with Wrangler direct upload.
+Cloudflare documents this as `wrangler pages deploy <DIRECTORY> --project-name=<PROJECT_NAME>`.
+
+Local build commands:
+
+```bash
+corepack enable
+pnpm install --frozen-lockfile
+pnpm run build:home
+pnpm run build:thought
+```
+
+Cloudflare Pages settings:
+- Home build command: `corepack enable && pnpm install --frozen-lockfile && pnpm run build:home`
+- Home output dir: `dist/home`
+- THOUGHT build command: `corepack enable && pnpm install --frozen-lockfile && pnpm run build:thought`
+- THOUGHT output dir: `dist/thought`
+- Node version: 22
+
+GitHub Actions deployment:
+- Workflow: `.github/workflows/deploy-pages.yml`
+- Trigger: manual `workflow_dispatch`
+- Targets: `home`, `thought`, or `all`
+- Production branch input: `main`
+
+GitHub Secrets required:
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+- `VITE_ETH_RPC`
+- `VITE_WALLETCONNECT_PROJECT_ID`
+
+GitHub Variables required:
+- `CLOUDFLARE_PAGES_PROJECT_HOME`
+- `CLOUDFLARE_PAGES_PROJECT_THOUGHT`
+
+GitHub Variables recommended:
+- `VITE_NETWORK=sepolia`
+- `VITE_PUBLIC_LAUNCH_MODE=sepolia_invite`
+- `VITE_DEBUG_PANEL=off`
+- `VITE_GITHUB_URL=https://github.com/inshell-art/inshell.art`
+- `VITE_REPORT_BUG_URL=https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md`
+- `VITE_THOUGHT_URL=https://thought.inshell.art/`
+- `VITE_PUBLIC_TELEGRAM_CHANNEL_URL=https://t.me/inshell_art`
+
+RPC policy:
+- Treat `VITE_ETH_RPC` as public. It is baked into the client bundle.
+- Do not use a high-value unrestricted RPC key directly in `VITE_ETH_RPC`.
+- Launch recommendation: use Alchemy Sepolia with origin allowlists for `https://inshell.art` and `https://thought.inshell.art`.
+- Better long-term setup: put an RPC proxy in a Cloudflare Worker, store the upstream RPC key as a Worker Secret, and point `VITE_ETH_RPC` at the Worker URL.
+- If using Alchemy directly in the browser, enable domain allowlists; Alchemy documents domain allowlists as the control that limits which web origins can use an API key.
 
 ## 0.6) Local env (out of repo)
 
@@ -107,6 +175,10 @@ export VITE_ETH_RPC="https://your-sepolia-rpc"
 export VITE_NETWORK="sepolia"
 export VITE_PULSE_AUCTION_DEPLOY_BLOCK="123456"
 export VITE_WALLETCONNECT_PROJECT_ID="your_walletconnect_project_id"
+export VITE_PUBLIC_LAUNCH_MODE="sepolia_invite"
+export VITE_REPORT_BUG_URL="https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md"
+export VITE_GITHUB_URL="https://github.com/inshell-art/inshell.art"
+export VITE_DEBUG_PANEL="off"
 
 pnpm dev:home
 pnpm dev:thought
