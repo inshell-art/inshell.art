@@ -1630,6 +1630,7 @@ function formatAmountWithMinNonZeroFrac(
 type AuctionStatus =
   | "no_release"
   | "loading"
+  | "history_loading"
   | "before_open"
   | "open_not_active"
   | "active"
@@ -1741,6 +1742,7 @@ function useAuctionStatus(params: {
   openTimeSec?: number | null;
   coreLoading: boolean;
   bidsLoading: boolean;
+  coreActive: boolean;
   coreErrorVisible: unknown;
   bidsLength: number;
 }) {
@@ -1750,6 +1752,7 @@ function useAuctionStatus(params: {
     openTimeSec,
     coreLoading,
     bidsLoading,
+    coreActive,
     coreErrorVisible,
     bidsLength,
   } = params;
@@ -1791,11 +1794,15 @@ function useAuctionStatus(params: {
       setStatus("before_open");
       return;
     }
-    if (coreLoading || bidsLoading) {
+    if (coreLoading) {
       setStatus("loading");
       return;
     }
-    if (bidsLength > 0) {
+    if (bidsLoading && bidsLength === 0 && coreActive) {
+      setStatus("history_loading");
+      return;
+    }
+    if (bidsLength > 0 || coreActive) {
       setStatus("active");
       return;
     }
@@ -1805,6 +1812,7 @@ function useAuctionStatus(params: {
     releaseMissing,
     coreLoading,
     bidsLoading,
+    coreActive,
     coreErrorVisible,
     openTimeSec,
     nowSec,
@@ -1890,18 +1898,6 @@ export default function AuctionCanvas({
   const liveAuctionEnabled =
     !fixtureState && Boolean(auctionAddress) && protocolGuard.ready;
   const {
-    bids: bidsHook,
-    loading: bidsLoading,
-    pullOnce: pullBidsOnce = async () => [],
-  } = useAuctionBids({
-    address: auctionAddress ?? "0x0000000000000000000000000000000000000000",
-    provider,
-    fromBlock: bidsFromBlock,
-    refreshMs,
-    enabled: liveAuctionEnabled,
-    maxBids,
-  });
-  const {
     data: coreData,
     loading: coreLoadingHook,
     error: coreErrorHook,
@@ -1911,6 +1907,20 @@ export default function AuctionCanvas({
     provider,
     refreshMs,
     enabled: liveAuctionEnabled,
+  });
+  const bidHistoryEnabled =
+    liveAuctionEnabled && Boolean(coreData?.config);
+  const {
+    bids: bidsHook,
+    loading: bidsLoading,
+    pullOnce: pullBidsOnce = async () => [],
+  } = useAuctionBids({
+    address: auctionAddress ?? "0x0000000000000000000000000000000000000000",
+    provider,
+    fromBlock: bidsFromBlock,
+    refreshMs,
+    enabled: bidHistoryEnabled,
+    maxBids,
   });
   const bids = fixtureState?.bids ?? bidsHook;
   const paymentToken = useMemo(() => resolvePaymentToken(), []);
@@ -1926,7 +1936,7 @@ export default function AuctionCanvas({
     () => (fixtureState ? { config: fixtureState.config } : coreData),
     [fixtureState, coreData]
   );
-  const bidsLoadingVisible = fixtureState ? false : bidsLoading;
+  const bidsLoadingVisible = fixtureState ? false : bidHistoryEnabled && bidsLoading;
   const coreLoading = fixtureState
     ? false
     : protocolGuard.loading || coreLoadingHook;
@@ -2001,6 +2011,15 @@ export default function AuctionCanvas({
   });
   const [mintReview, setMintReview] = useState<MintReviewQuote | null>(null);
   const [currentAskQuoteDec, setCurrentAskQuoteDec] = useState<string | null>(null);
+  const coreCurrentAskDec = useMemo(() => {
+    if (fixtureState || !coreData?.price) return null;
+    try {
+      return toFixed(coreData.price, decimals);
+    } catch {
+      return null;
+    }
+  }, [coreData?.price, decimals, fixtureState]);
+  const effectiveCurrentAskQuoteDec = currentAskQuoteDec ?? coreCurrentAskDec;
   const [returnPromptVisible, setReturnPromptVisible] = useState(false);
   const [walletPickerOpen, setWalletPickerOpen] = useState(false);
   const preflightRef = useRef<Promise<PreflightResult | null> | null>(null);
@@ -3092,8 +3111,8 @@ export default function AuctionCanvas({
     let metaUClamped = Number.isFinite(metaU) ? Math.max(0, metaU) : 0;
     let nowPrice = priceAtU(lastBase.floor, lastBase.premium, metaUClamped);
     const quotedPrice =
-      !mimicLocalTime && currentAskQuoteDec != null
-        ? Number(currentAskQuoteDec)
+      !mimicLocalTime && effectiveCurrentAskQuoteDec != null
+        ? Number(effectiveCurrentAskQuoteDec)
         : Number.NaN;
     if (Number.isFinite(quotedPrice)) {
       const quotedU = uFromPrice(lastBase.floor, lastBase.premium, quotedPrice);
@@ -3130,11 +3149,11 @@ export default function AuctionCanvas({
       maxY: linkedStatic.maxY,
       reason: null,
     };
-  }, [linkedStatic, liveNowSec, currentAskQuoteDec, mimicLocalTime]);
+  }, [linkedStatic, liveNowSec, effectiveCurrentAskQuoteDec, mimicLocalTime]);
 
   const currentAskEstimate = useMemo(() => {
-    if (!fixtureState && !mimicLocalTime && currentAskQuoteDec != null) {
-      const quoted = Number(currentAskQuoteDec);
+    if (!fixtureState && !mimicLocalTime && effectiveCurrentAskQuoteDec != null) {
+      const quoted = Number(effectiveCurrentAskQuoteDec);
       if (Number.isFinite(quoted)) return quoted;
     }
     if (linkedStatic.reason) return null;
@@ -3148,7 +3167,7 @@ export default function AuctionCanvas({
   }, [
     fixtureState,
     mimicLocalTime,
-    currentAskQuoteDec,
+    effectiveCurrentAskQuoteDec,
     linkedStatic.reason,
     linkedStatic.segments,
     liveNowSec,
@@ -3163,12 +3182,14 @@ export default function AuctionCanvas({
     openTimeSec: activeConfig?.openTimeSec,
     coreLoading,
     bidsLoading: bidsLoadingVisible,
+    coreActive: Boolean(coreData?.active),
     coreErrorVisible,
     bidsLength: bids.length,
   });
   const showNoReleaseNotice = auctionStatus === "no_release";
   const showBeforeOpenNotice = auctionStatus === "before_open";
   const showOpenNotActive = auctionStatus === "open_not_active";
+  const showHistoryLoading = auctionStatus === "history_loading";
   const showCurveLoading = auctionStatus === "loading";
   const walletActionRequired =
     !effectiveWalletDetected ||
@@ -4312,8 +4333,8 @@ export default function AuctionCanvas({
       if (!seg) return false;
 
       const quotedPrice =
-        !mimicLocalTime && currentAskQuoteDec != null
-          ? Number(currentAskQuoteDec)
+        !mimicLocalTime && effectiveCurrentAskQuoteDec != null
+          ? Number(effectiveCurrentAskQuoteDec)
           : Number.NaN;
       let liveDurationSec = Math.max(0, liveNowSec - seg.startSec);
       let liveULocal = liveDurationSec / Math.max(seg.tHalf, 1e-9);
@@ -4328,8 +4349,8 @@ export default function AuctionCanvas({
       }
       const amountStr = Number.isFinite(livePrice) ? livePrice.toFixed(2) : "";
       const amountRaw =
-        !mimicLocalTime && currentAskQuoteDec != null && Number.isFinite(quotedPrice)
-          ? currentAskQuoteDec
+        !mimicLocalTime && effectiveCurrentAskQuoteDec != null && Number.isFinite(quotedPrice)
+          ? effectiveCurrentAskQuoteDec
           : String(livePrice);
 
       let screenX = 16;
@@ -4386,7 +4407,7 @@ export default function AuctionCanvas({
       linked.nowPrice,
       segmentStarts,
       liveNowSec,
-      currentAskQuoteDec,
+      effectiveCurrentAskQuoteDec,
       mimicLocalTime,
     ]
   );
@@ -4411,8 +4432,8 @@ export default function AuctionCanvas({
       }
 
       const quotedPrice =
-        !mimicLocalTime && currentAskQuoteDec != null
-          ? Number(currentAskQuoteDec)
+        !mimicLocalTime && effectiveCurrentAskQuoteDec != null
+          ? Number(effectiveCurrentAskQuoteDec)
           : Number.NaN;
       let durationSec = Math.max(0, liveNowSec - startSec);
       let uLocal = durationSec / tHalf;
@@ -4435,8 +4456,8 @@ export default function AuctionCanvas({
           : 0;
       const amountStr = price.toFixed(2);
       const amountRaw =
-        !mimicLocalTime && currentAskQuoteDec != null && Number.isFinite(quotedPrice)
-          ? currentAskQuoteDec
+        !mimicLocalTime && effectiveCurrentAskQuoteDec != null && Number.isFinite(quotedPrice)
+          ? effectiveCurrentAskQuoteDec
           : String(price);
 
       return {
@@ -4453,7 +4474,7 @@ export default function AuctionCanvas({
         uGlobal: uBase + uLocal,
       };
     });
-  }, [liveNowSec, currentAskQuoteDec, mimicLocalTime]);
+  }, [liveNowSec, effectiveCurrentAskQuoteDec, mimicLocalTime]);
 
   useEffect(() => {
     if (selectedBidKey || selectedAskKey || selectedNow) return;
@@ -5528,6 +5549,19 @@ export default function AuctionCanvas({
                 Waiting for first bid.
                 <br />
                 Opening ask: {openingAskLabel} {displayTokenSymbol}
+                <br />
+                Current ask: {openCurrentPriceLabel} {displayTokenSymbol}
+              </div>
+            </div>
+          );
+        }
+        if (showHistoryLoading) {
+          return (
+            <div className="dotfield__canvas dotfield__look">
+              <div className="muted dotfield__status-copy">
+                Auction is active.
+                <br />
+                Loading sale history.
                 <br />
                 Current ask: {openCurrentPriceLabel} {displayTokenSymbol}
               </div>

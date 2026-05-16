@@ -1116,16 +1116,17 @@ describe("AuctionCanvas", () => {
     expect(screen.getByText(/Waiting for first bid/i)).toBeTruthy();
   });
 
-  test("keeps loading state while initial bid backfill is still pending", () => {
+  test("shows current ask while active bid history backfill is pending", () => {
     mockUseAuctionCore.mockReturnValue({
       data: {
-        active: false,
+        active: true,
+        price: { dec: "1500000000000000000" },
         config: {
           openTimeSec: Math.floor(Date.now() / 1000) - 60,
-          genesisPrice: { dec: "1" },
-          genesisFloor: { dec: "1" },
-          k: { dec: "10" },
-          pts: "1",
+          genesisPrice: { dec: "1000000000000000000" },
+          genesisFloor: { dec: "100000000000000000" },
+          k: { dec: "10000000000000000000" },
+          pts: "1000000000000000000",
         },
       },
       ready: true,
@@ -1139,9 +1140,40 @@ describe("AuctionCanvas", () => {
       loading: true,
       error: null,
     });
-    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    expect(screen.getByText(/loading curve/i)).toBeTruthy();
-    expect(screen.queryByText(/Waiting for first bid/i)).toBeNull();
+    const { container } = render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    expect(screen.queryByText(/loading curve/i)).toBeNull();
+    expect(screen.getByText(/Loading sale history/i)).toBeTruthy();
+    expect(container.textContent).toMatch(/Current ask:\s*[0-9.]+\s*ETH/i);
+  });
+
+  test("shows open waiting message even if inactive bid backfill is pending", () => {
+    mockUseAuctionCore.mockReturnValue({
+      data: {
+        active: false,
+        price: { dec: "900000000000000000" },
+        config: {
+          openTimeSec: Math.floor(Date.now() / 1000) - 60,
+          genesisPrice: { dec: "1000000000000000000" },
+          genesisFloor: { dec: "100000000000000000" },
+          k: { dec: "10000000000000000000" },
+          pts: "1000000000000000000",
+        },
+      },
+      ready: true,
+      loading: false,
+      error: null,
+      refresh: jest.fn(),
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids: [],
+      ready: true,
+      loading: true,
+      error: null,
+    });
+    const { container } = render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    expect(screen.queryByText(/loading curve/i)).toBeNull();
+    expect(screen.getByText(/Waiting for first bid/i)).toBeTruthy();
+    expect(container.textContent).toMatch(/Current ask:\s*[0-9.]+\s*ETH/i);
   });
 
   test("opening ask label scales by token decimals", () => {
