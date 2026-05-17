@@ -122,13 +122,14 @@ export function createCoreService(
   }
 
   async function snapshot(): Promise<AuctionSnapshot> {
-    const [active, price, config, state] = await Promise.all([
-      getCurveActive(),
+    const [price, config, state] = await Promise.all([
       getCurrentPrice(),
       getConfig(),
       getState().catch(() => null),
     ]);
-    return { active: state?.active ?? active, price, config, state };
+    const active =
+      state?.active ?? (await getCurveActive().catch(() => false));
+    return { active, price, config, state };
   }
 
   function reset(next?: Partial<typeof cfg>) {

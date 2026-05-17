@@ -5,6 +5,12 @@ function providerRpcUrl() {
   return (getDefaultProvider() as any).rpcUrl as string;
 }
 
+type MockFetchResponse = {
+  ok: boolean;
+  status: number;
+  text: () => Promise<string>;
+};
+
 describe("Ethereum client production RPC guard", () => {
   const originalFetch = globalThis.fetch;
 
@@ -50,16 +56,44 @@ describe("Ethereum client production RPC guard", () => {
   });
 
   test("surfaces empty RPC responses with method context", async () => {
-    globalThis.fetch = jest.fn(async () => ({
+    const fetchMock = jest.fn<() => Promise<MockFetchResponse>>(async () => ({
       ok: true,
       status: 200,
       text: async () => "",
-    })) as any;
+    }));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     const provider = new JsonRpcProvider("/api/eth-rpc");
 
     await expect(provider.request({ method: "eth_getLogs", params: [] })).rejects.toThrow(
       "RPC request returned an empty response for eth_getLogs."
     );
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  test("retries transient empty RPC responses", async () => {
+    const fetchMock = jest
+      .fn<() => Promise<MockFetchResponse>>()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => "",
+      })
+      .mockResolvedValueOnce(
+        {
+          ok: true,
+          status: 200,
+          text: async () =>
+            JSON.stringify({ jsonrpc: "2.0", id: 1, result: "0x7b" }),
+        }
+      );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const provider = new JsonRpcProvider("/api/eth-rpc");
+
+    await expect(provider.request({ method: "eth_blockNumber", params: [] })).resolves.toBe(
+      "0x7b"
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

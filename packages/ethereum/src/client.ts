@@ -77,6 +77,7 @@ export const DEFAULT_BLOCK_TAG: EthereumBlockTag = "latest";
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 let rpcCounter = 0;
+const RPC_RETRY_DELAYS_MS = [150, 450];
 
 function assertRequestProvider(
   provider: ProviderInterface
@@ -90,6 +91,21 @@ function assertRequestProvider(
 
 export function supportsRpcRequest(provider: ProviderInterface): boolean {
   return typeof provider?.request === "function";
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableHttpStatus(status: number): boolean {
+  return status === 429 || (status >= 500 && status < 600);
+}
+
+function isRetryableRpcTransportError(error: unknown): boolean {
+  const msg = String((error as any)?.message ?? error ?? "");
+  return /empty response|invalid json|failed to fetch|network error|load failed|timeout|temporar|rate limit|rpc upstream/i.test(
+    msg
+  );
 }
 
 function toHexQuantity(value: number | bigint): Hex {
@@ -147,44 +163,69 @@ export class JsonRpcProvider implements ProviderInterface {
   constructor(private readonly rpcUrl: string) {}
 
   async request(args: RpcRequestArgs): Promise<unknown> {
-    const response = await fetch(this.rpcUrl, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: ++rpcCounter,
-        method: args.method,
-        params:
-          args.params == null
-            ? []
-            : Array.isArray(args.params)
-              ? args.params
-              : [args.params],
-      }),
+    const body = JSON.stringify({
+      jsonrpc: "2.0",
+      id: ++rpcCounter,
+      method: args.method,
+      params:
+        args.params == null
+          ? []
+          : Array.isArray(args.params)
+            ? args.params
+            : [args.params],
     });
-    const responseText = await response.text();
-    if (!responseText.trim()) {
-      throw new Error(`RPC request returned an empty response for ${args.method}.`);
-    }
 
-    let payload: any;
-    try {
-      payload = JSON.parse(responseText);
-    } catch {
-      throw new Error(`RPC request returned invalid JSON for ${args.method}.`);
-    }
+    for (let attempt = 0; attempt <= RPC_RETRY_DELAYS_MS.length; attempt += 1) {
+      try {
+        const response = await fetch(this.rpcUrl, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body,
+        });
+        const responseText = await response.text();
+        if (!responseText.trim()) {
+          throw new Error(
+            `RPC request returned an empty response for ${args.method}.`
+          );
+        }
 
-    if (!response.ok) {
-      throw new Error(
-        payload?.error?.message ?? `RPC request failed with ${response.status}`
-      );
+        let payload: any;
+        try {
+          payload = JSON.parse(responseText);
+        } catch {
+          throw new Error(`RPC request returned invalid JSON for ${args.method}.`);
+        }
+
+        if (!response.ok) {
+          const message =
+            payload?.error?.message ?? `RPC request failed with ${response.status}`;
+          if (
+            attempt < RPC_RETRY_DELAYS_MS.length &&
+            isRetryableHttpStatus(response.status)
+          ) {
+            await sleep(RPC_RETRY_DELAYS_MS[attempt]);
+            continue;
+          }
+          throw new Error(message);
+        }
+        if (payload?.error) {
+          throw new Error(payload.error.message ?? "RPC request failed.");
+        }
+        return payload?.result;
+      } catch (err) {
+        if (
+          attempt < RPC_RETRY_DELAYS_MS.length &&
+          isRetryableRpcTransportError(err)
+        ) {
+          await sleep(RPC_RETRY_DELAYS_MS[attempt]);
+          continue;
+        }
+        throw err;
+      }
     }
-    if (payload?.error) {
-      throw new Error(payload.error.message ?? "RPC request failed.");
-    }
-    return payload?.result;
+    throw new Error(`RPC request failed for ${args.method}.`);
   }
 }
 

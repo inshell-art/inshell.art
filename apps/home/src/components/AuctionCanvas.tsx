@@ -623,7 +623,9 @@ function isNativePaymentToken(paymentToken?: string): boolean {
 
 function isTransientRpcError(err: unknown): boolean {
   const msg = String((err as any)?.message ?? err ?? "");
-  return /insufficient_resources/i.test(msg);
+  return /insufficient_resources|empty response|invalid json|rpc upstream|failed to fetch|network error|load failed|timeout|temporar|rate limit|429|502|503|504/i.test(
+    msg
+  );
 }
 
 const isTestEnv =
@@ -2699,16 +2701,18 @@ export default function AuctionCanvas({
       }
     }
     if (tokenId == null) return;
-    queueToast({ kind: "info", text: `Minted $PATH #${tokenId}.` });
+    queueToast({ kind: "info", text: `Minted $PATH #${tokenId}. New curve started.` });
+    void pullBidsOnce();
+    void refreshCore();
     setPendingMint(null);
-  }, [pendingMint, bids, maxTokenId, queueToast]);
+  }, [pendingMint, bids, maxTokenId, queueToast, pullBidsOnce, refreshCore]);
 
   useEffect(() => {
     if (!pendingMint) return;
     const id = window.setTimeout(() => {
       queueToast({
         kind: "warn",
-        text: "Could not detect minted token yet.",
+        text: "Mint confirmed. Sale event is still indexing.",
         reportState: "event_detection_failed",
         reportError: pendingMint.txHash,
       });
@@ -3838,7 +3842,10 @@ export default function AuctionCanvas({
         await waiter.call(account ?? waitProvider, hash);
       }
       setTxState("confirmed");
-      showToast({ kind: "info", text: "Confirmed." });
+      showToast({
+        kind: "info",
+        text: phase === "bid" ? "Settlement confirmed. Loading sale event." : "Confirmed.",
+      });
       if (phase === "bid" && walletAddress) {
         postMintNowTipPendingRef.current = true;
         postMintNowTipBaseCurveKeyRef.current = initialAskTipCurveKeyRef.current;
@@ -4003,6 +4010,9 @@ export default function AuctionCanvas({
         reportError: msg,
       };
     }
+    if (pendingMint) {
+      return { kind: "info", text: "Settlement confirmed. Loading sale event." };
+    }
     if (
       pathMintIntent &&
       returnPromptVisible &&
@@ -4111,6 +4121,7 @@ export default function AuctionCanvas({
     auctionBlockedMintNotice,
     pathMintIntent,
     returnPromptVisible,
+    pendingMint,
   ]);
 
   useEffect(() => {

@@ -36,6 +36,7 @@ const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
   "cache-control": "no-store",
 };
+const UPSTREAM_RETRY_DELAYS_MS = [150, 450];
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -62,6 +63,57 @@ function validatePayload(payload: unknown): string | null {
   }
 
   return null;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function shouldRetryUpstream(status: number, body: string): boolean {
+  if (!body.trim()) return true;
+  return status === 429 || (status >= 500 && status < 600);
+}
+
+async function fetchUpstream(
+  upstream: string,
+  body: string
+): Promise<{ status: number; body: string } | Response> {
+  for (let attempt = 0; attempt <= UPSTREAM_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      const upstreamResponse = await fetch(upstream, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body,
+      });
+      const responseText = await upstreamResponse.text();
+      if (
+        attempt < UPSTREAM_RETRY_DELAYS_MS.length &&
+        shouldRetryUpstream(upstreamResponse.status, responseText)
+      ) {
+        await sleep(UPSTREAM_RETRY_DELAYS_MS[attempt]);
+        continue;
+      }
+      if (!responseText.trim()) {
+        return json(502, {
+          error: "RPC upstream returned an empty response.",
+        });
+      }
+      return {
+        status: upstreamResponse.status,
+        body: responseText,
+      };
+    } catch {
+      if (attempt < UPSTREAM_RETRY_DELAYS_MS.length) {
+        await sleep(UPSTREAM_RETRY_DELAYS_MS[attempt]);
+        continue;
+      }
+    }
+  }
+  return json(502, {
+    error: "RPC upstream request failed.",
+  });
 }
 
 async function readBody(request: Request): Promise<string | Response> {
@@ -116,16 +168,10 @@ export async function onRequestPost(context: PagesContext): Promise<Response> {
     });
   }
 
-  const upstreamResponse = await fetch(upstream, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-    },
-    body,
-  });
+  const upstreamResponse = await fetchUpstream(upstream, body);
+  if (upstreamResponse instanceof Response) return upstreamResponse;
 
-  const responseText = await upstreamResponse.text();
-  return new Response(responseText, {
+  return new Response(upstreamResponse.body, {
     status: upstreamResponse.status,
     headers: JSON_HEADERS,
   });
