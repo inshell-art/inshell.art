@@ -1183,6 +1183,43 @@ describe("AuctionCanvas", () => {
     expect(container.querySelector(".dotfield__curve")).toBeTruthy();
   });
 
+  test("keeps active state from contract state when sale history backfill errors", () => {
+    const nowSec = Math.floor(Date.now() / 1000);
+    mockUseAuctionCore.mockReturnValue({
+      data: {
+        active: false,
+        price: { dec: "1200000000000000000" },
+        config: {
+          openTimeSec: nowSec - 120,
+          genesisPrice: { dec: "1000000000000000000" },
+          genesisFloor: { dec: "100000000000000000" },
+          k: { dec: "10000000000000000000" },
+          pts: "1000000000000000000",
+        },
+        state: {
+          epochIndex: 6,
+          startTimeSec: nowSec - 10,
+          anchorTimeSec: nowSec - 20,
+          floorPrice: { dec: "500000000000000000" },
+          active: true,
+        },
+      },
+      ready: true,
+      loading: false,
+      error: null,
+      refresh: jest.fn(),
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids: [],
+      ready: true,
+      loading: false,
+      error: new Error("history backfill too broad"),
+    });
+    const { container } = render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    expect(screen.queryByText(/Waiting for first bid/i)).toBeNull();
+    expect(container.querySelector(".dotfield__curve")).toBeTruthy();
+  });
+
   test("shows open waiting message even if inactive bid backfill is pending", () => {
     mockUseAuctionCore.mockReturnValue({
       data: {

@@ -26,6 +26,14 @@ export type NormalizedBid = {
 
 const DEFAULT_LOG_CHUNK_SIZE = 40_000;
 const MAX_LOG_FETCH_CONCURRENCY = 3;
+const TIGHT_LOG_RANGE_THRESHOLD = 100;
+const MAX_TIGHT_LOG_PULL_CHUNKS = 24;
+
+type LogsFetchResult = {
+  logs: EthereumLog[];
+  scannedToBlock: number;
+  complete: boolean;
+};
 
 function chunkRanges(
   startBlock: number,
@@ -183,16 +191,24 @@ export function createBidsService(opts: {
   async function fetchLogsAdaptive(
     startBlock: number,
     latestBlock: number
-  ): Promise<EthereumLog[]> {
+  ): Promise<LogsFetchResult> {
     let size = effectiveChunkSize;
     let lastError: unknown = null;
 
     for (let attempt = 0; attempt < 16; attempt += 1) {
-      const ranges = chunkRanges(startBlock, latestBlock, size);
+      const allRanges = chunkRanges(startBlock, latestBlock, size);
+      const limited =
+        size <= TIGHT_LOG_RANGE_THRESHOLD &&
+        allRanges.length > MAX_TIGHT_LOG_PULL_CHUNKS;
+      const ranges = limited
+        ? allRanges.slice(0, MAX_TIGHT_LOG_PULL_CHUNKS)
+        : allRanges;
+      const scannedToBlock =
+        ranges.length > 0 ? ranges[ranges.length - 1][1] : startBlock - 1;
       try {
         const batches = await mapWithConcurrency(
           ranges,
-          MAX_LOG_FETCH_CONCURRENCY,
+          size <= TIGHT_LOG_RANGE_THRESHOLD ? 1 : MAX_LOG_FETCH_CONCURRENCY,
           ([fromBlock, toBlock]) =>
             getLogs(provider, {
               address,
@@ -202,7 +218,11 @@ export function createBidsService(opts: {
             })
         );
         effectiveChunkSize = size;
-        return batches.flat();
+        return {
+          logs: batches.flat(),
+          scannedToBlock,
+          complete: scannedToBlock >= latestBlock,
+        };
       } catch (err) {
         lastError = err;
         const nextSize = inferProviderLogRangeLimit(err, size);
@@ -235,7 +255,8 @@ export function createBidsService(opts: {
     const latestBlock = await getBlockNumber(provider);
     if (startBlock > latestBlock) return fresh;
 
-    const events = await fetchLogsAdaptive(startBlock, latestBlock);
+    const result = await fetchLogsAdaptive(startBlock, latestBlock);
+    const events = result.logs;
 
     for (const ev of events) {
       const sel = (ev.topics?.[0] ?? "").toLowerCase();
@@ -249,7 +270,8 @@ export function createBidsService(opts: {
       }
     }
 
-    lastBlock = Math.max(lastBlock ?? 0, latestBlock + 1);
+    const scannedToBlock = result.complete ? latestBlock : result.scannedToBlock;
+    lastBlock = Math.max(lastBlock ?? 0, scannedToBlock + 1);
 
     if (fresh.length) {
       bids = [...bids, ...fresh].sort((a, b) => a.atMs - b.atMs);

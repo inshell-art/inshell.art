@@ -1941,6 +1941,11 @@ export default function AuctionCanvas({
     () => (fixtureState ? { config: fixtureState.config } : coreData),
     [fixtureState, coreData]
   );
+  const coreImpliesActive = Boolean(
+    coreData?.active ||
+      coreData?.state?.active ||
+      ((coreData?.state?.epochIndex ?? 0) > 0)
+  );
   const bidsLoadingVisible = fixtureState ? false : bidHistoryEnabled && bidsLoading;
   const coreLoading = fixtureState
     ? false
@@ -3244,7 +3249,7 @@ export default function AuctionCanvas({
     openTimeSec: activeConfig?.openTimeSec,
     coreLoading,
     bidsLoading: bidsLoadingVisible,
-    coreActive: Boolean(coreData?.active),
+    coreActive: coreImpliesActive,
     coreErrorVisible,
     bidsLength: bids.length,
     hasRenderableCurve: linked.segments.length > 0 && linked.reason === null,

@@ -92,6 +92,56 @@ describe("auction bids service", () => {
     );
   });
 
+  test("limits broad tight-range log backfills and resumes on the next pull", async () => {
+    const logs = [saleLog(12, 1n, 100n), saleLog(260, 2n, 120n)];
+    const provider = {
+      request: jest.fn(async ({ method, params }: any) => {
+        if (method === "eth_blockNumber") return "0x200";
+        if (method === "eth_getLogs") {
+          const filter = params[0];
+          const from = Number(BigInt(filter.fromBlock));
+          const to = Number(BigInt(filter.toBlock));
+          if (to - from + 1 > 10) {
+            throw new Error(
+              "Under the Free tier plan, you can make eth_getLogs requests with up to a 10 block range. Based on your parameters, this block range should work: [0x1, 0xa]."
+            );
+          }
+          return logs.filter((log) => {
+            const block = Number(BigInt(log.blockNumber));
+            return block >= from && block <= to;
+          });
+        }
+        if (method === "eth_getBlockByNumber") {
+          return { number: params[0], timestamp: "0x6a000000" };
+        }
+        throw new Error(`unexpected RPC method ${method}`);
+      }),
+    };
+
+    const service = createBidsService({
+      address: AUCTION,
+      provider,
+      fromBlock: 1,
+      chunkSize: 40_000,
+      reorgDepth: 0,
+    });
+
+    const first = await service.pullOnce();
+    expect(first.map((bid) => bid.epochIndex)).toEqual([1]);
+    const firstLogCalls = provider.request.mock.calls.filter(
+      ([arg]: any[]) => arg.method === "eth_getLogs"
+    );
+    expect(firstLogCalls.length).toBeLessThanOrEqual(25);
+
+    const second = await service.pullOnce();
+    expect(second.map((bid) => bid.epochIndex)).toEqual([2]);
+
+    const allLogCalls = provider.request.mock.calls.filter(
+      ([arg]: any[]) => arg.method === "eth_getLogs"
+    );
+    expect(allLogCalls.length).toBeLessThan(60);
+  });
+
   test("deduplicates overlapping polling scans", async () => {
     const logs = [saleLog(20, 1n, 100n)];
     let resolveLogs: (logs: any[]) => void = () => undefined;
