@@ -260,7 +260,7 @@ export function getDefaultProvider(): ProviderInterface {
   if (configuredRpcUrl?.trim()) {
     return new JsonRpcProvider(configuredRpcUrl.trim());
   }
-  if (hasBrowserLocation() && requiresConfiguredRpc()) {
+  if (hasBrowserLocation() && (requiresConfiguredRpc() || !isLocalBrowserHost())) {
     return new JsonRpcProvider("/api/eth-rpc");
   }
   if (!requiresConfiguredRpc() && isLocalBrowserHost()) {

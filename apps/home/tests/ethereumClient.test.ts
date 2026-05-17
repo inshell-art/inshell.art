@@ -53,6 +53,14 @@ describe("Ethereum client production RPC guard", () => {
     expect(providerRpcUrl()).toBe("/api/eth-rpc");
   });
 
+  test("uses same-origin RPC proxy for production launch mode without a public RPC", () => {
+    (globalThis as any).__VITE_ENV__ = {
+      VITE_PUBLIC_LAUNCH_MODE: "production",
+    };
+
+    expect(providerRpcUrl()).toBe("/api/eth-rpc");
+  });
+
   test("surfaces empty RPC responses with method context", async () => {
     const fetchMock = jest.fn<() => Promise<MockFetchResponse>>(async () => ({
       ok: true,
