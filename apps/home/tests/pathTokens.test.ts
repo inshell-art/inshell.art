@@ -129,21 +129,12 @@ describe("path token inventory", () => {
     });
   });
 
-  test("loads all minted PATH tokens from mint logs", async () => {
-    const logs = [
-      transferLog(ZERO_TOPIC, OWNER, 1n, 2, 0),
-      transferLog(ZERO_TOPIC, OWNER, 2n, 3, 0),
-      transferLog(OWNER, OTHER, 2n, 4, 0),
-    ];
+  test("loads all minted PATH tokens from sequential ownerOf scan", async () => {
     const provider = {
       request: jest.fn(async ({ method, params }: any) => {
         if (method === "eth_blockNumber") return "0x10";
         if (method === "eth_getLogs") {
-          const filter = params[0];
-          const topics = filter.topics as Array<string | null>;
-          return logs.filter((log) =>
-            topics.every((topic, index) => topicMatches(topic, log.topics[index]))
-          );
+          throw new Error("eth_getLogs should not be needed for sequential PATH ids");
         }
         if (method === "eth_call") {
           const call = params[0];
@@ -152,6 +143,9 @@ describe("path token inventory", () => {
             data: call.data,
           });
           if (decoded.functionName === "ownerOf") {
+            if (decoded.args[0] > 2n) {
+              throw new Error("ERC721NonexistentToken");
+            }
             return encodeFunctionResult({
               abi: pathNftAbi,
               functionName: "ownerOf",

@@ -25,6 +25,7 @@ const pathNftAbi = parseAbi([
 const TRANSFER_TOPIC = toEventSelector("Transfer(address,address,uint256)");
 const ZERO_TOPIC =
   "0x0000000000000000000000000000000000000000000000000000000000000000";
+const DEFAULT_MAX_SEQUENTIAL_TOKEN_ID = 10_000;
 
 export type PathTokenAttribute = {
   trait_type?: string;
@@ -94,6 +95,16 @@ function logOrdinal(log: EthereumLog): number {
 
 function logKey(log: EthereumLog): string {
   return `${log.transactionHash ?? "tx"}:${log.logIndex ?? "idx"}:${log.blockNumber ?? "block"}`;
+}
+
+function isMissingTokenError(error: unknown): boolean {
+  const message = String((error as Error)?.message ?? error).toLowerCase();
+  return (
+    message.includes("nonexistent") ||
+    message.includes("invalid token") ||
+    message.includes("erc721") ||
+    message.includes("execution reverted")
+  );
 }
 
 async function ethCall<T>(
@@ -228,12 +239,26 @@ export async function loadAllPathTokenIds(args: {
   pathNftAddress: string;
   fromBlock?: number;
   chunkSize?: number;
+  maxSequentialTokenId?: number;
 }): Promise<bigint[]> {
-  if (args.fromBlock == null) {
-    throw new Error("PATH deploy block is missing; cannot backfill all tokens.");
-  }
   const provider = normalizeProvider(args.provider);
   const pathNftAddress = getAddress(args.pathNftAddress);
+  const maxSequentialTokenId =
+    args.maxSequentialTokenId ?? DEFAULT_MAX_SEQUENTIAL_TOKEN_ID;
+  const tokenIds: bigint[] = [];
+  for (let tokenId = 1n; tokenId <= BigInt(maxSequentialTokenId); tokenId += 1n) {
+    try {
+      await ethCall<Address>(provider, pathNftAddress, "ownerOf", [tokenId]);
+      tokenIds.push(tokenId);
+    } catch (error) {
+      if (isMissingTokenError(error)) break;
+      throw error;
+    }
+  }
+  if (tokenIds.length > 0 || args.fromBlock == null) {
+    return tokenIds;
+  }
+
   const latestBlock = await getBlockNumber(provider);
   const mintLogs = await getMintLogs(provider, {
     pathNftAddress,
@@ -241,13 +266,13 @@ export async function loadAllPathTokenIds(args: {
     toBlock: latestBlock,
     chunkSize: args.chunkSize ?? 5_000,
   });
-  const tokenIds = new Set<bigint>();
+  const mintTokenIds = new Set<bigint>();
   for (const log of mintLogs) {
     if (log.removed) continue;
     const tokenId = topicToTokenId(log.topics[3]);
-    if (tokenId != null) tokenIds.add(tokenId);
+    if (tokenId != null) mintTokenIds.add(tokenId);
   }
-  return [...tokenIds].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  return [...mintTokenIds].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
 export async function loadWalletPathTokenIds(args: {
@@ -363,6 +388,7 @@ export async function loadAllPathTokens(args: {
   pathNftAddress: string;
   fromBlock?: number;
   chunkSize?: number;
+  maxSequentialTokenId?: number;
 }): Promise<PathTokenInventoryItem[]> {
   const provider = normalizeProvider(args.provider);
   const tokenIds = await loadAllPathTokenIds({ ...args, provider });
