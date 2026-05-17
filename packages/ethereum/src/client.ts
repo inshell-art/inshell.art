@@ -240,6 +240,10 @@ function isLocalBrowserHost(): boolean {
   );
 }
 
+function hasBrowserLocation(): boolean {
+  return typeof window !== "undefined" && typeof window.location?.origin === "string";
+}
+
 function requiresConfiguredRpc(): boolean {
   const network = String(getEnv("VITE_NETWORK") ?? "").toLowerCase();
   const launchMode = String(getEnv("VITE_PUBLIC_LAUNCH_MODE") ?? "").toLowerCase();
@@ -255,6 +259,9 @@ export function getDefaultProvider(): ProviderInterface {
   const configuredRpcUrl = getEnv("VITE_ETH_RPC") as string | undefined;
   if (configuredRpcUrl?.trim()) {
     return new JsonRpcProvider(configuredRpcUrl.trim());
+  }
+  if (hasBrowserLocation() && requiresConfiguredRpc()) {
+    return new JsonRpcProvider("/api/eth-rpc");
   }
   if (!requiresConfiguredRpc() && isLocalBrowserHost()) {
     return new JsonRpcProvider("http://127.0.0.1:8546");

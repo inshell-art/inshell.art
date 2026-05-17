@@ -44,15 +44,13 @@ describe("Ethereum client production RPC guard", () => {
     expect(providerRpcUrl()).toBe("http://127.0.0.1:8546");
   });
 
-  test("rejects missing RPC for Sepolia launch modes", () => {
+  test("uses same-origin RPC proxy for Sepolia launch modes without a public RPC", () => {
     (globalThis as any).__VITE_ENV__ = {
       VITE_NETWORK: "sepolia",
       VITE_PUBLIC_LAUNCH_MODE: "sepolia_invite",
     };
 
-    expect(() => getDefaultProvider()).toThrow(
-      "VITE_ETH_RPC is required outside local development.",
-    );
+    expect(providerRpcUrl()).toBe("/api/eth-rpc");
   });
 
   test("surfaces empty RPC responses with method context", async () => {
