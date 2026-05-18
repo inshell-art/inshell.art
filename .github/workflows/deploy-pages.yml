@@ -30,7 +30,7 @@ jobs:
     if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'home' }}
     runs-on: ubuntu-latest
     env:
-      CLOUDFLARE_PAGES_PROJECT_HOME: ${{ vars.CLOUDFLARE_PAGES_PROJECT_HOME }}
+      CLOUDFLARE_PAGES_PROJECT_HOME: ${{ vars.CLOUDFLARE_PAGES_PROJECT_HOME || 'inshell-art' }}
       VITE_NETWORK: ${{ vars.VITE_NETWORK || 'sepolia' }}
       VITE_ETH_RPC: ${{ vars.VITE_ETH_RPC || '/api/eth-rpc' }}
       VITE_WALLETCONNECT_PROJECT_ID: ${{ vars.VITE_WALLETCONNECT_PROJECT_ID }}
@@ -42,20 +42,21 @@ jobs:
       VITE_PUBLIC_TELEGRAM_CHANNEL_URL: ${{ vars.VITE_PUBLIC_TELEGRAM_CHANNEL_URL }}
     steps:
       - uses: actions/checkout@v4
+      - name: Enable pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.0.0
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - name: Enable corepack
-        run: corepack enable
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Check deploy config
         run: |
           test -n "$CLOUDFLARE_PAGES_PROJECT_HOME"
           test -n "$VITE_ETH_RPC"
-          test -n "$VITE_WALLETCONNECT_PROJECT_ID"
       - name: Validate production surface
         run: pnpm tsx scripts/validate-production-surface.ts
       - name: Validate imported PATH release
@@ -78,18 +79,20 @@ jobs:
     if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'thought' }}
     runs-on: ubuntu-latest
     env:
-      CLOUDFLARE_PAGES_PROJECT_THOUGHT: ${{ vars.CLOUDFLARE_PAGES_PROJECT_THOUGHT }}
+      CLOUDFLARE_PAGES_PROJECT_THOUGHT: ${{ vars.CLOUDFLARE_PAGES_PROJECT_THOUGHT || 'inshell-thought' }}
       VITE_NETWORK: ${{ vars.VITE_NETWORK || 'sepolia' }}
       VITE_ETH_RPC: ${{ vars.VITE_ETH_RPC || '/api/eth-rpc' }}
     steps:
       - uses: actions/checkout@v4
+      - name: Enable pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.0.0
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - name: Enable corepack
-        run: corepack enable
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Check deploy config
