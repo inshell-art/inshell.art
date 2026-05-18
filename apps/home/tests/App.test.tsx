@@ -1,7 +1,7 @@
 import React from "react";
 import { readFileSync } from "node:fs";
 import nodePath from "node:path";
-import { cwd } from "node:process";
+import { cwd, env } from "node:process";
 import { TextEncoder } from "node:util";
 import { afterEach, beforeEach, describe, test, expect, jest } from "@jest/globals";
 import { fireEvent, render, screen, within } from "@testing-library/react";
@@ -82,6 +82,18 @@ function u256(value: bigint) {
 
 function defaultRpcProvider() {
   return { request: jest.fn(async () => "0x") };
+}
+
+function expectedEnvChainLabel() {
+  return String(env.VITE_NETWORK ?? "").toLowerCase() === "sepolia"
+    ? "Sepolia"
+    : "Local Devnet";
+}
+
+function expectedColorFontFallbackChainLabel() {
+  return String(env.VITE_NETWORK ?? "").toLowerCase() === "sepolia"
+    ? "Sepolia (11155111)"
+    : "Local Devnet";
 }
 
 describe("App Component", () => {
@@ -256,7 +268,7 @@ describe("App Component", () => {
       scopedParams.getByText(/^PulseAuction 0x[a-fA-F0-9]{4}\.\.\.[a-fA-F0-9]{4}$/),
     ).toBeInTheDocument();
     expect(scopedParams.getByText("chain")).toBeInTheDocument();
-    expect(scopedParams.getByText("Local Devnet")).toBeInTheDocument();
+    expect(scopedParams.getByText(expectedEnvChainLabel())).toBeInTheDocument();
     expect(scopedParams.getByText("payment")).toBeInTheDocument();
     expect(scopedParams.getByText("ETH")).toBeInTheDocument();
     expect(scopedParams.getByText("loaded from")).toBeInTheDocument();
@@ -339,7 +351,7 @@ describe("App Component", () => {
     expect(screen.getByText("authority")).toBeInTheDocument();
     expect(screen.getByText("onchain color font ABI unavailable")).toBeInTheDocument();
     expect(screen.getByText("chain")).toBeInTheDocument();
-    expect(screen.getByText("Local Devnet")).toBeInTheDocument();
+    expect(screen.getByText(expectedColorFontFallbackChainLabel())).toBeInTheDocument();
     expect(screen.getByText("loaded from")).toBeInTheDocument();
     expect(screen.getByText("frontend mirror fallback")).toBeInTheDocument();
     expect(screen.getByText("mirror")).toBeInTheDocument();

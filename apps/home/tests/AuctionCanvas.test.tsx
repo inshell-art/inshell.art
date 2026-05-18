@@ -30,6 +30,20 @@ const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const STARTUP_GRACE_MS = 2500;
 const DELAY_MS = 500;
 const SAMPLE_BASE_MS = Date.now() - 2 * 60 * 1000;
+const DEFAULT_WALLET_ADDRESS = "0x1111222233334444555566667777888899990000";
+
+function normalizeMockChainId(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "bigint") return Number(value);
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = trimmed.startsWith("0x")
+    ? Number.parseInt(trimmed, 16)
+    : Number.parseInt(trimmed, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function stubSvgRect(container: HTMLElement) {
   const svg = container.querySelector("svg") as any;
   if (!svg) return;
@@ -55,37 +69,60 @@ const createDeferred = <T,>() => {
   });
   return { promise, resolve, reject };
 };
-const createWalletState = (overrides: Partial<any> = {}) => ({
-  address: "0x1111222233334444555566667777888899990000",
-  isConnected: true,
-  isConnecting: false,
-  isReconnecting: false,
-  status: "connected",
-  chain: { name: "Sepolia" },
-  chainId: 11155111n,
-  account: null,
-  accountMissing: false,
-  connect: jest.fn(),
-  connectAsync: jest.fn(),
-  disconnect: jest.fn(),
-  disconnectAsync: jest.fn(),
-  connectors: [fakeConnector],
-  connectStatus: "idle",
-  requestAccounts: jest.fn(),
-  watchAsset: jest.fn(),
-  evm: {
-    providers: [],
-    address: null,
-    chainId: null,
-    providerName: null,
-    isConnected: false,
-    error: null,
-    connectInjected: jest.fn(),
-    connectWalletConnectV2: jest.fn(),
+const createWalletState = (overrides: Partial<any> = {}) => {
+  const evmOverrides = overrides.evm ?? {};
+  const address =
+    overrides.address === undefined ? DEFAULT_WALLET_ADDRESS : overrides.address;
+  const chainId = overrides.chainId === undefined ? 11155111n : overrides.chainId;
+  const isConnected = overrides.isConnected ?? Boolean(address);
+  const base = {
+    address,
+    isConnected,
+    isConnecting: false,
+    isReconnecting: false,
+    status: isConnected ? "connected" : "disconnected",
+    chain: { name: "Sepolia" },
+    chainId,
+    account: null,
+    accountMissing: false,
+    connect: jest.fn(),
+    connectAsync: jest.fn(),
     disconnect: jest.fn(),
-  },
-  ...overrides,
-});
+    disconnectAsync: jest.fn(),
+    connectors: [fakeConnector],
+    connectStatus: "idle",
+    requestAccounts: jest.fn(),
+    watchAsset: jest.fn(),
+    ...overrides,
+  };
+  return {
+    ...base,
+    evm: {
+      providers: [],
+      address:
+        evmOverrides.address !== undefined ? evmOverrides.address : base.address,
+      chainId:
+        evmOverrides.chainId !== undefined
+          ? evmOverrides.chainId
+          : normalizeMockChainId(base.chainId),
+      providerName:
+        evmOverrides.providerName !== undefined
+          ? evmOverrides.providerName
+          : base.address
+            ? "Ready"
+            : null,
+      isConnected:
+        evmOverrides.isConnected !== undefined
+          ? evmOverrides.isConnected
+          : Boolean(base.isConnected && base.address),
+      error: null,
+      connectInjected: jest.fn(),
+      connectWalletConnectV2: jest.fn(),
+      disconnect: jest.fn(),
+      ...evmOverrides,
+    },
+  };
+};
 let mockWalletState = createWalletState();
 
 jest.mock("../src/hooks/useAuctionBids", () => ({
@@ -1642,7 +1679,7 @@ describe("AuctionCanvas", () => {
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     return waitFor(() => {
-      expect(screen.getByText(/Sepolia only/i)).toBeTruthy();
+      expect(screen.getByText(/Sepolia(?: testnet)? only/i)).toBeTruthy();
       expect(screen.getByText(/\[\s*switch\s*\]/i)).toBeTruthy();
     });
   });
@@ -1695,6 +1732,7 @@ describe("AuctionCanvas", () => {
       VITE_PAYMENT_TOKEN: TEST_PAYMENT_TOKEN,
       VITE_PAYMENT_TOKEN_SYMBOL: "ETH",
       VITE_ETH_RPC: "http://127.0.0.1:8546",
+      VITE_PUBLIC_LAUNCH_MODE: "local",
     };
     const request = jest
       .fn()
@@ -2073,6 +2111,7 @@ describe("AuctionCanvas", () => {
       VITE_EXPECTED_CHAIN_ID: "0x7a69",
       VITE_ETH_RPC: "http://127.0.0.1:8546",
       VITE_PAYTOKEN: ZERO_ADDRESS,
+      VITE_PUBLIC_LAUNCH_MODE: "local",
     };
     const execute = jest.fn().mockResolvedValue({ transaction_hash: "0x1" });
     mockWalletState = createWalletState({
