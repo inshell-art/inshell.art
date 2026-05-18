@@ -263,6 +263,9 @@ export function getDefaultProvider(): ProviderInterface {
   if (hasBrowserLocation() && (requiresConfiguredRpc() || !isLocalBrowserHost())) {
     return new JsonRpcProvider("/api/eth-rpc");
   }
+  if (requiresConfiguredRpc()) {
+    return new JsonRpcProvider("/api/eth-rpc");
+  }
   if (!requiresConfiguredRpc() && isLocalBrowserHost()) {
     return new JsonRpcProvider("http://127.0.0.1:8546");
   }

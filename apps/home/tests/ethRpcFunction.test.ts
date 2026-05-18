@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from "@jest/globals";
-import { onRequestPost } from "../../../functions/api/eth-rpc";
+import {
+  __clearRpcProxyCachesForTests,
+  onRequestPost,
+} from "../../../functions/api/eth-rpc";
 
 type MockFetchResponse = {
   status: number;
@@ -52,6 +55,7 @@ describe("Cloudflare Ethereum RPC proxy", () => {
   afterEach(() => {
     globalThis.fetch = originalFetch;
     globalThis.Response = originalResponse;
+    __clearRpcProxyCachesForTests();
     jest.restoreAllMocks();
   });
 
@@ -135,5 +139,44 @@ describe("Cloudflare Ethereum RPC proxy", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
+  test("coalesces concurrent safe single-call RPC requests", async () => {
+    let resolveFetch: ((value: MockFetchResponse) => void) | undefined;
+    const fetchMock = jest.fn<() => Promise<MockFetchResponse>>(
+      () =>
+        new Promise((resolve) => {
+          resolveFetch = resolve;
+        })
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const call = {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "eth_blockNumber",
+      params: [],
+    };
+    const first = postRpc(call);
+    const second = postRpc({ ...call, id: 2 });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    resolveFetch?.({
+      status: 200,
+      text: async () => JSON.stringify({ jsonrpc: "2.0", id: 1, result: "0x123" }),
+    });
+
+    await expect((await first).json()).resolves.toEqual({
+      jsonrpc: "2.0",
+      id: 1,
+      result: "0x123",
+    });
+    await expect((await second).json()).resolves.toEqual({
+      jsonrpc: "2.0",
+      id: 2,
+      result: "0x123",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

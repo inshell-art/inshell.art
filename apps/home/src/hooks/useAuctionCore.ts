@@ -19,14 +19,17 @@ export function useAuctionCore(opts?: {
   const [data, setData] = useState<AuctionSnapshot | null>(null);
 
   const serviceRef = useRef<ReturnType<typeof createCoreService> | null>(null);
+  const inFlightRef = useRef<Promise<void> | null>(null);
 
   // Build the domain service once per config change
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
+        setReady(false);
         setError(null);
         setLoading(true);
+        inFlightRef.current = null;
         serviceRef.current = createCoreService({
           address: opts?.address,
           provider: opts?.provider,
@@ -41,21 +44,42 @@ export function useAuctionCore(opts?: {
     })();
     return () => {
       cancelled = true;
+      inFlightRef.current = null;
+      serviceRef.current = null;
     };
   }, [opts?.address, opts?.provider, opts?.blockId]);
 
   // One-off fetch
   const fetchOnce = async () => {
     if (!serviceRef.current) return;
-    try {
-      setError(null);
-      const snap = await serviceRef.current.snapshot();
-      setData(snap);
-    } catch (e) {
-      setError(e);
-    } finally {
-      setLoading(false);
+    if (inFlightRef.current) {
+      return inFlightRef.current;
     }
+    const service = serviceRef.current;
+    const requestBody = async () => {
+      setError(null);
+      try {
+        const snap = await service.snapshot();
+        if (serviceRef.current === service) {
+          setData(snap);
+        }
+      } catch (e) {
+        if (serviceRef.current === service) {
+          setError(e);
+        }
+      } finally {
+        if (serviceRef.current === service) {
+          setLoading(false);
+        }
+      }
+    };
+    const request = requestBody().finally(() => {
+      if (inFlightRef.current === request) {
+        inFlightRef.current = null;
+      }
+    });
+    inFlightRef.current = request;
+    return request;
   };
 
   // Poll

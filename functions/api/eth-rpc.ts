@@ -51,7 +51,14 @@ type CachedRpcResult = {
   staleUntil: number;
 };
 
+type UpstreamResult = {
+  status: number;
+  body: string;
+  retryable: boolean;
+};
+
 const responseCache = new Map<string, CachedRpcResult>();
+const inFlightCache = new Map<string, Promise<UpstreamResult>>();
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -169,7 +176,7 @@ function shouldRetryUpstream(status: number, body: string): boolean {
 async function fetchUpstream(
   upstream: string,
   body: string
-): Promise<{ status: number; body: string; retryable: boolean }> {
+): Promise<UpstreamResult> {
   for (let attempt = 0; attempt <= UPSTREAM_RETRY_DELAYS_MS.length; attempt += 1) {
     try {
       const upstreamResponse = await fetch(upstream, {
@@ -215,6 +222,28 @@ async function fetchUpstream(
       error: "RPC upstream request failed.",
     }),
   };
+}
+
+function fetchCacheableUpstream(
+  key: string,
+  upstream: string,
+  body: string
+): Promise<UpstreamResult> {
+  const existing = inFlightCache.get(key);
+  if (existing) return existing;
+
+  const request = fetchUpstream(upstream, body).finally(() => {
+    if (inFlightCache.get(key) === request) {
+      inFlightCache.delete(key);
+    }
+  });
+  inFlightCache.set(key, request);
+  return request;
+}
+
+export function __clearRpcProxyCachesForTests() {
+  responseCache.clear();
+  inFlightCache.clear();
 }
 
 async function readBody(request: Request): Promise<string | Response> {
@@ -275,7 +304,9 @@ export async function onRequestPost(context: PagesContext): Promise<Response> {
     if (cached) return responseFromCache(cacheRequest.call, cached);
   }
 
-  const upstreamResponse = await fetchUpstream(upstream, body);
+  const upstreamResponse = cacheRequest
+    ? await fetchCacheableUpstream(cacheRequest.key, upstream, body)
+    : await fetchUpstream(upstream, body);
 
   if (cacheRequest && upstreamResponse.retryable) {
     const stale = readCache(cacheRequest.key, true);
@@ -285,13 +316,22 @@ export async function onRequestPost(context: PagesContext): Promise<Response> {
   if (
     cacheRequest &&
     upstreamResponse.status >= 200 &&
-    upstreamResponse.status < 300 &&
-    new TextEncoder().encode(upstreamResponse.body).byteLength <= MAX_CACHEABLE_RESPONSE_BYTES
+    upstreamResponse.status < 300
   ) {
     try {
       const parsed = JSON.parse(upstreamResponse.body);
       if (isRpcPayload(parsed) && "result" in parsed && !("error" in parsed)) {
-        writeCache(cacheRequest.key, cacheRequest.policy, parsed.result);
+        if (
+          new TextEncoder().encode(upstreamResponse.body).byteLength <=
+          MAX_CACHEABLE_RESPONSE_BYTES
+        ) {
+          writeCache(cacheRequest.key, cacheRequest.policy, parsed.result);
+        }
+        return json(200, {
+          jsonrpc: "2.0",
+          id: cacheRequest.call.id,
+          result: parsed.result,
+        });
       }
     } catch {
       /* Non-JSON success bodies are passed through uncached. */
