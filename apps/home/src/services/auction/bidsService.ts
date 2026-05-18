@@ -27,7 +27,8 @@ export type NormalizedBid = {
 const DEFAULT_LOG_CHUNK_SIZE = 40_000;
 const MAX_LOG_FETCH_CONCURRENCY = 3;
 const TIGHT_LOG_RANGE_THRESHOLD = 100;
-const MAX_TIGHT_LOG_PULL_CHUNKS = 24;
+const MAX_TIGHT_LOG_PULL_CHUNKS = 4;
+const LOG_RATE_LIMIT_BACKOFF_MS = 45_000;
 
 type LogsFetchResult = {
   logs: EthereumLog[];
@@ -74,6 +75,13 @@ function inferProviderLogRangeLimit(error: unknown, currentSize: number): number
   return null;
 }
 
+function isRateLimitError(error: unknown): boolean {
+  const status = (error as any)?.status ?? (error as any)?.statusCode;
+  if (status === 429 || status === "429") return true;
+  const msg = String((error as any)?.message ?? error ?? "");
+  return /429|too many requests|rate limit/i.test(msg);
+}
+
 async function mapWithConcurrency<T, R>(
   items: T[],
   concurrency: number,
@@ -114,6 +122,7 @@ export function createBidsService(opts: {
 
   let lastBlock = opts.fromBlock;
   let effectiveChunkSize = initialChunkSize;
+  let nextLogAttemptAt = 0;
   let inFlight: Promise<NormalizedBid[]> | null = null;
   const seen = new Set<string>();
   let bids: NormalizedBid[] = [];
@@ -192,6 +201,10 @@ export function createBidsService(opts: {
     startBlock: number,
     latestBlock: number
   ): Promise<LogsFetchResult> {
+    if (Date.now() < nextLogAttemptAt) {
+      return { logs: [], scannedToBlock: startBlock - 1, complete: false };
+    }
+
     let size = effectiveChunkSize;
     let lastError: unknown = null;
 
@@ -225,6 +238,10 @@ export function createBidsService(opts: {
         };
       } catch (err) {
         lastError = err;
+        if (isRateLimitError(err)) {
+          nextLogAttemptAt = Date.now() + LOG_RATE_LIMIT_BACKOFF_MS;
+          return { logs: [], scannedToBlock: startBlock - 1, complete: false };
+        }
         const nextSize = inferProviderLogRangeLimit(err, size);
         if (!nextSize || nextSize >= size) throw err;
         size = Math.max(1, nextSize);
@@ -252,7 +269,16 @@ export function createBidsService(opts: {
     }
 
     const startBlock = await resolveFromBlock();
-    const latestBlock = await getBlockNumber(provider);
+    let latestBlock: number;
+    try {
+      latestBlock = await getBlockNumber(provider);
+    } catch (err) {
+      if (isRateLimitError(err)) {
+        nextLogAttemptAt = Date.now() + LOG_RATE_LIMIT_BACKOFF_MS;
+        return fresh;
+      }
+      throw err;
+    }
     if (startBlock > latestBlock) return fresh;
 
     const result = await fetchLogsAdaptive(startBlock, latestBlock);

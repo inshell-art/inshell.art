@@ -93,7 +93,7 @@ describe("auction bids service", () => {
   });
 
   test("limits broad tight-range log backfills and resumes on the next pull", async () => {
-    const logs = [saleLog(12, 1n, 100n), saleLog(260, 2n, 120n)];
+    const logs = [saleLog(12, 1n, 100n), saleLog(55, 2n, 120n)];
     const provider = {
       request: jest.fn(async ({ method, params }: any) => {
         if (method === "eth_blockNumber") return "0x200";
@@ -140,6 +140,38 @@ describe("auction bids service", () => {
       ([arg]: any[]) => arg.method === "eth_getLogs"
     );
     expect(allLogCalls.length).toBeLessThan(60);
+  });
+
+  test("backs off instead of failing when RPC rate-limits sale history", async () => {
+    const provider = {
+      request: jest.fn(async ({ method }: any) => {
+        if (method === "eth_blockNumber") return "0x20";
+        if (method === "eth_getLogs") {
+          throw new Error("429 Too Many Requests");
+        }
+        throw new Error(`unexpected RPC method ${method}`);
+      }),
+    };
+
+    const service = createBidsService({
+      address: AUCTION,
+      provider,
+      fromBlock: 1,
+      chunkSize: 40_000,
+      reorgDepth: 0,
+    });
+
+    await expect(service.pullOnce()).resolves.toEqual([]);
+    const firstLogCalls = provider.request.mock.calls.filter(
+      ([arg]: any[]) => arg.method === "eth_getLogs"
+    );
+    expect(firstLogCalls).toHaveLength(1);
+
+    await expect(service.pullOnce()).resolves.toEqual([]);
+    const allLogCalls = provider.request.mock.calls.filter(
+      ([arg]: any[]) => arg.method === "eth_getLogs"
+    );
+    expect(allLogCalls).toHaveLength(1);
   });
 
   test("deduplicates overlapping polling scans", async () => {

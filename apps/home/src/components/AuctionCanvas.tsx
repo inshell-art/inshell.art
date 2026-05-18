@@ -2974,7 +2974,11 @@ export default function AuctionCanvas({
     };
 
     const directState = !fixtureState ? coreData?.state : null;
-    if (orderedBids.length === 0 && directState?.active) {
+    const directStateEpoch = Number(directState?.epochIndex);
+    const directStateImpliesActive =
+      Boolean(directState?.active) ||
+      (Number.isFinite(directStateEpoch) && directStateEpoch > 0);
+    if (orderedBids.length === 0 && directState && directStateImpliesActive) {
       const stateStartSec = Number(directState.startTimeSec);
       const stateAnchorSec = Number(directState.anchorTimeSec);
       const floorRaw = pickNumber(
@@ -2998,8 +3002,8 @@ export default function AuctionCanvas({
         return { ...empty, reason: "invalid half-life" };
       }
       const ask = floor + premium;
-      const epoch = Number.isFinite(directState.epochIndex)
-        ? directState.epochIndex
+      const epoch = Number.isFinite(directStateEpoch)
+        ? directStateEpoch
         : 1;
       return {
         segments: [

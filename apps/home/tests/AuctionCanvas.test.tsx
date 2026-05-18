@@ -1201,7 +1201,7 @@ describe("AuctionCanvas", () => {
           startTimeSec: nowSec - 10,
           anchorTimeSec: nowSec - 20,
           floorPrice: { dec: "500000000000000000" },
-          active: true,
+          active: false,
         },
       },
       ready: true,

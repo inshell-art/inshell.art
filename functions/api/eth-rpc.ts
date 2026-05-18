@@ -14,6 +14,8 @@ type PagesContext = {
 
 const MAX_BODY_BYTES = 256 * 1024;
 const MAX_BATCH_SIZE = 25;
+const MAX_CACHE_ENTRIES = 400;
+const MAX_CACHEABLE_RESPONSE_BYTES = 128 * 1024;
 const ALLOWED_METHODS = new Set([
   "eth_blockNumber",
   "eth_call",
@@ -37,6 +39,19 @@ const JSON_HEADERS = {
   "cache-control": "no-store",
 };
 const UPSTREAM_RETRY_DELAYS_MS = [150, 450];
+
+type CachePolicy = {
+  ttlMs: number;
+  staleMs: number;
+};
+
+type CachedRpcResult = {
+  result: unknown;
+  expiresAt: number;
+  staleUntil: number;
+};
+
+const responseCache = new Map<string, CachedRpcResult>();
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -69,6 +84,83 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
+  }
+  const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
+    a.localeCompare(b)
+  );
+  return `{${entries
+    .map(([key, entryValue]) => `${JSON.stringify(key)}:${stableStringify(entryValue)}`)
+    .join(",")}}`;
+}
+
+function cachePolicyFor(call: RpcPayload): CachePolicy | null {
+  switch (call.method) {
+    case "eth_chainId":
+    case "net_version":
+      return { ttlMs: 60_000, staleMs: 600_000 };
+    case "eth_blockNumber":
+      return { ttlMs: 1_000, staleMs: 30_000 };
+    case "eth_getCode":
+      return { ttlMs: 60_000, staleMs: 300_000 };
+    case "eth_call":
+      return { ttlMs: 750, staleMs: 15_000 };
+    case "eth_getLogs":
+      return { ttlMs: 120_000, staleMs: 600_000 };
+    default:
+      return null;
+  }
+}
+
+function cacheKeyFor(payload: unknown): { key: string; call: RpcPayload; policy: CachePolicy } | null {
+  if (Array.isArray(payload) || !isRpcPayload(payload) || payload.id === undefined) {
+    return null;
+  }
+  const policy = cachePolicyFor(payload);
+  if (!policy) return null;
+  return {
+    call: payload,
+    key: `${payload.method}:${stableStringify(payload.params ?? [])}`,
+    policy,
+  };
+}
+
+function readCache(key: string, allowStale: boolean): CachedRpcResult | null {
+  const cached = responseCache.get(key);
+  if (!cached) return null;
+  const now = Date.now();
+  if (cached.expiresAt >= now || (allowStale && cached.staleUntil >= now)) {
+    return cached;
+  }
+  if (cached.staleUntil < now) responseCache.delete(key);
+  return null;
+}
+
+function writeCache(key: string, policy: CachePolicy, result: unknown) {
+  const now = Date.now();
+  responseCache.set(key, {
+    result,
+    expiresAt: now + policy.ttlMs,
+    staleUntil: now + policy.ttlMs + policy.staleMs,
+  });
+  while (responseCache.size > MAX_CACHE_ENTRIES) {
+    const oldestKey = responseCache.keys().next().value;
+    if (oldestKey === undefined) break;
+    responseCache.delete(oldestKey);
+  }
+}
+
+function responseFromCache(call: RpcPayload, cached: CachedRpcResult): Response {
+  return json(200, {
+    jsonrpc: "2.0",
+    id: call.id,
+    result: cached.result,
+  });
+}
+
 function shouldRetryUpstream(status: number, body: string): boolean {
   if (!body.trim()) return true;
   return status === 429 || (status >= 500 && status < 600);
@@ -77,7 +169,7 @@ function shouldRetryUpstream(status: number, body: string): boolean {
 async function fetchUpstream(
   upstream: string,
   body: string
-): Promise<{ status: number; body: string } | Response> {
+): Promise<{ status: number; body: string; retryable: boolean }> {
   for (let attempt = 0; attempt <= UPSTREAM_RETRY_DELAYS_MS.length; attempt += 1) {
     try {
       const upstreamResponse = await fetch(upstream, {
@@ -96,13 +188,18 @@ async function fetchUpstream(
         continue;
       }
       if (!responseText.trim()) {
-        return json(502, {
-          error: "RPC upstream returned an empty response.",
-        });
+        return {
+          status: 502,
+          retryable: true,
+          body: JSON.stringify({
+            error: "RPC upstream returned an empty response.",
+          }),
+        };
       }
       return {
         status: upstreamResponse.status,
         body: responseText,
+        retryable: shouldRetryUpstream(upstreamResponse.status, responseText),
       };
     } catch {
       if (attempt < UPSTREAM_RETRY_DELAYS_MS.length) {
@@ -111,9 +208,13 @@ async function fetchUpstream(
       }
     }
   }
-  return json(502, {
-    error: "RPC upstream request failed.",
-  });
+  return {
+    status: 502,
+    retryable: true,
+    body: JSON.stringify({
+      error: "RPC upstream request failed.",
+    }),
+  };
 }
 
 async function readBody(request: Request): Promise<string | Response> {
@@ -168,8 +269,34 @@ export async function onRequestPost(context: PagesContext): Promise<Response> {
     });
   }
 
+  const cacheRequest = cacheKeyFor(payload);
+  if (cacheRequest) {
+    const cached = readCache(cacheRequest.key, false);
+    if (cached) return responseFromCache(cacheRequest.call, cached);
+  }
+
   const upstreamResponse = await fetchUpstream(upstream, body);
-  if (upstreamResponse instanceof Response) return upstreamResponse;
+
+  if (cacheRequest && upstreamResponse.retryable) {
+    const stale = readCache(cacheRequest.key, true);
+    if (stale) return responseFromCache(cacheRequest.call, stale);
+  }
+
+  if (
+    cacheRequest &&
+    upstreamResponse.status >= 200 &&
+    upstreamResponse.status < 300 &&
+    new TextEncoder().encode(upstreamResponse.body).byteLength <= MAX_CACHEABLE_RESPONSE_BYTES
+  ) {
+    try {
+      const parsed = JSON.parse(upstreamResponse.body);
+      if (isRpcPayload(parsed) && "result" in parsed && !("error" in parsed)) {
+        writeCache(cacheRequest.key, cacheRequest.policy, parsed.result);
+      }
+    } catch {
+      /* Non-JSON success bodies are passed through uncached. */
+    }
+  }
 
   return new Response(upstreamResponse.body, {
     status: upstreamResponse.status,

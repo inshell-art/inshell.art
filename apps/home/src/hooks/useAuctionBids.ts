@@ -102,9 +102,6 @@ export function useAuctionBids(opts: {
   // Optional polling
   useEffect(() => {
     if (!enabled || !ready || !serviceRef.current || !refreshMs) return;
-    void serviceRef.current.pullOnce().catch((e) => {
-      setError(e);
-    });
     const id = window.setInterval(
       () =>
         void serviceRef.current?.pullOnce().catch((e) => {
