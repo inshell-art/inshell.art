@@ -151,6 +151,15 @@ function checkPackageScripts() {
   )) {
     fail("package.json is missing check:production coverage for validate-production-surface.ts");
   }
+
+  const rootHomeBuild = String(rootPkg?.scripts?.["build:home"] ?? "");
+  if (!rootHomeBuild.includes("build:prod")) {
+    fail("package.json build:home must use the Sepolia production build:prod script");
+  }
+  const rootHomeDevnetBuild = String(rootPkg?.scripts?.["build:home:devnet"] ?? "");
+  if (!rootHomeDevnetBuild.includes("@inshell/home build")) {
+    fail("package.json build:home:devnet must preserve the explicit devnet-capable build path");
+  }
 }
 
 function checkViteConfig(path: string, expectedPort: number) {
