@@ -124,7 +124,7 @@ describe("Cloudflare Ethereum RPC proxy", () => {
       result: "0x1234",
     });
 
-    nowSpy.mockReturnValue(1_000);
+    nowSpy.mockReturnValue(3_000);
     await expect(
       (
         await postRpc({
@@ -138,7 +138,44 @@ describe("Cloudflare Ethereum RPC proxy", () => {
       result: "0x1234",
     });
 
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  test("caches numbered block reads for sale timestamp lookups", async () => {
+    const fetchMock = jest.fn<() => Promise<MockFetchResponse>>(async () => ({
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          result: { number: "0x123", timestamp: "0x6818f240" },
+        }),
+    }));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const call = {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "eth_getBlockByNumber",
+      params: ["0x123", false],
+    };
+    const first = await postRpc(call);
+    const second = await postRpc({
+      ...call,
+      id: 2,
+    });
+
+    await expect(first.json()).resolves.toEqual({
+      jsonrpc: "2.0",
+      id: 1,
+      result: { number: "0x123", timestamp: "0x6818f240" },
+    });
+    await expect(second.json()).resolves.toEqual({
+      jsonrpc: "2.0",
+      id: 2,
+      result: { number: "0x123", timestamp: "0x6818f240" },
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   test("coalesces concurrent safe single-call RPC requests", async () => {

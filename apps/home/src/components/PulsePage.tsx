@@ -327,13 +327,13 @@ function PulseCurrentInstance() {
   const core = useAuctionCore({
     address: auctionAddress,
     enabled: Boolean(auctionAddress),
-    refreshMs: 4000,
+    refreshMs: 12000,
   });
   const bidState = useAuctionBids({
     address: auctionAddress ?? ZERO_ADDRESS,
     fromBlock: deployBlock,
     enabled: Boolean(auctionAddress),
-    refreshMs: 4000,
+    refreshMs: 12000,
     maxBids: 80,
   });
   const snapshot = core.data;

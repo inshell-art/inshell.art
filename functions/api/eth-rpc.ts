@@ -110,11 +110,19 @@ function cachePolicyFor(call: RpcPayload): CachePolicy | null {
     case "net_version":
       return { ttlMs: 60_000, staleMs: 600_000 };
     case "eth_blockNumber":
-      return { ttlMs: 1_000, staleMs: 30_000 };
+      return { ttlMs: 2_000, staleMs: 60_000 };
     case "eth_getCode":
       return { ttlMs: 60_000, staleMs: 300_000 };
     case "eth_call":
-      return { ttlMs: 750, staleMs: 15_000 };
+      return { ttlMs: 2_000, staleMs: 60_000 };
+    case "eth_getBlockByNumber": {
+      const params = Array.isArray(call.params) ? call.params : [];
+      const blockRef = typeof params[0] === "string" ? params[0] : "";
+      if (blockRef === "latest" || blockRef === "pending") {
+        return { ttlMs: 2_000, staleMs: 30_000 };
+      }
+      return { ttlMs: 600_000, staleMs: 1_800_000 };
+    }
     case "eth_getLogs":
       return { ttlMs: 120_000, staleMs: 600_000 };
     default:
@@ -173,6 +181,11 @@ function shouldRetryUpstream(status: number, body: string): boolean {
   return status === 429 || (status >= 500 && status < 600);
 }
 
+function shouldRetryAttempt(status: number, body: string): boolean {
+  if (!body.trim()) return true;
+  return status >= 500 && status < 600;
+}
+
 async function fetchUpstream(
   upstream: string,
   body: string
@@ -189,7 +202,7 @@ async function fetchUpstream(
       const responseText = await upstreamResponse.text();
       if (
         attempt < UPSTREAM_RETRY_DELAYS_MS.length &&
-        shouldRetryUpstream(upstreamResponse.status, responseText)
+        shouldRetryAttempt(upstreamResponse.status, responseText)
       ) {
         await sleep(UPSTREAM_RETRY_DELAYS_MS[attempt]);
         continue;

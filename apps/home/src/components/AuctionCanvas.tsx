@@ -1866,7 +1866,7 @@ function pickNumber(
 export default function AuctionCanvas({
   address,
   provider,
-  refreshMs = 4000,
+  refreshMs = 12000,
   decimals = 18,
   maxBids = 800,
 }: Props) {
