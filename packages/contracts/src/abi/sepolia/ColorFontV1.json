@@ -1,0 +1,142 @@
+{
+  "abi": [
+    {
+      "type": "function",
+      "name": "data",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "string",
+          "internalType": "string"
+        }
+      ],
+      "stateMutability": "pure"
+    },
+    {
+      "type": "function",
+      "name": "glyph",
+      "inputs": [
+        {
+          "name": "index",
+          "type": "uint8",
+          "internalType": "uint8"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "letter",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "ordinal",
+          "type": "uint8",
+          "internalType": "uint8"
+        },
+        {
+          "name": "aliasTerm",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "hexColor",
+          "type": "string",
+          "internalType": "string"
+        }
+      ],
+      "stateMutability": "pure"
+    },
+    {
+      "type": "function",
+      "name": "glyphOf",
+      "inputs": [
+        {
+          "name": "letter_",
+          "type": "bytes1",
+          "internalType": "bytes1"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "ordinal",
+          "type": "uint8",
+          "internalType": "uint8"
+        },
+        {
+          "name": "aliasTerm",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "hexColor",
+          "type": "string",
+          "internalType": "string"
+        }
+      ],
+      "stateMutability": "pure"
+    },
+    {
+      "type": "function",
+      "name": "hash",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "stateMutability": "pure"
+    },
+    {
+      "type": "function",
+      "name": "id",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "string",
+          "internalType": "string"
+        }
+      ],
+      "stateMutability": "pure"
+    },
+    {
+      "type": "function",
+      "name": "length",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint8",
+          "internalType": "uint8"
+        }
+      ],
+      "stateMutability": "pure"
+    },
+    {
+      "type": "function",
+      "name": "version",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "string",
+          "internalType": "string"
+        }
+      ],
+      "stateMutability": "pure"
+    },
+    {
+      "type": "error",
+      "name": "InvalidColorFontIndex",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InvalidColorFontLetter",
+      "inputs": []
+    }
+  ]
+}

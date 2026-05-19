@@ -225,9 +225,59 @@ function checkSepoliaRelease() {
   }
 }
 
+function checkSepoliaThoughtRelease() {
+  const release = readJson<Record<string, any>>("packages/contracts/src/releases/thought-release.sepolia.json");
+  const addresses = readJson<Record<string, any>>("packages/contracts/src/addresses/addresses.sepolia.json");
+
+  if (!release || !addresses) return;
+  if (release.network !== "sepolia") fail("thought-release.sepolia.json network must be sepolia");
+  if (release.chain_id !== 11155111) fail("thought-release.sepolia.json chain_id must be 11155111");
+  if (release.schema_version !== 1) fail("thought-release.sepolia.json schema_version must be 1");
+  if (release.protocol !== "thought") fail("thought-release.sepolia.json protocol must be thought");
+  if (release.movement?.name !== "THOUGHT") fail("thought-release.sepolia.json movement.name must be THOUGHT");
+  if (release.movement?.quota !== 1) fail("thought-release.sepolia.json movement.quota must be 1");
+  if (release.movement?.frozen !== true) fail("thought-release.sepolia.json movement.frozen must be true");
+
+  const requiredThoughtAddresses = [
+    ["contracts.path_nft", release.contracts?.path_nft],
+    ["contracts.thought_nft", release.contracts?.thought_nft],
+    ["contracts.thought_spec_registry", release.contracts?.thought_spec_registry],
+    ["contracts.color_font_v1", release.contracts?.color_font_v1],
+    ["contracts.thought_previewer", release.contracts?.thought_previewer],
+    ["contracts.seed_generator", release.contracts?.seed_generator],
+    ["path_dependency.pathNft", release.path_dependency?.pathNft],
+    ["path_dependency.admin", release.path_dependency?.admin],
+  ] as const;
+  for (const [name, value] of requiredThoughtAddresses) {
+    if (!ADDRESS_PATTERN.test(String(value ?? ""))) {
+      fail(`thought-release.sepolia.json ${name} is not a checksummed-sized address`);
+    }
+  }
+  for (const key of [
+    "path_nft",
+    "thought_nft",
+    "thought_spec_registry",
+    "color_font_v1",
+    "thought_previewer",
+    "seed_generator",
+  ]) {
+    const value = addresses[key];
+    if (!ADDRESS_PATTERN.test(String(value ?? ""))) {
+      fail(`addresses.sepolia.json ${key} is not an EVM address`);
+    }
+  }
+  if (
+    String(addresses.path_nft ?? "").toLowerCase() !==
+    String(release.path_dependency?.pathNft ?? "").toLowerCase()
+  ) {
+    fail("thought-release.sepolia.json path dependency does not match addresses.sepolia.json path_nft");
+  }
+}
+
 function checkNoLocalhostInProductionArtifacts() {
   const files = [
     "packages/contracts/src/releases/release.sepolia.json",
+    "packages/contracts/src/releases/thought-release.sepolia.json",
     "packages/contracts/src/addresses/addresses.sepolia.json",
     ".github/workflows/deploy-pages.yml",
     "apps/home/public/_headers",
@@ -290,6 +340,7 @@ checkStaticHostingFiles("home");
 checkStaticHostingFiles("thought");
 checkDeployWorkflow();
 checkSepoliaRelease();
+checkSepoliaThoughtRelease();
 checkNoLocalhostInProductionArtifacts();
 checkAbiAndReleaseJsonParse();
 checkEthereumRpcGuard();

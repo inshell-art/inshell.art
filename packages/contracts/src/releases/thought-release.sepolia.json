@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "protocol": "thought",
+  "network": "sepolia",
+  "chain_id": 11155111,
+  "release_tier": "candidate",
+  "path_dependency": {
+    "runId": "sepolia-deploy-20260514T122153Z-safe-treasury-curator",
+    "releaseRepoCommit": "e078ac33a354ae0783ba382fddb7ecde29d931de",
+    "qualifiedRepoCommit": "8ac1638e88f07ff2fb94745c20f081abb427aa7d",
+    "pathNft": "0x84915746a1f06850CF41a3E90C60c2DcA3fa116D",
+    "pathPulseAdapter": "0x8Cd52b431F4e932c5fDd8E49073c2c5bc1bfabF2",
+    "pulseAuction": "0x1071e99928Bdf020794a5E3e5B9c920450Ac9b39",
+    "admin": "0xa31Fe4bC2A9A4EeA01275A6c4b4be2Aa994A0981",
+    "adminSignerRef": "SEPOLIA_ADMIN_HW_A",
+    "movement": "THOUGHT",
+    "movementBytes32": "0x54484f5547485400000000000000000000000000000000000000000000000000",
+    "movementQuota": 1
+  },
+  "contracts": {
+    "network": "sepolia",
+    "chain_id": 11155111,
+    "path_nft": "0x84915746a1f06850CF41a3E90C60c2DcA3fa116D",
+    "thought_nft": "0x413efb5C95Bf3158F0E563FB9E19CB650Fc3760a",
+    "thought_spec_registry": "0xBB8FD738b01b4a14F5E9bCFE408239a05d84621D",
+    "thought_spec_registry_owner": "0xa31Fe4bC2A9A4EeA01275A6c4b4be2Aa994A0981",
+    "color_font_v1": "0xC223507ab7801Fdf234766fa1A87F09eae3494af",
+    "thought_previewer": "0x0A0100Ef4c25a50A8E16bED818E6Bda82d3b923F",
+    "seed_generator": "0xAaA5a9D3F7C5eFaB8b7DA19F9CeC17c3895cc287"
+  },
+  "movement": {
+    "name": "THOUGHT",
+    "bytes32": "0x54484f5547485400000000000000000000000000000000000000000000000000",
+    "quota": 1,
+    "frozen": true
+  },
+  "recommended_thought_spec": {
+    "name": "THOUGHT.v1.md",
+    "ref": "THOUGHT.v1.md",
+    "id": "0xe201170ae183f114064f4492cbc4942f7d3d68b74a08d3dc4b4f61edec213d78",
+    "hash": "0x1abb9da7ba36102726375510e66afe255f8c6e0d771b4c3b90c5d22a9b8eb909",
+    "byteLength": 8549,
+    "sha256": "0x9f3ad3361862a491abed833a5d50a722c4a89de531fd523416d74b6041a099ec",
+    "file": "THOUGHT.v1.md"
+  },
+  "deploy_txs": {
+    "seed_generator": "0xeaac7efdf0edc26704023132ba535fefff7f7191c599d0b85dd4293a4feae182",
+    "color_font_v1": "0x2b88526111f99307140b405a806fa7f9ec91c0e0f4dc0c3fdcfdf667c1aea20d",
+    "thought_previewer": "0xc5e684b3cf9862c0ac0988ce262ae8fe9bc6d9a76ebd6f362c659f5999cdb99a",
+    "thought_spec_registry": "0x47fecab96ed34c47c3e1cc228a13f12ce344573a90777ec48aa7023d8a8dfda0",
+    "register_spec": "0x4a7051af9147189b62bbd284133a009ff1f14b9925270063f72e8ec3b877571a",
+    "thought_nft": "0x575a3308d5af8de0b932c065ffddfa9369f422c43e7a5a70ef3fd40c6f6c9825",
+    "path_set_movement": "0x47996b9530f6aeae6be6f40b1bee790b4de3cd5214d3866f047972f5e04f010a",
+    "path_freeze_movement": "0x979fc2945ed57bd1b044cf02ac7648bbe89a8a70b0fb6a0703983ac36544a88c"
+  }
+}

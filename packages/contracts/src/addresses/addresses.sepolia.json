@@ -3,5 +3,11 @@
   "path_pulse_adapter": "0x8Cd52b431F4e932c5fDd8E49073c2c5bc1bfabF2",
   "pulse_auction": "0x1071e99928Bdf020794a5E3e5B9c920450Ac9b39",
   "treasury": "0xe524edf82c2d0d8243ee4ff21fb020bd8b45d47f",
-  "payment_token": "0x0000000000000000000000000000000000000000"
+  "payment_token": "0x0000000000000000000000000000000000000000",
+  "thought_nft": "0x413efb5C95Bf3158F0E563FB9E19CB650Fc3760a",
+  "thought_spec_registry": "0xBB8FD738b01b4a14F5E9bCFE408239a05d84621D",
+  "thought_spec_registry_owner": "0xa31Fe4bC2A9A4EeA01275A6c4b4be2Aa994A0981",
+  "color_font_v1": "0xC223507ab7801Fdf234766fa1A87F09eae3494af",
+  "thought_previewer": "0x0A0100Ef4c25a50A8E16bED818E6Bda82d3b923F",
+  "seed_generator": "0xAaA5a9D3F7C5eFaB8b7DA19F9CeC17c3895cc287"
 }

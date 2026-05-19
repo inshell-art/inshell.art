@@ -24,6 +24,7 @@
     "check:production": "pnpm tsx scripts/validate-production-surface.ts && pnpm tsx scripts/validate-path-artifacts.ts packages/contracts/src/releases packages/contracts/src/abi packages/contracts/src/addresses && pnpm run lint && pnpm run type-check && pnpm run test:unit && pnpm run build:home && pnpm run build:thought && git diff --check",
     "check:presepolia": "pnpm --filter @inshell/home lint && pnpm run test:presepolia && pnpm --filter @inshell/home build && pnpm tsx scripts/validate-production-surface.ts && pnpm tsx scripts/validate-path-artifacts.ts packages/contracts/src/releases packages/contracts/src/abi packages/contracts/src/addresses && git diff --check",
     "sync:path-release": "tsx scripts/sync-path-release.ts",
+    "sync:thought-release": "tsx scripts/sync-thought-release.ts",
     "preview:home": "pnpm --filter @inshell/home preview",
     "e2e:staging": "NODE_ENV=staging cypress run --config-file cypress/cypress.config.ts",
     "e2e:prod": "NODE_ENV=prod cypress run --config-file cypress/cypress.config.ts",
