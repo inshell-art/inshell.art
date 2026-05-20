@@ -138,6 +138,41 @@ describe("Cloudflare Ethereum RPC proxy", () => {
       result: "0x1234",
     });
 
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
+  test("retries a transient upstream 429 before returning the RPC result", async () => {
+    const fetchMock = jest
+      .fn<() => Promise<MockFetchResponse>>()
+      .mockResolvedValueOnce({
+        status: 429,
+        text: async () =>
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            error: { code: 429, message: "Too Many Requests" },
+          }),
+      })
+      .mockResolvedValueOnce({
+        status: 200,
+        text: async () => JSON.stringify({ jsonrpc: "2.0", id: 1, result: "0xaa36a7" }),
+      });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(
+      (
+        await postRpc({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "eth_chainId",
+          params: [],
+        })
+      ).json()
+    ).resolves.toEqual({
+      jsonrpc: "2.0",
+      id: 1,
+      result: "0xaa36a7",
+    });
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 

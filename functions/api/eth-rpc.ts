@@ -183,7 +183,7 @@ function shouldRetryUpstream(status: number, body: string): boolean {
 
 function shouldRetryAttempt(status: number, body: string): boolean {
   if (!body.trim()) return true;
-  return status >= 500 && status < 600;
+  return status === 429 || (status >= 500 && status < 600);
 }
 
 async function fetchUpstream(

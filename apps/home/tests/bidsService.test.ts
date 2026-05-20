@@ -1,4 +1,4 @@
-import { describe, expect, jest, test } from "@jest/globals";
+import { afterEach, describe, expect, jest, test } from "@jest/globals";
 import {
   encodeAbiParameters,
   getAddress,
@@ -50,6 +50,10 @@ async function waitForEthGetLogs(provider: { request: jest.Mock }) {
 }
 
 describe("auction bids service", () => {
+  afterEach(() => {
+    globalThis.localStorage?.clear();
+  });
+
   test("adapts to RPCs with tight eth_getLogs block ranges", async () => {
     const logs = [saleLog(12, 1n, 100n), saleLog(31, 2n, 120n)];
     const provider = {
@@ -172,6 +176,58 @@ describe("auction bids service", () => {
       ([arg]: any[]) => arg.method === "eth_getLogs"
     );
     expect(allLogCalls).toHaveLength(1);
+  });
+
+  test("hydrates cached sale history after a transient RPC rate limit", async () => {
+    const logs = [saleLog(12, 1n, 100n)];
+    const firstProvider = {
+      request: jest.fn(async ({ method, params }: any) => {
+        if (method === "eth_blockNumber") return "0x20";
+        if (method === "eth_getLogs") {
+          const filter = params[0];
+          const from = Number(BigInt(filter.fromBlock));
+          const to = Number(BigInt(filter.toBlock));
+          return logs.filter((log) => {
+            const block = Number(BigInt(log.blockNumber));
+            return block >= from && block <= to;
+          });
+        }
+        if (method === "eth_getBlockByNumber") {
+          return { number: params[0], timestamp: "0x6a000000" };
+        }
+        throw new Error(`unexpected RPC method ${method}`);
+      }),
+    };
+
+    const firstService = createBidsService({
+      address: AUCTION,
+      provider: firstProvider,
+      fromBlock: 1,
+      chunkSize: 40_000,
+      reorgDepth: 0,
+    });
+
+    await expect(firstService.pullOnce()).resolves.toHaveLength(1);
+
+    const secondProvider = {
+      request: jest.fn(async ({ method }: any) => {
+        if (method === "eth_blockNumber") return "0x28";
+        if (method === "eth_getLogs") throw new Error("429 Too Many Requests");
+        throw new Error(`unexpected RPC method ${method}`);
+      }),
+    };
+
+    const secondService = createBidsService({
+      address: AUCTION,
+      provider: secondProvider,
+      fromBlock: 1,
+      chunkSize: 40_000,
+      reorgDepth: 0,
+    });
+
+    expect(secondService.getBids().map((bid) => bid.amount.dec)).toEqual(["100"]);
+    await expect(secondService.pullOnce()).resolves.toEqual([]);
+    expect(secondService.getBids().map((bid) => bid.amount.dec)).toEqual(["100"]);
   });
 
   test("deduplicates overlapping polling scans", async () => {

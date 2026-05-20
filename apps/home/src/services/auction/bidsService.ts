@@ -25,10 +25,24 @@ export type NormalizedBid = {
 };
 
 const DEFAULT_LOG_CHUNK_SIZE = 40_000;
-const MAX_LOG_FETCH_CONCURRENCY = 3;
+const MAX_LOG_FETCH_CONCURRENCY = 1;
 const TIGHT_LOG_RANGE_THRESHOLD = 100;
 const MAX_TIGHT_LOG_PULL_CHUNKS = 4;
 const LOG_RATE_LIMIT_BACKOFF_MS = 45_000;
+const BID_CACHE_VERSION = 1;
+const BID_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+type SerializedBid = Omit<NormalizedBid, "amount" | "floorB"> & {
+  amount: { raw?: { low: string; high: string }; dec?: string };
+  floorB?: { raw?: { low: string; high: string }; dec?: string };
+};
+
+type CachedBidSnapshot = {
+  version: typeof BID_CACHE_VERSION;
+  savedAt: number;
+  lastBlock?: number;
+  bids: SerializedBid[];
+};
 
 type LogsFetchResult = {
   logs: EthereumLog[];
@@ -82,6 +96,144 @@ function isRateLimitError(error: unknown): boolean {
   return /429|too many requests|rate limit/i.test(msg);
 }
 
+function bidCacheStorage(): typeof globalThis.localStorage | null {
+  try {
+    if (typeof globalThis.localStorage === "undefined") return null;
+    return globalThis.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function bidCacheKey(address: string, fromBlock: number | undefined): string {
+  return `inshell:pulse:bids:${address.toLowerCase()}:${fromBlock ?? "auto"}`;
+}
+
+function serializeU256(value: U256Num | undefined) {
+  if (!value) return undefined;
+  return {
+    raw: { low: String(value.raw.low), high: String(value.raw.high) },
+    dec: value.dec,
+  };
+}
+
+function reviveU256(value: SerializedBid["amount"] | undefined): U256Num | null {
+  if (!value || typeof value !== "object") return null;
+  if (
+    value.raw &&
+    typeof value.raw.low === "string" &&
+    typeof value.raw.high === "string"
+  ) {
+    return toU256Num({ low: value.raw.low, high: value.raw.high });
+  }
+  if (typeof value.dec === "string") {
+    return toU256Num({ low: value.dec, high: "0" });
+  }
+  return null;
+}
+
+function serializeBid(bid: NormalizedBid): SerializedBid {
+  const out: SerializedBid = {
+    key: bid.key,
+    atMs: bid.atMs,
+    bidder: bid.bidder,
+    amount: serializeU256(bid.amount) ?? {
+      raw: { low: "0", high: "0" },
+      dec: "0",
+    },
+    floorB: serializeU256(bid.floorB),
+    anchorASec: bid.anchorASec,
+    txHash: bid.txHash,
+    id: bid.id,
+    blockNumber: bid.blockNumber,
+    epochIndex: bid.epochIndex,
+    tokenId: bid.tokenId,
+  };
+  return out;
+}
+
+function reviveBid(bid: SerializedBid): NormalizedBid | null {
+  if (!bid || typeof bid !== "object") return null;
+  if (typeof bid.key !== "string") return null;
+  if (typeof bid.atMs !== "number" || !Number.isFinite(bid.atMs)) return null;
+  const amount = reviveU256(bid.amount);
+  if (!amount) return null;
+  const floorB = reviveU256(bid.floorB);
+  return {
+    key: bid.key,
+    atMs: bid.atMs,
+    bidder: typeof bid.bidder === "string" ? bid.bidder : undefined,
+    amount,
+    floorB: floorB ?? undefined,
+    anchorASec: typeof bid.anchorASec === "number" ? bid.anchorASec : undefined,
+    txHash: typeof bid.txHash === "string" ? bid.txHash : undefined,
+    id: typeof bid.id === "number" ? bid.id : undefined,
+    blockNumber: typeof bid.blockNumber === "number" ? bid.blockNumber : undefined,
+    epochIndex: typeof bid.epochIndex === "number" ? bid.epochIndex : undefined,
+    tokenId: typeof bid.tokenId === "number" ? bid.tokenId : undefined,
+  };
+}
+
+function readBidCache(
+  address: string,
+  fromBlock: number | undefined
+): { bids: NormalizedBid[]; lastBlock?: number } | null {
+  const storage = bidCacheStorage();
+  if (!storage) return null;
+  try {
+    const raw = storage.getItem(bidCacheKey(address, fromBlock));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as CachedBidSnapshot;
+    if (parsed.version !== BID_CACHE_VERSION) return null;
+    if (
+      typeof parsed.savedAt !== "number" ||
+      !Number.isFinite(parsed.savedAt) ||
+      Date.now() - parsed.savedAt > BID_CACHE_TTL_MS
+    ) {
+      storage.removeItem(bidCacheKey(address, fromBlock));
+      return null;
+    }
+    if (!Array.isArray(parsed.bids)) return null;
+    const cachedBids = parsed.bids
+      .map((bid) => reviveBid(bid))
+      .filter((bid): bid is NormalizedBid => Boolean(bid))
+      .sort((a, b) => a.atMs - b.atMs);
+    return {
+      bids: cachedBids,
+      lastBlock:
+        typeof parsed.lastBlock === "number" && Number.isFinite(parsed.lastBlock)
+          ? parsed.lastBlock
+          : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeBidCache(
+  address: string,
+  fromBlock: number | undefined,
+  snapshot: NormalizedBid[],
+  lastBlock: number | undefined
+) {
+  const storage = bidCacheStorage();
+  if (!storage) return;
+  try {
+    const payload: CachedBidSnapshot = {
+      version: BID_CACHE_VERSION,
+      savedAt: Date.now(),
+      lastBlock:
+        typeof lastBlock === "number" && Number.isFinite(lastBlock)
+          ? lastBlock
+          : undefined,
+      bids: snapshot.map((bid) => serializeBid(bid)),
+    };
+    storage.setItem(bidCacheKey(address, fromBlock), JSON.stringify(payload));
+  } catch {
+    /* localStorage can be full or blocked; the live RPC path still works. */
+  }
+}
+
 async function mapWithConcurrency<T, R>(
   items: T[],
   concurrency: number,
@@ -126,6 +278,14 @@ export function createBidsService(opts: {
   let inFlight: Promise<NormalizedBid[]> | null = null;
   const seen = new Set<string>();
   let bids: NormalizedBid[] = [];
+  const cached = readBidCache(address, opts.fromBlock);
+  if (cached) {
+    bids = cached.bids.slice(-maxBids);
+    for (const bid of bids) seen.add(bid.key);
+    if (typeof cached.lastBlock === "number") {
+      lastBlock = cached.lastBlock;
+    }
+  }
   const listeners = new Set<
     (snapshot: NormalizedBid[], appended: NormalizedBid[]) => void
   >();
@@ -302,7 +462,10 @@ export function createBidsService(opts: {
     if (fresh.length) {
       bids = [...bids, ...fresh].sort((a, b) => a.atMs - b.atMs);
       if (bids.length > maxBids) bids = bids.slice(-maxBids);
+      writeBidCache(address, opts.fromBlock, bids, lastBlock);
       emit(fresh);
+    } else if (result.complete) {
+      writeBidCache(address, opts.fromBlock, bids, lastBlock);
     }
 
     return fresh;
