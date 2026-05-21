@@ -30,6 +30,13 @@ import {
   isEvmAddress,
   maybeResolveAddress,
 } from "@inshell/contracts";
+import {
+  SURFACE_TERMINOLOGY,
+  getSurfaceNavItems,
+  surfaceNavHref,
+  surfaceNavRel,
+  surfaceNavTarget,
+} from "@inshell/shared";
 import HeaderWalletCTA from "@/components/HeaderWalletCTA";
 import { useWallet } from "@inshell/wallet";
 import {
@@ -5308,8 +5315,22 @@ export default function AuctionCanvas({
           target="_blank"
           rel="noreferrer"
         >
-          $PATH
+          {SURFACE_TERMINOLOGY.pathDapp}
         </a>
+        <nav className="inshell-app-nav dotfield__surface-nav" aria-label="Inshell dapps">
+          {getSurfaceNavItems("path").filter((item) => item.id !== "path").map((item) => (
+            <a
+              key={item.id}
+              className="inshell-app-nav__link"
+              href={surfaceNavHref(item, "path")}
+              target={surfaceNavTarget(item, "path")}
+              rel={surfaceNavRel(item, "path")}
+              aria-current={item.id === "path" ? "page" : undefined}
+            >
+              {item.label}
+            </a>
+          ))}
+        </nav>
         <div className="dotfield__cta-stack" ref={ctaStackRef}>
           <HeaderWalletCTA
             ctaLabel={(ctaDisplay ?? ctaState).label}

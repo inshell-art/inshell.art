@@ -1,0 +1,64 @@
+:root {
+  --inshell-font-mono: "Source Code Pro", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  --inshell-green: #006100;
+  --inshell-green-strong: #0a810a;
+  --inshell-text: #e8edf7;
+  --inshell-muted: #9ca3af;
+  --inshell-panel: rgba(18, 18, 18, 0.9);
+  --inshell-panel-border: rgba(255, 255, 255, 0.08);
+  --inshell-nav-gap: clamp(8px, 1.8vw, 18px);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --inshell-text: #0f172a;
+    --inshell-muted: #4b5563;
+    --inshell-panel: rgba(255, 255, 255, 0.96);
+    --inshell-panel-border: rgba(0, 0, 0, 0.08);
+  }
+}
+
+.inshell-app-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--inshell-nav-gap);
+  max-width: 100%;
+  min-width: 0;
+  color: var(--muted, var(--inshell-muted));
+  font-family: var(--inshell-font-mono);
+  font-size: clamp(10px, 1.1vw, 12px);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: lowercase;
+}
+
+.inshell-app-nav__link {
+  color: var(--accent, var(--inshell-green));
+  text-decoration: none;
+  white-space: nowrap;
+  opacity: 0.78;
+  transition:
+    color 140ms ease,
+    opacity 140ms ease;
+}
+
+.inshell-app-nav__link:hover,
+.inshell-app-nav__link:focus-visible {
+  color: var(--accent-strong, var(--inshell-green-strong));
+  opacity: 1;
+  outline: none;
+}
+
+.inshell-app-nav__link[aria-current="page"] {
+  color: var(--text, var(--inshell-text));
+  opacity: 1;
+}
+
+.inshell-contract-status {
+  display: grid;
+  gap: 20px;
+}

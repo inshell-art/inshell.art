@@ -344,7 +344,7 @@ html.verify-route .frontpage-stage {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
   grid-template-areas:
-    "title ."
+    "title nav"
     "canvas side";
   column-gap: 32px;
   row-gap: 18px;
@@ -373,6 +373,22 @@ body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-main {
 
 .frontpage-title {
   grid-area: title;
+}
+
+.frontpage-main > .thought-surface-nav {
+  grid-area: nav;
+  justify-self: end;
+  align-self: center;
+}
+
+.thought-surface-nav {
+  margin-top: 10px;
+}
+
+.primitive-page__header .thought-surface-nav,
+.thought-gallery__header .thought-surface-nav {
+  justify-content: flex-start;
+  margin-top: 14px;
 }
 
 .thought-canvas-panel {

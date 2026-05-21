@@ -167,7 +167,7 @@ describe("App Component", () => {
     window.history.pushState({}, "", "/pulse");
     render(<App />);
 
-    expect(document.title).toBe("pulse — inshell.art");
+    expect(document.title).toBe("pulse — $PATH");
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/pulse.svg");
     expect(screen.getByRole("heading", { name: "pulse" })).toBeInTheDocument();
     expect(screen.getByText("Pricing rule for the $PATH auction.")).toBeInTheDocument();
@@ -381,9 +381,9 @@ describe("App Component", () => {
     window.history.pushState({}, "", "/verify");
     render(<App />);
 
-    expect(document.title).toBe("verify — Inshell");
+    expect(document.title).toBe("verify — $PATH");
     expect(screen.getByRole("heading", { name: "verify" })).toBeInTheDocument();
-    expect(screen.getByText("Official Inshell wallet surfaces.")).toBeInTheDocument();
+    expect(screen.getByText("Official Inshell dapp and wallet surfaces.")).toBeInTheDocument();
     expect(screen.getByText("https://inshell.art")).toBeInTheDocument();
     expect(screen.getByText("https://thought.inshell.art")).toBeInTheDocument();
     expect(screen.getByText("Sepolia")).toBeInTheDocument();
@@ -487,7 +487,7 @@ describe("App Component", () => {
     expect(document.title).toBe("$PATH");
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/path.svg");
     expect(screen.getByRole("heading", { name: "$PATH" })).toBeInTheDocument();
-    expect(screen.getByText("Permission tokens for Inshell movement mints.")).toBeInTheDocument();
+    expect(screen.getByText("Permission tokens for movement mints.")).toBeInTheDocument();
     expect(screen.getByText("$PATH is minted by the public Pulse auction.")).toBeInTheDocument();
     expect(
       screen.getByText("Each $PATH authorizes movement mints in order: THOUGHT, WILL, then AWA."),

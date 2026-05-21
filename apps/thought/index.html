@@ -5,14 +5,14 @@
   <meta charset="UTF-8" />
   <link rel="icon" href="/icons/icon-512.png" />
   <link rel="alternate icon" type="image/svg+xml" href="/thought-icon.svg" />
-  <meta name="description" content="THOUGHT operator for Inshell." />
-  <meta property="og:title" content="Inshell THOUGHT" />
-  <meta property="og:description" content="THOUGHT operator for Inshell." />
+  <meta name="description" content="THOUGHT creation, minting, and gallery for Inshell." />
+  <meta property="og:title" content="THOUGHT" />
+  <meta property="og:description" content="THOUGHT creation, minting, and gallery for Inshell." />
   <meta property="og:url" content="https://thought.inshell.art" />
   <meta property="og:image" content="https://thought.inshell.art/og.png" />
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="Inshell THOUGHT" />
-  <meta name="twitter:description" content="THOUGHT operator for Inshell." />
+  <meta name="twitter:title" content="THOUGHT" />
+  <meta name="twitter:description" content="THOUGHT creation, minting, and gallery for Inshell." />
   <meta name="twitter:image" content="https://thought.inshell.art/og.png" />
   <meta name="theme-color" content="#008080" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -31,7 +31,7 @@
       }
     })();
   </script>
-  <title>Inshell THOUGHT</title>
+  <title>THOUGHT</title>
 </head>
 
 <body class="frontpage">
@@ -42,6 +42,7 @@
       <div class="frontpage-main">
         <div class="thought-canvas-column">
           <h1 id="frontpage-title" class="frontpage-title">THOUGHT</h1>
+          <nav class="inshell-app-nav thought-surface-nav" data-inshell-surface-nav aria-label="Inshell dapps"></nav>
 
           <div class="thought-canvas-panel">
             <div class="thought-canvas-frame">
@@ -346,6 +347,7 @@
       <header class="thought-gallery__header">
         <div>
           <h1 id="gallery-title" class="thought-gallery__title">Gallery</h1>
+          <nav class="inshell-app-nav thought-surface-nav" data-inshell-surface-nav aria-label="Inshell dapps"></nav>
         </div>
       </header>
       <div class="thought-gallery__status-row">
@@ -372,6 +374,7 @@
         <div>
           <h1 id="color-font-title" class="primitive-page__title">Color Font v1</h1>
           <p class="primitive-page__subtitle">Contract-defined A-Z color glyph mapping.</p>
+          <nav class="inshell-app-nav thought-surface-nav" data-inshell-surface-nav aria-label="Inshell dapps"></nav>
         </div>
       </header>
 
@@ -430,11 +433,12 @@
       <header class="primitive-page__header">
         <div>
           <h1 id="verify-title" class="primitive-page__title">verify</h1>
-          <p class="primitive-page__subtitle">Official Inshell wallet surfaces.</p>
+          <p class="primitive-page__subtitle">Official Inshell dapp and wallet surfaces.</p>
+          <nav class="inshell-app-nav thought-surface-nav" data-inshell-surface-nav aria-label="Inshell dapps"></nav>
         </div>
       </header>
 
-      <section class="primitive-page__body verify-page__body" aria-label="Inshell verification facts">
+      <section class="primitive-page__body verify-page__body inshell-contract-status" aria-label="Inshell verification facts">
         <div class="primitive-page__copy">
           <p>
             Use this page to compare domain, chain, and contracts before connecting
@@ -452,15 +456,29 @@
         </section>
 
         <section class="verify-page__section" aria-labelledby="verify-domains">
-          <h2 id="verify-domains">official domains</h2>
+          <h2 id="verify-domains">official dapps</h2>
           <dl class="primitive-page__fields verify-page__fields">
             <div>
-              <dt>home</dt>
+              <dt>$PATH</dt>
               <dd><a id="verify-home-domain" href="https://inshell.art">https://inshell.art</a></dd>
             </div>
             <div>
               <dt>THOUGHT</dt>
               <dd><a id="verify-thought-domain" href="https://thought.inshell.art">https://thought.inshell.art</a></dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="verify-page__section" aria-labelledby="verify-deployment">
+          <h2 id="verify-deployment">deployment manifest</h2>
+          <dl class="primitive-page__fields verify-page__fields">
+            <div>
+              <dt>$PATH</dt>
+              <dd id="verify-path-role">not loaded</dd>
+            </div>
+            <div>
+              <dt>THOUGHT</dt>
+              <dd id="verify-thought-role">not loaded</dd>
             </div>
           </dl>
         </section>
@@ -545,12 +563,12 @@
               <dd>asks wallet to switch to Sepolia.</dd>
             </div>
             <div>
-              <dt>mint PATH</dt>
+              <dt>mint $PATH</dt>
               <dd>submits a wallet-confirmed transaction for the Pulse auction.</dd>
             </div>
             <div>
               <dt>mint THOUGHT</dt>
-              <dd>submits a wallet-confirmed transaction using a selected PATH permission.</dd>
+              <dd>submits a wallet-confirmed transaction using a selected $PATH permission.</dd>
             </div>
           </dl>
           <p>Funds or tokens move only after wallet transaction confirmation.</p>

@@ -8,6 +8,7 @@ import ColorFontPage from "@/components/ColorFontPage";
 import PathPage from "@/components/PathPage";
 import VerifyPage from "@/components/VerifyPage";
 import { maybeResolveAddress } from "@inshell/contracts";
+import { SURFACE_TERMINOLOGY } from "@inshell/shared";
 
 function getPrimitiveRoute() {
   if (typeof window === "undefined") return null;
@@ -38,7 +39,7 @@ export default function App() {
 
   useEffect(() => {
     if (primitiveRoute === "pulse") {
-      document.title = "pulse — inshell.art";
+      document.title = `pulse — ${SURFACE_TERMINOLOGY.pathDapp}`;
       setFavicon("/pulse.svg");
       return;
     }
@@ -53,12 +54,12 @@ export default function App() {
       return;
     }
     if (primitiveRoute === "verify") {
-      document.title = "verify — Inshell";
-      setFavicon("/inshell.svg");
+      document.title = `verify — ${SURFACE_TERMINOLOGY.pathDapp}`;
+      setFavicon("/path.svg");
       return;
     }
-    document.title = "Inshell";
-    setFavicon("/inshell.svg");
+    document.title = SURFACE_TERMINOLOGY.pathDapp;
+    setFavicon("/path.svg");
   }, [primitiveRoute]);
 
   return (

@@ -4,6 +4,7 @@ import {
   getProtocolReleaseDeployBlock,
   maybeResolveAddress,
 } from "@inshell/contracts";
+import { SURFACE_TERMINOLOGY } from "@inshell/shared";
 import {
   loadAllPathTokens,
   type PathTokenAttribute,
@@ -17,7 +18,7 @@ type LoadState =
 
 const FIXTURE_OWNER = "0x1111222233334444555566667777888899990000";
 const PATH_DESCRIPTION =
-  "$PATH is the permission token. It is minted by the public Pulse auction and authorizes Inshell movement mints in order: THOUGHT, WILL, then AWA. The token image and traits show movement progress.";
+  "$PATH is the permission token. It is minted by the public Pulse auction and authorizes movement mints in order: THOUGHT, WILL, then AWA. The token image and traits show movement progress.";
 const FIXTURE_QUOTAS = {
   thought: 3,
   will: 10,
@@ -377,9 +378,9 @@ export default function PathPage() {
     <main className="primitive-page path-page">
       <header className="primitive-page__header path-page__header">
         <div>
-          <h1 className="primitive-page__title">$PATH</h1>
+          <h1 className="primitive-page__title">{SURFACE_TERMINOLOGY.pathDapp}</h1>
           <p className="primitive-page__subtitle">
-            Permission tokens for Inshell movement mints.
+            Permission tokens for movement mints.
           </p>
         </div>
       </header>

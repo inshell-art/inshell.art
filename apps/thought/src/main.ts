@@ -7,6 +7,7 @@ import "@fontsource/source-code-pro/700.css";
 import "@fontsource/source-code-pro/800.css";
 import "@fontsource/source-code-pro/900.css";
 import "@fontsource-variable/roboto-mono/wght.css";
+import "@inshell/shared/design.css";
 import {
   AbiCoder,
   BrowserProvider,
@@ -20,12 +21,20 @@ import {
   type Log,
 } from "ethers";
 import {
-  OFFICIAL_DOMAINS,
   getProtocolReleaseAddress,
   getProtocolReleaseDeployBlock,
   getThoughtReleaseDeployBlock,
   maybeResolveAddress,
 } from "@inshell/contracts";
+import {
+  SURFACE_TERMINOLOGY,
+  buildContractStatusSections,
+  findContractStatusRow,
+  getSurfaceNavItems,
+  surfaceNavHref,
+  surfaceNavRel,
+  surfaceNavTarget,
+} from "@inshell/shared";
 
 import thoughtInstructions from "../THOUGHT.md?raw";
 import thoughtInstructionsUrl from "../THOUGHT.md?url";
@@ -900,6 +909,8 @@ const colorFontStatus = document.getElementById("color-font-status") as HTMLElem
 const verifyPage = document.getElementById("verify-page") as HTMLElement | null;
 const verifyHomeDomain = document.getElementById("verify-home-domain") as HTMLAnchorElement | null;
 const verifyThoughtDomain = document.getElementById("verify-thought-domain") as HTMLAnchorElement | null;
+const verifyPathRole = document.getElementById("verify-path-role") as HTMLElement | null;
+const verifyThoughtRole = document.getElementById("verify-thought-role") as HTMLElement | null;
 const verifyChain = document.getElementById("verify-chain") as HTMLElement | null;
 const verifyChainId = document.getElementById("verify-chain-id") as HTMLElement | null;
 const verifyPathNft = document.getElementById("verify-path-nft") as HTMLElement | null;
@@ -1033,6 +1044,8 @@ if (
   !verifyPage ||
   !verifyHomeDomain ||
   !verifyThoughtDomain ||
+  !verifyPathRole ||
+  !verifyThoughtRole ||
   !verifyChain ||
   !verifyChainId ||
   !verifyPathNft ||
@@ -2271,41 +2284,66 @@ const setVerifyText = (element: HTMLElement, value: unknown) => {
   element.textContent = displayVerifyValue(value);
 };
 
+const contractStatusSections = () =>
+  buildContractStatusSections({
+    chainId: THOUGHT_CHAIN_ID,
+    chainName: THOUGHT_CHAIN_NAME,
+    pathNft: PATH_NFT_ADDRESS,
+    thoughtNft: THOUGHT_NFT_ADDRESS,
+    pulseAuction: pulseAuctionAddress(),
+    colorFontV1: COLOR_FONT_V1_ADDRESS,
+    thoughtSpecName: thoughtSpecName(),
+    thoughtSpecId: RECOMMENDED_THOUGHT_SPEC_ID,
+    thoughtSpecHash: thoughtSpecHash(),
+    colorFontHash: colorFontMirrorHash(),
+  });
+
+const contractStatusValue = (sectionId: string, rowId: string) =>
+  findContractStatusRow(contractStatusSections(), sectionId, rowId)?.value ?? VERIFY_NOT_LOADED;
+
+const configureSurfaceNav = () => {
+  const navs = document.querySelectorAll<HTMLElement>("[data-inshell-surface-nav]");
+  for (const nav of navs) {
+    nav.replaceChildren(
+      ...getSurfaceNavItems("thought").map((item) => {
+        const link = document.createElement("a");
+        link.className = "inshell-app-nav__link";
+        link.href = surfaceNavHref(item, "thought");
+        link.textContent = item.label;
+        const target = surfaceNavTarget(item, "thought");
+        const rel = surfaceNavRel(item, "thought");
+        if (target) link.target = target;
+        if (rel) link.rel = rel;
+        if (item.id === "thought") link.setAttribute("aria-current", "page");
+        return link;
+      }),
+    );
+  }
+};
+
 const renderVerifyPage = () => {
-  verifyHomeDomain.textContent = OFFICIAL_DOMAINS.home;
-  verifyHomeDomain.href = OFFICIAL_DOMAINS.home;
+  verifyHomeDomain.textContent = contractStatusValue("domains", "path-domain");
+  verifyHomeDomain.href = contractStatusValue("domains", "path-domain");
   verifyHomeDomain.target = "_blank";
   verifyHomeDomain.rel = "noopener noreferrer";
-  verifyThoughtDomain.textContent = OFFICIAL_DOMAINS.thought;
-  verifyThoughtDomain.href = OFFICIAL_DOMAINS.thought;
+  verifyThoughtDomain.textContent = contractStatusValue("domains", "thought-domain");
+  verifyThoughtDomain.href = contractStatusValue("domains", "thought-domain");
   verifyThoughtDomain.target = "_blank";
   verifyThoughtDomain.rel = "noopener noreferrer";
 
-  setVerifyText(verifyChain, THOUGHT_CHAIN_NAME);
-  setVerifyText(verifyChainId, THOUGHT_CHAIN_ID);
-  setVerifyText(verifyPathNft, PATH_NFT_ADDRESS);
-  setVerifyText(verifyThoughtNft, THOUGHT_NFT_ADDRESS);
-  setVerifyText(verifyPulseAuction, pulseAuctionAddress());
-  setVerifyText(verifySpecName, thoughtSpecName());
-  setVerifyText(verifySpecId, RECOMMENDED_THOUGHT_SPEC_ID);
-  setVerifyText(verifySpecHash, thoughtSpecHash());
-  setVerifyText(
-    verifyColorFontAuthority,
-    COLOR_FONT_V1_ADDRESS
-      ? `ColorFontV1 ${COLOR_FONT_V1_ADDRESS}`
-      : THOUGHT_NFT_ADDRESS
-        ? `ThoughtNFT ${THOUGHT_NFT_ADDRESS}`
-        : "",
-  );
-  setVerifyText(
-    verifyColorFontLoadedFrom,
-    COLOR_FONT_V1_ADDRESS
-      ? "ColorFontV1.data()"
-      : THOUGHT_NFT_ADDRESS
-        ? "ThoughtNFT.colorFontData()"
-        : "",
-  );
-  setVerifyText(verifyColorFontHash, colorFontMirrorHash());
+  setVerifyText(verifyPathRole, contractStatusValue("deployment", "path-role"));
+  setVerifyText(verifyThoughtRole, contractStatusValue("deployment", "thought-role"));
+  setVerifyText(verifyChain, contractStatusValue("deployment", "network"));
+  setVerifyText(verifyChainId, contractStatusValue("deployment", "chain-id"));
+  setVerifyText(verifyPathNft, contractStatusValue("contracts", "path-nft"));
+  setVerifyText(verifyThoughtNft, contractStatusValue("contracts", "thought-nft"));
+  setVerifyText(verifyPulseAuction, contractStatusValue("contracts", "pulse-auction"));
+  setVerifyText(verifySpecName, contractStatusValue("thought-spec", "thought-spec-name"));
+  setVerifyText(verifySpecId, contractStatusValue("thought-spec", "thought-spec-id"));
+  setVerifyText(verifySpecHash, contractStatusValue("thought-spec", "thought-spec-hash"));
+  setVerifyText(verifyColorFontAuthority, contractStatusValue("color-font", "color-font-authority"));
+  setVerifyText(verifyColorFontLoadedFrom, contractStatusValue("color-font", "color-font-loaded-from"));
+  setVerifyText(verifyColorFontHash, contractStatusValue("color-font", "color-font-hash"));
 };
 
 const fetchColorFontDoc = async (): Promise<ColorFontDoc> => {
@@ -9541,33 +9579,33 @@ const cliWrongNetworkLines = () => [
 ];
 
 const cliVerifyLines = () => [
-  "verify Inshell.",
+  `verify ${SURFACE_TERMINOLOGY.ecosystem}.`,
   "",
-  "official domains:",
-  `home     ${OFFICIAL_DOMAINS.home}`,
-  `THOUGHT  ${OFFICIAL_DOMAINS.thought}`,
+  "official dapps:",
+  `${SURFACE_TERMINOLOGY.pathDapp.padEnd(8)}${contractStatusValue("domains", "path-domain")}`,
+  `${SURFACE_TERMINOLOGY.thoughtDapp.padEnd(8)}${contractStatusValue("domains", "thought-domain")}`,
   "",
-  "chain:",
-  `${THOUGHT_CHAIN_NAME} (${THOUGHT_CHAIN_ID})`,
+  "deployment manifest:",
+  `${contractStatusValue("deployment", "network")} (${contractStatusValue("deployment", "chain-id")})`,
   "",
   "contracts:",
-  `PathNFT       ${displayVerifyValue(PATH_NFT_ADDRESS)}`,
-  `ThoughtNFT    ${displayVerifyValue(THOUGHT_NFT_ADDRESS)}`,
-  `PulseAuction  ${displayVerifyValue(pulseAuctionAddress())}`,
+  `PathNFT       ${contractStatusValue("contracts", "path-nft")}`,
+  `ThoughtNFT    ${contractStatusValue("contracts", "thought-nft")}`,
+  `PulseAuction  ${contractStatusValue("contracts", "pulse-auction")}`,
   "",
   "THOUGHT spec:",
-  `name  ${displayVerifyValue(thoughtSpecName())}`,
-  `id    ${displayVerifyValue(RECOMMENDED_THOUGHT_SPEC_ID)}`,
-  `hash  ${displayVerifyValue(thoughtSpecHash())}`,
+  `name  ${contractStatusValue("thought-spec", "thought-spec-name")}`,
+  `id    ${contractStatusValue("thought-spec", "thought-spec-id")}`,
+  `hash  ${contractStatusValue("thought-spec", "thought-spec-hash")}`,
   "",
   "color font:",
-  `authority    ${displayVerifyValue(COLOR_FONT_V1_ADDRESS || THOUGHT_NFT_ADDRESS)}`,
-  `loaded from  ${COLOR_FONT_V1_ADDRESS ? "ColorFontV1.data()" : THOUGHT_NFT_ADDRESS ? "ThoughtNFT.colorFontData()" : VERIFY_NOT_LOADED}`,
-  `hash         ${displayVerifyValue(colorFontMirrorHash())}`,
+  `authority    ${contractStatusValue("color-font", "color-font-authority")}`,
+  `loaded from  ${contractStatusValue("color-font", "color-font-loaded-from")}`,
+  `hash         ${contractStatusValue("color-font", "color-font-hash")}`,
   "",
   "wallet actions:",
   "connect wallet reads selected address and public ownership state.",
-  "mint THOUGHT submits a wallet-confirmed transaction using selected $PATH.",
+  `mint ${SURFACE_TERMINOLOGY.thoughtToken} submits a wallet-confirmed transaction using selected ${SURFACE_TERMINOLOGY.pathToken}.`,
   "funds or tokens move only after wallet transaction confirmation.",
   "",
   "open: /verify",
@@ -9579,11 +9617,11 @@ const cliWalletConnectVerifyLines = () => [
   "wallet may show a new-site warning.",
   "verify before continuing:",
   "",
-  `domain  ${OFFICIAL_DOMAINS.thought}`,
+  `domain  ${contractStatusValue("domains", "thought-domain")}`,
   `chain   ${THOUGHT_CHAIN_NAME}`,
   "action  connect wallet",
   "",
-  "connect reads address and PATH ownership.",
+  `connect reads address and ${SURFACE_TERMINOLOGY.pathTokenPlain} ownership.`,
   "funds move only after wallet transaction confirmation.",
   "",
   "use: verify",
@@ -11164,14 +11202,15 @@ document.addEventListener("keydown", (event) => {
 });
 
 const initFrontpage = async () => {
+  configureSurfaceNav();
   configureGalleryLink();
   document.title = IS_COLOR_FONT_PAGE
     ? "Color Font"
     : IS_VERIFY_PAGE
-      ? "verify — Inshell THOUGHT"
+      ? `verify — ${SURFACE_TERMINOLOGY.thoughtDapp}`
       : IS_GALLERY_PAGE
         ? "Gallery"
-        : "Inshell THOUGHT";
+        : SURFACE_TERMINOLOGY.thoughtDapp;
 
   if (IS_COLOR_FONT_PAGE) {
     frontpageStage.classList.add("is-hidden");

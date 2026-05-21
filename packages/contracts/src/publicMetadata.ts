@@ -5,15 +5,15 @@ export const OFFICIAL_DOMAINS = {
 
 export const PUBLIC_SITE_METADATA = {
   home: {
-    title: "Inshell",
-    description: "$PATH auction and Inshell public surfaces.",
-    iconPath: "/icons/icon-512.png",
+    title: "$PATH",
+    description: "$PATH auction, token inventory, and Inshell verification.",
+    iconPath: "/path.svg",
     ogImagePath: "/og.png",
   },
   thought: {
-    title: "Inshell THOUGHT",
-    description: "THOUGHT operator for Inshell.",
-    iconPath: "/icons/icon-512.png",
+    title: "THOUGHT",
+    description: "THOUGHT creation, minting, and gallery for Inshell.",
+    iconPath: "/thought-icon.svg",
     ogImagePath: "/og.png",
   },
 } as const;

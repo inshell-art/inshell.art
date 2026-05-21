@@ -351,6 +351,26 @@ function checkThoughtProductionGuards() {
   }
 }
 
+function checkSharedSurfaceLayer() {
+  requireSnippets("packages/shared/src/index.ts", [
+    "SURFACE_TERMINOLOGY",
+    "SURFACE_DEPLOYMENT_MANIFEST",
+    "SURFACE_NAV_ITEMS",
+    "buildContractStatusSections",
+  ]);
+  requireSnippets("packages/shared/src/design.css", [
+    ".inshell-app-nav",
+    ".inshell-contract-status",
+    "--inshell-font-mono",
+  ]);
+  requireSnippets("apps/home/src/main.tsx", ["@inshell/shared/design.css"]);
+  requireSnippets("apps/thought/src/main.ts", [
+    "@inshell/shared/design.css",
+    "buildContractStatusSections",
+    "configureSurfaceNav",
+  ]);
+}
+
 function checkCloudflareRpcProxy() {
   const text = read("functions/api/eth-rpc.ts");
   for (const snippet of [
@@ -381,6 +401,7 @@ checkNoLocalhostInProductionArtifacts();
 checkAbiAndReleaseJsonParse();
 checkEthereumRpcGuard();
 checkThoughtProductionGuards();
+checkSharedSurfaceLayer();
 checkCloudflareRpcProxy();
 
 if (errors.length) {

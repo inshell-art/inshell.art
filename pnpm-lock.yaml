@@ -87,6 +87,9 @@ importers:
       '@inshell/ethereum':
         specifier: workspace:*
         version: link:../../packages/ethereum
+      '@inshell/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@inshell/utils':
         specifier: workspace:*
         version: link:../../packages/utils
@@ -229,6 +232,9 @@ importers:
       '@inshell/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@inshell/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@inshell/wallet':
         specifier: workspace:*
         version: link:../../packages/wallet
@@ -271,6 +277,8 @@ importers:
       viem:
         specifier: ^2.47.0
         version: 2.47.0(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@6.0.6)(zod@3.25.76)
+
+  packages/shared: {}
 
   packages/utils: {}
 

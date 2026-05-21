@@ -22,6 +22,7 @@
     "@fontsource/source-code-pro": "^5.2.6",
     "@inshell/contracts": "workspace:*",
     "@inshell/ethereum": "workspace:*",
+    "@inshell/shared": "workspace:*",
     "@inshell/utils": "workspace:*",
     "@inshell/wallet": "workspace:*",
     "@tanstack/react-query": "^5.83.0",
