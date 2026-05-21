@@ -9,6 +9,11 @@ import React, {
   useState,
 } from "react";
 import {
+  OFFICIAL_DOMAINS,
+  PUBLIC_SITE_METADATA,
+  absolutePublicAssetUrl,
+} from "@inshell/contracts";
+import {
   encodeExecuteData,
   getDefaultProvider,
   sendTransaction,
@@ -322,6 +327,27 @@ function chainLabel(chainId: number | null): { name: string; network: string } {
   return { name: "Unknown", network: "unknown" };
 }
 
+function walletConnectMetadata() {
+  const hostname =
+    typeof window === "undefined" ? "" : window.location.hostname.toLowerCase();
+  const documentTitle =
+    typeof document === "undefined"
+      ? ""
+      : document.querySelector('meta[property="og:title"]')?.getAttribute("content") ?? "";
+  const surface =
+    hostname === "thought.inshell.art" ||
+    documentTitle === PUBLIC_SITE_METADATA.thought.title
+      ? "thought"
+      : "home";
+  const metadata = PUBLIC_SITE_METADATA[surface];
+  return {
+    name: metadata.title,
+    description: metadata.description,
+    url: OFFICIAL_DOMAINS[surface],
+    icons: [absolutePublicAssetUrl(surface, metadata.iconPath)],
+  };
+}
+
 async function connectEip1193Provider(detail: Eip6963ProviderDetail) {
   const accountsRaw = await detail.provider.request({
     method: "eth_requestAccounts",
@@ -510,6 +536,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
         projectId: projectIdRaw.trim(),
         chains: readEvmChainIds(),
         showQrModal: true,
+        metadata: walletConnectMetadata(),
       })) as WalletConnectEthereumProvider;
       const accounts =
         typeof wcProvider.enable === "function"

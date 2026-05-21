@@ -1635,6 +1635,16 @@ describe("AuctionCanvas", () => {
     );
     fireEvent.click(connectButton);
     const options = await screen.findAllByRole("menuitem");
+    const note = document.querySelector(".dotfield__wallet-picker-note") as HTMLElement;
+    expect(note).toBeTruthy();
+    expect(note).toHaveTextContent("New dapp? Wallet may warn.");
+    expect(
+      note
+    ).toHaveTextContent("Verify domain and action before continuing.");
+    expect(screen.getByRole("link", { name: "verify ↗" })).toHaveAttribute(
+      "href",
+      "/verify",
+    );
     expect(options.map((item) => item.textContent)).toEqual([
       "MetaMask",
       "Rabby Wallet",
@@ -1982,6 +1992,13 @@ describe("AuctionCanvas", () => {
     expect(review).toBeTruthy();
     expect(within(review as HTMLElement).getByText(/current ask/i)).toBeTruthy();
     expect(within(review as HTMLElement).getByText(/max bid/i)).toBeTruthy();
+    expect(
+      within(review as HTMLElement).getByText(/verify domain, chain, and action in wallet/i)
+    ).toBeTruthy();
+    expect(within(review as HTMLElement).getByRole("link", { name: "verify ↗" })).toHaveAttribute(
+      "href",
+      "/verify",
+    );
     expect(execute).not.toHaveBeenCalled();
   });
 

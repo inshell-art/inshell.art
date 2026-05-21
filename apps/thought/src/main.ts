@@ -17,7 +17,14 @@ import {
   keccak256,
   toUtf8Bytes,
   type JsonRpcSigner,
+  type Log,
 } from "ethers";
+import {
+  OFFICIAL_DOMAINS,
+  getProtocolReleaseAddress,
+  getProtocolReleaseDeployBlock,
+  maybeResolveAddress,
+} from "@inshell/contracts";
 
 import thoughtInstructions from "../THOUGHT.md?raw";
 import thoughtInstructionsUrl from "../THOUGHT.md?url";
@@ -679,6 +686,11 @@ const chainExplorerBaseUrl =
 const THOUGHT_EXPLORER_BASE_URL = configuredExplorerBaseUrl || addressExplorerBaseUrl || chainExplorerBaseUrl;
 const thoughtTxUrl = (txHash: string) => (THOUGHT_EXPLORER_BASE_URL ? `${THOUGHT_EXPLORER_BASE_URL}/tx/${txHash}` : "");
 const PATH_MOVEMENT_THOUGHT = "0x54484f5547485400000000000000000000000000000000000000000000000000";
+const PATH_NFT_DEPLOY_BLOCK =
+  getProtocolReleaseDeployBlock("path_nft") ??
+  getProtocolReleaseDeployBlock("path_nft", "sepolia") ??
+  0;
+const PATH_LOG_CHUNK_SIZE = 5_000;
 const ERC721_TRANSFER_TOPIC = id("Transfer(address,address,uint256)");
 const CONSUME_AUTHORIZATION_TYPEHASH = id(
   "ConsumeAuthorization(address pathNft,uint256 chainId,uint256 pathId,bytes32 movement,address claimer,address executor,uint256 nonce,uint256 deadline)",
@@ -686,17 +698,19 @@ const CONSUME_AUTHORIZATION_TYPEHASH = id(
 const PATH_CONSUME_AUTH_TTL_SECONDS = 3600n;
 const ROUTE_SEARCH_PARAMS = new URLSearchParams(window.location.search);
 const IS_COLOR_FONT_PAGE = window.location.pathname.replace(/\/+$/, "") === "/color-font";
+const IS_VERIFY_PAGE = window.location.pathname.replace(/\/+$/, "") === "/verify";
 const RAW_PRESELECTED_PATH_ID = ROUTE_SEARCH_PARAMS.get("path")?.trim() ?? "";
 const PRESELECTED_PATH_ID = /^[1-9]\d*$/.test(RAW_PRESELECTED_PATH_ID) ? RAW_PRESELECTED_PATH_ID : "";
 const IS_GALLERY_PAGE =
   !IS_COLOR_FONT_PAGE &&
+  !IS_VERIFY_PAGE &&
   (ROUTE_SEARCH_PARAMS.get("gallery") === "1" || window.location.hash === "#gallery");
 const RAW_ROUTE_THOUGHT_NFT_ID = ROUTE_SEARCH_PARAMS.get("thought")?.trim() ?? "";
 const ROUTE_THOUGHT_NFT_ID = /^[1-9]\d*$/.test(RAW_ROUTE_THOUGHT_NFT_ID)
   ? Number(RAW_ROUTE_THOUGHT_NFT_ID)
   : null;
 const GALLERY_TARGET_TOKEN_ID = IS_GALLERY_PAGE ? ROUTE_THOUGHT_NFT_ID : null;
-const IS_THOUGHT_PAGE = !IS_COLOR_FONT_PAGE && !IS_GALLERY_PAGE && ROUTE_THOUGHT_NFT_ID !== null;
+const IS_THOUGHT_PAGE = !IS_COLOR_FONT_PAGE && !IS_VERIFY_PAGE && !IS_GALLERY_PAGE && ROUTE_THOUGHT_NFT_ID !== null;
 const THOUGHT_MINTED_TOPIC = id(
   "ThoughtMinted(uint256,address,uint256,bytes32,bytes32,bytes32,bytes32,uint64)",
 );
@@ -877,6 +891,20 @@ const colorFontHash = document.getElementById("color-font-hash") as HTMLElement 
 const colorFontRawBlock = document.getElementById("color-font-raw") as HTMLElement | null;
 const colorFontOpenRaw = document.getElementById("color-font-open-raw") as HTMLAnchorElement | null;
 const colorFontStatus = document.getElementById("color-font-status") as HTMLElement | null;
+const verifyPage = document.getElementById("verify-page") as HTMLElement | null;
+const verifyHomeDomain = document.getElementById("verify-home-domain") as HTMLAnchorElement | null;
+const verifyThoughtDomain = document.getElementById("verify-thought-domain") as HTMLAnchorElement | null;
+const verifyChain = document.getElementById("verify-chain") as HTMLElement | null;
+const verifyChainId = document.getElementById("verify-chain-id") as HTMLElement | null;
+const verifyPathNft = document.getElementById("verify-path-nft") as HTMLElement | null;
+const verifyThoughtNft = document.getElementById("verify-thought-nft") as HTMLElement | null;
+const verifyPulseAuction = document.getElementById("verify-pulse-auction") as HTMLElement | null;
+const verifySpecName = document.getElementById("verify-spec-name") as HTMLElement | null;
+const verifySpecId = document.getElementById("verify-spec-id") as HTMLElement | null;
+const verifySpecHash = document.getElementById("verify-spec-hash") as HTMLElement | null;
+const verifyColorFontAuthority = document.getElementById("verify-color-font-authority") as HTMLElement | null;
+const verifyColorFontLoadedFrom = document.getElementById("verify-color-font-loaded-from") as HTMLElement | null;
+const verifyColorFontHash = document.getElementById("verify-color-font-hash") as HTMLElement | null;
 const thoughtPage = document.getElementById("thought-page") as HTMLElement | null;
 const thoughtDetailTitleToken = document.getElementById("thought-detail-token-id") as HTMLElement | null;
 const thoughtDetailGalleryLink = document.getElementById("thought-detail-gallery-link") as HTMLAnchorElement | null;
@@ -996,6 +1024,20 @@ if (
   !colorFontRawBlock ||
   !colorFontOpenRaw ||
   !colorFontStatus ||
+  !verifyPage ||
+  !verifyHomeDomain ||
+  !verifyThoughtDomain ||
+  !verifyChain ||
+  !verifyChainId ||
+  !verifyPathNft ||
+  !verifyThoughtNft ||
+  !verifyPulseAuction ||
+  !verifySpecName ||
+  !verifySpecId ||
+  !verifySpecHash ||
+  !verifyColorFontAuthority ||
+  !verifyColorFontLoadedFrom ||
+  !verifyColorFontHash ||
   !thoughtPage ||
   !thoughtDetailTitleToken ||
   !thoughtDetailGalleryLink ||
@@ -2186,6 +2228,78 @@ const loadColorFontPage = async () => {
       status: "onchain color font unavailable; showing bundled mirror.",
     });
   }
+};
+
+const VERIFY_NOT_LOADED = "not loaded";
+
+const displayVerifyValue = (value: unknown) => {
+  if (typeof value === "string" && value.trim()) {
+    return value.trim();
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value.toString();
+  }
+  return VERIFY_NOT_LOADED;
+};
+
+const thoughtSpecName = () =>
+  EVM_ADDRESSES.recommendedThoughtSpecName?.trim() ||
+  EVM_ADDRESSES.thoughtSpec?.specName?.trim() ||
+  EVM_ADDRESSES.thoughtSpecs?.[0]?.specName?.trim() ||
+  "";
+
+const thoughtSpecHash = () =>
+  EVM_ADDRESSES.recommendedThoughtSpecHash?.trim() ||
+  EVM_ADDRESSES.thoughtSpec?.hash?.trim() ||
+  EVM_ADDRESSES.thoughtSpecs?.[0]?.specHash?.trim() ||
+  "";
+
+const pulseAuctionAddress = () =>
+  getProtocolReleaseAddress("pulse_auction", "sepolia") ||
+  maybeResolveAddress("pulse_auction") ||
+  "";
+
+const colorFontMirrorHash = () => keccak256(toUtf8Bytes(colorFontText.trim()));
+
+const setVerifyText = (element: HTMLElement, value: unknown) => {
+  element.textContent = displayVerifyValue(value);
+};
+
+const renderVerifyPage = () => {
+  verifyHomeDomain.textContent = OFFICIAL_DOMAINS.home;
+  verifyHomeDomain.href = OFFICIAL_DOMAINS.home;
+  verifyHomeDomain.target = "_blank";
+  verifyHomeDomain.rel = "noopener noreferrer";
+  verifyThoughtDomain.textContent = OFFICIAL_DOMAINS.thought;
+  verifyThoughtDomain.href = OFFICIAL_DOMAINS.thought;
+  verifyThoughtDomain.target = "_blank";
+  verifyThoughtDomain.rel = "noopener noreferrer";
+
+  setVerifyText(verifyChain, THOUGHT_CHAIN_NAME);
+  setVerifyText(verifyChainId, THOUGHT_CHAIN_ID);
+  setVerifyText(verifyPathNft, PATH_NFT_ADDRESS);
+  setVerifyText(verifyThoughtNft, THOUGHT_NFT_ADDRESS);
+  setVerifyText(verifyPulseAuction, pulseAuctionAddress());
+  setVerifyText(verifySpecName, thoughtSpecName());
+  setVerifyText(verifySpecId, RECOMMENDED_THOUGHT_SPEC_ID);
+  setVerifyText(verifySpecHash, thoughtSpecHash());
+  setVerifyText(
+    verifyColorFontAuthority,
+    COLOR_FONT_V1_ADDRESS
+      ? `ColorFontV1 ${COLOR_FONT_V1_ADDRESS}`
+      : THOUGHT_NFT_ADDRESS
+        ? `ThoughtNFT ${THOUGHT_NFT_ADDRESS}`
+        : "",
+  );
+  setVerifyText(
+    verifyColorFontLoadedFrom,
+    COLOR_FONT_V1_ADDRESS
+      ? "ColorFontV1.data()"
+      : THOUGHT_NFT_ADDRESS
+        ? "ThoughtNFT.colorFontData()"
+        : "",
+  );
+  setVerifyText(verifyColorFontHash, colorFontMirrorHash());
 };
 
 const fetchColorFontDoc = async (): Promise<ColorFontDoc> => {
@@ -7573,6 +7687,7 @@ const getCliSuggestions = (): CliSuggestion[] => {
       { label: "prompt <text>", command: "prompt " },
       { label: "run", command: "run" },
       { label: "current", command: "current" },
+      { label: "verify", command: "verify" },
     ];
   }
 
@@ -7767,6 +7882,7 @@ const getCliSuggestions = (): CliSuggestion[] => {
     { label: "run", command: "run" },
     { label: `config ${sessionState.mode} model list`, command: `config ${sessionState.mode} model list` },
     { label: "current", command: "current" },
+    { label: "verify", command: "verify" },
     { label: "help", command: "help" },
   ];
 };
@@ -9392,14 +9508,61 @@ const hasPendingMintTransaction = () =>
   walletState.txState === "submitted";
 
 const cliWrongNetworkLines = () => [
-  "wallet on wrong network.",
-  `expected: ${THOUGHT_CHAIN_NAME}`,
+  "wrong network.",
+  `${THOUGHT_CHAIN_NAME} required.`,
   `chain id: ${THOUGHT_CHAIN_ID}`,
-  `rpc: ${THOUGHT_RPC_URL || "not configured"}`,
   "",
-  "in Rabby, add or switch to this network.",
-  "use: wallet connect",
+  "use: wallet switch",
   "use: path <id>",
+];
+
+const cliVerifyLines = () => [
+  "verify Inshell.",
+  "",
+  "official domains:",
+  `home     ${OFFICIAL_DOMAINS.home}`,
+  `THOUGHT  ${OFFICIAL_DOMAINS.thought}`,
+  "",
+  "chain:",
+  `${THOUGHT_CHAIN_NAME} (${THOUGHT_CHAIN_ID})`,
+  "",
+  "contracts:",
+  `PathNFT       ${displayVerifyValue(PATH_NFT_ADDRESS)}`,
+  `ThoughtNFT    ${displayVerifyValue(THOUGHT_NFT_ADDRESS)}`,
+  `PulseAuction  ${displayVerifyValue(pulseAuctionAddress())}`,
+  "",
+  "THOUGHT spec:",
+  `name  ${displayVerifyValue(thoughtSpecName())}`,
+  `id    ${displayVerifyValue(RECOMMENDED_THOUGHT_SPEC_ID)}`,
+  `hash  ${displayVerifyValue(thoughtSpecHash())}`,
+  "",
+  "color font:",
+  `authority    ${displayVerifyValue(COLOR_FONT_V1_ADDRESS || THOUGHT_NFT_ADDRESS)}`,
+  `loaded from  ${COLOR_FONT_V1_ADDRESS ? "ColorFontV1.data()" : THOUGHT_NFT_ADDRESS ? "ThoughtNFT.colorFontData()" : VERIFY_NOT_LOADED}`,
+  `hash         ${displayVerifyValue(colorFontMirrorHash())}`,
+  "",
+  "wallet actions:",
+  "connect wallet reads selected address and public ownership state.",
+  "mint THOUGHT submits a wallet-confirmed transaction using selected $PATH.",
+  "funds or tokens move only after wallet transaction confirmation.",
+  "",
+  "open: /verify",
+];
+
+const cliWalletConnectVerifyLines = () => [
+  "connect wallet.",
+  "",
+  "wallet may show a new-site warning.",
+  "verify before continuing:",
+  "",
+  `domain  ${OFFICIAL_DOMAINS.thought}`,
+  `chain   ${THOUGHT_CHAIN_NAME}`,
+  "action  connect wallet",
+  "",
+  "connect reads address and PATH ownership.",
+  "funds move only after wallet transaction confirmation.",
+  "",
+  "use: verify",
 ];
 
 const cliPathRecoveryErrorLines = (fallbackPathId = "") => {
@@ -9598,6 +9761,36 @@ const cliPathAvailability = async (
   }
 };
 
+const fetchPathTransferLogsForWallet = async (provider: JsonRpcProvider, walletTopic: string) => {
+  const latestBlock = await provider.getBlockNumber();
+  const fromStart = Math.min(Math.max(0, PATH_NFT_DEPLOY_BLOCK), latestBlock);
+  const logsByKey = new Map<string, Log>();
+
+  for (let fromBlock = fromStart; fromBlock <= latestBlock; fromBlock += PATH_LOG_CHUNK_SIZE) {
+    const toBlock = Math.min(latestBlock, fromBlock + PATH_LOG_CHUNK_SIZE - 1);
+    const [incomingLogs, outgoingLogs] = await Promise.all([
+      provider.getLogs({
+        address: PATH_NFT_ADDRESS,
+        fromBlock,
+        toBlock,
+        topics: [ERC721_TRANSFER_TOPIC, null, walletTopic],
+      }),
+      provider.getLogs({
+        address: PATH_NFT_ADDRESS,
+        fromBlock,
+        toBlock,
+        topics: [ERC721_TRANSFER_TOPIC, walletTopic],
+      }),
+    ]);
+
+    for (const log of [...incomingLogs, ...outgoingLogs]) {
+      logsByKey.set(`${log.transactionHash}:${log.index}`, log);
+    }
+  }
+
+  return [...logsByKey.values()];
+};
+
 const listCliPaths = async () => {
   await refreshWalletState();
 
@@ -9608,6 +9801,11 @@ const listCliPaths = async () => {
       "wallet not connected.",
       "use: wallet connect",
     ]);
+    return;
+  }
+
+  if (walletState.chainId !== THOUGHT_CHAIN_ID) {
+    appendCliError(["wallet $PATHs for THOUGHT mint.", "", ...cliWrongNetworkLines()]);
     return;
   }
 
@@ -9625,22 +9823,9 @@ const listCliPaths = async () => {
 
   try {
     const walletTopic = indexedAddressTopic(walletState.address);
-    const [incomingLogs, outgoingLogs] = await Promise.all([
-      provider.getLogs({
-        address: PATH_NFT_ADDRESS,
-        fromBlock: 0,
-        toBlock: "latest",
-        topics: [ERC721_TRANSFER_TOPIC, null, walletTopic],
-      }),
-      provider.getLogs({
-        address: PATH_NFT_ADDRESS,
-        fromBlock: 0,
-        toBlock: "latest",
-        topics: [ERC721_TRANSFER_TOPIC, walletTopic],
-      }),
-    ]);
+    const transferLogs = await fetchPathTransferLogsForWallet(provider, walletTopic);
     const candidateIds = new Set<bigint>();
-    for (const log of [...incomingLogs, ...outgoingLogs]) {
+    for (const log of transferLogs) {
       const tokenId = transferLogTokenId(log.topics);
       if (tokenId !== null) {
         candidateIds.add(tokenId);
@@ -9841,12 +10026,17 @@ const confirmFromCli = async () => {
   }
 };
 
+const outputCliVerify = () => {
+  appendCliOutput(cliVerifyLines(), { preserveSpacing: true });
+};
+
 const connectWalletFromCli = async () => {
   const mintFlowWasActive = mintFlowState !== "closed";
   if (mintFlowWasActive) {
     switchMintFlowToCli();
   }
 
+  appendCliOutput(cliWalletConnectVerifyLines(), { preserveSpacing: true });
   appendCliOutput("connecting wallet...");
   await requestWalletConnect();
   stopCliProgress();
@@ -9867,11 +10057,23 @@ const connectWalletFromCli = async () => {
   appendCliOutput(walletState.address ? ["wallet connected.", "use: mint"] : ["wallet not connected.", "use: wallet connect"]);
 };
 
+const switchWalletFromCli = async () => {
+  appendCliOutput([`switch wallet to ${THOUGHT_CHAIN_NAME}.`]);
+  await switchWalletChain();
+  stopCliProgress();
+  appendCliOutput(
+    walletState.chainId === THOUGHT_CHAIN_ID
+      ? ["chain ready.", "use: path list"]
+      : ["wrong network.", `${THOUGHT_CHAIN_NAME} required.`, "use: wallet switch"],
+  );
+};
+
 const outputCliWalletUsage = () => {
   appendCliOutput([
     "wallet handles $PATH and mint.",
     `wallet: ${walletState.address ? `connected ${formatCliAddress(walletState.address)}` : "not connected"}`,
     "use: wallet connect",
+    "use: wallet switch",
     "clear: wallet disconnect",
   ]);
 };
@@ -9920,10 +10122,10 @@ const cliCommandsHelpLines = () => [
   "color-font",
   "color-font raw",
   "",
-    "run",
-    "rerun",
-    "retry run",
-    "preview retry",
+  "run",
+  "rerun",
+  "retry run",
+  "preview retry",
   "work",
   "work current",
   "work list",
@@ -9939,6 +10141,7 @@ const cliCommandsHelpLines = () => [
   "mint",
   "wallet",
   "wallet connect",
+  "wallet switch",
   "wallet disconnect",
   "path",
   "path list",
@@ -9948,6 +10151,7 @@ const cliCommandsHelpLines = () => [
   "mint-path",
   "",
   "current",
+  "verify",
   "provenance",
   "provenance --json",
   "gallery",
@@ -9988,6 +10192,7 @@ const cliHelpLines = (topic = "") => {
       "work",
       "mint",
       "wallet",
+      "verify",
       "$PATH",
       "provenance",
       "gallery",
@@ -9999,6 +10204,23 @@ const cliHelpLines = (topic = "") => {
 
   if (normalizedTopic === "commands") {
     return cliCommandsHelpLines();
+  }
+
+  if (normalizedTopic === "verify") {
+    return [
+      "verify prints public launch facts.",
+      "",
+      "checks:",
+      "official domains",
+      "chain",
+      "contracts",
+      "THOUGHT spec",
+      "color font",
+      "wallet actions",
+      "",
+      "use: verify",
+      "open: /verify",
+    ];
   }
 
   if (normalizedTopic === "flow") {
@@ -10429,6 +10651,8 @@ const executeCliCommand = async (rawCommand: string) => {
       await outputCliThoughtInstructions(lowerRest);
     } else if (lowerHead === "color-font" || lowerHead === "font") {
       await outputCliColorFont(lowerRest);
+    } else if (lowerHead === "verify") {
+      outputCliVerify();
     } else if (lowerHead === "thought") {
       await outputCliThoughtWorks(lowerRest);
     } else if (lowerHead === "works") {
@@ -10458,6 +10682,8 @@ const executeCliCommand = async (rawCommand: string) => {
     } else if (lowerHead === "wallet") {
       if (lowerRest === "connect") {
         await connectWalletFromCli();
+      } else if (lowerRest === "switch") {
+        await switchWalletFromCli();
       } else if (lowerRest === "disconnect") {
         disconnectWalletFromCli();
       } else {
@@ -10908,14 +11134,31 @@ document.addEventListener("keydown", (event) => {
 
 const initFrontpage = async () => {
   configureGalleryLink();
-  document.title = IS_COLOR_FONT_PAGE ? "Color Font" : IS_GALLERY_PAGE ? "Gallery" : "THOUGHT";
+  document.title = IS_COLOR_FONT_PAGE
+    ? "Color Font"
+    : IS_VERIFY_PAGE
+      ? "verify — Inshell THOUGHT"
+      : IS_GALLERY_PAGE
+        ? "Gallery"
+        : "Inshell THOUGHT";
 
   if (IS_COLOR_FONT_PAGE) {
     frontpageStage.classList.add("is-hidden");
     galleryPage.classList.add("is-hidden");
     thoughtPage.classList.add("is-hidden");
     colorFontPage.classList.remove("is-hidden");
+    verifyPage.classList.add("is-hidden");
     await loadColorFontPage();
+    return;
+  }
+
+  if (IS_VERIFY_PAGE) {
+    frontpageStage.classList.add("is-hidden");
+    galleryPage.classList.add("is-hidden");
+    thoughtPage.classList.add("is-hidden");
+    colorFontPage.classList.add("is-hidden");
+    verifyPage.classList.remove("is-hidden");
+    renderVerifyPage();
     return;
   }
 
@@ -10924,6 +11167,7 @@ const initFrontpage = async () => {
     galleryPage.classList.remove("is-hidden");
     thoughtPage.classList.add("is-hidden");
     colorFontPage.classList.add("is-hidden");
+    verifyPage.classList.add("is-hidden");
     await loadThoughtGallery();
     return;
   }
@@ -10933,6 +11177,7 @@ const initFrontpage = async () => {
     galleryPage.classList.add("is-hidden");
     thoughtPage.classList.remove("is-hidden");
     colorFontPage.classList.add("is-hidden");
+    verifyPage.classList.add("is-hidden");
     await loadThoughtDetail();
     return;
   }
@@ -10941,6 +11186,7 @@ const initFrontpage = async () => {
   galleryPage.classList.add("is-hidden");
   thoughtPage.classList.add("is-hidden");
   colorFontPage.classList.add("is-hidden");
+  verifyPage.classList.add("is-hidden");
   loadCliTranscript();
   markInterruptedCliRun();
   loadCliCommandHistory();

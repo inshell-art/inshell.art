@@ -374,6 +374,27 @@ describe("App Component", () => {
     expect(screen.queryByLabelText("Open Color Font primitive page")).toBeNull();
   });
 
+  test("renders the verify page with official wallet facts", () => {
+    (globalThis as any).__VITE_ENV__ = {
+      VITE_NETWORK: "sepolia",
+    };
+    window.history.pushState({}, "", "/verify");
+    render(<App />);
+
+    expect(document.title).toBe("verify — Inshell");
+    expect(screen.getByRole("heading", { name: "verify" })).toBeInTheDocument();
+    expect(screen.getByText("Official Inshell wallet surfaces.")).toBeInTheDocument();
+    expect(screen.getByText("https://inshell.art")).toBeInTheDocument();
+    expect(screen.getByText("https://thought.inshell.art")).toBeInTheDocument();
+    expect(screen.getByText("Sepolia")).toBeInTheDocument();
+    expect(screen.getByText("11155111")).toBeInTheDocument();
+    expect(screen.getByText("PathNFT")).toBeInTheDocument();
+    expect(screen.getByText("ThoughtNFT")).toBeInTheDocument();
+    expect(screen.getByText("PulseAuction")).toBeInTheDocument();
+    expect(screen.getByText("THOUGHT.v1.md")).toBeInTheDocument();
+    expect(screen.queryByTestId("auction-canvas")).toBeNull();
+  });
+
   test("keeps PATH artwork frame background aligned with the auction frame", () => {
     const css = readFileSync(
       nodePath.resolve(cwd(), "src/main.css"),

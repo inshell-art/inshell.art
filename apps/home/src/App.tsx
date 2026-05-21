@@ -6,6 +6,7 @@ import Footer from "@/components/Footer/Footer";
 import PulsePage from "@/components/PulsePage";
 import ColorFontPage from "@/components/ColorFontPage";
 import PathPage from "@/components/PathPage";
+import VerifyPage from "@/components/VerifyPage";
 import { maybeResolveAddress } from "@inshell/contracts";
 
 function getPrimitiveRoute() {
@@ -14,6 +15,7 @@ function getPrimitiveRoute() {
   if (pathname === "/pulse") return "pulse";
   if (pathname === "/color-font") return "color-font";
   if (pathname === "/path") return "path";
+  if (pathname === "/verify") return "verify";
   return null;
 }
 
@@ -50,6 +52,11 @@ export default function App() {
       setFavicon("/path.svg");
       return;
     }
+    if (primitiveRoute === "verify") {
+      document.title = "verify — Inshell";
+      setFavicon("/inshell.svg");
+      return;
+    }
     document.title = "Inshell";
     setFavicon("/inshell.svg");
   }, [primitiveRoute]);
@@ -70,6 +77,8 @@ export default function App() {
           <ColorFontPage />
         ) : primitiveRoute === "path" ? (
           <PathPage />
+        ) : primitiveRoute === "verify" ? (
+          <VerifyPage />
         ) : (
           <div className="content">
             <AuctionCanvas address={pulseAuction} />

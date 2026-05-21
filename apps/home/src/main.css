@@ -452,6 +452,33 @@ body {
   text-underline-offset: 5px;
 }
 
+.verify-page__body {
+  gap: 28px;
+}
+
+.verify-page__section {
+  display: grid;
+  gap: 10px;
+}
+
+.verify-page__section h2 {
+  margin: 0;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  text-transform: lowercase;
+}
+
+.verify-page__section p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.65;
+}
+
 .primitive-page__raw {
   max-height: none;
   margin: 0;
@@ -776,6 +803,17 @@ body {
   margin-top: 10px;
   color: var(--muted);
   font-style: italic;
+}
+
+.dotfield__mint-review-link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.dotfield__mint-review-link:hover,
+.dotfield__mint-review-link:focus-visible {
+  color: var(--accent);
 }
 
 .dotfield__mint-review-network {
@@ -1103,6 +1141,25 @@ body {
   line-height: 1.15;
   letter-spacing: 0.08em;
   text-transform: lowercase;
+}
+
+.dotfield__wallet-picker-note {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.dotfield__wallet-picker-note a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.dotfield__wallet-picker-note a:hover,
+.dotfield__wallet-picker-note a:focus-visible {
+  color: var(--accent);
 }
 
 .dotfield__wallet-picker-item {

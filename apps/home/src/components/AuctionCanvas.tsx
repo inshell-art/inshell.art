@@ -5346,6 +5346,15 @@ export default function AuctionCanvas({
               <div className="dotfield__wallet-picker-title">
                 wallet options
               </div>
+              <p className="dotfield__wallet-picker-note">
+                New dapp? Wallet may warn.
+                <br />
+                Verify domain and action before continuing.
+                <br />
+                <a href="/verify" target="_blank" rel="noopener noreferrer">
+                  verify ↗
+                </a>
+              </p>
               {availableConnectors.map((connector) => (
                 <button
                   key={String((connector as any)?.id ?? (connector as any)?.name)}
@@ -5423,18 +5432,33 @@ export default function AuctionCanvas({
             {mintReview.requiresApproval
               ? (
                 <>
+                  wallet opens next.
+                  <br />
                   wallet step 1 approves {mintReview.symbol}.
                   <br />
                   wallet step 2 submits max bid.
+                  <br />
+                  verify domain, chain, and action in wallet.
                 </>
               )
               : (
                 <>
                   wallet opens next.
                   <br />
+                  verify domain, chain, and action in wallet.
+                  <br />
                   final charge can be lower at execution.
                 </>
               )}
+            <br />
+            <a
+              className="dotfield__mint-review-link"
+              href="/verify"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              verify ↗
+            </a>
           </div>
           {publicNetworkNotice && (
             <div className="dotfield__mint-review-network">

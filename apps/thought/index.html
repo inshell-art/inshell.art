@@ -3,7 +3,17 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/thought-icon.svg" />
+  <link rel="icon" href="/icons/icon-512.png" />
+  <link rel="alternate icon" type="image/svg+xml" href="/thought-icon.svg" />
+  <meta name="description" content="THOUGHT operator for Inshell." />
+  <meta property="og:title" content="Inshell THOUGHT" />
+  <meta property="og:description" content="THOUGHT operator for Inshell." />
+  <meta property="og:url" content="https://thought.inshell.art" />
+  <meta property="og:image" content="https://thought.inshell.art/og.png" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Inshell THOUGHT" />
+  <meta name="twitter:description" content="THOUGHT operator for Inshell." />
+  <meta name="twitter:image" content="https://thought.inshell.art/og.png" />
   <meta name="theme-color" content="#008080" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script>
@@ -12,6 +22,8 @@
       const pathname = window.location.pathname.replace(/\/+$/, "");
       if (pathname === "/color-font") {
         document.documentElement.classList.add("color-font-route");
+      } else if (pathname === "/verify") {
+        document.documentElement.classList.add("verify-route");
       } else if (params.get("gallery") === "1" || window.location.hash === "#gallery") {
         document.documentElement.classList.add("gallery-route");
       } else if (/^[1-9]\d*$/.test(params.get("thought") || "")) {
@@ -19,7 +31,7 @@
       }
     })();
   </script>
-  <title>THOUGHT</title>
+  <title>Inshell THOUGHT</title>
 </head>
 
 <body class="frontpage">
@@ -411,6 +423,138 @@
         </nav>
 
         <p id="color-font-status" class="primitive-page__status" aria-live="polite">loading color font...</p>
+      </section>
+    </section>
+
+    <section id="verify-page" class="primitive-page verify-page is-hidden" aria-labelledby="verify-title">
+      <header class="primitive-page__header">
+        <div>
+          <h1 id="verify-title" class="primitive-page__title">verify</h1>
+          <p class="primitive-page__subtitle">Official Inshell wallet surfaces.</p>
+        </div>
+      </header>
+
+      <section class="primitive-page__body verify-page__body" aria-label="Inshell verification facts">
+        <div class="primitive-page__copy">
+          <p>
+            Use this page to compare domain, chain, and contracts before connecting
+            or confirming a wallet action.
+          </p>
+        </div>
+
+        <section class="verify-page__section" aria-labelledby="verify-wallet-warnings">
+          <h2 id="verify-wallet-warnings">wallet warnings</h2>
+          <p>
+            New dapp domains may show low-reputation warnings in some wallets.
+            This page does not bypass those warnings. It gives the public facts
+            needed to verify the connection.
+          </p>
+        </section>
+
+        <section class="verify-page__section" aria-labelledby="verify-domains">
+          <h2 id="verify-domains">official domains</h2>
+          <dl class="primitive-page__fields verify-page__fields">
+            <div>
+              <dt>home</dt>
+              <dd><a id="verify-home-domain" href="https://inshell.art">https://inshell.art</a></dd>
+            </div>
+            <div>
+              <dt>THOUGHT</dt>
+              <dd><a id="verify-thought-domain" href="https://thought.inshell.art">https://thought.inshell.art</a></dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="verify-page__section" aria-labelledby="verify-chain-section">
+          <h2 id="verify-chain-section">current launch chain</h2>
+          <dl class="primitive-page__fields verify-page__fields">
+            <div>
+              <dt>chain</dt>
+              <dd id="verify-chain">not loaded</dd>
+            </div>
+            <div>
+              <dt>chain id</dt>
+              <dd id="verify-chain-id">not loaded</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="verify-page__section" aria-labelledby="verify-contracts">
+          <h2 id="verify-contracts">contracts</h2>
+          <dl class="primitive-page__fields verify-page__fields">
+            <div>
+              <dt>PathNFT</dt>
+              <dd id="verify-path-nft">not loaded</dd>
+            </div>
+            <div>
+              <dt>ThoughtNFT</dt>
+              <dd id="verify-thought-nft">not loaded</dd>
+            </div>
+            <div>
+              <dt>PulseAuction</dt>
+              <dd id="verify-pulse-auction">not loaded</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="verify-page__section" aria-labelledby="verify-spec">
+          <h2 id="verify-spec">THOUGHT spec</h2>
+          <dl class="primitive-page__fields verify-page__fields">
+            <div>
+              <dt>recommended spec</dt>
+              <dd id="verify-spec-name">not loaded</dd>
+            </div>
+            <div>
+              <dt>spec id</dt>
+              <dd id="verify-spec-id">not loaded</dd>
+            </div>
+            <div>
+              <dt>spec hash</dt>
+              <dd id="verify-spec-hash">not loaded</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="verify-page__section" aria-labelledby="verify-color-font">
+          <h2 id="verify-color-font">color font</h2>
+          <dl class="primitive-page__fields verify-page__fields">
+            <div>
+              <dt>authority</dt>
+              <dd id="verify-color-font-authority">not loaded</dd>
+            </div>
+            <div>
+              <dt>loaded from</dt>
+              <dd id="verify-color-font-loaded-from">not loaded</dd>
+            </div>
+            <div>
+              <dt>hash</dt>
+              <dd id="verify-color-font-hash">not loaded</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="verify-page__section" aria-labelledby="verify-actions">
+          <h2 id="verify-actions">wallet actions</h2>
+          <dl class="primitive-page__fields verify-page__fields">
+            <div>
+              <dt>connect wallet</dt>
+              <dd>reads selected address and public ownership state.</dd>
+            </div>
+            <div>
+              <dt>switch network</dt>
+              <dd>asks wallet to switch to Sepolia.</dd>
+            </div>
+            <div>
+              <dt>mint PATH</dt>
+              <dd>submits a wallet-confirmed transaction for the Pulse auction.</dd>
+            </div>
+            <div>
+              <dt>mint THOUGHT</dt>
+              <dd>submits a wallet-confirmed transaction using a selected PATH permission.</dd>
+            </div>
+          </dl>
+          <p>Funds or tokens move only after wallet transaction confirmation.</p>
+        </section>
       </section>
     </section>
 

@@ -256,7 +256,9 @@ html.gallery-route body.frontpage .frontpage-shell {
 }
 
 body.frontpage:has(.color-font-page:not(.is-hidden)) .frontpage-shell,
-html.color-font-route body.frontpage .frontpage-shell {
+body.frontpage:has(.verify-page:not(.is-hidden)) .frontpage-shell,
+html.color-font-route body.frontpage .frontpage-shell,
+html.verify-route body.frontpage .frontpage-shell {
   align-items: stretch;
   justify-content: center;
   min-height: 100vh;
@@ -319,6 +321,10 @@ html.thought-route .frontpage-stage {
 }
 
 html.color-font-route .frontpage-stage {
+  display: none;
+}
+
+html.verify-route .frontpage-stage {
   display: none;
 }
 
@@ -1655,7 +1661,11 @@ html.gallery-route .thought-gallery.is-hidden {
   display: none;
 }
 
-html.color-font-route .primitive-page.is-hidden {
+html.color-font-route #color-font-page.primitive-page.is-hidden {
+  display: flex;
+}
+
+html.verify-route #verify-page.primitive-page.is-hidden {
   display: flex;
 }
 
@@ -1775,6 +1785,33 @@ html.color-font-route .primitive-page.is-hidden {
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 5px;
+}
+
+.verify-page__body {
+  gap: 28px;
+}
+
+.verify-page__section {
+  display: grid;
+  gap: 10px;
+}
+
+.verify-page__section h2 {
+  margin: 0;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: var(--weight-mid, 400);
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  text-transform: lowercase;
+}
+
+.verify-page__section p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 300;
+  line-height: 1.65;
 }
 
 .thought-detail {
@@ -2362,7 +2399,9 @@ html.thought-route .thought-detail.is-hidden {
   html.gallery-route body.frontpage .frontpage-shell,
   html.thought-route body.frontpage .frontpage-shell,
   body.frontpage:has(.color-font-page:not(.is-hidden)) .frontpage-shell,
-  html.color-font-route body.frontpage .frontpage-shell {
+  body.frontpage:has(.verify-page:not(.is-hidden)) .frontpage-shell,
+  html.color-font-route body.frontpage .frontpage-shell,
+  html.verify-route body.frontpage .frontpage-shell {
     padding: 18px 14px;
   }
 
