@@ -46,8 +46,7 @@ export type ThoughtRunPayload = {
 export const THOUGHT_MAX_OUTPUT_TOKENS = 48 as const;
 export const THOUGHT_LOCAL_MAX_OUTPUT_TOKENS = 32 as const;
 
-export const supportsProviderWebSearch = (provider: ThoughtRunProvider) =>
-  provider === "openrouter" || provider === "openai" || provider === "anthropic";
+export const supportsProviderWebSearch = (_provider: ThoughtRunProvider) => false;
 
 export const thoughtRunWebConfig = (input: {
   route: ThoughtRunRoute;

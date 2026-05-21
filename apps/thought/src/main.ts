@@ -479,8 +479,11 @@ const OPENROUTER_KEY_URL = "https://openrouter.ai/api/v1/auth/keys";
 const OPENROUTER_MODEL_URL = "https://openrouter.ai/api/v1/models";
 const DEFAULT_OLLAMA_ENDPOINT = "http://127.0.0.1:11434";
 const MANUAL_MODEL_VALUE = "__manual__";
-const LEGACY_OPENROUTER_DEFAULT_MODEL = "openai/gpt-4o-mini";
-const OPENROUTER_DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct:free";
+const LEGACY_OPENROUTER_DEFAULT_MODELS = new Set([
+  "openai/gpt-4o-mini",
+  "meta-llama/llama-3.3-70b-instruct:free",
+]);
+const OPENROUTER_DEFAULT_MODEL = "openrouter/free";
 const LOCAL_MODEL_SOURCE_ID = "ollama";
 const LOCAL_MODEL_LABEL = "ollama";
 const LOCAL_DEFAULT_MODEL = "llama3.2:1b";
@@ -629,12 +632,12 @@ const CANVAS_TEXT_FAMILY =
   '"Roboto Mono Variable", "Roboto Mono", "Source Code Pro", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
 const OPENROUTER_PREFERRED_MODELS = [
   OPENROUTER_DEFAULT_MODEL,
-  "tencent/hy3-preview:free",
-  "inclusionai/ling-2.6-flash:free",
+  "deepseek/deepseek-v4-flash:free",
   "google/gemma-4-31b-it:free",
   "qwen/qwen3.6-plus",
   "mistralai/mistral-small-2603",
   "openai/gpt-5.4-mini",
+  "meta-llama/llama-3.3-70b-instruct:free",
 ];
 const EVM_ADDRESSES = addresses as EvmAddresses;
 const THOUGHT_CHAIN_ID = EVM_ADDRESSES.chainId ?? 31337;
@@ -1390,7 +1393,7 @@ const defaultModelForSource = (sourceId: ModelSourceId) => {
 };
 
 const normalizeStoredModel = (sourceId: ModelSourceId, model: string | undefined) => {
-  if (sourceId === "openrouter" && (!model || model === LEGACY_OPENROUTER_DEFAULT_MODEL)) {
+  if (sourceId === "openrouter" && (!model || LEGACY_OPENROUTER_DEFAULT_MODELS.has(model))) {
     return DIRECT_PROVIDERS.openrouter.defaultModel;
   }
 
@@ -6267,14 +6270,23 @@ const requestOllama = async (payload: ThoughtRunPayload) => {
 };
 
 const requestOpenAIResponses = async (apiKey: string, payload: ThoughtRunPayload) => {
-  const response = await fetchAgentRequest("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(toOpenAIResponsesPayload(payload)),
-  });
+  let response: Response;
+
+  try {
+    response = await fetchAgentRequest("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(toOpenAIResponsesPayload(payload)),
+    });
+  } catch (error) {
+    if (error instanceof TypeError && /fetch/i.test(error.message)) {
+      throw new Error("openai request could not be reached from this browser. try config direct provider openrouter, config connect, or config local.");
+    }
+    throw error;
+  }
 
   const responsePayload = (await response.json().catch(() => null)) as unknown;
 
@@ -6286,16 +6298,25 @@ const requestOpenAIResponses = async (apiKey: string, payload: ThoughtRunPayload
 };
 
 const requestAnthropicMessages = async (apiKey: string, payload: ThoughtRunPayload) => {
-  const response = await fetchAgentRequest("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true",
-    },
-    body: JSON.stringify(toAnthropicMessagesPayload(payload)),
-  });
+  let response: Response;
+
+  try {
+    response = await fetchAgentRequest("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify(toAnthropicMessagesPayload(payload)),
+    });
+  } catch (error) {
+    if (error instanceof TypeError && /fetch/i.test(error.message)) {
+      throw new Error("anthropic request could not be reached from this browser. try config direct provider openrouter, config connect, or config local.");
+    }
+    throw error;
+  }
 
   const responsePayload = (await response.json().catch(() => null)) as unknown;
 
@@ -6318,19 +6339,35 @@ const requestAnthropicMessages = async (apiKey: string, payload: ThoughtRunPaylo
 };
 
 const requestOpenRouterChat = async (apiKey: string, payload: ThoughtRunPayload) => {
-  const response = await fetchAgentRequest("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(toOpenRouterChatPayload(payload)),
-  });
+  let response: Response;
+
+  try {
+    response = await fetchAgentRequest("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        "HTTP-Referer": window.location.origin,
+        "X-Title": "THOUGHT",
+      },
+      body: JSON.stringify(toOpenRouterChatPayload(payload)),
+    });
+  } catch (error) {
+    if (error instanceof TypeError && /fetch/i.test(error.message)) {
+      throw new Error("openrouter request could not be reached from this browser. retry, or use config local.");
+    }
+    throw error;
+  }
 
   const responsePayload = (await response.json().catch(() => null)) as unknown;
 
   if (!response.ok) {
-    throw new Error(readErrorMessage(responsePayload, "openrouter request failed."));
+    const message = readErrorMessage(responsePayload, "openrouter request failed.");
+    throw new Error(
+      response.status >= 500
+        ? `${message}. try: config connect model list, then config connect model <id>`
+        : message,
+    );
   }
 
   if (typeof responsePayload !== "object" || responsePayload === null) {
@@ -7767,7 +7804,7 @@ const startCliRunProgress = () => {
     "running...",
     "one model round.",
     "prompt + THOUGHT.md in.",
-    "contract SVG out.",
+    "waiting for model return.",
   ]);
 };
 
