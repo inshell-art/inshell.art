@@ -77,6 +77,7 @@ Production environment variables:
 ```text
 VITE_NETWORK=sepolia
 VITE_ETH_RPC=/api/eth-rpc
+VITE_THOUGHT_RPC_URL=https://thought.inshell.art/api/eth-rpc
 ```
 
 Production secret:

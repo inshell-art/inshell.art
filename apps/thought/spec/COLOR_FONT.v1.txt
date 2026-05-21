@@ -1,0 +1,26 @@
+A:1:aqua:#00ffff
+B:2:blue:#0000ff
+C:3:coffee:#6f4e37
+D:4:denim:#6699ff
+E:5:eggshell:#fff9e3
+F:6:fuchsia:#ff00ff
+G:7:green:#008000
+H:8:honey:#ffcc00
+I:9:indigo:#4b0082
+J:10:jade green:#00a86b
+K:11:khaki:#c3b091
+L:12:lime:#00ff00
+M:13:maroon:#800000
+N:14:navy:#0a1172
+O:15:orange:#ffa500
+P:16:pink:#ffaadd
+Q:17:quicksilver:#a6a6a6
+R:18:red:#ff0000
+S:19:salmon:#fa8072
+T:20:teal:#008080
+U:21:ultramarine:#5533ff
+V:22:violet:#aa55ff
+W:23:wheat:#f5deb3
+X:24:xray:#bbcccc
+Y:25:yellow:#ffff00
+Z:26:zombie gray:#778877

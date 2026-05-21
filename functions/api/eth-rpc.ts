@@ -34,9 +34,17 @@ const ALLOWED_METHODS = new Set([
   "net_version",
 ]);
 
+const CORS_HEADERS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "POST, OPTIONS",
+  "access-control-allow-headers": "content-type",
+  "access-control-max-age": "86400",
+};
+
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
   "cache-control": "no-store",
+  ...CORS_HEADERS,
 };
 const UPSTREAM_RETRY_DELAYS_MS = [150, 450];
 
@@ -274,6 +282,7 @@ export async function onRequestOptions(): Promise<Response> {
     status: 204,
     headers: {
       "cache-control": "no-store",
+      ...CORS_HEADERS,
     },
   });
 }

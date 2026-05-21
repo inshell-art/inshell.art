@@ -23,6 +23,32 @@ const browserGlobals = {
   atob: "readonly",
 };
 
+const thoughtDomGlobals = {
+  AbortController: "readonly",
+  Blob: "readonly",
+  CanvasRenderingContext2D: "readonly",
+  DOMException: "readonly",
+  EventTarget: "readonly",
+  HTMLAnchorElement: "readonly",
+  HTMLButtonElement: "readonly",
+  HTMLCanvasElement: "readonly",
+  HTMLFormElement: "readonly",
+  HTMLImageElement: "readonly",
+  HTMLInputElement: "readonly",
+  HTMLLabelElement: "readonly",
+  HTMLSelectElement: "readonly",
+  KeyboardEvent: "readonly",
+  Node: "readonly",
+  Option: "readonly",
+  RequestInit: "readonly",
+  Storage: "readonly",
+  URL: "readonly",
+  URLSearchParams: "readonly",
+  Window: "readonly",
+  cancelAnimationFrame: "readonly",
+  requestAnimationFrame: "readonly",
+};
+
 const testGlobals = {
   ...browserGlobals,
   afterAll: "readonly",
@@ -104,6 +130,12 @@ export default [
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/ban-ts-comment": "off",
       "@typescript-eslint/no-unused-vars": "off",
+    },
+  },
+  {
+    files: ["apps/thought/src/**/*.ts"],
+    languageOptions: {
+      globals: { ...browserGlobals, ...thoughtDomGlobals },
     },
   },
   {

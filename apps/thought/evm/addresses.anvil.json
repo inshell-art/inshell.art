@@ -1,0 +1,48 @@
+{
+  "rpcUrl": "https://thought.inshell.art/api/eth-rpc",
+  "chainId": 11155111,
+  "explorerUrl": "https://sepolia.etherscan.io",
+  "pathNft": {
+    "address": "0x84915746a1f06850CF41a3E90C60c2DcA3fa116D"
+  },
+  "pathMovement": {
+    "name": "THOUGHT",
+    "bytes32": "0x54484f5547485400000000000000000000000000000000000000000000000000",
+    "quota": 1,
+    "frozen": true
+  },
+  "seedGenerator": {
+    "address": "0xAaA5a9D3F7C5eFaB8b7DA19F9CeC17c3895cc287"
+  },
+  "colorFontV1": {
+    "address": "0xC223507ab7801Fdf234766fa1A87F09eae3494af"
+  },
+  "thoughtPreviewer": {
+    "address": "0x0A0100Ef4c25a50A8E16bED818E6Bda82d3b923F"
+  },
+  "thoughtSpecRegistry": {
+    "address": "0xBB8FD738b01b4a14F5E9bCFE408239a05d84621D"
+  },
+  "thoughtNft": {
+    "address": "0x413efb5C95Bf3158F0E563FB9E19CB650Fc3760a"
+  },
+  "recommendedThoughtSpecName": "THOUGHT.v1.md",
+  "recommendedThoughtSpecId": "0xe201170ae183f114064f4492cbc4942f7d3d68b74a08d3dc4b4f61edec213d78",
+  "recommendedThoughtSpecHash": "0x1abb9da7ba36102726375510e66afe255f8c6e0d771b4c3b90c5d22a9b8eb909",
+  "thoughtSpec": {
+    "specName": "THOUGHT.v1.md",
+    "id": "0xe201170ae183f114064f4492cbc4942f7d3d68b74a08d3dc4b4f61edec213d78",
+    "hash": "0x1abb9da7ba36102726375510e66afe255f8c6e0d771b4c3b90c5d22a9b8eb909",
+    "ref": "THOUGHT.v1.md"
+  },
+  "thoughtSpecs": [
+    {
+      "specName": "THOUGHT.v1.md",
+      "specId": "0xe201170ae183f114064f4492cbc4942f7d3d68b74a08d3dc4b4f61edec213d78",
+      "specHash": "0x1abb9da7ba36102726375510e66afe255f8c6e0d771b4c3b90c5d22a9b8eb909",
+      "ref": "THOUGHT.v1.md",
+      "pointer": "THOUGHT.v1.md",
+      "byteLength": 8549
+    }
+  ]
+}

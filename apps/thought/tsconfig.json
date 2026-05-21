@@ -10,5 +10,13 @@
       "@inshell/*": ["../../packages/*/src"]
     }
   },
-  "include": ["src", "../../packages/*/src"]
+  "include": [
+    "src",
+    "THOUGHT.md",
+    "THOUGHT.v1.md",
+    "colorFontJSON",
+    "evm",
+    "spec",
+    "../../packages/*/src"
+  ]
 }

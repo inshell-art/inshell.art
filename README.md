@@ -76,8 +76,6 @@ GitHub Actions deployment:
 GitHub Secrets required:
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
-- `VITE_ETH_RPC`
-- `VITE_WALLETCONNECT_PROJECT_ID`
 
 GitHub Variables required:
 - `CLOUDFLARE_PAGES_PROJECT_HOME`
@@ -85,6 +83,9 @@ GitHub Variables required:
 
 GitHub Variables recommended:
 - `VITE_NETWORK=sepolia`
+- `VITE_ETH_RPC=/api/eth-rpc`
+- `VITE_THOUGHT_RPC_URL=https://thought.inshell.art/api/eth-rpc`
+- `VITE_WALLETCONNECT_PROJECT_ID=<public WalletConnect project id>`
 - `VITE_PUBLIC_LAUNCH_MODE=sepolia_invite`
 - `VITE_DEBUG_PANEL=off`
 - `VITE_GITHUB_URL=https://github.com/inshell-art/inshell.art`

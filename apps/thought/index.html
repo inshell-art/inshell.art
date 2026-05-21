@@ -1,13 +1,540 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/inshell.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Thought</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/thought-icon.svg" />
+  <meta name="theme-color" content="#008080" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>
+    (() => {
+      const params = new URLSearchParams(window.location.search);
+      const pathname = window.location.pathname.replace(/\/+$/, "");
+      if (pathname === "/color-font") {
+        document.documentElement.classList.add("color-font-route");
+      } else if (params.get("gallery") === "1" || window.location.hash === "#gallery") {
+        document.documentElement.classList.add("gallery-route");
+      } else if (/^[1-9]\d*$/.test(params.get("thought") || "")) {
+        document.documentElement.classList.add("thought-route");
+      }
+    })();
+  </script>
+  <title>THOUGHT</title>
+</head>
+
+<body class="frontpage">
+  <link rel="stylesheet" href="/src/style.css">
+
+  <main class="frontpage-shell">
+    <section class="frontpage-stage" aria-labelledby="frontpage-title">
+      <div class="frontpage-main">
+        <div class="thought-canvas-column">
+          <h1 id="frontpage-title" class="frontpage-title">THOUGHT</h1>
+
+          <div class="thought-canvas-panel">
+            <div class="thought-canvas-frame">
+              <canvas
+                id="thought-grid"
+                class="thought-grid"
+                width="960"
+                height="540"
+                aria-label="Canvas preview of the current character squares"
+              ></canvas>
+              <img
+                id="thought-svg-preview"
+                class="thought-svg-preview is-hidden"
+                alt="Contract SVG preview of the current work"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="frontpage-side">
+          <div class="frontpage-input-panel is-cli">
+            <section class="thought-cli" aria-label="THOUGHT operator panel">
+              <div id="thought-cli-transcript" class="thought-cli__transcript" aria-live="polite"></div>
+              <div id="thought-cli-suggestions" class="thought-cli__suggestions" aria-label="Suggested commands"></div>
+              <form id="thought-cli-form" class="thought-cli__form">
+                <label class="thought-cli__prompt" for="thought-cli-input">thought&gt;</label>
+                <input
+                  id="thought-cli-input"
+                  class="thought-cli__input"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  aria-label="THOUGHT command"
+                />
+              </form>
+            </section>
+            <div class="frontpage-field">
+              <span class="frontpage-label">mode</span>
+              <div class="frontpage-mode" role="group" aria-label="Mode">
+                <button
+                  id="mode-connect"
+                  class="frontpage-mode-button is-active"
+                  type="button"
+                >
+                  connect
+                </button>
+                <button id="mode-direct" class="frontpage-mode-button" type="button">
+                  direct
+                </button>
+                <button id="mode-local" class="frontpage-mode-button" type="button">
+                  local
+                </button>
+              </div>
+            </div>
+            <div id="connect-panel" class="frontpage-auth">
+              <button id="connect-openrouter" class="frontpage-auth-button" type="button">
+                [ authorize openrouter ]
+              </button>
+              <div id="connect-status-row" class="frontpage-auth-row is-hidden">
+                <span id="connect-status-copy" class="frontpage-auth-status">openrouter linked</span>
+                <button
+                  id="disconnect-openrouter"
+                  class="frontpage-auth-clear"
+                  type="button"
+                >
+                  [ disconnect ]
+                </button>
+              </div>
+              <p class="frontpage-meta">
+                delegated cloud access.<br />
+                revocable.<br />
+                no raw key paste.
+              </p>
+            </div>
+            <div id="provider-field" class="frontpage-field">
+              <label class="frontpage-label" for="provider-box">provider</label>
+              <div class="frontpage-select-wrap">
+                <select id="provider-box" class="frontpage-select">
+                  <option value="openai">openai</option>
+                  <option value="openrouter">openrouter</option>
+                  <option value="anthropic">anthropic</option>
+                </select>
+                <span class="frontpage-select-arrow" aria-hidden="true"></span>
+              </div>
+            </div>
+            <div id="api-key-field" class="frontpage-field">
+              <label class="frontpage-label" for="api-key-box">api key</label>
+              <input
+                id="api-key-box"
+                class="frontpage-input"
+                type="password"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="session only. never stored by THOUGHT."
+              />
+            </div>
+            <div id="local-model-field" class="frontpage-field is-hidden">
+              <span class="frontpage-label">model</span>
+              <div id="local-model-value" class="frontpage-static">ollama</div>
+            </div>
+            <div id="local-status" class="frontpage-meta is-hidden" aria-live="polite"></div>
+            <div id="local-helper" class="frontpage-meta is-hidden">
+              runs on this machine.<br />
+              no cloud call.
+            </div>
+            <div class="frontpage-field">
+              <label class="frontpage-label" for="model-box">model</label>
+              <div class="frontpage-select-wrap">
+                <select id="model-box" class="frontpage-select"></select>
+                <span class="frontpage-select-arrow" aria-hidden="true"></span>
+              </div>
+              <input
+                id="model-manual-box"
+                class="frontpage-input is-hidden"
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="custom model id"
+              />
+            </div>
+            <div class="frontpage-field">
+              <label class="frontpage-label" for="prompt-box">prompt</label>
+              <input
+                id="prompt-box"
+                class="frontpage-prompt"
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="author a one-round THOUGHT agent with your prompt"
+              />
+            </div>
+            <div id="thought-file-field" class="frontpage-field">
+              <span class="frontpage-label">thought.md</span>
+              <div class="frontpage-upload">
+                <button id="upload-thought-file" class="frontpage-upload-button" type="button">
+                  [ upload THOUGHT.md ]
+                </button>
+                <button
+                  id="clear-thought-file"
+                  class="frontpage-upload-clear is-hidden"
+                  type="button"
+                >
+                  use bundled
+                </button>
+              </div>
+              <input
+                id="thought-file-input"
+                class="frontpage-file-input"
+                type="file"
+                accept=".md,text/markdown,text/plain"
+              />
+              <p id="thought-file-status" class="frontpage-meta">using bundled THOUGHT.md.</p>
+            </div>
+            <div class="frontpage-actions">
+              <div class="frontpage-cta">
+                <button id="run-agent" class="frontpage-button" type="button">[ run ]</button>
+                <button
+                  id="mint-wallet-toggle"
+                  class="frontpage-wallet-toggle is-hidden"
+                  type="button"
+                  aria-label="Wallet status"
+                  aria-expanded="false"
+                  aria-haspopup="menu"
+                >
+                  <span id="mint-wallet-dot" class="frontpage-wallet-dot is-off" aria-hidden="true"></span>
+                </button>
+                <button
+                  id="reset-thought"
+                  class="frontpage-secondary-action is-hidden"
+                  type="button"
+                  aria-label="Secondary THOUGHT action"
+                >
+                  [ reset ]
+                </button>
+                <div id="mint-wallet-menu" class="frontpage-wallet-menu is-hidden" role="menu">
+                  <div class="frontpage-wallet-meta">
+                    <span class="frontpage-wallet-label">address</span>
+                    <span id="mint-wallet-address" class="frontpage-wallet-value">-</span>
+                  </div>
+                  <div class="frontpage-wallet-meta">
+                    <span class="frontpage-wallet-label">network</span>
+                    <span id="mint-wallet-network" class="frontpage-wallet-value">-</span>
+                  </div>
+                  <div id="mint-wallet-token-row" class="frontpage-wallet-meta is-hidden">
+                    <span class="frontpage-wallet-label">token</span>
+                    <span id="mint-wallet-token" class="frontpage-wallet-value">-</span>
+                  </div>
+                  <button id="mint-wallet-copy-address" class="frontpage-wallet-action" type="button">
+                    copy address
+                  </button>
+                  <button
+                    id="mint-wallet-copy-tx"
+                    class="frontpage-wallet-action is-hidden"
+                    type="button"
+                  >
+                    copy tx hash
+                  </button>
+                  <button id="mint-wallet-refresh" class="frontpage-wallet-action" type="button">
+                    refresh
+                  </button>
+                </div>
+              </div>
+              <span id="action-status-copy" class="frontpage-action-status is-hidden" aria-live="polite"></span>
+              <div class="frontpage-notices">
+                <span id="run-status" class="frontpage-status is-hidden" aria-live="polite"></span>
+                <div id="input-warning" class="frontpage-warning is-hidden" role="alert" aria-live="polite"></div>
+              </div>
+              <div id="thought-debug" class="thought-debug is-hidden">
+                <button id="thought-debug-toggle" class="thought-debug-toggle" type="button">debug</button>
+                <div id="thought-debug-panel" class="thought-debug-panel is-hidden">
+                  <div class="thought-debug-row thought-debug-row--split">
+                    <span>override</span>
+                    <input id="thought-debug-enabled" type="checkbox" />
+                    <button id="thought-debug-reset" type="button">reset</button>
+                  </div>
+                  <div class="thought-debug-row">
+                    <span>cta</span>
+                    <select id="thought-debug-cta">
+	                      <option value="auto">auto</option>
+	                      <option value="run">run</option>
+	                      <option value="running">running</option>
+	                      <option value="retry">retry</option>
+	                      <option value="mint">mint</option>
+	                      <option value="view_thought">view THOUGHT</option>
+                    </select>
+                  </div>
+                  <div class="thought-debug-row">
+                    <span>cta status</span>
+                    <select id="thought-debug-cta-status">
+                      <option value="auto">auto</option>
+                      <option value="none">none</option>
+                      <option value="ready">ready</option>
+                      <option value="minted">minted</option>
+                      <option value="model_needed">model access needed</option>
+                      <option value="generation_failed">generation failed</option>
+                      <option value="mint_unavailable">mint unavailable</option>
+                    </select>
+                  </div>
+                  <div class="thought-debug-row">
+                    <span>warning</span>
+                    <select id="thought-debug-warning">
+                      <option value="auto">auto</option>
+                      <option value="none">none</option>
+                      <option value="prompt_required">prompt required</option>
+                      <option value="model_required">model required</option>
+                      <option value="openrouter_required">openrouter required</option>
+                      <option value="api_key_required">api key required</option>
+                      <option value="ollama_not_found">ollama not found</option>
+                      <option value="spec_unavailable">spec unavailable</option>
+                      <option value="provider_error">provider error</option>
+                      <option value="external_service">external service</option>
+                      <option value="openrouter_connect_constraint">openrouter constraint</option>
+                      <option value="wallet_missing">wallet missing</option>
+                      <option value="wallet_connect_failed">wallet connect failed</option>
+                      <option value="wallet_switch_failed">wallet switch failed</option>
+                      <option value="thought_too_large">THOUGHT too large</option>
+                      <option value="mint_contract_unavailable">mint contract unavailable</option>
+                    </select>
+                  </div>
+                  <div class="thought-debug-note">
+                    Overrides affect UI state only. Auto returns to live data.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="color-font-footer">
+            <a
+              id="thought-instructions-link"
+              class="frontpage-note__link frontpage-note__link--hidden"
+              href="#"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Open active THOUGHT.md"
+            >THOUGHT.md</a>
+            <nav class="color-font-footer__nav" aria-label="THOUGHT links">
+              <a
+                class="color-font-footer__link"
+                href="/color-font"
+                data-label="color font"
+                aria-label="Open the Color Font page"
+              >
+                ■■■■■■■■■■
+              </a>
+              <a
+                id="thought-gallery-link"
+                class="color-font-footer__link"
+                href="?gallery=1"
+                data-label="gallery"
+                aria-label="Open the THOUGHT gallery"
+              >■■■■■■■</a>
+            </nav>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="gallery-page" class="thought-gallery is-hidden" aria-labelledby="gallery-title">
+      <header class="thought-gallery__header">
+        <div>
+          <h1 id="gallery-title" class="thought-gallery__title">Gallery</h1>
+        </div>
+      </header>
+      <div class="thought-gallery__status-row">
+        <p id="gallery-status" class="thought-gallery__status" aria-live="polite">loading minted THOUGHTs...</p>
+        <a class="thought-gallery__create" href="./">create yours.</a>
+      </div>
+      <div id="gallery-grid" class="thought-gallery__grid"></div>
+      <footer class="thought-gallery__footer">
+        <a
+          class="color-font-footer__link"
+          href="/color-font"
+          data-label="color font"
+          aria-label="Open the Color Font page"
+        >
+          ■■■■■■■■■■
+        </a>
+      </footer>
+    </section>
+
+    <section id="color-font-page" class="primitive-page color-font-page is-hidden" aria-labelledby="color-font-title">
+      <header class="primitive-page__header">
+        <div>
+          <h1 id="color-font-title" class="primitive-page__title">Color Font v1</h1>
+          <p class="primitive-page__subtitle">Contract-defined A-Z color glyph mapping.</p>
+        </div>
+      </header>
+
+      <section class="primitive-page__body" aria-label="Color Font primitive note">
+        <div class="primitive-page__copy">
+          <p>The color rectangle is the glyph. The color font is the typeface.</p>
+          <p>
+            A-Z map to fixed contract-defined colors.<br />
+            Text becomes color, rhythm, density, and gap.
+          </p>
+        </div>
+
+        <dl class="primitive-page__fields" aria-label="Color font source">
+          <div>
+            <dt>source</dt>
+            <dd id="color-font-source">loading...</dd>
+          </div>
+          <div>
+            <dt>id</dt>
+            <dd id="color-font-id">-</dd>
+          </div>
+          <div>
+            <dt>version</dt>
+            <dd id="color-font-version">-</dd>
+          </div>
+          <div>
+            <dt>chain</dt>
+            <dd id="color-font-chain">-</dd>
+          </div>
+          <div>
+            <dt>contract</dt>
+            <dd id="color-font-contract">-</dd>
+          </div>
+          <div>
+            <dt>hash</dt>
+            <dd id="color-font-hash">-</dd>
+          </div>
+        </dl>
+
+        <pre id="color-font-raw" class="primitive-page__raw" aria-label="Raw color font mapping">loading color font...</pre>
+
+        <nav class="primitive-page__links" aria-label="Color font references">
+          <a id="color-font-open-raw" href="#" target="_blank" rel="noopener noreferrer">Open raw mapping ↗</a>
+          <a
+            href="https://github.com/inshell-art/THOUGHT/blob/main/spec/COLOR_FONT.v1.txt"
+            target="_blank"
+            rel="noopener noreferrer"
+          >View source mirror ↗</a>
+        </nav>
+
+        <p id="color-font-status" class="primitive-page__status" aria-live="polite">loading color font...</p>
+      </section>
+    </section>
+
+    <section id="thought-page" class="thought-detail is-hidden" aria-labelledby="thought-detail-title">
+      <header class="thought-detail__header">
+        <h1 id="thought-detail-title" class="thought-detail__title">THOUGHT #<span id="thought-detail-token-id">-</span></h1>
+        <nav class="thought-detail__links" aria-label="THOUGHT detail links">
+          <a id="thought-detail-gallery-link" class="thought-detail__link" href="./?gallery=1">[ gallery ]</a>
+          <a class="thought-detail__link" href="./">[ create yours ]</a>
+        </nav>
+      </header>
+      <p id="thought-detail-status" class="thought-detail__status" aria-live="polite">loading THOUGHT...</p>
+      <div id="thought-detail-body" class="thought-detail__body is-hidden">
+        <div class="thought-detail__canvas-frame">
+          <img id="thought-detail-image" class="thought-detail__image" alt="Selected THOUGHT canvas" />
+        </div>
+        <aside class="thought-detail__rail" aria-label="THOUGHT record">
+          <section class="thought-detail__section">
+            <h2>prompt</h2>
+            <p id="thought-detail-prompt" class="thought-detail__text">-</p>
+          </section>
+
+          <section class="thought-detail__section">
+            <h2>spec</h2>
+            <a id="thought-detail-spec-ref" class="thought-detail__value thought-detail__value-link" href="#">THOUGHT.v1.md ↗</a>
+          </section>
+
+          <section class="thought-detail__section">
+            <h2>model</h2>
+            <p id="thought-detail-model" class="thought-detail__value">-</p>
+          </section>
+
+          <section class="thought-detail__section">
+            <h2>model return</h2>
+            <p id="thought-detail-model-return" class="thought-detail__text">-</p>
+          </section>
+
+          <section class="thought-detail__section">
+            <h2>text</h2>
+            <p id="thought-detail-canonical-title" class="thought-detail__text">-</p>
+          </section>
+
+          <section class="thought-detail__section">
+            <h2>$PATH</h2>
+            <a id="thought-detail-path" class="thought-detail__value thought-detail__path-link" href="#">-</a>
+          </section>
+
+          <section class="thought-detail__section">
+            <h2>mint</h2>
+            <dl class="thought-detail__fields">
+              <div>
+                <dt>minter</dt>
+                <dd id="thought-detail-minter">-</dd>
+              </div>
+              <div>
+                <dt>minted</dt>
+                <dd id="thought-detail-minted">-</dd>
+              </div>
+              <div>
+                <dt>tx</dt>
+                <dd><a id="thought-detail-view-tx" class="thought-detail__value-link" href="#">-</a></dd>
+              </div>
+            </dl>
+          </section>
+
+          <section class="thought-detail__section">
+            <h2>provenance</h2>
+            <a id="thought-detail-provenance-bytes" class="thought-detail__value thought-detail__value-link" href="#">-</a>
+            <div id="thought-detail-json-panel" class="thought-detail__viewer is-hidden">
+              <p id="thought-detail-provenance-viewer-title" class="thought-detail__viewer-title">provenance json</p>
+              <pre id="thought-detail-provenance-json" class="thought-detail__json"></pre>
+            </div>
+          </section>
+
+          <section class="thought-detail__section">
+            <h2>color font</h2>
+            <a id="thought-detail-color-font" class="thought-detail__value thought-detail__value-link" href="#">Color Font v1 ↗</a>
+            <p id="thought-detail-color-font-status" class="thought-detail__status" aria-live="polite"></p>
+          </section>
+
+          <p id="thought-detail-copy-status" class="thought-detail__status" aria-live="polite"></p>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <div id="mint-sheet-backdrop" class="mint-sheet-backdrop is-hidden"></div>
+  <section
+    id="mint-sheet"
+    class="mint-sheet is-hidden"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="mint-sheet-title"
+  >
+    <div class="mint-sheet-header">
+      <h2 id="mint-sheet-title" class="mint-sheet-title">mint THOUGHT</h2>
+      <button id="mint-sheet-close" class="mint-sheet-close" type="button">[ close ]</button>
+    </div>
+    <p id="mint-sheet-copy" class="mint-sheet-copy">one THOUGHT needs one $PATH.</p>
+    <div id="mint-sheet-path-field" class="mint-sheet-field">
+      <label class="mint-sheet-label" for="mint-sheet-path-box">$PATH #</label>
+      <input
+        id="mint-sheet-path-box"
+        class="mint-sheet-input"
+        type="text"
+        inputmode="numeric"
+        autocomplete="off"
+        spellcheck="false"
+      />
+    </div>
+    <p id="mint-sheet-provenance" class="mint-sheet-provenance is-hidden"></p>
+    <p id="mint-sheet-status" class="mint-sheet-status" aria-live="polite"></p>
+    <p id="mint-sheet-context" class="mint-sheet-context is-hidden"></p>
+    <div class="mint-sheet-actions">
+      <button id="mint-sheet-primary" class="mint-sheet-primary" type="button">[ continue ]</button>
+      <button id="mint-sheet-secondary" class="mint-sheet-primary is-hidden" type="button">[ view THOUGHT ]</button>
+      <button id="mint-sheet-tertiary" class="mint-sheet-primary is-hidden" type="button">[ refresh ]</button>
+    </div>
+    <div id="mint-sheet-flow" class="mint-sheet-flow" aria-label="mint flow">
+      <span data-step="select">select $PATH</span>
+      <span aria-hidden="true">/</span>
+      <span data-step="authorize">authorize</span>
+      <span aria-hidden="true">/</span>
+      <span data-step="confirm">confirm</span>
+    </div>
+  </section>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+
 </html>

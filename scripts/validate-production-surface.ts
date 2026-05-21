@@ -25,6 +25,9 @@ const DEPLOY_WORKFLOW_SNIPPETS = [
   "CLOUDFLARE_PAGES_PROJECT_HOME",
   "CLOUDFLARE_PAGES_PROJECT_THOUGHT",
   "VITE_ETH_RPC",
+  "VITE_THOUGHT_RPC_URL",
+  "VITE_PATH_MINT_URL",
+  "VITE_THOUGHT_EXPLORER_BASE_URL",
   "VITE_WALLETCONNECT_PROJECT_ID",
 ] as const;
 
@@ -332,6 +335,9 @@ function checkCloudflareRpcProxy() {
   for (const snippet of [
     "ETH_RPC_UPSTREAM",
     "ALLOWED_METHODS",
+    "access-control-allow-origin",
+    "access-control-allow-methods",
+    "access-control-allow-headers",
     "eth_call",
     "eth_getLogs",
     "eth_getTransactionReceipt",
