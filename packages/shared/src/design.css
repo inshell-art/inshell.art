@@ -62,3 +62,22 @@
   display: grid;
   gap: 20px;
 }
+
+.inshell-report-bug-link {
+  color: var(--accent, var(--inshell-green));
+  font-family: var(--inshell-font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.inshell-report-bug-link:hover,
+.inshell-report-bug-link:focus-visible {
+  color: var(--accent-strong, var(--inshell-green-strong));
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  outline: none;
+}

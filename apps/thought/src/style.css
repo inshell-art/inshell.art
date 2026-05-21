@@ -385,6 +385,19 @@ body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-main {
   margin-top: 10px;
 }
 
+.thought-report-bug-link {
+  position: fixed;
+  right: clamp(14px, 2vw, 24px);
+  bottom: clamp(12px, 2vh, 20px);
+  z-index: 40;
+  color: rgba(0, 97, 0, 0.72);
+  opacity: 0.82;
+}
+
+.thought-report-bug-link.is-hidden {
+  display: none;
+}
+
 .primitive-page__header .thought-surface-nav,
 .thought-gallery__header .thought-surface-nav {
   justify-content: flex-start;

@@ -357,17 +357,25 @@ function checkSharedSurfaceLayer() {
     "SURFACE_DEPLOYMENT_MANIFEST",
     "SURFACE_NAV_ITEMS",
     "buildContractStatusSections",
+    "buildReportBugLink",
+    "shouldShowReportBug",
   ]);
   requireSnippets("packages/shared/src/design.css", [
     ".inshell-app-nav",
     ".inshell-contract-status",
+    ".inshell-report-bug-link",
     "--inshell-font-mono",
   ]);
   requireSnippets("apps/home/src/main.tsx", ["@inshell/shared/design.css"]);
   requireSnippets("apps/thought/src/main.ts", [
     "@inshell/shared/design.css",
     "buildContractStatusSections",
+    "buildReportBugLink",
     "configureSurfaceNav",
+  ]);
+  requireSnippets(".github/workflows/deploy-pages.yml", [
+    "VITE_REPORT_BUG_URL: ${{ vars.VITE_REPORT_BUG_URL }}",
+    "VITE_GITHUB_URL: ${{ vars.VITE_GITHUB_URL || 'https://github.com/inshell-art/inshell.art' }}",
   ]);
 }
 

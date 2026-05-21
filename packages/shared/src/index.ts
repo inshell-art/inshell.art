@@ -1,5 +1,7 @@
 export type SurfaceId = "path" | "thought";
 
+export type PublicLaunchMode = "local" | "sepolia_invite" | "production";
+
 export type SurfaceNavItem = {
   id: string;
   surface: SurfaceId;
@@ -31,6 +33,38 @@ export type ContractStatusInput = {
   thoughtSpecId?: string;
   thoughtSpecHash?: string;
   colorFontHash?: string;
+};
+
+export type ReportBugContext = {
+  surface?: SurfaceId;
+  page?: string;
+  network?: string;
+  chainId?: string | number | bigint | null;
+  wallet?: string | null;
+  state?: string;
+  address?: string | null;
+  lastTx?: string | null;
+  error?: string | null;
+};
+
+export type ReportBugOptions = {
+  env?: Readonly<Record<string, unknown>>;
+  baseUrl?: string | null;
+  githubUrl?: string | null;
+  launchMode?: PublicLaunchMode;
+  locationHref?: string;
+  defaultOrigin?: string;
+  label?: string;
+  ariaLabel?: string;
+};
+
+export type ReportBugLinkModel = {
+  href: string;
+  label: string;
+  ariaLabel: string;
+  target: "_blank";
+  rel: "noopener noreferrer";
+  className: "inshell-report-bug-link";
 };
 
 export const SURFACE_TERMINOLOGY = {
@@ -303,4 +337,165 @@ export function findContractStatusRow(
   rowId: string,
 ) {
   return sections.find((section) => section.id === sectionId)?.rows.find((row) => row.id === rowId);
+}
+
+function getSharedEnvValue(name: string, env?: Readonly<Record<string, unknown>>): unknown {
+  const globalEnv: Record<string, unknown> | undefined = (globalThis as any).__VITE_ENV__;
+  const procEnv: Record<string, unknown> | undefined = (globalThis as any)?.process?.env;
+  return env?.[name] ?? globalEnv?.[name] ?? procEnv?.[name];
+}
+
+function readSharedEnvString(name: string, options?: ReportBugOptions): string | null {
+  const value = getSharedEnvValue(name, options?.env);
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+export function getPublicLaunchMode(options: ReportBugOptions = {}): PublicLaunchMode {
+  const raw = options.launchMode ?? readSharedEnvString("VITE_PUBLIC_LAUNCH_MODE", options) ?? "local";
+  if (raw === "sepolia_invite" || raw === "production" || raw === "local") {
+    return raw;
+  }
+  return "local";
+}
+
+export function getGithubUrl(options: ReportBugOptions = {}): string {
+  return (
+    options.githubUrl ||
+    readSharedEnvString("VITE_GITHUB_URL", options) ||
+    "https://github.com/inshell-art/inshell.art"
+  );
+}
+
+function getReportBugBaseUrl(options: ReportBugOptions = {}): string | null {
+  return options.baseUrl ?? readSharedEnvString("VITE_REPORT_BUG_URL", options);
+}
+
+export function shouldShowReportBug(options: ReportBugOptions = {}): boolean {
+  const mode = getPublicLaunchMode(options);
+  return Boolean(getReportBugBaseUrl(options)) && (mode === "sepolia_invite" || mode === "production");
+}
+
+function reportSurfaceLabel(surface: SurfaceId | undefined): string {
+  return surface === "thought" ? SURFACE_TERMINOLOGY.thoughtDapp : SURFACE_TERMINOLOGY.pathDapp;
+}
+
+function reportIssueTitle(context: ReportBugContext): string {
+  return `[Sepolia] ${reportSurfaceLabel(context.surface).replace(/^\$/, "")} issue`;
+}
+
+function sanitizeReportValue(value: unknown, maxLength = 240): string {
+  if (value == null) return "";
+  return String(value)
+    .replace(/[^\S\r\n]+/g, " ")
+    .replace(/https?:\/\/\S+/gi, "[url]")
+    .trim()
+    .slice(0, maxLength);
+}
+
+function shortPublicAddress(value?: string | null): string {
+  if (!value) return "";
+  const trimmed = value.trim();
+  if (!/^0x[0-9a-fA-F]{8,}$/.test(trimmed)) return sanitizeReportValue(trimmed, 64);
+  return `${trimmed.slice(0, 6)}...${trimmed.slice(-4)}`;
+}
+
+function defaultPagePath(options: ReportBugOptions = {}): string {
+  const origin = options.defaultOrigin ?? SURFACE_DEPLOYMENT_MANIFEST.surfaces.path.domain;
+  if (options.locationHref) {
+    try {
+      const url = new globalThis.URL(options.locationHref, origin);
+      return `${url.pathname}${url.search}`;
+    } catch {
+      return "/";
+    }
+  }
+  if (typeof window === "undefined") return "/";
+  return `${window.location.pathname}${window.location.search}`;
+}
+
+function buildIssueBody(context: ReportBugContext, options: ReportBugOptions): string {
+  const mode = getPublicLaunchMode(options);
+  const fields = [
+    ["mode", mode],
+    ["surface", reportSurfaceLabel(context.surface)],
+    ["network", context.network ?? (mode === "sepolia_invite" ? "Sepolia" : "")],
+    ["chainId", context.chainId == null ? "" : String(context.chainId)],
+    ["wallet", context.wallet ?? ""],
+    ["page", context.page ?? defaultPagePath(options)],
+    ["state", context.state ?? ""],
+    ["address", shortPublicAddress(context.address)],
+    ["last tx", sanitizeReportValue(context.lastTx, 96)],
+    ["error", sanitizeReportValue(context.error, 300)],
+  ];
+  return [
+    ...fields.map(([key, value]) => `${key}: ${value}`),
+    "",
+    "what happened:",
+    "",
+    "expected:",
+    "",
+    "screenshot:",
+    "",
+    "Remove anything private before submitting.",
+  ].join("\n");
+}
+
+export function buildReportBugUrl(
+  context: ReportBugContext = {},
+  options: ReportBugOptions = {},
+): string | null {
+  const base = getReportBugBaseUrl(options);
+  if (!base) return null;
+  try {
+    const url = new globalThis.URL(
+      base,
+      options.defaultOrigin ?? SURFACE_DEPLOYMENT_MANIFEST.surfaces.path.domain,
+    );
+    const isGithubIssue =
+      url.hostname.toLowerCase() === "github.com" && url.pathname.includes("/issues/new");
+    if (isGithubIssue) {
+      if (!url.searchParams.has("title")) {
+        url.searchParams.set("title", reportIssueTitle(context));
+      }
+      url.searchParams.set("body", buildIssueBody(context, options));
+      return url.toString();
+    }
+    const mode = getPublicLaunchMode(options);
+    const params: Record<string, string> = {
+      mode,
+      surface: reportSurfaceLabel(context.surface),
+      page: context.page ?? defaultPagePath(options),
+      network: context.network ?? (mode === "sepolia_invite" ? "Sepolia" : ""),
+      state: context.state ?? "",
+      wallet: context.wallet ?? "",
+      chainId: context.chainId == null ? "" : String(context.chainId),
+      address: shortPublicAddress(context.address),
+      lastTx: sanitizeReportValue(context.lastTx, 96),
+      error: sanitizeReportValue(context.error, 300),
+    };
+    Object.entries(params).forEach(([key, value]) => {
+      if (value) url.searchParams.set(key, value);
+    });
+    return url.toString();
+  } catch {
+    return base;
+  }
+}
+
+export function buildReportBugLink(
+  context: ReportBugContext = {},
+  options: ReportBugOptions = {},
+): ReportBugLinkModel | null {
+  const href = buildReportBugUrl(context, options);
+  if (!href) return null;
+  return {
+    href,
+    label: options.label ?? "report bug ↗",
+    ariaLabel:
+      options.ariaLabel ??
+      (context.surface === "thought" ? "Report a THOUGHT bug" : "Report a Sepolia bug"),
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "inshell-report-bug-link",
+  };
 }

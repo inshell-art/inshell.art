@@ -40,7 +40,7 @@ import {
 import HeaderWalletCTA from "@/components/HeaderWalletCTA";
 import { useWallet } from "@inshell/wallet";
 import {
-  buildReportBugUrl,
+  buildReportBugLink,
   getPublicNetworkNotice,
   isSepoliaInviteMode,
   shouldShowDebugPanel,
@@ -4171,10 +4171,11 @@ export default function AuctionCanvas({
     toastNotice ??
     persistentNoticeVisible ??
     (publicNetworkNotice ? { kind: "info" as const, text: publicNetworkNotice } : null);
-  const displayNoticeReportUrl =
+  const displayNoticeReportLink =
     reportBugEnabled && displayNotice?.reportState
-      ? buildReportBugUrl({
+      ? buildReportBugLink({
           page: "/",
+          surface: "path",
           network: targetChainLabel,
           chainId: targetChainId?.toString() ?? null,
           wallet: reportWalletName,
@@ -5405,17 +5406,17 @@ export default function AuctionCanvas({
         }`}
       >
         {displayNotice?.text ?? ""}
-        {displayNoticeReportUrl && (
+        {displayNoticeReportLink && (
           <>
             {" "}
             <a
-              href={displayNoticeReportUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Report a Sepolia bug"
-              className="dotfield__report-bug-link"
+              href={displayNoticeReportLink.href}
+              target={displayNoticeReportLink.target}
+              rel={displayNoticeReportLink.rel}
+              aria-label={displayNoticeReportLink.ariaLabel}
+              className={`dotfield__report-bug-link ${displayNoticeReportLink.className}`}
             >
-              report bug ↗
+              {displayNoticeReportLink.label}
             </a>
           </>
         )}

@@ -28,6 +28,7 @@ import {
 } from "@inshell/contracts";
 import {
   SURFACE_TERMINOLOGY,
+  buildReportBugLink,
   buildContractStatusSections,
   findContractStatusRow,
   getSurfaceNavItems,
@@ -891,6 +892,7 @@ const thoughtDebugReset = document.getElementById("thought-debug-reset") as HTML
 const thoughtDebugCta = document.getElementById("thought-debug-cta") as HTMLSelectElement | null;
 const thoughtDebugCtaStatus = document.getElementById("thought-debug-cta-status") as HTMLSelectElement | null;
 const thoughtDebugWarning = document.getElementById("thought-debug-warning") as HTMLSelectElement | null;
+const thoughtReportBugLink = document.getElementById("thought-report-bug-link") as HTMLAnchorElement | null;
 const thoughtInstructionsLink = document.getElementById("thought-instructions-link") as HTMLAnchorElement | null;
 const thoughtGalleryLink = document.getElementById("thought-gallery-link") as HTMLAnchorElement | null;
 const galleryPage = document.getElementById("gallery-page") as HTMLElement | null;
@@ -1026,6 +1028,7 @@ if (
   !thoughtDebugCta ||
   !thoughtDebugCtaStatus ||
   !thoughtDebugWarning ||
+  !thoughtReportBugLink ||
   !thoughtInstructionsLink ||
   !thoughtGalleryLink ||
   !galleryPage ||
@@ -2319,6 +2322,43 @@ const configureSurfaceNav = () => {
       }),
     );
   }
+};
+
+const thoughtReportState = () => {
+  if (IS_COLOR_FONT_PAGE) return "color_font";
+  if (IS_VERIFY_PAGE) return "verify";
+  if (IS_GALLERY_PAGE) return "gallery";
+  if (IS_THOUGHT_PAGE) return "thought_detail";
+  return "frontpage";
+};
+
+const configureReportBugLink = () => {
+  const link = buildReportBugLink(
+    {
+      surface: "thought",
+      page: `${window.location.pathname}${window.location.search}`,
+      network: THOUGHT_CHAIN_NAME,
+      chainId: THOUGHT_CHAIN_ID,
+      state: thoughtReportState(),
+    },
+    {
+      env: import.meta.env,
+      defaultOrigin: "https://thought.inshell.art",
+    },
+  );
+
+  if (!link) {
+    thoughtReportBugLink.classList.add("is-hidden");
+    thoughtReportBugLink.removeAttribute("href");
+    return;
+  }
+
+  thoughtReportBugLink.href = link.href;
+  thoughtReportBugLink.target = link.target;
+  thoughtReportBugLink.rel = link.rel;
+  thoughtReportBugLink.ariaLabel = link.ariaLabel;
+  thoughtReportBugLink.textContent = link.label;
+  thoughtReportBugLink.classList.remove("is-hidden");
 };
 
 const renderVerifyPage = () => {
@@ -11203,6 +11243,7 @@ document.addEventListener("keydown", (event) => {
 
 const initFrontpage = async () => {
   configureSurfaceNav();
+  configureReportBugLink();
   configureGalleryLink();
   document.title = IS_COLOR_FONT_PAGE
     ? "Color Font"

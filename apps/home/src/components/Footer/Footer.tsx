@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import {
-  buildReportBugUrl,
+  buildReportBugLink,
   getGithubUrl,
   shouldShowReportBug,
 } from "@/config/publicLaunch";
@@ -78,10 +78,10 @@ const Footer: React.FC = () => {
     []
   );
   const githubUrl = useMemo(() => getGithubUrl(), []);
-  const reportBugUrl = useMemo(
+  const reportBugLink = useMemo(
     () =>
       shouldShowReportBug()
-        ? buildReportBugUrl({ page: "/", state: "footer", network: "Sepolia" })
+        ? buildReportBugLink({ page: "/", surface: "path", state: "footer", network: "Sepolia" })
         : null,
     []
   );
@@ -150,15 +150,15 @@ const Footer: React.FC = () => {
           ))}
         </ul>
       </nav>
-      {reportBugUrl && (
+      {reportBugLink && (
         <a
-          className={styles.reportBug}
-          href={reportBugUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Report a Sepolia bug"
+          className={`${styles.reportBug} ${reportBugLink.className}`}
+          href={reportBugLink.href}
+          target={reportBugLink.target}
+          rel={reportBugLink.rel}
+          aria-label={reportBugLink.ariaLabel}
         >
-          report bug ↗
+          {reportBugLink.label}
         </a>
       )}
     </footer>
