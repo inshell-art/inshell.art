@@ -606,6 +606,7 @@ const MAX_RAW_RETURN_BYTES = 512;
 const MAX_TEXT_BYTES = 128;
 const MAX_PROVENANCE_BYTES = 2048;
 const COLOR_FONT_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const COLOR_FONT_CANONICAL_URL = "https://inshell.art/color-font";
 const SVG_TEXT_MIN_SIZE = 9;
 const SVG_TEXT_MAX_SIZE = 18;
 const SVG_TEXT_CHAR_ADVANCE = 0.6;
@@ -8835,6 +8836,19 @@ const outputCliThoughtInstructions = async (topic: string) => {
 
 const outputCliColorFont = async (topic: string) => {
   const normalizedTopic = topic.trim().toLowerCase();
+  if (!normalizedTopic) {
+    const opened = window.open(COLOR_FONT_CANONICAL_URL, "_blank", "noopener,noreferrer");
+    if (opened) {
+      opened.opener = null;
+    }
+    appendCliOutput([
+      "opening Color Font v1.",
+      "source: inshell.art/color-font.",
+      opened ? "" : `open: ${COLOR_FONT_CANONICAL_URL}`,
+    ].filter(Boolean));
+    return;
+  }
+
   await openColorFontDocument({
     appendCliResult: true,
     raw: normalizedTopic === "raw" || normalizedTopic === "text" || normalizedTopic === "show",
@@ -10106,9 +10120,9 @@ const cliHelpLines = (topic = "") => {
 
   if (normalizedTopic === "color-font" || normalizedTopic === "font") {
     return [
-      "color-font opens the onchain Color Font.",
+      "color-font opens the Color Font source of truth.",
       "",
-      "source: ThoughtNFT color-font ABI.",
+      "source: inshell.art/color-font.",
       "format: LETTER:INDEX:ALIAS_TERM:HEX",
       "",
       "use:",

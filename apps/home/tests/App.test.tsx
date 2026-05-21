@@ -385,6 +385,19 @@ describe("App Component", () => {
     expect(css).toMatch(
       /\.dotfield\s*{[^}]*background:\s*var\(--canvas-frame-bg\);/s,
     );
+    expect(css).toMatch(/\.dotfield\s*{[^}]*width:\s*min\(100%,\s*960px\);/s);
+    expect(css).toMatch(
+      /@media\s*\(min-width:\s*1400px\)\s*{[^}]*\.dotfield\s*{[^}]*width:\s*min\(72vw,\s*1180px\);/s,
+    );
+    expect(css).toMatch(
+      /@media\s*\(min-width:\s*1400px\)\s*{[\s\S]*?\.dotfield__canvas\s*{[^}]*height:\s*min\(58vh,\s*520px\);/s,
+    );
+    expect(css).toMatch(
+      /@media\s*\(min-width:\s*1800px\)\s*{[^}]*\.dotfield\s*{[^}]*width:\s*min\(68vw,\s*1360px\);/s,
+    );
+    expect(css).toMatch(
+      /@media\s*\(min-width:\s*1800px\)\s*{[\s\S]*?\.dotfield__canvas\s*{[^}]*height:\s*min\(56vh,\s*600px\);/s,
+    );
     expect(css).toMatch(
       /\.path-page-token\s*{[^}]*background:\s*var\(--canvas-frame-bg\);/s,
     );

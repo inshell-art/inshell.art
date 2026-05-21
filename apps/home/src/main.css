@@ -677,8 +677,8 @@ body {
 }
 
 .dotfield {
-  width: 100%;
-  max-width: 960px;
+  width: min(100%, 960px);
+  max-width: none;
   margin: 0 auto;
   border: none;
   background: var(--canvas-frame-bg);
@@ -1206,6 +1206,26 @@ body {
   width: 100%;
   height: 100%;
   display: block;
+}
+
+@media (min-width: 1400px) {
+  .dotfield {
+    width: min(72vw, 1180px);
+  }
+
+  .dotfield__canvas {
+    height: min(58vh, 520px);
+  }
+}
+
+@media (min-width: 1800px) {
+  .dotfield {
+    width: min(68vw, 1360px);
+  }
+
+  .dotfield__canvas {
+    height: min(56vh, 600px);
+  }
 }
 
 .dotfield__look {
