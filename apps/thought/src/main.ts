@@ -31,6 +31,7 @@ import {
   buildReportBugLink,
   buildContractStatusSections,
   findContractStatusRow,
+  resolveWalletChainRpcUrls,
 } from "@inshell/shared";
 
 import thoughtInstructions from "../THOUGHT.md?raw";
@@ -664,6 +665,17 @@ const resolveThoughtRpcUrl = () => {
   }
 };
 const THOUGHT_RPC_URL = resolveThoughtRpcUrl();
+const walletChainRpcUrl =
+  typeof import.meta.env.VITE_WALLET_CHAIN_RPC_URL === "string"
+    ? import.meta.env.VITE_WALLET_CHAIN_RPC_URL.trim()
+    : "";
+const THOUGHT_WALLET_RPC_URLS = resolveWalletChainRpcUrls({
+  chainId: THOUGHT_CHAIN_ID,
+  readRpcUrl: THOUGHT_RPC_URL,
+  walletRpcUrl: walletChainRpcUrl,
+  currentOrigin: window.location.origin,
+  localFallbackRpcUrl: "http://127.0.0.1:8546",
+});
 const PATH_NFT_ADDRESS = EVM_ADDRESSES.pathNft?.address?.trim() ?? "";
 const PATH_MINT_URL =
   typeof import.meta.env.VITE_PATH_MINT_URL === "string" && import.meta.env.VITE_PATH_MINT_URL.trim()
@@ -3846,7 +3858,7 @@ const switchWalletChain = async () => {
               symbol: "ETH",
               decimals: 18,
             },
-            rpcUrls: THOUGHT_RPC_URL ? [THOUGHT_RPC_URL] : [],
+            rpcUrls: THOUGHT_WALLET_RPC_URLS,
             blockExplorerUrls: THOUGHT_EXPLORER_BASE_URL ? [THOUGHT_EXPLORER_BASE_URL] : [],
           },
         ],
@@ -3862,6 +3874,35 @@ const switchWalletChain = async () => {
   await refreshWalletState();
   syncInterface();
   setStatus("chain ready.", { flashMs: NOTICE_FLASH_MS });
+};
+
+const refreshWalletChainRpc = async () => {
+  const ethereum = getEthereumProvider();
+  if (!ethereum || THOUGHT_WALLET_RPC_URLS.length === 0) {
+    return false;
+  }
+
+  try {
+    await ethereum.request({
+      method: "wallet_addEthereumChain",
+      params: [
+        {
+          chainId: THOUGHT_CHAIN_ID_HEX,
+          chainName: THOUGHT_CHAIN_NAME,
+          nativeCurrency: {
+            name: "Ether",
+            symbol: "ETH",
+            decimals: 18,
+          },
+          rpcUrls: THOUGHT_WALLET_RPC_URLS,
+          blockExplorerUrls: THOUGHT_EXPLORER_BASE_URL ? [THOUGHT_EXPLORER_BASE_URL] : [],
+        },
+      ],
+    });
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 const extractMintedTokenId = (receipt: { logs?: readonly { topics: readonly string[]; data: string }[] }) => {
@@ -4161,6 +4202,9 @@ const mintErrorMessage = (error: unknown) => {
   if (/expired/i.test(message)) {
     return "authorization expired.";
   }
+  if (/eth_sendRawTransaction|RPC method is not allowed/i.test(message)) {
+    return "wallet RPC is read-only. Update Sepolia RPC in wallet and retry.";
+  }
   if (/rejected|denied|cancel/i.test(message)) {
     return "transaction rejected.";
   }
@@ -4450,6 +4494,7 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
   let txTimedOut = false;
 
   try {
+    await refreshWalletChainRpc();
     await rebuildFinalMintProvenance();
     const browserProvider = new BrowserProvider(ethereum);
     const signer = await browserProvider.getSigner();

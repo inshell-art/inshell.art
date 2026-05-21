@@ -85,6 +85,7 @@ GitHub Variables recommended:
 - `VITE_NETWORK=sepolia`
 - `VITE_ETH_RPC=/api/eth-rpc`
 - `VITE_THOUGHT_RPC_URL=https://thought.inshell.art/api/eth-rpc`
+- `VITE_WALLET_CHAIN_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com`
 - `VITE_WALLETCONNECT_PROJECT_ID=<public WalletConnect project id>`
 - `VITE_PUBLIC_LAUNCH_MODE=sepolia_invite`
 - `VITE_DEBUG_PANEL=off`
@@ -96,6 +97,8 @@ GitHub Variables recommended:
 RPC policy:
 - Treat `VITE_ETH_RPC` as public. It is baked into the client bundle.
 - Do not use a high-value unrestricted RPC key directly in `VITE_ETH_RPC`.
+- Treat `/api/eth-rpc` and `VITE_THOUGHT_RPC_URL` as read-only dapp RPCs. Do not register them as wallet chain RPC URLs.
+- `VITE_WALLET_CHAIN_RPC_URL` must be a public Sepolia RPC that wallets can use for transaction broadcast.
 - Launch recommendation: use Alchemy Sepolia with origin allowlists for `https://inshell.art` and `https://thought.inshell.art`.
 - Better long-term setup: put an RPC proxy in a Cloudflare Worker, store the upstream RPC key as a Worker Secret, and point `VITE_ETH_RPC` at the Worker URL.
 - If using Alchemy directly in the browser, enable domain allowlists; Alchemy documents domain allowlists as the control that limits which web origins can use an API key.

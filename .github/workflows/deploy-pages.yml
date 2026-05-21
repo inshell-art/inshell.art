@@ -33,6 +33,7 @@ jobs:
       CLOUDFLARE_PAGES_PROJECT_HOME: ${{ vars.CLOUDFLARE_PAGES_PROJECT_HOME || 'inshell-art' }}
       VITE_NETWORK: ${{ vars.VITE_NETWORK || 'sepolia' }}
       VITE_ETH_RPC: ${{ vars.VITE_ETH_RPC || '/api/eth-rpc' }}
+      VITE_WALLET_CHAIN_RPC_URL: ${{ vars.VITE_WALLET_CHAIN_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com' }}
       VITE_WALLETCONNECT_PROJECT_ID: ${{ vars.VITE_WALLETCONNECT_PROJECT_ID }}
       VITE_PUBLIC_LAUNCH_MODE: ${{ vars.VITE_PUBLIC_LAUNCH_MODE || 'sepolia_invite' }}
       VITE_REPORT_BUG_URL: ${{ vars.VITE_REPORT_BUG_URL }}
@@ -62,6 +63,7 @@ jobs:
           test -n "$CLOUDFLARE_API_TOKEN"
           test -n "$CLOUDFLARE_ACCOUNT_ID"
           test -n "$VITE_ETH_RPC"
+          test -n "$VITE_WALLET_CHAIN_RPC_URL"
       - name: Validate production surface
         run: pnpm tsx scripts/validate-production-surface.ts
       - name: Validate imported PATH release
@@ -86,6 +88,7 @@ jobs:
       VITE_NETWORK: ${{ vars.VITE_NETWORK || 'sepolia' }}
       VITE_ETH_RPC: ${{ vars.VITE_ETH_RPC || '/api/eth-rpc' }}
       VITE_THOUGHT_RPC_URL: ${{ vars.VITE_THOUGHT_RPC_URL || 'https://thought.inshell.art/api/eth-rpc' }}
+      VITE_WALLET_CHAIN_RPC_URL: ${{ vars.VITE_WALLET_CHAIN_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com' }}
       VITE_PATH_MINT_URL: ${{ vars.VITE_PATH_MINT_URL || 'https://inshell.art' }}
       VITE_THOUGHT_EXPLORER_BASE_URL: ${{ vars.VITE_THOUGHT_EXPLORER_BASE_URL || 'https://sepolia.etherscan.io' }}
       VITE_PUBLIC_LAUNCH_MODE: ${{ vars.VITE_PUBLIC_LAUNCH_MODE || 'sepolia_invite' }}
@@ -114,6 +117,7 @@ jobs:
           test -n "$CLOUDFLARE_ACCOUNT_ID"
           test -n "$VITE_ETH_RPC"
           test -n "$VITE_THOUGHT_RPC_URL"
+          test -n "$VITE_WALLET_CHAIN_RPC_URL"
           test -n "$VITE_PATH_MINT_URL"
       - name: Validate production surface
         run: pnpm tsx scripts/validate-production-surface.ts

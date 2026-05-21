@@ -60,6 +60,14 @@ export type ReportBugLinkModel = {
   className: "inshell-report-bug-link";
 };
 
+export type WalletChainRpcOptions = {
+  chainId?: string | number | bigint | null;
+  readRpcUrl?: string | null;
+  walletRpcUrl?: string | null;
+  currentOrigin?: string | null;
+  localFallbackRpcUrl?: string | null;
+};
+
 export const SURFACE_TERMINOLOGY = {
   ecosystem: "Inshell",
   pathDapp: "$PATH",
@@ -100,8 +108,72 @@ export const SURFACE_DEPLOYMENT_MANIFEST = {
   },
 } as const;
 
+export const SEPOLIA_CHAIN_ID = 11155111;
+export const PUBLIC_SEPOLIA_WALLET_RPC_URL = "https://ethereum-sepolia-rpc.publicnode.com";
+
+function normalizeChainId(value: string | number | bigint | null | undefined): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? Math.trunc(value) : null;
+  if (typeof value === "bigint") return Number(value);
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = trimmed.startsWith("0x")
+    ? Number.parseInt(trimmed, 16)
+    : Number.parseInt(trimmed, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isInshellReadOnlyRpcProxy(url: globalThis.URL): boolean {
+  const hostname = url.hostname.toLowerCase();
+  return (
+    url.pathname === "/api/eth-rpc" &&
+    (hostname === "inshell.art" ||
+      hostname === "thought.inshell.art" ||
+      hostname.endsWith(".inshell.art"))
+  );
+}
+
+function normalizeWalletRpcUrl(value: string | null | undefined, currentOrigin?: string | null) {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  if (!trimmed || trimmed.startsWith("/")) return "";
+
+  try {
+    const parsed = new globalThis.URL(trimmed);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return "";
+    if (isInshellReadOnlyRpcProxy(parsed)) return "";
+    if (currentOrigin) {
+      const origin = new globalThis.URL(currentOrigin);
+      if (parsed.origin === origin.origin && parsed.pathname === "/api/eth-rpc") return "";
+    }
+    return trimmed;
+  } catch {
+    return "";
+  }
+}
+
+export function resolveWalletChainRpcUrls(options: WalletChainRpcOptions): string[] {
+  const chainId = normalizeChainId(options.chainId);
+  const walletRpcUrl = normalizeWalletRpcUrl(options.walletRpcUrl, options.currentOrigin);
+  if (walletRpcUrl) return [walletRpcUrl];
+
+  const readRpcUrl = normalizeWalletRpcUrl(options.readRpcUrl, options.currentOrigin);
+  if (readRpcUrl) return [readRpcUrl];
+
+  if (chainId === SEPOLIA_CHAIN_ID) return [PUBLIC_SEPOLIA_WALLET_RPC_URL];
+
+  if (chainId === 31337 || chainId === 31338) {
+    const fallback = normalizeWalletRpcUrl(
+      options.localFallbackRpcUrl ?? "http://127.0.0.1:8546",
+      options.currentOrigin,
+    );
+    return fallback ? [fallback] : [];
+  }
+
+  return [];
+}
+
 export function formatChainName(chainId: number | undefined) {
-  if (chainId === 11155111) return "Sepolia";
+  if (chainId === SEPOLIA_CHAIN_ID) return "Sepolia";
   if (chainId === 31337 || chainId === 31338) return "Local Devnet";
   return chainId ? `Chain ${chainId}` : "not loaded";
 }

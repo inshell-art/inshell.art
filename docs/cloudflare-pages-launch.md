@@ -78,7 +78,10 @@ Production environment variables:
 VITE_NETWORK=sepolia
 VITE_ETH_RPC=/api/eth-rpc
 VITE_THOUGHT_RPC_URL=https://thought.inshell.art/api/eth-rpc
+VITE_WALLET_CHAIN_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
 ```
+
+`VITE_ETH_RPC` and `VITE_THOUGHT_RPC_URL` are read-only dapp RPCs. Wallet chain registration must use `VITE_WALLET_CHAIN_RPC_URL`, because wallets need an RPC that accepts transaction broadcast.
 
 Production secret:
 

@@ -30,7 +30,7 @@ import {
   isEvmAddress,
   maybeResolveAddress,
 } from "@inshell/contracts";
-import { SURFACE_TERMINOLOGY } from "@inshell/shared";
+import { SURFACE_TERMINOLOGY, resolveWalletChainRpcUrls } from "@inshell/shared";
 import HeaderWalletCTA from "@/components/HeaderWalletCTA";
 import { useWallet } from "@inshell/wallet";
 import {
@@ -61,20 +61,43 @@ type Notice = {
   reportError?: string;
 };
 
-function isWalletCancellationMessage(message: string): boolean {
+function walletErrorCode(error: unknown): number | null {
+  const rawCode =
+    typeof error === "object" && error !== null && "code" in error
+      ? (error as { code?: unknown }).code
+      : null;
+  if (rawCode === null || rawCode === undefined || rawCode === "") return null;
+  const code = typeof rawCode === "number" ? rawCode : Number(rawCode);
+  return Number.isFinite(code) ? code : null;
+}
+
+function walletErrorMessage(error: unknown): string {
+  return String((error as any)?.message ?? error ?? "");
+}
+
+function isWalletCancellationError(error: unknown): boolean {
+  const code = walletErrorCode(error);
+  if (code === 4001) return true;
+  const message = walletErrorMessage(error);
   const lower = message.toLowerCase();
   return (
     lower.includes("user_refused") ||
     lower.includes("user rejected") ||
     lower.includes("user reject") ||
-    lower.includes("user cancel") ||
-    lower.includes("user cancelled") ||
-    lower.includes("user canceled") ||
     lower.includes("request rejected") ||
     lower.includes("request denied") ||
     lower.includes("denied by user") ||
     /\b4001\b/.test(lower)
   );
+}
+
+function isWalletCancellationMessage(message: string): boolean {
+  return isWalletCancellationError(new Error(message));
+}
+
+function isWalletReadOnlyRpcMessage(message: string): boolean {
+  const lower = message.toLowerCase();
+  return lower.includes("eth_sendrawtransaction") || lower.includes("rpc method is not allowed");
 }
 
 type PreflightResult = {
@@ -410,8 +433,14 @@ function resolveChainLabel(chainIdHex: string): string {
 function resolveAddChainParams(chainIdHex: string) {
   const normalized = chainIdHex.toLowerCase();
   const rpcUrl = getEnvValue("VITE_ETH_RPC");
-  const rpcUrls =
-    typeof rpcUrl === "string" && rpcUrl.trim() ? [rpcUrl.trim()] : [];
+  const walletRpcUrl = getEnvValue("VITE_WALLET_CHAIN_RPC_URL");
+  const rpcUrls = resolveWalletChainRpcUrls({
+    chainId: parseChainId(normalized),
+    readRpcUrl: typeof rpcUrl === "string" ? rpcUrl : "",
+    walletRpcUrl: typeof walletRpcUrl === "string" ? walletRpcUrl : "",
+    currentOrigin: typeof window === "undefined" ? "" : window.location.origin,
+    localFallbackRpcUrl: "http://127.0.0.1:8546",
+  });
 
   if (normalized === ETH_SEPOLIA_CHAIN_ID_HEX) {
     const explorer = resolveExplorerBase();
@@ -479,6 +508,21 @@ async function requestChainSwitch(chainIdHex: string): Promise<boolean> {
     } catch {
       return false;
     }
+  }
+}
+
+async function refreshWalletChainRpc(chainIdHex: string): Promise<boolean> {
+  const wallet = findInjectedWallet();
+  const addParams = resolveAddChainParams(chainIdHex);
+  if (!wallet?.request || !addParams || !addParams.rpcUrls.length) return false;
+  try {
+    await wallet.request({
+      method: "wallet_addEthereumChain",
+      params: [addParams],
+    });
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -3896,14 +3940,19 @@ export default function AuctionCanvas({
       }, 800);
       return true;
     } catch (err) {
-      const msg = String((err as any)?.message ?? err ?? "");
+      const rawMsg = walletErrorMessage(err);
+      const walletCancelled = isWalletCancellationError(err);
+      const msg = walletCancelled ? "wallet request rejected by user." : rawMsg;
       setTxError(msg);
       setTxState("failed");
       const lower = msg.toLowerCase();
       if (lower.includes("invalid block id") || lower.includes("u256_sub overflow")) {
         void runPreflight();
       }
-      if (!isWalletCancellationMessage(msg)) {
+      if (isWalletReadOnlyRpcMessage(rawMsg)) {
+        void refreshWalletChainRpc(targetChainIdHex);
+      }
+      if (!walletCancelled) {
         console.error("mint failed", err);
       }
       return false;
@@ -3946,6 +3995,7 @@ export default function AuctionCanvas({
 
     setMintReview(null);
     setReturnPromptVisible(false);
+    await refreshWalletChainRpc(targetChainIdHex);
     await maybeWatchAsset();
     if (!nativePayment && data.allowance.value < data.ask.value) {
       const ok = await runTx("approve", () =>
@@ -3997,6 +4047,14 @@ export default function AuctionCanvas({
           kind: "error",
           text: "Account needs upgrade or activation.",
           reportState: "invalid_signature",
+          reportError: msg,
+        };
+      }
+      if (isWalletReadOnlyRpcMessage(msg)) {
+        return {
+          kind: "error",
+          text: "Wallet RPC is read-only. Retry.",
+          reportState: "wallet_rpc_read_only",
           reportError: msg,
         };
       }

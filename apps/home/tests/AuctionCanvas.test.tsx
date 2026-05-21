@@ -316,6 +316,7 @@ describe("AuctionCanvas", () => {
       VITE_NETWORK: "devnet",
       VITE_EXPECTED_CHAIN_ID: "0x7a69",
       VITE_ETH_RPC: "http://127.0.0.1:8546",
+      VITE_WALLET_CHAIN_RPC_URL: "",
     };
     mockAuctionCore(mockUseAuctionCore, {
       openTimeSec: nowSec - 109,
@@ -1734,6 +1735,108 @@ describe("AuctionCanvas", () => {
     });
   });
 
+  test("switch CTA does not register the read-only dapp RPC with wallets", async () => {
+    (globalThis as any).__VITE_ENV__ = {
+      ...(globalThis as any).__VITE_ENV__,
+      VITE_ETH_RPC: "/api/eth-rpc",
+      VITE_WALLET_CHAIN_RPC_URL: "",
+    };
+    const request = jest
+      .fn()
+      .mockRejectedValueOnce({ code: 4902, message: "Unknown chain" })
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+    (window as any).ethereum = { request };
+    mockWalletState = createWalletState({
+      account: {},
+      chainId: 1n,
+      chain: { name: "Othernet" },
+    });
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    const switchButton = await waitFor(() =>
+      screen.getByText(/\[\s*switch\s*\]/i)
+    );
+    fireEvent.click(switchButton);
+    await waitFor(() => {
+      expect(request).toHaveBeenNthCalledWith(2, {
+        method: "wallet_addEthereumChain",
+        params: [
+          expect.objectContaining({
+            chainId: "0xaa36a7",
+            rpcUrls: ["https://ethereum-sepolia-rpc.publicnode.com"],
+          }),
+        ],
+      });
+    });
+  });
+
+  test("switch CTA uses explicit wallet chain RPC when configured", async () => {
+    (globalThis as any).__VITE_ENV__ = {
+      ...(globalThis as any).__VITE_ENV__,
+      VITE_ETH_RPC: "/api/eth-rpc",
+      VITE_WALLET_CHAIN_RPC_URL: "https://wallet-rpc.example/sepolia",
+    };
+    const request = jest
+      .fn()
+      .mockRejectedValueOnce({ code: 4902, message: "Unknown chain" })
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+    (window as any).ethereum = { request };
+    mockWalletState = createWalletState({
+      account: {},
+      chainId: 1n,
+      chain: { name: "Othernet" },
+    });
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    const switchButton = await waitFor(() =>
+      screen.getByText(/\[\s*switch\s*\]/i)
+    );
+    fireEvent.click(switchButton);
+    await waitFor(() => {
+      expect(request).toHaveBeenNthCalledWith(2, {
+        method: "wallet_addEthereumChain",
+        params: [
+          expect.objectContaining({
+            chainId: "0xaa36a7",
+            rpcUrls: ["https://wallet-rpc.example/sepolia"],
+          }),
+        ],
+      });
+    });
+  });
+
+  test("refreshes Sepolia wallet RPC before mint writes", async () => {
+    (globalThis as any).__VITE_ENV__ = {
+      ...(globalThis as any).__VITE_ENV__,
+      VITE_ETH_RPC: "/api/eth-rpc",
+      VITE_WALLET_CHAIN_RPC_URL: "",
+    };
+    const request = jest.fn().mockResolvedValue(null);
+    (window as any).ethereum = { request };
+    const execute = jest
+      .fn<(...args: any[]) => Promise<any>>()
+      .mockResolvedValue({ transaction_hash: "0xmint" });
+    mockWalletState = createWalletState({
+      account: { execute },
+    });
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    await clickMintThenSign();
+
+    await waitFor(() => {
+      expect(execute).toHaveBeenCalled();
+      expect(request).toHaveBeenCalledWith({
+        method: "wallet_addEthereumChain",
+        params: [
+          expect.objectContaining({
+            chainId: "0xaa36a7",
+            rpcUrls: ["https://ethereum-sepolia-rpc.publicnode.com"],
+          }),
+        ],
+      });
+    });
+  });
+
   test("switch CTA adds PATH Local when devnet wallet reports unknown chain", async () => {
     (globalThis as any).__VITE_ENV__ = {
       VITE_NETWORK: "devnet",
@@ -1743,6 +1846,7 @@ describe("AuctionCanvas", () => {
       VITE_PAYMENT_TOKEN: TEST_PAYMENT_TOKEN,
       VITE_PAYMENT_TOKEN_SYMBOL: "ETH",
       VITE_ETH_RPC: "http://127.0.0.1:8546",
+      VITE_WALLET_CHAIN_RPC_URL: "",
       VITE_PUBLIC_LAUNCH_MODE: "local",
     };
     const request = jest
@@ -2128,6 +2232,7 @@ describe("AuctionCanvas", () => {
       VITE_NETWORK: "devnet",
       VITE_EXPECTED_CHAIN_ID: "0x7a69",
       VITE_ETH_RPC: "http://127.0.0.1:8546",
+      VITE_WALLET_CHAIN_RPC_URL: "",
       VITE_PAYTOKEN: ZERO_ADDRESS,
       VITE_PUBLIC_LAUNCH_MODE: "local",
     };
@@ -2498,7 +2603,7 @@ describe("AuctionCanvas", () => {
     }
   });
 
-  test("does not report Rabby user cancel as a mint bug", async () => {
+  test("reports plain Rabby user cancel as a transaction creation failure", async () => {
     const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     (globalThis as any).__VITE_ENV__ = {
       ...(globalThis as any).__VITE_ENV__,
@@ -2527,10 +2632,13 @@ describe("AuctionCanvas", () => {
       render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
       await clickMintThenSign();
       await waitFor(() => {
-        expect(screen.getByText(/Wallet request cancelled/i)).toBeTruthy();
+        expect(screen.getByText(/Mint failed/i)).toBeTruthy();
       });
-      expect(screen.queryByRole("link", { name: "Report a Sepolia bug" })).toBeNull();
-      expect(errorSpy).not.toHaveBeenCalledWith("mint failed", expect.anything());
+      const report = screen.getByRole("link", { name: "Report a Sepolia bug" });
+      const url = new window.URL(report.getAttribute("href") ?? "");
+      expect(url.searchParams.get("body")).toContain("state: mint_failed");
+      expect(url.searchParams.get("body")).toContain("error: user cancel");
+      expect(errorSpy).toHaveBeenCalledWith("mint failed", expect.anything());
     } finally {
       errorSpy.mockRestore();
     }

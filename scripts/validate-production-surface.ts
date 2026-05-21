@@ -26,6 +26,7 @@ const DEPLOY_WORKFLOW_SNIPPETS = [
   "CLOUDFLARE_PAGES_PROJECT_THOUGHT",
   "VITE_ETH_RPC",
   "VITE_THOUGHT_RPC_URL",
+  "VITE_WALLET_CHAIN_RPC_URL",
   "VITE_PATH_MINT_URL",
   "VITE_THOUGHT_EXPLORER_BASE_URL",
   "VITE_WALLETCONNECT_PROJECT_ID",
@@ -355,6 +356,7 @@ function checkSharedSurfaceLayer() {
   requireSnippets("packages/shared/src/index.ts", [
     "SURFACE_TERMINOLOGY",
     "SURFACE_DEPLOYMENT_MANIFEST",
+    "resolveWalletChainRpcUrls",
     "buildContractStatusSections",
     "buildReportBugLink",
     "shouldShowReportBug",
@@ -373,6 +375,7 @@ function checkSharedSurfaceLayer() {
   requireSnippets(".github/workflows/deploy-pages.yml", [
     "VITE_REPORT_BUG_URL: ${{ vars.VITE_REPORT_BUG_URL }}",
     "VITE_GITHUB_URL: ${{ vars.VITE_GITHUB_URL || 'https://github.com/inshell-art/inshell.art' }}",
+    "VITE_WALLET_CHAIN_RPC_URL: ${{ vars.VITE_WALLET_CHAIN_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com' }}",
   ]);
 }
 
