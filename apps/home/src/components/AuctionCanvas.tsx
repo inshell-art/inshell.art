@@ -5330,12 +5330,11 @@ export default function AuctionCanvas({
       )}
       <div className="dotfield__nav">
         <a
-          className="headline dotfield__title dotfield__title-link thin"
-          href="/path"
-          target="_blank"
-          rel="noreferrer"
+          className="headline dotfield__title dotfield__title-link dotfield__brand-link thin"
+          href="/"
         >
-          {SURFACE_TERMINOLOGY.pathDapp}
+          <img className="dotfield__title-icon" src="/inshell.svg" alt="" aria-hidden="true" />
+          <span>{SURFACE_TERMINOLOGY.ecosystem}</span>
         </a>
         <nav className="inshell-app-nav dotfield__surface-nav" aria-label="Inshell dapps">
           {getSurfaceNavItems("path").filter((item) => item.id !== "path").map((item) => (

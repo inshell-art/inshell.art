@@ -163,6 +163,14 @@ describe("App Component", () => {
     });
   });
 
+  test("renders the home browser title and favicon as Inshell", () => {
+    render(<App />);
+
+    expect(document.title).toBe("Inshell");
+    expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
+    expect(document.querySelector(".shell--home")).toBeInTheDocument();
+  });
+
   test("renders the Pulse primitive page on /pulse", () => {
     window.history.pushState({}, "", "/pulse");
     render(<App />);
@@ -418,6 +426,13 @@ describe("App Component", () => {
     );
     expect(css).toMatch(
       /@media\s*\(min-width:\s*1800px\)\s*{[\s\S]*?\.dotfield__canvas\s*{[^}]*height:\s*min\(56vh,\s*600px\);/s,
+    );
+    expect(css).toMatch(/\.shell--home\s*{[^}]*min-height:\s*100dvh;/s);
+    expect(css).toMatch(
+      /\.shell--home\s+\.dotfield__canvas\s*{[^}]*height:\s*clamp\(260px,\s*43dvh,\s*420px\);/s,
+    );
+    expect(css).toMatch(
+      /@media\s*\(min-width:\s*1400px\)\s*{[\s\S]*?\.shell--home\s+\.dotfield__canvas\s*{[^}]*height:\s*clamp\(320px,\s*42dvh,\s*520px\);/s,
     );
     expect(css).toMatch(
       /\.path-page-token\s*{[^}]*background:\s*var\(--canvas-frame-bg\);/s,

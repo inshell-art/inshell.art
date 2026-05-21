@@ -58,8 +58,8 @@ export default function App() {
       setFavicon("/path.svg");
       return;
     }
-    document.title = SURFACE_TERMINOLOGY.pathDapp;
-    setFavicon("/path.svg");
+    document.title = SURFACE_TERMINOLOGY.ecosystem;
+    setFavicon("/inshell.svg");
   }, [primitiveRoute]);
 
   return (
@@ -71,7 +71,7 @@ export default function App() {
         </div>
       )}
     >
-      <div className="shell">
+      <div className={`shell${primitiveRoute ? "" : " shell--home"}`}>
         {primitiveRoute === "pulse" ? (
           <PulsePage />
         ) : primitiveRoute === "color-font" ? (
@@ -81,7 +81,7 @@ export default function App() {
         ) : primitiveRoute === "verify" ? (
           <VerifyPage />
         ) : (
-          <div className="content">
+          <div className="content content--home">
             <AuctionCanvas address={pulseAuction} />
             <div className="hero">
               <Movements />

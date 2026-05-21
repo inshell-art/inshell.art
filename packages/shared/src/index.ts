@@ -115,22 +115,10 @@ export const SURFACE_NAV_ITEMS: readonly SurfaceNavItem[] = [
     path: "/",
   },
   {
-    id: "path-tokens",
-    surface: "path",
-    label: "tokens",
-    path: "/path",
-  },
-  {
     id: "thought",
     surface: "thought",
     label: SURFACE_TERMINOLOGY.thoughtDapp,
     path: "/",
-  },
-  {
-    id: "thought-gallery",
-    surface: "thought",
-    label: "gallery",
-    path: "/?gallery=1",
   },
   {
     id: "verify",
