@@ -2497,6 +2497,44 @@ describe("AuctionCanvas", () => {
     }
   });
 
+  test("does not report Rabby user cancel as a mint bug", async () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    (globalThis as any).__VITE_ENV__ = {
+      ...(globalThis as any).__VITE_ENV__,
+      VITE_PUBLIC_LAUNCH_MODE: "sepolia_invite",
+      VITE_REPORT_BUG_URL: "https://github.com/inshell-art/inshell.art/issues/new",
+      VITE_DEBUG_PANEL: "off",
+    };
+    const execute = jest.fn().mockRejectedValue(new Error("user cancel"));
+    mockWalletState = createWalletState({
+      account: { execute },
+    });
+    mockCallContract.mockReset();
+    mockCallContract.mockImplementation(async (args: any) => {
+      if (args?.entrypoint === "get_current_price") {
+        return { price: { low: "100", high: "0" } } as any;
+      }
+      if (args?.entrypoint === "balance_of") {
+        return { balance: { low: "200", high: "0" } } as any;
+      }
+      if (args?.entrypoint === "allowance") {
+        return { remaining: { low: "200", high: "0" } } as any;
+      }
+      return { result: [] } as any;
+    });
+    try {
+      render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+      await clickMintThenSign();
+      await waitFor(() => {
+        expect(screen.getByText(/Wallet request cancelled/i)).toBeTruthy();
+      });
+      expect(screen.queryByRole("link", { name: "Report a Sepolia bug" })).toBeNull();
+      expect(errorSpy).not.toHaveBeenCalledWith("mint failed", expect.anything());
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   test("shows rpc read failed notice after invalid block id", async () => {
     const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     const execute = jest.fn().mockRejectedValue(new Error("Invalid block id"));

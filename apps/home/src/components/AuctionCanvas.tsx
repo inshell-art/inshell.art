@@ -66,6 +66,23 @@ type Notice = {
   reportState?: string;
   reportError?: string;
 };
+
+function isWalletCancellationMessage(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("user_refused") ||
+    lower.includes("user rejected") ||
+    lower.includes("user reject") ||
+    lower.includes("user cancel") ||
+    lower.includes("user cancelled") ||
+    lower.includes("user canceled") ||
+    lower.includes("request rejected") ||
+    lower.includes("request denied") ||
+    lower.includes("denied by user") ||
+    /\b4001\b/.test(lower)
+  );
+}
+
 type PreflightResult = {
   ask: U256Num;
   balance: U256Num;
@@ -3892,7 +3909,9 @@ export default function AuctionCanvas({
       if (lower.includes("invalid block id") || lower.includes("u256_sub overflow")) {
         void runPreflight();
       }
-      console.error("mint failed", err);
+      if (!isWalletCancellationMessage(msg)) {
+        console.error("mint failed", err);
+      }
       return false;
     } finally {
       setTxHash(null);
@@ -3987,7 +4006,7 @@ export default function AuctionCanvas({
           reportError: msg,
         };
       }
-      if (lower.includes("user_refused") || lower.includes("user rejected")) {
+      if (isWalletCancellationMessage(msg)) {
         return { kind: "warn", text: "Wallet request cancelled." };
       }
       if (lower.includes("failed to fetch") || lower.includes("network error")) {
