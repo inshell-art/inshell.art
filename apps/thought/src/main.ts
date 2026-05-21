@@ -1351,6 +1351,7 @@ let cliProgressTimer = 0;
 let cliProgressTick = 0;
 let activeRunId = 0;
 let pendingMyBrainRunPayload: PendingMyBrainRound | null = null;
+let localModelError = "";
 
 const getDefaultSessionState = (): ThoughtSessionState => ({
   routeConfigured: false,
@@ -1474,6 +1475,13 @@ const getOllamaEndpoint = () =>
 
 const buildOllamaApiUrl = (path: "tags" | "generate") =>
   `${getOllamaEndpoint()}/api/${path}`;
+
+const ollamaAllowedOrigin = () => window.location.origin;
+
+const ollamaCorsSetupCommand = () => `OLLAMA_ORIGINS=${ollamaAllowedOrigin()} ollama serve`;
+
+const ollamaOriginBlockedMessage = () =>
+  `ollama is running but blocked this browser origin. restart ollama with: ${ollamaCorsSetupCommand()}`;
 
 const migrateLegacyState = (
   parsed: LegacySessionState,
@@ -1826,6 +1834,13 @@ const getReadPathNft = () => {
   return readPathNft;
 };
 
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
 const byteLength = (value: string) => new TextEncoder().encode(value).length;
 
 const formatProvenanceBytes = (bytes: number) => `provenance: ${bytes} bytes`;
@@ -1912,7 +1927,7 @@ const createContractPreviewUnavailableError = (cause: unknown) => {
     ? ["wallet not connected.", "use: wallet connect"]
     : [
         "contract preview unavailable.",
-        "wallet/RPC could not return the SVG.",
+        "read RPC could not return the SVG.",
         "",
         "work is not finalized.",
         "mint is blocked until contract preview succeeds.",
@@ -2042,19 +2057,12 @@ const createRejectedRunError = (
 const isContractWorkPreviewError = (error: unknown): error is ContractWorkPreviewError =>
   error instanceof Error && Array.isArray((error as ContractWorkPreviewError).cliLines);
 
-const previewWorkViaWallet = async (rawReturn: string): Promise<ContractWorkPreview> => {
-  if (!THOUGHT_NFT_ADDRESS) {
+const previewWorkViaReadRpc = async (rawReturn: string): Promise<ContractWorkPreview> => {
+  const token = getReadThoughtNFT();
+  if (!token) {
     throw new Error("contract preview unavailable.");
   }
 
-  const ethereum = getEthereumProvider();
-  if (!ethereum || !walletState.address) {
-    throw new Error("wallet not connected.");
-  }
-
-  const provider = new BrowserProvider(ethereum);
-  const signer = await provider.getSigner();
-  const token = new Contract(THOUGHT_NFT_ADDRESS, THOUGHT_NFT_ABI, signer);
   const [ok, text, svg, reasonCode] = await token.previewWork(rawReturn) as [
     boolean,
     string,
@@ -6199,6 +6207,19 @@ const fetchAgentRequest = async (url: string, init: RequestInit) => {
   }
 };
 
+const probeOllamaReachableWithoutCors = async () => {
+  try {
+    await fetchPreflightRequest(buildOllamaApiUrl("tags"), {
+      method: "GET",
+      mode: "no-cors",
+      cache: "no-store",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const requestOllama = async (payload: ThoughtRunPayload) => {
   let response: Response;
 
@@ -6218,12 +6239,18 @@ const requestOllama = async (payload: ThoughtRunPayload) => {
     ) {
       throw error;
     }
+    if (await probeOllamaReachableWithoutCors()) {
+      throw new Error(ollamaOriginBlockedMessage());
+    }
     throw new Error("ollama not detected.");
   }
 
   const responsePayload = (await response.json().catch(() => null)) as unknown;
 
   if (!response.ok) {
+    if (response.status === 403) {
+      throw new Error(ollamaOriginBlockedMessage());
+    }
     throw new Error(readErrorMessage(responsePayload, "ollama request failed."));
   }
 
@@ -6563,10 +6590,23 @@ const fetchOpenRouterModels = async (): Promise<ModelOption[]> => {
 };
 
 const fetchOllamaModels = async (): Promise<ModelOption[]> => {
-  const response = await fetchPreflightRequest(buildOllamaApiUrl("tags"));
+  let response: Response;
+
+  try {
+    response = await fetchPreflightRequest(buildOllamaApiUrl("tags"));
+  } catch (error) {
+    if (await probeOllamaReachableWithoutCors()) {
+      throw new Error(ollamaOriginBlockedMessage());
+    }
+    throw new Error("ollama not detected.");
+  }
+
   const payload = (await response.json().catch(() => null)) as unknown;
 
   if (!response.ok) {
+    if (response.status === 403) {
+      throw new Error(ollamaOriginBlockedMessage());
+    }
     throw new Error(readErrorMessage(payload, "ollama model list failed."));
   }
 
@@ -6778,7 +6818,7 @@ const syncLocalControls = () => {
   if (sessionState.local.available === true) {
     localStatus.innerHTML = `ollama detected.<br />endpoint ${getOllamaEndpoint()}.<br />runs on this machine.`;
   } else if (sessionState.local.available === false) {
-    localStatus.innerHTML = `ollama not detected.<br />start ollama, then retry.<br />endpoint ${getOllamaEndpoint()}.`;
+    localStatus.innerHTML = `${escapeHtml(localModelError || "ollama not detected.")}<br />allow origin or retry.<br />endpoint ${escapeHtml(getOllamaEndpoint())}.`;
   } else {
     localStatus.innerHTML = "checking ollama...";
   }
@@ -6885,6 +6925,7 @@ const loadModelOptionsForSource = async (
     } else if (sourceId === LOCAL_MODEL_SOURCE_ID) {
       modelOptions = await fetchOllamaModels();
       sessionState.local.available = true;
+      localModelError = "";
     }
 
     modelOptionsCache.set(sourceId, modelOptions.length ? modelOptions : STATIC_MODEL_OPTIONS[sourceId]);
@@ -6896,6 +6937,7 @@ const loadModelOptionsForSource = async (
   } catch (error) {
     if (sourceId === LOCAL_MODEL_SOURCE_ID) {
       sessionState.local.available = false;
+      localModelError = error instanceof Error ? error.message : "ollama not detected.";
       modelOptionsCache.delete(sourceId);
       writeSessionState();
 
@@ -6988,7 +7030,7 @@ const completeThoughtRunFromModelReturn = async (
 ) => {
   let preview: ContractWorkPreview;
   try {
-    preview = await previewWorkViaWallet(modelReturn);
+    preview = await previewWorkViaReadRpc(modelReturn);
   } catch (error) {
     lastPreviewRetryContext = {
       payload: thoughtRunPayload,
@@ -8243,7 +8285,9 @@ const cliLocalStatus = () => {
 
 const localSetupUsageLines = () => [
   `endpoint: ${getOllamaEndpoint()}`,
-  "first: start ollama on this machine.",
+  localModelError || "first: start ollama on this machine.",
+  "if already running: allow this browser origin.",
+  `allow: ${ollamaCorsSetupCommand()}`,
   "use:",
   "config local detect",
   "config local endpoint <url>",
