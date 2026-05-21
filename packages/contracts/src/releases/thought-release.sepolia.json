@@ -52,5 +52,15 @@
     "thought_nft": "0x575a3308d5af8de0b932c065ffddfa9369f422c43e7a5a70ef3fd40c6f6c9825",
     "path_set_movement": "0x47996b9530f6aeae6be6f40b1bee790b4de3cd5214d3866f047972f5e04f010a",
     "path_freeze_movement": "0x979fc2945ed57bd1b044cf02ac7648bbe89a8a70b0fb6a0703983ac36544a88c"
+  },
+  "deploy_blocks": {
+    "seed_generator": 10855536,
+    "color_font_v1": 10855537,
+    "thought_previewer": 10855538,
+    "thought_spec_registry": 10855539,
+    "register_spec": 10872878,
+    "thought_nft": 10872879,
+    "path_set_movement": 10872882,
+    "path_freeze_movement": 10872885
   }
 }

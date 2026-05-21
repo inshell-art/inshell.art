@@ -32,6 +32,7 @@ export type ThoughtRelease = {
     file?: string;
   };
   deploy_txs?: Record<string, string>;
+  deploy_blocks?: Record<string, number>;
 };
 
 const RELEASES: Record<string, ReleaseBook> = {
@@ -81,4 +82,15 @@ export function getThoughtReleaseContract(
 
 export function getRecommendedThoughtSpec(network = currentNetwork()) {
   return getThoughtRelease(network)?.recommended_thought_spec;
+}
+
+export function getThoughtReleaseDeployBlock(
+  id: string,
+  network = currentNetwork()
+): number | undefined {
+  const release = getThoughtRelease(network);
+  const value = release?.deploy_blocks?.[id.toLowerCase()];
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.max(0, Math.trunc(value))
+    : undefined;
 }

@@ -23,6 +23,7 @@ import {
   OFFICIAL_DOMAINS,
   getProtocolReleaseAddress,
   getProtocolReleaseDeployBlock,
+  getThoughtReleaseDeployBlock,
   maybeResolveAddress,
 } from "@inshell/contracts";
 
@@ -670,12 +671,10 @@ const COLOR_FONT_V1_ADDRESS = EVM_ADDRESSES.colorFontV1?.address?.trim() ?? "";
 const THOUGHT_CHAIN_NAME =
   THOUGHT_CHAIN_ID === 31337 ? "Anvil Local" : THOUGHT_CHAIN_ID === 11155111 ? "Sepolia" : "THOUGHT";
 const configuredExplorerBaseUrl =
-  typeof import.meta.env.VITE_THOUGHT_INDEXER_URL === "string" && import.meta.env.VITE_THOUGHT_INDEXER_URL.trim()
-    ? import.meta.env.VITE_THOUGHT_INDEXER_URL.trim().replace(/\/$/, "")
-    : typeof import.meta.env.VITE_THOUGHT_EXPLORER_BASE_URL === "string" &&
-        import.meta.env.VITE_THOUGHT_EXPLORER_BASE_URL.trim()
-      ? import.meta.env.VITE_THOUGHT_EXPLORER_BASE_URL.trim().replace(/\/$/, "")
-      : "";
+  typeof import.meta.env.VITE_THOUGHT_EXPLORER_BASE_URL === "string" &&
+  import.meta.env.VITE_THOUGHT_EXPLORER_BASE_URL.trim()
+    ? import.meta.env.VITE_THOUGHT_EXPLORER_BASE_URL.trim().replace(/\/$/, "")
+    : "";
 const addressExplorerBaseUrl = EVM_ADDRESSES.explorerUrl?.trim().replace(/\/$/, "") ?? "";
 const chainExplorerBaseUrl =
   THOUGHT_CHAIN_ID === 1
@@ -691,6 +690,13 @@ const PATH_NFT_DEPLOY_BLOCK =
   getProtocolReleaseDeployBlock("path_nft", "sepolia") ??
   0;
 const PATH_LOG_CHUNK_SIZE = 5_000;
+const THOUGHT_NFT_DEPLOY_BLOCK =
+  THOUGHT_CHAIN_ID === 11155111
+    ? getThoughtReleaseDeployBlock("thought_nft") ??
+      getThoughtReleaseDeployBlock("thought_nft", "sepolia") ??
+      0
+    : 0;
+const THOUGHT_LOG_CHUNK_SIZE = 5_000;
 const ERC721_TRANSFER_TOPIC = id("Transfer(address,address,uint256)");
 const CONSUME_AUTHORIZATION_TYPEHASH = id(
   "ConsumeAuthorization(address pathNft,uint256 chainId,uint256 pathId,bytes32 movement,address claimer,address executor,uint256 nonce,uint256 deadline)",
@@ -4578,20 +4584,23 @@ const handleMintSheetAction = async (action: MintSheetAction) => {
 };
 
 const handleViewTx = async () => {
-  if (!walletState.txHash) {
-    return;
+  const txHash = walletState.txHash || mintFlowData.txHash;
+  if (!txHash) {
+    setStatus("tx unavailable.", { flashMs: NOTICE_FLASH_MS });
+    return false;
   }
 
-  const txUrl = thoughtTxUrl(walletState.txHash);
+  const txUrl = thoughtTxUrl(txHash);
   if (txUrl) {
     window.open(txUrl, "_blank", "noopener,noreferrer");
-    return;
+    return true;
   }
 
-  const copied = await copyToClipboard(walletState.txHash);
+  const copied = await copyToClipboard(txHash);
   if (copied) {
     setStatus("tx hash copied.", { flashMs: NOTICE_FLASH_MS });
   }
+  return copied;
 };
 
 const handleViewThought = async (tokenId?: number | null) => {
@@ -5070,6 +5079,26 @@ const renderGalleryCard = (thought: GalleryThought) => {
 
 const isGalleryThought = (value: GalleryThought | null): value is GalleryThought => value !== null;
 
+const getThoughtMintedLogs = async (provider: JsonRpcProvider) => {
+  const latestBlock = await provider.getBlockNumber();
+  const fromBlock = Math.min(Math.max(0, THOUGHT_NFT_DEPLOY_BLOCK), latestBlock);
+  const logs: Log[] = [];
+
+  for (let chunkStart = fromBlock; chunkStart <= latestBlock; chunkStart += THOUGHT_LOG_CHUNK_SIZE) {
+    const chunkEnd = Math.min(latestBlock, chunkStart + THOUGHT_LOG_CHUNK_SIZE - 1);
+    logs.push(
+      ...(await provider.getLogs({
+        address: THOUGHT_NFT_ADDRESS,
+        fromBlock: chunkStart,
+        toBlock: chunkEnd,
+        topics: [THOUGHT_MINTED_TOPIC],
+      })),
+    );
+  }
+
+  return logs;
+};
+
 const readGalleryThoughts = async (): Promise<GalleryThought[] | null> => {
   const provider = getReadProvider();
   const token = getReadThoughtNFT();
@@ -5077,12 +5106,7 @@ const readGalleryThoughts = async (): Promise<GalleryThought[] | null> => {
     return null;
   }
 
-  const logs = await provider.getLogs({
-    address: THOUGHT_NFT_ADDRESS,
-    fromBlock: 0,
-    toBlock: "latest",
-    topics: [THOUGHT_MINTED_TOPIC],
-  });
+  const logs = await getThoughtMintedLogs(provider);
 
   const thoughts = (
     await Promise.all(logs.map(async (log): Promise<GalleryThought | null> => {
@@ -10702,7 +10726,14 @@ const executeCliCommand = async (rawCommand: string) => {
       await confirmFromCli();
     } else if (lowerHead === "view" && second.toLowerCase() === "tx") {
       appendCliOutput("opening tx...");
-      await handleViewTx();
+      const opened = await handleViewTx();
+      if (!opened) {
+        appendCliError(
+          walletState.txHash || mintFlowData.txHash
+            ? ["tx explorer unavailable. hash copied if clipboard allowed."]
+            : ["tx unavailable.", "mint first."],
+        );
+      }
     } else if (lowerHead === "view" && second.toLowerCase() === "thought") {
       const tokenIdInput = command.split(/\s+/).slice(2).join(" ");
       const tokenId = tokenIdInput

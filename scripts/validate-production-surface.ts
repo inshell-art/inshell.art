@@ -249,6 +249,9 @@ function checkSepoliaThoughtRelease() {
   if (release.movement?.name !== "THOUGHT") fail("thought-release.sepolia.json movement.name must be THOUGHT");
   if (release.movement?.quota !== 1) fail("thought-release.sepolia.json movement.quota must be 1");
   if (release.movement?.frozen !== true) fail("thought-release.sepolia.json movement.frozen must be true");
+  if (!Number.isFinite(release.deploy_blocks?.thought_nft)) {
+    fail("thought-release.sepolia.json deploy_blocks.thought_nft is required for bounded gallery reads");
+  }
 
   const requiredThoughtAddresses = [
     ["contracts.path_nft", release.contracts?.path_nft],
@@ -330,6 +333,24 @@ function checkEthereumRpcGuard() {
   }
 }
 
+function checkThoughtProductionGuards() {
+  const text = read("apps/thought/src/main.ts");
+  for (const snippet of [
+    "getThoughtReleaseDeployBlock(\"thought_nft\")",
+    "const THOUGHT_LOG_CHUNK_SIZE = 5_000;",
+    "const logs = await getThoughtMintedLogs(provider);",
+    "VITE_THOUGHT_EXPLORER_BASE_URL.trim()",
+  ]) {
+    if (!text.includes(snippet)) {
+      fail(`apps/thought/src/main.ts is missing THOUGHT production guard: ${snippet}`);
+    }
+  }
+
+  if (text.includes("VITE_THOUGHT_INDEXER_URL")) {
+    fail("apps/thought/src/main.ts must not use VITE_THOUGHT_INDEXER_URL as a tx explorer URL");
+  }
+}
+
 function checkCloudflareRpcProxy() {
   const text = read("functions/api/eth-rpc.ts");
   for (const snippet of [
@@ -359,6 +380,7 @@ checkSepoliaThoughtRelease();
 checkNoLocalhostInProductionArtifacts();
 checkAbiAndReleaseJsonParse();
 checkEthereumRpcGuard();
+checkThoughtProductionGuards();
 checkCloudflareRpcProxy();
 
 if (errors.length) {
