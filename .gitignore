@@ -147,3 +147,7 @@ dist
 src/.DS_Store
 
 .firebase
+
+# Local agent handoff notes; keep out of remote.
+TAKEOVER_CONTEXT.md
+SECRETS_TAKEOVER_CONTEXT.md
