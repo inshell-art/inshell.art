@@ -2,13 +2,6 @@ export type SurfaceId = "path" | "thought";
 
 export type PublicLaunchMode = "local" | "sepolia_invite" | "production";
 
-export type SurfaceNavItem = {
-  id: string;
-  surface: SurfaceId;
-  label: string;
-  path: string;
-};
-
 export type ContractStatusRow = {
   id: string;
   label: string;
@@ -106,55 +99,6 @@ export const SURFACE_DEPLOYMENT_MANIFEST = {
     thought: ["thought_nft", "thought_spec_registry", "color_font_v1"],
   },
 } as const;
-
-export const SURFACE_NAV_ITEMS: readonly SurfaceNavItem[] = [
-  {
-    id: "path",
-    surface: "path",
-    label: SURFACE_TERMINOLOGY.pathDapp,
-    path: "/",
-  },
-  {
-    id: "thought",
-    surface: "thought",
-    label: SURFACE_TERMINOLOGY.thoughtDapp,
-    path: "/",
-  },
-  {
-    id: "verify",
-    surface: "path",
-    label: SURFACE_TERMINOLOGY.verify,
-    path: "/verify",
-  },
-] as const;
-
-export function surfaceUrl(surface: SurfaceId, path = "/") {
-  const base = SURFACE_DEPLOYMENT_MANIFEST.surfaces[surface].domain;
-  if (path === "/") return base;
-  return `${base}${path.startsWith("/") ? path : `/${path}`}`;
-}
-
-export function getSurfaceNavItems(currentSurface: SurfaceId): readonly SurfaceNavItem[] {
-  return SURFACE_NAV_ITEMS.map((item) =>
-    item.id === "verify" ? { ...item, surface: currentSurface } : item,
-  );
-}
-
-export function surfaceNavHref(item: SurfaceNavItem, currentSurface: SurfaceId) {
-  if (item.surface === currentSurface) {
-    return item.path;
-  }
-
-  return surfaceUrl(item.surface, item.path);
-}
-
-export function surfaceNavTarget(item: SurfaceNavItem, currentSurface: SurfaceId) {
-  return item.surface === currentSurface ? undefined : "_blank";
-}
-
-export function surfaceNavRel(item: SurfaceNavItem, currentSurface: SurfaceId) {
-  return item.surface === currentSurface ? undefined : "noopener noreferrer";
-}
 
 export function formatChainName(chainId: number | undefined) {
   if (chainId === 11155111) return "Sepolia";

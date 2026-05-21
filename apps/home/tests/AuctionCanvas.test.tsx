@@ -221,19 +221,9 @@ describe("AuctionCanvas", () => {
     const { container } = render(
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />
     );
-    const brand = screen.getByRole("link", { name: "Inshell" });
-    expect(brand).toHaveAttribute("href", "/");
-    expect(brand).not.toHaveAttribute("target");
-    expect(brand.querySelector('img[src="/inshell.svg"]')).toBeTruthy();
-
-    const nav = screen.getByRole("navigation", { name: "Inshell dapps" });
-    expect(within(nav).queryByRole("link", { name: "tokens" })).toBeNull();
-    expect(within(nav).queryByRole("link", { name: "gallery" })).toBeNull();
-    expect(within(nav).getByRole("link", { name: "THOUGHT" })).toHaveAttribute(
-      "href",
-      "https://thought.inshell.art",
-    );
-    expect(within(nav).getByRole("link", { name: "verify" })).toHaveAttribute("href", "/verify");
+    expect(screen.getByRole("link", { name: "$PATH" })).toHaveAttribute("href", "/path");
+    expect(screen.getByRole("link", { name: "$PATH" })).toHaveAttribute("target", "_blank");
+    expect(screen.queryByRole("navigation", { name: "Inshell dapps" })).toBeNull();
     expect(container.querySelector(".dotfield__mint")).toBeTruthy();
 
     const dots = container.querySelectorAll(".dotfield__point, .dotfield__now-dot");

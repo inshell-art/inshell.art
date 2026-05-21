@@ -31,10 +31,6 @@ import {
   buildReportBugLink,
   buildContractStatusSections,
   findContractStatusRow,
-  getSurfaceNavItems,
-  surfaceNavHref,
-  surfaceNavRel,
-  surfaceNavTarget,
 } from "@inshell/shared";
 
 import thoughtInstructions from "../THOUGHT.md?raw";
@@ -2303,26 +2299,6 @@ const contractStatusSections = () =>
 
 const contractStatusValue = (sectionId: string, rowId: string) =>
   findContractStatusRow(contractStatusSections(), sectionId, rowId)?.value ?? VERIFY_NOT_LOADED;
-
-const configureSurfaceNav = () => {
-  const navs = document.querySelectorAll<HTMLElement>("[data-inshell-surface-nav]");
-  for (const nav of navs) {
-    nav.replaceChildren(
-      ...getSurfaceNavItems("thought").map((item) => {
-        const link = document.createElement("a");
-        link.className = "inshell-app-nav__link";
-        link.href = surfaceNavHref(item, "thought");
-        link.textContent = item.label;
-        const target = surfaceNavTarget(item, "thought");
-        const rel = surfaceNavRel(item, "thought");
-        if (target) link.target = target;
-        if (rel) link.rel = rel;
-        if (item.id === "thought") link.setAttribute("aria-current", "page");
-        return link;
-      }),
-    );
-  }
-};
 
 const thoughtReportState = () => {
   if (IS_COLOR_FONT_PAGE) return "color_font";
@@ -11242,7 +11218,6 @@ document.addEventListener("keydown", (event) => {
 });
 
 const initFrontpage = async () => {
-  configureSurfaceNav();
   configureReportBugLink();
   configureGalleryLink();
   document.title = IS_COLOR_FONT_PAGE

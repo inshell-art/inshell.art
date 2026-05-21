@@ -344,7 +344,7 @@ html.verify-route .frontpage-stage {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
   grid-template-areas:
-    "title nav"
+    "title ."
     "canvas side";
   column-gap: 32px;
   row-gap: 18px;
@@ -375,16 +375,6 @@ body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-main {
   grid-area: title;
 }
 
-.frontpage-main > .thought-surface-nav {
-  grid-area: nav;
-  justify-self: end;
-  align-self: center;
-}
-
-.thought-surface-nav {
-  margin-top: 10px;
-}
-
 .thought-report-bug-link {
   position: fixed;
   right: clamp(14px, 2vw, 24px);
@@ -396,12 +386,6 @@ body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-main {
 
 .thought-report-bug-link.is-hidden {
   display: none;
-}
-
-.primitive-page__header .thought-surface-nav,
-.thought-gallery__header .thought-surface-nav {
-  justify-content: flex-start;
-  margin-top: 14px;
 }
 
 .thought-canvas-panel {

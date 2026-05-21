@@ -737,10 +737,6 @@ body {
   gap: 12px;
 }
 
-.dotfield__surface-nav {
-  justify-self: center;
-}
-
 .dotfield__mint-notice {
   text-align: right;
   font-size: 12px;
@@ -943,20 +939,6 @@ body {
 .dotfield__title-link {
   color: var(--accent);
   text-decoration: none;
-}
-
-.dotfield__brand-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.dotfield__title-icon {
-  width: 20px;
-  height: 20px;
-  display: block;
-  flex: 0 0 auto;
 }
 
 .dotfield__title-link:hover,
@@ -1280,10 +1262,6 @@ body {
   overscroll-behavior: contain;
 }
 
-.shell--home .dotfield__canvas {
-  height: clamp(260px, 43dvh, 420px);
-}
-
 .dotfield__canvas.is-dragging {
   cursor: grabbing;
 }
@@ -1312,9 +1290,6 @@ body {
     height: min(58vh, 520px);
   }
 
-  .shell--home .dotfield__canvas {
-    height: clamp(320px, 42dvh, 520px);
-  }
 }
 
 @media (min-width: 1800px) {
@@ -1326,9 +1301,6 @@ body {
     height: min(56vh, 600px);
   }
 
-  .shell--home .dotfield__canvas {
-    height: clamp(360px, 42dvh, 600px);
-  }
 }
 
 .dotfield__look {

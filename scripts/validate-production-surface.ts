@@ -355,13 +355,11 @@ function checkSharedSurfaceLayer() {
   requireSnippets("packages/shared/src/index.ts", [
     "SURFACE_TERMINOLOGY",
     "SURFACE_DEPLOYMENT_MANIFEST",
-    "SURFACE_NAV_ITEMS",
     "buildContractStatusSections",
     "buildReportBugLink",
     "shouldShowReportBug",
   ]);
   requireSnippets("packages/shared/src/design.css", [
-    ".inshell-app-nav",
     ".inshell-contract-status",
     ".inshell-report-bug-link",
     "--inshell-font-mono",
@@ -371,7 +369,6 @@ function checkSharedSurfaceLayer() {
     "@inshell/shared/design.css",
     "buildContractStatusSections",
     "buildReportBugLink",
-    "configureSurfaceNav",
   ]);
   requireSnippets(".github/workflows/deploy-pages.yml", [
     "VITE_REPORT_BUG_URL: ${{ vars.VITE_REPORT_BUG_URL }}",
