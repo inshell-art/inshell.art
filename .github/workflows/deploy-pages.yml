@@ -36,7 +36,7 @@ jobs:
       VITE_WALLET_CHAIN_RPC_URL: ${{ vars.VITE_WALLET_CHAIN_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com' }}
       VITE_WALLETCONNECT_PROJECT_ID: ${{ vars.VITE_WALLETCONNECT_PROJECT_ID }}
       VITE_PUBLIC_LAUNCH_MODE: ${{ vars.VITE_PUBLIC_LAUNCH_MODE || 'sepolia_invite' }}
-      VITE_REPORT_BUG_URL: ${{ vars.VITE_REPORT_BUG_URL }}
+      VITE_REPORT_BUG_URL: ${{ vars.VITE_REPORT_BUG_URL || 'https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md' }}
       VITE_GITHUB_URL: ${{ vars.VITE_GITHUB_URL || 'https://github.com/inshell-art/inshell.art' }}
       VITE_DEBUG_PANEL: ${{ vars.VITE_DEBUG_PANEL || 'off' }}
       VITE_THOUGHT_URL: ${{ vars.VITE_THOUGHT_URL || 'https://thought.inshell.art/' }}
@@ -92,7 +92,7 @@ jobs:
       VITE_PATH_MINT_URL: ${{ vars.VITE_PATH_MINT_URL || 'https://inshell.art' }}
       VITE_THOUGHT_EXPLORER_BASE_URL: ${{ vars.VITE_THOUGHT_EXPLORER_BASE_URL || 'https://sepolia.etherscan.io' }}
       VITE_PUBLIC_LAUNCH_MODE: ${{ vars.VITE_PUBLIC_LAUNCH_MODE || 'sepolia_invite' }}
-      VITE_REPORT_BUG_URL: ${{ vars.VITE_REPORT_BUG_URL }}
+      VITE_REPORT_BUG_URL: ${{ vars.VITE_REPORT_BUG_URL || 'https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md' }}
       VITE_GITHUB_URL: ${{ vars.VITE_GITHUB_URL || 'https://github.com/inshell-art/inshell.art' }}
     steps:
       - uses: actions/checkout@v4

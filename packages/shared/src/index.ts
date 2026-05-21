@@ -110,6 +110,8 @@ export const SURFACE_DEPLOYMENT_MANIFEST = {
 
 export const SEPOLIA_CHAIN_ID = 11155111;
 export const PUBLIC_SEPOLIA_WALLET_RPC_URL = "https://ethereum-sepolia-rpc.publicnode.com";
+export const DEFAULT_REPORT_BUG_URL =
+  "https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md";
 
 function normalizeChainId(value: string | number | bigint | null | undefined): number | null {
   if (typeof value === "number") return Number.isFinite(value) ? Math.trunc(value) : null;
@@ -371,7 +373,10 @@ export function getGithubUrl(options: ReportBugOptions = {}): string {
 }
 
 function getReportBugBaseUrl(options: ReportBugOptions = {}): string | null {
-  return options.baseUrl ?? readSharedEnvString("VITE_REPORT_BUG_URL", options);
+  const configured = options.baseUrl ?? readSharedEnvString("VITE_REPORT_BUG_URL", options);
+  if (typeof configured === "string" && configured.trim()) return configured.trim();
+  const mode = getPublicLaunchMode(options);
+  return mode === "sepolia_invite" || mode === "production" ? DEFAULT_REPORT_BUG_URL : null;
 }
 
 export function shouldShowReportBug(options: ReportBugOptions = {}): boolean {

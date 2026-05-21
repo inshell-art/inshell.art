@@ -90,7 +90,7 @@ GitHub Variables recommended:
 - `VITE_PUBLIC_LAUNCH_MODE=sepolia_invite`
 - `VITE_DEBUG_PANEL=off`
 - `VITE_GITHUB_URL=https://github.com/inshell-art/inshell.art`
-- `VITE_REPORT_BUG_URL=https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md`
+- `VITE_REPORT_BUG_URL=https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md` (optional override; this is the default launch report URL)
 - `VITE_THOUGHT_URL=https://thought.inshell.art/`
 - `VITE_PUBLIC_TELEGRAM_CHANNEL_URL=https://t.me/inshell_art`
 
@@ -180,7 +180,7 @@ export VITE_NETWORK="sepolia"
 export VITE_PULSE_AUCTION_DEPLOY_BLOCK="123456"
 export VITE_WALLETCONNECT_PROJECT_ID="your_walletconnect_project_id"
 export VITE_PUBLIC_LAUNCH_MODE="sepolia_invite"
-export VITE_REPORT_BUG_URL="https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md"
+export VITE_REPORT_BUG_URL="https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md" # optional override
 export VITE_GITHUB_URL="https://github.com/inshell-art/inshell.art"
 export VITE_DEBUG_PANEL="off"
 

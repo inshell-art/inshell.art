@@ -373,7 +373,7 @@ function checkSharedSurfaceLayer() {
     "buildReportBugLink",
   ]);
   requireSnippets(".github/workflows/deploy-pages.yml", [
-    "VITE_REPORT_BUG_URL: ${{ vars.VITE_REPORT_BUG_URL }}",
+    "VITE_REPORT_BUG_URL: ${{ vars.VITE_REPORT_BUG_URL || 'https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md' }}",
     "VITE_GITHUB_URL: ${{ vars.VITE_GITHUB_URL || 'https://github.com/inshell-art/inshell.art' }}",
     "VITE_WALLET_CHAIN_RPC_URL: ${{ vars.VITE_WALLET_CHAIN_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com' }}",
   ]);
