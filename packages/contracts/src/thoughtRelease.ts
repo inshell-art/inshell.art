@@ -33,6 +33,7 @@ export type ThoughtRelease = {
   };
   deploy_txs?: Record<string, string>;
   deploy_blocks?: Record<string, number>;
+  code_hashes?: Record<string, string>;
 };
 
 const RELEASES: Record<string, ReleaseBook> = {
@@ -93,4 +94,13 @@ export function getThoughtReleaseDeployBlock(
   return typeof value === "number" && Number.isFinite(value)
     ? Math.max(0, Math.trunc(value))
     : undefined;
+}
+
+export function getThoughtReleaseCodeHash(
+  id: string,
+  network = currentNetwork()
+): string | undefined {
+  const release = getThoughtRelease(network);
+  const value = release?.code_hashes?.[id.toLowerCase()];
+  return typeof value === "string" ? value : undefined;
 }

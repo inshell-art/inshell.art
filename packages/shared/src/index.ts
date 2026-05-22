@@ -128,7 +128,7 @@ function normalizeChainId(value: string | number | bigint | null | undefined): n
 function isInshellReadOnlyRpcProxy(url: globalThis.URL): boolean {
   const hostname = url.hostname.toLowerCase();
   return (
-    url.pathname === "/api/eth-rpc" &&
+    ["/api/eth-rpc", "/api/path-rpc", "/api/thought-rpc"].includes(url.pathname) &&
     (hostname === "inshell.art" ||
       hostname === "thought.inshell.art" ||
       hostname.endsWith(".inshell.art"))
@@ -145,7 +145,10 @@ function normalizeWalletRpcUrl(value: string | null | undefined, currentOrigin?:
     if (isInshellReadOnlyRpcProxy(parsed)) return "";
     if (currentOrigin) {
       const origin = new globalThis.URL(currentOrigin);
-      if (parsed.origin === origin.origin && parsed.pathname === "/api/eth-rpc") return "";
+      if (
+        parsed.origin === origin.origin &&
+        ["/api/eth-rpc", "/api/path-rpc", "/api/thought-rpc"].includes(parsed.pathname)
+      ) return "";
     }
     return trimmed;
   } catch {

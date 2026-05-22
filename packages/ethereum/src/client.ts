@@ -261,10 +261,10 @@ export function getDefaultProvider(): ProviderInterface {
     return new JsonRpcProvider(configuredRpcUrl.trim());
   }
   if (hasBrowserLocation() && (requiresConfiguredRpc() || !isLocalBrowserHost())) {
-    return new JsonRpcProvider("/api/eth-rpc");
+    return new JsonRpcProvider("/api/path-rpc");
   }
   if (requiresConfiguredRpc()) {
-    return new JsonRpcProvider("/api/eth-rpc");
+    return new JsonRpcProvider("/api/path-rpc");
   }
   if (!requiresConfiguredRpc() && isLocalBrowserHost()) {
     return new JsonRpcProvider("http://127.0.0.1:8546");

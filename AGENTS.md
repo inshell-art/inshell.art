@@ -1,5 +1,11 @@
 # AGENTS
 
+## Response Style
+- Speak bluntly and answer the direct question first.
+- If work needs an external value, secret, account action, deployment setting, product decision, or operator confirmation, ask for it directly and early.
+- Do not hide required follow-up actions in docs, caveats, or final summaries. State the blocker as a concrete ask.
+- Do not wait for the operator to discover a missing requirement from a failed deploy or runtime error when the need is already known.
+
 ## Terminology
 - In product discussions, do not call the repo owner/operator "user". Use "dev", "operator", or "project owner" for the person building/running Inshell.
 - Reserve "user" for actual product end users such as wallet holders, visitors, minters, or CLI operators inside the app.

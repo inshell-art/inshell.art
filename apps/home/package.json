@@ -7,7 +7,7 @@
     "dev": "vite --host 127.0.0.1 --port 5173 --strictPort",
     "dev:devnet": "vite --mode devnet --host 127.0.0.1 --port 5173 --strictPort",
     "build": "vite build",
-    "build:prod": "VITE_NETWORK=sepolia VITE_ETH_RPC=/api/eth-rpc vite build --mode prod",
+    "build:prod": "VITE_NETWORK=sepolia VITE_ETH_RPC=/api/path-rpc vite build --mode prod",
     "test": "jest",
     "test:fast": "jest --runTestsByPath tests/num.test.ts tests/pulseCurve.test.ts",
     "test:presepolia": "jest --runTestsByPath tests/App.test.tsx tests/pathTokens.test.ts tests/AuctionCanvas.test.tsx",

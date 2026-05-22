@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "network": "sepolia",
+  "chain_id": 11155111,
+  "generated_at": "2026-05-22T00:00:00.000Z",
+  "contracts": {
+    "pulse_auction": {
+      "label": "PulseAuction",
+      "address": "0x1071e99928Bdf020794a5E3e5B9c920450Ac9b39",
+      "source_repo": "path",
+      "source_commit": "e078ac33a354ae0783ba382fddb7ecde29d931de",
+      "source_commit_status": "release_manifest",
+      "expected_runtime_code_hash": "0x376d9a5fa6554ec6e0007ce5ef66e4b1f331c9d6d9356ce08bc6477291566fc4",
+      "evidence_status": "release_manifest_hash"
+    },
+    "path_pulse_adapter": {
+      "label": "PathPulseAdapter",
+      "address": "0x8Cd52b431F4e932c5fDd8E49073c2c5bc1bfabF2",
+      "source_repo": "path",
+      "source_commit": "e078ac33a354ae0783ba382fddb7ecde29d931de",
+      "source_commit_status": "release_manifest",
+      "expected_runtime_code_hash": "0x89c724bb3d5ab81bb0b2663e46cd00553b84aa0298edbfbcac152539822379d8",
+      "evidence_status": "release_manifest_hash"
+    },
+    "path_nft": {
+      "label": "PathNFT",
+      "address": "0x84915746a1f06850CF41a3E90C60c2DcA3fa116D",
+      "source_repo": "path",
+      "source_commit": "e078ac33a354ae0783ba382fddb7ecde29d931de",
+      "source_commit_status": "release_manifest",
+      "expected_runtime_code_hash": "0xf051c6d41d65e8c8ce4f43036922fa7a634baee4fcb5c84848223ed360d9ef6f",
+      "evidence_status": "release_manifest_hash"
+    },
+    "thought_nft": {
+      "label": "ThoughtNFT",
+      "address": "0x413efb5C95Bf3158F0E563FB9E19CB650Fc3760a",
+      "source_repo": "THOUGHT",
+      "source_commit": null,
+      "source_commit_status": "unproven",
+      "expected_runtime_code_hash": "0x6dd987086e7379de72e848d34645231e015eb55d212983d6a7fea3afe568ad54",
+      "evidence_status": "observed_onchain_hash_only"
+    },
+    "thought_spec_registry": {
+      "label": "ThoughtSpecRegistry",
+      "address": "0xBB8FD738b01b4a14F5E9bCFE408239a05d84621D",
+      "source_repo": "THOUGHT",
+      "source_commit": null,
+      "source_commit_status": "unproven",
+      "expected_runtime_code_hash": "0x73b9600eb0d37e893fe69e5ea6331645f9dfe234c1a2f651b0d8d443d7595c60",
+      "evidence_status": "observed_onchain_hash_only"
+    },
+    "color_font_v1": {
+      "label": "ColorFont",
+      "address": "0xC223507ab7801Fdf234766fa1A87F09eae3494af",
+      "source_repo": "THOUGHT",
+      "source_commit": null,
+      "source_commit_status": "unproven",
+      "expected_runtime_code_hash": "0x3a463d2eda93facae7e9a29e09cb57105cf8129d11bdaf629b92cbd9f97a9261",
+      "evidence_status": "observed_onchain_hash_only"
+    }
+  }
+}

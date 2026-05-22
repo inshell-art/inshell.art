@@ -14,6 +14,7 @@
     "@fontsource/source-code-pro": "^5.2.6",
     "@inshell/contracts": "workspace:*",
     "@inshell/shared": "workspace:*",
+    "@inshell/surface-shell-core": "workspace:*",
     "@inshell/wallet": "workspace:*",
     "ethers": "^6.16.0",
     "react": "^18.3.1",

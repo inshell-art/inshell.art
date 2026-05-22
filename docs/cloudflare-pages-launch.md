@@ -1,6 +1,6 @@
 # Cloudflare Pages Launch
 
-Last updated: 2026-05-16
+Last updated: 2026-05-22
 
 ## Decision
 
@@ -30,7 +30,7 @@ Production environment variables:
 ```text
 VITE_NETWORK=sepolia
 VITE_PUBLIC_LAUNCH_MODE=sepolia_invite
-VITE_ETH_RPC=/api/eth-rpc
+VITE_ETH_RPC=/api/path-rpc
 VITE_DEBUG_PANEL=off
 VITE_GITHUB_URL=https://github.com/inshell-art/inshell.art
 VITE_THOUGHT_URL=https://thought.inshell.art/
@@ -47,10 +47,13 @@ VITE_WALLETCONNECT_PROJECT_ID=<public WalletConnect project id>
 Production secret:
 
 ```text
-ETH_RPC_UPSTREAM=<private Sepolia RPC HTTPS endpoint>
+PATH_RPC_UPSTREAM=<private Sepolia RPC HTTPS endpoint for PATH reads>
+ETH_RPC_UPSTREAM=<legacy private Sepolia RPC fallback endpoint>
+MSG_HUB_RPC_USAGE_ENDPOINT=<optional private usage monitor ingest URL>
+MSG_HUB_RPC_USAGE_TOKEN=<optional private usage monitor bearer token>
 ```
 
-`ETH_RPC_UPSTREAM` is consumed only by the Cloudflare Pages Function at `/api/eth-rpc`. Do not expose it as a `VITE_*` variable.
+`PATH_RPC_UPSTREAM` is consumed only by the Cloudflare Pages Function at `/api/path-rpc`. Do not expose it as a `VITE_*` variable. `ETH_RPC_UPSTREAM` is a legacy fallback only; `/api/eth-rpc` does not allow `eth_getLogs`.
 
 Remove old Starknet variables from the Cloudflare dashboard:
 
@@ -76,8 +79,8 @@ Production environment variables:
 
 ```text
 VITE_NETWORK=sepolia
-VITE_ETH_RPC=/api/eth-rpc
-VITE_THOUGHT_RPC_URL=https://thought.inshell.art/api/eth-rpc
+VITE_ETH_RPC=/api/path-rpc
+VITE_THOUGHT_RPC_URL=/api/thought-rpc
 VITE_THOUGHT_PREVIEW_ENDPOINT_ENABLED=true
 VITE_THOUGHT_PREVIEW_ENDPOINT_URL=/api/thought-preview
 VITE_WALLET_CHAIN_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
@@ -90,11 +93,15 @@ VITE_WALLET_CHAIN_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
 Production secret:
 
 ```text
-ETH_RPC_UPSTREAM=<private Sepolia RPC HTTPS endpoint>
+PATH_RPC_UPSTREAM=<private Sepolia RPC HTTPS endpoint for PATH reads>
+THOUGHT_RPC_UPSTREAM=<private Sepolia RPC HTTPS endpoint for THOUGHT reads and preview fallback>
+ETH_RPC_UPSTREAM=<legacy private Sepolia RPC fallback endpoint>
 THOUGHT_PREVIEW_RPC_UPSTREAM=<private Sepolia RPC HTTPS endpoint>
+MSG_HUB_RPC_USAGE_ENDPOINT=<optional private usage monitor ingest URL>
+MSG_HUB_RPC_USAGE_TOKEN=<optional private usage monitor bearer token>
 ```
 
-`THOUGHT_PREVIEW_RPC_UPSTREAM` can use a dedicated preview RPC key. If it is not set, `/api/thought-preview` falls back to `ETH_RPC_UPSTREAM`.
+`THOUGHT_PREVIEW_RPC_UPSTREAM` can use a dedicated preview RPC key. If it is not set, `/api/thought-preview` falls back to `THOUGHT_RPC_UPSTREAM`, then `ETH_RPC_UPSTREAM`.
 
 Optional THOUGHT preview runtime vars:
 
@@ -136,9 +143,13 @@ The repo contains a Cloudflare Pages Function:
 
 ```text
 functions/api/eth-rpc.ts
+functions/api/path-rpc.ts
+functions/api/thought-rpc.ts
 ```
 
-It forwards same-origin frontend JSON-RPC reads to `ETH_RPC_UPSTREAM`.
+`/api/path-rpc` forwards constrained PATH reads to `PATH_RPC_UPSTREAM`.
+`/api/thought-rpc` forwards constrained THOUGHT reads to `THOUGHT_RPC_UPSTREAM`.
+`/api/eth-rpc` is a legacy read fallback to `ETH_RPC_UPSTREAM`; it does not allow `eth_getLogs`.
 
 Allowed methods are read-oriented Ethereum JSON-RPC calls such as:
 
@@ -149,10 +160,9 @@ eth_blockNumber
 eth_getCode
 eth_getLogs
 eth_getTransactionReceipt
-eth_estimateGas
 ```
 
-The function does not allow arbitrary write/broadcast RPC methods. Wallet transactions should still go through the user wallet.
+The functions do not allow arbitrary write/broadcast RPC methods. `eth_getLogs` is only accepted on the PATH and THOUGHT gates for known deployed contract addresses and known event topics, with range limits, chunking, cache, per-client rate limits, and optional msg-hub usage warnings.
 
 ## Manual Fallback Deploy
 
@@ -169,7 +179,8 @@ CLOUDFLARE_PAGES_PROJECT_HOME=inshell-art
 CLOUDFLARE_PAGES_PROJECT_THOUGHT=thought-inshell-art
 VITE_NETWORK=sepolia
 VITE_PUBLIC_LAUNCH_MODE=sepolia_invite
-VITE_ETH_RPC=/api/eth-rpc
+VITE_ETH_RPC=/api/path-rpc
+VITE_THOUGHT_RPC_URL=/api/thought-rpc
 VITE_DEBUG_PANEL=off
 VITE_THOUGHT_URL=https://thought.inshell.art/
 ```
@@ -181,4 +192,4 @@ CLOUDFLARE_ACCOUNT_ID=7fc68967a9445609a0788d8c94e45de0
 CLOUDFLARE_API_TOKEN=<Cloudflare Pages edit token>
 ```
 
-The manual fallback deploy does not need the private RPC URL because the deployed Pages Function reads `ETH_RPC_UPSTREAM` from Cloudflare Pages project secrets.
+The manual fallback deploy does not need private RPC URLs because the deployed Pages Functions read `PATH_RPC_UPSTREAM`, `THOUGHT_RPC_UPSTREAM`, and the legacy `ETH_RPC_UPSTREAM` fallback from Cloudflare Pages project secrets.

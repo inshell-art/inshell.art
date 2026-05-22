@@ -6,6 +6,7 @@ type PagesContext = {
   request: Request;
   env: {
     ETH_RPC_UPSTREAM?: string;
+    THOUGHT_RPC_UPSTREAM?: string;
     THOUGHT_PREVIEW_RPC_UPSTREAM?: string;
     THOUGHT_PREVIEW_NFT_ADDRESS?: string;
     THOUGHT_PREVIEW_CHAIN_ID?: string;
@@ -320,7 +321,12 @@ export async function onRequestGet(): Promise<Response> {
 }
 
 export async function onRequestPost(context: PagesContext): Promise<Response> {
-  const upstream = (context.env.THOUGHT_PREVIEW_RPC_UPSTREAM || context.env.ETH_RPC_UPSTREAM || "").trim();
+  const upstream = (
+    context.env.THOUGHT_PREVIEW_RPC_UPSTREAM ||
+    context.env.THOUGHT_RPC_UPSTREAM ||
+    context.env.ETH_RPC_UPSTREAM ||
+    ""
+  ).trim();
   if (!upstream) {
     return json(500, {
       error: "THOUGHT preview RPC upstream is not configured.",

@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from "@jest/globals";
 import {
   __clearRpcProxyCachesForTests,
-  onRequestPost,
+  onRequestPost as onFallbackRpcPost,
 } from "../../../functions/api/eth-rpc";
+import { onRequestPost as onPathRpcPost } from "../../../functions/api/path-rpc";
 
 type MockFetchResponse = {
   status: number;
@@ -39,10 +40,20 @@ function rpcRequest(payload: unknown): Request {
 }
 
 function postRpc(payload: unknown): Promise<Response> {
-  return onRequestPost({
+  return onFallbackRpcPost({
     request: rpcRequest(payload),
     env: {
       ETH_RPC_UPSTREAM: "https://rpc.example/sepolia",
+    },
+  });
+}
+
+function postPathRpc(payload: unknown): Promise<Response> {
+  return onPathRpcPost({
+    request: rpcRequest(payload),
+    env: {
+      PATH_RPC_UPSTREAM: "https://path-rpc.example/sepolia",
+      ETH_RPC_UPSTREAM: "https://fallback-rpc.example/sepolia",
     },
   });
 }
@@ -115,7 +126,7 @@ describe("Cloudflare Ethereum RPC proxy", () => {
       jsonrpc: "2.0",
       id: 1,
       method: "eth_call",
-      params: [{ to: "0x0000000000000000000000000000000000000001", data: "0x1234" }, "latest"],
+      params: [{ to: "0x1071e99928Bdf020794a5E3e5B9c920450Ac9b39", data: "0x1234" }, "latest"],
     };
 
     await expect((await postRpc(call)).json()).resolves.toEqual({
@@ -250,5 +261,61 @@ describe("Cloudflare Ethereum RPC proxy", () => {
       result: "0x123",
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("rejects broad legacy eth_getLogs access", async () => {
+    const fetchMock = jest.fn<() => Promise<MockFetchResponse>>();
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const response = await postRpc({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "eth_getLogs",
+      params: [
+        {
+          address: "0x84915746a1f06850CF41a3E90C60c2DcA3fa116D",
+          fromBlock: "0x1",
+          toBlock: "0xa",
+          topics: ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"],
+        },
+      ],
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "RPC method is not allowed: eth_getLogs",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test("routes PATH logs through the PATH upstream and chunks provider calls", async () => {
+    const fetchMock = jest.fn<() => Promise<MockFetchResponse>>(async () => ({
+      status: 200,
+      text: async () => JSON.stringify({ jsonrpc: "2.0", id: 1, result: [] }),
+    }));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const response = await postPathRpc({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "eth_getLogs",
+      params: [
+        {
+          address: "0x84915746a1f06850CF41a3E90C60c2DcA3fa116D",
+          fromBlock: "0x1",
+          toBlock: "0x14",
+          topics: ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"],
+        },
+      ],
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      jsonrpc: "2.0",
+      id: 1,
+      result: [],
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls.every(([url]) => url === "https://path-rpc.example/sepolia")).toBe(true);
   });
 });

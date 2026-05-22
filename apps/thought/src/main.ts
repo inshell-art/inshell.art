@@ -33,6 +33,12 @@ import {
   findContractStatusRow,
   resolveWalletChainRpcUrls,
 } from "@inshell/shared";
+import {
+  parseSurfaceInput,
+  redactSurfaceInput,
+  shouldRecordSurfaceInput,
+  type SurfaceRedactionRule,
+} from "@inshell/surface-shell-core";
 
 import thoughtInstructions from "../THOUGHT.md?raw";
 import thoughtInstructionsUrl from "../THOUGHT.md?url";
@@ -8183,38 +8189,47 @@ const appendCliEntry = (
   return entry;
 };
 
+const THOUGHT_CLI_SECRET_REDACTION_RULES: SurfaceRedactionRule[] = [
+  {
+    id: "preview-rpc-endpoint",
+    match: (input) => {
+      if (!isPreviewRpcEndpointCommand(input)) {
+        return null;
+      }
+      const parts = input.split(/\s+/);
+      const endpoint = parts.slice(parts[0]?.toLowerCase() === "config" ? 3 : 2).join(" ");
+      const prefix = parts[0]?.toLowerCase() === "config" ? "config rpc endpoint" : "rpc endpoint";
+      return {
+        prefix,
+        rest: endpoint,
+        replacement: endpoint.trim() ? `${prefix} ${maskRpcEndpoint(endpoint)}` : input,
+        excludeFromHistory: true,
+      };
+    },
+  },
+  {
+    id: "direct-key",
+    tokens: ["key"],
+    allowRestValues: ["clear", "help"],
+  },
+  {
+    id: "config-key",
+    tokens: ["config", "key"],
+    allowRestValues: ["clear", "help"],
+  },
+  {
+    id: "config-direct-key",
+    tokens: ["config", "direct", "key"],
+    allowRestValues: ["clear", "help"],
+  },
+];
+
 const displayCliCommand = (command: string) => {
   if (isPreviewRpcEndpointCommand(command)) {
-    const parts = command.split(/\s+/);
-    const endpoint = parts.slice(parts[0]?.toLowerCase() === "config" ? 3 : 2).join(" ");
-    const prefix = parts[0]?.toLowerCase() === "config" ? "config rpc endpoint" : "rpc endpoint";
-    return endpoint.trim() ? `${prefix} ${maskRpcEndpoint(endpoint)}` : command;
+    return redactSurfaceInput(command, THOUGHT_CLI_SECRET_REDACTION_RULES);
   }
 
-  const parts = command.split(/\s+/);
-  const [head = "", second = "", third = ""] = parts;
-  const lowerHead = head.toLowerCase();
-  const lowerSecond = second.toLowerCase();
-  const lowerThird = third.toLowerCase();
-  const prefix =
-    lowerHead === "key"
-      ? "key"
-      : lowerHead === "config" && lowerSecond === "key"
-        ? "config key"
-        : lowerHead === "config" && lowerSecond === "direct" && lowerThird === "key"
-          ? "config direct key"
-          : "";
-
-  if (!prefix) {
-    return command;
-  }
-
-  const rest = command.slice(prefix.length).trim();
-  if (!rest || rest.toLowerCase() === "clear" || rest.toLowerCase() === "help") {
-    return command;
-  }
-
-  return `${prefix} ********`;
+  return redactSurfaceInput(command, THOUGHT_CLI_SECRET_REDACTION_RULES);
 };
 
 const isMyBrainShellActive = () =>
@@ -8223,30 +8238,7 @@ const isMyBrainShellActive = () =>
 const currentCliShellPrompt = () => (isMyBrainShellActive() ? "my-brain>" : "thought>");
 
 const shouldRecordCliCommand = (command: string) => {
-  if (isPreviewRpcEndpointCommand(command)) {
-    return false;
-  }
-
-  const parts = command.split(/\s+/);
-  const [head = "", second = "", third = ""] = parts;
-  const lowerHead = head.toLowerCase();
-  const lowerSecond = second.toLowerCase();
-  const lowerThird = third.toLowerCase();
-  const prefix =
-    lowerHead === "key"
-      ? "key"
-      : lowerHead === "config" && lowerSecond === "key"
-        ? "config key"
-        : lowerHead === "config" && lowerSecond === "direct" && lowerThird === "key"
-          ? "config direct key"
-          : "";
-
-  if (!prefix) {
-    return true;
-  }
-
-  const rest = command.slice(prefix.length).trim().toLowerCase();
-  return !rest || rest === "clear" || rest === "help";
+  return shouldRecordSurfaceInput(command, THOUGHT_CLI_SECRET_REDACTION_RULES);
 };
 
 const readStoredCliCommandHistory = () => {
@@ -11896,9 +11888,11 @@ const executeCliCommand = async (rawCommand: string) => {
   syncCliPanel();
 
   try {
-    const [head = "", second = ""] = command.split(/\s+/, 2);
-    const rest = command.slice(head.length).trim();
-    const lowerHead = head.toLowerCase();
+    const parsedCommand = parseSurfaceInput(command, { mode: "command-first" });
+    const head = parsedCommand.commandToken;
+    const rest = parsedCommand.rest;
+    const [second = ""] = rest.split(/\s+/, 1);
+    const lowerHead = parsedCommand.commandKey;
     const lowerRest = rest.toLowerCase();
     cliSuggestionContext = "auto";
 

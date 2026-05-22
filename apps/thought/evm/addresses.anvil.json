@@ -1,5 +1,5 @@
 {
-  "rpcUrl": "https://thought.inshell.art/api/eth-rpc",
+  "rpcUrl": "https://thought.inshell.art/api/thought-rpc",
   "chainId": 11155111,
   "explorerUrl": "https://sepolia.etherscan.io",
   "pathNft": {

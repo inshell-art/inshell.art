@@ -62,5 +62,10 @@
     "thought_nft": 10872879,
     "path_set_movement": 10872882,
     "path_freeze_movement": 10872885
+  },
+  "code_hashes": {
+    "thought_nft": "0x6dd987086e7379de72e848d34645231e015eb55d212983d6a7fea3afe568ad54",
+    "thought_spec_registry": "0x73b9600eb0d37e893fe69e5ea6331645f9dfe234c1a2f651b0d8d443d7595c60",
+    "color_font_v1": "0x3a463d2eda93facae7e9a29e09cb57105cf8129d11bdaf629b92cbd9f97a9261"
   }
 }

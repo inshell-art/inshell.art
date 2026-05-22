@@ -19,7 +19,8 @@ const DEPLOY_WORKFLOW_SNIPPETS = [
   "deploy-thought",
   "dist/home",
   "dist/thought",
-  "/api/eth-rpc",
+  "/api/path-rpc",
+  "/api/thought-rpc",
   "CLOUDFLARE_API_TOKEN",
   "CLOUDFLARE_ACCOUNT_ID",
   "CLOUDFLARE_PAGES_PROJECT_HOME",
@@ -423,21 +424,21 @@ function checkSharedSurfaceLayer() {
 }
 
 function checkCloudflareRpcProxy() {
-  const text = read("functions/api/eth-rpc.ts");
-  for (const snippet of [
+  requireSnippets("functions/api/rpc-gate.ts", [
     "ETH_RPC_UPSTREAM",
-    "ALLOWED_METHODS",
-    "access-control-allow-origin",
-    "access-control-allow-methods",
-    "access-control-allow-headers",
-    "eth_call",
-    "eth_getLogs",
-    "eth_getTransactionReceipt",
-  ]) {
-    if (!text.includes(snippet)) {
-      fail(`functions/api/eth-rpc.ts is missing RPC proxy snippet: ${snippet}`);
-    }
-  }
+    "PATH_RPC_UPSTREAM",
+    "THOUGHT_RPC_UPSTREAM",
+    "MSG_HUB_RPC_USAGE_ENDPOINT",
+    "eth_getLogs batches are not allowed.",
+    "eth_getLogs range is too large",
+    "rpc.usage.warning",
+    "pathRpcGate",
+    "thoughtRpcGate",
+    "fallbackRpcGate",
+  ]);
+  requireSnippets("functions/api/eth-rpc.ts", ["fallbackRpcGate"]);
+  requireSnippets("functions/api/path-rpc.ts", ["pathRpcGate"]);
+  requireSnippets("functions/api/thought-rpc.ts", ["thoughtRpcGate"]);
 }
 
 function checkThoughtPreviewEndpoint() {

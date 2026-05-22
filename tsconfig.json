@@ -17,6 +17,9 @@
       "path": "./packages/shared"
     },
     {
+      "path": "./packages/surface-shell-core"
+    },
+    {
       "path": "./packages/utils"
     },
     {

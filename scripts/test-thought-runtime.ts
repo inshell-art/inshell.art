@@ -15,6 +15,14 @@ import {
   normalizePreviewMode,
   prevalidateThoughtCandidate,
 } from "../apps/thought/src/thought-preview-policy";
+import {
+  createMemoryStorageAdapter,
+  createSurfaceShell,
+  parseSurfaceInput,
+  redactSurfaceInput,
+  shouldRecordSurfaceInput,
+  type SurfaceRedactionRule,
+} from "../packages/surface-shell-core/src";
 
 const thoughtSpec: ThoughtRunSpec = {
   id: "THOUGHT.v1.md",
@@ -99,6 +107,64 @@ assert.equal(
 assert.equal(isPreviewRpcEndpointCommand("config rpc endpoint https://example.test"), true);
 assert.equal(isPreviewRpcEndpointCommand("rpc endpoint https://example.test"), true);
 assert.equal(isPreviewRpcEndpointCommand("rpc call eth_blockNumber"), false);
+
+const secretRules: SurfaceRedactionRule[] = [
+  {
+    id: "key",
+    tokens: ["config", "direct", "key"],
+    allowRestValues: ["clear", "help"],
+  },
+];
+assert.deepEqual(parseSurfaceInput("  PATH   list  ", { mode: "command-first" }), {
+  raw: "  PATH   list  ",
+  trimmed: "PATH   list",
+  mode: "command-first",
+  isBlank: false,
+  isCommand: true,
+  isQuestion: false,
+  commandToken: "PATH",
+  commandKey: "path",
+  rest: "list",
+  args: ["list"],
+  question: "",
+});
+assert.equal(
+  redactSurfaceInput("config direct key sk-private", secretRules),
+  "config direct key ********",
+);
+assert.equal(shouldRecordSurfaceInput("config direct key sk-private", secretRules), false);
+assert.equal(shouldRecordSurfaceInput("config direct key clear", secretRules), true);
+
+const storage = createMemoryStorageAdapter();
+const shell = createSurfaceShell<{ value: string }>({
+  mode: "question-first",
+  commandPrefix: "/",
+  storage,
+  historyLimit: 2,
+  transcriptLimit: 4,
+  commands: [
+    {
+      id: "echo",
+      run: ({ input, context }) => [`${context.value}:${input.rest}`],
+    },
+    {
+      id: "slow",
+      run: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        return "done";
+      },
+    },
+  ],
+  redactionRules: secretRules,
+});
+assert.equal(shell.parse("hello").isQuestion, true);
+assert.equal(shell.parse("/echo hi").commandKey, "echo");
+await shell.dispatch("/echo hi", { value: "ok" });
+const slowDispatch = shell.dispatch("/slow", { value: "ok" });
+const blockedDispatch = await shell.dispatch("/echo blocked", { value: "ok" });
+assert.equal(blockedDispatch.reason, "in_flight");
+await slowDispatch;
+assert.deepEqual(shell.getHistory(), ["/echo hi", "/slow"]);
 
 const validCandidate = prevalidateThoughtCandidate("quiet green sky", {
   maxRawBytes: 512,

@@ -32,10 +32,10 @@ describe("Ethereum client production RPC guard", () => {
     (globalThis as any).__VITE_ENV__ = {
       VITE_NETWORK: "sepolia",
       VITE_PUBLIC_LAUNCH_MODE: "sepolia_invite",
-      VITE_ETH_RPC: "/api/eth-rpc",
+      VITE_ETH_RPC: "/api/path-rpc",
     };
 
-    expect(providerRpcUrl()).toBe("/api/eth-rpc");
+    expect(providerRpcUrl()).toBe("/api/path-rpc");
   });
 
   test("allows localhost RPC fallback only for local development", () => {
@@ -50,7 +50,7 @@ describe("Ethereum client production RPC guard", () => {
       VITE_PUBLIC_LAUNCH_MODE: "sepolia_invite",
     };
 
-    expect(providerRpcUrl()).toBe("/api/eth-rpc");
+    expect(providerRpcUrl()).toBe("/api/path-rpc");
   });
 
   test("uses same-origin RPC proxy for production launch mode without a public RPC", () => {
@@ -58,7 +58,7 @@ describe("Ethereum client production RPC guard", () => {
       VITE_PUBLIC_LAUNCH_MODE: "production",
     };
 
-    expect(providerRpcUrl()).toBe("/api/eth-rpc");
+    expect(providerRpcUrl()).toBe("/api/path-rpc");
   });
 
   test("surfaces empty RPC responses with method context", async () => {

@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "tsBuildInfoFile": "../../node_modules/.tmp/tsconfig.surface-shell-core.tsbuildinfo",
+    "noEmit": true
+  },
+  "include": ["src"]
+}
