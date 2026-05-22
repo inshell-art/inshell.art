@@ -5367,6 +5367,7 @@ const renderChainLoadingStatus = (
   const dots = document.createElement("span");
   dots.className = "inshell-chain-loading__dots";
   dots.setAttribute("aria-hidden", "true");
+  dots.textContent = "...";
   line.append(dots);
 
   wrapper.append(line);

@@ -332,7 +332,7 @@ function ChainLoadingStatus({
     <span className="inshell-chain-loading" aria-label={`reading from chain: ${status}...`}>
       <span className="inshell-chain-loading__line">
         reading from chain: {status}
-        <span className="inshell-chain-loading__dots" aria-hidden="true" />
+        <span className="inshell-chain-loading__dots" aria-hidden="true">...</span>
       </span>
     </span>
   );

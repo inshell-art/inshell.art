@@ -537,7 +537,7 @@ describe("App Component", () => {
     expect(
       screen.getByLabelText("reading from chain: checking latest block..."),
     ).toBeInTheDocument();
-    expect(screen.getByText("reading from chain: checking latest block")).toBeInTheDocument();
+    expect(screen.getByText(/reading from chain: checking latest block/)).toBeInTheDocument();
     expect(await screen.findByText("token list unavailable")).toBeInTheDocument();
   });
 

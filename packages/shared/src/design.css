@@ -52,26 +52,19 @@
 }
 
 .inshell-chain-loading__dots {
-  display: inline-block;
-  width: 3ch;
-  text-align: left;
+  display: inline;
   vertical-align: baseline;
-}
-
-.inshell-chain-loading__dots::before {
-  display: inline-block;
-  width: 0;
-  overflow: hidden;
-  content: "...";
-  animation: inshell-chain-loading-dots 1.2s steps(4, end) infinite;
+  line-height: inherit;
+  animation: inshell-chain-loading-dots 1.2s ease-in-out infinite;
 }
 
 @keyframes inshell-chain-loading-dots {
-  from {
-    width: 0;
+  0%,
+  100% {
+    opacity: 0.25;
   }
 
-  to {
-    width: 3ch;
+  50% {
+    opacity: 1;
   }
 }
