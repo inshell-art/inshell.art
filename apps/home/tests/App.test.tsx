@@ -390,6 +390,7 @@ describe("App Component", () => {
     render(<App />);
 
     expect(document.title).toBe("verify — $PATH");
+    expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
     expect(screen.getByRole("heading", { name: "verify" })).toBeInTheDocument();
     expect(screen.getByText("Official Inshell dapp and wallet surfaces.")).toBeInTheDocument();
     expect(screen.getByText("https://inshell.art")).toBeInTheDocument();
@@ -527,6 +528,14 @@ describe("App Component", () => {
     expect(image).toHaveAttribute("src", expect.stringContaining("will-fill"));
     expect(image).toHaveAttribute("src", expect.stringContaining("r%3D'3'"));
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
+  });
+
+  test("renders the live PATH page with an explicit chain loading message", async () => {
+    window.history.pushState({}, "", "/path");
+    render(<App />);
+
+    expect(screen.getByText("reading live $PATH tokens from chain...")).toBeInTheDocument();
+    expect(await screen.findByText("token list unavailable")).toBeInTheDocument();
   });
 
   test("renders the PATH state gallery fixture", () => {

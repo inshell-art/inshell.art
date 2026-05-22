@@ -614,6 +614,7 @@ const PREFLIGHT_REQUEST_TIMEOUT_MS = 15000;
 const WALLET_TX_SUBMIT_TIMEOUT_MS = 60000;
 const MINT_RECEIPT_TIMEOUT_MS = 120000;
 const MINT_RECEIPT_POLL_MS = 1000;
+const CLI_RPC_LOADING_DELAY_MS = 900;
 const CLI_COMMAND_HISTORY_LIMIT = 80;
 const APP_VERSION = "0.0.2";
 const APP_BUILD = typeof import.meta.env.VITE_APP_BUILD === "string" && import.meta.env.VITE_APP_BUILD
@@ -5318,7 +5319,7 @@ const highlightGalleryTarget = () => {
 };
 
 const loadThoughtGallery = async () => {
-  galleryStatus.textContent = "loading minted THOUGHTs...";
+  galleryStatus.textContent = "reading minted THOUGHTs from chain...";
   galleryGrid.replaceChildren();
 
   try {
@@ -7799,6 +7800,27 @@ const appendCliProgressOutput = (lines: string | string[]) => {
   return entry;
 };
 
+const withDelayedCliLoading = async <T>(
+  lines: string | string[],
+  action: () => Promise<T>,
+  delayMs = CLI_RPC_LOADING_DELAY_MS,
+): Promise<T> => {
+  let loadingShown = false;
+  const timer = window.setTimeout(() => {
+    loadingShown = true;
+    appendCliProgressOutput(lines);
+  }, delayMs);
+
+  try {
+    return await action();
+  } finally {
+    window.clearTimeout(timer);
+    if (loadingShown) {
+      stopCliProgress();
+    }
+  }
+};
+
 const startCliRunProgress = () => {
   appendCliProgressOutput([
     "running...",
@@ -9903,7 +9925,11 @@ const startCliMint = async () => {
     "one THOUGHT needs one usable $PATH.",
     "select $PATH / authorize / confirm.",
   ]);
-  await openMintSheet("cli");
+  await withDelayedCliLoading([
+    "running...",
+    "preparing THOUGHT mint.",
+    "checking spec, duplicate text, and wallet state.",
+  ], () => openMintSheet("cli"));
   appendCliMintState();
 };
 
@@ -9996,7 +10022,11 @@ const fetchPathTransferLogsForWallet = async (provider: JsonRpcProvider, walletT
 };
 
 const listCliPaths = async () => {
-  await refreshWalletState();
+  await withDelayedCliLoading([
+    "running...",
+    "checking wallet and chain.",
+    "preparing $PATH inventory read.",
+  ], () => refreshWalletState());
 
   if (!walletState.address) {
     appendCliOutput([
@@ -10026,39 +10056,45 @@ const listCliPaths = async () => {
   }
 
   try {
-    const walletTopic = indexedAddressTopic(walletState.address);
-    const transferLogs = await fetchPathTransferLogsForWallet(provider, walletTopic);
-    const candidateIds = new Set<bigint>();
-    for (const log of transferLogs) {
-      const tokenId = transferLogTokenId(log.topics);
-      if (tokenId !== null) {
-        candidateIds.add(tokenId);
+    const ownedPaths = await withDelayedCliLoading([
+      "running...",
+      "reading wallet $PATH inventory from chain.",
+      "scanning PATH transfer logs and token status.",
+    ], async () => {
+      const walletTopic = indexedAddressTopic(walletState.address);
+      const transferLogs = await fetchPathTransferLogsForWallet(provider, walletTopic);
+      const candidateIds = new Set<bigint>();
+      for (const log of transferLogs) {
+        const tokenId = transferLogTokenId(log.topics);
+        if (tokenId !== null) {
+          candidateIds.add(tokenId);
+        }
       }
-    }
 
-    const [authorizedMinter, movementQuota] = await Promise.all([
-      pathNft.getAuthorizedMinter(PATH_MOVEMENT_THOUGHT) as Promise<string>,
-      pathNft.getMovementQuota(PATH_MOVEMENT_THOUGHT) as Promise<bigint>,
-    ]);
-    const wallet = walletState.address.toLowerCase();
-    const ownedPaths = (
-      await Promise.all(
-        [...candidateIds]
-          .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
-          .map(async (pathId) => {
-            try {
-              const owner = (await pathNft.ownerOf(pathId)) as string;
-              if (owner.toLowerCase() !== wallet) {
-                return null;
+      const [authorizedMinter, movementQuota] = await Promise.all([
+        pathNft.getAuthorizedMinter(PATH_MOVEMENT_THOUGHT) as Promise<string>,
+        pathNft.getMovementQuota(PATH_MOVEMENT_THOUGHT) as Promise<bigint>,
+      ]);
+      const wallet = walletState.address.toLowerCase();
+      return (
+        await Promise.all(
+          [...candidateIds]
+            .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+            .map(async (pathId) => {
+              try {
+                const owner = (await pathNft.ownerOf(pathId)) as string;
+                if (owner.toLowerCase() !== wallet) {
+                  return null;
+                }
+                const status = await cliPathAvailability(pathNft, pathId, authorizedMinter, movementQuota);
+                return { pathId, status };
+              } catch {
+                return { pathId, status: "unknown" };
               }
-              const status = await cliPathAvailability(pathNft, pathId, authorizedMinter, movementQuota);
-              return { pathId, status };
-            } catch {
-              return { pathId, status: "unknown" };
-            }
-          }),
-      )
-    ).filter((path): path is { pathId: bigint; status: string } => path !== null);
+            }),
+        )
+      ).filter((path): path is { pathId: bigint; status: string } => path !== null);
+    });
 
     appendCliOutput([
       "wallet $PATHs for THOUGHT mint.",
@@ -10099,15 +10135,25 @@ const checkCliPath = async (pathInput: string) => {
     return;
   }
 
-  if (!await ensureCliMintFlow()) {
+  let mintFlowReady = false;
+  await withDelayedCliLoading([
+    "running...",
+    `checking $PATH #${trimmed} for THOUGHT mint.`,
+    "reading owner, stage, and quota from chain.",
+  ], async () => {
+    mintFlowReady = await ensureCliMintFlow();
+    if (!mintFlowReady) {
+      return;
+    }
+
+    mintFlowData.pathIdInput = trimmed;
+    mintFlowData.pathId = parsePathTokenId(pathInput);
+    await checkPathEligibility();
+  });
+
+  if (!mintFlowReady) {
     return;
   }
-
-  mintFlowData.pathIdInput = trimmed;
-  mintFlowData.pathId = parsePathTokenId(pathInput);
-  appendCliOutput(`checking $PATH #${trimmed}...`);
-  await checkPathEligibility();
-  stopCliProgress();
 
   if (mintFlowState === "path_ready") {
     appendCliOutput([

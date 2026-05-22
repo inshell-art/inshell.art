@@ -55,7 +55,7 @@ export default function App() {
     }
     if (primitiveRoute === "verify") {
       document.title = `verify — ${SURFACE_TERMINOLOGY.pathDapp}`;
-      setFavicon("/path.svg");
+      setFavicon("/inshell.svg");
       return;
     }
     document.title = SURFACE_TERMINOLOGY.ecosystem;

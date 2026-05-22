@@ -415,7 +415,7 @@ export default function PathPage() {
               {state.status === "ready"
                 ? `${state.items.length} token${state.items.length === 1 ? "" : "s"}`
                 : state.status === "loading"
-                  ? "loading tokens..."
+                  ? "reading live $PATH tokens from chain..."
                   : "token list unavailable"}
             </div>
           </div>

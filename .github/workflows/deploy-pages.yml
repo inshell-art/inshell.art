@@ -42,13 +42,13 @@ jobs:
       VITE_THOUGHT_URL: ${{ vars.VITE_THOUGHT_URL || 'https://thought.inshell.art/' }}
       VITE_PUBLIC_TELEGRAM_CHANNEL_URL: ${{ vars.VITE_PUBLIC_TELEGRAM_CHANNEL_URL }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Enable pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 9.0.0
       - name: Use Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -95,13 +95,13 @@ jobs:
       VITE_REPORT_BUG_URL: ${{ vars.VITE_REPORT_BUG_URL || 'https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md' }}
       VITE_GITHUB_URL: ${{ vars.VITE_GITHUB_URL || 'https://github.com/inshell-art/inshell.art' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Enable pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 9.0.0
       - name: Use Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -121,6 +121,8 @@ jobs:
           test -n "$VITE_PATH_MINT_URL"
       - name: Validate production surface
         run: pnpm tsx scripts/validate-production-surface.ts
+      - name: Test THOUGHT runtime payloads
+        run: pnpm run test:thought-runtime
       - name: Type-check THOUGHT
         run: pnpm --filter @inshell/thought type-check
       - name: Build THOUGHT

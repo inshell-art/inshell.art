@@ -191,8 +191,20 @@ function checkStaticHostingFiles(app: "home" | "thought") {
 }
 
 function checkDeployWorkflow() {
-  requireSnippets(".github/workflows/deploy-pages.yml", DEPLOY_WORKFLOW_SNIPPETS);
-  requireSnippets(".github/workflows/test.yml", ["gitleaks/gitleaks-action@v2"]);
+  requireSnippets(".github/workflows/deploy-pages.yml", [
+    ...DEPLOY_WORKFLOW_SNIPPETS,
+    "actions/checkout@v6",
+    "pnpm/action-setup@v6",
+    "actions/setup-node@v6",
+  ]);
+  requireSnippets(".github/workflows/test.yml", [
+    "actions/checkout@v6",
+    "pnpm/action-setup@v6",
+    "actions/setup-node@v6",
+    "gitleaks_8.30.1_linux_x64.tar.gz",
+    "detect --no-git --redact --no-banner",
+    "pnpm run test:thought-runtime",
+  ]);
 }
 
 function checkSepoliaRelease() {
@@ -341,11 +353,31 @@ function checkThoughtProductionGuards() {
     "const THOUGHT_LOG_CHUNK_SIZE = 5_000;",
     "const logs = await getThoughtMintedLogs(provider);",
     "VITE_THOUGHT_EXPLORER_BASE_URL.trim()",
+    "const LEGACY_OPENROUTER_DEFAULT_MODELS = new Set([",
+    "const OPENROUTER_DEFAULT_MODEL = \"openrouter/free\";",
+    "const token = getReadThoughtNFT();",
+    "previewWorkViaReadRpc",
+    "waiting for model return.",
+    "OLLAMA_ORIGINS=",
+    "openai request could not be reached from this browser.",
+    "withDelayedCliLoading",
+    "reading wallet $PATH inventory from chain.",
+    "reading owner, stage, and quota from chain.",
+    "reading minted THOUGHTs from chain...",
   ]) {
     if (!text.includes(snippet)) {
       fail(`apps/thought/src/main.ts is missing THOUGHT production guard: ${snippet}`);
     }
   }
+
+  requireSnippets("apps/thought/src/thought-run-payload.ts", [
+    "export const supportsProviderWebSearch = (_provider: ThoughtRunProvider) => false;",
+    "payload.config.web.enabled",
+    "tools: [{ type: \"openrouter:web_search\" }]",
+    "tools: [{ type: \"web_search\" }], tool_choice: \"auto\"",
+    "type: \"web_search_20250305\"",
+  ]);
+  requireSnippets("package.json", ["test:thought-runtime"]);
 
   if (text.includes("VITE_THOUGHT_INDEXER_URL")) {
     fail("apps/thought/src/main.ts must not use VITE_THOUGHT_INDEXER_URL as a tx explorer URL");
