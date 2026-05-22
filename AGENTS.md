@@ -1,5 +1,10 @@
 # AGENTS
 
+## Terminology
+- In product discussions, do not call the repo owner/operator "user". Use "dev", "operator", or "project owner" for the person building/running Inshell.
+- Reserve "user" for actual product end users such as wallet holders, visitors, minters, or CLI operators inside the app.
+- Prefer product wording like "operator-configured RPC" or "dev-configured RPC" instead of "user-configured RPC" when discussing implementation choices with the repo owner.
+
 ## Curve Rendering (Half-Lives)
 - X-axis uses half-lives: `u = (t - last_bid_time) / t_half`.
 - Draw a fixed window in half-lives with a **fixed count**, using the smallest multiple of 10 that covers “now” (min 10).

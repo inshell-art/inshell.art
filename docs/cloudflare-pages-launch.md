@@ -78,15 +78,29 @@ Production environment variables:
 VITE_NETWORK=sepolia
 VITE_ETH_RPC=/api/eth-rpc
 VITE_THOUGHT_RPC_URL=https://thought.inshell.art/api/eth-rpc
+VITE_THOUGHT_PREVIEW_ENDPOINT_ENABLED=true
+VITE_THOUGHT_PREVIEW_ENDPOINT_URL=/api/thought-preview
 VITE_WALLET_CHAIN_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
 ```
 
 `VITE_ETH_RPC` and `VITE_THOUGHT_RPC_URL` are read-only dapp RPCs. Wallet chain registration must use `VITE_WALLET_CHAIN_RPC_URL`, because wallets need an RPC that accepts transaction broadcast.
 
+`/api/thought-preview` is the public THOUGHT preview gate. The frontend sends only candidate text to this endpoint; the raw Sepolia RPC upstream stays in Cloudflare and is never baked into client JavaScript. The endpoint validates candidate shape before RPC, checks Sepolia chain id, calls `ThoughtNFT.previewWork`, rate-limits by client, coalesces in-flight repeats, caches repeated previews, and times out upstream work.
+
 Production secret:
 
 ```text
 ETH_RPC_UPSTREAM=<private Sepolia RPC HTTPS endpoint>
+THOUGHT_PREVIEW_RPC_UPSTREAM=<private Sepolia RPC HTTPS endpoint>
+```
+
+`THOUGHT_PREVIEW_RPC_UPSTREAM` can use a dedicated preview RPC key. If it is not set, `/api/thought-preview` falls back to `ETH_RPC_UPSTREAM`.
+
+Optional THOUGHT preview runtime vars:
+
+```text
+THOUGHT_PREVIEW_NFT_ADDRESS=<ThoughtNFT address>
+THOUGHT_PREVIEW_CHAIN_ID=11155111
 ```
 
 ## Custom Domains

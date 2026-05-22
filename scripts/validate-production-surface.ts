@@ -26,6 +26,8 @@ const DEPLOY_WORKFLOW_SNIPPETS = [
   "CLOUDFLARE_PAGES_PROJECT_THOUGHT",
   "VITE_ETH_RPC",
   "VITE_THOUGHT_RPC_URL",
+  "VITE_THOUGHT_PREVIEW_ENDPOINT_ENABLED",
+  "VITE_THOUGHT_PREVIEW_ENDPOINT_URL",
   "VITE_WALLET_CHAIN_RPC_URL",
   "VITE_PATH_MINT_URL",
   "VITE_THOUGHT_EXPLORER_BASE_URL",
@@ -356,7 +358,12 @@ function checkThoughtProductionGuards() {
     "const LEGACY_OPENROUTER_DEFAULT_MODELS = new Set([",
     "const OPENROUTER_DEFAULT_MODEL = \"openrouter/free\";",
     "const token = getReadThoughtNFT();",
-    "previewWorkViaReadRpc",
+    "previewWorkViaAllowedProvider",
+    "createThoughtPreviewEndpointProvider",
+    "VITE_THOUGHT_PREVIEW_ENDPOINT_ENABLED",
+    "THOUGHT_PREVIEW_TIMEOUT_MS",
+    "config rpc endpoint <url>",
+    "current candidate is not contract-previewed.",
     "waiting for model return.",
     "OLLAMA_ORIGINS=",
     "openai request could not be reached from this browser.",
@@ -381,6 +388,7 @@ function checkThoughtProductionGuards() {
     "type: \"web_search_20250305\"",
   ]);
   requireSnippets("package.json", ["test:thought-runtime"]);
+  requireSnippets("apps/home/package.json", ["tests/thoughtPreviewFunction.test.ts"]);
 
   if (text.includes("VITE_THOUGHT_INDEXER_URL")) {
     fail("apps/thought/src/main.ts must not use VITE_THOUGHT_INDEXER_URL as a tx explorer URL");
@@ -432,6 +440,25 @@ function checkCloudflareRpcProxy() {
   }
 }
 
+function checkThoughtPreviewEndpoint() {
+  const text = read("functions/api/thought-preview.ts");
+  for (const snippet of [
+    "THOUGHT_PREVIEW_RPC_UPSTREAM",
+    "THOUGHT_PREVIEW_NFT_ADDRESS",
+    "THOUGHT_PREVIEW_CHAIN_ID",
+    "PREVIEW_WORK_SELECTOR",
+    "Use POST for THOUGHT preview.",
+    "THOUGHT preview rate limit reached.",
+    "previewWork",
+    "eth_chainId",
+    "eth_call",
+  ]) {
+    if (!text.includes(snippet)) {
+      fail(`functions/api/thought-preview.ts is missing preview endpoint snippet: ${snippet}`);
+    }
+  }
+}
+
 checkPackageScripts();
 checkViteConfig("apps/home/vite.config.ts", 5173);
 checkViteConfig("apps/thought/vite.config.ts", 5174);
@@ -446,6 +473,7 @@ checkEthereumRpcGuard();
 checkThoughtProductionGuards();
 checkSharedSurfaceLayer();
 checkCloudflareRpcProxy();
+checkThoughtPreviewEndpoint();
 
 if (errors.length) {
   console.error("[validate-production-surface] FAIL");

@@ -5,6 +5,14 @@ export type WorkRunContext = {
   prompt: string;
   returnedText?: string;
   clientGeneratedAt: string;
+  previewProvider?: {
+    kind: string;
+    chainId?: number;
+    endpointLabel?: string;
+    contractAddress?: string;
+    method: string;
+    fetchedAt: string;
+  };
   request?: {
     maxOutputTokens: 48 | 32 | "48" | "32" | "none";
     stop?: "\\n" | "none";
@@ -38,9 +46,10 @@ export type ThoughtWorkRecord = {
     hash: string;
   };
   normalizer: {
-    id: "thought.normalize.v1";
-    source: "contract-view";
+    id: "thought.normalize.v1" | "contract-preview";
+    source: "contract-view" | "ThoughtNFT.previewWork";
   };
+  previewProvider?: WorkRunContext["previewProvider"];
   provenanceJson?: string;
   provenanceBytes?: number;
   hashes?: {
@@ -69,9 +78,10 @@ export type ThoughtWorkInput = {
     hash: string;
   };
   normalizer?: {
-    id: "thought.normalize.v1";
-    source: "contract-view";
+    id: "thought.normalize.v1" | "contract-preview";
+    source: "contract-view" | "ThoughtNFT.previewWork";
   };
+  previewProvider?: WorkRunContext["previewProvider"];
   provenanceJson?: string;
   provenanceBytes?: number;
   hashes?: {
@@ -175,6 +185,9 @@ export const sanitizeWorkRecord = (value: unknown): ThoughtWorkRecord | null => 
   if (candidate.hashes) {
     record.hashes = candidate.hashes;
   }
+  if (candidate.previewProvider ?? runContext.previewProvider) {
+    record.previewProvider = candidate.previewProvider ?? runContext.previewProvider;
+  }
 
   return record;
 };
@@ -237,9 +250,10 @@ export const appendThoughtWork = (
     model: input.model ?? input.runContext.model,
     thoughtSpec: input.thoughtSpec ?? input.runContext.thoughtSpec,
     normalizer: input.normalizer ?? {
-      id: "thought.normalize.v1",
-      source: "contract-view",
+      id: "contract-preview",
+      source: "ThoughtNFT.previewWork",
     },
+    previewProvider: input.previewProvider ?? input.runContext.previewProvider,
     provenanceJson: input.provenanceJson,
     provenanceBytes: input.provenanceBytes,
     hashes: input.hashes,

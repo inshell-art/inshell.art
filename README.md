@@ -85,6 +85,8 @@ GitHub Variables recommended:
 - `VITE_NETWORK=sepolia`
 - `VITE_ETH_RPC=/api/eth-rpc`
 - `VITE_THOUGHT_RPC_URL=https://thought.inshell.art/api/eth-rpc`
+- `VITE_THOUGHT_PREVIEW_ENDPOINT_ENABLED=true`
+- `VITE_THOUGHT_PREVIEW_ENDPOINT_URL=/api/thought-preview`
 - `VITE_WALLET_CHAIN_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com`
 - `VITE_WALLETCONNECT_PROJECT_ID=<public WalletConnect project id>`
 - `VITE_PUBLIC_LAUNCH_MODE=sepolia_invite`
@@ -98,6 +100,9 @@ RPC policy:
 - Treat `VITE_ETH_RPC` as public. It is baked into the client bundle.
 - Do not use a high-value unrestricted RPC key directly in `VITE_ETH_RPC`.
 - Treat `/api/eth-rpc` and `VITE_THOUGHT_RPC_URL` as read-only dapp RPCs. Do not register them as wallet chain RPC URLs.
+- Treat `/api/thought-preview` as the dedicated THOUGHT preview gate. It hides the raw Sepolia RPC upstream in Cloudflare, validates input before RPC, rate-limits, applies timeouts, coalesces in-flight previews, and caches repeated previews.
+- Store `THOUGHT_PREVIEW_RPC_UPSTREAM=<private Sepolia RPC HTTPS endpoint>` as a Cloudflare Pages secret for the THOUGHT project. If omitted, `/api/thought-preview` falls back to `ETH_RPC_UPSTREAM`.
+- Optional THOUGHT preview runtime vars: `THOUGHT_PREVIEW_NFT_ADDRESS=<ThoughtNFT address>`, `THOUGHT_PREVIEW_CHAIN_ID=11155111`.
 - `VITE_WALLET_CHAIN_RPC_URL` must be a public Sepolia RPC that wallets can use for transaction broadcast.
 - Launch recommendation: use Alchemy Sepolia with origin allowlists for `https://inshell.art` and `https://thought.inshell.art`.
 - Better long-term setup: put an RPC proxy in a Cloudflare Worker, store the upstream RPC key as a Worker Secret, and point `VITE_ETH_RPC` at the Worker URL.

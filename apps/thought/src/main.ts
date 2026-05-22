@@ -70,6 +70,24 @@ import {
   type ThoughtRunProvenanceRequestConfig,
   type ThoughtRunWebConfig,
 } from "./thought-run-payload";
+import {
+  THOUGHT_CURRENT_CANDIDATE_STORAGE_KEY,
+  THOUGHT_PREVIEW_AUTO_RATE_LIMIT,
+  THOUGHT_PREVIEW_CACHE_LIMIT,
+  THOUGHT_PREVIEW_MANUAL_RATE_LIMIT,
+  THOUGHT_PREVIEW_MODE_STORAGE_KEY,
+  THOUGHT_PREVIEW_RPC_ENDPOINT_STORAGE_KEY,
+  THOUGHT_PREVIEW_TIMEOUT_MS,
+  isPreviewMode,
+  isPreviewRpcEndpointCommand,
+  maskRpcEndpoint,
+  normalizePreviewMode,
+  prevalidateThoughtCandidate,
+  previewRejectionReasonLabel,
+  type PreviewMode,
+  type PreviewProviderKind,
+  type PreviewStatus,
+} from "./thought-preview-policy";
 
 type ColorFontFile = {
   colors: Array<{
@@ -219,7 +237,7 @@ type MintFlowState =
   | "minted"
   | "error";
 
-type ThoughtRunState = "idle" | "running" | "output_ready" | "run_failed";
+type ThoughtRunState = "idle" | "running" | "candidate_ready" | "output_ready" | "run_failed";
 
 type PrimaryActionState =
   | "run"
@@ -362,6 +380,7 @@ type ThoughtRunContext = {
   prompt: string;
   returnedText?: string;
   clientGeneratedAt: string;
+  previewProvider?: ThoughtPreviewProviderTrace;
   request?: ThoughtRunProvenanceRequestConfig;
   web?: ThoughtRunWebConfig;
   thoughtSpec?: {
@@ -370,6 +389,65 @@ type ThoughtRunContext = {
     hash: string;
   };
 };
+
+type ThoughtSpecAnchor = {
+  id: string;
+  ref: string;
+  hash: string;
+};
+
+type ThoughtPreviewProviderTrace = {
+  kind: PreviewProviderKind;
+  chainId?: number;
+  endpointLabel?: string;
+  contractAddress?: string;
+  method: "previewWork";
+  fetchedAt: string;
+};
+
+type ThoughtPreviewProvider = {
+  kind: Exclude<PreviewProviderKind, "none">;
+  chainId: number;
+  endpointLabel?: string;
+  preview(rawReturn: string): Promise<ContractWorkPreview>;
+  trace(): ThoughtPreviewProviderTrace;
+};
+
+type ThoughtCandidate = {
+  id: string;
+  prompt: string;
+  rawModelReturn: string;
+  route: Mode;
+  provider: ThoughtRunProvider;
+  model: string;
+  specAnchor: ThoughtSpecAnchor;
+  createdAt: string;
+  status: "candidate";
+  previewStatus: PreviewStatus;
+  previewError?: string;
+  payload: ThoughtRunPayload;
+  normalizedCandidate?: string;
+  rawReturnHash: string;
+  normalizedCandidateHash?: string;
+  automaticPreviewAttempted: boolean;
+  previewProvider?: ThoughtPreviewProviderTrace;
+};
+
+type ContractPreviewAttemptResult =
+  | {
+      kind: "accepted";
+      preview: ContractWorkPreview;
+      trace: ThoughtPreviewProviderTrace;
+      fromCache: boolean;
+    }
+  | {
+      kind: "unavailable";
+      lines: string[];
+    }
+  | {
+      kind: "rejected";
+      error: ContractWorkPreviewError;
+    };
 
 type ThoughtNFTMetadata = {
   name?: string;
@@ -670,6 +748,14 @@ const resolveThoughtRpcUrl = () => {
   }
 };
 const THOUGHT_RPC_URL = resolveThoughtRpcUrl();
+const THOUGHT_PREVIEW_ENDPOINT_ENABLED =
+  typeof import.meta.env.VITE_THOUGHT_PREVIEW_ENDPOINT_ENABLED === "string" &&
+  import.meta.env.VITE_THOUGHT_PREVIEW_ENDPOINT_ENABLED.trim().toLowerCase() === "true";
+const THOUGHT_PREVIEW_ENDPOINT_URL =
+  typeof import.meta.env.VITE_THOUGHT_PREVIEW_ENDPOINT_URL === "string" &&
+  import.meta.env.VITE_THOUGHT_PREVIEW_ENDPOINT_URL.trim()
+    ? import.meta.env.VITE_THOUGHT_PREVIEW_ENDPOINT_URL.trim()
+    : "/api/thought-preview";
 const walletChainRpcUrl =
   typeof import.meta.env.VITE_WALLET_CHAIN_RPC_URL === "string"
     ? import.meta.env.VITE_WALLET_CHAIN_RPC_URL.trim()
@@ -1355,6 +1441,7 @@ const mintFlowData: MintFlowData = {
   errorKind: "none",
 };
 let currentRunContext: ThoughtRunContext | null = null;
+let currentCandidate: ThoughtCandidate | null = null;
 let activeThoughtSpec: ActiveThoughtSpec | null = null;
 let activeThoughtSpecPromise: Promise<ActiveThoughtSpec> | null = null;
 let thoughtDetailSpecJsonUrl = "";
@@ -1363,6 +1450,9 @@ let thoughtDetailProvenanceJsonUrl = "";
 let colorFontPageRawUrl = "";
 let readProvider: JsonRpcProvider | null = null;
 let readThoughtNFT: Contract | null = null;
+let previewRpcProvider: JsonRpcProvider | null = null;
+let previewRpcProviderUrl = "";
+let previewRpcChainCache: { endpoint: string; chainId: number } | null = null;
 let readColorFontV1: Contract | null = null;
 let readThoughtSpecRegistry: Contract | null = null;
 let readPathNft: Contract | null = null;
@@ -1387,6 +1477,15 @@ let cliProgressTick = 0;
 let activeRunId = 0;
 let pendingMyBrainRunPayload: PendingMyBrainRound | null = null;
 let localModelError = "";
+let previewInFlight = false;
+const previewAutoRateEvents: number[] = [];
+const previewManualRateEvents: number[] = [];
+const previewCache: Array<{
+  key: string;
+  preview: ContractWorkPreview;
+  trace: ThoughtPreviewProviderTrace;
+  createdAt: string;
+}> = [];
 
 const getDefaultSessionState = (): ThoughtSessionState => ({
   routeConfigured: false,
@@ -1937,24 +2036,7 @@ type ContractWorkPreviewError = Error & {
   kind?: "model-return-rejected" | "contract-preview-unavailable";
 };
 
-const previewWorkReasonLabel = (reasonCode: number) => {
-  if (reasonCode === 1) {
-    return "empty after normalization";
-  }
-  if (reasonCode === 2) {
-    return "raw return too large";
-  }
-  if (reasonCode === 3) {
-    return "text too long";
-  }
-  if (reasonCode === 4) {
-    return "unsupported characters";
-  }
-  if (reasonCode === 5) {
-    return "not canonical";
-  }
-  return "unknown preview error";
-};
+const previewWorkReasonLabel = previewRejectionReasonLabel;
 
 const createContractPreviewUnavailableError = (cause: unknown) => {
   const message = cause instanceof Error ? cause.message : "";
@@ -1962,13 +2044,13 @@ const createContractPreviewUnavailableError = (cause: unknown) => {
     ? ["wallet not connected.", "use: wallet connect"]
     : [
         "contract preview unavailable.",
-        "read RPC could not return the SVG.",
+        "no allowed preview provider returned the SVG.",
         "",
         "work is not finalized.",
         "mint is blocked until contract preview succeeds.",
         "",
         "use: preview retry",
-        "use: wallet",
+        "use: config rpc endpoint <url>",
       ];
   const error = new Error(lines.join(" ")) as ContractWorkPreviewError;
   error.kind = "contract-preview-unavailable";
@@ -2046,6 +2128,9 @@ const rejectedRunReasonLines = (rejected: LastRejectedRun) => {
   if (rejected.reasonCode === 5) {
     return ["text is not canonical."];
   }
+  if (rejected.reasonCode === 6) {
+    return ["multi-line model return.", "return one THOUGHT line only."];
+  }
   return ["model return did not fit THOUGHT rules."];
 };
 
@@ -2092,12 +2177,41 @@ const createRejectedRunError = (
 const isContractWorkPreviewError = (error: unknown): error is ContractWorkPreviewError =>
   error instanceof Error && Array.isArray((error as ContractWorkPreviewError).cliLines);
 
-const previewWorkViaReadRpc = async (rawReturn: string): Promise<ContractWorkPreview> => {
-  const token = getReadThoughtNFT();
-  if (!token) {
-    throw new Error("contract preview unavailable.");
-  }
+const readPreviewMode = () => normalizePreviewMode(sessionStorage.getItem(THOUGHT_PREVIEW_MODE_STORAGE_KEY));
 
+const writePreviewMode = (mode: PreviewMode) => {
+  sessionStorage.setItem(THOUGHT_PREVIEW_MODE_STORAGE_KEY, mode);
+};
+
+const readPreviewRpcEndpoint = () =>
+  sessionStorage.getItem(THOUGHT_PREVIEW_RPC_ENDPOINT_STORAGE_KEY)?.trim() ?? "";
+
+const writePreviewRpcEndpoint = (endpoint: string) => {
+  sessionStorage.setItem(THOUGHT_PREVIEW_RPC_ENDPOINT_STORAGE_KEY, endpoint);
+  previewRpcProvider = null;
+  previewRpcProviderUrl = "";
+  previewRpcChainCache = null;
+};
+
+const clearPreviewRpcEndpoint = () => {
+  sessionStorage.removeItem(THOUGHT_PREVIEW_RPC_ENDPOINT_STORAGE_KEY);
+  previewRpcProvider = null;
+  previewRpcProviderUrl = "";
+  previewRpcChainCache = null;
+};
+
+const normalizePreviewRpcEndpoint = (endpoint: string) => {
+  const parsed = new URL(endpoint.trim());
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error("use an http(s) RPC endpoint.");
+  }
+  return parsed.toString();
+};
+
+const previewWorkViaAllowedProvider = async (
+  token: Contract,
+  rawReturn: string,
+): Promise<ContractWorkPreview> => {
   const [ok, text, svg, reasonCode] = await token.previewWork(rawReturn) as [
     boolean,
     string,
@@ -2111,6 +2225,507 @@ const previewWorkViaReadRpc = async (rawReturn: string): Promise<ContractWorkPre
     svg: String(svg),
     reasonCode: Number(reasonCode),
   };
+};
+
+const createThoughtPreviewProvider = (
+  kind: Exclude<PreviewProviderKind, "none">,
+  provider: BrowserProvider | JsonRpcProvider,
+  chainId: number,
+  endpointLabel?: string,
+): ThoughtPreviewProvider => {
+  const token = new Contract(THOUGHT_NFT_ADDRESS, THOUGHT_NFT_ABI, provider);
+  return {
+    kind,
+    chainId,
+    endpointLabel,
+    preview: (rawReturn: string) => previewWorkViaAllowedProvider(token, rawReturn),
+    trace: () => ({
+      kind,
+      chainId,
+      endpointLabel,
+      contractAddress: THOUGHT_NFT_ADDRESS,
+      method: "previewWork",
+      fetchedAt: new Date().toISOString(),
+    }),
+  };
+};
+
+const createWalletPreviewProvider = (): ThoughtPreviewProvider | null => {
+  if (!THOUGHT_NFT_ADDRESS || !walletState.address || walletState.chainId !== THOUGHT_CHAIN_ID) {
+    return null;
+  }
+
+  const ethereum = getEthereumProvider();
+  if (!ethereum) {
+    return null;
+  }
+
+  return createThoughtPreviewProvider("wallet", new BrowserProvider(ethereum), THOUGHT_CHAIN_ID);
+};
+
+const createThoughtPreviewEndpointProvider = (): ThoughtPreviewProvider | null => {
+  if (!THOUGHT_PREVIEW_ENDPOINT_ENABLED || !THOUGHT_PREVIEW_ENDPOINT_URL || !THOUGHT_NFT_ADDRESS) {
+    return null;
+  }
+
+  return {
+    kind: "preview-endpoint",
+    chainId: THOUGHT_CHAIN_ID,
+    endpointLabel: THOUGHT_PREVIEW_ENDPOINT_URL,
+    preview: async (rawReturn: string) => {
+      const response = await withTimeout(
+        fetch(THOUGHT_PREVIEW_ENDPOINT_URL, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ rawReturn }),
+        }),
+        THOUGHT_PREVIEW_TIMEOUT_MS,
+        "THOUGHT preview endpoint timed out.",
+      );
+      const payload = await response.json().catch(() => null) as Partial<ContractWorkPreview> & {
+        error?: unknown;
+      } | null;
+      if (!response.ok || !payload) {
+        throw new Error(readErrorMessage(payload, "THOUGHT preview endpoint unavailable."));
+      }
+      if (
+        typeof payload.ok !== "boolean" ||
+        typeof payload.text !== "string" ||
+        typeof payload.svg !== "string" ||
+        typeof payload.reasonCode !== "number"
+      ) {
+        throw new Error("THOUGHT preview endpoint returned an invalid response.");
+      }
+      return {
+        ok: payload.ok,
+        text: payload.text,
+        svg: payload.svg,
+        reasonCode: payload.reasonCode,
+      };
+    },
+    trace: () => ({
+      kind: "preview-endpoint",
+      chainId: THOUGHT_CHAIN_ID,
+      endpointLabel: THOUGHT_PREVIEW_ENDPOINT_URL,
+      contractAddress: THOUGHT_NFT_ADDRESS,
+      method: "previewWork",
+      fetchedAt: new Date().toISOString(),
+    }),
+  };
+};
+
+const getConfiguredPreviewRpcProvider = async () => {
+  const endpoint = readPreviewRpcEndpoint();
+  if (!endpoint || !THOUGHT_NFT_ADDRESS) {
+    return null;
+  }
+
+  if (!previewRpcProvider || previewRpcProviderUrl !== endpoint) {
+    previewRpcProvider = new JsonRpcProvider(endpoint);
+    previewRpcProviderUrl = endpoint;
+    previewRpcChainCache = null;
+  }
+
+  let chainId = previewRpcChainCache?.endpoint === endpoint ? previewRpcChainCache.chainId : null;
+  if (chainId === null) {
+    const network = await withTimeout(
+      previewRpcProvider.getNetwork(),
+      THOUGHT_PREVIEW_TIMEOUT_MS,
+      "preview RPC chain check timed out.",
+    );
+    chainId = Number(network.chainId);
+    previewRpcChainCache = { endpoint, chainId };
+  }
+
+  if (chainId !== THOUGHT_CHAIN_ID) {
+    throw new Error(`preview RPC chain mismatch. expected ${THOUGHT_CHAIN_ID}, got ${chainId}.`);
+  }
+
+  return createThoughtPreviewProvider(
+    "readonly-rpc",
+    previewRpcProvider,
+    chainId,
+    maskRpcEndpoint(endpoint),
+  );
+};
+
+const walletPreviewUnavailableReason = () => {
+  if (!walletState.address) {
+    return "wallet not connected.";
+  }
+  if (walletState.chainId !== THOUGHT_CHAIN_ID) {
+    return `wallet on wrong network. ${THOUGHT_CHAIN_NAME} required.`;
+  }
+  if (!getEthereumProvider()) {
+    return "wallet provider unavailable.";
+  }
+  if (!THOUGHT_NFT_ADDRESS) {
+    return "ThoughtNFT address unavailable.";
+  }
+  return "wallet preview unavailable.";
+};
+
+const selectThoughtPreviewProvider = async () => {
+  const mode = readPreviewMode();
+  if (mode === "off") {
+    return { provider: null, reason: "contract preview is off." };
+  }
+
+  if (mode === "wallet") {
+    const walletProvider = createWalletPreviewProvider();
+    return walletProvider
+      ? { provider: walletProvider, reason: "" }
+      : { provider: null, reason: walletPreviewUnavailableReason() };
+  }
+
+  if (mode === "rpc") {
+    try {
+      const rpcProvider = await getConfiguredPreviewRpcProvider();
+      return rpcProvider
+        ? { provider: rpcProvider, reason: "" }
+        : { provider: null, reason: "preview RPC not configured." };
+    } catch (error) {
+      return {
+        provider: null,
+        reason: error instanceof Error ? error.message : "preview RPC unavailable.",
+      };
+    }
+  }
+
+  const walletProvider = createWalletPreviewProvider();
+  if (walletProvider) {
+    return { provider: walletProvider, reason: "" };
+  }
+
+  const endpointProvider = createThoughtPreviewEndpointProvider();
+  if (endpointProvider) {
+    return { provider: endpointProvider, reason: "" };
+  }
+
+  try {
+    const rpcProvider = await getConfiguredPreviewRpcProvider();
+    if (rpcProvider) {
+      return { provider: rpcProvider, reason: "" };
+    }
+  } catch (error) {
+    return {
+      provider: null,
+      reason: error instanceof Error ? error.message : "preview RPC unavailable.",
+    };
+  }
+
+  return {
+    provider: null,
+    reason: "connect wallet or configure a read-only preview path.",
+  };
+};
+
+const prunePreviewRateEvents = (events: number[], now: number) => {
+  while (events.length && now - events[0]! > 60 * 60 * 1000) {
+    events.shift();
+  }
+};
+
+const reservePreviewRateSlot = (manual: boolean) => {
+  const events = manual ? previewManualRateEvents : previewAutoRateEvents;
+  const limit = manual ? THOUGHT_PREVIEW_MANUAL_RATE_LIMIT : THOUGHT_PREVIEW_AUTO_RATE_LIMIT;
+  const now = Date.now();
+  prunePreviewRateEvents(events, now);
+  const lastMinute = events.filter((eventAt) => now - eventAt <= 60 * 1000).length;
+  if (lastMinute >= limit.minute || events.length >= limit.hour) {
+    return false;
+  }
+
+  events.push(now);
+  return true;
+};
+
+const previewUnavailableLines = (reason = "") => [
+  "model return saved as candidate.",
+  "contract preview unavailable.",
+  ...(reason ? [`reason: ${reason}`] : []),
+  "",
+  "connect wallet or configure a read-only preview path.",
+  "use: preview retry",
+  "use: config rpc endpoint <url>",
+];
+
+const previewRateLimitLines = () => [
+  "preview rate limit reached.",
+  "candidate saved. try again later or connect wallet/provider.",
+  "",
+  "use: preview retry",
+];
+
+const writeCurrentCandidateSession = () => {
+  if (!currentCandidate) {
+    sessionStorage.removeItem(THOUGHT_CURRENT_CANDIDATE_STORAGE_KEY);
+    return;
+  }
+
+  sessionStorage.setItem(THOUGHT_CURRENT_CANDIDATE_STORAGE_KEY, JSON.stringify(currentCandidate));
+};
+
+const clearCurrentCandidate = () => {
+  currentCandidate = null;
+  writeCurrentCandidateSession();
+};
+
+const readCurrentCandidateSession = () => {
+  const raw = sessionStorage.getItem(THOUGHT_CURRENT_CANDIDATE_STORAGE_KEY);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<ThoughtCandidate>;
+    if (
+      typeof parsed.id !== "string" ||
+      typeof parsed.prompt !== "string" ||
+      typeof parsed.rawModelReturn !== "string" ||
+      !isMode(parsed.route) ||
+      typeof parsed.provider !== "string" ||
+      !isThoughtRunProvider(parsed.provider) ||
+      typeof parsed.model !== "string" ||
+      typeof parsed.createdAt !== "string" ||
+      parsed.status !== "candidate" ||
+      typeof parsed.payload !== "object" ||
+      parsed.payload === null
+    ) {
+      return null;
+    }
+
+    return {
+      ...parsed,
+      previewStatus:
+        parsed.previewStatus === "accepted" ||
+        parsed.previewStatus === "failed" ||
+        parsed.previewStatus === "unavailable" ||
+        parsed.previewStatus === "not_attempted"
+          ? parsed.previewStatus
+          : "not_attempted",
+      automaticPreviewAttempted: parsed.automaticPreviewAttempted === true,
+    } as ThoughtCandidate;
+  } catch {
+    return null;
+  }
+};
+
+const restoreCurrentCandidateSession = () => {
+  currentCandidate = readCurrentCandidateSession();
+  if (currentCandidate) {
+    runState = currentCandidate.previewStatus === "failed" ? "run_failed" : "candidate_ready";
+  }
+};
+
+const createThoughtCandidate = (
+  payload: ThoughtRunPayload,
+  rawModelReturn: string,
+): ThoughtCandidate => {
+  const validation = prevalidateThoughtCandidate(rawModelReturn, {
+    maxRawBytes: MAX_RAW_RETURN_BYTES,
+    maxTextBytes: MAX_TEXT_BYTES,
+  });
+  const normalizedCandidate = validation.canonical || validation.normalized;
+  return {
+    id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
+    prompt: payload.input.prompt,
+    rawModelReturn,
+    route: payload.config.route,
+    provider: payload.config.provider,
+    model: payload.config.model,
+    specAnchor: {
+      id: payload.input.thoughtSpec.id,
+      ref: payload.input.thoughtSpec.ref,
+      hash: payload.input.thoughtSpec.hash,
+    },
+    createdAt: new Date().toISOString(),
+    status: "candidate",
+    previewStatus: "not_attempted",
+    payload,
+    normalizedCandidate,
+    rawReturnHash: hashText(rawModelReturn),
+    normalizedCandidateHash: normalizedCandidate ? hashText(normalizedCandidate) : undefined,
+    automaticPreviewAttempted: false,
+  };
+};
+
+const previewCacheKey = (candidate: ThoughtCandidate) => [
+  THOUGHT_CHAIN_ID,
+  THOUGHT_NFT_ADDRESS.toLowerCase(),
+  candidate.specAnchor.id.toLowerCase(),
+  candidate.specAnchor.hash.toLowerCase(),
+  candidate.rawReturnHash.toLowerCase(),
+  candidate.normalizedCandidateHash?.toLowerCase() ?? "",
+].join(":");
+
+const readPreviewCache = (key: string) => previewCache.find((record) => record.key === key) ?? null;
+
+const writePreviewCache = (
+  key: string,
+  preview: ContractWorkPreview,
+  trace: ThoughtPreviewProviderTrace,
+) => {
+  const existingIndex = previewCache.findIndex((record) => record.key === key);
+  if (existingIndex >= 0) {
+    previewCache.splice(existingIndex, 1);
+  }
+  previewCache.push({
+    key,
+    preview,
+    trace,
+    createdAt: new Date().toISOString(),
+  });
+  if (previewCache.length > THOUGHT_PREVIEW_CACHE_LIMIT) {
+    previewCache.splice(0, previewCache.length - THOUGHT_PREVIEW_CACHE_LIMIT);
+  }
+};
+
+const rejectCandidateFromPreview = (
+  candidate: ThoughtCandidate,
+  preview: ContractWorkPreview,
+) => {
+  candidate.previewStatus = "failed";
+  candidate.previewError = previewWorkReasonLabel(preview.reasonCode);
+  currentCandidate = candidate;
+  writeCurrentCandidateSession();
+  const rejected = rememberRejectedRun(candidate.payload, preview, candidate.rawModelReturn);
+  return createRejectedRunError(rejected, currentWorkId);
+};
+
+const attemptContractPreviewForCandidate = async (
+  candidate: ThoughtCandidate,
+  options: { manual: boolean },
+): Promise<ContractPreviewAttemptResult> => {
+  const validation = prevalidateThoughtCandidate(candidate.rawModelReturn, {
+    maxRawBytes: MAX_RAW_RETURN_BYTES,
+    maxTextBytes: MAX_TEXT_BYTES,
+  });
+  candidate.normalizedCandidate = validation.canonical || validation.normalized;
+  candidate.normalizedCandidateHash = candidate.normalizedCandidate
+    ? hashText(candidate.normalizedCandidate)
+    : undefined;
+  currentCandidate = candidate;
+  writeCurrentCandidateSession();
+
+  if (!validation.ok) {
+    const preview = {
+      ok: false,
+      text: validation.canonical,
+      svg: "",
+      reasonCode: validation.reasonCode,
+    };
+    return {
+      kind: "rejected",
+      error: rejectCandidateFromPreview(candidate, preview),
+    };
+  }
+
+  if (!THOUGHT_NFT_ADDRESS) {
+    candidate.previewStatus = "unavailable";
+    candidate.previewError = "ThoughtNFT address unavailable.";
+    currentCandidate = candidate;
+    writeCurrentCandidateSession();
+    return { kind: "unavailable", lines: previewUnavailableLines(candidate.previewError) };
+  }
+
+  if (!options.manual) {
+    if (candidate.automaticPreviewAttempted) {
+      candidate.previewStatus = "unavailable";
+      candidate.previewError = "automatic preview already attempted.";
+      currentCandidate = candidate;
+      writeCurrentCandidateSession();
+      return { kind: "unavailable", lines: previewUnavailableLines(candidate.previewError) };
+    }
+    candidate.automaticPreviewAttempted = true;
+    writeCurrentCandidateSession();
+  }
+
+  const cacheKey = previewCacheKey(candidate);
+  const cached = readPreviewCache(cacheKey);
+  if (cached) {
+    candidate.previewProvider = cached.trace;
+    if (!cached.preview.ok || !cached.preview.svg || !cached.preview.text) {
+      return {
+        kind: "rejected",
+        error: rejectCandidateFromPreview(candidate, cached.preview),
+      };
+    }
+    candidate.previewStatus = "accepted";
+    currentCandidate = candidate;
+    writeCurrentCandidateSession();
+    return {
+      kind: "accepted",
+      preview: cached.preview,
+      trace: cached.trace,
+      fromCache: true,
+    };
+  }
+
+  if (previewInFlight) {
+    candidate.previewStatus = "unavailable";
+    candidate.previewError = "another preview is already running.";
+    currentCandidate = candidate;
+    writeCurrentCandidateSession();
+    return { kind: "unavailable", lines: previewUnavailableLines(candidate.previewError) };
+  }
+
+  const selection = await selectThoughtPreviewProvider();
+  if (!selection.provider) {
+    candidate.previewStatus = "unavailable";
+    candidate.previewError = selection.reason;
+    currentCandidate = candidate;
+    writeCurrentCandidateSession();
+    return { kind: "unavailable", lines: previewUnavailableLines(selection.reason) };
+  }
+
+  if (!reservePreviewRateSlot(options.manual)) {
+    candidate.previewStatus = "unavailable";
+    candidate.previewError = "preview rate limit reached.";
+    currentCandidate = candidate;
+    writeCurrentCandidateSession();
+    return { kind: "unavailable", lines: previewRateLimitLines() };
+  }
+
+  previewInFlight = true;
+  try {
+    const preview = await withTimeout(
+      selection.provider.preview(candidate.rawModelReturn),
+      THOUGHT_PREVIEW_TIMEOUT_MS,
+      "contract preview timed out.",
+    );
+    const trace = selection.provider.trace();
+    candidate.previewProvider = trace;
+    writePreviewCache(cacheKey, preview, trace);
+
+    if (!preview.ok || !preview.svg || !preview.text) {
+      return {
+        kind: "rejected",
+        error: rejectCandidateFromPreview(candidate, preview),
+      };
+    }
+
+    candidate.previewStatus = "accepted";
+    currentCandidate = candidate;
+    writeCurrentCandidateSession();
+    return {
+      kind: "accepted",
+      preview,
+      trace,
+      fromCache: false,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "contract preview unavailable.";
+    candidate.previewStatus = "unavailable";
+    candidate.previewError = message;
+    currentCandidate = candidate;
+    writeCurrentCandidateSession();
+    return { kind: "unavailable", lines: previewUnavailableLines(message) };
+  } finally {
+    previewInFlight = false;
+  }
 };
 
 const textHashFromContract = async (canonicalText: string) => {
@@ -2878,6 +3493,8 @@ const buildProvenanceJson = (
   const promptHash = mint?.promptHash || hashText(context.prompt);
   const returnedText = context.returnedText ?? currentOutputText;
   const returnedTextHash = hashText(returnedText);
+  const contractSvgHash = currentWorkSvg ? hashText(currentWorkSvg) : undefined;
+  const previewProvider = context.previewProvider;
   const chain = mint
     ? {
         chainId: String(THOUGHT_CHAIN_ID),
@@ -2912,9 +3529,24 @@ const buildProvenanceJson = (
     output: {
       returnedText,
       format: "thought.text.v1",
-      normalizer: "thought.normalize.v1",
+      normalizer: "contract-preview",
       textHash,
+      ...(contractSvgHash ? { contractSvgHash } : {}),
     },
+    ...(previewProvider
+      ? {
+          preview: {
+            contractPreviewed: true,
+            method: previewProvider.method,
+            provider: {
+              kind: previewProvider.kind,
+              ...(previewProvider.chainId ? { chainId: String(previewProvider.chainId) } : {}),
+              ...(previewProvider.endpointLabel ? { endpointLabel: previewProvider.endpointLabel } : {}),
+            },
+            thoughtNft: previewProvider.contractAddress ?? THOUGHT_NFT_ADDRESS,
+          },
+        }
+      : {}),
     prompt: context.prompt,
     provider: context.provider,
     ...(request ? { request } : {}),
@@ -3270,6 +3902,18 @@ const getActionPresentation = (): ActionPresentation => {
       status: "generation failed",
       secondaryLabel: "",
       secondaryAction: "none",
+    };
+    return applyDebugStatusOverride(action);
+  }
+
+  if (runState === "candidate_ready") {
+    action = {
+      primaryLabel: "[ run ]",
+      primaryDisabled: !hasModelAccess(),
+      primaryAction: hasModelAccess() ? "run" : "none",
+      status: "candidate",
+      secondaryLabel: "[ reset ]",
+      secondaryAction: "reset",
     };
     return applyDebugStatusOverride(action);
   }
@@ -3980,6 +4624,12 @@ const handlePendingTx = async () => {
 };
 
 const openMintSheet = async (uiMode: MintFlowUiMode = "sheet") => {
+  if (currentCandidate && runState === "candidate_ready") {
+    setMintFlowError("current candidate is not contract-previewed.", "thought");
+    syncInterface();
+    return;
+  }
+
   if (!currentOutputText) {
     return;
   }
@@ -5847,9 +6497,10 @@ const recordCurrentWork = (rawOutput: string) => {
     model: currentRunContext.model,
     thoughtSpec: currentRunContext.thoughtSpec,
     normalizer: {
-      id: "thought.normalize.v1",
-      source: "contract-view",
+      id: "contract-preview",
+      source: "ThoughtNFT.previewWork",
     },
+    previewProvider: currentRunContext.previewProvider,
     provenanceJson: provenance?.json,
     provenanceBytes: provenance?.bytes,
     hashes: {
@@ -5957,6 +6608,7 @@ const recordThoughtRun = (
   payload: ThoughtRunPayload,
   rawOutput: string,
   thoughtTitle: string,
+  previewProvider?: ThoughtPreviewProviderTrace,
 ) => {
   const clientGeneratedAt = new Date().toISOString();
   const provenanceConfig = thoughtRunProvenanceConfig(payload);
@@ -5967,6 +6619,7 @@ const recordThoughtRun = (
     prompt: payload.input.prompt,
     returnedText: rawOutput,
     clientGeneratedAt,
+    previewProvider,
     request: provenanceConfig.request,
     web: provenanceConfig.web,
     thoughtSpec: provenanceConfig.thoughtSpec,
@@ -5982,6 +6635,7 @@ const recordThoughtRun = (
     thoughtSpec: provenanceConfig.thoughtSpec,
     returnedText: rawOutput,
     thoughtTitle,
+    previewProvider,
     clientGeneratedAt,
   };
 
@@ -6002,6 +6656,9 @@ const resetThought = (options?: { preserveStoredOutput?: boolean }) => {
   currentWorkSvg = "";
   currentRunContext = null;
   currentWorkId = null;
+  if (!options?.preserveStoredOutput) {
+    clearCurrentCandidate();
+  }
   if (!options?.preserveStoredOutput) {
     writeCurrentOutputSession();
   }
@@ -7156,31 +7813,16 @@ const handleThoughtFileSelection = async () => {
   }
 };
 
-const completeThoughtRunFromModelReturn = async (
-  thoughtRunPayload: ThoughtRunPayload,
-  modelReturn: string,
+const promotePreviewedCandidateToWork = (
+  candidate: ThoughtCandidate,
+  preview: ContractWorkPreview,
+  trace: ThoughtPreviewProviderTrace,
 ) => {
-  let preview: ContractWorkPreview;
-  try {
-    preview = await previewWorkViaReadRpc(modelReturn);
-  } catch (error) {
-    lastPreviewRetryContext = {
-      payload: thoughtRunPayload,
-      modelReturn,
-    };
-    throw createContractPreviewUnavailableError(error);
-  }
-
-  if (!preview.ok || !preview.svg || !preview.text) {
-    lastPreviewRetryContext = null;
-    const rejected = rememberRejectedRun(thoughtRunPayload, preview, modelReturn);
-    throw createRejectedRunError(rejected, currentWorkId);
-  }
-
   lastRejectedRun = null;
   lastPreviewRetryContext = null;
-  recordThoughtRun(thoughtRunPayload, modelReturn, preview.text);
-  setAgentOutput(preview.text, modelReturn, preview.svg);
+  recordThoughtRun(candidate.payload, candidate.rawModelReturn, preview.text, trace);
+  setAgentOutput(preview.text, candidate.rawModelReturn, preview.svg);
+  clearCurrentCandidate();
   runState = "output_ready";
   walletState.txState = "idle";
   walletState.txError = "";
@@ -7192,6 +7834,39 @@ const completeThoughtRunFromModelReturn = async (
   });
   setStatus("");
   setWarning("");
+};
+
+const completeThoughtRunFromModelReturn = async (
+  thoughtRunPayload: ThoughtRunPayload,
+  modelReturn: string,
+) => {
+  const candidate = createThoughtCandidate(thoughtRunPayload, modelReturn);
+  currentCandidate = candidate;
+  writeCurrentCandidateSession();
+  resetMintRuntimeState();
+  lastPreviewRetryContext = {
+    payload: thoughtRunPayload,
+    modelReturn,
+  };
+
+  const attempt = await attemptContractPreviewForCandidate(candidate, { manual: false });
+
+  if (attempt.kind === "unavailable") {
+    runState = "candidate_ready";
+    lastRunErrorCliLines = attempt.lines;
+    setStatus("");
+    setWarning("contract preview unavailable.", { level: "warn" });
+    syncInterface();
+    return attempt;
+  }
+
+  if (attempt.kind === "rejected") {
+    lastPreviewRetryContext = null;
+    throw attempt.error;
+  }
+
+  promotePreviewedCandidateToWork(candidate, attempt.preview, attempt.trace);
+  return attempt;
 };
 
 const runAgent = async (options?: { forceGenerate?: boolean; cli?: boolean }) => {
@@ -7238,18 +7913,6 @@ const runAgent = async (options?: { forceGenerate?: boolean; cli?: boolean }) =>
 
   if (!model) {
     setWarning("model is required.", { level: "warn" });
-    setStatus("");
-    return;
-  }
-
-  if (!walletState.address) {
-    setWarning("wallet not connected.", { level: "warn" });
-    setStatus("");
-    return;
-  }
-
-  if (walletState.chainId !== THOUGHT_CHAIN_ID) {
-    setWarning("wallet on wrong network.", { level: "warn" });
     setStatus("");
     return;
   }
@@ -7340,8 +8003,8 @@ const runAgent = async (options?: { forceGenerate?: boolean; cli?: boolean }) =>
     if (options?.cli) {
       appendCliOutput([
         "model return received.",
-        "canonicalizing via contract preview...",
-        "rendering contract SVG...",
+        "model return saved as candidate.",
+        "attempting contract preview...",
       ]);
     }
 
@@ -7521,6 +8184,13 @@ const appendCliEntry = (
 };
 
 const displayCliCommand = (command: string) => {
+  if (isPreviewRpcEndpointCommand(command)) {
+    const parts = command.split(/\s+/);
+    const endpoint = parts.slice(parts[0]?.toLowerCase() === "config" ? 3 : 2).join(" ");
+    const prefix = parts[0]?.toLowerCase() === "config" ? "config rpc endpoint" : "rpc endpoint";
+    return endpoint.trim() ? `${prefix} ${maskRpcEndpoint(endpoint)}` : command;
+  }
+
   const parts = command.split(/\s+/);
   const [head = "", second = "", third = ""] = parts;
   const lowerHead = head.toLowerCase();
@@ -7553,6 +8223,10 @@ const isMyBrainShellActive = () =>
 const currentCliShellPrompt = () => (isMyBrainShellActive() ? "my-brain>" : "thought>");
 
 const shouldRecordCliCommand = (command: string) => {
+  if (isPreviewRpcEndpointCommand(command)) {
+    return false;
+  }
+
   const parts = command.split(/\s+/);
   const [head = "", second = "", third = ""] = parts;
   const lowerHead = head.toLowerCase();
@@ -7677,6 +8351,13 @@ const cliCompletionCommandCatalog = () => {
     "config direct key clear",
     "config direct model list",
     "config direct model ",
+    "config rpc status",
+    "config rpc endpoint ",
+    "config rpc clear",
+    "config preview auto",
+    "config preview wallet",
+    "config preview rpc",
+    "config preview off",
     "config my-brain",
     "prompt ",
     "prompt clear",
@@ -7689,6 +8370,7 @@ const cliCompletionCommandCatalog = () => {
     "run",
     "rerun",
     "retry run",
+    "preview",
     "preview retry",
     "work",
     "work current",
@@ -8138,6 +8820,15 @@ const getCliSuggestions = (): CliSuggestion[] => {
     ];
   }
 
+  if (runState === "candidate_ready") {
+    return [
+      { label: "preview retry", command: "preview retry" },
+      { label: "config rpc", command: "config rpc status" },
+      { label: "wallet connect", command: "wallet connect" },
+      { label: "rerun", command: "rerun" },
+    ];
+  }
+
   if (runState === "run_failed") {
     if (lastRejectedRun) {
       return [
@@ -8262,7 +8953,8 @@ const initializeCliTranscript = () => {
     "",
     "one model round.",
     "prompt + THOUGHT.md in.",
-    "contract SVG out.",
+    "candidate out.",
+    "contract preview makes work mintable.",
     "",
     "quick start:",
     "config",
@@ -8516,6 +9208,13 @@ const cliOutputStatus = () => {
     };
   }
 
+  if (runState === "candidate_ready" || currentCandidate) {
+    return {
+      state: "candidate",
+      hint: "use: preview retry",
+    };
+  }
+
   return {
     state: "empty",
     hint: "",
@@ -8590,6 +9289,48 @@ const cliCurrentWorkState = () => {
   return `#${work.id} "${formatModelLabel(work.text || work.title, 48)}"`;
 };
 
+const cliPreviewRpcState = () => {
+  const endpoint = readPreviewRpcEndpoint();
+  return endpoint ? `configured ${maskRpcEndpoint(endpoint)}` : "not configured";
+};
+
+const cliPreviewEndpointState = () =>
+  THOUGHT_PREVIEW_ENDPOINT_ENABLED
+    ? `enabled ${THOUGHT_PREVIEW_ENDPOINT_URL}`
+    : "disabled";
+
+const cliPreviewProviderState = () => {
+  const activeTrace = currentRunContext?.previewProvider ?? currentCandidate?.previewProvider;
+  if (activeTrace) {
+    return activeTrace.kind === "readonly-rpc" || activeTrace.kind === "preview-endpoint"
+      ? `${activeTrace.kind} ${activeTrace.endpointLabel ?? ""}`.trim()
+      : activeTrace.kind;
+  }
+
+  if (readPreviewMode() === "off") {
+    return "off";
+  }
+
+  if (createWalletPreviewProvider()) {
+    return "wallet";
+  }
+
+  if (createThoughtPreviewEndpointProvider()) {
+    return `preview-endpoint ${THOUGHT_PREVIEW_ENDPOINT_URL}`;
+  }
+
+  return readPreviewRpcEndpoint() ? "readonly-rpc" : "none";
+};
+
+const cliCurrentCandidateState = () => {
+  if (!currentCandidate) {
+    return "empty";
+  }
+
+  const label = currentCandidate.normalizedCandidate || currentCandidate.rawModelReturn;
+  return `${currentCandidate.previewStatus} "${formatModelLabel(label, 48)}"`;
+};
+
 const myBrainWaitingLines = () => [
   "my-brain is waiting for return.",
   "use: return <text>",
@@ -8631,8 +9372,28 @@ const buildCliCurrentLines = () => {
 
   lines.push(
     `wallet: ${walletState.address ? `connected ${formatCliAddress(walletState.address)}` : "not connected"}`,
+    `preview mode: ${readPreviewMode()}`,
+    `preview provider: ${cliPreviewProviderState()}`,
+    `preview endpoint: ${cliPreviewEndpointState()}`,
+    `preview RPC: ${cliPreviewRpcState()}`,
     `work: ${cliCurrentWorkState()}`,
-    `preview: ${hasCurrentContractWorkSvg() ? "contract SVG" : "missing"}`,
+    `candidate: ${cliCurrentCandidateState()}`,
+    `preview: ${
+      currentCandidate && runState === "candidate_ready"
+        ? currentCandidate.previewStatus
+        : hasCurrentContractWorkSvg()
+          ? "accepted contract SVG"
+          : currentCandidate
+            ? currentCandidate.previewStatus
+            : "missing"
+    }`,
+    `mintable: ${
+      currentCandidate && runState === "candidate_ready"
+        ? "no"
+        : hasCurrentContractWorkSvg()
+          ? "yes, after PATH selection and wallet confirmation"
+          : "no"
+    }`,
     `provenance: ${provenance ? `${provenance.bytes} bytes` : "empty"}`,
   );
 
@@ -8899,9 +9660,103 @@ const outputCliConfigSummary = () => {
     "config connect",
     "config direct",
     "config my-brain",
+    "config preview auto|wallet|rpc|off",
+    "config rpc status",
+    "config rpc endpoint <url>",
+    "config rpc clear",
   ];
 
   appendCliOutput(lines);
+};
+
+const outputCliPreviewConfig = (previewInput: string) => {
+  const mode = previewInput.trim().toLowerCase();
+  if (!mode || mode === "help" || !isPreviewMode(mode)) {
+    appendCliOutput([
+      "preview controls contract preview after run.",
+      `mode: ${readPreviewMode()}`,
+      `provider: ${cliPreviewProviderState()}`,
+      `endpoint: ${cliPreviewEndpointState()}`,
+      `rpc: ${cliPreviewRpcState()}`,
+      "",
+      "use:",
+      "config preview auto",
+      "config preview wallet",
+      "config preview rpc",
+      "config preview off",
+    ]);
+    return;
+  }
+
+  writePreviewMode(mode);
+  appendCliOutput([
+    `preview mode: ${mode}`,
+    mode === "rpc" && !readPreviewRpcEndpoint() ? "preview RPC not configured." : `provider: ${cliPreviewProviderState()}`,
+    `endpoint: ${cliPreviewEndpointState()}`,
+    "use: run",
+  ]);
+};
+
+const outputCliRpcConfig = (rpcInput: string) => {
+  const [head = ""] = rpcInput.trim().split(/\s+/, 1);
+  const rest = rpcInput.trim().slice(head.length).trim();
+  const lowerHead = head.toLowerCase();
+
+  if (!lowerHead || lowerHead === "help" || lowerHead === "status") {
+    appendCliOutput([
+      "preview RPC is read-only, session-only, and only used as a fallback/operator override.",
+      `mode: ${readPreviewMode()}`,
+      `preview endpoint: ${cliPreviewEndpointState()}`,
+      `endpoint: ${cliPreviewRpcState()}`,
+      `target: ${THOUGHT_NFT_ADDRESS || "unavailable"}`,
+      `chain: ${THOUGHT_CHAIN_NAME} (${THOUGHT_CHAIN_ID})`,
+      "methods: previewWork",
+      "",
+      "use:",
+      "config rpc endpoint <url>",
+      "config rpc clear",
+      "config preview rpc",
+    ]);
+    return;
+  }
+
+  if (lowerHead === "endpoint") {
+    if (!rest || rest.toLowerCase() === "help") {
+      appendCliOutput([
+        `endpoint: ${cliPreviewRpcState()}`,
+        "use: config rpc endpoint <url>",
+        "storage: session only",
+      ]);
+      return;
+    }
+
+    try {
+      const endpoint = normalizePreviewRpcEndpoint(rest);
+      writePreviewRpcEndpoint(endpoint);
+      appendCliOutput([
+        "preview RPC set.",
+        `endpoint: ${maskRpcEndpoint(endpoint)}`,
+        "storage: session only",
+        "use: config preview rpc",
+        "use: preview retry",
+      ]);
+    } catch (error) {
+      appendCliError([
+        "preview RPC invalid.",
+        error instanceof Error ? error.message : "use an http(s) endpoint.",
+        "use: config rpc endpoint <url>",
+      ]);
+    }
+    return;
+  }
+
+  if (lowerHead === "clear") {
+    clearPreviewRpcEndpoint();
+    appendCliOutput(["preview RPC cleared.", "use: config rpc endpoint <url>"]);
+    return;
+  }
+
+  appendCliError(["rpc config option not found.", "use: config rpc status"]);
 };
 
 const startOpenRouterConnectFromCli = async () => {
@@ -9159,6 +10014,16 @@ const outputCliConfig = async (configInput: string) => {
     return;
   }
 
+  if (lowerHead === "preview") {
+    outputCliPreviewConfig(rest);
+    return;
+  }
+
+  if (lowerHead === "rpc") {
+    outputCliRpcConfig(rest);
+    return;
+  }
+
   if (lowerHead === "disconnect" && lowerRest === "openrouter") {
     pendingMyBrainRunPayload = null;
     disconnectOpenRouter();
@@ -9194,6 +10059,35 @@ const outputCliConfig = async (configInput: string) => {
 };
 
 const outputCliProvenance = async (json = false) => {
+  if (currentCandidate && (runState === "candidate_ready" || !currentOutputText)) {
+    const candidateProvenance = {
+      schema: "thought.provenance.v1",
+      status: "candidate",
+      contractPreviewed: false,
+      route: currentCandidate.route,
+      provider: currentCandidate.provider,
+      model: currentCandidate.model,
+      prompt: currentCandidate.prompt,
+      returnedTextHash: currentCandidate.rawReturnHash,
+      thoughtSpec: currentCandidate.specAnchor,
+      preview: {
+        status: currentCandidate.previewStatus,
+        error: currentCandidate.previewError ?? null,
+      },
+    };
+    appendCliOutput(
+      json
+        ? formatProvenanceJson(stableStringify(candidateProvenance))
+        : [
+            "candidate provenance only.",
+            "contractPreviewed: false",
+            `preview: ${currentCandidate.previewStatus}`,
+            "use: preview retry",
+          ],
+    );
+    return;
+  }
+
   if (!currentOutputText) {
     appendCliError(["no work ready.", "next: run"]);
     return;
@@ -9424,9 +10318,10 @@ const currentWorkRecord = (): ThoughtWorkRecord | null => {
     model: currentRunContext.model,
     thoughtSpec: currentRunContext.thoughtSpec,
     normalizer: {
-      id: "thought.normalize.v1",
-      source: "contract-view",
+      id: "contract-preview",
+      source: "ThoughtNFT.previewWork",
     },
+    previewProvider: currentRunContext.previewProvider,
     provenanceJson: provenance?.json,
     provenanceBytes: provenance?.bytes,
     hashes: {
@@ -9674,12 +10569,17 @@ const returnMyBrainModelTextFromCli = async (returnInput: string) => {
     appendCliOutput([
       "model return received.",
       "leaving my-brain...",
-      "canonicalizing via contract preview...",
-      "rendering contract SVG...",
+      "model return saved as candidate.",
+      "attempting contract preview...",
     ]);
-    await completeThoughtRunFromModelReturn(payload, modelReturn);
+    const result = await completeThoughtRunFromModelReturn(payload, modelReturn);
+    if (result.kind === "unavailable") {
+      pendingMyBrainRunPayload = null;
+      appendCliOutput(result.lines);
+      return;
+    }
     pendingMyBrainRunPayload = null;
-    appendCliOutput(["contract SVG out.", "", ...cliWorkReadyLines()]);
+    appendCliOutput(["contract preview accepted.", "current work set.", "", ...cliWorkReadyLines()]);
   } catch (error) {
     const message = error instanceof Error ? error.message : "model return failed.";
     if (/provenance too large/i.test(message)) {
@@ -9709,24 +10609,41 @@ const cancelMyBrainRunFromCli = () => {
 };
 
 const retryContractPreviewFromCli = async () => {
-  if (!lastPreviewRetryContext) {
+  let candidate = currentCandidate;
+  if (!candidate && lastPreviewRetryContext) {
+    candidate = createThoughtCandidate(
+      lastPreviewRetryContext.payload,
+      lastPreviewRetryContext.modelReturn,
+    );
+    currentCandidate = candidate;
+    writeCurrentCandidateSession();
+  }
+
+  if (!candidate) {
     appendCliError(["preview retry unavailable.", "no saved model return.", "use: run"]);
     return;
   }
 
-  appendCliOutput(["canonicalizing via contract preview...", "rendering contract SVG..."]);
+  appendCliOutput(["attempting contract preview..."]);
 
   try {
-    await completeThoughtRunFromModelReturn(
-      lastPreviewRetryContext.payload,
-      lastPreviewRetryContext.modelReturn,
-    );
+    const attempt = await attemptContractPreviewForCandidate(candidate, { manual: true });
+    if (attempt.kind === "unavailable") {
+      runState = "candidate_ready";
+      lastRunErrorCliLines = attempt.lines;
+      appendCliOutput(attempt.lines);
+      return;
+    }
+    if (attempt.kind === "rejected") {
+      throw attempt.error;
+    }
+    promotePreviewedCandidateToWork(candidate, attempt.preview, attempt.trace);
     const lines = cliWorkReadyLines();
     if (lines[0] === "work blocked.") {
       appendCliError(lines);
       return;
     }
-    appendCliOutput(lines);
+    appendCliOutput(["contract preview accepted.", "current work set.", "", ...lines]);
   } catch (error) {
     const message = error instanceof Error ? error.message : "contract preview unavailable.";
     if (isContractWorkPreviewError(error)) {
@@ -9750,16 +10667,6 @@ const runFromCli = async () => {
 
   if (!getCurrentModelValue().trim()) {
     appendCliError(["run failed.", "model empty.", `use: ${configModelCommandPrefix()} list`]);
-    return;
-  }
-
-  if (!walletState.address) {
-    appendCliError(["run failed.", "wallet not connected.", "use: wallet connect"]);
-    return;
-  }
-
-  if (walletState.chainId !== THOUGHT_CHAIN_ID) {
-    appendCliError(["run failed.", ...cliWrongNetworkLines()]);
     return;
   }
 
@@ -9810,6 +10717,15 @@ const runFromCli = async () => {
       return;
     }
     appendCliOutput(lines);
+    return;
+  }
+
+  if (runState === "candidate_ready") {
+    appendCliOutput(
+      lastRunErrorCliLines.length
+        ? lastRunErrorCliLines
+        : previewUnavailableLines(),
+    );
     return;
   }
 
@@ -10015,13 +10931,34 @@ const appendCliMintState = () => {
 };
 
 const startCliMint = async () => {
+  if (currentCandidate && runState === "candidate_ready") {
+    appendCliError([
+      "current candidate is not contract-previewed.",
+      "use: preview retry",
+      "or connect wallet / configure RPC for preview.",
+    ]);
+    return;
+  }
+
   if (!currentOutputText) {
+    if (currentCandidate) {
+      appendCliError([
+        "current candidate is not contract-previewed.",
+        "use: preview retry",
+        "or connect wallet / configure RPC for preview.",
+      ]);
+      return;
+    }
     appendCliError(["no work to mint.", "use: run"]);
     return;
   }
 
   if (!hasCurrentContractWorkSvg()) {
-    appendCliError(["mint blocked.", "contract SVG missing.", "use: run"]);
+    appendCliError([
+      "current candidate is not contract-previewed.",
+      "use: preview retry",
+      "or connect wallet / configure RPC for preview.",
+    ]);
     return;
   }
 
@@ -10041,13 +10978,34 @@ const ensureCliMintFlow = async () => {
     return true;
   }
 
+  if (currentCandidate && runState === "candidate_ready") {
+    appendCliError([
+      "current candidate is not contract-previewed.",
+      "use: preview retry",
+      "or connect wallet / configure RPC for preview.",
+    ]);
+    return false;
+  }
+
   if (!currentOutputText) {
+    if (currentCandidate) {
+      appendCliError([
+        "current candidate is not contract-previewed.",
+        "use: preview retry",
+        "or connect wallet / configure RPC for preview.",
+      ]);
+      return false;
+    }
     appendCliError(["no work to mint.", "use: run"]);
     return false;
   }
 
   if (!hasCurrentContractWorkSvg()) {
-    appendCliError(["mint blocked.", "contract SVG missing.", "use: run"]);
+    appendCliError([
+      "current candidate is not contract-previewed.",
+      "use: preview retry",
+      "or connect wallet / configure RPC for preview.",
+    ]);
     return false;
   }
 
@@ -10455,6 +11413,10 @@ const cliCommandsHelpLines = () => [
   "config direct key clear",
   "config direct model list",
   "config direct model <id>",
+  "config rpc status",
+  "config rpc endpoint <url>",
+  "config rpc clear",
+  "config preview auto|wallet|rpc|off",
   "",
   "prompt <text>",
   "prompt clear",
@@ -10468,6 +11430,7 @@ const cliCommandsHelpLines = () => [
   "run",
   "rerun",
   "retry run",
+  "preview",
   "preview retry",
   "work",
   "work current",
@@ -10519,6 +11482,7 @@ const cliHelpLines = (topic = "") => {
       "config   choose route, provider, model",
       "prompt   write intention",
       "run      one model round",
+      "preview  validate candidate through contract",
       "mint     keep the work onchain",
       "",
       "my-brain:",
@@ -10533,6 +11497,7 @@ const cliHelpLines = (topic = "") => {
       "THOUGHT.md",
       "color-font",
       "work",
+      "preview",
       "mint",
       "wallet",
       "verify",
@@ -10579,9 +11544,12 @@ const cliHelpLines = (topic = "") => {
       "3 run",
       "  one model round.",
       "  prompt + THOUGHT.md in.",
-      "  contract SVG out.",
+      "  candidate out.",
       "",
-      "4 mint",
+      "4 preview",
+      "  contract preview makes a mintable work.",
+      "",
+      "5 mint",
       "  one THOUGHT needs one $PATH.",
       "  select $PATH / authorize / confirm.",
       "",
@@ -10607,6 +11575,8 @@ const cliHelpLines = (topic = "") => {
       "config connect",
       "config direct",
       "config my-brain",
+      "config preview auto|wallet|rpc|off",
+      "config rpc status",
       "config local model list",
       "config connect model list",
       "config direct model list",
@@ -10616,6 +11586,22 @@ const cliHelpLines = (topic = "") => {
 
   if (normalizedTopic === "mode") {
     return ["use: config route <local|connect|direct|my-brain>"];
+  }
+
+  if (normalizedTopic === "preview") {
+    return [
+      "preview validates a candidate through ThoughtNFT.previewWork.",
+      "",
+      `mode: ${readPreviewMode()}`,
+      `provider: ${cliPreviewProviderState()}`,
+      `endpoint: ${cliPreviewEndpointState()}`,
+      `rpc: ${cliPreviewRpcState()}`,
+      "",
+      "use:",
+      "preview retry",
+      "config preview auto|wallet|rpc|off",
+      "config rpc endpoint <url>",
+    ];
   }
 
   if (normalizedTopic === "model") {
@@ -10673,7 +11659,7 @@ const cliHelpLines = (topic = "") => {
       "THOUGHT.md is the generation spec.",
       "",
       "prompt + THOUGHT.md in.",
-      "contract SVG out.",
+      "candidate out.",
       "",
       "use:",
       "spec",
@@ -10701,12 +11687,13 @@ const cliHelpLines = (topic = "") => {
       "run sends prompt + THOUGHT.md to the selected model.",
       "",
       "one model round.",
-      "contract SVG out.",
+      "candidate out; preview makes work mintable.",
       "",
       "use:",
       "run",
       "rerun",
       "retry run",
+      "preview retry",
     ];
   }
 
@@ -10952,6 +11939,9 @@ const executeCliCommand = async (rawCommand: string) => {
     } else if (lowerHead === "config") {
       await outputCliConfig(rest);
       cliSuggestionContext = "config";
+    } else if (lowerHead === "rpc") {
+      outputCliRpcConfig(rest);
+      cliSuggestionContext = "config";
     } else if (lowerHead === "mode") {
       if (!lowerRest || lowerRest === "help") {
         await outputCliMode("");
@@ -11010,8 +12000,20 @@ const executeCliCommand = async (rawCommand: string) => {
       } else {
         loadWorkFromCli(rest);
       }
-    } else if (lowerHead === "preview" && lowerRest === "retry") {
-      await retryContractPreviewFromCli();
+    } else if (lowerHead === "preview") {
+      if (!lowerRest || lowerRest === "retry") {
+        await retryContractPreviewFromCli();
+      } else {
+        appendCliOutput([
+          "preview validates the current candidate through ThoughtNFT.previewWork.",
+          `mode: ${readPreviewMode()}`,
+          `provider: ${cliPreviewProviderState()}`,
+          `endpoint: ${cliPreviewEndpointState()}`,
+          "",
+          "use: preview retry",
+          "use: config preview auto|wallet|rpc|off",
+        ]);
+      }
     } else if (lowerHead === "run" || lowerHead === "rerun" || command.toLowerCase() === "retry run") {
       if (command.toLowerCase() === "retry run" && lastRejectedRun) {
         appendCliOutput([
@@ -11544,6 +12546,7 @@ const initFrontpage = async () => {
   syncInterface();
   resetThought({ preserveStoredOutput: true });
   restoreCurrentOutputSession();
+  restoreCurrentCandidateSession();
   initializeCliTranscript();
   syncInterface();
 

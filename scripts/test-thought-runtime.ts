@@ -9,6 +9,12 @@ import {
   type ThoughtRunRoute,
   type ThoughtRunSpec,
 } from "../apps/thought/src/thought-run-payload";
+import {
+  isPreviewRpcEndpointCommand,
+  maskRpcEndpoint,
+  normalizePreviewMode,
+  prevalidateThoughtCandidate,
+} from "../apps/thought/src/thought-preview-policy";
 
 const thoughtSpec: ThoughtRunSpec = {
   id: "THOUGHT.v1.md",
@@ -83,5 +89,35 @@ assertNoToolPayload(
   "Anthropic messages payload",
   toAnthropicMessagesPayload(anthropicPayload) as Record<string, unknown>,
 );
+
+assert.equal(normalizePreviewMode("wallet"), "wallet");
+assert.equal(normalizePreviewMode("bad"), "auto");
+assert.equal(
+  maskRpcEndpoint("https://user:pass@example.test/rpc?key=abc&safe=1"),
+  "https://***@example.test/rpc?key=***&safe=1",
+);
+assert.equal(isPreviewRpcEndpointCommand("config rpc endpoint https://example.test"), true);
+assert.equal(isPreviewRpcEndpointCommand("rpc endpoint https://example.test"), true);
+assert.equal(isPreviewRpcEndpointCommand("rpc call eth_blockNumber"), false);
+
+const validCandidate = prevalidateThoughtCandidate("quiet green sky", {
+  maxRawBytes: 512,
+  maxTextBytes: 128,
+});
+assert.equal(validCandidate.ok, true);
+assert.equal(validCandidate.canonical, "QUIET GREEN SKY");
+
+for (const [label, raw, reasonCode] of [
+  ["blank", "  ", 1],
+  ["multi-line", "ONE\nTWO", 6],
+  ["unsupported", "ONE!", 4],
+] as const) {
+  const result = prevalidateThoughtCandidate(raw, {
+    maxRawBytes: 512,
+    maxTextBytes: 128,
+  });
+  assert.equal(result.ok, false, `${label} candidate must be rejected before RPC`);
+  assert.equal(result.ok ? 0 : result.reasonCode, reasonCode);
+}
 
 console.log("[test-thought-runtime] OK");
