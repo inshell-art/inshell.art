@@ -614,7 +614,8 @@ const PREFLIGHT_REQUEST_TIMEOUT_MS = 15000;
 const WALLET_TX_SUBMIT_TIMEOUT_MS = 60000;
 const MINT_RECEIPT_TIMEOUT_MS = 120000;
 const MINT_RECEIPT_POLL_MS = 1000;
-const CLI_RPC_LOADING_DELAY_MS = 900;
+const CHAIN_LOADING_DETAIL_MS = 1400;
+const CLI_PROGRESS_DETAIL_ROTATE_TICKS = 3;
 const CLI_COMMAND_HISTORY_LIMIT = 80;
 const APP_VERSION = "0.0.2";
 const APP_BUILD = typeof import.meta.env.VITE_APP_BUILD === "string" && import.meta.env.VITE_APP_BUILD
@@ -719,6 +720,34 @@ const THOUGHT_NFT_DEPLOY_BLOCK =
       0
     : 0;
 const THOUGHT_LOG_CHUNK_SIZE = 5_000;
+const THOUGHT_GALLERY_LOADING_DETAILS = [
+  "checking latest block.",
+  "scanning THOUGHT mint logs.",
+  "collecting token ids.",
+  "reading token metadata.",
+  "building gallery.",
+] as const;
+const PATH_LIST_LOADING_DETAILS = [
+  "reading wallet $PATH inventory from chain.",
+  "checking wallet and chain.",
+  "checking latest block.",
+  "scanning PATH transfer logs.",
+  "collecting token ids.",
+  "checking current owners.",
+  "checking THOUGHT quota status.",
+] as const;
+const PATH_CHECK_LOADING_DETAILS = [
+  "checking wallet and chain.",
+  "reading owner from chain.",
+  "reading stage and quota.",
+  "checking THOUGHT unit status.",
+] as const;
+const MINT_PREP_LOADING_DETAILS = [
+  "preparing THOUGHT mint.",
+  "checking THOUGHT.md.",
+  "checking duplicate text.",
+  "checking wallet state.",
+] as const;
 const ERC721_TRANSFER_TOPIC = id("Transfer(address,address,uint256)");
 const CONSUME_AUTHORIZATION_TYPEHASH = id(
   "ConsumeAuthorization(address pathNft,uint256 chainId,uint256 pathId,bytes32 movement,address claimer,address executor,uint256 nonce,uint256 deadline)",
@@ -1351,6 +1380,7 @@ let cliCompletionMatches: string[] = [];
 let cliCompletionIndex: number | null = null;
 let cliProgressEntry: CliEntry | null = null;
 let cliProgressBaseLines: string[] = [];
+let cliProgressDetailLines: string[] = [];
 let cliProgressTimer = 0;
 let cliProgressTick = 0;
 let activeRunId = 0;
@@ -5318,12 +5348,68 @@ const highlightGalleryTarget = () => {
   }, 1000);
 };
 
+let galleryLoadingTimer = 0;
+let galleryLoadingDetailIndex = 0;
+
+const renderChainLoadingStatus = (
+  target: HTMLElement,
+  label: string,
+  detail: string,
+) => {
+  const wrapper = document.createElement("span");
+  wrapper.className = "inshell-chain-loading";
+  wrapper.setAttribute("aria-label", `${label}... ${detail}`);
+
+  const line = document.createElement("span");
+  line.className = "inshell-chain-loading__line";
+  line.append(label);
+
+  const dots = document.createElement("span");
+  dots.className = "inshell-chain-loading__dots";
+  dots.setAttribute("aria-hidden", "true");
+  line.append(dots);
+
+  const detailLine = document.createElement("span");
+  detailLine.className = "inshell-chain-loading__detail";
+  detailLine.textContent = detail;
+
+  wrapper.append(line, detailLine);
+  target.replaceChildren(wrapper);
+};
+
+const stopGalleryLoadingStatus = () => {
+  if (galleryLoadingTimer) {
+    window.clearInterval(galleryLoadingTimer);
+    galleryLoadingTimer = 0;
+  }
+};
+
+const startGalleryLoadingStatus = () => {
+  stopGalleryLoadingStatus();
+  galleryLoadingDetailIndex = 0;
+  renderChainLoadingStatus(
+    galleryStatus,
+    "reading minted THOUGHTs from chain",
+    THOUGHT_GALLERY_LOADING_DETAILS[galleryLoadingDetailIndex],
+  );
+  galleryLoadingTimer = window.setInterval(() => {
+    galleryLoadingDetailIndex =
+      (galleryLoadingDetailIndex + 1) % THOUGHT_GALLERY_LOADING_DETAILS.length;
+    renderChainLoadingStatus(
+      galleryStatus,
+      "reading minted THOUGHTs from chain",
+      THOUGHT_GALLERY_LOADING_DETAILS[galleryLoadingDetailIndex],
+    );
+  }, CHAIN_LOADING_DETAIL_MS);
+};
+
 const loadThoughtGallery = async () => {
-  galleryStatus.textContent = "reading minted THOUGHTs from chain...";
+  startGalleryLoadingStatus();
   galleryGrid.replaceChildren();
 
   try {
     const thoughts = await readGalleryThoughts();
+    stopGalleryLoadingStatus();
     if (!thoughts) {
       galleryStatus.textContent = "gallery unavailable.";
       return;
@@ -5333,6 +5419,7 @@ const loadThoughtGallery = async () => {
     galleryGrid.replaceChildren(...thoughts.map(renderGalleryCard));
     highlightGalleryTarget();
   } catch {
+    stopGalleryLoadingStatus();
     galleryStatus.textContent = "failed to read gallery.";
   }
 };
@@ -5563,10 +5650,14 @@ const getMinimumHeight = (displayWidth: number) => displayWidth;
 const resizeCanvas = (displayWidth: number, height: number) => {
   const deviceScale = window.devicePixelRatio || 1;
   const frameStyles = window.getComputedStyle(thoughtCanvasFrame);
-  const frameTopInset = readPx(frameStyles.paddingTop) + readPx(frameStyles.borderTopWidth);
+  const frameVerticalInset =
+    readPx(frameStyles.paddingTop) +
+    readPx(frameStyles.paddingBottom) +
+    readPx(frameStyles.borderTopWidth) +
+    readPx(frameStyles.borderBottomWidth);
   const cliHeight = isStackedOperatorLayout()
     ? Math.max(STACKED_MIN_CLI_HEIGHT, getStackedOperatorAvailableHeight() - displayWidth)
-    : height + frameTopInset;
+    : height + frameVerticalInset;
 
   canvas.width = Math.round(displayWidth * deviceScale);
   canvas.height = Math.round(height * deviceScale);
@@ -7751,10 +7842,10 @@ let cliScrollHideTimer = 0;
 let cliScrollFrame = 0;
 
 const hasRunningProgressLine = (lines: string[]) =>
-  /^running\.{1,3}$/.test(lines[0] ?? "");
+  /^(?:running|loading)\.{1,3}$/.test(lines[0] ?? "");
 
 const animateRunningProgressLine = (line: string, index: number) => {
-  if (index !== 0 || !/^running\.{1,3}$/.test(line)) {
+  if (index !== 0 || !/^(?:running|loading)\.{1,3}$/.test(line)) {
     return line;
   }
 
@@ -7769,6 +7860,7 @@ const stopCliProgress = () => {
   }
   cliProgressEntry = null;
   cliProgressBaseLines = [];
+  cliProgressDetailLines = [];
 };
 
 const updateCliProgress = () => {
@@ -7777,12 +7869,19 @@ const updateCliProgress = () => {
   }
 
   cliProgressTick += 1;
-  cliProgressEntry.lines = cliProgressBaseLines.map(animateRunningProgressLine);
+  const lines = cliProgressBaseLines.map(animateRunningProgressLine);
+  if (cliProgressDetailLines.length > 0 && lines.length > 1) {
+    const detailIndex =
+      Math.floor(cliProgressTick / CLI_PROGRESS_DETAIL_ROTATE_TICKS) %
+      cliProgressDetailLines.length;
+    lines[1] = cliProgressDetailLines[detailIndex];
+  }
+  cliProgressEntry.lines = lines;
   writeCliTranscript();
   syncCliPanel();
 };
 
-const startCliProgress = (entry: CliEntry | null) => {
+const startCliProgress = (entry: CliEntry | null, detailLines: readonly string[] = []) => {
   stopCliProgress();
   if (!entry || !hasRunningProgressLine(entry.lines)) {
     return;
@@ -7790,34 +7889,38 @@ const startCliProgress = (entry: CliEntry | null) => {
 
   cliProgressEntry = entry;
   cliProgressBaseLines = [...entry.lines];
-  cliProgressTick = 2;
+  cliProgressDetailLines = [...detailLines];
+  cliProgressTick = 0;
   cliProgressTimer = window.setInterval(updateCliProgress, 600);
 };
 
-const appendCliProgressOutput = (lines: string | string[]) => {
-  const entry = appendCliOutput(lines);
-  startCliProgress(entry);
+const appendCliProgressOutput = (
+  lines: string | string[],
+  detailLines: readonly string[] = [],
+) => {
+  const progressLines = Array.isArray(lines) ? [...lines] : [lines];
+  if (detailLines.length > 0) {
+    if (progressLines.length === 1) {
+      progressLines.push(detailLines[0]);
+    } else {
+      progressLines[1] = detailLines[0];
+    }
+  }
+  const entry = appendCliOutput(progressLines);
+  startCliProgress(entry, detailLines);
   return entry;
 };
 
-const withDelayedCliLoading = async <T>(
+const withCliLoading = async <T>(
   lines: string | string[],
   action: () => Promise<T>,
-  delayMs = CLI_RPC_LOADING_DELAY_MS,
+  detailLines: readonly string[] = [],
 ): Promise<T> => {
-  let loadingShown = false;
-  const timer = window.setTimeout(() => {
-    loadingShown = true;
-    appendCliProgressOutput(lines);
-  }, delayMs);
-
+  appendCliProgressOutput(lines, detailLines);
   try {
     return await action();
   } finally {
-    window.clearTimeout(timer);
-    if (loadingShown) {
-      stopCliProgress();
-    }
+    stopCliProgress();
   }
 };
 
@@ -9925,11 +10028,7 @@ const startCliMint = async () => {
     "one THOUGHT needs one usable $PATH.",
     "select $PATH / authorize / confirm.",
   ]);
-  await withDelayedCliLoading([
-    "running...",
-    "preparing THOUGHT mint.",
-    "checking spec, duplicate text, and wallet state.",
-  ], () => openMintSheet("cli"));
+  await withCliLoading("loading...", () => openMintSheet("cli"), MINT_PREP_LOADING_DETAILS);
   appendCliMintState();
 };
 
@@ -10022,45 +10121,37 @@ const fetchPathTransferLogsForWallet = async (provider: JsonRpcProvider, walletT
 };
 
 const listCliPaths = async () => {
-  await withDelayedCliLoading([
-    "running...",
-    "checking wallet and chain.",
-    "preparing $PATH inventory read.",
-  ], () => refreshWalletState());
+  await withCliLoading("loading...", async () => {
+    await refreshWalletState();
 
-  if (!walletState.address) {
-    appendCliOutput([
-      "wallet $PATHs for THOUGHT mint.",
-      "",
-      "wallet not connected.",
-      "use: wallet connect",
-    ]);
-    return;
-  }
+    if (!walletState.address) {
+      appendCliOutput([
+        "wallet $PATHs for THOUGHT mint.",
+        "",
+        "wallet not connected.",
+        "use: wallet connect",
+      ]);
+      return;
+    }
 
-  if (walletState.chainId !== THOUGHT_CHAIN_ID) {
-    appendCliError(["wallet $PATHs for THOUGHT mint.", "", ...cliWrongNetworkLines()]);
-    return;
-  }
+    if (walletState.chainId !== THOUGHT_CHAIN_ID) {
+      appendCliError(["wallet $PATHs for THOUGHT mint.", "", ...cliWrongNetworkLines()]);
+      return;
+    }
 
-  const provider = getReadProvider();
-  const pathNft = getReadPathNft();
-  if (!provider || !pathNft || !PATH_NFT_ADDRESS || !THOUGHT_NFT_ADDRESS) {
-    appendCliOutput([
-      "wallet $PATHs for THOUGHT mint.",
-      "",
-      "path list unavailable.",
-      "need $PATH: mint-path",
-    ]);
-    return;
-  }
+    const provider = getReadProvider();
+    const pathNft = getReadPathNft();
+    if (!provider || !pathNft || !PATH_NFT_ADDRESS || !THOUGHT_NFT_ADDRESS) {
+      appendCliOutput([
+        "wallet $PATHs for THOUGHT mint.",
+        "",
+        "path list unavailable.",
+        "need $PATH: mint-path",
+      ]);
+      return;
+    }
 
-  try {
-    const ownedPaths = await withDelayedCliLoading([
-      "running...",
-      "reading wallet $PATH inventory from chain.",
-      "scanning PATH transfer logs and token status.",
-    ], async () => {
+    try {
       const walletTopic = indexedAddressTopic(walletState.address);
       const transferLogs = await fetchPathTransferLogsForWallet(provider, walletTopic);
       const candidateIds = new Set<bigint>();
@@ -10076,7 +10167,7 @@ const listCliPaths = async () => {
         pathNft.getMovementQuota(PATH_MOVEMENT_THOUGHT) as Promise<bigint>,
       ]);
       const wallet = walletState.address.toLowerCase();
-      return (
+      const ownedPaths = (
         await Promise.all(
           [...candidateIds]
             .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
@@ -10094,28 +10185,28 @@ const listCliPaths = async () => {
             }),
         )
       ).filter((path): path is { pathId: bigint; status: string } => path !== null);
-    });
 
-    appendCliOutput([
-      "wallet $PATHs for THOUGHT mint.",
-      `wallet: ${formatCliAddress(walletState.address)}`,
-      "",
-      ...(ownedPaths.length
-        ? ownedPaths.map(({ pathId, status }) => `#${pathId.toString()} ${status}`)
-        : ["none found."]),
-      "",
-      "use: path <id>",
-      "need $PATH: mint-path",
-    ]);
-  } catch {
-    appendCliOutput([
-      "wallet $PATHs for THOUGHT mint.",
-      "",
-      "path list unavailable.",
-      "use: path <id>",
-      "need $PATH: mint-path",
-    ]);
-  }
+      appendCliOutput([
+        "wallet $PATHs for THOUGHT mint.",
+        `wallet: ${formatCliAddress(walletState.address)}`,
+        "",
+        ...(ownedPaths.length
+          ? ownedPaths.map(({ pathId, status }) => `#${pathId.toString()} ${status}`)
+          : ["none found."]),
+        "",
+        "use: path <id>",
+        "need $PATH: mint-path",
+      ]);
+    } catch {
+      appendCliOutput([
+        "wallet $PATHs for THOUGHT mint.",
+        "",
+        "path list unavailable.",
+        "use: path <id>",
+        "need $PATH: mint-path",
+      ]);
+    }
+  }, PATH_LIST_LOADING_DETAILS);
 };
 
 const checkCliPath = async (pathInput: string) => {
@@ -10136,11 +10227,7 @@ const checkCliPath = async (pathInput: string) => {
   }
 
   let mintFlowReady = false;
-  await withDelayedCliLoading([
-    "running...",
-    `checking $PATH #${trimmed} for THOUGHT mint.`,
-    "reading owner, stage, and quota from chain.",
-  ], async () => {
+  await withCliLoading("loading...", async () => {
     mintFlowReady = await ensureCliMintFlow();
     if (!mintFlowReady) {
       return;
@@ -10149,7 +10236,7 @@ const checkCliPath = async (pathInput: string) => {
     mintFlowData.pathIdInput = trimmed;
     mintFlowData.pathId = parsePathTokenId(pathInput);
     await checkPathEligibility();
-  });
+  }, [`checking $PATH #${trimmed} for THOUGHT mint.`, ...PATH_CHECK_LOADING_DETAILS]);
 
   if (!mintFlowReady) {
     return;

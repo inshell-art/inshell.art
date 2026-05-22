@@ -179,7 +179,7 @@ body {
   --main-area-width: 1120px;
   --thought-detail-width: var(--main-area-width);
   --thought-canvas-outer-height: 620px;
-  --thought-cli-height: calc(var(--thought-canvas-outer-height) + 16px);
+  --thought-cli-height: calc(var(--thought-canvas-outer-height) + 32px);
 }
 
 body.frontpage {

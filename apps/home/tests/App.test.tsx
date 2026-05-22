@@ -534,7 +534,10 @@ describe("App Component", () => {
     window.history.pushState({}, "", "/path");
     render(<App />);
 
-    expect(screen.getByText("reading live $PATH tokens from chain...")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("reading live $PATH tokens from chain... checking latest block."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("checking latest block.")).toBeInTheDocument();
     expect(await screen.findByText("token list unavailable")).toBeInTheDocument();
   });
 

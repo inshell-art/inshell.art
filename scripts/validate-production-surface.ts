@@ -360,10 +360,10 @@ function checkThoughtProductionGuards() {
     "waiting for model return.",
     "OLLAMA_ORIGINS=",
     "openai request could not be reached from this browser.",
-    "withDelayedCliLoading",
+    "withCliLoading",
     "reading wallet $PATH inventory from chain.",
-    "reading owner, stage, and quota from chain.",
-    "reading minted THOUGHTs from chain...",
+    "reading owner from chain.",
+    "reading minted THOUGHTs from chain",
   ]) {
     if (!text.includes(snippet)) {
       fail(`apps/thought/src/main.ts is missing THOUGHT production guard: ${snippet}`);

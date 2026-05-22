@@ -309,34 +309,9 @@
             </div>
           </div>
 
-          <div class="color-font-footer">
-            <a
-              id="thought-instructions-link"
-              class="frontpage-note__link frontpage-note__link--hidden"
-              href="#"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Open active THOUGHT.md"
-            >THOUGHT.md</a>
-            <nav class="color-font-footer__nav" aria-label="THOUGHT links">
-              <a
-                class="color-font-footer__link"
-                href="https://inshell.art/color-font"
-                target="_blank"
-                rel="noopener noreferrer"
-                data-label="color font"
-                aria-label="Open the Color Font page"
-              >
-                ■■■■■■■■■■
-              </a>
-              <a
-                id="thought-gallery-link"
-                class="color-font-footer__link"
-                href="?gallery=1"
-                data-label="gallery"
-                aria-label="Open the THOUGHT gallery"
-              >■■■■■■■</a>
-            </nav>
+          <div hidden>
+            <a id="thought-instructions-link" href="#" target="_blank" rel="noopener noreferrer">THOUGHT.md</a>
+            <a id="thought-gallery-link" href="?gallery=1">gallery</a>
           </div>
         </div>
       </div>
@@ -349,7 +324,14 @@
         </div>
       </header>
       <div class="thought-gallery__status-row">
-        <p id="gallery-status" class="thought-gallery__status" aria-live="polite">reading minted THOUGHTs from chain...</p>
+        <p id="gallery-status" class="thought-gallery__status" aria-live="polite">
+          <span class="inshell-chain-loading" aria-label="reading minted THOUGHTs from chain... checking latest block.">
+            <span class="inshell-chain-loading__line">
+              reading minted THOUGHTs from chain<span class="inshell-chain-loading__dots" aria-hidden="true"></span>
+            </span>
+            <span class="inshell-chain-loading__detail">checking latest block.</span>
+          </span>
+        </p>
         <a class="thought-gallery__create" href="./">create yours.</a>
       </div>
       <div id="gallery-grid" class="thought-gallery__grid"></div>

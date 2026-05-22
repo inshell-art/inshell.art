@@ -19,6 +19,15 @@ type LoadState =
 const FIXTURE_OWNER = "0x1111222233334444555566667777888899990000";
 const PATH_DESCRIPTION =
   "$PATH is the permission token. It is minted by the public Pulse auction and authorizes movement mints in order: THOUGHT, WILL, then AWA. The token image and traits show movement progress.";
+const CHAIN_LOADING_DETAIL_MS = 1400;
+const PATH_LOADING_DETAILS = [
+  "checking latest block.",
+  "scanning PATH transfer logs.",
+  "collecting token ids.",
+  "checking current owners.",
+  "reading token metadata.",
+  "rendering token gallery.",
+] as const;
 const FIXTURE_QUOTAS = {
   thought: 3,
   will: 10,
@@ -314,6 +323,24 @@ function pathFixtureItems(fixture: string | null): PathTokenInventoryItem[] | nu
   return null;
 }
 
+function ChainLoadingStatus({
+  label,
+  detail,
+}: {
+  label: string;
+  detail: string;
+}) {
+  return (
+    <span className="inshell-chain-loading" aria-label={`${label}... ${detail}`}>
+      <span className="inshell-chain-loading__line">
+        {label}
+        <span className="inshell-chain-loading__dots" aria-hidden="true" />
+      </span>
+      <span className="inshell-chain-loading__detail">{detail}</span>
+    </span>
+  );
+}
+
 export default function PathPage() {
   const fixture = useMemo(() => readPathFixture(), []);
   const fixtureItems = useMemo(() => pathFixtureItems(fixture), [fixture]);
@@ -329,6 +356,22 @@ export default function PathPage() {
     items: [],
     error: null,
   });
+  const [loadingDetailIndex, setLoadingDetailIndex] = useState(0);
+
+  useEffect(() => {
+    if (state.status !== "loading") {
+      return;
+    }
+
+    setLoadingDetailIndex(0);
+    const timer = window.setInterval(() => {
+      setLoadingDetailIndex((index) => (index + 1) % PATH_LOADING_DETAILS.length);
+    }, CHAIN_LOADING_DETAIL_MS);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [state.status, refreshNonce]);
 
   useEffect(() => {
     if (fixtureItems) {
@@ -415,7 +458,12 @@ export default function PathPage() {
               {state.status === "ready"
                 ? `${state.items.length} token${state.items.length === 1 ? "" : "s"}`
                 : state.status === "loading"
-                  ? "reading live $PATH tokens from chain..."
+                  ? (
+                    <ChainLoadingStatus
+                      label="reading live $PATH tokens from chain"
+                      detail={PATH_LOADING_DETAILS[loadingDetailIndex]}
+                    />
+                  )
                   : "token list unavailable"}
             </div>
           </div>
