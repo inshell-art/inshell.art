@@ -21,12 +21,12 @@ const PATH_DESCRIPTION =
   "$PATH is the permission token. It is minted by the public Pulse auction and authorizes movement mints in order: THOUGHT, WILL, then AWA. The token image and traits show movement progress.";
 const CHAIN_LOADING_DETAIL_MS = 1400;
 const PATH_LOADING_DETAILS = [
-  "checking latest block.",
-  "scanning PATH transfer logs.",
-  "collecting token ids.",
-  "checking current owners.",
-  "reading token metadata.",
-  "rendering token gallery.",
+  "checking latest block",
+  "scanning PATH transfer logs",
+  "collecting token ids",
+  "checking current owners",
+  "reading token metadata",
+  "rendering token gallery",
 ] as const;
 const FIXTURE_QUOTAS = {
   thought: 3,
@@ -324,19 +324,16 @@ function pathFixtureItems(fixture: string | null): PathTokenInventoryItem[] | nu
 }
 
 function ChainLoadingStatus({
-  label,
-  detail,
+  status,
 }: {
-  label: string;
-  detail: string;
+  status: string;
 }) {
   return (
-    <span className="inshell-chain-loading" aria-label={`${label}... ${detail}`}>
+    <span className="inshell-chain-loading" aria-label={`reading from chain: ${status}...`}>
       <span className="inshell-chain-loading__line">
-        {label}
+        reading from chain: {status}
         <span className="inshell-chain-loading__dots" aria-hidden="true" />
       </span>
-      <span className="inshell-chain-loading__detail">{detail}</span>
     </span>
   );
 }
@@ -460,8 +457,7 @@ export default function PathPage() {
                 : state.status === "loading"
                   ? (
                     <ChainLoadingStatus
-                      label="reading live $PATH tokens from chain"
-                      detail={PATH_LOADING_DETAILS[loadingDetailIndex]}
+                      status={PATH_LOADING_DETAILS[loadingDetailIndex]}
                     />
                   )
                   : "token list unavailable"}

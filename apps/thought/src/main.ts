@@ -721,26 +721,25 @@ const THOUGHT_NFT_DEPLOY_BLOCK =
     : 0;
 const THOUGHT_LOG_CHUNK_SIZE = 5_000;
 const THOUGHT_GALLERY_LOADING_DETAILS = [
-  "checking latest block.",
-  "scanning THOUGHT mint logs.",
-  "collecting token ids.",
-  "reading token metadata.",
-  "building gallery.",
+  "checking latest block",
+  "scanning THOUGHT mint logs",
+  "collecting token ids",
+  "reading token metadata",
+  "building gallery",
 ] as const;
 const PATH_LIST_LOADING_DETAILS = [
-  "reading wallet $PATH inventory from chain.",
-  "checking wallet and chain.",
-  "checking latest block.",
-  "scanning PATH transfer logs.",
-  "collecting token ids.",
-  "checking current owners.",
-  "checking THOUGHT quota status.",
+  "reading from chain: wallet $PATH inventory",
+  "reading from chain: checking latest block",
+  "reading from chain: scanning PATH transfer logs",
+  "reading from chain: collecting token ids",
+  "reading from chain: checking current owners",
+  "reading from chain: checking THOUGHT quota status",
 ] as const;
 const PATH_CHECK_LOADING_DETAILS = [
-  "checking wallet and chain.",
-  "reading owner from chain.",
-  "reading stage and quota.",
-  "checking THOUGHT unit status.",
+  "reading from chain: checking wallet",
+  "reading from chain: owner",
+  "reading from chain: stage and quota",
+  "reading from chain: THOUGHT unit status",
 ] as const;
 const MINT_PREP_LOADING_DETAILS = [
   "preparing THOUGHT mint.",
@@ -938,6 +937,7 @@ const thoughtInstructionsLink = document.getElementById("thought-instructions-li
 const thoughtGalleryLink = document.getElementById("thought-gallery-link") as HTMLAnchorElement | null;
 const galleryPage = document.getElementById("gallery-page") as HTMLElement | null;
 const galleryStatus = document.getElementById("gallery-status") as HTMLElement | null;
+const galleryCreateLink = document.getElementById("gallery-create-link") as HTMLAnchorElement | null;
 const galleryGrid = document.getElementById("gallery-grid") as HTMLElement | null;
 const colorFontPage = document.getElementById("color-font-page") as HTMLElement | null;
 const colorFontSource = document.getElementById("color-font-source") as HTMLElement | null;
@@ -1074,6 +1074,7 @@ if (
   !thoughtGalleryLink ||
   !galleryPage ||
   !galleryStatus ||
+  !galleryCreateLink ||
   !galleryGrid ||
   !colorFontPage ||
   !colorFontSource ||
@@ -5353,27 +5354,22 @@ let galleryLoadingDetailIndex = 0;
 
 const renderChainLoadingStatus = (
   target: HTMLElement,
-  label: string,
-  detail: string,
+  status: string,
 ) => {
   const wrapper = document.createElement("span");
   wrapper.className = "inshell-chain-loading";
-  wrapper.setAttribute("aria-label", `${label}... ${detail}`);
+  wrapper.setAttribute("aria-label", `reading from chain: ${status}...`);
 
   const line = document.createElement("span");
   line.className = "inshell-chain-loading__line";
-  line.append(label);
+  line.append(`reading from chain: ${status}`);
 
   const dots = document.createElement("span");
   dots.className = "inshell-chain-loading__dots";
   dots.setAttribute("aria-hidden", "true");
   line.append(dots);
 
-  const detailLine = document.createElement("span");
-  detailLine.className = "inshell-chain-loading__detail";
-  detailLine.textContent = detail;
-
-  wrapper.append(line, detailLine);
+  wrapper.append(line);
   target.replaceChildren(wrapper);
 };
 
@@ -5387,9 +5383,9 @@ const stopGalleryLoadingStatus = () => {
 const startGalleryLoadingStatus = () => {
   stopGalleryLoadingStatus();
   galleryLoadingDetailIndex = 0;
+  galleryCreateLink.hidden = true;
   renderChainLoadingStatus(
     galleryStatus,
-    "reading minted THOUGHTs from chain",
     THOUGHT_GALLERY_LOADING_DETAILS[galleryLoadingDetailIndex],
   );
   galleryLoadingTimer = window.setInterval(() => {
@@ -5397,10 +5393,13 @@ const startGalleryLoadingStatus = () => {
       (galleryLoadingDetailIndex + 1) % THOUGHT_GALLERY_LOADING_DETAILS.length;
     renderChainLoadingStatus(
       galleryStatus,
-      "reading minted THOUGHTs from chain",
       THOUGHT_GALLERY_LOADING_DETAILS[galleryLoadingDetailIndex],
     );
   }, CHAIN_LOADING_DETAIL_MS);
+};
+
+const settleGalleryCreateLink = () => {
+  galleryCreateLink.hidden = false;
 };
 
 const loadThoughtGallery = async () => {
@@ -5412,15 +5411,18 @@ const loadThoughtGallery = async () => {
     stopGalleryLoadingStatus();
     if (!thoughts) {
       galleryStatus.textContent = "gallery unavailable.";
+      settleGalleryCreateLink();
       return;
     }
 
     galleryStatus.textContent = thoughts.length === 0 ? "no minted THOUGHTs yet." : `${thoughts.length} minted THOUGHT${thoughts.length === 1 ? "" : "s"}.`;
     galleryGrid.replaceChildren(...thoughts.map(renderGalleryCard));
+    settleGalleryCreateLink();
     highlightGalleryTarget();
   } catch {
     stopGalleryLoadingStatus();
     galleryStatus.textContent = "failed to read gallery.";
+    settleGalleryCreateLink();
   }
 };
 
@@ -10236,7 +10238,10 @@ const checkCliPath = async (pathInput: string) => {
     mintFlowData.pathIdInput = trimmed;
     mintFlowData.pathId = parsePathTokenId(pathInput);
     await checkPathEligibility();
-  }, [`checking $PATH #${trimmed} for THOUGHT mint.`, ...PATH_CHECK_LOADING_DETAILS]);
+  }, [
+    `reading from chain: checking $PATH #${trimmed} for THOUGHT mint`,
+    ...PATH_CHECK_LOADING_DETAILS,
+  ]);
 
   if (!mintFlowReady) {
     return;

@@ -535,9 +535,9 @@ describe("App Component", () => {
     render(<App />);
 
     expect(
-      screen.getByLabelText("reading live $PATH tokens from chain... checking latest block."),
+      screen.getByLabelText("reading from chain: checking latest block..."),
     ).toBeInTheDocument();
-    expect(screen.getByText("checking latest block.")).toBeInTheDocument();
+    expect(screen.getByText("reading from chain: checking latest block")).toBeInTheDocument();
     expect(await screen.findByText("token list unavailable")).toBeInTheDocument();
   });
 

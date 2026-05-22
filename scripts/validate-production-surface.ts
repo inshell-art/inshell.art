@@ -361,9 +361,12 @@ function checkThoughtProductionGuards() {
     "OLLAMA_ORIGINS=",
     "openai request could not be reached from this browser.",
     "withCliLoading",
-    "reading wallet $PATH inventory from chain.",
-    "reading owner from chain.",
-    "reading minted THOUGHTs from chain",
+    "reading from chain: wallet $PATH inventory",
+    "reading from chain: owner",
+    "reading from chain: checking latest block",
+    "gallery-create-link",
+    "galleryCreateLink.hidden = true",
+    "settleGalleryCreateLink",
   ]) {
     if (!text.includes(snippet)) {
       fail(`apps/thought/src/main.ts is missing THOUGHT production guard: ${snippet}`);
