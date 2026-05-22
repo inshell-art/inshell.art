@@ -22,6 +22,7 @@
   - `night-note` lists/reviews `Night Notes`.
   - `resolve tasks` or `empty the tasks` starts implementing regular tasks in order, then clears completed entries after confirming what changed.
   - `dev night-note` starts implementing night-note tasks in order, clears completed entries after confirming what changed, then pushes the finished code.
+- If any GitHub, Dependabot, security, CI, deployment, or repo alert appears during work or push output, record it under `Night Notes` unless the user asks to fix it immediately.
 
 ## Security and Leak-Prevention Rules
 - Never introduce secrets into the repo.
