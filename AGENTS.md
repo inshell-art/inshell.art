@@ -10,6 +10,19 @@
 - Never run two servers on the same port (including IPv4/IPv6 split).
 - If a port is occupied, stop the existing process before starting a new one.
 
+## Task Notes
+- Use `LOCAL_TASKS.md` as the local task memo when it exists. It is local-only and should not be committed unless the user explicitly asks.
+- Keep two separate queues:
+  - `Regular Tasks`: daytime work that can be implemented when the user says `resolve tasks`, `empty the tasks`, or similar.
+  - `Night Notes`: low-urgency night work that should only be implemented when the user says `dev night-note`, `clean the tasks in night-note`, or similar.
+- Command conventions:
+  - `add to tasks: <task>` adds the task under `Regular Tasks`.
+  - `add to night-note: <task>` or `night-note: <task>` adds the task under `Night Notes`.
+  - `tasks` lists/reviews `Regular Tasks`.
+  - `night-note` lists/reviews `Night Notes`.
+  - `resolve tasks` or `empty the tasks` starts implementing regular tasks in order, then clears completed entries after confirming what changed.
+  - `dev night-note` starts implementing night-note tasks in order, clears completed entries after confirming what changed, then pushes the finished code.
+
 ## Security and Leak-Prevention Rules
 - Never introduce secrets into the repo.
 - Do not add or modify code that includes any:
