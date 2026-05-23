@@ -32,6 +32,7 @@ import {
   buildContractStatusSections,
   findContractStatusRow,
   resolveWalletChainRpcUrls,
+  type PublicLaunchMode,
 } from "@inshell/shared";
 import {
   parseSurfaceInput,
@@ -2971,7 +2972,19 @@ const thoughtReportState = () => {
   return "frontpage";
 };
 
+const thoughtReportLaunchMode = (): PublicLaunchMode | undefined => {
+  const raw = String(import.meta.env.VITE_PUBLIC_LAUNCH_MODE ?? "").trim();
+  if (raw === "local" || raw === "sepolia_invite" || raw === "production") {
+    return raw;
+  }
+  if (window.location.hostname === "thought.inshell.art") {
+    return "sepolia_invite";
+  }
+  return undefined;
+};
+
 const configureReportBugLink = () => {
+  const launchMode = thoughtReportLaunchMode();
   const link = buildReportBugLink(
     {
       surface: "thought",
@@ -2983,6 +2996,7 @@ const configureReportBugLink = () => {
     {
       env: import.meta.env,
       defaultOrigin: "https://thought.inshell.art",
+      ...(launchMode ? { launchMode } : {}),
     },
   );
 

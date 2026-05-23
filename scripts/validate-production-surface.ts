@@ -437,6 +437,12 @@ function checkSharedSurfaceLayer() {
     "buildReportBugLink",
   ]);
   requireSnippets("apps/thought/index.html", ["inshell-report-bug-link--floating"]);
+  const thoughtIndex = read("apps/thought/index.html");
+  const thoughtReportLinkTag =
+    thoughtIndex.match(/<a\b[^>]*id="thought-report-bug-link"[^>]*>/)?.[0] ?? "";
+  if (thoughtReportLinkTag.includes("is-hidden")) {
+    fail("apps/thought/index.html must not ship the floating report bug link hidden");
+  }
   requireSnippets(".github/workflows/deploy-pages.yml", [
     "VITE_REPORT_BUG_URL: ${{ vars.VITE_REPORT_BUG_URL || 'https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md' }}",
     "VITE_GITHUB_URL: ${{ vars.VITE_GITHUB_URL || 'https://github.com/inshell-art/inshell.art' }}",
