@@ -23,8 +23,8 @@ jobs:
           cache: "pnpm"
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Validate production surface
-        run: pnpm tsx scripts/validate-production-surface.ts
+      - name: Validate deployment gates
+        run: pnpm run check:deployment
       - name: Run linter
         run: pnpm run lint
       - name: Run type-check

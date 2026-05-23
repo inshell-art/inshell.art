@@ -10,6 +10,7 @@ Task scripts for syncing **addresses**, writing **env**, and validating imported
 | `sync-path-release.ts` | Import a full `path/` FE release bundle: addresses, protocol manifest, and ABI snapshots. |
 | `sync-thought-release.ts` | Import a full `THOUGHT/` FE release bundle: THOUGHT addresses, protocol manifest, and ABI snapshots. |
 | `sync-env.ts` | Generate `.env.<net>.local` for apps from RPC + addresses (supports deploy block). |
+| `check-deployment.mjs` | Run the integrated deployment validation gates in offline-by-default mode. |
 | `validate-path-artifacts.ts` | Reject stale PATH ABI/release JSON that still exposes deprecated spark/reserved mint surface. |
 | `validate-inshell-contracts.mjs` | Generate the Sepolia PATH/THOUGHT validation report from release manifests, bytecode hashes, sibling repo evidence, and optional live RPC reads. |
 | `abi-json-to-ts.ts` | Convert ABI JSON into a typed TS export for runtime/typing. |
@@ -24,6 +25,7 @@ Task scripts for syncing **addresses**, writing **env**, and validating imported
 - `sync-path-release.ts` — validates a `path/artifacts/<net>/current/fe-release/` bundle, rejects stale protocol surface, then writes the FE address book, protocol release manifest, and ABI snapshots.
 - `sync-thought-release.ts` — validates a `THOUGHT/` FE release bundle with `protocol="thought"` / `schema_version=1`, verifies checksums, merges THOUGHT addresses into the FE address book, writes `thought-release.<net>.json`, and copies THOUGHT ABI snapshots.
 - `sync-env.ts` — writes `apps/home/.env.<net>.local` and `apps/thought/.env.<net>.local` from RPC + addresses.
+- `check-deployment.mjs` — orchestrates production-surface validation, imported artifact validation, and contract deployment report generation. It skips live RPC by default; use `pnpm run check:deployment:live` for an operator release check.
 - `validate-path-artifacts.ts` — scans imported PATH JSON artifacts for deleted spark/reserved surface before syncing.
 - `validate-inshell-contracts.mjs` — writes contract validation reports to `tmp/validation/` by default. Set `INSHELL_VALIDATION_SKIP_LIVE=1` to avoid live RPC reads. Set `INSHELL_VALIDATION_ENV_FILE=<path>` when you want it to read an operator-managed env file outside the repo.
 

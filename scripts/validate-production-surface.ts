@@ -33,6 +33,7 @@ const DEPLOY_WORKFLOW_SNIPPETS = [
   "VITE_PATH_MINT_URL",
   "VITE_THOUGHT_EXPLORER_BASE_URL",
   "VITE_WALLETCONNECT_PROJECT_ID",
+  "check:deployment",
 ] as const;
 
 const HOME_DEV_SCRIPT_SNIPPETS = [
@@ -153,10 +154,23 @@ function checkPackageScripts() {
     }
   }
 
-  if (!String(rootPkg?.scripts?.["check:production"] ?? "").includes(
+  const deploymentCheck = String(rootPkg?.scripts?.["check:deployment"] ?? "");
+  const productionCheck = String(rootPkg?.scripts?.["check:production"] ?? "");
+  if (!deploymentCheck.includes("check-deployment.mjs")) {
+    fail("package.json is missing check:deployment coverage for check-deployment.mjs");
+  }
+  if (!productionCheck.includes("check:deployment")) {
+    fail("package.json is missing check:production coverage for check:deployment");
+  }
+  const deploymentCheckSource = read("scripts/check-deployment.mjs");
+  for (const snippet of [
     "validate-production-surface.ts",
-  )) {
-    fail("package.json is missing check:production coverage for validate-production-surface.ts");
+    "validate-path-artifacts.ts",
+    "validate-inshell-contracts.mjs",
+  ]) {
+    if (!deploymentCheckSource.includes(snippet)) {
+      fail(`scripts/check-deployment.mjs is missing ${snippet}`);
+    }
   }
 
   const rootHomeBuild = String(rootPkg?.scripts?.["build:home"] ?? "");

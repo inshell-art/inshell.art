@@ -279,8 +279,8 @@ async function readOnchain() {
   }
 
   try {
-    const requireRepo = createRequire(join(repos.inshellArt, "package.json"));
-    const { Contract, JsonRpcProvider, keccak256 } = requireRepo("ethers");
+    const requireThoughtApp = createRequire(join(repos.inshellArt, "apps/thought/package.json"));
+    const { Contract, JsonRpcProvider, keccak256 } = requireThoughtApp("ethers");
     const provider = new JsonRpcProvider(candidate.url);
     const network = await provider.getNetwork();
     const out = {
