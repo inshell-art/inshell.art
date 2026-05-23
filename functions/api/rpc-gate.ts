@@ -923,7 +923,7 @@ export const pathRpcGate = createRpcGate({
     },
   ],
   maxLogRange: 5_000,
-  upstreamLogChunkSize: 10,
+  upstreamLogChunkSize: 5_000,
   minuteCuLimit: 180_000,
   hourCuLimit: 1_000_000,
 });
@@ -946,7 +946,7 @@ export const thoughtRpcGate = createRpcGate({
     },
   ],
   maxLogRange: 5_000,
-  upstreamLogChunkSize: 10,
+  upstreamLogChunkSize: 5_000,
   minuteCuLimit: 180_000,
   hourCuLimit: 1_000_000,
 });

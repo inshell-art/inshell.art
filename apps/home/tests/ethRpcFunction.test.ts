@@ -4,6 +4,7 @@ import {
   onRequestPost as onFallbackRpcPost,
 } from "../../../functions/api/eth-rpc";
 import { onRequestPost as onPathRpcPost } from "../../../functions/api/path-rpc";
+import { onRequestPost as onThoughtRpcPost } from "../../../functions/api/thought-rpc";
 
 type MockFetchResponse = {
   status: number;
@@ -53,6 +54,16 @@ function postPathRpc(payload: unknown): Promise<Response> {
     request: rpcRequest(payload),
     env: {
       PATH_RPC_UPSTREAM: "https://path-rpc.example/sepolia",
+      ETH_RPC_UPSTREAM: "https://fallback-rpc.example/sepolia",
+    },
+  });
+}
+
+function postThoughtRpc(payload: unknown): Promise<Response> {
+  return onThoughtRpcPost({
+    request: rpcRequest(payload),
+    env: {
+      THOUGHT_RPC_UPSTREAM: "https://thought-rpc.example/sepolia",
       ETH_RPC_UPSTREAM: "https://fallback-rpc.example/sepolia",
     },
   });
@@ -288,7 +299,7 @@ describe("Cloudflare Ethereum RPC proxy", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  test("routes PATH logs through the PATH upstream and chunks provider calls", async () => {
+  test("routes PATH logs through the PATH upstream without over-chunking validated ranges", async () => {
     const fetchMock = jest.fn<() => Promise<MockFetchResponse>>(async () => ({
       status: 200,
       text: async () => JSON.stringify({ jsonrpc: "2.0", id: 1, result: [] }),
@@ -303,7 +314,7 @@ describe("Cloudflare Ethereum RPC proxy", () => {
         {
           address: "0x84915746a1f06850CF41a3E90C60c2DcA3fa116D",
           fromBlock: "0x1",
-          toBlock: "0x14",
+          toBlock: "0x1388",
           topics: ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"],
         },
       ],
@@ -315,7 +326,38 @@ describe("Cloudflare Ethereum RPC proxy", () => {
       id: 1,
       result: [],
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls.every(([url]) => url === "https://path-rpc.example/sepolia")).toBe(true);
+  });
+
+  test("routes THOUGHT gallery mint logs through the THOUGHT upstream", async () => {
+    const fetchMock = jest.fn<() => Promise<MockFetchResponse>>(async () => ({
+      status: 200,
+      text: async () => JSON.stringify({ jsonrpc: "2.0", id: 1, result: [] }),
+    }));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const response = await postThoughtRpc({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "eth_getLogs",
+      params: [
+        {
+          address: "0x413efb5C95Bf3158F0E563FB9E19CB650Fc3760a",
+          fromBlock: "0xa5dfaf",
+          toBlock: "0xa5f336",
+          topics: ["0xf83a962c31fcc481a4796d3bd1f81a4b58d1b05ec5cb34e434b2d40962596860"],
+        },
+      ],
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      jsonrpc: "2.0",
+      id: 1,
+      result: [],
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls.every(([url]) => url === "https://thought-rpc.example/sepolia")).toBe(true);
   });
 });
