@@ -595,7 +595,7 @@ describe("App Component", () => {
     expect(screen.queryByLabelText("Open hone")).toBeNull();
   });
 
-  test("sepolia invite footer keeps GitHub and exposes report bug as utility link", () => {
+  test("sepolia invite footer keeps GitHub and exposes floating report bug link", () => {
     (globalThis as any).__VITE_ENV__ = {
       VITE_PUBLIC_LAUNCH_MODE: "sepolia_invite",
       VITE_REPORT_BUG_URL: "https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md",
@@ -612,6 +612,29 @@ describe("App Component", () => {
     const report = screen.getByRole("link", { name: "Report a Sepolia bug" });
     expect(report).toHaveTextContent("report bug ↗");
     expect(report).toHaveAttribute("href", expect.stringContaining("template=sepolia-bug.md"));
-    expect(report.className).toContain("reportBug");
+    expect(report.className).toContain("inshell-report-bug-link--floating");
+    expect(report.closest("footer")).toBeNull();
+  });
+
+  test.each([
+    ["/pulse", "pulse"],
+    ["/color-font", "color_font"],
+    ["/path", "path_tokens"],
+    ["/verify", "verify"],
+  ])("sepolia invite exposes floating report bug link on %s", (route, state) => {
+    window.history.pushState({}, "", route);
+    (globalThis as any).__VITE_ENV__ = {
+      VITE_PUBLIC_LAUNCH_MODE: "sepolia_invite",
+      VITE_REPORT_BUG_URL: "https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md",
+      VITE_DEBUG_PANEL: "off",
+    };
+
+    render(<App />);
+
+    const report = screen.getByRole("link", { name: "Report a Sepolia bug" });
+    expect(report.className).toContain("inshell-report-bug-link--floating");
+    const url = new window.URL(report.getAttribute("href") ?? "");
+    expect(url.searchParams.get("body")).toContain(`page: ${route}`);
+    expect(url.searchParams.get("body")).toContain(`state: ${state}`);
   });
 });

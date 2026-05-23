@@ -7,6 +7,7 @@ import PulsePage from "@/components/PulsePage";
 import ColorFontPage from "@/components/ColorFontPage";
 import PathPage from "@/components/PathPage";
 import VerifyPage from "@/components/VerifyPage";
+import FloatingReportBug from "@/components/FloatingReportBug";
 import { maybeResolveAddress } from "@inshell/contracts";
 import { SURFACE_TERMINOLOGY } from "@inshell/shared";
 
@@ -63,33 +64,36 @@ export default function App() {
   }, [primitiveRoute]);
 
   return (
-    <ErrorBoundary
-      FallbackComponent={({ error }) => (
-        <div style={{ padding: "20px", color: "red" }}>
-          <h1>page error</h1>
-          <p>{error.message}</p>
-        </div>
-      )}
-    >
-      <div className={`shell${primitiveRoute ? "" : " shell--home"}`}>
-        {primitiveRoute === "pulse" ? (
-          <PulsePage />
-        ) : primitiveRoute === "color-font" ? (
-          <ColorFontPage />
-        ) : primitiveRoute === "path" ? (
-          <PathPage />
-        ) : primitiveRoute === "verify" ? (
-          <VerifyPage />
-        ) : (
-          <div className="content content--home">
-            <AuctionCanvas address={pulseAuction} />
-            <div className="hero">
-              <Movements />
-            </div>
+    <>
+      <ErrorBoundary
+        FallbackComponent={({ error }) => (
+          <div style={{ padding: "20px", color: "red" }}>
+            <h1>page error</h1>
+            <p>{error.message}</p>
           </div>
         )}
-        {primitiveRoute ? null : <Footer />}
-      </div>
-    </ErrorBoundary>
+      >
+        <div className={`shell${primitiveRoute ? "" : " shell--home"}`}>
+          {primitiveRoute === "pulse" ? (
+            <PulsePage />
+          ) : primitiveRoute === "color-font" ? (
+            <ColorFontPage />
+          ) : primitiveRoute === "path" ? (
+            <PathPage />
+          ) : primitiveRoute === "verify" ? (
+            <VerifyPage />
+          ) : (
+            <div className="content content--home">
+              <AuctionCanvas address={pulseAuction} />
+              <div className="hero">
+                <Movements />
+              </div>
+            </div>
+          )}
+          {primitiveRoute ? null : <Footer />}
+        </div>
+      </ErrorBoundary>
+      <FloatingReportBug />
+    </>
   );
 }

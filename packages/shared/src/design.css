@@ -33,6 +33,20 @@
   white-space: nowrap;
 }
 
+.inshell-report-bug-link--floating {
+  position: fixed;
+  right: clamp(14px, 2vw, 24px);
+  bottom: clamp(12px, 2vh, 20px);
+  z-index: 40;
+  color: rgba(0, 97, 0, 0.72);
+  opacity: 0.82;
+}
+
+.inshell-report-bug-link--floating:hover,
+.inshell-report-bug-link--floating:focus-visible {
+  opacity: 1;
+}
+
 .inshell-report-bug-link:hover,
 .inshell-report-bug-link:focus-visible {
   color: var(--accent-strong, var(--inshell-green-strong));

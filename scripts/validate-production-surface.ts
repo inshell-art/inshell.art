@@ -422,14 +422,21 @@ function checkSharedSurfaceLayer() {
   requireSnippets("packages/shared/src/design.css", [
     ".inshell-contract-status",
     ".inshell-report-bug-link",
+    ".inshell-report-bug-link--floating",
     "--inshell-font-mono",
   ]);
   requireSnippets("apps/home/src/main.tsx", ["@inshell/shared/design.css"]);
+  requireSnippets("apps/home/src/App.tsx", ["<FloatingReportBug />"]);
+  requireSnippets("apps/home/src/components/FloatingReportBug.tsx", [
+    "inshell-report-bug-link--floating",
+    "buildReportBugLink",
+  ]);
   requireSnippets("apps/thought/src/main.ts", [
     "@inshell/shared/design.css",
     "buildContractStatusSections",
     "buildReportBugLink",
   ]);
+  requireSnippets("apps/thought/index.html", ["inshell-report-bug-link--floating"]);
   requireSnippets(".github/workflows/deploy-pages.yml", [
     "VITE_REPORT_BUG_URL: ${{ vars.VITE_REPORT_BUG_URL || 'https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md' }}",
     "VITE_GITHUB_URL: ${{ vars.VITE_GITHUB_URL || 'https://github.com/inshell-art/inshell.art' }}",

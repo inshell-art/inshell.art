@@ -1,9 +1,5 @@
 import React, { useMemo } from "react";
-import {
-  buildReportBugLink,
-  getGithubUrl,
-  shouldShowReportBug,
-} from "@/config/publicLaunch";
+import { getGithubUrl } from "@/config/publicLaunch";
 import styles from "./Footer.module.css";
 
 type FooterLink = {
@@ -78,13 +74,6 @@ const Footer: React.FC = () => {
     []
   );
   const githubUrl = useMemo(() => getGithubUrl(), []);
-  const reportBugLink = useMemo(
-    () =>
-      shouldShowReportBug()
-        ? buildReportBugLink({ page: "/", surface: "path", state: "footer", network: "Sepolia" })
-        : null,
-    []
-  );
 
   const links: FooterLink[] = [
     {
@@ -150,17 +139,6 @@ const Footer: React.FC = () => {
           ))}
         </ul>
       </nav>
-      {reportBugLink && (
-        <a
-          className={`${styles.reportBug} ${reportBugLink.className}`}
-          href={reportBugLink.href}
-          target={reportBugLink.target}
-          rel={reportBugLink.rel}
-          aria-label={reportBugLink.ariaLabel}
-        >
-          {reportBugLink.label}
-        </a>
-      )}
     </footer>
   );
 };
