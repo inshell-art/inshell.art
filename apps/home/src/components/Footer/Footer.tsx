@@ -1,5 +1,4 @@
 import React, { useMemo } from "react";
-import { getGithubUrl } from "@/config/publicLaunch";
 import styles from "./Footer.module.css";
 
 type FooterLink = {
@@ -11,6 +10,8 @@ type FooterLink = {
   tooltip?: string;
   squares?: string;
 };
+
+const INSHELL_GITHUB_URL = "https://github.com/inshell-art/";
 
 function getEnvValue(name: string): unknown {
   const envCache: Record<string, any> | undefined =
@@ -73,7 +74,6 @@ const Footer: React.FC = () => {
       ),
     []
   );
-  const githubUrl = useMemo(() => getGithubUrl(), []);
 
   const links: FooterLink[] = [
     {
@@ -113,7 +113,7 @@ const Footer: React.FC = () => {
     {
       key: "github",
       label: "github",
-      href: githubUrl,
+      href: INSHELL_GITHUB_URL,
       ariaLabel: "Open GitHub",
       external: true,
     },

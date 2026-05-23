@@ -595,7 +595,7 @@ describe("App Component", () => {
     expect(screen.queryByLabelText("Open hone")).toBeNull();
   });
 
-  test("sepolia invite footer keeps GitHub and exposes floating report bug link", () => {
+  test("sepolia invite footer opens GitHub org and exposes floating report bug link", () => {
     (globalThis as any).__VITE_ENV__ = {
       VITE_PUBLIC_LAUNCH_MODE: "sepolia_invite",
       VITE_REPORT_BUG_URL: "https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md",
@@ -607,7 +607,7 @@ describe("App Component", () => {
 
     expect(screen.getByLabelText("Open GitHub")).toHaveAttribute(
       "href",
-      "https://github.com/inshell-art/inshell.art",
+      "https://github.com/inshell-art/",
     );
     const report = screen.getByRole("link", { name: "Report a Sepolia bug" });
     expect(report).toHaveTextContent("report bug ↗");

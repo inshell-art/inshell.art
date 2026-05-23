@@ -371,7 +371,7 @@ export function getGithubUrl(options: ReportBugOptions = {}): string {
   return (
     options.githubUrl ||
     readSharedEnvString("VITE_GITHUB_URL", options) ||
-    "https://github.com/inshell-art/inshell.art"
+    "https://github.com/inshell-art/"
   );
 }
 

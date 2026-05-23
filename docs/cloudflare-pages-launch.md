@@ -32,7 +32,7 @@ VITE_NETWORK=sepolia
 VITE_PUBLIC_LAUNCH_MODE=sepolia_invite
 VITE_ETH_RPC=/api/path-rpc
 VITE_DEBUG_PANEL=off
-VITE_GITHUB_URL=https://github.com/inshell-art/inshell.art
+VITE_GITHUB_URL=https://github.com/inshell-art/
 VITE_THOUGHT_URL=https://thought.inshell.art/
 VITE_PUBLIC_TELEGRAM_CHANNEL_URL=https://t.me/inshell_art
 ```
