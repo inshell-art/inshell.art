@@ -2044,26 +2044,6 @@ type ContractWorkPreviewError = Error & {
 
 const previewWorkReasonLabel = previewRejectionReasonLabel;
 
-const createContractPreviewUnavailableError = (cause: unknown) => {
-  const message = cause instanceof Error ? cause.message : "";
-  const lines = /wallet not connected/i.test(message)
-    ? ["wallet not connected.", "use: wallet connect"]
-    : [
-        "contract preview unavailable.",
-        "no allowed preview provider returned the SVG.",
-        "",
-        "work is not finalized.",
-        "mint is blocked until contract preview succeeds.",
-        "",
-        "use: preview retry",
-        "use: config rpc endpoint <url>",
-      ];
-  const error = new Error(lines.join(" ")) as ContractWorkPreviewError;
-  error.kind = "contract-preview-unavailable";
-  error.cliLines = lines;
-  return error;
-};
-
 let lastRejectedRun: LastRejectedRun | null = null;
 let lastPreviewRetryContext: LastPreviewRetryContext | null = null;
 
@@ -11889,7 +11869,6 @@ const executeCliCommand = async (rawCommand: string) => {
 
   try {
     const parsedCommand = parseSurfaceInput(command, { mode: "command-first" });
-    const head = parsedCommand.commandToken;
     const rest = parsedCommand.rest;
     const [second = ""] = rest.split(/\s+/, 1);
     const lowerHead = parsedCommand.commandKey;
