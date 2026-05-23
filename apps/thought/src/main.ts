@@ -1913,7 +1913,7 @@ const getReadProvider = () => {
   }
 
   if (!readProvider) {
-    readProvider = createSingleRequestJsonRpcProvider(THOUGHT_RPC_URL);
+    readProvider = createSingleRequestJsonRpcProvider(THOUGHT_RPC_URL, THOUGHT_CHAIN_ID);
   }
 
   return readProvider;

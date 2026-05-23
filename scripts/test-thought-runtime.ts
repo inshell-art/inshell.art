@@ -116,6 +116,10 @@ assert.equal(
   createSingleRequestJsonRpcProvider("/api/thought-rpc")._getOption("batchMaxCount"),
   1,
 );
+assert.equal(
+  createSingleRequestJsonRpcProvider("/api/thought-rpc", 11155111)._getOption("staticNetwork"),
+  true,
+);
 
 const secretRules: SurfaceRedactionRule[] = [
   {
