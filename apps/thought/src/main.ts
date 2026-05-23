@@ -12,11 +12,11 @@ import {
   AbiCoder,
   BrowserProvider,
   Contract,
-  JsonRpcProvider,
   getBytes,
   id,
   keccak256,
   toUtf8Bytes,
+  type JsonRpcProvider,
   type JsonRpcSigner,
   type Log,
 } from "ethers";
@@ -94,6 +94,7 @@ import {
   type PreviewProviderKind,
   type PreviewStatus,
 } from "./thought-preview-policy";
+import { createSingleRequestJsonRpcProvider } from "./rpc-provider";
 
 type ColorFontFile = {
   colors: Array<{
@@ -1912,7 +1913,7 @@ const getReadProvider = () => {
   }
 
   if (!readProvider) {
-    readProvider = new JsonRpcProvider(THOUGHT_RPC_URL);
+    readProvider = createSingleRequestJsonRpcProvider(THOUGHT_RPC_URL);
   }
 
   return readProvider;
@@ -2309,7 +2310,7 @@ const getConfiguredPreviewRpcProvider = async () => {
   }
 
   if (!previewRpcProvider || previewRpcProviderUrl !== endpoint) {
-    previewRpcProvider = new JsonRpcProvider(endpoint);
+    previewRpcProvider = createSingleRequestJsonRpcProvider(endpoint);
     previewRpcProviderUrl = endpoint;
     previewRpcChainCache = null;
   }

@@ -16,6 +16,10 @@ import {
   prevalidateThoughtCandidate,
 } from "../apps/thought/src/thought-preview-policy";
 import {
+  JSON_RPC_NO_BATCH_OPTIONS,
+  createSingleRequestJsonRpcProvider,
+} from "../apps/thought/src/rpc-provider";
+import {
   createMemoryStorageAdapter,
   createSurfaceShell,
   parseSurfaceInput,
@@ -107,6 +111,11 @@ assert.equal(
 assert.equal(isPreviewRpcEndpointCommand("config rpc endpoint https://example.test"), true);
 assert.equal(isPreviewRpcEndpointCommand("rpc endpoint https://example.test"), true);
 assert.equal(isPreviewRpcEndpointCommand("rpc call eth_blockNumber"), false);
+assert.equal(JSON_RPC_NO_BATCH_OPTIONS.batchMaxCount, 1);
+assert.equal(
+  createSingleRequestJsonRpcProvider("/api/thought-rpc")._getOption("batchMaxCount"),
+  1,
+);
 
 const secretRules: SurfaceRedactionRule[] = [
   {
