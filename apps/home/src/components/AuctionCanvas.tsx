@@ -21,6 +21,7 @@ import {
 } from "@inshell/utils";
 import type { AuctionSnapshot } from "@/types/types";
 import type { NormalizedBid } from "@/services/auction/bidsService";
+import { clearPathTokenInventoryCache } from "@/services/pathTokens";
 import { useAuctionCore } from "@/hooks/useAuctionCore";
 import {
   getProtocolRelease,
@@ -3918,6 +3919,7 @@ export default function AuctionCanvas({
         text: phase === "bid" ? "Settlement confirmed. Loading sale event." : "Confirmed.",
       });
       if (phase === "bid" && walletAddress) {
+        clearPathTokenInventoryCache();
         postMintNowTipPendingRef.current = true;
         postMintNowTipBaseCurveKeyRef.current = initialAskTipCurveKeyRef.current;
         void pullBidsOnce();

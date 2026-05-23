@@ -26,6 +26,7 @@ const TRANSFER_TOPIC = toEventSelector("Transfer(address,address,uint256)");
 const ZERO_TOPIC =
   "0x0000000000000000000000000000000000000000000000000000000000000000";
 const DEFAULT_MAX_SEQUENTIAL_TOKEN_ID = 10_000;
+const PATH_TOKEN_CACHE_TTL_MS = 60_000;
 
 export type PathTokenAttribute = {
   trait_type?: string;
@@ -50,12 +51,157 @@ export type PathTokenInventoryItem = {
   metadata: PathTokenMetadata;
 };
 
+type PathTokenCacheMode = "default" | "bypass";
+
+type SerializedPathTokenInventoryItem = Omit<PathTokenInventoryItem, "tokenId"> & {
+  tokenId: string;
+};
+
+type PathTokenCachePayload = {
+  cachedAt: number;
+  items: SerializedPathTokenInventoryItem[];
+};
+
+type BrowserStorage = {
+  length: number;
+  getItem: (key: string) => string | null;
+  setItem: (key: string, value: string) => void;
+  removeItem: (key: string) => void;
+  key: (index: number) => string | null;
+};
+
 type RawLogsArgs = {
   address: string;
   fromBlock: number;
   toBlock: number | EthereumBlockTag;
   topics: Array<string | null>;
 };
+
+const pathTokenMemoryCache = new Map<string, PathTokenCachePayload>();
+
+function pathTokenCacheStorage(): BrowserStorage | null {
+  try {
+    const storage = globalThis.sessionStorage;
+    storage?.getItem("__path_token_cache_probe__");
+    return storage ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function pathTokenCacheKey(parts: Array<string | number | undefined>) {
+  return `inshell:path-token-cache:v1:${parts
+    .map((part) => String(part ?? "none").toLowerCase())
+    .join(":")}`;
+}
+
+function shouldUsePathTokenCache(args: {
+  provider?: ProviderInterface;
+  cacheMode?: PathTokenCacheMode;
+}) {
+  return !args.provider && args.cacheMode !== "bypass";
+}
+
+function serializePathToken(item: PathTokenInventoryItem): SerializedPathTokenInventoryItem {
+  return {
+    ...item,
+    tokenId: item.tokenId.toString(),
+  };
+}
+
+function revivePathToken(item: SerializedPathTokenInventoryItem): PathTokenInventoryItem | null {
+  if (!item || typeof item !== "object") return null;
+  if (typeof item.tokenId !== "string" || !/^\d+$/.test(item.tokenId)) return null;
+  if (typeof item.tokenIdLabel !== "string") return null;
+  if (typeof item.tokenUri !== "string") return null;
+  if (!item.metadata || typeof item.metadata !== "object") return null;
+  return {
+    ...item,
+    tokenId: BigInt(item.tokenId),
+  };
+}
+
+function readPathTokenCache(key: string): PathTokenInventoryItem[] | null {
+  const fromMemory = pathTokenMemoryCache.get(key);
+  const now = Date.now();
+  if (fromMemory && now - fromMemory.cachedAt <= PATH_TOKEN_CACHE_TTL_MS) {
+    return fromMemory.items
+      .map(revivePathToken)
+      .filter((item): item is PathTokenInventoryItem => Boolean(item));
+  }
+
+  const storage = pathTokenCacheStorage();
+  const raw = storage?.getItem(key) ?? null;
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as PathTokenCachePayload;
+    if (
+      !parsed ||
+      !Number.isFinite(parsed.cachedAt) ||
+      now - parsed.cachedAt > PATH_TOKEN_CACHE_TTL_MS ||
+      !Array.isArray(parsed.items)
+    ) {
+      storage?.removeItem(key);
+      pathTokenMemoryCache.delete(key);
+      return null;
+    }
+    pathTokenMemoryCache.set(key, parsed);
+    return parsed.items
+      .map(revivePathToken)
+      .filter((item): item is PathTokenInventoryItem => Boolean(item));
+  } catch {
+    storage?.removeItem(key);
+    pathTokenMemoryCache.delete(key);
+    return null;
+  }
+}
+
+function writePathTokenCache(key: string, items: PathTokenInventoryItem[]) {
+  const payload: PathTokenCachePayload = {
+    cachedAt: Date.now(),
+    items: items.map(serializePathToken),
+  };
+  pathTokenMemoryCache.set(key, payload);
+  try {
+    pathTokenCacheStorage()?.setItem(key, JSON.stringify(payload));
+  } catch {
+    // Token inventory cache is best-effort; live chain reads remain authoritative.
+  }
+}
+
+export function clearPathTokenInventoryCache() {
+  pathTokenMemoryCache.clear();
+  const storage = pathTokenCacheStorage();
+  if (!storage) return;
+  try {
+    for (let index = storage.length - 1; index >= 0; index -= 1) {
+      const key = storage.key(index);
+      if (key?.startsWith("inshell:path-token-cache:v1:")) {
+        storage.removeItem(key);
+      }
+    }
+  } catch {
+    // Ignore blocked browser storage.
+  }
+}
+
+export function readCachedAllPathTokens(args: {
+  pathNftAddress: string;
+  fromBlock?: number;
+  chunkSize?: number;
+  maxSequentialTokenId?: number;
+}): PathTokenInventoryItem[] | null {
+  return readPathTokenCache(
+    pathTokenCacheKey([
+      "all",
+      args.pathNftAddress,
+      args.fromBlock,
+      args.chunkSize,
+      args.maxSequentialTokenId,
+    ])
+  );
+}
 
 function normalizeProvider(provider?: ProviderInterface): ProviderInterface {
   if (provider && supportsRpcRequest(provider)) return provider;
@@ -361,7 +507,20 @@ export async function loadWalletPathTokens(args: {
   walletAddress: string;
   fromBlock?: number;
   chunkSize?: number;
+  cacheMode?: PathTokenCacheMode;
 }): Promise<PathTokenInventoryItem[]> {
+  const cacheKey = pathTokenCacheKey([
+    "wallet",
+    args.pathNftAddress,
+    args.walletAddress,
+    args.fromBlock,
+    args.chunkSize,
+  ]);
+  if (shouldUsePathTokenCache(args)) {
+    const cached = readPathTokenCache(cacheKey);
+    if (cached) return cached;
+  }
+
   const provider = normalizeProvider(args.provider);
   const tokenIds = await loadWalletPathTokenIds({ ...args, provider });
   const items = await Promise.all(
@@ -380,6 +539,9 @@ export async function loadWalletPathTokens(args: {
       };
     })
   );
+  if (shouldUsePathTokenCache(args)) {
+    writePathTokenCache(cacheKey, items);
+  }
   return items;
 }
 
@@ -389,7 +551,20 @@ export async function loadAllPathTokens(args: {
   fromBlock?: number;
   chunkSize?: number;
   maxSequentialTokenId?: number;
+  cacheMode?: PathTokenCacheMode;
 }): Promise<PathTokenInventoryItem[]> {
+  const cacheKey = pathTokenCacheKey([
+    "all",
+    args.pathNftAddress,
+    args.fromBlock,
+    args.chunkSize,
+    args.maxSequentialTokenId,
+  ]);
+  if (shouldUsePathTokenCache(args)) {
+    const cached = readPathTokenCache(cacheKey);
+    if (cached) return cached;
+  }
+
   const provider = normalizeProvider(args.provider);
   const tokenIds = await loadAllPathTokenIds({ ...args, provider });
   const items: Array<PathTokenInventoryItem | null> = await Promise.all(
@@ -419,5 +594,9 @@ export async function loadAllPathTokens(args: {
       }
     })
   );
-  return items.filter((item): item is PathTokenInventoryItem => Boolean(item));
+  const loadedItems = items.filter((item): item is PathTokenInventoryItem => Boolean(item));
+  if (shouldUsePathTokenCache(args)) {
+    writePathTokenCache(cacheKey, loadedItems);
+  }
+  return loadedItems;
 }

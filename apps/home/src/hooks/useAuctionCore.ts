@@ -3,6 +3,49 @@ import type { EthereumBlockTag, ProviderInterface } from "@inshell/ethereum";
 import { createCoreService } from "@/services/auction/coreService";
 import type { AuctionSnapshot } from "@/types/types";
 
+const AUCTION_CORE_CACHE_TTL_MS = 4_000;
+
+type AuctionCoreCacheEntry = {
+  cachedAt: number;
+  data: AuctionSnapshot;
+};
+
+const auctionCoreCache = new Map<string, AuctionCoreCacheEntry>();
+
+function auctionCoreCacheKey(opts?: {
+  address?: string;
+  provider?: ProviderInterface;
+  blockId?: any;
+}) {
+  if (!opts?.address || opts.provider) {
+    return "";
+  }
+  return [
+    "auction-core",
+    "v1",
+    opts.address.toLowerCase(),
+    String(opts.blockId ?? "latest").toLowerCase(),
+  ].join(":");
+}
+
+function readAuctionCoreCache(key: string) {
+  if (!key) return null;
+  const cached = auctionCoreCache.get(key);
+  if (!cached || Date.now() - cached.cachedAt > AUCTION_CORE_CACHE_TTL_MS) {
+    if (cached) auctionCoreCache.delete(key);
+    return null;
+  }
+  return cached.data;
+}
+
+function writeAuctionCoreCache(key: string, data: AuctionSnapshot) {
+  if (!key) return;
+  auctionCoreCache.set(key, {
+    cachedAt: Date.now(),
+    data,
+  });
+}
+
 export function useAuctionCore(opts?: {
   address?: string;
   provider?: ProviderInterface;
@@ -10,6 +53,9 @@ export function useAuctionCore(opts?: {
   enabled?: boolean; // default true
   blockId?: any; // optional; if you expose block pinning
 }) {
+  const address = opts?.address;
+  const provider = opts?.provider;
+  const blockId = opts?.blockId;
   const refreshMs = opts?.refreshMs ?? 4000;
   const enabled = opts?.enabled ?? true;
 
@@ -20,20 +66,30 @@ export function useAuctionCore(opts?: {
 
   const serviceRef = useRef<ReturnType<typeof createCoreService> | null>(null);
   const inFlightRef = useRef<Promise<void> | null>(null);
+  const cacheKeyRef = useRef("");
 
   // Build the domain service once per config change
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
+        const cacheKey = auctionCoreCacheKey({ address, provider, blockId });
+        const cached = readAuctionCoreCache(cacheKey);
+        cacheKeyRef.current = cacheKey;
         setReady(false);
         setError(null);
-        setLoading(true);
+        if (cached) {
+          setData(cached);
+          setLoading(false);
+        } else {
+          setData(null);
+          setLoading(true);
+        }
         inFlightRef.current = null;
         serviceRef.current = createCoreService({
-          address: opts?.address,
-          provider: opts?.provider,
-          blockId: opts?.blockId as number | EthereumBlockTag | undefined,
+          address,
+          provider,
+          blockId: blockId as number | EthereumBlockTag | undefined,
         });
         if (!cancelled) setReady(true);
       } catch (e) {
@@ -47,7 +103,7 @@ export function useAuctionCore(opts?: {
       inFlightRef.current = null;
       serviceRef.current = null;
     };
-  }, [opts?.address, opts?.provider, opts?.blockId]);
+  }, [address, provider, blockId]);
 
   // One-off fetch
   const fetchOnce = async () => {
@@ -61,6 +117,7 @@ export function useAuctionCore(opts?: {
       try {
         const snap = await service.snapshot();
         if (serviceRef.current === service) {
+          writeAuctionCoreCache(cacheKeyRef.current, snap);
           setData(snap);
         }
       } catch (e) {

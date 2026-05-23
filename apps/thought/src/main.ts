@@ -506,6 +506,11 @@ type GalleryThought = {
   blockNumber: number;
 };
 
+type GalleryThoughtCachePayload = {
+  cachedAt: number;
+  thoughts: GalleryThought[];
+};
+
 type ThoughtDetailSpec = {
   id: string;
   ref: string;
@@ -813,6 +818,7 @@ const THOUGHT_NFT_DEPLOY_BLOCK =
       0
     : 0;
 const THOUGHT_LOG_CHUNK_SIZE = 5_000;
+const THOUGHT_GALLERY_CACHE_TTL_MS = 60_000;
 const THOUGHT_GALLERY_LOADING_DETAILS = [
   "checking latest block",
   "scanning THOUGHT mint logs",
@@ -4985,6 +4991,7 @@ const recoverMintStateAfterRevert = async (shouldAppendCliResult: boolean) => {
     mintFlowData.existingTokenId = existingTokenId;
     mintFlowState = "minted";
     pendingMyBrainRunPayload = null;
+    clearThoughtGalleryCache();
     await refreshMintPreflight();
     syncInterface();
 
@@ -5027,6 +5034,7 @@ const waitForMintReceipt = async (tx: MintTransactionResponse, shouldAppendCliRe
     mintFlowData.txHash = tx.hash;
     mintFlowState = "minted";
     pendingMyBrainRunPayload = null;
+    clearThoughtGalleryCache();
     await refreshMintPreflight();
     syncInterface();
 
@@ -5858,6 +5866,115 @@ const renderGalleryCard = (thought: GalleryThought) => {
 
 const isGalleryThought = (value: GalleryThought | null): value is GalleryThought => value !== null;
 
+let galleryThoughtCache: GalleryThoughtCachePayload | null = null;
+
+const thoughtGalleryCacheKey = () =>
+  [
+    "thought-gallery",
+    "v1",
+    THOUGHT_CHAIN_ID,
+    THOUGHT_NFT_ADDRESS.toLowerCase(),
+    THOUGHT_NFT_DEPLOY_BLOCK,
+    THOUGHT_LOG_CHUNK_SIZE,
+  ].join(":");
+
+const isGalleryThoughtRecord = (value: unknown): value is GalleryThought => {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const item = value as Partial<GalleryThought>;
+  return (
+    typeof item.tokenId === "number" &&
+    Number.isFinite(item.tokenId) &&
+    typeof item.pathId === "string" &&
+    typeof item.minter === "string" &&
+    typeof item.textHash === "string" &&
+    typeof item.promptHash === "string" &&
+    typeof item.provenanceHash === "string" &&
+    typeof item.thoughtSpecId === "string" &&
+    typeof item.thoughtSpecHash === "string" &&
+    (typeof item.mintedAt === "number" || item.mintedAt === null) &&
+    typeof item.rawText === "string" &&
+    typeof item.prompt === "string" &&
+    typeof item.mode === "string" &&
+    typeof item.provider === "string" &&
+    typeof item.model === "string" &&
+    typeof item.returnedText === "string" &&
+    typeof item.returnedTextHash === "string" &&
+    typeof item.provenanceJson === "string" &&
+    typeof item.image === "string" &&
+    typeof item.tokenUri === "string" &&
+    typeof item.txHash === "string" &&
+    typeof item.blockNumber === "number" &&
+    Number.isFinite(item.blockNumber)
+  );
+};
+
+const validGalleryThoughtCache = (payload: GalleryThoughtCachePayload | null) => {
+  if (!payload || !Number.isFinite(payload.cachedAt)) {
+    return null;
+  }
+  if (Date.now() - payload.cachedAt > THOUGHT_GALLERY_CACHE_TTL_MS) {
+    return null;
+  }
+  if (!Array.isArray(payload.thoughts) || !payload.thoughts.every(isGalleryThoughtRecord)) {
+    return null;
+  }
+  return payload.thoughts;
+};
+
+const readThoughtGalleryCache = () => {
+  const memory = validGalleryThoughtCache(galleryThoughtCache);
+  if (memory) {
+    return memory;
+  }
+
+  const storage = getSessionStorage();
+  const raw = storage?.getItem(thoughtGalleryCacheKey()) ?? null;
+  if (!raw) {
+    galleryThoughtCache = null;
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as GalleryThoughtCachePayload;
+    const thoughts = validGalleryThoughtCache(parsed);
+    if (!thoughts) {
+      storage?.removeItem(thoughtGalleryCacheKey());
+      galleryThoughtCache = null;
+      return null;
+    }
+    galleryThoughtCache = parsed;
+    return thoughts;
+  } catch {
+    storage?.removeItem(thoughtGalleryCacheKey());
+    galleryThoughtCache = null;
+    return null;
+  }
+};
+
+const writeThoughtGalleryCache = (thoughts: GalleryThought[]) => {
+  const payload: GalleryThoughtCachePayload = {
+    cachedAt: Date.now(),
+    thoughts,
+  };
+  galleryThoughtCache = payload;
+  try {
+    getSessionStorage()?.setItem(thoughtGalleryCacheKey(), JSON.stringify(payload));
+  } catch {
+    // Browser storage is best-effort; live chain reads remain the source of truth.
+  }
+};
+
+const clearThoughtGalleryCache = () => {
+  galleryThoughtCache = null;
+  try {
+    getSessionStorage()?.removeItem(thoughtGalleryCacheKey());
+  } catch {
+    // Ignore unavailable browser storage.
+  }
+};
+
 const getThoughtMintedLogs = async (provider: JsonRpcProvider) => {
   const latestBlock = await provider.getBlockNumber();
   const fromBlock = Math.min(Math.max(0, THOUGHT_NFT_DEPLOY_BLOCK), latestBlock);
@@ -5878,7 +5995,14 @@ const getThoughtMintedLogs = async (provider: JsonRpcProvider) => {
   return logs;
 };
 
-const readGalleryThoughts = async (): Promise<GalleryThought[] | null> => {
+const readGalleryThoughts = async (options?: { bypassCache?: boolean }): Promise<GalleryThought[] | null> => {
+  if (!options?.bypassCache) {
+    const cached = readThoughtGalleryCache();
+    if (cached) {
+      return cached;
+    }
+  }
+
   const provider = getReadProvider();
   const token = getReadThoughtNFT();
   if (!provider || !token || !THOUGHT_NFT_ADDRESS) {
@@ -5964,6 +6088,7 @@ const readGalleryThoughts = async (): Promise<GalleryThought[] | null> => {
   ).filter(isGalleryThought);
 
   thoughts.sort((left, right) => left.tokenId - right.tokenId);
+  writeThoughtGalleryCache(thoughts);
   return thoughts;
 };
 
@@ -6040,7 +6165,30 @@ const settleGalleryCreateLink = () => {
   galleryCreateLink.hidden = false;
 };
 
+const renderThoughtGallery = (thoughts: GalleryThought[]) => {
+  galleryStatus.textContent = thoughts.length === 0 ? "no minted THOUGHTs yet." : `${thoughts.length} minted THOUGHT${thoughts.length === 1 ? "" : "s"}.`;
+  galleryGrid.replaceChildren(...thoughts.map(renderGalleryCard));
+  settleGalleryCreateLink();
+  highlightGalleryTarget();
+};
+
 const loadThoughtGallery = async () => {
+  const cached = readThoughtGalleryCache();
+  if (cached) {
+    stopGalleryLoadingStatus();
+    renderThoughtGallery(cached);
+    void readGalleryThoughts({ bypassCache: true })
+      .then((thoughts) => {
+        if (thoughts) {
+          renderThoughtGallery(thoughts);
+        }
+      })
+      .catch(() => {
+        // Keep the fresh cached gallery visible when background refresh fails.
+      });
+    return;
+  }
+
   startGalleryLoadingStatus();
   galleryGrid.replaceChildren();
 
@@ -6053,10 +6201,7 @@ const loadThoughtGallery = async () => {
       return;
     }
 
-    galleryStatus.textContent = thoughts.length === 0 ? "no minted THOUGHTs yet." : `${thoughts.length} minted THOUGHT${thoughts.length === 1 ? "" : "s"}.`;
-    galleryGrid.replaceChildren(...thoughts.map(renderGalleryCard));
-    settleGalleryCreateLink();
-    highlightGalleryTarget();
+    renderThoughtGallery(thoughts);
   } catch {
     stopGalleryLoadingStatus();
     galleryStatus.textContent = "failed to read gallery.";
@@ -6083,13 +6228,17 @@ const loadThoughtDetail = async () => {
   showThoughtDetailStatus("");
 
   try {
-    const thoughts = await readGalleryThoughts();
+    let thoughts = await readGalleryThoughts();
     if (!thoughts) {
       thoughtDetailStatus.textContent = "THOUGHT unavailable.";
       return;
     }
 
-    const thought = thoughts.find((item) => item.tokenId === ROUTE_THOUGHT_NFT_ID);
+    let thought = thoughts.find((item) => item.tokenId === ROUTE_THOUGHT_NFT_ID);
+    if (!thought) {
+      thoughts = await readGalleryThoughts({ bypassCache: true });
+      thought = thoughts?.find((item) => item.tokenId === ROUTE_THOUGHT_NFT_ID);
+    }
     if (!thought) {
       thoughtDetailStatus.textContent = `THOUGHT #${ROUTE_THOUGHT_NFT_ID} not found.`;
       return;

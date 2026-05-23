@@ -7,6 +7,7 @@ import {
 import { SURFACE_TERMINOLOGY } from "@inshell/shared";
 import {
   loadAllPathTokens,
+  readCachedAllPathTokens,
   type PathTokenAttribute,
   type PathTokenInventoryItem,
 } from "@/services/pathTokens";
@@ -392,10 +393,22 @@ export default function PathPage() {
       return;
     }
     let cancelled = false;
-    setState((prev) => ({ status: "loading", items: prev.items, error: null }));
+    const cached =
+      refreshNonce === 0
+        ? readCachedAllPathTokens({
+            pathNftAddress,
+            fromBlock,
+          })
+        : null;
+    if (cached) {
+      setState({ status: "ready", items: cached, error: null });
+    } else {
+      setState((prev) => ({ status: "loading", items: prev.items, error: null }));
+    }
     loadAllPathTokens({
       pathNftAddress,
       fromBlock,
+      cacheMode: cached || refreshNonce > 0 ? "bypass" : "default",
     })
       .then((items) => {
         if (cancelled) return;
