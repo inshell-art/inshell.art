@@ -620,10 +620,32 @@ describe("AuctionCanvas", () => {
       const yValues = salePoints
         .map((point) => Number(point.dataset.y))
         .filter(Number.isFinite);
+      const pumpYValues = Array.from(
+        container.querySelectorAll(".dotfield__pump")
+      ).flatMap((line) => [
+        Number(line.getAttribute("y1")),
+        Number(line.getAttribute("y2")),
+      ]);
+      const curveYValues = Array.from(
+        container.querySelectorAll(".dotfield__curve, .dotfield__context-curve")
+      ).flatMap((path) => {
+        const nums = (path.getAttribute("d")?.match(/-?\\d+(?:\\.\\d+)?(?:e[+-]?\\d+)?/gi) ?? [])
+          .map(Number)
+          .filter(Number.isFinite);
+        return nums.filter((_, index) => index % 2 === 1);
+      });
 
       expect(salePoints).toHaveLength(11);
-      expect(Math.min(...yValues)).toBeLessThan(50);
-      expect(Math.max(...yValues) - Math.min(...yValues)).toBeGreaterThan(8);
+      expect(yValues).toHaveLength(11);
+      expect(
+        [...pumpYValues, ...curveYValues].every((y) => y >= 0 && y <= 60)
+      ).toBe(true);
+      const pumpSpans = Array.from(
+        container.querySelectorAll(".dotfield__pump")
+      ).map((line) =>
+        Math.abs(Number(line.getAttribute("y2")) - Number(line.getAttribute("y1")))
+      );
+      expect(Math.max(0, ...pumpSpans)).toBeLessThanOrEqual(18);
     } finally {
       jest.useRealTimers();
     }
