@@ -5860,6 +5860,7 @@ export default function AuctionCanvas({
         const toSvgY = (y: number) => 60 - ((y - vp.yMin) / yRange) * 60;
         const isInPlotY = (y: number) => Number.isFinite(y) && y >= 0 && y <= 60;
         const suppressExtremeHistoryStrokes =
+          !viewportUserLocked &&
           !fixtureState &&
           bidMarks.length > 8 &&
           linked.uEnd > EXTREME_HISTORY_TAIL_THRESHOLD;

@@ -621,6 +621,7 @@ describe("AuctionCanvas", () => {
       const { container } = render(
         <AuctionCanvas address="0xabc" provider={mockProvider as any} />
       );
+      stubSvgRect(container);
       const salePoints = Array.from(
         container.querySelectorAll<HTMLElement>(".dotfield__point--sale")
       );
@@ -655,6 +656,20 @@ describe("AuctionCanvas", () => {
         Math.abs(Number(line.getAttribute("y2")) - Number(line.getAttribute("y1")))
       );
       expect(Math.max(0, ...pumpSpans)).toBeLessThanOrEqual(18);
+
+      fireEvent.click(salePoints[6]);
+      const svg = screen.getByRole("img", {
+        name: /pulse auction curve/i,
+      }) as HTMLElement;
+      fireEvent.wheel(svg, { deltaY: -120, clientX: 520, clientY: 520 });
+
+      expect(container.querySelectorAll(".dotfield__curve--muted-history")).toHaveLength(0);
+      const focusedPumpSpans = Array.from(
+        container.querySelectorAll(".dotfield__pump")
+      ).map((line) =>
+        Math.abs(Number(line.getAttribute("y2")) - Number(line.getAttribute("y1")))
+      );
+      expect(Math.max(0, ...focusedPumpSpans)).toBeGreaterThan(18);
     } finally {
       jest.useRealTimers();
     }
