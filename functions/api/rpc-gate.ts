@@ -162,6 +162,9 @@ function normalizeAddress(value: unknown) {
 }
 
 function normalizeTopic(value: unknown) {
+  if (Array.isArray(value) && value.length === 1) {
+    return normalizeTopic(value[0]);
+  }
   return typeof value === "string" && /^0x[a-fA-F0-9]{64}$/.test(value) ? lower(value) : null;
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, jest, test, afterEach } from "@jest/globals";
-import { getDefaultProvider, JsonRpcProvider } from "@inshell/ethereum";
+import { getDefaultProvider, getLogs, JsonRpcProvider } from "@inshell/ethereum";
 
 function providerRpcUrl() {
   return (getDefaultProvider() as any).rpcUrl as string;
@@ -101,5 +101,29 @@ describe("Ethereum client production RPC guard", () => {
       "0x7b"
     );
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  test("sends eth_getLogs topic0 as a flat allowed topic", async () => {
+    const topic0 =
+      "0xa789468a0212cbe853fbdd6011d2ee7d85144ebc1d67c7dd82f087a970d9593d";
+    const fetchMock = jest.fn<() => Promise<MockFetchResponse>>(async () => ({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ jsonrpc: "2.0", id: 1, result: [] }),
+    }));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const provider = new JsonRpcProvider("/api/path-rpc");
+
+    await expect(
+      getLogs(provider, {
+        address: "0x1071e99928Bdf020794a5E3e5B9c920450Ac9b39",
+        fromBlock: 10854123,
+        toBlock: 10859122,
+        topics: [topic0],
+      })
+    ).resolves.toEqual([]);
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body ?? "{}"));
+    expect(body.params[0].topics).toEqual([topic0]);
   });
 });

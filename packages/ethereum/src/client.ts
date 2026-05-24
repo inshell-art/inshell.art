@@ -522,7 +522,7 @@ export async function getLogs(
     return provider.getLogs(args);
   }
   assertRequestProvider(provider);
-  const topics = args.topics?.length ? [args.topics] : undefined;
+  const topics = args.topics?.length ? args.topics : undefined;
   const result = (await provider.request({
     method: "eth_getLogs",
     params: [

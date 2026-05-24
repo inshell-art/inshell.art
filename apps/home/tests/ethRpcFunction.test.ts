@@ -330,6 +330,36 @@ describe("Cloudflare Ethereum RPC proxy", () => {
     expect(fetchMock.mock.calls.every(([url]) => url === "https://path-rpc.example/sepolia")).toBe(true);
   });
 
+  test("accepts single-topic OR arrays for PATH log reads", async () => {
+    const fetchMock = jest.fn<() => Promise<MockFetchResponse>>(async () => ({
+      status: 200,
+      text: async () => JSON.stringify({ jsonrpc: "2.0", id: 1, result: [] }),
+    }));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const response = await postPathRpc({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "eth_getLogs",
+      params: [
+        {
+          address: "0x1071e99928Bdf020794a5E3e5B9c920450Ac9b39",
+          fromBlock: "0xa59eeb",
+          toBlock: "0xa5b272",
+          topics: [["0xa789468a0212cbe853fbdd6011d2ee7d85144ebc1d67c7dd82f087a970d9593d"]],
+        },
+      ],
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      jsonrpc: "2.0",
+      id: 1,
+      result: [],
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   test("routes THOUGHT gallery mint logs through the THOUGHT upstream", async () => {
     const fetchMock = jest.fn<() => Promise<MockFetchResponse>>(async () => ({
       status: 200,
