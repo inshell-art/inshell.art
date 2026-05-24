@@ -519,6 +519,52 @@ describe("AuctionCanvas", () => {
     expect(container.querySelectorAll(".dotfield__pump")).toHaveLength(2);
   });
 
+  test("spreads compressed sale history when eleven live sales would collapse at the left edge", () => {
+    const eth = 10n ** 18n;
+    const rawEth = (hundredths: number) =>
+      ((BigInt(hundredths) * eth) / 100n).toString();
+    const nowSec = Math.floor(Date.now() / 1000);
+    const openTimeSec = nowSec - 2_000_000;
+    mockAuctionCore(mockUseAuctionCore, {
+      openTimeSec,
+      genesisPrice: { dec: rawEth(30) },
+      genesisFloor: { dec: rawEth(20) },
+      k: { dec: (100n * eth).toString() },
+      pts: eth.toString(),
+    });
+    const bids = Array.from({ length: 11 }, (_, index) => {
+      const saleSec = openTimeSec + 60 * (index + 1);
+      const price = rawEth(32 + index);
+      return {
+        key: `b${index + 1}`,
+        atMs: saleSec * 1000,
+        amount: {
+          raw: { low: price, high: "0" },
+          dec: price,
+          value: BigInt(price),
+        },
+        bidder: `0x${String(index + 1).padStart(40, "0")}`,
+        blockNumber: 10 + index,
+        epochIndex: index + 1,
+        anchorASec: saleSec - 1000,
+      };
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids,
+      ready: true,
+      loading: false,
+      error: null,
+    });
+
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
+
+    expect(container.querySelectorAll(".dotfield__context-curve")).toHaveLength(11);
+    expect(container.querySelectorAll(".dotfield__point--sale")).toHaveLength(11);
+    expect(container.querySelector(".dotfield__point--now")).toBeTruthy();
+  });
+
   test("shows popover on hover with shortened info", async () => {
     const { container } = render(
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />

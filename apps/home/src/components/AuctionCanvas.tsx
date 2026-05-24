@@ -283,9 +283,10 @@ function formatHumanTokenAmount(value: number, fractionDigits = 4): string {
 
 const BASE_HALF_LIVES = 10;
 const EXTREME_HISTORY_TAIL_THRESHOLD = BASE_HALF_LIVES * 100;
-const SPARSE_LIVE_MAX_BIDS = 5;
+const LIVE_HISTORY_CONTEXT_MAX_BIDS = 24;
 const SPARSE_LIVE_ACTIVE_WINDOW = BASE_HALF_LIVES * 4;
 const SPARSE_LIVE_ACTIVE_CONTEXT = BASE_HALF_LIVES * 0.5;
+const COMPRESSED_HISTORY_CONTEXT_WIDTH = 12;
 const PLOT_EDGE_PAD = 2.4;
 const PLOT_LEFT_PAD = PLOT_EDGE_PAD;
 const PLOT_RIGHT_PAD = PLOT_EDGE_PAD;
@@ -3415,7 +3416,9 @@ export default function AuctionCanvas({
     const hasSaleHistory = linked.segments.length > 1;
     const hasTinyLiveValues = linked.maxY > 0 && linked.maxY < 0.001;
     const isSparseLiveHistory =
-      !fixtureState && bids.length > 0 && bids.length <= SPARSE_LIVE_MAX_BIDS;
+      !fixtureState &&
+      bids.length > 0 &&
+      bids.length <= LIVE_HISTORY_CONTEXT_MAX_BIDS;
     return (
       isSparseLiveHistory &&
       hasSaleHistory &&
@@ -5906,16 +5909,31 @@ export default function AuctionCanvas({
         }
 
         const xPad = xRange * 0.02;
-        const contextBidMarks = useTailViewport
-          ? bidMarks
-              .filter((m) => m.u < vp.xMin - xPad)
-              .map((mark, index) => ({
-                mark,
-                x: PLOT_LEFT_PAD + 1.2 + index * 2.4,
-              }))
-          : [];
+        const shouldSpreadCompressedHistory =
+          !useTailViewport &&
+          !fixtureState &&
+          bidMarks.length > 1 &&
+          bidMarks.length <= LIVE_HISTORY_CONTEXT_MAX_BIDS &&
+          linked.uEnd > EXTREME_HISTORY_TAIL_THRESHOLD;
+        const contextSourceBidMarks = useTailViewport
+          ? bidMarks.filter((m) => m.u < vp.xMin - xPad)
+          : shouldSpreadCompressedHistory
+            ? bidMarks.filter((m) => toSvgX(m.u) <= PLOT_LEFT_PAD + COMPRESSED_HISTORY_CONTEXT_WIDTH)
+            : [];
+        const contextBidMarks = contextSourceBidMarks.map((mark, index) => ({
+          mark,
+          x: PLOT_LEFT_PAD + 1.2 + index * 2.4,
+        }));
+        const contextBidMarkKeys = new Set(
+          contextBidMarks.map(({ mark }) => mark.key)
+        );
         const marksVisible = bidMarks
-          .filter((m) => m.u >= vp.xMin - xPad && m.u <= vp.xMax + xPad)
+          .filter(
+            (m) =>
+              !contextBidMarkKeys.has(m.key) &&
+              m.u >= vp.xMin - xPad &&
+              m.u <= vp.xMax + xPad
+          )
           .map((mark) => ({
             mark,
             x: toSvgX(mark.u),
@@ -5932,10 +5950,18 @@ export default function AuctionCanvas({
               x: x0,
             }));
         });
+        const contextAskMarkKeys = new Set(
+          contextAskMarks.map(({ mark }) => mark.key)
+        );
         const askMarksVisible = [
           ...contextAskMarks,
           ...askMarks
-            .filter((m) => m.u >= vp.xMin - xPad && m.u <= vp.xMax + xPad)
+            .filter(
+              (m) =>
+                !contextAskMarkKeys.has(m.key) &&
+                m.u >= vp.xMin - xPad &&
+                m.u <= vp.xMax + xPad
+            )
             .map((mark) => ({
               mark,
               x: toSvgX(mark.u),
