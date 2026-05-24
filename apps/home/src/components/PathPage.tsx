@@ -408,7 +408,7 @@ export default function PathPage() {
     loadAllPathTokens({
       pathNftAddress,
       fromBlock,
-      cacheMode: cached || refreshNonce > 0 ? "bypass" : "default",
+      cacheMode: refreshNonce > 0 ? "bypass" : "default",
     })
       .then((items) => {
         if (cancelled) return;

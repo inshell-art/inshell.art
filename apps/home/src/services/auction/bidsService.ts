@@ -29,7 +29,7 @@ const MAX_LOG_FETCH_CONCURRENCY = 1;
 const TIGHT_LOG_RANGE_THRESHOLD = 100;
 const MAX_TIGHT_LOG_PULL_CHUNKS = 4;
 const LOG_RATE_LIMIT_BACKOFF_MS = 45_000;
-const BID_CACHE_VERSION = 1;
+const BID_CACHE_VERSION = 2;
 const BID_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 type SerializedBid = Omit<NormalizedBid, "amount" | "floorB"> & {
@@ -41,6 +41,7 @@ type CachedBidSnapshot = {
   version: typeof BID_CACHE_VERSION;
   savedAt: number;
   lastBlock?: number;
+  complete?: boolean;
   bids: SerializedBid[];
 };
 
@@ -177,7 +178,7 @@ function reviveBid(bid: SerializedBid): NormalizedBid | null {
 function readBidCache(
   address: string,
   fromBlock: number | undefined
-): { bids: NormalizedBid[]; lastBlock?: number } | null {
+): { bids: NormalizedBid[]; lastBlock?: number; complete: boolean } | null {
   const storage = bidCacheStorage();
   if (!storage) return null;
   try {
@@ -204,6 +205,7 @@ function readBidCache(
         typeof parsed.lastBlock === "number" && Number.isFinite(parsed.lastBlock)
           ? parsed.lastBlock
           : undefined,
+      complete: parsed.complete === true,
     };
   } catch {
     return null;
@@ -214,7 +216,8 @@ function writeBidCache(
   address: string,
   fromBlock: number | undefined,
   snapshot: NormalizedBid[],
-  lastBlock: number | undefined
+  lastBlock: number | undefined,
+  complete: boolean
 ) {
   const storage = bidCacheStorage();
   if (!storage) return;
@@ -226,6 +229,7 @@ function writeBidCache(
         typeof lastBlock === "number" && Number.isFinite(lastBlock)
           ? lastBlock
           : undefined,
+      complete,
       bids: snapshot.map((bid) => serializeBid(bid)),
     };
     storage.setItem(bidCacheKey(address, fromBlock), JSON.stringify(payload));
@@ -282,7 +286,7 @@ export function createBidsService(opts: {
   if (cached) {
     bids = cached.bids.slice(-maxBids);
     for (const bid of bids) seen.add(bid.key);
-    if (typeof cached.lastBlock === "number") {
+    if (cached.complete && typeof cached.lastBlock === "number") {
       lastBlock = cached.lastBlock;
     }
   }
@@ -462,10 +466,10 @@ export function createBidsService(opts: {
     if (fresh.length) {
       bids = [...bids, ...fresh].sort((a, b) => a.atMs - b.atMs);
       if (bids.length > maxBids) bids = bids.slice(-maxBids);
-      writeBidCache(address, opts.fromBlock, bids, lastBlock);
+      writeBidCache(address, opts.fromBlock, bids, lastBlock, result.complete);
       emit(fresh);
     } else if (result.complete) {
-      writeBidCache(address, opts.fromBlock, bids, lastBlock);
+      writeBidCache(address, opts.fromBlock, bids, lastBlock, true);
     }
 
     return fresh;

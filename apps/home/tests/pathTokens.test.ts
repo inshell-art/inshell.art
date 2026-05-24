@@ -1,4 +1,4 @@
-import { describe, expect, jest, test } from "@jest/globals";
+import { afterEach, describe, expect, jest, test } from "@jest/globals";
 import {
   decodeFunctionData,
   encodeFunctionResult,
@@ -8,8 +8,10 @@ import {
   type Hex,
 } from "viem";
 import {
+  clearPathTokenInventoryCache,
   loadAllPathTokens,
   loadWalletPathTokens,
+  readCachedAllPathTokens,
 } from "../src/services/pathTokens";
 
 const pathNftAbi = parseAbi([
@@ -66,6 +68,37 @@ function metadataUri(name = "PATH #1") {
 }
 
 describe("path token inventory", () => {
+  afterEach(() => {
+    clearPathTokenInventoryCache();
+  });
+
+  test("hydrates all PATH token cache from localStorage for reloads and new tabs", () => {
+    const cacheKey = `inshell:path-token-cache:v1:all:${PATH_NFT.toLowerCase()}:1:none:none`;
+    globalThis.localStorage.setItem(
+      cacheKey,
+      JSON.stringify({
+        cachedAt: Date.now(),
+        items: [
+          {
+            tokenId: "7",
+            tokenIdLabel: "7",
+            owner: OWNER,
+            tokenUri: metadataUri("PATH #7"),
+            metadata: { name: "PATH #7" },
+          },
+        ],
+      })
+    );
+
+    const cached = readCachedAllPathTokens({
+      pathNftAddress: PATH_NFT,
+      fromBlock: 1,
+    });
+
+    expect(cached?.map((token) => token.tokenIdLabel)).toEqual(["7"]);
+    expect(cached?.[0]?.metadata.name).toBe("PATH #7");
+  });
+
   test("loads owned PATH tokens from Transfer logs and tokenURI metadata", async () => {
     const logs = [
       transferLog(ZERO_TOPIC, OWNER, 1n, 2, 0),

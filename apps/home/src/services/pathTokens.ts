@@ -81,7 +81,7 @@ const pathTokenMemoryCache = new Map<string, PathTokenCachePayload>();
 
 function pathTokenCacheStorage(): BrowserStorage | null {
   try {
-    const storage = globalThis.sessionStorage;
+    const storage = globalThis.localStorage;
     storage?.getItem("__path_token_cache_probe__");
     return storage ?? null;
   } catch {
