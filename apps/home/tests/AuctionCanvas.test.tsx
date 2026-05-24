@@ -565,6 +565,70 @@ describe("AuctionCanvas", () => {
     expect(container.querySelector(".dotfield__point--now")).toBeTruthy();
   });
 
+  test("keeps live sale history readable when a completed curve has an extreme start ask", () => {
+    const eth = 10n ** 18n;
+    const nowSec = 1779616315;
+    const openTimeSec = 1778804388;
+    const liveSales: Array<[number, number, string, number]> = [
+      [1, 1778810988, "114900908955446282", 1778810837],
+      [2, 1778811936, "205892719692479948", 1778810882],
+      [3, 1778822412, "214565746578863295", 1778822317],
+      [4, 1778887080, "216109838112609415", 1778887065],
+      [5, 1778942184, "217924094539612807", 1778942166],
+      [6, 1779003456, "219555682074284042", 1779003440],
+      [7, 1779350664, "219843680599731591", 1779350662],
+      [8, 1779356184, "237953061258913046", 1779356003],
+      [9, 1779360264, "261421730585362236", 1779360019],
+      [10, 1779361704, "320768911594264313", 1779361010],
+      [11, 1779439008, "322050995750268313", 1779438996],
+    ];
+    try {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date(nowSec * 1000));
+      mockAuctionCore(mockUseAuctionCore, {
+        openTimeSec,
+        genesisPrice: { dec: eth.toString() },
+        genesisFloor: { dec: (eth / 10n).toString() },
+        k: { dec: (100n * eth).toString() },
+        pts: (eth / 10_000n).toString(),
+      });
+      mockUseAuctionBids.mockReturnValue({
+        bids: liveSales.map(([epochIndex, saleSec, price, anchorASec]) => ({
+          key: `b${epochIndex}`,
+          atMs: saleSec * 1000,
+          amount: {
+            raw: { low: price, high: "0" },
+            dec: price,
+            value: BigInt(price),
+          },
+          bidder: `0x${String(epochIndex).padStart(40, "0")}`,
+          blockNumber: 100 + epochIndex,
+          epochIndex,
+          anchorASec,
+        })),
+        ready: true,
+        loading: false,
+        error: null,
+      });
+
+      const { container } = render(
+        <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+      );
+      const salePoints = Array.from(
+        container.querySelectorAll<HTMLElement>(".dotfield__point--sale")
+      );
+      const yValues = salePoints
+        .map((point) => Number(point.dataset.y))
+        .filter(Number.isFinite);
+
+      expect(salePoints).toHaveLength(11);
+      expect(Math.min(...yValues)).toBeLessThan(50);
+      expect(Math.max(...yValues) - Math.min(...yValues)).toBeGreaterThan(8);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   test("shows popover on hover with shortened info", async () => {
     const { container } = render(
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />

@@ -1019,21 +1019,29 @@ function positiveDenominator(value: number): number {
 function getVisibleYExtents(
   linked: LinkedCurve,
   xMin: number,
-  xMax: number
+  xMax: number,
+  opts: { historyFocus?: boolean } = {}
 ): { minY: number; maxY: number } {
   const eps = 1e-9;
   let minY = Number.POSITIVE_INFINITY;
   let maxY = Number.NEGATIVE_INFINITY;
+  let focusMinY = Number.POSITIVE_INFINITY;
+  let focusMaxY = Number.NEGATIVE_INFINITY;
   const includeY = (value: number) => {
     if (!Number.isFinite(value)) return;
     minY = Math.min(minY, value);
     maxY = Math.max(maxY, value);
   };
+  const includeFocusY = (value: number) => {
+    if (!Number.isFinite(value)) return;
+    focusMinY = Math.min(focusMinY, value);
+    focusMaxY = Math.max(focusMaxY, value);
+  };
 
-  for (const seg of linked.segments) {
+  linked.segments.forEach((seg, index) => {
     const segStart = seg.uStart;
     const segEnd = seg.uStart + seg.uLen;
-    if (segEnd < xMin - eps || segStart > xMax + eps) continue;
+    if (segEnd < xMin - eps || segStart > xMax + eps) return;
 
     const overlapStart = clamp(xMin, segStart, segEnd);
     const overlapEnd = clamp(xMax, segStart, segEnd);
@@ -1047,8 +1055,14 @@ function getVisibleYExtents(
     if (segStart >= xMin - eps && segStart <= xMax + eps) {
       includeY(seg.floor);
       includeY(seg.ask);
+      if (index === 0) includeFocusY(seg.ask);
     }
-  }
+    includeFocusY(seg.floor);
+    includeFocusY(y1);
+    if (seg.bid) {
+      includeFocusY(priceAtU(seg.floor, seg.premium, Math.max(0, seg.uLen)));
+    }
+  });
 
   if (
     linked.nowU != null &&
@@ -1059,12 +1073,42 @@ function getVisibleYExtents(
     linked.nowU <= xMax + eps
   ) {
     includeY(linked.nowPrice);
+    includeFocusY(linked.nowPrice);
   }
 
   if (!Number.isFinite(minY) || !Number.isFinite(maxY)) {
     return { minY: linked.minY, maxY: linked.maxY };
   }
+  if (
+    opts.historyFocus &&
+    Number.isFinite(focusMinY) &&
+    Number.isFinite(focusMaxY)
+  ) {
+    return { minY: focusMinY, maxY: focusMaxY };
+  }
   return { minY, maxY };
+}
+
+function shouldUseHistoryFocusedY(
+  fullY: { minY: number; maxY: number },
+  focusedY: { minY: number; maxY: number }
+): boolean {
+  if (
+    !Number.isFinite(fullY.maxY) ||
+    !Number.isFinite(focusedY.maxY) ||
+    focusedY.maxY <= 0
+  ) {
+    return false;
+  }
+  const focusedSpan = Math.max(
+    Math.abs(focusedY.maxY - focusedY.minY),
+    Math.abs(focusedY.maxY),
+    1e-9
+  );
+  return (
+    fullY.maxY > focusedY.maxY * 3 &&
+    fullY.maxY - focusedY.maxY > focusedSpan * 2
+  );
 }
 
 function oneHalfDropAtU(premium: number, uLocal: number): number {
@@ -3445,13 +3489,21 @@ export default function AuctionCanvas({
       }
     }
 
-    const visibleY = getVisibleYExtents(linked, xMin, xMax);
+    let visibleY = getVisibleYExtents(linked, xMin, xMax);
+    if (!fixtureState && bids.length > 1) {
+      const focusedY = getVisibleYExtents(linked, xMin, xMax, {
+        historyFocus: true,
+      });
+      if (shouldUseHistoryFocusedY(visibleY, focusedY)) {
+        visibleY = focusedY;
+      }
+    }
     const ySpan = visibleY.maxY - visibleY.minY;
     const pad = (ySpan || 1) * 0.15;
     const yMin = visibleY.minY - pad;
     const yMax = visibleY.maxY + pad;
     return { xMin, xMax, yMin, yMax };
-  }, [linked, useTailViewport]);
+  }, [linked, useTailViewport, fixtureState, bids.length]);
 
   const viewportDataKey = useMemo(() => {
     const lastSeg = linked.segments[linked.segments.length - 1];
