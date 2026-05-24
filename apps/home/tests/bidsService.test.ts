@@ -235,7 +235,7 @@ describe("auction bids service", () => {
     globalThis.localStorage.setItem(
       cacheKey,
       JSON.stringify({
-        version: 2,
+        version: 3,
         savedAt: Date.now(),
         lastBlock: 500,
         complete: false,
@@ -267,6 +267,51 @@ describe("auction bids service", () => {
     });
 
     expect(service.getBids().map((bid) => bid.amount.dec)).toEqual(["100"]);
+    await expect(service.pullOnce()).resolves.toEqual([]);
+
+    const firstGetLogsCall = provider.request.mock.calls.find(
+      ([arg]: any[]) => arg.method === "eth_getLogs"
+    );
+    expect(firstGetLogsCall?.[0].params[0].fromBlock).toBe("0x1");
+  });
+
+  test("ignores old complete sale-history caches after cache version changes", async () => {
+    const cacheKey = `inshell:pulse:bids:${AUCTION.toLowerCase()}:1`;
+    globalThis.localStorage.setItem(
+      cacheKey,
+      JSON.stringify({
+        version: 2,
+        savedAt: Date.now(),
+        lastBlock: 500,
+        complete: true,
+        bids: [
+          {
+            key: "tx:legacy",
+            atMs: 1_778_888_000_000,
+            amount: { raw: { low: "100", high: "0" }, dec: "100" },
+            blockNumber: 100,
+            epochIndex: 1,
+          },
+        ],
+      })
+    );
+    const provider = {
+      request: jest.fn(async ({ method, params }: any) => {
+        if (method === "eth_blockNumber") return "0x20";
+        if (method === "eth_getLogs") return [];
+        throw new Error(`unexpected RPC method ${method}`);
+      }),
+    };
+
+    const service = createBidsService({
+      address: AUCTION,
+      provider,
+      fromBlock: 1,
+      chunkSize: 40_000,
+      reorgDepth: 0,
+    });
+
+    expect(service.getBids()).toEqual([]);
     await expect(service.pullOnce()).resolves.toEqual([]);
 
     const firstGetLogsCall = provider.request.mock.calls.find(

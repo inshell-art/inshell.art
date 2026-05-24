@@ -29,7 +29,7 @@ const MAX_LOG_FETCH_CONCURRENCY = 1;
 const TIGHT_LOG_RANGE_THRESHOLD = 100;
 const MAX_TIGHT_LOG_PULL_CHUNKS = 4;
 const LOG_RATE_LIMIT_BACKOFF_MS = 45_000;
-const BID_CACHE_VERSION = 2;
+const BID_CACHE_VERSION = 3;
 const BID_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 type SerializedBid = Omit<NormalizedBid, "amount" | "floorB"> & {
