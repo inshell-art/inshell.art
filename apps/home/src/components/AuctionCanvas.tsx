@@ -2151,6 +2151,7 @@ export default function AuctionCanvas({
   const [selectedNow, setSelectedNow] = useState(false);
   const pinnedDotRef = useRef(false);
   const [viewport, setViewport] = useState<Viewport | null>(null);
+  const [viewportUserLocked, setViewportUserLocked] = useState(false);
   const viewportDataKeyRef = useRef<string | null>(null);
   const viewportUserLockedRef = useRef(false);
   const [isPanning, setIsPanning] = useState(false);
@@ -3524,6 +3525,7 @@ export default function AuctionCanvas({
     ) {
       viewportDataKeyRef.current = viewportDataKey;
       viewportUserLockedRef.current = false;
+      setViewportUserLocked(false);
       setViewport(defaultViewport);
       return;
     }
@@ -4827,6 +4829,7 @@ export default function AuctionCanvas({
       const nextMax = nextMin + nextRange;
       const clamped = clampXWindow(nextMin, nextMax, nextRange);
       viewportUserLockedRef.current = true;
+      setViewportUserLocked(true);
       setViewport((prev) => ({
         ...(prev ?? effectiveViewport),
         xMin: clamped.xMin,
@@ -4843,6 +4846,7 @@ export default function AuctionCanvas({
     const nextMax = nextMin + nextRange;
     const clamped = clampXWindow(nextMin, nextMax, nextRange);
     viewportUserLockedRef.current = true;
+    setViewportUserLocked(true);
     setViewport((prev) => ({
       ...(prev ?? effectiveViewport),
       xMin: clamped.xMin,
@@ -4899,6 +4903,7 @@ export default function AuctionCanvas({
       clearPinnedDot();
     }
     viewportUserLockedRef.current = true;
+    setViewportUserLocked(true);
     const xRange = startVp.xMax - startVp.xMin;
     if (!Number.isFinite(xRange) || xRange <= 0) return;
     const dxSvg = loc.x - panRef.current.startSvgX;
@@ -5996,11 +6001,13 @@ export default function AuctionCanvas({
           bidMarks.length > 1 &&
           bidMarks.length <= LIVE_HISTORY_CONTEXT_MAX_BIDS &&
           linked.uEnd > EXTREME_HISTORY_TAIL_THRESHOLD;
-        const contextSourceBidMarks = useTailViewport
-          ? bidMarks.filter((m) => m.u < vp.xMin - xPad)
-          : shouldSpreadCompressedHistory
-            ? bidMarks.filter((m) => toSvgX(m.u) <= PLOT_LEFT_PAD + COMPRESSED_HISTORY_CONTEXT_WIDTH)
-            : [];
+        const contextSourceBidMarks = viewportUserLocked
+          ? []
+          : useTailViewport
+            ? bidMarks.filter((m) => m.u < vp.xMin - xPad)
+            : shouldSpreadCompressedHistory
+              ? bidMarks.filter((m) => toSvgX(m.u) <= PLOT_LEFT_PAD + COMPRESSED_HISTORY_CONTEXT_WIDTH)
+              : [];
         const contextBidMarks = contextSourceBidMarks.map((mark, index) => ({
           mark,
           x: PLOT_LEFT_PAD + 1.2 + index * 2.4,

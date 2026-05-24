@@ -559,10 +559,17 @@ describe("AuctionCanvas", () => {
     const { container } = render(
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />
     );
+    stubSvgRect(container);
 
     expect(container.querySelectorAll(".dotfield__context-curve")).toHaveLength(11);
     expect(container.querySelectorAll(".dotfield__point--sale")).toHaveLength(11);
     expect(container.querySelector(".dotfield__point--now")).toBeTruthy();
+
+    const svg = screen.getByRole("img", {
+      name: /pulse auction curve/i,
+    }) as HTMLElement;
+    fireEvent.wheel(svg, { deltaY: -120, clientX: 600, clientY: 300 });
+    expect(container.querySelectorAll(".dotfield__context-curve")).toHaveLength(0);
   });
 
   test("keeps live sale history readable when a completed curve has an extreme start ask", () => {
