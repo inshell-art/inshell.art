@@ -24,7 +24,7 @@ export type NormalizedBid = {
   tokenId?: number;
 };
 
-const DEFAULT_LOG_CHUNK_SIZE = 40_000;
+const DEFAULT_LOG_CHUNK_SIZE = 5_000;
 const MAX_LOG_FETCH_CONCURRENCY = 1;
 const TIGHT_LOG_RANGE_THRESHOLD = 100;
 const MAX_TIGHT_LOG_PULL_CHUNKS = 4;
@@ -81,7 +81,7 @@ function inferProviderLogRangeLimit(error: unknown, currentSize: number): number
   }
 
   if (
-    /block range|range should work|too many blocks|exceed|empty response|invalid JSON/i.test(
+    /block range|range is too large|range should work|too many blocks|exceed|empty response|invalid JSON/i.test(
       msg
     )
   ) {
@@ -264,7 +264,7 @@ export function createBidsService(opts: {
   provider?: ProviderInterface; // explicit > env > fallback
   fromBlock?: number; // seed at deploy block in prod; 0 on devnet is fine
   maxBids?: number; // default 200
-  chunkSize?: number; // default 40_000 blocks
+  chunkSize?: number; // default 5_000 blocks
   reorgDepth?: number; // default 2 blocks
 }) {
   const address = opts.address;

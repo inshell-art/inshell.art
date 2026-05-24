@@ -96,6 +96,81 @@ describe("auction bids service", () => {
     );
   });
 
+  test("adapts when the PATH RPC gate says the log range is too large", async () => {
+    const logs = [saleLog(12, 1n, 100n), saleLog(31, 2n, 120n)];
+    const provider = {
+      request: jest.fn(async ({ method, params }: any) => {
+        if (method === "eth_blockNumber") return "0x6000";
+        if (method === "eth_getLogs") {
+          const filter = params[0];
+          const from = Number(BigInt(filter.fromBlock));
+          const to = Number(BigInt(filter.toBlock));
+          if (to - from + 1 > 5_000) {
+            throw new Error("eth_getLogs range is too large for path RPC.");
+          }
+          return logs.filter((log) => {
+            const block = Number(BigInt(log.blockNumber));
+            return block >= from && block <= to;
+          });
+        }
+        if (method === "eth_getBlockByNumber") {
+          return { number: params[0], timestamp: "0x6a000000" };
+        }
+        throw new Error(`unexpected RPC method ${method}`);
+      }),
+    };
+
+    const service = createBidsService({
+      address: AUCTION,
+      provider,
+      fromBlock: 1,
+      chunkSize: 40_000,
+      reorgDepth: 0,
+    });
+
+    const fresh = await service.pullOnce();
+    expect(fresh.map((bid) => bid.epochIndex)).toEqual([1, 2]);
+
+    const logCalls = provider.request.mock.calls.filter(
+      ([arg]: any[]) => arg.method === "eth_getLogs"
+    );
+    expect(logCalls.length).toBeGreaterThan(1);
+    const spans = logCalls.map(([arg]: any[]) => {
+      const filter = arg.params[0];
+      return Number(BigInt(filter.toBlock)) - Number(BigInt(filter.fromBlock)) + 1;
+    });
+    expect(spans.some((span) => span > 5_000)).toBe(true);
+    expect(spans.some((span) => span <= 5_000)).toBe(true);
+  });
+
+  test("keeps the default sale-history log range within the PATH RPC gate", async () => {
+    const provider = {
+      request: jest.fn(async ({ method, params }: any) => {
+        if (method === "eth_blockNumber") return "0x4000";
+        if (method === "eth_getLogs") {
+          const filter = params[0];
+          const from = Number(BigInt(filter.fromBlock));
+          const to = Number(BigInt(filter.toBlock));
+          expect(to - from + 1).toBeLessThanOrEqual(5_000);
+          return [];
+        }
+        throw new Error(`unexpected RPC method ${method}`);
+      }),
+    };
+
+    const service = createBidsService({
+      address: AUCTION,
+      provider,
+      fromBlock: 1,
+      reorgDepth: 0,
+    });
+
+    await expect(service.pullOnce()).resolves.toEqual([]);
+    expect(provider.request).toHaveBeenCalledWith(
+      expect.objectContaining({ method: "eth_getLogs" })
+    );
+  });
+
   test("limits broad tight-range log backfills and resumes on the next pull", async () => {
     const logs = [saleLog(12, 1n, 100n), saleLog(55, 2n, 120n)];
     const provider = {
