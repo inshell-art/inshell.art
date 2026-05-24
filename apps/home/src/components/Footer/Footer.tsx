@@ -90,6 +90,14 @@ const Footer: React.FC = () => {
       ariaLabel: "Open Color Font primitive page",
       external: true,
     },
+    {
+      key: "gallery",
+      label: "gallery",
+      href: "https://thought.inshell.art/?gallery=1",
+      ariaLabel: "Open THOUGHT gallery",
+      external: true,
+      tooltip: "gallery",
+    },
     ...(telegramUrl
       ? ([
           {

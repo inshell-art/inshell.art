@@ -591,6 +591,11 @@ describe("App Component", () => {
       "/color-font",
     );
     expect(screen.getByLabelText("Open Color Font primitive page")).toHaveAttribute("target", "_blank");
+    expect(screen.getByLabelText("Open THOUGHT gallery")).toHaveAttribute(
+      "href",
+      "https://thought.inshell.art/?gallery=1",
+    );
+    expect(screen.getByLabelText("Open THOUGHT gallery")).toHaveAttribute("target", "_blank");
     expect(screen.queryByLabelText("Open facets")).toBeNull();
     expect(screen.queryByLabelText("Open hone")).toBeNull();
   });

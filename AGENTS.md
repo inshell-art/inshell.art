@@ -21,6 +21,11 @@
 - Never run two servers on the same port (including IPv4/IPv6 split).
 - If a port is occupied, stop the existing process before starting a new one.
 
+## Visual Verification
+- For UI visualization bugs, especially charts/SVG/canvas/responsive layout, verify with `visual-dom-cdp` or the same headless Chrome/CDP workflow: DOM counts, geometry thresholds, network status, and a screenshot.
+- Do not call a visualization fix done from code inspection alone. Use a browser-rendered screenshot plus concrete DOM/geometry signals.
+- For PATH auction curve work, check sale count, curve/context-curve count, pump visibility, off-canvas SVG coordinates, and failed `/api/path-rpc` calls.
+
 ## Task Notes
 - Use `LOCAL_TASKS.md` as the local task memo when it exists. It is local-only and should not be committed unless the user explicitly asks.
 - Keep two separate queues:

@@ -5876,10 +5876,25 @@ export default function AuctionCanvas({
               y: toSvgY(nowPrice),
             }
           : null;
-        const curveSegments: Array<{ key: string; d: string }> = [];
+        const curveSegments: Array<{ key: string; d: string; muted: boolean }> = [];
         const MAX_CURVE_SEGMENT_DX_SVG = 1.2;
         const MAX_CURVE_MIDPOINT_ERR_SVG = 0.03;
         const MAX_CURVE_SUBDIVISION_DEPTH = 12;
+        const capPumpY = (floorY: number, askY: number): [number, number] | null => {
+          if (!Number.isFinite(floorY) || !Number.isFinite(askY)) return null;
+          if (!isInPlotY(floorY)) return null;
+          let cappedAskY = clamp(askY, 0, 60);
+          if (
+            suppressExtremeHistoryStrokes &&
+            Math.abs(cappedAskY - floorY) > MAX_EXTREME_HISTORY_STROKE_SPAN_SVG
+          ) {
+            cappedAskY =
+              floorY +
+              Math.sign(cappedAskY - floorY) * MAX_EXTREME_HISTORY_STROKE_SPAN_SVG;
+          }
+          cappedAskY = clamp(cappedAskY, 0, 60);
+          return Math.abs(cappedAskY - floorY) > 0.001 ? [floorY, cappedAskY] : null;
+        };
         for (const seg of linked.segments) {
           const segEnd = seg.uStart + seg.uLen;
           if (segEnd < vp.xMin - 1e-9) continue;
@@ -5917,13 +5932,10 @@ export default function AuctionCanvas({
           ) {
             continue;
           }
-          if (
+          const mutedExtremeHistory =
             suppressExtremeHistoryStrokes &&
             seg.bid &&
-            Math.abs(p1.ySvg - p0.ySvg) > MAX_EXTREME_HISTORY_STROKE_SPAN_SVG
-          ) {
-            continue;
-          }
+            Math.abs(p1.ySvg - p0.ySvg) > MAX_EXTREME_HISTORY_STROKE_SPAN_SVG;
 
           const points: Array<{ xSvg: number; ySvg: number }> = [
             { xSvg: p0.xSvg, ySvg: p0.ySvg },
@@ -5969,7 +5981,11 @@ export default function AuctionCanvas({
             segDParts.push(`${i === 0 ? "M" : "L"} ${point.xSvg} ${point.ySvg}`);
           }
           if (segDParts.length > 1) {
-            curveSegments.push({ key: `curve-${seg.idx}`, d: segDParts.join(" ") });
+            curveSegments.push({
+              key: `curve-${seg.idx}`,
+              d: segDParts.join(" "),
+              muted: mutedExtremeHistory,
+            });
           }
         }
 
@@ -6071,25 +6087,25 @@ export default function AuctionCanvas({
                   !Number.isFinite(x0) ||
                   !Number.isFinite(x) ||
                   !isInPlotY(y0) ||
-                  !isInPlotY(y1) ||
-                  !isInPlotY(ySale) ||
-                  (suppressExtremeHistoryStrokes &&
-                    Math.abs(y1 - y0) > MAX_EXTREME_HISTORY_STROKE_SPAN_SVG)
+                  !isInPlotY(ySale)
                 ) {
                   return null;
                 }
+                const pumpY = capPumpY(y0, y1);
                 const c1x = x0 + (x - x0) * 0.16;
                 const c2x = x0 + (x - x0) * 0.68;
                 return (
                   <Fragment key={`context-${mark.key}`}>
-                    <line
-                      x1={x0}
-                      y1={y0}
-                      x2={x0}
-                      y2={y1}
-                      className="dotfield__pump dotfield__pump--context"
-                      vectorEffect="non-scaling-stroke"
-                    />
+                    {pumpY ? (
+                      <line
+                        x1={x0}
+                        y1={pumpY[0]}
+                        x2={x0}
+                        y2={pumpY[1]}
+                        className="dotfield__pump dotfield__pump--context"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    ) : null}
                     <path
                       className="dotfield__context-curve"
                       d={`M ${x0} ${y1} C ${c1x} ${y1} ${c2x} ${ySale} ${x} ${ySale}`}
@@ -6104,7 +6120,9 @@ export default function AuctionCanvas({
               {curveSegments.map((segPath) => (
                 <path
                   key={segPath.key}
-                  className="dotfield__curve"
+                  className={`dotfield__curve${
+                    segPath.muted ? " dotfield__curve--muted-history" : ""
+                  }`}
                   d={segPath.d}
                   vectorEffect="non-scaling-stroke"
                   strokeLinecap="round"
@@ -6117,20 +6135,15 @@ export default function AuctionCanvas({
                 if (x < -2 || x > 102) return null;
                 const y0 = toSvgY(seg.floor);
                 const y1 = toSvgY(seg.ask);
-                if (!isInPlotY(y0) || !isInPlotY(y1)) return null;
-                if (
-                  suppressExtremeHistoryStrokes &&
-                  Math.abs(y1 - y0) > MAX_EXTREME_HISTORY_STROKE_SPAN_SVG
-                ) {
-                  return null;
-                }
+                const pumpY = capPumpY(y0, y1);
+                if (!pumpY) return null;
                 return (
                   <line
                     key={`pump-${seg.idx}`}
                     x1={x}
-                    y1={y0}
+                    y1={pumpY[0]}
                     x2={x}
-                    y2={y1}
+                    y2={pumpY[1]}
                     className="dotfield__pump"
                     vectorEffect="non-scaling-stroke"
                   />
