@@ -310,7 +310,7 @@ describe("auction bids service", () => {
     globalThis.localStorage.setItem(
       cacheKey,
       JSON.stringify({
-        version: 4,
+        version: 5,
         savedAt: Date.now(),
         lastBlock: 500,
         complete: false,
@@ -355,7 +355,7 @@ describe("auction bids service", () => {
     globalThis.localStorage.setItem(
       cacheKey,
       JSON.stringify({
-        version: 3,
+        version: 4,
         savedAt: Date.now(),
         lastBlock: 500,
         complete: true,
@@ -388,6 +388,8 @@ describe("auction bids service", () => {
 
     expect(service.getBids()).toEqual([]);
     await expect(service.pullOnce()).resolves.toEqual([]);
+
+    expect(JSON.parse(globalThis.localStorage.getItem(cacheKey) ?? "{}").version).toBe(5);
 
     const firstGetLogsCall = provider.request.mock.calls.find(
       ([arg]: any[]) => arg.method === "eth_getLogs"
