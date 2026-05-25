@@ -519,7 +519,7 @@ describe("AuctionCanvas", () => {
     expect(container.querySelectorAll(".dotfield__pump")).toHaveLength(2);
   });
 
-  test("spreads compressed sale history when eleven live sales would collapse at the left edge", () => {
+  test("keeps full live sale history data-driven on first render", () => {
     const eth = 10n ** 18n;
     const rawEth = (hundredths: number) =>
       ((BigInt(hundredths) * eth) / 100n).toString();
@@ -561,7 +561,8 @@ describe("AuctionCanvas", () => {
     );
     stubSvgRect(container);
 
-    expect(container.querySelectorAll(".dotfield__context-curve")).toHaveLength(11);
+    expect(container.querySelectorAll(".dotfield__context-curve")).toHaveLength(0);
+    expect(container.querySelectorAll(".dotfield__curve").length).toBeGreaterThan(1);
     expect(container.querySelectorAll(".dotfield__point--sale")).toHaveLength(11);
     expect(container.querySelector(".dotfield__point--now")).toBeTruthy();
 

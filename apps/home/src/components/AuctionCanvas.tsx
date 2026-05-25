@@ -286,7 +286,6 @@ const EXTREME_HISTORY_TAIL_THRESHOLD = BASE_HALF_LIVES * 100;
 const LIVE_HISTORY_CONTEXT_MAX_BIDS = 24;
 const SPARSE_LIVE_ACTIVE_WINDOW = BASE_HALF_LIVES * 4;
 const SPARSE_LIVE_ACTIVE_CONTEXT = BASE_HALF_LIVES * 0.5;
-const COMPRESSED_HISTORY_CONTEXT_WIDTH = 12;
 const MAX_EXTREME_HISTORY_STROKE_SPAN_SVG = 18;
 const PLOT_EDGE_PAD = 2.4;
 const PLOT_LEFT_PAD = PLOT_EDGE_PAD;
@@ -5995,19 +5994,11 @@ export default function AuctionCanvas({
         }
 
         const xPad = xRange * 0.02;
-        const shouldSpreadCompressedHistory =
-          !useTailViewport &&
-          !fixtureState &&
-          bidMarks.length > 1 &&
-          bidMarks.length <= LIVE_HISTORY_CONTEXT_MAX_BIDS &&
-          linked.uEnd > EXTREME_HISTORY_TAIL_THRESHOLD;
         const contextSourceBidMarks = viewportUserLocked
           ? []
           : useTailViewport
             ? bidMarks.filter((m) => m.u < vp.xMin - xPad)
-            : shouldSpreadCompressedHistory
-              ? bidMarks.filter((m) => toSvgX(m.u) <= PLOT_LEFT_PAD + COMPRESSED_HISTORY_CONTEXT_WIDTH)
-              : [];
+            : [];
         const contextBidMarks = contextSourceBidMarks.map((mark, index) => ({
           mark,
           x: PLOT_LEFT_PAD + 1.2 + index * 2.4,
