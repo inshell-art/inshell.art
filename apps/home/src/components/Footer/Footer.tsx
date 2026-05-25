@@ -56,11 +56,34 @@ function withGalleryParam(base: string): string {
   }
 }
 
+function isPreviewDeployment(): boolean {
+  const deployEnv = getEnvValue("VITE_DEPLOY_ENV");
+  if (typeof deployEnv === "string" && deployEnv.trim().toLowerCase() === "preview") {
+    return true;
+  }
+  if (typeof window === "undefined") return false;
+  const hostname = window.location.hostname.toLowerCase();
+  return hostname === "preview.inshell.art" || hostname.endsWith(".preview.inshell.art");
+}
+
+function defaultThoughtGalleryUrl(): string {
+  return isPreviewDeployment()
+    ? "https://gallery.preview.inshell.art/"
+    : "https://gallery.inshell.art/";
+}
+
 function resolveThoughtGalleryUrl(): string {
-  return withGalleryParam(
-    readEnvUrl(["VITE_THOUGHT_URL", "VITE_THOUGHT_APP_URL"]) ??
-      "https://thought.inshell.art/"
-  );
+  const direct = readEnvUrl(["VITE_THOUGHT_GALLERY_URL", "VITE_GALLERY_URL"]);
+  if (direct) {
+    try {
+      return new globalThis.URL(direct).toString();
+    } catch {
+      return defaultThoughtGalleryUrl();
+    }
+  }
+
+  const legacyThoughtUrl = readEnvUrl(["VITE_THOUGHT_URL", "VITE_THOUGHT_APP_URL"]);
+  return legacyThoughtUrl ? withGalleryParam(legacyThoughtUrl) : defaultThoughtGalleryUrl();
 }
 
 function resolvePublicUrl(

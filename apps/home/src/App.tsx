@@ -17,9 +17,15 @@ function getPrimitiveRoute() {
   const pathname = window.location.pathname.replace(/\/+$/, "");
   if (pathname === "/pulse") return "pulse";
   if (pathname === "/color-font") return "color-font";
-  if (pathname === "/path") return "path";
+  if (pathname === "/path" || /^\/path\/[1-9]\d*$/.test(pathname)) return "path";
   if (pathname === "/verify") return "verify";
   return null;
+}
+
+function getPathRouteTokenId() {
+  if (typeof window === "undefined") return null;
+  const pathname = window.location.pathname.replace(/\/+$/, "");
+  return /^\/path\/([1-9]\d*)$/.exec(pathname)?.[1] ?? null;
 }
 
 function setFavicon(href: string) {
@@ -33,6 +39,30 @@ function setFavicon(href: string) {
   }
   icon.type = "image/svg+xml";
   icon.setAttribute("href", href);
+}
+
+function HomeTermBriefing() {
+  const rows = [
+    ["$PATH minted", "a new $PATH object exists"],
+    ["$PATH updated", "a movement unit was consumed"],
+    ["THOUGHT minted", "a THOUGHT object exists"],
+    ["Pulse curve lifted", "time premium lifted the reset ask"],
+    ["Pulse curve reached t½", "ask decayed halfway toward floor"],
+  ] as const;
+
+  return (
+    <section className="home-terms" aria-label="Public update terms">
+      <h2>Public update terms</h2>
+      <dl>
+        {rows.map(([term, meaning]) => (
+          <div key={term}>
+            <dt>{term}</dt>
+            <dd>{meaning}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
 }
 
 export default function App() {
@@ -51,7 +81,8 @@ export default function App() {
       return;
     }
     if (primitiveRoute === "path") {
-      document.title = "$PATH";
+      const pathTokenId = getPathRouteTokenId();
+      document.title = pathTokenId ? `$PATH #${pathTokenId}` : "$PATH";
       setFavicon("/path.svg");
       return;
     }
@@ -80,12 +111,13 @@ export default function App() {
           ) : primitiveRoute === "color-font" ? (
             <ColorFontPage />
           ) : primitiveRoute === "path" ? (
-            <PathPage />
+            <PathPage tokenId={getPathRouteTokenId()} />
           ) : primitiveRoute === "verify" ? (
             <VerifyPage />
           ) : (
             <div className="content content--home">
               <AuctionCanvas address={pulseAuction} />
+              <HomeTermBriefing />
               <div className="hero">
                 <Movements />
               </div>

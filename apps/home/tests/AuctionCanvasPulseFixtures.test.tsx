@@ -201,7 +201,7 @@ describe("AuctionCanvas with pulse fixtures", () => {
     });
   });
 
-  test("curve tooltip shows t½, u(t½), and 1 t½ drop rows", () => {
+  test("curve tooltip shows t½, u(t½), and 1 t½ decay rows", () => {
     const fx: Fixture = {
       k: 1000,
       epoch: {
@@ -231,7 +231,7 @@ describe("AuctionCanvas with pulse fixtures", () => {
     expect(within(tHalfRow as HTMLElement).getByText(/^16m40s$/i)).toBeTruthy();
     const uRow = within(popover).getByText(/^u\(t½\)$/i).parentElement;
     expect(uRow).toBeTruthy();
-    expect(within(popover).getByText(/^1 t½ drop$/i)).toBeTruthy();
+    expect(within(popover).getByText(/^1 t½ decay$/i)).toBeTruthy();
     expect(within(popover).getByText(/^time$/i)).toBeTruthy();
     expect(within(popover).queryByText(/since last sale/i)).toBeNull();
     expect(within(popover).getByText(/^ago$/i)).toBeTruthy();

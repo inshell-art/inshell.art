@@ -744,6 +744,20 @@ const RECOMMENDED_THOUGHT_SPEC_ID =
   EVM_ADDRESSES.thoughtSpecs?.[0]?.specId?.trim() ||
   "";
 const LOCAL_BROWSER_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+const DEPLOY_ENV =
+  typeof import.meta.env.VITE_DEPLOY_ENV === "string"
+    ? import.meta.env.VITE_DEPLOY_ENV.trim().toLowerCase()
+    : "";
+const IS_PREVIEW_DEPLOYMENT =
+  DEPLOY_ENV === "preview" ||
+  window.location.hostname === "preview.inshell.art" ||
+  window.location.hostname.endsWith(".preview.inshell.art");
+
+const readConfiguredUrl = (name: string) => {
+  const value = (import.meta.env as Record<string, unknown>)[name];
+  return typeof value === "string" && value.trim() ? value.trim() : "";
+};
+
 const resolveBrowserRpcUrl = (rpcUrl: string) => {
   try {
     return new URL(rpcUrl, window.location.origin).toString();
@@ -797,6 +811,16 @@ const PATH_MINT_URL =
     : ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname)
       ? "http://localhost:5173"
       : "https://inshell.art";
+const THOUGHT_DETAIL_BASE_URL =
+  readConfiguredUrl("VITE_THOUGHT_DETAIL_BASE_URL") || PATH_MINT_URL;
+const THOUGHT_GALLERY_URL =
+  readConfiguredUrl("VITE_THOUGHT_GALLERY_URL") ||
+  readConfiguredUrl("VITE_GALLERY_URL") ||
+  (LOCAL_BROWSER_HOSTS.has(window.location.hostname)
+    ? ""
+    : IS_PREVIEW_DEPLOYMENT
+      ? "https://gallery.preview.inshell.art/"
+      : "https://gallery.inshell.art/");
 const THOUGHT_SPEC_REGISTRY_ADDRESS = EVM_ADDRESSES.thoughtSpecRegistry?.address?.trim() ?? "";
 const THOUGHT_NFT_ADDRESS = EVM_ADDRESSES.thoughtNft?.address?.trim() ?? "";
 const COLOR_FONT_V1_ADDRESS = EVM_ADDRESSES.colorFontV1?.address?.trim() ?? "";
@@ -863,15 +887,25 @@ const CONSUME_AUTHORIZATION_TYPEHASH = id(
 );
 const PATH_CONSUME_AUTH_TTL_SECONDS = 3600n;
 const ROUTE_SEARCH_PARAMS = new URLSearchParams(window.location.search);
-const IS_COLOR_FONT_PAGE = window.location.pathname.replace(/\/+$/, "") === "/color-font";
-const IS_VERIFY_PAGE = window.location.pathname.replace(/\/+$/, "") === "/verify";
+const ROUTE_PATHNAME = window.location.pathname.replace(/\/+$/, "") || "/";
+const IS_COLOR_FONT_PAGE = ROUTE_PATHNAME === "/color-font";
+const IS_VERIFY_PAGE = ROUTE_PATHNAME === "/verify";
 const RAW_PRESELECTED_PATH_ID = ROUTE_SEARCH_PARAMS.get("path")?.trim() ?? "";
 const PRESELECTED_PATH_ID = /^[1-9]\d*$/.test(RAW_PRESELECTED_PATH_ID) ? RAW_PRESELECTED_PATH_ID : "";
+const ROUTE_THOUGHT_PATH_MATCH = /^\/thought\/([1-9]\d*)$/.exec(ROUTE_PATHNAME);
+const IS_GALLERY_HOST =
+  window.location.hostname === "gallery.inshell.art" ||
+  window.location.hostname === "gallery.preview.inshell.art";
+const IS_GALLERY_PATH = ROUTE_PATHNAME === "/gallery";
 const IS_GALLERY_PAGE =
   !IS_COLOR_FONT_PAGE &&
   !IS_VERIFY_PAGE &&
-  (ROUTE_SEARCH_PARAMS.get("gallery") === "1" || window.location.hash === "#gallery");
-const RAW_ROUTE_THOUGHT_NFT_ID = ROUTE_SEARCH_PARAMS.get("thought")?.trim() ?? "";
+  (IS_GALLERY_HOST ||
+    IS_GALLERY_PATH ||
+    ROUTE_SEARCH_PARAMS.get("gallery") === "1" ||
+    window.location.hash === "#gallery");
+const RAW_ROUTE_THOUGHT_NFT_ID =
+  ROUTE_THOUGHT_PATH_MATCH?.[1] ?? ROUTE_SEARCH_PARAMS.get("thought")?.trim() ?? "";
 const ROUTE_THOUGHT_NFT_ID = /^[1-9]\d*$/.test(RAW_ROUTE_THOUGHT_NFT_ID)
   ? Number(RAW_ROUTE_THOUGHT_NFT_ID)
   : null;
@@ -5436,10 +5470,19 @@ const handleViewThought = async (tokenId?: number | null) => {
 };
 
 const galleryUrl = (targetTokenId?: number | null) => {
-  const url = new URL(window.location.href);
+  const localGalleryRoute =
+    !THOUGHT_GALLERY_URL && LOCAL_BROWSER_HOSTS.has(window.location.hostname);
+  const url = new URL(
+    localGalleryRoute ? window.location.href : THOUGHT_GALLERY_URL,
+    window.location.origin,
+  );
   url.search = "";
   url.hash = "";
-  url.searchParams.set("gallery", "1");
+  if (localGalleryRoute) {
+    url.searchParams.set("gallery", "1");
+  } else {
+    url.pathname = "/";
+  }
   if (targetTokenId !== null && targetTokenId !== undefined) {
     url.searchParams.set("thought", targetTokenId.toString());
   }
@@ -5447,10 +5490,18 @@ const galleryUrl = (targetTokenId?: number | null) => {
 };
 
 const thoughtDetailUrl = (tokenId: number) => {
-  const url = new URL(window.location.href);
+  const url = new URL(THOUGHT_DETAIL_BASE_URL, window.location.origin);
   url.search = "";
   url.hash = "";
-  url.searchParams.set("thought", tokenId.toString());
+  url.pathname = `/thought/${tokenId}`;
+  return url.toString();
+};
+
+const pathTokenDetailUrl = (tokenId: number | string) => {
+  const url = new URL(PATH_MINT_URL, window.location.origin);
+  url.search = "";
+  url.hash = "";
+  url.pathname = `/path/${tokenId}`;
   return url.toString();
 };
 
@@ -6297,11 +6348,9 @@ const loadThoughtDetail = async () => {
       thoughtDetailModelReturn,
       detail.returnedText ? detail.returnedText : "model return unavailable.",
     );
-    thoughtDetailPath.textContent = `#${detail.pathId} THOUGHT unit consumed ↗`;
-    thoughtDetailPath.href = txUrl || "#";
-    thoughtDetailPath.title = txUrl
-      ? `Open mint transaction where $PATH #${detail.pathId} THOUGHT unit was consumed`
-      : "Transaction page unavailable.";
+    thoughtDetailPath.textContent = `$PATH #${detail.pathId} ↗`;
+    thoughtDetailPath.href = pathTokenDetailUrl(detail.pathId);
+    thoughtDetailPath.title = `Open $PATH #${detail.pathId} detail`;
     thoughtDetailMinter.textContent = shortDetailAddress(detail.minter);
     thoughtDetailMinter.title = detail.minter;
     thoughtDetailMinted.textContent = detailTime(detail.mintedAt);
@@ -12547,12 +12596,6 @@ thoughtDetailViewTx.addEventListener("click", (event) => {
 thoughtDetailPath.addEventListener("click", (event) => {
   if (!currentThoughtDetail) {
     event.preventDefault();
-    return;
-  }
-
-  if (!thoughtTxUrl(currentThoughtDetail.txHash)) {
-    event.preventDefault();
-    void copyThoughtDetailValue(currentThoughtDetail.txHash, "tx copied.");
   }
 });
 

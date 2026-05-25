@@ -215,11 +215,11 @@ function pulseParamsDocument(params: {
     "current epoch",
     "",
     rawLine("current ask", withUnit(params.currentAsk, params.paymentSymbol)),
-    rawLine("floor b", withUnit(params.currentFloor, params.paymentSymbol)),
+    rawLine("floor", withUnit(params.currentFloor, params.paymentSymbol)),
     rawLine("epoch", params.epoch),
     rawLine("last price", params.lastPrice),
     rawLine("last sale", params.lastSale),
-    rawLine("anchor a", params.anchorTime),
+    rawLine("anchor", params.anchorTime),
     "",
     "source: PulseAuction contract",
   ].join("\n");
@@ -387,7 +387,7 @@ function PulseCurrentInstance() {
   ]);
   const currentRows = compactRows([
     row("current ask", withUnit(currentAsk, paymentSymbol)),
-    row("floor b", withUnit(currentFloor, paymentSymbol)),
+    row("floor", withUnit(currentFloor, paymentSymbol)),
     row("epoch", epoch),
   ]);
   const fieldGroups = [contextRows, configRows, currentRows].filter(
@@ -547,7 +547,7 @@ export default function PulsePage() {
 
         <pre
           className="primitive-page__formula pulse-page__math"
-          aria-label="Pulse pump and drop equations"
+          aria-label="Pulse lift and decay equations"
         >
           {PULSE.math}
         </pre>

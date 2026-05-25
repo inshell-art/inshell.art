@@ -23,6 +23,7 @@
 
 ## Preview/Staging Deployment Discipline
 - Treat `staging` as the frontend preview gate and `main` as production.
+- Night-note frontend work lands on `staging`/preview first unless the operator explicitly says otherwise.
 - Normal frontend flow: land code on `staging`, deploy the Cloudflare Pages `staging` branch, validate preview, then wait for the operator to say to merge/promote before updating `main`.
 - Do not merge frontend changes from `staging` to `main` just because automated checks pass. Manual preview validation is the production gate.
 - Do not deploy frontend changes straight to `main` unless the operator explicitly asks for an emergency production hotfix.
@@ -31,9 +32,10 @@
 - Preview builds must show the top-left `preview` watermark. Production builds must not show it.
 - `preview.inshell.art` should point at the Cloudflare Pages branch alias for `staging` on the home project: `staging.inshell-art.pages.dev`.
 - `thought.preview.inshell.art` should point at the Cloudflare Pages branch alias for `staging` on the THOUGHT project: `staging.thought-inshell-art.pages.dev`.
-- Treat these as one preview umbrella: `preview.inshell.art` mirrors `inshell.art`, and `thought.preview.inshell.art` mirrors `thought.inshell.art`.
-- Staging builds must cross-link within the preview umbrella. Home staging links to `https://thought.preview.inshell.art/`; THOUGHT staging links back to `https://preview.inshell.art`.
-- The Cloudflare custom-domain bindings are account-side. If either is missing, ask the operator to bind `preview.inshell.art` and `thought.preview.inshell.art` to their `staging` branches before claiming preview is ready.
+- `gallery.preview.inshell.art` should point at the Cloudflare Pages branch alias for `staging` on the THOUGHT project: `staging.thought-inshell-art.pages.dev`.
+- Treat these as one preview umbrella: `preview.inshell.art` mirrors `inshell.art`, `thought.preview.inshell.art` mirrors `thought.inshell.art`, and `gallery.preview.inshell.art` mirrors `gallery.inshell.art`.
+- Staging builds must cross-link within the preview umbrella. Home staging links to `https://thought.preview.inshell.art/` and `https://gallery.preview.inshell.art/`; THOUGHT staging links back to `https://preview.inshell.art`.
+- The Cloudflare custom-domain bindings are account-side. If any preview binding is missing, ask the operator to bind `preview.inshell.art`, `thought.preview.inshell.art`, and `gallery.preview.inshell.art` to their `staging` branches before claiming preview is ready.
 - In `.github/workflows/deploy-pages.yml`, the selected deploy `branch` must match the checked-out source branch. Never deploy `main` code under a `staging` label or `staging` code under a `main` label.
 
 ## Visual Verification

@@ -573,7 +573,7 @@ describe("AuctionCanvas", () => {
     expect(container.querySelectorAll(".dotfield__context-curve")).toHaveLength(0);
   });
 
-  test("keeps live sale history readable when a completed curve has an extreme start ask", () => {
+  test("keeps live sale history readable when a completed curve has an extreme reset ask", () => {
     const eth = 10n ** 18n;
     const nowSec = 1779616315;
     const openTimeSec = 1778804388;
@@ -847,11 +847,11 @@ describe("AuctionCanvas", () => {
     });
     await waitFor(() => {
       expect(screen.getByText(/above floor/i)).toBeTruthy();
-      expect(screen.getByText(/^1 t½ drop$/i)).toBeTruthy();
+      expect(screen.getByText(/^1 t½ decay$/i)).toBeTruthy();
     });
   });
 
-  test("hover near first start ask area shows opening ask tooltip", async () => {
+  test("hover near first reset ask area shows opening ask tooltip", async () => {
     const { container } = render(
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />
     );
@@ -890,12 +890,12 @@ describe("AuctionCanvas", () => {
       expect(popover).toBeTruthy();
       expect(within(popover as HTMLElement).getByText(/^opening ask$/i)).toBeTruthy();
       expect(within(popover as HTMLElement).getByText(/^time$/i)).toBeTruthy();
-      expect(within(popover as HTMLElement).queryByText(/^floor b$/i)).toBeNull();
+      expect(within(popover as HTMLElement).queryByText(/^floor$/i)).toBeNull();
       expect(within(popover as HTMLElement).queryByText(/^time premium$/i)).toBeNull();
       expect(
         within(popover as HTMLElement).getByText(/ask when the auction opens/i)
       ).toBeTruthy();
-      expect(within(popover as HTMLElement).queryByText(/^1 t½ drop$/i)).toBeNull();
+      expect(within(popover as HTMLElement).queryByText(/^1 t½ decay$/i)).toBeNull();
     });
   });
 
@@ -914,9 +914,9 @@ describe("AuctionCanvas", () => {
       expect(popover).toBeTruthy();
       expect(within(popover as HTMLElement).getByText(/^opening ask$/i)).toBeTruthy();
       expect(within(popover as HTMLElement).getByText(/^time$/i)).toBeTruthy();
-      expect(within(popover as HTMLElement).queryByText(/^floor b$/i)).toBeNull();
+      expect(within(popover as HTMLElement).queryByText(/^floor$/i)).toBeNull();
       expect(within(popover as HTMLElement).queryByText(/^time premium$/i)).toBeNull();
-      expect(within(popover as HTMLElement).queryByText(/^1 t½ drop$/i)).toBeNull();
+      expect(within(popover as HTMLElement).queryByText(/^1 t½ decay$/i)).toBeNull();
       expect(
         within(popover as HTMLElement).getByText(/ask when the auction opens/i)
       ).toBeTruthy();
@@ -963,9 +963,9 @@ describe("AuctionCanvas", () => {
       expect(popover).toBeTruthy();
       expect(within(popover as HTMLElement).getByText(/^opening ask$/i)).toBeTruthy();
       expect(within(popover as HTMLElement).getByText(/^time$/i)).toBeTruthy();
-      expect(within(popover as HTMLElement).queryByText(/^floor b$/i)).toBeNull();
+      expect(within(popover as HTMLElement).queryByText(/^floor$/i)).toBeNull();
       expect(within(popover as HTMLElement).queryByText(/^time premium$/i)).toBeNull();
-      expect(within(popover as HTMLElement).queryByText(/^1 t½ drop$/i)).toBeNull();
+      expect(within(popover as HTMLElement).queryByText(/^1 t½ decay$/i)).toBeNull();
       expect(
         within(popover as HTMLElement).getByText(/ask when the auction opens/i)
       ).toBeTruthy();
@@ -1070,11 +1070,11 @@ describe("AuctionCanvas", () => {
           /mints one \$PATH and starts the next curve/i
         )
       ).toBeTruthy();
-      expect(within(popover as HTMLElement).queryByText(/^next floor b$/i)).toBeNull();
+      expect(within(popover as HTMLElement).queryByText(/^next floor$/i)).toBeNull();
     });
   });
 
-  test("start ask tooltip explains floor b comes from the last sale", async () => {
+  test("reset ask tooltip explains floor comes from the last sale", async () => {
     mockUseAuctionBids.mockReturnValue({
       bids: [
         {
@@ -1119,12 +1119,12 @@ describe("AuctionCanvas", () => {
     await waitFor(() => {
       const popover = container.querySelector(".dotfield__popover") as HTMLElement | null;
       expect(popover).toBeTruthy();
-      expect(within(popover as HTMLElement).getByText(/^start ask$/i)).toBeTruthy();
-      expect(within(popover as HTMLElement).getByText(/^floor b$/i)).toBeTruthy();
+      expect(within(popover as HTMLElement).getByText(/^reset ask$/i)).toBeTruthy();
+      expect(within(popover as HTMLElement).getByText(/^floor$/i)).toBeTruthy();
       expect(
-        within(popover as HTMLElement).getByText(/price = floor b \+ time premium/i)
+        within(popover as HTMLElement).getByText(/price = floor \+ time premium/i)
       ).toBeTruthy();
-      expect(within(popover as HTMLElement).getByText(/floor b = last sale/i)).toBeTruthy();
+      expect(within(popover as HTMLElement).getByText(/floor = last sale/i)).toBeTruthy();
     });
   });
 

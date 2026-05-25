@@ -1116,7 +1116,7 @@ function oneHalfDropAtU(premium: number, uLocal: number): number {
 }
 
 function curveFormulaLabel(): string {
-  return "y = k/(t-a)+b";
+  return "ask = k/(t-anchor)+floor";
 }
 
 function makeRandomPulseFixture(epochCountOverride?: number | null): PulseFixture {
@@ -6320,7 +6320,7 @@ export default function AuctionCanvas({
                       {hover.key === "ask"
                         ? Math.abs(Number((hover as any).uGlobal ?? Number.NaN)) < 1e-9
                           ? "opening ask"
-                          : "start ask"
+                          : "reset ask"
                         : hover.key === "now"
                         ? "current ask"
                         : hover.key === "opening-floor"
@@ -6357,7 +6357,7 @@ export default function AuctionCanvas({
                       ) : (
                         <>
                           <div className="dotfield__poprow">
-                            <span>floor b</span>
+                            <span>floor</span>
                             <span>
                               {hover.floorHuman != null
                                 ? formatAmountDetailed(
@@ -6388,10 +6388,10 @@ export default function AuctionCanvas({
                             </span>
                           </div>
                           <div className="dotfield__note" style={{ marginTop: 4 }}>
-                            price = floor b + time premium
+                            price = floor + time premium
                           </div>
                           <div className="dotfield__note">
-                            floor b = last sale
+                            floor = last sale
                           </div>
                         </>
                       )
@@ -6498,7 +6498,7 @@ export default function AuctionCanvas({
                           </span>
                         </div>
                         <div className="dotfield__poprow">
-                          <span>1 t½ drop</span>
+                          <span>1 t½ decay</span>
                           <span>
                             {(() => {
                               const d = Number((hover as any).premiumHuman);
@@ -6531,8 +6531,12 @@ export default function AuctionCanvas({
                           {curveFormulaLabel()}
                         </div>
                         <div className="dotfield__note">k = {(hover as any).kHuman ?? "?"}</div>
-                        <div className="dotfield__note">a = {(hover as any).anchor ?? "?"}</div>
-                        <div className="dotfield__note">b = {(hover as any).floorHuman ?? "?"}</div>
+                        <div className="dotfield__note">
+                          anchor = {(hover as any).anchor ?? "?"}
+                        </div>
+                        <div className="dotfield__note">
+                          floor = {(hover as any).floorHuman ?? "?"}
+                        </div>
                       </>
                     )}
                   </>

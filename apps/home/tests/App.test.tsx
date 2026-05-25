@@ -4,7 +4,7 @@ import nodePath from "node:path";
 import { cwd, env } from "node:process";
 import { TextEncoder } from "node:util";
 import { afterEach, beforeEach, describe, test, expect, jest } from "@jest/globals";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
 jest.mock("react-error-boundary", () => ({
@@ -23,8 +23,10 @@ jest.mock("@inshell/ethereum", () => ({
   __esModule: true,
   getChainId: jest.fn(),
   getCode: jest.fn(async () => "0x"),
+  getBlockNumber: jest.fn(async () => 0),
   getDefaultProvider: jest.fn(() => ({ request: jest.fn() })),
   hashUtf8String: jest.fn(),
+  supportsRpcRequest: jest.fn(() => true),
 }));
 
 const mockUseAuctionCore = jest.fn();
@@ -82,6 +84,14 @@ function u256(value: bigint) {
 
 function defaultRpcProvider() {
   return { request: jest.fn(async () => "0x") };
+}
+
+async function flushAsyncEffects(cycles = 6) {
+  await act(async () => {
+    for (let index = 0; index < cycles; index += 1) {
+      await Promise.resolve();
+    }
+  });
 }
 
 function expectedEnvChainLabel() {
@@ -169,6 +179,14 @@ describe("App Component", () => {
     expect(document.title).toBe("Inshell");
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
     expect(document.querySelector(".shell--home")).toBeInTheDocument();
+    expect(screen.getByLabelText("Public update terms")).toHaveTextContent(
+      "$PATH minted",
+    );
+    expect(screen.getByText("a new $PATH object exists")).toBeInTheDocument();
+    expect(screen.getByText("a movement unit was consumed")).toBeInTheDocument();
+    expect(screen.getByText("a THOUGHT object exists")).toBeInTheDocument();
+    expect(screen.getByText("time premium lifted the reset ask")).toBeInTheDocument();
+    expect(screen.getByText("ask decayed halfway toward floor")).toBeInTheDocument();
   });
 
   test("renders the Pulse primitive page on /pulse", () => {
@@ -180,32 +198,36 @@ describe("App Component", () => {
     expect(screen.getByRole("heading", { name: "pulse" })).toBeInTheDocument();
     expect(screen.getByText("Pricing rule for the $PATH auction.")).toBeInTheDocument();
     expect(screen.getByText("Pulse is the pricing rule for the public $PATH auction.")).toBeInTheDocument();
-    expect(screen.getByText("It shapes the ask over time.")).toBeInTheDocument();
-    expect(screen.getByText(/A successful bid closes the current epoch and starts the next one\./)).toBeInTheDocument();
-    expect(screen.getByText(/The start ask is raised by a time premium\./)).toBeInTheDocument();
-    expect(screen.getByText(/Between bids, the ask decays toward the floor\./)).toBeInTheDocument();
-    expect(screen.getByText(/Settlement samples the ask at bid time\./)).toBeInTheDocument();
-    expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
+    expect(screen.getByText("A Pulse cycle starts when a sale lifts the reset ask.")).toBeInTheDocument();
+    expect(screen.getByText(/Elapsed time creates a time premium\./)).toBeInTheDocument();
+    expect(screen.getByText(/The time premium lifts the reset ask above the new floor\./)).toBeInTheDocument();
+    expect(screen.getByText(/After the reset ask, the curve decays toward floor\./)).toBeInTheDocument();
+    expect(screen.getByText(/t½ marks when the above-floor amount has halved\./)).toBeInTheDocument();
+    expect(screen.getByLabelText("Pulse lift and decay equations")).toHaveTextContent(
       /PTS = price-time scale/,
     );
-    expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
-      /elapsed time = bid time - previous curve start/,
+    expect(screen.getByLabelText("Pulse lift and decay equations")).toHaveTextContent(
+      /duration = sale time - previous curve start/,
     );
-    expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
-      /premium = elapsed time × PTS/,
+    expect(screen.getByLabelText("Pulse lift and decay equations")).toHaveTextContent(
+      /time premium = duration × PTS/,
     );
-    expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
-      /start ask = last price \+ premium/,
+    expect(screen.getByLabelText("Pulse lift and decay equations")).toHaveTextContent(
+      /reset ask = floor \+ time premium/,
     );
-    expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
-      /floor b = last price/,
+    expect(screen.getByLabelText("Pulse lift and decay equations")).toHaveTextContent(
+      /floor = last sale price/,
     );
-    expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
-      /ask\(t\) = b \+ floor\(k \/ \(t - a\)\)/,
+    expect(screen.getByLabelText("Pulse lift and decay equations")).toHaveTextContent(
+      /ask = k\/\(t-anchor\) \+ floor/,
     );
-    expect(screen.getByLabelText("Pulse pump and drop equations")).not.toHaveTextContent(
+    expect(screen.getByLabelText("Pulse lift and decay equations")).toHaveTextContent(
+      /t½ = when above floor is halved/,
+    );
+    expect(screen.getByLabelText("Pulse lift and decay equations")).not.toHaveTextContent(
       /premium per second/,
     );
+    expect(screen.queryByLabelText("Pulse pump and drop equations")).toBeNull();
     expect(screen.getByLabelText("Linked Pulse auction curves")).toBeInTheDocument();
     expect(screen.getByLabelText("Pulse current instance")).toBeInTheDocument();
     expect(screen.getByText("current instance")).toBeInTheDocument();
@@ -291,7 +313,7 @@ describe("App Component", () => {
     expect(scopedParams.getByText("0.1 ETH")).toBeInTheDocument();
     expect(scopedParams.getByText("current ask")).toBeInTheDocument();
     expect(scopedParams.getByText("0.42 ETH")).toBeInTheDocument();
-    expect(scopedParams.getByText("floor b")).toBeInTheDocument();
+    expect(scopedParams.getByText("floor")).toBeInTheDocument();
     expect(scopedParams.getByText("0.25 ETH")).toBeInTheDocument();
     expect(scopedParams.getByText("epoch")).toBeInTheDocument();
     expect(scopedParams.getByText("3")).toBeInTheDocument();
@@ -334,6 +356,7 @@ describe("App Component", () => {
   test("renders the Color Font primitive page on /color-font", async () => {
     window.history.pushState({}, "", "/color-font");
     render(<App />);
+    await flushAsyncEffects();
 
     expect(document.title).toBe("Color Font");
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/color-font.svg");
@@ -460,6 +483,7 @@ describe("App Component", () => {
     mockedGetDefaultProvider.mockReturnValue({ request });
 
     render(<App />);
+    await flushAsyncEffects();
 
     expect(await screen.findByText("inshell.colorfont.v1")).toBeInTheDocument();
     const authority = screen.getByText("ColorFontV1 0x627b...d0b1");
@@ -506,10 +530,11 @@ describe("App Component", () => {
     expect(
       screen.getByText("The token image and traits show movement progress."),
     ).toBeInTheDocument();
-    expect(screen.getByText("Each movement has its own quota.")).toBeInTheDocument();
     expect(
-      screen.getByText("A movement mint consumes one quota unit from the selected PATH."),
+      screen.getByText("A movement minted from $PATH consumes a movement unit and updates the $PATH lifecycle."),
     ).toBeInTheDocument();
+    expect(screen.getByText("stage shows the current movement phase.")).toBeInTheDocument();
+    expect(screen.getByText("units show used / total movement units.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View Pulse pricing" })).toHaveAttribute(
       "href",
       "/pulse",
@@ -524,9 +549,13 @@ describe("App Component", () => {
     expect(screen.getByText("- / -")).toBeInTheDocument();
     expect(screen.queryByText("Minted(1/10)")).toBeNull();
     expect(screen.queryByText("0 / 0")).toBeNull();
-    const image = screen.getByRole("img", { name: "PATH #1 movement progress" });
+    const image = screen.getByRole("img", { name: "$PATH #1 movement progress" });
     expect(image).toHaveAttribute("src", expect.stringContaining("will-fill"));
     expect(image).toHaveAttribute("src", expect.stringContaining("r%3D'3'"));
+    expect(screen.getByLabelText("Open $PATH #1")).toHaveAttribute(
+      "href",
+      "/path/1?fixture=will",
+    );
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
   });
 
@@ -538,7 +567,8 @@ describe("App Component", () => {
       screen.getByLabelText("reading from chain: checking latest block..."),
     ).toBeInTheDocument();
     expect(screen.getByText(/reading from chain: checking latest block/)).toBeInTheDocument();
-    expect(await screen.findByText("token list unavailable")).toBeInTheDocument();
+    await flushAsyncEffects();
+    expect(screen.getByText("token list unavailable")).toBeInTheDocument();
   });
 
   test("renders the PATH state gallery fixture", () => {
@@ -560,7 +590,7 @@ describe("App Component", () => {
     expect(screen.getByText("COMPLETE")).toBeInTheDocument();
     expect(screen.queryByText("Minted(2/3)")).toBeNull();
 
-    const thoughtProgressImage = screen.getByRole("img", { name: "PATH #2 movement progress" });
+    const thoughtProgressImage = screen.getByRole("img", { name: "$PATH #2 movement progress" });
     expect(thoughtProgressImage).toHaveAttribute(
       "src",
       expect.stringContaining("circle%20id%3D'thought-box'"),
@@ -571,23 +601,43 @@ describe("App Component", () => {
       "src",
       expect.stringContaining("clip-path"),
     );
-    const oneWillImage = screen.getByRole("img", { name: "PATH #4 movement progress" });
+    const oneWillImage = screen.getByRole("img", { name: "$PATH #4 movement progress" });
     expect(oneWillImage).toHaveAttribute("src", expect.stringContaining("r%3D'3'"));
-    const midWillImage = screen.getByRole("img", { name: "PATH #5 movement progress" });
+    const midWillImage = screen.getByRole("img", { name: "$PATH #5 movement progress" });
     expect(midWillImage).toHaveAttribute("src", expect.stringContaining("r%3D'15'"));
-    const awaProgressImage = screen.getByRole("img", { name: "PATH #7 movement progress" });
+    const awaProgressImage = screen.getByRole("img", { name: "$PATH #7 movement progress" });
     expect(awaProgressImage).toHaveAttribute("src", expect.stringContaining("awa-fill"));
     expect(awaProgressImage).toHaveAttribute("src", expect.stringContaining("r%3D'15'"));
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
   });
 
+  test("renders a PATH token detail route", () => {
+    window.history.pushState({}, "", "/path/4?fixture=states");
+    render(<App />);
+
+    expect(document.title).toBe("$PATH #4");
+    expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/path.svg");
+    expect(screen.getByRole("heading", { level: 1, name: "$PATH #4" })).toBeInTheDocument();
+    expect(screen.getByText("PATH token detail.")).toBeInTheDocument();
+    expect(screen.getByText("token detail")).toBeInTheDocument();
+    expect(screen.getByLabelText("$PATH #4 detail")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "$PATH #4 movement progress" })).toHaveAttribute(
+      "src",
+      expect.stringContaining("will-fill"),
+    );
+    const lifecycle = within(screen.getByLabelText("$PATH #4 lifecycle"));
+    expect(lifecycle.getByText("owner")).toBeInTheDocument();
+    expect(lifecycle.getByText("stage")).toBeInTheDocument();
+    expect(lifecycle.getAllByText("WILL")).toHaveLength(2);
+    expect(lifecycle.getByText("1 / 10")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to all PATH tokens" })).toHaveAttribute(
+      "href",
+      "/path",
+    );
+  });
+
   test("footer links Pulse and color font without facets or hone", () => {
     render(<App />);
-    const expectedThoughtGalleryUrl = new globalThis.URL(
-      (globalThis as any).process?.env?.VITE_THOUGHT_URL ||
-        "https://thought.inshell.art/",
-    );
-    expectedThoughtGalleryUrl.searchParams.set("gallery", "1");
 
     expect(screen.getByLabelText("Open Pulse")).toHaveAttribute("href", "/pulse");
     expect(screen.getByLabelText("Open Pulse")).toHaveAttribute("target", "_blank");
@@ -598,7 +648,7 @@ describe("App Component", () => {
     expect(screen.getByLabelText("Open Color Font primitive page")).toHaveAttribute("target", "_blank");
     expect(screen.getByLabelText("Open THOUGHT gallery")).toHaveAttribute(
       "href",
-      expectedThoughtGalleryUrl.toString(),
+      "https://gallery.inshell.art/",
     );
     expect(screen.getByLabelText("Open THOUGHT gallery")).toHaveAttribute("target", "_blank");
     expect(screen.queryByLabelText("Open facets")).toBeNull();
@@ -607,14 +657,14 @@ describe("App Component", () => {
 
   test("footer gallery uses configured THOUGHT URL", () => {
     (globalThis as any).__VITE_ENV__ = {
-      VITE_THOUGHT_URL: "https://thought.preview.inshell.art/",
+      VITE_THOUGHT_GALLERY_URL: "https://gallery.preview.inshell.art/",
     };
 
     render(<App />);
 
     expect(screen.getByLabelText("Open THOUGHT gallery")).toHaveAttribute(
       "href",
-      "https://thought.preview.inshell.art/?gallery=1",
+      "https://gallery.preview.inshell.art/",
     );
   });
 
@@ -662,7 +712,7 @@ describe("App Component", () => {
     ["/color-font", "color_font"],
     ["/path", "path_tokens"],
     ["/verify", "verify"],
-  ])("sepolia invite exposes floating report bug link on %s", (route, state) => {
+  ])("sepolia invite exposes floating report bug link on %s", async (route, state) => {
     window.history.pushState({}, "", route);
     (globalThis as any).__VITE_ENV__ = {
       VITE_PUBLIC_LAUNCH_MODE: "sepolia_invite",
@@ -671,6 +721,9 @@ describe("App Component", () => {
     };
 
     render(<App />);
+    if (route === "/color-font" || route === "/path") {
+      await flushAsyncEffects();
+    }
 
     const report = screen.getByRole("link", { name: "Report a Sepolia bug" });
     expect(report.className).toContain("inshell-report-bug-link--floating");

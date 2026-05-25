@@ -84,6 +84,9 @@ VITE_THOUGHT_RPC_URL=/api/thought-rpc
 VITE_THOUGHT_PREVIEW_ENDPOINT_ENABLED=true
 VITE_THOUGHT_PREVIEW_ENDPOINT_URL=/api/thought-preview
 VITE_WALLET_CHAIN_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
+VITE_PATH_MINT_URL=https://inshell.art
+VITE_THOUGHT_DETAIL_BASE_URL=https://inshell.art
+VITE_THOUGHT_GALLERY_URL=https://gallery.inshell.art/
 ```
 
 `VITE_ETH_RPC` and `VITE_THOUGHT_RPC_URL` are read-only dapp RPCs. Wallet chain registration must use `VITE_WALLET_CHAIN_RPC_URL`, because wallets need an RPC that accepts transaction broadcast.
@@ -118,6 +121,7 @@ Attach these custom domains:
 inshell.art
 www.inshell.art
 thought.inshell.art
+gallery.inshell.art
 ```
 
 Preview domain:
@@ -125,9 +129,10 @@ Preview domain:
 ```text
 preview.inshell.art -> staging.inshell-art.pages.dev
 thought.preview.inshell.art -> staging.thought-inshell-art.pages.dev
+gallery.preview.inshell.art -> staging.thought-inshell-art.pages.dev
 ```
 
-`preview.inshell.art` is the staging gate for the home Pages project. `thought.preview.inshell.art` is the staging gate for the THOUGHT Pages project. Together they are the preview umbrella: `preview.inshell.art` mirrors `inshell.art`, and `thought.preview.inshell.art` mirrors `thought.inshell.art`.
+`preview.inshell.art` is the staging gate for the home Pages project. `thought.preview.inshell.art` and `gallery.preview.inshell.art` are staging gates for the THOUGHT Pages project. Together they are the preview umbrella: `preview.inshell.art` mirrors `inshell.art`, `thought.preview.inshell.art` mirrors `thought.inshell.art`, and `gallery.preview.inshell.art` mirrors `gallery.inshell.art`.
 
 Both preview domains must show the latest successful deployment from the `staging` branch before frontend changes are merged to `main`.
 
@@ -143,16 +148,17 @@ Recommended DNS move:
 4. Let Cloudflare create/proxy the DNS records.
 5. Add `preview.inshell.art` to the `inshell-art` Pages project after a successful `staging` deployment.
 6. In Cloudflare DNS, set the `preview` CNAME target to `staging.inshell-art.pages.dev` and keep it proxied.
-7. Add `thought.preview.inshell.art` to the `thought-inshell-art` Pages project after a successful `staging` deployment.
-8. In Cloudflare DNS, set the `thought.preview` CNAME target to `staging.thought-inshell-art.pages.dev` and keep it proxied.
+7. Add `thought.preview.inshell.art` and `gallery.preview.inshell.art` to the `thought-inshell-art` Pages project after a successful `staging` deployment.
+8. In Cloudflare DNS, set the `thought.preview` and `gallery.preview` CNAME targets to `staging.thought-inshell-art.pages.dev` and keep them proxied.
 
 If DNS stays at GoDaddy:
 
 1. Add `www.inshell.art` to the `inshell-art` Pages project.
 2. Add GoDaddy CNAME `www -> inshell-art.pages.dev`.
 3. Add `thought.inshell.art` to the `thought-inshell-art` Pages project.
-4. Add GoDaddy CNAME `thought -> thought-inshell-art.pages.dev`.
-5. For apex `inshell.art`, either use GoDaddy forwarding to `www.inshell.art`, or use GoDaddy apex ALIAS/ANAME/CNAME flattening if available.
+4. Add `gallery.inshell.art` to the `thought-inshell-art` Pages project.
+5. Add GoDaddy CNAMEs `thought -> thought-inshell-art.pages.dev` and `gallery -> thought-inshell-art.pages.dev`.
+6. For apex `inshell.art`, either use GoDaddy forwarding to `www.inshell.art`, or use GoDaddy apex ALIAS/ANAME/CNAME flattening if available.
 
 Do not use GoDaddy or unproxied DNS records for preview domains if the intent is to pin them to the `staging` branch. Cloudflare's custom branch alias flow depends on proxied Cloudflare DNS.
 
@@ -173,14 +179,18 @@ Staging builds must cross-link inside the preview umbrella:
 
 ```text
 VITE_THOUGHT_URL=https://thought.preview.inshell.art/
+VITE_THOUGHT_GALLERY_URL=https://gallery.preview.inshell.art/
 VITE_PATH_MINT_URL=https://preview.inshell.art
+VITE_THOUGHT_DETAIL_BASE_URL=https://preview.inshell.art
 ```
 
 Production builds must keep the public domains:
 
 ```text
 VITE_THOUGHT_URL=https://thought.inshell.art/
+VITE_THOUGHT_GALLERY_URL=https://gallery.inshell.art/
 VITE_PATH_MINT_URL=https://inshell.art
+VITE_THOUGHT_DETAIL_BASE_URL=https://inshell.art
 ```
 
 ## RPC Proxy
@@ -229,6 +239,7 @@ VITE_ETH_RPC=/api/path-rpc
 VITE_THOUGHT_RPC_URL=/api/thought-rpc
 VITE_DEBUG_PANEL=off
 VITE_THOUGHT_URL=https://thought.inshell.art/
+VITE_THOUGHT_GALLERY_URL=https://gallery.inshell.art/
 ```
 
 Required GitHub Actions secrets:

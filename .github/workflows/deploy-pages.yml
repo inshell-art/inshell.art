@@ -45,6 +45,7 @@ jobs:
       VITE_GITHUB_URL: ${{ vars.VITE_GITHUB_URL || 'https://github.com/inshell-art/' }}
       VITE_DEBUG_PANEL: ${{ vars.VITE_DEBUG_PANEL || 'off' }}
       VITE_THOUGHT_URL: ${{ github.event.inputs.branch == 'staging' && 'https://thought.preview.inshell.art/' || vars.VITE_THOUGHT_URL || 'https://thought.inshell.art/' }}
+      VITE_THOUGHT_GALLERY_URL: ${{ github.event.inputs.branch == 'staging' && 'https://gallery.preview.inshell.art/' || vars.VITE_THOUGHT_GALLERY_URL || 'https://gallery.inshell.art/' }}
       VITE_PUBLIC_TELEGRAM_CHANNEL_URL: ${{ vars.VITE_PUBLIC_TELEGRAM_CHANNEL_URL }}
     steps:
       - uses: actions/checkout@v6
@@ -72,6 +73,7 @@ jobs:
           test -n "$VITE_ETH_RPC"
           test -n "$VITE_WALLET_CHAIN_RPC_URL"
           test -n "$VITE_THOUGHT_URL"
+          test -n "$VITE_THOUGHT_GALLERY_URL"
       - name: Validate deployment gates
         run: pnpm run check:deployment
       - name: Lint home
@@ -99,6 +101,8 @@ jobs:
       VITE_THOUGHT_PREVIEW_ENDPOINT_URL: ${{ github.event.inputs.branch == 'staging' && '/api/thought-preview' || vars.VITE_THOUGHT_PREVIEW_ENDPOINT_URL || '/api/thought-preview' }}
       VITE_WALLET_CHAIN_RPC_URL: ${{ vars.VITE_WALLET_CHAIN_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com' }}
       VITE_PATH_MINT_URL: ${{ github.event.inputs.branch == 'staging' && 'https://preview.inshell.art' || vars.VITE_PATH_MINT_URL || 'https://inshell.art' }}
+      VITE_THOUGHT_DETAIL_BASE_URL: ${{ github.event.inputs.branch == 'staging' && 'https://preview.inshell.art' || vars.VITE_THOUGHT_DETAIL_BASE_URL || 'https://inshell.art' }}
+      VITE_THOUGHT_GALLERY_URL: ${{ github.event.inputs.branch == 'staging' && 'https://gallery.preview.inshell.art/' || vars.VITE_THOUGHT_GALLERY_URL || 'https://gallery.inshell.art/' }}
       VITE_THOUGHT_EXPLORER_BASE_URL: ${{ vars.VITE_THOUGHT_EXPLORER_BASE_URL || 'https://sepolia.etherscan.io' }}
       VITE_PUBLIC_LAUNCH_MODE: ${{ vars.VITE_PUBLIC_LAUNCH_MODE || 'sepolia_invite' }}
       VITE_REPORT_BUG_URL: ${{ vars.VITE_REPORT_BUG_URL || 'https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md' }}
@@ -132,6 +136,8 @@ jobs:
           test -n "$VITE_THOUGHT_PREVIEW_ENDPOINT_URL"
           test -n "$VITE_WALLET_CHAIN_RPC_URL"
           test -n "$VITE_PATH_MINT_URL"
+          test -n "$VITE_THOUGHT_DETAIL_BASE_URL"
+          test -n "$VITE_THOUGHT_GALLERY_URL"
       - name: Validate deployment gates
         run: pnpm run check:deployment
       - name: Test THOUGHT runtime payloads
