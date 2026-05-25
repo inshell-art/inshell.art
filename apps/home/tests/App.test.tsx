@@ -106,6 +106,16 @@ function expectedColorFontFallbackChainLabel() {
     : "Local Devnet";
 }
 
+function expectedDefaultGalleryUrl() {
+  const configured = env.VITE_THOUGHT_GALLERY_URL || env.VITE_GALLERY_URL;
+  if (configured) {
+    return new globalThis.URL(configured).toString();
+  }
+  return String(env.VITE_DEPLOY_ENV ?? "").toLowerCase() === "preview"
+    ? "https://gallery.preview.inshell.art/"
+    : "https://gallery.inshell.art/";
+}
+
 describe("App Component", () => {
   beforeEach(() => {
     window.history.pushState({}, "", "/");
@@ -648,7 +658,7 @@ describe("App Component", () => {
     expect(screen.getByLabelText("Open Color Font primitive page")).toHaveAttribute("target", "_blank");
     expect(screen.getByLabelText("Open THOUGHT gallery")).toHaveAttribute(
       "href",
-      "https://gallery.inshell.art/",
+      expectedDefaultGalleryUrl(),
     );
     expect(screen.getByLabelText("Open THOUGHT gallery")).toHaveAttribute("target", "_blank");
     expect(screen.queryByLabelText("Open facets")).toBeNull();
