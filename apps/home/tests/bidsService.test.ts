@@ -310,7 +310,7 @@ describe("auction bids service", () => {
     globalThis.localStorage.setItem(
       cacheKey,
       JSON.stringify({
-        version: 3,
+        version: 4,
         savedAt: Date.now(),
         lastBlock: 500,
         complete: false,
@@ -355,7 +355,7 @@ describe("auction bids service", () => {
     globalThis.localStorage.setItem(
       cacheKey,
       JSON.stringify({
-        version: 2,
+        version: 3,
         savedAt: Date.now(),
         lastBlock: 500,
         complete: true,
