@@ -286,7 +286,6 @@ const EXTREME_HISTORY_TAIL_THRESHOLD = BASE_HALF_LIVES * 100;
 const LIVE_HISTORY_CONTEXT_MAX_BIDS = 24;
 const SPARSE_LIVE_ACTIVE_WINDOW = BASE_HALF_LIVES * 4;
 const SPARSE_LIVE_ACTIVE_CONTEXT = BASE_HALF_LIVES * 0.5;
-const MAX_EXTREME_HISTORY_STROKE_SPAN_SVG = 18;
 const PLOT_EDGE_PAD = 2.4;
 const PLOT_LEFT_PAD = PLOT_EDGE_PAD;
 const PLOT_RIGHT_PAD = PLOT_EDGE_PAD;
@@ -5858,11 +5857,6 @@ export default function AuctionCanvas({
           PLOT_LEFT_PAD + ((x - vp.xMin) / xRange) * PLOT_X_SPAN;
         const toSvgY = (y: number) => 60 - ((y - vp.yMin) / yRange) * 60;
         const isInPlotY = (y: number) => Number.isFinite(y) && y >= 0 && y <= 60;
-        const suppressExtremeHistoryStrokes =
-          !fixtureState &&
-          bidMarks.length > 8 &&
-          linked.uEnd > EXTREME_HISTORY_TAIL_THRESHOLD;
-
         const hasNow =
           linked.nowU != null &&
           linked.nowPrice != null &&
@@ -5880,7 +5874,7 @@ export default function AuctionCanvas({
               y: toSvgY(nowPrice),
             }
           : null;
-        const curveSegments: Array<{ key: string; d: string; muted: boolean }> = [];
+        const curveSegments: Array<{ key: string; d: string }> = [];
         const MAX_CURVE_SEGMENT_DX_SVG = 1.2;
         const MAX_CURVE_MIDPOINT_ERR_SVG = 0.03;
         const MAX_CURVE_SUBDIVISION_DEPTH = 12;
@@ -5888,14 +5882,6 @@ export default function AuctionCanvas({
           if (!Number.isFinite(floorY) || !Number.isFinite(askY)) return null;
           if (!isInPlotY(floorY)) return null;
           let cappedAskY = clamp(askY, 0, 60);
-          if (
-            suppressExtremeHistoryStrokes &&
-            Math.abs(cappedAskY - floorY) > MAX_EXTREME_HISTORY_STROKE_SPAN_SVG
-          ) {
-            cappedAskY =
-              floorY +
-              Math.sign(cappedAskY - floorY) * MAX_EXTREME_HISTORY_STROKE_SPAN_SVG;
-          }
           cappedAskY = clamp(cappedAskY, 0, 60);
           return Math.abs(cappedAskY - floorY) > 0.001 ? [floorY, cappedAskY] : null;
         };
@@ -5936,11 +5922,6 @@ export default function AuctionCanvas({
           ) {
             continue;
           }
-          const mutedExtremeHistory =
-            suppressExtremeHistoryStrokes &&
-            seg.bid &&
-            Math.abs(p1.ySvg - p0.ySvg) > MAX_EXTREME_HISTORY_STROKE_SPAN_SVG;
-
           const points: Array<{ xSvg: number; ySvg: number }> = [
             { xSvg: p0.xSvg, ySvg: p0.ySvg },
           ];
@@ -5988,7 +5969,6 @@ export default function AuctionCanvas({
             curveSegments.push({
               key: `curve-${seg.idx}`,
               d: segDParts.join(" "),
-              muted: mutedExtremeHistory,
             });
           }
         }
@@ -6118,9 +6098,7 @@ export default function AuctionCanvas({
               {curveSegments.map((segPath) => (
                 <path
                   key={segPath.key}
-                  className={`dotfield__curve${
-                    segPath.muted ? " dotfield__curve--muted-history" : ""
-                  }`}
+                  className="dotfield__curve"
                   d={segPath.d}
                   vectorEffect="non-scaling-stroke"
                   strokeLinecap="round"

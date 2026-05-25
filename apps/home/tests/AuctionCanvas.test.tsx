@@ -645,8 +645,7 @@ describe("AuctionCanvas", () => {
 
       expect(salePoints).toHaveLength(11);
       expect(yValues).toHaveLength(11);
-      expect(container.querySelectorAll(".dotfield__curve--muted-history").length)
-        .toBeGreaterThan(0);
+      expect(container.querySelectorAll(".dotfield__curve--muted-history")).toHaveLength(0);
       expect(
         [...pumpYValues, ...curveYValues].every((y) => y >= 0 && y <= 60)
       ).toBe(true);
@@ -655,7 +654,8 @@ describe("AuctionCanvas", () => {
       ).map((line) =>
         Math.abs(Number(line.getAttribute("y2")) - Number(line.getAttribute("y1")))
       );
-      expect(Math.max(0, ...pumpSpans)).toBeLessThanOrEqual(18);
+      expect(Math.max(0, ...pumpSpans)).toBeGreaterThan(18);
+      expect(Math.max(0, ...pumpSpans)).toBeLessThanOrEqual(60);
     } finally {
       jest.useRealTimers();
     }

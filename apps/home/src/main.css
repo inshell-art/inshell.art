@@ -1505,11 +1505,6 @@ body {
   pointer-events: none;
 }
 
-.dotfield__curve--muted-history {
-  opacity: 0.7;
-  stroke-width: 1.4;
-}
-
 .dotfield__pump {
   stroke: var(--accent);
   stroke-width: 0.7;
