@@ -46,6 +46,23 @@ function renderSquares(link: FooterLink): string {
   return buildSquares(link.label);
 }
 
+function withGalleryParam(base: string): string {
+  try {
+    const url = new globalThis.URL(base);
+    url.searchParams.set("gallery", "1");
+    return url.toString();
+  } catch {
+    return "https://thought.inshell.art/?gallery=1";
+  }
+}
+
+function resolveThoughtGalleryUrl(): string {
+  return withGalleryParam(
+    readEnvUrl(["VITE_THOUGHT_URL", "VITE_THOUGHT_APP_URL"]) ??
+      "https://thought.inshell.art/"
+  );
+}
+
 function resolvePublicUrl(
   names: string[],
   kind: "Telegram" | "Discord",
@@ -65,6 +82,7 @@ function resolvePublicUrl(
 }
 
 const Footer: React.FC = () => {
+  const thoughtGalleryUrl = useMemo(() => resolveThoughtGalleryUrl(), []);
   const telegramUrl = useMemo(
     () =>
       resolvePublicUrl(
@@ -93,7 +111,7 @@ const Footer: React.FC = () => {
     {
       key: "gallery",
       label: "gallery",
-      href: "https://thought.inshell.art/?gallery=1",
+      href: thoughtGalleryUrl,
       ariaLabel: "Open THOUGHT gallery",
       external: true,
       tooltip: "gallery",

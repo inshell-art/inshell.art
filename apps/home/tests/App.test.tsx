@@ -600,6 +600,19 @@ describe("App Component", () => {
     expect(screen.queryByLabelText("Open hone")).toBeNull();
   });
 
+  test("footer gallery uses configured THOUGHT URL", () => {
+    (globalThis as any).__VITE_ENV__ = {
+      VITE_THOUGHT_URL: "https://thought.preview.inshell.art/",
+    };
+
+    render(<App />);
+
+    expect(screen.getByLabelText("Open THOUGHT gallery")).toHaveAttribute(
+      "href",
+      "https://thought.preview.inshell.art/?gallery=1",
+    );
+  });
+
   test("sepolia invite footer opens GitHub org and exposes floating report bug link", () => {
     (globalThis as any).__VITE_ENV__ = {
       VITE_PUBLIC_LAUNCH_MODE: "sepolia_invite",
