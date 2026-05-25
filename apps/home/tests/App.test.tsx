@@ -583,6 +583,11 @@ describe("App Component", () => {
 
   test("footer links Pulse and color font without facets or hone", () => {
     render(<App />);
+    const expectedThoughtGalleryUrl = new globalThis.URL(
+      (globalThis as any).process?.env?.VITE_THOUGHT_URL ||
+        "https://thought.inshell.art/",
+    );
+    expectedThoughtGalleryUrl.searchParams.set("gallery", "1");
 
     expect(screen.getByLabelText("Open Pulse")).toHaveAttribute("href", "/pulse");
     expect(screen.getByLabelText("Open Pulse")).toHaveAttribute("target", "_blank");
@@ -593,7 +598,7 @@ describe("App Component", () => {
     expect(screen.getByLabelText("Open Color Font primitive page")).toHaveAttribute("target", "_blank");
     expect(screen.getByLabelText("Open THOUGHT gallery")).toHaveAttribute(
       "href",
-      "https://thought.inshell.art/?gallery=1",
+      expectedThoughtGalleryUrl.toString(),
     );
     expect(screen.getByLabelText("Open THOUGHT gallery")).toHaveAttribute("target", "_blank");
     expect(screen.queryByLabelText("Open facets")).toBeNull();
