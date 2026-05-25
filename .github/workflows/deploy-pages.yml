@@ -37,7 +37,7 @@ jobs:
       CLOUDFLARE_PAGES_PROJECT_HOME: ${{ vars.CLOUDFLARE_PAGES_PROJECT_HOME || 'inshell-art' }}
       VITE_DEPLOY_ENV: ${{ github.event.inputs.branch == 'staging' && 'preview' || 'production' }}
       VITE_NETWORK: ${{ vars.VITE_NETWORK || 'sepolia' }}
-      VITE_ETH_RPC: ${{ vars.VITE_ETH_RPC || '/api/path-rpc' }}
+      VITE_ETH_RPC: ${{ github.event.inputs.branch == 'staging' && '/api/path-rpc' || vars.VITE_ETH_RPC || '/api/path-rpc' }}
       VITE_WALLET_CHAIN_RPC_URL: ${{ vars.VITE_WALLET_CHAIN_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com' }}
       VITE_WALLETCONNECT_PROJECT_ID: ${{ vars.VITE_WALLETCONNECT_PROJECT_ID }}
       VITE_PUBLIC_LAUNCH_MODE: ${{ vars.VITE_PUBLIC_LAUNCH_MODE || 'sepolia_invite' }}
@@ -93,10 +93,10 @@ jobs:
       CLOUDFLARE_PAGES_PROJECT_THOUGHT: ${{ vars.CLOUDFLARE_PAGES_PROJECT_THOUGHT || 'thought-inshell-art' }}
       VITE_DEPLOY_ENV: ${{ github.event.inputs.branch == 'staging' && 'preview' || 'production' }}
       VITE_NETWORK: ${{ vars.VITE_NETWORK || 'sepolia' }}
-      VITE_ETH_RPC: ${{ vars.VITE_ETH_RPC || '/api/path-rpc' }}
-      VITE_THOUGHT_RPC_URL: ${{ vars.VITE_THOUGHT_RPC_URL || '/api/thought-rpc' }}
+      VITE_ETH_RPC: ${{ github.event.inputs.branch == 'staging' && '/api/path-rpc' || vars.VITE_ETH_RPC || '/api/path-rpc' }}
+      VITE_THOUGHT_RPC_URL: ${{ github.event.inputs.branch == 'staging' && '/api/thought-rpc' || vars.VITE_THOUGHT_RPC_URL || '/api/thought-rpc' }}
       VITE_THOUGHT_PREVIEW_ENDPOINT_ENABLED: ${{ vars.VITE_THOUGHT_PREVIEW_ENDPOINT_ENABLED || 'true' }}
-      VITE_THOUGHT_PREVIEW_ENDPOINT_URL: ${{ vars.VITE_THOUGHT_PREVIEW_ENDPOINT_URL || '/api/thought-preview' }}
+      VITE_THOUGHT_PREVIEW_ENDPOINT_URL: ${{ github.event.inputs.branch == 'staging' && '/api/thought-preview' || vars.VITE_THOUGHT_PREVIEW_ENDPOINT_URL || '/api/thought-preview' }}
       VITE_WALLET_CHAIN_RPC_URL: ${{ vars.VITE_WALLET_CHAIN_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com' }}
       VITE_PATH_MINT_URL: ${{ github.event.inputs.branch == 'staging' && 'https://preview.inshell.art' || vars.VITE_PATH_MINT_URL || 'https://inshell.art' }}
       VITE_THOUGHT_EXPLORER_BASE_URL: ${{ vars.VITE_THOUGHT_EXPLORER_BASE_URL || 'https://sepolia.etherscan.io' }}
