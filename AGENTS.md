@@ -21,6 +21,15 @@
 - Never run two servers on the same port (including IPv4/IPv6 split).
 - If a port is occupied, stop the existing process before starting a new one.
 
+## Preview/Staging Deployment Discipline
+- Treat `staging` as the frontend preview gate and `main` as production.
+- Normal frontend flow: land code on `staging`, deploy the Cloudflare Pages `staging` branch, validate `https://preview.inshell.art`, then merge `staging` into `main` for production.
+- Do not deploy frontend changes straight to `main` unless the operator explicitly asks for an emergency production hotfix.
+- If a production hotfix bypasses `staging`, say so plainly in the final response and reconcile `staging` with `main` immediately after.
+- `preview.inshell.art` should point at the Cloudflare Pages branch alias for `staging` on the home project: `staging.inshell-art.pages.dev`.
+- The Cloudflare custom-domain binding is account-side. If it is missing, ask the operator to bind `preview.inshell.art` to the `staging` branch before claiming preview is ready.
+- In `.github/workflows/deploy-pages.yml`, the selected deploy `branch` must match the checked-out source branch. Never deploy `main` code under a `staging` label or `staging` code under a `main` label.
+
 ## Visual Verification
 - For UI visualization bugs, especially charts/SVG/canvas/responsive layout, verify with `visual-dom-cdp` or the same headless Chrome/CDP workflow: DOM counts, geometry thresholds, network status, and a screenshot.
 - Do not call a visualization fix done from code inspection alone. Use a browser-rendered screenshot plus concrete DOM/geometry signals.

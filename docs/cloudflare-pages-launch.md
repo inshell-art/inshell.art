@@ -1,6 +1,6 @@
 # Cloudflare Pages Launch
 
-Last updated: 2026-05-22
+Last updated: 2026-05-25
 
 ## Decision
 
@@ -120,6 +120,16 @@ www.inshell.art
 thought.inshell.art
 ```
 
+Preview domain:
+
+```text
+preview.inshell.art -> staging.inshell-art.pages.dev
+```
+
+`preview.inshell.art` is the staging gate for the home Pages project. It must show the latest successful deployment from the `staging` branch before frontend changes are merged to `main`.
+
+Cloudflare supports branch aliases for preview deployments. A `staging` branch deployment creates or updates `staging.inshell-art.pages.dev`, and `preview.inshell.art` should be added as a custom domain that points at that branch alias. This setup requires a proxied Cloudflare DNS record; an external DNS provider or unproxied record can route the custom domain to the production branch instead of the preview branch.
+
 Cloudflare Pages custom apex domains are simplest when the domain uses Cloudflare nameservers. If DNS remains at GoDaddy, `www.inshell.art` and `thought.inshell.art` can use CNAME records, but the apex `inshell.art` depends on GoDaddy support for apex CNAME/ALIAS/ANAME behavior.
 
 Recommended DNS move:
@@ -128,6 +138,8 @@ Recommended DNS move:
 2. Update GoDaddy nameservers to Cloudflare nameservers.
 3. Add Pages custom domains in Cloudflare.
 4. Let Cloudflare create/proxy the DNS records.
+5. Add `preview.inshell.art` to the `inshell-art` Pages project after a successful `staging` deployment.
+6. In Cloudflare DNS, set the `preview` CNAME target to `staging.inshell-art.pages.dev` and keep it proxied.
 
 If DNS stays at GoDaddy:
 
@@ -136,6 +148,21 @@ If DNS stays at GoDaddy:
 3. Add `thought.inshell.art` to the `thought-inshell-art` Pages project.
 4. Add GoDaddy CNAME `thought -> thought-inshell-art.pages.dev`.
 5. For apex `inshell.art`, either use GoDaddy forwarding to `www.inshell.art`, or use GoDaddy apex ALIAS/ANAME/CNAME flattening if available.
+
+Do not use GoDaddy or an unproxied DNS record for `preview.inshell.art` if the intent is to pin it to the `staging` branch. Cloudflare's custom branch alias flow depends on proxied Cloudflare DNS.
+
+## Staging Discipline
+
+Use this frontend release path:
+
+1. Develop and commit on a feature branch or directly on `staging` when the operator asks for a fast path.
+2. Push or merge to `staging`.
+3. Deploy Cloudflare Pages with `.github/workflows/deploy-pages.yml`, `branch=staging`, and the needed `target`.
+4. Validate `https://preview.inshell.art`.
+5. Merge `staging` into `main`.
+6. Deploy Cloudflare Pages with `branch=main` for production.
+
+Do not deploy `main` before `preview.inshell.art` has been validated, unless the operator explicitly asks for an emergency hotfix. If a hotfix bypasses staging, merge `main` back into `staging` immediately after production is stable.
 
 ## RPC Proxy
 
@@ -193,3 +220,5 @@ CLOUDFLARE_API_TOKEN=<Cloudflare Pages edit token>
 ```
 
 The manual fallback deploy does not need private RPC URLs because the deployed Pages Functions read `PATH_RPC_UPSTREAM`, `THOUGHT_RPC_UPSTREAM`, and the legacy `ETH_RPC_UPSTREAM` fallback from Cloudflare Pages project secrets.
+
+The workflow's `branch` input is restricted to `staging` or `main`. It checks out the same branch it deploys, so a preview deploy cannot accidentally build production code under a staging label.
