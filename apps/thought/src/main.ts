@@ -742,16 +742,24 @@ const RECOMMENDED_THOUGHT_SPEC_ID =
   EVM_ADDRESSES.thoughtSpecs?.[0]?.specId?.trim() ||
   "";
 const LOCAL_BROWSER_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+const resolveBrowserRpcUrl = (rpcUrl: string) => {
+  try {
+    return new URL(rpcUrl, window.location.origin).toString();
+  } catch {
+    return rpcUrl;
+  }
+};
+
 const resolveThoughtRpcUrl = () => {
   const envRpcUrl =
     typeof import.meta.env.VITE_THOUGHT_RPC_URL === "string" ? import.meta.env.VITE_THOUGHT_RPC_URL.trim() : "";
   const configuredRpcUrl = envRpcUrl || EVM_ADDRESSES.rpcUrl?.trim() || "";
   if (!configuredRpcUrl || envRpcUrl || THOUGHT_CHAIN_ID !== 31337 || !LOCAL_BROWSER_HOSTS.has(window.location.hostname)) {
-    return configuredRpcUrl;
+    return resolveBrowserRpcUrl(configuredRpcUrl);
   }
 
   try {
-    const parsed = new URL(configuredRpcUrl);
+    const parsed = new URL(configuredRpcUrl, window.location.origin);
     if (parsed.hostname !== "127.0.0.1" && parsed.hostname !== "localhost") {
       parsed.hostname = "127.0.0.1";
     }
