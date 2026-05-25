@@ -124,11 +124,14 @@ Preview domain:
 
 ```text
 preview.inshell.art -> staging.inshell-art.pages.dev
+thought.preview.inshell.art -> staging.thought-inshell-art.pages.dev
 ```
 
-`preview.inshell.art` is the staging gate for the home Pages project. It must show the latest successful deployment from the `staging` branch before frontend changes are merged to `main`.
+`preview.inshell.art` is the staging gate for the home Pages project. `thought.preview.inshell.art` is the staging gate for the THOUGHT Pages project. Together they are the preview umbrella: `preview.inshell.art` mirrors `inshell.art`, and `thought.preview.inshell.art` mirrors `thought.inshell.art`.
 
-Cloudflare supports branch aliases for preview deployments. A `staging` branch deployment creates or updates `staging.inshell-art.pages.dev`, and `preview.inshell.art` should be added as a custom domain that points at that branch alias. This setup requires a proxied Cloudflare DNS record; an external DNS provider or unproxied record can route the custom domain to the production branch instead of the preview branch.
+Both preview domains must show the latest successful deployment from the `staging` branch before frontend changes are merged to `main`.
+
+Cloudflare supports branch aliases for preview deployments. A `staging` branch deployment creates or updates `staging.inshell-art.pages.dev` and `staging.thought-inshell-art.pages.dev`, and the preview custom domains should point at those branch aliases. This setup requires proxied Cloudflare DNS records; an external DNS provider or unproxied record can route a custom domain to the production branch instead of the preview branch.
 
 Cloudflare Pages custom apex domains are simplest when the domain uses Cloudflare nameservers. If DNS remains at GoDaddy, `www.inshell.art` and `thought.inshell.art` can use CNAME records, but the apex `inshell.art` depends on GoDaddy support for apex CNAME/ALIAS/ANAME behavior.
 
@@ -140,6 +143,8 @@ Recommended DNS move:
 4. Let Cloudflare create/proxy the DNS records.
 5. Add `preview.inshell.art` to the `inshell-art` Pages project after a successful `staging` deployment.
 6. In Cloudflare DNS, set the `preview` CNAME target to `staging.inshell-art.pages.dev` and keep it proxied.
+7. Add `thought.preview.inshell.art` to the `thought-inshell-art` Pages project after a successful `staging` deployment.
+8. In Cloudflare DNS, set the `thought.preview` CNAME target to `staging.thought-inshell-art.pages.dev` and keep it proxied.
 
 If DNS stays at GoDaddy:
 
@@ -149,7 +154,7 @@ If DNS stays at GoDaddy:
 4. Add GoDaddy CNAME `thought -> thought-inshell-art.pages.dev`.
 5. For apex `inshell.art`, either use GoDaddy forwarding to `www.inshell.art`, or use GoDaddy apex ALIAS/ANAME/CNAME flattening if available.
 
-Do not use GoDaddy or an unproxied DNS record for `preview.inshell.art` if the intent is to pin it to the `staging` branch. Cloudflare's custom branch alias flow depends on proxied Cloudflare DNS.
+Do not use GoDaddy or unproxied DNS records for preview domains if the intent is to pin them to the `staging` branch. Cloudflare's custom branch alias flow depends on proxied Cloudflare DNS.
 
 ## Staging Discipline
 
@@ -158,11 +163,25 @@ Use this frontend release path:
 1. Develop and commit on a feature branch or directly on `staging` when the operator asks for a fast path.
 2. Push or merge to `staging`.
 3. Deploy Cloudflare Pages with `.github/workflows/deploy-pages.yml`, `branch=staging`, and the needed `target`.
-4. Validate `https://preview.inshell.art`.
+4. Validate `https://preview.inshell.art` and `https://thought.preview.inshell.art`.
 5. Merge `staging` into `main`.
 6. Deploy Cloudflare Pages with `branch=main` for production.
 
 Do not deploy `main` before `preview.inshell.art` has been validated, unless the operator explicitly asks for an emergency hotfix. If a hotfix bypasses staging, merge `main` back into `staging` immediately after production is stable.
+
+Staging builds must cross-link inside the preview umbrella:
+
+```text
+VITE_THOUGHT_URL=https://thought.preview.inshell.art/
+VITE_PATH_MINT_URL=https://preview.inshell.art
+```
+
+Production builds must keep the public domains:
+
+```text
+VITE_THOUGHT_URL=https://thought.inshell.art/
+VITE_PATH_MINT_URL=https://inshell.art
+```
 
 ## RPC Proxy
 

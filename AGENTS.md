@@ -27,7 +27,10 @@
 - Do not deploy frontend changes straight to `main` unless the operator explicitly asks for an emergency production hotfix.
 - If a production hotfix bypasses `staging`, say so plainly in the final response and reconcile `staging` with `main` immediately after.
 - `preview.inshell.art` should point at the Cloudflare Pages branch alias for `staging` on the home project: `staging.inshell-art.pages.dev`.
-- The Cloudflare custom-domain binding is account-side. If it is missing, ask the operator to bind `preview.inshell.art` to the `staging` branch before claiming preview is ready.
+- `thought.preview.inshell.art` should point at the Cloudflare Pages branch alias for `staging` on the THOUGHT project: `staging.thought-inshell-art.pages.dev`.
+- Treat these as one preview umbrella: `preview.inshell.art` mirrors `inshell.art`, and `thought.preview.inshell.art` mirrors `thought.inshell.art`.
+- Staging builds must cross-link within the preview umbrella. Home staging links to `https://thought.preview.inshell.art/`; THOUGHT staging links back to `https://preview.inshell.art`.
+- The Cloudflare custom-domain bindings are account-side. If either is missing, ask the operator to bind `preview.inshell.art` and `thought.preview.inshell.art` to their `staging` branches before claiming preview is ready.
 - In `.github/workflows/deploy-pages.yml`, the selected deploy `branch` must match the checked-out source branch. Never deploy `main` code under a `staging` label or `staging` code under a `main` label.
 
 ## Visual Verification
