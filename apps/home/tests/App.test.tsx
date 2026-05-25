@@ -639,6 +639,24 @@ describe("App Component", () => {
     expect(report.closest("footer")).toBeNull();
   });
 
+  test("shows the preview watermark only for preview deployments", () => {
+    (globalThis as any).__VITE_ENV__ = {
+      VITE_DEPLOY_ENV: "preview",
+    };
+
+    const { unmount } = render(<App />);
+
+    expect(screen.getByText("preview")).toHaveClass("inshell-preview-watermark");
+
+    unmount();
+    (globalThis as any).__VITE_ENV__ = {
+      VITE_DEPLOY_ENV: "production",
+    };
+    render(<App />);
+
+    expect(screen.queryByText("preview")).toBeNull();
+  });
+
   test.each([
     ["/pulse", "pulse"],
     ["/color-font", "color_font"],

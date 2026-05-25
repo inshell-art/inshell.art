@@ -27,11 +27,13 @@ import {
   maybeResolveAddress,
 } from "@inshell/contracts";
 import {
+  PREVIEW_WATERMARK_LABEL,
   SURFACE_TERMINOLOGY,
   buildReportBugLink,
   buildContractStatusSections,
   findContractStatusRow,
   resolveWalletChainRpcUrls,
+  shouldShowPreviewWatermark,
   type PublicLaunchMode,
 } from "@inshell/shared";
 import {
@@ -3020,6 +3022,17 @@ const configureReportBugLink = () => {
   thoughtReportBugLink.ariaLabel = link.ariaLabel;
   thoughtReportBugLink.textContent = link.label;
   thoughtReportBugLink.classList.remove("is-hidden");
+};
+
+const configurePreviewWatermark = () => {
+  if (!shouldShowPreviewWatermark({ env: import.meta.env })) return;
+  if (document.querySelector(".inshell-preview-watermark")) return;
+
+  const watermark = document.createElement("div");
+  watermark.className = "inshell-preview-watermark";
+  watermark.setAttribute("aria-hidden", "true");
+  watermark.textContent = PREVIEW_WATERMARK_LABEL;
+  document.body.appendChild(watermark);
 };
 
 const renderVerifyPage = () => {
@@ -12630,6 +12643,7 @@ document.addEventListener("keydown", (event) => {
 });
 
 const initFrontpage = async () => {
+  configurePreviewWatermark();
   configureReportBugLink();
   configureGalleryLink();
   document.title = IS_COLOR_FONT_PAGE

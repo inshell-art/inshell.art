@@ -2,6 +2,15 @@ export type SurfaceId = "path" | "thought";
 
 export type PublicLaunchMode = "local" | "sepolia_invite" | "production";
 
+export type DeploymentEnv = "local" | "preview" | "production";
+
+export type DeploymentEnvOptions = {
+  env?: Readonly<Record<string, unknown>>;
+  deployEnv?: string | null;
+  hostname?: string | null;
+  locationHref?: string | null;
+};
+
 export type ContractStatusRow = {
   id: string;
   label: string;
@@ -112,6 +121,7 @@ export const SEPOLIA_CHAIN_ID = 11155111;
 export const PUBLIC_SEPOLIA_WALLET_RPC_URL = "https://ethereum-sepolia-rpc.publicnode.com";
 export const DEFAULT_REPORT_BUG_URL =
   "https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md";
+export const PREVIEW_WATERMARK_LABEL = "preview";
 
 function normalizeChainId(value: string | number | bigint | null | undefined): number | null {
   if (typeof value === "number") return Number.isFinite(value) ? Math.trunc(value) : null;
@@ -354,9 +364,59 @@ function getSharedEnvValue(name: string, env?: Readonly<Record<string, unknown>>
   return env?.[name] ?? globalEnv?.[name] ?? procEnv?.[name];
 }
 
-function readSharedEnvString(name: string, options?: ReportBugOptions): string | null {
+function readSharedEnvString(
+  name: string,
+  options?: { env?: Readonly<Record<string, unknown>> },
+): string | null {
   const value = getSharedEnvValue(name, options?.env);
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function normalizeDeploymentEnv(raw: string | null | undefined): DeploymentEnv | null {
+  const value = raw?.trim().toLowerCase();
+  if (!value) return null;
+  if (value === "preview" || value === "staging") return "preview";
+  if (value === "production" || value === "prod" || value === "main") return "production";
+  if (value === "local" || value === "dev" || value === "development") return "local";
+  return null;
+}
+
+function getDeploymentHostname(options: DeploymentEnvOptions): string {
+  const configured = options.hostname?.trim().toLowerCase();
+  if (configured) return configured;
+
+  const href = options.locationHref?.trim();
+  if (href) {
+    try {
+      return new globalThis.URL(href).hostname.toLowerCase();
+    } catch {
+      return "";
+    }
+  }
+
+  if (typeof window !== "undefined") return window.location.hostname.toLowerCase();
+  return "";
+}
+
+function isPreviewHostname(hostname: string): boolean {
+  return (
+    hostname === "preview.inshell.art" ||
+    hostname === "thought.preview.inshell.art" ||
+    hostname.endsWith(".preview.inshell.art")
+  );
+}
+
+export function getDeploymentEnv(options: DeploymentEnvOptions = {}): DeploymentEnv {
+  const configured =
+    normalizeDeploymentEnv(options.deployEnv) ??
+    normalizeDeploymentEnv(readSharedEnvString("VITE_DEPLOY_ENV", options));
+  if (configured) return configured;
+
+  return isPreviewHostname(getDeploymentHostname(options)) ? "preview" : "local";
+}
+
+export function shouldShowPreviewWatermark(options: DeploymentEnvOptions = {}): boolean {
+  return getDeploymentEnv(options) === "preview";
 }
 
 export function getPublicLaunchMode(options: ReportBugOptions = {}): PublicLaunchMode {

@@ -23,9 +23,12 @@
 
 ## Preview/Staging Deployment Discipline
 - Treat `staging` as the frontend preview gate and `main` as production.
-- Normal frontend flow: land code on `staging`, deploy the Cloudflare Pages `staging` branch, validate `https://preview.inshell.art`, then merge `staging` into `main` for production.
+- Normal frontend flow: land code on `staging`, deploy the Cloudflare Pages `staging` branch, validate preview, then wait for the operator to say to merge/promote before updating `main`.
+- Do not merge frontend changes from `staging` to `main` just because automated checks pass. Manual preview validation is the production gate.
 - Do not deploy frontend changes straight to `main` unless the operator explicitly asks for an emergency production hotfix.
 - If a production hotfix bypasses `staging`, say so plainly in the final response and reconcile `staging` with `main` immediately after.
+- This applies to all frontend surfaces in this repo: home/PATH, THOUGHT, gallery/detail pages, primitive pages, report-bug links, and cross-links.
+- Preview builds must show the top-left `preview` watermark. Production builds must not show it.
 - `preview.inshell.art` should point at the Cloudflare Pages branch alias for `staging` on the home project: `staging.inshell-art.pages.dev`.
 - `thought.preview.inshell.art` should point at the Cloudflare Pages branch alias for `staging` on the THOUGHT project: `staging.thought-inshell-art.pages.dev`.
 - Treat these as one preview umbrella: `preview.inshell.art` mirrors `inshell.art`, and `thought.preview.inshell.art` mirrors `thought.inshell.art`.

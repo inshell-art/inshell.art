@@ -8,6 +8,7 @@ import ColorFontPage from "@/components/ColorFontPage";
 import PathPage from "@/components/PathPage";
 import VerifyPage from "@/components/VerifyPage";
 import FloatingReportBug from "@/components/FloatingReportBug";
+import PreviewWatermark from "@/components/PreviewWatermark";
 import { maybeResolveAddress } from "@inshell/contracts";
 import { SURFACE_TERMINOLOGY } from "@inshell/shared";
 
@@ -93,6 +94,7 @@ export default function App() {
           {primitiveRoute ? null : <Footer />}
         </div>
       </ErrorBoundary>
+      <PreviewWatermark />
       <FloatingReportBug />
     </>
   );

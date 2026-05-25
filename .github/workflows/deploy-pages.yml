@@ -35,6 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CLOUDFLARE_PAGES_PROJECT_HOME: ${{ vars.CLOUDFLARE_PAGES_PROJECT_HOME || 'inshell-art' }}
+      VITE_DEPLOY_ENV: ${{ github.event.inputs.branch == 'staging' && 'preview' || 'production' }}
       VITE_NETWORK: ${{ vars.VITE_NETWORK || 'sepolia' }}
       VITE_ETH_RPC: ${{ vars.VITE_ETH_RPC || '/api/path-rpc' }}
       VITE_WALLET_CHAIN_RPC_URL: ${{ vars.VITE_WALLET_CHAIN_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com' }}
@@ -90,6 +91,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CLOUDFLARE_PAGES_PROJECT_THOUGHT: ${{ vars.CLOUDFLARE_PAGES_PROJECT_THOUGHT || 'thought-inshell-art' }}
+      VITE_DEPLOY_ENV: ${{ github.event.inputs.branch == 'staging' && 'preview' || 'production' }}
       VITE_NETWORK: ${{ vars.VITE_NETWORK || 'sepolia' }}
       VITE_ETH_RPC: ${{ vars.VITE_ETH_RPC || '/api/path-rpc' }}
       VITE_THOUGHT_RPC_URL: ${{ vars.VITE_THOUGHT_RPC_URL || '/api/thought-rpc' }}
