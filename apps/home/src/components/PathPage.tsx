@@ -895,33 +895,7 @@ export default function PathPage({ tokenId = null }: PathPageProps) {
           </>
         )}
 
-        {tokenId ? (
-          <div className="path-page__toolbar">
-            <div>
-              <div className="path-page__section-title">token detail</div>
-              <div className="path-page__sub">
-                {state.status === "ready"
-                  ? detailItem
-                    ? "loaded"
-                    : "token not found"
-                  : state.status === "loading"
-                    ? (
-                      <ChainLoadingStatus
-                        status={PATH_LOADING_DETAILS[loadingDetailIndex]}
-                      />
-                    )
-                    : "token unavailable"}
-              </div>
-            </div>
-            <button
-              type="button"
-              className="path-page__refresh"
-              onClick={() => setRefreshNonce((value) => value + 1)}
-            >
-              refresh
-            </button>
-          </div>
-        ) : (
+        {!tokenId && (
           <div className="path-page__toolbar">
             <div>
               <div className="path-page__section-title">all tokens</div>

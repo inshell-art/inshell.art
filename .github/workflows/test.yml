@@ -13,9 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Enable pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          version: 9.0.0
+        run: corepack enable
       - name: Use Node.js
         uses: actions/setup-node@v6
         with:

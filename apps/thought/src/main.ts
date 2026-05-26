@@ -830,33 +830,45 @@ const THOUGHT_APP_URL =
     : IS_PREVIEW_DEPLOYMENT
       ? "https://thought.preview.inshell.art/"
       : "https://thought.inshell.art/");
+const defaultThoughtDetailBaseUrl = () => {
+  if (LOCAL_BROWSER_HOSTS.has(window.location.hostname)) {
+    return window.location.origin;
+  }
+  return IS_PREVIEW_DEPLOYMENT ? "https://preview.inshell.art/" : "https://inshell.art/";
+};
 const THOUGHT_DETAIL_BASE_URL = (() => {
   const configured = readConfiguredUrl("VITE_THOUGHT_DETAIL_BASE_URL");
-  if (!configured) return THOUGHT_APP_URL;
+  const fallback = defaultThoughtDetailBaseUrl();
+  if (!configured) return fallback;
   try {
     const url = new URL(configured, window.location.origin);
     const host = url.hostname.toLowerCase();
-    if (host.startsWith("gallery.") || host.includes(".gallery.")) {
-      return THOUGHT_APP_URL;
+    if (
+      host.startsWith("gallery.") ||
+      host.includes(".gallery.") ||
+      host.startsWith("thought.") ||
+      host.includes(".thought.")
+    ) {
+      return fallback;
     }
     if (
       IS_PREVIEW_DEPLOYMENT &&
-      host !== "thought.preview.inshell.art" &&
+      host !== "preview.inshell.art" &&
       host !== "localhost" &&
       host !== "127.0.0.1"
     ) {
-      return THOUGHT_APP_URL;
+      return fallback;
     }
     if (
       !IS_PREVIEW_DEPLOYMENT &&
       !LOCAL_BROWSER_HOSTS.has(window.location.hostname) &&
-      host !== "thought.inshell.art"
+      host !== "inshell.art"
     ) {
-      return THOUGHT_APP_URL;
+      return fallback;
     }
     return url.toString();
   } catch {
-    return THOUGHT_APP_URL;
+    return fallback;
   }
 })();
 const THOUGHT_GALLERY_API_URL =

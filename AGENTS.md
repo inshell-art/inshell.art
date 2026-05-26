@@ -38,6 +38,17 @@
 - The Cloudflare custom-domain bindings are account-side. If any preview binding is missing, ask the operator to bind `preview.inshell.art`, `thought.preview.inshell.art`, and `gallery.preview.inshell.art` to their `staging` branches before claiming preview is ready.
 - In `.github/workflows/deploy-pages.yml`, the selected deploy `branch` must match the checked-out source branch. Never deploy `main` code under a `staging` label or `staging` code under a `main` label.
 
+## Hot Fix Agent Only
+- This section applies only when explicitly acting as the emergency hot-fix agent.
+- For emergency production fixes, create a dedicated hotfix branch from the correct production base, normally latest `main`, unless the operator specifies otherwise.
+- Keep the hotfix narrow: only change what is needed for the emergency fix plus directly required tests/docs.
+- Validate the hotfix branch, then push the branch for operator review.
+- Do not merge, fast-forward, cherry-pick, or otherwise promote the hotfix into `main` without explicit manual approval from the operator.
+- After the operator approves and the hotfix is merged/promoted to `main`, reconcile the same fix back to `staging` promptly.
+- Prefer merging or cherry-picking the exact production hotfix into `staging` so preview and production do not drift.
+- If reconciling back to `staging` conflicts or would pull unrelated production changes, stop and ask the operator directly before continuing.
+- State plainly in the final response which branch was hotfixed, whether `main` was updated, and whether `staging` was reconciled.
+
 ## Visual Verification
 - For UI visualization bugs, especially charts/SVG/canvas/responsive layout, verify with `visual-dom-cdp` or the same headless Chrome/CDP workflow: DOM counts, geometry thresholds, network status, and a screenshot.
 - Do not call a visualization fix done from code inspection alone. Use a browser-rendered screenshot plus concrete DOM/geometry signals.
@@ -45,17 +56,17 @@
 
 ## Task Notes
 - Use `LOCAL_TASKS.md` as the local task memo when it exists. It is local-only and should not be committed unless the user explicitly asks.
-- Keep two separate queues:
-  - `Regular Tasks`: daytime work that can be implemented when the user says `resolve tasks`, `empty the tasks`, or similar.
-  - `Night Notes`: low-urgency night work that should only be implemented when the user says `dev night-note`, `clean the tasks in night-note`, or similar.
+- Keep two GTD-style boxes:
+  - `Inbox`: what the operator wants daily attention on and may ask to implement next.
+  - `Someday`: useful but not urgent work; do not implement unless the operator explicitly moves it into `Inbox` or asks for that specific someday item.
 - Command conventions:
-  - `add to tasks: <task>` adds the task under `Regular Tasks`.
-  - `add to night-note: <task>` or `night-note: <task>` adds the task under `Night Notes`.
-  - `tasks` lists/reviews `Regular Tasks`.
-  - `night-note` lists/reviews `Night Notes`.
-  - `resolve tasks` or `empty the tasks` starts implementing regular tasks in order, then clears completed entries after confirming what changed.
-  - `dev night-note` starts implementing night-note tasks in order, clears completed entries after confirming what changed, then pushes the finished code.
-- If any GitHub, Dependabot, security, CI, deployment, or repo alert appears during work or push output, record it under `Night Notes` unless the user asks to fix it immediately.
+  - `add to inbox: <task>` adds the task under `Inbox`.
+  - `add to someday: <task>` adds the task under `Someday`.
+  - `add to tasks: <task>` and `add to night-note: <task>` are legacy aliases for `add to inbox: <task>` unless the operator explicitly says `someday`.
+  - `inbox`, `tasks`, or `night-note` lists/reviews `Inbox`.
+  - `someday` lists/reviews `Someday`.
+  - `resolve tasks`, `empty the tasks`, `clean inbox`, or similar starts implementing `Inbox` in order, then clears completed entries after confirming what changed.
+- If any GitHub, Dependabot, security, CI, deployment, or repo alert appears during work or push output, record it under `Inbox` unless the user asks to fix it immediately.
 
 ## Security and Leak-Prevention Rules
 - Never introduce secrets into the repo.

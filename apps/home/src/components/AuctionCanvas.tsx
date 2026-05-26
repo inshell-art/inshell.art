@@ -1904,16 +1904,16 @@ function useAuctionStatus(params: {
       setStatus("before_open");
       return;
     }
-    if (coreLoading) {
-      setStatus("loading");
-      return;
-    }
     if (bidsLoading && bidsLength === 0 && coreActive && !hasRenderableCurve) {
       setStatus("history_loading");
       return;
     }
     if (bidsLength > 0 || coreActive) {
       setStatus("active");
+      return;
+    }
+    if (coreLoading) {
+      setStatus("loading");
       return;
     }
     setStatus("open_not_active");
@@ -5827,7 +5827,7 @@ export default function AuctionCanvas({
         if (showCurveLoading && !missingDeployBlockVisible && !noBidsVisible) {
           return (
             <div className="dotfield__canvas dotfield__look">
-              <div className="muted">loading curve...</div>
+              <div className="muted">loading pricing...</div>
             </div>
           );
         }

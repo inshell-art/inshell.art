@@ -211,12 +211,13 @@ function checkDeployWorkflow() {
   requireSnippets(".github/workflows/deploy-pages.yml", [
     ...DEPLOY_WORKFLOW_SNIPPETS,
     "actions/checkout@v6",
-    "pnpm/action-setup@v6",
+    "corepack enable",
     "actions/setup-node@v6",
+    "wrangler@4.94.0",
   ]);
   requireSnippets(".github/workflows/test.yml", [
     "actions/checkout@v6",
-    "pnpm/action-setup@v6",
+    "corepack enable",
     "actions/setup-node@v6",
     "gitleaks_8.30.1_linux_x64.tar.gz",
     "detect --no-git --redact --no-banner",

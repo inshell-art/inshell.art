@@ -435,7 +435,7 @@ describe("AuctionCanvas with pulse fixtures", () => {
       error: null,
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    expect(screen.queryByText(/loading curve/i)).toBeNull();
+    expect(screen.queryByText(/loading pricing/i)).toBeNull();
     window.history.pushState({}, "", "/");
   });
 

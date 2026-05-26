@@ -1217,7 +1217,37 @@ describe("AuctionCanvas", () => {
       refresh: jest.fn(),
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    expect(screen.getByText(/loading curve/i)).toBeTruthy();
+    expect(screen.getByText(/loading pricing/i)).toBeTruthy();
+  });
+
+  test("keeps cached sale curves visible while core state refreshes", () => {
+    mockUseAuctionCore.mockReturnValue({
+      data: {
+        active: true,
+        config: {
+          openTimeSec: Math.floor(Date.now() / 1000) - 5 * 60,
+          genesisPrice: { dec: "1000000000000000000" },
+          genesisFloor: { dec: "100000000000000000" },
+          k: { dec: "10000000000000000000" },
+          pts: "1000000000000000000",
+        },
+      },
+      ready: false,
+      loading: true,
+      error: null,
+      refresh: jest.fn(),
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids: sampleBids,
+      ready: true,
+      loading: false,
+      error: null,
+    });
+
+    const { container } = render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+
+    expect(screen.queryByText(/loading pricing/i)).toBeNull();
+    expect(container.querySelector(".dotfield__curve")).toBeTruthy();
   });
 
   test("shows no deployment message when no protocol release is loaded", () => {
@@ -1322,7 +1352,7 @@ describe("AuctionCanvas", () => {
       error: null,
     });
     const { container } = render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    expect(screen.queryByText(/loading curve/i)).toBeNull();
+    expect(screen.queryByText(/loading pricing/i)).toBeNull();
     expect(screen.queryByText(/Loading sale history/i)).toBeNull();
     expect(container.querySelector(".dotfield__curve")).toBeTruthy();
   });
@@ -1426,7 +1456,7 @@ describe("AuctionCanvas", () => {
       error: null,
     });
     const { container } = render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    expect(screen.queryByText(/loading curve/i)).toBeNull();
+    expect(screen.queryByText(/loading pricing/i)).toBeNull();
     expect(screen.getByText(/Waiting for first bid/i)).toBeTruthy();
     expect(container.textContent).toMatch(/Current ask:\s*[0-9.]+\s*ETH/i);
   });

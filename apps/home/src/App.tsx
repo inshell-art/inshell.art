@@ -7,17 +7,11 @@ import PulsePage from "@/components/PulsePage";
 import ColorFontPage from "@/components/ColorFontPage";
 import PathPage from "@/components/PathPage";
 import VerifyPage from "@/components/VerifyPage";
+import ThoughtDetailPage from "@/components/ThoughtDetailPage";
 import FloatingReportBug from "@/components/FloatingReportBug";
 import PreviewWatermark from "@/components/PreviewWatermark";
 import { maybeResolveAddress } from "@inshell/contracts";
 import { SURFACE_TERMINOLOGY } from "@inshell/shared";
-
-function getEnvValue(name: string): unknown {
-  const envCache: Record<string, any> | undefined =
-    (globalThis as any).__VITE_ENV__;
-  const procEnv = (globalThis as any)?.process?.env;
-  return envCache?.[name] ?? procEnv?.[name];
-}
 
 function getPrimitiveRoute() {
   if (typeof window === "undefined") return null;
@@ -53,61 +47,6 @@ function setFavicon(href: string) {
   }
   icon.type = "image/svg+xml";
   icon.setAttribute("href", href);
-}
-
-function isPreviewDeployment(): boolean {
-  const deployEnv = getEnvValue("VITE_DEPLOY_ENV");
-  if (typeof deployEnv === "string" && deployEnv.trim().toLowerCase() === "preview") {
-    return true;
-  }
-  if (typeof window === "undefined") return false;
-  const hostname = window.location.hostname.toLowerCase();
-  return hostname === "preview.inshell.art" || hostname.endsWith(".preview.inshell.art");
-}
-
-function isDevLikeEnv(): boolean {
-  const dev = getEnvValue("DEV");
-  const mode = getEnvValue("MODE");
-  const nodeEnv = getEnvValue("NODE_ENV");
-  return dev === true || mode === "development" || nodeEnv === "test";
-}
-
-function defaultThoughtUrl(): string {
-  if (isDevLikeEnv()) return "http://127.0.0.1:5174/";
-  return isPreviewDeployment()
-    ? "https://thought.preview.inshell.art/"
-    : "https://thought.inshell.art/";
-}
-
-function resolveThoughtDetailUrl(tokenId: string): string {
-  const explicit =
-    getEnvValue("VITE_THOUGHT_URL") ?? getEnvValue("VITE_THOUGHT_APP_URL");
-  const base =
-    typeof explicit === "string" && /^https?:\/\//i.test(explicit.trim())
-      ? explicit.trim()
-      : defaultThoughtUrl();
-  const url = new globalThis.URL(base);
-  url.pathname = `/thought/${tokenId}`;
-  url.search = "";
-  url.hash = "";
-  return url.toString();
-}
-
-function ThoughtRouteBridge({ tokenId }: { tokenId: string }) {
-  const href = resolveThoughtDetailUrl(tokenId);
-
-  useEffect(() => {
-    if (getEnvValue("NODE_ENV") === "test") return;
-    window.location.replace(href);
-  }, [href]);
-
-  return (
-    <main className="primitive-page thought-route-bridge">
-      <h1 className="primitive-page__title">THOUGHT #{tokenId}</h1>
-      <p className="primitive-page__status">opening THOUGHT #{tokenId}...</p>
-      <a href={href}>Open THOUGHT #{tokenId}</a>
-    </main>
-  );
 }
 
 export default function App() {
@@ -168,7 +107,7 @@ export default function App() {
           ) : primitiveRoute === "verify" ? (
             <VerifyPage />
           ) : primitiveRoute === "thought" && thoughtTokenId ? (
-            <ThoughtRouteBridge tokenId={thoughtTokenId} />
+            <ThoughtDetailPage tokenId={thoughtTokenId} />
           ) : (
             <div className="content content--home">
               <AuctionCanvas address={pulseAuction} />

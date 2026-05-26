@@ -1977,6 +1977,19 @@ body {
   margin-top: 2px;
 }
 
+.thought-detail__text {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 300;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.thought-detail__text--muted {
+  opacity: 0.82;
+}
+
 @media (max-width: 760px) {
   .path-detail {
     grid-template-columns: 1fr;

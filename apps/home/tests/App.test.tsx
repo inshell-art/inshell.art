@@ -31,6 +31,7 @@ jest.mock("@inshell/ethereum", () => ({
 
 const mockUseAuctionCore = jest.fn();
 const mockUseAuctionBids = jest.fn();
+const originalFetch = globalThis.fetch;
 
 jest.mock("@/hooks/useAuctionCore", () => ({
   __esModule: true,
@@ -84,6 +85,42 @@ function u256(value: bigint) {
 
 function defaultRpcProvider() {
   return { request: jest.fn(async () => "0x") };
+}
+
+function thoughtGalleryItem(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    tokenId: 1,
+    pathId: "1",
+    minter: "0x170a00000000000000000000000000000000e100",
+    textHash: "0x1111111111111111111111111111111111111111111111111111111111111111",
+    promptHash: "0x2222222222222222222222222222222222222222222222222222222222222222",
+    provenanceHash: "0x3333333333333333333333333333333333333333333333333333333333333333",
+    thoughtSpecId: "0x4444444444444444444444444444444444444444444444444444444444444444",
+    thoughtSpecHash: "0x5555555555555555555555555555555555555555555555555555555555555555",
+    mintedAt: 1_780_000_000,
+    rawText: "THOUGHT WILL AWA",
+    prompt: "make a thought",
+    mode: "connect",
+    provider: "openrouter",
+    model: "test-model",
+    returnedText: "THOUGHT WILL AWA",
+    returnedTextHash: "0x6666666666666666666666666666666666666666666666666666666666666666",
+    provenanceJson: "{}",
+    image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E",
+    tokenUri: "data:application/json,{}",
+    txHash: "0x7777777777777777777777777777777777777777777777777777777777777777",
+    blockNumber: 1_234_567,
+    ...overrides,
+  };
+}
+
+function mockThoughtGalleryApi(items = [thoughtGalleryItem()]) {
+  const fetchMock = jest.fn(async () => ({
+    ok: true,
+    json: async () => ({ thoughts: items }),
+  }));
+  globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
+  return fetchMock;
 }
 
 async function flushAsyncEffects(cycles = 6) {
@@ -143,6 +180,8 @@ describe("App Component", () => {
   afterEach(() => {
     jest.useRealTimers();
     window.history.pushState({}, "", "/");
+    globalThis.fetch = originalFetch;
+    localStorage.clear();
   });
 
   test("movement launch years are hidden by default", () => {
@@ -622,7 +661,9 @@ describe("App Component", () => {
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/path.svg");
     expect(screen.getByRole("heading", { level: 1, name: "$PATH #4" })).toBeInTheDocument();
     expect(screen.getByText("PATH token detail.")).toBeInTheDocument();
-    expect(screen.getByText("token detail")).toBeInTheDocument();
+    expect(screen.queryByText("token detail")).toBeNull();
+    expect(screen.queryByText("loaded")).toBeNull();
+    expect(screen.queryByRole("button", { name: "refresh" })).toBeNull();
     expect(screen.getByLabelText("$PATH #4 detail")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "$PATH #4 movement progress" })).toHaveAttribute(
       "src",
@@ -677,19 +718,25 @@ describe("App Component", () => {
     expect(lifecycle.queryByRole("link", { name: /THOUGHT #/ })).toBeNull();
   });
 
-  test("bridges THOUGHT detail routes to the THOUGHT surface", () => {
-    (globalThis as any).__VITE_ENV__ = {
-      VITE_THOUGHT_URL: "https://thought.preview.inshell.art/",
-    };
+  test("renders THOUGHT detail routes at the Inshell root", async () => {
+    mockThoughtGalleryApi([
+      thoughtGalleryItem({
+        tokenId: 1,
+        pathId: "4",
+        rawText: "ONE THOUGHT",
+      }),
+    ]);
     window.history.pushState({}, "", "/thought/1");
     render(<App />);
+    await flushAsyncEffects();
 
     expect(document.title).toBe("THOUGHT #1");
-    expect(screen.getByRole("heading", { name: "THOUGHT #1" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open THOUGHT #1" })).toHaveAttribute(
-      "href",
-      "https://thought.preview.inshell.art/thought/1",
-    );
+    expect(screen.getByRole("heading", { level: 1, name: "THOUGHT #1" })).toBeInTheDocument();
+    expect(screen.getByText("THOUGHT work detail.")).toBeInTheDocument();
+    expect(screen.getByLabelText("THOUGHT #1 detail")).toBeInTheDocument();
+    expect(screen.getByText("ONE THOUGHT")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "$PATH #4" })).toHaveAttribute("href", "/path/4");
+    expect(window.location.pathname).toBe("/thought/1");
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
   });
 
