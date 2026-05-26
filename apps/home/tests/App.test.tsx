@@ -189,14 +189,7 @@ describe("App Component", () => {
     expect(document.title).toBe("Inshell");
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
     expect(document.querySelector(".shell--home")).toBeInTheDocument();
-    expect(screen.getByLabelText("Public update terms")).toHaveTextContent(
-      "$PATH minted",
-    );
-    expect(screen.getByText("a new $PATH object exists")).toBeInTheDocument();
-    expect(screen.getByText("a movement unit was consumed")).toBeInTheDocument();
-    expect(screen.getByText("a THOUGHT object exists")).toBeInTheDocument();
-    expect(screen.getByText("time premium lifted the reset ask")).toBeInTheDocument();
-    expect(screen.getByText("ask decayed halfway toward floor")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Public update terms")).toBeNull();
   });
 
   test("renders the Pulse primitive page on /pulse", () => {
@@ -208,10 +201,10 @@ describe("App Component", () => {
     expect(screen.getByRole("heading", { name: "pulse" })).toBeInTheDocument();
     expect(screen.getByText("Pricing rule for the $PATH auction.")).toBeInTheDocument();
     expect(screen.getByText("Pulse is the pricing rule for the public $PATH auction.")).toBeInTheDocument();
-    expect(screen.getByText("A Pulse cycle starts when a sale lifts the reset ask.")).toBeInTheDocument();
+    expect(screen.getByText("A Pulse cycle starts when a sale lifts the start ask.")).toBeInTheDocument();
     expect(screen.getByText(/Elapsed time creates a time premium\./)).toBeInTheDocument();
-    expect(screen.getByText(/The time premium lifts the reset ask above the new floor\./)).toBeInTheDocument();
-    expect(screen.getByText(/After the reset ask, the curve decays toward floor\./)).toBeInTheDocument();
+    expect(screen.getByText(/The time premium lifts the start ask above the new floor\./)).toBeInTheDocument();
+    expect(screen.getByText(/After the start ask, the curve decays toward floor\./)).toBeInTheDocument();
     expect(screen.getByText(/t½ marks when the above-floor amount has halved\./)).toBeInTheDocument();
     expect(screen.getByLabelText("Pulse lift and decay equations")).toHaveTextContent(
       /PTS = price-time scale/,
@@ -223,7 +216,7 @@ describe("App Component", () => {
       /time premium = duration × PTS/,
     );
     expect(screen.getByLabelText("Pulse lift and decay equations")).toHaveTextContent(
-      /reset ask = floor \+ time premium/,
+      /start ask = floor \+ time premium/,
     );
     expect(screen.getByLabelText("Pulse lift and decay equations")).toHaveTextContent(
       /floor = last sale price/,
@@ -363,14 +356,14 @@ describe("App Component", () => {
     expect(screen.queryByText("current ask")).toBeNull();
   });
 
-  test("renders the Color Font primitive page on /color-font", async () => {
+  test("renders the color-font primitive page on /color-font", async () => {
     window.history.pushState({}, "", "/color-font");
     render(<App />);
     await flushAsyncEffects();
 
-    expect(document.title).toBe("Color Font");
+    expect(document.title).toBe("color-font");
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/color-font.svg");
-    expect(screen.getByRole("heading", { name: "color font" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "color-font" })).toBeInTheDocument();
     expect(screen.queryByText(/THOUGHT Color Font/i)).toBeNull();
     expect(
       screen.getByText("Contract-defined A-Z color glyph system.")
@@ -412,7 +405,7 @@ describe("App Component", () => {
     expect(screen.getByText(/loaded from: frontend mirror fallback/)).toBeInTheDocument();
     expect(screen.getByText(/mirror: GitHub COLOR_FONT\.v1\.json/)).toBeInTheDocument();
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
-    expect(screen.queryByLabelText("Open Color Font primitive page")).toBeNull();
+    expect(screen.queryByLabelText("Open color-font primitive page")).toBeNull();
   });
 
   test("renders the verify page with official wallet facts", () => {
@@ -471,7 +464,7 @@ describe("App Component", () => {
     );
   });
 
-  test("renders the Color Font primitive page with onchain authority metadata", async () => {
+  test("renders the color-font primitive page with onchain authority metadata", async () => {
     window.history.pushState({}, "", "/color-font");
     const colorFontV1Address = "0x627b9A657eac8c3463AD17009a424dFE3FDbd0b1";
     (globalThis as any).__VITE_ENV__ = {
@@ -646,21 +639,52 @@ describe("App Component", () => {
     );
   });
 
-  test("footer links Pulse and color font without facets or hone", () => {
+  test("bridges THOUGHT detail routes to the THOUGHT surface", () => {
+    (globalThis as any).__VITE_ENV__ = {
+      VITE_THOUGHT_URL: "https://thought.preview.inshell.art/",
+    };
+    window.history.pushState({}, "", "/thought/1");
     render(<App />);
 
+    expect(document.title).toBe("THOUGHT #1");
+    expect(screen.getByRole("heading", { name: "THOUGHT #1" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open THOUGHT #1" })).toHaveAttribute(
+      "href",
+      "https://thought.preview.inshell.art/thought/1",
+    );
+    expect(screen.queryByTestId("auction-canvas")).toBeNull();
+  });
+
+  test("footer links gallery, Pulse, color-font, Telegram, X, and GitHub", () => {
+    render(<App />);
+
+    const footerLinks = screen.getByLabelText("Project links").querySelectorAll("a");
+    expect(Array.from(footerLinks).map((link) => link.getAttribute("aria-label"))).toEqual([
+      "Open THOUGHT gallery",
+      "Open Pulse",
+      "Open color-font primitive page",
+      "Open Telegram announcements channel",
+      "Open X",
+      "Open GitHub",
+    ]);
     expect(screen.getByLabelText("Open Pulse")).toHaveAttribute("href", "/pulse");
     expect(screen.getByLabelText("Open Pulse")).toHaveAttribute("target", "_blank");
-    expect(screen.getByLabelText("Open Color Font primitive page")).toHaveAttribute(
+    expect(screen.getByLabelText("Open color-font primitive page")).toHaveAttribute(
       "href",
       "/color-font",
     );
-    expect(screen.getByLabelText("Open Color Font primitive page")).toHaveAttribute("target", "_blank");
+    expect(screen.getByLabelText("Open color-font primitive page")).toHaveAttribute("target", "_blank");
+    expect(screen.getByLabelText("Open color-font primitive page")).toHaveTextContent("■■■");
     expect(screen.getByLabelText("Open THOUGHT gallery")).toHaveAttribute(
       "href",
       expectedDefaultGalleryUrl(),
     );
     expect(screen.getByLabelText("Open THOUGHT gallery")).toHaveAttribute("target", "_blank");
+    expect(screen.getByLabelText("Open Telegram announcements channel")).toHaveAttribute(
+      "href",
+      "https://t.me/inshell_art",
+    );
+    expect(screen.getByLabelText("Open Telegram announcements channel")).toHaveTextContent("■■");
     expect(screen.queryByLabelText("Open facets")).toBeNull();
     expect(screen.queryByLabelText("Open hone")).toBeNull();
   });

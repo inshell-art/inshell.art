@@ -12,6 +12,13 @@ import PreviewWatermark from "@/components/PreviewWatermark";
 import { maybeResolveAddress } from "@inshell/contracts";
 import { SURFACE_TERMINOLOGY } from "@inshell/shared";
 
+function getEnvValue(name: string): unknown {
+  const envCache: Record<string, any> | undefined =
+    (globalThis as any).__VITE_ENV__;
+  const procEnv = (globalThis as any)?.process?.env;
+  return envCache?.[name] ?? procEnv?.[name];
+}
+
 function getPrimitiveRoute() {
   if (typeof window === "undefined") return null;
   const pathname = window.location.pathname.replace(/\/+$/, "");
@@ -19,6 +26,7 @@ function getPrimitiveRoute() {
   if (pathname === "/color-font") return "color-font";
   if (pathname === "/path" || /^\/path\/[1-9]\d*$/.test(pathname)) return "path";
   if (pathname === "/verify") return "verify";
+  if (/^\/thought\/[1-9]\d*$/.test(pathname)) return "thought";
   return null;
 }
 
@@ -26,6 +34,12 @@ function getPathRouteTokenId() {
   if (typeof window === "undefined") return null;
   const pathname = window.location.pathname.replace(/\/+$/, "");
   return /^\/path\/([1-9]\d*)$/.exec(pathname)?.[1] ?? null;
+}
+
+function getThoughtRouteTokenId() {
+  if (typeof window === "undefined") return null;
+  const pathname = window.location.pathname.replace(/\/+$/, "");
+  return /^\/thought\/([1-9]\d*)$/.exec(pathname)?.[1] ?? null;
 }
 
 function setFavicon(href: string) {
@@ -41,27 +55,58 @@ function setFavicon(href: string) {
   icon.setAttribute("href", href);
 }
 
-function HomeTermBriefing() {
-  const rows = [
-    ["$PATH minted", "a new $PATH object exists"],
-    ["$PATH updated", "a movement unit was consumed"],
-    ["THOUGHT minted", "a THOUGHT object exists"],
-    ["Pulse curve lifted", "time premium lifted the reset ask"],
-    ["Pulse curve reached t½", "ask decayed halfway toward floor"],
-  ] as const;
+function isPreviewDeployment(): boolean {
+  const deployEnv = getEnvValue("VITE_DEPLOY_ENV");
+  if (typeof deployEnv === "string" && deployEnv.trim().toLowerCase() === "preview") {
+    return true;
+  }
+  if (typeof window === "undefined") return false;
+  const hostname = window.location.hostname.toLowerCase();
+  return hostname === "preview.inshell.art" || hostname.endsWith(".preview.inshell.art");
+}
+
+function isDevLikeEnv(): boolean {
+  const dev = getEnvValue("DEV");
+  const mode = getEnvValue("MODE");
+  const nodeEnv = getEnvValue("NODE_ENV");
+  return dev === true || mode === "development" || nodeEnv === "test";
+}
+
+function defaultThoughtUrl(): string {
+  if (isDevLikeEnv()) return "http://127.0.0.1:5174/";
+  return isPreviewDeployment()
+    ? "https://thought.preview.inshell.art/"
+    : "https://thought.inshell.art/";
+}
+
+function resolveThoughtDetailUrl(tokenId: string): string {
+  const explicit =
+    getEnvValue("VITE_THOUGHT_URL") ?? getEnvValue("VITE_THOUGHT_APP_URL");
+  const base =
+    typeof explicit === "string" && /^https?:\/\//i.test(explicit.trim())
+      ? explicit.trim()
+      : defaultThoughtUrl();
+  const url = new globalThis.URL(base);
+  url.pathname = `/thought/${tokenId}`;
+  url.search = "";
+  url.hash = "";
+  return url.toString();
+}
+
+function ThoughtRouteBridge({ tokenId }: { tokenId: string }) {
+  const href = resolveThoughtDetailUrl(tokenId);
+
+  useEffect(() => {
+    if (getEnvValue("NODE_ENV") === "test") return;
+    window.location.replace(href);
+  }, [href]);
 
   return (
-    <section className="home-terms" aria-label="Public update terms">
-      <h2>Public update terms</h2>
-      <dl>
-        {rows.map(([term, meaning]) => (
-          <div key={term}>
-            <dt>{term}</dt>
-            <dd>{meaning}</dd>
-          </div>
-        ))}
-      </dl>
-    </section>
+    <main className="primitive-page thought-route-bridge">
+      <h1 className="primitive-page__title">THOUGHT #{tokenId}</h1>
+      <p className="primitive-page__status">opening THOUGHT #{tokenId}...</p>
+      <a href={href}>Open THOUGHT #{tokenId}</a>
+    </main>
   );
 }
 
@@ -76,7 +121,7 @@ export default function App() {
       return;
     }
     if (primitiveRoute === "color-font") {
-      document.title = "Color Font";
+      document.title = "color-font";
       setFavicon("/color-font.svg");
       return;
     }
@@ -91,9 +136,17 @@ export default function App() {
       setFavicon("/inshell.svg");
       return;
     }
+    if (primitiveRoute === "thought") {
+      const thoughtTokenId = getThoughtRouteTokenId();
+      document.title = thoughtTokenId ? `THOUGHT #${thoughtTokenId}` : "THOUGHT";
+      setFavicon("/inshell.svg");
+      return;
+    }
     document.title = SURFACE_TERMINOLOGY.ecosystem;
     setFavicon("/inshell.svg");
   }, [primitiveRoute]);
+
+  const thoughtTokenId = getThoughtRouteTokenId();
 
   return (
     <>
@@ -114,10 +167,11 @@ export default function App() {
             <PathPage tokenId={getPathRouteTokenId()} />
           ) : primitiveRoute === "verify" ? (
             <VerifyPage />
+          ) : primitiveRoute === "thought" && thoughtTokenId ? (
+            <ThoughtRouteBridge tokenId={thoughtTokenId} />
           ) : (
             <div className="content content--home">
               <AuctionCanvas address={pulseAuction} />
-              <HomeTermBriefing />
               <div className="hero">
                 <Movements />
               </div>

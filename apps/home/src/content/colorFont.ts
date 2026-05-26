@@ -35,7 +35,7 @@ export const COLOR_FONT_RAW = COLOR_FONT_GLYPHS.map(
 ).join("\n");
 
 export const COLOR_FONT = {
-  title: "color font",
+  title: "color-font",
   subtitle: "Contract-defined A-Z color glyph system.",
   id: "inshell.colorfont.v1",
   version: "v1",

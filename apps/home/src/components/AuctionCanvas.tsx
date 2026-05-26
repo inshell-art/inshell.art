@@ -6320,7 +6320,7 @@ export default function AuctionCanvas({
                       {hover.key === "ask"
                         ? Math.abs(Number((hover as any).uGlobal ?? Number.NaN)) < 1e-9
                           ? "opening ask"
-                          : "reset ask"
+                          : "start ask"
                         : hover.key === "now"
                         ? "current ask"
                         : hover.key === "opening-floor"

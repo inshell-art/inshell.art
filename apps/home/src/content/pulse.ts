@@ -7,10 +7,10 @@ export const PULSE = {
   repositoryUrl: PULSE_REPOSITORY_URL,
   explanation: [
     "Pulse is the pricing rule for the public $PATH auction.",
-    "A Pulse cycle starts when a sale lifts the reset ask.",
+    "A Pulse cycle starts when a sale lifts the start ask.",
     "Elapsed time creates a time premium.",
-    "The time premium lifts the reset ask above the new floor.",
-    "After the reset ask, the curve decays toward floor.",
+    "The time premium lifts the start ask above the new floor.",
+    "After the start ask, the curve decays toward floor.",
     "t½ marks when the above-floor amount has halved.",
   ],
   math: [
@@ -19,7 +19,7 @@ export const PULSE = {
     "PTS = price-time scale",
     "duration = sale time - previous curve start",
     "time premium = duration × PTS",
-    "reset ask = floor + time premium",
+    "start ask = floor + time premium",
     "floor = last sale price",
     "",
     "",

@@ -219,9 +219,10 @@ Footer renders square glyphs visually; text appears in tooltips/aria labels.
 
 | Link | Current label / tooltip | Aria label | Notes |
 | --- | --- | --- | --- |
+| Gallery | `gallery` | `Open THOUGHT gallery` | Opens the configured gallery URL in a new tab. |
 | Pulse | `pulse` | `Open Pulse` | Opens `/pulse` in a new tab. |
-| Color font | `color font` | `Open Color Font primitive page` | Opens `/color-font` in a new tab. |
-| Telegram | `telegram` | `Open Telegram announcements channel` | Only rendered if Telegram URL env var is valid; visual is `■■`. |
+| color-font | `color-font` | `Open color-font primitive page` | Opens `/color-font` in a new tab; visual is `■■■`. |
+| Telegram | `telegram` | `Open Telegram announcements channel` | Defaults to the public Inshell Telegram channel unless overridden; visual is `■■`. |
 | X | `X` | `Open X` | Visual square derived from label length. |
 | GitHub | `github` | `Open GitHub` | Visual squares are derived from label length. |
 
@@ -245,7 +246,7 @@ Footer renders square glyphs visually; text appears in tooltips/aria labels.
 | `/pulse` | Note | `This is the Desmos sketch behind Pulse. It is a source note, not implementation code.` | Pulse page note. |
 | `/pulse` | Link | `Open original Desmos sketch ↗` | Opens external Desmos sketch. |
 | `/pulse` | Link | `View source ↗` | Opens Pulse repository if configured. |
-| `/color-font` | Title | `color font` | Primitive page heading. |
+| `/color-font` | Title | `color-font` | Primitive page heading. |
 | `/color-font` | Subtitle | `Contract-defined A-Z color glyph system.` | Primitive page subtitle. |
 | `/color-font` | Warning | `warning: onchain color font could not be loaded.` | Shown when the page renders the bundled fallback. |
 | `/color-font` | Warning | `showing bundled mirror copy.` | Shown when the page renders the bundled fallback. |

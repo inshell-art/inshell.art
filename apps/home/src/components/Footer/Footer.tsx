@@ -12,6 +12,7 @@ type FooterLink = {
 };
 
 const INSHELL_GITHUB_URL = "https://github.com/inshell-art/";
+const DEFAULT_TELEGRAM_URL = "https://t.me/inshell_art";
 
 function getEnvValue(name: string): unknown {
   const envCache: Record<string, any> | undefined =
@@ -89,9 +90,10 @@ function resolveThoughtGalleryUrl(): string {
 function resolvePublicUrl(
   names: string[],
   kind: "Telegram" | "Discord",
-  validator: (value: string) => boolean
+  validator: (value: string) => boolean,
+  fallback?: string
 ): string | null {
-  const raw = readEnvUrl(names);
+  const raw = readEnvUrl(names) ?? fallback ?? null;
   const shouldWarn = getEnvValue("NODE_ENV") !== "test";
   if (!raw) {
     if (shouldWarn) console.warn(`[footer] Missing ${kind} URL; hiding button.`);
@@ -111,12 +113,21 @@ const Footer: React.FC = () => {
       resolvePublicUrl(
         ["VITE_PUBLIC_TELEGRAM_CHANNEL_URL", "PUBLIC_TELEGRAM_CHANNEL_URL"],
         "Telegram",
-        isTelegramUrl
+        isTelegramUrl,
+        DEFAULT_TELEGRAM_URL
       ),
     []
   );
 
   const links: FooterLink[] = [
+    {
+      key: "gallery",
+      label: "gallery",
+      href: thoughtGalleryUrl,
+      ariaLabel: "Open THOUGHT gallery",
+      external: true,
+      tooltip: "gallery",
+    },
     {
       key: "pulse",
       label: "pulse",
@@ -126,18 +137,12 @@ const Footer: React.FC = () => {
     },
     {
       key: "color-font",
-      label: "color font",
+      label: "color-font",
       href: "/color-font",
-      ariaLabel: "Open Color Font primitive page",
+      ariaLabel: "Open color-font primitive page",
       external: true,
-    },
-    {
-      key: "gallery",
-      label: "gallery",
-      href: thoughtGalleryUrl,
-      ariaLabel: "Open THOUGHT gallery",
-      external: true,
-      tooltip: "gallery",
+      tooltip: "color-font",
+      squares: "■■■",
     },
     ...(telegramUrl
       ? ([
