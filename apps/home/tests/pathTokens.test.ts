@@ -68,8 +68,12 @@ function metadataUri(name = "PATH #1") {
 }
 
 describe("path token inventory", () => {
+  const originalFetch = globalThis.fetch;
+
   afterEach(() => {
     clearPathTokenInventoryCache();
+    globalThis.fetch = originalFetch;
+    jest.restoreAllMocks();
   });
 
   test("hydrates all PATH token cache from localStorage for reloads and new tabs", () => {
@@ -212,5 +216,35 @@ describe("path token inventory", () => {
       "PATH #1",
       "PATH #2",
     ]);
+  });
+
+  test("loads all PATH tokens from the same-origin cached API before direct RPC", async () => {
+    const fetchMock = jest.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        items: [
+          {
+            tokenId: "9",
+            tokenIdLabel: "9",
+            owner: OWNER,
+            tokenUri: metadataUri("PATH #9"),
+            metadata: { name: "PATH #9" },
+          },
+        ],
+      }),
+    }));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const tokens = await loadAllPathTokens({
+      pathNftAddress: PATH_NFT,
+      fromBlock: 1,
+    });
+
+    expect(tokens.map((token) => token.tokenIdLabel)).toEqual(["9"]);
+    expect(tokens[0]?.metadata.name).toBe("PATH #9");
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/path-tokens"),
+      expect.objectContaining({ headers: { accept: "application/json" } })
+    );
   });
 });

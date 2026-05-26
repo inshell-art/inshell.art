@@ -31,6 +31,7 @@ const MAX_TIGHT_LOG_PULL_CHUNKS = 4;
 const LOG_RATE_LIMIT_BACKOFF_MS = 45_000;
 const BID_CACHE_VERSION = 5;
 const BID_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const DEFAULT_PULSE_AUCTION_API_URL = "/api/pulse-auction";
 
 type SerializedBid = Omit<NormalizedBid, "amount" | "floorB"> & {
   amount: { raw?: { low: string; high: string }; dec?: string };
@@ -43,6 +44,11 @@ type CachedBidSnapshot = {
   lastBlock?: number;
   complete?: boolean;
   bids: SerializedBid[];
+};
+
+type PulseAuctionApiPayload = {
+  lastScannedBlock?: number;
+  bids?: SerializedBid[];
 };
 
 type LogsFetchResult = {
@@ -108,6 +114,49 @@ function bidCacheStorage(): typeof globalThis.localStorage | null {
 
 function bidCacheKey(address: string, fromBlock: number | undefined): string {
   return `inshell:pulse:bids:${address.toLowerCase()}:${fromBlock ?? "auto"}`;
+}
+
+function readPulseAuctionApiUrl() {
+  const env = (globalThis as any).__VITE_ENV__ as Record<string, unknown> | undefined;
+  const buildEnv = (globalThis as any).__INSHELL_VITE_ENV__ as Record<string, unknown> | undefined;
+  const procEnv = (globalThis as any)?.process?.env as Record<string, unknown> | undefined;
+  const value =
+    env?.VITE_PULSE_AUCTION_API_URL ??
+    buildEnv?.VITE_PULSE_AUCTION_API_URL ??
+    procEnv?.VITE_PULSE_AUCTION_API_URL;
+  return typeof value === "string" && value.trim()
+    ? value.trim()
+    : DEFAULT_PULSE_AUCTION_API_URL;
+}
+
+async function readBidsFromApi(): Promise<{
+  bids: NormalizedBid[];
+  lastScannedBlock?: number;
+} | null> {
+  if (typeof globalThis.fetch !== "function") return null;
+  const response = await fetch(
+    new globalThis.URL(readPulseAuctionApiUrl(), globalThis.location?.origin ?? "https://inshell.art").toString(),
+    {
+      headers: { accept: "application/json" },
+      cache: "default",
+    }
+  );
+  if (!response.ok) {
+    throw new Error(`Pulse auction API unavailable: ${response.status}`);
+  }
+  const payload = (await response.json()) as PulseAuctionApiPayload;
+  if (!Array.isArray(payload.bids)) {
+    throw new Error("Pulse auction API returned invalid payload.");
+  }
+  return {
+    bids: payload.bids
+      .map((bid) => reviveBid(bid))
+      .filter((bid): bid is NormalizedBid => Boolean(bid)),
+    lastScannedBlock:
+      typeof payload.lastScannedBlock === "number" && Number.isFinite(payload.lastScannedBlock)
+        ? payload.lastScannedBlock
+        : undefined,
+  };
 }
 
 function serializeU256(value: U256Num | undefined) {
@@ -272,6 +321,7 @@ export function createBidsService(opts: {
 }) {
   const address = opts.address;
   const provider: ProviderInterface = opts.provider ?? getDefaultProvider();
+  const useCacheApi = !opts.provider;
   const maxBids = opts.maxBids ?? 200;
   const initialChunkSize = Math.max(1, opts.chunkSize ?? DEFAULT_LOG_CHUNK_SIZE);
   const reorgDepth = opts.reorgDepth ?? 2;
@@ -420,6 +470,33 @@ export function createBidsService(opts: {
 
   async function pullOnceInternal(): Promise<NormalizedBid[]> {
     const fresh: NormalizedBid[] = [];
+
+    if (useCacheApi) {
+      try {
+        const apiSnapshot = await readBidsFromApi();
+        if (apiSnapshot) {
+          for (const bid of apiSnapshot.bids) {
+            if (seen.has(bid.key)) continue;
+            seen.add(bid.key);
+            fresh.push(bid);
+          }
+          if (typeof apiSnapshot.lastScannedBlock === "number") {
+            lastBlock = Math.max(lastBlock ?? 0, apiSnapshot.lastScannedBlock + 1);
+          }
+          if (fresh.length) {
+            bids = [...bids, ...fresh].sort((a, b) => a.atMs - b.atMs);
+            if (bids.length > maxBids) bids = bids.slice(-maxBids);
+            writeBidCache(address, opts.fromBlock, bids, lastBlock, true);
+            emit(fresh);
+          } else {
+            writeBidCache(address, opts.fromBlock, bids, lastBlock, true);
+          }
+          return fresh;
+        }
+      } catch {
+        // Fall back to direct sale log reads when the cached API is unavailable.
+      }
+    }
 
     async function resolveFromBlock(): Promise<number> {
       if (typeof lastBlock === "number" && Number.isFinite(lastBlock)) {

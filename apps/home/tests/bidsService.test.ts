@@ -50,8 +50,12 @@ async function waitForEthGetLogs(provider: { request: jest.Mock }) {
 }
 
 describe("auction bids service", () => {
+  const originalFetch = globalThis.fetch;
+
   afterEach(() => {
     globalThis.localStorage?.clear();
+    globalThis.fetch = originalFetch;
+    jest.restoreAllMocks();
   });
 
   test("adapts to RPCs with tight eth_getLogs block ranges", async () => {
@@ -93,6 +97,41 @@ describe("auction bids service", () => {
     expect(fresh.map((bid) => bid.amount.dec)).toEqual(["100", "120"]);
     expect(provider.request).toHaveBeenCalledWith(
       expect.objectContaining({ method: "eth_getLogs" })
+    );
+  });
+
+  test("loads sale history from the same-origin cached API before direct RPC", async () => {
+    const fetchMock = jest.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        lastScannedBlock: 123,
+        bids: [
+          {
+            key: "tx:cached",
+            atMs: 1_778_888_000_000,
+            bidder: BUYER,
+            amount: { raw: { low: "100", high: "0" }, dec: "100" },
+            floorB: { raw: { low: "10", high: "0" }, dec: "10" },
+            blockNumber: 120,
+            epochIndex: 7,
+          },
+        ],
+      }),
+    }));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const service = createBidsService({
+      address: AUCTION,
+      fromBlock: 1,
+      reorgDepth: 0,
+    });
+
+    const fresh = await service.pullOnce();
+    expect(fresh.map((bid) => bid.key)).toEqual(["tx:cached"]);
+    expect(fresh[0]?.amount.dec).toBe("100");
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/pulse-auction"),
+      expect.objectContaining({ headers: { accept: "application/json" } })
     );
   });
 

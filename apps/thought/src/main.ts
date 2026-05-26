@@ -815,8 +815,6 @@ const PATH_MINT_URL =
   typeof import.meta.env.VITE_PATH_MINT_URL === "string" && import.meta.env.VITE_PATH_MINT_URL.trim()
     ? import.meta.env.VITE_PATH_MINT_URL.trim()
     : defaultPathMintUrl();
-const THOUGHT_DETAIL_BASE_URL =
-  readConfiguredUrl("VITE_THOUGHT_DETAIL_BASE_URL") || defaultPathMintUrl();
 const THOUGHT_GALLERY_URL =
   readConfiguredUrl("VITE_THOUGHT_GALLERY_URL") ||
   readConfiguredUrl("VITE_GALLERY_URL") ||
@@ -832,6 +830,37 @@ const THOUGHT_APP_URL =
     : IS_PREVIEW_DEPLOYMENT
       ? "https://thought.preview.inshell.art/"
       : "https://thought.inshell.art/");
+const THOUGHT_DETAIL_BASE_URL = (() => {
+  const configured = readConfiguredUrl("VITE_THOUGHT_DETAIL_BASE_URL");
+  if (!configured) return THOUGHT_APP_URL;
+  try {
+    const url = new URL(configured, window.location.origin);
+    const host = url.hostname.toLowerCase();
+    if (host.startsWith("gallery.") || host.includes(".gallery.")) {
+      return THOUGHT_APP_URL;
+    }
+    if (
+      IS_PREVIEW_DEPLOYMENT &&
+      host !== "thought.preview.inshell.art" &&
+      host !== "localhost" &&
+      host !== "127.0.0.1"
+    ) {
+      return THOUGHT_APP_URL;
+    }
+    if (
+      !IS_PREVIEW_DEPLOYMENT &&
+      !LOCAL_BROWSER_HOSTS.has(window.location.hostname) &&
+      host !== "thought.inshell.art"
+    ) {
+      return THOUGHT_APP_URL;
+    }
+    return url.toString();
+  } catch {
+    return THOUGHT_APP_URL;
+  }
+})();
+const THOUGHT_GALLERY_API_URL =
+  readConfiguredUrl("VITE_THOUGHT_GALLERY_API_URL") || "/api/thought-gallery";
 const THOUGHT_SPEC_REGISTRY_ADDRESS = EVM_ADDRESSES.thoughtSpecRegistry?.address?.trim() ?? "";
 const THOUGHT_NFT_ADDRESS = EVM_ADDRESSES.thoughtNft?.address?.trim() ?? "";
 const COLOR_FONT_V1_ADDRESS = EVM_ADDRESSES.colorFontV1?.address?.trim() ?? "";
@@ -6069,6 +6098,38 @@ const writeThoughtGalleryCache = (thoughts: GalleryThought[]) => {
   }
 };
 
+const shouldUseThoughtGalleryApi = () => {
+  if (!THOUGHT_GALLERY_API_URL || typeof fetch !== "function") {
+    return false;
+  }
+  return !LOCAL_BROWSER_HOSTS.has(window.location.hostname) || /^https?:\/\//i.test(THOUGHT_GALLERY_API_URL);
+};
+
+const readGalleryThoughtsFromApi = async (): Promise<GalleryThought[] | null> => {
+  if (!shouldUseThoughtGalleryApi()) {
+    return null;
+  }
+
+  const response = await fetch(THOUGHT_GALLERY_API_URL, {
+    method: "GET",
+    headers: {
+      accept: "application/json",
+    },
+    cache: "default",
+  });
+  if (!response.ok) {
+    throw new Error(`gallery api unavailable: ${response.status}`);
+  }
+  const payload = (await response.json()) as { thoughts?: unknown };
+  if (!Array.isArray(payload.thoughts)) {
+    throw new Error("gallery api returned invalid payload");
+  }
+  const thoughts = payload.thoughts.filter(isGalleryThoughtRecord);
+  thoughts.sort((left, right) => left.tokenId - right.tokenId);
+  writeThoughtGalleryCache(thoughts);
+  return thoughts;
+};
+
 const clearThoughtGalleryCache = () => {
   galleryThoughtCache = null;
   try {
@@ -6104,6 +6165,15 @@ const readGalleryThoughts = async (options?: { bypassCache?: boolean }): Promise
     if (cached) {
       return cached;
     }
+  }
+
+  try {
+    const apiThoughts = await readGalleryThoughtsFromApi();
+    if (apiThoughts) {
+      return apiThoughts;
+    }
+  } catch {
+    // Fall back to the legacy direct chain read when the cached API is unavailable.
   }
 
   const provider = getReadProvider();

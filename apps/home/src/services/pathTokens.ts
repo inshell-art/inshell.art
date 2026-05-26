@@ -27,6 +27,7 @@ const ZERO_TOPIC =
   "0x0000000000000000000000000000000000000000000000000000000000000000";
 const DEFAULT_MAX_SEQUENTIAL_TOKEN_ID = 10_000;
 const PATH_TOKEN_CACHE_TTL_MS = 60_000;
+const DEFAULT_PATH_TOKENS_API_URL = "/api/path-tokens";
 
 export type PathTokenAttribute = {
   trait_type?: string;
@@ -60,6 +61,10 @@ type SerializedPathTokenInventoryItem = Omit<PathTokenInventoryItem, "tokenId"> 
 type PathTokenCachePayload = {
   cachedAt: number;
   items: SerializedPathTokenInventoryItem[];
+};
+
+type PathTokensApiPayload = {
+  items?: SerializedPathTokenInventoryItem[];
 };
 
 type BrowserStorage = {
@@ -100,6 +105,52 @@ function shouldUsePathTokenCache(args: {
   cacheMode?: PathTokenCacheMode;
 }) {
   return !args.provider && args.cacheMode !== "bypass";
+}
+
+function shouldUsePathTokenApi(args: {
+  provider?: ProviderInterface;
+}) {
+  return !args.provider && typeof globalThis.fetch === "function";
+}
+
+function readPathTokensApiUrl() {
+  const env = (globalThis as any).__VITE_ENV__ as Record<string, unknown> | undefined;
+  const buildEnv = (globalThis as any).__INSHELL_VITE_ENV__ as Record<string, unknown> | undefined;
+  const procEnv = (globalThis as any)?.process?.env as Record<string, unknown> | undefined;
+  const value =
+    env?.VITE_PATH_TOKENS_API_URL ??
+    buildEnv?.VITE_PATH_TOKENS_API_URL ??
+    procEnv?.VITE_PATH_TOKENS_API_URL;
+  return typeof value === "string" && value.trim()
+    ? value.trim()
+    : DEFAULT_PATH_TOKENS_API_URL;
+}
+
+async function readPathTokensFromApi(args: {
+  provider?: ProviderInterface;
+  cacheMode?: PathTokenCacheMode;
+}): Promise<PathTokenInventoryItem[] | null> {
+  if (!shouldUsePathTokenApi(args)) {
+    return null;
+  }
+  const url = new globalThis.URL(readPathTokensApiUrl(), globalThis.location?.origin ?? "https://inshell.art");
+  if (args.cacheMode === "bypass") {
+    url.searchParams.set("refresh", Date.now().toString());
+  }
+  const response = await fetch(url.toString(), {
+    headers: { accept: "application/json" },
+    cache: args.cacheMode === "bypass" ? "reload" : "default",
+  });
+  if (!response.ok) {
+    throw new Error(`PATH token API unavailable: ${response.status}`);
+  }
+  const payload = (await response.json()) as PathTokensApiPayload;
+  if (!Array.isArray(payload.items)) {
+    throw new Error("PATH token API returned invalid payload.");
+  }
+  return payload.items
+    .map(revivePathToken)
+    .filter((item): item is PathTokenInventoryItem => Boolean(item));
 }
 
 function serializePathToken(item: PathTokenInventoryItem): SerializedPathTokenInventoryItem {
@@ -521,6 +572,22 @@ export async function loadWalletPathTokens(args: {
     if (cached) return cached;
   }
 
+  try {
+    const apiItems = await readPathTokensFromApi(args);
+    if (apiItems) {
+      const wallet = getAddress(args.walletAddress).toLowerCase();
+      const owned = apiItems.filter(
+        (item) => item.owner?.toLowerCase() === wallet
+      );
+      if (shouldUsePathTokenCache(args)) {
+        writePathTokenCache(cacheKey, owned);
+      }
+      return owned;
+    }
+  } catch {
+    // Fall back to direct wallet log reads when the cached API is unavailable.
+  }
+
   const provider = normalizeProvider(args.provider);
   const tokenIds = await loadWalletPathTokenIds({ ...args, provider });
   const items = await Promise.all(
@@ -563,6 +630,18 @@ export async function loadAllPathTokens(args: {
   if (shouldUsePathTokenCache(args)) {
     const cached = readPathTokenCache(cacheKey);
     if (cached) return cached;
+  }
+
+  try {
+    const apiItems = await readPathTokensFromApi(args);
+    if (apiItems) {
+      if (shouldUsePathTokenCache(args)) {
+        writePathTokenCache(cacheKey, apiItems);
+      }
+      return apiItems;
+    }
+  } catch {
+    // Fall back to direct chain reads when the cached API is unavailable.
   }
 
   const provider = normalizeProvider(args.provider);
