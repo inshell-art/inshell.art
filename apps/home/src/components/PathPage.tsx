@@ -229,7 +229,7 @@ function sourceRows(item: PathTokenInventoryItem): DetailRow[] {
   const tx =
     nestedMetadataValue(item, "mint", ["txHash", "tx", "transactionHash"]) ||
     firstMetadataValue(item, ["tx", "txHash", "transactionHash"]);
-  if (/^https?:\/\//i.test(minted)) rows.push({ label: "mint proof", value: "source ↗", href: minted });
+  if (/^https?:\/\//i.test(minted)) rows.push({ label: "mint source", value: "source ↗", href: minted });
   if (/^https?:\/\//i.test(updated)) rows.push({ label: "update source", value: "source ↗", href: updated });
   if (tx) rows.push({ label: "tx", value: shortHash(tx), title: tx });
   return rows;
@@ -264,10 +264,9 @@ function consumedUnitRows(item: PathTokenInventoryItem): string[] {
   return unitProgressByMovement(item)
     .filter(({ progress }) => (progress.used ?? 0) > 0)
     .map(({ movement, progress }) => {
-      const used = progress.used ?? 0;
-      return used === 1
+      return progress.total === 1
         ? `$PATH #${item.tokenIdLabel} consumed its ${movement} unit.`
-        : `$PATH #${item.tokenIdLabel} consumed ${used} ${movement} units.`;
+        : `$PATH #${item.tokenIdLabel} consumed one ${movement} unit.`;
     });
 }
 
@@ -341,7 +340,7 @@ function mintRows(item: PathTokenInventoryItem): DetailRow[] {
   ].filter((row): row is DetailRow => Boolean(row));
 }
 
-function pulseRows(item: PathTokenInventoryItem): DetailRow[] {
+function pricingRows(item: PathTokenInventoryItem): DetailRow[] {
   const epoch =
     nestedMetadataValue(item, "pulse", ["epoch"]) || firstMetadataValue(item, ["epoch", "pulse epoch"]);
   const floor =
@@ -354,7 +353,7 @@ function pulseRows(item: PathTokenInventoryItem): DetailRow[] {
     epoch ? { label: "epoch", value: epoch } : null,
     floor ? { label: "floor", value: floor } : null,
     startAsk ? { label: "start ask", value: startAsk } : null,
-    { label: "pricing", value: "View Pulse pricing ↗", href: "/pulse" },
+    { label: "pricing", value: "View $PATH pricing ↗", href: "/pulse" },
   ].filter((row): row is DetailRow => Boolean(row));
 }
 
@@ -655,7 +654,7 @@ function PathTokenDetail({ item }: { item: PathTokenInventoryItem }) {
   const consumedRows = consumedUnitRows(item);
   const movementTokens = movementTokenRecords(item);
   const mint = mintRows(item);
-  const pulse = pulseRows(item);
+  const pricing = pricingRows(item);
   const metadataUrl = publicMetadataUrl(item);
   const sources = sourceRows(item);
   const hasMovementTokenData = movementTokens.some((token) => token.href);
@@ -680,7 +679,7 @@ function PathTokenDetail({ item }: { item: PathTokenInventoryItem }) {
           <p>{lifecycleNote(item)}</p>
         </header>
 
-        <PathDetailSection title="$PATH">
+        <PathDetailSection title="state">
           <DetailRows
             rows={[
               { label: "owner", value: shortAddress(item.owner), title: item.owner },
@@ -724,8 +723,8 @@ function PathTokenDetail({ item }: { item: PathTokenInventoryItem }) {
           </PathDetailSection>
         )}
 
-        <PathDetailSection title="pulse">
-          <DetailRows rows={pulse} />
+        <PathDetailSection title="pricing">
+          <DetailRows rows={pricing} />
         </PathDetailSection>
 
         {(metadataUrl || metadataLabel) && (
@@ -750,8 +749,8 @@ function PathTokenDetail({ item }: { item: PathTokenInventoryItem }) {
           <a href="/path" aria-label="Back to all PATH tokens">
             Back to all $PATH tokens ↗
           </a>
-          <a href="/pulse" target="_blank" rel="noopener noreferrer" aria-label="View Pulse pricing">
-            View Pulse pricing ↗
+          <a href="/pulse" target="_blank" rel="noopener noreferrer" aria-label="View $PATH pricing">
+            View $PATH pricing ↗
           </a>
         </nav>
       </section>
@@ -859,7 +858,9 @@ export default function PathPage({ tokenId = null }: PathPageProps) {
             {tokenId ? `$PATH #${tokenId}` : SURFACE_TERMINOLOGY.pathDapp}
           </h1>
           <p className="primitive-page__subtitle">
-            {tokenId ? "PATH token detail." : "Permission tokens for movement mints."}
+            {tokenId
+              ? "Permission token for movement mints."
+              : "Permission tokens for movement mints."}
           </p>
         </div>
       </header>
@@ -887,9 +888,9 @@ export default function PathPage({ tokenId = null }: PathPageProps) {
                 href="/pulse"
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="View Pulse pricing"
+                aria-label="View $PATH pricing"
               >
-                View Pulse pricing ↗
+                View $PATH pricing ↗
               </a>
             </nav>
           </>

@@ -577,10 +577,11 @@ describe("App Component", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("stage shows the current movement phase.")).toBeInTheDocument();
     expect(screen.getByText("units show used / total movement units.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "View Pulse pricing" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "View $PATH pricing" })).toHaveAttribute(
       "href",
       "/pulse",
     );
+    expect(screen.queryByRole("link", { name: "View Pulse pricing" })).toBeNull();
     expect(screen.getByText("1 token")).toBeInTheDocument();
     expect(screen.getByText("mode")).toBeInTheDocument();
     expect(screen.getByText("fixture state gallery")).toBeInTheDocument();
@@ -660,7 +661,8 @@ describe("App Component", () => {
     expect(document.title).toBe("$PATH #4");
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/path.svg");
     expect(screen.getByRole("heading", { level: 1, name: "$PATH #4" })).toBeInTheDocument();
-    expect(screen.getByText("PATH token detail.")).toBeInTheDocument();
+    expect(screen.getByText("Permission token for movement mints.")).toBeInTheDocument();
+    expect(screen.queryByText("PATH token detail.")).toBeNull();
     expect(screen.queryByText("token detail")).toBeNull();
     expect(screen.queryByText("loaded")).toBeNull();
     expect(screen.queryByRole("button", { name: "refresh" })).toBeNull();
@@ -671,28 +673,29 @@ describe("App Component", () => {
     );
     const lifecycle = within(screen.getByLabelText("$PATH #4 lifecycle"));
     expect(lifecycle.getByText("This $PATH has started its movement lifecycle.")).toBeInTheDocument();
-    expect(lifecycle.getByRole("heading", { name: "$PATH" })).toBeInTheDocument();
+    expect(lifecycle.getByRole("heading", { name: "state" })).toBeInTheDocument();
     expect(lifecycle.getByRole("heading", { name: "units" })).toBeInTheDocument();
     expect(lifecycle.getByRole("heading", { name: "movement tokens" })).toBeInTheDocument();
     expect(lifecycle.getByRole("heading", { name: "latest update" })).toBeInTheDocument();
     expect(lifecycle.getByRole("heading", { name: "mint" })).toBeInTheDocument();
-    expect(lifecycle.getByRole("heading", { name: "pulse" })).toBeInTheDocument();
+    expect(lifecycle.getByRole("heading", { name: "pricing" })).toBeInTheDocument();
     expect(lifecycle.getAllByText("owner").length).toBeGreaterThanOrEqual(1);
     expect(lifecycle.getByText("stage")).toBeInTheDocument();
     expect(lifecycle.getAllByText("WILL").length).toBeGreaterThanOrEqual(2);
     expect(lifecycle.getByText("3 / 3")).toBeInTheDocument();
     expect(lifecycle.getByText("1 / 10")).toBeInTheDocument();
-    expect(lifecycle.getByText("$PATH #4 consumed 3 THOUGHT units.")).toBeInTheDocument();
-    expect(lifecycle.getByText("$PATH #4 consumed its WILL unit.")).toBeInTheDocument();
+    expect(lifecycle.getByText("$PATH #4 consumed one THOUGHT unit.")).toBeInTheDocument();
+    expect(lifecycle.getByText("$PATH #4 consumed one WILL unit.")).toBeInTheDocument();
     expect(lifecycle.getByRole("link", { name: "THOUGHT #4 ↗" })).toHaveAttribute(
       "href",
       "/thought/4",
     );
     expect(lifecycle.getByText("start ask")).toBeInTheDocument();
-    expect(lifecycle.getByRole("link", { name: "View Pulse pricing ↗" })).toHaveAttribute(
+    expect(lifecycle.getByRole("link", { name: "View $PATH pricing ↗" })).toHaveAttribute(
       "href",
       "/pulse",
     );
+    expect(lifecycle.queryByRole("link", { name: "View Pulse pricing ↗" })).toBeNull();
     expect(lifecycle.queryByText("PATH burned")).toBeNull();
     expect(lifecycle.queryByText("PATH destroyed")).toBeNull();
     expect(lifecycle.queryByText("$PATH consumed")).toBeNull();
