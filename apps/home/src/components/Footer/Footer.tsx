@@ -47,16 +47,6 @@ function renderSquares(link: FooterLink): string {
   return buildSquares(link.label);
 }
 
-function withGalleryParam(base: string): string {
-  try {
-    const url = new globalThis.URL(base);
-    url.searchParams.set("gallery", "1");
-    return url.toString();
-  } catch {
-    return "https://thought.inshell.art/?gallery=1";
-  }
-}
-
 function isPreviewDeployment(): boolean {
   const deployEnv = getEnvValue("VITE_DEPLOY_ENV");
   if (typeof deployEnv === "string" && deployEnv.trim().toLowerCase() === "preview") {
@@ -83,8 +73,7 @@ function resolveThoughtGalleryUrl(): string {
     }
   }
 
-  const legacyThoughtUrl = readEnvUrl(["VITE_THOUGHT_URL", "VITE_THOUGHT_APP_URL"]);
-  return legacyThoughtUrl ? withGalleryParam(legacyThoughtUrl) : defaultThoughtGalleryUrl();
+  return defaultThoughtGalleryUrl();
 }
 
 function resolvePublicUrl(

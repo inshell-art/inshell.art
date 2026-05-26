@@ -805,14 +805,18 @@ const THOUGHT_WALLET_RPC_URLS = resolveWalletChainRpcUrls({
   localFallbackRpcUrl: "http://127.0.0.1:8546",
 });
 const PATH_NFT_ADDRESS = EVM_ADDRESSES.pathNft?.address?.trim() ?? "";
+const defaultPathMintUrl = () => {
+  if (LOCAL_BROWSER_HOSTS.has(window.location.hostname)) {
+    return "http://localhost:5173";
+  }
+  return IS_PREVIEW_DEPLOYMENT ? "https://preview.inshell.art" : "https://inshell.art";
+};
 const PATH_MINT_URL =
   typeof import.meta.env.VITE_PATH_MINT_URL === "string" && import.meta.env.VITE_PATH_MINT_URL.trim()
     ? import.meta.env.VITE_PATH_MINT_URL.trim()
-    : ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname)
-      ? "http://localhost:5173"
-      : "https://inshell.art";
+    : defaultPathMintUrl();
 const THOUGHT_DETAIL_BASE_URL =
-  readConfiguredUrl("VITE_THOUGHT_DETAIL_BASE_URL") || PATH_MINT_URL;
+  readConfiguredUrl("VITE_THOUGHT_DETAIL_BASE_URL") || defaultPathMintUrl();
 const THOUGHT_GALLERY_URL =
   readConfiguredUrl("VITE_THOUGHT_GALLERY_URL") ||
   readConfiguredUrl("VITE_GALLERY_URL") ||
@@ -821,6 +825,13 @@ const THOUGHT_GALLERY_URL =
     : IS_PREVIEW_DEPLOYMENT
       ? "https://gallery.preview.inshell.art/"
       : "https://gallery.inshell.art/");
+const THOUGHT_APP_URL =
+  readConfiguredUrl("VITE_THOUGHT_URL") ||
+  (LOCAL_BROWSER_HOSTS.has(window.location.hostname)
+    ? window.location.origin
+    : IS_PREVIEW_DEPLOYMENT
+      ? "https://thought.preview.inshell.art/"
+      : "https://thought.inshell.art/");
 const THOUGHT_SPEC_REGISTRY_ADDRESS = EVM_ADDRESSES.thoughtSpecRegistry?.address?.trim() ?? "";
 const THOUGHT_NFT_ADDRESS = EVM_ADDRESSES.thoughtNft?.address?.trim() ?? "";
 const COLOR_FONT_V1_ADDRESS = EVM_ADDRESSES.colorFontV1?.address?.trim() ?? "";
@@ -1112,6 +1123,7 @@ const verifyColorFontHash = document.getElementById("verify-color-font-hash") as
 const thoughtPage = document.getElementById("thought-page") as HTMLElement | null;
 const thoughtDetailTitleToken = document.getElementById("thought-detail-token-id") as HTMLElement | null;
 const thoughtDetailGalleryLink = document.getElementById("thought-detail-gallery-link") as HTMLAnchorElement | null;
+const thoughtDetailCreateLink = document.getElementById("thought-detail-create-link") as HTMLAnchorElement | null;
 const thoughtDetailStatus = document.getElementById("thought-detail-status") as HTMLElement | null;
 const thoughtDetailBody = document.getElementById("thought-detail-body") as HTMLElement | null;
 const thoughtDetailRail = document.querySelector(".thought-detail__rail") as HTMLElement | null;
@@ -1249,6 +1261,7 @@ if (
   !thoughtPage ||
   !thoughtDetailTitleToken ||
   !thoughtDetailGalleryLink ||
+  !thoughtDetailCreateLink ||
   !thoughtDetailStatus ||
   !thoughtDetailBody ||
   !thoughtDetailRail ||
@@ -5518,9 +5531,13 @@ const parseThoughtNFTIdInput = (input: string) => {
 const viewThoughtUseLine = (tokenId?: number | null) =>
   `use: view THOUGHT ${tokenId ?? "<id>"}`;
 
+const thoughtCreateUrl = () => new URL(THOUGHT_APP_URL, window.location.origin).toString();
+
 const configureGalleryLink = () => {
   thoughtGalleryLink.href = galleryUrl();
   thoughtDetailGalleryLink.href = galleryUrl();
+  galleryCreateLink.href = thoughtCreateUrl();
+  thoughtDetailCreateLink.href = thoughtCreateUrl();
 };
 
 const decodeBase64Utf8 = (value: string) => {

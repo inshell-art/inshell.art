@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   getProtocolReleaseChainId,
   getProtocolReleaseDeployBlock,
@@ -39,10 +39,37 @@ const FIXTURE_QUOTAS = {
   awa: 2,
 } as const;
 const MOVEMENT_TRAITS = ["THOUGHT", "WILL", "AWA"] as const;
+type MovementTrait = (typeof MOVEMENT_TRAITS)[number];
+
+type UnitProgress = {
+  used: number | null;
+  total: number | null;
+  label: string;
+  available: boolean;
+};
+
+type DetailRow = {
+  label: string;
+  value: string;
+  title?: string;
+  href?: string;
+};
+
+type MovementTokenRecord = {
+  label: MovementTrait;
+  text: string;
+  href?: string;
+};
 
 function shortAddress(address?: string): string {
   if (!address) return "—";
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+function shortHash(value: string): string {
+  return /^0x[0-9a-fA-F]{16,}$/.test(value)
+    ? `${value.slice(0, 6)}...${value.slice(-4)}`
+    : value;
 }
 
 function readPathFixture(): string | null {
@@ -67,6 +94,22 @@ function attrValue(attribute: PathTokenAttribute): string {
   return String(value);
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function stringValue(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" || typeof value === "bigint") return String(value);
+  return "";
+}
+
+function compactValue(value: string): string {
+  return value.length > 0 ? value : "—";
+}
+
 function findAttribute(
   item: PathTokenInventoryItem,
   traitType: string
@@ -83,13 +126,29 @@ function stageValue(item: PathTokenInventoryItem): string {
 }
 
 function movementProgressValue(item: PathTokenInventoryItem, traitType: string): string {
+  return movementProgress(item, traitType).label;
+}
+
+function movementProgress(item: PathTokenInventoryItem, traitType: string): UnitProgress {
   const attribute = findAttribute(item, traitType);
   const raw = attribute ? attrValue(attribute) : "—";
   const match = /^Minted\((\d+)\/(\d+)\)$/i.exec(raw.trim());
-  if (match) return match[2] === "0" ? "- / -" : `${match[1]} / ${match[2]}`;
+  if (match) {
+    const used = Number(match[1]);
+    const total = Number(match[2]);
+    return total === 0
+      ? { used: null, total: null, label: "- / -", available: false }
+      : { used, total, label: `${used} / ${total}`, available: true };
+  }
   const spaced = /^(\d+)\s*\/\s*(\d+)(?:\s+minted)?$/i.exec(raw.trim());
-  if (spaced) return spaced[2] === "0" ? "- / -" : `${spaced[1]} / ${spaced[2]}`;
-  return raw;
+  if (spaced) {
+    const used = Number(spaced[1]);
+    const total = Number(spaced[2]);
+    return total === 0
+      ? { used: null, total: null, label: "- / -", available: false }
+      : { used, total, label: `${used} / ${total}`, available: true };
+  }
+  return { used: null, total: null, label: raw, available: raw !== "—" };
 }
 
 function metadataName(item: PathTokenInventoryItem): string {
@@ -113,6 +172,190 @@ function metadataImage(item: PathTokenInventoryItem): string | undefined {
     return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(imageData)}`;
   }
   return undefined;
+}
+
+function firstMetadataValue(
+  item: PathTokenInventoryItem,
+  keys: string[]
+): string {
+  const metadata = item.metadata as Record<string, unknown>;
+  for (const key of keys) {
+    const direct = stringValue(metadata[key]);
+    if (direct) return direct;
+  }
+  for (const attribute of item.metadata.attributes ?? []) {
+    const trait = String(attribute.trait_type ?? "").trim().toLowerCase();
+    if (keys.some((key) => key.toLowerCase() === trait)) {
+      return stringValue(attribute.value);
+    }
+  }
+  return "";
+}
+
+function nestedMetadataValue(
+  item: PathTokenInventoryItem,
+  section: string,
+  keys: string[]
+): string {
+  const metadata = item.metadata as Record<string, unknown>;
+  const record = asRecord(metadata[section]);
+  if (!record) return "";
+  for (const key of keys) {
+    const value = stringValue(record[key]);
+    if (value) return value;
+  }
+  return "";
+}
+
+function publicMetadataUrl(item: PathTokenInventoryItem): string {
+  const fromMetadata = firstMetadataValue(item, [
+    "metadata",
+    "metadataUrl",
+    "metadata_url",
+    "tokenURI",
+    "token_uri",
+  ]);
+  const candidate = fromMetadata || item.tokenUri;
+  return /^https?:\/\//i.test(candidate) ? candidate : "";
+}
+
+function sourceRows(item: PathTokenInventoryItem): DetailRow[] {
+  const metadata = item.metadata as Record<string, unknown>;
+  const sources = asRecord(metadata.sourceUrls) ?? asRecord(metadata.source_urls);
+  const rows: DetailRow[] = [];
+  const minted = stringValue(sources?.minted) || firstMetadataValue(item, ["mintSource", "mint_source"]);
+  const updated =
+    stringValue(sources?.updated) || firstMetadataValue(item, ["updateSource", "update_source"]);
+  const tx =
+    nestedMetadataValue(item, "mint", ["txHash", "tx", "transactionHash"]) ||
+    firstMetadataValue(item, ["tx", "txHash", "transactionHash"]);
+  if (/^https?:\/\//i.test(minted)) rows.push({ label: "mint proof", value: "source ↗", href: minted });
+  if (/^https?:\/\//i.test(updated)) rows.push({ label: "update source", value: "source ↗", href: updated });
+  if (tx) rows.push({ label: "tx", value: shortHash(tx), title: tx });
+  return rows;
+}
+
+function unitProgressByMovement(item: PathTokenInventoryItem) {
+  return MOVEMENT_TRAITS.map((movement) => ({
+    movement,
+    progress: movementProgress(item, movement),
+  }));
+}
+
+function lifecycleNote(item: PathTokenInventoryItem): string {
+  const units = unitProgressByMovement(item);
+  const available = units.filter(({ progress }) => progress.available && progress.total != null);
+  const consumed = available.filter(({ progress }) => (progress.used ?? 0) > 0);
+  const stage = stageValue(item).toUpperCase();
+  if (
+    available.length > 0 &&
+    (stage === "COMPLETE" ||
+      available.every(({ progress }) => (progress.used ?? 0) >= (progress.total ?? Number.POSITIVE_INFINITY)))
+  ) {
+    return "This $PATH has completed its available movement units.";
+  }
+  if (consumed.length > 0) {
+    return "This $PATH has started its movement lifecycle.";
+  }
+  return "This $PATH is ready to move through THOUGHT, WILL, and AWA.";
+}
+
+function consumedUnitRows(item: PathTokenInventoryItem): string[] {
+  return unitProgressByMovement(item)
+    .filter(({ progress }) => (progress.used ?? 0) > 0)
+    .map(({ movement, progress }) => {
+      const used = progress.used ?? 0;
+      return used === 1
+        ? `$PATH #${item.tokenIdLabel} consumed its ${movement} unit.`
+        : `$PATH #${item.tokenIdLabel} consumed ${used} ${movement} units.`;
+    });
+}
+
+function thoughtDetailHref(tokenId: string): string {
+  return `/thought/${tokenId}`;
+}
+
+function movementTokenId(item: PathTokenInventoryItem, movement: MovementTrait): string {
+  const metadata = item.metadata as Record<string, unknown>;
+  const tokens = asRecord(metadata.movementTokens) ?? asRecord(metadata.movement_tokens);
+  const rawRecord = tokens
+    ? asRecord(tokens[movement]) ?? asRecord(tokens[movement.toLowerCase()])
+    : null;
+  const fromRecord =
+    stringValue(rawRecord?.tokenId) ||
+    stringValue(rawRecord?.token_id) ||
+    stringValue(rawRecord?.id);
+  if (fromRecord) return fromRecord;
+  return firstMetadataValue(item, [
+    `${movement} token`,
+    `${movement} token id`,
+    `${movement} id`,
+    `${movement} NFT`,
+  ]);
+}
+
+function movementTokenHref(item: PathTokenInventoryItem, movement: MovementTrait): string {
+  const metadata = item.metadata as Record<string, unknown>;
+  const tokens = asRecord(metadata.movementTokens) ?? asRecord(metadata.movement_tokens);
+  const rawRecord = tokens
+    ? asRecord(tokens[movement]) ?? asRecord(tokens[movement.toLowerCase()])
+    : null;
+  const direct = stringValue(rawRecord?.url) || stringValue(rawRecord?.href);
+  if (direct) return direct;
+  const tokenId = movementTokenId(item, movement);
+  return movement === "THOUGHT" && /^[1-9]\d*$/.test(tokenId)
+    ? thoughtDetailHref(tokenId)
+    : "";
+}
+
+function movementTokenRecords(item: PathTokenInventoryItem): MovementTokenRecord[] {
+  return MOVEMENT_TRAITS.map((movement) => {
+    const tokenId = movementTokenId(item, movement);
+    const href = movementTokenHref(item, movement);
+    return {
+      label: movement,
+      text: tokenId ? `${movement} #${tokenId} ↗` : "—",
+      href: tokenId && href ? href : undefined,
+    };
+  });
+}
+
+function mintRows(item: PathTokenInventoryItem): DetailRow[] {
+  const owner = nestedMetadataValue(item, "mint", ["owner"]) || firstMetadataValue(item, ["mint owner"]);
+  const buyer = nestedMetadataValue(item, "mint", ["buyer"]) || firstMetadataValue(item, ["buyer"]);
+  const price =
+    nestedMetadataValue(item, "mint", ["priceEth", "price", "price_ether"]) ||
+    firstMetadataValue(item, ["price", "mint price"]);
+  const minted =
+    nestedMetadataValue(item, "mint", ["mintedAt", "minted", "time"]) ||
+    firstMetadataValue(item, ["minted", "minted at"]);
+  const tx =
+    nestedMetadataValue(item, "mint", ["txHash", "tx", "transactionHash"]) ||
+    firstMetadataValue(item, ["tx", "txHash", "transactionHash"]);
+  return [
+    buyer ? { label: "buyer", value: shortAddress(buyer), title: buyer } : null,
+    owner ? { label: "owner", value: shortAddress(owner), title: owner } : null,
+    price ? { label: "price", value: price } : null,
+    minted ? { label: "minted", value: minted, title: minted } : null,
+    tx ? { label: "tx", value: shortHash(tx), title: tx } : null,
+  ].filter((row): row is DetailRow => Boolean(row));
+}
+
+function pulseRows(item: PathTokenInventoryItem): DetailRow[] {
+  const epoch =
+    nestedMetadataValue(item, "pulse", ["epoch"]) || firstMetadataValue(item, ["epoch", "pulse epoch"]);
+  const floor =
+    nestedMetadataValue(item, "pulse", ["floorEth", "floor", "floor_ether"]) ||
+    firstMetadataValue(item, ["floor", "pulse floor"]);
+  const startAsk =
+    nestedMetadataValue(item, "pulse", ["startAskEth", "startAsk", "start_ask"]) ||
+    firstMetadataValue(item, ["start ask", "startAsk", "reset ask"]);
+  return [
+    epoch ? { label: "epoch", value: epoch } : null,
+    floor ? { label: "floor", value: floor } : null,
+    startAsk ? { label: "start ask", value: startAsk } : null,
+    { label: "pricing", value: "View Pulse pricing ↗", href: "/pulse" },
+  ].filter((row): row is DetailRow => Boolean(row));
 }
 
 function makePathProgressSvg(args: {
@@ -201,6 +444,26 @@ function makeFixturePathToken(args: {
     will,
     awa,
     image_data: svg,
+    movementTokens:
+      args.thoughtMinted > 0
+        ? {
+            THOUGHT: {
+              tokenId: args.tokenId,
+              url: `/thought/${args.tokenId}`,
+            },
+          }
+        : undefined,
+    mint: {
+      owner: FIXTURE_OWNER,
+      priceEth: "0.2059 ETH",
+      mintedAt: "2026-05-21 08:21:24 UTC",
+      txHash: "0x261400000000000000000000000000000000000000000000000000000000fbb3",
+    },
+    pulse: {
+      epoch: 2,
+      floorEth: "0.2059 ETH",
+      startAskEth: "0.3008 ETH",
+    },
   };
   return {
     tokenId: BigInt(args.tokenId),
@@ -348,10 +611,54 @@ function ChainLoadingStatus({
   );
 }
 
+function DetailRows({ rows }: { rows: DetailRow[] }) {
+  return (
+    <dl className="path-detail__fields">
+      {rows.map((row) => (
+        <div key={`${row.label}-${row.value}`}>
+          <dt>{row.label}</dt>
+          <dd title={row.title}>
+            {row.href ? (
+              <a href={row.href} className="path-detail__value-link">
+                {row.value}
+              </a>
+            ) : (
+              row.value
+            )}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function PathDetailSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="path-detail__section">
+      <h3>{title}</h3>
+      {children}
+    </section>
+  );
+}
+
 function PathTokenDetail({ item }: { item: PathTokenInventoryItem }) {
   const image = metadataImage(item);
   const metadataLabel = metadataName(item);
   const name = displayTokenName(item);
+  const units = unitProgressByMovement(item);
+  const consumedRows = consumedUnitRows(item);
+  const movementTokens = movementTokenRecords(item);
+  const mint = mintRows(item);
+  const pulse = pulseRows(item);
+  const metadataUrl = publicMetadataUrl(item);
+  const sources = sourceRows(item);
+  const hasMovementTokenData = movementTokens.some((token) => token.href);
 
   return (
     <article className="path-detail" aria-label={`${name} detail`}>
@@ -368,28 +675,77 @@ function PathTokenDetail({ item }: { item: PathTokenInventoryItem }) {
         )}
       </div>
       <section className="path-detail__rail" aria-label={`${name} lifecycle`}>
-        <h2>{name}</h2>
-        <p>A movement minted from $PATH consumes a movement unit and updates the $PATH lifecycle.</p>
-        <dl className="path-detail__fields">
-          <div>
-            <dt>owner</dt>
-            <dd title={item.owner}>{shortAddress(item.owner)}</dd>
-          </div>
-          <div>
-            <dt>stage</dt>
-            <dd>{stageValue(item)}</dd>
-          </div>
-          {MOVEMENT_TRAITS.map((traitType) => (
-            <div key={`${item.tokenIdLabel}-${traitType}`}>
-              <dt>{traitType}</dt>
-              <dd>{movementProgressValue(item, traitType)}</dd>
+        <header className="path-detail__record-header">
+          <h2>{name}</h2>
+          <p>{lifecycleNote(item)}</p>
+        </header>
+
+        <PathDetailSection title="$PATH">
+          <DetailRows
+            rows={[
+              { label: "owner", value: shortAddress(item.owner), title: item.owner },
+              { label: "stage", value: compactValue(stageValue(item)) },
+            ]}
+          />
+        </PathDetailSection>
+
+        <PathDetailSection title="units">
+          <DetailRows
+            rows={units.map(({ movement, progress }) => ({
+              label: movement,
+              value: progress.label,
+            }))}
+          />
+        </PathDetailSection>
+
+        <PathDetailSection title="movement tokens">
+          <DetailRows
+            rows={movementTokens.map((token) => ({
+              label: token.label,
+              value: hasMovementTokenData || token.href ? token.text : "—",
+              href: token.href,
+            }))}
+          />
+        </PathDetailSection>
+
+        {consumedRows.length > 0 && (
+          <PathDetailSection title="latest update">
+            <div className="path-detail__notes">
+              {consumedRows.map((row) => (
+                <p key={row}>{row}</p>
+              ))}
             </div>
-          ))}
-          <div>
-            <dt>metadata</dt>
-            <dd title={metadataLabel}>{metadataLabel}</dd>
-          </div>
-        </dl>
+          </PathDetailSection>
+        )}
+
+        {mint.length > 0 && (
+          <PathDetailSection title="mint">
+            <DetailRows rows={mint} />
+          </PathDetailSection>
+        )}
+
+        <PathDetailSection title="pulse">
+          <DetailRows rows={pulse} />
+        </PathDetailSection>
+
+        {(metadataUrl || metadataLabel) && (
+          <PathDetailSection title="metadata">
+            <DetailRows
+              rows={[
+                metadataUrl
+                  ? { label: "metadata", value: `${metadataLabel} ↗`, href: metadataUrl }
+                  : { label: "metadata", value: metadataLabel, title: metadataLabel },
+              ]}
+            />
+          </PathDetailSection>
+        )}
+
+        {sources.length > 0 && (
+          <PathDetailSection title="source">
+            <DetailRows rows={sources} />
+          </PathDetailSection>
+        )}
+
         <nav className="primitive-page__links path-detail__links" aria-label="PATH detail links">
           <a href="/path" aria-label="Back to all PATH tokens">
             Back to all $PATH tokens ↗
@@ -508,29 +864,36 @@ export default function PathPage({ tokenId = null }: PathPageProps) {
         </div>
       </header>
 
-      <section className="path-page__body" aria-label="All $PATH tokens">
-        <div className="path-page__intro">
-          <p>$PATH is minted by the public Pulse auction.</p>
-          <p>Each $PATH authorizes movement mints in order: THOUGHT, WILL, then AWA.</p>
-          <p>A movement minted from $PATH consumes a movement unit and updates the $PATH lifecycle.</p>
-          <p>stage shows the current movement phase.</p>
-          <p>units show used / total movement units.</p>
-          <p>The token image and traits show movement progress.</p>
-        </div>
+      <section
+        className={`path-page__body${tokenId ? " path-page__body--detail" : ""}`}
+        aria-label={tokenId ? `$PATH #${tokenId} record` : "All $PATH tokens"}
+      >
+        {!tokenId && (
+          <>
+            <div className="path-page__intro">
+              <p>$PATH is minted by the public Pulse auction.</p>
+              <p>Each $PATH authorizes movement mints in order: THOUGHT, WILL, then AWA.</p>
+              <p>A movement minted from $PATH consumes a movement unit and updates the $PATH lifecycle.</p>
+              <p>stage shows the current movement phase.</p>
+              <p>units show used / total movement units.</p>
+              <p>The token image and traits show movement progress.</p>
+            </div>
 
-        <nav
-          className="primitive-page__links path-page__links"
-          aria-label="PATH page links"
-        >
-          <a
-            href="/pulse"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="View Pulse pricing"
-          >
-            View Pulse pricing ↗
-          </a>
-        </nav>
+            <nav
+              className="primitive-page__links path-page__links"
+              aria-label="PATH page links"
+            >
+              <a
+                href="/pulse"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="View Pulse pricing"
+              >
+                View Pulse pricing ↗
+              </a>
+            </nav>
+          </>
+        )}
 
         {tokenId ? (
           <div className="path-page__toolbar">
@@ -584,34 +947,36 @@ export default function PathPage({ tokenId = null }: PathPageProps) {
           </div>
         )}
 
-        <dl className="primitive-page__fields path-page__fields">
-          <div>
-            <dt>mode</dt>
-            <dd>{fixtureItems ? "fixture state gallery" : "live token gallery"}</dd>
-          </div>
-          <div>
-            <dt>source</dt>
-            <dd>{fixtureItems ? "fixture tokenURI()" : "live tokenURI()"}</dd>
-          </div>
-          <div>
-            <dt>chain</dt>
-            <dd>{fixtureItems ? "fixture" : chainLabel}</dd>
-          </div>
-          <div>
-            <dt>contract</dt>
-            <dd>
-              {fixtureItems
-                ? "not connected"
-                : pathNftAddress
-                  ? `PathNFT ${shortAddress(pathNftAddress)}`
-                  : "missing"}
-            </dd>
-          </div>
-          <div>
-            <dt>from block</dt>
-            <dd>{fixtureItems ? "n/a" : fromBlock == null ? "missing" : String(fromBlock)}</dd>
-          </div>
-        </dl>
+        {!tokenId && (
+          <dl className="primitive-page__fields path-page__fields">
+            <div>
+              <dt>mode</dt>
+              <dd>{fixtureItems ? "fixture state gallery" : "live token gallery"}</dd>
+            </div>
+            <div>
+              <dt>source</dt>
+              <dd>{fixtureItems ? "fixture tokenURI()" : "live tokenURI()"}</dd>
+            </div>
+            <div>
+              <dt>chain</dt>
+              <dd>{fixtureItems ? "fixture" : chainLabel}</dd>
+            </div>
+            <div>
+              <dt>contract</dt>
+              <dd>
+                {fixtureItems
+                  ? "not connected"
+                  : pathNftAddress
+                    ? `PathNFT ${shortAddress(pathNftAddress)}`
+                    : "missing"}
+              </dd>
+            </div>
+            <div>
+              <dt>from block</dt>
+              <dd>{fixtureItems ? "n/a" : fromBlock == null ? "missing" : String(fromBlock)}</dd>
+            </div>
+          </dl>
+        )}
 
         {state.status === "error" && (
           <div className="path-page__notice path-page__notice--error">

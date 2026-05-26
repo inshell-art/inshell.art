@@ -629,14 +629,52 @@ describe("App Component", () => {
       expect.stringContaining("will-fill"),
     );
     const lifecycle = within(screen.getByLabelText("$PATH #4 lifecycle"));
-    expect(lifecycle.getByText("owner")).toBeInTheDocument();
+    expect(lifecycle.getByText("This $PATH has started its movement lifecycle.")).toBeInTheDocument();
+    expect(lifecycle.getByRole("heading", { name: "$PATH" })).toBeInTheDocument();
+    expect(lifecycle.getByRole("heading", { name: "units" })).toBeInTheDocument();
+    expect(lifecycle.getByRole("heading", { name: "movement tokens" })).toBeInTheDocument();
+    expect(lifecycle.getByRole("heading", { name: "latest update" })).toBeInTheDocument();
+    expect(lifecycle.getByRole("heading", { name: "mint" })).toBeInTheDocument();
+    expect(lifecycle.getByRole("heading", { name: "pulse" })).toBeInTheDocument();
+    expect(lifecycle.getAllByText("owner").length).toBeGreaterThanOrEqual(1);
     expect(lifecycle.getByText("stage")).toBeInTheDocument();
-    expect(lifecycle.getAllByText("WILL")).toHaveLength(2);
+    expect(lifecycle.getAllByText("WILL").length).toBeGreaterThanOrEqual(2);
+    expect(lifecycle.getByText("3 / 3")).toBeInTheDocument();
     expect(lifecycle.getByText("1 / 10")).toBeInTheDocument();
+    expect(lifecycle.getByText("$PATH #4 consumed 3 THOUGHT units.")).toBeInTheDocument();
+    expect(lifecycle.getByText("$PATH #4 consumed its WILL unit.")).toBeInTheDocument();
+    expect(lifecycle.getByRole("link", { name: "THOUGHT #4 ↗" })).toHaveAttribute(
+      "href",
+      "/thought/4",
+    );
+    expect(lifecycle.getByText("start ask")).toBeInTheDocument();
+    expect(lifecycle.getByRole("link", { name: "View Pulse pricing ↗" })).toHaveAttribute(
+      "href",
+      "/pulse",
+    );
+    expect(lifecycle.queryByText("PATH burned")).toBeNull();
+    expect(lifecycle.queryByText("PATH destroyed")).toBeNull();
+    expect(lifecycle.queryByText("$PATH consumed")).toBeNull();
+    expect(lifecycle.queryByText("pump")).toBeNull();
+    expect(lifecycle.queryByText("drop")).toBeNull();
     expect(screen.getByRole("link", { name: "Back to all PATH tokens" })).toHaveAttribute(
       "href",
       "/path",
     );
+  });
+
+  test("renders a fresh PATH detail record without movement token links", () => {
+    window.history.pushState({}, "", "/path/1?fixture=states");
+    render(<App />);
+
+    const lifecycle = within(screen.getByLabelText("$PATH #1 lifecycle"));
+    expect(lifecycle.getByText("This $PATH is ready to move through THOUGHT, WILL, and AWA.")).toBeInTheDocument();
+    expect(lifecycle.getAllByText("owner").length).toBeGreaterThanOrEqual(1);
+    expect(lifecycle.getByText("stage")).toBeInTheDocument();
+    expect(lifecycle.getByText("0 / 3")).toBeInTheDocument();
+    expect(lifecycle.getByText("0 / 10")).toBeInTheDocument();
+    expect(lifecycle.getByText("0 / 2")).toBeInTheDocument();
+    expect(lifecycle.queryByRole("link", { name: /THOUGHT #/ })).toBeNull();
   });
 
   test("bridges THOUGHT detail routes to the THOUGHT surface", () => {
@@ -689,9 +727,23 @@ describe("App Component", () => {
     expect(screen.queryByLabelText("Open hone")).toBeNull();
   });
 
-  test("footer gallery uses configured THOUGHT URL", () => {
+  test("footer gallery uses configured gallery URL", () => {
     (globalThis as any).__VITE_ENV__ = {
       VITE_THOUGHT_GALLERY_URL: "https://gallery.preview.inshell.art/",
+    };
+
+    render(<App />);
+
+    expect(screen.getByLabelText("Open THOUGHT gallery")).toHaveAttribute(
+      "href",
+      "https://gallery.preview.inshell.art/",
+    );
+  });
+
+  test("footer gallery does not fall back to thought-level gallery query URLs", () => {
+    (globalThis as any).__VITE_ENV__ = {
+      VITE_DEPLOY_ENV: "preview",
+      VITE_THOUGHT_URL: "https://thought.preview.inshell.art/",
     };
 
     render(<App />);
