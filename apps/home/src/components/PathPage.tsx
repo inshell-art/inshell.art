@@ -39,7 +39,6 @@ const FIXTURE_QUOTAS = {
   awa: 2,
 } as const;
 const MOVEMENT_TRAITS = ["THOUGHT", "WILL", "AWA"] as const;
-type MovementTrait = (typeof MOVEMENT_TRAITS)[number];
 
 type UnitProgress = {
   used: number | null;
@@ -48,28 +47,9 @@ type UnitProgress = {
   available: boolean;
 };
 
-type DetailRow = {
-  label: string;
-  value: string;
-  title?: string;
-  href?: string;
-};
-
-type MovementTokenRecord = {
-  label: MovementTrait;
-  text: string;
-  href?: string;
-};
-
 function shortAddress(address?: string): string {
   if (!address) return "—";
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
-
-function shortHash(value: string): string {
-  return /^0x[0-9a-fA-F]{16,}$/.test(value)
-    ? `${value.slice(0, 6)}...${value.slice(-4)}`
-    : value;
 }
 
 function readPathFixture(): string | null {
@@ -92,18 +72,6 @@ function attrValue(attribute: PathTokenAttribute): string {
   const value = attribute.value;
   if (value == null) return "—";
   return String(value);
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-function stringValue(value: unknown): string {
-  if (typeof value === "string") return value.trim();
-  if (typeof value === "number" || typeof value === "bigint") return String(value);
-  return "";
 }
 
 function findAttribute(
@@ -166,67 +134,6 @@ function metadataImage(item: PathTokenInventoryItem): string | undefined {
   return undefined;
 }
 
-function firstMetadataValue(
-  item: PathTokenInventoryItem,
-  keys: string[]
-): string {
-  const metadata = item.metadata as Record<string, unknown>;
-  for (const key of keys) {
-    const direct = stringValue(metadata[key]);
-    if (direct) return direct;
-  }
-  for (const attribute of item.metadata.attributes ?? []) {
-    const trait = String(attribute.trait_type ?? "").trim().toLowerCase();
-    if (keys.some((key) => key.toLowerCase() === trait)) {
-      return stringValue(attribute.value);
-    }
-  }
-  return "";
-}
-
-function nestedMetadataValue(
-  item: PathTokenInventoryItem,
-  section: string,
-  keys: string[]
-): string {
-  const metadata = item.metadata as Record<string, unknown>;
-  const record = asRecord(metadata[section]);
-  if (!record) return "";
-  for (const key of keys) {
-    const value = stringValue(record[key]);
-    if (value) return value;
-  }
-  return "";
-}
-
-function publicMetadataUrl(item: PathTokenInventoryItem): string {
-  const fromMetadata = firstMetadataValue(item, [
-    "metadata",
-    "metadataUrl",
-    "metadata_url",
-    "tokenURI",
-    "token_uri",
-  ]);
-  const candidate = fromMetadata || item.tokenUri;
-  return /^https?:\/\//i.test(candidate) ? candidate : "";
-}
-
-function sourceRows(item: PathTokenInventoryItem): DetailRow[] {
-  const metadata = item.metadata as Record<string, unknown>;
-  const sources = asRecord(metadata.sourceUrls) ?? asRecord(metadata.source_urls);
-  const rows: DetailRow[] = [];
-  const minted = stringValue(sources?.minted) || firstMetadataValue(item, ["mintSource", "mint_source"]);
-  const updated =
-    stringValue(sources?.updated) || firstMetadataValue(item, ["updateSource", "update_source"]);
-  const tx =
-    nestedMetadataValue(item, "mint", ["txHash", "tx", "transactionHash"]) ||
-    firstMetadataValue(item, ["tx", "txHash", "transactionHash"]);
-  if (/^https?:\/\//i.test(minted)) rows.push({ label: "mint source", value: "source ↗", href: minted });
-  if (/^https?:\/\//i.test(updated)) rows.push({ label: "update source", value: "source ↗", href: updated });
-  if (tx) rows.push({ label: "tx", value: shortHash(tx), title: tx });
-  return rows;
-}
-
 function unitProgressByMovement(item: PathTokenInventoryItem) {
   return MOVEMENT_TRAITS.map((movement) => ({
     movement,
@@ -250,103 +157,6 @@ function lifecycleNote(item: PathTokenInventoryItem): string {
     return "This $PATH has started its movement lifecycle.";
   }
   return "This $PATH is ready to move through THOUGHT, WILL, and AWA.";
-}
-
-function consumedUnitRows(item: PathTokenInventoryItem): string[] {
-  return unitProgressByMovement(item)
-    .filter(({ progress }) => (progress.used ?? 0) > 0)
-    .map(({ movement, progress }) => {
-      return progress.total === 1
-        ? `$PATH #${item.tokenIdLabel} consumed its ${movement} unit.`
-        : `$PATH #${item.tokenIdLabel} consumed one ${movement} unit.`;
-    });
-}
-
-function thoughtDetailHref(tokenId: string): string {
-  return `/thought/${tokenId}`;
-}
-
-function movementTokenId(item: PathTokenInventoryItem, movement: MovementTrait): string {
-  const metadata = item.metadata as Record<string, unknown>;
-  const tokens = asRecord(metadata.movementTokens) ?? asRecord(metadata.movement_tokens);
-  const rawRecord = tokens
-    ? asRecord(tokens[movement]) ?? asRecord(tokens[movement.toLowerCase()])
-    : null;
-  const fromRecord =
-    stringValue(rawRecord?.tokenId) ||
-    stringValue(rawRecord?.token_id) ||
-    stringValue(rawRecord?.id);
-  if (fromRecord) return fromRecord;
-  return firstMetadataValue(item, [
-    `${movement} token`,
-    `${movement} token id`,
-    `${movement} id`,
-    `${movement} NFT`,
-  ]);
-}
-
-function movementTokenHref(item: PathTokenInventoryItem, movement: MovementTrait): string {
-  const metadata = item.metadata as Record<string, unknown>;
-  const tokens = asRecord(metadata.movementTokens) ?? asRecord(metadata.movement_tokens);
-  const rawRecord = tokens
-    ? asRecord(tokens[movement]) ?? asRecord(tokens[movement.toLowerCase()])
-    : null;
-  const direct = stringValue(rawRecord?.url) || stringValue(rawRecord?.href);
-  if (direct) return direct;
-  const tokenId = movementTokenId(item, movement);
-  return movement === "THOUGHT" && /^[1-9]\d*$/.test(tokenId)
-    ? thoughtDetailHref(tokenId)
-    : "";
-}
-
-function movementTokenRecords(item: PathTokenInventoryItem): MovementTokenRecord[] {
-  return MOVEMENT_TRAITS.map((movement) => {
-    const tokenId = movementTokenId(item, movement);
-    const href = movementTokenHref(item, movement);
-    return {
-      label: movement,
-      text: tokenId ? `${movement} #${tokenId} ↗` : "—",
-      href: tokenId && href ? href : undefined,
-    };
-  });
-}
-
-function mintRows(item: PathTokenInventoryItem): DetailRow[] {
-  const owner = nestedMetadataValue(item, "mint", ["owner"]) || firstMetadataValue(item, ["mint owner"]);
-  const buyer = nestedMetadataValue(item, "mint", ["buyer"]) || firstMetadataValue(item, ["buyer"]);
-  const price =
-    nestedMetadataValue(item, "mint", ["priceEth", "price", "price_ether"]) ||
-    firstMetadataValue(item, ["price", "mint price"]);
-  const minted =
-    nestedMetadataValue(item, "mint", ["mintedAt", "minted", "time"]) ||
-    firstMetadataValue(item, ["minted", "minted at"]);
-  const tx =
-    nestedMetadataValue(item, "mint", ["txHash", "tx", "transactionHash"]) ||
-    firstMetadataValue(item, ["tx", "txHash", "transactionHash"]);
-  return [
-    buyer ? { label: "buyer", value: shortAddress(buyer), title: buyer } : null,
-    owner ? { label: "owner", value: shortAddress(owner), title: owner } : null,
-    price ? { label: "price", value: price } : null,
-    minted ? { label: "minted", value: minted, title: minted } : null,
-    tx ? { label: "tx", value: shortHash(tx), title: tx } : null,
-  ].filter((row): row is DetailRow => Boolean(row));
-}
-
-function pricingRows(item: PathTokenInventoryItem): DetailRow[] {
-  const epoch =
-    nestedMetadataValue(item, "pulse", ["epoch"]) || firstMetadataValue(item, ["epoch", "pulse epoch"]);
-  const floor =
-    nestedMetadataValue(item, "pulse", ["floorEth", "floor", "floor_ether"]) ||
-    firstMetadataValue(item, ["floor", "pulse floor"]);
-  const startAsk =
-    nestedMetadataValue(item, "pulse", ["startAskEth", "startAsk", "start_ask"]) ||
-    firstMetadataValue(item, ["start ask", "startAsk", "reset ask"]);
-  return [
-    epoch ? { label: "epoch", value: epoch } : null,
-    floor ? { label: "floor", value: floor } : null,
-    startAsk ? { label: "start ask", value: startAsk } : null,
-    { label: "pricing", value: "View $PATH pricing ↗", href: "/pulse" },
-  ].filter((row): row is DetailRow => Boolean(row));
 }
 
 function makePathProgressSvg(args: {
@@ -602,27 +412,6 @@ function ChainLoadingStatus({
   );
 }
 
-function CardRows({ rows }: { rows: DetailRow[] }) {
-  return (
-    <dl className="path-page-token__rows">
-      {rows.map((row) => (
-        <div key={`${row.label}-${row.value}`}>
-          <dt>{row.label}</dt>
-          <dd title={row.title}>
-            {row.href ? (
-              <a href={row.href} className="path-page-token__value-link">
-                {row.value}
-              </a>
-            ) : (
-              row.value
-            )}
-          </dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
 function PathTokenCard({
   item,
   focused,
@@ -636,17 +425,11 @@ function PathTokenCard({
   const metadataLabel = metadataName(item);
   const name = displayTokenName(item);
   const units = unitProgressByMovement(item);
-  const consumedRows = consumedUnitRows(item);
-  const movementTokens = movementTokenRecords(item);
-  const mint = mintRows(item);
-  const pricing = pricingRows(item);
-  const metadataUrl = publicMetadataUrl(item);
-  const sources = sourceRows(item);
-  const hasMovementTokenData = movementTokens.some((token) => token.href);
   const shareHref = pathTokenHref(item.tokenIdLabel);
 
   return (
     <article
+      id={`path-${item.tokenIdLabel}`}
       ref={registerRef}
       className={`path-page-token${focused ? " path-page-token--focused" : ""}`}
       data-path-token-id={item.tokenIdLabel}
@@ -691,60 +474,6 @@ function PathTokenCard({
             </div>
           ))}
         </dl>
-
-        {focused ? (
-          <div className="path-page-token__focus" aria-label={`${name} focused state`}>
-            <div className="path-page-token__progress-title">from this $PATH</div>
-            <CardRows
-              rows={movementTokens.map((token) => ({
-                label: token.label,
-                value: hasMovementTokenData || token.href ? token.text : "—",
-                href: token.href,
-              }))}
-            />
-
-            {consumedRows.length > 0 && (
-              <div className="path-page-token__notes">
-                {consumedRows.map((row) => (
-                  <p key={row}>{row}</p>
-                ))}
-              </div>
-            )}
-
-            {mint.length > 0 && (
-              <>
-                <div className="path-page-token__progress-title">mint</div>
-                <CardRows rows={mint} />
-              </>
-            )}
-
-            <div className="path-page-token__progress-title">pricing</div>
-            <CardRows rows={pricing} />
-
-            <div className="path-page-token__progress-title">share</div>
-            <CardRows rows={[{ label: "url", value: `${name} ↗`, href: shareHref }]} />
-
-            {(metadataUrl || metadataLabel) && (
-              <>
-                <div className="path-page-token__progress-title">metadata</div>
-                <CardRows
-                  rows={[
-                    metadataUrl
-                      ? { label: "metadata", value: `${metadataLabel} ↗`, href: metadataUrl }
-                      : { label: "metadata", value: metadataLabel, title: metadataLabel },
-                  ]}
-                />
-              </>
-            )}
-
-            {sources.length > 0 && (
-              <>
-                <div className="path-page-token__progress-title">source</div>
-                <CardRows rows={sources} />
-              </>
-            )}
-          </div>
-        ) : null}
       </div>
     </article>
   );
@@ -883,9 +612,9 @@ export default function PathPage({ tokenId = null }: PathPageProps) {
             href="/pulse"
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="View $PATH pricing"
+            aria-label="View $PATH pricing rule"
           >
-            View $PATH pricing ↗
+            View $PATH pricing rule ↗
           </a>
         </nav>
 

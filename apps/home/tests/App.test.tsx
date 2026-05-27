@@ -582,7 +582,7 @@ describe("App Component", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("stage shows the current movement phase.")).toBeInTheDocument();
     expect(screen.getByText("units show used / total movement units.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "View $PATH pricing" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "View $PATH pricing rule" })).toHaveAttribute(
       "href",
       "/pulse",
     );
@@ -674,7 +674,10 @@ describe("App Component", () => {
     expect(screen.queryByText("token detail")).toBeNull();
     expect(screen.queryByText("loaded")).toBeNull();
     expect(screen.getByRole("button", { name: "refresh" })).toBeInTheDocument();
-    expect(screen.getByLabelText("$PATH #4 focused card")).toBeInTheDocument();
+    const focusedCard = screen.getByLabelText("$PATH #4 focused card");
+    expect(focusedCard).toBeInTheDocument();
+    expect(focusedCard).toHaveAttribute("id", "path-4");
+    expect(focusedCard).toHaveClass("path-page-token--focused");
     expect(screen.getByRole("img", { name: "$PATH #4 movement progress" })).toHaveAttribute(
       "src",
       expect.stringContaining("will-fill"),
@@ -682,27 +685,17 @@ describe("App Component", () => {
     const lifecycle = within(screen.getByLabelText("$PATH #4 lifecycle"));
     expect(lifecycle.getByText("This $PATH has started its movement lifecycle.")).toBeInTheDocument();
     expect(lifecycle.getByText("units")).toBeInTheDocument();
-    expect(lifecycle.getByText("from this $PATH")).toBeInTheDocument();
-    expect(lifecycle.getByText("mint")).toBeInTheDocument();
-    expect(lifecycle.getAllByText("pricing").length).toBeGreaterThanOrEqual(1);
-    expect(lifecycle.getByText("share")).toBeInTheDocument();
-    expect(lifecycle.getAllByText("owner").length).toBeGreaterThanOrEqual(1);
+    expect(lifecycle.getByText(/owner\s+0x1111\.\.\.0000/)).toBeInTheDocument();
     expect(lifecycle.getByText("stage")).toBeInTheDocument();
     expect(lifecycle.getAllByText("WILL").length).toBeGreaterThanOrEqual(2);
     expect(lifecycle.getByText("3 / 3")).toBeInTheDocument();
     expect(lifecycle.getByText("1 / 10")).toBeInTheDocument();
-    expect(lifecycle.getByText("$PATH #4 consumed one THOUGHT unit.")).toBeInTheDocument();
-    expect(lifecycle.getByText("$PATH #4 consumed one WILL unit.")).toBeInTheDocument();
-    expect(lifecycle.getByRole("link", { name: "THOUGHT #4 ↗" })).toHaveAttribute(
-      "href",
-      "/thought/4",
-    );
-    expect(lifecycle.getByText("start ask")).toBeInTheDocument();
-    expect(lifecycle.getByRole("link", { name: "View $PATH pricing ↗" })).toHaveAttribute(
-      "href",
-      "/pulse",
-    );
-    expect(lifecycle.getByRole("link", { name: "$PATH #4 ↗" })).toHaveAttribute(
+    expect(lifecycle.queryByText("from this $PATH")).toBeNull();
+    expect(lifecycle.queryByText("mint")).toBeNull();
+    expect(lifecycle.queryByText("pricing")).toBeNull();
+    expect(lifecycle.queryByText("share")).toBeNull();
+    expect(lifecycle.queryByText("start ask")).toBeNull();
+    expect(screen.getByRole("link", { name: "Open $PATH #4" })).toHaveAttribute(
       "href",
       "/path/4?fixture=states",
     );
@@ -721,7 +714,7 @@ describe("App Component", () => {
 
     const lifecycle = within(screen.getByLabelText("$PATH #1 lifecycle"));
     expect(lifecycle.getByText("This $PATH is ready to move through THOUGHT, WILL, and AWA.")).toBeInTheDocument();
-    expect(lifecycle.getAllByText("owner").length).toBeGreaterThanOrEqual(1);
+    expect(lifecycle.getByText(/owner\s+0x1111\.\.\.0000/)).toBeInTheDocument();
     expect(lifecycle.getByText("stage")).toBeInTheDocument();
     expect(lifecycle.getByText("0 / 3")).toBeInTheDocument();
     expect(lifecycle.getByText("0 / 10")).toBeInTheDocument();
