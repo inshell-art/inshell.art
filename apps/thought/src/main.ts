@@ -2510,7 +2510,7 @@ const selectThoughtPreviewProvider = async () => {
 
   return {
     provider: null,
-    reason: "connect wallet or configure a read-only preview path.",
+    reason: "preview service unavailable.",
   };
 };
 
@@ -2534,15 +2534,48 @@ const reservePreviewRateSlot = (manual: boolean) => {
   return true;
 };
 
-const previewUnavailableLines = (reason = "") => [
-  "model return saved as candidate.",
-  "contract preview unavailable.",
-  ...(reason ? [`reason: ${reason}`] : []),
-  "",
-  "connect wallet or configure a read-only preview path.",
-  "use: preview retry",
-  "use: config rpc endpoint <url>",
-];
+const previewUnavailableLines = (reason = "") => {
+  const mode = readPreviewMode();
+  const lines = [
+    "model return saved as candidate.",
+    "contract preview unavailable.",
+    ...(reason ? [`reason: ${reason}`] : []),
+    "",
+  ];
+
+  if (mode === "rpc") {
+    return [
+      ...lines,
+      "read-only preview RPC is an advanced fallback.",
+      "use: config preview auto",
+      "use: config rpc endpoint <url>",
+    ];
+  }
+
+  if (mode === "wallet") {
+    return [
+      ...lines,
+      "connect wallet or switch preview back to auto.",
+      "use: wallet connect",
+      "use: config preview auto",
+    ];
+  }
+
+  if (mode === "off") {
+    return [
+      ...lines,
+      "preview is off.",
+      "use: config preview auto",
+    ];
+  }
+
+  return [
+    ...lines,
+    "preview service unavailable or wallet not connected.",
+    "use: preview retry",
+    "use: wallet connect",
+  ];
+};
 
 const previewRateLimitLines = () => [
   "preview rate limit reached.",
