@@ -48,6 +48,48 @@ export const previewRejectionReasonLabel = (reasonCode: number) => {
   return "unknown preview error";
 };
 
+export const previewUnavailableCliLines = (mode: PreviewMode, reason = "") => {
+  const lines = [
+    "model return saved as candidate.",
+    "contract preview unavailable.",
+    ...(reason ? [`reason: ${reason}`] : []),
+    "",
+  ];
+
+  if (mode === "rpc") {
+    return [
+      ...lines,
+      "read-only preview RPC is an advanced fallback.",
+      "use: config preview auto",
+      "use: config rpc endpoint <url>",
+    ];
+  }
+
+  if (mode === "wallet") {
+    return [
+      ...lines,
+      "connect wallet or switch preview back to auto.",
+      "use: wallet connect",
+      "use: config preview auto",
+    ];
+  }
+
+  if (mode === "off") {
+    return [
+      ...lines,
+      "preview is off.",
+      "use: config preview auto",
+    ];
+  }
+
+  return [
+    ...lines,
+    "preview service unavailable or wallet not connected.",
+    "use: preview retry",
+    "use: wallet connect",
+  ];
+};
+
 const canonicalThoughtCandidate = (value: string) =>
   value.replace(/[^A-Za-z]+/g, " ").trim().replace(/\s+/g, " ").toUpperCase();
 

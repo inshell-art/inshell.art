@@ -14,6 +14,7 @@ import {
   maskRpcEndpoint,
   normalizePreviewMode,
   prevalidateThoughtCandidate,
+  previewUnavailableCliLines,
 } from "../apps/thought/src/thought-preview-policy";
 import {
   JSON_RPC_NO_BATCH_OPTIONS,
@@ -111,6 +112,24 @@ assert.equal(
 assert.equal(isPreviewRpcEndpointCommand("config rpc endpoint https://example.test"), true);
 assert.equal(isPreviewRpcEndpointCommand("rpc endpoint https://example.test"), true);
 assert.equal(isPreviewRpcEndpointCommand("rpc call eth_blockNumber"), false);
+const autoPreviewUnavailableLines = previewUnavailableCliLines("auto", "preview service unavailable.");
+assert(autoPreviewUnavailableLines.includes("preview service unavailable or wallet not connected."));
+assert(autoPreviewUnavailableLines.includes("use: preview retry"));
+assert(autoPreviewUnavailableLines.includes("use: wallet connect"));
+assert(
+  !autoPreviewUnavailableLines.includes("use: config rpc endpoint <url>"),
+  "auto preview fallback must not ask normal visitors to configure RPC",
+);
+const rpcPreviewUnavailableLines = previewUnavailableCliLines("rpc", "preview RPC not configured.");
+assert(rpcPreviewUnavailableLines.includes("read-only preview RPC is an advanced fallback."));
+assert(rpcPreviewUnavailableLines.includes("use: config preview auto"));
+assert(rpcPreviewUnavailableLines.includes("use: config rpc endpoint <url>"));
+const walletPreviewUnavailableLines = previewUnavailableCliLines("wallet");
+assert(walletPreviewUnavailableLines.includes("use: wallet connect"));
+assert(walletPreviewUnavailableLines.includes("use: config preview auto"));
+const offPreviewUnavailableLines = previewUnavailableCliLines("off");
+assert(offPreviewUnavailableLines.includes("preview is off."));
+assert(offPreviewUnavailableLines.includes("use: config preview auto"));
 assert.equal(JSON_RPC_NO_BATCH_OPTIONS.batchMaxCount, 1);
 assert.equal(
   createSingleRequestJsonRpcProvider("/api/thought-rpc")._getOption("batchMaxCount"),

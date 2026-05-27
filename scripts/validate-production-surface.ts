@@ -395,6 +395,16 @@ function checkThoughtProductionGuards() {
       fail(`apps/thought/src/main.ts is missing THOUGHT production guard: ${snippet}`);
     }
   }
+  if (text.includes("connect wallet or configure a read-only preview path.")) {
+    fail("apps/thought/src/main.ts must not tell auto preview visitors to configure RPC");
+  }
+  requireSnippets("apps/thought/src/thought-preview-policy.ts", [
+    "preview service unavailable or wallet not connected.",
+    "read-only preview RPC is an advanced fallback.",
+  ]);
+  if (read("apps/thought/src/thought-preview-policy.ts").includes("connect wallet or configure a read-only preview path.")) {
+    fail("apps/thought/src/thought-preview-policy.ts must not tell auto preview visitors to configure RPC");
+  }
 
   requireSnippets("apps/thought/src/thought-run-payload.ts", [
     "export const supportsProviderWebSearch = (_provider: ThoughtRunProvider) => false;",
