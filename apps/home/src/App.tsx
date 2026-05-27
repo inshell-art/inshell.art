@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import AuctionCanvas from "@/components/AuctionCanvas";
 import Movements from "@/components/Movements";
@@ -13,9 +13,17 @@ import PreviewWatermark from "@/components/PreviewWatermark";
 import { maybeResolveAddress } from "@inshell/contracts";
 import { SURFACE_TERMINOLOGY } from "@inshell/shared";
 
-function getPrimitiveRoute() {
-  if (typeof window === "undefined") return null;
-  const pathname = window.location.pathname.replace(/\/+$/, "");
+function getLocationKey() {
+  if (typeof window === "undefined") return "";
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+}
+
+function pathnameFromLocationKey(locationKey: string) {
+  return locationKey.split(/[?#]/)[0].replace(/\/+$/, "");
+}
+
+function getPrimitiveRoute(locationKey: string) {
+  const pathname = pathnameFromLocationKey(locationKey);
   if (pathname === "/pulse") return "pulse";
   if (pathname === "/color-font") return "color-font";
   if (pathname === "/path" || /^\/path\/[1-9]\d*$/.test(pathname)) return "path";
@@ -24,15 +32,13 @@ function getPrimitiveRoute() {
   return null;
 }
 
-function getPathRouteTokenId() {
-  if (typeof window === "undefined") return null;
-  const pathname = window.location.pathname.replace(/\/+$/, "");
+function getPathRouteTokenId(locationKey: string) {
+  const pathname = pathnameFromLocationKey(locationKey);
   return /^\/path\/([1-9]\d*)$/.exec(pathname)?.[1] ?? null;
 }
 
-function getThoughtRouteTokenId() {
-  if (typeof window === "undefined") return null;
-  const pathname = window.location.pathname.replace(/\/+$/, "");
+function getThoughtRouteTokenId(locationKey: string) {
+  const pathname = pathnameFromLocationKey(locationKey);
   return /^\/thought\/([1-9]\d*)$/.exec(pathname)?.[1] ?? null;
 }
 
@@ -50,8 +56,21 @@ function setFavicon(href: string) {
 }
 
 export default function App() {
+  const [locationKey, setLocationKey] = useState(() => getLocationKey());
   const pulseAuction = maybeResolveAddress("pulse_auction");
-  const primitiveRoute = getPrimitiveRoute();
+  const primitiveRoute = getPrimitiveRoute(locationKey);
+  const pathTokenId = getPathRouteTokenId(locationKey);
+  const thoughtTokenId = getThoughtRouteTokenId(locationKey);
+
+  useEffect(() => {
+    const updateLocation = () => {
+      setLocationKey(getLocationKey());
+    };
+    window.addEventListener("popstate", updateLocation);
+    return () => {
+      window.removeEventListener("popstate", updateLocation);
+    };
+  }, []);
 
   useEffect(() => {
     if (primitiveRoute === "pulse") {
@@ -65,7 +84,6 @@ export default function App() {
       return;
     }
     if (primitiveRoute === "path") {
-      const pathTokenId = getPathRouteTokenId();
       document.title = pathTokenId ? `$PATH #${pathTokenId}` : "$PATH";
       setFavicon("/path.svg");
       return;
@@ -76,16 +94,13 @@ export default function App() {
       return;
     }
     if (primitiveRoute === "thought") {
-      const thoughtTokenId = getThoughtRouteTokenId();
       document.title = thoughtTokenId ? `THOUGHT #${thoughtTokenId}` : "THOUGHT";
       setFavicon("/inshell.svg");
       return;
     }
     document.title = SURFACE_TERMINOLOGY.ecosystem;
     setFavicon("/inshell.svg");
-  }, [primitiveRoute]);
-
-  const thoughtTokenId = getThoughtRouteTokenId();
+  }, [pathTokenId, primitiveRoute, thoughtTokenId]);
 
   return (
     <>
@@ -103,7 +118,7 @@ export default function App() {
           ) : primitiveRoute === "color-font" ? (
             <ColorFontPage />
           ) : primitiveRoute === "path" ? (
-            <PathPage tokenId={getPathRouteTokenId()} />
+            <PathPage tokenId={pathTokenId} />
           ) : primitiveRoute === "verify" ? (
             <VerifyPage />
           ) : primitiveRoute === "thought" && thoughtTokenId ? (

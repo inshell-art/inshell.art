@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import {
   getProtocolReleaseChainId,
   getProtocolReleaseDeployBlock,
@@ -123,6 +123,46 @@ function displayTokenName(item: PathTokenInventoryItem): string {
 function pathTokenHref(tokenIdLabel: string): string {
   const search = typeof window === "undefined" ? "" : window.location.search;
   return `/path/${tokenIdLabel}${search}`;
+}
+
+function dispatchLocationChange() {
+  if (typeof window === "undefined") return;
+  const event =
+    typeof globalThis.PopStateEvent === "function"
+      ? new globalThis.PopStateEvent("popstate", { state: window.history.state })
+      : new globalThis.Event("popstate");
+  window.dispatchEvent(event);
+}
+
+function handlePathTokenAnchorClick(event: MouseEvent<globalThis.HTMLAnchorElement>) {
+  if (
+    typeof window === "undefined" ||
+    event.defaultPrevented ||
+    event.button !== 0 ||
+    event.metaKey ||
+    event.altKey ||
+    event.ctrlKey ||
+    event.shiftKey
+  ) {
+    return;
+  }
+  const href = event.currentTarget.getAttribute("href");
+  if (!href) return;
+  const nextUrl = new globalThis.URL(href, window.location.href);
+  if (
+    nextUrl.origin !== window.location.origin ||
+    !/^\/path\/[1-9]\d*$/.test(nextUrl.pathname)
+  ) {
+    return;
+  }
+
+  event.preventDefault();
+  const currentLocation = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  const nextLocation = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
+  if (nextLocation !== currentLocation) {
+    window.history.pushState({}, "", nextLocation);
+  }
+  dispatchLocationChange();
 }
 
 function metadataImage(item: PathTokenInventoryItem): string | undefined {
@@ -441,6 +481,7 @@ function PathTokenCard({
             className="path-page-token__media-link"
             href={shareHref}
             aria-label={`Open ${name}`}
+            onClick={handlePathTokenAnchorClick}
           >
             <img
               src={image}

@@ -708,6 +708,44 @@ describe("App Component", () => {
     expect(screen.queryByRole("link", { name: "Back to all PATH tokens" })).toBeNull();
   });
 
+  test("focuses PATH cards with in-page anchor navigation", async () => {
+    window.history.pushState({}, "", "/path?fixture=states");
+    const pushStateSpy = jest.spyOn(window.history, "pushState");
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    const scrollIntoView = jest.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+
+    try {
+      render(<App />);
+
+      const path4Link = screen.getByRole("link", { name: "Open $PATH #4" });
+      expect(fireEvent.click(path4Link, { button: 0 })).toBe(false);
+      await flushAsyncEffects();
+
+      expect(pushStateSpy).toHaveBeenCalledWith({}, "", "/path/4?fixture=states");
+      expect(window.location.pathname).toBe("/path/4");
+      expect(document.title).toBe("$PATH #4");
+      expect(screen.getByLabelText("$PATH #4 focused card")).toHaveAttribute("id", "path-4");
+      expect(scrollIntoView).toHaveBeenCalledWith({
+        block: "center",
+        behavior: "smooth",
+      });
+    } finally {
+      if (originalScrollIntoView) {
+        Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+          configurable: true,
+          value: originalScrollIntoView,
+        });
+      } else {
+        delete HTMLElement.prototype.scrollIntoView;
+      }
+      pushStateSpy.mockRestore();
+    }
+  });
+
   test("renders a fresh focused PATH card without movement token links", () => {
     window.history.pushState({}, "", "/path/1?fixture=states");
     render(<App />);
