@@ -481,7 +481,7 @@ function PulseCurrentInstance() {
           >
             Open live params ↗
           </a>
-          <a href="/path" target="_blank" rel="noopener noreferrer" aria-label="View PATH tokens">
+          <a href="/path" target="_blank" rel="noopener noreferrer" aria-label="View $PATH tokens">
             View $PATH tokens ↗
           </a>
         </nav>
@@ -531,18 +531,11 @@ export default function PulsePage() {
 
       <section className="primitive-page__body" aria-label="Pulse source note">
         <div className="primitive-page__copy">
-          <p className="pulse-page__lead-line">{PULSE.explanation[0]}</p>
-          <p>{PULSE.explanation[1]}</p>
-          <p>
-            {PULSE.explanation[2]}
-            <br />
-            {PULSE.explanation[3]}
-          </p>
-          <p>
-            {PULSE.explanation[4]}
-            <br />
-            {PULSE.explanation[5]}
-          </p>
+          {PULSE.explanation.map((line, index) => (
+            <p className={index === 0 ? "pulse-page__lead-line" : undefined} key={line}>
+              {line}
+            </p>
+          ))}
         </div>
 
         <pre

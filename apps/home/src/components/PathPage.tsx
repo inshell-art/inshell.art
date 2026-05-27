@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getProtocolReleaseChainId,
   getProtocolReleaseDeployBlock,
@@ -106,10 +106,6 @@ function stringValue(value: unknown): string {
   return "";
 }
 
-function compactValue(value: string): string {
-  return value.length > 0 ? value : "—";
-}
-
 function findAttribute(
   item: PathTokenInventoryItem,
   traitType: string
@@ -123,10 +119,6 @@ function findAttribute(
 function stageValue(item: PathTokenInventoryItem): string {
   const stage = findAttribute(item, "Stage");
   return stage ? attrValue(stage) : String(item.metadata.stage ?? "—");
-}
-
-function movementProgressValue(item: PathTokenInventoryItem, traitType: string): string {
-  return movementProgress(item, traitType).label;
 }
 
 function movementProgress(item: PathTokenInventoryItem, traitType: string): UnitProgress {
@@ -610,15 +602,15 @@ function ChainLoadingStatus({
   );
 }
 
-function DetailRows({ rows }: { rows: DetailRow[] }) {
+function CardRows({ rows }: { rows: DetailRow[] }) {
   return (
-    <dl className="path-detail__fields">
+    <dl className="path-page-token__rows">
       {rows.map((row) => (
         <div key={`${row.label}-${row.value}`}>
           <dt>{row.label}</dt>
           <dd title={row.title}>
             {row.href ? (
-              <a href={row.href} className="path-detail__value-link">
+              <a href={row.href} className="path-page-token__value-link">
                 {row.value}
               </a>
             ) : (
@@ -631,22 +623,15 @@ function DetailRows({ rows }: { rows: DetailRow[] }) {
   );
 }
 
-function PathDetailSection({
-  title,
-  children,
+function PathTokenCard({
+  item,
+  focused,
+  registerRef,
 }: {
-  title: string;
-  children: ReactNode;
+  item: PathTokenInventoryItem;
+  focused: boolean;
+  registerRef?: (node: HTMLElement | null) => void;
 }) {
-  return (
-    <section className="path-detail__section">
-      <h3>{title}</h3>
-      {children}
-    </section>
-  );
-}
-
-function PathTokenDetail({ item }: { item: PathTokenInventoryItem }) {
   const image = metadataImage(item);
   const metadataLabel = metadataName(item);
   const name = displayTokenName(item);
@@ -658,102 +643,109 @@ function PathTokenDetail({ item }: { item: PathTokenInventoryItem }) {
   const metadataUrl = publicMetadataUrl(item);
   const sources = sourceRows(item);
   const hasMovementTokenData = movementTokens.some((token) => token.href);
+  const shareHref = pathTokenHref(item.tokenIdLabel);
 
   return (
-    <article className="path-detail" aria-label={`${name} detail`}>
-      <div className="path-detail__canvas-frame">
+    <article
+      ref={registerRef}
+      className={`path-page-token${focused ? " path-page-token--focused" : ""}`}
+      data-path-token-id={item.tokenIdLabel}
+      aria-label={focused ? `${name} focused card` : `${name} card`}
+    >
+      <div className="path-page-token__media">
         {image ? (
-          <img
-            className="path-detail__image"
-            src={image}
-            alt={`${name} movement progress`}
-            title={metadataLabel}
-          />
+          <a
+            className="path-page-token__media-link"
+            href={shareHref}
+            aria-label={`Open ${name}`}
+          >
+            <img
+              src={image}
+              alt={`${name} movement progress`}
+              title={metadataLabel}
+            />
+          </a>
         ) : (
           <div className="path-page-token__missing">image unavailable</div>
         )}
       </div>
-      <section className="path-detail__rail" aria-label={`${name} lifecycle`}>
-        <header className="path-detail__record-header">
-          <h2>{name}</h2>
-          <p>{lifecycleNote(item)}</p>
-        </header>
-
-        <PathDetailSection title="state">
-          <DetailRows
-            rows={[
-              { label: "owner", value: shortAddress(item.owner), title: item.owner },
-              { label: "stage", value: compactValue(stageValue(item)) },
-            ]}
-          />
-        </PathDetailSection>
-
-        <PathDetailSection title="units">
-          <DetailRows
-            rows={units.map(({ movement, progress }) => ({
-              label: movement,
-              value: progress.label,
-            }))}
-          />
-        </PathDetailSection>
-
-        <PathDetailSection title="movement tokens">
-          <DetailRows
-            rows={movementTokens.map((token) => ({
-              label: token.label,
-              value: hasMovementTokenData || token.href ? token.text : "—",
-              href: token.href,
-            }))}
-          />
-        </PathDetailSection>
-
-        {consumedRows.length > 0 && (
-          <PathDetailSection title="latest update">
-            <div className="path-detail__notes">
-              {consumedRows.map((row) => (
-                <p key={row}>{row}</p>
-              ))}
+      <div className="path-page-token__body" aria-label={`${name} lifecycle`}>
+        <div className="path-page-token__name">{name}</div>
+        <p className="path-page-token__note">{lifecycleNote(item)}</p>
+        <div className="path-page-token__owner">
+          owner {shortAddress(item.owner)}
+        </div>
+        <div className="path-page-token__stage">
+          <span>stage</span>
+          <strong>{stageValue(item)}</strong>
+        </div>
+        <div className="path-page-token__progress-title">units</div>
+        <dl className="path-page-token__attrs">
+          {units.map(({ movement, progress }) => (
+            <div
+              className="path-page-token__attr"
+              key={`${item.tokenIdLabel}-${movement}`}
+            >
+              <dt>{movement}</dt>
+              <dd>{progress.label}</dd>
             </div>
-          </PathDetailSection>
-        )}
+          ))}
+        </dl>
 
-        {mint.length > 0 && (
-          <PathDetailSection title="mint">
-            <DetailRows rows={mint} />
-          </PathDetailSection>
-        )}
-
-        <PathDetailSection title="pricing">
-          <DetailRows rows={pricing} />
-        </PathDetailSection>
-
-        {(metadataUrl || metadataLabel) && (
-          <PathDetailSection title="metadata">
-            <DetailRows
-              rows={[
-                metadataUrl
-                  ? { label: "metadata", value: `${metadataLabel} ↗`, href: metadataUrl }
-                  : { label: "metadata", value: metadataLabel, title: metadataLabel },
-              ]}
+        {focused ? (
+          <div className="path-page-token__focus" aria-label={`${name} focused state`}>
+            <div className="path-page-token__progress-title">from this $PATH</div>
+            <CardRows
+              rows={movementTokens.map((token) => ({
+                label: token.label,
+                value: hasMovementTokenData || token.href ? token.text : "—",
+                href: token.href,
+              }))}
             />
-          </PathDetailSection>
-        )}
 
-        {sources.length > 0 && (
-          <PathDetailSection title="source">
-            <DetailRows rows={sources} />
-          </PathDetailSection>
-        )}
+            {consumedRows.length > 0 && (
+              <div className="path-page-token__notes">
+                {consumedRows.map((row) => (
+                  <p key={row}>{row}</p>
+                ))}
+              </div>
+            )}
 
-        <nav className="primitive-page__links path-detail__links" aria-label="PATH detail links">
-          <a href="/path" aria-label="Back to all PATH tokens">
-            Back to all $PATH tokens ↗
-          </a>
-          <a href="/pulse" target="_blank" rel="noopener noreferrer" aria-label="View $PATH pricing">
-            View $PATH pricing ↗
-          </a>
-        </nav>
-      </section>
+            {mint.length > 0 && (
+              <>
+                <div className="path-page-token__progress-title">mint</div>
+                <CardRows rows={mint} />
+              </>
+            )}
+
+            <div className="path-page-token__progress-title">pricing</div>
+            <CardRows rows={pricing} />
+
+            <div className="path-page-token__progress-title">share</div>
+            <CardRows rows={[{ label: "url", value: `${name} ↗`, href: shareHref }]} />
+
+            {(metadataUrl || metadataLabel) && (
+              <>
+                <div className="path-page-token__progress-title">metadata</div>
+                <CardRows
+                  rows={[
+                    metadataUrl
+                      ? { label: "metadata", value: `${metadataLabel} ↗`, href: metadataUrl }
+                      : { label: "metadata", value: metadataLabel, title: metadataLabel },
+                  ]}
+                />
+              </>
+            )}
+
+            {sources.length > 0 && (
+              <>
+                <div className="path-page-token__progress-title">source</div>
+                <CardRows rows={sources} />
+              </>
+            )}
+          </div>
+        ) : null}
+      </div>
     </article>
   );
 }
@@ -774,6 +766,7 @@ export default function PathPage({ tokenId = null }: PathPageProps) {
     error: null,
   });
   const [loadingDetailIndex, setLoadingDetailIndex] = useState(0);
+  const tokenRefs = useRef<Record<string, HTMLElement | null>>({});
 
   useEffect(() => {
     if (state.status !== "loading") {
@@ -846,112 +839,108 @@ export default function PathPage({ tokenId = null }: PathPageProps) {
     };
   }, [fixtureItems, fromBlock, pathNftAddress, refreshNonce]);
 
-  const detailItem = tokenId
+  const focusedItem = tokenId
     ? state.items.find((item) => item.tokenIdLabel === tokenId)
     : null;
+
+  useEffect(() => {
+    if (!tokenId || state.status !== "ready") return;
+    const target = tokenRefs.current[tokenId];
+    target?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+  }, [state.status, tokenId]);
 
   return (
     <main className="primitive-page path-page">
       <header className="primitive-page__header path-page__header">
         <div>
           <h1 className="primitive-page__title">
-            {tokenId ? `$PATH #${tokenId}` : SURFACE_TERMINOLOGY.pathDapp}
+            {SURFACE_TERMINOLOGY.pathDapp}
           </h1>
           <p className="primitive-page__subtitle">
-            {tokenId
-              ? "Permission token for movement mints."
-              : "Permission tokens for movement mints."}
+            Permission tokens for movement mints.
           </p>
         </div>
       </header>
 
       <section
-        className={`path-page__body${tokenId ? " path-page__body--detail" : ""}`}
-        aria-label={tokenId ? `$PATH #${tokenId} record` : "All $PATH tokens"}
+        className="path-page__body"
+        aria-label="All $PATH tokens"
       >
-        {!tokenId && (
-          <>
-            <div className="path-page__intro">
-              <p>$PATH is minted by the public Pulse auction.</p>
-              <p>Each $PATH authorizes movement mints in order: THOUGHT, WILL, then AWA.</p>
-              <p>A movement minted from $PATH consumes a movement unit and updates the $PATH lifecycle.</p>
-              <p>stage shows the current movement phase.</p>
-              <p>units show used / total movement units.</p>
-              <p>The token image and traits show movement progress.</p>
-            </div>
+        <div className="path-page__intro">
+          <p>$PATH is minted by the public Pulse auction.</p>
+          <p>Each $PATH authorizes movement mints in order: THOUGHT, WILL, then AWA.</p>
+          <p>A movement minted from $PATH consumes a movement unit and updates the $PATH lifecycle.</p>
+          <p>stage shows the current movement phase.</p>
+          <p>units show used / total movement units.</p>
+          <p>The token image and traits show movement progress.</p>
+        </div>
 
-            <nav
-              className="primitive-page__links path-page__links"
-              aria-label="PATH page links"
-            >
-              <a
-                href="/pulse"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="View $PATH pricing"
-              >
-                View $PATH pricing ↗
-              </a>
-            </nav>
-          </>
-        )}
+        <nav
+          className="primitive-page__links path-page__links"
+          aria-label="PATH page links"
+        >
+          <a
+            href="/pulse"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="View $PATH pricing"
+          >
+            View $PATH pricing ↗
+          </a>
+        </nav>
 
-        {!tokenId && (
-          <div className="path-page__toolbar">
-            <div>
-              <div className="path-page__section-title">all tokens</div>
-              <div className="path-page__sub">
-                {state.status === "ready"
-                  ? `${state.items.length} token${state.items.length === 1 ? "" : "s"}`
-                  : state.status === "loading"
-                    ? (
-                      <ChainLoadingStatus
-                        status={PATH_LOADING_DETAILS[loadingDetailIndex]}
-                      />
-                    )
-                    : "token list unavailable"}
-              </div>
+        <div className="path-page__toolbar">
+          <div>
+            <div className="path-page__section-title">all tokens</div>
+            <div className="path-page__sub">
+              {state.status === "ready"
+                ? `${state.items.length} token${state.items.length === 1 ? "" : "s"}${focusedItem ? ` · focused $PATH #${focusedItem.tokenIdLabel}` : ""}`
+                : state.status === "loading"
+                  ? (
+                    <ChainLoadingStatus
+                      status={PATH_LOADING_DETAILS[loadingDetailIndex]}
+                    />
+                  )
+                  : "token list unavailable"}
             </div>
-            <button
-              type="button"
-              className="path-page__refresh"
-              onClick={() => setRefreshNonce((value) => value + 1)}
-            >
-              refresh
-            </button>
           </div>
-        )}
+          <button
+            type="button"
+            className="path-page__refresh"
+            onClick={() => setRefreshNonce((value) => value + 1)}
+          >
+            refresh
+          </button>
+        </div>
 
-        {!tokenId && (
-          <dl className="primitive-page__fields path-page__fields">
-            <div>
-              <dt>mode</dt>
-              <dd>{fixtureItems ? "fixture state gallery" : "live token gallery"}</dd>
-            </div>
-            <div>
-              <dt>source</dt>
-              <dd>{fixtureItems ? "fixture tokenURI()" : "live tokenURI()"}</dd>
-            </div>
-            <div>
-              <dt>chain</dt>
-              <dd>{fixtureItems ? "fixture" : chainLabel}</dd>
-            </div>
-            <div>
-              <dt>contract</dt>
-              <dd>
-                {fixtureItems
-                  ? "not connected"
-                  : pathNftAddress
-                    ? `PathNFT ${shortAddress(pathNftAddress)}`
-                    : "missing"}
-              </dd>
-            </div>
-            <div>
-              <dt>from block</dt>
-              <dd>{fixtureItems ? "n/a" : fromBlock == null ? "missing" : String(fromBlock)}</dd>
-            </div>
-          </dl>
-        )}
+        <dl className="primitive-page__fields path-page__fields">
+          <div>
+            <dt>mode</dt>
+            <dd>{fixtureItems ? "fixture state gallery" : "live token gallery"}</dd>
+          </div>
+          <div>
+            <dt>source</dt>
+            <dd>{fixtureItems ? "fixture tokenURI()" : "live tokenURI()"}</dd>
+          </div>
+          <div>
+            <dt>chain</dt>
+            <dd>{fixtureItems ? "fixture" : chainLabel}</dd>
+          </div>
+          <div>
+            <dt>contract</dt>
+            <dd>
+              {fixtureItems
+                ? "not connected"
+                : pathNftAddress
+                  ? `PathNFT ${shortAddress(pathNftAddress)}`
+                  : "missing"}
+            </dd>
+          </div>
+          <div>
+            <dt>from block</dt>
+            <dd>{fixtureItems ? "n/a" : fromBlock == null ? "missing" : String(fromBlock)}</dd>
+          </div>
+        </dl>
 
         {state.status === "error" && (
           <div className="path-page__notice path-page__notice--error">
@@ -959,64 +948,24 @@ export default function PathPage({ tokenId = null }: PathPageProps) {
           </div>
         )}
 
-        {tokenId ? (
-          detailItem ? (
-            <PathTokenDetail item={detailItem} />
-          ) : state.status === "ready" ? (
-            <div className="path-page__notice">$PATH #{tokenId} not found.</div>
-          ) : null
-        ) : state.status === "ready" && state.items.length === 0 ? (
+        {tokenId && state.status === "ready" && !focusedItem ? (
+          <div className="path-page__notice">$PATH #{tokenId} not found.</div>
+        ) : null}
+
+        {state.status === "ready" && state.items.length === 0 ? (
           <div className="path-page__notice">no PATH minted yet.</div>
         ) : state.items.length > 0 ? (
           <div className="path-page__grid">
-            {state.items.map((item) => {
-              const image = metadataImage(item);
-              const metadataLabel = metadataName(item);
-              const name = displayTokenName(item);
-              return (
-                <article className="path-page-token" key={item.tokenIdLabel}>
-                  <div className="path-page-token__media">
-                    {image ? (
-                      <a
-                        className="path-page-token__media-link"
-                        href={pathTokenHref(item.tokenIdLabel)}
-                        aria-label={`Open $PATH #${item.tokenIdLabel}`}
-                      >
-                        <img
-                          src={image}
-                          alt={`$PATH #${item.tokenIdLabel} movement progress`}
-                          title={metadataLabel}
-                        />
-                      </a>
-                    ) : (
-                      <div className="path-page-token__missing">image unavailable</div>
-                    )}
-                  </div>
-                  <div className="path-page-token__body">
-                    <div className="path-page-token__name">{name}</div>
-                    <div className="path-page-token__owner">
-                      owner {shortAddress(item.owner)}
-                    </div>
-                    <div className="path-page-token__stage">
-                      <span>stage</span>
-                      <strong>{stageValue(item)}</strong>
-                    </div>
-                    <div className="path-page-token__progress-title">units</div>
-                    <dl className="path-page-token__attrs">
-                      {MOVEMENT_TRAITS.map((traitType) => (
-                        <div
-                          className="path-page-token__attr"
-                          key={`${item.tokenIdLabel}-${traitType}`}
-                        >
-                          <dt>{traitType}</dt>
-                          <dd>{movementProgressValue(item, traitType)}</dd>
-                        </div>
-                      ))}
-                    </dl>
-                  </div>
-                </article>
-              );
-            })}
+            {state.items.map((item) => (
+              <PathTokenCard
+                key={item.tokenIdLabel}
+                item={item}
+                focused={item.tokenIdLabel === tokenId}
+                registerRef={(node) => {
+                  tokenRefs.current[item.tokenIdLabel] = node;
+                }}
+              />
+            ))}
           </div>
         ) : null}
       </section>

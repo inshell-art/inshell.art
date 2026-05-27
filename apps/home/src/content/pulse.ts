@@ -7,11 +7,8 @@ export const PULSE = {
   repositoryUrl: PULSE_REPOSITORY_URL,
   explanation: [
     "Pulse is the pricing rule for the public $PATH auction.",
-    "A Pulse cycle starts when a sale lifts the start ask.",
-    "Elapsed time creates a time premium.",
-    "The time premium lifts the start ask above the new floor.",
-    "After the start ask, the curve decays toward floor.",
-    "t½ marks when the above-floor amount has halved.",
+    "$PATH has no fixed cap. Issuance is demand-tempered: each successful bid mints one $PATH, lifts the next cycle by time premium, then lets the ask decay toward floor if demand waits.",
+    "The limit is not a number set in advance. The limit is the price buyers are willing to accept over time.",
   ],
   math: [
     "lift",
@@ -22,6 +19,8 @@ export const PULSE = {
     "start ask = floor + time premium",
     "floor = last sale price",
     "",
+    "Each sale starts the next Pulse cycle.",
+    "",
     "",
     "decay",
     "",
@@ -31,6 +30,8 @@ export const PULSE = {
     "k = curve constant",
     "anchor = curve start",
     "t½ = when above floor is halved",
+    "",
+    "If demand waits, ask decays toward floor.",
   ].join("\n"),
   note: [
     "Pulse began as the Desmos sketch linked below.",

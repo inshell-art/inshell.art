@@ -240,11 +240,10 @@ describe("App Component", () => {
     expect(screen.getByRole("heading", { name: "pulse" })).toBeInTheDocument();
     expect(screen.getByText("Pricing rule for the $PATH auction.")).toBeInTheDocument();
     expect(screen.getByText("Pulse is the pricing rule for the public $PATH auction.")).toBeInTheDocument();
-    expect(screen.getByText("A Pulse cycle starts when a sale lifts the start ask.")).toBeInTheDocument();
-    expect(screen.getByText(/Elapsed time creates a time premium\./)).toBeInTheDocument();
-    expect(screen.getByText(/The time premium lifts the start ask above the new floor\./)).toBeInTheDocument();
-    expect(screen.getByText(/After the start ask, the curve decays toward floor\./)).toBeInTheDocument();
-    expect(screen.getByText(/t½ marks when the above-floor amount has halved\./)).toBeInTheDocument();
+    expect(screen.getByText(/\$PATH has no fixed cap\./)).toBeInTheDocument();
+    expect(screen.getByText(/Issuance is demand-tempered/)).toBeInTheDocument();
+    expect(screen.getByText(/The limit is not a number set in advance\./)).toBeInTheDocument();
+    expect(screen.getByText(/The limit is the price buyers are willing to accept over time\./)).toBeInTheDocument();
     expect(screen.getByLabelText("Pulse lift and decay equations")).toHaveTextContent(
       /PTS = price-time scale/,
     );
@@ -261,10 +260,16 @@ describe("App Component", () => {
       /floor = last sale price/,
     );
     expect(screen.getByLabelText("Pulse lift and decay equations")).toHaveTextContent(
+      /Each sale starts the next Pulse cycle\./,
+    );
+    expect(screen.getByLabelText("Pulse lift and decay equations")).toHaveTextContent(
       /ask = k\/\(t-anchor\) \+ floor/,
     );
     expect(screen.getByLabelText("Pulse lift and decay equations")).toHaveTextContent(
       /t½ = when above floor is halved/,
+    );
+    expect(screen.getByLabelText("Pulse lift and decay equations")).toHaveTextContent(
+      /If demand waits, ask decays toward floor\./,
     );
     expect(screen.getByLabelText("Pulse lift and decay equations")).not.toHaveTextContent(
       /premium per second/,
@@ -363,7 +368,7 @@ describe("App Component", () => {
       "href",
       expect.stringMatching(/^(blob:|data:text\/html;charset=utf-8,)/),
     );
-    expect(screen.getByRole("link", { name: "View PATH tokens" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "View $PATH tokens" })).toHaveAttribute(
       "href",
       "/path",
     );
@@ -654,31 +659,33 @@ describe("App Component", () => {
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
   });
 
-  test("renders a PATH token detail route", () => {
+  test("renders a focused PATH token card route", () => {
     window.history.pushState({}, "", "/path/4?fixture=states");
     render(<App />);
 
     expect(document.title).toBe("$PATH #4");
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/path.svg");
-    expect(screen.getByRole("heading", { level: 1, name: "$PATH #4" })).toBeInTheDocument();
-    expect(screen.getByText("Permission token for movement mints.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "$PATH" })).toBeInTheDocument();
+    expect(screen.getByText("Permission tokens for movement mints.")).toBeInTheDocument();
+    expect(screen.getByText("8 tokens · focused $PATH #4")).toBeInTheDocument();
+    expect(screen.getByText("$PATH #1")).toBeInTheDocument();
+    expect(screen.getByText("$PATH #8")).toBeInTheDocument();
     expect(screen.queryByText("PATH token detail.")).toBeNull();
     expect(screen.queryByText("token detail")).toBeNull();
     expect(screen.queryByText("loaded")).toBeNull();
-    expect(screen.queryByRole("button", { name: "refresh" })).toBeNull();
-    expect(screen.getByLabelText("$PATH #4 detail")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "refresh" })).toBeInTheDocument();
+    expect(screen.getByLabelText("$PATH #4 focused card")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "$PATH #4 movement progress" })).toHaveAttribute(
       "src",
       expect.stringContaining("will-fill"),
     );
     const lifecycle = within(screen.getByLabelText("$PATH #4 lifecycle"));
     expect(lifecycle.getByText("This $PATH has started its movement lifecycle.")).toBeInTheDocument();
-    expect(lifecycle.getByRole("heading", { name: "state" })).toBeInTheDocument();
-    expect(lifecycle.getByRole("heading", { name: "units" })).toBeInTheDocument();
-    expect(lifecycle.getByRole("heading", { name: "movement tokens" })).toBeInTheDocument();
-    expect(lifecycle.getByRole("heading", { name: "latest update" })).toBeInTheDocument();
-    expect(lifecycle.getByRole("heading", { name: "mint" })).toBeInTheDocument();
-    expect(lifecycle.getByRole("heading", { name: "pricing" })).toBeInTheDocument();
+    expect(lifecycle.getByText("units")).toBeInTheDocument();
+    expect(lifecycle.getByText("from this $PATH")).toBeInTheDocument();
+    expect(lifecycle.getByText("mint")).toBeInTheDocument();
+    expect(lifecycle.getAllByText("pricing").length).toBeGreaterThanOrEqual(1);
+    expect(lifecycle.getByText("share")).toBeInTheDocument();
     expect(lifecycle.getAllByText("owner").length).toBeGreaterThanOrEqual(1);
     expect(lifecycle.getByText("stage")).toBeInTheDocument();
     expect(lifecycle.getAllByText("WILL").length).toBeGreaterThanOrEqual(2);
@@ -695,19 +702,20 @@ describe("App Component", () => {
       "href",
       "/pulse",
     );
+    expect(lifecycle.getByRole("link", { name: "$PATH #4 ↗" })).toHaveAttribute(
+      "href",
+      "/path/4?fixture=states",
+    );
     expect(lifecycle.queryByRole("link", { name: "View Pulse pricing ↗" })).toBeNull();
     expect(lifecycle.queryByText("PATH burned")).toBeNull();
     expect(lifecycle.queryByText("PATH destroyed")).toBeNull();
     expect(lifecycle.queryByText("$PATH consumed")).toBeNull();
     expect(lifecycle.queryByText("pump")).toBeNull();
     expect(lifecycle.queryByText("drop")).toBeNull();
-    expect(screen.getByRole("link", { name: "Back to all PATH tokens" })).toHaveAttribute(
-      "href",
-      "/path",
-    );
+    expect(screen.queryByRole("link", { name: "Back to all PATH tokens" })).toBeNull();
   });
 
-  test("renders a fresh PATH detail record without movement token links", () => {
+  test("renders a fresh focused PATH card without movement token links", () => {
     window.history.pushState({}, "", "/path/1?fixture=states");
     render(<App />);
 
