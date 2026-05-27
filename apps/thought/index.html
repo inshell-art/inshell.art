@@ -20,17 +20,29 @@
     (() => {
       const params = new URLSearchParams(window.location.search);
       const pathname = window.location.pathname.replace(/\/+$/, "");
+      const hostname = window.location.hostname.toLowerCase();
+      const isGalleryHost = hostname === "gallery.inshell.art" || hostname === "gallery.preview.inshell.art";
+      const isGalleryPath = pathname === "/gallery";
       if (pathname === "/color-font") {
         document.documentElement.classList.add("color-font-route");
       } else if (pathname === "/verify") {
         document.documentElement.classList.add("verify-route");
-      } else if (params.get("gallery") === "1" || window.location.hash === "#gallery") {
+      } else if (isGalleryHost || isGalleryPath || params.get("gallery") === "1" || window.location.hash === "#gallery") {
         document.documentElement.classList.add("gallery-route");
       } else if (/^[1-9]\d*$/.test(params.get("thought") || "")) {
         document.documentElement.classList.add("thought-route");
       }
     })();
   </script>
+  <style>
+    html.gallery-route .frontpage-stage {
+      display: none !important;
+    }
+
+    html.gallery-route #gallery-page.thought-gallery.is-hidden {
+      display: flex;
+    }
+  </style>
   <title>THOUGHT</title>
 </head>
 
