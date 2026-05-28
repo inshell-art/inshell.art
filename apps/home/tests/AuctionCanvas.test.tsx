@@ -121,6 +121,7 @@ const createWalletState = (overrides: Partial<any> = {}) => {
       connectInjected: jest.fn(),
       connectWalletConnectV2: jest.fn(),
       disconnect: jest.fn(),
+      provider: evmOverrides.provider ?? null,
       ...evmOverrides,
     },
   };
@@ -1920,6 +1921,35 @@ describe("AuctionCanvas", () => {
         method: "wallet_switchEthereumChain",
         params: [{ chainId: "0xaa36a7" }],
       });
+    });
+  });
+
+  test("switch CTA uses the connected wallet provider instead of window.ethereum", async () => {
+    const connectedRequest = jest.fn().mockResolvedValue(null);
+    const windowRequest = jest.fn().mockResolvedValue(null);
+    (window as any).ethereum = { request: windowRequest };
+    mockWalletState = createWalletState({
+      account: {},
+      chainId: 1n,
+      chain: { name: "Othernet" },
+      evm: {
+        provider: { request: connectedRequest },
+        providerName: "MetaMask",
+      },
+    });
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    const switchButton = await waitFor(() =>
+      screen.getByText(/\[\s*switch\s*\]/i)
+    );
+    fireEvent.click(switchButton);
+
+    await waitFor(() => {
+      expect(connectedRequest).toHaveBeenCalledWith({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: "0xaa36a7" }],
+      });
+      expect(windowRequest).not.toHaveBeenCalled();
     });
   });
 

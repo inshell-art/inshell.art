@@ -482,6 +482,13 @@ function findInjectedWallet(): { request?: (...args: any[]) => Promise<any> } | 
   return null;
 }
 
+function resolveWalletRequestProvider(
+  provider?: { request?: (...args: any[]) => Promise<any> } | null
+): { request?: (...args: any[]) => Promise<any> } | null {
+  if (provider?.request) return provider;
+  return findInjectedWallet();
+}
+
 function resolveChainLabel(chainIdHex: string): string {
   const normalized = chainIdHex.toLowerCase();
   if (normalized === ETH_SEPOLIA_CHAIN_ID_HEX) return "Sepolia";
@@ -535,8 +542,11 @@ function resolveAddChainParams(chainIdHex: string) {
   };
 }
 
-async function requestChainSwitch(chainIdHex: string): Promise<boolean> {
-  const wallet = findInjectedWallet();
+async function requestChainSwitch(
+  chainIdHex: string,
+  provider?: { request?: (...args: any[]) => Promise<any> } | null
+): Promise<boolean> {
+  const wallet = resolveWalletRequestProvider(provider);
   if (!wallet?.request) return false;
   try {
     await wallet.request({
@@ -573,8 +583,11 @@ async function requestChainSwitch(chainIdHex: string): Promise<boolean> {
   }
 }
 
-async function refreshWalletChainRpc(chainIdHex: string): Promise<boolean> {
-  const wallet = findInjectedWallet();
+async function refreshWalletChainRpc(
+  chainIdHex: string,
+  provider?: { request?: (...args: any[]) => Promise<any> } | null
+): Promise<boolean> {
+  const wallet = resolveWalletRequestProvider(provider);
   const addParams = resolveAddChainParams(chainIdHex);
   if (!wallet?.request || !addParams || !addParams.rpcUrls.length) return false;
   try {
@@ -3995,7 +4008,7 @@ export default function AuctionCanvas({
   };
 
   const handleSwitch = async () => {
-    const ok = await requestChainSwitch(targetChainIdHex);
+    const ok = await requestChainSwitch(targetChainIdHex, evm.provider);
     if (!ok) {
       showToast({
         kind: "warn",
@@ -4102,7 +4115,7 @@ export default function AuctionCanvas({
         void runPreflight();
       }
       if (isWalletReadOnlyRpcMessage(rawMsg)) {
-        void refreshWalletChainRpc(targetChainIdHex);
+        void refreshWalletChainRpc(targetChainIdHex, evm.provider);
       }
       if (!walletCancelled) {
         console.error("mint failed", err);
@@ -4147,7 +4160,7 @@ export default function AuctionCanvas({
 
     setMintReview(null);
     setReturnPromptVisible(false);
-    await refreshWalletChainRpc(targetChainIdHex);
+    await refreshWalletChainRpc(targetChainIdHex, evm.provider);
     await maybeWatchAsset();
     if (!nativePayment && data.allowance.value < data.ask.value) {
       const ok = await runTx("approve", () =>

@@ -115,6 +115,7 @@ type WalletContextValue = {
   disconnectEvm: () => Promise<void>;
   evm: {
     providers: Eip6963ProviderInfo[];
+    provider: Eip1193Provider | null;
     address: string | null;
     chainId: number | null;
     providerName: string | null;
@@ -734,6 +735,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
       disconnectEvm,
       evm: {
         providers: evmProviders.map((item) => item.info),
+        provider: activeProvider,
         address: evmAddress,
         chainId: evmChainId,
         providerName: evmProviderLabel,
@@ -745,6 +747,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
       },
     }),
     [
+      activeProvider,
       account,
       chain,
       connect,
