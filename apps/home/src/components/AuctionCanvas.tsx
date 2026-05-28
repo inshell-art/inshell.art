@@ -778,6 +778,22 @@ type LinkedStatic = {
   reason: string | null;
 };
 
+const QUOTED_PRICE_TIME_TOLERANCE_SEC = 30;
+
+function quotedUForLiveSegment(
+  seg: Pick<LinkedSegment, "floor" | "premium" | "startSec" | "tHalf">,
+  quotedPrice: number,
+  liveNowSec: number
+): number | null {
+  const quotedU = uFromPrice(seg.floor, seg.premium, quotedPrice);
+  if (quotedU == null) return null;
+  const impliedSec = seg.startSec + quotedU * seg.tHalf;
+  const latestExpectedSec = Math.max(liveNowSec, seg.startSec);
+  return impliedSec <= latestExpectedSec + QUOTED_PRICE_TIME_TOLERANCE_SEC
+    ? quotedU
+    : null;
+}
+
 type Viewport = {
   xMin: number;
   xMax: number;
@@ -3268,6 +3284,16 @@ export default function AuctionCanvas({
     };
   }, [activeConfig, bids, coreData?.state, coreLoading, fallbackError, decimals, fixtureState]);
 
+  const activeCurveQuoteKey = useMemo(() => {
+    if (linkedStatic.reason || !linkedStatic.segments.length) return "";
+    const seg = linkedStatic.segments[linkedStatic.segments.length - 1];
+    return `${seg.epoch}:${seg.startSec}:${seg.anchor}:${seg.floor}`;
+  }, [linkedStatic.reason, linkedStatic.segments]);
+
+  useEffect(() => {
+    setCurrentAskQuoteDec((prev) => (prev === null ? prev : null));
+  }, [activeCurveQuoteKey]);
+
   const linked = useMemo<LinkedCurve>(() => {
     const empty: LinkedCurve = {
       segments: [],
@@ -3293,7 +3319,7 @@ export default function AuctionCanvas({
         ? Number(effectiveCurrentAskQuoteDec)
         : Number.NaN;
     if (Number.isFinite(quotedPrice)) {
-      const quotedU = uFromPrice(lastBase.floor, lastBase.premium, quotedPrice);
+      const quotedU = quotedUForLiveSegment(lastBase, quotedPrice, liveNowSec);
       if (quotedU != null) {
         metaUClamped = quotedU;
         metaU = quotedU;
@@ -3332,7 +3358,14 @@ export default function AuctionCanvas({
   const currentAskEstimate = useMemo(() => {
     if (!fixtureState && !mimicLocalTime && effectiveCurrentAskQuoteDec != null) {
       const quoted = Number(effectiveCurrentAskQuoteDec);
-      if (Number.isFinite(quoted)) return quoted;
+      const seg = linkedStatic.segments[linkedStatic.segments.length - 1];
+      if (
+        Number.isFinite(quoted) &&
+        seg &&
+        quotedUForLiveSegment(seg, quoted, liveNowSec) != null
+      ) {
+        return quoted;
+      }
     }
     if (linkedStatic.reason) return null;
     if (!linkedStatic.segments.length) return null;
@@ -3967,6 +4000,7 @@ export default function AuctionCanvas({
       });
       if (phase === "bid" && walletAddress) {
         clearPathTokenInventoryCache();
+        setCurrentAskQuoteDec(null);
         postMintNowTipPendingRef.current = true;
         postMintNowTipBaseCurveKeyRef.current = initialAskTipCurveKeyRef.current;
         void pullBidsOnce();
@@ -4546,17 +4580,19 @@ export default function AuctionCanvas({
       let liveDurationSec = Math.max(0, liveNowSec - seg.startSec);
       let liveULocal = liveDurationSec / Math.max(seg.tHalf, 1e-9);
       let livePrice = priceAtU(seg.floor, seg.premium, liveULocal);
+      let quoteAccepted = false;
       if (Number.isFinite(quotedPrice)) {
-        const quotedU = uFromPrice(seg.floor, seg.premium, quotedPrice);
+        const quotedU = quotedUForLiveSegment(seg, quotedPrice, liveNowSec);
         if (quotedU != null) {
           liveULocal = quotedU;
           liveDurationSec = quotedU * seg.tHalf;
+          livePrice = quotedPrice;
+          quoteAccepted = true;
         }
-        livePrice = quotedPrice;
       }
       const amountStr = Number.isFinite(livePrice) ? livePrice.toFixed(2) : "";
       const amountRaw =
-        !mimicLocalTime && effectiveCurrentAskQuoteDec != null && Number.isFinite(quotedPrice)
+        quoteAccepted && effectiveCurrentAskQuoteDec != null
           ? effectiveCurrentAskQuoteDec
           : String(livePrice);
 
@@ -4645,13 +4681,19 @@ export default function AuctionCanvas({
       let durationSec = Math.max(0, liveNowSec - startSec);
       let uLocal = durationSec / tHalf;
       let price = priceAtU(floor, premium, uLocal);
+      let quoteAccepted = false;
       if (Number.isFinite(quotedPrice)) {
-        const quotedU = uFromPrice(floor, premium, quotedPrice);
+        const quotedU = quotedUForLiveSegment(
+          { floor, premium, startSec, tHalf },
+          quotedPrice,
+          liveNowSec
+        );
         if (quotedU != null) {
           uLocal = quotedU;
           durationSec = quotedU * tHalf;
+          price = quotedPrice;
+          quoteAccepted = true;
         }
-        price = quotedPrice;
       }
       if (!Number.isFinite(price)) return prev;
 
@@ -4663,7 +4705,7 @@ export default function AuctionCanvas({
           : 0;
       const amountStr = price.toFixed(2);
       const amountRaw =
-        !mimicLocalTime && effectiveCurrentAskQuoteDec != null && Number.isFinite(quotedPrice)
+        quoteAccepted && effectiveCurrentAskQuoteDec != null
           ? effectiveCurrentAskQuoteDec
           : String(price);
 

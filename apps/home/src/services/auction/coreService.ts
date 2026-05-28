@@ -10,6 +10,7 @@ import {
   callContract,
   DEFAULT_BLOCK_TAG,
   getDefaultProvider,
+  getBlockNumber,
   type EthereumBlockTag,
   type ProviderInterface,
 } from "@inshell/ethereum";
@@ -64,7 +65,10 @@ export function createCoreService(
     address: params.address,
   };
 
-  async function call0(name: string) {
+  async function call0(
+    name: string,
+    blockId: number | EthereumBlockTag = cfg.blockId
+  ) {
     if (!cfg.provider) {
       throw new Error("Auction provider is missing.");
     }
@@ -75,22 +79,28 @@ export function createCoreService(
       contractAddress: cfg.address,
       entrypoint: name,
       calldata: [],
-    }, cfg.blockId);
+    }, blockId);
   }
 
-  async function getCurrentPrice(): Promise<CurrentPrice> {
-    const out = await call0(VIEW.GET_CURRENT_PRICE);
+  async function getCurrentPrice(
+    blockId: number | EthereumBlockTag = cfg.blockId
+  ): Promise<CurrentPrice> {
+    const out = await call0(VIEW.GET_CURRENT_PRICE, blockId);
     const raw = readU256((out as any)?.price ?? (out as any)?.[0] ?? out);
     return toU256Num(raw);
   }
 
-  async function getCurveActive(): Promise<boolean> {
-    const out = await call0(VIEW.CURVE_ACTIVE);
+  async function getCurveActive(
+    blockId: number | EthereumBlockTag = cfg.blockId
+  ): Promise<boolean> {
+    const out = await call0(VIEW.CURVE_ACTIVE, blockId);
     return Boolean((out as any)?.active ?? (out as any)?.[0] ?? out);
   }
 
-  async function getConfig(): Promise<AuctionConfig> {
-    const r = (await call0(VIEW.GET_CONFIG)) as any;
+  async function getConfig(
+    blockId: number | EthereumBlockTag = cfg.blockId
+  ): Promise<AuctionConfig> {
+    const r = (await call0(VIEW.GET_CONFIG, blockId)) as any;
     const open = Number(r.open_time ?? r.openTime ?? r[0] ?? r.openTimeSec);
     const gp = readU256(r.genesis_price ?? r.genesisPrice ?? r[1]);
     const gf = readU256(r.genesis_floor ?? r.genesisFloor ?? r[2]);
@@ -105,8 +115,10 @@ export function createCoreService(
     };
   }
 
-  async function getState(): Promise<AuctionRuntimeState> {
-    const r = (await call0(VIEW.GET_STATE)) as any;
+  async function getState(
+    blockId: number | EthereumBlockTag = cfg.blockId
+  ): Promise<AuctionRuntimeState> {
+    const r = (await call0(VIEW.GET_STATE, blockId)) as any;
     const epochIndex = Number(r.epoch_index ?? r.epochIndex ?? r[0]);
     const startTimeSec = Number(r.start_time ?? r.startTime ?? r.startTimeSec ?? r[1]);
     const anchorTimeSec = Number(r.anchor_time ?? r.anchorTime ?? r.anchorTimeSec ?? r[2]);
@@ -122,13 +134,17 @@ export function createCoreService(
   }
 
   async function snapshot(): Promise<AuctionSnapshot> {
+    const blockId =
+      cfg.blockId === DEFAULT_BLOCK_TAG
+        ? await getBlockNumber(cfg.provider).catch(() => cfg.blockId)
+        : cfg.blockId;
     const [price, config, state] = await Promise.all([
-      getCurrentPrice(),
-      getConfig(),
-      getState().catch(() => null),
+      getCurrentPrice(blockId),
+      getConfig(blockId),
+      getState(blockId).catch(() => null),
     ]);
     const active =
-      state?.active ?? (await getCurveActive().catch(() => false));
+      state?.active ?? (await getCurveActive(blockId).catch(() => false));
     return { active, price, config, state };
   }
 
