@@ -832,6 +832,8 @@ describe("App Component", () => {
   test("footer gallery does not fall back to thought-level gallery query URLs", () => {
     (globalThis as any).__VITE_ENV__ = {
       VITE_DEPLOY_ENV: "preview",
+      VITE_THOUGHT_GALLERY_URL: " ",
+      VITE_GALLERY_URL: " ",
       VITE_THOUGHT_URL: "https://thought.preview.inshell.art/",
     };
 
