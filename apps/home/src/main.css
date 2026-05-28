@@ -818,7 +818,7 @@ body {
   top: 50px;
   right: 16px;
   margin: 0;
-  width: min(360px, calc(100% - 32px));
+  width: min(430px, calc(100% - 32px));
   padding: 10px 12px;
   border: 1px solid var(--panel-border);
   background: var(--panel);
@@ -836,6 +836,11 @@ body {
   text-transform: lowercase;
 }
 
+.dotfield__mint-review-subtitle {
+  margin-bottom: 8px;
+  color: var(--muted);
+}
+
 .dotfield__mint-review-row {
   display: flex;
   justify-content: space-between;
@@ -849,6 +854,17 @@ body {
   color: var(--ink);
   font-weight: 400;
   text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.dotfield__mint-review-warning,
+.dotfield__mint-review-rule {
+  margin-top: 8px;
+  color: var(--muted);
+}
+
+.dotfield__mint-review-warning {
+  color: #b57a00;
 }
 
 .dotfield__mint-review-note {

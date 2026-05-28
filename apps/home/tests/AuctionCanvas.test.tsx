@@ -2265,12 +2265,19 @@ describe("AuctionCanvas", () => {
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     await clickMintForReview();
-    const review = screen.getByText(/review before wallet/i).closest(".dotfield__mint-review");
+    const review = screen.getByText(/Pulse bid/i).closest(".dotfield__mint-review");
     expect(review).toBeTruthy();
-    expect(within(review as HTMLElement).getByText(/current ask/i)).toBeTruthy();
-    expect(within(review as HTMLElement).getByText(/max bid/i)).toBeTruthy();
     expect(
-      within(review as HTMLElement).getByText(/verify domain, chain, and action in wallet/i)
+      within(review as HTMLElement).getByText(/PulseAuction\.bid\(uint256 maxPrice\)/i)
+    ).toBeTruthy();
+    expect(within(review as HTMLElement).getByText(/decoded call/i)).toBeTruthy();
+    expect(
+      within(review as HTMLElement).getAllByText(/bid\(uint256 maxPrice\)/i).length
+    ).toBeGreaterThan(0);
+    expect(within(review as HTMLElement).getByText(/current ask/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getByText(/max price/i)).toBeTruthy();
+    expect(
+      within(review as HTMLElement).getByText(/Some wallets may show this as raw transaction data/i)
     ).toBeTruthy();
     expect(within(review as HTMLElement).getByRole("link", { name: "verify ↗" })).toHaveAttribute(
       "href",
@@ -2309,12 +2316,11 @@ describe("AuctionCanvas", () => {
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     await clickMintForReview();
 
-    const review = screen.getByText(/review before wallet/i).closest(".dotfield__mint-review");
+    const review = screen.getByText(/Pulse bid/i).closest(".dotfield__mint-review");
     expect(review).toBeTruthy();
     expect(within(review as HTMLElement).getByText(/current ask/i)).toBeTruthy();
-    expect(within(review as HTMLElement).getByText(/tx value/i)).toBeTruthy();
-    expect(within(review as HTMLElement).getByText(/max bid/i)).toBeTruthy();
-    expect(within(review as HTMLElement).getByText(/max charge/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getAllByText(/ETH sent/i).length).toBeGreaterThan(0);
+    expect(within(review as HTMLElement).getByText(/max price/i)).toBeTruthy();
     expect(within(review as HTMLElement).getByText(/network gas/i)).toBeTruthy();
     expect(within(review as HTMLElement).getByText("Sepolia testnet only.")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Report a Sepolia bug" })).toBeNull();
@@ -2453,14 +2459,14 @@ describe("AuctionCanvas", () => {
     try {
       render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
       await clickMintForReview();
-      const review = screen.getByText(/review before wallet/i).closest(".dotfield__mint-review");
+      const review = screen.getByText(/Pulse bid/i).closest(".dotfield__mint-review");
       expect(review).toBeTruthy();
       const rows = Array.from(
         (review as HTMLElement).querySelectorAll(".dotfield__mint-review-row")
       );
       const currentAskRow = rows.find((row) => row.textContent?.includes("current ask"));
-      const txValueRow = rows.find((row) => row.textContent?.includes("tx value"));
-      const maxBidRow = rows.find((row) => row.textContent?.includes("max bid"));
+      const txValueRow = rows.find((row) => row.textContent?.includes("ETH sent"));
+      const maxBidRow = rows.find((row) => row.textContent?.includes("max price"));
       expect(currentAskRow?.textContent).toContain(`${visualAsk.toFixed(8)} ETH`);
       expect(txValueRow?.textContent).toContain(`${visualAsk.toFixed(8)} ETH`);
       expect(maxBidRow?.textContent).toContain(`${visualAsk.toFixed(8)} ETH`);
@@ -2548,7 +2554,7 @@ describe("AuctionCanvas", () => {
     try {
       render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
       await clickMintForReview();
-      const review = screen.getByText(/review before wallet/i).closest(".dotfield__mint-review");
+      const review = screen.getByText(/Pulse bid/i).closest(".dotfield__mint-review");
       expect(review).toBeTruthy();
       const rows = Array.from(
         (review as HTMLElement).querySelectorAll(".dotfield__mint-review-row")
@@ -2580,14 +2586,14 @@ describe("AuctionCanvas", () => {
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     await clickMintForReview();
-    expect(screen.getByText(/review before wallet/i)).toBeTruthy();
+    expect(screen.getByText(/Pulse bid/i)).toBeTruthy();
 
     await act(async () => {
       fireEvent.pointerDown(document.body);
     });
 
     await waitFor(() => {
-      expect(screen.queryByText(/review before wallet/i)).toBeNull();
+      expect(screen.queryByText(/Pulse bid/i)).toBeNull();
       expect(screen.getByText(/\[\s*mint\s*\]/i)).toBeTruthy();
     });
     expect(execute).not.toHaveBeenCalled();
@@ -2642,7 +2648,7 @@ describe("AuctionCanvas", () => {
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     await clickMintThenSign();
     await waitFor(() => {
-      expect(screen.getByText(/Wallet open: confirm mint/i)).toBeTruthy();
+      expect(screen.getByText(/Wallet open: confirm Pulse bid/i)).toBeTruthy();
       expect(screen.getByText(/\[\s*pending\s*\]/i)).toBeTruthy();
     });
   });
@@ -2707,7 +2713,7 @@ describe("AuctionCanvas", () => {
     act(() => {
       jest.advanceTimersByTime(3000);
     });
-    expect(screen.getByText(/Mint pending/i)).toBeTruthy();
+    expect(screen.getByText(/Pulse bid pending/i)).toBeTruthy();
     jest.useRealTimers();
   });
 

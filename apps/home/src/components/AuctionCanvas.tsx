@@ -1,14 +1,17 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { decodeFunctionData, getAddress, type Hex } from "viem";
 import { useAuctionBids } from "@/hooks/useAuctionBids";
 import type { ProviderInterface } from "@inshell/ethereum";
 import {
   callContract,
+  encodeExecuteData,
   getBalance,
   getBlock,
   getChainId,
   getCode,
   getDefaultProvider,
   hashBytecode,
+  pulseAuctionAbi,
   supportsRpcRequest,
   ZERO_ADDRESS,
 } from "@inshell/ethereum";
@@ -115,6 +118,18 @@ type MintReviewQuote = {
   nativePayment: boolean;
   requiresApproval: boolean;
 };
+
+type PulseBidIntentCheck = {
+  contractAddress: string;
+  expectedContractAddress: string;
+  calldata: readonly unknown[];
+  maxPrice: U256Num;
+  value?: bigint;
+  nativePayment: boolean;
+  chainId: bigint | null;
+  targetChainId: bigint | null;
+};
+
 type PathMintIntent = {
   from: "thought";
   returnTo: string;
@@ -184,6 +199,52 @@ function upperBound(sorted: number[], x: number): number {
 function shortAddr(a?: string) {
   if (!a) return "—";
   return `${a.slice(0, 6)}…${a.slice(-4)}`;
+}
+
+function normalizeComparableAddress(value: string): string {
+  try {
+    return getAddress(value).toLowerCase();
+  } catch {
+    return String(value ?? "").trim().toLowerCase();
+  }
+}
+
+function resolveExplorerAddressUrl(address: string): string {
+  const base = resolveExplorerBase().replace(/\/$/, "");
+  return `${base}/address/${address}`;
+}
+
+function assertPulseBidIntent(intent: PulseBidIntentCheck): Hex {
+  const data = encodeExecuteData("bid", intent.calldata);
+  const decoded = decodeFunctionData({
+    abi: pulseAuctionAbi,
+    data,
+  });
+  if (decoded.functionName !== "bid") {
+    throw new Error("Pulse bid validation failed: decoded call is not bid.");
+  }
+  const decodedMaxPrice = BigInt(decoded.args[0] as bigint);
+  if (decodedMaxPrice !== intent.maxPrice.value) {
+    throw new Error("Pulse bid validation failed: maxPrice mismatch.");
+  }
+  const txTo = normalizeComparableAddress(intent.contractAddress);
+  const expectedTo = normalizeComparableAddress(intent.expectedContractAddress);
+  if (txTo !== expectedTo) {
+    throw new Error("Pulse bid validation failed: contract mismatch.");
+  }
+  const expectedValue = intent.nativePayment ? intent.maxPrice.value : 0n;
+  const txValue = intent.value ?? 0n;
+  if (txValue !== expectedValue) {
+    throw new Error("Pulse bid validation failed: ETH value mismatch.");
+  }
+  if (
+    intent.chainId !== null &&
+    intent.targetChainId !== null &&
+    intent.chainId !== intent.targetChainId
+  ) {
+    throw new Error("Pulse bid validation failed: chain mismatch.");
+  }
+  return data;
 }
 
 function shortHash(hash?: string) {
@@ -3487,6 +3548,14 @@ export default function AuctionCanvas({
     if (!mintReview) return null;
     return mintReview.maxPriceLabel;
   }, [mintReview]);
+  const mintReviewContractHref = useMemo(() => {
+    if (!mintReview || !auctionAddress) return null;
+    return resolveExplorerAddressUrl(auctionAddress);
+  }, [auctionAddress, mintReview]);
+  const mintReviewChainIdLabel = useMemo(
+    () => targetChainId?.toString() ?? "unknown",
+    [targetChainId]
+  );
 
   const useTailViewport = useMemo(() => {
     const hasSaleHistory = linked.segments.length > 1;
@@ -4090,14 +4159,25 @@ export default function AuctionCanvas({
       );
       if (!ok) return;
     }
-    await runTx("bid", () =>
-      account.execute({
-        contractAddress: auctionAddress,
-        entrypoint: "bid",
-        calldata: [data.ask.raw.low, data.ask.raw.high],
-        value: nativePayment ? data.ask.value : undefined,
-      })
-    );
+    const bidCall = {
+      contractAddress: auctionAddress,
+      entrypoint: "bid",
+      calldata: [data.ask.raw.low, data.ask.raw.high],
+      value: nativePayment ? data.ask.value : undefined,
+    };
+    await runTx("bid", () => {
+      assertPulseBidIntent({
+        contractAddress: bidCall.contractAddress,
+        expectedContractAddress: auctionAddress,
+        calldata: bidCall.calldata,
+        maxPrice: data.ask,
+        value: bidCall.value,
+        nativePayment,
+        chainId: chainIdValue,
+        targetChainId,
+      });
+      return account.execute(bidCall);
+    });
   };
 
   const persistentNotice = useMemo<Notice | null>(() => {
@@ -4112,14 +4192,14 @@ export default function AuctionCanvas({
       const text =
         effectiveTxPhase === "approve"
           ? `Wallet open: approve ${displayTokenSymbol} (1/2).`
-          : "Wallet open: confirm mint (2/2).";
+          : "Wallet open: confirm Pulse bid (2/2).";
       return { kind: "info", text };
     }
     if (effectiveTxState === "submitted") {
       const text =
         effectiveTxPhase === "approve"
           ? "Approval submitted (1/2)."
-          : "Mint pending (2/2).";
+          : "Pulse bid pending (2/2).";
       return { kind: "info", text };
     }
     if (effectiveTxState === "failed") {
@@ -5579,27 +5659,63 @@ export default function AuctionCanvas({
           aria-live="polite"
         >
           <div className="dotfield__mint-review-title">
-            review before wallet
+            Pulse bid
+          </div>
+          <div className="dotfield__mint-review-subtitle">
+            You are calling PulseAuction.bid(uint256 maxPrice).
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>network</span>
+            <strong>{targetChainLabel} / {mintReviewChainIdLabel}</strong>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>contract</span>
+            <strong>
+              {mintReviewContractHref ? (
+                <a
+                  className="dotfield__mint-review-link"
+                  href={mintReviewContractHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  PulseAuction {shortAddr(auctionAddress)}
+                </a>
+              ) : (
+                <>PulseAuction {shortAddr(auctionAddress)}</>
+              )}
+            </strong>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>decoded call</span>
+            <strong>bid(uint256 maxPrice)</strong>
           </div>
           <div className="dotfield__mint-review-row">
             <span>current ask</span>
             <strong>{mintReviewCurrentAskLabel ?? mintReview.priceLabel} {mintReview.symbol}</strong>
           </div>
           <div className="dotfield__mint-review-row">
-            <span>tx value</span>
+            <span>ETH sent</span>
             <strong>{mintReviewTxValueLabel ?? mintReview.txValueLabel} {mintReview.nativePayment ? mintReview.symbol : "ETH"}</strong>
           </div>
           <div className="dotfield__mint-review-row">
-            <span>max bid</span>
+            <span>max price</span>
             <strong>{mintReviewMaxPriceLabel ?? mintReview.maxPriceLabel} {mintReview.symbol}</strong>
-          </div>
-          <div className="dotfield__mint-review-row">
-            <span>max charge</span>
-            <strong>{mintReviewTxValueLabel ?? mintReview.txValueLabel} {mintReview.nativePayment ? mintReview.symbol : "ETH"}</strong>
           </div>
           <div className="dotfield__mint-review-row">
             <span>network gas</span>
             <strong>shown in wallet</strong>
+          </div>
+          <div className="dotfield__mint-review-warning">
+            Some wallets may show this as raw transaction data. Verify the decoded fields before signing.
+          </div>
+          <div className="dotfield__mint-review-rule">
+            If the ask is higher than maxPrice at execution, the bid reverts.
+          </div>
+          <div className="dotfield__mint-review-rule">
+            If the accepted ask is below ETH sent, surplus is refunded by the contract.
+          </div>
+          <div className="dotfield__mint-review-rule">
+            A successful bid settles through PathPulseAdapter and mints PATH to your wallet.
           </div>
           <div className="dotfield__mint-review-note">
             {mintReview.requiresApproval
@@ -5609,18 +5725,14 @@ export default function AuctionCanvas({
                   <br />
                   wallet step 1 approves {mintReview.symbol}.
                   <br />
-                  wallet step 2 submits max bid.
-                  <br />
-                  verify domain, chain, and action in wallet.
+                  wallet step 2 submits Pulse bid.
                 </>
               )
               : (
                 <>
                   wallet opens next.
                   <br />
-                  verify domain, chain, and action in wallet.
-                  <br />
-                  final charge can be lower at execution.
+                  local decode must match before the wallet opens.
                 </>
               )}
             <br />
