@@ -181,24 +181,6 @@ function unitProgressByMovement(item: PathTokenInventoryItem) {
   }));
 }
 
-function lifecycleNote(item: PathTokenInventoryItem): string {
-  const units = unitProgressByMovement(item);
-  const available = units.filter(({ progress }) => progress.available && progress.total != null);
-  const consumed = available.filter(({ progress }) => (progress.used ?? 0) > 0);
-  const stage = stageValue(item).toUpperCase();
-  if (
-    available.length > 0 &&
-    (stage === "COMPLETE" ||
-      available.every(({ progress }) => (progress.used ?? 0) >= (progress.total ?? Number.POSITIVE_INFINITY)))
-  ) {
-    return "This $PATH has completed its available movement units.";
-  }
-  if (consumed.length > 0) {
-    return "This $PATH has started its movement lifecycle.";
-  }
-  return "This $PATH is ready to move through THOUGHT, WILL, and AWA.";
-}
-
 function makePathProgressSvg(args: {
   thoughtMinted: number;
   thoughtQuota: number;
@@ -495,7 +477,6 @@ function PathTokenCard({
       </div>
       <div className="path-page-token__body" aria-label={`${name} lifecycle`}>
         <div className="path-page-token__name">{name}</div>
-        <p className="path-page-token__note">{lifecycleNote(item)}</p>
         <div className="path-page-token__owner">
           owner {shortAddress(item.owner)}
         </div>

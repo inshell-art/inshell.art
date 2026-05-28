@@ -378,7 +378,6 @@ function checkThoughtProductionGuards() {
     "createThoughtPreviewEndpointProvider",
     "VITE_THOUGHT_PREVIEW_ENDPOINT_ENABLED",
     "THOUGHT_PREVIEW_TIMEOUT_MS",
-    "config rpc endpoint <url>",
     "current candidate is not contract-previewed.",
     "waiting for model return.",
     "OLLAMA_ORIGINS=",
@@ -399,11 +398,15 @@ function checkThoughtProductionGuards() {
     fail("apps/thought/src/main.ts must not tell auto preview visitors to configure RPC");
   }
   requireSnippets("apps/thought/src/thought-preview-policy.ts", [
+    "export type PreviewMode = \"auto\" | \"wallet\" | \"off\";",
     "preview service unavailable or wallet not connected.",
-    "read-only preview RPC is an advanced fallback.",
   ]);
-  if (read("apps/thought/src/thought-preview-policy.ts").includes("connect wallet or configure a read-only preview path.")) {
+  const previewPolicy = read("apps/thought/src/thought-preview-policy.ts");
+  if (previewPolicy.includes("connect wallet or configure a read-only preview path.")) {
     fail("apps/thought/src/thought-preview-policy.ts must not tell auto preview visitors to configure RPC");
+  }
+  if (/config (?:rpc endpoint|preview rpc)/.test(text) || /"rpc"/.test(previewPolicy)) {
+    fail("THOUGHT preview must not expose browser-configured RPC commands");
   }
 
   requireSnippets("apps/thought/src/thought-run-payload.ts", [

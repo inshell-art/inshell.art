@@ -85,11 +85,8 @@ import {
   THOUGHT_PREVIEW_CACHE_LIMIT,
   THOUGHT_PREVIEW_MANUAL_RATE_LIMIT,
   THOUGHT_PREVIEW_MODE_STORAGE_KEY,
-  THOUGHT_PREVIEW_RPC_ENDPOINT_STORAGE_KEY,
   THOUGHT_PREVIEW_TIMEOUT_MS,
   isPreviewMode,
-  isPreviewRpcEndpointCommand,
-  maskRpcEndpoint,
   normalizePreviewMode,
   prevalidateThoughtCandidate,
   previewUnavailableCliLines,
@@ -1563,9 +1560,6 @@ let thoughtDetailProvenanceJsonUrl = "";
 let colorFontPageRawUrl = "";
 let readProvider: JsonRpcProvider | null = null;
 let readThoughtNFT: Contract | null = null;
-let previewRpcProvider: JsonRpcProvider | null = null;
-let previewRpcProviderUrl = "";
-let previewRpcChainCache: { endpoint: string; chainId: number } | null = null;
 let readColorFontV1: Contract | null = null;
 let readThoughtSpecRegistry: Contract | null = null;
 let readPathNft: Contract | null = null;
@@ -2276,31 +2270,6 @@ const writePreviewMode = (mode: PreviewMode) => {
   sessionStorage.setItem(THOUGHT_PREVIEW_MODE_STORAGE_KEY, mode);
 };
 
-const readPreviewRpcEndpoint = () =>
-  sessionStorage.getItem(THOUGHT_PREVIEW_RPC_ENDPOINT_STORAGE_KEY)?.trim() ?? "";
-
-const writePreviewRpcEndpoint = (endpoint: string) => {
-  sessionStorage.setItem(THOUGHT_PREVIEW_RPC_ENDPOINT_STORAGE_KEY, endpoint);
-  previewRpcProvider = null;
-  previewRpcProviderUrl = "";
-  previewRpcChainCache = null;
-};
-
-const clearPreviewRpcEndpoint = () => {
-  sessionStorage.removeItem(THOUGHT_PREVIEW_RPC_ENDPOINT_STORAGE_KEY);
-  previewRpcProvider = null;
-  previewRpcProviderUrl = "";
-  previewRpcChainCache = null;
-};
-
-const normalizePreviewRpcEndpoint = (endpoint: string) => {
-  const parsed = new URL(endpoint.trim());
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw new Error("use an http(s) RPC endpoint.");
-  }
-  return parsed.toString();
-};
-
 const previewWorkViaAllowedProvider = async (
   token: Contract,
   rawReturn: string,
@@ -2409,41 +2378,6 @@ const createThoughtPreviewEndpointProvider = (): ThoughtPreviewProvider | null =
   };
 };
 
-const getConfiguredPreviewRpcProvider = async () => {
-  const endpoint = readPreviewRpcEndpoint();
-  if (!endpoint || !THOUGHT_NFT_ADDRESS) {
-    return null;
-  }
-
-  if (!previewRpcProvider || previewRpcProviderUrl !== endpoint) {
-    previewRpcProvider = createSingleRequestJsonRpcProvider(endpoint);
-    previewRpcProviderUrl = endpoint;
-    previewRpcChainCache = null;
-  }
-
-  let chainId = previewRpcChainCache?.endpoint === endpoint ? previewRpcChainCache.chainId : null;
-  if (chainId === null) {
-    const network = await withTimeout(
-      previewRpcProvider.getNetwork(),
-      THOUGHT_PREVIEW_TIMEOUT_MS,
-      "preview RPC chain check timed out.",
-    );
-    chainId = Number(network.chainId);
-    previewRpcChainCache = { endpoint, chainId };
-  }
-
-  if (chainId !== THOUGHT_CHAIN_ID) {
-    throw new Error(`preview RPC chain mismatch. expected ${THOUGHT_CHAIN_ID}, got ${chainId}.`);
-  }
-
-  return createThoughtPreviewProvider(
-    "readonly-rpc",
-    previewRpcProvider,
-    chainId,
-    maskRpcEndpoint(endpoint),
-  );
-};
-
 const walletPreviewUnavailableReason = () => {
   if (!walletState.address) {
     return "wallet not connected.";
@@ -2473,20 +2407,6 @@ const selectThoughtPreviewProvider = async () => {
       : { provider: null, reason: walletPreviewUnavailableReason() };
   }
 
-  if (mode === "rpc") {
-    try {
-      const rpcProvider = await getConfiguredPreviewRpcProvider();
-      return rpcProvider
-        ? { provider: rpcProvider, reason: "" }
-        : { provider: null, reason: "preview RPC not configured." };
-    } catch (error) {
-      return {
-        provider: null,
-        reason: error instanceof Error ? error.message : "preview RPC unavailable.",
-      };
-    }
-  }
-
   const walletProvider = createWalletPreviewProvider();
   if (walletProvider) {
     return { provider: walletProvider, reason: "" };
@@ -2495,18 +2415,6 @@ const selectThoughtPreviewProvider = async () => {
   const endpointProvider = createThoughtPreviewEndpointProvider();
   if (endpointProvider) {
     return { provider: endpointProvider, reason: "" };
-  }
-
-  try {
-    const rpcProvider = await getConfiguredPreviewRpcProvider();
-    if (rpcProvider) {
-      return { provider: rpcProvider, reason: "" };
-    }
-  } catch (error) {
-    return {
-      provider: null,
-      reason: error instanceof Error ? error.message : "preview RPC unavailable.",
-    };
   }
 
   return {
@@ -8498,23 +8406,6 @@ const appendCliEntry = (
 
 const THOUGHT_CLI_SECRET_REDACTION_RULES: SurfaceRedactionRule[] = [
   {
-    id: "preview-rpc-endpoint",
-    match: (input) => {
-      if (!isPreviewRpcEndpointCommand(input)) {
-        return null;
-      }
-      const parts = input.split(/\s+/);
-      const endpoint = parts.slice(parts[0]?.toLowerCase() === "config" ? 3 : 2).join(" ");
-      const prefix = parts[0]?.toLowerCase() === "config" ? "config rpc endpoint" : "rpc endpoint";
-      return {
-        prefix,
-        rest: endpoint,
-        replacement: endpoint.trim() ? `${prefix} ${maskRpcEndpoint(endpoint)}` : input,
-        excludeFromHistory: true,
-      };
-    },
-  },
-  {
     id: "direct-key",
     tokens: ["key"],
     allowRestValues: ["clear", "help"],
@@ -8532,10 +8423,6 @@ const THOUGHT_CLI_SECRET_REDACTION_RULES: SurfaceRedactionRule[] = [
 ];
 
 const displayCliCommand = (command: string) => {
-  if (isPreviewRpcEndpointCommand(command)) {
-    return redactSurfaceInput(command, THOUGHT_CLI_SECRET_REDACTION_RULES);
-  }
-
   return redactSurfaceInput(command, THOUGHT_CLI_SECRET_REDACTION_RULES);
 };
 
@@ -8650,12 +8537,8 @@ const cliCompletionCommandCatalog = () => {
     "config direct key clear",
     "config direct model list",
     "config direct model ",
-    "config rpc status",
-    "config rpc endpoint ",
-    "config rpc clear",
     "config preview auto",
     "config preview wallet",
-    "config preview rpc",
     "config preview off",
     "config my-brain",
     "prompt ",
@@ -9122,7 +9005,6 @@ const getCliSuggestions = (): CliSuggestion[] => {
   if (runState === "candidate_ready") {
     return [
       { label: "preview retry", command: "preview retry" },
-      { label: "config rpc", command: "config rpc status" },
       { label: "wallet connect", command: "wallet connect" },
       { label: "rerun", command: "rerun" },
     ];
@@ -9588,11 +9470,6 @@ const cliCurrentWorkState = () => {
   return `#${work.id} "${formatModelLabel(work.text || work.title, 48)}"`;
 };
 
-const cliPreviewRpcState = () => {
-  const endpoint = readPreviewRpcEndpoint();
-  return endpoint ? `configured ${maskRpcEndpoint(endpoint)}` : "not configured";
-};
-
 const cliPreviewEndpointState = () =>
   THOUGHT_PREVIEW_ENDPOINT_ENABLED
     ? `enabled ${THOUGHT_PREVIEW_ENDPOINT_URL}`
@@ -9601,7 +9478,7 @@ const cliPreviewEndpointState = () =>
 const cliPreviewProviderState = () => {
   const activeTrace = currentRunContext?.previewProvider ?? currentCandidate?.previewProvider;
   if (activeTrace) {
-    return activeTrace.kind === "readonly-rpc" || activeTrace.kind === "preview-endpoint"
+    return activeTrace.kind === "preview-endpoint"
       ? `${activeTrace.kind} ${activeTrace.endpointLabel ?? ""}`.trim()
       : activeTrace.kind;
   }
@@ -9618,7 +9495,7 @@ const cliPreviewProviderState = () => {
     return `preview-endpoint ${THOUGHT_PREVIEW_ENDPOINT_URL}`;
   }
 
-  return readPreviewRpcEndpoint() ? "readonly-rpc" : "none";
+  return "none";
 };
 
 const cliCurrentCandidateState = () => {
@@ -9674,7 +9551,6 @@ const buildCliCurrentLines = () => {
     `preview mode: ${readPreviewMode()}`,
     `preview provider: ${cliPreviewProviderState()}`,
     `preview endpoint: ${cliPreviewEndpointState()}`,
-    `preview RPC: ${cliPreviewRpcState()}`,
     `work: ${cliCurrentWorkState()}`,
     `candidate: ${cliCurrentCandidateState()}`,
     `preview: ${
@@ -9959,10 +9835,7 @@ const outputCliConfigSummary = () => {
     "config connect",
     "config direct",
     "config my-brain",
-    "config preview auto|wallet|rpc|off",
-    "config rpc status",
-    "config rpc endpoint <url>",
-    "config rpc clear",
+    "config preview auto|wallet|off",
   ];
 
   appendCliOutput(lines);
@@ -9976,12 +9849,10 @@ const outputCliPreviewConfig = (previewInput: string) => {
       `mode: ${readPreviewMode()}`,
       `provider: ${cliPreviewProviderState()}`,
       `endpoint: ${cliPreviewEndpointState()}`,
-      `rpc: ${cliPreviewRpcState()}`,
       "",
       "use:",
       "config preview auto",
       "config preview wallet",
-      "config preview rpc",
       "config preview off",
     ]);
     return;
@@ -9990,72 +9861,10 @@ const outputCliPreviewConfig = (previewInput: string) => {
   writePreviewMode(mode);
   appendCliOutput([
     `preview mode: ${mode}`,
-    mode === "rpc" && !readPreviewRpcEndpoint() ? "preview RPC not configured." : `provider: ${cliPreviewProviderState()}`,
+    `provider: ${cliPreviewProviderState()}`,
     `endpoint: ${cliPreviewEndpointState()}`,
     "use: run",
   ]);
-};
-
-const outputCliRpcConfig = (rpcInput: string) => {
-  const [head = ""] = rpcInput.trim().split(/\s+/, 1);
-  const rest = rpcInput.trim().slice(head.length).trim();
-  const lowerHead = head.toLowerCase();
-
-  if (!lowerHead || lowerHead === "help" || lowerHead === "status") {
-    appendCliOutput([
-      "preview RPC is read-only, session-only, and only used as a fallback/operator override.",
-      `mode: ${readPreviewMode()}`,
-      `preview endpoint: ${cliPreviewEndpointState()}`,
-      `endpoint: ${cliPreviewRpcState()}`,
-      `target: ${THOUGHT_NFT_ADDRESS || "unavailable"}`,
-      `chain: ${THOUGHT_CHAIN_NAME} (${THOUGHT_CHAIN_ID})`,
-      "methods: previewWork",
-      "",
-      "use:",
-      "config rpc endpoint <url>",
-      "config rpc clear",
-      "config preview rpc",
-    ]);
-    return;
-  }
-
-  if (lowerHead === "endpoint") {
-    if (!rest || rest.toLowerCase() === "help") {
-      appendCliOutput([
-        `endpoint: ${cliPreviewRpcState()}`,
-        "use: config rpc endpoint <url>",
-        "storage: session only",
-      ]);
-      return;
-    }
-
-    try {
-      const endpoint = normalizePreviewRpcEndpoint(rest);
-      writePreviewRpcEndpoint(endpoint);
-      appendCliOutput([
-        "preview RPC set.",
-        `endpoint: ${maskRpcEndpoint(endpoint)}`,
-        "storage: session only",
-        "use: config preview rpc",
-        "use: preview retry",
-      ]);
-    } catch (error) {
-      appendCliError([
-        "preview RPC invalid.",
-        error instanceof Error ? error.message : "use an http(s) endpoint.",
-        "use: config rpc endpoint <url>",
-      ]);
-    }
-    return;
-  }
-
-  if (lowerHead === "clear") {
-    clearPreviewRpcEndpoint();
-    appendCliOutput(["preview RPC cleared.", "use: config rpc endpoint <url>"]);
-    return;
-  }
-
-  appendCliError(["rpc config option not found.", "use: config rpc status"]);
 };
 
 const startOpenRouterConnectFromCli = async () => {
@@ -10315,11 +10124,6 @@ const outputCliConfig = async (configInput: string) => {
 
   if (lowerHead === "preview") {
     outputCliPreviewConfig(rest);
-    return;
-  }
-
-  if (lowerHead === "rpc") {
-    outputCliRpcConfig(rest);
     return;
   }
 
@@ -11712,10 +11516,7 @@ const cliCommandsHelpLines = () => [
   "config direct key clear",
   "config direct model list",
   "config direct model <id>",
-  "config rpc status",
-  "config rpc endpoint <url>",
-  "config rpc clear",
-  "config preview auto|wallet|rpc|off",
+  "config preview auto|wallet|off",
   "",
   "prompt <text>",
   "prompt clear",
@@ -11874,8 +11675,7 @@ const cliHelpLines = (topic = "") => {
       "config connect",
       "config direct",
       "config my-brain",
-      "config preview auto|wallet|rpc|off",
-      "config rpc status",
+      "config preview auto|wallet|off",
       "config local model list",
       "config connect model list",
       "config direct model list",
@@ -11894,12 +11694,10 @@ const cliHelpLines = (topic = "") => {
       `mode: ${readPreviewMode()}`,
       `provider: ${cliPreviewProviderState()}`,
       `endpoint: ${cliPreviewEndpointState()}`,
-      `rpc: ${cliPreviewRpcState()}`,
       "",
       "use:",
       "preview retry",
-      "config preview auto|wallet|rpc|off",
-      "config rpc endpoint <url>",
+      "config preview auto|wallet|off",
     ];
   }
 
@@ -12239,9 +12037,6 @@ const executeCliCommand = async (rawCommand: string) => {
     } else if (lowerHead === "config") {
       await outputCliConfig(rest);
       cliSuggestionContext = "config";
-    } else if (lowerHead === "rpc") {
-      outputCliRpcConfig(rest);
-      cliSuggestionContext = "config";
     } else if (lowerHead === "mode") {
       if (!lowerRest || lowerRest === "help") {
         await outputCliMode("");
@@ -12311,7 +12106,7 @@ const executeCliCommand = async (rawCommand: string) => {
           `endpoint: ${cliPreviewEndpointState()}`,
           "",
           "use: preview retry",
-          "use: config preview auto|wallet|rpc|off",
+          "use: config preview auto|wallet|off",
         ]);
       }
     } else if (lowerHead === "run" || lowerHead === "rerun" || command.toLowerCase() === "retry run") {

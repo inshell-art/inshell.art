@@ -683,7 +683,7 @@ describe("App Component", () => {
       expect.stringContaining("will-fill"),
     );
     const lifecycle = within(screen.getByLabelText("$PATH #4 lifecycle"));
-    expect(lifecycle.getByText("This $PATH has started its movement lifecycle.")).toBeInTheDocument();
+    expect(lifecycle.queryByText(/This \$PATH/)).toBeNull();
     expect(lifecycle.getByText("units")).toBeInTheDocument();
     expect(lifecycle.getByText(/owner\s+0x1111\.\.\.0000/)).toBeInTheDocument();
     expect(lifecycle.getByText("stage")).toBeInTheDocument();
@@ -751,7 +751,7 @@ describe("App Component", () => {
     render(<App />);
 
     const lifecycle = within(screen.getByLabelText("$PATH #1 lifecycle"));
-    expect(lifecycle.getByText("This $PATH is ready to move through THOUGHT, WILL, and AWA.")).toBeInTheDocument();
+    expect(lifecycle.queryByText(/This \$PATH/)).toBeNull();
     expect(lifecycle.getByText(/owner\s+0x1111\.\.\.0000/)).toBeInTheDocument();
     expect(lifecycle.getByText("stage")).toBeInTheDocument();
     expect(lifecycle.getByText("0 / 3")).toBeInTheDocument();

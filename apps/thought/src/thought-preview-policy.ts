@@ -1,8 +1,7 @@
-export type PreviewMode = "auto" | "wallet" | "rpc" | "off";
-export type PreviewProviderKind = "wallet" | "preview-endpoint" | "readonly-rpc" | "none";
+export type PreviewMode = "auto" | "wallet" | "off";
+export type PreviewProviderKind = "wallet" | "preview-endpoint" | "none";
 export type PreviewStatus = "not_attempted" | "unavailable" | "failed" | "accepted";
 
-export const THOUGHT_PREVIEW_RPC_ENDPOINT_STORAGE_KEY = "thought-preview-rpc-endpoint";
 export const THOUGHT_PREVIEW_MODE_STORAGE_KEY = "thought-preview-mode";
 export const THOUGHT_CURRENT_CANDIDATE_STORAGE_KEY = "thought-current-candidate";
 export const THOUGHT_PREVIEW_CACHE_LIMIT = 80;
@@ -28,7 +27,7 @@ const encoder = new TextEncoder();
 
 const byteLength = (value: string) => encoder.encode(value).length;
 
-export const previewModes = ["auto", "wallet", "rpc", "off"] as const;
+export const previewModes = ["auto", "wallet", "off"] as const;
 
 export const isPreviewMode = (value: string): value is PreviewMode =>
   previewModes.includes(value as PreviewMode);
@@ -55,15 +54,6 @@ export const previewUnavailableCliLines = (mode: PreviewMode, reason = "") => {
     ...(reason ? [`reason: ${reason}`] : []),
     "",
   ];
-
-  if (mode === "rpc") {
-    return [
-      ...lines,
-      "read-only preview RPC is an advanced fallback.",
-      "use: config preview auto",
-      "use: config rpc endpoint <url>",
-    ];
-  }
 
   if (mode === "wallet") {
     return [
@@ -158,46 +148,4 @@ export const prevalidateThoughtCandidate = (
     normalized,
     canonical,
   };
-};
-
-export const maskRpcEndpoint = (endpoint: string) => {
-  const trimmed = endpoint.trim();
-  if (!trimmed) {
-    return "";
-  }
-
-  try {
-    const parsed = new URL(trimmed);
-    if (parsed.username || parsed.password) {
-      parsed.username = "***";
-      parsed.password = "";
-    }
-
-    const secretParams = new Set([
-      "access_token",
-      "apikey",
-      "api_key",
-      "auth",
-      "key",
-      "secret",
-      "token",
-    ]);
-    parsed.searchParams.forEach((_, key) => {
-      if (secretParams.has(key.toLowerCase())) {
-        parsed.searchParams.set(key, "***");
-      }
-    });
-    return parsed.toString();
-  } catch {
-    return trimmed.replace(/\/\/([^/@\s]+)@/, "//***@");
-  }
-};
-
-export const isPreviewRpcEndpointCommand = (command: string) => {
-  const parts = command.trim().split(/\s+/);
-  const [head = "", second = "", third = ""] = parts.map((part) => part.toLowerCase());
-  return (
-    head === "rpc" && second === "endpoint" ||
-    head === "config" && second === "rpc" && third === "endpoint"
-  );
 };

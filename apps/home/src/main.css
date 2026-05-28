@@ -1800,15 +1800,6 @@ body {
   letter-spacing: 0.04em;
 }
 
-.path-page-token__note {
-  margin: 8px 0 0;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 300;
-  line-height: 1.55;
-  overflow-wrap: anywhere;
-}
-
 .path-page-token__stage {
   display: flex;
   justify-content: space-between;

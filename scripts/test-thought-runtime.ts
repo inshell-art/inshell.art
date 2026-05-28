@@ -10,8 +10,6 @@ import {
   type ThoughtRunSpec,
 } from "../apps/thought/src/thought-run-payload";
 import {
-  isPreviewRpcEndpointCommand,
-  maskRpcEndpoint,
   normalizePreviewMode,
   prevalidateThoughtCandidate,
   previewUnavailableCliLines,
@@ -104,26 +102,16 @@ assertNoToolPayload(
 );
 
 assert.equal(normalizePreviewMode("wallet"), "wallet");
+assert.equal(normalizePreviewMode("rpc"), "auto");
 assert.equal(normalizePreviewMode("bad"), "auto");
-assert.equal(
-  maskRpcEndpoint("https://user:pass@example.test/rpc?key=abc&safe=1"),
-  "https://***@example.test/rpc?key=***&safe=1",
-);
-assert.equal(isPreviewRpcEndpointCommand("config rpc endpoint https://example.test"), true);
-assert.equal(isPreviewRpcEndpointCommand("rpc endpoint https://example.test"), true);
-assert.equal(isPreviewRpcEndpointCommand("rpc call eth_blockNumber"), false);
 const autoPreviewUnavailableLines = previewUnavailableCliLines("auto", "preview service unavailable.");
 assert(autoPreviewUnavailableLines.includes("preview service unavailable or wallet not connected."));
 assert(autoPreviewUnavailableLines.includes("use: preview retry"));
 assert(autoPreviewUnavailableLines.includes("use: wallet connect"));
 assert(
-  !autoPreviewUnavailableLines.includes("use: config rpc endpoint <url>"),
+  !autoPreviewUnavailableLines.some((line) => line.includes("rpc")),
   "auto preview fallback must not ask normal visitors to configure RPC",
 );
-const rpcPreviewUnavailableLines = previewUnavailableCliLines("rpc", "preview RPC not configured.");
-assert(rpcPreviewUnavailableLines.includes("read-only preview RPC is an advanced fallback."));
-assert(rpcPreviewUnavailableLines.includes("use: config preview auto"));
-assert(rpcPreviewUnavailableLines.includes("use: config rpc endpoint <url>"));
 const walletPreviewUnavailableLines = previewUnavailableCliLines("wallet");
 assert(walletPreviewUnavailableLines.includes("use: wallet connect"));
 assert(walletPreviewUnavailableLines.includes("use: config preview auto"));
