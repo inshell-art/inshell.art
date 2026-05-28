@@ -5,7 +5,7 @@ export const pulseAuctionAbi = parseAbi([
   "function curveActive() view returns (bool)",
   "function getConfig() view returns (uint64 openTime, uint256 genesisPrice, uint256 genesisFloor, uint256 k, uint256 pts)",
   "function getState() view returns (uint64 epochIndex, uint64 startTime, uint64 anchorTime, uint256 floorPrice, bool active)",
-  "function bid(uint256 amount)",
+  "function bid(uint256 maxPrice) payable",
 ]);
 
 export const erc20Abi = parseAbi([

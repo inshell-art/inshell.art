@@ -7,7 +7,9 @@ import {
   beforeEach,
   afterEach,
 } from "@jest/globals";
+import { pulseAuctionAbi } from "@inshell/ethereum";
 import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
+import { encodeFunctionData, getAbiItem } from "viem";
 import React from "react";
 import AuctionCanvas from "../src/components/AuctionCanvas";
 import { mockAuctionCore } from "./testUtils";
@@ -215,6 +217,20 @@ describe("AuctionCanvas", () => {
     delete (window as any).ethereum;
     window.localStorage.removeItem("inshellDebug");
     window.history.pushState({}, "", "/");
+  });
+
+  test("shared PulseAuction ABI keeps bid payable and maxPrice named", () => {
+    const bid = getAbiItem({ abi: pulseAuctionAbi, name: "bid" });
+
+    expect(bid.stateMutability).toBe("payable");
+    expect(bid.inputs[0]?.name).toBe("maxPrice");
+    expect(
+      encodeFunctionData({
+        abi: pulseAuctionAbi,
+        functionName: "bid",
+        args: [1n],
+      }).slice(0, 10),
+    ).toBe("0x454a2ab3");
   });
 
   test("renders mint button and dots", () => {
