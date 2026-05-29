@@ -13,7 +13,7 @@ type FooterLink = {
 
 const INSHELL_GITHUB_URL = "https://github.com/inshell-art/";
 const DEFAULT_TELEGRAM_URL = "https://t.me/inshell_art";
-const DEFAULT_PUBLIC_FEED_RSS_URL = "https://inshell-public-feed.pages.dev/rss.xml";
+const DEFAULT_PUBLIC_FEED_RSS_URL = "https://inshell.art/rss.xml";
 
 function getEnvValue(name: string): unknown {
   const envCache: Record<string, any> | undefined =

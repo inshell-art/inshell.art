@@ -1,1 +1,6 @@
-/* /index.html 200
+/pulse /index.html 200
+/color-font /index.html 200
+/verify /index.html 200
+/path /index.html 200
+/path/:id /index.html 200
+/thought/:id /index.html 200

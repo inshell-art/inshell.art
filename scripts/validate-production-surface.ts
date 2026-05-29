@@ -48,6 +48,23 @@ const THOUGHT_DEV_SCRIPT_SNIPPETS = [
   "--strictPort",
 ] as const;
 
+const REQUIRED_REDIRECTS = {
+  home: [
+    "/pulse /index.html 200",
+    "/color-font /index.html 200",
+    "/verify /index.html 200",
+    "/path /index.html 200",
+    "/path/:id /index.html 200",
+    "/thought/:id /index.html 200",
+  ],
+  thought: [
+    "/gallery /index.html 200",
+    "/thought/:id /index.html 200",
+    "/color-font /index.html 200",
+    "/verify /index.html 200",
+  ],
+} as const;
+
 type JsonValue = null | boolean | number | string | JsonValue[] | {
   [key: string]: JsonValue;
 };
@@ -201,9 +218,19 @@ function checkViteConfig(path: string, expectedPort: number) {
 
 function checkStaticHostingFiles(app: "home" | "thought") {
   requireSnippets(`apps/${app}/public/_headers`, REQUIRED_SECURITY_HEADERS);
-  const redirects = read(`apps/${app}/public/_redirects`).trim();
-  if (redirects !== "/* /index.html 200") {
-    fail(`apps/${app}/public/_redirects must be exactly "/* /index.html 200"`);
+  const redirectsPath = `apps/${app}/public/_redirects`;
+  const redirects = read(redirectsPath)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#"));
+  const loopWarningRules = redirects.filter((line) => /^\/(?:\*|[^\s]*\/\*)\s+\/index\.html\s+200$/.test(line));
+  if (loopWarningRules.length > 0) {
+    fail(`${redirectsPath} must use explicit SPA rewrites, not Wrangler loop-warning wildcards: ${loopWarningRules.join(", ")}`);
+  }
+  for (const rule of REQUIRED_REDIRECTS[app]) {
+    if (!redirects.includes(rule)) {
+      fail(`${redirectsPath} is missing redirect rule "${rule}"`);
+    }
   }
 }
 

@@ -810,7 +810,7 @@ describe("App Component", () => {
     expect(screen.getByLabelText("Open THOUGHT gallery")).toHaveAttribute("target", "_blank");
     expect(screen.getByLabelText("Open Inshell Public Feed RSS")).toHaveAttribute(
       "href",
-      "https://inshell-public-feed.pages.dev/rss.xml",
+      "https://inshell.art/rss.xml",
     );
     expect(screen.getByLabelText("Open Inshell Public Feed RSS")).toHaveAttribute("target", "_blank");
     expect(screen.getByLabelText("Open Inshell Public Feed RSS")).toHaveAttribute("data-label", "rss");

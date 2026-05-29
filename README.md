@@ -135,6 +135,16 @@ source ~/.config/inshell.art/home.env
 set +a
 ```
 
+Operator Cloudflare/RPC/Etherscan secrets live outside the repo. Preferred path:
+
+```bash
+~/.inshell-secrets/inshell-sepolia.env
+```
+
+Keep this file private. The old local path `~/.inshell-secrets/cloudflare-sepolia.env`
+may remain as a symlink for compatibility with older shell snippets, but new notes and
+commands should use `inshell-sepolia.env` because it contains more than Cloudflare keys.
+
 ---
 
 ## 1) Sync into FE (this repo)
