@@ -9,10 +9,12 @@ type FooterLink = {
   external?: boolean;
   tooltip?: string;
   squares?: string;
+  visibleLabel?: string;
 };
 
 const INSHELL_GITHUB_URL = "https://github.com/inshell-art/";
 const DEFAULT_TELEGRAM_URL = "https://t.me/inshell_art";
+const DEFAULT_PUBLIC_FEED_RSS_URL = "https://inshell-public-feed.pages.dev/rss.xml";
 
 function getEnvValue(name: string): unknown {
   const envCache: Record<string, any> | undefined =
@@ -76,6 +78,12 @@ function resolveThoughtGalleryUrl(): string {
   return defaultThoughtGalleryUrl();
 }
 
+function resolvePublicFeedRssUrl(): string {
+  const direct = readEnvUrl(["VITE_PUBLIC_FEED_RSS_URL", "PUBLIC_FEED_RSS_URL"]);
+  if (direct && isHttpsUrl(direct)) return direct;
+  return DEFAULT_PUBLIC_FEED_RSS_URL;
+}
+
 function resolvePublicUrl(
   names: string[],
   kind: "Telegram" | "Discord",
@@ -97,6 +105,7 @@ function resolvePublicUrl(
 
 const Footer: React.FC = () => {
   const thoughtGalleryUrl = useMemo(() => resolveThoughtGalleryUrl(), []);
+  const publicFeedRssUrl = useMemo(() => resolvePublicFeedRssUrl(), []);
   const telegramUrl = useMemo(
     () =>
       resolvePublicUrl(
@@ -116,6 +125,15 @@ const Footer: React.FC = () => {
       ariaLabel: "Open THOUGHT gallery",
       external: true,
       tooltip: "gallery",
+    },
+    {
+      key: "rss",
+      label: "RSS",
+      href: publicFeedRssUrl,
+      ariaLabel: "Open Inshell Public Feed RSS",
+      external: true,
+      tooltip: "Public Feed",
+      visibleLabel: "RSS",
     },
     {
       key: "pulse",
@@ -174,9 +192,11 @@ const Footer: React.FC = () => {
                 rel={link.external === false ? undefined : "noopener noreferrer"}
                 data-label={link.tooltip ?? link.label}
                 aria-label={link.ariaLabel}
-                className={styles.footerLink}
+                className={`${styles.footerLink}${
+                  link.visibleLabel ? ` ${styles.footerTextLink}` : ""
+                }`}
               >
-                {renderSquares(link)}
+                {link.visibleLabel ?? renderSquares(link)}
               </a>
             </li>
           ))}

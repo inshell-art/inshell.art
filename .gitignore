@@ -149,6 +149,13 @@ src/.DS_Store
 .firebase
 .wrangler/
 
+# Public Feed artifacts are owned/deployed by Signal Hub/Public Feed, not this repo.
+/public/rss.xml
+/public/feed.xml
+/public/events.json
+/public/source/
+/public/source-assets/
+
 # Local agent handoff notes; keep out of remote.
 TAKEOVER_CONTEXT.md
 SECRETS_TAKEOVER_CONTEXT.md
