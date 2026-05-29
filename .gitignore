@@ -147,6 +147,7 @@ dist
 src/.DS_Store
 
 .firebase
+.wrangler/
 
 # Local agent handoff notes; keep out of remote.
 TAKEOVER_CONTEXT.md

@@ -4291,14 +4291,14 @@ export default function AuctionCanvas({
       const text =
         effectiveTxPhase === "approve"
           ? `Wallet open: approve ${displayTokenSymbol} (1/2).`
-          : "Wallet open: confirm Pulse bid (2/2).";
+          : "Wallet open: confirm $PATH mint (2/2).";
       return { kind: "info", text };
     }
     if (effectiveTxState === "submitted") {
       const text =
         effectiveTxPhase === "approve"
           ? "Approval submitted (1/2)."
-          : "Pulse bid pending (2/2).";
+          : "$PATH mint pending (2/2).";
       return { kind: "info", text };
     }
     if (effectiveTxState === "failed") {
@@ -5792,10 +5792,10 @@ export default function AuctionCanvas({
           aria-live="polite"
         >
           <div className="dotfield__mint-review-title">
-            Pulse bid
+            $PATH mint
           </div>
           <div className="dotfield__mint-review-subtitle">
-            You are calling PulseAuction.bid(uint256 maxPrice).
+            Review the $PATH mint before opening your wallet.
           </div>
           <div className="dotfield__mint-review-row">
             <span>network</span>
@@ -5811,16 +5811,12 @@ export default function AuctionCanvas({
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  PulseAuction {shortAddr(auctionAddress)}
+                  {shortAddr(auctionAddress)} ↗
                 </a>
               ) : (
-                <>PulseAuction {shortAddr(auctionAddress)}</>
+                <>{shortAddr(auctionAddress)}</>
               )}
             </strong>
-          </div>
-          <div className="dotfield__mint-review-row">
-            <span>decoded call</span>
-            <strong>bid(uint256 maxPrice)</strong>
           </div>
           <div className="dotfield__mint-review-row">
             <span>current ask</span>
@@ -5838,18 +5834,6 @@ export default function AuctionCanvas({
             <span>network gas</span>
             <strong>shown in wallet</strong>
           </div>
-          <div className="dotfield__mint-review-warning">
-            Some wallets may show this as raw transaction data. Verify the decoded fields before signing.
-          </div>
-          <div className="dotfield__mint-review-rule">
-            If the ask is higher than maxPrice at execution, the bid reverts.
-          </div>
-          <div className="dotfield__mint-review-rule">
-            If the accepted ask is below ETH sent, surplus is refunded by the contract.
-          </div>
-          <div className="dotfield__mint-review-rule">
-            A successful bid settles through PathPulseAdapter and mints PATH to your wallet.
-          </div>
           <div className="dotfield__mint-review-note">
             {mintReview.requiresApproval
               ? (
@@ -5858,14 +5842,12 @@ export default function AuctionCanvas({
                   <br />
                   wallet step 1 approves {mintReview.symbol}.
                   <br />
-                  wallet step 2 submits Pulse bid.
+                  wallet step 2 mints $PATH.
                 </>
               )
               : (
                 <>
                   wallet opens next.
-                  <br />
-                  local decode must match before the wallet opens.
                 </>
               )}
             <br />
