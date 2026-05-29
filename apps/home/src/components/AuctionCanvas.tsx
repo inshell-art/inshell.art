@@ -4071,8 +4071,8 @@ export default function AuctionCanvas({
       showToast({
         kind: "warn",
         text: copied
-          ? "Copied Sepolia RPC. Edit MetaMask network, then retry."
-          : "Edit MetaMask Sepolia RPC, then retry.",
+          ? "Copied RPC. Select Sepolia, update RPC, retry."
+          : "Select Sepolia, update RPC, retry.",
       });
       return;
     }
@@ -4326,7 +4326,9 @@ export default function AuctionCanvas({
       if (isWalletRpcBusyMessage(msg)) {
         return {
           kind: "error",
-          text: isMetaMaskWallet ? "MetaMask RPC busy." : "Wallet RPC busy.",
+          text: isMetaMaskWallet
+            ? "MetaMask RPC busy. Select Sepolia or update RPC."
+            : "Wallet RPC busy.",
           reportState: "wallet_rpc_busy",
           reportError: msg,
         };

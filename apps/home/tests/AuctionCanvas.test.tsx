@@ -2954,7 +2954,9 @@ describe("AuctionCanvas", () => {
       render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
       await clickMintThenSign();
       await waitFor(() => {
-        expect(screen.getByText(/MetaMask RPC busy\./i)).toBeTruthy();
+        expect(
+          screen.getByText(/MetaMask RPC busy\. Select Sepolia or update RPC\./i)
+        ).toBeTruthy();
       });
       expect(screen.queryByText(/RPC read failed/i)).toBeNull();
       expect(screen.getByText(/\[\s*retry\s*\]/i)).toBeTruthy();
@@ -2979,7 +2981,7 @@ describe("AuctionCanvas", () => {
       expect(request).toHaveBeenCalledTimes(requestCountBeforeCopy);
       expect(writeText).toHaveBeenCalledWith("https://ethereum-sepolia-rpc.publicnode.com");
       expect(
-        screen.getByText(/Copied Sepolia RPC\. Edit MetaMask network, then retry\./i)
+        screen.getByText(/Copied RPC\. Select Sepolia, update RPC, retry\./i)
       ).toBeTruthy();
       expect(errorSpy).toHaveBeenCalledWith("mint failed", expect.anything());
     } finally {
