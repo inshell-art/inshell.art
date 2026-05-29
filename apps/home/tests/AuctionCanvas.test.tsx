@@ -2910,6 +2910,12 @@ describe("AuctionCanvas", () => {
   test("shows MetaMask RPC fix action after MetaMask send throttle", async () => {
     const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     const request = jest.fn().mockResolvedValue(null);
+    const writeText = jest.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, {
+      clipboard: {
+        writeText,
+      },
+    });
     (globalThis as any).__VITE_ENV__ = {
       ...(globalThis as any).__VITE_ENV__,
       VITE_ETH_RPC: "/api/path-rpc",
@@ -2964,11 +2970,17 @@ describe("AuctionCanvas", () => {
       const report = screen.getByRole("link", { name: "Report a Sepolia bug" });
       const url = new window.URL(report.getAttribute("href") ?? "");
       expect(url.searchParams.get("body")).toContain("state: wallet_rpc_busy");
+      const requestCountBeforeCopy = request.mock.calls.length;
       await act(async () => {
-        fireEvent.click(screen.getByRole("button", { name: "Fix MetaMask Sepolia RPC" }));
+        fireEvent.click(
+          screen.getByRole("button", { name: "Fix MetaMask Sepolia RPC" })
+        );
       });
-      expect(request.mock.calls.length).toBeGreaterThanOrEqual(3);
-      expect(screen.getByText(/MetaMask Sepolia RPC refreshed\. Retry\./i)).toBeTruthy();
+      expect(request).toHaveBeenCalledTimes(requestCountBeforeCopy);
+      expect(writeText).toHaveBeenCalledWith("https://ethereum-sepolia-rpc.publicnode.com");
+      expect(
+        screen.getByText(/Copied Sepolia RPC\. Edit MetaMask network, then retry\./i)
+      ).toBeTruthy();
       expect(errorSpy).toHaveBeenCalledWith("mint failed", expect.anything());
     } finally {
       errorSpy.mockRestore();

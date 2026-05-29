@@ -4057,6 +4057,25 @@ export default function AuctionCanvas({
   };
 
   const handleFixWalletRpc = async () => {
+    if (isMetaMaskWallet) {
+      const rpcUrl =
+        resolveAddChainParams(targetChainIdHex)?.rpcUrls?.[0] ??
+        "https://ethereum-sepolia-rpc.publicnode.com";
+      let copied = false;
+      try {
+        await navigator.clipboard?.writeText(rpcUrl);
+        copied = true;
+      } catch {
+        copied = false;
+      }
+      showToast({
+        kind: "warn",
+        text: copied
+          ? "Copied Sepolia RPC. Edit MetaMask network, then retry."
+          : "Edit MetaMask Sepolia RPC, then retry.",
+      });
+      return;
+    }
     const ok = await refreshWalletChainRpc(targetChainIdHex, evm.provider);
     showToast({
       kind: ok ? "info" : "warn",
@@ -5745,7 +5764,7 @@ export default function AuctionCanvas({
                   : "Fix wallet Sepolia RPC"
               }
             >
-              fix rpc ↗
+              {isMetaMaskWallet ? "copy rpc" : "fix rpc ↗"}
             </button>
           </>
         )}
