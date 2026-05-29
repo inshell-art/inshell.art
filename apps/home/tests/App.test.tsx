@@ -782,18 +782,18 @@ describe("App Component", () => {
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
   });
 
-  test("footer links gallery, RSS, Pulse, color-font, Telegram, X, and GitHub", () => {
+  test("footer links gallery, Pulse, color-font, Telegram, X, GitHub, and RSS", () => {
     render(<App />);
 
     const footerLinks = screen.getByLabelText("Project links").querySelectorAll("a");
     expect(Array.from(footerLinks).map((link) => link.getAttribute("aria-label"))).toEqual([
       "Open THOUGHT gallery",
-      "Open Inshell Public Feed RSS",
       "Open Pulse",
       "Open color-font primitive page",
       "Open Telegram announcements channel",
       "Open X",
       "Open GitHub",
+      "Open Inshell Public Feed RSS",
     ]);
     expect(screen.getByLabelText("Open Pulse")).toHaveAttribute("href", "/pulse");
     expect(screen.getByLabelText("Open Pulse")).toHaveAttribute("target", "_blank");
@@ -813,7 +813,8 @@ describe("App Component", () => {
       "https://inshell-public-feed.pages.dev/rss.xml",
     );
     expect(screen.getByLabelText("Open Inshell Public Feed RSS")).toHaveAttribute("target", "_blank");
-    expect(screen.getByLabelText("Open Inshell Public Feed RSS")).toHaveTextContent("RSS");
+    expect(screen.getByLabelText("Open Inshell Public Feed RSS")).toHaveAttribute("data-label", "rss");
+    expect(screen.getByLabelText("Open Inshell Public Feed RSS")).toHaveTextContent("■■■");
     expect(screen.getByLabelText("Open Telegram announcements channel")).toHaveAttribute(
       "href",
       "https://t.me/inshell_art",

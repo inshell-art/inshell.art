@@ -35,18 +35,9 @@
   position: relative;
 }
 
-.footerItem a.footerTextLink {
-  color: var(--muted);
-  letter-spacing: 0;
-}
-
 .footerItem a:hover {
   text-decoration: none;
   color: rgba(0, 0, 0, 0.18);
-}
-
-.footerItem a.footerTextLink:hover {
-  color: var(--text);
 }
 
 .footerItem a::after {
@@ -88,13 +79,7 @@
   .footerItem a {
     color: rgba(255, 255, 255, 0.1);
   }
-  .footerItem a.footerTextLink {
-    color: var(--muted);
-  }
   .footerItem a:hover {
     color: rgba(255, 255, 255, 0.25);
-  }
-  .footerItem a.footerTextLink:hover {
-    color: var(--text);
   }
 }

@@ -9,7 +9,6 @@ type FooterLink = {
   external?: boolean;
   tooltip?: string;
   squares?: string;
-  visibleLabel?: string;
 };
 
 const INSHELL_GITHUB_URL = "https://github.com/inshell-art/";
@@ -127,15 +126,6 @@ const Footer: React.FC = () => {
       tooltip: "gallery",
     },
     {
-      key: "rss",
-      label: "RSS",
-      href: publicFeedRssUrl,
-      ariaLabel: "Open Inshell Public Feed RSS",
-      external: true,
-      tooltip: "Public Feed",
-      visibleLabel: "RSS",
-    },
-    {
       key: "pulse",
       label: "pulse",
       href: "/pulse",
@@ -178,6 +168,15 @@ const Footer: React.FC = () => {
       ariaLabel: "Open GitHub",
       external: true,
     },
+    {
+      key: "rss",
+      label: "rss",
+      href: publicFeedRssUrl,
+      ariaLabel: "Open Inshell Public Feed RSS",
+      external: true,
+      tooltip: "rss",
+      squares: "■■■",
+    },
   ];
 
   return (
@@ -192,11 +191,9 @@ const Footer: React.FC = () => {
                 rel={link.external === false ? undefined : "noopener noreferrer"}
                 data-label={link.tooltip ?? link.label}
                 aria-label={link.ariaLabel}
-                className={`${styles.footerLink}${
-                  link.visibleLabel ? ` ${styles.footerTextLink}` : ""
-                }`}
+                className={styles.footerLink}
               >
-                {link.visibleLabel ?? renderSquares(link)}
+                {renderSquares(link)}
               </a>
             </li>
           ))}
