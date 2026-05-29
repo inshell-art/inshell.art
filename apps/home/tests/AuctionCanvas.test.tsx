@@ -2907,6 +2907,115 @@ describe("AuctionCanvas", () => {
     }
   });
 
+  test("shows wallet RPC busy after MetaMask send throttle", async () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const request = jest.fn().mockResolvedValue(null);
+    (globalThis as any).__VITE_ENV__ = {
+      ...(globalThis as any).__VITE_ENV__,
+      VITE_ETH_RPC: "/api/path-rpc",
+      VITE_WALLET_CHAIN_RPC_URL: "",
+      VITE_PUBLIC_LAUNCH_MODE: "sepolia_invite",
+      VITE_REPORT_BUG_URL: "https://github.com/inshell-art/inshell.art/issues/new",
+      VITE_DEBUG_PANEL: "off",
+    };
+    const execute = jest.fn().mockRejectedValue(
+      new Error(
+        "RPC endpoint returned too many errors, retrying in 0.14 minutes. Consider using a different RPC endpoint."
+      )
+    );
+    mockWalletState = createWalletState({
+      account: { execute },
+      evm: {
+        provider: { request },
+        providerName: "MetaMask",
+      },
+    });
+    mockCallContract.mockReset();
+    mockCallContract.mockImplementation(async (args: any) => {
+      if (args?.entrypoint === "get_current_price") {
+        return { price: { low: "100", high: "0" } } as any;
+      }
+      if (args?.entrypoint === "balance_of") {
+        return { balance: { low: "200", high: "0" } } as any;
+      }
+      if (args?.entrypoint === "allowance") {
+        return { remaining: { low: "200", high: "0" } } as any;
+      }
+      return { result: [] } as any;
+    });
+
+    try {
+      render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+      await clickMintThenSign();
+      await waitFor(() => {
+        expect(screen.getByText(/Wallet RPC busy\. Retry\./i)).toBeTruthy();
+      });
+      expect(screen.queryByText(/RPC read failed/i)).toBeNull();
+      expect(screen.getByText(/\[\s*retry\s*\]/i)).toBeTruthy();
+      expect(request).toHaveBeenCalledWith({
+        method: "wallet_addEthereumChain",
+        params: [
+          expect.objectContaining({
+            chainId: "0xaa36a7",
+            rpcUrls: ["https://ethereum-sepolia-rpc.publicnode.com"],
+          }),
+        ],
+      });
+      const report = screen.getByRole("link", { name: "Report a Sepolia bug" });
+      const url = new window.URL(report.getAttribute("href") ?? "");
+      expect(url.searchParams.get("body")).toContain("state: wallet_rpc_busy");
+      expect(errorSpy).toHaveBeenCalledWith("mint failed", expect.anything());
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  test("keeps bid submitted when confirmation wait hits transient RPC throttle", async () => {
+    jest.useFakeTimers();
+    const execute = jest
+      .fn()
+      .mockResolvedValue({ transaction_hash: "0xwaitfail" });
+    const waitForTransaction = jest.fn().mockRejectedValue(
+      new Error(
+        "RPC endpoint returned too many errors, retrying in 0.14 minutes. Consider using a different RPC endpoint."
+      )
+    );
+    mockWalletState = createWalletState({
+      account: { execute, waitForTransaction },
+    });
+    mockCallContract.mockReset();
+    mockCallContract.mockImplementation(async (args: any) => {
+      if (args?.entrypoint === "get_current_price") {
+        return { price: { low: "100", high: "0" } } as any;
+      }
+      if (args?.entrypoint === "balance_of") {
+        return { balance: { low: "200", high: "0" } } as any;
+      }
+      if (args?.entrypoint === "allowance") {
+        return { remaining: { low: "200", high: "0" } } as any;
+      }
+      return { result: [] } as any;
+    });
+
+    try {
+      render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+      await clickMintThenSign();
+      await waitFor(() => {
+        expect(waitForTransaction).toHaveBeenCalledWith("0xwaitfail");
+      });
+      expect(
+        screen.getByText(/Submitted\. Confirmation check delayed\./i)
+      ).toBeTruthy();
+      expect(screen.queryByText(/RPC read failed/i)).toBeNull();
+      expect(screen.queryByText(/\[\s*retry\s*\]/i)).toBeNull();
+    } finally {
+      act(() => {
+        jest.runOnlyPendingTimers();
+      });
+      jest.useRealTimers();
+    }
+  });
+
   test("shows rpc read failed notice after invalid block id", async () => {
     const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     const execute = jest.fn().mockRejectedValue(new Error("Invalid block id"));

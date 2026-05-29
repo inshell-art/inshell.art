@@ -104,6 +104,12 @@ function isWalletReadOnlyRpcMessage(message: string): boolean {
   return lower.includes("eth_sendrawtransaction") || lower.includes("rpc method is not allowed");
 }
 
+function isWalletRpcBusyMessage(message: string): boolean {
+  return /rpc endpoint returned too many errors|too many errors|too many requests|rate limit|429|502|503|504/i.test(
+    message
+  );
+}
+
 type PreflightResult = {
   ask: U256Num;
   balance: U256Num;
@@ -4071,6 +4077,27 @@ export default function AuctionCanvas({
     await handleMint();
   };
 
+  const trackSubmittedBid = (hash: string) => {
+    if (!walletAddress) return;
+    clearPathTokenInventoryCache();
+    setCurrentAskQuoteDec(null);
+    postMintNowTipPendingRef.current = true;
+    postMintNowTipBaseCurveKeyRef.current = initialAskTipCurveKeyRef.current;
+    void pullBidsOnce();
+    void refreshCore();
+    window.setTimeout(() => void pullBidsOnce(), 2_000);
+    window.setTimeout(() => void pullBidsOnce(), 6_000);
+    window.setTimeout(() => void refreshCore(), 2_000);
+    if (pathMintIntent) {
+      setReturnPromptVisible(true);
+    }
+    setPendingMint({
+      txHash: hash,
+      address: walletAddress,
+      baselineTokenId: maxTokenId ?? null,
+    });
+  };
+
   const runTx = async (
     phase: TxPhase,
     call: () => Promise<any>
@@ -4102,31 +4129,31 @@ export default function AuctionCanvas({
         (account as any)?.waitForTransaction ??
         (waitProvider as any)?.waitForTransaction;
       if (typeof waiter === "function") {
-        await waiter.call(account ?? waitProvider, hash);
+        try {
+          await waiter.call(account ?? waitProvider, hash);
+        } catch (waitErr) {
+          if (phase === "bid" && isTransientRpcError(waitErr)) {
+            trackSubmittedBid(hash);
+            showToast({
+              kind: "warn",
+              text: "Submitted. Confirmation check delayed.",
+            });
+            txIdleTimerRef.current = window.setTimeout(() => {
+              setTxState("idle");
+              txIdleTimerRef.current = null;
+            }, 15_000);
+            return true;
+          }
+          throw waitErr;
+        }
       }
       setTxState("confirmed");
       showToast({
         kind: "info",
         text: phase === "bid" ? "Settlement confirmed. Loading sale event." : "Confirmed.",
       });
-      if (phase === "bid" && walletAddress) {
-        clearPathTokenInventoryCache();
-        setCurrentAskQuoteDec(null);
-        postMintNowTipPendingRef.current = true;
-        postMintNowTipBaseCurveKeyRef.current = initialAskTipCurveKeyRef.current;
-        void pullBidsOnce();
-        void refreshCore();
-        window.setTimeout(() => void pullBidsOnce(), 2_000);
-        window.setTimeout(() => void pullBidsOnce(), 6_000);
-        window.setTimeout(() => void refreshCore(), 2_000);
-        if (pathMintIntent) {
-          setReturnPromptVisible(true);
-        }
-        setPendingMint({
-          txHash: hash,
-          address: walletAddress,
-          baselineTokenId: maxTokenId ?? null,
-        });
+      if (phase === "bid") {
+        trackSubmittedBid(hash);
       }
       txIdleTimerRef.current = window.setTimeout(() => {
         setTxState("idle");
@@ -4143,7 +4170,7 @@ export default function AuctionCanvas({
       if (lower.includes("invalid block id") || lower.includes("u256_sub overflow")) {
         void runPreflight();
       }
-      if (isWalletReadOnlyRpcMessage(rawMsg)) {
+      if (isWalletReadOnlyRpcMessage(rawMsg) || isWalletRpcBusyMessage(rawMsg)) {
         void refreshWalletChainRpc(targetChainIdHex, evm.provider);
       }
       if (!walletCancelled) {
@@ -4265,6 +4292,14 @@ export default function AuctionCanvas({
       }
       if (isWalletCancellationMessage(msg)) {
         return { kind: "warn", text: "Wallet request cancelled." };
+      }
+      if (isWalletRpcBusyMessage(msg)) {
+        return {
+          kind: "error",
+          text: "Wallet RPC busy. Retry.",
+          reportState: "wallet_rpc_busy",
+          reportError: msg,
+        };
       }
       if (lower.includes("failed to fetch") || lower.includes("network error")) {
         return {
