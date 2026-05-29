@@ -2140,6 +2140,45 @@ describe("AuctionCanvas", () => {
     expect(calls.every((call) => call.blockId === "latest")).toBe(true);
   });
 
+  test("preflight falls back to connected wallet provider after project RPC throttle", async () => {
+    const fallbackCallContract = jest.fn(async (args: any) => {
+      if (args?.entrypoint === "get_current_price") {
+        return { price: { low: "10", high: "0" } } as any;
+      }
+      if (args?.entrypoint === "balance_of") {
+        return { balance: { low: "1000", high: "0" } } as any;
+      }
+      if (args?.entrypoint === "allowance") {
+        return { remaining: { low: "1000", high: "0" } } as any;
+      }
+      return { result: [] } as any;
+    });
+    mockWalletState = createWalletState({
+      account: {},
+      evm: {
+        provider: {
+          request: jest.fn(),
+          callContract: fallbackCallContract,
+        },
+        providerName: "MetaMask",
+      },
+    });
+    mockCallContract.mockReset();
+    mockCallContract.mockRejectedValue(
+      new Error(
+        "RPC endpoint returned too many errors, retrying in 0.14 minutes. Consider using a different RPC endpoint."
+      )
+    );
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+
+    await waitFor(() => {
+      expect(mockCallContract).toHaveBeenCalledTimes(1);
+      expect(fallbackCallContract).toHaveBeenCalledTimes(3);
+      expect(screen.queryByText(/RPC read failed/i)).toBeNull();
+    });
+  });
+
   test("preflight resets on disconnect", async () => {
     mockWalletState = createWalletState({
       account: {},

@@ -760,7 +760,7 @@ function isNativePaymentToken(paymentToken?: string): boolean {
 
 function isTransientRpcError(err: unknown): boolean {
   const msg = String((err as any)?.message ?? err ?? "");
-  return /insufficient_resources|empty response|invalid json|rpc upstream|failed to fetch|network error|load failed|timeout|temporar|rate limit|429|502|503|504/i.test(
+  return /insufficient_resources|empty response|invalid json|rpc upstream|failed to fetch|network error|load failed|timeout|temporar|rate limit|too many errors|too many requests|429|502|503|504/i.test(
     msg
   );
 }
@@ -3756,29 +3756,35 @@ export default function AuctionCanvas({
       }
       const readProvider =
         provider ?? (getDefaultProvider() as ProviderInterface);
-      try {
+      const connectedReadProvider =
+        chainOk && evm?.provider && evm.provider !== readProvider
+          ? (evm.provider as ProviderInterface)
+          : null;
+      const readPreflightData = async (
+        candidateProvider: ProviderInterface
+      ): Promise<PreflightResult> => {
         let ask: U256Num | null = null;
         if (mimicLocalTime) {
-          await syncDevnetTimeToBrowser(readProvider, liveNowSecRef.current);
+          await syncDevnetTimeToBrowser(candidateProvider, liveNowSecRef.current);
           const askEstimate = currentAskEstimateRef.current;
           if (askEstimate != null && Number.isFinite(askEstimate)) {
             ask = humanToU256Num(askEstimate, decimals);
           }
         }
         if (!ask) {
-          ask = await readCurrentAskFromContract(readProvider, auctionAddress);
+          ask = await readCurrentAskFromContract(candidateProvider, auctionAddress);
         }
         let balance: U256Num;
         let allowance: U256Num;
         if (nativePayment) {
-          const balanceRaw = await getBalance(readProvider, walletAddress, "latest");
+          const balanceRaw = await getBalance(candidateProvider, walletAddress, "latest");
           balance = toU256Num({
             low: balanceRaw.toString(10),
             high: "0",
           });
           allowance = ask;
         } else {
-          const balanceRes: any = await callContract(readProvider, {
+          const balanceRes: any = await callContract(candidateProvider, {
             contractAddress: paymentToken,
             entrypoint: "balance_of",
             calldata: [walletAddress],
@@ -3786,7 +3792,7 @@ export default function AuctionCanvas({
           balance = toU256Num(
             readU256(balanceRes?.balance ?? balanceRes?.[0] ?? balanceRes)
           );
-          const allowanceRes: any = await callContract(readProvider, {
+          const allowanceRes: any = await callContract(candidateProvider, {
             contractAddress: paymentToken,
             entrypoint: "allowance",
             calldata: [walletAddress, auctionAddress],
@@ -3797,6 +3803,10 @@ export default function AuctionCanvas({
             )
           );
         }
+        return { ask, balance, allowance };
+      };
+      try {
+        const { ask, balance, allowance } = await readPreflightData(readProvider);
         setPreflight({
           ask,
           balance,
@@ -3807,6 +3817,23 @@ export default function AuctionCanvas({
         });
         return { ask, balance, allowance };
       } catch (err) {
+        if (connectedReadProvider && isTransientRpcError(err)) {
+          try {
+            const { ask, balance, allowance } =
+              await readPreflightData(connectedReadProvider);
+            setPreflight({
+              ask,
+              balance,
+              allowance,
+              loading: false,
+              attempted: true,
+              error: null,
+            });
+            return { ask, balance, allowance };
+          } catch {
+            // Surface the original project RPC error; the wallet fallback is best-effort.
+          }
+        }
         const msg = String((err as any)?.message ?? err ?? "");
         setPreflight({
           ask: null,
@@ -3835,6 +3862,8 @@ export default function AuctionCanvas({
     paymentToken,
     nativePayment,
     mimicLocalTime,
+    chainOk,
+    evm?.provider,
   ]);
 
   const mintReviewOpen = mintReview != null;
