@@ -2907,7 +2907,7 @@ describe("AuctionCanvas", () => {
     }
   });
 
-  test("shows wallet RPC busy after MetaMask send throttle", async () => {
+  test("shows MetaMask RPC fix action after MetaMask send throttle", async () => {
     const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     const request = jest.fn().mockResolvedValue(null);
     (globalThis as any).__VITE_ENV__ = {
@@ -2948,7 +2948,7 @@ describe("AuctionCanvas", () => {
       render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
       await clickMintThenSign();
       await waitFor(() => {
-        expect(screen.getByText(/Wallet RPC busy\. Retry\./i)).toBeTruthy();
+        expect(screen.getByText(/MetaMask RPC busy\./i)).toBeTruthy();
       });
       expect(screen.queryByText(/RPC read failed/i)).toBeNull();
       expect(screen.getByText(/\[\s*retry\s*\]/i)).toBeTruthy();
@@ -2964,6 +2964,11 @@ describe("AuctionCanvas", () => {
       const report = screen.getByRole("link", { name: "Report a Sepolia bug" });
       const url = new window.URL(report.getAttribute("href") ?? "");
       expect(url.searchParams.get("body")).toContain("state: wallet_rpc_busy");
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Fix MetaMask Sepolia RPC" }));
+      });
+      expect(request.mock.calls.length).toBeGreaterThanOrEqual(3);
+      expect(screen.getByText(/MetaMask Sepolia RPC refreshed\. Retry\./i)).toBeTruthy();
       expect(errorSpy).toHaveBeenCalledWith("mint failed", expect.anything());
     } finally {
       errorSpy.mockRestore();

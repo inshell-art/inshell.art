@@ -807,6 +807,22 @@ body {
   white-space: nowrap;
 }
 
+.dotfield__notice-action {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.dotfield__notice-action:hover,
+.dotfield__notice-action:focus-visible,
 .dotfield__report-bug-link:hover,
 .dotfield__report-bug-link:focus-visible {
   color: var(--accent);

@@ -2367,6 +2367,7 @@ export default function AuctionCanvas({
     if (visibleNames.some((name) => /rabby/i.test(name))) return "Rabby";
     return walletConnected ? "Injected" : "Unknown";
   }, [availableConnectors, evm?.providerName, walletConnected]);
+  const isMetaMaskWallet = /metamask/i.test(reportWalletName);
   const walletConnectV2Enabled = useMemo(() => {
     const raw = getEnvValue("VITE_WALLETCONNECT_PROJECT_ID");
     return typeof raw === "string" && raw.trim().length > 0;
@@ -4055,6 +4056,16 @@ export default function AuctionCanvas({
     }
   };
 
+  const handleFixWalletRpc = async () => {
+    const ok = await refreshWalletChainRpc(targetChainIdHex, evm.provider);
+    showToast({
+      kind: ok ? "info" : "warn",
+      text: ok
+        ? `${isMetaMaskWallet ? "MetaMask" : "Wallet"} Sepolia RPC refreshed. Retry.`
+        : `Open ${isMetaMaskWallet ? "MetaMask" : "wallet"} Sepolia RPC settings, then retry.`,
+    });
+  };
+
   const handlePending = () => {
     const hash = effectiveTxHash ?? lastTxHash;
     if (!hash) return;
@@ -4296,7 +4307,7 @@ export default function AuctionCanvas({
       if (isWalletRpcBusyMessage(msg)) {
         return {
           kind: "error",
-          text: "Wallet RPC busy. Retry.",
+          text: isMetaMaskWallet ? "MetaMask RPC busy." : "Wallet RPC busy.",
           reportState: "wallet_rpc_busy",
           reportError: msg,
         };
@@ -4449,6 +4460,7 @@ export default function AuctionCanvas({
     pathMintIntent,
     returnPromptVisible,
     pendingMint,
+    isMetaMaskWallet,
   ]);
 
   useEffect(() => {
@@ -4482,6 +4494,10 @@ export default function AuctionCanvas({
     toastNotice ??
     persistentNoticeVisible ??
     (publicNetworkNotice ? { kind: "info" as const, text: publicNetworkNotice } : null);
+  const displayWalletRpcFix =
+    displayNotice?.reportState === "wallet_rpc_busy" &&
+    effectiveWalletUnlocked &&
+    effectiveChainOk;
   const displayNoticeReportLink =
     reportBugEnabled && displayNotice?.reportState
       ? buildReportBugLink({
@@ -5714,6 +5730,25 @@ export default function AuctionCanvas({
         }`}
       >
         {displayNotice?.text ?? ""}
+        {displayWalletRpcFix && (
+          <>
+            {" "}
+            <button
+              type="button"
+              className="dotfield__notice-action"
+              onClick={() => {
+                void handleFixWalletRpc();
+              }}
+              aria-label={
+                isMetaMaskWallet
+                  ? "Fix MetaMask Sepolia RPC"
+                  : "Fix wallet Sepolia RPC"
+              }
+            >
+              fix rpc ↗
+            </button>
+          </>
+        )}
         {displayNoticeReportLink && (
           <>
             {" "}
