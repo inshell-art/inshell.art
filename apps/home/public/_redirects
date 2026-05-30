@@ -1,8 +1,1 @@
-/rss.xml https://inshell-public-feed.pages.dev/rss.xml 302
-/feed.xml https://inshell-public-feed.pages.dev/feed.xml 302
-/pulse /index.html 200
-/color-font /index.html 200
-/verify /index.html 200
-/path /index.html 200
-/path/:id /index.html 200
-/thought/:id /index.html 200
+# SPA and feed routes are served by functions/_middleware.ts.

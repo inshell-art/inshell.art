@@ -49,22 +49,8 @@ const THOUGHT_DEV_SCRIPT_SNIPPETS = [
 ] as const;
 
 const REQUIRED_REDIRECTS = {
-  home: [
-    "/rss.xml https://inshell-public-feed.pages.dev/rss.xml 302",
-    "/feed.xml https://inshell-public-feed.pages.dev/feed.xml 302",
-    "/pulse /index.html 200",
-    "/color-font /index.html 200",
-    "/verify /index.html 200",
-    "/path /index.html 200",
-    "/path/:id /index.html 200",
-    "/thought/:id /index.html 200",
-  ],
-  thought: [
-    "/gallery /index.html 200",
-    "/thought/:id /index.html 200",
-    "/color-font /index.html 200",
-    "/verify /index.html 200",
-  ],
+  home: [],
+  thought: [],
 } as const;
 
 type JsonValue = null | boolean | number | string | JsonValue[] | {
@@ -494,6 +480,22 @@ function checkSharedSurfaceLayer() {
 }
 
 function checkCloudflareRpcProxy() {
+  requireSnippets("functions/_middleware.ts", [
+    "PUBLIC_FEED_RSS_URL",
+    "PUBLIC_FEED_ALIAS_URL",
+    "isAppShellRoute",
+    "serveAppShell",
+    "proxyFeed",
+    "/rss.xml",
+    "/feed.xml",
+    "/pulse",
+    "/color-font",
+    "/path",
+    "/gallery",
+    "/thought",
+    "application/rss+xml; charset=utf-8",
+    "public, max-age=60",
+  ]);
   requireSnippets("functions/api/rpc-gate.ts", [
     "ETH_RPC_UPSTREAM",
     "PATH_RPC_UPSTREAM",

@@ -1,4 +1,1 @@
-/gallery /index.html 200
-/color-font /index.html 200
-/verify /index.html 200
-/thought/:id /index.html 200
+# SPA routes are served by functions/_middleware.ts.
