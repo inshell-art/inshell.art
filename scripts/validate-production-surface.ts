@@ -483,8 +483,10 @@ function checkCloudflareRpcProxy() {
   requireSnippets("functions/_middleware.ts", [
     "PUBLIC_FEED_RSS_URL",
     "PUBLIC_FEED_ALIAS_URL",
+    "TEMP_CLEAR_SITE_DATA_CACHE",
     "isAppShellRoute",
     "serveAppShell",
+    "withAppShellHeaders",
     "proxyFeed",
     "/rss.xml",
     "/feed.xml",
@@ -495,6 +497,7 @@ function checkCloudflareRpcProxy() {
     "/thought",
     "application/rss+xml; charset=utf-8",
     "public, max-age=60",
+    "clear-site-data",
   ]);
   requireSnippets("functions/api/rpc-gate.ts", [
     "ETH_RPC_UPSTREAM",

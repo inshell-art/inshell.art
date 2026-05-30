@@ -1,5 +1,6 @@
 const PUBLIC_FEED_RSS_URL = "https://inshell-public-feed.pages.dev/rss.xml";
 const PUBLIC_FEED_ALIAS_URL = "https://inshell-public-feed.pages.dev/feed.xml";
+const TEMP_CLEAR_SITE_DATA_CACHE = "\"cache\"";
 
 type PagesAssets = {
   fetch: (request: Request) => Promise<Response>;
@@ -37,6 +38,7 @@ function normalizePathname(pathname: string) {
 
 function isAppShellRoute(pathname: string) {
   return (
+    pathname === "/" ||
     pathname === "/pulse" ||
     pathname === "/color-font" ||
     pathname === "/verify" ||
@@ -52,10 +54,25 @@ async function serveAppShell(ctx: MiddlewareContext): Promise<Response> {
   indexUrl.pathname = "/";
   indexUrl.search = "";
   const request = new Request(indexUrl.toString(), ctx.request);
+  let response: Response;
   if (ctx.env.ASSETS) {
-    return ctx.env.ASSETS.fetch(request);
+    response = await ctx.env.ASSETS.fetch(request);
+  } else {
+    response = await ctx.next(request);
   }
-  return ctx.next(request);
+  return withAppShellHeaders(response);
+}
+
+function withAppShellHeaders(response: Response) {
+  const headers = new Headers(response.headers);
+  // Temporary cleanup for cached 308 route redirects from the RSS hotfix window.
+  headers.set("clear-site-data", TEMP_CLEAR_SITE_DATA_CACHE);
+  headers.set("cache-control", "no-store, max-age=0");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
 }
 
 async function proxyFeed(url: string, request: Request): Promise<Response> {
