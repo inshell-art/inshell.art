@@ -50,6 +50,8 @@ const THOUGHT_DEV_SCRIPT_SNIPPETS = [
 
 const REQUIRED_REDIRECTS = {
   home: [
+    "/rss.xml https://inshell-public-feed.pages.dev/rss.xml 302",
+    "/feed.xml https://inshell-public-feed.pages.dev/feed.xml 302",
     "/pulse /index.html 200",
     "/color-font /index.html 200",
     "/verify /index.html 200",
