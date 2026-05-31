@@ -217,6 +217,7 @@ describe("AuctionCanvas", () => {
     delete (globalThis as any).__PULSE_STATUS__;
     delete (window as any).ethereum;
     window.localStorage.removeItem("inshellDebug");
+    window.localStorage.removeItem("inshell.pathMintProof.v1");
     window.history.pushState({}, "", "/");
   });
 
@@ -2355,12 +2356,16 @@ describe("AuctionCanvas", () => {
     expect(
       within(review as HTMLElement).getByText(/Review the \$PATH mint/i)
     ).toBeTruthy();
-    expect(within(review as HTMLElement).getByText(/contract/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getByText("contract")).toBeTruthy();
     expect(within(review as HTMLElement).getByRole("link", { name: /0x[a-fA-F0-9]{4}.*↗/ })).toHaveAttribute(
       "href",
       expect.stringContaining("sepolia.etherscan.io/address/"),
     );
-    expect(within(review as HTMLElement).getByRole("link", { name: "verify ↗" })).toHaveAttribute(
+    expect(within(review as HTMLElement).getByText(/function/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getByText("bid(uint256 maxPrice)")).toBeTruthy();
+    expect(within(review as HTMLElement).getByText(/approval/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getByText("none")).toBeTruthy();
+    expect(within(review as HTMLElement).getByRole("link", { name: "verify contracts ↗" })).toHaveAttribute(
       "href",
       "/verify",
     );
@@ -2407,6 +2412,7 @@ describe("AuctionCanvas", () => {
     expect(within(review as HTMLElement).getByText(/current ask/i)).toBeTruthy();
     expect(within(review as HTMLElement).getAllByText(/ETH sent/i).length).toBeGreaterThan(0);
     expect(within(review as HTMLElement).getByText(/max price/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getByText(/approval/i)).toBeTruthy();
     expect(within(review as HTMLElement).getByText(/network gas/i)).toBeTruthy();
     expect(within(review as HTMLElement).getByText("Sepolia testnet only.")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Report a Sepolia bug" })).toBeNull();
@@ -3373,7 +3379,7 @@ describe("AuctionCanvas", () => {
     jest.useRealTimers();
   });
 
-  test("shows minted toast after confirmation when bid appears", async () => {
+  test("shows PATH mint proof after confirmation when bid appears", async () => {
     jest.useFakeTimers();
     const execute = jest.fn().mockResolvedValue({ transaction_hash: "0xmint" });
     const waitForTransaction = jest.fn().mockResolvedValue({});
@@ -3429,8 +3435,74 @@ describe("AuctionCanvas", () => {
     act(() => {
       jest.advanceTimersByTime(3000);
     });
-    expect(screen.getByText(/Minted \$PATH #5/i)).toBeTruthy();
+    const proof = screen.getByText("$path minted").closest(".dotfield__mint-proof");
+    expect(proof).toBeTruthy();
+    const proofScope = within(proof as HTMLElement);
+    expect(proofScope.getByText("$path minted")).toBeTruthy();
+    expect(proofScope.getAllByText(/PATH #5/).length).toBeGreaterThan(0);
+    expect(proofScope.getByText("minted by Pulse")).toBeTruthy();
+    expect(proofScope.getByText("owner")).toBeTruthy();
+    expect(proofScope.getAllByText("price").length).toBeGreaterThan(0);
+    expect(proofScope.getByText("epoch")).toBeTruthy();
+    expect(proofScope.getByText("tx")).toBeTruthy();
+    expect(proofScope.getByText("block")).toBeTruthy();
+    expect(proofScope.getByRole("link", { name: "view PATH" })).toHaveAttribute(
+      "href",
+      "/path/5"
+    );
+    expect(proofScope.getByRole("link", { name: "explorer ↗" })).toHaveAttribute(
+      "href",
+      expect.stringContaining("/tx/0xmint")
+    );
+    expect(proofScope.getByText("source indexing...")).toBeTruthy();
+    expect(proof).toHaveTextContent("PulseAuction.Sale");
+    expect(proof).toHaveTextContent("PathPulseAdapter.EpochMinted");
+    expect(proof).toHaveTextContent("PathNFT.Transfer");
+    expect(proofScope.getByRole("button", { name: "copy proof JSON" })).toBeTruthy();
+    expect(
+      JSON.parse(window.localStorage.getItem("inshell.pathMintProof.v1") ?? "{}")
+        .tokenId
+    ).toBe(5);
     jest.useRealTimers();
+  });
+
+  test("restores PATH mint proof across navigation until dismissed", () => {
+    window.localStorage.setItem(
+      "inshell.pathMintProof.v1",
+      JSON.stringify({
+        version: 1,
+        tokenId: 18,
+        epoch: 18,
+        owner: DEFAULT_WALLET_ADDRESS,
+        priceDec: "400000000000000000",
+        priceLabel: "0.4",
+        txHash: "0xstoredmint",
+        blockNumber: 123,
+        sourceUrl: "https://inshell-public-feed.pages.dev/source/sepolia/path.minted/example",
+        sourceStatus: "ready",
+      })
+    );
+
+    const { unmount } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
+    const proof = screen.getByText("$path minted").closest(".dotfield__mint-proof");
+    expect(proof).toBeTruthy();
+    const proofScope = within(proof as HTMLElement);
+    expect(proofScope.getAllByText(/PATH #18/).length).toBeGreaterThan(0);
+    expect(proofScope.getByRole("link", { name: "view PATH" })).toHaveAttribute(
+      "href",
+      "/path/18"
+    );
+    unmount();
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    expect(screen.getAllByText(/PATH #18/).length).toBeGreaterThan(0);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Dismiss PATH mint proof" })
+    );
+    expect(screen.queryByText("$path minted")).toBeNull();
+    expect(window.localStorage.getItem("inshell.pathMintProof.v1")).toBeNull();
   });
 
   test("shows inline error when balance is insufficient", async () => {

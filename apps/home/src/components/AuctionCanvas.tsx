@@ -125,6 +125,124 @@ type MintReviewQuote = {
   requiresApproval: boolean;
 };
 
+type MintProofSourceStatus = "indexing" | "ready" | "unavailable";
+
+type MintProofReceipt = {
+  tokenId: number;
+  epoch: number;
+  owner: string;
+  price: U256Num | null;
+  priceLabel: string;
+  txHash: string;
+  blockNumber: number | null;
+  sourceUrl: string;
+  sourceStatus: MintProofSourceStatus;
+};
+
+type StoredMintProofReceipt = {
+  version: 1;
+  tokenId: number;
+  epoch: number;
+  owner: string;
+  priceDec: string | null;
+  priceLabel: string;
+  txHash: string;
+  blockNumber: number | null;
+  sourceUrl: string;
+  sourceStatus: MintProofSourceStatus;
+};
+
+const PATH_MINT_PROOF_STORAGE_KEY = "inshell.pathMintProof.v1";
+
+function isMintProofSourceStatus(value: unknown): value is MintProofSourceStatus {
+  return value === "indexing" || value === "ready" || value === "unavailable";
+}
+
+function serializeMintProof(proof: MintProofReceipt): StoredMintProofReceipt {
+  return {
+    version: 1,
+    tokenId: proof.tokenId,
+    epoch: proof.epoch,
+    owner: proof.owner,
+    priceDec: proof.price?.dec ?? null,
+    priceLabel: proof.priceLabel,
+    txHash: proof.txHash,
+    blockNumber: proof.blockNumber,
+    sourceUrl: proof.sourceUrl,
+    sourceStatus: proof.sourceStatus,
+  };
+}
+
+function parseStoredMintProof(raw: string | null): MintProofReceipt | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<StoredMintProofReceipt>;
+    const tokenId = Number(parsed.tokenId);
+    const epoch = Number(parsed.epoch);
+    if (!Number.isFinite(tokenId) || tokenId <= 0) return null;
+    if (!Number.isFinite(epoch) || epoch <= 0) return null;
+    if (typeof parsed.owner !== "string" || !parsed.owner.trim()) return null;
+    if (typeof parsed.txHash !== "string" || !parsed.txHash.trim()) return null;
+    if (typeof parsed.sourceUrl !== "string" || !parsed.sourceUrl.trim()) return null;
+    if (!isMintProofSourceStatus(parsed.sourceStatus)) return null;
+    const price =
+      typeof parsed.priceDec === "string" && parsed.priceDec.trim()
+        ? toU256Num(readU256(parsed.priceDec))
+        : null;
+    return {
+      tokenId,
+      epoch,
+      owner: parsed.owner,
+      price,
+      priceLabel:
+        typeof parsed.priceLabel === "string" && parsed.priceLabel.trim()
+          ? parsed.priceLabel
+          : "—",
+      txHash: parsed.txHash,
+      blockNumber:
+        typeof parsed.blockNumber === "number" && Number.isFinite(parsed.blockNumber)
+          ? parsed.blockNumber
+          : null,
+      sourceUrl: parsed.sourceUrl,
+      sourceStatus: parsed.sourceStatus,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function readStoredMintProof(): MintProofReceipt | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return parseStoredMintProof(
+      window.localStorage.getItem(PATH_MINT_PROOF_STORAGE_KEY)
+    );
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredMintProof(proof: MintProofReceipt): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      PATH_MINT_PROOF_STORAGE_KEY,
+      JSON.stringify(serializeMintProof(proof))
+    );
+  } catch {
+    // The proof panel should still work in-memory if storage is blocked.
+  }
+}
+
+function clearStoredMintProof(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(PATH_MINT_PROOF_STORAGE_KEY);
+  } catch {
+    // Ignore storage failures; the in-memory state is cleared by the caller.
+  }
+}
+
 type PulseBidIntentCheck = {
   contractAddress: string;
   expectedContractAddress: string;
@@ -470,6 +588,31 @@ function resolveExplorerBase(): string {
 function resolveExplorerTxUrl(hash: string): string {
   const base = resolveExplorerBase().replace(/\/$/, "");
   return `${base}/tx/${hash}`;
+}
+
+function resolvePublicFeedSourceBaseUrl(): string {
+  const direct = getEnvValue("VITE_PUBLIC_FEED_SOURCE_BASE_URL");
+  if (typeof direct === "string" && /^https:\/\//i.test(direct.trim())) {
+    return direct.trim().replace(/\/$/, "");
+  }
+  return "https://inshell-public-feed.pages.dev/source";
+}
+
+function buildPathMintSourceUrl(txHash: string, network = "sepolia"): string {
+  const base = resolvePublicFeedSourceBaseUrl();
+  const normalizedNetwork = String(network || "sepolia").toLowerCase();
+  const eventId = `${normalizedNetwork}_3Apath.minted_3A${txHash}`;
+  return `${base}/${normalizedNetwork}/path.minted/${eventId}`;
+}
+
+async function sourcePageExists(url: string): Promise<boolean> {
+  if (typeof fetch !== "function") return false;
+  try {
+    const response = await fetch(url, { method: "HEAD", cache: "no-store" });
+    return response.ok;
+  } catch {
+    return false;
+  }
 }
 
 function findInjectedWallet(): { request?: (...args: any[]) => Promise<any> } | null {
@@ -2196,6 +2339,9 @@ export default function AuctionCanvas({
     address: string;
     baselineTokenId: number | null;
   } | null>(null);
+  const [mintProof, setMintProof] = useState<MintProofReceipt | null>(() =>
+    readStoredMintProof()
+  );
   const [persistentNoticeVisible, setPersistentNoticeVisible] =
     useState<Notice | null>(null);
   const persistentNoticeTimerRef = useRef<number | null>(null);
@@ -2893,8 +3039,10 @@ export default function AuctionCanvas({
       (bid) => bid.txHash && bid.txHash.toLowerCase() === targetHash
     );
     let tokenId: number | null = null;
+    let proofBid: NormalizedBid | null = null;
     if (match) {
       tokenId = match.tokenId ?? match.epochIndex ?? match.id ?? null;
+      proofBid = match;
     } else if (
       maxTokenId != null &&
       pendingMint.baselineTokenId != null &&
@@ -2907,14 +3055,58 @@ export default function AuctionCanvas({
         lastBid.bidder.toLowerCase() === pendingMint.address.toLowerCase();
       if (bidderMatch) {
         tokenId = lastBid.tokenId ?? lastBid.epochIndex ?? maxTokenId;
+        proofBid = lastBid;
       }
     }
     if (tokenId == null) return;
-    queueToast({ kind: "info", text: `Minted $PATH #${tokenId}. New curve started.` });
+    const epoch = proofBid?.epochIndex ?? proofBid?.id ?? tokenId;
+    const price = proofBid?.amount ?? null;
+    setMintProof({
+      tokenId,
+      epoch,
+      owner: proofBid?.bidder ?? pendingMint.address,
+      price,
+      priceLabel: price ? formatTokenAmount(price, decimals) : "—",
+      txHash: pendingMint.txHash,
+      blockNumber: proofBid?.blockNumber ?? null,
+      sourceUrl: buildPathMintSourceUrl(pendingMint.txHash, network ?? "sepolia"),
+      sourceStatus: "indexing",
+    });
+    queueToast({ kind: "info", text: `$PATH #${tokenId} minted.` });
     void pullBidsOnce();
     void refreshCore();
     setPendingMint(null);
-  }, [pendingMint, bids, maxTokenId, queueToast, pullBidsOnce, refreshCore]);
+  }, [
+    pendingMint,
+    bids,
+    maxTokenId,
+    decimals,
+    network,
+    queueToast,
+    pullBidsOnce,
+    refreshCore,
+  ]);
+
+  useEffect(() => {
+    if (mintProof) writeStoredMintProof(mintProof);
+  }, [mintProof]);
+
+  useEffect(() => {
+    if (!mintProof || mintProof.sourceStatus !== "indexing" || isTestRuntime()) {
+      return;
+    }
+    const id = window.setTimeout(() => {
+      void sourcePageExists(mintProof.sourceUrl).then((exists) => {
+        if (!exists) return;
+        setMintProof((current) =>
+          current?.txHash === mintProof.txHash
+            ? { ...current, sourceStatus: "ready" }
+            : current
+        );
+      });
+    }, 4_000);
+    return () => window.clearTimeout(id);
+  }, [mintProof]);
 
   useEffect(() => {
     if (!pendingMint) return;
@@ -3576,6 +3768,70 @@ export default function AuctionCanvas({
     () => targetChainId?.toString() ?? "unknown",
     [targetChainId]
   );
+  const proofContracts = useMemo(
+    () => ({
+      PulseAuction: maybeResolveAddress("pulse_auction", auctionAddress) ?? auctionAddress ?? "",
+      PathPulseAdapter: maybeResolveAddress("path_pulse_adapter") ?? "",
+      PathNFT: maybeResolveAddress("path_nft") ?? "",
+    }),
+    [auctionAddress]
+  );
+  const handleDismissMintProof = useCallback(() => {
+    clearStoredMintProof();
+    setMintProof(null);
+  }, []);
+  const handleLeaveMintProofPanel = useCallback(() => {
+    if (mintProof) writeStoredMintProof(mintProof);
+  }, [mintProof]);
+  const handleRetryMintProofSource = useCallback(async () => {
+    if (!mintProof) return;
+    setMintProof((current) =>
+      current?.txHash === mintProof.txHash
+        ? { ...current, sourceStatus: "indexing" }
+        : current
+    );
+    const exists = await sourcePageExists(mintProof.sourceUrl);
+    setMintProof((current) =>
+      current?.txHash === mintProof.txHash
+        ? { ...current, sourceStatus: exists ? "ready" : "unavailable" }
+        : current
+    );
+  }, [mintProof]);
+  const handleCopyMintProof = useCallback(async () => {
+    if (!mintProof) return;
+    const chainIdNumber =
+      targetChainId === null ? null : Number(targetChainId);
+    const proof = {
+      type: "path.minted",
+      network: String(network ?? "sepolia").toLowerCase(),
+      chainId: chainIdNumber,
+      pathTokenId: String(mintProof.tokenId),
+      epoch: String(mintProof.epoch),
+      buyer: mintProof.owner,
+      priceWei: mintProof.price?.dec ?? null,
+      priceEth: mintProof.priceLabel,
+      txHash: mintProof.txHash,
+      blockNumber:
+        mintProof.blockNumber == null ? null : String(mintProof.blockNumber),
+      contracts: proofContracts,
+      events: [
+        { contract: "PulseAuction", event: "Sale" },
+        { contract: "PathPulseAdapter", event: "EpochMinted" },
+        { contract: "PathNFT", event: "Transfer" },
+      ],
+      sourceUrl: mintProof.sourceUrl,
+      explorerUrl: resolveExplorerTxUrl(mintProof.txHash),
+    };
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error("clipboard unavailable");
+      }
+      await navigator.clipboard.writeText(JSON.stringify(proof, null, 2));
+      queueToast({ kind: "info", text: "proof copied" });
+    } catch {
+      queueToast({ kind: "warn", text: "proof copy unavailable" });
+    }
+  }, [mintProof, network, proofContracts, queueToast, targetChainId]);
 
   const useTailViewport = useMemo(() => {
     const hasSaleHistory = linked.segments.length > 1;
@@ -5819,6 +6075,10 @@ export default function AuctionCanvas({
             </strong>
           </div>
           <div className="dotfield__mint-review-row">
+            <span>function</span>
+            <strong>bid(uint256 maxPrice)</strong>
+          </div>
+          <div className="dotfield__mint-review-row">
             <span>current ask</span>
             <strong>{mintReviewCurrentAskLabel ?? mintReview.priceLabel} {mintReview.symbol}</strong>
           </div>
@@ -5829,6 +6089,10 @@ export default function AuctionCanvas({
           <div className="dotfield__mint-review-row">
             <span>max price</span>
             <strong>{mintReviewMaxPriceLabel ?? mintReview.maxPriceLabel} {mintReview.symbol}</strong>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>approval</span>
+            <strong>{mintReview.requiresApproval ? `${mintReview.symbol} approval first` : "none"}</strong>
           </div>
           <div className="dotfield__mint-review-row">
             <span>network gas</span>
@@ -5857,7 +6121,7 @@ export default function AuctionCanvas({
               target="_blank"
               rel="noopener noreferrer"
             >
-              verify ↗
+              verify contracts ↗
             </a>
           </div>
           {publicNetworkNotice && (
@@ -5865,6 +6129,183 @@ export default function AuctionCanvas({
               {publicNetworkNotice}
             </div>
           )}
+        </div>
+      )}
+      {mintProof && !mintReview && (
+        <div className="dotfield__mint-proof" aria-live="polite">
+          <button
+            type="button"
+            className="dotfield__mint-proof-dismiss"
+            onClick={handleDismissMintProof}
+            aria-label="Dismiss PATH mint proof"
+          >
+            x
+          </button>
+          <div className="dotfield__mint-proof-title">$path minted</div>
+          <div className="dotfield__mint-proof-token">
+            PATH #{mintProof.tokenId}
+            <br />
+            <span>minted by Pulse</span>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>owner</span>
+            <strong>{shortAddr(mintProof.owner)}</strong>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>price</span>
+            <strong>{mintProof.priceLabel} ETH</strong>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>epoch</span>
+            <strong>{mintProof.epoch}</strong>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>tx</span>
+            <strong>
+              <a
+                className="dotfield__mint-review-link"
+                href={resolveExplorerTxUrl(mintProof.txHash)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {shortHash(mintProof.txHash)} ↗
+              </a>
+            </strong>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>block</span>
+            <strong>{mintProof.blockNumber ?? "indexing..."}</strong>
+          </div>
+          <div className="dotfield__mint-proof-status">
+            <span>confirmed</span>
+            <strong>explorer ready</strong>
+          </div>
+          <div className="dotfield__mint-proof-status">
+            <span>indexed</span>
+            <strong>
+              {mintProof.sourceStatus === "ready"
+                ? "source ready"
+                : mintProof.sourceStatus === "unavailable"
+                  ? "source unavailable"
+                  : "source indexing..."}
+            </strong>
+          </div>
+          <div className="dotfield__mint-proof-actions">
+            <a
+              href={`/path/${mintProof.tokenId}`}
+              onClick={handleLeaveMintProofPanel}
+              onPointerDown={handleLeaveMintProofPanel}
+            >
+              view PATH
+            </a>
+            {mintProof.sourceStatus === "ready" ? (
+              <a
+                href={mintProof.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                source ↗
+              </a>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  void handleRetryMintProofSource();
+                }}
+              >
+                {mintProof.sourceStatus === "unavailable"
+                  ? "retry source"
+                  : "source indexing"}
+              </button>
+            )}
+            <a
+              href={resolveExplorerTxUrl(mintProof.txHash)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              explorer ↗
+            </a>
+          </div>
+          <details className="dotfield__mint-proof-details">
+            <summary>proof details</summary>
+            <div className="dotfield__mint-proof-subtitle">contracts</div>
+            <div className="dotfield__mint-review-row">
+              <span>PulseAuction</span>
+              <strong>
+                {proofContracts.PulseAuction ? (
+                  <a
+                    className="dotfield__mint-review-link"
+                    href={resolveExplorerAddressUrl(proofContracts.PulseAuction)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {shortAddr(proofContracts.PulseAuction)} ↗
+                  </a>
+                ) : (
+                  "—"
+                )}
+              </strong>
+            </div>
+            <div className="dotfield__mint-review-row">
+              <span>PathPulseAdapter</span>
+              <strong>
+                {proofContracts.PathPulseAdapter ? (
+                  <a
+                    className="dotfield__mint-review-link"
+                    href={resolveExplorerAddressUrl(proofContracts.PathPulseAdapter)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {shortAddr(proofContracts.PathPulseAdapter)} ↗
+                  </a>
+                ) : (
+                  "—"
+                )}
+              </strong>
+            </div>
+            <div className="dotfield__mint-review-row">
+              <span>PathNFT</span>
+              <strong>
+                {proofContracts.PathNFT ? (
+                  <a
+                    className="dotfield__mint-review-link"
+                    href={resolveExplorerAddressUrl(proofContracts.PathNFT)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {shortAddr(proofContracts.PathNFT)} ↗
+                  </a>
+                ) : (
+                  "—"
+                )}
+              </strong>
+            </div>
+            <div className="dotfield__mint-proof-subtitle">event trace</div>
+            <div className="dotfield__mint-proof-list">
+              PulseAuction.Sale
+              <br />
+              PathPulseAdapter.EpochMinted
+              <br />
+              PathNFT.Transfer
+            </div>
+            <div className="dotfield__mint-review-row">
+              <span>chain</span>
+              <strong>{targetChainLabel} / {mintReviewChainIdLabel}</strong>
+            </div>
+            <div className="dotfield__mint-review-row">
+              <span>transaction</span>
+              <strong>{mintProof.txHash}</strong>
+            </div>
+            <button
+              type="button"
+              className="dotfield__mint-proof-copy"
+              onClick={() => {
+                void handleCopyMintProof();
+              }}
+            >
+              copy proof JSON
+            </button>
+          </details>
         </div>
       )}
       {debugPanelEnabled && (

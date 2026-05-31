@@ -36,9 +36,10 @@
     "prepare": "husky"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "@types/node": "^24.2.0",
     "@typescript-eslint/eslint-plugin": "^8.37.0",
     "@typescript-eslint/parser": "^8.37.0",
-    "@types/node": "^24.2.0",
     "cypress": "^13.13.1",
     "dotenv": "^17.2.0",
     "eslint": "^9.31.0",

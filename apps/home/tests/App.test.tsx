@@ -462,15 +462,22 @@ describe("App Component", () => {
     expect(document.title).toBe("verify — $PATH");
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
     expect(screen.getByRole("heading", { name: "verify" })).toBeInTheDocument();
-    expect(screen.getByText("Official Inshell dapp and wallet surfaces.")).toBeInTheDocument();
+    expect(screen.getByText("Official Inshell contracts and wallet surfaces.")).toBeInTheDocument();
     expect(screen.getByText("https://inshell.art")).toBeInTheDocument();
     expect(screen.getByText("https://thought.inshell.art")).toBeInTheDocument();
     expect(screen.getByText("Sepolia")).toBeInTheDocument();
     expect(screen.getByText("11155111")).toBeInTheDocument();
     expect(screen.getByText("PathNFT")).toBeInTheDocument();
+    expect(screen.getByText("PathPulseAdapter")).toBeInTheDocument();
     expect(screen.getByText("ThoughtNFT")).toBeInTheDocument();
     expect(screen.getByText("PulseAuction")).toBeInTheDocument();
+    expect(screen.getByText("SpecRegistry")).toBeInTheDocument();
+    expect(screen.getByText("ColorFont")).toBeInTheDocument();
+    expect(screen.getByText("READY_WITH_WARNINGS")).toBeInTheDocument();
+    expect(screen.getByText("Pulse economics")).toBeInTheDocument();
+    expect(screen.getByText("none after launch")).toBeInTheDocument();
     expect(screen.getByText("THOUGHT.v1.md")).toBeInTheDocument();
+    expect(screen.getByText("0xe201170ae183f114064f4492cbc4942f7d3d68b74a08d3dc4b4f61edec213d78")).toBeInTheDocument();
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
   });
 
