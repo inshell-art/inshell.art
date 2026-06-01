@@ -5,18 +5,13 @@ import {
   type ThoughtGalleryItem,
 } from "@/services/thoughtGallery";
 
+const SPEC_SOURCE_URL =
+  "https://github.com/inshell-art/inshell.art/blob/main/apps/thought/THOUGHT.v1.md";
+
 type LoadState =
   | { status: "loading"; items: ThoughtGalleryItem[]; error: null }
   | { status: "ready"; items: ThoughtGalleryItem[]; error: null }
   | { status: "error"; items: ThoughtGalleryItem[]; error: string };
-
-type DetailRow = {
-  label: string;
-  value: string;
-  title?: string;
-  href?: string;
-  external?: boolean;
-};
 
 function getEnvValue(name: string): unknown {
   const envCache: Record<string, unknown> | undefined =
@@ -70,12 +65,44 @@ function shortValue(value?: string, head = 6, tail = 4): string {
   return `${trimmed.slice(0, head)}...${trimmed.slice(-tail)}`;
 }
 
+function shortDetailAddress(value: string): string {
+  return shortValue(value, 18, 10);
+}
+
+function canonicalThoughtTitle(value: string): string {
+  return (
+    value
+      .replace(/[^A-Za-z]+/g, " ")
+      .trim()
+      .replace(/\s+/g, " ")
+      .toUpperCase() || "-"
+  );
+}
+
 function formatTimestamp(seconds: number | null): string {
   if (seconds === null || !Number.isFinite(seconds)) return "-";
   return new Date(seconds * 1000)
     .toISOString()
-    .slice(0, 19)
-    .replace("T", " ");
+    .replace(".000Z", "Z")
+    .replace("T", " ")
+    .replace("Z", " UTC");
+}
+
+function formatProvenanceJson(value: string): string {
+  if (!value) return "{}";
+  try {
+    return JSON.stringify(JSON.parse(value) as unknown, null, 2);
+  } catch {
+    return value;
+  }
+}
+
+function byteLength(value: string): number {
+  return new TextEncoder().encode(value).byteLength;
+}
+
+function provenanceDataUrl(value: string): string {
+  return `data:application/json;charset=utf-8,${encodeURIComponent(formatProvenanceJson(value))}`;
 }
 
 function explorerTxUrl(txHash: string): string | null {
@@ -85,42 +112,10 @@ function explorerTxUrl(txHash: string): string | null {
   return `${base}/tx/${txHash}`;
 }
 
-function DetailRows({ rows }: { rows: DetailRow[] }) {
+function ThoughtSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <dl className="path-detail__fields">
-      {rows.map((row) => (
-        <div key={`${row.label}-${row.value}`}>
-          <dt>{row.label}</dt>
-          <dd title={row.title}>
-            {row.href ? (
-              <a
-                href={row.href}
-                className="path-detail__value-link"
-                target={row.external ? "_blank" : undefined}
-                rel={row.external ? "noopener noreferrer" : undefined}
-              >
-                {row.value}
-              </a>
-            ) : (
-              row.value
-            )}
-          </dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-function ThoughtSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="path-detail__section">
-      <h3>{title}</h3>
+    <section className="thought-detail__section">
+      <h2>{title}</h2>
       {children}
     </section>
   );
@@ -133,98 +128,127 @@ function thoughtTitle(item: ThoughtGalleryItem): string {
 function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
   const txUrl = explorerTxUrl(item.txHash);
   const title = thoughtTitle(item);
+  const provenanceBytes = item.provenanceJson ? byteLength(item.provenanceJson) : 0;
 
   return (
-    <article className="path-detail thought-detail" aria-label={`THOUGHT #${item.tokenId} detail`}>
-      <div className="path-detail__canvas-frame thought-detail__canvas-frame">
+    <div className="thought-detail__body">
+      <div className="thought-detail__canvas-frame">
         {item.image ? (
           <img
-            className="path-detail__image thought-detail__image"
+            className="thought-detail__image"
             src={item.image}
-            alt={`THOUGHT #${item.tokenId} work`}
+            alt={`THOUGHT #${item.tokenId} canvas`}
             title={title}
           />
         ) : (
-          <div className="path-page-token__missing">image unavailable</div>
+          <div className="thought-detail__missing">image unavailable</div>
         )}
       </div>
-      <section className="path-detail__rail" aria-label={`THOUGHT #${item.tokenId} record`}>
-        <header className="path-detail__record-header">
-          <h2>THOUGHT #{item.tokenId}</h2>
-          <p>Created from $PATH #{item.pathId}.</p>
-        </header>
 
-        <ThoughtSection title="work">
-          <div className="thought-detail__text">{title}</div>
+      <aside className="thought-detail__rail" aria-label={`THOUGHT #${item.tokenId} record`}>
+        <ThoughtSection title="prompt">
+          <p className="thought-detail__text">{item.prompt || "prompt unavailable."}</p>
         </ThoughtSection>
 
-        <ThoughtSection title="record">
-          <DetailRows
-            rows={[
-              {
-                label: "$PATH",
-                value: `$PATH #${item.pathId}`,
-                href: `/path/${item.pathId}`,
-              },
-              { label: "minter", value: shortValue(item.minter), title: item.minter },
-              { label: "minted", value: formatTimestamp(item.mintedAt) },
-              { label: "block", value: item.blockNumber ? String(item.blockNumber) : "-" },
-              txUrl
-                ? {
-                    label: "tx",
-                    value: `${shortValue(item.txHash)} ->`,
-                    title: item.txHash,
-                    href: txUrl,
-                    external: true,
-                  }
-                : { label: "tx", value: shortValue(item.txHash), title: item.txHash },
-            ]}
-          />
+        <ThoughtSection title="spec">
+          <a
+            className="thought-detail__value thought-detail__value-link"
+            href={SPEC_SOURCE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            THOUGHT.v1.md -&gt;
+          </a>
         </ThoughtSection>
 
         <ThoughtSection title="model">
-          <DetailRows
-            rows={[
-              { label: "provider", value: item.provider || "-" },
-              { label: "model", value: item.model || "-" },
-              { label: "mode", value: item.mode || "-" },
-            ]}
-          />
+          <p className="thought-detail__value">{item.model || "model unavailable."}</p>
         </ThoughtSection>
 
-        {item.prompt && (
-          <ThoughtSection title="prompt">
-            <div className="thought-detail__text thought-detail__text--muted">
-              {item.prompt}
+        <ThoughtSection title="model return">
+          <p className="thought-detail__text">
+            {item.returnedText || "model return unavailable."}
+          </p>
+        </ThoughtSection>
+
+        <ThoughtSection title="text">
+          <p className="thought-detail__text">{canonicalThoughtTitle(item.rawText)}</p>
+        </ThoughtSection>
+
+        <ThoughtSection title="$PATH">
+          <a
+            className="thought-detail__value thought-detail__value-link"
+            href={`/path/${item.pathId}`}
+            title={`Open $PATH #${item.pathId} detail`}
+          >
+            $PATH #{item.pathId} -&gt;
+          </a>
+        </ThoughtSection>
+
+        <ThoughtSection title="mint">
+          <dl className="thought-detail__fields">
+            <div>
+              <dt>minter</dt>
+              <dd title={item.minter}>{shortDetailAddress(item.minter)}</dd>
             </div>
-          </ThoughtSection>
-        )}
-
-        <ThoughtSection title="hashes">
-          <DetailRows
-            rows={[
-              { label: "text", value: shortValue(item.textHash), title: item.textHash },
-              { label: "prompt", value: shortValue(item.promptHash), title: item.promptHash },
-              {
-                label: "provenance",
-                value: shortValue(item.provenanceHash),
-                title: item.provenanceHash,
-              },
-              { label: "spec", value: shortValue(item.thoughtSpecHash), title: item.thoughtSpecHash },
-            ]}
-          />
+            <div>
+              <dt>minted</dt>
+              <dd>{formatTimestamp(item.mintedAt)}</dd>
+            </div>
+            <div>
+              <dt>tx</dt>
+              <dd>
+                {txUrl ? (
+                  <a
+                    className="thought-detail__value-link"
+                    href={txUrl}
+                    title={item.txHash}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {shortValue(item.txHash, 22, 14)} -&gt;
+                  </a>
+                ) : (
+                  shortValue(item.txHash)
+                )}
+              </dd>
+            </div>
+          </dl>
         </ThoughtSection>
 
-        <nav className="primitive-page__links path-detail__links" aria-label="THOUGHT detail links">
-          <a href={galleryUrl()} aria-label="Back to THOUGHT gallery">
-            Back to gallery
+        <ThoughtSection title="provenance">
+          {item.provenanceJson ? (
+            <>
+              <a
+                className="thought-detail__value thought-detail__value-link"
+                href={provenanceDataUrl(item.provenanceJson)}
+                target="_blank"
+                rel="noopener noreferrer"
+                download={`thought-${item.tokenId}-provenance.json`}
+              >
+                {provenanceBytes} bytes -&gt;
+              </a>
+              <div className="thought-detail__viewer">
+                <p className="thought-detail__viewer-title">
+                  source: ThoughtNFT.provenanceOf({item.tokenId})
+                </p>
+                <pre className="thought-detail__json">
+                  {formatProvenanceJson(item.provenanceJson)}
+                </pre>
+              </div>
+            </>
+          ) : (
+            <p className="thought-detail__value">unavailable.</p>
+          )}
+        </ThoughtSection>
+
+        <ThoughtSection title="color font">
+          <a className="thought-detail__value thought-detail__value-link" href="/color-font">
+            Color Font v1 -&gt;
           </a>
-          <a href={thoughtAppUrl()} target="_blank" rel="noopener noreferrer" aria-label="Create THOUGHT">
-            Create THOUGHT
-          </a>
-        </nav>
-      </section>
-    </article>
+        </ThoughtSection>
+      </aside>
+    </div>
   );
 }
 
@@ -253,6 +277,10 @@ export default function ThoughtDetailPage({ tokenId }: { tokenId: string }) {
       })
       .catch((error) => {
         if (cancelled) return;
+        if (cached?.length) {
+          setState({ status: "ready", items: cached, error: null });
+          return;
+        }
         setState({
           status: "error",
           items: cached ?? [],
@@ -269,28 +297,31 @@ export default function ThoughtDetailPage({ tokenId }: { tokenId: string }) {
     : null;
 
   return (
-    <main className="primitive-page path-page thought-detail-page">
-      <header className="primitive-page__header path-page__header">
-        <div>
-          <h1 className="primitive-page__title">THOUGHT #{tokenId}</h1>
-          <p className="primitive-page__subtitle">THOUGHT work detail.</p>
-        </div>
+    <main className="thought-detail thought-detail-page" aria-labelledby="thought-detail-title">
+      <header className="thought-detail__header">
+        <h1 id="thought-detail-title" className="thought-detail__title">
+          THOUGHT #<span>{tokenId}</span>
+        </h1>
+        <nav className="thought-detail__links" aria-label="THOUGHT detail links">
+          <a className="thought-detail__link" href={galleryUrl()}>
+            [ gallery ]
+          </a>
+          <a className="thought-detail__link" href={thoughtAppUrl()}>
+            [ create yours ]
+          </a>
+        </nav>
       </header>
 
-      <section className="path-page__body path-page__body--detail" aria-label={`THOUGHT #${tokenId} work`}>
-        {state.status === "error" && (
-          <div className="path-page__notice path-page__notice--error">
-            {state.error}
-          </div>
-        )}
-        {item ? (
-          <ThoughtDetail item={item} />
-        ) : state.status === "ready" ? (
-          <div className="path-page__notice">THOUGHT #{tokenId} not found.</div>
-        ) : (
-          <div className="path-page__notice">loading THOUGHT...</div>
-        )}
-      </section>
+      {state.status === "error" && (
+        <p className="thought-detail__status thought-detail__status--error">{state.error}</p>
+      )}
+      {item ? (
+        <ThoughtDetail item={item} />
+      ) : state.status === "ready" ? (
+        <p className="thought-detail__status">THOUGHT #{tokenId} not found.</p>
+      ) : (
+        <p className="thought-detail__status">loading THOUGHT #{tokenId}...</p>
+      )}
     </main>
   );
 }

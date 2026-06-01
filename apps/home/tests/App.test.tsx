@@ -843,11 +843,13 @@ describe("App Component", () => {
     await flushAsyncEffects();
 
     expect(document.title).toBe("THOUGHT #1");
-    expect(screen.getByRole("heading", { level: 1, name: "THOUGHT #1" })).toBeInTheDocument();
-    expect(screen.getByText("THOUGHT work detail.")).toBeInTheDocument();
-    expect(screen.getByLabelText("THOUGHT #1 detail")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: /THOUGHT\s+#\s*1/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "[ gallery ]" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "[ create yours ]" })).toBeInTheDocument();
+    expect(screen.getByLabelText("THOUGHT #1 record")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "THOUGHT #1 canvas" })).toBeInTheDocument();
     expect(screen.getByText("ONE THOUGHT")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "$PATH #4" })).toHaveAttribute("href", "/path/4");
+    expect(screen.getByRole("link", { name: /\$PATH #4/ })).toHaveAttribute("href", "/path/4");
     expect(window.location.pathname).toBe("/thought/1");
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
   });
