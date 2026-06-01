@@ -177,6 +177,22 @@ export default function HeaderWalletCTA({
             <span className="dotfield__cta-menu-label">network</span>
             <span className="dotfield__cta-menu-value">{networkLabel}</span>
           </div>
+          <div className="dotfield__cta-menu-meta">
+            <span className="dotfield__cta-menu-label">mode</span>
+            <span className="dotfield__cta-menu-value">read-only connected</span>
+          </div>
+          <div className="dotfield__cta-menu-meta">
+            <span className="dotfield__cta-menu-label">signature</span>
+            <span className="dotfield__cta-menu-value">none</span>
+          </div>
+          <div className="dotfield__cta-menu-meta">
+            <span className="dotfield__cta-menu-label">transaction</span>
+            <span className="dotfield__cta-menu-value">none</span>
+          </div>
+          <div className="dotfield__cta-menu-meta">
+            <span className="dotfield__cta-menu-label">approval</span>
+            <span className="dotfield__cta-menu-value">none</span>
+          </div>
           <button
             type="button"
             className="dotfield__cta-menu-item"

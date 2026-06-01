@@ -190,20 +190,73 @@ export default function VerifyPage() {
           <VerifyFields
             rows={[
               { id: "path-domain", label: "$PATH", value: "https://inshell.art" },
+              { id: "path-route", label: "$PATH route", value: "https://inshell.art/path" },
               { id: "thought-domain", label: "THOUGHT", value: "https://thought.inshell.art" },
+              { id: "gallery-domain", label: "gallery", value: "https://gallery.inshell.art" },
               { id: "chain", label: "chain", value: "Sepolia" },
               { id: "chain-id", label: "chain id", value: String(chainId) },
             ]}
           />
         </section>
 
-        <section className="verify-page__section" aria-labelledby="verify-wallet-warnings">
-          <h2 id="verify-wallet-warnings">wallet warnings</h2>
+        <section className="verify-page__section" aria-labelledby="official-origins">
+          <h2 id="official-origins">official origins</h2>
+          <VerifyFields
+            rows={[
+              { id: "origin-main", label: "inshell.art", value: "main Inshell surface" },
+              { id: "origin-path", label: "inshell.art/path", value: "PATH / Pulse surface" },
+              { id: "origin-verify", label: "inshell.art/verify", value: "verification room" },
+              { id: "origin-thought", label: "thought.inshell.art", value: "THOUGHT movement app" },
+              { id: "origin-gallery", label: "gallery.inshell.art", value: "public gallery" },
+              { id: "origin-preview", label: "preview.inshell.art", value: "preview / staging surface" },
+            ]}
+          />
           <p>
-            New dapp domains may show low-reputation warnings in some wallets.
-            This page does not bypass those warnings. It gives the public facts
-            needed to verify the connection.
+            Preview origin may change and is not the canonical public origin.
           </p>
+        </section>
+
+        <section className="verify-page__section" aria-labelledby="wallet-notes">
+          <h2 id="wallet-notes">verification notes</h2>
+          <div className="verify-page__notes">
+            <article>
+              <h3>Why can a wallet show low popularity or listed by none?</h3>
+              <p>
+                Wallets may warn on new, low-traffic, or preview domains. This
+                is a domain reputation notice, not a contract-state result.
+                Verify the official origin and deployed contracts on this page.
+              </p>
+            </article>
+            <article>
+              <h3>Does connecting wallet sign anything?</h3>
+              <p>
+                No. Connecting exposes the selected address to the site. It does
+                not send ETH, sign a message, mint PATH, or approve tokens.
+              </p>
+            </article>
+            <article>
+              <h3>Does PATH mint require token approval?</h3>
+              <p>
+                No for the current native ETH PATH bid. It calls
+                PulseAuction.bid(uint256 maxPrice) with ETH. It does not request
+                ERC20 allowance.
+              </p>
+            </article>
+            <article>
+              <h3>What should I verify before signing a bid?</h3>
+              <p>
+                Network, contract, function, ETH sent, max price, and expected
+                PATH token.
+              </p>
+            </article>
+            <article>
+              <h3>Where can I verify a mint after it happens?</h3>
+              <p>
+                Use the Inshell source page for the semantic event record and
+                the explorer link for external chain verification.
+              </p>
+            </article>
+          </div>
         </section>
 
         <section className="verify-page__section" aria-labelledby="verify-contracts">

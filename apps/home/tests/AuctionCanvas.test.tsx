@@ -1654,7 +1654,7 @@ describe("AuctionCanvas", () => {
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     return waitFor(() => {
-      expect(screen.getByText(/No supported wallet found/i)).toBeTruthy();
+      expect(screen.getByText(/wallet provider not found/i)).toBeTruthy();
       expect(screen.getByText(/\[\s*connect\s*\]/i)).toBeTruthy();
     });
   });
@@ -1712,7 +1712,7 @@ describe("AuctionCanvas", () => {
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
 
     return waitFor(() => {
-      expect(screen.getByText(/No supported wallet found/i)).toBeTruthy();
+      expect(screen.getByText(/wallet provider not found/i)).toBeTruthy();
       const report = screen.getByRole("link", { name: "Report a Sepolia bug" });
       expect(report).toHaveTextContent("report bug ↗");
       const url = new window.URL(report.getAttribute("href") ?? "");
@@ -1782,6 +1782,39 @@ describe("AuctionCanvas", () => {
     });
   });
 
+  test("connect action does not request signing, transactions, or approvals", async () => {
+    const requestedMethods: string[] = [];
+    const connectAsync = jest.fn(async () => {
+      requestedMethods.push("eth_requestAccounts");
+      return { address: "0xabc", chainId: 11155111 };
+    });
+    mockWalletState = createWalletState({
+      isConnected: false,
+      address: null,
+      account: null,
+      connectors: [],
+      connectAsync,
+    });
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+
+    const connectButton = await waitFor(() =>
+      screen.getByText(/\[\s*connect\s*\]/i)
+    );
+    fireEvent.click(connectButton);
+
+    await waitFor(() => {
+      expect(connectAsync).toHaveBeenCalled();
+    });
+    expect(requestedMethods).toEqual(["eth_requestAccounts"]);
+    expect(requestedMethods).not.toContain("eth_sendTransaction");
+    expect(requestedMethods).not.toContain("personal_sign");
+    expect(requestedMethods).not.toContain("eth_sign");
+    expect(requestedMethods).not.toContain("eth_signTypedData");
+    expect(requestedMethods).not.toContain("eth_signTypedData_v4");
+    expect(requestedMethods).not.toContain("approve");
+    expect(requestedMethods).not.toContain("permit");
+  });
+
   test("connect CTA opens supported wallet options sorted with MetaMask first", async () => {
     const genericConnector = {
       id: "window.ethereum",
@@ -1826,16 +1859,16 @@ describe("AuctionCanvas", () => {
       screen.getByText(/\[\s*connect\s*\]/i)
     );
     fireEvent.click(connectButton);
+    expect(connectAsync).not.toHaveBeenCalled();
     const options = await screen.findAllByRole("menuitem");
     const note = document.querySelector(".dotfield__wallet-picker-note") as HTMLElement;
     expect(note).toBeTruthy();
-    expect(note).toHaveTextContent("New dapp? Wallet may warn.");
-    expect(
-      note
-    ).toHaveTextContent("Verify domain and action before continuing.");
+    expect(note).toHaveTextContent("address read only.");
+    expect(note).toHaveTextContent("no signature.");
+    expect(note).toHaveTextContent("no tx or approval.");
     expect(screen.getByRole("link", { name: "verify ↗" })).toHaveAttribute(
       "href",
-      "/verify",
+      "/verify#wallet-notes",
     );
     expect(options.map((item) => item.textContent)).toEqual([
       "MetaMask",

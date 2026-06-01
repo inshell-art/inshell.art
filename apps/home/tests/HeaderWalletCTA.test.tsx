@@ -62,6 +62,11 @@ describe("HeaderWalletCTA", () => {
     ) as HTMLElement;
     fireEvent.click(dotButton);
     expect(screen.getByText(/^address$/i)).toBeTruthy();
+    expect(screen.getByText(/^mode$/i)).toBeTruthy();
+    expect(screen.getByText("read-only connected")).toBeTruthy();
+    expect(screen.getByText(/^signature$/i)).toBeTruthy();
+    expect(screen.getByText(/^transaction$/i)).toBeTruthy();
+    expect(screen.getAllByText("none")).toHaveLength(3);
     const copyButton = screen.getByText(/copy address/i);
     fireEvent.click(copyButton);
     await waitFor(() => {

@@ -464,7 +464,17 @@ describe("App Component", () => {
     expect(screen.getByRole("heading", { name: "verify" })).toBeInTheDocument();
     expect(screen.getByText("Official Inshell contracts and wallet surfaces.")).toBeInTheDocument();
     expect(screen.getByText("https://inshell.art")).toBeInTheDocument();
+    expect(screen.getByText("https://inshell.art/path")).toBeInTheDocument();
     expect(screen.getByText("https://thought.inshell.art")).toBeInTheDocument();
+    expect(screen.getByText("https://gallery.inshell.art")).toBeInTheDocument();
+    expect(screen.getByText("official origins")).toBeInTheDocument();
+    expect(screen.getByText("inshell.art/verify")).toBeInTheDocument();
+    expect(screen.getByText("preview / staging surface")).toBeInTheDocument();
+    expect(screen.getByText("verification notes")).toBeInTheDocument();
+    expect(screen.getByText(/Why can a wallet show low popularity/i)).toBeInTheDocument();
+    expect(screen.getByText(/Does connecting wallet sign anything/i)).toBeInTheDocument();
+    expect(screen.getByText(/It does not send ETH, sign a message, mint PATH, or approve tokens/i)).toBeInTheDocument();
+    expect(screen.getByText(/Does PATH mint require token approval/i)).toBeInTheDocument();
     expect(screen.getByText("Sepolia")).toBeInTheDocument();
     expect(screen.getByText("11155111")).toBeInTheDocument();
     expect(screen.getByText("PathNFT")).toBeInTheDocument();
@@ -750,6 +760,59 @@ describe("App Component", () => {
         delete HTMLElement.prototype.scrollIntoView;
       }
       pushStateSpy.mockRestore();
+    }
+  });
+
+  test("scrolls verify hash anchors after route render", async () => {
+    window.history.pushState({}, "", "/verify#wallet-notes");
+    const originalRequestAnimationFrame = window.requestAnimationFrame;
+    const originalCancelAnimationFrame = window.cancelAnimationFrame;
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    const scrollIntoView = jest.fn();
+    Object.defineProperty(window, "requestAnimationFrame", {
+      configurable: true,
+      value: (callback: (time: number) => void) => {
+        callback(0);
+        return 1;
+      },
+    });
+    Object.defineProperty(window, "cancelAnimationFrame", {
+      configurable: true,
+      value: jest.fn(),
+    });
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+
+    try {
+      render(<App />);
+
+      expect(screen.getByRole("heading", { name: "verification notes" })).toHaveAttribute(
+        "id",
+        "wallet-notes",
+      );
+      expect(scrollIntoView).toHaveBeenCalledWith({
+        block: "start",
+        behavior: "auto",
+      });
+    } finally {
+      Object.defineProperty(window, "requestAnimationFrame", {
+        configurable: true,
+        value: originalRequestAnimationFrame,
+      });
+      Object.defineProperty(window, "cancelAnimationFrame", {
+        configurable: true,
+        value: originalCancelAnimationFrame,
+      });
+      if (originalScrollIntoView) {
+        Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+          configurable: true,
+          value: originalScrollIntoView,
+        });
+      } else {
+        delete HTMLElement.prototype.scrollIntoView;
+      }
     }
   });
 

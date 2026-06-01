@@ -102,6 +102,22 @@ export default function App() {
     setFavicon("/inshell.svg");
   }, [pathTokenId, primitiveRoute, thoughtTokenId]);
 
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash || hash === "#") return;
+    const targetId = decodeURIComponent(hash.slice(1));
+    if (!targetId) return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(targetId)?.scrollIntoView({
+        block: "start",
+        behavior: "auto",
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, [locationKey]);
+
   return (
     <>
       <ErrorBoundary

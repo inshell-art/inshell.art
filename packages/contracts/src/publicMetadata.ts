@@ -5,8 +5,8 @@ export const OFFICIAL_DOMAINS = {
 
 export const PUBLIC_SITE_METADATA = {
   home: {
-    title: "$PATH",
-    description: "$PATH auction, token inventory, and Inshell verification.",
+    title: "Inshell / PATH",
+    description: "PATH is the Inshell permission token issued through Pulse.",
     iconPath: "/path.svg",
     ogImagePath: "/og.png",
   },

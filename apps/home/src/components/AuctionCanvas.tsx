@@ -34,7 +34,10 @@ import {
   isEvmAddress,
   maybeResolveAddress,
 } from "@inshell/contracts";
-import { SURFACE_TERMINOLOGY, resolveWalletChainRpcUrls } from "@inshell/shared";
+import {
+  SURFACE_TERMINOLOGY,
+  resolveWalletChainRpcUrls,
+} from "@inshell/shared";
 import HeaderWalletCTA from "@/components/HeaderWalletCTA";
 import { useWallet } from "@inshell/wallet";
 import {
@@ -4240,6 +4243,20 @@ export default function AuctionCanvas({
     const msg = String((err as any)?.message ?? err ?? "").toLowerCase();
     const code = Number((err as any)?.code);
     if (
+      code === 4001 ||
+      msg.includes("user rejected") ||
+      msg.includes("user reject") ||
+      msg.includes("user denied") ||
+      msg.includes("user cancelled") ||
+      msg.includes("user canceled")
+    ) {
+      showToast({
+        kind: "warn",
+        text: "wallet connection cancelled",
+      });
+      return;
+    }
+    if (
       code === -32002 ||
       msg.includes("already processing") ||
       msg.includes("already pending") ||
@@ -4258,7 +4275,7 @@ export default function AuctionCanvas({
     ) {
       showToast({
         kind: "error",
-        text: "No supported wallet found.",
+        text: "wallet provider not found",
         reportState: "no_supported_wallet",
         reportError: String((err as any)?.message ?? err ?? ""),
       });
@@ -4282,13 +4299,13 @@ export default function AuctionCanvas({
     }
   };
 
-  const handleConnect = async () => {
+  const handleConnect = () => {
+    setMintReview(null);
     if (availableConnectors.length > 0) {
-      setMintReview(null);
       setWalletPickerOpen((open) => !open);
       return;
     }
-    await connectWalletConnector();
+    void connectWalletConnector();
   };
 
   const handleUnlock = async () => {
@@ -4304,9 +4321,7 @@ export default function AuctionCanvas({
     if (!ok) {
       showToast({
         kind: "warn",
-        text: sepoliaInviteMode && publicNetworkNotice
-          ? publicNetworkNotice
-          : `Switch to ${targetChainLabel} in wallet.`,
+        text: "network switch cancelled",
         reportState: "switch_failed",
       });
     }
@@ -4638,7 +4653,7 @@ export default function AuctionCanvas({
     if (!effectiveWalletDetected) {
       return {
         kind: "error",
-        text: "No supported wallet found.",
+        text: "wallet provider not found",
         reportState: "no_supported_wallet",
         delayMs: DELAY_MS,
       };
@@ -5970,11 +5985,13 @@ export default function AuctionCanvas({
                 wallet options
               </div>
               <p className="dotfield__wallet-picker-note">
-                New dapp? Wallet may warn.
+                address read only.
                 <br />
-                Verify domain and action before continuing.
+                no signature.
                 <br />
-                <a href="/verify" target="_blank" rel="noopener noreferrer">
+                no tx or approval.
+                <br />
+                <a href="/verify#wallet-notes" target="_blank" rel="noopener noreferrer">
                   verify ↗
                 </a>
               </p>
