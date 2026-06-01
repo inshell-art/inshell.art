@@ -11027,6 +11027,26 @@ const cliReviewRow = (label: string, value: string) => `${label.padEnd(14)}${val
 const cliReviewContract = (name: string, address: string) =>
   address ? `${name} ${shortHex(address, 6, 4)}` : `${name} unavailable`;
 
+const formatCliLocalDateTime = (epochSeconds: bigint | null) => {
+  if (epochSeconds === null) return "";
+  const ms = Number(epochSeconds) * 1000;
+  if (!Number.isFinite(ms)) return "";
+  const date = new Date(ms);
+  const pad = (value: number) => value.toString().padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+const cliAuthorizationExpiryLine = () => {
+  const expiresAt = formatCliLocalDateTime(mintFlowData.deadline);
+  return expiresAt ? cliReviewRow("expires at", expiresAt) : "";
+};
+
+const cliAuthorizedLines = (pathId: string) => [
+  `$PATH #${pathId || "?"} authorized for this THOUGHT.`,
+  cliAuthorizationExpiryLine(),
+  "use: confirm",
+].filter(Boolean);
+
 const cliVerifyLines = () => [
   `verify ${SURFACE_TERMINOLOGY.ecosystem}.`,
   "",
@@ -11135,7 +11155,7 @@ const buildCliMintStateLines = () => {
     return ["wallet authorization pending..."];
   }
   if (mintFlowState === "authorized") {
-    return [`$PATH #${pathId || "?"} authorized for this THOUGHT.`, "use: confirm"];
+    return cliAuthorizedLines(pathId);
   }
   if (mintFlowState === "minting") {
     return ["confirming mint..."];
@@ -11493,7 +11513,7 @@ const authorizeFromCli = async () => {
     const pathId = selectedCliPathId();
     appendCliError(
       mintFlowState === "authorized"
-        ? [`$PATH #${pathId || "?"} authorized for this THOUGHT.`, "use: confirm"]
+        ? cliAuthorizedLines(pathId)
         : ["not ready.", "use: path <id>"],
     );
     return;
@@ -11520,7 +11540,7 @@ const authorizeFromCli = async () => {
   stopCliProgress();
   const state = mintFlowState as MintFlowState;
   if (state === "authorized") {
-    appendCliOutput([`$PATH #${pathId} authorized for this THOUGHT.`, "use: confirm"]);
+    appendCliOutput(cliAuthorizedLines(pathId));
   } else if (state === "error") {
     if (mintFlowData.error.includes("provenance too large")) {
       appendCliError(provenanceTooLargeLinesFromMessage(mintFlowData.error));
