@@ -550,6 +550,18 @@ body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-side {
   color: #b91c1c;
 }
 
+.thought-cli-link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.thought-cli-link:hover,
+.thought-cli-link:focus-visible {
+  color: var(--accent);
+  outline: none;
+}
+
 .thought-cli__input {
   width: 100%;
   box-sizing: border-box;

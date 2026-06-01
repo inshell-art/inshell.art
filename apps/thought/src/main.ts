@@ -8490,6 +8490,8 @@ const isCliFollowUpLine = (line: string) => {
   return CLI_FOLLOW_UP_PREFIXES.some((prefix) => trimmed.startsWith(prefix));
 };
 
+const CLI_VERIFY_CONTRACTS_LINK_LABEL = "verify contracts ↗";
+
 const isCliSectionLabel = (line: string) => CLI_SECTION_LABELS.has(line.trim());
 
 const formatCliSectionLines = (lines: string[]) => {
@@ -8972,7 +8974,17 @@ const renderCliTranscript = () => {
       const row = document.createElement("div");
       const hasShellPrefix = line.startsWith("> ") || line.startsWith("my-brain> ");
       const displayLine = entry.kind === "command" && index === 0 && !hasShellPrefix ? `> ${line}` : line;
-      row.textContent = displayLine || " ";
+      if (displayLine === CLI_VERIFY_CONTRACTS_LINK_LABEL) {
+        const link = document.createElement("a");
+        link.className = "thought-cli-link";
+        link.href = "/verify";
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = CLI_VERIFY_CONTRACTS_LINK_LABEL;
+        row.append(link);
+      } else {
+        row.textContent = displayLine || " ";
+      }
       block.append(row);
     });
     return block;
@@ -11055,7 +11067,7 @@ const cliWalletConnectVerifyLines = () => [
   "no signature.",
   "no tx or approval.",
   "",
-  "verify contracts: /verify",
+  CLI_VERIFY_CONTRACTS_LINK_LABEL,
 ];
 
 const cliPathRecoveryErrorLines = (fallbackPathId = "") => {
@@ -11498,7 +11510,7 @@ const authorizeFromCli = async () => {
     cliReviewRow("expires", `${Math.floor(Number(PATH_CONSUME_AUTH_TTL_SECONDS) / 3600)} hour`),
     "",
     "wallet signs next. does not mint.",
-    "verify contracts: /verify",
+    CLI_VERIFY_CONTRACTS_LINK_LABEL,
   ], { preserveSpacing: true });
   await authorizeMint();
   stopCliProgress();
@@ -11551,7 +11563,7 @@ const cliConfirmPreviewLines = async () => {
     "",
     "publishes prompt + model return + provenance.",
     "wallet opens next.",
-    "verify contracts: /verify",
+    CLI_VERIFY_CONTRACTS_LINK_LABEL,
   ];
 };
 
