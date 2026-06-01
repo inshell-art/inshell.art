@@ -334,6 +334,18 @@ type MintSheetActionConfig = {
   label: string;
 };
 
+type MintSheetReviewRow = {
+  href?: string;
+  label: string;
+  value: string;
+};
+
+type MintSheetReviewConfig = {
+  note?: string;
+  rows?: MintSheetReviewRow[];
+  verifyLink?: boolean;
+};
+
 type MintFlowUiMode = "sheet" | "cli";
 
 type CliEntryKind = "intro" | "command" | "output" | "error";
@@ -890,6 +902,8 @@ const chainExplorerBaseUrl =
       : "";
 const THOUGHT_EXPLORER_BASE_URL = configuredExplorerBaseUrl || addressExplorerBaseUrl || chainExplorerBaseUrl;
 const thoughtTxUrl = (txHash: string) => (THOUGHT_EXPLORER_BASE_URL ? `${THOUGHT_EXPLORER_BASE_URL}/tx/${txHash}` : "");
+const thoughtAddressUrl = (address: string) =>
+  THOUGHT_EXPLORER_BASE_URL && address ? `${THOUGHT_EXPLORER_BASE_URL}/address/${address}` : "";
 const PATH_MOVEMENT_THOUGHT = "0x54484f5547485400000000000000000000000000000000000000000000000000";
 const PATH_NFT_DEPLOY_BLOCK =
   getProtocolReleaseDeployBlock("path_nft") ??
@@ -4263,16 +4277,143 @@ const getMintSheetStatusCopy = () => {
   return "";
 };
 
-const getMintSheetContextCopy = () => {
+const mintReviewChainLabel = () => `${THOUGHT_CHAIN_NAME} / ${THOUGHT_CHAIN_ID}`;
+
+const mintReviewContractValue = (label: string, address: string) =>
+  address ? `${label} ${shortHex(address, 6, 4)}` : `${label} unavailable`;
+
+const getMintSheetCopy = () => {
+  if (mintFlowState === "wallet_required") {
+    return "connect reads address only.\nno signature, tx, or approval.";
+  }
+  if (mintFlowState === "path_ready" || mintFlowState === "authorizing") {
+    return "review PATH authorization before opening your wallet.";
+  }
+  if (mintFlowState === "authorized" || mintFlowState === "minting") {
+    return "review THOUGHT mint before opening your wallet.";
+  }
+  return "one THOUGHT needs one $PATH.";
+};
+
+const getMintSheetReviewConfig = (): MintSheetReviewConfig => {
   const selectedPathId = mintFlowData.pathId?.toString() ?? mintFlowData.pathIdInput.trim();
 
+  if (mintFlowState === "wallet_required") {
+    return {
+      note: "address read only.\nno signature.\nno tx or approval.",
+      verifyLink: true,
+    };
+  }
+
   if (mintFlowState === "path_ready" || mintFlowState === "authorizing") {
-    return "one THOUGHT needs one usable $PATH.";
+    return {
+      rows: [
+        { label: "network", value: mintReviewChainLabel() },
+        { label: "$PATH", value: selectedPathId ? `#${selectedPathId}` : "-" },
+        {
+          label: "contract",
+          value: mintReviewContractValue("PathNFT", PATH_NFT_ADDRESS),
+          href: thoughtAddressUrl(PATH_NFT_ADDRESS),
+        },
+        {
+          label: "signature",
+          value: "PATH consume authorization",
+        },
+        {
+          label: "executor",
+          value: mintReviewContractValue("ThoughtNFT", THOUGHT_NFT_ADDRESS),
+          href: thoughtAddressUrl(THOUGHT_NFT_ADDRESS),
+        },
+        { label: "ETH sent", value: "0 ETH" },
+        { label: "network gas", value: "none" },
+        { label: "expires", value: `${Math.floor(Number(PATH_CONSUME_AUTH_TTL_SECONDS) / 3600)} hour` },
+      ],
+      note: "wallet signs next. does not mint.",
+      verifyLink: true,
+    };
   }
+
   if ((mintFlowState === "authorized" || mintFlowState === "minting") && selectedPathId) {
-    return `$PATH #${selectedPathId} selected.`;
+    return {
+      rows: [
+        { label: "network", value: mintReviewChainLabel() },
+        {
+          label: "contract",
+          value: mintReviewContractValue("ThoughtNFT", THOUGHT_NFT_ADDRESS),
+          href: thoughtAddressUrl(THOUGHT_NFT_ADDRESS),
+        },
+        {
+          label: "function",
+          value: "mint(string,uint256,bytes32,bytes32,bytes32,string,uint256,bytes)",
+        },
+        { label: "$PATH", value: `#${selectedPathId}` },
+        { label: "consumes", value: "1 THOUGHT unit" },
+        { label: "ETH sent", value: "0 ETH" },
+        { label: "authorization", value: "PATH signature attached" },
+        { label: "network gas", value: "shown in wallet" },
+      ],
+      note: "wallet opens next.",
+      verifyLink: true,
+    };
   }
-  return "";
+
+  return {};
+};
+
+const appendMintSheetReviewLink = (
+  parent: HTMLElement,
+  href: string,
+  text: string,
+  className = "mint-sheet-review-link",
+) => {
+  const link = document.createElement("a");
+  link.className = className;
+  link.href = href;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.textContent = text;
+  parent.appendChild(link);
+};
+
+const renderMintSheetContext = () => {
+  const config = getMintSheetReviewConfig();
+  mintSheetContext.replaceChildren();
+
+  if (config.rows?.length) {
+    const review = document.createElement("div");
+    review.className = "mint-sheet-review";
+    for (const row of config.rows) {
+      const rowElement = document.createElement("div");
+      rowElement.className = "mint-sheet-review-row";
+      const label = document.createElement("span");
+      label.textContent = row.label;
+      const value = document.createElement("strong");
+      if (row.href) {
+        appendMintSheetReviewLink(value, row.href, `${row.value} ↗`);
+      } else {
+        value.textContent = row.value;
+      }
+      rowElement.append(label, value);
+      review.appendChild(rowElement);
+    }
+    mintSheetContext.appendChild(review);
+  }
+
+  if (config.note) {
+    const note = document.createElement("div");
+    note.className = "mint-sheet-review-note";
+    note.textContent = config.note;
+    mintSheetContext.appendChild(note);
+  }
+
+  if (config.verifyLink) {
+    const verify = document.createElement("div");
+    verify.className = "mint-sheet-review-note";
+    appendMintSheetReviewLink(verify, "/verify", "verify contracts ↗");
+    mintSheetContext.appendChild(verify);
+  }
+
+  mintSheetContext.classList.toggle("is-hidden", mintSheetContext.childNodes.length === 0);
 };
 
 const getMintSheetProvenanceCopy = () => {
@@ -4303,7 +4444,7 @@ const syncMintSheet = () => {
 
   const thoughtLevelMintError = isThoughtLevelMintError();
   mintSheetTitle.textContent = "mint THOUGHT";
-  mintSheetCopy.textContent = "one THOUGHT needs one $PATH.";
+  mintSheetCopy.textContent = getMintSheetCopy();
   syncMintSheetFlow();
 
   const pathInputVisible =
@@ -4328,9 +4469,7 @@ const syncMintSheet = () => {
   mintSheetProvenance.classList.toggle("is-hidden", !provenanceCopy);
 
   mintSheetStatus.textContent = getMintSheetStatusCopy();
-  const contextCopy = getMintSheetContextCopy();
-  mintSheetContext.textContent = contextCopy;
-  mintSheetContext.classList.toggle("is-hidden", !contextCopy);
+  renderMintSheetContext();
   const [primary, secondary, tertiary] = getMintSheetActionConfigs();
   mintSheetPrimaryAction = primary.action;
   mintSheetSecondaryAction = secondary.action;
@@ -10867,6 +11006,11 @@ const cliWrongNetworkLines = () => [
   "use: path <id>",
 ];
 
+const cliReviewRow = (label: string, value: string) => `${label.padEnd(14)}${value}`;
+
+const cliReviewContract = (name: string, address: string) =>
+  address ? `${name} ${shortHex(address, 6, 4)}` : `${name} unavailable`;
+
 const cliVerifyLines = () => [
   `verify ${SURFACE_TERMINOLOGY.ecosystem}.`,
   "",
@@ -10903,17 +11047,15 @@ const cliVerifyLines = () => [
 const cliWalletConnectVerifyLines = () => [
   "connect wallet.",
   "",
-  "wallet may show a new-site warning.",
-  "verify before continuing:",
+  cliReviewRow("domain", contractStatusValue("domains", "thought-domain")),
+  cliReviewRow("network", `${THOUGHT_CHAIN_NAME} / ${THOUGHT_CHAIN_ID}`),
+  cliReviewRow("action", "connect wallet"),
   "",
-  `domain  ${contractStatusValue("domains", "thought-domain")}`,
-  `chain   ${THOUGHT_CHAIN_NAME}`,
-  "action  connect wallet",
+  "address read only.",
+  "no signature.",
+  "no tx or approval.",
   "",
-  `connect reads address and ${SURFACE_TERMINOLOGY.pathTokenPlain} ownership.`,
-  "funds move only after wallet transaction confirmation.",
-  "",
-  "use: verify",
+  "verify contracts: /verify",
 ];
 
 const cliPathRecoveryErrorLines = (fallbackPathId = "") => {
@@ -11343,12 +11485,21 @@ const authorizeFromCli = async () => {
 
   const pathId = selectedCliPathId() || "?";
   appendCliOutput([
-    `authorize $PATH #${pathId} for this THOUGHT.`,
-    "wallet may open for authorization.",
-    "no gas.",
-    "does not mint.",
-    `expires in ${Math.floor(Number(PATH_CONSUME_AUTH_TTL_SECONDS) / 3600)} hour.`,
-  ]);
+    "authorize PATH for THOUGHT.",
+    "review before opening your wallet.",
+    "",
+    cliReviewRow("network", `${THOUGHT_CHAIN_NAME} / ${THOUGHT_CHAIN_ID}`),
+    cliReviewRow("$PATH", `#${pathId}`),
+    cliReviewRow("contract", cliReviewContract("PathNFT", PATH_NFT_ADDRESS)),
+    cliReviewRow("signature", "PATH consume authorization"),
+    cliReviewRow("executor", cliReviewContract("ThoughtNFT", THOUGHT_NFT_ADDRESS)),
+    cliReviewRow("ETH sent", "0 ETH"),
+    cliReviewRow("network gas", "none"),
+    cliReviewRow("expires", `${Math.floor(Number(PATH_CONSUME_AUTH_TTL_SECONDS) / 3600)} hour`),
+    "",
+    "wallet signs next. does not mint.",
+    "verify contracts: /verify",
+  ], { preserveSpacing: true });
   await authorizeMint();
   stopCliProgress();
   const state = mintFlowState as MintFlowState;
@@ -11381,19 +11532,26 @@ const cliConfirmPreviewLines = async () => {
 
   return [
     "confirm THOUGHT mint.",
+    "review before opening your wallet.",
+    "",
+    cliReviewRow("network", `${THOUGHT_CHAIN_NAME} / ${THOUGHT_CHAIN_ID}`),
+    cliReviewRow("contract", cliReviewContract("ThoughtNFT", THOUGHT_NFT_ADDRESS)),
+    cliReviewRow("function", "mint(string,uint256,bytes32,bytes32,bytes32,string,uint256,bytes)"),
+    cliReviewRow("$PATH", `#${pathId}`),
+    cliReviewRow("consumes", "1 THOUGHT unit"),
+    cliReviewRow("ETH sent", "0 ETH"),
+    cliReviewRow("authorization", "PATH signature attached"),
+    cliReviewRow("network gas", "shown in wallet"),
+    "",
     `work: ${quoteCliFullText(text)}`,
     `prompt: ${quoteCliFullText(prompt)}`,
     `model return: ${formatCliModelReturnValue(returnedText, text)}`,
-    `$PATH: #${pathId}`,
     provenanceBytes === null ? "provenance: unknown" : formatProvenanceBytes(provenanceBytes),
     `spec: ${specLabel}`,
     "",
-    "mint fee: none",
-    "network gas: shown in wallet.",
-    "",
     "publishes prompt + model return + provenance.",
-    `$PATH #${pathId} THOUGHT unit will be consumed.`,
-    "confirm in wallet...",
+    "wallet opens next.",
+    "verify contracts: /verify",
   ];
 };
 

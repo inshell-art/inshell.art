@@ -1311,6 +1311,52 @@ body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-side {
   white-space: pre-line;
 }
 
+.mint-sheet-context {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mint-sheet-review {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.mint-sheet-review-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.mint-sheet-review-row span {
+  color: var(--muted);
+}
+
+.mint-sheet-review-row strong {
+  color: var(--text);
+  font-weight: var(--weight-mid, 400);
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.mint-sheet-review-note {
+  color: var(--muted);
+}
+
+.mint-sheet-review-link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.mint-sheet-review-link:hover,
+.mint-sheet-review-link:focus-visible {
+  color: var(--accent);
+  outline: none;
+}
+
 .mint-sheet-provenance {
   margin: -2px 0 0;
   color: rgba(82, 92, 112, 0.62);
