@@ -825,6 +825,7 @@ const PATH_MINT_URL =
   typeof import.meta.env.VITE_PATH_MINT_URL === "string" && import.meta.env.VITE_PATH_MINT_URL.trim()
     ? import.meta.env.VITE_PATH_MINT_URL.trim()
     : defaultPathMintUrl();
+const PATH_VERIFY_CONTRACTS_URL = new URL("/verify#verify-contracts", PATH_MINT_URL).toString();
 const THOUGHT_GALLERY_URL =
   readConfiguredUrl("VITE_THOUGHT_GALLERY_URL") ||
   readConfiguredUrl("VITE_GALLERY_URL") ||
@@ -954,6 +955,9 @@ const ROUTE_SEARCH_PARAMS = new URLSearchParams(window.location.search);
 const ROUTE_PATHNAME = window.location.pathname.replace(/\/+$/, "") || "/";
 const IS_COLOR_FONT_PAGE = ROUTE_PATHNAME === "/color-font";
 const IS_VERIFY_PAGE = ROUTE_PATHNAME === "/verify";
+if (IS_VERIFY_PAGE && !LOCAL_BROWSER_HOSTS.has(window.location.hostname)) {
+  window.location.replace(PATH_VERIFY_CONTRACTS_URL);
+}
 const RAW_PRESELECTED_PATH_ID = ROUTE_SEARCH_PARAMS.get("path")?.trim() ?? "";
 const PRESELECTED_PATH_ID = /^[1-9]\d*$/.test(RAW_PRESELECTED_PATH_ID) ? RAW_PRESELECTED_PATH_ID : "";
 const ROUTE_THOUGHT_PATH_MATCH = /^\/thought\/([1-9]\d*)$/.exec(ROUTE_PATHNAME);
@@ -4409,7 +4413,7 @@ const renderMintSheetContext = () => {
   if (config.verifyLink) {
     const verify = document.createElement("div");
     verify.className = "mint-sheet-review-note";
-    appendMintSheetReviewLink(verify, "/verify", "verify contracts ↗");
+    appendMintSheetReviewLink(verify, PATH_VERIFY_CONTRACTS_URL, "verify contracts ↗");
     mintSheetContext.appendChild(verify);
   }
 
@@ -8977,7 +8981,7 @@ const renderCliTranscript = () => {
       if (displayLine === CLI_VERIFY_CONTRACTS_LINK_LABEL) {
         const link = document.createElement("a");
         link.className = "thought-cli-link";
-        link.href = "/verify";
+        link.href = PATH_VERIFY_CONTRACTS_URL;
         link.target = "_blank";
         link.rel = "noopener noreferrer";
         link.textContent = CLI_VERIFY_CONTRACTS_LINK_LABEL;
@@ -11053,7 +11057,7 @@ const cliVerifyLines = () => [
   `mint ${SURFACE_TERMINOLOGY.thoughtToken} submits a wallet-confirmed transaction using selected ${SURFACE_TERMINOLOGY.pathToken}.`,
   "funds or tokens move only after wallet transaction confirmation.",
   "",
-  "open: /verify",
+  `open: ${PATH_VERIFY_CONTRACTS_URL}`,
 ];
 
 const cliWalletConnectVerifyLines = () => [
@@ -11797,7 +11801,7 @@ const cliHelpLines = (topic = "") => {
       "wallet actions",
       "",
       "use: verify",
-      "open: /verify",
+      `open: ${PATH_VERIFY_CONTRACTS_URL}`,
     ];
   }
 
