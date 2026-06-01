@@ -157,7 +157,7 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
             target="_blank"
             rel="noopener noreferrer"
           >
-            THOUGHT.v1.md -&gt;
+            THOUGHT.v1.md ↗
           </a>
         </ThoughtSection>
 
@@ -181,7 +181,7 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
             href={`/path/${item.pathId}`}
             title={`Open $PATH #${item.pathId} detail`}
           >
-            $PATH #{item.pathId} -&gt;
+            $PATH #{item.pathId} ↗
           </a>
         </ThoughtSection>
 
@@ -206,7 +206,7 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    {shortValue(item.txHash, 22, 14)} -&gt;
+                    {shortValue(item.txHash, 22, 14)} ↗
                   </a>
                 ) : (
                   shortValue(item.txHash)
@@ -226,9 +226,9 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
                 rel="noopener noreferrer"
                 download={`thought-${item.tokenId}-provenance.json`}
               >
-                {provenanceBytes} bytes -&gt;
+                {provenanceBytes} bytes ↗
               </a>
-              <div className="thought-detail__viewer">
+              <div className="thought-detail__viewer is-hidden" aria-hidden="true">
                 <p className="thought-detail__viewer-title">
                   source: ThoughtNFT.provenanceOf({item.tokenId})
                 </p>
@@ -244,7 +244,7 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
 
         <ThoughtSection title="color font">
           <a className="thought-detail__value thought-detail__value-link" href="/color-font">
-            Color Font v1 -&gt;
+            Color Font v1 ↗
           </a>
         </ThoughtSection>
       </aside>

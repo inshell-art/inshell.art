@@ -849,7 +849,10 @@ describe("App Component", () => {
     expect(screen.getByLabelText("THOUGHT #1 record")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "THOUGHT #1 canvas" })).toBeInTheDocument();
     expect(screen.getByText("ONE THOUGHT")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /\$PATH #4/ })).toHaveAttribute("href", "/path/4");
+    expect(screen.getByRole("link", { name: "$PATH #4 ↗" })).toHaveAttribute("href", "/path/4");
+    expect(screen.getByRole("link", { name: "2 bytes ↗" })).toBeInTheDocument();
+    expect(screen.getByText("source: ThoughtNFT.provenanceOf(1)").closest(".thought-detail__viewer"))
+      .toHaveClass("is-hidden");
     expect(window.location.pathname).toBe("/thought/1");
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
   });

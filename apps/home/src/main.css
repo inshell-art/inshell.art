@@ -2437,6 +2437,10 @@ body {
   margin-top: 12px;
 }
 
+.thought-detail__viewer.is-hidden {
+  display: none;
+}
+
 .thought-detail__viewer-title {
   margin: 0 0 8px;
   color: var(--accent);
