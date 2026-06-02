@@ -68,6 +68,14 @@
   - `resolve tasks`, `empty the tasks`, `clean inbox`, or similar starts implementing `Inbox` in order, then clears completed entries after confirming what changed.
 - If any GitHub, Dependabot, security, CI, deployment, or repo alert appears during work or push output, record it under `Inbox` unless the user asks to fix it immediately.
 
+## Security and Quality Routine
+- GitHub security/quality alerts are handled on `staging` first, then promoted to `main` only after operator review.
+- The midnight routine means: inspect GitHub Dependabot alerts, code scanning alerts, secret scanning alerts, Dependabot PRs, and failed quality workflows; patch on `staging`; run CI/leak checks; push preview; notify the operator.
+- Do not auto-merge Dependabot, CodeQL, secret-scanning, or security fixes into `main`.
+- Dependabot version-update PRs should target `staging` so dependency changes go through preview validation.
+- GitHub Dependabot security updates may still target the default branch; if that happens, recreate or cherry-pick the fix onto `staging` first unless the operator explicitly requests an emergency production hotfix.
+- Nightly alert workflows are allowed to fail when open alerts exist. A failed nightly security-quality run is an action signal, not a production deploy blocker by itself.
+
 ## Security and Leak-Prevention Rules
 - Never introduce secrets into the repo.
 - Do not add or modify code that includes any:

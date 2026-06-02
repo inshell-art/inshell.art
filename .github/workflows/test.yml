@@ -5,6 +5,13 @@ on:
     branches: [main, staging]
   pull_request:
     branches: [main, staging]
+  workflow_dispatch:
+  schedule:
+    # Daily midnight quality run in Asia/Shanghai.
+    - cron: "5 16 * * *"
+
+permissions:
+  contents: read
 
 jobs:
   build:

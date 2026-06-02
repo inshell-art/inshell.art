@@ -1,0 +1,88 @@
+name: security-quality
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Daily midnight alert digest in Asia/Shanghai.
+    - cron: "40 16 * * *"
+
+permissions:
+  contents: read
+  security-events: read
+
+jobs:
+  alert-digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summarize open GitHub security alerts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          summary="$RUNNER_TEMP/security-quality-summary.md"
+          total=0
+
+          {
+            echo "# Security quality digest"
+            echo
+            echo "Repo: $REPO"
+            echo "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo
+            echo "Policy: patch alerts on staging first; do not auto-promote to main."
+          } > "$summary"
+
+          append_alerts() {
+            local title="$1"
+            local endpoint="$2"
+            local jq_filter="$3"
+            local raw count
+
+            if ! raw="$(gh api "$endpoint" --paginate --jq "$jq_filter" 2>/tmp/security-quality-gh-error)"; then
+              {
+                echo
+                echo "## $title"
+                echo
+                echo "Unable to read alerts:"
+                sed 's/^/- /' /tmp/security-quality-gh-error
+              } >> "$summary"
+              echo "::warning::$title alerts could not be read"
+              return
+            fi
+
+            count="$(printf "%s\n" "$raw" | sed '/^$/d' | wc -l | tr -d ' ')"
+            total=$((total + count))
+
+            {
+              echo
+              echo "## $title"
+              echo
+              echo "Open alerts: $count"
+              if [ "$count" -gt 0 ]; then
+                printf "%s\n" "$raw" | sed 's/^/- /'
+              fi
+            } >> "$summary"
+          }
+
+          append_alerts \
+            "Dependabot" \
+            "repos/$REPO/dependabot/alerts?state=open&per_page=100" \
+            '.[] | "#\(.number) \(.security_advisory.severity): \(.dependency.package.name) - \(.security_advisory.summary) \(.html_url)"'
+
+          append_alerts \
+            "Code scanning" \
+            "repos/$REPO/code-scanning/alerts?state=open&per_page=100" \
+            '.[] | "#\(.number) \(.rule.security_severity_level // .rule.severity // "unknown"): \(.rule.id) \(.html_url)"'
+
+          append_alerts \
+            "Secret scanning" \
+            "repos/$REPO/secret-scanning/alerts?state=open&per_page=100" \
+            '.[] | "#\(.number) \(.secret_type_display_name // .secret_type) \(.html_url)"'
+
+          cat "$summary" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$total" -gt 0 ]; then
+            echo "::error::Open GitHub security alerts: $total"
+            exit 1
+          fi
