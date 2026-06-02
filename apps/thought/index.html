@@ -21,15 +21,33 @@
       const params = new URLSearchParams(window.location.search);
       const pathname = window.location.pathname.replace(/\/+$/, "");
       const hostname = window.location.hostname.toLowerCase();
+      const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1";
       const isGalleryHost = hostname === "gallery.inshell.art" || hostname === "gallery.preview.inshell.art";
       const isGalleryPath = pathname === "/gallery";
+      const isGalleryHash = window.location.hash === "#gallery" || /^#thought-[1-9]\d*$/.test(window.location.hash);
+      const hasGalleryIntent = isGalleryHost || isGalleryPath || params.get("gallery") === "1" || isGalleryHash;
+      const thoughtPathMatch = /^\/thought\/([1-9]\d*)$/.exec(pathname);
+      const thoughtQueryId = /^[1-9]\d*$/.test(params.get("thought") || "") ? params.get("thought") : "";
+      const isThoughtHost =
+        hostname === "thought.inshell.art" ||
+        hostname === "thought.preview.inshell.art" ||
+        hostname === "thought-inshell-art.pages.dev" ||
+        hostname.endsWith(".thought-inshell-art.pages.dev");
+      const redirectThoughtId = !isLocalHost && isThoughtHost && !hasGalleryIntent
+        ? thoughtPathMatch?.[1] || thoughtQueryId
+        : "";
+      if (redirectThoughtId) {
+        const isPreview = hostname === "thought.preview.inshell.art" || hostname.startsWith("staging.");
+        window.location.replace(`${isPreview ? "https://preview.inshell.art" : "https://inshell.art"}/thought/${redirectThoughtId}`);
+        return;
+      }
       if (pathname === "/color-font") {
         document.documentElement.classList.add("color-font-route");
       } else if (pathname === "/verify") {
         document.documentElement.classList.add("verify-route");
-      } else if (isGalleryHost || isGalleryPath || params.get("gallery") === "1" || window.location.hash === "#gallery") {
+      } else if (hasGalleryIntent) {
         document.documentElement.classList.add("gallery-route");
-      } else if (/^[1-9]\d*$/.test(params.get("thought") || "")) {
+      } else if (thoughtPathMatch || thoughtQueryId) {
         document.documentElement.classList.add("thought-route");
       }
     })();

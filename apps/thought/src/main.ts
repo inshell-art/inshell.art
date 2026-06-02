@@ -961,6 +961,7 @@ if (IS_VERIFY_PAGE && !LOCAL_BROWSER_HOSTS.has(window.location.hostname)) {
 const RAW_PRESELECTED_PATH_ID = ROUTE_SEARCH_PARAMS.get("path")?.trim() ?? "";
 const PRESELECTED_PATH_ID = /^[1-9]\d*$/.test(RAW_PRESELECTED_PATH_ID) ? RAW_PRESELECTED_PATH_ID : "";
 const ROUTE_THOUGHT_PATH_MATCH = /^\/thought\/([1-9]\d*)$/.exec(ROUTE_PATHNAME);
+const ROUTE_THOUGHT_HASH_MATCH = /^#thought-([1-9]\d*)$/.exec(window.location.hash);
 const IS_GALLERY_HOST =
   window.location.hostname === "gallery.inshell.art" ||
   window.location.hostname === "gallery.preview.inshell.art";
@@ -971,9 +972,13 @@ const IS_GALLERY_PAGE =
   (IS_GALLERY_HOST ||
     IS_GALLERY_PATH ||
     ROUTE_SEARCH_PARAMS.get("gallery") === "1" ||
-    window.location.hash === "#gallery");
+    window.location.hash === "#gallery" ||
+    ROUTE_THOUGHT_HASH_MATCH !== null);
 const RAW_ROUTE_THOUGHT_NFT_ID =
-  ROUTE_THOUGHT_PATH_MATCH?.[1] ?? ROUTE_SEARCH_PARAMS.get("thought")?.trim() ?? "";
+  ROUTE_THOUGHT_PATH_MATCH?.[1] ??
+  ROUTE_THOUGHT_HASH_MATCH?.[1] ??
+  ROUTE_SEARCH_PARAMS.get("thought")?.trim() ??
+  "";
 const ROUTE_THOUGHT_NFT_ID = /^[1-9]\d*$/.test(RAW_ROUTE_THOUGHT_NFT_ID)
   ? Number(RAW_ROUTE_THOUGHT_NFT_ID)
   : null;
@@ -5583,7 +5588,7 @@ const galleryUrl = (targetTokenId?: number | null) => {
     url.pathname = "/";
   }
   if (targetTokenId !== null && targetTokenId !== undefined) {
-    url.searchParams.set("thought", targetTokenId.toString());
+    url.hash = `thought-${targetTokenId}`;
   }
   return url.toString();
 };

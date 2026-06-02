@@ -13,10 +13,16 @@ type MiddlewareContext = {
   };
   next: (request?: Request) => Promise<Response>;
 };
+type UrlInstance = InstanceType<typeof globalThis.URL>;
 
 export async function onRequest(ctx: MiddlewareContext): Promise<Response> {
   const url = new globalThis.URL(ctx.request.url);
   const pathname = normalizePathname(url.pathname);
+  const thoughtRedirect = canonicalThoughtRedirect(url, pathname);
+
+  if (thoughtRedirect) {
+    return thoughtRedirect;
+  }
 
   if (pathname === "/rss.xml") {
     return proxyFeed(PUBLIC_FEED_RSS_URL, ctx.request);
@@ -46,6 +52,47 @@ function isAppShellRoute(pathname: string) {
     pathname === "/gallery" ||
     /^\/path\/[1-9]\d*$/.test(pathname) ||
     /^\/thought\/[1-9]\d*$/.test(pathname)
+  );
+}
+
+function canonicalThoughtRedirect(url: UrlInstance, pathname: string) {
+  const hostname = url.hostname.toLowerCase();
+  if (!isThoughtHost(hostname)) return null;
+  if (isGalleryIntent(hostname, pathname, url)) return null;
+
+  const pathMatch = /^\/thought\/([1-9]\d*)$/.exec(pathname);
+  const queryThoughtId = url.searchParams.get("thought")?.trim() ?? "";
+  const thoughtId = pathMatch?.[1] ?? (/^[1-9]\d*$/.test(queryThoughtId) ? queryThoughtId : "");
+  if (!thoughtId) return null;
+
+  const target = new globalThis.URL(
+    `/thought/${thoughtId}`,
+    isPreviewHost(hostname) ? "https://preview.inshell.art" : "https://inshell.art",
+  );
+  return Response.redirect(target.toString(), 302);
+}
+
+function isThoughtHost(hostname: string) {
+  return (
+    hostname === "thought.inshell.art" ||
+    hostname === "thought.preview.inshell.art" ||
+    hostname === "thought-inshell-art.pages.dev" ||
+    hostname.endsWith(".thought-inshell-art.pages.dev")
+  );
+}
+
+function isPreviewHost(hostname: string) {
+  return hostname === "thought.preview.inshell.art" || hostname.startsWith("staging.");
+}
+
+function isGalleryIntent(hostname: string, pathname: string, url: UrlInstance) {
+  return (
+    hostname === "gallery.inshell.art" ||
+    hostname === "gallery.preview.inshell.art" ||
+    pathname === "/gallery" ||
+    url.searchParams.get("gallery") === "1" ||
+    url.hash === "#gallery" ||
+    /^#thought-[1-9]\d*$/.test(url.hash)
   );
 }
 
