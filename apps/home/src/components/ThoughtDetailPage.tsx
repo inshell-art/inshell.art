@@ -1,12 +1,17 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ElementRef,
+  type ReactNode,
+} from "react";
 import {
   loadThoughtGallery,
   readCachedThoughtGallery,
   type ThoughtGalleryItem,
 } from "@/services/thoughtGallery";
-
-const SPEC_SOURCE_URL =
-  "https://github.com/inshell-art/inshell.art/blob/main/apps/thought/THOUGHT.v1.md";
+import { COLOR_FONT_RAW } from "@/content/colorFont";
 
 type LoadState =
   | { status: "loading"; items: ThoughtGalleryItem[]; error: null }
@@ -79,6 +84,10 @@ function canonicalThoughtTitle(value: string): string {
   );
 }
 
+function thoughtRawText(item: ThoughtGalleryItem): string {
+  return item.rawText.trim() || canonicalThoughtTitle(item.rawText) || "-";
+}
+
 function formatTimestamp(seconds: number | null): string {
   if (seconds === null || !Number.isFinite(seconds)) return "-";
   return new Date(seconds * 1000)
@@ -102,7 +111,24 @@ function byteLength(value: string): number {
 }
 
 function provenanceDataUrl(value: string): string {
-  return `data:application/json;charset=utf-8,${encodeURIComponent(formatProvenanceJson(value))}`;
+  return `data:application/json;charset=utf-8,${encodeURIComponent(value)}`;
+}
+
+function specDataUrl(item: ThoughtGalleryItem): string {
+  const json = JSON.stringify(
+    {
+      ref: "THOUGHT.v1.md",
+      specId: item.thoughtSpecId,
+      specHash: item.thoughtSpecHash,
+    },
+    null,
+    2
+  );
+  return `data:application/json;charset=utf-8,${encodeURIComponent(`${json}\n`)}`;
+}
+
+function colorFontDataUrl(): string {
+  return `data:text/plain;charset=utf-8,${encodeURIComponent(COLOR_FONT_RAW)}`;
 }
 
 function explorerTxUrl(txHash: string): string | null {
@@ -121,8 +147,53 @@ function ThoughtSection({ title, children }: { title: string; children: ReactNod
   );
 }
 
+function ThoughtTextBlock({
+  children,
+  id,
+}: {
+  children: ReactNode;
+  id?: string;
+}) {
+  const ref = useRef<ElementRef<"p"> | null>(null);
+  const [embedded, setEmbedded] = useState(false);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element || typeof window === "undefined") return;
+
+    const sync = () => {
+      const wasEmbedded = element.classList.contains("is-embedded");
+      element.classList.remove("is-embedded");
+      const style = window.getComputedStyle(element);
+      const lineHeight =
+        Number.parseFloat(style.lineHeight) || Number.parseFloat(style.fontSize) * 1.55;
+      if (wasEmbedded) {
+        element.classList.add("is-embedded");
+      }
+      setEmbedded(element.scrollHeight > lineHeight * 2 + 1);
+    };
+
+    const frame = window.requestAnimationFrame(sync);
+    window.addEventListener("resize", sync);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", sync);
+    };
+  }, [children]);
+
+  return (
+    <p
+      id={id}
+      ref={ref}
+      className={`thought-detail__text${embedded ? " is-embedded" : ""}`}
+    >
+      {children}
+    </p>
+  );
+}
+
 function thoughtTitle(item: ThoughtGalleryItem): string {
-  return item.rawText.trim() || `THOUGHT #${item.tokenId}`;
+  return thoughtRawText(item) || `THOUGHT #${item.tokenId}`;
 }
 
 function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
@@ -147,13 +218,17 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
 
       <aside className="thought-detail__rail" aria-label={`THOUGHT #${item.tokenId} record`}>
         <ThoughtSection title="prompt">
-          <p className="thought-detail__text">{item.prompt || "prompt unavailable."}</p>
+          <ThoughtTextBlock id="thought-detail-prompt">
+            {item.prompt || "prompt unavailable."}
+          </ThoughtTextBlock>
         </ThoughtSection>
 
         <ThoughtSection title="spec">
           <a
+            id="thought-detail-spec-ref"
             className="thought-detail__value thought-detail__value-link"
-            href={SPEC_SOURCE_URL}
+            href={specDataUrl(item)}
+            title="Open local cached spec JSON"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -166,18 +241,21 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
         </ThoughtSection>
 
         <ThoughtSection title="model return">
-          <p className="thought-detail__text">
+          <ThoughtTextBlock id="thought-detail-model-return">
             {item.returnedText || "model return unavailable."}
-          </p>
+          </ThoughtTextBlock>
         </ThoughtSection>
 
         <ThoughtSection title="text">
-          <p className="thought-detail__text">{canonicalThoughtTitle(item.rawText)}</p>
+          <ThoughtTextBlock id="thought-detail-canonical-title">
+            {thoughtRawText(item)}
+          </ThoughtTextBlock>
         </ThoughtSection>
 
         <ThoughtSection title="$PATH">
           <a
-            className="thought-detail__value thought-detail__value-link"
+            id="thought-detail-path"
+            className="thought-detail__value thought-detail__path-link"
             href={`/path/${item.pathId}`}
             title={`Open $PATH #${item.pathId} detail`}
           >
@@ -189,7 +267,9 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
           <dl className="thought-detail__fields">
             <div>
               <dt>minter</dt>
-              <dd title={item.minter}>{shortDetailAddress(item.minter)}</dd>
+              <dd id="thought-detail-minter" title={item.minter}>
+                {shortDetailAddress(item.minter)}
+              </dd>
             </div>
             <div>
               <dt>minted</dt>
@@ -200,6 +280,7 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
               <dd>
                 {txUrl ? (
                   <a
+                    id="thought-detail-view-tx"
                     className="thought-detail__value-link"
                     href={txUrl}
                     title={item.txHash}
@@ -224,7 +305,6 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
                 href={provenanceDataUrl(item.provenanceJson)}
                 target="_blank"
                 rel="noopener noreferrer"
-                download={`thought-${item.tokenId}-provenance.json`}
               >
                 {provenanceBytes} bytes ↗
               </a>
@@ -243,7 +323,14 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
         </ThoughtSection>
 
         <ThoughtSection title="color font">
-          <a className="thought-detail__value thought-detail__value-link" href="/color-font">
+          <a
+            id="thought-detail-color-font"
+            className="thought-detail__value thought-detail__value-link"
+            href={colorFontDataUrl()}
+            title="Open local raw color-font mapping from ThoughtNFT color-font ABI"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             Color Font v1 ↗
           </a>
         </ThoughtSection>
