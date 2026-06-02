@@ -2,6 +2,7 @@ import {
   PULSE_AUCTION_ADDRESS,
   PULSE_AUCTION_DEPLOY_BLOCK,
   PULSE_SALE_TOPIC,
+  createChainCacheDiagnostics,
   createStats,
   emitUsage,
   getBlockNumber,
@@ -11,13 +12,17 @@ import {
   onOptions,
   pruneReorgWindow,
   readSnapshot,
+  readResponseCache,
   refreshFromBlock,
   safeNumber,
   sortByBlockLog,
   topicToAddress,
   topicToBigInt,
   u256,
+  withChainCacheDiagnostics,
+  writeResponseCache,
   writeSnapshot,
+  type ChainCacheDiagnostics,
   type ChainCacheEnv,
   type ChainLog,
   type IndexedSnapshot,
@@ -32,11 +37,18 @@ const EDGE_SNAPSHOT_SECONDS = 5 * 60;
 export const onRequestOptions = onOptions;
 
 export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
+  const diagnostics = createChainCacheDiagnostics(SNAPSHOT_KEY);
+  const cached = await readResponseCache(ctx, SNAPSHOT_KEY);
+  if (cached) {
+    diagnostics.source = "edge";
+    return withChainCacheDiagnostics(ctx, cached, diagnostics);
+  }
+
   const stats = createStats("path", "pulse-auction", ctx.env);
   try {
-    const snapshot = await loadPulseAuction(ctx.env, ctx, stats);
+    const snapshot = await loadPulseAuction(ctx.env, ctx, stats, diagnostics);
     emitUsage(ctx, stats);
-    return json(
+    const response = json(
       200,
       {
         cachedAt: snapshot.cachedAt,
@@ -48,6 +60,8 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
       },
       RESPONSE_CACHE_SECONDS,
     );
+    writeResponseCache(ctx, SNAPSHOT_KEY, response, RESPONSE_CACHE_SECONDS, snapshot.lastScannedBlock);
+    return withChainCacheDiagnostics(ctx, response, diagnostics, stats, snapshot);
   } catch (error) {
     emitUsage(ctx, stats);
     return json(500, {
@@ -61,8 +75,9 @@ async function loadPulseAuction(
   env: ChainCacheEnv,
   ctx: PagesContextLike,
   stats: ReturnType<typeof createStats>,
+  diagnostics: ChainCacheDiagnostics,
 ): Promise<IndexedSnapshot<PulseBidApiItem>> {
-  const previous = await readSnapshot<PulseBidApiItem>(env, SNAPSHOT_KEY);
+  const previous = await readSnapshot<PulseBidApiItem>(env, SNAPSHOT_KEY, diagnostics);
   if (previous && Date.now() - previous.cachedAt < RESPONSE_CACHE_SECONDS * 1000) {
     return previous;
   }
@@ -95,7 +110,7 @@ async function loadPulseAuction(
     lastScannedBlock: latestBlock,
     items: [...bids.values()].sort((left, right) => left.atMs - right.atMs),
   };
-  await writeSnapshot(ctx, SNAPSHOT_KEY, snapshot, EDGE_SNAPSHOT_SECONDS);
+  await writeSnapshot(ctx, SNAPSHOT_KEY, snapshot, EDGE_SNAPSHOT_SECONDS, diagnostics, previous);
   return snapshot;
 }
 

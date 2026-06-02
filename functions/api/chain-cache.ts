@@ -15,6 +15,7 @@ export type ChainCacheEnv = {
   MSG_HUB_RPC_USAGE_ENDPOINT?: string;
   MSG_HUB_RPC_USAGE_TOKEN?: string;
   INSHELL_CHAIN_DATA_KV?: KVNamespaceLike;
+  CHAIN_CACHE_DIAGNOSTICS?: string;
 };
 
 export type PagesContextLike = {
@@ -42,6 +43,17 @@ type EdgeCachedValue<T> = {
   value: T;
 };
 
+type ChainCacheSource = "memory" | "edge" | "kv" | "live";
+
+export type ChainCacheDiagnostics = {
+  source: ChainCacheSource;
+  key: string;
+  kvRead: 0 | 1;
+  kvWrite: 0 | 1;
+  liveRpcCalls: number;
+  snapshotBlock?: number;
+};
+
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
   "access-control-allow-origin": "*",
@@ -54,6 +66,9 @@ const RPC_TIMEOUT_MS = 12_000;
 const REORG_DEPTH = 3;
 const DEFAULT_LOG_CHUNK_SIZE = 5_000;
 const EDGE_CACHE_PREFIX = "https://inshell.local/chain-cache/";
+const RESPONSE_CACHE_PREFIX = "https://inshell.local/chain-response/";
+const KV_SNAPSHOT_TTL_SECONDS = 30 * 24 * 60 * 60;
+const KV_WRITE_MIN_INTERVAL_SECONDS = 10 * 60;
 
 export const SEPOLIA_CHAIN_ID = 11155111;
 export const PATH_NFT_ADDRESS = "0x84915746a1f06850CF41a3E90C60c2DcA3fa116D";
@@ -310,20 +325,36 @@ export async function getLogsChunked(
 export async function readSnapshot<T>(
   env: ChainCacheEnv,
   key: string,
+  diagnostics?: ChainCacheDiagnostics,
 ): Promise<IndexedSnapshot<T> | null> {
   const memory = memoryCache.get(key);
-  if (memory) return memory.value as IndexedSnapshot<T>;
+  if (memory) {
+    if (diagnostics) {
+      diagnostics.source = "memory";
+      diagnostics.snapshotBlock = snapshotBlock(memory.value);
+    }
+    return memory.value as IndexedSnapshot<T>;
+  }
 
   const edge = await readEdgeCache<IndexedSnapshot<T>>(key);
   if (edge) {
     memoryCache.set(key, { cachedAt: Date.now(), value: edge });
+    if (diagnostics) {
+      diagnostics.source = "edge";
+      diagnostics.snapshotBlock = snapshotBlock(edge);
+    }
     return edge;
   }
 
   try {
+    if (diagnostics) diagnostics.kvRead = 1;
     const fromKv = await env.INSHELL_CHAIN_DATA_KV?.get(key, "json");
     if (fromKv && typeof fromKv === "object") {
       memoryCache.set(key, { cachedAt: Date.now(), value: fromKv });
+      if (diagnostics) {
+        diagnostics.source = "kv";
+        diagnostics.snapshotBlock = snapshotBlock(fromKv);
+      }
       return fromKv as IndexedSnapshot<T>;
     }
   } catch {
@@ -337,17 +368,90 @@ export async function writeSnapshot<T>(
   key: string,
   snapshot: IndexedSnapshot<T>,
   edgeTtlSeconds: number,
+  diagnostics?: ChainCacheDiagnostics,
+  previous?: IndexedSnapshot<T> | null,
 ) {
   memoryCache.set(key, { cachedAt: Date.now(), value: snapshot });
-  const tasks = [
-    writeEdgeCache(key, snapshot, edgeTtlSeconds),
-    ctx.env.INSHELL_CHAIN_DATA_KV?.put(key, JSON.stringify(snapshot), {
-      expirationTtl: 30 * 24 * 60 * 60,
-    }) ?? Promise.resolve(),
-  ];
+  if (diagnostics) diagnostics.snapshotBlock = snapshot.lastScannedBlock;
+
+  const tasks: Array<Promise<unknown>> = [writeEdgeCache(key, snapshot, edgeTtlSeconds)];
+  const shouldPersist = shouldWriteKvSnapshot(previous ?? null, snapshot);
+  if (shouldPersist && ctx.env.INSHELL_CHAIN_DATA_KV) {
+    if (diagnostics) diagnostics.kvWrite = 1;
+    tasks.push(
+      ctx.env.INSHELL_CHAIN_DATA_KV.put(key, JSON.stringify(snapshot), {
+        expirationTtl: KV_SNAPSHOT_TTL_SECONDS,
+      }),
+    );
+  }
   const joined = Promise.all(tasks).then(() => undefined).catch(() => undefined);
   if (ctx.waitUntil) ctx.waitUntil(joined);
   else await joined;
+}
+
+export function createChainCacheDiagnostics(key: string): ChainCacheDiagnostics {
+  return {
+    source: "live",
+    key,
+    kvRead: 0,
+    kvWrite: 0,
+    liveRpcCalls: 0,
+  };
+}
+
+export async function readResponseCache(
+  ctx: PagesContextLike,
+  key: string,
+): Promise<Response | null> {
+  const cache = (globalThis as any).caches?.default;
+  if (!cache) return null;
+  try {
+    const response = await cache.match(responseCacheRequest(key));
+    return response ? response.clone() : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeResponseCache(
+  ctx: PagesContextLike,
+  key: string,
+  response: Response,
+  ttlSeconds: number,
+  snapshotBlock?: number,
+) {
+  const cache = (globalThis as any).caches?.default;
+  if (!cache || ttlSeconds <= 0 || response.status < 200 || response.status >= 300) return;
+  const cached = new Response(response.clone().body, response);
+  cached.headers.set("cache-control", `public, max-age=${ttlSeconds}`);
+  if (typeof snapshotBlock === "number") {
+    cached.headers.set("x-cache-snapshot-block", String(snapshotBlock));
+  }
+  const task = cache.put(responseCacheRequest(key), cached).catch(() => undefined);
+  if (ctx.waitUntil) ctx.waitUntil(task);
+}
+
+export function withChainCacheDiagnostics(
+  ctx: PagesContextLike,
+  response: Response,
+  diagnostics: ChainCacheDiagnostics,
+  stats?: RpcStats,
+  snapshot?: IndexedSnapshot<unknown>,
+) {
+  if (!diagnosticsEnabled(ctx)) return response;
+  const out = new Response(response.body, response);
+  const liveRpcCalls = stats?.calls ?? diagnostics.liveRpcCalls;
+  const source = liveRpcCalls > 0 ? "live" : diagnostics.source;
+  const block = snapshot?.lastScannedBlock ?? diagnostics.snapshotBlock;
+  out.headers.set("x-chain-cache-source", source);
+  out.headers.set("x-chain-cache-key", diagnostics.key);
+  out.headers.set("x-kv-read", String(diagnostics.kvRead));
+  out.headers.set("x-kv-write", String(diagnostics.kvWrite));
+  out.headers.set("x-live-rpc-calls", String(liveRpcCalls));
+  if (typeof block === "number") {
+    out.headers.set("x-cache-snapshot-block", String(block));
+  }
+  return out;
 }
 
 export function refreshFromBlock(snapshot: IndexedSnapshot<unknown> | null, deployBlock: number, latestBlock: number) {
@@ -631,4 +735,50 @@ async function writeEdgeCache<T>(key: string, value: T, ttlSeconds: number) {
 
 function edgeCacheRequest(key: string) {
   return new Request(`${EDGE_CACHE_PREFIX}${encodeURIComponent(key)}`);
+}
+
+function responseCacheRequest(key: string) {
+  return new Request(`${RESPONSE_CACHE_PREFIX}${encodeURIComponent(key)}`);
+}
+
+function snapshotBlock(value: unknown) {
+  const block = (value as { lastScannedBlock?: unknown } | null)?.lastScannedBlock;
+  return typeof block === "number" && Number.isFinite(block) ? block : undefined;
+}
+
+function shouldWriteKvSnapshot<T>(
+  previous: IndexedSnapshot<T> | null,
+  snapshot: IndexedSnapshot<T>,
+) {
+  if (!previous) return true;
+  if (snapshotContent(previous) !== snapshotContent(snapshot)) return true;
+  return Date.now() - previous.cachedAt >= KV_WRITE_MIN_INTERVAL_SECONDS * 1000;
+}
+
+function snapshotContent<T>(snapshot: IndexedSnapshot<T>) {
+  // Persist KV only when the public payload changes; edge/memory can carry scan-block drift.
+  return JSON.stringify({
+    version: snapshot.version,
+    chainId: snapshot.chainId,
+    contract: snapshot.contract,
+    fromBlock: snapshot.fromBlock,
+    items: snapshot.items,
+  });
+}
+
+function diagnosticsEnabled(ctx: PagesContextLike) {
+  if (ctx.env.CHAIN_CACHE_DIAGNOSTICS === "1") return true;
+  const rawUrl = (ctx.request as { url?: string } | undefined)?.url;
+  if (!rawUrl) return false;
+  try {
+    const { hostname } = new globalThis.URL(rawUrl);
+    return (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname.endsWith(".pages.dev") ||
+      hostname.includes("preview.inshell.art")
+    );
+  } catch {
+    return false;
+  }
 }

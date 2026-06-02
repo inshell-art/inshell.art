@@ -2,6 +2,7 @@ import {
   PATH_NFT_ADDRESS,
   PATH_NFT_DEPLOY_BLOCK,
   TRANSFER_TOPIC,
+  createChainCacheDiagnostics,
   createStats,
   decodeAddressResult,
   decodeStringResult,
@@ -17,13 +18,17 @@ import {
   parseMetadata,
   pruneReorgWindow,
   readSnapshot,
+  readResponseCache,
   refreshFromBlock,
   sortByBlockLog,
   sortByTokenId,
   tokenUriData,
   topicToAddress,
   topicToBigInt,
+  withChainCacheDiagnostics,
+  writeResponseCache,
   writeSnapshot,
+  type ChainCacheDiagnostics,
   type ChainCacheEnv,
   type IndexedSnapshot,
   type PagesContextLike,
@@ -39,11 +44,18 @@ const ZERO_TOPIC =
 export const onRequestOptions = onOptions;
 
 export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
+  const diagnostics = createChainCacheDiagnostics(SNAPSHOT_KEY);
+  const cached = await readResponseCache(ctx, SNAPSHOT_KEY);
+  if (cached) {
+    diagnostics.source = "edge";
+    return withChainCacheDiagnostics(ctx, cached, diagnostics);
+  }
+
   const stats = createStats("path", "path-tokens", ctx.env);
   try {
-    const snapshot = await loadPathTokens(ctx.env, ctx, stats);
+    const snapshot = await loadPathTokens(ctx.env, ctx, stats, diagnostics);
     emitUsage(ctx, stats);
-    return json(
+    const response = json(
       200,
       {
         cachedAt: snapshot.cachedAt,
@@ -55,6 +67,8 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
       },
       RESPONSE_CACHE_SECONDS,
     );
+    writeResponseCache(ctx, SNAPSHOT_KEY, response, RESPONSE_CACHE_SECONDS, snapshot.lastScannedBlock);
+    return withChainCacheDiagnostics(ctx, response, diagnostics, stats, snapshot);
   } catch (error) {
     emitUsage(ctx, stats);
     return json(500, {
@@ -68,8 +82,9 @@ async function loadPathTokens(
   env: ChainCacheEnv,
   ctx: PagesContextLike,
   stats: ReturnType<typeof createStats>,
+  diagnostics: ChainCacheDiagnostics,
 ): Promise<IndexedSnapshot<PathTokenApiItem>> {
-  const previous = await readSnapshot<PathTokenApiItem>(env, SNAPSHOT_KEY);
+  const previous = await readSnapshot<PathTokenApiItem>(env, SNAPSHOT_KEY, diagnostics);
   if (previous && Date.now() - previous.cachedAt < RESPONSE_CACHE_SECONDS * 1000) {
     return previous;
   }
@@ -143,7 +158,7 @@ async function loadPathTokens(
     lastScannedBlock: latestBlock,
     items: sortByTokenId([...tokens.values()]),
   };
-  await writeSnapshot(ctx, SNAPSHOT_KEY, snapshot, EDGE_SNAPSHOT_SECONDS);
+  await writeSnapshot(ctx, SNAPSHOT_KEY, snapshot, EDGE_SNAPSHOT_SECONDS, diagnostics, previous);
   return snapshot;
 }
 

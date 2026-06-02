@@ -2,6 +2,7 @@ import {
   THOUGHT_MINTED_TOPIC,
   THOUGHT_NFT_ADDRESS,
   THOUGHT_NFT_DEPLOY_BLOCK,
+  createChainCacheDiagnostics,
   createStats,
   decodeStringResult,
   emitUsage,
@@ -20,13 +21,17 @@ import {
   pruneReorgWindow,
   rawTextData,
   readSnapshot,
+  readResponseCache,
   refreshFromBlock,
   sortByTokenId,
   tokenImage,
   tokenUriData,
   topicToAddress,
   topicToBigInt,
+  withChainCacheDiagnostics,
+  writeResponseCache,
   writeSnapshot,
+  type ChainCacheDiagnostics,
   type ChainCacheEnv,
   type ChainLog,
   type IndexedSnapshot,
@@ -41,11 +46,18 @@ const EDGE_SNAPSHOT_SECONDS = 10 * 60;
 export const onRequestOptions = onOptions;
 
 export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
+  const diagnostics = createChainCacheDiagnostics(SNAPSHOT_KEY);
+  const cached = await readResponseCache(ctx, SNAPSHOT_KEY);
+  if (cached) {
+    diagnostics.source = "edge";
+    return withChainCacheDiagnostics(ctx, cached, diagnostics);
+  }
+
   const stats = createStats("thought", "thought-gallery", ctx.env);
   try {
-    const snapshot = await loadThoughtGallery(ctx.env, ctx, stats);
+    const snapshot = await loadThoughtGallery(ctx.env, ctx, stats, diagnostics);
     emitUsage(ctx, stats);
-    return json(
+    const response = json(
       200,
       {
         cachedAt: snapshot.cachedAt,
@@ -57,6 +69,8 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
       },
       RESPONSE_CACHE_SECONDS,
     );
+    writeResponseCache(ctx, SNAPSHOT_KEY, response, RESPONSE_CACHE_SECONDS, snapshot.lastScannedBlock);
+    return withChainCacheDiagnostics(ctx, response, diagnostics, stats, snapshot);
   } catch (error) {
     emitUsage(ctx, stats);
     return json(500, {
@@ -70,8 +84,9 @@ async function loadThoughtGallery(
   env: ChainCacheEnv,
   ctx: PagesContextLike,
   stats: ReturnType<typeof createStats>,
+  diagnostics: ChainCacheDiagnostics,
 ): Promise<IndexedSnapshot<ThoughtGalleryApiItem>> {
-  const previous = await readSnapshot<ThoughtGalleryApiItem>(env, SNAPSHOT_KEY);
+  const previous = await readSnapshot<ThoughtGalleryApiItem>(env, SNAPSHOT_KEY, diagnostics);
   if (previous && Date.now() - previous.cachedAt < RESPONSE_CACHE_SECONDS * 1000) {
     return previous;
   }
@@ -105,7 +120,7 @@ async function loadThoughtGallery(
     lastScannedBlock: latestBlock,
     items: sortByTokenId([...existing.values()]),
   };
-  await writeSnapshot(ctx, SNAPSHOT_KEY, snapshot, EDGE_SNAPSHOT_SECONDS);
+  await writeSnapshot(ctx, SNAPSHOT_KEY, snapshot, EDGE_SNAPSHOT_SECONDS, diagnostics, previous);
   return snapshot;
 }
 
