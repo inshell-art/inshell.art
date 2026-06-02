@@ -870,6 +870,17 @@ describe("App Component", () => {
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
   });
 
+  test("keeps THOUGHT detail text rendering aligned with canonical THOUGHT", () => {
+    const css = readFileSync(
+      nodePath.resolve(cwd(), "src/main.css"),
+      "utf8",
+    );
+
+    expect(css).toMatch(/\.thought-detail\s*{[^}]*text-rendering:\s*auto;/s);
+    expect(css).toMatch(/\.thought-detail\s*{[^}]*-webkit-font-smoothing:\s*auto;/s);
+    expect(css).toMatch(/\.thought-detail\s*{[^}]*-moz-osx-font-smoothing:\s*auto;/s);
+  });
+
   test("footer links gallery, Pulse, color-font, Telegram, X, GitHub, and RSS", () => {
     render(<App />);
 

@@ -2225,6 +2225,9 @@ body {
   color: var(--text);
   display: flex;
   flex-direction: column;
+  text-rendering: auto;
+  -webkit-font-smoothing: auto;
+  -moz-osx-font-smoothing: auto;
 }
 
 @media (prefers-color-scheme: light) {
