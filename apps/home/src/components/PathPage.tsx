@@ -11,6 +11,11 @@ import {
   type PathTokenAttribute,
   type PathTokenInventoryItem,
 } from "@/services/pathTokens";
+import {
+  loadThoughtGallery,
+  readCachedThoughtGallery,
+  type ThoughtGalleryItem,
+} from "@/services/thoughtGallery";
 
 type LoadState =
   | { status: "loading"; items: PathTokenInventoryItem[]; error: null }
@@ -109,6 +114,125 @@ function movementProgress(item: PathTokenInventoryItem, traitType: string): Unit
       : { used, total, label: `${used} / ${total}`, available: true };
   }
   return { used: null, total: null, label: raw, available: raw !== "—" };
+}
+
+function progressValue(progress: UnitProgress): string {
+  if (progress.used == null || progress.total == null) return progress.label;
+  return progressLabel(progress.used, progress.total);
+}
+
+function progressWithUsedFloor(
+  progress: UnitProgress,
+  usedFloor: number
+): UnitProgress {
+  if (usedFloor <= 0) return progress;
+  const inferredTotal = progress.total ?? usedFloor;
+  if (inferredTotal <= 0) return progress;
+  const used = Math.min(Math.max(progress.used ?? 0, usedFloor), inferredTotal);
+  return {
+    used,
+    total: inferredTotal,
+    label: `${used} / ${inferredTotal}`,
+    available: true,
+  };
+}
+
+function replaceMovementAttribute(
+  item: PathTokenInventoryItem,
+  movement: string,
+  progress: UnitProgress
+): PathTokenAttribute[] {
+  const attributes = item.metadata.attributes ?? [];
+  let replaced = false;
+  const next = attributes.map((attribute) => {
+    if (String(attribute.trait_type ?? "").toUpperCase() !== movement) {
+      return attribute;
+    }
+    replaced = true;
+    return {
+      ...attribute,
+      value: progressValue(progress),
+    };
+  });
+  if (!replaced) {
+    next.push({ trait_type: movement, value: progressValue(progress) });
+  }
+  return next;
+}
+
+function pathIdKey(value: string): string | null {
+  const trimmed = value.trim();
+  if (!/^\d+$/.test(trimmed)) return null;
+  return BigInt(trimmed).toString();
+}
+
+function thoughtMintCountsByPath(thoughts: ThoughtGalleryItem[]) {
+  const counts = new Map<string, number>();
+  for (const thought of thoughts) {
+    const key = pathIdKey(thought.pathId);
+    if (!key) continue;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function overlayThoughtMintProgress(
+  item: PathTokenInventoryItem,
+  thoughtMintCount: number
+): PathTokenInventoryItem {
+  if (thoughtMintCount <= 0) return item;
+  const thoughtProgress = progressWithUsedFloor(
+    movementProgress(item, "THOUGHT"),
+    thoughtMintCount
+  );
+  if (thoughtProgress.used == null) return item;
+
+  const attributes = replaceMovementAttribute(item, "THOUGHT", thoughtProgress);
+  const willProgress = movementProgress(item, "WILL");
+  const awaProgress = movementProgress(item, "AWA");
+  const metadata = {
+    ...item.metadata,
+    attributes,
+  };
+
+  if (
+    thoughtProgress.used != null &&
+    thoughtProgress.total != null &&
+    willProgress.used != null &&
+    willProgress.total != null &&
+    awaProgress.used != null &&
+    awaProgress.total != null
+  ) {
+    const svg = makePathProgressSvg({
+      thoughtMinted: thoughtProgress.used,
+      thoughtQuota: thoughtProgress.total,
+      willMinted: willProgress.used,
+      willQuota: willProgress.total,
+      awaMinted: awaProgress.used,
+      awaQuota: awaProgress.total,
+    });
+    metadata.image = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+    metadata.image_data = svg;
+  }
+
+  return {
+    ...item,
+    metadata,
+  };
+}
+
+function overlayThoughtMints(
+  items: PathTokenInventoryItem[],
+  thoughts: ThoughtGalleryItem[] | null
+) {
+  if (!thoughts?.length) return items;
+  const counts = thoughtMintCountsByPath(thoughts);
+  if (counts.size === 0) return items;
+  return items.map((item) => {
+    const key = pathIdKey(item.tokenIdLabel);
+    if (!key) return item;
+    return overlayThoughtMintProgress(item, counts.get(key) ?? 0);
+  });
 }
 
 function metadataName(item: PathTokenInventoryItem): string {
@@ -556,6 +680,7 @@ export default function PathPage({ tokenId = null }: PathPageProps) {
       return;
     }
     let cancelled = false;
+    const cachedThoughts = readCachedThoughtGallery();
     const cached =
       refreshNonce === 0
         ? readCachedAllPathTokens({
@@ -564,18 +689,31 @@ export default function PathPage({ tokenId = null }: PathPageProps) {
           })
         : null;
     if (cached) {
-      setState({ status: "ready", items: cached, error: null });
+      setState({
+        status: "ready",
+        items: overlayThoughtMints(cached, cachedThoughts),
+        error: null,
+      });
     } else {
       setState((prev) => ({ status: "loading", items: prev.items, error: null }));
     }
-    loadAllPathTokens({
-      pathNftAddress,
-      fromBlock,
-      cacheMode: refreshNonce > 0 ? "bypass" : "default",
-    })
-      .then((items) => {
+    Promise.all([
+      loadAllPathTokens({
+        pathNftAddress,
+        fromBlock,
+        cacheMode: refreshNonce > 0 ? "bypass" : "default",
+      }),
+      loadThoughtGallery({
+        cacheMode: refreshNonce > 0 ? "bypass" : "default",
+      }).catch(() => cachedThoughts ?? []),
+    ])
+      .then(([items, thoughts]) => {
         if (cancelled) return;
-        setState({ status: "ready", items, error: null });
+        setState({
+          status: "ready",
+          items: overlayThoughtMints(items, thoughts),
+          error: null,
+        });
       })
       .catch((err) => {
         if (cancelled) return;

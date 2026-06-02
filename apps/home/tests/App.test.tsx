@@ -114,11 +114,63 @@ function thoughtGalleryItem(overrides: Partial<Record<string, unknown>> = {}) {
   };
 }
 
+function pathTokenApiItem(overrides: Partial<Record<string, unknown>> = {}) {
+  const tokenId = String(overrides.tokenId ?? "1");
+  return {
+    tokenId,
+    tokenIdLabel: String(overrides.tokenIdLabel ?? tokenId),
+    owner: String(overrides.owner ?? "0x170a00000000000000000000000000000000e100"),
+    tokenUri: String(overrides.tokenUri ?? `api:path:${tokenId}`),
+    metadata: {
+      name: `$PATH #${tokenId}`,
+      attributes: [
+        { trait_type: "Stage", value: "THOUGHT" },
+        { trait_type: "THOUGHT", value: "Minted(0/1)" },
+        { trait_type: "WILL", value: "Minted(0/1)" },
+        { trait_type: "AWA", value: "Minted(0/1)" },
+      ],
+      ...((overrides.metadata as Record<string, unknown> | undefined) ?? {}),
+    },
+  };
+}
+
 function mockThoughtGalleryApi(items = [thoughtGalleryItem()]) {
   const fetchMock = jest.fn(async () => ({
     ok: true,
     json: async () => ({ thoughts: items }),
   }));
+  globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
+  return fetchMock;
+}
+
+function mockPathAndThoughtApis(args: {
+  pathItems: Array<Record<string, unknown>>;
+  thoughtItems: Array<Record<string, unknown>>;
+}) {
+  const fetchMock = jest.fn(async (input: unknown) => {
+    const raw =
+      typeof input === "string" || input instanceof globalThis.URL
+        ? input.toString()
+        : String((input as { url?: string }).url ?? "");
+    const url = new globalThis.URL(raw, "https://inshell.art");
+    if (url.pathname === "/api/path-tokens") {
+      return {
+        ok: true,
+        json: async () => ({ items: args.pathItems }),
+      };
+    }
+    if (url.pathname === "/api/thought-gallery") {
+      return {
+        ok: true,
+        json: async () => ({ thoughts: args.thoughtItems }),
+      };
+    }
+    return {
+      ok: false,
+      status: 404,
+      json: async () => ({}),
+    };
+  });
   globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
   return fetchMock;
 }
@@ -634,6 +686,29 @@ describe("App Component", () => {
     expect(screen.getByText(/reading from chain: checking latest block/)).toBeInTheDocument();
     await flushAsyncEffects();
     expect(screen.getByText("token list unavailable")).toBeInTheDocument();
+  });
+
+  test("overlays confirmed THOUGHT mints onto live PATH unit progress", async () => {
+    mockPathAndThoughtApis({
+      pathItems: [pathTokenApiItem()],
+      thoughtItems: [
+        thoughtGalleryItem({
+          tokenId: 10,
+          pathId: "1",
+        }),
+      ],
+    });
+    window.history.pushState({}, "", "/path");
+    render(<App />);
+
+    expect(await screen.findByText("1 token")).toBeInTheDocument();
+    const lifecycle = within(screen.getByLabelText("$PATH #1 lifecycle"));
+    expect(lifecycle.getAllByText("1 / 1")).toHaveLength(1);
+    expect(lifecycle.getAllByText("0 / 1")).toHaveLength(2);
+    expect(screen.getByRole("img", { name: "$PATH #1 movement progress" })).toHaveAttribute(
+      "src",
+      expect.stringContaining("thought-fill"),
+    );
   });
 
   test("renders the PATH state gallery fixture", () => {
