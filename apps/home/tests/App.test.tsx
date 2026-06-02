@@ -617,7 +617,7 @@ describe("App Component", () => {
     ).toBeNull();
     expect(screen.getByRole("link", { name: "Open raw onchain data ↗" })).toHaveAttribute(
       "href",
-      expect.stringMatching(/^(blob:|data:text\/html;charset=utf-8,)/),
+      "/color-font?raw=1",
     );
     expect(screen.queryByRole("button", { name: "Retry onchain load" })).toBeNull();
     expect(screen.getByText(/authority: ColorFontV1 0x627b\.\.\.d0b1/)).toBeInTheDocument();
@@ -925,7 +925,7 @@ describe("App Component", () => {
     expect(screen.getByRole("img", { name: "THOUGHT #1 canvas" })).toBeInTheDocument();
     expect(screen.getByText("one thought")).toBeInTheDocument();
     const specLink = screen.getByRole("link", { name: "THOUGHT.v1.md ↗" });
-    expect(specLink).toHaveAttribute("href", expect.stringContaining("data:application/json"));
+    expect(specLink).toHaveAttribute("href", "/api/thought-spec?id=1");
     expect(specLink).not.toHaveAttribute("href", expect.stringContaining("github.com"));
     expect(screen.getByRole("link", { name: "$PATH #4 ↗" })).toHaveAttribute("href", "/path/4");
     const txLink = screen.getByRole("link", {
@@ -934,12 +934,13 @@ describe("App Component", () => {
     expect(txLink).toHaveAttribute("id", "thought-detail-view-tx");
     const provenanceLink = screen.getByRole("link", { name: "2 bytes ↗" });
     expect(provenanceLink).toBeInTheDocument();
+    expect(provenanceLink).toHaveAttribute("href", "/api/thought-provenance?id=1");
     expect(provenanceLink).not.toHaveAttribute("download");
     expect(screen.getByText("source: ThoughtNFT.provenanceOf(1)").closest(".thought-detail__viewer"))
       .toHaveClass("is-hidden");
     expect(screen.getByRole("link", { name: "Color Font v1 ↗" })).toHaveAttribute(
       "href",
-      expect.stringContaining("data:text/plain"),
+      "/color-font",
     );
     expect(window.location.pathname).toBe("/thought/1");
     expect(screen.queryByTestId("auction-canvas")).toBeNull();

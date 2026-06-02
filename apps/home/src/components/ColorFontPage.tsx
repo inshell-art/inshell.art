@@ -100,10 +100,6 @@ const HASH_MISMATCH_WARNING = [
   "loaded data does not match contract hash.",
 ];
 
-function dataHtmlHref(html: string) {
-  return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
-}
-
 function rawMappingDocument(doc: ColorFontDoc) {
   return [
     "Color Font v1",
@@ -117,45 +113,9 @@ function rawMappingDocument(doc: ColorFontDoc) {
   ].join("\n");
 }
 
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function rawMappingHtml(doc: ColorFontDoc) {
-  return [
-    "<!doctype html>",
-    '<html lang="en">',
-    "<head>",
-    '<meta charset="utf-8" />',
-    "<title>Color Font v1</title>",
-    "<style>",
-    "body{margin:24px;background:#fff;color:#111;font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}",
-    "pre{white-space:pre-wrap;margin:0;}",
-    "</style>",
-    "</head>",
-    "<body>",
-    `<pre>${escapeHtml(rawMappingDocument(doc))}</pre>`,
-    "</body>",
-    "</html>",
-  ].join("");
-}
-
-function createRawMappingHref(doc: ColorFontDoc) {
-  const html = rawMappingHtml(doc);
-  if (
-    typeof globalThis.URL === "undefined" ||
-    typeof globalThis.URL.createObjectURL !== "function" ||
-    typeof globalThis.Blob === "undefined"
-  ) {
-    return dataHtmlHref(html);
-  }
-  return globalThis.URL.createObjectURL(
-    new globalThis.Blob([html], { type: "text/html;charset=utf-8" })
-  );
+function isRawColorFontRoute() {
+  if (typeof window === "undefined") return false;
+  return new globalThis.URL(window.location.href).searchParams.get("raw") === "1";
 }
 
 function getEnv(name: string): string | undefined {
@@ -505,10 +465,8 @@ export default function ColorFontPage() {
       ),
     [doc]
   );
-  const rawMappingHref = useMemo(
-    () => (doc?.loadKind === "onchain" ? createRawMappingHref(doc) : null),
-    [doc]
-  );
+  const rawMappingHref = doc?.loadKind === "onchain" ? "/color-font?raw=1" : null;
+  const rawRoute = useMemo(isRawColorFontRoute, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -531,14 +489,6 @@ export default function ColorFontPage() {
       cancelled = true;
     };
   }, [reloadToken]);
-
-  useEffect(() => {
-    return () => {
-      if (rawMappingHref?.startsWith("blob:")) {
-        globalThis.URL.revokeObjectURL(rawMappingHref);
-      }
-    };
-  }, [rawMappingHref]);
 
   function handleWordMouseMove(event: MouseEvent<HTMLElement>) {
     if (!doc) return;
@@ -571,6 +521,23 @@ export default function ColorFontPage() {
       }
       return nextReplacement;
     });
+  }
+
+  if (rawRoute) {
+    return (
+      <main className="primitive-page color-font-page" aria-labelledby="color-font-page-title">
+        <h1 id="color-font-page-title" className="primitive-page__title">
+          color-font raw
+        </h1>
+        <pre className="primitive-page__raw" aria-label="Raw color font document">
+          {state.kind === "ready"
+            ? rawMappingDocument(state.doc)
+            : state.kind === "error"
+              ? `${state.title}\n${state.detail}`
+              : "loading color font from contract..."}
+        </pre>
+      </main>
+    );
   }
 
   return (

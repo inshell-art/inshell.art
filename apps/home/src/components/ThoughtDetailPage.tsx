@@ -11,7 +11,6 @@ import {
   readCachedThoughtGallery,
   type ThoughtGalleryItem,
 } from "@/services/thoughtGallery";
-import { COLOR_FONT_RAW } from "@/content/colorFont";
 
 type LoadState =
   | { status: "loading"; items: ThoughtGalleryItem[]; error: null }
@@ -110,25 +109,8 @@ function byteLength(value: string): number {
   return new TextEncoder().encode(value).byteLength;
 }
 
-function provenanceDataUrl(value: string): string {
-  return `data:application/json;charset=utf-8,${encodeURIComponent(value)}`;
-}
-
-function specDataUrl(item: ThoughtGalleryItem): string {
-  const json = JSON.stringify(
-    {
-      ref: "THOUGHT.v1.md",
-      specId: item.thoughtSpecId,
-      specHash: item.thoughtSpecHash,
-    },
-    null,
-    2
-  );
-  return `data:application/json;charset=utf-8,${encodeURIComponent(`${json}\n`)}`;
-}
-
-function colorFontDataUrl(): string {
-  return `data:text/plain;charset=utf-8,${encodeURIComponent(COLOR_FONT_RAW)}`;
+function thoughtDetailApiUrl(tokenId: number, part: "provenance" | "spec"): string {
+  return `/api/thought-${part}?id=${encodeURIComponent(String(tokenId))}`;
 }
 
 function explorerTxUrl(txHash: string): string | null {
@@ -227,8 +209,8 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
           <a
             id="thought-detail-spec-ref"
             className="thought-detail__value thought-detail__value-link"
-            href={specDataUrl(item)}
-            title="Open local cached spec JSON"
+            href={thoughtDetailApiUrl(item.tokenId, "spec")}
+            title="Open cached spec JSON"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -302,7 +284,7 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
             <>
               <a
                 className="thought-detail__value thought-detail__value-link"
-                href={provenanceDataUrl(item.provenanceJson)}
+                href={thoughtDetailApiUrl(item.tokenId, "provenance")}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -326,8 +308,8 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
           <a
             id="thought-detail-color-font"
             className="thought-detail__value thought-detail__value-link"
-            href={colorFontDataUrl()}
-            title="Open local raw color-font mapping from ThoughtNFT color-font ABI"
+            href="/color-font"
+            title="Open color-font source of truth"
             target="_blank"
             rel="noopener noreferrer"
           >

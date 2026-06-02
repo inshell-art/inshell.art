@@ -9,6 +9,8 @@ import {
   type IndexedSnapshot,
 } from "../../../functions/api/chain-cache";
 import { onRequestGet as onPathTokensGet } from "../../../functions/api/path-tokens";
+import { onRequestGet as onThoughtProvenanceGet } from "../../../functions/api/thought-provenance";
+import { onRequestGet as onThoughtSpecGet } from "../../../functions/api/thought-spec";
 
 const originalFetch = globalThis.fetch;
 const originalRequest = globalThis.Request;
@@ -91,6 +93,10 @@ class TestResponse {
       : new TestHeaders(init?.headers as Record<string, string> | undefined);
     this.bodyText = typeof body === "string" ? body : "";
     this.body = this.bodyText;
+  }
+
+  get ok() {
+    return this.status >= 200 && this.status < 300;
   }
 
   async json(): Promise<unknown> {
@@ -329,5 +335,64 @@ describe("chain cache Pages functions", () => {
     expect(withDiagnostics.headers.get("x-kv-write")).toBe("0");
     expect(withDiagnostics.headers.get("x-live-rpc-calls")).toBe("0");
     expect(withDiagnostics.headers.get("x-cache-snapshot-block")).toBe("123");
+  });
+
+  test("serves THOUGHT detail provenance and spec through same-origin JSON APIs", async () => {
+    globalThis.Request = TestRequest as unknown as typeof Request;
+    globalThis.Response = TestResponse as unknown as typeof Response;
+    globalThis.Headers = TestHeaders as unknown as typeof Headers;
+    const snapshot: IndexedSnapshot<{
+      tokenId: number;
+      thoughtSpecId: string;
+      thoughtSpecHash: string;
+      provenanceJson: string;
+    }> = {
+      version: 1,
+      cachedAt: Date.now(),
+      chainId: 11155111,
+      contract: "0x413efb5C95Bf3158F0E563FB9E19CB650Fc3760a",
+      fromBlock: 10872879,
+      lastScannedBlock: 123,
+      items: [
+        {
+          tokenId: 9,
+          thoughtSpecId: "0xspec",
+          thoughtSpecHash: "0xhash",
+          provenanceJson: JSON.stringify({
+            schema: "thought.provenance.v1",
+            prompt: "test prompt",
+          }),
+        },
+      ],
+    } as IndexedSnapshot<any>;
+    const kvGet = jest.fn(async () => snapshot);
+    const env = {
+      INSHELL_CHAIN_DATA_KV: {
+        get: kvGet,
+        put: jest.fn(),
+      },
+    };
+
+    const provenance = await onThoughtProvenanceGet({
+      request: new Request("https://preview.inshell.art/api/thought-provenance?id=9"),
+      env,
+    });
+    const spec = await onThoughtSpecGet({
+      request: new Request("https://preview.inshell.art/api/thought-spec?id=9"),
+      env,
+    });
+
+    expect(provenance.status).toBe(200);
+    expect(await provenance.json()).toEqual({
+      schema: "thought.provenance.v1",
+      prompt: "test prompt",
+    });
+    expect(spec.status).toBe(200);
+    expect(await spec.json()).toEqual({
+      ref: "THOUGHT.v1.md",
+      specId: "0xspec",
+      specHash: "0xhash",
+    });
+    expect(kvGet).toHaveBeenCalledWith("thought-gallery:v1:sepolia", "json");
   });
 });
