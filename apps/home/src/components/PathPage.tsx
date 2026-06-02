@@ -195,21 +195,14 @@ function overlayThoughtMintProgress(
     attributes,
   };
 
-  if (
-    thoughtProgress.used != null &&
-    thoughtProgress.total != null &&
-    willProgress.used != null &&
-    willProgress.total != null &&
-    awaProgress.used != null &&
-    awaProgress.total != null
-  ) {
+  if (thoughtProgress.used != null && thoughtProgress.total != null) {
     const svg = makePathProgressSvg({
       thoughtMinted: thoughtProgress.used,
       thoughtQuota: thoughtProgress.total,
-      willMinted: willProgress.used,
-      willQuota: willProgress.total,
-      awaMinted: awaProgress.used,
-      awaQuota: awaProgress.total,
+      willMinted: willProgress.used ?? 0,
+      willQuota: willProgress.total ?? 0,
+      awaMinted: awaProgress.used ?? 0,
+      awaQuota: awaProgress.total ?? 0,
     });
     metadata.image = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
     metadata.image_data = svg;
