@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import {
   getProtocolReleaseChainId,
   getProtocolReleaseDeployBlock,
@@ -31,6 +31,7 @@ type InstanceGroup = InstanceRow[];
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const TOKEN_DECIMALS = 18;
+const PULSE_PARAMS_RAW_HREF = "/pulse?raw=1";
 
 function getEnv(name: string): string | undefined {
   const envCache: Record<string, unknown> | undefined =
@@ -156,18 +157,6 @@ function compactRows(rows: Array<InstanceRow | null>): InstanceGroup {
   return rows.filter((item): item is InstanceRow => Boolean(item));
 }
 
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function dataHtmlHref(html: string) {
-  return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
-}
-
 function rawLine(label: string, value: string | undefined) {
   return `${label.padEnd(14)}${cleanValue(value) ?? "unavailable"}`;
 }
@@ -225,37 +214,9 @@ function pulseParamsDocument(params: {
   ].join("\n");
 }
 
-function pulseParamsHtml(documentText: string) {
-  return [
-    "<!doctype html>",
-    '<html lang="en">',
-    "<head>",
-    '<meta charset="utf-8" />',
-    "<title>pulse params</title>",
-    "<style>",
-    "body{margin:24px;background:#fff;color:#111;font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}",
-    "pre{white-space:pre-wrap;margin:0;}",
-    "</style>",
-    "</head>",
-    "<body>",
-    `<pre>${escapeHtml(documentText)}</pre>`,
-    "</body>",
-    "</html>",
-  ].join("");
-}
-
-function createPulseParamsHref(documentText: string) {
-  const html = pulseParamsHtml(documentText);
-  if (
-    typeof globalThis.URL === "undefined" ||
-    typeof globalThis.URL.createObjectURL !== "function" ||
-    typeof globalThis.Blob === "undefined"
-  ) {
-    return dataHtmlHref(html);
-  }
-  return globalThis.URL.createObjectURL(
-    new globalThis.Blob([html], { type: "text/html;charset=utf-8" })
-  );
+function isRawPulseParamsRoute() {
+  if (typeof window === "undefined") return false;
+  return new globalThis.URL(window.location.href).searchParams.get("raw") === "1";
 }
 
 function randomBetween(min: number, max: number) {
@@ -316,7 +277,7 @@ function makePulseMark(): PulseMark {
   };
 }
 
-function PulseCurrentInstance() {
+function PulseCurrentInstance({ rawOnly = false }: { rawOnly?: boolean }) {
   const auctionAddress = useMemo(() => maybeResolveAddress("pulse_auction"), []);
   const deployBlock = useMemo(
     () => getProtocolReleaseDeployBlock("pulse_auction") ?? 0,
@@ -415,18 +376,27 @@ function PulseCurrentInstance() {
         anchorTime,
       })
     : undefined;
-  const rawParamsHref = useMemo(
-    () => (rawDocument && snapshot ? createPulseParamsHref(rawDocument) : null),
-    [rawDocument, snapshot]
-  );
+  if (rawOnly) {
+    return (
+      <section className="primitive-page__body" aria-label="Pulse live params">
+        {loading ? (
+          <p className="pulse-page__instance-status">loading live params...</p>
+        ) : null}
 
-  useEffect(() => {
-    return () => {
-      if (rawParamsHref?.startsWith("blob:")) {
-        globalThis.URL.revokeObjectURL(rawParamsHref);
-      }
-    };
-  }, [rawParamsHref]);
+        {failed ? (
+          <div className="pulse-page__instance-status" role="status">
+            <p>live params unavailable.</p>
+          </div>
+        ) : null}
+
+        {rawDocument && snapshot ? (
+          <pre className="primitive-page__raw" aria-label="Pulse live params document">
+            {rawDocument}
+          </pre>
+        ) : null}
+      </section>
+    );
+  }
 
   return (
     <section className="pulse-page__current" aria-label="Pulse current instance">
@@ -468,13 +438,13 @@ function PulseCurrentInstance() {
         </div>
       ) : null}
 
-      {rawParamsHref ? (
+      {rawDocument && snapshot ? (
         <nav
           className="primitive-page__links pulse-page__instance-links"
           aria-label="Pulse live params"
         >
           <a
-            href={rawParamsHref}
+            href={PULSE_PARAMS_RAW_HREF}
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Open live params"
@@ -492,6 +462,7 @@ function PulseCurrentInstance() {
 
 export default function PulsePage() {
   const pulseMark = useMemo(() => makePulseMark(), []);
+  const rawRoute = useMemo(isRawPulseParamsRoute, []);
 
   return (
     <main className="primitive-page" aria-labelledby="pulse-page-title">
@@ -529,45 +500,49 @@ export default function PulsePage() {
         </div>
       </header>
 
-      <section className="primitive-page__body" aria-label="Pulse source note">
-        <div className="primitive-page__copy">
-          {PULSE.explanation.map((line, index) => (
-            <p className={index === 0 ? "pulse-page__lead-line" : undefined} key={line}>
-              {line}
-            </p>
-          ))}
-        </div>
-
-        <pre
-          className="primitive-page__formula pulse-page__math"
-          aria-label="Pulse lift and decay equations"
-        >
-          {PULSE.math}
-        </pre>
-
-        <PulseCurrentInstance />
-
-        <div className="pulse-page__ending">
+      {rawRoute ? (
+        <PulseCurrentInstance rawOnly />
+      ) : (
+        <section className="primitive-page__body" aria-label="Pulse source note">
           <div className="primitive-page__copy">
-            {PULSE.note.map((line) => (
-              <p className="primitive-page__note" key={line}>
+            {PULSE.explanation.map((line, index) => (
+              <p className={index === 0 ? "pulse-page__lead-line" : undefined} key={line}>
                 {line}
               </p>
             ))}
           </div>
 
-          <nav className="primitive-page__links" aria-label="Pulse references">
-            <a href={PULSE.desmosUrl} target="_blank" rel="noopener noreferrer">
-              Open original Desmos sketch ↗
-            </a>
-            {PULSE.repositoryUrl ? (
-              <a href={PULSE.repositoryUrl} target="_blank" rel="noopener noreferrer">
-                View source ↗
+          <pre
+            className="primitive-page__formula pulse-page__math"
+            aria-label="Pulse lift and decay equations"
+          >
+            {PULSE.math}
+          </pre>
+
+          <PulseCurrentInstance />
+
+          <div className="pulse-page__ending">
+            <div className="primitive-page__copy">
+              {PULSE.note.map((line) => (
+                <p className="primitive-page__note" key={line}>
+                  {line}
+                </p>
+              ))}
+            </div>
+
+            <nav className="primitive-page__links" aria-label="Pulse references">
+              <a href={PULSE.desmosUrl} target="_blank" rel="noopener noreferrer">
+                Open original Desmos sketch ↗
               </a>
-            ) : null}
-          </nav>
-        </div>
-      </section>
+              {PULSE.repositoryUrl ? (
+                <a href={PULSE.repositoryUrl} target="_blank" rel="noopener noreferrer">
+                  View source ↗
+                </a>
+              ) : null}
+            </nav>
+          </div>
+        </section>
+      )}
     </main>
   );
 }

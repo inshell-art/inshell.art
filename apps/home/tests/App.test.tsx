@@ -418,12 +418,50 @@ describe("App Component", () => {
     expect(scopedParams.getByText("3")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open live params" })).toHaveAttribute(
       "href",
-      expect.stringMatching(/^(blob:|data:text\/html;charset=utf-8,)/),
+      "/pulse?raw=1",
     );
     expect(screen.getByRole("link", { name: "View $PATH tokens" })).toHaveAttribute(
       "href",
       "/path",
     );
+  });
+
+  test("renders Pulse live params on a normal raw route", () => {
+    window.history.pushState({}, "", "/pulse?raw=1");
+    const oneEth = 10n ** 18n;
+    mockUseAuctionCore.mockReturnValue({
+      data: {
+        active: true,
+        price: u256(420_000_000_000_000_000n),
+        config: {
+          openTimeSec: 1_778_240_550,
+          genesisPrice: u256(oneEth),
+          genesisFloor: u256(oneEth / 10n),
+          k: u256(100n * oneEth),
+          pts: "100000000000000",
+        },
+      },
+      loading: false,
+      error: null,
+      ready: true,
+      refresh: jest.fn(),
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids: [],
+      loading: false,
+      error: null,
+      ready: true,
+      pullOnce: jest.fn(),
+    });
+
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: "pulse" })).toBeInTheDocument();
+    const rawParams = screen.getByLabelText("Pulse live params document");
+    expect(rawParams).toHaveTextContent("pulse params");
+    expect(rawParams).toHaveTextContent(/current ask\s+0\.42 ETH/);
+    expect(screen.queryByLabelText("Pulse lift and decay equations")).toBeNull();
+    expect(screen.queryByRole("link", { name: "Open live params" })).toBeNull();
   });
 
   test("does not show stale Pulse params when live params fail", () => {
