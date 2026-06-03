@@ -35,6 +35,7 @@ import {
   maybeResolveAddress,
 } from "@inshell/contracts";
 import {
+  PUBLIC_NETWORK_CONFIG,
   SURFACE_TERMINOLOGY,
   resolveWalletChainRpcUrls,
 } from "@inshell/shared";
@@ -4670,7 +4671,9 @@ export default function AuctionCanvas({
         text:
           sepoliaInviteMode && publicNetworkNotice
             ? publicNetworkNotice
-            : `${targetChainLabel} only.`,
+            : targetChainLabel === PUBLIC_NETWORK_CONFIG.chainLabel
+              ? `${PUBLIC_NETWORK_CONFIG.environmentLabel} only.`
+              : `${targetChainLabel} only.`,
         delayMs: DELAY_MS,
       };
     }
@@ -6075,6 +6078,14 @@ export default function AuctionCanvas({
             <strong>{targetChainLabel} / {mintReviewChainIdLabel}</strong>
           </div>
           <div className="dotfield__mint-review-row">
+            <span>currency</span>
+            <strong>{PUBLIC_NETWORK_CONFIG.currencyLabel}</strong>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>record</span>
+            <strong>{PUBLIC_NETWORK_CONFIG.recordLabel}</strong>
+          </div>
+          <div className="dotfield__mint-review-row">
             <span>contract</span>
             <strong>
               {mintReviewContractHref ? (
@@ -6144,6 +6155,8 @@ export default function AuctionCanvas({
           {publicNetworkNotice && (
             <div className="dotfield__mint-review-network">
               {publicNetworkNotice}
+              <br />
+              {PUBLIC_NETWORK_CONFIG.testnetEthRequirement}
             </div>
           )}
         </div>

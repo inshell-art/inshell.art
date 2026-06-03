@@ -5,6 +5,7 @@ import {
   maybeResolveAddress,
 } from "@inshell/contracts";
 import { scaleIntegerString } from "@inshell/utils";
+import { PUBLIC_NETWORK_CONFIG } from "@inshell/shared";
 import { useAuctionBids } from "@/hooks/useAuctionBids";
 import { useAuctionCore } from "@/hooks/useAuctionCore";
 import { PULSE } from "@/content/pulse";
@@ -330,6 +331,9 @@ function PulseCurrentInstance({ rawOnly = false }: { rawOnly?: boolean }) {
     [snapshot]
   );
   const contextRows = compactRows([
+    row("network", PUBLIC_NETWORK_CONFIG.environmentLabel),
+    row("currency", PUBLIC_NETWORK_CONFIG.currencyLabel),
+    row("record", PUBLIC_NETWORK_CONFIG.recordLabel),
     auctionAddress
       ? row("authority", `PulseAuction ${shortenAddress(auctionAddress)}`, {
           title: `PulseAuction ${auctionAddress}`,
@@ -403,7 +407,7 @@ function PulseCurrentInstance({ rawOnly = false }: { rawOnly?: boolean }) {
       <div className="pulse-page__current-copy">
         <div className="pulse-page__section-title">current instance</div>
         <p className="pulse-page__lead-line">
-          $PATH is the current public auction using Pulse.
+          $PATH is the current public rehearsal auction using Pulse.
         </p>
         <p>Each successful bid mints one $PATH.</p>
       </div>

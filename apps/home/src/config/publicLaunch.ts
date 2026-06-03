@@ -1,4 +1,7 @@
-import { getPublicLaunchMode as readPublicLaunchMode } from "@inshell/shared";
+import {
+  PUBLIC_NETWORK_CONFIG,
+  getPublicLaunchMode as readPublicLaunchMode,
+} from "@inshell/shared";
 
 export type { PublicLaunchMode, ReportBugContext, ReportBugLinkModel } from "@inshell/shared";
 export {
@@ -11,7 +14,7 @@ export {
 
 type DebugPanelSetting = "off" | "private" | "on";
 
-export const SEPOLIA_TESTNET_NOTICE = "Sepolia testnet only.";
+export const SEPOLIA_TESTNET_NOTICE = PUBLIC_NETWORK_CONFIG.homeNote;
 
 function getEnvValue(name: string): unknown {
   const envCache: Record<string, unknown> | undefined =

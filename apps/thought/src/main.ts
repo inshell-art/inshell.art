@@ -27,6 +27,7 @@ import {
   maybeResolveAddress,
 } from "@inshell/contracts";
 import {
+  PUBLIC_NETWORK_CONFIG,
   PREVIEW_WATERMARK_LABEL,
   SURFACE_TERMINOLOGY,
   buildReportBugLink,
@@ -4098,6 +4099,16 @@ const getMintSheetStatusCopy = () => {
 
 const mintReviewChainLabel = () => `${THOUGHT_CHAIN_NAME} / ${THOUGHT_CHAIN_ID}`;
 
+const mintReviewRehearsalRows = () => [
+  { label: "currency", value: PUBLIC_NETWORK_CONFIG.currencyLabel },
+  { label: "record", value: PUBLIC_NETWORK_CONFIG.recordLabel },
+];
+
+const cliRehearsalReviewRows = () => [
+  cliReviewRow("currency", PUBLIC_NETWORK_CONFIG.currencyLabel),
+  cliReviewRow("record", PUBLIC_NETWORK_CONFIG.recordLabel),
+];
+
 const mintReviewContractValue = (label: string, address: string) =>
   address ? `${label} ${shortHex(address, 6, 4)}` : `${label} unavailable`;
 
@@ -4128,6 +4139,7 @@ const getMintSheetReviewConfig = (): MintSheetReviewConfig => {
     return {
       rows: [
         { label: "network", value: mintReviewChainLabel() },
+        ...mintReviewRehearsalRows(),
         { label: "$PATH", value: selectedPathId ? `#${selectedPathId}` : "-" },
         {
           label: "contract",
@@ -4156,6 +4168,7 @@ const getMintSheetReviewConfig = (): MintSheetReviewConfig => {
     return {
       rows: [
         { label: "network", value: mintReviewChainLabel() },
+        ...mintReviewRehearsalRows(),
         {
           label: "contract",
           value: mintReviewContractValue("ThoughtNFT", THOUGHT_NFT_ADDRESS),
@@ -10871,6 +10884,8 @@ const cliVerifyLines = () => [
   "",
   "deployment manifest:",
   `${contractStatusValue("deployment", "network")} (${contractStatusValue("deployment", "chain-id")})`,
+  `record ${PUBLIC_NETWORK_CONFIG.recordLabel}`,
+  `currency ${PUBLIC_NETWORK_CONFIG.currencyLabel}`,
   "",
   "contracts:",
   `PathNFT       ${contractStatusValue("contracts", "path-nft")}`,
@@ -10900,6 +10915,7 @@ const cliWalletConnectVerifyLines = () => [
   "",
   cliReviewRow("domain", contractStatusValue("domains", "thought-domain")),
   cliReviewRow("network", `${THOUGHT_CHAIN_NAME} / ${THOUGHT_CHAIN_ID}`),
+  cliReviewRow("record", PUBLIC_NETWORK_CONFIG.recordLabel),
   cliReviewRow("action", "connect wallet"),
   "",
   "address read only.",
@@ -11340,6 +11356,7 @@ const authorizeFromCli = async () => {
     "review before opening your wallet.",
     "",
     cliReviewRow("network", `${THOUGHT_CHAIN_NAME} / ${THOUGHT_CHAIN_ID}`),
+    ...cliRehearsalReviewRows(),
     cliReviewRow("$PATH", `#${pathId}`),
     cliReviewRow("contract", cliReviewContract("PathNFT", PATH_NFT_ADDRESS)),
     cliReviewRow("signature", "PATH consume authorization"),
@@ -11386,6 +11403,7 @@ const cliConfirmPreviewLines = async () => {
     "review before opening your wallet.",
     "",
     cliReviewRow("network", `${THOUGHT_CHAIN_NAME} / ${THOUGHT_CHAIN_ID}`),
+    ...cliRehearsalReviewRows(),
     cliReviewRow("contract", cliReviewContract("ThoughtNFT", THOUGHT_NFT_ADDRESS)),
     cliReviewRow("function", "mint(string,uint256,bytes32,bytes32,bytes32,string,uint256,bytes)"),
     cliReviewRow("$PATH", `#${pathId}`),

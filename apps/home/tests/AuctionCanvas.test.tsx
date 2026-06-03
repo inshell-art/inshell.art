@@ -1670,7 +1670,8 @@ describe("AuctionCanvas", () => {
 
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
 
-    expect(screen.getByText("Sepolia testnet only.")).toBeTruthy();
+    expect(screen.getByText(/Sepolia public rehearsal/i)).toBeTruthy();
+    expect(screen.getByText(/Mainnet is the future canonical record/i)).toBeTruthy();
     expect(screen.queryByText(/^debug$/i)).toBeNull();
   });
 
@@ -1690,7 +1691,7 @@ describe("AuctionCanvas", () => {
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
 
     return waitFor(() => {
-      expect(screen.getByText("Sepolia testnet only.")).toBeTruthy();
+      expect(screen.getByText(/Sepolia public rehearsal/i)).toBeTruthy();
       expect(screen.getByText(/\[\s*switch\s*\]/i)).toBeTruthy();
       expect(screen.queryByText(/Sepolia only/i)).toBeNull();
     });
@@ -1914,7 +1915,7 @@ describe("AuctionCanvas", () => {
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     return waitFor(() => {
-      expect(screen.getByText(/Sepolia(?: testnet)? only/i)).toBeTruthy();
+      expect(screen.getByText(/Sepolia public rehearsal/i)).toBeTruthy();
       expect(screen.getByText(/\[\s*switch\s*\]/i)).toBeTruthy();
     });
   });
@@ -2447,7 +2448,12 @@ describe("AuctionCanvas", () => {
     expect(within(review as HTMLElement).getByText(/max price/i)).toBeTruthy();
     expect(within(review as HTMLElement).getByText(/approval/i)).toBeTruthy();
     expect(within(review as HTMLElement).getByText(/network gas/i)).toBeTruthy();
-    expect(within(review as HTMLElement).getByText("Sepolia testnet only.")).toBeTruthy();
+    expect(within(review as HTMLElement).getByText(/currency/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getByText("testnet ETH")).toBeTruthy();
+    expect(within(review as HTMLElement).getByText("record")).toBeTruthy();
+    expect(within(review as HTMLElement).getByText("rehearsal")).toBeTruthy();
+    expect(within(review as HTMLElement).getByText(/Sepolia public rehearsal/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getByText(/Requires Sepolia testnet ETH/i)).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Report a Sepolia bug" })).toBeNull();
     expect(execute).not.toHaveBeenCalled();
   });

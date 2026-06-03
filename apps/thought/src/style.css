@@ -1917,6 +1917,16 @@ html.thought-route .thought-detail.is-hidden {
   letter-spacing: 0.08em;
 }
 
+.thought-detail__network,
+.thought-gallery__network {
+  margin: 8px 0 0;
+  color: var(--muted-dim);
+  font-size: 12px;
+  font-weight: 300;
+  letter-spacing: 0.06em;
+  line-height: 1.45;
+}
+
 .thought-detail__links {
   display: flex;
   align-items: baseline;

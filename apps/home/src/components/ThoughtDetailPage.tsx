@@ -11,6 +11,7 @@ import {
   readCachedThoughtGallery,
   type ThoughtGalleryItem,
 } from "@/services/thoughtGallery";
+import { PUBLIC_NETWORK_CONFIG } from "@inshell/shared";
 
 type LoadState =
   | { status: "loading"; items: ThoughtGalleryItem[]; error: null }
@@ -254,6 +255,14 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
               </dd>
             </div>
             <div>
+              <dt>chain</dt>
+              <dd>{PUBLIC_NETWORK_CONFIG.chainLabel}</dd>
+            </div>
+            <div>
+              <dt>record</dt>
+              <dd>{PUBLIC_NETWORK_CONFIG.recordLabel}</dd>
+            </div>
+            <div>
               <dt>minted</dt>
               <dd>{formatTimestamp(item.mintedAt)}</dd>
             </div>
@@ -371,6 +380,9 @@ export default function ThoughtDetailPage({ tokenId }: { tokenId: string }) {
         <h1 id="thought-detail-title" className="thought-detail__title">
           THOUGHT #<span>{tokenId}</span>
         </h1>
+        <p className="thought-detail__network">
+          {PUBLIC_NETWORK_CONFIG.compactLabel}
+        </p>
         <nav className="thought-detail__links" aria-label="THOUGHT detail links">
           <a className="thought-detail__link" href={galleryUrl()}>
             [ gallery ]

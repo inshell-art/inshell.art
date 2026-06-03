@@ -4,7 +4,7 @@ import {
   getProtocolReleaseDeployBlock,
   maybeResolveAddress,
 } from "@inshell/contracts";
-import { SURFACE_TERMINOLOGY } from "@inshell/shared";
+import { PUBLIC_NETWORK_CONFIG, SURFACE_TERMINOLOGY } from "@inshell/shared";
 import {
   loadAllPathTokens,
   readCachedAllPathTokens,
@@ -28,7 +28,7 @@ type PathPageProps = {
 
 const FIXTURE_OWNER = "0x1111222233334444555566667777888899990000";
 const PATH_DESCRIPTION =
-  "$PATH is the permission token. It is minted by the public Pulse auction and authorizes movement mints in order: THOUGHT, WILL, then AWA. The token image and traits show movement progress.";
+  "$PATH is the permission token. It is minted by the public rehearsal Pulse auction and authorizes movement mints in order: THOUGHT, WILL, then AWA. The token image and traits show movement progress.";
 const CHAIN_LOADING_DETAIL_MS = 1400;
 const PATH_LOADING_DETAILS = [
   "checking latest block",
@@ -741,6 +741,9 @@ export default function PathPage({ tokenId = null }: PathPageProps) {
           <p className="primitive-page__subtitle">
             Permission tokens for movement mints.
           </p>
+          <p className="primitive-page__network">
+            {PUBLIC_NETWORK_CONFIG.compactLabel}
+          </p>
         </div>
       </header>
 
@@ -749,7 +752,7 @@ export default function PathPage({ tokenId = null }: PathPageProps) {
         aria-label="All $PATH tokens"
       >
         <div className="path-page__intro">
-          <p>$PATH is minted by the public Pulse auction.</p>
+          <p>$PATH is minted by the public rehearsal Pulse auction.</p>
           <p>Each $PATH authorizes movement mints in order: THOUGHT, WILL, then AWA.</p>
           <p>A movement minted from $PATH consumes a movement unit and updates the $PATH lifecycle.</p>
           <p>stage shows the current movement phase.</p>
@@ -776,7 +779,7 @@ export default function PathPage({ tokenId = null }: PathPageProps) {
             <div className="path-page__section-title">all tokens</div>
             <div className="path-page__sub">
               {state.status === "ready"
-                ? `${state.items.length} token${state.items.length === 1 ? "" : "s"}${focusedItem ? ` · focused $PATH #${focusedItem.tokenIdLabel}` : ""}`
+                ? `${state.items.length} token${state.items.length === 1 ? "" : "s"}${focusedItem ? ` · focused $PATH #${focusedItem.tokenIdLabel} · ${PUBLIC_NETWORK_CONFIG.rehearsalObjectLabel}` : ""}`
                 : state.status === "loading"
                   ? (
                     <ChainLoadingStatus
@@ -799,6 +802,18 @@ export default function PathPage({ tokenId = null }: PathPageProps) {
           <div>
             <dt>mode</dt>
             <dd>{fixtureItems ? "fixture state gallery" : "live token gallery"}</dd>
+          </div>
+          <div>
+            <dt>network</dt>
+            <dd>{fixtureItems ? "fixture" : PUBLIC_NETWORK_CONFIG.environmentLabel}</dd>
+          </div>
+          <div>
+            <dt>currency</dt>
+            <dd>{fixtureItems ? "fixture" : PUBLIC_NETWORK_CONFIG.currencyLabel}</dd>
+          </div>
+          <div>
+            <dt>record</dt>
+            <dd>{fixtureItems ? "fixture" : PUBLIC_NETWORK_CONFIG.recordLabel}</dd>
           </div>
           <div>
             <dt>source</dt>

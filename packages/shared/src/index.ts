@@ -119,6 +119,37 @@ export const SURFACE_DEPLOYMENT_MANIFEST = {
 } as const;
 
 export const SEPOLIA_CHAIN_ID = 11155111;
+export type PublicNetworkConfig = {
+  id: "sepolia";
+  chainId: number;
+  chainLabel: string;
+  environmentLabel: string;
+  compactLabel: string;
+  notice: string;
+  testnetEthRequirement: string;
+  homeNote: string;
+  notMainnetNote: string;
+  currencyLabel: string;
+  recordLabel: string;
+  rehearsalObjectLabel: string;
+  explorerBaseUrl: string;
+};
+
+export const PUBLIC_NETWORK_CONFIG = {
+  id: "sepolia",
+  chainId: SEPOLIA_CHAIN_ID,
+  chainLabel: "Sepolia",
+  environmentLabel: "Sepolia public rehearsal",
+  compactLabel: "Sepolia rehearsal · testnet ETH",
+  notice: "Sepolia public rehearsal.",
+  testnetEthRequirement: "Requires Sepolia testnet ETH.",
+  homeNote: "Sepolia public rehearsal. Testnet ETH. Mainnet is the future canonical record.",
+  notMainnetNote: "Testnet ETH. Not the canonical Mainnet record.",
+  currencyLabel: "testnet ETH",
+  recordLabel: "rehearsal",
+  rehearsalObjectLabel: "Sepolia rehearsal object",
+  explorerBaseUrl: "https://sepolia.etherscan.io",
+} as const satisfies PublicNetworkConfig;
 export const PUBLIC_SEPOLIA_WALLET_RPC_URL = "https://ethereum-sepolia-rpc.publicnode.com";
 export const DEFAULT_REPORT_BUG_URL =
   "https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md";
@@ -340,7 +371,7 @@ export function buildContractStatusSections(input: ContractStatusInput): Contrac
         {
           id: "switch-network",
           label: "switch network",
-          value: "asks wallet to switch to Sepolia.",
+          value: "asks wallet to switch to Sepolia public rehearsal.",
         },
         {
           id: "mint-path",

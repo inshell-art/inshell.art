@@ -330,7 +330,7 @@ describe("App Component", () => {
     expect(screen.getByLabelText("Linked Pulse auction curves")).toBeInTheDocument();
     expect(screen.getByLabelText("Pulse current instance")).toBeInTheDocument();
     expect(screen.getByText("current instance")).toBeInTheDocument();
-    expect(screen.getByText("$PATH is the current public auction using Pulse.")).toBeInTheDocument();
+    expect(screen.getByText("$PATH is the current public rehearsal auction using Pulse.")).toBeInTheDocument();
     expect(
       screen.getByText(/Pulse began as the Desmos sketch linked below\./),
     ).toBeInTheDocument();
@@ -677,7 +677,7 @@ describe("App Component", () => {
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/path.svg");
     expect(screen.getByRole("heading", { name: "$PATH" })).toBeInTheDocument();
     expect(screen.getByText("Permission tokens for movement mints.")).toBeInTheDocument();
-    expect(screen.getByText("$PATH is minted by the public Pulse auction.")).toBeInTheDocument();
+    expect(screen.getByText("$PATH is minted by the public rehearsal Pulse auction.")).toBeInTheDocument();
     expect(
       screen.getByText("Each $PATH authorizes movement mints in order: THOUGHT, WILL, then AWA."),
     ).toBeInTheDocument();
@@ -797,7 +797,7 @@ describe("App Component", () => {
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/path.svg");
     expect(screen.getByRole("heading", { level: 1, name: "$PATH" })).toBeInTheDocument();
     expect(screen.getByText("Permission tokens for movement mints.")).toBeInTheDocument();
-    expect(screen.getByText("8 tokens · focused $PATH #4")).toBeInTheDocument();
+    expect(screen.getByText("8 tokens · focused $PATH #4 · Sepolia rehearsal object")).toBeInTheDocument();
     expect(screen.getByText("$PATH #1")).toBeInTheDocument();
     expect(screen.getByText("$PATH #8")).toBeInTheDocument();
     expect(screen.queryByText("PATH token detail.")).toBeNull();

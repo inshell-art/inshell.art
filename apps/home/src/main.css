@@ -192,6 +192,16 @@ body {
   line-height: 1.55;
 }
 
+.primitive-page__network,
+.thought-detail__network {
+  margin: 8px 0 0;
+  color: var(--muted-dim);
+  font-size: 12px;
+  font-weight: 300;
+  letter-spacing: 0.06em;
+  line-height: 1.45;
+}
+
 .pulse-page__mark {
   display: block;
   width: min(100%, 6.2ch);
