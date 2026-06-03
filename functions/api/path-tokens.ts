@@ -69,11 +69,10 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
     );
     writeResponseCache(ctx, SNAPSHOT_KEY, response, RESPONSE_CACHE_SECONDS, snapshot.lastScannedBlock);
     return withChainCacheDiagnostics(ctx, response, diagnostics, stats, snapshot);
-  } catch (error) {
+  } catch {
     emitUsage(ctx, stats);
     return json(500, {
       error: "PATH tokens unavailable",
-      message: String((error as Error)?.message ?? error),
     });
   }
 }

@@ -68,6 +68,30 @@
   - `resolve tasks`, `empty the tasks`, `clean inbox`, or similar starts implementing `Inbox` in order, then clears completed entries after confirming what changed.
 - If any GitHub, Dependabot, security, CI, deployment, or repo alert appears during work or push output, record it under `Inbox` unless the user asks to fix it immediately.
 
+## OPS Repair Requests
+- This repo is the DEV side for OPS repair handoffs from `/Users/bigu/Projects/inshell-feed-ops`.
+- The OPS request queue lives at:
+  `.ops/repair-requests/`
+- Casual operator phrases map as follows:
+  - `ops request`, `check ops`, `check repair requests`, or `repair request` means inspect `.ops/repair-requests/pending/`.
+  - `claim ops request` means move the selected request from `pending/` to `claimed/` before editing.
+  - `repairs are done to OPS` means produce a concise OPS handback with the incident id, files changed, checks run, and whether verification should run now.
+- Request states:
+  - `pending/`: OPS created it; DEV has not started.
+  - `claimed/`: DEV is working on it.
+  - `done/`: DEV patched it and recorded notes/checks.
+  - `blocked/`: DEV cannot finish without operator input or external state.
+- When handling a request:
+  - Read the request file first.
+  - Move it to `claimed/` when starting.
+  - Patch only this target repo unless the request explicitly says otherwise.
+  - Do not edit secrets, deploy production, merge to `main`, or weaken security gates.
+  - Run the repo checks that prove the fix.
+  - Append a short result note to the request file, then move it to `done/` or `blocked/`.
+- Handback to OPS should include the exact incident id and a summary suitable for:
+  `pnpm ops-orchestrator repair-result --incident <incidentId> --status patch_ready --summary "..."`
+- OPS owns final verification. DEV should not claim the incident is resolved until OPS verification clears the alert.
+
 ## Security and Quality Routine
 - GitHub security/quality alerts are handled on `staging` first, then promoted to `main` only after operator review.
 - The midnight routine means: inspect GitHub Dependabot alerts, code scanning alerts, secret scanning alerts, Dependabot PRs, and failed quality workflows; patch on `staging`; run CI/leak checks; push preview; notify the operator.

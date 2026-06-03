@@ -174,6 +174,11 @@ type ThoughtSessionState = {
   };
 };
 
+type StoredThoughtSessionState = Omit<ThoughtSessionState, "connect" | "direct"> & {
+  connect: Omit<ThoughtSessionState["connect"], "apiKey">;
+  direct: Omit<ThoughtSessionState["direct"], "apiKeys">;
+};
+
 type EvmAddresses = {
   rpcUrl?: string;
   chainId?: number;
@@ -1868,9 +1873,28 @@ const readSessionState = (): ThoughtSessionState => {
 
 let sessionState = readSessionState();
 
+const buildStoredSessionState = (): StoredThoughtSessionState => ({
+  routeConfigured: sessionState.routeConfigured,
+  mode: sessionState.mode,
+  prompt: sessionState.prompt,
+  connect: {
+    model: sessionState.connect.model,
+  },
+  direct: {
+    provider: sessionState.direct.provider,
+    model: sessionState.direct.model,
+  },
+  local: {
+    available: sessionState.local.available,
+    endpoint: sessionState.local.endpoint,
+    model: sessionState.local.model,
+  },
+});
+
 const writeSessionState = () => {
-  sessionStorage.setItem(THOUGHT_SESSION_STORAGE_KEY, JSON.stringify(sessionState));
+  sessionStorage.setItem(THOUGHT_SESSION_STORAGE_KEY, JSON.stringify(buildStoredSessionState()));
 };
+writeSessionState();
 
 const readThoughtInstructionsOverride = (): ThoughtInstructionsOverride | null => {
   if (!ENABLE_THOUGHT_UPLOAD) {
@@ -2477,12 +2501,7 @@ const previewRateLimitLines = () => [
 ];
 
 const writeCurrentCandidateSession = () => {
-  if (!currentCandidate) {
-    sessionStorage.removeItem(THOUGHT_CURRENT_CANDIDATE_STORAGE_KEY);
-    return;
-  }
-
-  sessionStorage.setItem(THOUGHT_CURRENT_CANDIDATE_STORAGE_KEY, JSON.stringify(currentCandidate));
+  sessionStorage.removeItem(THOUGHT_CURRENT_CANDIDATE_STORAGE_KEY);
 };
 
 const clearCurrentCandidate = () => {
@@ -2491,43 +2510,8 @@ const clearCurrentCandidate = () => {
 };
 
 const readCurrentCandidateSession = () => {
-  const raw = sessionStorage.getItem(THOUGHT_CURRENT_CANDIDATE_STORAGE_KEY);
-  if (!raw) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as Partial<ThoughtCandidate>;
-    if (
-      typeof parsed.id !== "string" ||
-      typeof parsed.prompt !== "string" ||
-      typeof parsed.rawModelReturn !== "string" ||
-      !isMode(parsed.route) ||
-      typeof parsed.provider !== "string" ||
-      !isThoughtRunProvider(parsed.provider) ||
-      typeof parsed.model !== "string" ||
-      typeof parsed.createdAt !== "string" ||
-      parsed.status !== "candidate" ||
-      typeof parsed.payload !== "object" ||
-      parsed.payload === null
-    ) {
-      return null;
-    }
-
-    return {
-      ...parsed,
-      previewStatus:
-        parsed.previewStatus === "accepted" ||
-        parsed.previewStatus === "failed" ||
-        parsed.previewStatus === "unavailable" ||
-        parsed.previewStatus === "not_attempted"
-          ? parsed.previewStatus
-          : "not_attempted",
-      automaticPreviewAttempted: parsed.automaticPreviewAttempted === true,
-    } as ThoughtCandidate;
-  } catch {
-    return null;
-  }
+  sessionStorage.removeItem(THOUGHT_CURRENT_CANDIDATE_STORAGE_KEY);
+  return null;
 };
 
 const restoreCurrentCandidateSession = () => {

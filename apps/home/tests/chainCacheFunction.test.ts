@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, jest, test } from "@jest/globals";
 import {
   createChainCacheDiagnostics,
+  json,
   readResponseCache,
   readSnapshot,
   withChainCacheDiagnostics,
@@ -335,6 +336,27 @@ describe("chain cache Pages functions", () => {
     expect(withDiagnostics.headers.get("x-kv-write")).toBe("0");
     expect(withDiagnostics.headers.get("x-live-rpc-calls")).toBe("0");
     expect(withDiagnostics.headers.get("x-cache-snapshot-block")).toBe("123");
+  });
+
+  test("does not expose raw Error details from JSON responses", async () => {
+    globalThis.Response = TestResponse as unknown as typeof Response;
+    globalThis.Headers = TestHeaders as unknown as typeof Headers;
+    const error = new Error("upstream rpc key leaked in message");
+    error.stack = "Error: upstream rpc key leaked in message\n    at secret-stack";
+
+    const response = json(500, {
+      error: "chain data unavailable",
+      cause: error,
+      stack: error.stack,
+    });
+    const payload = (await response.json()) as Record<string, unknown>;
+
+    expect(payload).toEqual({
+      error: "chain data unavailable",
+      cause: { error: "internal error" },
+    });
+    expect(response.body).not.toContain("upstream rpc key leaked");
+    expect(response.body).not.toContain("secret-stack");
   });
 
   test("serves THOUGHT detail provenance and spec through same-origin JSON APIs", async () => {

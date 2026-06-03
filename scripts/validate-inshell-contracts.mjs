@@ -935,7 +935,7 @@ const report = {
 };
 
 function mdEscape(value) {
-  return String(value ?? "").replace(/\|/g, "\\|");
+  return String(value ?? "").replace(/\r?\n|\r/g, " ").replace(/\|/g, "&#124;");
 }
 
 function matrix() {

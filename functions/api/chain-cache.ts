@@ -157,6 +157,38 @@ export type IndexedSnapshot<T> = {
   items: T[];
 };
 
+type JsonSafe =
+  | null
+  | boolean
+  | number
+  | string
+  | JsonSafe[]
+  | { [key: string]: JsonSafe };
+
+function safeJsonBody(body: unknown, seen = new WeakSet<object>()): JsonSafe {
+  if (
+    body === null ||
+    typeof body === "string" ||
+    typeof body === "number" ||
+    typeof body === "boolean"
+  ) {
+    return body;
+  }
+  if (typeof body === "bigint") return body.toString();
+  if (typeof body !== "object") return null;
+  if (body instanceof Error) return { error: "internal error" };
+  if (seen.has(body)) return "[circular]";
+  seen.add(body);
+  if (Array.isArray(body)) return body.map((item) => safeJsonBody(item, seen));
+
+  const out: { [key: string]: JsonSafe } = {};
+  for (const [key, value] of Object.entries(body as Record<string, unknown>)) {
+    if (/^(stack|stackTrace|stack_trace)$/i.test(key)) continue;
+    out[key] = safeJsonBody(value, seen);
+  }
+  return out;
+}
+
 export function json(status: number, body: unknown, cacheSeconds = 0): Response {
   const headers = new Headers(JSON_HEADERS);
   headers.set(
@@ -165,7 +197,7 @@ export function json(status: number, body: unknown, cacheSeconds = 0): Response 
       ? `public, max-age=${cacheSeconds}, s-maxage=${cacheSeconds}, stale-while-revalidate=${Math.max(60, cacheSeconds * 4)}`
       : "no-store",
   );
-  return new Response(JSON.stringify(body), { status, headers });
+  return new Response(JSON.stringify(safeJsonBody(body)), { status, headers });
 }
 
 export function onOptions(): Response {
