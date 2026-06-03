@@ -153,6 +153,8 @@ src/.DS_Store
 /public/rss.xml
 /public/feed.xml
 /public/events.json
+/public/rss.*.xml
+/public/events.*.json
 /public/source/
 /public/source-assets/
 
