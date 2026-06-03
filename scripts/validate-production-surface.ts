@@ -386,7 +386,6 @@ function checkThoughtProductionGuards() {
     "const THOUGHT_LOG_CHUNK_SIZE = 5_000;",
     "const logs = await getThoughtMintedLogs(provider);",
     "VITE_THOUGHT_EXPLORER_BASE_URL.trim()",
-    "const LEGACY_OPENROUTER_DEFAULT_MODELS = new Set([",
     "const OPENROUTER_DEFAULT_MODEL = \"openrouter/free\";",
     "const token = getReadThoughtNFT();",
     "previewWorkViaAllowedProvider",
@@ -404,10 +403,15 @@ function checkThoughtProductionGuards() {
     "gallery-create-link",
     "galleryCreateLink.hidden = true",
     "settleGalleryCreateLink",
+    "const clearStoredSessionState = () => {",
+    "sessionStorage.removeItem(THOUGHT_SESSION_STORAGE_KEY)",
   ]) {
     if (!text.includes(snippet)) {
       fail(`apps/thought/src/main.ts is missing THOUGHT production guard: ${snippet}`);
     }
+  }
+  if (text.includes("sessionStorage.setItem(THOUGHT_SESSION_STORAGE_KEY")) {
+    fail("apps/thought/src/main.ts must not persist THOUGHT provider route state to sessionStorage");
   }
   if (text.includes("connect wallet or configure a read-only preview path.")) {
     fail("apps/thought/src/main.ts must not tell auto preview visitors to configure RPC");
