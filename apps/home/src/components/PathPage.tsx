@@ -28,7 +28,7 @@ type PathPageProps = {
 
 const FIXTURE_OWNER = "0x1111222233334444555566667777888899990000";
 const PATH_DESCRIPTION =
-  "$PATH is the permission token. It is minted by the public rehearsal Pulse auction and authorizes movement mints in order: THOUGHT, WILL, then AWA. The token image and traits show movement progress.";
+  "$PATH is the permission token. It is minted by the Sepolia rehearsal Pulse auction and authorizes movement mints in order: THOUGHT, WILL, then AWA. The token image and traits show movement progress.";
 const CHAIN_LOADING_DETAIL_MS = 1400;
 const PATH_LOADING_DETAILS = [
   "checking latest block",
@@ -752,7 +752,7 @@ export default function PathPage({ tokenId = null }: PathPageProps) {
         aria-label="All $PATH tokens"
       >
         <div className="path-page__intro">
-          <p>$PATH is minted by the public rehearsal Pulse auction.</p>
+          <p>$PATH is minted by the Sepolia rehearsal Pulse auction.</p>
           <p>Each $PATH authorizes movement mints in order: THOUGHT, WILL, then AWA.</p>
           <p>A movement minted from $PATH consumes a movement unit and updates the $PATH lifecycle.</p>
           <p>stage shows the current movement phase.</p>

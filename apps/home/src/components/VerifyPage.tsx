@@ -6,7 +6,7 @@ import {
   getThoughtRelease,
   maybeResolveAddress,
 } from "@inshell/contracts";
-import { SURFACE_TERMINOLOGY } from "@inshell/shared";
+import { PUBLIC_NETWORK_CONFIG, SURFACE_TERMINOLOGY } from "@inshell/shared";
 
 type VerifyField = {
   id: string;
@@ -183,6 +183,7 @@ export default function VerifyPage() {
             Compare domain, chain, contracts, and locks before connecting or
             confirming a wallet action.
           </p>
+          <p>{PUBLIC_NETWORK_CONFIG.verifyExplanation}</p>
         </div>
 
         <section className="verify-page__section" aria-labelledby="verify-domains">
@@ -195,6 +196,9 @@ export default function VerifyPage() {
               { id: "gallery-domain", label: "gallery", value: "https://gallery.inshell.art" },
               { id: "chain", label: "chain", value: "Sepolia" },
               { id: "chain-id", label: "chain id", value: String(chainId) },
+              { id: "network-role", label: "network role", value: "Sepolia rehearsal network" },
+              { id: "currency", label: "currency", value: PUBLIC_NETWORK_CONFIG.currencyLabel },
+              { id: "record", label: "record", value: PUBLIC_NETWORK_CONFIG.recordLabel },
             ]}
           />
         </section>

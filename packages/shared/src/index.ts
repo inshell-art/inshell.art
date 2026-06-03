@@ -128,7 +128,10 @@ export type PublicNetworkConfig = {
   notice: string;
   testnetEthRequirement: string;
   homeNote: string;
+  detailNote: string;
+  verifyExplanation: string;
   notMainnetNote: string;
+  switchNetworkNotice: string;
   currencyLabel: string;
   recordLabel: string;
   rehearsalObjectLabel: string;
@@ -139,12 +142,16 @@ export const PUBLIC_NETWORK_CONFIG = {
   id: "sepolia",
   chainId: SEPOLIA_CHAIN_ID,
   chainLabel: "Sepolia",
-  environmentLabel: "Sepolia public rehearsal",
+  environmentLabel: "Sepolia rehearsal",
   compactLabel: "Sepolia rehearsal · testnet ETH",
-  notice: "Sepolia public rehearsal.",
-  testnetEthRequirement: "Requires Sepolia testnet ETH.",
-  homeNote: "Sepolia public rehearsal. Testnet ETH. Mainnet is the future canonical record.",
-  notMainnetNote: "Testnet ETH. Not the canonical Mainnet record.",
+  notice: "Sepolia rehearsal.",
+  testnetEthRequirement: "Sepolia testnet ETH.",
+  homeNote: "Sepolia rehearsal · testnet ETH",
+  detailNote: "This is the Sepolia rehearsal network. It uses testnet ETH.",
+  verifyExplanation:
+    "Inshell is currently live on Sepolia as a public rehearsal. Sepolia uses testnet ETH. Mainnet will be the future canonical record.",
+  notMainnetNote: "Mainnet will be the canonical record later.",
+  switchNetworkNotice: "Switch to Sepolia.",
   currencyLabel: "testnet ETH",
   recordLabel: "rehearsal",
   rehearsalObjectLabel: "Sepolia rehearsal object",
@@ -371,7 +378,7 @@ export function buildContractStatusSections(input: ContractStatusInput): Contrac
         {
           id: "switch-network",
           label: "switch network",
-          value: "asks wallet to switch to Sepolia public rehearsal.",
+          value: "asks wallet to switch to Sepolia rehearsal network.",
         },
         {
           id: "mint-path",

@@ -407,7 +407,7 @@ function PulseCurrentInstance({ rawOnly = false }: { rawOnly?: boolean }) {
       <div className="pulse-page__current-copy">
         <div className="pulse-page__section-title">current instance</div>
         <p className="pulse-page__lead-line">
-          $PATH is the current public rehearsal auction using Pulse.
+          $PATH is currently running on Sepolia rehearsal using Pulse.
         </p>
         <p>Each successful bid mints one $PATH.</p>
       </div>

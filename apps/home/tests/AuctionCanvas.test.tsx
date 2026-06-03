@@ -1670,8 +1670,8 @@ describe("AuctionCanvas", () => {
 
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
 
-    expect(screen.getByText(/Sepolia public rehearsal/i)).toBeTruthy();
-    expect(screen.getByText(/Mainnet is the future canonical record/i)).toBeTruthy();
+    expect(screen.getByText(/Sepolia rehearsal · testnet ETH/i)).toBeTruthy();
+    expect(screen.queryByText(/Mainnet is the future canonical record/i)).toBeNull();
     expect(screen.queryByText(/^debug$/i)).toBeNull();
   });
 
@@ -1691,7 +1691,7 @@ describe("AuctionCanvas", () => {
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
 
     return waitFor(() => {
-      expect(screen.getByText(/Sepolia public rehearsal/i)).toBeTruthy();
+      expect(screen.getByText(/Sepolia rehearsal · testnet ETH/i)).toBeTruthy();
       expect(screen.getByText(/\[\s*switch\s*\]/i)).toBeTruthy();
       expect(screen.queryByText(/Sepolia only/i)).toBeNull();
     });
@@ -1915,7 +1915,7 @@ describe("AuctionCanvas", () => {
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     return waitFor(() => {
-      expect(screen.getByText(/Sepolia public rehearsal/i)).toBeTruthy();
+      expect(screen.getByText(/Switch to Sepolia/i)).toBeTruthy();
       expect(screen.getByText(/\[\s*switch\s*\]/i)).toBeTruthy();
     });
   });
@@ -2452,8 +2452,8 @@ describe("AuctionCanvas", () => {
     expect(within(review as HTMLElement).getByText("testnet ETH")).toBeTruthy();
     expect(within(review as HTMLElement).getByText("record")).toBeTruthy();
     expect(within(review as HTMLElement).getByText("rehearsal")).toBeTruthy();
-    expect(within(review as HTMLElement).getByText(/Sepolia public rehearsal/i)).toBeTruthy();
-    expect(within(review as HTMLElement).getByText(/Requires Sepolia testnet ETH/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getByText(/Sepolia rehearsal network/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getByText(/uses testnet ETH/i)).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Report a Sepolia bug" })).toBeNull();
     expect(execute).not.toHaveBeenCalled();
   });

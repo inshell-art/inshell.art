@@ -4672,7 +4672,7 @@ export default function AuctionCanvas({
           sepoliaInviteMode && publicNetworkNotice
             ? publicNetworkNotice
             : targetChainLabel === PUBLIC_NETWORK_CONFIG.chainLabel
-              ? `${PUBLIC_NETWORK_CONFIG.environmentLabel} only.`
+              ? PUBLIC_NETWORK_CONFIG.switchNetworkNotice
               : `${targetChainLabel} only.`,
         delayMs: DELAY_MS,
       };
@@ -6154,9 +6154,7 @@ export default function AuctionCanvas({
           </div>
           {publicNetworkNotice && (
             <div className="dotfield__mint-review-network">
-              {publicNetworkNotice}
-              <br />
-              {PUBLIC_NETWORK_CONFIG.testnetEthRequirement}
+              {PUBLIC_NETWORK_CONFIG.detailNote}
             </div>
           )}
         </div>
