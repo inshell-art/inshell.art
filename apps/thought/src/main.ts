@@ -138,17 +138,6 @@ type PendingMyBrainRound = {
   payload: ThoughtRunPayload;
 };
 
-type LegacyProviderState = {
-  apiKey?: string;
-  model?: string;
-};
-
-type LegacySessionState = {
-  authMode?: "connect" | "raw";
-  activeProvider?: string;
-  providers?: Record<string, LegacyProviderState | undefined>;
-};
-
 type ThoughtInstructionsOverride = {
   name: string;
   content: string;
@@ -172,11 +161,6 @@ type ThoughtSessionState = {
     endpoint: string;
     model: string;
   };
-};
-
-type StoredThoughtSessionState = Omit<ThoughtSessionState, "connect" | "direct"> & {
-  connect: Omit<ThoughtSessionState["connect"], "apiKey">;
-  direct: Omit<ThoughtSessionState["direct"], "apiKeys">;
 };
 
 type EvmAddresses = {
@@ -587,10 +571,6 @@ const OPENROUTER_KEY_URL = "https://openrouter.ai/api/v1/auth/keys";
 const OPENROUTER_MODEL_URL = "https://openrouter.ai/api/v1/models";
 const DEFAULT_OLLAMA_ENDPOINT = "http://127.0.0.1:11434";
 const MANUAL_MODEL_VALUE = "__manual__";
-const LEGACY_OPENROUTER_DEFAULT_MODELS = new Set([
-  "openai/gpt-4o-mini",
-  "meta-llama/llama-3.3-70b-instruct:free",
-]);
 const OPENROUTER_DEFAULT_MODEL = "openrouter/free";
 const LOCAL_MODEL_SOURCE_ID = "ollama";
 const LOCAL_MODEL_LABEL = "ollama";
@@ -1658,36 +1638,6 @@ const defaultModelForSource = (sourceId: ModelSourceId) => {
   return DIRECT_PROVIDERS[sourceId].defaultModel;
 };
 
-const normalizeStoredModel = (sourceId: ModelSourceId, model: string | undefined) => {
-  if (sourceId === "openrouter" && (!model || LEGACY_OPENROUTER_DEFAULT_MODELS.has(model))) {
-    return DIRECT_PROVIDERS.openrouter.defaultModel;
-  }
-
-  const fallback = defaultModelForSource(sourceId);
-
-  return model?.trim() || fallback;
-};
-
-const normalizeStoredDirectApiKeys = (
-  apiKeys: unknown,
-  activeProvider: DirectProviderId,
-  legacyApiKey?: string,
-) => {
-  const record = typeof apiKeys === "object" && apiKeys !== null
-    ? apiKeys as Partial<Record<DirectProviderId, unknown>>
-    : {};
-  return {
-    openai: typeof record.openai === "string" ? record.openai.trim() : "",
-    openrouter: typeof record.openrouter === "string" ? record.openrouter.trim() : "",
-    anthropic: typeof record.anthropic === "string" ? record.anthropic.trim() : "",
-    [activeProvider]: typeof legacyApiKey === "string" && legacyApiKey.trim()
-      ? legacyApiKey.trim()
-      : typeof record[activeProvider] === "string"
-        ? record[activeProvider].trim()
-        : "",
-  };
-};
-
 const normalizeModeInput = (value: string) => {
   const normalized = value.trim().toLowerCase().replace(/[_\s]+/g, "-");
   if (normalized === "mybrain" || normalized === "my-brain") {
@@ -1752,147 +1702,23 @@ const ollamaCorsSetupCommand = () => `OLLAMA_ORIGINS=${ollamaAllowedOrigin()} ol
 const ollamaOriginBlockedMessage = () =>
   `ollama is running but blocked this browser origin. restart ollama with: ${ollamaCorsSetupCommand()}`;
 
-const migrateLegacyState = (
-  parsed: LegacySessionState,
-  fallback: ThoughtSessionState,
-): ThoughtSessionState => {
-  const legacyProviders = parsed.providers ?? {};
-  const connectModel = normalizeStoredModel("openrouter", legacyProviders.openrouter?.model);
-  const connectApiKey = legacyProviders.openrouter?.apiKey?.trim() ?? "";
-  const directProvider = isDirectProviderId(parsed.activeProvider) ? parsed.activeProvider : "openai";
-  const directModel = normalizeStoredModel(directProvider, legacyProviders[directProvider]?.model);
-  const legacyLocalModel =
-    legacyProviders.ollama?.model ?? legacyProviders.harness?.model ?? fallback.local.model;
-
-  return {
-    routeConfigured: true,
-    mode:
-      parsed.authMode === "connect"
-        ? "connect"
-        : parsed.activeProvider === "ollama" || parsed.activeProvider === "harness"
-          ? "local"
-          : "direct",
-    prompt: "",
-    connect: {
-      apiKey: connectApiKey,
-      model: connectModel,
-    },
-    direct: {
-      provider: directProvider,
-      apiKeys: {
-        openai: legacyProviders.openai?.apiKey?.trim() ?? "",
-        openrouter: legacyProviders.openrouter?.apiKey?.trim() ?? "",
-        anthropic: legacyProviders.anthropic?.apiKey?.trim() ?? "",
-      },
-      model: directModel,
-    },
-    local: {
-      available: null,
-      endpoint: fallback.local.endpoint,
-      model: normalizeStoredModel("ollama", legacyLocalModel),
-    },
-  };
+const clearStoredSessionState = () => {
+  try {
+    sessionStorage.removeItem(THOUGHT_SESSION_STORAGE_KEY);
+  } catch {
+    // Storage may be blocked by the browser; THOUGHT route state is memory-only.
+  }
 };
 
 const readSessionState = (): ThoughtSessionState => {
-  const fallback = getDefaultSessionState();
-  const raw = sessionStorage.getItem(THOUGHT_SESSION_STORAGE_KEY);
-
-  if (!raw) {
-    return fallback;
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as Partial<ThoughtSessionState> & LegacySessionState;
-
-    if (!("mode" in parsed)) {
-      return migrateLegacyState(parsed, fallback);
-    }
-
-    const connect = (parsed.connect ?? {}) as Partial<ThoughtSessionState["connect"]>;
-    const direct = (parsed.direct ?? {}) as Partial<ThoughtSessionState["direct"]> & {
-      apiKey?: unknown;
-    };
-    const local = (parsed.local ?? {}) as Partial<ThoughtSessionState["local"]>;
-    const directProvider = isDirectProviderId(direct.provider) ? direct.provider : fallback.direct.provider;
-    const hasAnyDirectApiKey =
-      typeof direct.apiKey === "string" && direct.apiKey.trim().length > 0 ||
-      (typeof direct.apiKeys === "object" &&
-        direct.apiKeys !== null &&
-        Object.values(direct.apiKeys).some((value) => typeof value === "string" && value.trim().length > 0));
-    const routeConfigured =
-      typeof parsed.routeConfigured === "boolean"
-        ? parsed.routeConfigured
-        : isMode(parsed.mode) && (
-            parsed.mode !== "connect" ||
-            (typeof connect.apiKey === "string" && connect.apiKey.trim().length > 0) ||
-            hasAnyDirectApiKey ||
-            typeof local.available === "boolean"
-          );
-
-    return {
-      routeConfigured,
-      mode: isMode(parsed.mode) ? parsed.mode : fallback.mode,
-      prompt: typeof parsed.prompt === "string" ? parsed.prompt : "",
-      connect: {
-        apiKey: typeof connect.apiKey === "string" ? connect.apiKey : "",
-        model: normalizeStoredModel(
-          "openrouter",
-          typeof connect.model === "string" ? connect.model : undefined,
-        ),
-      },
-      direct: {
-        provider: directProvider,
-        apiKeys: normalizeStoredDirectApiKeys(
-          direct.apiKeys,
-          directProvider,
-          typeof direct.apiKey === "string" ? direct.apiKey : undefined,
-        ),
-        model: normalizeStoredModel(
-          directProvider,
-          typeof direct.model === "string" ? direct.model : undefined,
-        ),
-      },
-      local: {
-        available:
-          typeof local.available === "boolean" ? local.available : fallback.local.available,
-        endpoint:
-          typeof local.endpoint === "string" && local.endpoint.trim()
-            ? safeNormalizeOllamaEndpoint(local.endpoint, fallback.local.endpoint)
-            : fallback.local.endpoint,
-        model: normalizeStoredModel(
-          "ollama",
-          typeof local.model === "string" ? local.model : undefined,
-        ),
-      },
-    };
-  } catch {
-    return fallback;
-  }
+  clearStoredSessionState();
+  return getDefaultSessionState();
 };
 
 let sessionState = readSessionState();
 
-const buildStoredSessionState = (): StoredThoughtSessionState => ({
-  routeConfigured: sessionState.routeConfigured,
-  mode: sessionState.mode,
-  prompt: sessionState.prompt,
-  connect: {
-    model: sessionState.connect.model,
-  },
-  direct: {
-    provider: sessionState.direct.provider,
-    model: sessionState.direct.model,
-  },
-  local: {
-    available: sessionState.local.available,
-    endpoint: sessionState.local.endpoint,
-    model: sessionState.local.model,
-  },
-});
-
 const writeSessionState = () => {
-  sessionStorage.setItem(THOUGHT_SESSION_STORAGE_KEY, JSON.stringify(buildStoredSessionState()));
+  clearStoredSessionState();
 };
 writeSessionState();
 
