@@ -196,12 +196,16 @@ function expectedColorFontFallbackChainLabel() {
 }
 
 function expectedDefaultGalleryUrl() {
-  const configured = env.VITE_THOUGHT_GALLERY_URL || env.VITE_GALLERY_URL;
+  const configured = env.VITE_GALLERY_URL || env.VITE_THOUGHT_GALLERY_URL;
   if (configured) {
     return new globalThis.URL(configured).toString();
   }
-  return String(env.VITE_DEPLOY_ENV ?? "").toLowerCase() === "preview"
-    ? "https://gallery.preview.inshell.art/"
+  if (String(env.VITE_DEPLOY_ENV ?? "").toLowerCase() === "preview") {
+    return "https://gallery.preview.inshell.art/";
+  }
+  const hostname = window.location.hostname.toLowerCase();
+  return hostname === "localhost" || hostname === "127.0.0.1"
+    ? "http://127.0.0.1:5174/gallery"
     : "https://gallery.inshell.art/";
 }
 
@@ -209,6 +213,7 @@ describe("App Component", () => {
   beforeEach(() => {
     window.history.pushState({}, "", "/");
     delete (globalThis as any).__VITE_ENV__;
+    delete (globalThis as any).__INSHELL_VITE_ENV__;
     mockedGetChainId.mockResolvedValue(31337n);
     mockedGetCode.mockResolvedValue("0x");
     mockedGetDefaultProvider.mockReturnValue(defaultRpcProvider());
@@ -797,7 +802,7 @@ describe("App Component", () => {
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/path.svg");
     expect(screen.getByRole("heading", { level: 1, name: "$PATH" })).toBeInTheDocument();
     expect(screen.getByText("Permission tokens for movement mints.")).toBeInTheDocument();
-    expect(screen.getByText("8 tokens · focused $PATH #4 · Sepolia rehearsal object")).toBeInTheDocument();
+    expect(screen.getByText("8 tokens · focused $PATH #4")).toBeInTheDocument();
     expect(screen.getByText("$PATH #1")).toBeInTheDocument();
     expect(screen.getByText("$PATH #8")).toBeInTheDocument();
     expect(screen.queryByText("PATH token detail.")).toBeNull();
@@ -1000,7 +1005,7 @@ describe("App Component", () => {
 
     const footerLinks = screen.getByLabelText("Project links").querySelectorAll("a");
     expect(Array.from(footerLinks).map((link) => link.getAttribute("aria-label"))).toEqual([
-      "Open THOUGHT gallery",
+      "Open gallery",
       "Open Pulse",
       "Open color-font primitive page",
       "Open Telegram announcements channel",
@@ -1016,11 +1021,11 @@ describe("App Component", () => {
     );
     expect(screen.getByLabelText("Open color-font primitive page")).toHaveAttribute("target", "_blank");
     expect(screen.getByLabelText("Open color-font primitive page")).toHaveTextContent("■■■");
-    expect(screen.getByLabelText("Open THOUGHT gallery")).toHaveAttribute(
+    expect(screen.getByLabelText("Open gallery")).toHaveAttribute(
       "href",
       expectedDefaultGalleryUrl(),
     );
-    expect(screen.getByLabelText("Open THOUGHT gallery")).toHaveAttribute("target", "_blank");
+    expect(screen.getByLabelText("Open gallery")).toHaveAttribute("target", "_blank");
     expect(screen.getByLabelText("Open Inshell Public Feed RSS")).toHaveAttribute(
       "href",
       "https://inshell.art/rss.xml",
@@ -1039,14 +1044,27 @@ describe("App Component", () => {
 
   test("footer gallery uses configured gallery URL", () => {
     (globalThis as any).__VITE_ENV__ = {
-      VITE_THOUGHT_GALLERY_URL: "https://gallery.preview.inshell.art/",
+      VITE_GALLERY_URL: "https://gallery.preview.inshell.art/",
     };
 
     render(<App />);
 
-    expect(screen.getByLabelText("Open THOUGHT gallery")).toHaveAttribute(
+    expect(screen.getByLabelText("Open gallery")).toHaveAttribute(
       "href",
       "https://gallery.preview.inshell.art/",
+    );
+  });
+
+  test("footer gallery uses Vite injected build env in local dev", () => {
+    (globalThis as any).__INSHELL_VITE_ENV__ = {
+      VITE_GALLERY_URL: "http://127.0.0.1:5174/gallery",
+    };
+
+    render(<App />);
+
+    expect(screen.getByLabelText("Open gallery")).toHaveAttribute(
+      "href",
+      "http://127.0.0.1:5174/gallery",
     );
   });
 
@@ -1073,7 +1091,7 @@ describe("App Component", () => {
 
     render(<App />);
 
-    expect(screen.getByLabelText("Open THOUGHT gallery")).toHaveAttribute(
+    expect(screen.getByLabelText("Open gallery")).toHaveAttribute(
       "href",
       "https://gallery.preview.inshell.art/",
     );

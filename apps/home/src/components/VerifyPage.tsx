@@ -194,11 +194,10 @@ export default function VerifyPage() {
               { id: "path-route", label: "$PATH route", value: "https://inshell.art/path" },
               { id: "thought-domain", label: "THOUGHT", value: "https://thought.inshell.art" },
               { id: "gallery-domain", label: "gallery", value: "https://gallery.inshell.art" },
-              { id: "chain", label: "chain", value: "Sepolia" },
+              { id: "network", label: "network", value: PUBLIC_NETWORK_CONFIG.environmentLabel },
+              { id: "chain", label: "chain", value: PUBLIC_NETWORK_CONFIG.chainLabel },
               { id: "chain-id", label: "chain id", value: String(chainId) },
-              { id: "network-role", label: "network role", value: "Sepolia rehearsal network" },
               { id: "currency", label: "currency", value: PUBLIC_NETWORK_CONFIG.currencyLabel },
-              { id: "record", label: "record", value: PUBLIC_NETWORK_CONFIG.recordLabel },
             ]}
           />
         </section>

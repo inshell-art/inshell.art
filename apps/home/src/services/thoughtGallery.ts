@@ -49,7 +49,7 @@ function getEnvValue(name: string): unknown {
 }
 
 function readThoughtGalleryApiUrl() {
-  const value = getEnvValue("VITE_THOUGHT_GALLERY_API_URL");
+  const value = getEnvValue("VITE_GALLERY_API_URL") ?? getEnvValue("VITE_THOUGHT_GALLERY_API_URL");
   return typeof value === "string" && value.trim()
     ? value.trim()
     : DEFAULT_THOUGHT_GALLERY_API_URL;
@@ -153,7 +153,7 @@ export async function loadThoughtGallery(options?: {
   cacheMode?: "default" | "bypass";
 }): Promise<ThoughtGalleryItem[]> {
   if (typeof globalThis.fetch !== "function") {
-    throw new Error("THOUGHT gallery API unavailable.");
+    throw new Error("Gallery API unavailable.");
   }
 
   const url = new globalThis.URL(
@@ -169,12 +169,12 @@ export async function loadThoughtGallery(options?: {
     cache: options?.cacheMode === "bypass" ? "reload" : "default",
   });
   if (!response.ok) {
-    throw new Error(`THOUGHT gallery API unavailable: ${response.status}`);
+    throw new Error(`Gallery API unavailable: ${response.status}`);
   }
 
   const payload = (await response.json()) as ThoughtGalleryApiPayload;
   if (!Array.isArray(payload.thoughts)) {
-    throw new Error("THOUGHT gallery API returned invalid payload.");
+    throw new Error("Gallery API returned invalid payload.");
   }
 
   const thoughts = sortThoughts(payload.thoughts.filter(isThoughtGalleryItem));

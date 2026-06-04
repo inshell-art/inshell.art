@@ -14,6 +14,10 @@ function ignoreKnownRollupWarnings(warning: RollupLog, warn: RollupLogHandler) {
   warn(warning);
 }
 
+function readDevApiOrigin() {
+  return process.env.INSHELL_DEV_API_ORIGIN?.trim() || "https://inshell.art";
+}
+
 export default defineConfig(({ mode }) => {
   const rootDir =
     typeof __dirname === "string"
@@ -43,6 +47,13 @@ export default defineConfig(({ mode }) => {
       host: "127.0.0.1",
       port: 5173,
       strictPort: true,
+      proxy: {
+        "/api": {
+          target: readDevApiOrigin(),
+          changeOrigin: true,
+          secure: true,
+        },
+      },
       fs: {
         allow: [workspaceRoot, rootDir],
       },

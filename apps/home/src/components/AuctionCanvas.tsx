@@ -575,8 +575,10 @@ async function syncDevnetTimeToBrowser(
 function getEnvValue(name: string): unknown {
   const envCache: Record<string, any> | undefined =
     (globalThis as any).__VITE_ENV__;
+  const buildEnv: Record<string, any> | undefined =
+    (globalThis as any).__INSHELL_VITE_ENV__;
   const procEnv = (globalThis as any)?.process?.env;
-  return envCache?.[name] ?? procEnv?.[name];
+  return envCache?.[name] ?? buildEnv?.[name] ?? procEnv?.[name];
 }
 
 function isTestRuntime(): boolean {
@@ -2503,7 +2505,6 @@ export default function AuctionCanvas({
       });
   }, [connectors]);
   const publicNetworkNotice = getPublicNetworkNotice();
-  const sepoliaInviteMode = isSepoliaInviteMode();
   const reportBugEnabled = shouldShowReportBug();
   const walletConnected = Boolean(isConnected);
   const reportWalletName = useMemo(() => {
@@ -4667,13 +4668,11 @@ export default function AuctionCanvas({
     }
     if (effectiveWalletUnlocked && effectiveChainKnown && !effectiveChainOk) {
       return {
-        kind: "error",
+        kind: "warn",
         text:
-          sepoliaInviteMode && publicNetworkNotice
-            ? publicNetworkNotice
-            : targetChainLabel === PUBLIC_NETWORK_CONFIG.chainLabel
-              ? PUBLIC_NETWORK_CONFIG.switchNetworkNotice
-              : `${targetChainLabel} only.`,
+          targetChainLabel === PUBLIC_NETWORK_CONFIG.chainLabel
+            ? PUBLIC_NETWORK_CONFIG.switchNetworkNotice
+            : `${targetChainLabel} only.`,
         delayMs: DELAY_MS,
       };
     }
@@ -4748,8 +4747,6 @@ export default function AuctionCanvas({
     preflight.error,
     displayTokenSymbol,
     targetChainLabel,
-    publicNetworkNotice,
-    sepoliaInviteMode,
     auctionBlocksMint,
     auctionBlockedMintNotice,
     pathMintIntent,
@@ -6075,15 +6072,19 @@ export default function AuctionCanvas({
           </div>
           <div className="dotfield__mint-review-row">
             <span>network</span>
-            <strong>{targetChainLabel} / {mintReviewChainIdLabel}</strong>
+            <strong>{PUBLIC_NETWORK_CONFIG.environmentLabel}</strong>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>chain</span>
+            <strong>{targetChainLabel}</strong>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>chain id</span>
+            <strong>{mintReviewChainIdLabel}</strong>
           </div>
           <div className="dotfield__mint-review-row">
             <span>currency</span>
             <strong>{PUBLIC_NETWORK_CONFIG.currencyLabel}</strong>
-          </div>
-          <div className="dotfield__mint-review-row">
-            <span>record</span>
-            <strong>{PUBLIC_NETWORK_CONFIG.recordLabel}</strong>
           </div>
           <div className="dotfield__mint-review-row">
             <span>contract</span>
@@ -6152,11 +6153,6 @@ export default function AuctionCanvas({
               verify contracts ↗
             </a>
           </div>
-          {publicNetworkNotice && (
-            <div className="dotfield__mint-review-network">
-              {PUBLIC_NETWORK_CONFIG.detailNote}
-            </div>
-          )}
         </div>
       )}
       {mintProof && !mintReview && (

@@ -350,7 +350,7 @@ type CliSuggestion = {
   command: string;
 };
 
-type WalletDotState = "off" | "on" | "pending" | "error";
+type WalletDotState = "off" | "on" | "pending" | "warn" | "error";
 
 type ThoughtWalletState = {
   detected: boolean;
@@ -812,9 +812,9 @@ const PATH_MINT_URL =
     ? import.meta.env.VITE_PATH_MINT_URL.trim()
     : defaultPathMintUrl();
 const PATH_VERIFY_CONTRACTS_URL = new URL("/verify#verify-contracts", PATH_MINT_URL).toString();
-const THOUGHT_GALLERY_URL =
-  readConfiguredUrl("VITE_THOUGHT_GALLERY_URL") ||
+const GALLERY_URL =
   readConfiguredUrl("VITE_GALLERY_URL") ||
+  readConfiguredUrl("VITE_THOUGHT_GALLERY_URL") ||
   (LOCAL_BROWSER_HOSTS.has(window.location.hostname)
     ? ""
     : IS_PREVIEW_DEPLOYMENT
@@ -868,8 +868,10 @@ const THOUGHT_DETAIL_BASE_URL = (() => {
     return fallback;
   }
 })();
-const THOUGHT_GALLERY_API_URL =
-  readConfiguredUrl("VITE_THOUGHT_GALLERY_API_URL") || "/api/thought-gallery";
+const GALLERY_API_URL =
+  readConfiguredUrl("VITE_GALLERY_API_URL") ||
+  readConfiguredUrl("VITE_THOUGHT_GALLERY_API_URL") ||
+  "/api/thought-gallery";
 const THOUGHT_SPEC_REGISTRY_ADDRESS = EVM_ADDRESSES.thoughtSpecRegistry?.address?.trim() ?? "";
 const THOUGHT_NFT_ADDRESS = EVM_ADDRESSES.thoughtNft?.address?.trim() ?? "";
 const COLOR_FONT_V1_ADDRESS = EVM_ADDRESSES.colorFontV1?.address?.trim() ?? "";
@@ -1157,8 +1159,10 @@ const verifyHomeDomain = document.getElementById("verify-home-domain") as HTMLAn
 const verifyThoughtDomain = document.getElementById("verify-thought-domain") as HTMLAnchorElement | null;
 const verifyPathRole = document.getElementById("verify-path-role") as HTMLElement | null;
 const verifyThoughtRole = document.getElementById("verify-thought-role") as HTMLElement | null;
+const verifyNetwork = document.getElementById("verify-network") as HTMLElement | null;
 const verifyChain = document.getElementById("verify-chain") as HTMLElement | null;
 const verifyChainId = document.getElementById("verify-chain-id") as HTMLElement | null;
+const verifyCurrency = document.getElementById("verify-currency") as HTMLElement | null;
 const verifyPathNft = document.getElementById("verify-path-nft") as HTMLElement | null;
 const verifyThoughtNft = document.getElementById("verify-thought-nft") as HTMLElement | null;
 const verifyPulseAuction = document.getElementById("verify-pulse-auction") as HTMLElement | null;
@@ -1295,8 +1299,10 @@ if (
   !verifyThoughtDomain ||
   !verifyPathRole ||
   !verifyThoughtRole ||
+  !verifyNetwork ||
   !verifyChain ||
   !verifyChainId ||
+  !verifyCurrency ||
   !verifyPathNft ||
   !verifyThoughtNft ||
   !verifyPulseAuction ||
@@ -2257,7 +2263,7 @@ const walletPreviewUnavailableReason = () => {
     return "wallet not connected.";
   }
   if (walletState.chainId !== THOUGHT_CHAIN_ID) {
-    return `wallet on wrong network. ${THOUGHT_CHAIN_NAME} required.`;
+    return `wallet on wrong network. ${PUBLIC_NETWORK_CONFIG.switchNetworkNotice}`;
   }
   if (!getEthereumProvider()) {
     return "wallet provider unavailable.";
@@ -2871,8 +2877,10 @@ const renderVerifyPage = () => {
 
   setVerifyText(verifyPathRole, contractStatusValue("deployment", "path-role"));
   setVerifyText(verifyThoughtRole, contractStatusValue("deployment", "thought-role"));
+  setVerifyText(verifyNetwork, PUBLIC_NETWORK_CONFIG.environmentLabel);
   setVerifyText(verifyChain, contractStatusValue("deployment", "network"));
   setVerifyText(verifyChainId, contractStatusValue("deployment", "chain-id"));
+  setVerifyText(verifyCurrency, PUBLIC_NETWORK_CONFIG.currencyLabel);
   setVerifyText(verifyPathNft, contractStatusValue("contracts", "path-nft"));
   setVerifyText(verifyThoughtNft, contractStatusValue("contracts", "thought-nft"));
   setVerifyText(verifyPulseAuction, contractStatusValue("contracts", "pulse-auction"));
@@ -3566,9 +3574,12 @@ const getWalletDotState = (): WalletDotState => {
     return "pending";
   }
 
+  if (walletState.address && walletState.chainId !== null && walletState.chainId !== THOUGHT_CHAIN_ID) {
+    return "warn";
+  }
+
   if (
     walletState.txState === "failed" ||
-    (walletState.address && walletState.chainId !== null && walletState.chainId !== THOUGHT_CHAIN_ID) ||
     (!!walletState.preflightError && !!walletState.address && walletState.chainId === THOUGHT_CHAIN_ID)
   ) {
     return "error";
@@ -4092,21 +4103,26 @@ const getMintSheetStatusCopy = () => {
     return "minted.";
   }
   if (mintFlowState === "error") {
+    if (mintFlowData.errorKind === "wrong_network") {
+      return PUBLIC_NETWORK_CONFIG.switchNetworkNotice;
+    }
     return mintFlowData.error || "mint failed.";
   }
   return "";
 };
 
-const mintReviewChainLabel = () => `${THOUGHT_CHAIN_NAME} / ${THOUGHT_CHAIN_ID}`;
-
-const mintReviewRehearsalRows = () => [
+const mintReviewNetworkRows = () => [
+  { label: "network", value: PUBLIC_NETWORK_CONFIG.environmentLabel },
+  { label: "chain", value: THOUGHT_CHAIN_NAME },
+  { label: "chain id", value: String(THOUGHT_CHAIN_ID) },
   { label: "currency", value: PUBLIC_NETWORK_CONFIG.currencyLabel },
-  { label: "record", value: PUBLIC_NETWORK_CONFIG.recordLabel },
 ];
 
-const cliRehearsalReviewRows = () => [
+const cliNetworkReviewRows = () => [
+  cliReviewRow("network", PUBLIC_NETWORK_CONFIG.environmentLabel),
+  cliReviewRow("chain", THOUGHT_CHAIN_NAME),
+  cliReviewRow("chain id", String(THOUGHT_CHAIN_ID)),
   cliReviewRow("currency", PUBLIC_NETWORK_CONFIG.currencyLabel),
-  cliReviewRow("record", PUBLIC_NETWORK_CONFIG.recordLabel),
 ];
 
 const mintReviewContractValue = (label: string, address: string) =>
@@ -4138,8 +4154,7 @@ const getMintSheetReviewConfig = (): MintSheetReviewConfig => {
   if (mintFlowState === "path_ready" || mintFlowState === "authorizing") {
     return {
       rows: [
-        { label: "network", value: mintReviewChainLabel() },
-        ...mintReviewRehearsalRows(),
+        ...mintReviewNetworkRows(),
         { label: "$PATH", value: selectedPathId ? `#${selectedPathId}` : "-" },
         {
           label: "contract",
@@ -4167,8 +4182,7 @@ const getMintSheetReviewConfig = (): MintSheetReviewConfig => {
   if ((mintFlowState === "authorized" || mintFlowState === "minting") && selectedPathId) {
     return {
       rows: [
-        { label: "network", value: mintReviewChainLabel() },
-        ...mintReviewRehearsalRows(),
+        ...mintReviewNetworkRows(),
         {
           label: "contract",
           value: mintReviewContractValue("ThoughtNFT", THOUGHT_NFT_ADDRESS),
@@ -4322,7 +4336,7 @@ const syncWalletMenu = () => {
   mintWalletToggle.setAttribute("aria-expanded", walletState.menuOpen ? "true" : "false");
   mintWalletMenu.classList.toggle("is-hidden", !walletState.menuOpen);
 
-  mintWalletDot.classList.remove("is-on", "is-pending", "is-error", "is-off");
+  mintWalletDot.classList.remove("is-on", "is-pending", "is-warn", "is-error", "is-off");
   mintWalletDot.classList.add(`is-${getWalletDotState()}`);
 };
 
@@ -5398,18 +5412,13 @@ const handleViewThought = async (tokenId?: number | null) => {
 
 const galleryUrl = (targetTokenId?: number | null) => {
   const localGalleryRoute =
-    !THOUGHT_GALLERY_URL && LOCAL_BROWSER_HOSTS.has(window.location.hostname);
+    !GALLERY_URL && LOCAL_BROWSER_HOSTS.has(window.location.hostname);
   const url = new URL(
-    localGalleryRoute ? window.location.href : THOUGHT_GALLERY_URL,
+    localGalleryRoute ? `${window.location.origin}/gallery` : GALLERY_URL,
     window.location.origin,
   );
   url.search = "";
   url.hash = "";
-  if (localGalleryRoute) {
-    url.searchParams.set("gallery", "1");
-  } else {
-    url.pathname = "/";
-  }
   if (targetTokenId !== null && targetTokenId !== undefined) {
     url.hash = `thought-${targetTokenId}`;
   }
@@ -5984,10 +5993,10 @@ const writeThoughtGalleryCache = (thoughts: GalleryThought[]) => {
 };
 
 const shouldUseThoughtGalleryApi = () => {
-  if (!THOUGHT_GALLERY_API_URL || typeof fetch !== "function") {
+  if (!GALLERY_API_URL || typeof fetch !== "function") {
     return false;
   }
-  return !LOCAL_BROWSER_HOSTS.has(window.location.hostname) || /^https?:\/\//i.test(THOUGHT_GALLERY_API_URL);
+  return true;
 };
 
 const readGalleryThoughtsFromApi = async (): Promise<GalleryThought[] | null> => {
@@ -5995,7 +6004,7 @@ const readGalleryThoughtsFromApi = async (): Promise<GalleryThought[] | null> =>
     return null;
   }
 
-  const response = await fetch(THOUGHT_GALLERY_API_URL, {
+  const response = await fetch(GALLERY_API_URL, {
     method: "GET",
     headers: {
       accept: "application/json",
@@ -10843,8 +10852,9 @@ const hasPendingMintTransaction = () =>
 
 const cliWrongNetworkLines = () => [
   "wrong network.",
-  `${THOUGHT_CHAIN_NAME} required.`,
-  `chain id: ${THOUGHT_CHAIN_ID}`,
+  PUBLIC_NETWORK_CONFIG.switchNetworkNotice,
+  "",
+  ...cliNetworkReviewRows(),
   "",
   "use: wallet switch",
   "use: path <id>",
@@ -10883,9 +10893,10 @@ const cliVerifyLines = () => [
   `${SURFACE_TERMINOLOGY.thoughtDapp.padEnd(8)}${contractStatusValue("domains", "thought-domain")}`,
   "",
   "deployment manifest:",
-  `${contractStatusValue("deployment", "network")} (${contractStatusValue("deployment", "chain-id")})`,
-  `record ${PUBLIC_NETWORK_CONFIG.recordLabel}`,
-  `currency ${PUBLIC_NETWORK_CONFIG.currencyLabel}`,
+  cliReviewRow("network", PUBLIC_NETWORK_CONFIG.environmentLabel),
+  cliReviewRow("chain", contractStatusValue("deployment", "network")),
+  cliReviewRow("chain id", contractStatusValue("deployment", "chain-id")),
+  cliReviewRow("currency", PUBLIC_NETWORK_CONFIG.currencyLabel),
   "",
   "contracts:",
   `PathNFT       ${contractStatusValue("contracts", "path-nft")}`,
@@ -10914,8 +10925,7 @@ const cliWalletConnectVerifyLines = () => [
   "connect wallet.",
   "",
   cliReviewRow("domain", contractStatusValue("domains", "thought-domain")),
-  cliReviewRow("network", `${THOUGHT_CHAIN_NAME} / ${THOUGHT_CHAIN_ID}`),
-  cliReviewRow("record", PUBLIC_NETWORK_CONFIG.recordLabel),
+  ...cliNetworkReviewRows(),
   cliReviewRow("action", "connect wallet"),
   "",
   "address read only.",
@@ -11355,8 +11365,7 @@ const authorizeFromCli = async () => {
     "authorize PATH for THOUGHT.",
     "review before opening your wallet.",
     "",
-    cliReviewRow("network", `${THOUGHT_CHAIN_NAME} / ${THOUGHT_CHAIN_ID}`),
-    ...cliRehearsalReviewRows(),
+    ...cliNetworkReviewRows(),
     cliReviewRow("$PATH", `#${pathId}`),
     cliReviewRow("contract", cliReviewContract("PathNFT", PATH_NFT_ADDRESS)),
     cliReviewRow("signature", "PATH consume authorization"),
@@ -11402,8 +11411,7 @@ const cliConfirmPreviewLines = async () => {
     "confirm THOUGHT mint.",
     "review before opening your wallet.",
     "",
-    cliReviewRow("network", `${THOUGHT_CHAIN_NAME} / ${THOUGHT_CHAIN_ID}`),
-    ...cliRehearsalReviewRows(),
+    ...cliNetworkReviewRows(),
     cliReviewRow("contract", cliReviewContract("ThoughtNFT", THOUGHT_NFT_ADDRESS)),
     cliReviewRow("function", "mint(string,uint256,bytes32,bytes32,bytes32,string,uint256,bytes)"),
     cliReviewRow("$PATH", `#${pathId}`),
@@ -11495,7 +11503,7 @@ const switchWalletFromCli = async () => {
   appendCliOutput(
     walletState.chainId === THOUGHT_CHAIN_ID
       ? ["chain ready.", "use: path list"]
-      : ["wrong network.", `${THOUGHT_CHAIN_NAME} required.`, "use: wallet switch"],
+      : ["wrong network.", PUBLIC_NETWORK_CONFIG.switchNetworkNotice, "use: wallet switch"],
   );
 };
 

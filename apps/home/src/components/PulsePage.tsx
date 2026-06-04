@@ -302,6 +302,7 @@ function PulseCurrentInstance({ rawOnly = false }: { rawOnly?: boolean }) {
   const bids = bidState.bids;
   const latestBid = bids.length ? bids[bids.length - 1] : undefined;
   const bidsReady = Boolean(auctionAddress) && !bidState.loading && !bidState.error;
+  const chainId = useMemo(() => getProtocolReleaseChainId(), []);
 
   const k = formatTokenAmount(snapshot?.config.k);
   const pts = formatTokenAmount(
@@ -332,15 +333,15 @@ function PulseCurrentInstance({ rawOnly = false }: { rawOnly?: boolean }) {
   );
   const contextRows = compactRows([
     row("network", PUBLIC_NETWORK_CONFIG.environmentLabel),
+    row("chain", chainName),
+    row("chain id", String(chainId)),
     row("currency", PUBLIC_NETWORK_CONFIG.currencyLabel),
-    row("record", PUBLIC_NETWORK_CONFIG.recordLabel),
     auctionAddress
       ? row("authority", `PulseAuction ${shortenAddress(auctionAddress)}`, {
           title: `PulseAuction ${auctionAddress}`,
           ariaLabel: `PulseAuction contract address ${auctionAddress}`,
         })
       : null,
-    row("chain", chainName),
     row("payment", paymentSymbol),
     row("loaded from", "PulseAuction contract"),
   ]);

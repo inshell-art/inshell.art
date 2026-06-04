@@ -4,7 +4,7 @@
   "version": "2.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1 --port 5173 --strictPort",
+    "dev": "VITE_NETWORK=sepolia VITE_PUBLIC_LAUNCH_MODE=sepolia_invite VITE_ETH_RPC=/api/path-rpc VITE_THOUGHT_URL=http://127.0.0.1:5174/ VITE_GALLERY_URL=http://127.0.0.1:5174/gallery vite --host 127.0.0.1 --port 5173 --strictPort",
     "dev:devnet": "vite --mode devnet --host 127.0.0.1 --port 5173 --strictPort",
     "build": "vite build",
     "build:prod": "VITE_NETWORK=sepolia VITE_ETH_RPC=/api/path-rpc vite build --mode prod",

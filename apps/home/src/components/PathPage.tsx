@@ -623,9 +623,10 @@ export default function PathPage({ tokenId = null }: PathPageProps) {
   const fixtureItems = useMemo(() => pathFixtureItems(fixture), [fixture]);
   const pathNftAddress = useMemo(() => maybeResolveAddress("path_nft"), []);
   const fromBlock = useMemo(() => getProtocolReleaseDeployBlock("path_nft"), []);
+  const chainId = useMemo(() => getProtocolReleaseChainId(), []);
   const chainLabel = useMemo(
-    () => chainLabelFromChainId(getProtocolReleaseChainId()),
-    []
+    () => chainLabelFromChainId(chainId),
+    [chainId]
   );
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [state, setState] = useState<LoadState>({
@@ -741,9 +742,6 @@ export default function PathPage({ tokenId = null }: PathPageProps) {
           <p className="primitive-page__subtitle">
             Permission tokens for movement mints.
           </p>
-          <p className="primitive-page__network">
-            {PUBLIC_NETWORK_CONFIG.compactLabel}
-          </p>
         </div>
       </header>
 
@@ -779,7 +777,7 @@ export default function PathPage({ tokenId = null }: PathPageProps) {
             <div className="path-page__section-title">all tokens</div>
             <div className="path-page__sub">
               {state.status === "ready"
-                ? `${state.items.length} token${state.items.length === 1 ? "" : "s"}${focusedItem ? ` · focused $PATH #${focusedItem.tokenIdLabel} · ${PUBLIC_NETWORK_CONFIG.rehearsalObjectLabel}` : ""}`
+                ? `${state.items.length} token${state.items.length === 1 ? "" : "s"}${focusedItem ? ` · focused $PATH #${focusedItem.tokenIdLabel}` : ""}`
                 : state.status === "loading"
                   ? (
                     <ChainLoadingStatus
@@ -808,20 +806,20 @@ export default function PathPage({ tokenId = null }: PathPageProps) {
             <dd>{fixtureItems ? "fixture" : PUBLIC_NETWORK_CONFIG.environmentLabel}</dd>
           </div>
           <div>
+            <dt>chain</dt>
+            <dd>{fixtureItems ? "fixture" : chainLabel}</dd>
+          </div>
+          <div>
+            <dt>chain id</dt>
+            <dd>{fixtureItems ? "fixture" : String(chainId)}</dd>
+          </div>
+          <div>
             <dt>currency</dt>
             <dd>{fixtureItems ? "fixture" : PUBLIC_NETWORK_CONFIG.currencyLabel}</dd>
           </div>
           <div>
-            <dt>record</dt>
-            <dd>{fixtureItems ? "fixture" : PUBLIC_NETWORK_CONFIG.recordLabel}</dd>
-          </div>
-          <div>
             <dt>source</dt>
             <dd>{fixtureItems ? "fixture tokenURI()" : "live tokenURI()"}</dd>
-          </div>
-          <div>
-            <dt>chain</dt>
-            <dd>{fixtureItems ? "fixture" : chainLabel}</dd>
           </div>
           <div>
             <dt>contract</dt>

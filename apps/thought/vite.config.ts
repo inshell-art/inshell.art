@@ -13,6 +13,10 @@ function ignoreKnownRollupWarnings(warning: RollupLog, warn: RollupLogHandler) {
   warn(warning);
 }
 
+function readDevApiOrigin() {
+  return process.env.INSHELL_THOUGHT_DEV_API_ORIGIN?.trim() || "https://thought.inshell.art";
+}
+
 export default defineConfig(({ mode }) => {
   const rootDir = process.cwd();
   const workspaceRoot = path.resolve(rootDir, "../..");
@@ -38,6 +42,13 @@ export default defineConfig(({ mode }) => {
       host: "127.0.0.1",
       port: 5174,
       strictPort: true,
+      proxy: {
+        "/api": {
+          target: readDevApiOrigin(),
+          changeOrigin: true,
+          secure: true,
+        },
+      },
       fs: {
         allow: [workspaceRoot],
       },

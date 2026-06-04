@@ -1675,7 +1675,7 @@ describe("AuctionCanvas", () => {
     expect(screen.queryByText(/^debug$/i)).toBeNull();
   });
 
-  test("sepolia invite wrong network uses exact testnet notice", () => {
+  test("sepolia invite wrong network asks for Sepolia with a warning", () => {
     (globalThis as any).__VITE_ENV__ = {
       ...(globalThis as any).__VITE_ENV__,
       VITE_PUBLIC_LAUNCH_MODE: "sepolia_invite",
@@ -1691,7 +1691,7 @@ describe("AuctionCanvas", () => {
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
 
     return waitFor(() => {
-      expect(screen.getByText(/Sepolia rehearsal · testnet ETH/i)).toBeTruthy();
+      expect(screen.getByText(/Switch to Sepolia\./i)).toBeTruthy();
       expect(screen.getByText(/\[\s*switch\s*\]/i)).toBeTruthy();
       expect(screen.queryByText(/Sepolia only/i)).toBeNull();
     });
@@ -2448,12 +2448,17 @@ describe("AuctionCanvas", () => {
     expect(within(review as HTMLElement).getByText(/max price/i)).toBeTruthy();
     expect(within(review as HTMLElement).getByText(/approval/i)).toBeTruthy();
     expect(within(review as HTMLElement).getByText(/network gas/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getByText("network")).toBeTruthy();
+    expect(within(review as HTMLElement).getByText("Sepolia rehearsal")).toBeTruthy();
+    expect(within(review as HTMLElement).getByText("chain")).toBeTruthy();
+    expect(within(review as HTMLElement).getByText("Sepolia")).toBeTruthy();
+    expect(within(review as HTMLElement).getByText("chain id")).toBeTruthy();
+    expect(within(review as HTMLElement).getByText("11155111")).toBeTruthy();
     expect(within(review as HTMLElement).getByText(/currency/i)).toBeTruthy();
     expect(within(review as HTMLElement).getByText("testnet ETH")).toBeTruthy();
-    expect(within(review as HTMLElement).getByText("record")).toBeTruthy();
-    expect(within(review as HTMLElement).getByText("rehearsal")).toBeTruthy();
-    expect(within(review as HTMLElement).getByText(/Sepolia rehearsal network/i)).toBeTruthy();
-    expect(within(review as HTMLElement).getByText(/uses testnet ETH/i)).toBeTruthy();
+    expect(within(review as HTMLElement).queryByText("record")).toBeNull();
+    expect(within(review as HTMLElement).queryByText(/Sepolia rehearsal network/i)).toBeNull();
+    expect(within(review as HTMLElement).queryByText(/uses testnet ETH/i)).toBeNull();
     expect(screen.queryByRole("link", { name: "Report a Sepolia bug" })).toBeNull();
     expect(execute).not.toHaveBeenCalled();
   });

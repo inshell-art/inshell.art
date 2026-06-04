@@ -19,12 +19,14 @@ type LoadState =
   | { status: "error"; items: ThoughtGalleryItem[]; error: string };
 
 function getEnvValue(name: string): unknown {
-  const envCache: Record<string, unknown> | undefined =
+  const runtimeEnv: Record<string, unknown> | undefined =
     (globalThis as any).__VITE_ENV__;
+  const buildEnv: Record<string, unknown> | undefined =
+    (globalThis as any).__INSHELL_VITE_ENV__;
   const procEnv = (globalThis as any)?.process?.env as
     | Record<string, unknown>
     | undefined;
-  return envCache?.[name] ?? procEnv?.[name];
+  return runtimeEnv?.[name] ?? buildEnv?.[name] ?? procEnv?.[name];
 }
 
 function isPreviewDeployment(): boolean {
@@ -44,13 +46,23 @@ function configuredUrl(name: string) {
     : null;
 }
 
+function isLocalBrowserHost(): boolean {
+  if (typeof window === "undefined") return false;
+  const hostname = window.location.hostname.toLowerCase();
+  return hostname === "localhost" || hostname === "127.0.0.1";
+}
+
+function defaultGalleryUrl(): string {
+  if (isPreviewDeployment()) return "https://gallery.preview.inshell.art/";
+  if (isLocalBrowserHost()) return "http://127.0.0.1:5174/gallery";
+  return "https://gallery.inshell.art/";
+}
+
 function galleryUrl(): string {
   return (
-    configuredUrl("VITE_THOUGHT_GALLERY_URL") ??
     configuredUrl("VITE_GALLERY_URL") ??
-    (isPreviewDeployment()
-      ? "https://gallery.preview.inshell.art/"
-      : "https://gallery.inshell.art/")
+    configuredUrl("VITE_THOUGHT_GALLERY_URL") ??
+    defaultGalleryUrl()
   );
 }
 
@@ -255,12 +267,20 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
               </dd>
             </div>
             <div>
+              <dt>network</dt>
+              <dd>{PUBLIC_NETWORK_CONFIG.environmentLabel}</dd>
+            </div>
+            <div>
               <dt>chain</dt>
               <dd>{PUBLIC_NETWORK_CONFIG.chainLabel}</dd>
             </div>
             <div>
-              <dt>record</dt>
-              <dd>{PUBLIC_NETWORK_CONFIG.recordLabel}</dd>
+              <dt>chain id</dt>
+              <dd>{PUBLIC_NETWORK_CONFIG.chainId}</dd>
+            </div>
+            <div>
+              <dt>currency</dt>
+              <dd>{PUBLIC_NETWORK_CONFIG.currencyLabel}</dd>
             </div>
             <div>
               <dt>minted</dt>
@@ -380,9 +400,6 @@ export default function ThoughtDetailPage({ tokenId }: { tokenId: string }) {
         <h1 id="thought-detail-title" className="thought-detail__title">
           THOUGHT #<span>{tokenId}</span>
         </h1>
-        <p className="thought-detail__network">
-          {PUBLIC_NETWORK_CONFIG.compactLabel}
-        </p>
         <nav className="thought-detail__links" aria-label="THOUGHT detail links">
           <a className="thought-detail__link" href={galleryUrl()}>
             [ gallery ]

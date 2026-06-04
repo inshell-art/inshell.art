@@ -16,10 +16,12 @@ const DEFAULT_TELEGRAM_URL = "https://t.me/inshell_art";
 const DEFAULT_PUBLIC_FEED_RSS_URL = "https://inshell.art/rss.xml";
 
 function getEnvValue(name: string): unknown {
-  const envCache: Record<string, any> | undefined =
+  const runtimeEnv: Record<string, any> | undefined =
     (globalThis as any).__VITE_ENV__;
+  const buildEnv: Record<string, any> | undefined =
+    (globalThis as any).__INSHELL_VITE_ENV__;
   const procEnv = (globalThis as any)?.process?.env;
-  return envCache?.[name] ?? procEnv?.[name];
+  return runtimeEnv?.[name] ?? buildEnv?.[name] ?? procEnv?.[name];
 }
 
 function readEnvUrl(names: string[]): string | null {
@@ -58,23 +60,29 @@ function isPreviewDeployment(): boolean {
   return hostname === "preview.inshell.art" || hostname.endsWith(".preview.inshell.art");
 }
 
-function defaultThoughtGalleryUrl(): string {
-  return isPreviewDeployment()
-    ? "https://gallery.preview.inshell.art/"
-    : "https://gallery.inshell.art/";
+function isLocalBrowserHost(): boolean {
+  if (typeof window === "undefined") return false;
+  const hostname = window.location.hostname.toLowerCase();
+  return hostname === "localhost" || hostname === "127.0.0.1";
 }
 
-function resolveThoughtGalleryUrl(): string {
-  const direct = readEnvUrl(["VITE_THOUGHT_GALLERY_URL", "VITE_GALLERY_URL"]);
+function defaultGalleryUrl(): string {
+  if (isPreviewDeployment()) return "https://gallery.preview.inshell.art/";
+  if (isLocalBrowserHost()) return "http://127.0.0.1:5174/gallery";
+  return "https://gallery.inshell.art/";
+}
+
+function resolveGalleryUrl(): string {
+  const direct = readEnvUrl(["VITE_GALLERY_URL", "VITE_THOUGHT_GALLERY_URL"]);
   if (direct) {
     try {
       return new globalThis.URL(direct).toString();
     } catch {
-      return defaultThoughtGalleryUrl();
+      return defaultGalleryUrl();
     }
   }
 
-  return defaultThoughtGalleryUrl();
+  return defaultGalleryUrl();
 }
 
 function resolvePublicFeedRssUrl(): string {
@@ -103,7 +111,7 @@ function resolvePublicUrl(
 }
 
 const Footer: React.FC = () => {
-  const thoughtGalleryUrl = useMemo(() => resolveThoughtGalleryUrl(), []);
+  const galleryUrl = useMemo(() => resolveGalleryUrl(), []);
   const publicFeedRssUrl = useMemo(() => resolvePublicFeedRssUrl(), []);
   const telegramUrl = useMemo(
     () =>
@@ -120,8 +128,8 @@ const Footer: React.FC = () => {
     {
       key: "gallery",
       label: "gallery",
-      href: thoughtGalleryUrl,
-      ariaLabel: "Open THOUGHT gallery",
+      href: galleryUrl,
+      ariaLabel: "Open gallery",
       external: true,
       tooltip: "gallery",
     },

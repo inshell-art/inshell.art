@@ -1362,7 +1362,9 @@ body {
   padding: 10px;
   display: grid;
   gap: 6px;
-  min-width: 180px;
+  min-width: 220px;
+  width: max-content;
+  max-width: min(320px, calc(100vw - 28px));
   z-index: 12;
 }
 
@@ -1384,8 +1386,9 @@ body {
   color: var(--text);
   text-transform: none;
   text-align: right;
-  word-break: break-all;
-  max-width: 200px;
+  word-break: normal;
+  overflow-wrap: anywhere;
+  max-width: 220px;
 }
 
 .dotfield__cta-menu-item {

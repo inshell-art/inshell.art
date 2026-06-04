@@ -107,8 +107,14 @@ export const SURFACE_DEPLOYMENT_MANIFEST = {
       id: "thought",
       product: SURFACE_TERMINOLOGY.thoughtDapp,
       domain: "https://thought.inshell.art",
-      galleryDomain: "https://gallery.inshell.art",
       role: "THOUGHT creation, minting, and verification.",
+      canonicalPath: "/",
+    },
+    gallery: {
+      id: "gallery",
+      product: "Gallery",
+      domain: "https://gallery.inshell.art",
+      role: "Public gallery for movement works.",
       canonicalPath: "/",
     },
   },
@@ -128,13 +134,10 @@ export type PublicNetworkConfig = {
   notice: string;
   testnetEthRequirement: string;
   homeNote: string;
-  detailNote: string;
   verifyExplanation: string;
   notMainnetNote: string;
   switchNetworkNotice: string;
   currencyLabel: string;
-  recordLabel: string;
-  rehearsalObjectLabel: string;
   explorerBaseUrl: string;
 };
 
@@ -147,14 +150,11 @@ export const PUBLIC_NETWORK_CONFIG = {
   notice: "Sepolia rehearsal.",
   testnetEthRequirement: "Sepolia testnet ETH.",
   homeNote: "Sepolia rehearsal · testnet ETH",
-  detailNote: "This is the Sepolia rehearsal network. It uses testnet ETH.",
   verifyExplanation:
     "Inshell is currently live on Sepolia as a public rehearsal. Sepolia uses testnet ETH. Mainnet will be the future canonical record.",
   notMainnetNote: "Mainnet will be the canonical record later.",
   switchNetworkNotice: "Switch to Sepolia.",
   currencyLabel: "testnet ETH",
-  recordLabel: "rehearsal",
-  rehearsalObjectLabel: "Sepolia rehearsal object",
   explorerBaseUrl: "https://sepolia.etherscan.io",
 } as const satisfies PublicNetworkConfig;
 export const PUBLIC_SEPOLIA_WALLET_RPC_URL = "https://ethereum-sepolia-rpc.publicnode.com";
@@ -266,10 +266,10 @@ export function buildContractStatusSections(input: ContractStatusInput): Contrac
           href: SURFACE_DEPLOYMENT_MANIFEST.surfaces.thought.domain,
         },
         {
-          id: "thought-gallery-domain",
+          id: "gallery-domain",
           label: "Gallery",
-          value: SURFACE_DEPLOYMENT_MANIFEST.surfaces.thought.galleryDomain,
-          href: SURFACE_DEPLOYMENT_MANIFEST.surfaces.thought.galleryDomain,
+          value: SURFACE_DEPLOYMENT_MANIFEST.surfaces.gallery.domain,
+          href: SURFACE_DEPLOYMENT_MANIFEST.surfaces.gallery.domain,
         },
       ],
     },
@@ -378,7 +378,7 @@ export function buildContractStatusSections(input: ContractStatusInput): Contrac
         {
           id: "switch-network",
           label: "switch network",
-          value: "asks wallet to switch to Sepolia rehearsal network.",
+          value: "asks wallet to switch to Sepolia.",
         },
         {
           id: "mint-path",
