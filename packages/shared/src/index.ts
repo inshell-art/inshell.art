@@ -455,12 +455,15 @@ function isPreviewHostname(hostname: string): boolean {
 }
 
 export function getDeploymentEnv(options: DeploymentEnvOptions = {}): DeploymentEnv {
+  const hostname = getDeploymentHostname(options);
+  if (isPreviewHostname(hostname)) return "preview";
+
   const configured =
     normalizeDeploymentEnv(options.deployEnv) ??
     normalizeDeploymentEnv(readSharedEnvString("VITE_DEPLOY_ENV", options));
   if (configured) return configured;
 
-  return isPreviewHostname(getDeploymentHostname(options)) ? "preview" : "local";
+  return "local";
 }
 
 export function shouldShowPreviewWatermark(options: DeploymentEnvOptions = {}): boolean {

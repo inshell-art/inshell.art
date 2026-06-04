@@ -2347,7 +2347,7 @@ const clearCurrentCandidate = () => {
   writeCurrentCandidateSession();
 };
 
-const readCurrentCandidateSession = () => {
+const readCurrentCandidateSession = (): ThoughtCandidate | null => {
   sessionStorage.removeItem(THOUGHT_CURRENT_CANDIDATE_STORAGE_KEY);
   return null;
 };
