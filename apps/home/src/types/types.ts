@@ -21,6 +21,7 @@ export type AuctionSnapshot = {
   price: U256Num;
   config: AuctionConfig;
   state: AuctionRuntimeState | null;
+  blockNumber?: number;
 };
 
 export type Sale = {

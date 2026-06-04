@@ -26,6 +26,15 @@ type InstanceRow = {
   value: string;
   title?: string;
   ariaLabel?: string;
+  href?: string;
+  external?: boolean;
+  links?: Array<{
+    label: string;
+    href: string;
+    ariaLabel: string;
+    external?: boolean;
+    title?: string;
+  }>;
 };
 
 type InstanceGroup = InstanceRow[];
@@ -33,6 +42,7 @@ type InstanceGroup = InstanceRow[];
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const TOKEN_DECIMALS = 18;
 const PULSE_PARAMS_RAW_HREF = "/pulse?raw=1";
+const VERIFY_CONTRACTS_HREF = "/verify#contracts";
 
 function getEnv(name: string): string | undefined {
   const envCache: Record<string, unknown> | undefined =
@@ -44,6 +54,21 @@ function getEnv(name: string): string | undefined {
 
 function shortenAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+function explorerAddressUrl(address: string): string {
+  return `${PUBLIC_NETWORK_CONFIG.explorerBaseUrl}/address/${address}`;
+}
+
+function explorerBlockUrl(blockNumber: number): string {
+  return `${PUBLIC_NETWORK_CONFIG.explorerBaseUrl}/block/${Math.trunc(
+    blockNumber
+  )}`;
+}
+
+function formatBlockNumber(blockNumber: number | undefined): string | undefined {
+  if (!Number.isFinite(blockNumber)) return undefined;
+  return String(Math.trunc(blockNumber as number));
 }
 
 function chainLabelFromNetwork(network: string | undefined): string | undefined {
@@ -143,10 +168,32 @@ function formatTimestampSec(value: number | undefined): string | undefined {
 function row(
   label: string,
   value: string | undefined,
-  meta?: Pick<InstanceRow, "title" | "ariaLabel">
+  meta?: Pick<InstanceRow, "title" | "ariaLabel" | "href" | "external">
 ): InstanceRow | null {
   const clean = cleanValue(value);
   return clean ? { label, value: clean, ...meta } : null;
+}
+
+function linkedRow(
+  label: string,
+  value: string | undefined,
+  href: string | undefined,
+  meta: Pick<InstanceRow, "title" | "ariaLabel"> & { external?: boolean }
+): InstanceRow | null {
+  const clean = cleanValue(value);
+  const cleanHref = cleanValue(href);
+  return clean && cleanHref
+    ? { label, value: clean, href: cleanHref, ...meta }
+    : null;
+}
+
+function linksRow(
+  label: string,
+  links: InstanceRow["links"]
+): InstanceRow | null {
+  return links?.length
+    ? { label, value: links.map((link) => link.label).join(" · "), links }
+    : null;
 }
 
 function withUnit(value: string | undefined, unit: string): string | undefined {
@@ -180,18 +227,17 @@ function pulseParamsDocument(params: {
   lastSale?: string;
   anchorTime?: string;
 }) {
+  const blockLine = Number.isFinite(params.blockNumber)
+    ? rawLine("block", String(Math.trunc(params.blockNumber as number)))
+    : null;
+
   return [
     "pulse params",
     "",
     rawLine("loaded from", `PulseAuction ${params.address}`),
     rawLine("chain", params.chainName),
     rawLine("read at", params.readAt),
-    rawLine(
-      "block",
-      Number.isFinite(params.blockNumber)
-        ? String(Math.trunc(params.blockNumber as number))
-        : undefined
-    ),
+    blockLine,
     "",
     "config",
     "",
@@ -210,9 +256,9 @@ function pulseParamsDocument(params: {
     rawLine("last price", params.lastPrice),
     rawLine("last sale", params.lastSale),
     rawLine("anchor", params.anchorTime),
-    "",
-    "source: PulseAuction contract",
-  ].join("\n");
+  ]
+    .filter((line): line is string => line !== null)
+    .join("\n");
 }
 
 function isRawPulseParamsRoute() {
@@ -315,6 +361,7 @@ function PulseCurrentInstance({ rawOnly = false }: { rawOnly?: boolean }) {
   const currentFloor = formatTokenAmount(
     latestBid?.amount ?? (bidsReady ? snapshot?.config.genesisFloor : undefined)
   );
+  const snapshotBlockNumber = formatBlockNumber(snapshot?.blockNumber);
   const epoch = latestBid
     ? Number.isFinite(Number(latestBid.epochIndex))
       ? String(Math.trunc(Number(latestBid.epochIndex)) + 1)
@@ -337,13 +384,46 @@ function PulseCurrentInstance({ rawOnly = false }: { rawOnly?: boolean }) {
     row("chain id", String(chainId)),
     row("currency", PUBLIC_NETWORK_CONFIG.currencyLabel),
     auctionAddress
-      ? row("authority", `PulseAuction ${shortenAddress(auctionAddress)}`, {
-          title: `PulseAuction ${auctionAddress}`,
-          ariaLabel: `PulseAuction contract address ${auctionAddress}`,
-        })
+      ? linkedRow(
+          "loaded from",
+          `PulseAuction ${shortenAddress(auctionAddress)} ↗`,
+          explorerAddressUrl(auctionAddress),
+          {
+            title: `PulseAuction ${auctionAddress}`,
+            ariaLabel: `Open PulseAuction contract on Sepolia explorer ${auctionAddress}`,
+            external: true,
+          }
+        )
+      : null,
+    snapshotBlockNumber && auctionAddress
+      ? linkedRow(
+          "block",
+          `${snapshotBlockNumber} ↗`,
+          explorerBlockUrl(Number(snapshotBlockNumber)),
+          {
+            title: `Sepolia block ${snapshotBlockNumber}`,
+            ariaLabel: `Open Sepolia block ${snapshotBlockNumber} on explorer`,
+            external: true,
+          }
+        )
       : null,
     row("payment", paymentSymbol),
-    row("loaded from", "PulseAuction contract"),
+    auctionAddress
+      ? linksRow("verify", [
+          {
+            label: "explorer ↗",
+            href: explorerAddressUrl(auctionAddress),
+            ariaLabel: `Open PulseAuction contract on Sepolia explorer ${auctionAddress}`,
+            external: true,
+            title: `PulseAuction ${auctionAddress}`,
+          },
+          {
+            label: "contracts ↗",
+            href: VERIFY_CONTRACTS_HREF,
+            ariaLabel: "Open Inshell contracts verification page",
+          },
+        ])
+      : null,
   ]);
   const configRows = compactRows([
     row("k", k),
@@ -368,6 +448,7 @@ function PulseCurrentInstance({ rawOnly = false }: { rawOnly?: boolean }) {
         chainName,
         paymentSymbol,
         readAt,
+        blockNumber: snapshot?.blockNumber,
         k,
         pts,
         openingAsk,
@@ -434,7 +515,34 @@ function PulseCurrentInstance({ rawOnly = false }: { rawOnly?: boolean }) {
                 <div key={`${item.label}-${item.value}`}>
                   <dt>{item.label}</dt>
                   <dd title={item.title} aria-label={item.ariaLabel}>
-                    {item.value}
+                    {item.links ? (
+                      item.links.map((link, index) => (
+                        <span key={link.href}>
+                          {index > 0 ? " · " : null}
+                          <a
+                            href={link.href}
+                            target={link.external ? "_blank" : undefined}
+                            rel={link.external ? "noopener noreferrer" : undefined}
+                            aria-label={link.ariaLabel}
+                            title={link.title}
+                          >
+                            {link.label}
+                          </a>
+                        </span>
+                      ))
+                    ) : item.href ? (
+                      <a
+                        href={item.href}
+                        target={item.external ? "_blank" : undefined}
+                        rel={item.external ? "noopener noreferrer" : undefined}
+                        aria-label={item.ariaLabel}
+                        title={item.title}
+                      >
+                        {item.value}
+                      </a>
+                    ) : (
+                      item.value
+                    )}
                   </dd>
                 </div>
               ))}

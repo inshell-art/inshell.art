@@ -369,6 +369,7 @@ describe("App Component", () => {
           k: u256(100n * oneEth),
           pts: "100000000000000",
         },
+        blockNumber: 42,
       },
       loading: false,
       error: null,
@@ -398,16 +399,46 @@ describe("App Component", () => {
 
     const params = screen.getByLabelText("Pulse current instance contract params");
     const scopedParams = within(params);
-    expect(scopedParams.getByText("authority")).toBeInTheDocument();
-    expect(
-      scopedParams.getByText(/^PulseAuction 0x[a-fA-F0-9]{4}\.\.\.[a-fA-F0-9]{4}$/),
-    ).toBeInTheDocument();
+    expect(scopedParams.queryByText("authority")).toBeNull();
+    const contractLinks = scopedParams.getAllByRole("link", {
+      name: /Open PulseAuction contract on Sepolia explorer/,
+    });
+    expect(contractLinks[0]).toHaveTextContent(
+      /^PulseAuction 0x[a-fA-F0-9]{4}\.\.\.[a-fA-F0-9]{4} ↗$/,
+    );
+    expect(contractLinks[0]).toHaveAttribute(
+      "href",
+      expect.stringMatching(
+        /^https:\/\/sepolia\.etherscan\.io\/address\/0x[a-fA-F0-9]{40}$/,
+      ),
+    );
+    expect(contractLinks[0]).toHaveAttribute("target", "_blank");
+    expect(contractLinks[0]).toHaveAttribute("rel", expect.stringContaining("noreferrer"));
     expect(scopedParams.getByText("chain")).toBeInTheDocument();
     expect(scopedParams.getByText(expectedEnvChainLabel())).toBeInTheDocument();
     expect(scopedParams.getByText("payment")).toBeInTheDocument();
     expect(scopedParams.getByText("ETH")).toBeInTheDocument();
     expect(scopedParams.getByText("loaded from")).toBeInTheDocument();
-    expect(scopedParams.getByText("PulseAuction contract")).toBeInTheDocument();
+    const blockLink = scopedParams.getByRole("link", {
+      name: "Open Sepolia block 42 on explorer",
+    });
+    expect(scopedParams.getByText("block")).toBeInTheDocument();
+    expect(blockLink).toHaveTextContent("42 ↗");
+    expect(blockLink).toHaveAttribute(
+      "href",
+      "https://sepolia.etherscan.io/block/42",
+    );
+    expect(scopedParams.getByText("verify")).toBeInTheDocument();
+    expect(scopedParams.getByText("explorer ↗")).toHaveAttribute(
+      "href",
+      expect.stringMatching(
+        /^https:\/\/sepolia\.etherscan\.io\/address\/0x[a-fA-F0-9]{40}$/,
+      ),
+    );
+    expect(
+      scopedParams.getByRole("link", { name: "Open Inshell contracts verification page" }),
+    ).toHaveAttribute("href", "/verify#contracts");
+    expect(scopedParams.queryByText("PulseAuction contract")).toBeNull();
     expect(scopedParams.getByText("k")).toBeInTheDocument();
     expect(scopedParams.getByText("100")).toBeInTheDocument();
     expect(scopedParams.getByText("PTS")).toBeInTheDocument();
@@ -422,6 +453,10 @@ describe("App Component", () => {
     expect(scopedParams.getByText("0.25 ETH")).toBeInTheDocument();
     expect(scopedParams.getByText("epoch")).toBeInTheDocument();
     expect(scopedParams.getByText("3")).toBeInTheDocument();
+    expect(scopedParams.getAllByRole("link")).toHaveLength(4);
+    expect(params.textContent).not.toMatch(
+      /\b(safe|trusted|certified|audited|indexer)\b/i,
+    );
     expect(screen.getByRole("link", { name: "Open live params" })).toHaveAttribute(
       "href",
       "/pulse?raw=1",
@@ -430,6 +465,43 @@ describe("App Component", () => {
       "href",
       "/path",
     );
+  });
+
+  test("omits Pulse block fallback when the read block is unavailable", () => {
+    window.history.pushState({}, "", "/pulse");
+    const oneEth = 10n ** 18n;
+    mockUseAuctionCore.mockReturnValue({
+      data: {
+        active: true,
+        price: u256(420_000_000_000_000_000n),
+        config: {
+          openTimeSec: 1_778_240_550,
+          genesisPrice: u256(oneEth),
+          genesisFloor: u256(oneEth / 10n),
+          k: u256(100n * oneEth),
+          pts: "100000000000000",
+        },
+      },
+      loading: false,
+      error: null,
+      ready: true,
+      refresh: jest.fn(),
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids: [],
+      loading: false,
+      error: null,
+      ready: true,
+      pullOnce: jest.fn(),
+    });
+
+    render(<App />);
+
+    const params = screen.getByLabelText("Pulse current instance contract params");
+    const scopedParams = within(params);
+    expect(scopedParams.queryByText("block")).toBeNull();
+    expect(scopedParams.queryByText(/block unavailable/i)).toBeNull();
+    expect(scopedParams.getByText("verify")).toBeInTheDocument();
   });
 
   test("renders Pulse live params on a normal raw route", () => {

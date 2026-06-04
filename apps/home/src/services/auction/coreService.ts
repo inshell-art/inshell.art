@@ -48,6 +48,7 @@ export type AuctionSnapshot = {
   price: CurrentPrice;
   config: AuctionConfig;
   state: AuctionRuntimeState | null;
+  blockNumber?: number;
 };
 
 export type CoreService = ReturnType<typeof createCoreService>;
@@ -145,7 +146,15 @@ export function createCoreService(
     ]);
     const active =
       state?.active ?? (await getCurveActive(blockId).catch(() => false));
-    return { active, price, config, state };
+    return {
+      active,
+      price,
+      config,
+      state,
+      blockNumber: typeof blockId === "number" && Number.isFinite(blockId)
+        ? Math.trunc(blockId)
+        : undefined,
+    };
   }
 
   function reset(next?: Partial<typeof cfg>) {
