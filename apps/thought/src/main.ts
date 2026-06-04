@@ -164,6 +164,24 @@ type ThoughtSessionState = {
   };
 };
 
+type StoredThoughtSessionState = {
+  version: 1;
+  routeConfigured: boolean;
+  mode: Mode;
+  prompt: string;
+  connect: {
+    model: string;
+  };
+  direct: {
+    provider: DirectProviderId;
+    model: string;
+  };
+  local: {
+    endpoint: string;
+    model: string;
+  };
+};
+
 type EvmAddresses = {
   rpcUrl?: string;
   chainId?: number;
@@ -1669,6 +1687,21 @@ const parseModeInput = (value: string): Mode | null => {
 const isDirectProviderId = (value: unknown): value is DirectProviderId =>
   value === "openai" || value === "openrouter" || value === "anthropic";
 
+const isPreviewStatusValue = (value: unknown): value is PreviewStatus =>
+  value === "not_attempted" || value === "unavailable" || value === "failed" || value === "accepted";
+
+const isThoughtRunProviderValue = (value: unknown): value is ThoughtRunProvider =>
+  value === "openrouter" ||
+  value === "openai" ||
+  value === "anthropic" ||
+  value === "ollama" ||
+  value === "me";
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const stringOrNull = (value: unknown) => (typeof value === "string" ? value : null);
+
 const isRouteConfigured = () => sessionState.routeConfigured;
 
 const routeRequiredLines = () => [
@@ -1714,23 +1747,111 @@ const ollamaCorsSetupCommand = () => `OLLAMA_ORIGINS=${ollamaAllowedOrigin()} ol
 const ollamaOriginBlockedMessage = () =>
   `ollama is running but blocked this browser origin. restart ollama with: ${ollamaCorsSetupCommand()}`;
 
-const clearStoredSessionState = () => {
-  try {
-    sessionStorage.removeItem(THOUGHT_SESSION_STORAGE_KEY);
-  } catch {
-    // Storage may be blocked by the browser; THOUGHT route state is memory-only.
+const serializeSessionState = (state: ThoughtSessionState): StoredThoughtSessionState => ({
+  version: 1,
+  routeConfigured: state.routeConfigured,
+  mode: state.mode,
+  prompt: state.prompt,
+  connect: {
+    model: state.connect.model,
+  },
+  direct: {
+    provider: state.direct.provider,
+    model: state.direct.model,
+  },
+  local: {
+    endpoint: safeNormalizeOllamaEndpoint(state.local.endpoint),
+    model: state.local.model,
+  },
+});
+
+const mergeStoredSessionState = (
+  stored: Record<string, unknown>,
+  fallback: ThoughtSessionState,
+): ThoughtSessionState => {
+  const restored = fallback;
+
+  if (typeof stored.routeConfigured === "boolean") {
+    restored.routeConfigured = stored.routeConfigured;
   }
+
+  if (isMode(stored.mode)) {
+    restored.mode = stored.mode;
+  }
+
+  const prompt = stringOrNull(stored.prompt);
+  if (prompt !== null) {
+    restored.prompt = prompt;
+  }
+
+  const connect = isRecord(stored.connect) ? stored.connect : null;
+  const connectModel = stringOrNull(connect?.model);
+  if (connectModel) {
+    restored.connect.model = connectModel;
+  }
+
+  const direct = isRecord(stored.direct) ? stored.direct : null;
+  if (isDirectProviderId(direct?.provider)) {
+    restored.direct.provider = direct.provider;
+    restored.direct.model = DIRECT_PROVIDERS[direct.provider].defaultModel;
+  }
+  const directModel = stringOrNull(direct?.model);
+  if (directModel) {
+    restored.direct.model = directModel;
+  }
+
+  const local = isRecord(stored.local) ? stored.local : null;
+  const localEndpoint = stringOrNull(local?.endpoint);
+  if (localEndpoint) {
+    restored.local.endpoint = safeNormalizeOllamaEndpoint(localEndpoint);
+  }
+  const localModel = stringOrNull(local?.model);
+  if (localModel) {
+    restored.local.model = localModel;
+  }
+
+  // Secrets are intentionally never hydrated from browser storage.
+  restored.connect.apiKey = "";
+  restored.direct.apiKeys = {
+    openai: "",
+    openrouter: "",
+    anthropic: "",
+  };
+  restored.local.available = null;
+
+  return restored;
 };
 
 const readSessionState = (): ThoughtSessionState => {
-  clearStoredSessionState();
-  return getDefaultSessionState();
+  const fallback = getDefaultSessionState();
+  const raw = readSharedBrowserItem(THOUGHT_SESSION_STORAGE_KEY);
+  if (!raw) {
+    return fallback;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!isRecord(parsed)) {
+      throw new Error("stored THOUGHT session state is not an object.");
+    }
+    return mergeStoredSessionState(parsed, fallback);
+  } catch {
+    removeSharedBrowserItem(THOUGHT_SESSION_STORAGE_KEY);
+    return fallback;
+  }
 };
 
 let sessionState = readSessionState();
 
 const writeSessionState = () => {
-  clearStoredSessionState();
+  try {
+    writeSharedBrowserItem(
+      THOUGHT_SESSION_STORAGE_KEY,
+      JSON.stringify(serializeSessionState(sessionState)),
+    );
+  } catch {
+    // Browsers can deny storage or run out of quota. THOUGHT still works with memory state.
+  }
 };
 writeSessionState();
 
@@ -2338,8 +2459,51 @@ const previewRateLimitLines = () => [
   "use: preview retry",
 ];
 
+const isThoughtCandidateValue = (value: unknown): value is ThoughtCandidate => {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const specAnchor = isRecord(value.specAnchor) ? value.specAnchor : null;
+  const payload = isRecord(value.payload) ? value.payload : null;
+
+  return (
+    typeof value.id === "string" &&
+    typeof value.prompt === "string" &&
+    typeof value.rawModelReturn === "string" &&
+    isMode(value.route) &&
+    isThoughtRunProviderValue(value.provider) &&
+    typeof value.model === "string" &&
+    Boolean(specAnchor) &&
+    typeof specAnchor?.id === "string" &&
+    typeof specAnchor?.ref === "string" &&
+    typeof specAnchor?.hash === "string" &&
+    typeof value.createdAt === "string" &&
+    value.status === "candidate" &&
+    isPreviewStatusValue(value.previewStatus) &&
+    Boolean(payload) &&
+    typeof value.rawReturnHash === "string" &&
+    typeof value.automaticPreviewAttempted === "boolean"
+  );
+};
+
 const writeCurrentCandidateSession = () => {
-  sessionStorage.removeItem(THOUGHT_CURRENT_CANDIDATE_STORAGE_KEY);
+  try {
+    if (!currentCandidate) {
+      removeSharedBrowserItem(THOUGHT_CURRENT_CANDIDATE_STORAGE_KEY);
+      return;
+    }
+
+    writeSharedBrowserItem(
+      THOUGHT_CURRENT_CANDIDATE_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        candidate: currentCandidate,
+      }),
+    );
+  } catch {
+    // Candidate restore is best-effort; a storage failure should not block a run.
+  }
 };
 
 const clearCurrentCandidate = () => {
@@ -2348,8 +2512,22 @@ const clearCurrentCandidate = () => {
 };
 
 const readCurrentCandidateSession = (): ThoughtCandidate | null => {
-  sessionStorage.removeItem(THOUGHT_CURRENT_CANDIDATE_STORAGE_KEY);
-  return null;
+  const raw = readSharedBrowserItem(THOUGHT_CURRENT_CANDIDATE_STORAGE_KEY);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    const candidate = isRecord(parsed) && "candidate" in parsed ? parsed.candidate : parsed;
+    if (!isThoughtCandidateValue(candidate)) {
+      throw new Error("stored THOUGHT candidate is invalid.");
+    }
+    return candidate;
+  } catch {
+    removeSharedBrowserItem(THOUGHT_CURRENT_CANDIDATE_STORAGE_KEY);
+    return null;
+  }
 };
 
 const restoreCurrentCandidateSession = () => {
@@ -7805,7 +7983,7 @@ const syncModeControls = () => {
 const syncDirectControls = () => {
   providerBox.value = sessionState.direct.provider;
   apiKeyLabel.textContent = "api key";
-  apiKeyBox.placeholder = "session only. never stored by THOUGHT.";
+  apiKeyBox.placeholder = "memory only. never stored by THOUGHT.";
   apiKeyBox.value = getDirectApiKey();
 };
 
@@ -9720,7 +9898,7 @@ const setCliApiKey = (keyInput: string) => {
   if (!key || key.toLowerCase() === "help") {
     const lines = [
       `api key: ${cliApiKeyState()}`,
-      "policy: session only. per provider.",
+      "policy: memory only. per provider.",
       "use: config direct key <api-key>",
     ];
     if (getDirectApiKey()) {
@@ -9747,7 +9925,7 @@ const setCliApiKey = (keyInput: string) => {
   setDirectApiKey(key);
   writeSessionState();
   syncInterface();
-  appendCliOutput(["api key set.", `provider: ${sessionState.direct.provider}`, "policy: session only. per provider.", "use: run"]);
+  appendCliOutput(["api key set.", `provider: ${sessionState.direct.provider}`, "policy: memory only. per provider.", "use: run"]);
 };
 
 const setCliPrompt = (promptInput: string) => {
@@ -9806,7 +9984,7 @@ const outputCliMode = async (mode: Mode | "") => {
   } else if (mode === "connect") {
     lines.push("", "use:", ...routeUseLines(mode));
   } else if (mode === "direct") {
-    lines.push("policy: session only. per provider.", "", "use:", ...routeUseLines(mode));
+    lines.push("policy: memory only. per provider.", "", "use:", ...routeUseLines(mode));
   } else {
     lines.push("", "use:", ...routeUseLines(mode));
   }
