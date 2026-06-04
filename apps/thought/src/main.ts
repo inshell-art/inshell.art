@@ -744,10 +744,15 @@ const DEPLOY_ENV =
   typeof import.meta.env.VITE_DEPLOY_ENV === "string"
     ? import.meta.env.VITE_DEPLOY_ENV.trim().toLowerCase()
     : "";
+const DEPLOY_HOSTNAME = window.location.hostname.toLowerCase();
+const isPreviewHostname = (hostname: string) =>
+  hostname === "preview.inshell.art" ||
+  hostname.endsWith(".preview.inshell.art") ||
+  hostname === "staging.inshell-art.pages.dev" ||
+  hostname === "staging.thought-inshell-art.pages.dev" ||
+  (hostname.startsWith("staging.") && hostname.endsWith(".pages.dev"));
 const IS_PREVIEW_DEPLOYMENT =
-  DEPLOY_ENV === "preview" ||
-  window.location.hostname === "preview.inshell.art" ||
-  window.location.hostname.endsWith(".preview.inshell.art");
+  DEPLOY_ENV === "preview" || isPreviewHostname(DEPLOY_HOSTNAME);
 
 const readConfiguredUrl = (name: string) => {
   const value = (import.meta.env as Record<string, unknown>)[name];

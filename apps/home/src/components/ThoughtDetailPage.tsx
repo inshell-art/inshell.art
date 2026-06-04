@@ -36,7 +36,13 @@ function isPreviewDeployment(): boolean {
   }
   if (typeof window === "undefined") return false;
   const hostname = window.location.hostname.toLowerCase();
-  return hostname === "preview.inshell.art" || hostname.endsWith(".preview.inshell.art");
+  return (
+    hostname === "preview.inshell.art" ||
+    hostname.endsWith(".preview.inshell.art") ||
+    hostname === "staging.inshell-art.pages.dev" ||
+    hostname === "staging.thought-inshell-art.pages.dev" ||
+    (hostname.startsWith("staging.") && hostname.endsWith(".pages.dev"))
+  );
 }
 
 function configuredUrl(name: string) {

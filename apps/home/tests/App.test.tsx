@@ -51,6 +51,7 @@ import {
   getDefaultProvider,
   hashUtf8String,
 } from "@inshell/ethereum";
+import { shouldShowPreviewWatermark } from "@inshell/shared";
 
 const mockedGetChainId = getChainId as jest.MockedFunction<typeof getChainId>;
 const mockedGetCode = getCode as jest.MockedFunction<typeof getCode>;
@@ -1134,6 +1135,13 @@ describe("App Component", () => {
     render(<App />);
 
     expect(screen.queryByText("preview")).toBeNull();
+  });
+
+  test.each([
+    "staging.inshell-art.pages.dev",
+    "staging.thought-inshell-art.pages.dev",
+  ])("treats %s as a preview deployment host", (hostname) => {
+    expect(shouldShowPreviewWatermark({ hostname })).toBe(true);
   });
 
   test.each([
