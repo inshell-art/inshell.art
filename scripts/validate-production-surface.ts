@@ -403,15 +403,22 @@ function checkThoughtProductionGuards() {
     "gallery-create-link",
     "galleryCreateLink.hidden = true",
     "settleGalleryCreateLink",
-    "const clearStoredSessionState = () => {",
-    "sessionStorage.removeItem(THOUGHT_SESSION_STORAGE_KEY)",
+    "const serializeSessionState = (state: ThoughtSessionState): StoredThoughtSessionState => ({",
+    "const mergeStoredSessionState = (",
+    "readSharedBrowserItem(THOUGHT_SESSION_STORAGE_KEY)",
+    "writeSharedBrowserItem(",
+    "Secrets are intentionally never hydrated from browser storage.",
+    'restored.connect.apiKey = "";',
+    'openai: "",',
+    'openrouter: "",',
+    'anthropic: "",',
   ]) {
     if (!text.includes(snippet)) {
       fail(`apps/thought/src/main.ts is missing THOUGHT production guard: ${snippet}`);
     }
   }
   if (text.includes("sessionStorage.setItem(THOUGHT_SESSION_STORAGE_KEY")) {
-    fail("apps/thought/src/main.ts must not persist THOUGHT provider route state to sessionStorage");
+    fail("apps/thought/src/main.ts must use shared browser storage wrappers for THOUGHT provider route state");
   }
   if (text.includes("connect wallet or configure a read-only preview path.")) {
     fail("apps/thought/src/main.ts must not tell auto preview visitors to configure RPC");
@@ -460,6 +467,10 @@ function checkSharedSurfaceLayer() {
   ]);
   requireSnippets("apps/home/src/main.tsx", ["@inshell/shared/design.css"]);
   requireSnippets("apps/home/src/App.tsx", ["<FloatingReportBug />"]);
+  requireSnippets("apps/home/index.html", ["https://inshell.art/rss.sepolia.xml"]);
+  requireSnippets("apps/home/src/components/Footer/Footer.tsx", [
+    'const DEFAULT_PUBLIC_FEED_RSS_URL = "/rss.sepolia.xml"',
+  ]);
   requireSnippets("apps/home/src/components/FloatingReportBug.tsx", [
     "inshell-report-bug-link--floating",
     "buildReportBugLink",
@@ -487,13 +498,17 @@ function checkCloudflareRpcProxy() {
   requireSnippets("functions/_middleware.ts", [
     "PUBLIC_FEED_RSS_URL",
     "PUBLIC_FEED_ALIAS_URL",
+    "PUBLIC_FEED_SEPOLIA_RSS_URL",
     "TEMP_CLEAR_SITE_DATA_CACHE",
+    "temporarySepoliaHostRedirect",
+    "sepolia.inshell.art",
     "isAppShellRoute",
     "serveAppShell",
     "withAppShellHeaders",
     "proxyFeed",
     "/rss.xml",
     "/feed.xml",
+    "/rss.sepolia.xml",
     "/pulse",
     "/color-font",
     "/path",

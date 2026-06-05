@@ -1,5 +1,6 @@
 const PUBLIC_FEED_RSS_URL = "https://inshell-public-feed.pages.dev/rss.xml";
 const PUBLIC_FEED_ALIAS_URL = "https://inshell-public-feed.pages.dev/feed.xml";
+const PUBLIC_FEED_SEPOLIA_RSS_URL = "https://inshell-public-feed.pages.dev/rss.sepolia.xml";
 const TEMP_CLEAR_SITE_DATA_CACHE = "\"cache\"";
 
 type PagesAssets = {
@@ -18,8 +19,12 @@ type UrlInstance = InstanceType<typeof globalThis.URL>;
 export async function onRequest(ctx: MiddlewareContext): Promise<Response> {
   const url = new globalThis.URL(ctx.request.url);
   const pathname = normalizePathname(url.pathname);
+  const sepoliaRedirect = temporarySepoliaHostRedirect(url);
   const thoughtRedirect = canonicalThoughtRedirect(url, pathname);
 
+  if (sepoliaRedirect) {
+    return sepoliaRedirect;
+  }
   if (thoughtRedirect) {
     return thoughtRedirect;
   }
@@ -30,11 +35,22 @@ export async function onRequest(ctx: MiddlewareContext): Promise<Response> {
   if (pathname === "/feed.xml") {
     return proxyFeed(PUBLIC_FEED_ALIAS_URL, ctx.request);
   }
+  if (pathname === "/rss.sepolia.xml") {
+    return proxyFeed(PUBLIC_FEED_SEPOLIA_RSS_URL, ctx.request);
+  }
   if (isAppShellRoute(pathname)) {
     return serveAppShell(ctx);
   }
 
   return ctx.next();
+}
+
+function temporarySepoliaHostRedirect(url: UrlInstance) {
+  if (url.hostname.toLowerCase() !== "sepolia.inshell.art") return null;
+
+  const target = new globalThis.URL(url.pathname, "https://inshell.art");
+  target.search = url.search;
+  return Response.redirect(target.toString(), 302);
 }
 
 function normalizePathname(pathname: string) {

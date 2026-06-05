@@ -47,6 +47,7 @@ Run Vite only with `127.0.0.1` and `--strictPort`; stop the existing process bef
 Cloudflare Pages targets:
 - Home: `inshell.art` -> `apps/home` -> `dist/home`
 - THOUGHT: `thought.inshell.art` -> `apps/thought` -> `dist/thought`
+- Sepolia public-link bridge: `sepolia.inshell.art` -> Home Pages project, then `functions/_middleware.ts` redirects every path to the same path on `https://inshell.art`. Keep this temporary bridge while Sepolia is the active public rehearsal. Remove it after the Sepolia artifacts are migrated to a real `sepolia.inshell.art` archive so old public posts keep resolving there.
 
 Recommended path: deploy prebuilt assets from GitHub Actions with Wrangler direct upload.
 Cloudflare documents this as `wrangler pages deploy <DIRECTORY> --project-name=<PROJECT_NAME>`.
