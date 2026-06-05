@@ -1,6 +1,7 @@
 const PUBLIC_FEED_RSS_URL = "https://inshell-public-feed.pages.dev/rss.xml";
 const PUBLIC_FEED_ALIAS_URL = "https://inshell-public-feed.pages.dev/feed.xml";
 const PUBLIC_FEED_SEPOLIA_RSS_URL = "https://inshell-public-feed.pages.dev/rss.sepolia.xml";
+const PUBLIC_FEED_BASE_URL = "https://inshell-public-feed.pages.dev";
 const TEMP_CLEAR_SITE_DATA_CACHE = "\"cache\"";
 
 type PagesAssets = {
@@ -37,6 +38,10 @@ export async function onRequest(ctx: MiddlewareContext): Promise<Response> {
   }
   if (pathname === "/rss.sepolia.xml") {
     return proxyFeed(PUBLIC_FEED_SEPOLIA_RSS_URL, ctx.request);
+  }
+  const publicFeedArtifactUrl = getPublicFeedArtifactUrl(url);
+  if (publicFeedArtifactUrl) {
+    return proxyPublicFeedArtifact(publicFeedArtifactUrl, ctx.request);
   }
   if (isAppShellRoute(pathname)) {
     return serveAppShell(ctx);
@@ -112,6 +117,22 @@ function isGalleryIntent(hostname: string, pathname: string, url: UrlInstance) {
   );
 }
 
+function getPublicFeedArtifactUrl(url: UrlInstance) {
+  if (
+    url.pathname === "/events.json" ||
+    url.pathname === "/source" ||
+    url.pathname.startsWith("/source/") ||
+    url.pathname === "/source-assets" ||
+    url.pathname.startsWith("/source-assets/")
+  ) {
+    const target = new globalThis.URL(url.pathname, PUBLIC_FEED_BASE_URL);
+    target.search = url.search;
+    return target.toString();
+  }
+
+  return null;
+}
+
 async function serveAppShell(ctx: MiddlewareContext): Promise<Response> {
   const indexUrl = new globalThis.URL(ctx.request.url);
   indexUrl.pathname = "/";
@@ -179,4 +200,63 @@ async function proxyFeed(url: string, request: Request): Promise<Response> {
       "x-content-type-options": "nosniff",
     },
   });
+}
+
+async function proxyPublicFeedArtifact(url: string, request: Request): Promise<Response> {
+  let upstream: Response;
+  const abortController = new globalThis.AbortController();
+  const timeout = setTimeout(() => abortController.abort(), 8000);
+  try {
+    upstream = await fetch(url, {
+      method: request.method === "HEAD" ? "HEAD" : "GET",
+      signal: abortController.signal,
+      headers: {
+        accept: artifactAcceptHeader(url),
+      },
+    });
+  } catch {
+    return publicFeedArtifactUnavailable(502);
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  if (!upstream.ok) {
+    return publicFeedArtifactUnavailable(upstream.status);
+  }
+
+  const upstreamHeaders = new Headers(upstream.headers);
+  const contentType = upstreamHeaders.get("content-type") ?? artifactContentType(url);
+  return new Response(request.method === "HEAD" ? null : upstream.body, {
+    status: 200,
+    headers: {
+      "content-type": contentType,
+      "cache-control": "public, max-age=60",
+      "x-content-type-options": "nosniff",
+    },
+  });
+}
+
+function publicFeedArtifactUnavailable(status: number) {
+  return new Response("Public feed artifact unavailable.", {
+    status,
+    headers: {
+      "content-type": "text/plain; charset=utf-8",
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+    },
+  });
+}
+
+function artifactAcceptHeader(url: string) {
+  const pathname = new globalThis.URL(url).pathname;
+  if (pathname === "/events.json") return "application/json, */*;q=0.1";
+  if (pathname === "/source-assets" || pathname.startsWith("/source-assets/")) return "*/*";
+  return "text/html, application/xhtml+xml;q=0.9, */*;q=0.1";
+}
+
+function artifactContentType(url: string) {
+  const pathname = new globalThis.URL(url).pathname;
+  if (pathname === "/events.json") return "application/json; charset=utf-8";
+  if (pathname === "/source" || pathname.startsWith("/source/")) return "text/html; charset=utf-8";
+  return "application/octet-stream";
 }

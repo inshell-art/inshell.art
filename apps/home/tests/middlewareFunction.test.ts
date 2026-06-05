@@ -156,6 +156,93 @@ describe("Pages middleware canonical routes", () => {
     expect(ctx.assetsFetch).not.toHaveBeenCalled();
   });
 
+  test("proxies Public Feed events JSON before the app shell fallback", async () => {
+    const fetchMock = jest.fn(
+      async () =>
+        new Response("[]", {
+          status: 200,
+          headers: {
+            "content-type": "application/json; charset=utf-8",
+          },
+        }),
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const ctx = middlewareContext("https://inshell.art/events.json");
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("application/json; charset=utf-8");
+    expect(response.headers.get("cache-control")).toBe("public, max-age=60");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://inshell-public-feed.pages.dev/events.json",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          accept: "application/json, */*;q=0.1",
+        }),
+      }),
+    );
+    expect(ctx.next).not.toHaveBeenCalled();
+    expect(ctx.assetsFetch).not.toHaveBeenCalled();
+  });
+
+  test("proxies Public Feed source pages before the app shell fallback", async () => {
+    const fetchMock = jest.fn(
+      async () =>
+        new Response("<!doctype html><title>source</title>", {
+          status: 200,
+          headers: {
+            "content-type": "text/html; charset=utf-8",
+          },
+        }),
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const ctx = middlewareContext("https://inshell.art/source/thought-9.html?via=rss");
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    expect(response.headers.get("cache-control")).toBe("public, max-age=60");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://inshell-public-feed.pages.dev/source/thought-9.html?via=rss",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          accept: "text/html, application/xhtml+xml;q=0.9, */*;q=0.1",
+        }),
+      }),
+    );
+    expect(ctx.next).not.toHaveBeenCalled();
+    expect(ctx.assetsFetch).not.toHaveBeenCalled();
+  });
+
+  test("proxies Public Feed source assets before the app shell fallback", async () => {
+    const fetchMock = jest.fn(
+      async () =>
+        new Response("body{}", {
+          status: 200,
+          headers: {
+            "content-type": "text/css; charset=utf-8",
+          },
+        }),
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const ctx = middlewareContext("https://inshell.art/source-assets/feed.css");
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("text/css; charset=utf-8");
+    expect(response.headers.get("cache-control")).toBe("public, max-age=60");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://inshell-public-feed.pages.dev/source-assets/feed.css",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          accept: "*/*",
+        }),
+      }),
+    );
+    expect(ctx.next).not.toHaveBeenCalled();
+    expect(ctx.assetsFetch).not.toHaveBeenCalled();
+  });
+
   test("redirects preview THOUGHT path detail URLs to the preview root work route", async () => {
     const ctx = middlewareContext("https://thought.preview.inshell.art/thought/9");
     const response = await onRequest(ctx);
