@@ -28,7 +28,7 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --branch main
       - name: Publish DEV quality status
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dev-github-quality-status
           path: |
