@@ -29,8 +29,18 @@ Status values:
 - `ok`: no open quality issue and no read error
 - `blocked`: an open issue exists or GitHub would not let the loop read a required surface
 
+OPS contract fields:
+
+- `contract`: `dev-github-quality-loop-contract`
+- `ops.staleAfterSeconds`: freshness window OPS should enforce
+- `ops.activeAlerts`: current OPS-facing alert keys
+- `ops.alertMapping.blocked`: `dev.github_quality.blocked`
+- `ops.alertMapping.stale`: `dev.github_quality.stale`
+- `ops.alertMapping.securityCritical`: `dev.github_quality.security_critical`
+
 Boundary:
 
 - DEV fixes repo-local issues on `staging` from this report.
 - The loop does not mutate provider accounts, secrets, billing, Cloudflare state, or OPS config.
 - Routine `github.repo_quality.actions` should be tracked through this loop, not one-off OPS repair requests.
+- DEV must not auto-merge to `main`; the operator approves production merges.

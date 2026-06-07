@@ -12,9 +12,17 @@ const DEFAULT_BRANCH = "main";
 const DEFAULT_OUTPUT = ".ops/dev-quality/status.json";
 const DEFAULT_RUNS_DIR = ".ops/dev-quality/runs";
 const DEFAULT_MAX_ACTION_RUNS = 50;
+const DEFAULT_STALE_AFTER_SECONDS = 30 * 60 * 60;
 const MAX_BUFFER = 20 * 1024 * 1024;
+const CONTRACT = "dev-github-quality-loop-contract";
+const CONTRACT_VERSION = 1;
 
 const checked = ["actions", "dependabot", "code_scanning", "secret_scanning"];
+const opsAlertMapping = {
+  blocked: "dev.github_quality.blocked",
+  stale: "dev.github_quality.stale",
+  securityCritical: "dev.github_quality.security_critical",
+};
 
 const parseArgs = (argv) => {
   const args = {
@@ -23,6 +31,7 @@ const parseArgs = (argv) => {
     output: process.env.INSHELL_DEV_QUALITY_STATUS || DEFAULT_OUTPUT,
     runsDir: process.env.INSHELL_DEV_QUALITY_RUNS_DIR || DEFAULT_RUNS_DIR,
     maxActionRuns: DEFAULT_MAX_ACTION_RUNS,
+    staleAfterSeconds: DEFAULT_STALE_AFTER_SECONDS,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -44,6 +53,12 @@ const parseArgs = (argv) => {
       const parsed = Number.parseInt(next, 10);
       if (Number.isFinite(parsed) && parsed > 0) {
         args.maxActionRuns = parsed;
+      }
+      index += 1;
+    } else if (arg === "--stale-after-seconds" && next) {
+      const parsed = Number.parseInt(next, 10);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        args.staleAfterSeconds = parsed;
       }
       index += 1;
     } else if (arg === "--help" || arg === "-h") {
@@ -69,6 +84,7 @@ Options:
   --output <path>             Status JSON path. Default: ${DEFAULT_OUTPUT}
   --runs-dir <path>           Markdown run notes directory. Default: ${DEFAULT_RUNS_DIR}
   --max-action-runs <number>  Completed workflow runs to inspect. Default: ${DEFAULT_MAX_ACTION_RUNS}
+  --stale-after-seconds <n>   Freshness window OPS should use. Default: ${DEFAULT_STALE_AFTER_SECONDS}
 `);
 };
 
@@ -272,6 +288,29 @@ const writeJson = async (filePath, value) => {
 
 const severityLabel = (severity) => `【${severity}】`;
 
+const buildOpsAlerts = ({ openIssues, readErrors }) => {
+  const alerts = [];
+  if (openIssues.length || readErrors.length) {
+    alerts.push({
+      key: opsAlertMapping.blocked,
+      severity: openIssues.some((entry) => entry.severity === "critical") ? "critical" : "medium",
+      summary: "DEV quality loop found a repo-quality issue or read error.",
+    });
+  }
+
+  const criticalIssues = openIssues.filter((entry) => entry.severity === "critical");
+  if (criticalIssues.length) {
+    alerts.push({
+      key: opsAlertMapping.securityCritical,
+      severity: "critical",
+      summary: "DEV quality loop found a critical security-class issue.",
+      count: criticalIssues.length,
+    });
+  }
+
+  return alerts;
+};
+
 const writeRunNote = async ({ runsDir, startedAt, status }) => {
   await mkdir(runsDir, { recursive: true });
   const filePath = path.join(runsDir, `${isoForFile(new Date(startedAt))}.md`);
@@ -284,6 +323,7 @@ const writeRunNote = async ({ runsDir, startedAt, status }) => {
     `Finished: ${status.lastRun.finishedAt}`,
     `Status: ${status.lastRun.status}`,
     `Workflow run: ${status.lastRun.workflowRunUrl || "-"}`,
+    `OPS stale after: ${status.ops.staleAfterSeconds}s`,
     "",
     "## Checked",
     "",
@@ -301,6 +341,12 @@ const writeRunNote = async ({ runsDir, startedAt, status }) => {
     ...(status.lastRun.readErrors.length
       ? status.lastRun.readErrors.map((entry) =>
           `- ${entry.kind}: ${entry.summary} ${entry.error?.message || ""}`.trim())
+      : ["None."]),
+    "",
+    "## OPS Alerts",
+    "",
+    ...(status.ops.activeAlerts.length
+      ? status.ops.activeAlerts.map((entry) => `- ${severityLabel(entry.severity)} ${entry.key}: ${entry.summary}`)
       : ["None."]),
     "",
     "## Repairs",
@@ -337,12 +383,30 @@ const main = async () => {
   const readErrors = results.flatMap((result) => result.readError ? [result.readError] : []);
   const finishedAt = new Date();
   const runStatus = openIssues.length || readErrors.length ? "blocked" : "ok";
+  const activeAlerts = buildOpsAlerts({ openIssues, readErrors });
 
   const status = {
     version: 1,
+    contract: CONTRACT,
+    contractVersion: CONTRACT_VERSION,
     repo: args.repo,
     updatedAt: finishedAt.toISOString(),
     mode: "observe-and-repair",
+    ownership: {
+      dev: "repo-local quality fixes on staging",
+      ops: "freshness and blocked/critical monitoring",
+      operator: "main merge approval",
+    },
+    ops: {
+      staleAfterSeconds: args.staleAfterSeconds,
+      activeAlerts,
+      alertMapping: opsAlertMapping,
+      resolution: {
+        [opsAlertMapping.blocked]: "Clears after the repo-local fix is merged to main and DEV quality reports ok.",
+        [opsAlertMapping.stale]: "Clears when DEV publishes a fresh readable status.",
+        [opsAlertMapping.securityCritical]: "Clears when DEV quality no longer reports the critical security issue.",
+      },
+    },
     lastRun: {
       startedAt: startedAt.toISOString(),
       finishedAt: finishedAt.toISOString(),
