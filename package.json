@@ -27,6 +27,7 @@
     "check:presepolia": "pnpm --filter @inshell/home lint && pnpm run test:presepolia && pnpm run test:thought-runtime && pnpm run build:home && pnpm run check:deployment && git diff --check",
     "check:deployment": "node scripts/check-deployment.mjs",
     "check:deployment:live": "node scripts/check-deployment.mjs --live",
+    "quality:github": "node scripts/dev-github-quality-loop.mjs",
     "validate:contracts": "node scripts/validate-inshell-contracts.mjs",
     "sync:path-release": "tsx scripts/sync-path-release.ts",
     "sync:thought-release": "tsx scripts/sync-thought-release.ts",

@@ -1,0 +1,38 @@
+name: dev-github-quality-loop
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Runs after the nightly test workflow in Asia/Shanghai so it can inspect settled results.
+    - cron: "5 17 * * *"
+
+permissions:
+  actions: read
+  contents: read
+  security-events: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Use Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - name: Run DEV GitHub quality loop
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/dev-github-quality-loop.mjs \
+            --repo "$GITHUB_REPOSITORY" \
+            --branch main
+      - name: Publish DEV quality status
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev-github-quality-status
+          path: |
+            .ops/dev-quality/status.json
+            .ops/dev-quality/runs/*.md
+          if-no-files-found: error
+          retention-days: 14
