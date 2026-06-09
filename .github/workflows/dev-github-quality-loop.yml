@@ -22,7 +22,7 @@ jobs:
           node-version-file: .nvmrc
       - name: Run DEV GitHub quality loop
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.DEV_GITHUB_QUALITY_TOKEN || github.token }}
         run: |
           node scripts/dev-github-quality-loop.mjs \
             --repo "$GITHUB_REPOSITORY" \

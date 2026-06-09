@@ -17,6 +17,13 @@ Those generated files are ignored locally. In GitHub Actions, the scheduled
 `dev-github-quality-loop` workflow uploads them as the `dev-github-quality-status`
 artifact for OPS to read.
 
+For scheduled runs to read every GitHub quality surface, configure the repository
+Actions secret `DEV_GITHUB_QUALITY_TOKEN`. Use a fine-grained personal access
+token limited to this repository with read access for Actions, Dependabot
+alerts, code scanning alerts, and secret scanning alerts. If the secret is not
+configured, the workflow falls back to `github.token`, which may report
+Dependabot or secret-scanning reads as blocked.
+
 The loop checks:
 
 - default-branch GitHub Actions failures
