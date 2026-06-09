@@ -2018,6 +2018,36 @@ body {
   letter-spacing: 0.08em;
 }
 
+.path-page-token__downloads {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
+.path-page-token__download {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 300;
+  line-height: 1.45;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.path-page-token__download:hover,
+.path-page-token__download:focus-visible {
+  color: var(--accent);
+  outline: none;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 5px;
+}
+
 .path-page-token__body {
   min-width: 0;
 }
@@ -2469,6 +2499,14 @@ body {
   color: var(--accent);
   outline: none;
   text-decoration: underline;
+}
+
+.thought-detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 14px;
+  margin-top: 9px;
 }
 
 .thought-detail__viewer {

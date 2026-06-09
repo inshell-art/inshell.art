@@ -48,7 +48,7 @@ import {
   shouldShowDebugPanel,
   shouldShowReportBug,
 } from "@/config/publicLaunch";
-/* global Element, SVGSVGElement, SVGElement, HTMLDivElement, MouseEvent, PointerEvent, URL, URLSearchParams */
+/* global Element, SVGSVGElement, SVGElement, HTMLDivElement, MouseEvent, PointerEvent */
 
 type Props = {
   address?: string;

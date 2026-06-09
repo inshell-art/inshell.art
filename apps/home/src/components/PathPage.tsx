@@ -16,6 +16,7 @@ import {
   readCachedThoughtGallery,
   type ThoughtGalleryItem,
 } from "@/services/thoughtGallery";
+import { downloadPngFromImageSource, imageDownloadUrl } from "@/services/imageDownloads";
 
 type LoadState =
   | { status: "loading"; items: PathTokenInventoryItem[]; error: null }
@@ -592,6 +593,31 @@ function PathTokenCard({
           <div className="path-page-token__missing">image unavailable</div>
         )}
       </div>
+      {image ? (
+        <div className="path-page-token__downloads" aria-label={`${name} downloads`}>
+          <button
+            className="path-page-token__download"
+            type="button"
+            aria-label={`Download ${name} PNG`}
+            onClick={() => {
+              void downloadPngFromImageSource({
+                source: image,
+                filename: `inshell-path-${item.tokenIdLabel}.png`,
+              });
+            }}
+          >
+            png
+          </button>
+          <a
+            className="path-page-token__download"
+            href={imageDownloadUrl("path", item.tokenIdLabel)}
+            download={`inshell-path-${item.tokenIdLabel}.svg`}
+            aria-label={`Download ${name} SVG`}
+          >
+            svg
+          </a>
+        </div>
+      ) : null}
       <div className="path-page-token__body" aria-label={`${name} lifecycle`}>
         <div className="path-page-token__name">{name}</div>
         <div className="path-page-token__owner">

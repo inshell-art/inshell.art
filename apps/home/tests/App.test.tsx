@@ -890,6 +890,11 @@ describe("App Component", () => {
       "src",
       expect.stringContaining("will-fill"),
     );
+    expect(screen.getByRole("button", { name: "Download $PATH #4 PNG" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Download $PATH #4 SVG" })).toHaveAttribute(
+      "href",
+      "/api/path-image?id=4&format=svg",
+    );
     const lifecycle = within(screen.getByLabelText("$PATH #4 lifecycle"));
     expect(lifecycle.queryByText(/This \$PATH/)).toBeNull();
     expect(lifecycle.getByText("units")).toBeInTheDocument();
@@ -1039,6 +1044,11 @@ describe("App Component", () => {
     expect(screen.getByRole("link", { name: "[ create yours ]" })).toBeInTheDocument();
     expect(screen.getByLabelText("THOUGHT #1 record")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "THOUGHT #1 canvas" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Download THOUGHT #1 PNG" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Download THOUGHT #1 SVG" })).toHaveAttribute(
+      "href",
+      "/api/thought-image?id=1&format=svg",
+    );
     expect(screen.getByText("one thought")).toBeInTheDocument();
     const specLink = screen.getByRole("link", { name: "THOUGHT.v1.md ↗" });
     expect(specLink).toHaveAttribute("href", "/api/thought-spec?id=1");

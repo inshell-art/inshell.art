@@ -2356,6 +2356,36 @@ html.thought-route .thought-detail.is-hidden {
   outline-offset: 6px;
 }
 
+.thought-gallery__downloads {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 9px;
+}
+
+.thought-gallery__download {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 300;
+  line-height: 1.45;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.thought-gallery__download:hover,
+.thought-gallery__download:focus-visible {
+  color: var(--accent);
+  outline: none;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 5px;
+}
+
 .thought-gallery__footer {
   display: flex;
   align-items: center;
