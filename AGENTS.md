@@ -25,6 +25,8 @@
 - Treat `staging` as the frontend preview gate and `main` as production.
 - Night-note frontend work lands on `staging`/preview first unless the operator explicitly says otherwise.
 - Normal frontend flow: land code on `staging`, deploy the Cloudflare Pages `staging` branch, validate preview, then wait for the operator to say to merge/promote before updating `main`.
+- `main` is protected. Production promotion should go through a pull request from `staging` to `main`; do not direct-push `main`.
+- The required production checks are `build` and `gitleaks`. When they pass, summarize the exact changes and check results, send an ntfy notice, then wait for operator approval before merging.
 - Do not merge frontend changes from `staging` to `main` just because automated checks pass. Manual preview validation is the production gate.
 - Do not deploy frontend changes straight to `main` unless the operator explicitly asks for an emergency production hotfix.
 - If a production hotfix bypasses `staging`, say so plainly in the final response and reconcile `staging` with `main` immediately after.
