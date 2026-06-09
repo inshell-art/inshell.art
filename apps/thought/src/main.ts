@@ -37,13 +37,6 @@ import {
   shouldShowPreviewWatermark,
   type PublicLaunchMode,
 } from "@inshell/shared";
-import {
-  parseSurfaceInput,
-  redactSurfaceInput,
-  shouldRecordSurfaceInput,
-  type SurfaceRedactionRule,
-} from "@inshell/surface-shell-core";
-
 import thoughtInstructions from "../THOUGHT.md?raw";
 import thoughtInstructionsUrl from "../THOUGHT.md?url";
 import colorFontRaw from "../colorFontJSON/colorfont.byToolv2.json?raw";
@@ -55,6 +48,12 @@ import {
   validateColorFontDataShape,
   type ColorFontDoc,
 } from "./color-font-doc";
+import {
+  createThoughtSurfaceShellAdapter,
+  redactThoughtShellInput,
+  shouldRecordThoughtShellInput,
+} from "./surfaceShell/thoughtDispatcherAdapter";
+import type { ThoughtShellState } from "./surfaceShell/thoughtShellState";
 import {
   appendThoughtWork,
   getLatestWork,
@@ -8569,26 +8568,8 @@ const appendCliEntry = (
   return entry;
 };
 
-const THOUGHT_CLI_SECRET_REDACTION_RULES: SurfaceRedactionRule[] = [
-  {
-    id: "direct-key",
-    tokens: ["key"],
-    allowRestValues: ["clear", "help"],
-  },
-  {
-    id: "config-key",
-    tokens: ["config", "key"],
-    allowRestValues: ["clear", "help"],
-  },
-  {
-    id: "config-direct-key",
-    tokens: ["config", "direct", "key"],
-    allowRestValues: ["clear", "help"],
-  },
-];
-
 const displayCliCommand = (command: string) => {
-  return redactSurfaceInput(command, THOUGHT_CLI_SECRET_REDACTION_RULES);
+  return redactThoughtShellInput(command);
 };
 
 const isMyBrainShellActive = () =>
@@ -8596,8 +8577,33 @@ const isMyBrainShellActive = () =>
 
 const currentCliShellPrompt = () => (isMyBrainShellActive() ? "my-brain>" : "thought>");
 
+const getThoughtSurfaceShellState = (): ThoughtShellState => ({
+  prompt: sessionState.prompt,
+  route: sessionState.mode,
+  routeConfigured: sessionState.routeConfigured,
+  provider: sessionState.mode === "direct" ? sessionState.direct.provider : ROUTE_COPY[sessionState.mode].provider,
+  model: getCurrentModelValue(),
+  apiKeyConfigured: sessionState.mode === "direct"
+    ? Boolean(getDirectApiKey())
+    : Boolean(sessionState.connect.apiKey.trim()),
+  localEndpoint: sessionState.local.endpoint,
+  localAvailable: sessionState.local.available,
+  openRouterLinked: Boolean(sessionState.connect.apiKey.trim()),
+  previewMode: readPreviewMode(),
+  previewProvider: cliPreviewProviderState(),
+  walletConnected: Boolean(walletState.address),
+  walletChainReady: walletState.chainId === THOUGHT_CHAIN_ID,
+  pathSelected: mintFlowData.pathId !== null,
+  pathAuthorized: mintFlowState === "authorized" || mintFlowState === "minting" || mintFlowState === "minted",
+  candidateReady: runState === "candidate_ready",
+  workReady: runState === "output_ready" || Boolean(currentOutputText),
+  myBrainWaiting: isMyBrainShellActive(),
+});
+
+const thoughtSurfaceShell = createThoughtSurfaceShellAdapter(getThoughtSurfaceShellState);
+
 const shouldRecordCliCommand = (command: string) => {
-  return shouldRecordSurfaceInput(command, THOUGHT_CLI_SECRET_REDACTION_RULES);
+  return shouldRecordThoughtShellInput(command);
 };
 
 const readStoredCliCommandHistory = () => {
@@ -12211,14 +12217,14 @@ const executeCliCommand = async (rawCommand: string) => {
   syncCliPanel();
 
   try {
-    const parsedCommand = parseSurfaceInput(command, { mode: "command-first" });
+    const parsedCommand = thoughtSurfaceShell.resolve(command);
     const rest = parsedCommand.rest;
-    const [second = ""] = rest.split(/\s+/, 1);
-    const lowerHead = parsedCommand.commandKey;
+    const [second = ""] = parsedCommand.args;
+    const lowerHead = parsedCommand.legacyHead;
     const lowerRest = rest.toLowerCase();
     cliSuggestionContext = "auto";
 
-    if (command === "?" || command === "--help" || lowerHead === "help") {
+    if (lowerHead === "help") {
       appendCliOutput(cliHelpLines(lowerRest));
       cliSuggestionContext = "help";
     } else if (lowerHead === "commands") {
