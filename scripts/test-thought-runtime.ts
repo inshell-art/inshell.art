@@ -18,6 +18,7 @@ import {
   JSON_RPC_NO_BATCH_OPTIONS,
   createSingleRequestJsonRpcProvider,
 } from "../apps/thought/src/rpc-provider";
+import { runThoughtShellAdapterTests } from "../apps/thought/src/surfaceShell/thoughtGoldenTranscripts.test";
 import {
   createMemoryStorageAdapter,
   createSurfaceShell,
@@ -154,6 +155,7 @@ assert.equal(
 );
 assert.equal(shouldRecordSurfaceInput("config direct key sk-private", secretRules), false);
 assert.equal(shouldRecordSurfaceInput("config direct key clear", secretRules), true);
+await runThoughtShellAdapterTests();
 
 const storage = createMemoryStorageAdapter();
 const shell = createSurfaceShell<{ value: string }>({
