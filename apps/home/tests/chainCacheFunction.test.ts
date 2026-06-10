@@ -427,7 +427,7 @@ describe("chain cache Pages functions", () => {
     expect(image.status).toBe(200);
     expect(image.headers.get("content-type")).toBe("image/svg+xml; charset=utf-8");
     expect(image.headers.get("content-disposition")).toBe('inline; filename="thought-9.svg"');
-    expect(image.body).toBe('<svg xmlns="http://www.w3.org/2000/svg"/>');
+    expect(image.body).toBe('<svg xmlns="http://www.w3.org/2000/svg" width="960" height="960"/>');
     expect(kvGet).toHaveBeenCalledWith("thought-gallery:v1:sepolia", "json");
   });
 });
