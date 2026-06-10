@@ -33,6 +33,7 @@ import {
   buildReportBugLink,
   buildContractStatusSections,
   findContractStatusRow,
+  maybeInstallCloudflareWebAnalytics,
   resolveWalletChainRpcUrls,
   shouldShowPreviewWatermark,
   type PublicLaunchMode,
@@ -96,6 +97,8 @@ import {
   type PreviewStatus,
 } from "./thought-preview-policy";
 import { createSingleRequestJsonRpcProvider } from "./rpc-provider";
+
+maybeInstallCloudflareWebAnalytics({ env: import.meta.env });
 
 type ColorFontFile = {
   colors: Array<{
