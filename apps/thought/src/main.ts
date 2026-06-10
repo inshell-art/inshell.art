@@ -5615,6 +5615,12 @@ const thoughtDetailUrl = (tokenId: number) => {
   return url.toString();
 };
 
+const thoughtImageUrl = (tokenId: number) => {
+  const url = new URL("/api/thought-image", window.location.origin);
+  url.searchParams.set("id", tokenId.toString());
+  return url.toString();
+};
+
 const pathTokenDetailUrl = (tokenId: number | string) => {
   const url = new URL(PATH_MINT_URL, window.location.origin);
   url.search = "";
@@ -6046,7 +6052,7 @@ const renderGalleryCard = (thought: GalleryThought) => {
 
   const image = document.createElement("img");
   image.className = "thought-gallery__image";
-  image.src = thought.image || galleryThumbnailUri(title);
+  image.src = thought.image ? thoughtImageUrl(thought.tokenId) : galleryThumbnailUri(title);
   image.alt = `THOUGHT #${thought.tokenId}`;
   image.loading = "lazy";
 
@@ -6502,7 +6508,7 @@ const loadThoughtDetail = async () => {
     document.title = `THOUGHT #${thought.tokenId}`;
     thoughtDetailTitleToken.textContent = detail.tokenId.toString();
     thoughtDetailStatus.textContent = "";
-    thoughtDetailImage.src = detail.image || galleryThumbnailUri(title);
+    thoughtDetailImage.src = detail.image ? thoughtImageUrl(detail.tokenId) : galleryThumbnailUri(title);
     thoughtDetailImage.alt = `THOUGHT #${detail.tokenId} canvas`;
     thoughtDetailModel.textContent = detail.model || "model unavailable.";
     setThoughtDetailTextBlock(thoughtDetailCanonicalTitle, rawText);

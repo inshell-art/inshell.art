@@ -132,6 +132,10 @@ function thoughtDetailApiUrl(tokenId: number, part: "provenance" | "spec"): stri
   return `/api/thought-${part}?id=${encodeURIComponent(String(tokenId))}`;
 }
 
+function thoughtImageUrl(tokenId: number): string {
+  return `/api/thought-image?id=${encodeURIComponent(String(tokenId))}`;
+}
+
 function explorerTxUrl(txHash: string): string | null {
   if (!/^0x[0-9a-fA-F]{64}$/.test(txHash)) return null;
   const configured = configuredUrl("VITE_THOUGHT_EXPLORER_BASE_URL");
@@ -208,7 +212,7 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
         {item.image ? (
           <img
             className="thought-detail__image"
-            src={item.image}
+            src={thoughtImageUrl(item.tokenId)}
             alt={`THOUGHT #${item.tokenId} canvas`}
             title={title}
           />

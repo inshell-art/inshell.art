@@ -10,6 +10,7 @@ import {
   type IndexedSnapshot,
 } from "../../../functions/api/chain-cache";
 import { onRequestGet as onPathTokensGet } from "../../../functions/api/path-tokens";
+import { onRequestGet as onThoughtImageGet } from "../../../functions/api/thought-image";
 import { onRequestGet as onThoughtProvenanceGet } from "../../../functions/api/thought-provenance";
 import { onRequestGet as onThoughtSpecGet } from "../../../functions/api/thought-spec";
 
@@ -359,15 +360,17 @@ describe("chain cache Pages functions", () => {
     expect(response.body).not.toContain("secret-stack");
   });
 
-  test("serves THOUGHT detail provenance and spec through same-origin JSON APIs", async () => {
+  test("serves THOUGHT detail JSON and image through same-origin APIs", async () => {
     globalThis.Request = TestRequest as unknown as typeof Request;
     globalThis.Response = TestResponse as unknown as typeof Response;
     globalThis.Headers = TestHeaders as unknown as typeof Headers;
+    (globalThis as any).caches = undefined;
     const snapshot: IndexedSnapshot<{
       tokenId: number;
       thoughtSpecId: string;
       thoughtSpecHash: string;
       provenanceJson: string;
+      image: string;
     }> = {
       version: 1,
       cachedAt: Date.now(),
@@ -384,6 +387,8 @@ describe("chain cache Pages functions", () => {
             schema: "thought.provenance.v1",
             prompt: "test prompt",
           }),
+          image:
+            "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%2F%3E",
         },
       ],
     } as IndexedSnapshot<any>;
@@ -403,6 +408,10 @@ describe("chain cache Pages functions", () => {
       request: new Request("https://preview.inshell.art/api/thought-spec?id=9"),
       env,
     });
+    const image = await onThoughtImageGet({
+      request: new Request("https://preview.inshell.art/api/thought-image?id=9"),
+      env,
+    });
 
     expect(provenance.status).toBe(200);
     expect(await provenance.json()).toEqual({
@@ -415,6 +424,10 @@ describe("chain cache Pages functions", () => {
       specId: "0xspec",
       specHash: "0xhash",
     });
+    expect(image.status).toBe(200);
+    expect(image.headers.get("content-type")).toBe("image/svg+xml; charset=utf-8");
+    expect(image.headers.get("content-disposition")).toBe('inline; filename="thought-9.svg"');
+    expect(image.body).toBe('<svg xmlns="http://www.w3.org/2000/svg" width="960" height="960"/>');
     expect(kvGet).toHaveBeenCalledWith("thought-gallery:v1:sepolia", "json");
   });
 });
