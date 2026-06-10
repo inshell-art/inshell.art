@@ -77,6 +77,12 @@ export type WalletChainRpcOptions = {
   localFallbackRpcUrl?: string | null;
 };
 
+export type CloudflareWebAnalyticsOptions = {
+  env?: Readonly<Record<string, unknown>>;
+  hostname?: string | null;
+  document?: globalThis.Document | null;
+};
+
 export const SURFACE_TERMINOLOGY = {
   ecosystem: "Inshell",
   pathDapp: "$PATH",
@@ -403,6 +409,29 @@ export function findContractStatusRow(
   return sections.find((section) => section.id === sectionId)?.rows.find((row) => row.id === rowId);
 }
 
+export const CLOUDFLARE_WEB_ANALYTICS_SCRIPT_ID = "inshell-cloudflare-web-analytics";
+
+export const CLOUDFLARE_WEB_ANALYTICS_ALLOWED_HOSTS = [
+  "inshell.art",
+  "thought.inshell.art",
+  "gallery.inshell.art",
+] as const;
+
+function normalizeHostname(value: string | null | undefined): string {
+  return value?.trim().toLowerCase().replace(/\.$/, "") ?? "";
+}
+
+function getCurrentHostname(): string {
+  if (typeof window === "undefined") return "";
+  return normalizeHostname(window.location.hostname);
+}
+
+function isCloudflareWebAnalyticsHostAllowed(hostname: string): boolean {
+  return CLOUDFLARE_WEB_ANALYTICS_ALLOWED_HOSTS.includes(
+    hostname as (typeof CLOUDFLARE_WEB_ANALYTICS_ALLOWED_HOSTS)[number],
+  );
+}
+
 function getSharedEnvValue(name: string, env?: Readonly<Record<string, unknown>>): unknown {
   const globalEnv: Record<string, unknown> | undefined = (globalThis as any).__VITE_ENV__;
   const procEnv: Record<string, unknown> | undefined = (globalThis as any)?.process?.env;
@@ -415,6 +444,30 @@ function readSharedEnvString(
 ): string | null {
   const value = getSharedEnvValue(name, options?.env);
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+export function maybeInstallCloudflareWebAnalytics(
+  options: CloudflareWebAnalyticsOptions = {},
+): boolean {
+  const documentRef =
+    options.document ?? (typeof document === "undefined" ? null : document);
+  if (!documentRef) return false;
+
+  const hostname = normalizeHostname(options.hostname ?? getCurrentHostname());
+  if (!isCloudflareWebAnalyticsHostAllowed(hostname)) return false;
+
+  const token = readSharedEnvString("VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN", options);
+  if (!token) return false;
+
+  if (documentRef.getElementById(CLOUDFLARE_WEB_ANALYTICS_SCRIPT_ID)) return false;
+
+  const script = documentRef.createElement("script");
+  script.id = CLOUDFLARE_WEB_ANALYTICS_SCRIPT_ID;
+  script.defer = true;
+  script.src = "https://static.cloudflareinsights.com/beacon.min.js";
+  script.setAttribute("data-cf-beacon", JSON.stringify({ token }));
+  documentRef.head.appendChild(script);
+  return true;
 }
 
 function normalizeDeploymentEnv(raw: string | null | undefined): DeploymentEnv | null {
