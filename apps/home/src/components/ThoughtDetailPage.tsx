@@ -11,7 +11,6 @@ import {
   readCachedThoughtGallery,
   type ThoughtGalleryItem,
 } from "@/services/thoughtGallery";
-import { downloadPngFromImageSource, imageDownloadUrl } from "@/services/imageDownloads";
 import { PUBLIC_NETWORK_CONFIG } from "@inshell/shared";
 
 type LoadState =
@@ -237,34 +236,6 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
             THOUGHT.v1.md ↗
           </a>
         </ThoughtSection>
-
-        {item.image ? (
-          <ThoughtSection title="image">
-            <div className="thought-detail__actions">
-              <button
-                className="thought-detail__action"
-                type="button"
-                aria-label={`Download THOUGHT #${item.tokenId} PNG`}
-                onClick={() => {
-                  void downloadPngFromImageSource({
-                    source: item.image,
-                    filename: `inshell-thought-${item.tokenId}.png`,
-                  });
-                }}
-              >
-                download png
-              </button>
-              <a
-                className="thought-detail__value-link"
-                href={imageDownloadUrl("thought", item.tokenId)}
-                download={`inshell-thought-${item.tokenId}.svg`}
-                aria-label={`Download THOUGHT #${item.tokenId} SVG`}
-              >
-                download svg
-              </a>
-            </div>
-          </ThoughtSection>
-        ) : null}
 
         <ThoughtSection title="model">
           <p className="thought-detail__value">{item.model || "model unavailable."}</p>

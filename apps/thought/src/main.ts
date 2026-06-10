@@ -1210,12 +1210,6 @@ const thoughtDetailPath = document.getElementById("thought-detail-path") as HTML
 const thoughtDetailMinter = document.getElementById("thought-detail-minter") as HTMLElement | null;
 const thoughtDetailMinted = document.getElementById("thought-detail-minted") as HTMLElement | null;
 const thoughtDetailSpecRef = document.getElementById("thought-detail-spec-ref") as HTMLAnchorElement | null;
-const thoughtDetailDownloadPng = document.getElementById(
-  "thought-detail-download-png",
-) as HTMLButtonElement | null;
-const thoughtDetailDownloadSvg = document.getElementById(
-  "thought-detail-download-svg",
-) as HTMLAnchorElement | null;
 const thoughtDetailColorFont = document.getElementById("thought-detail-color-font") as HTMLAnchorElement | null;
 const thoughtDetailColorFontStatus = document.getElementById("thought-detail-color-font-status") as HTMLElement | null;
 const thoughtDetailViewTx = document.getElementById("thought-detail-view-tx") as HTMLAnchorElement | null;
@@ -1356,8 +1350,6 @@ if (
   !thoughtDetailMinter ||
   !thoughtDetailMinted ||
   !thoughtDetailSpecRef ||
-  !thoughtDetailDownloadPng ||
-  !thoughtDetailDownloadSvg ||
   !thoughtDetailColorFont ||
   !thoughtDetailColorFontStatus ||
   !thoughtDetailViewTx ||
@@ -6031,68 +6023,6 @@ const galleryThumbnailUri = (rawText: string) => {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 };
 
-const imageDownloadApiUrl = (kind: "thought" | "path", tokenId: number | string, format = "svg") => {
-  const route = kind === "thought" ? "thought-image" : "path-image";
-  const params = new URLSearchParams({
-    id: String(tokenId),
-    format,
-  });
-  return `/api/${route}?${params.toString()}`;
-};
-
-const loadImageElement = (source: string): Promise<HTMLImageElement> =>
-  new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("image load failed"));
-    if (!source.startsWith("data:")) {
-      image.crossOrigin = "anonymous";
-    }
-    image.src = source;
-  });
-
-const downloadPngFromImageSource = async (source: string, filename: string, size = 2048) => {
-  if (!source) {
-    throw new Error("image source unavailable");
-  }
-  const image = await loadImageElement(source);
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const context = canvas.getContext("2d");
-  if (!context) {
-    throw new Error("canvas unavailable");
-  }
-  context.fillStyle = "#050505";
-  context.fillRect(0, 0, size, size);
-  const intrinsicWidth = image.naturalWidth || image.width || size;
-  const intrinsicHeight = image.naturalHeight || image.height || size;
-  const scale = Math.min(size / intrinsicWidth, size / intrinsicHeight);
-  const width = intrinsicWidth * scale;
-  const height = intrinsicHeight * scale;
-  context.drawImage(image, (size - width) / 2, (size - height) / 2, width, height);
-  const blob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((result) => {
-      if (result) {
-        resolve(result);
-      } else {
-        reject(new Error("PNG export failed"));
-      }
-    }, "image/png");
-  });
-  const url = URL.createObjectURL(blob);
-  try {
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    document.body.append(link);
-    link.click();
-    link.remove();
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-};
-
 const contractLikeSvgTextSize = (charCount: number) => {
   if (charCount <= 0) {
     return SVG_TEXT_MAX_SIZE;
@@ -6116,8 +6046,7 @@ const renderGalleryCard = (thought: GalleryThought) => {
 
   const image = document.createElement("img");
   image.className = "thought-gallery__image";
-  const imageSource = thought.image || galleryThumbnailUri(title);
-  image.src = imageSource;
+  image.src = thought.image || galleryThumbnailUri(title);
   image.alt = `THOUGHT #${thought.tokenId}`;
   image.loading = "lazy";
 
@@ -6139,34 +6068,7 @@ const renderGalleryCard = (thought: GalleryThought) => {
   tip.append(tipTitle, tipText, tipBreak, tipPath, tipMinted, tipMinter);
 
   imageLink.append(image, tip);
-
-  const downloads = document.createElement("div");
-  downloads.className = "thought-gallery__downloads";
-  downloads.setAttribute("aria-label", `THOUGHT #${thought.tokenId} downloads`);
-
-  const pngButton = document.createElement("button");
-  pngButton.className = "thought-gallery__download";
-  pngButton.type = "button";
-  pngButton.textContent = "png";
-  pngButton.setAttribute("aria-label", `Download THOUGHT #${thought.tokenId} PNG`);
-  pngButton.addEventListener("click", () => {
-    void downloadPngFromImageSource(
-      imageSource,
-      `inshell-thought-${thought.tokenId}.png`,
-    ).catch(() => {
-      galleryStatus.textContent = "PNG download failed.";
-    });
-  });
-
-  const svgLink = document.createElement("a");
-  svgLink.className = "thought-gallery__download";
-  svgLink.href = imageDownloadApiUrl("thought", thought.tokenId);
-  svgLink.download = `inshell-thought-${thought.tokenId}.svg`;
-  svgLink.textContent = "svg";
-  svgLink.setAttribute("aria-label", `Download THOUGHT #${thought.tokenId} SVG`);
-
-  downloads.append(pngButton, svgLink);
-  card.append(imageLink, downloads);
+  card.append(imageLink);
   return card;
 };
 
@@ -6600,15 +6502,8 @@ const loadThoughtDetail = async () => {
     document.title = `THOUGHT #${thought.tokenId}`;
     thoughtDetailTitleToken.textContent = detail.tokenId.toString();
     thoughtDetailStatus.textContent = "";
-    const imageSource = detail.image || galleryThumbnailUri(title);
-    thoughtDetailImage.src = imageSource;
+    thoughtDetailImage.src = detail.image || galleryThumbnailUri(title);
     thoughtDetailImage.alt = `THOUGHT #${detail.tokenId} canvas`;
-    thoughtDetailDownloadPng.dataset.imageSource = imageSource;
-    thoughtDetailDownloadPng.dataset.filename = `inshell-thought-${detail.tokenId}.png`;
-    thoughtDetailDownloadPng.setAttribute("aria-label", `Download THOUGHT #${detail.tokenId} PNG`);
-    thoughtDetailDownloadSvg.href = imageDownloadApiUrl("thought", detail.tokenId);
-    thoughtDetailDownloadSvg.download = `inshell-thought-${detail.tokenId}.svg`;
-    thoughtDetailDownloadSvg.setAttribute("aria-label", `Download THOUGHT #${detail.tokenId} SVG`);
     thoughtDetailModel.textContent = detail.model || "model unavailable.";
     setThoughtDetailTextBlock(thoughtDetailCanonicalTitle, rawText);
     setThoughtDetailTextBlock(thoughtDetailPrompt, detail.prompt || "prompt unavailable.");
@@ -12825,20 +12720,6 @@ thoughtDetailSpecRef.addEventListener("click", (event) => {
   if (thoughtDetailSpecRef.getAttribute("href") === "#") {
     event.preventDefault();
     void openThoughtDetailSpecJson();
-  }
-});
-
-thoughtDetailDownloadPng.addEventListener("click", () => {
-  const source = thoughtDetailDownloadPng.dataset.imageSource ?? "";
-  const filename = thoughtDetailDownloadPng.dataset.filename ?? "inshell-thought.png";
-  void downloadPngFromImageSource(source, filename).catch(() => {
-    showThoughtDetailStatus("PNG download failed.");
-  });
-});
-
-thoughtDetailDownloadSvg.addEventListener("click", (event) => {
-  if (!currentThoughtDetail || thoughtDetailDownloadSvg.getAttribute("href") === "#") {
-    event.preventDefault();
   }
 });
 

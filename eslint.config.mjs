@@ -18,13 +18,8 @@ const browserGlobals = {
   Request: "readonly",
   Response: "readonly",
   Headers: "readonly",
-  Blob: "readonly",
-  HTMLImageElement: "readonly",
-  Image: "readonly",
   TextDecoder: "readonly",
   TextEncoder: "readonly",
-  URL: "readonly",
-  URLSearchParams: "readonly",
   atob: "readonly",
 };
 
