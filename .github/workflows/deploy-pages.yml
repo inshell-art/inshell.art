@@ -85,6 +85,11 @@ jobs:
         run: pnpm run test:presepolia
       - name: Build home
         run: pnpm run build:home
+      - name: Verify production analytics bundle
+        if: ${{ github.event.inputs.branch == 'main' }}
+        run: |
+          grep -R -q "static.cloudflareinsights.com/beacon.min.js" dist/home
+          grep -R -F -q "$VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN" dist/home
       - name: Deploy home to Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -152,6 +157,11 @@ jobs:
         run: pnpm --filter @inshell/thought type-check
       - name: Build THOUGHT
         run: pnpm --filter @inshell/thought build
+      - name: Verify production analytics bundle
+        if: ${{ github.event.inputs.branch == 'main' }}
+        run: |
+          grep -R -q "static.cloudflareinsights.com/beacon.min.js" dist/thought
+          grep -R -F -q "$VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN" dist/thought
       - name: Deploy THOUGHT to Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
