@@ -49,6 +49,13 @@ function postRpc(payload: unknown): Promise<Response> {
   });
 }
 
+function postRpcWithEnv(payload: unknown, env: Record<string, string>): Promise<Response> {
+  return onFallbackRpcPost({
+    request: rpcRequest(payload),
+    env,
+  });
+}
+
 function postPathRpc(payload: unknown): Promise<Response> {
   return onPathRpcPost({
     request: rpcRequest(payload),
@@ -59,6 +66,13 @@ function postPathRpc(payload: unknown): Promise<Response> {
   });
 }
 
+function postPathRpcWithEnv(payload: unknown, env: Record<string, string>): Promise<Response> {
+  return onPathRpcPost({
+    request: rpcRequest(payload),
+    env,
+  });
+}
+
 function postThoughtRpc(payload: unknown): Promise<Response> {
   return onThoughtRpcPost({
     request: rpcRequest(payload),
@@ -66,6 +80,13 @@ function postThoughtRpc(payload: unknown): Promise<Response> {
       THOUGHT_RPC_UPSTREAM: "https://thought-rpc.example/sepolia",
       ETH_RPC_UPSTREAM: "https://fallback-rpc.example/sepolia",
     },
+  });
+}
+
+function postThoughtRpcWithEnv(payload: unknown, env: Record<string, string>): Promise<Response> {
+  return onThoughtRpcPost({
+    request: rpcRequest(payload),
+    env,
   });
 }
 
@@ -196,6 +217,124 @@ describe("Cloudflare Ethereum RPC proxy", () => {
       result: "0xaa36a7",
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  test("prefers target PATH and THOUGHT RPC names over compatibility aliases", async () => {
+    const fetchMock = jest.fn<() => Promise<MockFetchResponse>>(async () => ({
+      status: 200,
+      text: async () => JSON.stringify({ jsonrpc: "2.0", id: 1, result: "0xaa36a7" }),
+    }));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await postPathRpcWithEnv(
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "eth_chainId",
+        params: [],
+      },
+      {
+        PATH_PRIMARY_RPC_UPSTREAM: "https://target-path-rpc.example/sepolia",
+        PATH_RPC_UPSTREAM: "https://legacy-path-rpc.example/sepolia",
+        PRIVATE_FALLBACK_RPC_UPSTREAM: "https://private-fallback-rpc.example/sepolia",
+      },
+    );
+    await postThoughtRpcWithEnv(
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "eth_chainId",
+        params: [],
+      },
+      {
+        THOUGHT_PRIMARY_RPC_UPSTREAM: "https://target-thought-rpc.example/sepolia",
+        THOUGHT_RPC_UPSTREAM: "https://legacy-thought-rpc.example/sepolia",
+        PRIVATE_FALLBACK_RPC_UPSTREAM: "https://private-fallback-rpc.example/sepolia",
+      },
+    );
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://target-path-rpc.example/sepolia");
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("https://target-thought-rpc.example/sepolia");
+  });
+
+  test("falls PATH RPC through primary, private fallback, then public fallback", async () => {
+    const fetchMock = jest.fn(async (url: unknown): Promise<MockFetchResponse> => {
+      if (url === "https://path-primary-rpc.example/sepolia") {
+        return {
+          status: 429,
+          text: async () =>
+            JSON.stringify({
+              jsonrpc: "2.0",
+              id: 1,
+              error: { code: 429, message: "Too Many Requests" },
+            }),
+        };
+      }
+      if (url === "https://private-fallback-rpc.example/sepolia") {
+        return {
+          status: 503,
+          text: async () =>
+            JSON.stringify({
+              jsonrpc: "2.0",
+              id: 1,
+              error: { code: -32000, message: "capacity" },
+            }),
+        };
+      }
+      return {
+        status: 200,
+        text: async () => JSON.stringify({ jsonrpc: "2.0", id: 1, result: "0xaa36a7" }),
+      };
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const response = await postPathRpcWithEnv(
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "eth_chainId",
+        params: [],
+      },
+      {
+        PATH_PRIMARY_RPC_UPSTREAM: "https://path-primary-rpc.example/sepolia",
+        PRIVATE_FALLBACK_RPC_UPSTREAM: "https://private-fallback-rpc.example/sepolia",
+        PUBLIC_FALLBACK_RPC_UPSTREAM: "https://public-fallback-rpc.example/sepolia",
+      },
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      jsonrpc: "2.0",
+      id: 1,
+      result: "0xaa36a7",
+    });
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      "https://path-primary-rpc.example/sepolia",
+      "https://path-primary-rpc.example/sepolia",
+      "https://path-primary-rpc.example/sepolia",
+      "https://private-fallback-rpc.example/sepolia",
+      "https://private-fallback-rpc.example/sepolia",
+      "https://private-fallback-rpc.example/sepolia",
+      "https://public-fallback-rpc.example/sepolia",
+    ]);
+  });
+
+  test("keeps the legacy fallback RPC gate on the private fallback only", async () => {
+    const response = await postRpcWithEnv(
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "eth_chainId",
+        params: [],
+      },
+      {
+        PUBLIC_FALLBACK_RPC_UPSTREAM: "https://public-fallback-rpc.example/sepolia",
+      },
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "fallback RPC upstream is not configured.",
+    });
   });
 
   test("caches numbered block reads for sale timestamp lookups", async () => {

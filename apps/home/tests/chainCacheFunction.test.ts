@@ -176,6 +176,7 @@ describe("chain cache Pages functions", () => {
     const response = await onPathTokensGet({
       request: {} as Request,
       env: {
+        PATH_PRIMARY_RPC_UPSTREAM: "https://target-path-rpc.example/sepolia",
         PATH_RPC_UPSTREAM: "https://path-rpc.example/sepolia",
       },
     });
@@ -185,7 +186,7 @@ describe("chain cache Pages functions", () => {
     expect(payload.items?.map((item) => item.tokenIdLabel)).toEqual(["1"]);
     expect(payload.items?.[0]?.metadata.name).toBe("PATH #1");
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://path-rpc.example/sepolia",
+      "https://target-path-rpc.example/sepolia",
       expect.objectContaining({ method: "POST" })
     );
   });

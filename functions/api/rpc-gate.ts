@@ -6,9 +6,19 @@ type RpcPayload = {
 };
 
 type RpcEnv = {
+  PRIVATE_FALLBACK_RPC_UPSTREAM?: string;
+  PUBLIC_FALLBACK_RPC_UPSTREAM?: string;
+  RPC_UPSTREAM_FALLBACK?: string;
+  PATH_PRIMARY_RPC_UPSTREAM?: string;
+  THOUGHT_PRIMARY_RPC_UPSTREAM?: string;
   ETH_RPC_UPSTREAM?: string;
   PATH_RPC_UPSTREAM?: string;
   THOUGHT_RPC_UPSTREAM?: string;
+  PRIVATE_FALLBACK_RPC_LABEL?: string;
+  PUBLIC_FALLBACK_RPC_LABEL?: string;
+  RPC_UPSTREAM_FALLBACK_LABEL?: string;
+  PATH_PRIMARY_RPC_LABEL?: string;
+  THOUGHT_PRIMARY_RPC_LABEL?: string;
   ETH_RPC_LABEL?: string;
   PATH_RPC_LABEL?: string;
   THOUGHT_RPC_LABEL?: string;
@@ -78,6 +88,18 @@ type PreparedPayload = {
   combineResults?: (results: unknown[]) => unknown;
 };
 
+type RpcUpstreamCandidate = {
+  role: string;
+  label: string;
+  url: string;
+};
+
+type RpcRoleSpec = {
+  role: string;
+  upstreamKeys: Array<keyof RpcEnv>;
+  labelKeys: Array<keyof RpcEnv>;
+};
+
 const MAX_BODY_BYTES = 256 * 1024;
 const MAX_BATCH_SIZE = 25;
 const MAX_CACHE_ENTRIES = 400;
@@ -85,6 +107,45 @@ const MAX_CACHEABLE_RESPONSE_BYTES = 128 * 1024;
 const UPSTREAM_RETRY_DELAYS_MS = [150, 450];
 const WARNING_THRESHOLDS = [0.5, 0.7, 0.85, 0.95] as const;
 const DEFAULT_MONTHLY_CU_LIMIT = 30_000_000;
+
+const PRIVATE_FALLBACK_ROLE: RpcRoleSpec = {
+  role: "PRIVATE_FALLBACK_RPC_UPSTREAM",
+  upstreamKeys: ["PRIVATE_FALLBACK_RPC_UPSTREAM", "ETH_RPC_UPSTREAM"],
+  labelKeys: ["PRIVATE_FALLBACK_RPC_LABEL", "ETH_RPC_LABEL"],
+};
+
+const PUBLIC_FALLBACK_ROLE: RpcRoleSpec = {
+  role: "PUBLIC_FALLBACK_RPC_UPSTREAM",
+  upstreamKeys: ["PUBLIC_FALLBACK_RPC_UPSTREAM", "RPC_UPSTREAM_FALLBACK"],
+  labelKeys: ["PUBLIC_FALLBACK_RPC_LABEL", "RPC_UPSTREAM_FALLBACK_LABEL"],
+};
+
+const RPC_ROLE_SPECS: Partial<Record<keyof RpcEnv, RpcRoleSpec>> = {
+  ETH_RPC_UPSTREAM: PRIVATE_FALLBACK_ROLE,
+  PRIVATE_FALLBACK_RPC_UPSTREAM: PRIVATE_FALLBACK_ROLE,
+  PATH_RPC_UPSTREAM: {
+    role: "PATH_PRIMARY_RPC_UPSTREAM",
+    upstreamKeys: ["PATH_PRIMARY_RPC_UPSTREAM", "PATH_RPC_UPSTREAM"],
+    labelKeys: ["PATH_PRIMARY_RPC_LABEL", "PATH_RPC_LABEL"],
+  },
+  PATH_PRIMARY_RPC_UPSTREAM: {
+    role: "PATH_PRIMARY_RPC_UPSTREAM",
+    upstreamKeys: ["PATH_PRIMARY_RPC_UPSTREAM", "PATH_RPC_UPSTREAM"],
+    labelKeys: ["PATH_PRIMARY_RPC_LABEL", "PATH_RPC_LABEL"],
+  },
+  THOUGHT_RPC_UPSTREAM: {
+    role: "THOUGHT_PRIMARY_RPC_UPSTREAM",
+    upstreamKeys: ["THOUGHT_PRIMARY_RPC_UPSTREAM", "THOUGHT_RPC_UPSTREAM"],
+    labelKeys: ["THOUGHT_PRIMARY_RPC_LABEL", "THOUGHT_RPC_LABEL"],
+  },
+  THOUGHT_PRIMARY_RPC_UPSTREAM: {
+    role: "THOUGHT_PRIMARY_RPC_UPSTREAM",
+    upstreamKeys: ["THOUGHT_PRIMARY_RPC_UPSTREAM", "THOUGHT_RPC_UPSTREAM"],
+    labelKeys: ["THOUGHT_PRIMARY_RPC_LABEL", "THOUGHT_RPC_LABEL"],
+  },
+  PUBLIC_FALLBACK_RPC_UPSTREAM: PUBLIC_FALLBACK_ROLE,
+  RPC_UPSTREAM_FALLBACK: PUBLIC_FALLBACK_ROLE,
+};
 
 const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 const PULSE_SALE_TOPIC = "0xa789468a0212cbe853fbdd6011d2ee7d85144ebc1d67c7dd82f087a970d9593d";
@@ -546,7 +607,7 @@ async function fetchPreparedUpstream(upstream: string, prepared: PreparedPayload
     }
     try {
       const parsed = JSON.parse(response.body);
-      if (!isRpcPayload(parsed) || parsed.error || !("result" in parsed)) {
+      if (!isRpcPayload(parsed) || "error" in parsed || !("result" in parsed)) {
         return {
           ...response,
           estimatedCu,
@@ -709,14 +770,41 @@ function recordUsage(context: PagesContext, config: RpcGateConfig, args: {
   }
 }
 
-function upstreamFor(context: PagesContext, config: RpcGateConfig) {
-  const primary = context.env[config.upstreamEnv]?.trim();
-  const fallback = config.fallbackEnv ? context.env[config.fallbackEnv]?.trim() : "";
-  return primary || fallback || "";
+function firstEnvValue(env: RpcEnv, keys: Array<keyof RpcEnv>) {
+  for (const key of keys) {
+    const value = env[key]?.trim();
+    if (value) return value;
+  }
+  return "";
 }
 
-function upstreamLabelFor(context: PagesContext, config: RpcGateConfig) {
-  return context.env[config.labelEnv]?.trim() || config.service;
+function candidateFor(env: RpcEnv, spec: RpcRoleSpec): RpcUpstreamCandidate | null {
+  const url = firstEnvValue(env, spec.upstreamKeys);
+  if (!url) return null;
+  return {
+    role: spec.role,
+    label: firstEnvValue(env, spec.labelKeys) || spec.role,
+    url,
+  };
+}
+
+function upstreamCandidatesFor(context: PagesContext, config: RpcGateConfig) {
+  const specs: RpcRoleSpec[] = [];
+  const primary = RPC_ROLE_SPECS[config.upstreamEnv];
+  if (primary) specs.push(primary);
+  const fallback = config.fallbackEnv ? RPC_ROLE_SPECS[config.fallbackEnv] : null;
+  if (fallback) specs.push(fallback);
+  if (config.service !== "fallback") specs.push(PUBLIC_FALLBACK_ROLE);
+
+  const candidates: RpcUpstreamCandidate[] = [];
+  const seenUrls = new Set<string>();
+  for (const spec of specs) {
+    const candidate = candidateFor(context.env, spec);
+    if (!candidate || seenUrls.has(candidate.url)) continue;
+    seenUrls.add(candidate.url);
+    candidates.push(candidate);
+  }
+  return candidates;
 }
 
 async function readBody(request: Request): Promise<string | Response> {
@@ -760,8 +848,8 @@ export function createRpcGate(config: RpcGateConfig) {
   }
 
   async function onRequestPost(context: PagesContext): Promise<Response> {
-    const upstream = upstreamFor(context, config);
-    if (!upstream) {
+    const upstreamCandidates = upstreamCandidatesFor(context, config);
+    if (!upstreamCandidates.length) {
       return json(500, {
         error: `${config.service} RPC upstream is not configured.`,
       });
@@ -801,10 +889,23 @@ export function createRpcGate(config: RpcGateConfig) {
     }
 
     const startedAt = Date.now();
-    const upstreamResponse = cacheRequest
-      ? await fetchCacheableUpstream(cacheRequest.key, upstream, prepared)
-      : await fetchPreparedUpstream(upstream, prepared);
+    let upstreamResponse: UpstreamResult | null = null;
+    let upstreamCandidate: RpcUpstreamCandidate | null = null;
+    for (const candidate of upstreamCandidates) {
+      upstreamCandidate = candidate;
+      upstreamResponse = cacheRequest
+        ? await fetchCacheableUpstream(`${cacheRequest.key}:${candidate.role}`, candidate.url, prepared)
+        : await fetchPreparedUpstream(candidate.url, prepared);
+      if (!upstreamResponse.retryable || candidate === upstreamCandidates[upstreamCandidates.length - 1]) {
+        break;
+      }
+    }
     const durationMs = Date.now() - startedAt;
+    if (!upstreamResponse || !upstreamCandidate) {
+      return json(500, {
+        error: `${config.service} RPC upstream is not configured.`,
+      });
+    }
 
     if (cacheRequest && upstreamResponse.retryable) {
       const stale = readMemoryCache(cacheRequest.key, true);
@@ -812,7 +913,7 @@ export function createRpcGate(config: RpcGateConfig) {
     }
 
     recordUsage(context, config, {
-      upstreamLabel: upstreamLabelFor(context, config),
+      upstreamLabel: upstreamCandidate.label,
       method: parsedMethodLabel(prepared),
       estimatedCu: upstreamResponse.estimatedCu,
       status: upstreamResponse.status,
@@ -850,6 +951,7 @@ export function createRpcGate(config: RpcGateConfig) {
               "x-inshell-rpc-cache": "miss",
               "x-inshell-rpc-estimated-cu": String(upstreamResponse.estimatedCu),
               "x-inshell-rpc-upstream-calls": String(upstreamResponse.upstreamCalls),
+              "x-inshell-rpc-upstream-role": upstreamCandidate.role,
             }
           );
         }
@@ -865,6 +967,7 @@ export function createRpcGate(config: RpcGateConfig) {
         "x-inshell-rpc-cache": cacheRequest ? "miss" : "bypass",
         "x-inshell-rpc-estimated-cu": String(upstreamResponse.estimatedCu),
         "x-inshell-rpc-upstream-calls": String(upstreamResponse.upstreamCalls),
+        "x-inshell-rpc-upstream-role": upstreamCandidate.role,
       },
     });
   }

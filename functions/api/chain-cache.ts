@@ -4,9 +4,19 @@ type KVNamespaceLike = {
 };
 
 export type ChainCacheEnv = {
+  PRIVATE_FALLBACK_RPC_UPSTREAM?: string;
+  PUBLIC_FALLBACK_RPC_UPSTREAM?: string;
+  RPC_UPSTREAM_FALLBACK?: string;
+  PATH_PRIMARY_RPC_UPSTREAM?: string;
+  THOUGHT_PRIMARY_RPC_UPSTREAM?: string;
   ETH_RPC_UPSTREAM?: string;
   PATH_RPC_UPSTREAM?: string;
   THOUGHT_RPC_UPSTREAM?: string;
+  PRIVATE_FALLBACK_RPC_LABEL?: string;
+  PUBLIC_FALLBACK_RPC_LABEL?: string;
+  RPC_UPSTREAM_FALLBACK_LABEL?: string;
+  PATH_PRIMARY_RPC_LABEL?: string;
+  THOUGHT_PRIMARY_RPC_LABEL?: string;
   ETH_RPC_LABEL?: string;
   PATH_RPC_LABEL?: string;
   THOUGHT_RPC_LABEL?: string;
@@ -36,6 +46,18 @@ type RpcStats = {
 type RpcResponse = {
   result?: unknown;
   error?: { message?: string } | unknown;
+};
+
+type RpcRoleSpec = {
+  role: string;
+  upstreamKeys: Array<keyof ChainCacheEnv>;
+  labelKeys: Array<keyof ChainCacheEnv>;
+};
+
+type RpcUpstreamCandidate = {
+  role: string;
+  label: string;
+  url: string;
 };
 
 type EdgeCachedValue<T> = {
@@ -88,6 +110,30 @@ const OWNER_OF_SELECTOR = "0x6352211e";
 const TOKEN_URI_SELECTOR = "0xc87b56dd";
 const RAW_TEXT_OF_SELECTOR = "0x0f83b426";
 const PROVENANCE_OF_SELECTOR = "0xc0fe387b";
+
+const PRIVATE_FALLBACK_ROLE: RpcRoleSpec = {
+  role: "PRIVATE_FALLBACK_RPC_UPSTREAM",
+  upstreamKeys: ["PRIVATE_FALLBACK_RPC_UPSTREAM", "ETH_RPC_UPSTREAM"],
+  labelKeys: ["PRIVATE_FALLBACK_RPC_LABEL", "ETH_RPC_LABEL"],
+};
+
+const PUBLIC_FALLBACK_ROLE: RpcRoleSpec = {
+  role: "PUBLIC_FALLBACK_RPC_UPSTREAM",
+  upstreamKeys: ["PUBLIC_FALLBACK_RPC_UPSTREAM", "RPC_UPSTREAM_FALLBACK"],
+  labelKeys: ["PUBLIC_FALLBACK_RPC_LABEL", "RPC_UPSTREAM_FALLBACK_LABEL"],
+};
+
+const PATH_PRIMARY_ROLE: RpcRoleSpec = {
+  role: "PATH_PRIMARY_RPC_UPSTREAM",
+  upstreamKeys: ["PATH_PRIMARY_RPC_UPSTREAM", "PATH_RPC_UPSTREAM"],
+  labelKeys: ["PATH_PRIMARY_RPC_LABEL", "PATH_RPC_LABEL"],
+};
+
+const THOUGHT_PRIMARY_ROLE: RpcRoleSpec = {
+  role: "THOUGHT_PRIMARY_RPC_UPSTREAM",
+  upstreamKeys: ["THOUGHT_PRIMARY_RPC_UPSTREAM", "THOUGHT_RPC_UPSTREAM"],
+  labelKeys: ["THOUGHT_PRIMARY_RPC_LABEL", "THOUGHT_RPC_LABEL"],
+};
 
 export type ChainLog = {
   address?: string;
@@ -172,7 +218,7 @@ function safeJsonBody(body: unknown, seen = new WeakSet<object>()): JsonSafe {
     typeof body === "number" ||
     typeof body === "boolean"
   ) {
-    return body;
+    return body as JsonSafe;
   }
   if (typeof body === "bigint") return body.toString();
   if (typeof body !== "object") return null;
@@ -214,8 +260,8 @@ export function createStats(
 ): RpcStats {
   const upstreamLabel =
     service === "path"
-      ? env.PATH_RPC_LABEL || "path"
-      : env.THOUGHT_RPC_LABEL || "thought";
+      ? firstEnvValue(env, PATH_PRIMARY_ROLE.labelKeys) || PATH_PRIMARY_ROLE.role
+      : firstEnvValue(env, THOUGHT_PRIMARY_ROLE.labelKeys) || THOUGHT_PRIMARY_ROLE.role;
   return {
     service,
     route,
@@ -258,11 +304,38 @@ export function emitUsage(ctx: PagesContextLike, stats: RpcStats) {
   else void task;
 }
 
-function rpcUpstream(env: ChainCacheEnv, service: "path" | "thought") {
-  if (service === "path") {
-    return env.PATH_RPC_UPSTREAM || env.ETH_RPC_UPSTREAM || "";
+function firstEnvValue(env: ChainCacheEnv, keys: Array<keyof ChainCacheEnv>) {
+  for (const key of keys) {
+    const raw = env[key];
+    const value = typeof raw === "string" ? raw.trim() : "";
+    if (value) return value;
   }
-  return env.THOUGHT_RPC_UPSTREAM || env.ETH_RPC_UPSTREAM || "";
+  return "";
+}
+
+function candidateFor(env: ChainCacheEnv, spec: RpcRoleSpec): RpcUpstreamCandidate | null {
+  const url = firstEnvValue(env, spec.upstreamKeys);
+  if (!url) return null;
+  return {
+    role: spec.role,
+    label: firstEnvValue(env, spec.labelKeys) || spec.role,
+    url,
+  };
+}
+
+function rpcCandidates(env: ChainCacheEnv, service: "path" | "thought") {
+  const specs = service === "path"
+    ? [PATH_PRIMARY_ROLE, PRIVATE_FALLBACK_ROLE, PUBLIC_FALLBACK_ROLE]
+    : [THOUGHT_PRIMARY_ROLE, PRIVATE_FALLBACK_ROLE, PUBLIC_FALLBACK_ROLE];
+  const candidates: RpcUpstreamCandidate[] = [];
+  const seenUrls = new Set<string>();
+  for (const spec of specs) {
+    const candidate = candidateFor(env, spec);
+    if (!candidate || seenUrls.has(candidate.url)) continue;
+    seenUrls.add(candidate.url);
+    candidates.push(candidate);
+  }
+  return candidates;
 }
 
 function estimateCu(method: string) {
@@ -279,41 +352,51 @@ export async function rpcCall<T>(
   method: string,
   params: unknown[] = [],
 ): Promise<T> {
-  const upstream = rpcUpstream(env, service);
-  if (!upstream) {
+  const upstreams = rpcCandidates(env, service);
+  if (!upstreams.length) {
     throw new Error(`${service} RPC upstream is not configured.`);
   }
 
-  stats.calls += 1;
-  stats.methods[method] = (stats.methods[method] ?? 0) + 1;
-  stats.estimatedCu += estimateCu(method);
+  let lastError: unknown = null;
+  for (const upstream of upstreams) {
+    stats.calls += 1;
+    stats.methods[method] = (stats.methods[method] ?? 0) + 1;
+    stats.estimatedCu += estimateCu(method);
+    stats.upstreamLabel = upstream.label;
 
-  const controller = new globalThis.AbortController();
-  const timeout = setTimeout(() => controller.abort(), RPC_TIMEOUT_MS);
-  try {
-    const response = await fetch(upstream, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: stats.calls,
-        method,
-        params,
-      }),
-      signal: controller.signal,
-    });
-    const parsed = (await response.json().catch(() => null)) as RpcResponse | null;
-    if (!response.ok || !parsed || parsed.error) {
+    const controller = new globalThis.AbortController();
+    const timeout = setTimeout(() => controller.abort(), RPC_TIMEOUT_MS);
+    try {
+      const response = await fetch(upstream.url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: stats.calls,
+          method,
+          params,
+        }),
+        signal: controller.signal,
+      });
+      const parsed = (await response.json().catch(() => null)) as RpcResponse | null;
+      if (response.ok && parsed && !parsed.error) {
+        return parsed.result as T;
+      }
       const message =
         typeof (parsed?.error as any)?.message === "string"
           ? (parsed?.error as any).message
           : `RPC request failed with ${response.status}`;
-      throw new Error(message);
+      lastError = new Error(message);
+      if (!(response.status === 429 || response.status >= 500 || !parsed)) {
+        break;
+      }
+    } catch (error) {
+      lastError = error;
+    } finally {
+      clearTimeout(timeout);
     }
-    return parsed.result as T;
-  } finally {
-    clearTimeout(timeout);
   }
+  throw lastError instanceof Error ? lastError : new Error(`${service} RPC request failed.`);
 }
 
 export async function getBlockNumber(
