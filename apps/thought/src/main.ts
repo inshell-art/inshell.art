@@ -98,8 +98,13 @@ import {
 } from "./thought-preview-policy";
 import { createSingleRequestJsonRpcProvider } from "./rpc-provider";
 
-(globalThis as any).__VITE_ENV__ = import.meta.env;
-maybeInstallCloudflareWebAnalytics({ env: import.meta.env });
+const runtimeEnv = {
+  ...import.meta.env,
+  VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN: import.meta.env.VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN,
+};
+
+(globalThis as any).__VITE_ENV__ = runtimeEnv;
+maybeInstallCloudflareWebAnalytics({ env: runtimeEnv });
 
 type ColorFontFile = {
   colors: Array<{

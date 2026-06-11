@@ -10,8 +10,13 @@ import "@fontsource/source-code-pro/600.css";
 import { maybeInstallCloudflareWebAnalytics } from "@inshell/shared";
 import { WalletProvider } from "@inshell/wallet";
 
-(globalThis as any).__VITE_ENV__ = import.meta.env;
-maybeInstallCloudflareWebAnalytics({ env: import.meta.env });
+const runtimeEnv = {
+  ...import.meta.env,
+  VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN: import.meta.env.VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN,
+};
+
+(globalThis as any).__VITE_ENV__ = runtimeEnv;
+maybeInstallCloudflareWebAnalytics({ env: runtimeEnv });
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
