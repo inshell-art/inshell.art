@@ -434,8 +434,9 @@ function isCloudflareWebAnalyticsHostAllowed(hostname: string): boolean {
 
 function getSharedEnvValue(name: string, env?: Readonly<Record<string, unknown>>): unknown {
   const globalEnv: Record<string, unknown> | undefined = (globalThis as any).__VITE_ENV__;
+  const buildEnv: Record<string, unknown> | undefined = (globalThis as any).__INSHELL_VITE_ENV__;
   const procEnv: Record<string, unknown> | undefined = (globalThis as any)?.process?.env;
-  return env?.[name] ?? globalEnv?.[name] ?? procEnv?.[name];
+  return env?.[name] ?? globalEnv?.[name] ?? buildEnv?.[name] ?? procEnv?.[name];
 }
 
 function readSharedEnvString(

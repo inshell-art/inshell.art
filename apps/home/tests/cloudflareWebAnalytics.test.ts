@@ -12,6 +12,7 @@ describe("Cloudflare Web Analytics install policy", () => {
   beforeEach(() => {
     document.head.innerHTML = "";
     delete (globalThis as any).__VITE_ENV__;
+    delete (globalThis as any).__INSHELL_VITE_ENV__;
   });
 
   test("installs the beacon on production Inshell hosts", () => {
@@ -60,5 +61,19 @@ describe("Cloudflare Web Analytics install policy", () => {
       maybeInstallCloudflareWebAnalytics({ document, env, hostname: "thought.inshell.art" }),
     ).toBe(false);
     expect(document.querySelectorAll(`#${CLOUDFLARE_WEB_ANALYTICS_SCRIPT_ID}`)).toHaveLength(1);
+  });
+
+  test("installs from the build-time Vite env object", () => {
+    (globalThis as any).__INSHELL_VITE_ENV__ = env;
+
+    expect(
+      maybeInstallCloudflareWebAnalytics({ document, hostname: "gallery.inshell.art" }),
+    ).toBe(true);
+
+    expect(
+      document
+        .getElementById(CLOUDFLARE_WEB_ANALYTICS_SCRIPT_ID)
+        ?.getAttribute("data-cf-beacon"),
+    ).toBe(JSON.stringify({ token: env.VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN }));
   });
 });
