@@ -5,6 +5,10 @@ type PreviewRequest = {
 type PagesContext = {
   request: Request;
   env: {
+    PRIVATE_FALLBACK_RPC_UPSTREAM?: string;
+    PUBLIC_FALLBACK_RPC_UPSTREAM?: string;
+    RPC_UPSTREAM_FALLBACK?: string;
+    THOUGHT_PRIMARY_RPC_UPSTREAM?: string;
     ETH_RPC_UPSTREAM?: string;
     THOUGHT_RPC_UPSTREAM?: string;
     THOUGHT_PREVIEW_RPC_UPSTREAM?: string;
@@ -23,6 +27,16 @@ type ContractPreview = {
   text: string;
   svg: string;
   reasonCode: number;
+};
+
+type RpcRoleSpec = {
+  role: string;
+  upstreamKeys: Array<keyof PagesContext["env"]>;
+};
+
+type RpcUpstreamCandidate = {
+  role: string;
+  url: string;
 };
 
 const DEFAULT_THOUGHT_PREVIEW_CHAIN_ID = 11155111;
@@ -57,11 +71,61 @@ const inFlightPreviewCache = new Map<string, Promise<ContractPreview>>();
 const rateLimitEvents = new Map<string, number[]>();
 let cachedChainCheck: { upstream: string; chainId: number; expiresAt: number } | null = null;
 
+const THOUGHT_PREVIEW_ROLE: RpcRoleSpec = {
+  role: "THOUGHT_PREVIEW_RPC_UPSTREAM",
+  upstreamKeys: ["THOUGHT_PREVIEW_RPC_UPSTREAM"],
+};
+
+const THOUGHT_PRIMARY_ROLE: RpcRoleSpec = {
+  role: "THOUGHT_PRIMARY_RPC_UPSTREAM",
+  upstreamKeys: ["THOUGHT_PRIMARY_RPC_UPSTREAM", "THOUGHT_RPC_UPSTREAM"],
+};
+
+const PRIVATE_FALLBACK_ROLE: RpcRoleSpec = {
+  role: "PRIVATE_FALLBACK_RPC_UPSTREAM",
+  upstreamKeys: ["PRIVATE_FALLBACK_RPC_UPSTREAM", "ETH_RPC_UPSTREAM"],
+};
+
+const PUBLIC_FALLBACK_ROLE: RpcRoleSpec = {
+  role: "PUBLIC_FALLBACK_RPC_UPSTREAM",
+  upstreamKeys: ["PUBLIC_FALLBACK_RPC_UPSTREAM", "RPC_UPSTREAM_FALLBACK"],
+};
+
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: JSON_HEADERS,
   });
+}
+
+function firstEnvValue(env: PagesContext["env"], keys: Array<keyof PagesContext["env"]>) {
+  for (const key of keys) {
+    const value = env[key]?.trim();
+    if (value) return value;
+  }
+  return "";
+}
+
+function candidateFor(env: PagesContext["env"], spec: RpcRoleSpec): RpcUpstreamCandidate | null {
+  const url = firstEnvValue(env, spec.upstreamKeys);
+  return url ? { role: spec.role, url } : null;
+}
+
+function rpcCandidates(env: PagesContext["env"]) {
+  const candidates: RpcUpstreamCandidate[] = [];
+  const seenUrls = new Set<string>();
+  for (const spec of [
+    THOUGHT_PREVIEW_ROLE,
+    THOUGHT_PRIMARY_ROLE,
+    PRIVATE_FALLBACK_ROLE,
+    PUBLIC_FALLBACK_ROLE,
+  ]) {
+    const candidate = candidateFor(env, spec);
+    if (!candidate || seenUrls.has(candidate.url)) continue;
+    seenUrls.add(candidate.url);
+    candidates.push(candidate);
+  }
+  return candidates;
 }
 
 function strip0x(value: string) {
@@ -321,13 +385,8 @@ export async function onRequestGet(): Promise<Response> {
 }
 
 export async function onRequestPost(context: PagesContext): Promise<Response> {
-  const upstream = (
-    context.env.THOUGHT_PREVIEW_RPC_UPSTREAM ||
-    context.env.THOUGHT_RPC_UPSTREAM ||
-    context.env.ETH_RPC_UPSTREAM ||
-    ""
-  ).trim();
-  if (!upstream) {
+  const upstreams = rpcCandidates(context.env);
+  if (!upstreams.length) {
     return json(500, {
       error: "THOUGHT preview RPC upstream is not configured.",
     });
@@ -376,12 +435,16 @@ export async function onRequestPost(context: PagesContext): Promise<Response> {
     });
   }
 
-  try {
-    await assertChain(upstream, expectedChainId);
-    return json(200, await previewWithCache(upstream, expectedChainId, thoughtNftAddress, rawReturn));
-  } catch {
-    return json(502, {
-      error: "THOUGHT preview unavailable.",
-    });
+  for (const upstream of upstreams) {
+    try {
+      await assertChain(upstream.url, expectedChainId);
+      return json(200, await previewWithCache(upstream.url, expectedChainId, thoughtNftAddress, rawReturn));
+    } catch {
+      if (upstream === upstreams[upstreams.length - 1]) break;
+    }
   }
+
+  return json(502, {
+    error: "THOUGHT preview unavailable.",
+  });
 }

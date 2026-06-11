@@ -87,6 +87,21 @@ function postPreview(payload: unknown, headers: Record<string, string> = {}): Pr
   });
 }
 
+function postPreviewWithEnv(
+  payload: unknown,
+  env: Record<string, string>,
+  headers: Record<string, string> = {},
+): Promise<Response> {
+  return onRequestPost({
+    request: previewRequest(payload, headers),
+    env: {
+      THOUGHT_PREVIEW_NFT_ADDRESS: "0x413efb5C95Bf3158F0E563FB9E19CB650Fc3760a",
+      THOUGHT_PREVIEW_CHAIN_ID: "11155111",
+      ...env,
+    },
+  });
+}
+
 describe("Cloudflare THOUGHT preview endpoint", () => {
   beforeEach(() => {
     globalThis.Response = TestResponse as unknown as typeof Response;
@@ -174,6 +189,102 @@ describe("Cloudflare THOUGHT preview endpoint", () => {
     expect(ethCallBody.method).toBe("eth_call");
     expect(ethCallBody.params[0].to).toBe("0x413efb5C95Bf3158F0E563FB9E19CB650Fc3760a");
     expect(ethCallBody.params[0].data.startsWith("0xc159a6d9")).toBe(true);
+  });
+
+  test("prefers target THOUGHT primary preview fallback over compatibility alias", async () => {
+    const fetchMock = jest
+      .fn<MockFetch>()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ jsonrpc: "2.0", id: 1, result: "0xaa36a7" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          jsonrpc: "2.0",
+          id: 1,
+          result: encodePreviewResult({
+            ok: true,
+            text: "QUIET SKY",
+            svg: "<svg />",
+            reasonCode: 0,
+          }),
+        }),
+      });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(
+      (
+        await postPreviewWithEnv(
+          { rawReturn: "quiet sky" },
+          {
+            THOUGHT_PRIMARY_RPC_UPSTREAM: "https://target-thought-rpc.example/sepolia",
+            THOUGHT_RPC_UPSTREAM: "https://legacy-thought-rpc.example/sepolia",
+          },
+        )
+      ).json()
+    ).resolves.toMatchObject({
+      ok: true,
+      text: "QUIET SKY",
+    });
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      "https://target-thought-rpc.example/sepolia",
+      "https://target-thought-rpc.example/sepolia",
+    ]);
+  });
+
+  test("falls preview RPC through dedicated preview to THOUGHT primary", async () => {
+    const fetchMock = jest.fn(async (url: unknown): Promise<MockFetchResponse> => {
+      if (url === "https://preview-rpc.example/sepolia") {
+        return {
+          ok: false,
+          json: async () => ({ jsonrpc: "2.0", id: 1, error: { message: "capacity" } }),
+        };
+      }
+      if (url === "https://target-thought-rpc.example/sepolia") {
+        const callIndex = fetchMock.mock.calls.filter((call) => call[0] === url).length;
+        return callIndex === 1
+          ? {
+              ok: true,
+              json: async () => ({ jsonrpc: "2.0", id: 1, result: "0xaa36a7" }),
+            }
+          : {
+              ok: true,
+              json: async () => ({
+                jsonrpc: "2.0",
+                id: 1,
+                result: encodePreviewResult({
+                  ok: true,
+                  text: "QUIET SKY",
+                  svg: "<svg />",
+                  reasonCode: 0,
+                }),
+              }),
+            };
+      }
+      throw new Error("unexpected RPC upstream");
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(
+      (
+        await postPreviewWithEnv(
+          { rawReturn: "quiet sky" },
+          {
+            THOUGHT_PREVIEW_RPC_UPSTREAM: "https://preview-rpc.example/sepolia",
+            THOUGHT_PRIMARY_RPC_UPSTREAM: "https://target-thought-rpc.example/sepolia",
+          },
+        )
+      ).json()
+    ).resolves.toMatchObject({
+      ok: true,
+      text: "QUIET SKY",
+    });
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      "https://preview-rpc.example/sepolia",
+      "https://target-thought-rpc.example/sepolia",
+      "https://target-thought-rpc.example/sepolia",
+    ]);
   });
 
   test("caches matching preview requests", async () => {

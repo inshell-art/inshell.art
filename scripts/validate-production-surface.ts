@@ -525,6 +525,11 @@ function checkCloudflareRpcProxy() {
     "clear-site-data",
   ]);
   requireSnippets("functions/api/rpc-gate.ts", [
+    "PATH_PRIMARY_RPC_UPSTREAM",
+    "THOUGHT_PRIMARY_RPC_UPSTREAM",
+    "PRIVATE_FALLBACK_RPC_UPSTREAM",
+    "PUBLIC_FALLBACK_RPC_UPSTREAM",
+    "RPC_UPSTREAM_FALLBACK",
     "ETH_RPC_UPSTREAM",
     "PATH_RPC_UPSTREAM",
     "THOUGHT_RPC_UPSTREAM",

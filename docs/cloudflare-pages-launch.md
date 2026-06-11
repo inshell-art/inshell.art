@@ -47,13 +47,14 @@ VITE_WALLETCONNECT_PROJECT_ID=<public WalletConnect project id>
 Production secret:
 
 ```text
-PATH_RPC_UPSTREAM=<private Sepolia RPC HTTPS endpoint for PATH reads>
-ETH_RPC_UPSTREAM=<legacy private Sepolia RPC fallback endpoint>
+PATH_PRIMARY_RPC_UPSTREAM=<private Sepolia RPC HTTPS endpoint for PATH/Pulse reads>
+PRIVATE_FALLBACK_RPC_UPSTREAM=<private Sepolia RPC fallback endpoint>
+PUBLIC_FALLBACK_RPC_UPSTREAM=<last-resort public Sepolia RPC endpoint>
 MSG_HUB_RPC_USAGE_ENDPOINT=<optional private usage monitor ingest URL>
 MSG_HUB_RPC_USAGE_TOKEN=<optional private usage monitor bearer token>
 ```
 
-`PATH_RPC_UPSTREAM` is consumed only by the Cloudflare Pages Function at `/api/path-rpc`. Do not expose it as a `VITE_*` variable. `ETH_RPC_UPSTREAM` is a legacy fallback only; `/api/eth-rpc` does not allow `eth_getLogs`.
+`PATH_PRIMARY_RPC_UPSTREAM` is consumed only by Cloudflare Pages Functions such as `/api/path-rpc`, `/api/path-tokens`, and `/api/pulse-auction`. Do not expose it as a `VITE_*` variable. Compatibility aliases are still read during migration: `PATH_RPC_UPSTREAM` for PATH primary, `ETH_RPC_UPSTREAM` for private fallback, and `RPC_UPSTREAM_FALLBACK` for public fallback. Target names win when both are set. `/api/eth-rpc` remains a legacy private fallback only and does not allow `eth_getLogs`.
 
 Remove old Starknet variables from the Cloudflare dashboard:
 
@@ -96,15 +97,16 @@ VITE_THOUGHT_GALLERY_URL=https://gallery.inshell.art/
 Production secret:
 
 ```text
-PATH_RPC_UPSTREAM=<private Sepolia RPC HTTPS endpoint for PATH reads>
-THOUGHT_RPC_UPSTREAM=<private Sepolia RPC HTTPS endpoint for THOUGHT reads and preview fallback>
-ETH_RPC_UPSTREAM=<legacy private Sepolia RPC fallback endpoint>
-THOUGHT_PREVIEW_RPC_UPSTREAM=<private Sepolia RPC HTTPS endpoint>
+PATH_PRIMARY_RPC_UPSTREAM=<private Sepolia RPC HTTPS endpoint for PATH/Pulse reads>
+THOUGHT_PRIMARY_RPC_UPSTREAM=<private Sepolia RPC HTTPS endpoint for THOUGHT reads>
+THOUGHT_PREVIEW_RPC_UPSTREAM=<private Sepolia RPC HTTPS endpoint for public THOUGHT preview>
+PRIVATE_FALLBACK_RPC_UPSTREAM=<private Sepolia RPC fallback endpoint>
+PUBLIC_FALLBACK_RPC_UPSTREAM=<last-resort public Sepolia RPC endpoint>
 MSG_HUB_RPC_USAGE_ENDPOINT=<optional private usage monitor ingest URL>
 MSG_HUB_RPC_USAGE_TOKEN=<optional private usage monitor bearer token>
 ```
 
-`THOUGHT_PREVIEW_RPC_UPSTREAM` can use a dedicated preview RPC key. If it is not set, `/api/thought-preview` falls back to `THOUGHT_RPC_UPSTREAM`, then `ETH_RPC_UPSTREAM`.
+`THOUGHT_PREVIEW_RPC_UPSTREAM` can use a dedicated preview RPC key. If it is not set or fails, `/api/thought-preview` falls back to `THOUGHT_PRIMARY_RPC_UPSTREAM`, then `PRIVATE_FALLBACK_RPC_UPSTREAM`, then `PUBLIC_FALLBACK_RPC_UPSTREAM`. Compatibility aliases are still read during migration: `THOUGHT_RPC_UPSTREAM`, `ETH_RPC_UPSTREAM`, and `RPC_UPSTREAM_FALLBACK`. Target names win when both are set.
 
 Optional THOUGHT preview runtime vars:
 
@@ -203,9 +205,9 @@ functions/api/path-rpc.ts
 functions/api/thought-rpc.ts
 ```
 
-`/api/path-rpc` forwards constrained PATH reads to `PATH_RPC_UPSTREAM`.
-`/api/thought-rpc` forwards constrained THOUGHT reads to `THOUGHT_RPC_UPSTREAM`.
-`/api/eth-rpc` is a legacy read fallback to `ETH_RPC_UPSTREAM`; it does not allow `eth_getLogs`.
+`/api/path-rpc` forwards constrained PATH/Pulse reads to `PATH_PRIMARY_RPC_UPSTREAM`, then private fallback, then public fallback.
+`/api/thought-rpc` forwards constrained THOUGHT reads to `THOUGHT_PRIMARY_RPC_UPSTREAM`, then private fallback, then public fallback.
+`/api/eth-rpc` is a legacy read fallback to `PRIVATE_FALLBACK_RPC_UPSTREAM`; it does not allow `eth_getLogs` and does not use the public fallback.
 
 Allowed methods are read-oriented Ethereum JSON-RPC calls such as:
 
@@ -249,6 +251,6 @@ CLOUDFLARE_ACCOUNT_ID=7fc68967a9445609a0788d8c94e45de0
 CLOUDFLARE_API_TOKEN=<Cloudflare Pages edit token>
 ```
 
-The manual fallback deploy does not need private RPC URLs because the deployed Pages Functions read `PATH_RPC_UPSTREAM`, `THOUGHT_RPC_UPSTREAM`, and the legacy `ETH_RPC_UPSTREAM` fallback from Cloudflare Pages project secrets.
+The manual fallback deploy does not need private RPC URLs because the deployed Pages Functions read `PATH_PRIMARY_RPC_UPSTREAM`, `THOUGHT_PRIMARY_RPC_UPSTREAM`, `PRIVATE_FALLBACK_RPC_UPSTREAM`, and `PUBLIC_FALLBACK_RPC_UPSTREAM` from Cloudflare Pages project secrets. Legacy aliases remain supported during migration.
 
 The workflow's `branch` input is restricted to `staging` or `main`. It checks out the same branch it deploys, so a preview deploy cannot accidentally build production code under a staging label.
