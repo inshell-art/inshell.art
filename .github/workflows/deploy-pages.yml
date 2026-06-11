@@ -74,6 +74,9 @@ jobs:
           test -n "$VITE_WALLET_CHAIN_RPC_URL"
           test -n "$VITE_THOUGHT_URL"
           test -n "$VITE_GALLERY_URL"
+          if [ "${{ github.event.inputs.branch }}" = "main" ]; then
+            test -n "$VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN"
+          fi
       - name: Validate deployment gates
         run: pnpm run check:deployment
       - name: Lint home
@@ -138,6 +141,9 @@ jobs:
           test -n "$VITE_PATH_MINT_URL"
           test -n "$VITE_THOUGHT_DETAIL_BASE_URL"
           test -n "$VITE_GALLERY_URL"
+          if [ "${{ github.event.inputs.branch }}" = "main" ]; then
+            test -n "$VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN"
+          fi
       - name: Validate deployment gates
         run: pnpm run check:deployment
       - name: Test THOUGHT runtime payloads
