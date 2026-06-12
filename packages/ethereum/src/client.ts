@@ -256,7 +256,9 @@ function requiresConfiguredRpc(): boolean {
 }
 
 export function getDefaultProvider(): ProviderInterface {
-  const configuredRpcUrl = getEnv("VITE_ETH_RPC") as string | undefined;
+  const configuredRpcUrl =
+    (getEnv("VITE_PATH_RPC_URL") as string | undefined) ||
+    (getEnv("VITE_ETH_RPC") as string | undefined);
   if (configuredRpcUrl?.trim()) {
     return new JsonRpcProvider(configuredRpcUrl.trim());
   }
@@ -269,7 +271,7 @@ export function getDefaultProvider(): ProviderInterface {
   if (!requiresConfiguredRpc() && isLocalBrowserHost()) {
     return new JsonRpcProvider("http://127.0.0.1:8546");
   }
-  throw new Error("VITE_ETH_RPC is required outside local development.");
+  throw new Error("VITE_PATH_RPC_URL is required outside local development.");
 }
 
 function encodeCall(entrypoint: string, calldata: readonly unknown[] = []): {

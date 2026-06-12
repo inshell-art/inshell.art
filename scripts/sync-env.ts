@@ -66,10 +66,10 @@ if (!ADDR_FILE && !ADDR_URL) {
           resolve(`apps/thought/.env.${net}.local`),
         ];
 
-// RPC (private), always as ETH_RPC consumed uniformly
+    // PATH read RPC for browser-side PATH/Pulse surfaces.
     const lines: string[] = [];
     lines.push(`VITE_NETWORK=${net}`);
-    lines.push(`VITE_ETH_RPC=${RPC}`);
+    lines.push(`VITE_PATH_RPC_URL=${RPC}`);
     if (DEPLOY_BLOCK && String(DEPLOY_BLOCK).trim()) {
       lines.push(`VITE_PULSE_AUCTION_DEPLOY_BLOCK=${DEPLOY_BLOCK}`);
     } else if (net !== "devnet") {

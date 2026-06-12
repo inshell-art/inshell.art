@@ -657,7 +657,8 @@ function resolveChainLabel(chainIdHex: string): string {
 
 function resolveAddChainParams(chainIdHex: string) {
   const normalized = chainIdHex.toLowerCase();
-  const rpcUrl = getEnvValue("VITE_ETH_RPC");
+  const rpcUrl =
+    getEnvValue("VITE_PATH_RPC_URL") ?? getEnvValue("VITE_ETH_RPC");
   const walletRpcUrl = getEnvValue("VITE_WALLET_CHAIN_RPC_URL");
   const rpcUrls = resolveWalletChainRpcUrls({
     chainId: parseChainId(normalized),
@@ -847,7 +848,7 @@ function useProtocolReleaseGuard(params: {
           const actualChainId = await getChainId(prov);
           if (actualChainId !== BigInt(releaseChainId)) {
             throw new Error(
-              `PATH release chain mismatch: expected ${releaseChainId}, RPC returned ${actualChainId.toString()}. Check VITE_ETH_RPC and VITE_NETWORK.`
+              `PATH release chain mismatch: expected ${releaseChainId}, RPC returned ${actualChainId.toString()}. Check VITE_PATH_RPC_URL and VITE_NETWORK.`
             );
           }
         }
@@ -855,7 +856,7 @@ function useProtocolReleaseGuard(params: {
         const code = await getCode(prov, address);
         if (!code || code === "0x") {
           throw new Error(
-            `No PulseAuction code at ${address} on the current RPC. Check VITE_ETH_RPC, VITE_NETWORK, and the imported PATH FE release.`
+            `No PulseAuction code at ${address} on the current RPC. Check VITE_PATH_RPC_URL, VITE_NETWORK, and the imported PATH FE release.`
           );
         }
 

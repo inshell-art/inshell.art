@@ -19,20 +19,29 @@ describe("Ethereum client production RPC guard", () => {
     globalThis.fetch = originalFetch;
   });
 
-  test("uses explicit VITE_ETH_RPC when configured", () => {
+  test("uses explicit VITE_PATH_RPC_URL when configured", () => {
     (globalThis as any).__VITE_ENV__ = {
       VITE_NETWORK: "sepolia",
-      VITE_ETH_RPC: "https://rpc.example/sepolia",
+      VITE_PATH_RPC_URL: "https://path-rpc.example/sepolia",
     };
 
-    expect(providerRpcUrl()).toBe("https://rpc.example/sepolia");
+    expect(providerRpcUrl()).toBe("https://path-rpc.example/sepolia");
+  });
+
+  test("keeps legacy VITE_ETH_RPC as a migration fallback", () => {
+    (globalThis as any).__VITE_ENV__ = {
+      VITE_NETWORK: "sepolia",
+      VITE_ETH_RPC: "https://legacy-rpc.example/sepolia",
+    };
+
+    expect(providerRpcUrl()).toBe("https://legacy-rpc.example/sepolia");
   });
 
   test("allows same-origin RPC proxy URL for production deployments", () => {
     (globalThis as any).__VITE_ENV__ = {
       VITE_NETWORK: "sepolia",
       VITE_PUBLIC_LAUNCH_MODE: "sepolia_invite",
-      VITE_ETH_RPC: "/api/path-rpc",
+      VITE_PATH_RPC_URL: "/api/path-rpc",
     };
 
     expect(providerRpcUrl()).toBe("/api/path-rpc");

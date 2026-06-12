@@ -185,7 +185,7 @@ describe("AuctionCanvas", () => {
       VITE_PATH_ALLOW_DIRECT_AUCTION: "1",
       VITE_PAYMENT_TOKEN: TEST_PAYMENT_TOKEN,
       VITE_PAYMENT_TOKEN_SYMBOL: "ETH",
-      VITE_ETH_RPC: "https://ethereum-sepolia-rpc.publicnode.com",
+      VITE_PATH_RPC_URL: "https://ethereum-sepolia-rpc.publicnode.com",
     };
     mockCallContract.mockReset();
     mockGetBalance.mockReset();
@@ -333,7 +333,7 @@ describe("AuctionCanvas", () => {
       ...(globalThis as any).__VITE_ENV__,
       VITE_NETWORK: "devnet",
       VITE_EXPECTED_CHAIN_ID: "0x7a69",
-      VITE_ETH_RPC: "http://127.0.0.1:8546",
+      VITE_PATH_RPC_URL: "http://127.0.0.1:8546",
       VITE_WALLET_CHAIN_RPC_URL: "",
     };
     mockAuctionCore(mockUseAuctionCore, {
@@ -1991,7 +1991,7 @@ describe("AuctionCanvas", () => {
   test("switch CTA does not register the read-only dapp RPC with wallets", async () => {
     (globalThis as any).__VITE_ENV__ = {
       ...(globalThis as any).__VITE_ENV__,
-      VITE_ETH_RPC: "/api/eth-rpc",
+      VITE_PATH_RPC_URL: "/api/path-rpc",
       VITE_WALLET_CHAIN_RPC_URL: "",
     };
     const request = jest
@@ -2026,7 +2026,7 @@ describe("AuctionCanvas", () => {
   test("switch CTA uses explicit wallet chain RPC when configured", async () => {
     (globalThis as any).__VITE_ENV__ = {
       ...(globalThis as any).__VITE_ENV__,
-      VITE_ETH_RPC: "/api/eth-rpc",
+      VITE_PATH_RPC_URL: "/api/path-rpc",
       VITE_WALLET_CHAIN_RPC_URL: "https://wallet-rpc.example/sepolia",
     };
     const request = jest
@@ -2061,7 +2061,7 @@ describe("AuctionCanvas", () => {
   test("refreshes Sepolia wallet RPC before mint writes", async () => {
     (globalThis as any).__VITE_ENV__ = {
       ...(globalThis as any).__VITE_ENV__,
-      VITE_ETH_RPC: "/api/eth-rpc",
+      VITE_PATH_RPC_URL: "/api/path-rpc",
       VITE_WALLET_CHAIN_RPC_URL: "",
     };
     const request = jest.fn().mockResolvedValue(null);
@@ -2098,7 +2098,7 @@ describe("AuctionCanvas", () => {
       VITE_PATH_ALLOW_DIRECT_AUCTION: "1",
       VITE_PAYMENT_TOKEN: TEST_PAYMENT_TOKEN,
       VITE_PAYMENT_TOKEN_SYMBOL: "ETH",
-      VITE_ETH_RPC: "http://127.0.0.1:8546",
+      VITE_PATH_RPC_URL: "http://127.0.0.1:8546",
       VITE_WALLET_CHAIN_RPC_URL: "",
       VITE_PUBLIC_LAUNCH_MODE: "local",
     };
@@ -2545,7 +2545,7 @@ describe("AuctionCanvas", () => {
       ...(globalThis as any).__VITE_ENV__,
       VITE_NETWORK: "devnet",
       VITE_EXPECTED_CHAIN_ID: "0x7a69",
-      VITE_ETH_RPC: "http://127.0.0.1:8546",
+      VITE_PATH_RPC_URL: "http://127.0.0.1:8546",
       VITE_WALLET_CHAIN_RPC_URL: "",
       VITE_PAYTOKEN: ZERO_ADDRESS,
       VITE_PUBLIC_LAUNCH_MODE: "local",
@@ -2639,7 +2639,7 @@ describe("AuctionCanvas", () => {
       ...(globalThis as any).__VITE_ENV__,
       VITE_NETWORK: "sepolia",
       VITE_EXPECTED_CHAIN_ID: "0xaa36a7",
-      VITE_ETH_RPC: "http://127.0.0.1:8546",
+      VITE_PATH_RPC_URL: "http://127.0.0.1:8546",
       VITE_PAYTOKEN: ZERO_ADDRESS,
       VITE_PAYMENT_TOKEN: ZERO_ADDRESS,
       VITE_PAYMENT_TOKEN_SYMBOL: "ETH",
@@ -2969,7 +2969,7 @@ describe("AuctionCanvas", () => {
     });
     (globalThis as any).__VITE_ENV__ = {
       ...(globalThis as any).__VITE_ENV__,
-      VITE_ETH_RPC: "/api/path-rpc",
+      VITE_PATH_RPC_URL: "/api/path-rpc",
       VITE_WALLET_CHAIN_RPC_URL: "",
       VITE_PUBLIC_LAUNCH_MODE: "sepolia_invite",
       VITE_REPORT_BUG_URL: "https://github.com/inshell-art/inshell.art/issues/new",
