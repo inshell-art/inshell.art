@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, jest, test } from "@jest/globals";
 import {
+  clearChainCacheForTest,
   createStats,
   createChainCacheDiagnostics,
   getLogsChunked,
@@ -11,7 +12,9 @@ import {
   writeSnapshot,
   type IndexedSnapshot,
 } from "../../../functions/api/chain-cache";
+import { onRequestPost as onIndexerRefreshPost } from "../../../functions/api/indexer/refresh";
 import { onRequestGet as onPathTokensGet } from "../../../functions/api/path-tokens";
+import { onRequestGet as onPulseAuctionGet } from "../../../functions/api/pulse-auction";
 import { onRequestGet as onThoughtImageGet } from "../../../functions/api/thought-image";
 import { onRequestGet as onThoughtProvenanceGet } from "../../../functions/api/thought-provenance";
 import { onRequestGet as onThoughtSpecGet } from "../../../functions/api/thought-spec";
@@ -25,6 +28,9 @@ const OWNER = "0x1111222233334444555566667777888899990000";
 const PATH_NFT = "0x84915746a1f06850CF41a3E90C60c2DcA3fa116D";
 const TRANSFER_TOPIC =
   "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+const PULSE_SALE_TOPIC =
+  "0xa789468a0212cbe853fbdd6011d2ee7d85144ebc1d67c7dd82f087a970d9593d";
+const PULSE_AUCTION = "0x1071e99928Bdf020794a5E3e5B9c920450Ac9b39";
 const ZERO_TOPIC =
   "0x0000000000000000000000000000000000000000000000000000000000000000";
 
@@ -69,6 +75,44 @@ function rpcError(status: number, message: string) {
     ok: false,
     status,
     json: async () => ({ jsonrpc: "2.0", id: 1, error: { message } }),
+  };
+}
+
+function createD1Mock(seed: Record<string, unknown> = {}) {
+  const rows = new Map<string, string>(
+    Object.entries(seed).map(([key, value]) => [key, JSON.stringify(value)]),
+  );
+  const exec = jest.fn(async () => undefined);
+  const prepare = jest.fn((query: string) => {
+    let bound: unknown[] = [];
+    const statement = {
+      bind: (...values: unknown[]) => {
+        bound = values;
+        return statement;
+      },
+      first: jest.fn(async () => {
+        if (/select\s+snapshot_json/i.test(query)) {
+          const key = String(bound[0] ?? "");
+          const snapshot_json = rows.get(key);
+          return snapshot_json ? { snapshot_json } : null;
+        }
+        return null;
+      }),
+      run: jest.fn(async () => {
+        if (/insert\s+into\s+chain_snapshots/i.test(query)) {
+          rows.set(String(bound[0] ?? ""), String(bound[1] ?? ""));
+        }
+        return {};
+      }),
+    };
+    return statement;
+  });
+  return {
+    rows,
+    db: {
+      exec,
+      prepare,
+    },
   };
 }
 
@@ -126,14 +170,23 @@ class TestResponse {
 
 class TestRequest {
   url: string;
+  headers: TestHeaders;
+  private readonly bodyText: string;
 
-  constructor(url: string) {
+  constructor(url: string, init?: { headers?: Record<string, string>; body?: string }) {
     this.url = String(url);
+    this.headers = new TestHeaders(init?.headers);
+    this.bodyText = init?.body ?? "";
+  }
+
+  async json(): Promise<unknown> {
+    return JSON.parse(this.bodyText);
   }
 }
 
 describe("chain cache Pages functions", () => {
   afterEach(() => {
+    clearChainCacheForTest();
     globalThis.fetch = originalFetch;
     globalThis.Request = originalRequest;
     globalThis.Response = originalResponse;
@@ -270,6 +323,88 @@ describe("chain cache Pages functions", () => {
     expect(diagnostics.source).toBe("live");
   });
 
+  test("reads D1 snapshots before KV snapshots", async () => {
+    const d1Snapshot: IndexedSnapshot<{ id: string }> = {
+      version: 1,
+      cachedAt: Date.now() - 120_000,
+      chainId: 11155111,
+      contract: PATH_NFT,
+      fromBlock: 1,
+      lastScannedBlock: 99,
+      items: [{ id: "d1" }],
+    };
+    const d1 = createD1Mock({ "d1-test": d1Snapshot });
+    const kvGet = jest.fn(async () => {
+      throw new Error("KV should not be read when D1 has the snapshot");
+    });
+    const diagnostics = createChainCacheDiagnostics("d1-test");
+
+    const snapshot = await readSnapshot<{ id: string }>(
+      {
+        INSHELL_CHAIN_DATA_DB: d1.db,
+        INSHELL_CHAIN_DATA_KV: {
+          get: kvGet,
+          put: jest.fn(),
+        },
+      },
+      "d1-test",
+      diagnostics,
+    );
+
+    expect(snapshot?.items).toEqual([{ id: "d1" }]);
+    expect(kvGet).not.toHaveBeenCalled();
+    expect(diagnostics.source).toBe("d1");
+    expect(diagnostics.dbRead).toBe(1);
+    expect(diagnostics.kvRead).toBe(0);
+  });
+
+  test("serves pulse auction D1 read model without live RPC", async () => {
+    globalThis.Request = TestRequest as unknown as typeof Request;
+    globalThis.Response = TestResponse as unknown as typeof Response;
+    globalThis.Headers = TestHeaders as unknown as typeof Headers;
+    (globalThis as any).caches = undefined;
+    const d1Snapshot: IndexedSnapshot<{
+      key: string;
+      atMs: number;
+      amount: { raw: { low: string; high: string }; dec: string };
+    }> = {
+      version: 1,
+      cachedAt: Date.now() - 120_000,
+      chainId: 11155111,
+      contract: PULSE_AUCTION,
+      fromBlock: 10854123,
+      lastScannedBlock: 10870000,
+      items: [
+        {
+          key: "tx:cached",
+          atMs: 1_780_000_000_000,
+          amount: { raw: { low: "1", high: "0" }, dec: "1" },
+        },
+      ],
+    };
+    const d1 = createD1Mock({ "pulse-auction:v1:sepolia": d1Snapshot });
+    const fetchMock = jest.fn(async () => {
+      throw new Error("live RPC should not be called for a D1 read model hit");
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const response = await onPulseAuctionGet({
+      request: new Request("https://preview.inshell.art/api/pulse-auction"),
+      env: {
+        INSHELL_CHAIN_DATA_DB: d1.db,
+        CHAIN_CACHE_DIAGNOSTICS: "1",
+      },
+    });
+    const payload = (await response.json()) as { bids?: Array<{ key: string }> };
+
+    expect(response.status).toBe(200);
+    expect(payload.bids?.map((bid) => bid.key)).toEqual(["tx:cached"]);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(response.headers.get("x-chain-cache-source")).toBe("d1");
+    expect(response.headers.get("x-db-read")).toBe("1");
+    expect(response.headers.get("x-live-rpc-calls")).toBe("0");
+  });
+
   test("skips KV writes when snapshot content is unchanged and recent", async () => {
     const put = jest.fn(async () => undefined);
     const waited: Promise<unknown>[] = [];
@@ -312,6 +447,119 @@ describe("chain cache Pages functions", () => {
 
     expect(put).not.toHaveBeenCalled();
     expect(diagnostics.kvWrite).toBe(0);
+  });
+
+  test("writes changed snapshots to D1 read model", async () => {
+    const d1 = createD1Mock();
+    const waited: Promise<unknown>[] = [];
+    const previous: IndexedSnapshot<{ id: string }> = {
+      version: 1,
+      cachedAt: Date.now(),
+      chainId: 11155111,
+      contract: PATH_NFT,
+      fromBlock: 1,
+      lastScannedBlock: 10,
+      items: [{ id: "1" }],
+    };
+    const next: IndexedSnapshot<{ id: string }> = {
+      ...previous,
+      cachedAt: Date.now() + 1000,
+      lastScannedBlock: 20,
+    };
+    const diagnostics = createChainCacheDiagnostics("d1-write-test");
+
+    await writeSnapshot(
+      {
+        request: { url: "https://preview.inshell.art/api/path-tokens" } as Request,
+        env: { INSHELL_CHAIN_DATA_DB: d1.db },
+        waitUntil: (promise) => {
+          waited.push(promise);
+        },
+      },
+      "d1-write-test",
+      next,
+      0,
+      diagnostics,
+      previous,
+    );
+    await Promise.all(waited);
+    const stored = JSON.parse(d1.rows.get("d1-write-test") ?? "{}") as IndexedSnapshot<{ id: string }>;
+
+    expect(stored.lastScannedBlock).toBe(20);
+    expect(diagnostics.dbWrite).toBe(1);
+  });
+
+  test("public tx refresh updates the pulse auction read model", async () => {
+    globalThis.Request = TestRequest as unknown as typeof Request;
+    globalThis.Response = TestResponse as unknown as typeof Response;
+    globalThis.Headers = TestHeaders as unknown as typeof Headers;
+    (globalThis as any).caches = undefined;
+    const txHash = `0x${"abc".padStart(64, "0")}`;
+    const d1 = createD1Mock({
+      "pulse-auction:v1:sepolia": {
+        version: 1,
+        cachedAt: Date.now() - 120_000,
+        chainId: 11155111,
+        contract: PULSE_AUCTION,
+        fromBlock: 10854123,
+        lastScannedBlock: 10860000,
+        items: [],
+      } satisfies IndexedSnapshot<unknown>,
+    });
+    const fetchMock = jest.fn(async (_url: unknown, init?: any) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        method?: string;
+      };
+      if (body.method === "eth_getTransactionReceipt") {
+        return rpcResponse({
+          transactionHash: txHash,
+          to: PULSE_AUCTION,
+          blockNumber: "0xa5a7ec",
+          status: "0x1",
+        });
+      }
+      if (body.method === "eth_blockNumber") {
+        return rpcResponse("0xa5a7ef");
+      }
+      if (body.method === "eth_getLogs") {
+        return rpcResponse([
+          {
+            address: PULSE_AUCTION,
+            blockNumber: "0xa5a7ec",
+            data: `0x${word(12n)}${word(1_780_000_000n)}${word(1_779_000_000n)}${word(3n)}`,
+            logIndex: "0x2",
+            topics: [PULSE_SALE_TOPIC, addressTopic(OWNER), tokenTopic(1n)],
+            transactionHash: txHash,
+          },
+        ]);
+      }
+      throw new Error(`unexpected RPC method ${body.method}`);
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const response = await onIndexerRefreshPost({
+      request: new Request("https://preview.inshell.art/api/indexer/refresh", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ target: "pulse-auction", tx: txHash }),
+      }),
+      env: {
+        INSHELL_CHAIN_DATA_DB: d1.db,
+        PATH_PRIMARY_RPC_UPSTREAM: "https://path-rpc.example/sepolia",
+        CHAIN_CACHE_DIAGNOSTICS: "1",
+      },
+    });
+    const payload = (await response.json()) as { ok?: boolean; results?: Array<{ items: number }> };
+    const stored = JSON.parse(d1.rows.get("pulse-auction:v1:sepolia") ?? "{}") as {
+      items?: Array<{ txHash?: string; amount?: { dec?: string } }>;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.ok).toBe(true);
+    expect(payload.results?.[0]?.items).toBe(1);
+    expect(stored.items?.[0]?.txHash).toBe(txHash);
+    expect(stored.items?.[0]?.amount?.dec).toBe("12");
+    expect(response.headers.get("x-live-rpc-calls")).toBe("3");
   });
 
   test("writes KV when snapshot content changes", async () => {

@@ -3,6 +3,17 @@ type KVNamespaceLike = {
   put: (key: string, value: string, options?: { expirationTtl?: number }) => Promise<void>;
 };
 
+type D1PreparedStatementLike = {
+  bind: (...values: unknown[]) => D1PreparedStatementLike;
+  first: <T = unknown>() => Promise<T | null>;
+  run: () => Promise<unknown>;
+};
+
+type D1DatabaseLike = {
+  exec?: (query: string) => Promise<unknown>;
+  prepare: (query: string) => D1PreparedStatementLike;
+};
+
 export type ChainCacheEnv = {
   PRIVATE_FALLBACK_RPC_UPSTREAM?: string;
   PUBLIC_FALLBACK_RPC_UPSTREAM?: string;
@@ -25,6 +36,8 @@ export type ChainCacheEnv = {
   MSG_HUB_RPC_USAGE_ENDPOINT?: string;
   MSG_HUB_RPC_USAGE_TOKEN?: string;
   INSHELL_CHAIN_DATA_KV?: KVNamespaceLike;
+  INSHELL_CHAIN_DATA_DB?: D1DatabaseLike;
+  INSHELL_INDEXER_REFRESH_TOKEN?: string;
   CHAIN_CACHE_DIAGNOSTICS?: string;
 };
 
@@ -65,13 +78,15 @@ type EdgeCachedValue<T> = {
   value: T;
 };
 
-type ChainCacheSource = "memory" | "edge" | "kv" | "live";
+type ChainCacheSource = "memory" | "edge" | "d1" | "kv" | "live";
 
 export type ChainCacheDiagnostics = {
   source: ChainCacheSource;
   key: string;
   kvRead: 0 | 1;
   kvWrite: 0 | 1;
+  dbRead: 0 | 1;
+  dbWrite: 0 | 1;
   liveRpcCalls: number;
   snapshotBlock?: number;
 };
@@ -91,6 +106,7 @@ const EDGE_CACHE_PREFIX = "https://inshell.local/chain-cache/";
 const RESPONSE_CACHE_PREFIX = "https://inshell.local/chain-response/";
 const KV_SNAPSHOT_TTL_SECONDS = 30 * 24 * 60 * 60;
 const KV_WRITE_MIN_INTERVAL_SECONDS = 10 * 60;
+const D1_SNAPSHOT_TABLE = "chain_snapshots";
 
 export const SEPOLIA_CHAIN_ID = 11155111;
 export const PATH_NFT_ADDRESS = "0x84915746a1f06850CF41a3E90C60c2DcA3fa116D";
@@ -143,6 +159,13 @@ export type ChainLog = {
   logIndex?: string;
   removed?: boolean;
   topics: string[];
+  transactionHash?: string;
+};
+
+export type TransactionReceiptLike = {
+  blockNumber?: string;
+  status?: string;
+  to?: string;
   transactionHash?: string;
 };
 
@@ -449,6 +472,21 @@ export async function getLogsChunked(
   return out;
 }
 
+export async function getTransactionReceipt(
+  env: ChainCacheEnv,
+  service: "path" | "thought",
+  stats: RpcStats,
+  txHash: string,
+) {
+  return rpcCall<TransactionReceiptLike | null>(
+    env,
+    service,
+    stats,
+    "eth_getTransactionReceipt",
+    [txHash],
+  );
+}
+
 export async function readSnapshot<T>(
   env: ChainCacheEnv,
   key: string,
@@ -471,6 +509,16 @@ export async function readSnapshot<T>(
       diagnostics.snapshotBlock = snapshotBlock(edge);
     }
     return edge;
+  }
+
+  const fromD1 = await readD1Snapshot<T>(env, key, diagnostics);
+  if (fromD1) {
+    memoryCache.set(key, { cachedAt: Date.now(), value: fromD1 });
+    if (diagnostics) {
+      diagnostics.source = "d1";
+      diagnostics.snapshotBlock = snapshotBlock(fromD1);
+    }
+    return fromD1;
   }
 
   try {
@@ -502,6 +550,10 @@ export async function writeSnapshot<T>(
   if (diagnostics) diagnostics.snapshotBlock = snapshot.lastScannedBlock;
 
   const tasks: Array<Promise<unknown>> = [writeEdgeCache(key, snapshot, edgeTtlSeconds)];
+  if (ctx.env.INSHELL_CHAIN_DATA_DB && shouldWriteD1Snapshot(previous ?? null, snapshot)) {
+    if (diagnostics) diagnostics.dbWrite = 1;
+    tasks.push(writeD1Snapshot(ctx.env, key, snapshot));
+  }
   const shouldPersist = shouldWriteKvSnapshot(previous ?? null, snapshot);
   if (shouldPersist && ctx.env.INSHELL_CHAIN_DATA_KV) {
     if (diagnostics) diagnostics.kvWrite = 1;
@@ -522,8 +574,14 @@ export function createChainCacheDiagnostics(key: string): ChainCacheDiagnostics 
     key,
     kvRead: 0,
     kvWrite: 0,
+    dbRead: 0,
+    dbWrite: 0,
     liveRpcCalls: 0,
   };
+}
+
+export function readModelEnabled(env: ChainCacheEnv) {
+  return Boolean(env.INSHELL_CHAIN_DATA_DB);
 }
 
 export async function readResponseCache(
@@ -574,6 +632,8 @@ export function withChainCacheDiagnostics(
   out.headers.set("x-chain-cache-key", diagnostics.key);
   out.headers.set("x-kv-read", String(diagnostics.kvRead));
   out.headers.set("x-kv-write", String(diagnostics.kvWrite));
+  out.headers.set("x-db-read", String(diagnostics.dbRead));
+  out.headers.set("x-db-write", String(diagnostics.dbWrite));
   out.headers.set("x-live-rpc-calls", String(liveRpcCalls));
   if (typeof block === "number") {
     out.headers.set("x-cache-snapshot-block", String(block));
@@ -690,6 +750,10 @@ export function topicToBigInt(topic: string | undefined) {
 export function hexToNumber(value: string | undefined) {
   if (!value) return 0;
   return Number(BigInt(value));
+}
+
+export function isTxHash(value: string | null | undefined) {
+  return typeof value === "string" && /^0x[a-fA-F0-9]{64}$/.test(value);
 }
 
 export function lower(value: string | undefined) {
@@ -828,6 +892,11 @@ function hexToBytes(hex: string) {
 }
 
 const memoryCache = new Map<string, EdgeCachedValue<unknown>>();
+const ensuredD1Tables = new WeakSet<object>();
+
+export function clearChainCacheForTest() {
+  memoryCache.clear();
+}
 
 async function readEdgeCache<T>(key: string): Promise<T | null> {
   const cache = (globalThis as any).caches?.default;
@@ -873,6 +942,80 @@ function snapshotBlock(value: unknown) {
   return typeof block === "number" && Number.isFinite(block) ? block : undefined;
 }
 
+async function ensureD1SnapshotTable(db: D1DatabaseLike) {
+  if (!db.exec || ensuredD1Tables.has(db as object)) return;
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS ${D1_SNAPSHOT_TABLE} (
+      key TEXT PRIMARY KEY,
+      snapshot_json TEXT NOT NULL,
+      cached_at INTEGER NOT NULL,
+      last_scanned_block INTEGER NOT NULL,
+      content_hash TEXT NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+  `);
+  ensuredD1Tables.add(db as object);
+}
+
+async function readD1Snapshot<T>(
+  env: ChainCacheEnv,
+  key: string,
+  diagnostics?: ChainCacheDiagnostics,
+): Promise<IndexedSnapshot<T> | null> {
+  const db = env.INSHELL_CHAIN_DATA_DB;
+  if (!db) return null;
+  try {
+    await ensureD1SnapshotTable(db);
+    if (diagnostics) diagnostics.dbRead = 1;
+    const row = await db
+      .prepare(`SELECT snapshot_json FROM ${D1_SNAPSHOT_TABLE} WHERE key = ?1`)
+      .bind(key)
+      .first<{ snapshot_json?: string }>();
+    const raw = row?.snapshot_json;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object") return parsed as IndexedSnapshot<T>;
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+async function writeD1Snapshot<T>(
+  env: ChainCacheEnv,
+  key: string,
+  snapshot: IndexedSnapshot<T>,
+) {
+  const db = env.INSHELL_CHAIN_DATA_DB;
+  if (!db) return;
+  try {
+    await ensureD1SnapshotTable(db);
+    await db
+      .prepare(`
+        INSERT INTO ${D1_SNAPSHOT_TABLE}
+          (key, snapshot_json, cached_at, last_scanned_block, content_hash, updated_at)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+        ON CONFLICT(key) DO UPDATE SET
+          snapshot_json = excluded.snapshot_json,
+          cached_at = excluded.cached_at,
+          last_scanned_block = excluded.last_scanned_block,
+          content_hash = excluded.content_hash,
+          updated_at = excluded.updated_at
+      `)
+      .bind(
+        key,
+        JSON.stringify(snapshot),
+        snapshot.cachedAt,
+        snapshot.lastScannedBlock,
+        snapshotContent(snapshot),
+        Date.now(),
+      )
+      .run();
+  } catch {
+    // D1 is a read-model optimization; edge/KV/live fallback still serve the route.
+  }
+}
+
 function shouldWriteKvSnapshot<T>(
   previous: IndexedSnapshot<T> | null,
   snapshot: IndexedSnapshot<T>,
@@ -880,6 +1023,15 @@ function shouldWriteKvSnapshot<T>(
   if (!previous) return true;
   if (snapshotContent(previous) !== snapshotContent(snapshot)) return true;
   return Date.now() - previous.cachedAt >= KV_WRITE_MIN_INTERVAL_SECONDS * 1000;
+}
+
+function shouldWriteD1Snapshot<T>(
+  previous: IndexedSnapshot<T> | null,
+  snapshot: IndexedSnapshot<T>,
+) {
+  if (!previous) return true;
+  if (previous.lastScannedBlock !== snapshot.lastScannedBlock) return true;
+  return snapshotContent(previous) !== snapshotContent(snapshot);
 }
 
 function snapshotContent<T>(snapshot: IndexedSnapshot<T>) {

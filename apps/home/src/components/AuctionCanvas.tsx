@@ -24,6 +24,7 @@ import {
 } from "@inshell/utils";
 import type { AuctionSnapshot } from "@/types/types";
 import type { NormalizedBid } from "@/services/auction/bidsService";
+import { requestPulseAuctionRefresh } from "@/services/chainIndexer";
 import { clearPathTokenInventoryCache } from "@/services/pathTokens";
 import { useAuctionCore } from "@/hooks/useAuctionCore";
 import {
@@ -4386,6 +4387,10 @@ export default function AuctionCanvas({
     setCurrentAskQuoteDec(null);
     postMintNowTipPendingRef.current = true;
     postMintNowTipBaseCurveKeyRef.current = initialAskTipCurveKeyRef.current;
+    void requestPulseAuctionRefresh(hash).then(() => {
+      void pullBidsOnce();
+      void refreshCore();
+    });
     void pullBidsOnce();
     void refreshCore();
     window.setTimeout(() => void pullBidsOnce(), 2_000);
