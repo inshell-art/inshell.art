@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, jest, test } from "@jest/globals";
 import {
+  createStats,
   createChainCacheDiagnostics,
+  getLogsChunked,
   json,
   readResponseCache,
   readSnapshot,
@@ -57,7 +59,16 @@ function encodeAddressResult(address: string) {
 function rpcResponse(result: unknown) {
   return {
     ok: true,
+    status: 200,
     json: async () => ({ jsonrpc: "2.0", id: 1, result }),
+  };
+}
+
+function rpcError(status: number, message: string) {
+  return {
+    ok: false,
+    status,
+    json: async () => ({ jsonrpc: "2.0", id: 1, error: { message } }),
   };
 }
 
@@ -189,6 +200,54 @@ describe("chain cache Pages functions", () => {
       "https://target-path-rpc.example/sepolia",
       expect.objectContaining({ method: "POST" })
     );
+  });
+
+  test("falls back when primary PATH RPC rejects eth_getLogs block ranges", async () => {
+    const fetchMock = jest.fn(async (url: unknown, init?: any) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        method?: string;
+      };
+      if (body.method !== "eth_getLogs") throw new Error(`unexpected RPC method ${body.method}`);
+      if (url === "https://target-path-rpc.example/sepolia") {
+        return rpcError(
+          400,
+          "Under the Free tier plan, you can make eth_getLogs requests with up to a 10 block range.",
+        );
+      }
+      if (url === "https://public-fallback-rpc.example/sepolia") {
+        return rpcResponse([
+          {
+            address: PATH_NFT,
+            blockNumber: "0xa5a7ec",
+            data: "0x",
+            logIndex: "0x0",
+            topics: [TRANSFER_TOPIC, ZERO_TOPIC, addressTopic(OWNER), tokenTopic(1n)],
+            transactionHash: `0x${"1".padStart(64, "0")}`,
+          },
+        ]);
+      }
+      throw new Error(`unexpected RPC upstream ${String(url)}`);
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const env = {
+      PATH_PRIMARY_RPC_UPSTREAM: "https://target-path-rpc.example/sepolia",
+      PUBLIC_FALLBACK_RPC_UPSTREAM: "https://public-fallback-rpc.example/sepolia",
+    };
+    const stats = createStats("path", "pulse-auction", env);
+
+    const logs = await getLogsChunked(env, "path", stats, {
+      address: PATH_NFT,
+      fromBlock: 100,
+      toBlock: 5099,
+      topics: [TRANSFER_TOPIC],
+    });
+
+    expect(logs).toHaveLength(1);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "https://target-path-rpc.example/sepolia",
+      "https://public-fallback-rpc.example/sepolia",
+    ]);
+    expect(stats.calls).toBe(2);
   });
 
   test("does not fail open when KV is quota limited", async () => {

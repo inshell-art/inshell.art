@@ -345,6 +345,18 @@ function estimateCu(method: string) {
   return 10;
 }
 
+function shouldTryNextRpcUpstream(method: string, status: number, message: string) {
+  if (status === 429 || status >= 500) return true;
+  if (method !== "eth_getLogs" || status !== 400) return false;
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("block range") ||
+    normalized.includes("free tier") ||
+    normalized.includes("range should work") ||
+    normalized.includes("too many blocks")
+  );
+}
+
 export async function rpcCall<T>(
   env: ChainCacheEnv,
   service: "path" | "thought",
@@ -387,7 +399,7 @@ export async function rpcCall<T>(
           ? (parsed?.error as any).message
           : `RPC request failed with ${response.status}`;
       lastError = new Error(message);
-      if (!(response.status === 429 || response.status >= 500 || !parsed)) {
+      if (!(shouldTryNextRpcUpstream(method, response.status, message) || !parsed)) {
         break;
       }
     } catch (error) {
