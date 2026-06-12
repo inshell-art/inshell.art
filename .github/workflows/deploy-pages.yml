@@ -44,7 +44,7 @@ jobs:
       VITE_REPORT_BUG_URL: ${{ vars.VITE_REPORT_BUG_URL || 'https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md' }}
       VITE_GITHUB_URL: ${{ vars.VITE_GITHUB_URL || 'https://github.com/inshell-art/' }}
       VITE_DEBUG_PANEL: ${{ vars.VITE_DEBUG_PANEL || 'off' }}
-      VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN: ${{ github.event.inputs.branch == 'main' && vars.VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN || '' }}
+      VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN: ${{ github.event.inputs.branch == 'main' && (vars.VITE_CLOUDFLARE_WEB_ANALYTICS_HOME_TOKEN || vars.VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN) || '' }}
       VITE_THOUGHT_URL: ${{ github.event.inputs.branch == 'staging' && 'https://thought.preview.inshell.art/' || vars.VITE_THOUGHT_URL || 'https://thought.inshell.art/' }}
       VITE_GALLERY_URL: ${{ github.event.inputs.branch == 'staging' && 'https://gallery.preview.inshell.art/' || vars.VITE_GALLERY_URL || vars.VITE_THOUGHT_GALLERY_URL || 'https://gallery.inshell.art/' }}
       VITE_THOUGHT_GALLERY_URL: ${{ github.event.inputs.branch == 'staging' && 'https://gallery.preview.inshell.art/' || vars.VITE_GALLERY_URL || vars.VITE_THOUGHT_GALLERY_URL || 'https://gallery.inshell.art/' }}
@@ -116,7 +116,7 @@ jobs:
       VITE_PUBLIC_LAUNCH_MODE: ${{ vars.VITE_PUBLIC_LAUNCH_MODE || 'sepolia_invite' }}
       VITE_REPORT_BUG_URL: ${{ vars.VITE_REPORT_BUG_URL || 'https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md' }}
       VITE_GITHUB_URL: ${{ vars.VITE_GITHUB_URL || 'https://github.com/inshell-art/' }}
-      VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN: ${{ github.event.inputs.branch == 'main' && vars.VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN || '' }}
+      VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN: ${{ github.event.inputs.branch == 'main' && (vars.VITE_CLOUDFLARE_WEB_ANALYTICS_THOUGHT_TOKEN || vars.VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN) || '' }}
     steps:
       - uses: actions/checkout@v6
         with:
