@@ -25,7 +25,7 @@ const DEPLOY_WORKFLOW_SNIPPETS = [
   "CLOUDFLARE_ACCOUNT_ID",
   "CLOUDFLARE_PAGES_PROJECT_HOME",
   "CLOUDFLARE_PAGES_PROJECT_THOUGHT",
-  "VITE_ETH_RPC",
+  "VITE_PATH_RPC_URL",
   "VITE_THOUGHT_RPC_URL",
   "VITE_THOUGHT_PREVIEW_ENDPOINT_ENABLED",
   "VITE_THOUGHT_PREVIEW_ENDPOINT_URL",
@@ -370,7 +370,7 @@ function checkEthereumRpcGuard() {
   const text = read("packages/ethereum/src/client.ts");
   for (const snippet of [
     "requiresConfiguredRpc",
-    "VITE_ETH_RPC is required outside local development.",
+    "VITE_PATH_RPC_URL is required outside local development.",
     "isLocalBrowserHost",
   ]) {
     if (!text.includes(snippet)) {

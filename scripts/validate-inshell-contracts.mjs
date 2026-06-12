@@ -188,6 +188,7 @@ function findRpcCandidate() {
     "THOUGHT_RPC_UPSTREAM",
     "ETH_RPC_UPSTREAM",
     "RPC_UPSTREAM_FALLBACK",
+    "VITE_PATH_RPC_URL",
     "VITE_THOUGHT_RPC_URL",
     "VITE_ETH_RPC",
   ];
