@@ -812,6 +812,17 @@ const resolveThoughtRpcUrl = () => {
   }
 };
 const THOUGHT_RPC_URL = resolveThoughtRpcUrl();
+const resolvePathRpcUrl = () => {
+  const configuredPathRpcUrl = readConfiguredUrl("VITE_PATH_RPC_URL") || readConfiguredUrl("VITE_ETH_RPC");
+  if (configuredPathRpcUrl) {
+    return resolveBrowserRpcUrl(configuredPathRpcUrl);
+  }
+  if (LOCAL_BROWSER_HOSTS.has(window.location.hostname)) {
+    return THOUGHT_RPC_URL;
+  }
+  return resolveBrowserRpcUrl("/api/path-rpc");
+};
+const PATH_RPC_URL = resolvePathRpcUrl();
 const THOUGHT_PREVIEW_ENDPOINT_ENABLED =
   typeof import.meta.env.VITE_THOUGHT_PREVIEW_ENDPOINT_ENABLED === "string" &&
   import.meta.env.VITE_THOUGHT_PREVIEW_ENDPOINT_ENABLED.trim().toLowerCase() === "true";
@@ -1606,6 +1617,7 @@ let thoughtDetailColorFontUrl = "";
 let thoughtDetailProvenanceJsonUrl = "";
 let colorFontPageRawUrl = "";
 let readProvider: JsonRpcProvider | null = null;
+let pathReadProvider: JsonRpcProvider | null = null;
 let readThoughtNFT: Contract | null = null;
 let readColorFontV1: Contract | null = null;
 let readThoughtSpecRegistry: Contract | null = null;
@@ -2034,6 +2046,18 @@ const getReadProvider = () => {
   return readProvider;
 };
 
+const getPathReadProvider = () => {
+  if (!PATH_RPC_URL) {
+    return null;
+  }
+
+  if (!pathReadProvider) {
+    pathReadProvider = createSingleRequestJsonRpcProvider(PATH_RPC_URL, THOUGHT_CHAIN_ID);
+  }
+
+  return pathReadProvider;
+};
+
 const getReadThoughtNFT = () => {
   const provider = getReadProvider();
   if (!provider || !THOUGHT_NFT_ADDRESS) {
@@ -2078,7 +2102,7 @@ const getReadThoughtSpecRegistry = () => {
 };
 
 const getReadPathNft = () => {
-  const provider = getReadProvider();
+  const provider = getPathReadProvider();
   if (!provider || !PATH_NFT_ADDRESS) {
     return null;
   }
@@ -11471,7 +11495,7 @@ const listCliPaths = async () => {
       return;
     }
 
-    const provider = getReadProvider();
+    const provider = getPathReadProvider();
     const pathNft = getReadPathNft();
     if (!provider || !pathNft || !PATH_NFT_ADDRESS || !THOUGHT_NFT_ADDRESS) {
       appendCliOutput([
