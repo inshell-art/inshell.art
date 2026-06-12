@@ -903,6 +903,7 @@ const GALLERY_API_URL =
   readConfiguredUrl("VITE_GALLERY_API_URL") ||
   readConfiguredUrl("VITE_THOUGHT_GALLERY_API_URL") ||
   "/api/thought-gallery";
+const PATH_TOKENS_API_URL = readConfiguredUrl("VITE_PATH_TOKENS_API_URL") || "/api/path-tokens";
 const THOUGHT_SPEC_REGISTRY_ADDRESS = EVM_ADDRESSES.thoughtSpecRegistry?.address?.trim() ?? "";
 const THOUGHT_NFT_ADDRESS = EVM_ADDRESSES.thoughtNft?.address?.trim() ?? "";
 const COLOR_FONT_V1_ADDRESS = EVM_ADDRESSES.colorFontV1?.address?.trim() ?? "";
@@ -11407,6 +11408,50 @@ const fetchPathTransferLogsForWallet = async (provider: JsonRpcProvider, walletT
   return [...logsByKey.values()];
 };
 
+const pathTokenIdFromApiItem = (item: unknown) => {
+  if (!item || typeof item !== "object") {
+    return null;
+  }
+  const record = item as Record<string, unknown>;
+  const rawTokenId = typeof record.tokenId === "string" ? record.tokenId : record.tokenIdLabel;
+  if (typeof rawTokenId !== "string" || !/^\d+$/.test(rawTokenId)) {
+    return null;
+  }
+  return BigInt(rawTokenId);
+};
+
+const fetchPathTokenIdsForWalletFromApi = async (walletAddress: string) => {
+  const response = await fetch(new URL(PATH_TOKENS_API_URL, window.location.origin).toString(), {
+    headers: { accept: "application/json" },
+    cache: "default",
+  });
+  if (!response.ok) {
+    throw new Error(`PATH token API unavailable: ${response.status}`);
+  }
+
+  const payload = (await response.json()) as { items?: unknown };
+  if (!Array.isArray(payload.items)) {
+    throw new Error("PATH token API returned invalid payload.");
+  }
+
+  const wallet = walletAddress.toLowerCase();
+  const tokenIds = new Set<bigint>();
+  for (const item of payload.items) {
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+    const owner = (item as Record<string, unknown>).owner;
+    if (typeof owner !== "string" || owner.toLowerCase() !== wallet) {
+      continue;
+    }
+    const tokenId = pathTokenIdFromApiItem(item);
+    if (tokenId !== null) {
+      tokenIds.add(tokenId);
+    }
+  }
+  return tokenIds;
+};
+
 const listCliPaths = async () => {
   await withCliLoading("loading...", async () => {
     await refreshWalletState();
@@ -11439,13 +11484,18 @@ const listCliPaths = async () => {
     }
 
     try {
-      const walletTopic = indexedAddressTopic(walletState.address);
-      const transferLogs = await fetchPathTransferLogsForWallet(provider, walletTopic);
-      const candidateIds = new Set<bigint>();
-      for (const log of transferLogs) {
-        const tokenId = transferLogTokenId(log.topics);
-        if (tokenId !== null) {
-          candidateIds.add(tokenId);
+      let candidateIds: Set<bigint>;
+      try {
+        candidateIds = await fetchPathTokenIdsForWalletFromApi(walletState.address);
+      } catch {
+        const walletTopic = indexedAddressTopic(walletState.address);
+        const transferLogs = await fetchPathTransferLogsForWallet(provider, walletTopic);
+        candidateIds = new Set<bigint>();
+        for (const log of transferLogs) {
+          const tokenId = transferLogTokenId(log.topics);
+          if (tokenId !== null) {
+            candidateIds.add(tokenId);
+          }
         }
       }
 
