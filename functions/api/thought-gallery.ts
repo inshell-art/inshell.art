@@ -20,6 +20,7 @@ import {
   provenanceData,
   pruneReorgWindow,
   rawTextData,
+  readModelEnabled,
   readSnapshot,
   readResponseCache,
   refreshFromBlock,
@@ -53,22 +54,18 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
     return withChainCacheDiagnostics(ctx, cached, diagnostics);
   }
 
+  const previous = await readSnapshot<ThoughtGalleryApiItem>(ctx.env, SNAPSHOT_KEY, diagnostics);
+  if (previous && readModelEnabled(ctx.env)) {
+    const response = responseFromSnapshot(previous);
+    writeResponseCache(ctx, SNAPSHOT_KEY, response, RESPONSE_CACHE_SECONDS, previous.lastScannedBlock);
+    return withChainCacheDiagnostics(ctx, response, diagnostics, undefined, previous);
+  }
+
   const stats = createStats("thought", "thought-gallery", ctx.env);
   try {
-    const snapshot = await loadThoughtGallery(ctx.env, ctx, stats, diagnostics);
+    const snapshot = await loadThoughtGallery(ctx.env, ctx, stats, diagnostics, previous);
     emitUsage(ctx, stats);
-    const response = json(
-      200,
-      {
-        cachedAt: snapshot.cachedAt,
-        chainId: snapshot.chainId,
-        contract: snapshot.contract,
-        fromBlock: snapshot.fromBlock,
-        lastScannedBlock: snapshot.lastScannedBlock,
-        thoughts: snapshot.items,
-      },
-      RESPONSE_CACHE_SECONDS,
-    );
+    const response = responseFromSnapshot(snapshot);
     writeResponseCache(ctx, SNAPSHOT_KEY, response, RESPONSE_CACHE_SECONDS, snapshot.lastScannedBlock);
     return withChainCacheDiagnostics(ctx, response, diagnostics, stats, snapshot);
   } catch {
@@ -84,9 +81,14 @@ async function loadThoughtGallery(
   ctx: PagesContextLike,
   stats: ReturnType<typeof createStats>,
   diagnostics: ChainCacheDiagnostics,
+  previousOverride?: IndexedSnapshot<ThoughtGalleryApiItem> | null,
+  force = false,
 ): Promise<IndexedSnapshot<ThoughtGalleryApiItem>> {
-  const previous = await readSnapshot<ThoughtGalleryApiItem>(env, SNAPSHOT_KEY, diagnostics);
-  if (previous && Date.now() - previous.cachedAt < RESPONSE_CACHE_SECONDS * 1000) {
+  const previous =
+    previousOverride === undefined
+      ? await readSnapshot<ThoughtGalleryApiItem>(env, SNAPSHOT_KEY, diagnostics)
+      : previousOverride;
+  if (!force && previous && Date.now() - previous.cachedAt < RESPONSE_CACHE_SECONDS * 1000) {
     return previous;
   }
 
@@ -121,6 +123,37 @@ async function loadThoughtGallery(
   };
   await writeSnapshot(ctx, SNAPSHOT_KEY, snapshot, EDGE_SNAPSHOT_SECONDS, diagnostics, previous);
   return snapshot;
+}
+
+export async function refreshThoughtGallery(
+  ctx: PagesContextLike,
+  stats: ReturnType<typeof createStats>,
+  diagnostics: ChainCacheDiagnostics,
+) {
+  const snapshot = await loadThoughtGallery(ctx.env, ctx, stats, diagnostics, undefined, true);
+  writeResponseCache(
+    ctx,
+    SNAPSHOT_KEY,
+    responseFromSnapshot(snapshot),
+    RESPONSE_CACHE_SECONDS,
+    snapshot.lastScannedBlock,
+  );
+  return snapshot;
+}
+
+function responseFromSnapshot(snapshot: IndexedSnapshot<ThoughtGalleryApiItem>) {
+  return json(
+    200,
+    {
+      cachedAt: snapshot.cachedAt,
+      chainId: snapshot.chainId,
+      contract: snapshot.contract,
+      fromBlock: snapshot.fromBlock,
+      lastScannedBlock: snapshot.lastScannedBlock,
+      thoughts: snapshot.items,
+    },
+    RESPONSE_CACHE_SECONDS,
+  );
 }
 
 async function readThoughtFromLog(

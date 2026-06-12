@@ -7,10 +7,13 @@ import {
   emitUsage,
   getBlockNumber,
   getLogsChunked,
+  getTransactionReceipt,
   hexToNumber,
+  isTxHash,
   json,
   onOptions,
   pruneReorgWindow,
+  readModelEnabled,
   readSnapshot,
   readResponseCache,
   refreshFromBlock,
@@ -44,22 +47,18 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
     return withChainCacheDiagnostics(ctx, cached, diagnostics);
   }
 
+  const previous = await readSnapshot<PulseBidApiItem>(ctx.env, SNAPSHOT_KEY, diagnostics);
+  if (previous && readModelEnabled(ctx.env)) {
+    const response = responseFromSnapshot(previous);
+    writeResponseCache(ctx, SNAPSHOT_KEY, response, RESPONSE_CACHE_SECONDS, previous.lastScannedBlock);
+    return withChainCacheDiagnostics(ctx, response, diagnostics, undefined, previous);
+  }
+
   const stats = createStats("path", "pulse-auction", ctx.env);
   try {
-    const snapshot = await loadPulseAuction(ctx.env, ctx, stats, diagnostics);
+    const snapshot = await loadPulseAuction(ctx.env, ctx, stats, diagnostics, previous);
     emitUsage(ctx, stats);
-    const response = json(
-      200,
-      {
-        cachedAt: snapshot.cachedAt,
-        chainId: snapshot.chainId,
-        contract: snapshot.contract,
-        fromBlock: snapshot.fromBlock,
-        lastScannedBlock: snapshot.lastScannedBlock,
-        bids: snapshot.items,
-      },
-      RESPONSE_CACHE_SECONDS,
-    );
+    const response = responseFromSnapshot(snapshot);
     writeResponseCache(ctx, SNAPSHOT_KEY, response, RESPONSE_CACHE_SECONDS, snapshot.lastScannedBlock);
     return withChainCacheDiagnostics(ctx, response, diagnostics, stats, snapshot);
   } catch {
@@ -75,9 +74,14 @@ async function loadPulseAuction(
   ctx: PagesContextLike,
   stats: ReturnType<typeof createStats>,
   diagnostics: ChainCacheDiagnostics,
+  previousOverride?: IndexedSnapshot<PulseBidApiItem> | null,
+  force = false,
 ): Promise<IndexedSnapshot<PulseBidApiItem>> {
-  const previous = await readSnapshot<PulseBidApiItem>(env, SNAPSHOT_KEY, diagnostics);
-  if (previous && Date.now() - previous.cachedAt < RESPONSE_CACHE_SECONDS * 1000) {
+  const previous =
+    previousOverride === undefined
+      ? await readSnapshot<PulseBidApiItem>(env, SNAPSHOT_KEY, diagnostics)
+      : previousOverride;
+  if (!force && previous && Date.now() - previous.cachedAt < RESPONSE_CACHE_SECONDS * 1000) {
     return previous;
   }
 
@@ -90,6 +94,86 @@ async function loadPulseAuction(
     topics: [PULSE_SALE_TOPIC],
   });
 
+  const snapshot = mergePulseSnapshot(previous, logs, refreshStart, latestBlock);
+  await writeSnapshot(ctx, SNAPSHOT_KEY, snapshot, EDGE_SNAPSHOT_SECONDS, diagnostics, previous);
+  return snapshot;
+}
+
+export async function refreshPulseAuction(
+  ctx: PagesContextLike,
+  stats: ReturnType<typeof createStats>,
+  diagnostics: ChainCacheDiagnostics,
+) {
+  const snapshot = await loadPulseAuction(ctx.env, ctx, stats, diagnostics, undefined, true);
+  writeResponseCache(
+    ctx,
+    SNAPSHOT_KEY,
+    responseFromSnapshot(snapshot),
+    RESPONSE_CACHE_SECONDS,
+    snapshot.lastScannedBlock,
+  );
+  return snapshot;
+}
+
+export async function refreshPulseAuctionForTx(
+  ctx: PagesContextLike,
+  stats: ReturnType<typeof createStats>,
+  diagnostics: ChainCacheDiagnostics,
+  txHash: string,
+) {
+  if (!isTxHash(txHash)) throw new Error("invalid transaction hash");
+  const normalizedTxHash = txHash.toLowerCase();
+  const previous = await readSnapshot<PulseBidApiItem>(ctx.env, SNAPSHOT_KEY, diagnostics);
+  if (previous?.items.some((item) => item.txHash?.toLowerCase() === normalizedTxHash)) {
+    return previous;
+  }
+
+  const receipt = await getTransactionReceipt(ctx.env, "path", stats, txHash);
+  if ((receipt?.to ?? "").toLowerCase() !== PULSE_AUCTION_ADDRESS.toLowerCase()) {
+    throw new Error("transaction is not a pulse auction transaction");
+  }
+  if (receipt.status && receipt.status !== "0x1") {
+    throw new Error("transaction did not succeed");
+  }
+  const txBlock = hexToNumber(receipt?.blockNumber);
+  if (!Number.isFinite(txBlock) || txBlock <= 0) {
+    throw new Error("transaction receipt unavailable");
+  }
+
+  const latestBlock = await getBlockNumber(ctx.env, "path", stats);
+  const refreshStart = Math.max(PULSE_AUCTION_DEPLOY_BLOCK, txBlock - 3);
+  const refreshEnd = Math.min(latestBlock, txBlock + 3);
+  const logs = await getLogsChunked(ctx.env, "path", stats, {
+    address: PULSE_AUCTION_ADDRESS,
+    fromBlock: refreshStart,
+    toBlock: refreshEnd,
+    topics: [PULSE_SALE_TOPIC],
+  });
+
+  const previousLastScanned = previous?.lastScannedBlock ?? refreshEnd;
+  const continuousRefresh =
+    !previous || refreshStart <= previous.lastScannedBlock + 1;
+  const nextLastScanned = continuousRefresh
+    ? Math.max(previousLastScanned, refreshEnd)
+    : previousLastScanned;
+  const snapshot = mergePulseSnapshot(previous, logs, refreshStart, nextLastScanned);
+  await writeSnapshot(ctx, SNAPSHOT_KEY, snapshot, EDGE_SNAPSHOT_SECONDS, diagnostics, previous);
+  writeResponseCache(
+    ctx,
+    SNAPSHOT_KEY,
+    responseFromSnapshot(snapshot),
+    RESPONSE_CACHE_SECONDS,
+    snapshot.lastScannedBlock,
+  );
+  return snapshot;
+}
+
+function mergePulseSnapshot(
+  previous: IndexedSnapshot<PulseBidApiItem> | null | undefined,
+  logs: ChainLog[],
+  refreshStart: number,
+  lastScannedBlock: number,
+) {
   const bids = new Map<string, PulseBidApiItem>();
   for (const item of pruneReorgWindow(previous?.items ?? [], refreshStart)) {
     bids.set(item.key, item);
@@ -106,11 +190,25 @@ async function loadPulseAuction(
     chainId: 11155111,
     contract: PULSE_AUCTION_ADDRESS,
     fromBlock: PULSE_AUCTION_DEPLOY_BLOCK,
-    lastScannedBlock: latestBlock,
+    lastScannedBlock,
     items: [...bids.values()].sort((left, right) => left.atMs - right.atMs),
   };
-  await writeSnapshot(ctx, SNAPSHOT_KEY, snapshot, EDGE_SNAPSHOT_SECONDS, diagnostics, previous);
   return snapshot;
+}
+
+function responseFromSnapshot(snapshot: IndexedSnapshot<PulseBidApiItem>) {
+  return json(
+    200,
+    {
+      cachedAt: snapshot.cachedAt,
+      chainId: snapshot.chainId,
+      contract: snapshot.contract,
+      fromBlock: snapshot.fromBlock,
+      lastScannedBlock: snapshot.lastScannedBlock,
+      bids: snapshot.items,
+    },
+    RESPONSE_CACHE_SECONDS,
+  );
 }
 
 function decodeSaleLog(log: ChainLog): PulseBidApiItem | null {
