@@ -1816,6 +1816,49 @@ function fixtureToState(
   return { config, bids, nowSec };
 }
 
+function releaseConfigToAuctionConfig(
+  release: ReturnType<typeof getProtocolRelease> | undefined,
+  decimals: number
+): AuctionSnapshot["config"] | null {
+  const cfg = release?.config;
+  if (!cfg) return null;
+  const openTimeSec = Number(cfg.open_time);
+  if (!Number.isFinite(openTimeSec) || openTimeSec <= 0) return null;
+
+  const toU256FromWei = (value: string | number | bigint | undefined) => {
+    if (value == null) return null;
+    try {
+      return toU256Num({
+        low: rescaleWeiToDecimals(BigInt(value), decimals).toString(),
+        high: "0",
+      });
+    } catch {
+      return null;
+    }
+  };
+
+  const genesisPrice = toU256FromWei(cfg.genesis_price);
+  const genesisFloor = toU256FromWei(cfg.genesis_floor);
+  const k = toU256FromWei(cfg.k);
+  let pts: string | null = null;
+  try {
+    if (cfg.pts != null) {
+      pts = rescaleWeiToDecimals(BigInt(cfg.pts), decimals).toString();
+    }
+  } catch {
+    pts = null;
+  }
+
+  if (!genesisPrice || !genesisFloor || !k || !pts) return null;
+  return {
+    openTimeSec,
+    genesisPrice,
+    genesisFloor,
+    k,
+    pts,
+  };
+}
+
 function formatDuration(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "—";
   const rounded = Math.max(0, Math.round(seconds));
@@ -2233,6 +2276,10 @@ export default function AuctionCanvas({
   const bidsFromBlock = useMemo(() => resolveBidsFromBlock(), []);
   const protocolRelease = useMemo(() => getProtocolRelease(), []);
   const allowDirectAuction = useMemo(() => directAuctionOverrideAllowed(), []);
+  const cachedAuctionConfig = useMemo(
+    () => releaseConfigToAuctionConfig(protocolRelease, decimals),
+    [protocolRelease, decimals]
+  );
   const pathMintIntent = useMemo(() => readPathMintIntent(), []);
   const releaseMissing = !fixtureState && !allowDirectAuction && !protocolRelease;
   const network = useMemo(() => {
@@ -2251,23 +2298,30 @@ export default function AuctionCanvas({
   const protocolGuard = useProtocolReleaseGuard({
     address: auctionAddress,
     provider,
-    enabled: !fixtureState && !releaseMissing && Boolean(auctionAddress),
+    enabled:
+      allowDirectAuction &&
+      !fixtureState &&
+      !releaseMissing &&
+      Boolean(auctionAddress),
   });
   const liveAuctionEnabled =
-    !fixtureState && Boolean(auctionAddress) && protocolGuard.ready;
+    !fixtureState &&
+    Boolean(auctionAddress) &&
+    (allowDirectAuction ? protocolGuard.ready : Boolean(cachedAuctionConfig));
   const {
     data: coreData,
     loading: coreLoadingHook,
     error: coreErrorHook,
-    refresh: refreshCore = async () => undefined,
+    refresh: refreshCoreHook = async () => undefined,
   } = useAuctionCore({
     address: auctionAddress,
     provider,
     refreshMs,
-    enabled: liveAuctionEnabled,
+    enabled: allowDirectAuction && liveAuctionEnabled,
   });
   const bidHistoryEnabled =
-    liveAuctionEnabled && Boolean(coreData?.config);
+    liveAuctionEnabled &&
+    (allowDirectAuction ? Boolean(coreData?.config) : Boolean(cachedAuctionConfig));
   const {
     bids: bidsHook,
     loading: bidsLoading,
@@ -2292,20 +2346,46 @@ export default function AuctionCanvas({
     () => resolvePaymentSymbol(paymentToken),
     [paymentToken]
   );
+  const cachedCoreData = useMemo<AuctionSnapshot | null>(() => {
+    if (fixtureState || allowDirectAuction || !cachedAuctionConfig) return null;
+    return {
+      active: true,
+      price: cachedAuctionConfig.genesisPrice,
+      config: cachedAuctionConfig,
+      state: null,
+    };
+  }, [allowDirectAuction, cachedAuctionConfig, fixtureState]);
   const core = useMemo(
-    () => (fixtureState ? { config: fixtureState.config } : coreData),
-    [fixtureState, coreData]
+    () =>
+      fixtureState
+        ? { config: fixtureState.config }
+        : allowDirectAuction
+        ? coreData
+        : cachedCoreData,
+    [allowDirectAuction, cachedCoreData, fixtureState, coreData]
   );
   const coreImpliesActive = Boolean(
-    coreData?.active ||
-      coreData?.state?.active ||
-      ((coreData?.state?.epochIndex ?? 0) > 0)
+    allowDirectAuction
+      ? coreData?.active ||
+          coreData?.state?.active ||
+          ((coreData?.state?.epochIndex ?? 0) > 0)
+      : cachedCoreData?.active
   );
   const bidsLoadingVisible = fixtureState ? false : bidHistoryEnabled && bidsLoading;
   const coreLoading = fixtureState
     ? false
-    : protocolGuard.loading || coreLoadingHook;
-  const coreError = fixtureState ? null : protocolGuard.error ?? coreErrorHook;
+    : allowDirectAuction
+    ? protocolGuard.loading || coreLoadingHook
+    : false;
+  const coreError = fixtureState
+    ? null
+    : allowDirectAuction
+    ? protocolGuard.error ?? coreErrorHook
+    : null;
+  const refreshCore = useCallback(
+    () => (allowDirectAuction ? refreshCoreHook() : Promise.resolve(undefined)),
+    [allowDirectAuction, refreshCoreHook]
+  );
   const [coreErrorVisible, setCoreErrorVisible] = useState<unknown>(null);
   const [missingDeployBlockVisible, setMissingDeployBlockVisible] =
     useState(false);
@@ -3131,6 +3211,8 @@ export default function AuctionCanvas({
   }, [pendingMint, queueToast]);
 
   const mimicLocalTime = network === "devnet" || protocolRelease?.network === "devnet";
+  const useBrowserAuctionClock =
+    mimicLocalTime || (!allowDirectAuction && !fixtureState);
 
   // Devnet uses browser time to make local Anvil rehearsals usable even when
   // idle blocks are not mined. Public networks keep following block time.
@@ -3147,7 +3229,7 @@ export default function AuctionCanvas({
         cancelled = true;
       };
     }
-    if (mimicLocalTime) {
+    if (useBrowserAuctionClock) {
       const tick = () => {
         const nextNowSec = Date.now() / 1000;
         liveNowSecRef.current = nextNowSec;
@@ -3177,7 +3259,7 @@ export default function AuctionCanvas({
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [fixtureState, provider, mimicLocalTime]);
+  }, [fixtureState, provider, useBrowserAuctionClock]);
 
   // Before the first bid, keep notices/countdowns live. On devnet, keep the
   // active curve growing with browser time for local visual development.
@@ -3203,7 +3285,7 @@ export default function AuctionCanvas({
         cancelled = true;
       };
     }
-    if (mimicLocalTime) {
+    if (useBrowserAuctionClock) {
       const tick = () => {
         const nextNowSec = Date.now() / 1000;
         nowSecRef.current = nextNowSec;
@@ -3230,10 +3312,11 @@ export default function AuctionCanvas({
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [fixtureState, bids.length, provider, mimicLocalTime]);
+  }, [fixtureState, bids.length, provider, useBrowserAuctionClock]);
 
   // Fallback: fetch config directly if the core hook never fills it.
   useEffect(() => {
+    if (!allowDirectAuction) return;
     if (fixtureState) return;
     if (core?.config) {
       if (fallbackConfig) setFallbackConfig(null);
@@ -3285,6 +3368,7 @@ export default function AuctionCanvas({
     provider,
     fallbackConfig,
     fixtureState,
+    allowDirectAuction,
   ]);
 
   const activeConfig = core?.config ?? fallbackConfig ?? null;
@@ -3378,7 +3462,7 @@ export default function AuctionCanvas({
       return toNumberSafe(decStr);
     };
 
-    const directState = !fixtureState ? coreData?.state : null;
+    const directState = !fixtureState && allowDirectAuction ? coreData?.state : null;
     const directStateEpoch = Number(directState?.epochIndex);
     const directStateImpliesActive =
       Boolean(directState?.active) ||
@@ -3564,7 +3648,16 @@ export default function AuctionCanvas({
       maxY,
       reason: null,
     };
-  }, [activeConfig, bids, coreData?.state, coreLoading, fallbackError, decimals, fixtureState]);
+  }, [
+    activeConfig,
+    allowDirectAuction,
+    bids,
+    coreData?.state,
+    coreLoading,
+    fallbackError,
+    decimals,
+    fixtureState,
+  ]);
 
   const activeCurveQuoteKey = useMemo(() => {
     if (linkedStatic.reason || !linkedStatic.segments.length) return "";

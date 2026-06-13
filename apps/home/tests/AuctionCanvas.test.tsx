@@ -1268,6 +1268,31 @@ describe("AuctionCanvas", () => {
     expect(container.querySelector(".dotfield__curve")).toBeTruthy();
   });
 
+  test("public home uses indexed auction cache without enabling direct RPC core", () => {
+    (globalThis as any).__VITE_ENV__ = {
+      VITE_NETWORK: "sepolia",
+      VITE_EXPECTED_CHAIN_ID: "0xaa36a7",
+      VITE_PULSE_AUCTION: TEST_AUCTION_ADDRESS,
+      VITE_PAYMENT_TOKEN: TEST_PAYMENT_TOKEN,
+      VITE_PAYMENT_TOKEN_SYMBOL: "ETH",
+      VITE_PATH_RPC_URL: "/api/path-rpc",
+    };
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+
+    expect(mockUseAuctionCore).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enabled: false })
+    );
+    expect(mockUseAuctionBids).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        enabled: true,
+        preferCacheApi: true,
+        allowDirectFallback: false,
+      })
+    );
+    expect(mockCallContract).not.toHaveBeenCalled();
+  });
+
   test("shows no deployment message when no protocol release is loaded", () => {
     (globalThis as any).__VITE_ENV__ = {
       VITE_NETWORK: "mainnet",
