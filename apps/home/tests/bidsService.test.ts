@@ -87,6 +87,7 @@ describe("auction bids service", () => {
     const service = createBidsService({
       address: AUCTION,
       provider,
+      preferCacheApi: false,
       fromBlock: 1,
       chunkSize: 40_000,
       reorgDepth: 0,
@@ -135,6 +136,70 @@ describe("auction bids service", () => {
     );
   });
 
+  test("uses the cached API even when a provider is available", async () => {
+    const fetchMock = jest.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        lastScannedBlock: 123,
+        bids: [
+          {
+            key: "tx:cached-with-provider",
+            atMs: 1_778_888_000_000,
+            bidder: BUYER,
+            amount: { raw: { low: "100", high: "0" }, dec: "100" },
+            floorB: { raw: { low: "10", high: "0" }, dec: "10" },
+            blockNumber: 120,
+            epochIndex: 7,
+          },
+        ],
+      }),
+    }));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const provider = {
+      request: jest.fn(async () => {
+        throw new Error("direct RPC should not be used");
+      }),
+    };
+
+    const service = createBidsService({
+      address: AUCTION,
+      provider,
+      fromBlock: 1,
+      reorgDepth: 0,
+    });
+
+    const fresh = await service.pullOnce();
+    expect(fresh.map((bid) => bid.key)).toEqual(["tx:cached-with-provider"]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/pulse-auction"),
+      expect.objectContaining({ headers: { accept: "application/json" } })
+    );
+    expect(provider.request).not.toHaveBeenCalled();
+  });
+
+  test("does not fall back to direct RPC when the cached API fails by default", async () => {
+    globalThis.fetch = jest.fn(async () => ({
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+    })) as unknown as typeof fetch;
+    const provider = {
+      request: jest.fn(async () => {
+        throw new Error("direct RPC should not be used");
+      }),
+    };
+
+    const service = createBidsService({
+      address: AUCTION,
+      provider,
+      fromBlock: 1,
+      reorgDepth: 0,
+    });
+
+    await expect(service.pullOnce()).resolves.toEqual([]);
+    expect(provider.request).not.toHaveBeenCalled();
+  });
+
   test("adapts when the PATH RPC gate says the log range is too large", async () => {
     const logs = [saleLog(12, 1n, 100n), saleLog(31, 2n, 120n)];
     const provider = {
@@ -162,6 +227,7 @@ describe("auction bids service", () => {
     const service = createBidsService({
       address: AUCTION,
       provider,
+      preferCacheApi: false,
       fromBlock: 1,
       chunkSize: 40_000,
       reorgDepth: 0,
@@ -200,6 +266,7 @@ describe("auction bids service", () => {
     const service = createBidsService({
       address: AUCTION,
       provider,
+      preferCacheApi: false,
       fromBlock: 1,
       reorgDepth: 0,
     });
@@ -239,6 +306,7 @@ describe("auction bids service", () => {
     const service = createBidsService({
       address: AUCTION,
       provider,
+      preferCacheApi: false,
       fromBlock: 1,
       chunkSize: 40_000,
       reorgDepth: 0,
@@ -274,6 +342,7 @@ describe("auction bids service", () => {
     const service = createBidsService({
       address: AUCTION,
       provider,
+      preferCacheApi: false,
       fromBlock: 1,
       chunkSize: 40_000,
       reorgDepth: 0,
@@ -316,6 +385,7 @@ describe("auction bids service", () => {
     const firstService = createBidsService({
       address: AUCTION,
       provider: firstProvider,
+      preferCacheApi: false,
       fromBlock: 1,
       chunkSize: 40_000,
       reorgDepth: 0,
@@ -334,6 +404,7 @@ describe("auction bids service", () => {
     const secondService = createBidsService({
       address: AUCTION,
       provider: secondProvider,
+      preferCacheApi: false,
       fromBlock: 1,
       chunkSize: 40_000,
       reorgDepth: 0,
@@ -375,6 +446,7 @@ describe("auction bids service", () => {
     const service = createBidsService({
       address: AUCTION,
       provider,
+      preferCacheApi: false,
       fromBlock: 1,
       chunkSize: 40_000,
       reorgDepth: 0,
@@ -420,6 +492,7 @@ describe("auction bids service", () => {
     const service = createBidsService({
       address: AUCTION,
       provider,
+      preferCacheApi: false,
       fromBlock: 1,
       chunkSize: 40_000,
       reorgDepth: 0,
@@ -466,6 +539,7 @@ describe("auction bids service", () => {
     const service = createBidsService({
       address: AUCTION,
       provider,
+      preferCacheApi: false,
       fromBlock: 1,
       chunkSize: 40_000,
       reorgDepth: 0,

@@ -14,6 +14,8 @@ export function useAuctionBids(opts: {
   maxBids?: number;
   chunkSize?: number;
   reorgDepth?: number;
+  preferCacheApi?: boolean;
+  allowDirectFallback?: boolean;
 }) {
   const enabled = opts.enabled ?? true;
   const refreshMs = opts.refreshMs ?? 0;
@@ -39,6 +41,8 @@ export function useAuctionBids(opts: {
         maxBids: opts.maxBids,
         chunkSize: opts.chunkSize,
         reorgDepth: opts.reorgDepth,
+        preferCacheApi: opts.preferCacheApi,
+        allowDirectFallback: opts.allowDirectFallback,
       });
       setReady(true);
     } catch (e) {
@@ -56,6 +60,8 @@ export function useAuctionBids(opts: {
     opts.maxBids,
     opts.chunkSize,
     opts.reorgDepth,
+    opts.preferCacheApi,
+    opts.allowDirectFallback,
   ]);
 
   // Subscribe to updates
