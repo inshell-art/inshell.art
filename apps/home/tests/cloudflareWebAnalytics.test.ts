@@ -8,6 +8,11 @@ const env = {
   VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN: "test-rum-token",
 };
 
+const expectedBeaconConfig = JSON.stringify({
+  token: env.VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN,
+  send: { to: "/cdn-cgi/rum" },
+});
+
 describe("Cloudflare Web Analytics install policy", () => {
   beforeEach(() => {
     document.head.innerHTML = "";
@@ -27,9 +32,7 @@ describe("Cloudflare Web Analytics install policy", () => {
     const script = document.getElementById(CLOUDFLARE_WEB_ANALYTICS_SCRIPT_ID);
     expect(script).not.toBeNull();
     expect(script?.getAttribute("src")).toBe("https://static.cloudflareinsights.com/beacon.min.js");
-    expect(script?.getAttribute("data-cf-beacon")).toBe(
-      JSON.stringify({ token: env.VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN }),
-    );
+    expect(script?.getAttribute("data-cf-beacon")).toBe(expectedBeaconConfig);
   });
 
   test("does not install on preview, ops, pages.dev, or local hosts", () => {
@@ -74,6 +77,6 @@ describe("Cloudflare Web Analytics install policy", () => {
       document
         .getElementById(CLOUDFLARE_WEB_ANALYTICS_SCRIPT_ID)
         ?.getAttribute("data-cf-beacon"),
-    ).toBe(JSON.stringify({ token: env.VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN }));
+    ).toBe(expectedBeaconConfig);
   });
 });

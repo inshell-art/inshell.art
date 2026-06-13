@@ -466,7 +466,10 @@ export function maybeInstallCloudflareWebAnalytics(
   script.id = CLOUDFLARE_WEB_ANALYTICS_SCRIPT_ID;
   script.defer = true;
   script.src = "https://static.cloudflareinsights.com/beacon.min.js";
-  script.setAttribute("data-cf-beacon", JSON.stringify({ token }));
+  script.setAttribute(
+    "data-cf-beacon",
+    JSON.stringify({ token, send: { to: "/cdn-cgi/rum" } }),
+  );
   documentRef.head.appendChild(script);
   return true;
 }
