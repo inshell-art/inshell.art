@@ -2279,6 +2279,8 @@ export default function AuctionCanvas({
     refreshMs,
     enabled: bidHistoryEnabled,
     maxBids,
+    preferCacheApi: !allowDirectAuction,
+    allowDirectFallback: allowDirectAuction,
   });
   const bids = fixtureState?.bids ?? bidsHook;
   const paymentToken = useMemo(() => resolvePaymentToken(), []);

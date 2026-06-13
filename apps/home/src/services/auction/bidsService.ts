@@ -318,10 +318,16 @@ export function createBidsService(opts: {
   maxBids?: number; // default 200
   chunkSize?: number; // default 5_000 blocks
   reorgDepth?: number; // default 2 blocks
+  preferCacheApi?: boolean; // public UI should read the indexed snapshot first
+  allowDirectFallback?: boolean; // explicit/debug paths may fall back to raw logs
 }) {
   const address = opts.address;
   const provider: ProviderInterface = opts.provider ?? getDefaultProvider();
-  const useCacheApi = !opts.provider;
+  const useCacheApi =
+    opts.preferCacheApi ??
+    (typeof globalThis.fetch === "function" &&
+      typeof globalThis.location !== "undefined");
+  const allowDirectFallback = opts.allowDirectFallback ?? !useCacheApi;
   const maxBids = opts.maxBids ?? 200;
   const initialChunkSize = Math.max(1, opts.chunkSize ?? DEFAULT_LOG_CHUNK_SIZE);
   const reorgDepth = opts.reorgDepth ?? 2;
@@ -494,7 +500,8 @@ export function createBidsService(opts: {
           return fresh;
         }
       } catch {
-        // Fall back to direct sale log reads when the cached API is unavailable.
+        if (!allowDirectFallback) return fresh;
+        // Explicit/debug callers may fall back to direct sale log reads.
       }
     }
 
