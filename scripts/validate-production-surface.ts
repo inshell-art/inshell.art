@@ -542,7 +542,7 @@ function checkCloudflareRpcProxy() {
     "PUBLIC_FEED_ALIAS_URL",
     "PUBLIC_FEED_SEPOLIA_RSS_URL",
     "PUBLIC_FEED_BASE_URL",
-    "TEMP_CLEAR_SITE_DATA_CACHE",
+    "APP_SHELL_CACHE_CONTROL",
     "temporarySepoliaHostRedirect",
     "sepolia.inshell.art",
     "getPublicFeedArtifactUrl",
@@ -564,7 +564,8 @@ function checkCloudflareRpcProxy() {
     "/thought",
     "application/rss+xml; charset=utf-8",
     "public, max-age=60",
-    "clear-site-data",
+    "stale-while-revalidate=300",
+    'headers.delete("clear-site-data")',
   ]);
   requireSnippets("functions/api/rpc-gate.ts", [
     "PATH_PRIMARY_RPC_UPSTREAM",
