@@ -86,7 +86,7 @@ async function main() {
   }
   if (tokenKey !== TOKEN_ENV_KEYS[0]) {
     console.warn(
-      `[web-analytics] using ${tokenKey}; prefer ${TOKEN_ENV_KEYS[0]} for least-privilege RUM metadata reads.`,
+      "[web-analytics] using a non-preferred token; prefer the dedicated least-privilege RUM metadata read token.",
     );
   }
 
@@ -110,7 +110,7 @@ async function main() {
     const message = firstError?.message || response.statusText || "request failed";
     if (response.status === 403) {
       throw new Error(
-        `Cloudflare returned 403 for RUM site metadata. ${tokenKey} needs Web Analytics/RUM metadata read access for account ${accountId}; Account Settings Write alone is not enough. (${message})`,
+        `Cloudflare returned 403 for RUM site metadata. The token needs Web Analytics/RUM metadata read access; Account Settings Write alone is not enough. (${message})`,
       );
     }
     throw new Error(`Cloudflare RUM site metadata request failed with HTTP ${response.status}: ${message}`);
@@ -124,7 +124,7 @@ async function main() {
     console.log(`[web-analytics] site ${host} tag=${String(tag).slice(0, 8)}...`);
   }
   if (loadedEnvPath) {
-    console.log(`[web-analytics] private env loaded: ${loadedEnvPath}`);
+    console.log("[web-analytics] private env loaded");
   }
 }
 
