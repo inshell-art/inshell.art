@@ -21,6 +21,7 @@ const DEPLOY_WORKFLOW_SNIPPETS = [
   "dist/thought",
   "/api/path-rpc",
   "/api/thought-rpc",
+  "/api/ops/status",
   "CLOUDFLARE_API_TOKEN",
   "CLOUDFLARE_ACCOUNT_ID",
   "CLOUDFLARE_PAGES_PROJECT_HOME",
@@ -204,6 +205,7 @@ function checkPackageScripts() {
   for (const snippet of [
     "/api/path-rpc",
     "/api/thought-rpc",
+    "/api/ops/status",
     "/api/thought-preview",
     "/api/pulse-auction",
     "/api/path-tokens",
