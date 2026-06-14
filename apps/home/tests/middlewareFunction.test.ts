@@ -36,6 +36,10 @@ class TestHeaders {
   set(key: string, value: string) {
     this.values.set(key.toLowerCase(), value);
   }
+
+  delete(key: string) {
+    this.values.delete(key.toLowerCase());
+  }
 }
 
 class TestRequest {
@@ -258,7 +262,8 @@ describe("Pages middleware canonical routes", () => {
     const response = await onRequest(ctx);
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("cache-control")).toBe("no-store, max-age=0");
+    expect(response.headers.get("cache-control")).toBe("public, max-age=60, stale-while-revalidate=300");
+    expect(response.headers.get("clear-site-data")).toBeNull();
     expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
     expect(ctx.next).not.toHaveBeenCalled();
   });

@@ -2,7 +2,7 @@ const PUBLIC_FEED_RSS_URL = "https://inshell-public-feed.pages.dev/rss.xml";
 const PUBLIC_FEED_ALIAS_URL = "https://inshell-public-feed.pages.dev/feed.xml";
 const PUBLIC_FEED_SEPOLIA_RSS_URL = "https://inshell-public-feed.pages.dev/rss.sepolia.xml";
 const PUBLIC_FEED_BASE_URL = "https://inshell-public-feed.pages.dev";
-const TEMP_CLEAR_SITE_DATA_CACHE = "\"cache\"";
+const APP_SHELL_CACHE_CONTROL = "public, max-age=60, stale-while-revalidate=300";
 
 type PagesAssets = {
   fetch: (request: Request) => Promise<Response>;
@@ -149,9 +149,8 @@ async function serveAppShell(ctx: MiddlewareContext): Promise<Response> {
 
 function withAppShellHeaders(response: Response) {
   const headers = new Headers(response.headers);
-  // Temporary cleanup for cached 308 route redirects from the RSS hotfix window.
-  headers.set("clear-site-data", TEMP_CLEAR_SITE_DATA_CACHE);
-  headers.set("cache-control", "no-store, max-age=0");
+  headers.delete("clear-site-data");
+  headers.set("cache-control", APP_SHELL_CACHE_CONTROL);
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
