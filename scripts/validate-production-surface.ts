@@ -34,6 +34,11 @@ const DEPLOY_WORKFLOW_SNIPPETS = [
   "VITE_THOUGHT_EXPLORER_BASE_URL",
   "VITE_WALLETCONNECT_PROJECT_ID",
   "check:deployment",
+  "Smoke home API routes",
+  "Smoke THOUGHT API routes",
+  "smoke:api-routes",
+  "staging.inshell-art.pages.dev",
+  "staging.thought-inshell-art.pages.dev",
 ] as const;
 
 const HOME_DEV_SCRIPT_SNIPPETS = [
@@ -167,6 +172,14 @@ function checkPackageScripts() {
   if (!productionCheck.includes("check:deployment")) {
     fail("package.json is missing check:production coverage for check:deployment");
   }
+  const smokeApiRoutes = String(rootPkg?.scripts?.["smoke:api-routes"] ?? "");
+  if (!smokeApiRoutes.includes("smoke-cloudflare-api-routes.mjs")) {
+    fail("package.json is missing smoke:api-routes coverage for smoke-cloudflare-api-routes.mjs");
+  }
+  const webAnalyticsTokenCheck = String(rootPkg?.scripts?.["check:web-analytics-token"] ?? "");
+  if (!webAnalyticsTokenCheck.includes("check-cloudflare-web-analytics-token.mjs")) {
+    fail("package.json is missing check:web-analytics-token coverage for check-cloudflare-web-analytics-token.mjs");
+  }
   const deploymentCheckSource = read("scripts/check-deployment.mjs");
   for (const snippet of [
     "validate-production-surface.ts",
@@ -185,6 +198,33 @@ function checkPackageScripts() {
   const rootHomeDevnetBuild = String(rootPkg?.scripts?.["build:home:devnet"] ?? "");
   if (!rootHomeDevnetBuild.includes("@inshell/home build")) {
     fail("package.json build:home:devnet must preserve the explicit devnet-capable build path");
+  }
+
+  const smokeApiRoutesSource = read("scripts/smoke-cloudflare-api-routes.mjs");
+  for (const snippet of [
+    "/api/path-rpc",
+    "/api/thought-rpc",
+    "/api/thought-preview",
+    "/api/pulse-auction",
+    "/api/path-tokens",
+    "/api/thought-gallery",
+    "staging.inshell-art.pages.dev",
+    "staging.thought-inshell-art.pages.dev",
+  ]) {
+    if (!smokeApiRoutesSource.includes(snippet)) {
+      fail(`scripts/smoke-cloudflare-api-routes.mjs is missing ${snippet}`);
+    }
+  }
+
+  const webAnalyticsTokenSource = read("scripts/check-cloudflare-web-analytics-token.mjs");
+  for (const snippet of [
+    "INSHELL_CLOUDFLARE_WEB_ANALYTICS_READ_TOKEN",
+    "rum/site_info/list",
+    "CLOUDFLARE_ACCOUNT_ID",
+  ]) {
+    if (!webAnalyticsTokenSource.includes(snippet)) {
+      fail(`scripts/check-cloudflare-web-analytics-token.mjs is missing ${snippet}`);
+    }
   }
 }
 

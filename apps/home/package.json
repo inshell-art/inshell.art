@@ -11,7 +11,7 @@
     "test": "jest",
     "test:fast": "jest --runTestsByPath tests/num.test.ts tests/pulseCurve.test.ts",
     "test:presepolia": "jest --runTestsByPath tests/App.test.tsx tests/pathTokens.test.ts tests/AuctionCanvas.test.tsx tests/middlewareFunction.test.ts",
-    "test:unit": "jest --runTestsByPath tests/App.test.tsx tests/AuctionCanvas.test.tsx tests/AuctionCanvasPulseFixtures.test.tsx tests/AuctionCanvasLook.test.tsx tests/HeaderWalletCTA.test.tsx tests/Movements.test.tsx tests/bidsService.test.ts tests/cloudflareWebAnalytics.test.ts tests/coreService.test.ts tests/ethereumClient.test.ts tests/middlewareFunction.test.ts tests/num.test.ts tests/pathTokens.test.ts tests/pulseCurve.test.ts tests/thoughtPreviewFunction.test.ts",
+    "test:unit": "jest --runTestsByPath tests/App.test.tsx tests/AuctionCanvas.test.tsx tests/AuctionCanvasPulseFixtures.test.tsx tests/AuctionCanvasLook.test.tsx tests/HeaderWalletCTA.test.tsx tests/Movements.test.tsx tests/bidsService.test.ts tests/chainCacheFunction.test.ts tests/cloudflareWebAnalytics.test.ts tests/coreService.test.ts tests/ethereumClient.test.ts tests/ethRpcFunction.test.ts tests/middlewareFunction.test.ts tests/num.test.ts tests/pathTokens.test.ts tests/pulseCurve.test.ts tests/thoughtPreviewFunction.test.ts",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "type-check": "tsc --noEmit",
     "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort"

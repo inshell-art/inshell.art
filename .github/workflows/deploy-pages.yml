@@ -95,6 +95,13 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx --yes wrangler@4.94.0 pages deploy dist/home --project-name="$CLOUDFLARE_PAGES_PROJECT_HOME" --branch="${{ github.event.inputs.branch }}"
+      - name: Smoke home API routes
+        run: |
+          if [ "${{ github.event.inputs.branch }}" = "main" ]; then
+            pnpm run smoke:api-routes -- --scope home --home-base https://inshell.art
+          else
+            pnpm run smoke:api-routes -- --scope home --home-base https://staging.inshell-art.pages.dev
+          fi
 
   deploy-thought:
     if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'thought' }}
@@ -167,3 +174,10 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx --yes wrangler@4.94.0 pages deploy dist/thought --project-name="$CLOUDFLARE_PAGES_PROJECT_THOUGHT" --branch="${{ github.event.inputs.branch }}"
+      - name: Smoke THOUGHT API routes
+        run: |
+          if [ "${{ github.event.inputs.branch }}" = "main" ]; then
+            pnpm run smoke:api-routes -- --scope thought --thought-base https://thought.inshell.art
+          else
+            pnpm run smoke:api-routes -- --scope thought --thought-base https://staging.thought-inshell-art.pages.dev
+          fi

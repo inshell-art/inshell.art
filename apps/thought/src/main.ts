@@ -11476,6 +11476,20 @@ const fetchPathTokenIdsForWalletFromApi = async (walletAddress: string) => {
   return tokenIds;
 };
 
+const appendCliPathInventory = (ownedPaths: Array<{ pathId: bigint; status: string }>) => {
+  appendCliOutput([
+    "wallet $PATHs for THOUGHT mint.",
+    `wallet: ${formatCliAddress(walletState.address ?? "")}`,
+    "",
+    ...(ownedPaths.length
+      ? ownedPaths.map(({ pathId, status }) => `#${pathId.toString()} ${status}`)
+      : ["none found."]),
+    "",
+    "use: path <id>",
+    "need $PATH: mint-path",
+  ]);
+};
+
 const listCliPaths = async () => {
   await withCliLoading("loading...", async () => {
     await refreshWalletState();
@@ -11495,23 +11509,36 @@ const listCliPaths = async () => {
       return;
     }
 
-    const provider = getPathReadProvider();
-    const pathNft = getReadPathNft();
-    if (!provider || !pathNft || !PATH_NFT_ADDRESS || !THOUGHT_NFT_ADDRESS) {
-      appendCliOutput([
-        "wallet $PATHs for THOUGHT mint.",
-        "",
-        "path list unavailable.",
-        "need $PATH: mint-path",
-      ]);
-      return;
-    }
-
     try {
-      let candidateIds: Set<bigint>;
+      let candidateIds: Set<bigint> | null = null;
       try {
         candidateIds = await fetchPathTokenIdsForWalletFromApi(walletState.address);
       } catch {
+        // Fall through to direct log reads when the chain-cache API is unavailable.
+      }
+
+      const provider = getPathReadProvider();
+      const pathNft = getReadPathNft();
+      if ((!provider || !pathNft || !PATH_NFT_ADDRESS || !THOUGHT_NFT_ADDRESS) && candidateIds) {
+        appendCliPathInventory(
+          [...candidateIds]
+            .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+            .map((pathId) => ({ pathId, status: "unknown" })),
+        );
+        return;
+      }
+
+      if (!provider || !pathNft || !PATH_NFT_ADDRESS || !THOUGHT_NFT_ADDRESS) {
+        appendCliOutput([
+          "wallet $PATHs for THOUGHT mint.",
+          "",
+          "path list unavailable.",
+          "need $PATH: mint-path",
+        ]);
+        return;
+      }
+
+      if (!candidateIds) {
         const walletTopic = indexedAddressTopic(walletState.address);
         const transferLogs = await fetchPathTransferLogsForWallet(provider, walletTopic);
         candidateIds = new Set<bigint>();
@@ -11523,10 +11550,16 @@ const listCliPaths = async () => {
         }
       }
 
-      const [authorizedMinter, movementQuota] = await Promise.all([
-        pathNft.getAuthorizedMinter(PATH_MOVEMENT_THOUGHT) as Promise<string>,
-        pathNft.getMovementQuota(PATH_MOVEMENT_THOUGHT) as Promise<bigint>,
-      ]);
+      let authorizedMinter = "";
+      let movementQuota = 0n;
+      try {
+        [authorizedMinter, movementQuota] = await Promise.all([
+          pathNft.getAuthorizedMinter(PATH_MOVEMENT_THOUGHT) as Promise<string>,
+          pathNft.getMovementQuota(PATH_MOVEMENT_THOUGHT) as Promise<bigint>,
+        ]);
+      } catch {
+        // Keep listing owned IDs even when availability metadata cannot be read.
+      }
       const wallet = walletState.address.toLowerCase();
       const ownedPaths = (
         await Promise.all(
@@ -11538,7 +11571,9 @@ const listCliPaths = async () => {
                 if (owner.toLowerCase() !== wallet) {
                   return null;
                 }
-                const status = await cliPathAvailability(pathNft, pathId, authorizedMinter, movementQuota);
+                const status = authorizedMinter && movementQuota > 0n
+                  ? await cliPathAvailability(pathNft, pathId, authorizedMinter, movementQuota)
+                  : "unknown";
                 return { pathId, status };
               } catch {
                 return { pathId, status: "unknown" };
@@ -11547,17 +11582,7 @@ const listCliPaths = async () => {
         )
       ).filter((path): path is { pathId: bigint; status: string } => path !== null);
 
-      appendCliOutput([
-        "wallet $PATHs for THOUGHT mint.",
-        `wallet: ${formatCliAddress(walletState.address)}`,
-        "",
-        ...(ownedPaths.length
-          ? ownedPaths.map(({ pathId, status }) => `#${pathId.toString()} ${status}`)
-          : ["none found."]),
-        "",
-        "use: path <id>",
-        "need $PATH: mint-path",
-      ]);
+      appendCliPathInventory(ownedPaths);
     } catch {
       appendCliOutput([
         "wallet $PATHs for THOUGHT mint.",
