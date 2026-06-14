@@ -97,6 +97,7 @@ jobs:
         run: npx --yes wrangler@4.94.0 pages deploy dist/home --project-name="$CLOUDFLARE_PAGES_PROJECT_HOME" --branch="${{ github.event.inputs.branch }}"
       - name: Smoke home API routes
         run: |
+          echo "smoke: /api/path-rpc /api/pulse-auction /api/path-tokens /api/ops/status"
           if [ "${{ github.event.inputs.branch }}" = "main" ]; then
             pnpm run smoke:api-routes -- --scope home --home-base https://inshell.art
           else
@@ -176,6 +177,7 @@ jobs:
         run: npx --yes wrangler@4.94.0 pages deploy dist/thought --project-name="$CLOUDFLARE_PAGES_PROJECT_THOUGHT" --branch="${{ github.event.inputs.branch }}"
       - name: Smoke THOUGHT API routes
         run: |
+          echo "smoke: /api/path-rpc /api/thought-rpc /api/thought-preview /api/thought-gallery /api/path-tokens /api/ops/status"
           if [ "${{ github.event.inputs.branch }}" = "main" ]; then
             pnpm run smoke:api-routes -- --scope thought --thought-base https://thought.inshell.art
           else

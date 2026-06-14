@@ -95,6 +95,17 @@
   `pnpm ops-orchestrator repair-result --incident <incidentId> --status patch_ready --summary "..."`
 - OPS owns final verification. DEV should not claim the incident is resolved until OPS verification clears the alert.
 
+## DEV/OPS Chain Read-Model Contract
+- Do not use operator-relayed chat as the source of truth for shared RPC, D1, KV, indexer, or chain-cache state.
+- DEV exposes the machine-readable chain/read-model contract at `/api/ops/status`.
+- OPS should poll `/api/ops/status` on production hosts and, when Cloudflare Access allows it, preview hosts.
+- `/api/ops/status` may expose route names, contract addresses, deploy blocks, logical RPC role names, binding presence, cache diagnostics header names, and ownership boundaries.
+- `/api/ops/status` must never expose raw RPC URLs, API keys, bearer tokens, Cloudflare tokens, or secret values.
+- DEV owns the status endpoint shape, Pages API behavior, chain snapshot schema usage, and smoke coverage.
+- OPS owns Cloudflare D1/KV resources, scheduled refresh workers, quota monitors, and status freshness alerts.
+- If OPS reports an RPC/read-model/config mismatch, first check `/api/ops/status` and API route diagnostic headers before asking the operator to relay state.
+- Keep `scripts/smoke-cloudflare-api-routes.mjs` checking `/api/ops/status` for both home and THOUGHT deployments.
+
 ## Security and Quality Routine
 - GitHub security/quality alerts are handled on `staging` first, then promoted to `main` only after operator review.
 - The midnight routine means: inspect GitHub Dependabot alerts, code scanning alerts, secret scanning alerts, Dependabot PRs, and failed quality workflows; patch on `staging`; run CI/leak checks; push preview; notify the operator.

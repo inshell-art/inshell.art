@@ -126,6 +126,27 @@ async function checkGetArrayField(base, path, field, label) {
   });
 }
 
+async function checkOpsStatus(base, label) {
+  await retry(label, async () => {
+    const payload = await fetchJsonWithTimeout(urlFor(base, "/api/ops/status"), { method: "GET" });
+    if (payload?.ok !== true) {
+      throw new Error("expected ok=true");
+    }
+    if (payload?.contract?.name !== "inshell-dev-ops-chain-read-model") {
+      throw new Error("expected DEV/OPS chain read-model contract name");
+    }
+    if (payload?.network?.chainId !== 11155111) {
+      throw new Error(`expected Sepolia chain id 11155111, got ${JSON.stringify(payload?.network)}`);
+    }
+    if (!payload?.routes?.refresh?.route || !Array.isArray(payload?.routes?.readModel)) {
+      throw new Error("expected route contract for refresh and read model");
+    }
+    if (JSON.stringify(payload).includes("http")) {
+      throw new Error("ops status must not expose raw endpoint URLs");
+    }
+  });
+}
+
 async function checkThoughtPreview(base) {
   await retry("thought /api/thought-preview", async () => {
     const payload = await fetchJsonWithTimeout(urlFor(base, "/api/thought-preview"), {
@@ -139,12 +160,14 @@ async function checkThoughtPreview(base) {
 }
 
 async function checkHome(base) {
+  await checkOpsStatus(base, "home /api/ops/status");
   await checkRpcChainId(base, "/api/path-rpc", "home /api/path-rpc");
   await checkGetArrayField(base, "/api/pulse-auction", "bids", "home /api/pulse-auction");
   await checkGetArrayField(base, "/api/path-tokens", "items", "home /api/path-tokens");
 }
 
 async function checkThought(base) {
+  await checkOpsStatus(base, "thought /api/ops/status");
   await checkRpcChainId(base, "/api/path-rpc", "thought /api/path-rpc");
   await checkRpcChainId(base, "/api/thought-rpc", "thought /api/thought-rpc");
   await checkThoughtPreview(base);
