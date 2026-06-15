@@ -22,24 +22,31 @@ function pathnameFromLocationKey(locationKey: string) {
   return locationKey.split(/[?#]/)[0].replace(/\/+$/, "");
 }
 
+function parseTokenRouteId(pathname: string, route: "path" | "thought") {
+  const match = new RegExp(`^/${route}/([1-9]\\d{0,8})$`).exec(pathname);
+  if (!match) return null;
+  const id = Number(match[1]);
+  return Number.isSafeInteger(id) ? match[1] : null;
+}
+
 function getPrimitiveRoute(locationKey: string) {
   const pathname = pathnameFromLocationKey(locationKey);
   if (pathname === "/pulse") return "pulse";
   if (pathname === "/color-font") return "color-font";
-  if (pathname === "/path" || /^\/path\/[1-9]\d*$/.test(pathname)) return "path";
+  if (pathname === "/path" || parseTokenRouteId(pathname, "path")) return "path";
   if (pathname === "/verify") return "verify";
-  if (/^\/thought\/[1-9]\d*$/.test(pathname)) return "thought";
+  if (parseTokenRouteId(pathname, "thought")) return "thought";
   return null;
 }
 
 function getPathRouteTokenId(locationKey: string) {
   const pathname = pathnameFromLocationKey(locationKey);
-  return /^\/path\/([1-9]\d*)$/.exec(pathname)?.[1] ?? null;
+  return parseTokenRouteId(pathname, "path");
 }
 
 function getThoughtRouteTokenId(locationKey: string) {
   const pathname = pathnameFromLocationKey(locationKey);
-  return /^\/thought\/([1-9]\d*)$/.exec(pathname)?.[1] ?? null;
+  return parseTokenRouteId(pathname, "thought");
 }
 
 function setFavicon(href: string) {

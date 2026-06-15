@@ -71,9 +71,20 @@ function isAppShellRoute(pathname: string) {
     pathname === "/verify" ||
     pathname === "/path" ||
     pathname === "/gallery" ||
-    /^\/path\/[1-9]\d*$/.test(pathname) ||
-    /^\/thought\/[1-9]\d*$/.test(pathname)
+    isTokenRoute(pathname, "path") ||
+    isTokenRoute(pathname, "thought")
   );
+}
+
+function parseTokenRouteId(pathname: string, route: "path" | "thought") {
+  const match = new RegExp(`^/${route}/([1-9]\\d{0,8})$`).exec(pathname);
+  if (!match) return null;
+  const id = Number(match[1]);
+  return Number.isSafeInteger(id) ? match[1] : null;
+}
+
+function isTokenRoute(pathname: string, route: "path" | "thought") {
+  return parseTokenRouteId(pathname, route) !== null;
 }
 
 function canonicalThoughtRedirect(url: UrlInstance, pathname: string) {
@@ -81,9 +92,13 @@ function canonicalThoughtRedirect(url: UrlInstance, pathname: string) {
   if (!isThoughtHost(hostname)) return null;
   if (isGalleryIntent(hostname, pathname, url)) return null;
 
-  const pathMatch = /^\/thought\/([1-9]\d*)$/.exec(pathname);
+  const pathThoughtId = parseTokenRouteId(pathname, "thought");
   const queryThoughtId = url.searchParams.get("thought")?.trim() ?? "";
-  const thoughtId = pathMatch?.[1] ?? (/^[1-9]\d*$/.test(queryThoughtId) ? queryThoughtId : "");
+  const thoughtId =
+    pathThoughtId ??
+    (queryThoughtId && parseTokenRouteId(`/thought/${queryThoughtId}`, "thought")
+      ? queryThoughtId
+      : "");
   if (!thoughtId) return null;
 
   const target = new globalThis.URL(
