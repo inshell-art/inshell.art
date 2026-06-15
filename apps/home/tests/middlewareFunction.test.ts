@@ -5,6 +5,7 @@ const originalRequest = globalThis.Request;
 const originalResponse = globalThis.Response;
 const originalHeaders = globalThis.Headers;
 const originalFetch = globalThis.fetch;
+const publicFeedSourceBaseUrl = "https://d807d286.inshell-public-feed.pages.dev";
 
 class TestHeaders {
   private readonly values = new Map<string, string>();
@@ -178,7 +179,7 @@ describe("Pages middleware canonical routes", () => {
     expect(response.headers.get("content-type")).toBe("application/json; charset=utf-8");
     expect(response.headers.get("cache-control")).toBe("public, max-age=60");
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://inshell-public-feed.pages.dev/events.json",
+      `${publicFeedSourceBaseUrl}/events.json`,
       expect.objectContaining({
         headers: expect.objectContaining({
           accept: "application/json, */*;q=0.1",
@@ -207,7 +208,36 @@ describe("Pages middleware canonical routes", () => {
     expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8");
     expect(response.headers.get("cache-control")).toBe("public, max-age=60");
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://inshell-public-feed.pages.dev/source/thought-9.html?via=rss",
+      `${publicFeedSourceBaseUrl}/source/thought-9.html?via=rss`,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          accept: "text/html, application/xhtml+xml;q=0.9, */*;q=0.1",
+        }),
+      }),
+    );
+    expect(ctx.next).not.toHaveBeenCalled();
+    expect(ctx.assetsFetch).not.toHaveBeenCalled();
+  });
+
+  test("preserves encoded Public Feed cloud source ids", async () => {
+    const fetchMock = jest.fn(
+      async () =>
+        new Response("<!doctype html><title>cloud source</title>", {
+          status: 200,
+          headers: {
+            "content-type": "text/html; charset=utf-8",
+          },
+        }),
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const cloudId =
+      "sepolia%3Acloud%3Amovement.minted%3A0x88632290a357c40d8af1cb6c9edee44a02b7ce828b605613510e9a98a0a06847";
+    const ctx = middlewareContext(`https://inshell.art/source/sepolia/cloud/${cloudId}`);
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${publicFeedSourceBaseUrl}/source/sepolia/cloud/${cloudId}`,
       expect.objectContaining({
         headers: expect.objectContaining({
           accept: "text/html, application/xhtml+xml;q=0.9, */*;q=0.1",
@@ -236,7 +266,38 @@ describe("Pages middleware canonical routes", () => {
     expect(response.headers.get("content-type")).toBe("text/css; charset=utf-8");
     expect(response.headers.get("cache-control")).toBe("public, max-age=60");
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://inshell-public-feed.pages.dev/source-assets/feed.css",
+      `${publicFeedSourceBaseUrl}/source-assets/feed.css`,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          accept: "*/*",
+        }),
+      }),
+    );
+    expect(ctx.next).not.toHaveBeenCalled();
+    expect(ctx.assetsFetch).not.toHaveBeenCalled();
+  });
+
+  test("preserves encoded Public Feed cloud media ids", async () => {
+    const fetchMock = jest.fn(
+      async () =>
+        new Response("<svg></svg>", {
+          status: 200,
+          headers: {
+            "content-type": "image/svg+xml",
+          },
+        }),
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const cloudId =
+      "sepolia%3Acloud%3Amovement.minted%3A0x88632290a357c40d8af1cb6c9edee44a02b7ce828b605613510e9a98a0a06847";
+    const ctx = middlewareContext(
+      `https://inshell.art/source-assets/sepolia/cloud/${cloudId}/thought.svg`,
+    );
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${publicFeedSourceBaseUrl}/source-assets/sepolia/cloud/${cloudId}/thought.svg`,
       expect.objectContaining({
         headers: expect.objectContaining({
           accept: "*/*",
