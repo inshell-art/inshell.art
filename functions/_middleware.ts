@@ -1,7 +1,7 @@
 const PUBLIC_FEED_RSS_URL = "https://inshell-public-feed.pages.dev/rss.xml";
 const PUBLIC_FEED_ALIAS_URL = "https://inshell-public-feed.pages.dev/feed.xml";
 const PUBLIC_FEED_SEPOLIA_RSS_URL = "https://inshell-public-feed.pages.dev/rss.sepolia.xml";
-const PUBLIC_FEED_BASE_URL = "https://inshell-public-feed.pages.dev";
+const PUBLIC_FEED_BASE_URL = "https://d807d286.inshell-public-feed.pages.dev";
 const APP_SHELL_CACHE_CONTROL = "public, max-age=60, stale-while-revalidate=300";
 
 type PagesAssets = {
@@ -39,7 +39,7 @@ export async function onRequest(ctx: MiddlewareContext): Promise<Response> {
   if (pathname === "/rss.sepolia.xml") {
     return proxyFeed(PUBLIC_FEED_SEPOLIA_RSS_URL, ctx.request);
   }
-  const publicFeedArtifactUrl = getPublicFeedArtifactUrl(url);
+  const publicFeedArtifactUrl = getPublicFeedArtifactUrl(ctx.request.url);
   if (publicFeedArtifactUrl) {
     return proxyPublicFeedArtifact(publicFeedArtifactUrl, ctx.request);
   }
@@ -132,7 +132,8 @@ function isGalleryIntent(hostname: string, pathname: string, url: UrlInstance) {
   );
 }
 
-function getPublicFeedArtifactUrl(url: UrlInstance) {
+function getPublicFeedArtifactUrl(requestUrl: string) {
+  const url = new globalThis.URL(requestUrl);
   if (
     url.pathname === "/events.json" ||
     url.pathname === "/source" ||
@@ -140,12 +141,28 @@ function getPublicFeedArtifactUrl(url: UrlInstance) {
     url.pathname === "/source-assets" ||
     url.pathname.startsWith("/source-assets/")
   ) {
-    const target = new globalThis.URL(url.pathname, PUBLIC_FEED_BASE_URL);
-    target.search = url.search;
-    return target.toString();
+    return `${PUBLIC_FEED_BASE_URL}${encodedPathnameForProxy(url.pathname)}${url.search}`;
   }
 
   return null;
+}
+
+function encodedPathnameForProxy(pathname: string) {
+  return (
+    pathname
+      .split("/")
+      .map((segment) => encodePathSegment(segment))
+      .join("/") || "/"
+  );
+}
+
+function encodePathSegment(segment: string) {
+  if (!segment) return "";
+  try {
+    return encodeURIComponent(decodeURIComponent(segment));
+  } catch {
+    return encodeURIComponent(segment);
+  }
 }
 
 async function serveAppShell(ctx: MiddlewareContext): Promise<Response> {
