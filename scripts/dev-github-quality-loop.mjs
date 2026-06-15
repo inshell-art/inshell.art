@@ -3,6 +3,7 @@ import { execFile } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
+import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
@@ -140,7 +141,74 @@ const issue = ({ kind, severity = "medium", summary, url, details = {} }) => ({
   ...(Object.keys(details).length ? { details } : {}),
 });
 
-const inspectActions = async ({ repo, branch, maxActionRuns }) => {
+export const selectCurrentHeadWorkflowRuns = ({ workflowRuns, branchHeadSha }) => {
+  const runs = Array.isArray(workflowRuns) ? workflowRuns : [];
+  if (!branchHeadSha) {
+    return {
+      currentHeadRuns: runs,
+      ignoredStaleRuns: [],
+    };
+  }
+
+  const currentHeadRuns = [];
+  const ignoredStaleRuns = [];
+  for (const run of runs) {
+    if (run.head_sha === branchHeadSha) {
+      currentHeadRuns.push(run);
+    } else {
+      ignoredStaleRuns.push(run);
+    }
+  }
+
+  return {
+    currentHeadRuns,
+    ignoredStaleRuns,
+  };
+};
+
+export const latestWorkflowRuns = (workflowRuns) => {
+  const latestByWorkflow = new Map();
+  for (const run of workflowRuns) {
+    const key = run.workflow_id ?? run.name ?? run.path ?? run.id;
+    if (!latestByWorkflow.has(key)) {
+      latestByWorkflow.set(key, run);
+    }
+  }
+  return Array.from(latestByWorkflow.values());
+};
+
+const inspectBranchHead = async ({ repo, branch }) => {
+  const response = await ghApi(`repos/${repo}/branches/${encodeURIComponent(branch)}`);
+  if (!response.ok) {
+    return {
+      sha: null,
+      readError: {
+        kind: "github_branch_head",
+        summary: `Unable to read current GitHub branch head for ${branch}.`,
+        error: response.error,
+      },
+    };
+  }
+
+  const sha = response.data?.commit?.sha;
+  if (!sha) {
+    return {
+      sha: null,
+      readError: {
+        kind: "github_branch_head",
+        summary: `GitHub branch ${branch} did not return a commit SHA.`,
+        error: {
+          status: null,
+          message: "Missing commit.sha in branch response.",
+        },
+      },
+    };
+  }
+
+  return { sha, readError: null };
+};
+
+const inspectActions = async ({ repo, branch, maxActionRuns, branchHeadSha }) => {
   const endpoint =
     `repos/${repo}/actions/runs?branch=${encodeURIComponent(branch)}&status=completed&per_page=${maxActionRuns}`;
   const response = await ghApi(endpoint);
@@ -156,17 +224,15 @@ const inspectActions = async ({ repo, branch, maxActionRuns }) => {
   }
 
   const workflowRuns = Array.isArray(response.data?.workflow_runs) ? response.data.workflow_runs : [];
-  const latestByWorkflow = new Map();
-  for (const run of workflowRuns) {
-    const key = run.workflow_id ?? run.name ?? run.path ?? run.id;
-    if (!latestByWorkflow.has(key)) {
-      latestByWorkflow.set(key, run);
-    }
-  }
+  const { currentHeadRuns, ignoredStaleRuns } = selectCurrentHeadWorkflowRuns({
+    workflowRuns,
+    branchHeadSha,
+  });
+  const latestRuns = latestWorkflowRuns(currentHeadRuns);
 
   const badConclusions = new Set(["failure", "timed_out", "action_required", "startup_failure"]);
   const issues = [];
-  for (const run of latestByWorkflow.values()) {
+  for (const run of latestRuns) {
     if (!badConclusions.has(run.conclusion)) {
       continue;
     }
@@ -183,11 +249,23 @@ const inspectActions = async ({ repo, branch, maxActionRuns }) => {
         displayTitle: run.display_title,
         createdAt: run.created_at,
         updatedAt: run.updated_at,
+        headSha: run.head_sha,
+        currentBranchHeadSha: branchHeadSha,
       },
     }));
   }
 
-  return { issues, readError: null };
+  return {
+    issues,
+    readError: null,
+    diagnostics: {
+      kind: "actions",
+      branchHeadSha,
+      completedRunsRead: workflowRuns.length,
+      currentHeadRunsRead: currentHeadRuns.length,
+      ignoredStaleRuns: ignoredStaleRuns.length,
+    },
+  };
 };
 
 const inspectDependabot = async ({ repo }) => {
@@ -371,16 +449,25 @@ const workflowRunUrl = () => {
 const main = async () => {
   const args = parseArgs(process.argv.slice(2));
   const startedAt = new Date();
+  const branchHead = await inspectBranchHead(args);
 
   const results = await Promise.all([
-    inspectActions(args),
+    inspectActions({ ...args, branchHeadSha: branchHead.sha }),
     inspectDependabot(args),
     inspectCodeScanning(args),
     inspectSecretScanning(args),
   ]);
 
   const openIssues = results.flatMap((result) => result.issues);
-  const readErrors = results.flatMap((result) => result.readError ? [result.readError] : []);
+  const readErrors = [
+    ...(branchHead.readError ? [branchHead.readError] : []),
+    ...results.flatMap((result) => result.readError ? [result.readError] : []),
+  ];
+  const diagnostics = Object.fromEntries(
+    results
+      .filter((result) => result.diagnostics)
+      .map((result) => [result.diagnostics.kind || "actions", result.diagnostics])
+  );
   const finishedAt = new Date();
   const runStatus = openIssues.length || readErrors.length ? "blocked" : "ok";
   const activeAlerts = buildOpsAlerts({ openIssues, readErrors });
@@ -412,10 +499,12 @@ const main = async () => {
       finishedAt: finishedAt.toISOString(),
       status: runStatus,
       branch: args.branch,
+      branchHeadSha: branchHead.sha,
       workflowRunUrl: workflowRunUrl(),
       checked,
       openIssues,
       readErrors,
+      diagnostics,
       repairs: [],
       repairPolicy: "DEV patches safe repo-local issues on staging from this status. The loop does not mutate provider accounts, secrets, billing, Cloudflare, or OPS config.",
     },
@@ -444,7 +533,9 @@ const main = async () => {
   }
 };
 
-main().catch((error) => {
-  console.error(error?.stack || error?.message || String(error));
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(error?.stack || error?.message || String(error));
+    process.exit(1);
+  });
+}

@@ -30,6 +30,7 @@
     "smoke:api-routes": "node scripts/smoke-cloudflare-api-routes.mjs",
     "check:web-analytics-token": "node scripts/check-cloudflare-web-analytics-token.mjs",
     "quality:github": "node scripts/dev-github-quality-loop.mjs",
+    "test:dev-quality": "node --test scripts/dev-github-quality-loop.test.mjs",
     "validate:contracts": "node scripts/validate-inshell-contracts.mjs",
     "sync:path-release": "tsx scripts/sync-path-release.ts",
     "sync:thought-release": "tsx scripts/sync-thought-release.ts",
