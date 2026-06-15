@@ -1062,6 +1062,19 @@ describe("App Component", () => {
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
   });
 
+  test("does not treat oversized numeric THOUGHT paths as detail routes", () => {
+    window.history.pushState(
+      {},
+      "",
+      "/thought/54364138588649095656199127666862160886190085583430894705241839978667380631264",
+    );
+    render(<App />);
+
+    expect(screen.getByTestId("auction-canvas")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /THOUGHT\s+#/ })).toBeNull();
+    expect(screen.queryByText(/not found/i)).toBeNull();
+  });
+
   test("keeps THOUGHT detail text rendering aligned with canonical THOUGHT", () => {
     const css = readFileSync(
       nodePath.resolve(cwd(), "src/main.css"),

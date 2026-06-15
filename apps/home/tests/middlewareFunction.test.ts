@@ -267,4 +267,15 @@ describe("Pages middleware canonical routes", () => {
     expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
     expect(ctx.next).not.toHaveBeenCalled();
   });
+
+  test("does not serve oversized numeric THOUGHT paths through the app shell", async () => {
+    const ctx = middlewareContext(
+      "https://inshell.art/thought/54364138588649095656199127666862160886190085583430894705241839978667380631264",
+    );
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(200);
+    expect(ctx.next).toHaveBeenCalledTimes(1);
+    expect(ctx.assetsFetch).not.toHaveBeenCalled();
+  });
 });
