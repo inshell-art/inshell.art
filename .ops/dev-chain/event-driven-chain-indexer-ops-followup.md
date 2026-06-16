@@ -67,3 +67,43 @@ Before OPS enables the production fast path:
 - confirm preview testing requirements if `https://preview.inshell.art/api/indexer/event` stays behind Cloudflare Access.
 
 No website route shape change is requested from OPS. The browser should not call provider webhooks, OPS endpoints, hosted indexers, or raw RPC.
+
+## DEV Follow-Up: 2026-06-16
+
+DEV patched the event-ingest status contract so `/api/ops/status` is no longer a static capability-only response for event ingest.
+
+`POST /api/indexer/event` now writes a non-secret status marker into the D1-backed `chain_snapshots` table under:
+
+```txt
+indexer-event-ingest-status:v1:sepolia
+```
+
+`/api/ops/status.indexerEventIngest` now exposes:
+
+- `statusSource`
+- `lastAcceptedAt`
+- `lastAppliedAt`
+- `lastAppliedTarget`
+- `lastTxHash`
+- `lastBlockNumber`
+- `lastLogIndex`
+- `lastResultApplied`
+- `lastResultSource`
+- `cachedAt`
+- `lastScannedBlock`
+- `acceptedCount`
+- `appliedCount`
+
+The status route is now `no-store` so OPS monitoring does not receive stale event-ingest state from HTTP cache.
+
+Preview testing policy:
+
+- Default OPS preview target should be the Cloudflare Pages branch alias:
+  `https://staging.inshell-art.pages.dev/api/indexer/event`
+- The matching status endpoint is:
+  `https://staging.inshell-art.pages.dev/api/ops/status`
+- `https://preview.inshell.art/...` remains behind Cloudflare Access. OPS should use it only with Access service-token headers, unless the operator explicitly approves a bypass policy.
+
+`/api/pulse-auction` remains the public website read path for PATH/Pulse UI.
+
+`/api/indexer/refresh` remains valid as the scheduled reconciliation fallback.

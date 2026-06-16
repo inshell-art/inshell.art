@@ -80,11 +80,18 @@ function rpcError(status: number, message: string) {
   };
 }
 
-function createD1Mock(seed: Record<string, unknown> = {}) {
+function createD1Mock(
+  seed: Record<string, unknown> = {},
+  options: { failWritesForKeys?: string[]; failReadsForKeys?: string[] } = {},
+) {
   const rows = new Map<string, string>(
     Object.entries(seed).map(([key, value]) => [key, JSON.stringify(value)]),
   );
-  const exec = jest.fn(async () => undefined);
+  const exec = jest.fn(async (query: string) => {
+    if (/create\s+table/i.test(query) && /\n/.test(query)) {
+      throw new Error("mock D1 exec rejects multiline CREATE TABLE statements");
+    }
+  });
   const prepare = jest.fn((query: string) => {
     let bound: unknown[] = [];
     const statement = {
@@ -95,6 +102,9 @@ function createD1Mock(seed: Record<string, unknown> = {}) {
       first: jest.fn(async () => {
         if (/select\s+snapshot_json/i.test(query)) {
           const key = String(bound[0] ?? "");
+          if (options.failReadsForKeys?.includes(key)) {
+            throw new Error(`forced D1 read failure for ${key}`);
+          }
           const snapshot_json = rows.get(key);
           return snapshot_json ? { snapshot_json } : null;
         }
@@ -102,7 +112,11 @@ function createD1Mock(seed: Record<string, unknown> = {}) {
       }),
       run: jest.fn(async () => {
         if (/insert\s+into\s+chain_snapshots/i.test(query)) {
-          rows.set(String(bound[0] ?? ""), String(bound[1] ?? ""));
+          const key = String(bound[0] ?? "");
+          if (options.failWritesForKeys?.includes(key)) {
+            throw new Error(`forced D1 write failure for ${key}`);
+          }
+          rows.set(key, String(bound[1] ?? ""));
         }
         return {};
       }),
@@ -638,9 +652,31 @@ describe("chain cache Pages functions", () => {
         CHAIN_CACHE_DIAGNOSTICS: "1",
       },
     });
-    const payload = (await response.json()) as { ok?: boolean; applied?: boolean };
+    const payload = (await response.json()) as {
+      ok?: boolean;
+      applied?: boolean;
+      eventStatus?: {
+        persisted?: boolean;
+        statusSource?: string;
+        lastAcceptedAt?: string | null;
+        error?: string | null;
+      };
+    };
     const stored = JSON.parse(d1.rows.get("pulse-auction:v1:sepolia") ?? "{}") as {
       items?: Array<{ txHash?: string; amount?: { dec?: string } }>;
+    };
+    const status = JSON.parse(
+      d1.rows.get("indexer-event-ingest-status:v1:sepolia") ?? "{}",
+    ) as {
+      lastAcceptedAt?: string;
+      lastAppliedTarget?: string;
+      lastTxHash?: string;
+      lastBlockNumber?: number;
+      lastLogIndex?: number;
+      lastResultApplied?: boolean;
+      lastResultSource?: string;
+      acceptedCount?: number;
+      appliedCount?: number;
     };
 
     expect(response.status).toBe(200);
@@ -648,6 +684,21 @@ describe("chain cache Pages functions", () => {
     expect(payload.applied).toBe(true);
     expect(stored.items?.[0]?.txHash).toBe(txHash);
     expect(stored.items?.[0]?.amount?.dec).toBe("12");
+    expect(status.lastAcceptedAt).toEqual(expect.any(String));
+    expect(status.lastAppliedTarget).toBe("pulse-auction");
+    expect(status.lastTxHash).toBe(txHash);
+    expect(status.lastBlockNumber).toBe(10856428);
+    expect(status.lastLogIndex).toBe(2);
+    expect(status.lastResultApplied).toBe(true);
+    expect(status.lastResultSource).toBe("d1");
+    expect(status.acceptedCount).toBe(1);
+    expect(status.appliedCount).toBe(1);
+    expect(payload.eventStatus?.persisted).toBe(true);
+    expect(payload.eventStatus?.statusSource).toBe("d1");
+    expect(payload.eventStatus?.lastAcceptedAt).toEqual(expect.any(String));
+    expect(payload.eventStatus?.error).toBeNull();
+    expect(response.headers.get("x-indexer-event-status-write")).toBe("1");
+    expect(response.headers.get("x-indexer-event-status-source")).toBe("d1");
     expect(response.headers.get("x-live-rpc-calls")).toBe("3");
     expect(response.headers.get("x-db-write")).toBe("1");
   });
@@ -753,26 +804,140 @@ describe("chain cache Pages functions", () => {
     expect(response.headers.get("x-live-rpc-calls")).toBe("0");
   });
 
-  test("ops status advertises event-driven indexer ingest", async () => {
+  test("indexer event reports marker persistence failure without hiding ingest success", async () => {
     globalThis.Request = TestRequest as unknown as typeof Request;
     globalThis.Response = TestResponse as unknown as typeof Response;
     globalThis.Headers = TestHeaders as unknown as typeof Headers;
+    (globalThis as any).caches = undefined;
+    const txHash = `0x${"abc".padStart(64, "0")}`;
+    const d1 = createD1Mock(
+      {
+        "pulse-auction:v1:sepolia": {
+          version: 1,
+          cachedAt: Date.now() - 120_000,
+          chainId: 11155111,
+          contract: PULSE_AUCTION,
+          fromBlock: 10854123,
+          lastScannedBlock: 10860000,
+          items: [
+            {
+              key: `sale:${txHash}:2`,
+              txHash,
+              atMs: 1_780_000_000_000,
+              amount: { raw: { low: "12", high: "0" }, dec: "12" },
+            },
+          ],
+        } satisfies IndexedSnapshot<unknown>,
+      },
+      { failWritesForKeys: ["indexer-event-ingest-status:v1:sepolia"] },
+    );
+    const fetchMock = jest.fn(async () => {
+      throw new Error("live RPC should not be called for an already indexed tx");
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    const response = await onOpsStatusGet({
-      request: new Request("https://preview.inshell.art/api/ops/status"),
-      env: {},
+    const response = await onIndexerEventPost({
+      request: new Request("https://preview.inshell.art/api/indexer/event", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          version: 1,
+          source: "ops-chain-event-ingress",
+          network: "sepolia",
+          target: "pulse-auction",
+          txHash,
+          blockNumber: 10856428,
+          logIndex: 2,
+          contractAddress: PULSE_AUCTION,
+          topic0: PULSE_SALE_TOPIC,
+        }),
+      }),
+      env: {
+        INSHELL_CHAIN_DATA_DB: d1.db,
+        INSHELL_INDEXER_REFRESH_TOKEN: "secret-token",
+        PATH_PRIMARY_RPC_UPSTREAM: "https://path-rpc.example/sepolia",
+        CHAIN_CACHE_DIAGNOSTICS: "1",
+      },
     });
     const payload = (await response.json()) as {
-      routes?: { event?: { route?: string; targets?: string[] } };
-      indexerEventIngest?: { enabled?: boolean; route?: string; targets?: string[] };
+      ok?: boolean;
+      applied?: boolean;
+      eventStatus?: { persisted?: boolean; statusSource?: string; error?: string | null };
     };
 
     expect(response.status).toBe(200);
+    expect(payload.ok).toBe(true);
+    expect(payload.applied).toBe(true);
+    expect(payload.eventStatus?.persisted).toBe(false);
+    expect(payload.eventStatus?.statusSource).toBe("error");
+    expect(payload.eventStatus?.error).toContain("forced D1 write failure");
+    expect(response.headers.get("x-indexer-event-status-write")).toBe("0");
+    expect(response.headers.get("x-indexer-event-status-source")).toBe("error");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test("ops status advertises event-driven indexer ingest state", async () => {
+    globalThis.Request = TestRequest as unknown as typeof Request;
+    globalThis.Response = TestResponse as unknown as typeof Response;
+    globalThis.Headers = TestHeaders as unknown as typeof Headers;
+    const d1 = createD1Mock({
+      "indexer-event-ingest-status:v1:sepolia": {
+        version: 1,
+        updatedAt: "2026-06-16T11:00:00.000Z",
+        lastAcceptedAt: "2026-06-16T11:00:00.000Z",
+        lastAppliedAt: "2026-06-16T11:00:00.000Z",
+        lastAppliedTarget: "pulse-auction",
+        lastTxHash: `0x${"456".padStart(64, "0")}`,
+        lastBlockNumber: 10856428,
+        lastLogIndex: 2,
+        lastResultApplied: true,
+        lastResultSource: "d1",
+        cachedAt: 1_781_000_000_000,
+        lastScannedBlock: 10856500,
+        acceptedCount: 3,
+        appliedCount: 2,
+      },
+    });
+
+    const response = await onOpsStatusGet({
+      request: new Request("https://preview.inshell.art/api/ops/status"),
+      env: { INSHELL_CHAIN_DATA_DB: d1.db },
+    });
+    const payload = (await response.json()) as {
+      routes?: { event?: { route?: string; targets?: string[] } };
+      indexerEventIngest?: {
+        enabled?: boolean;
+        route?: string;
+        targets?: string[];
+        statusSource?: string;
+        lastAcceptedAt?: string | null;
+        lastAppliedAt?: string | null;
+        lastAppliedTarget?: string | null;
+        lastTxHash?: string | null;
+        acceptedCount?: number;
+        appliedCount?: number;
+        statusError?: string | null;
+      };
+    };
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
     expect(payload.routes?.event?.route).toBe("/api/indexer/event");
     expect(payload.routes?.event?.targets).toEqual(["pulse-auction"]);
     expect(payload.indexerEventIngest?.enabled).toBe(true);
     expect(payload.indexerEventIngest?.route).toBe("/api/indexer/event");
     expect(payload.indexerEventIngest?.targets).toEqual(["pulse-auction"]);
+    expect(payload.indexerEventIngest?.statusSource).toBe("d1");
+    expect(payload.indexerEventIngest?.statusError).toBeNull();
+    expect(payload.indexerEventIngest?.lastAcceptedAt).toBe("2026-06-16T11:00:00.000Z");
+    expect(payload.indexerEventIngest?.lastAppliedAt).toBe("2026-06-16T11:00:00.000Z");
+    expect(payload.indexerEventIngest?.lastAppliedTarget).toBe("pulse-auction");
+    expect(payload.indexerEventIngest?.lastTxHash).toBe(`0x${"456".padStart(64, "0")}`);
+    expect(payload.indexerEventIngest?.acceptedCount).toBe(3);
+    expect(payload.indexerEventIngest?.appliedCount).toBe(2);
   });
 
   test("writes KV when snapshot content changes", async () => {
