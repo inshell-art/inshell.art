@@ -13,6 +13,7 @@ import {
 } from "../chain-cache";
 import { refreshPulseAuctionForTx } from "../pulse-auction";
 import { isIndexerAuthorized } from "./auth";
+import { writeIndexerEventStatus } from "./event-status";
 
 type IndexerEventEnvelope = {
   version?: unknown;
@@ -54,13 +55,24 @@ export async function onRequestPost(ctx: PagesContextLike): Promise<Response> {
     const applied = snapshot.items.some(
       (item: PulseBidApiItem) => item.txHash?.toLowerCase() === normalizedTxHash,
     );
+    const source = diagnostics.dbWrite ? "d1" : diagnostics.source;
+    await writeIndexerEventStatus(ctx.env, {
+      target: "pulse-auction",
+      txHash: event.txHash,
+      blockNumber: event.blockNumber,
+      logIndex: event.logIndex,
+      applied,
+      cachedAt: snapshot.cachedAt,
+      lastScannedBlock: snapshot.lastScannedBlock,
+      source,
+    });
     const response = json(200, {
       ok: true,
       target: "pulse-auction",
       applied,
       cachedAt: snapshot.cachedAt,
       lastScannedBlock: snapshot.lastScannedBlock,
-      source: diagnostics.dbWrite ? "d1" : diagnostics.source,
+      source,
       txHash: event.txHash,
     });
     return withChainCacheDiagnostics(ctx, response, diagnostics, stats, snapshot);
@@ -71,7 +83,7 @@ export async function onRequestPost(ctx: PagesContextLike): Promise<Response> {
 }
 
 function validateEvent(body: IndexerEventEnvelope):
-  | { ok: true; txHash: string }
+  | { ok: true; txHash: string; blockNumber: number; logIndex: number }
   | { ok: false; error: string } {
   if (body.version !== 1) return { ok: false, error: "invalid event version" };
   if (body.source !== EVENT_SOURCE) return { ok: false, error: "invalid event source" };
@@ -89,7 +101,7 @@ function validateEvent(body: IndexerEventEnvelope):
   }
   if (!isNonNegativeInteger(body.logIndex)) return { ok: false, error: "invalid log index" };
   if (!isPositiveInteger(body.blockNumber)) return { ok: false, error: "invalid block number" };
-  return { ok: true, txHash };
+  return { ok: true, txHash, blockNumber: body.blockNumber, logIndex: body.logIndex };
 }
 
 async function readJsonBody(request: Request): Promise<IndexerEventEnvelope> {

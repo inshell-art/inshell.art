@@ -12,6 +12,7 @@ import {
   type ChainCacheEnv,
   type PagesContextLike,
 } from "../chain-cache";
+import { readIndexerEventStatus } from "../indexer/event-status";
 
 type EnvKey = keyof ChainCacheEnv;
 
@@ -72,6 +73,12 @@ export const onRequestOptions = onOptions;
 
 export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
   const url = new globalThis.URL(ctx.request.url);
+  const eventStatus = await readIndexerEventStatus(ctx.env);
+  const eventStatusSource = ctx.env.INSHELL_CHAIN_DATA_DB
+    ? eventStatus
+      ? "d1"
+      : "empty"
+    : "unavailable";
   const payload = {
     ok: true,
     contract: {
@@ -112,8 +119,19 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
       route: "/api/indexer/event",
       targets: ["pulse-auction"],
       auth: "bearer-token-required",
-      lastAcceptedAt: null,
-      lastAppliedTarget: null,
+      statusSource: eventStatusSource,
+      lastAcceptedAt: eventStatus?.lastAcceptedAt ?? null,
+      lastAppliedAt: eventStatus?.lastAppliedAt ?? null,
+      lastAppliedTarget: eventStatus?.lastAppliedTarget ?? null,
+      lastTxHash: eventStatus?.lastTxHash ?? null,
+      lastBlockNumber: eventStatus?.lastBlockNumber ?? null,
+      lastLogIndex: eventStatus?.lastLogIndex ?? null,
+      lastResultApplied: eventStatus?.lastResultApplied ?? null,
+      lastResultSource: eventStatus?.lastResultSource ?? null,
+      cachedAt: eventStatus?.cachedAt ?? null,
+      lastScannedBlock: eventStatus?.lastScannedBlock ?? null,
+      acceptedCount: eventStatus?.acceptedCount ?? 0,
+      appliedCount: eventStatus?.appliedCount ?? 0,
     },
     cache: {
       readModelEnabled: readModelEnabled(ctx.env),
@@ -173,7 +191,7 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
     },
   };
 
-  return json(200, payload, 30);
+  return json(200, payload);
 }
 
 function appForHost(hostname: string) {

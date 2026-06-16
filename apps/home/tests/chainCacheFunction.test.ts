@@ -642,12 +642,34 @@ describe("chain cache Pages functions", () => {
     const stored = JSON.parse(d1.rows.get("pulse-auction:v1:sepolia") ?? "{}") as {
       items?: Array<{ txHash?: string; amount?: { dec?: string } }>;
     };
+    const status = JSON.parse(
+      d1.rows.get("indexer-event-ingest-status:v1:sepolia") ?? "{}",
+    ) as {
+      lastAcceptedAt?: string;
+      lastAppliedTarget?: string;
+      lastTxHash?: string;
+      lastBlockNumber?: number;
+      lastLogIndex?: number;
+      lastResultApplied?: boolean;
+      lastResultSource?: string;
+      acceptedCount?: number;
+      appliedCount?: number;
+    };
 
     expect(response.status).toBe(200);
     expect(payload.ok).toBe(true);
     expect(payload.applied).toBe(true);
     expect(stored.items?.[0]?.txHash).toBe(txHash);
     expect(stored.items?.[0]?.amount?.dec).toBe("12");
+    expect(status.lastAcceptedAt).toEqual(expect.any(String));
+    expect(status.lastAppliedTarget).toBe("pulse-auction");
+    expect(status.lastTxHash).toBe(txHash);
+    expect(status.lastBlockNumber).toBe(10856428);
+    expect(status.lastLogIndex).toBe(2);
+    expect(status.lastResultApplied).toBe(true);
+    expect(status.lastResultSource).toBe("d1");
+    expect(status.acceptedCount).toBe(1);
+    expect(status.appliedCount).toBe(1);
     expect(response.headers.get("x-live-rpc-calls")).toBe("3");
     expect(response.headers.get("x-db-write")).toBe("1");
   });
@@ -753,26 +775,63 @@ describe("chain cache Pages functions", () => {
     expect(response.headers.get("x-live-rpc-calls")).toBe("0");
   });
 
-  test("ops status advertises event-driven indexer ingest", async () => {
+  test("ops status advertises event-driven indexer ingest state", async () => {
     globalThis.Request = TestRequest as unknown as typeof Request;
     globalThis.Response = TestResponse as unknown as typeof Response;
     globalThis.Headers = TestHeaders as unknown as typeof Headers;
+    const d1 = createD1Mock({
+      "indexer-event-ingest-status:v1:sepolia": {
+        version: 1,
+        updatedAt: "2026-06-16T11:00:00.000Z",
+        lastAcceptedAt: "2026-06-16T11:00:00.000Z",
+        lastAppliedAt: "2026-06-16T11:00:00.000Z",
+        lastAppliedTarget: "pulse-auction",
+        lastTxHash: `0x${"456".padStart(64, "0")}`,
+        lastBlockNumber: 10856428,
+        lastLogIndex: 2,
+        lastResultApplied: true,
+        lastResultSource: "d1",
+        cachedAt: 1_781_000_000_000,
+        lastScannedBlock: 10856500,
+        acceptedCount: 3,
+        appliedCount: 2,
+      },
+    });
 
     const response = await onOpsStatusGet({
       request: new Request("https://preview.inshell.art/api/ops/status"),
-      env: {},
+      env: { INSHELL_CHAIN_DATA_DB: d1.db },
     });
     const payload = (await response.json()) as {
       routes?: { event?: { route?: string; targets?: string[] } };
-      indexerEventIngest?: { enabled?: boolean; route?: string; targets?: string[] };
+      indexerEventIngest?: {
+        enabled?: boolean;
+        route?: string;
+        targets?: string[];
+        statusSource?: string;
+        lastAcceptedAt?: string | null;
+        lastAppliedAt?: string | null;
+        lastAppliedTarget?: string | null;
+        lastTxHash?: string | null;
+        acceptedCount?: number;
+        appliedCount?: number;
+      };
     };
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
     expect(payload.routes?.event?.route).toBe("/api/indexer/event");
     expect(payload.routes?.event?.targets).toEqual(["pulse-auction"]);
     expect(payload.indexerEventIngest?.enabled).toBe(true);
     expect(payload.indexerEventIngest?.route).toBe("/api/indexer/event");
     expect(payload.indexerEventIngest?.targets).toEqual(["pulse-auction"]);
+    expect(payload.indexerEventIngest?.statusSource).toBe("d1");
+    expect(payload.indexerEventIngest?.lastAcceptedAt).toBe("2026-06-16T11:00:00.000Z");
+    expect(payload.indexerEventIngest?.lastAppliedAt).toBe("2026-06-16T11:00:00.000Z");
+    expect(payload.indexerEventIngest?.lastAppliedTarget).toBe("pulse-auction");
+    expect(payload.indexerEventIngest?.lastTxHash).toBe(`0x${"456".padStart(64, "0")}`);
+    expect(payload.indexerEventIngest?.acceptedCount).toBe(3);
+    expect(payload.indexerEventIngest?.appliedCount).toBe(2);
   });
 
   test("writes KV when snapshot content changes", async () => {
