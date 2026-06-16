@@ -87,7 +87,11 @@ function createD1Mock(
   const rows = new Map<string, string>(
     Object.entries(seed).map(([key, value]) => [key, JSON.stringify(value)]),
   );
-  const exec = jest.fn(async () => undefined);
+  const exec = jest.fn(async (query: string) => {
+    if (/create\s+table/i.test(query) && /\n/.test(query)) {
+      throw new Error("mock D1 exec rejects multiline CREATE TABLE statements");
+    }
+  });
   const prepare = jest.fn((query: string) => {
     let bound: unknown[] = [];
     const statement = {

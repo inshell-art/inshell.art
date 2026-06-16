@@ -145,16 +145,15 @@ export async function writeIndexerEventStatus(
 
 async function ensureStatusTable(db: NonNullable<ChainCacheEnv["INSHELL_CHAIN_DATA_DB"]>) {
   if (ensuredStatusTables.has(db as object)) return;
-  const query = `
-    CREATE TABLE IF NOT EXISTS ${D1_SNAPSHOT_TABLE} (
-      key TEXT PRIMARY KEY,
-      snapshot_json TEXT NOT NULL,
-      cached_at INTEGER NOT NULL,
-      last_scanned_block INTEGER NOT NULL,
-      content_hash TEXT NOT NULL,
-      updated_at INTEGER NOT NULL
-    )
-  `;
+  const query =
+    `CREATE TABLE IF NOT EXISTS ${D1_SNAPSHOT_TABLE} (` +
+    "key TEXT PRIMARY KEY, " +
+    "snapshot_json TEXT NOT NULL, " +
+    "cached_at INTEGER NOT NULL, " +
+    "last_scanned_block INTEGER NOT NULL, " +
+    "content_hash TEXT NOT NULL, " +
+    "updated_at INTEGER NOT NULL" +
+    ")";
   if (db.exec) await db.exec(query);
   else await db.prepare(query).run();
   ensuredStatusTables.add(db as object);

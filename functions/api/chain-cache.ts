@@ -944,16 +944,16 @@ function snapshotBlock(value: unknown) {
 
 async function ensureD1SnapshotTable(db: D1DatabaseLike) {
   if (!db.exec || ensuredD1Tables.has(db as object)) return;
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS ${D1_SNAPSHOT_TABLE} (
-      key TEXT PRIMARY KEY,
-      snapshot_json TEXT NOT NULL,
-      cached_at INTEGER NOT NULL,
-      last_scanned_block INTEGER NOT NULL,
-      content_hash TEXT NOT NULL,
-      updated_at INTEGER NOT NULL
-    )
-  `);
+  await db.exec(
+    `CREATE TABLE IF NOT EXISTS ${D1_SNAPSHOT_TABLE} (` +
+      "key TEXT PRIMARY KEY, " +
+      "snapshot_json TEXT NOT NULL, " +
+      "cached_at INTEGER NOT NULL, " +
+      "last_scanned_block INTEGER NOT NULL, " +
+      "content_hash TEXT NOT NULL, " +
+      "updated_at INTEGER NOT NULL" +
+      ")",
+  );
   ensuredD1Tables.add(db as object);
 }
 
