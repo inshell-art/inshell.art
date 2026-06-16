@@ -32,38 +32,68 @@ type WriteIndexerEventStatusInput = {
   source: string;
 };
 
+export type IndexerEventStatusRead =
+  | { source: "d1"; status: IndexerEventStatus; error: null }
+  | { source: "empty"; status: null; error: null }
+  | { source: "unavailable"; status: null; error: string }
+  | { source: "error"; status: null; error: string };
+
+export type IndexerEventStatusWrite =
+  | { persisted: true; source: "d1"; status: IndexerEventStatus; error: null }
+  | { persisted: false; source: "unavailable" | "error"; status: null; error: string };
+
 const ensuredStatusTables = new WeakSet<object>();
 
 export async function readIndexerEventStatus(
   env: ChainCacheEnv,
-): Promise<IndexerEventStatus | null> {
+): Promise<IndexerEventStatusRead> {
   const db = env.INSHELL_CHAIN_DATA_DB;
-  if (!db) return null;
+  if (!db) {
+    return { source: "unavailable", status: null, error: "INSHELL_CHAIN_DATA_DB is not bound" };
+  }
   try {
-    await ensureStatusTable(env);
+    await ensureStatusTable(db);
     const row = await db
       .prepare(`SELECT snapshot_json FROM ${D1_SNAPSHOT_TABLE} WHERE key = ?1`)
       .bind(STATUS_KEY)
       .first<{ snapshot_json?: string }>();
     const raw = row?.snapshot_json;
-    if (!raw) return null;
+    if (!raw) return { source: "empty", status: null, error: null };
     const parsed = JSON.parse(raw);
-    if (isIndexerEventStatus(parsed)) return parsed;
-  } catch {
-    return null;
+    if (isIndexerEventStatus(parsed)) {
+      return { source: "d1", status: parsed, error: null };
+    }
+    return { source: "error", status: null, error: "invalid indexer event status payload" };
+  } catch (error) {
+    return { source: "error", status: null, error: readableError(error) };
   }
-  return null;
 }
 
 export async function writeIndexerEventStatus(
   env: ChainCacheEnv,
   input: WriteIndexerEventStatusInput,
-) {
+): Promise<IndexerEventStatusWrite> {
   const db = env.INSHELL_CHAIN_DATA_DB;
-  if (!db) return;
+  if (!db) {
+    return {
+      persisted: false,
+      source: "unavailable",
+      status: null,
+      error: "INSHELL_CHAIN_DATA_DB is not bound",
+    };
+  }
   try {
-    await ensureStatusTable(env);
-    const previous = await readIndexerEventStatus(env);
+    await ensureStatusTable(db);
+    const previousResult = await readIndexerEventStatus(env);
+    if (previousResult.source === "error") {
+      return {
+        persisted: false,
+        source: "error",
+        status: null,
+        error: previousResult.error,
+      };
+    }
+    const previous = previousResult.status;
     const now = new Date().toISOString();
     const status: IndexerEventStatus = {
       version: STATUS_VERSION,
@@ -107,15 +137,15 @@ export async function writeIndexerEventStatus(
         Date.now(),
       )
       .run();
-  } catch {
-    // Event ingest should not fail only because the monitoring marker failed.
+    return { persisted: true, source: "d1", status, error: null };
+  } catch (error) {
+    return { persisted: false, source: "error", status: null, error: readableError(error) };
   }
 }
 
-async function ensureStatusTable(env: ChainCacheEnv) {
-  const db = env.INSHELL_CHAIN_DATA_DB;
-  if (!db?.exec || ensuredStatusTables.has(db as object)) return;
-  await db.exec(`
+async function ensureStatusTable(db: NonNullable<ChainCacheEnv["INSHELL_CHAIN_DATA_DB"]>) {
+  if (ensuredStatusTables.has(db as object)) return;
+  const query = `
     CREATE TABLE IF NOT EXISTS ${D1_SNAPSHOT_TABLE} (
       key TEXT PRIMARY KEY,
       snapshot_json TEXT NOT NULL,
@@ -124,7 +154,9 @@ async function ensureStatusTable(env: ChainCacheEnv) {
       content_hash TEXT NOT NULL,
       updated_at INTEGER NOT NULL
     )
-  `);
+  `;
+  if (db.exec) await db.exec(query);
+  else await db.prepare(query).run();
   ensuredStatusTables.add(db as object);
 }
 
@@ -142,4 +174,12 @@ function isIndexerEventStatus(value: unknown): value is IndexerEventStatus {
     typeof status.cachedAt === "number" &&
     typeof status.lastScannedBlock === "number"
   );
+}
+
+function readableError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return message
+    .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer <redacted>")
+    .replace(/(token=)[A-Za-z0-9._~+/=-]+/gi, "$1<redacted>")
+    .slice(0, 300);
 }

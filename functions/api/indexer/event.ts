@@ -56,7 +56,7 @@ export async function onRequestPost(ctx: PagesContextLike): Promise<Response> {
       (item: PulseBidApiItem) => item.txHash?.toLowerCase() === normalizedTxHash,
     );
     const source = diagnostics.dbWrite ? "d1" : diagnostics.source;
-    await writeIndexerEventStatus(ctx.env, {
+    const statusWrite = await writeIndexerEventStatus(ctx.env, {
       target: "pulse-auction",
       txHash: event.txHash,
       blockNumber: event.blockNumber,
@@ -74,7 +74,18 @@ export async function onRequestPost(ctx: PagesContextLike): Promise<Response> {
       lastScannedBlock: snapshot.lastScannedBlock,
       source,
       txHash: event.txHash,
+      eventStatus: {
+        persisted: statusWrite.persisted,
+        statusSource: statusWrite.source,
+        lastAcceptedAt: statusWrite.status?.lastAcceptedAt ?? null,
+        lastAppliedTarget: statusWrite.status?.lastAppliedTarget ?? null,
+        acceptedCount: statusWrite.status?.acceptedCount ?? null,
+        appliedCount: statusWrite.status?.appliedCount ?? null,
+        error: statusWrite.error,
+      },
     });
+    response.headers.set("x-indexer-event-status-write", statusWrite.persisted ? "1" : "0");
+    response.headers.set("x-indexer-event-status-source", statusWrite.source);
     return withChainCacheDiagnostics(ctx, response, diagnostics, stats, snapshot);
   } catch {
     emitUsage(ctx, stats);
