@@ -13,6 +13,7 @@ import {
 import { refreshPathTokens } from "../path-tokens";
 import { refreshPulseAuction, refreshPulseAuctionForTx } from "../pulse-auction";
 import { refreshThoughtGallery } from "../thought-gallery";
+import { isIndexerAuthorized } from "./auth";
 
 type RefreshTarget = "pulse-auction" | "path-tokens" | "thought-gallery" | "all";
 
@@ -38,7 +39,7 @@ export async function onRequestPost(ctx: PagesContextLike): Promise<Response> {
 
   const targetedPublicRefresh =
     normalizedTarget === "pulse-auction" && isTxHash(txHash);
-  if (!targetedPublicRefresh && !isAuthorized(ctx)) {
+  if (!targetedPublicRefresh && !isIndexerAuthorized(ctx)) {
     return json(401, { error: "indexer refresh token required" });
   }
 
@@ -113,15 +114,6 @@ function normalizeTarget(value: string): RefreshTarget | null {
     return value;
   }
   return null;
-}
-
-function isAuthorized(ctx: PagesContextLike) {
-  const expected = ctx.env.INSHELL_INDEXER_REFRESH_TOKEN?.trim();
-  if (!expected) return false;
-  const auth = ctx.request.headers.get("authorization") ?? "";
-  const bearer = auth.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
-  const header = ctx.request.headers.get("x-inshell-indexer-token")?.trim();
-  return bearer === expected || header === expected;
 }
 
 async function readJsonBody(request: Request): Promise<Record<string, unknown>> {

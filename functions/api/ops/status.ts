@@ -41,6 +41,12 @@ const ROUTES = {
     },
     targets: ["pulse-auction", "path-tokens", "thought-gallery", "all"],
   },
+  event: {
+    route: "/api/indexer/event",
+    method: "POST",
+    auth: "bearer-token-required",
+    targets: ["pulse-auction"],
+  },
   publicFeed: [
     "/rss.xml",
     "/feed.xml",
@@ -101,6 +107,14 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
       },
     },
     routes: ROUTES,
+    indexerEventIngest: {
+      enabled: true,
+      route: "/api/indexer/event",
+      targets: ["pulse-auction"],
+      auth: "bearer-token-required",
+      lastAcceptedAt: null,
+      lastAppliedTarget: null,
+    },
     cache: {
       readModelEnabled: readModelEnabled(ctx.env),
       d1Bound: Boolean(ctx.env.INSHELL_CHAIN_DATA_DB),

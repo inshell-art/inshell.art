@@ -58,15 +58,18 @@
 - For PATH auction curve work, check sale count, curve/context-curve count, pump visibility, off-canvas SVG coordinates, and failed `/api/path-rpc` calls.
 
 ## Task Notes
-- Use `LOCAL_TASKS.md` as the local task memo when it exists. It is local-only and should not be committed unless the user explicitly asks.
+- Use repo-local `INBOX.md` for actionable task/backlog items and `MEMO.md` for durable non-task context.
+- `INBOX.md` and `MEMO.md` are local-only operator notes and should not be committed unless the operator explicitly asks.
+- `LOCAL_TASKS.md` is the legacy local task memo. Read it for older Someday/Done history when needed, but do not add new Inbox items there.
 - Keep two GTD-style boxes:
-  - `Inbox`: what the operator wants daily attention on and may ask to implement next.
+  - `Inbox`: what the operator wants daily attention on and may ask to implement next. Store current Inbox items in `INBOX.md`.
   - `Someday`: useful but not urgent work; do not implement unless the operator explicitly moves it into `Inbox` or asks for that specific someday item.
 - Command conventions:
-  - `add to inbox: <task>` adds the task under `Inbox`.
+  - `add to inbox: <task>` adds the task to `INBOX.md`.
+  - `add to memo: <note>` adds the note to `MEMO.md`.
   - `add to someday: <task>` adds the task under `Someday`.
   - `add to tasks: <task>` and `add to night-note: <task>` are legacy aliases for `add to inbox: <task>` unless the operator explicitly says `someday`.
-  - `inbox`, `tasks`, or `night-note` lists/reviews `Inbox`.
+  - `inbox`, `tasks`, or `night-note` lists/reviews `INBOX.md`.
   - `someday` lists/reviews `Someday`.
   - `resolve tasks`, `empty the tasks`, `clean inbox`, or similar starts implementing `Inbox` in order, then clears completed entries after confirming what changed.
 - If any GitHub, Dependabot, security, CI, deployment, or repo alert appears during work or push output, record it under `Inbox` unless the user asks to fix it immediately.
