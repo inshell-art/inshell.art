@@ -18,3 +18,10 @@ tokens, keys, or other secret values.
 OPS should use this endpoint with route diagnostics such as
 `x-chain-cache-source`, `x-live-rpc-calls`, and `x-cache-snapshot-block` to
 separate DEV code/config issues from OPS resource/provider issues.
+
+Current OPS handoffs:
+
+- `event-driven-chain-indexer-handoff.md` records the original OPS request for
+  the event-driven chain read-model ingress contract.
+- `event-driven-chain-indexer-ops-followup.md` records the OPS-side bridge
+  after DEV implemented `POST /api/indexer/event` on staging.

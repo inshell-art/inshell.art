@@ -12,7 +12,9 @@ import {
   writeSnapshot,
   type IndexedSnapshot,
 } from "../../../functions/api/chain-cache";
+import { onRequestPost as onIndexerEventPost } from "../../../functions/api/indexer/event";
 import { onRequestPost as onIndexerRefreshPost } from "../../../functions/api/indexer/refresh";
+import { onRequestGet as onOpsStatusGet } from "../../../functions/api/ops/status";
 import { onRequestGet as onPathTokensGet } from "../../../functions/api/path-tokens";
 import { onRequestGet as onPulseAuctionGet } from "../../../functions/api/pulse-auction";
 import { onRequestGet as onThoughtImageGet } from "../../../functions/api/thought-image";
@@ -560,6 +562,217 @@ describe("chain cache Pages functions", () => {
     expect(stored.items?.[0]?.txHash).toBe(txHash);
     expect(stored.items?.[0]?.amount?.dec).toBe("12");
     expect(response.headers.get("x-live-rpc-calls")).toBe("3");
+  });
+
+  test("protected indexer event updates the pulse auction read model", async () => {
+    globalThis.Request = TestRequest as unknown as typeof Request;
+    globalThis.Response = TestResponse as unknown as typeof Response;
+    globalThis.Headers = TestHeaders as unknown as typeof Headers;
+    (globalThis as any).caches = undefined;
+    const txHash = `0x${"def".padStart(64, "0")}`;
+    const d1 = createD1Mock({
+      "pulse-auction:v1:sepolia": {
+        version: 1,
+        cachedAt: Date.now() - 120_000,
+        chainId: 11155111,
+        contract: PULSE_AUCTION,
+        fromBlock: 10854123,
+        lastScannedBlock: 10860000,
+        items: [],
+      } satisfies IndexedSnapshot<unknown>,
+    });
+    const fetchMock = jest.fn(async (_url: unknown, init?: any) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        method?: string;
+      };
+      if (body.method === "eth_getTransactionReceipt") {
+        return rpcResponse({
+          transactionHash: txHash,
+          to: PULSE_AUCTION,
+          blockNumber: "0xa5a7ec",
+          status: "0x1",
+        });
+      }
+      if (body.method === "eth_blockNumber") {
+        return rpcResponse("0xa5a7ef");
+      }
+      if (body.method === "eth_getLogs") {
+        return rpcResponse([
+          {
+            address: PULSE_AUCTION,
+            blockNumber: "0xa5a7ec",
+            data: `0x${word(12n)}${word(1_780_000_000n)}${word(1_779_000_000n)}${word(3n)}`,
+            logIndex: "0x2",
+            topics: [PULSE_SALE_TOPIC, addressTopic(OWNER), tokenTopic(1n)],
+            transactionHash: txHash,
+          },
+        ]);
+      }
+      throw new Error(`unexpected RPC method ${body.method}`);
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const response = await onIndexerEventPost({
+      request: new Request("https://preview.inshell.art/api/indexer/event", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          version: 1,
+          source: "ops-chain-event-ingress",
+          network: "sepolia",
+          target: "pulse-auction",
+          txHash,
+          blockNumber: 10856428,
+          logIndex: 2,
+          contractAddress: PULSE_AUCTION,
+          topic0: PULSE_SALE_TOPIC,
+        }),
+      }),
+      env: {
+        INSHELL_CHAIN_DATA_DB: d1.db,
+        INSHELL_INDEXER_REFRESH_TOKEN: "secret-token",
+        PATH_PRIMARY_RPC_UPSTREAM: "https://path-rpc.example/sepolia",
+        CHAIN_CACHE_DIAGNOSTICS: "1",
+      },
+    });
+    const payload = (await response.json()) as { ok?: boolean; applied?: boolean };
+    const stored = JSON.parse(d1.rows.get("pulse-auction:v1:sepolia") ?? "{}") as {
+      items?: Array<{ txHash?: string; amount?: { dec?: string } }>;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.ok).toBe(true);
+    expect(payload.applied).toBe(true);
+    expect(stored.items?.[0]?.txHash).toBe(txHash);
+    expect(stored.items?.[0]?.amount?.dec).toBe("12");
+    expect(response.headers.get("x-live-rpc-calls")).toBe("3");
+    expect(response.headers.get("x-db-write")).toBe("1");
+  });
+
+  test("indexer event requires refresh token", async () => {
+    globalThis.Request = TestRequest as unknown as typeof Request;
+    globalThis.Response = TestResponse as unknown as typeof Response;
+    globalThis.Headers = TestHeaders as unknown as typeof Headers;
+    const fetchMock = jest.fn(async () => {
+      throw new Error("live RPC should not be called without indexer auth");
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const response = await onIndexerEventPost({
+      request: new Request("https://preview.inshell.art/api/indexer/event", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          version: 1,
+          source: "ops-chain-event-ingress",
+          network: "sepolia",
+          target: "pulse-auction",
+          txHash: `0x${"123".padStart(64, "0")}`,
+          blockNumber: 10856428,
+          logIndex: 2,
+          contractAddress: PULSE_AUCTION,
+          topic0: PULSE_SALE_TOPIC,
+        }),
+      }),
+      env: {
+        INSHELL_INDEXER_REFRESH_TOKEN: "secret-token",
+      },
+    });
+    const payload = (await response.json()) as { error?: string };
+
+    expect(response.status).toBe(401);
+    expect(payload.error).toBe("indexer event token required");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test("indexer event dedupes already indexed transactions without RPC", async () => {
+    globalThis.Request = TestRequest as unknown as typeof Request;
+    globalThis.Response = TestResponse as unknown as typeof Response;
+    globalThis.Headers = TestHeaders as unknown as typeof Headers;
+    (globalThis as any).caches = undefined;
+    const txHash = `0x${"fed".padStart(64, "0")}`;
+    const d1 = createD1Mock({
+      "pulse-auction:v1:sepolia": {
+        version: 1,
+        cachedAt: Date.now() - 120_000,
+        chainId: 11155111,
+        contract: PULSE_AUCTION,
+        fromBlock: 10854123,
+        lastScannedBlock: 10860000,
+        items: [
+          {
+            key: `sale:${txHash}:2`,
+            txHash,
+            atMs: 1_780_000_000_000,
+            amount: { raw: { low: "12", high: "0" }, dec: "12" },
+          },
+        ],
+      } satisfies IndexedSnapshot<unknown>,
+    });
+    const fetchMock = jest.fn(async () => {
+      throw new Error("live RPC should not be called for an already indexed tx");
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const response = await onIndexerEventPost({
+      request: new Request("https://preview.inshell.art/api/indexer/event", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          version: 1,
+          source: "ops-chain-event-ingress",
+          network: "sepolia",
+          target: "pulse-auction",
+          txHash,
+          blockNumber: 10856428,
+          logIndex: 2,
+          contractAddress: PULSE_AUCTION,
+          topic0: PULSE_SALE_TOPIC,
+        }),
+      }),
+      env: {
+        INSHELL_CHAIN_DATA_DB: d1.db,
+        INSHELL_INDEXER_REFRESH_TOKEN: "secret-token",
+        PATH_PRIMARY_RPC_UPSTREAM: "https://path-rpc.example/sepolia",
+        CHAIN_CACHE_DIAGNOSTICS: "1",
+      },
+    });
+    const payload = (await response.json()) as { ok?: boolean; applied?: boolean };
+
+    expect(response.status).toBe(200);
+    expect(payload.ok).toBe(true);
+    expect(payload.applied).toBe(true);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(response.headers.get("x-chain-cache-source")).toBe("d1");
+    expect(response.headers.get("x-live-rpc-calls")).toBe("0");
+  });
+
+  test("ops status advertises event-driven indexer ingest", async () => {
+    globalThis.Request = TestRequest as unknown as typeof Request;
+    globalThis.Response = TestResponse as unknown as typeof Response;
+    globalThis.Headers = TestHeaders as unknown as typeof Headers;
+
+    const response = await onOpsStatusGet({
+      request: new Request("https://preview.inshell.art/api/ops/status"),
+      env: {},
+    });
+    const payload = (await response.json()) as {
+      routes?: { event?: { route?: string; targets?: string[] } };
+      indexerEventIngest?: { enabled?: boolean; route?: string; targets?: string[] };
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.routes?.event?.route).toBe("/api/indexer/event");
+    expect(payload.routes?.event?.targets).toEqual(["pulse-auction"]);
+    expect(payload.indexerEventIngest?.enabled).toBe(true);
+    expect(payload.indexerEventIngest?.route).toBe("/api/indexer/event");
+    expect(payload.indexerEventIngest?.targets).toEqual(["pulse-auction"]);
   });
 
   test("writes KV when snapshot content changes", async () => {
