@@ -703,6 +703,102 @@ describe("chain cache Pages functions", () => {
     expect(response.headers.get("x-db-write")).toBe("1");
   });
 
+  test("protected indexer event updates path tokens read model", async () => {
+    globalThis.Request = TestRequest as unknown as typeof Request;
+    globalThis.Response = TestResponse as unknown as typeof Response;
+    globalThis.Headers = TestHeaders as unknown as typeof Headers;
+    const txHash = `0x${"abcde".padStart(64, "0")}`;
+    const d1 = createD1Mock({
+      "path-tokens:v1:sepolia": {
+        version: 1,
+        cachedAt: Date.now() - 120_000,
+        chainId: 11155111,
+        contract: PATH_NFT,
+        fromBlock: 10854123,
+        lastScannedBlock: 10860000,
+        items: [],
+      } satisfies IndexedSnapshot<unknown>,
+    });
+    const fetchMock = jest.fn(async (_url: unknown, init?: any) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        method?: string;
+      };
+      if (body.method === "eth_getTransactionReceipt") {
+        return rpcResponse({
+          transactionHash: txHash,
+          to: PATH_NFT,
+          blockNumber: "0xa5a7ec",
+          status: "0x1",
+        });
+      }
+      if (body.method === "eth_blockNumber") {
+        return rpcResponse("0xa5a7ef");
+      }
+      if (body.method === "eth_getLogs") {
+        return rpcResponse([
+          {
+            address: PATH_NFT,
+            blockNumber: "0xa5a7ec",
+            data: "0x",
+            logIndex: "0x2",
+            topics: [TRANSFER_TOPIC, ZERO_TOPIC, addressTopic(OWNER), tokenTopic(1n)],
+            transactionHash: txHash,
+          },
+        ]);
+      }
+      if (body.method === "eth_call") {
+        return rpcResponse(`0x${"00".repeat(32)}`);
+      }
+      throw new Error(`unexpected RPC method ${body.method}`);
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const response = await onIndexerEventPost({
+      request: new Request("https://preview.inshell.art/api/indexer/event", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          version: 1,
+          source: "ops-chain-event-ingress",
+          network: "sepolia",
+          target: "path-tokens",
+          txHash,
+          blockNumber: 10856428,
+          logIndex: 2,
+          contractAddress: PATH_NFT,
+          topic0: TRANSFER_TOPIC,
+        }),
+      }),
+      env: {
+        INSHELL_CHAIN_DATA_DB: d1.db,
+        INSHELL_INDEXER_REFRESH_TOKEN: "secret-token",
+        PATH_PRIMARY_RPC_UPSTREAM: "https://path-rpc.example/sepolia",
+        CHAIN_CACHE_DIAGNOSTICS: "1",
+      },
+    });
+    const payload = (await response.json()) as {
+      ok?: boolean;
+      target?: string;
+      applied?: boolean;
+      eventStatus?: { persisted?: boolean; statusSource?: string };
+    };
+    const pathStored = JSON.parse(d1.rows.get("path-tokens:v1:sepolia") ?? "{}") as {
+      items?: Array<{ tokenId?: string }>;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.ok).toBe(true);
+    expect(payload.target).toBe("path-tokens");
+    expect(payload.applied).toBe(true);
+    expect(pathStored.items?.length).toBeGreaterThan(0);
+    expect(response.headers.get("x-indexer-event-status-write")).toBe("1");
+    expect(response.headers.get("x-indexer-event-status-source")).toBe("d1");
+    expect(response.headers.get("x-db-write")).toBe("1");
+  });
+
   test("indexer event requires refresh token", async () => {
     globalThis.Request = TestRequest as unknown as typeof Request;
     globalThis.Response = TestResponse as unknown as typeof Response;
@@ -926,10 +1022,10 @@ describe("chain cache Pages functions", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(payload.routes?.event?.route).toBe("/api/indexer/event");
-    expect(payload.routes?.event?.targets).toEqual(["pulse-auction"]);
+    expect(payload.routes?.event?.targets).toEqual(["pulse-auction", "path-tokens", "thought-gallery"]);
     expect(payload.indexerEventIngest?.enabled).toBe(true);
     expect(payload.indexerEventIngest?.route).toBe("/api/indexer/event");
-    expect(payload.indexerEventIngest?.targets).toEqual(["pulse-auction"]);
+    expect(payload.indexerEventIngest?.targets).toEqual(["pulse-auction", "path-tokens", "thought-gallery"]);
     expect(payload.indexerEventIngest?.statusSource).toBe("d1");
     expect(payload.indexerEventIngest?.statusError).toBeNull();
     expect(payload.indexerEventIngest?.lastAcceptedAt).toBe("2026-06-16T11:00:00.000Z");

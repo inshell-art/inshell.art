@@ -9,7 +9,7 @@ type IndexerEventStatus = {
   updatedAt: string;
   lastAcceptedAt: string;
   lastAppliedAt: string | null;
-  lastAppliedTarget: "pulse-auction" | null;
+  lastAppliedTarget: "pulse-auction" | "path-tokens" | "thought-gallery" | null;
   lastTxHash: string;
   lastBlockNumber: number;
   lastLogIndex: number;
@@ -22,7 +22,7 @@ type IndexerEventStatus = {
 };
 
 type WriteIndexerEventStatusInput = {
-  target: "pulse-auction";
+  target: "pulse-auction" | "path-tokens" | "thought-gallery";
   txHash: string;
   blockNumber: number;
   logIndex: number;
@@ -165,7 +165,10 @@ function isIndexerEventStatus(value: unknown): value is IndexerEventStatus {
     Boolean(status) &&
     status?.version === STATUS_VERSION &&
     typeof status.lastAcceptedAt === "string" &&
-    (status.lastAppliedTarget === "pulse-auction" || status.lastAppliedTarget === null) &&
+    (status.lastAppliedTarget === "pulse-auction" ||
+      status.lastAppliedTarget === "path-tokens" ||
+      status.lastAppliedTarget === "thought-gallery" ||
+      status.lastAppliedTarget === null) &&
     typeof status.lastTxHash === "string" &&
     typeof status.lastBlockNumber === "number" &&
     typeof status.lastLogIndex === "number" &&
