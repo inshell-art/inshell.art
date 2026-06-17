@@ -979,7 +979,7 @@ type LinkedSegment = {
   startSec: number;
   endSec: number;
   floor: number; // b
-  premium: number; // D (initial time premium)
+  premium: number; // D (initial premium)
   ask: number; // floor + premium
   kHuman: number;
   ptsHuman: number;
@@ -1031,6 +1031,56 @@ type Viewport = {
   yMin: number;
   yMax: number;
 };
+
+const CURVE_Y_BALANCED_STRENGTH = 48;
+const CURVE_Y_BALANCED_HEIGHT_FRACTION = 0.84;
+
+function projectBalancedPremiumY(value: number): number {
+  const clamped = clamp(value, 0, 1);
+  return (
+    (Math.log1p(clamped * CURVE_Y_BALANCED_STRENGTH) /
+      Math.log1p(CURVE_Y_BALANCED_STRENGTH)) *
+    CURVE_Y_BALANCED_HEIGHT_FRACTION
+  );
+}
+
+function linearCurveYToSvg(y: number, vp: Viewport): number {
+  const yRange = vp.yMax - vp.yMin || 1;
+  return 60 - ((y - vp.yMin) / yRange) * 60;
+}
+
+function curveYToSvg(
+  y: number,
+  vp: Viewport,
+  floorAnchor?: number
+): number {
+  if (
+    !Number.isFinite(y) ||
+    !Number.isFinite(floorAnchor) ||
+    y <= (floorAnchor as number)
+  ) {
+    return linearCurveYToSvg(y, vp);
+  }
+
+  const floor = floorAnchor as number;
+  const premiumRange = vp.yMax - floor;
+  if (!Number.isFinite(premiumRange) || premiumRange <= 0) {
+    return linearCurveYToSvg(y, vp);
+  }
+
+  const rawPremium = clamp((y - floor) / premiumRange, 0, 1);
+  const displayY = floor + projectBalancedPremiumY(rawPremium) * premiumRange;
+  return linearCurveYToSvg(displayY, vp);
+}
+
+function isCanvasInteractiveTarget(target: unknown): boolean {
+  if (!(target instanceof Element)) return false;
+  return Boolean(
+    target.closest(
+      'a, button, input, select, textarea, [role="button"], [data-canvas-control]'
+    )
+  );
+}
 
 type AskMark = {
   key: string;
@@ -1363,7 +1413,7 @@ function oneHalfDropAtU(premium: number, uLocal: number): number {
 }
 
 function curveFormulaLabel(): string {
-  return "ask = k/(t-anchor)+floor";
+  return "ask(t) = b + ⌊k / (t - a)⌋";
 }
 
 function makeRandomPulseFixture(epochCountOverride?: number | null): PulseFixture {
@@ -1603,7 +1653,15 @@ function resolvePulseFixturePreset(
   return preset ? clonePulseFixture(preset) : null;
 }
 
+function fixtureRuntimeAllowed(): boolean {
+  if (isTestRuntime()) return true;
+  const raw = getEnvValue("VITE_ENABLE_PULSE_FIXTURES");
+  const value = String(raw ?? "").trim().toLowerCase();
+  return value === "1" || value === "true" || value === "on";
+}
+
 function fixtureEnabled(): boolean {
+  if (!fixtureRuntimeAllowed()) return false;
   if (typeof window === "undefined") return false;
   const query = window.location.search ?? "";
   const match = /(?:[?&])fixture=([^&]+)/.exec(query);
@@ -2041,7 +2099,7 @@ const CURVE_REASON_COPY: Record<string, string> = {
   "invalid open time": "invalid open time",
   "invalid opening curve": "invalid opening curve",
   "invalid bid time": "invalid bid time",
-  "invalid premium": "invalid time premium",
+  "invalid premium": "invalid initial premium",
   "invalid half-life": "invalid half-life",
   "sale price nan": "sale price not finite",
   "no bids": "no bids",
@@ -5124,10 +5182,7 @@ export default function AuctionCanvas({
       const vp = effectiveViewport;
       if (linked.nowU < vp.xMin || linked.nowU > vp.xMax) return false;
       const xRange = vp.xMax - vp.xMin || 1;
-      const yRange = vp.yMax - vp.yMin || 1;
       const xSvg = PLOT_LEFT_PAD + ((linked.nowU - vp.xMin) / xRange) * PLOT_X_SPAN;
-      const ySvg = 60 - ((linked.nowPrice - vp.yMin) / yRange) * 60;
-      if (!Number.isFinite(xSvg) || !Number.isFinite(ySvg)) return false;
 
       let idx = Math.max(0, upperBound(segmentStarts, linked.nowU) - 1);
       idx = Math.min(idx, linked.segments.length - 1);
@@ -5138,6 +5193,8 @@ export default function AuctionCanvas({
       }
       const seg = linked.segments[idx];
       if (!seg) return false;
+      const ySvg = curveYToSvg(linked.nowPrice, vp, seg.floor);
+      if (!Number.isFinite(xSvg) || !Number.isFinite(ySvg)) return false;
 
       const quotedPrice =
         !mimicLocalTime && effectiveCurrentAskQuoteDec != null
@@ -5463,6 +5520,7 @@ export default function AuctionCanvas({
   const handleCanvasPointerDown = (event: any) => {
     if (!showCurvePlot) return;
     if (!effectiveViewport) return;
+    if (isCanvasInteractiveTarget(event.target ?? null)) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
     const loc = getSvgLoc(event.clientX, event.clientY);
     if (!loc) return;
@@ -5535,15 +5593,17 @@ export default function AuctionCanvas({
       if (!loc) return null;
       const vp = effectiveViewport;
       const xRange = vp.xMax - vp.xMin || 1;
-      const yRange = vp.yMax - vp.yMin || 1;
       const toSvgX = (x: number) =>
         PLOT_LEFT_PAD + ((x - vp.xMin) / xRange) * PLOT_X_SPAN;
-      const toSvgY = (y: number) => 60 - ((y - vp.yMin) / yRange) * 60;
+      const toSvgY = (y: number, floor?: number) =>
+        curveYToSvg(y, vp, floor);
       let best: { kind: "sale" | "ask" | "floor"; key: string } | null = null;
       let bestD2 = threshold * threshold;
       for (const mark of bidMarks) {
+        const seg = linked.segments[mark.segIdx];
+        if (!seg) continue;
         const bx = toSvgX(mark.u);
-        const by = toSvgY(mark.price);
+        const by = toSvgY(mark.price, seg.floor);
         const dx = bx - loc.x;
         const dy = by - loc.y;
         const d2 = dx * dx + dy * dy;
@@ -5553,8 +5613,10 @@ export default function AuctionCanvas({
         }
       }
       for (const mark of askMarks) {
+        const seg = linked.segments[mark.segIdx];
+        if (!seg) continue;
         const bx = toSvgX(mark.u);
-        const by = toSvgY(mark.price);
+        const by = toSvgY(mark.price, seg.floor);
         const dx = bx - loc.x;
         const dy = by - loc.y;
         const d2 = dx * dx + dy * dy;
@@ -5568,7 +5630,7 @@ export default function AuctionCanvas({
       }
       return best;
     },
-    [showCurvePlot, effectiveViewport, bidMarks, askMarks]
+    [showCurvePlot, effectiveViewport, bidMarks, askMarks, linked.segments]
   );
 
   const endPan = useCallback((event: any) => {
@@ -5721,10 +5783,10 @@ export default function AuctionCanvas({
 
     const vp = effectiveViewport;
     const xRange = vp.xMax - vp.xMin || 1;
-    const yRange = vp.yMax - vp.yMin || 1;
     const toSvgX = (x: number) =>
       PLOT_LEFT_PAD + ((x - vp.xMin) / xRange) * PLOT_X_SPAN;
-    const toSvgY = (y: number) => 60 - ((y - vp.yMin) / yRange) * 60;
+    const toSvgY = (y: number, floor?: number) =>
+      curveYToSvg(y, vp, floor);
     const toDataX = (xSvg: number) => {
       const xClamped = clamp(xSvg, PLOT_LEFT_PAD, 100 - PLOT_RIGHT_PAD);
       return vp.xMin + ((xClamped - PLOT_LEFT_PAD) / PLOT_X_SPAN) * xRange;
@@ -5736,8 +5798,10 @@ export default function AuctionCanvas({
     for (const mark of bidMarks) {
       if (mark.u < vp.xMin - xRange * 0.02) continue;
       if (mark.u > vp.xMax + xRange * 0.02) continue;
+      const seg = linked.segments[mark.segIdx];
+      if (!seg) continue;
       const bx = toSvgX(mark.u);
-      const by = toSvgY(mark.price);
+      const by = toSvgY(mark.price, seg.floor);
       const dx = bx - loc.x;
       const dy = by - loc.y;
       const d2 = dx * dx + dy * dy;
@@ -5755,7 +5819,7 @@ export default function AuctionCanvas({
     for (const seg of linked.segments) {
       const xStart = toSvgX(seg.uStart);
       if (xStart < -2 || xStart > 102) continue;
-      const yAsk = toSvgY(seg.ask);
+      const yAsk = toSvgY(seg.ask, seg.floor);
       const dx = Math.abs(xStart - loc.x);
       const dy = Math.abs(yAsk - loc.y);
       if (dx > startAskXThreshold || dy > startAskYThreshold) continue;
@@ -5774,7 +5838,7 @@ export default function AuctionCanvas({
     const firstSeg = linked.segments[0];
     if (firstSeg) {
       const xFloor = toSvgX(firstSeg.uStart);
-      const yFloor = toSvgY(firstSeg.floor);
+      const yFloor = toSvgY(firstSeg.floor, firstSeg.floor);
       const dx = Math.abs(xFloor - loc.x);
       const dy = Math.abs(yFloor - loc.y);
       if (dx <= startAskXThreshold && dy <= startAskYThreshold) {
@@ -5819,8 +5883,8 @@ export default function AuctionCanvas({
     for (const seg of linked.segments) {
       const xLine = toSvgX(seg.uStart);
       if (Math.abs(xLine - loc.x) > 0.8) continue;
-      const yAsk = toSvgY(seg.ask);
-      const yFloor = toSvgY(seg.floor);
+      const yAsk = toSvgY(seg.ask, seg.floor);
+      const yFloor = toSvgY(seg.floor, seg.floor);
       const yMin = Math.min(yAsk, yFloor);
       const yMax = Math.max(yAsk, yFloor);
       if (loc.y < yMin || loc.y > yMax) continue;
@@ -5886,7 +5950,7 @@ export default function AuctionCanvas({
     const seg = linked.segments[idx];
     const uLocal = clamp(xData - seg.uStart, 0, Math.max(0, seg.uLen));
     const yAt = priceAtU(seg.floor, seg.premium, uLocal);
-    const yCurve = toSvgY(yAt);
+    const yCurve = toSvgY(yAt, seg.floor);
     const curveHoverThreshold = 1.2;
     const isCurveTarget =
       Boolean((event as any)?.target?.classList?.contains?.("dotfield__curve"));
@@ -5984,10 +6048,10 @@ export default function AuctionCanvas({
 
     const vp = effectiveViewport;
     const xRange = vp.xMax - vp.xMin || 1;
-    const yRange = vp.yMax - vp.yMin || 1;
     const toSvgX = (x: number) =>
       PLOT_LEFT_PAD + ((x - vp.xMin) / xRange) * PLOT_X_SPAN;
-    const toSvgY = (y: number) => 60 - ((y - vp.yMin) / yRange) * 60;
+    const toSvgY = (y: number, floor?: number) =>
+      curveYToSvg(y, vp, floor);
 
     if (selectedBid) {
       const seg = linked.segments[selectedBid.segIdx];
@@ -5995,7 +6059,7 @@ export default function AuctionCanvas({
         selectedBid,
         seg,
         toSvgX(selectedBid.u),
-        toSvgY(selectedBid.price)
+        toSvgY(selectedBid.price, seg?.floor)
       );
       return;
     }
@@ -6004,7 +6068,7 @@ export default function AuctionCanvas({
       const seg = linked.segments[selectedAsk.segIdx];
       if (!seg) return;
       const x = toSvgX(selectedAsk.u);
-      const y = toSvgY(selectedAsk.price);
+      const y = toSvgY(selectedAsk.price, seg.floor);
       if (selectedAsk.kind === "opening-floor") {
         showOpeningFloorHover(seg, x, y);
       } else {
@@ -6687,10 +6751,10 @@ export default function AuctionCanvas({
 
         const vp = effectiveViewport;
         const xRange = vp.xMax - vp.xMin || 1;
-        const yRange = vp.yMax - vp.yMin || 1;
         const toSvgX = (x: number) =>
           PLOT_LEFT_PAD + ((x - vp.xMin) / xRange) * PLOT_X_SPAN;
-        const toSvgY = (y: number) => 60 - ((y - vp.yMin) / yRange) * 60;
+        const toSvgY = (y: number, floor?: number) =>
+          curveYToSvg(y, vp, floor);
         const isInPlotY = (y: number) => Number.isFinite(y) && y >= 0 && y <= 60;
         const hasNow =
           linked.nowU != null &&
@@ -6702,11 +6766,17 @@ export default function AuctionCanvas({
         const inViewNow =
           nowU != null && nowU >= vp.xMin - 1e-6 && nowU <= vp.xMax + 1e-6;
         const showNow = hasNow && (selectedNow || inViewNow);
+        const nowSeg =
+          showNow && nowU != null
+            ? linked.segments.find(
+                (seg) => nowU >= seg.uStart - 1e-9 && nowU <= seg.uStart + seg.uLen + 1e-9
+              ) ?? linked.segments[linked.segments.length - 1]
+            : null;
 
         const nowPt = showNow && nowU != null && nowPrice != null
           ? {
               x: toSvgX(nowU),
-              y: toSvgY(nowPrice),
+              y: toSvgY(nowPrice, nowSeg?.floor),
             }
           : null;
         const curveSegments: Array<{ key: string; d: string }> = [];
@@ -6743,7 +6813,7 @@ export default function AuctionCanvas({
           const evalPoint = (uLocal: number) => {
             const price = priceAtU(seg.floor, seg.premium, uLocal);
             const xSvg = toSvgX(seg.uStart + uLocal);
-            const ySvg = toSvgY(price);
+            const ySvg = toSvgY(price, seg.floor);
             return { uLocal, xSvg, ySvg };
           };
 
@@ -6893,9 +6963,9 @@ export default function AuctionCanvas({
                 const seg = linked.segments[mark.segIdx];
                 if (!seg) return null;
                 const x0 = Math.max(PLOT_LEFT_PAD, x - 2.1);
-                const y0 = toSvgY(seg.floor);
-                const y1 = toSvgY(seg.ask);
-                const ySale = toSvgY(mark.price);
+                const y0 = toSvgY(seg.floor, seg.floor);
+                const y1 = toSvgY(seg.ask, seg.floor);
+                const ySale = toSvgY(mark.price, seg.floor);
                 if (
                   !Number.isFinite(x0) ||
                   !Number.isFinite(x) ||
@@ -6944,8 +7014,8 @@ export default function AuctionCanvas({
               {linked.segments.map((seg) => {
                 const x = toSvgX(seg.uStart);
                 if (x < -2 || x > 102) return null;
-                const y0 = toSvgY(seg.floor);
-                const y1 = toSvgY(seg.ask);
+                const y0 = toSvgY(seg.floor, seg.floor);
+                const y1 = toSvgY(seg.ask, seg.floor);
                 const pumpY = capPumpY(y0, y1);
                 if (!pumpY) return null;
                 return (
@@ -6967,7 +7037,7 @@ export default function AuctionCanvas({
               {askMarksVisible.map(({ mark, x }) => {
                 const seg = linked.segments[mark.segIdx];
                 if (!seg) return null;
-                const y = toSvgY(mark.price);
+                const y = toSvgY(mark.price, seg.floor);
                 if (x < -2 || x > 102 || y < -2 || y > 62) return null;
                 const isSelected = selectedAskKey === mark.key;
                 const isOpeningFloor = mark.kind === "opening-floor";
@@ -7031,7 +7101,7 @@ export default function AuctionCanvas({
               })}
               {bidMarksVisible.map(({ mark, x }) => {
                 const seg = linked.segments[mark.segIdx];
-                const y = toSvgY(mark.price);
+                const y = toSvgY(mark.price, seg?.floor);
                 if (x < -2 || x > 102 || y < -2 || y > 62) return null;
                 const isSelected = selectedBidKey === mark.key;
                 return (
@@ -7118,274 +7188,259 @@ export default function AuctionCanvas({
               )}
             </div>
 
-            {hover && (
-              <div className="dotfield__popover" style={{ left: hover.screenX, top: hover.screenY }}>
-                {hover.key?.startsWith("bid#") ? (
-                  <>
-                    <div className="muted small">
-                      {`sale #${hover.epoch ?? "—"}`}
-                    </div>
-                    <div className="dotfield__popover-meta" style={{ marginTop: 6 }}>
-                      <div className="dotfield__poprow">
-                        <span>price</span>
-                        <span>
-                          {formatAmountDetailed(
-                            hover.amountDec ?? hover.amount,
+            {hover && (() => {
+              const popRows: Array<{ label: string; value: string }> = [];
+              const popNotes: string[] = [];
+              const isOpeningAsk =
+                hover.key === "ask" &&
+                Math.abs(Number((hover as any).uGlobal ?? Number.NaN)) < 1e-9;
+              const isCurvePoint = hover.key === "curve-point" || hover.key === "now";
+
+              if (hover.key?.startsWith("bid#")) {
+                popRows.push(
+                  {
+                    label: "price",
+                    value: formatAmountDetailed(
+                      hover.amountDec ?? hover.amount,
+                      decimals,
+                      displayTokenSymbol
+                    ),
+                  },
+                  { label: "bidder", value: shortAddr(hover.bidder) },
+                  { label: "time", value: formatLocalTime(hover.atMs) }
+                );
+                popNotes.push("mints one $PATH and starts the next curve");
+              } else if (hover.key === "ask") {
+                popRows.push({
+                  label: "ask",
+                  value: formatAmountDetailed(
+                    (hover as any).amountRaw ?? hover.amount,
+                    decimals,
+                    displayTokenSymbol
+                  ),
+                });
+
+                if (isOpeningAsk) {
+                  popRows.push({
+                    label: "time",
+                    value: formatLocalTime(hover.atMs),
+                  });
+                  popNotes.push("ask when the auction opens");
+                } else {
+                  popRows.push({
+                    label: "floor",
+                    value:
+                      hover.floorHuman != null
+                        ? formatAmountDetailed(
+                            String(hover.floorHuman),
                             decimals,
                             displayTokenSymbol
-                          )}
-                        </span>
+                          )
+                        : "—",
+                  });
+                  popRows.push({
+                    label: "initial premium",
+                    value:
+                      hover.floorHuman != null && hover.amountRaw
+                        ? (() => {
+                            const f = Number((hover as any).floorHuman);
+                            const amt = Number((hover as any).amountRaw);
+                            if (Number.isFinite(f) && Number.isFinite(amt)) {
+                              return formatAmountDetailed(
+                                String(Math.max(0, amt - f)),
+                                decimals,
+                                displayTokenSymbol
+                              );
+                            }
+                            return "—";
+                          })()
+                        : "—",
+                  });
+                  popNotes.push("ask = floor + initial premium");
+                  popNotes.push("floor = last price");
+                }
+              } else if (hover.key === "opening-floor") {
+                popRows.push(
+                  {
+                    label: "floor",
+                    value: formatAmountDetailed(
+                      (hover as any).amountRaw ?? hover.amount,
+                      decimals,
+                      displayTokenSymbol
+                    ),
+                  },
+                  {
+                    label: "time",
+                    value: formatLocalTime(hover.atMs),
+                  }
+                );
+                popNotes.push("floor when the auction opens");
+              } else if (hover.key === "premium") {
+                popRows.push({
+                  label: "initial premium",
+                  value: formatAmountDetailed(
+                    (hover as any).amountRaw ?? hover.amount,
+                    decimals,
+                    displayTokenSymbol
+                  ),
+                });
+                popRows.push({
+                  label: "elapsed time",
+                  value: formatSecondsDuration(hover.durationSec ?? 0),
+                });
+                popRows.push({
+                  label: `PTS (${displayTokenSymbol}/s)`,
+                  value: hover.ptsHuman != null ? formatHumanTokenAmount(hover.ptsHuman) : "—",
+                });
+                popNotes.push("initial premium = elapsed time × PTS");
+              } else if (isCurvePoint) {
+                popRows.push({
+                  label: "ask",
+                  value: formatAmountDetailed(
+                    (hover as any).amountRaw ?? hover.amount,
+                    decimals,
+                    displayTokenSymbol
+                  ),
+                });
+              }
+
+              if (isCurvePoint) {
+                popRows.push({
+                  label: "premium",
+                  value:
+                    hover.floorHuman != null && hover.amountRaw
+                      ? (() => {
+                          if (hover.key === "now") {
+                            const f = Number((hover as any).floorHuman);
+                            const amt = Number((hover as any).amountRaw);
+                            if (Number.isFinite(f) && Number.isFinite(amt)) {
+                              return formatAmountDetailed(
+                                String(Math.max(0, amt - f)),
+                                decimals,
+                                displayTokenSymbol
+                              );
+                            }
+                          }
+                          const d = Number((hover as any).premiumHuman);
+                          const u = Number((hover as any).uLocal);
+                          if (Number.isFinite(d) && Number.isFinite(u)) {
+                            return formatAmountDetailed(
+                              String(Math.max(0, premiumAtU(d, u))),
+                              decimals,
+                              displayTokenSymbol
+                            );
+                          }
+                          const f = Number((hover as any).floorHuman);
+                          const amt = Number((hover as any).amountRaw);
+                          if (Number.isFinite(f) && Number.isFinite(amt)) {
+                            return formatAmountDetailed(
+                              String(Math.max(0, amt - f)),
+                              decimals,
+                              displayTokenSymbol
+                            );
+                          }
+                          return "—";
+                        })()
+                      : "—",
+                });
+                popRows.push({
+                  label: "ago",
+                  value: formatDuration(Math.max(0, Number((hover as any).beforeNowSec ?? 0))),
+                });
+                popRows.push({
+                  label: "t½",
+                  value: (hover as any).tHalf != null ? formatDuration((hover as any).tHalf) : "—",
+                });
+                popRows.push({
+                  label: "u(t½)",
+                  value: (() => {
+                    const u =
+                      (hover as any).durationSec != null && (hover as any).tHalf != null
+                        ? ((hover as any).durationSec ?? 0) /
+                          Math.max((hover as any).tHalf ?? 1, 1e-9)
+                        : 0;
+                    return `${u.toFixed(2)}`;
+                  })(),
+                });
+                popRows.push({
+                  label: "1 t½ decay",
+                  value: (() => {
+                    const d = Number((hover as any).premiumHuman);
+                    const u = Number((hover as any).uLocal);
+                    if (Number.isFinite(d) && Number.isFinite(u)) {
+                      return formatAmountDetailed(
+                        String(oneHalfDropAtU(d, u)),
+                        decimals,
+                        displayTokenSymbol
+                      );
+                    }
+                    const f = Number((hover as any).floorHuman);
+                    const amt = Number((hover as any).amountRaw);
+                    if (Number.isFinite(f) && Number.isFinite(amt)) {
+                      return formatAmountDetailed(
+                        String(Math.max(0, (amt - f) / 2)),
+                        decimals,
+                        displayTokenSymbol
+                      );
+                    }
+                    return "—";
+                  })(),
+                });
+                popRows.push({ label: "time", value: formatLocalTime(hover.atMs) });
+                popNotes.push(curveFormulaLabel());
+                popNotes.push(`b = floor = ${(hover as any).floorHuman ?? "?"}`);
+                popNotes.push(`k = ${(hover as any).kHuman ?? "?"}`);
+                popNotes.push(`a = anchor time = ${(hover as any).anchor ?? "?"}`);
+              }
+
+              const popTitle = hover.key?.startsWith("bid#")
+                ? `sale #${hover.epoch ?? "—"}`
+                : hover.key === "ask"
+                  ? isOpeningAsk
+                    ? "opening ask"
+                    : "start ask"
+                  : hover.key === "now"
+                    ? "current ask"
+                    : hover.key === "opening-floor"
+                      ? "opening floor"
+                      : hover.key === "premium"
+                        ? "initial premium"
+                        : "ask";
+
+              return (
+                <div className="dotfield__popover" style={{ left: hover.screenX, top: hover.screenY }}>
+                  <div className="muted small">{popTitle}</div>
+                  <div className="dotfield__popover-meta" style={{ marginTop: 6 }}>
+                    {popRows.map((row, idx) => (
+                      <div className="dotfield__poprow" key={`${row.label}-${idx}`}>
+                        <span>{row.label}</span>
+                        <span>{row.value}</span>
                       </div>
-                      <div className="dotfield__poprow">
-                        <span>bidder</span>
-                        <span>{shortAddr(hover.bidder)}</span>
-                      </div>
-                      <div className="dotfield__poprow">
-                        <span>time</span>
-                        <span>{formatLocalTime(hover.atMs)}</span>
-                      </div>
+                    ))}
+                  </div>
+                  {popNotes.map((note, idx) => (
+                    <div
+                      key={`note-${idx}`}
+                      className={`dotfield__note ${idx === 0 ? "dotfield__note--spaced" : ""}`}
+                    >
+                      {note}
                     </div>
-                    <div className="dotfield__note" style={{ marginTop: 4 }}>
-                      mints one $PATH and starts the next curve
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="muted small">
-                      {hover.key === "ask"
-                        ? Math.abs(Number((hover as any).uGlobal ?? Number.NaN)) < 1e-9
-                          ? "opening ask"
-                          : "start ask"
-                        : hover.key === "now"
-                        ? "current ask"
-                        : hover.key === "opening-floor"
-                        ? "opening floor"
-                        : hover.key === "premium"
-                        ? "time premium"
-                        : "ask"}
-                    </div>
-                    <div className="dotfield__poprow">
-                      <span>
-                        {hover.key === "premium"
-                          ? "amount"
-                          : "price"}
-                      </span>
-                      <span>
-                        {formatAmountDetailed(
-                          (hover as any).amountRaw ?? hover.amount,
-                          decimals,
-                          displayTokenSymbol
-                        )}
-                      </span>
-                    </div>
-                    {hover.key === "ask" && (
-                      Math.abs(Number((hover as any).uGlobal ?? Number.NaN)) < 1e-9 ? (
-                        <>
-                          <div className="dotfield__poprow">
-                            <span>time</span>
-                            <span>{formatLocalTime(hover.atMs)}</span>
-                          </div>
-                          <div className="dotfield__note" style={{ marginTop: 4 }}>
-                            ask when the auction opens
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="dotfield__poprow">
-                            <span>floor</span>
-                            <span>
-                              {hover.floorHuman != null
-                                ? formatAmountDetailed(
-                                    String(hover.floorHuman),
-                                    decimals,
-                                    displayTokenSymbol
-                                  )
-                                : "—"}
-                            </span>
-                          </div>
-                          <div className="dotfield__poprow">
-                            <span>time premium</span>
-                            <span>
-                              {hover.floorHuman != null && hover.amountRaw
-                                ? (() => {
-                                    const f = Number((hover as any).floorHuman);
-                                    const amt = Number((hover as any).amountRaw);
-                                    if (Number.isFinite(f) && Number.isFinite(amt)) {
-                                      return formatAmountDetailed(
-                                        String(amt - f),
-                                        decimals,
-                                        displayTokenSymbol
-                                      );
-                                    }
-                                    return "—";
-                                  })()
-                                : "—"}
-                            </span>
-                          </div>
-                          <div className="dotfield__note" style={{ marginTop: 4 }}>
-                            price = floor + time premium
-                          </div>
-                          <div className="dotfield__note">
-                            floor = last sale
-                          </div>
-                        </>
-                      )
-                    )}
-                    {hover.key === "opening-floor" && (
-                      <>
-                        <div className="dotfield__poprow">
-                          <span>time</span>
-                          <span>{formatLocalTime(hover.atMs)}</span>
-                        </div>
-                        <div className="dotfield__note" style={{ marginTop: 4 }}>
-                          floor when the auction opens
-                        </div>
-                      </>
-                    )}
-                    {(hover.key === "curve-point" || hover.key === "now") && (
-                      <>
-                        <div className="dotfield__poprow">
-                          <span>above floor</span>
-                          <span>
-                            {hover.floorHuman != null && hover.amountRaw
-                              ? (() => {
-                                  if (hover.key === "now") {
-                                    const f = Number((hover as any).floorHuman);
-                                    const amt = Number((hover as any).amountRaw);
-                                    if (Number.isFinite(f) && Number.isFinite(amt)) {
-                                      return formatAmountDetailed(
-                                        String(Math.max(0, amt - f)),
-                                        decimals,
-                                        displayTokenSymbol
-                                      );
-                                    }
-                                  }
-                                  const d = Number((hover as any).premiumHuman);
-                                  const u = Number((hover as any).uLocal);
-                                  if (Number.isFinite(d) && Number.isFinite(u)) {
-                                    return formatAmountDetailed(
-                                      String(Math.max(0, premiumAtU(d, u))),
-                                      decimals,
-                                      displayTokenSymbol
-                                    );
-                                  }
-                                  const f = Number((hover as any).floorHuman);
-                                  const amt = Number((hover as any).amountRaw);
-                                  if (Number.isFinite(f) && Number.isFinite(amt)) {
-                                    return formatAmountDetailed(
-                                      String(Math.max(0, amt - f)),
-                                      decimals,
-                                      displayTokenSymbol
-                                    );
-                                  }
-                                  return "—";
-                                })()
-                              : "—"}
-                          </span>
-                        </div>
-                        <div className="dotfield__poprow">
-                          <span>ago</span>
-                          <span>
-                            {formatDuration(
-                              Math.max(0, Number((hover as any).beforeNowSec ?? 0))
-                            )}
-                          </span>
-                        </div>
-                      </>
-                    )}
-                    {hover.key === "premium" && (
-                      <>
-                        <div className="dotfield__poprow">
-                          <span>duration</span>
-                          <span>{formatSecondsDuration(hover.durationSec ?? 0)}</span>
-                        </div>
-                        <div className="dotfield__poprow">
-                          <span>PTS ({displayTokenSymbol}/s)</span>
-                          <span>
-                            {hover.ptsHuman != null ? formatHumanTokenAmount(hover.ptsHuman) : "—"}
-                          </span>
-                        </div>
-                        <div className="dotfield__note" style={{ marginTop: 4 }}>
-                          amount = duration × PTS
-                        </div>
-                      </>
-                    )}
-                    {(hover.key === "curve-point" || hover.key === "now") && (
-                      <>
-                        <div className="dotfield__poprow">
-                          <span>t½</span>
-                          <span>
-                            {(hover as any).tHalf != null
-                              ? formatDuration((hover as any).tHalf)
-                              : "—"}
-                          </span>
-                        </div>
-                        <div className="dotfield__poprow">
-                          <span>u(t½)</span>
-                          <span>
-                            {(() => {
-                              const u =
-                                (hover as any).durationSec != null && (hover as any).tHalf != null
-                                  ? ((hover as any).durationSec ?? 0) / Math.max((hover as any).tHalf ?? 1, 1e-9)
-                                  : 0;
-                              return `${u.toFixed(2)}`;
-                            })()}
-                          </span>
-                        </div>
-                        <div className="dotfield__poprow">
-                          <span>1 t½ decay</span>
-                          <span>
-                            {(() => {
-                              const d = Number((hover as any).premiumHuman);
-                              const u = Number((hover as any).uLocal);
-                              if (Number.isFinite(d) && Number.isFinite(u)) {
-                                return formatAmountDetailed(
-                                  String(oneHalfDropAtU(d, u)),
-                                  decimals,
-                                  displayTokenSymbol
-                                );
-                              }
-                              const f = Number((hover as any).floorHuman);
-                              const amt = Number((hover as any).amountRaw);
-                              if (Number.isFinite(f) && Number.isFinite(amt)) {
-                                return formatAmountDetailed(
-                                  String((amt - f) / 2),
-                                  decimals,
-                                  displayTokenSymbol
-                                );
-                              }
-                              return "—";
-                            })()}
-                          </span>
-                        </div>
-                        <div className="dotfield__poprow">
-                          <span>time</span>
-                          <span>{formatLocalTime(hover.atMs)}</span>
-                        </div>
-                        <div className="dotfield__note" style={{ marginTop: 4 }}>
-                          {curveFormulaLabel()}
-                        </div>
-                        <div className="dotfield__note">k = {(hover as any).kHuman ?? "?"}</div>
-                        <div className="dotfield__note">
-                          anchor = {(hover as any).anchor ?? "?"}
-                        </div>
-                        <div className="dotfield__note">
-                          floor = {(hover as any).floorHuman ?? "?"}
-                        </div>
-                      </>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         );
       })()}
 
       {showCurvePlot && (
         <div className="dotfield__axes muted small">
-          <span>time (t½) →</span>
-          <span>price ({displayTokenSymbol}) ↑</span>
+          <span title="Time is measured in auction half-lives, not raw seconds.">
+            time (t½) →
+          </span>
+          <span title="premium = ask - floor. Height is balanced for readability.">
+            premium ({displayTokenSymbol}, balanced) ↑
+          </span>
         </div>
       )}
     </div>

@@ -296,52 +296,59 @@ describe("App Component", () => {
     expect(document.title).toBe("pulse — $PATH");
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/pulse.svg");
     expect(screen.getByRole("heading", { name: "pulse" })).toBeInTheDocument();
-    expect(screen.getByText("Pricing rule for the $PATH auction.")).toBeInTheDocument();
-    expect(screen.getByText("Pulse is the pricing rule for the public $PATH auction.")).toBeInTheDocument();
-    expect(screen.getByText(/\$PATH has no fixed cap\./)).toBeInTheDocument();
-    expect(screen.getByText(/Issuance is demand-tempered/)).toBeInTheDocument();
-    expect(screen.getByText(/The limit is not a number set in advance\./)).toBeInTheDocument();
-    expect(screen.getByText(/The limit is the price buyers are willing to accept over time\./)).toBeInTheDocument();
-    expect(screen.getByLabelText("Pulse lift and decay equations")).toHaveTextContent(
+    expect(screen.getByText("Pricing sketch for the $PATH auction.")).toBeInTheDocument();
+    expect(screen.getByText("Pulse shapes the ask over time.")).toBeInTheDocument();
+    expect(screen.getByText(/A successful bid closes the current epoch/)).toBeInTheDocument();
+    expect(screen.getByText(/The next ask is raised by an initial premium\./)).toBeInTheDocument();
+    expect(screen.getByText(/Between sales, the ask decays toward the floor\./)).toBeInTheDocument();
+    expect(screen.getByText(/Equivalently, premium decays toward zero\./)).toBeInTheDocument();
+    expect(screen.getByText(/Settlement samples the ask at sale time\./)).toBeInTheDocument();
+    expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
       /PTS = price-time scale/,
     );
-    expect(screen.getByLabelText("Pulse lift and decay equations")).toHaveTextContent(
-      /duration = sale time - previous curve start/,
+    expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
+      /elapsed time = sale time - previous curve start/,
     );
-    expect(screen.getByLabelText("Pulse lift and decay equations")).toHaveTextContent(
-      /time premium = duration × PTS/,
+    expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
+      /initial premium = elapsed time × PTS/,
     );
-    expect(screen.getByLabelText("Pulse lift and decay equations")).toHaveTextContent(
-      /start ask = floor \+ time premium/,
+    expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
+      /next ask = next floor \+ initial premium/,
     );
-    expect(screen.getByLabelText("Pulse lift and decay equations")).toHaveTextContent(
-      /floor = last sale price/,
+    expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
+      /premium\(t\) = ask\(t\) - floor/,
     );
-    expect(screen.getByLabelText("Pulse lift and decay equations")).toHaveTextContent(
-      /Each sale starts the next Pulse cycle\./,
+    expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
+      /ask\(t\) = floor \+ premium\(t\)/,
     );
-    expect(screen.getByLabelText("Pulse lift and decay equations")).toHaveTextContent(
-      /ask = k\/\(t-anchor\) \+ floor/,
+    expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
+      /ask\(t\) = b \+ ⌊k \/ \(t - a\)⌋/,
     );
-    expect(screen.getByLabelText("Pulse lift and decay equations")).toHaveTextContent(
-      /t½ = when above floor is halved/,
+    expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
+      /b = floor/,
     );
-    expect(screen.getByLabelText("Pulse lift and decay equations")).toHaveTextContent(
-      /If demand waits, ask decays toward floor\./,
+    expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(
+      /a = anchor time/,
     );
-    expect(screen.getByLabelText("Pulse lift and decay equations")).not.toHaveTextContent(
-      /premium per second/,
-    );
-    expect(screen.queryByLabelText("Pulse pump and drop equations")).toBeNull();
+    for (const forbiddenTerm of [
+      `time ${"premium"}`,
+      `premium ${"per second"}`,
+      `duration ${"×"} PTS`,
+    ]) {
+      expect(screen.getByLabelText("Pulse pump and drop equations")).not.toHaveTextContent(
+        new RegExp(forbiddenTerm),
+      );
+    }
+    expect(screen.queryByLabelText("Pulse lift and decay equations")).toBeNull();
     expect(screen.getByLabelText("Linked Pulse auction curves")).toBeInTheDocument();
     expect(screen.getByLabelText("Pulse current instance")).toBeInTheDocument();
     expect(screen.getByText("current instance")).toBeInTheDocument();
-    expect(screen.getByText("$PATH is currently running on Sepolia rehearsal using Pulse.")).toBeInTheDocument();
+    expect(screen.getByText("$PATH is the current public auction using Pulse.")).toBeInTheDocument();
     expect(
-      screen.getByText(/Pulse began as the Desmos sketch linked below\./),
+      screen.getByText(/This is the Desmos sketch behind Pulse\./),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/This page preserves the pricing shape, not implementation code\./),
+      screen.getByText(/It is not implementation code\./),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open original Desmos sketch ↗" })).toHaveAttribute(
       "href",

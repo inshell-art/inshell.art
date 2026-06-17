@@ -2591,6 +2591,11 @@ body {
   color: var(--muted, var(--text));
 }
 
+.dotfield__note--spaced,
+.dotfield__note + .dotfield__note {
+  margin-top: 4px;
+}
+
 .dotfield__inspect {
   margin-top: 10px;
   padding-top: 10px;
