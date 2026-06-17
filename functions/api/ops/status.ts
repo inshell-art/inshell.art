@@ -46,7 +46,7 @@ const ROUTES = {
     route: "/api/indexer/event",
     method: "POST",
     auth: "bearer-token-required",
-    targets: ["pulse-auction"],
+    targets: ["pulse-auction", "path-tokens", "thought-gallery"],
   },
   publicFeed: [
     "/rss.xml",
@@ -112,7 +112,7 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
     indexerEventIngest: {
       enabled: true,
       route: "/api/indexer/event",
-      targets: ["pulse-auction"],
+      targets: ["pulse-auction", "path-tokens", "thought-gallery"],
       auth: "bearer-token-required",
       statusSource: eventStatus.source,
       statusError: eventStatus.error,
