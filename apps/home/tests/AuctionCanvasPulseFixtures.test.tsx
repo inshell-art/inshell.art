@@ -188,7 +188,7 @@ describe("AuctionCanvas with pulse fixtures", () => {
       stubSvg(container);
       expect(screen.getByRole("img", { name: /pulse auction curve/i })).toBeTruthy();
       expect(screen.getByText(/^time\s*\(t½\)\s*→$/i)).toBeTruthy();
-      expect(screen.getByText(/price\s*\(eth\)\s*↑/i)).toBeTruthy();
+      expect(screen.getByText(/premium\s*\(eth,\s*balanced\)\s*↑/i)).toBeTruthy();
       const path = container.querySelector(".dotfield__curve");
       expect(path).toBeTruthy();
       fireEvent.mouseMove(path as unknown as HTMLElement, {
@@ -197,7 +197,7 @@ describe("AuctionCanvas with pulse fixtures", () => {
       });
       const popover = container.querySelector(".dotfield__popover");
       expect(popover).toBeTruthy();
-      expect(within(popover as HTMLElement).getByText(/^price$/i)).toBeTruthy();
+      expect(within(popover as HTMLElement).getAllByText(/^ask$/i).length).toBeGreaterThan(0);
     });
   });
 
@@ -252,7 +252,7 @@ describe("AuctionCanvas with pulse fixtures", () => {
     });
     const popover = container.querySelector(".dotfield__popover");
     expect(popover).toBeTruthy();
-    expect(within(popover as HTMLElement).getByText(/^price$/i)).toBeTruthy();
+    expect(within(popover as HTMLElement).getAllByText(/^ask$/i).length).toBeGreaterThan(0);
   });
 
   test("epoch 2 fixture renders with synthetic curve", () => {
@@ -270,7 +270,7 @@ describe("AuctionCanvas with pulse fixtures", () => {
     });
     const popover = container.querySelector(".dotfield__popover");
     expect(popover).toBeTruthy();
-    expect(within(popover as HTMLElement).getByText(/^price$/i)).toBeTruthy();
+    expect(within(popover as HTMLElement).getAllByText(/^ask$/i).length).toBeGreaterThan(0);
   });
 
   test("sale dot popover renders amounts", async () => {

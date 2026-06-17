@@ -248,7 +248,7 @@ describe("AuctionCanvas", () => {
     expect(dots.length).toBeGreaterThan(0);
   });
 
-  test("renders current price in the dedicated now dot tooltip", () => {
+  test("renders current ask in the dedicated now dot tooltip", () => {
     const { container } = render(
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />
     );
@@ -261,8 +261,8 @@ describe("AuctionCanvas", () => {
     const popover = container.querySelector(".dotfield__popover") as HTMLElement | null;
     expect(popover).toBeTruthy();
     expect(within(popover as HTMLElement).getByText("current ask")).toBeInTheDocument();
-    expect(within(popover as HTMLElement).getByText("price")).toBeInTheDocument();
-    expect(within(popover as HTMLElement).getByText("above floor")).toBeInTheDocument();
+    expect(within(popover as HTMLElement).getByText("ask")).toBeInTheDocument();
+    expect(within(popover as HTMLElement).getByText("premium")).toBeInTheDocument();
   });
 
   test("keeps now dot on the padded right edge after clock ticks", () => {
@@ -844,7 +844,7 @@ describe("AuctionCanvas", () => {
     expect(container.querySelector(".dotfield__popover")).toBeNull();
   });
 
-  test("curve hover shows above-floor amount", async () => {
+  test("curve hover shows premium amount", async () => {
     const { container } = render(
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />
     );
@@ -864,7 +864,7 @@ describe("AuctionCanvas", () => {
       clientY: 10,
     });
     await waitFor(() => {
-      expect(screen.getByText(/above floor/i)).toBeTruthy();
+      expect(screen.getByText(/^premium$/i)).toBeTruthy();
       expect(screen.getByText(/^1 t½ decay$/i)).toBeTruthy();
     });
   });
@@ -893,8 +893,8 @@ describe("AuctionCanvas", () => {
     }
     const pump = container.querySelector(".dotfield__pump") as SVGLineElement | null;
     expect(pump).toBeTruthy();
-    const x = Number((pump as SVGLineElement).getAttribute("x1") ?? Number.NaN);
-    const y = Number((pump as SVGLineElement).getAttribute("y1") ?? Number.NaN);
+    const x = Number((pump as SVGLineElement).getAttribute("x2") ?? Number.NaN);
+    const y = Number((pump as SVGLineElement).getAttribute("y2") ?? Number.NaN);
     expect(Number.isFinite(x)).toBe(true);
     expect(Number.isFinite(y)).toBe(true);
 
@@ -909,7 +909,7 @@ describe("AuctionCanvas", () => {
       expect(within(popover as HTMLElement).getByText(/^opening ask$/i)).toBeTruthy();
       expect(within(popover as HTMLElement).getByText(/^time$/i)).toBeTruthy();
       expect(within(popover as HTMLElement).queryByText(/^floor$/i)).toBeNull();
-      expect(within(popover as HTMLElement).queryByText(/^time premium$/i)).toBeNull();
+      expect(within(popover as HTMLElement).queryByText(/^initial premium$/i)).toBeNull();
       expect(
         within(popover as HTMLElement).getByText(/ask when the auction opens/i)
       ).toBeTruthy();
@@ -933,7 +933,7 @@ describe("AuctionCanvas", () => {
       expect(within(popover as HTMLElement).getByText(/^opening ask$/i)).toBeTruthy();
       expect(within(popover as HTMLElement).getByText(/^time$/i)).toBeTruthy();
       expect(within(popover as HTMLElement).queryByText(/^floor$/i)).toBeNull();
-      expect(within(popover as HTMLElement).queryByText(/^time premium$/i)).toBeNull();
+      expect(within(popover as HTMLElement).queryByText(/^initial premium$/i)).toBeNull();
       expect(within(popover as HTMLElement).queryByText(/^1 t½ decay$/i)).toBeNull();
       expect(
         within(popover as HTMLElement).getByText(/ask when the auction opens/i)
@@ -955,7 +955,7 @@ describe("AuctionCanvas", () => {
       const popover = container.querySelector(".dotfield__popover") as HTMLElement | null;
       expect(popover).toBeTruthy();
       expect(within(popover as HTMLElement).getByText(/^opening floor$/i)).toBeTruthy();
-      expect(within(popover as HTMLElement).getByText(/^price$/i)).toBeTruthy();
+      expect(within(popover as HTMLElement).getByText(/^floor$/i)).toBeTruthy();
       expect(within(popover as HTMLElement).getByText(/^time$/i)).toBeTruthy();
     });
   });
@@ -982,7 +982,7 @@ describe("AuctionCanvas", () => {
       expect(within(popover as HTMLElement).getByText(/^opening ask$/i)).toBeTruthy();
       expect(within(popover as HTMLElement).getByText(/^time$/i)).toBeTruthy();
       expect(within(popover as HTMLElement).queryByText(/^floor$/i)).toBeNull();
-      expect(within(popover as HTMLElement).queryByText(/^time premium$/i)).toBeNull();
+      expect(within(popover as HTMLElement).queryByText(/^initial premium$/i)).toBeNull();
       expect(within(popover as HTMLElement).queryByText(/^1 t½ decay$/i)).toBeNull();
       expect(
         within(popover as HTMLElement).getByText(/ask when the auction opens/i)
@@ -1041,9 +1041,9 @@ describe("AuctionCanvas", () => {
       const popover = container.querySelector(".dotfield__popover") as HTMLElement | null;
       expect(popover).toBeTruthy();
       expect(within(popover as HTMLElement).getByText(/^opening ask$/i)).toBeTruthy();
-      const priceRow = within(popover as HTMLElement).getByText(/^price$/i).parentElement;
-      expect(priceRow).toBeTruthy();
-      expect((priceRow?.textContent ?? "").replace(/,/g, "")).toMatch(/120(?:\.00)?\s*ETH/i);
+      const askRow = within(popover as HTMLElement).getByText(/^ask$/i).parentElement;
+      expect(askRow).toBeTruthy();
+      expect((askRow?.textContent ?? "").replace(/,/g, "")).toMatch(/120(?:\.00)?\s*ETH/i);
     });
   });
 
@@ -1140,13 +1140,13 @@ describe("AuctionCanvas", () => {
       expect(within(popover as HTMLElement).getByText(/^start ask$/i)).toBeTruthy();
       expect(within(popover as HTMLElement).getByText(/^floor$/i)).toBeTruthy();
       expect(
-        within(popover as HTMLElement).getByText(/price = floor \+ time premium/i)
+        within(popover as HTMLElement).getByText(/ask = floor \+ initial premium/i)
       ).toBeTruthy();
-      expect(within(popover as HTMLElement).getByText(/floor = last sale/i)).toBeTruthy();
+      expect(within(popover as HTMLElement).getByText(/floor = last price/i)).toBeTruthy();
     });
   });
 
-  test("hovering pump line shows time premium tooltip", async () => {
+  test("hovering pump line shows initial premium tooltip", async () => {
     mockUseAuctionBids.mockReturnValue({
       bids: [
         {
@@ -1216,13 +1216,15 @@ describe("AuctionCanvas", () => {
     await waitFor(() => {
       const popover = container.querySelector(".dotfield__popover") as HTMLElement | null;
       expect(popover).toBeTruthy();
-      expect(within(popover as HTMLElement).getByText(/^time premium$/i)).toBeTruthy();
-      expect(within(popover as HTMLElement).getByText(/^amount$/i)).toBeTruthy();
-      const durationRow = within(popover as HTMLElement).getByText(/^duration$/i)
+      expect(within(popover as HTMLElement).getAllByText(/^initial premium$/i).length).toBeGreaterThan(0);
+      const durationRow = within(popover as HTMLElement).getByText(/^elapsed time$/i)
         .parentElement;
-      expect(durationRow?.textContent).toMatch(/^duration\d+s$/i);
+      expect(durationRow?.textContent).toMatch(/^elapsed time\d+s$/i);
       expect(within(popover as HTMLElement).getByText(/^PTS \(ETH\/s\)$/i)).toBeTruthy();
-      expect(within(popover as HTMLElement).getByText(/amount = duration × PTS/i)).toBeTruthy();
+      expect(within(popover as HTMLElement).getByText(/initial premium = elapsed time × PTS/i)).toBeTruthy();
+      expect(
+        within(popover as HTMLElement).queryByText(/next ask = next floor \+ initial premium/i)
+      ).toBeNull();
     });
   });
 

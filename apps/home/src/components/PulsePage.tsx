@@ -489,7 +489,7 @@ function PulseCurrentInstance({ rawOnly = false }: { rawOnly?: boolean }) {
       <div className="pulse-page__current-copy">
         <div className="pulse-page__section-title">current instance</div>
         <p className="pulse-page__lead-line">
-          $PATH is currently running on Sepolia rehearsal using Pulse.
+          $PATH is the current public auction using Pulse.
         </p>
         <p>Each successful bid mints one $PATH.</p>
       </div>
@@ -627,7 +627,7 @@ export default function PulsePage() {
 
           <pre
             className="primitive-page__formula pulse-page__math"
-            aria-label="Pulse lift and decay equations"
+            aria-label="Pulse pump and drop equations"
           >
             {PULSE.math}
           </pre>
