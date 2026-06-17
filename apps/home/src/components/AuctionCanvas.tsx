@@ -7188,270 +7188,247 @@ export default function AuctionCanvas({
               )}
             </div>
 
-            {hover && (
-              <div className="dotfield__popover" style={{ left: hover.screenX, top: hover.screenY }}>
-                {hover.key?.startsWith("bid#") ? (
-                  <>
-                    <div className="muted small">
-                      {`sale #${hover.epoch ?? "—"}`}
-                    </div>
-                    <div className="dotfield__popover-meta" style={{ marginTop: 6 }}>
-                      <div className="dotfield__poprow">
-                        <span>price</span>
-                        <span>
-                          {formatAmountDetailed(
-                            hover.amountDec ?? hover.amount,
+            {hover && (() => {
+              const popRows: Array<{ label: string; value: string }> = [];
+              const popNotes: string[] = [];
+              const isOpeningAsk =
+                hover.key === "ask" &&
+                Math.abs(Number((hover as any).uGlobal ?? Number.NaN)) < 1e-9;
+              const isCurvePoint = hover.key === "curve-point" || hover.key === "now";
+
+              if (hover.key?.startsWith("bid#")) {
+                popRows.push(
+                  {
+                    label: "price",
+                    value: formatAmountDetailed(
+                      hover.amountDec ?? hover.amount,
+                      decimals,
+                      displayTokenSymbol
+                    ),
+                  },
+                  { label: "bidder", value: shortAddr(hover.bidder) },
+                  { label: "time", value: formatLocalTime(hover.atMs) }
+                );
+                popNotes.push("mints one $PATH and starts the next curve");
+              } else if (hover.key === "ask") {
+                popRows.push({
+                  label: "ask",
+                  value: formatAmountDetailed(
+                    (hover as any).amountRaw ?? hover.amount,
+                    decimals,
+                    displayTokenSymbol
+                  ),
+                });
+
+                if (isOpeningAsk) {
+                  popRows.push({
+                    label: "time",
+                    value: formatLocalTime(hover.atMs),
+                  });
+                  popNotes.push("ask when the auction opens");
+                } else {
+                  popRows.push({
+                    label: "floor",
+                    value:
+                      hover.floorHuman != null
+                        ? formatAmountDetailed(
+                            String(hover.floorHuman),
                             decimals,
                             displayTokenSymbol
-                          )}
-                        </span>
-                      </div>
-                      <div className="dotfield__poprow">
-                        <span>bidder</span>
-                        <span>{shortAddr(hover.bidder)}</span>
-                      </div>
-                      <div className="dotfield__poprow">
-                        <span>time</span>
-                        <span>{formatLocalTime(hover.atMs)}</span>
-                      </div>
-                    </div>
-                    <div className="dotfield__note" style={{ marginTop: 4 }}>
-                      mints one $PATH and starts the next curve
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="muted small">
-                      {hover.key === "ask"
-                        ? Math.abs(Number((hover as any).uGlobal ?? Number.NaN)) < 1e-9
-                          ? "opening ask"
-                          : "start ask"
-                        : hover.key === "now"
-                        ? "current ask"
-                        : hover.key === "opening-floor"
-                        ? "opening floor"
-                        : hover.key === "premium"
+                          )
+                        : "—",
+                  });
+                  popRows.push({
+                    label: "initial premium",
+                    value:
+                      hover.floorHuman != null && hover.amountRaw
+                        ? (() => {
+                            const f = Number((hover as any).floorHuman);
+                            const amt = Number((hover as any).amountRaw);
+                            if (Number.isFinite(f) && Number.isFinite(amt)) {
+                              return formatAmountDetailed(
+                                String(Math.max(0, amt - f)),
+                                decimals,
+                                displayTokenSymbol
+                              );
+                            }
+                            return "—";
+                          })()
+                        : "—",
+                  });
+                  popNotes.push("ask = floor + initial premium");
+                  popNotes.push("floor = last price");
+                }
+              } else if (hover.key === "opening-floor") {
+                popRows.push(
+                  {
+                    label: "floor",
+                    value: formatAmountDetailed(
+                      (hover as any).amountRaw ?? hover.amount,
+                      decimals,
+                      displayTokenSymbol
+                    ),
+                  },
+                  {
+                    label: "time",
+                    value: formatLocalTime(hover.atMs),
+                  }
+                );
+                popNotes.push("floor when the auction opens");
+              } else if (hover.key === "premium") {
+                popRows.push({
+                  label: "initial premium",
+                  value: formatAmountDetailed(
+                    (hover as any).amountRaw ?? hover.amount,
+                    decimals,
+                    displayTokenSymbol
+                  ),
+                });
+                popRows.push({
+                  label: "elapsed time",
+                  value: formatSecondsDuration(hover.durationSec ?? 0),
+                });
+                popRows.push({
+                  label: `PTS (${displayTokenSymbol}/s)`,
+                  value: hover.ptsHuman != null ? formatHumanTokenAmount(hover.ptsHuman) : "—",
+                });
+                popNotes.push("initial premium = elapsed time × PTS");
+              } else if (isCurvePoint) {
+                popRows.push({
+                  label: "ask",
+                  value: formatAmountDetailed(
+                    (hover as any).amountRaw ?? hover.amount,
+                    decimals,
+                    displayTokenSymbol
+                  ),
+                });
+              }
+
+              if (isCurvePoint) {
+                popRows.push({
+                  label: "premium",
+                  value:
+                    hover.floorHuman != null && hover.amountRaw
+                      ? (() => {
+                          if (hover.key === "now") {
+                            const f = Number((hover as any).floorHuman);
+                            const amt = Number((hover as any).amountRaw);
+                            if (Number.isFinite(f) && Number.isFinite(amt)) {
+                              return formatAmountDetailed(
+                                String(Math.max(0, amt - f)),
+                                decimals,
+                                displayTokenSymbol
+                              );
+                            }
+                          }
+                          const d = Number((hover as any).premiumHuman);
+                          const u = Number((hover as any).uLocal);
+                          if (Number.isFinite(d) && Number.isFinite(u)) {
+                            return formatAmountDetailed(
+                              String(Math.max(0, premiumAtU(d, u))),
+                              decimals,
+                              displayTokenSymbol
+                            );
+                          }
+                          const f = Number((hover as any).floorHuman);
+                          const amt = Number((hover as any).amountRaw);
+                          if (Number.isFinite(f) && Number.isFinite(amt)) {
+                            return formatAmountDetailed(
+                              String(Math.max(0, amt - f)),
+                              decimals,
+                              displayTokenSymbol
+                            );
+                          }
+                          return "—";
+                        })()
+                      : "—",
+                });
+                popRows.push({
+                  label: "ago",
+                  value: formatDuration(Math.max(0, Number((hover as any).beforeNowSec ?? 0))),
+                });
+                popRows.push({
+                  label: "t½",
+                  value: (hover as any).tHalf != null ? formatDuration((hover as any).tHalf) : "—",
+                });
+                popRows.push({
+                  label: "u(t½)",
+                  value: (() => {
+                    const u =
+                      (hover as any).durationSec != null && (hover as any).tHalf != null
+                        ? ((hover as any).durationSec ?? 0) /
+                          Math.max((hover as any).tHalf ?? 1, 1e-9)
+                        : 0;
+                    return `${u.toFixed(2)}`;
+                  })(),
+                });
+                popRows.push({
+                  label: "1 t½ decay",
+                  value: (() => {
+                    const d = Number((hover as any).premiumHuman);
+                    const u = Number((hover as any).uLocal);
+                    if (Number.isFinite(d) && Number.isFinite(u)) {
+                      return formatAmountDetailed(
+                        String(oneHalfDropAtU(d, u)),
+                        decimals,
+                        displayTokenSymbol
+                      );
+                    }
+                    const f = Number((hover as any).floorHuman);
+                    const amt = Number((hover as any).amountRaw);
+                    if (Number.isFinite(f) && Number.isFinite(amt)) {
+                      return formatAmountDetailed(
+                        String(Math.max(0, (amt - f) / 2)),
+                        decimals,
+                        displayTokenSymbol
+                      );
+                    }
+                    return "—";
+                  })(),
+                });
+                popRows.push({ label: "time", value: formatLocalTime(hover.atMs) });
+                popNotes.push(curveFormulaLabel());
+                popNotes.push(`b = floor = ${(hover as any).floorHuman ?? "?"}`);
+                popNotes.push(`k = ${(hover as any).kHuman ?? "?"}`);
+                popNotes.push(`a = anchor time = ${(hover as any).anchor ?? "?"}`);
+              }
+
+              const popTitle = hover.key?.startsWith("bid#")
+                ? `sale #${hover.epoch ?? "—"}`
+                : hover.key === "ask"
+                  ? isOpeningAsk
+                    ? "opening ask"
+                    : "start ask"
+                  : hover.key === "now"
+                    ? "current ask"
+                    : hover.key === "opening-floor"
+                      ? "opening floor"
+                      : hover.key === "premium"
                         ? "initial premium"
-                        : "ask"}
+                        : "ask";
+
+              return (
+                <div className="dotfield__popover" style={{ left: hover.screenX, top: hover.screenY }}>
+                  <div className="muted small">{popTitle}</div>
+                  <div className="dotfield__popover-meta" style={{ marginTop: 6 }}>
+                    {popRows.map((row, idx) => (
+                      <div className="dotfield__poprow" key={`${row.label}-${idx}`}>
+                        <span>{row.label}</span>
+                        <span>{row.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {popNotes.map((note, idx) => (
+                    <div
+                      key={`note-${idx}`}
+                      className={`dotfield__note ${idx === 0 ? "dotfield__note--spaced" : ""}`}
+                    >
+                      {note}
                     </div>
-                    <div className="dotfield__poprow">
-                      <span>
-                        {hover.key === "premium"
-                          ? "initial premium"
-                          : hover.key === "opening-floor"
-                          ? "floor"
-                          : "ask"}
-                      </span>
-                      <span>
-                        {formatAmountDetailed(
-                          (hover as any).amountRaw ?? hover.amount,
-                          decimals,
-                          displayTokenSymbol
-                        )}
-                      </span>
-                    </div>
-                    {hover.key === "ask" && (
-                      Math.abs(Number((hover as any).uGlobal ?? Number.NaN)) < 1e-9 ? (
-                        <>
-                          <div className="dotfield__poprow">
-                            <span>time</span>
-                            <span>{formatLocalTime(hover.atMs)}</span>
-                          </div>
-                          <div className="dotfield__note" style={{ marginTop: 4 }}>
-                            ask when the auction opens
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="dotfield__poprow">
-                            <span>floor</span>
-                            <span>
-                              {hover.floorHuman != null
-                                ? formatAmountDetailed(
-                                    String(hover.floorHuman),
-                                    decimals,
-                                    displayTokenSymbol
-                                  )
-                                : "—"}
-                            </span>
-                          </div>
-                          <div className="dotfield__poprow">
-                            <span>initial premium</span>
-                            <span>
-                              {hover.floorHuman != null && hover.amountRaw
-                                ? (() => {
-                                    const f = Number((hover as any).floorHuman);
-                                    const amt = Number((hover as any).amountRaw);
-                                    if (Number.isFinite(f) && Number.isFinite(amt)) {
-                                      return formatAmountDetailed(
-                                        String(amt - f),
-                                        decimals,
-                                        displayTokenSymbol
-                                      );
-                                    }
-                                    return "—";
-                                  })()
-                                : "—"}
-                            </span>
-                          </div>
-                          <div className="dotfield__note" style={{ marginTop: 4 }}>
-                            ask = floor + initial premium
-                          </div>
-                          <div className="dotfield__note">
-                            floor = last price
-                          </div>
-                        </>
-                      )
-                    )}
-                    {hover.key === "opening-floor" && (
-                      <>
-                        <div className="dotfield__poprow">
-                          <span>time</span>
-                          <span>{formatLocalTime(hover.atMs)}</span>
-                        </div>
-                        <div className="dotfield__note" style={{ marginTop: 4 }}>
-                          floor when the auction opens
-                        </div>
-                      </>
-                    )}
-                    {(hover.key === "curve-point" || hover.key === "now") && (
-                      <>
-                        <div className="dotfield__poprow">
-                          <span>premium</span>
-                          <span>
-                            {hover.floorHuman != null && hover.amountRaw
-                              ? (() => {
-                                  if (hover.key === "now") {
-                                    const f = Number((hover as any).floorHuman);
-                                    const amt = Number((hover as any).amountRaw);
-                                    if (Number.isFinite(f) && Number.isFinite(amt)) {
-                                      return formatAmountDetailed(
-                                        String(Math.max(0, amt - f)),
-                                        decimals,
-                                        displayTokenSymbol
-                                      );
-                                    }
-                                  }
-                                  const d = Number((hover as any).premiumHuman);
-                                  const u = Number((hover as any).uLocal);
-                                  if (Number.isFinite(d) && Number.isFinite(u)) {
-                                    return formatAmountDetailed(
-                                      String(Math.max(0, premiumAtU(d, u))),
-                                      decimals,
-                                      displayTokenSymbol
-                                    );
-                                  }
-                                  const f = Number((hover as any).floorHuman);
-                                  const amt = Number((hover as any).amountRaw);
-                                  if (Number.isFinite(f) && Number.isFinite(amt)) {
-                                    return formatAmountDetailed(
-                                      String(Math.max(0, amt - f)),
-                                      decimals,
-                                      displayTokenSymbol
-                                    );
-                                  }
-                                  return "—";
-                                })()
-                              : "—"}
-                          </span>
-                        </div>
-                        <div className="dotfield__poprow">
-                          <span>ago</span>
-                          <span>
-                            {formatDuration(
-                              Math.max(0, Number((hover as any).beforeNowSec ?? 0))
-                            )}
-                          </span>
-                        </div>
-                      </>
-                    )}
-                    {hover.key === "premium" && (
-                      <>
-                        <div className="dotfield__poprow">
-                          <span>elapsed time</span>
-                          <span>{formatSecondsDuration(hover.durationSec ?? 0)}</span>
-                        </div>
-                        <div className="dotfield__poprow">
-                          <span title={`PTS = price-time scale, in ${displayTokenSymbol} per second.`}>
-                            PTS ({displayTokenSymbol}/s)
-                          </span>
-                          <span>
-                            {hover.ptsHuman != null ? formatHumanTokenAmount(hover.ptsHuman) : "—"}
-                          </span>
-                        </div>
-                        <div className="dotfield__note" style={{ marginTop: 4 }}>
-                          initial premium = elapsed time × PTS
-                        </div>
-                      </>
-                    )}
-                    {(hover.key === "curve-point" || hover.key === "now") && (
-                      <>
-                        <div className="dotfield__poprow">
-                          <span>t½</span>
-                          <span>
-                            {(hover as any).tHalf != null
-                              ? formatDuration((hover as any).tHalf)
-                              : "—"}
-                          </span>
-                        </div>
-                        <div className="dotfield__poprow">
-                          <span>u(t½)</span>
-                          <span>
-                            {(() => {
-                              const u =
-                                (hover as any).durationSec != null && (hover as any).tHalf != null
-                                  ? ((hover as any).durationSec ?? 0) / Math.max((hover as any).tHalf ?? 1, 1e-9)
-                                  : 0;
-                              return `${u.toFixed(2)}`;
-                            })()}
-                          </span>
-                        </div>
-                        <div className="dotfield__poprow">
-                          <span>1 t½ decay</span>
-                          <span>
-                            {(() => {
-                              const d = Number((hover as any).premiumHuman);
-                              const u = Number((hover as any).uLocal);
-                              if (Number.isFinite(d) && Number.isFinite(u)) {
-                                return formatAmountDetailed(
-                                  String(oneHalfDropAtU(d, u)),
-                                  decimals,
-                                  displayTokenSymbol
-                                );
-                              }
-                              const f = Number((hover as any).floorHuman);
-                              const amt = Number((hover as any).amountRaw);
-                              if (Number.isFinite(f) && Number.isFinite(amt)) {
-                                return formatAmountDetailed(
-                                  String((amt - f) / 2),
-                                  decimals,
-                                  displayTokenSymbol
-                                );
-                              }
-                              return "—";
-                            })()}
-                          </span>
-                        </div>
-                        <div className="dotfield__poprow">
-                          <span>time</span>
-                          <span>{formatLocalTime(hover.atMs)}</span>
-                        </div>
-                        <div className="dotfield__note" style={{ marginTop: 4 }}>
-                          {curveFormulaLabel()}
-                        </div>
-                        <div className="dotfield__note">
-                          b = floor = {(hover as any).floorHuman ?? "?"}
-                        </div>
-                        <div className="dotfield__note">k = {(hover as any).kHuman ?? "?"}</div>
-                        <div className="dotfield__note">
-                          a = anchor time = {(hover as any).anchor ?? "?"}
-                        </div>
-                      </>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         );
       })()}
