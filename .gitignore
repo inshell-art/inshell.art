@@ -155,6 +155,9 @@ src/.DS_Store
 /public/events.json
 /public/rss.*.xml
 /public/events.*.json
+/public/post-on-x.*.json
+/public/public-feed-surface.*.json
+/public/x-manual.*.json
 /public/source/
 /public/source-assets/
 
