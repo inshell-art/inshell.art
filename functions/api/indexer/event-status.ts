@@ -100,7 +100,7 @@ export async function writeIndexerEventStatus(
     const previous = previousResult.status;
     const now = new Date().toISOString();
     const eventId = eventStatusId(input);
-    const previousEventIds = normalizeRecentEventIds(previous?.recentEventIds);
+    const previousEventIds = normalizeRecentEventIds(previous);
     const duplicate = previousEventIds.includes(eventId);
     if (duplicate && previous) {
       return { persisted: true, source: "d1", status: previous, duplicate, error: null };
@@ -212,11 +212,26 @@ function eventStatusId(input: WriteIndexerEventStatusInput) {
   ].join(":");
 }
 
-function normalizeRecentEventIds(value: unknown) {
-  if (!Array.isArray(value)) return [];
-  return value
+function normalizeRecentEventIds(status: IndexerEventStatus | null | undefined) {
+  const recentEventIds = Array.isArray(status?.recentEventIds) ? status.recentEventIds : [];
+  const eventIds = recentEventIds
     .filter((eventId): eventId is string => typeof eventId === "string" && eventId.length > 0)
     .slice(0, MAX_RECENT_EVENT_IDS);
+  const lastEventId = status ? eventStatusIdFromStatus(status) : null;
+  if (lastEventId && !eventIds.includes(lastEventId)) {
+    eventIds.unshift(lastEventId);
+  }
+  return eventIds.slice(0, MAX_RECENT_EVENT_IDS);
+}
+
+function eventStatusIdFromStatus(status: IndexerEventStatus) {
+  if (!status.lastAppliedTarget) return null;
+  return [
+    status.lastAppliedTarget,
+    status.lastBlockNumber,
+    status.lastLogIndex,
+    status.lastTxHash.toLowerCase(),
+  ].join(":");
 }
 
 function readableError(error: unknown) {

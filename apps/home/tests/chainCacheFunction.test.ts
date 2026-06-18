@@ -1028,6 +1028,109 @@ describe("chain cache Pages functions", () => {
     expect(response.headers.get("x-live-rpc-calls")).toBe("0");
   });
 
+  test("indexer event dedupes legacy status rows without recent event ids", async () => {
+    globalThis.Request = TestRequest as unknown as typeof Request;
+    globalThis.Response = TestResponse as unknown as typeof Response;
+    globalThis.Headers = TestHeaders as unknown as typeof Headers;
+    (globalThis as any).caches = undefined;
+    const txHash = `0x${"fed".padStart(64, "0")}`;
+    const lastAcceptedAt = "2026-06-18T10:32:05.275Z";
+    const d1 = createD1Mock({
+      "pulse-auction:v1:sepolia": {
+        version: 1,
+        cachedAt: Date.now() - 120_000,
+        chainId: 11155111,
+        contract: PULSE_AUCTION,
+        fromBlock: 10854123,
+        lastScannedBlock: 10860000,
+        items: [
+          {
+            key: `sale:${txHash}:2`,
+            txHash,
+            atMs: 1_780_000_000_000,
+            amount: { raw: { low: "12", high: "0" }, dec: "12" },
+          },
+        ],
+      } satisfies IndexedSnapshot<unknown>,
+      "indexer-event-ingest-status:v1:sepolia": {
+        version: 1,
+        updatedAt: lastAcceptedAt,
+        lastAcceptedAt,
+        lastAppliedAt: lastAcceptedAt,
+        lastAppliedTarget: "pulse-auction",
+        lastTxHash: txHash,
+        lastBlockNumber: 10856428,
+        lastLogIndex: 2,
+        lastResultApplied: true,
+        lastResultSource: "d1",
+        cachedAt: 1_780_000_000_000,
+        lastScannedBlock: 10860000,
+        acceptedCount: 9,
+        appliedCount: 9,
+      },
+    });
+    const fetchMock = jest.fn(async () => {
+      throw new Error("live RPC should not be called for an already indexed tx");
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const response = await onIndexerEventPost({
+      request: new Request("https://preview.inshell.art/api/indexer/event", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          version: 1,
+          source: "ops-chain-event-ingress",
+          network: "sepolia",
+          target: "pulse-auction",
+          txHash,
+          blockNumber: 10856428,
+          logIndex: 2,
+          contractAddress: PULSE_AUCTION,
+          topic0: PULSE_SALE_TOPIC,
+        }),
+      }),
+      env: {
+        INSHELL_CHAIN_DATA_DB: d1.db,
+        INSHELL_INDEXER_REFRESH_TOKEN: "secret-token",
+        PATH_PRIMARY_RPC_UPSTREAM: "https://path-rpc.example/sepolia",
+        CHAIN_CACHE_DIAGNOSTICS: "1",
+      },
+    });
+    const payload = (await response.json()) as {
+      ok?: boolean;
+      applied?: boolean;
+      eventStatus?: {
+        duplicate?: boolean;
+        lastAcceptedAt?: string | null;
+        acceptedCount?: number;
+        appliedCount?: number;
+      };
+    };
+    const status = JSON.parse(
+      d1.rows.get("indexer-event-ingest-status:v1:sepolia") ?? "{}",
+    ) as {
+      lastAcceptedAt?: string;
+      acceptedCount?: number;
+      appliedCount?: number;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.ok).toBe(true);
+    expect(payload.applied).toBe(true);
+    expect(payload.eventStatus?.duplicate).toBe(true);
+    expect(payload.eventStatus?.lastAcceptedAt).toBe(lastAcceptedAt);
+    expect(payload.eventStatus?.acceptedCount).toBe(9);
+    expect(payload.eventStatus?.appliedCount).toBe(9);
+    expect(status.lastAcceptedAt).toBe(lastAcceptedAt);
+    expect(status.acceptedCount).toBe(9);
+    expect(status.appliedCount).toBe(9);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   test("indexer event reports marker persistence failure without hiding ingest success", async () => {
     globalThis.Request = TestRequest as unknown as typeof Request;
     globalThis.Response = TestResponse as unknown as typeof Response;
