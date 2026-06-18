@@ -33,6 +33,9 @@ const TRANSFER_TOPIC =
 const PULSE_SALE_TOPIC =
   "0xa789468a0212cbe853fbdd6011d2ee7d85144ebc1d67c7dd82f087a970d9593d";
 const PULSE_AUCTION = "0x1071e99928Bdf020794a5E3e5B9c920450Ac9b39";
+const THOUGHT_NFT = "0x413efb5C95Bf3158F0E563FB9E19CB650Fc3760a";
+const THOUGHT_MINTED_TOPIC =
+  "0xf83a962c31fcc481a4796d3bd1f81a4b58d1b05ec5cb34e434b2d40962596860";
 const ZERO_TOPIC =
   "0x0000000000000000000000000000000000000000000000000000000000000000";
 
@@ -799,6 +802,87 @@ describe("chain cache Pages functions", () => {
     expect(response.headers.get("x-db-write")).toBe("1");
   });
 
+  test("protected indexer event updates thought gallery read model", async () => {
+    globalThis.Request = TestRequest as unknown as typeof Request;
+    globalThis.Response = TestResponse as unknown as typeof Response;
+    globalThis.Headers = TestHeaders as unknown as typeof Headers;
+    const txHash = `0x${"def".padStart(64, "0")}`;
+    const d1 = createD1Mock({
+      "thought-gallery:v1:sepolia": {
+        version: 1,
+        cachedAt: Date.now() - 120_000,
+        chainId: 11155111,
+        contract: THOUGHT_NFT,
+        fromBlock: 10872879,
+        lastScannedBlock: 10873000,
+        items: [],
+      } satisfies IndexedSnapshot<unknown>,
+    });
+    const fetchMock = jest.fn(async (_url: unknown, init?: any) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        method?: string;
+      };
+      if (body.method === "eth_blockNumber") {
+        return rpcResponse("0xa60000");
+      }
+      if (body.method === "eth_getLogs") {
+        return rpcResponse([]);
+      }
+      throw new Error(`unexpected RPC method ${body.method}`);
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const response = await onIndexerEventPost({
+      request: new Request("https://preview.inshell.art/api/indexer/event", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          version: 1,
+          source: "ops-chain-event-ingress",
+          network: "sepolia",
+          target: "thought-gallery",
+          txHash,
+          blockNumber: 10873000,
+          logIndex: 2,
+          contractAddress: THOUGHT_NFT,
+          topic0: THOUGHT_MINTED_TOPIC,
+        }),
+      }),
+      env: {
+        INSHELL_CHAIN_DATA_DB: d1.db,
+        INSHELL_INDEXER_REFRESH_TOKEN: "secret-token",
+        THOUGHT_PRIMARY_RPC_UPSTREAM: "https://thought-rpc.example/sepolia",
+        CHAIN_CACHE_DIAGNOSTICS: "1",
+      },
+    });
+    const payload = (await response.json()) as {
+      ok?: boolean;
+      target?: string;
+      applied?: boolean;
+      eventStatus?: { persisted?: boolean; statusSource?: string; acceptedCount?: number };
+    };
+    const thoughtStored = JSON.parse(d1.rows.get("thought-gallery:v1:sepolia") ?? "{}") as {
+      contract?: string;
+      lastScannedBlock?: number;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.ok).toBe(true);
+    expect(payload.target).toBe("thought-gallery");
+    expect(payload.applied).toBe(true);
+    expect(payload.eventStatus?.persisted).toBe(true);
+    expect(payload.eventStatus?.statusSource).toBe("d1");
+    expect(payload.eventStatus?.acceptedCount).toBe(1);
+    expect(thoughtStored.contract).toBe(THOUGHT_NFT);
+    expect(thoughtStored.lastScannedBlock).toBe(10878976);
+    expect(response.headers.get("x-indexer-event-status-write")).toBe("1");
+    expect(response.headers.get("x-indexer-event-status-source")).toBe("d1");
+    expect(response.headers.get("x-db-write")).toBe("1");
+  });
+
   test("indexer event requires refresh token", async () => {
     globalThis.Request = TestRequest as unknown as typeof Request;
     globalThis.Response = TestResponse as unknown as typeof Response;
@@ -835,7 +919,7 @@ describe("chain cache Pages functions", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  test("indexer event dedupes already indexed transactions without RPC", async () => {
+  test("indexer event dedupes already indexed transactions and status counters without RPC", async () => {
     globalThis.Request = TestRequest as unknown as typeof Request;
     globalThis.Response = TestResponse as unknown as typeof Response;
     globalThis.Headers = TestHeaders as unknown as typeof Headers;
@@ -858,6 +942,132 @@ describe("chain cache Pages functions", () => {
           },
         ],
       } satisfies IndexedSnapshot<unknown>,
+    });
+    const fetchMock = jest.fn(async () => {
+      throw new Error("live RPC should not be called for an already indexed tx");
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const postEvent = () =>
+      onIndexerEventPost({
+        request: new Request("https://preview.inshell.art/api/indexer/event", {
+          method: "POST",
+          headers: {
+            authorization: "Bearer secret-token",
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            version: 1,
+            source: "ops-chain-event-ingress",
+            network: "sepolia",
+            target: "pulse-auction",
+            txHash,
+            blockNumber: 10856428,
+            logIndex: 2,
+            contractAddress: PULSE_AUCTION,
+            topic0: PULSE_SALE_TOPIC,
+          }),
+        }),
+        env: {
+          INSHELL_CHAIN_DATA_DB: d1.db,
+          INSHELL_INDEXER_REFRESH_TOKEN: "secret-token",
+          PATH_PRIMARY_RPC_UPSTREAM: "https://path-rpc.example/sepolia",
+          CHAIN_CACHE_DIAGNOSTICS: "1",
+        },
+      });
+
+    const firstResponse = await postEvent();
+    const firstPayload = (await firstResponse.json()) as {
+      ok?: boolean;
+      applied?: boolean;
+      eventStatus?: {
+        duplicate?: boolean;
+        lastAcceptedAt?: string | null;
+        acceptedCount?: number;
+        appliedCount?: number;
+      };
+    };
+    const response = await postEvent();
+    const payload = (await response.json()) as {
+      ok?: boolean;
+      applied?: boolean;
+      eventStatus?: {
+        duplicate?: boolean;
+        lastAcceptedAt?: string | null;
+        acceptedCount?: number;
+        appliedCount?: number;
+      };
+    };
+    const status = JSON.parse(
+      d1.rows.get("indexer-event-ingest-status:v1:sepolia") ?? "{}",
+    ) as {
+      acceptedCount?: number;
+      appliedCount?: number;
+      recentEventIds?: string[];
+    };
+
+    expect(firstResponse.status).toBe(200);
+    expect(firstPayload.ok).toBe(true);
+    expect(firstPayload.applied).toBe(true);
+    expect(firstPayload.eventStatus?.duplicate).toBe(false);
+    expect(firstPayload.eventStatus?.acceptedCount).toBe(1);
+    expect(firstPayload.eventStatus?.appliedCount).toBe(1);
+    expect(response.status).toBe(200);
+    expect(payload.ok).toBe(true);
+    expect(payload.applied).toBe(true);
+    expect(payload.eventStatus?.duplicate).toBe(true);
+    expect(payload.eventStatus?.lastAcceptedAt).toBe(firstPayload.eventStatus?.lastAcceptedAt);
+    expect(payload.eventStatus?.acceptedCount).toBe(1);
+    expect(payload.eventStatus?.appliedCount).toBe(1);
+    expect(status.acceptedCount).toBe(1);
+    expect(status.appliedCount).toBe(1);
+    expect(status.recentEventIds).toHaveLength(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(firstResponse.headers.get("x-chain-cache-source")).toBe("d1");
+    expect(response.headers.get("x-chain-cache-source")).toBe("memory");
+    expect(response.headers.get("x-live-rpc-calls")).toBe("0");
+  });
+
+  test("indexer event dedupes legacy status rows without recent event ids", async () => {
+    globalThis.Request = TestRequest as unknown as typeof Request;
+    globalThis.Response = TestResponse as unknown as typeof Response;
+    globalThis.Headers = TestHeaders as unknown as typeof Headers;
+    (globalThis as any).caches = undefined;
+    const txHash = `0x${"fed".padStart(64, "0")}`;
+    const lastAcceptedAt = "2026-06-18T10:32:05.275Z";
+    const d1 = createD1Mock({
+      "pulse-auction:v1:sepolia": {
+        version: 1,
+        cachedAt: Date.now() - 120_000,
+        chainId: 11155111,
+        contract: PULSE_AUCTION,
+        fromBlock: 10854123,
+        lastScannedBlock: 10860000,
+        items: [
+          {
+            key: `sale:${txHash}:2`,
+            txHash,
+            atMs: 1_780_000_000_000,
+            amount: { raw: { low: "12", high: "0" }, dec: "12" },
+          },
+        ],
+      } satisfies IndexedSnapshot<unknown>,
+      "indexer-event-ingest-status:v1:sepolia": {
+        version: 1,
+        updatedAt: lastAcceptedAt,
+        lastAcceptedAt,
+        lastAppliedAt: lastAcceptedAt,
+        lastAppliedTarget: "pulse-auction",
+        lastTxHash: txHash,
+        lastBlockNumber: 10856428,
+        lastLogIndex: 2,
+        lastResultApplied: true,
+        lastResultSource: "d1",
+        cachedAt: 1_780_000_000_000,
+        lastScannedBlock: 10860000,
+        acceptedCount: 9,
+        appliedCount: 9,
+      },
     });
     const fetchMock = jest.fn(async () => {
       throw new Error("live RPC should not be called for an already indexed tx");
@@ -890,14 +1100,35 @@ describe("chain cache Pages functions", () => {
         CHAIN_CACHE_DIAGNOSTICS: "1",
       },
     });
-    const payload = (await response.json()) as { ok?: boolean; applied?: boolean };
+    const payload = (await response.json()) as {
+      ok?: boolean;
+      applied?: boolean;
+      eventStatus?: {
+        duplicate?: boolean;
+        lastAcceptedAt?: string | null;
+        acceptedCount?: number;
+        appliedCount?: number;
+      };
+    };
+    const status = JSON.parse(
+      d1.rows.get("indexer-event-ingest-status:v1:sepolia") ?? "{}",
+    ) as {
+      lastAcceptedAt?: string;
+      acceptedCount?: number;
+      appliedCount?: number;
+    };
 
     expect(response.status).toBe(200);
     expect(payload.ok).toBe(true);
     expect(payload.applied).toBe(true);
+    expect(payload.eventStatus?.duplicate).toBe(true);
+    expect(payload.eventStatus?.lastAcceptedAt).toBe(lastAcceptedAt);
+    expect(payload.eventStatus?.acceptedCount).toBe(9);
+    expect(payload.eventStatus?.appliedCount).toBe(9);
+    expect(status.lastAcceptedAt).toBe(lastAcceptedAt);
+    expect(status.acceptedCount).toBe(9);
+    expect(status.appliedCount).toBe(9);
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(response.headers.get("x-chain-cache-source")).toBe("d1");
-    expect(response.headers.get("x-live-rpc-calls")).toBe("0");
   });
 
   test("indexer event reports marker persistence failure without hiding ingest success", async () => {

@@ -155,6 +155,7 @@ export async function onRequestPost(ctx: PagesContextLike): Promise<Response> {
       eventStatus: {
         persisted: statusWrite.persisted,
         statusSource: statusWrite.source,
+        duplicate: statusWrite.duplicate,
         lastAcceptedAt: statusWrite.status?.lastAcceptedAt ?? null,
         lastAppliedTarget: statusWrite.status?.lastAppliedTarget ?? null,
         acceptedCount: statusWrite.status?.acceptedCount ?? null,
