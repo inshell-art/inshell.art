@@ -3,6 +3,7 @@ import type { ChainCacheEnv } from "../chain-cache";
 const STATUS_KEY = "indexer-event-ingest-status:v1:sepolia";
 const D1_SNAPSHOT_TABLE = "chain_snapshots";
 const STATUS_VERSION = 1;
+const MAX_RECENT_EVENT_IDS = 100;
 
 type IndexerEventStatus = {
   version: 1;
@@ -19,6 +20,7 @@ type IndexerEventStatus = {
   lastScannedBlock: number;
   acceptedCount: number;
   appliedCount: number;
+  recentEventIds?: string[];
 };
 
 type WriteIndexerEventStatusInput = {
@@ -39,8 +41,8 @@ export type IndexerEventStatusRead =
   | { source: "error"; status: null; error: string };
 
 export type IndexerEventStatusWrite =
-  | { persisted: true; source: "d1"; status: IndexerEventStatus; error: null }
-  | { persisted: false; source: "unavailable" | "error"; status: null; error: string };
+  | { persisted: true; source: "d1"; status: IndexerEventStatus; duplicate: boolean; error: null }
+  | { persisted: false; source: "unavailable" | "error"; status: null; duplicate: false; error: string };
 
 const ensuredStatusTables = new WeakSet<object>();
 
@@ -79,6 +81,7 @@ export async function writeIndexerEventStatus(
       persisted: false,
       source: "unavailable",
       status: null,
+      duplicate: false,
       error: "INSHELL_CHAIN_DATA_DB is not bound",
     };
   }
@@ -90,11 +93,18 @@ export async function writeIndexerEventStatus(
         persisted: false,
         source: "error",
         status: null,
+        duplicate: false,
         error: previousResult.error,
       };
     }
     const previous = previousResult.status;
     const now = new Date().toISOString();
+    const eventId = eventStatusId(input);
+    const previousEventIds = normalizeRecentEventIds(previous?.recentEventIds);
+    const duplicate = previousEventIds.includes(eventId);
+    const recentEventIds = duplicate
+      ? previousEventIds
+      : [eventId, ...previousEventIds].slice(0, MAX_RECENT_EVENT_IDS);
     const status: IndexerEventStatus = {
       version: STATUS_VERSION,
       updatedAt: now,
@@ -108,8 +118,9 @@ export async function writeIndexerEventStatus(
       lastResultSource: input.source,
       cachedAt: input.cachedAt,
       lastScannedBlock: input.lastScannedBlock,
-      acceptedCount: (previous?.acceptedCount ?? 0) + 1,
-      appliedCount: (previous?.appliedCount ?? 0) + (input.applied ? 1 : 0),
+      acceptedCount: (previous?.acceptedCount ?? 0) + (duplicate ? 0 : 1),
+      appliedCount: (previous?.appliedCount ?? 0) + (!duplicate && input.applied ? 1 : 0),
+      recentEventIds,
     };
     await db
       .prepare(`
@@ -133,13 +144,21 @@ export async function writeIndexerEventStatus(
           blockNumber: input.blockNumber,
           logIndex: input.logIndex,
           applied: input.applied,
+          eventId,
+          duplicate,
         }),
         Date.now(),
       )
       .run();
-    return { persisted: true, source: "d1", status, error: null };
+    return { persisted: true, source: "d1", status, duplicate, error: null };
   } catch (error) {
-    return { persisted: false, source: "error", status: null, error: readableError(error) };
+    return {
+      persisted: false,
+      source: "error",
+      status: null,
+      duplicate: false,
+      error: readableError(error),
+    };
   }
 }
 
@@ -174,8 +193,27 @@ function isIndexerEventStatus(value: unknown): value is IndexerEventStatus {
     typeof status.lastLogIndex === "number" &&
     typeof status.lastResultApplied === "boolean" &&
     typeof status.cachedAt === "number" &&
-    typeof status.lastScannedBlock === "number"
+    typeof status.lastScannedBlock === "number" &&
+    (status.recentEventIds === undefined ||
+      (Array.isArray(status.recentEventIds) &&
+        status.recentEventIds.every((eventId) => typeof eventId === "string")))
   );
+}
+
+function eventStatusId(input: WriteIndexerEventStatusInput) {
+  return [
+    input.target,
+    input.blockNumber,
+    input.logIndex,
+    input.txHash.toLowerCase(),
+  ].join(":");
+}
+
+function normalizeRecentEventIds(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((eventId): eventId is string => typeof eventId === "string" && eventId.length > 0)
+    .slice(0, MAX_RECENT_EVENT_IDS);
 }
 
 function readableError(error: unknown) {
