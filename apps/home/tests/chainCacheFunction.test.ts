@@ -980,13 +980,23 @@ describe("chain cache Pages functions", () => {
     const firstPayload = (await firstResponse.json()) as {
       ok?: boolean;
       applied?: boolean;
-      eventStatus?: { duplicate?: boolean; acceptedCount?: number; appliedCount?: number };
+      eventStatus?: {
+        duplicate?: boolean;
+        lastAcceptedAt?: string | null;
+        acceptedCount?: number;
+        appliedCount?: number;
+      };
     };
     const response = await postEvent();
     const payload = (await response.json()) as {
       ok?: boolean;
       applied?: boolean;
-      eventStatus?: { duplicate?: boolean; acceptedCount?: number; appliedCount?: number };
+      eventStatus?: {
+        duplicate?: boolean;
+        lastAcceptedAt?: string | null;
+        acceptedCount?: number;
+        appliedCount?: number;
+      };
     };
     const status = JSON.parse(
       d1.rows.get("indexer-event-ingest-status:v1:sepolia") ?? "{}",
@@ -1006,6 +1016,7 @@ describe("chain cache Pages functions", () => {
     expect(payload.ok).toBe(true);
     expect(payload.applied).toBe(true);
     expect(payload.eventStatus?.duplicate).toBe(true);
+    expect(payload.eventStatus?.lastAcceptedAt).toBe(firstPayload.eventStatus?.lastAcceptedAt);
     expect(payload.eventStatus?.acceptedCount).toBe(1);
     expect(payload.eventStatus?.appliedCount).toBe(1);
     expect(status.acceptedCount).toBe(1);

@@ -102,6 +102,9 @@ export async function writeIndexerEventStatus(
     const eventId = eventStatusId(input);
     const previousEventIds = normalizeRecentEventIds(previous?.recentEventIds);
     const duplicate = previousEventIds.includes(eventId);
+    if (duplicate && previous) {
+      return { persisted: true, source: "d1", status: previous, duplicate, error: null };
+    }
     const recentEventIds = duplicate
       ? previousEventIds
       : [eventId, ...previousEventIds].slice(0, MAX_RECENT_EVENT_IDS);
