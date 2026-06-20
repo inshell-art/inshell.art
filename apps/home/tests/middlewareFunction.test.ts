@@ -47,9 +47,9 @@ class TestRequest {
   readonly url: string;
   readonly method: string;
 
-  constructor(input: string | { url: string; method?: string }) {
+  constructor(input: string | { url: string; method?: string }, init?: { method?: string }) {
     this.url = typeof input === "string" ? input : input.url;
-    this.method = typeof input === "string" ? "GET" : (input.method ?? "GET");
+    this.method = init?.method ?? (typeof input === "string" ? "GET" : (input.method ?? "GET"));
   }
 }
 
@@ -80,15 +80,16 @@ class TestResponse {
   }
 }
 
-function middlewareContext(url: string) {
+function middlewareContext(url: string, init?: { method?: string; env?: Record<string, unknown> }) {
   const next = jest.fn(async () => new Response("next", { status: 200 }));
   const assetsFetch = jest.fn(async () => new Response("asset", { status: 200 }));
   return {
-    request: new Request(url),
+    request: new Request(url, { method: init?.method ?? "GET" }),
     env: {
       ASSETS: {
         fetch: assetsFetch,
       },
+      ...(init?.env ?? {}),
     },
     next,
     assetsFetch,
@@ -136,6 +137,60 @@ describe("Pages middleware canonical routes", () => {
 
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe("https://inshell.art/path/15?source=x");
+    expect(ctx.next).not.toHaveBeenCalled();
+    expect(ctx.assetsFetch).not.toHaveBeenCalled();
+  });
+
+  test("routes PUB reserved paths to the PUB upstream before the app shell", async () => {
+    const fetchMock = jest.fn(
+      async () =>
+        new Response("pub", {
+          status: 200,
+          headers: {
+            "content-type": "text/plain; charset=utf-8",
+            etag: "\"pub-etag\"",
+          },
+        }),
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    for (const path of ["/llms.txt", "/pub.manifest.json", "/pub/contract/pub-path-boundary.json?check=1"]) {
+      const ctx = middlewareContext(`https://inshell.art${path}`);
+      const response = await onRequest(ctx);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("x-inshell-dev-path-boundary")).toBe("pub-proxy");
+      expect(response.headers.get("etag")).toBe("\"pub-etag\"");
+      expect(ctx.next).not.toHaveBeenCalled();
+      expect(ctx.assetsFetch).not.toHaveBeenCalled();
+    }
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://inshell-pub.pages.dev/llms.txt",
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://inshell-pub.pages.dev/pub.manifest.json",
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      "https://inshell-pub.pages.dev/pub/contract/pub-path-boundary.json?check=1",
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
+  test("keeps PUB artifacts read-only at the DEV route layer", async () => {
+    const fetchMock = jest.fn();
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const ctx = middlewareContext("https://inshell.art/pub.manifest.json", { method: "POST" });
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(405);
+    expect(response.headers.get("allow")).toBe("GET, HEAD");
+    expect(response.headers.get("x-inshell-dev-path-boundary")).toBe("pub-method-not-allowed");
+    expect(fetchMock).not.toHaveBeenCalled();
     expect(ctx.next).not.toHaveBeenCalled();
     expect(ctx.assetsFetch).not.toHaveBeenCalled();
   });

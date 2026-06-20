@@ -2,6 +2,7 @@ const PUBLIC_FEED_RSS_URL = "https://inshell-public-feed.pages.dev/rss.xml";
 const PUBLIC_FEED_ALIAS_URL = "https://inshell-public-feed.pages.dev/feed.xml";
 const PUBLIC_FEED_SEPOLIA_RSS_URL = "https://inshell-public-feed.pages.dev/rss.sepolia.xml";
 const PUBLIC_FEED_BASE_URL = "https://d807d286.inshell-public-feed.pages.dev";
+const PUB_UPSTREAM_DEFAULT = "https://inshell-pub.pages.dev";
 const APP_SHELL_CACHE_CONTROL = "public, max-age=60, stale-while-revalidate=300";
 
 type PagesAssets = {
@@ -12,6 +13,8 @@ type MiddlewareContext = {
   request: Request;
   env: {
     ASSETS?: PagesAssets;
+    PUB_UPSTREAM?: string;
+    PUB_BOUNDARY_CONTRACT_URL?: string;
   };
   next: (request?: Request) => Promise<Response>;
 };
@@ -19,6 +22,10 @@ type UrlInstance = InstanceType<typeof globalThis.URL>;
 
 export async function onRequest(ctx: MiddlewareContext): Promise<Response> {
   const url = new globalThis.URL(ctx.request.url);
+  if (isPubRouteHost(url.hostname) && isPubReservedPathname(url.pathname)) {
+    return proxyPubArtifact(ctx.request, url, ctx.env);
+  }
+
   const pathname = normalizePathname(url.pathname);
   const sepoliaRedirect = temporarySepoliaHostRedirect(url);
   const thoughtRedirect = canonicalThoughtRedirect(url, pathname);
@@ -48,6 +55,135 @@ export async function onRequest(ctx: MiddlewareContext): Promise<Response> {
   }
 
   return ctx.next();
+}
+
+function isPubReservedPathname(pathname: string) {
+  return (
+    pathname === "/llms.txt" ||
+    pathname === "/pub.manifest.json" ||
+    pathname === "/pub/" ||
+    pathname.startsWith("/pub/")
+  );
+}
+
+function isPubRouteHost(hostname: string) {
+  const host = hostname.toLowerCase();
+  return (
+    host === "inshell.art" ||
+    host === "preview.inshell.art" ||
+    host === "inshell-art.pages.dev" ||
+    host.endsWith(".inshell-art.pages.dev")
+  );
+}
+
+async function proxyPubArtifact(request: Request, requestUrl: UrlInstance, env: MiddlewareContext["env"]) {
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return pubMethodNotAllowed();
+  }
+
+  const upstreamUrl = getPubArtifactUrl(requestUrl, env);
+  let upstream: Response;
+  const abortController = new globalThis.AbortController();
+  const timeout = setTimeout(() => abortController.abort(), 8000);
+  try {
+    upstream = await fetch(upstreamUrl, {
+      method: request.method,
+      signal: abortController.signal,
+      headers: {
+        accept: pubArtifactAcceptHeader(requestUrl.pathname),
+      },
+    });
+  } catch {
+    return pubArtifactUnavailable();
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  return new Response(request.method === "HEAD" ? null : upstream.body, {
+    status: upstream.status,
+    statusText: upstream.statusText,
+    headers: pubArtifactHeaders(upstream, requestUrl.pathname),
+  });
+}
+
+function getPubArtifactUrl(requestUrl: UrlInstance, env: MiddlewareContext["env"]) {
+  const upstream = normalizePubUpstream(env.PUB_UPSTREAM);
+  const url = new globalThis.URL(upstream);
+  url.pathname = encodedPathnameForProxy(requestUrl.pathname);
+  url.search = requestUrl.search;
+  return url.toString();
+}
+
+function normalizePubUpstream(value: string | undefined) {
+  const raw = value?.trim() || PUB_UPSTREAM_DEFAULT;
+  try {
+    const url = new globalThis.URL(raw);
+    if (url.protocol !== "https:") return PUB_UPSTREAM_DEFAULT;
+    url.pathname = "/";
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return PUB_UPSTREAM_DEFAULT;
+  }
+}
+
+function pubArtifactAcceptHeader(pathname: string) {
+  if (pathname === "/llms.txt") return "text/plain, */*;q=0.1";
+  if (pathname === "/pub.manifest.json" || pathname === "/pub/contract/pub-path-boundary.json") {
+    return "application/json, */*;q=0.1";
+  }
+  return "*/*";
+}
+
+function pubArtifactHeaders(upstream: Response, pathname: string) {
+  const upstreamHeaders = new Headers(upstream.headers);
+  const headers = new Headers();
+  headers.set(
+    "content-type",
+    upstreamHeaders.get("content-type") ?? pubArtifactContentType(pathname),
+  );
+  headers.set("cache-control", upstreamHeaders.get("cache-control") ?? "public, max-age=60");
+  headers.set("x-content-type-options", "nosniff");
+  headers.set("x-inshell-dev-path-boundary", "pub-proxy");
+  const etag = upstreamHeaders.get("etag");
+  if (etag) headers.set("etag", etag);
+  const lastModified = upstreamHeaders.get("last-modified");
+  if (lastModified) headers.set("last-modified", lastModified);
+  return headers;
+}
+
+function pubArtifactContentType(pathname: string) {
+  if (pathname === "/llms.txt") return "text/plain; charset=utf-8";
+  if (pathname === "/pub.manifest.json" || pathname.endsWith(".json")) {
+    return "application/json; charset=utf-8";
+  }
+  return "application/octet-stream";
+}
+
+function pubMethodNotAllowed() {
+  return new Response("PUB artifacts are read-only.", {
+    status: 405,
+    headers: {
+      "content-type": "text/plain; charset=utf-8",
+      "cache-control": "no-store",
+      allow: "GET, HEAD",
+      "x-content-type-options": "nosniff",
+      "x-inshell-dev-path-boundary": "pub-method-not-allowed",
+    },
+  });
+}
+
+function pubArtifactUnavailable() {
+  return new Response("PUB artifact unavailable.", {
+    status: 502,
+    headers: {
+      "content-type": "text/plain; charset=utf-8",
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+      "x-inshell-dev-path-boundary": "pub-upstream-unavailable",
+    },
+  });
 }
 
 function temporarySepoliaHostRedirect(url: UrlInstance) {

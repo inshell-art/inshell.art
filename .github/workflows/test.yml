@@ -30,6 +30,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Validate deployment gates
         run: pnpm run check:deployment
+      - name: Check PUB path boundary
+        run: pnpm run pub-boundary:check
       - name: Run linter
         run: pnpm run lint
       - name: Run type-check
