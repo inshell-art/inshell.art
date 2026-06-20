@@ -611,7 +611,15 @@ describe("chain cache Pages functions", () => {
         contract: PULSE_AUCTION,
         fromBlock: 10854123,
         lastScannedBlock: 10860000,
-        items: [],
+        items: [
+          {
+            key: "tx:future",
+            txHash: `0x${"25".padStart(64, "0")}`,
+            atMs: 1_780_000_000_000,
+            amount: { raw: { low: "25", high: "0" }, dec: "25" },
+            blockNumber: 10860040,
+          },
+        ],
       } satisfies IndexedSnapshot<unknown>,
     });
     const fetchMock = jest.fn(async (_url: unknown, init?: any) => {
@@ -656,6 +664,7 @@ describe("chain cache Pages functions", () => {
     };
     const stored = JSON.parse(d1.rows.get("pulse-auction:v1:sepolia") ?? "{}") as {
       lastScannedBlock?: number;
+      items?: Array<{ txHash?: string }>;
     };
     const ranges = fetchMock.mock.calls
       .map(([, init]) => JSON.parse(String((init as any)?.body ?? "{}")))
@@ -674,6 +683,7 @@ describe("chain cache Pages functions", () => {
       maxBlocks: 20,
     });
     expect(stored.lastScannedBlock).toBe(10860017);
+    expect(stored.items?.map((item) => item.txHash)).toEqual([`0x${"25".padStart(64, "0")}`]);
     expect(ranges).toEqual([
       ["0xa5b5de", "0xa5b5e7"],
       ["0xa5b5e8", "0xa5b5f1"],
@@ -693,7 +703,7 @@ describe("chain cache Pages functions", () => {
       owner: OWNER,
       tokenUri: index === 0 ? "" : `data:application/json,${encodeURIComponent("{}")}`,
       metadata: {},
-      blockNumber: 10859000 + index,
+      blockNumber: index === 24 ? 10860040 : 10859000 + index,
       txHash: `0x${String(index + 1).padStart(64, "0")}`,
     }));
     const d1 = createD1Mock({
@@ -752,6 +762,7 @@ describe("chain cache Pages functions", () => {
     });
     expect(stored.lastScannedBlock).toBe(10860017);
     expect(stored.items?.map((item) => item.tokenId)).toHaveLength(25);
+    expect(stored.items?.some((item) => item.tokenId === "25")).toBe(true);
     expect(stored.items?.[0]?.tokenUri).toBe("");
     expect(methods).toEqual(["eth_blockNumber", "eth_getLogs", "eth_getLogs"]);
   });
@@ -859,6 +870,29 @@ describe("chain cache Pages functions", () => {
             txHash: `0x${"1".padStart(64, "0")}`,
             blockNumber: 10873000,
           },
+          {
+            tokenId: 18,
+            pathId: "25",
+            minter: OWNER,
+            textHash: "0xfuture",
+            promptHash: "",
+            provenanceHash: "0xfuture",
+            thoughtSpecId: "0xfuture",
+            thoughtSpecHash: "0xfuture",
+            mintedAt: 2,
+            rawText: "future thought",
+            prompt: "",
+            mode: "",
+            provider: "",
+            model: "",
+            returnedText: "",
+            returnedTextHash: "",
+            provenanceJson: "",
+            image: "",
+            tokenUri: "",
+            txHash: `0x${"18".padStart(64, "0")}`,
+            blockNumber: 10874040,
+          },
         ],
       } satisfies IndexedSnapshot<unknown>,
     });
@@ -903,11 +937,12 @@ describe("chain cache Pages functions", () => {
     expect(payload.results?.[0]).toMatchObject({
       partial: true,
       scannedToBlock: 10874017,
-      items: 1,
+      items: 2,
     });
     expect(stored.lastScannedBlock).toBe(10874017);
     expect(stored.items).toEqual([
       expect.objectContaining({ tokenId: 1, rawText: "old thought" }),
+      expect.objectContaining({ tokenId: 18, rawText: "future thought" }),
     ]);
     expect(methods).toEqual(["eth_blockNumber", "eth_getLogs", "eth_getLogs"]);
   });

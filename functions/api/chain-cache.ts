@@ -772,9 +772,13 @@ export function boundedRefreshRange(
 export function pruneReorgWindow<T extends { blockNumber?: number }>(
   items: T[],
   refreshStartBlock: number,
+  refreshEndBlock = Number.POSITIVE_INFINITY,
 ) {
   return items.filter(
-    (item) => typeof item.blockNumber !== "number" || item.blockNumber < refreshStartBlock,
+    (item) =>
+      typeof item.blockNumber !== "number" ||
+      item.blockNumber < refreshStartBlock ||
+      item.blockNumber > refreshEndBlock,
   );
 }
 
