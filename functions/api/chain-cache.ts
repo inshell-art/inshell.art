@@ -38,6 +38,8 @@ export type ChainCacheEnv = {
   INSHELL_CHAIN_DATA_KV?: KVNamespaceLike;
   INSHELL_CHAIN_DATA_DB?: D1DatabaseLike;
   INSHELL_INDEXER_REFRESH_TOKEN?: string;
+  INDEXER_REFRESH_MAX_BLOCKS?: string;
+  INDEXER_REFRESH_MAX_LOG_CHUNKS?: string;
   CHAIN_CACHE_DIAGNOSTICS?: string;
 };
 
@@ -102,6 +104,7 @@ const JSON_HEADERS = {
 const RPC_TIMEOUT_MS = 12_000;
 const REORG_DEPTH = 3;
 const DEFAULT_LOG_CHUNK_SIZE = 10;
+const DEFAULT_REFRESH_MAX_LOG_CHUNKS = 20;
 const EDGE_CACHE_PREFIX = "https://inshell.local/chain-cache/";
 const RESPONSE_CACHE_PREFIX = "https://inshell.local/chain-response/";
 const KV_SNAPSHOT_TTL_SECONDS = 30 * 24 * 60 * 60;
@@ -230,6 +233,26 @@ export type IndexedSnapshot<T> = {
   fromBlock: number;
   lastScannedBlock: number;
   items: T[];
+};
+
+export type RefreshProgress = {
+  fromBlock: number;
+  toBlock: number;
+  latestBlock: number;
+  chunkSize: number;
+  maxBlocks: number;
+  complete: boolean;
+  remainingBlocks: number;
+};
+
+export type RefreshOutcome<T> = {
+  snapshot: IndexedSnapshot<T>;
+  progress: RefreshProgress;
+};
+
+type WriteSnapshotOptions = {
+  strictD1?: boolean;
+  waitForPersistence?: boolean;
 };
 
 type JsonSafe =
@@ -609,6 +632,7 @@ export async function writeSnapshot<T>(
   edgeTtlSeconds: number,
   diagnostics?: ChainCacheDiagnostics,
   previous?: IndexedSnapshot<T> | null,
+  options: WriteSnapshotOptions = {},
 ) {
   memoryCache.set(key, { cachedAt: Date.now(), value: snapshot });
   if (diagnostics) diagnostics.snapshotBlock = snapshot.lastScannedBlock;
@@ -616,7 +640,7 @@ export async function writeSnapshot<T>(
   const tasks: Array<Promise<unknown>> = [writeEdgeCache(key, snapshot, edgeTtlSeconds)];
   if (ctx.env.INSHELL_CHAIN_DATA_DB && shouldWriteD1Snapshot(previous ?? null, snapshot)) {
     if (diagnostics) diagnostics.dbWrite = 1;
-    tasks.push(writeD1Snapshot(ctx.env, key, snapshot));
+    tasks.push(writeD1Snapshot(ctx.env, key, snapshot, options.strictD1));
   }
   const shouldPersist = shouldWriteKvSnapshot(previous ?? null, snapshot);
   if (shouldPersist && ctx.env.INSHELL_CHAIN_DATA_KV) {
@@ -627,8 +651,13 @@ export async function writeSnapshot<T>(
       }),
     );
   }
-  const joined = Promise.all(tasks).then(() => undefined).catch(() => undefined);
-  if (ctx.waitUntil) ctx.waitUntil(joined);
+  const joined = Promise.all(tasks)
+    .then(() => undefined)
+    .catch((error) => {
+      if (options.strictD1) throw error;
+      return undefined;
+    });
+  if (ctx.waitUntil && !options.waitForPersistence) ctx.waitUntil(joined);
   else await joined;
 }
 
@@ -711,6 +740,33 @@ export function refreshFromBlock(snapshot: IndexedSnapshot<unknown> | null, depl
       ? Math.max(deployBlock, snapshot.lastScannedBlock - REORG_DEPTH + 1)
       : deployBlock;
   return Math.min(Math.max(0, start), latestBlock);
+}
+
+export function fullRefreshRange(
+  snapshot: IndexedSnapshot<unknown> | null | undefined,
+  deployBlock: number,
+  latestBlock: number,
+): RefreshProgress {
+  const fromBlock = refreshFromBlock(snapshot ?? null, deployBlock, latestBlock);
+  return refreshProgress(fromBlock, latestBlock, latestBlock, latestBlock - fromBlock + 1);
+}
+
+export function boundedRefreshRange(
+  env: ChainCacheEnv,
+  snapshot: IndexedSnapshot<unknown> | null | undefined,
+  deployBlock: number,
+  latestBlock: number,
+  options: { maxLogChunks?: number } = {},
+): RefreshProgress {
+  const fromBlock = refreshFromBlock(snapshot ?? null, deployBlock, latestBlock);
+  const maxLogChunks = readRefreshMaxLogChunks(env, options.maxLogChunks);
+  const configuredMaxBlocks = readPositiveInteger(
+    env.INDEXER_REFRESH_MAX_BLOCKS,
+    maxLogChunks * DEFAULT_LOG_CHUNK_SIZE,
+  );
+  const maxBlocks = Math.max(1, Math.min(configuredMaxBlocks, maxLogChunks * DEFAULT_LOG_CHUNK_SIZE));
+  const toBlock = Math.min(latestBlock, fromBlock + maxBlocks - 1);
+  return refreshProgress(fromBlock, toBlock, latestBlock, maxBlocks);
 }
 
 export function pruneReorgWindow<T extends { blockNumber?: number }>(
@@ -1006,6 +1062,38 @@ function snapshotBlock(value: unknown) {
   return typeof block === "number" && Number.isFinite(block) ? block : undefined;
 }
 
+function refreshProgress(
+  fromBlock: number,
+  toBlock: number,
+  latestBlock: number,
+  maxBlocks: number,
+): RefreshProgress {
+  return {
+    fromBlock,
+    toBlock,
+    latestBlock,
+    chunkSize: DEFAULT_LOG_CHUNK_SIZE,
+    maxBlocks,
+    complete: toBlock >= latestBlock,
+    remainingBlocks: Math.max(0, latestBlock - toBlock),
+  };
+}
+
+function readRefreshMaxLogChunks(env: ChainCacheEnv, routeCap?: number) {
+  const configured = readPositiveInteger(
+    env.INDEXER_REFRESH_MAX_LOG_CHUNKS,
+    DEFAULT_REFRESH_MAX_LOG_CHUNKS,
+  );
+  if (!Number.isFinite(routeCap) || routeCap == null) return configured;
+  return Math.max(1, Math.min(configured, Math.trunc(routeCap)));
+}
+
+function readPositiveInteger(value: string | undefined, fallback: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.trunc(parsed);
+}
+
 async function ensureD1SnapshotTable(db: D1DatabaseLike) {
   if (!db.exec || ensuredD1Tables.has(db as object)) return;
   await db.exec(
@@ -1049,6 +1137,7 @@ async function writeD1Snapshot<T>(
   env: ChainCacheEnv,
   key: string,
   snapshot: IndexedSnapshot<T>,
+  strict = false,
 ) {
   const db = env.INSHELL_CHAIN_DATA_DB;
   if (!db) return;
@@ -1075,7 +1164,8 @@ async function writeD1Snapshot<T>(
         Date.now(),
       )
       .run();
-  } catch {
+  } catch (error) {
+    if (strict) throw error;
     // D1 is a read-model optimization; edge/KV/live fallback still serve the route.
   }
 }

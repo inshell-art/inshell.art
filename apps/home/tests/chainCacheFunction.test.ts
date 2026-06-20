@@ -597,6 +597,321 @@ describe("chain cache Pages functions", () => {
     expect(response.headers.get("x-live-rpc-calls")).toBe("3");
   });
 
+  test("authenticated pulse auction refresh advances a bounded partial window", async () => {
+    globalThis.Request = TestRequest as unknown as typeof Request;
+    globalThis.Response = TestResponse as unknown as typeof Response;
+    globalThis.Headers = TestHeaders as unknown as typeof Headers;
+    (globalThis as any).caches = undefined;
+    const latestBlock = 10860050;
+    const d1 = createD1Mock({
+      "pulse-auction:v1:sepolia": {
+        version: 1,
+        cachedAt: Date.now() - 120_000,
+        chainId: 11155111,
+        contract: PULSE_AUCTION,
+        fromBlock: 10854123,
+        lastScannedBlock: 10860000,
+        items: [],
+      } satisfies IndexedSnapshot<unknown>,
+    });
+    const fetchMock = jest.fn(async (_url: unknown, init?: any) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        method?: string;
+        params?: any[];
+      };
+      if (body.method === "eth_blockNumber") {
+        return rpcResponse(`0x${latestBlock.toString(16)}`);
+      }
+      if (body.method === "eth_getLogs") {
+        return rpcResponse([]);
+      }
+      throw new Error(`unexpected RPC method ${body.method}`);
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const response = await onIndexerRefreshPost({
+      request: new Request("https://preview.inshell.art/api/indexer/refresh?target=pulse-auction", {
+        method: "POST",
+        headers: { authorization: "Bearer secret-token" },
+      }),
+      env: {
+        INSHELL_CHAIN_DATA_DB: d1.db,
+        INSHELL_INDEXER_REFRESH_TOKEN: "secret-token",
+        PATH_PRIMARY_RPC_UPSTREAM: "https://path-rpc.example/sepolia",
+        INDEXER_REFRESH_MAX_LOG_CHUNKS: "2",
+        CHAIN_CACHE_DIAGNOSTICS: "1",
+      },
+    });
+    const payload = (await response.json()) as {
+      ok?: boolean;
+      results?: Array<{
+        complete?: boolean;
+        partial?: boolean;
+        scannedFromBlock?: number;
+        scannedToBlock?: number;
+        latestBlock?: number;
+        remainingBlocks?: number;
+        maxBlocks?: number;
+      }>;
+    };
+    const stored = JSON.parse(d1.rows.get("pulse-auction:v1:sepolia") ?? "{}") as {
+      lastScannedBlock?: number;
+    };
+    const ranges = fetchMock.mock.calls
+      .map(([, init]) => JSON.parse(String((init as any)?.body ?? "{}")))
+      .filter((body) => body.method === "eth_getLogs")
+      .map((body) => [body.params?.[0]?.fromBlock, body.params?.[0]?.toBlock]);
+
+    expect(response.status).toBe(200);
+    expect(payload.ok).toBe(true);
+    expect(payload.results?.[0]).toMatchObject({
+      complete: false,
+      partial: true,
+      scannedFromBlock: 10859998,
+      scannedToBlock: 10860017,
+      latestBlock,
+      remainingBlocks: 33,
+      maxBlocks: 20,
+    });
+    expect(stored.lastScannedBlock).toBe(10860017);
+    expect(ranges).toEqual([
+      ["0xa5b5de", "0xa5b5e7"],
+      ["0xa5b5e8", "0xa5b5f1"],
+    ]);
+    expect(response.headers.get("x-live-rpc-calls")).toBe("3");
+  });
+
+  test("authenticated path token refresh preserves untouched items without historical eth_call fanout", async () => {
+    globalThis.Request = TestRequest as unknown as typeof Request;
+    globalThis.Response = TestResponse as unknown as typeof Response;
+    globalThis.Headers = TestHeaders as unknown as typeof Headers;
+    (globalThis as any).caches = undefined;
+    const latestBlock = 10860050;
+    const existingItems = Array.from({ length: 25 }, (_, index) => ({
+      tokenId: String(index + 1),
+      tokenIdLabel: String(index + 1),
+      owner: OWNER,
+      tokenUri: index === 0 ? "" : `data:application/json,${encodeURIComponent("{}")}`,
+      metadata: {},
+      blockNumber: 10859000 + index,
+      txHash: `0x${String(index + 1).padStart(64, "0")}`,
+    }));
+    const d1 = createD1Mock({
+      "path-tokens:v1:sepolia": {
+        version: 1,
+        cachedAt: Date.now() - 120_000,
+        chainId: 11155111,
+        contract: PATH_NFT,
+        fromBlock: 10854121,
+        lastScannedBlock: 10860000,
+        items: existingItems,
+      } satisfies IndexedSnapshot<unknown>,
+    });
+    const fetchMock = jest.fn(async (_url: unknown, init?: any) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as { method?: string };
+      if (body.method === "eth_blockNumber") {
+        return rpcResponse(`0x${latestBlock.toString(16)}`);
+      }
+      if (body.method === "eth_getLogs") {
+        return rpcResponse([]);
+      }
+      throw new Error(`unexpected RPC method ${body.method}`);
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const response = await onIndexerRefreshPost({
+      request: new Request("https://preview.inshell.art/api/indexer/refresh?target=path-tokens", {
+        method: "POST",
+        headers: { authorization: "Bearer secret-token" },
+      }),
+      env: {
+        INSHELL_CHAIN_DATA_DB: d1.db,
+        INSHELL_INDEXER_REFRESH_TOKEN: "secret-token",
+        PATH_PRIMARY_RPC_UPSTREAM: "https://path-rpc.example/sepolia",
+        INDEXER_REFRESH_MAX_LOG_CHUNKS: "2",
+      },
+    });
+    const payload = (await response.json()) as {
+      ok?: boolean;
+      results?: Array<{ partial?: boolean; scannedToBlock?: number; items?: number }>;
+    };
+    const stored = JSON.parse(d1.rows.get("path-tokens:v1:sepolia") ?? "{}") as {
+      lastScannedBlock?: number;
+      items?: Array<{ tokenId?: string; tokenUri?: string }>;
+    };
+    const methods = fetchMock.mock.calls.map(([, init]) =>
+      JSON.parse(String((init as any)?.body ?? "{}")).method
+    );
+
+    expect(response.status).toBe(200);
+    expect(payload.ok).toBe(true);
+    expect(payload.results?.[0]).toMatchObject({
+      partial: true,
+      scannedToBlock: 10860017,
+      items: 25,
+    });
+    expect(stored.lastScannedBlock).toBe(10860017);
+    expect(stored.items?.map((item) => item.tokenId)).toHaveLength(25);
+    expect(stored.items?.[0]?.tokenUri).toBe("");
+    expect(methods).toEqual(["eth_blockNumber", "eth_getLogs", "eth_getLogs"]);
+  });
+
+  test("authenticated refresh reports safe diagnostics for bounded getLogs failures", async () => {
+    globalThis.Request = TestRequest as unknown as typeof Request;
+    globalThis.Response = TestResponse as unknown as typeof Response;
+    globalThis.Headers = TestHeaders as unknown as typeof Headers;
+    (globalThis as any).caches = undefined;
+    const d1 = createD1Mock({
+      "path-tokens:v1:sepolia": {
+        version: 1,
+        cachedAt: Date.now() - 120_000,
+        chainId: 11155111,
+        contract: PATH_NFT,
+        fromBlock: 10854121,
+        lastScannedBlock: 10860000,
+        items: [],
+      } satisfies IndexedSnapshot<unknown>,
+    });
+    const fetchMock = jest.fn(async (_url: unknown, init?: any) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as { method?: string };
+      if (body.method === "eth_blockNumber") {
+        return rpcResponse("0xa5b612");
+      }
+      if (body.method === "eth_getLogs") {
+        return rpcError(400, "block range too large; token=upstream-secret");
+      }
+      throw new Error(`unexpected RPC method ${body.method}`);
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const response = await onIndexerRefreshPost({
+      request: new Request("https://preview.inshell.art/api/indexer/refresh?target=path-tokens", {
+        method: "POST",
+        headers: { authorization: "Bearer secret-token" },
+      }),
+      env: {
+        INSHELL_CHAIN_DATA_DB: d1.db,
+        INSHELL_INDEXER_REFRESH_TOKEN: "secret-token",
+        PATH_PRIMARY_RPC_UPSTREAM: "https://path-rpc.example/sepolia",
+        PATH_PRIMARY_RPC_LABEL: "path-primary-test",
+        INDEXER_REFRESH_MAX_LOG_CHUNKS: "2",
+      },
+    });
+    const payload = (await response.json()) as {
+      error?: string;
+      diagnostics?: {
+        target?: string;
+        stage?: string;
+        upstreamLabel?: string;
+        blockRange?: { fromBlock?: number; toBlock?: number };
+        providerError?: { kind?: string; message?: string };
+      };
+    };
+
+    expect(response.status).toBe(500);
+    expect(payload.error).toBe("indexer refresh failed");
+    expect(payload.diagnostics).toMatchObject({
+      target: "path-tokens",
+      stage: "getLogs",
+      upstreamLabel: "path-primary-test",
+      blockRange: { fromBlock: 10859998, toBlock: 10860017 },
+      providerError: { kind: "block-range" },
+    });
+    expect(payload.diagnostics?.providerError?.message).toContain("token=<redacted>");
+    expect(response.body).not.toContain("upstream-secret");
+  });
+
+  test("authenticated thought gallery refresh advances a bounded partial window", async () => {
+    globalThis.Request = TestRequest as unknown as typeof Request;
+    globalThis.Response = TestResponse as unknown as typeof Response;
+    globalThis.Headers = TestHeaders as unknown as typeof Headers;
+    (globalThis as any).caches = undefined;
+    const latestBlock = 10874050;
+    const d1 = createD1Mock({
+      "thought-gallery:v1:sepolia": {
+        version: 1,
+        cachedAt: Date.now() - 120_000,
+        chainId: 11155111,
+        contract: THOUGHT_NFT,
+        fromBlock: 10872879,
+        lastScannedBlock: 10874000,
+        items: [
+          {
+            tokenId: 1,
+            pathId: "24",
+            minter: OWNER,
+            textHash: "0xold",
+            promptHash: "",
+            provenanceHash: "0xold",
+            thoughtSpecId: "0xold",
+            thoughtSpecHash: "0xold",
+            mintedAt: 1,
+            rawText: "old thought",
+            prompt: "",
+            mode: "",
+            provider: "",
+            model: "",
+            returnedText: "",
+            returnedTextHash: "",
+            provenanceJson: "",
+            image: "",
+            tokenUri: "",
+            txHash: `0x${"1".padStart(64, "0")}`,
+            blockNumber: 10873000,
+          },
+        ],
+      } satisfies IndexedSnapshot<unknown>,
+    });
+    const fetchMock = jest.fn(async (_url: unknown, init?: any) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as { method?: string };
+      if (body.method === "eth_blockNumber") {
+        return rpcResponse(`0x${latestBlock.toString(16)}`);
+      }
+      if (body.method === "eth_getLogs") {
+        return rpcResponse([]);
+      }
+      throw new Error(`unexpected RPC method ${body.method}`);
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const response = await onIndexerRefreshPost({
+      request: new Request("https://preview.inshell.art/api/indexer/refresh?target=thought-gallery", {
+        method: "POST",
+        headers: { authorization: "Bearer secret-token" },
+      }),
+      env: {
+        INSHELL_CHAIN_DATA_DB: d1.db,
+        INSHELL_INDEXER_REFRESH_TOKEN: "secret-token",
+        THOUGHT_PRIMARY_RPC_UPSTREAM: "https://thought-rpc.example/sepolia",
+        INDEXER_REFRESH_MAX_LOG_CHUNKS: "2",
+      },
+    });
+    const payload = (await response.json()) as {
+      ok?: boolean;
+      results?: Array<{ partial?: boolean; scannedToBlock?: number; items?: number }>;
+    };
+    const stored = JSON.parse(d1.rows.get("thought-gallery:v1:sepolia") ?? "{}") as {
+      lastScannedBlock?: number;
+      items?: Array<{ tokenId?: number; rawText?: string }>;
+    };
+    const methods = fetchMock.mock.calls.map(([, init]) =>
+      JSON.parse(String((init as any)?.body ?? "{}")).method
+    );
+
+    expect(response.status).toBe(200);
+    expect(payload.ok).toBe(true);
+    expect(payload.results?.[0]).toMatchObject({
+      partial: true,
+      scannedToBlock: 10874017,
+      items: 1,
+    });
+    expect(stored.lastScannedBlock).toBe(10874017);
+    expect(stored.items).toEqual([
+      expect.objectContaining({ tokenId: 1, rawText: "old thought" }),
+    ]);
+    expect(methods).toEqual(["eth_blockNumber", "eth_getLogs", "eth_getLogs"]);
+  });
+
   test("protected indexer event updates the pulse auction read model", async () => {
     globalThis.Request = TestRequest as unknown as typeof Request;
     globalThis.Response = TestResponse as unknown as typeof Response;

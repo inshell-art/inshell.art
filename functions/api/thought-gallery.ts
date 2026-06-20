@@ -2,12 +2,14 @@ import {
   THOUGHT_MINTED_TOPIC,
   THOUGHT_NFT_ADDRESS,
   THOUGHT_NFT_DEPLOY_BLOCK,
+  boundedRefreshRange,
   chainFailure,
   createChainCacheDiagnostics,
   createStats,
   decodeStringResult,
   emitUsage,
   ethCall,
+  fullRefreshRange,
   getBlockNumber,
   getLogsChunked,
   hexToNumber,
@@ -24,7 +26,6 @@ import {
   readModelEnabled,
   readSnapshot,
   readResponseCache,
-  refreshFromBlock,
   sortByTokenId,
   tokenImage,
   tokenUriData,
@@ -38,6 +39,7 @@ import {
   type ChainLog,
   type IndexedSnapshot,
   type PagesContextLike,
+  type RefreshOutcome,
   type ThoughtGalleryApiItem,
 } from "./chain-cache";
 
@@ -72,7 +74,7 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
 
   const stats = createStats("thought", "thought-gallery", ctx.env);
   try {
-    const snapshot = await loadThoughtGallery(ctx.env, ctx, stats, diagnostics, previous);
+    const { snapshot } = await loadThoughtGallery(ctx.env, ctx, stats, diagnostics, previous);
     emitUsage(ctx, stats);
     const response = responseFromSnapshot(snapshot);
     writeResponseCache(ctx, SNAPSHOT_KEY, response, RESPONSE_CACHE_SECONDS, snapshot.lastScannedBlock);
@@ -91,27 +93,45 @@ async function loadThoughtGallery(
   stats: ReturnType<typeof createStats>,
   diagnostics: ChainCacheDiagnostics,
   previousOverride?: IndexedSnapshot<ThoughtGalleryApiItem> | null,
-  force = false,
-): Promise<IndexedSnapshot<ThoughtGalleryApiItem>> {
+  options: { force?: boolean; bounded?: boolean; maxLogChunks?: number } = {},
+): Promise<RefreshOutcome<ThoughtGalleryApiItem>> {
   const previous =
     previousOverride === undefined
       ? await readSnapshot<ThoughtGalleryApiItem>(env, SNAPSHOT_KEY, diagnostics)
       : previousOverride;
-  if (!force && previous && Date.now() - previous.cachedAt < RESPONSE_CACHE_SECONDS * 1000) {
-    return previous;
+  if (!options.force && previous && Date.now() - previous.cachedAt < RESPONSE_CACHE_SECONDS * 1000) {
+    return {
+      snapshot: previous,
+      progress: fullRefreshRange(previous, THOUGHT_NFT_DEPLOY_BLOCK, previous.lastScannedBlock),
+    };
   }
 
   const latestBlock = await getBlockNumber(env, "thought", stats);
-  const refreshStart = refreshFromBlock(previous, THOUGHT_NFT_DEPLOY_BLOCK, latestBlock);
-  const logs = await getLogsChunked(env, "thought", stats, {
-    address: THOUGHT_NFT_ADDRESS,
-    fromBlock: refreshStart,
-    toBlock: latestBlock,
-    topics: [THOUGHT_MINTED_TOPIC],
-  });
+  const progress = options.bounded
+    ? boundedRefreshRange(env, previous, THOUGHT_NFT_DEPLOY_BLOCK, latestBlock, {
+      maxLogChunks: options.maxLogChunks,
+    })
+    : fullRefreshRange(previous, THOUGHT_NFT_DEPLOY_BLOCK, latestBlock);
+  let logs: ChainLog[];
+  try {
+    logs = await getLogsChunked(env, "thought", stats, {
+      address: THOUGHT_NFT_ADDRESS,
+      fromBlock: progress.fromBlock,
+      toBlock: progress.toBlock,
+      topics: [THOUGHT_MINTED_TOPIC],
+      chunkSize: progress.chunkSize,
+    });
+  } catch (error) {
+    throw chainFailure("thought gallery refresh getLogs failed", {
+      target: "thought-gallery",
+      stage: "getLogs",
+      upstreamLabel: stats.upstreamLabel,
+      blockRange: { fromBlock: progress.fromBlock, toBlock: progress.toBlock },
+    }, error);
+  }
 
   const existing = new Map<string, ThoughtGalleryApiItem>();
-  for (const item of pruneReorgWindow(previous?.items ?? [], refreshStart)) {
+  for (const item of pruneReorgWindow(previous?.items ?? [], progress.fromBlock)) {
     existing.set(item.tokenId.toString(), item);
   }
 
@@ -127,11 +147,28 @@ async function loadThoughtGallery(
     chainId: 11155111,
     contract: THOUGHT_NFT_ADDRESS,
     fromBlock: THOUGHT_NFT_DEPLOY_BLOCK,
-    lastScannedBlock: latestBlock,
+    lastScannedBlock: progress.toBlock,
     items: sortByTokenId([...existing.values()]),
   };
-  await writeSnapshot(ctx, SNAPSHOT_KEY, snapshot, EDGE_SNAPSHOT_SECONDS, diagnostics, previous);
-  return snapshot;
+  try {
+    await writeSnapshot(
+      ctx,
+      SNAPSHOT_KEY,
+      snapshot,
+      EDGE_SNAPSHOT_SECONDS,
+      diagnostics,
+      previous,
+      options.bounded ? { strictD1: true, waitForPersistence: true } : undefined,
+    );
+  } catch (error) {
+    throw chainFailure("thought gallery refresh snapshot write failed", {
+      target: "thought-gallery",
+      stage: "writeSnapshot",
+      upstreamLabel: stats.upstreamLabel,
+      blockRange: { fromBlock: progress.fromBlock, toBlock: progress.toBlock },
+    }, error);
+  }
+  return { snapshot, progress };
 }
 
 export async function refreshThoughtGallery(
@@ -139,7 +176,9 @@ export async function refreshThoughtGallery(
   stats: ReturnType<typeof createStats>,
   diagnostics: ChainCacheDiagnostics,
 ) {
-  const snapshot = await loadThoughtGallery(ctx.env, ctx, stats, diagnostics, undefined, true);
+  const { snapshot } = await loadThoughtGallery(ctx.env, ctx, stats, diagnostics, undefined, {
+    force: true,
+  });
   writeResponseCache(
     ctx,
     SNAPSHOT_KEY,
@@ -148,6 +187,27 @@ export async function refreshThoughtGallery(
     snapshot.lastScannedBlock,
   );
   return snapshot;
+}
+
+export async function refreshThoughtGalleryBounded(
+  ctx: PagesContextLike,
+  stats: ReturnType<typeof createStats>,
+  diagnostics: ChainCacheDiagnostics,
+  options: { maxLogChunks?: number } = {},
+) {
+  const outcome = await loadThoughtGallery(ctx.env, ctx, stats, diagnostics, undefined, {
+    force: true,
+    bounded: true,
+    maxLogChunks: options.maxLogChunks,
+  });
+  writeResponseCache(
+    ctx,
+    SNAPSHOT_KEY,
+    responseFromSnapshot(outcome.snapshot),
+    RESPONSE_CACHE_SECONDS,
+    outcome.snapshot.lastScannedBlock,
+  );
+  return outcome;
 }
 
 export async function refreshThoughtGalleryForEvent(
