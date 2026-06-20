@@ -5,6 +5,7 @@ import {
   isTxHash,
   json,
   onOptions,
+  readSafeChainFailure,
   withChainCacheDiagnostics,
   type ChainCacheDiagnostics,
   type IndexedSnapshot,
@@ -39,7 +40,8 @@ export async function onRequestPost(ctx: PagesContextLike): Promise<Response> {
 
   const targetedPublicRefresh =
     normalizedTarget === "pulse-auction" && isTxHash(txHash);
-  if (!targetedPublicRefresh && !isIndexerAuthorized(ctx)) {
+  const authorized = isIndexerAuthorized(ctx);
+  if (!targetedPublicRefresh && !authorized) {
     return json(401, { error: "indexer refresh token required" });
   }
 
@@ -47,10 +49,14 @@ export async function onRequestPost(ctx: PagesContextLike): Promise<Response> {
   const diagnostics: ChainCacheDiagnostics[] = [];
   const statsList: ReturnType<typeof createStats>[] = [];
   const snapshots: IndexedSnapshot<unknown>[] = [];
+  let activeTarget: Exclude<RefreshTarget, "all"> | null = null;
+  let activeStats: ReturnType<typeof createStats> | null = null;
   try {
     if (normalizedTarget === "pulse-auction" || normalizedTarget === "all") {
+      activeTarget = "pulse-auction";
       const currentDiagnostics = createChainCacheDiagnostics("pulse-auction:v1:sepolia");
       const stats = createStats("path", "indexer-refresh:pulse-auction", ctx.env);
+      activeStats = stats;
       const snapshot = targetedPublicRefresh
         ? await refreshPulseAuctionForTx(ctx, stats, currentDiagnostics, txHash)
         : await refreshPulseAuction(ctx, stats, currentDiagnostics);
@@ -62,8 +68,10 @@ export async function onRequestPost(ctx: PagesContextLike): Promise<Response> {
     }
 
     if (normalizedTarget === "path-tokens" || normalizedTarget === "all") {
+      activeTarget = "path-tokens";
       const currentDiagnostics = createChainCacheDiagnostics("path-tokens:v1:sepolia");
       const stats = createStats("path", "indexer-refresh:path-tokens", ctx.env);
+      activeStats = stats;
       const snapshot = await refreshPathTokens(ctx, stats, currentDiagnostics);
       emitUsage(ctx, stats);
       diagnostics.push(currentDiagnostics);
@@ -73,8 +81,10 @@ export async function onRequestPost(ctx: PagesContextLike): Promise<Response> {
     }
 
     if (normalizedTarget === "thought-gallery" || normalizedTarget === "all") {
+      activeTarget = "thought-gallery";
       const currentDiagnostics = createChainCacheDiagnostics("thought-gallery:v1:sepolia");
       const stats = createStats("thought", "indexer-refresh:thought-gallery", ctx.env);
+      activeStats = stats;
       const snapshot = await refreshThoughtGallery(ctx, stats, currentDiagnostics);
       emitUsage(ctx, stats);
       diagnostics.push(currentDiagnostics);
@@ -82,9 +92,19 @@ export async function onRequestPost(ctx: PagesContextLike): Promise<Response> {
       snapshots.push(snapshot as IndexedSnapshot<unknown>);
       results.push(resultFor("thought-gallery", snapshot, currentDiagnostics));
     }
-  } catch {
+  } catch (error) {
     for (const stats of statsList) emitUsage(ctx, stats);
-    return json(500, { error: "indexer refresh failed" });
+    if (activeStats && !statsList.includes(activeStats)) emitUsage(ctx, activeStats);
+    return json(500, {
+      error: "indexer refresh failed",
+      diagnostics: authorized
+        ? readSafeChainFailure(error, {
+          target: activeTarget ?? normalizedTarget,
+          stage: "refresh",
+          upstreamLabel: activeStats?.upstreamLabel,
+        })
+        : undefined,
+    });
   }
 
   const response = json(200, {
