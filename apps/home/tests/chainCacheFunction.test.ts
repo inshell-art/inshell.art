@@ -278,6 +278,7 @@ describe("chain cache Pages functions", () => {
     const fetchMock = jest.fn(async (url: unknown, init?: any) => {
       const body = JSON.parse(String(init?.body ?? "{}")) as {
         method?: string;
+        params?: Array<{ fromBlock?: string; toBlock?: string }>;
       };
       if (body.method !== "eth_getLogs") throw new Error(`unexpected RPC method ${body.method}`);
       if (url === "https://target-path-rpc.example/sepolia") {
@@ -287,6 +288,8 @@ describe("chain cache Pages functions", () => {
         );
       }
       if (url === "https://public-fallback-rpc.example/sepolia") {
+        const filter = body.params?.[0] ?? {};
+        if (filter.fromBlock !== "0x64") return rpcResponse([]);
         return rpcResponse([
           {
             address: PATH_NFT,
@@ -310,7 +313,7 @@ describe("chain cache Pages functions", () => {
     const logs = await getLogsChunked(env, "path", stats, {
       address: PATH_NFT,
       fromBlock: 100,
-      toBlock: 5099,
+      toBlock: 119,
       topics: [TRANSFER_TOPIC],
     });
 
@@ -318,8 +321,21 @@ describe("chain cache Pages functions", () => {
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
       "https://target-path-rpc.example/sepolia",
       "https://public-fallback-rpc.example/sepolia",
+      "https://target-path-rpc.example/sepolia",
+      "https://public-fallback-rpc.example/sepolia",
     ]);
-    expect(stats.calls).toBe(2);
+    expect(fetchMock.mock.calls.map(([, init]) => {
+      const body = JSON.parse(String((init as any)?.body ?? "{}"));
+      return body.params?.[0]
+        ? [body.params[0].fromBlock, body.params[0].toBlock]
+        : [];
+    })).toEqual([
+      ["0x64", "0x6d"],
+      ["0x64", "0x6d"],
+      ["0x6e", "0x77"],
+      ["0x6e", "0x77"],
+    ]);
+    expect(stats.calls).toBe(4);
   });
 
   test("does not fail open when KV is quota limited", async () => {
@@ -711,6 +727,7 @@ describe("chain cache Pages functions", () => {
     globalThis.Response = TestResponse as unknown as typeof Response;
     globalThis.Headers = TestHeaders as unknown as typeof Headers;
     const txHash = `0x${"abcde".padStart(64, "0")}`;
+    const eventBlock = 10870000;
     const d1 = createD1Mock({
       "path-tokens:v1:sepolia": {
         version: 1,
@@ -719,32 +736,35 @@ describe("chain cache Pages functions", () => {
         contract: PATH_NFT,
         fromBlock: 10854123,
         lastScannedBlock: 10860000,
-        items: [],
+        items: [
+          {
+            tokenId: "24",
+            tokenIdLabel: "24",
+            owner: OWNER,
+            tokenUri: "",
+            metadata: {},
+            blockNumber: 10860000,
+            txHash: `0x${"24".padStart(64, "0")}`,
+          },
+        ],
       } satisfies IndexedSnapshot<unknown>,
     });
     const fetchMock = jest.fn(async (_url: unknown, init?: any) => {
       const body = JSON.parse(String(init?.body ?? "{}")) as {
         method?: string;
+        params?: any[];
       };
-      if (body.method === "eth_getTransactionReceipt") {
-        return rpcResponse({
-          transactionHash: txHash,
-          to: PATH_NFT,
-          blockNumber: "0xa5a7ec",
-          status: "0x1",
-        });
-      }
-      if (body.method === "eth_blockNumber") {
-        return rpcResponse("0xa5a7ef");
-      }
       if (body.method === "eth_getLogs") {
+        const filter = body.params?.[0] ?? {};
+        expect(filter.fromBlock).toBe(`0x${eventBlock.toString(16)}`);
+        expect(filter.toBlock).toBe(`0x${eventBlock.toString(16)}`);
         return rpcResponse([
           {
             address: PATH_NFT,
-            blockNumber: "0xa5a7ec",
+            blockNumber: `0x${eventBlock.toString(16)}`,
             data: "0x",
             logIndex: "0x2",
-            topics: [TRANSFER_TOPIC, ZERO_TOPIC, addressTopic(OWNER), tokenTopic(1n)],
+            topics: [TRANSFER_TOPIC, ZERO_TOPIC, addressTopic(OWNER), tokenTopic(25n)],
             transactionHash: txHash,
           },
         ]);
@@ -769,7 +789,7 @@ describe("chain cache Pages functions", () => {
           network: "sepolia",
           target: "path-tokens",
           txHash,
-          blockNumber: 10856428,
+          blockNumber: eventBlock,
           logIndex: 2,
           contractAddress: PATH_NFT,
           topic0: TRANSFER_TOPIC,
@@ -789,14 +809,21 @@ describe("chain cache Pages functions", () => {
       eventStatus?: { persisted?: boolean; statusSource?: string };
     };
     const pathStored = JSON.parse(d1.rows.get("path-tokens:v1:sepolia") ?? "{}") as {
-      items?: Array<{ tokenId?: string }>;
+      lastScannedBlock?: number;
+      items?: Array<{ tokenId?: string; txHash?: string }>;
     };
+    const methods = fetchMock.mock.calls.map(([, init]) =>
+      JSON.parse(String((init as any)?.body ?? "{}")).method
+    );
 
     expect(response.status).toBe(200);
     expect(payload.ok).toBe(true);
     expect(payload.target).toBe("path-tokens");
     expect(payload.applied).toBe(true);
-    expect(pathStored.items?.length).toBeGreaterThan(0);
+    expect(pathStored.items?.map((item) => item.tokenId)).toEqual(["24", "25"]);
+    expect(pathStored.items?.find((item) => item.tokenId === "25")?.txHash).toBe(txHash);
+    expect(pathStored.lastScannedBlock).toBe(10860000);
+    expect(methods).not.toContain("eth_blockNumber");
     expect(response.headers.get("x-indexer-event-status-write")).toBe("1");
     expect(response.headers.get("x-indexer-event-status-source")).toBe("d1");
     expect(response.headers.get("x-db-write")).toBe("1");
@@ -807,6 +834,22 @@ describe("chain cache Pages functions", () => {
     globalThis.Response = TestResponse as unknown as typeof Response;
     globalThis.Headers = TestHeaders as unknown as typeof Headers;
     const txHash = `0x${"def".padStart(64, "0")}`;
+    const eventBlock = 10873000;
+    const provenanceJson = JSON.stringify({
+      prompt: "test prompt",
+      route: "direct",
+      provider: "test",
+      model: "test-model",
+      output: { returnedText: "returned" },
+      hashes: { promptHash: "0xprompt", returnedTextHash: "0xreturned" },
+    });
+    const tokenUri = JSON.stringify({
+      image: "data:image/svg+xml,<svg />",
+      properties: {
+        rawText: "minted thought",
+        provenanceJson,
+      },
+    });
     const d1 = createD1Mock({
       "thought-gallery:v1:sepolia": {
         version: 1,
@@ -815,18 +858,61 @@ describe("chain cache Pages functions", () => {
         contract: THOUGHT_NFT,
         fromBlock: 10872879,
         lastScannedBlock: 10873000,
-        items: [],
+        items: [
+          {
+            tokenId: 1,
+            pathId: "24",
+            minter: OWNER,
+            textHash: "0xold",
+            promptHash: "",
+            provenanceHash: "0xold",
+            thoughtSpecId: "0xold",
+            thoughtSpecHash: "0xold",
+            mintedAt: 1,
+            rawText: "old thought",
+            prompt: "",
+            mode: "",
+            provider: "",
+            model: "",
+            returnedText: "",
+            returnedTextHash: "",
+            provenanceJson: "",
+            image: "",
+            tokenUri: "",
+            txHash: `0x${"1".padStart(64, "0")}`,
+            blockNumber: 10873000,
+          },
+        ],
       } satisfies IndexedSnapshot<unknown>,
     });
     const fetchMock = jest.fn(async (_url: unknown, init?: any) => {
       const body = JSON.parse(String(init?.body ?? "{}")) as {
         method?: string;
+        params?: any[];
       };
-      if (body.method === "eth_blockNumber") {
-        return rpcResponse("0xa60000");
-      }
       if (body.method === "eth_getLogs") {
-        return rpcResponse([]);
+        const filter = body.params?.[0] ?? {};
+        expect(filter.fromBlock).toBe(`0x${eventBlock.toString(16)}`);
+        expect(filter.toBlock).toBe(`0x${eventBlock.toString(16)}`);
+        return rpcResponse([
+          {
+            address: THOUGHT_NFT,
+            blockNumber: `0x${eventBlock.toString(16)}`,
+            data: `0x${[
+              "aa".repeat(32),
+              "bb".repeat(32),
+              "cc".repeat(32),
+              "dd".repeat(32),
+              word(1_780_000_000n),
+            ].join("")}`,
+            logIndex: "0x2",
+            topics: [THOUGHT_MINTED_TOPIC, tokenTopic(2n), addressTopic(OWNER), tokenTopic(25n)],
+            transactionHash: txHash,
+          },
+        ]);
+      }
+      if (body.method === "eth_call") {
+        return rpcResponse(encodeStringResult(tokenUri));
       }
       throw new Error(`unexpected RPC method ${body.method}`);
     });
@@ -845,7 +931,7 @@ describe("chain cache Pages functions", () => {
           network: "sepolia",
           target: "thought-gallery",
           txHash,
-          blockNumber: 10873000,
+          blockNumber: eventBlock,
           logIndex: 2,
           contractAddress: THOUGHT_NFT,
           topic0: THOUGHT_MINTED_TOPIC,
@@ -867,7 +953,11 @@ describe("chain cache Pages functions", () => {
     const thoughtStored = JSON.parse(d1.rows.get("thought-gallery:v1:sepolia") ?? "{}") as {
       contract?: string;
       lastScannedBlock?: number;
+      items?: Array<{ tokenId?: number; pathId?: string; rawText?: string; txHash?: string }>;
     };
+    const methods = fetchMock.mock.calls.map(([, init]) =>
+      JSON.parse(String((init as any)?.body ?? "{}")).method
+    );
 
     expect(response.status).toBe(200);
     expect(payload.ok).toBe(true);
@@ -877,7 +967,14 @@ describe("chain cache Pages functions", () => {
     expect(payload.eventStatus?.statusSource).toBe("d1");
     expect(payload.eventStatus?.acceptedCount).toBe(1);
     expect(thoughtStored.contract).toBe(THOUGHT_NFT);
-    expect(thoughtStored.lastScannedBlock).toBe(10878976);
+    expect(thoughtStored.lastScannedBlock).toBe(10873000);
+    expect(thoughtStored.items?.map((item) => item.tokenId)).toEqual([1, 2]);
+    expect(thoughtStored.items?.find((item) => item.tokenId === 2)).toMatchObject({
+      pathId: "25",
+      rawText: "minted thought",
+      txHash,
+    });
+    expect(methods).not.toContain("eth_blockNumber");
     expect(response.headers.get("x-indexer-event-status-write")).toBe("1");
     expect(response.headers.get("x-indexer-event-status-source")).toBe("d1");
     expect(response.headers.get("x-db-write")).toBe("1");
@@ -917,6 +1014,81 @@ describe("chain cache Pages functions", () => {
     expect(response.status).toBe(401);
     expect(payload.error).toBe("indexer event token required");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test("indexer event reports safe diagnostics for targeted getLogs failures", async () => {
+    globalThis.Request = TestRequest as unknown as typeof Request;
+    globalThis.Response = TestResponse as unknown as typeof Response;
+    globalThis.Headers = TestHeaders as unknown as typeof Headers;
+    const txHash = `0x${"bad".padStart(64, "0")}`;
+    const d1 = createD1Mock({
+      "path-tokens:v1:sepolia": {
+        version: 1,
+        cachedAt: Date.now() - 120_000,
+        chainId: 11155111,
+        contract: PATH_NFT,
+        fromBlock: 10854123,
+        lastScannedBlock: 10860000,
+        items: [],
+      } satisfies IndexedSnapshot<unknown>,
+    });
+    const fetchMock = jest.fn(async (_url: unknown, init?: any) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as { method?: string };
+      if (body.method === "eth_getLogs") {
+        return rpcError(400, "block range too large; token=upstream-secret");
+      }
+      throw new Error(`unexpected RPC method ${body.method}`);
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const response = await onIndexerEventPost({
+      request: new Request("https://preview.inshell.art/api/indexer/event", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          version: 1,
+          source: "ops-chain-event-ingress",
+          network: "sepolia",
+          target: "path-tokens",
+          txHash,
+          blockNumber: 10870000,
+          logIndex: 2,
+          contractAddress: PATH_NFT,
+          topic0: TRANSFER_TOPIC,
+        }),
+      }),
+      env: {
+        INSHELL_CHAIN_DATA_DB: d1.db,
+        INSHELL_INDEXER_REFRESH_TOKEN: "secret-token",
+        PATH_PRIMARY_RPC_UPSTREAM: "https://path-rpc.example/sepolia",
+        PATH_PRIMARY_RPC_LABEL: "path-primary-test",
+      },
+    });
+    const payload = (await response.json()) as {
+      error?: string;
+      diagnostics?: {
+        target?: string;
+        stage?: string;
+        upstreamLabel?: string;
+        blockRange?: { fromBlock?: number; toBlock?: number };
+        providerError?: { kind?: string; message?: string };
+      };
+    };
+
+    expect(response.status).toBe(500);
+    expect(payload.error).toBe("indexer event failed");
+    expect(payload.diagnostics).toMatchObject({
+      target: "path-tokens",
+      stage: "getLogs",
+      upstreamLabel: "path-primary-test",
+      blockRange: { fromBlock: 10870000, toBlock: 10870000 },
+      providerError: { kind: "block-range" },
+    });
+    expect(payload.diagnostics?.providerError?.message).toContain("token=<redacted>");
+    expect(response.body).not.toContain("upstream-secret");
   });
 
   test("indexer event dedupes already indexed transactions and status counters without RPC", async () => {

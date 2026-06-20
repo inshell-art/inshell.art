@@ -1,5 +1,8 @@
 import {
+  PATH_METADATA_UPDATE_TOPIC,
+  PATH_MOVEMENT_CONSUMED_TOPIC,
   PATH_NFT_ADDRESS,
+  PATH_THOUGHT_CONSUMED_TOPIC,
   PULSE_AUCTION_ADDRESS,
   PULSE_SALE_TOPIC,
   THOUGHT_MINTED_TOPIC,
@@ -11,14 +14,15 @@ import {
   isTxHash,
   json,
   onOptions,
+  readSafeChainFailure,
   withChainCacheDiagnostics,
   type ChainCacheDiagnostics,
   type IndexedSnapshot,
   type PagesContextLike,
 } from "../chain-cache";
-import { refreshPathTokens } from "../path-tokens";
+import { refreshPathTokensForEvent } from "../path-tokens";
 import { refreshPulseAuction, refreshPulseAuctionForTx } from "../pulse-auction";
-import { refreshThoughtGallery } from "../thought-gallery";
+import { refreshThoughtGalleryForEvent } from "../thought-gallery";
 import { isIndexerAuthorized } from "./auth";
 import { writeIndexerEventStatus } from "./event-status";
 
@@ -49,12 +53,6 @@ const EVENT_SOURCE = "ops-chain-event-ingress";
 
 const PULSE_LAUNCH_CONFIGURED_TOPIC =
   "0xb50a0ea9bb6d2c2a03f4e905919179629acdfa89f0d32153740080caf002ddea";
-const PATH_METADATA_UPDATE_TOPIC =
-  "0xf8e1a15aba9398e019f0b49df1a4fde98ee17ae345cb5f6b5e2c27f5033e8ce7";
-const PATH_MOVEMENT_CONSUMED_TOPIC =
-  "0x419d6a4af86af053d21c8b6823e44940b6593b32919e0c4763c6af0a461428c8";
-const PATH_THOUGHT_CONSUMED_TOPIC =
-  "0xe0e6a445ac8ff8a030e836836e44e3bac120e57cbd845e01ee33f2ba46a1f68f";
 
 const EVENT_TARGETS: Record<
   EventTarget,
@@ -96,7 +94,8 @@ const EVENT_TARGETS: Record<
       PATH_MOVEMENT_CONSUMED_TOPIC,
       PATH_THOUGHT_CONSUMED_TOPIC,
     ]),
-    refresh: async (ctx, stats, diagnostics) => refreshPathTokens(ctx, stats, diagnostics),
+    refresh: async (ctx, stats, diagnostics, event) =>
+      refreshPathTokensForEvent(ctx, stats, diagnostics, event),
   },
   "thought-gallery": {
     snapshotKey: "thought-gallery:v1:sepolia",
@@ -104,7 +103,8 @@ const EVENT_TARGETS: Record<
     statsRoute: "indexer-event:thought-gallery",
     contractAddresses: [THOUGHT_NFT_ADDRESS.toLowerCase()],
     topic0s: new Set([THOUGHT_MINTED_TOPIC]),
-    refresh: async (ctx, stats, diagnostics) => refreshThoughtGallery(ctx, stats, diagnostics),
+    refresh: async (ctx, stats, diagnostics, event) =>
+      refreshThoughtGalleryForEvent(ctx, stats, diagnostics, event),
   },
 };
 
@@ -166,9 +166,16 @@ export async function onRequestPost(ctx: PagesContextLike): Promise<Response> {
     response.headers.set("x-indexer-event-status-write", statusWrite.persisted ? "1" : "0");
     response.headers.set("x-indexer-event-status-source", statusWrite.source);
     return withChainCacheDiagnostics(ctx, response, diagnostics, stats, snapshot);
-  } catch {
+  } catch (error) {
     emitUsage(ctx, stats);
-    return json(500, { error: "indexer event failed" });
+    return json(500, {
+      error: "indexer event failed",
+      diagnostics: readSafeChainFailure(error, {
+        target: event.target,
+        stage: "refresh",
+        upstreamLabel: stats.upstreamLabel,
+      }),
+    });
   }
 }
 

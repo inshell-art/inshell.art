@@ -2,6 +2,7 @@ import {
   THOUGHT_MINTED_TOPIC,
   THOUGHT_NFT_ADDRESS,
   THOUGHT_NFT_DEPLOY_BLOCK,
+  chainFailure,
   createChainCacheDiagnostics,
   createStats,
   decodeStringResult,
@@ -43,6 +44,14 @@ import {
 const SNAPSHOT_KEY = "thought-gallery:v1:sepolia";
 const RESPONSE_CACHE_SECONDS = 60;
 const EDGE_SNAPSHOT_SECONDS = 10 * 60;
+
+type TargetedThoughtGalleryEvent = {
+  txHash: string;
+  blockNumber: number;
+  logIndex: number;
+  contractAddress: string;
+  topic0: string;
+};
 
 export const onRequestOptions = onOptions;
 
@@ -131,6 +140,62 @@ export async function refreshThoughtGallery(
   diagnostics: ChainCacheDiagnostics,
 ) {
   const snapshot = await loadThoughtGallery(ctx.env, ctx, stats, diagnostics, undefined, true);
+  writeResponseCache(
+    ctx,
+    SNAPSHOT_KEY,
+    responseFromSnapshot(snapshot),
+    RESPONSE_CACHE_SECONDS,
+    snapshot.lastScannedBlock,
+  );
+  return snapshot;
+}
+
+export async function refreshThoughtGalleryForEvent(
+  ctx: PagesContextLike,
+  stats: ReturnType<typeof createStats>,
+  diagnostics: ChainCacheDiagnostics,
+  event: TargetedThoughtGalleryEvent,
+) {
+  const previous = await readSnapshot<ThoughtGalleryApiItem>(ctx.env, SNAPSHOT_KEY, diagnostics);
+  if (previous?.items.some((item) => item.txHash?.toLowerCase() === event.txHash.toLowerCase())) {
+    return previous;
+  }
+
+  const log = await readThoughtGalleryEventLog(ctx.env, stats, event);
+  const item = await readThoughtFromLog(ctx.env, stats, log);
+  if (!item) {
+    throw chainFailure("thought gallery event did not decode to a thought", {
+      target: "thought-gallery",
+      stage: "decodeLog",
+      upstreamLabel: stats.upstreamLabel,
+      blockRange: { fromBlock: event.blockNumber, toBlock: event.blockNumber },
+    });
+  }
+
+  const existing = new Map<string, ThoughtGalleryApiItem>();
+  for (const thought of previous?.items ?? []) {
+    existing.set(thought.tokenId.toString(), thought);
+  }
+  existing.set(item.tokenId.toString(), item);
+
+  const snapshot: IndexedSnapshot<ThoughtGalleryApiItem> = {
+    version: 1,
+    cachedAt: Date.now(),
+    chainId: 11155111,
+    contract: THOUGHT_NFT_ADDRESS,
+    fromBlock: THOUGHT_NFT_DEPLOY_BLOCK,
+    lastScannedBlock: nextLastScannedBlock(previous, event.blockNumber),
+    items: sortByTokenId([...existing.values()]),
+  };
+  if (!snapshot.items.some((thought) => thought.tokenId === item.tokenId)) {
+    throw chainFailure("thought gallery event was not represented in snapshot", {
+      target: "thought-gallery",
+      stage: "mergeSnapshot",
+      upstreamLabel: stats.upstreamLabel,
+      blockRange: { fromBlock: event.blockNumber, toBlock: event.blockNumber },
+    });
+  }
+  await writeSnapshot(ctx, SNAPSHOT_KEY, snapshot, EDGE_SNAPSHOT_SECONDS, diagnostics, previous);
   writeResponseCache(
     ctx,
     SNAPSHOT_KEY,
@@ -256,4 +321,45 @@ function sortByBlockLogSafe(left: ChainLog, right: ChainLog) {
   const rightBlock = hexToNumber(right.blockNumber);
   if (leftBlock !== rightBlock) return leftBlock - rightBlock;
   return hexToNumber(left.logIndex) - hexToNumber(right.logIndex);
+}
+
+async function readThoughtGalleryEventLog(
+  env: ChainCacheEnv,
+  stats: ReturnType<typeof createStats>,
+  event: TargetedThoughtGalleryEvent,
+) {
+  try {
+    const logs = await getLogsChunked(env, "thought", stats, {
+      address: event.contractAddress,
+      fromBlock: event.blockNumber,
+      toBlock: event.blockNumber,
+      topics: [event.topic0],
+      chunkSize: 1,
+    });
+    const log = logs.find((candidate) =>
+      candidate.transactionHash?.toLowerCase() === event.txHash.toLowerCase() &&
+      hexToNumber(candidate.logIndex) === event.logIndex
+    );
+    if (!log) {
+      throw new Error("event log not found in event block");
+    }
+    return log;
+  } catch (error) {
+    throw chainFailure("thought gallery event getLogs failed", {
+      target: "thought-gallery",
+      stage: "getLogs",
+      upstreamLabel: stats.upstreamLabel,
+      blockRange: { fromBlock: event.blockNumber, toBlock: event.blockNumber },
+    }, error);
+  }
+}
+
+function nextLastScannedBlock(
+  previous: IndexedSnapshot<unknown> | null | undefined,
+  eventBlock: number,
+) {
+  const previousLastScanned = previous?.lastScannedBlock ?? eventBlock;
+  return eventBlock <= previousLastScanned + 1
+    ? Math.max(previousLastScanned, eventBlock)
+    : previousLastScanned;
 }

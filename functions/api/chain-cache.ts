@@ -101,7 +101,7 @@ const JSON_HEADERS = {
 
 const RPC_TIMEOUT_MS = 12_000;
 const REORG_DEPTH = 3;
-const DEFAULT_LOG_CHUNK_SIZE = 5_000;
+const DEFAULT_LOG_CHUNK_SIZE = 10;
 const EDGE_CACHE_PREFIX = "https://inshell.local/chain-cache/";
 const RESPONSE_CACHE_PREFIX = "https://inshell.local/chain-response/";
 const KV_SNAPSHOT_TTL_SECONDS = 30 * 24 * 60 * 60;
@@ -121,6 +121,12 @@ export const THOUGHT_MINTED_TOPIC =
   "0xf83a962c31fcc481a4796d3bd1f81a4b58d1b05ec5cb34e434b2d40962596860";
 export const PULSE_SALE_TOPIC =
   "0xa789468a0212cbe853fbdd6011d2ee7d85144ebc1d67c7dd82f087a970d9593d";
+export const PATH_METADATA_UPDATE_TOPIC =
+  "0xf8e1a15aba9398e019f0b49df1a4fde98ee17ae345cb5f6b5e2c27f5033e8ce7";
+export const PATH_MOVEMENT_CONSUMED_TOPIC =
+  "0x419d6a4af86af053d21c8b6823e44940b6593b32919e0c4763c6af0a461428c8";
+export const PATH_THOUGHT_CONSUMED_TOPIC =
+  "0xe0e6a445ac8ff8a030e836836e44e3bac120e57cbd845e01ee33f2ba46a1f68f";
 
 const OWNER_OF_SELECTOR = "0x6352211e";
 const TOKEN_URI_SELECTOR = "0xc87b56dd";
@@ -234,6 +240,14 @@ type JsonSafe =
   | JsonSafe[]
   | { [key: string]: JsonSafe };
 
+export type SafeChainFailure = {
+  target: string;
+  stage: string;
+  upstreamLabel?: string;
+  blockRange?: { fromBlock: number; toBlock: number };
+  providerError?: { kind: string; message: string };
+};
+
 function safeJsonBody(body: unknown, seen = new WeakSet<object>()): JsonSafe {
   if (
     body === null ||
@@ -269,11 +283,61 @@ export function json(status: number, body: unknown, cacheSeconds = 0): Response 
   return new Response(JSON.stringify(safeJsonBody(body)), { status, headers });
 }
 
+export function chainFailure(
+  message: string,
+  failure: SafeChainFailure,
+  cause?: unknown,
+) {
+  const error = new Error(message) as Error & { safeFailure?: SafeChainFailure };
+  error.name = "ChainReadModelError";
+  error.safeFailure = {
+    ...failure,
+    providerError: failure.providerError ?? providerError(cause ?? message),
+  };
+  return error;
+}
+
+export function readSafeChainFailure(
+  error: unknown,
+  fallback: Omit<SafeChainFailure, "providerError">,
+): SafeChainFailure {
+  const safeFailure = (error as { safeFailure?: SafeChainFailure } | null)?.safeFailure;
+  if (safeFailure) return safeFailure;
+  return {
+    ...fallback,
+    providerError: providerError(error),
+  };
+}
+
+export function providerError(error: unknown) {
+  const raw = error instanceof Error ? error.message : String(error);
+  const message = raw
+    .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer <redacted>")
+    .replace(/(token=)[A-Za-z0-9._~+/=-]+/gi, "$1<redacted>")
+    .replace(/([?&](?:api[_-]?key|key|token)=)[^&\s]+/gi, "$1<redacted>")
+    .slice(0, 240);
+  return {
+    kind: providerErrorKind(message),
+    message,
+  };
+}
+
 export function onOptions(): Response {
   return new Response(null, {
     status: 204,
     headers: JSON_HEADERS,
   });
+}
+
+function providerErrorKind(message: string) {
+  const lowerMessage = message.toLowerCase();
+  if (lowerMessage.includes("block range") || lowerMessage.includes("free tier")) {
+    return "block-range";
+  }
+  if (lowerMessage.includes("rate") || lowerMessage.includes("429")) return "rate-limit";
+  if (lowerMessage.includes("timeout") || lowerMessage.includes("abort")) return "timeout";
+  if (lowerMessage.includes("not configured")) return "config";
+  return "rpc-error";
 }
 
 export function createStats(
