@@ -7,6 +7,11 @@ const STAGING_THOUGHT_BASE = "https://staging.thought-inshell-art.pages.dev";
 const SEPOLIA_CHAIN_ID = "0xaa36a7";
 const ATTEMPT_DELAYS_MS = [0, 1_000, 3_000, 6_000];
 const REQUEST_TIMEOUT_MS = 12_000;
+const PUB_BOUNDARY_SMOKE_PATHS = [
+  "/llms.txt",
+  "/pub.manifest.json",
+  "/pub/contract/pub-path-boundary.json",
+];
 
 function parseArgs(argv) {
   const args = {
@@ -73,6 +78,27 @@ async function fetchJsonWithTimeout(url, init) {
       throw new Error(`${url} returned HTTP ${response.status}: ${JSON.stringify(payload).slice(0, 240)}`);
     }
     return payload;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchTextWithTimeout(url, init) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        accept: "application/json, text/plain, */*;q=0.1",
+        ...(init?.headers ?? {}),
+      },
+    });
+    return {
+      response,
+      text: await response.text(),
+    };
   } finally {
     clearTimeout(timer);
   }
@@ -147,6 +173,60 @@ async function checkOpsStatus(base, label) {
   });
 }
 
+function isDevAppShellResponse(response, text) {
+  const contentType = response.headers.get("content-type") ?? "";
+  return (
+    contentType.includes("text/html") &&
+    (
+      text.includes('<div id="root"></div>') ||
+      text.includes("Inshell / PATH") ||
+      text.includes("THOUGHT creation, minting, and gallery for Inshell.") ||
+      /\/assets\/index-[A-Za-z0-9_-]+\.js/.test(text)
+    )
+  );
+}
+
+async function checkPubBoundarySmoke(base) {
+  for (const path of PUB_BOUNDARY_SMOKE_PATHS) {
+    await retry(`home PUB boundary ${path}`, async () => {
+      const { response, text } = await fetchTextWithTimeout(urlFor(base, path), {
+        method: "GET",
+      });
+      if (!response.ok) {
+        throw new Error(`${path} returned HTTP ${response.status}`);
+      }
+      if (isDevAppShellResponse(response, text)) {
+        throw new Error(`${path} is being served by the DEV app shell`);
+      }
+      const contentType = response.headers.get("content-type") ?? "";
+      if (path === "/llms.txt" && !contentType.includes("text/plain")) {
+        throw new Error(`${path} returned unexpected content-type ${contentType || "(missing)"}`);
+      }
+      if ((path === "/pub.manifest.json" || path === "/pub/contract/pub-path-boundary.json") && response.ok) {
+        let payload;
+        try {
+          payload = JSON.parse(text);
+        } catch {
+          throw new Error(`${path} returned HTTP ${response.status} but not JSON`);
+        }
+        if (path === "/pub/contract/pub-path-boundary.json") {
+          if (
+            payload?.schemaVersion !== 1 ||
+            payload?.origin !== "https://inshell.art" ||
+            payload?.owner !== "PUB" ||
+            !Array.isArray(payload?.paths?.exact) ||
+            !Array.isArray(payload?.paths?.prefixes)
+          ) {
+            throw new Error(`${path} returned an invalid PUB boundary contract`);
+          }
+        } else if (payload?.schemaVersion !== 1 || !Array.isArray(payload?.files)) {
+          throw new Error(`${path} returned an invalid PUB manifest`);
+        }
+      }
+    });
+  }
+}
+
 async function checkThoughtPreview(base) {
   await retry("thought /api/thought-preview", async () => {
     const payload = await fetchJsonWithTimeout(urlFor(base, "/api/thought-preview"), {
@@ -161,6 +241,7 @@ async function checkThoughtPreview(base) {
 
 async function checkHome(base) {
   await checkOpsStatus(base, "home /api/ops/status");
+  await checkPubBoundarySmoke(base);
   await checkRpcChainId(base, "/api/path-rpc", "home /api/path-rpc");
   await checkGetArrayField(base, "/api/pulse-auction", "bids", "home /api/pulse-auction");
   await checkGetArrayField(base, "/api/path-tokens", "items", "home /api/path-tokens");

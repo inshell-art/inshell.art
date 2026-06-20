@@ -35,6 +35,7 @@ const DEPLOY_WORKFLOW_SNIPPETS = [
   "VITE_THOUGHT_EXPLORER_BASE_URL",
   "VITE_WALLETCONNECT_PROJECT_ID",
   "check:deployment",
+  "pub-boundary:check",
   "Smoke home API routes",
   "Smoke THOUGHT API routes",
   "smoke:api-routes",
@@ -177,6 +178,10 @@ function checkPackageScripts() {
   if (!smokeApiRoutes.includes("smoke-cloudflare-api-routes.mjs")) {
     fail("package.json is missing smoke:api-routes coverage for smoke-cloudflare-api-routes.mjs");
   }
+  const pubBoundaryCheck = String(rootPkg?.scripts?.["pub-boundary:check"] ?? "");
+  if (!pubBoundaryCheck.includes("check-pub-boundary.mjs")) {
+    fail("package.json is missing pub-boundary:check coverage for check-pub-boundary.mjs");
+  }
   const webAnalyticsTokenCheck = String(rootPkg?.scripts?.["check:web-analytics-token"] ?? "");
   if (!webAnalyticsTokenCheck.includes("check-cloudflare-web-analytics-token.mjs")) {
     fail("package.json is missing check:web-analytics-token coverage for check-cloudflare-web-analytics-token.mjs");
@@ -210,6 +215,10 @@ function checkPackageScripts() {
     "/api/pulse-auction",
     "/api/path-tokens",
     "/api/thought-gallery",
+    "/llms.txt",
+    "/pub.manifest.json",
+    "/pub/contract/pub-path-boundary.json",
+    "checkPubBoundarySmoke",
     "staging.inshell-art.pages.dev",
     "staging.thought-inshell-art.pages.dev",
   ]) {
@@ -543,6 +552,14 @@ function checkCloudflareRpcProxy() {
     "PUBLIC_FEED_SEPOLIA_RSS_URL",
     "PUBLIC_FEED_BASE_URL",
     "APP_SHELL_CACHE_CONTROL",
+    "PUB_UPSTREAM_DEFAULT",
+    "https://inshell-pub.pages.dev",
+    "isPubReservedPathname",
+    "isPubRouteHost",
+    "proxyPubArtifact",
+    "pubMethodNotAllowed",
+    "pub-proxy",
+    "x-inshell-dev-path-boundary",
     "temporarySepoliaHostRedirect",
     "sepolia.inshell.art",
     "getPublicFeedArtifactUrl",

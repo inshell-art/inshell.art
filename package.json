@@ -27,6 +27,7 @@
     "check:presepolia": "pnpm --filter @inshell/home lint && pnpm run test:presepolia && pnpm run test:thought-runtime && pnpm run build:home && pnpm run check:deployment && git diff --check",
     "check:deployment": "node scripts/check-deployment.mjs",
     "check:deployment:live": "node scripts/check-deployment.mjs --live",
+    "pub-boundary:check": "node scripts/check-pub-boundary.mjs",
     "smoke:api-routes": "node scripts/smoke-cloudflare-api-routes.mjs",
     "check:web-analytics-token": "node scripts/check-cloudflare-web-analytics-token.mjs",
     "quality:github": "node scripts/dev-github-quality-loop.mjs",

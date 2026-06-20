@@ -79,6 +79,8 @@ jobs:
           fi
       - name: Validate deployment gates
         run: pnpm run check:deployment
+      - name: Check PUB path boundary
+        run: pnpm run pub-boundary:check
       - name: Lint home
         run: pnpm --filter @inshell/home lint
       - name: Test home launch surface
@@ -159,6 +161,8 @@ jobs:
           fi
       - name: Validate deployment gates
         run: pnpm run check:deployment
+      - name: Check PUB path boundary
+        run: pnpm run pub-boundary:check
       - name: Test THOUGHT runtime payloads
         run: pnpm run test:thought-runtime
       - name: Type-check THOUGHT

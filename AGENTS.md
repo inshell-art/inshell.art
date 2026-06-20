@@ -109,6 +109,34 @@
 - If OPS reports an RPC/read-model/config mismatch, first check `/api/ops/status` and API route diagnostic headers before asking the operator to relay state.
 - Keep `scripts/smoke-cloudflare-api-routes.mjs` checking `/api/ops/status` for both home and THOUGHT deployments.
 
+## PUB Path Boundary
+
+PUB owns the PUB path boundary contract.
+
+Source of truth:
+
+https://inshell-pub.pages.dev/pub/contract/pub-path-boundary.json
+
+Shared-origin smoke target:
+
+https://inshell.art/pub/contract/pub-path-boundary.json
+
+Before changing static output, app routes, API routes, workers, redirects, rewrites, edge routing, sitemap generation, or deploy config, check the PUB path boundary.
+
+DEV owns the shared `inshell.art` route layer for PUB paths. DEV may proxy reserved paths to the PUB upstream, but must not define, serve, redirect to DEV-owned content, catch with the SPA fallback, or statically emit any path reserved by the PUB contract.
+
+For the current contract, DEV must not claim:
+
+- /llms.txt
+- /pub.manifest.json
+- /pub/**
+
+DEV may link to, fetch, or route PUB paths to the PUB upstream. DEV may not own, recreate, or overwrite PUB content.
+
+If a requested change needs a PUB-reserved path, stop and ask for a PUB boundary change. Do not work around the contract.
+
+Run the DEV PUB-boundary check before commit/deploy.
+
 ## Security and Quality Routine
 - GitHub security/quality alerts are handled on `staging` first, then promoted to `main` only after operator review.
 - The midnight routine means: inspect GitHub Dependabot alerts, code scanning alerts, secret scanning alerts, Dependabot PRs, and failed quality workflows; patch on `staging`; run CI/leak checks; push preview; notify the operator.
