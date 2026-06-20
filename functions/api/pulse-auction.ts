@@ -2,9 +2,12 @@ import {
   PULSE_AUCTION_ADDRESS,
   PULSE_AUCTION_DEPLOY_BLOCK,
   PULSE_SALE_TOPIC,
+  boundedRefreshRange,
+  chainFailure,
   createChainCacheDiagnostics,
   createStats,
   emitUsage,
+  fullRefreshRange,
   getBlockNumber,
   getLogsChunked,
   getTransactionReceipt,
@@ -16,7 +19,6 @@ import {
   readModelEnabled,
   readSnapshot,
   readResponseCache,
-  refreshFromBlock,
   safeNumber,
   sortByBlockLog,
   topicToAddress,
@@ -31,6 +33,7 @@ import {
   type IndexedSnapshot,
   type PagesContextLike,
   type PulseBidApiItem,
+  type RefreshOutcome,
 } from "./chain-cache";
 
 const SNAPSHOT_KEY = "pulse-auction:v1:sepolia";
@@ -75,28 +78,63 @@ async function loadPulseAuction(
   stats: ReturnType<typeof createStats>,
   diagnostics: ChainCacheDiagnostics,
   previousOverride?: IndexedSnapshot<PulseBidApiItem> | null,
-  force = false,
-): Promise<IndexedSnapshot<PulseBidApiItem>> {
+  options: { force?: boolean; bounded?: boolean; maxLogChunks?: number } = {},
+): Promise<RefreshOutcome<PulseBidApiItem>> {
   const previous =
     previousOverride === undefined
       ? await readSnapshot<PulseBidApiItem>(env, SNAPSHOT_KEY, diagnostics)
       : previousOverride;
-  if (!force && previous && Date.now() - previous.cachedAt < RESPONSE_CACHE_SECONDS * 1000) {
-    return previous;
+  if (!options.force && previous && Date.now() - previous.cachedAt < RESPONSE_CACHE_SECONDS * 1000) {
+    return {
+      snapshot: previous,
+      progress: fullRefreshRange(previous, PULSE_AUCTION_DEPLOY_BLOCK, previous.lastScannedBlock),
+    };
   }
 
   const latestBlock = await getBlockNumber(env, "path", stats);
-  const refreshStart = refreshFromBlock(previous, PULSE_AUCTION_DEPLOY_BLOCK, latestBlock);
-  const logs = await getLogsChunked(env, "path", stats, {
-    address: PULSE_AUCTION_ADDRESS,
-    fromBlock: refreshStart,
-    toBlock: latestBlock,
-    topics: [PULSE_SALE_TOPIC],
-  });
+  const progress = options.bounded
+    ? boundedRefreshRange(env, previous, PULSE_AUCTION_DEPLOY_BLOCK, latestBlock, {
+      maxLogChunks: options.maxLogChunks,
+    })
+    : fullRefreshRange(previous, PULSE_AUCTION_DEPLOY_BLOCK, latestBlock);
+  let logs: ChainLog[];
+  try {
+    logs = await getLogsChunked(env, "path", stats, {
+      address: PULSE_AUCTION_ADDRESS,
+      fromBlock: progress.fromBlock,
+      toBlock: progress.toBlock,
+      topics: [PULSE_SALE_TOPIC],
+      chunkSize: progress.chunkSize,
+    });
+  } catch (error) {
+    throw chainFailure("pulse auction refresh getLogs failed", {
+      target: "pulse-auction",
+      stage: "getLogs",
+      upstreamLabel: stats.upstreamLabel,
+      blockRange: { fromBlock: progress.fromBlock, toBlock: progress.toBlock },
+    }, error);
+  }
 
-  const snapshot = mergePulseSnapshot(previous, logs, refreshStart, latestBlock);
-  await writeSnapshot(ctx, SNAPSHOT_KEY, snapshot, EDGE_SNAPSHOT_SECONDS, diagnostics, previous);
-  return snapshot;
+  const snapshot = mergePulseSnapshot(previous, logs, progress.fromBlock, progress.toBlock);
+  try {
+    await writeSnapshot(
+      ctx,
+      SNAPSHOT_KEY,
+      snapshot,
+      EDGE_SNAPSHOT_SECONDS,
+      diagnostics,
+      previous,
+      options.bounded ? { strictD1: true, waitForPersistence: true } : undefined,
+    );
+  } catch (error) {
+    throw chainFailure("pulse auction refresh snapshot write failed", {
+      target: "pulse-auction",
+      stage: "writeSnapshot",
+      upstreamLabel: stats.upstreamLabel,
+      blockRange: { fromBlock: progress.fromBlock, toBlock: progress.toBlock },
+    }, error);
+  }
+  return { snapshot, progress };
 }
 
 export async function refreshPulseAuction(
@@ -104,7 +142,9 @@ export async function refreshPulseAuction(
   stats: ReturnType<typeof createStats>,
   diagnostics: ChainCacheDiagnostics,
 ) {
-  const snapshot = await loadPulseAuction(ctx.env, ctx, stats, diagnostics, undefined, true);
+  const { snapshot } = await loadPulseAuction(ctx.env, ctx, stats, diagnostics, undefined, {
+    force: true,
+  });
   writeResponseCache(
     ctx,
     SNAPSHOT_KEY,
@@ -113,6 +153,27 @@ export async function refreshPulseAuction(
     snapshot.lastScannedBlock,
   );
   return snapshot;
+}
+
+export async function refreshPulseAuctionBounded(
+  ctx: PagesContextLike,
+  stats: ReturnType<typeof createStats>,
+  diagnostics: ChainCacheDiagnostics,
+  options: { maxLogChunks?: number } = {},
+) {
+  const outcome = await loadPulseAuction(ctx.env, ctx, stats, diagnostics, undefined, {
+    force: true,
+    bounded: true,
+    maxLogChunks: options.maxLogChunks,
+  });
+  writeResponseCache(
+    ctx,
+    SNAPSHOT_KEY,
+    responseFromSnapshot(outcome.snapshot),
+    RESPONSE_CACHE_SECONDS,
+    outcome.snapshot.lastScannedBlock,
+  );
+  return outcome;
 }
 
 export async function refreshPulseAuctionForTx(

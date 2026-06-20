@@ -6,6 +6,7 @@ import {
   PATH_THOUGHT_CONSUMED_TOPIC,
   THOUGHT_NFT_ADDRESS,
   TRANSFER_TOPIC,
+  boundedRefreshRange,
   chainFailure,
   createChainCacheDiagnostics,
   createStats,
@@ -13,6 +14,7 @@ import {
   decodeStringResult,
   emitUsage,
   ethCall,
+  fullRefreshRange,
   getBlockNumber,
   getLogsChunked,
   hexToNumber,
@@ -25,7 +27,6 @@ import {
   readModelEnabled,
   readSnapshot,
   readResponseCache,
-  refreshFromBlock,
   sortByBlockLog,
   sortByTokenId,
   tokenUriData,
@@ -40,6 +41,7 @@ import {
   type IndexedSnapshot,
   type PagesContextLike,
   type PathTokenApiItem,
+  type RefreshOutcome,
 } from "./chain-cache";
 
 const SNAPSHOT_KEY = "path-tokens:v1:sepolia";
@@ -75,7 +77,7 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
 
   const stats = createStats("path", "path-tokens", ctx.env);
   try {
-    const snapshot = await loadPathTokens(ctx.env, ctx, stats, diagnostics, previous);
+    const { snapshot } = await loadPathTokens(ctx.env, ctx, stats, diagnostics, previous);
     emitUsage(ctx, stats);
     const response = responseFromSnapshot(snapshot);
     writeResponseCache(ctx, SNAPSHOT_KEY, response, RESPONSE_CACHE_SECONDS, snapshot.lastScannedBlock);
@@ -94,35 +96,55 @@ async function loadPathTokens(
   stats: ReturnType<typeof createStats>,
   diagnostics: ChainCacheDiagnostics,
   previousOverride?: IndexedSnapshot<PathTokenApiItem> | null,
-  force = false,
-): Promise<IndexedSnapshot<PathTokenApiItem>> {
+  options: { force?: boolean; bounded?: boolean; maxLogChunks?: number } = {},
+): Promise<RefreshOutcome<PathTokenApiItem>> {
   const previous =
     previousOverride === undefined
       ? await readSnapshot<PathTokenApiItem>(env, SNAPSHOT_KEY, diagnostics)
       : previousOverride;
-  if (!force && previous && Date.now() - previous.cachedAt < RESPONSE_CACHE_SECONDS * 1000) {
-    return previous;
+  if (!options.force && previous && Date.now() - previous.cachedAt < RESPONSE_CACHE_SECONDS * 1000) {
+    return {
+      snapshot: previous,
+      progress: fullRefreshRange(previous, PATH_NFT_DEPLOY_BLOCK, previous.lastScannedBlock),
+    };
   }
 
   const latestBlock = await getBlockNumber(env, "path", stats);
-  const refreshStart = refreshFromBlock(previous, PATH_NFT_DEPLOY_BLOCK, latestBlock);
-  const logs = await getLogsChunked(env, "path", stats, {
-    address: PATH_NFT_ADDRESS,
-    fromBlock: refreshStart,
-    toBlock: latestBlock,
-    topics: [TRANSFER_TOPIC],
-  });
+  const progress = options.bounded
+    ? boundedRefreshRange(env, previous, PATH_NFT_DEPLOY_BLOCK, latestBlock, {
+      maxLogChunks: options.maxLogChunks,
+    })
+    : fullRefreshRange(previous, PATH_NFT_DEPLOY_BLOCK, latestBlock);
+  let logs: ChainLog[];
+  try {
+    logs = await getLogsChunked(env, "path", stats, {
+      address: PATH_NFT_ADDRESS,
+      fromBlock: progress.fromBlock,
+      toBlock: progress.toBlock,
+      topics: [TRANSFER_TOPIC],
+      chunkSize: progress.chunkSize,
+    });
+  } catch (error) {
+    throw chainFailure("path tokens refresh getLogs failed", {
+      target: "path-tokens",
+      stage: "getLogs",
+      upstreamLabel: stats.upstreamLabel,
+      blockRange: { fromBlock: progress.fromBlock, toBlock: progress.toBlock },
+    }, error);
+  }
 
   const tokens = new Map<string, PathTokenApiItem>();
-  for (const item of pruneReorgWindow(previous?.items ?? [], refreshStart)) {
+  for (const item of pruneReorgWindow(previous?.items ?? [], progress.fromBlock)) {
     tokens.set(item.tokenId, item);
   }
 
+  const changedTokenIds = new Set<string>();
   for (const log of logs.sort(sortByBlockLog)) {
     if (log.removed) continue;
     const tokenId = topicToBigInt(log.topics[3]);
     if (tokenId == null) continue;
     const tokenIdLabel = tokenId.toString();
+    changedTokenIds.add(tokenIdLabel);
     const to = lowerTopicAddress(log.topics[2]);
     if (to === ZERO_TOPIC) {
       tokens.delete(tokenIdLabel);
@@ -141,22 +163,27 @@ async function loadPathTokens(
   }
 
   for (const item of tokens.values()) {
-    try {
-      item.owner = normalizeAddressResult(
-        await ethCall(env, "path", stats, PATH_NFT_ADDRESS, ownerOfData(item.tokenId)),
-      );
-    } catch {
-      // Keep the last Transfer owner if ownerOf is temporarily unavailable.
+    const changed = changedTokenIds.has(item.tokenId);
+    if (!options.bounded || changed) {
+      try {
+        item.owner = normalizeAddressResult(
+          await ethCall(env, "path", stats, PATH_NFT_ADDRESS, ownerOfData(item.tokenId)),
+        );
+      } catch {
+        // Keep the last Transfer owner if ownerOf is temporarily unavailable.
+      }
     }
-    if (!item.tokenUri) {
+    if (!options.bounded || changed) {
       try {
         item.tokenUri = decodeStringResult(
           await ethCall(env, "path", stats, PATH_NFT_ADDRESS, tokenUriData(item.tokenId)),
         );
         item.metadata = parseMetadata(item.tokenUri);
       } catch {
-        item.tokenUri = "";
-        item.metadata = {};
+        if (!item.tokenUri) {
+          item.tokenUri = "";
+          item.metadata = {};
+        }
       }
     }
     if (!metadataString(item.metadata.name)) {
@@ -170,11 +197,28 @@ async function loadPathTokens(
     chainId: 11155111,
     contract: PATH_NFT_ADDRESS,
     fromBlock: PATH_NFT_DEPLOY_BLOCK,
-    lastScannedBlock: latestBlock,
+    lastScannedBlock: progress.toBlock,
     items: sortByTokenId([...tokens.values()]),
   };
-  await writeSnapshot(ctx, SNAPSHOT_KEY, snapshot, EDGE_SNAPSHOT_SECONDS, diagnostics, previous);
-  return snapshot;
+  try {
+    await writeSnapshot(
+      ctx,
+      SNAPSHOT_KEY,
+      snapshot,
+      EDGE_SNAPSHOT_SECONDS,
+      diagnostics,
+      previous,
+      options.bounded ? { strictD1: true, waitForPersistence: true } : undefined,
+    );
+  } catch (error) {
+    throw chainFailure("path tokens refresh snapshot write failed", {
+      target: "path-tokens",
+      stage: "writeSnapshot",
+      upstreamLabel: stats.upstreamLabel,
+      blockRange: { fromBlock: progress.fromBlock, toBlock: progress.toBlock },
+    }, error);
+  }
+  return { snapshot, progress };
 }
 
 export async function refreshPathTokens(
@@ -182,7 +226,9 @@ export async function refreshPathTokens(
   stats: ReturnType<typeof createStats>,
   diagnostics: ChainCacheDiagnostics,
 ) {
-  const snapshot = await loadPathTokens(ctx.env, ctx, stats, diagnostics, undefined, true);
+  const { snapshot } = await loadPathTokens(ctx.env, ctx, stats, diagnostics, undefined, {
+    force: true,
+  });
   writeResponseCache(
     ctx,
     SNAPSHOT_KEY,
@@ -191,6 +237,27 @@ export async function refreshPathTokens(
     snapshot.lastScannedBlock,
   );
   return snapshot;
+}
+
+export async function refreshPathTokensBounded(
+  ctx: PagesContextLike,
+  stats: ReturnType<typeof createStats>,
+  diagnostics: ChainCacheDiagnostics,
+  options: { maxLogChunks?: number } = {},
+) {
+  const outcome = await loadPathTokens(ctx.env, ctx, stats, diagnostics, undefined, {
+    force: true,
+    bounded: true,
+    maxLogChunks: options.maxLogChunks,
+  });
+  writeResponseCache(
+    ctx,
+    SNAPSHOT_KEY,
+    responseFromSnapshot(outcome.snapshot),
+    RESPONSE_CACHE_SECONDS,
+    outcome.snapshot.lastScannedBlock,
+  );
+  return outcome;
 }
 
 export async function refreshPathTokensForEvent(

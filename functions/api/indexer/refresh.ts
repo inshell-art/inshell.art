@@ -10,13 +10,16 @@ import {
   type ChainCacheDiagnostics,
   type IndexedSnapshot,
   type PagesContextLike,
+  type RefreshProgress,
 } from "../chain-cache";
-import { refreshPathTokens } from "../path-tokens";
-import { refreshPulseAuction, refreshPulseAuctionForTx } from "../pulse-auction";
-import { refreshThoughtGallery } from "../thought-gallery";
+import { refreshPathTokensBounded } from "../path-tokens";
+import { refreshPulseAuctionBounded, refreshPulseAuctionForTx } from "../pulse-auction";
+import { refreshThoughtGalleryBounded } from "../thought-gallery";
 import { isIndexerAuthorized } from "./auth";
 
 type RefreshTarget = "pulse-auction" | "path-tokens" | "thought-gallery" | "all";
+
+const ALL_TARGET_MAX_LOG_CHUNKS = 6;
 
 type RefreshResult = {
   target: Exclude<RefreshTarget, "all">;
@@ -24,6 +27,13 @@ type RefreshResult = {
   lastScannedBlock: number;
   items: number;
   source: string;
+  complete?: boolean;
+  partial?: boolean;
+  scannedFromBlock?: number;
+  scannedToBlock?: number;
+  latestBlock?: number;
+  remainingBlocks?: number;
+  maxBlocks?: number;
 };
 
 export const onRequestOptions = onOptions;
@@ -49,6 +59,9 @@ export async function onRequestPost(ctx: PagesContextLike): Promise<Response> {
   const diagnostics: ChainCacheDiagnostics[] = [];
   const statsList: ReturnType<typeof createStats>[] = [];
   const snapshots: IndexedSnapshot<unknown>[] = [];
+  const boundedOptions = normalizedTarget === "all"
+    ? { maxLogChunks: ALL_TARGET_MAX_LOG_CHUNKS }
+    : {};
   let activeTarget: Exclude<RefreshTarget, "all"> | null = null;
   let activeStats: ReturnType<typeof createStats> | null = null;
   try {
@@ -57,14 +70,17 @@ export async function onRequestPost(ctx: PagesContextLike): Promise<Response> {
       const currentDiagnostics = createChainCacheDiagnostics("pulse-auction:v1:sepolia");
       const stats = createStats("path", "indexer-refresh:pulse-auction", ctx.env);
       activeStats = stats;
-      const snapshot = targetedPublicRefresh
-        ? await refreshPulseAuctionForTx(ctx, stats, currentDiagnostics, txHash)
-        : await refreshPulseAuction(ctx, stats, currentDiagnostics);
+      const outcome = targetedPublicRefresh
+        ? {
+          snapshot: await refreshPulseAuctionForTx(ctx, stats, currentDiagnostics, txHash),
+          progress: undefined,
+        }
+        : await refreshPulseAuctionBounded(ctx, stats, currentDiagnostics, boundedOptions);
       emitUsage(ctx, stats);
       diagnostics.push(currentDiagnostics);
       statsList.push(stats);
-      snapshots.push(snapshot as IndexedSnapshot<unknown>);
-      results.push(resultFor("pulse-auction", snapshot, currentDiagnostics));
+      snapshots.push(outcome.snapshot as IndexedSnapshot<unknown>);
+      results.push(resultFor("pulse-auction", outcome.snapshot, currentDiagnostics, outcome.progress));
     }
 
     if (normalizedTarget === "path-tokens" || normalizedTarget === "all") {
@@ -72,12 +88,12 @@ export async function onRequestPost(ctx: PagesContextLike): Promise<Response> {
       const currentDiagnostics = createChainCacheDiagnostics("path-tokens:v1:sepolia");
       const stats = createStats("path", "indexer-refresh:path-tokens", ctx.env);
       activeStats = stats;
-      const snapshot = await refreshPathTokens(ctx, stats, currentDiagnostics);
+      const outcome = await refreshPathTokensBounded(ctx, stats, currentDiagnostics, boundedOptions);
       emitUsage(ctx, stats);
       diagnostics.push(currentDiagnostics);
       statsList.push(stats);
-      snapshots.push(snapshot as IndexedSnapshot<unknown>);
-      results.push(resultFor("path-tokens", snapshot, currentDiagnostics));
+      snapshots.push(outcome.snapshot as IndexedSnapshot<unknown>);
+      results.push(resultFor("path-tokens", outcome.snapshot, currentDiagnostics, outcome.progress));
     }
 
     if (normalizedTarget === "thought-gallery" || normalizedTarget === "all") {
@@ -85,12 +101,12 @@ export async function onRequestPost(ctx: PagesContextLike): Promise<Response> {
       const currentDiagnostics = createChainCacheDiagnostics("thought-gallery:v1:sepolia");
       const stats = createStats("thought", "indexer-refresh:thought-gallery", ctx.env);
       activeStats = stats;
-      const snapshot = await refreshThoughtGallery(ctx, stats, currentDiagnostics);
+      const outcome = await refreshThoughtGalleryBounded(ctx, stats, currentDiagnostics, boundedOptions);
       emitUsage(ctx, stats);
       diagnostics.push(currentDiagnostics);
       statsList.push(stats);
-      snapshots.push(snapshot as IndexedSnapshot<unknown>);
-      results.push(resultFor("thought-gallery", snapshot, currentDiagnostics));
+      snapshots.push(outcome.snapshot as IndexedSnapshot<unknown>);
+      results.push(resultFor("thought-gallery", outcome.snapshot, currentDiagnostics, outcome.progress));
     }
   } catch (error) {
     for (const stats of statsList) emitUsage(ctx, stats);
@@ -156,6 +172,7 @@ function resultFor<T>(
   target: Exclude<RefreshTarget, "all">,
   snapshot: IndexedSnapshot<T>,
   diagnostics: ChainCacheDiagnostics,
+  progress?: RefreshProgress,
 ): RefreshResult {
   return {
     target,
@@ -163,5 +180,12 @@ function resultFor<T>(
     lastScannedBlock: snapshot.lastScannedBlock,
     items: snapshot.items.length,
     source: diagnostics.source,
+    complete: progress?.complete,
+    partial: progress ? !progress.complete : undefined,
+    scannedFromBlock: progress?.fromBlock,
+    scannedToBlock: progress?.toBlock,
+    latestBlock: progress?.latestBlock,
+    remainingBlocks: progress?.remainingBlocks,
+    maxBlocks: progress?.maxBlocks,
   };
 }
