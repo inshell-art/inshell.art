@@ -134,7 +134,7 @@ async function loadPathTokens(
   }
 
   const tokens = new Map<string, PathTokenApiItem>();
-  for (const item of pruneReorgWindow(previous?.items ?? [], progress.fromBlock)) {
+  for (const item of pruneReorgWindow(previous?.items ?? [], progress.fromBlock, progress.toBlock)) {
     tokens.set(item.tokenId, item);
   }
 

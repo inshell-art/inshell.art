@@ -131,7 +131,7 @@ async function loadThoughtGallery(
   }
 
   const existing = new Map<string, ThoughtGalleryApiItem>();
-  for (const item of pruneReorgWindow(previous?.items ?? [], progress.fromBlock)) {
+  for (const item of pruneReorgWindow(previous?.items ?? [], progress.fromBlock, progress.toBlock)) {
     existing.set(item.tokenId.toString(), item);
   }
 

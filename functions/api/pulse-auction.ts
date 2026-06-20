@@ -236,7 +236,7 @@ function mergePulseSnapshot(
   lastScannedBlock: number,
 ) {
   const bids = new Map<string, PulseBidApiItem>();
-  for (const item of pruneReorgWindow(previous?.items ?? [], refreshStart)) {
+  for (const item of pruneReorgWindow(previous?.items ?? [], refreshStart, lastScannedBlock)) {
     bids.set(item.key, item);
   }
   for (const log of logs.sort(sortByBlockLog)) {
