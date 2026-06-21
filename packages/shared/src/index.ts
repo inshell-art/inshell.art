@@ -1,7 +1,15 @@
 export type SurfaceId = "path" | "thought";
 
-export { installInshellAnonymousAnalytics } from "./anonymousAnalytics";
-export type { AnonymousAnalyticsOptions } from "./anonymousAnalytics";
+export {
+  installInshellAnonymousAnalytics,
+  trackInshellAnonymousAnalytics,
+} from "./anonymousAnalytics";
+export type {
+  AnonymousAnalyticsContentType,
+  AnonymousAnalyticsEventType,
+  AnonymousAnalyticsOptions,
+  AnonymousAnalyticsTrackInput,
+} from "./anonymousAnalytics";
 
 export type PublicLaunchMode = "local" | "sepolia_invite" | "production";
 

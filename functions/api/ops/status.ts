@@ -52,8 +52,18 @@ const ROUTES = {
   analytics: {
     eventRoute: "/api/analytics/event",
     summaryRoute: "/api/analytics/summary",
+    visitorRoute: "/api/analytics/visitors",
     summaryAuth: "bearer-token-required",
+    visitorAuth: "bearer-token-required",
     identity: "anonymous-browser-session",
+    privacy: {
+      rawIpStored: false,
+      rawUserAgentStored: false,
+      rawVisitIdStored: false,
+      rawWalletAddressStored: false,
+      metadataAllowlist: true,
+      visitTimeoutMinutes: 30,
+    },
   },
   publicFeed: [
     "/rss.xml",
@@ -183,7 +193,7 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
       devOwns: [
         "Pages API route behavior",
         "chain_snapshots table schema and read/write code",
-        "anonymous analytics event and summary route behavior",
+        "anonymous analytics event, summary, and visitor timeline route behavior",
         "RPC route selection contract",
         "frontend read behavior and diagnostics headers",
       ],

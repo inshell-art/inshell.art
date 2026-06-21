@@ -216,6 +216,7 @@ function checkPackageScripts() {
     "/api/path-tokens",
     "/api/thought-gallery",
     "/api/analytics/event",
+    "/api/analytics/visitors",
     "anonymousAnalytics",
     "anonymous-browser-session",
     "/llms.txt",

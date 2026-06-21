@@ -1,3 +1,37 @@
+/* global Element, HTMLAnchorElement, RequestInfo, RequestInit, URL, performance */
+
+export type AnonymousAnalyticsEventType =
+  | "pageview"
+  | "page_visible_duration"
+  | "scroll_depth"
+  | "cta_click"
+  | "wallet_connect_started"
+  | "wallet_connect_succeeded"
+  | "wallet_connect_failed"
+  | "mint_started"
+  | "mint_succeeded"
+  | "mint_failed"
+  | "api_error"
+  | "frontend_error"
+  | "external_link_click";
+
+export type AnonymousAnalyticsContentType =
+  | "home"
+  | "path"
+  | "thought"
+  | "gallery"
+  | "pulse"
+  | "verify"
+  | "unknown";
+
+export type AnonymousAnalyticsTrackInput = {
+  eventType: AnonymousAnalyticsEventType;
+  path?: string;
+  contentType?: AnonymousAnalyticsContentType;
+  contentId?: string | number | null;
+  metadata?: Record<string, unknown>;
+};
+
 export type AnonymousAnalyticsOptions = {
   env?: Readonly<Record<string, unknown>>;
   endpoint?: string;
@@ -10,11 +44,18 @@ export type AnonymousAnalyticsOptions = {
 
 type AnalyticsWindow = globalThis.Window & {
   __INSHELL_ANON_ANALYTICS_INSTALLED__?: boolean;
+  __INSHELL_ANON_ANALYTICS_FETCH_PATCHED__?: boolean;
+  inshellAnalytics?: {
+    track: (input: AnonymousAnalyticsTrackInput) => boolean;
+  };
 };
 
 const VISITOR_STORAGE_KEY = "inshell.analytics.visitor.v1";
 const SESSION_STORAGE_KEY = "inshell.analytics.session.v1";
+const VISIT_STORAGE_KEY = "inshell.analytics.visit.v1";
 const DEFAULT_ENDPOINT = "/api/analytics/event";
+const VISIT_TIMEOUT_MS = 30 * 60 * 1000;
+const DURATION_BUCKETS_MS = [5_000, 15_000, 30_000, 60_000, 120_000, 300_000, 600_000];
 
 const ALLOWED_HOSTS = new Set([
   "inshell.art",
@@ -50,19 +91,25 @@ export function installInshellAnonymousAnalytics(options: AnonymousAnalyticsOpti
   analyticsWindow.__INSHELL_ANON_ANALYTICS_INSTALLED__ = true;
   const endpoint = options.endpoint ?? DEFAULT_ENDPOINT;
   let lastLocationKey = "";
+  let pageVisibleSinceMs = nowMs();
+  let emittedScrollBuckets = new Set<number>();
 
-  const sendCurrentPageView = () => {
-    const locationKey = `${locationRef.pathname}${locationRef.search}${locationRef.hash}`;
-    if (locationKey === lastLocationKey) return;
-    lastLocationKey = locationKey;
+  const track = (input: AnonymousAnalyticsTrackInput) => {
+    const visit = readOrCreateVisitState(windowRef, Date.now());
+    const visitId = visit?.id ?? sessionId;
+    const path = normalizePath(input.path ?? locationRef.pathname);
+    const content = contentForPath(path, input.contentType, input.contentId);
     sendAnalyticsEvent(endpoint, {
       version: 1,
       eventId: createId(),
       visitorId,
       sessionId,
-      eventType: "pageview",
-      path: locationRef.pathname,
-      title: documentRef.title,
+      visitId,
+      eventType: input.eventType,
+      path,
+      contentType: content.contentType,
+      contentId: content.contentId,
+      title: input.eventType === "pageview" ? documentRef.title : undefined,
       referrer: documentRef.referrer || "",
       occurredAt: new Date().toISOString(),
       deviceClass: deviceClassFor(windowRef, navigatorRef),
@@ -71,25 +118,85 @@ export function installInshellAnonymousAnalytics(options: AnonymousAnalyticsOpti
       timezoneOffset: new Date().getTimezoneOffset(),
       language: navigatorRef.language || "",
       automation: navigatorRef.webdriver === true,
-    }, navigatorRef);
+      metadata: input.metadata ?? {},
+    }, navigatorRef, () => {
+      updateVisitActivity(windowRef, visitId, Date.now());
+    });
+    return true;
+  };
+
+  analyticsWindow.inshellAnalytics = { track };
+
+  const sendVisibleDuration = () => {
+    const elapsedMs = nowMs() - pageVisibleSinceMs;
+    if (elapsedMs < 1_000) return;
+    track({
+      eventType: "page_visible_duration",
+      metadata: {
+        durationMs: bucketDurationMs(elapsedMs),
+      },
+    });
+    pageVisibleSinceMs = nowMs();
+  };
+
+  const sendCurrentPageView = () => {
+    const locationKey = `${locationRef.pathname}${locationRef.search}${locationRef.hash}`;
+    if (locationKey === lastLocationKey) return;
+    if (lastLocationKey) sendVisibleDuration();
+    lastLocationKey = locationKey;
+    emittedScrollBuckets = new Set<number>();
+    pageVisibleSinceMs = nowMs();
+    track({ eventType: "pageview" });
+    maybeSendScrollDepth(windowRef, documentRef, emittedScrollBuckets, track);
   };
 
   patchHistory(windowRef, sendCurrentPageView);
+  patchFetch(windowRef, endpoint, track);
   windowRef.addEventListener("popstate", sendCurrentPageView);
   windowRef.addEventListener("hashchange", sendCurrentPageView);
+  windowRef.addEventListener("scroll", () => {
+    maybeSendScrollDepth(windowRef, documentRef, emittedScrollBuckets, track);
+  }, { passive: true });
+  documentRef.addEventListener("click", (event) => {
+    trackClickEvent(event, windowRef, track);
+  }, { capture: true });
+  windowRef.addEventListener("error", () => {
+    track({
+      eventType: "frontend_error",
+      metadata: { errorCategory: "runtime" },
+    });
+  });
+  windowRef.addEventListener("unhandledrejection", () => {
+    track({
+      eventType: "frontend_error",
+      metadata: { errorCategory: "promise" },
+    });
+  });
+  documentRef.addEventListener("visibilitychange", () => {
+    if (documentRef.visibilityState === "hidden") sendVisibleDuration();
+    if (documentRef.visibilityState === "visible") pageVisibleSinceMs = nowMs();
+  });
+  windowRef.addEventListener("pagehide", sendVisibleDuration);
   sendCurrentPageView();
   return true;
+}
+
+export function trackInshellAnonymousAnalytics(input: AnonymousAnalyticsTrackInput): boolean {
+  const api = typeof window === "undefined" ? null : (window as AnalyticsWindow).inshellAnalytics;
+  return api?.track(input) ?? false;
 }
 
 function sendAnalyticsEvent(
   endpoint: string,
   payload: Record<string, unknown>,
   navigatorRef: globalThis.Navigator,
+  onAccepted?: () => void,
 ) {
   const body = JSON.stringify(payload);
   if (typeof navigatorRef.sendBeacon === "function") {
     try {
       if (navigatorRef.sendBeacon(endpoint, new globalThis.Blob([body], { type: "application/json" }))) {
+        onAccepted?.();
         return;
       }
     } catch {
@@ -103,6 +210,8 @@ function sendAnalyticsEvent(
     },
     body,
     keepalive: true,
+  }).then((response) => {
+    if (response.ok) onAccepted?.();
   }).catch(() => undefined);
 }
 
@@ -118,6 +227,121 @@ function patchHistory(windowRef: globalThis.Window, callback: () => void) {
       windowRef.setTimeout(callback, 0);
       return result;
     };
+  }
+}
+
+function patchFetch(
+  windowRef: globalThis.Window,
+  analyticsEndpoint: string,
+  track: (input: AnonymousAnalyticsTrackInput) => boolean,
+) {
+  const analyticsWindow = windowRef as AnalyticsWindow;
+  if (analyticsWindow.__INSHELL_ANON_ANALYTICS_FETCH_PATCHED__) return;
+  if (typeof windowRef.fetch !== "function") return;
+  analyticsWindow.__INSHELL_ANON_ANALYTICS_FETCH_PATCHED__ = true;
+  const originalFetch = windowRef.fetch.bind(windowRef);
+  windowRef.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const endpointPath = requestPath(input, windowRef.location.origin);
+    try {
+      const response = await originalFetch(input, init);
+      if (endpointPath && isTrackedApiPath(endpointPath, analyticsEndpoint) && !response.ok) {
+        track({
+          eventType: "api_error",
+          path: endpointPath,
+          metadata: {
+            endpoint: endpointPath,
+            status: response.status,
+            errorCategory: "http",
+          },
+        });
+      }
+      return response;
+    } catch (error) {
+      if (endpointPath && isTrackedApiPath(endpointPath, analyticsEndpoint)) {
+        track({
+          eventType: "api_error",
+          path: endpointPath,
+          metadata: {
+            endpoint: endpointPath,
+            errorCategory: categorizeError(error),
+          },
+        });
+      }
+      throw error;
+    }
+  }) as typeof fetch;
+}
+
+function trackClickEvent(
+  event: globalThis.Event,
+  windowRef: globalThis.Window,
+  track: (input: AnonymousAnalyticsTrackInput) => boolean,
+) {
+  const target = event.target instanceof Element ? event.target : null;
+  const clickable = target?.closest("a,button,[role='button'],[data-analytics-cta],[data-inshell-analytics]");
+  if (!clickable) return;
+  const ctaId = ctaIdForElement(clickable);
+  if (ctaId) {
+    track({
+      eventType: "cta_click",
+      metadata: { ctaId },
+    });
+  }
+  if (clickable instanceof HTMLAnchorElement && clickable.href) {
+    const link = safeUrl(clickable.href, windowRef.location.href);
+    if (link && link.hostname.toLowerCase() !== windowRef.location.hostname.toLowerCase()) {
+      track({
+        eventType: "external_link_click",
+        metadata: {
+          hrefHost: link.hostname.toLowerCase(),
+          hrefPath: normalizePath(link.pathname),
+          ctaId: ctaId || undefined,
+        },
+      });
+    }
+  }
+}
+
+function ctaIdForElement(element: Element) {
+  const dataId =
+    element.getAttribute("data-analytics-cta") ||
+    element.getAttribute("data-inshell-analytics") ||
+    element.getAttribute("data-analytics-id");
+  const id = dataId || element.id;
+  if (id) return sanitizeToken(id, 80);
+  if (element instanceof HTMLAnchorElement) {
+    const href = safeUrl(element.href, typeof window === "undefined" ? "https://inshell.art" : window.location.href);
+    if (href) return sanitizeToken(`link:${normalizePath(href.pathname)}`, 80);
+  }
+  return "";
+}
+
+function maybeSendScrollDepth(
+  windowRef: globalThis.Window,
+  documentRef: globalThis.Document,
+  emittedBuckets: Set<number>,
+  track: (input: AnonymousAnalyticsTrackInput) => boolean,
+) {
+  const root = documentRef.documentElement;
+  const body = documentRef.body;
+  const scrollTop = Math.max(0, windowRef.scrollY || root.scrollTop || body?.scrollTop || 0);
+  const viewportHeight = Math.max(1, windowRef.innerHeight || root.clientHeight || 1);
+  const scrollHeight = Math.max(
+    root.scrollHeight || 0,
+    body?.scrollHeight || 0,
+    viewportHeight,
+  );
+  const scrollable = Math.max(1, scrollHeight - viewportHeight);
+  const percent = Math.min(100, Math.max(0, Math.round(((scrollTop + viewportHeight) / scrollHeight) * 100)));
+  if (scrollable <= 1) return;
+  for (const bucket of [25, 50, 75, 100]) {
+    if (percent >= bucket && !emittedBuckets.has(bucket)) {
+      emittedBuckets.add(bucket);
+      track({
+        eventType: "scroll_depth",
+        metadata: { scrollPercent: bucket },
+      });
+    }
   }
 }
 
@@ -138,6 +362,54 @@ function readOrCreateWindowStorageId(
   }
 }
 
+function readOrCreateVisitState(windowRef: globalThis.Window, now: number) {
+  try {
+    const raw = windowRef.localStorage.getItem(VISIT_STORAGE_KEY);
+    const existing = parseVisitState(raw);
+    if (existing && now - existing.lastActivityAt <= VISIT_TIMEOUT_MS) {
+      return existing;
+    }
+    const created = { id: createId(), lastActivityAt: now };
+    writeVisitState(windowRef, created);
+    return created;
+  } catch {
+    return null;
+  }
+}
+
+function updateVisitActivity(windowRef: globalThis.Window, id: string, now: number) {
+  writeVisitState(windowRef, { id, lastActivityAt: now });
+}
+
+function parseVisitState(raw: string | null) {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { id?: unknown; lastActivityAt?: unknown };
+    if (typeof parsed.id !== "string" || !/^[A-Za-z0-9_-]{8,96}$/.test(parsed.id)) return null;
+    if (typeof parsed.lastActivityAt !== "number" || !Number.isFinite(parsed.lastActivityAt)) return null;
+    return {
+      id: parsed.id,
+      lastActivityAt: parsed.lastActivityAt,
+    };
+  } catch {
+    if (/^[A-Za-z0-9_-]{8,96}$/.test(raw)) {
+      return { id: raw, lastActivityAt: 0 };
+    }
+    return null;
+  }
+}
+
+function writeVisitState(
+  windowRef: globalThis.Window,
+  state: { id: string; lastActivityAt: number },
+) {
+  try {
+    windowRef.localStorage.setItem(VISIT_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // Analytics must not affect the application when browser storage is unavailable.
+  }
+}
+
 function createId() {
   if (typeof globalThis.crypto !== "undefined" && typeof globalThis.crypto.randomUUID === "function") {
     return globalThis.crypto.randomUUID();
@@ -154,6 +426,90 @@ function createId() {
     }
   }
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function requestPath(input: RequestInfo | URL, origin: string) {
+  const raw = typeof input === "string"
+    ? input
+    : input instanceof URL
+      ? input.toString()
+      : input.url;
+  const parsed = safeUrl(raw, origin);
+  return parsed ? normalizePath(parsed.pathname) : "";
+}
+
+function isTrackedApiPath(path: string, analyticsEndpoint: string) {
+  const analyticsPath = normalizePath(analyticsEndpoint);
+  return path.startsWith("/api/") && path !== analyticsPath;
+}
+
+function safeUrl(value: string, base: string) {
+  try {
+    return new URL(value, base);
+  } catch {
+    return null;
+  }
+}
+
+function contentForPath(
+  path: string,
+  providedType?: AnonymousAnalyticsContentType,
+  providedId?: string | number | null,
+) {
+  const contentType = providedType ?? contentTypeForPath(path);
+  const contentId = providedId == null ? contentIdForPath(path, contentType) : sanitizeToken(String(providedId), 64);
+  return { contentType, contentId };
+}
+
+function contentTypeForPath(path: string): AnonymousAnalyticsContentType {
+  if (path === "/" || path === "/home") return "home";
+  if (path === "/verify" || path.startsWith("/verify/")) return "verify";
+  if (path === "/gallery" || path.startsWith("/gallery/")) return "gallery";
+  if (path === "/thought" || path.startsWith("/thought/")) return "thought";
+  if (path === "/pulse" || path.startsWith("/pulse/")) return "pulse";
+  if (path === "/path" || path.startsWith("/path/")) return "path";
+  return "unknown";
+}
+
+function contentIdForPath(path: string, contentType: AnonymousAnalyticsContentType) {
+  if (contentType !== "path" && contentType !== "thought" && contentType !== "gallery") return null;
+  const match = path.match(/\/(?:path|thought|gallery)\/([A-Za-z0-9_-]{1,64})(?:\/|$)/i);
+  return match ? sanitizeToken(match[1], 64) : null;
+}
+
+function normalizePath(value: unknown) {
+  const raw = typeof value === "string" ? value.trim() : "/";
+  if (!raw) return "/";
+  try {
+    const parsed = new URL(raw, "https://inshell.art");
+    return parsed.pathname.replace(/\/{2,}/g, "/").slice(0, 256) || "/";
+  } catch {
+    return "/";
+  }
+}
+
+function bucketDurationMs(value: number) {
+  const duration = Math.max(0, Math.min(600_000, Math.trunc(value)));
+  return DURATION_BUCKETS_MS.find((bucket) => duration <= bucket) ?? 600_000;
+}
+
+function categorizeError(error: unknown) {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error ?? "").toLowerCase();
+  if (message.includes("timeout")) return "timeout";
+  if (message.includes("network") || message.includes("fetch")) return "network";
+  if (message.includes("rpc")) return "rpc";
+  return "unknown";
+}
+
+function sanitizeToken(value: string, maxLength: number) {
+  return value.trim().replace(/[^A-Za-z0-9_.:/#-]+/g, "_").slice(0, maxLength);
+}
+
+function nowMs() {
+  if (typeof performance !== "undefined" && typeof performance.now === "function") {
+    return performance.now();
+  }
+  return Date.now();
 }
 
 function normalizeHostname(value: string | null | undefined) {

@@ -169,9 +169,14 @@ async function checkOpsStatus(base, label) {
     }
     if (
       payload?.routes?.analytics?.eventRoute !== "/api/analytics/event" ||
+      payload?.routes?.analytics?.visitorRoute !== "/api/analytics/visitors" ||
       payload?.anonymousAnalytics?.identity !== "anonymous-browser-session" ||
       payload?.anonymousAnalytics?.rawIpStored !== false ||
-      payload?.anonymousAnalytics?.rawUserAgentStored !== false
+      payload?.anonymousAnalytics?.rawUserAgentStored !== false ||
+      payload?.anonymousAnalytics?.rawVisitIdStored !== false ||
+      payload?.anonymousAnalytics?.rawWalletAddressStored !== false ||
+      payload?.anonymousAnalytics?.metadataAllowlist !== true ||
+      payload?.anonymousAnalytics?.visitTimeoutMinutes !== 30
     ) {
       throw new Error("expected anonymous analytics route contract and privacy flags");
     }
