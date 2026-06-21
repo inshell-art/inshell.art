@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from "@jest/globals";
 import { onRequestPost as onAnalyticsEventPost } from "../../../functions/api/analytics/event";
 import { onRequestGet as onAnalyticsSummaryGet } from "../../../functions/api/analytics/summary";
-import { readAnalyticsStatus } from "../../../functions/api/analytics/store";
+import {
+  analyticsHostScopeForHostname,
+  readAnalyticsStatus,
+} from "../../../functions/api/analytics/store";
 
 const originalCrypto = globalThis.crypto;
 const originalResponse = globalThis.Response;
@@ -70,11 +73,11 @@ function createAnalyticsD1Mock() {
           return event ? { event_id: event.event_id } : null;
         }
         if (/max\(received_at\)/i.test(query)) {
-          const last = [...events.values()].map((event) => event.received_at).sort().at(-1) ?? null;
+          const last = rowsForHostnames(bound.map(String)).map((event) => event.received_at).sort().at(-1) ?? null;
           return { lastEventAt: last };
         }
         if (/count\(\*\)\s+as\s+eventCount/i.test(query)) {
-          const rows = rowsSince(String(bound[0] ?? ""));
+          const rows = rowsSince(bound, String(bound[0] ?? ""));
           return {
             eventCount: rows.length,
             uniqueVisitors: new Set(rows.map((row) => row.visitor_hash)).size,
@@ -82,7 +85,7 @@ function createAnalyticsD1Mock() {
           };
         }
         if (/count\(\*\)\s+as\s+pageViews/i.test(query)) {
-          const rows = rowsSince(String(bound[0] ?? ""));
+          const rows = rowsSince(bound, String(bound[0] ?? ""));
           return {
             pageViews: rows.length,
             uniqueVisitors: new Set(rows.map((row) => row.visitor_hash)).size,
@@ -91,7 +94,7 @@ function createAnalyticsD1Mock() {
           };
         }
         if (/returningVisitors/i.test(query)) {
-          const rows = rowsSince(String(bound[0] ?? ""));
+          const rows = rowsSince(bound, String(bound[0] ?? ""));
           const byVisitor = new Map<string, Set<string>>();
           for (const row of rows) {
             if (!byVisitor.has(row.visitor_hash)) byVisitor.set(row.visitor_hash, new Set());
@@ -104,7 +107,7 @@ function createAnalyticsD1Mock() {
         return null;
       }),
       all: jest.fn(async () => {
-        const rows = rowsSince(String(bound[0] ?? ""));
+        const rows = rowsSince(bound, String(bound[0] ?? ""));
         const field = /group\s+by\s+surface/i.test(query)
           ? "surface"
           : /group\s+by\s+hostname/i.test(query)
@@ -154,8 +157,18 @@ function createAnalyticsD1Mock() {
     return statement;
   });
 
-  function rowsSince(since: string) {
-    return [...events.values()].filter((event) => event.received_at >= since);
+  function rowsSince(boundValues: unknown[], since: string) {
+    const hostnames = boundValues.slice(1).map(String);
+    return rowsForHostnames(hostnames).filter((event) => {
+      if (event.received_at < since) return false;
+      return true;
+    });
+  }
+
+  function rowsForHostnames(hostnames: string[]) {
+    return [...events.values()].filter((event) => (
+      hostnames.length === 0 || hostnames.includes(event.hostname)
+    ));
   }
 
   return {
@@ -265,6 +278,16 @@ describe("anonymous analytics Pages functions", () => {
   test("returns aggregate summary behind bearer auth", async () => {
     const d1 = createAnalyticsD1Mock();
     await onAnalyticsEventPost({
+      request: analyticsRequest(
+        "https://staging.inshell-art.pages.dev/api/analytics/event",
+        payload({
+          eventId: "event_staging_12345678",
+          path: "/preview-only",
+        }),
+      ),
+      env: { INSHELL_CHAIN_DATA_DB: d1.db },
+    });
+    await onAnalyticsEventPost({
       request: analyticsRequest("https://gallery.inshell.art/api/analytics/event", payload({ path: "/gallery" })),
       env: { INSHELL_CHAIN_DATA_DB: d1.db },
     });
@@ -287,6 +310,9 @@ describe("anonymous analytics Pages functions", () => {
         uniqueVisitors: 1,
         sessions: 1,
       },
+      hostScope: {
+        name: "production",
+      },
       paths: [{ path: "/gallery", pageViews: 1, uniqueVisitors: 1 }],
     });
   });
@@ -298,8 +324,14 @@ describe("anonymous analytics Pages functions", () => {
       env: { INSHELL_CHAIN_DATA_DB: d1.db },
     });
 
-    await expect(readAnalyticsStatus({ INSHELL_CHAIN_DATA_DB: d1.db })).resolves.toMatchObject({
+    await expect(
+      readAnalyticsStatus(
+        { INSHELL_CHAIN_DATA_DB: d1.db },
+        analyticsHostScopeForHostname("inshell.art"),
+      ),
+    ).resolves.toMatchObject({
       enabled: true,
+      hostScope: "production",
       dbBound: true,
       dbBinding: "INSHELL_CHAIN_DATA_DB",
       rawIpStored: false,

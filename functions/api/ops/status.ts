@@ -12,7 +12,7 @@ import {
   type ChainCacheEnv,
   type PagesContextLike,
 } from "../chain-cache";
-import { readAnalyticsStatus } from "../analytics/store";
+import { analyticsHostScopeForHostname, readAnalyticsStatus } from "../analytics/store";
 import { readIndexerEventStatus } from "../indexer/event-status";
 
 type EnvKey = keyof ChainCacheEnv;
@@ -81,7 +81,10 @@ export const onRequestOptions = onOptions;
 export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
   const url = new globalThis.URL(ctx.request.url);
   const eventStatus = await readIndexerEventStatus(ctx.env);
-  const analyticsStatus = await readAnalyticsStatus(ctx.env);
+  const analyticsStatus = await readAnalyticsStatus(
+    ctx.env,
+    analyticsHostScopeForHostname(url.hostname),
+  );
   const payload = {
     ok: true,
     contract: {

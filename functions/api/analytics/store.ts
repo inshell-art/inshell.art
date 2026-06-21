@@ -25,6 +25,8 @@ export type AnalyticsStatus = {
   route: string;
   summaryRoute: string;
   identity: "anonymous-browser-session";
+  hostScope: AnalyticsHostScope["name"];
+  countedHosts: string[];
   dbBound: boolean;
   dbBinding: "INSHELL_ANALYTICS_DB" | "INSHELL_CHAIN_DATA_DB" | null;
   rawIpStored: false;
@@ -40,6 +42,10 @@ export type AnalyticsStatus = {
 export type AnalyticsSummary = {
   ok: true;
   generatedAt: string;
+  hostScope: {
+    name: AnalyticsHostScope["name"];
+    hostnames: string[];
+  };
   window: {
     days: number;
     since: string;
@@ -68,6 +74,11 @@ export type AnalyticsSummary = {
   }>;
 };
 
+export type AnalyticsHostScope = {
+  name: "production" | "preview" | "staging" | "host";
+  hostnames: string[];
+};
+
 const EVENT_TABLE = "inshell_anon_analytics_events";
 const VISITOR_TABLE = "inshell_anon_analytics_visitors";
 const SESSION_TABLE = "inshell_anon_analytics_sessions";
@@ -78,17 +89,16 @@ const MAX_REFERRER_HOST_LENGTH = 120;
 const MAX_REFERRER_PATH_LENGTH = 256;
 const HASH_PREFIX = "inshell-anon-analytics:v1:";
 
+const PRODUCTION_HOSTS = ["inshell.art", "thought.inshell.art", "gallery.inshell.art"];
+const PREVIEW_HOSTS = ["preview.inshell.art", "thought.preview.inshell.art", "gallery.preview.inshell.art"];
+const STAGING_HOSTS = ["staging.inshell-art.pages.dev", "staging.thought-inshell-art.pages.dev"];
+
 const ALLOWED_HOSTS = new Set([
-  "inshell.art",
-  "thought.inshell.art",
-  "gallery.inshell.art",
-  "preview.inshell.art",
-  "thought.preview.inshell.art",
-  "gallery.preview.inshell.art",
+  ...PRODUCTION_HOSTS,
+  ...PREVIEW_HOSTS,
+  ...STAGING_HOSTS,
   "inshell-art.pages.dev",
   "thought-inshell-art.pages.dev",
-  "staging.inshell-art.pages.dev",
-  "staging.thought-inshell-art.pages.dev",
 ]);
 
 const ensuredTables = new WeakSet<object>();
@@ -141,6 +151,24 @@ export function isAnalyticsReadAuthorized(request: Request, env: ChainCacheEnv) 
   const bearer = auth.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
   const header = request.headers.get("x-inshell-analytics-token")?.trim();
   return bearer === expected || header === expected;
+}
+
+export function analyticsHostScopeForHostname(hostname: string): AnalyticsHostScope {
+  const normalized = normalizeHostname(hostname);
+  if (PRODUCTION_HOSTS.includes(normalized)) {
+    return { name: "production", hostnames: PRODUCTION_HOSTS };
+  }
+  if (PREVIEW_HOSTS.includes(normalized)) {
+    return { name: "preview", hostnames: PREVIEW_HOSTS };
+  }
+  if (
+    STAGING_HOSTS.includes(normalized) ||
+    normalized.startsWith("staging.") ||
+    normalized.includes("-staging.")
+  ) {
+    return { name: "staging", hostnames: STAGING_HOSTS };
+  }
+  return { name: "host", hostnames: [normalized] };
 }
 
 export async function readAnalyticsRequest(request: Request): Promise<AnalyticsEventPayload> {
@@ -259,13 +287,21 @@ export async function recordAnalyticsEvent(
   };
 }
 
-export async function readAnalyticsStatus(env: ChainCacheEnv): Promise<AnalyticsStatus> {
+export async function readAnalyticsStatus(
+  env: ChainCacheEnv,
+  hostScope: AnalyticsHostScope = {
+    name: "production",
+    hostnames: PRODUCTION_HOSTS,
+  },
+): Promise<AnalyticsStatus> {
   const { db, binding } = resolveAnalyticsDb(env);
   const base: AnalyticsStatus = {
     enabled: isAnalyticsEnabled(env),
     route: "/api/analytics/event",
     summaryRoute: "/api/analytics/summary",
     identity: "anonymous-browser-session",
+    hostScope: hostScope.name,
+    countedHosts: hostScope.hostnames,
     dbBound: Boolean(db),
     dbBinding: binding,
     rawIpStored: false,
@@ -280,16 +316,19 @@ export async function readAnalyticsStatus(env: ChainCacheEnv): Promise<Analytics
   if (!db) return base;
 
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const filter = hostFilter(hostScope, 1);
   try {
     const last = await db
-      .prepare(`SELECT MAX(received_at) AS lastEventAt FROM ${EVENT_TABLE}`)
+      .prepare(`SELECT MAX(received_at) AS lastEventAt FROM ${EVENT_TABLE} WHERE ${filter.sql}`)
+      .bind(...filter.values)
       .first<{ lastEventAt: string | null }>();
     const totals = await db
       .prepare(
         `SELECT COUNT(*) AS eventCount, COUNT(DISTINCT visitor_hash) AS uniqueVisitors, ` +
-          `COUNT(DISTINCT session_hash) AS sessions FROM ${EVENT_TABLE} WHERE received_at >= ?1`,
+          `COUNT(DISTINCT session_hash) AS sessions FROM ${EVENT_TABLE} WHERE received_at >= ?1 ` +
+          `AND ${hostFilter(hostScope, 2).sql}`,
       )
-      .bind(since)
+      .bind(since, ...hostScope.hostnames)
       .first<{ eventCount: number; uniqueVisitors: number; sessions: number }>();
     return {
       ...base,
@@ -309,7 +348,14 @@ export async function readAnalyticsStatus(env: ChainCacheEnv): Promise<Analytics
   }
 }
 
-export async function readAnalyticsSummary(env: ChainCacheEnv, days: number): Promise<AnalyticsSummary> {
+export async function readAnalyticsSummary(
+  env: ChainCacheEnv,
+  days: number,
+  hostScope: AnalyticsHostScope = {
+    name: "production",
+    hostnames: PRODUCTION_HOSTS,
+  },
+): Promise<AnalyticsSummary> {
   const { db } = resolveAnalyticsDb(env);
   if (!db) throw new Error("analytics D1 binding is not configured");
   const safeDays = Math.min(90, Math.max(1, Math.trunc(days || 7)));
@@ -319,9 +365,10 @@ export async function readAnalyticsSummary(env: ChainCacheEnv, days: number): Pr
     .prepare(
       `SELECT COUNT(*) AS pageViews, COUNT(DISTINCT visitor_hash) AS uniqueVisitors, ` +
         `COUNT(DISTINCT session_hash) AS sessions, SUM(automation) AS automationEvents ` +
-        `FROM ${EVENT_TABLE} WHERE event_type = 'pageview' AND received_at >= ?1`,
+        `FROM ${EVENT_TABLE} WHERE event_type = 'pageview' AND received_at >= ?1 ` +
+        `AND ${hostFilter(hostScope, 2).sql}`,
     )
-    .bind(since)
+    .bind(since, ...hostScope.hostnames)
     .first<{
       pageViews: number;
       uniqueVisitors: number;
@@ -332,15 +379,20 @@ export async function readAnalyticsSummary(env: ChainCacheEnv, days: number): Pr
     .prepare(
       `SELECT COUNT(*) AS returningVisitors FROM (` +
         `SELECT visitor_hash FROM ${EVENT_TABLE} WHERE event_type = 'pageview' AND received_at >= ?1 ` +
+        `AND ${hostFilter(hostScope, 2).sql} ` +
         `GROUP BY visitor_hash HAVING COUNT(DISTINCT session_hash) > 1` +
         `)`,
     )
-    .bind(since)
+    .bind(since, ...hostScope.hostnames)
     .first<{ returningVisitors: number }>();
 
   return {
     ok: true,
     generatedAt: new Date().toISOString(),
+    hostScope: {
+      name: hostScope.name,
+      hostnames: hostScope.hostnames,
+    },
     window: {
       days: safeDays,
       since,
@@ -352,14 +404,18 @@ export async function readAnalyticsSummary(env: ChainCacheEnv, days: number): Pr
       returningVisitors: Number(returning?.returningVisitors ?? 0),
       automationEvents: Number(totals?.automationEvents ?? 0),
     },
-    paths: await readPathRows(db, since),
-    surfaces: await readSurfaceRows(db, since),
-    hosts: await readHostRows(db, since),
+    paths: await readPathRows(db, since, hostScope),
+    surfaces: await readSurfaceRows(db, since, hostScope),
+    hosts: await readHostRows(db, since, hostScope),
   };
 }
 
-async function readPathRows(db: D1DatabaseLike, since: string): Promise<AnalyticsSummary["paths"]> {
-  const rows = await readGroupedRows(db, since, "path");
+async function readPathRows(
+  db: D1DatabaseLike,
+  since: string,
+  hostScope: AnalyticsHostScope,
+): Promise<AnalyticsSummary["paths"]> {
+  const rows = await readGroupedRows(db, since, hostScope, "path");
   return rows.map((row) => ({
     path: row.value,
     pageViews: row.pageViews,
@@ -370,8 +426,9 @@ async function readPathRows(db: D1DatabaseLike, since: string): Promise<Analytic
 async function readSurfaceRows(
   db: D1DatabaseLike,
   since: string,
+  hostScope: AnalyticsHostScope,
 ): Promise<AnalyticsSummary["surfaces"]> {
-  const rows = await readGroupedRows(db, since, "surface");
+  const rows = await readGroupedRows(db, since, hostScope, "surface");
   return rows.map((row) => ({
     surface: row.value,
     pageViews: row.pageViews,
@@ -379,8 +436,12 @@ async function readSurfaceRows(
   }));
 }
 
-async function readHostRows(db: D1DatabaseLike, since: string): Promise<AnalyticsSummary["hosts"]> {
-  const rows = await readGroupedRows(db, since, "hostname");
+async function readHostRows(
+  db: D1DatabaseLike,
+  since: string,
+  hostScope: AnalyticsHostScope,
+): Promise<AnalyticsSummary["hosts"]> {
+  const rows = await readGroupedRows(db, since, hostScope, "hostname");
   return rows.map((row) => ({
     hostname: row.value,
     pageViews: row.pageViews,
@@ -391,15 +452,17 @@ async function readHostRows(db: D1DatabaseLike, since: string): Promise<Analytic
 async function readGroupedRows(
   db: D1DatabaseLike,
   since: string,
+  hostScope: AnalyticsHostScope,
   field: "path" | "surface" | "hostname",
 ): Promise<Array<{ value: string; pageViews: number; uniqueVisitors: number }>> {
   const result = await db
     .prepare(
       `SELECT ${field} AS value, COUNT(*) AS pageViews, COUNT(DISTINCT visitor_hash) AS uniqueVisitors ` +
         `FROM ${EVENT_TABLE} WHERE event_type = 'pageview' AND received_at >= ?1 ` +
+        `AND ${hostFilter(hostScope, 2).sql} ` +
         `GROUP BY ${field} ORDER BY pageViews DESC, value ASC LIMIT 20`,
     )
-    .bind(since)
+    .bind(since, ...hostScope.hostnames)
     .all?.<{ value: string; pageViews: number; uniqueVisitors: number }>();
   return (result?.results ?? []).map((row) => ({
     value: row.value,
@@ -535,6 +598,13 @@ function surfaceForHost(hostname: string) {
   if (hostname.includes("gallery")) return "gallery";
   if (hostname.includes("thought")) return "thought";
   return "home";
+}
+
+function hostFilter(hostScope: AnalyticsHostScope, firstParamIndex: number) {
+  return {
+    sql: `hostname IN (${hostScope.hostnames.map((_, index) => `?${firstParamIndex + index}`).join(",")})`,
+    values: hostScope.hostnames,
+  };
 }
 
 async function hashIdentifier(value: string) {
