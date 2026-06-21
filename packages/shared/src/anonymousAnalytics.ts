@@ -52,7 +52,9 @@ type AnalyticsWindow = globalThis.Window & {
 
 const VISITOR_STORAGE_KEY = "inshell.analytics.visitor.v1";
 const SESSION_STORAGE_KEY = "inshell.analytics.session.v1";
+const VISIT_STORAGE_KEY = "inshell.analytics.visit.v1";
 const DEFAULT_ENDPOINT = "/api/analytics/event";
+const VISIT_TIMEOUT_MS = 30 * 60 * 1000;
 const DURATION_BUCKETS_MS = [5_000, 15_000, 30_000, 60_000, 120_000, 300_000, 600_000];
 
 const ALLOWED_HOSTS = new Set([
@@ -93,6 +95,8 @@ export function installInshellAnonymousAnalytics(options: AnonymousAnalyticsOpti
   let emittedScrollBuckets = new Set<number>();
 
   const track = (input: AnonymousAnalyticsTrackInput) => {
+    const visit = readOrCreateVisitState(windowRef, Date.now());
+    const visitId = visit?.id ?? sessionId;
     const path = normalizePath(input.path ?? locationRef.pathname);
     const content = contentForPath(path, input.contentType, input.contentId);
     sendAnalyticsEvent(endpoint, {
@@ -100,6 +104,7 @@ export function installInshellAnonymousAnalytics(options: AnonymousAnalyticsOpti
       eventId: createId(),
       visitorId,
       sessionId,
+      visitId,
       eventType: input.eventType,
       path,
       contentType: content.contentType,
@@ -114,7 +119,9 @@ export function installInshellAnonymousAnalytics(options: AnonymousAnalyticsOpti
       language: navigatorRef.language || "",
       automation: navigatorRef.webdriver === true,
       metadata: input.metadata ?? {},
-    }, navigatorRef);
+    }, navigatorRef, () => {
+      updateVisitActivity(windowRef, visitId, Date.now());
+    });
     return true;
   };
 
@@ -183,11 +190,13 @@ function sendAnalyticsEvent(
   endpoint: string,
   payload: Record<string, unknown>,
   navigatorRef: globalThis.Navigator,
+  onAccepted?: () => void,
 ) {
   const body = JSON.stringify(payload);
   if (typeof navigatorRef.sendBeacon === "function") {
     try {
       if (navigatorRef.sendBeacon(endpoint, new globalThis.Blob([body], { type: "application/json" }))) {
+        onAccepted?.();
         return;
       }
     } catch {
@@ -201,6 +210,8 @@ function sendAnalyticsEvent(
     },
     body,
     keepalive: true,
+  }).then((response) => {
+    if (response.ok) onAccepted?.();
   }).catch(() => undefined);
 }
 
@@ -348,6 +359,54 @@ function readOrCreateWindowStorageId(
     return created;
   } catch {
     return "";
+  }
+}
+
+function readOrCreateVisitState(windowRef: globalThis.Window, now: number) {
+  try {
+    const raw = windowRef.localStorage.getItem(VISIT_STORAGE_KEY);
+    const existing = parseVisitState(raw);
+    if (existing && now - existing.lastActivityAt <= VISIT_TIMEOUT_MS) {
+      return existing;
+    }
+    const created = { id: createId(), lastActivityAt: now };
+    writeVisitState(windowRef, created);
+    return created;
+  } catch {
+    return null;
+  }
+}
+
+function updateVisitActivity(windowRef: globalThis.Window, id: string, now: number) {
+  writeVisitState(windowRef, { id, lastActivityAt: now });
+}
+
+function parseVisitState(raw: string | null) {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { id?: unknown; lastActivityAt?: unknown };
+    if (typeof parsed.id !== "string" || !/^[A-Za-z0-9_-]{8,96}$/.test(parsed.id)) return null;
+    if (typeof parsed.lastActivityAt !== "number" || !Number.isFinite(parsed.lastActivityAt)) return null;
+    return {
+      id: parsed.id,
+      lastActivityAt: parsed.lastActivityAt,
+    };
+  } catch {
+    if (/^[A-Za-z0-9_-]{8,96}$/.test(raw)) {
+      return { id: raw, lastActivityAt: 0 };
+    }
+    return null;
+  }
+}
+
+function writeVisitState(
+  windowRef: globalThis.Window,
+  state: { id: string; lastActivityAt: number },
+) {
+  try {
+    windowRef.localStorage.setItem(VISIT_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // Analytics must not affect the application when browser storage is unavailable.
   }
 }
 

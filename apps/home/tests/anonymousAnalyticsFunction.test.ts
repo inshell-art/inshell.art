@@ -50,6 +50,7 @@ type AnalyticsRow = {
   event_type: string;
   visitor_hash: string;
   session_hash: string;
+  visit_hash: string | null;
   surface: string;
   hostname: string;
   path: string;
@@ -94,6 +95,7 @@ function createAnalyticsD1Mock() {
             eventCount: rows.length,
             uniqueVisitors: new Set(rows.map((row) => row.visitor_hash)).size,
             sessions: new Set(rows.map((row) => row.session_hash)).size,
+            visits: new Set(rows.map((row) => row.visit_hash ?? row.session_hash)).size,
           };
         }
         if (/count\(\*\)\s+as\s+pageViews/i.test(query)) {
@@ -102,6 +104,7 @@ function createAnalyticsD1Mock() {
             pageViews: rows.length,
             uniqueVisitors: new Set(rows.map((row) => row.visitor_hash)).size,
             sessions: new Set(rows.map((row) => row.session_hash)).size,
+            visits: new Set(rows.map((row) => row.visit_hash ?? row.session_hash)).size,
             automationEvents: rows.reduce((total, row) => total + row.automation, 0),
           };
         }
@@ -110,15 +113,42 @@ function createAnalyticsD1Mock() {
           const byVisitor = new Map<string, Set<string>>();
           for (const row of rows) {
             if (!byVisitor.has(row.visitor_hash)) byVisitor.set(row.visitor_hash, new Set());
-            byVisitor.get(row.visitor_hash)?.add(row.session_hash);
+            byVisitor.get(row.visitor_hash)?.add(row.visit_hash ?? row.session_hash);
           }
           return {
-            returningVisitors: [...byVisitor.values()].filter((sessionSet) => sessionSet.size > 1).length,
+            returningVisitors: [...byVisitor.values()].filter((visitSet) => visitSet.size > 1).length,
           };
         }
         return null;
       }),
       all: jest.fn(async () => {
+        if (/pragma\s+table_info/i.test(query)) {
+          return {
+            results: [
+              "event_id",
+              "event_type",
+              "visitor_hash",
+              "session_hash",
+              "visit_hash",
+              "surface",
+              "hostname",
+              "path",
+              "content_type",
+              "content_id",
+              "referrer_host",
+              "referrer_path",
+              "occurred_at",
+              "received_at",
+              "device_class",
+              "viewport_width",
+              "viewport_height",
+              "timezone_offset",
+              "language",
+              "automation",
+              "metadata_json",
+            ].map((name) => ({ name })),
+          };
+        }
         if (/where\s+visitor_hash\s*=\s*\?1/i.test(query)) {
           const visitorHash = String(bound[0] ?? "");
           const since = String(bound[1] ?? "");
@@ -130,6 +160,7 @@ function createAnalyticsD1Mock() {
               .map((event) => ({
                 eventType: event.event_type,
                 sessionHash: event.session_hash,
+                visitHash: event.visit_hash ?? event.session_hash,
                 surface: event.surface,
                 hostname: event.hostname,
                 path: event.path,
@@ -162,6 +193,7 @@ function createAnalyticsD1Mock() {
                 eventCount: visitorRows.length,
                 pageViews: visitorRows.filter((row) => row.event_type === "pageview").length,
                 sessions: new Set(visitorRows.map((row) => row.session_hash)).size,
+                visits: new Set(visitorRows.map((row) => row.visit_hash ?? row.session_hash)).size,
                 firstSeenAt: visitorRows.map((row) => row.received_at).sort()[0] ?? null,
                 lastSeenAt: visitorRows.map((row) => row.received_at).sort().at(-1) ?? null,
                 automationEvents: visitorRows.reduce((total, row) => total + row.automation, 0),
@@ -198,22 +230,23 @@ function createAnalyticsD1Mock() {
             event_type: String(bound[1]),
             visitor_hash: String(bound[2]),
             session_hash: String(bound[3]),
-            surface: String(bound[4]),
-            hostname: String(bound[5]),
-            path: String(bound[6]),
-            content_type: bound[7] == null ? null : String(bound[7]),
-            content_id: bound[8] == null ? null : String(bound[8]),
-            referrer_host: bound[9] == null ? null : String(bound[9]),
-            referrer_path: bound[10] == null ? null : String(bound[10]),
-            occurred_at: String(bound[11]),
-            received_at: String(bound[12]),
-            device_class: bound[13] == null ? null : String(bound[13]),
-            viewport_width: bound[14] == null ? null : Number(bound[14]),
-            viewport_height: bound[15] == null ? null : Number(bound[15]),
-            timezone_offset: bound[16] == null ? null : Number(bound[16]),
-            language: bound[17] == null ? null : String(bound[17]),
-            automation: Number(bound[18] ?? 0),
-            metadata_json: bound[19] == null ? null : String(bound[19]),
+            visit_hash: bound[4] == null ? null : String(bound[4]),
+            surface: String(bound[5]),
+            hostname: String(bound[6]),
+            path: String(bound[7]),
+            content_type: bound[8] == null ? null : String(bound[8]),
+            content_id: bound[9] == null ? null : String(bound[9]),
+            referrer_host: bound[10] == null ? null : String(bound[10]),
+            referrer_path: bound[11] == null ? null : String(bound[11]),
+            occurred_at: String(bound[12]),
+            received_at: String(bound[13]),
+            device_class: bound[14] == null ? null : String(bound[14]),
+            viewport_width: bound[15] == null ? null : Number(bound[15]),
+            viewport_height: bound[16] == null ? null : Number(bound[16]),
+            timezone_offset: bound[17] == null ? null : Number(bound[17]),
+            language: bound[18] == null ? null : String(bound[18]),
+            automation: Number(bound[19] ?? 0),
+            metadata_json: bound[20] == null ? null : String(bound[20]),
           });
         }
         if (/insert\s+into\s+inshell_anon_analytics_visitors/i.test(query)) {
@@ -267,6 +300,7 @@ function payload(overrides: Record<string, unknown> = {}) {
     eventId: "event_12345678",
     visitorId: "visitor_12345678",
     sessionId: "session_12345678",
+    visitId: "visit_12345678",
     eventType: "pageview",
     path: "/path/25?discard=yes",
     occurredAt: new Date().toISOString(),
@@ -292,8 +326,8 @@ describe("anonymous analytics Pages functions", () => {
               ? new Uint8Array(data)
               : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
             const out = new Uint8Array(32);
-            for (let index = 0; index < out.length; index += 1) {
-              out[index] = input[index % input.length] ^ index;
+            for (let index = 0; index < input.length; index += 1) {
+              out[index % out.length] = (out[index % out.length] + input[index] + index) % 256;
             }
             return out.buffer;
           },
@@ -331,6 +365,27 @@ describe("anonymous analytics Pages functions", () => {
     expect(event.surface).toBe("home");
     expect(event.visitor_hash).not.toBe("visitor_12345678");
     expect(event.session_hash).not.toBe("session_12345678");
+    expect(event.visit_hash).not.toBe("visit_12345678");
+    expect(event.visit_hash).toBeTruthy();
+  });
+
+  test("falls back to a hashed session id for legacy clients without visitId", async () => {
+    const d1 = createAnalyticsD1Mock();
+    const response = await onAnalyticsEventPost({
+      request: analyticsRequest(
+        "https://inshell.art/api/analytics/event",
+        payload({ eventId: "event_legacy_12345678", visitId: undefined }),
+      ),
+      env: { INSHELL_CHAIN_DATA_DB: d1.db },
+    });
+
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      stored: true,
+    });
+    const event = d1.events.get("event_legacy_12345678");
+    expect(event?.visit_hash).toBe(event?.session_hash);
+    expect(event?.visit_hash).not.toBe("session_12345678");
   });
 
   test("filters typed event metadata through a privacy allowlist", async () => {
@@ -416,6 +471,7 @@ describe("anonymous analytics Pages functions", () => {
         pageViews: 1,
         uniqueVisitors: 1,
         sessions: 1,
+        visits: 1,
       },
       hostScope: {
         name: "production",
@@ -474,7 +530,8 @@ describe("anonymous analytics Pages functions", () => {
         "https://inshell.art/api/analytics/event",
         payload({
           eventId: "event_return_12345678",
-          sessionId: "return_session_12345678",
+          sessionId: "session_12345678",
+          visitId: "visit_return_12345678",
           path: "/gallery",
         }),
       ),
@@ -511,7 +568,8 @@ describe("anonymous analytics Pages functions", () => {
           visitorRank: 1,
           eventCount: 4,
           pageViews: 2,
-          sessions: 2,
+          sessions: 1,
+          visitCount: 2,
           returning: true,
           source: {
             referrerHost: "example.com",
@@ -529,6 +587,11 @@ describe("anonymous analytics Pages functions", () => {
       "wallet_connect_failed",
       "pageview",
     ]);
+    expect(body.visitors[0].timeline.map((event: any) => event.visitRank)).toEqual([1, 1, 1, 2]);
+    expect(body.visitors[0].visits).toHaveLength(2);
+    expect(body.visitors[0].visits.map((visit: any) => visit.visitRank)).toEqual([1, 2]);
+    expect(body.visitors[0].visits.map((visit: any) => visit.eventCount)).toEqual([3, 1]);
+    expect(body.visitors[0].visits[1].source.firstPath).toBe("/gallery");
     expect(body.visitors[0].timeline[1].metadata).toEqual({ scrollPercent: 75 });
     expect(body.visitors[0].timeline[2].metadata).toEqual({
       walletKind: "injected",
@@ -538,6 +601,8 @@ describe("anonymous analytics Pages functions", () => {
     const serialized = JSON.stringify(body);
     expect(serialized).not.toContain("visitor_12345678");
     expect(serialized).not.toContain("session_12345678");
+    expect(serialized).not.toContain("visit_12345678");
+    expect(serialized).not.toContain("visit_return_12345678");
     expect(serialized).not.toContain("walletAddress");
     expect(serialized).not.toContain("private prompt");
     expect(serialized).not.toContain("staging-only");
@@ -562,12 +627,15 @@ describe("anonymous analytics Pages functions", () => {
       dbBinding: "INSHELL_CHAIN_DATA_DB",
       rawIpStored: false,
       rawUserAgentStored: false,
+      rawVisitIdStored: false,
       rawWalletAddressStored: false,
       metadataAllowlist: true,
+      visitTimeoutMinutes: 30,
       statusSource: "d1",
       eventCount24h: 1,
       uniqueVisitors24h: 1,
       sessions24h: 1,
+      visits24h: 1,
     });
   });
 });

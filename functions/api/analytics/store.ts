@@ -7,6 +7,7 @@ type AnalyticsEventPayload = {
   eventId?: unknown;
   visitorId?: unknown;
   sessionId?: unknown;
+  visitId?: unknown;
   eventType?: unknown;
   path?: unknown;
   contentType?: unknown;
@@ -54,6 +55,46 @@ const ANALYTICS_CONTENT_TYPES = [
 type AnalyticsContentType = typeof ANALYTICS_CONTENT_TYPES[number];
 type AnalyticsMetadata = Record<string, string | number | boolean | null>;
 
+type AnalyticsVisitorTimelineEvent = {
+  eventType: AnalyticsEventType;
+  occurredAt: string;
+  receivedAt: string;
+  sessionRank: number;
+  visitRank: number;
+  surface: string;
+  hostname: string;
+  path: string;
+  contentType: AnalyticsContentType;
+  contentId: string | null;
+  referrerHost: string | null;
+  referrerPath: string | null;
+  deviceClass: string | null;
+  viewportWidth: number | null;
+  viewportHeight: number | null;
+  timezoneOffset: number | null;
+  language: string | null;
+  automation: boolean;
+  metadata: AnalyticsMetadata;
+};
+
+type AnalyticsVisitorSource = {
+  referrerHost: string | null;
+  referrerPath: string | null;
+  firstPath: string | null;
+  firstContentType: AnalyticsContentType | null;
+  firstContentId: string | null;
+};
+
+type AnalyticsVisitorVisit = {
+  visitRank: number;
+  firstSeenAt: string | null;
+  lastSeenAt: string | null;
+  eventCount: number;
+  pageViews: number;
+  source: AnalyticsVisitorSource;
+  timeline: AnalyticsVisitorTimelineEvent[];
+};
+
 export type AnalyticsStatus = {
   enabled: boolean;
   route: string;
@@ -66,9 +107,11 @@ export type AnalyticsStatus = {
   dbBinding: "INSHELL_ANALYTICS_DB" | "INSHELL_CHAIN_DATA_DB" | null;
   rawIpStored: false;
   rawUserAgentStored: false;
+  rawVisitIdStored: false;
   rawWalletAddressStored: false;
   rawMetadataStored: false;
   metadataAllowlist: true;
+  visitTimeoutMinutes: 30;
   supportedEventTypes: AnalyticsEventType[];
   statusSource: "d1" | "empty" | "unavailable" | "error";
   statusError: string | null;
@@ -76,6 +119,7 @@ export type AnalyticsStatus = {
   eventCount24h: number;
   uniqueVisitors24h: number;
   sessions24h: number;
+  visits24h: number;
 };
 
 export type AnalyticsSummary = {
@@ -93,6 +137,7 @@ export type AnalyticsSummary = {
     pageViews: number;
     uniqueVisitors: number;
     sessions: number;
+    visits: number;
     returningVisitors: number;
     automationEvents: number;
   };
@@ -131,35 +176,12 @@ export type AnalyticsVisitors = {
     eventCount: number;
     pageViews: number;
     sessions: number;
+    visitCount: number;
     returning: boolean;
     automationEvents: number;
-    source: {
-      referrerHost: string | null;
-      referrerPath: string | null;
-      firstPath: string | null;
-      firstContentType: AnalyticsContentType | null;
-      firstContentId: string | null;
-    };
-    timeline: Array<{
-      eventType: AnalyticsEventType;
-      occurredAt: string;
-      receivedAt: string;
-      sessionRank: number;
-      surface: string;
-      hostname: string;
-      path: string;
-      contentType: AnalyticsContentType;
-      contentId: string | null;
-      referrerHost: string | null;
-      referrerPath: string | null;
-      deviceClass: string | null;
-      viewportWidth: number | null;
-      viewportHeight: number | null;
-      timezoneOffset: number | null;
-      language: string | null;
-      automation: boolean;
-      metadata: AnalyticsMetadata;
-    }>;
+    source: AnalyticsVisitorSource;
+    visits: AnalyticsVisitorVisit[];
+    timeline: AnalyticsVisitorTimelineEvent[];
   }>;
 };
 
@@ -179,6 +201,7 @@ const MAX_REFERRER_HOST_LENGTH = 120;
 const MAX_REFERRER_PATH_LENGTH = 256;
 const MAX_METADATA_JSON_LENGTH = 1024;
 const HASH_PREFIX = "inshell-anon-analytics:v1:";
+const VISIT_TIMEOUT_MINUTES = 30;
 const EVENT_TYPE_SET = new Set<string>(ANALYTICS_EVENT_TYPES);
 const CONTENT_TYPE_SET = new Set<string>(ANALYTICS_CONTENT_TYPES);
 const DURATION_BUCKETS_MS = [5_000, 15_000, 30_000, 60_000, 120_000, 300_000, 600_000];
@@ -325,20 +348,22 @@ export async function recordAnalyticsEvent(
 
   const visitorHash = await hashIdentifier(normalized.visitorId);
   const sessionHash = await hashIdentifier(normalized.sessionId);
+  const visitHash = await hashIdentifier(normalized.visitId);
   const receivedAt = new Date().toISOString();
 
   await db
     .prepare(
       `INSERT INTO ${EVENT_TABLE} (` +
-        "event_id,event_type,visitor_hash,session_hash,surface,hostname,path,content_type,content_id,referrer_host,referrer_path," +
+        "event_id,event_type,visitor_hash,session_hash,visit_hash,surface,hostname,path,content_type,content_id,referrer_host,referrer_path," +
         "occurred_at,received_at,device_class,viewport_width,viewport_height,timezone_offset,language,automation" +
-        ",metadata_json) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20)",
+        ",metadata_json) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21)",
     )
     .bind(
       normalized.eventId,
       normalized.eventType,
       visitorHash,
       sessionHash,
+      visitHash,
       normalized.surface,
       hostname,
       normalized.path,
@@ -405,9 +430,11 @@ export async function readAnalyticsStatus(
     dbBinding: binding,
     rawIpStored: false,
     rawUserAgentStored: false,
+    rawVisitIdStored: false,
     rawWalletAddressStored: false,
     rawMetadataStored: false,
     metadataAllowlist: true,
+    visitTimeoutMinutes: VISIT_TIMEOUT_MINUTES,
     supportedEventTypes: [...ANALYTICS_EVENT_TYPES],
     statusSource: db ? "empty" : "unavailable",
     statusError: null,
@@ -415,12 +442,14 @@ export async function readAnalyticsStatus(
     eventCount24h: 0,
     uniqueVisitors24h: 0,
     sessions24h: 0,
+    visits24h: 0,
   };
   if (!db) return base;
 
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const filter = hostFilter(hostScope, 1);
   try {
+    const visitHashSql = await visitHashExpression(db);
     const last = await db
       .prepare(`SELECT MAX(received_at) AS lastEventAt FROM ${EVENT_TABLE} WHERE ${filter.sql}`)
       .bind(...filter.values)
@@ -428,11 +457,12 @@ export async function readAnalyticsStatus(
     const totals = await db
       .prepare(
         `SELECT COUNT(*) AS eventCount, COUNT(DISTINCT visitor_hash) AS uniqueVisitors, ` +
-          `COUNT(DISTINCT session_hash) AS sessions FROM ${EVENT_TABLE} WHERE received_at >= ?1 ` +
+          `COUNT(DISTINCT session_hash) AS sessions, COUNT(DISTINCT ${visitHashSql}) AS visits ` +
+          `FROM ${EVENT_TABLE} WHERE received_at >= ?1 ` +
           `AND ${hostFilter(hostScope, 2).sql}`,
       )
       .bind(since, ...hostScope.hostnames)
-      .first<{ eventCount: number; uniqueVisitors: number; sessions: number }>();
+      .first<{ eventCount: number; uniqueVisitors: number; sessions: number; visits: number }>();
     return {
       ...base,
       statusSource: last?.lastEventAt ? "d1" : "empty",
@@ -440,6 +470,7 @@ export async function readAnalyticsStatus(
       eventCount24h: Number(totals?.eventCount ?? 0),
       uniqueVisitors24h: Number(totals?.uniqueVisitors ?? 0),
       sessions24h: Number(totals?.sessions ?? 0),
+      visits24h: Number(totals?.visits ?? 0),
     };
   } catch (error) {
     if (isMissingAnalyticsTableError(error)) return base;
@@ -463,11 +494,13 @@ export async function readAnalyticsSummary(
   if (!db) throw new Error("analytics D1 binding is not configured");
   const safeDays = Math.min(90, Math.max(1, Math.trunc(days || 7)));
   const since = new Date(Date.now() - safeDays * 24 * 60 * 60 * 1000).toISOString();
+  const visitHashSql = await visitHashExpression(db);
 
   const totals = await db
     .prepare(
       `SELECT COUNT(*) AS pageViews, COUNT(DISTINCT visitor_hash) AS uniqueVisitors, ` +
-        `COUNT(DISTINCT session_hash) AS sessions, SUM(automation) AS automationEvents ` +
+        `COUNT(DISTINCT session_hash) AS sessions, COUNT(DISTINCT ${visitHashSql}) AS visits, ` +
+        `SUM(automation) AS automationEvents ` +
         `FROM ${EVENT_TABLE} WHERE event_type = 'pageview' AND received_at >= ?1 ` +
         `AND ${hostFilter(hostScope, 2).sql}`,
     )
@@ -476,6 +509,7 @@ export async function readAnalyticsSummary(
       pageViews: number;
       uniqueVisitors: number;
       sessions: number;
+      visits: number;
       automationEvents: number | null;
     }>();
   const returning = await db
@@ -483,7 +517,7 @@ export async function readAnalyticsSummary(
       `SELECT COUNT(*) AS returningVisitors FROM (` +
         `SELECT visitor_hash FROM ${EVENT_TABLE} WHERE event_type = 'pageview' AND received_at >= ?1 ` +
         `AND ${hostFilter(hostScope, 2).sql} ` +
-        `GROUP BY visitor_hash HAVING COUNT(DISTINCT session_hash) > 1` +
+        `GROUP BY visitor_hash HAVING COUNT(DISTINCT ${visitHashSql}) > 1` +
         `)`,
     )
     .bind(since, ...hostScope.hostnames)
@@ -504,6 +538,7 @@ export async function readAnalyticsSummary(
       pageViews: Number(totals?.pageViews ?? 0),
       uniqueVisitors: Number(totals?.uniqueVisitors ?? 0),
       sessions: Number(totals?.sessions ?? 0),
+      visits: Number(totals?.visits ?? 0),
       returningVisitors: Number(returning?.returningVisitors ?? 0),
       automationEvents: Number(totals?.automationEvents ?? 0),
     },
@@ -532,11 +567,13 @@ export async function readAnalyticsVisitors(
   const visitorLimit = rank ?? 10;
   const filter = hostFilter(hostScope, 2);
   const limitParam = 2 + filter.values.length;
+  const visitHashSql = await visitHashExpression(db);
   const visitorResult = await db
     .prepare(
       `SELECT visitor_hash AS visitorHash,COUNT(*) AS eventCount,` +
         `SUM(CASE WHEN event_type = 'pageview' THEN 1 ELSE 0 END) AS pageViews,` +
-        `COUNT(DISTINCT session_hash) AS sessions,MIN(received_at) AS firstSeenAt,` +
+        `COUNT(DISTINCT session_hash) AS sessions,COUNT(DISTINCT ${visitHashSql}) AS visits,` +
+        `MIN(received_at) AS firstSeenAt,` +
         `MAX(received_at) AS lastSeenAt,SUM(automation) AS automationEvents ` +
         `FROM ${EVENT_TABLE} WHERE received_at >= ?1 AND ${filter.sql} ` +
         `GROUP BY visitor_hash ORDER BY eventCount DESC,lastSeenAt DESC LIMIT ?${limitParam}`,
@@ -547,6 +584,7 @@ export async function readAnalyticsVisitors(
       eventCount: number;
       pageViews: number | null;
       sessions: number;
+      visits: number;
       firstSeenAt: string | null;
       lastSeenAt: string | null;
       automationEvents: number | null;
@@ -569,8 +607,8 @@ export async function readAnalyticsVisitors(
     },
     visitors: await Promise.all(
       selectedVisitors.map(async (visitor) => {
-        const timeline = await readVisitorTimeline(db, visitor.visitorHash, since, hostScope);
-        const firstContent = timeline.find((event) => event.eventType === "pageview") ?? timeline[0] ?? null;
+        const timeline = await readVisitorTimeline(db, visitor.visitorHash, since, hostScope, visitHashSql);
+        const visitCount = Number(visitor.visits ?? 0);
         return {
           visitorRank: visitor.rank,
           firstSeenAt: visitor.firstSeenAt ?? null,
@@ -578,15 +616,11 @@ export async function readAnalyticsVisitors(
           eventCount: Number(visitor.eventCount ?? 0),
           pageViews: Number(visitor.pageViews ?? 0),
           sessions: Number(visitor.sessions ?? 0),
-          returning: Number(visitor.sessions ?? 0) > 1,
+          visitCount,
+          returning: visitCount > 1,
           automationEvents: Number(visitor.automationEvents ?? 0),
-          source: {
-            referrerHost: firstContent?.referrerHost ?? null,
-            referrerPath: firstContent?.referrerPath ?? null,
-            firstPath: firstContent?.path ?? null,
-            firstContentType: firstContent?.contentType ?? null,
-            firstContentId: firstContent?.contentId ?? null,
-          },
+          source: sourceForTimeline(timeline),
+          visits: groupTimelineByVisit(timeline),
           timeline,
         };
       }),
@@ -660,12 +694,13 @@ async function readVisitorTimeline(
   visitorHash: string,
   since: string,
   hostScope: AnalyticsHostScope,
+  visitHashSql: string,
 ): Promise<AnalyticsVisitors["visitors"][number]["timeline"]> {
   const filter = hostFilter(hostScope, 3);
   const limitParam = 3 + filter.values.length;
   const result = await db
     .prepare(
-      `SELECT event_type AS eventType,session_hash AS sessionHash,surface,hostname,path,` +
+      `SELECT event_type AS eventType,session_hash AS sessionHash,${visitHashSql} AS visitHash,surface,hostname,path,` +
         `content_type AS contentType,content_id AS contentId,referrer_host AS referrerHost,` +
         `referrer_path AS referrerPath,occurred_at AS occurredAt,received_at AS receivedAt,` +
         `device_class AS deviceClass,viewport_width AS viewportWidth,viewport_height AS viewportHeight,` +
@@ -677,6 +712,7 @@ async function readVisitorTimeline(
     .all?.<{
       eventType: AnalyticsEventType;
       sessionHash: string;
+      visitHash: string;
       surface: string;
       hostname: string;
       path: string;
@@ -695,16 +731,22 @@ async function readVisitorTimeline(
       metadataJson: string | null;
     }>();
   const sessionRanks = new Map<string, number>();
+  const visitRanks = new Map<string, number>();
   return (result?.results ?? []).map((row) => {
     const sessionHashValue = String(row.sessionHash ?? "");
     if (!sessionRanks.has(sessionHashValue)) {
       sessionRanks.set(sessionHashValue, sessionRanks.size + 1);
+    }
+    const visitHashValue = String(row.visitHash ?? sessionHashValue);
+    if (!visitRanks.has(visitHashValue)) {
+      visitRanks.set(visitHashValue, visitRanks.size + 1);
     }
     return {
       eventType: EVENT_TYPE_SET.has(row.eventType) ? row.eventType : "pageview",
       occurredAt: row.occurredAt,
       receivedAt: row.receivedAt,
       sessionRank: sessionRanks.get(sessionHashValue) ?? 1,
+      visitRank: visitRanks.get(visitHashValue) ?? 1,
       surface: row.surface,
       hostname: row.hostname,
       path: row.path,
@@ -723,11 +765,43 @@ async function readVisitorTimeline(
   });
 }
 
+function sourceForTimeline(timeline: AnalyticsVisitorTimelineEvent[]): AnalyticsVisitorSource {
+  const firstContent = timeline.find((event) => event.eventType === "pageview") ?? timeline[0] ?? null;
+  return {
+    referrerHost: firstContent?.referrerHost ?? null,
+    referrerPath: firstContent?.referrerPath ?? null,
+    firstPath: firstContent?.path ?? null,
+    firstContentType: firstContent?.contentType ?? null,
+    firstContentId: firstContent?.contentId ?? null,
+  };
+}
+
+function groupTimelineByVisit(timeline: AnalyticsVisitorTimelineEvent[]): AnalyticsVisitorVisit[] {
+  const grouped = new Map<number, AnalyticsVisitorTimelineEvent[]>();
+  for (const event of timeline) {
+    grouped.set(event.visitRank, [...(grouped.get(event.visitRank) ?? []), event]);
+  }
+  return [...grouped.entries()]
+    .sort(([left], [right]) => left - right)
+    .map(([visitRank, events]) => {
+      const pageViews = events.filter((event) => event.eventType === "pageview").length;
+      return {
+        visitRank,
+        firstSeenAt: events[0]?.receivedAt ?? null,
+        lastSeenAt: events.at(-1)?.receivedAt ?? null,
+        eventCount: events.length,
+        pageViews,
+        source: sourceForTimeline(events),
+        timeline: events,
+      };
+    });
+}
+
 async function ensureAnalyticsTables(db: D1DatabaseLike) {
   if (ensuredTables.has(db as object)) return;
   for (const query of [
     `CREATE TABLE IF NOT EXISTS ${EVENT_TABLE} (` +
-      "event_id TEXT PRIMARY KEY,event_type TEXT NOT NULL,visitor_hash TEXT NOT NULL,session_hash TEXT NOT NULL," +
+      "event_id TEXT PRIMARY KEY,event_type TEXT NOT NULL,visitor_hash TEXT NOT NULL,session_hash TEXT NOT NULL,visit_hash TEXT," +
       "surface TEXT NOT NULL,hostname TEXT NOT NULL,path TEXT NOT NULL,content_type TEXT,content_id TEXT," +
       "referrer_host TEXT,referrer_path TEXT," +
       "occurred_at TEXT NOT NULL,received_at TEXT NOT NULL,device_class TEXT,viewport_width INTEGER,viewport_height INTEGER," +
@@ -749,6 +823,7 @@ async function ensureAnalyticsTables(db: D1DatabaseLike) {
     `ALTER TABLE ${EVENT_TABLE} ADD COLUMN content_type TEXT`,
     `ALTER TABLE ${EVENT_TABLE} ADD COLUMN content_id TEXT`,
     `ALTER TABLE ${EVENT_TABLE} ADD COLUMN metadata_json TEXT`,
+    `ALTER TABLE ${EVENT_TABLE} ADD COLUMN visit_hash TEXT`,
   ]) {
     try {
       await db.prepare(query).run();
@@ -759,6 +834,9 @@ async function ensureAnalyticsTables(db: D1DatabaseLike) {
   await db
     .prepare(`CREATE INDEX IF NOT EXISTS idx_${EVENT_TABLE}_content ON ${EVENT_TABLE} (content_type, content_id, received_at)`)
     .run();
+  await db
+    .prepare(`CREATE INDEX IF NOT EXISTS idx_${EVENT_TABLE}_visit ON ${EVENT_TABLE} (visitor_hash, visit_hash, received_at)`)
+    .run();
   ensuredTables.add(db as object);
 }
 
@@ -767,6 +845,7 @@ function normalizeAnalyticsEvent(payload: AnalyticsEventPayload, hostname: strin
   const eventId = normalizedId(payload.eventId, "eventId");
   const visitorId = normalizedId(payload.visitorId, "visitorId");
   const sessionId = normalizedId(payload.sessionId, "sessionId");
+  const visitId = normalizedOptionalId(payload.visitId, "visitId") ?? sessionId;
   const eventType = normalizeEventType(payload.eventType);
   const path = normalizePath(payload.path);
   const contentType = normalizeContentType(payload.contentType, path);
@@ -776,6 +855,7 @@ function normalizeAnalyticsEvent(payload: AnalyticsEventPayload, hostname: strin
     eventId,
     visitorId,
     sessionId,
+    visitId,
     eventType,
     surface: surfaceForHost(hostname),
     hostname,
@@ -808,6 +888,11 @@ function normalizedId(value: unknown, label: string) {
     throw new AnalyticsInputError(`${label} is invalid`);
   }
   return trimmed;
+}
+
+function normalizedOptionalId(value: unknown, label: string) {
+  if (value == null) return null;
+  return normalizedId(value, label);
 }
 
 function normalizePath(value: unknown) {
@@ -1051,6 +1136,23 @@ function hostFilter(hostScope: AnalyticsHostScope, firstParamIndex: number) {
     sql: `hostname IN (${hostScope.hostnames.map((_, index) => `?${firstParamIndex + index}`).join(",")})`,
     values: hostScope.hostnames,
   };
+}
+
+async function visitHashExpression(db: D1DatabaseLike) {
+  return await analyticsEventColumnExists(db, "visit_hash")
+    ? "COALESCE(visit_hash, session_hash)"
+    : "session_hash";
+}
+
+async function analyticsEventColumnExists(db: D1DatabaseLike, columnName: string) {
+  try {
+    const result = await db
+      .prepare(`PRAGMA table_info(${EVENT_TABLE})`)
+      .all?.<{ name: string }>();
+    return (result?.results ?? []).some((row) => row.name === columnName);
+  } catch {
+    return false;
+  }
 }
 
 async function hashIdentifier(value: string) {

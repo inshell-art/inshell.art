@@ -59,8 +59,10 @@ const ROUTES = {
     privacy: {
       rawIpStored: false,
       rawUserAgentStored: false,
+      rawVisitIdStored: false,
       rawWalletAddressStored: false,
       metadataAllowlist: true,
+      visitTimeoutMinutes: 30,
     },
   },
   publicFeed: [
