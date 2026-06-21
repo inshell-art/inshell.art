@@ -37,6 +37,7 @@ import {
   maybeInstallCloudflareWebAnalytics,
   resolveWalletChainRpcUrls,
   shouldShowPreviewWatermark,
+  trackInshellAnonymousAnalytics,
   type PublicLaunchMode,
 } from "@inshell/shared";
 import thoughtInstructions from "../THOUGHT.md?raw";
@@ -1629,6 +1630,56 @@ let mintSheetPrimaryAction: MintSheetAction = "none";
 let mintSheetSecondaryAction: MintSheetAction = "none";
 let mintSheetTertiaryAction: MintSheetAction = "none";
 let lastMintSheetFocusRefreshAt = 0;
+
+type ThoughtAnalyticsEventType =
+  | "wallet_connect_started"
+  | "wallet_connect_succeeded"
+  | "wallet_connect_failed"
+  | "mint_started"
+  | "mint_succeeded"
+  | "mint_failed";
+
+const trackThoughtAnalytics = (
+  eventType: ThoughtAnalyticsEventType,
+  metadata: Record<string, unknown>,
+) => {
+  trackInshellAnonymousAnalytics({
+    eventType,
+    contentType: "thought",
+    metadata,
+  });
+};
+
+const thoughtAnalyticsErrorCategory = (error: unknown) => {
+  const message = String(
+    (error as { shortMessage?: unknown; message?: unknown })?.shortMessage ??
+      (error as Error)?.message ??
+      error ??
+      "",
+  ).toLowerCase();
+  const code = Number((error as { code?: unknown })?.code);
+  if (
+    code === 4001 ||
+    message.includes("rejected") ||
+    message.includes("denied") ||
+    message.includes("cancel")
+  ) return "wallet_rejected";
+  if (
+    code === -32002 ||
+    message.includes("already processing") ||
+    message.includes("already pending")
+  ) return "wallet_busy";
+  if (message.includes("wallet did not expose") || message.includes("no supported wallet")) {
+    return "wallet_missing";
+  }
+  if (message.includes("not submitted") || message.includes("timed out") || message.includes("timeout")) {
+    return "timeout";
+  }
+  if (message.includes("rpc") || message.includes("eth_sendrawtransaction")) return "rpc";
+  if (message.includes("network") || message.includes("fetch")) return "network";
+  return "unknown";
+};
+
 const cliEntries: CliEntry[] = [];
 const cliCommandHistory: string[] = [];
 let cliCommandInFlight = false;
@@ -4676,8 +4727,17 @@ const bindWalletProviderEvents = () => {
 };
 
 const requestWalletConnect = async () => {
+  trackThoughtAnalytics("wallet_connect_started", {
+    walletKind: "injected",
+    walletStage: "request_accounts",
+  });
   const ethereum = getEthereumProvider();
   if (!ethereum) {
+    trackThoughtAnalytics("wallet_connect_failed", {
+      walletKind: "injected",
+      walletStage: "request_accounts",
+      errorCategory: "wallet_missing",
+    });
     setWarning("No supported wallet found.", { level: "warn" });
     setStatus("");
     return;
@@ -4722,7 +4782,16 @@ const requestWalletConnect = async () => {
 
     syncInterface();
     setStatus("wallet connected.", { flashMs: NOTICE_FLASH_MS });
+    trackThoughtAnalytics("wallet_connect_succeeded", {
+      walletKind: "injected",
+      walletStage: "connected",
+    });
   } catch (error) {
+    trackThoughtAnalytics("wallet_connect_failed", {
+      walletKind: "injected",
+      walletStage: "request_accounts",
+      errorCategory: thoughtAnalyticsErrorCategory(error),
+    });
     const message = error instanceof Error ? error.message : "wallet connect failed.";
     setWarning(message);
     setStatus("");
@@ -5265,6 +5334,9 @@ const waitForMintReceipt = async (tx: MintTransactionResponse, shouldAppendCliRe
     clearThoughtGalleryCache();
     await refreshMintPreflight();
     syncInterface();
+    trackThoughtAnalytics("mint_succeeded", {
+      mintStage: "confirmed",
+    });
 
     if (shouldAppendCliResult) {
       const consumedPathId = selectedCliPathId();
@@ -5289,6 +5361,10 @@ const waitForMintReceipt = async (tx: MintTransactionResponse, shouldAppendCliRe
     );
     syncInterface();
     setStatus("");
+    trackThoughtAnalytics("mint_failed", {
+      mintStage: "confirmation",
+      errorCategory: thoughtAnalyticsErrorCategory(error),
+    });
 
     if (shouldAppendCliResult) {
       appendCliError([message, "use: current"]);
@@ -5329,11 +5405,18 @@ const registerSubmittedMintTx = async (
   walletState.txHash = tx.hash;
   mintFlowData.txHash = tx.hash;
   setStatus("");
+  trackThoughtAnalytics("mint_started", {
+    mintStage: "submitted",
+  });
 
   if (nonceGap) {
     const message = `transaction queued with nonce ${nonceGap.actual}; chain expects ${nonceGap.expected}.`;
     setMintFlowError(message, "mint");
     syncInterface();
+    trackThoughtAnalytics("mint_failed", {
+      mintStage: "submitted",
+      errorCategory: "rpc",
+    });
 
     if (shouldAppendCliResult) {
       appendCliError([
@@ -5404,10 +5487,17 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
   if (mintFlowData.deadline <= BigInt(Math.floor(Date.now() / 1000))) {
     setMintFlowError("authorization expired.", "signature");
     syncInterface();
+    trackThoughtAnalytics("mint_failed", {
+      mintStage: "signature",
+      errorCategory: "timeout",
+    });
     return;
   }
 
   let txTimedOut = false;
+  trackThoughtAnalytics("mint_started", {
+    mintStage: "wallet_signature",
+  });
 
   try {
     await refreshWalletChainRpc();
@@ -5470,6 +5560,10 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
     setMintFlowError(message, message.includes("expired") ? "signature" : "mint");
     syncInterface();
     setStatus("");
+    trackThoughtAnalytics("mint_failed", {
+      mintStage: txTimedOut ? "wallet_signature" : "transaction",
+      errorCategory: thoughtAnalyticsErrorCategory(error),
+    });
     return null;
   }
 };

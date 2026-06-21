@@ -9,6 +9,8 @@ type AnalyticsEventPayload = {
   sessionId?: unknown;
   eventType?: unknown;
   path?: unknown;
+  contentType?: unknown;
+  contentId?: unknown;
   title?: unknown;
   referrer?: unknown;
   occurredAt?: unknown;
@@ -18,12 +20,45 @@ type AnalyticsEventPayload = {
   timezoneOffset?: unknown;
   language?: unknown;
   automation?: unknown;
+  metadata?: unknown;
 };
+
+const ANALYTICS_EVENT_TYPES = [
+  "pageview",
+  "page_visible_duration",
+  "scroll_depth",
+  "cta_click",
+  "wallet_connect_started",
+  "wallet_connect_succeeded",
+  "wallet_connect_failed",
+  "mint_started",
+  "mint_succeeded",
+  "mint_failed",
+  "api_error",
+  "frontend_error",
+  "external_link_click",
+] as const;
+
+type AnalyticsEventType = typeof ANALYTICS_EVENT_TYPES[number];
+
+const ANALYTICS_CONTENT_TYPES = [
+  "home",
+  "path",
+  "thought",
+  "gallery",
+  "pulse",
+  "verify",
+  "unknown",
+] as const;
+
+type AnalyticsContentType = typeof ANALYTICS_CONTENT_TYPES[number];
+type AnalyticsMetadata = Record<string, string | number | boolean | null>;
 
 export type AnalyticsStatus = {
   enabled: boolean;
   route: string;
   summaryRoute: string;
+  visitorRoute: string;
   identity: "anonymous-browser-session";
   hostScope: AnalyticsHostScope["name"];
   countedHosts: string[];
@@ -31,6 +66,10 @@ export type AnalyticsStatus = {
   dbBinding: "INSHELL_ANALYTICS_DB" | "INSHELL_CHAIN_DATA_DB" | null;
   rawIpStored: false;
   rawUserAgentStored: false;
+  rawWalletAddressStored: false;
+  rawMetadataStored: false;
+  metadataAllowlist: true;
+  supportedEventTypes: AnalyticsEventType[];
   statusSource: "d1" | "empty" | "unavailable" | "error";
   statusError: string | null;
   lastEventAt: string | null;
@@ -74,6 +113,56 @@ export type AnalyticsSummary = {
   }>;
 };
 
+export type AnalyticsVisitors = {
+  ok: true;
+  generatedAt: string;
+  hostScope: {
+    name: AnalyticsHostScope["name"];
+    hostnames: string[];
+  };
+  window: {
+    days: number;
+    since: string;
+  };
+  visitors: Array<{
+    visitorRank: number;
+    firstSeenAt: string | null;
+    lastSeenAt: string | null;
+    eventCount: number;
+    pageViews: number;
+    sessions: number;
+    returning: boolean;
+    automationEvents: number;
+    source: {
+      referrerHost: string | null;
+      referrerPath: string | null;
+      firstPath: string | null;
+      firstContentType: AnalyticsContentType | null;
+      firstContentId: string | null;
+    };
+    timeline: Array<{
+      eventType: AnalyticsEventType;
+      occurredAt: string;
+      receivedAt: string;
+      sessionRank: number;
+      surface: string;
+      hostname: string;
+      path: string;
+      contentType: AnalyticsContentType;
+      contentId: string | null;
+      referrerHost: string | null;
+      referrerPath: string | null;
+      deviceClass: string | null;
+      viewportWidth: number | null;
+      viewportHeight: number | null;
+      timezoneOffset: number | null;
+      language: string | null;
+      automation: boolean;
+      metadata: AnalyticsMetadata;
+    }>;
+  }>;
+};
+
 export type AnalyticsHostScope = {
   name: "production" | "preview" | "staging" | "host";
   hostnames: string[];
@@ -84,10 +173,15 @@ const VISITOR_TABLE = "inshell_anon_analytics_visitors";
 const SESSION_TABLE = "inshell_anon_analytics_sessions";
 const MAX_BODY_BYTES = 4096;
 const MAX_PATH_LENGTH = 256;
+const MAX_CONTENT_ID_LENGTH = 64;
 const MAX_LANGUAGE_LENGTH = 32;
 const MAX_REFERRER_HOST_LENGTH = 120;
 const MAX_REFERRER_PATH_LENGTH = 256;
+const MAX_METADATA_JSON_LENGTH = 1024;
 const HASH_PREFIX = "inshell-anon-analytics:v1:";
+const EVENT_TYPE_SET = new Set<string>(ANALYTICS_EVENT_TYPES);
+const CONTENT_TYPE_SET = new Set<string>(ANALYTICS_CONTENT_TYPES);
+const DURATION_BUCKETS_MS = [5_000, 15_000, 30_000, 60_000, 120_000, 300_000, 600_000];
 
 const PRODUCTION_HOSTS = ["inshell.art", "thought.inshell.art", "gallery.inshell.art"];
 const PREVIEW_HOSTS = ["preview.inshell.art", "thought.preview.inshell.art", "gallery.preview.inshell.art"];
@@ -236,9 +330,9 @@ export async function recordAnalyticsEvent(
   await db
     .prepare(
       `INSERT INTO ${EVENT_TABLE} (` +
-        "event_id,event_type,visitor_hash,session_hash,surface,hostname,path,referrer_host,referrer_path," +
+        "event_id,event_type,visitor_hash,session_hash,surface,hostname,path,content_type,content_id,referrer_host,referrer_path," +
         "occurred_at,received_at,device_class,viewport_width,viewport_height,timezone_offset,language,automation" +
-        ") VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)",
+        ",metadata_json) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20)",
     )
     .bind(
       normalized.eventId,
@@ -248,6 +342,8 @@ export async function recordAnalyticsEvent(
       normalized.surface,
       hostname,
       normalized.path,
+      normalized.contentType,
+      normalized.contentId,
       normalized.referrerHost,
       normalized.referrerPath,
       normalized.occurredAt,
@@ -258,6 +354,7 @@ export async function recordAnalyticsEvent(
       normalized.timezoneOffset,
       normalized.language,
       normalized.automation ? 1 : 0,
+      normalized.metadataJson,
     )
     .run();
 
@@ -273,10 +370,11 @@ export async function recordAnalyticsEvent(
   await db
     .prepare(
       `INSERT INTO ${SESSION_TABLE} (session_hash,visitor_hash,started_at,last_seen_at,pageview_count) ` +
-        "VALUES (?1,?2,?3,?4,1) " +
-        "ON CONFLICT(session_hash) DO UPDATE SET last_seen_at=excluded.last_seen_at,pageview_count=pageview_count+1",
+        "VALUES (?1,?2,?3,?4,?5) " +
+        "ON CONFLICT(session_hash) DO UPDATE SET last_seen_at=excluded.last_seen_at," +
+        "pageview_count=pageview_count+excluded.pageview_count",
     )
-    .bind(sessionHash, visitorHash, receivedAt, receivedAt)
+    .bind(sessionHash, visitorHash, receivedAt, receivedAt, normalized.eventType === "pageview" ? 1 : 0)
     .run();
 
   return {
@@ -299,6 +397,7 @@ export async function readAnalyticsStatus(
     enabled: isAnalyticsEnabled(env),
     route: "/api/analytics/event",
     summaryRoute: "/api/analytics/summary",
+    visitorRoute: "/api/analytics/visitors",
     identity: "anonymous-browser-session",
     hostScope: hostScope.name,
     countedHosts: hostScope.hostnames,
@@ -306,6 +405,10 @@ export async function readAnalyticsStatus(
     dbBinding: binding,
     rawIpStored: false,
     rawUserAgentStored: false,
+    rawWalletAddressStored: false,
+    rawMetadataStored: false,
+    metadataAllowlist: true,
+    supportedEventTypes: [...ANALYTICS_EVENT_TYPES],
     statusSource: db ? "empty" : "unavailable",
     statusError: null,
     lastEventAt: null,
@@ -410,6 +513,87 @@ export async function readAnalyticsSummary(
   };
 }
 
+export async function readAnalyticsVisitors(
+  env: ChainCacheEnv,
+  days: number,
+  hostScope: AnalyticsHostScope = {
+    name: "production",
+    hostnames: PRODUCTION_HOSTS,
+  },
+  visitorRank?: number,
+): Promise<AnalyticsVisitors> {
+  const { db } = resolveAnalyticsDb(env);
+  if (!db) throw new Error("analytics D1 binding is not configured");
+  const safeDays = Math.min(30, Math.max(1, Math.trunc(days || 1)));
+  const since = new Date(Date.now() - safeDays * 24 * 60 * 60 * 1000).toISOString();
+  const rank = Number.isFinite(visitorRank) && visitorRank != null
+    ? Math.min(50, Math.max(1, Math.trunc(visitorRank)))
+    : null;
+  const visitorLimit = rank ?? 10;
+  const filter = hostFilter(hostScope, 2);
+  const limitParam = 2 + filter.values.length;
+  const visitorResult = await db
+    .prepare(
+      `SELECT visitor_hash AS visitorHash,COUNT(*) AS eventCount,` +
+        `SUM(CASE WHEN event_type = 'pageview' THEN 1 ELSE 0 END) AS pageViews,` +
+        `COUNT(DISTINCT session_hash) AS sessions,MIN(received_at) AS firstSeenAt,` +
+        `MAX(received_at) AS lastSeenAt,SUM(automation) AS automationEvents ` +
+        `FROM ${EVENT_TABLE} WHERE received_at >= ?1 AND ${filter.sql} ` +
+        `GROUP BY visitor_hash ORDER BY eventCount DESC,lastSeenAt DESC LIMIT ?${limitParam}`,
+    )
+    .bind(since, ...filter.values, visitorLimit)
+    .all?.<{
+      visitorHash: string;
+      eventCount: number;
+      pageViews: number | null;
+      sessions: number;
+      firstSeenAt: string | null;
+      lastSeenAt: string | null;
+      automationEvents: number | null;
+    }>();
+  const rankedVisitors = (visitorResult?.results ?? []).map((row, index) => ({ ...row, rank: index + 1 }));
+  const selectedVisitors = rank
+    ? rankedVisitors.filter((row) => row.rank === rank)
+    : rankedVisitors;
+
+  return {
+    ok: true,
+    generatedAt: new Date().toISOString(),
+    hostScope: {
+      name: hostScope.name,
+      hostnames: hostScope.hostnames,
+    },
+    window: {
+      days: safeDays,
+      since,
+    },
+    visitors: await Promise.all(
+      selectedVisitors.map(async (visitor) => {
+        const timeline = await readVisitorTimeline(db, visitor.visitorHash, since, hostScope);
+        const firstContent = timeline.find((event) => event.eventType === "pageview") ?? timeline[0] ?? null;
+        return {
+          visitorRank: visitor.rank,
+          firstSeenAt: visitor.firstSeenAt ?? null,
+          lastSeenAt: visitor.lastSeenAt ?? null,
+          eventCount: Number(visitor.eventCount ?? 0),
+          pageViews: Number(visitor.pageViews ?? 0),
+          sessions: Number(visitor.sessions ?? 0),
+          returning: Number(visitor.sessions ?? 0) > 1,
+          automationEvents: Number(visitor.automationEvents ?? 0),
+          source: {
+            referrerHost: firstContent?.referrerHost ?? null,
+            referrerPath: firstContent?.referrerPath ?? null,
+            firstPath: firstContent?.path ?? null,
+            firstContentType: firstContent?.contentType ?? null,
+            firstContentId: firstContent?.contentId ?? null,
+          },
+          timeline,
+        };
+      }),
+    ),
+  };
+}
+
 async function readPathRows(
   db: D1DatabaseLike,
   since: string,
@@ -471,18 +655,89 @@ async function readGroupedRows(
   }));
 }
 
+async function readVisitorTimeline(
+  db: D1DatabaseLike,
+  visitorHash: string,
+  since: string,
+  hostScope: AnalyticsHostScope,
+): Promise<AnalyticsVisitors["visitors"][number]["timeline"]> {
+  const filter = hostFilter(hostScope, 3);
+  const limitParam = 3 + filter.values.length;
+  const result = await db
+    .prepare(
+      `SELECT event_type AS eventType,session_hash AS sessionHash,surface,hostname,path,` +
+        `content_type AS contentType,content_id AS contentId,referrer_host AS referrerHost,` +
+        `referrer_path AS referrerPath,occurred_at AS occurredAt,received_at AS receivedAt,` +
+        `device_class AS deviceClass,viewport_width AS viewportWidth,viewport_height AS viewportHeight,` +
+        `timezone_offset AS timezoneOffset,language,automation,metadata_json AS metadataJson ` +
+        `FROM ${EVENT_TABLE} WHERE visitor_hash = ?1 AND received_at >= ?2 AND ${filter.sql} ` +
+        `ORDER BY received_at ASC LIMIT ?${limitParam}`,
+    )
+    .bind(visitorHash, since, ...filter.values, 200)
+    .all?.<{
+      eventType: AnalyticsEventType;
+      sessionHash: string;
+      surface: string;
+      hostname: string;
+      path: string;
+      contentType: AnalyticsContentType | null;
+      contentId: string | null;
+      referrerHost: string | null;
+      referrerPath: string | null;
+      occurredAt: string;
+      receivedAt: string;
+      deviceClass: string | null;
+      viewportWidth: number | null;
+      viewportHeight: number | null;
+      timezoneOffset: number | null;
+      language: string | null;
+      automation: number | null;
+      metadataJson: string | null;
+    }>();
+  const sessionRanks = new Map<string, number>();
+  return (result?.results ?? []).map((row) => {
+    const sessionHashValue = String(row.sessionHash ?? "");
+    if (!sessionRanks.has(sessionHashValue)) {
+      sessionRanks.set(sessionHashValue, sessionRanks.size + 1);
+    }
+    return {
+      eventType: EVENT_TYPE_SET.has(row.eventType) ? row.eventType : "pageview",
+      occurredAt: row.occurredAt,
+      receivedAt: row.receivedAt,
+      sessionRank: sessionRanks.get(sessionHashValue) ?? 1,
+      surface: row.surface,
+      hostname: row.hostname,
+      path: row.path,
+      contentType: CONTENT_TYPE_SET.has(String(row.contentType)) ? (row.contentType as AnalyticsContentType) : "unknown",
+      contentId: row.contentId ?? null,
+      referrerHost: row.referrerHost ?? null,
+      referrerPath: row.referrerPath ?? null,
+      deviceClass: row.deviceClass ?? null,
+      viewportWidth: numberOrNull(row.viewportWidth),
+      viewportHeight: numberOrNull(row.viewportHeight),
+      timezoneOffset: numberOrNull(row.timezoneOffset),
+      language: row.language ?? null,
+      automation: Number(row.automation ?? 0) === 1,
+      metadata: parseMetadata(row.metadataJson),
+    };
+  });
+}
+
 async function ensureAnalyticsTables(db: D1DatabaseLike) {
   if (ensuredTables.has(db as object)) return;
   for (const query of [
     `CREATE TABLE IF NOT EXISTS ${EVENT_TABLE} (` +
       "event_id TEXT PRIMARY KEY,event_type TEXT NOT NULL,visitor_hash TEXT NOT NULL,session_hash TEXT NOT NULL," +
-      "surface TEXT NOT NULL,hostname TEXT NOT NULL,path TEXT NOT NULL,referrer_host TEXT,referrer_path TEXT," +
+      "surface TEXT NOT NULL,hostname TEXT NOT NULL,path TEXT NOT NULL,content_type TEXT,content_id TEXT," +
+      "referrer_host TEXT,referrer_path TEXT," +
       "occurred_at TEXT NOT NULL,received_at TEXT NOT NULL,device_class TEXT,viewport_width INTEGER,viewport_height INTEGER," +
-      "timezone_offset INTEGER,language TEXT,automation INTEGER NOT NULL DEFAULT 0)",
+      "timezone_offset INTEGER,language TEXT,automation INTEGER NOT NULL DEFAULT 0,metadata_json TEXT)",
     `CREATE INDEX IF NOT EXISTS idx_${EVENT_TABLE}_received ON ${EVENT_TABLE} (received_at)`,
     `CREATE INDEX IF NOT EXISTS idx_${EVENT_TABLE}_visitor ON ${EVENT_TABLE} (visitor_hash, received_at)`,
     `CREATE INDEX IF NOT EXISTS idx_${EVENT_TABLE}_session ON ${EVENT_TABLE} (session_hash, received_at)`,
     `CREATE INDEX IF NOT EXISTS idx_${EVENT_TABLE}_path ON ${EVENT_TABLE} (path, received_at)`,
+    `CREATE INDEX IF NOT EXISTS idx_${EVENT_TABLE}_event_type ON ${EVENT_TABLE} (event_type, received_at)`,
+    `CREATE INDEX IF NOT EXISTS idx_${EVENT_TABLE}_content ON ${EVENT_TABLE} (content_type, content_id, received_at)`,
     `CREATE TABLE IF NOT EXISTS ${VISITOR_TABLE} (` +
       "visitor_hash TEXT PRIMARY KEY,first_seen_at TEXT NOT NULL,last_seen_at TEXT NOT NULL,event_count INTEGER NOT NULL DEFAULT 0)",
     `CREATE TABLE IF NOT EXISTS ${SESSION_TABLE} (` +
@@ -490,6 +745,17 @@ async function ensureAnalyticsTables(db: D1DatabaseLike) {
       "pageview_count INTEGER NOT NULL DEFAULT 0)",
   ]) {
     await db.prepare(query).run();
+  }
+  for (const query of [
+    `ALTER TABLE ${EVENT_TABLE} ADD COLUMN content_type TEXT`,
+    `ALTER TABLE ${EVENT_TABLE} ADD COLUMN content_id TEXT`,
+    `ALTER TABLE ${EVENT_TABLE} ADD COLUMN metadata_json TEXT`,
+  ]) {
+    try {
+      await db.prepare(query).run();
+    } catch (error) {
+      if (!isDuplicateColumnError(error)) throw error;
+    }
   }
   ensuredTables.add(db as object);
 }
@@ -499,8 +765,11 @@ function normalizeAnalyticsEvent(payload: AnalyticsEventPayload, hostname: strin
   const eventId = normalizedId(payload.eventId, "eventId");
   const visitorId = normalizedId(payload.visitorId, "visitorId");
   const sessionId = normalizedId(payload.sessionId, "sessionId");
-  const eventType = payload.eventType === "pageview" ? "pageview" : "";
-  if (!eventType) throw new AnalyticsInputError("eventType must be pageview");
+  const eventType = normalizeEventType(payload.eventType);
+  const path = normalizePath(payload.path);
+  const contentType = normalizeContentType(payload.contentType, path);
+  const contentId = normalizeContentId(payload.contentId, path, contentType);
+  const metadata = normalizeEventMetadata(eventType, payload.metadata);
   return {
     eventId,
     visitorId,
@@ -508,7 +777,9 @@ function normalizeAnalyticsEvent(payload: AnalyticsEventPayload, hostname: strin
     eventType,
     surface: surfaceForHost(hostname),
     hostname,
-    path: normalizePath(payload.path),
+    path,
+    contentType,
+    contentId,
     ...normalizeReferrer(payload.referrer),
     occurredAt: normalizeOccurredAt(payload.occurredAt),
     deviceClass: normalizeDeviceClass(payload.deviceClass),
@@ -517,7 +788,15 @@ function normalizeAnalyticsEvent(payload: AnalyticsEventPayload, hostname: strin
     timezoneOffset: normalizeInteger(payload.timezoneOffset, -1440, 1440),
     language: normalizeLanguage(payload.language),
     automation: payload.automation === true,
+    metadataJson: metadataToJson(metadata),
   };
+}
+
+function normalizeEventType(value: unknown): AnalyticsEventType {
+  if (typeof value !== "string" || !EVENT_TYPE_SET.has(value)) {
+    throw new AnalyticsInputError("eventType is not supported");
+  }
+  return value as AnalyticsEventType;
 }
 
 function normalizedId(value: unknown, label: string) {
@@ -538,6 +817,41 @@ function normalizePath(value: unknown) {
   } catch {
     return "/";
   }
+}
+
+function normalizeContentType(value: unknown, path: string): AnalyticsContentType {
+  if (typeof value === "string" && CONTENT_TYPE_SET.has(value)) {
+    return value as AnalyticsContentType;
+  }
+  return contentTypeForPath(path);
+}
+
+function normalizeContentId(
+  value: unknown,
+  path: string,
+  contentType: AnalyticsContentType,
+) {
+  if (typeof value === "string" || typeof value === "number") {
+    const normalized = normalizeToken(String(value), MAX_CONTENT_ID_LENGTH);
+    return normalized || null;
+  }
+  return contentIdForPath(path, contentType);
+}
+
+function contentTypeForPath(path: string): AnalyticsContentType {
+  if (path === "/" || path === "/home") return "home";
+  if (path === "/verify" || path.startsWith("/verify/")) return "verify";
+  if (path === "/gallery" || path.startsWith("/gallery/")) return "gallery";
+  if (path === "/thought" || path.startsWith("/thought/")) return "thought";
+  if (path === "/pulse" || path.startsWith("/pulse/")) return "pulse";
+  if (path === "/path" || path.startsWith("/path/")) return "path";
+  return "unknown";
+}
+
+function contentIdForPath(path: string, contentType: AnalyticsContentType) {
+  if (contentType !== "path" && contentType !== "thought" && contentType !== "gallery") return null;
+  const match = path.match(/\/(?:path|thought|gallery)\/([A-Za-z0-9_-]{1,64})(?:\/|$)/i);
+  return match ? normalizeToken(match[1], MAX_CONTENT_ID_LENGTH) : null;
 }
 
 function normalizeReferrer(value: unknown) {
@@ -582,6 +896,136 @@ function normalizeLanguage(value: unknown) {
   return /^[A-Za-z0-9-]+$/.test(trimmed) ? trimmed : null;
 }
 
+function normalizeEventMetadata(eventType: AnalyticsEventType, value: unknown): AnalyticsMetadata {
+  const input = isRecord(value) ? value : {};
+  const output: AnalyticsMetadata = {};
+  const addToken = (key: string, maxLength = 80) => {
+    const normalized = normalizeToken(input[key], maxLength);
+    if (normalized) output[key] = normalized;
+  };
+  const addErrorFields = () => {
+    const category = normalizeErrorCategory(input.errorCategory);
+    if (category) output.errorCategory = category;
+    const code = normalizeToken(input.errorCode, 48);
+    if (code) output.errorCode = code;
+  };
+
+  switch (eventType) {
+    case "page_visible_duration": {
+      const duration = normalizeDurationBucket(input.durationMs);
+      if (duration != null) output.durationMs = duration;
+      break;
+    }
+    case "scroll_depth": {
+      const scrollPercent = normalizeScrollBucket(input.scrollPercent);
+      if (scrollPercent != null) output.scrollPercent = scrollPercent;
+      break;
+    }
+    case "cta_click":
+      addToken("ctaId");
+      break;
+    case "external_link_click":
+      addToken("hrefHost", MAX_REFERRER_HOST_LENGTH);
+      output.hrefHost = typeof output.hrefHost === "string"
+        ? normalizeHostname(output.hrefHost).slice(0, MAX_REFERRER_HOST_LENGTH)
+        : output.hrefHost;
+      output.hrefPath = normalizePath(input.hrefPath);
+      addToken("ctaId");
+      break;
+    case "api_error": {
+      output.endpoint = normalizePath(input.endpoint);
+      const status = normalizeInteger(input.status, 100, 599);
+      if (status != null) output.status = status;
+      addErrorFields();
+      break;
+    }
+    case "frontend_error":
+      addErrorFields();
+      break;
+    case "wallet_connect_started":
+    case "wallet_connect_succeeded":
+    case "wallet_connect_failed":
+      addToken("walletKind", 32);
+      addToken("walletStage", 32);
+      if (eventType === "wallet_connect_failed") addErrorFields();
+      break;
+    case "mint_started":
+    case "mint_succeeded":
+    case "mint_failed":
+      addToken("mintStage", 32);
+      if (eventType === "mint_failed") addErrorFields();
+      break;
+    case "pageview":
+      break;
+  }
+
+  return output;
+}
+
+function normalizeDurationBucket(value: unknown) {
+  const numeric = typeof value === "number" ? Math.trunc(value) : Number.NaN;
+  if (!Number.isFinite(numeric) || numeric < 0) return null;
+  return DURATION_BUCKETS_MS.find((bucket) => numeric <= bucket) ?? 600_000;
+}
+
+function normalizeScrollBucket(value: unknown) {
+  const numeric = typeof value === "number" ? Math.trunc(value) : Number.NaN;
+  return [25, 50, 75, 100].includes(numeric) ? numeric : null;
+}
+
+function normalizeErrorCategory(value: unknown) {
+  if (typeof value !== "string") return "";
+  const normalized = normalizeToken(value, 32);
+  return [
+    "http",
+    "network",
+    "timeout",
+    "rpc",
+    "wallet_rejected",
+    "wallet_busy",
+    "wallet_missing",
+    "runtime",
+    "promise",
+    "unknown",
+  ].includes(normalized) ? normalized : "unknown";
+}
+
+function metadataToJson(metadata: AnalyticsMetadata) {
+  const json = JSON.stringify(metadata);
+  return json.length <= MAX_METADATA_JSON_LENGTH ? json : "{}";
+}
+
+function parseMetadata(value: unknown): AnalyticsMetadata {
+  if (typeof value !== "string" || !value.trim()) return {};
+  try {
+    const parsed = JSON.parse(value);
+    if (!isRecord(parsed)) return {};
+    const output: AnalyticsMetadata = {};
+    for (const [key, item] of Object.entries(parsed)) {
+      if (typeof item === "string" || typeof item === "number" || typeof item === "boolean" || item === null) {
+        output[key] = item;
+      }
+    }
+    return output;
+  } catch {
+    return {};
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeToken(value: unknown, maxLength: number) {
+  if (typeof value !== "string" && typeof value !== "number") return "";
+  return String(value).trim().replace(/[^A-Za-z0-9_.:/#-]+/g, "_").slice(0, maxLength);
+}
+
+function numberOrNull(value: unknown) {
+  const numeric = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
 function normalizeHostname(value: string) {
   return value.trim().toLowerCase().replace(/\.$/, "");
 }
@@ -616,4 +1060,9 @@ async function hashIdentifier(value: string) {
 function isMissingAnalyticsTableError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   return message.toLowerCase().includes("no such table");
+}
+
+function isDuplicateColumnError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.toLowerCase().includes("duplicate column");
 }

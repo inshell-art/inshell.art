@@ -328,6 +328,54 @@ function chainLabel(chainId: number | null): { name: string; network: string } {
   return { name: "Unknown", network: "unknown" };
 }
 
+type WalletAnalyticsEventType =
+  | "wallet_connect_started"
+  | "wallet_connect_succeeded"
+  | "wallet_connect_failed";
+
+function trackWalletAnalytics(
+  eventType: WalletAnalyticsEventType,
+  metadata: Record<string, unknown>
+) {
+  try {
+    const analytics = typeof window === "undefined"
+      ? null
+      : (window as any).inshellAnalytics;
+    analytics?.track?.({
+      eventType,
+      metadata,
+    });
+  } catch {
+    /* analytics must never affect wallet flow */
+  }
+}
+
+function walletAnalyticsErrorCategory(error: unknown) {
+  const msg = String((error as any)?.message ?? error ?? "").toLowerCase();
+  const code = Number((error as any)?.code);
+  if (
+    code === 4001 ||
+    msg.includes("user rejected") ||
+    msg.includes("user reject") ||
+    msg.includes("user denied") ||
+    msg.includes("user cancelled") ||
+    msg.includes("user canceled")
+  ) return "wallet_rejected";
+  if (
+    code === -32002 ||
+    msg.includes("already processing") ||
+    msg.includes("already pending")
+  ) return "wallet_busy";
+  if (
+    msg.includes("no eip-1193 injected wallet found") ||
+    msg.includes("missing vite_walletconnect_project_id") ||
+    msg.includes("walletconnect v2 provider is unavailable")
+  ) return "wallet_missing";
+  if (msg.includes("rpc")) return "rpc";
+  if (msg.includes("network")) return "network";
+  return "unknown";
+}
+
 function walletConnectMetadata() {
   const hostname =
     typeof window === "undefined" ? "" : window.location.hostname.toLowerCase();
@@ -494,6 +542,10 @@ export function WalletProvider({ children }: WalletProviderProps) {
 
   const connectEip1193 = useCallback(async () => {
     setConnectStatus("connecting");
+    trackWalletAnalytics("wallet_connect_started", {
+      walletKind: "injected",
+      walletStage: "request_accounts",
+    });
     try {
       const discovered = await discoverEip6963Providers();
       const merged = mergeProviderDetails(evmProviders, discovered);
@@ -512,16 +564,29 @@ export function WalletProvider({ children }: WalletProviderProps) {
         setWalletConnectProvider(null);
       }
       setConnectedState(detail.provider, connected, detail.info.name || "Injected");
+      trackWalletAnalytics("wallet_connect_succeeded", {
+        walletKind: "injected",
+        walletStage: "connected",
+      });
       return connected;
     } catch (error) {
       setConnectError(error);
       setConnectStatus("error");
+      trackWalletAnalytics("wallet_connect_failed", {
+        walletKind: "injected",
+        walletStage: "request_accounts",
+        errorCategory: walletAnalyticsErrorCategory(error),
+      });
       throw error;
     }
   }, [evmProviders, setConnectedState, walletConnectProvider]);
 
   const connectWalletConnectV2 = useCallback(async () => {
     setConnectStatus("connecting");
+    trackWalletAnalytics("wallet_connect_started", {
+      walletKind: "walletconnect",
+      walletStage: "request_accounts",
+    });
     try {
       const projectIdRaw = getEnv("VITE_WALLETCONNECT_PROJECT_ID");
       if (typeof projectIdRaw !== "string" || !projectIdRaw.trim()) {
@@ -553,10 +618,19 @@ export function WalletProvider({ children }: WalletProviderProps) {
       };
       setWalletConnectProvider(wcProvider);
       setConnectedState(wcProvider, connected, "WalletConnect v2");
+      trackWalletAnalytics("wallet_connect_succeeded", {
+        walletKind: "walletconnect",
+        walletStage: "connected",
+      });
       return connected;
     } catch (error) {
       setConnectError(error);
       setConnectStatus("error");
+      trackWalletAnalytics("wallet_connect_failed", {
+        walletKind: "walletconnect",
+        walletStage: "request_accounts",
+        errorCategory: walletAnalyticsErrorCategory(error),
+      });
       throw error;
     }
   }, [setConnectedState]);
@@ -608,6 +682,10 @@ export function WalletProvider({ children }: WalletProviderProps) {
       }
       if (connector?.detail) {
         setConnectStatus("connecting");
+        trackWalletAnalytics("wallet_connect_started", {
+          walletKind: "injected",
+          walletStage: "request_accounts",
+        });
         try {
           const connected = await connectEip1193Provider(connector.detail);
           setConnectedState(
@@ -615,10 +693,19 @@ export function WalletProvider({ children }: WalletProviderProps) {
             connected,
             connector.detail.info.name || "Injected"
           );
+          trackWalletAnalytics("wallet_connect_succeeded", {
+            walletKind: "injected",
+            walletStage: "connected",
+          });
           return connected;
         } catch (error) {
           setConnectError(error);
           setConnectStatus("error");
+          trackWalletAnalytics("wallet_connect_failed", {
+            walletKind: "injected",
+            walletStage: "request_accounts",
+            errorCategory: walletAnalyticsErrorCategory(error),
+          });
           throw error;
         }
       }

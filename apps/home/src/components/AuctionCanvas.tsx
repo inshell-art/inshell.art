@@ -39,6 +39,7 @@ import {
   PUBLIC_NETWORK_CONFIG,
   SURFACE_TERMINOLOGY,
   resolveWalletChainRpcUrls,
+  trackInshellAnonymousAnalytics,
 } from "@inshell/shared";
 import HeaderWalletCTA from "@/components/HeaderWalletCTA";
 import { useWallet } from "@inshell/wallet";
@@ -113,6 +114,28 @@ function isWalletRpcBusyMessage(message: string): boolean {
   return /rpc endpoint returned too many errors|too many errors|too many requests|rate limit|429|502|503|504/i.test(
     message
   );
+}
+
+function trackPathMintAnalytics(
+  eventType: "mint_started" | "mint_succeeded" | "mint_failed",
+  metadata: Record<string, unknown>
+) {
+  trackInshellAnonymousAnalytics({
+    eventType,
+    contentType: "path",
+    metadata,
+  });
+}
+
+function mintAnalyticsErrorCategory(error: unknown) {
+  const message = walletErrorMessage(error);
+  const lower = message.toLowerCase();
+  if (isWalletCancellationError(error)) return "wallet_rejected";
+  if (isWalletRpcBusyMessage(message)) return "wallet_busy";
+  if (isWalletReadOnlyRpcMessage(message) || lower.includes("rpc")) return "rpc";
+  if (lower.includes("network") || lower.includes("fetch")) return "network";
+  if (lower.includes("timeout")) return "timeout";
+  return "unknown";
 }
 
 type PreflightResult = {
@@ -4572,6 +4595,11 @@ export default function AuctionCanvas({
       setTxPhase(phase);
       setTxState("awaiting_signature");
       setTxError(null);
+      if (phase === "bid") {
+        trackPathMintAnalytics("mint_started", {
+          mintStage: "wallet_signature",
+        });
+      }
       const res = await call();
       const hash =
         res?.transaction_hash ??
@@ -4584,6 +4612,11 @@ export default function AuctionCanvas({
       setTxHash(hash);
       setLastTxHash(hash);
       setTxState("submitted");
+      if (phase === "bid") {
+        trackPathMintAnalytics("mint_started", {
+          mintStage: "submitted",
+        });
+      }
       showToast({ kind: "info", text: `Submitted: ${shortHash(hash)}.` });
       const waitProvider =
         provider ?? (getDefaultProvider() as ProviderInterface);
@@ -4615,6 +4648,9 @@ export default function AuctionCanvas({
         text: phase === "bid" ? "Settlement confirmed. Loading sale event." : "Confirmed.",
       });
       if (phase === "bid") {
+        trackPathMintAnalytics("mint_succeeded", {
+          mintStage: "confirmed",
+        });
         trackSubmittedBid(hash);
       }
       txIdleTimerRef.current = window.setTimeout(() => {
@@ -4637,6 +4673,14 @@ export default function AuctionCanvas({
       }
       if (!walletCancelled) {
         console.error("mint failed", err);
+      }
+      if (phase === "bid") {
+        const errorCode = walletErrorCode(err);
+        trackPathMintAnalytics("mint_failed", {
+          mintStage: walletCancelled ? "wallet_signature" : "transaction",
+          errorCategory: mintAnalyticsErrorCategory(err),
+          errorCode: errorCode == null ? undefined : String(errorCode),
+        });
       }
       return false;
     } finally {

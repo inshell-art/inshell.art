@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from "@jest/globals";
-import { installInshellAnonymousAnalytics } from "@inshell/shared";
+import { installInshellAnonymousAnalytics, trackInshellAnonymousAnalytics } from "@inshell/shared";
 
 const originalFetch = globalThis.fetch;
 const originalCrypto = globalThis.crypto;
@@ -30,6 +30,8 @@ describe("Inshell anonymous analytics client", () => {
       value: originalCrypto,
     });
     delete (window as any).__INSHELL_ANON_ANALYTICS_INSTALLED__;
+    delete (window as any).__INSHELL_ANON_ANALYTICS_FETCH_PATCHED__;
+    delete (window as any).inshellAnalytics;
     jest.restoreAllMocks();
   });
 
@@ -63,11 +65,63 @@ describe("Inshell anonymous analytics client", () => {
       version: 1,
       eventType: "pageview",
       path: "/path/25",
+      contentType: "path",
+      contentId: "25",
       title: "$PATH",
       automation: false,
     });
     expect(payload.visitorId).toBe("12345678-1234-4234-9234-123456789abc");
     expect(payload.sessionId).toBe("12345678-1234-4234-9234-123456789abc");
+  });
+
+  test("exposes a manual tracker for typed action events", async () => {
+    const fetchMock = jest.fn(async () => new Response("{}", { status: 200 }));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    expect(
+      installInshellAnonymousAnalytics({
+        hostname: "thought.inshell.art",
+        window,
+        document,
+        navigator: testNavigator,
+        location: {
+          href: "https://thought.inshell.art/thought/17",
+          hostname: "thought.inshell.art",
+          pathname: "/thought/17",
+          search: "",
+          hash: "",
+          origin: "https://thought.inshell.art",
+        },
+      }),
+    ).toBe(true);
+
+    fetchMock.mockClear();
+    expect(
+      trackInshellAnonymousAnalytics({
+        eventType: "wallet_connect_failed",
+        contentType: "thought",
+        metadata: {
+          walletKind: "injected",
+          walletStage: "request_accounts",
+          errorCategory: "wallet_rejected",
+        },
+      }),
+    ).toBe(true);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, init] = fetchMock.mock.calls[0] as [string, globalThis.RequestInit];
+    const payload = JSON.parse(String(init.body));
+    expect(payload).toMatchObject({
+      eventType: "wallet_connect_failed",
+      path: "/thought/17",
+      contentType: "thought",
+      contentId: "17",
+      metadata: {
+        walletKind: "injected",
+        walletStage: "request_accounts",
+        errorCategory: "wallet_rejected",
+      },
+    });
   });
 
   test("does not install on local hosts or when explicitly disabled", () => {

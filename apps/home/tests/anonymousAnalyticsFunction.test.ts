@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "@jest/globals";
 import { onRequestPost as onAnalyticsEventPost } from "../../../functions/api/analytics/event";
 import { onRequestGet as onAnalyticsSummaryGet } from "../../../functions/api/analytics/summary";
+import { onRequestGet as onAnalyticsVisitorsGet } from "../../../functions/api/analytics/visitors";
 import {
   analyticsHostScopeForHostname,
   readAnalyticsStatus,
@@ -52,8 +53,19 @@ type AnalyticsRow = {
   surface: string;
   hostname: string;
   path: string;
+  content_type: string | null;
+  content_id: string | null;
+  referrer_host: string | null;
+  referrer_path: string | null;
+  occurred_at: string;
   received_at: string;
+  device_class: string | null;
+  viewport_width: number | null;
+  viewport_height: number | null;
+  timezone_offset: number | null;
+  language: string | null;
   automation: number;
+  metadata_json: string | null;
 };
 
 function createAnalyticsD1Mock() {
@@ -85,7 +97,7 @@ function createAnalyticsD1Mock() {
           };
         }
         if (/count\(\*\)\s+as\s+pageViews/i.test(query)) {
-          const rows = rowsSince(bound, String(bound[0] ?? ""));
+          const rows = rowsSince(bound, String(bound[0] ?? ""), true);
           return {
             pageViews: rows.length,
             uniqueVisitors: new Set(rows.map((row) => row.visitor_hash)).size,
@@ -94,7 +106,7 @@ function createAnalyticsD1Mock() {
           };
         }
         if (/returningVisitors/i.test(query)) {
-          const rows = rowsSince(bound, String(bound[0] ?? ""));
+          const rows = rowsSince(bound, String(bound[0] ?? ""), true);
           const byVisitor = new Map<string, Set<string>>();
           for (const row of rows) {
             if (!byVisitor.has(row.visitor_hash)) byVisitor.set(row.visitor_hash, new Set());
@@ -107,7 +119,57 @@ function createAnalyticsD1Mock() {
         return null;
       }),
       all: jest.fn(async () => {
-        const rows = rowsSince(bound, String(bound[0] ?? ""));
+        if (/where\s+visitor_hash\s*=\s*\?1/i.test(query)) {
+          const visitorHash = String(bound[0] ?? "");
+          const since = String(bound[1] ?? "");
+          const hostnames = bound.slice(2, -1).map(String);
+          return {
+            results: rowsForHostnames(hostnames)
+              .filter((event) => event.visitor_hash === visitorHash && event.received_at >= since)
+              .sort((a, b) => a.received_at.localeCompare(b.received_at))
+              .map((event) => ({
+                eventType: event.event_type,
+                sessionHash: event.session_hash,
+                surface: event.surface,
+                hostname: event.hostname,
+                path: event.path,
+                contentType: event.content_type,
+                contentId: event.content_id,
+                referrerHost: event.referrer_host,
+                referrerPath: event.referrer_path,
+                occurredAt: event.occurred_at,
+                receivedAt: event.received_at,
+                deviceClass: event.device_class,
+                viewportWidth: event.viewport_width,
+                viewportHeight: event.viewport_height,
+                timezoneOffset: event.timezone_offset,
+                language: event.language,
+                automation: event.automation,
+                metadataJson: event.metadata_json,
+              })),
+          };
+        }
+        if (/group\s+by\s+visitor_hash/i.test(query)) {
+          const rows = rowsSince(bound, String(bound[0] ?? ""), false);
+          const grouped = new Map<string, AnalyticsRow[]>();
+          for (const row of rows) {
+            grouped.set(row.visitor_hash, [...(grouped.get(row.visitor_hash) ?? []), row]);
+          }
+          return {
+            results: [...grouped.entries()]
+              .map(([visitorHash, visitorRows]) => ({
+                visitorHash,
+                eventCount: visitorRows.length,
+                pageViews: visitorRows.filter((row) => row.event_type === "pageview").length,
+                sessions: new Set(visitorRows.map((row) => row.session_hash)).size,
+                firstSeenAt: visitorRows.map((row) => row.received_at).sort()[0] ?? null,
+                lastSeenAt: visitorRows.map((row) => row.received_at).sort().at(-1) ?? null,
+                automationEvents: visitorRows.reduce((total, row) => total + row.automation, 0),
+              }))
+              .sort((a, b) => b.eventCount - a.eventCount || String(b.lastSeenAt).localeCompare(String(a.lastSeenAt))),
+          };
+        }
+        const rows = rowsSince(bound, String(bound[0] ?? ""), /event_type\s*=\s*'pageview'/i.test(query));
         const field = /group\s+by\s+surface/i.test(query)
           ? "surface"
           : /group\s+by\s+hostname/i.test(query)
@@ -139,8 +201,19 @@ function createAnalyticsD1Mock() {
             surface: String(bound[4]),
             hostname: String(bound[5]),
             path: String(bound[6]),
-            received_at: String(bound[10]),
-            automation: Number(bound[16] ?? 0),
+            content_type: bound[7] == null ? null : String(bound[7]),
+            content_id: bound[8] == null ? null : String(bound[8]),
+            referrer_host: bound[9] == null ? null : String(bound[9]),
+            referrer_path: bound[10] == null ? null : String(bound[10]),
+            occurred_at: String(bound[11]),
+            received_at: String(bound[12]),
+            device_class: bound[13] == null ? null : String(bound[13]),
+            viewport_width: bound[14] == null ? null : Number(bound[14]),
+            viewport_height: bound[15] == null ? null : Number(bound[15]),
+            timezone_offset: bound[16] == null ? null : Number(bound[16]),
+            language: bound[17] == null ? null : String(bound[17]),
+            automation: Number(bound[18] ?? 0),
+            metadata_json: bound[19] == null ? null : String(bound[19]),
           });
         }
         if (/insert\s+into\s+inshell_anon_analytics_visitors/i.test(query)) {
@@ -157,10 +230,11 @@ function createAnalyticsD1Mock() {
     return statement;
   });
 
-  function rowsSince(boundValues: unknown[], since: string) {
+  function rowsSince(boundValues: unknown[], since: string, pageviewsOnly = false) {
     const hostnames = boundValues.slice(1).map(String);
     return rowsForHostnames(hostnames).filter((event) => {
       if (event.received_at < since) return false;
+      if (pageviewsOnly && event.event_type !== "pageview") return false;
       return true;
     });
   }
@@ -252,9 +326,42 @@ describe("anonymous analytics Pages functions", () => {
     });
     const event = [...d1.events.values()][0];
     expect(event.path).toBe("/path/25");
+    expect(event.content_type).toBe("path");
+    expect(event.content_id).toBe("25");
     expect(event.surface).toBe("home");
     expect(event.visitor_hash).not.toBe("visitor_12345678");
     expect(event.session_hash).not.toBe("session_12345678");
+  });
+
+  test("filters typed event metadata through a privacy allowlist", async () => {
+    const d1 = createAnalyticsD1Mock();
+    const response = await onAnalyticsEventPost({
+      request: analyticsRequest(
+        "https://inshell.art/api/analytics/event",
+        payload({
+          eventId: "event_cta_12345678",
+          eventType: "cta_click",
+          path: "/",
+          contentType: "home",
+          metadata: {
+            ctaId: "mint-primary",
+            walletAddress: "0x1234567890123456789012345678901234567890",
+            prompt: "private prompt text",
+            scrollPercent: 100,
+          },
+        }),
+      ),
+      env: { INSHELL_CHAIN_DATA_DB: d1.db },
+    });
+
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      stored: true,
+    });
+    const event = d1.events.get("event_cta_12345678");
+    expect(event?.metadata_json).toBe(JSON.stringify({ ctaId: "mint-primary" }));
+    expect(event?.metadata_json).not.toContain("walletAddress");
+    expect(event?.metadata_json).not.toContain("private prompt");
   });
 
   test("treats duplicate event ids as idempotent", async () => {
@@ -317,6 +424,125 @@ describe("anonymous analytics Pages functions", () => {
     });
   });
 
+  test("returns privacy-safe visitor timelines behind bearer auth", async () => {
+    const d1 = createAnalyticsD1Mock();
+    await onAnalyticsEventPost({
+      request: analyticsRequest(
+        "https://inshell.art/api/analytics/event",
+        payload({
+          eventId: "event_path_page_12345678",
+          path: "/path/25",
+          referrer: "https://example.com/source",
+        }),
+      ),
+      env: { INSHELL_CHAIN_DATA_DB: d1.db },
+    });
+    await onAnalyticsEventPost({
+      request: analyticsRequest(
+        "https://inshell.art/api/analytics/event",
+        payload({
+          eventId: "event_scroll_12345678",
+          eventType: "scroll_depth",
+          path: "/path/25",
+          metadata: {
+            scrollPercent: 75,
+            walletAddress: "0x1234567890123456789012345678901234567890",
+          },
+        }),
+      ),
+      env: { INSHELL_CHAIN_DATA_DB: d1.db },
+    });
+    await onAnalyticsEventPost({
+      request: analyticsRequest(
+        "https://inshell.art/api/analytics/event",
+        payload({
+          eventId: "event_wallet_fail_12345678",
+          eventType: "wallet_connect_failed",
+          path: "/path/25",
+          metadata: {
+            walletKind: "injected",
+            walletStage: "request_accounts",
+            errorCategory: "wallet_rejected",
+            prompt: "private prompt",
+          },
+        }),
+      ),
+      env: { INSHELL_CHAIN_DATA_DB: d1.db },
+    });
+    await onAnalyticsEventPost({
+      request: analyticsRequest(
+        "https://inshell.art/api/analytics/event",
+        payload({
+          eventId: "event_return_12345678",
+          sessionId: "return_session_12345678",
+          path: "/gallery",
+        }),
+      ),
+      env: { INSHELL_CHAIN_DATA_DB: d1.db },
+    });
+    await onAnalyticsEventPost({
+      request: analyticsRequest(
+        "https://staging.inshell-art.pages.dev/api/analytics/event",
+        payload({
+          eventId: "event_staging_only_12345678",
+          path: "/staging-only",
+        }),
+      ),
+      env: { INSHELL_CHAIN_DATA_DB: d1.db },
+    });
+
+    const unauthorized = await onAnalyticsVisitorsGet({
+      request: analyticsRequest("https://inshell.art/api/analytics/visitors?days=1"),
+      env: { INSHELL_CHAIN_DATA_DB: d1.db, INSHELL_INDEXER_REFRESH_TOKEN: "secret" },
+    });
+    expect(unauthorized.status).toBe(401);
+
+    const response = await onAnalyticsVisitorsGet({
+      request: analyticsRequest("https://inshell.art/api/analytics/visitors?days=1", undefined, "secret"),
+      env: { INSHELL_CHAIN_DATA_DB: d1.db, INSHELL_INDEXER_REFRESH_TOKEN: "secret" },
+    });
+    const body = await response.json() as any;
+
+    expect(body).toMatchObject({
+      ok: true,
+      hostScope: { name: "production" },
+      visitors: [
+        {
+          visitorRank: 1,
+          eventCount: 4,
+          pageViews: 2,
+          sessions: 2,
+          returning: true,
+          source: {
+            referrerHost: "example.com",
+            referrerPath: null,
+            firstPath: "/path/25",
+            firstContentType: "path",
+            firstContentId: "25",
+          },
+        },
+      ],
+    });
+    expect(body.visitors[0].timeline.map((event: any) => event.eventType)).toEqual([
+      "pageview",
+      "scroll_depth",
+      "wallet_connect_failed",
+      "pageview",
+    ]);
+    expect(body.visitors[0].timeline[1].metadata).toEqual({ scrollPercent: 75 });
+    expect(body.visitors[0].timeline[2].metadata).toEqual({
+      walletKind: "injected",
+      walletStage: "request_accounts",
+      errorCategory: "wallet_rejected",
+    });
+    const serialized = JSON.stringify(body);
+    expect(serialized).not.toContain("visitor_12345678");
+    expect(serialized).not.toContain("session_12345678");
+    expect(serialized).not.toContain("walletAddress");
+    expect(serialized).not.toContain("private prompt");
+    expect(serialized).not.toContain("staging-only");
+  });
+
   test("reports OPS-safe status without exposing identifiers", async () => {
     const d1 = createAnalyticsD1Mock();
     await onAnalyticsEventPost({
@@ -336,6 +562,8 @@ describe("anonymous analytics Pages functions", () => {
       dbBinding: "INSHELL_CHAIN_DATA_DB",
       rawIpStored: false,
       rawUserAgentStored: false,
+      rawWalletAddressStored: false,
+      metadataAllowlist: true,
       statusSource: "d1",
       eventCount24h: 1,
       uniqueVisitors24h: 1,
