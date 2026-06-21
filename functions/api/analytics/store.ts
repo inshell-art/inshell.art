@@ -737,7 +737,6 @@ async function ensureAnalyticsTables(db: D1DatabaseLike) {
     `CREATE INDEX IF NOT EXISTS idx_${EVENT_TABLE}_session ON ${EVENT_TABLE} (session_hash, received_at)`,
     `CREATE INDEX IF NOT EXISTS idx_${EVENT_TABLE}_path ON ${EVENT_TABLE} (path, received_at)`,
     `CREATE INDEX IF NOT EXISTS idx_${EVENT_TABLE}_event_type ON ${EVENT_TABLE} (event_type, received_at)`,
-    `CREATE INDEX IF NOT EXISTS idx_${EVENT_TABLE}_content ON ${EVENT_TABLE} (content_type, content_id, received_at)`,
     `CREATE TABLE IF NOT EXISTS ${VISITOR_TABLE} (` +
       "visitor_hash TEXT PRIMARY KEY,first_seen_at TEXT NOT NULL,last_seen_at TEXT NOT NULL,event_count INTEGER NOT NULL DEFAULT 0)",
     `CREATE TABLE IF NOT EXISTS ${SESSION_TABLE} (` +
@@ -757,6 +756,9 @@ async function ensureAnalyticsTables(db: D1DatabaseLike) {
       if (!isDuplicateColumnError(error)) throw error;
     }
   }
+  await db
+    .prepare(`CREATE INDEX IF NOT EXISTS idx_${EVENT_TABLE}_content ON ${EVENT_TABLE} (content_type, content_id, received_at)`)
+    .run();
   ensuredTables.add(db as object);
 }
 
