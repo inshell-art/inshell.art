@@ -1,5 +1,6 @@
 import type { PagesContextLike } from "../chain-cache";
 import {
+  analyticsHostScopeForHostname,
   analyticsJson,
   analyticsOptions,
   isAnalyticsReadAuthorized,
@@ -19,7 +20,10 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
   try {
     const url = new globalThis.URL(ctx.request.url);
     const days = Number.parseInt(url.searchParams.get("days") ?? "7", 10);
-    return analyticsJson(200, await readAnalyticsSummary(ctx.env, days));
+    return analyticsJson(
+      200,
+      await readAnalyticsSummary(ctx.env, days, analyticsHostScopeForHostname(url.hostname)),
+    );
   } catch {
     return analyticsJson(503, {
       ok: false,
