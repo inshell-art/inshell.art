@@ -11,21 +11,21 @@
   },
   "dependencies": {
     "@fontsource-variable/roboto-mono": "^5.2.8",
-    "@fontsource/source-code-pro": "^5.2.6",
+    "@fontsource/source-code-pro": "^5.2.7",
     "@inshell/contracts": "workspace:*",
     "@inshell/shared": "workspace:*",
     "@inshell/surface-shell-core": "workspace:*",
     "@inshell/wallet": "workspace:*",
-    "ethers": "^6.16.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "ethers": "^6.17.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "surface-shell": "github:inshell-art/surface-shell#0.1.0",
-    "vite": "^7.3.5"
+    "vite": "^8.0.16"
   },
   "devDependencies": {
     "@types/node": "^24.2.0",
-    "@types/react": "^18.3.3",
-    "@types/react-dom": "^18.3.7",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react-swc": "^3.10.2",
     "typescript": "^5.8.3",
     "yaml": "^2.8.4"
