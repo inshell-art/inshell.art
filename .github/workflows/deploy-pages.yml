@@ -50,7 +50,7 @@ jobs:
       VITE_THOUGHT_GALLERY_URL: ${{ github.event.inputs.branch == 'staging' && 'https://gallery.preview.inshell.art/' || vars.VITE_GALLERY_URL || vars.VITE_THOUGHT_GALLERY_URL || 'https://gallery.inshell.art/' }}
       VITE_PUBLIC_TELEGRAM_CHANNEL_URL: ${{ vars.VITE_PUBLIC_TELEGRAM_CHANNEL_URL }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.inputs.branch }}
       - name: Enable pnpm
@@ -128,7 +128,7 @@ jobs:
       VITE_GITHUB_URL: ${{ vars.VITE_GITHUB_URL || 'https://github.com/inshell-art/' }}
       VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN: ${{ github.event.inputs.branch == 'main' && (vars.VITE_CLOUDFLARE_WEB_ANALYTICS_THOUGHT_TOKEN || vars.VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN) || '' }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.inputs.branch }}
       - name: Enable pnpm

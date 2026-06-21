@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Enable pnpm
         run: corepack enable
       - name: Use Node.js
@@ -48,7 +48,7 @@ jobs:
   gitleaks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Install gitleaks
         run: |
           mkdir -p "$RUNNER_TEMP/gitleaks"
