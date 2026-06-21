@@ -23,7 +23,7 @@ export async function onRequestPost(ctx: PagesContextLike): Promise<Response> {
     }
     return analyticsJson(503, {
       ok: false,
-      error: safeErrorMessage(error),
+      error: "Analytics event ingest failed.",
     });
   }
 }
@@ -33,12 +33,4 @@ export async function onRequestGet(): Promise<Response> {
     ok: false,
     error: "Use POST for analytics events.",
   });
-}
-
-function safeErrorMessage(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error);
-  return message
-    .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer <redacted>")
-    .replace(/([?&](?:api[_-]?key|key|token)=)[^&\s]+/gi, "$1<redacted>")
-    .slice(0, 180);
 }

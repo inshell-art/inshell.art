@@ -300,12 +300,11 @@ export async function readAnalyticsStatus(env: ChainCacheEnv): Promise<Analytics
       sessions24h: Number(totals?.sessions ?? 0),
     };
   } catch (error) {
-    const message = errorMessage(error);
-    if (message.toLowerCase().includes("no such table")) return base;
+    if (isMissingAnalyticsTableError(error)) return base;
     return {
       ...base,
       statusSource: "error",
-      statusError: message.slice(0, 180),
+      statusError: "analytics status query failed",
     };
   }
 }
@@ -544,6 +543,7 @@ async function hashIdentifier(value: string) {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
+function isMissingAnalyticsTableError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.toLowerCase().includes("no such table");
 }
