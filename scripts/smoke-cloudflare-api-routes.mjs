@@ -167,6 +167,14 @@ async function checkOpsStatus(base, label) {
     if (!payload?.routes?.refresh?.route || !Array.isArray(payload?.routes?.readModel)) {
       throw new Error("expected route contract for refresh and read model");
     }
+    if (
+      payload?.routes?.analytics?.eventRoute !== "/api/analytics/event" ||
+      payload?.anonymousAnalytics?.identity !== "anonymous-browser-session" ||
+      payload?.anonymousAnalytics?.rawIpStored !== false ||
+      payload?.anonymousAnalytics?.rawUserAgentStored !== false
+    ) {
+      throw new Error("expected anonymous analytics route contract and privacy flags");
+    }
     if (JSON.stringify(payload).includes("http")) {
       throw new Error("ops status must not expose raw endpoint URLs");
     }

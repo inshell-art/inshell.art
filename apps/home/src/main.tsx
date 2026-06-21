@@ -7,7 +7,10 @@ import "@fontsource/source-code-pro/200.css";
 import "@fontsource/source-code-pro/300.css";
 import "@fontsource/source-code-pro/400.css";
 import "@fontsource/source-code-pro/600.css";
-import { maybeInstallCloudflareWebAnalytics } from "@inshell/shared";
+import {
+  installInshellAnonymousAnalytics,
+  maybeInstallCloudflareWebAnalytics,
+} from "@inshell/shared";
 import { WalletProvider } from "@inshell/wallet";
 
 const runtimeEnv = {
@@ -17,6 +20,7 @@ const runtimeEnv = {
 
 (globalThis as any).__VITE_ENV__ = runtimeEnv;
 maybeInstallCloudflareWebAnalytics({ env: runtimeEnv });
+installInshellAnonymousAnalytics({ env: runtimeEnv });
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

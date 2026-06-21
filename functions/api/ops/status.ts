@@ -12,6 +12,7 @@ import {
   type ChainCacheEnv,
   type PagesContextLike,
 } from "../chain-cache";
+import { readAnalyticsStatus } from "../analytics/store";
 import { readIndexerEventStatus } from "../indexer/event-status";
 
 type EnvKey = keyof ChainCacheEnv;
@@ -48,6 +49,12 @@ const ROUTES = {
     auth: "bearer-token-required",
     targets: ["pulse-auction", "path-tokens", "thought-gallery"],
   },
+  analytics: {
+    eventRoute: "/api/analytics/event",
+    summaryRoute: "/api/analytics/summary",
+    summaryAuth: "bearer-token-required",
+    identity: "anonymous-browser-session",
+  },
   publicFeed: [
     "/rss.xml",
     "/feed.xml",
@@ -74,6 +81,7 @@ export const onRequestOptions = onOptions;
 export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
   const url = new globalThis.URL(ctx.request.url);
   const eventStatus = await readIndexerEventStatus(ctx.env);
+  const analyticsStatus = await readAnalyticsStatus(ctx.env);
   const payload = {
     ok: true,
     contract: {
@@ -129,6 +137,7 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
       acceptedCount: eventStatus.status?.acceptedCount ?? 0,
       appliedCount: eventStatus.status?.appliedCount ?? 0,
     },
+    anonymousAnalytics: analyticsStatus,
     cache: {
       readModelEnabled: readModelEnabled(ctx.env),
       d1Bound: Boolean(ctx.env.INSHELL_CHAIN_DATA_DB),
@@ -171,11 +180,13 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
       devOwns: [
         "Pages API route behavior",
         "chain_snapshots table schema and read/write code",
+        "anonymous analytics event and summary route behavior",
         "RPC route selection contract",
         "frontend read behavior and diagnostics headers",
       ],
       opsOwns: [
         "D1/KV resources and bindings",
+        "anonymous analytics endpoint health and D1 quota monitoring",
         "scheduled indexer refresh worker",
         "RPC provider quota monitoring",
         "status freshness and alerting",

@@ -6,6 +6,7 @@ type KVNamespaceLike = {
 type D1PreparedStatementLike = {
   bind: (...values: unknown[]) => D1PreparedStatementLike;
   first: <T = unknown>() => Promise<T | null>;
+  all?: <T = unknown>() => Promise<{ results?: T[] }>;
   run: () => Promise<unknown>;
 };
 
@@ -37,6 +38,9 @@ export type ChainCacheEnv = {
   MSG_HUB_RPC_USAGE_TOKEN?: string;
   INSHELL_CHAIN_DATA_KV?: KVNamespaceLike;
   INSHELL_CHAIN_DATA_DB?: D1DatabaseLike;
+  INSHELL_ANALYTICS_DB?: D1DatabaseLike;
+  INSHELL_ANALYTICS_ENABLED?: string;
+  INSHELL_ANALYTICS_READ_TOKEN?: string;
   INSHELL_INDEXER_REFRESH_TOKEN?: string;
   INDEXER_REFRESH_MAX_BLOCKS?: string;
   INDEXER_REFRESH_MAX_LOG_CHUNKS?: string;

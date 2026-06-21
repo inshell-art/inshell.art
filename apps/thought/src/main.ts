@@ -33,6 +33,7 @@ import {
   buildReportBugLink,
   buildContractStatusSections,
   findContractStatusRow,
+  installInshellAnonymousAnalytics,
   maybeInstallCloudflareWebAnalytics,
   resolveWalletChainRpcUrls,
   shouldShowPreviewWatermark,
@@ -105,6 +106,7 @@ const runtimeEnv = {
 
 (globalThis as any).__VITE_ENV__ = runtimeEnv;
 maybeInstallCloudflareWebAnalytics({ env: runtimeEnv });
+installInshellAnonymousAnalytics({ env: runtimeEnv });
 
 type ColorFontFile = {
   colors: Array<{
