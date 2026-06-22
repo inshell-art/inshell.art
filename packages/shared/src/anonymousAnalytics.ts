@@ -84,9 +84,14 @@ export function installInshellAnonymousAnalytics(options: AnonymousAnalyticsOpti
   if (!isAnalyticsHostAllowed(hostname)) return false;
   if (isAnalyticsDisabled(options.env)) return false;
 
-  const visitorId = readOrCreateWindowStorageId(windowRef, "localStorage", VISITOR_STORAGE_KEY);
-  const sessionId = readOrCreateWindowStorageId(windowRef, "sessionStorage", SESSION_STORAGE_KEY);
-  if (!visitorId || !sessionId) return false;
+  const sharedCookieIdentity = usesSharedCookieIdentity(hostname);
+  const legacyIdentity = sharedCookieIdentity
+    ? null
+    : {
+        visitorId: readOrCreateWindowStorageId(windowRef, "localStorage", VISITOR_STORAGE_KEY),
+        sessionId: readOrCreateWindowStorageId(windowRef, "sessionStorage", SESSION_STORAGE_KEY),
+      };
+  if (legacyIdentity && (!legacyIdentity.visitorId || !legacyIdentity.sessionId)) return false;
 
   analyticsWindow.__INSHELL_ANON_ANALYTICS_INSTALLED__ = true;
   const endpoint = options.endpoint ?? DEFAULT_ENDPOINT;
@@ -95,16 +100,21 @@ export function installInshellAnonymousAnalytics(options: AnonymousAnalyticsOpti
   let emittedScrollBuckets = new Set<number>();
 
   const track = (input: AnonymousAnalyticsTrackInput) => {
-    const visit = readOrCreateVisitState(windowRef, Date.now());
-    const visitId = visit?.id ?? sessionId;
+    const visit = sharedCookieIdentity ? null : readOrCreateVisitState(windowRef, Date.now());
+    const visitId = visit?.id ?? legacyIdentity?.sessionId;
     const path = normalizePath(input.path ?? locationRef.pathname);
     const content = contentForPath(path, input.contentType, input.contentId);
+    const identityPayload = legacyIdentity
+      ? {
+          visitorId: legacyIdentity.visitorId,
+          sessionId: legacyIdentity.sessionId,
+          visitId,
+        }
+      : {};
     sendAnalyticsEvent(endpoint, {
       version: 1,
       eventId: createId(),
-      visitorId,
-      sessionId,
-      visitId,
+      ...identityPayload,
       eventType: input.eventType,
       path,
       contentType: content.contentType,
@@ -120,8 +130,8 @@ export function installInshellAnonymousAnalytics(options: AnonymousAnalyticsOpti
       automation: navigatorRef.webdriver === true,
       metadata: input.metadata ?? {},
     }, navigatorRef, () => {
-      updateVisitActivity(windowRef, visitId, Date.now());
-    });
+      if (visitId) updateVisitActivity(windowRef, visitId, Date.now());
+    }, sharedCookieIdentity);
     return true;
   };
 
@@ -191,9 +201,10 @@ function sendAnalyticsEvent(
   payload: Record<string, unknown>,
   navigatorRef: globalThis.Navigator,
   onAccepted?: () => void,
+  fetchOnly = false,
 ) {
   const body = JSON.stringify(payload);
-  if (typeof navigatorRef.sendBeacon === "function") {
+  if (!fetchOnly && typeof navigatorRef.sendBeacon === "function") {
     try {
       if (navigatorRef.sendBeacon(endpoint, new globalThis.Blob([body], { type: "application/json" }))) {
         onAccepted?.();
@@ -210,6 +221,7 @@ function sendAnalyticsEvent(
     },
     body,
     keepalive: true,
+    credentials: "same-origin",
   }).then((response) => {
     if (response.ok) onAccepted?.();
   }).catch(() => undefined);
@@ -522,6 +534,10 @@ function isAnalyticsHostAllowed(hostname: string) {
     hostname.endsWith(".inshell-art.pages.dev") ||
     hostname.endsWith(".thought-inshell-art.pages.dev")
   );
+}
+
+function usesSharedCookieIdentity(hostname: string) {
+  return hostname === "inshell.art" || hostname.endsWith(".inshell.art");
 }
 
 function isAnalyticsDisabled(env?: Readonly<Record<string, unknown>>) {

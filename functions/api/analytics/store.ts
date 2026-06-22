@@ -101,12 +101,16 @@ export type AnalyticsStatus = {
   summaryRoute: string;
   visitorRoute: string;
   identity: "anonymous-browser-session";
+  identityMode: "shared_cookie";
+  sharedCookieDomain: ".inshell.art";
   hostScope: AnalyticsHostScope["name"];
   countedHosts: string[];
   dbBound: boolean;
   dbBinding: "INSHELL_ANALYTICS_DB" | "INSHELL_CHAIN_DATA_DB" | null;
   rawIpStored: false;
   rawUserAgentStored: false;
+  rawVisitorIdStored: false;
+  rawSessionIdStored: false;
   rawVisitIdStored: false;
   rawWalletAddressStored: false;
   rawMetadataStored: false;
@@ -171,6 +175,7 @@ export type AnalyticsVisitors = {
   };
   visitors: Array<{
     visitorRank: number;
+    visitorKey: string;
     firstSeenAt: string | null;
     lastSeenAt: string | null;
     eventCount: number;
@@ -202,6 +207,12 @@ const MAX_REFERRER_PATH_LENGTH = 256;
 const MAX_METADATA_JSON_LENGTH = 1024;
 const HASH_PREFIX = "inshell-anon-analytics:v1:";
 const VISIT_TIMEOUT_MINUTES = 30;
+const SHARED_COOKIE_DOMAIN = ".inshell.art";
+const SHARED_VISITOR_COOKIE = "inshell_anon_visitor";
+const SHARED_SESSION_COOKIE = "inshell_anon_session";
+const SHARED_VISIT_COOKIE = "inshell_anon_visit";
+const SHARED_VISITOR_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
+const SHARED_VISIT_MAX_AGE_SECONDS = VISIT_TIMEOUT_MINUTES * 60;
 const EVENT_TYPE_SET = new Set<string>(ANALYTICS_EVENT_TYPES);
 const CONTENT_TYPE_SET = new Set<string>(ANALYTICS_CONTENT_TYPES);
 const DURATION_BUCKETS_MS = [5_000, 15_000, 30_000, 60_000, 120_000, 300_000, 600_000];
@@ -222,18 +233,26 @@ const ALLOWED_HOSTS = new Set([
 
 const ensuredTables = new WeakSet<object>();
 
-export function analyticsJson(status: number, body: unknown): Response {
+export function analyticsJson(
+  status: number,
+  body: unknown,
+  options: { setCookies?: string[] } = {},
+): Response {
+  const headers = new Headers({
+    "content-type": "application/json; charset=utf-8",
+    "cache-control": "no-store",
+    "access-control-allow-origin": "*",
+    "access-control-allow-methods": "GET, POST, OPTIONS",
+    "access-control-allow-headers": "content-type, authorization, x-inshell-analytics-token",
+    "access-control-max-age": "86400",
+    "x-content-type-options": "nosniff",
+  });
+  for (const cookie of options.setCookies ?? []) {
+    headers.append("set-cookie", cookie);
+  }
   return new Response(JSON.stringify(body), {
     status,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      "cache-control": "no-store",
-      "access-control-allow-origin": "*",
-      "access-control-allow-methods": "GET, POST, OPTIONS",
-      "access-control-allow-headers": "content-type, authorization, x-inshell-analytics-token",
-      "access-control-max-age": "86400",
-      "x-content-type-options": "nosniff",
-    },
+    headers,
   });
 }
 
@@ -338,7 +357,8 @@ export async function recordAnalyticsEvent(
     throw new AnalyticsInputError("analytics host is not allowed", 403);
   }
 
-  const normalized = normalizeAnalyticsEvent(payload, hostname);
+  const identity = resolveAnalyticsIdentity(request, payload, hostname);
+  const normalized = normalizeAnalyticsEvent(payload, hostname, identity);
   await ensureAnalyticsTables(db);
 
   const existing = await db
@@ -351,6 +371,7 @@ export async function recordAnalyticsEvent(
       stored: false,
       duplicate: true,
       eventId: normalized.eventId,
+      setCookies: identity.setCookies,
     };
   }
 
@@ -415,6 +436,7 @@ export async function recordAnalyticsEvent(
     stored: true,
     duplicate: false,
     eventId: normalized.eventId,
+    setCookies: identity.setCookies,
   };
 }
 
@@ -432,12 +454,16 @@ export async function readAnalyticsStatus(
     summaryRoute: "/api/analytics/summary",
     visitorRoute: "/api/analytics/visitors",
     identity: "anonymous-browser-session",
+    identityMode: "shared_cookie",
+    sharedCookieDomain: SHARED_COOKIE_DOMAIN,
     hostScope: hostScope.name,
     countedHosts: hostScope.hostnames,
     dbBound: Boolean(db),
     dbBinding: binding,
     rawIpStored: false,
     rawUserAgentStored: false,
+    rawVisitorIdStored: false,
+    rawSessionIdStored: false,
     rawVisitIdStored: false,
     rawWalletAddressStored: false,
     rawMetadataStored: false,
@@ -619,6 +645,7 @@ export async function readAnalyticsVisitors(
         const visitCount = Number(visitor.visits ?? 0);
         return {
           visitorRank: visitor.rank,
+          visitorKey: visitorKeyForHash(visitor.visitorHash),
           firstSeenAt: visitor.firstSeenAt ?? null,
           lastSeenAt: visitor.lastSeenAt ?? null,
           eventCount: Number(visitor.eventCount ?? 0),
@@ -848,12 +875,60 @@ async function ensureAnalyticsTables(db: D1DatabaseLike) {
   ensuredTables.add(db as object);
 }
 
-function normalizeAnalyticsEvent(payload: AnalyticsEventPayload, hostname: string) {
+type AnalyticsIdentity = {
+  visitorId: string;
+  sessionId: string;
+  visitId: string;
+  setCookies: string[];
+};
+
+function resolveAnalyticsIdentity(
+  request: Request,
+  payload: AnalyticsEventPayload,
+  hostname: string,
+): AnalyticsIdentity {
+  const cookieDomain = sharedCookieDomainForHostname(hostname);
+  if (!cookieDomain) {
+    const visitorId = normalizedId(payload.visitorId, "visitorId");
+    const sessionId = normalizedId(payload.sessionId, "sessionId");
+    return {
+      visitorId,
+      sessionId,
+      visitId: normalizedOptionalId(payload.visitId, "visitId") ?? sessionId,
+      setCookies: [],
+    };
+  }
+
+  const cookies = parseCookieHeader(request.headers.get("cookie") ?? "");
+  const visitorId = normalizedCookieId(cookies.get(SHARED_VISITOR_COOKIE)) ?? createSharedCookieId();
+  const sessionId = normalizedCookieId(cookies.get(SHARED_SESSION_COOKIE)) ?? createSharedCookieId();
+  const visitId = normalizedCookieId(cookies.get(SHARED_VISIT_COOKIE)) ?? createSharedCookieId();
+
+  return {
+    visitorId,
+    sessionId,
+    visitId,
+    setCookies: [
+      sharedCookie(SHARED_VISITOR_COOKIE, visitorId, {
+        domain: cookieDomain,
+        maxAge: SHARED_VISITOR_MAX_AGE_SECONDS,
+      }),
+      sharedCookie(SHARED_SESSION_COOKIE, sessionId, { domain: cookieDomain }),
+      sharedCookie(SHARED_VISIT_COOKIE, visitId, {
+        domain: cookieDomain,
+        maxAge: SHARED_VISIT_MAX_AGE_SECONDS,
+      }),
+    ],
+  };
+}
+
+function normalizeAnalyticsEvent(
+  payload: AnalyticsEventPayload,
+  hostname: string,
+  identity: AnalyticsIdentity,
+) {
   if (payload.version !== 1) throw new AnalyticsInputError("version must be 1");
   const eventId = normalizedId(payload.eventId, "eventId");
-  const visitorId = normalizedId(payload.visitorId, "visitorId");
-  const sessionId = normalizedId(payload.sessionId, "sessionId");
-  const visitId = normalizedOptionalId(payload.visitId, "visitId") ?? sessionId;
   const eventType = normalizeEventType(payload.eventType);
   const path = normalizePath(payload.path);
   const contentType = normalizeContentType(payload.contentType, path);
@@ -861,9 +936,9 @@ function normalizeAnalyticsEvent(payload: AnalyticsEventPayload, hostname: strin
   const metadata = normalizeEventMetadata(eventType, payload.metadata);
   return {
     eventId,
-    visitorId,
-    sessionId,
-    visitId,
+    visitorId: identity.visitorId,
+    sessionId: identity.sessionId,
+    visitId: identity.visitId,
     eventType,
     surface: surfaceForHost(hostname),
     hostname,
@@ -901,6 +976,52 @@ function normalizedId(value: unknown, label: string) {
 function normalizedOptionalId(value: unknown, label: string) {
   if (value == null) return null;
   return normalizedId(value, label);
+}
+
+function sharedCookieDomainForHostname(hostname: string): ".inshell.art" | null {
+  return hostname === "inshell.art" || hostname.endsWith(".inshell.art")
+    ? SHARED_COOKIE_DOMAIN
+    : null;
+}
+
+function parseCookieHeader(header: string) {
+  const cookies = new Map<string, string>();
+  for (const part of header.split(";")) {
+    const separatorIndex = part.indexOf("=");
+    if (separatorIndex <= 0) continue;
+    const key = part.slice(0, separatorIndex).trim();
+    const value = part.slice(separatorIndex + 1).trim();
+    if (!key) continue;
+    try {
+      cookies.set(key, decodeURIComponent(value));
+    } catch {
+      cookies.set(key, value);
+    }
+  }
+  return cookies;
+}
+
+function normalizedCookieId(value: unknown) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return /^[A-Za-z0-9_-][A-Za-z0-9_-]{7,95}$/.test(trimmed) ? trimmed : null;
+}
+
+function sharedCookie(
+  name: string,
+  value: string,
+  options: { domain: ".inshell.art"; maxAge?: number },
+) {
+  const parts = [
+    `${name}=${encodeURIComponent(value)}`,
+    `Domain=${options.domain}`,
+    "Path=/",
+    "Secure",
+    "HttpOnly",
+    "SameSite=Lax",
+  ];
+  if (options.maxAge != null) parts.push(`Max-Age=${Math.trunc(options.maxAge)}`);
+  return parts.join("; ");
 }
 
 function normalizePath(value: unknown) {
@@ -1121,6 +1242,10 @@ function numberOrNull(value: unknown) {
   return Number.isFinite(numeric) ? numeric : null;
 }
 
+function visitorKeyForHash(visitorHash: string) {
+  return `v_${visitorHash.slice(0, 12)}`;
+}
+
 function normalizeHostname(value: string) {
   return value.trim().toLowerCase().replace(/\.$/, "");
 }
@@ -1167,6 +1292,21 @@ async function hashIdentifier(value: string) {
   const bytes = new TextEncoder().encode(`${HASH_PREFIX}${value}`);
   const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function createSharedCookieId() {
+  if (typeof globalThis.crypto.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+  const bytes = new Uint8Array(16);
+  if (typeof globalThis.crypto.getRandomValues === "function") {
+    globalThis.crypto.getRandomValues(bytes);
+  } else {
+    for (let index = 0; index < bytes.length; index += 1) {
+      bytes[index] = Math.floor(Math.random() * 256);
+    }
+  }
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function isMissingAnalyticsTableError(error: unknown) {

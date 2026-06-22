@@ -60,6 +60,7 @@ describe("Inshell anonymous analytics client", () => {
     const [, init] = fetchMock.mock.calls[0] as [string, globalThis.RequestInit];
     expect(init.method).toBe("POST");
     expect(init.keepalive).toBe(true);
+    expect(init.credentials).toBe("same-origin");
     const payload = JSON.parse(String(init.body));
     expect(payload).toMatchObject({
       version: 1,
@@ -70,9 +71,9 @@ describe("Inshell anonymous analytics client", () => {
       title: "$PATH",
       automation: false,
     });
-    expect(payload.visitorId).toBe("12345678-1234-4234-9234-123456789abc");
-    expect(payload.sessionId).toBe("12345678-1234-4234-9234-123456789abc");
-    expect(payload.visitId).toBe("12345678-1234-4234-9234-123456789abc");
+    expect(payload.visitorId).toBeUndefined();
+    expect(payload.sessionId).toBeUndefined();
+    expect(payload.visitId).toBeUndefined();
   });
 
   test("exposes a manual tracker for typed action events", async () => {
@@ -142,17 +143,17 @@ describe("Inshell anonymous analytics client", () => {
 
     expect(
       installInshellAnonymousAnalytics({
-        hostname: "inshell.art",
+        hostname: "staging.inshell-art.pages.dev",
         window,
         document,
         navigator: testNavigator,
         location: {
-          href: "https://inshell.art/path/25",
-          hostname: "inshell.art",
+          href: "https://staging.inshell-art.pages.dev/path/25",
+          hostname: "staging.inshell-art.pages.dev",
           pathname: "/path/25",
           search: "",
           hash: "",
-          origin: "https://inshell.art",
+          origin: "https://staging.inshell-art.pages.dev",
         },
       }),
     ).toBe(true);

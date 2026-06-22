@@ -12,20 +12,44 @@ const originalResponse = globalThis.Response;
 const originalHeaders = globalThis.Headers;
 
 class TestHeaders {
-  private readonly values = new Map<string, string>();
+  private readonly values = new Map<string, string[]>();
 
-  constructor(init?: Record<string, string>) {
-    for (const [key, value] of Object.entries(init ?? {})) {
+  constructor(init?: Record<string, string> | Iterable<[string, string]> | { forEach: (callback: (value: string, key: string) => void) => void }) {
+    if (!init) return;
+    if (typeof (init as { forEach?: unknown }).forEach === "function") {
+      (init as { forEach: (callback: (value: string, key: string) => void) => void }).forEach((value, key) => {
+        this.append(key, value);
+      });
+      return;
+    }
+    if (Symbol.iterator in Object(init)) {
+      for (const [key, value] of init as Iterable<[string, string]>) {
+        this.append(key, value);
+      }
+      return;
+    }
+    for (const [key, value] of Object.entries(init)) {
       this.set(key, value);
     }
   }
 
   set(key: string, value: string) {
-    this.values.set(key.toLowerCase(), value);
+    this.values.set(key.toLowerCase(), [value]);
+  }
+
+  append(key: string, value: string) {
+    const normalized = key.toLowerCase();
+    this.values.set(normalized, [...(this.values.get(normalized) ?? []), value]);
   }
 
   get(key: string) {
-    return this.values.get(key.toLowerCase()) ?? null;
+    return this.values.get(key.toLowerCase())?.join("\n") ?? null;
+  }
+
+  forEach(callback: (value: string, key: string) => void) {
+    for (const [key, values] of this.values.entries()) {
+      callback(values.join("\n"), key);
+    }
   }
 }
 
@@ -34,7 +58,7 @@ class TestResponse {
   readonly headers: TestHeaders;
   private readonly bodyText: string;
 
-  constructor(body?: unknown, init?: { status?: number; headers?: Record<string, string> }) {
+  constructor(body?: unknown, init?: { status?: number; headers?: ConstructorParameters<typeof TestHeaders>[0] }) {
     this.status = init?.status ?? 200;
     this.headers = new TestHeaders(init?.headers);
     this.bodyText = typeof body === "string" ? body : "";
@@ -286,10 +310,17 @@ function createAnalyticsD1Mock() {
   };
 }
 
-function analyticsRequest(url: string, payload?: unknown, token?: string): Request {
+function analyticsRequest(
+  url: string,
+  payload?: unknown,
+  token?: string,
+  headersInit: Record<string, string> = {},
+): Request {
+  const headers = new Headers(headersInit);
+  if (token) headers.set("authorization", `Bearer ${token}`);
   return {
     url,
-    headers: new Headers(token ? { authorization: `Bearer ${token}` } : undefined),
+    headers,
     text: async () => JSON.stringify(payload ?? {}),
   } as Request;
 }
@@ -311,6 +342,18 @@ function payload(overrides: Record<string, unknown> = {}) {
     automation: false,
     ...overrides,
   };
+}
+
+function sharedCookieHeader(
+  visitor = "shared_visitor_12345678",
+  session = "shared_session_12345678",
+  visit = "shared_visit_12345678",
+) {
+  return `${[
+    `inshell_anon_visitor=${visitor}`,
+    `inshell_anon_session=${session}`,
+    `inshell_anon_visit=${visit}`,
+  ].join("; ")}`;
 }
 
 describe("anonymous analytics Pages functions", () => {
@@ -346,18 +389,32 @@ describe("anonymous analytics Pages functions", () => {
     jest.restoreAllMocks();
   });
 
-  test("records pageviews without storing raw visitor or session ids", async () => {
+  test("records shared-cookie pageviews without storing raw visitor or session ids", async () => {
     const d1 = createAnalyticsD1Mock();
     const response = await onAnalyticsEventPost({
-      request: analyticsRequest("https://inshell.art/api/analytics/event", payload()),
+      request: analyticsRequest(
+        "https://inshell.art/api/analytics/event",
+        payload({ visitorId: undefined, sessionId: undefined, visitId: undefined }),
+      ),
       env: { INSHELL_CHAIN_DATA_DB: d1.db },
     });
 
-    await expect(response.json()).resolves.toMatchObject({
+    const body = await response.json() as any;
+    expect(body).toMatchObject({
       ok: true,
       stored: true,
       duplicate: false,
     });
+    expect(body.setCookies).toBeUndefined();
+    const setCookie = response.headers.get("set-cookie") ?? "";
+    expect(setCookie).toContain("inshell_anon_visitor=");
+    expect(setCookie).toContain("Max-Age=31536000");
+    expect(setCookie).toContain("inshell_anon_session=");
+    expect(setCookie).toContain("inshell_anon_visit=");
+    expect(setCookie).toContain("Max-Age=1800");
+    expect(setCookie).toContain("Domain=.inshell.art");
+    expect(setCookie).toContain("HttpOnly");
+    expect(setCookie).toContain("SameSite=Lax");
     const event = [...d1.events.values()][0];
     expect(event.path).toBe("/path/25");
     expect(event.content_type).toBe("path");
@@ -373,7 +430,7 @@ describe("anonymous analytics Pages functions", () => {
     const d1 = createAnalyticsD1Mock();
     const response = await onAnalyticsEventPost({
       request: analyticsRequest(
-        "https://inshell.art/api/analytics/event",
+        "https://staging.inshell-art.pages.dev/api/analytics/event",
         payload({ eventId: "event_legacy_12345678", visitId: undefined }),
       ),
       env: { INSHELL_CHAIN_DATA_DB: d1.db },
@@ -493,6 +550,16 @@ describe("anonymous analytics Pages functions", () => {
 
   test("returns privacy-safe visitor timelines behind bearer auth", async () => {
     const d1 = createAnalyticsD1Mock();
+    const firstVisitCookie = sharedCookieHeader(
+      "journey_visitor_12345678",
+      "journey_session_12345678",
+      "journey_visit_one_12345678",
+    );
+    const secondVisitCookie = sharedCookieHeader(
+      "journey_visitor_12345678",
+      "journey_session_12345678",
+      "journey_visit_two_12345678",
+    );
     await onAnalyticsEventPost({
       request: analyticsRequest(
         "https://inshell.art/api/analytics/event",
@@ -501,6 +568,8 @@ describe("anonymous analytics Pages functions", () => {
           path: "/path/25",
           referrer: "https://example.com/source",
         }),
+        undefined,
+        { cookie: firstVisitCookie },
       ),
       env: { INSHELL_CHAIN_DATA_DB: d1.db },
     });
@@ -516,16 +585,18 @@ describe("anonymous analytics Pages functions", () => {
             walletAddress: "0x1234567890123456789012345678901234567890",
           },
         }),
+        undefined,
+        { cookie: firstVisitCookie },
       ),
       env: { INSHELL_CHAIN_DATA_DB: d1.db },
     });
     await onAnalyticsEventPost({
       request: analyticsRequest(
-        "https://inshell.art/api/analytics/event",
+        "https://thought.inshell.art/api/analytics/event",
         payload({
           eventId: "event_wallet_fail_12345678",
           eventType: "wallet_connect_failed",
-          path: "/path/25",
+          path: "/thought/17",
           metadata: {
             walletKind: "injected",
             walletStage: "request_accounts",
@@ -533,6 +604,8 @@ describe("anonymous analytics Pages functions", () => {
             prompt: "private prompt",
           },
         }),
+        undefined,
+        { cookie: firstVisitCookie },
       ),
       env: { INSHELL_CHAIN_DATA_DB: d1.db },
     });
@@ -541,10 +614,10 @@ describe("anonymous analytics Pages functions", () => {
         "https://inshell.art/api/analytics/event",
         payload({
           eventId: "event_return_12345678",
-          sessionId: "session_12345678",
-          visitId: "visit_return_12345678",
           path: "/gallery",
         }),
+        undefined,
+        { cookie: secondVisitCookie },
       ),
       env: { INSHELL_CHAIN_DATA_DB: d1.db },
     });
@@ -577,6 +650,7 @@ describe("anonymous analytics Pages functions", () => {
       visitors: [
         {
           visitorRank: 1,
+          visitorKey: expect.stringMatching(/^v_[a-f0-9]{12}$/),
           eventCount: 4,
           pageViews: 2,
           sessions: 1,
@@ -598,6 +672,12 @@ describe("anonymous analytics Pages functions", () => {
       "wallet_connect_failed",
       "pageview",
     ]);
+    expect(body.visitors[0].timeline.map((event: any) => event.hostname)).toEqual([
+      "inshell.art",
+      "inshell.art",
+      "thought.inshell.art",
+      "inshell.art",
+    ]);
     expect(body.visitors[0].timeline.map((event: any) => event.visitRank)).toEqual([1, 1, 1, 2]);
     expect(body.visitors[0].visits).toHaveLength(2);
     expect(body.visitors[0].visits.map((visit: any) => visit.visitRank)).toEqual([1, 2]);
@@ -613,7 +693,10 @@ describe("anonymous analytics Pages functions", () => {
     expect(serialized).not.toContain("visitor_12345678");
     expect(serialized).not.toContain("session_12345678");
     expect(serialized).not.toContain("visit_12345678");
-    expect(serialized).not.toContain("visit_return_12345678");
+    expect(serialized).not.toContain("journey_visitor_12345678");
+    expect(serialized).not.toContain("journey_session_12345678");
+    expect(serialized).not.toContain("journey_visit_one_12345678");
+    expect(serialized).not.toContain("journey_visit_two_12345678");
     expect(serialized).not.toContain("walletAddress");
     expect(serialized).not.toContain("private prompt");
     expect(serialized).not.toContain("staging-only");
@@ -633,11 +716,15 @@ describe("anonymous analytics Pages functions", () => {
       ),
     ).resolves.toMatchObject({
       enabled: true,
+      identityMode: "shared_cookie",
+      sharedCookieDomain: ".inshell.art",
       hostScope: "production",
       dbBound: true,
       dbBinding: "INSHELL_CHAIN_DATA_DB",
       rawIpStored: false,
       rawUserAgentStored: false,
+      rawVisitorIdStored: false,
+      rawSessionIdStored: false,
       rawVisitIdStored: false,
       rawWalletAddressStored: false,
       metadataAllowlist: true,
