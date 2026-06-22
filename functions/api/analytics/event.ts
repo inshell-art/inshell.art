@@ -13,7 +13,8 @@ export async function onRequestPost(ctx: PagesContextLike): Promise<Response> {
   try {
     const payload = await readAnalyticsRequest(ctx.request);
     const result = await recordAnalyticsEvent(ctx.env, ctx.request, payload);
-    return analyticsJson(200, result);
+    const { setCookies, ...body } = result;
+    return analyticsJson(200, body, { setCookies });
   } catch (error) {
     if (error instanceof AnalyticsInputError) {
       return analyticsJson(error.status, {

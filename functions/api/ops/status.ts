@@ -56,9 +56,13 @@ const ROUTES = {
     summaryAuth: "bearer-token-required",
     visitorAuth: "bearer-token-required",
     identity: "anonymous-browser-session",
+    identityMode: "shared_cookie",
+    sharedCookieDomain: ".inshell.art",
     privacy: {
       rawIpStored: false,
       rawUserAgentStored: false,
+      rawVisitorIdStored: false,
+      rawSessionIdStored: false,
       rawVisitIdStored: false,
       rawWalletAddressStored: false,
       metadataAllowlist: true,
