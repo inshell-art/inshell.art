@@ -202,12 +202,12 @@ function expectedDefaultGalleryUrl() {
     return new globalThis.URL(configured).toString();
   }
   if (String(env.VITE_DEPLOY_ENV ?? "").toLowerCase() === "preview") {
-    return "https://gallery.preview.inshell.art/";
+    return "https://preview.inshell.art/gallery";
   }
   const hostname = window.location.hostname.toLowerCase();
   return hostname === "localhost" || hostname === "127.0.0.1"
     ? "http://127.0.0.1:5174/gallery"
-    : "https://gallery.inshell.art/";
+    : "https://inshell.art/gallery";
 }
 
 describe("App Component", () => {
@@ -641,7 +641,7 @@ describe("App Component", () => {
     expect(screen.getByText("https://inshell.art")).toBeInTheDocument();
     expect(screen.getByText("https://inshell.art/path")).toBeInTheDocument();
     expect(screen.getByText("https://thought.inshell.art")).toBeInTheDocument();
-    expect(screen.getByText("https://gallery.inshell.art")).toBeInTheDocument();
+    expect(screen.getByText("https://inshell.art/gallery")).toBeInTheDocument();
     expect(screen.getByText("official origins")).toBeInTheDocument();
     expect(screen.getByText("inshell.art/verify")).toBeInTheDocument();
     expect(screen.getByText("preview / staging surface")).toBeInTheDocument();
@@ -1137,14 +1137,14 @@ describe("App Component", () => {
 
   test("footer gallery uses configured gallery URL", () => {
     (globalThis as any).__VITE_ENV__ = {
-      VITE_GALLERY_URL: "https://gallery.preview.inshell.art/",
+      VITE_GALLERY_URL: "https://preview.inshell.art/gallery",
     };
 
     render(<App />);
 
     expect(screen.getByLabelText("Open gallery")).toHaveAttribute(
       "href",
-      "https://gallery.preview.inshell.art/",
+      "https://preview.inshell.art/gallery",
     );
   });
 
@@ -1186,7 +1186,7 @@ describe("App Component", () => {
 
     expect(screen.getByLabelText("Open gallery")).toHaveAttribute(
       "href",
-      "https://gallery.preview.inshell.art/",
+      "https://preview.inshell.art/gallery",
     );
   });
 

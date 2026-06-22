@@ -77,9 +77,9 @@ function isLocalBrowserHost(): boolean {
 }
 
 function defaultGalleryUrl(): string {
-  if (isPreviewDeployment()) return "https://gallery.preview.inshell.art/";
+  if (isPreviewDeployment()) return "https://preview.inshell.art/gallery";
   if (isLocalBrowserHost()) return "http://127.0.0.1:5174/gallery";
-  return "https://gallery.inshell.art/";
+  return "https://inshell.art/gallery";
 }
 
 function resolveGalleryUrl(): string {

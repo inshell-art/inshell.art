@@ -37,6 +37,7 @@ describe("Cloudflare Web Analytics install policy", () => {
 
   test("does not install on preview, ops, pages.dev, or local hosts", () => {
     const blockedHosts = [
+      "gallery.inshell.art",
       "preview.inshell.art",
       "thought.preview.inshell.art",
       "gallery.preview.inshell.art",
@@ -70,7 +71,7 @@ describe("Cloudflare Web Analytics install policy", () => {
     (globalThis as any).__INSHELL_VITE_ENV__ = env;
 
     expect(
-      maybeInstallCloudflareWebAnalytics({ document, hostname: "gallery.inshell.art" }),
+      maybeInstallCloudflareWebAnalytics({ document, hostname: "thought.inshell.art" }),
     ).toBe(true);
 
     expect(

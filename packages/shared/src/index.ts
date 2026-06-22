@@ -130,9 +130,9 @@ export const SURFACE_DEPLOYMENT_MANIFEST = {
     gallery: {
       id: "gallery",
       product: "Gallery",
-      domain: "https://gallery.inshell.art",
+      domain: "https://inshell.art",
       role: "Public gallery for movement works.",
-      canonicalPath: "/",
+      canonicalPath: "/gallery",
     },
   },
   contractIds: {
@@ -425,7 +425,6 @@ export const CLOUDFLARE_WEB_ANALYTICS_SCRIPT_ID = "inshell-cloudflare-web-analyt
 export const CLOUDFLARE_WEB_ANALYTICS_ALLOWED_HOSTS = [
   "inshell.art",
   "thought.inshell.art",
-  "gallery.inshell.art",
 ] as const;
 
 function normalizeHostname(value: string | null | undefined): string {

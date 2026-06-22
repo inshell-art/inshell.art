@@ -27,9 +27,13 @@ export async function onRequest(ctx: MiddlewareContext): Promise<Response> {
   }
 
   const pathname = normalizePathname(url.pathname);
+  const galleryRedirect = canonicalGalleryHostRedirect(ctx.request, url, pathname);
   const sepoliaRedirect = temporarySepoliaHostRedirect(url);
   const thoughtRedirect = canonicalThoughtRedirect(url, pathname);
 
+  if (galleryRedirect) {
+    return galleryRedirect;
+  }
   if (sepoliaRedirect) {
     return sepoliaRedirect;
   }
@@ -192,6 +196,43 @@ function temporarySepoliaHostRedirect(url: UrlInstance) {
   const target = new globalThis.URL(url.pathname, "https://inshell.art");
   target.search = url.search;
   return Response.redirect(target.toString(), 302);
+}
+
+function canonicalGalleryHostRedirect(request: Request, url: UrlInstance, pathname: string) {
+  const hostname = url.hostname.toLowerCase();
+  if (!isCanonicalGalleryRedirectHost(hostname)) return null;
+  if (request.method !== "GET" && request.method !== "HEAD") return null;
+  if (isApiPathname(pathname) || isLikelyStaticAssetPathname(url.pathname)) return null;
+
+  const target = new globalThis.URL(
+    canonicalGalleryPathname(pathname),
+    hostname === "gallery.preview.inshell.art"
+      ? "https://preview.inshell.art"
+      : "https://inshell.art",
+  );
+  target.search = url.search;
+  return Response.redirect(target.toString(), 308);
+}
+
+function isCanonicalGalleryRedirectHost(hostname: string) {
+  return hostname === "gallery.inshell.art" || hostname === "gallery.preview.inshell.art";
+}
+
+function isApiPathname(pathname: string) {
+  return pathname === "/api" || pathname.startsWith("/api/");
+}
+
+function isLikelyStaticAssetPathname(pathname: string) {
+  return (
+    pathname === "/assets" ||
+    pathname.startsWith("/assets/") ||
+    /\.(?:css|js|mjs|map|png|jpg|jpeg|gif|svg|webp|ico|woff2?|ttf|otf|json|txt|xml)$/i.test(pathname)
+  );
+}
+
+function canonicalGalleryPathname(pathname: string) {
+  if (pathname === "/" || pathname === "/gallery") return "/gallery";
+  return isAppShellRoute(pathname) ? pathname : "/gallery";
 }
 
 function normalizePathname(pathname: string) {

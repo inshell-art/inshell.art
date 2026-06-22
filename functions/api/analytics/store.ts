@@ -206,14 +206,16 @@ const EVENT_TYPE_SET = new Set<string>(ANALYTICS_EVENT_TYPES);
 const CONTENT_TYPE_SET = new Set<string>(ANALYTICS_CONTENT_TYPES);
 const DURATION_BUCKETS_MS = [5_000, 15_000, 30_000, 60_000, 120_000, 300_000, 600_000];
 
-const PRODUCTION_HOSTS = ["inshell.art", "thought.inshell.art", "gallery.inshell.art"];
-const PREVIEW_HOSTS = ["preview.inshell.art", "thought.preview.inshell.art", "gallery.preview.inshell.art"];
+const PRODUCTION_HOSTS = ["inshell.art", "thought.inshell.art"];
+const PREVIEW_HOSTS = ["preview.inshell.art", "thought.preview.inshell.art"];
 const STAGING_HOSTS = ["staging.inshell-art.pages.dev", "staging.thought-inshell-art.pages.dev"];
+const LEGACY_GALLERY_HOSTS = ["gallery.inshell.art", "gallery.preview.inshell.art"];
 
 const ALLOWED_HOSTS = new Set([
   ...PRODUCTION_HOSTS,
   ...PREVIEW_HOSTS,
   ...STAGING_HOSTS,
+  ...LEGACY_GALLERY_HOSTS,
   "inshell-art.pages.dev",
   "thought-inshell-art.pages.dev",
 ]);
@@ -275,7 +277,13 @@ export function analyticsHostScopeForHostname(hostname: string): AnalyticsHostSc
   if (PRODUCTION_HOSTS.includes(normalized)) {
     return { name: "production", hostnames: PRODUCTION_HOSTS };
   }
+  if (normalized === "gallery.inshell.art") {
+    return { name: "production", hostnames: PRODUCTION_HOSTS };
+  }
   if (PREVIEW_HOSTS.includes(normalized)) {
+    return { name: "preview", hostnames: PREVIEW_HOSTS };
+  }
+  if (normalized === "gallery.preview.inshell.art") {
     return { name: "preview", hostnames: PREVIEW_HOSTS };
   }
   if (
