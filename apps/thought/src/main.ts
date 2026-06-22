@@ -863,8 +863,8 @@ const GALLERY_URL =
   (LOCAL_BROWSER_HOSTS.has(window.location.hostname)
     ? ""
     : IS_PREVIEW_DEPLOYMENT
-      ? "https://gallery.preview.inshell.art/"
-      : "https://gallery.inshell.art/");
+      ? "https://preview.inshell.art/gallery"
+      : "https://inshell.art/gallery");
 const THOUGHT_APP_URL =
   readConfiguredUrl("VITE_THOUGHT_URL") ||
   (LOCAL_BROWSER_HOSTS.has(window.location.hostname)

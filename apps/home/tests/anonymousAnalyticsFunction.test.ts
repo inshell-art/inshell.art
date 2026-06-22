@@ -450,9 +450,20 @@ describe("anonymous analytics Pages functions", () => {
       env: { INSHELL_CHAIN_DATA_DB: d1.db },
     });
     await onAnalyticsEventPost({
-      request: analyticsRequest("https://gallery.inshell.art/api/analytics/event", payload({ path: "/gallery" })),
+      request: analyticsRequest(
+        "https://gallery.inshell.art/api/analytics/event",
+        payload({ eventId: "event_legacy_gallery_12345678", path: "/legacy-gallery" }),
+      ),
       env: { INSHELL_CHAIN_DATA_DB: d1.db },
     });
+    await onAnalyticsEventPost({
+      request: analyticsRequest(
+        "https://inshell.art/api/analytics/event",
+        payload({ eventId: "event_canonical_gallery_12345678", path: "/gallery" }),
+      ),
+      env: { INSHELL_CHAIN_DATA_DB: d1.db },
+    });
+    expect(d1.events.get("event_legacy_gallery_12345678")?.hostname).toBe("gallery.inshell.art");
 
     const unauthorized = await onAnalyticsSummaryGet({
       request: analyticsRequest("https://gallery.inshell.art/api/analytics/summary?days=1"),

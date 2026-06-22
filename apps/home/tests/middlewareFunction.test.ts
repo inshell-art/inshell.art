@@ -141,6 +141,66 @@ describe("Pages middleware canonical routes", () => {
     expect(ctx.assetsFetch).not.toHaveBeenCalled();
   });
 
+  test("permanently redirects gallery root to the canonical root gallery route", async () => {
+    const ctx = middlewareContext("https://gallery.inshell.art/");
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe("https://inshell.art/gallery");
+    expect(ctx.next).not.toHaveBeenCalled();
+    expect(ctx.assetsFetch).not.toHaveBeenCalled();
+  });
+
+  test("preserves safe query strings on gallery host redirects", async () => {
+    const ctx = middlewareContext("https://gallery.inshell.art/thought/9?ref=x");
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe("https://inshell.art/thought/9?ref=x");
+    expect(ctx.next).not.toHaveBeenCalled();
+    expect(ctx.assetsFetch).not.toHaveBeenCalled();
+  });
+
+  test("permanently redirects preview gallery host to the preview root gallery route", async () => {
+    const ctx = middlewareContext("https://gallery.preview.inshell.art/");
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe("https://preview.inshell.art/gallery");
+    expect(ctx.next).not.toHaveBeenCalled();
+    expect(ctx.assetsFetch).not.toHaveBeenCalled();
+  });
+
+  test("does not redirect legacy gallery analytics API traffic", async () => {
+    const ctx = middlewareContext("https://gallery.inshell.art/api/analytics/event", { method: "POST" });
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(200);
+    expect(ctx.next).toHaveBeenCalledTimes(1);
+    expect(ctx.assetsFetch).not.toHaveBeenCalled();
+  });
+
+  test("does not redirect standalone THOUGHT host root to gallery", async () => {
+    const ctx = middlewareContext("https://thought.inshell.art/");
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+    expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
+    expect(ctx.next).not.toHaveBeenCalled();
+  });
+
+  test("serves canonical root gallery route through the root app shell", async () => {
+    const ctx = middlewareContext("https://inshell.art/gallery");
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("public, max-age=60, stale-while-revalidate=300");
+    expect(response.headers.get("clear-site-data")).toBeNull();
+    expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
+    expect(ctx.next).not.toHaveBeenCalled();
+  });
+
   test("routes PUB reserved paths to the PUB upstream before the app shell", async () => {
     const fetchMock = jest.fn(
       async () =>
