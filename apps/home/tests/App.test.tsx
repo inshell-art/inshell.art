@@ -1069,6 +1069,41 @@ describe("App Component", () => {
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
   });
 
+  test("renders the canonical THOUGHT gallery route at the Inshell root", async () => {
+    mockThoughtGalleryApi([
+      thoughtGalleryItem({
+        tokenId: 1,
+        pathId: "4",
+        rawText: "one thought",
+      }),
+      thoughtGalleryItem({
+        tokenId: 2,
+        pathId: "5",
+        rawText: "second thought",
+      }),
+    ]);
+    window.history.pushState({}, "", "/gallery");
+    render(<App />);
+    await flushAsyncEffects();
+
+    expect(document.title).toBe("THOUGHT Gallery");
+    expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
+    expect(screen.getByRole("heading", { level: 1, name: "Gallery" })).toBeInTheDocument();
+    expect(screen.getByText("2 minted THOUGHTs.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "create your THOUGHT" })).toHaveAttribute(
+      "href",
+      "https://thought.inshell.art/",
+    );
+    expect(screen.getByLabelText("Open THOUGHT #1")).toHaveAttribute("href", "/thought/1");
+    expect(screen.getByLabelText("Open THOUGHT #2")).toHaveAttribute("href", "/thought/2");
+    expect(screen.getByRole("img", { name: "THOUGHT #1" })).toHaveAttribute(
+      "src",
+      "/api/thought-image?id=1",
+    );
+    expect(screen.getByText("$PATH #4 THOUGHT unit consumed")).toBeInTheDocument();
+    expect(screen.queryByTestId("auction-canvas")).toBeNull();
+  });
+
   test("does not treat oversized numeric THOUGHT paths as detail routes", () => {
     window.history.pushState(
       {},
