@@ -8,6 +8,7 @@ import ColorFontPage from "@/components/ColorFontPage";
 import PathPage from "@/components/PathPage";
 import VerifyPage from "@/components/VerifyPage";
 import ThoughtDetailPage from "@/components/ThoughtDetailPage";
+import ThoughtGalleryPage from "@/components/ThoughtGalleryPage";
 import FloatingReportBug from "@/components/FloatingReportBug";
 import PreviewWatermark from "@/components/PreviewWatermark";
 import { maybeResolveAddress } from "@inshell/contracts";
@@ -34,6 +35,7 @@ function getPrimitiveRoute(locationKey: string) {
   if (pathname === "/pulse") return "pulse";
   if (pathname === "/color-font") return "color-font";
   if (pathname === "/path" || parseTokenRouteId(pathname, "path")) return "path";
+  if (pathname === "/gallery") return "gallery";
   if (pathname === "/verify") return "verify";
   if (parseTokenRouteId(pathname, "thought")) return "thought";
   return null;
@@ -95,6 +97,11 @@ export default function App() {
       setFavicon("/path.svg");
       return;
     }
+    if (primitiveRoute === "gallery") {
+      document.title = "THOUGHT Gallery";
+      setFavicon("/inshell.svg");
+      return;
+    }
     if (primitiveRoute === "verify") {
       document.title = `verify — ${SURFACE_TERMINOLOGY.pathDapp}`;
       setFavicon("/inshell.svg");
@@ -142,6 +149,8 @@ export default function App() {
             <ColorFontPage />
           ) : primitiveRoute === "path" ? (
             <PathPage tokenId={pathTokenId} />
+          ) : primitiveRoute === "gallery" ? (
+            <ThoughtGalleryPage />
           ) : primitiveRoute === "verify" ? (
             <VerifyPage />
           ) : primitiveRoute === "thought" && thoughtTokenId ? (
