@@ -2567,6 +2567,7 @@ body {
 }
 
 .thought-gallery__create,
+.thought-gallery__link,
 .thought-gallery__footer-link {
   color: var(--muted);
   font-size: 12px;
@@ -2578,6 +2579,8 @@ body {
 
 .thought-gallery__create:hover,
 .thought-gallery__create:focus-visible,
+.thought-gallery__link:hover,
+.thought-gallery__link:focus-visible,
 .thought-gallery__footer-link:hover,
 .thought-gallery__footer-link:focus-visible {
   color: var(--accent);
@@ -2596,6 +2599,10 @@ body {
 
 .thought-gallery__status {
   min-height: 20px;
+}
+
+.thought-gallery__link {
+  margin-left: auto;
 }
 
 .thought-gallery__grid {
@@ -2706,6 +2713,10 @@ body {
     align-items: flex-start;
     flex-direction: column;
     gap: 8px;
+  }
+
+  .thought-gallery__link {
+    margin-left: 0;
   }
 
   .thought-gallery__grid {
