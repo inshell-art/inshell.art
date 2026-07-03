@@ -1185,10 +1185,13 @@ const thoughtDebugCtaStatus = document.getElementById("thought-debug-cta-status"
 const thoughtDebugWarning = document.getElementById("thought-debug-warning") as HTMLSelectElement | null;
 const thoughtReportBugLink = document.getElementById("thought-report-bug-link") as HTMLAnchorElement | null;
 const thoughtInstructionsLink = document.getElementById("thought-instructions-link") as HTMLAnchorElement | null;
+const thoughtCreateGalleryLink = document.getElementById("thought-create-gallery-link") as HTMLAnchorElement | null;
+const thoughtCreateHomeLink = document.getElementById("thought-create-home-link") as HTMLAnchorElement | null;
 const thoughtGalleryLink = document.getElementById("thought-gallery-link") as HTMLAnchorElement | null;
 const galleryPage = document.getElementById("gallery-page") as HTMLElement | null;
 const galleryStatus = document.getElementById("gallery-status") as HTMLElement | null;
 const galleryCreateLink = document.getElementById("gallery-create-link") as HTMLAnchorElement | null;
+const galleryHomeLink = document.getElementById("gallery-home-link") as HTMLAnchorElement | null;
 const galleryGrid = document.getElementById("gallery-grid") as HTMLElement | null;
 const colorFontPage = document.getElementById("color-font-page") as HTMLElement | null;
 const colorFontSource = document.getElementById("color-font-source") as HTMLElement | null;
@@ -1325,10 +1328,13 @@ if (
   !thoughtDebugWarning ||
   !thoughtReportBugLink ||
   !thoughtInstructionsLink ||
+  !thoughtCreateGalleryLink ||
+  !thoughtCreateHomeLink ||
   !thoughtGalleryLink ||
   !galleryPage ||
   !galleryStatus ||
   !galleryCreateLink ||
+  !galleryHomeLink ||
   !galleryGrid ||
   !colorFontPage ||
   !colorFontSource ||
@@ -5773,11 +5779,15 @@ const viewThoughtUseLine = (tokenId?: number | null) =>
   `use: view THOUGHT ${tokenId ?? "<id>"}`;
 
 const thoughtCreateUrl = () => new URL(THOUGHT_APP_URL, window.location.origin).toString();
+const inshellHomeUrl = () => new URL("/", PATH_MINT_URL).toString();
 
 const configureGalleryLink = () => {
+  thoughtCreateGalleryLink.href = galleryUrl();
+  thoughtCreateHomeLink.href = inshellHomeUrl();
   thoughtGalleryLink.href = galleryUrl();
   thoughtDetailGalleryLink.href = galleryUrl();
   galleryCreateLink.href = thoughtCreateUrl();
+  galleryHomeLink.href = inshellHomeUrl();
   thoughtDetailCreateLink.href = thoughtCreateUrl();
 };
 
