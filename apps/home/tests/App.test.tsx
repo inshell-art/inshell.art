@@ -210,6 +210,17 @@ function expectedDefaultGalleryUrl() {
     : "https://inshell.art/gallery";
 }
 
+function expectedDefaultThoughtUrl() {
+  const configured = env.VITE_THOUGHT_URL;
+  if (configured) {
+    return new globalThis.URL(configured).toString();
+  }
+  if (String(env.VITE_DEPLOY_ENV ?? "").toLowerCase() === "preview") {
+    return "https://thought.preview.inshell.art/";
+  }
+  return "https://thought.inshell.art/";
+}
+
 describe("App Component", () => {
   beforeEach(() => {
     window.history.pushState({}, "", "/");
@@ -1092,7 +1103,7 @@ describe("App Component", () => {
     expect(screen.getByText("2 minted THOUGHTs.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "create your THOUGHT" })).toHaveAttribute(
       "href",
-      "https://thought.inshell.art/",
+      expectedDefaultThoughtUrl(),
     );
     expect(screen.getByRole("link", { name: "[ home ]" })).toHaveAttribute("href", "/");
     expect(screen.getByLabelText("Open THOUGHT #1")).toHaveAttribute("href", "/thought/1");
