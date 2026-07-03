@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 
 import {
   buildThoughtRunPayload,
@@ -14,6 +15,12 @@ import {
   prevalidateThoughtCandidate,
   previewUnavailableCliLines,
 } from "../apps/thought/src/thought-preview-policy";
+import {
+  THOUGHT_V2_ARTIFACT,
+  THOUGHT_V2_RENDER_CONTRACT,
+  buildThoughtV2Svg,
+  measureThoughtV2Line,
+} from "../apps/thought/src/thought-v2-renderer";
 import {
   JSON_RPC_NO_BATCH_OPTIONS,
   createSingleRequestJsonRpcProvider,
@@ -49,6 +56,7 @@ const cases: Array<{
   { route: "direct", provider: "openrouter", model: "openrouter/free" },
   { route: "direct", provider: "openai", model: "gpt-5.4-mini" },
   { route: "direct", provider: "anthropic", model: "claude-sonnet-4.5" },
+  { route: "codex", provider: "codex", model: "codex" },
 ];
 
 for (const item of cases) {
@@ -102,11 +110,23 @@ assertNoToolPayload(
   toAnthropicMessagesPayload(anthropicPayload) as Record<string, unknown>,
 );
 
+const codexPayload = buildThoughtRunPayload({
+  route: "codex",
+  provider: "codex",
+  model: "codex",
+  prompt: "make it quiet",
+  thoughtSpec,
+});
+assert.equal(codexPayload.config.request.maxOutputTokens, null);
+assert.equal(codexPayload.config.request.stop, null);
+assert.equal(codexPayload.config.web.enabled, false);
+assert.equal(codexPayload.config.web.tool, "unavailable");
+
 assert.equal(normalizePreviewMode("wallet"), "wallet");
 assert.equal(normalizePreviewMode("rpc"), "auto");
 assert.equal(normalizePreviewMode("bad"), "auto");
 const autoPreviewUnavailableLines = previewUnavailableCliLines("auto", "preview service unavailable.");
-assert(autoPreviewUnavailableLines.includes("preview service unavailable or wallet not connected."));
+assert(autoPreviewUnavailableLines.includes("fix the reason above, then retry."));
 assert(autoPreviewUnavailableLines.includes("use: preview retry"));
 assert(autoPreviewUnavailableLines.includes("use: wallet connect"));
 assert(
@@ -197,8 +217,8 @@ assert.equal(validCandidate.canonical, "QUIET GREEN SKY");
 
 for (const [label, raw, reasonCode] of [
   ["blank", "  ", 1],
-  ["multi-line", "ONE\nTWO", 6],
-  ["unsupported", "ONE!", 4],
+  ["digits-only", "123", 1],
+  ["raw-too-large", "A".repeat(513), 2],
 ] as const) {
   const result = prevalidateThoughtCandidate(raw, {
     maxRawBytes: 512,
@@ -207,5 +227,77 @@ for (const [label, raw, reasonCode] of [
   assert.equal(result.ok, false, `${label} candidate must be rejected before RPC`);
   assert.equal(result.ok ? 0 : result.reasonCode, reasonCode);
 }
+
+for (const [raw, canonical] of [
+  ["ONE!", "ONE"],
+  ["ONE\nTWO", "ONE TWO"],
+  ["ONE-TWO", "ONE TWO"],
+] as const) {
+  const result = prevalidateThoughtCandidate(raw, {
+    maxRawBytes: 512,
+    maxTextBytes: 128,
+  });
+  assert.equal(result.ok, true, `${JSON.stringify(raw)} must canonicalize like ThoughtNFT.previewWork`);
+  assert.equal(result.ok ? result.canonical : "", canonical);
+}
+
+const thoughtV2Svg = buildThoughtV2Svg({
+  agentLine: "QUIET",
+  promptLine: "soft question",
+  lineBgPadding: 99,
+});
+const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
+assert.equal(THOUGHT_V2_ARTIFACT.artifactId, "thought-v2-thin-line-frames-20260703T024833Z");
+assert.equal(
+  THOUGHT_V2_ARTIFACT.manifestSha256,
+  "c309e69e96e82f45b1b992933aa1e679ada29961599a8c7d7689b19816546b9e",
+);
+assert.equal(THOUGHT_V2_RENDER_CONTRACT.canvas.defaultBg, "#000000");
+assert.equal(THOUGHT_V2_RENDER_CONTRACT.agentLine.defaultBgColor, "#ffffff");
+assert.equal(THOUGHT_V2_RENDER_CONTRACT.agentLine.defaultFrameColor, "#000000");
+assert.equal(THOUGHT_V2_RENDER_CONTRACT.agentLine.defaultTextColor, "#000000");
+assert.equal(THOUGHT_V2_RENDER_CONTRACT.promptLine.defaultTextColor, "#ffffff");
+assert.equal(THOUGHT_V2_RENDER_CONTRACT.agentLine.defaultFontSize, 44);
+assert.equal(THOUGHT_V2_RENDER_CONTRACT.promptLine.defaultFontSize, 16);
+assert(thoughtV2Svg.includes('<rect id="canvas-bg" width="960" height="960" fill="#000000"/>'));
+assert(thoughtV2Svg.includes('<clipPath id="agent-line-clip">'));
+assert(thoughtV2Svg.includes('<clipPath id="prompt-line-clip">'));
+assert(thoughtV2Svg.includes('<rect id="agent-line-bg" x="87" y="378" width="786" height="70" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1"/>'));
+assert(!thoughtV2Svg.includes("agent-line-tail"));
+assert(thoughtV2Svg.includes('<rect id="prompt-line-bg" x="165" y="868" width="630" height="44" rx="0" fill="#000000" stroke="#ffffff" stroke-width="1"/>'));
+assert(!thoughtV2Svg.includes("carousel"));
+assert(thoughtV2Svg.includes('id="agent-line-text" x="480" y="413"'));
+assert(thoughtV2Svg.includes('text-anchor="middle" dominant-baseline="middle"'));
+assert(thoughtV2Svg.includes('font-size="44" fill="#000000"'));
+assert(thoughtV2Svg.includes('id="prompt-line-text" x="480" y="890"'));
+assert(thoughtV2Svg.includes('font-size="16" fill="#ffffff"'));
+assert(thoughtV2Svg.includes("'Noto Sans Mono'"));
+assert(!thoughtV2Svg.includes("&apos;Noto Sans Mono&apos;"));
+assert(!thoughtV2Svg.includes("<animateTransform"));
+
+const defaultThoughtV2Svg = buildThoughtV2Svg({
+  agentLine: "quiet Agent مرحبا",
+  promptLine: "Quiet signal 你好",
+});
+assert.equal(sha256(defaultThoughtV2Svg), THOUGHT_V2_ARTIFACT.files["samples/default.svg"]);
+
+const carouselThoughtV2Svg = buildThoughtV2Svg({
+  agentLine: "A".repeat(140),
+  promptLine: "P".repeat(110),
+});
+assert(carouselThoughtV2Svg.includes('<g id="agent-line-carousel">'));
+assert(carouselThoughtV2Svg.includes('id="agent-line-text" x="88"'));
+assert(carouselThoughtV2Svg.includes('id="agent-line-text-copy"'));
+assert(carouselThoughtV2Svg.includes('<animate attributeName="x"'));
+assert(carouselThoughtV2Svg.includes('<g id="prompt-line-carousel">'));
+assert(carouselThoughtV2Svg.includes('id="prompt-line-text" x="166"'));
+assert(carouselThoughtV2Svg.includes('id="prompt-line-text-copy"'));
+assert(carouselThoughtV2Svg.includes('repeatCount="indefinite"'));
+assert(!carouselThoughtV2Svg.includes("textLength"));
+assert(!carouselThoughtV2Svg.includes("<animateTransform"));
+
+assert.deepEqual(measureThoughtV2Line("Bad prompt 你好", "prompt").errors, []);
+assert.deepEqual(measureThoughtV2Line("bad Agent مرحبا", "agent").errors, []);
+assert(measureThoughtV2Line("double  space", "prompt").errors.includes("prompt line has invalid spacing"));
 
 console.log("[test-thought-runtime] OK");

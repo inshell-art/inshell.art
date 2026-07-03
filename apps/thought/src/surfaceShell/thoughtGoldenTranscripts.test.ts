@@ -59,4 +59,6 @@ export const runThoughtShellAdapterTests = async () => {
   const completions = adapter.getCompletions("config ");
   assert(completions.includes("config direct"));
   assert(completions.includes("config local"));
+  assert(completions.includes("config codex"));
+  assert.deepEqual(adapter.resolve("bridge").canonicalPath, ["config", "codex"]);
 };

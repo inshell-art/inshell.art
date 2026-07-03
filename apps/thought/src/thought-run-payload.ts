@@ -1,6 +1,6 @@
-export type ThoughtRunRoute = "connect" | "direct" | "local" | "my-brain";
+export type ThoughtRunRoute = "connect" | "direct" | "local" | "my-brain" | "codex";
 
-export type ThoughtRunProvider = "openrouter" | "openai" | "anthropic" | "ollama" | "me";
+export type ThoughtRunProvider = "openrouter" | "openai" | "anthropic" | "ollama" | "me" | "codex";
 
 export type ThoughtMaxOutputTokens = 48 | 32 | null;
 
@@ -67,7 +67,7 @@ export const thoughtRunRequestConfig = (route: ThoughtRunRoute): {
   maxOutputTokens: ThoughtMaxOutputTokens;
   stop: "\n" | null;
 } => {
-  if (route === "my-brain") {
+  if (route === "my-brain" || route === "codex") {
     return {
       maxOutputTokens: null,
       stop: null,
