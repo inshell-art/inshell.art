@@ -226,6 +226,9 @@ export default function ThoughtGalleryPage() {
         <a className="thought-gallery__create" href={createUrl}>
           create your THOUGHT
         </a>
+        <a className="thought-gallery__link" href="/">
+          [ home ]
+        </a>
       </div>
 
       <div className="thought-gallery__grid">

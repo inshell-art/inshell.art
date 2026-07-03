@@ -1094,6 +1094,7 @@ describe("App Component", () => {
       "href",
       "https://thought.inshell.art/",
     );
+    expect(screen.getByRole("link", { name: "[ home ]" })).toHaveAttribute("href", "/");
     expect(screen.getByLabelText("Open THOUGHT #1")).toHaveAttribute("href", "/thought/1");
     expect(screen.getByLabelText("Open THOUGHT #2")).toHaveAttribute("href", "/thought/2");
     expect(screen.getByRole("img", { name: "THOUGHT #1" })).toHaveAttribute(
