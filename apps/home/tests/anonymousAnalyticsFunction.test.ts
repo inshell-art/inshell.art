@@ -91,6 +91,7 @@ type AnalyticsRow = {
   language: string | null;
   automation: number;
   metadata_json: string | null;
+  country_code: string | null;
 };
 
 function createAnalyticsD1Mock() {
@@ -170,7 +171,47 @@ function createAnalyticsD1Mock() {
               "language",
               "automation",
               "metadata_json",
+              "country_code",
             ].map((name) => ({ name })),
+          };
+        }
+        if (
+          /country_code\s+AS\s+countryCode/i.test(query) &&
+          /COUNT\(\*\)\s+AS\s+eventCount/i.test(query) &&
+          /where\s+visitor_hash\s*=\s*\?1/i.test(query)
+        ) {
+          const visitorHash = String(bound[0] ?? "");
+          const since = String(bound[1] ?? "");
+          const hostnames = bound.slice(2).map(String);
+          const grouped = new Map<string, number>();
+          for (const row of rowsForHostnames(hostnames)) {
+            if (row.visitor_hash !== visitorHash || row.received_at < since || !row.country_code) continue;
+            grouped.set(row.country_code, (grouped.get(row.country_code) ?? 0) + 1);
+          }
+          return {
+            results: [...grouped.entries()]
+              .map(([countryCode, eventCount]) => ({ countryCode, eventCount }))
+              .sort((a, b) => b.eventCount - a.eventCount || a.countryCode.localeCompare(b.countryCode)),
+          };
+        }
+        if (/country_code\s+AS\s+countryCode/i.test(query) && /COUNT\(\*\)\s+AS\s+pageViews/i.test(query)) {
+          const rows = rowsSince(bound, String(bound[0] ?? ""), /event_type\s*=\s*'pageview'/i.test(query));
+          const grouped = new Map<string, { pageViews: number; visitors: Set<string> }>();
+          for (const row of rows) {
+            if (!row.country_code) continue;
+            const current = grouped.get(row.country_code) ?? { pageViews: 0, visitors: new Set<string>() };
+            current.pageViews += 1;
+            current.visitors.add(row.visitor_hash);
+            grouped.set(row.country_code, current);
+          }
+          return {
+            results: [...grouped.entries()]
+              .map(([countryCode, data]) => ({
+                countryCode,
+                pageViews: data.pageViews,
+                uniqueVisitors: data.visitors.size,
+              }))
+              .sort((a, b) => b.pageViews - a.pageViews || a.countryCode.localeCompare(b.countryCode)),
           };
         }
         if (/where\s+visitor_hash\s*=\s*\?1/i.test(query)) {
@@ -201,6 +242,7 @@ function createAnalyticsD1Mock() {
                 language: event.language,
                 automation: event.automation,
                 metadataJson: event.metadata_json,
+                countryCode: event.country_code,
               })),
           };
         }
@@ -271,6 +313,7 @@ function createAnalyticsD1Mock() {
             language: bound[18] == null ? null : String(bound[18]),
             automation: Number(bound[19] ?? 0),
             metadata_json: bound[20] == null ? null : String(bound[20]),
+            country_code: bound[21] == null ? null : String(bound[21]),
           });
         }
         if (/insert\s+into\s+inshell_anon_analytics_visitors/i.test(query)) {
@@ -426,6 +469,48 @@ describe("anonymous analytics Pages functions", () => {
     expect(event.visit_hash).toBeTruthy();
   });
 
+  test("stores only a normalized coarse country code from Cloudflare headers", async () => {
+    const d1 = createAnalyticsD1Mock();
+    await onAnalyticsEventPost({
+      request: analyticsRequest(
+        "https://inshell.art/api/analytics/event",
+        payload({ eventId: "event_country_gb_12345678" }),
+        undefined,
+        {
+          "cf-ipcountry": "gb",
+          "cf-connecting-ip": "203.0.113.10",
+          "cf-ipcity": "London",
+        },
+      ),
+      env: { INSHELL_CHAIN_DATA_DB: d1.db },
+    });
+    await onAnalyticsEventPost({
+      request: analyticsRequest(
+        "https://inshell.art/api/analytics/event",
+        payload({ eventId: "event_country_unknown_12345678" }),
+        undefined,
+        { "cf-ipcountry": "XX" },
+      ),
+      env: { INSHELL_CHAIN_DATA_DB: d1.db },
+    });
+    await onAnalyticsEventPost({
+      request: analyticsRequest(
+        "https://inshell.art/api/analytics/event",
+        payload({ eventId: "event_country_invalid_12345678" }),
+        undefined,
+        { "cf-ipcountry": "USA" },
+      ),
+      env: { INSHELL_CHAIN_DATA_DB: d1.db },
+    });
+
+    expect(d1.events.get("event_country_gb_12345678")?.country_code).toBe("GB");
+    expect(d1.events.get("event_country_unknown_12345678")?.country_code).toBeNull();
+    expect(d1.events.get("event_country_invalid_12345678")?.country_code).toBeNull();
+    const stored = JSON.stringify([...d1.events.values()]);
+    expect(stored).not.toContain("203.0.113.10");
+    expect(stored).not.toContain("London");
+  });
+
   test("falls back to a hashed session id for legacy clients without visitId", async () => {
     const d1 = createAnalyticsD1Mock();
     const response = await onAnalyticsEventPost({
@@ -517,6 +602,8 @@ describe("anonymous analytics Pages functions", () => {
       request: analyticsRequest(
         "https://inshell.art/api/analytics/event",
         payload({ eventId: "event_canonical_gallery_12345678", path: "/gallery" }),
+        undefined,
+        { "cf-ipcountry": "gb" },
       ),
       env: { INSHELL_CHAIN_DATA_DB: d1.db },
     });
@@ -545,6 +632,7 @@ describe("anonymous analytics Pages functions", () => {
         name: "production",
       },
       paths: [{ path: "/gallery", pageViews: 1, uniqueVisitors: 1 }],
+      countries: [{ countryCode: "GB", pageViews: 1, uniqueVisitors: 1 }],
     });
   });
 
@@ -569,7 +657,7 @@ describe("anonymous analytics Pages functions", () => {
           referrer: "https://example.com/source",
         }),
         undefined,
-        { cookie: firstVisitCookie },
+        { cookie: firstVisitCookie, "cf-ipcountry": "gb" },
       ),
       env: { INSHELL_CHAIN_DATA_DB: d1.db },
     });
@@ -586,7 +674,7 @@ describe("anonymous analytics Pages functions", () => {
           },
         }),
         undefined,
-        { cookie: firstVisitCookie },
+        { cookie: firstVisitCookie, "cf-ipcountry": "GB" },
       ),
       env: { INSHELL_CHAIN_DATA_DB: d1.db },
     });
@@ -605,7 +693,7 @@ describe("anonymous analytics Pages functions", () => {
           },
         }),
         undefined,
-        { cookie: firstVisitCookie },
+        { cookie: firstVisitCookie, "cf-ipcountry": "us" },
       ),
       env: { INSHELL_CHAIN_DATA_DB: d1.db },
     });
@@ -617,7 +705,7 @@ describe("anonymous analytics Pages functions", () => {
           path: "/gallery",
         }),
         undefined,
-        { cookie: secondVisitCookie },
+        { cookie: secondVisitCookie, "cf-ipcountry": "gb" },
       ),
       env: { INSHELL_CHAIN_DATA_DB: d1.db },
     });
@@ -656,6 +744,11 @@ describe("anonymous analytics Pages functions", () => {
           sessions: 1,
           visitCount: 2,
           returning: true,
+          countryCode: "GB",
+          countries: [
+            { countryCode: "GB", eventCount: 3 },
+            { countryCode: "US", eventCount: 1 },
+          ],
           source: {
             referrerHost: "example.com",
             referrerPath: null,
@@ -679,6 +772,7 @@ describe("anonymous analytics Pages functions", () => {
       "inshell.art",
     ]);
     expect(body.visitors[0].timeline.map((event: any) => event.visitRank)).toEqual([1, 1, 1, 2]);
+    expect(body.visitors[0].timeline.map((event: any) => event.countryCode)).toEqual(["GB", "GB", "US", "GB"]);
     expect(body.visitors[0].visits).toHaveLength(2);
     expect(body.visitors[0].visits.map((visit: any) => visit.visitRank)).toEqual([1, 2]);
     expect(body.visitors[0].visits.map((visit: any) => visit.eventCount)).toEqual([3, 1]);
@@ -727,6 +821,8 @@ describe("anonymous analytics Pages functions", () => {
       rawSessionIdStored: false,
       rawVisitIdStored: false,
       rawWalletAddressStored: false,
+      countryCodeStored: true,
+      rawGeoStored: false,
       metadataAllowlist: true,
       visitTimeoutMinutes: 30,
       statusSource: "d1",

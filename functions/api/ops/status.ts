@@ -65,6 +65,8 @@ const ROUTES = {
       rawSessionIdStored: false,
       rawVisitIdStored: false,
       rawWalletAddressStored: false,
+      countryCodeStored: true,
+      rawGeoStored: false,
       metadataAllowlist: true,
       visitTimeoutMinutes: 30,
     },
