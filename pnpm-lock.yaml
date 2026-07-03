@@ -300,6 +300,8 @@ importers:
 
   packages/surface-shell-core: {}
 
+  packages/thought-agent-protocol: {}
+
   packages/utils: {}
 
   packages/wallet:

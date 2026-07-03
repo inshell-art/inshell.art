@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from "@jest/globals";
 import { webcrypto, randomFillSync } from "node:crypto";
 import { onRequestPost as onCreateRun } from "../../../functions/api/thought-agent/v1/runs";
+import { onRequestPost as onCreateRunV2 } from "../../../functions/api/thought-agent/v2/runs";
 import { onRequestGet as onGetRun } from "../../../functions/api/thought-agent/v1/runs/[runId]";
 import { onRequestPost as onCancelRun } from "../../../functions/api/thought-agent/v1/runs/[runId]/cancel";
 import { onRequestPost as onClaimRun } from "../../../functions/api/thought-agent/v1/runs/[runId]/claim";
@@ -423,12 +424,60 @@ describe("THOUGHT Agent Pages API", () => {
     });
     await expect(polled.json()).resolves.toMatchObject({
       state: "returned",
+      request: {
+        prompt: {
+          text: "make a quiet sky",
+        },
+        requestedAgent: {
+          adapterId: "codex",
+        },
+        thoughtSpec: {
+          id: "THOUGHT_V1",
+          contractSpecHash: "0x1abb9da7ba36102726375510e66afe255f8c6e0d771b4c3b90c5d22a9b8eb909",
+        },
+        agentInput: {
+          mediaType: "text/plain; charset=utf-8",
+        },
+      },
       result: {
         work: "QUIET SKY",
       },
       validation: {
         status: "pending",
       },
+    });
+  });
+
+  test("supports the v2 run route namespace", async () => {
+    const d1 = createD1Mock();
+    const env = { INSHELL_CHAIN_DATA_DB: d1.db };
+    const response = await onCreateRunV2({
+      request: request(
+        "https://thought.inshell.art/api/thought-agent/v2/runs",
+        {
+          protocolVersion: "thought-agent/1",
+          prompt: "make a quiet sky",
+          specId: "THOUGHT_V1",
+          requestedAgent: {
+            adapterId: "codex",
+            model: null,
+          },
+          client: {
+            surface: "thought-web",
+            appVersion: "test",
+          },
+        },
+        {
+          origin: "https://thought.inshell.art",
+          cookie: "inshell_anon_visitor=visitor-2",
+        },
+      ),
+      env,
+    });
+
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toMatchObject({
+      statusUrl: expect.stringMatching(/^\/api\/thought-agent\/v2\/runs\/tar_/),
     });
   });
 

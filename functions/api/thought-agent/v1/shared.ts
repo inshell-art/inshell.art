@@ -115,6 +115,13 @@ const CLAIM_TTL_MS = 5 * 60 * 1000;
 const RUN_TTL_MS = 10 * 60 * 1000;
 const DELETE_AFTER_MS = 24 * 60 * 60 * 1000;
 
+const thoughtAgentApiBase = (request: Request) => {
+  const pathname = new URL(request.url).pathname;
+  return /^\/api\/thought-agent\/v2(?:\/|$)/.test(pathname)
+    ? "/api/thought-agent/v2"
+    : "/api/thought-agent/v1";
+};
+
 export const THOUGHT_AGENT_STATUS = {
   protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
   enabled: true,
@@ -254,7 +261,7 @@ export async function createRun(ctx: ThoughtAgentRouteContext): Promise<Response
       state: "created",
       launchUri,
       browserToken,
-      statusUrl: `/api/thought-agent/v1/runs/${runId}`,
+      statusUrl: `${thoughtAgentApiBase(ctx.request)}/runs/${runId}`,
       createdAt,
       claimExpiresAt,
     });
@@ -826,6 +833,27 @@ function statusPayload(row: ThoughtAgentRow): Record<string, unknown> {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     expiresAt: row.state === "created" ? row.claim_expires_at : row.run_expires_at,
+    request: {
+      prompt: {
+        text: row.prompt_text,
+        sha256: row.prompt_sha256,
+      },
+      requestedAgent: {
+        adapterId: row.requested_adapter_id,
+        model: row.requested_model,
+      },
+      thoughtSpec: {
+        id: row.spec_id,
+        ref: THOUGHT_AGENT_REGISTERED_SPEC_REF,
+        sha256: row.spec_sha256,
+        contractSpecHash: row.contract_spec_hash,
+      },
+      agentInput: {
+        mediaType: "text/plain; charset=utf-8",
+        text: row.agent_input_text,
+        sha256: row.agent_input_sha256,
+      },
+    },
   };
   if (row.state === "returned") {
     base.result = {
