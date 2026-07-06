@@ -61,6 +61,7 @@ type AnalyticsVisitorTimelineEvent = {
   receivedAt: string;
   sessionRank: number;
   visitRank: number;
+  countryCode: string | null;
   surface: string;
   hostname: string;
   path: string;
@@ -113,6 +114,8 @@ export type AnalyticsStatus = {
   rawSessionIdStored: false;
   rawVisitIdStored: false;
   rawWalletAddressStored: false;
+  countryCodeStored: true;
+  rawGeoStored: false;
   rawMetadataStored: false;
   metadataAllowlist: true;
   visitTimeoutMinutes: 30;
@@ -160,6 +163,11 @@ export type AnalyticsSummary = {
     pageViews: number;
     uniqueVisitors: number;
   }>;
+  countries: Array<{
+    countryCode: string;
+    pageViews: number;
+    uniqueVisitors: number;
+  }>;
 };
 
 export type AnalyticsVisitors = {
@@ -184,6 +192,11 @@ export type AnalyticsVisitors = {
     visitCount: number;
     returning: boolean;
     automationEvents: number;
+    countryCode: string | null;
+    countries: Array<{
+      countryCode: string;
+      eventCount: number;
+    }>;
     source: AnalyticsVisitorSource;
     visits: AnalyticsVisitorVisit[];
     timeline: AnalyticsVisitorTimelineEvent[];
@@ -358,7 +371,12 @@ export async function recordAnalyticsEvent(
   }
 
   const identity = resolveAnalyticsIdentity(request, payload, hostname);
-  const normalized = normalizeAnalyticsEvent(payload, hostname, identity);
+  const normalized = normalizeAnalyticsEvent(
+    payload,
+    hostname,
+    identity,
+    normalizeAnalyticsCountryCode(request.headers.get("cf-ipcountry")),
+  );
   await ensureAnalyticsTables(db);
 
   const existing = await db
@@ -385,7 +403,7 @@ export async function recordAnalyticsEvent(
       `INSERT INTO ${EVENT_TABLE} (` +
         "event_id,event_type,visitor_hash,session_hash,visit_hash,surface,hostname,path,content_type,content_id,referrer_host,referrer_path," +
         "occurred_at,received_at,device_class,viewport_width,viewport_height,timezone_offset,language,automation" +
-        ",metadata_json) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21)",
+        ",metadata_json,country_code) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22)",
     )
     .bind(
       normalized.eventId,
@@ -409,6 +427,7 @@ export async function recordAnalyticsEvent(
       normalized.language,
       normalized.automation ? 1 : 0,
       normalized.metadataJson,
+      normalized.countryCode,
     )
     .run();
 
@@ -466,6 +485,8 @@ export async function readAnalyticsStatus(
     rawSessionIdStored: false,
     rawVisitIdStored: false,
     rawWalletAddressStored: false,
+    countryCodeStored: true,
+    rawGeoStored: false,
     rawMetadataStored: false,
     metadataAllowlist: true,
     visitTimeoutMinutes: VISIT_TIMEOUT_MINUTES,
@@ -579,6 +600,7 @@ export async function readAnalyticsSummary(
     paths: await readPathRows(db, since, hostScope),
     surfaces: await readSurfaceRows(db, since, hostScope),
     hosts: await readHostRows(db, since, hostScope),
+    countries: await readCountryRows(db, since, hostScope),
   };
 }
 
@@ -602,6 +624,7 @@ export async function readAnalyticsVisitors(
   const filter = hostFilter(hostScope, 2);
   const limitParam = 2 + filter.values.length;
   const visitHashSql = await visitHashExpression(db);
+  const countryCodeSql = await countryCodeExpression(db);
   const visitorResult = await db
     .prepare(
       `SELECT visitor_hash AS visitorHash,COUNT(*) AS eventCount,` +
@@ -641,7 +664,15 @@ export async function readAnalyticsVisitors(
     },
     visitors: await Promise.all(
       selectedVisitors.map(async (visitor) => {
-        const timeline = await readVisitorTimeline(db, visitor.visitorHash, since, hostScope, visitHashSql);
+        const timeline = await readVisitorTimeline(
+          db,
+          visitor.visitorHash,
+          since,
+          hostScope,
+          visitHashSql,
+          countryCodeSql,
+        );
+        const countries = await readVisitorCountries(db, visitor.visitorHash, since, hostScope, countryCodeSql);
         const visitCount = Number(visitor.visits ?? 0);
         return {
           visitorRank: visitor.rank,
@@ -654,6 +685,8 @@ export async function readAnalyticsVisitors(
           visitCount,
           returning: visitCount > 1,
           automationEvents: Number(visitor.automationEvents ?? 0),
+          countryCode: countries[0]?.countryCode ?? null,
+          countries,
           source: sourceForTimeline(timeline),
           visits: groupTimelineByVisit(timeline),
           timeline,
@@ -702,6 +735,34 @@ async function readHostRows(
   }));
 }
 
+async function readCountryRows(
+  db: D1DatabaseLike,
+  since: string,
+  hostScope: AnalyticsHostScope,
+): Promise<AnalyticsSummary["countries"]> {
+  const countryCodeSql = await countryCodeExpression(db);
+  if (countryCodeSql === "NULL") return [];
+  const result = await db
+    .prepare(
+      `SELECT ${countryCodeSql} AS countryCode, COUNT(*) AS pageViews, ` +
+        `COUNT(DISTINCT visitor_hash) AS uniqueVisitors ` +
+        `FROM ${EVENT_TABLE} WHERE event_type = 'pageview' AND received_at >= ?1 ` +
+        `AND ${hostFilter(hostScope, 2).sql} AND ${countryCodeSql} IS NOT NULL ` +
+        `GROUP BY ${countryCodeSql} ORDER BY pageViews DESC, countryCode ASC LIMIT 20`,
+    )
+    .bind(since, ...hostScope.hostnames)
+    .all?.<{ countryCode: string | null; pageViews: number; uniqueVisitors: number }>();
+  return (result?.results ?? [])
+    .map((row) => ({
+      countryCode: normalizeAnalyticsCountryCode(row.countryCode),
+      pageViews: Number(row.pageViews ?? 0),
+      uniqueVisitors: Number(row.uniqueVisitors ?? 0),
+    }))
+    .filter((row): row is { countryCode: string; pageViews: number; uniqueVisitors: number } =>
+      Boolean(row.countryCode),
+    );
+}
+
 async function readGroupedRows(
   db: D1DatabaseLike,
   since: string,
@@ -724,18 +785,46 @@ async function readGroupedRows(
   }));
 }
 
+async function readVisitorCountries(
+  db: D1DatabaseLike,
+  visitorHash: string,
+  since: string,
+  hostScope: AnalyticsHostScope,
+  countryCodeSql: string,
+): Promise<AnalyticsVisitors["visitors"][number]["countries"]> {
+  if (countryCodeSql === "NULL") return [];
+  const filter = hostFilter(hostScope, 3);
+  const result = await db
+    .prepare(
+      `SELECT ${countryCodeSql} AS countryCode, COUNT(*) AS eventCount ` +
+        `FROM ${EVENT_TABLE} WHERE visitor_hash = ?1 AND received_at >= ?2 ` +
+        `AND ${filter.sql} AND ${countryCodeSql} IS NOT NULL ` +
+        `GROUP BY ${countryCodeSql} ORDER BY eventCount DESC, countryCode ASC LIMIT 8`,
+    )
+    .bind(visitorHash, since, ...filter.values)
+    .all?.<{ countryCode: string | null; eventCount: number }>();
+  return (result?.results ?? [])
+    .map((row) => ({
+      countryCode: normalizeAnalyticsCountryCode(row.countryCode),
+      eventCount: Number(row.eventCount ?? 0),
+    }))
+    .filter((row): row is { countryCode: string; eventCount: number } => Boolean(row.countryCode));
+}
+
 async function readVisitorTimeline(
   db: D1DatabaseLike,
   visitorHash: string,
   since: string,
   hostScope: AnalyticsHostScope,
   visitHashSql: string,
+  countryCodeSql: string,
 ): Promise<AnalyticsVisitors["visitors"][number]["timeline"]> {
   const filter = hostFilter(hostScope, 3);
   const limitParam = 3 + filter.values.length;
   const result = await db
     .prepare(
-      `SELECT event_type AS eventType,session_hash AS sessionHash,${visitHashSql} AS visitHash,surface,hostname,path,` +
+      `SELECT event_type AS eventType,session_hash AS sessionHash,${visitHashSql} AS visitHash,` +
+        `${countryCodeSql} AS countryCode,surface,hostname,path,` +
         `content_type AS contentType,content_id AS contentId,referrer_host AS referrerHost,` +
         `referrer_path AS referrerPath,occurred_at AS occurredAt,received_at AS receivedAt,` +
         `device_class AS deviceClass,viewport_width AS viewportWidth,viewport_height AS viewportHeight,` +
@@ -748,6 +837,7 @@ async function readVisitorTimeline(
       eventType: AnalyticsEventType;
       sessionHash: string;
       visitHash: string;
+      countryCode: string | null;
       surface: string;
       hostname: string;
       path: string;
@@ -782,6 +872,7 @@ async function readVisitorTimeline(
       receivedAt: row.receivedAt,
       sessionRank: sessionRanks.get(sessionHashValue) ?? 1,
       visitRank: visitRanks.get(visitHashValue) ?? 1,
+      countryCode: normalizeAnalyticsCountryCode(row.countryCode),
       surface: row.surface,
       hostname: row.hostname,
       path: row.path,
@@ -840,7 +931,7 @@ async function ensureAnalyticsTables(db: D1DatabaseLike) {
       "surface TEXT NOT NULL,hostname TEXT NOT NULL,path TEXT NOT NULL,content_type TEXT,content_id TEXT," +
       "referrer_host TEXT,referrer_path TEXT," +
       "occurred_at TEXT NOT NULL,received_at TEXT NOT NULL,device_class TEXT,viewport_width INTEGER,viewport_height INTEGER," +
-      "timezone_offset INTEGER,language TEXT,automation INTEGER NOT NULL DEFAULT 0,metadata_json TEXT)",
+      "timezone_offset INTEGER,language TEXT,automation INTEGER NOT NULL DEFAULT 0,metadata_json TEXT,country_code TEXT)",
     `CREATE INDEX IF NOT EXISTS idx_${EVENT_TABLE}_received ON ${EVENT_TABLE} (received_at)`,
     `CREATE INDEX IF NOT EXISTS idx_${EVENT_TABLE}_visitor ON ${EVENT_TABLE} (visitor_hash, received_at)`,
     `CREATE INDEX IF NOT EXISTS idx_${EVENT_TABLE}_session ON ${EVENT_TABLE} (session_hash, received_at)`,
@@ -859,6 +950,7 @@ async function ensureAnalyticsTables(db: D1DatabaseLike) {
     `ALTER TABLE ${EVENT_TABLE} ADD COLUMN content_id TEXT`,
     `ALTER TABLE ${EVENT_TABLE} ADD COLUMN metadata_json TEXT`,
     `ALTER TABLE ${EVENT_TABLE} ADD COLUMN visit_hash TEXT`,
+    `ALTER TABLE ${EVENT_TABLE} ADD COLUMN country_code TEXT`,
   ]) {
     try {
       await db.prepare(query).run();
@@ -871,6 +963,9 @@ async function ensureAnalyticsTables(db: D1DatabaseLike) {
     .run();
   await db
     .prepare(`CREATE INDEX IF NOT EXISTS idx_${EVENT_TABLE}_visit ON ${EVENT_TABLE} (visitor_hash, visit_hash, received_at)`)
+    .run();
+  await db
+    .prepare(`CREATE INDEX IF NOT EXISTS idx_${EVENT_TABLE}_country ON ${EVENT_TABLE} (country_code, received_at)`)
     .run();
   ensuredTables.add(db as object);
 }
@@ -926,6 +1021,7 @@ function normalizeAnalyticsEvent(
   payload: AnalyticsEventPayload,
   hostname: string,
   identity: AnalyticsIdentity,
+  countryCode: string | null,
 ) {
   if (payload.version !== 1) throw new AnalyticsInputError("version must be 1");
   const eventId = normalizedId(payload.eventId, "eventId");
@@ -954,6 +1050,7 @@ function normalizeAnalyticsEvent(
     language: normalizeLanguage(payload.language),
     automation: payload.automation === true,
     metadataJson: metadataToJson(metadata),
+    countryCode,
   };
 }
 
@@ -1110,6 +1207,13 @@ function normalizeLanguage(value: unknown) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim().slice(0, MAX_LANGUAGE_LENGTH);
   return /^[A-Za-z0-9-]+$/.test(trimmed) ? trimmed : null;
+}
+
+function normalizeAnalyticsCountryCode(value: unknown) {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toUpperCase();
+  if (normalized === "XX" || !/^[A-Z]{2}$/.test(normalized)) return null;
+  return normalized;
 }
 
 function normalizeEventMetadata(eventType: AnalyticsEventType, value: unknown): AnalyticsMetadata {
@@ -1275,6 +1379,10 @@ async function visitHashExpression(db: D1DatabaseLike) {
   return await analyticsEventColumnExists(db, "visit_hash")
     ? "COALESCE(visit_hash, session_hash)"
     : "session_hash";
+}
+
+async function countryCodeExpression(db: D1DatabaseLike) {
+  return await analyticsEventColumnExists(db, "country_code") ? "country_code" : "NULL";
 }
 
 async function analyticsEventColumnExists(db: D1DatabaseLike, columnName: string) {

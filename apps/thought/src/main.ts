@@ -1502,6 +1502,7 @@ const thoughtDebugCtaStatus = document.getElementById("thought-debug-cta-status"
 const thoughtDebugWarning = document.getElementById("thought-debug-warning") as HTMLSelectElement | null;
 const thoughtReportBugLink = document.getElementById("thought-report-bug-link") as HTMLAnchorElement | null;
 const thoughtInstructionsLink = document.getElementById("thought-instructions-link") as HTMLAnchorElement | null;
+const thoughtCreateGalleryLink = document.getElementById("thought-create-gallery-link") as HTMLAnchorElement | null;
 const thoughtCreateHomeLink = document.getElementById("thought-create-home-link") as HTMLAnchorElement | null;
 const thoughtGalleryLink = document.getElementById("thought-gallery-link") as HTMLAnchorElement | null;
 const galleryPage = document.getElementById("gallery-page") as HTMLElement | null;
@@ -1678,6 +1679,7 @@ if (
   !thoughtDebugWarning ||
   !thoughtReportBugLink ||
   !thoughtInstructionsLink ||
+  !thoughtCreateGalleryLink ||
   !thoughtCreateHomeLink ||
   !thoughtGalleryLink ||
   !galleryPage ||
@@ -8724,6 +8726,7 @@ const thoughtCreateUrl = () => new URL(THOUGHT_APP_URL, window.location.origin).
 const inshellHomeUrl = () => new URL("/", PATH_MINT_URL).toString();
 
 const configureGalleryLink = () => {
+  thoughtCreateGalleryLink.href = galleryUrl();
   thoughtCreateHomeLink.href = inshellHomeUrl();
   thoughtGalleryLink.href = galleryUrl();
   thoughtDetailGalleryLink.href = galleryUrl();

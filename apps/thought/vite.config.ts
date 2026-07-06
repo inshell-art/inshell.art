@@ -39,6 +39,13 @@ function readDevApiOrigin() {
   return process.env.INSHELL_THOUGHT_DEV_API_ORIGIN?.trim() || "https://thought.inshell.art";
 }
 
+function existingRealPaths(paths: string[]) {
+  return paths.flatMap((candidate) => {
+    if (!fs.existsSync(candidate)) return [];
+    return [fs.realpathSync(candidate)];
+  });
+}
+
 type DevThoughtAgentRun = {
   runId: string;
   state: ThoughtAgentState;
@@ -759,7 +766,14 @@ export default defineConfig(({ mode }) => {
         },
       },
       fs: {
-        allow: [workspaceRoot],
+        allow: [
+          workspaceRoot,
+          ...existingRealPaths([
+            path.resolve(rootDir, "node_modules"),
+            path.resolve(workspaceRoot, "node_modules"),
+            path.resolve(workspaceRoot, "node_modules/node_modules"),
+          ]),
+        ],
       },
     },
     envDir: __dirname,
