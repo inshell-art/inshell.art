@@ -46,8 +46,8 @@ export type ThoughtWorkRecord = {
     hash: string;
   };
   normalizer: {
-    id: "thought.normalize.v1" | "contract-preview";
-    source: "contract-view" | "ThoughtNFT.previewWork";
+    id: "thought.normalize.v1" | "contract-preview" | "frontend-renderer";
+    source: "contract-view" | "ThoughtNFT.previewWork" | "browser-renderer";
   };
   previewProvider?: WorkRunContext["previewProvider"];
   provenanceJson?: string;
@@ -78,8 +78,8 @@ export type ThoughtWorkInput = {
     hash: string;
   };
   normalizer?: {
-    id: "thought.normalize.v1" | "contract-preview";
-    source: "contract-view" | "ThoughtNFT.previewWork";
+    id: "thought.normalize.v1" | "contract-preview" | "frontend-renderer";
+    source: "contract-view" | "ThoughtNFT.previewWork" | "browser-renderer";
   };
   previewProvider?: WorkRunContext["previewProvider"];
   provenanceJson?: string;

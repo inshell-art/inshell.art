@@ -17,6 +17,9 @@
       "path": "./packages/shared"
     },
     {
+      "path": "./packages/thought-agent-protocol"
+    },
+    {
       "path": "./packages/surface-shell-core"
     },
     {

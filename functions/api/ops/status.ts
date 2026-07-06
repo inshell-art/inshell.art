@@ -14,6 +14,7 @@ import {
 } from "../chain-cache";
 import { analyticsHostScopeForHostname, readAnalyticsStatus } from "../analytics/store";
 import { readIndexerEventStatus } from "../indexer/event-status";
+import { THOUGHT_AGENT_STATUS } from "../thought-agent/v1/shared";
 
 type EnvKey = keyof ChainCacheEnv;
 
@@ -70,6 +71,18 @@ const ROUTES = {
       metadataAllowlist: true,
       visitTimeoutMinutes: 30,
     },
+  },
+  thoughtAgent: {
+    baseRoute: "/api/thought-agent/v1",
+    createRoute: "/api/thought-agent/v1/runs",
+    statusRoute: "/api/thought-agent/v1/runs/:runId",
+    claimRoute: "/api/thought-agent/v1/runs/:runId/claim",
+    startRoute: "/api/thought-agent/v1/runs/:runId/start",
+    resultRoute: "/api/thought-agent/v1/runs/:runId/result",
+    failRoute: "/api/thought-agent/v1/runs/:runId/fail",
+    cancelRoute: "/api/thought-agent/v1/runs/:runId/cancel",
+    auth: "run-scoped bearer tokens",
+    bridgeLaunchScheme: "thought://",
   },
   publicFeed: [
     "/rss.xml",
@@ -157,6 +170,7 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
       appliedCount: eventStatus.status?.appliedCount ?? 0,
     },
     anonymousAnalytics: analyticsStatus,
+    thoughtAgentBridge: THOUGHT_AGENT_STATUS,
     cache: {
       readModelEnabled: readModelEnabled(ctx.env),
       d1Bound: Boolean(ctx.env.INSHELL_CHAIN_DATA_DB),

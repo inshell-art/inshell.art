@@ -1,5 +1,5 @@
 export type PreviewMode = "auto" | "wallet" | "off";
-export type PreviewProviderKind = "wallet" | "preview-endpoint" | "none";
+export type PreviewProviderKind = "frontend-renderer" | "wallet" | "preview-endpoint" | "none";
 export type PreviewStatus = "not_attempted" | "unavailable" | "failed" | "accepted";
 
 export const THOUGHT_PREVIEW_MODE_STORAGE_KEY = "thought-preview-mode";
@@ -50,7 +50,7 @@ export const previewRejectionReasonLabel = (reasonCode: number) => {
 export const previewUnavailableCliLines = (mode: PreviewMode, reason = "") => {
   const lines = [
     "model return saved as candidate.",
-    "contract preview unavailable.",
+    "preview unavailable.",
     ...(reason ? [`reason: ${reason}`] : []),
     "",
   ];
@@ -74,7 +74,7 @@ export const previewUnavailableCliLines = (mode: PreviewMode, reason = "") => {
 
   return [
     ...lines,
-    "preview service unavailable or wallet not connected.",
+    "fix the reason above, then retry.",
     "use: preview retry",
     "use: wallet connect",
   ];
@@ -91,45 +91,26 @@ export const prevalidateThoughtCandidate = (
   },
 ): ThoughtCandidatePrevalidation => {
   const normalized = rawReturn.replace(/\r\n?/g, "\n").trim();
+
+  if (byteLength(rawReturn) > options.maxRawBytes) {
+    return {
+      ok: false,
+      normalized,
+      canonical: "",
+      reasonCode: 2,
+      reasonLabel: previewRejectionReasonLabel(2),
+    };
+  }
+
   const canonical = canonicalThoughtCandidate(normalized);
 
-  if (!normalized) {
+  if (!canonical) {
     return {
       ok: false,
       normalized,
       canonical,
       reasonCode: 1,
       reasonLabel: previewRejectionReasonLabel(1),
-    };
-  }
-
-  if (byteLength(rawReturn) > options.maxRawBytes) {
-    return {
-      ok: false,
-      normalized,
-      canonical,
-      reasonCode: 2,
-      reasonLabel: previewRejectionReasonLabel(2),
-    };
-  }
-
-  if (normalized.includes("\n")) {
-    return {
-      ok: false,
-      normalized,
-      canonical,
-      reasonCode: 6,
-      reasonLabel: previewRejectionReasonLabel(6),
-    };
-  }
-
-  if (/[^A-Za-z ]/.test(normalized)) {
-    return {
-      ok: false,
-      normalized,
-      canonical,
-      reasonCode: 4,
-      reasonLabel: previewRejectionReasonLabel(4),
     };
   }
 

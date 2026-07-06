@@ -64,6 +64,12 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -76,6 +82,26 @@ body {
 
 #root {
   width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+img,
+svg,
+canvas {
+  max-width: 100%;
+}
+
+a,
+button,
+[role="button"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:where(a, button, [role="button"]):focus-visible {
+  outline: 1px solid var(--accent-border);
+  outline-offset: 3px;
 }
 
 .shell {
@@ -605,6 +631,60 @@ body {
   text-underline-offset: 5px;
 }
 
+@media (max-width: 900px) {
+  .verify-page__contract-table {
+    gap: 12px;
+  }
+
+  .verify-page__contract-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+    padding: 10px 0;
+    border-top: 1px solid var(--panel-border);
+  }
+
+  .verify-page__contract-row--head {
+    display: none;
+  }
+
+  .verify-page__contract-row span {
+    display: grid;
+    grid-template-columns: minmax(86px, max-content) minmax(0, 1fr);
+    gap: 12px;
+    align-items: baseline;
+  }
+
+  .verify-page__contract-row span::before {
+    color: var(--muted);
+    opacity: 0.72;
+    letter-spacing: 0.08em;
+  }
+
+  .verify-page__contract-row span:nth-child(1)::before {
+    content: "name";
+  }
+
+  .verify-page__contract-row span:nth-child(2)::before {
+    content: "role";
+  }
+
+  .verify-page__contract-row span:nth-child(3)::before {
+    content: "address";
+  }
+
+  .verify-page__contract-row span:nth-child(4)::before {
+    content: "code hash";
+  }
+
+  .verify-page__contract-row span:nth-child(5)::before {
+    content: "status";
+  }
+
+  .verify-page__contract-row span:nth-child(6)::before {
+    content: "explorer";
+  }
+}
+
 .primitive-page__raw {
   max-height: none;
   margin: 0;
@@ -837,6 +917,7 @@ body {
   background: var(--canvas-frame-bg);
   padding: 20px 16px 8px;
   position: relative;
+  overflow: clip;
 }
 
 .dotfield__nav {
@@ -920,6 +1001,8 @@ body {
   line-height: 1.35;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
   pointer-events: auto;
+  max-height: min(72dvh, 520px);
+  overflow: auto;
 }
 
 .dotfield__mint-review-title {
@@ -1001,6 +1084,8 @@ body {
   line-height: 1.35;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
   pointer-events: auto;
+  max-height: min(72dvh, 560px);
+  overflow: auto;
 }
 
 .dotfield__mint-proof-dismiss {
@@ -1119,6 +1204,7 @@ body {
   padding-bottom: 0;
   margin-bottom: 0;
   position: relative;
+  min-width: 0;
 }
 
 .dotfield__debug {
@@ -1422,6 +1508,8 @@ body {
   background: var(--panel);
   color: var(--text);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+  max-height: min(76dvh, 420px);
+  overflow: auto;
 }
 
 .dotfield__wallet-picker-title {
@@ -1958,6 +2046,21 @@ body {
   .primitive-page__body {
     max-width: none;
     margin-left: 0;
+  }
+
+  .primitive-page__links a,
+  .primitive-page__links button,
+  .verify-page__contract-row a,
+  .pulse-page__instance-fields a,
+  .thought-gallery__create,
+  .thought-gallery__footer-link,
+  .thought-detail__link,
+  .thought-detail__action,
+  .path-detail__value-link,
+  .path-page__refresh {
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
   }
 
   .path-page__body,
@@ -2720,7 +2823,7 @@ body {
   }
 
   .thought-gallery__grid {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
     gap: 14px;
   }
 
@@ -2739,12 +2842,13 @@ body {
   }
 
   .thought-detail__canvas-frame {
-    width: 100%;
+    width: min(100%, calc(100vw - 28px));
   }
 
   .thought-detail__rail {
     max-height: none;
     overflow: visible;
+    min-width: 0;
   }
 
   .path-detail__fields div {
@@ -2763,6 +2867,8 @@ body {
   --popover-row-gap: 6px;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
   pointer-events: none;
+  max-width: min(320px, calc(100vw - 24px));
+  overflow-wrap: anywhere;
 }
 
 .dotfield__popover-meta {
@@ -2911,6 +3017,148 @@ button {
   .pulse-page__instance-fields div {
     grid-template-columns: 1fr;
     gap: 2px;
+  }
+
+  .dotfield {
+    width: 100%;
+    padding: 12px 10px 8px;
+    overflow: clip;
+  }
+
+  .dotfield__nav {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "title cta"
+      "meta meta";
+    gap: 4px 10px;
+  }
+
+  .dotfield__title {
+    grid-area: title;
+    min-width: 0;
+  }
+
+  .dotfield__title-link {
+    overflow-wrap: anywhere;
+  }
+
+  .dotfield__cta-stack {
+    grid-area: cta;
+    grid-column: auto;
+    max-width: 100%;
+  }
+
+  .dotfield__mint-notice {
+    grid-area: meta;
+    text-align: left;
+    top: 0;
+    margin-top: 3px;
+    line-height: 1.35;
+    min-height: 16px;
+  }
+
+  .dotfield__mint,
+  .dotfield__tab,
+  .dotfield__wallet-picker-item,
+  .dotfield__cta-menu-item {
+    min-height: 36px;
+  }
+
+  .dotfield__canvas {
+    height: min(54dvh, 390px);
+  }
+
+  .dotfield__cta-menu,
+  .dotfield__wallet-picker {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    top: auto;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    width: auto;
+    max-width: none;
+    min-width: 0;
+  }
+
+  .dotfield__mint-review,
+  .dotfield__mint-proof {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    top: auto;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    max-height: min(76dvh, 620px);
+  }
+
+  .dotfield__mint-review-row,
+  .dotfield__mint-proof-status {
+    display: grid;
+    grid-template-columns: minmax(86px, max-content) minmax(0, 1fr);
+  }
+
+  .dotfield__mint-proof-actions a,
+  .dotfield__mint-proof-actions button,
+  .dotfield__mint-proof-copy {
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .dotfield__popover {
+    left: 12px !important;
+    right: 12px;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .dotfield__inspect-meta {
+    min-width: 0;
+  }
+
+  .thought-gallery__header {
+    gap: 10px;
+  }
+
+  .thought-gallery__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .thought-gallery__card {
+    padding: 12px;
+  }
+
+  .thought-gallery__thumb {
+    min-height: 44px;
+  }
+
+  .thought-gallery__tip {
+    display: none;
+  }
+
+  .thought-detail__header {
+    gap: 12px;
+  }
+
+  .thought-detail__links {
+    flex-wrap: wrap;
+    gap: 4px 16px;
+  }
+
+  .thought-detail__body {
+    gap: 20px;
+  }
+
+  .thought-detail__fields div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .thought-detail__section:has(.thought-detail__fields) .thought-detail__actions {
+    margin-left: 0;
   }
 
   .hero {

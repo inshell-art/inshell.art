@@ -1,4 +1,4 @@
-export type ThoughtShellRoute = "connect" | "direct" | "local" | "my-brain";
+export type ThoughtShellRoute = "connect" | "direct" | "local" | "my-brain" | "codex";
 
 export type ThoughtShellState = {
   prompt: string;

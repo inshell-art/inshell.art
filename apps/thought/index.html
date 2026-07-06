@@ -24,8 +24,11 @@
       const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1";
       const isGalleryHost = hostname === "gallery.inshell.art" || hostname === "gallery.preview.inshell.art";
       const isGalleryPath = pathname === "/gallery";
+      const isAgentDemoPath = pathname === "/agent-demo";
+      const isPluginPath = pathname === "/plugin" || /^\/plugin\/(codex|claude)$/.test(pathname);
+      const isRunPath = /^\/runs\/[A-Za-z0-9_-]+$/.test(pathname);
       const isGalleryHash = window.location.hash === "#gallery" || /^#thought-[1-9]\d*$/.test(window.location.hash);
-      const hasGalleryIntent = isGalleryHost || isGalleryPath || params.get("gallery") === "1" || isGalleryHash;
+      const hasGalleryIntent = !isAgentDemoPath && !isPluginPath && !isRunPath && (isGalleryHost || isGalleryPath || params.get("gallery") === "1" || isGalleryHash);
       const thoughtPathMatch = /^\/thought\/([1-9]\d*)$/.exec(pathname);
       const thoughtQueryId = /^[1-9]\d*$/.test(params.get("thought") || "") ? params.get("thought") : "";
       const isThoughtHost =
@@ -45,10 +48,19 @@
         document.documentElement.classList.add("color-font-route");
       } else if (pathname === "/verify") {
         document.documentElement.classList.add("verify-route");
+      } else if (isAgentDemoPath) {
+        document.documentElement.classList.add("agent-demo-route");
+      } else if (isPluginPath) {
+        document.documentElement.classList.add("plugin-route");
+      } else if (isRunPath) {
+        document.documentElement.classList.add("run-route");
       } else if (hasGalleryIntent) {
         document.documentElement.classList.add("gallery-route");
       } else if (thoughtPathMatch || thoughtQueryId) {
         document.documentElement.classList.add("thought-route");
+      }
+      if (params.get("debug") === "cli") {
+        document.documentElement.classList.add("debug-cli");
       }
     })();
   </script>
@@ -60,6 +72,14 @@
     html.gallery-route #gallery-page.thought-gallery.is-hidden {
       display: flex;
     }
+
+    html.agent-demo-route .frontpage-stage {
+      display: none !important;
+    }
+
+    html.plugin-route .frontpage-stage {
+      display: none !important;
+    }
   </style>
   <title>THOUGHT</title>
 </head>
@@ -69,14 +89,17 @@
 
   <main class="frontpage-shell">
     <section class="frontpage-stage" aria-labelledby="frontpage-title">
+      <header class="thought-create__header">
+        <h1 id="frontpage-title" class="thought-create__title">THOUGHT</h1>
+        <nav class="thought-create__links" aria-label="THOUGHT create links">
+          <a id="thought-create-gallery-link" href="/gallery">[ gallery ]</a>
+          <a id="thought-create-home-link" href="https://inshell.art/">[ home ]</a>
+          <a href="/plugin">[ plugin ]</a>
+          <a href="/verify">[ verify ]</a>
+        </nav>
+      </header>
       <div class="frontpage-main">
         <div class="thought-canvas-column">
-          <h1 id="frontpage-title" class="frontpage-title">THOUGHT</h1>
-          <nav class="frontpage-links" aria-label="THOUGHT creation links">
-            <a id="thought-create-gallery-link" href="/gallery">[ gallery ]</a>
-            <a id="thought-create-home-link" href="https://inshell.art/">[ home ]</a>
-          </nav>
-
           <div class="thought-canvas-panel">
             <div class="thought-canvas-frame">
               <canvas
@@ -95,7 +118,52 @@
           </div>
         </div>
 
-        <div class="frontpage-side">
+        <aside id="thought-panel" class="thought-panel" aria-label="THOUGHT Panel">
+          <header class="thought-panel__header">
+            <p class="thought-panel__title">THOUGHT</p>
+            <p class="thought-panel__subtitle">made by your Agent</p>
+            <nav class="thought-panel__links" aria-label="THOUGHT panel links">
+              <a href="/gallery">Gallery</a>
+              <a href="/plugin">Plugin</a>
+              <a href="/verify">Verify</a>
+            </nav>
+          </header>
+          <div class="thought-panel__body">
+            <section id="thought-dock" class="thought-dock" aria-label="Prompt composer">
+              <div class="thought-dock-prompt-row">
+                <label id="thought-dock-label" class="thought-dock-label" for="thought-dock-prompt">
+                  prompt
+                </label>
+                <input
+                  id="thought-dock-prompt"
+                  class="thought-dock-input"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="true"
+                  placeholder="give a thought to your agent."
+                />
+              </div>
+            </section>
+            <section
+              id="thought-dock-action-area"
+              class="thought-dock-action-rail"
+              aria-label="THOUGHT Panel actions"
+            ></section>
+            <section
+              id="thought-dock-details"
+              class="thought-dock-status-screen"
+              aria-label="THOUGHT status"
+              aria-live="polite"
+            >
+              <p id="thought-panel-status-title" class="thought-panel__status-title">Give a thought to your Agent</p>
+              <p id="thought-panel-status-detail" class="thought-panel__status-detail">No run yet</p>
+              <div id="thought-dock-details-body" class="thought-dock-status-screen__body"></div>
+            </section>
+            <div id="thought-dock-expanded" class="thought-dock-detail-tray" hidden></div>
+          </div>
+        </aside>
+
+        <div id="thought-cli-panel" class="frontpage-side thought-cli-panel">
           <div class="frontpage-input-panel is-cli">
             <section class="thought-cli" aria-label="THOUGHT operator panel">
               <div id="thought-cli-transcript" class="thought-cli__transcript" aria-live="polite"></div>
@@ -127,6 +195,9 @@
                 </button>
                 <button id="mode-local" class="frontpage-mode-button" type="button">
                   local
+                </button>
+                <button id="mode-codex" class="frontpage-mode-button" type="button">
+                  codex
                 </button>
               </div>
             </div>
@@ -349,6 +420,143 @@
           </div>
         </div>
       </div>
+    </section>
+
+    <section id="plugin-page" class="thought-plugin-page is-hidden" aria-labelledby="plugin-title">
+      <header class="thought-plugin-page__header">
+        <p class="thought-plugin-page__eyebrow">THOUGHT Plugin</p>
+        <h1 id="plugin-title" class="thought-plugin-page__title">Start from your Agent app</h1>
+        <p id="plugin-summary" class="thought-plugin-page__summary">
+          The Agent makes the candidate. THOUGHT is where you review and mint it.
+        </p>
+      </header>
+      <div class="thought-plugin-page__grid">
+        <article id="plugin-codex-card" class="thought-plugin-card">
+          <h2>Codex</h2>
+          <p>Use Codex to open a sealed THOUGHT task, return one candidate, and send the result back to the run link.</p>
+          <ol>
+            <li>Install or enable the THOUGHT Plugin for Codex.</li>
+            <li>Ask Codex to make a THOUGHT.</li>
+            <li>Open the returned run link here to review and mint.</li>
+          </ol>
+          <a href="/">Create from website</a>
+        </article>
+        <article id="plugin-claude-card" class="thought-plugin-card">
+          <h2>Claude</h2>
+          <p>Use Claude to receive the same sealed task format and return a THOUGHT run link for review.</p>
+          <ol>
+            <li>Install or enable the THOUGHT Plugin for Claude.</li>
+            <li>Ask Claude to make a THOUGHT.</li>
+            <li>Open the returned run link here to review and mint.</li>
+          </ol>
+          <a href="/">Create from website</a>
+        </article>
+      </div>
+      <p class="thought-plugin-page__note">
+        Agent output is not automatically trusted. Mint appears only after the run result passes local integrity checks.
+      </p>
+    </section>
+
+    <section id="agent-demo-page" class="thought-agent-demo is-hidden" aria-labelledby="agent-demo-title">
+      <header class="thought-agent-demo__header">
+        <div>
+          <p class="thought-agent-demo__eyebrow">THOUGHT / agent handoff</p>
+          <h1 id="agent-demo-title" class="thought-agent-demo__title">Run with your Agent</h1>
+        </div>
+        <a class="thought-agent-demo__home" href="/">[ THOUGHT ]</a>
+      </header>
+
+      <div class="thought-agent-demo__layout">
+        <section class="thought-agent-demo__panel" aria-label="Prompt">
+          <label class="thought-agent-demo__label" for="agent-demo-prompt">prompt</label>
+          <textarea
+            id="agent-demo-prompt"
+            class="thought-agent-demo__prompt"
+            spellcheck="false"
+            autocomplete="off"
+          >a will that returns to its first light</textarea>
+          <div class="thought-agent-demo__actions">
+            <button id="agent-demo-run" class="thought-agent-demo__primary" type="button">
+              [ run with your Agent ]
+            </button>
+          </div>
+        </section>
+
+        <section class="thought-agent-demo__panel" aria-label="Sealed run">
+          <div class="thought-agent-demo__field-grid">
+            <div>
+              <span class="thought-agent-demo__label">run</span>
+              <code id="agent-demo-run-id" class="thought-agent-demo__value">-</code>
+            </div>
+            <div>
+              <span class="thought-agent-demo__label">callback</span>
+              <code id="agent-demo-callback" class="thought-agent-demo__value">-</code>
+            </div>
+            <div>
+              <span class="thought-agent-demo__label">poll</span>
+              <code id="agent-demo-poll" class="thought-agent-demo__value">-</code>
+            </div>
+            <div>
+              <span class="thought-agent-demo__label">prompt hash</span>
+              <code id="agent-demo-prompt-hash" class="thought-agent-demo__value">-</code>
+            </div>
+          </div>
+          <pre id="agent-demo-sealed-task" class="thought-agent-demo__sealed">no sealed run.</pre>
+        </section>
+
+        <section class="thought-agent-demo__panel" aria-label="Return">
+          <label class="thought-agent-demo__label" for="agent-demo-paste">return</label>
+          <textarea
+            id="agent-demo-paste"
+            class="thought-agent-demo__return"
+            spellcheck="false"
+            autocomplete="off"
+            placeholder="paste THOUGHT_RESULT_BEGIN ... THOUGHT_RESULT_END"
+          ></textarea>
+          <div class="thought-agent-demo__actions">
+            <button id="agent-demo-paste-submit" class="thought-agent-demo__secondary" type="button">
+              [ accept return ]
+            </button>
+            <button id="agent-demo-demo-return" class="thought-agent-demo__secondary" type="button">
+              [ demo callback ]
+            </button>
+          </div>
+        </section>
+
+        <section class="thought-agent-demo__preview" aria-label="Candidate preview">
+          <div id="agent-demo-preview-grid" class="thought-agent-demo__preview-grid"></div>
+          <div class="thought-agent-demo__preview-copy">
+            <span class="thought-agent-demo__label">candidate</span>
+            <p id="agent-demo-candidate" class="thought-agent-demo__candidate">-</p>
+            <span class="thought-agent-demo__label">contract preview</span>
+            <p id="agent-demo-contract-status" class="thought-agent-demo__contract-status">waiting.</p>
+          </div>
+        </section>
+      </div>
+
+      <aside id="agent-demo-dock" class="thought-agent-demo__dock" aria-live="polite">
+        <div class="thought-agent-demo__dock-copy">
+          <span class="thought-agent-demo__dock-label">Dock</span>
+          <p id="agent-demo-dock-status" class="thought-agent-demo__dock-status">enter prompt.</p>
+        </div>
+        <div class="thought-agent-demo__dock-actions">
+          <button id="agent-demo-agent-codex" class="thought-agent-demo__dock-button is-hidden" type="button">
+            Codex
+          </button>
+          <a id="agent-demo-open-codex" class="thought-agent-demo__dock-button is-hidden" href="#">
+            open Codex
+          </a>
+          <button id="agent-demo-copy-link" class="thought-agent-demo__dock-button is-hidden" type="button">
+            copy link
+          </button>
+          <button id="agent-demo-mint" class="thought-agent-demo__dock-button is-hidden" type="button">
+            Mint
+          </button>
+          <button id="agent-demo-reset" class="thought-agent-demo__dock-button" type="button">
+            Reset
+          </button>
+        </div>
+      </aside>
     </section>
 
     <section id="gallery-page" class="thought-gallery is-hidden" aria-labelledby="gallery-title">

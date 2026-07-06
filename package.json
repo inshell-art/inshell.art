@@ -30,6 +30,7 @@
     "pub-boundary:check": "node scripts/check-pub-boundary.mjs",
     "smoke:api-routes": "node scripts/smoke-cloudflare-api-routes.mjs",
     "check:web-analytics-token": "node scripts/check-cloudflare-web-analytics-token.mjs",
+    "check:thought-renderer-parity": "tsx scripts/check-thought-renderer-parity.ts",
     "quality:github": "node scripts/dev-github-quality-loop.mjs",
     "test:dev-quality": "node --test scripts/dev-github-quality-loop.test.mjs",
     "validate:contracts": "node scripts/validate-inshell-contracts.mjs",

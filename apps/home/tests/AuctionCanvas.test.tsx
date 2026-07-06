@@ -7,7 +7,7 @@ import {
   beforeEach,
   afterEach,
 } from "@jest/globals";
-import { pulseAuctionAbi } from "@inshell/ethereum";
+import { pulseAuctionAbi, sendTransaction } from "@inshell/ethereum";
 import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
 import { encodeFunctionData, getAbiItem } from "viem";
 import React from "react";
@@ -233,6 +233,37 @@ describe("AuctionCanvas", () => {
         args: [1n],
       }).slice(0, 10),
     ).toBe("0x454a2ab3");
+  });
+
+  test("wallet transaction payload omits undefined value", async () => {
+    const request = jest.fn(async () => "0xabc");
+    await sendTransaction(
+      {
+        request,
+      },
+      {
+        from: DEFAULT_WALLET_ADDRESS,
+        to: TEST_AUCTION_ADDRESS,
+        data: "0x454a2ab3",
+      }
+    );
+
+    expect(request).toHaveBeenCalledWith({
+      method: "eth_sendTransaction",
+      params: [
+        {
+          from: DEFAULT_WALLET_ADDRESS,
+          to: TEST_AUCTION_ADDRESS,
+          data: "0x454a2ab3",
+        },
+      ],
+    });
+    expect(
+      Object.prototype.hasOwnProperty.call(
+        (request.mock.calls[0]?.[0] as any).params[0],
+        "value"
+      )
+    ).toBe(false);
   });
 
   test("renders mint button and dots", () => {
@@ -1872,6 +1903,12 @@ describe("AuctionCanvas", () => {
       available: () => true,
       detail: { info: { rdns: "com.templewallet" } },
     };
+    const walletConnectConnector = {
+      id: "walletconnect-v2",
+      name: "WalletConnect",
+      kind: "walletconnect",
+      available: () => true,
+    };
     const connectAsync = jest
       .fn()
       .mockResolvedValue({ address: "0xabc", chainId: 11155111 });
@@ -1879,7 +1916,13 @@ describe("AuctionCanvas", () => {
       isConnected: false,
       address: null,
       account: null,
-      connectors: [genericConnector, templeConnector, rabbyConnector, metaMaskConnector],
+      connectors: [
+        genericConnector,
+        templeConnector,
+        walletConnectConnector,
+        rabbyConnector,
+        metaMaskConnector,
+      ],
       connectAsync,
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
@@ -1901,6 +1944,7 @@ describe("AuctionCanvas", () => {
     expect(options.map((item) => item.textContent)).toEqual([
       "MetaMask",
       "Rabby Wallet",
+      "WalletConnect",
     ]);
     fireEvent.click(options[0]);
     await waitFor(() => {

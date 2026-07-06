@@ -166,6 +166,9 @@ export const thoughtCommandTree: ThoughtCommandNode[] = [
           leaf(["config", "route", "my-brain"], "use my-brain route", {
             aliases: ["mybrain"],
           }),
+          leaf(["config", "route", "codex"], "use Codex route", {
+            aliases: ["agent", "bridge"],
+          }),
         ],
         {
           sideEffect: sideEffectLocalWrite("select model route"),
@@ -201,6 +204,21 @@ export const thoughtCommandTree: ThoughtCommandNode[] = [
         }),
         sideEffect: sideEffectLocalWrite("select my-brain route"),
       }),
+      leaf(["config", "codex"], "use Codex route", {
+        aliases: ["agent", "bridge"],
+        renderHelp: () => ({
+          kind: "guidance",
+          title: "Codex route",
+          body: "THOUGHT Bridge opens Codex for one THOUGHT round.",
+          sections: [
+            {
+              title: "use",
+              lines: ["config codex", "prompt <text>", "run"],
+            },
+          ],
+        }),
+        sideEffect: sideEffectLocalWrite("select Codex route"),
+      }),
     ],
   ),
   leaf(["mode"], "select model route", {
@@ -211,6 +229,11 @@ export const thoughtCommandTree: ThoughtCommandNode[] = [
     aliases: ["mybrain"],
     canonicalPath: ["config", "my-brain"],
     sideEffect: sideEffectLocalWrite("select my-brain route"),
+  }),
+  leaf(["codex"], "use Codex route", {
+    aliases: ["agent", "bridge"],
+    canonicalPath: ["config", "codex"],
+    sideEffect: sideEffectLocalWrite("select Codex route"),
   }),
   leaf(["connect"], "authorize OpenRouter Connect", {
     canonicalPath: ["config", "connect", "authorize"],
@@ -290,14 +313,14 @@ export const thoughtCommandTree: ThoughtCommandNode[] = [
   ),
   branch(
     ["preview"],
-    "contract preview",
+    "preview",
     [
-      leaf(["preview", "retry"], "retry contract preview", {
-        sideEffect: sideEffectContractRead("read contract preview"),
+      leaf(["preview", "retry"], "retry preview", {
+        sideEffect: sideEffectRead("render preview"),
       }),
     ],
     {
-      sideEffect: sideEffectContractRead("read contract preview"),
+      sideEffect: sideEffectRead("render preview"),
     },
   ),
   leaf(["return"], "return my-brain text"),
