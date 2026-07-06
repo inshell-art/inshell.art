@@ -24,7 +24,22 @@ html,
 body {
   margin: 0;
   min-height: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
   background: #b3b3b3;
+}
+
+img,
+svg,
+canvas {
+  max-width: 100%;
+}
+
+a,
+button,
+[role="button"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #page-header {
@@ -2992,6 +3007,7 @@ html.thought-route .thought-detail.is-hidden {
   letter-spacing: 0.08em;
 }
 
+.thought-gallery__link,
 .thought-gallery__create {
   color: var(--muted);
   font-size: 12px;
@@ -3001,6 +3017,8 @@ html.thought-route .thought-detail.is-hidden {
   white-space: nowrap;
 }
 
+.thought-gallery__link:hover,
+.thought-gallery__link:focus-visible,
 .thought-gallery__create:hover,
 .thought-gallery__create:focus-visible {
   color: var(--accent);
@@ -3015,6 +3033,10 @@ html.thought-route .thought-detail.is-hidden {
   align-items: baseline;
   gap: 0.35em;
   margin-bottom: 18px;
+}
+
+.thought-gallery__status-row .thought-gallery__link {
+  margin-left: auto;
 }
 
 .thought-gallery__status {
@@ -3743,6 +3765,23 @@ html.agent-demo-route .thought-agent-demo.is-hidden {
 
   .thought-gallery__header {
     flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .thought-gallery__status-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .thought-gallery__grid {
+    grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
+    gap: 14px;
+  }
+
+  .thought-gallery__tip {
+    display: none;
   }
 
   .thought-detail__header,
@@ -3756,7 +3795,7 @@ html.agent-demo-route .thought-agent-demo.is-hidden {
   }
 
   .thought-detail__canvas-frame {
-    width: 100%;
+    width: min(100%, calc(100vw - 28px));
   }
 
   .thought-detail__rail {
@@ -3764,5 +3803,46 @@ html.agent-demo-route .thought-agent-demo.is-hidden {
     overflow: visible;
     padding-right: 0;
     margin-right: 0;
+    min-width: 0;
+  }
+
+  .thought-detail__links {
+    flex-wrap: wrap;
+    gap: 4px 16px;
+  }
+
+  .thought-detail__fields div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .thought-detail__section:has(.thought-detail__fields) .thought-detail__actions {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .thought-gallery__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .thought-gallery__card {
+    padding: 12px;
+  }
+
+  .thought-gallery__thumb {
+    min-height: 44px;
+  }
+
+  .thought-gallery__create,
+  .thought-gallery__footer-link,
+  .thought-detail__link,
+  .thought-detail__action,
+  .thought-detail__disclosure,
+  .primitive-page__links a,
+  .primitive-page__links button {
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
   }
 }

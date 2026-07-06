@@ -61,7 +61,7 @@ type Props = {
 };
 
 type TxState = "idle" | "awaiting_signature" | "submitted" | "confirmed" | "failed";
-type TxPhase = "approve" | "bid";
+type TxPhase = "prepare" | "approve" | "bid";
 type NoticeKind = "info" | "warn" | "error";
 type Notice = {
   kind: NoticeKind;
@@ -423,8 +423,10 @@ function isUnsupportedWalletConnector(connector: any): boolean {
 }
 
 function isVisibleWalletConnector(connector: any): boolean {
+  const kind = String(connector?.kind ?? "").toLowerCase();
   const name = String(connector?.name ?? "").toLowerCase();
   const rdns = String(connector?.detail?.info?.rdns ?? "").toLowerCase();
+  if (kind === "walletconnect") return true;
   return (
     rdns.includes("metamask") ||
     name.includes("metamask") ||
@@ -4695,14 +4697,46 @@ export default function AuctionCanvas({
       showToast({ kind: "info", text: auctionBlockedMintNotice });
       return;
     }
-    if (!account || !walletAddress || !auctionAddress || !paymentToken) return;
-    const data = await runPreflight();
-    if (!data?.ask || !data.balance || !data.allowance) return;
-    if (data.balance.value < data.ask.value) {
-      setMintReview(null);
+    const confirmingMint = Boolean(mintReview);
+    if (!account || !walletAddress || !auctionAddress || !paymentToken) {
+      if (confirmingMint) {
+        setTxError("wallet unavailable.");
+        setTxPhase(null);
+        setTxState("failed");
+      }
       return;
     }
-    if (!mintReview) {
+    if (confirmingMint) {
+      setTxPhase("prepare");
+      setTxState("awaiting_signature");
+      setTxError(null);
+    }
+    const data = await runPreflight();
+    if (!data?.ask || !data.balance || !data.allowance) {
+      if (confirmingMint) {
+        const message = preflight.error || "preflight failed before wallet request.";
+        setTxError(message);
+        setTxPhase(null);
+        setTxState("failed");
+        showToast({
+          kind: "error",
+          text: "Mint preflight failed.",
+          reportState: "mint_preflight_failed",
+          reportError: message,
+        });
+      }
+      return;
+    }
+    if (data.balance.value < data.ask.value) {
+      setMintReview(null);
+      if (confirmingMint) {
+        setTxError("insufficient balance.");
+        setTxPhase(null);
+        setTxState("failed");
+      }
+      return;
+    }
+    if (!confirmingMint) {
       const askEstimate = currentAskEstimateRef.current;
       const priceLabel =
         mimicLocalTime && askEstimate != null && Number.isFinite(askEstimate)
@@ -4765,7 +4799,9 @@ export default function AuctionCanvas({
     }
     if (effectiveTxState === "awaiting_signature") {
       const text =
-        effectiveTxPhase === "approve"
+        effectiveTxPhase === "prepare"
+          ? "Preparing wallet request."
+          : effectiveTxPhase === "approve"
           ? `Wallet open: approve ${displayTokenSymbol} (1/2).`
           : "Wallet open: confirm $PATH mint (2/2).";
       return { kind: "info", text };
@@ -7452,7 +7488,13 @@ export default function AuctionCanvas({
                         : "ask";
 
               return (
-                <div className="dotfield__popover" style={{ left: hover.screenX, top: hover.screenY }}>
+                <div
+                  className="dotfield__popover"
+                  style={{
+                    left: `clamp(12px, ${hover.screenX}px, calc(100vw - 344px))`,
+                    top: hover.screenY,
+                  }}
+                >
                   <div className="muted small">{popTitle}</div>
                   <div className="dotfield__popover-meta" style={{ marginTop: 6 }}>
                     {popRows.map((row, idx) => (

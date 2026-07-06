@@ -40,6 +40,21 @@ import {
   trackInshellAnonymousAnalytics,
   type PublicLaunchMode,
 } from "@inshell/shared";
+import {
+  createWalletConnectEthereumProvider,
+  discoverEip6963Providers,
+  fallbackWindowEthereumProviders,
+  mergeProviderDetails,
+  parseChainId as parseWalletChainId,
+  readWalletConnectProjectId,
+  readWalletConnectRelayUrl,
+  walletConnectMetadata,
+  walletConnectRpcMap,
+  type Eip1193Provider,
+  type Eip6963ProviderDetail,
+  type WalletConnectEthereumProvider,
+  type WalletConnectorKind,
+} from "@inshell/wallet";
 import thoughtInstructions from "../THOUGHT.md?raw";
 import thoughtInstructionsUrl from "../THOUGHT.md?url";
 import colorFontRaw from "../colorFontJSON/colorfont.byToolv2.json?raw";
@@ -255,13 +270,7 @@ type EvmAddresses = {
   };
 };
 
-type EthereumProvider = {
-  isMetaMask?: boolean;
-  providers?: EthereumProvider[];
-  request(args: { method: string; params?: unknown[] | object }): Promise<unknown>;
-  on?(event: string, listener: (...args: unknown[]) => void): void;
-  removeListener?(event: string, listener: (...args: unknown[]) => void): void;
-};
+type EthereumProvider = Eip1193Provider;
 
 type MintTxState = "idle" | "awaiting_signature" | "submitted" | "failed";
 type MintFlowErrorKind =
@@ -1493,10 +1502,12 @@ const thoughtDebugCtaStatus = document.getElementById("thought-debug-cta-status"
 const thoughtDebugWarning = document.getElementById("thought-debug-warning") as HTMLSelectElement | null;
 const thoughtReportBugLink = document.getElementById("thought-report-bug-link") as HTMLAnchorElement | null;
 const thoughtInstructionsLink = document.getElementById("thought-instructions-link") as HTMLAnchorElement | null;
+const thoughtCreateHomeLink = document.getElementById("thought-create-home-link") as HTMLAnchorElement | null;
 const thoughtGalleryLink = document.getElementById("thought-gallery-link") as HTMLAnchorElement | null;
 const galleryPage = document.getElementById("gallery-page") as HTMLElement | null;
 const galleryStatus = document.getElementById("gallery-status") as HTMLElement | null;
 const galleryCreateLink = document.getElementById("gallery-create-link") as HTMLAnchorElement | null;
+const galleryHomeLink = document.getElementById("gallery-home-link") as HTMLAnchorElement | null;
 const galleryGrid = document.getElementById("gallery-grid") as HTMLElement | null;
 const pluginPage = document.getElementById("plugin-page") as HTMLElement | null;
 const pluginTitle = document.getElementById("plugin-title") as HTMLElement | null;
@@ -1667,10 +1678,12 @@ if (
   !thoughtDebugWarning ||
   !thoughtReportBugLink ||
   !thoughtInstructionsLink ||
+  !thoughtCreateHomeLink ||
   !thoughtGalleryLink ||
   !galleryPage ||
   !galleryStatus ||
   !galleryCreateLink ||
+  !galleryHomeLink ||
   !galleryGrid ||
   !pluginPage ||
   !pluginTitle ||
@@ -4037,6 +4050,8 @@ let pageUnloading = false;
 let suppressBridgeLaunchUnloadUntil = 0;
 let walletConnectInFlight = false;
 let walletDisconnectedByUser = false;
+let activeWalletProvider: EthereumProvider | null = null;
+let walletConnectProvider: WalletConnectEthereumProvider | null = null;
 let primaryActionState: PrimaryActionState = "run";
 let secondaryActionState: SecondaryActionState = "none";
 let thoughtInstructionsObjectUrl: string | null = null;
@@ -4234,7 +4249,7 @@ let readThoughtNFT: Contract | null = null;
 let readColorFontV1: Contract | null = null;
 let readThoughtSpecRegistry: Contract | null = null;
 let readPathNft: Contract | null = null;
-let walletListenersBound = false;
+const walletListenersBound = new WeakSet<EthereumProvider>();
 let mintSheetPrimaryAction: MintSheetAction = "none";
 let mintSheetSecondaryAction: MintSheetAction = "none";
 let mintSheetTertiaryAction: MintSheetAction = "none";
@@ -4733,23 +4748,105 @@ const syncThoughtInstructionsLink = () => {
   thoughtInstructionsLink.title = "Open bundled THOUGHT.md";
 };
 
-const getInjectedProviders = () => {
-  const injected = (window as Window & { ethereum?: EthereumProvider }).ethereum;
-
-  if (!injected) {
-    return [];
-  }
-
-  if (Array.isArray(injected.providers) && injected.providers.length > 0) {
-    return injected.providers.filter(Boolean);
-  }
-
-  return [injected];
+type ThoughtWalletConnector = {
+  id: string;
+  name: string;
+  kind: WalletConnectorKind;
+  detail?: Eip6963ProviderDetail;
 };
 
-const getEthereumProvider = () => {
-  const providers = getInjectedProviders();
-  return providers.find((provider) => provider.isMetaMask) ?? providers[0] ?? null;
+let discoveredThoughtProviders = fallbackWindowEthereumProviders();
+
+const readThoughtWalletEnv = (name: string) =>
+  (import.meta.env as Record<string, string | undefined>)[name];
+
+const isWalletConnectConfigured = () =>
+  readWalletConnectProjectId(readThoughtWalletEnv).length > 0;
+
+let thoughtWalletConnectConfigWarningShown = false;
+
+const warnMissingThoughtWalletConnectProjectId = () => {
+  if (
+    !import.meta.env.PROD ||
+    isWalletConnectConfigured() ||
+    thoughtWalletConnectConfigWarningShown
+  ) {
+    return;
+  }
+  thoughtWalletConnectConfigWarningShown = true;
+  console.warn("WalletConnect disabled: missing VITE_WALLETCONNECT_PROJECT_ID.");
+};
+
+const refreshThoughtWalletProviders = async () => {
+  discoveredThoughtProviders = mergeProviderDetails(
+    discoveredThoughtProviders,
+    fallbackWindowEthereumProviders(),
+  );
+  const discovered = await discoverEip6963Providers();
+  discoveredThoughtProviders = mergeProviderDetails(discoveredThoughtProviders, discovered);
+  return discoveredThoughtProviders;
+};
+
+const getInjectedProviderDetails = () => {
+  discoveredThoughtProviders = mergeProviderDetails(
+    discoveredThoughtProviders,
+    fallbackWindowEthereumProviders(),
+  );
+  return discoveredThoughtProviders;
+};
+
+const getInjectedProviders = () =>
+  getInjectedProviderDetails().map((detail) => detail.provider);
+
+const getEthereumProvider = () =>
+  activeWalletProvider ?? getInjectedProviderDetails()[0]?.provider ?? null;
+
+const getThoughtWalletConnectors = async () => {
+  const providers = await refreshThoughtWalletProviders();
+  const connectors: ThoughtWalletConnector[] = providers.map((detail) => ({
+    id: detail.info.rdns || detail.info.uuid,
+    name: detail.info.name || "Browser wallet",
+    kind: "injected",
+    detail,
+  }));
+  if (isWalletConnectConfigured()) {
+    connectors.push({
+      id: "walletconnect",
+      name: "WalletConnect",
+      kind: "walletconnect",
+    });
+  }
+  return connectors;
+};
+
+const normalizeConnectorQuery = (value: string) =>
+  value.trim().toLowerCase().replace(/\s+/g, "-");
+
+const chooseThoughtWalletConnector = (
+  connectors: ThoughtWalletConnector[],
+  preferred = "",
+) => {
+  const query = normalizeConnectorQuery(preferred);
+  if (query) {
+    const explicit = connectors.find((connector) => {
+      const id = normalizeConnectorQuery(connector.id);
+      const name = normalizeConnectorQuery(connector.name);
+      const kind = normalizeConnectorQuery(connector.kind);
+      return id === query || name === query || kind === query || name.includes(query);
+    });
+    if (explicit) return explicit;
+    return null;
+  }
+  return (
+    connectors.find((connector) => connector.kind === "injected") ??
+    connectors.find((connector) => connector.kind === "walletconnect") ??
+    null
+  );
+};
+
+const setActiveWalletProvider = (provider: EthereumProvider) => {
+  activeWalletProvider = provider;
+  bindWalletProviderEvents();
 };
 
 const extractPrimaryAccount = (accounts: unknown) =>
@@ -7466,7 +7563,7 @@ const refreshWalletState = async () => {
   const ethereum = getEthereumProvider();
   const previousAddress = walletState.address;
   const previousChainId = walletState.chainId;
-  walletState.detected = ethereum !== null;
+  walletState.detected = ethereum !== null || isWalletConnectConfigured();
 
   if (walletDisconnectedByUser) {
     walletState.address = "";
@@ -7490,8 +7587,7 @@ const refreshWalletState = async () => {
 
     walletState.address =
       Array.isArray(accounts) && typeof accounts[0] === "string" ? accounts[0] : "";
-    walletState.chainId =
-      typeof chainHex === "string" && chainHex.length > 0 ? Number(BigInt(chainHex)) : null;
+    walletState.chainId = parseWalletChainId(chainHex);
   } catch {
     walletState.address = "";
     walletState.chainId = null;
@@ -7510,11 +7606,12 @@ const refreshWalletState = async () => {
 };
 
 const bindWalletProviderEvents = () => {
-  if (walletListenersBound) {
-    return;
-  }
-
-  const providers = getInjectedProviders().filter((provider) => typeof provider.on === "function");
+  const providers = Array.from(
+    new Set([
+      ...getInjectedProviders(),
+      ...(activeWalletProvider ? [activeWalletProvider] : []),
+    ]),
+  ).filter((provider) => typeof provider.on === "function" && !walletListenersBound.has(provider));
   if (providers.length === 0) {
     return;
   }
@@ -7528,19 +7625,22 @@ const bindWalletProviderEvents = () => {
   providers.forEach((provider) => {
     provider.on?.("accountsChanged", handleWalletChange);
     provider.on?.("chainChanged", handleWalletChange);
+    provider.on?.("disconnect", handleWalletChange);
+    walletListenersBound.add(provider);
   });
-  walletListenersBound = true;
 };
 
-const requestWalletConnect = async () => {
+const requestWalletConnect = async (preferredConnector = "") => {
+  const connectors = await getThoughtWalletConnectors();
+  const connector = chooseThoughtWalletConnector(connectors, preferredConnector);
+  const walletKind = connector?.kind ?? "injected";
   trackThoughtAnalytics("wallet_connect_started", {
-    walletKind: "injected",
+    walletKind,
     walletStage: "request_accounts",
   });
-  const ethereum = getEthereumProvider();
-  if (!ethereum) {
+  if (!connector) {
     trackThoughtAnalytics("wallet_connect_failed", {
-      walletKind: "injected",
+      walletKind,
       walletStage: "request_accounts",
       errorCategory: "wallet_missing",
     });
@@ -7555,29 +7655,71 @@ const requestWalletConnect = async () => {
   syncInterface();
 
   try {
-    const existingAccount = extractPrimaryAccount(await ethereum.request({ method: "eth_accounts" }));
-
-    if (!existingAccount) {
-      let requestError: unknown = null;
-      const requestAccounts = ethereum
-        .request({ method: "eth_requestAccounts" })
-        .then((accounts) => extractPrimaryAccount(accounts))
-        .catch((error) => {
-          requestError = error;
-          return "";
-        });
-
-      const detectedAccount = await Promise.race([
-        requestAccounts,
-        waitForWalletAddress(ethereum),
-      ]);
-
-      if (!detectedAccount) {
-        const requestedAccount = await requestAccounts;
-        if (!requestedAccount && requestError) {
-          throw requestError;
+    if (connector.kind === "walletconnect") {
+      const projectId = readWalletConnectProjectId(readThoughtWalletEnv);
+      if (!projectId) {
+        throw new Error("Missing VITE_WALLETCONNECT_PROJECT_ID.");
+      }
+      if (walletConnectProvider) {
+        if (walletConnectProvider.disconnect) {
+          await walletConnectProvider.disconnect().catch(() => undefined);
         }
       }
+      const wcProvider = await createWalletConnectEthereumProvider({
+        projectId,
+        chains: [THOUGHT_CHAIN_ID],
+        rpcMap: walletConnectRpcMap([THOUGHT_CHAIN_ID], readThoughtWalletEnv),
+        relayUrl: readWalletConnectRelayUrl(readThoughtWalletEnv),
+        showQrModal: true,
+        metadata: walletConnectMetadata("thought"),
+      });
+      const accounts =
+        typeof wcProvider.enable === "function"
+          ? await wcProvider.enable()
+          : ((await wcProvider.request({
+              method: "eth_requestAccounts",
+            })) as string[]);
+      const connectedAddress = extractPrimaryAccount(accounts);
+      if (!connectedAddress) {
+        throw new Error("wallet did not expose an account.");
+      }
+      walletConnectProvider = wcProvider;
+      setActiveWalletProvider(wcProvider);
+    } else if (connector.detail) {
+      const ethereum = connector.detail.provider;
+      if (walletConnectProvider) {
+        if (walletConnectProvider.disconnect) {
+          await walletConnectProvider.disconnect().catch(() => undefined);
+        }
+        walletConnectProvider = null;
+      }
+      setActiveWalletProvider(ethereum);
+      const existingAccount = extractPrimaryAccount(await ethereum.request({ method: "eth_accounts" }));
+
+      if (!existingAccount) {
+        let requestError: unknown = null;
+        const requestAccounts = ethereum
+          .request({ method: "eth_requestAccounts" })
+          .then((accounts) => extractPrimaryAccount(accounts))
+          .catch((error) => {
+            requestError = error;
+            return "";
+          });
+
+        const detectedAccount = await Promise.race([
+          requestAccounts,
+          waitForWalletAddress(ethereum),
+        ]);
+
+        if (!detectedAccount) {
+          const requestedAccount = await requestAccounts;
+          if (!requestedAccount && requestError) {
+            throw requestError;
+          }
+        }
+      }
+    } else {
+      throw new Error("No EIP-1193 injected wallet found.");
     }
 
     await refreshWalletState();
@@ -7589,12 +7731,12 @@ const requestWalletConnect = async () => {
     syncInterface();
     setStatus("wallet connected.", { flashMs: NOTICE_FLASH_MS });
     trackThoughtAnalytics("wallet_connect_succeeded", {
-      walletKind: "injected",
+      walletKind,
       walletStage: "connected",
     });
   } catch (error) {
     trackThoughtAnalytics("wallet_connect_failed", {
-      walletKind: "injected",
+      walletKind,
       walletStage: "request_accounts",
       errorCategory: thoughtAnalyticsErrorCategory(error),
     });
@@ -8579,11 +8721,14 @@ const viewThoughtUseLine = (tokenId?: number | null) =>
   `use: view THOUGHT ${tokenId ?? "<id>"}`;
 
 const thoughtCreateUrl = () => new URL(THOUGHT_APP_URL, window.location.origin).toString();
+const inshellHomeUrl = () => new URL("/", PATH_MINT_URL).toString();
 
 const configureGalleryLink = () => {
+  thoughtCreateHomeLink.href = inshellHomeUrl();
   thoughtGalleryLink.href = galleryUrl();
   thoughtDetailGalleryLink.href = galleryUrl();
   galleryCreateLink.href = thoughtCreateUrl();
+  galleryHomeLink.href = inshellHomeUrl();
   thoughtDetailCreateLink.href = thoughtCreateUrl();
 };
 
@@ -15173,7 +15318,7 @@ const outputCliVerify = () => {
   appendCliOutput(cliVerifyLines(), { preserveSpacing: true });
 };
 
-const connectWalletFromCli = async () => {
+const connectWalletFromCli = async (preferredConnector = "") => {
   const mintFlowWasActive = mintFlowState !== "closed";
   if (mintFlowWasActive) {
     switchMintFlowToCli();
@@ -15181,7 +15326,7 @@ const connectWalletFromCli = async () => {
 
   appendCliOutput(cliWalletConnectVerifyLines(), { preserveSpacing: true });
   appendCliOutput("connecting wallet...");
-  await requestWalletConnect();
+  await requestWalletConnect(preferredConnector);
   stopCliProgress();
 
   if (mintFlowWasActive && walletState.address && mintFlowState === "wallet_required") {
@@ -15222,8 +15367,15 @@ const outputCliWalletUsage = () => {
   ]);
 };
 
-const disconnectWalletFromCli = () => {
+const disconnectWalletFromCli = async () => {
   walletDisconnectedByUser = true;
+  if (walletConnectProvider) {
+    if (walletConnectProvider.disconnect) {
+      await walletConnectProvider.disconnect().catch(() => undefined);
+    }
+  }
+  walletConnectProvider = null;
+  activeWalletProvider = null;
   walletState.address = "";
   walletState.chainId = null;
   walletState.menuOpen = false;
@@ -15906,12 +16058,12 @@ const executeCliCommand = async (rawCommand: string) => {
     } else if (lowerHead === "provenance") {
       await outputCliProvenance(lowerRest === "--json");
     } else if (lowerHead === "wallet") {
-      if (lowerRest === "connect") {
-        await connectWalletFromCli();
+      if (lowerRest === "connect" || lowerRest.startsWith("connect ")) {
+        await connectWalletFromCli(lowerRest.replace(/^connect\s*/, ""));
       } else if (lowerRest === "switch") {
         await switchWalletFromCli();
       } else if (lowerRest === "disconnect") {
-        disconnectWalletFromCli();
+        await disconnectWalletFromCli();
       } else {
         outputCliWalletUsage();
       }
@@ -16529,6 +16681,7 @@ const initFrontpage = async () => {
   }
 
   bindWalletProviderEvents();
+  warnMissingThoughtWalletConnectProjectId();
   await refreshWalletState();
   syncInterface();
 
