@@ -27,7 +27,7 @@ describe("wallet EVM transport helpers", () => {
     const rabby = mockProvider();
     const onRequest = () => {
       window.dispatchEvent(
-        new CustomEvent(EIP6963_ANNOUNCE_EVENT, {
+        new globalThis.CustomEvent(EIP6963_ANNOUNCE_EVENT, {
           detail: {
             info: { uuid: "mm", name: "MetaMask", rdns: "io.metamask" },
             provider: metamask,
@@ -35,7 +35,7 @@ describe("wallet EVM transport helpers", () => {
         }),
       );
       window.dispatchEvent(
-        new CustomEvent(EIP6963_ANNOUNCE_EVENT, {
+        new globalThis.CustomEvent(EIP6963_ANNOUNCE_EVENT, {
           detail: {
             info: { uuid: "rabby", name: "Rabby", rdns: "io.rabby" },
             provider: rabby,

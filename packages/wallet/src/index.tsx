@@ -218,32 +218,34 @@ export function WalletProvider({ children }: WalletProviderProps) {
       setEvmProviders((prev) => mergeProviderDetails(prev, discovered));
     };
     void refresh();
-    const onAnnounce = (event: Event) => {
-      const normalized = normalizeProviderDetail((event as CustomEvent).detail);
+    const onAnnounce = (event: globalThis.Event) => {
+      const normalized = normalizeProviderDetail(
+        (event as globalThis.CustomEvent).detail
+      );
       if (!normalized) return;
       setEvmProviders((prev) => mergeProviderDetails(prev, [normalized]));
     };
     window.addEventListener(
       EIP6963_ANNOUNCE_EVENT,
-      onAnnounce as EventListener
+      onAnnounce as globalThis.EventListener
     );
     const onEthereumInitialized = () => {
       void refresh();
     };
     window.addEventListener(
       "ethereum#initialized",
-      onEthereumInitialized as EventListener
+      onEthereumInitialized as globalThis.EventListener
     );
-    window.dispatchEvent(new Event(EIP6963_REQUEST_EVENT));
+    window.dispatchEvent(new globalThis.Event(EIP6963_REQUEST_EVENT));
     return () => {
       stopped = true;
       window.removeEventListener(
         EIP6963_ANNOUNCE_EVENT,
-        onAnnounce as EventListener
+        onAnnounce as globalThis.EventListener
       );
       window.removeEventListener(
         "ethereum#initialized",
-        onEthereumInitialized as EventListener
+        onEthereumInitialized as globalThis.EventListener
       );
     };
   }, []);

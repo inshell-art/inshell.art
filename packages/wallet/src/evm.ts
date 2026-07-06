@@ -404,7 +404,7 @@ function normalizeWalletConnectRpcUrl(
   }
 }
 
-function isInshellReadOnlyRpcProxy(url: URL) {
+function isInshellReadOnlyRpcProxy(url: globalThis.URL) {
   const hostname = url.hostname.toLowerCase();
   return (
     ["/api/eth-rpc", "/api/path-rpc", "/api/thought-rpc"].includes(

@@ -116,7 +116,7 @@ const RUN_TTL_MS = 10 * 60 * 1000;
 const DELETE_AFTER_MS = 24 * 60 * 60 * 1000;
 
 const thoughtAgentApiBase = (request: Request) => {
-  const pathname = new URL(request.url).pathname;
+  const pathname = new globalThis.URL(request.url).pathname;
   return /^\/api\/thought-agent\/v2(?:\/|$)/.test(pathname)
     ? "/api/thought-agent/v2"
     : "/api/thought-agent/v1";
