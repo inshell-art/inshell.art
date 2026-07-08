@@ -92,10 +92,96 @@
       <header class="thought-create__header">
         <h1 id="frontpage-title" class="thought-create__title">THOUGHT</h1>
         <nav class="thought-create__links" aria-label="THOUGHT create links">
-          <a id="thought-create-gallery-link" href="/gallery">[ gallery ]</a>
-          <a id="thought-create-home-link" href="https://inshell.art/">[ home ]</a>
+          <a href="/gallery">[ gallery ]</a>
           <a href="/plugin">[ plugin ]</a>
           <a href="/verify">[ verify ]</a>
+          <div class="thought-wallet-surface">
+            <button
+              id="mint-wallet-toggle"
+              class="frontpage-wallet-toggle"
+              type="button"
+              aria-label="Wallet status"
+              aria-expanded="false"
+              aria-haspopup="menu"
+            >
+              <span id="mint-wallet-label" class="frontpage-wallet-toggle__label">[ connect ]</span>
+              <span id="mint-wallet-dot" class="frontpage-wallet-dot is-off" aria-hidden="true"></span>
+            </button>
+            <div id="mint-wallet-menu" class="frontpage-wallet-menu is-hidden" role="menu">
+              <div class="frontpage-wallet-meta">
+                <span class="frontpage-wallet-label">address</span>
+                <span id="mint-wallet-address" class="frontpage-wallet-value">-</span>
+              </div>
+              <div class="frontpage-wallet-meta">
+                <span class="frontpage-wallet-label">network</span>
+                <span id="mint-wallet-network" class="frontpage-wallet-value">-</span>
+              </div>
+              <div id="mint-wallet-token-row" class="frontpage-wallet-meta is-hidden">
+                <span class="frontpage-wallet-label">token</span>
+                <span id="mint-wallet-token" class="frontpage-wallet-value">-</span>
+              </div>
+              <div id="mint-wallet-path-row" class="frontpage-wallet-meta is-hidden">
+                <span class="frontpage-wallet-label">PATH</span>
+                <span id="mint-wallet-path" class="frontpage-wallet-value">-</span>
+              </div>
+              <div
+                id="mint-wallet-review"
+                class="frontpage-wallet-review is-hidden"
+                aria-live="polite"
+              ></div>
+              <button
+                id="mint-wallet-authorize"
+                class="frontpage-wallet-action is-hidden"
+                type="button"
+              >
+                authorize PATH
+              </button>
+              <button
+                id="mint-wallet-confirm"
+                class="frontpage-wallet-action is-hidden"
+                type="button"
+              >
+                confirm mint
+              </button>
+              <button
+                id="mint-wallet-view-tx"
+                class="frontpage-wallet-action is-hidden"
+                type="button"
+              >
+                view tx
+              </button>
+              <button id="mint-wallet-connect" class="frontpage-wallet-action" type="button">
+                connect wallet
+              </button>
+              <button id="mint-wallet-copy-address" class="frontpage-wallet-action" type="button">
+                copy address
+              </button>
+              <button
+                id="mint-wallet-copy-tx"
+                class="frontpage-wallet-action is-hidden"
+                type="button"
+              >
+                copy tx hash
+              </button>
+              <button id="mint-wallet-refresh" class="frontpage-wallet-action" type="button">
+                refresh
+              </button>
+              <button
+                id="mint-wallet-switch-network"
+                class="frontpage-wallet-action is-hidden"
+                type="button"
+              >
+                switch network
+              </button>
+              <button
+                id="mint-wallet-disconnect"
+                class="frontpage-wallet-action is-hidden"
+                type="button"
+              >
+                disconnect
+              </button>
+            </div>
+          </div>
         </nav>
       </header>
       <div class="frontpage-main">
@@ -129,26 +215,94 @@
             </nav>
           </header>
           <div class="thought-panel__body">
-            <section id="thought-dock" class="thought-dock" aria-label="Prompt composer">
-              <div class="thought-dock-prompt-row">
-                <label id="thought-dock-label" class="thought-dock-label" for="thought-dock-prompt">
-                  prompt
-                </label>
-                <input
-                  id="thought-dock-prompt"
-                  class="thought-dock-input"
-                  type="text"
-                  autocomplete="off"
-                  spellcheck="true"
-                  placeholder="give a thought to your agent."
-                />
-              </div>
-            </section>
-            <section
-              id="thought-dock-action-area"
-              class="thought-dock-action-rail"
-              aria-label="THOUGHT Panel actions"
-            ></section>
+            <div class="thought-dock-control-area">
+              <section id="thought-dock" class="thought-dock" aria-label="Prompt composer">
+                <div class="thought-dock-prompt-row">
+                  <label id="thought-dock-label" class="thought-dock-label" for="thought-dock-prompt">
+                    prompt
+                  </label>
+                  <input
+                    id="thought-dock-prompt"
+                    class="thought-dock-input"
+                    type="text"
+                    autocomplete="off"
+                    spellcheck="true"
+                    placeholder="give a thought here"
+                  />
+                </div>
+              </section>
+              <section
+                id="thought-dock-action-area"
+                class="thought-dock-action-rail"
+                aria-label="THOUGHT Panel actions"
+              ></section>
+              <section
+                id="thought-dock-path"
+                class="thought-dock-path thought-path-panel is-hidden"
+                aria-label="PATH selection"
+              >
+                <div id="thought-dock-path-field" class="thought-dock-path-field">
+                  <label class="thought-dock-label" for="thought-dock-path-box">$PATH #</label>
+                  <input
+                    id="thought-dock-path-box"
+                    class="thought-dock-input thought-dock-path-input"
+                    type="text"
+                    inputmode="numeric"
+                    list="thought-dock-path-options"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                  <datalist id="thought-dock-path-options"></datalist>
+                  <select
+                    id="thought-dock-path-select"
+                    class="thought-dock-input thought-dock-path-input thought-dock-path-select is-hidden"
+                    aria-label="$PATH #"
+                  ></select>
+                </div>
+                <p id="thought-dock-path-provenance" class="thought-dock-path-provenance is-hidden"></p>
+                <p id="thought-dock-path-status" class="thought-dock-path-status" aria-live="polite"></p>
+                <div id="thought-dock-path-context" class="thought-dock-path-context is-hidden"></div>
+                <div class="thought-dock-path-actions">
+                  <button id="thought-dock-path-primary" class="thought-dock-button" type="button">continue</button>
+                  <button
+                    id="thought-dock-path-secondary"
+                    class="thought-dock-button thought-dock-button--secondary is-hidden"
+                    type="button"
+                  >
+                    view thought
+                  </button>
+                  <button
+                    id="thought-dock-path-tertiary"
+                    class="thought-dock-button thought-dock-button--secondary is-hidden"
+                    type="button"
+                  >
+                    refresh
+                  </button>
+                </div>
+                <div id="thought-dock-path-flow" class="thought-dock-path-flow" aria-label="mint flow">
+                  <span data-step="select">select $PATH</span>
+                  <span>/</span>
+                  <span data-step="authorize">authorize</span>
+                  <span>/</span>
+                  <span data-step="confirm">confirm</span>
+                </div>
+              </section>
+              <section
+                id="thought-wallet-strip"
+                class="thought-wallet-strip is-hidden"
+                aria-label="Wallet controls"
+              >
+                <div class="thought-wallet-strip__copy">
+                  <p id="thought-wallet-strip-title" class="thought-wallet-strip__title">wallet</p>
+                  <p id="thought-wallet-strip-detail" class="thought-wallet-strip__detail">not connected</p>
+                  <p id="thought-wallet-strip-meta" class="thought-wallet-strip__meta">
+                    reads address only. no signature. no tx.
+                  </p>
+                </div>
+                <div id="thought-wallet-strip-actions" class="thought-wallet-strip__actions"></div>
+              </section>
+            </div>
+            <div id="thought-dock-expanded" class="thought-dock-detail-tray" hidden></div>
             <section
               id="thought-dock-details"
               class="thought-dock-status-screen"
@@ -159,7 +313,6 @@
               <p id="thought-panel-status-detail" class="thought-panel__status-detail">No run yet</p>
               <div id="thought-dock-details-body" class="thought-dock-status-screen__body"></div>
             </section>
-            <div id="thought-dock-expanded" class="thought-dock-detail-tray" hidden></div>
           </div>
         </aside>
 
@@ -304,16 +457,6 @@
               <div class="frontpage-cta">
                 <button id="run-agent" class="frontpage-button" type="button">[ run ]</button>
                 <button
-                  id="mint-wallet-toggle"
-                  class="frontpage-wallet-toggle is-hidden"
-                  type="button"
-                  aria-label="Wallet status"
-                  aria-expanded="false"
-                  aria-haspopup="menu"
-                >
-                  <span id="mint-wallet-dot" class="frontpage-wallet-dot is-off" aria-hidden="true"></span>
-                </button>
-                <button
                   id="reset-thought"
                   class="frontpage-secondary-action is-hidden"
                   type="button"
@@ -321,33 +464,6 @@
                 >
                   [ reset ]
                 </button>
-                <div id="mint-wallet-menu" class="frontpage-wallet-menu is-hidden" role="menu">
-                  <div class="frontpage-wallet-meta">
-                    <span class="frontpage-wallet-label">address</span>
-                    <span id="mint-wallet-address" class="frontpage-wallet-value">-</span>
-                  </div>
-                  <div class="frontpage-wallet-meta">
-                    <span class="frontpage-wallet-label">network</span>
-                    <span id="mint-wallet-network" class="frontpage-wallet-value">-</span>
-                  </div>
-                  <div id="mint-wallet-token-row" class="frontpage-wallet-meta is-hidden">
-                    <span class="frontpage-wallet-label">token</span>
-                    <span id="mint-wallet-token" class="frontpage-wallet-value">-</span>
-                  </div>
-                  <button id="mint-wallet-copy-address" class="frontpage-wallet-action" type="button">
-                    copy address
-                  </button>
-                  <button
-                    id="mint-wallet-copy-tx"
-                    class="frontpage-wallet-action is-hidden"
-                    type="button"
-                  >
-                    copy tx hash
-                  </button>
-                  <button id="mint-wallet-refresh" class="frontpage-wallet-action" type="button">
-                    refresh
-                  </button>
-                </div>
               </div>
               <span id="action-status-copy" class="frontpage-action-status is-hidden" aria-live="polite"></span>
               <div class="frontpage-notices">
@@ -574,7 +690,7 @@
           </span>
         </p>
         <a id="gallery-create-link" class="thought-gallery__create" href="https://thought.inshell.art/">create your THOUGHT</a>
-        <a id="gallery-home-link" class="thought-gallery__link" href="https://inshell.art/">[ home ]</a>
+        <a id="gallery-home-link" class="thought-gallery__home" href="https://inshell.art/">[ home ]</a>
       </div>
       <div id="gallery-grid" class="thought-gallery__grid"></div>
       <footer class="thought-gallery__footer">
@@ -708,7 +824,7 @@
           <dl class="primitive-page__fields verify-page__fields">
             <div>
               <dt>network</dt>
-              <dd id="verify-network">Sepolia rehearsal</dd>
+              <dd id="verify-network">not loaded</dd>
             </div>
             <div>
               <dt>chain</dt>
@@ -720,7 +836,7 @@
             </div>
             <div>
               <dt>currency</dt>
-              <dd id="verify-currency">testnet ETH</dd>
+              <dd id="verify-currency">not loaded</dd>
             </div>
           </dl>
         </section>
@@ -788,7 +904,7 @@
             </div>
             <div>
               <dt>switch network</dt>
-              <dd>asks wallet to switch to Sepolia.</dd>
+              <dd>asks wallet to switch to the current launch chain.</dd>
             </div>
             <div>
               <dt>mint $PATH</dt>
@@ -859,19 +975,19 @@
               </div>
               <div>
                 <dt>network</dt>
-                <dd>Sepolia rehearsal</dd>
+                <dd id="thought-detail-network">not loaded</dd>
               </div>
               <div>
                 <dt>chain</dt>
-                <dd>Sepolia</dd>
+                <dd id="thought-detail-chain">not loaded</dd>
               </div>
               <div>
                 <dt>chain id</dt>
-                <dd>11155111</dd>
+                <dd id="thought-detail-chain-id">not loaded</dd>
               </div>
               <div>
                 <dt>currency</dt>
-                <dd>testnet ETH</dd>
+                <dd id="thought-detail-currency">not loaded</dd>
               </div>
               <div>
                 <dt>minted</dt>
@@ -924,7 +1040,7 @@
   >
     <div class="mint-sheet-header">
       <h2 id="mint-sheet-title" class="mint-sheet-title">mint THOUGHT</h2>
-      <button id="mint-sheet-close" class="mint-sheet-close" type="button">[ close ]</button>
+      <button id="mint-sheet-close" class="mint-sheet-close" type="button">close</button>
     </div>
     <p id="mint-sheet-copy" class="mint-sheet-copy">one THOUGHT needs one $PATH.</p>
     <div id="mint-sheet-path-field" class="mint-sheet-field">
@@ -934,17 +1050,24 @@
         class="mint-sheet-input"
         type="text"
         inputmode="numeric"
+        list="mint-sheet-path-options"
         autocomplete="off"
         spellcheck="false"
       />
+      <datalist id="mint-sheet-path-options"></datalist>
+      <select
+        id="mint-sheet-path-select"
+        class="mint-sheet-input mint-sheet-path-select is-hidden"
+        aria-label="$PATH #"
+      ></select>
     </div>
     <p id="mint-sheet-provenance" class="mint-sheet-provenance is-hidden"></p>
     <p id="mint-sheet-status" class="mint-sheet-status" aria-live="polite"></p>
     <div id="mint-sheet-context" class="mint-sheet-context is-hidden"></div>
     <div class="mint-sheet-actions">
-      <button id="mint-sheet-primary" class="mint-sheet-primary" type="button">[ continue ]</button>
-      <button id="mint-sheet-secondary" class="mint-sheet-primary is-hidden" type="button">[ view THOUGHT ]</button>
-      <button id="mint-sheet-tertiary" class="mint-sheet-primary is-hidden" type="button">[ refresh ]</button>
+      <button id="mint-sheet-primary" class="mint-sheet-primary" type="button">continue</button>
+      <button id="mint-sheet-secondary" class="mint-sheet-primary is-hidden" type="button">view thought</button>
+      <button id="mint-sheet-tertiary" class="mint-sheet-primary is-hidden" type="button">refresh</button>
     </div>
     <div id="mint-sheet-flow" class="mint-sheet-flow" aria-label="mint flow">
       <span data-step="select">select $PATH</span>

@@ -13,6 +13,7 @@ export type ThoughtV2SvgInput = {
   promptFontSize?: number;
   agentBgColor?: string;
   agentFrameColor?: string;
+  canvasFrameColor?: string;
   canvasBgColor?: string;
   agentTextColor?: string;
   promptTextColor?: string;
@@ -22,26 +23,31 @@ export type ThoughtV2SvgInput = {
 
 const SVG_WIDTH = 960;
 const SVG_HEIGHT = 960;
+const CANVAS_FRAME_SIZE = 16;
+const CANVAS_FRAME_COLOR = "#181818";
+const CANVAS_FRAME_OUTER_WIDTH = SVG_WIDTH + CANVAS_FRAME_SIZE * 2;
+const CANVAS_FRAME_OUTER_HEIGHT = SVG_HEIGHT + CANVAS_FRAME_SIZE * 2;
 const AGENT_X = 480;
 const AGENT_TARGET_WIDTH = 784;
 const AGENT_BASE_FONT = 44;
 const AGENT_MIN_FONT = 44;
-const AGENT_BG = { x: 87, y: 378, width: 786, height: 70, radius: 0 };
-const AGENT_CLIP = { x: 88, y: 378, width: 784, height: 70, radius: 0 };
+const LINE_FRAME_RADIUS = 4;
+const AGENT_BG = { x: 87, y: 378, width: 786, height: 70, radius: LINE_FRAME_RADIUS };
+const AGENT_CLIP = { x: 88, y: 378, width: 784, height: 70, radius: LINE_FRAME_RADIUS };
 const AGENT_TEXT_Y = 413;
 const AGENT_FRAME_STROKE_WIDTH = 1;
 const PROMPT_X = 480;
-const PROMPT_TARGET_WIDTH = 628;
+const PROMPT_TARGET_WIDTH = 484;
 const PROMPT_BASE_FONT = 16;
 const PROMPT_MIN_FONT = 16;
-const PROMPT_BG = { x: 165, y: 868, width: 630, height: 44, radius: 0 };
-const PROMPT_CLIP = { x: 166, y: 868, width: 628, height: 44, radius: 0 };
+const PROMPT_BG = { x: 237, y: 868, width: 486, height: 44, radius: LINE_FRAME_RADIUS };
+const PROMPT_CLIP = { x: 238, y: 868, width: 484, height: 44, radius: LINE_FRAME_RADIUS };
 const PROMPT_TEXT_Y = 890;
 const DEFAULT_CANVAS_BG = "#000000";
-const DEFAULT_AGENT_TEXT = "#000000";
+const DEFAULT_AGENT_TEXT = "#ffffff";
 const DEFAULT_PROMPT_TEXT = "#ffffff";
-const DEFAULT_AGENT_BG = "#ffffff";
-const DEFAULT_AGENT_FRAME = "#000000";
+const DEFAULT_AGENT_BG = DEFAULT_CANVAS_BG;
+const DEFAULT_AGENT_FRAME = "#ffffff";
 const CAROUSEL_MIN_GAP = 240;
 const CAROUSEL_FONT_GAP_MULTIPLIER = 6;
 
@@ -73,6 +79,12 @@ export const THOUGHT_V2_RENDER_CONTRACT = {
     width: SVG_WIDTH,
     height: SVG_HEIGHT,
     defaultBg: DEFAULT_CANVAS_BG,
+    frame: {
+      width: CANVAS_FRAME_SIZE,
+      defaultColor: CANVAS_FRAME_COLOR,
+      outerWidth: CANVAS_FRAME_OUTER_WIDTH,
+      outerHeight: CANVAS_FRAME_OUTER_HEIGHT,
+    },
   },
   fontFamily: FONT_STACK,
   agentLine: {
@@ -359,8 +371,8 @@ export const buildThoughtV2Svg = ({
   agentLine,
   agentFontSize,
   promptFontSize,
-  agentBgColor,
   agentFrameColor,
+  canvasFrameColor,
   canvasBgColor,
   agentTextColor,
   promptTextColor,
@@ -381,11 +393,11 @@ export const buildThoughtV2Svg = ({
   const promptFont =
     explicitFontSize(promptMeasure.displayUnits, PROMPT_TARGET_WIDTH, promptFontSize) ??
     fontSize(promptMeasure.displayUnits, PROMPT_TARGET_WIDTH, PROMPT_BASE_FONT, PROMPT_MIN_FONT);
-  const agentBg = normalizePaint(agentBgColor, DEFAULT_AGENT_BG);
-  const agentFrame = normalizePaint(agentFrameColor, DEFAULT_AGENT_FRAME);
   const canvasBg = normalizePaint(canvasBgColor, DEFAULT_CANVAS_BG);
   const agentText = normalizePaint(agentTextColor, DEFAULT_AGENT_TEXT);
   const promptText = normalizePaint(promptTextColor, DEFAULT_PROMPT_TEXT);
+  const agentFrame = normalizePaint(agentFrameColor, agentText || DEFAULT_AGENT_FRAME);
+  const canvasFrame = normalizePaint(canvasFrameColor, CANVAS_FRAME_COLOR);
 
   const agentLineSvg = carouselTextLine(
     "agent-line-text",
@@ -413,27 +425,30 @@ export const buildThoughtV2Svg = ({
   );
 
   return [
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${SVG_WIDTH}" height="${SVG_HEIGHT}" viewBox="0 0 ${SVG_WIDTH} ${SVG_HEIGHT}">`,
-    `  <rect id="canvas-bg" width="${SVG_WIDTH}" height="${SVG_HEIGHT}" fill="${escapeXml(canvasBg)}"/>`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${CANVAS_FRAME_OUTER_WIDTH}" height="${CANVAS_FRAME_OUTER_HEIGHT}" viewBox="0 0 ${CANVAS_FRAME_OUTER_WIDTH} ${CANVAS_FRAME_OUTER_HEIGHT}">`,
+    `  <rect id="canvas-frame" width="${CANVAS_FRAME_OUTER_WIDTH}" height="${CANVAS_FRAME_OUTER_HEIGHT}" fill="${escapeXml(canvasFrame)}"/>`,
+    `  <svg id="thought-canvas" x="${CANVAS_FRAME_SIZE}" y="${CANVAS_FRAME_SIZE}" width="${SVG_WIDTH}" height="${SVG_HEIGHT}" viewBox="0 0 ${SVG_WIDTH} ${SVG_HEIGHT}">`,
+    `    <rect id="canvas-bg" width="${SVG_WIDTH}" height="${SVG_HEIGHT}" fill="${escapeXml(canvasBg)}"/>`,
     ``,
-    `  <defs>`,
-    `    <clipPath id="agent-line-clip">`,
-    `      <rect x="${AGENT_CLIP.x}" y="${AGENT_CLIP.y}" width="${AGENT_CLIP.width}" height="${AGENT_CLIP.height}" rx="${AGENT_CLIP.radius}"/>`,
-    `    </clipPath>`,
-    `    <clipPath id="prompt-line-clip">`,
-    `      <rect x="${PROMPT_CLIP.x}" y="${PROMPT_CLIP.y}" width="${PROMPT_CLIP.width}" height="${PROMPT_CLIP.height}" rx="${PROMPT_CLIP.radius}"/>`,
-    `    </clipPath>`,
-    `  </defs>`,
+    `    <defs>`,
+    `      <clipPath id="agent-line-clip">`,
+    `        <rect x="${AGENT_CLIP.x}" y="${AGENT_CLIP.y}" width="${AGENT_CLIP.width}" height="${AGENT_CLIP.height}" rx="${AGENT_CLIP.radius}"/>`,
+    `      </clipPath>`,
+    `      <clipPath id="prompt-line-clip">`,
+    `        <rect x="${PROMPT_CLIP.x}" y="${PROMPT_CLIP.y}" width="${PROMPT_CLIP.width}" height="${PROMPT_CLIP.height}" rx="${PROMPT_CLIP.radius}"/>`,
+    `      </clipPath>`,
+    `    </defs>`,
     ``,
-    `  <g id="agent-line-area">`,
-    `    <rect id="agent-line-bg" x="${AGENT_BG.x}" y="${AGENT_BG.y}" width="${AGENT_BG.width}" height="${AGENT_BG.height}" rx="${AGENT_BG.radius}" fill="${escapeXml(agentBg)}" stroke="${escapeXml(agentFrame)}" stroke-width="${AGENT_FRAME_STROKE_WIDTH}"/>`,
-    indentLines(agentLineSvg, "    "),
-    `  </g>`,
+    `    <g id="agent-line-area">`,
+    `      <rect id="agent-line-bg" x="${AGENT_BG.x}" y="${AGENT_BG.y}" width="${AGENT_BG.width}" height="${AGENT_BG.height}" rx="${AGENT_BG.radius}" fill="${escapeXml(canvasBg)}" stroke="${escapeXml(agentFrame)}" stroke-width="${AGENT_FRAME_STROKE_WIDTH}"/>`,
+    indentLines(agentLineSvg, "      "),
+    `    </g>`,
     ``,
-    `  <g id="prompt-line-area">`,
-    `    <rect id="prompt-line-bg" x="${PROMPT_BG.x}" y="${PROMPT_BG.y}" width="${PROMPT_BG.width}" height="${PROMPT_BG.height}" rx="${PROMPT_BG.radius}" fill="${escapeXml(canvasBg)}" stroke="${escapeXml(promptText)}" stroke-width="1"/>`,
-    indentLines(promptLineSvg, "    "),
-    `  </g>`,
+    `    <g id="prompt-line-area">`,
+    `      <rect id="prompt-line-bg" x="${PROMPT_BG.x}" y="${PROMPT_BG.y}" width="${PROMPT_BG.width}" height="${PROMPT_BG.height}" rx="${PROMPT_BG.radius}" fill="${escapeXml(canvasBg)}" stroke="${escapeXml(promptText)}" stroke-width="1"/>`,
+    indentLines(promptLineSvg, "      "),
+    `    </g>`,
+    `  </svg>`,
     `</svg>`,
   ].join("\n");
 };

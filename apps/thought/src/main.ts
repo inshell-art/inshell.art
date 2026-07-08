@@ -23,11 +23,14 @@ import {
 import {
   getProtocolReleaseAddress,
   getProtocolReleaseDeployBlock,
+  getThoughtRelease,
+  getThoughtReleaseContract,
   getThoughtReleaseDeployBlock,
   maybeResolveAddress,
 } from "@inshell/contracts";
 import {
   PUBLIC_NETWORK_CONFIG,
+  PUBLIC_SEPOLIA_WALLET_RPC_URL,
   PREVIEW_WATERMARK_LABEL,
   SURFACE_TERMINOLOGY,
   buildReportBugLink,
@@ -40,21 +43,6 @@ import {
   trackInshellAnonymousAnalytics,
   type PublicLaunchMode,
 } from "@inshell/shared";
-import {
-  createWalletConnectEthereumProvider,
-  discoverEip6963Providers,
-  fallbackWindowEthereumProviders,
-  mergeProviderDetails,
-  parseChainId as parseWalletChainId,
-  readWalletConnectProjectId,
-  readWalletConnectRelayUrl,
-  walletConnectMetadata,
-  walletConnectRpcMap,
-  type Eip1193Provider,
-  type Eip6963ProviderDetail,
-  type WalletConnectEthereumProvider,
-  type WalletConnectorKind,
-} from "@inshell/wallet";
 import thoughtInstructions from "../THOUGHT.md?raw";
 import thoughtInstructionsUrl from "../THOUGHT.md?url";
 import colorFontRaw from "../colorFontJSON/colorfont.byToolv2.json?raw";
@@ -126,12 +114,18 @@ import {
   type ThoughtV2LineKind,
 } from "./thought-v2-renderer";
 
-const runtimeEnv = {
+declare global {
+  var __INSHELL_VITE_ENV__: Record<string, unknown> | undefined;
+  var __VITE_ENV__: Record<string, unknown> | undefined;
+}
+
+const runtimeEnv: Record<string, unknown> = {
+  ...(globalThis.__INSHELL_VITE_ENV__ ?? {}),
   ...import.meta.env,
   VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN: import.meta.env.VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN,
 };
 
-(globalThis as any).__VITE_ENV__ = runtimeEnv;
+globalThis.__VITE_ENV__ = runtimeEnv;
 maybeInstallCloudflareWebAnalytics({ env: runtimeEnv });
 installInshellAnonymousAnalytics({ env: runtimeEnv });
 
@@ -270,7 +264,13 @@ type EvmAddresses = {
   };
 };
 
-type EthereumProvider = Eip1193Provider;
+type EthereumProvider = {
+  isMetaMask?: boolean;
+  providers?: EthereumProvider[];
+  request(args: { method: string; params?: unknown[] | object }): Promise<unknown>;
+  on?(event: string, listener: (...args: unknown[]) => void): void;
+  removeListener?(event: string, listener: (...args: unknown[]) => void): void;
+};
 
 type MintTxState = "idle" | "awaiting_signature" | "submitted" | "failed";
 type MintFlowErrorKind =
@@ -372,11 +372,13 @@ type MintSheetAction =
   | "none"
   | "continue"
   | "connect_wallet"
+  | "disconnect_wallet"
   | "authorize"
   | "confirm_mint"
   | "view_tx"
   | "view_thought"
   | "choose_another"
+  | "enter_path_manually"
   | "mint_path"
   | "refresh"
   | "reset"
@@ -399,6 +401,21 @@ type MintSheetReviewConfig = {
   note?: string;
   rows?: MintSheetReviewRow[];
   verifyLink?: boolean;
+};
+
+type WalletStripTone = "idle" | "ready" | "warning" | "error" | "running";
+
+type WalletAction = "connect" | "disconnect" | "refresh" | "switch_network" | "copy_address";
+
+type WalletStripView = {
+  visible: boolean;
+  title: string;
+  detail: string;
+  address?: string;
+  chainLabel?: string;
+  meta?: string;
+  tone: WalletStripTone;
+  actions: WalletAction[];
 };
 
 type MintFlowUiMode = "sheet" | "cli" | "dock";
@@ -447,6 +464,29 @@ type MintFlowData = {
   error: string;
   errorKind: MintFlowErrorKind;
 };
+
+type PathInventoryItem = {
+  pathId: bigint;
+  status: string;
+};
+
+type PathInventoryState = {
+  status: "idle" | "loading" | "loaded" | "unavailable" | "error";
+  wallet: string;
+  chainId: number | null;
+  items: PathInventoryItem[];
+  error: string;
+};
+
+type PathInventoryReadResult =
+  | {
+      kind: "ok";
+      items: PathInventoryItem[];
+    }
+  | {
+      kind: "unavailable";
+      message: string;
+    };
 
 type ThoughtRunContext = {
   mode: Mode;
@@ -893,7 +933,60 @@ const OPENROUTER_PREFERRED_MODELS = [
   "openai/gpt-5.4-mini",
   "meta-llama/llama-3.3-70b-instruct:free",
 ];
-const EVM_ADDRESSES = addresses as EvmAddresses;
+const FRONTEND_NETWORK =
+  typeof runtimeEnv.VITE_NETWORK === "string" && runtimeEnv.VITE_NETWORK.trim()
+    ? runtimeEnv.VITE_NETWORK.trim().toLowerCase()
+    : import.meta.env.MODE === "sepolia"
+      ? "sepolia"
+      : "";
+
+const buildSepoliaEvmAddresses = (): EvmAddresses | null => {
+  const release = getThoughtRelease("sepolia");
+  if (!release) {
+    return null;
+  }
+  const spec = release.recommended_thought_spec;
+  const pathNft = release.path_dependency?.pathNft || getThoughtReleaseContract("path_nft", "sepolia") || "";
+  const thoughtNft = getThoughtReleaseContract("thought_nft", "sepolia") || "";
+  const thoughtSpecRegistry = getThoughtReleaseContract("thought_spec_registry", "sepolia") || "";
+  const colorFontV1 = getThoughtReleaseContract("color_font_v1", "sepolia") || "";
+
+  return {
+    rpcUrl: PUBLIC_SEPOLIA_WALLET_RPC_URL,
+    chainId: release.chain_id,
+    explorerUrl: PUBLIC_NETWORK_CONFIG.explorerBaseUrl,
+    recommendedThoughtSpecName: spec?.name,
+    recommendedThoughtSpecId: spec?.id,
+    recommendedThoughtSpecHash: spec?.hash,
+    pathNft: { address: pathNft },
+    thoughtSpecRegistry: { address: thoughtSpecRegistry },
+    thoughtNft: { address: thoughtNft },
+    colorFontV1: { address: colorFontV1 },
+    thoughtSpec: spec
+      ? {
+          specName: spec.name,
+          id: spec.id,
+          hash: spec.hash,
+          ref: spec.ref,
+        }
+      : undefined,
+    thoughtSpecs: spec
+      ? [
+          {
+            specName: spec.name,
+            specId: spec.id,
+            specHash: spec.hash,
+            ref: spec.ref,
+            byteLength: spec.byteLength,
+          },
+        ]
+      : undefined,
+  };
+};
+
+const EVM_ADDRESSES = FRONTEND_NETWORK === "sepolia"
+  ? buildSepoliaEvmAddresses() ?? (addresses as EvmAddresses)
+  : (addresses as EvmAddresses);
 const THOUGHT_CHAIN_ID = EVM_ADDRESSES.chainId ?? 31337;
 const THOUGHT_CHAIN_ID_HEX = `0x${THOUGHT_CHAIN_ID.toString(16)}`;
 const ZERO_BYTES32 = `0x${"0".repeat(64)}`;
@@ -1211,6 +1304,8 @@ const THOUGHT_NFT_ADDRESS = EVM_ADDRESSES.thoughtNft?.address?.trim() ?? "";
 const COLOR_FONT_V1_ADDRESS = EVM_ADDRESSES.colorFontV1?.address?.trim() ?? "";
 const THOUGHT_CHAIN_NAME =
   THOUGHT_CHAIN_ID === 31337 ? "Anvil Local" : THOUGHT_CHAIN_ID === 11155111 ? "Sepolia" : "THOUGHT";
+const THOUGHT_ENVIRONMENT_LABEL = THOUGHT_CHAIN_ID === 31337 ? "Local development" : PUBLIC_NETWORK_CONFIG.environmentLabel;
+const THOUGHT_CURRENCY_LABEL = THOUGHT_CHAIN_ID === 31337 ? "local ETH" : PUBLIC_NETWORK_CONFIG.currencyLabel;
 const configuredExplorerBaseUrl =
   typeof import.meta.env.VITE_THOUGHT_EXPLORER_BASE_URL === "string" &&
   import.meta.env.VITE_THOUGHT_EXPLORER_BASE_URL.trim()
@@ -1229,9 +1324,11 @@ const thoughtAddressUrl = (address: string) =>
   THOUGHT_EXPLORER_BASE_URL && address ? `${THOUGHT_EXPLORER_BASE_URL}/address/${address}` : "";
 const PATH_MOVEMENT_THOUGHT = "0x54484f5547485400000000000000000000000000000000000000000000000000";
 const PATH_NFT_DEPLOY_BLOCK =
-  getProtocolReleaseDeployBlock("path_nft") ??
-  getProtocolReleaseDeployBlock("path_nft", "sepolia") ??
-  0;
+  THOUGHT_CHAIN_ID === 31337
+    ? 0
+    : getProtocolReleaseDeployBlock("path_nft") ??
+      getProtocolReleaseDeployBlock("path_nft", "sepolia") ??
+      0;
 const PATH_LOG_CHUNK_SIZE = 5_000;
 const THOUGHT_NFT_DEPLOY_BLOCK =
   THOUGHT_CHAIN_ID === 11155111
@@ -1465,6 +1562,23 @@ const thoughtPanelStatusTitle = document.getElementById("thought-panel-status-ti
 const thoughtPanelStatusDetail = document.getElementById("thought-panel-status-detail") as HTMLElement | null;
 const thoughtDock = document.getElementById("thought-dock") as HTMLElement | null;
 const thoughtDockPrompt = document.getElementById("thought-dock-prompt") as HTMLInputElement | null;
+const thoughtWalletStrip = document.getElementById("thought-wallet-strip") as HTMLElement | null;
+const thoughtWalletStripTitle = document.getElementById("thought-wallet-strip-title") as HTMLElement | null;
+const thoughtWalletStripDetail = document.getElementById("thought-wallet-strip-detail") as HTMLElement | null;
+const thoughtWalletStripMeta = document.getElementById("thought-wallet-strip-meta") as HTMLElement | null;
+const thoughtWalletStripActions = document.getElementById("thought-wallet-strip-actions") as HTMLElement | null;
+const thoughtDockPath = document.getElementById("thought-dock-path") as HTMLElement | null;
+const thoughtDockPathField = document.getElementById("thought-dock-path-field") as HTMLElement | null;
+const thoughtDockPathBox = document.getElementById("thought-dock-path-box") as HTMLInputElement | null;
+const thoughtDockPathOptions = document.getElementById("thought-dock-path-options") as HTMLDataListElement | null;
+const thoughtDockPathSelect = document.getElementById("thought-dock-path-select") as HTMLSelectElement | null;
+const thoughtDockPathProvenance = document.getElementById("thought-dock-path-provenance") as HTMLElement | null;
+const thoughtDockPathStatus = document.getElementById("thought-dock-path-status") as HTMLElement | null;
+const thoughtDockPathContext = document.getElementById("thought-dock-path-context") as HTMLElement | null;
+const thoughtDockPathFlow = document.getElementById("thought-dock-path-flow") as HTMLElement | null;
+const thoughtDockPathPrimary = document.getElementById("thought-dock-path-primary") as HTMLButtonElement | null;
+const thoughtDockPathSecondary = document.getElementById("thought-dock-path-secondary") as HTMLButtonElement | null;
+const thoughtDockPathTertiary = document.getElementById("thought-dock-path-tertiary") as HTMLButtonElement | null;
 const thoughtDockActionArea = document.getElementById("thought-dock-action-area") as HTMLElement | null;
 const thoughtDockExpanded = document.getElementById("thought-dock-expanded") as HTMLElement | null;
 const thoughtDockDetails = document.getElementById("thought-dock-details") as HTMLElement | null;
@@ -1480,15 +1594,25 @@ const thoughtFileStatus = document.getElementById("thought-file-status") as HTML
 const runAgentButton = document.getElementById("run-agent") as HTMLButtonElement | null;
 const actionStatusCopy = document.getElementById("action-status-copy") as HTMLElement | null;
 const mintWalletToggle = document.getElementById("mint-wallet-toggle") as HTMLButtonElement | null;
+const mintWalletLabel = document.getElementById("mint-wallet-label") as HTMLElement | null;
 const mintWalletDot = document.getElementById("mint-wallet-dot") as HTMLElement | null;
 const mintWalletMenu = document.getElementById("mint-wallet-menu") as HTMLElement | null;
 const mintWalletAddress = document.getElementById("mint-wallet-address") as HTMLElement | null;
 const mintWalletNetwork = document.getElementById("mint-wallet-network") as HTMLElement | null;
 const mintWalletTokenRow = document.getElementById("mint-wallet-token-row") as HTMLElement | null;
 const mintWalletToken = document.getElementById("mint-wallet-token") as HTMLElement | null;
+const mintWalletPathRow = document.getElementById("mint-wallet-path-row") as HTMLElement | null;
+const mintWalletPath = document.getElementById("mint-wallet-path") as HTMLElement | null;
+const mintWalletReview = document.getElementById("mint-wallet-review") as HTMLElement | null;
+const mintWalletAuthorize = document.getElementById("mint-wallet-authorize") as HTMLButtonElement | null;
+const mintWalletConfirm = document.getElementById("mint-wallet-confirm") as HTMLButtonElement | null;
+const mintWalletViewTx = document.getElementById("mint-wallet-view-tx") as HTMLButtonElement | null;
+const mintWalletConnect = document.getElementById("mint-wallet-connect") as HTMLButtonElement | null;
 const mintWalletCopyAddress = document.getElementById("mint-wallet-copy-address") as HTMLButtonElement | null;
 const mintWalletCopyTx = document.getElementById("mint-wallet-copy-tx") as HTMLButtonElement | null;
 const mintWalletRefresh = document.getElementById("mint-wallet-refresh") as HTMLButtonElement | null;
+const mintWalletSwitchNetwork = document.getElementById("mint-wallet-switch-network") as HTMLButtonElement | null;
+const mintWalletDisconnect = document.getElementById("mint-wallet-disconnect") as HTMLButtonElement | null;
 const resetThoughtButton = document.getElementById("reset-thought") as HTMLButtonElement | null;
 const runStatus = document.getElementById("run-status") as HTMLElement | null;
 const warningBox = document.getElementById("input-warning") as HTMLElement | null;
@@ -1502,8 +1626,6 @@ const thoughtDebugCtaStatus = document.getElementById("thought-debug-cta-status"
 const thoughtDebugWarning = document.getElementById("thought-debug-warning") as HTMLSelectElement | null;
 const thoughtReportBugLink = document.getElementById("thought-report-bug-link") as HTMLAnchorElement | null;
 const thoughtInstructionsLink = document.getElementById("thought-instructions-link") as HTMLAnchorElement | null;
-const thoughtCreateGalleryLink = document.getElementById("thought-create-gallery-link") as HTMLAnchorElement | null;
-const thoughtCreateHomeLink = document.getElementById("thought-create-home-link") as HTMLAnchorElement | null;
 const thoughtGalleryLink = document.getElementById("thought-gallery-link") as HTMLAnchorElement | null;
 const galleryPage = document.getElementById("gallery-page") as HTMLElement | null;
 const galleryStatus = document.getElementById("gallery-status") as HTMLElement | null;
@@ -1577,6 +1699,10 @@ const thoughtDetailModel = document.getElementById("thought-detail-model") as HT
 const thoughtDetailModelReturn = document.getElementById("thought-detail-model-return") as HTMLElement | null;
 const thoughtDetailPath = document.getElementById("thought-detail-path") as HTMLAnchorElement | null;
 const thoughtDetailMinter = document.getElementById("thought-detail-minter") as HTMLElement | null;
+const thoughtDetailNetwork = document.getElementById("thought-detail-network") as HTMLElement | null;
+const thoughtDetailChain = document.getElementById("thought-detail-chain") as HTMLElement | null;
+const thoughtDetailChainId = document.getElementById("thought-detail-chain-id") as HTMLElement | null;
+const thoughtDetailCurrency = document.getElementById("thought-detail-currency") as HTMLElement | null;
 const thoughtDetailMinted = document.getElementById("thought-detail-minted") as HTMLElement | null;
 const thoughtDetailSpecRef = document.getElementById("thought-detail-spec-ref") as HTMLAnchorElement | null;
 const thoughtDetailColorFont = document.getElementById("thought-detail-color-font") as HTMLAnchorElement | null;
@@ -1601,6 +1727,8 @@ const mintSheetCopy = document.getElementById("mint-sheet-copy") as HTMLElement 
 const mintSheetFlow = document.getElementById("mint-sheet-flow") as HTMLElement | null;
 const mintSheetPathField = document.getElementById("mint-sheet-path-field") as HTMLElement | null;
 const mintSheetPathBox = document.getElementById("mint-sheet-path-box") as HTMLInputElement | null;
+const mintSheetPathOptions = document.getElementById("mint-sheet-path-options") as HTMLDataListElement | null;
+const mintSheetPathSelect = document.getElementById("mint-sheet-path-select") as HTMLSelectElement | null;
 const mintSheetProvenance = document.getElementById("mint-sheet-provenance") as HTMLElement | null;
 const mintSheetStatus = document.getElementById("mint-sheet-status") as HTMLElement | null;
 const mintSheetContext = document.getElementById("mint-sheet-context") as HTMLElement | null;
@@ -1642,6 +1770,23 @@ if (
   !thoughtPanelStatusDetail ||
   !thoughtDock ||
   !thoughtDockPrompt ||
+  !thoughtWalletStrip ||
+  !thoughtWalletStripTitle ||
+  !thoughtWalletStripDetail ||
+  !thoughtWalletStripMeta ||
+  !thoughtWalletStripActions ||
+  !thoughtDockPath ||
+  !thoughtDockPathField ||
+  !thoughtDockPathBox ||
+  !thoughtDockPathOptions ||
+  !thoughtDockPathSelect ||
+  !thoughtDockPathProvenance ||
+  !thoughtDockPathStatus ||
+  !thoughtDockPathContext ||
+  !thoughtDockPathFlow ||
+  !thoughtDockPathPrimary ||
+  !thoughtDockPathSecondary ||
+  !thoughtDockPathTertiary ||
   !thoughtDockActionArea ||
   !thoughtDockExpanded ||
   !thoughtDockDetails ||
@@ -1657,15 +1802,25 @@ if (
   !runAgentButton ||
   !actionStatusCopy ||
   !mintWalletToggle ||
+  !mintWalletLabel ||
   !mintWalletDot ||
   !mintWalletMenu ||
   !mintWalletAddress ||
   !mintWalletNetwork ||
   !mintWalletTokenRow ||
   !mintWalletToken ||
+  !mintWalletPathRow ||
+  !mintWalletPath ||
+  !mintWalletReview ||
+  !mintWalletAuthorize ||
+  !mintWalletConfirm ||
+  !mintWalletViewTx ||
+  !mintWalletConnect ||
   !mintWalletCopyAddress ||
   !mintWalletCopyTx ||
   !mintWalletRefresh ||
+  !mintWalletSwitchNetwork ||
+  !mintWalletDisconnect ||
   !resetThoughtButton ||
   !runStatus ||
   !warningBox ||
@@ -1679,8 +1834,6 @@ if (
   !thoughtDebugWarning ||
   !thoughtReportBugLink ||
   !thoughtInstructionsLink ||
-  !thoughtCreateGalleryLink ||
-  !thoughtCreateHomeLink ||
   !thoughtGalleryLink ||
   !galleryPage ||
   !galleryStatus ||
@@ -1754,6 +1907,10 @@ if (
   !thoughtDetailModelReturn ||
   !thoughtDetailPath ||
   !thoughtDetailMinter ||
+  !thoughtDetailNetwork ||
+  !thoughtDetailChain ||
+  !thoughtDetailChainId ||
+  !thoughtDetailCurrency ||
   !thoughtDetailMinted ||
   !thoughtDetailSpecRef ||
   !thoughtDetailColorFont ||
@@ -1774,6 +1931,8 @@ if (
   !mintSheetFlow ||
   !mintSheetPathField ||
   !mintSheetPathBox ||
+  !mintSheetPathOptions ||
+  !mintSheetPathSelect ||
   !mintSheetProvenance ||
   !mintSheetStatus ||
   !mintSheetContext ||
@@ -1897,8 +2056,6 @@ type DockRailView = {
   maxActions?: number;
 };
 
-type ThoughtDockTrayMode = "none" | "more" | "details";
-
 type StoredThoughtDockRun = {
   runId: string;
   adapterId: ThoughtDockAgentAdapterId;
@@ -1938,12 +2095,11 @@ let agentDemoStatusDetail = "";
 let agentDemoPollGeneration = 0;
 let thoughtDockState: ThoughtDockState = { kind: "empty" };
 let thoughtDockRun: AgentDemoRun | null = null;
-let thoughtDockPayload: ThoughtRunPayload | null = null;
 let thoughtDockAdapterId: ThoughtDockAgentAdapterId = "codex";
 let thoughtDockPollGeneration = 0;
-let thoughtDockLastDetail = "";
-let thoughtDockTrayMode: ThoughtDockTrayMode = "none";
 let thoughtDockRailSignature = "";
+let thoughtDockConsoleSignature = "";
+let thoughtDockWalletConsoleNonce = 0;
 let thoughtDockRailInsetFrame = 0;
 
 const AGENT_DEMO_GLYPH_COLORS = [
@@ -2032,6 +2188,14 @@ const agentDemoResultJson = (
 const thoughtAgentProductLabel = (adapterId: ThoughtDockAgentAdapterId) =>
   THOUGHT_DOCK_AGENT_ADAPTERS.find((adapter) => adapter.id === adapterId)?.label ?? "Agent";
 
+const normalizeThoughtAgentProtocolError = (message: string, adapterId: ThoughtDockAgentAdapterId = "codex") => {
+  const trimmed = message.trim();
+  if (/failed to fetch|network|connection refused|could not connect|econnrefused/i.test(trimmed)) {
+    return `${thoughtAgentProductLabel(adapterId)} could not reach the THOUGHT Agent API. Retry the protocol calls with curl against the local URL.`;
+  }
+  return trimmed;
+};
+
 const thoughtDockAgentLifecycleStatus = (adapterId: ThoughtDockAgentAdapterId, remoteState?: string | null) => {
   const product = thoughtAgentProductLabel(adapterId);
   switch (remoteState) {
@@ -2045,6 +2209,9 @@ const thoughtDockAgentLifecycleStatus = (adapterId: ThoughtDockAgentAdapterId, r
       return `Waiting for ${product}...`;
   }
 };
+
+const thoughtDockAgentLifecycleTitle = (adapterId: ThoughtDockAgentAdapterId, remoteState?: string | null) =>
+  thoughtDockAgentLifecycleStatus(adapterId, remoteState).replace(/\.\.\.$/, "");
 
 const buildAgentDemoSealedTask = (
   run: Omit<AgentDemoRun, "codexUrl" | "claudeUrl" | "sealedTask" | "candidate">,
@@ -2080,9 +2247,25 @@ const buildAgentDemoSealedTask = (
     "",
     "THOUGHT Agent protocol:",
     `Launch URI: ${run.launchUri}`,
+    `Launch token: ${run.launchToken}`,
     `Claim: POST ${run.claimUrl}`,
     `Start: POST ${run.startUrl}`,
     `Result: PUT ${run.resultUrl}`,
+    "",
+    "Protocol transport:",
+    "- Use shell curl for every protocol HTTP request.",
+    "- Do not use browser fetch, Node fetch, or web fetch for these local URLs.",
+    "- If a fetch API reports failed to fetch, switch to curl and continue.",
+    "- Claim uses Authorization: Bearer <Launch token>.",
+    "- Claim returns bridgeToken. Start and Result use Authorization: Bearer <bridgeToken>.",
+    "",
+    "Protocol payload requirements:",
+    "- Claim body includes protocolVersion, bridge, and adapter.",
+    "- Start body includes protocolVersion, invocationId, and startedAt.",
+    "- Result body includes protocolVersion, invocationId, bridge, adapter, agent, execution, startedAt, completedAt, and output.",
+    "- output.raw is JSON text exactly like {\"work\":\"YOUR WORK\"}.",
+    "- output.rawSha256 and output.workSha256 are SHA-256 hex strings with 0x prefix.",
+    "- On macOS, SHA-256 can be computed with: printf %s \"$VALUE\" | shasum -a 256 | awk '{print \"0x\"$1}'",
     "",
     "The THOUGHT page polls this status URL with its browser token:",
     run.statusUrl,
@@ -2281,7 +2464,10 @@ const pollAgentDemoRun = (run: AgentDemoRun) => {
           return;
         }
         if (payload.state === "failed" || payload.state === "cancelled" || payload.state === "expired") {
-          agentDemoStatusDetail = payload.error?.message || `run ${payload.state}.`;
+          agentDemoStatusDetail = normalizeThoughtAgentProtocolError(
+            payload.error?.message || `run ${payload.state}.`,
+            normalizeThoughtDockAdapterId(payload.request?.requestedAgent?.adapterId),
+          );
           renderAgentDemo();
           return;
         }
@@ -2601,7 +2787,6 @@ const storeThoughtDockRun = (run: AgentDemoRun, adapterId: ThoughtDockAgentAdapt
 
 const setThoughtDockState = (next: ThoughtDockState) => {
   thoughtDockState = next;
-  thoughtDockTrayMode = "none";
   renderThoughtDock();
 };
 
@@ -2628,16 +2813,28 @@ const focusThoughtDockPrompt = (options?: { preventScroll?: boolean }) => {
   });
 };
 
-const shouldRefocusThoughtDockFromClick = (target: EventTarget | null) =>
-  !IS_CLI_DEBUG &&
-  !frontpageStage.classList.contains("is-hidden") &&
-  !thoughtDockPrompt.disabled &&
-  target instanceof Node &&
-  document.body.contains(target);
+const shouldRefocusThoughtDockFromClick = (target: EventTarget | null) => {
+  if (
+    IS_CLI_DEBUG ||
+    frontpageStage.classList.contains("is-hidden") ||
+    thoughtDockPrompt.disabled ||
+    !(target instanceof HTMLElement) ||
+    !document.body.contains(target)
+  ) {
+    return false;
+  }
 
-const openThoughtDockTray = (mode: ThoughtDockTrayMode) => {
-  thoughtDockTrayMode = mode;
-  renderThoughtDock();
+  const selection = window.getSelection();
+  if (selection && !selection.isCollapsed && selection.toString().trim()) {
+    return false;
+  }
+
+  if (target.closest(".thought-dock-status-screen, .thought-dock-path, .thought-wallet-strip, .thought-wallet-surface")) {
+    return false;
+  }
+
+  const interactiveTarget = target.closest("a, button, input, textarea, select, [contenteditable='true']");
+  return !interactiveTarget || interactiveTarget === thoughtDockPrompt;
 };
 
 const thoughtDockButton = (
@@ -2695,42 +2892,26 @@ const renderDockRailAction = (action: DockRailAction) =>
     ariaLabel: action.ariaLabel,
   });
 
-const thoughtDockStatus = (text: string, options?: { muted?: boolean; error?: boolean; tone?: DockRailTone }) => {
-  const element = document.createElement("p");
-  element.className = [
-    "thought-dock-status",
-    options?.muted ? "thought-dock-status--muted" : "",
-    options?.error ? "thought-dock-error" : "",
-    options?.tone ? `thought-dock-status--${options.tone}` : "",
-  ].filter(Boolean).join(" ");
-  element.setAttribute("role", "status");
-  element.setAttribute("aria-live", "polite");
-  element.setAttribute("aria-label", text);
-  if (text.endsWith("...")) {
-    const label = document.createElement("span");
-    label.className = "thought-dock-status-label";
-    label.textContent = text.slice(0, -3);
-    element.append(label);
-    const dots = document.createElement("span");
-    dots.className = "thought-dock-ellipsis";
-    dots.setAttribute("aria-hidden", "true");
-    for (let index = 0; index < 3; index += 1) {
-      const dot = document.createElement("span");
-      dot.className = "thought-dock-ellipsis-dot";
-      dot.textContent = ".";
-      dots.append(dot);
-    }
-    element.append(dots);
-  } else {
-    element.textContent = text;
-  }
-  return element;
-};
-
 const thoughtDockActions = (...buttons: HTMLElement[]) => {
   const element = document.createElement("div");
   element.className = "thought-dock-actions";
   element.replaceChildren(...buttons);
+  return element;
+};
+
+const thoughtDockStatusChip = (status: string, tone: DockRailTone) => {
+  const element = document.createElement("p");
+  element.className = [
+    "thought-dock-status",
+    status ? "" : "thought-dock-status--empty",
+    tone === "error" ? "thought-dock-error" : "",
+    tone === "warning" ? "thought-dock-status--warning" : "",
+    tone === "idle" ? "thought-dock-status--muted" : "",
+  ].filter(Boolean).join(" ");
+  const label = document.createElement("span");
+  label.className = "thought-dock-status-label";
+  label.textContent = status;
+  element.append(label);
   return element;
 };
 
@@ -2765,32 +2946,127 @@ const syncThoughtDockRailInset = () => {
   thoughtDock.style.setProperty("--thought-dock-rail-inset", "0px");
 };
 
-const statusScreenLine = (text: string, options?: { tone?: DockRailTone; heading?: boolean }) => {
-  const element = document.createElement("p");
-  element.className = [
+const statusScreenLine = (
+  text: string,
+  options: { heading?: boolean; tone?: DockRailTone } = {},
+) => {
+  const line = document.createElement("p");
+  line.className = [
     "thought-dock-status-screen__line",
-    options?.tone ? `thought-dock-status-screen__line--${options.tone}` : "",
-    options?.heading ? "thought-dock-status-screen__line--heading" : "",
+    options.heading ? "thought-dock-status-screen__line--heading" : "",
+    options.tone === "error" ? "thought-dock-status-screen__line--error" : "",
+    options.tone === "success" ? "thought-dock-status-screen__line--success" : "",
+    options.tone === "warning" ? "thought-dock-status-screen__line--warning" : "",
   ].filter(Boolean).join(" ");
-  element.textContent = text;
-  return element;
+  line.textContent = text;
+  return line;
 };
 
-const statusScreenRow = (key: string, value: string) => {
-  const row = document.createElement("div");
-  row.className = "thought-dock-status-screen__row";
-  const keyElement = document.createElement("span");
-  keyElement.className = "thought-dock-status-screen__key";
-  keyElement.textContent = key;
-  const valueElement = document.createElement("span");
-  valueElement.className = "thought-dock-status-screen__value";
-  valueElement.textContent = value;
-  row.append(keyElement, valueElement);
-  return row;
+const statusScreenKey = (key: string) => key.trim().replace(/\s+/g, "_");
+
+const statusScreenRows = (scope: string, rows: Array<[string, string]>) =>
+  rows.map(([key, value]) => statusScreenLine(`${scope}.${statusScreenKey(key)}: ${value}`));
+
+const statusScreenEntry = (lines: HTMLElement[]) => {
+  const entry = document.createElement("article");
+  entry.className = "thought-dock-status-screen__entry";
+  entry.append(...lines);
+  return entry;
 };
 
-const renderThoughtDockDetails = (state: ThoughtDockState, rail: DockRailView) => {
-  const rows: Array<[string, string]> = [];
+const thoughtDockConsoleTime = () =>
+  new Date().toLocaleTimeString([], {
+    hour: "2-digit",
+    hour12: false,
+    minute: "2-digit",
+    second: "2-digit",
+  });
+
+const appendConsoleRow = (rows: Array<[string, string]>, key: string, value: unknown) => {
+  if (value === null || value === undefined) {
+    return;
+  }
+  const normalized = typeof value === "bigint" ? value.toString() : String(value).trim();
+  if (!normalized) {
+    return;
+  }
+  rows.push([key, normalized]);
+};
+
+const shouldShowWalletConsoleRows = (state: ThoughtDockState, rail: DockRailView) =>
+  thoughtDockWalletConsoleNonce > 0 ||
+  rail.detail.kind === "wallet" ||
+  state.kind === "work_ready" ||
+  state.kind === "minting" ||
+  state.kind === "minted" ||
+  mintFlowState !== "closed";
+
+const walletStatusForConsole = () => {
+  if (isInjectedWalletMissing()) {
+    return "no supported wallet";
+  }
+  if (walletConnectInFlight) {
+    return "connecting";
+  }
+  if (!walletState.address) {
+    return walletDisconnectedByUser ? "disconnected" : "not connected";
+  }
+  if (walletState.chainId !== THOUGHT_CHAIN_ID) {
+    return "wrong network";
+  }
+  if (walletState.preflightLoading) {
+    return "checking";
+  }
+  return "connected";
+};
+
+const appendWalletConsoleRows = (
+  rows: Array<[string, string]>,
+  state: ThoughtDockState,
+  rail: DockRailView,
+) => {
+  if (!shouldShowWalletConsoleRows(state, rail)) {
+    return;
+  }
+
+  const pathSummary = pathInventorySummary();
+  rows.push(["command", thoughtDockWalletConsoleNonce > 0 ? `wallet #${thoughtDockWalletConsoleNonce}` : "wallet"]);
+  rows.push(["status", walletStatusForConsole()]);
+  rows.push(["detected", walletState.detected || !!getEthereumProvider() ? "yes" : "no"]);
+  appendConsoleRow(rows, "address", walletState.address);
+  appendConsoleRow(rows, "address short", walletState.address ? shortHex(walletState.address) : "");
+  rows.push(["network", getWalletNetworkLabel()]);
+  rows.push(["expected network", `${THOUGHT_CHAIN_NAME} (${THOUGHT_CHAIN_ID})`]);
+  rows.push(["read mode", "address only"]);
+  rows.push(["signature", "none until PATH authorization"]);
+  rows.push(["transaction", walletState.txState]);
+  appendConsoleRow(rows, "tx hash", walletState.txHash || mintFlowData.txHash);
+  appendConsoleRow(rows, "tx error", walletState.txError);
+  appendConsoleRow(rows, "preflight", walletState.preflightError);
+  appendConsoleRow(rows, "PATH", pathSummary);
+  if (pathInventoryMatchesCurrentWallet()) {
+    rows.push(["PATH status", pathInventoryState.status]);
+    if (pathInventoryState.status === "loaded") {
+      rows.push(["PATH held", String(pathInventoryState.items.length)]);
+      rows.push(["PATH available", String(availablePathInventoryItems().length)]);
+    }
+    appendConsoleRow(rows, "PATH error", pathInventoryState.error);
+  }
+};
+
+const renderThoughtDockDetails = (
+  state: ThoughtDockState,
+  rail: DockRailView,
+  panelStatus: ThoughtPanelStatusView,
+) => {
+  const eventTime = thoughtDockConsoleTime();
+  const eventRows: Array<[string, string]> = [];
+  const detailRows: Array<[string, string]> = [];
+  const runRows: Array<[string, string]> = [];
+  const candidateRows: Array<[string, string]> = [];
+  const workRows: Array<[string, string]> = [];
+  const walletRows: Array<[string, string]> = [];
+  const mintRows: Array<[string, string]> = [];
   const run =
     "run" in state && state.run
       ? state.run
@@ -2799,49 +3075,137 @@ const renderThoughtDockDetails = (state: ThoughtDockState, rail: DockRailView) =
     "adapterId" in state && state.adapterId
       ? state.adapterId
       : thoughtDockAdapterId;
-  if (run) {
-    rows.push(["Run ID", run.runId]);
-    rows.push(["Agent", thoughtAgentProductLabel(adapterId)]);
-    rows.push(["State", run.remoteState || state.kind]);
-    rows.push(["Prompt hash", run.promptHash]);
-    rows.push(["Status", run.statusUrl]);
-    rows.push(["Result", run.resultUrl]);
-    if (run.browserToken) {
-      rows.push(["Run link", `/runs/${run.runId}#view_token=...`]);
-    }
-  }
-  if (currentCandidate) {
-    rows.push(["Protocol", "thought-agent/1"]);
-    rows.push(["Candidate", currentCandidate.previewStatus]);
-    rows.push(["Callback", "verified by run token"]);
-  }
-  if (currentOutputText) {
-    rows.push(["Work", currentOutputText]);
-    rows.push(["Work hash", hashText(currentOutputText)]);
-    rows.push(["Provenance", "assembled before mint"]);
-  }
+  const prompt =
+    "prompt" in state && state.prompt
+      ? state.prompt
+      : run?.prompt || sessionState.prompt.trim();
+  const shouldLogPrompt = state.kind !== "empty" && state.kind !== "ready";
 
-  const children: HTMLElement[] = [];
-  if (rail.status) {
-    children.push(statusScreenLine(rail.status, { tone: rail.tone }));
+  eventRows.push(["time", eventTime]);
+  eventRows.push(["state", state.kind]);
+  appendConsoleRow(eventRows, "title", panelStatus.title);
+  appendConsoleRow(eventRows, "detail", panelStatus.detail);
+  appendConsoleRow(eventRows, "control", rail.status);
+  appendConsoleRow(eventRows, "tone", rail.tone);
+  appendConsoleRow(eventRows, "actions", rail.actions.map((action) => action.label).join(" / "));
+  if (shouldLogPrompt) {
+    appendConsoleRow(eventRows, "prompt", prompt);
   }
 
   if (rail.detail.kind === "error") {
-    children.push(statusScreenLine(rail.detail.title, { tone: "error", heading: true }));
-    children.push(statusScreenLine(rail.detail.body, { tone: "error" }));
+    detailRows.push(["kind", "error"]);
+    detailRows.push(["title", rail.detail.title]);
+    detailRows.push(["body", rail.detail.body]);
   } else if (rail.detail.kind === "wallet" || rail.detail.kind === "path") {
-    children.push(statusScreenLine(rail.detail.message, { tone: "idle" }));
+    detailRows.push(["kind", rail.detail.kind]);
+    detailRows.push(["message", rail.detail.message]);
   } else if (rail.detail.kind === "debug") {
-    children.push(statusScreenLine(JSON.stringify(rail.detail.json), { tone: "idle" }));
+    detailRows.push(["kind", "debug"]);
+    detailRows.push(["json", JSON.stringify(rail.detail.json)]);
   }
 
-  if (rows.length > 0) {
-    children.push(statusScreenLine("Details", { heading: true }));
-    children.push(...rows.map(([key, value]) => statusScreenRow(key, value)));
+  if (run) {
+    runRows.push(["run id", run.runId]);
+    runRows.push(["agent", thoughtAgentProductLabel(adapterId)]);
+    runRows.push(["state", run.remoteState || state.kind]);
+    runRows.push(["prompt", run.prompt]);
+    runRows.push(["prompt hash", run.promptHash]);
+    runRows.push(["launch uri", run.launchUri]);
+    runRows.push(["status url", run.statusUrl]);
+    runRows.push(["result url", run.resultUrl]);
+    runRows.push(["claim url", run.claimUrl]);
+    runRows.push(["start url", run.startUrl]);
+    if (run.browserToken) {
+      runRows.push(["run link", `/runs/${run.runId}#view_token=...`]);
+    }
   }
+  if (currentCandidate) {
+    candidateRows.push(["protocol", "thought-agent/1"]);
+    candidateRows.push(["candidate", currentCandidate.previewStatus]);
+    candidateRows.push(["callback", "verified by run token"]);
+  }
+  if (currentOutputText) {
+    workRows.push(["work", currentOutputText]);
+    workRows.push(["work hash", hashText(currentOutputText)]);
+    workRows.push(["provenance", "assembled before mint"]);
+  }
+  appendWalletConsoleRows(walletRows, state, rail);
+  if (state.kind === "minting" || mintFlowState !== "closed") {
+    mintRows.push(["mint state", mintFlowState]);
+    mintRows.push(["mint ui", mintFlowUiMode]);
+    if (mintFlowState === "text_taken") {
+      appendConsoleRow(mintRows, "existing THOUGHT", mintFlowData.existingTokenId === null ? "" : `#${mintFlowData.existingTokenId}`);
+      mintRows.push(["PATH permission", "not requested; exact work already exists"]);
+    }
+    mintRows.push(["wallet detected", walletState.detected ? "yes" : "no"]);
+    appendConsoleRow(mintRows, "wallet", walletState.address);
+    appendConsoleRow(mintRows, "chain id", walletState.chainId);
+    mintRows.push(["tx state", walletState.txState]);
+    appendConsoleRow(mintRows, "wallet tx", walletState.txHash);
+    appendConsoleRow(mintRows, "wallet error", walletState.txError);
+    appendConsoleRow(mintRows, "path input", mintFlowData.pathIdInput);
+    appendConsoleRow(mintRows, "path id", mintFlowData.pathId);
+    appendConsoleRow(mintRows, "text hash", mintFlowData.textHash);
+    appendConsoleRow(mintRows, "prompt hash", mintFlowData.promptHash);
+    appendConsoleRow(mintRows, "spec id", mintFlowData.thoughtSpecId);
+    appendConsoleRow(mintRows, "spec hash", mintFlowData.thoughtSpecHash);
+    appendConsoleRow(mintRows, "provenance bytes", mintFlowData.provenanceJson ? byteLength(mintFlowData.provenanceJson) : "");
+    appendConsoleRow(mintRows, "mint tx", mintFlowData.txHash);
+    appendConsoleRow(mintRows, "mint error", mintFlowData.error);
+  }
+
+  const lines: HTMLElement[] = [
+    statusScreenLine(`[${eventTime}] ${state.kind} ${rail.tone}`, {
+      heading: true,
+      tone: rail.tone,
+    }),
+  ];
+
+  lines.push(
+    ...statusScreenRows("event", eventRows.filter(([key]) => key !== "time" && key !== "state" && key !== "tone")),
+  );
+  if (detailRows.length > 0) {
+    lines.push(...statusScreenRows(
+      rail.detail.kind === "error" ? "error" : rail.detail.kind === "debug" ? "debug" : "note",
+      detailRows,
+    ));
+  }
+  if (runRows.length > 0) {
+    lines.push(...statusScreenRows("run", runRows));
+  }
+  if (candidateRows.length > 0) {
+    lines.push(...statusScreenRows("candidate", candidateRows));
+  }
+  if (workRows.length > 0) {
+    lines.push(...statusScreenRows("work", workRows));
+  }
+  if (walletRows.length > 0) {
+    lines.push(...statusScreenRows("wallet", walletRows));
+  }
+  if (mintRows.length > 0) {
+    lines.push(...statusScreenRows("mint", mintRows));
+  }
+
+  const signature = JSON.stringify({
+    candidateRows,
+    detailRows,
+    eventRows: eventRows.filter(([key]) => key !== "time"),
+    mintRows,
+    runRows,
+    walletRows,
+    workRows,
+  });
+  if (signature === thoughtDockConsoleSignature) {
+    thoughtDockDetails.hidden = false;
+    return;
+  }
+  thoughtDockConsoleSignature = signature;
 
   thoughtDockDetails.hidden = false;
-  thoughtDockDetailsBody.replaceChildren(...children);
+  thoughtDockDetailsBody.prepend(statusScreenEntry(lines));
+  requestAnimationFrame(() => {
+    thoughtDockDetails.scrollTop = 0;
+  });
 };
 
 const getResolvedThoughtDockState = (): ThoughtDockState => {
@@ -2867,7 +3231,7 @@ const getResolvedThoughtDockState = (): ThoughtDockState => {
 
 const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
   const resetAction = (run?: AgentDemoRun | null) =>
-    dockRailAction("reset", "Reset", "Reset THOUGHT Dock and clear input", "secondary", () => {
+    dockRailAction("reset", "reset", "reset THOUGHT Dock and clear input", "secondary", () => {
       if (run) {
         void cancelThoughtDockRun(run, { clearPrompt: true, focusPrompt: true });
         return;
@@ -2875,58 +3239,46 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
       resetThoughtDock({ clearPrompt: true, focusPrompt: true });
     });
   const cancelAgentSelectAction = (prompt: string) =>
-    dockRailAction("cancel", "Cancel", "Cancel Agent selection", "secondary", () => {
+    dockRailAction("cancel", "cancel", "cancel Agent selection", "secondary", () => {
       setThoughtDockState({ kind: "ready", prompt });
       focusThoughtDockPrompt({ preventScroll: true });
     });
   const newThoughtAction = () =>
-    dockRailAction("new-thought", "New THOUGHT", "Start a new THOUGHT", "primary", () => {
+    dockRailAction("new-thought", "new thought", "start a new THOUGHT", "primary", () => {
       window.location.href = "/";
     });
   const mintResetAction = () =>
-    dockRailAction("reset", "Reset", "Reset THOUGHT Dock and clear input", "secondary", () => {
+    dockRailAction("reset", "reset", "reset THOUGHT Dock and clear input", "secondary", () => {
       resetThoughtDock({ clearPrompt: true, focusPrompt: true });
     });
-  const showMintSheetAction = (label = "Select $PATH") =>
+  const showMintSheetAction = (label = "select path") =>
     dockRailAction("select-path", label, "Select PATH for this THOUGHT mint", "primary", () => {
       mintFlowUiMode = "sheet";
       syncInterface();
-      requestAnimationFrame(() => {
-        if (!mintSheetPathBox.disabled) {
-          mintSheetPathBox.focus();
-        }
-      });
-    });
-  const connectWalletAction = () =>
-    dockRailAction("connect-wallet", "Connect wallet", "Connect wallet for THOUGHT mint", "primary", () => {
-      void connectThoughtDockWallet();
-    }, { disabled: walletConnectInFlight });
-  const switchNetworkAction = () =>
-    dockRailAction("switch-network", "Switch network", "Switch wallet to the THOUGHT network", "primary", () => {
-      void switchThoughtDockWalletNetwork();
+      focusMintPathInput();
     });
   const mintPathAction = () =>
-    dockRailAction("mint-path", "Mint $PATH", "Open PATH mint page", "secondary", () => {
+    dockRailAction("mint-path", "mint path", "open PATH mint page", "secondary", () => {
       handleMintPath();
     });
   const authorizeAction = () =>
-    dockRailAction("authorize", "Authorize", "Authorize PATH for this THOUGHT", "primary", () => {
+    dockRailAction("authorize", "authorize", "authorize PATH for this THOUGHT", "primary", () => {
       void authorizeMint();
     });
   const confirmMintAction = () =>
-    dockRailAction("confirm-mint", "Confirm mint", "Confirm THOUGHT mint in wallet", "primary", () => {
+    dockRailAction("confirm-mint", "confirm mint", "confirm THOUGHT mint in wallet", "primary", () => {
       void confirmMint();
     });
   const retryMintAction = () =>
-    dockRailAction("retry-mint", "Retry", "Retry mint preparation", "primary", () => {
+    dockRailAction("retry-mint", "retry", "retry mint preparation", "primary", () => {
       void refreshMintSheetPath();
     });
   const viewThoughtAction = () =>
-    dockRailAction("view", "View", "View THOUGHT", "primary", () => {
+    dockRailAction("view", "view", "view THOUGHT", "primary", () => {
       void handleViewThought(walletState.mintedTokenId ?? mintFlowData.existingTokenId);
     });
   const viewTxAction = () =>
-    dockRailAction("view-tx", "View tx", "View THOUGHT mint transaction", "primary", () => {
+    dockRailAction("view-tx", "view tx", "view THOUGHT mint transaction", "primary", () => {
       void handleViewTx();
     });
   const mintFlowStatus = () => {
@@ -2940,25 +3292,28 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
       return "Already minted";
     }
     if (mintFlowState === "wallet_required") {
-      return walletConnectInFlight ? "Confirm wallet..." : "Wallet required";
+      if (isInjectedWalletMissing()) {
+        return "no wallet";
+      }
+      return walletConnectInFlight ? "connect wallet" : "wallet needed";
     }
     if (mintFlowState === "path_required") {
-      return "Select $PATH";
+      return "select PATH";
     }
     if (mintFlowState === "path_checking") {
-      return "Checking $PATH...";
+      return "checking PATH";
     }
     if (mintFlowState === "path_ready") {
-      return "PATH ready";
+      return "authorize PATH";
     }
     if (mintFlowState === "authorizing") {
-      return "Confirm authorization...";
+      return "authorize PATH";
     }
     if (mintFlowState === "authorized") {
-      return "Ready to mint";
+      return "ready to mint";
     }
     if (mintFlowState === "minting") {
-      return walletState.txState === "submitted" ? "Minting..." : "Confirm wallet...";
+      return walletState.txState === "submitted" ? "minting" : "confirm mint";
     }
     if (mintFlowState === "minted") {
       return "Minted";
@@ -2969,8 +3324,11 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
     return "Minting...";
   };
   const mintFlowTone = (): DockRailTone => {
-    if (mintFlowState === "text_taken" || mintFlowState === "minted" || mintFlowState === "authorized") {
+    if (mintFlowState === "minted" || mintFlowState === "authorized") {
       return "success";
+    }
+    if (mintFlowState === "text_taken") {
+      return "warning";
     }
     if (mintFlowState === "wallet_required" || mintFlowState === "path_required" || mintFlowState === "path_ready") {
       return "idle";
@@ -2981,8 +3339,17 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
     return "running";
   };
   const mintFlowDetail = (): DockDetailView => {
+    if (mintFlowState === "text_taken") {
+      return {
+        kind: "error",
+        title: "Already minted",
+        body: "PATH permission is only requested for a new THOUGHT. This exact work already exists on-chain.",
+      };
+    }
     if (mintFlowState === "wallet_required") {
-      return { kind: "wallet", message: "Connect wallet reads address only. No signature, transaction, or approval." };
+      return isInjectedWalletMissing()
+        ? { kind: "wallet", message: "install or enable an injected wallet, then refresh." }
+        : { kind: "wallet", message: "reads address only. no signature. no tx." };
     }
     if (mintFlowState === "path_required") {
       return { kind: "path", message: "Choose the $PATH that will authorize this THOUGHT mint." };
@@ -3006,21 +3373,27 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
       return { actions: [viewThoughtAction(), mintResetAction()] };
     }
     if (mintFlowState === "wallet_required") {
-      if (walletConnectInFlight) {
-        return { actions: [mintResetAction()] };
-      }
-      return { actions: [connectWalletAction(), mintResetAction()] };
+      return { actions: [mintResetAction()] };
     }
     if (mintFlowState === "path_required") {
+      if (mintFlowUiMode === "dock") {
+        return { actions: [mintResetAction()] };
+      }
       return { actions: [showMintSheetAction(), mintResetAction()] };
     }
     if (mintFlowState === "path_checking" || mintFlowState === "authorizing") {
       return { actions: [mintResetAction()] };
     }
     if (mintFlowState === "path_ready") {
+      if (mintFlowUiMode === "dock") {
+        return { actions: [mintResetAction()] };
+      }
       return { actions: [authorizeAction(), mintResetAction()] };
     }
     if (mintFlowState === "authorized") {
+      if (mintFlowUiMode === "dock") {
+        return { actions: [mintResetAction()] };
+      }
       return { actions: [confirmMintAction(), mintResetAction()] };
     }
     if (mintFlowState === "minting") {
@@ -3033,11 +3406,14 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
     }
     if (mintFlowState === "error") {
       if (mintFlowData.errorKind === "wrong_network") {
-        return { actions: [switchNetworkAction(), mintResetAction()] };
+        return { actions: [mintResetAction()] };
       }
       if (isPathRecoveryError()) {
+        if (mintFlowUiMode === "dock") {
+          return { actions: [mintResetAction()] };
+        }
         return {
-          actions: [showMintSheetAction("Choose PATH"), mintPathAction(), mintResetAction()],
+          actions: [showMintSheetAction("choose path"), mintPathAction(), mintResetAction()],
           maxActions: 3,
         };
       }
@@ -3064,7 +3440,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         actions: [
           dockRailAction(
             "send-agent",
-            "Run with my Agent",
+            "send to your agent",
             "Enter a THOUGHT before running with your Agent",
             "primary",
             () => {},
@@ -3078,7 +3454,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         status: "",
         tone: "idle",
         actions: [
-          dockRailAction("send-agent", "Run with my Agent", "Run this THOUGHT with your Agent", "primary", () => {
+          dockRailAction("send-agent", "send to your agent", "run this THOUGHT with your Agent", "primary", () => {
             openThoughtDockAgentSelect();
           }),
         ],
@@ -3089,10 +3465,10 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         status: "",
         tone: "idle",
         actions: [
-          dockRailAction("codex", "Codex", "Run this THOUGHT with Codex", "primary", () => {
+          dockRailAction("codex", "codex", "run this THOUGHT with Codex", "primary", () => {
             void runThoughtDockAdapter("codex");
           }),
-          dockRailAction("claude", "Claude", "Open this THOUGHT in Claude Code", "secondary", () => {
+          dockRailAction("claude", "claude", "open this THOUGHT in Claude Code", "secondary", () => {
             void runThoughtDockAdapter("claude");
           }),
           cancelAgentSelectAction(state.prompt),
@@ -3137,7 +3513,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         status: "Preview unavailable",
         tone: "warning",
         actions: [
-          dockRailAction("retry", "Retry", "Retry preview", "primary", () => {
+          dockRailAction("retry", "retry", "retry preview", "primary", () => {
             void retryThoughtDockPreview();
           }),
           resetAction(),
@@ -3156,7 +3532,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         status: "Work ready",
         tone: "success",
         actions: [
-          dockRailAction("mint", "Mint", "Mint this accepted THOUGHT work", "primary", () => {
+          dockRailAction("mint", "mint", "mint this accepted THOUGHT work", "primary", () => {
             void mintThoughtDockWork();
           }),
           resetAction(),
@@ -3170,7 +3546,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         status: "Minted",
         tone: "success",
         actions: [
-          dockRailAction("view", "View", "View minted THOUGHT", "primary", () => {
+          dockRailAction("view", "view", "view minted THOUGHT", "primary", () => {
             void handleViewThought(walletState.mintedTokenId);
           }),
           resetAction(),
@@ -3224,20 +3600,109 @@ type ThoughtPanelStatusView = {
 const shortRunId = (runId: string) =>
   runId.length > 14 ? `${runId.slice(0, 8)}...${runId.slice(-4)}` : runId;
 
-const thoughtPanelStatusForMintFlow = (): ThoughtPanelStatusView => {
-  if (mintFlowState === "wallet_required") {
-    return { mode: "wallet_needed", title: "Wallet needed", detail: "Connect to mint" };
+const isInjectedWalletMissing = () => !walletState.detected && !getEthereumProvider();
+
+const visibleMintErrorCopy = () => {
+  if (mintFlowData.errorKind === "wrong_network") {
+    return "wrong network.";
   }
-  if (mintFlowState === "path_required" || mintFlowState === "path_checking" || mintFlowState === "path_ready") {
-    return { mode: "path_needed", title: "PATH needed", detail: "Select one usable PATH" };
+  if (mintFlowData.errorKind === "path_not_found") {
+    return "wallet does not hold this PATH.";
+  }
+  if (mintFlowData.errorKind === "path_consumed" || mintFlowData.errorKind === "path_not_ready") {
+    return "PATH has no THOUGHT unit available.";
+  }
+  if (mintFlowData.errorKind === "signature") {
+    return /expired/i.test(mintFlowData.error) ? "authorization expired." : "transaction rejected.";
+  }
+  if (mintFlowData.errorKind === "thought") {
+    return "this exact work is already minted.";
+  }
+  if (mintFlowData.errorKind === "path_invalid" || mintFlowData.errorKind === "path_unknown") {
+    return "enter a valid PATH.";
+  }
+  if (/not submitted/i.test(mintFlowData.error)) {
+    return "wallet transaction not submitted.";
+  }
+  if (/reject|denied|cancel/i.test(mintFlowData.error)) {
+    return "transaction rejected.";
+  }
+  return "mint failed.";
+};
+
+const thoughtPanelStatusForMintFlow = (): ThoughtPanelStatusView => {
+  const selectedPathId = mintFlowData.pathId?.toString() ?? mintFlowData.pathIdInput.trim();
+
+  if (mintFlowState === "closed") {
+    return { mode: "ready_to_mint", title: "work ready", detail: "connect wallet to mint" };
+  }
+  if (mintFlowState === "thought_checking") {
+    return { mode: "minting", title: "checking THOUGHT", detail: "checking uniqueness and mint state" };
+  }
+  if (mintFlowState === "text_taken") {
+    return {
+      mode: "failed",
+      title: "already minted",
+      detail: "PATH permission is for new THOUGHTs only",
+    };
+  }
+  if (mintFlowState === "wallet_required") {
+    if (isInjectedWalletMissing()) {
+      return { mode: "wallet_needed", title: "no wallet", detail: "install or enable wallet" };
+    }
+    return { mode: "wallet_needed", title: "wallet needed", detail: "connect reads address only" };
+  }
+  if (mintFlowState === "path_required") {
+    if (isPathInventoryReadPending()) {
+      return { mode: "path_needed", title: "checking PATH", detail: "reading wallet PATHs" };
+    }
+    if (pathInventoryMatchesCurrentWallet()) {
+      if (pathInventoryState.status === "unavailable" || pathInventoryState.status === "error") {
+        return { mode: "path_needed", title: "PATH list unavailable", detail: "refresh or enter PATH manually" };
+      }
+      if (pathInventoryState.status === "loaded") {
+        return availablePathInventoryItems().length > 0
+          ? { mode: "path_needed", title: "select PATH", detail: "choose one available PATH" }
+          : { mode: "path_needed", title: "PATH needed", detail: "mint a PATH, then return here" };
+      }
+    }
+    return { mode: "path_needed", title: "checking PATH", detail: "reading wallet PATHs" };
+  }
+  if (mintFlowState === "path_checking") {
+    return {
+      mode: "path_needed",
+      title: "checking PATH",
+      detail: selectedPathId ? `checking PATH #${selectedPathId}` : "checking PATH",
+    };
+  }
+  if (mintFlowState === "path_ready") {
+    return { mode: "path_needed", title: "authorize PATH", detail: "signature only. does not mint" };
+  }
+  if (mintFlowState === "authorizing") {
+    return { mode: "path_needed", title: "authorize PATH", detail: "confirm signature in wallet" };
+  }
+  if (mintFlowState === "authorized") {
+    return {
+      mode: "minting",
+      title: "ready to mint",
+      detail: selectedPathId ? `transaction will consume PATH #${selectedPathId}` : "transaction will consume PATH",
+    };
+  }
+  if (mintFlowState === "minting") {
+    return walletState.txHash || mintFlowData.txHash
+      ? { mode: "minting", title: "minting", detail: "waiting for chain confirmation" }
+      : { mode: "minting", title: "confirm mint", detail: "confirm transaction in wallet" };
   }
   if (mintFlowState === "minted") {
-    return { mode: "minted", title: "Minted", detail: "Official SVG loaded" };
+    return { mode: "minted", title: "minted", detail: "official token created" };
   }
   if (mintFlowState === "error") {
-    return { mode: "failed", title: "Something failed", detail: "See details" };
+    if (mintFlowData.errorKind === "wrong_network") {
+      return { mode: "failed", title: "wrong network", detail: "switch network to continue" };
+    }
+    return { mode: "failed", title: "mint error", detail: visibleMintErrorCopy() };
   }
-  return { mode: "minting", title: "Confirm in wallet", detail: "Transaction pending" };
+  return { mode: "minting", title: "minting", detail: "waiting for wallet" };
 };
 
 const getThoughtPanelStatusView = (state: ThoughtDockState): ThoughtPanelStatusView => {
@@ -3259,7 +3724,7 @@ const getThoughtPanelStatusView = (state: ThoughtDockState): ThoughtPanelStatusV
     case "waiting_for_agent":
       return {
         mode: "waiting_for_agent",
-        title: "Waiting for Agent",
+        title: thoughtDockAgentLifecycleTitle(state.adapterId, state.run.remoteState),
         detail: state.run?.runId ? `Run ${shortRunId(state.run.runId)} sealed` : "Return will appear here automatically",
       };
     case "agent_returned":
@@ -3269,17 +3734,17 @@ const getThoughtPanelStatusView = (state: ThoughtDockState): ThoughtPanelStatusV
     case "preview_rejected":
       return { mode: "integrity_failed", title: "Run cannot mint", detail: "See details" };
     case "work_ready":
-      return { mode: "ready_to_mint", title: "Ready to mint", detail: "Work hash ready · PATH required" };
+      return { mode: "ready_to_mint", title: "work ready", detail: "connect wallet to mint" };
     case "minting":
       return thoughtPanelStatusForMintFlow();
     case "minted":
-      return { mode: "minted", title: "Minted", detail: "Official SVG loaded" };
+      return { mode: "minted", title: "minted", detail: "official token created" };
     case "expired":
       return { mode: "failed", title: "Run expired", detail: "Open a fresh run link" };
     case "run_access_needed":
       return { mode: "failed", title: "Run access needed", detail: "This link is missing its view token" };
     case "failed":
-      return { mode: "failed", title: "Something failed", detail: "See details" };
+      return { mode: "failed", title: "mint error", detail: "see details" };
   }
 };
 
@@ -3315,6 +3780,148 @@ const renderThoughtDockDetailTray = (detail: DockDetailView) => {
   thoughtDockExpanded.replaceChildren(...children);
 };
 
+const walletStripShouldBeVisible = (state: ThoughtDockState) =>
+  mintFlowState !== "text_taken" &&
+  (
+    state.kind === "work_ready" ||
+    state.kind === "minting" ||
+    walletState.address.length > 0 ||
+    (mintFlowState !== "closed" && mintFlowState !== "minted")
+  );
+
+const pathInventorySummary = () => {
+  if (!walletState.address || walletState.chainId !== THOUGHT_CHAIN_ID) {
+    return "";
+  }
+
+  if (!pathInventoryMatchesCurrentWallet()) {
+    return "PATH: not checked";
+  }
+
+  if (pathInventoryState.status === "loading" || pathInventoryState.status === "idle") {
+    return "PATH: reading";
+  }
+
+  if (pathInventoryState.status === "unavailable" || pathInventoryState.status === "error") {
+    return "PATH: unavailable";
+  }
+
+  const held = pathInventoryState.items.length;
+  const available = availablePathInventoryItems().length;
+  return `PATH: ${available} available / ${held} held`;
+};
+
+const getWalletStageView = (state: ThoughtDockState): WalletStripView => {
+  if (!walletStripShouldBeVisible(state)) {
+    return {
+      visible: false,
+      title: "wallet",
+      detail: "",
+      tone: "idle",
+      actions: [],
+    };
+  }
+
+  if (isInjectedWalletMissing()) {
+    return {
+      visible: true,
+      title: "wallet",
+      detail: "no supported wallet found",
+      meta: "install or enable an injected wallet, then refresh.",
+      tone: "warning",
+      actions: ["refresh"],
+    };
+  }
+
+  if (!walletState.address) {
+    return {
+      visible: true,
+      title: "wallet",
+      detail: "not connected",
+      meta: walletDisconnectedByUser
+        ? "disconnected in THOUGHT. to fully remove site access, disconnect this site in your wallet."
+        : "read only. no signature. no tx.",
+      tone: walletConnectInFlight ? "running" : "idle",
+      actions: walletConnectInFlight ? ["refresh"] : ["connect"],
+    };
+  }
+
+  if (walletState.chainId !== THOUGHT_CHAIN_ID) {
+    return {
+      visible: true,
+      title: "wallet",
+      detail: "wrong network",
+      address: walletState.address,
+      chainLabel: getWalletNetworkLabel(),
+      meta: `${shortHex(walletState.address)} · ${getWalletNetworkLabel().toLowerCase()}`,
+      tone: "warning",
+      actions: ["switch_network", "disconnect"],
+    };
+  }
+
+  return {
+    visible: true,
+    title: "wallet",
+    detail: `${shortHex(walletState.address)} · ${getWalletNetworkLabel().toLowerCase()}`,
+    address: walletState.address,
+    chainLabel: getWalletNetworkLabel(),
+    meta: pathInventorySummary() || "PATH: not checked",
+    tone: walletState.preflightLoading ? "running" : "ready",
+    actions: ["disconnect", "refresh"],
+  };
+};
+
+const handleWalletStripAction = (action: WalletAction) => {
+  if (action === "connect" || action === "refresh" || action === "switch_network") {
+    void runThoughtDockWalletCommand();
+    return;
+  }
+
+  if (action === "disconnect") {
+    thoughtDockWalletConsoleNonce += 1;
+    disconnectThoughtDockWallet();
+    return;
+  }
+
+  if (action === "copy_address" && walletState.address) {
+    void copyToClipboard(walletState.address).then((copied) => {
+      if (copied) {
+        setStatus("address copied.", { flashMs: NOTICE_FLASH_MS });
+      }
+    });
+  }
+};
+
+const walletStripActionLabel = (action: WalletAction) => {
+  if (action === "connect") {
+    return "connect wallet";
+  }
+  if (action === "switch_network") {
+    return "switch network";
+  }
+  if (action === "copy_address") {
+    return "copy address";
+  }
+  return action;
+};
+
+const renderWalletStripAction = (action: WalletAction) => {
+  const button = document.createElement("button");
+  button.className = "thought-dock-button thought-wallet-strip__button";
+  button.type = "button";
+  button.textContent = walletStripActionLabel(action);
+  button.addEventListener("click", () => {
+    handleWalletStripAction(action);
+  });
+  return button;
+};
+
+const renderWalletStrip = (state: ThoughtDockState) => {
+  void state;
+  thoughtWalletStrip.classList.add("is-hidden");
+  thoughtWalletStripActions.replaceChildren();
+};
+
 const renderThoughtDock = () => {
   const state = getResolvedThoughtDockState();
   const locked = isThoughtDockInputLockedState(state);
@@ -3341,11 +3948,15 @@ const renderThoughtDock = () => {
     assertDockRailView(rail);
   }
 
-  const railHidden = rail.actions.length === 0;
+  const railHidden = rail.actions.length === 0 && !rail.status;
   thoughtDock.dataset.rail = railHidden ? "hidden" : "visible";
   thoughtDockActionArea.hidden = railHidden;
   thoughtDockActionArea.dataset.tone = rail.tone;
-  const railContent = "actions";
+  const railContent = rail.status && rail.actions.length > 0
+    ? "mixed"
+    : rail.status
+      ? "status"
+      : "actions";
   const nextRailSignature = railHidden ? "hidden" : thoughtDockRailAnimationSignature(railContent, rail);
   const shouldAnimateRail = nextRailSignature !== thoughtDockRailSignature;
   thoughtDockRailSignature = nextRailSignature;
@@ -3353,13 +3964,22 @@ const renderThoughtDock = () => {
   if (railHidden) {
     thoughtDockActionArea.replaceChildren();
   } else if (shouldAnimateRail || thoughtDockActionArea.childElementCount === 0) {
-    thoughtDockActionArea.replaceChildren(thoughtDockActions(...rail.actions.map(renderDockRailAction)));
-    if (shouldAnimateRail) {
+    const children: HTMLElement[] = [];
+    if (rail.status) {
+      children.push(thoughtDockStatusChip(rail.status, rail.tone));
+    }
+    if (rail.actions.length > 0) {
+      children.push(thoughtDockActions(...rail.actions.map(renderDockRailAction)));
+    }
+    thoughtDockActionArea.replaceChildren(...children);
+  if (shouldAnimateRail) {
       animateThoughtDockRailEntry();
     }
   }
+  renderWalletStrip(state);
+  syncMintDockPathPanel();
   renderThoughtDockDetailTray({ kind: "none" });
-  renderThoughtDockDetails(state, rail);
+  renderThoughtDockDetails(state, rail, panelStatus);
   syncThoughtDockRailInset();
 };
 
@@ -3374,7 +3994,7 @@ const buildThoughtDockRunPayload = async (prompt: string) => {
   sessionState.prompt = prompt;
   promptBox.value = prompt;
   writeSessionState();
-  await ensureActiveThoughtSpec({ force: true });
+  await ensureThoughtDockActiveSpec();
   syncThoughtInstructionsControls();
   return buildCurrentThoughtRunPayload(prompt, CODEX_MODEL);
 };
@@ -3504,7 +4124,6 @@ const runThoughtDockAdapter = async (adapterId: ThoughtDockAgentAdapterId) => {
       return;
     }
     thoughtDockRun = run;
-    thoughtDockPayload = payload;
     storeThoughtDockRun(run, adapterId);
     startThoughtDockPolling(run, payload, adapterId, runSessionId);
 
@@ -3520,7 +4139,10 @@ const runThoughtDockAdapter = async (adapterId: ThoughtDockAgentAdapterId) => {
     if (!isCurrentRunSession(runSessionId)) {
       return;
     }
-    const message = error instanceof Error ? error.message.replace(/\bTHOUGHT Bridge\b/g, "Agent link") : "Could not create Agent run.";
+    const rawMessage = error instanceof Error ? error.message : "";
+    const message = rawMessage.includes("spec") || /failed to fetch|network|connection refused|could not connect|econnrefused/i.test(rawMessage)
+      ? formatThoughtSpecError(error)
+      : rawMessage.replace(/\bTHOUGHT Bridge\b/g, "Agent link") || "Could not create Agent run.";
     runState = "run_failed";
     runInFlight = false;
     setThoughtDockState({ kind: "failed", message, details: "Try again." });
@@ -3582,7 +4204,10 @@ const startThoughtDockPolling = (
               ? { kind: "expired", run: { ...run, remoteState } }
               : {
                   kind: "failed",
-                  message: response.error?.message || `Agent run ${remoteState}.`,
+                  message: normalizeThoughtAgentProtocolError(
+                    response.error?.message || `Agent run ${remoteState}.`,
+                    adapterId,
+                  ),
                 },
           );
           syncInterface();
@@ -3790,6 +4415,61 @@ const connectThoughtDockWallet = async () => {
   syncInterface();
 };
 
+const syncMintFlowAfterWalletCommand = () => {
+  if (mintFlowState === "closed" || mintFlowState === "minted") {
+    return;
+  }
+
+  if (!walletState.address) {
+    mintFlowState = "wallet_required";
+    mintFlowData.error = "";
+    mintFlowData.errorKind = "none";
+    return;
+  }
+
+  if (walletState.chainId !== THOUGHT_CHAIN_ID) {
+    mintFlowState = "error";
+    mintFlowData.error = "wrong network.";
+    mintFlowData.errorKind = "wrong_network";
+    return;
+  }
+
+  if (mintFlowState === "wallet_required" || mintFlowData.errorKind === "wrong_network") {
+    mintFlowState = "path_required";
+    mintFlowData.error = "";
+    mintFlowData.errorKind = "none";
+  }
+};
+
+const runThoughtDockWalletCommand = async () => {
+  thoughtDockWalletConsoleNonce += 1;
+
+  if (isInjectedWalletMissing()) {
+    renderThoughtDock();
+    return;
+  }
+
+  if (!walletState.address) {
+    await requestWalletConnect();
+    syncMintFlowAfterWalletCommand();
+    syncInterface();
+    return;
+  }
+
+  if (walletState.chainId !== THOUGHT_CHAIN_ID) {
+    await switchWalletChain();
+    syncMintFlowAfterWalletCommand();
+    syncInterface();
+    return;
+  }
+
+  await refreshWalletState();
+  if (walletState.address && walletState.chainId === THOUGHT_CHAIN_ID) {
+    await refreshPathInventoryForCurrentWallet({ force: true });
+  }
+  syncInterface();
+};
+
 const switchThoughtDockWalletNetwork = async () => {
   const work = getThoughtDockWorkView();
   if (!work) {
@@ -3837,9 +4517,7 @@ const resetThoughtDock = (options?: { clearPrompt?: boolean; focusPrompt?: boole
   thoughtDockPollGeneration += 1;
   clearStoredThoughtDockRun();
   thoughtDockRun = null;
-  thoughtDockPayload = null;
   thoughtDockAdapterId = "codex";
-  thoughtDockLastDetail = "";
   runInFlight = false;
   resetThought();
   if (options?.clearPrompt) {
@@ -3878,7 +4556,6 @@ const resumeThoughtDockPendingRun = () => {
   });
   void buildThoughtDockRunPayload(stored.prompt)
     .then((payload) => {
-      thoughtDockPayload = payload;
       startThoughtDockPolling(run, payload, stored.adapterId, runSessionId);
     })
     .catch((error) => {
@@ -3998,7 +4675,6 @@ const hydrateThoughtRunLink = async () => {
         return true;
       }
       const payload = await buildThoughtDockRunPayload(prompt);
-      thoughtDockPayload = payload;
       await handleThoughtDockReturnedWork({ ...run, remoteState: "returned" }, candidate, payload, runSessionId);
       return true;
     }
@@ -4010,7 +4686,10 @@ const hydrateThoughtRunLink = async () => {
           ? { kind: "expired", run }
           : {
               kind: "failed",
-              message: status.error?.message || `Agent run ${status.state}.`,
+              message: normalizeThoughtAgentProtocolError(
+                status.error?.message || `Agent run ${status.state}.`,
+                adapterId,
+              ),
             },
       );
       return true;
@@ -4024,7 +4703,6 @@ const hydrateThoughtRunLink = async () => {
     });
     if (prompt) {
       const payload = await buildThoughtDockRunPayload(prompt);
-      thoughtDockPayload = payload;
       startThoughtDockPolling(run, payload, adapterId, runSessionId);
     }
     return true;
@@ -4052,8 +4730,6 @@ let pageUnloading = false;
 let suppressBridgeLaunchUnloadUntil = 0;
 let walletConnectInFlight = false;
 let walletDisconnectedByUser = false;
-let activeWalletProvider: EthereumProvider | null = null;
-let walletConnectProvider: WalletConnectEthereumProvider | null = null;
 let primaryActionState: PrimaryActionState = "run";
 let secondaryActionState: SecondaryActionState = "none";
 let thoughtInstructionsObjectUrl: string | null = null;
@@ -4237,6 +4913,14 @@ const mintFlowData: MintFlowData = {
   error: "",
   errorKind: "none",
 };
+let pathInventoryRequestId = 0;
+let pathInventoryState: PathInventoryState = {
+  status: "idle",
+  wallet: "",
+  chainId: null,
+  items: [],
+  error: "",
+};
 let currentRunContext: ThoughtRunContext | null = null;
 let currentCandidate: ThoughtCandidate | null = null;
 let activeThoughtSpec: ActiveThoughtSpec | null = null;
@@ -4251,7 +4935,7 @@ let readThoughtNFT: Contract | null = null;
 let readColorFontV1: Contract | null = null;
 let readThoughtSpecRegistry: Contract | null = null;
 let readPathNft: Contract | null = null;
-const walletListenersBound = new WeakSet<EthereumProvider>();
+let walletListenersBound = false;
 let mintSheetPrimaryAction: MintSheetAction = "none";
 let mintSheetSecondaryAction: MintSheetAction = "none";
 let mintSheetTertiaryAction: MintSheetAction = "none";
@@ -4750,105 +5434,23 @@ const syncThoughtInstructionsLink = () => {
   thoughtInstructionsLink.title = "Open bundled THOUGHT.md";
 };
 
-type ThoughtWalletConnector = {
-  id: string;
-  name: string;
-  kind: WalletConnectorKind;
-  detail?: Eip6963ProviderDetail;
-};
+const getInjectedProviders = () => {
+  const injected = (window as Window & { ethereum?: EthereumProvider }).ethereum;
 
-let discoveredThoughtProviders = fallbackWindowEthereumProviders();
-
-const readThoughtWalletEnv = (name: string) =>
-  (import.meta.env as Record<string, string | undefined>)[name];
-
-const isWalletConnectConfigured = () =>
-  readWalletConnectProjectId(readThoughtWalletEnv).length > 0;
-
-let thoughtWalletConnectConfigWarningShown = false;
-
-const warnMissingThoughtWalletConnectProjectId = () => {
-  if (
-    !import.meta.env.PROD ||
-    isWalletConnectConfigured() ||
-    thoughtWalletConnectConfigWarningShown
-  ) {
-    return;
+  if (!injected) {
+    return [];
   }
-  thoughtWalletConnectConfigWarningShown = true;
-  console.warn("WalletConnect disabled: missing VITE_WALLETCONNECT_PROJECT_ID.");
-};
 
-const refreshThoughtWalletProviders = async () => {
-  discoveredThoughtProviders = mergeProviderDetails(
-    discoveredThoughtProviders,
-    fallbackWindowEthereumProviders(),
-  );
-  const discovered = await discoverEip6963Providers();
-  discoveredThoughtProviders = mergeProviderDetails(discoveredThoughtProviders, discovered);
-  return discoveredThoughtProviders;
-};
-
-const getInjectedProviderDetails = () => {
-  discoveredThoughtProviders = mergeProviderDetails(
-    discoveredThoughtProviders,
-    fallbackWindowEthereumProviders(),
-  );
-  return discoveredThoughtProviders;
-};
-
-const getInjectedProviders = () =>
-  getInjectedProviderDetails().map((detail) => detail.provider);
-
-const getEthereumProvider = () =>
-  activeWalletProvider ?? getInjectedProviderDetails()[0]?.provider ?? null;
-
-const getThoughtWalletConnectors = async () => {
-  const providers = await refreshThoughtWalletProviders();
-  const connectors: ThoughtWalletConnector[] = providers.map((detail) => ({
-    id: detail.info.rdns || detail.info.uuid,
-    name: detail.info.name || "Browser wallet",
-    kind: "injected",
-    detail,
-  }));
-  if (isWalletConnectConfigured()) {
-    connectors.push({
-      id: "walletconnect",
-      name: "WalletConnect",
-      kind: "walletconnect",
-    });
+  if (Array.isArray(injected.providers) && injected.providers.length > 0) {
+    return injected.providers.filter(Boolean);
   }
-  return connectors;
+
+  return [injected];
 };
 
-const normalizeConnectorQuery = (value: string) =>
-  value.trim().toLowerCase().replace(/\s+/g, "-");
-
-const chooseThoughtWalletConnector = (
-  connectors: ThoughtWalletConnector[],
-  preferred = "",
-) => {
-  const query = normalizeConnectorQuery(preferred);
-  if (query) {
-    const explicit = connectors.find((connector) => {
-      const id = normalizeConnectorQuery(connector.id);
-      const name = normalizeConnectorQuery(connector.name);
-      const kind = normalizeConnectorQuery(connector.kind);
-      return id === query || name === query || kind === query || name.includes(query);
-    });
-    if (explicit) return explicit;
-    return null;
-  }
-  return (
-    connectors.find((connector) => connector.kind === "injected") ??
-    connectors.find((connector) => connector.kind === "walletconnect") ??
-    null
-  );
-};
-
-const setActiveWalletProvider = (provider: EthereumProvider) => {
-  activeWalletProvider = provider;
-  bindWalletProviderEvents();
+const getEthereumProvider = () => {
+  const providers = getInjectedProviders();
+  return providers.find((provider) => provider.isMetaMask) ?? providers[0] ?? null;
 };
 
 const extractPrimaryAccount = (accounts: unknown) =>
@@ -5298,59 +5900,6 @@ const createWalletPreviewProvider = (): ThoughtPreviewProvider | null => {
   return createThoughtPreviewProvider("wallet", new BrowserProvider(ethereum), THOUGHT_CHAIN_ID);
 };
 
-const createThoughtPreviewEndpointProvider = (): ThoughtPreviewProvider | null => {
-  if (!THOUGHT_PREVIEW_ENDPOINT_ENABLED || !THOUGHT_PREVIEW_ENDPOINT_URL || !THOUGHT_NFT_ADDRESS) {
-    return null;
-  }
-
-  return {
-    kind: "preview-endpoint",
-    chainId: THOUGHT_CHAIN_ID,
-    endpointLabel: THOUGHT_PREVIEW_ENDPOINT_URL,
-    preview: async (rawReturn: string) => {
-      const response = await withTimeout(
-        fetch(THOUGHT_PREVIEW_ENDPOINT_URL, {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-          },
-          body: JSON.stringify({ rawReturn }),
-        }),
-        THOUGHT_PREVIEW_TIMEOUT_MS,
-        "THOUGHT preview endpoint timed out.",
-      );
-      const payload = await response.json().catch(() => null) as Partial<ContractWorkPreview> & {
-        error?: unknown;
-      } | null;
-      if (!response.ok || !payload) {
-        throw new Error(readErrorMessage(payload, "THOUGHT preview endpoint unavailable."));
-      }
-      if (
-        typeof payload.ok !== "boolean" ||
-        typeof payload.text !== "string" ||
-        typeof payload.svg !== "string" ||
-        typeof payload.reasonCode !== "number"
-      ) {
-        throw new Error("THOUGHT preview endpoint returned an invalid response.");
-      }
-      return {
-        ok: payload.ok,
-        text: payload.text,
-        svg: payload.svg,
-        reasonCode: payload.reasonCode,
-      };
-    },
-    trace: () => ({
-      kind: "preview-endpoint",
-      chainId: THOUGHT_CHAIN_ID,
-      endpointLabel: THOUGHT_PREVIEW_ENDPOINT_URL,
-      contractAddress: THOUGHT_NFT_ADDRESS,
-      method: "previewWork",
-      fetchedAt: new Date().toISOString(),
-    }),
-  };
-};
-
 const walletPreviewUnavailableReason = () => {
   if (!walletState.address) {
     return "wallet not connected.";
@@ -5365,19 +5914,6 @@ const walletPreviewUnavailableReason = () => {
     return "ThoughtNFT address unavailable.";
   }
   return "wallet preview unavailable.";
-};
-
-const previewEndpointUnavailableReason = () => {
-  if (!THOUGHT_PREVIEW_ENDPOINT_ENABLED) {
-    return "preview endpoint disabled.";
-  }
-  if (!THOUGHT_PREVIEW_ENDPOINT_URL) {
-    return "preview endpoint URL unavailable.";
-  }
-  if (!THOUGHT_NFT_ADDRESS) {
-    return "ThoughtNFT address unavailable.";
-  }
-  return "preview endpoint unavailable.";
 };
 
 const selectThoughtPreviewProvider = async () => {
@@ -5733,10 +6269,14 @@ const attemptContractPreviewForCandidate = async (
 const textHashFromContract = async (canonicalText: string) => {
   const token = getReadThoughtNFT();
   if (!token) {
-    throw new Error("text hash unavailable.");
+    return hashText(canonicalText);
   }
 
-  return String(await token.textHashOf(canonicalText));
+  try {
+    return String(await token.textHashOf(canonicalText));
+  } catch {
+    return hashText(canonicalText);
+  }
 };
 
 const getThoughtSpecCacheKey = (specId: string, specHash: string) =>
@@ -6045,10 +6585,10 @@ const renderVerifyPage = () => {
 
   setVerifyText(verifyPathRole, contractStatusValue("deployment", "path-role"));
   setVerifyText(verifyThoughtRole, contractStatusValue("deployment", "thought-role"));
-  setVerifyText(verifyNetwork, PUBLIC_NETWORK_CONFIG.environmentLabel);
-  setVerifyText(verifyChain, contractStatusValue("deployment", "network"));
-  setVerifyText(verifyChainId, contractStatusValue("deployment", "chain-id"));
-  setVerifyText(verifyCurrency, PUBLIC_NETWORK_CONFIG.currencyLabel);
+  setVerifyText(verifyNetwork, THOUGHT_ENVIRONMENT_LABEL);
+  setVerifyText(verifyChain, THOUGHT_CHAIN_NAME);
+  setVerifyText(verifyChainId, String(THOUGHT_CHAIN_ID));
+  setVerifyText(verifyCurrency, THOUGHT_CURRENCY_LABEL);
   setVerifyText(verifyPathNft, contractStatusValue("contracts", "path-nft"));
   setVerifyText(verifyThoughtNft, contractStatusValue("contracts", "thought-nft"));
   setVerifyText(verifyPulseAuction, contractStatusValue("contracts", "pulse-auction"));
@@ -6372,6 +6912,50 @@ const ensureActiveThoughtSpec = async (options: { force?: boolean } = {}) => {
   return activeThoughtSpecPromise;
 };
 
+const bundledThoughtSpecHash = () =>
+  EVM_ADDRESSES.recommendedThoughtSpecHash?.trim() ||
+  EVM_ADDRESSES.thoughtSpec?.hash?.trim() ||
+  EVM_ADDRESSES.thoughtSpecs?.[0]?.specHash?.trim() ||
+  hashText(thoughtInstructions);
+
+const bundledThoughtSpecRef = () =>
+  EVM_ADDRESSES.thoughtSpec?.ref?.trim() ||
+  EVM_ADDRESSES.thoughtSpecs?.[0]?.ref?.trim() ||
+  EVM_ADDRESSES.recommendedThoughtSpecName?.trim() ||
+  "THOUGHT.md";
+
+const bundledThoughtSpecId = () =>
+  RECOMMENDED_THOUGHT_SPEC_ID && RECOMMENDED_THOUGHT_SPEC_ID !== ZERO_BYTES32
+    ? RECOMMENDED_THOUGHT_SPEC_ID
+    : id("THOUGHT_V1");
+
+const buildBundledActiveThoughtSpec = (): ActiveThoughtSpec => ({
+  specId: bundledThoughtSpecId(),
+  specHash: bundledThoughtSpecHash(),
+  ref: bundledThoughtSpecRef(),
+  pointer: "bundled THOUGHT.md",
+  byteLength: byteLength(thoughtInstructions),
+  text: thoughtInstructions,
+  fetchedAt: new Date().toISOString(),
+});
+
+const shouldUseBundledThoughtSpecFallback = () =>
+  IS_DEV_MODE && LOCAL_BROWSER_HOSTS.has(window.location.hostname);
+
+const ensureThoughtDockActiveSpec = async () => {
+  try {
+    return await ensureActiveThoughtSpec({ force: true });
+  } catch (error) {
+    if (!shouldUseBundledThoughtSpecFallback()) {
+      throw error;
+    }
+
+    activeThoughtSpec = buildBundledActiveThoughtSpec();
+    activeThoughtSpecPromise = null;
+    return activeThoughtSpec;
+  }
+};
+
 const formatThoughtSpecError = (error: unknown) => {
   const message = error instanceof Error ? error.message : "";
   if (/failed to fetch|network|connection refused|could not connect|econnrefused/i.test(message)) {
@@ -6631,6 +7215,27 @@ const clearMintAuthorization = () => {
   mintFlowData.signature = "";
 };
 
+const clearMintPathSelection = () => {
+  mintFlowData.pathIdInput = "";
+  mintFlowData.pathId = null;
+  mintFlowData.error = "";
+  mintFlowData.errorKind = "none";
+  walletState.txState = "idle";
+  walletState.txError = "";
+  clearMintAuthorization();
+};
+
+function resetPathInventoryState() {
+  pathInventoryRequestId += 1;
+  pathInventoryState = {
+    status: "idle",
+    wallet: "",
+    chainId: null,
+    items: [],
+    error: "",
+  };
+}
+
 const resetMintFlow = () => {
   mintFlowState = "closed";
   mintFlowUiMode = "sheet";
@@ -6647,6 +7252,7 @@ const resetMintFlow = () => {
   mintFlowData.error = "";
   mintFlowData.errorKind = "none";
   clearMintAuthorization();
+  resetPathInventoryState();
 };
 
 const resetMintRuntimeState = () => {
@@ -7106,6 +7712,208 @@ const isThoughtLevelMintError = () =>
 
 const canContinueWithPathInput = () => parsePathTokenId(mintFlowData.pathIdInput) !== null;
 
+const applyMintPathInputValue = (value: string) => {
+  const trimmed = value.trim();
+  mintFlowData.pathIdInput = trimmed;
+  mintFlowData.pathId = parsePathTokenId(trimmed);
+  mintFlowData.error = "";
+  mintFlowData.errorKind = "none";
+  clearMintAuthorization();
+  if (mintFlowState !== "closed") {
+    mintFlowState = "path_required";
+  }
+};
+
+const pathInventoryMatchesCurrentWallet = () =>
+  !!walletState.address &&
+  pathInventoryState.wallet === walletState.address.toLowerCase() &&
+  pathInventoryState.chainId === walletState.chainId;
+
+const availablePathInventoryItems = () =>
+  pathInventoryMatchesCurrentWallet() && pathInventoryState.status === "loaded"
+    ? pathInventoryState.items.filter((item) => item.status === "available")
+    : [];
+
+const hasAvailablePathInventory = () => availablePathInventoryItems().length > 0;
+
+const hasLoadedPathInventoryWithoutAvailable = () =>
+  pathInventoryMatchesCurrentWallet() &&
+  pathInventoryState.status === "loaded" &&
+  availablePathInventoryItems().length === 0;
+
+const displayPathInventoryStatus = (status: string) => (status === "unknown" ? "unverified" : status);
+
+const shouldAutoLoadPathInventory = () =>
+  mintFlowState === "path_required" &&
+  !!walletState.address &&
+  walletState.chainId === THOUGHT_CHAIN_ID;
+
+const isPathInventoryReadPending = () =>
+  shouldAutoLoadPathInventory() &&
+  (!pathInventoryMatchesCurrentWallet() || pathInventoryState.status === "idle" || pathInventoryState.status === "loading");
+
+const isPathInventoryManualFallbackState = () =>
+  pathInventoryMatchesCurrentWallet() &&
+  (pathInventoryState.status === "unavailable" || pathInventoryState.status === "error");
+
+const shouldRevealManualPathInput = () =>
+  isMintPathFieldVisible() &&
+  isPathInventoryManualFallbackState() &&
+  !shouldUsePathInventorySelect();
+
+const refreshPathInventoryForCurrentWallet = async (options?: { force?: boolean }) => {
+  if (!walletState.address || walletState.chainId !== THOUGHT_CHAIN_ID) {
+    resetPathInventoryState();
+    syncInterface();
+    return;
+  }
+
+  if (
+    !options?.force &&
+    pathInventoryMatchesCurrentWallet() &&
+    pathInventoryState.status !== "idle"
+  ) {
+    return;
+  }
+
+  const wallet = walletState.address;
+  const chainId = walletState.chainId;
+  const requestId = pathInventoryRequestId + 1;
+  pathInventoryRequestId = requestId;
+  pathInventoryState = {
+    status: "loading",
+    wallet: wallet.toLowerCase(),
+    chainId,
+    items: [],
+    error: "",
+  };
+  syncInterface();
+
+  try {
+    const inventory = await readWalletPathInventory(wallet);
+    if (requestId !== pathInventoryRequestId) {
+      return;
+    }
+
+    if (inventory.kind === "unavailable") {
+      pathInventoryState = {
+        status: "unavailable",
+        wallet: wallet.toLowerCase(),
+        chainId,
+        items: [],
+        error: inventory.message,
+      };
+    } else {
+      pathInventoryState = {
+        status: "loaded",
+        wallet: wallet.toLowerCase(),
+        chainId,
+        items: inventory.items,
+        error: "",
+      };
+      if (inventory.items.every((item) => item.status !== "available")) {
+        clearMintPathSelection();
+        if (mintFlowState === "error" && isPathRecoveryError()) {
+          mintFlowState = "path_required";
+        }
+      }
+    }
+  } catch (error) {
+    if (requestId !== pathInventoryRequestId) {
+      return;
+    }
+    pathInventoryState = {
+      status: "error",
+      wallet: wallet.toLowerCase(),
+      chainId,
+      items: [],
+      error: error instanceof Error ? error.message : "path list unavailable.",
+    };
+  }
+
+  syncInterface();
+};
+
+const moveMintFlowToWalletOrPathSelection = () => {
+  if (!walletState.address) {
+    mintFlowState = "wallet_required";
+    mintFlowData.error = "";
+    mintFlowData.errorKind = "none";
+    return false;
+  }
+
+  if (walletState.chainId !== THOUGHT_CHAIN_ID) {
+    setMintFlowError("wrong network.", "wrong_network");
+    return false;
+  }
+
+  mintFlowState = "path_required";
+  mintFlowData.error = "";
+  mintFlowData.errorKind = "none";
+  return true;
+};
+
+const maybeLoadPathInventory = () => {
+  if (
+    shouldAutoLoadPathInventory() &&
+    (!pathInventoryMatchesCurrentWallet() || pathInventoryState.status === "idle")
+  ) {
+    void refreshPathInventoryForCurrentWallet();
+  }
+};
+
+const selectPathInventoryItem = (pathId: bigint) => {
+  applyMintPathInputValue(pathId.toString());
+  syncInterface();
+  void checkPathEligibility();
+};
+
+const isMintPathFieldVisible = () => {
+  const thoughtLevelMintError = isThoughtLevelMintError();
+  return (
+    mintFlowState === "path_required" ||
+    mintFlowState === "path_checking" ||
+    mintFlowState === "path_ready" ||
+    mintFlowState === "authorizing" ||
+    mintFlowState === "authorized" ||
+    (mintFlowState === "error" && !thoughtLevelMintError)
+  );
+};
+
+const isMintPathInputDisabled = () =>
+  mintFlowState === "path_checking" ||
+  mintFlowState === "path_ready" ||
+  mintFlowState === "authorizing" ||
+  mintFlowState === "authorized" ||
+  mintFlowState === "minting" ||
+  mintFlowState === "minted";
+
+const shouldUsePathInventorySelect = () =>
+  hasAvailablePathInventory() &&
+  (
+    mintFlowState === "path_required" ||
+    mintFlowState === "path_checking" ||
+    mintFlowState === "path_ready" ||
+    mintFlowState === "authorizing" ||
+    mintFlowState === "authorized" ||
+    (mintFlowState === "error" && isPathRecoveryError())
+  );
+
+const focusMintPathInput = () => {
+  const input = shouldUsePathInventorySelect()
+    ? mintFlowUiMode === "dock"
+      ? thoughtDockPathSelect
+      : mintSheetPathSelect
+    : mintFlowUiMode === "dock"
+      ? thoughtDockPathBox
+      : mintSheetPathBox;
+  requestAnimationFrame(() => {
+    if (!input.disabled) {
+      input.focus();
+    }
+  });
+};
+
 const getMintSheetActionConfigs = (): [
   MintSheetActionConfig,
   MintSheetActionConfig,
@@ -7113,7 +7921,7 @@ const getMintSheetActionConfigs = (): [
 ] => {
   if (mintFlowState === "thought_checking") {
     return [
-      mintSheetAction("none", "[ checking ]", true),
+      mintSheetAction("none", "checking", true),
       hiddenMintSheetAction(),
       hiddenMintSheetAction(),
     ];
@@ -7121,23 +7929,77 @@ const getMintSheetActionConfigs = (): [
 
   if (mintFlowState === "text_taken") {
     return [
-      mintSheetAction("view_thought", "[ view THOUGHT ]"),
-      mintSheetAction("reset", "[ reset ]"),
+      mintSheetAction("view_thought", "view thought"),
+      mintSheetAction("reset", "reset"),
       hiddenMintSheetAction(),
     ];
   }
 
   if (mintFlowState === "wallet_required") {
+    if (isInjectedWalletMissing()) {
+      return [
+        mintSheetAction("reset", "reset"),
+        hiddenMintSheetAction(),
+        hiddenMintSheetAction(),
+      ];
+    }
     return [
-      mintSheetAction("connect_wallet", "[ connect wallet ]", walletConnectInFlight),
-      mintSheetAction("mint_path", "[ mint a $PATH ]"),
+      mintSheetAction("connect_wallet", "connect wallet", walletConnectInFlight),
+      hiddenMintSheetAction(),
       hiddenMintSheetAction(),
     ];
   }
 
   if (mintFlowState === "path_required") {
+    if (walletState.address && walletState.chainId !== THOUGHT_CHAIN_ID) {
+      return [
+        mintSheetAction("switch_network", "switch network"),
+        mintSheetAction("disconnect_wallet", "disconnect"),
+        hiddenMintSheetAction(),
+      ];
+    }
+
+    if (isPathInventoryReadPending()) {
+      return [
+        mintSheetAction("none", "checking", true),
+        mintSheetAction("disconnect_wallet", "disconnect"),
+        hiddenMintSheetAction(),
+      ];
+    }
+
+    if (hasLoadedPathInventoryWithoutAvailable()) {
+      return [
+        mintSheetAction("mint_path", "mint path"),
+        mintSheetAction("refresh", "refresh"),
+        hiddenMintSheetAction(),
+      ];
+    }
+
+    if (isPathInventoryManualFallbackState()) {
+      if (canContinueWithPathInput()) {
+        return [
+          mintSheetAction("continue", "continue"),
+          mintSheetAction("refresh", "refresh"),
+          mintSheetAction("mint_path", "mint path"),
+        ];
+      }
+      return [
+        mintSheetAction("refresh", "refresh"),
+        mintSheetAction("enter_path_manually", "enter path manually"),
+        mintSheetAction("mint_path", "mint path"),
+      ];
+    }
+
+    if (hasAvailablePathInventory()) {
+      return [
+        mintSheetAction("continue", "continue", !canContinueWithPathInput()),
+        mintSheetAction("refresh", "refresh"),
+        hiddenMintSheetAction(),
+      ];
+    }
+
     return [
-      mintSheetAction("continue", "[ continue ]", !canContinueWithPathInput()),
+      mintSheetAction("continue", "continue", !canContinueWithPathInput()),
       hiddenMintSheetAction(),
       hiddenMintSheetAction(),
     ];
@@ -7145,7 +8007,7 @@ const getMintSheetActionConfigs = (): [
 
   if (mintFlowState === "path_checking") {
     return [
-      mintSheetAction("none", "[ checking ]", true),
+      mintSheetAction("none", "checking", true),
       hiddenMintSheetAction(),
       hiddenMintSheetAction(),
     ];
@@ -7153,15 +8015,15 @@ const getMintSheetActionConfigs = (): [
 
   if (mintFlowState === "path_ready") {
     return [
-      mintSheetAction("authorize", "[ authorize ]"),
-      hiddenMintSheetAction(),
+      mintSheetAction("authorize", "authorize"),
+      mintSheetAction("choose_another", "choose another"),
       hiddenMintSheetAction(),
     ];
   }
 
   if (mintFlowState === "authorizing") {
     return [
-      mintSheetAction("none", "[ authorizing ]", true),
+      mintSheetAction("none", "authorizing", true),
       hiddenMintSheetAction(),
       hiddenMintSheetAction(),
     ];
@@ -7169,15 +8031,15 @@ const getMintSheetActionConfigs = (): [
 
   if (mintFlowState === "authorized") {
     return [
-      mintSheetAction("confirm_mint", "[ confirm mint ]"),
-      hiddenMintSheetAction(),
+      mintSheetAction("confirm_mint", "confirm mint"),
+      mintSheetAction("choose_another", "choose another"),
       hiddenMintSheetAction(),
     ];
   }
 
   if (mintFlowState === "minting") {
     return [
-      mintSheetAction("none", "[ minting ]", true),
+      mintSheetAction("none", "minting", true),
       hiddenMintSheetAction(),
       hiddenMintSheetAction(),
     ];
@@ -7185,8 +8047,8 @@ const getMintSheetActionConfigs = (): [
 
   if (mintFlowState === "minted") {
     return [
-      mintSheetAction("view_tx", "[ view tx ]"),
-      mintSheetAction("view_thought", "[ view THOUGHT ]"),
+      mintSheetAction("view_tx", "view tx"),
+      mintSheetAction("view_thought", "view thought"),
       hiddenMintSheetAction(),
     ];
   }
@@ -7194,35 +8056,49 @@ const getMintSheetActionConfigs = (): [
   if (mintFlowState === "error") {
     if (mintFlowData.errorKind === "wrong_network") {
       return [
-        mintSheetAction("switch_network", "[ switch network ]"),
-        mintSheetAction("mint_path", "[ mint a $PATH ]"),
+        mintSheetAction("switch_network", "switch network"),
+        mintSheetAction("disconnect_wallet", "disconnect"),
         hiddenMintSheetAction(),
       ];
     }
 
     if (isPathRecoveryError()) {
+      if (hasLoadedPathInventoryWithoutAvailable()) {
+        return [
+          mintSheetAction("mint_path", "mint path"),
+          mintSheetAction("refresh", "refresh"),
+          hiddenMintSheetAction(),
+        ];
+      }
+      if (isPathInventoryManualFallbackState()) {
+        return [
+          mintSheetAction("refresh", "refresh"),
+          mintSheetAction("enter_path_manually", "enter path manually"),
+          mintSheetAction("mint_path", "mint path"),
+        ];
+      }
       return [
-        mintSheetAction("choose_another", "[ choose another ]"),
-        mintSheetAction("mint_path", "[ mint a $PATH ]"),
-        mintSheetAction("refresh", "[ refresh ]"),
+        mintSheetAction("choose_another", "choose another"),
+        mintSheetAction("refresh", "refresh"),
+        hiddenMintSheetAction(),
       ];
     }
 
     return [
-      mintSheetAction("refresh", "[ refresh ]"),
+      mintSheetAction("refresh", "refresh"),
       hiddenMintSheetAction(),
       hiddenMintSheetAction(),
     ];
   }
 
   return [
-    mintSheetAction("continue", "[ continue ]", true),
+    mintSheetAction("continue", "continue", true),
     hiddenMintSheetAction(),
     hiddenMintSheetAction(),
   ];
 };
 
-const syncMintSheetFlow = () => {
+const syncMintFlowSteps = (container: HTMLElement) => {
   const activeStep =
     mintFlowState === "authorized" || mintFlowState === "minting" || mintFlowState === "minted"
       ? "confirm"
@@ -7236,67 +8112,93 @@ const syncMintSheetFlow = () => {
         ? new Set(["select", "authorize"])
         : new Set<string>();
 
-  mintSheetFlow.querySelectorAll<HTMLElement>("[data-step]").forEach((step) => {
+  container.querySelectorAll<HTMLElement>("[data-step]").forEach((step) => {
     const stepId = step.dataset.step ?? "";
     step.classList.toggle("is-active", stepId === activeStep);
     step.classList.toggle("is-complete", completedSteps.has(stepId) || mintFlowState === "minted");
   });
 };
 
+const syncMintSheetFlow = () => {
+  syncMintFlowSteps(mintSheetFlow);
+};
+
 const getMintSheetStatusCopy = () => {
   const selectedPathId = mintFlowData.pathId?.toString() ?? mintFlowData.pathIdInput.trim();
 
   if (mintFlowState === "thought_checking") {
-    return "checking THOUGHT.";
+    return "checking uniqueness and mint state.";
   }
   if (mintFlowState === "text_taken") {
-    return "already minted.";
+    return "PATH permission is not requested; this exact work already exists.";
   }
   if (mintFlowState === "wallet_required") {
-    return "connect wallet to read $PATH.";
+    if (isInjectedWalletMissing()) {
+      return "install or enable an injected wallet, then refresh.";
+    }
+    return walletConnectInFlight ? "opening wallet." : "connect reads address only.";
   }
   if (mintFlowState === "path_required") {
-    return canContinueWithPathInput() ? "" : "enter a valid $PATH #.";
+    if (walletState.address && walletState.chainId !== THOUGHT_CHAIN_ID) {
+      return PUBLIC_NETWORK_CONFIG.switchNetworkNotice;
+    }
+    if (pathInventoryMatchesCurrentWallet() && pathInventoryState.status === "loading") {
+      return "reading wallet PATHs.";
+    }
+    if (pathInventoryMatchesCurrentWallet() && (pathInventoryState.status === "unavailable" || pathInventoryState.status === "error")) {
+      return "refresh or enter PATH manually.";
+    }
+    if (pathInventoryMatchesCurrentWallet() && pathInventoryState.status === "loaded") {
+      return availablePathInventoryItems().length > 0
+        ? "choose one available PATH."
+        : "mint a PATH, then return here.";
+    }
+    if (shouldAutoLoadPathInventory()) {
+      return "reading wallet PATHs.";
+    }
+    return "checking wallet PATHs.";
   }
   if (mintFlowState === "path_checking") {
-    return `checking $PATH #${selectedPathId}.`;
+    return selectedPathId ? `checking PATH #${selectedPathId}.` : "checking PATH.";
   }
   if (mintFlowState === "path_ready") {
-    return `$PATH #${selectedPathId} selected.`;
+    return "signature only. does not mint.";
   }
   if (mintFlowState === "authorizing") {
-    return "wallet authorization pending.";
+    return "confirm signature in wallet.";
   }
   if (mintFlowState === "authorized") {
-    return selectedPathId ? `$PATH #${selectedPathId} authorized for this THOUGHT.` : "authorized.";
+    return selectedPathId ? `transaction will consume PATH #${selectedPathId}.` : "ready to mint.";
   }
   if (mintFlowState === "minting") {
-    return walletState.txState === "submitted" ? "minting." : "confirm in wallet.";
+    return walletState.txState === "submitted" || walletState.txHash || mintFlowData.txHash
+      ? "waiting for chain confirmation."
+      : "confirm transaction in wallet.";
   }
   if (mintFlowState === "minted") {
-    return "minted.";
+    return "official token created.";
   }
   if (mintFlowState === "error") {
     if (mintFlowData.errorKind === "wrong_network") {
       return PUBLIC_NETWORK_CONFIG.switchNetworkNotice;
     }
-    return mintFlowData.error || "mint failed.";
+    return visibleMintErrorCopy();
   }
   return "";
 };
 
 const mintReviewNetworkRows = () => [
-  { label: "network", value: PUBLIC_NETWORK_CONFIG.environmentLabel },
+  { label: "network", value: THOUGHT_ENVIRONMENT_LABEL },
   { label: "chain", value: THOUGHT_CHAIN_NAME },
   { label: "chain id", value: String(THOUGHT_CHAIN_ID) },
-  { label: "currency", value: PUBLIC_NETWORK_CONFIG.currencyLabel },
+  { label: "currency", value: THOUGHT_CURRENCY_LABEL },
 ];
 
 const cliNetworkReviewRows = () => [
-  cliReviewRow("network", PUBLIC_NETWORK_CONFIG.environmentLabel),
+  cliReviewRow("network", THOUGHT_ENVIRONMENT_LABEL),
   cliReviewRow("chain", THOUGHT_CHAIN_NAME),
   cliReviewRow("chain id", String(THOUGHT_CHAIN_ID)),
-  cliReviewRow("currency", PUBLIC_NETWORK_CONFIG.currencyLabel),
+  cliReviewRow("currency", THOUGHT_CURRENCY_LABEL),
 ];
 
 const mintReviewContractValue = (label: string, address: string) =>
@@ -7304,13 +8206,16 @@ const mintReviewContractValue = (label: string, address: string) =>
 
 const getMintSheetCopy = () => {
   if (mintFlowState === "wallet_required") {
-    return "connect reads address only.\nno signature, tx, or approval.";
+    if (isInjectedWalletMissing()) {
+      return "install or enable an injected wallet.";
+    }
+    return "reads address only. no signature. no tx.";
   }
   if (mintFlowState === "path_ready" || mintFlowState === "authorizing") {
-    return "review PATH authorization before opening your wallet.";
+    return "signature only. does not mint.";
   }
   if (mintFlowState === "authorized" || mintFlowState === "minting") {
-    return "review THOUGHT mint before opening your wallet.";
+    return "mints THOUGHT and consumes PATH.";
   }
   return "one THOUGHT needs one $PATH.";
 };
@@ -7320,7 +8225,9 @@ const getMintSheetReviewConfig = (): MintSheetReviewConfig => {
 
   if (mintFlowState === "wallet_required") {
     return {
-      note: "address read only.\nno signature.\nno tx or approval.",
+      note: isInjectedWalletMissing()
+        ? "no wallet\ninstall or enable an injected wallet, then refresh."
+        : "connect wallet\nreads address only. no signature. no tx.",
       verifyLink: true,
     };
   }
@@ -7348,7 +8255,9 @@ const getMintSheetReviewConfig = (): MintSheetReviewConfig => {
         { label: "network gas", value: "none" },
         { label: "expires", value: `${Math.floor(Number(PATH_CONSUME_AUTH_TTL_SECONDS) / 3600)} hour` },
       ],
-      note: "wallet signs next. does not mint.",
+      note: selectedPathId
+        ? `authorize PATH\nthis signature lets THOUGHT consume $PATH #${selectedPathId}.\nit sends 0 ETH and does not mint yet.`
+        : "authorize PATH\nsignature only. does not mint.",
       verifyLink: true,
     };
   }
@@ -7372,7 +8281,7 @@ const getMintSheetReviewConfig = (): MintSheetReviewConfig => {
         { label: "authorization", value: "PATH signature attached" },
         { label: "network gas", value: "shown in wallet" },
       ],
-      note: "wallet opens next.",
+      note: `confirm mint\nthis transaction mints THOUGHT and consumes $PATH #${selectedPathId}.`,
       verifyLink: true,
     };
   }
@@ -7395,45 +8304,167 @@ const appendMintSheetReviewLink = (
   parent.appendChild(link);
 };
 
-const renderMintSheetContext = () => {
-  const config = getMintSheetReviewConfig();
-  mintSheetContext.replaceChildren();
+type MintReviewRenderClasses = {
+  link?: string;
+  note?: string;
+  review?: string;
+  row?: string;
+};
 
+const renderMintReviewContent = (
+  container: HTMLElement,
+  config: MintSheetReviewConfig,
+  classes: MintReviewRenderClasses = {},
+) => {
   if (config.rows?.length) {
     const review = document.createElement("div");
-    review.className = "mint-sheet-review";
+    review.className = classes.review ?? "mint-sheet-review";
     for (const row of config.rows) {
       const rowElement = document.createElement("div");
-      rowElement.className = "mint-sheet-review-row";
+      rowElement.className = classes.row ?? "mint-sheet-review-row";
       const label = document.createElement("span");
       label.textContent = row.label;
       const value = document.createElement("strong");
       if (row.href) {
-        appendMintSheetReviewLink(value, row.href, `${row.value} ↗`);
+        appendMintSheetReviewLink(value, row.href, `${row.value} ↗`, classes.link ?? "mint-sheet-review-link");
       } else {
         value.textContent = row.value;
       }
       rowElement.append(label, value);
       review.appendChild(rowElement);
     }
-    mintSheetContext.appendChild(review);
+    container.appendChild(review);
   }
 
   if (config.note) {
     const note = document.createElement("div");
-    note.className = "mint-sheet-review-note";
+    note.className = classes.note ?? "mint-sheet-review-note";
     note.textContent = config.note;
-    mintSheetContext.appendChild(note);
+    container.appendChild(note);
   }
 
   if (config.verifyLink) {
     const verify = document.createElement("div");
-    verify.className = "mint-sheet-review-note";
-    appendMintSheetReviewLink(verify, PATH_VERIFY_CONTRACTS_URL, "verify contracts ↗");
-    mintSheetContext.appendChild(verify);
+    verify.className = classes.note ?? "mint-sheet-review-note";
+    appendMintSheetReviewLink(
+      verify,
+      PATH_VERIFY_CONTRACTS_URL,
+      "verify contracts ↗",
+      classes.link ?? "mint-sheet-review-link",
+    );
+    container.appendChild(verify);
+  }
+};
+
+const syncPathInventoryOptions = (datalist: HTMLDataListElement) => {
+  datalist.replaceChildren(
+    ...availablePathInventoryItems().map((item) => {
+      const option = document.createElement("option");
+      option.value = item.pathId.toString();
+      option.label = `$PATH #${item.pathId.toString()} ${displayPathInventoryStatus(item.status)}`;
+      return option;
+    }),
+  );
+};
+
+const syncPathInventorySelect = (select: HTMLSelectElement) => {
+  const available = availablePathInventoryItems();
+  const selectedValue = mintFlowData.pathIdInput.trim();
+  select.replaceChildren();
+
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "choose available $PATH";
+  select.appendChild(placeholder);
+
+  for (const item of available) {
+    const option = document.createElement("option");
+    option.value = item.pathId.toString();
+    option.textContent = `$PATH #${item.pathId.toString()}`;
+    select.appendChild(option);
   }
 
-  mintSheetContext.classList.toggle("is-hidden", mintSheetContext.childNodes.length === 0);
+  select.value = available.some((item) => item.pathId.toString() === selectedValue) ? selectedValue : "";
+  select.disabled = isMintPathInputDisabled();
+};
+
+const handlePathInventorySelectChange = (select: HTMLSelectElement) => {
+  if (!select.value) {
+    applyMintPathInputValue("");
+    syncInterface();
+    return;
+  }
+  selectPathInventoryItem(BigInt(select.value));
+};
+
+const renderPathInventoryContext = () => {
+  if (
+    !walletState.address ||
+    walletState.chainId !== THOUGHT_CHAIN_ID ||
+    (mintFlowState !== "path_required" && !(mintFlowState === "error" && isPathRecoveryError()))
+  ) {
+    return null;
+  }
+
+  const inventory = document.createElement("div");
+  inventory.className = "mint-sheet-path-inventory";
+
+  const title = document.createElement("p");
+  title.className = "mint-sheet-path-inventory-title";
+
+  const detail = document.createElement("p");
+  detail.className = "mint-sheet-path-inventory-detail";
+
+  const inventoryMatchesWallet = pathInventoryMatchesCurrentWallet();
+  if (!inventoryMatchesWallet || pathInventoryState.status === "loading" || pathInventoryState.status === "idle") {
+    title.textContent = "checking PATH";
+    detail.textContent = "reading wallet PATHs.";
+    inventory.append(title, detail);
+    return inventory;
+  }
+
+  if (pathInventoryState.status === "unavailable" || pathInventoryState.status === "error") {
+    title.textContent = "PATH list unavailable";
+    detail.textContent = pathInventoryState.error || "refresh or enter PATH manually.";
+    inventory.append(title, detail);
+    return inventory;
+  }
+
+  if (pathInventoryState.status !== "loaded") {
+    return null;
+  }
+
+  const available = availablePathInventoryItems();
+  if (available.length > 0) {
+    return null;
+  }
+
+  title.textContent = available.length > 0 ? "PATH" : pathInventoryState.items.length ? "no available PATH" : "no PATH found";
+  detail.textContent = pathInventoryState.items.length
+    ? "wallet PATHs found, but none have an available THOUGHT unit. mint a PATH to get one."
+    : "mint a PATH first, then return here.";
+  inventory.append(title, detail);
+  return inventory;
+};
+
+const renderMintContext = (container: HTMLElement, options: { includeWalletReview?: boolean } = {}) => {
+  const config = getMintSheetReviewConfig();
+  container.replaceChildren();
+
+  const inventory = renderPathInventoryContext();
+  if (inventory) {
+    container.appendChild(inventory);
+  }
+
+  if (options.includeWalletReview !== false) {
+    renderMintReviewContent(container, config);
+  }
+
+  container.classList.toggle("is-hidden", container.childNodes.length === 0);
+};
+
+const renderMintSheetContext = () => {
+  renderMintContext(mintSheetContext);
 };
 
 const getMintSheetProvenanceCopy = () => {
@@ -7453,6 +8484,49 @@ const syncMintSheetButton = (
   button.classList.toggle("is-hidden", !!config.hidden);
 };
 
+const isWalletDropdownAction = (action: MintSheetAction) =>
+  action === "connect_wallet" ||
+  action === "disconnect_wallet" ||
+  action === "switch_network" ||
+  action === "authorize" ||
+  action === "confirm_mint" ||
+  action === "view_tx";
+
+const getMintDockPathActionConfigs = (): [
+  MintSheetActionConfig,
+  MintSheetActionConfig,
+  MintSheetActionConfig,
+] => {
+  const visibleActions = getMintSheetActionConfigs().filter(
+    (config) => !config.hidden && config.action !== "none" && !isWalletDropdownAction(config.action),
+  );
+
+  return [
+    visibleActions[0] ?? hiddenMintSheetAction(),
+    visibleActions[1] ?? hiddenMintSheetAction(),
+    visibleActions[2] ?? hiddenMintSheetAction(),
+  ];
+};
+
+const getMintDockPathStatusCopy = () => {
+  const selectedPathId = mintFlowData.pathId?.toString() ?? mintFlowData.pathIdInput.trim();
+
+  if (mintFlowState === "path_ready") {
+    return selectedPathId ? `PATH #${selectedPathId} selected.` : "PATH selected.";
+  }
+  if (mintFlowState === "authorizing") {
+    return "PATH authorization pending.";
+  }
+  if (mintFlowState === "authorized") {
+    return selectedPathId ? `PATH #${selectedPathId} authorized.` : "PATH authorized.";
+  }
+  if (mintFlowState === "minting") {
+    return "THOUGHT mint pending.";
+  }
+
+  return getMintSheetStatusCopy();
+};
+
 const syncMintSheet = () => {
   const isOpen = mintFlowUiMode === "sheet" && mintFlowState !== "closed";
   mintSheetBackdrop.classList.toggle("is-hidden", !isOpen);
@@ -7462,27 +8536,21 @@ const syncMintSheet = () => {
     return;
   }
 
-  const thoughtLevelMintError = isThoughtLevelMintError();
   mintSheetTitle.textContent = "mint THOUGHT";
   mintSheetCopy.textContent = getMintSheetCopy();
   syncMintSheetFlow();
 
-  const pathInputVisible =
-    mintFlowState === "path_required" ||
-    mintFlowState === "path_checking" ||
-    mintFlowState === "path_ready" ||
-    mintFlowState === "authorizing" ||
-    mintFlowState === "authorized" ||
-    (mintFlowState === "error" && !thoughtLevelMintError);
-  mintSheetPathField.classList.toggle("is-hidden", !pathInputVisible);
+  const pathInputVisible = isMintPathFieldVisible();
+  const pathSelectVisible = pathInputVisible && shouldUsePathInventorySelect();
+  const manualPathVisible = pathInputVisible && shouldRevealManualPathInput();
+  const pathFieldVisible = pathSelectVisible || manualPathVisible;
+  mintSheetPathField.classList.toggle("is-hidden", !pathFieldVisible);
+  mintSheetPathBox.classList.toggle("is-hidden", pathSelectVisible);
+  mintSheetPathSelect.classList.toggle("is-hidden", !pathSelectVisible);
   mintSheetPathBox.value = mintFlowData.pathIdInput;
-  mintSheetPathBox.disabled =
-    mintFlowState === "path_checking" ||
-    mintFlowState === "path_ready" ||
-    mintFlowState === "authorizing" ||
-    mintFlowState === "authorized" ||
-    mintFlowState === "minting" ||
-    mintFlowState === "minted";
+  mintSheetPathBox.disabled = isMintPathInputDisabled() || pathSelectVisible;
+  syncPathInventoryOptions(mintSheetPathOptions);
+  syncPathInventorySelect(mintSheetPathSelect);
 
   const provenanceCopy = pathInputVisible ? getMintSheetProvenanceCopy() : "";
   mintSheetProvenance.textContent = provenanceCopy;
@@ -7490,6 +8558,7 @@ const syncMintSheet = () => {
 
   mintSheetStatus.textContent = getMintSheetStatusCopy();
   renderMintSheetContext();
+  maybeLoadPathInventory();
   const [primary, secondary, tertiary] = getMintSheetActionConfigs();
   mintSheetPrimaryAction = primary.action;
   mintSheetSecondaryAction = secondary.action;
@@ -7499,16 +8568,101 @@ const syncMintSheet = () => {
   syncMintSheetButton(mintSheetTertiary, tertiary);
 };
 
+const syncMintDockPathPanel = () => {
+  const pathInputVisible = isMintPathFieldVisible();
+  const isVisible = mintFlowUiMode === "dock" && mintFlowState !== "closed" && pathInputVisible;
+  thoughtDockPath.classList.toggle("is-hidden", !isVisible);
+
+  if (!isVisible) {
+    thoughtDockPathContext.replaceChildren();
+    return;
+  }
+
+  const pathSelectVisible = pathInputVisible && shouldUsePathInventorySelect();
+  const manualPathVisible = pathInputVisible && shouldRevealManualPathInput();
+  const pathFieldVisible = pathSelectVisible || manualPathVisible;
+  thoughtDockPathField.classList.toggle("is-hidden", !pathFieldVisible);
+  thoughtDockPathBox.classList.toggle("is-hidden", pathSelectVisible);
+  thoughtDockPathSelect.classList.toggle("is-hidden", !pathSelectVisible);
+  thoughtDockPathBox.value = mintFlowData.pathIdInput;
+  thoughtDockPathBox.disabled = isMintPathInputDisabled() || pathSelectVisible;
+  syncPathInventoryOptions(thoughtDockPathOptions);
+  syncPathInventorySelect(thoughtDockPathSelect);
+
+  const provenanceCopy = pathInputVisible ? getMintSheetProvenanceCopy() : "";
+  thoughtDockPathProvenance.textContent = provenanceCopy;
+  thoughtDockPathProvenance.classList.toggle("is-hidden", !provenanceCopy);
+
+  thoughtDockPathStatus.textContent = getMintDockPathStatusCopy();
+  renderMintContext(thoughtDockPathContext, { includeWalletReview: false });
+  maybeLoadPathInventory();
+  syncMintFlowSteps(thoughtDockPathFlow);
+
+  const [primary, secondary, tertiary] = getMintDockPathActionConfigs();
+  mintSheetPrimaryAction = primary.action;
+  mintSheetSecondaryAction = secondary.action;
+  mintSheetTertiaryAction = tertiary.action;
+  syncMintSheetButton(thoughtDockPathPrimary, primary);
+  syncMintSheetButton(thoughtDockPathSecondary, secondary);
+  syncMintSheetButton(thoughtDockPathTertiary, tertiary);
+};
+
+const renderWalletMintReview = () => {
+  mintWalletReview.replaceChildren();
+  renderMintReviewContent(mintWalletReview, getMintSheetReviewConfig(), {
+    link: "frontpage-wallet-review-link",
+    note: "frontpage-wallet-review-note",
+    review: "frontpage-wallet-review-list",
+    row: "frontpage-wallet-review-row",
+  });
+  mintWalletReview.classList.toggle("is-hidden", mintWalletReview.childNodes.length === 0);
+};
+
 const syncWalletMenu = () => {
-  mintWalletAddress.textContent = walletState.address || "-";
-  mintWalletNetwork.textContent = getWalletNetworkLabel();
+  const walletMenuAvailable = !frontpageStage.classList.contains("is-hidden");
+  mintWalletToggle.classList.toggle("is-hidden", !walletMenuAvailable);
+  mintWalletLabel.textContent = walletConnectInFlight
+    ? "[ connecting ]"
+    : walletState.address
+      ? "[ wallet ]"
+      : "[ connect ]";
+  mintWalletAddress.textContent = walletState.address ? shortHex(walletState.address) : "-";
+  mintWalletNetwork.textContent = getWalletNetworkLabel().toLowerCase();
   mintWalletToken.textContent =
     walletState.mintedTokenId === null ? "-" : `#${walletState.mintedTokenId}`;
   mintWalletTokenRow.classList.toggle("is-hidden", walletState.mintedTokenId === null);
+  const pathSummary = pathInventorySummary();
+  mintWalletPath.textContent = pathSummary ? pathSummary.replace(/^PATH:\s*/i, "") : "-";
+  mintWalletPathRow.classList.toggle("is-hidden", !walletState.address);
+  renderWalletMintReview();
+  mintWalletAuthorize.textContent = mintFlowState === "authorizing" ? "authorizing PATH" : "authorize PATH";
+  mintWalletAuthorize.disabled = mintFlowState === "authorizing";
+  mintWalletAuthorize.classList.toggle(
+    "is-hidden",
+    mintFlowState !== "path_ready" && mintFlowState !== "authorizing",
+  );
+  mintWalletConfirm.textContent = mintFlowState === "minting" ? "minting" : "confirm mint";
+  mintWalletConfirm.disabled = mintFlowState === "minting";
+  mintWalletConfirm.classList.toggle(
+    "is-hidden",
+    mintFlowState !== "authorized" && mintFlowState !== "minting",
+  );
+  mintWalletViewTx.classList.toggle(
+    "is-hidden",
+    !(walletState.txHash || mintFlowData.txHash || mintFlowState === "minted"),
+  );
+  mintWalletConnect.classList.toggle("is-hidden", !!walletState.address);
+  mintWalletConnect.disabled = walletConnectInFlight;
   mintWalletCopyAddress.disabled = walletState.address.length === 0;
+  mintWalletCopyAddress.classList.toggle("is-hidden", !walletState.address);
   mintWalletCopyTx.classList.toggle("is-hidden", walletState.txHash.length === 0);
+  mintWalletSwitchNetwork.classList.toggle(
+    "is-hidden",
+    !walletState.address || walletState.chainId === THOUGHT_CHAIN_ID,
+  );
+  mintWalletDisconnect.classList.toggle("is-hidden", !walletState.address);
   mintWalletToggle.setAttribute("aria-expanded", walletState.menuOpen ? "true" : "false");
-  mintWalletMenu.classList.toggle("is-hidden", !walletState.menuOpen);
+  mintWalletMenu.classList.toggle("is-hidden", !walletState.menuOpen || !walletMenuAvailable);
 
   mintWalletDot.classList.remove("is-on", "is-pending", "is-warn", "is-error", "is-off");
   mintWalletDot.classList.add(`is-${getWalletDotState()}`);
@@ -7565,11 +8719,12 @@ const refreshWalletState = async () => {
   const ethereum = getEthereumProvider();
   const previousAddress = walletState.address;
   const previousChainId = walletState.chainId;
-  walletState.detected = ethereum !== null || isWalletConnectConfigured();
+  walletState.detected = ethereum !== null;
 
   if (walletDisconnectedByUser) {
     walletState.address = "";
     walletState.chainId = null;
+    resetPathInventoryState();
     await refreshMintPreflight();
     return;
   }
@@ -7577,6 +8732,7 @@ const refreshWalletState = async () => {
   if (!ethereum) {
     walletState.address = "";
     walletState.chainId = null;
+    resetPathInventoryState();
     await refreshMintPreflight();
     return;
   }
@@ -7589,18 +8745,30 @@ const refreshWalletState = async () => {
 
     walletState.address =
       Array.isArray(accounts) && typeof accounts[0] === "string" ? accounts[0] : "";
-    walletState.chainId = parseWalletChainId(chainHex);
+    walletState.chainId =
+      typeof chainHex === "string" && chainHex.length > 0 ? Number(BigInt(chainHex)) : null;
   } catch {
     walletState.address = "";
     walletState.chainId = null;
   }
 
   if (walletState.address !== previousAddress || walletState.chainId !== previousChainId) {
-    clearMintAuthorization();
+    resetPathInventoryState();
+    clearMintPathSelection();
     if (mintFlowState !== "closed" && mintFlowState !== "wallet_required") {
-      mintFlowState = walletState.address ? "path_required" : "wallet_required";
-      mintFlowData.error = "";
-      mintFlowData.errorKind = "none";
+      if (!walletState.address) {
+        mintFlowState = "wallet_required";
+        mintFlowData.error = "";
+        mintFlowData.errorKind = "none";
+      } else if (walletState.chainId !== THOUGHT_CHAIN_ID) {
+        mintFlowState = "error";
+        mintFlowData.error = "wrong network.";
+        mintFlowData.errorKind = "wrong_network";
+      } else {
+        mintFlowState = "path_required";
+        mintFlowData.error = "";
+        mintFlowData.errorKind = "none";
+      }
     }
   }
 
@@ -7608,12 +8776,11 @@ const refreshWalletState = async () => {
 };
 
 const bindWalletProviderEvents = () => {
-  const providers = Array.from(
-    new Set([
-      ...getInjectedProviders(),
-      ...(activeWalletProvider ? [activeWalletProvider] : []),
-    ]),
-  ).filter((provider) => typeof provider.on === "function" && !walletListenersBound.has(provider));
+  if (walletListenersBound) {
+    return;
+  }
+
+  const providers = getInjectedProviders().filter((provider) => typeof provider.on === "function");
   if (providers.length === 0) {
     return;
   }
@@ -7627,22 +8794,19 @@ const bindWalletProviderEvents = () => {
   providers.forEach((provider) => {
     provider.on?.("accountsChanged", handleWalletChange);
     provider.on?.("chainChanged", handleWalletChange);
-    provider.on?.("disconnect", handleWalletChange);
-    walletListenersBound.add(provider);
   });
+  walletListenersBound = true;
 };
 
-const requestWalletConnect = async (preferredConnector = "") => {
-  const connectors = await getThoughtWalletConnectors();
-  const connector = chooseThoughtWalletConnector(connectors, preferredConnector);
-  const walletKind = connector?.kind ?? "injected";
+const requestWalletConnect = async () => {
   trackThoughtAnalytics("wallet_connect_started", {
-    walletKind,
+    walletKind: "injected",
     walletStage: "request_accounts",
   });
-  if (!connector) {
+  const ethereum = getEthereumProvider();
+  if (!ethereum) {
     trackThoughtAnalytics("wallet_connect_failed", {
-      walletKind,
+      walletKind: "injected",
       walletStage: "request_accounts",
       errorCategory: "wallet_missing",
     });
@@ -7657,71 +8821,29 @@ const requestWalletConnect = async (preferredConnector = "") => {
   syncInterface();
 
   try {
-    if (connector.kind === "walletconnect") {
-      const projectId = readWalletConnectProjectId(readThoughtWalletEnv);
-      if (!projectId) {
-        throw new Error("Missing VITE_WALLETCONNECT_PROJECT_ID.");
-      }
-      if (walletConnectProvider) {
-        if (walletConnectProvider.disconnect) {
-          await walletConnectProvider.disconnect().catch(() => undefined);
+    const existingAccount = extractPrimaryAccount(await ethereum.request({ method: "eth_accounts" }));
+
+    if (!existingAccount) {
+      let requestError: unknown = null;
+      const requestAccounts = ethereum
+        .request({ method: "eth_requestAccounts" })
+        .then((accounts) => extractPrimaryAccount(accounts))
+        .catch((error) => {
+          requestError = error;
+          return "";
+        });
+
+      const detectedAccount = await Promise.race([
+        requestAccounts,
+        waitForWalletAddress(ethereum),
+      ]);
+
+      if (!detectedAccount) {
+        const requestedAccount = await requestAccounts;
+        if (!requestedAccount && requestError) {
+          throw requestError;
         }
       }
-      const wcProvider = await createWalletConnectEthereumProvider({
-        projectId,
-        chains: [THOUGHT_CHAIN_ID],
-        rpcMap: walletConnectRpcMap([THOUGHT_CHAIN_ID], readThoughtWalletEnv),
-        relayUrl: readWalletConnectRelayUrl(readThoughtWalletEnv),
-        showQrModal: true,
-        metadata: walletConnectMetadata("thought"),
-      });
-      const accounts =
-        typeof wcProvider.enable === "function"
-          ? await wcProvider.enable()
-          : ((await wcProvider.request({
-              method: "eth_requestAccounts",
-            })) as string[]);
-      const connectedAddress = extractPrimaryAccount(accounts);
-      if (!connectedAddress) {
-        throw new Error("wallet did not expose an account.");
-      }
-      walletConnectProvider = wcProvider;
-      setActiveWalletProvider(wcProvider);
-    } else if (connector.detail) {
-      const ethereum = connector.detail.provider;
-      if (walletConnectProvider) {
-        if (walletConnectProvider.disconnect) {
-          await walletConnectProvider.disconnect().catch(() => undefined);
-        }
-        walletConnectProvider = null;
-      }
-      setActiveWalletProvider(ethereum);
-      const existingAccount = extractPrimaryAccount(await ethereum.request({ method: "eth_accounts" }));
-
-      if (!existingAccount) {
-        let requestError: unknown = null;
-        const requestAccounts = ethereum
-          .request({ method: "eth_requestAccounts" })
-          .then((accounts) => extractPrimaryAccount(accounts))
-          .catch((error) => {
-            requestError = error;
-            return "";
-          });
-
-        const detectedAccount = await Promise.race([
-          requestAccounts,
-          waitForWalletAddress(ethereum),
-        ]);
-
-        if (!detectedAccount) {
-          const requestedAccount = await requestAccounts;
-          if (!requestedAccount && requestError) {
-            throw requestError;
-          }
-        }
-      }
-    } else {
-      throw new Error("No EIP-1193 injected wallet found.");
     }
 
     await refreshWalletState();
@@ -7733,12 +8855,12 @@ const requestWalletConnect = async (preferredConnector = "") => {
     syncInterface();
     setStatus("wallet connected.", { flashMs: NOTICE_FLASH_MS });
     trackThoughtAnalytics("wallet_connect_succeeded", {
-      walletKind,
+      walletKind: "injected",
       walletStage: "connected",
     });
   } catch (error) {
     trackThoughtAnalytics("wallet_connect_failed", {
-      walletKind,
+      walletKind: "injected",
       walletStage: "request_accounts",
       errorCategory: thoughtAnalyticsErrorCategory(error),
     });
@@ -7801,6 +8923,36 @@ const switchWalletChain = async () => {
   await refreshWalletState();
   syncInterface();
   setStatus("chain ready.", { flashMs: NOTICE_FLASH_MS });
+};
+
+const disconnectThoughtDockWallet = (options?: { appendCli?: boolean }) => {
+  walletDisconnectedByUser = true;
+  walletState.address = "";
+  walletState.chainId = null;
+  walletState.menuOpen = false;
+  walletState.balance = null;
+  walletState.preflightLoading = false;
+  walletState.preflightError = "";
+  resetPathInventoryState();
+  clearMintPathSelection();
+
+  if (mintFlowState !== "closed" && mintFlowState !== "minted") {
+    mintFlowState = "wallet_required";
+    mintFlowData.error = "";
+    mintFlowData.errorKind = "none";
+  }
+
+  if (options?.appendCli) {
+    appendCliOutput([
+      "wallet disconnected.",
+      "disconnected in THOUGHT. disconnect this site in your wallet to fully revoke access.",
+      "use: wallet connect",
+    ]);
+  } else {
+    setStatus("wallet disconnected.", { flashMs: NOTICE_FLASH_MS });
+  }
+
+  syncInterface();
 };
 
 const refreshWalletChainRpc = async () => {
@@ -7955,8 +9107,11 @@ const openMintSheet = async (uiMode: MintFlowUiMode = "sheet") => {
 
     mintFlowData.pathId = parsePathTokenId(mintFlowData.pathIdInput);
     await refreshWalletState();
-    mintFlowState = walletState.address ? "path_required" : "wallet_required";
+    const pathSelectionReady = moveMintFlowToWalletOrPathSelection();
     syncInterface();
+    if (pathSelectionReady) {
+      focusMintPathInput();
+    }
   } catch {
     setMintFlowError("mint unavailable.", "thought");
     syncInterface();
@@ -8136,7 +9291,7 @@ const mintErrorMessage = (error: unknown) => {
     return "authorization expired.";
   }
   if (/eth_sendRawTransaction|RPC method is not allowed/i.test(message)) {
-    return "wallet RPC is read-only. Update Sepolia RPC in wallet and retry.";
+    return "wallet RPC is read-only. Update the current chain RPC in wallet and retry.";
   }
   if (/rejected|denied|cancel/i.test(message)) {
     return "transaction rejected.";
@@ -8524,6 +9679,11 @@ const pathMintUrl = () => {
     url.searchParams.set("intent", "mint-path");
     url.searchParams.set("from", "thought");
     url.searchParams.set("returnTo", window.location.href);
+    if (walletState.address) {
+      url.searchParams.set("account", walletState.address);
+    }
+    url.searchParams.set("chainId", String(THOUGHT_CHAIN_ID));
+    url.searchParams.set("movement", "THOUGHT");
     return url.toString();
   } catch {
     return PATH_MINT_URL;
@@ -8542,14 +9702,16 @@ const chooseAnotherPath = () => {
   mintFlowData.errorKind = "none";
   mintFlowData.pathIdInput = "";
   mintFlowData.pathId = null;
-  mintFlowState = walletState.address ? "path_required" : "wallet_required";
+  const pathSelectionReady = moveMintFlowToWalletOrPathSelection();
   syncInterface();
-  if (mintFlowState === "path_required") {
-    mintSheetPathBox.focus();
+  if (pathSelectionReady) {
+    focusMintPathInput();
   }
 };
 
 const refreshMintSheetPath = async () => {
+  walletState.txState = "idle";
+  walletState.txError = "";
   await refreshWalletState();
 
   if (!walletState.address) {
@@ -8571,9 +9733,7 @@ const refreshMintSheetPath = async () => {
     return;
   }
 
-  mintFlowState = "path_required";
-  mintFlowData.error = "";
-  mintFlowData.errorKind = "none";
+  moveMintFlowToWalletOrPathSelection();
   syncInterface();
 };
 
@@ -8589,8 +9749,21 @@ const handleMintSheetAction = async (action: MintSheetAction) => {
 
   if (action === "connect_wallet") {
     await requestWalletConnect();
-    mintFlowState = walletState.address ? "path_required" : "wallet_required";
+    if (!walletState.address) {
+      mintFlowState = "wallet_required";
+    } else if (walletState.chainId !== THOUGHT_CHAIN_ID) {
+      setMintFlowError("wrong network.", "wrong_network");
+    } else {
+      mintFlowState = "path_required";
+      mintFlowData.error = "";
+      mintFlowData.errorKind = "none";
+    }
     syncInterface();
+    return;
+  }
+
+  if (action === "disconnect_wallet") {
+    disconnectThoughtDockWallet();
     return;
   }
 
@@ -8619,6 +9792,11 @@ const handleMintSheetAction = async (action: MintSheetAction) => {
     return;
   }
 
+  if (action === "enter_path_manually") {
+    focusMintPathInput();
+    return;
+  }
+
   if (action === "mint_path") {
     handleMintPath();
     return;
@@ -8637,7 +9815,15 @@ const handleMintSheetAction = async (action: MintSheetAction) => {
 
   if (action === "switch_network") {
     await switchWalletChain();
-    mintFlowState = walletState.address ? "path_required" : "wallet_required";
+    if (!walletState.address) {
+      mintFlowState = "wallet_required";
+    } else if (walletState.chainId !== THOUGHT_CHAIN_ID) {
+      setMintFlowError("wrong network.", "wrong_network");
+    } else {
+      mintFlowState = "path_required";
+      mintFlowData.error = "";
+      mintFlowData.errorKind = "none";
+    }
     syncInterface();
   }
 };
@@ -8726,8 +9912,6 @@ const thoughtCreateUrl = () => new URL(THOUGHT_APP_URL, window.location.origin).
 const inshellHomeUrl = () => new URL("/", PATH_MINT_URL).toString();
 
 const configureGalleryLink = () => {
-  thoughtCreateGalleryLink.href = galleryUrl();
-  thoughtCreateHomeLink.href = inshellHomeUrl();
   thoughtGalleryLink.href = galleryUrl();
   thoughtDetailGalleryLink.href = galleryUrl();
   galleryCreateLink.href = thoughtCreateUrl();
@@ -9606,6 +10790,10 @@ const loadThoughtDetail = async () => {
     thoughtDetailPath.title = `Open $PATH #${detail.pathId} detail`;
     thoughtDetailMinter.textContent = shortDetailAddress(detail.minter);
     thoughtDetailMinter.title = detail.minter;
+    thoughtDetailNetwork.textContent = THOUGHT_ENVIRONMENT_LABEL;
+    thoughtDetailChain.textContent = THOUGHT_CHAIN_NAME;
+    thoughtDetailChainId.textContent = String(THOUGHT_CHAIN_ID);
+    thoughtDetailCurrency.textContent = THOUGHT_CURRENCY_LABEL;
     thoughtDetailMinted.textContent = detailTime(detail.mintedAt);
     thoughtDetailSpecRef.textContent = specLinkText(detail.thoughtSpec.ref);
     thoughtDetailColorFont.textContent = "Color Font v1 ↗";
@@ -9958,6 +11146,11 @@ const showContractSvgPreview = (svg: string) => {
 
 const syncCurrentWorkVisual = (options?: { suppressWarning?: boolean }) => {
   if (currentWorkSvg) {
+    const migratedSvg = migrateLegacyThoughtV2Svg(currentOutputText, currentWorkSvg);
+    if (migratedSvg.migrated) {
+      currentWorkSvg = migratedSvg.svg;
+      writeCurrentOutputSession();
+    }
     showContractSvgPreview(currentWorkSvg);
     return;
   }
@@ -10127,9 +11320,11 @@ const isThoughtRunContext = (value: unknown): value is ThoughtRunContext => {
 
 const migrateLegacyThoughtV2Svg = (output: string, svg: string) => {
   if (
+    svg.includes('id="canvas-frame" width="992" height="992" fill="#181818"') &&
+    svg.includes('id="thought-canvas" x="16" y="16" width="960" height="960"') &&
     svg.includes('id="agent-line-bg" x="87" y="378"') &&
-    svg.includes('stroke="#000000" stroke-width="1"') &&
-    svg.includes('id="prompt-line-bg" x="165" y="868"')
+    svg.includes('fill="#000000" stroke="#ffffff" stroke-width="1"') &&
+    svg.includes('id="prompt-line-bg" x="237" y="868" width="486"')
   ) {
     return { svg, migrated: false };
   }
@@ -10590,7 +11785,8 @@ const fetchThoughtAgentJson = async <T>(url: string, init: RequestInit) => {
       headers,
     });
   } catch (error) {
-    if (error instanceof TypeError && /fetch/i.test(error.message)) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (error instanceof TypeError ? /fetch/i.test(message) : /failed to fetch|network|connection refused|could not connect|econnrefused/i.test(message)) {
       throw new Error(THOUGHT_BRIDGE_NOT_CONNECTED_MESSAGE);
     }
     throw error;
@@ -14677,10 +15873,10 @@ const cliVerifyLines = () => [
   `${SURFACE_TERMINOLOGY.thoughtDapp.padEnd(8)}${contractStatusValue("domains", "thought-domain")}`,
   "",
   "deployment manifest:",
-  cliReviewRow("network", PUBLIC_NETWORK_CONFIG.environmentLabel),
-  cliReviewRow("chain", contractStatusValue("deployment", "network")),
-  cliReviewRow("chain id", contractStatusValue("deployment", "chain-id")),
-  cliReviewRow("currency", PUBLIC_NETWORK_CONFIG.currencyLabel),
+  cliReviewRow("network", THOUGHT_ENVIRONMENT_LABEL),
+  cliReviewRow("chain", THOUGHT_CHAIN_NAME),
+  cliReviewRow("chain id", String(THOUGHT_CHAIN_ID)),
+  cliReviewRow("currency", THOUGHT_CURRENCY_LABEL),
   "",
   "contracts:",
   `PathNFT       ${contractStatusValue("contracts", "path-nft")}`,
@@ -14799,6 +15995,7 @@ const buildCliMintStateLines = () => {
       "already minted.",
       token ? `this exact text is already THOUGHT #${token}.` : "this exact text is already a THOUGHT.",
       "same canonical text cannot be minted twice.",
+      "$PATH permission is only requested for a new THOUGHT.",
       "",
       viewThoughtUseLine(token),
       "",
@@ -15025,6 +16222,78 @@ const fetchPathTokenIdsForWalletFromApi = async (walletAddress: string) => {
   return tokenIds;
 };
 
+const sortPathIds = (pathIds: Iterable<bigint>) =>
+  [...pathIds].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+
+const readWalletPathInventory = async (walletAddress: string): Promise<PathInventoryReadResult> => {
+  let candidateIds: Set<bigint> | null = null;
+  if (THOUGHT_CHAIN_ID !== 31337) {
+    try {
+      candidateIds = await fetchPathTokenIdsForWalletFromApi(walletAddress);
+    } catch {
+      // Fall through to direct log reads when the chain-cache API is unavailable.
+    }
+  }
+
+  const provider = getPathReadProvider();
+  const pathNft = getReadPathNft();
+  if ((!provider || !pathNft || !PATH_NFT_ADDRESS || !THOUGHT_NFT_ADDRESS) && candidateIds) {
+    return {
+      kind: "ok",
+      items: sortPathIds(candidateIds).map((pathId) => ({ pathId, status: "unknown" })),
+    };
+  }
+
+  if (!provider || !pathNft || !PATH_NFT_ADDRESS || !THOUGHT_NFT_ADDRESS) {
+    return { kind: "unavailable", message: "path list unavailable." };
+  }
+
+  if (!candidateIds) {
+    const walletTopic = indexedAddressTopic(walletAddress);
+    const transferLogs = await fetchPathTransferLogsForWallet(provider, walletTopic);
+    candidateIds = new Set<bigint>();
+    for (const log of transferLogs) {
+      const tokenId = transferLogTokenId(log.topics);
+      if (tokenId !== null) {
+        candidateIds.add(tokenId);
+      }
+    }
+  }
+
+  let authorizedMinter = "";
+  let movementQuota = 0n;
+  try {
+    [authorizedMinter, movementQuota] = await Promise.all([
+      pathNft.getAuthorizedMinter(PATH_MOVEMENT_THOUGHT) as Promise<string>,
+      pathNft.getMovementQuota(PATH_MOVEMENT_THOUGHT) as Promise<bigint>,
+    ]);
+  } catch {
+    // Keep listing owned IDs even when availability metadata cannot be read.
+  }
+
+  const wallet = walletAddress.toLowerCase();
+  const items = (
+    await Promise.all(
+      sortPathIds(candidateIds).map(async (pathId) => {
+        try {
+          const owner = (await pathNft.ownerOf(pathId)) as string;
+          if (owner.toLowerCase() !== wallet) {
+            return null;
+          }
+          const status = authorizedMinter && movementQuota > 0n
+            ? await cliPathAvailability(pathNft, pathId, authorizedMinter, movementQuota)
+            : "unknown";
+          return { pathId, status };
+        } catch {
+          return { pathId, status: "unknown" };
+        }
+      }),
+    )
+  ).filter((path): path is PathInventoryItem => path !== null);
+
+  return { kind: "ok", items };
+};
+
 const appendCliPathInventory = (ownedPaths: Array<{ pathId: bigint; status: string }>) => {
   appendCliOutput([
     "wallet $PATHs for THOUGHT mint.",
@@ -15059,79 +16328,18 @@ const listCliPaths = async () => {
     }
 
     try {
-      let candidateIds: Set<bigint> | null = null;
-      try {
-        candidateIds = await fetchPathTokenIdsForWalletFromApi(walletState.address);
-      } catch {
-        // Fall through to direct log reads when the chain-cache API is unavailable.
-      }
-
-      const provider = getPathReadProvider();
-      const pathNft = getReadPathNft();
-      if ((!provider || !pathNft || !PATH_NFT_ADDRESS || !THOUGHT_NFT_ADDRESS) && candidateIds) {
-        appendCliPathInventory(
-          [...candidateIds]
-            .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
-            .map((pathId) => ({ pathId, status: "unknown" })),
-        );
-        return;
-      }
-
-      if (!provider || !pathNft || !PATH_NFT_ADDRESS || !THOUGHT_NFT_ADDRESS) {
+      const inventory = await readWalletPathInventory(walletState.address);
+      if (inventory.kind === "unavailable") {
         appendCliOutput([
           "wallet $PATHs for THOUGHT mint.",
           "",
-          "path list unavailable.",
+          inventory.message,
           "need $PATH: mint-path",
         ]);
         return;
       }
 
-      if (!candidateIds) {
-        const walletTopic = indexedAddressTopic(walletState.address);
-        const transferLogs = await fetchPathTransferLogsForWallet(provider, walletTopic);
-        candidateIds = new Set<bigint>();
-        for (const log of transferLogs) {
-          const tokenId = transferLogTokenId(log.topics);
-          if (tokenId !== null) {
-            candidateIds.add(tokenId);
-          }
-        }
-      }
-
-      let authorizedMinter = "";
-      let movementQuota = 0n;
-      try {
-        [authorizedMinter, movementQuota] = await Promise.all([
-          pathNft.getAuthorizedMinter(PATH_MOVEMENT_THOUGHT) as Promise<string>,
-          pathNft.getMovementQuota(PATH_MOVEMENT_THOUGHT) as Promise<bigint>,
-        ]);
-      } catch {
-        // Keep listing owned IDs even when availability metadata cannot be read.
-      }
-      const wallet = walletState.address.toLowerCase();
-      const ownedPaths = (
-        await Promise.all(
-          [...candidateIds]
-            .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
-            .map(async (pathId) => {
-              try {
-                const owner = (await pathNft.ownerOf(pathId)) as string;
-                if (owner.toLowerCase() !== wallet) {
-                  return null;
-                }
-                const status = authorizedMinter && movementQuota > 0n
-                  ? await cliPathAvailability(pathNft, pathId, authorizedMinter, movementQuota)
-                  : "unknown";
-                return { pathId, status };
-              } catch {
-                return { pathId, status: "unknown" };
-              }
-            }),
-        )
-      ).filter((path): path is { pathId: bigint; status: string } => path !== null);
-
-      appendCliPathInventory(ownedPaths);
+      appendCliPathInventory(inventory.items);
     } catch {
       appendCliOutput([
         "wallet $PATHs for THOUGHT mint.",
@@ -15321,7 +16529,7 @@ const outputCliVerify = () => {
   appendCliOutput(cliVerifyLines(), { preserveSpacing: true });
 };
 
-const connectWalletFromCli = async (preferredConnector = "") => {
+const connectWalletFromCli = async () => {
   const mintFlowWasActive = mintFlowState !== "closed";
   if (mintFlowWasActive) {
     switchMintFlowToCli();
@@ -15329,13 +16537,11 @@ const connectWalletFromCli = async (preferredConnector = "") => {
 
   appendCliOutput(cliWalletConnectVerifyLines(), { preserveSpacing: true });
   appendCliOutput("connecting wallet...");
-  await requestWalletConnect(preferredConnector);
+  await requestWalletConnect();
   stopCliProgress();
 
-  if (mintFlowWasActive && walletState.address && mintFlowState === "wallet_required") {
-    mintFlowState = "path_required";
-    mintFlowData.error = "";
-    mintFlowData.errorKind = "none";
+  if (mintFlowWasActive && mintFlowState === "wallet_required") {
+    moveMintFlowToWalletOrPathSelection();
   }
 
   if (mintFlowState !== "closed") {
@@ -15370,23 +16576,8 @@ const outputCliWalletUsage = () => {
   ]);
 };
 
-const disconnectWalletFromCli = async () => {
-  walletDisconnectedByUser = true;
-  if (walletConnectProvider) {
-    if (walletConnectProvider.disconnect) {
-      await walletConnectProvider.disconnect().catch(() => undefined);
-    }
-  }
-  walletConnectProvider = null;
-  activeWalletProvider = null;
-  walletState.address = "";
-  walletState.chainId = null;
-  walletState.menuOpen = false;
-  walletState.preflightLoading = false;
-  walletState.preflightError = "";
-  resetMintRuntimeState();
-  syncInterface();
-  appendCliOutput(["wallet disconnected.", "use: wallet connect"]);
+const disconnectWalletFromCli = () => {
+  disconnectThoughtDockWallet({ appendCli: true });
 };
 
 const cliCommandsHelpLines = () => [
@@ -16061,12 +17252,12 @@ const executeCliCommand = async (rawCommand: string) => {
     } else if (lowerHead === "provenance") {
       await outputCliProvenance(lowerRest === "--json");
     } else if (lowerHead === "wallet") {
-      if (lowerRest === "connect" || lowerRest.startsWith("connect ")) {
-        await connectWalletFromCli(lowerRest.replace(/^connect\s*/, ""));
+      if (lowerRest === "connect") {
+        await connectWalletFromCli();
       } else if (lowerRest === "switch") {
         await switchWalletFromCli();
       } else if (lowerRest === "disconnect") {
-        await disconnectWalletFromCli();
+        disconnectWalletFromCli();
       } else {
         outputCliWalletUsage();
       }
@@ -16303,19 +17494,31 @@ mintSheetBackdrop.addEventListener("click", () => {
 });
 
 mintSheetPathBox.addEventListener("input", () => {
-  const value = mintSheetPathBox.value.trim();
-  mintFlowData.pathIdInput = value;
-  mintFlowData.pathId = parsePathTokenId(value);
-  mintFlowData.error = "";
-  mintFlowData.errorKind = "none";
-  clearMintAuthorization();
-  if (mintFlowState !== "closed") {
-    mintFlowState = "path_required";
-  }
+  applyMintPathInputValue(mintSheetPathBox.value);
   syncInterface();
 });
 
+thoughtDockPathBox.addEventListener("input", () => {
+  applyMintPathInputValue(thoughtDockPathBox.value);
+  syncInterface();
+});
+
+mintSheetPathSelect.addEventListener("change", () => {
+  handlePathInventorySelectChange(mintSheetPathSelect);
+});
+
+thoughtDockPathSelect.addEventListener("change", () => {
+  handlePathInventorySelectChange(thoughtDockPathSelect);
+});
+
 mintSheetPathBox.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !event.isComposing) {
+    event.preventDefault();
+    void handleMintSheetAction(mintSheetPrimaryAction);
+  }
+});
+
+thoughtDockPathBox.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.isComposing) {
     event.preventDefault();
     void handleMintSheetAction(mintSheetPrimaryAction);
@@ -16331,6 +17534,18 @@ mintSheetSecondary.addEventListener("click", () => {
 });
 
 mintSheetTertiary.addEventListener("click", () => {
+  void handleMintSheetAction(mintSheetTertiaryAction);
+});
+
+thoughtDockPathPrimary.addEventListener("click", () => {
+  void handleMintSheetAction(mintSheetPrimaryAction);
+});
+
+thoughtDockPathSecondary.addEventListener("click", () => {
+  void handleMintSheetAction(mintSheetSecondaryAction);
+});
+
+thoughtDockPathTertiary.addEventListener("click", () => {
   void handleMintSheetAction(mintSheetTertiaryAction);
 });
 
@@ -16393,6 +17608,30 @@ mintWalletToggle.addEventListener("click", () => {
   syncWalletMenu();
 });
 
+mintWalletConnect.addEventListener("click", () => {
+  walletState.menuOpen = false;
+  syncWalletMenu();
+  void runThoughtDockWalletCommand();
+});
+
+mintWalletAuthorize.addEventListener("click", () => {
+  walletState.menuOpen = false;
+  syncWalletMenu();
+  void handleMintSheetAction("authorize");
+});
+
+mintWalletConfirm.addEventListener("click", () => {
+  walletState.menuOpen = false;
+  syncWalletMenu();
+  void handleMintSheetAction("confirm_mint");
+});
+
+mintWalletViewTx.addEventListener("click", () => {
+  walletState.menuOpen = false;
+  syncWalletMenu();
+  void handleMintSheetAction("view_tx");
+});
+
 mintWalletCopyAddress.addEventListener("click", () => {
   void copyToClipboard(walletState.address).then((copied) => {
     if (copied) {
@@ -16412,9 +17651,22 @@ mintWalletCopyTx.addEventListener("click", () => {
 
 mintWalletRefresh.addEventListener("click", () => {
   void refreshWalletState().then(() => {
+    if (walletState.address && walletState.chainId === THOUGHT_CHAIN_ID) {
+      void refreshPathInventoryForCurrentWallet({ force: true });
+    }
     syncInterface();
     setStatus("wallet refreshed.", { flashMs: NOTICE_FLASH_MS });
   });
+});
+
+mintWalletSwitchNetwork.addEventListener("click", () => {
+  walletState.menuOpen = false;
+  syncWalletMenu();
+  void switchThoughtDockWalletNetwork();
+});
+
+mintWalletDisconnect.addEventListener("click", () => {
+  disconnectThoughtDockWallet();
 });
 
 runAgentButton.addEventListener("click", () => {
@@ -16684,7 +17936,6 @@ const initFrontpage = async () => {
   }
 
   bindWalletProviderEvents();
-  warnMissingThoughtWalletConnectProjectId();
   await refreshWalletState();
   syncInterface();
 

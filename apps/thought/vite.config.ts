@@ -123,6 +123,14 @@ function protocolError(
   protocolJson(res, status, { error: { code, message } });
 }
 
+function normalizeDevAgentFailureMessage(message: string) {
+  const trimmed = message.trim();
+  if (/failed to fetch|network|connection refused|could not connect|econnrefused/i.test(trimmed)) {
+    return "Codex could not reach the THOUGHT Agent API. Retry the protocol HTTP calls with curl against the local URL.";
+  }
+  return trimmed || "The agent run failed.";
+}
+
 function bearerToken(req: IncomingMessage) {
   const value = String(req.headers.authorization ?? "");
   return /^Bearer\s+(.+)$/i.exec(value.trim())?.[1] ?? null;
@@ -359,7 +367,7 @@ async function runDevCodex(agentInputText: string) {
           return;
         }
         const detail = stderr.trim() || stdout.trim() || `exit ${code}`;
-        reject(new Error(`Codex exec failed: ${detail.slice(0, 800)}`));
+        reject(new Error(normalizeDevAgentFailureMessage(`Codex exec failed: ${detail.slice(0, 800)}`)));
       });
       child.stdin.end(agentInputText);
     });
@@ -441,7 +449,7 @@ async function autoRunDevCodex(run: DevThoughtAgentRun) {
   } catch (error) {
     run.completedAt = new Date().toISOString();
     run.errorCode = "AGENT_START_FAILED";
-    run.errorMessage = error instanceof Error ? error.message : "Codex run failed.";
+    run.errorMessage = normalizeDevAgentFailureMessage(error instanceof Error ? error.message : "Codex run failed.");
     run.state = "failed";
     run.updatedAt = run.completedAt;
   }
@@ -701,7 +709,7 @@ function createThoughtAgentDevApiPlugin(rootDir: string) {
             run.invocationId = run.invocationId ?? String(body.invocationId ?? "");
             run.completedAt = String(body.failedAt ?? new Date().toISOString());
             run.errorCode = String(error?.code ?? "AGENT_START_FAILED");
-            run.errorMessage = String(error?.message ?? "The agent run failed.");
+            run.errorMessage = normalizeDevAgentFailureMessage(String(error?.message ?? "The agent run failed."));
             run.state = "failed";
             run.updatedAt = new Date().toISOString();
             protocolJson(res, 200, statusPayload(run));
@@ -738,6 +746,7 @@ export default defineConfig(({ mode }) => {
   const workspaceRoot = path.resolve(rootDir, "../..");
   const publicEnv = {
     ...loadEnv(mode, rootDir, "VITE_"),
+    ...(mode === "sepolia" ? { VITE_NETWORK: "sepolia" } : {}),
     ...Object.fromEntries(
       Object.entries(process.env).filter(([key]) => key.startsWith("VITE_"))
     ),
