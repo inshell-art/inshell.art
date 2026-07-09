@@ -40,7 +40,7 @@ const ROUTES = {
     auth: {
       requiredFor: ["path-tokens", "thought-gallery", "all"],
       publicTargets: ["pulse-auction with tx hash"],
-      headerNames: ["authorization: Bearer <token>", "x-inshell-indexer-token"],
+      headerNames: ["authorization", "x-inshell-indexer-token"],
     },
     targets: ["pulse-auction", "path-tokens", "thought-gallery", "all"],
   },
