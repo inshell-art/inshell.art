@@ -4,6 +4,7 @@ import {
   EIP6963_REQUEST_EVENT,
   discoverEip6963Providers,
   fallbackWindowEthereumProviders,
+  PUBLIC_WALLETCONNECT_PROJECT_ID,
   readWalletConnectProjectId,
   walletConnectMetadata,
   walletConnectEnabled,
@@ -76,7 +77,13 @@ describe("wallet EVM transport helpers", () => {
 
     expect(readWalletConnectProjectId(env)).toBe("project-id");
     expect(walletConnectEnabled(env)).toBe(true);
-    expect(walletConnectEnabled(() => "")).toBe(false);
+  });
+
+  test("WalletConnect keeps the public Inshell project id as the default", () => {
+    expect(readWalletConnectProjectId(() => "")).toBe(
+      PUBLIC_WALLETCONNECT_PROJECT_ID,
+    );
+    expect(walletConnectEnabled(() => "")).toBe(true);
   });
 
   test("WalletConnect metadata uses public HTTPS URL on localhost", () => {

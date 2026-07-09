@@ -57,6 +57,8 @@ export const EIP6963_ANNOUNCE_EVENT = "eip6963:announceProvider";
 export const EIP6963_REQUEST_EVENT = "eip6963:requestProvider";
 const PUBLIC_SEPOLIA_WALLET_RPC_URL =
   "https://ethereum-sepolia-rpc.publicnode.com";
+export const PUBLIC_WALLETCONNECT_PROJECT_ID =
+  "8f36cef8e895078c794a1939047ac722";
 const DEFAULT_WALLETCONNECT_RELAY_URL = "wss://relay.walletconnect.com";
 
 export function normalizeProviderDetail(
@@ -275,7 +277,8 @@ export function walletAnalyticsErrorCategory(error: unknown) {
 
 export function readWalletConnectProjectId(getEnv: WalletEnvReader): string {
   const raw = getEnv("VITE_WALLETCONNECT_PROJECT_ID");
-  return typeof raw === "string" ? raw.trim() : "";
+  const configured = typeof raw === "string" ? raw.trim() : "";
+  return configured || PUBLIC_WALLETCONNECT_PROJECT_ID;
 }
 
 export function walletConnectEnabled(getEnv: WalletEnvReader): boolean {
