@@ -1753,10 +1753,21 @@ describe("chain cache Pages functions", () => {
 
     const response = await onOpsStatusGet({
       request: new Request("https://preview.inshell.art/api/ops/status"),
-      env: { INSHELL_CHAIN_DATA_DB: d1.db },
+      env: {
+        INSHELL_CHAIN_DATA_DB: d1.db,
+        PATH_PRIMARY_RPC_UPSTREAM: "https://eth-sepolia.g.alchemy.com/v2/super-secret-path-key",
+        THOUGHT_PRIMARY_RPC_UPSTREAM: "https://eth-sepolia.g.alchemy.com/v2/super-secret-thought-key",
+        PRIVATE_FALLBACK_RPC_UPSTREAM: "https://eth-sepolia.g.alchemy.com/v2/super-secret-fallback-key",
+        PUBLIC_FALLBACK_RPC_UPSTREAM: "https://public-provider.example/rpc?api_key=super-secret",
+        PATH_PRIMARY_RPC_LABEL: "https://eth-sepolia.g.alchemy.com/v2/label-secret-key",
+        THOUGHT_PRIMARY_RPC_LABEL: "client_secret=thought-secret",
+        PRIVATE_FALLBACK_RPC_LABEL: "Bearer fallback-secret",
+        PUBLIC_FALLBACK_RPC_LABEL: "api_key=public-secret",
+      },
     });
     const payload = (await response.json()) as {
       routes?: { event?: { route?: string; targets?: string[] } };
+      rpcUpstreams?: Record<string, { configuredKey?: string | null; label?: string }>;
       indexerEventIngest?: {
         enabled?: boolean;
         route?: string;
@@ -1787,6 +1798,17 @@ describe("chain cache Pages functions", () => {
     expect(payload.indexerEventIngest?.lastTxHash).toBe(`0x${"456".padStart(64, "0")}`);
     expect(payload.indexerEventIngest?.acceptedCount).toBe(3);
     expect(payload.indexerEventIngest?.appliedCount).toBe(2);
+    expect(payload.rpcUpstreams?.pathPrimary?.configuredKey).toBe("PATH_PRIMARY_RPC_UPSTREAM");
+    expect(payload.rpcUpstreams?.pathPrimary?.label).toBe("path-primary");
+    expect(payload.rpcUpstreams?.thoughtPrimary?.label).toBe("thought-primary");
+    expect(payload.rpcUpstreams?.privateFallback?.label).toBe("private-fallback");
+    expect(payload.rpcUpstreams?.publicFallback?.label).toBe("public-fallback");
+    const serialized = JSON.stringify(payload);
+    expect(serialized).not.toContain("alchemy.com/v2");
+    expect(serialized).not.toContain("super-secret");
+    expect(serialized).not.toContain("client_secret");
+    expect(serialized).not.toContain("api_key");
+    expect(serialized).not.toContain("Bearer fallback-secret");
   });
 
   test("writes KV when snapshot content changes", async () => {
