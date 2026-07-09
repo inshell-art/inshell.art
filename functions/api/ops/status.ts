@@ -183,30 +183,18 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
       pathPrimary: upstreamStatus(ctx.env, "PATH_PRIMARY_RPC_UPSTREAM", [
         "PATH_PRIMARY_RPC_UPSTREAM",
         "PATH_RPC_UPSTREAM",
-      ], [
-        "PATH_PRIMARY_RPC_LABEL",
-        "PATH_RPC_LABEL",
       ]),
       thoughtPrimary: upstreamStatus(ctx.env, "THOUGHT_PRIMARY_RPC_UPSTREAM", [
         "THOUGHT_PRIMARY_RPC_UPSTREAM",
         "THOUGHT_RPC_UPSTREAM",
-      ], [
-        "THOUGHT_PRIMARY_RPC_LABEL",
-        "THOUGHT_RPC_LABEL",
       ]),
       privateFallback: upstreamStatus(ctx.env, "PRIVATE_FALLBACK_RPC_UPSTREAM", [
         "PRIVATE_FALLBACK_RPC_UPSTREAM",
         "ETH_RPC_UPSTREAM",
-      ], [
-        "PRIVATE_FALLBACK_RPC_LABEL",
-        "ETH_RPC_LABEL",
       ]),
       publicFallback: upstreamStatus(ctx.env, "PUBLIC_FALLBACK_RPC_UPSTREAM", [
         "PUBLIC_FALLBACK_RPC_UPSTREAM",
         "RPC_UPSTREAM_FALLBACK",
-      ], [
-        "PUBLIC_FALLBACK_RPC_LABEL",
-        "RPC_UPSTREAM_FALLBACK_LABEL",
       ]),
     },
     opsBoundary: {
@@ -248,16 +236,18 @@ function upstreamStatus(
   env: ChainCacheEnv,
   role: string,
   upstreamKeys: EnvKey[],
-  labelKeys: EnvKey[],
 ) {
   const configuredKey = upstreamKeys.find((key) => Boolean(readEnv(env, key)));
-  const label = labelKeys.map((key) => readEnv(env, key)).find(Boolean) || role;
   return {
     role,
     configured: Boolean(configuredKey),
     configuredKey: configuredKey ?? null,
-    label,
+    label: safeUpstreamLabel(role),
   };
+}
+
+function safeUpstreamLabel(role: string) {
+  return role.toLowerCase().replace(/_rpc_upstream$/, "").replace(/_/g, "-");
 }
 
 function publicEnv(env: ChainCacheEnv, key: string) {
