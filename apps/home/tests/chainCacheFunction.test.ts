@@ -1808,6 +1808,7 @@ describe("chain cache Pages functions", () => {
     expect(serialized).not.toContain("super-secret");
     expect(serialized).not.toContain("client_secret");
     expect(serialized).not.toContain("api_key");
+    expect(serialized).not.toContain("Bearer ");
     expect(serialized).not.toContain("Bearer fallback-secret");
   });
 
