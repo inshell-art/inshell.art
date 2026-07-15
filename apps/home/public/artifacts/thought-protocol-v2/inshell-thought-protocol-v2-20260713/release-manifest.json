@@ -1,0 +1,253 @@
+{
+  "algorithms": {
+    "artifactContentHash": "keccak256-exact-bytes",
+    "artifactTransportHash": "sha256-exact-bytes",
+    "binaryField": "utf8-msb-first-independent-512-cycle-or-truncate-interleave-pack-msb-first",
+    "compositeHashEncoding": "solidity-abi.encode",
+    "jsonSerialization": "recursive-key-sort-json-two-space-final-lf"
+  },
+  "artifacts": [
+    {
+      "byteLength": 702,
+      "encoding": "utf-8",
+      "keccak256": "0x22c1c4341fec480b175d1df902ee52ff4f84ae0d38769bd2a82b6fcbb6223ebc",
+      "lineEndings": "lf",
+      "path": "agent/thought.agent-declaration.v1.schema.json",
+      "sha256": "53077207fe16bb87ea2ae5ed8bb8c20ed61706c290fe7981ceca96c0d9c0bac9"
+    },
+    {
+      "byteLength": 503,
+      "encoding": "utf-8",
+      "keccak256": "0x12c51256ef1fed119617a4580a292d13e6e375df966ece2280c9ab1626f42550",
+      "lineEndings": "lf",
+      "path": "agent/thought.agent-result.v2.schema.json",
+      "sha256": "d0b2e012400b76761c44c8ec8cb3979449021ccf71464c88ddfe65554e3663d8"
+    },
+    {
+      "byteLength": 1538,
+      "encoding": "utf-8",
+      "keccak256": "0xb88c010584a7c92cc4042ae0c53bf0e45aa45b19bcdb947aed2cb64db2092402",
+      "lineEndings": "lf",
+      "path": "art/THOUGHT.v2.md",
+      "sha256": "daf086925e7182739e252925228a5d33a0a71abbbea6dde722bf2eb095e5b4e9"
+    },
+    {
+      "byteLength": 30974,
+      "encoding": "utf-8",
+      "keccak256": "0x0c9150ef5b5170bbe0a22bc33bab4680062155c025287734d06c4df6fb7e2417",
+      "lineEndings": "lf",
+      "path": "contract/abi/ThoughtNFT.json",
+      "sha256": "75bc0913b0a527ec5bb1618be99f4a825d5df6387cb2ec03c0de0aba32a1e65a"
+    },
+    {
+      "byteLength": 12376,
+      "encoding": "utf-8",
+      "keccak256": "0x945be230d334f9a8c50a7b7744fa9c4d1e3b9afc3445a1f36c4fd094989d499c",
+      "lineEndings": "lf",
+      "path": "contract/abi/ThoughtSpecRegistry.json",
+      "sha256": "0c571de489bb482d25dfe60744ae2fca15a7dc21605da960786474a4ab458830"
+    },
+    {
+      "byteLength": 893,
+      "encoding": "utf-8",
+      "keccak256": "0xc67feff7cb9fa30484eb247f0e62eeafed5cf8a19161584c023035eb25bef99f",
+      "lineEndings": "lf",
+      "path": "contract/thought-nft.v2.interface.md",
+      "sha256": "3d408dd0c1000be2aaa29dc2383096bb396501fdea7e53450feaf7775b3b05c3"
+    },
+    {
+      "byteLength": 1301,
+      "encoding": "utf-8",
+      "keccak256": "0xb74cba8c29755b1da30d656abb2360057395b2e98f71e5433c858f177f5d0241",
+      "lineEndings": "lf",
+      "path": "contract/vectors/hash-vectors.json",
+      "sha256": "b0a049436e5a9ae7be37e72cee98fa1b53b0a4946633b2d672a8c3fb31e3a816"
+    },
+    {
+      "byteLength": 1022,
+      "encoding": "utf-8",
+      "keccak256": "0x5285b8e043e31eac904039d21c3263146e73c1611e6c1475ae9e09435cbb3dc1",
+      "lineEndings": "lf",
+      "path": "provenance/thought.provenance.v2.md",
+      "sha256": "bdb73780e7ca95cbb0afddffce7e26d95d03e73ee87a7ad2408675b19fe4ebe0"
+    },
+    {
+      "byteLength": 2201,
+      "encoding": "utf-8",
+      "keccak256": "0x743c33e53abed3c124651f7d49dcbe67fe921537a8d42e6261e3c0b842187d7e",
+      "lineEndings": "lf",
+      "path": "provenance/thought.provenance.v2.schema.json",
+      "sha256": "65f58148f71c69351919ea836ed5177f4bf43de777642ef01ed4d938794fd80a"
+    },
+    {
+      "byteLength": 27663,
+      "encoding": "utf-8",
+      "keccak256": "0x08f9f9ccbc4e9a05cb5e2f6075bfc759443a04f768999525ce1f001416351d8b",
+      "lineEndings": "lf",
+      "path": "renderer/fixtures/arabic.json",
+      "sha256": "a34a98be216b19b1cd6c72766cc8db349ab0d95ccf916d2bfc7578334465413a"
+    },
+    {
+      "byteLength": 28672,
+      "encoding": "utf-8",
+      "keccak256": "0xea7bf26790cb74be91f198fceb8a0a7be72213fdbd537e0670bae8e4d7174e24",
+      "lineEndings": "lf",
+      "path": "renderer/fixtures/ascii.json",
+      "sha256": "f9437cb4e5ad13f0937fcb38c2c62aad303ad7a5379953988ace540b9a7e663b"
+    },
+    {
+      "byteLength": 29618,
+      "encoding": "utf-8",
+      "keccak256": "0xe8630295e76be16ec93412c61b1b09f4dcc9eb697f5ac095b7a6e7bb28300a5c",
+      "lineEndings": "lf",
+      "path": "renderer/fixtures/cjk.json",
+      "sha256": "238ab951a98072ffa88ab2586f3d5a3ef9e2017a04705e072703addccd4e9612"
+    },
+    {
+      "byteLength": 23537,
+      "encoding": "utf-8",
+      "keccak256": "0x2842d8340989ffc9122ff7bb095f1e3368809f059c492477bbdb9a6e53f73a59",
+      "lineEndings": "lf",
+      "path": "renderer/fixtures/combining-sequence.json",
+      "sha256": "2a3579cbbc4a52dd6f958a020fcbaa5a3ac83d0df805a96f75a10bfa3e17ba1d"
+    },
+    {
+      "byteLength": 917,
+      "encoding": "utf-8",
+      "keccak256": "0x59187ff58386411f89d14d2b0ac6e2e7c37b8fc7a8f252d01431164397ccdb54",
+      "lineEndings": "lf",
+      "path": "renderer/fixtures/invalid-lines.json",
+      "sha256": "7b7a1e526beab8d5a59461d4094b0e769442228028395787e658e5b5c1d3092e"
+    },
+    {
+      "byteLength": 20492,
+      "encoding": "utf-8",
+      "keccak256": "0xc8064aa8d88e261d866268b69d7ae7fe034bcb344fdb07d72022fbf180d34d89",
+      "lineEndings": "lf",
+      "path": "renderer/fixtures/maximum-valid-ascii.json",
+      "sha256": "565e6fd4bc929f240c592898bc84f70bdc3feee2b2805e0483f5dedf449033ba"
+    },
+    {
+      "byteLength": 27400,
+      "encoding": "utf-8",
+      "keccak256": "0x0a282ba6c89586be87b2981da36fecf7118f88c2b3ff1495e544a16244fb7716",
+      "lineEndings": "lf",
+      "path": "renderer/fixtures/mixed-scripts.json",
+      "sha256": "df00954779c80b3c12a69d9295605a50732163d92a4da4fa4e53f154c232c5f9"
+    },
+    {
+      "byteLength": 22483,
+      "encoding": "utf-8",
+      "keccak256": "0x4d7f9b36d8d9ad63da35ee0c2780929cfc08f579f0b92dad8b206757b4eea0c7",
+      "lineEndings": "lf",
+      "path": "renderer/fixtures/one-byte-cycle.json",
+      "sha256": "ed4f787d6b8428c699f9567dce2937b6d6a5d3e5417d0644755f696d1f1219be"
+    },
+    {
+      "byteLength": 25485,
+      "encoding": "utf-8",
+      "keccak256": "0x970f25116f5c924bc6fef4d0477a491ffa8a4ae22f9e21fa4d9677069d8b49ed",
+      "lineEndings": "lf",
+      "path": "renderer/fixtures/shortest.json",
+      "sha256": "29439d2a069796033235eebc6a237f41964d6fde48021c2febccf700d6471a27"
+    },
+    {
+      "byteLength": 22732,
+      "encoding": "utf-8",
+      "keccak256": "0x91c22de80bf13aee2ea9657d52e0521003efe2b00df3450150b22389d9dabeab",
+      "lineEndings": "lf",
+      "path": "renderer/fixtures/source-63-bytes.json",
+      "sha256": "2dd5b5340d4e17fdd833c121365f2fb4914dea71ea9eace63a4308e7281df07a"
+    },
+    {
+      "byteLength": 22736,
+      "encoding": "utf-8",
+      "keccak256": "0x067970baa636b26d473fe811f779891db0ddc9d23ded6a4fcf7aeb9b09059bac",
+      "lineEndings": "lf",
+      "path": "renderer/fixtures/source-64-bytes.json",
+      "sha256": "ca7857118b09d988c7d45f2894d5314276cdc29b61bb0742e7ae3029d255996e"
+    },
+    {
+      "byteLength": 25748,
+      "encoding": "utf-8",
+      "keccak256": "0x88ed1cc37009704a214b54972a6e3805c4cc6745a8e57525c1c391e0695500db",
+      "lineEndings": "lf",
+      "path": "renderer/fixtures/source-65-bytes.json",
+      "sha256": "e1c500da7f7d345c556fa527d4ba726035b62b9e3325dfcab0206e28217e43a6"
+    },
+    {
+      "byteLength": 27008,
+      "encoding": "utf-8",
+      "keccak256": "0xdd49bd5665c2213752c8cbefa54f464be0adb7df6b2987edf74f520168e240b4",
+      "lineEndings": "lf",
+      "path": "renderer/fixtures/unicode-precomposed.json",
+      "sha256": "0d2773ae1677f9027413fbaa7dd12497b18e966dd6374d1d8a0bd44edcc608bb"
+    },
+    {
+      "byteLength": 26267,
+      "encoding": "utf-8",
+      "keccak256": "0x1e3a33b7fbe0a4fcfed9ab7aa3203e42a600bae924f617d8dfb654f350d5bfb7",
+      "lineEndings": "lf",
+      "path": "renderer/fixtures/utf8-four-byte.json",
+      "sha256": "dc8df5dc4bcf337c606f0768f65f9f865537fa48ea962d6de002d49710eecefd"
+    },
+    {
+      "byteLength": 29597,
+      "encoding": "utf-8",
+      "keccak256": "0x6e9b738fb0e34719377ffd248e054510ece2674cb7cf998b831cc73b54208470",
+      "lineEndings": "lf",
+      "path": "renderer/fixtures/utf8-three-byte.json",
+      "sha256": "c66261f16202076b019b2b6e00826be7a65efb13848822ceb1885f140b84e9eb"
+    },
+    {
+      "byteLength": 28506,
+      "encoding": "utf-8",
+      "keccak256": "0x4249a5505628a86cf7976844b5105635f3c12e81f89122d518180a0abfa6151e",
+      "lineEndings": "lf",
+      "path": "renderer/fixtures/utf8-two-byte.json",
+      "sha256": "49565aea39ad4be35337e71e8fe3888c9d477529ee791f58755fb8e92c3c80aa"
+    },
+    {
+      "byteLength": 24459,
+      "encoding": "utf-8",
+      "keccak256": "0x82557ca3ce3e13de412e64a487e22073adb03adb5d9e970c1ba8afa687334a0b",
+      "lineEndings": "lf",
+      "path": "renderer/fixtures/xml-escaping.json",
+      "sha256": "2fcfd9126364d4766dd1d966030e467a8298706c32049d95af34960633dc0131"
+    },
+    {
+      "byteLength": 1613,
+      "encoding": "utf-8",
+      "keccak256": "0x9aeb9cd2aad144726c5afa486d6012bb77e7bed69a577e655f235344aa57ec40",
+      "lineEndings": "lf",
+      "path": "renderer/thought.svg.v2.binary-interleave-32.md",
+      "sha256": "0e11730c3ae9e0569d1c4a7f1726abe54c149d72d6e24635fa706690ea187a64"
+    },
+    {
+      "byteLength": 1937,
+      "encoding": "utf-8",
+      "keccak256": "0xb68c490ad6006c2eb438b40d949be2d969b2d6ffdb7ed95190773ba4fa187f6b",
+      "lineEndings": "lf",
+      "path": "work/thought.work.v2.md",
+      "sha256": "f364218cf8843d0c10e541a74538d05d0065f0a7da0ca4afd73efd1d4ec6f8cd"
+    },
+    {
+      "byteLength": 473,
+      "encoding": "utf-8",
+      "keccak256": "0x8d57b2b68aab64bac604582b6d511cbad68f2b75a2fa28348a9be2588ead0235",
+      "lineEndings": "lf",
+      "path": "work/thought.work.v2.schema.json",
+      "sha256": "80c831d64d296bfed4a6decf14684939442efcda4b64d999f556997324245f3f"
+    }
+  ],
+  "identifiers": {
+    "agentDeclaration": "inshell.thought.agent-declaration.v1",
+    "agentResult": "inshell.thought.agent-result.v2",
+    "generationFile": "THOUGHT.v2.md",
+    "protocolRelease": "inshell.thought.protocol.v2",
+    "provenance": "inshell.thought.provenance.v2",
+    "renderer": "inshell.thought.svg.v2.binary-interleave-32",
+    "workProfile": "inshell.thought.work.v2"
+  },
+  "schema": "inshell.thought.release-manifest.v1"
+}

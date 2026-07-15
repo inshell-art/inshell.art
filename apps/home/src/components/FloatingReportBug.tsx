@@ -11,7 +11,7 @@ function currentPageState(): string {
   const pathname = window.location.pathname.replace(/\/+$/, "");
   if (pathname === "/pulse") return "pulse";
   if (pathname === "/color-font") return "color_font";
-  if (pathname === "/path") return "path_tokens";
+  if (pathname === "/path") return "path_app";
   if (pathname === "/verify") return "verify";
   return "home";
 }

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inshell.art/protocol/releases/v2/work/thought.work.v2.schema.json",
+  "title": "THOUGHT Work V2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "promptLine", "agentLine"],
+  "properties": {
+    "schema": { "const": "inshell.thought.work.v2" },
+    "promptLine": { "type": "string", "minLength": 1 },
+    "agentLine": { "type": "string", "minLength": 1 }
+  }
+}

@@ -8,7 +8,15 @@ import {
   afterEach,
 } from "@jest/globals";
 import { pulseAuctionAbi, sendTransaction } from "@inshell/ethereum";
-import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  act,
+  within,
+  createEvent,
+} from "@testing-library/react";
 import { encodeFunctionData, getAbiItem } from "viem";
 import React from "react";
 import AuctionCanvas from "../src/components/AuctionCanvas";
@@ -21,6 +29,7 @@ const mockCallContract = jest.fn<
   (...args: any[]) => Promise<{ result: string[] }>
 >();
 const mockGetBalance = jest.fn<(...args: any[]) => Promise<bigint>>();
+const mockClearPathTokenInventoryCache = jest.fn();
 const mockProvider = {
   callContract: mockCallContract,
   getBalance: mockGetBalance,
@@ -137,6 +146,10 @@ jest.mock("../src/hooks/useAuctionCore", () => ({
 jest.mock("@inshell/wallet", () => ({
   useWallet: () => mockWalletState,
 }));
+jest.mock("../src/services/pathTokens", () => ({
+  clearPathTokenInventoryCache: (...args: any[]) =>
+    mockClearPathTokenInventoryCache(...args),
+}));
 
 const sampleBids = [
   {
@@ -189,6 +202,7 @@ describe("AuctionCanvas", () => {
     };
     mockCallContract.mockReset();
     mockGetBalance.mockReset();
+    mockClearPathTokenInventoryCache.mockReset();
     mockGetBalance.mockResolvedValue(1000n);
     mockCallContract.mockImplementation(async (args: any) => {
       if (args?.entrypoint === "get_current_price") {
@@ -266,14 +280,16 @@ describe("AuctionCanvas", () => {
     ).toBe(false);
   });
 
-  test("renders mint button and dots", () => {
+  test("renders PATH context and dots without a duplicate wallet control", () => {
     const { container } = render(
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />
     );
     expect(screen.getByRole("link", { name: "$PATH" })).toHaveAttribute("href", "/path");
     expect(screen.getByRole("link", { name: "$PATH" })).toHaveAttribute("target", "_blank");
+    expect(screen.getByRole("heading", { level: 1, name: "$PATH" })).toBeInTheDocument();
+    expect(screen.getByText("permission token for movement mints.")).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Inshell dapps" })).toBeNull();
-    expect(container.querySelector(".dotfield__mint")).toBeTruthy();
+    expect(container.querySelector(".dotfield__mint")).toBeNull();
 
     const dots = container.querySelectorAll(".dotfield__point, .dotfield__now-dot");
     expect(dots.length).toBeGreaterThan(0);
@@ -353,7 +369,7 @@ describe("AuctionCanvas", () => {
     }
   });
 
-  test("keeps user zoom while devnet mimics time", () => {
+  test("allows unselected wheel page scroll without zooming the curve", () => {
     jest.useFakeTimers();
     const nowMs = Date.UTC(2026, 0, 1, 0, 0, 0);
     jest.setSystemTime(nowMs);
@@ -405,16 +421,62 @@ describe("AuctionCanvas", () => {
       const readNow = () => container.querySelector(".dotfield__point--now");
       expect(readNow()).toBeTruthy();
 
-      fireEvent.wheel(svg, { deltaY: -120, clientX: 500, clientY: 300 });
-      expect(readNow()).toBeNull();
+      fireEvent.click(svg, { clientX: 999, clientY: 10 });
+      expect(container.querySelector(".dotfield__point.is-selected")).toBeNull();
+
+      const wheel = createEvent.wheel(svg, {
+        deltaY: -120,
+        clientX: 500,
+        clientY: 300,
+      });
+      const preventDefault = jest.spyOn(wheel, "preventDefault");
+      fireEvent(svg, wheel);
+      expect(preventDefault).not.toHaveBeenCalled();
+      expect(readNow()).toBeTruthy();
 
       act(() => {
         jest.advanceTimersByTime(1200);
       });
-      expect(readNow()).toBeNull();
+      expect(readNow()).toBeTruthy();
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  test("keeps wheel zoom available when a curve dot is selected", async () => {
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
+    stubSvgRect(container);
+    const svg = screen.getByRole("img", {
+      name: /pulse auction curve/i,
+    }) as HTMLElement;
+    const dotButton = container.querySelector(
+      ".dotfield__point--sale"
+    ) as HTMLElement | null;
+    expect(dotButton).toBeTruthy();
+    fireEvent.click(dotButton as HTMLElement, { clientX: 80, clientY: 120 });
+    expect(dotButton?.classList.contains("is-selected")).toBe(true);
+    const popover = container.querySelector(".dotfield__popover") as HTMLElement;
+    expect(popover).toBeTruthy();
+    expect(popover.style.getPropertyValue("--popover-anchor-x")).toBe("88px");
+    expect(popover.style.top).toBe("128px");
+
+    const wheel = createEvent.wheel(svg, {
+      deltaY: -120,
+      clientX: 500,
+      clientY: 300,
+    });
+    const preventDefault = jest.spyOn(wheel, "preventDefault");
+    fireEvent(svg, wheel);
+
+    expect(preventDefault).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(container.querySelector(".dotfield")).toHaveAttribute(
+        "data-layout-zoomed",
+        "true"
+      );
+    });
   });
 
   test("keeps current ask visible at the right edge while panning", () => {
@@ -729,6 +791,8 @@ describe("AuctionCanvas", () => {
     const popover = container.querySelector(".dotfield__popover") as HTMLElement;
     expect(popover).toBeTruthy();
     expect(popover.textContent).toMatch(/ETH/i);
+    expect(popover.style.getPropertyValue("--popover-anchor-x")).toBe("18px");
+    expect(popover.style.top).toBe("18px");
   });
 
   test("clicking blank area clears selected sale", async () => {
@@ -1713,7 +1777,7 @@ describe("AuctionCanvas", () => {
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     return waitFor(() => {
       expect(screen.getByText(/wallet provider not found/i)).toBeTruthy();
-      expect(screen.getByText(/\[\s*connect\s*\]/i)).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "connect wallet" })).toBeNull();
     });
   });
 
@@ -1728,12 +1792,12 @@ describe("AuctionCanvas", () => {
 
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
 
-    expect(screen.getByText(/Sepolia rehearsal · testnet ETH/i)).toBeTruthy();
+    expect(screen.queryByText("Sepolia ETH")).toBeNull();
     expect(screen.queryByText(/Mainnet is the future canonical record/i)).toBeNull();
     expect(screen.queryByText(/^debug$/i)).toBeNull();
   });
 
-  test("sepolia invite wrong network asks for Sepolia with a warning", () => {
+  test("sepolia invite leaves wrong-network recovery to the global wallet menu", () => {
     (globalThis as any).__VITE_ENV__ = {
       ...(globalThis as any).__VITE_ENV__,
       VITE_PUBLIC_LAUNCH_MODE: "sepolia_invite",
@@ -1749,9 +1813,9 @@ describe("AuctionCanvas", () => {
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
 
     return waitFor(() => {
-      expect(screen.getByText(/Switch to Sepolia\./i)).toBeTruthy();
-      expect(screen.getByText(/\[\s*switch\s*\]/i)).toBeTruthy();
-      expect(screen.queryByText(/Sepolia only/i)).toBeNull();
+      expect(screen.queryByText(/Switch to Sepolia/i)).toBeNull();
+      expect(screen.queryByText(/\[\s*switch\s*\]/i)).toBeNull();
+      expect(screen.getByText(/\[\s*mint\s*\]/i)).toBeDisabled();
     });
   });
 
@@ -1780,17 +1844,17 @@ describe("AuctionCanvas", () => {
     });
   });
 
-  test("shows connect CTA when wallet is locked", () => {
+  test("does not duplicate the global wallet control when the wallet is locked", () => {
     mockWalletState = createWalletState({
       account: null,
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     return waitFor(() => {
-      expect(screen.getByText(/\[\s*connect\s*\]/i)).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "connect wallet" })).toBeNull();
     });
   });
 
-  test("locked wallet connect CTA requests accounts before reconnect", async () => {
+  test("locked wallet leaves connection to the global shell", async () => {
     const requestAccounts = jest.fn().mockResolvedValue(["0xabc"]);
     mockWalletState = createWalletState({
       account: null,
@@ -1798,17 +1862,14 @@ describe("AuctionCanvas", () => {
       requestAccounts,
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    const connectButton = await waitFor(() =>
-      screen.getByText(/\[\s*connect\s*\]/i)
-    );
-    fireEvent.click(connectButton);
     await waitFor(() => {
-      expect(requestAccounts).toHaveBeenCalled();
-      expect(mockWalletState.connectAsync).toHaveBeenCalled();
+      expect(screen.queryByRole("button", { name: "connect wallet" })).toBeNull();
+      expect(requestAccounts).not.toHaveBeenCalled();
+      expect(mockWalletState.connectAsync).not.toHaveBeenCalled();
     });
   });
 
-  test("shows connect notice when wallet is detected but not connected", () => {
+  test("does not duplicate the global wallet control when disconnected", () => {
     mockWalletState = createWalletState({
       isConnected: false,
       address: null,
@@ -1816,11 +1877,11 @@ describe("AuctionCanvas", () => {
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     return waitFor(() => {
-      expect(screen.getByText(/\[\s*connect\s*\]/i)).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "connect wallet" })).toBeNull();
     });
   });
 
-  test("connect CTA falls back to connectAsync when no enumerated connectors are present", async () => {
+  test("canvas does not initiate a connection when no connectors are present", async () => {
     const connectAsync = jest
       .fn()
       .mockResolvedValue({ address: "0xabc", chainId: 11155111 });
@@ -1832,16 +1893,13 @@ describe("AuctionCanvas", () => {
       connectAsync,
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    const connectButton = await waitFor(() =>
-      screen.getByText(/\[\s*connect\s*\]/i)
-    );
-    fireEvent.click(connectButton);
     await waitFor(() => {
-      expect(connectAsync).toHaveBeenCalled();
+      expect(screen.queryByRole("button", { name: "connect wallet" })).toBeNull();
+      expect(connectAsync).not.toHaveBeenCalled();
     });
   });
 
-  test("connect action does not request signing, transactions, or approvals", async () => {
+  test("canvas does not request signing, transactions, or approvals while disconnected", async () => {
     const requestedMethods: string[] = [];
     const connectAsync = jest.fn(async () => {
       requestedMethods.push("eth_requestAccounts");
@@ -1856,15 +1914,10 @@ describe("AuctionCanvas", () => {
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
 
-    const connectButton = await waitFor(() =>
-      screen.getByText(/\[\s*connect\s*\]/i)
-    );
-    fireEvent.click(connectButton);
-
     await waitFor(() => {
-      expect(connectAsync).toHaveBeenCalled();
+      expect(screen.queryByRole("button", { name: "connect wallet" })).toBeNull();
     });
-    expect(requestedMethods).toEqual(["eth_requestAccounts"]);
+    expect(requestedMethods).toEqual([]);
     expect(requestedMethods).not.toContain("eth_sendTransaction");
     expect(requestedMethods).not.toContain("personal_sign");
     expect(requestedMethods).not.toContain("eth_sign");
@@ -1874,7 +1927,7 @@ describe("AuctionCanvas", () => {
     expect(requestedMethods).not.toContain("permit");
   });
 
-  test("connect CTA opens supported wallet options sorted with MetaMask first", async () => {
+  test("canvas does not render a second wallet-options picker", async () => {
     const genericConnector = {
       id: "window.ethereum",
       name: "Injected",
@@ -1926,35 +1979,11 @@ describe("AuctionCanvas", () => {
       connectAsync,
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    const connectButton = await waitFor(() =>
-      screen.getByText(/\[\s*connect\s*\]/i)
-    );
-    fireEvent.click(connectButton);
     expect(connectAsync).not.toHaveBeenCalled();
-    const options = await screen.findAllByRole("menuitem");
-    const note = document.querySelector(".dotfield__wallet-picker-note") as HTMLElement;
-    expect(note).toBeTruthy();
-    expect(note).toHaveTextContent("address read only.");
-    expect(note).toHaveTextContent("no signature.");
-    expect(note).toHaveTextContent("no tx or approval.");
-    expect(screen.getByRole("link", { name: "verify ↗" })).toHaveAttribute(
-      "href",
-      "/verify#wallet-notes",
-    );
-    expect(options.map((item) => item.textContent)).toEqual([
-      "MetaMask",
-      "Rabby Wallet",
-      "WalletConnect",
-    ]);
-    fireEvent.click(options[0]);
-    await waitFor(() => {
-      expect(connectAsync).toHaveBeenCalledWith({
-        connector: metaMaskConnector,
-      });
-    });
+    expect(screen.queryByRole("menu", { name: "Wallet options" })).toBeNull();
   });
 
-  test("connect CTA maps pending MetaMask request to actionable notice", async () => {
+  test("canvas does not open a second pending MetaMask request", async () => {
     const connectAsync = jest.fn().mockRejectedValue({
       code: -32002,
       message: "Request of type 'eth_requestAccounts' already pending",
@@ -1967,165 +1996,9 @@ describe("AuctionCanvas", () => {
       connectAsync,
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    const connectButton = await waitFor(() =>
-      screen.getByText(/\[\s*connect\s*\]/i)
-    );
-    fireEvent.click(connectButton);
     await waitFor(() => {
-      expect(
-        screen.getByText(/Finish the pending wallet request/i)
-      ).toBeTruthy();
-    });
-  });
-
-  test("shows wrong network notice when chain is incorrect", () => {
-    mockWalletState = createWalletState({
-      account: {},
-      chainId: 1n,
-      chain: { name: "Othernet" },
-    });
-    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    return waitFor(() => {
-      expect(screen.getByText(/Switch to Sepolia/i)).toBeTruthy();
-      expect(screen.getByText(/\[\s*switch\s*\]/i)).toBeTruthy();
-    });
-  });
-
-  test("switch CTA adds Sepolia when wallet reports unknown chain", async () => {
-    const request = jest
-      .fn()
-      .mockRejectedValueOnce({ code: 4902, message: "Unknown chain" })
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(null);
-    (window as any).ethereum = { request };
-    mockWalletState = createWalletState({
-      account: {},
-      chainId: 1n,
-      chain: { name: "Othernet" },
-    });
-    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    const switchButton = await waitFor(() =>
-      screen.getByText(/\[\s*switch\s*\]/i)
-    );
-    fireEvent.click(switchButton);
-    await waitFor(() => {
-      expect(request).toHaveBeenNthCalledWith(1, {
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: "0xaa36a7" }],
-      });
-      expect(request).toHaveBeenNthCalledWith(2, {
-        method: "wallet_addEthereumChain",
-        params: [
-          expect.objectContaining({
-            chainId: "0xaa36a7",
-            chainName: "Sepolia",
-            rpcUrls: ["https://ethereum-sepolia-rpc.publicnode.com"],
-          }),
-        ],
-      });
-      expect(request).toHaveBeenNthCalledWith(3, {
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: "0xaa36a7" }],
-      });
-    });
-  });
-
-  test("switch CTA uses the connected wallet provider instead of window.ethereum", async () => {
-    const connectedRequest = jest.fn().mockResolvedValue(null);
-    const windowRequest = jest.fn().mockResolvedValue(null);
-    (window as any).ethereum = { request: windowRequest };
-    mockWalletState = createWalletState({
-      account: {},
-      chainId: 1n,
-      chain: { name: "Othernet" },
-      evm: {
-        provider: { request: connectedRequest },
-        providerName: "MetaMask",
-      },
-    });
-
-    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    const switchButton = await waitFor(() =>
-      screen.getByText(/\[\s*switch\s*\]/i)
-    );
-    fireEvent.click(switchButton);
-
-    await waitFor(() => {
-      expect(connectedRequest).toHaveBeenCalledWith({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: "0xaa36a7" }],
-      });
-      expect(windowRequest).not.toHaveBeenCalled();
-    });
-  });
-
-  test("switch CTA does not register the read-only dapp RPC with wallets", async () => {
-    (globalThis as any).__VITE_ENV__ = {
-      ...(globalThis as any).__VITE_ENV__,
-      VITE_PATH_RPC_URL: "/api/path-rpc",
-      VITE_WALLET_CHAIN_RPC_URL: "",
-    };
-    const request = jest
-      .fn()
-      .mockRejectedValueOnce({ code: 4902, message: "Unknown chain" })
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(null);
-    (window as any).ethereum = { request };
-    mockWalletState = createWalletState({
-      account: {},
-      chainId: 1n,
-      chain: { name: "Othernet" },
-    });
-    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    const switchButton = await waitFor(() =>
-      screen.getByText(/\[\s*switch\s*\]/i)
-    );
-    fireEvent.click(switchButton);
-    await waitFor(() => {
-      expect(request).toHaveBeenNthCalledWith(2, {
-        method: "wallet_addEthereumChain",
-        params: [
-          expect.objectContaining({
-            chainId: "0xaa36a7",
-            rpcUrls: ["https://ethereum-sepolia-rpc.publicnode.com"],
-          }),
-        ],
-      });
-    });
-  });
-
-  test("switch CTA uses explicit wallet chain RPC when configured", async () => {
-    (globalThis as any).__VITE_ENV__ = {
-      ...(globalThis as any).__VITE_ENV__,
-      VITE_PATH_RPC_URL: "/api/path-rpc",
-      VITE_WALLET_CHAIN_RPC_URL: "https://wallet-rpc.example/sepolia",
-    };
-    const request = jest
-      .fn()
-      .mockRejectedValueOnce({ code: 4902, message: "Unknown chain" })
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(null);
-    (window as any).ethereum = { request };
-    mockWalletState = createWalletState({
-      account: {},
-      chainId: 1n,
-      chain: { name: "Othernet" },
-    });
-    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    const switchButton = await waitFor(() =>
-      screen.getByText(/\[\s*switch\s*\]/i)
-    );
-    fireEvent.click(switchButton);
-    await waitFor(() => {
-      expect(request).toHaveBeenNthCalledWith(2, {
-        method: "wallet_addEthereumChain",
-        params: [
-          expect.objectContaining({
-            chainId: "0xaa36a7",
-            rpcUrls: ["https://wallet-rpc.example/sepolia"],
-          }),
-        ],
-      });
+      expect(screen.queryByRole("button", { name: "connect wallet" })).toBeNull();
+      expect(connectAsync).not.toHaveBeenCalled();
     });
   });
 
@@ -2157,59 +2030,6 @@ describe("AuctionCanvas", () => {
             rpcUrls: ["https://ethereum-sepolia-rpc.publicnode.com"],
           }),
         ],
-      });
-    });
-  });
-
-  test("switch CTA adds PATH Local when devnet wallet reports unknown chain", async () => {
-    (globalThis as any).__VITE_ENV__ = {
-      VITE_NETWORK: "devnet",
-      VITE_EXPECTED_CHAIN_ID: "0x7a6a",
-      VITE_PULSE_AUCTION: TEST_AUCTION_ADDRESS,
-      VITE_PATH_ALLOW_DIRECT_AUCTION: "1",
-      VITE_PAYMENT_TOKEN: TEST_PAYMENT_TOKEN,
-      VITE_PAYMENT_TOKEN_SYMBOL: "ETH",
-      VITE_PATH_RPC_URL: "http://127.0.0.1:8546",
-      VITE_WALLET_CHAIN_RPC_URL: "",
-      VITE_PUBLIC_LAUNCH_MODE: "local",
-    };
-    const request = jest
-      .fn()
-      .mockRejectedValueOnce({ code: 4902, message: "Unknown chain" })
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(null);
-    (window as any).ethereum = { request };
-    mockWalletState = createWalletState({
-      account: {},
-      chainId: 1n,
-      chain: { name: "Othernet" },
-    });
-    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    await waitFor(() => {
-      expect(screen.getByText(/PATH Local only/i)).toBeTruthy();
-    });
-    const switchButton = await waitFor(() =>
-      screen.getByText(/\[\s*switch\s*\]/i)
-    );
-    fireEvent.click(switchButton);
-    await waitFor(() => {
-      expect(request).toHaveBeenNthCalledWith(1, {
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: "0x7a6a" }],
-      });
-      expect(request).toHaveBeenNthCalledWith(2, {
-        method: "wallet_addEthereumChain",
-        params: [
-          expect.objectContaining({
-            chainId: "0x7a6a",
-            chainName: "PATH Local",
-            rpcUrls: ["http://127.0.0.1:8546"],
-          }),
-        ],
-      });
-      expect(request).toHaveBeenNthCalledWith(3, {
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: "0x7a6a" }],
       });
     });
   });
@@ -2316,7 +2136,7 @@ describe("AuctionCanvas", () => {
     rerender(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     await waitFor(() => {
       expect(screen.queryByText(/Approve ETH/i)).toBeNull();
-      expect(screen.getByText(/\[\s*connect\s*\]/i)).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "connect wallet" })).toBeNull();
     });
   });
 
@@ -3387,7 +3207,7 @@ describe("AuctionCanvas", () => {
   });
 
   test("shows return CTA after THOUGHT mint-path success", async () => {
-    const returnTo = "http://127.0.0.1:5174/";
+    const returnTo = "/thought/runs/tar_123";
     window.history.pushState(
       {},
       "",
@@ -3419,13 +3239,7 @@ describe("AuctionCanvas", () => {
     });
   });
 
-  test("copied toast overrides notice then returns", async () => {
-    jest.useFakeTimers();
-    Object.assign(navigator, {
-      clipboard: {
-        writeText: jest.fn().mockResolvedValue(undefined),
-      },
-    });
+  test("keeps wallet menu out of the PATH-local CTA stack", async () => {
     mockWalletState = createWalletState({
       account: {},
     });
@@ -3448,50 +3262,9 @@ describe("AuctionCanvas", () => {
     await waitFor(() => {
       expect(screen.getByText(/Approve ETH/i)).toBeTruthy();
     });
-    const dotButton = container.querySelector(
-      ".dotfield__cta-address"
-    ) as HTMLElement;
-    fireEvent.click(dotButton);
-    const copyButton = screen.getByText(/copy address/i);
-    await act(async () => {
-      fireEvent.click(copyButton);
-    });
-    expect(screen.getByText(/Copied/i)).toBeTruthy();
-    act(() => {
-      jest.advanceTimersByTime(3000);
-    });
-    expect(screen.getByText(/Approve ETH/i)).toBeTruthy();
-    jest.useRealTimers();
-  });
-
-  test("disconnect toast shows and resets CTA", async () => {
-    jest.useFakeTimers();
-    mockWalletState = createWalletState({
-      account: {},
-    });
-    const { container, rerender } = render(
-      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
-    );
-    const dotButton = container.querySelector(
-      ".dotfield__cta-address"
-    ) as HTMLElement;
-    fireEvent.click(dotButton);
-    const disconnectButton = screen.getByText(/disconnect/i);
-    await act(async () => {
-      fireEvent.click(disconnectButton);
-    });
-    expect(screen.getByText(/wallet disconnected/i)).toBeTruthy();
-    mockWalletState = createWalletState({
-      isConnected: false,
-      address: null,
-      account: null,
-    });
-    rerender(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    act(() => {
-      jest.advanceTimersByTime(DELAY_MS + 20);
-    });
-    expect(screen.getByText(/\[\s*connect\s*\]/i)).toBeTruthy();
-    jest.useRealTimers();
+    expect(container.querySelector(".dotfield__cta-address")).toBeNull();
+    expect(screen.queryByText(/copy address/i)).toBeNull();
+    expect(screen.queryByText(/disconnect/i)).toBeNull();
   });
 
   test("shows PATH mint proof after confirmation when bid appears", async () => {

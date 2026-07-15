@@ -43,8 +43,17 @@ import {
   trackInshellAnonymousAnalytics,
   type PublicLaunchMode,
 } from "@inshell/shared";
-import thoughtInstructions from "../THOUGHT.md?raw";
-import thoughtInstructionsUrl from "../THOUGHT.md?url";
+import { openInshellWallet } from "@inshell/inshell-shell";
+import {
+  THOUGHT_CODEX_CLIENT_ROUTE,
+  THOUGHT_AGENT_RESULT_VERSION,
+  THOUGHT_AGENT_PROTOCOL_VERSION,
+  THOUGHT_SHA256_PREFIX,
+  THOUGHT_V2_PROTOCOL_RELEASE,
+  assertThoughtLine,
+  buildThoughtCodexTask,
+  sha256Hex,
+} from "@inshell/thought-agent-protocol";
 import colorFontRaw from "../colorFontJSON/colorfont.byToolv2.json?raw";
 import colorFontText from "../spec/COLOR_FONT.v1.txt?raw";
 import addresses from "../evm/addresses.anvil.json";
@@ -103,16 +112,23 @@ import {
 } from "./thought-preview-policy";
 import { createSingleRequestJsonRpcProvider } from "./rpc-provider";
 import {
-  THOUGHT_V2_CANVAS_SIZE,
-  THOUGHT_V2_DEFAULT_AGENT_BG,
-  THOUGHT_V2_DEFAULT_AGENT_FRAME,
-  THOUGHT_V2_DEFAULT_PROMPT_TEXT,
+  THOUGHT_PANEL_MINT_UI_MODE,
+  type MintFlowUiMode,
+} from "./thought-mint-ui";
+import {
+  createThoughtPollWakeScheduler,
+  hasThoughtPollDeadlineExpired,
+} from "./thought-poll-wake";
+import {
   buildThoughtV2Svg,
   measureThoughtV2Line,
-  thoughtV2DefaultAgentLineBox,
-  thoughtV2DefaultPromptLineBox,
   type ThoughtV2LineKind,
 } from "./thought-v2-renderer";
+import {
+  getThoughtShellWallet,
+  mountThoughtShell,
+  subscribeThoughtShellWallet,
+} from "./thought-shell";
 
 declare global {
   var __INSHELL_VITE_ENV__: Record<string, unknown> | undefined;
@@ -418,8 +434,6 @@ type WalletStripView = {
   actions: WalletAction[];
 };
 
-type MintFlowUiMode = "sheet" | "cli" | "dock";
-
 type CliEntryKind = "intro" | "command" | "output" | "error";
 
 type CliEntry = {
@@ -445,7 +459,6 @@ type ThoughtWalletState = {
   preflightLoading: boolean;
   preflightError: string;
   mintedTokenId: number | null;
-  menuOpen: boolean;
 };
 
 type MintFlowData = {
@@ -572,8 +585,9 @@ type ThoughtAgentRunStatusResponse = {
   createdAt?: string;
   updatedAt?: string;
   expiresAt?: string;
+  claimAuthorization?: ThoughtClaimAuthorization;
   request?: {
-    prompt?: {
+    promptLine?: {
       text?: string | null;
       sha256?: string | null;
     };
@@ -595,7 +609,7 @@ type ThoughtAgentRunStatusResponse = {
   };
   result?: {
     raw?: string | null;
-    work?: string | null;
+    agentLine?: string | null;
     receipt?: {
       receiptVersion?: string | null;
       receiptSha256?: string | null;
@@ -613,6 +627,23 @@ type ThoughtAgentRunStatusResponse = {
     code?: string | null;
     message?: string | null;
   };
+};
+
+type ThoughtClaimAuthorization = {
+  state?: "pending" | "authorized" | "consumed";
+  claimRequestId?: string;
+  verificationCode?: string;
+  bridge?: {
+    bridgeId?: string;
+    platform?: string;
+  };
+  adapter?: {
+    adapterId?: string;
+    adapterVersion?: string;
+  };
+  requestedAt?: string;
+  expiresAt?: string;
+  authorizedAt?: string | null;
 };
 
 type PendingThoughtAgentRun = {
@@ -768,8 +799,10 @@ const CODEX_MODEL_SOURCE_ID = "codex";
 const CODEX_MODEL = "codex";
 const CODEX_PROVIDER = "codex";
 const CODEX_DESCRIPTION = "local Bridge route. opens Codex for one THOUGHT round.";
-const THOUGHT_AGENT_PROTOCOL_VERSION = "thought-agent/1";
-const THOUGHT_AGENT_REGISTERED_SPEC_ID = "THOUGHT_V1";
+const THOUGHT_AGENT_REGISTERED_SPEC_ID = THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId;
+const THOUGHT_V2_MINT_ENABLED = THOUGHT_V2_PROTOCOL_RELEASE.deployment.v2MintEnabled;
+const thoughtInstructions = THOUGHT_V2_PROTOCOL_RELEASE.spec.text;
+const thoughtInstructionsUrl = THOUGHT_V2_PROTOCOL_RELEASE.publicSpecPath;
 const getStorageOrNull = (storage: () => Storage | null | undefined) => {
   try {
     const resolved = storage();
@@ -1015,6 +1048,49 @@ const readConfiguredUrl = (name: string) => {
   return typeof value === "string" && value.trim() ? value.trim() : "";
 };
 
+const normalizeThoughtRouteBase = (value: string) => {
+  const raw = value.trim().replace(/\/+$/g, "");
+  if (!raw || raw === "/") return "";
+  return raw.startsWith("/") ? raw : `/${raw}`;
+};
+
+const inferThoughtRouteBase = () => {
+  const pathname = window.location.pathname.replace(/\/+$/g, "") || "/";
+  return pathname === "/thought" || pathname.startsWith("/thought/") ? "/thought" : "";
+};
+
+const THOUGHT_ROUTE_BASE = normalizeThoughtRouteBase(
+  readConfiguredUrl("VITE_THOUGHT_ROUTE_BASE") || inferThoughtRouteBase(),
+);
+
+const thoughtRoutePath = (path: string) => {
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  if (!THOUGHT_ROUTE_BASE) return normalized;
+  if (normalized === "/") return THOUGHT_ROUTE_BASE;
+  return `${THOUGHT_ROUTE_BASE}${normalized}`;
+};
+
+const sameOriginAppOrigin = () => {
+  if (LOCAL_BROWSER_HOSTS.has(window.location.hostname) && window.location.port === "5174") {
+    return "http://127.0.0.1:5173";
+  }
+  return window.location.origin;
+};
+
+const sameOriginAppUrl = (path: string) => new URL(path, sameOriginAppOrigin()).toString();
+
+const logicalThoughtRoutePathname = (pathname: string) => {
+  const normalized = pathname.replace(/\/+$/g, "") || "/";
+  if (!THOUGHT_ROUTE_BASE) return normalized;
+  if (normalized === THOUGHT_ROUTE_BASE) return "/";
+  if (!normalized.startsWith(`${THOUGHT_ROUTE_BASE}/`)) return normalized;
+  const suffix = normalized.slice(THOUGHT_ROUTE_BASE.length) || "/";
+  if (/^\/[1-9]\d*$/.test(suffix)) {
+    return `${THOUGHT_ROUTE_BASE}${suffix}`;
+  }
+  return suffix;
+};
+
 const resolveBrowserRpcUrl = (rpcUrl: string) => {
   try {
     return new URL(rpcUrl, window.location.origin).toString();
@@ -1229,35 +1305,41 @@ const THOUGHT_WALLET_RPC_URLS = resolveWalletChainRpcUrls({
 const PATH_NFT_ADDRESS = EVM_ADDRESSES.pathNft?.address?.trim() ?? "";
 const defaultPathMintUrl = () => {
   if (LOCAL_BROWSER_HOSTS.has(window.location.hostname)) {
-    return "http://localhost:5173";
+    return sameOriginAppUrl("/path");
   }
-  return IS_PREVIEW_DEPLOYMENT ? "https://preview.inshell.art" : "https://inshell.art";
+  return IS_PREVIEW_DEPLOYMENT ? "https://preview.inshell.art/path" : "https://inshell.art/path";
 };
 const PATH_MINT_URL =
   typeof import.meta.env.VITE_PATH_MINT_URL === "string" && import.meta.env.VITE_PATH_MINT_URL.trim()
     ? import.meta.env.VITE_PATH_MINT_URL.trim()
     : defaultPathMintUrl();
-const PATH_VERIFY_CONTRACTS_URL = new URL("/verify#verify-contracts", PATH_MINT_URL).toString();
+const PATH_MINT_ABSOLUTE_URL = new URL(PATH_MINT_URL, sameOriginAppOrigin()).toString();
+const INSHELL_HOME_URL = LOCAL_BROWSER_HOSTS.has(window.location.hostname)
+  ? sameOriginAppUrl("/")
+  : IS_PREVIEW_DEPLOYMENT
+    ? "https://preview.inshell.art/"
+    : "https://inshell.art/";
+const PATH_VERIFY_CONTRACTS_URL = new URL("/verify#verify-contracts", PATH_MINT_ABSOLUTE_URL).toString();
 const GALLERY_URL =
   readConfiguredUrl("VITE_GALLERY_URL") ||
   readConfiguredUrl("VITE_THOUGHT_GALLERY_URL") ||
   (LOCAL_BROWSER_HOSTS.has(window.location.hostname)
-    ? ""
+    ? sameOriginAppUrl("/gallery")
     : IS_PREVIEW_DEPLOYMENT
       ? "https://preview.inshell.art/gallery"
       : "https://inshell.art/gallery");
 const THOUGHT_APP_URL =
   readConfiguredUrl("VITE_THOUGHT_URL") ||
   (LOCAL_BROWSER_HOSTS.has(window.location.hostname)
-    ? window.location.origin
+    ? sameOriginAppUrl(thoughtRoutePath("/"))
     : IS_PREVIEW_DEPLOYMENT
-      ? "https://thought.preview.inshell.art/"
-      : "https://thought.inshell.art/");
+      ? "https://preview.inshell.art/thought"
+      : "https://inshell.art/thought");
 const defaultThoughtDetailBaseUrl = () => {
   if (LOCAL_BROWSER_HOSTS.has(window.location.hostname)) {
-    return window.location.origin;
+    return sameOriginAppUrl(thoughtRoutePath("/"));
   }
-  return IS_PREVIEW_DEPLOYMENT ? "https://preview.inshell.art/" : "https://inshell.art/";
+  return IS_PREVIEW_DEPLOYMENT ? "https://preview.inshell.art/thought" : "https://inshell.art/thought";
 };
 const THOUGHT_DETAIL_BASE_URL = (() => {
   const configured = readConfiguredUrl("VITE_THOUGHT_DETAIL_BASE_URL");
@@ -1294,6 +1376,7 @@ const THOUGHT_DETAIL_BASE_URL = (() => {
     return fallback;
   }
 })();
+
 const GALLERY_API_URL =
   readConfiguredUrl("VITE_GALLERY_API_URL") ||
   readConfiguredUrl("VITE_THOUGHT_GALLERY_API_URL") ||
@@ -1371,7 +1454,7 @@ const CONSUME_AUTHORIZATION_TYPEHASH = id(
 );
 const PATH_CONSUME_AUTH_TTL_SECONDS = 3600n;
 const ROUTE_SEARCH_PARAMS = new URLSearchParams(window.location.search);
-const ROUTE_PATHNAME = window.location.pathname.replace(/\/+$/, "") || "/";
+const ROUTE_PATHNAME = logicalThoughtRoutePathname(window.location.pathname);
 const IS_COLOR_FONT_PAGE = ROUTE_PATHNAME === "/color-font";
 const IS_VERIFY_PAGE = ROUTE_PATHNAME === "/verify";
 const IS_AGENT_DEMO_PAGE = ROUTE_PATHNAME === "/agent-demo";
@@ -1529,6 +1612,7 @@ const COLOR_FONT = Object.fromEntries(
 ) as Record<string, string>;
 
 const frontpageShell = document.querySelector(".frontpage-shell") as HTMLElement | null;
+const thoughtShellRoot = document.getElementById("thought-shell-root") as HTMLElement | null;
 const frontpageStage = document.querySelector(".frontpage-stage") as HTMLElement | null;
 const frontpageMain = document.querySelector(".frontpage-main") as HTMLElement | null;
 const frontpageTitle = document.getElementById("frontpage-title") as HTMLElement | null;
@@ -1568,6 +1652,9 @@ const thoughtWalletStripDetail = document.getElementById("thought-wallet-strip-d
 const thoughtWalletStripMeta = document.getElementById("thought-wallet-strip-meta") as HTMLElement | null;
 const thoughtWalletStripActions = document.getElementById("thought-wallet-strip-actions") as HTMLElement | null;
 const thoughtDockPath = document.getElementById("thought-dock-path") as HTMLElement | null;
+const thoughtDockPathInventory = document.getElementById("thought-dock-path-inventory") as HTMLElement | null;
+const thoughtDockPathInventoryLabel = document.getElementById("thought-dock-path-inventory-label") as HTMLElement | null;
+const thoughtDockPathInventoryList = document.getElementById("thought-dock-path-inventory-list") as HTMLElement | null;
 const thoughtDockPathField = document.getElementById("thought-dock-path-field") as HTMLElement | null;
 const thoughtDockPathBox = document.getElementById("thought-dock-path-box") as HTMLInputElement | null;
 const thoughtDockPathOptions = document.getElementById("thought-dock-path-options") as HTMLDataListElement | null;
@@ -1593,26 +1680,6 @@ const thoughtFileInput = document.getElementById("thought-file-input") as HTMLIn
 const thoughtFileStatus = document.getElementById("thought-file-status") as HTMLElement | null;
 const runAgentButton = document.getElementById("run-agent") as HTMLButtonElement | null;
 const actionStatusCopy = document.getElementById("action-status-copy") as HTMLElement | null;
-const mintWalletToggle = document.getElementById("mint-wallet-toggle") as HTMLButtonElement | null;
-const mintWalletLabel = document.getElementById("mint-wallet-label") as HTMLElement | null;
-const mintWalletDot = document.getElementById("mint-wallet-dot") as HTMLElement | null;
-const mintWalletMenu = document.getElementById("mint-wallet-menu") as HTMLElement | null;
-const mintWalletAddress = document.getElementById("mint-wallet-address") as HTMLElement | null;
-const mintWalletNetwork = document.getElementById("mint-wallet-network") as HTMLElement | null;
-const mintWalletTokenRow = document.getElementById("mint-wallet-token-row") as HTMLElement | null;
-const mintWalletToken = document.getElementById("mint-wallet-token") as HTMLElement | null;
-const mintWalletPathRow = document.getElementById("mint-wallet-path-row") as HTMLElement | null;
-const mintWalletPath = document.getElementById("mint-wallet-path") as HTMLElement | null;
-const mintWalletReview = document.getElementById("mint-wallet-review") as HTMLElement | null;
-const mintWalletAuthorize = document.getElementById("mint-wallet-authorize") as HTMLButtonElement | null;
-const mintWalletConfirm = document.getElementById("mint-wallet-confirm") as HTMLButtonElement | null;
-const mintWalletViewTx = document.getElementById("mint-wallet-view-tx") as HTMLButtonElement | null;
-const mintWalletConnect = document.getElementById("mint-wallet-connect") as HTMLButtonElement | null;
-const mintWalletCopyAddress = document.getElementById("mint-wallet-copy-address") as HTMLButtonElement | null;
-const mintWalletCopyTx = document.getElementById("mint-wallet-copy-tx") as HTMLButtonElement | null;
-const mintWalletRefresh = document.getElementById("mint-wallet-refresh") as HTMLButtonElement | null;
-const mintWalletSwitchNetwork = document.getElementById("mint-wallet-switch-network") as HTMLButtonElement | null;
-const mintWalletDisconnect = document.getElementById("mint-wallet-disconnect") as HTMLButtonElement | null;
 const resetThoughtButton = document.getElementById("reset-thought") as HTMLButtonElement | null;
 const runStatus = document.getElementById("run-status") as HTMLElement | null;
 const warningBox = document.getElementById("input-warning") as HTMLElement | null;
@@ -1738,6 +1805,7 @@ const mintSheetTertiary = document.getElementById("mint-sheet-tertiary") as HTML
 
 if (
   !frontpageShell ||
+  !thoughtShellRoot ||
   !frontpageStage ||
   !frontpageMain ||
   !modeConnectButton ||
@@ -1776,6 +1844,9 @@ if (
   !thoughtWalletStripMeta ||
   !thoughtWalletStripActions ||
   !thoughtDockPath ||
+  !thoughtDockPathInventory ||
+  !thoughtDockPathInventoryLabel ||
+  !thoughtDockPathInventoryList ||
   !thoughtDockPathField ||
   !thoughtDockPathBox ||
   !thoughtDockPathOptions ||
@@ -1801,26 +1872,6 @@ if (
   !thoughtFileStatus ||
   !runAgentButton ||
   !actionStatusCopy ||
-  !mintWalletToggle ||
-  !mintWalletLabel ||
-  !mintWalletDot ||
-  !mintWalletMenu ||
-  !mintWalletAddress ||
-  !mintWalletNetwork ||
-  !mintWalletTokenRow ||
-  !mintWalletToken ||
-  !mintWalletPathRow ||
-  !mintWalletPath ||
-  !mintWalletReview ||
-  !mintWalletAuthorize ||
-  !mintWalletConfirm ||
-  !mintWalletViewTx ||
-  !mintWalletConnect ||
-  !mintWalletCopyAddress ||
-  !mintWalletCopyTx ||
-  !mintWalletRefresh ||
-  !mintWalletSwitchNetwork ||
-  !mintWalletDisconnect ||
   !resetThoughtButton ||
   !runStatus ||
   !warningBox ||
@@ -1943,6 +1994,8 @@ if (
   throw new Error("Front page elements are missing.");
 }
 
+mountThoughtShell(thoughtShellRoot, THOUGHT_CHAIN_ID);
+
 localModelValue.textContent = LOCAL_MODEL_LABEL;
 
 const context = canvas.getContext("2d");
@@ -1979,6 +2032,7 @@ type AgentDemoRun = {
   sealedTask: string;
   candidate: string | null;
   remoteState: string;
+  expiresAt?: string;
 };
 
 type ThoughtDockAgentAdapterId = "codex" | "claude";
@@ -1986,10 +2040,7 @@ type ThoughtDockAgentAdapterId = "codex" | "claude";
 type ThoughtDockAgentAdapter = {
   id: ThoughtDockAgentAdapterId;
   label: string;
-  canOpenPrompt: boolean;
-  canAutoSubmit: boolean;
-  canGuaranteedCallback: boolean;
-  canManualPaste: boolean;
+  canDeepLink: boolean;
 };
 
 const CODEX_AGENT_ROUTE = "codex://new";
@@ -2007,6 +2058,7 @@ type ThoughtDockState =
   | { kind: "creating_run"; prompt: string; adapterId: ThoughtDockAgentAdapterId }
   | { kind: "agent_task_ready"; run: AgentDemoRun; adapterId: ThoughtDockAgentAdapterId; message?: string }
   | { kind: "opening_agent"; run: AgentDemoRun; adapterId: ThoughtDockAgentAdapterId }
+  | { kind: "claim_authorization"; run: AgentDemoRun; adapterId: ThoughtDockAgentAdapterId; authorization: ThoughtClaimAuthorization; approving?: boolean }
   | { kind: "waiting_for_agent"; run: AgentDemoRun; adapterId: ThoughtDockAgentAdapterId; message?: string }
   | { kind: "agent_returned"; run: AgentDemoRun; rawCandidate: string }
   | { kind: "previewing"; rawCandidate: string }
@@ -2073,18 +2125,12 @@ const THOUGHT_DOCK_AGENT_ADAPTERS: ThoughtDockAgentAdapter[] = [
   {
     id: "codex",
     label: "Codex",
-    canOpenPrompt: true,
-    canAutoSubmit: false,
-    canGuaranteedCallback: false,
-    canManualPaste: false,
+    canDeepLink: true,
   },
   {
     id: "claude",
     label: "Claude",
-    canOpenPrompt: true,
-    canAutoSubmit: false,
-    canGuaranteedCallback: false,
-    canManualPaste: false,
+    canDeepLink: false,
   },
 ];
 
@@ -2097,6 +2143,10 @@ let thoughtDockState: ThoughtDockState = { kind: "empty" };
 let thoughtDockRun: AgentDemoRun | null = null;
 let thoughtDockAdapterId: ThoughtDockAgentAdapterId = "codex";
 let thoughtDockPollGeneration = 0;
+const thoughtDockPollWakeScheduler = createThoughtPollWakeScheduler();
+const refreshThoughtDockPolling = () => {
+  thoughtDockPollWakeScheduler.pollNow();
+};
 let thoughtDockRailSignature = "";
 let thoughtDockConsoleSignature = "";
 let thoughtDockWalletConsoleNonce = 0;
@@ -2125,10 +2175,7 @@ const agentDemoSetHidden = (element: HTMLElement, hidden: boolean) => {
   element.classList.toggle("is-hidden", hidden);
 };
 
-const agentDemoSha256 = async (value: string) => {
-  const digest = await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return `0x${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
-};
+const agentDemoSha256 = sha256Hex;
 
 const agentDemoBridgeInfo = () => ({
   bridgeId: "inshell-thought-agent-demo",
@@ -2170,19 +2217,12 @@ const agentDemoLaunchToken = (launchUri: string) => {
 };
 
 const agentDemoResultJson = (
-  run: AgentDemoRun,
+  _run: AgentDemoRun,
   candidate: string,
-  adapterId: ThoughtDockAgentAdapterId = "codex",
+  _adapterId: ThoughtDockAgentAdapterId = "codex",
 ) => ({
-  schema: "thought.agent.demo.result.v1",
-  runId: run.runId,
-  work: canonicalThoughtTitle(candidate),
-  model: adapterId,
-  provenance: {
-    route: adapterId === "claude" ? CLAUDE_CODE_AGENT_ROUTE : CODEX_AGENT_ROUTE,
-    promptHash: run.promptHash,
-    returnedAt: new Date().toISOString(),
-  },
+  schema: THOUGHT_AGENT_RESULT_VERSION,
+  agentLine: candidate,
 });
 
 const thoughtAgentProductLabel = (adapterId: ThoughtDockAgentAdapterId) =>
@@ -2218,64 +2258,27 @@ const buildAgentDemoSealedTask = (
   adapterId: ThoughtDockAgentAdapterId = "codex",
 ) => {
   const product = thoughtAgentProductLabel(adapterId);
-  return [
-    `You are ${product} running one THOUGHT round.`,
-    "",
-    "Run:",
-    run.runId,
-    "",
-    "Task:",
-    run.prompt,
-    "",
-    "Rules:",
-    "- Return one concise THOUGHT candidate.",
-    "- Do not ask follow-up questions.",
-    "- Return exactly one candidate work as JSON:",
-    '{"work":"YOUR WORK"}',
-    "- one line only",
-    "- A-Z letters and single spaces only",
-    "- 128 characters max after normalization",
-    "- no punctuation",
-    "- no markdown",
-    "- no explanation",
-    "- no alternatives",
-    "- do not mint",
-    "- do not use wallet",
-    "- do not choose PATH",
-    "- the work must answer Task only",
-    "- do not mention protocol, callback, wallet, minting, PATH selection, or access failures in the work",
-    "",
-    "THOUGHT Agent protocol:",
-    `Launch URI: ${run.launchUri}`,
-    `Launch token: ${run.launchToken}`,
-    `Claim: POST ${run.claimUrl}`,
-    `Start: POST ${run.startUrl}`,
-    `Result: PUT ${run.resultUrl}`,
-    "",
-    "Protocol transport:",
-    "- Use shell curl for every protocol HTTP request.",
-    "- Do not use browser fetch, Node fetch, or web fetch for these local URLs.",
-    "- If a fetch API reports failed to fetch, switch to curl and continue.",
-    "- Claim uses Authorization: Bearer <Launch token>.",
-    "- Claim returns bridgeToken. Start and Result use Authorization: Bearer <bridgeToken>.",
-    "",
-    "Protocol payload requirements:",
-    "- Claim body includes protocolVersion, bridge, and adapter.",
-    "- Start body includes protocolVersion, invocationId, and startedAt.",
-    "- Result body includes protocolVersion, invocationId, bridge, adapter, agent, execution, startedAt, completedAt, and output.",
-    "- output.raw is JSON text exactly like {\"work\":\"YOUR WORK\"}.",
-    "- output.rawSha256 and output.workSha256 are SHA-256 hex strings with 0x prefix.",
-    "- On macOS, SHA-256 can be computed with: printf %s \"$VALUE\" | shasum -a 256 | awk '{print \"0x\"$1}'",
-    "",
-    "The THOUGHT page polls this status URL with its browser token:",
-    run.statusUrl,
-    "",
-    "Submit the result through the THOUGHT Agent protocol.",
-    "After submitting the result, show this note to the visitor:",
-    "Return to the THOUGHT browser tab. It is polling this run and will show the preview automatically.",
-    "",
-    "Do not include that note inside the JSON protocol result.",
-  ].join("\n");
+  const launchApiOrigin = (() => {
+    try {
+      return new URL(run.launchUri).searchParams.get("api_origin") || "";
+    } catch {
+      return "";
+    }
+  })();
+  const derivedStatusUrl = launchApiOrigin
+    ? `${launchApiOrigin.replace(/\/+$/g, "")}/api/thought-agent/v2/runs/${encodeURIComponent(run.runId)}`
+    : "";
+  const statusUrl = run.statusUrl || derivedStatusUrl;
+  const absoluteStatusUrl = new URL(statusUrl, window.location.href).toString().replace(/\/+$/g, "");
+  const clientUrl = `${new URL(absoluteStatusUrl).origin}${THOUGHT_CODEX_CLIENT_ROUTE}`;
+  return buildThoughtCodexTask({
+    product,
+    runId: run.runId,
+    promptLine: run.prompt,
+    runUrl: absoluteStatusUrl,
+    clientUrl,
+    launchToken: run.launchToken,
+  });
 };
 
 const buildCodexAgentUrl = (sealedTask: string) => {
@@ -2294,14 +2297,15 @@ const buildClaudeCodeAgentUrl = (sealedTask: string) => {
 };
 
 const buildAgentDemoRun = async (): Promise<AgentDemoRun> => {
-  const prompt = agentDemoPrompt.value.trim();
+  const prompt = agentDemoPrompt.value;
+  assertThoughtLine(prompt, "prompt");
   const createPayload = await fetchThoughtAgentJson<ThoughtAgentRunCreateResponse>(
     thoughtAgentApiUrl("runs"),
     {
       method: "POST",
       body: JSON.stringify({
         protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
-        prompt,
+        promptLine: prompt,
         specId: THOUGHT_AGENT_REGISTERED_SPEC_ID,
         requestedAgent: {
           adapterId: CODEX_PROVIDER,
@@ -2315,7 +2319,12 @@ const buildAgentDemoRun = async (): Promise<AgentDemoRun> => {
       }),
     },
   );
-  if (!createPayload.runId || !createPayload.browserToken || !createPayload.statusUrl || !createPayload.launchUri) {
+  if (
+    !createPayload.runId ||
+    !createPayload.browserToken ||
+    !createPayload.statusUrl ||
+    !createPayload.launchUri
+  ) {
     throw new Error("THOUGHT Agent API returned an incomplete demo run.");
   }
   const statusUrl = resolveThoughtAgentStatusUrl(createPayload.statusUrl);
@@ -2337,6 +2346,7 @@ const buildAgentDemoRun = async (): Promise<AgentDemoRun> => {
     startUrl: agentDemoRunActionUrl(statusUrl, "start"),
     resultUrl: agentDemoRunActionUrl(statusUrl, "result"),
     remoteState: createPayload.state ?? "created",
+    expiresAt: createPayload.claimExpiresAt,
   };
   const sealedTask = buildAgentDemoSealedTask(baseRun);
   return {
@@ -2403,35 +2413,27 @@ const renderAgentDemo = () => {
 };
 
 const parseAgentDemoReturn = (rawValue: string) => {
-  const raw = rawValue.trim();
-  if (!raw) {
+  if (!rawValue) {
     throw new Error("return empty.");
   }
-  const block = /THOUGHT_RESULT_BEGIN\s*([\s\S]*?)\s*THOUGHT_RESULT_END/i.exec(raw)?.[1]?.trim() ?? raw;
-  const parsed = JSON.parse(block) as Record<string, unknown>;
-  const candidate =
-    typeof parsed.work === "string"
-      ? parsed.work
-      : typeof parsed.candidate === "string"
-        ? parsed.candidate
-        : typeof parsed.text === "string"
-          ? parsed.text
-          : null;
-  if (!candidate) {
-    throw new Error("candidate missing.");
+  const parsed = JSON.parse(rawValue) as Record<string, unknown>;
+  if (parsed.schema !== THOUGHT_AGENT_RESULT_VERSION || typeof parsed.agentLine !== "string") {
+    throw new Error("agent result schema invalid.");
   }
+  const candidate = parsed.agentLine;
+  assertThoughtLine(candidate, "agent");
   const returnedRunId = typeof parsed.runId === "string" ? parsed.runId : null;
   if (agentDemoRun && returnedRunId && returnedRunId !== agentDemoRun.runId) {
     throw new Error("run id mismatch.");
   }
-  return canonicalThoughtTitle(candidate);
+  return candidate;
 };
 
 const acceptAgentDemoCandidate = (candidate: string, remoteState = "returned") => {
   if (!agentDemoRun) return;
   agentDemoRun = {
     ...agentDemoRun,
-    candidate: canonicalThoughtTitle(candidate),
+    candidate,
     remoteState,
   };
   agentDemoPhase = "returned";
@@ -2494,10 +2496,38 @@ const submitAgentDemoProtocolResult = async (candidate: string) => {
 
   const bridge = agentDemoBridgeInfo();
   const adapter = agentDemoAdapterInfo();
+  const claimBody = JSON.stringify({
+    protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+    bridge,
+    adapter,
+  });
+  const authorization = await fetchThoughtAgentJson<{
+    claimRequestId?: string;
+    claimRequestToken?: string;
+  }>(run.claimUrl, {
+    method: "POST",
+    body: claimBody,
+  });
+  if (!authorization.claimRequestId || !authorization.claimRequestToken) {
+    throw new Error("claim authorization response is incomplete.");
+  }
+  await fetchThoughtAgentJson<Record<string, unknown>>(
+    agentDemoRunActionUrl(run.statusUrl, "claim-authorization"),
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${run.browserToken}`,
+      },
+      body: JSON.stringify({
+        protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+        claimRequestId: authorization.claimRequestId,
+      }),
+    },
+  );
   const claimPayload = await fetchThoughtAgentJson<{ bridgeToken?: string }>(run.claimUrl, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${run.launchToken}`,
+      Authorization: `Bearer ${authorization.claimRequestToken}`,
     },
     body: JSON.stringify({
       protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
@@ -2523,8 +2553,8 @@ const submitAgentDemoProtocolResult = async (candidate: string) => {
     }),
   });
 
-  const work = canonicalThoughtTitle(candidate);
-  const raw = JSON.stringify({ work });
+  assertThoughtLine(candidate, "agent");
+  const raw = JSON.stringify({ schema: THOUGHT_AGENT_RESULT_VERSION, agentLine: candidate });
   const completedAt = new Date().toISOString();
   await fetchThoughtAgentJson<Record<string, unknown>>(run.resultUrl, {
     method: "PUT",
@@ -2545,8 +2575,8 @@ const submitAgentDemoProtocolResult = async (candidate: string) => {
         mediaType: "application/json",
         raw,
         rawSha256: await agentDemoSha256(raw),
-        work,
-        workSha256: await agentDemoSha256(work),
+        agentLine: candidate,
+        agentLineSha256: await agentDemoSha256(candidate),
       },
     }),
   });
@@ -2674,6 +2704,7 @@ const isThoughtDockRunningState = (state: ThoughtDockState) =>
   state.kind === "creating_run" ||
   state.kind === "agent_task_ready" ||
   state.kind === "opening_agent" ||
+  state.kind === "claim_authorization" ||
   state.kind === "waiting_for_agent" ||
   state.kind === "agent_returned" ||
   state.kind === "previewing" ||
@@ -2715,7 +2746,9 @@ const readStoredThoughtDockRun = (): StoredThoughtDockRun | null => {
       throw new Error("stored Dock run is incomplete.");
     }
     const createdAtMs = Date.parse(createdAt);
-    if (!Number.isFinite(createdAtMs) || Date.now() - createdAtMs > THOUGHT_AGENT_POLL_TIMEOUT_MS + 60000) {
+    const expiresAt = stringOrNull(parsed.expiresAt);
+    const storedDeadline = expiresAt ? Date.parse(expiresAt) : createdAtMs + THOUGHT_AGENT_POLL_TIMEOUT_MS + 60000;
+    if (!Number.isFinite(createdAtMs) || !Number.isFinite(storedDeadline) || Date.now() >= storedDeadline) {
       throw new Error("stored Dock run expired.");
     }
     return {
@@ -2726,7 +2759,7 @@ const readStoredThoughtDockRun = (): StoredThoughtDockRun | null => {
       prompt,
       promptHash,
       createdAt,
-      expiresAt: stringOrNull(parsed.expiresAt) ?? undefined,
+      expiresAt: expiresAt ?? undefined,
       remoteState: stringOrNull(parsed.remoteState) ?? undefined,
     };
   } catch {
@@ -2769,6 +2802,7 @@ const thoughtDockRunFromStored = (stored: StoredThoughtDockRun): AgentDemoRun =>
   sealedTask: "Agent Task is not available after refresh. Keep waiting or reset.",
   candidate: null,
   remoteState: stored.remoteState ?? "created",
+  expiresAt: stored.expiresAt,
 });
 
 const storeThoughtDockRun = (run: AgentDemoRun, adapterId: ThoughtDockAgentAdapterId, createdAt?: string) => {
@@ -2781,6 +2815,7 @@ const storeThoughtDockRun = (run: AgentDemoRun, adapterId: ThoughtDockAgentAdapt
     prompt: run.prompt,
     promptHash: run.promptHash,
     createdAt: createdAt || new Date().toISOString(),
+    expiresAt: run.expiresAt,
     remoteState: run.remoteState,
   });
 };
@@ -3222,7 +3257,7 @@ const getResolvedThoughtDockState = (): ThoughtDockState => {
     if (work && runState === "output_ready") {
       return { kind: "work_ready", work };
     }
-    const prompt = thoughtDockPrompt.value.trim();
+    const prompt = thoughtDockPrompt.value;
     return prompt ? { kind: "ready", prompt } : { kind: "empty" };
   }
 
@@ -3251,9 +3286,13 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
     dockRailAction("reset", "reset", "reset THOUGHT Dock and clear input", "secondary", () => {
       resetThoughtDock({ clearPrompt: true, focusPrompt: true });
     });
-  const showMintSheetAction = (label = "select path") =>
+  const openGlobalWalletAction = (label = "connect wallet") =>
+    dockRailAction("open-wallet", label, "open global wallet controls", "primary", () => {
+      openInshellWallet();
+    });
+  const showMintDockAction = (label = "select path") =>
     dockRailAction("select-path", label, "Select PATH for this THOUGHT mint", "primary", () => {
-      mintFlowUiMode = "sheet";
+      mintFlowUiMode = THOUGHT_PANEL_MINT_UI_MODE;
       syncInterface();
       focusMintPathInput();
     });
@@ -3292,10 +3331,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
       return "Already minted";
     }
     if (mintFlowState === "wallet_required") {
-      if (isInjectedWalletMissing()) {
-        return "no wallet";
-      }
-      return walletConnectInFlight ? "connect wallet" : "wallet needed";
+      return "wallet required";
     }
     if (mintFlowState === "path_required") {
       return "select PATH";
@@ -3348,8 +3384,8 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
     }
     if (mintFlowState === "wallet_required") {
       return isInjectedWalletMissing()
-        ? { kind: "wallet", message: "install or enable an injected wallet, then refresh." }
-        : { kind: "wallet", message: "reads address only. no signature. no tx." };
+        ? { kind: "wallet", message: "no wallet connector is available." }
+        : { kind: "wallet", message: "connect from the global wallet to continue." };
     }
     if (mintFlowState === "path_required") {
       return { kind: "path", message: "Choose the $PATH that will authorize this THOUGHT mint." };
@@ -3361,6 +3397,9 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         : { kind: "none" };
     }
     if (mintFlowState === "error") {
+      if (mintFlowData.errorKind === "wrong_network") {
+        return { kind: "wallet", message: "switch network from the global wallet to continue." };
+      }
       return { kind: "error", title: mintFlowStatus(), body: mintFlowData.error || getMintSheetStatusCopy() || "Mint failed." };
     }
     return { kind: "none" };
@@ -3373,13 +3412,13 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
       return { actions: [viewThoughtAction(), mintResetAction()] };
     }
     if (mintFlowState === "wallet_required") {
-      return { actions: [mintResetAction()] };
+      return { actions: [openGlobalWalletAction(), mintResetAction()] };
     }
     if (mintFlowState === "path_required") {
       if (mintFlowUiMode === "dock") {
         return { actions: [mintResetAction()] };
       }
-      return { actions: [showMintSheetAction(), mintResetAction()] };
+      return { actions: [showMintDockAction(), mintResetAction()] };
     }
     if (mintFlowState === "path_checking" || mintFlowState === "authorizing") {
       return { actions: [mintResetAction()] };
@@ -3406,14 +3445,14 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
     }
     if (mintFlowState === "error") {
       if (mintFlowData.errorKind === "wrong_network") {
-        return { actions: [mintResetAction()] };
+        return { actions: [openGlobalWalletAction("open wallet"), mintResetAction()] };
       }
       if (isPathRecoveryError()) {
         if (mintFlowUiMode === "dock") {
           return { actions: [mintResetAction()] };
         }
         return {
-          actions: [showMintSheetAction("choose path"), mintPathAction(), mintResetAction()],
+          actions: [showMintDockAction("choose path"), mintPathAction(), mintResetAction()],
           maxActions: 3,
         };
       }
@@ -3497,6 +3536,29 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         actions: [resetAction(state.run)],
         detail: { kind: "none" },
       };
+    case "claim_authorization": {
+      const code = state.authorization.verificationCode || "------";
+      const authorized = state.authorization.state === "authorized" || state.approving;
+      return {
+        status: authorized ? "Codex authorized" : `Code ${code}`,
+        tone: authorized ? "running" : "warning",
+        actions: authorized
+          ? [resetAction(state.run)]
+          : [
+              dockRailAction(
+                "allow-codex",
+                "allow codex",
+                `allow Codex claim ${code}`,
+                "primary",
+                () => {
+                  void approveThoughtDockClaim(state.run, state.adapterId, state.authorization);
+                },
+              ),
+              resetAction(state.run),
+            ],
+        detail: { kind: "none" },
+      };
+    }
     case "waiting_for_agent":
       return {
         status: thoughtDockAgentLifecycleStatus(state.adapterId, state.run.remoteState),
@@ -3562,10 +3624,14 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
       };
     case "expired":
       return {
-        status: "Expired",
+        status: "Codex link expired",
         tone: "error",
         actions: [resetAction()],
-        detail: { kind: "none" },
+        detail: {
+          kind: "error",
+          title: "Codex link expired",
+          body: "Codex did not claim this run within 5 minutes. Reset and send it again.",
+        },
       };
     case "failed":
       return {
@@ -3616,7 +3682,7 @@ const visibleMintErrorCopy = () => {
     return /expired/i.test(mintFlowData.error) ? "authorization expired." : "transaction rejected.";
   }
   if (mintFlowData.errorKind === "thought") {
-    return "this exact work is already minted.";
+    return mintFlowData.error || "mint failed.";
   }
   if (mintFlowData.errorKind === "path_invalid" || mintFlowData.errorKind === "path_unknown") {
     return "enter a valid PATH.";
@@ -3721,6 +3787,16 @@ const getThoughtPanelStatusView = (state: ThoughtDockState): ThoughtPanelStatusV
         title: `Opening ${thoughtAgentProductLabel(state.adapterId)}`,
         detail: "Run sealed",
       };
+    case "claim_authorization":
+      return {
+        mode: "waiting_for_agent",
+        title: state.authorization.state === "authorized" || state.approving
+          ? "Codex authorized"
+          : "Authorize Codex",
+        detail: state.authorization.verificationCode
+          ? `Code ${state.authorization.verificationCode}`
+          : "Confirm this claim request",
+      };
     case "waiting_for_agent":
       return {
         mode: "waiting_for_agent",
@@ -3740,7 +3816,7 @@ const getThoughtPanelStatusView = (state: ThoughtDockState): ThoughtPanelStatusV
     case "minted":
       return { mode: "minted", title: "minted", detail: "official token created" };
     case "expired":
-      return { mode: "failed", title: "Run expired", detail: "Open a fresh run link" };
+      return { mode: "failed", title: "Codex link expired", detail: "Reset and send again" };
     case "run_access_needed":
       return { mode: "failed", title: "Run access needed", detail: "This link is missing its view token" };
     case "failed":
@@ -4004,27 +4080,18 @@ const createThoughtDockRun = async (
   payload: ThoughtRunPayload,
   adapterId: ThoughtDockAgentAdapterId,
 ): Promise<AgentDemoRun> => {
+  assertThoughtLine(prompt, "prompt");
+  if (payload.input.promptLine !== prompt) {
+    throw new Error("sealed promptLine does not match the run payload.");
+  }
   const createPayload = await fetchThoughtAgentJson<ThoughtAgentRunCreateResponse>(
     thoughtDockAgentApiUrl("runs"),
     {
       method: "POST",
       body: JSON.stringify({
         protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
-        prompt,
+        promptLine: prompt,
         specId: THOUGHT_AGENT_REGISTERED_SPEC_ID,
-        thoughtSpec: {
-          id: payload.input.thoughtSpec.id,
-          ref: payload.input.thoughtSpec.ref,
-          hash: payload.input.thoughtSpec.hash,
-        },
-        outputContract: {
-          oneLineOnly: true,
-          maxCanonicalChars: MAX_TEXT_BYTES,
-          alphabet: "A-Z and single spaces",
-          noMarkdown: true,
-          noExplanation: true,
-          noAlternatives: true,
-        },
         requestedAgent: {
           adapterId: CODEX_PROVIDER,
           model: null,
@@ -4037,7 +4104,12 @@ const createThoughtDockRun = async (
       }),
     },
   );
-  if (!createPayload.runId || !createPayload.browserToken || !createPayload.statusUrl || !createPayload.launchUri) {
+  if (
+    !createPayload.runId ||
+    !createPayload.browserToken ||
+    !createPayload.statusUrl ||
+    !createPayload.launchUri
+  ) {
     throw new Error("THOUGHT Agent API returned an incomplete Dock run.");
   }
   const statusUrl = resolveThoughtDockAgentStatusUrl(createPayload.statusUrl);
@@ -4059,6 +4131,7 @@ const createThoughtDockRun = async (
     startUrl: agentDemoRunActionUrl(statusUrl, "start"),
     resultUrl: agentDemoRunActionUrl(statusUrl, "result"),
     remoteState: createPayload.state ?? "created",
+    expiresAt: createPayload.claimExpiresAt,
   };
   const sealedTask = buildAgentDemoSealedTask(baseRun, adapterId);
   return {
@@ -4068,6 +4141,19 @@ const createThoughtDockRun = async (
     claudeUrl: buildClaudeCodeAgentUrl(sealedTask),
     candidate: null,
   };
+};
+
+const requestThoughtDockRunCancellation = async (run: AgentDemoRun) => {
+  await fetchThoughtAgentJson<ThoughtAgentRunStatusResponse>(
+    agentDemoRunActionUrl(run.statusUrl, "cancel"),
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${run.browserToken}`,
+      },
+      body: "{}",
+    },
+  );
 };
 
 const thoughtDockLaunchUrl = (run: AgentDemoRun, adapterId: ThoughtDockAgentAdapterId) =>
@@ -4088,7 +4174,7 @@ const launchThoughtDockAgentLink = (url: string) => {
 };
 
 const openThoughtDockAgentSelect = () => {
-  const prompt = thoughtDockPrompt.value.trim();
+  const prompt = thoughtDockPrompt.value;
   if (!prompt) {
     setThoughtDockState({ kind: "failed", message: "Prompt is empty." });
     thoughtDockPrompt.focus();
@@ -4098,10 +4184,20 @@ const openThoughtDockAgentSelect = () => {
 };
 
 const runThoughtDockAdapter = async (adapterId: ThoughtDockAgentAdapterId) => {
-  const prompt = thoughtDockPrompt.value.trim();
+  const prompt = thoughtDockPrompt.value;
   if (!prompt) {
     setThoughtDockState({ kind: "failed", message: "Prompt is empty." });
     thoughtDockPrompt.focus();
+    return;
+  }
+
+  const adapter = THOUGHT_DOCK_AGENT_ADAPTERS.find((candidate) => candidate.id === adapterId);
+  if (!adapter?.canDeepLink) {
+    setThoughtDockState({
+      kind: "failed",
+      message: `${thoughtAgentProductLabel(adapterId)} deep link unavailable.`,
+      details: `${thoughtAgentProductLabel(adapterId)} does not expose a supported deep-link callback flow yet.`,
+    });
     return;
   }
 
@@ -4124,10 +4220,13 @@ const runThoughtDockAdapter = async (adapterId: ThoughtDockAgentAdapterId) => {
       return;
     }
     thoughtDockRun = run;
+    setThoughtDockState({
+      kind: "opening_agent",
+      run,
+      adapterId,
+    });
     storeThoughtDockRun(run, adapterId);
     startThoughtDockPolling(run, payload, adapterId, runSessionId);
-
-    setThoughtDockState({ kind: "opening_agent", run, adapterId });
     launchThoughtDockAgentLink(thoughtDockLaunchUrl(run, adapterId));
     setThoughtDockState({
       kind: "waiting_for_agent",
@@ -4150,16 +4249,71 @@ const runThoughtDockAdapter = async (adapterId: ThoughtDockAgentAdapterId) => {
   }
 };
 
-const updateThoughtDockRunState = (run: AgentDemoRun, remoteState: string) => {
+const updateThoughtDockRunState = (run: AgentDemoRun, remoteState: string, expiresAt?: string) => {
+  const nextExpiresAt = expiresAt ?? run.expiresAt;
   thoughtDockRun = {
     ...run,
     remoteState,
+    expiresAt: nextExpiresAt,
   };
   const stored = readStoredThoughtDockRun();
   if (stored && stored.runId === run.runId) {
     writeStoredThoughtDockRun({
       ...stored,
       remoteState,
+      expiresAt: nextExpiresAt,
+    });
+  }
+};
+
+const approveThoughtDockClaim = async (
+  run: AgentDemoRun,
+  adapterId: ThoughtDockAgentAdapterId,
+  authorization: ThoughtClaimAuthorization,
+) => {
+  if (!authorization.claimRequestId) {
+    setThoughtDockState({
+      kind: "failed",
+      message: "Codex claim request is incomplete.",
+      details: "Reset and open a new Agent run.",
+    });
+    return;
+  }
+
+  setThoughtDockState({
+    kind: "claim_authorization",
+    run,
+    adapterId,
+    authorization,
+    approving: true,
+  });
+
+  try {
+    await fetchThoughtAgentJson<ThoughtAgentRunStatusResponse>(
+      agentDemoRunActionUrl(run.statusUrl, "claim-authorization"),
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${run.browserToken}`,
+        },
+        body: JSON.stringify({
+          protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+          claimRequestId: authorization.claimRequestId,
+        }),
+      },
+    );
+    setThoughtDockState({
+      kind: "waiting_for_agent",
+      run,
+      adapterId,
+      message: "Codex authorized. Waiting for its return.",
+    });
+    refreshThoughtDockPolling();
+  } catch (error) {
+    setThoughtDockState({
+      kind: "failed",
+      message: "Could not authorize Codex.",
+      details: error instanceof Error ? error.message : undefined,
     });
   }
 };
@@ -4171,84 +4325,168 @@ const startThoughtDockPolling = (
   runSessionId: number,
 ) => {
   const generation = ++thoughtDockPollGeneration;
+  thoughtDockPollWakeScheduler.clearImmediatePoll();
+  thoughtDockPollWakeScheduler.wake();
   let transientErrors = 0;
+  let terminalHandled = false;
+  let activeRun = run;
+
+  const pollOnce = async () => {
+    if (
+      terminalHandled ||
+      generation !== thoughtDockPollGeneration ||
+      !isCurrentRunSession(runSessionId)
+    ) {
+      return true;
+    }
+
+    if (activeRun.remoteState === "created" && hasThoughtPollDeadlineExpired(activeRun.expiresAt)) {
+      terminalHandled = true;
+      clearStoredThoughtDockRun(activeRun.runId);
+      runState = "run_failed";
+      runInFlight = false;
+      setThoughtDockState({ kind: "expired", run: { ...activeRun, remoteState: "expired" } });
+      syncInterface();
+      return true;
+    }
+
+    const response = await fetchThoughtAgentJson<ThoughtAgentRunStatusResponse>(run.statusUrl, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${run.browserToken}`,
+      },
+    });
+    if (
+      terminalHandled ||
+      generation !== thoughtDockPollGeneration ||
+      !isCurrentRunSession(runSessionId)
+    ) {
+      return true;
+    }
+
+    const remoteState = response.state ?? "created";
+    activeRun = {
+      ...activeRun,
+      remoteState,
+      expiresAt: response.expiresAt ?? activeRun.expiresAt,
+    };
+    updateThoughtDockRunState(activeRun, remoteState, response.expiresAt);
+    transientErrors = 0;
+
+    if (
+      remoteState === "created" &&
+      response.claimAuthorization &&
+      (response.claimAuthorization.state === "pending" ||
+        response.claimAuthorization.state === "authorized")
+    ) {
+      setThoughtDockState({
+        kind: "claim_authorization",
+        run: activeRun,
+        adapterId,
+        authorization: response.claimAuthorization,
+        approving: response.claimAuthorization.state === "authorized",
+      });
+      return false;
+    }
+
+    if (remoteState === "returned") {
+      terminalHandled = true;
+      const candidate = readThoughtAgentModelReturn(response);
+      if (!candidate) {
+        throw new Error("Agent returned no work.");
+      }
+      clearStoredThoughtDockRun(activeRun.runId);
+      await handleThoughtDockReturnedWork(activeRun, candidate, payload, runSessionId);
+      return true;
+    }
+
+    if (remoteState === "failed" || remoteState === "cancelled" || remoteState === "expired") {
+      terminalHandled = true;
+      clearStoredThoughtDockRun(activeRun.runId);
+      runState = "run_failed";
+      runInFlight = false;
+      setThoughtDockState(
+        remoteState === "expired"
+          ? { kind: "expired", run: activeRun }
+          : {
+              kind: "failed",
+              message: normalizeThoughtAgentProtocolError(
+                response.error?.message || `Agent run ${remoteState}.`,
+                adapterId,
+              ),
+            },
+      );
+      syncInterface();
+      return true;
+    }
+
+    const currentState = thoughtDockState;
+    if (
+      currentState.kind === "waiting_for_agent" ||
+      currentState.kind === "opening_agent" ||
+      currentState.kind === "agent_task_ready" ||
+      currentState.kind === "claim_authorization"
+    ) {
+      setThoughtDockState({
+        kind: "waiting_for_agent",
+        run: activeRun,
+        adapterId,
+        message: remoteState === "created"
+          ? "Waiting for your Agent. Return here after it finishes."
+          : `Agent is ${remoteState}. Return here after it finishes.`,
+      });
+    }
+    return false;
+  };
+
+  let pollInFlight: Promise<boolean> | null = null;
+  const pollOnceSafely = () => {
+    if (!pollInFlight) {
+      pollInFlight = pollOnce().finally(() => {
+        pollInFlight = null;
+      });
+    }
+    return pollInFlight;
+  };
+
+  const requestImmediatePoll = () => {
+    void pollOnceSafely().catch(() => {
+      // The regular loop retains retry/error ownership.
+    });
+  };
+  thoughtDockPollWakeScheduler.setImmediatePoll(requestImmediatePoll);
+
   void (async () => {
-    while (generation === thoughtDockPollGeneration && isCurrentRunSession(runSessionId)) {
-      try {
-        const response = await fetchThoughtAgentJson<ThoughtAgentRunStatusResponse>(run.statusUrl, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${run.browserToken}`,
-          },
-        });
-        const remoteState = response.state ?? "created";
-        updateThoughtDockRunState(run, remoteState);
-        transientErrors = 0;
-
-        if (remoteState === "returned") {
-          const candidate = readThoughtAgentModelReturn(response);
-          if (!candidate) {
-            throw new Error("Agent returned no work.");
+    try {
+      while (generation === thoughtDockPollGeneration && isCurrentRunSession(runSessionId)) {
+        try {
+          const terminal = await pollOnceSafely();
+          if (terminal) {
+            return;
           }
-          clearStoredThoughtDockRun(run.runId);
-          await handleThoughtDockReturnedWork({ ...run, remoteState }, candidate, payload, runSessionId);
-          return;
-        }
-
-        if (remoteState === "failed" || remoteState === "cancelled" || remoteState === "expired") {
-          clearStoredThoughtDockRun(run.runId);
+          await thoughtDockPollWakeScheduler.wait(THOUGHT_AGENT_STATUS_POLL_MS);
+        } catch (error) {
+          transientErrors += 1;
+          if (generation !== thoughtDockPollGeneration || !isCurrentRunSession(runSessionId)) {
+            return;
+          }
+          if (transientErrors < 3) {
+            await thoughtDockPollWakeScheduler.wait(THOUGHT_AGENT_STATUS_POLL_MS * transientErrors);
+            continue;
+          }
           runState = "run_failed";
           runInFlight = false;
-          setThoughtDockState(
-            remoteState === "expired"
-              ? { kind: "expired", run: { ...run, remoteState } }
-              : {
-                  kind: "failed",
-                  message: normalizeThoughtAgentProtocolError(
-                    response.error?.message || `Agent run ${remoteState}.`,
-                    adapterId,
-                  ),
-                },
-          );
+          setThoughtDockState({
+            kind: "failed",
+            message: "Agent status check failed.",
+            details: error instanceof Error ? error.message : undefined,
+          });
           syncInterface();
           return;
         }
-
-        const currentState = thoughtDockState;
-        if (
-          currentState.kind === "waiting_for_agent" ||
-          currentState.kind === "opening_agent" ||
-          currentState.kind === "agent_task_ready"
-        ) {
-          setThoughtDockState({
-            kind: "waiting_for_agent",
-            run: { ...run, remoteState },
-            adapterId,
-            message: remoteState === "created"
-              ? "Waiting for your Agent. Return here after it finishes."
-              : `Agent is ${remoteState}. Return here after it finishes.`,
-          });
-        }
-        await new Promise((resolve) => window.setTimeout(resolve, THOUGHT_AGENT_STATUS_POLL_MS));
-      } catch (error) {
-        transientErrors += 1;
-        if (generation !== thoughtDockPollGeneration || !isCurrentRunSession(runSessionId)) {
-          return;
-        }
-        if (transientErrors < 3) {
-          await new Promise((resolve) => window.setTimeout(resolve, THOUGHT_AGENT_STATUS_POLL_MS * transientErrors));
-          continue;
-        }
-        runState = "run_failed";
-        runInFlight = false;
-        setThoughtDockState({
-          kind: "failed",
-          message: "Agent status check failed.",
-          details: error instanceof Error ? error.message : undefined,
-        });
-        syncInterface();
-        return;
       }
+    } finally {
+      thoughtDockPollWakeScheduler.clearImmediatePoll(requestImmediatePoll);
     }
   })();
 };
@@ -4375,7 +4613,7 @@ const mintThoughtDockWork = async () => {
   }
   setThoughtDockState({ kind: "minting", work });
   try {
-    await openMintSheet("dock");
+    await openMintFlow(THOUGHT_PANEL_MINT_UI_MODE);
     syncInterface();
   } catch (error) {
     setThoughtDockState({
@@ -4515,6 +4753,8 @@ function cancelThoughtDockRun(run?: AgentDemoRun | null, options?: { clearPrompt
 
 const resetThoughtDock = (options?: { clearPrompt?: boolean; focusPrompt?: boolean }) => {
   thoughtDockPollGeneration += 1;
+  thoughtDockPollWakeScheduler.clearImmediatePoll();
+  thoughtDockPollWakeScheduler.wake();
   clearStoredThoughtDockRun();
   thoughtDockRun = null;
   thoughtDockAdapterId = "codex";
@@ -4526,7 +4766,7 @@ const resetThoughtDock = (options?: { clearPrompt?: boolean; focusPrompt?: boole
     thoughtDockPrompt.value = "";
     writeSessionState();
   }
-  const prompt = thoughtDockPrompt.value.trim();
+  const prompt = thoughtDockPrompt.value;
   setThoughtDockState(prompt ? { kind: "ready", prompt } : { kind: "empty" });
   syncInterface();
   if (options?.focusPrompt) {
@@ -4590,8 +4830,8 @@ const thoughtDockRunFromStatus = (
   status: ThoughtAgentRunStatusResponse,
 ): AgentDemoRun => {
   const runId = status.runId || ROUTE_RUN_ID;
-  const prompt = status.request?.prompt?.text?.trim() ?? "";
-  const promptHash = status.request?.prompt?.sha256 || hashText(prompt);
+  const prompt = status.request?.promptLine?.text ?? "";
+  const promptHash = status.request?.promptLine?.sha256 || hashText(prompt);
   const adapterId = normalizeThoughtDockAdapterId(status.request?.requestedAgent?.adapterId);
   const baseRun = {
     runId,
@@ -4605,6 +4845,7 @@ const thoughtDockRunFromStatus = (
     startUrl: agentDemoRunActionUrl(statusUrl, "start"),
     resultUrl: agentDemoRunActionUrl(statusUrl, "result"),
     remoteState: status.state ?? "created",
+    expiresAt: status.expiresAt,
   };
   const sealedTask = status.request?.agentInput?.text || buildAgentDemoSealedTask(baseRun, adapterId);
   return {
@@ -4893,10 +5134,9 @@ const walletState: ThoughtWalletState = {
   preflightLoading: false,
   preflightError: "",
   mintedTokenId: null,
-  menuOpen: false,
 };
 let mintFlowState: MintFlowState = "closed";
-let mintFlowUiMode: MintFlowUiMode = "sheet";
+let mintFlowUiMode: MintFlowUiMode = THOUGHT_PANEL_MINT_UI_MODE;
 const mintFlowData: MintFlowData = {
   rawText: "",
   textHash: "",
@@ -4936,6 +5176,8 @@ let readColorFontV1: Contract | null = null;
 let readThoughtSpecRegistry: Contract | null = null;
 let readPathNft: Contract | null = null;
 let walletListenersBound = false;
+let thoughtShellWalletSubscribed = false;
+let thoughtShellWalletRefreshQueued = false;
 let mintSheetPrimaryAction: MintSheetAction = "none";
 let mintSheetSecondaryAction: MintSheetAction = "none";
 let mintSheetTertiaryAction: MintSheetAction = "none";
@@ -5449,6 +5691,10 @@ const getInjectedProviders = () => {
 };
 
 const getEthereumProvider = () => {
+  const sharedWallet = getThoughtShellWallet();
+  if (sharedWallet.ready) {
+    return sharedWallet.provider as EthereumProvider | null;
+  }
   const providers = getInjectedProviders();
   return providers.find((provider) => provider.isMetaMask) ?? providers[0] ?? null;
 };
@@ -5597,15 +5843,13 @@ type ThoughtV2PreviewValidation = {
   reasonCode: number;
 };
 
-const deriveThoughtV2VisibleLine = (value: string): string => {
-  return value.replace(/\r\n?/g, "\n").split("\n")[0] ?? "";
-};
+const deriveThoughtV2VisibleLine = (value: string): string => value;
 
 const thoughtV2ReasonCode = (kind: ThoughtV2LineKind, errors: string[]) => {
   if (errors.some((error) => error === `${kind} line is empty`)) {
     return 1;
   }
-  if (errors.some((error) => /bytes|display units/.test(error))) {
+  if (errors.some((error) => /bytes/.test(error))) {
     return 3;
   }
   return 4;
@@ -5690,7 +5934,7 @@ const sameRejectedRunContext = (
   payload: ThoughtRunPayload,
   reasonCode: number,
 ) =>
-  previous.prompt === payload.input.prompt &&
+  previous.prompt === payload.input.promptLine &&
   previous.route === payload.config.route &&
   previous.provider === payload.config.provider &&
   previous.model === payload.config.model &&
@@ -5710,7 +5954,7 @@ const rememberRejectedRun = (
     kind: "rejected-run",
     reasonCode: preview.reasonCode,
     reasonLabel: previewWorkReasonLabel(preview.reasonCode),
-    prompt: payload.input.prompt,
+    prompt: payload.input.promptLine,
     modelReturn,
     normalizedCandidate,
     normalizedLength: normalizedCandidate ? normalizedCandidate.length : undefined,
@@ -5741,9 +5985,9 @@ const rejectedRunReasonLines = (rejected: LastRejectedRun) => {
   }
   if (rejected.reasonCode === 3) {
     return [
-      `canonical text: ${rejected.normalizedLength ?? 0} / ${MAX_TEXT_BYTES} characters.`,
+      `agent line: ${byteLength(rejected.normalizedCandidate ?? rejected.modelReturn)} / ${THOUGHT_V2_PROTOCOL_RELEASE.limits.agentMaxBytes} UTF-8 bytes.`,
       "",
-      "this model returned too much text.",
+      "this Agent returned more bytes than THOUGHT V2 accepts.",
     ];
   }
   if (rejected.reasonCode === 4) {
@@ -5921,14 +6165,7 @@ const selectThoughtPreviewProvider = async () => {
   if (mode === "off") {
     return { provider: null, reason: "preview is off." };
   }
-
-  if (mode === "wallet") {
-    const walletProvider = createWalletPreviewProvider();
-    return walletProvider
-      ? { provider: walletProvider, reason: "" }
-      : { provider: null, reason: walletPreviewUnavailableReason() };
-  }
-
+  // V2 is source-only: pre-mint previews must use the verified shared renderer.
   return { provider: createFrontendPreviewProvider(), reason: "" };
 };
 
@@ -6044,14 +6281,14 @@ const createThoughtCandidate = (
   payload: ThoughtRunPayload,
   rawModelReturn: string,
 ): ThoughtCandidate => {
-  const validation = prevalidateThoughtCandidate(rawModelReturn, {
-    maxRawBytes: MAX_RAW_RETURN_BYTES,
-    maxTextBytes: MAX_TEXT_BYTES,
+  const validation = prevalidateThoughtV2Preview({
+    rawPrompt: payload.input.promptLine,
+    rawReturn: rawModelReturn,
   });
-  const normalizedCandidate = validation.canonical || validation.normalized;
+  const normalizedCandidate = validation.ok ? rawModelReturn : undefined;
   return {
     id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
-    prompt: payload.input.prompt,
+    prompt: payload.input.promptLine,
     rawModelReturn,
     route: payload.config.route,
     provider: payload.config.provider,
@@ -6130,27 +6367,13 @@ const attemptContractPreviewForCandidate = async (
     return { kind: "unavailable", lines: previewUnavailableLines(selection.reason) };
   }
 
-  const frontendPreview = selection.provider.kind === "frontend-renderer";
-  const validation = frontendPreview
-    ? prevalidateThoughtV2Preview({
-        rawPrompt: candidate.prompt,
-        rawReturn: candidate.rawModelReturn,
-      })
-    : prevalidateThoughtCandidate(candidate.rawModelReturn, {
-        maxRawBytes: MAX_RAW_RETURN_BYTES,
-        maxTextBytes: MAX_TEXT_BYTES,
-      });
-  let previewReasonCode = 0;
-
-  if (frontendPreview) {
-    const thoughtV2Validation = validation as ThoughtV2PreviewValidation;
-    candidate.normalizedCandidate = thoughtV2Validation.agentLine;
-    previewReasonCode = thoughtV2Validation.reasonCode;
-  } else {
-    const legacyValidation = validation as ReturnType<typeof prevalidateThoughtCandidate>;
-    candidate.normalizedCandidate = legacyValidation.canonical || legacyValidation.normalized;
-    previewReasonCode = legacyValidation.ok ? 0 : legacyValidation.reasonCode;
-  }
+  const frontendPreview = true;
+  const validation = prevalidateThoughtV2Preview({
+    rawPrompt: candidate.prompt,
+    rawReturn: candidate.rawModelReturn,
+  });
+  candidate.normalizedCandidate = validation.agentLine;
+  const previewReasonCode = validation.reasonCode;
   candidate.normalizedCandidateHash = candidate.normalizedCandidate
     ? hashText(candidate.normalizedCandidate)
     : undefined;
@@ -6543,7 +6766,7 @@ const configureReportBugLink = () => {
     },
     {
       env: import.meta.env,
-      defaultOrigin: "https://thought.inshell.art",
+      defaultOrigin: "https://inshell.art",
       ...(launchMode ? { launchMode } : {}),
     },
   );
@@ -6912,29 +7135,18 @@ const ensureActiveThoughtSpec = async (options: { force?: boolean } = {}) => {
   return activeThoughtSpecPromise;
 };
 
-const bundledThoughtSpecHash = () =>
-  EVM_ADDRESSES.recommendedThoughtSpecHash?.trim() ||
-  EVM_ADDRESSES.thoughtSpec?.hash?.trim() ||
-  EVM_ADDRESSES.thoughtSpecs?.[0]?.specHash?.trim() ||
-  hashText(thoughtInstructions);
+const bundledThoughtSpecHash = () => THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecHash;
 
-const bundledThoughtSpecRef = () =>
-  EVM_ADDRESSES.thoughtSpec?.ref?.trim() ||
-  EVM_ADDRESSES.thoughtSpecs?.[0]?.ref?.trim() ||
-  EVM_ADDRESSES.recommendedThoughtSpecName?.trim() ||
-  "THOUGHT.md";
+const bundledThoughtSpecRef = () => THOUGHT_V2_PROTOCOL_RELEASE.spec.ref;
 
-const bundledThoughtSpecId = () =>
-  RECOMMENDED_THOUGHT_SPEC_ID && RECOMMENDED_THOUGHT_SPEC_ID !== ZERO_BYTES32
-    ? RECOMMENDED_THOUGHT_SPEC_ID
-    : id("THOUGHT_V1");
+const bundledThoughtSpecId = () => THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId;
 
 const buildBundledActiveThoughtSpec = (): ActiveThoughtSpec => ({
   specId: bundledThoughtSpecId(),
   specHash: bundledThoughtSpecHash(),
   ref: bundledThoughtSpecRef(),
-  pointer: "bundled THOUGHT.md",
-  byteLength: byteLength(thoughtInstructions),
+  pointer: THOUGHT_V2_PROTOCOL_RELEASE.publicSpecPath,
+  byteLength: THOUGHT_V2_PROTOCOL_RELEASE.spec.byteLength,
   text: thoughtInstructions,
   fetchedAt: new Date().toISOString(),
 });
@@ -6943,17 +7155,9 @@ const shouldUseBundledThoughtSpecFallback = () =>
   IS_DEV_MODE && LOCAL_BROWSER_HOSTS.has(window.location.hostname);
 
 const ensureThoughtDockActiveSpec = async () => {
-  try {
-    return await ensureActiveThoughtSpec({ force: true });
-  } catch (error) {
-    if (!shouldUseBundledThoughtSpecFallback()) {
-      throw error;
-    }
-
-    activeThoughtSpec = buildBundledActiveThoughtSpec();
-    activeThoughtSpecPromise = null;
-    return activeThoughtSpec;
-  }
+  activeThoughtSpec = buildBundledActiveThoughtSpec();
+  activeThoughtSpecPromise = null;
+  return activeThoughtSpec;
 };
 
 const formatThoughtSpecError = (error: unknown) => {
@@ -7034,7 +7238,7 @@ const buildCurrentThoughtRunPayload = (prompt: string, model: string) => {
     route: sessionState.mode,
     provider: getCurrentProviderForProvenance(),
     model,
-    prompt,
+    promptLine: prompt,
     thoughtSpec: {
       id: spec.specId,
       ref: spec.ref,
@@ -7054,7 +7258,7 @@ const buildThoughtRunPayloadFromContext = (context: ThoughtRunContext) => {
     route: context.mode,
     provider: isThoughtRunProvider(context.provider) ? context.provider : getCurrentProviderForProvenance(),
     model: context.model,
-    prompt: context.prompt,
+    promptLine: context.prompt,
     thoughtSpec: {
       id: spec.specId,
       ref: spec.ref,
@@ -7238,7 +7442,7 @@ function resetPathInventoryState() {
 
 const resetMintFlow = () => {
   mintFlowState = "closed";
-  mintFlowUiMode = "sheet";
+  mintFlowUiMode = THOUGHT_PANEL_MINT_UI_MODE;
   mintFlowData.rawText = "";
   mintFlowData.textHash = "";
   mintFlowData.promptHash = "";
@@ -7900,10 +8104,24 @@ const shouldUsePathInventorySelect = () =>
   );
 
 const focusMintPathInput = () => {
+  if (shouldUsePathInventorySelect() && mintFlowUiMode === "dock") {
+    const selectedButton = thoughtDockPathInventoryList.querySelector<HTMLButtonElement>(
+      '.thought-dock-path-token[aria-pressed="true"]',
+    );
+    const firstButton = thoughtDockPathInventoryList.querySelector<HTMLButtonElement>(
+      ".thought-dock-path-token",
+    );
+    const button = selectedButton ?? firstButton;
+    requestAnimationFrame(() => {
+      if (button && !button.disabled) {
+        button.focus();
+      }
+    });
+    return;
+  }
+
   const input = shouldUsePathInventorySelect()
-    ? mintFlowUiMode === "dock"
-      ? thoughtDockPathSelect
-      : mintSheetPathSelect
+    ? mintSheetPathSelect
     : mintFlowUiMode === "dock"
       ? thoughtDockPathBox
       : mintSheetPathBox;
@@ -8388,6 +8606,39 @@ const syncPathInventorySelect = (select: HTMLSelectElement) => {
   select.disabled = isMintPathInputDisabled();
 };
 
+const syncThoughtDockPathInventory = () => {
+  const available = availablePathInventoryItems();
+  const isVisible = shouldUsePathInventorySelect() && available.length > 0;
+  thoughtDockPathInventory.classList.toggle("is-hidden", !isVisible);
+
+  if (!isVisible) {
+    thoughtDockPathInventoryList.replaceChildren();
+    return false;
+  }
+
+  thoughtDockPathInventoryLabel.textContent = `available $PATH (${available.length})`;
+  const selectedPathId = mintFlowData.pathId?.toString() ?? mintFlowData.pathIdInput.trim();
+  const disabled = isMintPathInputDisabled();
+  thoughtDockPathInventoryList.replaceChildren(
+    ...available.map((item) => {
+      const pathId = item.pathId.toString();
+      const button = document.createElement("button");
+      const isSelected = pathId === selectedPathId;
+      button.type = "button";
+      button.className = "thought-dock-button thought-dock-path-token";
+      button.textContent = `$PATH #${pathId}`;
+      button.disabled = disabled;
+      button.setAttribute("aria-pressed", isSelected ? "true" : "false");
+      button.title = isSelected ? `$PATH #${pathId} selected` : `select $PATH #${pathId}`;
+      button.addEventListener("click", () => {
+        selectPathInventoryItem(item.pathId);
+      });
+      return button;
+    }),
+  );
+  return true;
+};
+
 const handlePathInventorySelectChange = (select: HTMLSelectElement) => {
   if (!select.value) {
     applyMintPathInputValue("");
@@ -8484,13 +8735,10 @@ const syncMintSheetButton = (
   button.classList.toggle("is-hidden", !!config.hidden);
 };
 
-const isWalletDropdownAction = (action: MintSheetAction) =>
+const isGlobalWalletAction = (action: MintSheetAction) =>
   action === "connect_wallet" ||
   action === "disconnect_wallet" ||
-  action === "switch_network" ||
-  action === "authorize" ||
-  action === "confirm_mint" ||
-  action === "view_tx";
+  action === "switch_network";
 
 const getMintDockPathActionConfigs = (): [
   MintSheetActionConfig,
@@ -8498,7 +8746,7 @@ const getMintDockPathActionConfigs = (): [
   MintSheetActionConfig,
 ] => {
   const visibleActions = getMintSheetActionConfigs().filter(
-    (config) => !config.hidden && config.action !== "none" && !isWalletDropdownAction(config.action),
+    (config) => !config.hidden && config.action !== "none" && !isGlobalWalletAction(config.action),
   );
 
   return [
@@ -8578,14 +8826,14 @@ const syncMintDockPathPanel = () => {
     return;
   }
 
-  const pathSelectVisible = pathInputVisible && shouldUsePathInventorySelect();
+  const pathInventoryVisible = syncThoughtDockPathInventory();
   const manualPathVisible = pathInputVisible && shouldRevealManualPathInput();
-  const pathFieldVisible = pathSelectVisible || manualPathVisible;
+  const pathFieldVisible = !pathInventoryVisible && manualPathVisible;
   thoughtDockPathField.classList.toggle("is-hidden", !pathFieldVisible);
-  thoughtDockPathBox.classList.toggle("is-hidden", pathSelectVisible);
-  thoughtDockPathSelect.classList.toggle("is-hidden", !pathSelectVisible);
+  thoughtDockPathBox.classList.toggle("is-hidden", !manualPathVisible);
+  thoughtDockPathSelect.classList.add("is-hidden");
   thoughtDockPathBox.value = mintFlowData.pathIdInput;
-  thoughtDockPathBox.disabled = isMintPathInputDisabled() || pathSelectVisible;
+  thoughtDockPathBox.disabled = isMintPathInputDisabled();
   syncPathInventoryOptions(thoughtDockPathOptions);
   syncPathInventorySelect(thoughtDockPathSelect);
 
@@ -8607,66 +8855,7 @@ const syncMintDockPathPanel = () => {
   syncMintSheetButton(thoughtDockPathTertiary, tertiary);
 };
 
-const renderWalletMintReview = () => {
-  mintWalletReview.replaceChildren();
-  renderMintReviewContent(mintWalletReview, getMintSheetReviewConfig(), {
-    link: "frontpage-wallet-review-link",
-    note: "frontpage-wallet-review-note",
-    review: "frontpage-wallet-review-list",
-    row: "frontpage-wallet-review-row",
-  });
-  mintWalletReview.classList.toggle("is-hidden", mintWalletReview.childNodes.length === 0);
-};
-
-const syncWalletMenu = () => {
-  const walletMenuAvailable = !frontpageStage.classList.contains("is-hidden");
-  mintWalletToggle.classList.toggle("is-hidden", !walletMenuAvailable);
-  mintWalletLabel.textContent = walletConnectInFlight
-    ? "[ connecting ]"
-    : walletState.address
-      ? "[ wallet ]"
-      : "[ connect ]";
-  mintWalletAddress.textContent = walletState.address ? shortHex(walletState.address) : "-";
-  mintWalletNetwork.textContent = getWalletNetworkLabel().toLowerCase();
-  mintWalletToken.textContent =
-    walletState.mintedTokenId === null ? "-" : `#${walletState.mintedTokenId}`;
-  mintWalletTokenRow.classList.toggle("is-hidden", walletState.mintedTokenId === null);
-  const pathSummary = pathInventorySummary();
-  mintWalletPath.textContent = pathSummary ? pathSummary.replace(/^PATH:\s*/i, "") : "-";
-  mintWalletPathRow.classList.toggle("is-hidden", !walletState.address);
-  renderWalletMintReview();
-  mintWalletAuthorize.textContent = mintFlowState === "authorizing" ? "authorizing PATH" : "authorize PATH";
-  mintWalletAuthorize.disabled = mintFlowState === "authorizing";
-  mintWalletAuthorize.classList.toggle(
-    "is-hidden",
-    mintFlowState !== "path_ready" && mintFlowState !== "authorizing",
-  );
-  mintWalletConfirm.textContent = mintFlowState === "minting" ? "minting" : "confirm mint";
-  mintWalletConfirm.disabled = mintFlowState === "minting";
-  mintWalletConfirm.classList.toggle(
-    "is-hidden",
-    mintFlowState !== "authorized" && mintFlowState !== "minting",
-  );
-  mintWalletViewTx.classList.toggle(
-    "is-hidden",
-    !(walletState.txHash || mintFlowData.txHash || mintFlowState === "minted"),
-  );
-  mintWalletConnect.classList.toggle("is-hidden", !!walletState.address);
-  mintWalletConnect.disabled = walletConnectInFlight;
-  mintWalletCopyAddress.disabled = walletState.address.length === 0;
-  mintWalletCopyAddress.classList.toggle("is-hidden", !walletState.address);
-  mintWalletCopyTx.classList.toggle("is-hidden", walletState.txHash.length === 0);
-  mintWalletSwitchNetwork.classList.toggle(
-    "is-hidden",
-    !walletState.address || walletState.chainId === THOUGHT_CHAIN_ID,
-  );
-  mintWalletDisconnect.classList.toggle("is-hidden", !walletState.address);
-  mintWalletToggle.setAttribute("aria-expanded", walletState.menuOpen ? "true" : "false");
-  mintWalletMenu.classList.toggle("is-hidden", !walletState.menuOpen || !walletMenuAvailable);
-
-  mintWalletDot.classList.remove("is-on", "is-pending", "is-warn", "is-error", "is-off");
-  mintWalletDot.classList.add(`is-${getWalletDotState()}`);
-};
+const syncWalletMenu = () => {};
 
 const syncThoughtInstructionsControls = () => {
   thoughtFileField.classList.toggle("is-hidden", !ENABLE_THOUGHT_UPLOAD);
@@ -8716,40 +8905,42 @@ const refreshMintPreflight = async () => {
 };
 
 const refreshWalletState = async () => {
-  const ethereum = getEthereumProvider();
   const previousAddress = walletState.address;
   const previousChainId = walletState.chainId;
-  walletState.detected = ethereum !== null;
+  const sharedWallet = getThoughtShellWallet();
+  const ethereum = getEthereumProvider();
+  walletState.detected = sharedWallet.ready
+    ? sharedWallet.connectorCount > 0 || sharedWallet.provider !== null
+    : ethereum !== null;
+
+  if (sharedWallet.ready && sharedWallet.address) {
+    walletDisconnectedByUser = false;
+  }
 
   if (walletDisconnectedByUser) {
     walletState.address = "";
     walletState.chainId = null;
-    resetPathInventoryState();
-    await refreshMintPreflight();
-    return;
-  }
-
-  if (!ethereum) {
+  } else if (sharedWallet.ready) {
+    walletState.address = sharedWallet.address;
+    walletState.chainId = sharedWallet.chainId;
+  } else if (!ethereum) {
     walletState.address = "";
     walletState.chainId = null;
-    resetPathInventoryState();
-    await refreshMintPreflight();
-    return;
-  }
+  } else {
+    try {
+      const [accounts, chainHex] = await Promise.all([
+        ethereum.request({ method: "eth_accounts" }),
+        ethereum.request({ method: "eth_chainId" }),
+      ]);
 
-  try {
-    const [accounts, chainHex] = await Promise.all([
-      ethereum.request({ method: "eth_accounts" }),
-      ethereum.request({ method: "eth_chainId" }),
-    ]);
-
-    walletState.address =
-      Array.isArray(accounts) && typeof accounts[0] === "string" ? accounts[0] : "";
-    walletState.chainId =
-      typeof chainHex === "string" && chainHex.length > 0 ? Number(BigInt(chainHex)) : null;
-  } catch {
-    walletState.address = "";
-    walletState.chainId = null;
+      walletState.address =
+        Array.isArray(accounts) && typeof accounts[0] === "string" ? accounts[0] : "";
+      walletState.chainId =
+        typeof chainHex === "string" && chainHex.length > 0 ? Number(BigInt(chainHex)) : null;
+    } catch {
+      walletState.address = "";
+      walletState.chainId = null;
+    }
   }
 
   if (walletState.address !== previousAddress || walletState.chainId !== previousChainId) {
@@ -8773,6 +8964,31 @@ const refreshWalletState = async () => {
   }
 
   await refreshMintPreflight();
+};
+
+const bindThoughtShellWallet = () => {
+  if (thoughtShellWalletSubscribed) {
+    return;
+  }
+
+  thoughtShellWalletSubscribed = true;
+  subscribeThoughtShellWallet((snapshot) => {
+    if (!snapshot.ready || thoughtShellWalletRefreshQueued) {
+      return;
+    }
+
+    if (snapshot.address) {
+      walletDisconnectedByUser = false;
+    }
+    thoughtShellWalletRefreshQueued = true;
+    window.queueMicrotask(() => {
+      thoughtShellWalletRefreshQueued = false;
+      void refreshWalletState().then(() => {
+        syncMintFlowAfterWalletCommand();
+        syncInterface();
+      });
+    });
+  });
 };
 
 const bindWalletProviderEvents = () => {
@@ -8799,6 +9015,49 @@ const bindWalletProviderEvents = () => {
 };
 
 const requestWalletConnect = async () => {
+  const sharedWallet = getThoughtShellWallet();
+  if (sharedWallet.ready) {
+    trackThoughtAnalytics("wallet_connect_started", {
+      walletKind: "shared_shell",
+      walletStage: "connector",
+    });
+    walletDisconnectedByUser = false;
+    setWarning("");
+    walletConnectInFlight = true;
+    syncInterface();
+
+    try {
+      await sharedWallet.connect();
+      const startedAt = Date.now();
+      while (!getThoughtShellWallet().address && Date.now() - startedAt < 18000) {
+        await new Promise<void>((resolve) => {
+          window.setTimeout(resolve, 100);
+        });
+      }
+      await refreshWalletState();
+      if (!walletState.address) {
+        throw new Error("wallet did not expose an account.");
+      }
+      setStatus("wallet connected.", { flashMs: NOTICE_FLASH_MS });
+      trackThoughtAnalytics("wallet_connect_succeeded", {
+        walletKind: "shared_shell",
+        walletStage: "connected",
+      });
+    } catch (error) {
+      trackThoughtAnalytics("wallet_connect_failed", {
+        walletKind: "shared_shell",
+        walletStage: "connector",
+        errorCategory: thoughtAnalyticsErrorCategory(error),
+      });
+      setWarning(error instanceof Error ? error.message : "wallet connect failed.");
+      setStatus("");
+    } finally {
+      walletConnectInFlight = false;
+      syncInterface();
+    }
+    return;
+  }
+
   trackThoughtAnalytics("wallet_connect_started", {
     walletKind: "injected",
     walletStage: "request_accounts",
@@ -8926,10 +9185,13 @@ const switchWalletChain = async () => {
 };
 
 const disconnectThoughtDockWallet = (options?: { appendCli?: boolean }) => {
+  const sharedWallet = getThoughtShellWallet();
+  if (sharedWallet.ready) {
+    void sharedWallet.disconnect();
+  }
   walletDisconnectedByUser = true;
   walletState.address = "";
   walletState.chainId = null;
-  walletState.menuOpen = false;
   walletState.balance = null;
   walletState.preflightLoading = false;
   walletState.preflightError = "";
@@ -9015,7 +9277,17 @@ const handlePendingTx = async () => {
   }
 };
 
-const openMintSheet = async (uiMode: MintFlowUiMode = "sheet") => {
+const openMintFlow = async (
+  uiMode: MintFlowUiMode = THOUGHT_PANEL_MINT_UI_MODE,
+) => {
+  resetMintFlow();
+  mintFlowUiMode = uiMode;
+
+  if (!THOUGHT_V2_MINT_ENABLED) {
+    setMintFlowError("THOUGHT V2 mint is disabled until a reviewed deployment is pinned.", "thought");
+    syncInterface();
+    return;
+  }
   if (currentCandidate && runState === "candidate_ready") {
     setMintFlowError("current candidate is not previewed.", "thought");
     syncInterface();
@@ -9032,8 +9304,6 @@ const openMintSheet = async (uiMode: MintFlowUiMode = "sheet") => {
     return;
   }
 
-  resetMintFlow();
-  mintFlowUiMode = uiMode;
   mintFlowData.rawText = currentOutputText;
   try {
     mintFlowData.textHash = await textHashFromContract(currentOutputText);
@@ -9675,10 +9945,13 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
 
 const pathMintUrl = () => {
   try {
-    const url = new URL(PATH_MINT_URL, window.location.href);
+    const url = new URL(PATH_MINT_URL, sameOriginAppOrigin());
     url.searchParams.set("intent", "mint-path");
     url.searchParams.set("from", "thought");
-    url.searchParams.set("returnTo", window.location.href);
+    url.searchParams.set(
+      "returnTo",
+      `${window.location.pathname}${window.location.search}${window.location.hash}` || thoughtRoutePath("/"),
+    );
     if (walletState.address) {
       url.searchParams.set("account", walletState.address);
     }
@@ -9888,7 +10161,7 @@ const thoughtImageUrl = (tokenId: number) => {
 };
 
 const pathTokenDetailUrl = (tokenId: number | string) => {
-  const url = new URL(PATH_MINT_URL, window.location.origin);
+  const url = new URL(PATH_MINT_URL, sameOriginAppOrigin());
   url.search = "";
   url.hash = "";
   url.pathname = `/path/${tokenId}`;
@@ -9909,8 +10182,7 @@ const viewThoughtUseLine = (tokenId?: number | null) =>
   `use: view THOUGHT ${tokenId ?? "<id>"}`;
 
 const thoughtCreateUrl = () => new URL(THOUGHT_APP_URL, window.location.origin).toString();
-const inshellHomeUrl = () => new URL("/", PATH_MINT_URL).toString();
-
+const inshellHomeUrl = () => INSHELL_HOME_URL;
 const configureGalleryLink = () => {
   thoughtGalleryLink.href = galleryUrl();
   thoughtDetailGalleryLink.href = galleryUrl();
@@ -10886,11 +11158,6 @@ const syncCtaState = () => {
   resetThoughtButton.textContent = action.secondaryLabel;
   resetThoughtButton.classList.toggle("is-hidden", action.secondaryAction === "none");
   resetThoughtButton.setAttribute("aria-label", action.secondaryLabel.replace(/[[\]]/g, "").trim() || "Secondary THOUGHT action");
-
-  walletState.menuOpen = false;
-  mintWalletToggle.classList.add("is-hidden");
-  mintWalletMenu.classList.add("is-hidden");
-  syncWalletMenu();
 };
 
 const readPx = (value: string) => Number.parseFloat(value) || 0;
@@ -10979,21 +11246,10 @@ const getViewportWidthCap = () => {
     );
   }
 
-  const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
-  const shellStyles = window.getComputedStyle(frontpageShell);
-  const mainStyles = window.getComputedStyle(frontpageMain);
   const frameStyles = window.getComputedStyle(thoughtCanvasFrame);
-  const shellInset = readPx(shellStyles.paddingTop) + readPx(shellStyles.paddingBottom);
   const frameInset = readPx(frameStyles.paddingTop) + readPx(frameStyles.paddingBottom);
-  const titleHeight = frontpageTitle?.getBoundingClientRect().height ?? 0;
-  const rowGap = readPx(mainStyles.rowGap);
   const availableHeight = Math.floor(
-    viewportHeight -
-      shellInset -
-      titleHeight -
-      rowGap -
-      frameInset -
-      getThoughtDockViewportReserve(),
+    frontpageMain.getBoundingClientRect().height - frameInset,
   );
 
   return Math.max(MIN_CANVAS_SIZE, availableHeight);
@@ -11093,44 +11349,6 @@ const resizeWorkSurface = () => {
   return { displayWidth, height };
 };
 
-const drawDefaultAgentLineBackground = (displayWidth: number, height: number) => {
-  const box = thoughtV2DefaultAgentLineBox();
-  const scaleX = displayWidth / THOUGHT_V2_CANVAS_SIZE;
-  const scaleY = height / THOUGHT_V2_CANVAS_SIZE;
-  context.fillStyle = THOUGHT_V2_DEFAULT_AGENT_BG;
-  context.strokeStyle = THOUGHT_V2_DEFAULT_AGENT_FRAME;
-  context.lineWidth = Math.max(1, box.frameStrokeWidth * Math.min(scaleX, scaleY));
-  drawRoundedRect(
-    context,
-    box.x * scaleX,
-    box.y * scaleY,
-    box.width * scaleX,
-    box.height * scaleY,
-    box.rx * Math.min(scaleX, scaleY),
-  );
-  context.fill();
-  context.stroke();
-};
-
-const drawDefaultPromptLineFrame = (displayWidth: number, height: number) => {
-  const box = thoughtV2DefaultPromptLineBox();
-  const scaleX = displayWidth / THOUGHT_V2_CANVAS_SIZE;
-  const scaleY = height / THOUGHT_V2_CANVAS_SIZE;
-  context.fillStyle = BACKGROUND_FILL;
-  context.strokeStyle = THOUGHT_V2_DEFAULT_PROMPT_TEXT;
-  context.lineWidth = Math.max(1, box.frameStrokeWidth * Math.min(scaleX, scaleY));
-  drawRoundedRect(
-    context,
-    box.x * scaleX,
-    box.y * scaleY,
-    box.width * scaleX,
-    box.height * scaleY,
-    box.rx * Math.min(scaleX, scaleY),
-  );
-  context.fill();
-  context.stroke();
-};
-
 const hideContractSvgPreview = () => {
   thoughtSvgPreview.removeAttribute("src");
   thoughtSvgPreview.classList.add("is-hidden");
@@ -11159,58 +11377,11 @@ const syncCurrentWorkVisual = (options?: { suppressWarning?: boolean }) => {
 };
 
 const renderCanvas = (rawText: string) => {
-  const previewText = canonicalThoughtTitle(rawText);
-  const chars = Array.from(previewText);
   const { displayWidth, height } = resizeWorkSurface();
 
   context.clearRect(0, 0, displayWidth, height);
   context.fillStyle = BACKGROUND_FILL;
   context.fillRect(0, 0, displayWidth, height);
-  drawDefaultAgentLineBackground(displayWidth, height);
-  drawDefaultPromptLineFrame(displayWidth, height);
-
-  if (!previewText) {
-    return;
-  }
-
-  const images: DrawImage[] = chars.map((char) => ({
-    char,
-    fill: colorForCharacter(char),
-  }));
-
-  const { imageSize, gap, rowWidth } = fitImagesToRow(images.length, displayWidth);
-  const xStart = (displayWidth - rowWidth) / 2;
-  const yStart = (height - imageSize) / 2;
-
-  images.forEach((image, index) => {
-    const x = xStart + index * (imageSize + gap);
-    const y = yStart;
-
-    if (image.char === " ") {
-      return;
-    }
-
-    drawRoundedRect(context, x, y, imageSize, imageSize, IMAGE_RADIUS);
-    context.fillStyle = image.fill;
-    context.fill();
-  });
-
-  const maxTextWidth = displayWidth - 2 * CANVAS_PADDING;
-  let textSize = Math.min(18, displayWidth * 0.034);
-  do {
-    context.font = `100 ${textSize}px ${CANVAS_TEXT_FAMILY}`;
-    if (context.measureText(previewText).width <= maxTextWidth || textSize <= 9) {
-      break;
-    }
-    textSize -= 1;
-  } while (textSize > 9);
-
-  context.fillStyle = CANVAS_LABEL_FILL;
-  context.globalAlpha = 0.72;
-  context.textAlign = "center";
-  context.textBaseline = "alphabetic";
-  context.fillText(previewText, displayWidth / 2, height - CANVAS_PADDING);
-  context.globalAlpha = 1;
 };
 
 const syncOutputToCanvas = (raw: string, options?: { suppressWarning?: boolean }) => {
@@ -11320,11 +11491,11 @@ const isThoughtRunContext = (value: unknown): value is ThoughtRunContext => {
 
 const migrateLegacyThoughtV2Svg = (output: string, svg: string) => {
   if (
-    svg.includes('id="canvas-frame" width="992" height="992" fill="#181818"') &&
-    svg.includes('id="thought-canvas" x="16" y="16" width="960" height="960"') &&
-    svg.includes('id="agent-line-bg" x="87" y="378"') &&
-    svg.includes('fill="#000000" stroke="#ffffff" stroke-width="1"') &&
-    svg.includes('id="prompt-line-bg" x="237" y="868" width="486"')
+    svg.includes('width="960" height="960" viewBox="0 0 960 960"') &&
+    svg.includes('id="binary-background"') &&
+    svg.includes('data-grid-columns="32"') &&
+    !svg.includes('id="agent-line-bg"') &&
+    !svg.includes('id="prompt-line-bg"')
   ) {
     return { svg, migrated: false };
   }
@@ -11426,7 +11597,7 @@ const recordThoughtRun = (
     mode: payload.config.route,
     provider: payload.config.provider,
     model: payload.config.model,
-    prompt: payload.input.prompt,
+    prompt: payload.input.promptLine,
     returnedText: rawOutput,
     clientGeneratedAt,
     previewProvider,
@@ -11439,7 +11610,7 @@ const recordThoughtRun = (
     route: payload.config.route,
     provider: payload.config.provider,
     model: payload.config.model,
-    prompt: payload.input.prompt,
+    prompt: payload.input.promptLine,
     request: provenanceConfig.request,
     web: provenanceConfig.web,
     thoughtSpec: provenanceConfig.thoughtSpec,
@@ -11473,7 +11644,6 @@ const resetThought = (options?: { preserveStoredOutput?: boolean }) => {
     writeCurrentOutputSession();
   }
   resetMintRuntimeState();
-  walletState.menuOpen = false;
   syncOutputToCanvas("", { suppressWarning: true });
   setWarning("");
   setStatus("");
@@ -11821,31 +11991,10 @@ const launchThoughtAgentBridge = (launchUri: string) => {
 };
 
 const readThoughtAgentModelReturn = (payload: ThoughtAgentRunStatusResponse) => {
-  const work = payload.result?.work?.trim();
-  if (work) {
-    return work;
-  }
-
-  const raw = payload.result?.raw;
-  if (typeof raw !== "string" || !raw.trim()) {
-    return "";
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (
-      parsed &&
-      typeof parsed === "object" &&
-      "work" in parsed &&
-      typeof (parsed as { work?: unknown }).work === "string"
-    ) {
-      return (parsed as { work: string }).work.trim();
-    }
-  } catch {
-    return raw.trim();
-  }
-
-  return raw.trim();
+  const agentLine = payload.result?.agentLine;
+  if (typeof agentLine !== "string") return "";
+  assertThoughtLine(agentLine, "agent");
+  return agentLine;
 };
 
 const pollThoughtAgentRun = async (input: {
@@ -11907,7 +12056,7 @@ const requestCodexAgent = async (payload: ThoughtRunPayload) => {
       method: "POST",
       body: JSON.stringify({
         protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
-        prompt: payload.input.prompt,
+        promptLine: payload.input.promptLine,
         specId: THOUGHT_AGENT_REGISTERED_SPEC_ID,
         requestedAgent: {
           adapterId: CODEX_PROVIDER,
@@ -12904,7 +13053,7 @@ const runAgent = async (options?: { forceGenerate?: boolean; cli?: boolean }) =>
     }
 
     if (primaryActionState === "mint" || primaryActionState === "retry_mint") {
-      await openMintSheet();
+      await openMintFlow(THOUGHT_PANEL_MINT_UI_MODE);
       return;
     }
 
@@ -14446,7 +14595,9 @@ const buildCliCurrentLines = () => {
       `reason: ${lastRejectedRun.reasonLabel}`,
     );
     if (lastRejectedRun.reasonCode === 3) {
-      lines.push(`canonical text: ${lastRejectedRun.normalizedLength ?? 0} / ${MAX_TEXT_BYTES} characters`);
+      lines.push(
+        `agent line: ${byteLength(lastRejectedRun.normalizedCandidate ?? lastRejectedRun.modelReturn)} / ${THOUGHT_V2_PROTOCOL_RELEASE.limits.agentMaxBytes} UTF-8 bytes`,
+      );
     }
     lines.push(currentWorkId ? "current work unchanged." : "work: none");
   }
@@ -16068,7 +16219,7 @@ const startCliMint = async () => {
     "one THOUGHT needs one usable $PATH.",
     "select $PATH / authorize / confirm.",
   ]);
-  await withCliLoading("loading...", () => openMintSheet("cli"), MINT_PREP_LOADING_DETAILS);
+  await withCliLoading("loading...", () => openMintFlow("cli"), MINT_PREP_LOADING_DETAILS);
   appendCliMintState();
 };
 
@@ -16106,7 +16257,7 @@ const ensureCliMintFlow = async () => {
     return false;
   }
 
-  await openMintSheet("cli");
+  await openMintFlow("cli");
   return mintFlowState !== "closed";
 };
 
@@ -17450,7 +17601,7 @@ thoughtDockPrompt.addEventListener("input", () => {
   writeSessionState();
   setWarning("");
   if (!isThoughtDockRunningState(thoughtDockState)) {
-    const prompt = thoughtDockPrompt.value.trim();
+    const prompt = thoughtDockPrompt.value;
     setThoughtDockState(prompt ? { kind: "ready", prompt } : { kind: "empty" });
   } else {
     syncThoughtDock();
@@ -17599,76 +17750,6 @@ disconnectOpenRouterButton.addEventListener("click", () => {
   disconnectOpenRouter();
 });
 
-mintWalletToggle.addEventListener("click", () => {
-  if (mintWalletToggle.classList.contains("is-hidden")) {
-    return;
-  }
-
-  walletState.menuOpen = !walletState.menuOpen;
-  syncWalletMenu();
-});
-
-mintWalletConnect.addEventListener("click", () => {
-  walletState.menuOpen = false;
-  syncWalletMenu();
-  void runThoughtDockWalletCommand();
-});
-
-mintWalletAuthorize.addEventListener("click", () => {
-  walletState.menuOpen = false;
-  syncWalletMenu();
-  void handleMintSheetAction("authorize");
-});
-
-mintWalletConfirm.addEventListener("click", () => {
-  walletState.menuOpen = false;
-  syncWalletMenu();
-  void handleMintSheetAction("confirm_mint");
-});
-
-mintWalletViewTx.addEventListener("click", () => {
-  walletState.menuOpen = false;
-  syncWalletMenu();
-  void handleMintSheetAction("view_tx");
-});
-
-mintWalletCopyAddress.addEventListener("click", () => {
-  void copyToClipboard(walletState.address).then((copied) => {
-    if (copied) {
-      walletState.menuOpen = false;
-      syncWalletMenu();
-      setStatus("address copied.", { flashMs: NOTICE_FLASH_MS });
-    }
-  });
-});
-
-mintWalletCopyTx.addEventListener("click", () => {
-  void handlePendingTx().then(() => {
-    walletState.menuOpen = false;
-    syncWalletMenu();
-  });
-});
-
-mintWalletRefresh.addEventListener("click", () => {
-  void refreshWalletState().then(() => {
-    if (walletState.address && walletState.chainId === THOUGHT_CHAIN_ID) {
-      void refreshPathInventoryForCurrentWallet({ force: true });
-    }
-    syncInterface();
-    setStatus("wallet refreshed.", { flashMs: NOTICE_FLASH_MS });
-  });
-});
-
-mintWalletSwitchNetwork.addEventListener("click", () => {
-  walletState.menuOpen = false;
-  syncWalletMenu();
-  void switchThoughtDockWalletNetwork();
-});
-
-mintWalletDisconnect.addEventListener("click", () => {
-  disconnectThoughtDockWallet();
-});
-
 runAgentButton.addEventListener("click", () => {
   void runAgent();
 });
@@ -17762,6 +17843,7 @@ window.addEventListener("beforeunload", () => {
   revokeColorFontPageRawUrl();
 });
 window.addEventListener("focus", () => {
+  refreshThoughtDockPolling();
   const canSoftRefresh =
     mintFlowState === "path_required" ||
     mintFlowState === "path_ready" ||
@@ -17779,22 +17861,19 @@ window.addEventListener("focus", () => {
   lastMintSheetFocusRefreshAt = Date.now();
   void refreshMintSheetPath();
 });
-document.addEventListener("mousedown", (event) => {
-  if (!walletState.menuOpen) {
-    return;
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    refreshThoughtDockPolling();
   }
-
-  const target = event.target;
-  if (!(target instanceof Node)) {
-    return;
-  }
-
-  if (mintWalletToggle.contains(target) || mintWalletMenu.contains(target)) {
-    return;
-  }
-
-  walletState.menuOpen = false;
-  syncWalletMenu();
+});
+window.addEventListener("pageshow", () => {
+  refreshThoughtDockPolling();
+});
+document.addEventListener("resume", () => {
+  refreshThoughtDockPolling();
+});
+window.addEventListener("online", () => {
+  refreshThoughtDockPolling();
 });
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && mintFlowState !== "closed") {
@@ -17935,6 +18014,7 @@ const initFrontpage = async () => {
     );
   }
 
+  bindThoughtShellWallet();
   bindWalletProviderEvents();
   await refreshWalletState();
   syncInterface();

@@ -2,6 +2,7 @@ import { describe, expect, test, afterEach, jest } from "@jest/globals";
 import {
   EIP6963_ANNOUNCE_EVENT,
   EIP6963_REQUEST_EVENT,
+  chainLabel,
   discoverEip6963Providers,
   fallbackWindowEthereumProviders,
   PUBLIC_WALLETCONNECT_PROJECT_ID,
@@ -88,5 +89,9 @@ describe("wallet EVM transport helpers", () => {
 
   test("WalletConnect metadata uses public HTTPS URL on localhost", () => {
     expect(walletConnectMetadata("home").url).toBe("https://inshell.art");
+  });
+
+  test("labels the THOUGHT local chain in the global wallet", () => {
+    expect(chainLabel(31337)).toEqual({ name: "Anvil Local", network: "local" });
   });
 });

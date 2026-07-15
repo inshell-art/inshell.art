@@ -1,6 +1,7 @@
 @import "@fontsource/source-code-pro/200.css";
 @import "@fontsource/source-code-pro/400.css";
 @import "@fontsource/source-code-pro/600.css";
+@import "@inshell/inshell-shell/tokens.css";
 
 :root {
   color-scheme: dark light;
@@ -51,9 +52,15 @@ body {
 }
 
 body.thought-v2-lab-body {
+  --svg-lab-page-bg: #0f0f0f;
+  --svg-lab-text: #b9c0cc;
+  --svg-lab-control-text: #d4dae5;
+  --svg-lab-muted: #8f98a8;
+
   height: auto;
   min-height: 100vh;
   overflow: auto;
+  background: var(--svg-lab-page-bg);
 }
 
 .svg-lab {
@@ -78,7 +85,7 @@ body.thought-v2-lab-body {
 .svg-lab__title {
   margin: 0;
   color: var(--svg-lab-accent);
-  font-size: clamp(40px, 6vh, 84px);
+  font-size: clamp(var(--font-size-40), 6vh, var(--font-size-84));
   font-weight: 200;
   letter-spacing: 0.16em;
 }
@@ -87,7 +94,7 @@ body.thought-v2-lab-body {
   max-width: 560px;
   margin: 0;
   color: var(--svg-lab-muted);
-  font-size: 15px;
+  font-size: var(--font-size-15);
   line-height: 1.55;
 }
 
@@ -152,7 +159,7 @@ body.thought-v2-lab-body {
   display: block;
   margin: 0 0 10px;
   color: var(--svg-lab-accent);
-  font-size: 18px;
+  font-size: var(--font-size-18);
   font-weight: 600;
   letter-spacing: 0.14em;
 }
@@ -164,7 +171,7 @@ body.thought-v2-lab-body {
   background: var(--svg-lab-control-bg);
   color: var(--svg-lab-control-text);
   font: inherit;
-  font-size: 16px;
+  font-size: var(--font-size-16);
   line-height: 1.5;
   padding: 10px 12px;
   outline: none;
@@ -185,7 +192,7 @@ body.thought-v2-lab-body {
   display: grid;
   gap: 6px;
   color: var(--svg-lab-muted);
-  font-size: 13px;
+  font-size: var(--font-size-13);
 }
 
 .svg-lab__color-row {
@@ -214,7 +221,7 @@ body.thought-v2-lab-body {
   background: transparent;
   color: var(--svg-lab-accent);
   font: inherit;
-  font-size: 17px;
+  font-size: var(--font-size-17);
   cursor: pointer;
   padding: 0;
 }
@@ -238,7 +245,7 @@ body.thought-v2-lab-body {
 
 .svg-lab__font-name {
   color: var(--svg-lab-muted);
-  font-size: 12px;
+  font-size: var(--font-size-12);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -266,14 +273,14 @@ body.thought-v2-lab-body {
   background: var(--svg-lab-control-bg);
   color: var(--svg-lab-control-text);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--font-size-13);
   line-height: 1.55;
 }
 
 .svg-lab__meta {
   margin: 10px 0 0;
   color: var(--svg-lab-muted);
-  font-size: 13px;
+  font-size: var(--font-size-13);
 }
 
 .svg-lab--v2 {
@@ -346,7 +353,7 @@ body.thought-v2-lab-body {
 .svg-lab__fixtures-title {
   margin: 0;
   color: var(--svg-lab-accent);
-  font-size: 22px;
+  font-size: var(--font-size-22);
   font-weight: 600;
   letter-spacing: 0.14em;
 }
@@ -359,18 +366,13 @@ body.thought-v2-lab-body {
 
 .svg-lab__fixture-card {
   min-width: 0;
-  border: 1px solid var(--svg-lab-panel-border);
-  background: var(--svg-lab-panel-bg);
-  display: grid;
-  gap: 10px;
-  padding: 12px;
+  display: block;
 }
 
 .svg-lab__fixture-canvas {
   aspect-ratio: 1;
   width: 100%;
   overflow: hidden;
-  background: var(--svg-lab-panel-bg);
   display: grid;
   place-items: stretch;
 }
@@ -381,74 +383,26 @@ body.thought-v2-lab-body {
   height: 100%;
 }
 
-.svg-lab__fixture-body {
-  min-width: 0;
-  padding: 14px;
-  background: var(--svg-lab-fixture-detail-bg);
-  display: grid;
-  gap: 8px;
-}
-
-.svg-lab__fixture-name {
-  margin: 0;
+.svg-lab__fixture-meta {
+  margin-top: 10px;
   color: var(--svg-lab-control-text);
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.35;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: var(--font-size-12);
+  line-height: 1.5;
 }
 
-.svg-lab__fixture-corpus {
-  margin: -4px 0 0;
-  color: var(--svg-lab-accent);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-}
-
-.svg-lab__fixture-lines {
+.svg-lab__fixture-meta-line {
   margin: 0;
   color: var(--svg-lab-muted);
-  font-size: 12px;
-  line-height: 1.45;
+  font-weight: 200;
 }
 
-.svg-lab__fixture-actions {
-  display: flex;
-  justify-content: flex-start;
+.svg-lab__fixture-provenance {
+  color: var(--svg-lab-muted);
+  text-decoration: none;
 }
 
-.svg-lab__fixture-button {
-  font-size: 13px;
-}
-
-.svg-lab__fixture-work-list {
-  min-width: 0;
-  display: grid;
-  gap: 6px;
-}
-
-.svg-lab__fixture-line-item {
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-}
-
-.svg-lab__fixture-line-label {
-  color: var(--svg-lab-accent);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-}
-
-.svg-lab__fixture-line-value {
-  min-width: 0;
-  color: var(--svg-lab-control-text);
-  font-size: 12px;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
+.svg-lab__fixture-provenance:hover {
+  color: var(--svg-lab-muted);
 }
 
 @media (max-width: 980px) {

@@ -1,6 +1,6 @@
 export const OFFICIAL_DOMAINS = {
   home: "https://inshell.art",
-  thought: "https://thought.inshell.art",
+  thought: "https://inshell.art/thought",
 } as const;
 
 export const PUBLIC_SITE_METADATA = {

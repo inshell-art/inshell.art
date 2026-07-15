@@ -243,6 +243,7 @@ export function readEvmChainIds(getEnv: WalletEnvReader): number[] {
 
 export function chainLabel(chainId: number | null): { name: string; network: string } {
   if (chainId === 11155111) return { name: "Sepolia", network: "sepolia" };
+  if (chainId === 31337) return { name: "Anvil Local", network: "local" };
   if (chainId === 31338) return { name: "PATH Local", network: "devnet" };
   if (chainId === 1) return { name: "Mainnet", network: "mainnet" };
   return { name: "Unknown", network: "unknown" };
@@ -295,6 +296,8 @@ export function readWalletConnectRelayUrl(getEnv: WalletEnvReader): string {
 export function walletConnectMetadata(surfaceOverride?: "home" | "thought") {
   const hostname =
     typeof window === "undefined" ? "" : window.location.hostname.toLowerCase();
+  const pathname =
+    typeof window === "undefined" ? "" : window.location.pathname.toLowerCase();
   const documentTitle =
     typeof document === "undefined"
       ? ""
@@ -302,6 +305,8 @@ export function walletConnectMetadata(surfaceOverride?: "home" | "thought") {
   const surface =
     surfaceOverride ??
     (hostname === "thought.inshell.art" ||
+    pathname === "/thought" ||
+    pathname.startsWith("/thought/") ||
     documentTitle === PUBLIC_SITE_METADATA.thought.title
       ? "thought"
       : "home");

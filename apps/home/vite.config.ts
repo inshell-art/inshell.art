@@ -48,6 +48,18 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       strictPort: true,
       proxy: {
+        "/api/thought-agent": {
+          target: "http://127.0.0.1:5174",
+          changeOrigin: true,
+          secure: false,
+        },
+        "/thought": {
+          target: "http://127.0.0.1:5174",
+          changeOrigin: true,
+          secure: false,
+          rewrite: (requestPath) =>
+            requestPath.replace(/^\/thought(?=$|\?)/, "/thought/"),
+        },
         "/api": {
           target: readDevApiOrigin(),
           changeOrigin: true,

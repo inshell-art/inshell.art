@@ -3,23 +3,29 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" href="/icons/icon-512.png" />
-  <link rel="alternate icon" type="image/svg+xml" href="/thought-icon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/inshell.svg" />
+  <link rel="alternate icon" href="/icons/icon-512.png" />
+  <link rel="apple-touch-icon" href="/icons/icon-512.png" />
   <meta name="description" content="THOUGHT creation, minting, and gallery for Inshell." />
   <meta property="og:title" content="THOUGHT" />
   <meta property="og:description" content="THOUGHT creation, minting, and gallery for Inshell." />
-  <meta property="og:url" content="https://thought.inshell.art" />
-  <meta property="og:image" content="https://thought.inshell.art/og.png" />
+  <meta property="og:url" content="https://inshell.art/thought" />
+  <meta property="og:image" content="https://inshell.art/og.png" />
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="THOUGHT" />
   <meta name="twitter:description" content="THOUGHT creation, minting, and gallery for Inshell." />
-  <meta name="twitter:image" content="https://thought.inshell.art/og.png" />
+  <meta name="twitter:image" content="https://inshell.art/og.png" />
   <meta name="theme-color" content="#008080" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script>
     (() => {
       const params = new URLSearchParams(window.location.search);
-      const pathname = window.location.pathname.replace(/\/+$/, "");
+      const rawPathname = window.location.pathname.replace(/\/+$/, "") || "/";
+      const pathname = rawPathname === "/thought"
+        ? "/"
+        : rawPathname.startsWith("/thought/") && !/^\/thought\/[1-9]\d*$/.test(rawPathname)
+          ? rawPathname.slice("/thought".length)
+          : rawPathname;
       const hostname = window.location.hostname.toLowerCase();
       const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1";
       const isGalleryHost = hostname === "gallery.inshell.art" || hostname === "gallery.preview.inshell.art";
@@ -36,12 +42,25 @@
         hostname === "thought.preview.inshell.art" ||
         hostname === "thought-inshell-art.pages.dev" ||
         hostname.endsWith(".thought-inshell-art.pages.dev");
-      const redirectThoughtId = !isLocalHost && isThoughtHost && !hasGalleryIntent
-        ? thoughtPathMatch?.[1] || thoughtQueryId
-        : "";
-      if (redirectThoughtId) {
+      if (!isLocalHost && isThoughtHost && !hasGalleryIntent) {
         const isPreview = hostname === "thought.preview.inshell.art" || hostname.startsWith("staging.");
-        window.location.replace(`${isPreview ? "https://preview.inshell.art" : "https://inshell.art"}/thought/${redirectThoughtId}`);
+        const redirectThoughtId = thoughtPathMatch?.[1] || thoughtQueryId;
+        const target = new URL(
+          redirectThoughtId
+            ? `/thought/${redirectThoughtId}`
+            : rawPathname === "/" || rawPathname === "/thought"
+              ? "/thought"
+              : rawPathname.startsWith("/thought/")
+                ? rawPathname
+                : `/thought${rawPathname}`,
+          isPreview ? "https://preview.inshell.art" : "https://inshell.art",
+        );
+        target.search = window.location.search;
+        if (redirectThoughtId) {
+          target.searchParams.delete("thought");
+        }
+        target.hash = window.location.hash;
+        window.location.replace(target.toString());
         return;
       }
       if (pathname === "/color-font") {
@@ -88,100 +107,13 @@
   <link rel="stylesheet" href="/src/style.css">
 
   <main class="frontpage-shell">
+    <div id="thought-shell-root"></div>
     <section class="frontpage-stage" aria-labelledby="frontpage-title">
       <header class="thought-create__header">
         <h1 id="frontpage-title" class="thought-create__title">THOUGHT</h1>
         <nav class="thought-create__links" aria-label="THOUGHT create links">
-          <a href="/gallery">[ gallery ]</a>
-          <a href="/plugin">[ plugin ]</a>
-          <a href="/verify">[ verify ]</a>
-          <div class="thought-wallet-surface">
-            <button
-              id="mint-wallet-toggle"
-              class="frontpage-wallet-toggle"
-              type="button"
-              aria-label="Wallet status"
-              aria-expanded="false"
-              aria-haspopup="menu"
-            >
-              <span id="mint-wallet-label" class="frontpage-wallet-toggle__label">[ connect ]</span>
-              <span id="mint-wallet-dot" class="frontpage-wallet-dot is-off" aria-hidden="true"></span>
-            </button>
-            <div id="mint-wallet-menu" class="frontpage-wallet-menu is-hidden" role="menu">
-              <div class="frontpage-wallet-meta">
-                <span class="frontpage-wallet-label">address</span>
-                <span id="mint-wallet-address" class="frontpage-wallet-value">-</span>
-              </div>
-              <div class="frontpage-wallet-meta">
-                <span class="frontpage-wallet-label">network</span>
-                <span id="mint-wallet-network" class="frontpage-wallet-value">-</span>
-              </div>
-              <div id="mint-wallet-token-row" class="frontpage-wallet-meta is-hidden">
-                <span class="frontpage-wallet-label">token</span>
-                <span id="mint-wallet-token" class="frontpage-wallet-value">-</span>
-              </div>
-              <div id="mint-wallet-path-row" class="frontpage-wallet-meta is-hidden">
-                <span class="frontpage-wallet-label">PATH</span>
-                <span id="mint-wallet-path" class="frontpage-wallet-value">-</span>
-              </div>
-              <div
-                id="mint-wallet-review"
-                class="frontpage-wallet-review is-hidden"
-                aria-live="polite"
-              ></div>
-              <button
-                id="mint-wallet-authorize"
-                class="frontpage-wallet-action is-hidden"
-                type="button"
-              >
-                authorize PATH
-              </button>
-              <button
-                id="mint-wallet-confirm"
-                class="frontpage-wallet-action is-hidden"
-                type="button"
-              >
-                confirm mint
-              </button>
-              <button
-                id="mint-wallet-view-tx"
-                class="frontpage-wallet-action is-hidden"
-                type="button"
-              >
-                view tx
-              </button>
-              <button id="mint-wallet-connect" class="frontpage-wallet-action" type="button">
-                connect wallet
-              </button>
-              <button id="mint-wallet-copy-address" class="frontpage-wallet-action" type="button">
-                copy address
-              </button>
-              <button
-                id="mint-wallet-copy-tx"
-                class="frontpage-wallet-action is-hidden"
-                type="button"
-              >
-                copy tx hash
-              </button>
-              <button id="mint-wallet-refresh" class="frontpage-wallet-action" type="button">
-                refresh
-              </button>
-              <button
-                id="mint-wallet-switch-network"
-                class="frontpage-wallet-action is-hidden"
-                type="button"
-              >
-                switch network
-              </button>
-              <button
-                id="mint-wallet-disconnect"
-                class="frontpage-wallet-action is-hidden"
-                type="button"
-              >
-                disconnect
-              </button>
-            </div>
-          </div>
+          <a href="/thought/plugin">[ plugin ]</a>
+          <a href="/thought/verify">[ verify ]</a>
         </nav>
       </header>
       <div class="frontpage-main">
@@ -192,8 +124,8 @@
                 id="thought-grid"
                 class="thought-grid"
                 width="960"
-                height="540"
-                aria-label="Canvas preview of the current character squares"
+                height="960"
+                aria-label="THOUGHT work canvas preview"
               ></canvas>
               <img
                 id="thought-svg-preview"
@@ -210,8 +142,8 @@
             <p class="thought-panel__subtitle">made by your Agent</p>
             <nav class="thought-panel__links" aria-label="THOUGHT panel links">
               <a href="/gallery">Gallery</a>
-              <a href="/plugin">Plugin</a>
-              <a href="/verify">Verify</a>
+              <a href="/thought/plugin">Plugin</a>
+              <a href="/thought/verify">Verify</a>
             </nav>
           </header>
           <div class="thought-panel__body">
@@ -241,6 +173,21 @@
                 class="thought-dock-path thought-path-panel is-hidden"
                 aria-label="PATH selection"
               >
+                <div
+                  id="thought-dock-path-inventory"
+                  class="thought-dock-path-inventory is-hidden"
+                  aria-labelledby="thought-dock-path-inventory-label"
+                >
+                  <p id="thought-dock-path-inventory-label" class="thought-dock-label">
+                    available $PATH
+                  </p>
+                  <div
+                    id="thought-dock-path-inventory-list"
+                    class="thought-dock-path-actions"
+                    role="group"
+                    aria-label="Available PATH tokens"
+                  ></div>
+                </div>
                 <div id="thought-dock-path-field" class="thought-dock-path-field">
                   <label class="thought-dock-label" for="thought-dock-path-box">$PATH #</label>
                   <input
@@ -689,7 +636,7 @@
             </span>
           </span>
         </p>
-        <a id="gallery-create-link" class="thought-gallery__create" href="https://thought.inshell.art/">create your THOUGHT</a>
+        <a id="gallery-create-link" class="thought-gallery__create" href="/thought">create your THOUGHT</a>
         <a id="gallery-home-link" class="thought-gallery__home" href="https://inshell.art/">[ home ]</a>
       </div>
       <div id="gallery-grid" class="thought-gallery__grid"></div>
@@ -800,7 +747,7 @@
             </div>
             <div>
               <dt>THOUGHT</dt>
-              <dd><a id="verify-thought-domain" href="https://thought.inshell.art">https://thought.inshell.art</a></dd>
+              <dd><a id="verify-thought-domain" href="https://inshell.art/thought">https://inshell.art/thought</a></dd>
             </div>
           </dl>
         </section>
@@ -927,7 +874,7 @@
         </div>
         <nav class="thought-detail__links" aria-label="THOUGHT detail links">
           <a id="thought-detail-gallery-link" class="thought-detail__link" href="https://inshell.art/gallery">[ gallery ]</a>
-          <a id="thought-detail-create-link" class="thought-detail__link" href="https://thought.inshell.art/">[ create yours ]</a>
+          <a id="thought-detail-create-link" class="thought-detail__link" href="/thought">[ create yours ]</a>
         </nav>
       </header>
       <p id="thought-detail-status" class="thought-detail__status" aria-live="polite">loading THOUGHT...</p>

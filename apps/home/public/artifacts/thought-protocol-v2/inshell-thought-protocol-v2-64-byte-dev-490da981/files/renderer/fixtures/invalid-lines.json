@@ -1,0 +1,856 @@
+[
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line is empty"
+    ],
+    "id": "empty",
+    "kind": "prompt",
+    "promptLine": ""
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains a control character U+A",
+      "prompt line contains disallowed character U+A"
+    ],
+    "id": "newline",
+    "kind": "prompt",
+    "promptLine": "line\nbreak"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains a control character U+9",
+      "prompt line contains disallowed character U+9"
+    ],
+    "id": "tab",
+    "kind": "prompt",
+    "promptLine": "line\tbreak"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains a control character U+D",
+      "prompt line contains disallowed character U+D"
+    ],
+    "id": "carriage-return",
+    "kind": "prompt",
+    "promptLine": "line\rbreak"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains a control character U+1",
+      "prompt line contains disallowed character U+1"
+    ],
+    "id": "control",
+    "kind": "prompt",
+    "promptLine": "line\u0001break"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line has invalid spacing"
+    ],
+    "id": "leading-space",
+    "kind": "prompt",
+    "promptLine": " leading"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line has invalid spacing"
+    ],
+    "id": "trailing-space",
+    "kind": "prompt",
+    "promptLine": "trailing "
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line has invalid spacing",
+      "prompt line has invalid spacing"
+    ],
+    "id": "all-spaces",
+    "kind": "prompt",
+    "promptLine": "   "
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line is 65/64 bytes"
+    ],
+    "id": "source-65-bytes",
+    "kind": "prompt",
+    "promptLine": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line is 65/64 bytes"
+    ],
+    "id": "multibyte-over-64",
+    "kind": "prompt",
+    "promptLine": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaé"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+200D"
+    ],
+    "id": "zero-width-joiner",
+    "kind": "prompt",
+    "promptLine": "a‍b"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+FE0F"
+    ],
+    "id": "variation-selector",
+    "kind": "prompt",
+    "promptLine": "a️"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+FDD0"
+    ],
+    "id": "noncharacter",
+    "kind": "prompt",
+    "promptLine": "a﷐"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains a control character U+9",
+      "prompt line contains disallowed character U+9"
+    ],
+    "id": "codepoint-u-0009",
+    "kind": "prompt",
+    "promptLine": "\t"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains a control character U+D",
+      "prompt line contains disallowed character U+D"
+    ],
+    "id": "codepoint-u-000d",
+    "kind": "prompt",
+    "promptLine": "\r"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains a control character U+85",
+      "prompt line contains disallowed character U+85"
+    ],
+    "id": "codepoint-u-0085",
+    "kind": "prompt",
+    "promptLine": ""
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+A0"
+    ],
+    "id": "codepoint-u-00a0",
+    "kind": "prompt",
+    "promptLine": " "
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+1680"
+    ],
+    "id": "codepoint-u-1680",
+    "kind": "prompt",
+    "promptLine": " "
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+2000"
+    ],
+    "id": "codepoint-u-2000",
+    "kind": "prompt",
+    "promptLine": " "
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+200A"
+    ],
+    "id": "codepoint-u-200a",
+    "kind": "prompt",
+    "promptLine": " "
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+2028"
+    ],
+    "id": "codepoint-u-2028",
+    "kind": "prompt",
+    "promptLine": " "
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+2029"
+    ],
+    "id": "codepoint-u-2029",
+    "kind": "prompt",
+    "promptLine": " "
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+202F"
+    ],
+    "id": "codepoint-u-202f",
+    "kind": "prompt",
+    "promptLine": " "
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+205F"
+    ],
+    "id": "codepoint-u-205f",
+    "kind": "prompt",
+    "promptLine": " "
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+3000"
+    ],
+    "id": "codepoint-u-3000",
+    "kind": "prompt",
+    "promptLine": "　"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+AD"
+    ],
+    "id": "codepoint-u-00ad",
+    "kind": "prompt",
+    "promptLine": "­"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+34F"
+    ],
+    "id": "codepoint-u-034f",
+    "kind": "prompt",
+    "promptLine": "͏"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+61C"
+    ],
+    "id": "codepoint-u-061c",
+    "kind": "prompt",
+    "promptLine": "؜"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+115F"
+    ],
+    "id": "codepoint-u-115f",
+    "kind": "prompt",
+    "promptLine": "ᅟ"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+1160"
+    ],
+    "id": "codepoint-u-1160",
+    "kind": "prompt",
+    "promptLine": "ᅠ"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+17B4"
+    ],
+    "id": "codepoint-u-17b4",
+    "kind": "prompt",
+    "promptLine": "឴"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+17B5"
+    ],
+    "id": "codepoint-u-17b5",
+    "kind": "prompt",
+    "promptLine": "឵"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+180B"
+    ],
+    "id": "codepoint-u-180b",
+    "kind": "prompt",
+    "promptLine": "᠋"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+180F"
+    ],
+    "id": "codepoint-u-180f",
+    "kind": "prompt",
+    "promptLine": "᠏"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+200B"
+    ],
+    "id": "codepoint-u-200b",
+    "kind": "prompt",
+    "promptLine": "​"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+200C"
+    ],
+    "id": "codepoint-u-200c",
+    "kind": "prompt",
+    "promptLine": "‌"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+200D"
+    ],
+    "id": "codepoint-u-200d",
+    "kind": "prompt",
+    "promptLine": "‍"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+200E"
+    ],
+    "id": "codepoint-u-200e",
+    "kind": "prompt",
+    "promptLine": "‎"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+200F"
+    ],
+    "id": "codepoint-u-200f",
+    "kind": "prompt",
+    "promptLine": "‏"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+202A"
+    ],
+    "id": "codepoint-u-202a",
+    "kind": "prompt",
+    "promptLine": "‪"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+202E"
+    ],
+    "id": "codepoint-u-202e",
+    "kind": "prompt",
+    "promptLine": "‮"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+2060"
+    ],
+    "id": "codepoint-u-2060",
+    "kind": "prompt",
+    "promptLine": "⁠"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+2066"
+    ],
+    "id": "codepoint-u-2066",
+    "kind": "prompt",
+    "promptLine": "⁦"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+2069"
+    ],
+    "id": "codepoint-u-2069",
+    "kind": "prompt",
+    "promptLine": "⁩"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+206F"
+    ],
+    "id": "codepoint-u-206f",
+    "kind": "prompt",
+    "promptLine": "⁯"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+3164"
+    ],
+    "id": "codepoint-u-3164",
+    "kind": "prompt",
+    "promptLine": "ㅤ"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+FE00"
+    ],
+    "id": "codepoint-u-fe00",
+    "kind": "prompt",
+    "promptLine": "︀"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+FE0F"
+    ],
+    "id": "codepoint-u-fe0f",
+    "kind": "prompt",
+    "promptLine": "️"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+FEFF"
+    ],
+    "id": "codepoint-u-feff",
+    "kind": "prompt",
+    "promptLine": "﻿"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+FFA0"
+    ],
+    "id": "codepoint-u-ffa0",
+    "kind": "prompt",
+    "promptLine": "ﾠ"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+FFF0"
+    ],
+    "id": "codepoint-u-fff0",
+    "kind": "prompt",
+    "promptLine": "￰"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+FFF8"
+    ],
+    "id": "codepoint-u-fff8",
+    "kind": "prompt",
+    "promptLine": "￸"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+1BCA0"
+    ],
+    "id": "codepoint-u-1bca0",
+    "kind": "prompt",
+    "promptLine": "𛲠"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+1BCA3"
+    ],
+    "id": "codepoint-u-1bca3",
+    "kind": "prompt",
+    "promptLine": "𛲣"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+1D173"
+    ],
+    "id": "codepoint-u-1d173",
+    "kind": "prompt",
+    "promptLine": "𝅳"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+1D17A"
+    ],
+    "id": "codepoint-u-1d17a",
+    "kind": "prompt",
+    "promptLine": "𝅺"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+E0000"
+    ],
+    "id": "codepoint-u-e0000",
+    "kind": "prompt",
+    "promptLine": "󠀀"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+E0FFF"
+    ],
+    "id": "codepoint-u-e0fff",
+    "kind": "prompt",
+    "promptLine": "󠿿"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+FDD0"
+    ],
+    "id": "codepoint-u-fdd0",
+    "kind": "prompt",
+    "promptLine": "﷐"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+FDEF"
+    ],
+    "id": "codepoint-u-fdef",
+    "kind": "prompt",
+    "promptLine": "﷯"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+FFFE"
+    ],
+    "id": "codepoint-u-fffe",
+    "kind": "prompt",
+    "promptLine": "￾"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+FFFF"
+    ],
+    "id": "codepoint-u-ffff",
+    "kind": "prompt",
+    "promptLine": "￿"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+1FFFE"
+    ],
+    "id": "codepoint-u-1fffe",
+    "kind": "prompt",
+    "promptLine": "🿾"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+1FFFF"
+    ],
+    "id": "codepoint-u-1ffff",
+    "kind": "prompt",
+    "promptLine": "🿿"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+2FFFE"
+    ],
+    "id": "codepoint-u-2fffe",
+    "kind": "prompt",
+    "promptLine": "𯿾"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+2FFFF"
+    ],
+    "id": "codepoint-u-2ffff",
+    "kind": "prompt",
+    "promptLine": "𯿿"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+3FFFE"
+    ],
+    "id": "codepoint-u-3fffe",
+    "kind": "prompt",
+    "promptLine": "𿿾"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+3FFFF"
+    ],
+    "id": "codepoint-u-3ffff",
+    "kind": "prompt",
+    "promptLine": "𿿿"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+4FFFE"
+    ],
+    "id": "codepoint-u-4fffe",
+    "kind": "prompt",
+    "promptLine": "񏿾"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+4FFFF"
+    ],
+    "id": "codepoint-u-4ffff",
+    "kind": "prompt",
+    "promptLine": "񏿿"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+5FFFE"
+    ],
+    "id": "codepoint-u-5fffe",
+    "kind": "prompt",
+    "promptLine": "񟿾"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+5FFFF"
+    ],
+    "id": "codepoint-u-5ffff",
+    "kind": "prompt",
+    "promptLine": "񟿿"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+6FFFE"
+    ],
+    "id": "codepoint-u-6fffe",
+    "kind": "prompt",
+    "promptLine": "񯿾"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+6FFFF"
+    ],
+    "id": "codepoint-u-6ffff",
+    "kind": "prompt",
+    "promptLine": "񯿿"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+7FFFE"
+    ],
+    "id": "codepoint-u-7fffe",
+    "kind": "prompt",
+    "promptLine": "񿿾"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+7FFFF"
+    ],
+    "id": "codepoint-u-7ffff",
+    "kind": "prompt",
+    "promptLine": "񿿿"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+8FFFE"
+    ],
+    "id": "codepoint-u-8fffe",
+    "kind": "prompt",
+    "promptLine": "򏿾"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+8FFFF"
+    ],
+    "id": "codepoint-u-8ffff",
+    "kind": "prompt",
+    "promptLine": "򏿿"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+9FFFE"
+    ],
+    "id": "codepoint-u-9fffe",
+    "kind": "prompt",
+    "promptLine": "򟿾"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+9FFFF"
+    ],
+    "id": "codepoint-u-9ffff",
+    "kind": "prompt",
+    "promptLine": "򟿿"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+AFFFE"
+    ],
+    "id": "codepoint-u-afffe",
+    "kind": "prompt",
+    "promptLine": "򯿾"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+AFFFF"
+    ],
+    "id": "codepoint-u-affff",
+    "kind": "prompt",
+    "promptLine": "򯿿"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+BFFFE"
+    ],
+    "id": "codepoint-u-bfffe",
+    "kind": "prompt",
+    "promptLine": "򿿾"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+BFFFF"
+    ],
+    "id": "codepoint-u-bffff",
+    "kind": "prompt",
+    "promptLine": "򿿿"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+CFFFE"
+    ],
+    "id": "codepoint-u-cfffe",
+    "kind": "prompt",
+    "promptLine": "󏿾"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+CFFFF"
+    ],
+    "id": "codepoint-u-cffff",
+    "kind": "prompt",
+    "promptLine": "󏿿"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+DFFFE"
+    ],
+    "id": "codepoint-u-dfffe",
+    "kind": "prompt",
+    "promptLine": "󟿾"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+DFFFF"
+    ],
+    "id": "codepoint-u-dffff",
+    "kind": "prompt",
+    "promptLine": "󟿿"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+EFFFE"
+    ],
+    "id": "codepoint-u-efffe",
+    "kind": "prompt",
+    "promptLine": "󯿾"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+EFFFF"
+    ],
+    "id": "codepoint-u-effff",
+    "kind": "prompt",
+    "promptLine": "󯿿"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+FFFFE"
+    ],
+    "id": "codepoint-u-ffffe",
+    "kind": "prompt",
+    "promptLine": "󿿾"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+FFFFF"
+    ],
+    "id": "codepoint-u-fffff",
+    "kind": "prompt",
+    "promptLine": "󿿿"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+10FFFE"
+    ],
+    "id": "codepoint-u-10fffe",
+    "kind": "prompt",
+    "promptLine": "􏿾"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains disallowed character U+10FFFF"
+    ],
+    "id": "codepoint-u-10ffff",
+    "kind": "prompt",
+    "promptLine": "􏿿"
+  }
+]

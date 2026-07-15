@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inshell.art/protocol/integrations/agent-run/v2/schemas/thought.agent-run.v2.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "runId", "state", "promptLine", "spec"],
+  "properties": {
+    "schema": { "const": "inshell.thought.agent-run.v2" },
+    "runId": { "type": "string", "minLength": 1 },
+    "state": { "enum": ["created", "claimed", "running", "returned", "failed", "cancelled", "expired"] },
+    "promptLine": { "type": "string", "minLength": 1 },
+    "spec": { "type": "object" }
+  }
+}

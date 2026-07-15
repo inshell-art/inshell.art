@@ -1,7 +1,11 @@
 import {
+  THOUGHT_AGENT_LINE_CONTRACT,
   THOUGHT_AGENT_OUTPUT_SCHEMA,
   THOUGHT_AGENT_PROTOCOL_VERSION,
+  THOUGHT_AGENT_RECEIPT_VERSION,
+  THOUGHT_V2_PROTOCOL_RELEASE,
   ThoughtAgentProtocolError,
+  assertThoughtLine,
   assertProtocolVersion,
   buildThoughtAgentInput,
   buildThoughtAgentReceipt,
@@ -99,19 +103,38 @@ type ThoughtAgentRow = {
   delete_after: string;
 };
 
+type ThoughtAgentClaimAuthorizationState = "pending" | "authorized" | "consumed";
+
+type ThoughtAgentClaimAuthorizationRow = {
+  claim_request_id: string;
+  run_id: string;
+  claim_token_hash: ThoughtSha256;
+  state: ThoughtAgentClaimAuthorizationState;
+  verification_code: string;
+  bridge_metadata_json: string;
+  adapter_metadata_json: string;
+  created_at: string;
+  expires_at: string;
+  authorized_at: string | null;
+  consumed_at: string | null;
+};
+
 const CREATE_TABLE_SQL =
   "CREATE TABLE IF NOT EXISTS thought_agent_runs (run_id TEXT PRIMARY KEY, protocol_version TEXT NOT NULL, state TEXT NOT NULL, web_origin TEXT NOT NULL, visitor_hash TEXT, requested_adapter_id TEXT NOT NULL, requested_model TEXT, spec_id TEXT NOT NULL, spec_sha256 TEXT NOT NULL, contract_spec_hash TEXT, spec_text TEXT NOT NULL, prompt_text TEXT NOT NULL, prompt_sha256 TEXT NOT NULL, agent_input_text TEXT NOT NULL, agent_input_sha256 TEXT NOT NULL, browser_token_hash TEXT NOT NULL, launch_token_hash TEXT, bridge_token_hash TEXT, bridge_metadata_json TEXT, adapter_metadata_json TEXT, agent_metadata_json TEXT, execution_metadata_json TEXT, invocation_id TEXT, started_at TEXT, completed_at TEXT, raw_result TEXT, raw_result_sha256 TEXT, work_text TEXT, work_sha256 TEXT, receipt_json TEXT, receipt_sha256 TEXT, error_code TEXT, error_message TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, claim_expires_at TEXT NOT NULL, run_expires_at TEXT NOT NULL, delete_after TEXT NOT NULL)";
 const CREATE_STATE_INDEX_SQL =
   "CREATE INDEX IF NOT EXISTS thought_agent_runs_state_delete ON thought_agent_runs(state, delete_after)";
 const CREATE_VISITOR_INDEX_SQL =
   "CREATE INDEX IF NOT EXISTS thought_agent_runs_visitor_created ON thought_agent_runs(visitor_hash, created_at)";
+const CREATE_CLAIM_AUTHORIZATIONS_TABLE_SQL =
+  "CREATE TABLE IF NOT EXISTS thought_agent_claim_authorizations (claim_request_id TEXT PRIMARY KEY, run_id TEXT NOT NULL, claim_token_hash TEXT NOT NULL, state TEXT NOT NULL, verification_code TEXT NOT NULL, bridge_metadata_json TEXT NOT NULL, adapter_metadata_json TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL, authorized_at TEXT, consumed_at TEXT)";
+const CREATE_CLAIM_AUTHORIZATIONS_RUN_INDEX_SQL =
+  "CREATE INDEX IF NOT EXISTS thought_agent_claim_authorizations_run_state ON thought_agent_claim_authorizations(run_id, state, expires_at)";
 
 const ensuredDbs = new WeakSet<object>();
-const PROMPT_MAX_BYTES = 8 * 1024;
 const RAW_RESULT_MAX_BYTES = 16 * 1024;
-const WORK_MAX_BYTES = 4 * 1024;
 const ACTIVE_RUN_LIMIT = 3;
 const CLAIM_TTL_MS = 5 * 60 * 1000;
+const CLAIM_AUTHORIZATION_TTL_MS = 2 * 60 * 1000;
 const RUN_TTL_MS = 10 * 60 * 1000;
 const DELETE_AFTER_MS = 24 * 60 * 60 * 1000;
 
@@ -124,6 +147,13 @@ const thoughtAgentApiBase = (request: Request) => {
 
 export const THOUGHT_AGENT_STATUS = {
   protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+  resultSchema: THOUGHT_V2_PROTOCOL_RELEASE.identifiers.agentResult,
+  protocolReleaseId: THOUGHT_V2_PROTOCOL_RELEASE.releaseId,
+  protocolReleaseCommit: THOUGHT_V2_PROTOCOL_RELEASE.commit,
+  protocolReleaseKeccak256:
+    THOUGHT_V2_PROTOCOL_RELEASE.protocolReleaseKeccak256,
+  deploymentStatus: THOUGHT_V2_PROTOCOL_RELEASE.deployment.status,
+  v2MintEnabled: THOUGHT_V2_PROTOCOL_RELEASE.deployment.v2MintEnabled,
   enabled: true,
   runStore: "d1",
   cleanupStatus: "ok",
@@ -149,14 +179,8 @@ export async function createRun(ctx: ThoughtAgentRouteContext): Promise<Response
     const db = await getDb(ctx);
     const body = parseCreateRunRequest(await readJson(ctx.request, 12 * 1024));
     const origin = requireAllowedWebOrigin(ctx);
-    const prompt = body.prompt;
-    if (prompt.trim().length === 0 || byteLengthUtf8(prompt) > PROMPT_MAX_BYTES) {
-      throw new HttpProtocolError(
-        400,
-        "AGENT_OUTPUT_SCHEMA_INVALID",
-        "Prompt is empty or too large.",
-      );
-    }
+    const prompt = body.promptLine;
+    assertThoughtLine(prompt, "prompt");
     if (body.specId !== THOUGHT_AGENT_REGISTERED_SPEC_ID) {
       throw new HttpProtocolError(404, "SPEC_NOT_FOUND", "THOUGHT spec not found.");
     }
@@ -169,7 +193,7 @@ export async function createRun(ctx: ThoughtAgentRouteContext): Promise<Response
     }
 
     const specSha256 = await registeredSpecSha256();
-    const expectedSpecSha256 = `sha256:${THOUGHT_AGENT_SPEC_SHA256_HEX.slice(2)}`;
+    const expectedSpecSha256 = `sha256:${THOUGHT_AGENT_SPEC_SHA256_HEX}`;
     if (
       byteLengthUtf8(THOUGHT_AGENT_SPEC_TEXT) !== THOUGHT_AGENT_SPEC_BYTE_LENGTH ||
       specSha256 !== expectedSpecSha256
@@ -195,10 +219,7 @@ export async function createRun(ctx: ThoughtAgentRouteContext): Promise<Response
 
     const now = new Date();
     const promptSha256 = await sha256Hex(prompt);
-    const agentInput = await buildThoughtAgentInput({
-      specText: THOUGHT_AGENT_SPEC_TEXT,
-      promptText: prompt,
-    });
+    const agentInput = await buildThoughtAgentInput({ promptLine: prompt });
     const runId = `tar_${randomToken(18)}`;
     const browserToken = randomToken(32);
     const launchToken = randomToken(32);
@@ -252,9 +273,7 @@ export async function createRun(ctx: ThoughtAgentRouteContext): Promise<Response
 
     const launchUri = `thought://agent/run?run_id=${encodeURIComponent(
       runId,
-    )}&token=${encodeURIComponent(launchToken)}&api_origin=${encodeURIComponent(
-      origin,
-    )}`;
+    )}&token=${encodeURIComponent(launchToken)}&api_origin=${encodeURIComponent(origin)}`;
 
     return protocolJson(ctx, 201, {
       runId,
@@ -293,10 +312,9 @@ export async function claimRun(ctx: ThoughtAgentRouteContext): Promise<Response>
       );
     }
     if (!current.launch_token_hash) {
-      throw new HttpProtocolError(401, "TOKEN_INVALID", "Invalid token.");
+      throw new HttpProtocolError(401, "TOKEN_INVALID", "Invalid launch token.");
     }
     await verifyToken(ctx.request, current.launch_token_hash);
-
     const body = asProtocolObject(await readJson(ctx.request, 8 * 1024));
     assertProtocolVersion(body.protocolVersion);
     const bridge = parseBridgeInfo(body.bridge);
@@ -329,13 +347,64 @@ export async function claimRun(ctx: ThoughtAgentRouteContext): Promise<Response>
         "THOUGHT Agent run is already claimed.",
       );
     }
-
     return protocolJson(ctx, 200, {
       runId: current.run_id,
       state: "claimed",
       bridgeToken,
       runExpiresAt: current.run_expires_at,
       request: claimRequestPayload(current),
+    });
+  });
+}
+
+export async function authorizeClaimRun(
+  ctx: ThoughtAgentRouteContext,
+): Promise<Response> {
+  return withProtocolErrors(ctx, async () => {
+    const db = await getDb(ctx);
+    const row = await requireRun(db, runIdFromContext(ctx));
+    const current = await expireIfNeeded(db, row);
+    if (current.state !== "created") {
+      throw stateConflict(current.state);
+    }
+    await verifyToken(ctx.request, current.browser_token_hash);
+    const body = asProtocolObject(await readJson(ctx.request, 4 * 1024));
+    assertProtocolVersion(body.protocolVersion);
+    const claimRequestId = requireRunScopedId(body.claimRequestId, "tac_");
+    const authorization = await claimAuthorizationById(
+      db,
+      current.run_id,
+      claimRequestId,
+    );
+    if (!authorization) {
+      throw new HttpProtocolError(404, "RUN_NOT_FOUND", "Claim authorization not found.");
+    }
+    if (Date.parse(authorization.expires_at) <= Date.now()) {
+      throw new HttpProtocolError(410, "TOKEN_EXPIRED", "Claim authorization expired.");
+    }
+    if (authorization.state === "consumed") {
+      throw new HttpProtocolError(409, "RUN_ALREADY_CLAIMED", "Claim authorization was already used.");
+    }
+    const authorizedAt = authorization.authorized_at ?? new Date().toISOString();
+    if (authorization.state === "pending") {
+      const changed = await approveClaimAuthorization(
+        db,
+        authorization.claim_request_id,
+        current.run_id,
+        authorizedAt,
+      );
+      if (!changed) {
+        throw new HttpProtocolError(409, "RUN_STATE_CONFLICT", "Claim authorization changed.");
+      }
+    }
+    return protocolJson(ctx, 200, {
+      runId: current.run_id,
+      state: "authorized",
+      claimAuthorization: publicClaimAuthorizationPayload({
+        ...authorization,
+        state: "authorized",
+        authorized_at: authorizedAt,
+      }),
     });
   });
 }
@@ -381,6 +450,25 @@ export async function submitResult(ctx: ThoughtAgentRouteContext): Promise<Respo
     const current = await expireIfNeeded(db, row);
     await verifyBridgeToken(ctx.request, current);
     const body = parseResultRequest(await readJson(ctx.request, 24 * 1024));
+    const startedAt = requireIsoLike(body.startedAt, "startedAt");
+    const completedAt = requireIsoLike(body.completedAt, "completedAt");
+    if (Date.parse(completedAt) < Date.parse(startedAt)) {
+      throw new HttpProtocolError(
+        400,
+        "AGENT_OUTPUT_SCHEMA_INVALID",
+        "completedAt must not precede startedAt.",
+      );
+    }
+    if (
+      current.started_at &&
+      Date.parse(current.started_at) !== Date.parse(startedAt)
+    ) {
+      throw new HttpProtocolError(
+        409,
+        "RESULT_CONFLICT",
+        "Result startedAt does not match the running invocation.",
+      );
+    }
     const idempotencyKey = ctx.request.headers.get("idempotency-key");
     if (idempotencyKey && idempotencyKey !== body.invocationId) {
       throw new HttpProtocolError(
@@ -394,7 +482,6 @@ export async function submitResult(ctx: ThoughtAgentRouteContext): Promise<Respo
       const repeatedOutput = await parseAgentOutput(
         body.output.raw,
         RAW_RESULT_MAX_BYTES,
-        WORK_MAX_BYTES,
       );
       verifySubmittedOutput(body.output, repeatedOutput);
       if (
@@ -430,7 +517,6 @@ export async function submitResult(ctx: ThoughtAgentRouteContext): Promise<Respo
     const parsedOutput = await parseAgentOutput(
       body.output.raw,
       RAW_RESULT_MAX_BYTES,
-      WORK_MAX_BYTES,
     );
     verifySubmittedOutput(body.output, parsedOutput);
     const receipt = await buildThoughtAgentReceipt({
@@ -453,11 +539,11 @@ export async function submitResult(ctx: ThoughtAgentRouteContext): Promise<Respo
       },
       output: {
         rawSha256: parsedOutput.rawSha256,
-        workSha256: parsedOutput.workSha256,
+        agentLineSha256: parsedOutput.agentLineSha256,
       },
       timing: {
-        startedAt: body.startedAt,
-        completedAt: body.completedAt,
+        startedAt,
+        completedAt,
       },
     });
 
@@ -468,7 +554,7 @@ export async function submitResult(ctx: ThoughtAgentRouteContext): Promise<Respo
       adapter: body.adapter,
       agentJson: JSON.stringify(body.agent),
       executionJson: JSON.stringify(body.execution),
-      completedAt: body.completedAt,
+      completedAt,
       output: parsedOutput,
       receiptJson: receipt.json,
       receiptSha256: receipt.sha256,
@@ -565,6 +651,10 @@ export async function cleanupExpiredThoughtAgentRuns(
   await ensureSchema(db);
   const deletedBefore = now.toISOString();
   await db
+    .prepare("DELETE FROM thought_agent_claim_authorizations WHERE expires_at < ?1")
+    .bind(deletedBefore)
+    .run();
+  await db
     .prepare("DELETE FROM thought_agent_runs WHERE delete_after < ?1")
     .bind(deletedBefore)
     .run();
@@ -585,6 +675,8 @@ async function ensureSchema(db: D1Database): Promise<void> {
   await db.exec(CREATE_TABLE_SQL);
   await db.exec(CREATE_STATE_INDEX_SQL);
   await db.exec(CREATE_VISITOR_INDEX_SQL);
+  await db.exec(CREATE_CLAIM_AUTHORIZATIONS_TABLE_SQL);
+  await db.exec(CREATE_CLAIM_AUTHORIZATIONS_RUN_INDEX_SQL);
   ensuredDbs.add(db);
 }
 
@@ -647,6 +739,173 @@ async function requireRun(db: D1Database, runId: string): Promise<ThoughtAgentRo
   return normalizeRow(raw);
 }
 
+async function createClaimAuthorization(
+  db: D1Database,
+  runId: string,
+  bridge: ThoughtAgentBridgeInfo,
+  adapter: ThoughtAgentAdapterInfo,
+): Promise<{ row: ThoughtAgentClaimAuthorizationRow; token: string }> {
+  const now = new Date();
+  const token = randomToken(32);
+  const row: ThoughtAgentClaimAuthorizationRow = {
+    claim_request_id: `tac_${randomToken(18)}`,
+    run_id: runId,
+    claim_token_hash: await sha256Hex(token),
+    state: "pending",
+    verification_code: randomVerificationCode(),
+    bridge_metadata_json: JSON.stringify(bridge),
+    adapter_metadata_json: JSON.stringify(adapter),
+    created_at: now.toISOString(),
+    expires_at: new Date(now.getTime() + CLAIM_AUTHORIZATION_TTL_MS).toISOString(),
+    authorized_at: null,
+    consumed_at: null,
+  };
+  await db
+    .prepare(
+      "INSERT INTO thought_agent_claim_authorizations (claim_request_id, run_id, claim_token_hash, state, verification_code, bridge_metadata_json, adapter_metadata_json, created_at, expires_at, authorized_at, consumed_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+    )
+    .bind(
+      row.claim_request_id,
+      row.run_id,
+      row.claim_token_hash,
+      row.state,
+      row.verification_code,
+      row.bridge_metadata_json,
+      row.adapter_metadata_json,
+      row.created_at,
+      row.expires_at,
+      row.authorized_at,
+      row.consumed_at,
+    )
+    .run();
+  return { row, token };
+}
+
+async function activeClaimAuthorization(
+  db: D1Database,
+  runId: string,
+): Promise<ThoughtAgentClaimAuthorizationRow | null> {
+  const raw = await db
+    .prepare(
+      "SELECT * FROM thought_agent_claim_authorizations WHERE run_id = ?1 AND state IN ('pending', 'authorized') AND expires_at > ?2 ORDER BY created_at DESC LIMIT 1",
+    )
+    .bind(runId, new Date().toISOString())
+    .first<Record<string, unknown>>();
+  return raw ? normalizeClaimAuthorizationRow(raw) : null;
+}
+
+async function claimAuthorizationByToken(
+  db: D1Database,
+  runId: string,
+  claimTokenHash: ThoughtSha256,
+): Promise<ThoughtAgentClaimAuthorizationRow | null> {
+  const raw = await db
+    .prepare(
+      "SELECT * FROM thought_agent_claim_authorizations WHERE run_id = ?1 AND claim_token_hash = ?2 LIMIT 1",
+    )
+    .bind(runId, claimTokenHash)
+    .first<Record<string, unknown>>();
+  return raw ? normalizeClaimAuthorizationRow(raw) : null;
+}
+
+async function claimAuthorizationById(
+  db: D1Database,
+  runId: string,
+  claimRequestId: string,
+): Promise<ThoughtAgentClaimAuthorizationRow | null> {
+  const raw = await db
+    .prepare(
+      "SELECT * FROM thought_agent_claim_authorizations WHERE run_id = ?1 AND claim_request_id = ?2 LIMIT 1",
+    )
+    .bind(runId, claimRequestId)
+    .first<Record<string, unknown>>();
+  return raw ? normalizeClaimAuthorizationRow(raw) : null;
+}
+
+async function approveClaimAuthorization(
+  db: D1Database,
+  claimRequestId: string,
+  runId: string,
+  authorizedAt: string,
+): Promise<boolean> {
+  const result = await db
+    .prepare(
+      "UPDATE thought_agent_claim_authorizations SET state = 'authorized', authorized_at = ?3 WHERE claim_request_id = ?1 AND run_id = ?2 AND state = 'pending'",
+    )
+    .bind(claimRequestId, runId, authorizedAt)
+    .run();
+  return changed(result);
+}
+
+async function consumeClaimAuthorization(
+  db: D1Database,
+  claimRequestId: string,
+  consumedAt: string,
+): Promise<void> {
+  await db
+    .prepare(
+      "UPDATE thought_agent_claim_authorizations SET state = 'consumed', consumed_at = ?2 WHERE claim_request_id = ?1 AND state = 'authorized'",
+    )
+    .bind(claimRequestId, consumedAt)
+    .run();
+}
+
+function claimMetadataMatches(
+  authorization: ThoughtAgentClaimAuthorizationRow,
+  bridge: ThoughtAgentBridgeInfo,
+  adapter: ThoughtAgentAdapterInfo,
+): boolean {
+  return (
+    authorization.bridge_metadata_json === JSON.stringify(bridge) &&
+    authorization.adapter_metadata_json === JSON.stringify(adapter)
+  );
+}
+
+function publicClaimAuthorizationPayload(
+  authorization: ThoughtAgentClaimAuthorizationRow,
+): Record<string, unknown> {
+  const bridge = JSON.parse(authorization.bridge_metadata_json) as ThoughtAgentBridgeInfo;
+  const adapter = JSON.parse(authorization.adapter_metadata_json) as ThoughtAgentAdapterInfo;
+  return {
+    state: authorization.state,
+    claimRequestId: authorization.claim_request_id,
+    verificationCode: authorization.verification_code,
+    bridge: {
+      bridgeId: bridge.bridgeId,
+      platform: bridge.platform,
+    },
+    adapter: {
+      adapterId: adapter.adapterId,
+      adapterVersion: adapter.adapterVersion,
+    },
+    requestedAt: authorization.created_at,
+    expiresAt: authorization.expires_at,
+    authorizedAt: authorization.authorized_at,
+  };
+}
+
+function normalizeClaimAuthorizationRow(
+  raw: Record<string, unknown>,
+): ThoughtAgentClaimAuthorizationRow {
+  const state = raw.state;
+  if (state !== "pending" && state !== "authorized" && state !== "consumed") {
+    throw new HttpProtocolError(500, "SERVER_UNAVAILABLE", "Invalid claim authorization state.");
+  }
+  return {
+    claim_request_id: stringField(raw.claim_request_id),
+    run_id: stringField(raw.run_id),
+    claim_token_hash: shaField(raw.claim_token_hash),
+    state,
+    verification_code: stringField(raw.verification_code),
+    bridge_metadata_json: stringField(raw.bridge_metadata_json),
+    adapter_metadata_json: stringField(raw.adapter_metadata_json),
+    created_at: stringField(raw.created_at),
+    expires_at: stringField(raw.expires_at),
+    authorized_at: nullableString(raw.authorized_at),
+    consumed_at: nullableString(raw.consumed_at),
+  };
+}
+
 async function updateClaimed(
   db: D1Database,
   runId: string,
@@ -659,16 +918,16 @@ async function updateClaimed(
 ): Promise<boolean> {
   const result = await db
     .prepare(
-      "UPDATE thought_agent_runs SET state = 'claimed', launch_token_hash = NULL, bridge_token_hash = ?2, bridge_metadata_json = ?3, adapter_metadata_json = ?4, updated_at = ?5, run_expires_at = ?6 WHERE run_id = ?1 AND state = 'created' AND launch_token_hash = ?7",
+      "UPDATE thought_agent_runs SET state = 'claimed', launch_token_hash = NULL, bridge_token_hash = ?3, bridge_metadata_json = ?4, adapter_metadata_json = ?5, updated_at = ?6, run_expires_at = ?7 WHERE run_id = ?1 AND state = 'created' AND launch_token_hash = ?2 AND bridge_token_hash IS NULL",
     )
     .bind(
       runId,
+      launchTokenHash,
       bridgeTokenHash,
       bridgeMetadataJson,
       adapterMetadataJson,
       updatedAt,
       runExpiresAt,
-      launchTokenHash,
     )
     .run();
   return changed(result);
@@ -721,8 +980,8 @@ async function updateReturned(
       input.completedAt,
       input.output.raw,
       input.output.rawSha256,
-      input.output.work,
-      input.output.workSha256,
+      input.output.agentLine,
+      input.output.agentLineSha256,
       input.receiptJson,
       input.receiptSha256,
       input.updatedAt,
@@ -814,7 +1073,7 @@ async function expireIfNeeded(
     row.state === "created"
       ? Date.parse(row.claim_expires_at)
       : Date.parse(row.run_expires_at);
-  if (Number.isFinite(deadline) && nowMs > deadline) {
+  if (Number.isFinite(deadline) && nowMs >= deadline) {
     await updateExpired(db, row.run_id, row.state, new Date(nowMs).toISOString());
     return {
       ...row,
@@ -834,7 +1093,7 @@ function statusPayload(row: ThoughtAgentRow): Record<string, unknown> {
     updatedAt: row.updated_at,
     expiresAt: row.state === "created" ? row.claim_expires_at : row.run_expires_at,
     request: {
-      prompt: {
+      promptLine: {
         text: row.prompt_text,
         sha256: row.prompt_sha256,
       },
@@ -858,9 +1117,9 @@ function statusPayload(row: ThoughtAgentRow): Record<string, unknown> {
   if (row.state === "returned") {
     base.result = {
       raw: row.raw_result,
-      work: row.work_text,
+      agentLine: row.work_text,
       receipt: {
-        receiptVersion: "thought-agent-receipt/1",
+        receiptVersion: THOUGHT_AGENT_RECEIPT_VERSION,
         receiptSha256: row.receipt_sha256,
         adapterId: row.requested_adapter_id,
         model: receiptModel(row.agent_metadata_json),
@@ -905,7 +1164,12 @@ function claimRequestPayload(row: ThoughtAgentRow): Record<string, unknown> {
       sha256: row.spec_sha256,
       contractSpecHash: row.contract_spec_hash,
     },
-    prompt: {
+    instructions: {
+      mediaType: "text/markdown; charset=utf-8",
+      text: row.spec_text,
+      sha256: row.spec_sha256,
+    },
+    promptLine: {
       text: row.prompt_text,
       sha256: row.prompt_sha256,
     },
@@ -917,6 +1181,8 @@ function claimRequestPayload(row: ThoughtAgentRow): Record<string, unknown> {
     outputContract: {
       mediaType: "application/json",
       maxRawBytes: RAW_RESULT_MAX_BYTES,
+      resultSchema: THOUGHT_V2_PROTOCOL_RELEASE.identifiers.agentResult,
+      agentLine: THOUGHT_AGENT_LINE_CONTRACT,
       schema: THOUGHT_AGENT_OUTPUT_SCHEMA,
     },
   };
@@ -957,18 +1223,18 @@ function verifySubmittedOutput(
   submitted: {
     raw: string;
     rawSha256: string;
-    work: string;
-    workSha256: string;
+    agentLine: string;
+    agentLineSha256: string;
   },
   parsed: ParsedThoughtAgentOutput,
 ): void {
   if (
     submitted.raw !== parsed.raw ||
-    submitted.work !== parsed.work ||
+    submitted.agentLine !== parsed.agentLine ||
     !isThoughtSha256(submitted.rawSha256) ||
-    !isThoughtSha256(submitted.workSha256) ||
+    !isThoughtSha256(submitted.agentLineSha256) ||
     submitted.rawSha256 !== parsed.rawSha256 ||
-    submitted.workSha256 !== parsed.workSha256
+    submitted.agentLineSha256 !== parsed.agentLineSha256
   ) {
     throw new HttpProtocolError(
       409,
@@ -1023,12 +1289,14 @@ function requireAllowedWebOrigin(ctx: ThoughtAgentRouteContext): string {
 }
 
 function isAllowedOrigin(origin: string, env: ThoughtAgentEnv): boolean {
+  if (origin === "https://inshell.art") return true;
   if (origin === "https://thought.inshell.art") return true;
   if (/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(origin)) return true;
   if (
     env.CF_PAGES_BRANCH &&
     env.CF_PAGES_BRANCH !== "main" &&
-    (origin === "https://thought.preview.inshell.art" ||
+    (origin === "https://preview.inshell.art" ||
+      origin === "https://thought.preview.inshell.art" ||
       origin === "https://staging.thought-inshell-art.pages.dev")
   ) {
     return true;
@@ -1184,6 +1452,8 @@ function requireErrorCode(value: unknown): ThoughtAgentErrorCode {
       "AGENT_OUTPUT_UNPARSEABLE",
       "AGENT_OUTPUT_SCHEMA_INVALID",
       "RESULT_TOO_LARGE",
+      "RESULT_HASH_MISMATCH",
+      "RESULT_CONFLICT",
     ].includes(value)
   ) {
     return "AGENT_START_FAILED";
@@ -1214,6 +1484,13 @@ function randomToken(byteLength: number): string {
     binary += String.fromCharCode(byte);
   }
   return globalThis.btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function randomVerificationCode(): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = new Uint8Array(6);
+  globalThis.crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
 }
 
 function constantTimeEqual(a: string, b: string): boolean {

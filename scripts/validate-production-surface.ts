@@ -445,7 +445,6 @@ function checkThoughtProductionGuards() {
     "const token = getReadThoughtNFT();",
     "previewWorkViaAllowedProvider",
     "createFrontendPreviewProvider",
-    "createThoughtPreviewEndpointProvider",
     "VITE_THOUGHT_PREVIEW_ENDPOINT_ENABLED",
     "THOUGHT_PREVIEW_TIMEOUT_MS",
     "current candidate is not previewed.",

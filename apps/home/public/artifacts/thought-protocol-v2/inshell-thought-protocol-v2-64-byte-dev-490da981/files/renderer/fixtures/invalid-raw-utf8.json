@@ -1,0 +1,98 @@
+[
+  {
+    "errors": [
+      "prompt line contains malformed UTF-8 at byte 0"
+    ],
+    "id": "lone-continuation",
+    "inputHex": "0x80",
+    "kind": "prompt"
+  },
+  {
+    "errors": [
+      "prompt line contains malformed UTF-8 at byte 0"
+    ],
+    "id": "overlong-two-byte",
+    "inputHex": "0xc0af",
+    "kind": "prompt"
+  },
+  {
+    "errors": [
+      "prompt line contains malformed UTF-8 at byte 0"
+    ],
+    "id": "overlong-three-byte",
+    "inputHex": "0xe080af",
+    "kind": "prompt"
+  },
+  {
+    "errors": [
+      "prompt line contains malformed UTF-8 at byte 0"
+    ],
+    "id": "encoded-surrogate",
+    "inputHex": "0xeda080",
+    "kind": "prompt"
+  },
+  {
+    "errors": [
+      "prompt line contains malformed UTF-8 at byte 0"
+    ],
+    "id": "above-unicode-maximum",
+    "inputHex": "0xf4908080",
+    "kind": "prompt"
+  },
+  {
+    "errors": [
+      "prompt line contains malformed UTF-8 at byte 0"
+    ],
+    "id": "truncated-three-byte",
+    "inputHex": "0xe282",
+    "kind": "prompt"
+  },
+  {
+    "errors": [
+      "prompt line contains malformed UTF-8 at byte 0"
+    ],
+    "id": "truncated-four-byte",
+    "inputHex": "0xf09f92",
+    "kind": "prompt"
+  },
+  {
+    "errors": [
+      "prompt line contains malformed UTF-8 at byte 0"
+    ],
+    "id": "bad-two-byte-continuation",
+    "inputHex": "0xc220",
+    "kind": "prompt"
+  },
+  {
+    "errors": [
+      "prompt line contains malformed UTF-8 at byte 0"
+    ],
+    "id": "bad-three-byte-continuation",
+    "inputHex": "0xe220a1",
+    "kind": "prompt"
+  },
+  {
+    "errors": [
+      "prompt line contains malformed UTF-8 at byte 0"
+    ],
+    "id": "bad-four-byte-continuation",
+    "inputHex": "0xf0208080",
+    "kind": "prompt"
+  },
+  {
+    "errors": [
+      "prompt line contains malformed UTF-8 at byte 0"
+    ],
+    "id": "invalid-f5-leader",
+    "inputHex": "0xf5908080",
+    "kind": "prompt"
+  },
+  {
+    "errors": [
+      "prompt line contains malformed UTF-8 at byte 0"
+    ],
+    "id": "invalid-ff-leader",
+    "inputHex": "0xff",
+    "kind": "prompt"
+  }
+]

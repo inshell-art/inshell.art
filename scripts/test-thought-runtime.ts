@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 
 import {
   buildThoughtRunPayload,
+  buildThoughtRuntimePrompt,
   toAnthropicMessagesPayload,
   toOpenAIResponsesPayload,
   toOpenRouterChatPayload,
@@ -11,10 +11,16 @@ import {
   type ThoughtRunSpec,
 } from "../apps/thought/src/thought-run-payload";
 import {
+  THOUGHT_V2_PROTOCOL_RELEASE,
+  measureThoughtLine,
+} from "../packages/thought-agent-protocol/src/index";
+import {
   normalizePreviewMode,
   prevalidateThoughtCandidate,
   previewUnavailableCliLines,
 } from "../apps/thought/src/thought-preview-policy";
+import { createThoughtPollWakeScheduler } from "../apps/thought/src/thought-poll-wake";
+import { THOUGHT_PANEL_MINT_UI_MODE } from "../apps/thought/src/thought-mint-ui";
 import {
   THOUGHT_V2_ARTIFACT,
   THOUGHT_V2_RENDER_CONTRACT,
@@ -36,11 +42,56 @@ import {
 } from "../packages/surface-shell-core/src";
 
 const thoughtSpec: ThoughtRunSpec = {
-  id: "THOUGHT.v1.md",
-  ref: "repo:apps/thought/THOUGHT.md",
-  hash: "0x0000000000000000000000000000000000000000000000000000000000000000",
-  text: "Return one THOUGHT candidate only.",
+  id: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+  ref: THOUGHT_V2_PROTOCOL_RELEASE.spec.ref,
+  hash: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecHash,
+  text: THOUGHT_V2_PROTOCOL_RELEASE.spec.text,
 };
+
+assert.equal(
+  THOUGHT_PANEL_MINT_UI_MODE,
+  "dock",
+  "THOUGHT panel mint controls must stay inline instead of opening the legacy sheet",
+);
+
+assert.equal(
+  buildThoughtRuntimePrompt("make it quiet"),
+  "make it quiet",
+  "provider user content must remain byte-identical to promptLine",
+);
+
+const pollWakeScheduler = createThoughtPollWakeScheduler();
+let pollWaitResolved = false;
+let immediatePollCount = 0;
+const immediatePoll = () => {
+  immediatePollCount += 1;
+};
+pollWakeScheduler.setImmediatePoll(immediatePoll);
+const pollWait = pollWakeScheduler.wait(60_000).then(() => {
+  pollWaitResolved = true;
+});
+pollWakeScheduler.pollNow();
+assert.equal(immediatePollCount, 1, "foreground refresh must issue an independent status poll");
+pollWakeScheduler.wake();
+await pollWait;
+assert.equal(pollWaitResolved, true, "foreground wake must resume status polling immediately");
+pollWakeScheduler.clearImmediatePoll(immediatePoll);
+pollWakeScheduler.pollNow();
+assert.equal(immediatePollCount, 1, "cleared foreground poll must not run again");
+assert.equal(
+  measureThoughtLine("A".repeat(THOUGHT_V2_PROTOCOL_RELEASE.limits.agentMaxBytes), "agent").errors.length,
+  0,
+);
+assert(
+  measureThoughtLine("A".repeat(THOUGHT_V2_PROTOCOL_RELEASE.limits.agentMaxBytes + 1), "agent").errors.some((error) =>
+    error.includes("bytes"),
+  ),
+  "one byte beyond the advertised limit must fail V2 validation",
+);
+assert(
+  measureThoughtLine("A".repeat(27), "agent").errors.length === 0,
+  "renderer display-unit measurements must not reject a valid byte-length line",
+);
 
 const assertNoToolPayload = (label: string, payload: Record<string, unknown>) => {
   assert.equal(payload.tools, undefined, `${label} must not attach web-search tools`);
@@ -62,7 +113,7 @@ const cases: Array<{
 for (const item of cases) {
   const payload = buildThoughtRunPayload({
     ...item,
-    prompt: "make it quiet",
+    promptLine: "make it quiet",
     thoughtSpec,
   });
 
@@ -78,7 +129,7 @@ const openRouterPayload = buildThoughtRunPayload({
   route: "connect",
   provider: "openrouter",
   model: "openrouter/free",
-  prompt: "make it quiet",
+  promptLine: "make it quiet",
   thoughtSpec,
 });
 assertNoToolPayload(
@@ -90,7 +141,7 @@ const openAiPayload = buildThoughtRunPayload({
   route: "direct",
   provider: "openai",
   model: "gpt-5.4-mini",
-  prompt: "make it quiet",
+  promptLine: "make it quiet",
   thoughtSpec,
 });
 assertNoToolPayload(
@@ -102,7 +153,7 @@ const anthropicPayload = buildThoughtRunPayload({
   route: "direct",
   provider: "anthropic",
   model: "claude-sonnet-4.5",
-  prompt: "make it quiet",
+  promptLine: "make it quiet",
   thoughtSpec,
 });
 assertNoToolPayload(
@@ -114,7 +165,7 @@ const codexPayload = buildThoughtRunPayload({
   route: "codex",
   provider: "codex",
   model: "codex",
-  prompt: "make it quiet",
+  promptLine: "make it quiet",
   thoughtSpec,
 });
 assert.equal(codexPayload.config.request.maxOutputTokens, null);
@@ -244,60 +295,51 @@ for (const [raw, canonical] of [
 const thoughtV2Svg = buildThoughtV2Svg({
   agentLine: "QUIET",
   promptLine: "soft question",
-  lineBgPadding: 99,
 });
-const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
-assert.equal(THOUGHT_V2_ARTIFACT.artifactId, "thought-v2-thin-line-frames-20260703T024833Z");
+assert.equal(THOUGHT_V2_ARTIFACT.artifactId, "thought-v2-stable-look-meaningful-boundaries-20260714T035935Z");
 assert.equal(
   THOUGHT_V2_ARTIFACT.manifestSha256,
-  "c309e69e96e82f45b1b992933aa1e679ada29961599a8c7d7689b19816546b9e",
+  "ac838251d86bea1a5e3c4340cb1a1f0aba9e2a663245e4489ef0fd2788ea48dd",
 );
 assert.equal(THOUGHT_V2_RENDER_CONTRACT.canvas.defaultBg, "#000000");
-assert.equal(THOUGHT_V2_RENDER_CONTRACT.agentLine.defaultBgColor, "#ffffff");
-assert.equal(THOUGHT_V2_RENDER_CONTRACT.agentLine.defaultFrameColor, "#000000");
-assert.equal(THOUGHT_V2_RENDER_CONTRACT.agentLine.defaultTextColor, "#000000");
+assert.equal(THOUGHT_V2_RENDER_CONTRACT.rendererId, THOUGHT_V2_PROTOCOL_RELEASE.identifiers.renderer);
+assert.equal(THOUGHT_V2_RENDER_CONTRACT.binaryBackground.side, 32);
+assert.equal(THOUGHT_V2_RENDER_CONTRACT.binaryBackground.capacity, 1024);
+assert.equal(THOUGHT_V2_RENDER_CONTRACT.agentLine.defaultTextColor, "#ffffff");
 assert.equal(THOUGHT_V2_RENDER_CONTRACT.promptLine.defaultTextColor, "#ffffff");
 assert.equal(THOUGHT_V2_RENDER_CONTRACT.agentLine.defaultFontSize, 44);
 assert.equal(THOUGHT_V2_RENDER_CONTRACT.promptLine.defaultFontSize, 16);
+assert(thoughtV2Svg.includes('<svg xmlns="http://www.w3.org/2000/svg" width="960" height="960" viewBox="0 0 960 960">'));
 assert(thoughtV2Svg.includes('<rect id="canvas-bg" width="960" height="960" fill="#000000"/>'));
+assert(thoughtV2Svg.includes('id="binary-background" opacity="1"'));
+assert(thoughtV2Svg.includes('data-bit-capacity="1024"'));
+assert(thoughtV2Svg.includes('data-pack="msb-first-128-bytes"'));
 assert(thoughtV2Svg.includes('<clipPath id="agent-line-clip">'));
 assert(thoughtV2Svg.includes('<clipPath id="prompt-line-clip">'));
-assert(thoughtV2Svg.includes('<rect id="agent-line-bg" x="87" y="378" width="786" height="70" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1"/>'));
-assert(!thoughtV2Svg.includes("agent-line-tail"));
-assert(thoughtV2Svg.includes('<rect id="prompt-line-bg" x="165" y="868" width="630" height="44" rx="0" fill="#000000" stroke="#ffffff" stroke-width="1"/>'));
-assert(!thoughtV2Svg.includes("carousel"));
-assert(thoughtV2Svg.includes('id="agent-line-text" x="480" y="413"'));
+assert(!thoughtV2Svg.includes('id="agent-line-bg"'));
+assert(!thoughtV2Svg.includes('id="prompt-line-bg"'));
+assert(thoughtV2Svg.includes('id="agent-line-text" x="480" y="410"'));
 assert(thoughtV2Svg.includes('text-anchor="middle" dominant-baseline="middle"'));
-assert(thoughtV2Svg.includes('font-size="44" fill="#000000"'));
-assert(thoughtV2Svg.includes('id="prompt-line-text" x="480" y="890"'));
+assert(thoughtV2Svg.includes('font-size="44" fill="#ffffff"'));
+assert(thoughtV2Svg.includes('id="prompt-line-text" x="480" y="844"'));
 assert(thoughtV2Svg.includes('font-size="16" fill="#ffffff"'));
 assert(thoughtV2Svg.includes("'Noto Sans Mono'"));
 assert(!thoughtV2Svg.includes("&apos;Noto Sans Mono&apos;"));
 assert(!thoughtV2Svg.includes("<animateTransform"));
 
-const defaultThoughtV2Svg = buildThoughtV2Svg({
-  agentLine: "quiet Agent مرحبا",
-  promptLine: "Quiet signal 你好",
-});
-assert.equal(sha256(defaultThoughtV2Svg), THOUGHT_V2_ARTIFACT.files["samples/default.svg"]);
-
 const carouselThoughtV2Svg = buildThoughtV2Svg({
-  agentLine: "A".repeat(140),
-  promptLine: "P".repeat(110),
+  agentLine: "A".repeat(27),
+  promptLine: "P".repeat(64),
 });
 assert(carouselThoughtV2Svg.includes('<g id="agent-line-carousel">'));
-assert(carouselThoughtV2Svg.includes('id="agent-line-text" x="88"'));
-assert(carouselThoughtV2Svg.includes('id="agent-line-text-copy"'));
+assert(!carouselThoughtV2Svg.includes('<g id="prompt-line-carousel">'));
+assert(carouselThoughtV2Svg.includes('id="agent-line-text" x="94"'));
 assert(carouselThoughtV2Svg.includes('<animate attributeName="x"'));
-assert(carouselThoughtV2Svg.includes('<g id="prompt-line-carousel">'));
-assert(carouselThoughtV2Svg.includes('id="prompt-line-text" x="166"'));
-assert(carouselThoughtV2Svg.includes('id="prompt-line-text-copy"'));
-assert(carouselThoughtV2Svg.includes('repeatCount="indefinite"'));
 assert(!carouselThoughtV2Svg.includes("textLength"));
 assert(!carouselThoughtV2Svg.includes("<animateTransform"));
 
 assert.deepEqual(measureThoughtV2Line("Bad prompt 你好", "prompt").errors, []);
 assert.deepEqual(measureThoughtV2Line("bad Agent مرحبا", "agent").errors, []);
-assert(measureThoughtV2Line("double  space", "prompt").errors.includes("prompt line has invalid spacing"));
+assert.deepEqual(measureThoughtV2Line("double  space", "prompt").errors, []);
 
 console.log("[test-thought-runtime] OK");

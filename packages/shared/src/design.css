@@ -26,7 +26,7 @@
 .inshell-report-bug-link {
   color: var(--accent, var(--inshell-green));
   font-family: var(--inshell-font-mono);
-  font-size: 12px;
+  font-size: var(--font-size-12);
   font-weight: 400;
   letter-spacing: 0;
   text-decoration: none;
@@ -67,7 +67,7 @@
   background: #facc15;
   color: #111827;
   font-family: var(--inshell-font-mono);
-  font-size: 11px;
+  font-size: var(--font-size-11);
   font-weight: 600;
   line-height: 1;
   letter-spacing: 0;

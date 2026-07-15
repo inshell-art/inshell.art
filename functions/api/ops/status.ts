@@ -40,7 +40,7 @@ const ROUTES = {
     auth: {
       requiredFor: ["path-tokens", "thought-gallery", "all"],
       publicTargets: ["pulse-auction with tx hash"],
-      headerNames: ["authorization: Bearer <token>", "x-inshell-indexer-token"],
+      headerNames: ["authorization", "x-inshell-indexer-token"],
     },
     targets: ["pulse-auction", "path-tokens", "thought-gallery", "all"],
   },
@@ -73,14 +73,15 @@ const ROUTES = {
     },
   },
   thoughtAgent: {
-    baseRoute: "/api/thought-agent/v1",
-    createRoute: "/api/thought-agent/v1/runs",
-    statusRoute: "/api/thought-agent/v1/runs/:runId",
-    claimRoute: "/api/thought-agent/v1/runs/:runId/claim",
-    startRoute: "/api/thought-agent/v1/runs/:runId/start",
-    resultRoute: "/api/thought-agent/v1/runs/:runId/result",
-    failRoute: "/api/thought-agent/v1/runs/:runId/fail",
-    cancelRoute: "/api/thought-agent/v1/runs/:runId/cancel",
+    baseRoute: "/api/thought-agent/v2",
+    createRoute: "/api/thought-agent/v2/runs",
+    statusRoute: "/api/thought-agent/v2/runs/:runId",
+    claimRoute: "/api/thought-agent/v2/runs/:runId/claim",
+    startRoute: "/api/thought-agent/v2/runs/:runId/start",
+    resultRoute: "/api/thought-agent/v2/runs/:runId/result",
+    failRoute: "/api/thought-agent/v2/runs/:runId/fail",
+    cancelRoute: "/api/thought-agent/v2/runs/:runId/cancel",
+    legacyRoute: "/api/thought-agent/v1",
     auth: "run-scoped bearer tokens",
     bridgeLaunchScheme: "thought://",
   },
@@ -183,30 +184,18 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
       pathPrimary: upstreamStatus(ctx.env, "PATH_PRIMARY_RPC_UPSTREAM", [
         "PATH_PRIMARY_RPC_UPSTREAM",
         "PATH_RPC_UPSTREAM",
-      ], [
-        "PATH_PRIMARY_RPC_LABEL",
-        "PATH_RPC_LABEL",
       ]),
       thoughtPrimary: upstreamStatus(ctx.env, "THOUGHT_PRIMARY_RPC_UPSTREAM", [
         "THOUGHT_PRIMARY_RPC_UPSTREAM",
         "THOUGHT_RPC_UPSTREAM",
-      ], [
-        "THOUGHT_PRIMARY_RPC_LABEL",
-        "THOUGHT_RPC_LABEL",
       ]),
       privateFallback: upstreamStatus(ctx.env, "PRIVATE_FALLBACK_RPC_UPSTREAM", [
         "PRIVATE_FALLBACK_RPC_UPSTREAM",
         "ETH_RPC_UPSTREAM",
-      ], [
-        "PRIVATE_FALLBACK_RPC_LABEL",
-        "ETH_RPC_LABEL",
       ]),
       publicFallback: upstreamStatus(ctx.env, "PUBLIC_FALLBACK_RPC_UPSTREAM", [
         "PUBLIC_FALLBACK_RPC_UPSTREAM",
         "RPC_UPSTREAM_FALLBACK",
-      ], [
-        "PUBLIC_FALLBACK_RPC_LABEL",
-        "RPC_UPSTREAM_FALLBACK_LABEL",
       ]),
     },
     opsBoundary: {
@@ -248,16 +237,18 @@ function upstreamStatus(
   env: ChainCacheEnv,
   role: string,
   upstreamKeys: EnvKey[],
-  labelKeys: EnvKey[],
 ) {
   const configuredKey = upstreamKeys.find((key) => Boolean(readEnv(env, key)));
-  const label = labelKeys.map((key) => readEnv(env, key)).find(Boolean) || role;
   return {
     role,
     configured: Boolean(configuredKey),
     configuredKey: configuredKey ?? null,
-    label,
+    label: safeUpstreamLabel(role),
   };
+}
+
+function safeUpstreamLabel(role: string) {
+  return role.toLowerCase().replace(/_rpc_upstream$/, "").replace(/_/g, "-");
 }
 
 function publicEnv(env: ChainCacheEnv, key: string) {

@@ -26,10 +26,10 @@
 
 - `pnpm run smoke:api-routes -- --scope home --home-base https://staging.inshell-art.pages.dev`
   - Checks live home Pages bindings for `/api/path-rpc`, `/api/pulse-auction`, and `/api/path-tokens`.
-- `pnpm run smoke:api-routes -- --scope thought --thought-base https://staging.thought-inshell-art.pages.dev`
-  - Checks live THOUGHT Pages bindings for `/api/path-rpc`, `/api/thought-rpc`, `/api/thought-preview`, `/api/thought-gallery`, and `/api/path-tokens`.
+- `pnpm run smoke:api-routes -- --scope thought --thought-base https://preview.inshell.art`
+  - Checks the canonical same-origin THOUGHT bindings for `/api/path-rpc`, `/api/thought-rpc`, `/api/thought-preview`, `/api/thought-gallery`, and `/api/path-tokens`.
 
-These smoke checks run after Cloudflare Pages deploys in `deploy-pages.yml` so env/binding drift is caught by the deployment, not by a wallet or browser session.
+These smoke checks run after Cloudflare Pages deploys in `deploy-pages.yml` so env/binding drift is caught by the deployment, not by a wallet or browser session. The workflow may also smoke the standalone THOUGHT Pages branch alias as a compatibility deployment, but canonical product routes remain under `preview.inshell.art` and `inshell.art`.
 
 ## Cloudflare Web Analytics token check
 

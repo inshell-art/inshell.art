@@ -7,7 +7,7 @@ import {
   thoughtV2TextFixtures,
   type ThoughtV2TextFixture,
 } from "./thought-v2-fixtures";
-import { buildThoughtV2Svg, measureThoughtV2Line, type ThoughtV2LineKind } from "./thought-v2-renderer";
+import { THOUGHT_V2_ARTIFACT, buildThoughtV2Svg, measureThoughtV2Line } from "./thought-v2-renderer";
 
 const $ = <T extends HTMLElement>(id: string) => {
   const element = document.getElementById(id);
@@ -42,15 +42,61 @@ const fixedRender = {
   canvasBgColor: "#000000",
 } as const;
 
-const measureLabel = (value: string, kind: ThoughtV2LineKind) => {
-  const measure = measureThoughtV2Line(value, kind);
-  return `${measure.byteLength}b / ${measure.displayUnits}u`;
-};
-
 const saveSvg = (svg: string, filename: string) => {
   if (!svg.trim()) return;
   DownloadSVG(svg, filename);
 };
+
+type StableJsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | StableJsonValue[]
+  | { [key: string]: StableJsonValue };
+
+const stableStringify = (value: StableJsonValue): string => {
+  if (value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return JSON.stringify(value);
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
+  }
+
+  return `{${Object.keys(value)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
+    .join(",")}}`;
+};
+
+const fixtureAgentLabel = (index: number) => (index % 2 === 0 ? "Codex" : "Claude");
+
+const fixtureProvenanceJson = (fixture: ThoughtV2TextFixture, agent: string) =>
+  stableStringify({
+    agent,
+    app: "THOUGHT",
+    fixture: {
+      corpusId: fixture.corpusId,
+      corpusName: fixture.corpusName,
+      id: fixture.id,
+      name: fixture.name,
+    },
+    output: {
+      agentLine: fixture.agentLine,
+      format: "thought-v2-line-pair",
+      promptLine: fixture.promptLine,
+    },
+    renderer: {
+      artifactId: THOUGHT_V2_ARTIFACT.artifactId,
+      channel: THOUGHT_V2_ARTIFACT.channel,
+    },
+    route: agent.toLowerCase(),
+    schema: "thought.provenance.lab.v1",
+  });
+
+const provenanceHref = (provenanceJson: string) =>
+  `data:application/json;charset=utf-8,${encodeURIComponent(provenanceJson)}`;
 
 const renderRawSvgToPreview = (svg: string, validMeta: string): boolean => {
   const trimmed = svg.trim();
@@ -80,23 +126,7 @@ const renderRawSvgToPreview = (svg: string, validMeta: string): boolean => {
   return true;
 };
 
-const lineItem = (labelText: string, value: string): HTMLElement => {
-  const item = document.createElement("div");
-  item.className = "svg-lab__fixture-line-item";
-
-  const label = document.createElement("span");
-  label.className = "svg-lab__fixture-line-label";
-  label.textContent = labelText;
-
-  const text = document.createElement("span");
-  text.className = "svg-lab__fixture-line-value";
-  text.textContent = value;
-
-  item.append(label, text);
-  return item;
-};
-
-const renderFixtureCard = (fixture: ThoughtV2TextFixture): HTMLElement => {
+const renderFixtureCard = (fixture: ThoughtV2TextFixture, index: number): HTMLElement => {
   const card = document.createElement("article");
   card.className = "svg-lab__fixture-card";
   card.dataset.fixtureId = fixture.id;
@@ -105,57 +135,44 @@ const renderFixtureCard = (fixture: ThoughtV2TextFixture): HTMLElement => {
   canvas.className = "svg-lab__fixture-canvas";
   canvas.setAttribute("aria-label", `${fixture.name} fixture preview`);
 
-  const body = document.createElement("div");
-  body.className = "svg-lab__fixture-body";
-
-  const title = document.createElement("h3");
-  title.className = "svg-lab__fixture-name";
-  title.textContent = fixture.name;
-
-  const corpus = document.createElement("p");
-  corpus.className = "svg-lab__fixture-corpus";
-  corpus.textContent = fixture.corpusName;
-
-  const lines = document.createElement("p");
-  lines.className = "svg-lab__fixture-lines";
-  lines.textContent = `${measureLabel(fixture.agentLine, "agent")} agent | ${measureLabel(
-    fixture.promptLine,
-    "prompt",
-  )} prompt`;
-
-  const actions = document.createElement("div");
-  actions.className = "svg-lab__fixture-actions";
-
-  const saveFixtureButton = document.createElement("button");
-  saveFixtureButton.className = "svg-lab__button svg-lab__fixture-button";
-  saveFixtureButton.type = "button";
-  saveFixtureButton.textContent = "[ save svg ]";
-  saveFixtureButton.dataset.fixtureSave = fixture.id;
-
-  const workList = document.createElement("div");
-  workList.className = "svg-lab__fixture-work-list";
-  workList.append(lineItem("promptLine", fixture.promptLine), lineItem("agentLine", fixture.agentLine));
-
-  let fixtureSvg = "";
   try {
-    fixtureSvg = buildThoughtV2Svg({
+    canvas.innerHTML = buildThoughtV2Svg({
       promptLine: fixture.promptLine,
       agentLine: fixture.agentLine,
       ...fixedRender,
     });
-    canvas.innerHTML = fixtureSvg;
   } catch (error) {
     canvas.textContent = error instanceof Error ? error.message : "render failed";
-    saveFixtureButton.disabled = true;
   }
 
-  saveFixtureButton.addEventListener("click", () => {
-    saveSvg(fixtureSvg, `thought-v2-${fixture.corpusId}-${fixture.id}.svg`);
-  });
+  const agent = fixtureAgentLabel(index);
+  const provenanceJson = fixtureProvenanceJson(fixture, agent);
+  const provenanceBits = textEncoder.encode(provenanceJson).length * 8;
 
-  actions.append(saveFixtureButton);
-  body.append(title, corpus, actions, workList, lines);
-  card.append(canvas, body);
+  const metadata = document.createElement("div");
+  metadata.className = "svg-lab__fixture-meta";
+
+  const thoughtLine = document.createElement("p");
+  thoughtLine.className = "svg-lab__fixture-meta-line";
+  thoughtLine.textContent = `THOUGHT #${index + 1}`;
+
+  const agentLine = document.createElement("p");
+  agentLine.className = "svg-lab__fixture-meta-line";
+  agentLine.textContent = `Agent: ${agent}`;
+
+  const provenanceLine = document.createElement("p");
+  provenanceLine.className = "svg-lab__fixture-meta-line";
+
+  const provenanceLink = document.createElement("a");
+  provenanceLink.className = "svg-lab__fixture-provenance";
+  provenanceLink.href = provenanceHref(provenanceJson);
+  provenanceLink.target = "_blank";
+  provenanceLink.rel = "noopener";
+  provenanceLink.textContent = `Provenance ${provenanceBits} bit`;
+
+  provenanceLine.append(provenanceLink);
+  metadata.append(thoughtLine, agentLine, provenanceLine);
+  card.append(canvas, metadata);
   return card;
 };
 
