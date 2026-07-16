@@ -1,4 +1,4 @@
-import { buildThoughtCodexClientScript } from "@inshell/thought-agent-protocol";
+import { buildThoughtCodexClientScript } from "../../../../packages/thought-agent-protocol/src/index";
 
 const responseHeaders = {
   "access-control-allow-origin": "*",
