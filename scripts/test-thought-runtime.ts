@@ -47,6 +47,12 @@ import {
   type ThoughtV2LocalRuntimeFacts,
 } from "../apps/thought/src/thought-v2-local-release";
 import {
+  THOUGHT_V2_LOCAL_DEPLOYMENT_MISMATCH_COPY,
+  THOUGHT_V2_LOCAL_DEPLOYMENT_UNAVAILABLE_COPY,
+  isThoughtV2LocalDeploymentError,
+  verifyThoughtV2LocalDeployment,
+} from "../apps/thought/src/thought-v2-local-deployment";
+import {
   THOUGHT_V2_LOCAL_AGENT_OUTPUT_SCHEMA,
   buildThoughtV2LocalAgentProcess,
   buildThoughtV2LocalAgentResult,
@@ -321,6 +327,83 @@ assert.equal(isThoughtV2LocalMintRuntime({
   ...localRuntimeFacts,
   protocolReleaseId: `0x${"00".repeat(32)}`,
 }), false);
+
+let localDeploymentAnchorReads = 0;
+const verifyLocalDeployment = (codes: readonly string[], anchorsMatch = true) =>
+  verifyThoughtV2LocalDeployment({
+    contractAddresses: codes.map((_, index) => `contract-${index}`),
+    readCode: async (address) => codes[Number(address.split("-")[1])],
+    readAnchors: async () => {
+      localDeploymentAnchorReads += 1;
+      return { anchorsMatch };
+    },
+    anchorsMatch: (anchors) => anchors.anchorsMatch,
+  });
+
+await assert.rejects(
+  verifyThoughtV2LocalDeployment({
+    contractAddresses: [],
+    readCode: async () => "0x1234",
+    readAnchors: async () => ({ anchorsMatch: true }),
+    anchorsMatch: (anchors) => anchors.anchorsMatch,
+  }),
+  new RegExp(THOUGHT_V2_LOCAL_DEPLOYMENT_UNAVAILABLE_COPY.replaceAll(".", "\\.")),
+);
+
+await assert.rejects(
+  verifyThoughtV2LocalDeployment({
+    contractAddresses: ["contract-0"],
+    readCode: async () => {
+      throw new Error("RPC unavailable");
+    },
+    readAnchors: async () => ({ anchorsMatch: true }),
+    anchorsMatch: (anchors) => anchors.anchorsMatch,
+  }),
+  new RegExp(THOUGHT_V2_LOCAL_DEPLOYMENT_UNAVAILABLE_COPY.replaceAll(".", "\\.")),
+  "code-read failures must become stable deployment-unavailable copy",
+);
+
+localDeploymentAnchorReads = 0;
+await assert.rejects(
+  verifyLocalDeployment(["0x1234", "0x"]),
+  new RegExp(THOUGHT_V2_LOCAL_DEPLOYMENT_UNAVAILABLE_COPY.replaceAll(".", "\\.")),
+);
+assert.equal(
+  localDeploymentAnchorReads,
+  0,
+  "local deployment ABI reads must not run when any contract has no bytecode",
+);
+
+localDeploymentAnchorReads = 0;
+await assert.rejects(
+  verifyThoughtV2LocalDeployment({
+    contractAddresses: ["contract-0"],
+    readCode: async () => "0x1234",
+    readAnchors: async () => {
+      localDeploymentAnchorReads += 1;
+      throw new Error('could not decode result data (method="thoughtRenderer")');
+    },
+    anchorsMatch: () => true,
+  }),
+  new RegExp(THOUGHT_V2_LOCAL_DEPLOYMENT_UNAVAILABLE_COPY.replaceAll(".", "\\.")),
+  "ABI decode failures must become stable deployment-unavailable copy",
+);
+assert.equal(localDeploymentAnchorReads, 1);
+
+await assert.rejects(
+  verifyLocalDeployment(["0x1234"], false),
+  new RegExp(THOUGHT_V2_LOCAL_DEPLOYMENT_MISMATCH_COPY.replaceAll(".", "\\.")),
+);
+
+await verifyLocalDeployment(["0x1234"]);
+await assert.rejects(
+  verifyLocalDeployment(["0x"]),
+  new RegExp(THOUGHT_V2_LOCAL_DEPLOYMENT_UNAVAILABLE_COPY.replaceAll(".", "\\.")),
+  "a later local-node reset must be detected after an earlier successful verification",
+);
+assert.equal(isThoughtV2LocalDeploymentError(THOUGHT_V2_LOCAL_DEPLOYMENT_UNAVAILABLE_COPY), true);
+assert.equal(isThoughtV2LocalDeploymentError(THOUGHT_V2_LOCAL_DEPLOYMENT_MISMATCH_COPY), true);
+assert.equal(isThoughtV2LocalDeploymentError("path list unavailable."), false);
 assert.equal(
   THOUGHT_V2_PROTOCOL_RELEASE.deployment.v2MintEnabled,
   false,

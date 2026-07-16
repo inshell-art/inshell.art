@@ -140,6 +140,11 @@ import {
   isThoughtV2LocalMintRuntime,
 } from "./thought-v2-local-release";
 import {
+  THOUGHT_V2_LOCAL_DEPLOYMENT_UNAVAILABLE_COPY,
+  isThoughtV2LocalDeploymentError,
+  verifyThoughtV2LocalDeployment,
+} from "./thought-v2-local-deployment";
+import {
   createThoughtPollWakeScheduler,
   hasThoughtPollDeadlineExpired,
 } from "./thought-poll-wake";
@@ -5763,11 +5768,10 @@ const getReadPathNft = () => {
   return readPathNft;
 };
 
-let localThoughtV2DeploymentVerified = false;
 let localThoughtV2DeploymentPromise: Promise<void> | null = null;
 
 const verifyLocalThoughtV2Deployment = async () => {
-  if (!IS_LOCAL_THOUGHT_V2 || localThoughtV2DeploymentVerified) {
+  if (!IS_LOCAL_THOUGHT_V2) {
     return;
   }
   if (localThoughtV2DeploymentPromise) {
@@ -5776,11 +5780,12 @@ const verifyLocalThoughtV2Deployment = async () => {
 
   localThoughtV2DeploymentPromise = (async () => {
     const provider = getReadProvider();
+    const pathProvider = getPathReadProvider();
     const thought = getReadThoughtNFT();
     const pathNft = getReadPathNft();
     const registry = getReadThoughtSpecRegistry();
-    if (!provider || !thought || !pathNft || !registry) {
-      throw new Error("local THOUGHT V2 deployment unavailable.");
+    if (!provider || !pathProvider || !thought || !pathNft || !registry) {
+      throw new Error(THOUGHT_V2_LOCAL_DEPLOYMENT_UNAVAILABLE_COPY);
     }
 
     const expected = THOUGHT_V2_LOCAL_RELEASE;
@@ -5791,42 +5796,82 @@ const verifyLocalThoughtV2Deployment = async () => {
       expected.contracts.thoughtRenderer,
       expected.contracts.protocolRegistry,
     ];
-    const [codes, pathAddress, specRegistryAddress, rendererAddress, protocolRegistryAddress, releaseId, manifestHash, rendererProfileHash, workProfileHash, authorizedMinter, quota, frozen, specValid] =
-      await Promise.all([
-        Promise.all(contractAddresses.map((address) => provider.getCode(address))),
-        thought.pathNft() as Promise<string>,
-        thought.thoughtSpecRegistry() as Promise<string>,
-        thought.thoughtRenderer() as Promise<string>,
-        thought.protocolRegistry() as Promise<string>,
-        thought.protocolReleaseId() as Promise<string>,
-        thought.protocolManifestHash() as Promise<string>,
-        thought.RENDERER_PROFILE_KECCAK256() as Promise<string>,
-        thought.WORK_PROFILE_KECCAK256() as Promise<string>,
-        pathNft.getAuthorizedMinter(PATH_MOVEMENT_THOUGHT) as Promise<string>,
-        pathNft.getMovementQuota(PATH_MOVEMENT_THOUGHT) as Promise<bigint>,
-        pathNft.isMovementFrozen(PATH_MOVEMENT_THOUGHT) as Promise<boolean>,
-        registry.isRegisteredThoughtSpec(expected.spec.evmSpecId, expected.spec.evmSpecHash) as Promise<boolean>,
-      ]);
-
     const sameAddress = (left: string, right: string) => left.toLowerCase() === right.toLowerCase();
-    const anchorsMatch =
-      codes.every((code) => code !== "0x") &&
-      sameAddress(pathAddress, expected.contracts.pathNft) &&
-      sameAddress(specRegistryAddress, expected.contracts.thoughtSpecRegistry) &&
-      sameAddress(rendererAddress, expected.contracts.thoughtRenderer) &&
-      sameAddress(protocolRegistryAddress, expected.contracts.protocolRegistry) &&
-      releaseId.toLowerCase() === expected.protocol.protocolReleaseId &&
-      manifestHash.toLowerCase() === expected.protocol.manifestKeccak256 &&
-      rendererProfileHash.toLowerCase() === expected.protocol.rendererProfile.keccak256 &&
-      workProfileHash.toLowerCase() === expected.protocol.workProfile.keccak256 &&
-      sameAddress(authorizedMinter, expected.contracts.thoughtNft) &&
-      quota === 1n &&
-      frozen &&
-      specValid;
-    if (!anchorsMatch) {
-      throw new Error("local THOUGHT V2 deployment mismatch.");
-    }
-    localThoughtV2DeploymentVerified = true;
+    await verifyThoughtV2LocalDeployment({
+      contractAddresses,
+      readCode: (address) => sameAddress(address, expected.contracts.pathNft)
+        ? pathProvider.getCode(address)
+        : provider.getCode(address),
+      readAnchors: async () => {
+        const [
+          pathAddress,
+          specRegistryAddress,
+          rendererAddress,
+          protocolRegistryAddress,
+          releaseId,
+          manifestHash,
+          rendererProfileHash,
+          workProfileHash,
+          authorizedMinter,
+          quota,
+          frozen,
+          specValid,
+        ] = await Promise.all([
+          thought.pathNft() as Promise<string>,
+          thought.thoughtSpecRegistry() as Promise<string>,
+          thought.thoughtRenderer() as Promise<string>,
+          thought.protocolRegistry() as Promise<string>,
+          thought.protocolReleaseId() as Promise<string>,
+          thought.protocolManifestHash() as Promise<string>,
+          thought.RENDERER_PROFILE_KECCAK256() as Promise<string>,
+          thought.WORK_PROFILE_KECCAK256() as Promise<string>,
+          pathNft.getAuthorizedMinter(PATH_MOVEMENT_THOUGHT) as Promise<string>,
+          pathNft.getMovementQuota(PATH_MOVEMENT_THOUGHT) as Promise<bigint>,
+          pathNft.isMovementFrozen(PATH_MOVEMENT_THOUGHT) as Promise<boolean>,
+          registry.isRegisteredThoughtSpec(expected.spec.evmSpecId, expected.spec.evmSpecHash) as Promise<boolean>,
+        ]);
+        return {
+          pathAddress,
+          specRegistryAddress,
+          rendererAddress,
+          protocolRegistryAddress,
+          releaseId,
+          manifestHash,
+          rendererProfileHash,
+          workProfileHash,
+          authorizedMinter,
+          quota,
+          frozen,
+          specValid,
+        };
+      },
+      anchorsMatch: ({
+        pathAddress,
+        specRegistryAddress,
+        rendererAddress,
+        protocolRegistryAddress,
+        releaseId,
+        manifestHash,
+        rendererProfileHash,
+        workProfileHash,
+        authorizedMinter,
+        quota,
+        frozen,
+        specValid,
+      }) =>
+        sameAddress(pathAddress, expected.contracts.pathNft) &&
+        sameAddress(specRegistryAddress, expected.contracts.thoughtSpecRegistry) &&
+        sameAddress(rendererAddress, expected.contracts.thoughtRenderer) &&
+        sameAddress(protocolRegistryAddress, expected.contracts.protocolRegistry) &&
+        releaseId.toLowerCase() === expected.protocol.protocolReleaseId &&
+        manifestHash.toLowerCase() === expected.protocol.manifestKeccak256 &&
+        rendererProfileHash.toLowerCase() === expected.protocol.rendererProfile.keccak256 &&
+        workProfileHash.toLowerCase() === expected.protocol.workProfile.keccak256 &&
+        sameAddress(authorizedMinter, expected.contracts.thoughtNft) &&
+        quota === 1n &&
+        frozen &&
+        specValid,
+    });
   })().finally(() => {
     localThoughtV2DeploymentPromise = null;
   });
@@ -8127,6 +8172,9 @@ const refreshPathInventoryForCurrentWallet = async (options?: { force?: boolean 
         items: [],
         error: inventory.message,
       };
+      if (IS_LOCAL_THOUGHT_V2 && isThoughtV2LocalDeploymentError(inventory.message)) {
+        setMintFlowError(inventory.message, "thought");
+      }
     } else {
       pathInventoryState = {
         status: "loaded",
@@ -16733,6 +16781,19 @@ const sortPathIds = (pathIds: Iterable<bigint>) =>
   [...pathIds].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 
 const readWalletPathInventory = async (walletAddress: string): Promise<PathInventoryReadResult> => {
+  if (IS_LOCAL_THOUGHT_V2) {
+    try {
+      await verifyLocalThoughtV2Deployment();
+    } catch (error) {
+      return {
+        kind: "unavailable",
+        message: error instanceof Error
+          ? error.message
+          : THOUGHT_V2_LOCAL_DEPLOYMENT_UNAVAILABLE_COPY,
+      };
+    }
+  }
+
   let candidateIds: Set<bigint> | null = null;
   if (THOUGHT_CHAIN_ID !== 31337) {
     try {
@@ -16775,6 +16836,12 @@ const readWalletPathInventory = async (walletAddress: string): Promise<PathInven
       pathNft.getMovementQuota(PATH_MOVEMENT_THOUGHT) as Promise<bigint>,
     ]);
   } catch {
+    if (IS_LOCAL_THOUGHT_V2) {
+      return {
+        kind: "unavailable",
+        message: THOUGHT_V2_LOCAL_DEPLOYMENT_UNAVAILABLE_COPY,
+      };
+    }
     // Keep listing owned IDs even when availability metadata cannot be read.
   }
 
