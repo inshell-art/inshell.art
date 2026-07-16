@@ -112,9 +112,12 @@ import {
 } from "./thought-preview-policy";
 import { createSingleRequestJsonRpcProvider } from "./rpc-provider";
 import {
+  getThoughtWorkReadyPresentation,
   THOUGHT_PANEL_MINT_UI_MODE,
+  THOUGHT_V2_MINT_UNAVAILABLE_COPY,
   type MintFlowUiMode,
 } from "./thought-mint-ui";
+import { buildThoughtConsoleLines } from "./thought-console";
 import {
   createThoughtPollWakeScheduler,
   hasThoughtPollDeadlineExpired,
@@ -2149,7 +2152,6 @@ const refreshThoughtDockPolling = () => {
 };
 let thoughtDockRailSignature = "";
 let thoughtDockConsoleSignature = "";
-let thoughtDockWalletConsoleNonce = 0;
 let thoughtDockRailInsetFrame = 0;
 
 const AGENT_DEMO_GLYPH_COLORS = [
@@ -2997,11 +2999,6 @@ const statusScreenLine = (
   return line;
 };
 
-const statusScreenKey = (key: string) => key.trim().replace(/\s+/g, "_");
-
-const statusScreenRows = (scope: string, rows: Array<[string, string]>) =>
-  rows.map(([key, value]) => statusScreenLine(`${scope}.${statusScreenKey(key)}: ${value}`));
-
 const statusScreenEntry = (lines: HTMLElement[]) => {
   const entry = document.createElement("article");
   entry.className = "thought-dock-status-screen__entry";
@@ -3017,224 +3014,59 @@ const thoughtDockConsoleTime = () =>
     second: "2-digit",
   });
 
-const appendConsoleRow = (rows: Array<[string, string]>, key: string, value: unknown) => {
-  if (value === null || value === undefined) {
-    return;
-  }
-  const normalized = typeof value === "bigint" ? value.toString() : String(value).trim();
-  if (!normalized) {
-    return;
-  }
-  rows.push([key, normalized]);
-};
-
-const shouldShowWalletConsoleRows = (state: ThoughtDockState, rail: DockRailView) =>
-  thoughtDockWalletConsoleNonce > 0 ||
-  rail.detail.kind === "wallet" ||
-  state.kind === "work_ready" ||
-  state.kind === "minting" ||
-  state.kind === "minted" ||
-  mintFlowState !== "closed";
-
-const walletStatusForConsole = () => {
-  if (isInjectedWalletMissing()) {
-    return "no supported wallet";
-  }
-  if (walletConnectInFlight) {
-    return "connecting";
-  }
-  if (!walletState.address) {
-    return walletDisconnectedByUser ? "disconnected" : "not connected";
-  }
-  if (walletState.chainId !== THOUGHT_CHAIN_ID) {
-    return "wrong network";
-  }
-  if (walletState.preflightLoading) {
-    return "checking";
-  }
-  return "connected";
-};
-
-const appendWalletConsoleRows = (
-  rows: Array<[string, string]>,
-  state: ThoughtDockState,
-  rail: DockRailView,
-) => {
-  if (!shouldShowWalletConsoleRows(state, rail)) {
-    return;
-  }
-
-  const pathSummary = pathInventorySummary();
-  rows.push(["command", thoughtDockWalletConsoleNonce > 0 ? `wallet #${thoughtDockWalletConsoleNonce}` : "wallet"]);
-  rows.push(["status", walletStatusForConsole()]);
-  rows.push(["detected", walletState.detected || !!getEthereumProvider() ? "yes" : "no"]);
-  appendConsoleRow(rows, "address", walletState.address);
-  appendConsoleRow(rows, "address short", walletState.address ? shortHex(walletState.address) : "");
-  rows.push(["network", getWalletNetworkLabel()]);
-  rows.push(["expected network", `${THOUGHT_CHAIN_NAME} (${THOUGHT_CHAIN_ID})`]);
-  rows.push(["read mode", "address only"]);
-  rows.push(["signature", "none until PATH authorization"]);
-  rows.push(["transaction", walletState.txState]);
-  appendConsoleRow(rows, "tx hash", walletState.txHash || mintFlowData.txHash);
-  appendConsoleRow(rows, "tx error", walletState.txError);
-  appendConsoleRow(rows, "preflight", walletState.preflightError);
-  appendConsoleRow(rows, "PATH", pathSummary);
-  if (pathInventoryMatchesCurrentWallet()) {
-    rows.push(["PATH status", pathInventoryState.status]);
-    if (pathInventoryState.status === "loaded") {
-      rows.push(["PATH held", String(pathInventoryState.items.length)]);
-      rows.push(["PATH available", String(availablePathInventoryItems().length)]);
-    }
-    appendConsoleRow(rows, "PATH error", pathInventoryState.error);
-  }
-};
-
-const renderThoughtDockDetails = (
-  state: ThoughtDockState,
+const thoughtDockConsoleTitle = (
   rail: DockRailView,
   panelStatus: ThoughtPanelStatusView,
 ) => {
-  const eventTime = thoughtDockConsoleTime();
-  const eventRows: Array<[string, string]> = [];
-  const detailRows: Array<[string, string]> = [];
-  const runRows: Array<[string, string]> = [];
-  const candidateRows: Array<[string, string]> = [];
-  const workRows: Array<[string, string]> = [];
-  const walletRows: Array<[string, string]> = [];
-  const mintRows: Array<[string, string]> = [];
-  const run =
-    "run" in state && state.run
-      ? state.run
-      : thoughtDockRun;
-  const adapterId =
-    "adapterId" in state && state.adapterId
-      ? state.adapterId
-      : thoughtDockAdapterId;
-  const prompt =
-    "prompt" in state && state.prompt
-      ? state.prompt
-      : run?.prompt || sessionState.prompt.trim();
-  const shouldLogPrompt = state.kind !== "empty" && state.kind !== "ready";
-
-  eventRows.push(["time", eventTime]);
-  eventRows.push(["state", state.kind]);
-  appendConsoleRow(eventRows, "title", panelStatus.title);
-  appendConsoleRow(eventRows, "detail", panelStatus.detail);
-  appendConsoleRow(eventRows, "control", rail.status);
-  appendConsoleRow(eventRows, "tone", rail.tone);
-  appendConsoleRow(eventRows, "actions", rail.actions.map((action) => action.label).join(" / "));
-  if (shouldLogPrompt) {
-    appendConsoleRow(eventRows, "prompt", prompt);
+  if (rail.detail.kind !== "error") {
+    return panelStatus.title;
   }
 
+  const detailTitle = rail.detail.title.trim();
+  return detailTitle && detailTitle.toLowerCase() !== "error"
+    ? detailTitle
+    : panelStatus.title;
+};
+
+const thoughtDockConsoleDetail = (
+  rail: DockRailView,
+  panelStatus: ThoughtPanelStatusView,
+) => {
   if (rail.detail.kind === "error") {
-    detailRows.push(["kind", "error"]);
-    detailRows.push(["title", rail.detail.title]);
-    detailRows.push(["body", rail.detail.body]);
-  } else if (rail.detail.kind === "wallet" || rail.detail.kind === "path") {
-    detailRows.push(["kind", rail.detail.kind]);
-    detailRows.push(["message", rail.detail.message]);
-  } else if (rail.detail.kind === "debug") {
-    detailRows.push(["kind", "debug"]);
-    detailRows.push(["json", JSON.stringify(rail.detail.json)]);
+    return rail.detail.body;
   }
+  if (rail.detail.kind === "wallet" || rail.detail.kind === "path") {
+    return rail.detail.message;
+  }
+  return panelStatus.detail;
+};
 
-  if (run) {
-    runRows.push(["run id", run.runId]);
-    runRows.push(["agent", thoughtAgentProductLabel(adapterId)]);
-    runRows.push(["state", run.remoteState || state.kind]);
-    runRows.push(["prompt", run.prompt]);
-    runRows.push(["prompt hash", run.promptHash]);
-    runRows.push(["launch uri", run.launchUri]);
-    runRows.push(["status url", run.statusUrl]);
-    runRows.push(["result url", run.resultUrl]);
-    runRows.push(["claim url", run.claimUrl]);
-    runRows.push(["start url", run.startUrl]);
-    if (run.browserToken) {
-      runRows.push(["run link", `/runs/${run.runId}#view_token=...`]);
-    }
-  }
-  if (currentCandidate) {
-    candidateRows.push(["protocol", "thought-agent/1"]);
-    candidateRows.push(["candidate", currentCandidate.previewStatus]);
-    candidateRows.push(["callback", "verified by run token"]);
-  }
-  if (currentOutputText) {
-    workRows.push(["work", currentOutputText]);
-    workRows.push(["work hash", hashText(currentOutputText)]);
-    workRows.push(["provenance", "assembled before mint"]);
-  }
-  appendWalletConsoleRows(walletRows, state, rail);
-  if (state.kind === "minting" || mintFlowState !== "closed") {
-    mintRows.push(["mint state", mintFlowState]);
-    mintRows.push(["mint ui", mintFlowUiMode]);
-    if (mintFlowState === "text_taken") {
-      appendConsoleRow(mintRows, "existing THOUGHT", mintFlowData.existingTokenId === null ? "" : `#${mintFlowData.existingTokenId}`);
-      mintRows.push(["PATH permission", "not requested; exact work already exists"]);
-    }
-    mintRows.push(["wallet detected", walletState.detected ? "yes" : "no"]);
-    appendConsoleRow(mintRows, "wallet", walletState.address);
-    appendConsoleRow(mintRows, "chain id", walletState.chainId);
-    mintRows.push(["tx state", walletState.txState]);
-    appendConsoleRow(mintRows, "wallet tx", walletState.txHash);
-    appendConsoleRow(mintRows, "wallet error", walletState.txError);
-    appendConsoleRow(mintRows, "path input", mintFlowData.pathIdInput);
-    appendConsoleRow(mintRows, "path id", mintFlowData.pathId);
-    appendConsoleRow(mintRows, "text hash", mintFlowData.textHash);
-    appendConsoleRow(mintRows, "prompt hash", mintFlowData.promptHash);
-    appendConsoleRow(mintRows, "spec id", mintFlowData.thoughtSpecId);
-    appendConsoleRow(mintRows, "spec hash", mintFlowData.thoughtSpecHash);
-    appendConsoleRow(mintRows, "provenance bytes", mintFlowData.provenanceJson ? byteLength(mintFlowData.provenanceJson) : "");
-    appendConsoleRow(mintRows, "mint tx", mintFlowData.txHash);
-    appendConsoleRow(mintRows, "mint error", mintFlowData.error);
-  }
-
-  const lines: HTMLElement[] = [
-    statusScreenLine(`[${eventTime}] ${state.kind} ${rail.tone}`, {
-      heading: true,
-      tone: rail.tone,
-    }),
-  ];
-
-  lines.push(
-    ...statusScreenRows("event", eventRows.filter(([key]) => key !== "time" && key !== "state" && key !== "tone")),
-  );
-  if (detailRows.length > 0) {
-    lines.push(...statusScreenRows(
-      rail.detail.kind === "error" ? "error" : rail.detail.kind === "debug" ? "debug" : "note",
-      detailRows,
-    ));
-  }
-  if (runRows.length > 0) {
-    lines.push(...statusScreenRows("run", runRows));
-  }
-  if (candidateRows.length > 0) {
-    lines.push(...statusScreenRows("candidate", candidateRows));
-  }
-  if (workRows.length > 0) {
-    lines.push(...statusScreenRows("work", workRows));
-  }
-  if (walletRows.length > 0) {
-    lines.push(...statusScreenRows("wallet", walletRows));
-  }
-  if (mintRows.length > 0) {
-    lines.push(...statusScreenRows("mint", mintRows));
-  }
-
-  const signature = JSON.stringify({
-    candidateRows,
-    detailRows,
-    eventRows: eventRows.filter(([key]) => key !== "time"),
-    mintRows,
-    runRows,
-    walletRows,
-    workRows,
-  });
+const renderThoughtDockDetails = (
+  rail: DockRailView,
+  panelStatus: ThoughtPanelStatusView,
+) => {
+  const title = thoughtDockConsoleTitle(rail, panelStatus);
+  const detail = thoughtDockConsoleDetail(rail, panelStatus);
+  const actions = rail.actions
+    .filter((action) => !action.disabled)
+    .map((action) => action.label);
+  const signature = JSON.stringify({ actions, detail, title, tone: rail.tone });
   if (signature === thoughtDockConsoleSignature) {
     thoughtDockDetails.hidden = false;
     return;
   }
   thoughtDockConsoleSignature = signature;
+
+  const consoleLines = buildThoughtConsoleLines({
+    time: thoughtDockConsoleTime(),
+    title,
+    detail,
+    actions,
+  });
+  const lines = consoleLines.map((line, index) => statusScreenLine(line, {
+    heading: index === 0,
+    tone: index < 2 ? rail.tone : undefined,
+  }));
 
   thoughtDockDetails.hidden = false;
   thoughtDockDetailsBody.prepend(statusScreenEntry(lines));
@@ -3590,17 +3422,25 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         detail: { kind: "error", title: "Preview rejected", body: state.reason },
       };
     case "work_ready":
-      return {
-        status: "Work ready",
-        tone: "success",
-        actions: [
-          dockRailAction("mint", "mint", "mint this accepted THOUGHT work", "primary", () => {
-            void mintThoughtDockWork();
-          }),
-          resetAction(),
-        ],
-        detail: { kind: "none" },
-      };
+      {
+        const workReady = getThoughtWorkReadyPresentation({
+          mintEnabled: THOUGHT_V2_MINT_ENABLED,
+          walletConnected: Boolean(walletState.address),
+        });
+        return {
+          status: "Work ready",
+          tone: workReady.canMint ? "success" : "warning",
+          actions: [
+            ...(workReady.canMint
+              ? [dockRailAction("mint", "mint", "mint this accepted THOUGHT work", "primary", () => {
+                  void mintThoughtDockWork();
+                })]
+              : []),
+            resetAction(),
+          ],
+          detail: { kind: "none" },
+        };
+      }
     case "minting":
       return mintFlowRail();
     case "minted":
@@ -3700,7 +3540,11 @@ const thoughtPanelStatusForMintFlow = (): ThoughtPanelStatusView => {
   const selectedPathId = mintFlowData.pathId?.toString() ?? mintFlowData.pathIdInput.trim();
 
   if (mintFlowState === "closed") {
-    return { mode: "ready_to_mint", title: "work ready", detail: "connect wallet to mint" };
+    const workReady = getThoughtWorkReadyPresentation({
+      mintEnabled: THOUGHT_V2_MINT_ENABLED,
+      walletConnected: Boolean(walletState.address),
+    });
+    return { mode: "ready_to_mint", title: "work ready", detail: workReady.detail };
   }
   if (mintFlowState === "thought_checking") {
     return { mode: "minting", title: "checking THOUGHT", detail: "checking uniqueness and mint state" };
@@ -3810,7 +3654,14 @@ const getThoughtPanelStatusView = (state: ThoughtDockState): ThoughtPanelStatusV
     case "preview_rejected":
       return { mode: "integrity_failed", title: "Run cannot mint", detail: "See details" };
     case "work_ready":
-      return { mode: "ready_to_mint", title: "work ready", detail: "connect wallet to mint" };
+      return {
+        mode: "ready_to_mint",
+        title: "work ready",
+        detail: getThoughtWorkReadyPresentation({
+          mintEnabled: THOUGHT_V2_MINT_ENABLED,
+          walletConnected: Boolean(walletState.address),
+        }).detail,
+      };
     case "minting":
       return thoughtPanelStatusForMintFlow();
     case "minted":
@@ -3954,7 +3805,6 @@ const handleWalletStripAction = (action: WalletAction) => {
   }
 
   if (action === "disconnect") {
-    thoughtDockWalletConsoleNonce += 1;
     disconnectThoughtDockWallet();
     return;
   }
@@ -4055,7 +3905,7 @@ const renderThoughtDock = () => {
   renderWalletStrip(state);
   syncMintDockPathPanel();
   renderThoughtDockDetailTray({ kind: "none" });
-  renderThoughtDockDetails(state, rail, panelStatus);
+  renderThoughtDockDetails(rail, panelStatus);
   syncThoughtDockRailInset();
 };
 
@@ -4611,6 +4461,18 @@ const mintThoughtDockWork = async () => {
     setThoughtDockState({ kind: "failed", message: "No accepted work to mint." });
     return;
   }
+  if (!THOUGHT_V2_MINT_ENABLED) {
+    resetMintFlow();
+    mintFlowUiMode = THOUGHT_PANEL_MINT_UI_MODE;
+    setMintFlowError(THOUGHT_V2_MINT_UNAVAILABLE_COPY, "thought");
+    setThoughtDockState({ kind: "minting", work });
+    syncInterface();
+    return;
+  }
+
+  // Enter a meaningful mint state before the Dock renders. Rendering `minting`
+  // while the flow is still `closed` records a duplicate work-ready entry.
+  mintFlowState = "thought_checking";
   setThoughtDockState({ kind: "minting", work });
   try {
     await openMintFlow(THOUGHT_PANEL_MINT_UI_MODE);
@@ -4680,8 +4542,6 @@ const syncMintFlowAfterWalletCommand = () => {
 };
 
 const runThoughtDockWalletCommand = async () => {
-  thoughtDockWalletConsoleNonce += 1;
-
   if (isInjectedWalletMissing()) {
     renderThoughtDock();
     return;
@@ -9284,7 +9144,7 @@ const openMintFlow = async (
   mintFlowUiMode = uiMode;
 
   if (!THOUGHT_V2_MINT_ENABLED) {
-    setMintFlowError("THOUGHT V2 mint is disabled until a reviewed deployment is pinned.", "thought");
+    setMintFlowError(THOUGHT_V2_MINT_UNAVAILABLE_COPY, "thought");
     syncInterface();
     return;
   }
@@ -9305,13 +9165,6 @@ const openMintFlow = async (
   }
 
   mintFlowData.rawText = currentOutputText;
-  try {
-    mintFlowData.textHash = await textHashFromContract(currentOutputText);
-  } catch {
-    setMintFlowError("text preview unavailable.", "thought");
-    syncInterface();
-    return;
-  }
   mintFlowData.promptHash = currentRunContext?.prompt ? hashText(currentRunContext.prompt) : "";
   mintFlowData.error = "";
   mintFlowData.errorKind = "none";
@@ -9320,6 +9173,14 @@ const openMintFlow = async (
   walletState.txError = "";
   mintFlowState = "thought_checking";
   syncInterface();
+
+  try {
+    mintFlowData.textHash = await textHashFromContract(currentOutputText);
+  } catch {
+    setMintFlowError("text preview unavailable.", "thought");
+    syncInterface();
+    return;
+  }
 
   if (byteLength(mintFlowData.rawText) > MAX_TEXT_BYTES) {
     setMintFlowError("THOUGHT too large.", "thought");

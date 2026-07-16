@@ -20,7 +20,12 @@ import {
   previewUnavailableCliLines,
 } from "../apps/thought/src/thought-preview-policy";
 import { createThoughtPollWakeScheduler } from "../apps/thought/src/thought-poll-wake";
-import { THOUGHT_PANEL_MINT_UI_MODE } from "../apps/thought/src/thought-mint-ui";
+import {
+  getThoughtWorkReadyPresentation,
+  THOUGHT_PANEL_MINT_UI_MODE,
+  THOUGHT_V2_MINT_UNAVAILABLE_COPY,
+} from "../apps/thought/src/thought-mint-ui";
+import { buildThoughtConsoleLines } from "../apps/thought/src/thought-console";
 import {
   THOUGHT_V2_ARTIFACT,
   THOUGHT_V2_RENDER_CONTRACT,
@@ -52,6 +57,86 @@ assert.equal(
   THOUGHT_PANEL_MINT_UI_MODE,
   "dock",
   "THOUGHT panel mint controls must stay inline instead of opening the legacy sheet",
+);
+
+assert.deepEqual(
+  getThoughtWorkReadyPresentation({ mintEnabled: false, walletConnected: true }),
+  {
+    canMint: false,
+    detail: THOUGHT_V2_MINT_UNAVAILABLE_COPY,
+  },
+  "work-ready UI must not offer mint or request a wallet while V2 minting is disabled",
+);
+
+assert.deepEqual(
+  getThoughtWorkReadyPresentation({ mintEnabled: true, walletConnected: true }),
+  {
+    canMint: true,
+    detail: "ready to mint",
+  },
+  "work-ready UI must recognize an already connected wallet",
+);
+
+assert.deepEqual(
+  getThoughtWorkReadyPresentation({ mintEnabled: true, walletConnected: false }),
+  {
+    canMint: true,
+    detail: "connect wallet to mint",
+  },
+  "work-ready UI may request a wallet only when minting is enabled and none is connected",
+);
+
+assert.deepEqual(
+  buildThoughtConsoleLines({
+    time: "21:50:02",
+    title: "mint error",
+    detail: THOUGHT_V2_MINT_UNAVAILABLE_COPY,
+    actions: ["retry", "reset"],
+  }),
+  [
+    "[21:50:02] mint error",
+    THOUGHT_V2_MINT_UNAVAILABLE_COPY,
+    "next: retry / reset",
+  ],
+  "console must reduce mint failures to status, useful detail, and next actions",
+);
+
+assert.deepEqual(
+  buildThoughtConsoleLines({
+    time: "09:10:11",
+    title: "work ready",
+    detail: "connect wallet to mint",
+    actions: ["mint", "reset"],
+  }),
+  [
+    "[09:10:11] work ready",
+    "connect wallet to mint",
+    "next: mint / reset",
+  ],
+  "console must keep work-ready guidance concise",
+);
+
+assert.deepEqual(
+  buildThoughtConsoleLines({
+    time: "09:10:12",
+    title: "checking THOUGHT",
+    detail: "checking uniqueness and mint state",
+  }),
+  [
+    "[09:10:12] checking THOUGHT",
+    "checking uniqueness and mint state",
+  ],
+  "console must omit an empty next-actions line",
+);
+
+assert.deepEqual(
+  buildThoughtConsoleLines({
+    time: "09:10:13",
+    title: "minted",
+    detail: "Minted",
+  }),
+  ["[09:10:13] minted"],
+  "console must not repeat a detail that matches its title",
 );
 
 assert.equal(
