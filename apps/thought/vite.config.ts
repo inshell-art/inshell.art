@@ -11,12 +11,10 @@ import path from "node:path";
 import { URL } from "node:url";
 import {
   THOUGHT_AGENT_LINE_CONTRACT,
-  THOUGHT_AGENT_OUTPUT_SCHEMA,
   THOUGHT_AGENT_PROTOCOL_VERSION,
   THOUGHT_AGENT_RECEIPT_VERSION,
   THOUGHT_AGENT_RESULT_VERSION,
   THOUGHT_AGENT_ERROR_CODES,
-  THOUGHT_V2_PROTOCOL_RELEASE,
   ThoughtAgentProtocolError,
   assertThoughtLine,
   assertProtocolVersion,
@@ -25,7 +23,6 @@ import {
   buildThoughtAgentReceipt,
   isThoughtSha256,
   parseAdapterInfo,
-  parseAgentOutput,
   parseBridgeInfo,
   parseResultRequest,
   sha256Hex,
@@ -37,6 +34,12 @@ import {
   type ThoughtSha256,
 } from "../../packages/thought-agent-protocol/src/index";
 import type { RollupLog, RollupLogHandler } from "rollup";
+import {
+  THOUGHT_V2_LOCAL_AGENT_OUTPUT_SCHEMA,
+  buildThoughtV2LocalAgentResult,
+  parseThoughtV2LocalAgentResult,
+} from "./src/thought-v2-local-agent";
+import { THOUGHT_V2_LOCAL_RELEASE } from "./src/thought-v2-local-release";
 
 function ignoreKnownRollupWarnings(warning: RollupLog, warn: RollupLogHandler) {
   if (
@@ -124,8 +127,12 @@ type DevThoughtClaimAuthorization = {
 };
 
 const DEV_AGENT_API_PREFIXES = ["/api/thought-agent/v1", "/api/thought-agent/v2"] as const;
-const DEV_AGENT_SPEC_ID = THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId;
-const DEV_AGENT_SPEC_REF = THOUGHT_V2_PROTOCOL_RELEASE.spec.ref;
+const DEV_AGENT_SPEC_ID = THOUGHT_V2_LOCAL_RELEASE.spec.evmSpecId;
+const DEV_AGENT_SPEC_REF = THOUGHT_V2_LOCAL_RELEASE.spec.ref;
+const DEV_AGENT_SPEC_TEXT = fs.readFileSync(
+  new URL("./spec/THOUGHT.v2.local.md", import.meta.url),
+  "utf8",
+);
 const DEV_AGENT_CLAIM_TTL_MS = 5 * 60 * 1000;
 const DEV_AGENT_CLAIM_AUTHORIZATION_TTL_MS = 2 * 60 * 1000;
 const DEV_AGENT_RUN_TTL_MS = 10 * 60 * 1000;
@@ -137,6 +144,28 @@ const DEV_AGENT_CODEX_TIMEOUT_MS = Number(process.env.THOUGHT_BRIDGE_CODEX_TIMEO
 const DEV_AGENT_CODEX_AUTORUN = process.env.INSHELL_THOUGHT_DEV_CODEX_AUTORUN === "1";
 const DEV_AGENT_FAKE_WORK = process.env.THOUGHT_BRIDGE_FAKE_WORK || "";
 const DEV_AGENT_MAX_REQUEST_BYTES = 32 * 1024;
+
+const parseDevAgentOutput = async (raw: string) => {
+  if (Buffer.byteLength(raw, "utf8") > 16 * 1024) {
+    throw new ThoughtAgentProtocolError("RESULT_TOO_LARGE", "Agent raw result is too large.");
+  }
+  let result;
+  try {
+    result = parseThoughtV2LocalAgentResult(raw);
+  } catch (error) {
+    throw new ThoughtAgentProtocolError(
+      "AGENT_OUTPUT_SCHEMA_INVALID",
+      error instanceof Error ? error.message : "Agent result schema mismatch.",
+    );
+  }
+  return {
+    raw,
+    rawSha256: await sha256Hex(raw),
+    agentLine: result.agentLine,
+    agentLineSha256: await sha256Hex(result.agentLine),
+    declaration: result.declaration,
+  };
+};
 
 function expireDevAgentRun(run: DevThoughtAgentRun) {
   if (["returned", "failed", "cancelled", "expired"].includes(run.state)) return;
@@ -308,6 +337,7 @@ function statusPayload(run: DevThoughtAgentRun) {
   if (run.state === "returned") {
     base.result = {
       raw: run.rawResult,
+      rawSha256: run.rawResultSha256,
       agentLine: run.agentLine,
       receipt: {
         receiptVersion: THOUGHT_AGENT_RECEIPT_VERSION,
@@ -372,7 +402,7 @@ function claimRequestPayload(run: DevThoughtAgentRun) {
     spec: {
       id: run.specId,
       ref: run.specRef,
-      contractSpecId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+      contractSpecId: THOUGHT_V2_LOCAL_RELEASE.spec.evmSpecId,
       mediaType: "text/markdown; charset=utf-8",
       text: run.specText,
       sha256: run.specSha256,
@@ -396,8 +426,12 @@ function claimRequestPayload(run: DevThoughtAgentRun) {
       mediaType: "application/json",
       maxRawBytes: 16 * 1024,
       resultSchema: THOUGHT_AGENT_RESULT_VERSION,
+      release: {
+        protocolReleaseId: THOUGHT_V2_LOCAL_RELEASE.protocol.protocolReleaseId,
+        manifestKeccak256: THOUGHT_V2_LOCAL_RELEASE.protocol.manifestKeccak256,
+      },
       agentLine: THOUGHT_AGENT_LINE_CONTRACT,
-      schema: THOUGHT_AGENT_OUTPUT_SCHEMA,
+      schema: THOUGHT_V2_LOCAL_AGENT_OUTPUT_SCHEMA,
     },
   };
 }
@@ -448,17 +482,16 @@ function devExecutionInfo(): ThoughtAgentExecutionInfo {
 
 async function runDevCodex(promptLine: string, specText: string) {
   if (DEV_AGENT_FAKE_WORK) {
-    return parseAgentOutput(JSON.stringify({
-      schema: THOUGHT_AGENT_RESULT_VERSION,
-      agentLine: DEV_AGENT_FAKE_WORK,
-    }));
+    return parseDevAgentOutput(JSON.stringify(
+      buildThoughtV2LocalAgentResult(DEV_AGENT_FAKE_WORK, "THOUGHT Bridge dev fake"),
+    ));
   }
 
   const runDir = await mkdtemp(path.join(tmpdir(), "thought-bridge-codex-"));
   const schemaPath = path.join(runDir, "output.schema.json");
   const finalPath = path.join(runDir, "final.json");
   const instructionsPath = path.join(runDir, "AGENTS.md");
-  await writeFile(schemaPath, JSON.stringify(THOUGHT_AGENT_OUTPUT_SCHEMA, null, 2));
+  await writeFile(schemaPath, JSON.stringify(THOUGHT_V2_LOCAL_AGENT_OUTPUT_SCHEMA, null, 2));
   await writeFile(instructionsPath, specText);
 
   const args = [
@@ -520,7 +553,7 @@ async function runDevCodex(promptLine: string, specText: string) {
       child.stdin.end(promptLine);
     });
 
-    return parseAgentOutput(await readFile(finalPath, "utf8"));
+    return parseDevAgentOutput(await readFile(finalPath, "utf8"));
   } finally {
     await rm(runDir, { recursive: true, force: true }).catch(() => {});
   }
@@ -594,7 +627,7 @@ async function autoRunDevCodex(run: DevThoughtAgentRun) {
 
 function createThoughtAgentDevApiPlugin() {
   const runs = new Map<string, DevThoughtAgentRun>();
-  const specText = THOUGHT_V2_PROTOCOL_RELEASE.spec.text;
+  const specText = DEV_AGENT_SPEC_TEXT;
 
   return {
     name: "thought-agent-dev-api",
@@ -630,7 +663,12 @@ function createThoughtAgentDevApiPlugin() {
             res.setHeader("cache-control", "no-store");
             res.setHeader("content-type", "text/plain; charset=utf-8");
             res.setHeader("x-content-type-options", "nosniff");
-            res.end(buildThoughtCodexClientScript());
+            res.end(buildThoughtCodexClientScript({
+              release: {
+                protocolReleaseId: THOUGHT_V2_LOCAL_RELEASE.protocol.protocolReleaseId,
+                manifestKeccak256: THOUGHT_V2_LOCAL_RELEASE.protocol.manifestKeccak256,
+              },
+            }));
             return;
           }
 
@@ -658,7 +696,7 @@ function createThoughtAgentDevApiPlugin() {
             const browserToken = randomToken(32);
             const launchToken = randomToken(32);
             const specSha256 = await sha256Hex(specText);
-            if (specSha256 !== `sha256:${THOUGHT_V2_PROTOCOL_RELEASE.spec.sha256}`) {
+            if (specSha256 !== `sha256:${THOUGHT_V2_LOCAL_RELEASE.spec.sha256}`) {
               protocolError(res, 500, "SPEC_HASH_MISMATCH", "Registered THOUGHT spec source mismatch.");
               return;
             }
@@ -677,7 +715,7 @@ function createThoughtAgentDevApiPlugin() {
               specId: DEV_AGENT_SPEC_ID,
               specRef: DEV_AGENT_SPEC_REF,
               specSha256,
-              contractSpecHash: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecHash,
+              contractSpecHash: THOUGHT_V2_LOCAL_RELEASE.spec.evmSpecHash,
               specText,
               promptText: prompt,
               promptSha256,
@@ -867,7 +905,7 @@ function createThoughtAgentDevApiPlugin() {
               protocolError(res, 409, "RESULT_CONFLICT", "Result invocation ID does not match the running invocation.");
               return;
             }
-            const parsedOutput = await parseAgentOutput(body.output.raw);
+            const parsedOutput = await parseDevAgentOutput(body.output.raw);
             if (
               !isThoughtSha256(body.output.rawSha256) ||
               !isThoughtSha256(body.output.agentLineSha256) ||

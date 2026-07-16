@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
 
 import {
   buildThoughtRunPayload,
@@ -26,6 +29,28 @@ import {
   THOUGHT_V2_MINT_UNAVAILABLE_COPY,
 } from "../apps/thought/src/thought-mint-ui";
 import { buildThoughtConsoleLines } from "../apps/thought/src/thought-console";
+import { sanitizeWorkRecord } from "../apps/thought/src/works";
+import {
+  canonicalThoughtTitle,
+  thoughtProtocolText,
+} from "../apps/thought/src/thought-display-text";
+import {
+  THOUGHT_V2_LOCAL_MAX_PROVENANCE_BYTES,
+  THOUGHT_V2_LOCAL_NFT_ABI,
+  buildThoughtV2LocalProvenance,
+  thoughtV2AgentLineHash,
+} from "../apps/thought/src/thought-v2-local-mint";
+import {
+  THOUGHT_V2_LOCAL_RELEASE,
+  isThoughtV2LocalMintRuntime,
+  type ThoughtV2LocalRuntimeFacts,
+} from "../apps/thought/src/thought-v2-local-release";
+import {
+  THOUGHT_V2_LOCAL_AGENT_OUTPUT_SCHEMA,
+  buildThoughtV2LocalAgentProcess,
+  buildThoughtV2LocalAgentResult,
+  parseThoughtV2LocalAgentResult,
+} from "../apps/thought/src/thought-v2-local-agent";
 import {
   THOUGHT_V2_ARTIFACT,
   THOUGHT_V2_RENDER_CONTRACT,
@@ -46,12 +71,317 @@ import {
   type SurfaceRedactionRule,
 } from "../packages/surface-shell-core/src";
 
+const require = createRequire(import.meta.url);
+const ethersEntry = require.resolve("ethers", {
+  paths: [fileURLToPath(new URL("../apps/thought", import.meta.url))],
+});
+const { AbiCoder, Interface, id, keccak256, toUtf8Bytes } = await import(ethersEntry);
+
 const thoughtSpec: ThoughtRunSpec = {
   id: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
   ref: THOUGHT_V2_PROTOCOL_RELEASE.spec.ref,
   hash: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecHash,
   text: THOUGHT_V2_PROTOCOL_RELEASE.spec.text,
 };
+
+const localRelease = THOUGHT_V2_LOCAL_RELEASE;
+assert.equal(canonicalThoughtTitle("quiet signal"), "QUIET SIGNAL");
+assert.equal(thoughtProtocolText("quiet signal", true), "quiet signal");
+assert.equal(thoughtProtocolText("静かな信号 🟢", true), "静かな信号 🟢");
+assert.equal(
+  thoughtProtocolText("静かな信号 🟢", false),
+  "",
+  "legacy V1 text behavior must remain unchanged",
+);
+assert.equal(
+  localRelease.source.status,
+  "dirty-local-snapshot",
+  "the local draft must not claim its producer base commit reproduces uncommitted V2 artifacts",
+);
+assert.deepEqual(
+  THOUGHT_V2_LOCAL_AGENT_OUTPUT_SCHEMA.required,
+  ["schema", "release", "agentLine"],
+  "the current declaration is optional in the latest Agent result envelope",
+);
+const localAgentEnvelope = {
+  schema: "inshell.thought.agent-result.v2",
+  release: {
+    protocolReleaseId: localRelease.protocol.protocolReleaseId,
+    manifestKeccak256: localRelease.protocol.manifestKeccak256,
+  },
+  agentLine: "the exact line survives",
+} as const;
+assert.deepEqual(
+  parseThoughtV2LocalAgentResult(JSON.stringify(localAgentEnvelope)),
+  localAgentEnvelope,
+  "the latest Agent result may omit its declaration",
+);
+const declaredLocalAgentEnvelope = buildThoughtV2LocalAgentResult(
+  "the exact line survives",
+  "Codex",
+);
+assert.deepEqual(
+  parseThoughtV2LocalAgentResult(JSON.stringify(declaredLocalAgentEnvelope)),
+  declaredLocalAgentEnvelope,
+  "the latest Agent result may carry the current declaration",
+);
+const localAgentEvidence = {
+  result: declaredLocalAgentEnvelope,
+  runId: "tar_local_v2",
+  adapter: "codex",
+  rawResponseSha256: "a".repeat(64),
+};
+const storedCodexWork = sanitizeWorkRecord({
+  id: 1,
+  title: declaredLocalAgentEnvelope.agentLine,
+  rawOutput: declaredLocalAgentEnvelope.agentLine,
+  image: "data:image/svg+xml,local",
+  createdAt: "2026-07-16T00:00:00.000Z",
+  runContext: {
+    mode: "codex",
+    provider: "codex",
+    model: "codex",
+    prompt: "what survives?",
+    returnedText: declaredLocalAgentEnvelope.agentLine,
+    clientGeneratedAt: "2026-07-16T00:00:00.000Z",
+    agentEvidence: localAgentEvidence,
+  },
+});
+assert(storedCodexWork, "Codex work history must survive storage sanitization");
+assert.deepEqual(storedCodexWork.runContext.agentEvidence, localAgentEvidence);
+assert.equal(
+  sanitizeWorkRecord({
+    ...storedCodexWork,
+    runContext: {
+      ...storedCodexWork.runContext,
+      agentEvidence: { ...localAgentEvidence, rawResponseSha256: "bad" },
+    },
+  }),
+  null,
+  "invalid Agent evidence must fail closed during work-history restore",
+);
+assert.deepEqual(
+  buildThoughtV2LocalAgentProcess(localAgentEvidence, declaredLocalAgentEnvelope.agentLine),
+  {
+    kind: "agent-run",
+    agentDeclaration: declaredLocalAgentEnvelope.declaration,
+    transport: {
+      adapter: "codex",
+      runId: "tar_local_v2",
+      rawResponseSha256: "a".repeat(64),
+    },
+  },
+  "mint provenance must preserve validated Agent declaration and transport evidence",
+);
+assert.throws(
+  () => buildThoughtV2LocalAgentProcess(
+    { ...localAgentEvidence, result: localAgentEnvelope },
+    localAgentEnvelope.agentLine,
+  ),
+  /declaration is required/i,
+);
+assert.throws(
+  () => buildThoughtV2LocalAgentProcess(localAgentEvidence, "different work"),
+  /does not match the current work/i,
+);
+assert.throws(
+  () => buildThoughtV2LocalAgentProcess(
+    { ...localAgentEvidence, rawResponseSha256: "sha256:bad" },
+    declaredLocalAgentEnvelope.agentLine,
+  ),
+  /transport evidence is incomplete/i,
+);
+const rejectLocalAgentEnvelope = (value: unknown, message: string) => {
+  assert.throws(
+    () => parseThoughtV2LocalAgentResult(JSON.stringify(value)),
+    undefined,
+    message,
+  );
+};
+rejectLocalAgentEnvelope(
+  { schema: localAgentEnvelope.schema, agentLine: localAgentEnvelope.agentLine },
+  "a legacy result without release anchors must be rejected locally",
+);
+rejectLocalAgentEnvelope(
+  { ...localAgentEnvelope, release: { manifestKeccak256: localRelease.protocol.manifestKeccak256 } },
+  "a missing protocol release ID must be rejected locally",
+);
+rejectLocalAgentEnvelope(
+  {
+    ...localAgentEnvelope,
+    release: { ...localAgentEnvelope.release, protocolReleaseId: `0x${"00".repeat(32)}` },
+  },
+  "a mismatched protocol release ID must be rejected locally",
+);
+rejectLocalAgentEnvelope(
+  {
+    ...localAgentEnvelope,
+    release: { ...localAgentEnvelope.release, manifestKeccak256: `0x${"00".repeat(32)}` },
+  },
+  "a mismatched manifest hash must be rejected locally",
+);
+rejectLocalAgentEnvelope(
+  { ...localAgentEnvelope, extra: true },
+  "unknown Agent result fields must be rejected locally",
+);
+rejectLocalAgentEnvelope(
+  { ...localAgentEnvelope, release: { ...localAgentEnvelope.release, extra: true } },
+  "unknown release fields must be rejected locally",
+);
+rejectLocalAgentEnvelope(
+  {
+    ...declaredLocalAgentEnvelope,
+    declaration: { ...declaredLocalAgentEnvelope.declaration, extra: true },
+  },
+  "unknown declaration fields must be rejected locally",
+);
+const localSpecText = await readFile(
+  new URL("../apps/thought/spec/THOUGHT.v2.local.md", import.meta.url),
+  "utf8",
+);
+const localAddresses = JSON.parse(await readFile(
+  new URL("../apps/thought/evm/addresses.anvil.json", import.meta.url),
+  "utf8",
+)) as {
+  rpcUrl: string;
+  chainId: number;
+  pathNft: { address: string };
+  thoughtNft: { address: string };
+  thoughtSpecRegistry: { address: string };
+  thoughtRenderer: { address: string };
+  protocolRegistry: { address: string };
+  protocolRelease: {
+    id: string;
+    manifestHash: string;
+    rendererProfileHash: string;
+    workProfileHash: string;
+  };
+  recommendedThoughtSpecId: string;
+  recommendedThoughtSpecHash: string;
+  thoughtSpecs: Array<{ byteLength: number }>;
+};
+assert.equal(new TextEncoder().encode(localSpecText).length, localRelease.spec.byteLength);
+assert.equal(keccak256(toUtf8Bytes(localSpecText)), localRelease.spec.evmSpecHash);
+assert.equal(
+  keccak256(AbiCoder.defaultAbiCoder().encode(
+    ["bytes32", "bytes32"],
+    [id("INSHELL_THOUGHT_PROTOCOL_RELEASE"), localRelease.protocol.manifestKeccak256],
+  )),
+  localRelease.protocol.protocolReleaseId,
+  "local release ID must derive from the exact draft manifest hash",
+);
+const localRuntimeFacts: ThoughtV2LocalRuntimeFacts = {
+  dev: true,
+  hostname: "127.0.0.1",
+  rpcUrl: localAddresses.rpcUrl,
+  pathRpcUrl: localAddresses.rpcUrl,
+  chainId: localAddresses.chainId,
+  contracts: {
+    pathNft: localAddresses.pathNft.address,
+    thoughtNft: localAddresses.thoughtNft.address,
+    thoughtSpecRegistry: localAddresses.thoughtSpecRegistry.address,
+    thoughtRenderer: localAddresses.thoughtRenderer.address,
+    protocolRegistry: localAddresses.protocolRegistry.address,
+  },
+  protocolReleaseId: localAddresses.protocolRelease.id,
+  manifestHash: localAddresses.protocolRelease.manifestHash,
+  rendererProfileHash: localAddresses.protocolRelease.rendererProfileHash,
+  workProfileHash: localAddresses.protocolRelease.workProfileHash,
+  specId: localAddresses.recommendedThoughtSpecId,
+  specHash: localAddresses.recommendedThoughtSpecHash,
+  specByteLength: localAddresses.thoughtSpecs[0]!.byteLength,
+};
+const localBytes32Anchors = [
+  localRelease.protocol.protocolReleaseId,
+  localRelease.protocol.manifestKeccak256,
+  localRelease.protocol.creativeSpec.keccak256,
+  localRelease.protocol.agentResultSchema.keccak256,
+  localRelease.protocol.workProfile.keccak256,
+  localRelease.protocol.rendererProfile.keccak256,
+  localRelease.spec.evmSpecId,
+  localRelease.spec.evmSpecHash,
+  localAddresses.protocolRelease.id,
+  localAddresses.protocolRelease.manifestHash,
+  localAddresses.protocolRelease.rendererProfileHash,
+  localAddresses.protocolRelease.workProfileHash,
+  localAddresses.recommendedThoughtSpecId,
+  localAddresses.recommendedThoughtSpecHash,
+];
+for (const anchor of localBytes32Anchors) {
+  assert.match(anchor, /^0x[0-9a-f]{64}$/i, `invalid local bytes32 anchor: ${anchor}`);
+}
+assert.equal(isThoughtV2LocalMintRuntime(localRuntimeFacts), true);
+assert.equal(isThoughtV2LocalMintRuntime({ ...localRuntimeFacts, dev: false }), false);
+assert.equal(isThoughtV2LocalMintRuntime({ ...localRuntimeFacts, hostname: "preview.inshell.art" }), false);
+assert.equal(isThoughtV2LocalMintRuntime({ ...localRuntimeFacts, rpcUrl: "https://rpc.example" }), false);
+assert.equal(isThoughtV2LocalMintRuntime({ ...localRuntimeFacts, pathRpcUrl: "https://rpc.example" }), false);
+assert.equal(isThoughtV2LocalMintRuntime({ ...localRuntimeFacts, chainId: 11155111 }), false);
+assert.equal(isThoughtV2LocalMintRuntime({
+  ...localRuntimeFacts,
+  protocolReleaseId: `0x${"00".repeat(32)}`,
+}), false);
+assert.equal(
+  THOUGHT_V2_PROTOCOL_RELEASE.deployment.v2MintEnabled,
+  false,
+  "the source-only production protocol snapshot must remain mint-disabled",
+);
+
+const localProvenanceJson = buildThoughtV2LocalProvenance({
+  promptLine: "what survives?",
+  agentLine: "the exact line survives",
+  process: {
+    kind: "agent-run",
+    agentDeclaration: {
+      schema: "inshell.thought.agent-declaration.v1",
+      status: "declared-unverified",
+      agentLabel: "Codex",
+      declaredOneCreativeResult: true,
+    },
+  },
+  mintContext: {
+    chainId: "31337",
+    thoughtNft: localAddresses.thoughtNft.address,
+    pathNft: localAddresses.pathNft.address,
+    minter: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    movement: "THOUGHT",
+    pathId: "1",
+  },
+});
+const localProvenance = JSON.parse(localProvenanceJson) as {
+  schema: string;
+  protocol: { protocolReleaseId: string };
+  work: { agentLineKeccak256: string; promptLine: string; agentLine: string };
+  mintContext: { thoughtNft: string; pathNft: string; minter: string };
+};
+assert.equal(localProvenance.schema, "inshell.thought.provenance.v2");
+assert.equal(localProvenance.protocol.protocolReleaseId, localRelease.protocol.protocolReleaseId);
+assert.equal(localProvenance.work.promptLine, "what survives?");
+assert.equal(localProvenance.work.agentLine, "the exact line survives");
+assert.equal(
+  localProvenance.work.agentLineKeccak256,
+  thoughtV2AgentLineHash("the exact line survives"),
+  "V2 duplicate identity must use the exact Agent-line hash",
+);
+assert.equal(localProvenance.mintContext.thoughtNft, localAddresses.thoughtNft.address.toLowerCase());
+assert.equal(localProvenance.mintContext.pathNft, localAddresses.pathNft.address.toLowerCase());
+assert.equal(localProvenance.mintContext.minter, "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266");
+assert(new TextEncoder().encode(localProvenanceJson).length < THOUGHT_V2_LOCAL_MAX_PROVENANCE_BYTES);
+
+const localThoughtInterface = new Interface(THOUGHT_V2_LOCAL_NFT_ABI);
+assert(localThoughtInterface.getFunction("previewSvg"), "local V2 ABI must expose onchain previewSvg");
+assert(localThoughtInterface.getFunction("RENDERER_PROFILE_KECCAK256"), "local V2 ABI must expose renderer profile anchor");
+assert(localThoughtInterface.getFunction("WORK_PROFILE_KECCAK256"), "local V2 ABI must expose work profile anchor");
+const localMintCalldata = localThoughtInterface.encodeFunctionData("mint", [{
+  promptLine: "what survives?",
+  agentLine: "the exact line survives",
+  pathId: 1n,
+  thoughtSpecId: localRelease.spec.evmSpecId,
+  thoughtSpecHash: localRelease.spec.evmSpecHash,
+  provenanceJson: localProvenanceJson,
+  deadline: 1n,
+  pathSignature: "0x1234",
+}]);
+assert(localMintCalldata.startsWith(localThoughtInterface.getFunction("mint")!.selector));
 
 assert.equal(
   THOUGHT_PANEL_MINT_UI_MODE,

@@ -60,6 +60,13 @@ export default defineConfig(({ mode }) => {
           rewrite: (requestPath) =>
             requestPath.replace(/^\/thought(?=$|\?)/, "/thought/"),
         },
+        "/gallery": {
+          target: "http://127.0.0.1:5174",
+          changeOrigin: true,
+          secure: false,
+          rewrite: (requestPath) =>
+            requestPath.replace(/^\/gallery\/?(?=$|\?)/, "/thought/"),
+        },
         "/api": {
           target: readDevApiOrigin(),
           changeOrigin: true,

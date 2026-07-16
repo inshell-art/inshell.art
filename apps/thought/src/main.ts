@@ -56,6 +56,7 @@ import {
 } from "@inshell/thought-agent-protocol";
 import colorFontRaw from "../colorFontJSON/colorfont.byToolv2.json?raw";
 import colorFontText from "../spec/COLOR_FONT.v1.txt?raw";
+import localThoughtInstructions from "../spec/THOUGHT.v2.local.md?raw";
 import addresses from "../evm/addresses.anvil.json";
 import {
   COLOR_FONT_DOC_FORMAT,
@@ -118,6 +119,23 @@ import {
   type MintFlowUiMode,
 } from "./thought-mint-ui";
 import { buildThoughtConsoleLines } from "./thought-console";
+import { canonicalThoughtTitle, thoughtProtocolText } from "./thought-display-text";
+import {
+  THOUGHT_V2_LOCAL_MAX_PROVENANCE_BYTES,
+  THOUGHT_V2_LOCAL_NFT_ABI,
+  buildThoughtV2LocalProvenance,
+  thoughtV2AgentLineHash,
+} from "./thought-v2-local-mint";
+import {
+  buildThoughtV2LocalAgentProcess,
+  buildThoughtV2LocalAgentResult,
+  parseThoughtV2LocalAgentResult,
+  type ThoughtV2LocalAgentEvidence,
+} from "./thought-v2-local-agent";
+import {
+  THOUGHT_V2_LOCAL_RELEASE,
+  isThoughtV2LocalMintRuntime,
+} from "./thought-v2-local-release";
 import {
   createThoughtPollWakeScheduler,
   hasThoughtPollDeadlineExpired,
@@ -261,8 +279,21 @@ type EvmAddresses = {
   thoughtSpecRegistry?: {
     address?: string;
   };
+  protocolRegistry?: {
+    address?: string;
+  };
+  thoughtRenderer?: {
+    address?: string;
+  };
   thoughtNft?: {
     address?: string;
+  };
+  protocolRelease?: {
+    id?: string;
+    manifestHash?: string;
+    rendererProfileHash?: string;
+    workProfileHash?: string;
+    status?: string;
   };
   thoughtSpec?: {
     specName?: string;
@@ -519,6 +550,7 @@ type ThoughtRunContext = {
     ref: string;
     hash: string;
   };
+  agentEvidence?: ThoughtV2LocalAgentEvidence;
 };
 
 type ThoughtSpecAnchor = {
@@ -532,7 +564,7 @@ type ThoughtPreviewProviderTrace = {
   chainId?: number;
   endpointLabel?: string;
   contractAddress?: string;
-  method: "frontendRender" | "previewWork";
+  method: "frontendRender" | "previewWork" | "previewSvg";
   fetchedAt: string;
 };
 
@@ -562,6 +594,7 @@ type ThoughtCandidate = {
   normalizedCandidateHash?: string;
   automaticPreviewAttempted: boolean;
   previewProvider?: ThoughtPreviewProviderTrace;
+  agentEvidence?: ThoughtV2LocalAgentEvidence;
 };
 
 type ThoughtAgentRunCreateResponse = {
@@ -612,6 +645,7 @@ type ThoughtAgentRunStatusResponse = {
   };
   result?: {
     raw?: string | null;
+    rawSha256?: string | null;
     agentLine?: string | null;
     receipt?: {
       receiptVersion?: string | null;
@@ -802,10 +836,6 @@ const CODEX_MODEL_SOURCE_ID = "codex";
 const CODEX_MODEL = "codex";
 const CODEX_PROVIDER = "codex";
 const CODEX_DESCRIPTION = "local Bridge route. opens Codex for one THOUGHT round.";
-const THOUGHT_AGENT_REGISTERED_SPEC_ID = THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId;
-const THOUGHT_V2_MINT_ENABLED = THOUGHT_V2_PROTOCOL_RELEASE.deployment.v2MintEnabled;
-const thoughtInstructions = THOUGHT_V2_PROTOCOL_RELEASE.spec.text;
-const thoughtInstructionsUrl = THOUGHT_V2_PROTOCOL_RELEASE.publicSpecPath;
 const getStorageOrNull = (storage: () => Storage | null | undefined) => {
   try {
     const resolved = storage();
@@ -952,7 +982,6 @@ const APP_BUILD = typeof import.meta.env.VITE_APP_BUILD === "string" && import.m
 const IS_DEV_MODE = import.meta.env.DEV || import.meta.env.MODE === "development";
 const MAX_RAW_RETURN_BYTES = 512;
 const MAX_TEXT_BYTES = 128;
-const MAX_PROVENANCE_BYTES = 2048;
 const COLOR_FONT_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const COLOR_FONT_CANONICAL_URL = "https://inshell.art/color-font";
 const SVG_TEXT_MIN_SIZE = 9;
@@ -1386,7 +1415,46 @@ const GALLERY_API_URL =
   "/api/thought-gallery";
 const PATH_TOKENS_API_URL = readConfiguredUrl("VITE_PATH_TOKENS_API_URL") || "/api/path-tokens";
 const THOUGHT_SPEC_REGISTRY_ADDRESS = EVM_ADDRESSES.thoughtSpecRegistry?.address?.trim() ?? "";
+const THOUGHT_PROTOCOL_REGISTRY_ADDRESS = EVM_ADDRESSES.protocolRegistry?.address?.trim() ?? "";
+const THOUGHT_RENDERER_ADDRESS = EVM_ADDRESSES.thoughtRenderer?.address?.trim() ?? "";
 const THOUGHT_NFT_ADDRESS = EVM_ADDRESSES.thoughtNft?.address?.trim() ?? "";
+const THOUGHT_SPEC_BYTE_LENGTH = EVM_ADDRESSES.thoughtSpecs?.[0]?.byteLength ?? 0;
+const IS_LOCAL_THOUGHT_V2 = isThoughtV2LocalMintRuntime({
+  dev: IS_DEV_MODE,
+  hostname: window.location.hostname.toLowerCase(),
+  rpcUrl: THOUGHT_RPC_URL,
+  pathRpcUrl: PATH_RPC_URL,
+  chainId: THOUGHT_CHAIN_ID,
+  contracts: {
+    pathNft: PATH_NFT_ADDRESS,
+    thoughtNft: THOUGHT_NFT_ADDRESS,
+    thoughtSpecRegistry: THOUGHT_SPEC_REGISTRY_ADDRESS,
+    thoughtRenderer: THOUGHT_RENDERER_ADDRESS,
+    protocolRegistry: THOUGHT_PROTOCOL_REGISTRY_ADDRESS,
+  },
+  protocolReleaseId: EVM_ADDRESSES.protocolRelease?.id?.trim() ?? "",
+  manifestHash: EVM_ADDRESSES.protocolRelease?.manifestHash?.trim() ?? "",
+  rendererProfileHash: EVM_ADDRESSES.protocolRelease?.rendererProfileHash?.trim() ?? "",
+  workProfileHash: EVM_ADDRESSES.protocolRelease?.workProfileHash?.trim() ?? "",
+  specId: RECOMMENDED_THOUGHT_SPEC_ID,
+  specHash: EVM_ADDRESSES.recommendedThoughtSpecHash?.trim() ?? "",
+  specByteLength: THOUGHT_SPEC_BYTE_LENGTH,
+});
+const protocolLineInput = (value: string) => IS_LOCAL_THOUGHT_V2 ? value : value.trim();
+const THOUGHT_AGENT_REGISTERED_SPEC_ID = IS_LOCAL_THOUGHT_V2
+  ? THOUGHT_V2_LOCAL_RELEASE.spec.evmSpecId
+  : THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId;
+const THOUGHT_V2_MINT_ENABLED =
+  THOUGHT_V2_PROTOCOL_RELEASE.deployment.v2MintEnabled || IS_LOCAL_THOUGHT_V2;
+const thoughtInstructions = IS_LOCAL_THOUGHT_V2
+  ? localThoughtInstructions
+  : THOUGHT_V2_PROTOCOL_RELEASE.spec.text;
+const thoughtInstructionsUrl = IS_LOCAL_THOUGHT_V2
+  ? `data:text/markdown;charset=utf-8,${encodeURIComponent(localThoughtInstructions)}`
+  : THOUGHT_V2_PROTOCOL_RELEASE.publicSpecPath;
+const MAX_PROVENANCE_BYTES = IS_LOCAL_THOUGHT_V2
+  ? THOUGHT_V2_LOCAL_MAX_PROVENANCE_BYTES
+  : 2048;
 const COLOR_FONT_V1_ADDRESS = EVM_ADDRESSES.colorFontV1?.address?.trim() ?? "";
 const THOUGHT_CHAIN_NAME =
   THOUGHT_CHAIN_ID === 31337 ? "Anvil Local" : THOUGHT_CHAIN_ID === 11155111 ? "Sepolia" : "THOUGHT";
@@ -1508,10 +1576,12 @@ const IS_THOUGHT_PAGE =
   !IS_GALLERY_PAGE &&
   ROUTE_THOUGHT_NFT_ID !== null;
 const THOUGHT_MINTED_TOPIC = id(
-  "ThoughtMinted(uint256,address,uint256,bytes32,bytes32,bytes32,bytes32,uint64)",
+  IS_LOCAL_THOUGHT_V2
+    ? "ThoughtMinted(uint256,address,bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,bytes32,bytes32)"
+    : "ThoughtMinted(uint256,address,uint256,bytes32,bytes32,bytes32,bytes32,uint64)",
 );
 const TOKEN_URI_CALL_GAS_LIMIT = 100_000_000n;
-const THOUGHT_NFT_ABI = [
+const THOUGHT_V1_NFT_ABI = [
   "error EmptyProvenance()",
   "error EmptyThoughtText()",
   "error NonCanonicalThoughtText()",
@@ -1543,6 +1613,9 @@ const THOUGHT_NFT_ABI = [
   "function colorFontGlyphOf(bytes1 letter) view returns (uint8 ordinal, string aliasTerm, string hexColor)",
   "event ThoughtMinted(uint256 indexed tokenId, address indexed minter, uint256 indexed pathId, bytes32 textHash, bytes32 provenanceHash, bytes32 thoughtSpecId, bytes32 thoughtSpecHash, uint64 mintedAt)",
 ] as const;
+const THOUGHT_NFT_ABI = IS_LOCAL_THOUGHT_V2
+  ? THOUGHT_V2_LOCAL_NFT_ABI
+  : THOUGHT_V1_NFT_ABI;
 const COLOR_FONT_V1_ABI = [
   "function id() pure returns (string)",
   "function version() pure returns (string)",
@@ -1556,6 +1629,7 @@ const PATH_NFT_ABI = [
   "function getConsumeNonce(address claimer) view returns (uint256)",
   "function getAuthorizedMinter(bytes32 movement) view returns (address)",
   "function getMovementQuota(bytes32 movement) view returns (uint32)",
+  "function isMovementFrozen(bytes32 movement) view returns (bool)",
   "function getStage(uint256 tokenId) view returns (uint8)",
   "function getStageMinted(uint256 tokenId) view returns (uint32)",
   "function ownerOf(uint256 tokenId) view returns (address)",
@@ -2036,6 +2110,7 @@ type AgentDemoRun = {
   candidate: string | null;
   remoteState: string;
   expiresAt?: string;
+  agentEvidence?: ThoughtV2LocalAgentEvidence;
 };
 
 type ThoughtDockAgentAdapterId = "codex" | "claude";
@@ -2221,11 +2296,13 @@ const agentDemoLaunchToken = (launchUri: string) => {
 const agentDemoResultJson = (
   _run: AgentDemoRun,
   candidate: string,
-  _adapterId: ThoughtDockAgentAdapterId = "codex",
-) => ({
-  schema: THOUGHT_AGENT_RESULT_VERSION,
-  agentLine: candidate,
-});
+  adapterId: ThoughtDockAgentAdapterId = "codex",
+) => IS_LOCAL_THOUGHT_V2
+  ? buildThoughtV2LocalAgentResult(candidate, thoughtAgentProductLabel(adapterId))
+  : {
+      schema: THOUGHT_AGENT_RESULT_VERSION,
+      agentLine: candidate,
+    };
 
 const thoughtAgentProductLabel = (adapterId: ThoughtDockAgentAdapterId) =>
   THOUGHT_DOCK_AGENT_ADAPTERS.find((adapter) => adapter.id === adapterId)?.label ?? "Agent";
@@ -2280,6 +2357,14 @@ const buildAgentDemoSealedTask = (
     runUrl: absoluteStatusUrl,
     clientUrl,
     launchToken: run.launchToken,
+    ...(IS_LOCAL_THOUGHT_V2
+      ? {
+          release: {
+            protocolReleaseId: THOUGHT_V2_LOCAL_RELEASE.protocol.protocolReleaseId,
+            manifestKeccak256: THOUGHT_V2_LOCAL_RELEASE.protocol.manifestKeccak256,
+          },
+        }
+      : {}),
   });
 };
 
@@ -2418,6 +2503,9 @@ const parseAgentDemoReturn = (rawValue: string) => {
   if (!rawValue) {
     throw new Error("return empty.");
   }
+  if (IS_LOCAL_THOUGHT_V2) {
+    return parseThoughtV2LocalAgentResult(rawValue).agentLine;
+  }
   const parsed = JSON.parse(rawValue) as Record<string, unknown>;
   if (parsed.schema !== THOUGHT_AGENT_RESULT_VERSION || typeof parsed.agentLine !== "string") {
     throw new Error("agent result schema invalid.");
@@ -2460,7 +2548,7 @@ const pollAgentDemoRun = (run: AgentDemoRun) => {
           remoteState: payload.state ?? agentDemoRun.remoteState,
         };
         if (payload.state === "returned") {
-          const candidate = readThoughtAgentModelReturn(payload);
+          const candidate = await readThoughtAgentModelReturn(payload);
           if (!candidate) {
             throw new Error("returned run had no candidate.");
           }
@@ -2556,7 +2644,7 @@ const submitAgentDemoProtocolResult = async (candidate: string) => {
   });
 
   assertThoughtLine(candidate, "agent");
-  const raw = JSON.stringify({ schema: THOUGHT_AGENT_RESULT_VERSION, agentLine: candidate });
+  const raw = JSON.stringify(agentDemoResultJson(run, candidate));
   const completedAt = new Date().toISOString();
   await fetchThoughtAgentJson<Record<string, unknown>>(run.resultUrl, {
     method: "PUT",
@@ -4025,7 +4113,7 @@ const launchThoughtDockAgentLink = (url: string) => {
 
 const openThoughtDockAgentSelect = () => {
   const prompt = thoughtDockPrompt.value;
-  if (!prompt) {
+  if (!prompt.trim()) {
     setThoughtDockState({ kind: "failed", message: "Prompt is empty." });
     thoughtDockPrompt.focus();
     return;
@@ -4241,12 +4329,16 @@ const startThoughtDockPolling = (
 
     if (remoteState === "returned") {
       terminalHandled = true;
-      const candidate = readThoughtAgentModelReturn(response);
-      if (!candidate) {
+      const returned = await readThoughtAgentReturn(response, activeRun.runId, adapterId);
+      if (!returned.agentLine) {
         throw new Error("Agent returned no work.");
       }
+      activeRun = {
+        ...activeRun,
+        ...(returned.agentEvidence ? { agentEvidence: returned.agentEvidence } : {}),
+      };
       clearStoredThoughtDockRun(activeRun.runId);
-      await handleThoughtDockReturnedWork(activeRun, candidate, payload, runSessionId);
+      await handleThoughtDockReturnedWork(activeRun, returned.agentLine, payload, runSessionId);
       return true;
     }
 
@@ -4363,7 +4455,7 @@ const handleThoughtDockReturnedWork = async (
   setThoughtDockState({ kind: "previewing", rawCandidate });
 
   try {
-    const result = await completeThoughtRunFromModelReturn(payload, rawCandidate);
+    const result = await completeThoughtRunFromModelReturn(payload, rawCandidate, run.agentEvidence);
     if (!isCurrentRunSession(runSessionId)) {
       return;
     }
@@ -4684,11 +4776,11 @@ const readRunViewToken = () => {
 const normalizeThoughtDockAdapterId = (value: unknown): ThoughtDockAgentAdapterId =>
   value === "claude" ? "claude" : "codex";
 
-const thoughtDockRunFromStatus = (
+const thoughtDockRunFromStatus = async (
   statusUrl: string,
   browserToken: string,
   status: ThoughtAgentRunStatusResponse,
-): AgentDemoRun => {
+): Promise<AgentDemoRun> => {
   const runId = status.runId || ROUTE_RUN_ID;
   const prompt = status.request?.promptLine?.text ?? "";
   const promptHash = status.request?.promptLine?.sha256 || hashText(prompt);
@@ -4708,12 +4800,14 @@ const thoughtDockRunFromStatus = (
     expiresAt: status.expiresAt,
   };
   const sealedTask = status.request?.agentInput?.text || buildAgentDemoSealedTask(baseRun, adapterId);
+  const returned = await readThoughtAgentReturn(status, runId, adapterId);
   return {
     ...baseRun,
     sealedTask,
     codexUrl: buildCodexAgentUrl(sealedTask),
     claudeUrl: buildClaudeCodeAgentUrl(sealedTask),
-    candidate: readThoughtAgentModelReturn(status) || null,
+    candidate: returned.agentLine || null,
+    ...(returned.agentEvidence ? { agentEvidence: returned.agentEvidence } : {}),
   };
 };
 
@@ -4751,13 +4845,14 @@ const hydrateThoughtRunLink = async () => {
     }
 
     const adapterId = normalizeThoughtDockAdapterId(status.request?.requestedAgent?.adapterId);
-    const run = thoughtDockRunFromStatus(statusUrl, viewToken, status);
+    const run = await thoughtDockRunFromStatus(statusUrl, viewToken, status);
     thoughtDockRun = run;
     thoughtDockAdapterId = adapterId;
     runInFlight = status.state !== "returned" && status.state !== "failed" && status.state !== "cancelled" && status.state !== "expired";
 
-    const prompt = run.prompt.trim();
-    if (prompt) {
+    const prompt = protocolLineInput(run.prompt);
+    const hasPrompt = Boolean(prompt.trim());
+    if (hasPrompt) {
       sessionState.prompt = prompt;
       promptBox.value = prompt;
       thoughtDockPrompt.value = prompt;
@@ -4765,12 +4860,12 @@ const hydrateThoughtRunLink = async () => {
     }
 
     if (status.state === "returned") {
-      const candidate = readThoughtAgentModelReturn(status);
-      if (!prompt || !candidate) {
+      const candidate = run.candidate;
+      if (!hasPrompt || !candidate) {
         setThoughtDockState({
           kind: "failed",
           message: "Run cannot mint.",
-          details: !prompt ? "Authenticated run status did not include the prompt." : "Agent returned no work.",
+          details: !hasPrompt ? "Authenticated run status did not include the prompt." : "Agent returned no work.",
         });
         runInFlight = false;
         return true;
@@ -5663,6 +5758,77 @@ const getReadPathNft = () => {
   return readPathNft;
 };
 
+let localThoughtV2DeploymentVerified = false;
+let localThoughtV2DeploymentPromise: Promise<void> | null = null;
+
+const verifyLocalThoughtV2Deployment = async () => {
+  if (!IS_LOCAL_THOUGHT_V2 || localThoughtV2DeploymentVerified) {
+    return;
+  }
+  if (localThoughtV2DeploymentPromise) {
+    return localThoughtV2DeploymentPromise;
+  }
+
+  localThoughtV2DeploymentPromise = (async () => {
+    const provider = getReadProvider();
+    const thought = getReadThoughtNFT();
+    const pathNft = getReadPathNft();
+    const registry = getReadThoughtSpecRegistry();
+    if (!provider || !thought || !pathNft || !registry) {
+      throw new Error("local THOUGHT V2 deployment unavailable.");
+    }
+
+    const expected = THOUGHT_V2_LOCAL_RELEASE;
+    const contractAddresses = [
+      expected.contracts.pathNft,
+      expected.contracts.thoughtNft,
+      expected.contracts.thoughtSpecRegistry,
+      expected.contracts.thoughtRenderer,
+      expected.contracts.protocolRegistry,
+    ];
+    const [codes, pathAddress, specRegistryAddress, rendererAddress, protocolRegistryAddress, releaseId, manifestHash, rendererProfileHash, workProfileHash, authorizedMinter, quota, frozen, specValid] =
+      await Promise.all([
+        Promise.all(contractAddresses.map((address) => provider.getCode(address))),
+        thought.pathNft() as Promise<string>,
+        thought.thoughtSpecRegistry() as Promise<string>,
+        thought.thoughtRenderer() as Promise<string>,
+        thought.protocolRegistry() as Promise<string>,
+        thought.protocolReleaseId() as Promise<string>,
+        thought.protocolManifestHash() as Promise<string>,
+        thought.RENDERER_PROFILE_KECCAK256() as Promise<string>,
+        thought.WORK_PROFILE_KECCAK256() as Promise<string>,
+        pathNft.getAuthorizedMinter(PATH_MOVEMENT_THOUGHT) as Promise<string>,
+        pathNft.getMovementQuota(PATH_MOVEMENT_THOUGHT) as Promise<bigint>,
+        pathNft.isMovementFrozen(PATH_MOVEMENT_THOUGHT) as Promise<boolean>,
+        registry.isRegisteredThoughtSpec(expected.spec.evmSpecId, expected.spec.evmSpecHash) as Promise<boolean>,
+      ]);
+
+    const sameAddress = (left: string, right: string) => left.toLowerCase() === right.toLowerCase();
+    const anchorsMatch =
+      codes.every((code) => code !== "0x") &&
+      sameAddress(pathAddress, expected.contracts.pathNft) &&
+      sameAddress(specRegistryAddress, expected.contracts.thoughtSpecRegistry) &&
+      sameAddress(rendererAddress, expected.contracts.thoughtRenderer) &&
+      sameAddress(protocolRegistryAddress, expected.contracts.protocolRegistry) &&
+      releaseId.toLowerCase() === expected.protocol.protocolReleaseId &&
+      manifestHash.toLowerCase() === expected.protocol.manifestKeccak256 &&
+      rendererProfileHash.toLowerCase() === expected.protocol.rendererProfile.keccak256 &&
+      workProfileHash.toLowerCase() === expected.protocol.workProfile.keccak256 &&
+      sameAddress(authorizedMinter, expected.contracts.thoughtNft) &&
+      quota === 1n &&
+      frozen &&
+      specValid;
+    if (!anchorsMatch) {
+      throw new Error("local THOUGHT V2 deployment mismatch.");
+    }
+    localThoughtV2DeploymentVerified = true;
+  })().finally(() => {
+    localThoughtV2DeploymentPromise = null;
+  });
+
+  return localThoughtV2DeploymentPromise;
+};
+
 const escapeHtml = (value: string) =>
   value
     .replace(/&/g, "&amp;")
@@ -5693,8 +5859,6 @@ const provenanceTooLargeLinesFromMessage = (message: string) => {
 };
 
 const hashText = (value: string) => keccak256(toUtf8Bytes(value));
-
-const canonicalThoughtTitle = (value: string) => value.replace(/[^A-Za-z]+/g, " ").trim().replace(/\s+/g, " ").toUpperCase();
 
 type ThoughtV2PreviewValidation = {
   ok: boolean;
@@ -5914,7 +6078,29 @@ const writePreviewMode = (mode: PreviewMode) => {
 const previewWorkViaAllowedProvider = async (
   token: Contract,
   rawReturn: string,
+  prompt = sessionState.prompt,
 ): Promise<ContractWorkPreview> => {
+  if (IS_LOCAL_THOUGHT_V2) {
+    const validation = prevalidateThoughtV2Preview({
+      rawPrompt: prompt,
+      rawReturn,
+    });
+    if (!validation.ok) {
+      return {
+        ok: false,
+        text: validation.agentLine,
+        svg: "",
+        reasonCode: validation.reasonCode,
+      };
+    }
+    const svg = await token.previewSvg(validation.promptLine, validation.agentLine) as string;
+    return {
+      ok: true,
+      text: validation.agentLine,
+      svg,
+      reasonCode: 0,
+    };
+  }
   const [ok, text, svg, reasonCode] = await token.previewWork(rawReturn) as [
     boolean,
     string,
@@ -5941,13 +6127,14 @@ const createThoughtPreviewProvider = (
     kind,
     chainId,
     endpointLabel,
-    preview: (rawReturn: string) => previewWorkViaAllowedProvider(token, rawReturn),
+    preview: (rawReturn: string, context?: { prompt?: string }) =>
+      previewWorkViaAllowedProvider(token, rawReturn, context?.prompt),
     trace: () => ({
       kind,
       chainId,
       endpointLabel,
       contractAddress: THOUGHT_NFT_ADDRESS,
-      method: "previewWork",
+      method: IS_LOCAL_THOUGHT_V2 ? "previewSvg" : "previewWork",
       fetchedAt: new Date().toISOString(),
     }),
   };
@@ -6024,6 +6211,20 @@ const selectThoughtPreviewProvider = async () => {
   const mode = readPreviewMode();
   if (mode === "off") {
     return { provider: null, reason: "preview is off." };
+  }
+  if (IS_LOCAL_THOUGHT_V2) {
+    const provider = getReadProvider();
+    return provider
+      ? {
+          provider: createThoughtPreviewProvider(
+            "preview-endpoint",
+            provider,
+            THOUGHT_CHAIN_ID,
+            THOUGHT_RPC_URL,
+          ),
+          reason: "",
+        }
+      : { provider: null, reason: "local THOUGHT V2 unavailable." };
   }
   // V2 is source-only: pre-mint previews must use the verified shared renderer.
   return { provider: createFrontendPreviewProvider(), reason: "" };
@@ -6140,6 +6341,7 @@ const restoreCurrentCandidateSession = () => {
 const createThoughtCandidate = (
   payload: ThoughtRunPayload,
   rawModelReturn: string,
+  agentEvidence?: ThoughtV2LocalAgentEvidence,
 ): ThoughtCandidate => {
   const validation = prevalidateThoughtV2Preview({
     rawPrompt: payload.input.promptLine,
@@ -6166,6 +6368,7 @@ const createThoughtCandidate = (
     rawReturnHash: hashText(rawModelReturn),
     normalizedCandidateHash: normalizedCandidate ? hashText(normalizedCandidate) : undefined,
     automaticPreviewAttempted: false,
+    ...(agentEvidence ? { agentEvidence } : {}),
   };
 };
 
@@ -6350,6 +6553,9 @@ const attemptContractPreviewForCandidate = async (
 };
 
 const textHashFromContract = async (canonicalText: string) => {
+  if (IS_LOCAL_THOUGHT_V2) {
+    return thoughtV2AgentLineHash(canonicalText);
+  }
   const token = getReadThoughtNFT();
   if (!token) {
     return hashText(canonicalText);
@@ -6995,18 +7201,26 @@ const ensureActiveThoughtSpec = async (options: { force?: boolean } = {}) => {
   return activeThoughtSpecPromise;
 };
 
-const bundledThoughtSpecHash = () => THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecHash;
+const bundledThoughtSpecHash = () => IS_LOCAL_THOUGHT_V2
+  ? THOUGHT_V2_LOCAL_RELEASE.spec.evmSpecHash
+  : THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecHash;
 
-const bundledThoughtSpecRef = () => THOUGHT_V2_PROTOCOL_RELEASE.spec.ref;
+const bundledThoughtSpecRef = () => IS_LOCAL_THOUGHT_V2
+  ? THOUGHT_V2_LOCAL_RELEASE.spec.ref
+  : THOUGHT_V2_PROTOCOL_RELEASE.spec.ref;
 
-const bundledThoughtSpecId = () => THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId;
+const bundledThoughtSpecId = () => IS_LOCAL_THOUGHT_V2
+  ? THOUGHT_V2_LOCAL_RELEASE.spec.evmSpecId
+  : THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId;
 
 const buildBundledActiveThoughtSpec = (): ActiveThoughtSpec => ({
   specId: bundledThoughtSpecId(),
   specHash: bundledThoughtSpecHash(),
   ref: bundledThoughtSpecRef(),
   pointer: THOUGHT_V2_PROTOCOL_RELEASE.publicSpecPath,
-  byteLength: THOUGHT_V2_PROTOCOL_RELEASE.spec.byteLength,
+  byteLength: IS_LOCAL_THOUGHT_V2
+    ? THOUGHT_V2_LOCAL_RELEASE.spec.byteLength
+    : THOUGHT_V2_PROTOCOL_RELEASE.spec.byteLength,
   text: thoughtInstructions,
   fetchedAt: new Date().toISOString(),
 });
@@ -7015,6 +7229,9 @@ const shouldUseBundledThoughtSpecFallback = () =>
   IS_DEV_MODE && LOCAL_BROWSER_HOSTS.has(window.location.hostname);
 
 const ensureThoughtDockActiveSpec = async () => {
+  if (IS_LOCAL_THOUGHT_V2) {
+    return ensureActiveThoughtSpec({ force: true });
+  }
   activeThoughtSpec = buildBundledActiveThoughtSpec();
   activeThoughtSpecPromise = null;
   return activeThoughtSpec;
@@ -7162,6 +7379,32 @@ const buildProvenanceJson = (
     prompt: sessionState.prompt,
     clientGeneratedAt: new Date().toISOString(),
   };
+  if (IS_LOCAL_THOUGHT_V2 && mint) {
+    const agentLine = currentOutputText || context.returnedText || "";
+    let process;
+    if (context.mode === MY_BRAIN_MODE) {
+      process = { kind: "manual" };
+    } else {
+      const evidence = context.agentEvidence;
+      if (!evidence) {
+        throw new Error("This route has no validated THOUGHT V2 Agent result. Use Agent mode or My Brain to mint locally.");
+      }
+      process = buildThoughtV2LocalAgentProcess(evidence, agentLine);
+    }
+    return buildThoughtV2LocalProvenance({
+      promptLine: context.prompt,
+      agentLine,
+      process,
+      mintContext: {
+        chainId: String(THOUGHT_CHAIN_ID),
+        thoughtNft: THOUGHT_NFT_ADDRESS,
+        pathNft: PATH_NFT_ADDRESS,
+        minter: mint.minter,
+        movement: "THOUGHT",
+        pathId: typeof mint.pathId === "bigint" ? mint.pathId.toString() : mint.pathId,
+      },
+    });
+  }
   const fallbackPayload = buildThoughtRunPayloadFromContext(context);
   const isExternalReturnRun = context.mode === MY_BRAIN_MODE || context.mode === CODEX_MODE;
   const request = isExternalReturnRun ? null : provenanceRequestConfig(context.request);
@@ -9126,6 +9369,11 @@ const extractMintedTokenId = (receipt: { logs?: readonly { topics: readonly stri
   return null;
 };
 
+const lookupExistingThoughtToken = async (token: Contract, agentLineHash: string) =>
+  IS_LOCAL_THOUGHT_V2
+    ? token.tokenOfAgentLineHash(agentLineHash) as Promise<bigint>
+    : token.tokenOfThought(agentLineHash) as Promise<bigint>;
+
 const handlePendingTx = async () => {
   if (!walletState.txHash) {
     return;
@@ -9175,6 +9423,17 @@ const openMintFlow = async (
   syncInterface();
 
   try {
+    await verifyLocalThoughtV2Deployment();
+  } catch (error) {
+    setMintFlowError(
+      error instanceof Error ? error.message : "local THOUGHT V2 deployment unavailable.",
+      "thought",
+    );
+    syncInterface();
+    return;
+  }
+
+  try {
     mintFlowData.textHash = await textHashFromContract(currentOutputText);
   } catch {
     setMintFlowError("text preview unavailable.", "thought");
@@ -9201,14 +9460,18 @@ const openMintFlow = async (
 
   mintFlowData.thoughtSpecId = spec.specId;
   mintFlowData.thoughtSpecHash = spec.specHash;
-  const provenanceJson = buildProvenanceJson(mintFlowData.textHash);
-  const provenanceBytes = byteLength(provenanceJson);
-  if (provenanceBytes > MAX_PROVENANCE_BYTES) {
-    setMintFlowError(provenanceTooLargeMessage(provenanceBytes), "thought");
-    syncInterface();
-    return;
+  if (IS_LOCAL_THOUGHT_V2) {
+    mintFlowData.provenanceJson = "";
+  } else {
+    const provenanceJson = buildProvenanceJson(mintFlowData.textHash);
+    const provenanceBytes = byteLength(provenanceJson);
+    if (provenanceBytes > MAX_PROVENANCE_BYTES) {
+      setMintFlowError(provenanceTooLargeMessage(provenanceBytes), "thought");
+      syncInterface();
+      return;
+    }
+    mintFlowData.provenanceJson = provenanceJson;
   }
-  mintFlowData.provenanceJson = provenanceJson;
 
   const token = getReadThoughtNFT();
   if (!token) {
@@ -9224,7 +9487,7 @@ const openMintFlow = async (
       return;
     }
 
-    const existingTokenId = (await token.tokenOfThought(mintFlowData.textHash)) as bigint;
+    const existingTokenId = await lookupExistingThoughtToken(token, mintFlowData.textHash);
     if (existingTokenId !== 0n) {
       mintFlowData.existingTokenId = Number(existingTokenId);
       mintFlowState = "text_taken";
@@ -9415,6 +9678,12 @@ const mintErrorMessage = (error: unknown) => {
       : "";
   const message = error instanceof Error ? error.message : shortMessage;
 
+  if (
+    errorName === "AgentLineAlreadyMinted" ||
+    /AgentLineAlreadyMinted/i.test(message)
+  ) {
+    return "this exact Agent line is already minted.";
+  }
   if (errorName === "ThoughtAlreadyMinted" || /ThoughtAlreadyMinted/i.test(message)) {
     return "this exact text is already minted.";
   }
@@ -9475,7 +9744,7 @@ const resolveMintedTokenId = async (receipt: MintReceipt | null) => {
 
   try {
     const token = getReadThoughtNFT();
-    const tokenId = token ? ((await token.tokenOfThought(mintFlowData.textHash)) as bigint) : 0n;
+    const tokenId = token ? await lookupExistingThoughtToken(token, mintFlowData.textHash) : 0n;
     return tokenId === 0n ? null : Number(tokenId);
   } catch {
     return null;
@@ -9489,7 +9758,7 @@ const resolveExistingThoughtTokenId = async () => {
 
   try {
     const token = getReadThoughtNFT();
-    const tokenId = token ? ((await token.tokenOfThought(mintFlowData.textHash)) as bigint) : 0n;
+    const tokenId = token ? await lookupExistingThoughtToken(token, mintFlowData.textHash) : 0n;
     return tokenId === 0n ? null : Number(tokenId);
   } catch {
     return null;
@@ -9753,17 +10022,31 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
     syncInterface();
 
     let txHandled = false;
-    const txPromise = writableToken.mint(
-      mintFlowData.rawText,
-      mintFlowData.pathId,
-      mintFlowData.thoughtSpecId,
-      mintFlowData.thoughtSpecHash,
-      mintFlowData.promptHash,
-      mintFlowData.provenanceJson,
-      mintFlowData.deadline,
-      mintFlowData.signature,
-      { nonce },
-    ) as Promise<MintTransactionResponse>;
+    const txPromise = (IS_LOCAL_THOUGHT_V2
+      ? writableToken.mint(
+          {
+            promptLine: currentRunContext?.prompt ?? sessionState.prompt,
+            agentLine: mintFlowData.rawText,
+            pathId: mintFlowData.pathId,
+            thoughtSpecId: mintFlowData.thoughtSpecId,
+            thoughtSpecHash: mintFlowData.thoughtSpecHash,
+            provenanceJson: mintFlowData.provenanceJson,
+            deadline: mintFlowData.deadline,
+            pathSignature: mintFlowData.signature,
+          },
+          { nonce },
+        )
+      : writableToken.mint(
+          mintFlowData.rawText,
+          mintFlowData.pathId,
+          mintFlowData.thoughtSpecId,
+          mintFlowData.thoughtSpecHash,
+          mintFlowData.promptHash,
+          mintFlowData.provenanceJson,
+          mintFlowData.deadline,
+          mintFlowData.signature,
+          { nonce },
+        )) as Promise<MintTransactionResponse>;
 
     void txPromise.then((lateTx) => {
       if (txHandled || !txTimedOut) {
@@ -10167,7 +10450,7 @@ const shortDetailAddress = (value: string) => shortHex(value, 18, 10);
 const parseThoughtDetailSpec = (thought: GalleryThought): ThoughtDetailSpec => {
   const fallback = {
     id: thought.thoughtSpecId,
-    ref: "THOUGHT.v1.md",
+    ref: IS_LOCAL_THOUGHT_V2 ? "THOUGHT.v2.md" : "THOUGHT.v1.md",
     hash: thought.thoughtSpecHash,
     text: "",
   };
@@ -10207,6 +10490,21 @@ const parseProvenanceMaterial = (provenanceJson: string) => {
       route?: unknown;
       provider?: unknown;
       model?: unknown;
+      work?: {
+        promptLine?: unknown;
+        agentLine?: unknown;
+        promptLineKeccak256?: unknown;
+        agentLineKeccak256?: unknown;
+      };
+      process?: {
+        kind?: unknown;
+        agentDeclaration?: {
+          agentLabel?: unknown;
+        };
+        transport?: {
+          adapter?: unknown;
+        };
+      };
       output?: {
         returnedText?: unknown;
       };
@@ -10215,6 +10513,33 @@ const parseProvenanceMaterial = (provenanceJson: string) => {
         returnedTextHash?: unknown;
       };
     };
+    if (parsed.work && typeof parsed.work === "object") {
+      const prompt = typeof parsed.work.promptLine === "string" ? parsed.work.promptLine : "";
+      const returnedText = typeof parsed.work.agentLine === "string" ? parsed.work.agentLine : "";
+      const promptHash = typeof parsed.work.promptLineKeccak256 === "string"
+        ? parsed.work.promptLineKeccak256
+        : prompt ? hashText(prompt) : "";
+      const returnedTextHash = typeof parsed.work.agentLineKeccak256 === "string"
+        ? parsed.work.agentLineKeccak256
+        : returnedText ? hashText(returnedText) : "";
+      const provider = typeof parsed.process?.transport?.adapter === "string"
+        ? parsed.process.transport.adapter
+        : typeof parsed.process?.agentDeclaration?.agentLabel === "string"
+          ? parsed.process.agentDeclaration.agentLabel
+          : parsed.process?.kind === "manual" ? "me" : "";
+      const model = typeof parsed.process?.agentDeclaration?.agentLabel === "string"
+        ? parsed.process.agentDeclaration.agentLabel
+        : provider;
+      return {
+        prompt,
+        promptHash,
+        returnedText,
+        returnedTextHash,
+        mode: typeof parsed.process?.kind === "string" ? parsed.process.kind : "",
+        provider,
+        model,
+      };
+    }
     const prompt = typeof parsed.prompt === "string" ? parsed.prompt : "";
     const mode = typeof parsed.route === "string" ? parsed.route : "";
     const provider = typeof parsed.provider === "string" ? parsed.provider : "";
@@ -10409,7 +10734,7 @@ const escapeSvgText = (value: string) =>
     .replace(/'/g, "&apos;");
 
 const galleryThumbnailUri = (rawText: string) => {
-  const title = canonicalThoughtTitle(rawText);
+  const title = thoughtProtocolText(rawText, IS_LOCAL_THOUGHT_V2);
   const chars = Array.from(title);
   const { imageSize, gap, rowWidth } = fitImagesToRow(chars.length, CANVAS_WIDTH);
   const xStart = (CANVAS_WIDTH - rowWidth) / 2;
@@ -10444,7 +10769,7 @@ const renderGalleryCard = (thought: GalleryThought) => {
   const card = document.createElement("article");
   card.className = "thought-gallery__card";
   card.dataset.tokenId = thought.tokenId.toString();
-  const title = canonicalThoughtTitle(thought.rawText);
+  const title = thoughtProtocolText(thought.rawText, IS_LOCAL_THOUGHT_V2);
 
   const imageLink = document.createElement("a");
   imageLink.className = "thought-gallery__thumb";
@@ -10453,7 +10778,9 @@ const renderGalleryCard = (thought: GalleryThought) => {
 
   const image = document.createElement("img");
   image.className = "thought-gallery__image";
-  image.src = thought.image ? thoughtImageUrl(thought.tokenId) : galleryThumbnailUri(title);
+  image.src = thought.image
+    ? IS_LOCAL_THOUGHT_V2 ? thought.image : thoughtImageUrl(thought.tokenId)
+    : galleryThumbnailUri(title);
   image.alt = `THOUGHT #${thought.tokenId}`;
   image.loading = "lazy";
 
@@ -10582,7 +10909,7 @@ const writeThoughtGalleryCache = (thoughts: GalleryThought[]) => {
 };
 
 const shouldUseThoughtGalleryApi = () => {
-  if (!GALLERY_API_URL || typeof fetch !== "function") {
+  if (IS_LOCAL_THOUGHT_V2 || !GALLERY_API_URL || typeof fetch !== "function") {
     return false;
   }
   return true;
@@ -10673,6 +11000,50 @@ const readGalleryThoughts = async (options?: { bypassCache?: boolean }): Promise
         const parsed = token.interface.parseLog({ topics: [...log.topics], data: log.data });
         if (!parsed || parsed.name !== "ThoughtMinted") {
           return null;
+        }
+
+        if (IS_LOCAL_THOUGHT_V2) {
+          const tokenId = Number(parsed.args.tokenId as bigint);
+          const minter = String(parsed.args.minter);
+          const pathId = (parsed.args.pathId as bigint).toString();
+          const promptHash = String(parsed.args.promptLineHash);
+          const agentLineHash = String(parsed.args.agentLineHash);
+          const thoughtSpecId = String(parsed.args.thoughtSpecId);
+          const thoughtSpecHash = String(parsed.args.thoughtSpecHash);
+          const [prompt, agentLine, provenanceJson, provenanceHash, mintedAtValue, tokenUri] =
+            await Promise.all([
+              token.promptLineOf(tokenId) as Promise<string>,
+              token.agentLineOf(tokenId) as Promise<string>,
+              token.provenanceOf(tokenId) as Promise<string>,
+              token.provenanceHashOf(tokenId) as Promise<string>,
+              token.mintedAtOf(tokenId) as Promise<bigint>,
+              token.tokenURI(tokenId, { gasLimit: TOKEN_URI_CALL_GAS_LIMIT }) as Promise<string>,
+            ]);
+          const payload = readTokenUriPayload(tokenUri);
+          const provenanceMaterial = parseProvenanceMaterial(provenanceJson);
+          return {
+            tokenId,
+            pathId,
+            minter,
+            textHash: agentLineHash,
+            promptHash,
+            provenanceHash,
+            thoughtSpecId,
+            thoughtSpecHash,
+            mintedAt: Number(mintedAtValue),
+            rawText: agentLine,
+            prompt: prompt || provenanceMaterial.prompt,
+            mode: provenanceMaterial.mode,
+            provider: provenanceMaterial.provider,
+            model: provenanceMaterial.model,
+            returnedText: agentLine,
+            returnedTextHash: agentLineHash,
+            provenanceJson,
+            image: payload.image || galleryThumbnailUri(agentLine),
+            tokenUri,
+            txHash: log.transactionHash,
+            blockNumber: log.blockNumber,
+          };
         }
 
         const tokenId = Number(parsed.args[0] as bigint);
@@ -10902,14 +11273,16 @@ const loadThoughtDetail = async () => {
 
     const detail = normalizeThoughtDetail(thought);
     currentThoughtDetail = detail;
-    const title = canonicalThoughtTitle(detail.rawText);
+    const title = thoughtProtocolText(detail.rawText, IS_LOCAL_THOUGHT_V2);
     const rawText = detail.rawText || title || "-";
     const provenanceBytes = detail.provenanceJson ? byteLength(detail.provenanceJson) : 0;
     const txUrl = thoughtTxUrl(detail.txHash);
     document.title = `THOUGHT #${thought.tokenId}`;
     thoughtDetailTitleToken.textContent = detail.tokenId.toString();
     thoughtDetailStatus.textContent = "";
-    thoughtDetailImage.src = detail.image ? thoughtImageUrl(detail.tokenId) : galleryThumbnailUri(title);
+    thoughtDetailImage.src = detail.image
+      ? IS_LOCAL_THOUGHT_V2 ? detail.image : thoughtImageUrl(detail.tokenId)
+      : galleryThumbnailUri(title);
     thoughtDetailImage.alt = `THOUGHT #${detail.tokenId} canvas`;
     thoughtDetailModel.textContent = detail.model || "model unavailable.";
     setThoughtDetailTextBlock(thoughtDetailCanonicalTitle, rawText);
@@ -11246,7 +11619,7 @@ const renderCanvas = (rawText: string) => {
 };
 
 const syncOutputToCanvas = (raw: string, options?: { suppressWarning?: boolean }) => {
-  const title = canonicalThoughtTitle(raw);
+  const title = thoughtProtocolText(raw, IS_LOCAL_THOUGHT_V2);
 
   hideContractSvgPreview();
 
@@ -11324,7 +11697,7 @@ const recordCurrentWork = (rawOutput: string) => {
 
 const loadWorkRecord = (work: ThoughtWorkRecord) => {
   resetMintRuntimeState();
-  currentOutputText = canonicalThoughtTitle(work.text || work.title);
+  currentOutputText = thoughtProtocolText(work.text || work.title, IS_LOCAL_THOUGHT_V2);
   currentWorkSvg = work.svg ?? "";
   currentRunContext = workRunContextToThoughtRunContext(work);
   currentWorkId = work.id;
@@ -11391,7 +11764,9 @@ const readCurrentOutputSession = () => {
     }
 
     const candidate = parsed as { output?: unknown; svg?: unknown; runContext?: unknown; workId?: unknown };
-    const output = typeof candidate.output === "string" ? canonicalThoughtTitle(candidate.output) : "";
+    const output = typeof candidate.output === "string"
+      ? thoughtProtocolText(candidate.output, IS_LOCAL_THOUGHT_V2)
+      : "";
     if (!output) {
       return null;
     }
@@ -11451,6 +11826,7 @@ const recordThoughtRun = (
   rawOutput: string,
   thoughtTitle: string,
   previewProvider?: ThoughtPreviewProviderTrace,
+  agentEvidence?: ThoughtV2LocalAgentEvidence,
 ) => {
   const clientGeneratedAt = new Date().toISOString();
   const provenanceConfig = thoughtRunProvenanceConfig(payload);
@@ -11465,6 +11841,7 @@ const recordThoughtRun = (
     request: provenanceConfig.request,
     web: provenanceConfig.web,
     thoughtSpec: provenanceConfig.thoughtSpec,
+    ...(agentEvidence ? { agentEvidence } : {}),
   };
 
   const run = {
@@ -11851,12 +12228,49 @@ const launchThoughtAgentBridge = (launchUri: string) => {
   }, 2000);
 };
 
-const readThoughtAgentModelReturn = (payload: ThoughtAgentRunStatusResponse) => {
+const readThoughtAgentReturn = async (
+  payload: ThoughtAgentRunStatusResponse,
+  fallbackRunId = "",
+  fallbackAdapter = "",
+) => {
   const agentLine = payload.result?.agentLine;
-  if (typeof agentLine !== "string") return "";
+  if (typeof agentLine !== "string") {
+    return { agentLine: "" };
+  }
   assertThoughtLine(agentLine, "agent");
-  return agentLine;
+  if (!IS_LOCAL_THOUGHT_V2) {
+    return { agentLine };
+  }
+
+  const payloadResult = payload.result;
+  const raw = payloadResult?.raw;
+  const rawSha256 = payloadResult?.rawSha256;
+  if (typeof raw !== "string" || typeof rawSha256 !== "string") {
+    throw new Error("Agent result evidence is incomplete.");
+  }
+  const result = parseThoughtV2LocalAgentResult(raw);
+  const verifiedRawSha256 = await sha256Hex(raw);
+  if (result.agentLine !== agentLine || verifiedRawSha256 !== rawSha256) {
+    throw new Error("Agent result evidence hash mismatch.");
+  }
+  const runId = payload.runId || fallbackRunId;
+  const adapter = payloadResult?.receipt?.adapterId || fallbackAdapter;
+  if (!runId || !adapter) {
+    throw new Error("Agent result transport evidence is incomplete.");
+  }
+  return {
+    agentLine,
+    agentEvidence: {
+      result,
+      runId,
+      adapter,
+      rawResponseSha256: rawSha256.replace(/^sha256:/, ""),
+    } satisfies ThoughtV2LocalAgentEvidence,
+  };
 };
+
+const readThoughtAgentModelReturn = async (payload: ThoughtAgentRunStatusResponse) =>
+  (await readThoughtAgentReturn(payload)).agentLine;
 
 const pollThoughtAgentRun = async (input: {
   statusUrl: string;
@@ -11880,11 +12294,11 @@ const pollThoughtAgentRun = async (input: {
     const state = payload.state ?? "";
 
     if (state === "returned") {
-      const modelReturn = readThoughtAgentModelReturn(payload);
-      if (!modelReturn) {
+      const returned = await readThoughtAgentReturn(payload, input.runId, CODEX_PROVIDER);
+      if (!returned.agentLine) {
         throw new Error("Codex returned an empty THOUGHT result.");
       }
-      return modelReturn;
+      return returned;
     }
 
     if (state === "failed") {
@@ -12847,7 +13261,13 @@ const promotePreviewedCandidateToWork = (
 ) => {
   lastRejectedRun = null;
   lastPreviewRetryContext = null;
-  recordThoughtRun(candidate.payload, candidate.rawModelReturn, preview.text, trace);
+  recordThoughtRun(
+    candidate.payload,
+    candidate.rawModelReturn,
+    preview.text,
+    trace,
+    candidate.agentEvidence,
+  );
   setAgentOutput(preview.text, candidate.rawModelReturn, preview.svg);
   clearCurrentCandidate();
   runState = "output_ready";
@@ -12866,8 +13286,9 @@ const promotePreviewedCandidateToWork = (
 const completeThoughtRunFromModelReturn = async (
   thoughtRunPayload: ThoughtRunPayload,
   modelReturn: string,
+  agentEvidence?: ThoughtV2LocalAgentEvidence,
 ) => {
-  const candidate = createThoughtCandidate(thoughtRunPayload, modelReturn);
+  const candidate = createThoughtCandidate(thoughtRunPayload, modelReturn, agentEvidence);
   currentCandidate = candidate;
   writeCurrentCandidateSession();
   resetMintRuntimeState();
@@ -12929,10 +13350,10 @@ const runAgent = async (options?: { forceGenerate?: boolean; cli?: boolean }) =>
     return;
   }
 
-  const prompt = sessionState.prompt.trim();
+  const prompt = protocolLineInput(sessionState.prompt);
   const model = getCurrentModelValue().trim();
 
-  if (!prompt) {
+  if (!prompt.trim()) {
     setWarning("prompt is required.", { level: "warn" });
     setStatus("");
     return;
@@ -13005,6 +13426,7 @@ const runAgent = async (options?: { forceGenerate?: boolean; cli?: boolean }) =>
 
   try {
     let text = "";
+    let agentEvidence: ThoughtV2LocalAgentEvidence | undefined;
 
     if (sessionState.mode === "connect") {
       text = await requestOpenRouterChat(sessionState.connect.apiKey.trim(), thoughtRunPayload);
@@ -13020,7 +13442,9 @@ const runAgent = async (options?: { forceGenerate?: boolean; cli?: boolean }) =>
         text = await requestAnthropicMessages(apiKey, thoughtRunPayload);
       }
     } else if (sessionState.mode === CODEX_MODE) {
-      text = await requestCodexAgent(thoughtRunPayload);
+      const returned = await requestCodexAgent(thoughtRunPayload);
+      text = returned.agentLine;
+      agentEvidence = returned.agentEvidence;
     } else {
       text = await requestOllama(thoughtRunPayload);
     }
@@ -13037,7 +13461,7 @@ const runAgent = async (options?: { forceGenerate?: boolean; cli?: boolean }) =>
       ]);
     }
 
-    await completeThoughtRunFromModelReturn(thoughtRunPayload, text);
+    await completeThoughtRunFromModelReturn(thoughtRunPayload, text, agentEvidence);
   } catch (error) {
     if (!isCurrentRunSession(runId)) {
       return;
@@ -14305,7 +14729,7 @@ const cliCurrentMintState = () => {
 };
 
 const cliPromptValue = () => {
-  const prompt = sessionState.prompt.trim();
+  const prompt = protocolLineInput(sessionState.prompt);
   return prompt ? quoteCliText(prompt) : "empty";
 };
 
@@ -14627,8 +15051,8 @@ const setCliApiKey = (keyInput: string) => {
 };
 
 const setCliPrompt = (promptInput: string) => {
-  const prompt = promptInput.trim();
-  if (!prompt || prompt.toLowerCase() === "help") {
+  const commandValue = promptInput.trim();
+  if (!commandValue || commandValue.toLowerCase() === "help") {
     appendCliOutput([
       `prompt: ${cliPromptValue()}`,
       "use: prompt <text>",
@@ -14637,7 +15061,7 @@ const setCliPrompt = (promptInput: string) => {
     return;
   }
 
-  if (prompt.toLowerCase() === "clear") {
+  if (commandValue.toLowerCase() === "clear") {
     resetMintRuntimeState();
     pendingMyBrainRunPayload = null;
     sessionState.prompt = "";
@@ -14649,7 +15073,7 @@ const setCliPrompt = (promptInput: string) => {
 
   resetMintRuntimeState();
   pendingMyBrainRunPayload = null;
-  sessionState.prompt = promptInput.trim();
+  sessionState.prompt = protocolLineInput(promptInput);
   writeSessionState();
   syncInterface();
   appendCliOutput([`prompt: ${cliPromptValue()}`, "next: run"]);
@@ -15201,7 +15625,7 @@ const outputCliColorFont = async (topic: string) => {
 };
 
 const formatMintedThoughtLine = (thought: GalleryThought) => {
-  const title = canonicalThoughtTitle(thought.rawText) || "UNTITLED";
+  const title = thoughtProtocolText(thought.rawText, IS_LOCAL_THOUGHT_V2) || "UNTITLED";
   return `#${thought.tokenId} ${quoteCliText(title, 40)} $PATH #${thought.pathId}`;
 };
 
@@ -15246,7 +15670,8 @@ const outputCliThoughtWorks = async (topic: string) => {
 const formatWorkLine = (work: ThoughtWorkRecord) =>
   `#${work.id} "${formatModelLabel(work.text || work.title, 48)}"`;
 
-const workText = (work: ThoughtWorkRecord) => canonicalThoughtTitle(work.text || work.title);
+const workText = (work: ThoughtWorkRecord) =>
+  thoughtProtocolText(work.text || work.title, IS_LOCAL_THOUGHT_V2);
 
 const workPrompt = (work: ThoughtWorkRecord) => work.prompt || work.runContext.prompt;
 
@@ -15488,8 +15913,8 @@ const myBrainRunPendingLines = () => [
 ];
 
 const buildMyBrainRunPayload = async (): Promise<PendingMyBrainRound> => {
-  const prompt = sessionState.prompt.trim();
-  if (!prompt) {
+  const prompt = protocolLineInput(sessionState.prompt);
+  if (!prompt.trim()) {
     throw new Error("prompt empty.");
   }
 
@@ -15551,8 +15976,8 @@ const returnMyBrainModelTextFromCli = async (returnInput: string) => {
     return;
   }
 
-  const modelReturn = returnInput.trim();
-  if (!modelReturn) {
+  const modelReturn = protocolLineInput(returnInput);
+  if (!modelReturn.trim()) {
     appendCliError(["model return empty.", "use: return <text>", "use: cancel"]);
     return;
   }
@@ -15717,7 +16142,7 @@ const resumePendingThoughtAgentRun = () => {
 
   void (async () => {
     try {
-      const modelReturn = await pollThoughtAgentRun({
+      const returned = await pollThoughtAgentRun({
         statusUrl: pendingRun.statusUrl,
         browserToken: pendingRun.browserToken,
         runId: pendingRun.runId,
@@ -15732,7 +16157,11 @@ const resumePendingThoughtAgentRun = () => {
         "model return saved as candidate.",
         "rendering preview...",
       ]);
-      await completeThoughtRunFromModelReturn(pendingRun.payload, modelReturn);
+      await completeThoughtRunFromModelReturn(
+        pendingRun.payload,
+        returned.agentLine,
+        returned.agentEvidence,
+      );
       if (!isCurrentRunSession(runSessionId)) {
         return;
       }
@@ -16003,10 +16432,11 @@ const buildCliMintStateLines = () => {
   }
   if (mintFlowState === "text_taken") {
     const token = mintFlowData.existingTokenId;
+    const identity = IS_LOCAL_THOUGHT_V2 ? "Agent line" : "text";
     return [
       "already minted.",
-      token ? `this exact text is already THOUGHT #${token}.` : "this exact text is already a THOUGHT.",
-      "same canonical text cannot be minted twice.",
+      token ? `this exact ${identity} is already THOUGHT #${token}.` : `this exact ${identity} is already a THOUGHT.`,
+      `the same ${identity} cannot be minted twice.`,
       "$PATH permission is only requested for a new THOUGHT.",
       "",
       viewThoughtUseLine(token),
@@ -17129,8 +17559,9 @@ const executeCliCommand = async (rawCommand: string) => {
   syncCliPanel();
 
   try {
-    const parsedCommand = thoughtSurfaceShell.resolve(command);
+    const parsedCommand = thoughtSurfaceShell.resolve(rawCommand);
     const rest = parsedCommand.rest;
+    const protocolRest = IS_LOCAL_THOUGHT_V2 ? parsedCommand.rawRest : rest;
     const [second = ""] = parsedCommand.args;
     const lowerHead = parsedCommand.legacyHead;
     const lowerRest = rest.toLowerCase();
@@ -17193,7 +17624,7 @@ const executeCliCommand = async (rawCommand: string) => {
     } else if (lowerHead === "install" && lowerRest === "bridge") {
       appendCliOutput(thoughtBridgeInstallLines());
     } else if (lowerHead === "return") {
-      await returnMyBrainModelTextFromCli(rest);
+      await returnMyBrainModelTextFromCli(protocolRest);
     } else if (lowerHead === "cancel") {
       cancelMyBrainRunFromCli();
     } else if (lowerHead === "connect" && (!rest || lowerRest === "openrouter")) {
@@ -17216,7 +17647,7 @@ const executeCliCommand = async (rawCommand: string) => {
         setCliModel(rest);
       }
     } else if (lowerHead === "prompt") {
-      setCliPrompt(rest);
+      setCliPrompt(protocolRest);
     } else if (isThoughtInstructionsCommand(lowerHead)) {
       await outputCliThoughtInstructions(lowerRest);
     } else if (lowerHead === "color-font" || lowerHead === "font") {

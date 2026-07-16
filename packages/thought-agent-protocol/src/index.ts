@@ -10,6 +10,7 @@ export {
   THOUGHT_CODEX_CLIENT_ROUTE,
   buildThoughtCodexClientScript,
   buildThoughtCodexTask,
+  type ThoughtCodexReleaseBinding,
   type ThoughtCodexTaskInput,
 } from "./codex-client";
 

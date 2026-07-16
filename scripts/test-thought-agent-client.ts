@@ -10,6 +10,7 @@ import {
   THOUGHT_AGENT_RESULT_VERSION,
   buildThoughtCodexClientScript,
   buildThoughtCodexTask,
+  type ThoughtCodexReleaseBinding,
 } from "../packages/thought-agent-protocol/src/index";
 
 const launchToken = "test-launch-token-must-stay-private";
@@ -20,6 +21,11 @@ let invocationId = "";
 let startedAt = "";
 let rejectResult = false;
 let reportedFailure: Record<string, unknown> | null = null;
+let activeRelease: ThoughtCodexReleaseBinding | undefined;
+let activeCandidate: Record<string, unknown> = {
+  schema: THOUGHT_AGENT_RESULT_VERSION,
+  agentLine: "quiet signal",
+};
 
 const sha256 = (value: string) => `sha256:${createHash("sha256").update(value).digest("hex")}`;
 
@@ -64,6 +70,7 @@ const server = createServer(async (request, response) => {
             displayUnitsAreAcceptanceLimits:
               THOUGHT_AGENT_LINE_CONTRACT.displayUnitsAreAcceptanceLimits,
           },
+          ...(activeRelease ? { release: activeRelease } : {}),
         },
       },
     });
@@ -106,11 +113,9 @@ const server = createServer(async (request, response) => {
     assert.equal(parsed.protocolVersion, THOUGHT_AGENT_PROTOCOL_VERSION);
     assert.equal(parsed.invocationId, invocationId);
     assert.equal(parsed.startedAt, startedAt);
-    assert.equal(parsed.output.raw, JSON.stringify({
-      schema: THOUGHT_AGENT_RESULT_VERSION,
-      agentLine: "quiet signal",
-    }));
+    assert.equal(parsed.output.raw, JSON.stringify(activeCandidate));
     assert.equal(parsed.output.rawSha256, sha256(parsed.output.raw));
+    assert.equal(parsed.output.agentLine, activeCandidate.agentLine);
     assert.equal(parsed.output.agentLineSha256, sha256(parsed.output.agentLine));
     if (rejectResult) {
       sendJson(response, 400, {
@@ -178,8 +183,40 @@ assert(task.includes("old 162-display-unit limit"));
 assert(!task.includes("approval code"));
 assert(!task.includes("bridgeToken"));
 
-const runClient = async () => {
-  const child = spawn("/bin/zsh", ["-c", buildThoughtCodexClientScript()], {
+const localRelease: ThoughtCodexReleaseBinding = {
+  protocolReleaseId: `0x${"1".repeat(64)}`,
+  manifestKeccak256: `0x${"2".repeat(64)}`,
+};
+const localCandidate = {
+  schema: THOUGHT_AGENT_RESULT_VERSION,
+  release: localRelease,
+  agentLine: "release-bound signal",
+};
+const localTask = buildThoughtCodexTask({
+  product: "Codex",
+  runId: "tar_local_v2",
+  promptLine: "hello local V2?",
+  runUrl,
+  clientUrl,
+  launchToken,
+  release: localRelease,
+});
+assert(localTask.includes(localRelease.protocolReleaseId));
+assert(localTask.includes(localRelease.manifestKeccak256));
+assert(localTask.includes("inshell.thought.agent-declaration.v1"));
+
+const runClient = async (options?: {
+  release?: ThoughtCodexReleaseBinding;
+  candidate?: Record<string, unknown>;
+}) => {
+  activeRelease = options?.release;
+  activeCandidate = options?.candidate ?? {
+    schema: THOUGHT_AGENT_RESULT_VERSION,
+    agentLine: "quiet signal",
+  };
+  const child = spawn("/bin/zsh", ["-c", buildThoughtCodexClientScript(
+    activeRelease ? { release: activeRelease } : undefined,
+  )], {
     env: {
       ...process.env,
       THOUGHT_RUN_URL: runUrl,
@@ -195,10 +232,7 @@ const runClient = async () => {
     stdout += chunk.toString();
     if (!sentCandidate && stdout.includes("THOUGHT_INPUT_READY")) {
       sentCandidate = true;
-      child.stdin.write(`${JSON.stringify({
-        schema: THOUGHT_AGENT_RESULT_VERSION,
-        agentLine: "quiet signal",
-      })}\n`);
+      child.stdin.write(`${JSON.stringify(activeCandidate)}\n`);
     }
   });
   child.stderr.on("data", (chunk) => {
@@ -260,8 +294,28 @@ assert(!rejected.stdout.includes(bridgeToken));
 assert(!rejected.stderr.includes(launchToken));
 assert(!rejected.stderr.includes(bridgeToken));
 
+requestOrder.length = 0;
+reportedFailure = null;
+rejectResult = false;
+invocationId = "";
+startedAt = "";
+
+const localSuccess = await runClient({
+  release: localRelease,
+  candidate: localCandidate,
+});
+
+assert.equal(localSuccess.exitCode, 0, localSuccess.stderr || localSuccess.stdout);
+assert.equal(localSuccess.sentCandidate, true);
+assert.deepEqual(requestOrder, ["claim", "start", "result"]);
+assert(localSuccess.stdout.includes("THOUGHT_RESULT_OK"));
+assert(!localSuccess.stdout.includes(launchToken));
+assert(!localSuccess.stdout.includes(bridgeToken));
+assert(!localSuccess.stderr.includes(launchToken));
+assert(!localSuccess.stderr.includes(bridgeToken));
+
 await new Promise<void>((resolve, reject) => {
   server.close((error) => error ? reject(error) : resolve());
 });
 
-console.log("THOUGHT Codex client success and failure handshakes passed.");
+console.log("THOUGHT Codex client stable and release-bound handshakes passed.");

@@ -11,6 +11,11 @@ const THOUGHT_AGENT_LINE_CONTRACT = {
 
 export const THOUGHT_CODEX_CLIENT_ROUTE = "/api/thought-agent/v2/client" as const;
 
+export type ThoughtCodexReleaseBinding = {
+  protocolReleaseId: `0x${string}`;
+  manifestKeccak256: `0x${string}`;
+};
+
 export type ThoughtCodexTaskInput = {
   product: string;
   runId: string;
@@ -18,15 +23,28 @@ export type ThoughtCodexTaskInput = {
   runUrl: string;
   clientUrl: string;
   launchToken: string;
+  release?: ThoughtCodexReleaseBinding;
 };
 
 const shellQuote = (value: string) => `'${value.replace(/'/g, `'"'"'`)}'`;
 
 export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
-  const resultExample = JSON.stringify({
-    schema: THOUGHT_AGENT_RESULT_VERSION,
-    agentLine: "YOUR AGENT LINE",
-  });
+  const resultExample = JSON.stringify(input.release
+    ? {
+        schema: THOUGHT_AGENT_RESULT_VERSION,
+        release: input.release,
+        agentLine: "YOUR AGENT LINE",
+        declaration: {
+          schema: "inshell.thought.agent-declaration.v1",
+          status: "declared-unverified",
+          agentLabel: input.product,
+          declaredOneCreativeResult: true,
+        },
+      }
+    : {
+        schema: THOUGHT_AGENT_RESULT_VERSION,
+        agentLine: "YOUR AGENT LINE",
+      });
   const command = [
     `THOUGHT_RUN_URL=${shellQuote(input.runUrl)}`,
     `THOUGHT_LAUNCH_TOKEN=${shellQuote(input.launchToken)}`,
@@ -66,7 +84,7 @@ export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
   ].join("\n");
 }
 
-export function buildThoughtCodexClientScript() {
+export function buildThoughtCodexClientScript(options?: { release?: ThoughtCodexReleaseBinding }) {
   const claimBody = JSON.stringify({
     protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
     bridge: {
@@ -103,6 +121,24 @@ export function buildThoughtCodexClientScript() {
     approvalPolicy: "agent-owned",
     userConfigPolicy: "agent-owned",
   });
+  const release = options?.release;
+  const releaseConstantLines = release
+    ? [
+        `readonly THOUGHT_PROTOCOL_RELEASE_ID=${shellQuote(release.protocolReleaseId)}`,
+        `readonly THOUGHT_MANIFEST_KECCAK256=${shellQuote(release.manifestKeccak256)}`,
+      ]
+    : [];
+  const claimReleaseLines = release
+    ? [
+        'THOUGHT_CLAIM_RELEASE_ID="$(printf %s "$THOUGHT_CLAIM_RESPONSE" | jq -er .request.outputContract.release.protocolReleaseId)" || thought_fail "Claim protocol release ID missing" "AGENT_OUTPUT_SCHEMA_INVALID"',
+        'THOUGHT_CLAIM_MANIFEST_HASH="$(printf %s "$THOUGHT_CLAIM_RESPONSE" | jq -er .request.outputContract.release.manifestKeccak256)" || thought_fail "Claim manifest hash missing" "AGENT_OUTPUT_SCHEMA_INVALID"',
+        '[[ "$THOUGHT_CLAIM_RELEASE_ID" == "$THOUGHT_PROTOCOL_RELEASE_ID" ]] || thought_fail "Claim protocol release ID mismatch" "AGENT_OUTPUT_SCHEMA_INVALID"',
+        '[[ "$THOUGHT_CLAIM_MANIFEST_HASH" == "$THOUGHT_MANIFEST_KECCAK256" ]] || thought_fail "Claim manifest hash mismatch" "AGENT_OUTPUT_SCHEMA_INVALID"',
+      ]
+    : [];
+  const parseAgentLine = release
+    ? 'THOUGHT_AGENT_LINE="$(printf %s "$THOUGHT_RAW_OUTPUT" | jq -er --arg schema "$THOUGHT_RESULT_SCHEMA" --arg release "$THOUGHT_PROTOCOL_RELEASE_ID" --arg manifest "$THOUGHT_MANIFEST_KECCAK256" \'if type == "object" and .schema == $schema and (.agentLine | type) == "string" and (((keys_unsorted | sort) == ["agentLine","release","schema"]) or ((keys_unsorted | sort) == ["agentLine","declaration","release","schema"])) and (.release | type) == "object" and ((.release | keys_unsorted | sort) == ["manifestKeccak256","protocolReleaseId"]) and .release.protocolReleaseId == $release and .release.manifestKeccak256 == $manifest and ((has("declaration") | not) or ((.declaration | type) == "object" and ((.declaration | keys_unsorted | sort) == ["agentLabel","declaredOneCreativeResult","schema","status"]) and .declaration.schema == "inshell.thought.agent-declaration.v1" and .declaration.status == "declared-unverified" and (.declaration.agentLabel | type) == "string" and (.declaration.agentLabel | length) >= 1 and (.declaration.agentLabel | length) <= 100 and .declaration.declaredOneCreativeResult == true)) then .agentLine else error("candidate schema invalid") end\')" || thought_fail "candidate JSON invalid" "AGENT_OUTPUT_UNPARSEABLE"'
+    : 'THOUGHT_AGENT_LINE="$(printf %s "$THOUGHT_RAW_OUTPUT" | jq -er --arg schema "$THOUGHT_RESULT_SCHEMA" \'if type == "object" and .schema == $schema and (.agentLine | type) == "string" and ((keys_unsorted - ["schema", "agentLine"]) | length) == 0 then .agentLine else error("candidate schema invalid") end\')" || thought_fail "candidate JSON invalid" "AGENT_OUTPUT_UNPARSEABLE"';
 
   return [
     "#!/bin/zsh",
@@ -115,6 +151,7 @@ export function buildThoughtCodexClientScript() {
     `readonly THOUGHT_WORK_PROFILE=${shellQuote(THOUGHT_AGENT_LINE_CONTRACT.workProfile)}`,
     `readonly THOUGHT_AGENT_LINE_MIN_BYTES=${shellQuote(String(THOUGHT_AGENT_LINE_CONTRACT.minUtf8Bytes))}`,
     `readonly THOUGHT_AGENT_LINE_MAX_BYTES=${shellQuote(String(THOUGHT_AGENT_LINE_CONTRACT.maxUtf8Bytes))}`,
+    ...releaseConstantLines,
     `readonly THOUGHT_CLAIM_BODY=${shellQuote(claimBody)}`,
     `readonly THOUGHT_BRIDGE_JSON=${shellQuote(bridgeJson)}`,
     `readonly THOUGHT_ADAPTER_JSON=${shellQuote(adapterJson)}`,
@@ -194,6 +231,7 @@ export function buildThoughtCodexClientScript() {
     '[[ "$THOUGHT_CLAIM_MAX_BYTES" == "$THOUGHT_AGENT_LINE_MAX_BYTES" ]] || thought_fail "Claim output maximum mismatch" "AGENT_OUTPUT_SCHEMA_INVALID"',
     '[[ "$THOUGHT_CLAIM_NORMALIZATION" == "none" ]] || thought_fail "Claim normalization mismatch" "AGENT_OUTPUT_SCHEMA_INVALID"',
     '[[ "$THOUGHT_CLAIM_DISPLAY_LIMIT" == "false" ]] || thought_fail "Claim incorrectly makes display units an acceptance limit" "AGENT_OUTPUT_SCHEMA_INVALID"',
+    ...claimReleaseLines,
     'THOUGHT_INVOCATION_ID="tai_$(openssl rand -hex 12)"',
     'THOUGHT_STARTED_AT="$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")"',
     'THOUGHT_START_BODY="$(jq -cn --arg protocol "$THOUGHT_PROTOCOL" --arg invocationId "$THOUGHT_INVOCATION_ID" --arg startedAt "$THOUGHT_STARTED_AT" \'{protocolVersion:$protocol,invocationId:$invocationId,startedAt:$startedAt}\')"',
@@ -215,7 +253,7 @@ export function buildThoughtCodexClientScript() {
     'print -r -- "THOUGHT_INPUT_READY"',
     "",
     'IFS= read -r THOUGHT_RAW_OUTPUT || thought_fail "candidate input missing" "AGENT_OUTPUT_MISSING"',
-    'THOUGHT_AGENT_LINE="$(printf %s "$THOUGHT_RAW_OUTPUT" | jq -er --arg schema "$THOUGHT_RESULT_SCHEMA" \'if type == "object" and .schema == $schema and (.agentLine | type) == "string" and ((keys_unsorted - ["schema", "agentLine"]) | length) == 0 then .agentLine else error("candidate schema invalid") end\')" || thought_fail "candidate JSON invalid" "AGENT_OUTPUT_UNPARSEABLE"',
+    parseAgentLine,
     'THOUGHT_AGENT_LINE_BYTES="$(LC_ALL=C printf %s "$THOUGHT_AGENT_LINE" | wc -c | tr -d "[:space:]")"',
     '[[ "$THOUGHT_AGENT_LINE_BYTES" -ge "$THOUGHT_CLAIM_MIN_BYTES" ]] || thought_fail "agent line is ${THOUGHT_AGENT_LINE_BYTES}/${THOUGHT_CLAIM_MAX_BYTES} UTF-8 bytes" "AGENT_OUTPUT_SCHEMA_INVALID"',
     '[[ "$THOUGHT_AGENT_LINE_BYTES" -le "$THOUGHT_CLAIM_MAX_BYTES" ]] || thought_fail "agent line is ${THOUGHT_AGENT_LINE_BYTES}/${THOUGHT_CLAIM_MAX_BYTES} UTF-8 bytes" "AGENT_OUTPUT_SCHEMA_INVALID"',
