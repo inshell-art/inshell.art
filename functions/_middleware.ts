@@ -507,7 +507,7 @@ async function serveAppShell(ctx: MiddlewareContext): Promise<Response> {
 
 async function serveThoughtAppShell(ctx: MiddlewareContext): Promise<Response> {
   const indexUrl = new globalThis.URL(ctx.request.url);
-  indexUrl.pathname = "/thought/index.html";
+  indexUrl.pathname = "/thought/";
   indexUrl.search = "";
   const request = new Request(indexUrl.toString(), ctx.request);
   let response: Response;
