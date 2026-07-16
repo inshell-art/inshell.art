@@ -113,10 +113,12 @@ import {
 } from "./thought-preview-policy";
 import { createSingleRequestJsonRpcProvider } from "./rpc-provider";
 import {
+  formatThoughtAuthorizationError,
   getThoughtWorkReadyPresentation,
   THOUGHT_PANEL_MINT_UI_MODE,
   THOUGHT_V2_MINT_UNAVAILABLE_COPY,
   type MintFlowUiMode,
+  type ThoughtAuthorizationStage,
 } from "./thought-mint-ui";
 import { buildThoughtConsoleLines } from "./thought-console";
 import { canonicalThoughtTitle, thoughtProtocolText } from "./thought-display-text";
@@ -125,6 +127,7 @@ import {
   THOUGHT_V2_LOCAL_NFT_ABI,
   buildThoughtV2LocalProvenance,
   thoughtV2AgentLineHash,
+  type ThoughtV2LocalProcess,
 } from "./thought-v2-local-mint";
 import {
   buildThoughtV2LocalAgentProcess,
@@ -969,6 +972,7 @@ const THOUGHT_AGENT_STATUS_POLL_MS = 1000;
 const THOUGHT_AGENT_POLL_TIMEOUT_MS = 5 * 60 * 1000;
 const THOUGHT_DOCK_RETURN_RECEIVED_MS = 420;
 const PREFLIGHT_REQUEST_TIMEOUT_MS = 15000;
+const PATH_AUTHORIZATION_REQUEST_TIMEOUT_MS = 15000;
 const WALLET_TX_SUBMIT_TIMEOUT_MS = 60000;
 const MINT_RECEIPT_TIMEOUT_MS = 120000;
 const MINT_RECEIPT_POLL_MS = 1000;
@@ -3607,7 +3611,7 @@ const visibleMintErrorCopy = () => {
     return "PATH has no THOUGHT unit available.";
   }
   if (mintFlowData.errorKind === "signature") {
-    return /expired/i.test(mintFlowData.error) ? "authorization expired." : "transaction rejected.";
+    return mintFlowData.error || "authorization failed.";
   }
   if (mintFlowData.errorKind === "thought") {
     return mintFlowData.error || "mint failed.";
@@ -5133,6 +5137,7 @@ let readPathNft: Contract | null = null;
 let walletListenersBound = false;
 let thoughtShellWalletSubscribed = false;
 let thoughtShellWalletRefreshQueued = false;
+let mintAuthorizationRequestId = 0;
 let mintSheetPrimaryAction: MintSheetAction = "none";
 let mintSheetSecondaryAction: MintSheetAction = "none";
 let mintSheetTertiaryAction: MintSheetAction = "none";
@@ -7381,7 +7386,7 @@ const buildProvenanceJson = (
   };
   if (IS_LOCAL_THOUGHT_V2 && mint) {
     const agentLine = currentOutputText || context.returnedText || "";
-    let process;
+    let process: ThoughtV2LocalProcess;
     if (context.mode === MY_BRAIN_MODE) {
       process = { kind: "manual" };
     } else {
@@ -7518,6 +7523,7 @@ const verifyThoughtSpecAnchor = async () => {
 };
 
 const clearMintAuthorization = () => {
+  mintAuthorizationRequestId += 1;
   mintFlowData.deadline = null;
   mintFlowData.signature = "";
 };
@@ -7579,10 +7585,20 @@ const signPathConsumeAuthorization = async (
   signer: JsonRpcSigner,
   claimer: string,
   pathId: bigint,
+  onStage: (stage: ThoughtAuthorizationStage) => void,
 ) => {
-  const pathNft = new Contract(PATH_NFT_ADDRESS, PATH_NFT_ABI, signer);
-  const nonce = (await pathNft.getConsumeNonce(claimer)) as bigint;
+  const pathNft = getReadPathNft();
+  if (!pathNft) {
+    throw new Error("PATH authorization unavailable.");
+  }
+  onStage("nonce");
+  const nonce = await withTimeout(
+    pathNft.getConsumeNonce(claimer) as Promise<bigint>,
+    PATH_AUTHORIZATION_REQUEST_TIMEOUT_MS,
+    "PATH authorization request timed out.",
+  );
   const deadline = BigInt(Math.floor(Date.now() / 1000)) + PATH_CONSUME_AUTH_TTL_SECONDS;
+  onStage("digest");
   const structHash = keccak256(
     EVM_ABI_CODER.encode(
       [
@@ -7609,6 +7625,7 @@ const signPathConsumeAuthorization = async (
       ],
     ),
   );
+  onStage("signature");
   const signature = await signer.signMessage(getBytes(structHash));
   return { deadline, signature };
 };
@@ -9616,16 +9633,23 @@ const checkPathEligibility = async () => {
 };
 
 const authorizeMint = async () => {
-  const ethereum = getEthereumProvider();
-  if (!ethereum || !walletState.address || mintFlowData.pathId === null) {
+  if (!getEthereumProvider() || !walletState.address || mintFlowData.pathId === null) {
     mintFlowState = "wallet_required";
     syncInterface();
     return;
   }
 
-  try {
-    await rebuildFinalMintProvenance();
+  if (mintFlowState === "authorizing") {
+    return;
+  }
 
+  const expectedAddress = walletState.address;
+  const expectedPathId = mintFlowData.pathId;
+  const requestId = mintAuthorizationRequestId + 1;
+  mintAuthorizationRequestId = requestId;
+  let authorizationStage: ThoughtAuthorizationStage = "preparing";
+
+  try {
     mintFlowState = "authorizing";
     walletState.txError = "";
     mintFlowData.error = "";
@@ -9634,26 +9658,67 @@ const authorizeMint = async () => {
     setWarning("");
     setStatus("");
 
+    await rebuildFinalMintProvenance();
+    if (requestId !== mintAuthorizationRequestId) return;
+    if (mintFlowData.pathId !== expectedPathId) return;
+
+    authorizationStage = "wallet";
+    const ethereum = getEthereumProvider();
+    if (!ethereum) {
+      throw new Error("wallet not connected");
+    }
+    const [liveAccounts, liveChainHex] = await withTimeout(
+      Promise.all([
+        ethereum.request({ method: "eth_accounts" }),
+        ethereum.request({ method: "eth_chainId" }),
+      ]),
+      PATH_AUTHORIZATION_REQUEST_TIMEOUT_MS,
+      "wallet status request timed out.",
+    );
+    if (requestId !== mintAuthorizationRequestId) return;
+    const liveAddress = extractPrimaryAccount(liveAccounts);
+    const liveChainId =
+      typeof liveChainHex === "string" && liveChainHex.length > 0
+        ? Number(BigInt(liveChainHex))
+        : null;
+    if (!liveAddress) {
+      throw new Error("wallet not connected");
+    }
+    if (liveChainId !== THOUGHT_CHAIN_ID) {
+      throw new Error("wrong network");
+    }
+    if (liveAddress.toLowerCase() !== expectedAddress.toLowerCase()) {
+      throw new Error("wallet account changed");
+    }
+    if (mintFlowData.pathId !== expectedPathId) return;
+
     const browserProvider = new BrowserProvider(ethereum);
-    const signer = await browserProvider.getSigner();
-    const consumeAuth = await signPathConsumeAuthorization(signer, await signer.getAddress(), mintFlowData.pathId);
+    const signer = await browserProvider.getSigner(expectedAddress);
+    const signerAddress = await signer.getAddress();
+    if (signerAddress.toLowerCase() !== expectedAddress.toLowerCase()) {
+      throw new Error("wallet account changed");
+    }
+    const consumeAuth = await signPathConsumeAuthorization(
+      signer,
+      signerAddress,
+      expectedPathId,
+      (stage) => {
+        authorizationStage = stage;
+      },
+    );
+    if (requestId !== mintAuthorizationRequestId) return;
     mintFlowData.deadline = consumeAuth.deadline;
     mintFlowData.signature = consumeAuth.signature;
     mintFlowState = "authorized";
-    syncInterface();
   } catch (error) {
-    const message = error instanceof Error ? error.message : "";
-    if (message.includes("provenance too large")) {
-      setMintFlowError(message, "thought");
-      syncInterface();
-      return;
-    }
-    setMintFlowError(
-      message.startsWith("spec ") ? message : "authorization rejected.",
-      message.startsWith("spec ") ? "spec" : "signature",
-    );
+    if (requestId !== mintAuthorizationRequestId) return;
+    const presentation = formatThoughtAuthorizationError(error, authorizationStage);
+    setMintFlowError(presentation.message, presentation.kind);
     syncInterface();
+    return;
   }
+
+  syncInterface();
 };
 
 type MintTransactionResponse = {

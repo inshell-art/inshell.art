@@ -367,7 +367,7 @@ html.agent-demo-route .frontpage-stage {
   margin: 0;
   color: var(--accent);
   font-size: var(--shell-route-title-font-size);
-  font-weight: var(--shell-route-title-font-weight);
+  font-weight: var(--weight-thin);
   line-height: var(--shell-route-title-line-height);
   letter-spacing: var(--shell-route-title-letter-spacing);
 }
@@ -1532,6 +1532,7 @@ body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-side {
 .thought-panel .thought-dock-status-screen,
 .thought-panel .thought-dock-status-screen :where(*) {
   font-size: var(--font-size-14);
+  font-weight: var(--weight-mid);
 }
 
 .frontpage-input-panel {

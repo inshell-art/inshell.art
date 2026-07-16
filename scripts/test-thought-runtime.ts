@@ -24,6 +24,7 @@ import {
 } from "../apps/thought/src/thought-preview-policy";
 import { createThoughtPollWakeScheduler } from "../apps/thought/src/thought-poll-wake";
 import {
+  formatThoughtAuthorizationError,
   getThoughtWorkReadyPresentation,
   THOUGHT_PANEL_MINT_UI_MODE,
   THOUGHT_V2_MINT_UNAVAILABLE_COPY,
@@ -414,6 +415,112 @@ assert.deepEqual(
     detail: "connect wallet to mint",
   },
   "work-ready UI may request a wallet only when minting is enabled and none is connected",
+);
+
+assert.deepEqual(
+  formatThoughtAuthorizationError(
+    { code: 4001, message: "User rejected the request." },
+    "signature",
+  ),
+  { message: "signature rejected in wallet.", kind: "signature" },
+  "only a confirmed wallet rejection may use rejected copy",
+);
+
+assert.deepEqual(
+  formatThoughtAuthorizationError(
+    {
+      code: "ACTION_REJECTED",
+      shortMessage: "user rejected action",
+      info: { error: { code: 4001, message: "User denied message signature" } },
+    },
+    "signature",
+  ),
+  { message: "signature rejected in wallet.", kind: "signature" },
+  "nested ethers wallet rejections must stay recognizable",
+);
+
+assert.deepEqual(
+  formatThoughtAuthorizationError(
+    { code: -32002, message: "Request already pending" },
+    "signature",
+  ),
+  { message: "signature request already pending in wallet.", kind: "signature" },
+  "a pending wallet request must not be presented as rejected",
+);
+
+assert.deepEqual(
+  formatThoughtAuthorizationError(new Error("could not decode result data"), "nonce"),
+  { message: "PATH authorization unavailable.", kind: "signature" },
+  "a nonce RPC failure must not be presented as a wallet rejection",
+);
+
+assert.deepEqual(
+  formatThoughtAuthorizationError(
+    { code: "NETWORK_ERROR", shortMessage: "network changed" },
+    "nonce",
+  ),
+  { message: "PATH authorization unavailable.", kind: "signature" },
+  "a PATH RPC network failure must not blame the signing wallet",
+);
+
+assert.deepEqual(
+  formatThoughtAuthorizationError(
+    { code: -32600, message: "request rejected by RPC" },
+    "nonce",
+  ),
+  { message: "PATH authorization unavailable.", kind: "signature" },
+  "an RPC-level request rejection must not be presented as a user rejection",
+);
+
+assert.deepEqual(
+  formatThoughtAuthorizationError(
+    { code: "NETWORK_ERROR", shortMessage: "network changed" },
+    "wallet",
+  ),
+  { message: "wrong network.", kind: "wrong_network" },
+  "wallet network changes need the existing network recovery flow",
+);
+
+assert.deepEqual(
+  formatThoughtAuthorizationError({}, "signature"),
+  { message: "authorization failed.", kind: "signature" },
+  "unknown authorization failures must never claim the wallet rejected them",
+);
+
+assert.deepEqual(
+  formatThoughtAuthorizationError(new Error("spec mismatch."), "preparing"),
+  { message: "spec mismatch.", kind: "spec" },
+  "spec errors must retain their concise actionable copy",
+);
+
+assert.deepEqual(
+  formatThoughtAuthorizationError(
+    new Error("mint blocked. provenance too large. 9000 / 8192 bytes."),
+    "preparing",
+  ),
+  {
+    message: "mint blocked. provenance too large. 9000 / 8192 bytes.",
+    kind: "thought",
+  },
+  "provenance size errors must retain their measured copy",
+);
+
+assert.deepEqual(
+  formatThoughtAuthorizationError(
+    new Error("provenance is 20001/20000 bytes"),
+    "preparing",
+  ),
+  { message: "provenance is 20001/20000 bytes", kind: "thought" },
+  "the local V2 provenance limit wording must remain visible",
+);
+
+assert.deepEqual(
+  formatThoughtAuthorizationError(
+    new Error("THOUGHT.md request timed out."),
+    "preparing",
+  ),
+  { message: "THOUGHT.md request timed out.", kind: "spec" },
+  "THOUGHT.md failures must retain the spec recovery path",
 );
 
 assert.deepEqual(
