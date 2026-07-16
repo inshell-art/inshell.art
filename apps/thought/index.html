@@ -164,6 +164,20 @@
                 </div>
               </section>
               <section
+                id="thought-wallet-strip"
+                class="thought-wallet-strip is-hidden"
+                aria-label="Mint wallet context"
+              >
+                <div class="thought-wallet-strip__copy">
+                  <p id="thought-wallet-strip-title" class="thought-wallet-strip__title">wallet</p>
+                  <p id="thought-wallet-strip-detail" class="thought-wallet-strip__detail">not connected</p>
+                  <p id="thought-wallet-strip-meta" class="thought-wallet-strip__meta">
+                    reads address only. no signature. no tx.
+                  </p>
+                </div>
+                <div id="thought-wallet-strip-actions" class="thought-wallet-strip__actions"></div>
+              </section>
+              <section
                 id="thought-dock-action-area"
                 class="thought-dock-action-rail"
                 aria-label="THOUGHT Panel actions"
@@ -171,8 +185,19 @@
               <section
                 id="thought-dock-path"
                 class="thought-dock-path thought-path-panel is-hidden"
-                aria-label="PATH selection"
+                aria-label="THOUGHT mint"
               >
+                <ol id="thought-dock-path-flow" class="thought-dock-path-flow" aria-label="THOUGHT mint progress">
+                  <li data-step="select">PATH</li>
+                  <li data-step="authorize">SIGN</li>
+                  <li data-step="confirm">MINT</li>
+                </ol>
+                <div class="thought-mint-step" role="status" aria-live="polite" aria-atomic="true">
+                  <p id="thought-dock-path-title" class="thought-mint-step__title" tabindex="-1">choose a PATH</p>
+                  <p id="thought-dock-path-detail" class="thought-mint-step__detail">
+                    One THOUGHT needs one available PATH mint.
+                  </p>
+                </div>
                 <div
                   id="thought-dock-path-inventory"
                   class="thought-dock-path-inventory is-hidden"
@@ -183,7 +208,7 @@
                   </p>
                   <div
                     id="thought-dock-path-inventory-list"
-                    class="thought-dock-path-actions"
+                    class="thought-dock-path-actions thought-dock-path-inventory-list"
                     role="group"
                     aria-label="Available PATH tokens"
                   ></div>
@@ -207,8 +232,11 @@
                   ></select>
                 </div>
                 <p id="thought-dock-path-provenance" class="thought-dock-path-provenance is-hidden"></p>
-                <p id="thought-dock-path-status" class="thought-dock-path-status" aria-live="polite"></p>
-                <div id="thought-dock-path-context" class="thought-dock-path-context is-hidden"></div>
+                <p id="thought-dock-path-status" class="thought-dock-path-status"></p>
+                <details id="thought-dock-path-review" class="thought-dock-path-review is-hidden">
+                  <summary id="thought-dock-path-review-summary">review wallet request</summary>
+                  <div id="thought-dock-path-context" class="thought-dock-path-context is-hidden"></div>
+                </details>
                 <div class="thought-dock-path-actions">
                   <button id="thought-dock-path-primary" class="thought-dock-button" type="button">continue</button>
                   <button
@@ -220,33 +248,12 @@
                   </button>
                   <button
                     id="thought-dock-path-tertiary"
-                    class="thought-dock-button thought-dock-button--secondary is-hidden"
+                    class="thought-dock-button thought-dock-button--tertiary is-hidden"
                     type="button"
                   >
                     refresh
                   </button>
                 </div>
-                <div id="thought-dock-path-flow" class="thought-dock-path-flow" aria-label="mint flow">
-                  <span data-step="select">select $PATH</span>
-                  <span>/</span>
-                  <span data-step="authorize">authorize</span>
-                  <span>/</span>
-                  <span data-step="confirm">confirm</span>
-                </div>
-              </section>
-              <section
-                id="thought-wallet-strip"
-                class="thought-wallet-strip is-hidden"
-                aria-label="Wallet controls"
-              >
-                <div class="thought-wallet-strip__copy">
-                  <p id="thought-wallet-strip-title" class="thought-wallet-strip__title">wallet</p>
-                  <p id="thought-wallet-strip-detail" class="thought-wallet-strip__detail">not connected</p>
-                  <p id="thought-wallet-strip-meta" class="thought-wallet-strip__meta">
-                    reads address only. no signature. no tx.
-                  </p>
-                </div>
-                <div id="thought-wallet-strip-actions" class="thought-wallet-strip__actions"></div>
               </section>
             </div>
             <div id="thought-dock-expanded" class="thought-dock-detail-tray" hidden></div>
@@ -254,7 +261,6 @@
               id="thought-dock-details"
               class="thought-dock-status-screen"
               aria-label="THOUGHT status"
-              aria-live="polite"
             >
               <p id="thought-panel-status-title" class="thought-panel__status-title">Give a thought to your Agent</p>
               <p id="thought-panel-status-detail" class="thought-panel__status-detail">No run yet</p>
@@ -990,6 +996,11 @@
       <button id="mint-sheet-close" class="mint-sheet-close" type="button">close</button>
     </div>
     <p id="mint-sheet-copy" class="mint-sheet-copy">one THOUGHT needs one $PATH.</p>
+    <ol id="mint-sheet-flow" class="mint-sheet-flow" aria-label="THOUGHT mint progress">
+      <li data-step="select">PATH</li>
+      <li data-step="authorize">SIGN</li>
+      <li data-step="confirm">MINT</li>
+    </ol>
     <div id="mint-sheet-path-field" class="mint-sheet-field">
       <label class="mint-sheet-label" for="mint-sheet-path-box">$PATH #</label>
       <input
@@ -1013,15 +1024,8 @@
     <div id="mint-sheet-context" class="mint-sheet-context is-hidden"></div>
     <div class="mint-sheet-actions">
       <button id="mint-sheet-primary" class="mint-sheet-primary" type="button">continue</button>
-      <button id="mint-sheet-secondary" class="mint-sheet-primary is-hidden" type="button">view thought</button>
-      <button id="mint-sheet-tertiary" class="mint-sheet-primary is-hidden" type="button">refresh</button>
-    </div>
-    <div id="mint-sheet-flow" class="mint-sheet-flow" aria-label="mint flow">
-      <span data-step="select">select $PATH</span>
-      <span aria-hidden="true">/</span>
-      <span data-step="authorize">authorize</span>
-      <span aria-hidden="true">/</span>
-      <span data-step="confirm">confirm</span>
+      <button id="mint-sheet-secondary" class="mint-sheet-primary mint-sheet-primary--secondary is-hidden" type="button">view thought</button>
+      <button id="mint-sheet-tertiary" class="mint-sheet-primary mint-sheet-primary--tertiary is-hidden" type="button">refresh</button>
     </div>
   </section>
 

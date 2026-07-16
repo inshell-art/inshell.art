@@ -37,7 +37,11 @@ import {
   buildContractStatusSections,
   findContractStatusRow,
   installInshellAnonymousAnalytics,
+  isPathMintHandoffId,
   maybeInstallCloudflareWebAnalytics,
+  readPathMintReturnRecord,
+  removePathMintReturnRecord,
+  writePathMintReturnRecord,
   resolveWalletChainRpcUrls,
   shouldShowPreviewWatermark,
   trackInshellAnonymousAnalytics,
@@ -120,7 +124,45 @@ import {
   type MintFlowUiMode,
   type ThoughtAuthorizationStage,
 } from "./thought-mint-ui";
-import { buildThoughtConsoleLines } from "./thought-console";
+import {
+  THOUGHT_CONSOLE_HISTORY_STORAGE_KEY,
+  appendThoughtConsoleContextBoundary,
+  appendThoughtConsoleEvent,
+  buildThoughtConsoleLines,
+  createThoughtConsoleHistory,
+  parseThoughtConsoleHistory,
+  serializeThoughtConsoleHistory,
+  type ThoughtConsoleContext,
+  type ThoughtConsoleTone,
+} from "./thought-console";
+import {
+  presentThoughtMint,
+  type ThoughtMintPresentation,
+} from "./thought-mint-presentation";
+import {
+  THOUGHT_CONFLICTING_MINT_TX_STORAGE_KEY,
+  THOUGHT_PENDING_MINT_TX_STORAGE_KEY,
+  classifyMintTrackingFailure,
+  createMintSubmissionContext,
+  createPendingMintTransaction,
+  mintReceiptStatusOutcome,
+  parsePendingMintTransaction,
+  parseConflictingMintTransactions,
+  parseMintTransactionReplacement,
+  pendingMintTransactionMatches,
+  planPendingMintRestore,
+  replacePendingMintTransactionHash,
+  serializePendingMintTransaction,
+  serializeConflictingMintTransactions,
+  type MintSubmissionContext,
+  type PendingMintTransaction,
+} from "./thought-mint-transaction";
+import {
+  createMintAttemptId,
+  waitForMintSubmissionOrRelease,
+  withMintSubmissionLock,
+  type MintSubmissionLockEnvironment,
+} from "./thought-mint-submission-lock";
 import { canonicalThoughtTitle, thoughtProtocolText } from "./thought-display-text";
 import {
   THOUGHT_V2_LOCAL_MAX_PROVENANCE_BYTES,
@@ -340,6 +382,9 @@ type MintFlowErrorKind =
   | "path_consumed"
   | "path_not_ready"
   | "path_unknown"
+  | "path_mint_pending"
+  | "path_mint_chain_mismatch"
+  | "wallet_account_mismatch"
   | "wrong_network"
   | "funds"
   | "signature"
@@ -439,6 +484,7 @@ type MintSheetAction =
   | "enter_path_manually"
   | "mint_path"
   | "refresh"
+  | "recover_submission"
   | "reset"
   | "switch_network";
 
@@ -518,6 +564,21 @@ type MintFlowData = {
   txHash: string;
   error: string;
   errorKind: MintFlowErrorKind;
+};
+
+type PathMintHandoff = {
+  version: 1;
+  attemptId: string;
+  workHash: string;
+  account: string;
+  chainId?: number | null;
+  work?: {
+    output: string;
+    svg: string;
+    runContext: ThoughtRunContext | null;
+    workId: number | null;
+  };
+  createdAt: number;
 };
 
 type PathInventoryItem = {
@@ -823,6 +884,7 @@ const THOUGHT_CLI_TRANSCRIPT_STORAGE_KEY = "thought-cli-transcript";
 const THOUGHT_OUTPUT_STORAGE_KEY = "thought-current-output";
 const THOUGHT_INSTRUCTIONS_OVERRIDE_KEY = "thought-instructions-override";
 const THOUGHT_AGENT_PENDING_RUN_STORAGE_KEY = "thought-agent-pending-run";
+const THOUGHT_PATH_MINT_HANDOFF_STORAGE_KEY = "thought-path-mint-handoff-v1";
 const ENABLE_THOUGHT_UPLOAD = window.location.port === "5188";
 const OPENROUTER_PKCE_VERIFIER_KEY = "thought-openrouter-pkce-verifier";
 const OPENROUTER_AUTH_URL = "https://openrouter.ai/auth";
@@ -854,46 +916,185 @@ const getStorageOrNull = (storage: () => Storage | null | undefined) => {
   }
 };
 
-const getSharedBrowserStorage = () =>
-  getStorageOrNull(() => window.localStorage) ??
-  getStorageOrNull(() => window.sessionStorage);
-
 const getSessionStorage = () => getStorageOrNull(() => window.sessionStorage);
 
+const mintSubmissionLockEnvironment = (): MintSubmissionLockEnvironment => ({
+  locks: typeof navigator.locks?.request === "function"
+    ? navigator.locks as unknown as MintSubmissionLockEnvironment["locks"]
+    : null,
+  crypto: window.crypto,
+});
+
+const safeStorageGet = (storage: Storage | null, key: string) => {
+  try {
+    return storage?.getItem(key) ?? null;
+  } catch {
+    return null;
+  }
+};
+
+const safeStorageSet = (storage: Storage | null, key: string, value: string) => {
+  try {
+    if (!storage) return false;
+    storage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const safeStorageRemove = (storage: Storage | null, key: string) => {
+  try {
+    storage?.removeItem(key);
+  } catch {
+    // Browser storage is only the durable copy; live state remains in memory.
+  }
+};
+
+const getPathMintReturnStorageHost = () => ({
+  localStorage: getStorageOrNull(() => window.localStorage),
+  sessionStorage: getSessionStorage(),
+});
+
 const readSharedBrowserItem = (key: string) => {
-  const shared = getSharedBrowserStorage();
-  const raw = shared?.getItem(key) ?? null;
+  const local = getStorageOrNull(() => window.localStorage);
+  const session = getSessionStorage();
+  const raw = safeStorageGet(local, key);
   if (raw !== null) {
     return raw;
   }
 
-  const session = getSessionStorage();
-  const legacy = session?.getItem(key) ?? null;
-  if (legacy !== null && shared && shared !== session) {
-    shared.setItem(key, legacy);
+  const legacy = safeStorageGet(session, key);
+  if (legacy !== null && safeStorageSet(local, key, legacy)) {
+    safeStorageRemove(session, key);
   }
   return legacy;
 };
 
 const writeSharedBrowserItem = (key: string, value: string) => {
-  const shared = getSharedBrowserStorage();
-  if (!shared) return;
-  shared.setItem(key, value);
+  const local = getStorageOrNull(() => window.localStorage);
   const session = getSessionStorage();
-  if (session && shared !== session) {
-    session.removeItem(key);
+  if (safeStorageSet(local, key, value)) {
+    safeStorageRemove(session, key);
+    return;
   }
+  safeStorageSet(session, key, value);
 };
 
 const removeSharedBrowserItem = (key: string) => {
-  getSharedBrowserStorage()?.removeItem(key);
-  getSessionStorage()?.removeItem(key);
+  safeStorageRemove(getStorageOrNull(() => window.localStorage), key);
+  safeStorageRemove(getSessionStorage(), key);
 };
 
 const thoughtBrowserStorage: WorkStorage = {
   getItem: readSharedBrowserItem,
   setItem: writeSharedBrowserItem,
   removeItem: removeSharedBrowserItem,
+};
+
+const readPendingMintTransaction = (): PendingMintTransaction | null => {
+  const local = getStorageOrNull(() => window.localStorage);
+  const session = getSessionStorage();
+  const plan = planPendingMintRestore({
+    currentRaw: safeStorageGet(local, THOUGHT_PENDING_MINT_TX_STORAGE_KEY),
+    legacySessionRaw: safeStorageGet(session, THOUGHT_PENDING_MINT_TX_STORAGE_KEY),
+  });
+
+  if (plan.persistedRaw) {
+    writeSharedBrowserItem(THOUGHT_PENDING_MINT_TX_STORAGE_KEY, plan.persistedRaw);
+  } else if (!plan.transaction) {
+    removeSharedBrowserItem(THOUGHT_PENDING_MINT_TX_STORAGE_KEY);
+  }
+  return plan.transaction;
+};
+
+const writePendingMintTransaction = (transaction: PendingMintTransaction | null) => {
+  if (!transaction) {
+    removeSharedBrowserItem(THOUGHT_PENDING_MINT_TX_STORAGE_KEY);
+    return;
+  }
+  writeSharedBrowserItem(
+    THOUGHT_PENDING_MINT_TX_STORAGE_KEY,
+    serializePendingMintTransaction(transaction),
+  );
+};
+
+const readConflictingMintTransactions = () =>
+  [...parseConflictingMintTransactions(
+    readSharedBrowserItem(THOUGHT_CONFLICTING_MINT_TX_STORAGE_KEY),
+  )];
+
+const writeConflictingMintTransactions = (
+  transactions: readonly PendingMintTransaction[],
+) => {
+  if (transactions.length === 0) {
+    removeSharedBrowserItem(THOUGHT_CONFLICTING_MINT_TX_STORAGE_KEY);
+    return;
+  }
+  writeSharedBrowserItem(
+    THOUGHT_CONFLICTING_MINT_TX_STORAGE_KEY,
+    serializeConflictingMintTransactions(transactions),
+  );
+};
+
+const pathMintHandoffStorageKey = (attemptId: string) =>
+  `${THOUGHT_PATH_MINT_HANDOFF_STORAGE_KEY}:${attemptId}`;
+
+const writePathMintHandoff = (handoff: PathMintHandoff) => {
+  writeSharedBrowserItem(
+    pathMintHandoffStorageKey(handoff.attemptId),
+    JSON.stringify(handoff),
+  );
+};
+
+const removePathMintHandoff = (attemptId: string) => {
+  removeSharedBrowserItem(pathMintHandoffStorageKey(attemptId));
+  removeSharedBrowserItem(THOUGHT_PATH_MINT_HANDOFF_STORAGE_KEY);
+};
+
+const readPathMintHandoff = (): PathMintHandoff | null => {
+  const handoffId = new URLSearchParams(window.location.search).get("pathHandoff")?.trim() ?? "";
+  if (handoffId && !isPathMintHandoffId(handoffId)) {
+    return null;
+  }
+  const storageKey = handoffId
+    ? pathMintHandoffStorageKey(handoffId)
+    : THOUGHT_PATH_MINT_HANDOFF_STORAGE_KEY;
+  const raw = readSharedBrowserItem(storageKey);
+  if (!raw) return null;
+  try {
+    const value = JSON.parse(raw) as Partial<PathMintHandoff>;
+    const work = value.work as Partial<NonNullable<PathMintHandoff["work"]>> | undefined;
+    if (
+      value.version !== 1 ||
+      !isPathMintHandoffId(value.attemptId) ||
+      typeof value.workHash !== "string" ||
+      !/^0x[0-9a-fA-F]{64}$/.test(value.workHash) ||
+      typeof value.account !== "string" ||
+      (value.account !== "" && !/^0x[0-9a-fA-F]{40}$/.test(value.account)) ||
+      (value.chainId !== undefined && value.chainId !== null && typeof value.chainId !== "number") ||
+      (work !== undefined && (
+        typeof work.output !== "string" ||
+        !work.output ||
+        typeof work.svg !== "string" ||
+        (work.workId !== null && work.workId !== undefined &&
+          (!Number.isSafeInteger(work.workId) || Number(work.workId) <= 0))
+      )) ||
+      typeof value.createdAt !== "number" ||
+      Date.now() - value.createdAt > 86_400_000
+    ) {
+      removeSharedBrowserItem(storageKey);
+      return null;
+    }
+    if (handoffId && value.attemptId !== handoffId) {
+      removeSharedBrowserItem(storageKey);
+      return null;
+    }
+    return value as PathMintHandoff;
+  } catch {
+    removeSharedBrowserItem(storageKey);
+    return null;
+  }
 };
 
 const readStoredThoughtWorks = () => readThoughtWorks(thoughtBrowserStorage);
@@ -980,7 +1181,10 @@ const PREFLIGHT_REQUEST_TIMEOUT_MS = 15000;
 const PATH_AUTHORIZATION_REQUEST_TIMEOUT_MS = 15000;
 const WALLET_TX_SUBMIT_TIMEOUT_MS = 60000;
 const MINT_RECEIPT_TIMEOUT_MS = 120000;
+const MINT_RECEIPT_WAIT_TIMEOUT_MS = 15000;
 const MINT_RECEIPT_POLL_MS = 1000;
+const MINT_RECOVERY_NONCE_RECHECK_MS = 1200;
+const MINT_RECEIPT_MONITOR_TIMEOUT_MESSAGE = "mint receipt monitoring timed out.";
 const CHAIN_LOADING_DETAIL_MS = 1400;
 const CLI_PROGRESS_DETAIL_ROTATE_TICKS = 3;
 const CLI_COMMAND_HISTORY_LIMIT = 80;
@@ -1747,8 +1951,12 @@ const thoughtDockPathOptions = document.getElementById("thought-dock-path-option
 const thoughtDockPathSelect = document.getElementById("thought-dock-path-select") as HTMLSelectElement | null;
 const thoughtDockPathProvenance = document.getElementById("thought-dock-path-provenance") as HTMLElement | null;
 const thoughtDockPathStatus = document.getElementById("thought-dock-path-status") as HTMLElement | null;
+const thoughtDockPathReview = document.getElementById("thought-dock-path-review") as (HTMLElement & { open: boolean }) | null;
+const thoughtDockPathReviewSummary = document.getElementById("thought-dock-path-review-summary") as HTMLElement | null;
 const thoughtDockPathContext = document.getElementById("thought-dock-path-context") as HTMLElement | null;
 const thoughtDockPathFlow = document.getElementById("thought-dock-path-flow") as HTMLElement | null;
+const thoughtDockPathTitle = document.getElementById("thought-dock-path-title") as HTMLElement | null;
+const thoughtDockPathDetail = document.getElementById("thought-dock-path-detail") as HTMLElement | null;
 const thoughtDockPathPrimary = document.getElementById("thought-dock-path-primary") as HTMLButtonElement | null;
 const thoughtDockPathSecondary = document.getElementById("thought-dock-path-secondary") as HTMLButtonElement | null;
 const thoughtDockPathTertiary = document.getElementById("thought-dock-path-tertiary") as HTMLButtonElement | null;
@@ -1939,8 +2147,12 @@ if (
   !thoughtDockPathSelect ||
   !thoughtDockPathProvenance ||
   !thoughtDockPathStatus ||
+  !thoughtDockPathReview ||
+  !thoughtDockPathReviewSummary ||
   !thoughtDockPathContext ||
   !thoughtDockPathFlow ||
+  !thoughtDockPathTitle ||
+  !thoughtDockPathDetail ||
   !thoughtDockPathPrimary ||
   !thoughtDockPathSecondary ||
   !thoughtDockPathTertiary ||
@@ -2235,7 +2447,14 @@ const refreshThoughtDockPolling = () => {
   thoughtDockPollWakeScheduler.pollNow();
 };
 let thoughtDockRailSignature = "";
-let thoughtDockConsoleSignature = "";
+let thoughtConsoleHistory = parseThoughtConsoleHistory(
+  getSessionStorage()?.getItem(THOUGHT_CONSOLE_HISTORY_STORAGE_KEY) ?? "",
+);
+const nextMintAttemptId = (prefix = "mint") =>
+  createMintAttemptId(prefix, window.crypto);
+let mintAttemptId = nextMintAttemptId("idle");
+let mintErrorSequence = 0;
+let mintTransactionRequestId = 0;
 let thoughtDockRailInsetFrame = 0;
 
 const AGENT_DEMO_GLYPH_COLORS = [
@@ -3111,65 +3330,217 @@ const thoughtDockConsoleTime = () =>
     second: "2-digit",
   });
 
-const thoughtDockConsoleTitle = (
-  rail: DockRailView,
-  panelStatus: ThoughtPanelStatusView,
-) => {
-  if (rail.detail.kind !== "error") {
-    return panelStatus.title;
-  }
+const currentThoughtConsoleWorkHash = () =>
+  pendingMintTransaction?.workHash ||
+  mintFlowData.textHash ||
+  (currentOutputText ? keccak256(toUtf8Bytes(currentOutputText)) : "");
 
-  const detailTitle = rail.detail.title.trim();
-  return detailTitle && detailTitle.toLowerCase() !== "error"
-    ? detailTitle
-    : panelStatus.title;
+const currentThoughtConsoleContext = (): ThoughtConsoleContext => ({
+  attemptId: mintAttemptId,
+  ...(currentThoughtConsoleWorkHash()
+    ? { workHash: currentThoughtConsoleWorkHash() }
+    : {}),
+  ...((pendingMintTransaction?.account || walletState.address)
+    ? { account: pendingMintTransaction?.account || walletState.address }
+    : {}),
+  ...((pendingMintTransaction?.chainId ?? walletState.chainId) !== null
+    ? { chainId: pendingMintTransaction?.chainId ?? walletState.chainId ?? undefined }
+    : {}),
+  deploymentFingerprint: [
+    THOUGHT_CHAIN_ID,
+    PATH_NFT_ADDRESS.toLowerCase(),
+    THOUGHT_NFT_ADDRESS.toLowerCase(),
+    EVM_ADDRESSES.protocolRelease?.id?.trim().toLowerCase() ?? "",
+  ].join(":"),
+});
+
+const writeThoughtConsoleHistory = () => {
+  try {
+    getSessionStorage()?.setItem(
+      THOUGHT_CONSOLE_HISTORY_STORAGE_KEY,
+      serializeThoughtConsoleHistory(thoughtConsoleHistory),
+    );
+  } catch {
+    // The console remains available in memory when browser storage is denied.
+  }
 };
 
-const thoughtDockConsoleDetail = (
-  rail: DockRailView,
-  panelStatus: ThoughtPanelStatusView,
+const emitThoughtConsoleEvent = (input: {
+  kind: string;
+  title: string;
+  detail?: string;
+  eventId?: string;
+  tone?: ThoughtConsoleTone;
+  transient?: boolean;
+}) => {
+  const next = appendThoughtConsoleEvent(thoughtConsoleHistory, {
+    ...input,
+    time: thoughtDockConsoleTime(),
+    context: currentThoughtConsoleContext(),
+  });
+  if (next === thoughtConsoleHistory) {
+    return;
+  }
+  thoughtConsoleHistory = next;
+  writeThoughtConsoleHistory();
+};
+
+const recordThoughtConsoleContextBoundary = (input?: {
+  kind?: string;
+  title?: string;
+  detail?: string;
+  tone?: ThoughtConsoleTone;
+}) => {
+  const next = appendThoughtConsoleContextBoundary(thoughtConsoleHistory, {
+    ...input,
+    time: thoughtDockConsoleTime(),
+    context: currentThoughtConsoleContext(),
+  });
+  if (next === thoughtConsoleHistory) return;
+  thoughtConsoleHistory = next;
+  writeThoughtConsoleHistory();
+};
+
+const thoughtConsoleToneForPresentation = (
+  presentation: ThoughtMintPresentation,
+): ThoughtConsoleTone => {
+  if (presentation.tone === "error") return "error";
+  if (presentation.tone === "warning") return "warning";
+  if (presentation.tone === "success") return "success";
+  return "neutral";
+};
+
+const recordMintConsoleState = (
+  state: ThoughtDockState,
+  presentation: ThoughtMintPresentation,
 ) => {
-  if (rail.detail.kind === "error") {
-    return rail.detail.body;
+  if (state.kind === "work_ready" && mintFlowState === "closed") {
+    emitThoughtConsoleEvent({
+      kind: "work_ready",
+      title: "work ready",
+      detail: presentation.detail,
+      eventId: `work-ready:${currentRunContext?.clientGeneratedAt ?? currentOutputText}`,
+    });
+    return;
   }
-  if (rail.detail.kind === "wallet" || rail.detail.kind === "path") {
-    return rail.detail.message;
+
+  if (mintFlowState === "closed") {
+    return;
   }
-  return panelStatus.detail;
+
+  const base = {
+    title: presentation.title,
+    detail: presentation.detail,
+    tone: thoughtConsoleToneForPresentation(presentation),
+  };
+
+  if (mintFlowState === "thought_checking" || mintFlowState === "path_checking") {
+    return;
+  }
+  if (mintFlowState === "wallet_required") {
+    emitThoughtConsoleEvent({
+      ...base,
+      kind: "wallet_needed",
+      eventId: `wallet-needed:${mintAttemptId}`,
+    });
+    return;
+  }
+  if (mintFlowState === "path_required") {
+    if (!pathInventoryMatchesCurrentWallet() || pathInventoryState.status === "idle" || pathInventoryState.status === "loading") {
+      return;
+    }
+    emitThoughtConsoleEvent({
+      ...base,
+      kind: pathInventoryState.status === "loaded" ? "path_inventory_loaded" : "path_inventory_unavailable",
+      eventId: `path-inventory:${pathInventoryState.status}:${pathInventoryState.items.map((item) => `${item.pathId.toString()}:${item.status}`).join(",")}:${pathInventoryState.error}`,
+    });
+    return;
+  }
+  if (mintFlowState === "path_ready") {
+    emitThoughtConsoleEvent({
+      ...base,
+      kind: "path_selected",
+      detail: mintFlowData.pathId ? `PATH #${mintFlowData.pathId.toString()} · 1 THOUGHT mint available` : base.detail,
+    });
+    return;
+  }
+  if (mintFlowState === "authorizing") {
+    emitThoughtConsoleEvent({
+      ...base,
+      kind: "authorization_requested",
+      detail: "wallet request 1 of 2 · no transaction · no gas",
+      eventId: `authorization-requested:${mintAuthorizationRequestId}`,
+    });
+    return;
+  }
+  if (mintFlowState === "authorized") {
+    emitThoughtConsoleEvent({
+      ...base,
+      kind: "authorization_signed",
+      detail: mintFlowData.pathId
+        ? `PATH #${mintFlowData.pathId.toString()} · valid until ${new Date(Number(mintFlowData.deadline ?? 0n) * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+        : base.detail,
+      eventId: `authorization-signed:${mintAuthorizationRequestId}`,
+    });
+    return;
+  }
+  if (mintFlowState === "minting") {
+    const txHash = walletState.txHash || mintFlowData.txHash;
+    emitThoughtConsoleEvent({
+      ...base,
+      kind: txHash ? "transaction_submitted" : "transaction_requested",
+      detail: txHash ? `${shortHex(txHash, 10, 8)} · waiting for confirmation` : "wallet request 2 of 2 · transaction · gas applies",
+      eventId: txHash ? `transaction:${txHash.toLowerCase()}` : `transaction-requested:${mintTransactionRequestId}`,
+    });
+    return;
+  }
+  if (mintFlowState === "minted" || state.kind === "minted") {
+    emitThoughtConsoleEvent({
+      ...base,
+      kind: "transaction_confirmed",
+      eventId: `minted:${walletState.mintedTokenId ?? mintFlowData.existingTokenId ?? walletState.txHash ?? mintFlowData.txHash}`,
+    });
+    return;
+  }
+  if (mintFlowState === "text_taken") {
+    emitThoughtConsoleEvent({
+      ...base,
+      kind: "thought_exists",
+      eventId: `existing:${mintFlowData.existingTokenId ?? mintFlowData.textHash}`,
+    });
+    return;
+  }
+  if (mintFlowState === "error") {
+    emitThoughtConsoleEvent({
+      ...base,
+      kind: `${mintFlowData.errorKind || "mint"}_failed`,
+      eventId: `mint-error:${mintErrorSequence}`,
+    });
+  }
+};
+
+const renderThoughtConsoleHistory = () => {
+  const entries = [...thoughtConsoleHistory.entries].reverse().map((entry) => {
+    const tone: DockRailTone = entry.tone === "neutral" ? "idle" : entry.tone;
+    const lines = buildThoughtConsoleLines(entry).map((line, index) => statusScreenLine(line, {
+      heading: index === 0,
+      tone: index < 2 ? tone : undefined,
+    }));
+    const element = statusScreenEntry(lines);
+    element.dataset.attemptId = entry.context.attemptId;
+    element.classList.toggle("is-boundary", entry.boundary);
+    element.classList.toggle("is-current-attempt", entry.context.attemptId === mintAttemptId);
+    return element;
+  });
+  thoughtDockDetailsBody.replaceChildren(...entries);
+  thoughtDockDetails.hidden = false;
 };
 
 const renderThoughtDockDetails = (
-  rail: DockRailView,
-  panelStatus: ThoughtPanelStatusView,
+  _state: ThoughtDockState,
+  _presentation: ThoughtMintPresentation,
 ) => {
-  const title = thoughtDockConsoleTitle(rail, panelStatus);
-  const detail = thoughtDockConsoleDetail(rail, panelStatus);
-  const actions = rail.actions
-    .filter((action) => !action.disabled)
-    .map((action) => action.label);
-  const signature = JSON.stringify({ actions, detail, title, tone: rail.tone });
-  if (signature === thoughtDockConsoleSignature) {
-    thoughtDockDetails.hidden = false;
-    return;
-  }
-  thoughtDockConsoleSignature = signature;
-
-  const consoleLines = buildThoughtConsoleLines({
-    time: thoughtDockConsoleTime(),
-    title,
-    detail,
-    actions,
-  });
-  const lines = consoleLines.map((line, index) => statusScreenLine(line, {
-    heading: index === 0,
-    tone: index < 2 ? rail.tone : undefined,
-  }));
-
-  thoughtDockDetails.hidden = false;
-  thoughtDockDetailsBody.prepend(statusScreenEntry(lines));
-  requestAnimationFrame(() => {
-    thoughtDockDetails.scrollTop = 0;
-  });
+  renderThoughtConsoleHistory();
 };
 
 const getResolvedThoughtDockState = (): ThoughtDockState => {
@@ -3390,13 +3761,12 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
     return { actions: [mintResetAction()] };
   };
   const mintFlowRail = (): DockRailView => {
-    const { actions, maxActions } = mintFlowActions();
+    const presentation = getCurrentMintPresentation();
     return {
-      status: mintFlowStatus(),
-      tone: mintFlowTone(),
-      actions,
-      detail: mintFlowDetail(),
-      maxActions,
+      status: "",
+      tone: presentation.tone,
+      actions: [],
+      detail: { kind: "none" },
     };
   };
 
@@ -3605,6 +3975,45 @@ const shortRunId = (runId: string) =>
 
 const isInjectedWalletMissing = () => !walletState.detected && !getEthereumProvider();
 
+const getCurrentMintPresentation = () => presentThoughtMint({
+  state: mintFlowState,
+  mintEnabled: THOUGHT_V2_MINT_ENABLED,
+  providerDetected: !isInjectedWalletMissing(),
+  walletRequestPending: walletConnectInFlight,
+  address: walletState.address,
+  chainId: walletState.chainId,
+  requiredChainId: THOUGHT_CHAIN_ID,
+  chainName: THOUGHT_CHAIN_NAME,
+  inventory: {
+    status: pathInventoryState.status,
+    matchesWallet: pathInventoryMatchesCurrentWallet(),
+    held: pathInventoryState.items.length,
+    available: availablePathInventoryItems().length,
+    error: pathInventoryState.error,
+  },
+  pathId: mintFlowData.pathId?.toString() ?? mintFlowData.pathIdInput.trim(),
+  existingTokenId: walletState.mintedTokenId ?? mintFlowData.existingTokenId,
+  authorization: {
+    signed: Boolean(mintFlowData.signature && mintFlowData.deadline),
+    deadline: mintFlowData.deadline,
+  },
+  transaction: {
+    state: walletState.txState,
+    hash: walletState.txHash || mintFlowData.txHash,
+  },
+  error: {
+    kind: mintFlowData.errorKind,
+    message: mintFlowData.error,
+  },
+});
+
+const recordCurrentMintConsoleState = () => {
+  recordMintConsoleState(
+    getResolvedThoughtDockState(),
+    getCurrentMintPresentation(),
+  );
+};
+
 const visibleMintErrorCopy = () => {
   if (mintFlowData.errorKind === "wrong_network") {
     return "wrong network.";
@@ -3634,82 +4043,12 @@ const visibleMintErrorCopy = () => {
 };
 
 const thoughtPanelStatusForMintFlow = (): ThoughtPanelStatusView => {
-  const selectedPathId = mintFlowData.pathId?.toString() ?? mintFlowData.pathIdInput.trim();
-
-  if (mintFlowState === "closed") {
-    const workReady = getThoughtWorkReadyPresentation({
-      mintEnabled: THOUGHT_V2_MINT_ENABLED,
-      walletConnected: Boolean(walletState.address),
-    });
-    return { mode: "ready_to_mint", title: "work ready", detail: workReady.detail };
-  }
-  if (mintFlowState === "thought_checking") {
-    return { mode: "minting", title: "checking THOUGHT", detail: "checking uniqueness and mint state" };
-  }
-  if (mintFlowState === "text_taken") {
-    return {
-      mode: "failed",
-      title: "already minted",
-      detail: "PATH permission is for new THOUGHTs only",
-    };
-  }
-  if (mintFlowState === "wallet_required") {
-    if (isInjectedWalletMissing()) {
-      return { mode: "wallet_needed", title: "no wallet", detail: "install or enable wallet" };
-    }
-    return { mode: "wallet_needed", title: "wallet needed", detail: "connect reads address only" };
-  }
-  if (mintFlowState === "path_required") {
-    if (isPathInventoryReadPending()) {
-      return { mode: "path_needed", title: "checking PATH", detail: "reading wallet PATHs" };
-    }
-    if (pathInventoryMatchesCurrentWallet()) {
-      if (pathInventoryState.status === "unavailable" || pathInventoryState.status === "error") {
-        return { mode: "path_needed", title: "PATH list unavailable", detail: "refresh or enter PATH manually" };
-      }
-      if (pathInventoryState.status === "loaded") {
-        return availablePathInventoryItems().length > 0
-          ? { mode: "path_needed", title: "select PATH", detail: "choose one available PATH" }
-          : { mode: "path_needed", title: "PATH needed", detail: "mint a PATH, then return here" };
-      }
-    }
-    return { mode: "path_needed", title: "checking PATH", detail: "reading wallet PATHs" };
-  }
-  if (mintFlowState === "path_checking") {
-    return {
-      mode: "path_needed",
-      title: "checking PATH",
-      detail: selectedPathId ? `checking PATH #${selectedPathId}` : "checking PATH",
-    };
-  }
-  if (mintFlowState === "path_ready") {
-    return { mode: "path_needed", title: "authorize PATH", detail: "signature only. does not mint" };
-  }
-  if (mintFlowState === "authorizing") {
-    return { mode: "path_needed", title: "authorize PATH", detail: "confirm signature in wallet" };
-  }
-  if (mintFlowState === "authorized") {
-    return {
-      mode: "minting",
-      title: "ready to mint",
-      detail: selectedPathId ? `transaction will consume PATH #${selectedPathId}` : "transaction will consume PATH",
-    };
-  }
-  if (mintFlowState === "minting") {
-    return walletState.txHash || mintFlowData.txHash
-      ? { mode: "minting", title: "minting", detail: "waiting for chain confirmation" }
-      : { mode: "minting", title: "confirm mint", detail: "confirm transaction in wallet" };
-  }
-  if (mintFlowState === "minted") {
-    return { mode: "minted", title: "minted", detail: "official token created" };
-  }
-  if (mintFlowState === "error") {
-    if (mintFlowData.errorKind === "wrong_network") {
-      return { mode: "failed", title: "wrong network", detail: "switch network to continue" };
-    }
-    return { mode: "failed", title: "mint error", detail: visibleMintErrorCopy() };
-  }
-  return { mode: "minting", title: "minting", detail: "waiting for wallet" };
+  const presentation = getCurrentMintPresentation();
+  return {
+    mode: presentation.panelMode,
+    title: presentation.title,
+    detail: presentation.detail,
+  };
 };
 
 const getThoughtPanelStatusView = (state: ThoughtDockState): ThoughtPanelStatusView => {
@@ -3853,7 +4192,7 @@ const getWalletStageView = (state: ThoughtDockState): WalletStripView => {
       detail: "no supported wallet found",
       meta: "install or enable an injected wallet, then refresh.",
       tone: "warning",
-      actions: ["refresh"],
+      actions: [],
     };
   }
 
@@ -3866,7 +4205,7 @@ const getWalletStageView = (state: ThoughtDockState): WalletStripView => {
         ? "disconnected in THOUGHT. to fully remove site access, disconnect this site in your wallet."
         : "read only. no signature. no tx.",
       tone: walletConnectInFlight ? "running" : "idle",
-      actions: walletConnectInFlight ? ["refresh"] : ["connect"],
+      actions: [],
     };
   }
 
@@ -3879,7 +4218,7 @@ const getWalletStageView = (state: ThoughtDockState): WalletStripView => {
       chainLabel: getWalletNetworkLabel(),
       meta: `${shortHex(walletState.address)} · ${getWalletNetworkLabel().toLowerCase()}`,
       tone: "warning",
-      actions: ["switch_network", "disconnect"],
+      actions: [],
     };
   }
 
@@ -3891,7 +4230,7 @@ const getWalletStageView = (state: ThoughtDockState): WalletStripView => {
     chainLabel: getWalletNetworkLabel(),
     meta: pathInventorySummary() || "PATH: not checked",
     tone: walletState.preflightLoading ? "running" : "ready",
-    actions: ["disconnect", "refresh"],
+    actions: [],
   };
 };
 
@@ -3940,15 +4279,24 @@ const renderWalletStripAction = (action: WalletAction) => {
 };
 
 const renderWalletStrip = (state: ThoughtDockState) => {
-  void state;
-  thoughtWalletStrip.classList.add("is-hidden");
-  thoughtWalletStripActions.replaceChildren();
+  const view = getWalletStageView(state);
+  thoughtWalletStrip.classList.toggle("is-hidden", !view.visible);
+  thoughtWalletStrip.dataset.tone = view.tone;
+  thoughtWalletStripTitle.textContent = view.title;
+  thoughtWalletStripDetail.textContent = view.detail;
+  thoughtWalletStripDetail.title = view.address ?? view.detail;
+  thoughtWalletStripMeta.textContent = view.meta ?? "";
+  thoughtWalletStripMeta.classList.toggle("is-hidden", !view.meta);
+  thoughtWalletStripActions.replaceChildren(
+    ...view.actions.map(renderWalletStripAction),
+  );
 };
 
 const renderThoughtDock = () => {
   const state = getResolvedThoughtDockState();
   const locked = isThoughtDockInputLockedState(state);
   const panelStatus = getThoughtPanelStatusView(state);
+  const mintPresentation = getCurrentMintPresentation();
 
   thoughtDockPrompt.readOnly = locked;
   if (thoughtDockPrompt.value !== sessionState.prompt) {
@@ -4002,7 +4350,7 @@ const renderThoughtDock = () => {
   renderWalletStrip(state);
   syncMintDockPathPanel();
   renderThoughtDockDetailTray({ kind: "none" });
-  renderThoughtDockDetails(rail, panelStatus);
+  renderThoughtDockDetails(state, mintPresentation);
   syncThoughtDockRailInset();
 };
 
@@ -4121,6 +4469,9 @@ const launchThoughtDockAgentLink = (url: string) => {
 };
 
 const openThoughtDockAgentSelect = () => {
+  if (blockPendingMintMutation()) {
+    return;
+  }
   const prompt = thoughtDockPrompt.value;
   if (!prompt.trim()) {
     setThoughtDockState({ kind: "failed", message: "Prompt is empty." });
@@ -4131,6 +4482,9 @@ const openThoughtDockAgentSelect = () => {
 };
 
 const runThoughtDockAdapter = async (adapterId: ThoughtDockAgentAdapterId) => {
+  if (blockPendingMintMutation()) {
+    return;
+  }
   const prompt = thoughtDockPrompt.value;
   if (!prompt) {
     setThoughtDockState({ kind: "failed", message: "Prompt is empty." });
@@ -4451,6 +4805,9 @@ const handleThoughtDockReturnedWork = async (
   if (!isCurrentRunSession(runSessionId)) {
     return;
   }
+  if (blockPendingMintMutation()) {
+    return;
+  }
   thoughtDockRun = {
     ...run,
     candidate: rawCandidate,
@@ -4480,9 +4837,14 @@ const handleThoughtDockReturnedWork = async (
       syncInterface();
       return;
     }
+    if (result.kind === "pending_mint") {
+      blockPendingMintMutation();
+      return;
+    }
     runInFlight = false;
     const work = getThoughtDockWorkView();
     setThoughtDockState(work ? { kind: "work_ready", work } : { kind: "failed", message: "Preview accepted no work." });
+    if (work) recordCurrentMintConsoleState();
     syncInterface();
   } catch (error) {
     if (!isCurrentRunSession(runSessionId)) {
@@ -4517,6 +4879,9 @@ const formatThoughtDockPreviewError = (error: unknown) => {
 };
 
 const retryThoughtDockPreview = async () => {
+  if (blockPendingMintMutation()) {
+    return;
+  }
   if (!currentCandidate && !lastPreviewRetryContext) {
     setThoughtDockState({ kind: "failed", message: "No candidate to preview." });
     return;
@@ -4543,9 +4908,12 @@ const retryThoughtDockPreview = async () => {
     if (attempt.kind === "rejected") {
       throw attempt.error;
     }
-    promotePreviewedCandidateToWork(candidate, attempt.preview, attempt.trace);
+    if (!promotePreviewedCandidateToWork(candidate, attempt.preview, attempt.trace)) {
+      return;
+    }
     const work = getThoughtDockWorkView();
     setThoughtDockState(work ? { kind: "work_ready", work } : { kind: "failed", message: "Preview accepted no work." });
+    if (work) recordCurrentMintConsoleState();
     syncInterface();
   } catch (error) {
     setThoughtDockState({
@@ -4556,19 +4924,23 @@ const retryThoughtDockPreview = async () => {
   }
 };
 
-const mintThoughtDockWork = async () => {
+const mintThoughtDockWork = async (options?: { attemptId?: string; pathId?: string }) => {
+  if (blockPendingMintMutation()) {
+    return true;
+  }
   const work = getThoughtDockWorkView();
   if (!work) {
     setThoughtDockState({ kind: "failed", message: "No accepted work to mint." });
-    return;
+    return false;
   }
   if (!THOUGHT_V2_MINT_ENABLED) {
-    resetMintFlow();
+    resetMintFlow({ preserveAttempt: true });
+    mintAttemptId = options?.attemptId?.trim() || nextMintAttemptId("mint");
     mintFlowUiMode = THOUGHT_PANEL_MINT_UI_MODE;
     setMintFlowError(THOUGHT_V2_MINT_UNAVAILABLE_COPY, "thought");
     setThoughtDockState({ kind: "minting", work });
     syncInterface();
-    return;
+    return true;
   }
 
   // Enter a meaningful mint state before the Dock renders. Rendering `minting`
@@ -4576,13 +4948,15 @@ const mintThoughtDockWork = async () => {
   mintFlowState = "thought_checking";
   setThoughtDockState({ kind: "minting", work });
   try {
-    await openMintFlow(THOUGHT_PANEL_MINT_UI_MODE);
+    await openMintFlow(THOUGHT_PANEL_MINT_UI_MODE, options);
     syncInterface();
+    return true;
   } catch (error) {
     setThoughtDockState({
       kind: "failed",
       message: error instanceof Error ? error.message : "Mint unavailable.",
     });
+    return false;
   }
 };
 
@@ -4598,13 +4972,16 @@ const connectThoughtDockWallet = async () => {
 
   if (!walletState.address) {
     mintFlowState = "wallet_required";
+    recordCurrentMintConsoleState();
     syncInterface();
+    focusMintDockStage();
     return;
   }
 
   if (walletState.chainId !== THOUGHT_CHAIN_ID) {
     setMintFlowError("wrong network.", "wrong_network");
     syncInterface();
+    focusMintDockStage();
     return;
   }
 
@@ -4612,12 +4989,14 @@ const connectThoughtDockWallet = async () => {
     mintFlowState = "path_required";
     mintFlowData.error = "";
     mintFlowData.errorKind = "none";
+    recordCurrentMintConsoleState();
   }
   syncInterface();
+  focusMintDockStage("path");
 };
 
 const syncMintFlowAfterWalletCommand = () => {
-  if (mintFlowState === "closed" || mintFlowState === "minted") {
+  if (mintFlowState === "closed" || mintFlowState === "minted" || pendingMintTransaction) {
     return;
   }
 
@@ -4625,6 +5004,7 @@ const syncMintFlowAfterWalletCommand = () => {
     mintFlowState = "wallet_required";
     mintFlowData.error = "";
     mintFlowData.errorKind = "none";
+    recordCurrentMintConsoleState();
     return;
   }
 
@@ -4632,6 +5012,7 @@ const syncMintFlowAfterWalletCommand = () => {
     mintFlowState = "error";
     mintFlowData.error = "wrong network.";
     mintFlowData.errorKind = "wrong_network";
+    recordCurrentMintConsoleState();
     return;
   }
 
@@ -4639,6 +5020,7 @@ const syncMintFlowAfterWalletCommand = () => {
     mintFlowState = "path_required";
     mintFlowData.error = "";
     mintFlowData.errorKind = "none";
+    recordCurrentMintConsoleState();
   }
 };
 
@@ -4681,6 +5063,7 @@ const switchThoughtDockWalletNetwork = async () => {
 
   if (!walletState.address) {
     mintFlowState = "wallet_required";
+    recordCurrentMintConsoleState();
     syncInterface();
     return;
   }
@@ -4688,6 +5071,7 @@ const switchThoughtDockWalletNetwork = async () => {
   mintFlowState = walletState.chainId === THOUGHT_CHAIN_ID ? "path_required" : "error";
   mintFlowData.error = walletState.chainId === THOUGHT_CHAIN_ID ? "" : "wrong network.";
   mintFlowData.errorKind = walletState.chainId === THOUGHT_CHAIN_ID ? "none" : "wrong_network";
+  recordCurrentMintConsoleState();
   syncInterface();
 };
 
@@ -4713,6 +5097,9 @@ function cancelThoughtDockRun(run?: AgentDemoRun | null, options?: { clearPrompt
 }
 
 const resetThoughtDock = (options?: { clearPrompt?: boolean; focusPrompt?: boolean }) => {
+  if (blockPendingMintMutation()) {
+    return false;
+  }
   thoughtDockPollGeneration += 1;
   thoughtDockPollWakeScheduler.clearImmediatePoll();
   thoughtDockPollWakeScheduler.wake();
@@ -4733,6 +5120,7 @@ const resetThoughtDock = (options?: { clearPrompt?: boolean; focusPrompt?: boole
   if (options?.focusPrompt) {
     focusThoughtDockPrompt({ preventScroll: true });
   }
+  return true;
 };
 
 const resumeThoughtDockPendingRun = () => {
@@ -5099,6 +5487,7 @@ const walletState: ThoughtWalletState = {
   preflightError: "",
   mintedTokenId: null,
 };
+let walletStateHydrated = false;
 let mintFlowState: MintFlowState = "closed";
 let mintFlowUiMode: MintFlowUiMode = THOUGHT_PANEL_MINT_UI_MODE;
 const mintFlowData: MintFlowData = {
@@ -5125,6 +5514,23 @@ let pathInventoryState: PathInventoryState = {
   items: [],
   error: "",
 };
+let pendingMintTransaction = readPendingMintTransaction();
+let conflictingMintTransactions = readConflictingMintTransactions();
+const conflictingMintReceiptMonitorHashes = new Set<string>();
+let pendingMintReceiptMonitorHash = "";
+let pendingMintReceiptMonitorGeneration = 0;
+let mintAuthorizationInFlight = false;
+let mintTransactionInFlight = false;
+let walletMintSubmitPromiseUnresolved = false;
+let unresolvedMintSubmission: Readonly<{
+  requestId: number;
+  submission: MintSubmissionContext;
+  provider: JsonRpcProvider | BrowserProvider | null;
+  releaseLockAfterRecovery: () => void;
+  releaseCompleted: Promise<void>;
+}> | null = null;
+let activeMintTransactionRequestId = 0;
+let pendingMintStorageListenerBound = false;
 let currentRunContext: ThoughtRunContext | null = null;
 let currentCandidate: ThoughtCandidate | null = null;
 let activeThoughtSpec: ActiveThoughtSpec | null = null;
@@ -5134,6 +5540,8 @@ let thoughtDetailColorFontUrl = "";
 let thoughtDetailProvenanceJsonUrl = "";
 let colorFontPageRawUrl = "";
 let readProvider: JsonRpcProvider | null = null;
+let mintReceiptBrowserProvider: BrowserProvider | null = null;
+let mintReceiptBrowserProviderSource: EthereumProvider | null = null;
 let pathReadProvider: JsonRpcProvider | null = null;
 let readThoughtNFT: Contract | null = null;
 let readColorFontV1: Contract | null = null;
@@ -5698,6 +6106,28 @@ const getReadProvider = () => {
   }
 
   return readProvider;
+};
+
+const getWalletMintReceiptProvider = () => {
+  const ethereum = getEthereumProvider();
+  if (!ethereum) {
+    mintReceiptBrowserProvider = null;
+    mintReceiptBrowserProviderSource = null;
+    return null;
+  }
+  if (!mintReceiptBrowserProvider || mintReceiptBrowserProviderSource !== ethereum) {
+    mintReceiptBrowserProvider = new BrowserProvider(ethereum);
+    mintReceiptBrowserProviderSource = ethereum;
+  }
+  return mintReceiptBrowserProvider;
+};
+
+const getMintReceiptMonitoringProviders = () => {
+  const read = getReadProvider();
+  const wallet = getWalletMintReceiptProvider();
+  return read && wallet
+    ? [read, wallet]
+    : [read ?? wallet].filter(Boolean) as Array<JsonRpcProvider | BrowserProvider>;
 };
 
 const getPathReadProvider = () => {
@@ -7583,6 +8013,120 @@ const clearMintPathSelection = () => {
   clearMintAuthorization();
 };
 
+const isPendingMintDeploymentCompatible = (pending: PendingMintTransaction) =>
+  pending.chainId === THOUGHT_CHAIN_ID &&
+  pending.thoughtNft.toLowerCase() === THOUGHT_NFT_ADDRESS.toLowerCase();
+
+const projectPendingMintTransaction = (
+  pending: PendingMintTransaction,
+  options?: { deploymentWarning?: boolean },
+) => {
+  mintAttemptId = pending.attemptId?.trim() || mintAttemptId || nextMintAttemptId("resume");
+  mintFlowData.textHash = pending.workHash;
+  mintFlowData.pathIdInput = pending.pathId;
+  mintFlowData.pathId = BigInt(pending.pathId);
+  mintFlowData.txHash = pending.hash;
+  walletState.txHash = pending.hash;
+  walletState.txState = "submitted";
+  const deploymentWarning = options?.deploymentWarning === true;
+  const conflictingHashes = conflictingMintTransactions
+    .filter((transaction) => transaction.hash !== pending.hash)
+    .map((transaction) => shortHex(transaction.hash, 10, 8));
+  const trackingWarning = deploymentWarning
+    ? `Automatic confirmation monitoring is unavailable: this hash belongs to chain ${pending.chainId} and contract ${shortHex(pending.thoughtNft)}. Hash retained; do not submit a duplicate.`
+    : conflictingHashes.length > 0
+      ? `Multiple transaction hashes returned (${shortHex(pending.hash, 10, 8)}, ${conflictingHashes.join(", ")}). Tracking all known hashes; do not submit a duplicate.`
+      : "";
+  walletState.txError = trackingWarning;
+  mintFlowData.error = trackingWarning;
+  mintFlowData.errorKind = trackingWarning ? "mint" : "none";
+  mintFlowState = "minting";
+  const work = getThoughtDockWorkView();
+  if (work) {
+    setThoughtDockState({ kind: "minting", work });
+  }
+};
+
+const adoptDurablePendingMintTransaction = () => {
+  if (pendingMintTransaction) {
+    return pendingMintTransaction;
+  }
+  const durable = readPendingMintTransaction();
+  if (!durable) {
+    const retainedConflicts = [
+      ...readConflictingMintTransactions(),
+      ...conflictingMintTransactions,
+    ].filter((transaction, index, all) =>
+      all.findIndex((candidate) => candidate.hash === transaction.hash) === index
+    );
+    const promoted = retainedConflicts[0] ?? null;
+    if (!promoted) {
+      return null;
+    }
+    pendingMintTransaction = promoted;
+    conflictingMintTransactions = retainedConflicts
+      .filter((transaction) => transaction.hash !== promoted.hash);
+    writePendingMintTransaction(promoted);
+    writeConflictingMintTransactions(conflictingMintTransactions);
+    projectPendingMintTransaction(promoted, {
+      deploymentWarning: !isPendingMintDeploymentCompatible(promoted),
+    });
+    return promoted;
+  }
+  pendingMintTransaction = durable;
+  projectPendingMintTransaction(durable, {
+    deploymentWarning: !isPendingMintDeploymentCompatible(durable),
+  });
+  return durable;
+};
+
+const blockPendingMintMutation = (options?: { cli?: boolean }) => {
+  const pending = adoptDurablePendingMintTransaction();
+  const submissionUnresolved = mintTransactionInFlight || walletMintSubmitPromiseUnresolved;
+  if (!pending && !submissionUnresolved) {
+    return false;
+  }
+
+  if (pending) {
+    projectPendingMintTransaction(pending, {
+      deploymentWarning: !isPendingMintDeploymentCompatible(pending),
+    });
+  } else {
+    const work = getThoughtDockWorkView();
+    if (work) {
+      setThoughtDockState({ kind: "minting", work });
+    }
+  }
+  if (currentOutputText) {
+    runState = "output_ready";
+  }
+  runInFlight = false;
+  emitThoughtConsoleEvent({
+    kind: pending ? "pending_mint_preserved" : "wallet_mint_request_preserved",
+    title: pending ? "mint still pending" : "wallet mint request still open",
+    detail: pending
+      ? `Keep tracking ${shortHex(pending.hash, 10, 8)} before changing this work.`
+      : "Resolve or cancel the wallet request before changing this work.",
+    eventId: pending
+      ? `pending-preserved:${pending.hash.toLowerCase()}`
+      : `wallet-request-preserved:${activeMintTransactionRequestId}`,
+  });
+  recordCurrentMintConsoleState();
+  syncInterface();
+  if (options?.cli) {
+    appendCliOutput([
+      pending ? "mint still pending." : "wallet mint request still unresolved.",
+      pending ? `tx: ${shortHex(pending.hash, 10, 8)}` : "resolve or cancel it in your wallet.",
+      "do not submit a duplicate.",
+      pending ? "use: view tx" : "use: current",
+    ]);
+  }
+  if (pending && isPendingMintDeploymentCompatible(pending)) {
+    resumePendingMintReceiptMonitoring();
+  }
+  return true;
+};
+
 function resetPathInventoryState() {
   pathInventoryRequestId += 1;
   pathInventoryState = {
@@ -7594,7 +8138,13 @@ function resetPathInventoryState() {
   };
 }
 
-const resetMintFlow = () => {
+const resetMintFlow = (options?: { preserveAttempt?: boolean }) => {
+  if (blockPendingMintMutation()) {
+    return false;
+  }
+  if (!options?.preserveAttempt) {
+    mintAttemptId = nextMintAttemptId("idle");
+  }
   mintFlowState = "closed";
   mintFlowUiMode = THOUGHT_PANEL_MINT_UI_MODE;
   mintFlowData.rawText = "";
@@ -7611,17 +8161,25 @@ const resetMintFlow = () => {
   mintFlowData.errorKind = "none";
   clearMintAuthorization();
   resetPathInventoryState();
+  return true;
 };
 
 const resetMintRuntimeState = () => {
+  if (blockPendingMintMutation()) {
+    return false;
+  }
   resetMintFlow();
   walletState.txState = "idle";
   walletState.txError = "";
   walletState.txHash = "";
   walletState.mintedTokenId = null;
+  return true;
 };
 
 const closeMintSheet = () => {
+  if (blockPendingMintMutation()) {
+    return;
+  }
   resetMintFlow();
   syncInterface();
 };
@@ -8034,13 +8592,23 @@ const syncWarningBox = () => {
   updateNotice(warningBox, warningCopy);
 };
 
-const setMintFlowError = (message: string, kind: MintFlowErrorKind = "mint") => {
+const setMintFlowError = (
+  message: string,
+  kind: MintFlowErrorKind = "mint",
+  options: { preserveAuthorization?: boolean; preserveSubmittedTransaction?: boolean } = {},
+) => {
+  mintErrorSequence += 1;
   mintFlowState = "error";
   mintFlowData.error = message;
   mintFlowData.errorKind = kind;
-  clearMintAuthorization();
-  walletState.txState = "failed";
+  if (!options.preserveAuthorization) {
+    clearMintAuthorization();
+  }
+  if (!options.preserveSubmittedTransaction) {
+    walletState.txState = "failed";
+  }
   walletState.txError = message;
+  recordCurrentMintConsoleState();
 };
 
 const hiddenMintSheetAction = (): MintSheetActionConfig => ({
@@ -8174,6 +8742,8 @@ const refreshPathInventoryForCurrentWallet = async (options?: { force?: boolean 
       };
       if (IS_LOCAL_THOUGHT_V2 && isThoughtV2LocalDeploymentError(inventory.message)) {
         setMintFlowError(inventory.message, "thought");
+      } else {
+        recordCurrentMintConsoleState();
       }
     } else {
       pathInventoryState = {
@@ -8183,11 +8753,20 @@ const refreshPathInventoryForCurrentWallet = async (options?: { force?: boolean 
         items: inventory.items,
         error: "",
       };
-      if (inventory.items.every((item) => item.status !== "available")) {
+      recordCurrentMintConsoleState();
+      const availableItems = inventory.items.filter((item) => item.status === "available");
+      if (availableItems.length === 0) {
         clearMintPathSelection();
         if (mintFlowState === "error" && isPathRecoveryError()) {
           mintFlowState = "path_required";
         }
+      } else if (
+        availableItems.length === 1 &&
+        !mintFlowData.pathIdInput &&
+        mintFlowState === "path_required"
+      ) {
+        applyMintPathInputValue(availableItems[0].pathId.toString());
+        await checkPathEligibility();
       }
     }
   } catch (error) {
@@ -8201,6 +8780,7 @@ const refreshPathInventoryForCurrentWallet = async (options?: { force?: boolean 
       items: [],
       error: error instanceof Error ? error.message : "path list unavailable.",
     };
+    recordCurrentMintConsoleState();
   }
 
   syncInterface();
@@ -8211,6 +8791,7 @@ const moveMintFlowToWalletOrPathSelection = () => {
     mintFlowState = "wallet_required";
     mintFlowData.error = "";
     mintFlowData.errorKind = "none";
+    recordCurrentMintConsoleState();
     return false;
   }
 
@@ -8222,6 +8803,7 @@ const moveMintFlowToWalletOrPathSelection = () => {
   mintFlowState = "path_required";
   mintFlowData.error = "";
   mintFlowData.errorKind = "none";
+  recordCurrentMintConsoleState();
   return true;
 };
 
@@ -8237,6 +8819,7 @@ const maybeLoadPathInventory = () => {
 const selectPathInventoryItem = (pathId: bigint) => {
   applyMintPathInputValue(pathId.toString());
   syncInterface();
+  focusMintDockStage();
   void checkPathEligibility();
 };
 
@@ -8262,37 +8845,67 @@ const isMintPathInputDisabled = () =>
 
 const shouldUsePathInventorySelect = () =>
   hasAvailablePathInventory() &&
-  (
-    mintFlowState === "path_required" ||
-    mintFlowState === "path_checking" ||
-    mintFlowState === "path_ready" ||
-    mintFlowState === "authorizing" ||
-    mintFlowState === "authorized" ||
-    (mintFlowState === "error" && isPathRecoveryError())
-  );
+  mintFlowState === "path_required" &&
+  mintFlowData.pathId === null;
+
+const focusRestoredMintElement = (element: HTMLElement) => {
+  thoughtDockPath.querySelectorAll<HTMLElement>(".is-focus-restored").forEach((item) => {
+    item.classList.remove("is-focus-restored");
+  });
+  element.classList.add("is-focus-restored");
+  element.addEventListener("blur", () => {
+    element.classList.remove("is-focus-restored");
+  }, { once: true });
+  element.focus({ preventScroll: true });
+};
+
+const focusMintDockStage = (preference: "action" | "path" = "action") => {
+  requestAnimationFrame(() => {
+    if (mintFlowUiMode !== "dock" || thoughtDockPath.classList.contains("is-hidden")) {
+      return;
+    }
+
+    if (preference === "path") {
+      const selectedButton = thoughtDockPathInventoryList.querySelector<HTMLButtonElement>(
+        '.thought-dock-path-token[aria-pressed="true"]',
+      );
+      const firstButton = thoughtDockPathInventoryList.querySelector<HTMLButtonElement>(
+        ".thought-dock-path-token",
+      );
+      const pathButton = selectedButton ?? firstButton;
+      if (pathButton && !pathButton.disabled) {
+        focusRestoredMintElement(pathButton);
+        return;
+      }
+
+      if (
+        !thoughtDockPathField.classList.contains("is-hidden") &&
+        !thoughtDockPathBox.classList.contains("is-hidden") &&
+        !thoughtDockPathBox.disabled
+      ) {
+        focusRestoredMintElement(thoughtDockPathBox);
+        return;
+      }
+    }
+
+    const action = [thoughtDockPathPrimary, thoughtDockPathSecondary, thoughtDockPathTertiary]
+      .find((button) => !button.disabled && !button.classList.contains("is-hidden"));
+    if (action) {
+      focusRestoredMintElement(action);
+      return;
+    }
+
+    focusRestoredMintElement(thoughtDockPathTitle);
+  });
+};
 
 const focusMintPathInput = () => {
-  if (shouldUsePathInventorySelect() && mintFlowUiMode === "dock") {
-    const selectedButton = thoughtDockPathInventoryList.querySelector<HTMLButtonElement>(
-      '.thought-dock-path-token[aria-pressed="true"]',
-    );
-    const firstButton = thoughtDockPathInventoryList.querySelector<HTMLButtonElement>(
-      ".thought-dock-path-token",
-    );
-    const button = selectedButton ?? firstButton;
-    requestAnimationFrame(() => {
-      if (button && !button.disabled) {
-        button.focus();
-      }
-    });
+  if (mintFlowUiMode === "dock") {
+    focusMintDockStage("path");
     return;
   }
 
-  const input = shouldUsePathInventorySelect()
-    ? mintSheetPathSelect
-    : mintFlowUiMode === "dock"
-      ? thoughtDockPathBox
-      : mintSheetPathBox;
+  const input = shouldUsePathInventorySelect() ? mintSheetPathSelect : mintSheetPathBox;
   requestAnimationFrame(() => {
     if (!input.disabled) {
       input.focus();
@@ -8300,7 +8913,7 @@ const focusMintPathInput = () => {
   });
 };
 
-const getMintSheetActionConfigs = (): [
+const getLegacyMintSheetActionConfigs = (): [
   MintSheetActionConfig,
   MintSheetActionConfig,
   MintSheetActionConfig,
@@ -8484,24 +9097,50 @@ const getMintSheetActionConfigs = (): [
   ];
 };
 
+const getMintSheetActionConfigs = (): [
+  MintSheetActionConfig,
+  MintSheetActionConfig,
+  MintSheetActionConfig,
+] => {
+  // Keep the legacy mapper referenced until the CLI-only mint commands move to
+  // the same presentation model in a follow-up deletion pass.
+  void getLegacyMintSheetActionConfigs;
+  const actions = getCurrentMintPresentation().actions
+    .filter((item) => item.id !== "none")
+    .slice(0, 3)
+    .map((item): MintSheetActionConfig => ({
+      action: item.id,
+      label: item.label,
+      disabled: item.disabled,
+    }));
+
+  return [
+    actions[0] ?? hiddenMintSheetAction(),
+    actions[1] ?? hiddenMintSheetAction(),
+    actions[2] ?? hiddenMintSheetAction(),
+  ];
+};
+
 const syncMintFlowSteps = (container: HTMLElement) => {
-  const activeStep =
-    mintFlowState === "authorized" || mintFlowState === "minting" || mintFlowState === "minted"
-      ? "confirm"
-      : mintFlowState === "path_ready" || mintFlowState === "authorizing"
-        ? "authorize"
-        : "select";
-  const completedSteps =
-    activeStep === "authorize"
-      ? new Set(["select"])
-      : activeStep === "confirm"
-        ? new Set(["select", "authorize"])
-        : new Set<string>();
+  const presentation = getCurrentMintPresentation();
+  const stepMap = {
+    select: "path",
+    authorize: "sign",
+    confirm: "mint",
+  } as const;
+  const completedSteps = new Set(presentation.completedSteps);
 
   container.querySelectorAll<HTMLElement>("[data-step]").forEach((step) => {
     const stepId = step.dataset.step ?? "";
-    step.classList.toggle("is-active", stepId === activeStep);
-    step.classList.toggle("is-complete", completedSteps.has(stepId) || mintFlowState === "minted");
+    const canonicalStep = stepMap[stepId as keyof typeof stepMap];
+    const isActive = canonicalStep === presentation.activeStep;
+    step.classList.toggle("is-active", isActive);
+    step.classList.toggle("is-complete", Boolean(canonicalStep && completedSteps.has(canonicalStep)));
+    if (isActive) {
+      step.setAttribute("aria-current", "step");
+    } else {
+      step.removeAttribute("aria-current");
+    }
   });
 };
 
@@ -8509,7 +9148,7 @@ const syncMintSheetFlow = () => {
   syncMintFlowSteps(mintSheetFlow);
 };
 
-const getMintSheetStatusCopy = () => {
+const getLegacyMintSheetStatusCopy = () => {
   const selectedPathId = mintFlowData.pathId?.toString() ?? mintFlowData.pathIdInput.trim();
 
   if (mintFlowState === "thought_checking") {
@@ -8573,6 +9212,11 @@ const getMintSheetStatusCopy = () => {
   return "";
 };
 
+const getMintSheetStatusCopy = () => {
+  void getLegacyMintSheetStatusCopy;
+  return getCurrentMintPresentation().stageCopy;
+};
+
 const mintReviewNetworkRows = () => [
   { label: "network", value: THOUGHT_ENVIRONMENT_LABEL },
   { label: "chain", value: THOUGHT_CHAIN_NAME },
@@ -8590,7 +9234,7 @@ const cliNetworkReviewRows = () => [
 const mintReviewContractValue = (label: string, address: string) =>
   address ? `${label} ${shortHex(address, 6, 4)}` : `${label} unavailable`;
 
-const getMintSheetCopy = () => {
+const getLegacyMintSheetCopy = () => {
   if (mintFlowState === "wallet_required") {
     if (isInjectedWalletMissing()) {
       return "install or enable an injected wallet.";
@@ -8604,6 +9248,11 @@ const getMintSheetCopy = () => {
     return "mints THOUGHT and consumes PATH.";
   }
   return "one THOUGHT needs one $PATH.";
+};
+
+const getMintSheetCopy = () => {
+  void getLegacyMintSheetCopy;
+  return getCurrentMintPresentation().detail;
 };
 
 const getMintSheetReviewConfig = (): MintSheetReviewConfig => {
@@ -8630,7 +9279,7 @@ const getMintSheetReviewConfig = (): MintSheetReviewConfig => {
         },
         {
           label: "signature",
-          value: "PATH consume authorization",
+          value: "PATH mint permission",
         },
         {
           label: "executor",
@@ -8642,8 +9291,8 @@ const getMintSheetReviewConfig = (): MintSheetReviewConfig => {
         { label: "expires", value: `${Math.floor(Number(PATH_CONSUME_AUTH_TTL_SECONDS) / 3600)} hour` },
       ],
       note: selectedPathId
-        ? `authorize PATH\nthis signature lets THOUGHT consume $PATH #${selectedPathId}.\nit sends 0 ETH and does not mint yet.`
-        : "authorize PATH\nsignature only. does not mint.",
+        ? `sign PATH permission — 1 of 2\nallows the THOUGHT contract to use one THOUGHT mint from $PATH #${selectedPathId}.\nno transaction. no gas. does not mint yet.`
+        : "sign PATH permission — 1 of 2\nno transaction. no gas. does not mint yet.",
       verifyLink: true,
     };
   }
@@ -8662,12 +9311,12 @@ const getMintSheetReviewConfig = (): MintSheetReviewConfig => {
           value: "mint(string,uint256,bytes32,bytes32,bytes32,string,uint256,bytes)",
         },
         { label: "$PATH", value: `#${selectedPathId}` },
-        { label: "consumes", value: "1 THOUGHT unit" },
+        { label: "uses", value: "1 THOUGHT mint" },
         { label: "ETH sent", value: "0 ETH" },
         { label: "authorization", value: "PATH signature attached" },
         { label: "network gas", value: "shown in wallet" },
       ],
-      note: `confirm mint\nthis transaction mints THOUGHT and consumes $PATH #${selectedPathId}.`,
+      note: `mint THOUGHT — 2 of 2\ncreates the token using one THOUGHT mint from $PATH #${selectedPathId}.\nthe $PATH token stays in this wallet. network gas applies.`,
       verifyLink: true,
     };
   }
@@ -8794,10 +9443,12 @@ const syncThoughtDockPathInventory = () => {
       const isSelected = pathId === selectedPathId;
       button.type = "button";
       button.className = "thought-dock-button thought-dock-path-token";
-      button.textContent = `$PATH #${pathId}`;
+      button.textContent = `$PATH #${pathId} · 1 mint`;
       button.disabled = disabled;
       button.setAttribute("aria-pressed", isSelected ? "true" : "false");
-      button.title = isSelected ? `$PATH #${pathId} selected` : `select $PATH #${pathId}`;
+      button.title = isSelected
+        ? `$PATH #${pathId} selected for this THOUGHT`
+        : `Use $PATH #${pathId} for this THOUGHT`;
       button.addEventListener("click", () => {
         selectPathInventoryItem(item.pathId);
       });
@@ -8882,6 +9533,52 @@ const renderMintContext = (container: HTMLElement, options: { includeWalletRevie
   container.classList.toggle("is-hidden", container.childNodes.length === 0);
 };
 
+let thoughtDockReviewSignature = "";
+
+const syncMintDockReview = () => {
+  const reviewStage = mintFlowState === "path_ready" || mintFlowState === "authorizing"
+    ? "sign"
+    : mintFlowState === "authorized" || mintFlowState === "minting"
+      ? "mint"
+      : null;
+
+  if (!reviewStage) {
+    thoughtDockPathReview.classList.add("is-hidden");
+    thoughtDockPathReview.open = false;
+    thoughtDockPathReview.removeAttribute("data-stage");
+    thoughtDockPathContext.replaceChildren();
+    thoughtDockPathContext.classList.add("is-hidden");
+    thoughtDockReviewSignature = "";
+    return;
+  }
+
+  const config = getMintSheetReviewConfig();
+  const signature = JSON.stringify({ config, reviewStage });
+  const stageChanged = thoughtDockPathReview.dataset.stage !== reviewStage;
+  thoughtDockPathReview.dataset.stage = reviewStage;
+  thoughtDockPathReview.classList.remove("is-hidden");
+  thoughtDockPathReviewSummary.textContent = reviewStage === "sign"
+    ? "review signature request · 1 of 2"
+    : "review mint transaction · 2 of 2";
+
+  if (stageChanged) {
+    thoughtDockPathReview.open = false;
+  }
+  if (signature === thoughtDockReviewSignature) {
+    return;
+  }
+
+  thoughtDockPathContext.replaceChildren();
+  renderMintReviewContent(thoughtDockPathContext, config, {
+    link: "thought-dock-path-review__link",
+    note: "thought-dock-path-review__note",
+    review: "thought-dock-path-review__rows",
+    row: "thought-dock-path-review__row",
+  });
+  thoughtDockPathContext.classList.remove("is-hidden");
+  thoughtDockReviewSignature = signature;
+};
+
 const renderMintSheetContext = () => {
   renderMintContext(mintSheetContext);
 };
@@ -8913,34 +9610,11 @@ const getMintDockPathActionConfigs = (): [
   MintSheetActionConfig,
   MintSheetActionConfig,
 ] => {
-  const visibleActions = getMintSheetActionConfigs().filter(
-    (config) => !config.hidden && config.action !== "none" && !isGlobalWalletAction(config.action),
-  );
-
-  return [
-    visibleActions[0] ?? hiddenMintSheetAction(),
-    visibleActions[1] ?? hiddenMintSheetAction(),
-    visibleActions[2] ?? hiddenMintSheetAction(),
-  ];
+  return getMintSheetActionConfigs();
 };
 
 const getMintDockPathStatusCopy = () => {
-  const selectedPathId = mintFlowData.pathId?.toString() ?? mintFlowData.pathIdInput.trim();
-
-  if (mintFlowState === "path_ready") {
-    return selectedPathId ? `PATH #${selectedPathId} selected.` : "PATH selected.";
-  }
-  if (mintFlowState === "authorizing") {
-    return "PATH authorization pending.";
-  }
-  if (mintFlowState === "authorized") {
-    return selectedPathId ? `PATH #${selectedPathId} authorized.` : "PATH authorized.";
-  }
-  if (mintFlowState === "minting") {
-    return "THOUGHT mint pending.";
-  }
-
-  return getMintSheetStatusCopy();
+  return getCurrentMintPresentation().stageCopy;
 };
 
 const syncMintSheet = () => {
@@ -8986,13 +9660,21 @@ const syncMintSheet = () => {
 
 const syncMintDockPathPanel = () => {
   const pathInputVisible = isMintPathFieldVisible();
-  const isVisible = mintFlowUiMode === "dock" && mintFlowState !== "closed" && pathInputVisible;
+  const isVisible = mintFlowUiMode === "dock" && mintFlowState !== "closed";
   thoughtDockPath.classList.toggle("is-hidden", !isVisible);
 
   if (!isVisible) {
+    thoughtDockPathReview.classList.add("is-hidden");
+    thoughtDockPathReview.open = false;
     thoughtDockPathContext.replaceChildren();
+    thoughtDockPathContext.classList.add("is-hidden");
+    thoughtDockReviewSignature = "";
     return;
   }
+
+  const presentation = getCurrentMintPresentation();
+  thoughtDockPathTitle.textContent = presentation.title;
+  thoughtDockPathDetail.textContent = presentation.detail;
 
   const pathInventoryVisible = syncThoughtDockPathInventory();
   const manualPathVisible = pathInputVisible && shouldRevealManualPathInput();
@@ -9010,7 +9692,7 @@ const syncMintDockPathPanel = () => {
   thoughtDockPathProvenance.classList.toggle("is-hidden", !provenanceCopy);
 
   thoughtDockPathStatus.textContent = getMintDockPathStatusCopy();
-  renderMintContext(thoughtDockPathContext, { includeWalletReview: false });
+  syncMintDockReview();
   maybeLoadPathInventory();
   syncMintFlowSteps(thoughtDockPathFlow);
 
@@ -9111,26 +9793,43 @@ const refreshWalletState = async () => {
     }
   }
 
-  if (walletState.address !== previousAddress || walletState.chainId !== previousChainId) {
+  if (
+    walletStateHydrated &&
+    (walletState.address !== previousAddress || walletState.chainId !== previousChainId)
+  ) {
     resetPathInventoryState();
-    clearMintPathSelection();
-    if (mintFlowState !== "closed" && mintFlowState !== "wallet_required") {
-      if (!walletState.address) {
-        mintFlowState = "wallet_required";
-        mintFlowData.error = "";
-        mintFlowData.errorKind = "none";
-      } else if (walletState.chainId !== THOUGHT_CHAIN_ID) {
-        mintFlowState = "error";
-        mintFlowData.error = "wrong network.";
-        mintFlowData.errorKind = "wrong_network";
-      } else {
-        mintFlowState = "path_required";
-        mintFlowData.error = "";
-        mintFlowData.errorKind = "none";
+    if (pendingMintTransaction) {
+      emitThoughtConsoleEvent({
+        kind: "wallet_changed_after_submission",
+        title: "wallet changed",
+        detail: `Active wallet: ${walletState.address ? shortHex(walletState.address) : "disconnected"} on chain ${walletState.chainId ?? "none"}. Mint from ${shortHex(pendingMintTransaction.account)} keeps tracking.`,
+      });
+    } else {
+      mintAttemptId = nextMintAttemptId("wallet");
+      clearMintPathSelection();
+      if (mintFlowState !== "closed" && mintFlowState !== "wallet_required") {
+        if (!walletState.address) {
+          mintFlowState = "wallet_required";
+          mintFlowData.error = "";
+          mintFlowData.errorKind = "none";
+        } else if (walletState.chainId !== THOUGHT_CHAIN_ID) {
+          mintFlowState = "error";
+          mintFlowData.error = "wrong network.";
+          mintFlowData.errorKind = "wrong_network";
+        } else {
+          mintFlowState = "path_required";
+          mintFlowData.error = "";
+          mintFlowData.errorKind = "none";
+        }
+      }
+      recordThoughtConsoleContextBoundary();
+      if (mintFlowState !== "closed") {
+        recordCurrentMintConsoleState();
       }
     }
   }
 
+  walletStateHydrated = true;
   await refreshMintPreflight();
 };
 
@@ -9182,6 +9881,87 @@ const bindWalletProviderEvents = () => {
   walletListenersBound = true;
 };
 
+const pendingMintIdentityMatches = (
+  left: PendingMintTransaction,
+  right: PendingMintTransaction,
+) =>
+  left.account === right.account &&
+  left.chainId === right.chainId &&
+  left.thoughtNft === right.thoughtNft &&
+  left.workHash === right.workHash &&
+  left.pathId === right.pathId &&
+  left.nonce === right.nonce;
+
+const bindPendingMintStorageEvents = () => {
+  if (pendingMintStorageListenerBound) {
+    return;
+  }
+  pendingMintStorageListenerBound = true;
+  window.addEventListener("storage", (event) => {
+    if (event.key === THOUGHT_CONFLICTING_MINT_TX_STORAGE_KEY) {
+      conflictingMintTransactions = [
+        ...parseConflictingMintTransactions(event.newValue),
+      ];
+      if (pendingMintTransaction) {
+        projectPendingMintTransaction(pendingMintTransaction, {
+          deploymentWarning: !isPendingMintDeploymentCompatible(pendingMintTransaction),
+        });
+      }
+      resumeConflictingMintReceiptMonitoring();
+      recordCurrentMintConsoleState();
+      syncInterface();
+      return;
+    }
+    if (event.key !== THOUGHT_PENDING_MINT_TX_STORAGE_KEY || event.newValue === null) {
+      // A different tab may clear storage after confirmation; this tab keeps its live
+      // hash until its own receipt monitor verifies the terminal receipt.
+      return;
+    }
+    const incoming = parsePendingMintTransaction(event.newValue);
+    if (!incoming) {
+      return;
+    }
+    if (
+      pendingMintTransaction &&
+      !pendingMintTransactionMatches(pendingMintTransaction, incoming.hash) &&
+      !pendingMintIdentityMatches(pendingMintTransaction, incoming)
+    ) {
+      return;
+    }
+    if (
+      pendingMintTransaction &&
+      !pendingMintTransactionMatches(pendingMintTransaction, incoming.hash)
+    ) {
+      appendConflictingMintTransaction(pendingMintTransaction);
+    }
+    pendingMintTransaction = incoming;
+    projectPendingMintTransaction(incoming, {
+      deploymentWarning: !isPendingMintDeploymentCompatible(incoming),
+    });
+    recordCurrentMintConsoleState();
+    syncInterface();
+    if (isPendingMintDeploymentCompatible(incoming)) {
+      resumePendingMintReceiptMonitoring();
+    }
+    resumeConflictingMintReceiptMonitoring();
+  });
+};
+
+const walletConnectionConsoleFailure = (error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  const code =
+    typeof error === "object" && error !== null && "code" in error
+      ? String((error as { code?: unknown }).code)
+      : "";
+  if (code === "4001" || /reject|denied|cancel/i.test(message)) {
+    return { title: "wallet connection canceled", detail: "nothing changed" };
+  }
+  if (code === "-32002" || /already.*(?:pending|open)|request.*pending/i.test(message)) {
+    return { title: "wallet request already open", detail: "finish or cancel it in your wallet" };
+  }
+  return { title: "wallet not connected", detail: "try connecting again" };
+};
+
 const requestWalletConnect = async () => {
   const sharedWallet = getThoughtShellWallet();
   if (sharedWallet.ready) {
@@ -9192,6 +9972,13 @@ const requestWalletConnect = async () => {
     walletDisconnectedByUser = false;
     setWarning("");
     walletConnectInFlight = true;
+    if (mintFlowState !== "closed") {
+      emitThoughtConsoleEvent({
+        kind: "wallet_connection_requested",
+        title: "wallet connection requested",
+        detail: "finish or cancel the request in your wallet",
+      });
+    }
     syncInterface();
 
     try {
@@ -9217,8 +10004,17 @@ const requestWalletConnect = async () => {
         walletStage: "connector",
         errorCategory: thoughtAnalyticsErrorCategory(error),
       });
-      setWarning(error instanceof Error ? error.message : "wallet connect failed.");
+      const message = error instanceof Error ? error.message : "wallet connect failed.";
+      setWarning(message);
       setStatus("");
+      if (mintFlowState !== "closed") {
+        const consoleFailure = walletConnectionConsoleFailure(error);
+        emitThoughtConsoleEvent({
+          kind: "wallet_connection_failed",
+          ...consoleFailure,
+          tone: "warning",
+        });
+      }
     } finally {
       walletConnectInFlight = false;
       syncInterface();
@@ -9245,6 +10041,13 @@ const requestWalletConnect = async () => {
   walletDisconnectedByUser = false;
   setWarning("");
   walletConnectInFlight = true;
+  if (mintFlowState !== "closed") {
+    emitThoughtConsoleEvent({
+      kind: "wallet_connection_requested",
+      title: "wallet connection requested",
+      detail: "finish or cancel the request in your wallet",
+    });
+  }
   syncInterface();
 
   try {
@@ -9294,6 +10097,14 @@ const requestWalletConnect = async () => {
     const message = error instanceof Error ? error.message : "wallet connect failed.";
     setWarning(message);
     setStatus("");
+    if (mintFlowState !== "closed") {
+      const consoleFailure = walletConnectionConsoleFailure(error);
+      emitThoughtConsoleEvent({
+        kind: "wallet_connection_failed",
+        ...consoleFailure,
+        tone: "warning",
+      });
+    }
   } finally {
     walletConnectInFlight = false;
     syncInterface();
@@ -9353,6 +10164,8 @@ const switchWalletChain = async () => {
 };
 
 const disconnectThoughtDockWallet = (options?: { appendCli?: boolean }) => {
+  const trackedMint = adoptDurablePendingMintTransaction();
+  const keepsSubmittedMint = Boolean(trackedMint);
   const sharedWallet = getThoughtShellWallet();
   if (sharedWallet.ready) {
     void sharedWallet.disconnect();
@@ -9363,10 +10176,16 @@ const disconnectThoughtDockWallet = (options?: { appendCli?: boolean }) => {
   walletState.balance = null;
   walletState.preflightLoading = false;
   walletState.preflightError = "";
-  resetPathInventoryState();
-  clearMintPathSelection();
+  if (!trackedMint) {
+    resetPathInventoryState();
+    clearMintPathSelection();
+  }
 
-  if (mintFlowState !== "closed" && mintFlowState !== "minted") {
+  if (!keepsSubmittedMint) {
+    mintAttemptId = nextMintAttemptId("wallet");
+  }
+
+  if (!trackedMint && mintFlowState !== "closed" && mintFlowState !== "minted") {
     mintFlowState = "wallet_required";
     mintFlowData.error = "";
     mintFlowData.errorKind = "none";
@@ -9380,6 +10199,20 @@ const disconnectThoughtDockWallet = (options?: { appendCli?: boolean }) => {
     ]);
   } else {
     setStatus("wallet disconnected.", { flashMs: NOTICE_FLASH_MS });
+  }
+
+  if (keepsSubmittedMint && trackedMint) {
+    projectPendingMintTransaction(trackedMint, {
+      deploymentWarning: !isPendingMintDeploymentCompatible(trackedMint),
+    });
+    emitThoughtConsoleEvent({
+      kind: "wallet_changed_after_submission",
+      title: "wallet disconnected",
+      detail: `Mint from ${shortHex(trackedMint.account)} on chain ${trackedMint.chainId} keeps tracking.`,
+    });
+  } else {
+    recordThoughtConsoleContextBoundary();
+    if (mintFlowState !== "closed") recordCurrentMintConsoleState();
   }
 
   syncInterface();
@@ -9452,8 +10285,23 @@ const handlePendingTx = async () => {
 
 const openMintFlow = async (
   uiMode: MintFlowUiMode = THOUGHT_PANEL_MINT_UI_MODE,
+  options?: { attemptId?: string; pathId?: string },
 ) => {
-  resetMintFlow();
+  const trackedMint = adoptDurablePendingMintTransaction();
+  if (trackedMint) {
+    projectPendingMintTransaction(trackedMint, {
+      deploymentWarning: !isPendingMintDeploymentCompatible(trackedMint),
+    });
+    recordCurrentMintConsoleState();
+    syncInterface();
+    if (isPendingMintDeploymentCompatible(trackedMint)) {
+      resumePendingMintReceiptMonitoring();
+    }
+    return;
+  }
+  resetMintFlow({ preserveAttempt: true });
+  mintAttemptId = options?.attemptId?.trim() || nextMintAttemptId("mint");
+  mintFlowData.pathIdInput = options?.pathId?.trim() ?? "";
   mintFlowUiMode = uiMode;
 
   if (!THOUGHT_V2_MINT_ENABLED) {
@@ -9556,6 +10404,7 @@ const openMintFlow = async (
     if (existingTokenId !== 0n) {
       mintFlowData.existingTokenId = Number(existingTokenId);
       mintFlowState = "text_taken";
+      recordCurrentMintConsoleState();
       syncInterface();
       return;
     }
@@ -9577,6 +10426,64 @@ const openMintFlow = async (
   }
 };
 
+type PathEligibilityResult =
+  | { ok: true }
+  | { ok: false; kind: MintFlowErrorKind; message: string };
+
+const readPathEligibility = async (
+  pathId: bigint,
+  address: string,
+): Promise<PathEligibilityResult> => {
+  const pathNft = getReadPathNft();
+  if (!pathNft) {
+    return { ok: false, kind: "thought", message: "mint unavailable." };
+  }
+
+  try {
+    const owner = (await pathNft.ownerOf(pathId)) as string;
+    const [authorizedMinter, stage, stageMinted, movementQuota] = await Promise.all([
+      pathNft.getAuthorizedMinter(PATH_MOVEMENT_THOUGHT) as Promise<string>,
+      pathNft.getStage(pathId) as Promise<bigint>,
+      pathNft.getStageMinted(pathId) as Promise<bigint>,
+      pathNft.getMovementQuota(PATH_MOVEMENT_THOUGHT) as Promise<bigint>,
+    ]);
+    if (owner.toLowerCase() !== address.toLowerCase()) {
+      return {
+        ok: false,
+        kind: "path_not_found",
+        message: `wallet does not hold $PATH #${pathId.toString()}.`,
+      };
+    }
+    if (
+      authorizedMinter.toLowerCase() !== THOUGHT_NFT_ADDRESS.toLowerCase() ||
+      movementQuota === 0n
+    ) {
+      return {
+        ok: false,
+        kind: "path_not_ready",
+        message: `$PATH #${pathId.toString()} not ready for THOUGHT.`,
+      };
+    }
+    if (stage !== 0n || stageMinted >= movementQuota) {
+      return {
+        ok: false,
+        kind: "path_consumed",
+        message: `$PATH #${pathId.toString()} has no THOUGHT mint available.`,
+      };
+    }
+    return { ok: true };
+  } catch (error) {
+    const notFound = error instanceof Error && /invalid token|nonexistent|erc721|owner query/i.test(error.message);
+    return {
+      ok: false,
+      kind: notFound ? "path_not_found" : "path_unknown",
+      message: notFound
+        ? `wallet does not hold $PATH #${pathId.toString()}.`
+        : `$PATH #${pathId.toString()} status unknown.`,
+    };
+  }
+};
+
 const checkPathEligibility = async () => {
   clearMintAuthorization();
   walletState.txState = "idle";
@@ -9585,13 +10492,16 @@ const checkPathEligibility = async () => {
   if (!PATH_NFT_ADDRESS || !THOUGHT_NFT_ADDRESS) {
     setMintFlowError("mint unavailable.", "thought");
     syncInterface();
+    focusMintDockStage();
     return;
   }
 
   const ethereum = getEthereumProvider();
   if (!ethereum) {
     mintFlowState = "wallet_required";
+    recordCurrentMintConsoleState();
     syncInterface();
+    focusMintDockStage();
     return;
   }
 
@@ -9599,13 +10509,16 @@ const checkPathEligibility = async () => {
 
   if (!walletState.address) {
     mintFlowState = "wallet_required";
+    recordCurrentMintConsoleState();
     syncInterface();
+    focusMintDockStage();
     return;
   }
 
   if (walletState.chainId !== THOUGHT_CHAIN_ID) {
     setMintFlowError("wrong network.", "wrong_network");
     syncInterface();
+    focusMintDockStage();
     return;
   }
 
@@ -9613,13 +10526,7 @@ const checkPathEligibility = async () => {
   if (pathId === null) {
     setMintFlowError("enter a valid $PATH #.", "path_invalid");
     syncInterface();
-    return;
-  }
-
-  const pathNft = getReadPathNft();
-  if (!pathNft) {
-    setMintFlowError("mint unavailable.", "thought");
-    syncInterface();
+    focusMintDockStage();
     return;
   }
 
@@ -9629,82 +10536,60 @@ const checkPathEligibility = async () => {
   mintFlowData.errorKind = "none";
   syncInterface();
 
-  try {
-    const owner = (await pathNft.ownerOf(pathId)) as string;
-    const [authorizedMinter, stage, stageMinted, movementQuota] =
-      await Promise.all([
-        pathNft.getAuthorizedMinter(PATH_MOVEMENT_THOUGHT) as Promise<string>,
-        pathNft.getStage(pathId) as Promise<bigint>,
-        pathNft.getStageMinted(pathId) as Promise<bigint>,
-        pathNft.getMovementQuota(PATH_MOVEMENT_THOUGHT) as Promise<bigint>,
-      ]);
-    const wallet = walletState.address.toLowerCase();
-    if (owner.toLowerCase() !== wallet) {
-      setMintFlowError(`wallet does not hold $PATH #${pathId.toString()}.`, "path_not_found");
-      syncInterface();
-      return;
-    }
-
-    if (authorizedMinter.toLowerCase() !== THOUGHT_NFT_ADDRESS.toLowerCase()) {
-      setMintFlowError(`$PATH #${pathId.toString()} not ready for THOUGHT.`, "path_not_ready");
-      syncInterface();
-      return;
-    }
-
-    if (movementQuota === 0n) {
-      setMintFlowError(`$PATH #${pathId.toString()} not ready for THOUGHT.`, "path_not_ready");
-      syncInterface();
-      return;
-    }
-
-    if (stage !== 0n || stageMinted >= movementQuota) {
-      setMintFlowError(
-        `$PATH #${pathId.toString()} has no THOUGHT unit available.`,
-        "path_consumed",
-      );
-      syncInterface();
-      return;
-    }
-
-    mintFlowState = "path_ready";
-    mintFlowData.error = "";
-    mintFlowData.errorKind = "none";
+  const eligibility = await readPathEligibility(pathId, walletState.address);
+  if (!eligibility.ok) {
+    setMintFlowError(eligibility.message, eligibility.kind);
     syncInterface();
-  } catch (error) {
-    const notFound = error instanceof Error && /invalid token|nonexistent|erc721|owner query/i.test(error.message);
-    setMintFlowError(
-      notFound ? `wallet does not hold $PATH #${pathId.toString()}.` : `$PATH #${pathId.toString()} status unknown.`,
-      notFound ? "path_not_found" : "path_unknown",
-    );
-    syncInterface();
+    focusMintDockStage();
+    return;
   }
+
+  mintFlowState = "path_ready";
+  mintFlowData.error = "";
+  mintFlowData.errorKind = "none";
+  recordCurrentMintConsoleState();
+  syncInterface();
+  focusMintDockStage();
 };
 
 const authorizeMint = async () => {
+  if (mintAuthorizationInFlight) {
+    return;
+  }
+  if (blockPendingMintMutation()) {
+    return;
+  }
   if (!getEthereumProvider() || !walletState.address || mintFlowData.pathId === null) {
     mintFlowState = "wallet_required";
+    recordCurrentMintConsoleState();
     syncInterface();
+    focusMintDockStage();
     return;
   }
 
-  if (mintFlowState === "authorizing") {
-    return;
-  }
-
+  mintAuthorizationInFlight = true;
   const expectedAddress = walletState.address;
   const expectedPathId = mintFlowData.pathId;
   const requestId = mintAuthorizationRequestId + 1;
   mintAuthorizationRequestId = requestId;
   let authorizationStage: ThoughtAuthorizationStage = "preparing";
+  mintFlowState = "authorizing";
+  walletState.txError = "";
+  mintFlowData.error = "";
+  mintFlowData.errorKind = "none";
+  recordCurrentMintConsoleState();
+  syncInterface();
+  setWarning("");
+  setStatus("");
 
   try {
-    mintFlowState = "authorizing";
-    walletState.txError = "";
-    mintFlowData.error = "";
-    mintFlowData.errorKind = "none";
-    syncInterface();
-    setWarning("");
-    setStatus("");
+    const eligibility = await readPathEligibility(expectedPathId, expectedAddress);
+    if (!eligibility.ok) {
+      setMintFlowError(eligibility.message, eligibility.kind);
+      syncInterface();
+      focusMintDockStage();
+      return;
+    }
 
     await rebuildFinalMintProvenance();
     if (requestId !== mintAuthorizationRequestId) return;
@@ -9758,27 +10643,38 @@ const authorizeMint = async () => {
     mintFlowData.deadline = consumeAuth.deadline;
     mintFlowData.signature = consumeAuth.signature;
     mintFlowState = "authorized";
+    recordCurrentMintConsoleState();
   } catch (error) {
     if (requestId !== mintAuthorizationRequestId) return;
     const presentation = formatThoughtAuthorizationError(error, authorizationStage);
     setMintFlowError(presentation.message, presentation.kind);
     syncInterface();
+    focusMintDockStage();
     return;
+  } finally {
+    mintAuthorizationInFlight = false;
   }
 
   syncInterface();
+  focusMintDockStage();
 };
 
 type MintTransactionResponse = {
   hash: string;
   nonce?: number;
   from?: string;
-  wait: () => Promise<{ logs?: Array<{ topics: string[]; data: string }> } | null>;
+  wait: () => Promise<MintReceipt | null>;
 };
 
 type MintReceipt = {
+  status?: unknown;
   logs?: readonly { topics: readonly string[]; data: string }[];
 };
+
+type MintReceiptResult = Readonly<{
+  hash: string;
+  receipt: MintReceipt;
+}>;
 
 const mintErrorMessage = (error: unknown) => {
   const errorName =
@@ -9828,21 +10724,106 @@ const sleep = (ms: number) => new Promise((resolve) => {
   window.setTimeout(resolve, ms);
 });
 
-const waitForMintReceiptByHash = async (tx: MintTransactionResponse): Promise<MintReceipt | null> => {
-  const provider = getReadProvider();
-  const deadline = Date.now() + MINT_RECEIPT_TIMEOUT_MS;
+const mintReceiptFromUnknown = (value: unknown): MintReceipt | null => {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+  const item = value as { status?: unknown; logs?: unknown };
+  const logs = Array.isArray(item.logs)
+    ? item.logs.flatMap((log) => {
+        if (typeof log !== "object" || log === null) return [];
+        const candidate = log as { topics?: unknown; data?: unknown };
+        if (
+          !Array.isArray(candidate.topics) ||
+          !candidate.topics.every((topic) => typeof topic === "string") ||
+          typeof candidate.data !== "string"
+        ) {
+          return [];
+        }
+        return [{ topics: candidate.topics, data: candidate.data }];
+      })
+    : [];
+  return { status: item.status, logs };
+};
 
-  if (provider) {
-    while (Date.now() < deadline) {
-      const receipt = await provider.getTransactionReceipt(tx.hash);
-      if (receipt) {
-        return receipt;
+const migratePendingMintTransactionHash = (
+  expectedHash: string,
+  replacementHash: string,
+) => {
+  const durable = readPendingMintTransaction();
+  const current = pendingMintTransaction ?? durable;
+  if (!pendingMintTransactionMatches(current, expectedHash)) {
+    return false;
+  }
+  if (
+    durable &&
+    !pendingMintTransactionMatches(durable, expectedHash) &&
+    !pendingMintIdentityMatches(current!, durable)
+  ) {
+    return false;
+  }
+
+  pendingMintTransaction = replacePendingMintTransactionHash(current!, replacementHash);
+  writePendingMintTransaction(pendingMintTransaction);
+  walletState.txHash = pendingMintTransaction.hash;
+  mintFlowData.txHash = pendingMintTransaction.hash;
+  pendingMintReceiptMonitorHash = pendingMintTransaction.hash;
+  recordCurrentMintConsoleState();
+  syncInterface();
+  return true;
+};
+
+const waitForMintReceiptByHash = async (
+  tx: MintTransactionResponse,
+  onTrackedHash?: (hash: string) => void,
+): Promise<MintReceiptResult> => {
+  let trackedHash = tx.hash.toLowerCase();
+  try {
+    const receipt = await withTimeout(
+      tx.wait(),
+      MINT_RECEIPT_WAIT_TIMEOUT_MS,
+      MINT_RECEIPT_MONITOR_TIMEOUT_MESSAGE,
+    );
+    if (receipt && mintReceiptStatusOutcome(receipt.status) !== "unknown") {
+      return Object.freeze({ hash: trackedHash, receipt });
+    }
+  } catch (error) {
+    const replacement = parseMintTransactionReplacement(error);
+    if (replacement) {
+      if (replacement.cancelled) {
+        throw error;
       }
-      await sleep(MINT_RECEIPT_POLL_MS);
+      migratePendingMintTransactionHash(trackedHash, replacement.hash);
+      trackedHash = replacement.hash;
+      onTrackedHash?.(trackedHash);
+      const replacementReceipt = mintReceiptFromUnknown(replacement.receipt);
+      if (
+        replacementReceipt &&
+        mintReceiptStatusOutcome(replacementReceipt.status) !== "unknown"
+      ) {
+        return Object.freeze({ hash: trackedHash, receipt: replacementReceipt });
+      }
+    } else if (!classifyMintTrackingFailure(error, trackedHash).keepTracking) {
+      throw error;
     }
   }
 
-  return tx.wait();
+  const deadline = Date.now() + MINT_RECEIPT_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    for (const provider of getMintReceiptMonitoringProviders()) {
+      try {
+        const receipt = await provider.getTransactionReceipt(trackedHash);
+        if (receipt && mintReceiptStatusOutcome(receipt.status) !== "unknown") {
+          return Object.freeze({ hash: trackedHash, receipt });
+        }
+      } catch {
+        // Keep polling; a persisted hash is the source of truth while RPC reads recover.
+      }
+    }
+    await sleep(MINT_RECEIPT_POLL_MS);
+  }
+
+  throw new Error(MINT_RECEIPT_MONITOR_TIMEOUT_MESSAGE);
 };
 
 const resolveMintedTokenId = async (receipt: MintReceipt | null) => {
@@ -9897,9 +10878,42 @@ const selectedPathAlreadyConsumed = async () => {
   }
 };
 
-const recoverMintStateAfterRevert = async (shouldAppendCliResult: boolean) => {
+const clearPendingMintTransactionIfMatches = (expectedHash: string) => {
+  if (!pendingMintTransactionMatches(pendingMintTransaction, expectedHash)) {
+    return false;
+  }
+  const durable = readPendingMintTransaction();
+  if (durable && !pendingMintTransactionMatches(durable, expectedHash)) {
+    return false;
+  }
+  pendingMintTransaction = null;
+  writePendingMintTransaction(null);
+  return true;
+};
+
+const recoverMintStateAfterRevert = async (
+  shouldAppendCliResult: boolean,
+  expectedTrackedHash?: string,
+) => {
+  const stillOwnsTrackedMint = () =>
+    !expectedTrackedHash || pendingMintTransactionMatches(
+      pendingMintTransaction,
+      expectedTrackedHash,
+    );
+  if (!stillOwnsTrackedMint()) {
+    return false;
+  }
   const existingTokenId = await resolveExistingThoughtTokenId();
   if (existingTokenId !== null) {
+    if (!stillOwnsTrackedMint()) {
+      return false;
+    }
+    if (
+      expectedTrackedHash &&
+      !clearPendingMintTransactionIfMatches(expectedTrackedHash)
+    ) {
+      return false;
+    }
     walletState.txState = "idle";
     walletState.txError = "";
     walletState.mintedTokenId = existingTokenId;
@@ -9908,6 +10922,7 @@ const recoverMintStateAfterRevert = async (shouldAppendCliResult: boolean) => {
     pendingMyBrainRunPayload = null;
     clearThoughtGalleryCache();
     await refreshMintPreflight();
+    recordCurrentMintConsoleState();
     syncInterface();
 
     if (shouldAppendCliResult) {
@@ -9925,6 +10940,15 @@ const recoverMintStateAfterRevert = async (shouldAppendCliResult: boolean) => {
   }
 
   if (await selectedPathAlreadyConsumed()) {
+    if (!stillOwnsTrackedMint()) {
+      return false;
+    }
+    if (
+      expectedTrackedHash &&
+      !clearPendingMintTransactionIfMatches(expectedTrackedHash)
+    ) {
+      return false;
+    }
     const pathId = selectedCliPathId();
     setMintFlowError(
       pathId ? `$PATH #${pathId} has no THOUGHT unit available.` : "$PATH has no THOUGHT unit available.",
@@ -9938,19 +10962,40 @@ const recoverMintStateAfterRevert = async (shouldAppendCliResult: boolean) => {
 };
 
 const waitForMintReceipt = async (tx: MintTransactionResponse, shouldAppendCliResult: boolean) => {
+  let trackedHash = tx.hash.toLowerCase();
   try {
-    const receipt = await waitForMintReceiptByHash(tx);
-    const mintedTokenId = await resolveMintedTokenId(receipt);
+    const result = await waitForMintReceiptByHash(tx, (replacementHash) => {
+      trackedHash = replacementHash;
+    });
+    trackedHash = result.hash;
+    if (!pendingMintTransactionMatches(pendingMintTransaction, trackedHash)) {
+      return;
+    }
+    const receiptOutcome = mintReceiptStatusOutcome(result.receipt.status);
+    if (receiptOutcome === "reverted") {
+      throw new Error("transaction reverted.");
+    }
+    if (receiptOutcome !== "success") {
+      throw new Error("mint receipt status unavailable.");
+    }
+    const mintedTokenId = await resolveMintedTokenId(result.receipt);
+    if (!pendingMintTransactionMatches(pendingMintTransaction, trackedHash)) {
+      return;
+    }
+    if (!clearPendingMintTransactionIfMatches(trackedHash)) {
+      return;
+    }
 
     walletState.txState = "idle";
     walletState.txError = "";
     walletState.mintedTokenId = mintedTokenId;
-    walletState.txHash = tx.hash;
-    mintFlowData.txHash = tx.hash;
+    walletState.txHash = trackedHash;
+    mintFlowData.txHash = trackedHash;
     mintFlowState = "minted";
     pendingMyBrainRunPayload = null;
     clearThoughtGalleryCache();
     await refreshMintPreflight();
+    recordCurrentMintConsoleState();
     syncInterface();
     trackThoughtAnalytics("mint_succeeded", {
       mintStage: "confirmed",
@@ -9968,15 +11013,53 @@ const waitForMintReceipt = async (tx: MintTransactionResponse, shouldAppendCliRe
       ].filter(Boolean));
     }
   } catch (error) {
-    if (await recoverMintStateAfterRevert(shouldAppendCliResult)) {
+    const ownedHash = pendingMintTransactionMatches(pendingMintTransaction, trackedHash)
+      ? trackedHash
+      : "";
+    if (!ownedHash) {
       return;
     }
-
+    const trackingFailure = classifyMintTrackingFailure(error, ownedHash);
+    if (
+      !trackingFailure.keepTracking &&
+      await recoverMintStateAfterRevert(shouldAppendCliResult, ownedHash)
+    ) {
+      return;
+    }
+    if (!pendingMintTransactionMatches(pendingMintTransaction, ownedHash)) {
+      return;
+    }
     const message = mintErrorMessage(error);
-    setMintFlowError(
-      message,
-      message.includes("provenance too large") ? "thought" : message.includes("expired") ? "signature" : "mint",
-    );
+    const errorKind = message.includes("provenance too large")
+      ? "thought"
+      : message.includes("expired")
+        ? "signature"
+        : "mint";
+    const shouldKeepTracking = trackingFailure.keepTracking;
+    if (shouldKeepTracking) {
+      walletState.txState = "submitted";
+      walletState.txError = message;
+      mintFlowState = "minting";
+      mintFlowData.error = message;
+      mintFlowData.errorKind = "mint";
+      recordCurrentMintConsoleState();
+    } else {
+      if (!clearPendingMintTransactionIfMatches(ownedHash)) {
+        const durable = readPendingMintTransaction();
+        if (durable) {
+          pendingMintTransaction = durable;
+          projectPendingMintTransaction(durable, {
+            deploymentWarning: !isPendingMintDeploymentCompatible(durable),
+          });
+        }
+        syncInterface();
+        return;
+      }
+      setMintFlowError(message, errorKind, {
+        preserveAuthorization: errorKind === "mint",
+        preserveSubmittedTransaction: false,
+      });
+    }
     syncInterface();
     setStatus("");
     trackThoughtAnalytics("mint_failed", {
@@ -9992,33 +11075,334 @@ const waitForMintReceipt = async (tx: MintTransactionResponse, shouldAppendCliRe
 
 const detectSubmittedTxNonceGap = async (
   tx: MintTransactionResponse,
-  fallbackAddress: string,
+  submission: MintSubmissionContext,
   provider: JsonRpcProvider | BrowserProvider | null,
 ) => {
-  if (typeof tx.nonce !== "number" || !provider) {
+  if (!provider) {
     return null;
   }
 
-  const from = tx.from || fallbackAddress || walletState.address;
-  if (!from) {
-    return null;
-  }
+  const submittedNonce = typeof tx.nonce === "number" ? tx.nonce : submission.nonce;
 
   try {
-    const expectedNonce = await provider.getTransactionCount(from, "pending");
-    return tx.nonce > expectedNonce ? { actual: tx.nonce, expected: expectedNonce } : null;
+    const expectedNonce = await provider.getTransactionCount(submission.account, "pending");
+    return submittedNonce > expectedNonce ? { actual: submittedNonce, expected: expectedNonce } : null;
   } catch {
     return null;
   }
 };
 
+const appendConflictingMintTransaction = (
+  transaction: PendingMintTransaction,
+) => {
+  const durable = readConflictingMintTransactions();
+  const next = [...durable, ...conflictingMintTransactions, transaction]
+    .filter((candidate, index, all) =>
+      all.findIndex((item) => item.hash === candidate.hash) === index
+    )
+    .slice(-8);
+  conflictingMintTransactions = next;
+  writeConflictingMintTransactions(next);
+};
+
+const removeConflictingMintTransaction = (hash: string) => {
+  const normalizedHash = hash.toLowerCase();
+  const next = conflictingMintTransactions.filter(
+    (transaction) => transaction.hash !== normalizedHash,
+  );
+  if (next.length === conflictingMintTransactions.length) {
+    return false;
+  }
+  conflictingMintTransactions = next;
+  writeConflictingMintTransactions(next);
+  return true;
+};
+
+const removeConflictingMintIdentity = (transaction: PendingMintTransaction) => {
+  const next = conflictingMintTransactions.filter(
+    (candidate) => !pendingMintIdentityMatches(candidate, transaction),
+  );
+  conflictingMintTransactions = next;
+  writeConflictingMintTransactions(next);
+};
+
+const clearPendingMintIdentityIfMatches = (transaction: PendingMintTransaction) => {
+  const durable = readPendingMintTransaction();
+  const current = pendingMintTransaction ?? durable;
+  if (current && !pendingMintIdentityMatches(current, transaction)) {
+    return false;
+  }
+  if (durable && !pendingMintIdentityMatches(durable, transaction)) {
+    return false;
+  }
+  pendingMintTransaction = null;
+  writePendingMintTransaction(null);
+  return true;
+};
+
+const finalizeSuccessfulKnownMint = async (
+  transaction: PendingMintTransaction,
+  receipt: MintReceipt,
+  shouldAppendCliResult: boolean,
+) => {
+  const current = pendingMintTransaction ?? readPendingMintTransaction();
+  if (current && !pendingMintIdentityMatches(current, transaction)) {
+    return false;
+  }
+  const mintedTokenId = await resolveMintedTokenId(receipt);
+  if (!clearPendingMintIdentityIfMatches(transaction)) {
+    return false;
+  }
+  removeConflictingMintIdentity(transaction);
+
+  mintAttemptId = transaction.attemptId?.trim() || mintAttemptId;
+  mintFlowData.textHash = transaction.workHash;
+  mintFlowData.pathIdInput = transaction.pathId;
+  mintFlowData.pathId = BigInt(transaction.pathId);
+  mintFlowData.txHash = transaction.hash;
+  mintFlowData.error = "";
+  mintFlowData.errorKind = "none";
+  walletState.txState = "idle";
+  walletState.txError = "";
+  walletState.txHash = transaction.hash;
+  walletState.mintedTokenId = mintedTokenId;
+  mintFlowState = "minted";
+  pendingMyBrainRunPayload = null;
+  clearThoughtGalleryCache();
+  await refreshMintPreflight();
+  emitThoughtConsoleEvent({
+    kind: "mint_receipt_confirmed",
+    title: "THOUGHT mint confirmed",
+    detail: `${shortHex(transaction.hash, 10, 8)} confirmed on-chain.`,
+    eventId: `mint-confirmed:${transaction.hash}`,
+  });
+  recordCurrentMintConsoleState();
+  syncInterface();
+  trackThoughtAnalytics("mint_succeeded", {
+    mintStage: "confirmed",
+  });
+
+  if (shouldAppendCliResult) {
+    appendCliOutput([
+      "minted.",
+      mintedTokenId !== null ? `THOUGHT: #${mintedTokenId}` : "THOUGHT: minted",
+      `$PATH #${transaction.pathId} THOUGHT unit consumed.`,
+      "use: view tx",
+      viewThoughtUseLine(mintedTokenId),
+      "use: gallery",
+    ].filter(Boolean));
+  }
+  return true;
+};
+
+const readKnownMintReceiptOnce = async (hash: string): Promise<MintReceipt | null> => {
+  for (const provider of getMintReceiptMonitoringProviders()) {
+    try {
+      const receipt = await withTimeout(
+        provider.getTransactionReceipt(hash),
+        MINT_RECEIPT_WAIT_TIMEOUT_MS,
+        MINT_RECEIPT_MONITOR_TIMEOUT_MESSAGE,
+      );
+      if (receipt && mintReceiptStatusOutcome(receipt.status) !== "unknown") {
+        return {
+          status: receipt.status,
+          logs: receipt.logs.map((log) => ({
+            topics: [...log.topics],
+            data: log.data,
+          })),
+        };
+      }
+    } catch {
+      // A transport failure is not a terminal receipt result. Try another provider.
+    }
+  }
+  return null;
+};
+
+const reconcileKnownMintReceipt = async (
+  transaction: PendingMintTransaction,
+  receipt: MintReceipt,
+  shouldAppendCliResult: boolean,
+) => {
+  const outcome = mintReceiptStatusOutcome(receipt.status);
+  if (outcome === "success") {
+    return finalizeSuccessfulKnownMint(transaction, receipt, shouldAppendCliResult);
+  }
+  if (outcome !== "reverted") {
+    return false;
+  }
+
+  if (pendingMintTransactionMatches(pendingMintTransaction, transaction.hash)) {
+    if (await recoverMintStateAfterRevert(shouldAppendCliResult, transaction.hash)) {
+      return true;
+    }
+    if (!clearPendingMintTransactionIfMatches(transaction.hash)) {
+      return false;
+    }
+    const promoted = adoptDurablePendingMintTransaction();
+    if (promoted) {
+      projectPendingMintTransaction(promoted, {
+        deploymentWarning: !isPendingMintDeploymentCompatible(promoted),
+      });
+      if (isPendingMintDeploymentCompatible(promoted)) {
+        resumePendingMintReceiptMonitoring();
+      }
+      recordCurrentMintConsoleState();
+      syncInterface();
+      return true;
+    }
+    setMintFlowError("transaction reverted.", "mint", {
+      preserveAuthorization: true,
+      preserveSubmittedTransaction: false,
+    });
+    recordCurrentMintConsoleState();
+    syncInterface();
+    resumeConflictingMintReceiptMonitoring();
+    return true;
+  }
+
+  if (!removeConflictingMintTransaction(transaction.hash)) {
+    return false;
+  }
+  emitThoughtConsoleEvent({
+    kind: "conflicting_mint_reverted",
+    title: "returned mint hash reverted",
+    detail: `${shortHex(transaction.hash, 10, 8)} reverted; the original hash remains tracked.`,
+    eventId: `conflicting-mint-reverted:${transaction.hash}`,
+    tone: "warning",
+  });
+  if (pendingMintTransaction) {
+    projectPendingMintTransaction(pendingMintTransaction, {
+      deploymentWarning: !isPendingMintDeploymentCompatible(pendingMintTransaction),
+    });
+  }
+  recordCurrentMintConsoleState();
+  syncInterface();
+  return true;
+};
+
+const monitorConflictingMintReceipt = async (
+  transaction: PendingMintTransaction,
+  shouldAppendCliResult: boolean,
+) => {
+  const deadline = Date.now() + MINT_RECEIPT_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    if (!conflictingMintTransactions.some((candidate) => candidate.hash === transaction.hash)) {
+      return;
+    }
+    const receipt = await readKnownMintReceiptOnce(transaction.hash);
+    if (receipt && await reconcileKnownMintReceipt(
+      transaction,
+      receipt,
+      shouldAppendCliResult,
+    )) {
+      return;
+    }
+    await sleep(MINT_RECEIPT_POLL_MS);
+  }
+
+  if (!conflictingMintTransactions.some((candidate) => candidate.hash === transaction.hash)) {
+    return;
+  }
+  const message = `Automatic confirmation monitoring is delayed for returned hash ${shortHex(transaction.hash, 10, 8)}. Hash retained; do not submit a duplicate.`;
+  walletState.txState = "submitted";
+  walletState.txError = message;
+  mintFlowData.error = message;
+  mintFlowData.errorKind = "mint";
+  mintFlowState = "minting";
+  recordCurrentMintConsoleState();
+  syncInterface();
+};
+
+const startConflictingMintReceiptMonitor = (
+  transaction: PendingMintTransaction,
+  shouldAppendCliResult = false,
+) => {
+  if (
+    !isPendingMintDeploymentCompatible(transaction) ||
+    conflictingMintReceiptMonitorHashes.has(transaction.hash)
+  ) {
+    return false;
+  }
+  conflictingMintReceiptMonitorHashes.add(transaction.hash);
+  void monitorConflictingMintReceipt(transaction, shouldAppendCliResult).finally(() => {
+    conflictingMintReceiptMonitorHashes.delete(transaction.hash);
+  });
+  return true;
+};
+
+const resumeConflictingMintReceiptMonitoring = () => {
+  conflictingMintTransactions.forEach((transaction) => {
+    startConflictingMintReceiptMonitor(transaction);
+  });
+};
+
+const startMintReceiptMonitor = (
+  tx: MintTransactionResponse,
+  shouldAppendCliResult: boolean,
+) => {
+  const hash = tx.hash.toLowerCase();
+  if (pendingMintReceiptMonitorHash === hash) {
+    return;
+  }
+  const generation = pendingMintReceiptMonitorGeneration + 1;
+  pendingMintReceiptMonitorGeneration = generation;
+  pendingMintReceiptMonitorHash = hash;
+  void waitForMintReceipt(tx, shouldAppendCliResult).finally(() => {
+    if (pendingMintReceiptMonitorGeneration === generation) {
+      pendingMintReceiptMonitorHash = "";
+    }
+  });
+};
+
 const registerSubmittedMintTx = async (
   tx: MintTransactionResponse,
   shouldAppendCliResult: boolean,
-  fallbackAddress: string,
+  submission: MintSubmissionContext,
   provider: JsonRpcProvider | BrowserProvider | null,
 ) => {
-  const nonceGap = await detectSubmittedTxNonceGap(tx, fallbackAddress, provider);
+  const existing = pendingMintTransaction ?? readPendingMintTransaction();
+  if (existing) {
+    pendingMintTransaction = existing;
+    const sameHash = pendingMintTransactionMatches(existing, tx.hash);
+    if (!sameHash) {
+      const returnedTransaction = createPendingMintTransaction(
+        submission,
+        tx.hash,
+        Date.now(),
+      );
+      appendConflictingMintTransaction(returnedTransaction);
+      emitThoughtConsoleEvent({
+        kind: "multiple_mint_hashes_returned",
+        title: "multiple mint hashes returned",
+        detail: `${shortHex(existing.hash, 10, 8)} and ${shortHex(returnedTransaction.hash, 10, 8)} are both retained and monitored. Do not submit a duplicate.`,
+        eventId: `multiple-mint-hashes:${existing.hash}:${returnedTransaction.hash}`,
+        tone: "warning",
+      });
+      startConflictingMintReceiptMonitor(returnedTransaction, shouldAppendCliResult);
+    }
+    projectPendingMintTransaction(existing, {
+      deploymentWarning: !isPendingMintDeploymentCompatible(existing),
+    });
+    recordCurrentMintConsoleState();
+    syncInterface();
+    if (
+      sameHash &&
+      isPendingMintDeploymentCompatible(existing)
+    ) {
+      startMintReceiptMonitor(tx, shouldAppendCliResult);
+    } else if (isPendingMintDeploymentCompatible(existing)) {
+      resumePendingMintReceiptMonitoring();
+    }
+    return true;
+  }
+
+  mintAttemptId = submission.attemptId;
+  mintFlowData.textHash = submission.workHash;
+  mintFlowData.pathIdInput = submission.pathId;
+  mintFlowData.pathId = BigInt(submission.pathId);
+  pendingMintTransaction = createPendingMintTransaction(submission, tx.hash, Date.now());
+  writePendingMintTransaction(pendingMintTransaction);
   walletState.txState = "submitted";
   walletState.txHash = tx.hash;
   mintFlowData.txHash = tx.hash;
@@ -10026,10 +11410,29 @@ const registerSubmittedMintTx = async (
   trackThoughtAnalytics("mint_started", {
     mintStage: "submitted",
   });
+  recordCurrentMintConsoleState();
+  syncInterface();
 
-  if (nonceGap) {
+  if (shouldAppendCliResult) {
+    appendCliOutput(["transaction submitted.", `tx: ${shortHex(tx.hash, 10, 8)}`, "waiting for chain confirmation...", "use: view tx"]);
+  }
+
+  startMintReceiptMonitor(tx, shouldAppendCliResult);
+  resumeConflictingMintReceiptMonitoring();
+  void detectSubmittedTxNonceGap(tx, submission, provider).then((nonceGap) => {
+    if (
+      !nonceGap ||
+      pendingMintTransaction?.hash.toLowerCase() !== tx.hash.toLowerCase()
+    ) {
+      return;
+    }
     const message = `transaction queued with nonce ${nonceGap.actual}; chain expects ${nonceGap.expected}.`;
-    setMintFlowError(message, "mint");
+    walletState.txState = "submitted";
+    walletState.txError = message;
+    mintFlowState = "minting";
+    mintFlowData.error = message;
+    mintFlowData.errorKind = "mint";
+    recordCurrentMintConsoleState();
     syncInterface();
     trackThoughtAnalytics("mint_failed", {
       mintStage: "submitted",
@@ -10043,20 +11446,311 @@ const registerSubmittedMintTx = async (
         `wallet nonce: ${nonceGap.actual}`,
         `chain expects: ${nonceGap.expected}`,
         "mint is not pending onchain yet.",
-        "reset Rabby nonce/activity, then retry confirm.",
-        "use: current",
+        "keep tracking this hash; do not submit a duplicate.",
+        "check Rabby activity and nonce before taking wallet action.",
+        "use: view tx",
       ]);
     }
-    return;
+  });
+  return true;
+};
+
+const resumePendingMintReceiptMonitoring = () => {
+  const pending = pendingMintTransaction;
+  if (!pending) {
+    return false;
   }
 
+  const resumedTx: MintTransactionResponse = {
+    hash: pending.hash,
+    nonce: pending.nonce,
+    from: pending.account,
+    wait: async () => {
+      const provider = getMintReceiptMonitoringProviders()[0];
+      if (!provider) {
+        throw new Error("mint receipt network unavailable.");
+      }
+      const receipt = await withTimeout(
+        provider.waitForTransaction(pending.hash),
+        MINT_RECEIPT_WAIT_TIMEOUT_MS,
+        MINT_RECEIPT_MONITOR_TIMEOUT_MESSAGE,
+      );
+      if (!receipt) return null;
+      return {
+        status: receipt.status,
+        logs: receipt.logs.map((log) => ({
+          topics: [...log.topics],
+          data: log.data,
+        })),
+      };
+    },
+  };
+  startMintReceiptMonitor(resumedTx, false);
+  return true;
+};
+
+const resumePendingMintTransaction = async () => {
+  const pending = pendingMintTransaction;
+  if (!pending) return false;
+
+  if (
+    pending.chainId !== THOUGHT_CHAIN_ID ||
+    pending.thoughtNft.toLowerCase() !== THOUGHT_NFT_ADDRESS.toLowerCase()
+  ) {
+    projectPendingMintTransaction(pending, { deploymentWarning: true });
+    emitThoughtConsoleEvent({
+      kind: "pending_mint_deployment_mismatch",
+      title: "mint deployment changed",
+      detail: `Keep tracking ${shortHex(pending.hash, 10, 8)} on chain ${pending.chainId}; this deployment cannot inspect it.`,
+      eventId: `pending-deployment:${pending.hash.toLowerCase()}`,
+      tone: "warning",
+    });
+    recordCurrentMintConsoleState();
+    syncInterface();
+    resumeConflictingMintReceiptMonitoring();
+    return true;
+  }
+
+  const retainedAttemptId = [...thoughtConsoleHistory.entries]
+    .reverse()
+    .find((entry) =>
+      entry.kind === "transaction_submitted" &&
+      entry.dedupeKey.includes(`transaction:${pending.hash.toLowerCase()}`)
+    )?.context.attemptId;
+  mintAttemptId = pending.attemptId?.trim() || retainedAttemptId || nextMintAttemptId("resume");
+  walletState.txError = "";
+  projectPendingMintTransaction(pending);
+  recordCurrentMintConsoleState();
   syncInterface();
+  resumePendingMintReceiptMonitoring();
+  resumeConflictingMintReceiptMonitoring();
+  return true;
+};
 
-  if (shouldAppendCliResult) {
-    appendCliOutput(["transaction submitted.", `tx: ${shortHex(tx.hash, 10, 8)}`, "waiting for chain confirmation...", "use: view tx"]);
+const restorePathMintHandoffWork = (handoff: PathMintHandoff) => {
+  if (handoff.work) {
+    const output = thoughtProtocolText(handoff.work.output, IS_LOCAL_THOUGHT_V2);
+    if (keccak256(toUtf8Bytes(output)).toLowerCase() !== handoff.workHash.toLowerCase()) {
+      return false;
+    }
+    const migratedSvg = migrateLegacyThoughtV2Svg(output, handoff.work.svg);
+    currentOutputText = output;
+    currentWorkSvg = migratedSvg.svg;
+    currentRunContext = isThoughtRunContext(handoff.work.runContext) ? handoff.work.runContext : null;
+    currentWorkId = handoff.work.workId;
+    runState = "output_ready";
+    writeCurrentOutputSession();
+    syncCurrentWorkVisual({ suppressWarning: true });
+    return true;
   }
 
-  void waitForMintReceipt(tx, shouldAppendCliResult);
+  return Boolean(
+    currentOutputText &&
+    keccak256(toUtf8Bytes(currentOutputText)).toLowerCase() === handoff.workHash.toLowerCase()
+  );
+};
+
+const pathTokenIdFromMintReceipt = (
+  receipt: { logs?: readonly { address?: string; topics?: readonly string[] }[] },
+  account: string,
+) => {
+  const zeroAddressTopic = `0x${"0".repeat(64)}`;
+  const accountTopic = account.toLowerCase().replace(/^0x/, "").padStart(64, "0");
+  for (const log of receipt.logs ?? []) {
+    const topics = log.topics ?? [];
+    if (
+      log.address?.toLowerCase() !== PATH_NFT_ADDRESS.toLowerCase() ||
+      topics[0]?.toLowerCase() !== ERC721_TRANSFER_TOPIC.toLowerCase() ||
+      topics[1]?.toLowerCase() !== zeroAddressTopic ||
+      topics[2]?.toLowerCase().replace(/^0x/, "") !== accountTopic ||
+      !topics[3]
+    ) {
+      continue;
+    }
+    try {
+      return BigInt(topics[3]).toString();
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+};
+
+const checkSubmittedPathMintReturn = async (
+  record: NonNullable<ReturnType<typeof readPathMintReturnRecord>>,
+) => {
+  if (record.status !== "submitted" || record.chainId !== THOUGHT_CHAIN_ID) {
+    return { outcome: "pending" as const, record };
+  }
+
+  const deadline = Date.now() + Math.min(5_000, MINT_RECEIPT_WAIT_TIMEOUT_MS);
+  do {
+    for (const provider of getMintReceiptMonitoringProviders()) {
+      try {
+        const receipt = await provider.getTransactionReceipt(record.txHash);
+        if (!receipt) continue;
+        const outcome = mintReceiptStatusOutcome(receipt.status);
+        if (outcome === "reverted") {
+          removePathMintReturnRecord(getPathMintReturnStorageHost(), record.handoffId);
+          return { outcome: "reverted" as const, record };
+        }
+        if (outcome === "success") {
+          const tokenId = pathTokenIdFromMintReceipt(receipt, record.account);
+          const confirmed = {
+            ...record,
+            status: "confirmed" as const,
+            ...(tokenId ? { tokenId } : {}),
+            updatedAt: Date.now(),
+          };
+          writePathMintReturnRecord(getPathMintReturnStorageHost(), confirmed);
+          return { outcome: "confirmed" as const, record: confirmed };
+        }
+      } catch {
+        // Null and transport failures retain the submitted record for another check.
+      }
+    }
+    await sleep(MINT_RECEIPT_POLL_MS);
+  } while (Date.now() < deadline);
+
+  return { outcome: "pending" as const, record };
+};
+
+const resumePathMintHandoff = async () => {
+  if (blockPendingMintMutation()) {
+    return true;
+  }
+  const handoff = readPathMintHandoff();
+  if (!handoff || !restorePathMintHandoffWork(handoff)) return false;
+
+  let returnRecord = readPathMintReturnRecord(
+    getPathMintReturnStorageHost(),
+    handoff.attemptId,
+  );
+  let submittedReturnOutcome: "pending" | "confirmed" | "reverted" | null = null;
+  if (returnRecord?.status === "submitted") {
+    const checked = await checkSubmittedPathMintReturn(returnRecord);
+    submittedReturnOutcome = checked.outcome;
+    returnRecord = checked.outcome === "reverted" ? null : checked.record;
+  }
+  const confirmedReturn = returnRecord?.status === "confirmed" ? returnRecord : null;
+  const resumesSameWallet =
+    Boolean(handoff.account) &&
+    Boolean(walletState.address) &&
+    walletState.address.toLowerCase() === handoff.account.toLowerCase() &&
+    walletState.chainId === THOUGHT_CHAIN_ID &&
+    (handoff.chainId === undefined || handoff.chainId === null || walletState.chainId === handoff.chainId);
+  resetMintFlow({ preserveAttempt: true });
+  mintAttemptId = confirmedReturn || resumesSameWallet
+    ? handoff.attemptId
+    : nextMintAttemptId("wallet");
+  mintFlowUiMode = THOUGHT_PANEL_MINT_UI_MODE;
+  mintFlowData.rawText = currentOutputText;
+  mintFlowData.textHash = handoff.workHash;
+  if (!confirmedReturn && !resumesSameWallet) {
+    recordThoughtConsoleContextBoundary();
+  }
+
+  const showReturnError = (message: string, kind: MintFlowErrorKind) => {
+    const work = getThoughtDockWorkView();
+    if (work) {
+      setThoughtDockState({ kind: "minting", work });
+    }
+    setMintFlowError(message, kind);
+    syncInterface();
+    return true;
+  };
+
+  if (submittedReturnOutcome === "reverted") {
+    return showReturnError(
+      "PATH transaction reverted. Mint a PATH or choose one already in this wallet.",
+      "path_not_found",
+    );
+  }
+
+  if (returnRecord?.status === "submitted" && returnRecord.chainId !== THOUGHT_CHAIN_ID) {
+    return showReturnError(
+      `PATH transaction is on chain ${returnRecord.chainId}; THOUGHT needs ${THOUGHT_CHAIN_NAME} (${THOUGHT_CHAIN_ID}).`,
+      "path_mint_chain_mismatch",
+    );
+  }
+
+  if (returnRecord?.status === "submitted") {
+    return showReturnError(
+      `PATH transaction ${shortHex(returnRecord.txHash, 10, 8)} is still confirming.`,
+      "path_mint_pending",
+    );
+  }
+
+  if (confirmedReturn && confirmedReturn.chainId !== THOUGHT_CHAIN_ID) {
+    return showReturnError(
+      `PATH was minted on chain ${confirmedReturn.chainId}; THOUGHT needs ${THOUGHT_CHAIN_NAME} (${THOUGHT_CHAIN_ID}).`,
+      "path_mint_chain_mismatch",
+    );
+  }
+
+  if (
+    confirmedReturn &&
+    (!walletState.address || walletState.address.toLowerCase() !== confirmedReturn.account.toLowerCase())
+  ) {
+    return showReturnError(
+      `PATH was minted to ${shortHex(confirmedReturn.account)}; select that account in your wallet to continue.`,
+      "wallet_account_mismatch",
+    );
+  }
+
+  if (confirmedReturn && walletState.chainId !== THOUGHT_CHAIN_ID) {
+    return showReturnError("wrong network.", "wrong_network");
+  }
+
+  emitThoughtConsoleEvent({
+    kind: "path_mint_returned",
+    title: "returned from PATH mint",
+    detail: "Rechecking wallet PATHs and resuming this THOUGHT mint.",
+    eventId: `path-return:${handoff.attemptId}`,
+  });
+  const resumed = await mintThoughtDockWork({
+    attemptId: mintAttemptId,
+    pathId: confirmedReturn?.tokenId,
+  });
+  if (!resumed) return false;
+
+  let resumeSucceeded =
+    mintFlowState === "text_taken" ||
+    mintFlowState === "minted" ||
+    mintFlowState === "path_ready";
+  if (!resumeSucceeded && confirmedReturn) {
+    if (confirmedReturn.tokenId && mintFlowState !== "error") {
+      await checkPathEligibility();
+      resumeSucceeded = mintFlowState === "path_ready";
+    } else if (mintFlowState !== "error") {
+      await refreshPathInventoryForCurrentWallet({ force: true });
+      resumeSucceeded =
+        pathInventoryMatchesCurrentWallet() &&
+        pathInventoryState.status === "loaded" &&
+        availablePathInventoryItems().length > 0;
+    }
+  } else if (
+    !resumeSucceeded &&
+    !confirmedReturn &&
+    mintFlowState === "path_required" &&
+    walletState.address &&
+    walletState.chainId === THOUGHT_CHAIN_ID
+  ) {
+    await refreshPathInventoryForCurrentWallet({ force: true });
+    resumeSucceeded =
+      pathInventoryMatchesCurrentWallet() &&
+      pathInventoryState.status === "loaded" &&
+      availablePathInventoryItems().length > 0;
+  }
+
+  if (resumeSucceeded) {
+    removePathMintReturnRecord(getPathMintReturnStorageHost(), handoff.attemptId);
+    removePathMintHandoff(handoff.attemptId);
+    const returnUrl = new URL(window.location.href);
+    returnUrl.searchParams.delete("pathHandoff");
+    window.history.replaceState({}, "", `${returnUrl.pathname}${returnUrl.search}${returnUrl.hash}`);
+  }
+  return true;
 };
 
 const rebuildFinalMintProvenance = async () => {
@@ -10086,9 +11780,16 @@ const rebuildFinalMintProvenance = async () => {
 
 const confirmMint = async (options?: { appendCliResult?: boolean }) => {
   const shouldAppendCliResult = options?.appendCliResult ?? false;
+  if (mintTransactionInFlight) {
+    return null;
+  }
+  if (blockPendingMintMutation({ cli: shouldAppendCliResult })) {
+    return pendingMintTransaction?.hash ?? null;
+  }
   const ethereum = getEthereumProvider();
   if (
     !ethereum ||
+    !walletState.address ||
     mintFlowData.pathId === null ||
     !mintFlowData.provenanceJson ||
     !mintFlowData.thoughtSpecId ||
@@ -10098,6 +11799,7 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
   ) {
     clearMintAuthorization();
     mintFlowState = "path_ready";
+    recordCurrentMintConsoleState();
     syncInterface();
     return;
   }
@@ -10112,103 +11814,460 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
     return;
   }
 
-  let txTimedOut = false;
+  const capturedAuthorization = Object.freeze({
+    attemptId: mintAttemptId,
+    account: walletState.address,
+    pathId: mintFlowData.pathId,
+    rawText: mintFlowData.rawText,
+    deadline: mintFlowData.deadline,
+    signature: mintFlowData.signature,
+  });
+  mintTransactionInFlight = true;
+  const requestId = mintTransactionRequestId + 1;
+  mintTransactionRequestId = requestId;
+  activeMintTransactionRequestId = requestId;
+  mintFlowState = "minting";
+  walletState.txState = "awaiting_signature";
+  walletState.txError = "";
+  mintFlowData.error = "";
+  mintFlowData.errorKind = "none";
+  recordCurrentMintConsoleState();
+  syncInterface();
   trackThoughtAnalytics("mint_started", {
     mintStage: "wallet_signature",
   });
 
   try {
-    await refreshWalletChainRpc();
     await rebuildFinalMintProvenance();
+    if (
+      walletState.address.toLowerCase() !== capturedAuthorization.account.toLowerCase() ||
+      mintFlowData.pathId !== capturedAuthorization.pathId ||
+      mintFlowData.rawText !== capturedAuthorization.rawText ||
+      mintFlowData.deadline !== capturedAuthorization.deadline ||
+      mintFlowData.signature !== capturedAuthorization.signature
+    ) {
+      throw new Error("mint context changed.");
+    }
+    const payload = Object.freeze({
+      attemptId: capturedAuthorization.attemptId,
+      account: capturedAuthorization.account,
+      promptLine: currentRunContext?.prompt ?? sessionState.prompt,
+      agentLine: capturedAuthorization.rawText,
+      pathId: capturedAuthorization.pathId,
+      thoughtSpecId: mintFlowData.thoughtSpecId,
+      thoughtSpecHash: mintFlowData.thoughtSpecHash,
+      promptHash: mintFlowData.promptHash,
+      provenanceJson: mintFlowData.provenanceJson,
+      deadline: capturedAuthorization.deadline,
+      pathSignature: capturedAuthorization.signature,
+      workHash: mintFlowData.textHash,
+    });
     const browserProvider = new BrowserProvider(ethereum);
-    const signer = await browserProvider.getSigner();
+    const signer = await browserProvider.getSigner(payload.account);
     const signerAddress = await signer.getAddress();
+    if (signerAddress.toLowerCase() !== payload.account.toLowerCase()) {
+      throw new Error("wallet account changed.");
+    }
+    const eligibility = await readPathEligibility(payload.pathId, signerAddress);
+    if (!eligibility.ok) {
+      setMintFlowError(eligibility.message, eligibility.kind);
+      syncInterface();
+      return null;
+    }
     const nonceProvider = getReadProvider() ?? browserProvider;
     const nonce = await nonceProvider.getTransactionCount(signerAddress, "pending");
     const writableToken = new Contract(THOUGHT_NFT_ADDRESS, THOUGHT_NFT_ABI, signer);
-
-    mintFlowState = "minting";
-    walletState.txState = "awaiting_signature";
-    walletState.txError = "";
-    mintFlowData.error = "";
-    mintFlowData.errorKind = "none";
-    syncInterface();
-
-    let txHandled = false;
-    const txPromise = (IS_LOCAL_THOUGHT_V2
-      ? writableToken.mint(
-          {
-            promptLine: currentRunContext?.prompt ?? sessionState.prompt,
-            agentLine: mintFlowData.rawText,
-            pathId: mintFlowData.pathId,
-            thoughtSpecId: mintFlowData.thoughtSpecId,
-            thoughtSpecHash: mintFlowData.thoughtSpecHash,
-            provenanceJson: mintFlowData.provenanceJson,
-            deadline: mintFlowData.deadline,
-            pathSignature: mintFlowData.signature,
-          },
-          { nonce },
-        )
-      : writableToken.mint(
-          mintFlowData.rawText,
-          mintFlowData.pathId,
-          mintFlowData.thoughtSpecId,
-          mintFlowData.thoughtSpecHash,
-          mintFlowData.promptHash,
-          mintFlowData.provenanceJson,
-          mintFlowData.deadline,
-          mintFlowData.signature,
-          { nonce },
-        )) as Promise<MintTransactionResponse>;
-
-    void txPromise.then((lateTx) => {
-      if (txHandled || !txTimedOut) {
-        return;
-      }
-      txHandled = true;
-      void registerSubmittedMintTx(lateTx, shouldAppendCliResult, signerAddress, nonceProvider);
-    }).catch(() => {
-      // The awaited path below owns the visible error state.
+    const submission = createMintSubmissionContext({
+      attemptId: payload.attemptId,
+      account: signerAddress,
+      chainId: THOUGHT_CHAIN_ID,
+      thoughtNft: THOUGHT_NFT_ADDRESS,
+      workHash: payload.workHash,
+      pathId: payload.pathId,
+      nonce,
+    });
+    let releaseLockAfterRecovery!: () => void;
+    const releaseLockSignal = new Promise<void>((resolve) => {
+      releaseLockAfterRecovery = resolve;
+    });
+    let resolveReleaseCompleted!: () => void;
+    const releaseCompleted = new Promise<void>((resolve) => {
+      resolveReleaseCompleted = resolve;
     });
 
-    const tx = await withTimeout(
-      txPromise,
-      WALLET_TX_SUBMIT_TIMEOUT_MS,
-      "wallet transaction not submitted.",
+    const lockedSubmission = await withMintSubmissionLock(
+      mintSubmissionLockEnvironment(),
+      async (lock) => {
+        const [liveAccounts, liveChainHex] = await withTimeout(
+          Promise.all([
+            ethereum.request({ method: "eth_accounts" }),
+            ethereum.request({ method: "eth_chainId" }),
+          ]),
+          PATH_AUTHORIZATION_REQUEST_TIMEOUT_MS,
+          "wallet status request timed out.",
+        );
+        const liveAddress = extractPrimaryAccount(liveAccounts);
+        const liveChainId =
+          typeof liveChainHex === "string" && liveChainHex.length > 0
+            ? Number(BigInt(liveChainHex))
+            : null;
+        if (!liveAddress || liveAddress.toLowerCase() !== payload.account.toLowerCase()) {
+          throw new Error("wallet account changed.");
+        }
+        if (liveChainId !== THOUGHT_CHAIN_ID) {
+          throw new Error("wrong network.");
+        }
+        if (!lock.ownsExclusion()) {
+          throw new Error("mint submission lock lost before wallet request.");
+        }
+
+        // This synchronous durable re-read is the last operation before opening
+        // the wallet transaction request. The origin-wide lock makes it atomic
+        // with respect to every cooperating THOUGHT tab.
+        const competingPending = pendingMintTransaction ?? readPendingMintTransaction();
+        if (competingPending) {
+          pendingMintTransaction = competingPending;
+          projectPendingMintTransaction(competingPending, {
+            deploymentWarning: !isPendingMintDeploymentCompatible(competingPending),
+          });
+          recordCurrentMintConsoleState();
+          syncInterface();
+          if (isPendingMintDeploymentCompatible(competingPending)) {
+            resumePendingMintReceiptMonitoring();
+          }
+          return competingPending.hash;
+        }
+
+        const txPromise = (IS_LOCAL_THOUGHT_V2
+          ? writableToken.mint(
+              {
+                promptLine: payload.promptLine,
+                agentLine: payload.agentLine,
+                pathId: payload.pathId,
+                thoughtSpecId: payload.thoughtSpecId,
+                thoughtSpecHash: payload.thoughtSpecHash,
+                provenanceJson: payload.provenanceJson,
+                deadline: payload.deadline,
+                pathSignature: payload.pathSignature,
+              },
+              { nonce },
+            )
+          : writableToken.mint(
+              payload.agentLine,
+              payload.pathId,
+              payload.thoughtSpecId,
+              payload.thoughtSpecHash,
+              payload.promptHash,
+              payload.provenanceJson,
+              payload.deadline,
+              payload.pathSignature,
+              { nonce },
+            )) as Promise<MintTransactionResponse>;
+
+        walletMintSubmitPromiseUnresolved = true;
+        unresolvedMintSubmission = Object.freeze({
+          requestId,
+          submission,
+          provider: nonceProvider,
+          releaseLockAfterRecovery,
+          releaseCompleted,
+        });
+        try {
+          try {
+            const tx = await withTimeout(
+              txPromise,
+              WALLET_TX_SUBMIT_TIMEOUT_MS,
+              "wallet transaction not submitted.",
+            );
+            await registerSubmittedMintTx(tx, shouldAppendCliResult, submission, nonceProvider);
+            return tx.hash;
+          } catch (error) {
+            const message = mintErrorMessage(error);
+            if (!message.includes("not submitted")) {
+              throw error;
+            }
+
+            setMintFlowError(message, "mint", { preserveAuthorization: true });
+            syncInterface();
+            setStatus("");
+            trackThoughtAnalytics("mint_failed", {
+              mintStage: "wallet_signature",
+              errorCategory: thoughtAnalyticsErrorCategory(error),
+            });
+
+            // Keep exclusion until the original wallet promise settles, unless
+            // the explicit recovery flow proves twice that no hash or nonce
+            // activity exists and asks this waiter to detach.
+            const lateOutcome = await waitForMintSubmissionOrRelease(
+              txPromise,
+              releaseLockSignal,
+            );
+            if (lateOutcome.kind === "settled") {
+              const lateTx = lateOutcome.value;
+              await registerSubmittedMintTx(
+                lateTx,
+                shouldAppendCliResult,
+                submission,
+                nonceProvider,
+              );
+              return lateTx.hash;
+            }
+            if (lateOutcome.kind === "rejected") {
+              const lateError = lateOutcome.error;
+              const lateMessage = mintErrorMessage(lateError);
+              setMintFlowError(lateMessage, "mint", { preserveAuthorization: true });
+              recordCurrentMintConsoleState();
+              trackThoughtAnalytics("mint_failed", {
+                mintStage: "wallet_signature",
+                errorCategory: thoughtAnalyticsErrorCategory(lateError),
+              });
+              return null;
+            }
+
+            // The provider promise itself is not cancelled. Any late hash is
+            // still registered, persisted, and reconciled against a retried hash.
+            void txPromise.then(
+              async (lateTx) => {
+                await registerSubmittedMintTx(
+                  lateTx,
+                  false,
+                  submission,
+                  nonceProvider,
+                );
+              },
+              (lateError) => {
+                emitThoughtConsoleEvent({
+                  kind: "detached_mint_request_settled",
+                  title: "detached wallet request closed",
+                  detail: mintErrorMessage(lateError),
+                  eventId: `detached-mint-settled:${requestId}`,
+                });
+              },
+            );
+            return null;
+          }
+        } finally {
+          if (unresolvedMintSubmission?.requestId === requestId) {
+            unresolvedMintSubmission = null;
+            walletMintSubmitPromiseUnresolved = false;
+          }
+          syncInterface();
+        }
+      },
     );
-    if (!txHandled) {
-      txHandled = true;
-      await registerSubmittedMintTx(tx, shouldAppendCliResult, signerAddress, nonceProvider);
+    resolveReleaseCompleted();
+
+    if (!lockedSubmission.acquired) {
+      const competingPending = readPendingMintTransaction();
+      if (competingPending) {
+        pendingMintTransaction = competingPending;
+        projectPendingMintTransaction(competingPending, {
+          deploymentWarning: !isPendingMintDeploymentCompatible(competingPending),
+        });
+        recordCurrentMintConsoleState();
+        syncInterface();
+        if (isPendingMintDeploymentCompatible(competingPending)) {
+          resumePendingMintReceiptMonitoring();
+        }
+        return competingPending.hash;
+      }
+      const unavailable = lockedSubmission.reason === "unavailable";
+      setMintFlowError(
+        unavailable
+          ? "this browser cannot safely coordinate THOUGHT mint requests across tabs. Use a browser with Web Locks support; no wallet request was opened."
+          : "another tab has an unresolved mint submission. Check wallet activity; do not submit a duplicate.",
+        "mint",
+        { preserveAuthorization: true },
+      );
+      syncInterface();
+      return null;
     }
-    return tx.hash;
+    return lockedSubmission.value;
   } catch (error) {
+    const message = mintErrorMessage(error);
     if (await recoverMintStateAfterRevert(shouldAppendCliResult)) {
       setStatus("");
       return walletState.txHash || mintFlowData.txHash || null;
     }
 
-    const message = mintErrorMessage(error);
-    txTimedOut = message.includes("not submitted");
-    setMintFlowError(message, message.includes("expired") ? "signature" : "mint");
+    const errorKind: MintFlowErrorKind = message.includes("expired") ? "signature" : "mint";
+    setMintFlowError(message, errorKind, {
+      preserveAuthorization: errorKind === "mint",
+    });
     syncInterface();
     setStatus("");
     trackThoughtAnalytics("mint_failed", {
-      mintStage: txTimedOut ? "wallet_signature" : "transaction",
+      mintStage: "transaction",
       errorCategory: thoughtAnalyticsErrorCategory(error),
     });
     return null;
+  } finally {
+    if (activeMintTransactionRequestId === requestId) {
+      activeMintTransactionRequestId = 0;
+      mintTransactionInFlight = false;
+    }
   }
+};
+
+const recoverUnresolvedMintSubmission = async () => {
+  const durable = readPendingMintTransaction();
+  if (durable) {
+    pendingMintTransaction = durable;
+    projectPendingMintTransaction(durable, {
+      deploymentWarning: !isPendingMintDeploymentCompatible(durable),
+    });
+    if (isPendingMintDeploymentCompatible(durable)) {
+      const receipt = await readKnownMintReceiptOnce(durable.hash);
+      if (receipt && await reconcileKnownMintReceipt(durable, receipt, false)) {
+        return;
+      } else {
+        resumePendingMintReceiptMonitoring();
+      }
+    }
+    resumeConflictingMintReceiptMonitoring();
+    emitThoughtConsoleEvent({
+      kind: "mint_activity_checked",
+      title: "mint activity checked",
+      detail: `Transaction hash ${shortHex(durable.hash, 10, 8)} is retained. Do not submit a duplicate.`,
+      eventId: `mint-activity-checked:${durable.hash}`,
+    });
+    recordCurrentMintConsoleState();
+    syncInterface();
+    return;
+  }
+
+  for (const transaction of conflictingMintTransactions) {
+    if (!isPendingMintDeploymentCompatible(transaction)) continue;
+    const receipt = await readKnownMintReceiptOnce(transaction.hash);
+    if (receipt && await reconcileKnownMintReceipt(transaction, receipt, false)) {
+      return;
+    }
+  }
+
+  const unresolved = unresolvedMintSubmission;
+  if (!unresolved?.provider) {
+    setMintFlowError(
+      "Another tab still controls the unresolved wallet submission. Check that tab and wallet activity; do not submit a duplicate.",
+      "mint",
+      { preserveAuthorization: true, preserveSubmittedTransaction: true },
+    );
+    syncInterface();
+    return;
+  }
+
+  const readNonceSnapshot = async () => {
+    try {
+      const [latest, pending] = await withTimeout(
+        Promise.all([
+          unresolved.provider!.getTransactionCount(unresolved.submission.account, "latest"),
+          unresolved.provider!.getTransactionCount(unresolved.submission.account, "pending"),
+        ]),
+        PATH_AUTHORIZATION_REQUEST_TIMEOUT_MS,
+        "wallet activity check timed out.",
+      );
+      return { latest, pending, conclusive: true } as const;
+    } catch {
+      return { latest: null, pending: null, conclusive: false } as const;
+    }
+  };
+  const hasNonceActivity = (snapshot: Awaited<ReturnType<typeof readNonceSnapshot>>) =>
+    snapshot.conclusive && (
+      snapshot.latest > unresolved.submission.nonce ||
+      snapshot.pending > unresolved.submission.nonce
+    );
+
+  const firstNonceSnapshot = await readNonceSnapshot();
+  if (!hasNonceActivity(firstNonceSnapshot) && firstNonceSnapshot.conclusive) {
+    await sleep(MINT_RECOVERY_NONCE_RECHECK_MS);
+  }
+
+  const lateDurable = readPendingMintTransaction();
+  if (lateDurable) {
+    pendingMintTransaction = lateDurable;
+    projectPendingMintTransaction(lateDurable, {
+      deploymentWarning: !isPendingMintDeploymentCompatible(lateDurable),
+    });
+    if (isPendingMintDeploymentCompatible(lateDurable)) {
+      const receipt = await readKnownMintReceiptOnce(lateDurable.hash);
+      if (receipt && await reconcileKnownMintReceipt(lateDurable, receipt, false)) {
+        return;
+      }
+      resumePendingMintReceiptMonitoring();
+    }
+    syncInterface();
+    return;
+  }
+
+  if (unresolvedMintSubmission?.requestId !== unresolved.requestId) {
+    syncInterface();
+    return;
+  }
+
+  const secondNonceSnapshot = firstNonceSnapshot.conclusive && !hasNonceActivity(firstNonceSnapshot)
+    ? await readNonceSnapshot()
+    : firstNonceSnapshot;
+  const nonceAdvanced = hasNonceActivity(firstNonceSnapshot) || hasNonceActivity(secondNonceSnapshot);
+  const safelyClear =
+    firstNonceSnapshot.conclusive &&
+    secondNonceSnapshot.conclusive &&
+    !nonceAdvanced;
+
+  if (safelyClear) {
+    unresolved.releaseLockAfterRecovery();
+    try {
+      await withTimeout(
+        unresolved.releaseCompleted,
+        PATH_AUTHORIZATION_REQUEST_TIMEOUT_MS,
+        "mint recovery release timed out.",
+      );
+      setMintFlowError(
+        "Recovery check complete: two nonce checks found no hash or account activity. The old wallet waiter is detached and any late hash will still be retained and monitored. Retry only after confirming the wallet shows no open request.",
+        "mint",
+        { preserveAuthorization: true },
+      );
+      emitThoughtConsoleEvent({
+        kind: "mint_submission_detached",
+        title: "wallet waiter safely detached",
+        detail: "No hash or nonce activity was found twice. Any late transaction remains monitored.",
+        eventId: `mint-submission-detached:${unresolved.requestId}`,
+        tone: "warning",
+      });
+      syncInterface();
+      return;
+    } catch {
+      // A failed release is inconclusive; keep the UI in no-duplicate mode.
+    }
+  }
+
+  setMintFlowError(
+    nonceAdvanced
+      ? `Wallet activity was detected at nonce ${unresolved.submission.nonce}, but no transaction hash has returned. The original submission is unresolved; do not submit a duplicate.`
+      : "Wallet activity could not be ruled out twice. The original wallet request is still unresolved. Cancel or reject it in the wallet and wait for it to settle; do not submit a duplicate.",
+    "mint",
+    { preserveAuthorization: true, preserveSubmittedTransaction: true },
+  );
+  emitThoughtConsoleEvent({
+    kind: "mint_activity_checked",
+    title: nonceAdvanced ? "wallet activity detected" : "wallet request still unresolved",
+    detail: mintFlowData.error,
+    eventId: `mint-activity-checked:${unresolved.requestId}:${nonceAdvanced ? "advanced" : "waiting"}`,
+    tone: "warning",
+  });
+  syncInterface();
 };
 
 const pathMintUrl = () => {
   try {
     const url = new URL(PATH_MINT_URL, sameOriginAppOrigin());
+    const returnUrl = new URL(window.location.href);
+    returnUrl.searchParams.set("pathHandoff", mintAttemptId);
     url.searchParams.set("intent", "mint-path");
     url.searchParams.set("from", "thought");
     url.searchParams.set(
       "returnTo",
-      `${window.location.pathname}${window.location.search}${window.location.hash}` || thoughtRoutePath("/"),
+      `${returnUrl.pathname}${returnUrl.search}${returnUrl.hash}` || thoughtRoutePath("/"),
     );
+    url.searchParams.set("handoff", mintAttemptId);
     if (walletState.address) {
       url.searchParams.set("account", walletState.address);
     }
@@ -10221,7 +12280,39 @@ const pathMintUrl = () => {
 };
 
 const handleMintPath = () => {
-  window.open(pathMintUrl(), "_blank", "noopener,noreferrer");
+  if (!currentOutputText) {
+    setMintFlowError("No accepted work to preserve for PATH mint.", "thought");
+    syncInterface();
+    return;
+  }
+  if (mintFlowData.errorKind === "path_mint_chain_mismatch") {
+    // Keep the mismatched return record as diagnostics, but never send PATH
+    // back into that completed handoff. The URL and new stored handoff must
+    // share one fresh ID.
+    mintAttemptId = nextMintAttemptId("path");
+  }
+  const workHash = keccak256(toUtf8Bytes(currentOutputText));
+  writePathMintHandoff({
+    version: 1,
+    attemptId: mintAttemptId,
+    workHash,
+    account: walletState.address,
+    chainId: THOUGHT_CHAIN_ID,
+    work: {
+      output: currentOutputText,
+      svg: currentWorkSvg,
+      runContext: currentRunContext,
+      workId: currentWorkId,
+    },
+    createdAt: Date.now(),
+  });
+  emitThoughtConsoleEvent({
+    kind: "path_mint_handoff",
+    title: "opening PATH mint",
+    detail: "Your THOUGHT work and mint history are preserved for the return.",
+    eventId: `path-handoff:${mintAttemptId}`,
+  });
+  window.location.assign(pathMintUrl());
 };
 
 const chooseAnotherPath = () => {
@@ -10248,13 +12339,16 @@ const refreshMintSheetPath = async () => {
     mintFlowState = "wallet_required";
     mintFlowData.error = "";
     mintFlowData.errorKind = "none";
+    recordCurrentMintConsoleState();
     syncInterface();
+    focusMintDockStage();
     return;
   }
 
   if (walletState.chainId !== THOUGHT_CHAIN_ID) {
     setMintFlowError("wrong network.", "wrong_network");
     syncInterface();
+    focusMintDockStage();
     return;
   }
 
@@ -10265,6 +12359,7 @@ const refreshMintSheetPath = async () => {
 
   moveMintFlowToWalletOrPathSelection();
   syncInterface();
+  focusMintDockStage("path");
 };
 
 const handleMintSheetAction = async (action: MintSheetAction) => {
@@ -10279,16 +12374,28 @@ const handleMintSheetAction = async (action: MintSheetAction) => {
 
   if (action === "connect_wallet") {
     await requestWalletConnect();
+    if (blockPendingMintMutation()) {
+      return;
+    }
+    if (walletState.address && readPathMintHandoff()) {
+      const resumed = await resumePathMintHandoff();
+      if (resumed) {
+        return;
+      }
+    }
     if (!walletState.address) {
       mintFlowState = "wallet_required";
+      recordCurrentMintConsoleState();
     } else if (walletState.chainId !== THOUGHT_CHAIN_ID) {
       setMintFlowError("wrong network.", "wrong_network");
     } else {
       mintFlowState = "path_required";
       mintFlowData.error = "";
       mintFlowData.errorKind = "none";
+      recordCurrentMintConsoleState();
     }
     syncInterface();
+    focusMintDockStage("path");
     return;
   }
 
@@ -10304,11 +12411,17 @@ const handleMintSheetAction = async (action: MintSheetAction) => {
 
   if (action === "confirm_mint") {
     await confirmMint();
+    focusMintDockStage();
     return;
   }
 
   if (action === "view_tx") {
     await handleViewTx();
+    return;
+  }
+
+  if (action === "recover_submission") {
+    await recoverUnresolvedMintSubmission();
     return;
   }
 
@@ -10333,6 +12446,16 @@ const handleMintSheetAction = async (action: MintSheetAction) => {
   }
 
   if (action === "refresh") {
+    const pathHandoff = readPathMintHandoff();
+    const pathReturn = pathHandoff
+      ? readPathMintReturnRecord(getPathMintReturnStorageHost(), pathHandoff.attemptId)
+      : null;
+    if (pathHandoff && (pathReturn || mintFlowData.errorKind === "wallet_account_mismatch")) {
+      await refreshWalletState();
+      await resumePathMintHandoff();
+      syncInterface();
+      return;
+    }
     await refreshMintSheetPath();
     return;
   }
@@ -10345,16 +12468,27 @@ const handleMintSheetAction = async (action: MintSheetAction) => {
 
   if (action === "switch_network") {
     await switchWalletChain();
+    if (walletState.address && walletState.chainId === THOUGHT_CHAIN_ID && readPathMintHandoff()) {
+      const resumed = await resumePathMintHandoff();
+      if (resumed) {
+        syncInterface();
+        focusMintDockStage("path");
+        return;
+      }
+    }
     if (!walletState.address) {
       mintFlowState = "wallet_required";
+      recordCurrentMintConsoleState();
     } else if (walletState.chainId !== THOUGHT_CHAIN_ID) {
       setMintFlowError("wrong network.", "wrong_network");
     } else {
       mintFlowState = "path_required";
       mintFlowData.error = "";
       mintFlowData.errorKind = "none";
+      recordCurrentMintConsoleState();
     }
     syncInterface();
+    focusMintDockStage("path");
   }
 };
 
@@ -11749,12 +13883,16 @@ const syncOutputToCanvas = (raw: string, options?: { suppressWarning?: boolean }
 };
 
 const setAgentOutput = (text: string, rawOutput: string, svg: string) => {
+  if (blockPendingMintMutation()) {
+    return false;
+  }
   resetMintRuntimeState();
   currentOutputText = text;
   currentWorkSvg = svg;
   showContractSvgPreview(svg);
   currentWorkId = recordCurrentWork(rawOutput);
   writeCurrentOutputSession();
+  return true;
 };
 
 const hasCurrentContractWorkSvg = () => currentWorkSvg.trim().startsWith("<svg");
@@ -11809,6 +13947,9 @@ const recordCurrentWork = (rawOutput: string) => {
 };
 
 const loadWorkRecord = (work: ThoughtWorkRecord) => {
+  if (blockPendingMintMutation({ cli: true })) {
+    return false;
+  }
   resetMintRuntimeState();
   currentOutputText = thoughtProtocolText(work.text || work.title, IS_LOCAL_THOUGHT_V2);
   currentWorkSvg = work.svg ?? "";
@@ -11818,6 +13959,7 @@ const loadWorkRecord = (work: ThoughtWorkRecord) => {
   syncCurrentWorkVisual({ suppressWarning: true });
   writeCurrentOutputSession();
   syncInterface();
+  return true;
 };
 
 const isThoughtRunContext = (value: unknown): value is ThoughtRunContext => {
@@ -11981,6 +14123,9 @@ const recordThoughtRun = (
 };
 
 const resetThought = (options?: { preserveStoredOutput?: boolean }) => {
+  if (blockPendingMintMutation()) {
+    return false;
+  }
   runState = "idle";
   walletConnectInFlight = false;
   pendingMyBrainRunPayload = null;
@@ -12000,6 +14145,7 @@ const resetThought = (options?: { preserveStoredOutput?: boolean }) => {
   setStatus("");
   syncCtaState();
   syncPrimaryCtaAvailability();
+  return true;
 };
 
 const base64UrlEncode = (bytes: Uint8Array) => {
@@ -13311,6 +15457,9 @@ const refreshCurrentModels = (options?: { silent?: boolean }) =>
     : Promise.resolve();
 
 const setMode = (mode: Mode) => {
+  if (blockPendingMintMutation()) {
+    return false;
+  }
   sessionState.routeConfigured = true;
   sessionState.mode = mode;
   pendingMyBrainRunPayload = null;
@@ -13331,6 +15480,7 @@ const setMode = (mode: Mode) => {
   }
 
   setStatus("");
+  return true;
 };
 
 const setThoughtInstructionsOverride = (override: ThoughtInstructionsOverride | null) => {
@@ -13372,6 +15522,9 @@ const promotePreviewedCandidateToWork = (
   preview: ContractWorkPreview,
   trace: ThoughtPreviewProviderTrace,
 ) => {
+  if (blockPendingMintMutation()) {
+    return false;
+  }
   lastRejectedRun = null;
   lastPreviewRetryContext = null;
   recordThoughtRun(
@@ -13381,7 +15534,9 @@ const promotePreviewedCandidateToWork = (
     trace,
     candidate.agentEvidence,
   );
-  setAgentOutput(preview.text, candidate.rawModelReturn, preview.svg);
+  if (!setAgentOutput(preview.text, candidate.rawModelReturn, preview.svg)) {
+    return false;
+  }
   clearCurrentCandidate();
   runState = "output_ready";
   walletState.txState = "idle";
@@ -13394,6 +15549,7 @@ const promotePreviewedCandidateToWork = (
   });
   setStatus("");
   setWarning("");
+  return true;
 };
 
 const completeThoughtRunFromModelReturn = async (
@@ -13401,6 +15557,9 @@ const completeThoughtRunFromModelReturn = async (
   modelReturn: string,
   agentEvidence?: ThoughtV2LocalAgentEvidence,
 ) => {
+  if (blockPendingMintMutation()) {
+    return { kind: "pending_mint" as const };
+  }
   const candidate = createThoughtCandidate(thoughtRunPayload, modelReturn, agentEvidence);
   currentCandidate = candidate;
   writeCurrentCandidateSession();
@@ -13426,7 +15585,9 @@ const completeThoughtRunFromModelReturn = async (
     throw attempt.error;
   }
 
-  promotePreviewedCandidateToWork(candidate, attempt.preview, attempt.trace);
+  if (!promotePreviewedCandidateToWork(candidate, attempt.preview, attempt.trace)) {
+    return { kind: "pending_mint" as const };
+  }
   return attempt;
 };
 
@@ -13455,6 +15616,10 @@ const runAgent = async (options?: { forceGenerate?: boolean; cli?: boolean }) =>
     if (primaryActionState === "none") {
       return;
     }
+  }
+
+  if (blockPendingMintMutation({ cli: options?.cli })) {
+    return;
   }
 
   if (!isRouteConfigured()) {
@@ -15072,6 +17237,9 @@ const setCliModel = (modelId: string) => {
     return;
   }
 
+  if (blockPendingMintMutation({ cli: true })) {
+    return;
+  }
   resetMintRuntimeState();
   pendingMyBrainRunPayload = null;
   setCurrentModelValue(modelId);
@@ -15109,6 +17277,9 @@ const setCliProvider = (providerId: string) => {
     return;
   }
 
+  if (blockPendingMintMutation({ cli: true })) {
+    return;
+  }
   resetMintRuntimeState();
   pendingMyBrainRunPayload = null;
   sessionState.mode = "direct";
@@ -15144,6 +17315,9 @@ const setCliApiKey = (keyInput: string) => {
   }
 
   if (key.toLowerCase() === "clear") {
+    if (blockPendingMintMutation({ cli: true })) {
+      return;
+    }
     resetMintRuntimeState();
     pendingMyBrainRunPayload = null;
     clearDirectApiKey();
@@ -15153,6 +17327,9 @@ const setCliApiKey = (keyInput: string) => {
     return;
   }
 
+  if (blockPendingMintMutation({ cli: true })) {
+    return;
+  }
   resetMintRuntimeState();
   pendingMyBrainRunPayload = null;
   sessionState.mode = "direct";
@@ -15175,6 +17352,9 @@ const setCliPrompt = (promptInput: string) => {
   }
 
   if (commandValue.toLowerCase() === "clear") {
+    if (blockPendingMintMutation({ cli: true })) {
+      return;
+    }
     resetMintRuntimeState();
     pendingMyBrainRunPayload = null;
     sessionState.prompt = "";
@@ -15184,6 +17364,9 @@ const setCliPrompt = (promptInput: string) => {
     return;
   }
 
+  if (blockPendingMintMutation({ cli: true })) {
+    return;
+  }
   resetMintRuntimeState();
   pendingMyBrainRunPayload = null;
   sessionState.prompt = protocolLineInput(promptInput);
@@ -15198,7 +17381,9 @@ const outputCliMode = async (mode: Mode | "") => {
     return;
   }
 
-  setMode(mode);
+  if (blockPendingMintMutation({ cli: true }) || !setMode(mode)) {
+    return;
+  }
   await refreshCurrentModels({ silent: true });
   const lines = mode === MY_BRAIN_MODE
     ? [
@@ -15269,6 +17454,9 @@ const outputCliPreviewConfig = (previewInput: string) => {
     return;
   }
 
+  if (blockPendingMintMutation({ cli: true })) {
+    return;
+  }
   writePreviewMode(mode);
   appendCliOutput([
     `preview mode: ${mode}`,
@@ -15279,8 +17467,11 @@ const outputCliPreviewConfig = (previewInput: string) => {
 };
 
 const startOpenRouterConnectFromCli = async () => {
+  if (blockPendingMintMutation({ cli: true })) {
+    return;
+  }
   if (!isRouteConfigured() || sessionState.mode !== "connect") {
-    setMode("connect");
+    if (!setMode("connect")) return;
   }
   if (sessionState.connect.apiKey.trim()) {
     appendCliOutput(["openrouter linked.", "route: connect", "use: run"]);
@@ -15314,7 +17505,9 @@ const outputCliLocalDetectionResult = () => {
 
 const outputCliRouteModel = async (mode: Mode, modelInput: string) => {
   if (!isRouteConfigured() || sessionState.mode !== mode) {
-    setMode(mode);
+    if (blockPendingMintMutation({ cli: true }) || !setMode(mode)) {
+      return;
+    }
   }
 
   const normalizedInput = modelInput.trim().toLowerCase();
@@ -15348,6 +17541,9 @@ const outputCliLocalConfig = async (localInput: string) => {
   }
 
   if (lowerHead === "detect" || lowerHead === "retry") {
+    if (blockPendingMintMutation({ cli: true })) {
+      return;
+    }
     pendingMyBrainRunPayload = null;
     sessionState.routeConfigured = true;
     sessionState.mode = "local";
@@ -15372,6 +17568,9 @@ const outputCliLocalConfig = async (localInput: string) => {
       return;
     }
 
+    if (blockPendingMintMutation({ cli: true })) {
+      return;
+    }
     try {
       sessionState.mode = "local";
       sessionState.routeConfigured = true;
@@ -15438,11 +17637,17 @@ const outputCliConnectConfig = async (connectInput: string) => {
   }
 
   if (lowerHead === "authorize" || lowerHead === "openrouter") {
+    if (blockPendingMintMutation({ cli: true })) {
+      return;
+    }
     await startOpenRouterConnectFromCli();
     return;
   }
 
   if (lowerHead === "disconnect") {
+    if (blockPendingMintMutation({ cli: true })) {
+      return;
+    }
     pendingMyBrainRunPayload = null;
     disconnectOpenRouter();
     appendCliOutput(["openrouter unlinked.", "use: config connect authorize"]);
@@ -15459,7 +17664,9 @@ const outputCliConnectConfig = async (connectInput: string) => {
 
 const outputCliMyBrainConfig = async (myBrainInput: string) => {
   if (!isRouteConfigured() || sessionState.mode !== MY_BRAIN_MODE) {
-    setMode(MY_BRAIN_MODE);
+    if (blockPendingMintMutation({ cli: true }) || !setMode(MY_BRAIN_MODE)) {
+      return;
+    }
   }
 
   const [head = ""] = myBrainInput.trim().split(/\s+/, 1);
@@ -15474,7 +17681,9 @@ const outputCliMyBrainConfig = async (myBrainInput: string) => {
 
 const outputCliCodexConfig = async (codexInput: string) => {
   if (!isRouteConfigured() || sessionState.mode !== CODEX_MODE) {
-    setMode(CODEX_MODE);
+    if (blockPendingMintMutation({ cli: true }) || !setMode(CODEX_MODE)) {
+      return;
+    }
   }
 
   const [head = ""] = codexInput.trim().split(/\s+/, 1);
@@ -15973,8 +18182,9 @@ const loadWorkFromCli = (input: string) => {
     return;
   }
 
-  loadWorkRecord(work);
-  appendCliOutput(workDetailLines(work));
+  if (loadWorkRecord(work)) {
+    appendCliOutput(workDetailLines(work));
+  }
 };
 
 const loadPreviousWorkFromCli = () => {
@@ -15984,8 +18194,9 @@ const loadPreviousWorkFromCli = () => {
     return;
   }
 
-  loadWorkRecord(work);
-  appendCliOutput(workDetailLines(work));
+  if (loadWorkRecord(work)) {
+    appendCliOutput(workDetailLines(work));
+  }
 };
 
 const loadNextWorkFromCli = () => {
@@ -15995,8 +18206,9 @@ const loadNextWorkFromCli = () => {
     return;
   }
 
-  loadWorkRecord(work);
-  appendCliOutput(workDetailLines(work));
+  if (loadWorkRecord(work)) {
+    appendCliOutput(workDetailLines(work));
+  }
 };
 
 const loadLatestWorkFromCli = () => {
@@ -16006,8 +18218,9 @@ const loadLatestWorkFromCli = () => {
     return;
   }
 
-  loadWorkRecord(work);
-  appendCliOutput(workDetailLines(work));
+  if (loadWorkRecord(work)) {
+    appendCliOutput(workDetailLines(work));
+  }
 };
 
 const myBrainRunPendingLines = () => [
@@ -16048,6 +18261,9 @@ const buildMyBrainRunPayload = async (): Promise<PendingMyBrainRound> => {
 };
 
 const startMyBrainRunFromCli = async () => {
+  if (blockPendingMintMutation({ cli: true })) {
+    return;
+  }
   try {
     pendingMyBrainRunPayload = await buildMyBrainRunPayload();
     runState = "running";
@@ -16084,6 +18300,9 @@ const cliWorkReadyLines = () => {
 };
 
 const returnMyBrainModelTextFromCli = async (returnInput: string) => {
+  if (blockPendingMintMutation({ cli: true })) {
+    return;
+  }
   if (sessionState.mode !== MY_BRAIN_MODE) {
     appendCliError(["return unavailable.", `route: ${sessionState.mode}`, "use: config my-brain", "use: run"]);
     return;
@@ -16119,6 +18338,11 @@ const returnMyBrainModelTextFromCli = async (returnInput: string) => {
       appendCliOutput(result.lines);
       return;
     }
+    if (result.kind === "pending_mint") {
+      pendingMyBrainRunPayload = null;
+      blockPendingMintMutation({ cli: true });
+      return;
+    }
     pendingMyBrainRunPayload = null;
     appendCliOutput(["preview accepted.", "current work set.", "", ...cliWorkReadyLines()]);
   } catch (error) {
@@ -16150,6 +18374,9 @@ const cancelMyBrainRunFromCli = () => {
 };
 
 const retryContractPreviewFromCli = async () => {
+  if (blockPendingMintMutation({ cli: true })) {
+    return;
+  }
   let candidate = currentCandidate;
   if (!candidate && lastPreviewRetryContext) {
     candidate = createThoughtCandidate(
@@ -16178,7 +18405,9 @@ const retryContractPreviewFromCli = async () => {
     if (attempt.kind === "rejected") {
       throw attempt.error;
     }
-    promotePreviewedCandidateToWork(candidate, attempt.preview, attempt.trace);
+    if (!promotePreviewedCandidateToWork(candidate, attempt.preview, attempt.trace)) {
+      return;
+    }
     const lines = cliWorkReadyLines();
     if (lines[0] === "work blocked.") {
       appendCliError(lines);
@@ -16309,6 +18538,9 @@ const resumePendingThoughtAgentRun = () => {
 };
 
 const runFromCli = async () => {
+  if (blockPendingMintMutation({ cli: true })) {
+    return;
+  }
   if (!isRouteConfigured()) {
     appendCliError(["run failed.", ...routeRequiredLines()]);
     return;
@@ -17719,8 +19951,11 @@ const executeCliCommand = async (rawCommand: string) => {
       writeCliTranscript();
       initializeCliTranscript();
     } else if (lowerHead === "reset") {
-      resetThought();
-      appendCliOutput(["reset current work, canvas, and mint state.", "next: prompt <text>"]);
+      if (resetThought()) {
+        appendCliOutput(["reset current work, canvas, and mint state.", "next: prompt <text>"]);
+      } else {
+        blockPendingMintMutation({ cli: true });
+      }
     } else if (lowerHead === "gallery") {
       if (hasPendingMintTransaction()) {
         appendCliOutput([
@@ -17967,6 +20202,11 @@ providerBox.addEventListener("change", () => {
     return;
   }
 
+  if (blockPendingMintMutation()) {
+    providerBox.value = sessionState.direct.provider;
+    return;
+  }
+
   resetMintRuntimeState();
   pendingMyBrainRunPayload = null;
   sessionState.direct.provider = providerBox.value;
@@ -17979,6 +20219,10 @@ providerBox.addEventListener("change", () => {
 });
 
 apiKeyBox.addEventListener("input", () => {
+  if (blockPendingMintMutation()) {
+    apiKeyBox.value = getDirectApiKey();
+    return;
+  }
   pendingMyBrainRunPayload = null;
   setDirectApiKey(apiKeyBox.value);
   writeSessionState();
@@ -17986,6 +20230,10 @@ apiKeyBox.addEventListener("input", () => {
 });
 
 modelBox.addEventListener("change", () => {
+  if (blockPendingMintMutation()) {
+    syncModelControls();
+    return;
+  }
   syncManualModelField();
   resetMintRuntimeState();
   pendingMyBrainRunPayload = null;
@@ -18001,6 +20249,10 @@ modelBox.addEventListener("change", () => {
 });
 
 modelManualBox.addEventListener("input", () => {
+  if (blockPendingMintMutation()) {
+    modelManualBox.value = getCurrentModelValue();
+    return;
+  }
   resetMintRuntimeState();
   pendingMyBrainRunPayload = null;
   setCurrentModelValue(modelManualBox.value.trim());
@@ -18010,6 +20262,10 @@ modelManualBox.addEventListener("input", () => {
 });
 
 promptBox.addEventListener("input", () => {
+  if (blockPendingMintMutation()) {
+    promptBox.value = sessionState.prompt;
+    return;
+  }
   resetMintRuntimeState();
   pendingMyBrainRunPayload = null;
   sessionState.prompt = promptBox.value;
@@ -18018,6 +20274,10 @@ promptBox.addEventListener("input", () => {
 });
 
 thoughtDockPrompt.addEventListener("input", () => {
+  if (blockPendingMintMutation()) {
+    thoughtDockPrompt.value = sessionState.prompt;
+    return;
+  }
   resetMintRuntimeState();
   pendingMyBrainRunPayload = null;
   sessionState.prompt = thoughtDockPrompt.value;
@@ -18268,6 +20528,8 @@ window.addEventListener("beforeunload", () => {
 });
 window.addEventListener("focus", () => {
   refreshThoughtDockPolling();
+  resumePendingMintReceiptMonitoring();
+  resumeConflictingMintReceiptMonitoring();
   const canSoftRefresh =
     mintFlowState === "path_required" ||
     mintFlowState === "path_ready" ||
@@ -18276,33 +20538,50 @@ window.addEventListener("focus", () => {
   if (
     !canSoftRefresh ||
     !walletState.address ||
-    !canContinueWithPathInput() ||
     Date.now() - lastMintSheetFocusRefreshAt < 8000
   ) {
     return;
   }
 
   lastMintSheetFocusRefreshAt = Date.now();
-  void refreshMintSheetPath();
+  void refreshWalletState().then(async () => {
+    if (!walletState.address || walletState.chainId !== THOUGHT_CHAIN_ID) return;
+    await refreshPathInventoryForCurrentWallet({ force: true });
+    if (canContinueWithPathInput() && mintFlowState !== "authorizing" && mintFlowState !== "minting") {
+      await checkPathEligibility();
+    }
+  });
 });
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     refreshThoughtDockPolling();
+    resumePendingMintReceiptMonitoring();
+    resumeConflictingMintReceiptMonitoring();
   }
 });
 window.addEventListener("pageshow", () => {
   refreshThoughtDockPolling();
+  resumePendingMintReceiptMonitoring();
+  resumeConflictingMintReceiptMonitoring();
 });
 document.addEventListener("resume", () => {
   refreshThoughtDockPolling();
+  resumePendingMintReceiptMonitoring();
+  resumeConflictingMintReceiptMonitoring();
 });
 window.addEventListener("online", () => {
   refreshThoughtDockPolling();
+  resumePendingMintReceiptMonitoring();
+  resumeConflictingMintReceiptMonitoring();
 });
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && mintFlowState !== "closed") {
-    closeMintSheet();
-  }
+    if (
+      event.key === "Escape" &&
+      mintFlowUiMode === "sheet" &&
+      mintFlowState !== "closed"
+    ) {
+      closeMintSheet();
+    }
 });
 
 const initFrontpage = async () => {
@@ -18440,7 +20719,17 @@ const initFrontpage = async () => {
 
   bindThoughtShellWallet();
   bindWalletProviderEvents();
+  bindPendingMintStorageEvents();
   await refreshWalletState();
+  const resumedPendingMint = await resumePendingMintTransaction();
+  resumeConflictingMintReceiptMonitoring();
+  let resumedPathMint = false;
+  if (!resumedPendingMint) {
+    resumedPathMint = await resumePathMintHandoff();
+  }
+  if (!resumedPendingMint && !resumedPathMint) {
+    recordCurrentMintConsoleState();
+  }
   syncInterface();
 
   void ensureActiveThoughtSpec()

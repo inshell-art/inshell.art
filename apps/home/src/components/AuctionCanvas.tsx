@@ -39,11 +39,20 @@ import {
 import {
   PUBLIC_NETWORK_CONFIG,
   SURFACE_TERMINOLOGY,
+  isPathMintHandoffId,
+  parsePathMintReturnRecord,
+  pathMintReturnStorageKey,
+  readPathMintReturnRecord,
+  removePathMintReturnRecord,
   resolveWalletChainRpcUrls,
   trackInshellAnonymousAnalytics,
+  writePathMintReturnRecord,
+  type PathMintReturnRecord,
+  type PathMintReturnStorageHost,
 } from "@inshell/shared";
 import HeaderWalletCTA from "@/components/HeaderWalletCTA";
 import { useWallet } from "@inshell/wallet";
+import { withPathMintSubmissionLock } from "../pathMintSubmissionLock";
 import { InshellWalletPicker } from "@inshell/inshell-shell";
 import {
   buildReportBugLink,
@@ -284,8 +293,33 @@ type PulseBidIntentCheck = {
 
 type PathMintIntent = {
   from: "thought";
+  handoffId: string;
+  originAccount: string | null;
+  chainId: bigint;
+  movement: "THOUGHT";
   returnTo: string;
 };
+
+type PathMintIntentRead =
+  | { kind: "none" }
+  | { kind: "invalid"; reason: string }
+  | { kind: "valid"; intent: PathMintIntent };
+
+type TransactionReceiptOutcome = "success" | "reverted" | "unknown";
+type TransactionReplacement =
+  | { kind: "none" }
+  | {
+      kind: "replacement";
+      cancelled: boolean;
+      hash: string | null;
+      receipt: unknown;
+    };
+type PathMintSubmissionContext = {
+  account: string;
+  chainId: bigint;
+};
+
+const PATH_MINT_RECEIPT_RETRY_MS = 3_000;
 
 function useDesktopOnly(minWidth = 768) {
   const [isDesktop, setIsDesktop] = useState(
@@ -304,50 +338,261 @@ function normalizeReturnTo(raw: string | null): string | null {
   try {
     const url = new URL(raw, window.location.href);
     const protocolOk = url.protocol === "http:" || url.protocol === "https:";
-    const host = url.hostname.toLowerCase();
-    const hostOk =
-      host === "localhost" ||
-      host === "127.0.0.1" ||
-      host === "[::1]" ||
-      host === "inshell.art" ||
-      host === "preview.inshell.art" ||
-      host === "thought.inshell.art" ||
-      host === "thought.preview.inshell.art" ||
-      host === "path.inshell.art" ||
-      host === "path.preview.inshell.art" ||
-      host === "gallery.inshell.art" ||
-      host === "gallery.preview.inshell.art";
-    if (!protocolOk || !hostOk) return null;
+    if (!protocolOk || url.origin !== window.location.origin) return null;
 
-    let pathname = url.pathname.replace(/\/+$/, "") || "/";
-    if (
-      (host === "thought.inshell.art" || host === "thought.preview.inshell.art") &&
-      !pathname.startsWith("/thought")
-    ) {
-      pathname = pathname === "/" ? "/thought" : `/thought${pathname}`;
-    } else if (
-      (host === "path.inshell.art" || host === "path.preview.inshell.art") &&
-      !pathname.startsWith("/path")
-    ) {
-      pathname = pathname === "/" ? "/path" : `/path${pathname}`;
-    } else if (host === "gallery.inshell.art" || host === "gallery.preview.inshell.art") {
-      pathname = pathname === "/" || pathname === "/gallery" ? "/gallery" : "/gallery";
-    }
-
-    if (!/^\/(?:thought|path|gallery)(?:\/|$)/.test(pathname)) return null;
+    const pathname = url.pathname.replace(/\/+$/, "") || "/";
+    if (!/^\/thought(?:\/|$)/.test(pathname)) return null;
     return `${pathname}${url.search}${url.hash}`;
   } catch {
     return null;
   }
 }
 
-function readPathMintIntent(): PathMintIntent | null {
-  if (typeof window === "undefined") return null;
+function readPathMintIntent(): PathMintIntentRead {
+  if (typeof window === "undefined") return { kind: "none" };
   const params = new URLSearchParams(window.location.search);
-  if (params.get("intent") !== "mint-path") return null;
-  if (params.get("from") !== "thought") return null;
+  if (params.get("intent") !== "mint-path") return { kind: "none" };
+  if (params.get("from") !== "thought") {
+    return { kind: "invalid", reason: "Invalid THOUGHT mint handoff source." };
+  }
+
+  const handoffId = params.get("handoff");
+  if (!isPathMintHandoffId(handoffId)) {
+    return { kind: "invalid", reason: "Invalid THOUGHT mint handoff id." };
+  }
+  if (params.get("movement") !== "THOUGHT") {
+    return { kind: "invalid", reason: "Invalid THOUGHT mint movement." };
+  }
+
+  const originAccountRaw = params.get("account");
+  const originAccount = originAccountRaw?.trim() || null;
+  if (originAccount && !/^0x[0-9a-fA-F]{40}$/.test(originAccount)) {
+    return { kind: "invalid", reason: "Invalid THOUGHT wallet account." };
+  }
+
+  const chainId = parseChainId(params.get("chainId"));
+  if (
+    chainId === null ||
+    chainId <= 0n ||
+    chainId > BigInt(Number.MAX_SAFE_INTEGER)
+  ) {
+    return { kind: "invalid", reason: "Invalid THOUGHT mint chain." };
+  }
+
   const returnTo = normalizeReturnTo(params.get("returnTo"));
-  return returnTo ? { from: "thought", returnTo } : null;
+  if (!returnTo) {
+    return { kind: "invalid", reason: "Invalid THOUGHT return route." };
+  }
+  const returnUrl = new URL(returnTo, window.location.origin);
+  const returnHandoffId = returnUrl.searchParams.get("pathHandoff");
+  if (returnHandoffId !== handoffId) {
+    return { kind: "invalid", reason: "THOUGHT return handoff does not match." };
+  }
+
+  return {
+    kind: "valid",
+    intent: {
+      from: "thought",
+      handoffId,
+      originAccount: originAccount?.toLowerCase() ?? null,
+      chainId,
+      movement: "THOUGHT",
+      returnTo,
+    },
+  };
+}
+
+function getPathMintReturnStorageHost(): PathMintReturnStorageHost {
+  if (typeof window === "undefined") return {};
+  const host: PathMintReturnStorageHost = {};
+  try {
+    host.localStorage = window.localStorage;
+  } catch {
+    // The shared writer will fall back to session storage.
+  }
+  try {
+    host.sessionStorage = window.sessionStorage;
+  } catch {
+    // The in-memory state remains usable when browser storage is blocked.
+  }
+  return host;
+}
+
+function readMatchingPathMintReturnRecord(
+  intent: PathMintIntent,
+): PathMintReturnRecord | null {
+  return readPathMintReturnRecord(
+    getPathMintReturnStorageHost(),
+    intent.handoffId,
+  );
+}
+
+function transactionReceiptOutcome(receipt: unknown): TransactionReceiptOutcome {
+  if (!receipt || typeof receipt !== "object") return "unknown";
+  const candidate = receipt as Record<string, unknown>;
+  const values = [
+    candidate.execution_status,
+    candidate.executionStatus,
+    candidate.status,
+    candidate.finality_status,
+    candidate.finalityStatus,
+  ];
+  let sawSuccess = false;
+
+  for (const value of values) {
+    if (value === false || value === 0 || value === 0n) return "reverted";
+    if (value === true || value === 1 || value === 1n) {
+      sawSuccess = true;
+      continue;
+    }
+    if (typeof value !== "string") continue;
+    const normalized = value.trim().toLowerCase();
+    if (
+      normalized === "0" ||
+      normalized === "0x0" ||
+      normalized === "failed" ||
+      normalized === "failure" ||
+      normalized === "reverted" ||
+      normalized === "rejected" ||
+      normalized === "cancelled" ||
+      normalized === "canceled"
+    ) {
+      return "reverted";
+    }
+    if (
+      normalized === "1" ||
+      normalized === "0x1" ||
+      normalized === "success" ||
+      normalized === "succeeded" ||
+      normalized === "confirmed" ||
+      normalized === "finalized" ||
+      normalized === "accepted_on_l1" ||
+      normalized === "accepted_on_l2"
+    ) {
+      sawSuccess = true;
+    }
+  }
+
+  if (
+    candidate.reverted === true ||
+    candidate.isReverted === true ||
+    (typeof candidate.revert_reason === "string" &&
+      candidate.revert_reason.trim() !== "") ||
+    (typeof candidate.revertReason === "string" &&
+      candidate.revertReason.trim() !== "")
+  ) {
+    return "reverted";
+  }
+  return sawSuccess ? "success" : "unknown";
+}
+
+function isExplicitTransactionFailure(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return /\b(?:execution|transaction)(?: was)? reverted\b|\breceipt status\s*(?:=|:)?\s*(?:0x0|0)\b/i.test(
+      walletErrorMessage(error),
+    );
+  }
+  const candidate = error as Record<string, unknown>;
+  if (transactionReceiptOutcome(candidate) === "reverted") return true;
+  const code = String(candidate.code ?? "").trim().toUpperCase();
+  if (
+    code === "CALL_EXCEPTION" ||
+    code === "TRANSACTION_REVERTED" ||
+    code === "EXECUTION_REVERTED"
+  ) {
+    return true;
+  }
+  const data =
+    candidate.data && typeof candidate.data === "object"
+      ? (candidate.data as Record<string, unknown>)
+      : null;
+  const receipts = [
+    candidate.receipt,
+    candidate.transactionReceipt,
+    data?.receipt,
+  ];
+  if (receipts.some((receipt) => transactionReceiptOutcome(receipt) === "reverted")) {
+    return true;
+  }
+  const message = walletErrorMessage(error).toLowerCase();
+  return /\b(?:execution|transaction)(?: was)? reverted\b|\brevert(?:ed)?(?: with reason| reason|:)\b|\breceipt status\s*(?:=|:)?\s*(?:0x0|0)\b/i.test(
+    message,
+  );
+}
+
+function transactionReplacement(error: unknown): TransactionReplacement {
+  if (!error || typeof error !== "object") return { kind: "none" };
+  const candidate = error as Record<string, unknown>;
+  if (String(candidate.code ?? "").toUpperCase() !== "TRANSACTION_REPLACED") {
+    return { kind: "none" };
+  }
+  const replacement =
+    candidate.replacement && typeof candidate.replacement === "object"
+      ? (candidate.replacement as Record<string, unknown>)
+      : null;
+  const receipt = candidate.receipt ?? replacement?.receipt ?? null;
+  const receiptRecord =
+    receipt && typeof receipt === "object"
+      ? (receipt as Record<string, unknown>)
+      : null;
+  const hashCandidate =
+    replacement?.hash ??
+    replacement?.transactionHash ??
+    receiptRecord?.hash ??
+    receiptRecord?.transactionHash;
+  const hash =
+    typeof hashCandidate === "string" && /^0x[0-9a-fA-F]{64}$/.test(hashCandidate)
+      ? hashCandidate.toLowerCase()
+      : null;
+  const reason = String(candidate.reason ?? "").trim().toLowerCase();
+  return {
+    kind: "replacement",
+    cancelled:
+      candidate.cancelled === true || reason === "cancelled" || reason === "canceled",
+    hash,
+    receipt,
+  };
+}
+
+async function readPathMintTransactionReceipt(
+  receiptProvider: ProviderInterface,
+  hash: string,
+): Promise<unknown> {
+  if (supportsRpcRequest(receiptProvider)) {
+    return receiptProvider.request?.({
+      method: "eth_getTransactionReceipt",
+      params: [hash],
+    });
+  }
+  const waiter = (receiptProvider as any)?.waitForTransaction;
+  if (typeof waiter === "function") {
+    return waiter.call(receiptProvider, hash);
+  }
+  return null;
+}
+
+async function readPathMintSubmissionContext(
+  walletProvider: ProviderInterface,
+  expectedAccount: string,
+  expectedChainId: bigint,
+): Promise<PathMintSubmissionContext> {
+  if (!supportsRpcRequest(walletProvider)) {
+    throw new Error("wallet context unavailable before PATH mint.");
+  }
+  const [accountsResult, actualChainId] = await Promise.all([
+    walletProvider.request?.({ method: "eth_accounts" }),
+    getChainId(walletProvider),
+  ]);
+  const account = Array.isArray(accountsResult)
+    ? String(accountsResult[0] ?? "").toLowerCase()
+    : "";
+  if (!/^0x[0-9a-f]{40}$/.test(account) || account !== expectedAccount.toLowerCase()) {
+    throw new Error("wallet account changed before PATH mint.");
+  }
+  if (actualChainId !== expectedChainId) {
+    throw new Error("wallet network changed before PATH mint.");
+  }
+  return { account, chainId: actualChainId };
 }
 
 function toNumberSafe(v: string | number): number {
@@ -2345,7 +2590,9 @@ export default function AuctionCanvas({
     () => releaseConfigToAuctionConfig(protocolRelease, decimals),
     [protocolRelease, decimals]
   );
-  const pathMintIntent = useMemo(() => readPathMintIntent(), []);
+  const pathMintIntentRead = useMemo(() => readPathMintIntent(), []);
+  const pathMintIntent =
+    pathMintIntentRead.kind === "valid" ? pathMintIntentRead.intent : null;
   const releaseMissing = !fixtureState && !allowDirectAuction && !protocolRelease;
   const network = useMemo(() => {
     const raw = getEnvValue("VITE_NETWORK");
@@ -2533,7 +2780,77 @@ export default function AuctionCanvas({
     }
   }, [coreData?.price, decimals, fixtureState]);
   const effectiveCurrentAskQuoteDec = currentAskQuoteDec ?? coreCurrentAskDec;
-  const [returnPromptVisible, setReturnPromptVisible] = useState(false);
+  const [pathMintReturnState, setPathMintReturnState] =
+    useState<PathMintReturnRecord | null>(() =>
+      pathMintIntent
+        ? readMatchingPathMintReturnRecord(pathMintIntent)
+        : null
+    );
+  const pathMintReturnStateRef = useRef(pathMintReturnState);
+  const pathMintReturnMonitorInFlightRef = useRef<string | null>(null);
+  const pathMintReturnMonitorRetryTimerRef = useRef<number | null>(null);
+  const pathMintReturnMonitorMountedRef = useRef(true);
+  const pathMintSubmissionInFlightRef = useRef(false);
+  const [pathMintReturnMonitorWake, setPathMintReturnMonitorWake] = useState(0);
+  const persistPathMintReturnState = useCallback(
+    (next: PathMintReturnRecord) => {
+      if (!pathMintIntent || next.handoffId !== pathMintIntent.handoffId) return;
+      pathMintReturnStateRef.current = next;
+      setPathMintReturnState(next);
+      writePathMintReturnRecord(getPathMintReturnStorageHost(), next);
+      if (next.status === "submitted") {
+        setPathMintReturnMonitorWake((value) => value + 1);
+      }
+    },
+    [pathMintIntent]
+  );
+  const clearPathMintReturnState = useCallback(() => {
+    if (pathMintReturnMonitorRetryTimerRef.current !== null) {
+      window.clearTimeout(pathMintReturnMonitorRetryTimerRef.current);
+      pathMintReturnMonitorRetryTimerRef.current = null;
+    }
+    pathMintReturnStateRef.current = null;
+    setPathMintReturnState(null);
+    if (pathMintIntent) {
+      removePathMintReturnRecord(
+        getPathMintReturnStorageHost(),
+        pathMintIntent.handoffId,
+      );
+    }
+  }, [pathMintIntent]);
+  const schedulePathMintReturnMonitor = useCallback((hash: string) => {
+    if (pathMintReturnMonitorRetryTimerRef.current !== null) return;
+    pathMintReturnMonitorRetryTimerRef.current = window.setTimeout(() => {
+      pathMintReturnMonitorRetryTimerRef.current = null;
+      const current = pathMintReturnStateRef.current;
+      if (current?.status === "submitted" && current.txHash === hash) {
+        setPathMintReturnMonitorWake((value) => value + 1);
+      }
+    }, PATH_MINT_RECEIPT_RETRY_MS);
+  }, []);
+  const updatePathMintReturnTokenId = useCallback(
+    (txHashValue: string, tokenId: number) => {
+      const current = pathMintReturnStateRef.current;
+      if (
+        !pathMintIntent ||
+        !current ||
+        current.handoffId !== pathMintIntent.handoffId ||
+        current.txHash.toLowerCase() !== txHashValue.toLowerCase()
+      ) {
+        return;
+      }
+      const next = parsePathMintReturnRecord(
+        {
+          ...current,
+          tokenId: String(tokenId),
+          updatedAt: Date.now(),
+        },
+        pathMintIntent.handoffId,
+      );
+      if (next) persistPathMintReturnState(next);
+    },
+    [pathMintIntent, persistPathMintReturnState]
+  );
   const [walletPickerOpen, setWalletPickerOpen] = useState(false);
   const preflightRef = useRef<Promise<PreflightResult | null> | null>(null);
   const ctaStackRef = useRef<HTMLDivElement | null>(null);
@@ -2645,6 +2962,42 @@ export default function AuctionCanvas({
     chainIdValue !== null &&
     targetChainId !== null &&
     chainIdValue === targetChainId;
+  const pathMintIntentBlock = useMemo(() => {
+    if (pathMintReturnState) return null;
+    if (pathMintIntentRead.kind === "invalid") {
+      return pathMintIntentRead.reason;
+    }
+    if (!pathMintIntent) return null;
+    if (targetChainId === null || pathMintIntent.chainId !== targetChainId) {
+      return `THOUGHT handoff targets chain ${pathMintIntent.chainId.toString()}; PATH is configured for ${
+        targetChainId?.toString() ?? "an unknown chain"
+      }.`;
+    }
+    if (
+      isConnected &&
+      walletAddress &&
+      pathMintIntent.originAccount &&
+      walletAddress.toLowerCase() !== pathMintIntent.originAccount
+    ) {
+      return `Switch to the THOUGHT wallet ${shortAddr(pathMintIntent.originAccount)}.`;
+    }
+    if (
+      isConnected &&
+      chainIdValue !== null &&
+      chainIdValue !== pathMintIntent.chainId
+    ) {
+      return `Switch wallet to THOUGHT chain ${pathMintIntent.chainId.toString()}.`;
+    }
+    return null;
+  }, [
+    chainIdValue,
+    pathMintIntent,
+    pathMintIntentRead,
+    pathMintReturnState,
+    targetChainId,
+    walletAddress,
+    isConnected,
+  ]);
   const hasDetectedWalletConnector = useMemo(() => {
     if (!connectors?.length) return false;
     return connectors.some((connector) => isConnectorAvailable(connector));
@@ -3197,6 +3550,180 @@ export default function AuctionCanvas({
   }, [bids]);
 
   useEffect(() => {
+    pathMintReturnMonitorMountedRef.current = true;
+    return () => {
+      pathMintReturnMonitorMountedRef.current = false;
+      if (pathMintReturnMonitorRetryTimerRef.current !== null) {
+        window.clearTimeout(pathMintReturnMonitorRetryTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!pathMintIntent) return;
+    const storageKey = pathMintReturnStorageKey(pathMintIntent.handoffId);
+    if (!storageKey) return;
+
+    const adoptStoredRecord = () => {
+      const record = readPathMintReturnRecord(
+        getPathMintReturnStorageHost(),
+        pathMintIntent.handoffId,
+      );
+      const next = record;
+      pathMintReturnStateRef.current = next;
+      setPathMintReturnState(next);
+      if (next?.status === "submitted") {
+        setPathMintReturnMonitorWake((value) => value + 1);
+      }
+    };
+    const wakeMonitor = () => {
+      if (pathMintReturnStateRef.current?.status === "submitted") {
+        setPathMintReturnMonitorWake((value) => value + 1);
+      }
+    };
+    const handleStorage = (event: globalThis.StorageEvent) => {
+      if (event.key === storageKey) adoptStoredRecord();
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") wakeMonitor();
+    };
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("focus", wakeMonitor);
+    window.addEventListener("online", wakeMonitor);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("focus", wakeMonitor);
+      window.removeEventListener("online", wakeMonitor);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [pathMintIntent]);
+
+  useEffect(() => {
+    const record = pathMintReturnState;
+    if (
+      !pathMintIntent ||
+      record?.status !== "submitted" ||
+      record.handoffId !== pathMintIntent.handoffId ||
+      pathMintReturnMonitorInFlightRef.current === record.txHash
+    ) {
+      return;
+    }
+
+    const waitProvider = provider ?? (getDefaultProvider() as ProviderInterface);
+    pathMintReturnMonitorInFlightRef.current = record.txHash;
+    void Promise.resolve()
+      .then(() => readPathMintTransactionReceipt(waitProvider, record.txHash))
+      .then((receipt) => {
+        const current = pathMintReturnStateRef.current;
+        if (
+          !pathMintReturnMonitorMountedRef.current ||
+          current?.status !== "submitted" ||
+          current.txHash !== record.txHash
+        ) {
+          return;
+        }
+        const outcome = transactionReceiptOutcome(receipt);
+        if (outcome === "success") {
+          const confirmed = parsePathMintReturnRecord(
+            {
+              ...record,
+              status: "confirmed",
+              updatedAt: Date.now(),
+            },
+            pathMintIntent.handoffId,
+          );
+          if (confirmed) persistPathMintReturnState(confirmed);
+          return;
+        }
+        if (outcome === "reverted") {
+          clearPathMintReturnState();
+          setTxError("PATH mint transaction reverted.");
+          setTxState("failed");
+          return;
+        }
+        schedulePathMintReturnMonitor(record.txHash);
+      })
+      .catch((error) => {
+        const current = pathMintReturnStateRef.current;
+        if (
+          !pathMintReturnMonitorMountedRef.current ||
+          current?.status !== "submitted" ||
+          current.txHash !== record.txHash
+        ) {
+          return;
+        }
+        const replacement = transactionReplacement(error);
+        if (replacement.kind === "replacement") {
+          const outcome = transactionReceiptOutcome(replacement.receipt);
+          if (replacement.cancelled || outcome === "reverted") {
+            clearPathMintReturnState();
+            setTxError(
+              replacement.cancelled
+                ? "PATH mint transaction cancelled."
+                : "PATH mint transaction reverted.",
+            );
+            setTxState("failed");
+            return;
+          }
+          if (!replacement.hash) {
+            showToast({
+              kind: "warn",
+              text: "Replacement detected; hash unavailable. Tracking delayed.",
+            });
+            setTxState("submitted");
+            schedulePathMintReturnMonitor(record.txHash);
+            return;
+          }
+          const migrated = parsePathMintReturnRecord(
+            {
+              ...record,
+              status: outcome === "success" ? "confirmed" : "submitted",
+              txHash: replacement.hash,
+              updatedAt: Date.now(),
+            },
+            pathMintIntent.handoffId,
+          );
+          if (!migrated) {
+            clearPathMintReturnState();
+            setTxError("Invalid PATH mint replacement metadata.");
+            setTxState("failed");
+            return;
+          }
+          if (pathMintReturnMonitorInFlightRef.current === record.txHash) {
+            pathMintReturnMonitorInFlightRef.current = null;
+          }
+          setLastTxHash(replacement.hash);
+          persistPathMintReturnState(migrated);
+          setTxState(outcome === "success" ? "confirmed" : "submitted");
+          return;
+        }
+        if (isExplicitTransactionFailure(error)) {
+          clearPathMintReturnState();
+          setTxError("PATH mint transaction reverted.");
+          setTxState("failed");
+          return;
+        }
+        schedulePathMintReturnMonitor(record.txHash);
+      })
+      .finally(() => {
+        if (pathMintReturnMonitorInFlightRef.current === record.txHash) {
+          pathMintReturnMonitorInFlightRef.current = null;
+        }
+      });
+
+  }, [
+    clearPathMintReturnState,
+    pathMintIntent,
+    pathMintReturnState,
+    pathMintReturnMonitorWake,
+    persistPathMintReturnState,
+    provider,
+    schedulePathMintReturnMonitor,
+    showToast,
+  ]);
+
+  useEffect(() => {
     if (!pendingMint || !bids.length) return;
     const targetHash = pendingMint.txHash.toLowerCase();
     const match = bids.find(
@@ -3236,6 +3763,7 @@ export default function AuctionCanvas({
       sourceUrl: buildPathMintSourceUrl(pendingMint.txHash, network ?? "sepolia"),
       sourceStatus: "indexing",
     });
+    updatePathMintReturnTokenId(pendingMint.txHash, tokenId);
     queueToast({ kind: "info", text: `$PATH #${tokenId} minted.` });
     void pullBidsOnce();
     void refreshCore();
@@ -3249,6 +3777,7 @@ export default function AuctionCanvas({
     queueToast,
     pullBidsOnce,
     refreshCore,
+    updatePathMintReturnTokenId,
   ]);
 
   useEffect(() => {
@@ -4565,7 +5094,10 @@ export default function AuctionCanvas({
   };
 
   const handlePending = () => {
-    const hash = effectiveTxHash ?? lastTxHash;
+    const hash =
+      pathMintReturnState?.status === "submitted"
+        ? pathMintReturnState.txHash
+        : effectiveTxHash ?? lastTxHash;
     if (!hash) return;
     const url = resolveExplorerTxUrl(hash);
     if (typeof window !== "undefined") {
@@ -4574,7 +5106,14 @@ export default function AuctionCanvas({
   };
 
   const handleReturnToThought = () => {
-    if (!pathMintIntent || typeof window === "undefined") return;
+    if (
+      !pathMintIntent ||
+      pathMintReturnState?.status !== "confirmed" ||
+      pathMintReturnState.handoffId !== pathMintIntent.handoffId ||
+      typeof window === "undefined"
+    ) {
+      return;
+    }
     window.location.assign(pathMintIntent.returnTo);
   };
 
@@ -4586,8 +5125,8 @@ export default function AuctionCanvas({
     await handleMint();
   };
 
-  const trackSubmittedBid = (hash: string) => {
-    if (!walletAddress) return;
+  const trackSubmittedBid = (hash: string, submittedAccount = walletAddress) => {
+    if (!submittedAccount) return;
     clearPathTokenInventoryCache();
     setCurrentAskQuoteDec(null);
     postMintNowTipPendingRef.current = true;
@@ -4601,19 +5140,54 @@ export default function AuctionCanvas({
     window.setTimeout(() => void pullBidsOnce(), 2_000);
     window.setTimeout(() => void pullBidsOnce(), 6_000);
     window.setTimeout(() => void refreshCore(), 2_000);
-    if (pathMintIntent) {
-      setReturnPromptVisible(true);
-    }
     setPendingMint({
       txHash: hash,
-      address: walletAddress,
+      address: submittedAccount,
       baselineTokenId: maxTokenId ?? null,
     });
   };
 
+  const buildPathMintReturnRecord = (
+    status: PathMintReturnRecord["status"],
+    hash: string,
+    submission: PathMintSubmissionContext,
+  ): PathMintReturnRecord | null => {
+    if (!pathMintIntent) return null;
+    return parsePathMintReturnRecord(
+      {
+        version: 1,
+        handoffId: pathMintIntent.handoffId,
+        status,
+        account: submission.account,
+        chainId: Number(submission.chainId),
+        txHash: hash,
+        baselineTokenId: maxTokenId ?? null,
+        updatedAt: Date.now(),
+      },
+      pathMintIntent.handoffId,
+    );
+  };
+
+  const keepPathMintSubmitted = (
+    hash: string,
+    submission?: PathMintSubmissionContext,
+    noticeText = "Submitted. Confirmation check delayed.",
+  ) => {
+    trackSubmittedBid(hash, submission?.account);
+    showToast({
+      kind: "warn",
+      text: noticeText,
+    });
+    txIdleTimerRef.current = window.setTimeout(() => {
+      setTxState("idle");
+      txIdleTimerRef.current = null;
+    }, 15_000);
+  };
+
   const runTx = async (
     phase: TxPhase,
-    call: () => Promise<any>
+    call: () => Promise<any>,
+    pathSubmission?: PathMintSubmissionContext,
   ): Promise<boolean> => {
     try {
       if (txIdleTimerRef.current) {
@@ -4629,7 +5203,7 @@ export default function AuctionCanvas({
         });
       }
       const res = await call();
-      const hash =
+      let hash =
         res?.transaction_hash ??
         res?.transactionHash ??
         res?.hash ??
@@ -4640,6 +5214,20 @@ export default function AuctionCanvas({
       setTxHash(hash);
       setLastTxHash(hash);
       setTxState("submitted");
+      if (phase === "bid" && pathMintIntent) {
+        if (!pathSubmission) {
+          throw new Error("Missing verified PATH mint submission context.");
+        }
+        const submittedRecord = buildPathMintReturnRecord(
+          "submitted",
+          hash,
+          pathSubmission,
+        );
+        if (!submittedRecord) {
+          throw new Error("Invalid PATH mint handoff transaction metadata.");
+        }
+        persistPathMintReturnState(submittedRecord);
+      }
       if (phase === "bid") {
         trackPathMintAnalytics("mint_started", {
           mintStage: "submitted",
@@ -4648,27 +5236,103 @@ export default function AuctionCanvas({
       showToast({ kind: "info", text: `Submitted: ${shortHash(hash)}.` });
       const waitProvider =
         provider ?? (getDefaultProvider() as ProviderInterface);
+      const accountWaiter = (account as any)?.waitForTransaction;
+      const providerWaiter = (waitProvider as any)?.waitForTransaction;
+      const waiterOwner =
+        typeof accountWaiter === "function"
+          ? account
+          : typeof providerWaiter === "function"
+            ? waitProvider
+            : null;
       const waiter =
-        (account as any)?.waitForTransaction ??
-        (waitProvider as any)?.waitForTransaction;
+        waiterOwner === account ? accountWaiter : providerWaiter;
       if (typeof waiter === "function") {
+        let replacementConfirmed = false;
         try {
-          await waiter.call(account ?? waitProvider, hash);
-        } catch (waitErr) {
-          if (phase === "bid" && isTransientRpcError(waitErr)) {
-            trackSubmittedBid(hash);
-            showToast({
-              kind: "warn",
-              text: "Submitted. Confirmation check delayed.",
-            });
-            txIdleTimerRef.current = window.setTimeout(() => {
-              setTxState("idle");
-              txIdleTimerRef.current = null;
-            }, 15_000);
-            return true;
+          const receipt = await waiter.call(waiterOwner, hash);
+          if (phase === "bid" && pathMintIntent) {
+            const outcome = transactionReceiptOutcome(receipt);
+            if (outcome === "reverted") {
+              clearPathMintReturnState();
+              throw new Error("PATH mint transaction reverted.");
+            }
+            if (outcome !== "success") {
+              keepPathMintSubmitted(hash, pathSubmission);
+              return true;
+            }
           }
-          throw waitErr;
+        } catch (waitErr) {
+          if (phase === "bid" && pathMintIntent) {
+            const replacement = transactionReplacement(waitErr);
+            if (replacement.kind === "replacement") {
+              const outcome = transactionReceiptOutcome(replacement.receipt);
+              if (replacement.cancelled || outcome === "reverted") {
+                clearPathMintReturnState();
+                throw new Error(
+                  replacement.cancelled
+                    ? "PATH mint transaction cancelled."
+                    : "PATH mint transaction reverted.",
+                );
+              }
+              if (!replacement.hash) {
+                keepPathMintSubmitted(
+                  hash,
+                  pathSubmission,
+                  "Replacement detected; hash unavailable. Tracking delayed.",
+                );
+                return true;
+              }
+              hash = replacement.hash;
+              setTxHash(hash);
+              setLastTxHash(hash);
+              const current = pathMintReturnStateRef.current;
+              const migrated = parsePathMintReturnRecord(
+                current
+                  ? {
+                      ...current,
+                      status:
+                        outcome === "success" ? "confirmed" : "submitted",
+                      txHash: hash,
+                      updatedAt: Date.now(),
+                    }
+                  : pathSubmission
+                    ? buildPathMintReturnRecord(
+                        outcome === "success" ? "confirmed" : "submitted",
+                        hash,
+                        pathSubmission,
+                      )
+                    : null,
+                pathMintIntent.handoffId,
+              );
+              if (!migrated) {
+                clearPathMintReturnState();
+                throw new Error("Invalid PATH mint replacement metadata.");
+              }
+              persistPathMintReturnState(migrated);
+              if (outcome !== "success") {
+                keepPathMintSubmitted(hash, pathSubmission);
+                return true;
+              }
+              replacementConfirmed = true;
+            } else if (isExplicitTransactionFailure(waitErr)) {
+              clearPathMintReturnState();
+              throw waitErr;
+            } else {
+              keepPathMintSubmitted(hash, pathSubmission);
+              return true;
+            }
+          }
+          if (!replacementConfirmed) {
+            if (phase === "bid" && isTransientRpcError(waitErr)) {
+              keepPathMintSubmitted(hash, pathSubmission);
+              return true;
+            }
+            throw waitErr;
+          }
         }
+      } else if (phase === "bid" && pathMintIntent) {
+        keepPathMintSubmitted(hash, pathSubmission);
+        return true;
       }
       setTxState("confirmed");
       showToast({
@@ -4676,10 +5340,29 @@ export default function AuctionCanvas({
         text: phase === "bid" ? "Settlement confirmed. Loading sale event." : "Confirmed.",
       });
       if (phase === "bid") {
+        if (pathMintIntent) {
+          const submittedRecord = pathMintReturnStateRef.current;
+          const confirmedRecord = parsePathMintReturnRecord(
+            submittedRecord?.txHash.toLowerCase() === String(hash).toLowerCase()
+              ? {
+                  ...submittedRecord,
+                  status: "confirmed",
+                  updatedAt: Date.now(),
+                }
+              : pathSubmission
+                ? buildPathMintReturnRecord("confirmed", hash, pathSubmission)
+                : null,
+            pathMintIntent.handoffId,
+          );
+          if (!confirmedRecord) {
+            throw new Error("Invalid confirmed PATH mint metadata.");
+          }
+          persistPathMintReturnState(confirmedRecord);
+        }
         trackPathMintAnalytics("mint_succeeded", {
           mintStage: "confirmed",
         });
-        trackSubmittedBid(hash);
+        trackSubmittedBid(hash, pathSubmission?.account);
       }
       txIdleTimerRef.current = window.setTimeout(() => {
         setTxState("idle");
@@ -4703,6 +5386,9 @@ export default function AuctionCanvas({
         console.error("mint failed", err);
       }
       if (phase === "bid") {
+        if (pathMintIntent && isExplicitTransactionFailure(err)) {
+          clearPathMintReturnState();
+        }
         const errorCode = walletErrorCode(err);
         trackPathMintAnalytics("mint_failed", {
           mintStage: walletCancelled ? "wallet_signature" : "transaction",
@@ -4719,6 +5405,10 @@ export default function AuctionCanvas({
 
   const handleMint = async () => {
     if (debugActive) return;
+    if (pathMintIntentBlock) {
+      showToast({ kind: "warn", text: pathMintIntentBlock });
+      return;
+    }
     if (auctionBlocksMint) {
       showToast({ kind: "info", text: auctionBlockedMintNotice });
       return;
@@ -4732,87 +5422,157 @@ export default function AuctionCanvas({
       }
       return;
     }
-    if (confirmingMint) {
-      setTxPhase("prepare");
-      setTxState("awaiting_signature");
-      setTxError(null);
-    }
-    const data = await runPreflight();
-    if (!data?.ask || !data.balance || !data.allowance) {
-      if (confirmingMint) {
-        const message = preflight.error || "preflight failed before wallet request.";
-        setTxError(message);
-        setTxPhase(null);
-        setTxState("failed");
-        showToast({
-          kind: "error",
-          text: "Mint preflight failed.",
-          reportState: "mint_preflight_failed",
-          reportError: message,
-        });
-      }
+    if (confirmingMint && pathMintSubmissionInFlightRef.current) {
+      showToast({ kind: "warn", text: "PATH mint already in progress." });
       return;
     }
-    if (data.balance.value < data.ask.value) {
-      setMintReview(null);
-      if (confirmingMint) {
-        setTxError("insufficient balance.");
-        setTxPhase(null);
-        setTxState("failed");
-      }
-      return;
-    }
-    if (!confirmingMint) {
-      const askEstimate = currentAskEstimateRef.current;
-      const priceLabel =
-        mimicLocalTime && askEstimate != null && Number.isFinite(askEstimate)
-          ? formatHumanTokenAmount(askEstimate, 8)
-          : formatTokenAmount(data.ask, decimals);
-      setMintReview({
-        ask: data.ask,
-        symbol: displayTokenSymbol,
-        priceLabel,
-        txValueLabel: nativePayment ? priceLabel : "0",
-        maxPriceLabel: priceLabel,
-        nativePayment,
-        requiresApproval: !nativePayment && data.allowance.value < data.ask.value,
-      });
-      return;
-    }
+    if (confirmingMint) pathMintSubmissionInFlightRef.current = true;
 
-    setMintReview(null);
-    setReturnPromptVisible(false);
-    await refreshWalletChainRpc(targetChainIdHex, evm.provider);
-    await maybeWatchAsset();
-    if (!nativePayment && data.allowance.value < data.ask.value) {
-      const ok = await runTx("approve", () =>
-        account.execute({
-          contractAddress: paymentToken,
-          entrypoint: "approve",
-          calldata: [auctionAddress, data.ask.raw.low, data.ask.raw.high],
-        })
-      );
-      if (!ok) return;
+    try {
+      if (confirmingMint) {
+        setTxPhase("prepare");
+        setTxState("awaiting_signature");
+        setTxError(null);
+      }
+      const data = await runPreflight();
+      if (!data?.ask || !data.balance || !data.allowance) {
+        if (confirmingMint) {
+          const message = preflight.error || "preflight failed before wallet request.";
+          setTxError(message);
+          setTxPhase(null);
+          setTxState("failed");
+          showToast({
+            kind: "error",
+            text: "Mint preflight failed.",
+            reportState: "mint_preflight_failed",
+            reportError: message,
+          });
+        }
+        return;
+      }
+      if (data.balance.value < data.ask.value) {
+        setMintReview(null);
+        if (confirmingMint) {
+          setTxError("insufficient balance.");
+          setTxPhase(null);
+          setTxState("failed");
+        }
+        return;
+      }
+      if (!confirmingMint) {
+        const askEstimate = currentAskEstimateRef.current;
+        const priceLabel =
+          mimicLocalTime && askEstimate != null && Number.isFinite(askEstimate)
+            ? formatHumanTokenAmount(askEstimate, 8)
+            : formatTokenAmount(data.ask, decimals);
+        setMintReview({
+          ask: data.ask,
+          symbol: displayTokenSymbol,
+          priceLabel,
+          txValueLabel: nativePayment ? priceLabel : "0",
+          maxPriceLabel: priceLabel,
+          nativePayment,
+          requiresApproval: !nativePayment && data.allowance.value < data.ask.value,
+        });
+        return;
+      }
+
+      setMintReview(null);
+      const submitMint = async () => {
+        if (pathMintIntent) {
+          const storedRecord = readPathMintReturnRecord(
+            getPathMintReturnStorageHost(),
+            pathMintIntent.handoffId,
+          );
+          if (storedRecord) {
+            pathMintReturnStateRef.current = storedRecord;
+            setPathMintReturnState(storedRecord);
+            setTxState(storedRecord.status === "submitted" ? "submitted" : "confirmed");
+            setTxPhase(null);
+            showToast({
+              kind: "info",
+              text:
+                storedRecord.status === "submitted"
+                  ? "PATH mint already submitted."
+                  : "PATH mint already confirmed.",
+            });
+            return;
+          }
+        }
+
+        await refreshWalletChainRpc(targetChainIdHex, evm.provider);
+        await maybeWatchAsset();
+        if (!nativePayment && data.allowance.value < data.ask.value) {
+          const ok = await runTx("approve", () =>
+            account.execute({
+              contractAddress: paymentToken,
+              entrypoint: "approve",
+              calldata: [auctionAddress, data.ask.raw.low, data.ask.raw.high],
+            })
+          );
+          if (!ok) return;
+        }
+
+        const pathSubmission = pathMintIntent
+          ? await readPathMintSubmissionContext(
+              evm.provider as ProviderInterface,
+              pathMintIntent.originAccount ?? walletAddress,
+              pathMintIntent.chainId,
+            )
+          : undefined;
+        const bidCall = {
+          contractAddress: auctionAddress,
+          entrypoint: "bid",
+          calldata: [data.ask.raw.low, data.ask.raw.high],
+          value: nativePayment ? data.ask.value : undefined,
+        };
+        await runTx(
+          "bid",
+          () => {
+            assertPulseBidIntent({
+              contractAddress: bidCall.contractAddress,
+              expectedContractAddress: auctionAddress,
+              calldata: bidCall.calldata,
+              maxPrice: data.ask,
+              value: bidCall.value,
+              nativePayment,
+              chainId: pathSubmission?.chainId ?? chainIdValue,
+              targetChainId,
+            });
+            return account.execute(bidCall);
+          },
+          pathSubmission,
+        );
+      };
+
+      if (pathMintIntent) {
+        const lockResult = await withPathMintSubmissionLock(
+          pathMintIntent.handoffId,
+          submitMint,
+        );
+        if (lockResult !== "acquired") {
+          setTxState("idle");
+          setTxPhase(null);
+          showToast({
+            kind: "warn",
+            text:
+              lockResult === "unsupported"
+                ? "PATH minting requires browser tab coordination (Web Locks), which this browser does not support."
+                : "This PATH mint is already open in another tab.",
+          });
+        }
+      } else {
+        await submitMint();
+      }
+    } catch (error) {
+      const message = walletErrorMessage(error) || "PATH mint preparation failed.";
+      setTxError(message);
+      setTxPhase(null);
+      setTxState("failed");
+      showToast({ kind: "error", text: message });
+    } finally {
+      if (confirmingMint) pathMintSubmissionInFlightRef.current = false;
     }
-    const bidCall = {
-      contractAddress: auctionAddress,
-      entrypoint: "bid",
-      calldata: [data.ask.raw.low, data.ask.raw.high],
-      value: nativePayment ? data.ask.value : undefined,
-    };
-    await runTx("bid", () => {
-      assertPulseBidIntent({
-        contractAddress: bidCall.contractAddress,
-        expectedContractAddress: auctionAddress,
-        calldata: bidCall.calldata,
-        maxPrice: data.ask,
-        value: bidCall.value,
-        nativePayment,
-        chainId: chainIdValue,
-        targetChainId,
-      });
-      return account.execute(bidCall);
-    });
   };
 
   const persistentNotice = useMemo<Notice | null>(() => {
@@ -4820,6 +5580,15 @@ export default function AuctionCanvas({
       ctaOverrideActive || noticeOverrideActive
         ? effectiveAskLabel
         : liveAskLabel ?? effectiveAskLabel;
+    if (pathMintReturnState?.status === "confirmed") {
+      return { kind: "info", text: "$PATH minted. Return to THOUGHT." };
+    }
+    if (pathMintReturnState?.status === "submitted") {
+      return { kind: "info", text: "$PATH mint submitted. Waiting for confirmation." };
+    }
+    if (pathMintIntentBlock) {
+      return { kind: "warn", text: pathMintIntentBlock };
+    }
     if (auctionBlocksMint) {
       return { kind: "info", text: auctionBlockedMintNotice };
     }
@@ -4910,13 +5679,6 @@ export default function AuctionCanvas({
     if (pendingMint) {
       return { kind: "info", text: "Settlement confirmed. Loading sale event." };
     }
-    if (
-      pathMintIntent &&
-      returnPromptVisible &&
-      (effectiveTxState === "idle" || effectiveTxState === "confirmed")
-    ) {
-      return { kind: "info", text: "$PATH minted. Return to THOUGHT." };
-    }
     if (!effectiveWalletDetected) {
       return {
         kind: "error",
@@ -5002,8 +5764,8 @@ export default function AuctionCanvas({
     displayTokenSymbol,
     auctionBlocksMint,
     auctionBlockedMintNotice,
-    pathMintIntent,
-    returnPromptVisible,
+    pathMintIntentBlock,
+    pathMintReturnState,
     pendingMint,
     isMetaMaskWallet,
   ]);
@@ -5073,6 +5835,19 @@ export default function AuctionCanvas({
       : "off";
 
   const ctaState = (() => {
+    if (pathMintReturnState?.status === "confirmed") {
+      return {
+        label: "return",
+        disabled: false,
+        onClick: handleReturnToThought,
+      };
+    }
+    if (pathMintReturnState?.status === "submitted") {
+      return { label: "pending", disabled: false, onClick: handlePending };
+    }
+    if (pathMintIntentBlock) {
+      return { label: "mint", disabled: true, onClick: handleMint };
+    }
     if (effectiveWalletUnlocked && effectiveChainKnown && !effectiveChainOk) {
       return { label: "mint", disabled: true, onClick: handleMint };
     }
@@ -5096,17 +5871,6 @@ export default function AuctionCanvas({
     }
     if (effectiveTxState === "failed") {
       return { label: "retry", disabled: false, onClick: handleRetry };
-    }
-    if (
-      pathMintIntent &&
-      returnPromptVisible &&
-      (effectiveTxState === "idle" || effectiveTxState === "confirmed")
-    ) {
-      return {
-        label: "return",
-        disabled: false,
-        onClick: handleReturnToThought,
-      };
     }
     if (
       mintReview &&
@@ -6222,7 +6986,7 @@ export default function AuctionCanvas({
       style={dotfieldStyle}
       data-layout-zoomed={isPathStageLayoutZoomed ? "true" : "false"}
     >
-      {!isDesktop && (
+      {!isDesktop && !pathMintIntent && (
         <div className="dotfield__overlay">
           <div className="muted small">
             This view needs more room. Please widen your window or use a larger screen.
@@ -6292,6 +7056,9 @@ export default function AuctionCanvas({
               : "is-info"
             : "is-empty"
         }`}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
       >
         {displayNotice?.text ?? ""}
         {displayWalletRpcFix && (

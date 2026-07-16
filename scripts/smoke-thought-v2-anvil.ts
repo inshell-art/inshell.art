@@ -93,7 +93,15 @@ const runSmoke = async () => {
 
   const latestBlock = await provider.getBlock("latest");
   assert(latestBlock, "latest Anvil block unavailable");
-  const deadline = BigInt(latestBlock.timestamp) + 3600n;
+  // A persistent Anvil node can sit idle long enough for its latest mined block
+  // to trail wall-clock time by more than the authorization TTL. Anvil advances
+  // the next block to wall-clock time, so a deadline based only on the stale
+  // head can already be expired by the time gas estimation runs.
+  const wallClockTimestamp = BigInt(Math.floor(Date.now() / 1000));
+  const authorizationBaseTimestamp = BigInt(latestBlock.timestamp) > wallClockTimestamp
+    ? BigInt(latestBlock.timestamp)
+    : wallClockTimestamp;
+  const deadline = authorizationBaseTimestamp + 3600n;
   const nonce = await pathNft.getConsumeNonce(minter);
   const consumeTypehash = id(
     "ConsumeAuthorization(address pathNft,uint256 chainId,uint256 pathId,bytes32 movement,address claimer,address executor,uint256 nonce,uint256 deadline)",

@@ -30,6 +30,10 @@ import {
   THOUGHT_V2_MINT_UNAVAILABLE_COPY,
 } from "../apps/thought/src/thought-mint-ui";
 import { buildThoughtConsoleLines } from "../apps/thought/src/thought-console";
+import { runThoughtConsoleTests } from "../apps/thought/src/thought-console.test";
+import { runThoughtMintPresentationTests } from "../apps/thought/src/thought-mint-presentation.test";
+import { runThoughtMintTransactionTests } from "../apps/thought/src/thought-mint-transaction.test";
+import { runThoughtMintSubmissionLockTests } from "../apps/thought/src/thought-mint-submission-lock.test";
 import { sanitizeWorkRecord } from "../apps/thought/src/works";
 import {
   canonicalThoughtTitle,
@@ -616,9 +620,8 @@ assert.deepEqual(
   [
     "[21:50:02] mint error",
     THOUGHT_V2_MINT_UNAVAILABLE_COPY,
-    "next: retry / reset",
   ],
-  "console must reduce mint failures to status, useful detail, and next actions",
+  "console must retain the outcome without projecting live controls",
 );
 
 assert.deepEqual(
@@ -631,7 +634,6 @@ assert.deepEqual(
   [
     "[09:10:11] work ready",
     "connect wallet to mint",
-    "next: mint / reset",
   ],
   "console must keep work-ready guidance concise",
 );
@@ -658,6 +660,11 @@ assert.deepEqual(
   ["[09:10:13] minted"],
   "console must not repeat a detail that matches its title",
 );
+
+runThoughtConsoleTests();
+runThoughtMintPresentationTests();
+runThoughtMintTransactionTests();
+await runThoughtMintSubmissionLockTests();
 
 assert.equal(
   buildThoughtRuntimePrompt("make it quiet"),

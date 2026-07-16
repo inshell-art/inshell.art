@@ -19,7 +19,7 @@
     "test": "pnpm --filter @inshell/home test && pnpm run test:thought-runtime",
     "test:fast": "pnpm --filter @inshell/home test:fast",
     "test:presepolia": "pnpm --filter @inshell/home test:presepolia",
-    "test:thought-runtime": "node --import tsx scripts/test-thought-runtime.ts && node --import tsx scripts/test-thought-agent-client.ts",
+    "test:thought-runtime": "node --import tsx scripts/test-thought-runtime.ts && node --import tsx scripts/test-thought-agent-client.ts && node --test scripts/thought-panel-ui.test.mjs",
     "test:thought-agent-client": "node --import tsx scripts/test-thought-agent-client.ts",
     "test:thought-agent-client:live": "node --import tsx scripts/test-thought-agent-client-live.ts",
     "test:unit": "pnpm --filter @inshell/home test:unit",
