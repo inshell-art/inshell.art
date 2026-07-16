@@ -1,3 +1,5 @@
+import type { ThoughtV2LocalAgentEvidence } from "./thought-v2-local-agent";
+
 export type WorkRunContext = {
   mode: string;
   provider: string;
@@ -26,6 +28,7 @@ export type WorkRunContext = {
     ref: string;
     hash: string;
   };
+  agentEvidence?: ThoughtV2LocalAgentEvidence;
 };
 
 export type ThoughtWorkRecord = {
@@ -46,8 +49,8 @@ export type ThoughtWorkRecord = {
     hash: string;
   };
   normalizer: {
-    id: "thought.normalize.v1" | "contract-preview";
-    source: "contract-view" | "ThoughtNFT.previewWork";
+    id: "thought.normalize.v1" | "contract-preview" | "frontend-renderer";
+    source: "contract-view" | "ThoughtNFT.previewWork" | "browser-renderer";
   };
   previewProvider?: WorkRunContext["previewProvider"];
   provenanceJson?: string;
@@ -78,8 +81,8 @@ export type ThoughtWorkInput = {
     hash: string;
   };
   normalizer?: {
-    id: "thought.normalize.v1" | "contract-preview";
-    source: "contract-view" | "ThoughtNFT.previewWork";
+    id: "thought.normalize.v1" | "contract-preview" | "frontend-renderer";
+    source: "contract-view" | "ThoughtNFT.previewWork" | "browser-renderer";
   };
   previewProvider?: WorkRunContext["previewProvider"];
   provenanceJson?: string;
@@ -98,6 +101,24 @@ export type WorkStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 export const THOUGHT_WORKS_STORAGE_KEY = "thought-works";
 export const THOUGHT_WORKS_LIMIT = 80;
 
+const isWorkAgentEvidence = (value: unknown): value is ThoughtV2LocalAgentEvidence => {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const candidate = value as Partial<ThoughtV2LocalAgentEvidence>;
+  return (
+    typeof candidate.result === "object" &&
+    candidate.result !== null &&
+    typeof candidate.result.agentLine === "string" &&
+    typeof candidate.runId === "string" &&
+    Boolean(candidate.runId) &&
+    typeof candidate.adapter === "string" &&
+    Boolean(candidate.adapter) &&
+    typeof candidate.rawResponseSha256 === "string" &&
+    /^[0-9a-f]{64}$/.test(candidate.rawResponseSha256)
+  );
+};
+
 const isWorkRunContext = (value: unknown): value is WorkRunContext => {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -109,12 +130,14 @@ const isWorkRunContext = (value: unknown): value is WorkRunContext => {
       candidate.mode === "connect" ||
       candidate.mode === "direct" ||
       candidate.mode === "local" ||
-      candidate.mode === "my-brain"
+      candidate.mode === "my-brain" ||
+      candidate.mode === "codex"
     ) &&
     typeof candidate.provider === "string" &&
     typeof candidate.model === "string" &&
     typeof candidate.prompt === "string" &&
-    typeof candidate.clientGeneratedAt === "string"
+    typeof candidate.clientGeneratedAt === "string" &&
+    (candidate.agentEvidence === undefined || isWorkAgentEvidence(candidate.agentEvidence))
   );
 };
 

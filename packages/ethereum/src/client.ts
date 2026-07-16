@@ -582,19 +582,22 @@ export async function sendTransaction(
   }
 ): Promise<string> {
   assertRequestProvider(provider);
+  const txParams: {
+    from: Address;
+    to: Address;
+    data: Hex;
+    value?: Hex;
+  } = {
+    from: normalizeAddress(tx.from),
+    to: normalizeAddress(tx.to),
+    data: tx.data,
+  };
+  if (typeof tx.value === "bigint" && tx.value > 0n) {
+    txParams.value = toHexQuantity(tx.value);
+  }
   const hash = (await provider.request({
     method: "eth_sendTransaction",
-    params: [
-      {
-        from: normalizeAddress(tx.from),
-        to: normalizeAddress(tx.to),
-        data: tx.data,
-        value:
-          typeof tx.value === "bigint" && tx.value > 0n
-            ? toHexQuantity(tx.value)
-            : undefined,
-      },
-    ],
+    params: [txParams],
   })) as string;
   return hash;
 }

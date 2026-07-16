@@ -99,6 +99,9 @@ importers:
       '@inshell/ethereum':
         specifier: workspace:*
         version: link:../../packages/ethereum
+      '@inshell/inshell-shell':
+        specifier: workspace:*
+        version: link:../../packages/inshell-shell
       '@inshell/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -244,12 +247,18 @@ importers:
       '@inshell/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@inshell/inshell-shell':
+        specifier: workspace:*
+        version: link:../../packages/inshell-shell
       '@inshell/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@inshell/surface-shell-core':
         specifier: workspace:*
         version: link:../../packages/surface-shell-core
+      '@inshell/thought-agent-protocol':
+        specifier: workspace:*
+        version: link:../../packages/thought-agent-protocol
       '@inshell/wallet':
         specifier: workspace:*
         version: link:../../packages/wallet
@@ -296,9 +305,32 @@ importers:
         specifier: ^2.47.0
         version: 2.47.0(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@6.0.6)(zod@3.25.76)
 
-  packages/shared: {}
+  packages/inshell-shell:
+    dependencies:
+      '@inshell/wallet':
+        specifier: workspace:*
+        version: link:../wallet
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.3
+        version: 18.3.23
+
+  packages/shared:
+    dependencies:
+      ethers:
+        specifier: ^6.16.0
+        version: 6.16.0(bufferutil@4.1.0)(utf-8-validate@6.0.6)
 
   packages/surface-shell-core: {}
+
+  packages/thought-agent-protocol:
+    dependencies:
+      '@inshell/shared':
+        specifier: workspace:*
+        version: link:../shared
 
   packages/utils: {}
 

@@ -1,0 +1,20 @@
+{
+  "agentIdentityDomain": "0x7ba21f2ce7e25623bc85d495fac9d20077b0f1b04b86465524db6c1eff265f71",
+  "agentIdentityDomainText": "INSHELL_THOUGHT_V2_AGENT_IDENTITY",
+  "rendererId": "inshell.thought.svg.v2.binary-weave-32",
+  "rendererIdHash": "0x25744370b60846d2470a55891ed1493a7d90d8d8e52893a62d266cf00f96ba39",
+  "vectors": [
+    {
+      "agentIdentityHash": "0x60bd64e4171f7897298c9cc6c0bb92856dd74f7f2871accd2acf64be6f09cbde",
+      "agentLine": "b",
+      "agentLineKeccak256": "0xb5553de315e0edf504d9150af82dafa5c4667fa618ed0a6f19c69b41166c5510",
+      "binaryFieldKeccak256": "0x0ebcd533370f6c3205fbd0dddbdfb5beebefae4484d3d4aa4ac5b2dc66719ded",
+      "binaryFieldPacked": "0x28022802140114017d577d57beabbeab7d577d57beabbeab2802280214011401280228021401140128022802140114017d577d57beabbeab280228021401140128022802140114017d577d57beabbeab7d577d57beabbeab2802280214011401280228021401140128022802140114017d577d57beabbeab2802280214011401",
+      "promptLine": "a",
+      "promptLineKeccak256": "0x3ac225168df54212a25c1c01fd35bebfea408fdac2e31ddd6f80a4bbf9a5f1cb",
+      "workHash": "0xd4e816b4af3344204c7b8af8cef0ad4cf06b3baa09093db26e553427ccb31426"
+    }
+  ],
+  "workDomain": "0x067f661d579b55748656bedd022ca2f5e113b78c9f39180ac6926f9bbdcb158f",
+  "workDomainText": "INSHELL_THOUGHT_V2_WORK"
+}

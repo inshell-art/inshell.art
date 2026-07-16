@@ -1,48 +1,59 @@
 {
-  "rpcUrl": "https://thought.inshell.art/api/thought-rpc",
-  "chainId": 11155111,
-  "explorerUrl": "https://sepolia.etherscan.io",
+  "rpcUrl": "http://127.0.0.1:8545",
+  "chainId": 31337,
   "pathNft": {
-    "address": "0x84915746a1f06850CF41a3E90C60c2DcA3fa116D"
+    "address": "0x8A93d247134d91e0de6f96547cB0204e5BE8e5D8"
   },
   "pathMovement": {
     "name": "THOUGHT",
-    "bytes32": "0x54484f5547485400000000000000000000000000000000000000000000000000",
     "quota": 1,
     "frozen": true
   },
-  "seedGenerator": {
-    "address": "0xAaA5a9D3F7C5eFaB8b7DA19F9CeC17c3895cc287"
+  "devPathToken": {
+    "id": 1,
+    "owner": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
   },
-  "colorFontV1": {
-    "address": "0xC223507ab7801Fdf234766fa1A87F09eae3494af"
-  },
-  "thoughtPreviewer": {
-    "address": "0x0A0100Ef4c25a50A8E16bED818E6Bda82d3b923F"
+  "devPathTokens": {
+    "firstId": 1,
+    "lastId": 10,
+    "owner": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
   },
   "thoughtSpecRegistry": {
-    "address": "0xBB8FD738b01b4a14F5E9bCFE408239a05d84621D"
+    "address": "0x927b167526bAbB9be047421db732C663a0b77B11"
+  },
+  "protocolRegistry": {
+    "address": "0x01c1DeF3b91672704716159C9041Aeca392DdFfb"
+  },
+  "thoughtRenderer": {
+    "address": "0x638A246F0Ec8883eF68280293FFE8Cfbabe61B44"
   },
   "thoughtNft": {
-    "address": "0x413efb5C95Bf3158F0E563FB9E19CB650Fc3760a"
+    "address": "0x6C2d83262fF84cBaDb3e416D527403135D757892"
   },
-  "recommendedThoughtSpecName": "THOUGHT.v1.md",
-  "recommendedThoughtSpecId": "0xe201170ae183f114064f4492cbc4942f7d3d68b74a08d3dc4b4f61edec213d78",
-  "recommendedThoughtSpecHash": "0x1abb9da7ba36102726375510e66afe255f8c6e0d771b4c3b90c5d22a9b8eb909",
-  "thoughtSpec": {
-    "specName": "THOUGHT.v1.md",
-    "id": "0xe201170ae183f114064f4492cbc4942f7d3d68b74a08d3dc4b4f61edec213d78",
-    "hash": "0x1abb9da7ba36102726375510e66afe255f8c6e0d771b4c3b90c5d22a9b8eb909",
-    "ref": "THOUGHT.v1.md"
+  "protocolRelease": {
+    "id": "0xcab9cb82294d90e90d60203b27195c4daa75ea365f3d9b249caf5cd4006d6673",
+    "manifestHash": "0xc46e1b3dbab5128bc4af98bc009dca3e45e6903c8263e0eb49cb5eb32fc16e0d",
+    "rendererProfileHash": "0xbce80f7dc9c4f4cf4c6bdda3df41647f9bf193d6352d594a182971e1e3045443",
+    "workProfileHash": "0x8b590ab95432b0dd5002a4fb1419475751bdf0210a73338bf633533005d182bb",
+    "status": "draft-local"
   },
   "thoughtSpecs": [
     {
-      "specName": "THOUGHT.v1.md",
-      "specId": "0xe201170ae183f114064f4492cbc4942f7d3d68b74a08d3dc4b4f61edec213d78",
-      "specHash": "0x1abb9da7ba36102726375510e66afe255f8c6e0d771b4c3b90c5d22a9b8eb909",
-      "ref": "THOUGHT.v1.md",
-      "pointer": "THOUGHT.v1.md",
-      "byteLength": 8549
+      "specName": "THOUGHT.v2.md",
+      "specId": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410",
+      "specHash": "0xe56691af2ea250f66a09c6766ea90f5180af45f56d129b5cdce1ca42204d7f0a",
+      "ref": "THOUGHT.v2.md",
+      "pointer": "0x9bd624BefB05a4FD466c3055C985155D04Fbff4B",
+      "byteLength": 2811
     }
-  ]
+  ],
+  "recommendedThoughtSpecName": "THOUGHT.v2.md",
+  "recommendedThoughtSpecId": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410",
+  "recommendedThoughtSpecHash": "0xe56691af2ea250f66a09c6766ea90f5180af45f56d129b5cdce1ca42204d7f0a",
+  "thoughtSpec": {
+    "specName": "THOUGHT.v2.md",
+    "id": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410",
+    "hash": "0xe56691af2ea250f66a09c6766ea90f5180af45f56d129b5cdce1ca42204d7f0a",
+    "ref": "THOUGHT.v2.md"
+  }
 }

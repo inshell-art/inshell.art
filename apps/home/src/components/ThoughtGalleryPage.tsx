@@ -31,9 +31,9 @@ function getEnvValue(name: string): unknown {
 
 function configuredUrl(name: string) {
   const value = getEnvValue(name);
-  return typeof value === "string" && /^https?:\/\//i.test(value.trim())
-    ? value.trim()
-    : null;
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return /^https?:\/\//i.test(trimmed) || trimmed.startsWith("/") ? trimmed : null;
 }
 
 function isPreviewDeployment(): boolean {
@@ -56,8 +56,8 @@ function thoughtAppUrl(): string {
   return (
     configuredUrl("VITE_THOUGHT_URL") ??
     (isPreviewDeployment()
-      ? "https://thought.preview.inshell.art/"
-      : "https://thought.inshell.art/")
+      ? "https://preview.inshell.art/thought"
+      : "https://inshell.art/thought")
   );
 }
 

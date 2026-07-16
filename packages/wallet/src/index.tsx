@@ -1,18 +1,13 @@
 /* eslint-disable react-refresh/only-export-components */
-/* global CustomEvent, Event, EventListener */
 import React, {
   createContext,
   useCallback,
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
-import {
-  OFFICIAL_DOMAINS,
-  PUBLIC_SITE_METADATA,
-  absolutePublicAssetUrl,
-} from "@inshell/contracts";
 import {
   encodeExecuteData,
   getDefaultProvider,
@@ -20,6 +15,31 @@ import {
   waitForTransaction,
   type ProviderInterface,
 } from "@inshell/ethereum";
+import {
+  EIP6963_ANNOUNCE_EVENT,
+  EIP6963_REQUEST_EVENT,
+  chainLabel,
+  connectEip1193Provider,
+  createWalletConnectEthereumProvider,
+  discoverEip6963Providers,
+  fallbackWindowEthereumProviders,
+  mergeProviderDetails,
+  normalizeProviderDetail,
+  parseChainId,
+  readEvmChainIds,
+  readWalletConnectProjectId,
+  readWalletConnectRelayUrl,
+  walletAnalyticsErrorCategory,
+  walletConnectMetadata,
+  walletConnectRpcMap,
+  type Eip1193Provider,
+  type Eip6963ProviderDetail,
+  type Eip6963ProviderInfo,
+  type WalletConnectEthereumProvider,
+  type WalletConnector,
+} from "./evm";
+
+export * from "./evm";
 
 function getEnv(name: string): any {
   const envCache: Record<string, any> | undefined =
@@ -30,33 +50,46 @@ function getEnv(name: string): any {
   return envCache?.[name] ?? buildEnv?.[name] ?? procEnv?.[name];
 }
 
+let walletConnectConfigWarningShown = false;
+const INSHELL_WALLET_SOFT_DISCONNECT_KEY = "inshell.wallet.soft-disconnected.v1";
+
+function isWalletSoftDisconnected() {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.sessionStorage.getItem(INSHELL_WALLET_SOFT_DISCONNECT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function setWalletSoftDisconnected(disconnected: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    if (disconnected) {
+      window.sessionStorage.setItem(INSHELL_WALLET_SOFT_DISCONNECT_KEY, "1");
+    } else {
+      window.sessionStorage.removeItem(INSHELL_WALLET_SOFT_DISCONNECT_KEY);
+    }
+  } catch {
+    /* Wallet state still works when browser storage is unavailable. */
+  }
+}
+
+function warnMissingWalletConnectProjectId() {
+  const isProduction = getEnv("PROD") === true || getEnv("MODE") === "production";
+  if (!isProduction || readWalletConnectProjectId(getEnv) || walletConnectConfigWarningShown) {
+    return;
+  }
+  walletConnectConfigWarningShown = true;
+  console.warn("WalletConnect disabled: missing VITE_WALLETCONNECT_PROJECT_ID.");
+}
+
 export type WalletAsset = {
   address: string;
   symbol: string;
   decimals: number;
   name?: string;
   icon?: string;
-};
-
-type Eip1193Provider = ProviderInterface & {
-  request: (args: { method: string; params?: unknown }) => Promise<unknown>;
-};
-
-type Eip6963ProviderInfo = {
-  uuid: string;
-  name: string;
-  icon?: string;
-  rdns?: string;
-};
-
-type Eip6963ProviderDetail = {
-  info: Eip6963ProviderInfo;
-  provider: Eip1193Provider;
-};
-
-type WalletConnectEthereumProvider = Eip1193Provider & {
-  enable?: () => Promise<string[]>;
-  disconnect?: () => Promise<void>;
 };
 
 type WalletAccount = {
@@ -72,14 +105,6 @@ type WalletAccount = {
     hash: string;
   }>;
   waitForTransaction: (hash: string) => Promise<unknown>;
-};
-
-type WalletConnector = {
-  id: string;
-  name: string;
-  available: () => boolean;
-  kind: "injected" | "walletconnect";
-  detail?: Eip6963ProviderDetail;
 };
 
 type WalletContextValue = {
@@ -103,6 +128,9 @@ type WalletContextValue = {
   connectStatus: string;
   connectError: unknown;
   requestAccounts: () => Promise<string[] | null>;
+  ensureWalletConnected: (options?: EnsureWalletOptions) => Promise<EnsureWalletResult>;
+  refreshWallet: () => Promise<void>;
+  disconnectWallet: () => Promise<void>;
   watchAsset: (asset: WalletAsset) => Promise<boolean>;
   connectEip1193: () => Promise<{
     address: string | null;
@@ -133,200 +161,68 @@ type WalletContextValue = {
   };
 };
 
-const WalletContext = createContext<WalletContextValue | null>(null);
+export type WalletStatus =
+  | "disconnected"
+  | "connecting"
+  | "connected"
+  | "wrong_chain"
+  | "error";
 
-const EIP6963_ANNOUNCE_EVENT = "eip6963:announceProvider";
-const EIP6963_REQUEST_EVENT = "eip6963:requestProvider";
+export type EnsureWalletReason =
+  | "path_mint"
+  | "thought_path_check"
+  | "thought_authorize_path"
+  | "thought_confirm_mint"
+  | "read_owned_works";
 
-function normalizeProviderDetail(
-  detail: unknown
-): Eip6963ProviderDetail | null {
-  const info = (detail as any)?.info;
-  const provider = (detail as any)?.provider;
-  if (!provider || typeof provider.request !== "function") return null;
-  const uuid =
-    typeof info?.uuid === "string" && info.uuid.trim()
-      ? info.uuid.trim()
-      : `anon:${typeof info?.name === "string" ? info.name : "provider"}`;
-  const name =
-    typeof info?.name === "string" && info.name.trim()
-      ? info.name.trim()
-      : "Injected";
-  const rdns = typeof info?.rdns === "string" ? info.rdns.trim() : "";
-  const icon = typeof info?.icon === "string" ? info.icon : "";
-  const providerTyped = provider as Eip1193Provider;
-  const normalizedInfo = { uuid, name, rdns, icon };
-  if (isUnsupportedInjectedProvider(normalizedInfo, providerTyped)) return null;
-  return {
-    info: normalizedInfo,
-    provider: providerTyped,
-  };
+export type EnsureWalletOptions = {
+  reason?: EnsureWalletReason;
+  expectedChainId?: number;
+  expectedAccount?: `0x${string}`;
+  openModal?: boolean;
+};
+
+export type EnsureWalletResult =
+  | { ok: true; address: `0x${string}`; chainId: number }
+  | {
+      ok: false;
+      reason: "cancelled" | "missing_provider" | "wrong_chain" | "error";
+      message: string;
+    };
+
+function normalizeWalletErrorMessage(error: unknown): string {
+  return String((error as any)?.message ?? error ?? "").trim();
 }
 
-function providerDetailKey(detail: Eip6963ProviderDetail): string {
-  const rdns = detail.info.rdns?.trim();
-  if (rdns) return `rdns:${rdns.toLowerCase()}`;
-  return `uuid:${detail.info.uuid.toLowerCase()}`;
-}
-
-function isUnsupportedInjectedProvider(
-  info: Eip6963ProviderInfo,
-  provider?: Eip1193Provider
-): boolean {
-  const name = info.name.toLowerCase();
-  const rdns = (info.rdns ?? "").toLowerCase();
-  const p = provider as any;
+function isWalletRequestCancelled(error: unknown): boolean {
+  const code = Number((error as any)?.code);
+  if (code === 4001) return true;
+  const message = normalizeWalletErrorMessage(error).toLowerCase();
   return (
-    name.includes("temple") ||
-    rdns.includes("temple") ||
-    Boolean(p?.isTemple || p?.isTempleWallet)
+    message.includes("user rejected") ||
+    message.includes("user reject") ||
+    message.includes("request rejected") ||
+    message.includes("request denied") ||
+    message.includes("user_refused") ||
+    /\b4001\b/.test(message)
   );
 }
 
-function mergeProviderDetails(
-  base: Eip6963ProviderDetail[],
-  incoming: Eip6963ProviderDetail[]
-): Eip6963ProviderDetail[] {
-  const map = new Map<string, Eip6963ProviderDetail>();
-  for (const item of [...base, ...incoming]) {
-    map.set(providerDetailKey(item), item);
-  }
-  const rank = (detail: Eip6963ProviderDetail): number => {
-    const name = detail.info.name.toLowerCase();
-    const rdns = (detail.info.rdns ?? "").toLowerCase();
-    if (rdns.includes("metamask") || name.includes("metamask")) return 0;
-    if (rdns.includes("rabby") || name.includes("rabby")) return 10;
-    if (rdns.includes("coinbase") || name.includes("coinbase")) return 20;
-    if (rdns === "window.ethereum") return 100;
-    return 50;
-  };
-  return Array.from(map.values()).sort((a, b) => {
-    const rankDiff = rank(a) - rank(b);
-    if (rankDiff !== 0) return rankDiff;
-    return a.info.name.localeCompare(b.info.name);
-  });
+function isMissingWalletProviderError(error: unknown): boolean {
+  const message = normalizeWalletErrorMessage(error).toLowerCase();
+  return (
+    message.includes("no eip-1193 injected wallet found") ||
+    message.includes("missing vite_walletconnect_project_id") ||
+    message.includes("walletconnect") && message.includes("unavailable") ||
+    message.includes("missing provider")
+  );
 }
 
-function inferFallbackProviderInfo(
-  provider: Eip1193Provider,
-  index: number
-): Eip6963ProviderInfo {
-  const p = provider as any;
-  if (p?.isMetaMask) {
-    return {
-      uuid: `fallback:metamask:${index}`,
-      name: "MetaMask",
-      rdns: "io.metamask",
-    };
-  }
-  if (p?.isRabby) {
-    return {
-      uuid: `fallback:rabby:${index}`,
-      name: "Rabby",
-      rdns: "io.rabby",
-    };
-  }
-  if (p?.isCoinbaseWallet) {
-    return {
-      uuid: `fallback:coinbase:${index}`,
-      name: "Coinbase Wallet",
-      rdns: "com.coinbase.wallet",
-    };
-  }
-  return {
-    uuid: `fallback:window-ethereum:${index}`,
-    name: "Injected",
-    rdns: index === 0 ? "window.ethereum" : `window.ethereum.${index}`,
-  };
+function sameAddress(a?: string | null, b?: string | null): boolean {
+  return Boolean(a && b && a.toLowerCase() === b.toLowerCase());
 }
 
-function fallbackWindowEthereumProviders(): Eip6963ProviderDetail[] {
-  if (typeof window === "undefined") return [];
-  const injected = (window as any).ethereum as
-    | (Eip1193Provider & { providers?: Eip1193Provider[] })
-    | undefined;
-  if (!injected) return [];
-  const rawProviders =
-    Array.isArray((injected as any).providers) &&
-    (injected as any).providers.length > 0
-      ? ((injected as any).providers as Eip1193Provider[])
-      : [injected];
-  const seen = new Set<Eip1193Provider>();
-  const details: Eip6963ProviderDetail[] = [];
-  rawProviders.forEach((provider, index) => {
-    if (!provider || typeof provider.request !== "function" || seen.has(provider)) {
-      return;
-    }
-    seen.add(provider);
-    const info = inferFallbackProviderInfo(provider, index);
-    if (isUnsupportedInjectedProvider(info, provider)) return;
-    details.push({ info, provider });
-  });
-  return mergeProviderDetails([], details);
-}
-
-async function discoverEip6963Providers(
-  waitMs = 120
-): Promise<Eip6963ProviderDetail[]> {
-  if (typeof window === "undefined") return [];
-  const discovered: Eip6963ProviderDetail[] = [];
-  const seen = new Set<string>();
-  const onAnnounce = (event: Event) => {
-    const normalized = normalizeProviderDetail((event as CustomEvent).detail);
-    if (!normalized) return;
-    const key = providerDetailKey(normalized);
-    if (seen.has(key)) return;
-    seen.add(key);
-    discovered.push(normalized);
-  };
-  window.addEventListener(EIP6963_ANNOUNCE_EVENT, onAnnounce as EventListener);
-  try {
-    window.dispatchEvent(new Event(EIP6963_REQUEST_EVENT));
-    await new Promise((resolve) => window.setTimeout(resolve, waitMs));
-  } finally {
-    window.removeEventListener(
-      EIP6963_ANNOUNCE_EVENT,
-      onAnnounce as EventListener
-    );
-  }
-  const fallbacks = fallbackWindowEthereumProviders();
-  if (fallbacks.length > 0 && discovered.length === 0) {
-    return mergeProviderDetails(discovered, fallbacks);
-  }
-  return discovered;
-}
-
-function parseChainId(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return Math.trunc(value);
-  }
-  if (typeof value !== "string") return null;
-  const raw = value.trim();
-  if (!raw) return null;
-  if (/^0x[0-9a-f]+$/i.test(raw)) {
-    const parsed = Number.parseInt(raw, 16);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) ? Math.trunc(parsed) : null;
-}
-
-function readEvmChainIds(): number[] {
-  const raw = getEnv("VITE_EVM_CHAIN_IDS") ?? getEnv("VITE_EVM_CHAIN_ID");
-  if (typeof raw !== "string" || !raw.trim()) return [11155111];
-  const parsed = raw
-    .split(",")
-    .map((item) => parseChainId(item))
-    .filter((item): item is number => item != null && item > 0);
-  return parsed.length ? parsed : [11155111];
-}
-
-function chainLabel(chainId: number | null): { name: string; network: string } {
-  if (chainId === 11155111) return { name: "Sepolia", network: "sepolia" };
-  if (chainId === 31338) return { name: "PATH Local", network: "devnet" };
-  if (chainId === 1) return { name: "Mainnet", network: "mainnet" };
-  return { name: "Unknown", network: "unknown" };
-}
+const WalletContext = createContext<WalletContextValue | null>(null);
 
 type WalletAnalyticsEventType =
   | "wallet_connect_started"
@@ -348,67 +244,6 @@ function trackWalletAnalytics(
   } catch {
     /* analytics must never affect wallet flow */
   }
-}
-
-function walletAnalyticsErrorCategory(error: unknown) {
-  const msg = String((error as any)?.message ?? error ?? "").toLowerCase();
-  const code = Number((error as any)?.code);
-  if (
-    code === 4001 ||
-    msg.includes("user rejected") ||
-    msg.includes("user reject") ||
-    msg.includes("user denied") ||
-    msg.includes("user cancelled") ||
-    msg.includes("user canceled")
-  ) return "wallet_rejected";
-  if (
-    code === -32002 ||
-    msg.includes("already processing") ||
-    msg.includes("already pending")
-  ) return "wallet_busy";
-  if (
-    msg.includes("no eip-1193 injected wallet found") ||
-    msg.includes("missing vite_walletconnect_project_id") ||
-    msg.includes("walletconnect v2 provider is unavailable")
-  ) return "wallet_missing";
-  if (msg.includes("rpc")) return "rpc";
-  if (msg.includes("network")) return "network";
-  return "unknown";
-}
-
-function walletConnectMetadata() {
-  const hostname =
-    typeof window === "undefined" ? "" : window.location.hostname.toLowerCase();
-  const documentTitle =
-    typeof document === "undefined"
-      ? ""
-      : document.querySelector('meta[property="og:title"]')?.getAttribute("content") ?? "";
-  const surface =
-    hostname === "thought.inshell.art" ||
-    documentTitle === PUBLIC_SITE_METADATA.thought.title
-      ? "thought"
-      : "home";
-  const metadata = PUBLIC_SITE_METADATA[surface];
-  return {
-    name: metadata.title,
-    description: metadata.description,
-    url: OFFICIAL_DOMAINS[surface],
-    icons: [absolutePublicAssetUrl(surface, metadata.iconPath)],
-  };
-}
-
-async function connectEip1193Provider(detail: Eip6963ProviderDetail) {
-  const accountsRaw = await detail.provider.request({
-    method: "eth_requestAccounts",
-  });
-  const accounts = Array.isArray(accountsRaw)
-    ? accountsRaw.map((item) => String(item))
-    : [];
-  const chainIdRaw = await detail.provider.request({ method: "eth_chainId" });
-  return {
-    address: accounts[0] ?? null,
-    chainId: parseChainId(chainIdRaw),
-  };
 }
 
 function createWalletAccount(
@@ -455,6 +290,11 @@ export function WalletProvider({ children }: WalletProviderProps) {
   const [evmProviderLabel, setEvmProviderLabel] = useState<string | null>(null);
   const [connectStatus, setConnectStatus] = useState("idle");
   const [connectError, setConnectError] = useState<unknown>(null);
+  const walletConnectRestoreRef = useRef<Promise<void> | null>(null);
+
+  useEffect(() => {
+    warnMissingWalletConnectProjectId();
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -465,32 +305,34 @@ export function WalletProvider({ children }: WalletProviderProps) {
       setEvmProviders((prev) => mergeProviderDetails(prev, discovered));
     };
     void refresh();
-    const onAnnounce = (event: Event) => {
-      const normalized = normalizeProviderDetail((event as CustomEvent).detail);
+    const onAnnounce = (event: globalThis.Event) => {
+      const normalized = normalizeProviderDetail(
+        (event as globalThis.CustomEvent).detail
+      );
       if (!normalized) return;
       setEvmProviders((prev) => mergeProviderDetails(prev, [normalized]));
     };
     window.addEventListener(
       EIP6963_ANNOUNCE_EVENT,
-      onAnnounce as EventListener
+      onAnnounce as globalThis.EventListener
     );
     const onEthereumInitialized = () => {
       void refresh();
     };
     window.addEventListener(
       "ethereum#initialized",
-      onEthereumInitialized as EventListener
+      onEthereumInitialized as globalThis.EventListener
     );
-    window.dispatchEvent(new Event(EIP6963_REQUEST_EVENT));
+    window.dispatchEvent(new globalThis.Event(EIP6963_REQUEST_EVENT));
     return () => {
       stopped = true;
       window.removeEventListener(
         EIP6963_ANNOUNCE_EVENT,
-        onAnnounce as EventListener
+        onAnnounce as globalThis.EventListener
       );
       window.removeEventListener(
         "ethereum#initialized",
-        onEthereumInitialized as EventListener
+        onEthereumInitialized as globalThis.EventListener
       );
     };
   }, []);
@@ -540,6 +382,159 @@ export function WalletProvider({ children }: WalletProviderProps) {
     []
   );
 
+  const createConfiguredWalletConnectProvider = useCallback(
+    async (showQrModal: boolean) => {
+      const projectId = readWalletConnectProjectId(getEnv);
+      if (!projectId) {
+        throw new Error("Missing VITE_WALLETCONNECT_PROJECT_ID.");
+      }
+      const chains = readEvmChainIds(getEnv);
+      return createWalletConnectEthereumProvider({
+        projectId,
+        chains,
+        rpcMap: walletConnectRpcMap(chains, getEnv),
+        relayUrl: readWalletConnectRelayUrl(getEnv),
+        showQrModal,
+        metadata: walletConnectMetadata(),
+      });
+    },
+    []
+  );
+
+  const restoreWalletConnectV2 = useCallback(async (options?: { force?: boolean }) => {
+    if (
+      activeProvider ||
+      evmAddress ||
+      (!options?.force && connectStatus === "connecting") ||
+      !readWalletConnectProjectId(getEnv)
+    ) {
+      return;
+    }
+    if (walletConnectRestoreRef.current) {
+      await walletConnectRestoreRef.current;
+      return;
+    }
+    const task = (async () => {
+      try {
+        const wcProvider = await createConfiguredWalletConnectProvider(false);
+        if (!(wcProvider as any)?.session) return;
+        const accountsRaw = (await wcProvider.request({
+          method: "eth_accounts",
+        })) as unknown;
+        const accounts = Array.isArray(accountsRaw)
+          ? accountsRaw.map((item) => String(item))
+          : [];
+        if (!accounts[0]) return;
+        const chainIdRaw = await wcProvider.request({ method: "eth_chainId" });
+        setWalletConnectProvider(wcProvider);
+        setConnectedState(
+          wcProvider,
+          {
+            address: accounts[0],
+            chainId: parseChainId(chainIdRaw),
+          },
+          "WalletConnect"
+        );
+        trackWalletAnalytics("wallet_connect_succeeded", {
+          walletKind: "walletconnect",
+          walletStage: "restored",
+        });
+      } catch {
+        /* A missing/restoring session is non-fatal and must not block connect. */
+      }
+    })();
+    walletConnectRestoreRef.current = task;
+    try {
+      await task;
+    } finally {
+      walletConnectRestoreRef.current = null;
+    }
+  }, [
+    activeProvider,
+    connectStatus,
+    createConfiguredWalletConnectProvider,
+    evmAddress,
+    setConnectedState,
+  ]);
+
+  useEffect(() => {
+    void restoreWalletConnectV2();
+  }, [restoreWalletConnectV2]);
+
+  useEffect(() => {
+    if (
+      activeProvider ||
+      evmAddress ||
+      connectStatus === "connecting" ||
+      evmProviders.length === 0 ||
+      isWalletSoftDisconnected()
+    ) {
+      return;
+    }
+
+    let stopped = false;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        for (const detail of evmProviders) {
+          try {
+            const accountsRaw = await detail.provider.request({ method: "eth_accounts" });
+            const accounts = Array.isArray(accountsRaw)
+              ? accountsRaw.map((item) => String(item))
+              : [];
+            if (!accounts[0] || stopped) continue;
+            const chainIdRaw = await detail.provider.request({ method: "eth_chainId" });
+            if (stopped) return;
+            setConnectedState(
+              detail.provider,
+              {
+                address: accounts[0],
+                chainId: parseChainId(chainIdRaw),
+              },
+              detail.info.name || "Injected"
+            );
+            return;
+          } catch {
+            /* Try the next previously authorized injected provider. */
+          }
+        }
+      })();
+    }, 300);
+
+    return () => {
+      stopped = true;
+      window.clearTimeout(timer);
+    };
+  }, [activeProvider, connectStatus, evmAddress, evmProviders, setConnectedState]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const restoreTimers = new Set<number>();
+    const scheduleRestore = (delayMs: number) => {
+      const timer = window.setTimeout(() => {
+        restoreTimers.delete(timer);
+        if (document.visibilityState === "hidden") return;
+        void restoreWalletConnectV2({ force: true });
+      }, delayMs);
+      restoreTimers.add(timer);
+    };
+    const onFocusOrVisible = () => {
+      if (document.visibilityState === "hidden") return;
+      void restoreWalletConnectV2({ force: true });
+      scheduleRestore(500);
+      scheduleRestore(2000);
+    };
+    window.addEventListener("focus", onFocusOrVisible);
+    window.addEventListener("pageshow", onFocusOrVisible);
+    document.addEventListener("visibilitychange", onFocusOrVisible);
+    return () => {
+      for (const timer of restoreTimers) window.clearTimeout(timer);
+      restoreTimers.clear();
+      window.removeEventListener("focus", onFocusOrVisible);
+      window.removeEventListener("pageshow", onFocusOrVisible);
+      document.removeEventListener("visibilitychange", onFocusOrVisible);
+    };
+  }, [restoreWalletConnectV2]);
+
   const connectEip1193 = useCallback(async () => {
     setConnectStatus("connecting");
     trackWalletAnalytics("wallet_connect_started", {
@@ -588,22 +583,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
       walletStage: "request_accounts",
     });
     try {
-      const projectIdRaw = getEnv("VITE_WALLETCONNECT_PROJECT_ID");
-      if (typeof projectIdRaw !== "string" || !projectIdRaw.trim()) {
-        throw new Error("Missing VITE_WALLETCONNECT_PROJECT_ID.");
-      }
-      const mod = (await import("@walletconnect/ethereum-provider")) as any;
-      const EthereumProviderCtor =
-        mod?.EthereumProvider ?? mod?.default?.EthereumProvider;
-      if (typeof EthereumProviderCtor?.init !== "function") {
-        throw new Error("WalletConnect v2 provider is unavailable.");
-      }
-      const wcProvider = (await EthereumProviderCtor.init({
-        projectId: projectIdRaw.trim(),
-        chains: readEvmChainIds(),
-        showQrModal: true,
-        metadata: walletConnectMetadata(),
-      })) as WalletConnectEthereumProvider;
+      const wcProvider = await createConfiguredWalletConnectProvider(true);
       const accounts =
         typeof wcProvider.enable === "function"
           ? await wcProvider.enable()
@@ -617,7 +597,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
         chainId: parseChainId(chainIdRaw),
       };
       setWalletConnectProvider(wcProvider);
-      setConnectedState(wcProvider, connected, "WalletConnect v2");
+      setConnectedState(wcProvider, connected, "WalletConnect");
       trackWalletAnalytics("wallet_connect_succeeded", {
         walletKind: "walletconnect",
         walletStage: "connected",
@@ -633,7 +613,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
       });
       throw error;
     }
-  }, [setConnectedState]);
+  }, [createConfiguredWalletConnectProvider, setConnectedState]);
 
   const disconnectEvm = useCallback(async () => {
     if (walletConnectProvider) {
@@ -650,6 +630,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
     setEvmProviderLabel(null);
     setConnectError(null);
     setConnectStatus("idle");
+    setWalletSoftDisconnected(true);
   }, [walletConnectProvider]);
 
   const connectors = useMemo<WalletConnector[]>(() => {
@@ -660,13 +641,10 @@ export function WalletProvider({ children }: WalletProviderProps) {
       kind: "injected" as const,
       detail,
     }));
-    const walletConnectEnabled =
-      typeof getEnv("VITE_WALLETCONNECT_PROJECT_ID") === "string" &&
-      String(getEnv("VITE_WALLETCONNECT_PROJECT_ID")).trim().length > 0;
-    if (walletConnectEnabled) {
+    if (readWalletConnectProjectId(getEnv)) {
       injected.push({
         id: "walletconnect-v2",
-        name: "WalletConnect v2",
+        name: "WalletConnect",
         available: () => true,
         kind: "walletconnect",
       });
@@ -676,6 +654,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
 
   const connectAsync = useCallback(
     async (args?: { connector?: WalletConnector }) => {
+      setWalletSoftDisconnected(false);
       const connector = args?.connector;
       if (connector?.kind === "walletconnect") {
         return connectWalletConnectV2();
@@ -756,6 +735,105 @@ export function WalletProvider({ children }: WalletProviderProps) {
     }
   }, [activeProvider, evmProviderLabel, evmProviders, setConnectedState]);
 
+  const refreshWallet = useCallback(async () => {
+    if (activeProvider) {
+      try {
+        const accountsRaw = await activeProvider.request({ method: "eth_accounts" });
+        const accounts = Array.isArray(accountsRaw)
+          ? accountsRaw.map((item) => String(item))
+          : [];
+        const chainIdRaw = await activeProvider.request({ method: "eth_chainId" });
+        setEvmAddress(accounts[0] ?? null);
+        setEvmChainId(parseChainId(chainIdRaw));
+        setConnectStatus(accounts[0] ? "connected" : "idle");
+        return;
+      } catch (error) {
+        setConnectError(error);
+        setConnectStatus("error");
+        throw error;
+      }
+    }
+    const accounts = await requestAccounts();
+    if (!accounts?.length) {
+      setConnectStatus("idle");
+    }
+  }, [activeProvider, requestAccounts]);
+
+  const ensureWalletConnected = useCallback(
+    async (options?: EnsureWalletOptions): Promise<EnsureWalletResult> => {
+      try {
+        let nextAddress = evmAddress;
+        let nextChainId = evmChainId;
+        if (!nextAddress || !nextChainId) {
+          const connected = await connectAsync();
+          nextAddress = connected.address;
+          nextChainId = connected.chainId;
+        }
+        if (!nextAddress) {
+          return {
+            ok: false,
+            reason: "missing_provider",
+            message: "wallet provider not found",
+          };
+        }
+        if (!nextChainId) {
+          return {
+            ok: false,
+            reason: "error",
+            message: "wallet chain unavailable",
+          };
+        }
+        if (
+          options?.expectedAccount &&
+          !sameAddress(options.expectedAccount, nextAddress)
+        ) {
+          return {
+            ok: false,
+            reason: "error",
+            message: `connected wallet does not match ${options.expectedAccount}`,
+          };
+        }
+        if (options?.expectedChainId && nextChainId !== options.expectedChainId) {
+          return {
+            ok: false,
+            reason: "wrong_chain",
+            message: `wrong network. expected chain ${options.expectedChainId}.`,
+          };
+        }
+        return {
+          ok: true,
+          address: nextAddress as `0x${string}`,
+          chainId: nextChainId,
+        };
+      } catch (error) {
+        if (isWalletRequestCancelled(error)) {
+          return {
+            ok: false,
+            reason: "cancelled",
+            message: "wallet connection cancelled",
+          };
+        }
+        if (isMissingWalletProviderError(error)) {
+          return {
+            ok: false,
+            reason: "missing_provider",
+            message: "wallet provider not found",
+          };
+        }
+        return {
+          ok: false,
+          reason: "error",
+          message: normalizeWalletErrorMessage(error) || "wallet connection failed",
+        };
+      }
+    },
+    [connectAsync, evmAddress, evmChainId]
+  );
+
+  const disconnectWallet = useCallback(async () => {
+    await disconnectEvm();
+  }, [disconnectEvm]);
+
   const watchAsset = useCallback(
     async (asset: WalletAsset): Promise<boolean> => {
       if (!activeProvider) return false;
@@ -816,6 +894,9 @@ export function WalletProvider({ children }: WalletProviderProps) {
       connectStatus,
       connectError,
       requestAccounts,
+      ensureWalletConnected,
+      refreshWallet,
+      disconnectWallet,
       watchAsset,
       connectEip1193,
       connectWalletConnectV2,
@@ -845,11 +926,14 @@ export function WalletProvider({ children }: WalletProviderProps) {
       connectWalletConnectV2,
       connectors,
       disconnect,
+      disconnectWallet,
       disconnectEvm,
       evmAddress,
       evmChainId,
       evmProviderLabel,
       evmProviders,
+      ensureWalletConnected,
+      refreshWallet,
       requestAccounts,
       watchAsset,
     ]

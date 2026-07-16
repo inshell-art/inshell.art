@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { decodeFunctionData, getAddress, type Hex } from "viem";
 import { useAuctionBids } from "@/hooks/useAuctionBids";
 import type { ProviderInterface } from "@inshell/ethereum";
@@ -43,6 +44,7 @@ import {
 } from "@inshell/shared";
 import HeaderWalletCTA from "@/components/HeaderWalletCTA";
 import { useWallet } from "@inshell/wallet";
+import { InshellWalletPicker } from "@inshell/inshell-shell";
 import {
   buildReportBugLink,
   getPublicNetworkNotice,
@@ -50,8 +52,6 @@ import {
   shouldShowDebugPanel,
   shouldShowReportBug,
 } from "@/config/publicLaunch";
-/* global Element, SVGSVGElement, SVGElement, HTMLDivElement, MouseEvent, PointerEvent, URL, URLSearchParams */
-
 type Props = {
   address?: string;
   provider?: ProviderInterface;
@@ -61,7 +61,7 @@ type Props = {
 };
 
 type TxState = "idle" | "awaiting_signature" | "submitted" | "confirmed" | "failed";
-type TxPhase = "approve" | "bid";
+type TxPhase = "prepare" | "approve" | "bid";
 type NoticeKind = "info" | "warn" | "error";
 type Notice = {
   kind: NoticeKind;
@@ -310,8 +310,32 @@ function normalizeReturnTo(raw: string | null): string | null {
       host === "127.0.0.1" ||
       host === "[::1]" ||
       host === "inshell.art" ||
-      host.endsWith(".inshell.art");
-    return protocolOk && hostOk ? url.toString() : null;
+      host === "preview.inshell.art" ||
+      host === "thought.inshell.art" ||
+      host === "thought.preview.inshell.art" ||
+      host === "path.inshell.art" ||
+      host === "path.preview.inshell.art" ||
+      host === "gallery.inshell.art" ||
+      host === "gallery.preview.inshell.art";
+    if (!protocolOk || !hostOk) return null;
+
+    let pathname = url.pathname.replace(/\/+$/, "") || "/";
+    if (
+      (host === "thought.inshell.art" || host === "thought.preview.inshell.art") &&
+      !pathname.startsWith("/thought")
+    ) {
+      pathname = pathname === "/" ? "/thought" : `/thought${pathname}`;
+    } else if (
+      (host === "path.inshell.art" || host === "path.preview.inshell.art") &&
+      !pathname.startsWith("/path")
+    ) {
+      pathname = pathname === "/" ? "/path" : `/path${pathname}`;
+    } else if (host === "gallery.inshell.art" || host === "gallery.preview.inshell.art") {
+      pathname = pathname === "/" || pathname === "/gallery" ? "/gallery" : "/gallery";
+    }
+
+    if (!/^\/(?:thought|path|gallery)(?:\/|$)/.test(pathname)) return null;
+    return `${pathname}${url.search}${url.hash}`;
   } catch {
     return null;
   }
@@ -423,8 +447,10 @@ function isUnsupportedWalletConnector(connector: any): boolean {
 }
 
 function isVisibleWalletConnector(connector: any): boolean {
+  const kind = String(connector?.kind ?? "").toLowerCase();
   const name = String(connector?.name ?? "").toLowerCase();
   const rdns = String(connector?.detail?.info?.rdns ?? "").toLowerCase();
+  if (kind === "walletconnect") return true;
   return (
     rdns.includes("metamask") ||
     name.includes("metamask") ||
@@ -499,10 +525,9 @@ const EXTREME_HISTORY_TAIL_THRESHOLD = BASE_HALF_LIVES * 100;
 const LIVE_HISTORY_CONTEXT_MAX_BIDS = 24;
 const SPARSE_LIVE_ACTIVE_WINDOW = BASE_HALF_LIVES * 4;
 const SPARSE_LIVE_ACTIVE_CONTEXT = BASE_HALF_LIVES * 0.5;
+const MAX_PATH_STAGE_LAYOUT_ZOOM = 1.08;
 const PLOT_EDGE_PAD = 2.4;
-const PLOT_LEFT_PAD = PLOT_EDGE_PAD;
-const PLOT_RIGHT_PAD = PLOT_EDGE_PAD;
-const PLOT_X_SPAN = 100 - PLOT_LEFT_PAD - PLOT_RIGHT_PAD;
+const CURVE_TOOLTIP_CURSOR_OFFSET_PX = 8;
 
 function halfLifeWindowEnd(uEnd: number): number {
   if (!Number.isFinite(uEnd) || uEnd <= 0) return BASE_HALF_LIVES;
@@ -720,47 +745,6 @@ function resolveAddChainParams(chainIdHex: string) {
     },
     rpcUrls: rpcUrls.length ? rpcUrls : ["http://127.0.0.1:8546"],
   };
-}
-
-async function requestChainSwitch(
-  chainIdHex: string,
-  provider?: { request?: (...args: any[]) => Promise<any> } | null
-): Promise<boolean> {
-  const wallet = resolveWalletRequestProvider(provider);
-  if (!wallet?.request) return false;
-  try {
-    await wallet.request({
-      method: "wallet_switchEthereumChain",
-      params: [{ chainId: chainIdHex }],
-    });
-    return true;
-  } catch (err) {
-    const code = Number((err as any)?.code);
-    const msg = String((err as any)?.message ?? err ?? "").toLowerCase();
-    const shouldAddChain =
-      code === 4902 ||
-      msg.includes("unknown chain") ||
-      msg.includes("unrecognized chain") ||
-      msg.includes("chain has not been added") ||
-      msg.includes("does not exist");
-    if (!shouldAddChain) return false;
-
-    const addParams = resolveAddChainParams(chainIdHex);
-    if (!addParams) return false;
-    try {
-      await wallet.request({
-        method: "wallet_addEthereumChain",
-        params: [addParams],
-      });
-      await wallet.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: chainIdHex }],
-      });
-      return true;
-    } catch {
-      return false;
-    }
-  }
 }
 
 async function refreshWalletChainRpc(
@@ -2554,13 +2538,13 @@ export default function AuctionCanvas({
   const preflightRef = useRef<Promise<PreflightResult | null> | null>(null);
   const ctaStackRef = useRef<HTMLDivElement | null>(null);
   const mintReviewRef = useRef<HTMLDivElement | null>(null);
-  const walletPickerRef = useRef<HTMLDivElement | null>(null);
 
   const [hover, setHover] = useState<DotPoint | null>(null);
   const [selectedBidKey, setSelectedBidKey] = useState<string | null>(null);
   const [selectedAskKey, setSelectedAskKey] = useState<string | null>(null);
   const [selectedNow, setSelectedNow] = useState(false);
   const pinnedDotRef = useRef(false);
+  const pinnedPointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const [viewport, setViewport] = useState<Viewport | null>(null);
   const [viewportUserLocked, setViewportUserLocked] = useState(false);
   const viewportDataKeyRef = useRef<string | null>(null);
@@ -2593,31 +2577,42 @@ export default function AuctionCanvas({
   useEffect(() => {
     pinnedDotRef.current = hasPinnedDot;
   }, [hasPinnedDot]);
+
   const clearPinnedDot = useCallback(() => {
     pinnedDotRef.current = false;
+    pinnedPointerRef.current = null;
     setSelectedBidKey(null);
     setSelectedAskKey(null);
     setSelectedNow(false);
     setHover(null);
   }, []);
-  const pinBidDot = useCallback((key: string) => {
+  const rememberPinnedPointer = useCallback((clientX?: number, clientY?: number) => {
+    pinnedPointerRef.current =
+      typeof clientX === "number" && typeof clientY === "number"
+        ? { clientX, clientY }
+        : null;
+  }, []);
+  const pinBidDot = useCallback((key: string, clientX?: number, clientY?: number) => {
     pinnedDotRef.current = true;
+    rememberPinnedPointer(clientX, clientY);
     setSelectedBidKey(key);
     setSelectedAskKey(null);
     setSelectedNow(false);
-  }, []);
-  const pinAskDot = useCallback((key: string) => {
+  }, [rememberPinnedPointer]);
+  const pinAskDot = useCallback((key: string, clientX?: number, clientY?: number) => {
     pinnedDotRef.current = true;
+    rememberPinnedPointer(clientX, clientY);
     setSelectedAskKey(key);
     setSelectedBidKey(null);
     setSelectedNow(false);
-  }, []);
-  const pinNowDot = useCallback(() => {
+  }, [rememberPinnedPointer]);
+  const pinNowDot = useCallback((clientX?: number, clientY?: number) => {
     pinnedDotRef.current = true;
+    rememberPinnedPointer(clientX, clientY);
     setSelectedNow(true);
     setSelectedBidKey(null);
     setSelectedAskKey(null);
-  }, []);
+  }, [rememberPinnedPointer]);
   useEffect(() => {
     const handleDocumentClick = (event: MouseEvent) => {
       if (!pinnedDotRef.current) return;
@@ -3155,7 +3150,6 @@ export default function AuctionCanvas({
     const handleOutsidePointerDown = (event: globalThis.Event) => {
       const target = event.target as globalThis.Node | null;
       if (!target) return;
-      if (walletPickerRef.current?.contains(target)) return;
       if (ctaStackRef.current?.contains(target)) return;
       setWalletPickerOpen(false);
     };
@@ -4073,6 +4067,23 @@ export default function AuctionCanvas({
   const effectiveViewport = viewport ?? defaultViewport;
 
   useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // React's wheel listener can be passive, so cancel selected-curve scrolling
+    // with a native non-passive listener before the browser scrolls the page.
+    const preventSelectedCurvePageScroll = (event: globalThis.WheelEvent) => {
+      if (!showCurvePlot || !effectiveViewport || !pinnedDotRef.current) return;
+      event.preventDefault();
+    };
+
+    canvas.addEventListener("wheel", preventSelectedCurvePageScroll, { passive: false });
+    return () => {
+      canvas.removeEventListener("wheel", preventSelectedCurvePageScroll);
+    };
+  }, [effectiveViewport, showCurvePlot]);
+
+  useEffect(() => {
     if (!linked.segments.length) {
       viewportDataKeyRef.current = null;
       return;
@@ -4122,6 +4133,40 @@ export default function AuctionCanvas({
       return xMin === prev.xMin && xMax === prev.xMax ? prev : { ...prev, xMin, xMax };
     });
   }, [defaultViewport, linked.uEnd, linked.segments.length, viewportDataKey]);
+
+  const pathStageLayoutZoom = useMemo(() => {
+    if (!defaultViewport || !effectiveViewport) return 1;
+    const defaultRange = defaultViewport.xMax - defaultViewport.xMin;
+    const currentRange = effectiveViewport.xMax - effectiveViewport.xMin;
+    if (
+      !Number.isFinite(defaultRange) ||
+      !Number.isFinite(currentRange) ||
+      defaultRange <= 0 ||
+      currentRange <= 0
+    ) {
+      return 1;
+    }
+    return clamp(defaultRange / currentRange, 1, MAX_PATH_STAGE_LAYOUT_ZOOM);
+  }, [defaultViewport, effectiveViewport]);
+  const pathStageLayoutProgress = clamp(
+    (pathStageLayoutZoom - 1) / Math.max(MAX_PATH_STAGE_LAYOUT_ZOOM - 1, 1e-9),
+    0,
+    1
+  );
+  const plotEdgePad = PLOT_EDGE_PAD * (1 - pathStageLayoutProgress);
+  const plotLeftPad = plotEdgePad;
+  const plotRightPad = plotEdgePad;
+  const plotXSpan = 100 - plotLeftPad - plotRightPad;
+  const isPathStageLayoutZoomed = pathStageLayoutProgress > 0.01;
+
+  const dotfieldStyle = useMemo(
+    () =>
+      ({
+        "--path-app-layout-zoom": pathStageLayoutZoom.toFixed(4),
+        "--path-app-layout-width": `${(pathStageLayoutZoom * 100).toFixed(2)}%`,
+      }) as CSSProperties,
+    [pathStageLayoutZoom]
+  );
 
   useEffect(() => {
     if (!toastNotice) return;
@@ -4430,10 +4475,7 @@ export default function AuctionCanvas({
       msg.includes("user cancelled") ||
       msg.includes("user canceled")
     ) {
-      showToast({
-        kind: "warn",
-        text: "wallet connection cancelled",
-      });
+      showToast({ kind: "warn", text: "wallet connection cancelled" });
       return;
     }
     if (
@@ -4442,10 +4484,7 @@ export default function AuctionCanvas({
       msg.includes("already pending") ||
       msg.includes("request of type 'eth_requestaccounts' already pending")
     ) {
-      showToast({
-        kind: "warn",
-        text: "Finish the pending wallet request.",
-      });
+      showToast({ kind: "warn", text: "Finish the pending wallet request." });
       return;
     }
     if (
@@ -4494,17 +4533,6 @@ export default function AuctionCanvas({
       if (accounts?.length) setWalletUnlockAttempted(true);
     }
     await connectWalletConnector();
-  };
-
-  const handleSwitch = async () => {
-    const ok = await requestChainSwitch(targetChainIdHex, evm.provider);
-    if (!ok) {
-      showToast({
-        kind: "warn",
-        text: "network switch cancelled",
-        reportState: "switch_failed",
-      });
-    }
   };
 
   const handleFixWalletRpc = async () => {
@@ -4695,14 +4723,46 @@ export default function AuctionCanvas({
       showToast({ kind: "info", text: auctionBlockedMintNotice });
       return;
     }
-    if (!account || !walletAddress || !auctionAddress || !paymentToken) return;
-    const data = await runPreflight();
-    if (!data?.ask || !data.balance || !data.allowance) return;
-    if (data.balance.value < data.ask.value) {
-      setMintReview(null);
+    const confirmingMint = Boolean(mintReview);
+    if (!account || !walletAddress || !auctionAddress || !paymentToken) {
+      if (confirmingMint) {
+        setTxError("wallet unavailable.");
+        setTxPhase(null);
+        setTxState("failed");
+      }
       return;
     }
-    if (!mintReview) {
+    if (confirmingMint) {
+      setTxPhase("prepare");
+      setTxState("awaiting_signature");
+      setTxError(null);
+    }
+    const data = await runPreflight();
+    if (!data?.ask || !data.balance || !data.allowance) {
+      if (confirmingMint) {
+        const message = preflight.error || "preflight failed before wallet request.";
+        setTxError(message);
+        setTxPhase(null);
+        setTxState("failed");
+        showToast({
+          kind: "error",
+          text: "Mint preflight failed.",
+          reportState: "mint_preflight_failed",
+          reportError: message,
+        });
+      }
+      return;
+    }
+    if (data.balance.value < data.ask.value) {
+      setMintReview(null);
+      if (confirmingMint) {
+        setTxError("insufficient balance.");
+        setTxPhase(null);
+        setTxState("failed");
+      }
+      return;
+    }
+    if (!confirmingMint) {
       const askEstimate = currentAskEstimateRef.current;
       const priceLabel =
         mimicLocalTime && askEstimate != null && Number.isFinite(askEstimate)
@@ -4765,7 +4825,9 @@ export default function AuctionCanvas({
     }
     if (effectiveTxState === "awaiting_signature") {
       const text =
-        effectiveTxPhase === "approve"
+        effectiveTxPhase === "prepare"
+          ? "Preparing wallet request."
+          : effectiveTxPhase === "approve"
           ? `Wallet open: approve ${displayTokenSymbol} (1/2).`
           : "Wallet open: confirm $PATH mint (2/2).";
       return { kind: "info", text };
@@ -4869,16 +4931,6 @@ export default function AuctionCanvas({
     if (effectiveWalletNeedsUnlock) {
       return null;
     }
-    if (effectiveWalletUnlocked && effectiveChainKnown && !effectiveChainOk) {
-      return {
-        kind: "warn",
-        text:
-          targetChainLabel === PUBLIC_NETWORK_CONFIG.chainLabel
-            ? PUBLIC_NETWORK_CONFIG.switchNetworkNotice
-            : `${targetChainLabel} only.`,
-        delayMs: DELAY_MS,
-      };
-    }
     if (
       effectiveWalletUnlocked &&
       effectiveChainOk &&
@@ -4936,7 +4988,6 @@ export default function AuctionCanvas({
     effectiveWalletUnlocked,
     effectiveWalletAddressPresent,
     effectiveWalletNeedsUnlock,
-    effectiveChainKnown,
     effectiveChainOk,
     effectivePreflightOk,
     effectiveBalanceOk,
@@ -4949,7 +5000,6 @@ export default function AuctionCanvas({
     preflightErrorVisible,
     preflight.error,
     displayTokenSymbol,
-    targetChainLabel,
     auctionBlocksMint,
     auctionBlockedMintNotice,
     pathMintIntent,
@@ -4987,8 +5037,7 @@ export default function AuctionCanvas({
 
   const displayNotice =
     toastNotice ??
-    persistentNoticeVisible ??
-    (publicNetworkNotice ? { kind: "info" as const, text: publicNetworkNotice } : null);
+    persistentNoticeVisible;
   const displayWalletRpcFix =
     displayNotice?.reportState === "wallet_rpc_busy" &&
     effectiveWalletUnlocked &&
@@ -5025,7 +5074,7 @@ export default function AuctionCanvas({
 
   const ctaState = (() => {
     if (effectiveWalletUnlocked && effectiveChainKnown && !effectiveChainOk) {
-      return { label: "switch", disabled: false, onClick: handleSwitch };
+      return { label: "mint", disabled: true, onClick: handleMint };
     }
     if (effectiveWalletNeedsUnlock) {
       return { label: "connect", disabled: false, onClick: handleUnlock };
@@ -5077,11 +5126,10 @@ export default function AuctionCanvas({
     }
     return { label: "mint", disabled: true, onClick: handleMint };
   })();
+  const displayedCta = ctaDisplay ?? ctaState;
+  const isWalletConnectCta = displayedCta.label === "connect";
   const ctaDelayMs =
-    ctaState.label === "connect" ||
-    ctaState.label === "switch"
-      ? DELAY_MS
-      : 0;
+    ctaState.label === "connect" ? DELAY_MS : 0;
   useEffect(() => {
     const nextKey = `${ctaState.label}:${ctaState.disabled ? "1" : "0"}`;
     if (ctaDisplayKeyRef.current === nextKey && ctaDisplay) return;
@@ -5215,6 +5263,45 @@ export default function AuctionCanvas({
     initialAskTipShownRef.current = false;
   }, [initialAskTipCurveKey]);
 
+  const tooltipOriginRect = useCallback(() => {
+    const dotfield = canvasRef.current?.closest(".dotfield") as HTMLElement | null;
+    if (!dotfield) return null;
+    const transform = window.getComputedStyle(dotfield).transform;
+    return transform && transform !== "none" ? dotfield.getBoundingClientRect() : null;
+  }, []);
+
+  const screenFromClientPoint = useCallback(
+    (clientX: number, clientY: number) => {
+      const originRect = tooltipOriginRect();
+      return {
+        screenX: clientX - (originRect?.left ?? 0) + CURVE_TOOLTIP_CURSOR_OFFSET_PX,
+        screenY: clientY - (originRect?.top ?? 0) + CURVE_TOOLTIP_CURSOR_OFFSET_PX,
+      };
+    },
+    [tooltipOriginRect]
+  );
+
+  const screenFromSvgPoint = useCallback(
+    (x: number, y: number, clientX?: number, clientY?: number) => {
+      if (typeof clientX === "number" && typeof clientY === "number") {
+        return screenFromClientPoint(clientX, clientY);
+      }
+      const rect = canvasRef.current?.getBoundingClientRect();
+      const originRect = tooltipOriginRect();
+      return {
+        screenX:
+          rect && rect.width > 0
+            ? rect.left - (originRect?.left ?? 0) + (x / 100) * rect.width + CURVE_TOOLTIP_CURSOR_OFFSET_PX
+            : CURVE_TOOLTIP_CURSOR_OFFSET_PX * 2,
+        screenY:
+          rect && rect.height > 0
+            ? rect.top - (originRect?.top ?? 0) + (y / 60) * rect.height + CURVE_TOOLTIP_CURSOR_OFFSET_PX
+            : CURVE_TOOLTIP_CURSOR_OFFSET_PX * 2,
+      };
+    },
+    [screenFromClientPoint, tooltipOriginRect]
+  );
+
   const showNowCurveHover = useCallback(
     (clientX?: number, clientY?: number): boolean => {
       if (!showCurvePlot) return false;
@@ -5226,7 +5313,7 @@ export default function AuctionCanvas({
       const vp = effectiveViewport;
       if (linked.nowU < vp.xMin || linked.nowU > vp.xMax) return false;
       const xRange = vp.xMax - vp.xMin || 1;
-      const xSvg = PLOT_LEFT_PAD + ((linked.nowU - vp.xMin) / xRange) * PLOT_X_SPAN;
+      const xSvg = plotLeftPad + ((linked.nowU - vp.xMin) / xRange) * plotXSpan;
 
       let idx = Math.max(0, upperBound(segmentStarts, linked.nowU) - 1);
       idx = Math.min(idx, linked.segments.length - 1);
@@ -5263,22 +5350,7 @@ export default function AuctionCanvas({
           ? effectiveCurrentAskQuoteDec
           : String(livePrice);
 
-      let screenX = 16;
-      let screenY = 16;
-      if (typeof clientX === "number" && typeof clientY === "number") {
-        screenX = clientX + 8;
-        screenY = clientY + 8;
-      } else {
-        const rect = canvasRef.current?.getBoundingClientRect();
-        screenX =
-          rect && rect.width > 0
-            ? rect.left + (xSvg / 100) * rect.width + 8
-            : 16;
-        screenY =
-          rect && rect.height > 0
-            ? rect.top + (ySvg / 60) * rect.height + 8
-            : 16;
-      }
+      const { screenX, screenY } = screenFromSvgPoint(xSvg, ySvg, clientX, clientY);
 
       setHover({
         key: "now",
@@ -5319,6 +5391,9 @@ export default function AuctionCanvas({
       liveNowSec,
       effectiveCurrentAskQuoteDec,
       mimicLocalTime,
+      plotLeftPad,
+      plotXSpan,
+      screenFromSvgPoint,
     ]
   );
 
@@ -5511,6 +5586,7 @@ export default function AuctionCanvas({
   const handleCanvasWheel = (event: any) => {
     if (!showCurvePlot) return;
     if (!effectiveViewport) return;
+    if (!hasPinnedDot) return;
     event.preventDefault?.();
     const xRange = effectiveViewport.xMax - effectiveViewport.xMin;
     if (!Number.isFinite(xRange) || xRange <= 0) return;
@@ -5547,7 +5623,7 @@ export default function AuctionCanvas({
 
     const loc = getSvgLoc(event.clientX, event.clientY);
     if (!loc) return;
-    const xN = clamp((loc.x - PLOT_LEFT_PAD) / Math.max(PLOT_X_SPAN, 1e-9), 0, 1);
+    const xN = clamp((loc.x - plotLeftPad) / Math.max(plotXSpan, 1e-9), 0, 1);
     const focusX = effectiveViewport.xMin + xN * xRange;
     const nextMin = focusX - xN * nextRange;
     const nextMax = nextMin + nextRange;
@@ -5638,7 +5714,7 @@ export default function AuctionCanvas({
       const vp = effectiveViewport;
       const xRange = vp.xMax - vp.xMin || 1;
       const toSvgX = (x: number) =>
-        PLOT_LEFT_PAD + ((x - vp.xMin) / xRange) * PLOT_X_SPAN;
+        plotLeftPad + ((x - vp.xMin) / xRange) * plotXSpan;
       const toSvgY = (y: number, floor?: number) =>
         curveYToSvg(y, vp, floor);
       let best: { kind: "sale" | "ask" | "floor"; key: string } | null = null;
@@ -5674,7 +5750,15 @@ export default function AuctionCanvas({
       }
       return best;
     },
-    [showCurvePlot, effectiveViewport, bidMarks, askMarks, linked.segments]
+    [
+      showCurvePlot,
+      effectiveViewport,
+      bidMarks,
+      askMarks,
+      linked.segments,
+      plotLeftPad,
+      plotXSpan,
+    ]
   );
 
   const endPan = useCallback((event: any) => {
@@ -5696,9 +5780,9 @@ export default function AuctionCanvas({
     if (!wasMoved && typeof event.clientX === "number" && typeof event.clientY === "number") {
       const point = pickPointAtClient(event.clientX, event.clientY, 2.2);
       if (point?.kind === "sale") {
-        pinBidDot(point.key);
+        pinBidDot(point.key, event.clientX, event.clientY);
       } else if (point?.kind === "ask" || point?.kind === "floor") {
-        pinAskDot(point.key);
+        pinAskDot(point.key, event.clientX, event.clientY);
       } else {
         clearPinnedDot();
       }
@@ -5718,22 +5802,6 @@ export default function AuctionCanvas({
       window.removeEventListener("pointercancel", onEnd);
     };
   }, [isPanning, handleCanvasPointerMove, endPan]);
-
-  const screenFromSvgPoint = useCallback(
-    (x: number, y: number, clientX?: number, clientY?: number) => {
-      if (typeof clientX === "number" && typeof clientY === "number") {
-        return { screenX: clientX + 8, screenY: clientY + 8 };
-      }
-      const rect = canvasRef.current?.getBoundingClientRect();
-      return {
-        screenX:
-          rect && rect.width > 0 ? rect.left + (x / 100) * rect.width + 8 : 16,
-        screenY:
-          rect && rect.height > 0 ? rect.top + (y / 60) * rect.height + 8 : 16,
-      };
-    },
-    []
-  );
 
   const showStartAskHover = useCallback((
     seg: LinkedSegment,
@@ -5828,12 +5896,12 @@ export default function AuctionCanvas({
     const vp = effectiveViewport;
     const xRange = vp.xMax - vp.xMin || 1;
     const toSvgX = (x: number) =>
-      PLOT_LEFT_PAD + ((x - vp.xMin) / xRange) * PLOT_X_SPAN;
+      plotLeftPad + ((x - vp.xMin) / xRange) * plotXSpan;
     const toSvgY = (y: number, floor?: number) =>
       curveYToSvg(y, vp, floor);
     const toDataX = (xSvg: number) => {
-      const xClamped = clamp(xSvg, PLOT_LEFT_PAD, 100 - PLOT_RIGHT_PAD);
-      return vp.xMin + ((xClamped - PLOT_LEFT_PAD) / PLOT_X_SPAN) * xRange;
+      const xClamped = clamp(xSvg, plotLeftPad, 100 - plotRightPad);
+      return vp.xMin + ((xClamped - plotLeftPad) / plotXSpan) * xRange;
     };
 
     const threshold = 1.2;
@@ -5896,12 +5964,13 @@ export default function AuctionCanvas({
     }
     if (best) {
       const seg = linked.segments[best.mark.segIdx];
+      const { screenX, screenY } = screenFromClientPoint(event.clientX, event.clientY);
       setHover({
         key: `bid#${best.mark.epoch}`,
         x: best.bx,
         y: best.by,
-        screenX: event.clientX + 8,
-        screenY: event.clientY + 8,
+        screenX,
+        screenY,
         bidder: best.mark.bidder,
         amount: best.mark.amountDec,
         amountDec: best.mark.amountDec,
@@ -5939,12 +6008,13 @@ export default function AuctionCanvas({
         prevSeg && Number.isFinite(prevSeg.floor) && Number.isFinite(seg.floor)
           ? Math.max(0, seg.floor - prevSeg.floor)
           : undefined;
+      const { screenX, screenY } = screenFromClientPoint(event.clientX, event.clientY);
       setHover({
         key: "premium",
         x: xLine,
         y: (yAsk + yFloor) / 2,
-        screenX: event.clientX + 8,
-        screenY: event.clientY + 8,
+        screenX,
+        screenY,
         amount: seg.premium.toFixed(2),
         amountDec: seg.premium.toFixed(2),
         amountRaw: seg.premium.toString(),
@@ -6007,12 +6077,13 @@ export default function AuctionCanvas({
     const metaDt = Math.max(0, nowSec - seg.startSec);
     const beforeNow = Math.max(0, metaDt - tau);
     const amountStr = Number.isFinite(yAt) ? yAt.toFixed(2) : "";
+    const { screenX, screenY } = screenFromClientPoint(event.clientX, event.clientY);
     setHover({
       key: "curve-point",
       x: loc.x,
       y: yCurve,
-      screenX: event.clientX + 8,
-      screenY: event.clientY + 8,
+      screenX,
+      screenY,
       amount: amountStr,
       amountDec: amountStr,
       amountRaw: String(yAt),
@@ -6041,9 +6112,9 @@ export default function AuctionCanvas({
     if (panRef.current.active) return;
     const point = pickPointAtClient(event.clientX, event.clientY, 2.2);
     if (point?.kind === "sale") {
-      pinBidDot(point.key);
+      pinBidDot(point.key, event.clientX, event.clientY);
     } else if (point?.kind === "ask" || point?.kind === "floor") {
-      pinAskDot(point.key);
+      pinAskDot(point.key, event.clientX, event.clientY);
     } else {
       clearPinnedDot();
     }
@@ -6093,9 +6164,11 @@ export default function AuctionCanvas({
     const vp = effectiveViewport;
     const xRange = vp.xMax - vp.xMin || 1;
     const toSvgX = (x: number) =>
-      PLOT_LEFT_PAD + ((x - vp.xMin) / xRange) * PLOT_X_SPAN;
+      plotLeftPad + ((x - vp.xMin) / xRange) * plotXSpan;
     const toSvgY = (y: number, floor?: number) =>
       curveYToSvg(y, vp, floor);
+    const pinnedClientX = pinnedPointerRef.current?.clientX;
+    const pinnedClientY = pinnedPointerRef.current?.clientY;
 
     if (selectedBid) {
       const seg = linked.segments[selectedBid.segIdx];
@@ -6103,7 +6176,9 @@ export default function AuctionCanvas({
         selectedBid,
         seg,
         toSvgX(selectedBid.u),
-        toSvgY(selectedBid.price, seg?.floor)
+        toSvgY(selectedBid.price, seg?.floor),
+        pinnedClientX,
+        pinnedClientY
       );
       return;
     }
@@ -6114,15 +6189,15 @@ export default function AuctionCanvas({
       const x = toSvgX(selectedAsk.u);
       const y = toSvgY(selectedAsk.price, seg.floor);
       if (selectedAsk.kind === "opening-floor") {
-        showOpeningFloorHover(seg, x, y);
+        showOpeningFloorHover(seg, x, y, pinnedClientX, pinnedClientY);
       } else {
-        showStartAskHover(seg, x, y);
+        showStartAskHover(seg, x, y, pinnedClientX, pinnedClientY);
       }
       return;
     }
 
     if (selectedNow) {
-      showNowCurveHover();
+      showNowCurveHover(pinnedClientX, pinnedClientY);
     }
   }, [
     hasPinnedDot,
@@ -6137,10 +6212,16 @@ export default function AuctionCanvas({
     showOpeningFloorHover,
     showStartAskHover,
     showNowCurveHover,
+    plotLeftPad,
+    plotXSpan,
   ]);
 
   return (
-    <div className="panel dotfield">
+    <div
+      className="panel dotfield"
+      style={dotfieldStyle}
+      data-layout-zoomed={isPathStageLayoutZoomed ? "true" : "false"}
+    >
       {!isDesktop && (
         <div className="dotfield__overlay">
           <div className="muted small">
@@ -6149,77 +6230,57 @@ export default function AuctionCanvas({
         </div>
       )}
       <div className="dotfield__nav">
-        <a
-          className="headline dotfield__title dotfield__title-link thin"
-          href="/path"
-          target="_blank"
-          rel="noreferrer"
-        >
-          {SURFACE_TERMINOLOGY.pathDapp}
-        </a>
-        <div className="dotfield__cta-stack" ref={ctaStackRef}>
-          <HeaderWalletCTA
-            ctaLabel={(ctaDisplay ?? ctaState).label}
-            ctaDisabled={(ctaDisplay ?? ctaState).disabled}
-            onCtaClick={(ctaDisplay ?? ctaState).onClick}
-            dotState={dotState}
-            lastTxHash={effectiveLastTxHash}
-            onCopyNotice={() => showToast({ kind: "info", text: "Copied." })}
-            onDisconnectNotice={() => {
-              setWalletUnlockAttempted(false);
-              setTxState("idle");
-              setTxPhase(null);
-              setTxHash(null);
-              setTxError(null);
-              setLastTxHash(null);
-              setPreflight({
-                ask: null,
-                balance: null,
-                allowance: null,
-                loading: false,
-                attempted: false,
-                error: null,
-              });
-              showToast({ kind: "info", text: "wallet disconnected." });
-            }}
-          />
-          {walletPickerOpen && (
-            <div
-              className="dotfield__wallet-picker"
-              ref={walletPickerRef}
-              role="menu"
-              aria-label="Wallet options"
+        <div className="dotfield__title-stack">
+          <h1 className="headline dotfield__title thin">
+            <a
+              className="dotfield__title-link"
+              href="/path"
+              target="_blank"
+              rel="noreferrer"
             >
-              <div className="dotfield__wallet-picker-title">
-                wallet options
-              </div>
-              <p className="dotfield__wallet-picker-note">
-                address read only.
-                <br />
-                no signature.
-                <br />
-                no tx or approval.
-                <br />
-                <a href="/verify#wallet-notes" target="_blank" rel="noopener noreferrer">
-                  verify ↗
-                </a>
-              </p>
-              {availableConnectors.map((connector) => (
-                <button
-                  key={String((connector as any)?.id ?? (connector as any)?.name)}
-                  type="button"
-                  className="dotfield__wallet-picker-item"
-                  role="menuitem"
-                  onClick={() => {
-                    void connectWalletConnector(connector);
-                  }}
-                >
-                  {(connector as any)?.name ?? "Injected wallet"}
-                </button>
-              ))}
-            </div>
-          )}
+              {SURFACE_TERMINOLOGY.pathDapp}
+            </a>
+          </h1>
+          <p className="dotfield__slogan">permission token for movement mints.</p>
         </div>
+        {!isWalletConnectCta ? (
+          <div className="dotfield__cta-stack" ref={ctaStackRef}>
+            <HeaderWalletCTA
+              ctaLabel={displayedCta.label}
+              ctaDisabled={displayedCta.disabled}
+              onCtaClick={displayedCta.onClick}
+              showWalletDot={false}
+              dotState={dotState}
+              lastTxHash={effectiveLastTxHash}
+              onCopyNotice={() => showToast({ kind: "info", text: "Copied." })}
+              onDisconnectNotice={() => {
+                setWalletUnlockAttempted(false);
+                setTxState("idle");
+                setTxPhase(null);
+                setTxHash(null);
+                setTxError(null);
+                setLastTxHash(null);
+                setPreflight({
+                  ask: null,
+                  balance: null,
+                  allowance: null,
+                  loading: false,
+                  attempted: false,
+                  error: null,
+                });
+                showToast({ kind: "info", text: "wallet disconnected." });
+              }}
+            />
+            {walletPickerOpen ? (
+              <InshellWalletPicker
+                connectors={availableConnectors}
+                onConnect={(connector) => {
+                  void connectWalletConnector(connector);
+                }}
+              />
+            ) : null}
+          </div>
+        ) : null}
       </div>
       <div
         className={`dotfield__mint-notice ${
@@ -6796,7 +6857,7 @@ export default function AuctionCanvas({
         const vp = effectiveViewport;
         const xRange = vp.xMax - vp.xMin || 1;
         const toSvgX = (x: number) =>
-          PLOT_LEFT_PAD + ((x - vp.xMin) / xRange) * PLOT_X_SPAN;
+          plotLeftPad + ((x - vp.xMin) / xRange) * plotXSpan;
         const toSvgY = (y: number, floor?: number) =>
           curveYToSvg(y, vp, floor);
         const isInPlotY = (y: number) => Number.isFinite(y) && y >= 0 && y <= 60;
@@ -6930,7 +6991,7 @@ export default function AuctionCanvas({
             : [];
         const contextBidMarks = contextSourceBidMarks.map((mark, index) => ({
           mark,
-          x: PLOT_LEFT_PAD + 1.2 + index * 2.4,
+          x: plotLeftPad + 1.2 + index * 2.4,
         }));
         const contextBidMarkKeys = new Set(
           contextBidMarks.map(({ mark }) => mark.key)
@@ -6950,7 +7011,7 @@ export default function AuctionCanvas({
         const contextAskMarks = contextBidMarks.flatMap(({ mark, x }) => {
           const seg = linked.segments[mark.segIdx];
           if (!seg) return [];
-          const x0 = Math.max(PLOT_LEFT_PAD, x - 2.1);
+          const x0 = Math.max(plotLeftPad, x - 2.1);
           return askMarks
             .filter((askMark) => askMark.segIdx === seg.idx)
             .map((askMark) => ({
@@ -6983,10 +7044,6 @@ export default function AuctionCanvas({
             }`}
             ref={canvasRef}
             style={{ touchAction: "none" }}
-            onWheelCapture={(event) => {
-              if (!showCurvePlot || !effectiveViewport) return;
-              event.preventDefault?.();
-            }}
             onWheel={handleCanvasWheel}
             onPointerDown={handleCanvasPointerDown}
             onPointerMove={handleCanvasPointerMove}
@@ -7006,7 +7063,7 @@ export default function AuctionCanvas({
               {contextBidMarks.map(({ mark, x }) => {
                 const seg = linked.segments[mark.segIdx];
                 if (!seg) return null;
-                const x0 = Math.max(PLOT_LEFT_PAD, x - 2.1);
+                const x0 = Math.max(plotLeftPad, x - 2.1);
                 const y0 = toSvgY(seg.floor, seg.floor);
                 const y1 = toSvgY(seg.ask, seg.floor);
                 const ySale = toSvgY(mark.price, seg.floor);
@@ -7044,17 +7101,6 @@ export default function AuctionCanvas({
                 );
               })}
 
-              {curveSegments.map((segPath) => (
-                <path
-                  key={segPath.key}
-                  className="dotfield__curve"
-                  d={segPath.d}
-                  vectorEffect="non-scaling-stroke"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              ))}
-
               {linked.segments.map((seg) => {
                 const x = toSvgX(seg.uStart);
                 if (x < -2 || x > 102) return null;
@@ -7074,6 +7120,17 @@ export default function AuctionCanvas({
                   />
                 );
               })}
+
+              {curveSegments.map((segPath) => (
+                <path
+                  key={segPath.key}
+                  className="dotfield__curve"
+                  d={segPath.d}
+                  vectorEffect="non-scaling-stroke"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              ))}
 
             </svg>
 
@@ -7136,7 +7193,7 @@ export default function AuctionCanvas({
                       } else {
                         showStartAskHover(seg, x, y, e.clientX, e.clientY);
                       }
-                      pinAskDot(mark.key);
+                      pinAskDot(mark.key, e.clientX, e.clientY);
                     }}
                   >
                     <span className="dotfield__dot" />
@@ -7184,7 +7241,7 @@ export default function AuctionCanvas({
                     onClick={(e) => {
                       e.stopPropagation();
                       showBidHover(mark, seg, x, y, e.clientX, e.clientY);
-                      pinBidDot(mark.key);
+                      pinBidDot(mark.key, e.clientX, e.clientY);
                     }}
                   >
                     <span className="dotfield__dot" />
@@ -7224,7 +7281,7 @@ export default function AuctionCanvas({
                   onClick={(e) => {
                     e.stopPropagation();
                     showNowCurveHover(e.clientX, e.clientY);
-                    pinNowDot();
+                    pinNowDot(e.clientX, e.clientY);
                   }}
                 >
                   <span className="dotfield__dot" />
@@ -7450,9 +7507,23 @@ export default function AuctionCanvas({
                       : hover.key === "premium"
                         ? "initial premium"
                         : "ask";
+              const popoverOpensAbove =
+                typeof window !== "undefined" && hover.screenY > window.innerHeight / 2;
 
               return (
-                <div className="dotfield__popover" style={{ left: hover.screenX, top: hover.screenY }}>
+                <div
+                  className={`dotfield__popover${
+                    popoverOpensAbove ? " dotfield__popover--above" : ""
+                  }`}
+                  style={{
+                    "--popover-anchor-x": `${hover.screenX}px`,
+                    ...(popoverOpensAbove
+                      ? {
+                          "--popover-anchor-bottom": `calc(100vh - ${hover.screenY}px + var(--curve-tooltip-cursor-offset))`,
+                        }
+                      : { top: hover.screenY }),
+                  } as CSSProperties}
+                >
                   <div className="muted small">{popTitle}</div>
                   <div className="dotfield__popover-meta" style={{ marginTop: 6 }}>
                     {popRows.map((row, idx) => (

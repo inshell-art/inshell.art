@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>THOUGHT V2 Render Lab</title>
+  </head>
+  <body class="thought-v2-lab-body">
+    <main class="svg-lab svg-lab--v2">
+      <header class="svg-lab__header">
+        <h1 class="svg-lab__title">THOUGHT V2</h1>
+        <p class="svg-lab__note">promptLine + agentLine local render.</p>
+      </header>
+
+      <section class="svg-lab__grid">
+        <div class="svg-lab__preview-frame">
+          <div id="svg-preview" class="svg-lab__preview" aria-label="THOUGHT V2 SVG preview"></div>
+        </div>
+
+        <aside class="svg-lab__panel">
+          <section class="svg-lab__section">
+            <label class="svg-lab__section-title" for="v2-agent">agentLine</label>
+            <textarea id="v2-agent" class="svg-lab__textarea" spellcheck="false"></textarea>
+          </section>
+
+          <section class="svg-lab__section">
+            <label class="svg-lab__section-title" for="v2-prompt">promptLine</label>
+            <textarea id="v2-prompt" class="svg-lab__textarea" spellcheck="false"></textarea>
+          </section>
+
+          <section class="svg-lab__section">
+            <div class="svg-lab__button-row">
+              <button id="v2-copy" class="svg-lab__button" type="button">[ copy raw ]</button>
+              <button id="v2-save" class="svg-lab__button" type="button">[ save svg ]</button>
+              <button id="v2-reset" class="svg-lab__button" type="button">[ reset ]</button>
+            </div>
+            <p id="v2-meta" class="svg-lab__meta"></p>
+          </section>
+
+          <section class="svg-lab__section svg-lab__raw-section">
+            <label class="svg-lab__section-title" for="v2-raw">raw</label>
+            <textarea id="v2-raw" class="svg-lab__raw" spellcheck="false" aria-label="raw SVG"></textarea>
+          </section>
+        </aside>
+      </section>
+
+      <section class="svg-lab__fixtures" aria-labelledby="v2-works-title">
+        <div class="svg-lab__fixtures-header">
+          <h2 id="v2-works-title" class="svg-lab__fixtures-title">works</h2>
+          <div class="svg-lab__fixtures-actions">
+            <p id="v2-fixtures-meta" class="svg-lab__meta"></p>
+            <button id="v2-save-all" class="svg-lab__button" type="button">[ save all svgs ]</button>
+          </div>
+        </div>
+        <div id="v2-fixtures" class="svg-lab__fixture-grid"></div>
+      </section>
+    </main>
+
+    <script type="module" src="/src/thought-v2-lab.ts"></script>
+  </body>
+</html>

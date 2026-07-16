@@ -1,0 +1,1103 @@
+{
+  "schema_version": 1,
+  "samples": [
+    {
+      "file": "samples/default.svg",
+      "fixtureId": null,
+      "fixtureName": "default preview",
+      "corpusId": null,
+      "corpusName": null,
+      "promptLine": "Quiet signal 你好",
+      "agentLine": "quiet Agent مرحبا",
+      "prompt": {
+        "byteLength": 19,
+        "displayUnits": 94
+      },
+      "agent": {
+        "byteLength": 22,
+        "displayUnits": 108
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/01-mixed-script-default.svg",
+      "fixtureId": "mixed-script-default",
+      "fixtureName": "work 01 mixed signal",
+      "corpusId": "mixed-baseline",
+      "corpusName": "mixed baseline",
+      "promptLine": "Quiet signal 你好",
+      "agentLine": "quiet signal مرحبا",
+      "prompt": {
+        "byteLength": 19,
+        "displayUnits": 94
+      },
+      "agent": {
+        "byteLength": 23,
+        "displayUnits": 114
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/02-ascii-minimal.svg",
+      "fixtureId": "ascii-minimal",
+      "fixtureName": "work 02 small ritual",
+      "corpusId": "mixed-baseline",
+      "corpusName": "mixed baseline",
+      "promptLine": "small ritual",
+      "agentLine": "small ritual",
+      "prompt": {
+        "byteLength": 12,
+        "displayUnits": 70
+      },
+      "agent": {
+        "byteLength": 12,
+        "displayUnits": 70
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/03-cjk.svg",
+      "fixtureId": "cjk",
+      "fixtureName": "work 03 cjk",
+      "corpusId": "mixed-baseline",
+      "corpusName": "mixed baseline",
+      "promptLine": "安静的信号",
+      "agentLine": "静かな合図",
+      "prompt": {
+        "byteLength": 15,
+        "displayUnits": 50
+      },
+      "agent": {
+        "byteLength": 15,
+        "displayUnits": 50
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/04-arabic-hebrew.svg",
+      "fixtureId": "arabic-hebrew",
+      "fixtureName": "work 04 rtl",
+      "corpusId": "mixed-baseline",
+      "corpusName": "mixed baseline",
+      "promptLine": "صوت هادئ",
+      "agentLine": "אות שקט",
+      "prompt": {
+        "byteLength": 15,
+        "displayUnits": 60
+      },
+      "agent": {
+        "byteLength": 13,
+        "displayUnits": 52
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/05-indic-thai.svg",
+      "fixtureId": "indic-thai",
+      "fixtureName": "work 05 indic thai",
+      "corpusId": "mixed-baseline",
+      "corpusName": "mixed baseline",
+      "promptLine": "धीमा संकेत",
+      "agentLine": "สัญญาณสงบ",
+      "prompt": {
+        "byteLength": 28,
+        "displayUnits": 76
+      },
+      "agent": {
+        "byteLength": 27,
+        "displayUnits": 72
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/06-punctuation.svg",
+      "fixtureId": "punctuation",
+      "fixtureName": "work 06 punctuation",
+      "corpusId": "mixed-baseline",
+      "corpusName": "mixed baseline",
+      "promptLine": "signal: quiet, then clear",
+      "agentLine": "quiet, then clear",
+      "prompt": {
+        "byteLength": 25,
+        "displayUnits": 144
+      },
+      "agent": {
+        "byteLength": 17,
+        "displayUnits": 98
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/07-agent-width-basic.svg",
+      "fixtureId": "agent-width-basic",
+      "fixtureName": "work 07 wide agent basic",
+      "corpusId": "wide-agent-lines",
+      "corpusName": "wide agent lines",
+      "promptLine": "long agent check",
+      "agentLine": "the clear answer travels",
+      "prompt": {
+        "byteLength": 16,
+        "displayUnits": 92
+      },
+      "agent": {
+        "byteLength": 24,
+        "displayUnits": 138
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/08-agent-end-start.svg",
+      "fixtureId": "agent-end-start",
+      "fixtureName": "work 08 end start gap",
+      "corpusId": "wide-agent-lines",
+      "corpusName": "wide agent lines",
+      "promptLine": "gap check",
+      "agentLine": "start and end stay apart",
+      "prompt": {
+        "byteLength": 9,
+        "displayUnits": 52
+      },
+      "agent": {
+        "byteLength": 24,
+        "displayUnits": 136
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/09-agent-observation.svg",
+      "fixtureId": "agent-observation",
+      "fixtureName": "work 09 observation line",
+      "corpusId": "wide-agent-lines",
+      "corpusName": "wide agent lines",
+      "promptLine": "watch the answer",
+      "agentLine": "observe the field",
+      "prompt": {
+        "byteLength": 16,
+        "displayUnits": 92
+      },
+      "agent": {
+        "byteLength": 17,
+        "displayUnits": 98
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/10-agent-memory-route.svg",
+      "fixtureId": "agent-memory-route",
+      "fixtureName": "work 10 memory route",
+      "corpusId": "wide-agent-lines",
+      "corpusName": "wide agent lines",
+      "promptLine": "memory route",
+      "agentLine": "memory crosses 北京",
+      "prompt": {
+        "byteLength": 12,
+        "displayUnits": 70
+      },
+      "agent": {
+        "byteLength": 21,
+        "displayUnits": 106
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/11-agent-quiet-window.svg",
+      "fixtureId": "agent-quiet-window",
+      "fixtureName": "work 11 quiet window",
+      "corpusId": "wide-agent-lines",
+      "corpusName": "wide agent lines",
+      "promptLine": "quiet window",
+      "agentLine": "quiet carries مرحبا",
+      "prompt": {
+        "byteLength": 12,
+        "displayUnits": 70
+      },
+      "agent": {
+        "byteLength": 24,
+        "displayUnits": 120
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/12-agent-edge-repeat.svg",
+      "fixtureId": "agent-edge-repeat",
+      "fixtureName": "work 12 repeated edge",
+      "corpusId": "wide-agent-lines",
+      "corpusName": "wide agent lines",
+      "promptLine": "edge repeat",
+      "agentLine": "edge keeps its distance",
+      "prompt": {
+        "byteLength": 11,
+        "displayUnits": 64
+      },
+      "agent": {
+        "byteLength": 23,
+        "displayUnits": 132
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/13-prompt-width-basic.svg",
+      "fixtureId": "prompt-width-basic",
+      "fixtureName": "work 13 wide prompt basic",
+      "corpusId": "wide-prompt-lines",
+      "corpusName": "wide prompt lines",
+      "promptLine": "trace the signal across the archive before it becomes visible",
+      "agentLine": "quiet archive",
+      "prompt": {
+        "byteLength": 61,
+        "displayUnits": 348
+      },
+      "agent": {
+        "byteLength": 13,
+        "displayUnits": 76
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/14-prompt-full-request.svg",
+      "fixtureId": "prompt-full-request",
+      "fixtureName": "work 14 full request",
+      "corpusId": "wide-prompt-lines",
+      "corpusName": "wide prompt lines",
+      "promptLine": "the prompt crosses the canvas without losing its written rhythm",
+      "agentLine": "full request",
+      "prompt": {
+        "byteLength": 63,
+        "displayUnits": 360
+      },
+      "agent": {
+        "byteLength": 12,
+        "displayUnits": 70
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/15-prompt-first-last.svg",
+      "fixtureId": "prompt-first-last",
+      "fixtureName": "work 15 first last",
+      "corpusId": "wide-prompt-lines",
+      "corpusName": "wide prompt lines",
+      "promptLine": "follow the small request from first mark to final answer",
+      "agentLine": "first to last",
+      "prompt": {
+        "byteLength": 56,
+        "displayUnits": 318
+      },
+      "agent": {
+        "byteLength": 13,
+        "displayUnits": 74
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/16-prompt-mixed-language.svg",
+      "fixtureId": "prompt-mixed-language",
+      "fixtureName": "work 16 mixed language prompt",
+      "corpusId": "wide-prompt-lines",
+      "corpusName": "wide prompt lines",
+      "promptLine": "quiet prompt 你好 meets مرحبا across the field",
+      "agentLine": "mixed prompt",
+      "prompt": {
+        "byteLength": 53,
+        "displayUnits": 268
+      },
+      "agent": {
+        "byteLength": 12,
+        "displayUnits": 70
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/17-prompt-proof-window.svg",
+      "fixtureId": "prompt-proof-window",
+      "fixtureName": "work 17 proof window",
+      "corpusId": "wide-prompt-lines",
+      "corpusName": "wide prompt lines",
+      "promptLine": "a proof window carries the request long enough to read",
+      "agentLine": "proof window",
+      "prompt": {
+        "byteLength": 54,
+        "displayUnits": 306
+      },
+      "agent": {
+        "byteLength": 12,
+        "displayUnits": 70
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/18-prompt-no-compression.svg",
+      "fixtureId": "prompt-no-compression",
+      "fixtureName": "work 18 no compression",
+      "corpusId": "wide-prompt-lines",
+      "corpusName": "wide prompt lines",
+      "promptLine": "keep this prompt readable across the static field",
+      "agentLine": "no compression",
+      "prompt": {
+        "byteLength": 49,
+        "displayUnits": 280
+      },
+      "agent": {
+        "byteLength": 14,
+        "displayUnits": 82
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/19-dual-clean-spacing.svg",
+      "fixtureId": "dual-clean-spacing",
+      "fixtureName": "work 19 dual clean spacing",
+      "corpusId": "dual-width-stress",
+      "corpusName": "dual width stress",
+      "promptLine": "both lines keep their own measured space inside the field",
+      "agentLine": "one Agent line remains",
+      "prompt": {
+        "byteLength": 57,
+        "displayUnits": 324
+      },
+      "agent": {
+        "byteLength": 22,
+        "displayUnits": 126
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/20-dual-multilingual.svg",
+      "fixtureId": "dual-multilingual",
+      "fixtureName": "work 20 dual multilingual",
+      "corpusId": "dual-width-stress",
+      "corpusName": "dual width stress",
+      "promptLine": "multilingual prompt 你好 مرحبا stays readable",
+      "agentLine": "the Agent returns 中文",
+      "prompt": {
+        "byteLength": 52,
+        "displayUnits": 266
+      },
+      "agent": {
+        "byteLength": 24,
+        "displayUnits": 122
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/21-dual-marketplace.svg",
+      "fixtureId": "dual-marketplace",
+      "fixtureName": "work 21 marketplace preview",
+      "corpusId": "dual-width-stress",
+      "corpusName": "dual width stress",
+      "promptLine": "marketplace previews expose the visible prompt clearly",
+      "agentLine": "thumbnails show answer",
+      "prompt": {
+        "byteLength": 54,
+        "displayUnits": 312
+      },
+      "agent": {
+        "byteLength": 22,
+        "displayUnits": 128
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/22-dual-saved-svg.svg",
+      "fixtureId": "dual-saved-svg",
+      "fixtureName": "work 22 saved svg",
+      "corpusId": "dual-width-stress",
+      "corpusName": "dual width stress",
+      "promptLine": "saved SVG preserves the exact visible prompt",
+      "agentLine": "saved SVG keeps response",
+      "prompt": {
+        "byteLength": 44,
+        "displayUnits": 252
+      },
+      "agent": {
+        "byteLength": 24,
+        "displayUnits": 138
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/23-dual-bottom-top.svg",
+      "fixtureId": "dual-bottom-top",
+      "fixtureName": "work 23 bottom top",
+      "corpusId": "dual-width-stress",
+      "corpusName": "dual width stress",
+      "promptLine": "bottom prompt and central answer stay separate",
+      "agentLine": "center stays separate",
+      "prompt": {
+        "byteLength": 46,
+        "displayUnits": 264
+      },
+      "agent": {
+        "byteLength": 21,
+        "displayUnits": 122
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/24-dual-human-check.svg",
+      "fixtureId": "dual-human-check",
+      "fixtureName": "work 24 human check",
+      "corpusId": "dual-width-stress",
+      "corpusName": "dual width stress",
+      "promptLine": "a human reads both lines from start to finish",
+      "agentLine": "the answer remains clear",
+      "prompt": {
+        "byteLength": 45,
+        "displayUnits": 254
+      },
+      "agent": {
+        "byteLength": 24,
+        "displayUnits": 138
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/25-script-greek.svg",
+      "fixtureId": "script-greek",
+      "fixtureName": "work 25 greek",
+      "corpusId": "global-scripts",
+      "corpusName": "global scripts",
+      "promptLine": "ήσυχο σήμα",
+      "agentLine": "ήρεμη απάντηση",
+      "prompt": {
+        "byteLength": 19,
+        "displayUnits": 76
+      },
+      "agent": {
+        "byteLength": 27,
+        "displayUnits": 108
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/26-script-cyrillic.svg",
+      "fixtureId": "script-cyrillic",
+      "fixtureName": "work 26 cyrillic",
+      "corpusId": "global-scripts",
+      "corpusName": "global scripts",
+      "promptLine": "тихий сигнал",
+      "agentLine": "спокойный ответ",
+      "prompt": {
+        "byteLength": 23,
+        "displayUnits": 92
+      },
+      "agent": {
+        "byteLength": 29,
+        "displayUnits": 116
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/27-script-korean.svg",
+      "fixtureId": "script-korean",
+      "fixtureName": "work 27 korean",
+      "corpusId": "global-scripts",
+      "corpusName": "global scripts",
+      "promptLine": "조용한 신호",
+      "agentLine": "고요한 응답",
+      "prompt": {
+        "byteLength": 16,
+        "displayUnits": 54
+      },
+      "agent": {
+        "byteLength": 16,
+        "displayUnits": 54
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/28-script-armenian.svg",
+      "fixtureId": "script-armenian",
+      "fixtureName": "work 28 armenian",
+      "corpusId": "global-scripts",
+      "corpusName": "global scripts",
+      "promptLine": "լուռ ազդանշան",
+      "agentLine": "հանգիստ պատասխան",
+      "prompt": {
+        "byteLength": 25,
+        "displayUnits": 100
+      },
+      "agent": {
+        "byteLength": 31,
+        "displayUnits": 124
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/29-script-georgian.svg",
+      "fixtureId": "script-georgian",
+      "fixtureName": "work 29 georgian",
+      "corpusId": "global-scripts",
+      "corpusName": "global scripts",
+      "promptLine": "მშვიდი სიგნალი",
+      "agentLine": "წყნარი პასუხი",
+      "prompt": {
+        "byteLength": 40,
+        "displayUnits": 108
+      },
+      "agent": {
+        "byteLength": 37,
+        "displayUnits": 100
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/30-script-ethiopic.svg",
+      "fixtureId": "script-ethiopic",
+      "fixtureName": "work 30 ethiopic",
+      "corpusId": "global-scripts",
+      "corpusName": "global scripts",
+      "promptLine": "ጸጥ ያለ ምልክት",
+      "agentLine": "የተረጋጋ መልስ",
+      "prompt": {
+        "byteLength": 26,
+        "displayUnits": 72
+      },
+      "agent": {
+        "byteLength": 25,
+        "displayUnits": 68
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/31-script-khmer.svg",
+      "fixtureId": "script-khmer",
+      "fixtureName": "work 31 khmer",
+      "corpusId": "global-scripts",
+      "corpusName": "global scripts",
+      "promptLine": "សញ្ញាស្ងប់",
+      "agentLine": "ចម្លើយស្ងប់",
+      "prompt": {
+        "byteLength": 30,
+        "displayUnits": 80
+      },
+      "agent": {
+        "byteLength": 33,
+        "displayUnits": 88
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/32-script-lao.svg",
+      "fixtureId": "script-lao",
+      "fixtureName": "work 32 lao",
+      "corpusId": "global-scripts",
+      "corpusName": "global scripts",
+      "promptLine": "ສັນຍານງຽບ",
+      "agentLine": "ຄໍາຕອບສະຫງົບ",
+      "prompt": {
+        "byteLength": 27,
+        "displayUnits": 72
+      },
+      "agent": {
+        "byteLength": 36,
+        "displayUnits": 96
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/33-script-tibetan.svg",
+      "fixtureId": "script-tibetan",
+      "fixtureName": "work 33 tibetan",
+      "corpusId": "global-scripts",
+      "corpusName": "global scripts",
+      "promptLine": "ཞི་བའི་བརྡ",
+      "agentLine": "ཞི་བའི་ལན",
+      "prompt": {
+        "byteLength": 30,
+        "displayUnits": 80
+      },
+      "agent": {
+        "byteLength": 27,
+        "displayUnits": 72
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/34-script-tamil.svg",
+      "fixtureId": "script-tamil",
+      "fixtureName": "work 34 tamil",
+      "corpusId": "global-scripts",
+      "corpusName": "global scripts",
+      "promptLine": "அமைதியான குறி",
+      "agentLine": "அமைதியான பதில்",
+      "prompt": {
+        "byteLength": 37,
+        "displayUnits": 100
+      },
+      "agent": {
+        "byteLength": 40,
+        "displayUnits": 108
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/35-script-bengali.svg",
+      "fixtureId": "script-bengali",
+      "fixtureName": "work 35 bengali",
+      "corpusId": "global-scripts",
+      "corpusName": "global scripts",
+      "promptLine": "নীরব সংকেত",
+      "agentLine": "শান্ত উত্তর",
+      "prompt": {
+        "byteLength": 28,
+        "displayUnits": 76
+      },
+      "agent": {
+        "byteLength": 31,
+        "displayUnits": 84
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/36-script-vietnamese.svg",
+      "fixtureId": "script-vietnamese",
+      "fixtureName": "work 36 vietnamese",
+      "corpusId": "global-scripts",
+      "corpusName": "global scripts",
+      "promptLine": "tín hiệu yên lặng",
+      "agentLine": "phản hồi êm",
+      "prompt": {
+        "byteLength": 23,
+        "displayUnits": 104
+      },
+      "agent": {
+        "byteLength": 16,
+        "displayUnits": 68
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/37-script-myanmar.svg",
+      "fixtureId": "script-myanmar",
+      "fixtureName": "work 37 myanmar",
+      "corpusId": "global-scripts",
+      "corpusName": "global scripts",
+      "promptLine": "တိတ်ဆိတ်သော အချက်ပြ",
+      "agentLine": "ငြိမ်သက်သော အဖြေ",
+      "prompt": {
+        "byteLength": 55,
+        "displayUnits": 148
+      },
+      "agent": {
+        "byteLength": 46,
+        "displayUnits": 124
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/38-script-sinhala.svg",
+      "fixtureId": "script-sinhala",
+      "fixtureName": "work 38 sinhala",
+      "corpusId": "global-scripts",
+      "corpusName": "global scripts",
+      "promptLine": "නිහඬ සංඥාව",
+      "agentLine": "සන්සුන් පිළිතුර",
+      "prompt": {
+        "byteLength": 28,
+        "displayUnits": 76
+      },
+      "agent": {
+        "byteLength": 43,
+        "displayUnits": 116
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/39-script-cherokee.svg",
+      "fixtureId": "script-cherokee",
+      "fixtureName": "work 39 cherokee",
+      "corpusId": "global-scripts",
+      "corpusName": "global scripts",
+      "promptLine": "ᎤᏅᏥᏓ ᎤᏃᏴᎬ",
+      "agentLine": "ᎤᏓᏅᏘ ᎤᏁᏨ",
+      "prompt": {
+        "byteLength": 25,
+        "displayUnits": 68
+      },
+      "agent": {
+        "byteLength": 22,
+        "displayUnits": 60
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/40-script-inuktitut.svg",
+      "fixtureId": "script-inuktitut",
+      "fixtureName": "work 40 inuktitut",
+      "corpusId": "global-scripts",
+      "corpusName": "global scripts",
+      "promptLine": "ᓂᐱᖃᙱᑦᑐᖅ ᓇᓗᓇᐃᒃᑯᑕᖅ",
+      "agentLine": "ᓇᑲᑦᑐᖅ ᑭᐅᔾᔪᑎ",
+      "prompt": {
+        "byteLength": 46,
+        "displayUnits": 124
+      },
+      "agent": {
+        "byteLength": 31,
+        "displayUnits": 84
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/41-script-turkish.svg",
+      "fixtureId": "script-turkish",
+      "fixtureName": "work 41 turkish",
+      "corpusId": "global-scripts",
+      "corpusName": "global scripts",
+      "promptLine": "sessiz işaret",
+      "agentLine": "sakin yanıt",
+      "prompt": {
+        "byteLength": 14,
+        "displayUnits": 78
+      },
+      "agent": {
+        "byteLength": 12,
+        "displayUnits": 66
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/42-script-polish.svg",
+      "fixtureId": "script-polish",
+      "fixtureName": "work 42 polish",
+      "corpusId": "global-scripts",
+      "corpusName": "global scripts",
+      "promptLine": "cichy sygnał",
+      "agentLine": "spokojna odpowiedź",
+      "prompt": {
+        "byteLength": 13,
+        "displayUnits": 72
+      },
+      "agent": {
+        "byteLength": 19,
+        "displayUnits": 108
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/43-minimal-ab.svg",
+      "fixtureId": "minimal-ab",
+      "fixtureName": "work 43 minimal ab",
+      "corpusId": "minimal",
+      "corpusName": "minimal works",
+      "promptLine": "a",
+      "agentLine": "b",
+      "prompt": {
+        "byteLength": 1,
+        "displayUnits": 6
+      },
+      "agent": {
+        "byteLength": 1,
+        "displayUnits": 6
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/44-ascii-display-unit-limits.svg",
+      "fixtureId": "ascii-display-unit-limits",
+      "fixtureName": "work 44 ascii display limits",
+      "corpusId": "visible-line-limits",
+      "corpusName": "visible line limits",
+      "promptLine": "pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp",
+      "agentLine": "AAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "prompt": {
+        "byteLength": 72,
+        "displayUnits": 432
+      },
+      "agent": {
+        "byteLength": 27,
+        "displayUnits": 162
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/45-wide-display-unit-limits.svg",
+      "fixtureId": "wide-display-unit-limits",
+      "fixtureName": "work 45 wide display limits",
+      "corpusId": "visible-line-limits",
+      "corpusName": "visible line limits",
+      "promptLine": "你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你",
+      "agentLine": "好好好好好好好好好好好好好好好好",
+      "prompt": {
+        "byteLength": 129,
+        "displayUnits": 430
+      },
+      "agent": {
+        "byteLength": 48,
+        "displayUnits": 160
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/46-mixed-display-unit-limit.svg",
+      "fixtureId": "mixed-display-unit-limit",
+      "fixtureName": "work 46 mixed display limit",
+      "corpusId": "visible-line-limits",
+      "corpusName": "visible line limits",
+      "promptLine": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 你你你你你你你你你你你你你你你你你你你你你",
+      "agentLine": "AAAAAAAAAAAAAAAAAAA 好好好好",
+      "prompt": {
+        "byteLength": 99,
+        "displayUnits": 424
+      },
+      "agent": {
+        "byteLength": 32,
+        "displayUnits": 158
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/47-density-004-bytes.svg",
+      "fixtureId": "density-004-bytes",
+      "fixtureName": "work 47 density 004 bytes",
+      "corpusId": "binary-density-ramp",
+      "corpusName": "binary density ramp",
+      "promptLine": "aa",
+      "agentLine": "bb",
+      "prompt": {
+        "byteLength": 2,
+        "displayUnits": 12
+      },
+      "agent": {
+        "byteLength": 2,
+        "displayUnits": 12
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/48-density-008-bytes.svg",
+      "fixtureId": "density-008-bytes",
+      "fixtureName": "work 48 density 008 bytes",
+      "corpusId": "binary-density-ramp",
+      "corpusName": "binary density ramp",
+      "promptLine": "aaaa",
+      "agentLine": "bbbb",
+      "prompt": {
+        "byteLength": 4,
+        "displayUnits": 24
+      },
+      "agent": {
+        "byteLength": 4,
+        "displayUnits": 24
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/49-density-016-bytes.svg",
+      "fixtureId": "density-016-bytes",
+      "fixtureName": "work 49 density 016 bytes",
+      "corpusId": "binary-density-ramp",
+      "corpusName": "binary density ramp",
+      "promptLine": "aaaaaaaa",
+      "agentLine": "bbbbbbbb",
+      "prompt": {
+        "byteLength": 8,
+        "displayUnits": 48
+      },
+      "agent": {
+        "byteLength": 8,
+        "displayUnits": 48
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/50-density-032-bytes.svg",
+      "fixtureId": "density-032-bytes",
+      "fixtureName": "work 50 density 032 bytes",
+      "corpusId": "binary-density-ramp",
+      "corpusName": "binary density ramp",
+      "promptLine": "aaaaaaaaaaaaaaaa",
+      "agentLine": "bbbbbbbbbbbbbbbb",
+      "prompt": {
+        "byteLength": 16,
+        "displayUnits": 96
+      },
+      "agent": {
+        "byteLength": 16,
+        "displayUnits": 96
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/51-density-064-bytes.svg",
+      "fixtureId": "density-064-bytes",
+      "fixtureName": "work 51 density 064 bytes",
+      "corpusId": "binary-density-ramp",
+      "corpusName": "binary density ramp",
+      "promptLine": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "agentLine": "bbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "prompt": {
+        "byteLength": 37,
+        "displayUnits": 222
+      },
+      "agent": {
+        "byteLength": 27,
+        "displayUnits": 162
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/52-density-096-bytes.svg",
+      "fixtureId": "density-096-bytes",
+      "fixtureName": "work 52 density 096 bytes",
+      "corpusId": "binary-density-ramp",
+      "corpusName": "binary density ramp",
+      "promptLine": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "agentLine": "bbbbbbbbbbbbbbbbbbbbbbbb",
+      "prompt": {
+        "byteLength": 72,
+        "displayUnits": 432
+      },
+      "agent": {
+        "byteLength": 24,
+        "displayUnits": 144
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/53-density-174-cjk-bytes.svg",
+      "fixtureId": "density-174-cjk-bytes",
+      "fixtureName": "work 53 density 174 cjk bytes",
+      "corpusId": "binary-density-ramp",
+      "corpusName": "binary density ramp",
+      "promptLine": "你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你你",
+      "agentLine": "好好好好好好好好好好好好好好好",
+      "prompt": {
+        "byteLength": 129,
+        "displayUnits": 430
+      },
+      "agent": {
+        "byteLength": 45,
+        "displayUnits": 150
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/54-emoji-signal.svg",
+      "fixtureId": "emoji-signal",
+      "fixtureName": "work 54 emoji signal",
+      "corpusId": "emoji",
+      "corpusName": "emoji works",
+      "promptLine": "launch the signal 🚀",
+      "agentLine": "signal received 🌙",
+      "prompt": {
+        "byteLength": 22,
+        "displayUnits": 110
+      },
+      "agent": {
+        "byteLength": 20,
+        "displayUnits": 100
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/55-emoji-only.svg",
+      "fixtureId": "emoji-only",
+      "fixtureName": "work 55 emoji only",
+      "corpusId": "emoji",
+      "corpusName": "emoji works",
+      "promptLine": "😀 🚀 🌙",
+      "agentLine": "🔥 💡 🎯",
+      "prompt": {
+        "byteLength": 14,
+        "displayUnits": 32
+      },
+      "agent": {
+        "byteLength": 14,
+        "displayUnits": 32
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/56-emoji-global-scripts.svg",
+      "fixtureId": "emoji-global-scripts",
+      "fixtureName": "work 56 emoji global scripts",
+      "corpusId": "emoji",
+      "corpusName": "emoji works",
+      "promptLine": "你好 🌙 مرحبا",
+      "agentLine": "静かな信号 🚀",
+      "prompt": {
+        "byteLength": 22,
+        "displayUnits": 76
+      },
+      "agent": {
+        "byteLength": 20,
+        "displayUnits": 62
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/57-emoji-sequence.svg",
+      "fixtureId": "emoji-sequence",
+      "fixtureName": "work 57 emoji sequence",
+      "corpusId": "emoji",
+      "corpusName": "emoji works",
+      "promptLine": "🌙 🔥 💡 🎯 🚀",
+      "agentLine": "🚀 🎯 💡 🔥 🌙",
+      "prompt": {
+        "byteLength": 24,
+        "displayUnits": 56
+      },
+      "agent": {
+        "byteLength": 24,
+        "displayUnits": 56
+      },
+      "animated": false
+    },
+    {
+      "file": "samples/works/58-max-two-byte-unicode.svg",
+      "fixtureId": "max-two-byte-unicode",
+      "fixtureName": "work 58 max two byte unicode",
+      "corpusId": "exact-64-byte-limits",
+      "corpusName": "exact 64 byte limits",
+      "promptLine": "кудаведётэтоттихийцифровойсигнал",
+      "agentLine": "ответрождаетсяизпамятииконтекста",
+      "prompt": {
+        "byteLength": 64,
+        "displayUnits": 256
+      },
+      "agent": {
+        "byteLength": 64,
+        "displayUnits": 256
+      },
+      "animated": true
+    },
+    {
+      "file": "samples/works/59-max-three-byte-unicode.svg",
+      "fixtureId": "max-three-byte-unicode",
+      "fixtureName": "work 59 max three byte unicode",
+      "corpusId": "exact-64-byte-limits",
+      "corpusName": "exact 64 byte limits",
+      "promptLine": "这个问题穿过记忆寻找清晰温柔可靠的最终答案?",
+      "agentLine": "答案来自上下文并保持事实边界与语气始终清楚.",
+      "prompt": {
+        "byteLength": 64,
+        "displayUnits": 216
+      },
+      "agent": {
+        "byteLength": 64,
+        "displayUnits": 216
+      },
+      "animated": true
+    },
+    {
+      "file": "samples/works/60-max-four-byte-emoji.svg",
+      "fixtureId": "max-four-byte-emoji",
+      "fixtureName": "work 60 max four byte emoji",
+      "corpusId": "exact-64-byte-limits",
+      "corpusName": "exact 64 byte limits",
+      "promptLine": "🌅🧭🚶🌲🌊🐚🐦🌙🔭🛰💭🧠💡🛠🚀🎯",
+      "agentLine": "🔍📚💭🧠🤖🛠🔥💡🧭🌍🔗🔑🚪🌱🌳🎯",
+      "prompt": {
+        "byteLength": 64,
+        "displayUnits": 128
+      },
+      "agent": {
+        "byteLength": 64,
+        "displayUnits": 128
+      },
+      "animated": false
+    }
+  ]
+}

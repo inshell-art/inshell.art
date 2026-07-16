@@ -21,6 +21,7 @@ export type ThoughtShellParsedCommand = {
   canonicalPath: string[];
   legacyHead: string;
   rest: string;
+  rawRest: string;
   args: string[];
 };
 
@@ -79,6 +80,12 @@ const splitLegacyInput = (trimmed: string) => {
   };
 };
 
+const readRawLegacyRest = (input: string) => {
+  const command = input.trimStart();
+  const match = command.match(/^\S+(?:\s([\s\S]*))?$/);
+  return match?.[1] ?? "";
+};
+
 export const parseThoughtShellInput = (input: string): ThoughtShellParsedCommand => {
   const parsed = parseInput(input, {
     mode: "command-first",
@@ -100,6 +107,7 @@ export const parseThoughtShellInput = (input: string): ThoughtShellParsedCommand
     canonicalPath: commandPath,
     legacyHead: legacy.legacyHead,
     rest: legacy.rest,
+    rawRest: readRawLegacyRest(input),
     args: legacy.args,
   };
 };

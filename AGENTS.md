@@ -33,12 +33,11 @@
 - If a production hotfix bypasses `staging`, say so plainly in the final response and reconcile `staging` with `main` immediately after.
 - This applies to all frontend surfaces in this repo: home/PATH, THOUGHT, gallery/detail pages, primitive pages, report-bug links, and cross-links.
 - Preview builds must show the top-left `preview` watermark. Production builds must not show it.
+- The canonical product surface is same-origin. Production uses `https://inshell.art/`, `https://inshell.art/path`, `https://inshell.art/thought`, and `https://inshell.art/gallery`; preview uses the same paths under `https://preview.inshell.art`.
+- Do not generate canonical product links to `thought.inshell.art`, `gallery.inshell.art`, `thought.preview.inshell.art`, or `gallery.preview.inshell.art`. Standalone THOUGHT builds may remain as compatibility/deployment artifacts, but they do not own the canonical product origin.
 - `preview.inshell.art` should point at the Cloudflare Pages branch alias for `staging` on the home project: `staging.inshell-art.pages.dev`.
-- `thought.preview.inshell.art` should point at the Cloudflare Pages branch alias for `staging` on the THOUGHT project: `staging.thought-inshell-art.pages.dev`.
-- `gallery.preview.inshell.art` should point at the Cloudflare Pages branch alias for `staging` on the THOUGHT project: `staging.thought-inshell-art.pages.dev`.
-- Treat these as one preview umbrella: `preview.inshell.art` mirrors `inshell.art`, `thought.preview.inshell.art` mirrors `thought.inshell.art`, and `gallery.preview.inshell.art` mirrors `gallery.inshell.art`.
-- Staging builds must cross-link within the preview umbrella. Home staging links to `https://thought.preview.inshell.art/` and `https://gallery.preview.inshell.art/`; THOUGHT staging links back to `https://preview.inshell.art`.
-- The Cloudflare custom-domain bindings are account-side. If any preview binding is missing, ask the operator to bind `preview.inshell.art`, `thought.preview.inshell.art`, and `gallery.preview.inshell.art` to their `staging` branches before claiming preview is ready.
+- Staging builds must cross-link within the shared preview origin: `/path`, `/thought`, and `/gallery` resolve under `https://preview.inshell.art`.
+- The Cloudflare custom-domain binding is account-side. If the preview binding is missing, ask the operator to bind `preview.inshell.art` to the home project's `staging` branch before claiming preview is ready.
 - In `.github/workflows/deploy-pages.yml`, the selected deploy `branch` must match the checked-out source branch. Never deploy `main` code under a `staging` label or `staging` code under a `main` label.
 
 ## Hot Fix Agent Only
@@ -51,6 +50,16 @@
 - Prefer merging or cherry-picking the exact production hotfix into `staging` so preview and production do not drift.
 - If reconciling back to `staging` conflicts or would pull unrelated production changes, stop and ask the operator directly before continuing.
 - State plainly in the final response which branch was hotfixed, whether `main` was updated, and whether `staging` was reconciled.
+
+## CSS Variable Discipline
+- Use CSS custom properties as shared visual tokens for integrity across page elements.
+- Do not put raw visual values directly on element selectors when the value affects page identity, shared layout, color, typography, spacing, borders, shadows, animation timing, or component state.
+- Raw values belong at the custom-property definition site, normally `:root`, theme media blocks, page containers, or component root scopes.
+- Page and component selectors should consume those values through `var(...)`, e.g. define `--canonical-green`, then apply `color: var(--canonical-green)` instead of `color: #006100`.
+- Do not use raw fallback values in page/component selectors either, e.g. prefer `font-weight: var(--weight-thin)` over `font-weight: var(--weight-thin, 200)`.
+- For typography primitives, use global type tokens such as `--weight-thin`, `--weight-light`, `--weight-mid`, and `--font-size-14`. Use the global `--font-size-<px>` scale for fixed text sizes, and compose responsive sizes from those tokens, e.g. `clamp(var(--font-size-12), 1.2vw, var(--font-size-16))`. Do not create one-off domain aliases when a global token already expresses the attribute.
+- Add a new custom property only when it can govern a reusable visual type or bind multiple elements that must stay aligned. If it only applies to one element, reconsider whether an existing global token is enough.
+- Keep variable names tied to reusable product/type intent, not one-off selector names.
 
 ## Visual Verification
 - For UI visualization bugs, especially charts/SVG/canvas/responsive layout, verify with `visual-dom-cdp` or the same headless Chrome/CDP workflow: DOM counts, geometry thresholds, network status, and a screenshot.

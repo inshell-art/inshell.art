@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inshell.art/protocol/releases/v2/agent/thought.agent-declaration.v1.schema.json",
+  "title": "THOUGHT Agent Declaration V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "agentLabel", "specId", "specHash", "declaredOneCreativeResult"],
+  "properties": {
+    "schema": { "const": "inshell.thought.agent-declaration.v1" },
+    "agentLabel": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "specId": { "type": "string", "pattern": "^0x[0-9a-f]{64}$" },
+    "specHash": { "type": "string", "pattern": "^0x[0-9a-f]{64}$" },
+    "declaredOneCreativeResult": { "const": true }
+  }
+}

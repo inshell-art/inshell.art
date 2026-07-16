@@ -111,11 +111,11 @@ describe("Pages middleware canonical routes", () => {
     jest.restoreAllMocks();
   });
 
-  test("redirects legacy THOUGHT query detail URLs to the root work route", async () => {
+  test("redirects legacy THOUGHT query detail URLs to the same-origin work route", async () => {
     const ctx = middlewareContext("https://thought.inshell.art/?thought=9");
     const response = await onRequest(ctx);
 
-    expect(response.status).toBe(302);
+    expect(response.status).toBe(308);
     expect(response.headers.get("location")).toBe("https://inshell.art/thought/9");
     expect(ctx.next).not.toHaveBeenCalled();
     expect(ctx.assetsFetch).not.toHaveBeenCalled();
@@ -156,7 +156,7 @@ describe("Pages middleware canonical routes", () => {
     const response = await onRequest(ctx);
 
     expect(response.status).toBe(308);
-    expect(response.headers.get("location")).toBe("https://inshell.art/thought/9?ref=x");
+    expect(response.headers.get("location")).toBe("https://inshell.art/gallery?ref=x#thought-9");
     expect(ctx.next).not.toHaveBeenCalled();
     expect(ctx.assetsFetch).not.toHaveBeenCalled();
   });
@@ -180,13 +180,13 @@ describe("Pages middleware canonical routes", () => {
     expect(ctx.assetsFetch).not.toHaveBeenCalled();
   });
 
-  test("does not redirect standalone THOUGHT host root to gallery", async () => {
+  test("redirects standalone THOUGHT host root to the same-origin THOUGHT app", async () => {
     const ctx = middlewareContext("https://thought.inshell.art/");
     const response = await onRequest(ctx);
 
-    expect(response.status).toBe(200);
-    expect(response.headers.get("location")).toBeNull();
-    expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe("https://inshell.art/thought");
+    expect(ctx.assetsFetch).not.toHaveBeenCalled();
     expect(ctx.next).not.toHaveBeenCalled();
   });
 
@@ -197,6 +197,40 @@ describe("Pages middleware canonical routes", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("public, max-age=60, stale-while-revalidate=300");
     expect(response.headers.get("clear-site-data")).toBeNull();
+    expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
+    expect(ctx.next).not.toHaveBeenCalled();
+  });
+
+  test("permanently redirects the legacy PATH app route to the canonical path route", async () => {
+    const ctx = middlewareContext("https://inshell.art/path-app");
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe("https://inshell.art/path");
+    expect(ctx.assetsFetch).not.toHaveBeenCalled();
+    expect(ctx.next).not.toHaveBeenCalled();
+  });
+
+  test("permanently redirects the legacy PATH subdomain to the same-origin PATH route", async () => {
+    const ctx = middlewareContext(
+      "https://path.inshell.art/?intent=mint-path&returnTo=https%3A%2F%2Fthought.inshell.art%2Fruns%2Ftar_123",
+    );
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe(
+      "https://inshell.art/path?intent=mint-path&returnTo=%2Fthought%2Fruns%2Ftar_123",
+    );
+    expect(ctx.assetsFetch).not.toHaveBeenCalled();
+    expect(ctx.next).not.toHaveBeenCalled();
+  });
+
+  test("serves the canonical PATH app route through the root app shell", async () => {
+    const ctx = middlewareContext("https://inshell.art/path");
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("public, max-age=60, stale-while-revalidate=300");
     expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
     expect(ctx.next).not.toHaveBeenCalled();
   });
@@ -423,7 +457,7 @@ describe("Pages middleware canonical routes", () => {
     expect(ctx.assetsFetch).not.toHaveBeenCalled();
   });
 
-  test("redirects preview THOUGHT path detail URLs to the preview root work route", async () => {
+  test("redirects preview THOUGHT path detail URLs to the preview same-origin work route", async () => {
     const ctx = middlewareContext("https://thought.preview.inshell.art/thought/9");
     const response = await onRequest(ctx);
 
@@ -433,7 +467,7 @@ describe("Pages middleware canonical routes", () => {
     expect(ctx.assetsFetch).not.toHaveBeenCalled();
   });
 
-  test("serves canonical root THOUGHT routes through the root app shell", async () => {
+  test("serves canonical root THOUGHT routes through the mounted THOUGHT app shell", async () => {
     const ctx = middlewareContext("https://inshell.art/thought/9");
     const response = await onRequest(ctx);
 
@@ -441,6 +475,17 @@ describe("Pages middleware canonical routes", () => {
     expect(response.headers.get("cache-control")).toBe("public, max-age=60, stale-while-revalidate=300");
     expect(response.headers.get("clear-site-data")).toBeNull();
     expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
+    expect(ctx.assetsFetch.mock.calls[0]?.[0].url).toBe("https://inshell.art/thought/index.html");
+    expect(ctx.next).not.toHaveBeenCalled();
+  });
+
+  test("redirects works alias to the gallery route", async () => {
+    const ctx = middlewareContext("https://inshell.art/works?tag=thought");
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe("https://inshell.art/gallery?tag=thought");
+    expect(ctx.assetsFetch).not.toHaveBeenCalled();
     expect(ctx.next).not.toHaveBeenCalled();
   });
 

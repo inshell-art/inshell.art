@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inshell.art/protocol/releases/v2/agent/thought.agent-result.v2.schema.json",
+  "title": "THOUGHT Agent Result V2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "agentLine"],
+  "properties": {
+    "schema": { "const": "inshell.thought.agent-result.v2" },
+    "agentLine": {
+      "type": "string",
+      "minLength": 1,
+      "x-thought-line-profile": "inshell.thought.work.v2",
+      "x-thought-utf8-max-bytes": 64
+    },
+    "declaration": { "$ref": "thought.agent-declaration.v1.schema.json" }
+  }
+}

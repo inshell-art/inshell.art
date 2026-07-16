@@ -69,15 +69,15 @@ describe("Movements", () => {
     });
   });
 
-  test("links THOUGHT to the configured thought app in a new tab", () => {
+  test("links THOUGHT to the configured same-origin thought app", () => {
     (globalThis as any).__VITE_ENV__ = {
-      VITE_THOUGHT_URL: "http://127.0.0.1:5174/",
+      VITE_THOUGHT_URL: "/thought",
     };
     const { getByRole } = render(<Movements />);
     const link = getByRole("link", { name: "THOUGHT" });
-    expect(link).toHaveAttribute("href", "http://127.0.0.1:5174/");
-    expect(link).toHaveAttribute("target", "_blank");
-    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    expect(link).toHaveAttribute("href", "/thought");
+    expect(link).not.toHaveAttribute("target");
+    expect(link).not.toHaveAttribute("rel");
   });
 
   test("renders THOUGHT as text when no production URL is configured", () => {

@@ -1,0 +1,328 @@
+.inshell-topbar {
+  --topbar-cluster-gap: var(--shell-topbar-cluster-gap);
+  --topbar-menu-gap: var(--shell-topbar-menu-gap);
+  --wallet-label-width: var(--shell-topbar-wallet-label-width);
+
+  position: relative;
+  z-index: var(--shell-topbar-z-index);
+  width: var(--shell-topbar-width);
+  max-width: var(--shell-topbar-max-width);
+  min-height: var(--shell-topbar-min-height);
+  display: grid;
+  grid-template-columns: var(--shell-topbar-template);
+  align-items: center;
+  gap: var(--shell-topbar-gap);
+  margin: 0 var(--shell-topbar-margin-inline) var(--shell-topbar-margin-block-end);
+  padding-inline: var(--shell-bar-padding-inline);
+  box-sizing: border-box;
+  color: var(--text);
+  font-size: var(--font-size-14);
+  font-weight: var(--weight-mid);
+  letter-spacing: var(--shell-topbar-letter-spacing);
+}
+
+.inshell-topbar a,
+.inshell-topbar button {
+  font: inherit;
+}
+
+.inshell-topbar__brand,
+.inshell-topbar__link,
+.inshell-topbar__wallet,
+.inshell-wallet-modal__actions button {
+  color: inherit;
+  text-decoration: none;
+  background: transparent;
+  border: 0;
+}
+
+.inshell-topbar .inshell-topbar__brand {
+  justify-self: start;
+  color: var(--canonical-green);
+  font-weight: var(--weight-semibold);
+}
+
+.inshell-topbar .inshell-topbar__brand:hover,
+.inshell-topbar .inshell-topbar__brand:focus-visible {
+  color: var(--canonical-green);
+}
+
+.inshell-topbar__right {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--topbar-cluster-gap);
+  min-width: 0;
+}
+
+.inshell-topbar__nav {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--topbar-menu-gap);
+  white-space: nowrap;
+}
+
+.inshell-topbar__link {
+  color: var(--bright);
+}
+
+.inshell-topbar__wallet-surface {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.inshell-topbar__wallet {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--shell-topbar-wallet-gap);
+  padding: 0;
+  cursor: pointer;
+}
+
+.inshell-topbar__wallet-label {
+  inline-size: var(--wallet-label-width);
+  color: var(--bright);
+  position: relative;
+  display: block;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.inshell-topbar__wallet-note {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline-end: 0;
+  color: var(--bright);
+  font-size: var(--font-size-11);
+  line-height: var(--line-height-tight);
+  white-space: nowrap;
+}
+
+.inshell-topbar__wallet-surface--with-note > .inshell-wallet-modal,
+.inshell-topbar__wallet-surface--with-note > .inshell-wallet-picker {
+  top: calc(
+    100% + var(--shell-wallet-modal-offset) +
+      var(--shell-topbar-wallet-note-offset)
+  );
+}
+
+.inshell-topbar__address {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.inshell-topbar__dot {
+  display: inline-block;
+  width: var(--shell-topbar-dot-size);
+  height: var(--shell-topbar-dot-size);
+  border-radius: var(--shell-topbar-dot-radius);
+  background: var(--shell-topbar-dot-off);
+}
+
+.inshell-topbar__dot--on,
+.inshell-topbar__dot.is-on {
+  background: var(--accent);
+}
+
+.inshell-topbar__dot--pending,
+.inshell-topbar__dot.is-pending,
+.inshell-topbar__dot.is-warn {
+  background: var(--shell-topbar-dot-pending);
+}
+
+.inshell-topbar__dot--error,
+.inshell-topbar__dot.is-error {
+  background: var(--shell-topbar-dot-error);
+}
+
+.inshell-wallet-modal {
+  position: absolute;
+  z-index: var(--shell-wallet-modal-z-index);
+  top: calc(100% + var(--shell-wallet-modal-offset));
+  right: 0;
+  width: var(--shell-wallet-modal-width);
+  padding: var(--shell-wallet-modal-padding);
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shell-wallet-modal-shadow);
+}
+
+.inshell-wallet-modal h2 {
+  margin: 0 0 16px;
+  color: var(--accent);
+  font-size: var(--font-size-14);
+  font-weight: var(--weight-mid);
+}
+
+.inshell-wallet-modal__rows {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.inshell-wallet-modal__rows div {
+  display: grid;
+  grid-template-columns: var(--shell-wallet-modal-row-label-width) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.inshell-wallet-modal__rows dt {
+  color: var(--muted);
+}
+
+.inshell-wallet-modal__rows dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.inshell-wallet-modal__copy,
+.inshell-wallet-modal__notice {
+  margin: 16px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.inshell-wallet-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.inshell-wallet-modal__actions button {
+  padding: var(--shell-wallet-modal-action-padding);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  cursor: pointer;
+}
+
+.inshell-wallet-modal__actions button:disabled {
+  color: var(--muted);
+  border-color: var(--ghost-border);
+  cursor: not-allowed;
+}
+
+.inshell-wallet-picker {
+  position: absolute;
+  z-index: var(--shell-wallet-picker-z-index);
+  top: calc(100% + var(--shell-wallet-modal-offset));
+  right: 0;
+  min-width: var(--shell-wallet-picker-min-width);
+  max-height: var(--shell-wallet-picker-max-height);
+  padding: var(--shell-wallet-picker-padding);
+  display: grid;
+  gap: 0;
+  overflow: auto;
+  color: var(--text);
+  font-size: var(--font-size-11);
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  box-shadow: var(--shell-wallet-picker-shadow);
+}
+
+.inshell-wallet-picker__title {
+  margin-block-end: var(--shell-wallet-picker-title-margin-block-end);
+  color: var(--accent);
+  font-size: var(--font-size-11);
+  line-height: 1.15;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+}
+
+.inshell-wallet-picker__note {
+  margin: var(--shell-wallet-picker-note-margin);
+  color: var(--muted);
+  font-size: var(--font-size-11);
+  font-weight: var(--weight-mid);
+  line-height: 1.35;
+}
+
+.inshell-wallet-picker__note a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.inshell-wallet-picker__note a:hover,
+.inshell-wallet-picker__note a:focus-visible {
+  color: var(--accent);
+}
+
+.inshell-wallet-picker__item {
+  padding: var(--shell-wallet-picker-item-padding);
+  color: var(--text);
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--font-size-11);
+  line-height: var(--shell-wallet-picker-item-line-height);
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: lowercase;
+  cursor: pointer;
+}
+
+.inshell-topbar .inshell-wallet-picker__item {
+  font-size: var(--font-size-11);
+  line-height: var(--shell-wallet-picker-item-line-height);
+}
+
+.inshell-wallet-picker__item + .inshell-wallet-picker__item {
+  margin-block-start: var(--shell-wallet-picker-item-gap);
+}
+
+.inshell-wallet-picker__item:hover,
+.inshell-wallet-picker__item:focus-visible {
+  color: var(--accent);
+}
+
+.inshell-wallet-picker__notice {
+  position: absolute;
+  z-index: var(--shell-wallet-picker-z-index);
+  top: calc(100% + var(--shell-wallet-modal-offset));
+  right: 0;
+  width: var(--shell-wallet-modal-width);
+  margin: 0;
+  padding: var(--shell-wallet-modal-padding);
+  color: var(--muted);
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  box-shadow: var(--shell-wallet-picker-shadow);
+}
+
+@media (max-width: 760px) {
+  .inshell-topbar {
+    --topbar-cluster-gap: var(--shell-topbar-compact-cluster-gap);
+    --topbar-menu-gap: var(--shell-topbar-compact-menu-gap);
+    --wallet-label-width: var(--shell-topbar-wallet-label-width);
+
+    gap: var(--shell-topbar-compact-gap);
+    margin-bottom: var(--shell-topbar-compact-margin-block-end);
+    padding-inline: var(--shell-bar-padding-inline-compact);
+  }
+
+  .inshell-topbar__right {
+    gap: var(--topbar-cluster-gap);
+  }
+
+  .inshell-topbar__nav {
+    gap: var(--topbar-menu-gap);
+  }
+
+  .inshell-wallet-picker {
+    position: fixed;
+    right: var(--shell-wallet-picker-mobile-inset);
+    bottom: calc(
+      var(--shell-wallet-picker-mobile-inset) + env(safe-area-inset-bottom)
+    );
+    left: var(--shell-wallet-picker-mobile-inset);
+    top: auto;
+    min-width: 0;
+    max-width: none;
+    width: auto;
+  }
+}

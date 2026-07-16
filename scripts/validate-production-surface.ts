@@ -444,10 +444,10 @@ function checkThoughtProductionGuards() {
     "const OPENROUTER_DEFAULT_MODEL = \"openrouter/free\";",
     "const token = getReadThoughtNFT();",
     "previewWorkViaAllowedProvider",
-    "createThoughtPreviewEndpointProvider",
+    "createFrontendPreviewProvider",
     "VITE_THOUGHT_PREVIEW_ENDPOINT_ENABLED",
     "THOUGHT_PREVIEW_TIMEOUT_MS",
-    "current candidate is not contract-previewed.",
+    "current candidate is not previewed.",
     "waiting for model return.",
     "OLLAMA_ORIGINS=",
     "openai request could not be reached from this browser.",
@@ -480,7 +480,7 @@ function checkThoughtProductionGuards() {
   }
   requireSnippets("apps/thought/src/thought-preview-policy.ts", [
     "export type PreviewMode = \"auto\" | \"wallet\" | \"off\";",
-    "preview service unavailable or wallet not connected.",
+    "preview unavailable.",
   ]);
   const previewPolicy = read("apps/thought/src/thought-preview-policy.ts");
   if (previewPolicy.includes("connect wallet or configure a read-only preview path.")) {

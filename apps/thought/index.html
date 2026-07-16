@@ -3,29 +3,38 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" href="/icons/icon-512.png" />
-  <link rel="alternate icon" type="image/svg+xml" href="/thought-icon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/inshell.svg" />
+  <link rel="alternate icon" href="/icons/icon-512.png" />
+  <link rel="apple-touch-icon" href="/icons/icon-512.png" />
   <meta name="description" content="THOUGHT creation, minting, and gallery for Inshell." />
   <meta property="og:title" content="THOUGHT" />
   <meta property="og:description" content="THOUGHT creation, minting, and gallery for Inshell." />
-  <meta property="og:url" content="https://thought.inshell.art" />
-  <meta property="og:image" content="https://thought.inshell.art/og.png" />
+  <meta property="og:url" content="https://inshell.art/thought" />
+  <meta property="og:image" content="https://inshell.art/og.png" />
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="THOUGHT" />
   <meta name="twitter:description" content="THOUGHT creation, minting, and gallery for Inshell." />
-  <meta name="twitter:image" content="https://thought.inshell.art/og.png" />
+  <meta name="twitter:image" content="https://inshell.art/og.png" />
   <meta name="theme-color" content="#008080" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script>
     (() => {
       const params = new URLSearchParams(window.location.search);
-      const pathname = window.location.pathname.replace(/\/+$/, "");
+      const rawPathname = window.location.pathname.replace(/\/+$/, "") || "/";
+      const pathname = rawPathname === "/thought"
+        ? "/"
+        : rawPathname.startsWith("/thought/") && !/^\/thought\/[1-9]\d*$/.test(rawPathname)
+          ? rawPathname.slice("/thought".length)
+          : rawPathname;
       const hostname = window.location.hostname.toLowerCase();
       const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1";
       const isGalleryHost = hostname === "gallery.inshell.art" || hostname === "gallery.preview.inshell.art";
       const isGalleryPath = pathname === "/gallery";
+      const isAgentDemoPath = pathname === "/agent-demo";
+      const isPluginPath = pathname === "/plugin" || /^\/plugin\/(codex|claude)$/.test(pathname);
+      const isRunPath = /^\/runs\/[A-Za-z0-9_-]+$/.test(pathname);
       const isGalleryHash = window.location.hash === "#gallery" || /^#thought-[1-9]\d*$/.test(window.location.hash);
-      const hasGalleryIntent = isGalleryHost || isGalleryPath || params.get("gallery") === "1" || isGalleryHash;
+      const hasGalleryIntent = !isAgentDemoPath && !isPluginPath && !isRunPath && (isGalleryHost || isGalleryPath || params.get("gallery") === "1" || isGalleryHash);
       const thoughtPathMatch = /^\/thought\/([1-9]\d*)$/.exec(pathname);
       const thoughtQueryId = /^[1-9]\d*$/.test(params.get("thought") || "") ? params.get("thought") : "";
       const isThoughtHost =
@@ -33,22 +42,44 @@
         hostname === "thought.preview.inshell.art" ||
         hostname === "thought-inshell-art.pages.dev" ||
         hostname.endsWith(".thought-inshell-art.pages.dev");
-      const redirectThoughtId = !isLocalHost && isThoughtHost && !hasGalleryIntent
-        ? thoughtPathMatch?.[1] || thoughtQueryId
-        : "";
-      if (redirectThoughtId) {
+      if (!isLocalHost && isThoughtHost && !hasGalleryIntent) {
         const isPreview = hostname === "thought.preview.inshell.art" || hostname.startsWith("staging.");
-        window.location.replace(`${isPreview ? "https://preview.inshell.art" : "https://inshell.art"}/thought/${redirectThoughtId}`);
+        const redirectThoughtId = thoughtPathMatch?.[1] || thoughtQueryId;
+        const target = new URL(
+          redirectThoughtId
+            ? `/thought/${redirectThoughtId}`
+            : rawPathname === "/" || rawPathname === "/thought"
+              ? "/thought"
+              : rawPathname.startsWith("/thought/")
+                ? rawPathname
+                : `/thought${rawPathname}`,
+          isPreview ? "https://preview.inshell.art" : "https://inshell.art",
+        );
+        target.search = window.location.search;
+        if (redirectThoughtId) {
+          target.searchParams.delete("thought");
+        }
+        target.hash = window.location.hash;
+        window.location.replace(target.toString());
         return;
       }
       if (pathname === "/color-font") {
         document.documentElement.classList.add("color-font-route");
       } else if (pathname === "/verify") {
         document.documentElement.classList.add("verify-route");
+      } else if (isAgentDemoPath) {
+        document.documentElement.classList.add("agent-demo-route");
+      } else if (isPluginPath) {
+        document.documentElement.classList.add("plugin-route");
+      } else if (isRunPath) {
+        document.documentElement.classList.add("run-route");
       } else if (hasGalleryIntent) {
         document.documentElement.classList.add("gallery-route");
       } else if (thoughtPathMatch || thoughtQueryId) {
         document.documentElement.classList.add("thought-route");
+      }
+      if (params.get("debug") === "cli") {
+        document.documentElement.classList.add("debug-cli");
       }
     })();
   </script>
@@ -60,6 +91,14 @@
     html.gallery-route #gallery-page.thought-gallery.is-hidden {
       display: flex;
     }
+
+    html.agent-demo-route .frontpage-stage {
+      display: none !important;
+    }
+
+    html.plugin-route .frontpage-stage {
+      display: none !important;
+    }
   </style>
   <title>THOUGHT</title>
 </head>
@@ -68,23 +107,25 @@
   <link rel="stylesheet" href="/src/style.css">
 
   <main class="frontpage-shell">
+    <div id="thought-shell-root"></div>
     <section class="frontpage-stage" aria-labelledby="frontpage-title">
+      <header class="thought-create__header">
+        <h1 id="frontpage-title" class="thought-create__title">THOUGHT</h1>
+        <nav class="thought-create__links" aria-label="THOUGHT create links">
+          <a href="/thought/plugin">[ plugin ]</a>
+          <a href="/thought/verify">[ verify ]</a>
+        </nav>
+      </header>
       <div class="frontpage-main">
         <div class="thought-canvas-column">
-          <h1 id="frontpage-title" class="frontpage-title">THOUGHT</h1>
-          <nav class="frontpage-links" aria-label="THOUGHT creation links">
-            <a id="thought-create-gallery-link" href="/gallery">[ gallery ]</a>
-            <a id="thought-create-home-link" href="https://inshell.art/">[ home ]</a>
-          </nav>
-
           <div class="thought-canvas-panel">
             <div class="thought-canvas-frame">
               <canvas
                 id="thought-grid"
                 class="thought-grid"
                 width="960"
-                height="540"
-                aria-label="Canvas preview of the current character squares"
+                height="960"
+                aria-label="THOUGHT work canvas preview"
               ></canvas>
               <img
                 id="thought-svg-preview"
@@ -95,7 +136,134 @@
           </div>
         </div>
 
-        <div class="frontpage-side">
+        <aside id="thought-panel" class="thought-panel" aria-label="THOUGHT Panel">
+          <header class="thought-panel__header">
+            <p class="thought-panel__title">THOUGHT</p>
+            <p class="thought-panel__subtitle">made by your Agent</p>
+            <nav class="thought-panel__links" aria-label="THOUGHT panel links">
+              <a href="/gallery">Gallery</a>
+              <a href="/thought/plugin">Plugin</a>
+              <a href="/thought/verify">Verify</a>
+            </nav>
+          </header>
+          <div class="thought-panel__body">
+            <div class="thought-dock-control-area">
+              <section id="thought-dock" class="thought-dock" aria-label="Prompt composer">
+                <div class="thought-dock-prompt-row">
+                  <label id="thought-dock-label" class="thought-dock-label" for="thought-dock-prompt">
+                    prompt
+                  </label>
+                  <input
+                    id="thought-dock-prompt"
+                    class="thought-dock-input"
+                    type="text"
+                    autocomplete="off"
+                    spellcheck="true"
+                    placeholder="give a thought here"
+                  />
+                </div>
+              </section>
+              <section
+                id="thought-dock-action-area"
+                class="thought-dock-action-rail"
+                aria-label="THOUGHT Panel actions"
+              ></section>
+              <section
+                id="thought-dock-path"
+                class="thought-dock-path thought-path-panel is-hidden"
+                aria-label="PATH selection"
+              >
+                <div
+                  id="thought-dock-path-inventory"
+                  class="thought-dock-path-inventory is-hidden"
+                  aria-labelledby="thought-dock-path-inventory-label"
+                >
+                  <p id="thought-dock-path-inventory-label" class="thought-dock-label">
+                    available $PATH
+                  </p>
+                  <div
+                    id="thought-dock-path-inventory-list"
+                    class="thought-dock-path-actions"
+                    role="group"
+                    aria-label="Available PATH tokens"
+                  ></div>
+                </div>
+                <div id="thought-dock-path-field" class="thought-dock-path-field">
+                  <label class="thought-dock-label" for="thought-dock-path-box">$PATH #</label>
+                  <input
+                    id="thought-dock-path-box"
+                    class="thought-dock-input thought-dock-path-input"
+                    type="text"
+                    inputmode="numeric"
+                    list="thought-dock-path-options"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                  <datalist id="thought-dock-path-options"></datalist>
+                  <select
+                    id="thought-dock-path-select"
+                    class="thought-dock-input thought-dock-path-input thought-dock-path-select is-hidden"
+                    aria-label="$PATH #"
+                  ></select>
+                </div>
+                <p id="thought-dock-path-provenance" class="thought-dock-path-provenance is-hidden"></p>
+                <p id="thought-dock-path-status" class="thought-dock-path-status" aria-live="polite"></p>
+                <div id="thought-dock-path-context" class="thought-dock-path-context is-hidden"></div>
+                <div class="thought-dock-path-actions">
+                  <button id="thought-dock-path-primary" class="thought-dock-button" type="button">continue</button>
+                  <button
+                    id="thought-dock-path-secondary"
+                    class="thought-dock-button thought-dock-button--secondary is-hidden"
+                    type="button"
+                  >
+                    view thought
+                  </button>
+                  <button
+                    id="thought-dock-path-tertiary"
+                    class="thought-dock-button thought-dock-button--secondary is-hidden"
+                    type="button"
+                  >
+                    refresh
+                  </button>
+                </div>
+                <div id="thought-dock-path-flow" class="thought-dock-path-flow" aria-label="mint flow">
+                  <span data-step="select">select $PATH</span>
+                  <span>/</span>
+                  <span data-step="authorize">authorize</span>
+                  <span>/</span>
+                  <span data-step="confirm">confirm</span>
+                </div>
+              </section>
+              <section
+                id="thought-wallet-strip"
+                class="thought-wallet-strip is-hidden"
+                aria-label="Wallet controls"
+              >
+                <div class="thought-wallet-strip__copy">
+                  <p id="thought-wallet-strip-title" class="thought-wallet-strip__title">wallet</p>
+                  <p id="thought-wallet-strip-detail" class="thought-wallet-strip__detail">not connected</p>
+                  <p id="thought-wallet-strip-meta" class="thought-wallet-strip__meta">
+                    reads address only. no signature. no tx.
+                  </p>
+                </div>
+                <div id="thought-wallet-strip-actions" class="thought-wallet-strip__actions"></div>
+              </section>
+            </div>
+            <div id="thought-dock-expanded" class="thought-dock-detail-tray" hidden></div>
+            <section
+              id="thought-dock-details"
+              class="thought-dock-status-screen"
+              aria-label="THOUGHT status"
+              aria-live="polite"
+            >
+              <p id="thought-panel-status-title" class="thought-panel__status-title">Give a thought to your Agent</p>
+              <p id="thought-panel-status-detail" class="thought-panel__status-detail">No run yet</p>
+              <div id="thought-dock-details-body" class="thought-dock-status-screen__body"></div>
+            </section>
+          </div>
+        </aside>
+
+        <div id="thought-cli-panel" class="frontpage-side thought-cli-panel">
           <div class="frontpage-input-panel is-cli">
             <section class="thought-cli" aria-label="THOUGHT operator panel">
               <div id="thought-cli-transcript" class="thought-cli__transcript" aria-live="polite"></div>
@@ -127,6 +295,9 @@
                 </button>
                 <button id="mode-local" class="frontpage-mode-button" type="button">
                   local
+                </button>
+                <button id="mode-codex" class="frontpage-mode-button" type="button">
+                  codex
                 </button>
               </div>
             </div>
@@ -233,16 +404,6 @@
               <div class="frontpage-cta">
                 <button id="run-agent" class="frontpage-button" type="button">[ run ]</button>
                 <button
-                  id="mint-wallet-toggle"
-                  class="frontpage-wallet-toggle is-hidden"
-                  type="button"
-                  aria-label="Wallet status"
-                  aria-expanded="false"
-                  aria-haspopup="menu"
-                >
-                  <span id="mint-wallet-dot" class="frontpage-wallet-dot is-off" aria-hidden="true"></span>
-                </button>
-                <button
                   id="reset-thought"
                   class="frontpage-secondary-action is-hidden"
                   type="button"
@@ -250,33 +411,6 @@
                 >
                   [ reset ]
                 </button>
-                <div id="mint-wallet-menu" class="frontpage-wallet-menu is-hidden" role="menu">
-                  <div class="frontpage-wallet-meta">
-                    <span class="frontpage-wallet-label">address</span>
-                    <span id="mint-wallet-address" class="frontpage-wallet-value">-</span>
-                  </div>
-                  <div class="frontpage-wallet-meta">
-                    <span class="frontpage-wallet-label">network</span>
-                    <span id="mint-wallet-network" class="frontpage-wallet-value">-</span>
-                  </div>
-                  <div id="mint-wallet-token-row" class="frontpage-wallet-meta is-hidden">
-                    <span class="frontpage-wallet-label">token</span>
-                    <span id="mint-wallet-token" class="frontpage-wallet-value">-</span>
-                  </div>
-                  <button id="mint-wallet-copy-address" class="frontpage-wallet-action" type="button">
-                    copy address
-                  </button>
-                  <button
-                    id="mint-wallet-copy-tx"
-                    class="frontpage-wallet-action is-hidden"
-                    type="button"
-                  >
-                    copy tx hash
-                  </button>
-                  <button id="mint-wallet-refresh" class="frontpage-wallet-action" type="button">
-                    refresh
-                  </button>
-                </div>
               </div>
               <span id="action-status-copy" class="frontpage-action-status is-hidden" aria-live="polite"></span>
               <div class="frontpage-notices">
@@ -351,6 +485,143 @@
       </div>
     </section>
 
+    <section id="plugin-page" class="thought-plugin-page is-hidden" aria-labelledby="plugin-title">
+      <header class="thought-plugin-page__header">
+        <p class="thought-plugin-page__eyebrow">THOUGHT Plugin</p>
+        <h1 id="plugin-title" class="thought-plugin-page__title">Start from your Agent app</h1>
+        <p id="plugin-summary" class="thought-plugin-page__summary">
+          The Agent makes the candidate. THOUGHT is where you review and mint it.
+        </p>
+      </header>
+      <div class="thought-plugin-page__grid">
+        <article id="plugin-codex-card" class="thought-plugin-card">
+          <h2>Codex</h2>
+          <p>Use Codex to open a sealed THOUGHT task, return one candidate, and send the result back to the run link.</p>
+          <ol>
+            <li>Install or enable the THOUGHT Plugin for Codex.</li>
+            <li>Ask Codex to make a THOUGHT.</li>
+            <li>Open the returned run link here to review and mint.</li>
+          </ol>
+          <a href="/">Create from website</a>
+        </article>
+        <article id="plugin-claude-card" class="thought-plugin-card">
+          <h2>Claude</h2>
+          <p>Use Claude to receive the same sealed task format and return a THOUGHT run link for review.</p>
+          <ol>
+            <li>Install or enable the THOUGHT Plugin for Claude.</li>
+            <li>Ask Claude to make a THOUGHT.</li>
+            <li>Open the returned run link here to review and mint.</li>
+          </ol>
+          <a href="/">Create from website</a>
+        </article>
+      </div>
+      <p class="thought-plugin-page__note">
+        Agent output is not automatically trusted. Mint appears only after the run result passes local integrity checks.
+      </p>
+    </section>
+
+    <section id="agent-demo-page" class="thought-agent-demo is-hidden" aria-labelledby="agent-demo-title">
+      <header class="thought-agent-demo__header">
+        <div>
+          <p class="thought-agent-demo__eyebrow">THOUGHT / agent handoff</p>
+          <h1 id="agent-demo-title" class="thought-agent-demo__title">Run with your Agent</h1>
+        </div>
+        <a class="thought-agent-demo__home" href="/">[ THOUGHT ]</a>
+      </header>
+
+      <div class="thought-agent-demo__layout">
+        <section class="thought-agent-demo__panel" aria-label="Prompt">
+          <label class="thought-agent-demo__label" for="agent-demo-prompt">prompt</label>
+          <textarea
+            id="agent-demo-prompt"
+            class="thought-agent-demo__prompt"
+            spellcheck="false"
+            autocomplete="off"
+          >a will that returns to its first light</textarea>
+          <div class="thought-agent-demo__actions">
+            <button id="agent-demo-run" class="thought-agent-demo__primary" type="button">
+              [ run with your Agent ]
+            </button>
+          </div>
+        </section>
+
+        <section class="thought-agent-demo__panel" aria-label="Sealed run">
+          <div class="thought-agent-demo__field-grid">
+            <div>
+              <span class="thought-agent-demo__label">run</span>
+              <code id="agent-demo-run-id" class="thought-agent-demo__value">-</code>
+            </div>
+            <div>
+              <span class="thought-agent-demo__label">callback</span>
+              <code id="agent-demo-callback" class="thought-agent-demo__value">-</code>
+            </div>
+            <div>
+              <span class="thought-agent-demo__label">poll</span>
+              <code id="agent-demo-poll" class="thought-agent-demo__value">-</code>
+            </div>
+            <div>
+              <span class="thought-agent-demo__label">prompt hash</span>
+              <code id="agent-demo-prompt-hash" class="thought-agent-demo__value">-</code>
+            </div>
+          </div>
+          <pre id="agent-demo-sealed-task" class="thought-agent-demo__sealed">no sealed run.</pre>
+        </section>
+
+        <section class="thought-agent-demo__panel" aria-label="Return">
+          <label class="thought-agent-demo__label" for="agent-demo-paste">return</label>
+          <textarea
+            id="agent-demo-paste"
+            class="thought-agent-demo__return"
+            spellcheck="false"
+            autocomplete="off"
+            placeholder="paste THOUGHT_RESULT_BEGIN ... THOUGHT_RESULT_END"
+          ></textarea>
+          <div class="thought-agent-demo__actions">
+            <button id="agent-demo-paste-submit" class="thought-agent-demo__secondary" type="button">
+              [ accept return ]
+            </button>
+            <button id="agent-demo-demo-return" class="thought-agent-demo__secondary" type="button">
+              [ demo callback ]
+            </button>
+          </div>
+        </section>
+
+        <section class="thought-agent-demo__preview" aria-label="Candidate preview">
+          <div id="agent-demo-preview-grid" class="thought-agent-demo__preview-grid"></div>
+          <div class="thought-agent-demo__preview-copy">
+            <span class="thought-agent-demo__label">candidate</span>
+            <p id="agent-demo-candidate" class="thought-agent-demo__candidate">-</p>
+            <span class="thought-agent-demo__label">contract preview</span>
+            <p id="agent-demo-contract-status" class="thought-agent-demo__contract-status">waiting.</p>
+          </div>
+        </section>
+      </div>
+
+      <aside id="agent-demo-dock" class="thought-agent-demo__dock" aria-live="polite">
+        <div class="thought-agent-demo__dock-copy">
+          <span class="thought-agent-demo__dock-label">Dock</span>
+          <p id="agent-demo-dock-status" class="thought-agent-demo__dock-status">enter prompt.</p>
+        </div>
+        <div class="thought-agent-demo__dock-actions">
+          <button id="agent-demo-agent-codex" class="thought-agent-demo__dock-button is-hidden" type="button">
+            Codex
+          </button>
+          <a id="agent-demo-open-codex" class="thought-agent-demo__dock-button is-hidden" href="#">
+            open Codex
+          </a>
+          <button id="agent-demo-copy-link" class="thought-agent-demo__dock-button is-hidden" type="button">
+            copy link
+          </button>
+          <button id="agent-demo-mint" class="thought-agent-demo__dock-button is-hidden" type="button">
+            Mint
+          </button>
+          <button id="agent-demo-reset" class="thought-agent-demo__dock-button" type="button">
+            Reset
+          </button>
+        </div>
+      </aside>
+    </section>
+
     <section id="gallery-page" class="thought-gallery is-hidden" aria-labelledby="gallery-title">
       <header class="thought-gallery__header">
         <div>
@@ -365,8 +636,8 @@
             </span>
           </span>
         </p>
-        <a id="gallery-create-link" class="thought-gallery__create" href="https://thought.inshell.art/">create your THOUGHT</a>
-        <a id="gallery-home-link" class="thought-gallery__link" href="https://inshell.art/">[ home ]</a>
+        <a id="gallery-create-link" class="thought-gallery__create" href="/thought">create your THOUGHT</a>
+        <a id="gallery-home-link" class="thought-gallery__home" href="https://inshell.art/">[ home ]</a>
       </div>
       <div id="gallery-grid" class="thought-gallery__grid"></div>
       <footer class="thought-gallery__footer">
@@ -476,7 +747,7 @@
             </div>
             <div>
               <dt>THOUGHT</dt>
-              <dd><a id="verify-thought-domain" href="https://thought.inshell.art">https://thought.inshell.art</a></dd>
+              <dd><a id="verify-thought-domain" href="https://inshell.art/thought">https://inshell.art/thought</a></dd>
             </div>
           </dl>
         </section>
@@ -500,7 +771,7 @@
           <dl class="primitive-page__fields verify-page__fields">
             <div>
               <dt>network</dt>
-              <dd id="verify-network">Sepolia rehearsal</dd>
+              <dd id="verify-network">not loaded</dd>
             </div>
             <div>
               <dt>chain</dt>
@@ -512,7 +783,7 @@
             </div>
             <div>
               <dt>currency</dt>
-              <dd id="verify-currency">testnet ETH</dd>
+              <dd id="verify-currency">not loaded</dd>
             </div>
           </dl>
         </section>
@@ -580,7 +851,7 @@
             </div>
             <div>
               <dt>switch network</dt>
-              <dd>asks wallet to switch to Sepolia.</dd>
+              <dd>asks wallet to switch to the current launch chain.</dd>
             </div>
             <div>
               <dt>mint $PATH</dt>
@@ -603,7 +874,7 @@
         </div>
         <nav class="thought-detail__links" aria-label="THOUGHT detail links">
           <a id="thought-detail-gallery-link" class="thought-detail__link" href="https://inshell.art/gallery">[ gallery ]</a>
-          <a id="thought-detail-create-link" class="thought-detail__link" href="https://thought.inshell.art/">[ create yours ]</a>
+          <a id="thought-detail-create-link" class="thought-detail__link" href="/thought">[ create yours ]</a>
         </nav>
       </header>
       <p id="thought-detail-status" class="thought-detail__status" aria-live="polite">loading THOUGHT...</p>
@@ -651,19 +922,19 @@
               </div>
               <div>
                 <dt>network</dt>
-                <dd>Sepolia rehearsal</dd>
+                <dd id="thought-detail-network">not loaded</dd>
               </div>
               <div>
                 <dt>chain</dt>
-                <dd>Sepolia</dd>
+                <dd id="thought-detail-chain">not loaded</dd>
               </div>
               <div>
                 <dt>chain id</dt>
-                <dd>11155111</dd>
+                <dd id="thought-detail-chain-id">not loaded</dd>
               </div>
               <div>
                 <dt>currency</dt>
-                <dd>testnet ETH</dd>
+                <dd id="thought-detail-currency">not loaded</dd>
               </div>
               <div>
                 <dt>minted</dt>
@@ -716,7 +987,7 @@
   >
     <div class="mint-sheet-header">
       <h2 id="mint-sheet-title" class="mint-sheet-title">mint THOUGHT</h2>
-      <button id="mint-sheet-close" class="mint-sheet-close" type="button">[ close ]</button>
+      <button id="mint-sheet-close" class="mint-sheet-close" type="button">close</button>
     </div>
     <p id="mint-sheet-copy" class="mint-sheet-copy">one THOUGHT needs one $PATH.</p>
     <div id="mint-sheet-path-field" class="mint-sheet-field">
@@ -726,17 +997,24 @@
         class="mint-sheet-input"
         type="text"
         inputmode="numeric"
+        list="mint-sheet-path-options"
         autocomplete="off"
         spellcheck="false"
       />
+      <datalist id="mint-sheet-path-options"></datalist>
+      <select
+        id="mint-sheet-path-select"
+        class="mint-sheet-input mint-sheet-path-select is-hidden"
+        aria-label="$PATH #"
+      ></select>
     </div>
     <p id="mint-sheet-provenance" class="mint-sheet-provenance is-hidden"></p>
     <p id="mint-sheet-status" class="mint-sheet-status" aria-live="polite"></p>
     <div id="mint-sheet-context" class="mint-sheet-context is-hidden"></div>
     <div class="mint-sheet-actions">
-      <button id="mint-sheet-primary" class="mint-sheet-primary" type="button">[ continue ]</button>
-      <button id="mint-sheet-secondary" class="mint-sheet-primary is-hidden" type="button">[ view THOUGHT ]</button>
-      <button id="mint-sheet-tertiary" class="mint-sheet-primary is-hidden" type="button">[ refresh ]</button>
+      <button id="mint-sheet-primary" class="mint-sheet-primary" type="button">continue</button>
+      <button id="mint-sheet-secondary" class="mint-sheet-primary is-hidden" type="button">view thought</button>
+      <button id="mint-sheet-tertiary" class="mint-sheet-primary is-hidden" type="button">refresh</button>
     </div>
     <div id="mint-sheet-flow" class="mint-sheet-flow" aria-label="mint flow">
       <span data-step="select">select $PATH</span>

@@ -4,17 +4,19 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1 --port 5174 --strictPort",
-    "build": "vite build",
-    "preview": "vite preview --host 127.0.0.1 --port 4174 --strictPort",
+    "dev": "VITE_THOUGHT_ROUTE_BASE=/thought VITE_PATH_MINT_URL=/path VITE_THOUGHT_URL=/thought VITE_GALLERY_URL=/gallery VITE_THOUGHT_DETAIL_BASE_URL=/thought vite --configLoader runner --host 127.0.0.1 --port 5174 --strictPort",
+    "build": "vite --configLoader runner build",
+    "preview": "vite --configLoader runner preview --host 127.0.0.1 --port 4174 --strictPort",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@fontsource-variable/roboto-mono": "^5.2.8",
     "@fontsource/source-code-pro": "^5.2.6",
     "@inshell/contracts": "workspace:*",
+    "@inshell/inshell-shell": "workspace:*",
     "@inshell/shared": "workspace:*",
     "@inshell/surface-shell-core": "workspace:*",
+    "@inshell/thought-agent-protocol": "workspace:*",
     "@inshell/wallet": "workspace:*",
     "ethers": "^6.16.0",
     "react": "^18.3.1",

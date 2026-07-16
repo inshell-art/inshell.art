@@ -26,6 +26,10 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: "pnpm"
+      - name: Install zsh
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes zsh
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Validate deployment gates
@@ -40,6 +44,10 @@ jobs:
         run: pnpm run test:presepolia
       - name: Test THOUGHT runtime payloads
         run: pnpm run test:thought-runtime
+      - name: Check THOUGHT renderer parity
+        env:
+          THOUGHT_RENDER_PARITY_RPC_URL: ${{ vars.THOUGHT_RENDER_PARITY_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com' }}
+        run: pnpm run check:thought-renderer-parity
       - name: Build home
         run: pnpm run build:home
       - name: Build THOUGHT

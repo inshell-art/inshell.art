@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inshell.art/protocol/releases/v2/provenance/thought.provenance.v2.schema.json",
+  "title": "THOUGHT Provenance V2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "protocol", "spec", "workProfile", "renderer", "promptLine", "agentLine", "promptLineKeccak256", "agentLineKeccak256", "agentIdentityHash", "workHash", "binaryFieldPacked", "binaryFieldKeccak256", "transport"],
+  "properties": {
+    "schema": { "const": "inshell.thought.provenance.v2" },
+    "protocol": { "$ref": "#/$defs/anchor" },
+    "spec": { "$ref": "#/$defs/anchor" },
+    "workProfile": { "$ref": "#/$defs/anchor" },
+    "renderer": { "$ref": "#/$defs/anchor" },
+    "promptLine": { "type": "string", "minLength": 1 },
+    "agentLine": { "type": "string", "minLength": 1 },
+    "promptLineKeccak256": { "$ref": "#/$defs/bytes32" },
+    "agentLineKeccak256": { "$ref": "#/$defs/bytes32" },
+    "agentIdentityHash": { "$ref": "#/$defs/bytes32" },
+    "workHash": { "$ref": "#/$defs/bytes32" },
+    "binaryFieldPacked": { "type": "string", "pattern": "^0x[0-9a-f]{256}$" },
+    "binaryFieldKeccak256": { "$ref": "#/$defs/bytes32" },
+    "declaration": { "$ref": "../agent/thought.agent-declaration.v1.schema.json" },
+    "transport": {
+      "oneOf": [
+        { "type": "object", "additionalProperties": false, "required": ["kind"], "properties": { "kind": { "const": "manual" } } },
+        { "type": "object", "additionalProperties": false, "required": ["kind", "runId", "rawResponseSha256"], "properties": { "kind": { "const": "run" }, "runId": { "type": "string", "minLength": 1 }, "rawResponseSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" } } }
+      ]
+    },
+    "preMint": { "type": "object" }
+  },
+  "$defs": {
+    "bytes32": { "type": "string", "pattern": "^0x[0-9a-f]{64}$" },
+    "anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "keccak256", "ref"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "keccak256": { "$ref": "#/$defs/bytes32" },
+        "ref": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
