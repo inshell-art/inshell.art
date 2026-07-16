@@ -475,8 +475,20 @@ describe("Pages middleware canonical routes", () => {
     expect(response.headers.get("cache-control")).toBe("public, max-age=60, stale-while-revalidate=300");
     expect(response.headers.get("clear-site-data")).toBeNull();
     expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
-    expect(ctx.assetsFetch.mock.calls[0]?.[0].url).toBe("https://inshell.art/thought/index.html");
+    expect(ctx.assetsFetch.mock.calls[0]?.[0].url).toBe("https://inshell.art/thought/");
     expect(ctx.next).not.toHaveBeenCalled();
+  });
+
+  test("serves both canonical THOUGHT root forms without fetching the redirecting index URL", async () => {
+    for (const pathname of ["/thought", "/thought/"]) {
+      const ctx = middlewareContext(`https://inshell.art${pathname}`);
+      const response = await onRequest(ctx);
+
+      expect(response.status).toBe(200);
+      expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
+      expect(ctx.assetsFetch.mock.calls[0]?.[0].url).toBe("https://inshell.art/thought/");
+      expect(ctx.next).not.toHaveBeenCalled();
+    }
   });
 
   test("redirects works alias to the gallery route", async () => {
