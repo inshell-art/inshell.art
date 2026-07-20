@@ -1,6 +1,22 @@
 export type SurfaceId = "path" | "thought";
 
 export {
+  PATH_MINT_RETURN_STORAGE_KEY_PREFIX,
+  PATH_MINT_RETURN_TTL_MS,
+  isPathMintHandoffId,
+  parsePathMintReturnRecord,
+  pathMintReturnStorageKey,
+  readPathMintReturnRecord,
+  removePathMintReturnRecord,
+  writePathMintReturnRecord,
+} from "./pathMintReturn";
+export type {
+  PathMintReturnRecord,
+  PathMintReturnStatus,
+  PathMintReturnStorageHost,
+} from "./pathMintReturn";
+
+export {
   installInshellAnonymousAnalytics,
   trackInshellAnonymousAnalytics,
 } from "./anonymousAnalytics";

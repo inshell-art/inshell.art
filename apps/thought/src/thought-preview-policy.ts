@@ -2,6 +2,12 @@ export type PreviewMode = "auto" | "wallet" | "off";
 export type PreviewProviderKind = "frontend-renderer" | "wallet" | "preview-endpoint" | "none";
 export type PreviewStatus = "not_attempted" | "unavailable" | "failed" | "accepted";
 
+export type ThoughtByteLimitUsage = {
+  line: "prompt" | "agent output" | "model return";
+  usedBytes: number;
+  maxBytes: number;
+};
+
 export const THOUGHT_PREVIEW_MODE_STORAGE_KEY = "thought-preview-mode";
 export const THOUGHT_CURRENT_CANDIDATE_STORAGE_KEY = "thought-current-candidate";
 export const THOUGHT_PREVIEW_CACHE_LIMIT = 80;
@@ -26,6 +32,14 @@ export type ThoughtCandidatePrevalidation =
 const encoder = new TextEncoder();
 
 const byteLength = (value: string) => encoder.encode(value).length;
+
+export const thoughtByteLimitPercentage = (usage: ThoughtByteLimitUsage) =>
+  Math.round((usage.usedBytes / usage.maxBytes) * 100);
+
+export const formatThoughtByteLimitUsage = (usage: ThoughtByteLimitUsage) => {
+  const line = usage.line === "agent output" ? "Agent output" : usage.line;
+  return `${line}: ${thoughtByteLimitPercentage(usage)}% used · ${usage.usedBytes} / ${usage.maxBytes} UTF-8 bytes`;
+};
 
 export const previewModes = ["auto", "wallet", "off"] as const;
 

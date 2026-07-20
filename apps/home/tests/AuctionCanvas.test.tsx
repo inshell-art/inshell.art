@@ -20,6 +20,7 @@ import {
 import { encodeFunctionData, getAbiItem } from "viem";
 import React from "react";
 import AuctionCanvas from "../src/components/AuctionCanvas";
+import { withPathMintSubmissionLock } from "../src/pathMintSubmissionLock";
 import { mockAuctionCore } from "./testUtils";
 /* global SVGLineElement */
 
@@ -42,6 +43,101 @@ const STARTUP_GRACE_MS = 2500;
 const DELAY_MS = 500;
 const SAMPLE_BASE_MS = Date.now() - 2 * 60 * 1000;
 const DEFAULT_WALLET_ADDRESS = "0x1111222233334444555566667777888899990000";
+const PATH_HANDOFF_ID = "mint-test-handoff-1";
+const PATH_MINT_RETURN_STORAGE_PREFIX = "inshell:path-mint-return:v1:";
+const PATH_TX_HASH = `0x${"ab".repeat(32)}`;
+
+type PathMintLockRequest = (
+  name: string,
+  options: { mode: "exclusive"; ifAvailable: true },
+  callback: (lock: unknown | null) => Promise<void>,
+) => Promise<void>;
+
+function setPathMintLockRequest(request: PathMintLockRequest | null) {
+  Object.defineProperty(navigator, "locks", {
+    configurable: true,
+    value: request ? { request } : undefined,
+  });
+}
+
+function createPathWalletProvider(
+  overrides: Partial<Record<string, unknown>> = {},
+) {
+  return {
+    request: jest.fn(async ({ method }: { method: string }) => {
+      if (method === "eth_accounts") return [DEFAULT_WALLET_ADDRESS];
+      if (method === "eth_chainId") return "0xaa36a7";
+      if (method === "wallet_addEthereumChain") return null;
+      return null;
+    }),
+    ...overrides,
+  };
+}
+
+function setPathMintIntentUrl(
+  overrides: {
+    handoffId?: string;
+    account?: string | null;
+    chainId?: string;
+    movement?: string;
+    returnTo?: string;
+  } = {},
+) {
+  const handoffId = overrides.handoffId ?? PATH_HANDOFF_ID;
+  const returnTo =
+    overrides.returnTo ?? `/thought?pathHandoff=${encodeURIComponent(handoffId)}`;
+  const params = new URLSearchParams({
+    intent: "mint-path",
+    from: "thought",
+    returnTo,
+    handoff: handoffId,
+    chainId: overrides.chainId ?? "11155111",
+    movement: overrides.movement ?? "THOUGHT",
+  });
+  const account =
+    overrides.account === undefined ? DEFAULT_WALLET_ADDRESS : overrides.account;
+  if (account !== null) params.set("account", account);
+  window.history.pushState({}, "", `/?${params.toString()}`);
+  return { handoffId, returnTo };
+}
+
+function pathMintReturnRecord(
+  overrides: Partial<{
+    handoffId: string;
+    status: "submitted" | "confirmed";
+    account: string;
+    chainId: number;
+    txHash: string;
+    tokenId: string;
+    baselineTokenId: number | null;
+    updatedAt: number;
+  }> = {},
+) {
+  return {
+    version: 1,
+    handoffId: overrides.handoffId ?? PATH_HANDOFF_ID,
+    status: overrides.status ?? "confirmed",
+    account: overrides.account ?? DEFAULT_WALLET_ADDRESS,
+    chainId: overrides.chainId ?? 11155111,
+    txHash: overrides.txHash ?? PATH_TX_HASH,
+    baselineTokenId: overrides.baselineTokenId ?? 2,
+    updatedAt: overrides.updatedAt ?? Date.now(),
+    ...(overrides.tokenId === undefined ? {} : { tokenId: overrides.tokenId }),
+  };
+}
+
+function clearPathMintReturnRecords(storage: {
+  length: number;
+  key(index: number): string | null;
+  removeItem(key: string): void;
+}) {
+  for (let index = storage.length - 1; index >= 0; index -= 1) {
+    const key = storage.key(index);
+    if (key?.startsWith(PATH_MINT_RETURN_STORAGE_PREFIX)) {
+      storage.removeItem(key);
+    }
+  }
+}
 
 function normalizeMockChainId(value: unknown): number | null {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
@@ -190,6 +286,13 @@ async function clickMintThenSign() {
 
 describe("AuctionCanvas", () => {
   beforeEach(() => {
+    clearPathMintReturnRecords(window.localStorage);
+    clearPathMintReturnRecords(window.sessionStorage);
+    setPathMintLockRequest(async (_name, _options, callback) => {
+      await callback({ name: "available-path-mint-lock" });
+    });
+    delete (mockProvider as any).waitForTransaction;
+    delete (mockProvider as any).request;
     mockWalletState = createWalletState();
     (globalThis as any).__VITE_ENV__ = {
       VITE_NETWORK: "sepolia",
@@ -232,6 +335,11 @@ describe("AuctionCanvas", () => {
     delete (window as any).ethereum;
     window.localStorage.removeItem("inshellDebug");
     window.localStorage.removeItem("inshell.pathMintProof.v1");
+    clearPathMintReturnRecords(window.localStorage);
+    clearPathMintReturnRecords(window.sessionStorage);
+    setPathMintLockRequest(null);
+    delete (mockProvider as any).waitForTransaction;
+    delete (mockProvider as any).request;
     window.history.pushState({}, "", "/");
   });
 
@@ -3207,16 +3315,16 @@ describe("AuctionCanvas", () => {
   });
 
   test("shows return CTA after THOUGHT mint-path success", async () => {
-    const returnTo = "/thought/runs/tar_123";
-    window.history.pushState(
-      {},
-      "",
-      `/?intent=mint-path&from=thought&returnTo=${encodeURIComponent(returnTo)}`
-    );
-    const execute = jest.fn().mockResolvedValue({ transaction_hash: "0x1" });
-    const waitForTransaction = jest.fn().mockResolvedValue({});
-    mockWalletState.account = { execute, waitForTransaction };
-    mockWalletState.watchAsset = jest.fn().mockResolvedValue(true);
+    const { handoffId } = setPathMintIntentUrl({ account: null });
+    const execute = jest
+      .fn()
+      .mockResolvedValue({ transaction_hash: PATH_TX_HASH });
+    const waitForTransaction = jest.fn().mockResolvedValue({ status: 1 });
+    mockWalletState = createWalletState({
+      account: { execute, waitForTransaction },
+      watchAsset: jest.fn().mockResolvedValue(true),
+      evm: { provider: createPathWalletProvider() },
+    });
     mockCallContract.mockReset();
     mockCallContract.mockImplementation(async (args: any) => {
       if (args?.entrypoint === "get_current_price") {
@@ -3231,12 +3339,850 @@ describe("AuctionCanvas", () => {
       return { result: [] } as any;
     });
 
-    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    const { rerender } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
     await clickMintThenSign();
 
     await waitFor(() => {
       expect(screen.getByText(/\[\s*return\s*\]/i)).toBeTruthy();
     });
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(
+          `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`,
+        ) ?? "{}",
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        handoffId,
+        status: "confirmed",
+        account: DEFAULT_WALLET_ADDRESS.toLowerCase(),
+        chainId: 11155111,
+        txHash: PATH_TX_HASH,
+      }),
+    );
+
+    mockUseAuctionBids.mockReturnValue({
+      bids: [
+        ...sampleBids,
+        {
+          key: `tx:${PATH_TX_HASH}`,
+          atMs: Date.now(),
+          amount: { raw: { low: "3", high: "0" }, dec: "3", value: 3n },
+          bidder: DEFAULT_WALLET_ADDRESS,
+          blockNumber: 12,
+          epochIndex: 7,
+          tokenId: 7,
+          txHash: PATH_TX_HASH,
+        },
+      ],
+      ready: true,
+      loading: false,
+      error: null,
+    });
+    rerender(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    await waitFor(() => {
+      expect(
+        JSON.parse(
+          window.localStorage.getItem(
+            `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`,
+          ) ?? "{}",
+        ).tokenId,
+      ).toBe("7");
+    });
+  });
+
+  test("lets execution failure beat accepted finality in a PATH receipt", async () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const { handoffId } = setPathMintIntentUrl();
+    const execute = jest
+      .fn()
+      .mockResolvedValue({ transaction_hash: PATH_TX_HASH });
+    mockWalletState = createWalletState({
+      account: {
+        execute,
+        waitForTransaction: jest.fn().mockResolvedValue({
+          status: "confirmed",
+          execution_status: "REVERTED",
+          finality_status: "ACCEPTED_ON_L2",
+        }),
+      },
+      evm: { provider: createPathWalletProvider() },
+    });
+    try {
+      render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+      await clickMintThenSign();
+      await waitFor(() => {
+        expect(screen.getByText(/\[\s*retry\s*\]/i)).toBeTruthy();
+      });
+      expect(screen.queryByText(/\[\s*return\s*\]/i)).toBeNull();
+      expect(
+        window.localStorage.getItem(
+          `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`,
+        ),
+      ).toBeNull();
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  test("keeps a timed-out PATH receipt submitted without offering return", async () => {
+    const { handoffId } = setPathMintIntentUrl();
+    const execute = jest
+      .fn()
+      .mockResolvedValue({ transaction_hash: PATH_TX_HASH });
+    mockWalletState = createWalletState({
+      account: {
+        execute,
+        waitForTransaction: jest
+          .fn()
+          .mockRejectedValue(new Error("RPC request timed out")),
+      },
+      evm: { provider: createPathWalletProvider() },
+    });
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    await clickMintThenSign();
+    await waitFor(() => {
+      expect(screen.getByText(/\[\s*pending\s*\]/i)).toBeTruthy();
+    });
+    expect(screen.queryByText(/\[\s*return\s*\]/i)).toBeNull();
+    await waitFor(() => {
+      expect(
+        JSON.parse(
+          window.localStorage.getItem(
+            `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`,
+          ) ?? "{}",
+        ).status,
+      ).toBe("submitted");
+    });
+  });
+
+  test("migrates a repriced PATH mint to its confirmed replacement hash", async () => {
+    const { handoffId } = setPathMintIntentUrl();
+    const replacementHash = `0x${"bc".repeat(32)}`;
+    const execute = jest
+      .fn()
+      .mockResolvedValue({ transaction_hash: PATH_TX_HASH });
+    mockWalletState = createWalletState({
+      account: {
+        execute,
+        waitForTransaction: jest.fn().mockRejectedValue({
+          code: "TRANSACTION_REPLACED",
+          reason: "repriced",
+          cancelled: false,
+          replacement: { hash: replacementHash },
+          receipt: { status: 1, transactionHash: replacementHash },
+        }),
+      },
+      evm: { provider: createPathWalletProvider() },
+    });
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    await clickMintThenSign();
+
+    expect(await screen.findByText(/\[\s*return\s*\]/i)).toBeTruthy();
+    await waitFor(() => {
+      expect(
+        JSON.parse(
+          window.localStorage.getItem(
+            `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`,
+          ) ?? "{}",
+        ),
+      ).toEqual(
+        expect.objectContaining({
+          status: "confirmed",
+          txHash: replacementHash,
+        }),
+      );
+    });
+  });
+
+  test("keeps only a pending replacement hash for a repriced PATH mint", async () => {
+    const { handoffId } = setPathMintIntentUrl();
+    const replacementHash = `0x${"cd".repeat(32)}`;
+    const execute = jest
+      .fn()
+      .mockResolvedValue({ transaction_hash: PATH_TX_HASH });
+    const receiptReads: string[] = [];
+    (mockProvider as any).request = jest.fn(
+      async ({ method, params }: { method: string; params?: string[] }) => {
+        if (method === "eth_getTransactionReceipt") {
+          receiptReads.push(params?.[0] ?? "");
+          return null;
+        }
+        return null;
+      },
+    );
+    mockWalletState = createWalletState({
+      account: {
+        execute,
+        waitForTransaction: jest.fn().mockRejectedValue({
+          code: "TRANSACTION_REPLACED",
+          reason: "repriced",
+          cancelled: false,
+          replacement: { hash: replacementHash },
+        }),
+      },
+      evm: { provider: createPathWalletProvider() },
+    });
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    await clickMintThenSign();
+
+    await waitFor(() => {
+      const record = JSON.parse(
+        window.localStorage.getItem(
+          `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`,
+        ) ?? "{}",
+      );
+      expect(record).toEqual(
+        expect.objectContaining({
+          status: "submitted",
+          txHash: replacementHash,
+        }),
+      );
+    });
+    await act(async () => {
+      window.dispatchEvent(new globalThis.Event("focus"));
+    });
+    await waitFor(() => {
+      expect(receiptReads[receiptReads.length - 1]).toBe(replacementHash);
+    });
+    expect(screen.queryByText(/\[\s*return\s*\]/i)).toBeNull();
+  });
+
+  test("retains the submitted PATH record when a replacement hash is unavailable", async () => {
+    const { handoffId } = setPathMintIntentUrl();
+    const execute = jest
+      .fn()
+      .mockResolvedValue({ transaction_hash: PATH_TX_HASH });
+    mockWalletState = createWalletState({
+      account: {
+        execute,
+        waitForTransaction: jest.fn().mockRejectedValue({
+          code: "TRANSACTION_REPLACED",
+          reason: "repriced",
+          cancelled: false,
+        }),
+      },
+      evm: { provider: createPathWalletProvider() },
+    });
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    await clickMintThenSign();
+
+    expect(
+      await screen.findByText(/Replacement detected; hash unavailable/i),
+    ).toBeTruthy();
+    await waitFor(() => {
+      expect(
+        JSON.parse(
+          window.localStorage.getItem(
+            `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`,
+          ) ?? "{}",
+        ),
+      ).toEqual(
+        expect.objectContaining({
+          status: "submitted",
+          txHash: PATH_TX_HASH,
+        }),
+      );
+    });
+    expect(screen.queryByText(/\[\s*return\s*\]/i)).toBeNull();
+  });
+
+  test("treats a cancelled PATH replacement as terminal", async () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const { handoffId } = setPathMintIntentUrl();
+    const replacementHash = `0x${"de".repeat(32)}`;
+    const execute = jest
+      .fn()
+      .mockResolvedValue({ transaction_hash: PATH_TX_HASH });
+    mockWalletState = createWalletState({
+      account: {
+        execute,
+        waitForTransaction: jest.fn().mockRejectedValue({
+          code: "TRANSACTION_REPLACED",
+          reason: "cancelled",
+          cancelled: true,
+          replacement: { hash: replacementHash },
+          receipt: { status: 1, transactionHash: replacementHash },
+        }),
+      },
+      evm: { provider: createPathWalletProvider() },
+    });
+
+    try {
+      render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+      await clickMintThenSign();
+      expect(await screen.findByText(/\[\s*retry\s*\]/i)).toBeTruthy();
+      expect(screen.queryByText(/\[\s*return\s*\]/i)).toBeNull();
+      expect(
+        window.localStorage.getItem(
+          `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`,
+        ),
+      ).toBeNull();
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  test("resumes a submitted PATH receipt after reload", async () => {
+    const { handoffId } = setPathMintIntentUrl();
+    window.localStorage.setItem(
+      `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`,
+      JSON.stringify(pathMintReturnRecord({ status: "submitted" })),
+    );
+    const waitForTransaction = jest.fn(function (this: unknown) {
+      expect(this).toBe(mockProvider);
+      return Promise.resolve({ status: "0x1" });
+    });
+    (mockProvider as any).waitForTransaction = waitForTransaction;
+    mockWalletState = createWalletState({
+      address: null,
+      isConnected: false,
+      chainId: null,
+      account: null,
+    });
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    await waitFor(() => {
+      expect(waitForTransaction).toHaveBeenCalledWith(PATH_TX_HASH);
+      expect(screen.getByText(/\[\s*return\s*\]/i)).toBeTruthy();
+    });
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(
+          `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`,
+        ) ?? "{}",
+    ).status,
+    ).toBe("confirmed");
+  });
+
+  test("polls a restored PATH receipt through production providers in StrictMode", async () => {
+    const { handoffId } = setPathMintIntentUrl();
+    window.localStorage.setItem(
+      `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`,
+      JSON.stringify(pathMintReturnRecord({ status: "submitted" })),
+    );
+    const request = jest.fn(async ({ method }: { method: string }) => {
+      if (method === "eth_getTransactionReceipt") return { status: "0x1" };
+      if (method === "eth_chainId") return "0xaa36a7";
+      if (method === "eth_getCode") return "0x01";
+      return null;
+    });
+    (mockProvider as any).request = request;
+    mockWalletState = createWalletState({
+      address: null,
+      isConnected: false,
+      chainId: null,
+      account: null,
+    });
+
+    render(
+      <React.StrictMode>
+        <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+      </React.StrictMode>,
+    );
+    await waitFor(() => {
+      expect(request).toHaveBeenCalledWith({
+        method: "eth_getTransactionReceipt",
+        params: [PATH_TX_HASH],
+      });
+      expect(screen.getByText(/\[\s*return\s*\]/i)).toBeTruthy();
+    });
+  });
+
+  test("announces a submitted-to-confirmed PATH handoff as an atomic status", async () => {
+    const { handoffId } = setPathMintIntentUrl();
+    window.localStorage.setItem(
+      `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`,
+      JSON.stringify(pathMintReturnRecord({ status: "submitted" })),
+    );
+    let resolveReceipt: ((receipt: unknown) => void) | null = null;
+    const receipt = new Promise<unknown>((resolve) => {
+      resolveReceipt = resolve;
+    });
+    (mockProvider as any).request = jest.fn(
+      async ({ method }: { method: string }) =>
+        method === "eth_getTransactionReceipt" ? receipt : null,
+    );
+    mockWalletState = createWalletState({
+      address: null,
+      isConnected: false,
+      chainId: null,
+      account: null,
+    });
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    const status = await screen.findByRole("status");
+    expect(status).toHaveAttribute("aria-live", "polite");
+    expect(status).toHaveAttribute("aria-atomic", "true");
+    expect(status).toHaveTextContent("$PATH mint submitted. Waiting for confirmation.");
+
+    await act(async () => {
+      resolveReceipt?.({ status: 1 });
+      await receipt;
+    });
+    await waitFor(() => {
+      expect(status).toHaveTextContent("$PATH minted. Return to THOUGHT.");
+      expect(screen.getByText(/\[\s*return\s*\]/i)).toBeTruthy();
+    });
+  });
+
+  test("keeps the THOUGHT PATH handoff usable below the desktop breakpoint", async () => {
+    const originalWidth = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 600,
+    });
+    setPathMintIntentUrl();
+    mockWalletState = createWalletState({ account: {} });
+    const view = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />,
+    );
+    try {
+      expect(screen.queryByText(/This view needs more room/i)).toBeNull();
+      expect(await screen.findByText(/\[\s*mint\s*\]/i)).toBeTruthy();
+    } finally {
+      view.unmount();
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        value: originalWidth,
+      });
+    }
+  });
+
+  test("retains an ambiguous receipt transport failure and retries on focus", async () => {
+    const { handoffId } = setPathMintIntentUrl();
+    window.localStorage.setItem(
+      `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`,
+      JSON.stringify(pathMintReturnRecord({ status: "submitted" })),
+    );
+    let receiptReads = 0;
+    const request = jest.fn(async ({ method }: { method: string }) => {
+      if (method === "eth_getTransactionReceipt") {
+        receiptReads += 1;
+        if (receiptReads === 1) {
+          throw new Error("transaction failed to fetch receipt");
+        }
+        return { status: 1 };
+      }
+      if (method === "eth_chainId") return "0xaa36a7";
+      if (method === "eth_getCode") return "0x01";
+      return null;
+    });
+    (mockProvider as any).request = request;
+    mockWalletState = createWalletState({
+      address: null,
+      isConnected: false,
+      chainId: null,
+      account: null,
+    });
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    await waitFor(() => expect(receiptReads).toBe(1));
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(
+          `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`,
+        ) ?? "{}",
+      ).status,
+    ).toBe("submitted");
+    await act(async () => {
+      window.dispatchEvent(new globalThis.Event("focus"));
+    });
+    await waitFor(() => {
+      expect(receiptReads).toBeGreaterThanOrEqual(2);
+      expect(screen.getByText(/\[\s*return\s*\]/i)).toBeTruthy();
+    });
+  });
+
+  test("adopts a submitted PATH record written by another same-origin tab", async () => {
+    const { handoffId } = setPathMintIntentUrl();
+    mockWalletState = createWalletState({
+      address: null,
+      isConnected: false,
+      chainId: null,
+      account: null,
+    });
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    const key = `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`;
+    const serialized = JSON.stringify(pathMintReturnRecord({ status: "submitted" }));
+    window.localStorage.setItem(key, serialized);
+    await act(async () => {
+      window.dispatchEvent(
+        new globalThis.StorageEvent("storage", { key, newValue: serialized }),
+      );
+    });
+    expect(await screen.findByText(/\[\s*pending\s*\]/i)).toBeTruthy();
+    expect(screen.queryByText(/\[\s*return\s*\]/i)).toBeNull();
+  });
+
+  test("uses the freshest valid PATH return storage copy", async () => {
+    const { handoffId } = setPathMintIntentUrl();
+    const older = Date.now() - 5_000;
+    window.localStorage.setItem(
+      `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`,
+      JSON.stringify(pathMintReturnRecord({ status: "submitted", updatedAt: older })),
+    );
+    window.sessionStorage.setItem(
+      `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`,
+      JSON.stringify(pathMintReturnRecord({ status: "confirmed", updatedAt: older + 1_000 })),
+    );
+    mockWalletState = createWalletState({
+      address: null,
+      isConnected: false,
+      chainId: null,
+      account: null,
+    });
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    expect(await screen.findByText(/\[\s*return\s*\]/i)).toBeTruthy();
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(
+          `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`,
+        ) ?? "{}",
+      ).status,
+    ).toBe("confirmed");
+    expect(
+      window.sessionStorage.getItem(
+        `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`,
+      ),
+    ).toBeNull();
+  });
+
+  test("does not restore an expired PATH return record", async () => {
+    const { handoffId } = setPathMintIntentUrl();
+    window.localStorage.setItem(
+      `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`,
+      JSON.stringify(
+        pathMintReturnRecord({
+          updatedAt: Date.now() - 86_400_001,
+        }),
+      ),
+    );
+    mockWalletState = createWalletState({
+      address: null,
+      isConnected: false,
+      chainId: null,
+      account: null,
+    });
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.queryByText(/\[\s*return\s*\]/i)).toBeNull();
+  });
+
+  test("keeps an old submitted PATH record until a terminal receipt exists", async () => {
+    const { handoffId } = setPathMintIntentUrl();
+    window.localStorage.setItem(
+      `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`,
+      JSON.stringify(
+        pathMintReturnRecord({
+          status: "submitted",
+          updatedAt: Date.now() - 86_400_001,
+        }),
+      ),
+    );
+    const request = jest.fn(async ({ method }: { method: string }) => {
+      if (method === "eth_getTransactionReceipt") return null;
+      return null;
+    });
+    (mockProvider as any).request = request;
+    mockWalletState = createWalletState({
+      address: null,
+      isConnected: false,
+      chainId: null,
+      account: null,
+    });
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    expect(await screen.findByText(/\[\s*pending\s*\]/i)).toBeTruthy();
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(
+          `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`,
+        ) ?? "{}",
+      ).status,
+    ).toBe("submitted");
+    expect(request).toHaveBeenCalledWith({
+      method: "eth_getTransactionReceipt",
+      params: [PATH_TX_HASH],
+    });
+  });
+
+  test("blocks duplicate confirm clicks in the same tab", async () => {
+    setPathMintIntentUrl();
+    const execute = jest
+      .fn()
+      .mockResolvedValue({ transaction_hash: PATH_TX_HASH });
+    mockWalletState = createWalletState({
+      account: {
+        execute,
+        waitForTransaction: jest.fn().mockResolvedValue({ status: 1 }),
+      },
+      evm: { provider: createPathWalletProvider() },
+    });
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    const confirm = await clickMintForReview();
+
+    await act(async () => {
+      fireEvent.click(confirm);
+      fireEvent.click(confirm);
+    });
+    await waitFor(() => expect(execute).toHaveBeenCalledTimes(1));
+  });
+
+  test("runs the PATH task when the Web Lock is available", async () => {
+    const request = jest.fn(
+      async (
+        _name: string,
+        _options: { mode: "exclusive"; ifAvailable: true },
+        callback: (lock: unknown | null) => Promise<void>,
+      ) => {
+        await callback({ name: "available-path-mint-lock" });
+      },
+    );
+    setPathMintLockRequest(request);
+    const task = jest.fn(async () => {});
+
+    const result = await withPathMintSubmissionLock(
+      "mint-web-lock-success-1",
+      task,
+    );
+
+    expect(result).toBe("acquired");
+    expect(task).toHaveBeenCalledTimes(1);
+    expect(request).toHaveBeenCalledWith(
+      "inshell:path-mint-submit:mint-web-lock-success-1",
+      { mode: "exclusive", ifAvailable: true },
+      expect.any(Function),
+    );
+  });
+
+  test("reports busy and skips the PATH task when another tab owns the Web Lock", async () => {
+    setPathMintLockRequest(async (_name, _options, callback) => {
+      await callback(null);
+    });
+    const task = jest.fn(async () => {});
+
+    const result = await withPathMintSubmissionLock(
+      "mint-web-lock-busy-1",
+      task,
+    );
+
+    expect(result).toBe("busy");
+    expect(task).not.toHaveBeenCalled();
+  });
+
+  test("fails closed without Web Locks even when localStorage is writable", async () => {
+    const storageKey = "inshell:path-mint-submit-lock:v1:legacy-active-lock";
+    const storedLease = JSON.stringify({
+      owner: "legacy-tab",
+      expiresAt: Date.now() + 15_000,
+    });
+    window.localStorage.setItem(storageKey, storedLease);
+    setPathMintLockRequest(null);
+    const task = jest.fn(async () => {});
+
+    try {
+      const result = await withPathMintSubmissionLock(
+        "mint-no-web-lock-1",
+        task,
+      );
+
+      expect(result).toBe("unsupported");
+      expect(task).not.toHaveBeenCalled();
+      expect(window.localStorage.getItem(storageKey)).toBe(storedLease);
+    } finally {
+      window.localStorage.removeItem(storageKey);
+    }
+  });
+
+  test("shows another-tab busy when the PATH Web Lock is held", async () => {
+    setPathMintLockRequest(async (_name, _options, callback) => {
+      await callback(null);
+    });
+    setPathMintIntentUrl();
+    const execute = jest.fn();
+    mockWalletState = createWalletState({
+      account: { execute },
+      evm: { provider: createPathWalletProvider() },
+    });
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    await clickMintThenSign();
+    expect(await screen.findByText(/already open in another tab/i)).toBeTruthy();
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  test("explains unsupported browser coordination before opening the wallet", async () => {
+    setPathMintLockRequest(null);
+    setPathMintIntentUrl();
+    const execute = jest.fn();
+    mockWalletState = createWalletState({
+      account: { execute },
+      evm: { provider: createPathWalletProvider() },
+    });
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    await clickMintThenSign();
+    expect(
+      await screen.findByText(/requires browser tab coordination \(Web Locks\)/i),
+    ).toBeTruthy();
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  test("rechecks storage before submitting a PATH mint", async () => {
+    const { handoffId } = setPathMintIntentUrl();
+    const execute = jest.fn();
+    mockWalletState = createWalletState({
+      account: { execute },
+      evm: { provider: createPathWalletProvider() },
+    });
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    const confirm = await clickMintForReview();
+    window.localStorage.setItem(
+      `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`,
+      JSON.stringify(pathMintReturnRecord({ status: "submitted" })),
+    );
+
+    await act(async () => {
+      fireEvent.click(confirm);
+    });
+    expect(await screen.findByText(/\[\s*pending\s*\]/i)).toBeTruthy();
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  test("rechecks wallet account immediately before PATH submission", async () => {
+    setPathMintIntentUrl();
+    const execute = jest.fn();
+    const changedAccount = `0x${"cd".repeat(20)}`;
+    const request = jest.fn(async ({ method }: { method: string }) => {
+      if (method === "eth_accounts") return [changedAccount];
+      if (method === "eth_chainId") return "0xaa36a7";
+      return null;
+    });
+    mockWalletState = createWalletState({
+      account: { execute },
+      evm: { provider: createPathWalletProvider({ request }) },
+    });
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+
+    await clickMintThenSign();
+    expect(await screen.findByText(/wallet account changed before PATH mint/i)).toBeTruthy();
+    expect(request).toHaveBeenCalledWith({ method: "eth_accounts" });
+    expect(request).toHaveBeenCalledWith({ method: "eth_chainId" });
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  test("rechecks wallet chain immediately before PATH submission", async () => {
+    setPathMintIntentUrl();
+    const execute = jest.fn();
+    const request = jest.fn(async ({ method }: { method: string }) => {
+      if (method === "eth_accounts") return [DEFAULT_WALLET_ADDRESS];
+      if (method === "eth_chainId") return "0x1";
+      return null;
+    });
+    mockWalletState = createWalletState({
+      account: { execute },
+      evm: { provider: createPathWalletProvider({ request }) },
+    });
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+
+    await clickMintThenSign();
+    expect(await screen.findByText(/wallet network changed before PATH mint/i)).toBeTruthy();
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  test("treats a stored confirmed result as authoritative over query account", async () => {
+    const { handoffId } = setPathMintIntentUrl();
+    window.localStorage.setItem(
+      `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`,
+      JSON.stringify(
+        pathMintReturnRecord({ account: `0x${"cd".repeat(20)}` }),
+      ),
+    );
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+
+    expect(await screen.findByText(/\[\s*return\s*\]/i)).toBeTruthy();
+    expect(screen.queryByText(/Switch to the THOUGHT wallet/i)).toBeNull();
+  });
+
+  test("keeps confirmed return above wallet and network state", async () => {
+    const { handoffId } = setPathMintIntentUrl();
+    window.sessionStorage.setItem(
+      `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`,
+      JSON.stringify(pathMintReturnRecord()),
+    );
+    mockWalletState = createWalletState({
+      address: `0x${"cd".repeat(20)}`,
+      chainId: 1n,
+      account: null,
+    });
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    const returnButton = await screen.findByText(/\[\s*return\s*\]/i);
+    expect(returnButton).not.toBeDisabled();
+    expect(screen.queryByText(/\[\s*connect\s*\]/i)).toBeNull();
+    expect(screen.queryByText(/Switch to the THOUGHT wallet/i)).toBeNull();
+    expect(
+      window.localStorage.getItem(
+        `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`,
+      ),
+    ).not.toBeNull();
+    expect(
+      window.sessionStorage.getItem(
+        `${PATH_MINT_RETURN_STORAGE_PREFIX}${handoffId}`,
+      ),
+    ).toBeNull();
+  });
+
+  test.each([
+    {
+      name: "wallet",
+      intent: { account: `0x${"aa".repeat(20)}` },
+      notice: /Switch to the THOUGHT wallet/i,
+    },
+    {
+      name: "chain",
+      intent: {},
+      wallet: { chainId: 1n },
+      notice: /Switch wallet to THOUGHT chain 11155111/i,
+    },
+  ])("blocks a $name mismatch before PATH mint", async ({ intent, wallet, notice }) => {
+    setPathMintIntentUrl(intent);
+    const execute = jest.fn();
+    mockWalletState = createWalletState({ account: { execute }, ...wallet });
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+
+    expect(await screen.findByText(notice)).toBeTruthy();
+    const mintButton = screen.getByText(/\[\s*mint\s*\]/i);
+    expect(mintButton).toBeDisabled();
+    fireEvent.click(mintButton);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  test("rejects non-THOUGHT return routes and movement values", async () => {
+    setPathMintIntentUrl({
+      movement: "PATH",
+      returnTo: `/gallery?pathHandoff=${PATH_HANDOFF_ID}`,
+    });
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    expect(await screen.findByText(/Invalid THOUGHT mint movement/i)).toBeTruthy();
+    expect(screen.getByText(/\[\s*mint\s*\]/i)).toBeDisabled();
+  });
+
+  test("rejects handoff ids that THOUGHT cannot restore", async () => {
+    setPathMintIntentUrl({ handoffId: "bad.handoff" });
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    expect(await screen.findByText(/Invalid THOUGHT mint handoff id/i)).toBeTruthy();
+    expect(screen.getByText(/\[\s*mint\s*\]/i)).toBeDisabled();
   });
 
   test("keeps wallet menu out of the PATH-local CTA stack", async () => {

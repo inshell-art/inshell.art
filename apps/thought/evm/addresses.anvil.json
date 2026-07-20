@@ -1,8 +1,20 @@
 {
   "rpcUrl": "http://127.0.0.1:8545",
   "chainId": 31337,
+  "path": {
+    "address": "0x2e8880cAdC08E9B438c6052F5ce3869FBd6cE513"
+  },
   "pathNft": {
-    "address": "0x8A93d247134d91e0de6f96547cB0204e5BE8e5D8"
+    "address": "0x2e8880cAdC08E9B438c6052F5ce3869FBd6cE513"
+  },
+  "pathPulseAdapter": {
+    "address": "0xb007167714e2940013EC3bb551584130B7497E22"
+  },
+  "pulseAuction": {
+    "address": "0x6b39b761b1b64C8C095BF0e3Bb0c6a74705b4788"
+  },
+  "paymentToken": {
+    "address": "0x0000000000000000000000000000000000000000"
   },
   "pathMovement": {
     "name": "THOUGHT",
@@ -15,25 +27,25 @@
   },
   "devPathTokens": {
     "firstId": 1,
-    "lastId": 10,
+    "lastId": 1,
     "owner": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
   },
   "thoughtSpecRegistry": {
-    "address": "0x927b167526bAbB9be047421db732C663a0b77B11"
+    "address": "0x4DAf17c8142A483B2E2348f56ae0F2cFDAe22ceE"
   },
   "protocolRegistry": {
-    "address": "0x01c1DeF3b91672704716159C9041Aeca392DdFfb"
+    "address": "0x24d41dbc3d60d0784f8a937c59FBDe51440D5140"
   },
   "thoughtRenderer": {
-    "address": "0x638A246F0Ec8883eF68280293FFE8Cfbabe61B44"
+    "address": "0x618fB9dbd2BD6eb968B4c1af36af6CB0b45310Ec"
   },
   "thoughtNft": {
-    "address": "0x6C2d83262fF84cBaDb3e416D527403135D757892"
+    "address": "0xa779C1D17bC5230c07afdC51376CAC1cb3Dd5314"
   },
   "protocolRelease": {
-    "id": "0xcab9cb82294d90e90d60203b27195c4daa75ea365f3d9b249caf5cd4006d6673",
-    "manifestHash": "0xc46e1b3dbab5128bc4af98bc009dca3e45e6903c8263e0eb49cb5eb32fc16e0d",
-    "rendererProfileHash": "0xbce80f7dc9c4f4cf4c6bdda3df41647f9bf193d6352d594a182971e1e3045443",
+    "id": "0xea4493c669fc366e224e66a43233e1e97efecd18568ef494dfc31b4a3c961b65",
+    "manifestHash": "0x305f59465c93edf46e5ab0ca372b017f6cba5c98052e695ae6b9ca5778515d4b",
+    "rendererProfileHash": "0x6c124e260dcbfe801614b89da24bb31d407303e7cd93cc3e6a6ac372c862de88",
     "workProfileHash": "0x8b590ab95432b0dd5002a4fb1419475751bdf0210a73338bf633533005d182bb",
     "status": "draft-local"
   },
@@ -43,7 +55,7 @@
       "specId": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410",
       "specHash": "0xe56691af2ea250f66a09c6766ea90f5180af45f56d129b5cdce1ca42204d7f0a",
       "ref": "THOUGHT.v2.md",
-      "pointer": "0x9bd624BefB05a4FD466c3055C985155D04Fbff4B",
+      "pointer": "0xbC06964732EbBd248F10C60CbdECEFd1B1F7d6e9",
       "byteLength": 2811
     }
   ],

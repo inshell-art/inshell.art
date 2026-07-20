@@ -23,8 +23,8 @@ export const THOUGHT_V2_LOCAL_RELEASE = {
   },
   chainId: 31337,
   protocol: {
-    protocolReleaseId: "0xcab9cb82294d90e90d60203b27195c4daa75ea365f3d9b249caf5cd4006d6673",
-    manifestKeccak256: "0xc46e1b3dbab5128bc4af98bc009dca3e45e6903c8263e0eb49cb5eb32fc16e0d",
+    protocolReleaseId: "0xea4493c669fc366e224e66a43233e1e97efecd18568ef494dfc31b4a3c961b65",
+    manifestKeccak256: "0x305f59465c93edf46e5ab0ca372b017f6cba5c98052e695ae6b9ca5778515d4b",
     creativeSpec: {
       id: "inshell.thought.v2",
       path: "THOUGHT.v2.md",
@@ -43,7 +43,7 @@ export const THOUGHT_V2_LOCAL_RELEASE = {
     rendererProfile: {
       id: "inshell.thought.svg.v2.binary-weave-32",
       path: "thought.renderer.v2.profile.json",
-      keccak256: "0xbce80f7dc9c4f4cf4c6bdda3df41647f9bf193d6352d594a182971e1e3045443",
+      keccak256: "0x6c124e260dcbfe801614b89da24bb31d407303e7cd93cc3e6a6ac372c862de88",
     },
   } satisfies ThoughtV2ProtocolBinding,
   spec: {
@@ -55,11 +55,11 @@ export const THOUGHT_V2_LOCAL_RELEASE = {
     byteLength: 2811,
   },
   contracts: {
-    pathNft: "0x8A93d247134d91e0de6f96547cB0204e5BE8e5D8",
-    thoughtNft: "0x6C2d83262fF84cBaDb3e416D527403135D757892",
-    thoughtSpecRegistry: "0x927b167526bAbB9be047421db732C663a0b77B11",
-    thoughtRenderer: "0x638A246F0Ec8883eF68280293FFE8Cfbabe61B44",
-    protocolRegistry: "0x01c1DeF3b91672704716159C9041Aeca392DdFfb",
+    pathNft: "0x2e8880cAdC08E9B438c6052F5ce3869FBd6cE513",
+    thoughtNft: "0xa779C1D17bC5230c07afdC51376CAC1cb3Dd5314",
+    thoughtSpecRegistry: "0x4DAf17c8142A483B2E2348f56ae0F2cFDAe22ceE",
+    thoughtRenderer: "0x618fB9dbd2BD6eb968B4c1af36af6CB0b45310Ec",
+    protocolRegistry: "0x24d41dbc3d60d0784f8a937c59FBDe51440D5140",
   },
 } as const;
 
