@@ -309,7 +309,8 @@ body.thought-v2-lab-body {
 }
 
 .svg-lab--v2 .svg-lab__preview,
-.svg-lab--v2 .svg-lab__preview svg {
+.svg-lab--v2 .svg-lab__preview svg,
+.svg-lab--v2 .svg-lab__preview img {
   display: block;
   width: 100%;
   height: 100%;
@@ -377,7 +378,8 @@ body.thought-v2-lab-body {
   place-items: stretch;
 }
 
-.svg-lab__fixture-canvas svg {
+.svg-lab__fixture-canvas svg,
+.svg-lab__fixture-canvas img {
   display: block;
   width: 100%;
   height: 100%;
@@ -449,7 +451,8 @@ body.thought-v2-lab-body .svg-lab--v2 .svg-lab__preview-frame {
 }
 
 body.thought-v2-lab-body .svg-lab--v2 .svg-lab__preview,
-body.thought-v2-lab-body .svg-lab--v2 .svg-lab__preview svg {
+body.thought-v2-lab-body .svg-lab--v2 .svg-lab__preview svg,
+body.thought-v2-lab-body .svg-lab--v2 .svg-lab__preview img {
   width: 100%;
   height: 100%;
 }
