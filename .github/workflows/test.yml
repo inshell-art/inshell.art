@@ -26,6 +26,10 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: "pnpm"
+      - name: Install zsh
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes zsh
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Validate deployment gates

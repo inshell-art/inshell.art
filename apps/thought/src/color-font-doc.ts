@@ -14,7 +14,7 @@ export type ColorFontDoc = {
 export const buildColorFontPlainText = (doc: ColorFontDoc) => [
   `Color Font ${doc.version}`,
   "",
-  "source: onchain ABI",
+  "source: on-chain ABI",
   `id: ${doc.id}`,
   `version: ${doc.version}`,
   ...(doc.chainName ? [`chain: ${doc.chainName}`] : []),

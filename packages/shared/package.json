@@ -6,5 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./design.css": "./src/design.css"
+  },
+  "dependencies": {
+    "ethers": "^6.16.0"
   }
 }

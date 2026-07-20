@@ -29,7 +29,10 @@ export async function onRequest(ctx: MiddlewareContext): Promise<Response> {
   const pathname = normalizePathname(url.pathname);
   const galleryRedirect = canonicalGalleryHostRedirect(ctx.request, url, pathname);
   const sepoliaRedirect = temporarySepoliaHostRedirect(url);
-  const thoughtRedirect = canonicalThoughtRedirect(url, pathname);
+  const thoughtRedirect = canonicalThoughtRedirect(ctx.request, url, pathname);
+  const pathHostRedirect = canonicalPathHostRedirect(ctx.request, url, pathname);
+  const pathAppRedirect = canonicalPathAppRedirect(ctx.request, url, pathname);
+  const worksRedirect = canonicalWorksRedirect(ctx.request, url, pathname);
 
   if (galleryRedirect) {
     return galleryRedirect;
@@ -39,6 +42,15 @@ export async function onRequest(ctx: MiddlewareContext): Promise<Response> {
   }
   if (thoughtRedirect) {
     return thoughtRedirect;
+  }
+  if (pathHostRedirect) {
+    return pathHostRedirect;
+  }
+  if (pathAppRedirect) {
+    return pathAppRedirect;
+  }
+  if (worksRedirect) {
+    return worksRedirect;
   }
 
   if (pathname === "/rss.xml") {
@@ -53,6 +65,9 @@ export async function onRequest(ctx: MiddlewareContext): Promise<Response> {
   const publicFeedArtifactUrl = getPublicFeedArtifactUrl(ctx.request.url);
   if (publicFeedArtifactUrl) {
     return proxyPublicFeedArtifact(publicFeedArtifactUrl, ctx.request);
+  }
+  if (isThoughtAppShellRoute(pathname)) {
+    return serveThoughtAppShell(ctx);
   }
   if (isAppShellRoute(pathname)) {
     return serveAppShell(ctx);
@@ -211,6 +226,9 @@ function canonicalGalleryHostRedirect(request: Request, url: UrlInstance, pathna
       : "https://inshell.art",
   );
   target.search = url.search;
+  const thoughtId = parseTokenRouteId(pathname, "thought");
+  target.hash = thoughtId ? `#thought-${thoughtId}` : url.hash;
+  normalizeSameOriginReturnTo(target);
   return Response.redirect(target.toString(), 308);
 }
 
@@ -232,7 +250,57 @@ function isLikelyStaticAssetPathname(pathname: string) {
 
 function canonicalGalleryPathname(pathname: string) {
   if (pathname === "/" || pathname === "/gallery") return "/gallery";
-  return isAppShellRoute(pathname) ? pathname : "/gallery";
+  const thoughtId = parseTokenRouteId(pathname, "thought");
+  if (thoughtId) return "/gallery";
+  return pathname.startsWith("/gallery/") ? pathname : "/gallery";
+}
+
+function canonicalPathHostRedirect(request: Request, url: UrlInstance, pathname: string) {
+  const hostname = url.hostname.toLowerCase();
+  if (!isCanonicalPathRedirectHost(hostname)) return null;
+  if (request.method !== "GET" && request.method !== "HEAD") return null;
+  if (isApiPathname(pathname) || isLikelyStaticAssetPathname(url.pathname)) return null;
+
+  const target = new globalThis.URL(
+    canonicalPathHostPathname(pathname),
+    hostname === "path.preview.inshell.art" ? "https://preview.inshell.art" : "https://inshell.art",
+  );
+  target.search = url.search;
+  target.hash = url.hash;
+  normalizeSameOriginReturnTo(target);
+  return Response.redirect(target.toString(), isPreviewHost(hostname) ? 302 : 308);
+}
+
+function isCanonicalPathRedirectHost(hostname: string) {
+  return hostname === "path.inshell.art" || hostname === "path.preview.inshell.art";
+}
+
+function canonicalPathHostPathname(pathname: string) {
+  if (pathname === "/" || pathname === "/path" || pathname === "/path-app") return "/path";
+  if (pathname.startsWith("/path/")) return pathname;
+  return `/path${pathname}`;
+}
+
+function canonicalPathAppRedirect(request: Request, url: UrlInstance, pathname: string) {
+  if (pathname !== "/path-app") return null;
+  if (request.method !== "GET" && request.method !== "HEAD") return null;
+
+  const target = new globalThis.URL("/path", url.origin);
+  target.search = url.search;
+  target.hash = url.hash;
+  normalizeSameOriginReturnTo(target);
+  return Response.redirect(target.toString(), 308);
+}
+
+function canonicalWorksRedirect(request: Request, url: UrlInstance, pathname: string) {
+  if (pathname !== "/works") return null;
+  if (request.method !== "GET" && request.method !== "HEAD") return null;
+
+  const target = new globalThis.URL("/gallery", url.origin);
+  target.search = url.search;
+  target.hash = url.hash;
+  normalizeSameOriginReturnTo(target);
+  return Response.redirect(target.toString(), 308);
 }
 
 function normalizePathname(pathname: string) {
@@ -246,9 +314,23 @@ function isAppShellRoute(pathname: string) {
     pathname === "/pulse" ||
     pathname === "/color-font" ||
     pathname === "/verify" ||
+    pathname === "/path-app" ||
     pathname === "/path" ||
     pathname === "/gallery" ||
-    isTokenRoute(pathname, "path") ||
+    isTokenRoute(pathname, "path")
+  );
+}
+
+function isThoughtAppShellRoute(pathname: string) {
+  return (
+    pathname === "/thought" ||
+    pathname === "/thought/color-font" ||
+    pathname === "/thought/verify" ||
+    pathname === "/thought/agent-demo" ||
+    pathname === "/thought/plugin" ||
+    pathname === "/thought/plugin/codex" ||
+    pathname === "/thought/plugin/claude" ||
+    /^\/thought\/runs\/[A-Za-z0-9_-]+$/.test(pathname) ||
     isTokenRoute(pathname, "thought")
   );
 }
@@ -264,10 +346,22 @@ function isTokenRoute(pathname: string, route: "path" | "thought") {
   return parseTokenRouteId(pathname, route) !== null;
 }
 
-function canonicalThoughtRedirect(url: UrlInstance, pathname: string) {
+function canonicalThoughtRedirect(request: Request, url: UrlInstance, pathname: string) {
   const hostname = url.hostname.toLowerCase();
   if (!isThoughtHost(hostname)) return null;
-  if (isGalleryIntent(hostname, pathname, url)) return null;
+  if (request.method !== "GET" && request.method !== "HEAD") return null;
+  if (isApiPathname(pathname) || isLikelyStaticAssetPathname(url.pathname)) return null;
+  if (isGalleryIntent(hostname, pathname, url)) {
+    const galleryTarget = new globalThis.URL(
+      "/gallery",
+      isPreviewHost(hostname) ? "https://preview.inshell.art" : "https://inshell.art",
+    );
+    galleryTarget.search = url.search;
+    const thoughtHashId = /^#thought-([1-9]\d*)$/.exec(url.hash)?.[1];
+    galleryTarget.hash = thoughtHashId ? `#thought-${thoughtHashId}` : url.hash;
+    normalizeSameOriginReturnTo(galleryTarget);
+    return Response.redirect(galleryTarget.toString(), isPreviewHost(hostname) ? 302 : 308);
+  }
 
   const pathThoughtId = parseTokenRouteId(pathname, "thought");
   const queryThoughtId = url.searchParams.get("thought")?.trim() ?? "";
@@ -276,13 +370,68 @@ function canonicalThoughtRedirect(url: UrlInstance, pathname: string) {
     (queryThoughtId && parseTokenRouteId(`/thought/${queryThoughtId}`, "thought")
       ? queryThoughtId
       : "");
-  if (!thoughtId) return null;
-
   const target = new globalThis.URL(
-    `/thought/${thoughtId}`,
+    thoughtId ? `/thought/${thoughtId}` : canonicalThoughtHostPathname(pathname),
     isPreviewHost(hostname) ? "https://preview.inshell.art" : "https://inshell.art",
   );
-  return Response.redirect(target.toString(), 302);
+  target.search = url.search;
+  if (thoughtId && queryThoughtId === thoughtId) {
+    target.searchParams.delete("thought");
+  }
+  target.hash = url.hash;
+  normalizeSameOriginReturnTo(target);
+  return Response.redirect(target.toString(), isPreviewHost(hostname) ? 302 : 308);
+}
+
+function canonicalThoughtHostPathname(pathname: string) {
+  if (pathname === "/" || pathname === "/thought") return "/thought";
+  if (pathname.startsWith("/thought/")) return pathname;
+  return `/thought${pathname}`;
+}
+
+function normalizeSameOriginReturnTo(target: UrlInstance) {
+  const raw = target.searchParams.get("returnTo");
+  if (!raw) return;
+  const normalized = normalizeSameOriginReturnToValue(raw, target.origin);
+  if (normalized) {
+    target.searchParams.set("returnTo", normalized);
+  } else {
+    target.searchParams.delete("returnTo");
+  }
+}
+
+function normalizeSameOriginReturnToValue(raw: string, fallbackOrigin: string) {
+  try {
+    const url = new globalThis.URL(raw, fallbackOrigin);
+    const hostname = url.hostname.toLowerCase();
+    const isSameOrigin = url.origin === fallbackOrigin;
+    const isLocalhost =
+      hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+    const isInshell = hostname === "inshell.art" || hostname === "preview.inshell.art";
+    const isLegacyThought = hostname === "thought.inshell.art" || hostname === "thought.preview.inshell.art";
+    const isLegacyPath = hostname === "path.inshell.art" || hostname === "path.preview.inshell.art";
+    const isLegacyGallery = hostname === "gallery.inshell.art" || hostname === "gallery.preview.inshell.art";
+    if (!isSameOrigin && !isLocalhost && !isInshell && !isLegacyThought && !isLegacyPath && !isLegacyGallery) {
+      return "";
+    }
+
+    let pathname = normalizePathname(url.pathname);
+    if (isLegacyThought && !pathname.startsWith("/thought")) {
+      pathname = canonicalThoughtHostPathname(pathname);
+    } else if (isLegacyPath && !pathname.startsWith("/path")) {
+      pathname = canonicalPathHostPathname(pathname);
+    } else if (isLegacyGallery) {
+      pathname = canonicalGalleryPathname(pathname);
+    }
+    return `${pathname}${url.search}${url.hash}`;
+  } catch {
+    if (raw.startsWith("/")) {
+      const url = new globalThis.URL(raw, fallbackOrigin);
+      const pathname = normalizePathname(url.pathname);
+      return `${pathname}${url.search}${url.hash}`;
+    }
+    return "";
+  }
 }
 
 function isThoughtHost(hostname: string) {
@@ -345,6 +494,20 @@ function encodePathSegment(segment: string) {
 async function serveAppShell(ctx: MiddlewareContext): Promise<Response> {
   const indexUrl = new globalThis.URL(ctx.request.url);
   indexUrl.pathname = "/";
+  indexUrl.search = "";
+  const request = new Request(indexUrl.toString(), ctx.request);
+  let response: Response;
+  if (ctx.env.ASSETS) {
+    response = await ctx.env.ASSETS.fetch(request);
+  } else {
+    response = await ctx.next(request);
+  }
+  return withAppShellHeaders(response);
+}
+
+async function serveThoughtAppShell(ctx: MiddlewareContext): Promise<Response> {
+  const indexUrl = new globalThis.URL(ctx.request.url);
+  indexUrl.pathname = "/thought/";
   indexUrl.search = "";
   const request = new Request(indexUrl.toString(), ctx.request);
   let response: Response;

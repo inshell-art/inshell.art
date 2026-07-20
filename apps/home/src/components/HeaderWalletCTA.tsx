@@ -1,4 +1,3 @@
-/* global HTMLDivElement, MouseEvent, KeyboardEvent, Node */
 import { useEffect, useRef, useState } from "react";
 import { useWallet } from "@inshell/wallet";
 
@@ -70,6 +69,7 @@ type HeaderWalletCTAProps = {
   ctaLabel: string;
   ctaDisabled?: boolean;
   onCtaClick: () => void;
+  showWalletDot?: boolean;
   dotState?: "off" | "on" | "amber" | "error";
   dotTooltip?: string;
   lastTxHash?: string | null;
@@ -81,6 +81,7 @@ export default function HeaderWalletCTA({
   ctaLabel,
   ctaDisabled,
   onCtaClick,
+  showWalletDot = true,
   dotState = "off",
   dotTooltip,
   lastTxHash,
@@ -154,18 +155,20 @@ export default function HeaderWalletCTA({
       >
         [ {ctaLabel} ]
       </button>
-      <button
-        type="button"
-        className="dotfield__cta-address"
-        onClick={() => setMenuOpen((open) => !open)}
-        aria-expanded={menuOpen}
-        aria-haspopup="menu"
-        aria-label={tooltip}
-        title={tooltip}
-      >
-        <span className={`dotfield__cta-dot ${dotClass}`} aria-hidden="true" />
-      </button>
-      {menuOpen && (
+      {showWalletDot ? (
+        <button
+          type="button"
+          className="dotfield__cta-address"
+          onClick={() => setMenuOpen((open) => !open)}
+          aria-expanded={menuOpen}
+          aria-haspopup="menu"
+          aria-label={tooltip}
+          title={tooltip}
+        >
+          <span className={`dotfield__cta-dot ${dotClass}`} aria-hidden="true" />
+        </button>
+      ) : null}
+      {showWalletDot && menuOpen && (
         <div className="dotfield__cta-menu" role="menu">
           <div className="dotfield__cta-menu-meta">
             <span className="dotfield__cta-menu-label">address</span>

@@ -57,6 +57,8 @@ export const EIP6963_ANNOUNCE_EVENT = "eip6963:announceProvider";
 export const EIP6963_REQUEST_EVENT = "eip6963:requestProvider";
 const PUBLIC_SEPOLIA_WALLET_RPC_URL =
   "https://ethereum-sepolia-rpc.publicnode.com";
+export const PUBLIC_WALLETCONNECT_PROJECT_ID =
+  "8f36cef8e895078c794a1939047ac722";
 const DEFAULT_WALLETCONNECT_RELAY_URL = "wss://relay.walletconnect.com";
 
 export function normalizeProviderDetail(
@@ -241,6 +243,7 @@ export function readEvmChainIds(getEnv: WalletEnvReader): number[] {
 
 export function chainLabel(chainId: number | null): { name: string; network: string } {
   if (chainId === 11155111) return { name: "Sepolia", network: "sepolia" };
+  if (chainId === 31337) return { name: "Anvil Local", network: "local" };
   if (chainId === 31338) return { name: "PATH Local", network: "devnet" };
   if (chainId === 1) return { name: "Mainnet", network: "mainnet" };
   return { name: "Unknown", network: "unknown" };
@@ -275,7 +278,8 @@ export function walletAnalyticsErrorCategory(error: unknown) {
 
 export function readWalletConnectProjectId(getEnv: WalletEnvReader): string {
   const raw = getEnv("VITE_WALLETCONNECT_PROJECT_ID");
-  return typeof raw === "string" ? raw.trim() : "";
+  const configured = typeof raw === "string" ? raw.trim() : "";
+  return configured || PUBLIC_WALLETCONNECT_PROJECT_ID;
 }
 
 export function walletConnectEnabled(getEnv: WalletEnvReader): boolean {
@@ -292,6 +296,8 @@ export function readWalletConnectRelayUrl(getEnv: WalletEnvReader): string {
 export function walletConnectMetadata(surfaceOverride?: "home" | "thought") {
   const hostname =
     typeof window === "undefined" ? "" : window.location.hostname.toLowerCase();
+  const pathname =
+    typeof window === "undefined" ? "" : window.location.pathname.toLowerCase();
   const documentTitle =
     typeof document === "undefined"
       ? ""
@@ -299,6 +305,8 @@ export function walletConnectMetadata(surfaceOverride?: "home" | "thought") {
   const surface =
     surfaceOverride ??
     (hostname === "thought.inshell.art" ||
+    pathname === "/thought" ||
+    pathname.startsWith("/thought/") ||
     documentTitle === PUBLIC_SITE_METADATA.thought.title
       ? "thought"
       : "home");

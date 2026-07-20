@@ -19,12 +19,12 @@
 }
 
 .movements__year {
-  font-size: 18px;
+  font-size: var(--font-size-18);
   color: var(--muted);
   transition: opacity 320ms ease-out;
   align-self: flex-end;
   text-align: right;
-  font-weight: var(--weight-thin, 200);
+  font-weight: var(--weight-thin);
 }
 
 .movements__year--empty {
@@ -34,8 +34,8 @@
 .movements__word {
   font-family: "Source Code Pro", ui-monospace, SFMono-Regular, Menlo, Monaco,
     Consolas, "Liberation Mono", "Courier New", monospace;
-  font-weight: var(--weight-thin, 200);
-  font-size: clamp(36px, 6vw, 64px);
+  font-weight: var(--weight-thin);
+  font-size: clamp(var(--font-size-36), 6vw, var(--font-size-64));
   letter-spacing: 0.08em;
   color: var(--muted);
   opacity: 0.2;
@@ -58,7 +58,7 @@
 
 .movements__cell--active .movements__word--thought,
 .movements__word--thought:hover {
-  color: #006100;
+  color: var(--canonical-green);
 }
 
 .movements__cell--active .movements__word--will,

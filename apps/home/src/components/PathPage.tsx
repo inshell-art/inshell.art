@@ -4,7 +4,7 @@ import {
   getProtocolReleaseDeployBlock,
   maybeResolveAddress,
 } from "@inshell/contracts";
-import { PUBLIC_NETWORK_CONFIG, SURFACE_TERMINOLOGY } from "@inshell/shared";
+import { PUBLIC_NETWORK_CONFIG } from "@inshell/shared";
 import {
   loadAllPathTokens,
   readCachedAllPathTokens,
@@ -734,17 +734,6 @@ export default function PathPage({ tokenId = null }: PathPageProps) {
 
   return (
     <main className="primitive-page path-page">
-      <header className="primitive-page__header path-page__header">
-        <div>
-          <h1 className="primitive-page__title">
-            {SURFACE_TERMINOLOGY.pathDapp}
-          </h1>
-          <p className="primitive-page__subtitle">
-            Permission tokens for movement mints.
-          </p>
-        </div>
-      </header>
-
       <section
         className="path-page__body"
         aria-label="All $PATH tokens"

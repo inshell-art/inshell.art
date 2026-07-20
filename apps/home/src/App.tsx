@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import AuctionCanvas from "@/components/AuctionCanvas";
-import Movements from "@/components/Movements";
-import Footer from "@/components/Footer/Footer";
+import EcosystemHome from "@/components/EcosystemHome";
 import PulsePage from "@/components/PulsePage";
 import ColorFontPage from "@/components/ColorFontPage";
 import PathPage from "@/components/PathPage";
@@ -11,7 +10,8 @@ import ThoughtDetailPage from "@/components/ThoughtDetailPage";
 import ThoughtGalleryPage from "@/components/ThoughtGalleryPage";
 import FloatingReportBug from "@/components/FloatingReportBug";
 import PreviewWatermark from "@/components/PreviewWatermark";
-import { maybeResolveAddress } from "@inshell/contracts";
+import { InshellTopBar, type InshellSurface } from "@inshell/inshell-shell";
+import { getProtocolReleaseChainId, maybeResolveAddress } from "@inshell/contracts";
 import { SURFACE_TERMINOLOGY } from "@inshell/shared";
 
 function getLocationKey() {
@@ -32,6 +32,11 @@ function parseTokenRouteId(pathname: string, route: "path" | "thought") {
 
 function getPrimitiveRoute(locationKey: string) {
   const pathname = pathnameFromLocationKey(locationKey);
+  if (pathname === "/path-app") return "path-app";
+  const query = locationKey.split("?")[1]?.split("#")[0] ?? "";
+  if (pathname === "/path" && !new URLSearchParams(query).has("fixture")) {
+    return "path-app";
+  }
   if (pathname === "/pulse") return "pulse";
   if (pathname === "/color-font") return "color-font";
   if (pathname === "/path" || parseTokenRouteId(pathname, "path")) return "path";
@@ -39,6 +44,22 @@ function getPrimitiveRoute(locationKey: string) {
   if (pathname === "/verify") return "verify";
   if (parseTokenRouteId(pathname, "thought")) return "thought";
   return null;
+}
+
+function getHostname() {
+  if (typeof window === "undefined") return "";
+  return window.location.hostname.toLowerCase();
+}
+
+function isPathAppHost() {
+  const hostname = getHostname();
+  return hostname === "path.inshell.art" || hostname === "path.preview.inshell.art";
+}
+
+function activeSurfaceForRoute(route: string | null): InshellSurface {
+  if (route === "path-app" || route === "path" || route === "pulse") return "path";
+  if (route === "gallery" || route === "thought") return "works";
+  return "home";
 }
 
 function getPathRouteTokenId(locationKey: string) {
@@ -68,8 +89,17 @@ export default function App() {
   const [locationKey, setLocationKey] = useState(() => getLocationKey());
   const pulseAuction = maybeResolveAddress("pulse_auction");
   const primitiveRoute = getPrimitiveRoute(locationKey);
+  const pathAppHost = isPathAppHost();
   const pathTokenId = getPathRouteTokenId(locationKey);
   const thoughtTokenId = getThoughtRouteTokenId(locationKey);
+  const shouldRenderPathApp =
+    primitiveRoute === "path-app" ||
+    primitiveRoute === "path" ||
+    (pathAppHost && !primitiveRoute);
+  const activeSurface = shouldRenderPathApp ? "path" : activeSurfaceForRoute(primitiveRoute);
+  const pathExpectedChainId = shouldRenderPathApp
+    ? getProtocolReleaseChainId()
+    : undefined;
 
   useEffect(() => {
     const updateLocation = () => {
@@ -82,19 +112,33 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const pathname = pathnameFromLocationKey(locationKey);
+    if (pathname !== "/path-app") return;
+    const [, suffix = ""] = locationKey.split("/path-app");
+    const nextPath = `/path${suffix}`;
+    window.history.replaceState({}, "", nextPath);
+    setLocationKey(getLocationKey());
+  }, [locationKey]);
+
+  useEffect(() => {
+    if (shouldRenderPathApp) {
+      document.title = pathTokenId ? `$PATH #${pathTokenId}` : "$PATH";
+      setFavicon("/inshell.svg");
+      return;
+    }
     if (primitiveRoute === "pulse") {
       document.title = `pulse — ${SURFACE_TERMINOLOGY.pathDapp}`;
-      setFavicon("/pulse.svg");
+      setFavicon("/inshell.svg");
       return;
     }
     if (primitiveRoute === "color-font") {
       document.title = "color-font";
-      setFavicon("/color-font.svg");
+      setFavicon("/inshell.svg");
       return;
     }
     if (primitiveRoute === "path") {
       document.title = pathTokenId ? `$PATH #${pathTokenId}` : "$PATH";
-      setFavicon("/path.svg");
+      setFavicon("/inshell.svg");
       return;
     }
     if (primitiveRoute === "gallery") {
@@ -114,7 +158,7 @@ export default function App() {
     }
     document.title = SURFACE_TERMINOLOGY.ecosystem;
     setFavicon("/inshell.svg");
-  }, [pathTokenId, primitiveRoute, thoughtTokenId]);
+  }, [pathTokenId, primitiveRoute, shouldRenderPathApp, thoughtTokenId]);
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -138,12 +182,32 @@ export default function App() {
         FallbackComponent={({ error }) => (
           <div style={{ padding: "20px", color: "red" }}>
             <h1>page error</h1>
-            <p>{error.message}</p>
+            <p>{error instanceof Error ? error.message : String(error)}</p>
           </div>
         )}
       >
-        <div className={`shell${primitiveRoute ? "" : " shell--home"}`}>
-          {primitiveRoute === "pulse" ? (
+        <div
+          className={`shell${
+            shouldRenderPathApp
+              ? " shell--path-app"
+              : primitiveRoute
+                ? ""
+                : " shell--home"
+          }`}
+        >
+          <InshellTopBar
+            active={activeSurface}
+            expectedChainId={pathExpectedChainId}
+            disconnectedWalletNote={
+              shouldRenderPathApp ? "Sepolia ETH" : undefined
+            }
+          />
+          {shouldRenderPathApp ? (
+            <div className="content content--path-app">
+              <AuctionCanvas address={pulseAuction} />
+              <PathPage tokenId={pathTokenId} />
+            </div>
+          ) : primitiveRoute === "pulse" ? (
             <PulsePage />
           ) : primitiveRoute === "color-font" ? (
             <ColorFontPage />
@@ -156,14 +220,8 @@ export default function App() {
           ) : primitiveRoute === "thought" && thoughtTokenId ? (
             <ThoughtDetailPage tokenId={thoughtTokenId} />
           ) : (
-            <div className="content content--home">
-              <AuctionCanvas address={pulseAuction} />
-              <div className="hero">
-                <Movements />
-              </div>
-            </div>
+            <EcosystemHome />
           )}
-          {primitiveRoute ? null : <Footer />}
         </div>
       </ErrorBoundary>
       <PreviewWatermark />

@@ -1,10 +1,12 @@
 # Cloudflare Pages Launch
 
-Last updated: 2026-05-25
+Last updated: 2026-07-15
 
 ## Decision
 
 Use Cloudflare built-in Pages deployment as the normal production deploy path.
+
+The canonical product is one origin. The home project serves `/`, `/path`, `/thought`, and `/gallery` from `inshell.art`; its `staging` branch serves the same paths from `preview.inshell.art`. `build:home` embeds the THOUGHT bundle at `dist/home/thought`.
 
 Keep `.github/workflows/deploy-pages.yml` as a manual fallback. Do not enable a second automatic deploy path unless Cloudflare built-in deploys become insufficient.
 
@@ -33,7 +35,9 @@ VITE_PUBLIC_LAUNCH_MODE=sepolia_invite
 VITE_ETH_RPC=/api/path-rpc
 VITE_DEBUG_PANEL=off
 VITE_GITHUB_URL=https://github.com/inshell-art/
-VITE_THOUGHT_URL=https://thought.inshell.art/
+VITE_THOUGHT_URL=/thought
+VITE_GALLERY_URL=/gallery
+VITE_THOUGHT_GALLERY_URL=/gallery
 VITE_PUBLIC_TELEGRAM_CHANNEL_URL=https://t.me/inshell_art
 ```
 
@@ -63,9 +67,9 @@ VITE_STARKNET_BLOCK...
 VITE_STARKNET_RPC
 ```
 
-## THOUGHT Project
+## Standalone THOUGHT Compatibility Project
 
-Create a second Cloudflare Pages project for `thought.inshell.art`.
+The separate THOUGHT Pages project may remain available for compatibility and direct bundle checks, but it is not the canonical product origin. Canonical navigation and links must use `inshell.art/thought` and `inshell.art/gallery`.
 
 Recommended project:
 
@@ -85,9 +89,10 @@ VITE_THOUGHT_RPC_URL=/api/thought-rpc
 VITE_THOUGHT_PREVIEW_ENDPOINT_ENABLED=true
 VITE_THOUGHT_PREVIEW_ENDPOINT_URL=/api/thought-preview
 VITE_WALLET_CHAIN_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
-VITE_PATH_MINT_URL=https://inshell.art
-VITE_THOUGHT_DETAIL_BASE_URL=https://inshell.art
-VITE_THOUGHT_GALLERY_URL=https://gallery.inshell.art/
+VITE_PATH_MINT_URL=https://inshell.art/path
+VITE_THOUGHT_DETAIL_BASE_URL=https://inshell.art/thought
+VITE_GALLERY_URL=https://inshell.art/gallery
+VITE_THOUGHT_GALLERY_URL=https://inshell.art/gallery
 ```
 
 `VITE_ETH_RPC` and `VITE_THOUGHT_RPC_URL` are read-only dapp RPCs. Wallet chain registration must use `VITE_WALLET_CHAIN_RPC_URL`, because wallets need an RPC that accepts transaction broadcast.
@@ -117,30 +122,36 @@ THOUGHT_PREVIEW_CHAIN_ID=11155111
 
 ## Custom Domains
 
-Attach these custom domains:
+Attach the canonical production domains to the home project:
 
 ```text
 inshell.art
 www.inshell.art
-thought.inshell.art
-gallery.inshell.art
 ```
 
-Preview domain:
+Attach the canonical preview domain to the home project's `staging` branch:
 
 ```text
 preview.inshell.art -> staging.inshell-art.pages.dev
-thought.preview.inshell.art -> staging.thought-inshell-art.pages.dev
-gallery.preview.inshell.art -> staging.thought-inshell-art.pages.dev
 ```
 
-`preview.inshell.art` is the staging gate for the home Pages project. `thought.preview.inshell.art` and `gallery.preview.inshell.art` are staging gates for the THOUGHT Pages project. Together they are the preview umbrella: `preview.inshell.art` mirrors `inshell.art`, `thought.preview.inshell.art` mirrors `thought.inshell.art`, and `gallery.preview.inshell.art` mirrors `gallery.inshell.art`.
+The canonical route map is:
 
-Both preview domains must show the latest successful deployment from the `staging` branch before frontend changes are merged to `main`.
+```text
+https://inshell.art/
+https://inshell.art/path
+https://inshell.art/thought
+https://inshell.art/gallery
 
-Cloudflare supports branch aliases for preview deployments. A `staging` branch deployment creates or updates `staging.inshell-art.pages.dev` and `staging.thought-inshell-art.pages.dev`, and the preview custom domains should point at those branch aliases. This setup requires proxied Cloudflare DNS records; an external DNS provider or unproxied record can route a custom domain to the production branch instead of the preview branch.
+https://preview.inshell.art/
+https://preview.inshell.art/path
+https://preview.inshell.art/thought
+https://preview.inshell.art/gallery
+```
 
-Cloudflare Pages custom apex domains are simplest when the domain uses Cloudflare nameservers. If DNS remains at GoDaddy, `www.inshell.art` and `thought.inshell.art` can use CNAME records, but the apex `inshell.art` depends on GoDaddy support for apex CNAME/ALIAS/ANAME behavior.
+`preview.inshell.art` must show the latest successful home deployment from the `staging` branch before frontend changes are merged to `main`. Cloudflare supports branch aliases for preview deployments; the preview custom domain should point at `staging.inshell-art.pages.dev`. This setup requires a proxied Cloudflare DNS record because an external DNS provider or unproxied record can route a custom domain to the production branch instead of the preview branch.
+
+Cloudflare Pages custom apex domains are simplest when the domain uses Cloudflare nameservers. If DNS remains at GoDaddy, `www.inshell.art` can use a CNAME record, but the apex `inshell.art` depends on GoDaddy support for apex CNAME/ALIAS/ANAME behavior.
 
 Recommended DNS move:
 
@@ -150,19 +161,14 @@ Recommended DNS move:
 4. Let Cloudflare create/proxy the DNS records.
 5. Add `preview.inshell.art` to the `inshell-art` Pages project after a successful `staging` deployment.
 6. In Cloudflare DNS, set the `preview` CNAME target to `staging.inshell-art.pages.dev` and keep it proxied.
-7. Add `thought.preview.inshell.art` and `gallery.preview.inshell.art` to the `thought-inshell-art` Pages project after a successful `staging` deployment.
-8. In Cloudflare DNS, set the `thought.preview` and `gallery.preview` CNAME targets to `staging.thought-inshell-art.pages.dev` and keep them proxied.
 
 If DNS stays at GoDaddy:
 
 1. Add `www.inshell.art` to the `inshell-art` Pages project.
 2. Add GoDaddy CNAME `www -> inshell-art.pages.dev`.
-3. Add `thought.inshell.art` to the `thought-inshell-art` Pages project.
-4. Add `gallery.inshell.art` to the `thought-inshell-art` Pages project.
-5. Add GoDaddy CNAMEs `thought -> thought-inshell-art.pages.dev` and `gallery -> thought-inshell-art.pages.dev`.
-6. For apex `inshell.art`, either use GoDaddy forwarding to `www.inshell.art`, or use GoDaddy apex ALIAS/ANAME/CNAME flattening if available.
+3. For apex `inshell.art`, either use GoDaddy forwarding to `www.inshell.art`, or use GoDaddy apex ALIAS/ANAME/CNAME flattening if available.
 
-Do not use GoDaddy or unproxied DNS records for preview domains if the intent is to pin them to the `staging` branch. Cloudflare's custom branch alias flow depends on proxied Cloudflare DNS.
+Do not use GoDaddy or an unproxied DNS record for `preview.inshell.art` if the intent is to pin it to the `staging` branch. Cloudflare's custom branch alias flow depends on proxied Cloudflare DNS.
 
 ## Staging Discipline
 
@@ -171,28 +177,30 @@ Use this frontend release path:
 1. Develop and commit on a feature branch or directly on `staging` when the operator asks for a fast path.
 2. Push or merge to `staging`.
 3. Deploy Cloudflare Pages with `.github/workflows/deploy-pages.yml`, `branch=staging`, and the needed `target`.
-4. Validate `https://preview.inshell.art` and `https://thought.preview.inshell.art`.
+4. Validate `https://preview.inshell.art`, `/path`, `/thought`, and `/gallery` on that origin.
 5. Merge `staging` into `main`.
 6. Deploy Cloudflare Pages with `branch=main` for production.
 
 Do not deploy `main` before `preview.inshell.art` has been validated, unless the operator explicitly asks for an emergency hotfix. If a hotfix bypasses staging, merge `main` back into `staging` immediately after production is stable.
 
-Staging builds must cross-link inside the preview umbrella:
+Staging builds must cross-link inside the shared preview origin:
 
 ```text
-VITE_THOUGHT_URL=https://thought.preview.inshell.art/
-VITE_THOUGHT_GALLERY_URL=https://gallery.preview.inshell.art/
-VITE_PATH_MINT_URL=https://preview.inshell.art
-VITE_THOUGHT_DETAIL_BASE_URL=https://preview.inshell.art
+VITE_THOUGHT_URL=https://preview.inshell.art/thought
+VITE_GALLERY_URL=https://preview.inshell.art/gallery
+VITE_THOUGHT_GALLERY_URL=https://preview.inshell.art/gallery
+VITE_PATH_MINT_URL=https://preview.inshell.art/path
+VITE_THOUGHT_DETAIL_BASE_URL=https://preview.inshell.art/thought
 ```
 
-Production builds must keep the public domains:
+Production builds must keep the same-origin public routes:
 
 ```text
-VITE_THOUGHT_URL=https://thought.inshell.art/
-VITE_THOUGHT_GALLERY_URL=https://gallery.inshell.art/
-VITE_PATH_MINT_URL=https://inshell.art
-VITE_THOUGHT_DETAIL_BASE_URL=https://inshell.art
+VITE_THOUGHT_URL=https://inshell.art/thought
+VITE_GALLERY_URL=https://inshell.art/gallery
+VITE_THOUGHT_GALLERY_URL=https://inshell.art/gallery
+VITE_PATH_MINT_URL=https://inshell.art/path
+VITE_THOUGHT_DETAIL_BASE_URL=https://inshell.art/thought
 ```
 
 ## RPC Proxy
@@ -240,8 +248,9 @@ VITE_PUBLIC_LAUNCH_MODE=sepolia_invite
 VITE_ETH_RPC=/api/path-rpc
 VITE_THOUGHT_RPC_URL=/api/thought-rpc
 VITE_DEBUG_PANEL=off
-VITE_THOUGHT_URL=https://thought.inshell.art/
-VITE_THOUGHT_GALLERY_URL=https://gallery.inshell.art/
+VITE_THOUGHT_URL=https://inshell.art/thought
+VITE_GALLERY_URL=https://inshell.art/gallery
+VITE_THOUGHT_GALLERY_URL=https://inshell.art/gallery
 ```
 
 Required GitHub Actions secrets:

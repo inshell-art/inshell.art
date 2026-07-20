@@ -10,11 +10,21 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { URL } from "node:url";
 import {
-  THOUGHT_AGENT_OUTPUT_SCHEMA,
+  THOUGHT_AGENT_LINE_CONTRACT,
   THOUGHT_AGENT_PROTOCOL_VERSION,
+  THOUGHT_AGENT_RECEIPT_VERSION,
+  THOUGHT_AGENT_RESULT_VERSION,
+  THOUGHT_AGENT_ERROR_CODES,
+  ThoughtAgentProtocolError,
+  assertThoughtLine,
+  assertProtocolVersion,
+  buildThoughtCodexClientScript,
   buildThoughtAgentInput,
   buildThoughtAgentReceipt,
-  parseAgentOutput,
+  isThoughtSha256,
+  parseAdapterInfo,
+  parseBridgeInfo,
+  parseResultRequest,
   sha256Hex,
   type ThoughtAgentAdapterInfo,
   type ThoughtAgentBridgeInfo,
@@ -24,6 +34,12 @@ import {
   type ThoughtSha256,
 } from "../../packages/thought-agent-protocol/src/index";
 import type { RollupLog, RollupLogHandler } from "rollup";
+import {
+  THOUGHT_V2_LOCAL_AGENT_OUTPUT_SCHEMA,
+  buildThoughtV2LocalAgentResult,
+  parseThoughtV2LocalAgentResult,
+} from "./src/thought-v2-local-agent";
+import { THOUGHT_V2_LOCAL_RELEASE } from "./src/thought-v2-local-release";
 
 function ignoreKnownRollupWarnings(warning: RollupLog, warn: RollupLogHandler) {
   if (
@@ -37,6 +53,18 @@ function ignoreKnownRollupWarnings(warning: RollupLog, warn: RollupLogHandler) {
 
 function readDevApiOrigin() {
   return process.env.INSHELL_THOUGHT_DEV_API_ORIGIN?.trim() || "https://thought.inshell.art";
+}
+
+function normalizeViteBase(value: string | undefined) {
+  const raw = value?.trim();
+  if (!raw || raw === "/") return "/";
+  const withLeadingSlash = raw.startsWith("/") ? raw : `/${raw}`;
+  return withLeadingSlash.endsWith("/") ? withLeadingSlash : `${withLeadingSlash}/`;
+}
+
+function readOutDir(rootDir: string) {
+  const configured = process.env.INSHELL_THOUGHT_OUT_DIR?.trim();
+  return path.resolve(rootDir, configured || "../../dist/thought");
 }
 
 function existingRealPaths(paths: string[]) {
@@ -63,6 +91,7 @@ type DevThoughtAgentRun = {
   agentInputSha256: ThoughtSha256;
   browserToken: string;
   launchToken: string | null;
+  claimAuthorization: DevThoughtClaimAuthorization | null;
   bridgeToken: string | null;
   bridge: ThoughtAgentBridgeInfo | null;
   adapter: ThoughtAgentAdapterInfo | null;
@@ -73,8 +102,8 @@ type DevThoughtAgentRun = {
   completedAt: string | null;
   rawResult: string | null;
   rawResultSha256: ThoughtSha256 | null;
-  workText: string | null;
-  workSha256: ThoughtSha256 | null;
+  agentLine: string | null;
+  agentLineSha256: ThoughtSha256 | null;
   receiptJson: string | null;
   receiptSha256: ThoughtSha256 | null;
   errorCode: string | null;
@@ -85,18 +114,69 @@ type DevThoughtAgentRun = {
   runExpiresAt: string;
 };
 
+type DevThoughtClaimAuthorization = {
+  claimRequestId: string;
+  claimRequestToken: string;
+  state: "pending" | "authorized" | "consumed";
+  verificationCode: string;
+  bridge: ThoughtAgentBridgeInfo;
+  adapter: ThoughtAgentAdapterInfo;
+  createdAt: string;
+  expiresAt: string;
+  authorizedAt: string | null;
+};
+
 const DEV_AGENT_API_PREFIXES = ["/api/thought-agent/v1", "/api/thought-agent/v2"] as const;
-const DEV_AGENT_SPEC_ID = "THOUGHT_V1";
-const DEV_AGENT_SPEC_REF = "THOUGHT.v1.md";
+const DEV_AGENT_SPEC_ID = THOUGHT_V2_LOCAL_RELEASE.spec.evmSpecId;
+const DEV_AGENT_SPEC_REF = THOUGHT_V2_LOCAL_RELEASE.spec.ref;
+const DEV_AGENT_SPEC_TEXT = fs.readFileSync(
+  new URL("./spec/THOUGHT.v2.local.md", import.meta.url),
+  "utf8",
+);
 const DEV_AGENT_CLAIM_TTL_MS = 5 * 60 * 1000;
+const DEV_AGENT_CLAIM_AUTHORIZATION_TTL_MS = 2 * 60 * 1000;
 const DEV_AGENT_RUN_TTL_MS = 10 * 60 * 1000;
 const DEV_AGENT_BRIDGE_ID = "inshell-thought-bridge-dev";
 const DEV_AGENT_BRIDGE_VERSION = "0.1.0-dev";
 const DEV_AGENT_ADAPTER_VERSION = "codex-cli";
 const DEV_AGENT_CODEX_BIN = process.env.THOUGHT_BRIDGE_CODEX_BIN || "codex";
 const DEV_AGENT_CODEX_TIMEOUT_MS = Number(process.env.THOUGHT_BRIDGE_CODEX_TIMEOUT_MS || 180000);
-const DEV_AGENT_CODEX_AUTORUN = process.env.INSHELL_THOUGHT_DEV_CODEX_AUTORUN !== "0";
+const DEV_AGENT_CODEX_AUTORUN = process.env.INSHELL_THOUGHT_DEV_CODEX_AUTORUN === "1";
 const DEV_AGENT_FAKE_WORK = process.env.THOUGHT_BRIDGE_FAKE_WORK || "";
+const DEV_AGENT_MAX_REQUEST_BYTES = 32 * 1024;
+
+const parseDevAgentOutput = async (raw: string) => {
+  if (Buffer.byteLength(raw, "utf8") > 16 * 1024) {
+    throw new ThoughtAgentProtocolError("RESULT_TOO_LARGE", "Agent raw result is too large.");
+  }
+  let result;
+  try {
+    result = parseThoughtV2LocalAgentResult(raw);
+  } catch (error) {
+    throw new ThoughtAgentProtocolError(
+      "AGENT_OUTPUT_SCHEMA_INVALID",
+      error instanceof Error ? error.message : "Agent result schema mismatch.",
+    );
+  }
+  return {
+    raw,
+    rawSha256: await sha256Hex(raw),
+    agentLine: result.agentLine,
+    agentLineSha256: await sha256Hex(result.agentLine),
+    declaration: result.declaration,
+  };
+};
+
+function expireDevAgentRun(run: DevThoughtAgentRun) {
+  if (["returned", "failed", "cancelled", "expired"].includes(run.state)) return;
+  const expiresAt = run.state === "created" ? run.claimExpiresAt : run.runExpiresAt;
+  const deadline = Date.parse(expiresAt);
+  if (Number.isFinite(deadline) && Date.now() >= deadline) {
+    run.state = "expired";
+    run.launchToken = null;
+    run.updatedAt = new Date().toISOString();
+  }
+}
 
 function randomToken(byteLength = 24) {
   return crypto.randomBytes(byteLength).toString("base64url");
@@ -104,6 +184,12 @@ function randomToken(byteLength = 24) {
 
 function runId() {
   return `tar_${randomToken(18)}`;
+}
+
+function verificationCode() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = crypto.randomBytes(6);
+  return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
 }
 
 function protocolJson(res: ServerResponse, status: number, body: Record<string, unknown>) {
@@ -123,6 +209,14 @@ function protocolError(
   protocolJson(res, status, { error: { code, message } });
 }
 
+function normalizeDevAgentFailureMessage(message: string) {
+  const trimmed = message.trim();
+  if (/failed to fetch|network|connection refused|could not connect|econnrefused/i.test(trimmed)) {
+    return "Codex could not reach the THOUGHT Agent API. Retry the protocol HTTP calls with curl against the local URL.";
+  }
+  return trimmed || "The agent run failed.";
+}
+
 function bearerToken(req: IncomingMessage) {
   const value = String(req.headers.authorization ?? "");
   return /^Bearer\s+(.+)$/i.exec(value.trim())?.[1] ?? null;
@@ -132,20 +226,62 @@ function verifyBearer(req: IncomingMessage, token: string | null) {
   return Boolean(token && bearerToken(req) === token);
 }
 
-function readBody(req: IncomingMessage) {
+function readBody(req: IncomingMessage, maxBytes = DEV_AGENT_MAX_REQUEST_BYTES) {
   return new Promise<string>((resolve, reject) => {
     const chunks: Buffer[] = [];
+    let byteLength = 0;
+    let settled = false;
     req.on("data", (chunk) => {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
+      if (settled) return;
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk));
+      byteLength += buffer.byteLength;
+      if (byteLength > maxBytes) {
+        settled = true;
+        reject(new ThoughtAgentProtocolError("RESULT_TOO_LARGE", "Request body is too large."));
+        return;
+      }
+      chunks.push(buffer);
     });
-    req.on("error", reject);
-    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    req.on("error", (error) => {
+      if (!settled) {
+        settled = true;
+        reject(error);
+      }
+    });
+    req.on("end", () => {
+      if (!settled) {
+        settled = true;
+        resolve(Buffer.concat(chunks).toString("utf8"));
+      }
+    });
   });
 }
 
-async function readJson(req: IncomingMessage) {
-  const raw = await readBody(req);
-  return raw ? JSON.parse(raw) as Record<string, unknown> : {};
+async function readJson(req: IncomingMessage, maxBytes = DEV_AGENT_MAX_REQUEST_BYTES) {
+  const raw = await readBody(req, maxBytes);
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("JSON body must be an object.");
+    }
+    return parsed as Record<string, unknown>;
+  } catch {
+    throw new ThoughtAgentProtocolError("AGENT_OUTPUT_UNPARSEABLE", "Invalid JSON body.");
+  }
+}
+
+function requireIsoLikeDev(value: unknown, field: string): string {
+  if (typeof value !== "string" || Number.isNaN(Date.parse(value))) {
+    throw new ThoughtAgentProtocolError("AGENT_OUTPUT_SCHEMA_INVALID", `Invalid ${field}.`);
+  }
+  return value;
+}
+
+function devFailureCode(value: unknown): string {
+  return typeof value === "string" && THOUGHT_AGENT_ERROR_CODES.includes(value as never)
+    ? value
+    : "AGENT_START_FAILED";
 }
 
 function requestOrigin(req: IncomingMessage) {
@@ -176,13 +312,35 @@ function statusPayload(run: DevThoughtAgentRun) {
     createdAt: run.createdAt,
     updatedAt: run.updatedAt,
     expiresAt: run.state === "created" ? run.claimExpiresAt : run.runExpiresAt,
+    request: {
+      promptLine: {
+        text: run.promptText,
+        sha256: run.promptSha256,
+      },
+      requestedAgent: {
+        adapterId: run.requestedAdapterId,
+        model: run.requestedModel,
+      },
+      thoughtSpec: {
+        id: run.specId,
+        ref: run.specRef,
+        sha256: run.specSha256,
+        contractSpecHash: run.contractSpecHash,
+      },
+      agentInput: {
+        mediaType: "text/plain; charset=utf-8",
+        text: run.agentInputText,
+        sha256: run.agentInputSha256,
+      },
+    },
   };
   if (run.state === "returned") {
     base.result = {
       raw: run.rawResult,
-      work: run.workText,
+      rawSha256: run.rawResultSha256,
+      agentLine: run.agentLine,
       receipt: {
-        receiptVersion: "thought-agent-receipt/1",
+        receiptVersion: THOUGHT_AGENT_RECEIPT_VERSION,
         receiptSha256: run.receiptSha256,
         adapterId: run.requestedAdapterId,
         model: run.agent?.model ?? "unknown",
@@ -199,6 +357,29 @@ function statusPayload(run: DevThoughtAgentRun) {
     base.error = {
       code: run.errorCode,
       message: run.errorMessage,
+    };
+  }
+  if (
+    run.state === "created" &&
+    run.claimAuthorization &&
+    run.claimAuthorization.state !== "consumed" &&
+    Date.parse(run.claimAuthorization.expiresAt) > Date.now()
+  ) {
+    base.claimAuthorization = {
+      state: run.claimAuthorization.state,
+      claimRequestId: run.claimAuthorization.claimRequestId,
+      verificationCode: run.claimAuthorization.verificationCode,
+      bridge: {
+        bridgeId: run.claimAuthorization.bridge.bridgeId,
+        platform: run.claimAuthorization.bridge.platform,
+      },
+      adapter: {
+        adapterId: run.claimAuthorization.adapter.adapterId,
+        adapterVersion: run.claimAuthorization.adapter.adapterVersion,
+      },
+      requestedAt: run.claimAuthorization.createdAt,
+      expiresAt: run.claimAuthorization.expiresAt,
+      authorizedAt: run.claimAuthorization.authorizedAt,
     };
   }
   return base;
@@ -221,13 +402,18 @@ function claimRequestPayload(run: DevThoughtAgentRun) {
     spec: {
       id: run.specId,
       ref: run.specRef,
-      contractSpecId: "THOUGHT",
+      contractSpecId: THOUGHT_V2_LOCAL_RELEASE.spec.evmSpecId,
       mediaType: "text/markdown; charset=utf-8",
       text: run.specText,
       sha256: run.specSha256,
       contractSpecHash: run.contractSpecHash,
     },
-    prompt: {
+    instructions: {
+      mediaType: "text/markdown; charset=utf-8",
+      text: run.specText,
+      sha256: run.specSha256,
+    },
+    promptLine: {
       text: run.promptText,
       sha256: run.promptSha256,
     },
@@ -239,7 +425,13 @@ function claimRequestPayload(run: DevThoughtAgentRun) {
     outputContract: {
       mediaType: "application/json",
       maxRawBytes: 16 * 1024,
-      schema: THOUGHT_AGENT_OUTPUT_SCHEMA,
+      resultSchema: THOUGHT_AGENT_RESULT_VERSION,
+      release: {
+        protocolReleaseId: THOUGHT_V2_LOCAL_RELEASE.protocol.protocolReleaseId,
+        manifestKeccak256: THOUGHT_V2_LOCAL_RELEASE.protocol.manifestKeccak256,
+      },
+      agentLine: THOUGHT_AGENT_LINE_CONTRACT,
+      schema: THOUGHT_V2_LOCAL_AGENT_OUTPUT_SCHEMA,
     },
   };
 }
@@ -288,21 +480,19 @@ function devExecutionInfo(): ThoughtAgentExecutionInfo {
   };
 }
 
-function stripJsonFence(value: string) {
-  const trimmed = value.trim();
-  const match = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(trimmed);
-  return (match?.[1] || trimmed).trim();
-}
-
-async function runDevCodex(agentInputText: string) {
+async function runDevCodex(promptLine: string, specText: string) {
   if (DEV_AGENT_FAKE_WORK) {
-    return parseAgentOutput(JSON.stringify({ work: DEV_AGENT_FAKE_WORK }));
+    return parseDevAgentOutput(JSON.stringify(
+      buildThoughtV2LocalAgentResult(DEV_AGENT_FAKE_WORK, "THOUGHT Bridge dev fake"),
+    ));
   }
 
   const runDir = await mkdtemp(path.join(tmpdir(), "thought-bridge-codex-"));
   const schemaPath = path.join(runDir, "output.schema.json");
   const finalPath = path.join(runDir, "final.json");
-  await writeFile(schemaPath, JSON.stringify(THOUGHT_AGENT_OUTPUT_SCHEMA, null, 2));
+  const instructionsPath = path.join(runDir, "AGENTS.md");
+  await writeFile(schemaPath, JSON.stringify(THOUGHT_V2_LOCAL_AGENT_OUTPUT_SCHEMA, null, 2));
+  await writeFile(instructionsPath, specText);
 
   const args = [
     "--ask-for-approval",
@@ -310,7 +500,6 @@ async function runDevCodex(agentInputText: string) {
     "exec",
     "--ephemeral",
     "--ignore-user-config",
-    "--ignore-rules",
     "--sandbox",
     "read-only",
     "--skip-git-repo-check",
@@ -359,23 +548,12 @@ async function runDevCodex(agentInputText: string) {
           return;
         }
         const detail = stderr.trim() || stdout.trim() || `exit ${code}`;
-        reject(new Error(`Codex exec failed: ${detail.slice(0, 800)}`));
+        reject(new Error(normalizeDevAgentFailureMessage(`Codex exec failed: ${detail.slice(0, 800)}`)));
       });
-      child.stdin.end(agentInputText);
+      child.stdin.end(promptLine);
     });
 
-    const rawMessage = stripJsonFence(await readFile(finalPath, "utf8"));
-    const parsed = JSON.parse(rawMessage) as unknown;
-    if (
-      !parsed ||
-      typeof parsed !== "object" ||
-      !("work" in parsed) ||
-      typeof (parsed as { work?: unknown }).work !== "string"
-    ) {
-      throw new Error("Codex final response did not match { work: string }.");
-    }
-
-    return parseAgentOutput(JSON.stringify({ work: (parsed as { work: string }).work }));
+    return parseDevAgentOutput(await readFile(finalPath, "utf8"));
   } finally {
     await rm(runDir, { recursive: true, force: true }).catch(() => {});
   }
@@ -389,7 +567,7 @@ async function autoRunDevCodex(run: DevThoughtAgentRun) {
   run.bridge = devBridgeInfo();
   run.adapter = devAdapterInfo();
   run.bridgeToken = randomToken(32);
-  run.launchToken = null;
+  run.claimAuthorization = null;
   run.state = "claimed";
   run.updatedAt = new Date().toISOString();
 
@@ -399,7 +577,7 @@ async function autoRunDevCodex(run: DevThoughtAgentRun) {
   run.updatedAt = run.startedAt;
 
   try {
-    const parsedOutput = await runDevCodex(run.agentInputText);
+    const parsedOutput = await runDevCodex(run.promptText, run.specText);
     run.agent = devAgentInfo();
     run.execution = devExecutionInfo();
     run.completedAt = new Date().toISOString();
@@ -423,7 +601,7 @@ async function autoRunDevCodex(run: DevThoughtAgentRun) {
       },
       output: {
         rawSha256: parsedOutput.rawSha256,
-        workSha256: parsedOutput.workSha256,
+        agentLineSha256: parsedOutput.agentLineSha256,
       },
       timing: {
         startedAt: run.startedAt,
@@ -432,8 +610,8 @@ async function autoRunDevCodex(run: DevThoughtAgentRun) {
     });
     run.rawResult = parsedOutput.raw;
     run.rawResultSha256 = parsedOutput.rawSha256;
-    run.workText = parsedOutput.work;
-    run.workSha256 = parsedOutput.workSha256;
+    run.agentLine = parsedOutput.agentLine;
+    run.agentLineSha256 = parsedOutput.agentLineSha256;
     run.receiptJson = receipt.json;
     run.receiptSha256 = receipt.sha256;
     run.state = "returned";
@@ -441,15 +619,15 @@ async function autoRunDevCodex(run: DevThoughtAgentRun) {
   } catch (error) {
     run.completedAt = new Date().toISOString();
     run.errorCode = "AGENT_START_FAILED";
-    run.errorMessage = error instanceof Error ? error.message : "Codex run failed.";
+    run.errorMessage = normalizeDevAgentFailureMessage(error instanceof Error ? error.message : "Codex run failed.");
     run.state = "failed";
     run.updatedAt = run.completedAt;
   }
 }
 
-function createThoughtAgentDevApiPlugin(rootDir: string) {
+function createThoughtAgentDevApiPlugin() {
   const runs = new Map<string, DevThoughtAgentRun>();
-  const specText = fs.readFileSync(path.resolve(rootDir, "THOUGHT.v1.md"), "utf8");
+  const specText = DEV_AGENT_SPEC_TEXT;
 
   return {
     name: "thought-agent-dev-api",
@@ -476,7 +654,23 @@ function createThoughtAgentDevApiPlugin(rootDir: string) {
           }
 
           const createPath = `${apiPrefix}/runs`;
+          const clientPath = `${apiPrefix}/client`;
           const runMatch = new RegExp(`^${apiPrefix}/runs/([^/]+)(?:/([^/]+))?$`).exec(requestUrl.pathname);
+
+          if (requestUrl.pathname === clientPath && req.method === "GET") {
+            res.statusCode = 200;
+            res.setHeader("access-control-allow-origin", "*");
+            res.setHeader("cache-control", "no-store");
+            res.setHeader("content-type", "text/plain; charset=utf-8");
+            res.setHeader("x-content-type-options", "nosniff");
+            res.end(buildThoughtCodexClientScript({
+              release: {
+                protocolReleaseId: THOUGHT_V2_LOCAL_RELEASE.protocol.protocolReleaseId,
+                manifestKeccak256: THOUGHT_V2_LOCAL_RELEASE.protocol.manifestKeccak256,
+              },
+            }));
+            return;
+          }
 
           if (requestUrl.pathname === createPath && req.method === "POST") {
             const body = await readJson(req);
@@ -494,19 +688,20 @@ function createThoughtAgentDevApiPlugin(rootDir: string) {
               protocolError(res, 400, "ADAPTER_NOT_INSTALLED", "Requested adapter is not supported.");
               return;
             }
-            const prompt = typeof body.prompt === "string" ? body.prompt : "";
-            if (!prompt.trim()) {
-              protocolError(res, 400, "AGENT_OUTPUT_SCHEMA_INVALID", "Prompt is empty.");
-              return;
-            }
+            const prompt = typeof body.promptLine === "string" ? body.promptLine : "";
+            assertThoughtLine(prompt, "prompt");
 
             const now = new Date();
             const id = runId();
             const browserToken = randomToken(32);
             const launchToken = randomToken(32);
             const specSha256 = await sha256Hex(specText);
+            if (specSha256 !== `sha256:${THOUGHT_V2_LOCAL_RELEASE.spec.sha256}`) {
+              protocolError(res, 500, "SPEC_HASH_MISMATCH", "Registered THOUGHT spec source mismatch.");
+              return;
+            }
             const promptSha256 = await sha256Hex(prompt);
-            const agentInput = await buildThoughtAgentInput({ specText, promptText: prompt });
+            const agentInput = await buildThoughtAgentInput({ promptLine: prompt });
             const createdAt = now.toISOString();
             const claimExpiresAt = new Date(now.getTime() + DEV_AGENT_CLAIM_TTL_MS).toISOString();
             const runExpiresAt = new Date(now.getTime() + DEV_AGENT_RUN_TTL_MS).toISOString();
@@ -520,7 +715,7 @@ function createThoughtAgentDevApiPlugin(rootDir: string) {
               specId: DEV_AGENT_SPEC_ID,
               specRef: DEV_AGENT_SPEC_REF,
               specSha256,
-              contractSpecHash: null,
+              contractSpecHash: THOUGHT_V2_LOCAL_RELEASE.spec.evmSpecHash,
               specText,
               promptText: prompt,
               promptSha256,
@@ -528,6 +723,7 @@ function createThoughtAgentDevApiPlugin(rootDir: string) {
               agentInputSha256: agentInput.sha256,
               browserToken,
               launchToken,
+              claimAuthorization: null,
               bridgeToken: null,
               bridge: null,
               adapter: null,
@@ -538,8 +734,8 @@ function createThoughtAgentDevApiPlugin(rootDir: string) {
               completedAt: null,
               rawResult: null,
               rawResultSha256: null,
-              workText: null,
-              workSha256: null,
+              agentLine: null,
+              agentLineSha256: null,
               receiptJson: null,
               receiptSha256: null,
               errorCode: null,
@@ -579,6 +775,7 @@ function createThoughtAgentDevApiPlugin(rootDir: string) {
             protocolError(res, 404, "RUN_NOT_FOUND", "THOUGHT Agent run not found.");
             return;
           }
+          expireDevAgentRun(run);
 
           if (!action && req.method === "GET") {
             if (!verifyBearer(req, run.browserToken)) {
@@ -590,17 +787,28 @@ function createThoughtAgentDevApiPlugin(rootDir: string) {
           }
 
           if (action === "claim" && req.method === "POST") {
-            if (run.state !== "created" || !verifyBearer(req, run.launchToken)) {
-              protocolError(res, run.state === "created" ? 401 : 409, run.state === "created" ? "TOKEN_INVALID" : "RUN_ALREADY_CLAIMED", run.state === "created" ? "Invalid token." : "THOUGHT Agent run is already claimed.");
+            if (run.state !== "created") {
+              protocolError(
+                res,
+                run.state === "expired" ? 410 : 409,
+                run.state === "expired" ? "RUN_EXPIRED" : "RUN_ALREADY_CLAIMED",
+                run.state === "expired" ? "THOUGHT Agent run expired." : "THOUGHT Agent run is already claimed.",
+              );
               return;
             }
             const body = await readJson(req);
-            const adapter = body.adapter as ThoughtAgentAdapterInfo;
+            assertProtocolVersion(body.protocolVersion);
+            const bridge = parseBridgeInfo(body.bridge);
+            const adapter = parseAdapterInfo(body.adapter);
             if (adapter?.adapterId !== run.requestedAdapterId) {
               protocolError(res, 409, "ADAPTER_MISMATCH", "Bridge adapter does not match requested adapter.");
               return;
             }
-            run.bridge = body.bridge as ThoughtAgentBridgeInfo;
+            if (!verifyBearer(req, run.launchToken)) {
+              protocolError(res, 401, "TOKEN_INVALID", "Invalid launch token.");
+              return;
+            }
+            run.bridge = bridge;
             run.adapter = adapter;
             run.bridgeToken = randomToken(32);
             run.launchToken = null;
@@ -616,14 +824,52 @@ function createThoughtAgentDevApiPlugin(rootDir: string) {
             return;
           }
 
+          if (action === "claim-authorization" && req.method === "POST") {
+            if (run.state !== "created" || !verifyBearer(req, run.browserToken)) {
+              protocolError(res, run.state === "created" ? 401 : 409, run.state === "created" ? "TOKEN_INVALID" : "RUN_STATE_CONFLICT", run.state === "created" ? "Invalid token." : "THOUGHT Agent run is not in the required state.");
+              return;
+            }
+            const body = await readJson(req);
+            assertProtocolVersion(body.protocolVersion);
+            const claimRequestId = String(body.claimRequestId ?? "");
+            const authorization = run.claimAuthorization;
+            if (!authorization || authorization.claimRequestId !== claimRequestId) {
+              protocolError(res, 404, "RUN_NOT_FOUND", "Claim authorization not found.");
+              return;
+            }
+            if (Date.parse(authorization.expiresAt) <= Date.now()) {
+              protocolError(res, 410, "TOKEN_EXPIRED", "Claim authorization expired.");
+              return;
+            }
+            if (authorization.state === "consumed") {
+              protocolError(res, 409, "RUN_ALREADY_CLAIMED", "Claim authorization was already used.");
+              return;
+            }
+            authorization.state = "authorized";
+            authorization.authorizedAt ??= new Date().toISOString();
+            run.updatedAt = authorization.authorizedAt;
+            protocolJson(res, 200, {
+              runId: run.runId,
+              state: "authorized",
+              claimAuthorization: (statusPayload(run).claimAuthorization as Record<string, unknown> | undefined) ?? null,
+            });
+            return;
+          }
+
           if (action === "start" && req.method === "POST") {
             if (run.state !== "claimed" || !verifyBearer(req, run.bridgeToken)) {
               protocolError(res, 409, "RUN_STATE_CONFLICT", "THOUGHT Agent run is not in the required state.");
               return;
             }
             const body = await readJson(req);
-            run.invocationId = String(body.invocationId ?? "");
-            run.startedAt = String(body.startedAt ?? new Date().toISOString());
+            assertProtocolVersion(body.protocolVersion);
+            const invocationId = String(body.invocationId ?? "");
+            if (!/^tai_[A-Za-z0-9_-]{8,}$/.test(invocationId)) {
+              throw new ThoughtAgentProtocolError("AGENT_OUTPUT_SCHEMA_INVALID", "Invalid invocationId.");
+            }
+            const startedAt = requireIsoLikeDev(body.startedAt, "startedAt");
+            run.invocationId = invocationId;
+            run.startedAt = startedAt;
             run.state = "running";
             run.updatedAt = new Date().toISOString();
             protocolJson(res, 200, {
@@ -636,22 +882,58 @@ function createThoughtAgentDevApiPlugin(rootDir: string) {
           }
 
           if (action === "result" && req.method === "PUT") {
-            if (run.state !== "running" || !verifyBearer(req, run.bridgeToken)) {
+            if ((run.state !== "running" && run.state !== "returned") || !verifyBearer(req, run.bridgeToken)) {
               protocolError(res, 409, "RUN_STATE_CONFLICT", "THOUGHT Agent run is not in the required state.");
               return;
             }
-            const body = await readJson(req);
+            const body = parseResultRequest(await readJson(req));
+            const startedAt = requireIsoLikeDev(body.startedAt, "startedAt");
+            const completedAt = requireIsoLikeDev(body.completedAt, "completedAt");
+            if (Date.parse(completedAt) < Date.parse(startedAt)) {
+              throw new ThoughtAgentProtocolError("AGENT_OUTPUT_SCHEMA_INVALID", "completedAt must not precede startedAt.");
+            }
+            if (run.startedAt && Date.parse(run.startedAt) !== Date.parse(startedAt)) {
+              protocolError(res, 409, "RESULT_CONFLICT", "Result startedAt does not match the running invocation.");
+              return;
+            }
+            const idempotencyKey = String(req.headers["idempotency-key"] ?? "");
+            if (idempotencyKey && idempotencyKey !== body.invocationId) {
+              protocolError(res, 409, "RESULT_CONFLICT", "Idempotency key does not match invocation ID.");
+              return;
+            }
             if (String(body.invocationId ?? "") !== run.invocationId) {
               protocolError(res, 409, "RESULT_CONFLICT", "Result invocation ID does not match the running invocation.");
               return;
             }
-            const output = body.output as { raw?: unknown };
-            const parsedOutput = await parseAgentOutput(String(output?.raw ?? ""));
-            run.bridge = body.bridge as ThoughtAgentBridgeInfo;
-            run.adapter = body.adapter as ThoughtAgentAdapterInfo;
-            run.agent = body.agent as ThoughtAgentInfo;
-            run.execution = body.execution as ThoughtAgentExecutionInfo;
-            run.completedAt = String(body.completedAt ?? new Date().toISOString());
+            const parsedOutput = await parseDevAgentOutput(body.output.raw);
+            if (
+              !isThoughtSha256(body.output.rawSha256) ||
+              !isThoughtSha256(body.output.agentLineSha256) ||
+              body.output.raw !== parsedOutput.raw ||
+              body.output.agentLine !== parsedOutput.agentLine ||
+              body.output.rawSha256 !== parsedOutput.rawSha256 ||
+              body.output.agentLineSha256 !== parsedOutput.agentLineSha256
+            ) {
+              protocolError(res, 409, "RESULT_HASH_MISMATCH", "Submitted result hashes do not match exact bytes.");
+              return;
+            }
+            if (run.state === "returned") {
+              if (run.rawResultSha256 === parsedOutput.rawSha256) {
+                protocolJson(res, 200, statusPayload(run));
+                return;
+              }
+              protocolError(res, 409, "RESULT_CONFLICT", "A conflicting result was already accepted for this run.");
+              return;
+            }
+            if (body.adapter.adapterId !== run.requestedAdapterId) {
+              protocolError(res, 409, "ADAPTER_MISMATCH", "Result adapter does not match requested adapter.");
+              return;
+            }
+            run.bridge = body.bridge;
+            run.adapter = body.adapter;
+            run.agent = body.agent;
+            run.execution = body.execution;
+            run.completedAt = completedAt;
             const receipt = await buildThoughtAgentReceipt({
               runId: run.runId,
               origin: run.webOrigin,
@@ -672,17 +954,17 @@ function createThoughtAgentDevApiPlugin(rootDir: string) {
               },
               output: {
                 rawSha256: parsedOutput.rawSha256,
-                workSha256: parsedOutput.workSha256,
+                agentLineSha256: parsedOutput.agentLineSha256,
               },
               timing: {
-                startedAt: run.startedAt ?? run.createdAt,
+                startedAt,
                 completedAt: run.completedAt,
               },
             });
             run.rawResult = parsedOutput.raw;
             run.rawResultSha256 = parsedOutput.rawSha256;
-            run.workText = parsedOutput.work;
-            run.workSha256 = parsedOutput.workSha256;
+            run.agentLine = parsedOutput.agentLine;
+            run.agentLineSha256 = parsedOutput.agentLineSha256;
             run.receiptJson = receipt.json;
             run.receiptSha256 = receipt.sha256;
             run.state = "returned";
@@ -696,12 +978,31 @@ function createThoughtAgentDevApiPlugin(rootDir: string) {
               protocolError(res, 401, "TOKEN_INVALID", "Invalid token.");
               return;
             }
+            if (run.state === "expired") {
+              protocolError(res, 410, "RUN_EXPIRED", "THOUGHT Agent run expired.");
+              return;
+            }
+            if (run.state !== "claimed" && run.state !== "running") {
+              protocolError(res, 409, "RUN_STATE_CONFLICT", "THOUGHT Agent run is not in the required state.");
+              return;
+            }
             const body = await readJson(req);
+            assertProtocolVersion(body.protocolVersion);
             const error = body.error as { code?: unknown; message?: unknown } | undefined;
-            run.invocationId = run.invocationId ?? String(body.invocationId ?? "");
-            run.completedAt = String(body.failedAt ?? new Date().toISOString());
-            run.errorCode = String(error?.code ?? "AGENT_START_FAILED");
-            run.errorMessage = String(error?.message ?? "The agent run failed.");
+            const invocationId = body.invocationId === undefined ? null : String(body.invocationId);
+            if (invocationId && !/^tai_[A-Za-z0-9_-]{8,}$/.test(invocationId)) {
+              throw new ThoughtAgentProtocolError("AGENT_OUTPUT_SCHEMA_INVALID", "Invalid invocationId.");
+            }
+            if (run.invocationId && invocationId && run.invocationId !== invocationId) {
+              protocolError(res, 409, "RESULT_CONFLICT", "Failure invocation ID does not match the running invocation.");
+              return;
+            }
+            run.invocationId = run.invocationId ?? invocationId;
+            run.completedAt = body.failedAt === undefined
+              ? new Date().toISOString()
+              : requireIsoLikeDev(body.failedAt, "failedAt");
+            run.errorCode = devFailureCode(error?.code);
+            run.errorMessage = normalizeDevAgentFailureMessage(String(error?.message ?? "The agent run failed."));
             run.state = "failed";
             run.updatedAt = new Date().toISOString();
             protocolJson(res, 200, statusPayload(run));
@@ -713,6 +1014,10 @@ function createThoughtAgentDevApiPlugin(rootDir: string) {
               protocolError(res, 401, "TOKEN_INVALID", "Invalid token.");
               return;
             }
+            if (["returned", "failed", "cancelled", "expired"].includes(run.state)) {
+              protocolJson(res, 200, statusPayload(run));
+              return;
+            }
             run.state = "cancelled";
             run.updatedAt = new Date().toISOString();
             protocolJson(res, 200, statusPayload(run));
@@ -721,6 +1026,10 @@ function createThoughtAgentDevApiPlugin(rootDir: string) {
 
           protocolError(res, 405, "RUN_STATE_CONFLICT", "Method not allowed.");
         } catch (error) {
+          if (error instanceof ThoughtAgentProtocolError) {
+            protocolError(res, 400, error.code, error.message);
+            return;
+          }
           protocolError(
             res,
             500,
@@ -736,8 +1045,10 @@ function createThoughtAgentDevApiPlugin(rootDir: string) {
 export default defineConfig(({ mode }) => {
   const rootDir = process.cwd();
   const workspaceRoot = path.resolve(rootDir, "../..");
+  const routeBase = normalizeViteBase(process.env.VITE_THOUGHT_ROUTE_BASE);
   const publicEnv = {
     ...loadEnv(mode, rootDir, "VITE_"),
+    ...(mode === "sepolia" ? { VITE_NETWORK: "sepolia" } : {}),
     ...Object.fromEntries(
       Object.entries(process.env).filter(([key]) => key.startsWith("VITE_"))
     ),
@@ -745,9 +1056,10 @@ export default defineConfig(({ mode }) => {
 
   return {
     root: rootDir,
-    plugins: [createThoughtAgentDevApiPlugin(rootDir), react()],
+    base: routeBase,
+    plugins: [createThoughtAgentDevApiPlugin(), react()],
     build: {
-      outDir: path.resolve(__dirname, "../../dist/thought"),
+      outDir: readOutDir(rootDir),
       emptyOutDir: true,
       chunkSizeWarningLimit: 700,
       rollupOptions: {
@@ -776,7 +1088,7 @@ export default defineConfig(({ mode }) => {
         ],
       },
     },
-    envDir: __dirname,
+    envDir: rootDir,
     define: {
       "globalThis.__INSHELL_VITE_ENV__": JSON.stringify(publicEnv),
       "import.meta.env.MODE": JSON.stringify(mode),

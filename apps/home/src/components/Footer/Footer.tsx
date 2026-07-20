@@ -78,7 +78,7 @@ function isLocalBrowserHost(): boolean {
 
 function defaultGalleryUrl(): string {
   if (isPreviewDeployment()) return "https://preview.inshell.art/gallery";
-  if (isLocalBrowserHost()) return "http://127.0.0.1:5174/gallery";
+  if (isLocalBrowserHost()) return "/gallery";
   return "https://inshell.art/gallery";
 }
 
@@ -86,7 +86,7 @@ function resolveGalleryUrl(): string {
   const direct = readEnvUrl(["VITE_GALLERY_URL", "VITE_THOUGHT_GALLERY_URL"]);
   if (direct) {
     try {
-      return new globalThis.URL(direct).toString();
+      return direct.startsWith("/") ? direct : new globalThis.URL(direct).toString();
     } catch {
       return defaultGalleryUrl();
     }

@@ -1,0 +1,47 @@
+[
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains a control character U+A"
+    ],
+    "id": "newline",
+    "kind": "prompt",
+    "promptLine": "line\nbreak"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains a control character U+9"
+    ],
+    "id": "tab",
+    "kind": "prompt",
+    "promptLine": "line\tbreak"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line contains a control character U+1"
+    ],
+    "id": "control",
+    "kind": "prompt",
+    "promptLine": "line\u0001break"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line has invalid spacing"
+    ],
+    "id": "outer-space",
+    "kind": "prompt",
+    "promptLine": " leading"
+  },
+  {
+    "agentLine": "valid",
+    "errors": [
+      "prompt line has invalid spacing"
+    ],
+    "id": "repeated-space",
+    "kind": "prompt",
+    "promptLine": "double  space"
+  }
+]

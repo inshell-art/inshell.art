@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { decodeFunctionData, getAddress, type Hex } from "viem";
 import { useAuctionBids } from "@/hooks/useAuctionBids";
 import type { ProviderInterface } from "@inshell/ethereum";
@@ -38,11 +39,21 @@ import {
 import {
   PUBLIC_NETWORK_CONFIG,
   SURFACE_TERMINOLOGY,
+  isPathMintHandoffId,
+  parsePathMintReturnRecord,
+  pathMintReturnStorageKey,
+  readPathMintReturnRecord,
+  removePathMintReturnRecord,
   resolveWalletChainRpcUrls,
   trackInshellAnonymousAnalytics,
+  writePathMintReturnRecord,
+  type PathMintReturnRecord,
+  type PathMintReturnStorageHost,
 } from "@inshell/shared";
 import HeaderWalletCTA from "@/components/HeaderWalletCTA";
 import { useWallet } from "@inshell/wallet";
+import { withPathMintSubmissionLock } from "../pathMintSubmissionLock";
+import { InshellWalletPicker } from "@inshell/inshell-shell";
 import {
   buildReportBugLink,
   getPublicNetworkNotice,
@@ -50,8 +61,6 @@ import {
   shouldShowDebugPanel,
   shouldShowReportBug,
 } from "@/config/publicLaunch";
-/* global Element, SVGSVGElement, SVGElement, HTMLDivElement, MouseEvent, PointerEvent, URL, URLSearchParams */
-
 type Props = {
   address?: string;
   provider?: ProviderInterface;
@@ -284,8 +293,33 @@ type PulseBidIntentCheck = {
 
 type PathMintIntent = {
   from: "thought";
+  handoffId: string;
+  originAccount: string | null;
+  chainId: bigint;
+  movement: "THOUGHT";
   returnTo: string;
 };
+
+type PathMintIntentRead =
+  | { kind: "none" }
+  | { kind: "invalid"; reason: string }
+  | { kind: "valid"; intent: PathMintIntent };
+
+type TransactionReceiptOutcome = "success" | "reverted" | "unknown";
+type TransactionReplacement =
+  | { kind: "none" }
+  | {
+      kind: "replacement";
+      cancelled: boolean;
+      hash: string | null;
+      receipt: unknown;
+    };
+type PathMintSubmissionContext = {
+  account: string;
+  chainId: bigint;
+};
+
+const PATH_MINT_RECEIPT_RETRY_MS = 3_000;
 
 function useDesktopOnly(minWidth = 768) {
   const [isDesktop, setIsDesktop] = useState(
@@ -304,26 +338,261 @@ function normalizeReturnTo(raw: string | null): string | null {
   try {
     const url = new URL(raw, window.location.href);
     const protocolOk = url.protocol === "http:" || url.protocol === "https:";
-    const host = url.hostname.toLowerCase();
-    const hostOk =
-      host === "localhost" ||
-      host === "127.0.0.1" ||
-      host === "[::1]" ||
-      host === "inshell.art" ||
-      host.endsWith(".inshell.art");
-    return protocolOk && hostOk ? url.toString() : null;
+    if (!protocolOk || url.origin !== window.location.origin) return null;
+
+    const pathname = url.pathname.replace(/\/+$/, "") || "/";
+    if (!/^\/thought(?:\/|$)/.test(pathname)) return null;
+    return `${pathname}${url.search}${url.hash}`;
   } catch {
     return null;
   }
 }
 
-function readPathMintIntent(): PathMintIntent | null {
-  if (typeof window === "undefined") return null;
+function readPathMintIntent(): PathMintIntentRead {
+  if (typeof window === "undefined") return { kind: "none" };
   const params = new URLSearchParams(window.location.search);
-  if (params.get("intent") !== "mint-path") return null;
-  if (params.get("from") !== "thought") return null;
+  if (params.get("intent") !== "mint-path") return { kind: "none" };
+  if (params.get("from") !== "thought") {
+    return { kind: "invalid", reason: "Invalid THOUGHT mint handoff source." };
+  }
+
+  const handoffId = params.get("handoff");
+  if (!isPathMintHandoffId(handoffId)) {
+    return { kind: "invalid", reason: "Invalid THOUGHT mint handoff id." };
+  }
+  if (params.get("movement") !== "THOUGHT") {
+    return { kind: "invalid", reason: "Invalid THOUGHT mint movement." };
+  }
+
+  const originAccountRaw = params.get("account");
+  const originAccount = originAccountRaw?.trim() || null;
+  if (originAccount && !/^0x[0-9a-fA-F]{40}$/.test(originAccount)) {
+    return { kind: "invalid", reason: "Invalid THOUGHT wallet account." };
+  }
+
+  const chainId = parseChainId(params.get("chainId"));
+  if (
+    chainId === null ||
+    chainId <= 0n ||
+    chainId > BigInt(Number.MAX_SAFE_INTEGER)
+  ) {
+    return { kind: "invalid", reason: "Invalid THOUGHT mint chain." };
+  }
+
   const returnTo = normalizeReturnTo(params.get("returnTo"));
-  return returnTo ? { from: "thought", returnTo } : null;
+  if (!returnTo) {
+    return { kind: "invalid", reason: "Invalid THOUGHT return route." };
+  }
+  const returnUrl = new URL(returnTo, window.location.origin);
+  const returnHandoffId = returnUrl.searchParams.get("pathHandoff");
+  if (returnHandoffId !== handoffId) {
+    return { kind: "invalid", reason: "THOUGHT return handoff does not match." };
+  }
+
+  return {
+    kind: "valid",
+    intent: {
+      from: "thought",
+      handoffId,
+      originAccount: originAccount?.toLowerCase() ?? null,
+      chainId,
+      movement: "THOUGHT",
+      returnTo,
+    },
+  };
+}
+
+function getPathMintReturnStorageHost(): PathMintReturnStorageHost {
+  if (typeof window === "undefined") return {};
+  const host: PathMintReturnStorageHost = {};
+  try {
+    host.localStorage = window.localStorage;
+  } catch {
+    // The shared writer will fall back to session storage.
+  }
+  try {
+    host.sessionStorage = window.sessionStorage;
+  } catch {
+    // The in-memory state remains usable when browser storage is blocked.
+  }
+  return host;
+}
+
+function readMatchingPathMintReturnRecord(
+  intent: PathMintIntent,
+): PathMintReturnRecord | null {
+  return readPathMintReturnRecord(
+    getPathMintReturnStorageHost(),
+    intent.handoffId,
+  );
+}
+
+function transactionReceiptOutcome(receipt: unknown): TransactionReceiptOutcome {
+  if (!receipt || typeof receipt !== "object") return "unknown";
+  const candidate = receipt as Record<string, unknown>;
+  const values = [
+    candidate.execution_status,
+    candidate.executionStatus,
+    candidate.status,
+    candidate.finality_status,
+    candidate.finalityStatus,
+  ];
+  let sawSuccess = false;
+
+  for (const value of values) {
+    if (value === false || value === 0 || value === 0n) return "reverted";
+    if (value === true || value === 1 || value === 1n) {
+      sawSuccess = true;
+      continue;
+    }
+    if (typeof value !== "string") continue;
+    const normalized = value.trim().toLowerCase();
+    if (
+      normalized === "0" ||
+      normalized === "0x0" ||
+      normalized === "failed" ||
+      normalized === "failure" ||
+      normalized === "reverted" ||
+      normalized === "rejected" ||
+      normalized === "cancelled" ||
+      normalized === "canceled"
+    ) {
+      return "reverted";
+    }
+    if (
+      normalized === "1" ||
+      normalized === "0x1" ||
+      normalized === "success" ||
+      normalized === "succeeded" ||
+      normalized === "confirmed" ||
+      normalized === "finalized" ||
+      normalized === "accepted_on_l1" ||
+      normalized === "accepted_on_l2"
+    ) {
+      sawSuccess = true;
+    }
+  }
+
+  if (
+    candidate.reverted === true ||
+    candidate.isReverted === true ||
+    (typeof candidate.revert_reason === "string" &&
+      candidate.revert_reason.trim() !== "") ||
+    (typeof candidate.revertReason === "string" &&
+      candidate.revertReason.trim() !== "")
+  ) {
+    return "reverted";
+  }
+  return sawSuccess ? "success" : "unknown";
+}
+
+function isExplicitTransactionFailure(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return /\b(?:execution|transaction)(?: was)? reverted\b|\breceipt status\s*(?:=|:)?\s*(?:0x0|0)\b/i.test(
+      walletErrorMessage(error),
+    );
+  }
+  const candidate = error as Record<string, unknown>;
+  if (transactionReceiptOutcome(candidate) === "reverted") return true;
+  const code = String(candidate.code ?? "").trim().toUpperCase();
+  if (
+    code === "CALL_EXCEPTION" ||
+    code === "TRANSACTION_REVERTED" ||
+    code === "EXECUTION_REVERTED"
+  ) {
+    return true;
+  }
+  const data =
+    candidate.data && typeof candidate.data === "object"
+      ? (candidate.data as Record<string, unknown>)
+      : null;
+  const receipts = [
+    candidate.receipt,
+    candidate.transactionReceipt,
+    data?.receipt,
+  ];
+  if (receipts.some((receipt) => transactionReceiptOutcome(receipt) === "reverted")) {
+    return true;
+  }
+  const message = walletErrorMessage(error).toLowerCase();
+  return /\b(?:execution|transaction)(?: was)? reverted\b|\brevert(?:ed)?(?: with reason| reason|:)\b|\breceipt status\s*(?:=|:)?\s*(?:0x0|0)\b/i.test(
+    message,
+  );
+}
+
+function transactionReplacement(error: unknown): TransactionReplacement {
+  if (!error || typeof error !== "object") return { kind: "none" };
+  const candidate = error as Record<string, unknown>;
+  if (String(candidate.code ?? "").toUpperCase() !== "TRANSACTION_REPLACED") {
+    return { kind: "none" };
+  }
+  const replacement =
+    candidate.replacement && typeof candidate.replacement === "object"
+      ? (candidate.replacement as Record<string, unknown>)
+      : null;
+  const receipt = candidate.receipt ?? replacement?.receipt ?? null;
+  const receiptRecord =
+    receipt && typeof receipt === "object"
+      ? (receipt as Record<string, unknown>)
+      : null;
+  const hashCandidate =
+    replacement?.hash ??
+    replacement?.transactionHash ??
+    receiptRecord?.hash ??
+    receiptRecord?.transactionHash;
+  const hash =
+    typeof hashCandidate === "string" && /^0x[0-9a-fA-F]{64}$/.test(hashCandidate)
+      ? hashCandidate.toLowerCase()
+      : null;
+  const reason = String(candidate.reason ?? "").trim().toLowerCase();
+  return {
+    kind: "replacement",
+    cancelled:
+      candidate.cancelled === true || reason === "cancelled" || reason === "canceled",
+    hash,
+    receipt,
+  };
+}
+
+async function readPathMintTransactionReceipt(
+  receiptProvider: ProviderInterface,
+  hash: string,
+): Promise<unknown> {
+  if (supportsRpcRequest(receiptProvider)) {
+    return receiptProvider.request?.({
+      method: "eth_getTransactionReceipt",
+      params: [hash],
+    });
+  }
+  const waiter = (receiptProvider as any)?.waitForTransaction;
+  if (typeof waiter === "function") {
+    return waiter.call(receiptProvider, hash);
+  }
+  return null;
+}
+
+async function readPathMintSubmissionContext(
+  walletProvider: ProviderInterface,
+  expectedAccount: string,
+  expectedChainId: bigint,
+): Promise<PathMintSubmissionContext> {
+  if (!supportsRpcRequest(walletProvider)) {
+    throw new Error("wallet context unavailable before PATH mint.");
+  }
+  const [accountsResult, actualChainId] = await Promise.all([
+    walletProvider.request?.({ method: "eth_accounts" }),
+    getChainId(walletProvider),
+  ]);
+  const account = Array.isArray(accountsResult)
+    ? String(accountsResult[0] ?? "").toLowerCase()
+    : "";
+  if (!/^0x[0-9a-f]{40}$/.test(account) || account !== expectedAccount.toLowerCase()) {
+    throw new Error("wallet account changed before PATH mint.");
+  }
+  if (actualChainId !== expectedChainId) {
+    throw new Error("wallet network changed before PATH mint.");
+  }
+  return { account, chainId: actualChainId };
 }
 
 function toNumberSafe(v: string | number): number {
@@ -501,10 +770,9 @@ const EXTREME_HISTORY_TAIL_THRESHOLD = BASE_HALF_LIVES * 100;
 const LIVE_HISTORY_CONTEXT_MAX_BIDS = 24;
 const SPARSE_LIVE_ACTIVE_WINDOW = BASE_HALF_LIVES * 4;
 const SPARSE_LIVE_ACTIVE_CONTEXT = BASE_HALF_LIVES * 0.5;
+const MAX_PATH_STAGE_LAYOUT_ZOOM = 1.08;
 const PLOT_EDGE_PAD = 2.4;
-const PLOT_LEFT_PAD = PLOT_EDGE_PAD;
-const PLOT_RIGHT_PAD = PLOT_EDGE_PAD;
-const PLOT_X_SPAN = 100 - PLOT_LEFT_PAD - PLOT_RIGHT_PAD;
+const CURVE_TOOLTIP_CURSOR_OFFSET_PX = 8;
 
 function halfLifeWindowEnd(uEnd: number): number {
   if (!Number.isFinite(uEnd) || uEnd <= 0) return BASE_HALF_LIVES;
@@ -722,47 +990,6 @@ function resolveAddChainParams(chainIdHex: string) {
     },
     rpcUrls: rpcUrls.length ? rpcUrls : ["http://127.0.0.1:8546"],
   };
-}
-
-async function requestChainSwitch(
-  chainIdHex: string,
-  provider?: { request?: (...args: any[]) => Promise<any> } | null
-): Promise<boolean> {
-  const wallet = resolveWalletRequestProvider(provider);
-  if (!wallet?.request) return false;
-  try {
-    await wallet.request({
-      method: "wallet_switchEthereumChain",
-      params: [{ chainId: chainIdHex }],
-    });
-    return true;
-  } catch (err) {
-    const code = Number((err as any)?.code);
-    const msg = String((err as any)?.message ?? err ?? "").toLowerCase();
-    const shouldAddChain =
-      code === 4902 ||
-      msg.includes("unknown chain") ||
-      msg.includes("unrecognized chain") ||
-      msg.includes("chain has not been added") ||
-      msg.includes("does not exist");
-    if (!shouldAddChain) return false;
-
-    const addParams = resolveAddChainParams(chainIdHex);
-    if (!addParams) return false;
-    try {
-      await wallet.request({
-        method: "wallet_addEthereumChain",
-        params: [addParams],
-      });
-      await wallet.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: chainIdHex }],
-      });
-      return true;
-    } catch {
-      return false;
-    }
-  }
 }
 
 async function refreshWalletChainRpc(
@@ -2363,7 +2590,9 @@ export default function AuctionCanvas({
     () => releaseConfigToAuctionConfig(protocolRelease, decimals),
     [protocolRelease, decimals]
   );
-  const pathMintIntent = useMemo(() => readPathMintIntent(), []);
+  const pathMintIntentRead = useMemo(() => readPathMintIntent(), []);
+  const pathMintIntent =
+    pathMintIntentRead.kind === "valid" ? pathMintIntentRead.intent : null;
   const releaseMissing = !fixtureState && !allowDirectAuction && !protocolRelease;
   const network = useMemo(() => {
     const raw = getEnvValue("VITE_NETWORK");
@@ -2551,18 +2780,88 @@ export default function AuctionCanvas({
     }
   }, [coreData?.price, decimals, fixtureState]);
   const effectiveCurrentAskQuoteDec = currentAskQuoteDec ?? coreCurrentAskDec;
-  const [returnPromptVisible, setReturnPromptVisible] = useState(false);
+  const [pathMintReturnState, setPathMintReturnState] =
+    useState<PathMintReturnRecord | null>(() =>
+      pathMintIntent
+        ? readMatchingPathMintReturnRecord(pathMintIntent)
+        : null
+    );
+  const pathMintReturnStateRef = useRef(pathMintReturnState);
+  const pathMintReturnMonitorInFlightRef = useRef<string | null>(null);
+  const pathMintReturnMonitorRetryTimerRef = useRef<number | null>(null);
+  const pathMintReturnMonitorMountedRef = useRef(true);
+  const pathMintSubmissionInFlightRef = useRef(false);
+  const [pathMintReturnMonitorWake, setPathMintReturnMonitorWake] = useState(0);
+  const persistPathMintReturnState = useCallback(
+    (next: PathMintReturnRecord) => {
+      if (!pathMintIntent || next.handoffId !== pathMintIntent.handoffId) return;
+      pathMintReturnStateRef.current = next;
+      setPathMintReturnState(next);
+      writePathMintReturnRecord(getPathMintReturnStorageHost(), next);
+      if (next.status === "submitted") {
+        setPathMintReturnMonitorWake((value) => value + 1);
+      }
+    },
+    [pathMintIntent]
+  );
+  const clearPathMintReturnState = useCallback(() => {
+    if (pathMintReturnMonitorRetryTimerRef.current !== null) {
+      window.clearTimeout(pathMintReturnMonitorRetryTimerRef.current);
+      pathMintReturnMonitorRetryTimerRef.current = null;
+    }
+    pathMintReturnStateRef.current = null;
+    setPathMintReturnState(null);
+    if (pathMintIntent) {
+      removePathMintReturnRecord(
+        getPathMintReturnStorageHost(),
+        pathMintIntent.handoffId,
+      );
+    }
+  }, [pathMintIntent]);
+  const schedulePathMintReturnMonitor = useCallback((hash: string) => {
+    if (pathMintReturnMonitorRetryTimerRef.current !== null) return;
+    pathMintReturnMonitorRetryTimerRef.current = window.setTimeout(() => {
+      pathMintReturnMonitorRetryTimerRef.current = null;
+      const current = pathMintReturnStateRef.current;
+      if (current?.status === "submitted" && current.txHash === hash) {
+        setPathMintReturnMonitorWake((value) => value + 1);
+      }
+    }, PATH_MINT_RECEIPT_RETRY_MS);
+  }, []);
+  const updatePathMintReturnTokenId = useCallback(
+    (txHashValue: string, tokenId: number) => {
+      const current = pathMintReturnStateRef.current;
+      if (
+        !pathMintIntent ||
+        !current ||
+        current.handoffId !== pathMintIntent.handoffId ||
+        current.txHash.toLowerCase() !== txHashValue.toLowerCase()
+      ) {
+        return;
+      }
+      const next = parsePathMintReturnRecord(
+        {
+          ...current,
+          tokenId: String(tokenId),
+          updatedAt: Date.now(),
+        },
+        pathMintIntent.handoffId,
+      );
+      if (next) persistPathMintReturnState(next);
+    },
+    [pathMintIntent, persistPathMintReturnState]
+  );
   const [walletPickerOpen, setWalletPickerOpen] = useState(false);
   const preflightRef = useRef<Promise<PreflightResult | null> | null>(null);
   const ctaStackRef = useRef<HTMLDivElement | null>(null);
   const mintReviewRef = useRef<HTMLDivElement | null>(null);
-  const walletPickerRef = useRef<HTMLDivElement | null>(null);
 
   const [hover, setHover] = useState<DotPoint | null>(null);
   const [selectedBidKey, setSelectedBidKey] = useState<string | null>(null);
   const [selectedAskKey, setSelectedAskKey] = useState<string | null>(null);
   const [selectedNow, setSelectedNow] = useState(false);
   const pinnedDotRef = useRef(false);
+  const pinnedPointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const [viewport, setViewport] = useState<Viewport | null>(null);
   const [viewportUserLocked, setViewportUserLocked] = useState(false);
   const viewportDataKeyRef = useRef<string | null>(null);
@@ -2595,31 +2894,42 @@ export default function AuctionCanvas({
   useEffect(() => {
     pinnedDotRef.current = hasPinnedDot;
   }, [hasPinnedDot]);
+
   const clearPinnedDot = useCallback(() => {
     pinnedDotRef.current = false;
+    pinnedPointerRef.current = null;
     setSelectedBidKey(null);
     setSelectedAskKey(null);
     setSelectedNow(false);
     setHover(null);
   }, []);
-  const pinBidDot = useCallback((key: string) => {
+  const rememberPinnedPointer = useCallback((clientX?: number, clientY?: number) => {
+    pinnedPointerRef.current =
+      typeof clientX === "number" && typeof clientY === "number"
+        ? { clientX, clientY }
+        : null;
+  }, []);
+  const pinBidDot = useCallback((key: string, clientX?: number, clientY?: number) => {
     pinnedDotRef.current = true;
+    rememberPinnedPointer(clientX, clientY);
     setSelectedBidKey(key);
     setSelectedAskKey(null);
     setSelectedNow(false);
-  }, []);
-  const pinAskDot = useCallback((key: string) => {
+  }, [rememberPinnedPointer]);
+  const pinAskDot = useCallback((key: string, clientX?: number, clientY?: number) => {
     pinnedDotRef.current = true;
+    rememberPinnedPointer(clientX, clientY);
     setSelectedAskKey(key);
     setSelectedBidKey(null);
     setSelectedNow(false);
-  }, []);
-  const pinNowDot = useCallback(() => {
+  }, [rememberPinnedPointer]);
+  const pinNowDot = useCallback((clientX?: number, clientY?: number) => {
     pinnedDotRef.current = true;
+    rememberPinnedPointer(clientX, clientY);
     setSelectedNow(true);
     setSelectedBidKey(null);
     setSelectedAskKey(null);
-  }, []);
+  }, [rememberPinnedPointer]);
   useEffect(() => {
     const handleDocumentClick = (event: MouseEvent) => {
       if (!pinnedDotRef.current) return;
@@ -2652,6 +2962,42 @@ export default function AuctionCanvas({
     chainIdValue !== null &&
     targetChainId !== null &&
     chainIdValue === targetChainId;
+  const pathMintIntentBlock = useMemo(() => {
+    if (pathMintReturnState) return null;
+    if (pathMintIntentRead.kind === "invalid") {
+      return pathMintIntentRead.reason;
+    }
+    if (!pathMintIntent) return null;
+    if (targetChainId === null || pathMintIntent.chainId !== targetChainId) {
+      return `THOUGHT handoff targets chain ${pathMintIntent.chainId.toString()}; PATH is configured for ${
+        targetChainId?.toString() ?? "an unknown chain"
+      }.`;
+    }
+    if (
+      isConnected &&
+      walletAddress &&
+      pathMintIntent.originAccount &&
+      walletAddress.toLowerCase() !== pathMintIntent.originAccount
+    ) {
+      return `Switch to the THOUGHT wallet ${shortAddr(pathMintIntent.originAccount)}.`;
+    }
+    if (
+      isConnected &&
+      chainIdValue !== null &&
+      chainIdValue !== pathMintIntent.chainId
+    ) {
+      return `Switch wallet to THOUGHT chain ${pathMintIntent.chainId.toString()}.`;
+    }
+    return null;
+  }, [
+    chainIdValue,
+    pathMintIntent,
+    pathMintIntentRead,
+    pathMintReturnState,
+    targetChainId,
+    walletAddress,
+    isConnected,
+  ]);
   const hasDetectedWalletConnector = useMemo(() => {
     if (!connectors?.length) return false;
     return connectors.some((connector) => isConnectorAvailable(connector));
@@ -3157,7 +3503,6 @@ export default function AuctionCanvas({
     const handleOutsidePointerDown = (event: globalThis.Event) => {
       const target = event.target as globalThis.Node | null;
       if (!target) return;
-      if (walletPickerRef.current?.contains(target)) return;
       if (ctaStackRef.current?.contains(target)) return;
       setWalletPickerOpen(false);
     };
@@ -3205,6 +3550,180 @@ export default function AuctionCanvas({
   }, [bids]);
 
   useEffect(() => {
+    pathMintReturnMonitorMountedRef.current = true;
+    return () => {
+      pathMintReturnMonitorMountedRef.current = false;
+      if (pathMintReturnMonitorRetryTimerRef.current !== null) {
+        window.clearTimeout(pathMintReturnMonitorRetryTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!pathMintIntent) return;
+    const storageKey = pathMintReturnStorageKey(pathMintIntent.handoffId);
+    if (!storageKey) return;
+
+    const adoptStoredRecord = () => {
+      const record = readPathMintReturnRecord(
+        getPathMintReturnStorageHost(),
+        pathMintIntent.handoffId,
+      );
+      const next = record;
+      pathMintReturnStateRef.current = next;
+      setPathMintReturnState(next);
+      if (next?.status === "submitted") {
+        setPathMintReturnMonitorWake((value) => value + 1);
+      }
+    };
+    const wakeMonitor = () => {
+      if (pathMintReturnStateRef.current?.status === "submitted") {
+        setPathMintReturnMonitorWake((value) => value + 1);
+      }
+    };
+    const handleStorage = (event: globalThis.StorageEvent) => {
+      if (event.key === storageKey) adoptStoredRecord();
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") wakeMonitor();
+    };
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("focus", wakeMonitor);
+    window.addEventListener("online", wakeMonitor);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("focus", wakeMonitor);
+      window.removeEventListener("online", wakeMonitor);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [pathMintIntent]);
+
+  useEffect(() => {
+    const record = pathMintReturnState;
+    if (
+      !pathMintIntent ||
+      record?.status !== "submitted" ||
+      record.handoffId !== pathMintIntent.handoffId ||
+      pathMintReturnMonitorInFlightRef.current === record.txHash
+    ) {
+      return;
+    }
+
+    const waitProvider = provider ?? (getDefaultProvider() as ProviderInterface);
+    pathMintReturnMonitorInFlightRef.current = record.txHash;
+    void Promise.resolve()
+      .then(() => readPathMintTransactionReceipt(waitProvider, record.txHash))
+      .then((receipt) => {
+        const current = pathMintReturnStateRef.current;
+        if (
+          !pathMintReturnMonitorMountedRef.current ||
+          current?.status !== "submitted" ||
+          current.txHash !== record.txHash
+        ) {
+          return;
+        }
+        const outcome = transactionReceiptOutcome(receipt);
+        if (outcome === "success") {
+          const confirmed = parsePathMintReturnRecord(
+            {
+              ...record,
+              status: "confirmed",
+              updatedAt: Date.now(),
+            },
+            pathMintIntent.handoffId,
+          );
+          if (confirmed) persistPathMintReturnState(confirmed);
+          return;
+        }
+        if (outcome === "reverted") {
+          clearPathMintReturnState();
+          setTxError("PATH mint transaction reverted.");
+          setTxState("failed");
+          return;
+        }
+        schedulePathMintReturnMonitor(record.txHash);
+      })
+      .catch((error) => {
+        const current = pathMintReturnStateRef.current;
+        if (
+          !pathMintReturnMonitorMountedRef.current ||
+          current?.status !== "submitted" ||
+          current.txHash !== record.txHash
+        ) {
+          return;
+        }
+        const replacement = transactionReplacement(error);
+        if (replacement.kind === "replacement") {
+          const outcome = transactionReceiptOutcome(replacement.receipt);
+          if (replacement.cancelled || outcome === "reverted") {
+            clearPathMintReturnState();
+            setTxError(
+              replacement.cancelled
+                ? "PATH mint transaction cancelled."
+                : "PATH mint transaction reverted.",
+            );
+            setTxState("failed");
+            return;
+          }
+          if (!replacement.hash) {
+            showToast({
+              kind: "warn",
+              text: "Replacement detected; hash unavailable. Tracking delayed.",
+            });
+            setTxState("submitted");
+            schedulePathMintReturnMonitor(record.txHash);
+            return;
+          }
+          const migrated = parsePathMintReturnRecord(
+            {
+              ...record,
+              status: outcome === "success" ? "confirmed" : "submitted",
+              txHash: replacement.hash,
+              updatedAt: Date.now(),
+            },
+            pathMintIntent.handoffId,
+          );
+          if (!migrated) {
+            clearPathMintReturnState();
+            setTxError("Invalid PATH mint replacement metadata.");
+            setTxState("failed");
+            return;
+          }
+          if (pathMintReturnMonitorInFlightRef.current === record.txHash) {
+            pathMintReturnMonitorInFlightRef.current = null;
+          }
+          setLastTxHash(replacement.hash);
+          persistPathMintReturnState(migrated);
+          setTxState(outcome === "success" ? "confirmed" : "submitted");
+          return;
+        }
+        if (isExplicitTransactionFailure(error)) {
+          clearPathMintReturnState();
+          setTxError("PATH mint transaction reverted.");
+          setTxState("failed");
+          return;
+        }
+        schedulePathMintReturnMonitor(record.txHash);
+      })
+      .finally(() => {
+        if (pathMintReturnMonitorInFlightRef.current === record.txHash) {
+          pathMintReturnMonitorInFlightRef.current = null;
+        }
+      });
+
+  }, [
+    clearPathMintReturnState,
+    pathMintIntent,
+    pathMintReturnState,
+    pathMintReturnMonitorWake,
+    persistPathMintReturnState,
+    provider,
+    schedulePathMintReturnMonitor,
+    showToast,
+  ]);
+
+  useEffect(() => {
     if (!pendingMint || !bids.length) return;
     const targetHash = pendingMint.txHash.toLowerCase();
     const match = bids.find(
@@ -3244,6 +3763,7 @@ export default function AuctionCanvas({
       sourceUrl: buildPathMintSourceUrl(pendingMint.txHash, network ?? "sepolia"),
       sourceStatus: "indexing",
     });
+    updatePathMintReturnTokenId(pendingMint.txHash, tokenId);
     queueToast({ kind: "info", text: `$PATH #${tokenId} minted.` });
     void pullBidsOnce();
     void refreshCore();
@@ -3257,6 +3777,7 @@ export default function AuctionCanvas({
     queueToast,
     pullBidsOnce,
     refreshCore,
+    updatePathMintReturnTokenId,
   ]);
 
   useEffect(() => {
@@ -4075,6 +4596,23 @@ export default function AuctionCanvas({
   const effectiveViewport = viewport ?? defaultViewport;
 
   useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // React's wheel listener can be passive, so cancel selected-curve scrolling
+    // with a native non-passive listener before the browser scrolls the page.
+    const preventSelectedCurvePageScroll = (event: globalThis.WheelEvent) => {
+      if (!showCurvePlot || !effectiveViewport || !pinnedDotRef.current) return;
+      event.preventDefault();
+    };
+
+    canvas.addEventListener("wheel", preventSelectedCurvePageScroll, { passive: false });
+    return () => {
+      canvas.removeEventListener("wheel", preventSelectedCurvePageScroll);
+    };
+  }, [effectiveViewport, showCurvePlot]);
+
+  useEffect(() => {
     if (!linked.segments.length) {
       viewportDataKeyRef.current = null;
       return;
@@ -4124,6 +4662,40 @@ export default function AuctionCanvas({
       return xMin === prev.xMin && xMax === prev.xMax ? prev : { ...prev, xMin, xMax };
     });
   }, [defaultViewport, linked.uEnd, linked.segments.length, viewportDataKey]);
+
+  const pathStageLayoutZoom = useMemo(() => {
+    if (!defaultViewport || !effectiveViewport) return 1;
+    const defaultRange = defaultViewport.xMax - defaultViewport.xMin;
+    const currentRange = effectiveViewport.xMax - effectiveViewport.xMin;
+    if (
+      !Number.isFinite(defaultRange) ||
+      !Number.isFinite(currentRange) ||
+      defaultRange <= 0 ||
+      currentRange <= 0
+    ) {
+      return 1;
+    }
+    return clamp(defaultRange / currentRange, 1, MAX_PATH_STAGE_LAYOUT_ZOOM);
+  }, [defaultViewport, effectiveViewport]);
+  const pathStageLayoutProgress = clamp(
+    (pathStageLayoutZoom - 1) / Math.max(MAX_PATH_STAGE_LAYOUT_ZOOM - 1, 1e-9),
+    0,
+    1
+  );
+  const plotEdgePad = PLOT_EDGE_PAD * (1 - pathStageLayoutProgress);
+  const plotLeftPad = plotEdgePad;
+  const plotRightPad = plotEdgePad;
+  const plotXSpan = 100 - plotLeftPad - plotRightPad;
+  const isPathStageLayoutZoomed = pathStageLayoutProgress > 0.01;
+
+  const dotfieldStyle = useMemo(
+    () =>
+      ({
+        "--path-app-layout-zoom": pathStageLayoutZoom.toFixed(4),
+        "--path-app-layout-width": `${(pathStageLayoutZoom * 100).toFixed(2)}%`,
+      }) as CSSProperties,
+    [pathStageLayoutZoom]
+  );
 
   useEffect(() => {
     if (!toastNotice) return;
@@ -4432,10 +5004,7 @@ export default function AuctionCanvas({
       msg.includes("user cancelled") ||
       msg.includes("user canceled")
     ) {
-      showToast({
-        kind: "warn",
-        text: "wallet connection cancelled",
-      });
+      showToast({ kind: "warn", text: "wallet connection cancelled" });
       return;
     }
     if (
@@ -4444,10 +5013,7 @@ export default function AuctionCanvas({
       msg.includes("already pending") ||
       msg.includes("request of type 'eth_requestaccounts' already pending")
     ) {
-      showToast({
-        kind: "warn",
-        text: "Finish the pending wallet request.",
-      });
+      showToast({ kind: "warn", text: "Finish the pending wallet request." });
       return;
     }
     if (
@@ -4498,17 +5064,6 @@ export default function AuctionCanvas({
     await connectWalletConnector();
   };
 
-  const handleSwitch = async () => {
-    const ok = await requestChainSwitch(targetChainIdHex, evm.provider);
-    if (!ok) {
-      showToast({
-        kind: "warn",
-        text: "network switch cancelled",
-        reportState: "switch_failed",
-      });
-    }
-  };
-
   const handleFixWalletRpc = async () => {
     if (isMetaMaskWallet) {
       const rpcUrl =
@@ -4539,7 +5094,10 @@ export default function AuctionCanvas({
   };
 
   const handlePending = () => {
-    const hash = effectiveTxHash ?? lastTxHash;
+    const hash =
+      pathMintReturnState?.status === "submitted"
+        ? pathMintReturnState.txHash
+        : effectiveTxHash ?? lastTxHash;
     if (!hash) return;
     const url = resolveExplorerTxUrl(hash);
     if (typeof window !== "undefined") {
@@ -4548,7 +5106,14 @@ export default function AuctionCanvas({
   };
 
   const handleReturnToThought = () => {
-    if (!pathMintIntent || typeof window === "undefined") return;
+    if (
+      !pathMintIntent ||
+      pathMintReturnState?.status !== "confirmed" ||
+      pathMintReturnState.handoffId !== pathMintIntent.handoffId ||
+      typeof window === "undefined"
+    ) {
+      return;
+    }
     window.location.assign(pathMintIntent.returnTo);
   };
 
@@ -4560,8 +5125,8 @@ export default function AuctionCanvas({
     await handleMint();
   };
 
-  const trackSubmittedBid = (hash: string) => {
-    if (!walletAddress) return;
+  const trackSubmittedBid = (hash: string, submittedAccount = walletAddress) => {
+    if (!submittedAccount) return;
     clearPathTokenInventoryCache();
     setCurrentAskQuoteDec(null);
     postMintNowTipPendingRef.current = true;
@@ -4575,19 +5140,54 @@ export default function AuctionCanvas({
     window.setTimeout(() => void pullBidsOnce(), 2_000);
     window.setTimeout(() => void pullBidsOnce(), 6_000);
     window.setTimeout(() => void refreshCore(), 2_000);
-    if (pathMintIntent) {
-      setReturnPromptVisible(true);
-    }
     setPendingMint({
       txHash: hash,
-      address: walletAddress,
+      address: submittedAccount,
       baselineTokenId: maxTokenId ?? null,
     });
   };
 
+  const buildPathMintReturnRecord = (
+    status: PathMintReturnRecord["status"],
+    hash: string,
+    submission: PathMintSubmissionContext,
+  ): PathMintReturnRecord | null => {
+    if (!pathMintIntent) return null;
+    return parsePathMintReturnRecord(
+      {
+        version: 1,
+        handoffId: pathMintIntent.handoffId,
+        status,
+        account: submission.account,
+        chainId: Number(submission.chainId),
+        txHash: hash,
+        baselineTokenId: maxTokenId ?? null,
+        updatedAt: Date.now(),
+      },
+      pathMintIntent.handoffId,
+    );
+  };
+
+  const keepPathMintSubmitted = (
+    hash: string,
+    submission?: PathMintSubmissionContext,
+    noticeText = "Submitted. Confirmation check delayed.",
+  ) => {
+    trackSubmittedBid(hash, submission?.account);
+    showToast({
+      kind: "warn",
+      text: noticeText,
+    });
+    txIdleTimerRef.current = window.setTimeout(() => {
+      setTxState("idle");
+      txIdleTimerRef.current = null;
+    }, 15_000);
+  };
+
   const runTx = async (
     phase: TxPhase,
-    call: () => Promise<any>
+    call: () => Promise<any>,
+    pathSubmission?: PathMintSubmissionContext,
   ): Promise<boolean> => {
     try {
       if (txIdleTimerRef.current) {
@@ -4603,7 +5203,7 @@ export default function AuctionCanvas({
         });
       }
       const res = await call();
-      const hash =
+      let hash =
         res?.transaction_hash ??
         res?.transactionHash ??
         res?.hash ??
@@ -4614,6 +5214,20 @@ export default function AuctionCanvas({
       setTxHash(hash);
       setLastTxHash(hash);
       setTxState("submitted");
+      if (phase === "bid" && pathMintIntent) {
+        if (!pathSubmission) {
+          throw new Error("Missing verified PATH mint submission context.");
+        }
+        const submittedRecord = buildPathMintReturnRecord(
+          "submitted",
+          hash,
+          pathSubmission,
+        );
+        if (!submittedRecord) {
+          throw new Error("Invalid PATH mint handoff transaction metadata.");
+        }
+        persistPathMintReturnState(submittedRecord);
+      }
       if (phase === "bid") {
         trackPathMintAnalytics("mint_started", {
           mintStage: "submitted",
@@ -4622,27 +5236,103 @@ export default function AuctionCanvas({
       showToast({ kind: "info", text: `Submitted: ${shortHash(hash)}.` });
       const waitProvider =
         provider ?? (getDefaultProvider() as ProviderInterface);
+      const accountWaiter = (account as any)?.waitForTransaction;
+      const providerWaiter = (waitProvider as any)?.waitForTransaction;
+      const waiterOwner =
+        typeof accountWaiter === "function"
+          ? account
+          : typeof providerWaiter === "function"
+            ? waitProvider
+            : null;
       const waiter =
-        (account as any)?.waitForTransaction ??
-        (waitProvider as any)?.waitForTransaction;
+        waiterOwner === account ? accountWaiter : providerWaiter;
       if (typeof waiter === "function") {
+        let replacementConfirmed = false;
         try {
-          await waiter.call(account ?? waitProvider, hash);
-        } catch (waitErr) {
-          if (phase === "bid" && isTransientRpcError(waitErr)) {
-            trackSubmittedBid(hash);
-            showToast({
-              kind: "warn",
-              text: "Submitted. Confirmation check delayed.",
-            });
-            txIdleTimerRef.current = window.setTimeout(() => {
-              setTxState("idle");
-              txIdleTimerRef.current = null;
-            }, 15_000);
-            return true;
+          const receipt = await waiter.call(waiterOwner, hash);
+          if (phase === "bid" && pathMintIntent) {
+            const outcome = transactionReceiptOutcome(receipt);
+            if (outcome === "reverted") {
+              clearPathMintReturnState();
+              throw new Error("PATH mint transaction reverted.");
+            }
+            if (outcome !== "success") {
+              keepPathMintSubmitted(hash, pathSubmission);
+              return true;
+            }
           }
-          throw waitErr;
+        } catch (waitErr) {
+          if (phase === "bid" && pathMintIntent) {
+            const replacement = transactionReplacement(waitErr);
+            if (replacement.kind === "replacement") {
+              const outcome = transactionReceiptOutcome(replacement.receipt);
+              if (replacement.cancelled || outcome === "reverted") {
+                clearPathMintReturnState();
+                throw new Error(
+                  replacement.cancelled
+                    ? "PATH mint transaction cancelled."
+                    : "PATH mint transaction reverted.",
+                );
+              }
+              if (!replacement.hash) {
+                keepPathMintSubmitted(
+                  hash,
+                  pathSubmission,
+                  "Replacement detected; hash unavailable. Tracking delayed.",
+                );
+                return true;
+              }
+              hash = replacement.hash;
+              setTxHash(hash);
+              setLastTxHash(hash);
+              const current = pathMintReturnStateRef.current;
+              const migrated = parsePathMintReturnRecord(
+                current
+                  ? {
+                      ...current,
+                      status:
+                        outcome === "success" ? "confirmed" : "submitted",
+                      txHash: hash,
+                      updatedAt: Date.now(),
+                    }
+                  : pathSubmission
+                    ? buildPathMintReturnRecord(
+                        outcome === "success" ? "confirmed" : "submitted",
+                        hash,
+                        pathSubmission,
+                      )
+                    : null,
+                pathMintIntent.handoffId,
+              );
+              if (!migrated) {
+                clearPathMintReturnState();
+                throw new Error("Invalid PATH mint replacement metadata.");
+              }
+              persistPathMintReturnState(migrated);
+              if (outcome !== "success") {
+                keepPathMintSubmitted(hash, pathSubmission);
+                return true;
+              }
+              replacementConfirmed = true;
+            } else if (isExplicitTransactionFailure(waitErr)) {
+              clearPathMintReturnState();
+              throw waitErr;
+            } else {
+              keepPathMintSubmitted(hash, pathSubmission);
+              return true;
+            }
+          }
+          if (!replacementConfirmed) {
+            if (phase === "bid" && isTransientRpcError(waitErr)) {
+              keepPathMintSubmitted(hash, pathSubmission);
+              return true;
+            }
+            throw waitErr;
+          }
         }
+      } else if (phase === "bid" && pathMintIntent) {
+        keepPathMintSubmitted(hash, pathSubmission);
+        return true;
       }
       setTxState("confirmed");
       showToast({
@@ -4650,10 +5340,29 @@ export default function AuctionCanvas({
         text: phase === "bid" ? "Settlement confirmed. Loading sale event." : "Confirmed.",
       });
       if (phase === "bid") {
+        if (pathMintIntent) {
+          const submittedRecord = pathMintReturnStateRef.current;
+          const confirmedRecord = parsePathMintReturnRecord(
+            submittedRecord?.txHash.toLowerCase() === String(hash).toLowerCase()
+              ? {
+                  ...submittedRecord,
+                  status: "confirmed",
+                  updatedAt: Date.now(),
+                }
+              : pathSubmission
+                ? buildPathMintReturnRecord("confirmed", hash, pathSubmission)
+                : null,
+            pathMintIntent.handoffId,
+          );
+          if (!confirmedRecord) {
+            throw new Error("Invalid confirmed PATH mint metadata.");
+          }
+          persistPathMintReturnState(confirmedRecord);
+        }
         trackPathMintAnalytics("mint_succeeded", {
           mintStage: "confirmed",
         });
-        trackSubmittedBid(hash);
+        trackSubmittedBid(hash, pathSubmission?.account);
       }
       txIdleTimerRef.current = window.setTimeout(() => {
         setTxState("idle");
@@ -4677,6 +5386,9 @@ export default function AuctionCanvas({
         console.error("mint failed", err);
       }
       if (phase === "bid") {
+        if (pathMintIntent && isExplicitTransactionFailure(err)) {
+          clearPathMintReturnState();
+        }
         const errorCode = walletErrorCode(err);
         trackPathMintAnalytics("mint_failed", {
           mintStage: walletCancelled ? "wallet_signature" : "transaction",
@@ -4693,6 +5405,10 @@ export default function AuctionCanvas({
 
   const handleMint = async () => {
     if (debugActive) return;
+    if (pathMintIntentBlock) {
+      showToast({ kind: "warn", text: pathMintIntentBlock });
+      return;
+    }
     if (auctionBlocksMint) {
       showToast({ kind: "info", text: auctionBlockedMintNotice });
       return;
@@ -4706,87 +5422,157 @@ export default function AuctionCanvas({
       }
       return;
     }
-    if (confirmingMint) {
-      setTxPhase("prepare");
-      setTxState("awaiting_signature");
-      setTxError(null);
-    }
-    const data = await runPreflight();
-    if (!data?.ask || !data.balance || !data.allowance) {
-      if (confirmingMint) {
-        const message = preflight.error || "preflight failed before wallet request.";
-        setTxError(message);
-        setTxPhase(null);
-        setTxState("failed");
-        showToast({
-          kind: "error",
-          text: "Mint preflight failed.",
-          reportState: "mint_preflight_failed",
-          reportError: message,
-        });
-      }
+    if (confirmingMint && pathMintSubmissionInFlightRef.current) {
+      showToast({ kind: "warn", text: "PATH mint already in progress." });
       return;
     }
-    if (data.balance.value < data.ask.value) {
-      setMintReview(null);
-      if (confirmingMint) {
-        setTxError("insufficient balance.");
-        setTxPhase(null);
-        setTxState("failed");
-      }
-      return;
-    }
-    if (!confirmingMint) {
-      const askEstimate = currentAskEstimateRef.current;
-      const priceLabel =
-        mimicLocalTime && askEstimate != null && Number.isFinite(askEstimate)
-          ? formatHumanTokenAmount(askEstimate, 8)
-          : formatTokenAmount(data.ask, decimals);
-      setMintReview({
-        ask: data.ask,
-        symbol: displayTokenSymbol,
-        priceLabel,
-        txValueLabel: nativePayment ? priceLabel : "0",
-        maxPriceLabel: priceLabel,
-        nativePayment,
-        requiresApproval: !nativePayment && data.allowance.value < data.ask.value,
-      });
-      return;
-    }
+    if (confirmingMint) pathMintSubmissionInFlightRef.current = true;
 
-    setMintReview(null);
-    setReturnPromptVisible(false);
-    await refreshWalletChainRpc(targetChainIdHex, evm.provider);
-    await maybeWatchAsset();
-    if (!nativePayment && data.allowance.value < data.ask.value) {
-      const ok = await runTx("approve", () =>
-        account.execute({
-          contractAddress: paymentToken,
-          entrypoint: "approve",
-          calldata: [auctionAddress, data.ask.raw.low, data.ask.raw.high],
-        })
-      );
-      if (!ok) return;
+    try {
+      if (confirmingMint) {
+        setTxPhase("prepare");
+        setTxState("awaiting_signature");
+        setTxError(null);
+      }
+      const data = await runPreflight();
+      if (!data?.ask || !data.balance || !data.allowance) {
+        if (confirmingMint) {
+          const message = preflight.error || "preflight failed before wallet request.";
+          setTxError(message);
+          setTxPhase(null);
+          setTxState("failed");
+          showToast({
+            kind: "error",
+            text: "Mint preflight failed.",
+            reportState: "mint_preflight_failed",
+            reportError: message,
+          });
+        }
+        return;
+      }
+      if (data.balance.value < data.ask.value) {
+        setMintReview(null);
+        if (confirmingMint) {
+          setTxError("insufficient balance.");
+          setTxPhase(null);
+          setTxState("failed");
+        }
+        return;
+      }
+      if (!confirmingMint) {
+        const askEstimate = currentAskEstimateRef.current;
+        const priceLabel =
+          mimicLocalTime && askEstimate != null && Number.isFinite(askEstimate)
+            ? formatHumanTokenAmount(askEstimate, 8)
+            : formatTokenAmount(data.ask, decimals);
+        setMintReview({
+          ask: data.ask,
+          symbol: displayTokenSymbol,
+          priceLabel,
+          txValueLabel: nativePayment ? priceLabel : "0",
+          maxPriceLabel: priceLabel,
+          nativePayment,
+          requiresApproval: !nativePayment && data.allowance.value < data.ask.value,
+        });
+        return;
+      }
+
+      setMintReview(null);
+      const submitMint = async () => {
+        if (pathMintIntent) {
+          const storedRecord = readPathMintReturnRecord(
+            getPathMintReturnStorageHost(),
+            pathMintIntent.handoffId,
+          );
+          if (storedRecord) {
+            pathMintReturnStateRef.current = storedRecord;
+            setPathMintReturnState(storedRecord);
+            setTxState(storedRecord.status === "submitted" ? "submitted" : "confirmed");
+            setTxPhase(null);
+            showToast({
+              kind: "info",
+              text:
+                storedRecord.status === "submitted"
+                  ? "PATH mint already submitted."
+                  : "PATH mint already confirmed.",
+            });
+            return;
+          }
+        }
+
+        await refreshWalletChainRpc(targetChainIdHex, evm.provider);
+        await maybeWatchAsset();
+        if (!nativePayment && data.allowance.value < data.ask.value) {
+          const ok = await runTx("approve", () =>
+            account.execute({
+              contractAddress: paymentToken,
+              entrypoint: "approve",
+              calldata: [auctionAddress, data.ask.raw.low, data.ask.raw.high],
+            })
+          );
+          if (!ok) return;
+        }
+
+        const pathSubmission = pathMintIntent
+          ? await readPathMintSubmissionContext(
+              evm.provider as ProviderInterface,
+              pathMintIntent.originAccount ?? walletAddress,
+              pathMintIntent.chainId,
+            )
+          : undefined;
+        const bidCall = {
+          contractAddress: auctionAddress,
+          entrypoint: "bid",
+          calldata: [data.ask.raw.low, data.ask.raw.high],
+          value: nativePayment ? data.ask.value : undefined,
+        };
+        await runTx(
+          "bid",
+          () => {
+            assertPulseBidIntent({
+              contractAddress: bidCall.contractAddress,
+              expectedContractAddress: auctionAddress,
+              calldata: bidCall.calldata,
+              maxPrice: data.ask,
+              value: bidCall.value,
+              nativePayment,
+              chainId: pathSubmission?.chainId ?? chainIdValue,
+              targetChainId,
+            });
+            return account.execute(bidCall);
+          },
+          pathSubmission,
+        );
+      };
+
+      if (pathMintIntent) {
+        const lockResult = await withPathMintSubmissionLock(
+          pathMintIntent.handoffId,
+          submitMint,
+        );
+        if (lockResult !== "acquired") {
+          setTxState("idle");
+          setTxPhase(null);
+          showToast({
+            kind: "warn",
+            text:
+              lockResult === "unsupported"
+                ? "PATH minting requires browser tab coordination (Web Locks), which this browser does not support."
+                : "This PATH mint is already open in another tab.",
+          });
+        }
+      } else {
+        await submitMint();
+      }
+    } catch (error) {
+      const message = walletErrorMessage(error) || "PATH mint preparation failed.";
+      setTxError(message);
+      setTxPhase(null);
+      setTxState("failed");
+      showToast({ kind: "error", text: message });
+    } finally {
+      if (confirmingMint) pathMintSubmissionInFlightRef.current = false;
     }
-    const bidCall = {
-      contractAddress: auctionAddress,
-      entrypoint: "bid",
-      calldata: [data.ask.raw.low, data.ask.raw.high],
-      value: nativePayment ? data.ask.value : undefined,
-    };
-    await runTx("bid", () => {
-      assertPulseBidIntent({
-        contractAddress: bidCall.contractAddress,
-        expectedContractAddress: auctionAddress,
-        calldata: bidCall.calldata,
-        maxPrice: data.ask,
-        value: bidCall.value,
-        nativePayment,
-        chainId: chainIdValue,
-        targetChainId,
-      });
-      return account.execute(bidCall);
-    });
   };
 
   const persistentNotice = useMemo<Notice | null>(() => {
@@ -4794,6 +5580,15 @@ export default function AuctionCanvas({
       ctaOverrideActive || noticeOverrideActive
         ? effectiveAskLabel
         : liveAskLabel ?? effectiveAskLabel;
+    if (pathMintReturnState?.status === "confirmed") {
+      return { kind: "info", text: "$PATH minted. Return to THOUGHT." };
+    }
+    if (pathMintReturnState?.status === "submitted") {
+      return { kind: "info", text: "$PATH mint submitted. Waiting for confirmation." };
+    }
+    if (pathMintIntentBlock) {
+      return { kind: "warn", text: pathMintIntentBlock };
+    }
     if (auctionBlocksMint) {
       return { kind: "info", text: auctionBlockedMintNotice };
     }
@@ -4884,13 +5679,6 @@ export default function AuctionCanvas({
     if (pendingMint) {
       return { kind: "info", text: "Settlement confirmed. Loading sale event." };
     }
-    if (
-      pathMintIntent &&
-      returnPromptVisible &&
-      (effectiveTxState === "idle" || effectiveTxState === "confirmed")
-    ) {
-      return { kind: "info", text: "$PATH minted. Return to THOUGHT." };
-    }
     if (!effectiveWalletDetected) {
       return {
         kind: "error",
@@ -4904,16 +5692,6 @@ export default function AuctionCanvas({
     }
     if (effectiveWalletNeedsUnlock) {
       return null;
-    }
-    if (effectiveWalletUnlocked && effectiveChainKnown && !effectiveChainOk) {
-      return {
-        kind: "warn",
-        text:
-          targetChainLabel === PUBLIC_NETWORK_CONFIG.chainLabel
-            ? PUBLIC_NETWORK_CONFIG.switchNetworkNotice
-            : `${targetChainLabel} only.`,
-        delayMs: DELAY_MS,
-      };
     }
     if (
       effectiveWalletUnlocked &&
@@ -4972,7 +5750,6 @@ export default function AuctionCanvas({
     effectiveWalletUnlocked,
     effectiveWalletAddressPresent,
     effectiveWalletNeedsUnlock,
-    effectiveChainKnown,
     effectiveChainOk,
     effectivePreflightOk,
     effectiveBalanceOk,
@@ -4985,11 +5762,10 @@ export default function AuctionCanvas({
     preflightErrorVisible,
     preflight.error,
     displayTokenSymbol,
-    targetChainLabel,
     auctionBlocksMint,
     auctionBlockedMintNotice,
-    pathMintIntent,
-    returnPromptVisible,
+    pathMintIntentBlock,
+    pathMintReturnState,
     pendingMint,
     isMetaMaskWallet,
   ]);
@@ -5023,8 +5799,7 @@ export default function AuctionCanvas({
 
   const displayNotice =
     toastNotice ??
-    persistentNoticeVisible ??
-    (publicNetworkNotice ? { kind: "info" as const, text: publicNetworkNotice } : null);
+    persistentNoticeVisible;
   const displayWalletRpcFix =
     displayNotice?.reportState === "wallet_rpc_busy" &&
     effectiveWalletUnlocked &&
@@ -5060,8 +5835,21 @@ export default function AuctionCanvas({
       : "off";
 
   const ctaState = (() => {
+    if (pathMintReturnState?.status === "confirmed") {
+      return {
+        label: "return",
+        disabled: false,
+        onClick: handleReturnToThought,
+      };
+    }
+    if (pathMintReturnState?.status === "submitted") {
+      return { label: "pending", disabled: false, onClick: handlePending };
+    }
+    if (pathMintIntentBlock) {
+      return { label: "mint", disabled: true, onClick: handleMint };
+    }
     if (effectiveWalletUnlocked && effectiveChainKnown && !effectiveChainOk) {
-      return { label: "switch", disabled: false, onClick: handleSwitch };
+      return { label: "mint", disabled: true, onClick: handleMint };
     }
     if (effectiveWalletNeedsUnlock) {
       return { label: "connect", disabled: false, onClick: handleUnlock };
@@ -5085,17 +5873,6 @@ export default function AuctionCanvas({
       return { label: "retry", disabled: false, onClick: handleRetry };
     }
     if (
-      pathMintIntent &&
-      returnPromptVisible &&
-      (effectiveTxState === "idle" || effectiveTxState === "confirmed")
-    ) {
-      return {
-        label: "return",
-        disabled: false,
-        onClick: handleReturnToThought,
-      };
-    }
-    if (
       mintReview &&
       effectiveWalletUnlocked &&
       effectiveChainOk &&
@@ -5113,11 +5890,10 @@ export default function AuctionCanvas({
     }
     return { label: "mint", disabled: true, onClick: handleMint };
   })();
+  const displayedCta = ctaDisplay ?? ctaState;
+  const isWalletConnectCta = displayedCta.label === "connect";
   const ctaDelayMs =
-    ctaState.label === "connect" ||
-    ctaState.label === "switch"
-      ? DELAY_MS
-      : 0;
+    ctaState.label === "connect" ? DELAY_MS : 0;
   useEffect(() => {
     const nextKey = `${ctaState.label}:${ctaState.disabled ? "1" : "0"}`;
     if (ctaDisplayKeyRef.current === nextKey && ctaDisplay) return;
@@ -5251,6 +6027,45 @@ export default function AuctionCanvas({
     initialAskTipShownRef.current = false;
   }, [initialAskTipCurveKey]);
 
+  const tooltipOriginRect = useCallback(() => {
+    const dotfield = canvasRef.current?.closest(".dotfield") as HTMLElement | null;
+    if (!dotfield) return null;
+    const transform = window.getComputedStyle(dotfield).transform;
+    return transform && transform !== "none" ? dotfield.getBoundingClientRect() : null;
+  }, []);
+
+  const screenFromClientPoint = useCallback(
+    (clientX: number, clientY: number) => {
+      const originRect = tooltipOriginRect();
+      return {
+        screenX: clientX - (originRect?.left ?? 0) + CURVE_TOOLTIP_CURSOR_OFFSET_PX,
+        screenY: clientY - (originRect?.top ?? 0) + CURVE_TOOLTIP_CURSOR_OFFSET_PX,
+      };
+    },
+    [tooltipOriginRect]
+  );
+
+  const screenFromSvgPoint = useCallback(
+    (x: number, y: number, clientX?: number, clientY?: number) => {
+      if (typeof clientX === "number" && typeof clientY === "number") {
+        return screenFromClientPoint(clientX, clientY);
+      }
+      const rect = canvasRef.current?.getBoundingClientRect();
+      const originRect = tooltipOriginRect();
+      return {
+        screenX:
+          rect && rect.width > 0
+            ? rect.left - (originRect?.left ?? 0) + (x / 100) * rect.width + CURVE_TOOLTIP_CURSOR_OFFSET_PX
+            : CURVE_TOOLTIP_CURSOR_OFFSET_PX * 2,
+        screenY:
+          rect && rect.height > 0
+            ? rect.top - (originRect?.top ?? 0) + (y / 60) * rect.height + CURVE_TOOLTIP_CURSOR_OFFSET_PX
+            : CURVE_TOOLTIP_CURSOR_OFFSET_PX * 2,
+      };
+    },
+    [screenFromClientPoint, tooltipOriginRect]
+  );
+
   const showNowCurveHover = useCallback(
     (clientX?: number, clientY?: number): boolean => {
       if (!showCurvePlot) return false;
@@ -5262,7 +6077,7 @@ export default function AuctionCanvas({
       const vp = effectiveViewport;
       if (linked.nowU < vp.xMin || linked.nowU > vp.xMax) return false;
       const xRange = vp.xMax - vp.xMin || 1;
-      const xSvg = PLOT_LEFT_PAD + ((linked.nowU - vp.xMin) / xRange) * PLOT_X_SPAN;
+      const xSvg = plotLeftPad + ((linked.nowU - vp.xMin) / xRange) * plotXSpan;
 
       let idx = Math.max(0, upperBound(segmentStarts, linked.nowU) - 1);
       idx = Math.min(idx, linked.segments.length - 1);
@@ -5299,22 +6114,7 @@ export default function AuctionCanvas({
           ? effectiveCurrentAskQuoteDec
           : String(livePrice);
 
-      let screenX = 16;
-      let screenY = 16;
-      if (typeof clientX === "number" && typeof clientY === "number") {
-        screenX = clientX + 8;
-        screenY = clientY + 8;
-      } else {
-        const rect = canvasRef.current?.getBoundingClientRect();
-        screenX =
-          rect && rect.width > 0
-            ? rect.left + (xSvg / 100) * rect.width + 8
-            : 16;
-        screenY =
-          rect && rect.height > 0
-            ? rect.top + (ySvg / 60) * rect.height + 8
-            : 16;
-      }
+      const { screenX, screenY } = screenFromSvgPoint(xSvg, ySvg, clientX, clientY);
 
       setHover({
         key: "now",
@@ -5355,6 +6155,9 @@ export default function AuctionCanvas({
       liveNowSec,
       effectiveCurrentAskQuoteDec,
       mimicLocalTime,
+      plotLeftPad,
+      plotXSpan,
+      screenFromSvgPoint,
     ]
   );
 
@@ -5547,6 +6350,7 @@ export default function AuctionCanvas({
   const handleCanvasWheel = (event: any) => {
     if (!showCurvePlot) return;
     if (!effectiveViewport) return;
+    if (!hasPinnedDot) return;
     event.preventDefault?.();
     const xRange = effectiveViewport.xMax - effectiveViewport.xMin;
     if (!Number.isFinite(xRange) || xRange <= 0) return;
@@ -5583,7 +6387,7 @@ export default function AuctionCanvas({
 
     const loc = getSvgLoc(event.clientX, event.clientY);
     if (!loc) return;
-    const xN = clamp((loc.x - PLOT_LEFT_PAD) / Math.max(PLOT_X_SPAN, 1e-9), 0, 1);
+    const xN = clamp((loc.x - plotLeftPad) / Math.max(plotXSpan, 1e-9), 0, 1);
     const focusX = effectiveViewport.xMin + xN * xRange;
     const nextMin = focusX - xN * nextRange;
     const nextMax = nextMin + nextRange;
@@ -5674,7 +6478,7 @@ export default function AuctionCanvas({
       const vp = effectiveViewport;
       const xRange = vp.xMax - vp.xMin || 1;
       const toSvgX = (x: number) =>
-        PLOT_LEFT_PAD + ((x - vp.xMin) / xRange) * PLOT_X_SPAN;
+        plotLeftPad + ((x - vp.xMin) / xRange) * plotXSpan;
       const toSvgY = (y: number, floor?: number) =>
         curveYToSvg(y, vp, floor);
       let best: { kind: "sale" | "ask" | "floor"; key: string } | null = null;
@@ -5710,7 +6514,15 @@ export default function AuctionCanvas({
       }
       return best;
     },
-    [showCurvePlot, effectiveViewport, bidMarks, askMarks, linked.segments]
+    [
+      showCurvePlot,
+      effectiveViewport,
+      bidMarks,
+      askMarks,
+      linked.segments,
+      plotLeftPad,
+      plotXSpan,
+    ]
   );
 
   const endPan = useCallback((event: any) => {
@@ -5732,9 +6544,9 @@ export default function AuctionCanvas({
     if (!wasMoved && typeof event.clientX === "number" && typeof event.clientY === "number") {
       const point = pickPointAtClient(event.clientX, event.clientY, 2.2);
       if (point?.kind === "sale") {
-        pinBidDot(point.key);
+        pinBidDot(point.key, event.clientX, event.clientY);
       } else if (point?.kind === "ask" || point?.kind === "floor") {
-        pinAskDot(point.key);
+        pinAskDot(point.key, event.clientX, event.clientY);
       } else {
         clearPinnedDot();
       }
@@ -5754,22 +6566,6 @@ export default function AuctionCanvas({
       window.removeEventListener("pointercancel", onEnd);
     };
   }, [isPanning, handleCanvasPointerMove, endPan]);
-
-  const screenFromSvgPoint = useCallback(
-    (x: number, y: number, clientX?: number, clientY?: number) => {
-      if (typeof clientX === "number" && typeof clientY === "number") {
-        return { screenX: clientX + 8, screenY: clientY + 8 };
-      }
-      const rect = canvasRef.current?.getBoundingClientRect();
-      return {
-        screenX:
-          rect && rect.width > 0 ? rect.left + (x / 100) * rect.width + 8 : 16,
-        screenY:
-          rect && rect.height > 0 ? rect.top + (y / 60) * rect.height + 8 : 16,
-      };
-    },
-    []
-  );
 
   const showStartAskHover = useCallback((
     seg: LinkedSegment,
@@ -5864,12 +6660,12 @@ export default function AuctionCanvas({
     const vp = effectiveViewport;
     const xRange = vp.xMax - vp.xMin || 1;
     const toSvgX = (x: number) =>
-      PLOT_LEFT_PAD + ((x - vp.xMin) / xRange) * PLOT_X_SPAN;
+      plotLeftPad + ((x - vp.xMin) / xRange) * plotXSpan;
     const toSvgY = (y: number, floor?: number) =>
       curveYToSvg(y, vp, floor);
     const toDataX = (xSvg: number) => {
-      const xClamped = clamp(xSvg, PLOT_LEFT_PAD, 100 - PLOT_RIGHT_PAD);
-      return vp.xMin + ((xClamped - PLOT_LEFT_PAD) / PLOT_X_SPAN) * xRange;
+      const xClamped = clamp(xSvg, plotLeftPad, 100 - plotRightPad);
+      return vp.xMin + ((xClamped - plotLeftPad) / plotXSpan) * xRange;
     };
 
     const threshold = 1.2;
@@ -5932,12 +6728,13 @@ export default function AuctionCanvas({
     }
     if (best) {
       const seg = linked.segments[best.mark.segIdx];
+      const { screenX, screenY } = screenFromClientPoint(event.clientX, event.clientY);
       setHover({
         key: `bid#${best.mark.epoch}`,
         x: best.bx,
         y: best.by,
-        screenX: event.clientX + 8,
-        screenY: event.clientY + 8,
+        screenX,
+        screenY,
         bidder: best.mark.bidder,
         amount: best.mark.amountDec,
         amountDec: best.mark.amountDec,
@@ -5975,12 +6772,13 @@ export default function AuctionCanvas({
         prevSeg && Number.isFinite(prevSeg.floor) && Number.isFinite(seg.floor)
           ? Math.max(0, seg.floor - prevSeg.floor)
           : undefined;
+      const { screenX, screenY } = screenFromClientPoint(event.clientX, event.clientY);
       setHover({
         key: "premium",
         x: xLine,
         y: (yAsk + yFloor) / 2,
-        screenX: event.clientX + 8,
-        screenY: event.clientY + 8,
+        screenX,
+        screenY,
         amount: seg.premium.toFixed(2),
         amountDec: seg.premium.toFixed(2),
         amountRaw: seg.premium.toString(),
@@ -6043,12 +6841,13 @@ export default function AuctionCanvas({
     const metaDt = Math.max(0, nowSec - seg.startSec);
     const beforeNow = Math.max(0, metaDt - tau);
     const amountStr = Number.isFinite(yAt) ? yAt.toFixed(2) : "";
+    const { screenX, screenY } = screenFromClientPoint(event.clientX, event.clientY);
     setHover({
       key: "curve-point",
       x: loc.x,
       y: yCurve,
-      screenX: event.clientX + 8,
-      screenY: event.clientY + 8,
+      screenX,
+      screenY,
       amount: amountStr,
       amountDec: amountStr,
       amountRaw: String(yAt),
@@ -6077,9 +6876,9 @@ export default function AuctionCanvas({
     if (panRef.current.active) return;
     const point = pickPointAtClient(event.clientX, event.clientY, 2.2);
     if (point?.kind === "sale") {
-      pinBidDot(point.key);
+      pinBidDot(point.key, event.clientX, event.clientY);
     } else if (point?.kind === "ask" || point?.kind === "floor") {
-      pinAskDot(point.key);
+      pinAskDot(point.key, event.clientX, event.clientY);
     } else {
       clearPinnedDot();
     }
@@ -6129,9 +6928,11 @@ export default function AuctionCanvas({
     const vp = effectiveViewport;
     const xRange = vp.xMax - vp.xMin || 1;
     const toSvgX = (x: number) =>
-      PLOT_LEFT_PAD + ((x - vp.xMin) / xRange) * PLOT_X_SPAN;
+      plotLeftPad + ((x - vp.xMin) / xRange) * plotXSpan;
     const toSvgY = (y: number, floor?: number) =>
       curveYToSvg(y, vp, floor);
+    const pinnedClientX = pinnedPointerRef.current?.clientX;
+    const pinnedClientY = pinnedPointerRef.current?.clientY;
 
     if (selectedBid) {
       const seg = linked.segments[selectedBid.segIdx];
@@ -6139,7 +6940,9 @@ export default function AuctionCanvas({
         selectedBid,
         seg,
         toSvgX(selectedBid.u),
-        toSvgY(selectedBid.price, seg?.floor)
+        toSvgY(selectedBid.price, seg?.floor),
+        pinnedClientX,
+        pinnedClientY
       );
       return;
     }
@@ -6150,15 +6953,15 @@ export default function AuctionCanvas({
       const x = toSvgX(selectedAsk.u);
       const y = toSvgY(selectedAsk.price, seg.floor);
       if (selectedAsk.kind === "opening-floor") {
-        showOpeningFloorHover(seg, x, y);
+        showOpeningFloorHover(seg, x, y, pinnedClientX, pinnedClientY);
       } else {
-        showStartAskHover(seg, x, y);
+        showStartAskHover(seg, x, y, pinnedClientX, pinnedClientY);
       }
       return;
     }
 
     if (selectedNow) {
-      showNowCurveHover();
+      showNowCurveHover(pinnedClientX, pinnedClientY);
     }
   }, [
     hasPinnedDot,
@@ -6173,11 +6976,17 @@ export default function AuctionCanvas({
     showOpeningFloorHover,
     showStartAskHover,
     showNowCurveHover,
+    plotLeftPad,
+    plotXSpan,
   ]);
 
   return (
-    <div className="panel dotfield">
-      {!isDesktop && (
+    <div
+      className="panel dotfield"
+      style={dotfieldStyle}
+      data-layout-zoomed={isPathStageLayoutZoomed ? "true" : "false"}
+    >
+      {!isDesktop && !pathMintIntent && (
         <div className="dotfield__overlay">
           <div className="muted small">
             This view needs more room. Please widen your window or use a larger screen.
@@ -6185,77 +6994,57 @@ export default function AuctionCanvas({
         </div>
       )}
       <div className="dotfield__nav">
-        <a
-          className="headline dotfield__title dotfield__title-link thin"
-          href="/path"
-          target="_blank"
-          rel="noreferrer"
-        >
-          {SURFACE_TERMINOLOGY.pathDapp}
-        </a>
-        <div className="dotfield__cta-stack" ref={ctaStackRef}>
-          <HeaderWalletCTA
-            ctaLabel={(ctaDisplay ?? ctaState).label}
-            ctaDisabled={(ctaDisplay ?? ctaState).disabled}
-            onCtaClick={(ctaDisplay ?? ctaState).onClick}
-            dotState={dotState}
-            lastTxHash={effectiveLastTxHash}
-            onCopyNotice={() => showToast({ kind: "info", text: "Copied." })}
-            onDisconnectNotice={() => {
-              setWalletUnlockAttempted(false);
-              setTxState("idle");
-              setTxPhase(null);
-              setTxHash(null);
-              setTxError(null);
-              setLastTxHash(null);
-              setPreflight({
-                ask: null,
-                balance: null,
-                allowance: null,
-                loading: false,
-                attempted: false,
-                error: null,
-              });
-              showToast({ kind: "info", text: "wallet disconnected." });
-            }}
-          />
-          {walletPickerOpen && (
-            <div
-              className="dotfield__wallet-picker"
-              ref={walletPickerRef}
-              role="menu"
-              aria-label="Wallet options"
+        <div className="dotfield__title-stack">
+          <h1 className="headline dotfield__title thin">
+            <a
+              className="dotfield__title-link"
+              href="/path"
+              target="_blank"
+              rel="noreferrer"
             >
-              <div className="dotfield__wallet-picker-title">
-                wallet options
-              </div>
-              <p className="dotfield__wallet-picker-note">
-                address read only.
-                <br />
-                no signature.
-                <br />
-                no tx or approval.
-                <br />
-                <a href="/verify#wallet-notes" target="_blank" rel="noopener noreferrer">
-                  verify ↗
-                </a>
-              </p>
-              {availableConnectors.map((connector) => (
-                <button
-                  key={String((connector as any)?.id ?? (connector as any)?.name)}
-                  type="button"
-                  className="dotfield__wallet-picker-item"
-                  role="menuitem"
-                  onClick={() => {
-                    void connectWalletConnector(connector);
-                  }}
-                >
-                  {(connector as any)?.name ?? "Injected wallet"}
-                </button>
-              ))}
-            </div>
-          )}
+              {SURFACE_TERMINOLOGY.pathDapp}
+            </a>
+          </h1>
+          <p className="dotfield__slogan">permission token for movement mints.</p>
         </div>
+        {!isWalletConnectCta ? (
+          <div className="dotfield__cta-stack" ref={ctaStackRef}>
+            <HeaderWalletCTA
+              ctaLabel={displayedCta.label}
+              ctaDisabled={displayedCta.disabled}
+              onCtaClick={displayedCta.onClick}
+              showWalletDot={false}
+              dotState={dotState}
+              lastTxHash={effectiveLastTxHash}
+              onCopyNotice={() => showToast({ kind: "info", text: "Copied." })}
+              onDisconnectNotice={() => {
+                setWalletUnlockAttempted(false);
+                setTxState("idle");
+                setTxPhase(null);
+                setTxHash(null);
+                setTxError(null);
+                setLastTxHash(null);
+                setPreflight({
+                  ask: null,
+                  balance: null,
+                  allowance: null,
+                  loading: false,
+                  attempted: false,
+                  error: null,
+                });
+                showToast({ kind: "info", text: "wallet disconnected." });
+              }}
+            />
+            {walletPickerOpen ? (
+              <InshellWalletPicker
+                connectors={availableConnectors}
+                onConnect={(connector) => {
+                  void connectWalletConnector(connector);
+                }}
+              />
+            ) : null}
+          </div>
+        ) : null}
       </div>
       <div
         className={`dotfield__mint-notice ${
@@ -6267,6 +7056,9 @@ export default function AuctionCanvas({
               : "is-info"
             : "is-empty"
         }`}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
       >
         {displayNotice?.text ?? ""}
         {displayWalletRpcFix && (
@@ -6832,7 +7624,7 @@ export default function AuctionCanvas({
         const vp = effectiveViewport;
         const xRange = vp.xMax - vp.xMin || 1;
         const toSvgX = (x: number) =>
-          PLOT_LEFT_PAD + ((x - vp.xMin) / xRange) * PLOT_X_SPAN;
+          plotLeftPad + ((x - vp.xMin) / xRange) * plotXSpan;
         const toSvgY = (y: number, floor?: number) =>
           curveYToSvg(y, vp, floor);
         const isInPlotY = (y: number) => Number.isFinite(y) && y >= 0 && y <= 60;
@@ -6966,7 +7758,7 @@ export default function AuctionCanvas({
             : [];
         const contextBidMarks = contextSourceBidMarks.map((mark, index) => ({
           mark,
-          x: PLOT_LEFT_PAD + 1.2 + index * 2.4,
+          x: plotLeftPad + 1.2 + index * 2.4,
         }));
         const contextBidMarkKeys = new Set(
           contextBidMarks.map(({ mark }) => mark.key)
@@ -6986,7 +7778,7 @@ export default function AuctionCanvas({
         const contextAskMarks = contextBidMarks.flatMap(({ mark, x }) => {
           const seg = linked.segments[mark.segIdx];
           if (!seg) return [];
-          const x0 = Math.max(PLOT_LEFT_PAD, x - 2.1);
+          const x0 = Math.max(plotLeftPad, x - 2.1);
           return askMarks
             .filter((askMark) => askMark.segIdx === seg.idx)
             .map((askMark) => ({
@@ -7019,10 +7811,6 @@ export default function AuctionCanvas({
             }`}
             ref={canvasRef}
             style={{ touchAction: "none" }}
-            onWheelCapture={(event) => {
-              if (!showCurvePlot || !effectiveViewport) return;
-              event.preventDefault?.();
-            }}
             onWheel={handleCanvasWheel}
             onPointerDown={handleCanvasPointerDown}
             onPointerMove={handleCanvasPointerMove}
@@ -7042,7 +7830,7 @@ export default function AuctionCanvas({
               {contextBidMarks.map(({ mark, x }) => {
                 const seg = linked.segments[mark.segIdx];
                 if (!seg) return null;
-                const x0 = Math.max(PLOT_LEFT_PAD, x - 2.1);
+                const x0 = Math.max(plotLeftPad, x - 2.1);
                 const y0 = toSvgY(seg.floor, seg.floor);
                 const y1 = toSvgY(seg.ask, seg.floor);
                 const ySale = toSvgY(mark.price, seg.floor);
@@ -7080,17 +7868,6 @@ export default function AuctionCanvas({
                 );
               })}
 
-              {curveSegments.map((segPath) => (
-                <path
-                  key={segPath.key}
-                  className="dotfield__curve"
-                  d={segPath.d}
-                  vectorEffect="non-scaling-stroke"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              ))}
-
               {linked.segments.map((seg) => {
                 const x = toSvgX(seg.uStart);
                 if (x < -2 || x > 102) return null;
@@ -7110,6 +7887,17 @@ export default function AuctionCanvas({
                   />
                 );
               })}
+
+              {curveSegments.map((segPath) => (
+                <path
+                  key={segPath.key}
+                  className="dotfield__curve"
+                  d={segPath.d}
+                  vectorEffect="non-scaling-stroke"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              ))}
 
             </svg>
 
@@ -7172,7 +7960,7 @@ export default function AuctionCanvas({
                       } else {
                         showStartAskHover(seg, x, y, e.clientX, e.clientY);
                       }
-                      pinAskDot(mark.key);
+                      pinAskDot(mark.key, e.clientX, e.clientY);
                     }}
                   >
                     <span className="dotfield__dot" />
@@ -7220,7 +8008,7 @@ export default function AuctionCanvas({
                     onClick={(e) => {
                       e.stopPropagation();
                       showBidHover(mark, seg, x, y, e.clientX, e.clientY);
-                      pinBidDot(mark.key);
+                      pinBidDot(mark.key, e.clientX, e.clientY);
                     }}
                   >
                     <span className="dotfield__dot" />
@@ -7260,7 +8048,7 @@ export default function AuctionCanvas({
                   onClick={(e) => {
                     e.stopPropagation();
                     showNowCurveHover(e.clientX, e.clientY);
-                    pinNowDot();
+                    pinNowDot(e.clientX, e.clientY);
                   }}
                 >
                   <span className="dotfield__dot" />
@@ -7486,14 +8274,22 @@ export default function AuctionCanvas({
                       : hover.key === "premium"
                         ? "initial premium"
                         : "ask";
+              const popoverOpensAbove =
+                typeof window !== "undefined" && hover.screenY > window.innerHeight / 2;
 
               return (
                 <div
-                  className="dotfield__popover"
+                  className={`dotfield__popover${
+                    popoverOpensAbove ? " dotfield__popover--above" : ""
+                  }`}
                   style={{
-                    left: `clamp(12px, ${hover.screenX}px, calc(100vw - 344px))`,
-                    top: hover.screenY,
-                  }}
+                    "--popover-anchor-x": `${hover.screenX}px`,
+                    ...(popoverOpensAbove
+                      ? {
+                          "--popover-anchor-bottom": `calc(100vh - ${hover.screenY}px + var(--curve-tooltip-cursor-offset))`,
+                        }
+                      : { top: hover.screenY }),
+                  } as CSSProperties}
                 >
                   <div className="muted small">{popTitle}</div>
                   <div className="dotfield__popover-meta" style={{ marginTop: 6 }}>

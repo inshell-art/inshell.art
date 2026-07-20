@@ -1,5 +1,3 @@
-/* global Element, HTMLAnchorElement, RequestInfo, RequestInit, URL, performance */
-
 export type AnonymousAnalyticsEventType =
   | "pageview"
   | "page_visible_duration"

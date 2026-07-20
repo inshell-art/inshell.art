@@ -21,9 +21,9 @@ function resolveThoughtUrl(): string | null {
     getEnvValue("VITE_THOUGHT_URL") ?? getEnvValue("VITE_THOUGHT_APP_URL");
   if (typeof explicit === "string" && explicit.trim()) {
     const value = explicit.trim();
-    if (/^https?:\/\//i.test(value)) return value;
+    if (/^https?:\/\//i.test(value) || value.startsWith("/")) return value;
   }
-  return isDevLikeEnv() ? "http://127.0.0.1:5174/" : null;
+  return isDevLikeEnv() ? "/thought" : null;
 }
 
 const WORDS = [
@@ -75,8 +75,6 @@ export default function Movements() {
               <a
                 href={thoughtUrl}
                 className={`${wordClassName(word.label)} movements__word--link`}
-                target="_blank"
-                rel="noopener noreferrer"
                 onMouseEnter={activate}
                 onMouseLeave={deactivate}
                 onFocus={activate}

@@ -23,6 +23,10 @@ export const runThoughtShellAdapterTests = async () => {
   assert.deepEqual(pathList.args, ["list"]);
   assert.deepEqual(pathList.canonicalPath, ["path", "list"]);
 
+  const exactPrompt = parseThoughtShellInput("prompt  exact prompt ");
+  assert.equal(exactPrompt.rest, "exact prompt");
+  assert.equal(exactPrompt.rawRest, " exact prompt ");
+
   const help = parseThoughtShellInput("?");
   assert.equal(help.legacyHead, "help");
   assert.deepEqual(help.canonicalPath, ["help"]);

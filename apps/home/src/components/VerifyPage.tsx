@@ -192,7 +192,7 @@ export default function VerifyPage() {
             rows={[
               { id: "path-domain", label: "$PATH", value: "https://inshell.art" },
               { id: "path-route", label: "$PATH route", value: "https://inshell.art/path" },
-              { id: "thought-domain", label: "THOUGHT", value: "https://thought.inshell.art" },
+              { id: "thought-domain", label: "THOUGHT", value: "https://inshell.art/thought" },
               { id: "gallery-domain", label: "gallery", value: "https://inshell.art/gallery" },
               { id: "network", label: "network", value: PUBLIC_NETWORK_CONFIG.environmentLabel },
               { id: "chain", label: "chain", value: PUBLIC_NETWORK_CONFIG.chainLabel },
@@ -210,7 +210,7 @@ export default function VerifyPage() {
               { id: "origin-path", label: "inshell.art/path", value: "PATH / Pulse surface" },
               { id: "origin-gallery", label: "inshell.art/gallery", value: "public gallery" },
               { id: "origin-verify", label: "inshell.art/verify", value: "verification room" },
-              { id: "origin-thought", label: "thought.inshell.art", value: "THOUGHT movement app" },
+              { id: "origin-thought", label: "inshell.art/thought", value: "THOUGHT movement app" },
               { id: "origin-preview", label: "preview.inshell.art", value: "preview / staging surface" },
             ]}
           />

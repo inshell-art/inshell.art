@@ -1,6 +1,22 @@
 export type SurfaceId = "path" | "thought";
 
 export {
+  PATH_MINT_RETURN_STORAGE_KEY_PREFIX,
+  PATH_MINT_RETURN_TTL_MS,
+  isPathMintHandoffId,
+  parsePathMintReturnRecord,
+  pathMintReturnStorageKey,
+  readPathMintReturnRecord,
+  removePathMintReturnRecord,
+  writePathMintReturnRecord,
+} from "./pathMintReturn";
+export type {
+  PathMintReturnRecord,
+  PathMintReturnStatus,
+  PathMintReturnStorageHost,
+} from "./pathMintReturn";
+
+export {
   installInshellAnonymousAnalytics,
   trackInshellAnonymousAnalytics,
 } from "./anonymousAnalytics";
@@ -10,6 +26,84 @@ export type {
   AnonymousAnalyticsOptions,
   AnonymousAnalyticsTrackInput,
 } from "./anonymousAnalytics";
+export {
+  thoughtV2DefaultText,
+  thoughtV2TextCorpuses,
+  thoughtV2TextFixtures,
+} from "./thoughtV2Fixtures";
+export type {
+  ThoughtV2TextCorpus,
+  ThoughtV2TextFixture,
+  ThoughtV2TextPair,
+} from "./thoughtV2Fixtures";
+export {
+  buildThoughtV2Svg,
+  escapeXml,
+  measureThoughtV2Line,
+  THOUGHT_V2_LIMITS,
+  THOUGHT_V2_RENDER_CONTRACT,
+} from "./thoughtV2Renderer";
+export type {
+  ThoughtV2LineKind,
+  ThoughtV2Measure,
+  ThoughtV2SvgInput,
+} from "./thoughtV2Renderer";
+export {
+  AGENT_IDENTITY_DOMAIN,
+  AGENT_IDENTITY_DOMAIN_TEXT,
+  BINARY_FIELD_BITS,
+  BINARY_FIELD_BYTES,
+  MAX_AGENT_LINE_BYTES,
+  MAX_PROMPT_LINE_BYTES,
+  RENDERER_ID_HASH,
+  THOUGHT_AGENT_DECLARATION_ID,
+  THOUGHT_AGENT_RESULT_ID,
+  THOUGHT_AGENT_RUN_ID,
+  THOUGHT_PROTOCOL_ID,
+  THOUGHT_PROVENANCE_ID,
+  THOUGHT_RENDERER_ID,
+  THOUGHT_WORK_PROFILE_ID,
+  WORK_DOMAIN,
+  WORK_DOMAIN_TEXT,
+  assertThoughtLine,
+  binaryFieldBits,
+  binaryFieldPacked,
+  binaryFieldPackedHex,
+  canonicalJsonStringify,
+  fitBinarySource64,
+  fitBinarySource512,
+  measureThoughtLine,
+  measureThoughtLineBytes,
+  thoughtWorkHashes,
+  verifyPackedField,
+} from "./thought-v2-protocol";
+export type {
+  CanonicalJson,
+  ThoughtLineKind,
+  ThoughtLineMeasure,
+  ThoughtWorkHashes,
+} from "./thought-v2-protocol";
+export {
+  buildThoughtProvenance,
+  packedFieldBytes,
+  serializeThoughtProvenance,
+  thoughtProvenanceKeccak256,
+  verifyThoughtProvenance,
+} from "./thought-v2-provenance";
+export type {
+  ThoughtAgentDeclaration,
+  ThoughtProvenanceBuildInput,
+  ThoughtProvenanceV2,
+  ThoughtProtocolAnchor,
+  ThoughtTransport,
+} from "./thought-v2-provenance";
+export {
+  THOUGHT_V2_ARTIFACT,
+  THOUGHT_V2_ARTIFACT as THOUGHT_V2_PINNED_ARTIFACT,
+  THOUGHT_V2_ARTIFACT_SAMPLES,
+  thoughtV2ArtifactSampleUrl,
+} from "./thoughtV2Artifact.generated";
+export type { ThoughtV2ArtifactSample } from "./thoughtV2Artifact.generated";
 
 export type PublicLaunchMode = "local" | "sepolia_invite" | "production";
 
@@ -123,9 +217,9 @@ export const SURFACE_DEPLOYMENT_MANIFEST = {
     thought: {
       id: "thought",
       product: SURFACE_TERMINOLOGY.thoughtDapp,
-      domain: "https://thought.inshell.art",
+      domain: "https://inshell.art",
       role: "THOUGHT creation, minting, and verification.",
-      canonicalPath: "/",
+      canonicalPath: "/thought",
     },
     gallery: {
       id: "gallery",
