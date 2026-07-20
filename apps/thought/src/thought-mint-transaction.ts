@@ -120,7 +120,7 @@ const normalizeTimestamp = (value: unknown) => {
 const normalizePathId = (value: unknown) => {
   const normalized = typeof value === "bigint" ? value.toString() : String(value ?? "").trim();
   if (!POSITIVE_INTEGER_PATTERN.test(normalized)) {
-    throw new Error("invalid PATH id");
+    throw new Error("invalid $PATH id");
   }
   return normalized;
 };

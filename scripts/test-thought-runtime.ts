@@ -18,9 +18,11 @@ import {
   measureThoughtLine,
 } from "../packages/thought-agent-protocol/src/index";
 import {
+  formatThoughtByteLimitUsage,
   normalizePreviewMode,
   prevalidateThoughtCandidate,
   previewUnavailableCliLines,
+  thoughtByteLimitPercentage,
 } from "../apps/thought/src/thought-preview-policy";
 import { createThoughtPollWakeScheduler } from "../apps/thought/src/thought-poll-wake";
 import {
@@ -32,9 +34,13 @@ import {
 import { buildThoughtConsoleLines } from "../apps/thought/src/thought-console";
 import { runThoughtConsoleTests } from "../apps/thought/src/thought-console.test";
 import { runThoughtMintPresentationTests } from "../apps/thought/src/thought-mint-presentation.test";
+import { runThoughtPathAcquisitionTests } from "../apps/thought/src/thought-path-acquisition.test";
 import { runThoughtMintTransactionTests } from "../apps/thought/src/thought-mint-transaction.test";
 import { runThoughtMintSubmissionLockTests } from "../apps/thought/src/thought-mint-submission-lock.test";
-import { sanitizeWorkRecord } from "../apps/thought/src/works";
+import {
+  formatSavedWorkPromptLabel,
+  sanitizeWorkRecord,
+} from "../apps/thought/src/works";
 import {
   canonicalThoughtTitle,
   thoughtProtocolText,
@@ -63,11 +69,16 @@ import {
   parseThoughtV2LocalAgentResult,
 } from "../apps/thought/src/thought-v2-local-agent";
 import {
+  buildThoughtAgentFixtureLine,
+  shouldUseThoughtAgentFixture,
+} from "../apps/thought/src/thought-agent-fixture";
+import {
   THOUGHT_V2_ARTIFACT,
   THOUGHT_V2_RENDER_CONTRACT,
   buildThoughtV2Svg,
   measureThoughtV2Line,
 } from "../apps/thought/src/thought-v2-renderer";
+import { describeThoughtTextPolicyIssue } from "../apps/thought/src/thought-text-policy";
 import {
   JSON_RPC_NO_BATCH_OPTIONS,
   createSingleRequestJsonRpcProvider,
@@ -142,6 +153,38 @@ const localAgentEvidence = {
   adapter: "codex",
   rawResponseSha256: "a".repeat(64),
 };
+assert.equal(
+  shouldUseThoughtAgentFixture({ dev: true, hostname: "127.0.0.1", search: "" }),
+  true,
+  "local dev defaults to the fast Agent fixture path",
+);
+assert.equal(
+  shouldUseThoughtAgentFixture({ dev: true, hostname: "localhost", search: "?agent=live" }),
+  false,
+  "the operator can explicitly restore the live Agent path",
+);
+assert.equal(
+  shouldUseThoughtAgentFixture({ dev: false, hostname: "127.0.0.1", search: "?agent=fixture" }),
+  false,
+  "production builds cannot enable Agent fixtures",
+);
+assert.equal(
+  shouldUseThoughtAgentFixture({ dev: true, hostname: "preview.inshell.art", search: "?agent=fixture" }),
+  false,
+  "non-local deployments cannot enable Agent fixtures",
+);
+assert.equal(
+  buildThoughtAgentFixtureLine("claude", "fixture-nonce"),
+  "fixture claude fixture-nonce",
+);
+assert.equal(
+  formatSavedWorkPromptLabel("  a prompt   with spaces  "),
+  "a prompt with spaces",
+);
+assert.equal(
+  formatSavedWorkPromptLabel("abcdefghijklmnopqrstuvwxyz", 12),
+  "abcdefghi...",
+);
 const storedCodexWork = sanitizeWorkRecord({
   id: 1,
   title: declaredLocalAgentEnvelope.agentLine,
@@ -478,7 +521,7 @@ assert.equal(
 );
 
 assert.deepEqual(
-  getThoughtWorkReadyPresentation({ mintEnabled: false, walletConnected: true }),
+  getThoughtWorkReadyPresentation({ mintEnabled: false }),
   {
     canMint: false,
     detail: THOUGHT_V2_MINT_UNAVAILABLE_COPY,
@@ -487,21 +530,12 @@ assert.deepEqual(
 );
 
 assert.deepEqual(
-  getThoughtWorkReadyPresentation({ mintEnabled: true, walletConnected: true }),
+  getThoughtWorkReadyPresentation({ mintEnabled: true }),
   {
     canMint: true,
     detail: "ready to mint",
   },
-  "work-ready UI must recognize an already connected wallet",
-);
-
-assert.deepEqual(
-  getThoughtWorkReadyPresentation({ mintEnabled: true, walletConnected: false }),
-  {
-    canMint: true,
-    detail: "connect wallet to mint",
-  },
-  "work-ready UI may request a wallet only when minting is enabled and none is connected",
+  "work-ready UI must stay independent from wallet state",
 );
 
 assert.deepEqual(
@@ -537,7 +571,7 @@ assert.deepEqual(
 
 assert.deepEqual(
   formatThoughtAuthorizationError(new Error("could not decode result data"), "nonce"),
-  { message: "PATH authorization unavailable.", kind: "signature" },
+  { message: "$PATH signature unavailable.", kind: "signature" },
   "a nonce RPC failure must not be presented as a wallet rejection",
 );
 
@@ -546,7 +580,7 @@ assert.deepEqual(
     { code: "NETWORK_ERROR", shortMessage: "network changed" },
     "nonce",
   ),
-  { message: "PATH authorization unavailable.", kind: "signature" },
+  { message: "$PATH signature unavailable.", kind: "signature" },
   "a PATH RPC network failure must not blame the signing wallet",
 );
 
@@ -555,7 +589,7 @@ assert.deepEqual(
     { code: -32600, message: "request rejected by RPC" },
     "nonce",
   ),
-  { message: "PATH authorization unavailable.", kind: "signature" },
+  { message: "$PATH signature unavailable.", kind: "signature" },
   "an RPC-level request rejection must not be presented as a user rejection",
 );
 
@@ -570,8 +604,8 @@ assert.deepEqual(
 
 assert.deepEqual(
   formatThoughtAuthorizationError({}, "signature"),
-  { message: "authorization failed.", kind: "signature" },
-  "unknown authorization failures must never claim the wallet rejected them",
+  { message: "signature failed.", kind: "signature" },
+  "unknown signature failures must never claim the wallet rejected them",
 );
 
 assert.deepEqual(
@@ -628,12 +662,12 @@ assert.deepEqual(
   buildThoughtConsoleLines({
     time: "09:10:11",
     title: "work ready",
-    detail: "connect wallet to mint",
+    detail: "ready to mint",
     actions: ["mint", "reset"],
   }),
   [
     "[09:10:11] work ready",
-    "connect wallet to mint",
+    "ready to mint",
   ],
   "console must keep work-ready guidance concise",
 );
@@ -654,15 +688,31 @@ assert.deepEqual(
 assert.deepEqual(
   buildThoughtConsoleLines({
     time: "09:10:13",
+    title: "text too long",
+    detail: "prompt: 120% used · 77 / 64 UTF-8 bytes",
+    nextStep: "reduce prompt to 64 UTF-8 bytes or less",
+  }),
+  [
+    "[09:10:13] text too long",
+    "prompt: 120% used · 77 / 64 UTF-8 bytes",
+    "next: reduce prompt to 64 UTF-8 bytes or less",
+  ],
+  "console warnings must include one concise suggested next step",
+);
+
+assert.deepEqual(
+  buildThoughtConsoleLines({
+    time: "09:10:14",
     title: "minted",
     detail: "Minted",
   }),
-  ["[09:10:13] minted"],
+  ["[09:10:14] minted"],
   "console must not repeat a detail that matches its title",
 );
 
 runThoughtConsoleTests();
 runThoughtMintPresentationTests();
+await runThoughtPathAcquisitionTests();
 runThoughtMintTransactionTests();
 await runThoughtMintSubmissionLockTests();
 
@@ -877,6 +927,14 @@ const validCandidate = prevalidateThoughtCandidate("quiet green sky", {
 });
 assert.equal(validCandidate.ok, true);
 assert.equal(validCandidate.canonical, "QUIET GREEN SKY");
+assert.equal(
+  thoughtByteLimitPercentage({ line: "agent output", usedBytes: 77, maxBytes: 64 }),
+  120,
+);
+assert.equal(
+  formatThoughtByteLimitUsage({ line: "agent output", usedBytes: 77, maxBytes: 64 }),
+  "Agent output: 120% used · 77 / 64 UTF-8 bytes",
+);
 
 for (const [label, raw, reasonCode] of [
   ["blank", "  ", 1],
@@ -953,5 +1011,55 @@ assert(!carouselThoughtV2Svg.includes("<animateTransform"));
 assert.deepEqual(measureThoughtV2Line("Bad prompt 你好", "prompt").errors, []);
 assert.deepEqual(measureThoughtV2Line("bad Agent مرحبا", "agent").errors, []);
 assert.deepEqual(measureThoughtV2Line("double  space", "prompt").errors, []);
+
+assert.deepEqual(
+  describeThoughtTextPolicyIssue({
+    value: "keep exact bytes ",
+    line: "prompt",
+    measure: measureThoughtV2Line("keep exact bytes ", "prompt"),
+    maxBytes: 64,
+  }),
+  {
+    title: "trailing space",
+    detail: "prompt ends with U+0020",
+    nextStep: "delete the final space",
+  },
+);
+assert.deepEqual(
+  describeThoughtTextPolicyIssue({
+    value: "zero\u200Bwidth",
+    line: "prompt",
+    measure: measureThoughtV2Line("zero\u200Bwidth", "prompt"),
+    maxBytes: 64,
+  }),
+  {
+    title: "invisible character",
+    detail: "prompt contains zero-width space U+200B at character 5",
+    nextStep: "delete U+200B at character 5",
+  },
+);
+assert.deepEqual(
+  describeThoughtTextPolicyIssue({
+    value: "Agent answer ",
+    line: "agent output",
+    measure: measureThoughtV2Line("Agent answer ", "agent"),
+    maxBytes: 64,
+  }),
+  {
+    title: "trailing space",
+    detail: "Agent output ends with U+0020",
+    nextStep: "reset and run the Agent again; output is never auto-corrected",
+  },
+);
+assert.equal(
+  describeThoughtTextPolicyIssue({
+    value: "double  space",
+    line: "prompt",
+    measure: measureThoughtV2Line("double  space", "prompt"),
+    maxBytes: 64,
+  }),
+  null,
+  "valid internal spaces must remain byte-identical",
+);
 
 console.log("[test-thought-runtime] OK");

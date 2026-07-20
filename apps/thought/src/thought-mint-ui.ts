@@ -13,22 +13,18 @@ export type ThoughtAuthorizationErrorPresentation = {
 };
 
 export const THOUGHT_V2_MINT_UNAVAILABLE_COPY =
-  "Minting unavailable: this THOUGHT V2 build has no approved onchain deployment yet.";
+  "Minting unavailable: this THOUGHT V2 build has no approved on-chain deployment yet.";
 
 type ThoughtWorkReadyPresentationInput = {
   mintEnabled: boolean;
-  walletConnected: boolean;
 };
 
 export const getThoughtWorkReadyPresentation = ({
   mintEnabled,
-  walletConnected,
 }: ThoughtWorkReadyPresentationInput) => ({
   canMint: mintEnabled,
   detail: mintEnabled
-    ? walletConnected
-      ? "ready to mint"
-      : "connect wallet to mint"
+    ? "ready to mint"
     : THOUGHT_V2_MINT_UNAVAILABLE_COPY,
 });
 
@@ -143,7 +139,7 @@ export const formatThoughtAuthorizationError = (
       /unsupported (?:method|operation)|method not found|does not support.*(?:sign|personal_sign)|personal_sign.*(?:unsupported|unavailable)/.test(normalized)
     )
   ) {
-    return { message: "wallet does not support PATH authorization.", kind: "signature" };
+    return { message: "wallet cannot sign the $PATH permission.", kind: "signature" };
   }
   if (
     isWalletStage &&
@@ -158,15 +154,15 @@ export const formatThoughtAuthorizationError = (
     return { message: "THOUGHT preparation unavailable.", kind: "thought" };
   }
   if (stage === "nonce") {
-    return { message: "PATH authorization unavailable.", kind: "signature" };
+    return { message: "$PATH signature unavailable.", kind: "signature" };
   }
   if (stage === "wallet") {
     return { message: "signing wallet unavailable. reconnect wallet.", kind: "signature" };
   }
-  return { message: "authorization failed.", kind: "signature" };
+  return { message: "signature failed.", kind: "signature" };
 };
 
-// The THOUGHT creation surface owns PATH selection, authorization, and minting.
+// The THOUGHT creation surface owns $PATH selection, signing, and minting.
 // Keep its default flow inside the control panel; `sheet` only supports legacy
 // surfaces that opt into it explicitly.
 export const THOUGHT_PANEL_MINT_UI_MODE: MintFlowUiMode = "dock";

@@ -74,8 +74,9 @@ export const runThoughtConsoleTests = () => {
     eventId: "inventory:8",
     kind: "no_usable_path",
     time: "20:01:10",
-    title: "no usable PATH",
+    title: "no usable $PATH",
     detail: "this wallet has no available THOUGHT mints",
+    nextStep: "mint a $PATH, then refresh wallet from the shell bar",
     context: walletChangedContext,
     tone: "warning",
   });
@@ -96,6 +97,10 @@ export const runThoughtConsoleTests = () => {
   assert.match(walletBoundary?.detail ?? "", /0x5818…e100 → 0x170a…e100/i);
   assert.match(walletBoundary?.detail ?? "", /permission cleared/i);
   assert.equal(walletBoundary?.context.attemptId, "attempt-2");
+  assert.equal(
+    noPath.entries.at(-1)?.nextStep,
+    "mint a $PATH, then refresh wallet from the shell bar",
+  );
 
   const explicitResetContext: ThoughtConsoleContext = {
     ...walletChangedContext,
@@ -146,14 +151,14 @@ export const runThoughtConsoleTests = () => {
   const unsignedRepeat = appendThoughtConsoleEvent(switchedAgain, {
     kind: "wallet_prompt_closed",
     time: "20:02:10",
-    title: "permission not signed",
+    title: "$PATH not signed",
     detail: "nothing changed",
     context: differentNetworkContext,
   });
   const adjacentRepeat = appendThoughtConsoleEvent(unsignedRepeat, {
     kind: "wallet_prompt_closed",
     time: "20:02:11",
-    title: "permission not signed",
+    title: "$PATH not signed",
     detail: "nothing changed",
     context: differentNetworkContext,
   });
@@ -171,7 +176,7 @@ export const runThoughtConsoleTests = () => {
   const legitimateRetry = appendThoughtConsoleEvent(interveningEvent, {
     kind: "wallet_prompt_closed",
     time: "20:02:13",
-    title: "permission not signed",
+    title: "$PATH not signed",
     detail: "nothing changed",
     context: differentNetworkContext,
   });

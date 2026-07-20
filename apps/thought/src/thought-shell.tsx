@@ -96,7 +96,11 @@ const disconnectedWalletNote = (chainId: number) => {
   return undefined;
 };
 
-export const mountThoughtShell = (element: HTMLElement, expectedChainId: number) => {
+export const mountThoughtShell = (
+  element: HTMLElement,
+  expectedChainId: number,
+  onWalletRefresh?: () => void | Promise<void>,
+) => {
   if (shellRoot) return;
   shellRoot = createRoot(element);
   shellRoot.render(
@@ -106,6 +110,7 @@ export const mountThoughtShell = (element: HTMLElement, expectedChainId: number)
         active="thought"
         expectedChainId={expectedChainId}
         disconnectedWalletNote={disconnectedWalletNote(expectedChainId)}
+        onWalletRefresh={onWalletRefresh}
       />
     </WalletProvider>,
   );

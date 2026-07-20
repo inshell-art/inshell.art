@@ -14,10 +14,12 @@ export type InshellTopBarProps = {
   expectedChainId?: number;
   compact?: boolean;
   disconnectedWalletNote?: string;
+  onWalletRefresh?: () => void | Promise<void>;
 };
 
 export type InshellWalletModalProps = {
   expectedChainId?: number;
+  onRefresh?: () => void | Promise<void>;
 };
 
 export type InshellWalletPickerProps = {
@@ -79,7 +81,7 @@ export function InshellWalletPicker({
   );
 }
 
-export function InshellWalletModal({ expectedChainId }: InshellWalletModalProps) {
+export function InshellWalletModal({ expectedChainId, onRefresh }: InshellWalletModalProps) {
   const {
     address,
     chain,
@@ -111,6 +113,7 @@ export function InshellWalletModal({ expectedChainId }: InshellWalletModalProps)
     setNotice("");
     try {
       await refreshWallet();
+      await onRefresh?.();
       setNotice("wallet refreshed.");
     } catch (error) {
       setNotice(String((error as any)?.message ?? "wallet refresh failed."));
@@ -211,6 +214,7 @@ export function InshellTopBar({
   expectedChainId,
   compact,
   disconnectedWalletNote,
+  onWalletRefresh,
 }: InshellTopBarProps) {
   const {
     address,
@@ -344,7 +348,7 @@ export function InshellTopBar({
           </button>
           {open ? (
             isConnected ? (
-              <InshellWalletModal expectedChainId={expectedChainId} />
+              <InshellWalletModal expectedChainId={expectedChainId} onRefresh={onWalletRefresh} />
             ) : connectors.length ? (
               <>
                 <InshellWalletPicker
@@ -354,7 +358,7 @@ export function InshellTopBar({
                 {notice ? <p className="inshell-wallet-picker__notice">{notice}</p> : null}
               </>
             ) : (
-              <InshellWalletModal expectedChainId={expectedChainId} />
+              <InshellWalletModal expectedChainId={expectedChainId} onRefresh={onWalletRefresh} />
             )
           ) : null}
         </div>

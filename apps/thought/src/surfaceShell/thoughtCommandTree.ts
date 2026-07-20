@@ -382,16 +382,16 @@ export const thoughtCommandTree: ThoughtCommandNode[] = [
     ["path"],
     "$PATH",
     [
-      leaf(["path", "list"], "list wallet $PATHs", {
-        sideEffect: sideEffectContractRead("read wallet $PATHs"),
+      leaf(["path", "list"], "list wallet $PATH tokens", {
+        sideEffect: sideEffectContractRead("read wallet $PATH tokens"),
       }),
     ],
     {
       sideEffect: sideEffectContractRead("read $PATH"),
     },
   ),
-  leaf(["authorize"], "authorize $PATH", {
-    sideEffect: sideEffectWallet("sign $PATH authorization"),
+  leaf(["authorize"], "sign $PATH", {
+    sideEffect: sideEffectWallet("sign $PATH permission"),
   }),
   leaf(["confirm"], "confirm THOUGHT mint", {
     sideEffect: sideEffectContractWrite("mint THOUGHT"),

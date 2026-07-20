@@ -100,6 +100,18 @@ export type WorkStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
 export const THOUGHT_WORKS_STORAGE_KEY = "thought-works";
 export const THOUGHT_WORKS_LIMIT = 80;
+export const THOUGHT_SAVED_WORK_PROMPT_MAX_CHARS = 42;
+
+export const formatSavedWorkPromptLabel = (
+  prompt: string,
+  maxChars = THOUGHT_SAVED_WORK_PROMPT_MAX_CHARS,
+) => {
+  const normalized = prompt.trim().replace(/\s+/g, " ") || "untitled prompt";
+  if (normalized.length <= maxChars) {
+    return normalized;
+  }
+  return `${normalized.slice(0, Math.max(0, maxChars - 3)).trimEnd()}...`;
+};
 
 const isWorkAgentEvidence = (value: unknown): value is ThoughtV2LocalAgentEvidence => {
   if (typeof value !== "object" || value === null) {

@@ -12,6 +12,7 @@ export type ThoughtConsoleInput = {
   time: string;
   title: string;
   detail?: string;
+  nextStep?: string;
   /**
    * @deprecated Controls belong to the live panel, not to its retained history.
    * Kept temporarily so older callers can migrate without rendering `next:` lines.
@@ -35,6 +36,7 @@ export type ThoughtConsoleBoundaryInput = {
   kind?: string;
   title?: string;
   detail?: string;
+  nextStep?: string;
   tone?: ThoughtConsoleTone;
 };
 
@@ -45,6 +47,7 @@ export type ThoughtConsoleEntry = {
   time: string;
   title: string;
   detail?: string;
+  nextStep?: string;
   context: ThoughtConsoleContext;
   tone: ThoughtConsoleTone;
   boundary: boolean;
@@ -145,9 +148,11 @@ export const buildThoughtConsoleLines = ({
   time,
   title,
   detail = "",
+  nextStep = "",
 }: ThoughtConsoleInput) => {
   const normalizedTitle = normalizeConsoleText(title);
   const normalizedDetail = normalizeConsoleText(detail);
+  const normalizedNextStep = normalizeConsoleText(nextStep);
   const lines = [`[${normalizeConsoleText(time)}] ${normalizedTitle}`];
 
   if (
@@ -157,12 +162,17 @@ export const buildThoughtConsoleLines = ({
     lines.push(normalizedDetail);
   }
 
+  if (normalizedNextStep) {
+    lines.push(`next: ${normalizedNextStep}`);
+  }
+
   return lines;
 };
 
 type NormalizedThoughtConsoleEvent = Omit<ThoughtConsoleEventInput, "actions"> & {
   context: ThoughtConsoleContext;
   detail?: string;
+  nextStep?: string;
   eventId?: string;
   tone: ThoughtConsoleTone;
 };
@@ -172,10 +182,12 @@ const normalizeThoughtConsoleEvent = (
 ): NormalizedThoughtConsoleEvent => {
   const title = normalizeConsoleText(event.title);
   const detail = normalizeOptionalConsoleText(event.detail);
+  const nextStep = normalizeOptionalConsoleText(event.nextStep);
   return {
     time: normalizeConsoleText(event.time),
     title,
     ...(detail && !sameThoughtConsoleDetail(title, detail) ? { detail } : {}),
+    ...(nextStep ? { nextStep } : {}),
     ...(normalizeOptionalConsoleText(event.eventId)
       ? { eventId: normalizeOptionalConsoleText(event.eventId) }
       : {}),
@@ -199,6 +211,7 @@ const appendNormalizedThoughtConsoleEvent = (
     event.kind,
     event.title.toLowerCase(),
     event.detail?.toLowerCase() ?? "",
+    event.nextStep?.toLowerCase() ?? "",
     event.tone,
   ].join("|");
   const dedupeKey = event.eventId
@@ -222,6 +235,7 @@ const appendNormalizedThoughtConsoleEvent = (
     time: event.time,
     title: event.title,
     ...(event.detail ? { detail: event.detail } : {}),
+    ...(event.nextStep ? { nextStep: event.nextStep } : {}),
     context: event.context,
     tone: event.tone,
     boundary: options.boundary ?? false,
@@ -252,34 +266,34 @@ const boundaryPresentation = (
       return {
         kind: "wallet_disconnected",
         title: "wallet disconnected",
-        detail: `${compactAccount(previous.account)}; PATH selection and permission cleared`,
+        detail: `${compactAccount(previous.account)}; $PATH pick and permission cleared`,
       };
     }
     return {
       kind: "wallet_changed",
       title: "wallet changed",
-      detail: `${compactAccount(previous.account)} → ${compactAccount(next.account)}; PATH selection and permission cleared`,
+        detail: `${compactAccount(previous.account)} → ${compactAccount(next.account)}; $PATH pick and permission cleared`,
     };
   }
   if (previous.chainId !== next.chainId) {
     return {
       kind: "network_changed",
       title: "network changed",
-      detail: `${previous.chainId ?? "none"} → ${next.chainId ?? "none"}; PATH selection and permission cleared`,
+      detail: `${previous.chainId ?? "none"} → ${next.chainId ?? "none"}; $PATH pick and permission cleared`,
     };
   }
   if (previous.workHash !== next.workHash) {
     return {
       kind: "work_changed",
       title: "work changed",
-      detail: "previous PATH selection and permission cleared",
+      detail: "previous $PATH pick and permission cleared",
     };
   }
   if (previous.deploymentFingerprint !== next.deploymentFingerprint) {
     return {
       kind: "deployment_changed",
       title: "deployment changed",
-      detail: "PATH inventory and permission cleared",
+      detail: "$PATH inventory and permission cleared",
     };
   }
   return {
@@ -308,6 +322,9 @@ export const appendThoughtConsoleContextBoundary = (
       kind: normalizeOptionalConsoleText(input.kind) ?? presentation.kind,
       title: normalizeOptionalConsoleText(input.title) ?? presentation.title,
       detail: normalizeOptionalConsoleText(input.detail) ?? presentation.detail,
+      ...(normalizeOptionalConsoleText(input.nextStep)
+        ? { nextStep: normalizeOptionalConsoleText(input.nextStep) }
+        : {}),
       context,
       tone: input.tone ?? "neutral",
       transient: false,
@@ -384,6 +401,7 @@ const parseThoughtConsoleEntry = (value: unknown): ThoughtConsoleEntry | null =>
   });
   const title = normalizeConsoleText(value.title);
   const detail = normalizeOptionalConsoleText(value.detail);
+  const nextStep = normalizeOptionalConsoleText(value.nextStep);
 
   return {
     id: normalizeConsoleText(value.id),
@@ -392,6 +410,7 @@ const parseThoughtConsoleEntry = (value: unknown): ThoughtConsoleEntry | null =>
     time: normalizeConsoleText(value.time),
     title,
     ...(detail && !sameThoughtConsoleDetail(title, detail) ? { detail } : {}),
+    ...(nextStep ? { nextStep } : {}),
     context: normalizedContext,
     tone: value.tone,
     boundary: value.boundary,
