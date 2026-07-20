@@ -98,6 +98,13 @@ const fixtureProvenanceJson = (fixture: ThoughtV2TextFixture, agent: string) =>
 const provenanceHref = (provenanceJson: string) =>
   `data:application/json;charset=utf-8,${encodeURIComponent(provenanceJson)}`;
 
+const renderSvgImage = (container: HTMLElement, svg: string, alt: string) => {
+  const image = document.createElement("img");
+  image.alt = alt;
+  image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  container.replaceChildren(image);
+};
+
 const renderRawSvgToPreview = (svg: string, validMeta: string): boolean => {
   const trimmed = svg.trim();
   if (!trimmed) {
@@ -106,22 +113,13 @@ const renderRawSvgToPreview = (svg: string, validMeta: string): boolean => {
     return false;
   }
 
-  const documentSvg = new DOMParser().parseFromString(trimmed, "image/svg+xml");
-  const parseError = documentSvg.querySelector("parsererror");
-  if (parseError) {
+  if (!trimmed.startsWith("<svg") || !trimmed.endsWith("</svg>")) {
     preview.replaceChildren();
-    meta.textContent = `raw svg parse error | ${parseError.textContent?.replace(/\s+/g, " ").trim() ?? "invalid svg"}`;
+    meta.textContent = "raw svg must contain one complete svg element";
     return false;
   }
 
-  const svgElement = documentSvg.documentElement;
-  if (svgElement.localName.toLowerCase() !== "svg") {
-    preview.replaceChildren();
-    meta.textContent = "raw svg must start with an svg element";
-    return false;
-  }
-
-  preview.replaceChildren(document.importNode(svgElement, true));
+  renderSvgImage(preview, trimmed, "THOUGHT V2 SVG preview");
   meta.textContent = validMeta;
   return true;
 };
@@ -136,11 +134,12 @@ const renderFixtureCard = (fixture: ThoughtV2TextFixture, index: number): HTMLEl
   canvas.setAttribute("aria-label", `${fixture.name} fixture preview`);
 
   try {
-    canvas.innerHTML = buildThoughtV2Svg({
+    const fixtureSvg = buildThoughtV2Svg({
       promptLine: fixture.promptLine,
       agentLine: fixture.agentLine,
       ...fixedRender,
     });
+    renderSvgImage(canvas, fixtureSvg, `${fixture.name} fixture preview`);
   } catch (error) {
     canvas.textContent = error instanceof Error ? error.message : "render failed";
   }
