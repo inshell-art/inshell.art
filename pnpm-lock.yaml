@@ -8,7 +8,7 @@ overrides:
   '@tootallnate/once@^2.0.0': 3.0.1
   '@babel/core@^7.0.0': 7.29.6
   ajv@^6.0.0: 6.14.0
-  axios@^1.0.0: 1.16.0
+  axios@^1.0.0: 1.18.0
   brace-expansion@^1.0.0: 1.1.13
   brace-expansion@^2.0.0: 2.0.3
   defu@^6.0.0: 6.1.5
@@ -1361,6 +1361,7 @@ packages:
   '@safe-global/safe-gateway-typescript-sdk@3.23.1':
     resolution: {integrity: sha512-6ORQfwtEJYpalCeVO21L4XXGSdbEMfyp2hEv6cP82afKXSwvse6d3sdelgaPWUxHIsFRkWvHDdzh8IyyKHZKxw==}
     engines: {node: '>=16'}
+    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
 
   '@scure/base@1.2.6':
     resolution: {integrity: sha512-g/nm5FgUa//MCj1gV09zTJTaM6KBAHqLN907YVQqf7zC49+DcO4B1so4ZX07Ef10Twr6nuqYEH9GEggFXA4Fmg==}
@@ -2808,10 +2809,10 @@ packages:
   axios-retry@4.5.0:
     resolution: {integrity: sha512-aR99oXhpEDGo0UuAlYcn2iGRds30k366Zfa05XWScR9QaQD4JYiP3/1Qt1u7YlefUOK+cn0CcwoL1oefavQUlQ==}
     peerDependencies:
-      axios: 1.16.0
+      axios: 1.18.0
 
-  axios@1.16.0:
-    resolution: {integrity: sha512-6hp5CwvTPlN2A31g5dxnwAX0orzM7pmCRDLnZSX772mv8WDqICwFjowHuPs04Mc8deIld1+ejhtaMn5vp6b+1w==}
+  axios@1.18.0:
+    resolution: {integrity: sha512-E32NzpYKp++W7XRe52rHiXV2ehxmh3wbdgO7MHeFM+vqxLBYHzt0ElkiImtOBxtOmyp0yoC8C6uESVV84Y2/hw==}
 
   babel-jest@30.0.5:
     resolution: {integrity: sha512-mRijnKimhGDMsizTvBTWotwNpzrkHr+VvZUQBof2AufXKB8NXrL1W69TG20EvOz7aevx6FTJIaBuBkYxS8zolg==}
@@ -5885,6 +5886,7 @@ snapshots:
       - fastestsmallesttextencoderdecoder
       - immer
       - react
+      - supports-color
       - typescript
       - use-sync-external-store
       - utf-8-validate
@@ -5927,8 +5929,8 @@ snapshots:
       '@solana/kit': 5.5.1(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@6.0.6)
       '@solana/web3.js': 1.98.4(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@6.0.6)
       abitype: 1.0.6(typescript@5.8.3)(zod@3.25.76)
-      axios: 1.16.0
-      axios-retry: 4.5.0(axios@1.16.0)
+      axios: 1.18.0
+      axios-retry: 4.5.0(axios@1.18.0)
       jose: 6.1.3
       md5: 2.3.0
       uncrypto: 0.1.3
@@ -5939,6 +5941,7 @@ snapshots:
       - debug
       - encoding
       - fastestsmallesttextencoderdecoder
+      - supports-color
       - typescript
       - utf-8-validate
     optional: true
@@ -6722,6 +6725,7 @@ snapshots:
       - immer
       - ioredis
       - react
+      - supports-color
       - typescript
       - uploadthing
       - use-sync-external-store
@@ -6767,6 +6771,7 @@ snapshots:
       - immer
       - ioredis
       - react
+      - supports-color
       - typescript
       - uploadthing
       - use-sync-external-store
@@ -6851,6 +6856,7 @@ snapshots:
       - immer
       - ioredis
       - react
+      - supports-color
       - typescript
       - uploadthing
       - use-sync-external-store
@@ -6911,6 +6917,7 @@ snapshots:
       - immer
       - ioredis
       - react
+      - supports-color
       - typescript
       - uploadthing
       - use-sync-external-store
@@ -8338,6 +8345,7 @@ snapshots:
       - immer
       - ioredis
       - react
+      - supports-color
       - typescript
       - uploadthing
       - use-sync-external-store
@@ -9363,19 +9371,21 @@ snapshots:
 
   aws4@1.13.2: {}
 
-  axios-retry@4.5.0(axios@1.16.0):
+  axios-retry@4.5.0(axios@1.18.0):
     dependencies:
-      axios: 1.16.0
+      axios: 1.18.0
       is-retry-allowed: 2.2.0
     optional: true
 
-  axios@1.16.0:
+  axios@1.18.0:
     dependencies:
       follow-redirects: 1.16.0
       form-data: 4.0.6
+      https-proxy-agent: 5.0.1
       proxy-from-env: 2.1.0
     transitivePeerDependencies:
       - debug
+      - supports-color
     optional: true
 
   babel-jest@30.0.5(@babel/core@7.29.6):
