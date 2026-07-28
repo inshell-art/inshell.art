@@ -1,22 +1,51 @@
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ElementRef,
-  type ReactNode,
-} from "react";
-import {
-  loadThoughtGallery,
-  readCachedThoughtGallery,
+  loadThoughtGalleryItem,
   type ThoughtGalleryItem,
 } from "@/services/thoughtGallery";
+import { resolveThoughtSpecHref } from "@/services/thoughtSpecLink";
 import { PUBLIC_NETWORK_CONFIG } from "@inshell/shared";
 
 type LoadState =
-  | { status: "loading"; items: ThoughtGalleryItem[]; error: null }
-  | { status: "ready"; items: ThoughtGalleryItem[]; error: null }
-  | { status: "error"; items: ThoughtGalleryItem[]; error: string };
+  | { status: "loading"; item: null; error: null }
+  | { status: "ready"; item: ThoughtGalleryItem | null; error: null }
+  | { status: "error"; item: null; error: string };
+
+type DetailNetwork = {
+  environment: string;
+  chain: string;
+  chainId: number;
+  currency: string;
+  contract: string;
+};
+
+type TokenAttribute = {
+  trait_type: string;
+  value: string | number;
+  display_type?: string;
+};
+
+type TokenMetadata = {
+  attributes: TokenAttribute[];
+  creationAttestation: string | null;
+};
+
+type ProvenanceMaterial = {
+  schema: string | null;
+  processKind: string | null;
+  agentSource: string | null;
+  modelSource: string | null;
+  modelIdentifier: string | null;
+  adapter: string | null;
+  provider: string | null;
+  route: string | null;
+  runIdHash: string | null;
+  resultEnvelopeHash: string | null;
+  protocolReleaseId: string | null;
+  manifestHash: string | null;
+};
+
+const ZERO_HASH = `0x${"0".repeat(64)}`;
 
 function getEnvValue(name: string): unknown {
   const runtimeEnv: Record<string, unknown> | undefined =
@@ -58,27 +87,11 @@ function isLocalBrowserHost(): boolean {
   return hostname === "localhost" || hostname === "127.0.0.1";
 }
 
-function defaultGalleryUrl(): string {
-  if (isPreviewDeployment()) return "https://preview.inshell.art/gallery";
-  if (isLocalBrowserHost()) return "/gallery";
-  return "https://inshell.art/gallery";
-}
-
-function galleryUrl(): string {
-  return (
-    configuredUrl("VITE_GALLERY_URL") ??
-    configuredUrl("VITE_THOUGHT_GALLERY_URL") ??
-    defaultGalleryUrl()
-  );
-}
-
 function thoughtAppUrl(): string {
-  return (
-    configuredUrl("VITE_THOUGHT_URL") ??
-    (isPreviewDeployment()
-      ? "https://preview.inshell.art/thought"
-      : "https://inshell.art/thought")
-  );
+  const configured = configuredUrl("VITE_THOUGHT_URL");
+  if (configured) return configured;
+  if (isPreviewDeployment()) return "https://preview.inshell.art/thought";
+  return isLocalBrowserHost() ? "/thought" : "https://inshell.art/thought";
 }
 
 function shortValue(value?: string, head = 6, tail = 4): string {
@@ -86,24 +99,6 @@ function shortValue(value?: string, head = 6, tail = 4): string {
   const trimmed = value.trim();
   if (trimmed.length <= head + tail + 3) return trimmed;
   return `${trimmed.slice(0, head)}...${trimmed.slice(-tail)}`;
-}
-
-function shortDetailAddress(value: string): string {
-  return shortValue(value, 18, 10);
-}
-
-function canonicalThoughtTitle(value: string): string {
-  return (
-    value
-      .replace(/[^A-Za-z]+/g, " ")
-      .trim()
-      .replace(/\s+/g, " ")
-      .toUpperCase() || "-"
-  );
-}
-
-function thoughtRawText(item: ThoughtGalleryItem): string {
-  return item.rawText.trim() || canonicalThoughtTitle(item.rawText) || "-";
 }
 
 function formatTimestamp(seconds: number | null): string {
@@ -128,22 +123,212 @@ function byteLength(value: string): number {
   return new TextEncoder().encode(value).byteLength;
 }
 
-function thoughtDetailApiUrl(tokenId: number, part: "provenance" | "spec"): string {
-  return `/api/thought-${part}?id=${encodeURIComponent(String(tokenId))}`;
+function parseChainId(value: unknown): number | null {
+  if (typeof value === "number" && Number.isSafeInteger(value)) return value;
+  if (typeof value !== "string" || !value.trim()) return null;
+  const parsed = Number.parseInt(value, value.trim().startsWith("0x") ? 16 : 10);
+  return Number.isSafeInteger(parsed) ? parsed : null;
 }
 
-function thoughtImageUrl(tokenId: number): string {
-  return `/api/thought-image?id=${encodeURIComponent(String(tokenId))}`;
+function detailNetwork(): DetailNetwork {
+  const isDevnet =
+    String(getEnvValue("VITE_NETWORK") ?? "").trim().toLowerCase() === "devnet";
+  if (isDevnet) {
+    return {
+      environment: "Local Anvil",
+      chain: "Local Devnet",
+      chainId: parseChainId(getEnvValue("VITE_EXPECTED_CHAIN_ID")) ?? 31337,
+      currency: "local ETH",
+      contract: String(
+        getEnvValue("VITE_THOUGHT_NFT") ??
+          getEnvValue("VITE_THOUGHT_NFT_ADDRESS") ??
+          ""
+      ),
+    };
+  }
+  return {
+    environment: PUBLIC_NETWORK_CONFIG.environmentLabel,
+    chain: PUBLIC_NETWORK_CONFIG.chainLabel,
+    chainId: PUBLIC_NETWORK_CONFIG.chainId,
+    currency: PUBLIC_NETWORK_CONFIG.currencyLabel,
+    contract: String(
+      getEnvValue("VITE_THOUGHT_NFT") ??
+        getEnvValue("VITE_THOUGHT_NFT_ADDRESS") ??
+        ""
+    ),
+  };
 }
 
 function explorerTxUrl(txHash: string): string | null {
   if (!/^0x[0-9a-fA-F]{64}$/.test(txHash)) return null;
   const configured = configuredUrl("VITE_THOUGHT_EXPLORER_BASE_URL");
-  const base = configured?.replace(/\/$/, "") ?? "https://sepolia.etherscan.io";
+  const base =
+    configured?.replace(/\/$/, "") ?? PUBLIC_NETWORK_CONFIG.explorerBaseUrl;
   return `${base}/tx/${txHash}`;
 }
 
-function ThoughtSection({ title, children }: { title: string; children: ReactNode }) {
+function rawJsonUrl(value: string): string {
+  return `data:application/json;charset=utf-8,${encodeURIComponent(value)}`;
+}
+
+function provenanceHref(item: ThoughtGalleryItem): string {
+  const isDevnet =
+    String(getEnvValue("VITE_NETWORK") ?? "").trim().toLowerCase() === "devnet";
+  return isDevnet
+    ? rawJsonUrl(item.provenanceJson)
+    : `/api/thought-provenance?id=${encodeURIComponent(String(item.tokenId))}`;
+}
+
+function safeTokenMetadataHref(value: string): string | null {
+  const trimmed = value.trim();
+  return /^https?:\/\//i.test(trimmed) ||
+    trimmed.startsWith("/") ||
+    trimmed.startsWith("data:application/json")
+    ? trimmed
+    : null;
+}
+
+function asObject(value: unknown): Record<string, unknown> | null {
+  return value != null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function optionalString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function parseTokenMetadata(tokenUri: string): TokenMetadata {
+  const empty: TokenMetadata = { attributes: [], creationAttestation: null };
+  try {
+    let json = tokenUri;
+    if (tokenUri.startsWith("data:application/json")) {
+      const separator = tokenUri.indexOf(",");
+      if (separator < 0) return empty;
+      const header = tokenUri.slice(0, separator);
+      const encoded = tokenUri.slice(separator + 1);
+      json = header.includes(";base64")
+        ? globalThis.atob(encoded)
+        : decodeURIComponent(encoded);
+    } else if (!tokenUri.trim().startsWith("{")) {
+      return empty;
+    }
+    const metadata = asObject(JSON.parse(json) as unknown);
+    if (!metadata) return empty;
+    const attributes = Array.isArray(metadata.attributes)
+      ? metadata.attributes.flatMap((candidate): TokenAttribute[] => {
+          const attribute = asObject(candidate);
+          const traitType = optionalString(attribute?.trait_type);
+          const value = attribute?.value;
+          if (
+            !traitType ||
+            (typeof value !== "string" && typeof value !== "number")
+          ) {
+            return [];
+          }
+          const displayType = optionalString(attribute?.display_type);
+          return [
+            {
+              trait_type: traitType,
+              value,
+              ...(displayType ? { display_type: displayType } : {}),
+            },
+          ];
+        })
+      : [];
+    const trait = attributes.find(
+      (attribute) => attribute.trait_type === "Creation Attestation"
+    );
+    return {
+      attributes,
+      creationAttestation:
+        optionalString(trait?.value) ??
+        optionalString(metadata.creationAttestation),
+    };
+  } catch {
+    return empty;
+  }
+}
+
+function parseProvenance(value: string): ProvenanceMaterial {
+  const empty: ProvenanceMaterial = {
+    schema: null,
+    processKind: null,
+    agentSource: null,
+    modelSource: null,
+    modelIdentifier: null,
+    adapter: null,
+    provider: null,
+    route: null,
+    runIdHash: null,
+    resultEnvelopeHash: null,
+    protocolReleaseId: null,
+    manifestHash: null,
+  };
+  if (!value) return empty;
+  try {
+    const provenance = asObject(JSON.parse(value) as unknown);
+    if (!provenance) return empty;
+    const process = asObject(provenance.process);
+    const agentDeclaration = asObject(process?.agentDeclaration);
+    const modelDeclaration = asObject(process?.modelDeclaration);
+    const transport = asObject(process?.transport);
+    const protocol = asObject(provenance.protocol);
+    return {
+      schema: optionalString(provenance.schema),
+      processKind: optionalString(process?.kind),
+      agentSource: optionalString(agentDeclaration?.source),
+      modelSource: optionalString(modelDeclaration?.source),
+      modelIdentifier: optionalString(modelDeclaration?.identifier),
+      adapter: optionalString(transport?.adapter),
+      provider:
+        optionalString(transport?.provider) ??
+        optionalString(provenance.provider),
+      route:
+        optionalString(transport?.route) ?? optionalString(provenance.route),
+      runIdHash: optionalString(transport?.runIdHash),
+      resultEnvelopeHash: optionalString(transport?.resultEnvelopeKeccak256),
+      protocolReleaseId: optionalString(protocol?.protocolReleaseId),
+      manifestHash: optionalString(protocol?.manifestKeccak256),
+    };
+  } catch {
+    return empty;
+  }
+}
+
+function creationAttestation(
+  item: ThoughtGalleryItem,
+  metadata: TokenMetadata
+): string {
+  const digest = item.creationAttestationDigest?.toLowerCase();
+  if (digest === ZERO_HASH) return "Unattested";
+  if (/^0x[0-9a-f]{64}$/.test(digest ?? "")) return "Inshell THOUGHT App";
+  return metadata.creationAttestation ?? "Unavailable";
+}
+
+function processLabel(value: string | null, fallback: string): string {
+  if (value === "agent-run") return "Agent run";
+  if (value === "manual") return "Manual";
+  return value || fallback || "Unavailable";
+}
+
+function sourceLabel(value: string | null): string {
+  if (!value) return "declared-unverified";
+  return `declared-unverified · ${value.replace(/_/g, " ")}`;
+}
+
+function traitValue(attribute: TokenAttribute): string {
+  const value = String(attribute.value);
+  return attribute.display_type ? `${value} · ${attribute.display_type}` : value;
+}
+
+function ThoughtSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
   return (
     <section className="thought-detail__section">
       <h2>{title}</h2>
@@ -152,267 +337,400 @@ function ThoughtSection({ title, children }: { title: string; children: ReactNod
   );
 }
 
-function ThoughtTextBlock({
+function DetailFields({ children }: { children: ReactNode }) {
+  return <dl className="thought-detail__fields">{children}</dl>;
+}
+
+function DetailField({
+  label,
   children,
-  id,
 }: {
+  label: string;
   children: ReactNode;
-  id?: string;
 }) {
-  const ref = useRef<ElementRef<"p"> | null>(null);
-  const [embedded, setEmbedded] = useState(false);
-
-  useEffect(() => {
-    const element = ref.current;
-    if (!element || typeof window === "undefined") return;
-
-    const sync = () => {
-      const wasEmbedded = element.classList.contains("is-embedded");
-      element.classList.remove("is-embedded");
-      const style = window.getComputedStyle(element);
-      const lineHeight =
-        Number.parseFloat(style.lineHeight) || Number.parseFloat(style.fontSize) * 1.55;
-      if (wasEmbedded) {
-        element.classList.add("is-embedded");
-      }
-      setEmbedded(element.scrollHeight > lineHeight * 2 + 1);
-    };
-
-    const frame = window.requestAnimationFrame(sync);
-    window.addEventListener("resize", sync);
-    return () => {
-      window.cancelAnimationFrame(frame);
-      window.removeEventListener("resize", sync);
-    };
-  }, [children]);
-
   return (
-    <p
-      id={id}
-      ref={ref}
-      className={`thought-detail__text${embedded ? " is-embedded" : ""}`}
-    >
-      {children}
-    </p>
+    <div>
+      <dt>{label}</dt>
+      <dd>{children}</dd>
+    </div>
   );
 }
 
-function thoughtTitle(item: ThoughtGalleryItem): string {
-  return thoughtRawText(item) || `THOUGHT #${item.tokenId}`;
-}
-
 function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
+  const network = detailNetwork();
   const txUrl = explorerTxUrl(item.txHash);
-  const title = thoughtTitle(item);
-  const provenanceBytes = item.provenanceJson ? byteLength(item.provenanceJson) : 0;
+  const specHref = resolveThoughtSpecHref(item);
+  const metadata = parseTokenMetadata(item.tokenUri);
+  const provenance = parseProvenance(item.provenanceJson);
+  const attestation = creationAttestation(item, metadata);
+  const isAttested = attestation === "Inshell THOUGHT App";
+  const provenanceBytes = byteLength(item.provenanceJson);
+  const specName = item.thoughtSpecName?.trim() || "THOUGHT specification";
+  const declaredAgent = item.declaredAgent?.trim() || item.provider || "-";
+  const declaredModel = item.declaredModel?.trim() || item.model || "-";
+  const canonicalTraits = metadata.attributes;
+  const tokenMetadataHref = safeTokenMetadataHref(item.tokenUri);
 
   return (
-    <div className="thought-detail__body">
-      <div className="thought-detail__canvas-frame">
-        {item.image ? (
-          <img
-            className="thought-detail__image"
-            src={thoughtImageUrl(item.tokenId)}
-            alt={`THOUGHT #${item.tokenId} canvas`}
-            title={title}
-          />
-        ) : (
-          <div className="thought-detail__missing">image unavailable</div>
-        )}
-      </div>
+    <>
+      <div className="thought-detail__body">
+        <div className="thought-detail__canvas-column">
+          {item.image ? (
+            <img
+              className="thought-detail__image"
+              src={item.image}
+              alt={`THOUGHT #${item.tokenId} canvas`}
+            />
+          ) : (
+            <div className="thought-detail__missing">artwork unavailable</div>
+          )}
+          <p className="thought-detail__artwork-source">
+            canonical artwork · ThoughtNFT.svgOf({item.tokenId})
+          </p>
+        </div>
 
-      <aside className="thought-detail__rail" aria-label={`THOUGHT #${item.tokenId} record`}>
-        <ThoughtSection title="prompt">
-          <ThoughtTextBlock id="thought-detail-prompt">
-            {item.prompt || "prompt unavailable."}
-          </ThoughtTextBlock>
-        </ThoughtSection>
-
-        <ThoughtSection title="spec">
-          <a
-            id="thought-detail-spec-ref"
-            className="thought-detail__value thought-detail__value-link"
-            href={thoughtDetailApiUrl(item.tokenId, "spec")}
-            title="Open cached spec JSON"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            THOUGHT.v1.md ↗
-          </a>
-        </ThoughtSection>
-
-        <ThoughtSection title="model">
-          <p className="thought-detail__value">{item.model || "model unavailable."}</p>
-        </ThoughtSection>
-
-        <ThoughtSection title="model return">
-          <ThoughtTextBlock id="thought-detail-model-return">
-            {item.returnedText || "model return unavailable."}
-          </ThoughtTextBlock>
-        </ThoughtSection>
-
-        <ThoughtSection title="text">
-          <ThoughtTextBlock id="thought-detail-canonical-title">
-            {thoughtRawText(item)}
-          </ThoughtTextBlock>
-        </ThoughtSection>
-
-        <ThoughtSection title="$PATH">
-          <a
-            id="thought-detail-path"
-            className="thought-detail__value thought-detail__path-link"
-            href={`/path/${item.pathId}`}
-            title={`Open $PATH #${item.pathId} detail`}
-          >
-            $PATH #{item.pathId} ↗
-          </a>
-        </ThoughtSection>
-
-        <ThoughtSection title="mint">
-          <dl className="thought-detail__fields">
-            <div>
-              <dt>minter</dt>
-              <dd id="thought-detail-minter" title={item.minter}>
-                {shortDetailAddress(item.minter)}
-              </dd>
+        <aside
+          className="thought-detail__rail"
+          aria-label={`THOUGHT #${item.tokenId} record`}
+        >
+          <ThoughtSection title="work">
+            <div className="thought-detail__dialogue">
+              <div>
+                <p className="thought-detail__dialogue-role">prompt</p>
+                <p id="thought-detail-prompt" className="thought-detail__text">
+                  {item.prompt || "prompt unavailable."}
+                </p>
+              </div>
+              <div>
+                <p className="thought-detail__dialogue-role">Agent</p>
+                <p id="thought-detail-agent-line" className="thought-detail__text">
+                  {item.returnedText || item.rawText || "Agent line unavailable."}
+                </p>
+              </div>
             </div>
-            <div>
-              <dt>network</dt>
-              <dd>{PUBLIC_NETWORK_CONFIG.environmentLabel}</dd>
-            </div>
-            <div>
-              <dt>chain</dt>
-              <dd>{PUBLIC_NETWORK_CONFIG.chainLabel}</dd>
-            </div>
-            <div>
-              <dt>chain id</dt>
-              <dd>{PUBLIC_NETWORK_CONFIG.chainId}</dd>
-            </div>
-            <div>
-              <dt>currency</dt>
-              <dd>{PUBLIC_NETWORK_CONFIG.currencyLabel}</dd>
-            </div>
-            <div>
-              <dt>minted</dt>
-              <dd>{formatTimestamp(item.mintedAt)}</dd>
-            </div>
-            <div>
-              <dt>tx</dt>
-              <dd>
-                {txUrl ? (
+          </ThoughtSection>
+
+          <ThoughtSection title="creation provenance">
+            <p className="thought-detail__attestation-summary">
+              <span
+                className="thought-detail__attestation"
+                data-attestation={attestation.toLowerCase().replace(/ /g, "-")}
+              >
+                {attestation}
+              </span>
+              <span>
+                {isAttested
+                  ? "The App hash-bound this work and provenance in its Creation Attestation."
+                  : "Contract-valid THOUGHT. Its creation process was not attested by the App."}
+              </span>
+            </p>
+            <DetailFields>
+              <DetailField label="process">
+                {processLabel(provenance.processKind, item.mode)}
+              </DetailField>
+              <DetailField label="declared Agent">
+                {declaredAgent}
+                <span className="thought-detail__assurance">
+                  {sourceLabel(provenance.agentSource)}
+                </span>
+              </DetailField>
+              <DetailField label="declared model">
+                {declaredModel}
+                <span className="thought-detail__assurance">
+                  {sourceLabel(provenance.modelSource)}
+                </span>
+              </DetailField>
+              {provenance.modelIdentifier && (
+                <DetailField label="model ID">
+                  {provenance.modelIdentifier}
+                </DetailField>
+              )}
+              {provenance.adapter && (
+                <DetailField label="adapter">{provenance.adapter}</DetailField>
+              )}
+              {provenance.provider && (
+                <DetailField label="provider">{provenance.provider}</DetailField>
+              )}
+              {provenance.route && (
+                <DetailField label="route">{provenance.route}</DetailField>
+              )}
+              {provenance.runIdHash && (
+                <DetailField label="run">
+                  <span title={provenance.runIdHash}>
+                    {shortValue(provenance.runIdHash, 12, 10)}
+                  </span>
+                </DetailField>
+              )}
+              <DetailField label="$PATH">
+                <a
+                  id="thought-detail-path"
+                  className="thought-detail__value-link"
+                  href={`/path/${item.pathId}`}
+                  title={`Open $PATH #${item.pathId} detail`}
+                >
+                  $PATH #{item.pathId} ↗
+                </a>
+                {item.pathSerial && (
+                  <span className="thought-detail__assurance">
+                    movement unit {item.pathSerial}
+                  </span>
+                )}
+              </DetailField>
+              <DetailField label="spec">
+                {specHref ? (
                   <a
-                    id="thought-detail-view-tx"
+                    id="thought-detail-spec-ref"
                     className="thought-detail__value-link"
-                    href={txUrl}
-                    title={item.txHash}
+                    href={specHref}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    {shortValue(item.txHash, 22, 14)} ↗
+                    {specName} ↗
                   </a>
                 ) : (
-                  shortValue(item.txHash)
+                  specName
                 )}
-              </dd>
-            </div>
-          </dl>
-        </ThoughtSection>
+              </DetailField>
+            </DetailFields>
+          </ThoughtSection>
+        </aside>
+      </div>
 
-        <ThoughtSection title="provenance">
-          {item.provenanceJson ? (
-            <>
-              <a
-                className="thought-detail__value thought-detail__value-link"
-                href={thoughtDetailApiUrl(item.tokenId, "provenance")}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {provenanceBytes} bytes ↗
-              </a>
-              <div className="thought-detail__viewer is-hidden" aria-hidden="true">
-                <p className="thought-detail__viewer-title">
-                  source: ThoughtNFT.provenanceOf({item.tokenId})
-                </p>
-                <pre className="thought-detail__json">
-                  {formatProvenanceJson(item.provenanceJson)}
-                </pre>
-              </div>
-            </>
+      <div className="thought-detail__support">
+        <ThoughtSection title="canonical traits">
+          {canonicalTraits.length > 0 ? (
+            <DetailFields>
+              {canonicalTraits.map((attribute, index) => (
+                <DetailField
+                  key={`${attribute.trait_type}-${index}`}
+                  label={attribute.trait_type}
+                >
+                  {traitValue(attribute)}
+                </DetailField>
+              ))}
+            </DetailFields>
           ) : (
-            <p className="thought-detail__value">unavailable.</p>
+            <p className="thought-detail__empty">metadata traits unavailable.</p>
           )}
         </ThoughtSection>
 
-        <ThoughtSection title="color font">
-          <a
-            id="thought-detail-color-font"
-            className="thought-detail__value thought-detail__value-link"
-            href="/color-font"
-            title="Open color-font source of truth"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Color Font v1 ↗
-          </a>
+        <ThoughtSection title="onchain record">
+          <DetailFields>
+            <DetailField label="token">THOUGHT #{item.tokenId}</DetailField>
+            <DetailField label="author">
+              <span id="thought-detail-minter" title={item.minter}>
+                {shortValue(item.minter, 12, 8)}
+              </span>
+            </DetailField>
+            {item.currentOwner &&
+              item.currentOwner.toLowerCase() !== item.minter.toLowerCase() && (
+                <DetailField label="owner">
+                  <span title={item.currentOwner}>
+                    {shortValue(item.currentOwner, 12, 8)}
+                  </span>
+                </DetailField>
+              )}
+            <DetailField label="network">{network.environment}</DetailField>
+            <DetailField label="chain">
+              {network.chain} · {network.chainId}
+            </DetailField>
+            <DetailField label="currency">{network.currency}</DetailField>
+            {network.contract && (
+              <DetailField label="contract">
+                <span title={network.contract}>
+                  {shortValue(network.contract, 12, 8)}
+                </span>
+              </DetailField>
+            )}
+            <DetailField label="minted">
+              {formatTimestamp(item.mintedAt)}
+            </DetailField>
+            {item.blockNumber > 0 && (
+              <DetailField label="block">{item.blockNumber}</DetailField>
+            )}
+            {txUrl && (
+              <DetailField label="tx">
+                <a
+                  id="thought-detail-view-tx"
+                  className="thought-detail__value-link"
+                  href={txUrl}
+                  title={item.txHash}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {shortValue(item.txHash, 14, 10)} ↗
+                </a>
+              </DetailField>
+            )}
+          </DetailFields>
         </ThoughtSection>
-      </aside>
-    </div>
+      </div>
+
+      <details className="thought-detail__record thought-detail__verification">
+        <summary>verify / raw data</summary>
+        <div className="thought-detail__record-body">
+          <div className="thought-detail__verification-grid">
+            <div>
+              <h3>contract commitments</h3>
+              <DetailFields>
+                <DetailField label="provenance">
+                  <span title={item.provenanceHash}>
+                    {shortValue(item.provenanceHash, 12, 10)}
+                  </span>
+                </DetailField>
+                <DetailField label="prompt">
+                  <span title={item.promptHash}>
+                    {shortValue(item.promptHash, 12, 10)}
+                  </span>
+                </DetailField>
+                <DetailField label="Agent line">
+                  <span title={item.returnedTextHash || item.textHash}>
+                    {shortValue(item.returnedTextHash || item.textHash, 12, 10)}
+                  </span>
+                </DetailField>
+                {item.conversationIdentityHash && (
+                  <DetailField label="dialogue">
+                    <span title={item.conversationIdentityHash}>
+                      {shortValue(item.conversationIdentityHash, 12, 10)}
+                    </span>
+                  </DetailField>
+                )}
+                {item.workHash && (
+                  <DetailField label="work">
+                    <span title={item.workHash}>
+                      {shortValue(item.workHash, 12, 10)}
+                    </span>
+                  </DetailField>
+                )}
+                {item.creationAttestationDigest && (
+                  <DetailField label="attestation">
+                    <span title={item.creationAttestationDigest}>
+                      {shortValue(item.creationAttestationDigest, 12, 10)}
+                    </span>
+                  </DetailField>
+                )}
+              </DetailFields>
+            </div>
+            <div>
+              <h3>release binding</h3>
+              <DetailFields>
+                <DetailField label="spec ID">
+                  <span title={item.thoughtSpecId}>
+                    {shortValue(item.thoughtSpecId, 12, 10)}
+                  </span>
+                </DetailField>
+                <DetailField label="spec hash">
+                  <span title={item.thoughtSpecHash}>
+                    {shortValue(item.thoughtSpecHash, 12, 10)}
+                  </span>
+                </DetailField>
+                {provenance.protocolReleaseId && (
+                  <DetailField label="release">
+                    <span title={provenance.protocolReleaseId}>
+                      {shortValue(provenance.protocolReleaseId, 12, 10)}
+                    </span>
+                  </DetailField>
+                )}
+                {provenance.manifestHash && (
+                  <DetailField label="manifest">
+                    <span title={provenance.manifestHash}>
+                      {shortValue(provenance.manifestHash, 12, 10)}
+                    </span>
+                  </DetailField>
+                )}
+                {provenance.schema && (
+                  <DetailField label="schema">{provenance.schema}</DetailField>
+                )}
+                {provenance.resultEnvelopeHash && (
+                  <DetailField label="result">
+                    <span title={provenance.resultEnvelopeHash}>
+                      {shortValue(provenance.resultEnvelopeHash, 12, 10)}
+                    </span>
+                  </DetailField>
+                )}
+              </DetailFields>
+            </div>
+          </div>
+          <div className="thought-detail__raw-heading">
+            <h3>provenance · {provenanceBytes} bytes</h3>
+            <pre className="thought-detail__json">
+              {formatProvenanceJson(item.provenanceJson)}
+            </pre>
+          </div>
+          <nav className="thought-detail__raw-links" aria-label="Raw THOUGHT data">
+            <a
+              className="thought-detail__value-link"
+              href={provenanceHref(item)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              open raw provenance ↗
+            </a>
+            {tokenMetadataHref && (
+              <a
+                className="thought-detail__value-link"
+                href={tokenMetadataHref}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                open token metadata ↗
+              </a>
+            )}
+          </nav>
+        </div>
+      </details>
+    </>
   );
 }
 
 export default function ThoughtDetailPage({ tokenId }: { tokenId: string }) {
   const targetTokenId = useMemo(() => Number(tokenId), [tokenId]);
-  const [state, setState] = useState<LoadState>(() => {
-    const cached = readCachedThoughtGallery();
-    return cached
-      ? { status: "ready", items: cached, error: null }
-      : { status: "loading", items: [], error: null };
+  const [state, setState] = useState<LoadState>({
+    status: "loading",
+    item: null,
+    error: null,
   });
 
   useEffect(() => {
     let cancelled = false;
-    const cached = readCachedThoughtGallery();
-    if (cached) {
-      setState({ status: "ready", items: cached, error: null });
-    } else {
-      setState({ status: "loading", items: [], error: null });
-    }
-
-    void loadThoughtGallery()
-      .then((items) => {
-        if (cancelled) return;
-        setState({ status: "ready", items, error: null });
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        if (cached?.length) {
-          setState({ status: "ready", items: cached, error: null });
-          return;
+    setState({ status: "loading", item: null, error: null });
+    void loadThoughtGalleryItem(targetTokenId)
+      .then((item) => {
+        if (!cancelled) {
+          setState({ status: "ready", item, error: null });
         }
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
         setState({
           status: "error",
-          items: cached ?? [],
-          error: String((error as Error)?.message ?? error),
+          item: null,
+          error:
+            error instanceof Error && error.message.trim()
+              ? error.message
+              : "THOUGHT record unavailable.",
         });
       });
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  const item = Number.isFinite(targetTokenId)
-    ? state.items.find((entry) => entry.tokenId === targetTokenId)
-    : null;
+  }, [targetTokenId]);
 
   return (
-    <main className="thought-detail thought-detail-page" aria-labelledby="thought-detail-title">
+    <main
+      className="thought-detail thought-detail-page"
+      aria-labelledby="thought-detail-title"
+    >
       <header className="thought-detail__header">
         <h1 id="thought-detail-title" className="thought-detail__title">
           THOUGHT #<span>{tokenId}</span>
         </h1>
         <nav className="thought-detail__links" aria-label="THOUGHT detail links">
-          <a className="thought-detail__link" href={galleryUrl()}>
-            [ gallery ]
+          <a
+            className="thought-detail__link"
+            href={`/#thought-${tokenId}`}
+          >
+            [ home ]
           </a>
           <a className="thought-detail__link" href={thoughtAppUrl()}>
             [ create yours ]
@@ -420,15 +738,18 @@ export default function ThoughtDetailPage({ tokenId }: { tokenId: string }) {
         </nav>
       </header>
 
-      {state.status === "error" && (
-        <p className="thought-detail__status thought-detail__status--error">{state.error}</p>
-      )}
-      {item ? (
-        <ThoughtDetail item={item} />
-      ) : state.status === "ready" ? (
-        <p className="thought-detail__status">THOUGHT #{tokenId} not found.</p>
+      {state.status === "error" ? (
+        <p className="thought-detail__status thought-detail__status--error">
+          {state.error}
+        </p>
+      ) : state.status === "loading" ? (
+        <p className="thought-detail__status">
+          reading THOUGHT #{tokenId} from chain...
+        </p>
+      ) : state.item ? (
+        <ThoughtDetail item={state.item} />
       ) : (
-        <p className="thought-detail__status">loading THOUGHT #{tokenId}...</p>
+        <p className="thought-detail__status">THOUGHT #{tokenId} not found.</p>
       )}
     </main>
   );

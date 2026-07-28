@@ -7,6 +7,7 @@ export type ThoughtPathAcquisitionState =
   | "review"
   | "awaiting_signature"
   | "submitted"
+  | "inventory_pending"
   | "error";
 
 export type PendingThoughtPathAcquisition = Readonly<{
@@ -110,6 +111,180 @@ type PathMintLockManager = {
 export type ThoughtPathAcquisitionLockResult<T> =
   | Readonly<{ acquired: true; value: T }>
   | Readonly<{ acquired: false; reason: "busy" | "unsupported" }>;
+
+type ThoughtPathAcquisitionErrorLike = {
+  cause?: unknown;
+  code?: unknown;
+  data?: unknown;
+  error?: unknown;
+  info?: unknown;
+  message?: unknown;
+  originalError?: unknown;
+  reason?: unknown;
+  shortMessage?: unknown;
+};
+
+export type ThoughtPathAcquisitionFailure = Readonly<{
+  title: string;
+  detail: string;
+  nextStep: string;
+}>;
+
+export const thoughtPathAcquisitionGasLimit = (estimatedGas: bigint) => {
+  if (estimatedGas <= 0n) {
+    throw new Error("invalid $PATH gas estimate");
+  }
+  // Wallet RPC estimates have under-reported the nested PATH settlement cost
+  // on local Anvil. A percentage margin covers execution variance; the fixed
+  // reserve covers the adapter/NFT call boundary. Unused gas is not charged.
+  return (estimatedGas * 125n + 99n) / 100n + 30_000n;
+};
+
+const collectPathAcquisitionErrorDetails = (error: unknown) => {
+  const messages: string[] = [];
+  const codes: string[] = [];
+  const queue: unknown[] = [error];
+  const visited = new Set<unknown>();
+
+  while (queue.length > 0 && visited.size < 16) {
+    const value = queue.shift();
+    if (value == null || visited.has(value)) continue;
+    visited.add(value);
+
+    if (typeof value === "string") {
+      const message = value.trim();
+      if (!message) continue;
+      messages.push(message);
+      if (message.startsWith("{")) {
+        try {
+          queue.push(JSON.parse(message) as unknown);
+        } catch {
+          // Keep the original provider string when it is not JSON.
+        }
+      }
+      continue;
+    }
+    if (typeof value !== "object") continue;
+
+    const item = value as ThoughtPathAcquisitionErrorLike;
+    for (const candidate of [item.shortMessage, item.message, item.reason]) {
+      if (typeof candidate === "string" && candidate.trim()) {
+        messages.push(candidate.trim());
+      }
+    }
+    if (typeof item.code === "string" || typeof item.code === "number") {
+      codes.push(String(item.code).toUpperCase());
+    }
+    queue.push(
+      item.error,
+      item.cause,
+      item.info,
+      item.data,
+      item.originalError,
+    );
+  }
+
+  return {
+    codes,
+    messages,
+    normalized: messages.join(" ").toLowerCase(),
+  };
+};
+
+export const formatThoughtPathAcquisitionFailure = (
+  error: unknown,
+  currencyLabel: string,
+): ThoughtPathAcquisitionFailure => {
+  const { codes, messages, normalized } = collectPathAcquisitionErrorDetails(error);
+
+  if (
+    codes.includes("4001") ||
+    codes.includes("ACTION_REJECTED") ||
+    /user (?:rejected|denied|cancelled|canceled)|transaction rejected/.test(normalized)
+  ) {
+    return {
+      title: "$PATH mint canceled",
+      detail: "No transaction was submitted. No $PATH was created.",
+      nextStep: "select “Try again” when ready",
+    };
+  }
+  if (
+    codes.includes("-32002") ||
+    /already.*(?:pending|open)|request.*pending/.test(normalized)
+  ) {
+    return {
+      title: "wallet request already open",
+      detail: "Finish or cancel the request in your wallet.",
+      nextStep: "then try again",
+    };
+  }
+  if (/insufficient funds|exceeds balance/.test(normalized)) {
+    return {
+      title: "not enough funds",
+      detail: `This wallet needs enough ${currencyLabel} for the $PATH price and gas.`,
+      nextStep: `add ${currencyLabel}, then try again`,
+    };
+  }
+  if (/ask_above_max_price/.test(normalized)) {
+    return {
+      title: "$PATH price changed",
+      detail: "The price changed before your wallet submitted the transaction.",
+      nextStep: "try again with the refreshed price",
+    };
+  }
+  if (/out of gas|reentrancy sentry/.test(normalized)) {
+    return {
+      title: "$PATH mint failed",
+      detail: "The transaction did not have enough gas.",
+      nextStep: "try again",
+    };
+  }
+  if (/transaction reverted on-chain/.test(normalized)) {
+    return {
+      title: "$PATH mint failed",
+      detail: "The transaction failed. No $PATH was created.",
+      nextStep: "try again",
+    };
+  }
+  if (
+    /active local anvil|wallet rpc|failed to fetch|connection refused|network error/.test(normalized) ||
+    (
+      /could not coalesce error|internal json-rpc error/.test(normalized) &&
+      !messages.some((message) =>
+        !/could not coalesce error|internal json-rpc error/i.test(message)
+      )
+    )
+  ) {
+    return {
+      title: "wallet is connected to the wrong local node",
+      detail: "Set chain 31337 RPC to http://127.0.0.1:8546.",
+      nextStep: "update the wallet network, then try again",
+    };
+  }
+  if (/auction is not open yet/.test(normalized)) {
+    return {
+      title: "$PATH auction not open",
+      detail: "The current $PATH sale has not started.",
+      nextStep: "wait, then try again",
+    };
+  }
+  if (
+    /no in-place \$path auction configured|configured \$path auction deployment is unavailable|not wired to this thought|token approval flow/.test(
+      normalized,
+    )
+  ) {
+    return {
+      title: "$PATH mint unavailable",
+      detail: "This App cannot mint from the current $PATH auction.",
+      nextStep: "open /path",
+    };
+  }
+  return {
+    title: "$PATH mint failed",
+    detail: "The App could not complete the transaction.",
+    nextStep: "try again, or open /path",
+  };
+};
 
 export const withThoughtPathAcquisitionLock = async <T>(
   locks: PathMintLockManager | null | undefined,

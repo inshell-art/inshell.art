@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inshell.art/protocol/current/v2/contract/thought.mint-input.v2.schema.json",
+  "additionalProperties": false,
+  "properties": {
+    "agentLine": { "$ref": "#/$defs/terminalLine" },
+    "creationAttestation": { "$ref": "#/$defs/creationAttestation" },
+    "deadline": { "$ref": "#/$defs/uint256" },
+    "declaredAgent": { "$ref": "#/$defs/contextLine" },
+    "declaredModel": { "$ref": "#/$defs/contextLine" },
+    "pathId": { "$ref": "#/$defs/uint256" },
+    "pathSignature": { "$ref": "#/$defs/bytes" },
+    "promptLine": { "$ref": "#/$defs/terminalLine" },
+    "provenanceJson": { "minLength": 1, "type": "string", "x-thought-utf8-max-bytes": 20000 },
+    "thoughtSpecHash": { "$ref": "#/$defs/bytes32" },
+    "thoughtSpecId": { "$ref": "#/$defs/bytes32" }
+  },
+  "required": [
+    "promptLine",
+    "agentLine",
+    "declaredAgent",
+    "declaredModel",
+    "pathId",
+    "thoughtSpecId",
+    "thoughtSpecHash",
+    "provenanceJson",
+    "deadline",
+    "pathSignature",
+    "creationAttestation"
+  ],
+  "title": "ThoughtNFT V2 MintThoughtInput JSON Fixture Encoding",
+  "type": "object",
+  "$defs": {
+    "bytes": { "pattern": "^0x(?:[0-9a-f]{2})*$", "type": "string" },
+    "bytes32": { "pattern": "^0x[0-9a-f]{64}$", "type": "string" },
+    "contextLine": {
+      "minLength": 1,
+      "type": "string",
+      "x-thought-context-profile": "inshell.thought.context.v2.visible-utf8-64",
+      "x-thought-utf8-max-bytes": 64
+    },
+    "creationAttestation": {
+      "additionalProperties": false,
+      "properties": {
+        "authorityEpoch": { "maximum": 4294967295, "minimum": 0, "type": "integer" },
+        "deadline": { "pattern": "^(0|[1-9][0-9]{0,19})$", "type": "string" },
+        "runIdHash": { "$ref": "#/$defs/bytes32" },
+        "signature": { "pattern": "^0x(?:|[0-9a-f]{130})$", "type": "string" }
+      },
+      "required": ["runIdHash", "deadline", "authorityEpoch", "signature"],
+      "type": "object"
+    },
+    "terminalLine": {
+      "maxLength": 64,
+      "minLength": 1,
+      "pattern": "^(?! )(?!.*  )(?!.* $)[ A-Za-z0-9.,?!:;'\"()/&-]{1,64}$",
+      "type": "string",
+      "x-thought-line-profile": "inshell.thought.work.v2.terminal-english-64",
+      "x-thought-utf8-max-bytes": 64
+    },
+    "uint256": { "pattern": "^(0|[1-9][0-9]*)$", "type": "string" }
+  }
+}

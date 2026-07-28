@@ -235,6 +235,29 @@ describe("Pages middleware canonical routes", () => {
     expect(ctx.next).not.toHaveBeenCalled();
   });
 
+  test("serves the canonical WILL route through the root app shell", async () => {
+    const ctx = middlewareContext("https://inshell.art/will");
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe(
+      "public, max-age=60, stale-while-revalidate=300",
+    );
+    expect(response.headers.get("clear-site-data")).toBeNull();
+    expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
+    expect(ctx.next).not.toHaveBeenCalled();
+  });
+
+  test("serves the same-origin docs route through the root app shell", async () => {
+    const ctx = middlewareContext("https://inshell.art/docs");
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("public, max-age=60, stale-while-revalidate=300");
+    expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
+    expect(ctx.next).not.toHaveBeenCalled();
+  });
+
   test("routes PUB reserved paths to the PUB upstream before the app shell", async () => {
     const fetchMock = jest.fn(
       async () =>

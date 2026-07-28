@@ -84,6 +84,32 @@ export type {
   ThoughtWorkHashes,
 } from "./thought-v2-protocol";
 export {
+  THOUGHT_V2_ALLOWED_CHARACTERS as THOUGHT_V2_TERMINAL_ALLOWED_CHARACTERS,
+  THOUGHT_V2_CONVERSATION_IDENTITY_DOMAIN as THOUGHT_V2_TERMINAL_CONVERSATION_IDENTITY_DOMAIN,
+  THOUGHT_V2_CONVERSATION_IDENTITY_DOMAIN_TEXT as THOUGHT_V2_TERMINAL_CONVERSATION_IDENTITY_DOMAIN_TEXT,
+  THOUGHT_V2_MAX_LINE_BYTES as THOUGHT_V2_TERMINAL_MAX_LINE_BYTES,
+  THOUGHT_V2_PUNCTUATION as THOUGHT_V2_TERMINAL_PUNCTUATION,
+  THOUGHT_V2_RENDERER_ID as THOUGHT_V2_TERMINAL_RENDERER_ID,
+  THOUGHT_V2_RENDERER_ID_HASH as THOUGHT_V2_TERMINAL_RENDERER_ID_HASH,
+  THOUGHT_V2_WORK_DOMAIN as THOUGHT_V2_TERMINAL_WORK_DOMAIN,
+  THOUGHT_V2_WORK_DOMAIN_TEXT as THOUGHT_V2_TERMINAL_WORK_DOMAIN_TEXT,
+  THOUGHT_V2_WORK_PROFILE_ID as THOUGHT_V2_TERMINAL_WORK_PROFILE_ID,
+  THOUGHT_V2_WORK_PROFILE_ID_HASH as THOUGHT_V2_TERMINAL_WORK_PROFILE_ID_HASH,
+  assertThoughtV2Line as assertThoughtV2TerminalLine,
+  assertThoughtV2Work as assertThoughtV2TerminalWork,
+  deriveThoughtV2WorkHashes as deriveThoughtV2TerminalWorkHashes,
+  measureThoughtV2Line as measureThoughtV2TerminalLine,
+  thoughtV2ConversationIdentityHash as thoughtV2TerminalConversationIdentityHash,
+  thoughtV2ConversationIdentityHashForLines as thoughtV2TerminalConversationIdentityHashForLines,
+  thoughtV2WorkHash as thoughtV2TerminalWorkHash,
+} from "./thought-v2-terminal-work-profile";
+export type {
+  ThoughtV2LineKind as ThoughtV2TerminalLineKind,
+  ThoughtV2LineMeasure as ThoughtV2TerminalLineMeasure,
+  ThoughtV2WorkHashes as ThoughtV2TerminalWorkHashes,
+  ThoughtV2WorkMeasure as ThoughtV2TerminalWorkMeasure,
+} from "./thought-v2-terminal-work-profile";
+export {
   buildThoughtProvenance,
   packedFieldBytes,
   serializeThoughtProvenance,
@@ -328,7 +354,7 @@ export function resolveWalletChainRpcUrls(options: WalletChainRpcOptions): strin
 
   if (chainId === 31337 || chainId === 31338) {
     const fallback = normalizeWalletRpcUrl(
-      options.localFallbackRpcUrl ?? "http://127.0.0.1:8546",
+      options.localFallbackRpcUrl ?? "http://127.0.0.1:8545",
       options.currentOrigin,
     );
     return fallback ? [fallback] : [];
@@ -783,3 +809,4 @@ export function buildReportBugLink(
     className: "inshell-report-bug-link",
   };
 }
+export * from "./pulse-auction-price";

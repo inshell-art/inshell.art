@@ -7,6 +7,7 @@ yarn-error.log*
 lerna-debug.log*
 .pnpm-debug.log*
 .vscode/
+.local/
 packages/contracts/src/generated
 tmp/
 packages/contracts/src/abi/devnet
@@ -28,6 +29,8 @@ lib-cov
 # Coverage directory used by tools like istanbul
 coverage
 *.lcov
+test-results/
+playwright-report/
 
 # nyc test coverage
 .nyc_output
@@ -168,3 +171,6 @@ SECRETS_TAKEOVER_CONTEXT.md
 LOCAL_TASKS.md
 INBOX.md
 MEMO.md
+
+# Generated local THOUGHT Contract runtime state; never commit addresses.
+apps/thought/contract-integration/local-runtime*.json
