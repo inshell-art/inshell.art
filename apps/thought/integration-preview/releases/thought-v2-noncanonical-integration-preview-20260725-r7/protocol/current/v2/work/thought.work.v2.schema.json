@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inshell.art/protocol/current/v2/work/thought.work.v2.schema.json",
+  "title": "THOUGHT Work V2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "promptLine", "agentLine"],
+  "properties": {
+    "schema": { "const": "inshell.thought.work.v2.terminal-english-64" },
+    "promptLine": {
+      "$ref": "#/$defs/terminalLine"
+    },
+    "agentLine": {
+      "$ref": "#/$defs/terminalLine"
+    }
+  },
+  "$defs": {
+    "terminalLine": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^(?! )(?!.*  )(?!.* $)[ A-Za-z0-9.,?!:;'\"()/&-]{1,64}$",
+      "x-thought-line-profile": "inshell.thought.work.v2.terminal-english-64",
+      "x-thought-utf8-max-bytes": 64
+    }
+  }
+}

@@ -1,17 +1,38 @@
 {
-  "rpcUrl": "http://127.0.0.1:8545",
+  "schema": "inshell.thought.v2.anvil-gallery-runtime.v1",
+  "status": "ready",
+  "generatedAt": "2026-07-25T09:56:33.817Z",
+  "artifact": {
+    "artifactId": "thought-v2-noncanonical-integration-preview-20260725-r7",
+    "classification": "noncanonical-integration-preview",
+    "manifestSha256": "b2eb9fb0e5ed3b7ce11a46726b1f9b9d93d6a7868317b2b219076d6c6b978dbd",
+    "sourceTag": "thought-v2-noncanonical-integration-preview-20260725-r7",
+    "sourceCommit": "be0e9a5088856d1ab9262d86f4c2fead4a788867",
+    "productionConsumable": false
+  },
+  "creativeSpec": {
+    "artifactId": "thought-v2-creative-work-spec-20260723-r1",
+    "authority": "THOUGHT App",
+    "byteLength": 14849,
+    "name": "THOUGHT.v2.md",
+    "ref": "app://thought/creative-spec/thought-v2-creative-work-spec-20260723-r1/THOUGHT.v2.md",
+    "sha256": "67f65b79188d4294e7cc63ab1bd1eadd666ebf7fa6ed4a163eb3bd9ec4c06cd8",
+    "thoughtSpecHash": "0x247dc71285b4f1078c822830ed2044138d61343bbf25cc6719b66742ed5cd5ea",
+    "thoughtSpecId": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410"
+  },
+  "rpcUrl": "http://127.0.0.1:8546",
   "chainId": 31337,
   "path": {
-    "address": "0x2e8880cAdC08E9B438c6052F5ce3869FBd6cE513"
+    "address": "0x02b0B4EFd909240FCB2Eb5FAe060dC60D112E3a4"
   },
   "pathNft": {
-    "address": "0x2e8880cAdC08E9B438c6052F5ce3869FBd6cE513"
+    "address": "0x02b0B4EFd909240FCB2Eb5FAe060dC60D112E3a4"
   },
   "pathPulseAdapter": {
-    "address": "0xb007167714e2940013EC3bb551584130B7497E22"
+    "address": "0x638A246F0Ec8883eF68280293FFE8Cfbabe61B44"
   },
   "pulseAuction": {
-    "address": "0x6b39b761b1b64C8C095BF0e3Bb0c6a74705b4788"
+    "address": "0x6C2d83262fF84cBaDb3e416D527403135D757892"
   },
   "paymentToken": {
     "address": "0x0000000000000000000000000000000000000000"
@@ -21,51 +42,184 @@
     "quota": 1,
     "frozen": true
   },
-  "devPathToken": {
-    "id": 1,
-    "owner": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+  "pathSpark": {
+    "claimMode": "issuer-allowlist-recipient-self-claim",
+    "issuer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "reservedCap": 99,
+    "reservedRemaining": 99,
+    "claimDurationSeconds": 604800
   },
-  "devPathTokens": {
-    "firstId": 1,
-    "lastId": 1,
-    "owner": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+  "pathAuction": {
+    "openTime": 1784973422,
+    "k": "600000000000000000",
+    "genesisPrice": "10000000000000000",
+    "genesisFloor": "9000000000000000",
+    "pts": "100000000000000",
+    "treasury": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
   },
   "thoughtSpecRegistry": {
-    "address": "0x4DAf17c8142A483B2E2348f56ae0F2cFDAe22ceE"
+    "address": "0x4bf010f1b9beDA5450a8dD702ED602A104ff65EE",
+    "owner": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
   },
   "protocolRegistry": {
-    "address": "0x24d41dbc3d60d0784f8a937c59FBDe51440D5140"
+    "address": "0x96F3Ce39Ad2BfDCf92C0F6E2C2CAbF83874660Fc",
+    "owner": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+  },
+  "contracts": {
+    "pathNft": "0x02b0B4EFd909240FCB2Eb5FAe060dC60D112E3a4",
+    "thoughtSpecRegistry": "0x4bf010f1b9beDA5450a8dD702ED602A104ff65EE",
+    "thoughtRenderer": "0x870526b7973b56163a6997bB7C886F5E4EA53638",
+    "protocolRegistry": "0x96F3Ce39Ad2BfDCf92C0F6E2C2CAbF83874660Fc",
+    "creationAttestationVerifier": "0xe1Fd27F4390DcBE165f4D60DBF821e4B9Bb02dEd",
+    "thoughtNft": "0xc582Bc0317dbb0908203541971a358c44b1F3766"
   },
   "thoughtRenderer": {
-    "address": "0x618fB9dbd2BD6eb968B4c1af36af6CB0b45310Ec"
+    "address": "0x870526b7973b56163a6997bB7C886F5E4EA53638",
+    "id": "inshell.thought.svg.v2.terminal-chat-path-glyphs",
+    "idHash": "0x01982604c90acf1ca63020e0c3761b25d8dc8fc3c267d27ace14cb0d2c813d73",
+    "implementationId": "inshell.thought.renderer.v2.humanist-smooth-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom",
+    "glyphDefinitionsPointer1": "0x986aaa537b8cc170761FDAC6aC4fc7F9d8a20A8C",
+    "glyphDefinitionsPointer2": "0xde2Bd2ffEA002b8E84ADeA96e5976aF664115E2c",
+    "glyphDefinitionsIndexPointer": "0xefc1aB2475ACb7E60499Efb171D173be19928a05",
+    "glyphDefinitionsKeccak256": "0xa2399aaebb7f06859e09df4d3b152f93efb6c63813964bd632e79690a33796ca",
+    "glyphDefinitionsIndexKeccak256": "0x113d43ed0e3a6ce486779bca9734801493dd9c5c629e4816b8be3d445f1b9825",
+    "glyphLibraryMemberId": "inshell.thought.glyph-library.set-03.humanist-smooth"
+  },
+  "renderer": {
+    "canonicalRendererId": "inshell.thought.svg.v2.terminal-chat-path-glyphs",
+    "implementationId": "inshell.thought.renderer.v2.humanist-smooth-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom",
+    "releaseReady": true,
+    "glyphDefinitionsPointer1": "0x986aaa537b8cc170761FDAC6aC4fc7F9d8a20A8C",
+    "glyphDefinitionsPointer2": "0xde2Bd2ffEA002b8E84ADeA96e5976aF664115E2c",
+    "glyphDefinitionsIndexPointer": "0xefc1aB2475ACb7E60499Efb171D173be19928a05",
+    "glyphDefinitionsKeccak256": "0xa2399aaebb7f06859e09df4d3b152f93efb6c63813964bd632e79690a33796ca",
+    "glyphDefinitionsIndexKeccak256": "0x113d43ed0e3a6ce486779bca9734801493dd9c5c629e4816b8be3d445f1b9825",
+    "glyphLibraryMemberId": "inshell.thought.glyph-library.set-03.humanist-smooth"
+  },
+  "creationAttestationVerifier": {
+    "address": "0xe1Fd27F4390DcBE165f4D60DBF821e4B9Bb02dEd",
+    "authority": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "authorityEpoch": 1,
+    "owner": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "profileId": "0x0dc216b0e8f18cabaa4afee047e80f349ed3c2de67ace911157300279f74c669"
+  },
+  "attestation": {
+    "authority": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "authorityEpoch": 1,
+    "profileId": "0x0dc216b0e8f18cabaa4afee047e80f349ed3c2de67ace911157300279f74c669",
+    "status": "mock-valid-eip712",
+    "verifier": "0xe1Fd27F4390DcBE165f4D60DBF821e4B9Bb02dEd"
+  },
+  "thought": {
+    "address": "0xc582Bc0317dbb0908203541971a358c44b1F3766"
   },
   "thoughtNft": {
-    "address": "0xa779C1D17bC5230c07afdC51376CAC1cb3Dd5314"
+    "address": "0xc582Bc0317dbb0908203541971a358c44b1F3766"
   },
   "protocolRelease": {
-    "id": "0xea4493c669fc366e224e66a43233e1e97efecd18568ef494dfc31b4a3c961b65",
-    "manifestHash": "0x305f59465c93edf46e5ab0ca372b017f6cba5c98052e695ae6b9ca5778515d4b",
-    "rendererProfileHash": "0x6c124e260dcbfe801614b89da24bb31d407303e7cd93cc3e6a6ac372c862de88",
-    "workProfileHash": "0x8b590ab95432b0dd5002a4fb1419475751bdf0210a73338bf633533005d182bb",
-    "status": "draft-local"
+    "id": "0xffdf32afb6a28a554869abc2a61e0d1e74ea3619b44e8cb33153b1ecc537b779",
+    "manifestHash": "0xefd6d98623d19efe5f99f2419cb1c1f19d6c6f4babda49a77b193eead8e3bdc1",
+    "manifestUri": "dev://thought/v2/anvil/0xefd6d98623d19efe5f99f2419cb1c1f19d6c6f4babda49a77b193eead8e3bdc1",
+    "manifestURI": "dev://thought/v2/anvil/0xefd6d98623d19efe5f99f2419cb1c1f19d6c6f4babda49a77b193eead8e3bdc1",
+    "status": "registered-disposable-anvil",
+    "manifest": {
+      "artifacts": [
+        {
+          "keccak256": "0x247dc71285b4f1078c822830ed2044138d61343bbf25cc6719b66742ed5cd5ea",
+          "path": "app://thought/creative-spec/thought-v2-creative-work-spec-20260723-r1/THOUGHT.v2.md",
+          "role": "creative-spec"
+        },
+        {
+          "keccak256": "0xc2b5db118c8a84ae32b03b25c5dff30e6997c6792396f3d6c8e3c22db36a53fe",
+          "path": "protocol/current/v2/work/thought.work.v2.profile.json",
+          "role": "work-profile"
+        },
+        {
+          "keccak256": "0xea2c5e7be4b20f212eee62a8d005d5af3d22dfbadc7d142ca434ba70f5aca7b3",
+          "path": "protocol/current/v2/context/thought.context.v2.profile.json",
+          "role": "context-profile"
+        },
+        {
+          "keccak256": "0x9c7d133821638acc74b90aa6311734c3c8b91adc4772ead546890ed037aee0bd",
+          "path": "protocol/current/v2/metadata/thought.metadata.v2.profile.json",
+          "role": "metadata-profile"
+        },
+        {
+          "keccak256": "0x245dc29490f3ea21b5d3d9c6859cd7c8b717917af624626bb6006ed15761ac37",
+          "path": "protocol/current/v2/provenance/thought.provenance.v2.schema.json",
+          "role": "provenance-schema"
+        },
+        {
+          "keccak256": "0x893abf6c70d6c81d8b71f9c97f1acffeef26ecde152e001e5bf870356cd7cd5e",
+          "path": "protocol/current/v2/attestation/thought.creation-workflow-attestation.v1.md",
+          "role": "creation-attestation-profile"
+        }
+      ],
+      "chainId": "31337",
+      "glyphLibrary": {
+        "definitionsIndexKeccak256": "0x113d43ed0e3a6ce486779bca9734801493dd9c5c629e4816b8be3d445f1b9825",
+        "definitionsKeccak256": "0xa2399aaebb7f06859e09df4d3b152f93efb6c63813964bd632e79690a33796ca",
+        "definitionsPart1Keccak256": "0x3397ceb983a0e0fcbeee7154eebe059501315c7f34b1730ce9d37f2982425f5e",
+        "definitionsPart2Keccak256": "0x9bc9bd78a6ed099748994515be64879548413a98187dcc45faaba65af72c7f32",
+        "memberId": "inshell.thought.glyph-library.set-03.humanist-smooth",
+        "releaseReady": true
+      },
+      "identifiers": {
+        "contextProfile": "inshell.thought.context.v2.visible-utf8-64",
+        "contextProfileHash": "0x9894359f9294f4b3a871442b19d851203138fad4a648c16f62fc04f55dff02b8",
+        "metadataProfile": "inshell.thought.metadata.v2.terminal-chat",
+        "metadataProfileHash": "0x4cefae9cf44cc61bc8ec16e266ecb31f53e634834fe5975cc564ae9dfc51858b",
+        "provenance": "inshell.thought.provenance.v2",
+        "renderer": "inshell.thought.svg.v2.terminal-chat-path-glyphs",
+        "rendererHash": "0x01982604c90acf1ca63020e0c3761b25d8dc8fc3c267d27ace14cb0d2c813d73",
+        "workProfile": "inshell.thought.work.v2.terminal-english-64",
+        "workProfileHash": "0x2bf311e6034eb35e6d1f7bd92894012ee7e528609830cb3b28df1ce5dd82f85a"
+      },
+      "productionRegistrationAuthorized": false,
+      "rendererImplementation": {
+        "id": "inshell.thought.renderer.v2.humanist-smooth-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom",
+        "releaseReady": true,
+        "usesForeignObject": false,
+        "usesNativeSvgPaths": true
+      },
+      "schema": "inshell.thought.protocol.v2.disposable-anvil-manifest.v1",
+      "selectedSpec": {
+        "name": "THOUGHT.v2.md",
+        "thoughtSpecHash": "0x247dc71285b4f1078c822830ed2044138d61343bbf25cc6719b66742ed5cd5ea",
+        "thoughtSpecId": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410"
+      },
+      "status": "registered-disposable-anvil"
+    },
+    "manifestJson": "{\"artifacts\":[{\"keccak256\":\"0x247dc71285b4f1078c822830ed2044138d61343bbf25cc6719b66742ed5cd5ea\",\"path\":\"app://thought/creative-spec/thought-v2-creative-work-spec-20260723-r1/THOUGHT.v2.md\",\"role\":\"creative-spec\"},{\"keccak256\":\"0xc2b5db118c8a84ae32b03b25c5dff30e6997c6792396f3d6c8e3c22db36a53fe\",\"path\":\"protocol/current/v2/work/thought.work.v2.profile.json\",\"role\":\"work-profile\"},{\"keccak256\":\"0xea2c5e7be4b20f212eee62a8d005d5af3d22dfbadc7d142ca434ba70f5aca7b3\",\"path\":\"protocol/current/v2/context/thought.context.v2.profile.json\",\"role\":\"context-profile\"},{\"keccak256\":\"0x9c7d133821638acc74b90aa6311734c3c8b91adc4772ead546890ed037aee0bd\",\"path\":\"protocol/current/v2/metadata/thought.metadata.v2.profile.json\",\"role\":\"metadata-profile\"},{\"keccak256\":\"0x245dc29490f3ea21b5d3d9c6859cd7c8b717917af624626bb6006ed15761ac37\",\"path\":\"protocol/current/v2/provenance/thought.provenance.v2.schema.json\",\"role\":\"provenance-schema\"},{\"keccak256\":\"0x893abf6c70d6c81d8b71f9c97f1acffeef26ecde152e001e5bf870356cd7cd5e\",\"path\":\"protocol/current/v2/attestation/thought.creation-workflow-attestation.v1.md\",\"role\":\"creation-attestation-profile\"}],\"chainId\":\"31337\",\"glyphLibrary\":{\"definitionsIndexKeccak256\":\"0x113d43ed0e3a6ce486779bca9734801493dd9c5c629e4816b8be3d445f1b9825\",\"definitionsKeccak256\":\"0xa2399aaebb7f06859e09df4d3b152f93efb6c63813964bd632e79690a33796ca\",\"definitionsPart1Keccak256\":\"0x3397ceb983a0e0fcbeee7154eebe059501315c7f34b1730ce9d37f2982425f5e\",\"definitionsPart2Keccak256\":\"0x9bc9bd78a6ed099748994515be64879548413a98187dcc45faaba65af72c7f32\",\"memberId\":\"inshell.thought.glyph-library.set-03.humanist-smooth\",\"releaseReady\":true},\"identifiers\":{\"contextProfile\":\"inshell.thought.context.v2.visible-utf8-64\",\"contextProfileHash\":\"0x9894359f9294f4b3a871442b19d851203138fad4a648c16f62fc04f55dff02b8\",\"metadataProfile\":\"inshell.thought.metadata.v2.terminal-chat\",\"metadataProfileHash\":\"0x4cefae9cf44cc61bc8ec16e266ecb31f53e634834fe5975cc564ae9dfc51858b\",\"provenance\":\"inshell.thought.provenance.v2\",\"renderer\":\"inshell.thought.svg.v2.terminal-chat-path-glyphs\",\"rendererHash\":\"0x01982604c90acf1ca63020e0c3761b25d8dc8fc3c267d27ace14cb0d2c813d73\",\"workProfile\":\"inshell.thought.work.v2.terminal-english-64\",\"workProfileHash\":\"0x2bf311e6034eb35e6d1f7bd92894012ee7e528609830cb3b28df1ce5dd82f85a\"},\"productionRegistrationAuthorized\":false,\"rendererImplementation\":{\"id\":\"inshell.thought.renderer.v2.humanist-smooth-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom\",\"releaseReady\":true,\"usesForeignObject\":false,\"usesNativeSvgPaths\":true},\"schema\":\"inshell.thought.protocol.v2.disposable-anvil-manifest.v1\",\"selectedSpec\":{\"name\":\"THOUGHT.v2.md\",\"thoughtSpecHash\":\"0x247dc71285b4f1078c822830ed2044138d61343bbf25cc6719b66742ed5cd5ea\",\"thoughtSpecId\":\"0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410\"},\"status\":\"registered-disposable-anvil\"}",
+    "rendererIdHash": "0x01982604c90acf1ca63020e0c3761b25d8dc8fc3c267d27ace14cb0d2c813d73",
+    "workProfileIdHash": "0x2bf311e6034eb35e6d1f7bd92894012ee7e528609830cb3b28df1ce5dd82f85a",
+    "contextProfileIdHash": "0x9894359f9294f4b3a871442b19d851203138fad4a648c16f62fc04f55dff02b8",
+    "metadataProfileIdHash": "0x4cefae9cf44cc61bc8ec16e266ecb31f53e634834fe5975cc564ae9dfc51858b",
+    "creationAttestationProfileIdHash": "0x0dc216b0e8f18cabaa4afee047e80f349ed3c2de67ace911157300279f74c669"
   },
   "thoughtSpecs": [
     {
       "specName": "THOUGHT.v2.md",
       "specId": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410",
-      "specHash": "0xe56691af2ea250f66a09c6766ea90f5180af45f56d129b5cdce1ca42204d7f0a",
-      "ref": "THOUGHT.v2.md",
-      "pointer": "0xbC06964732EbBd248F10C60CbdECEFd1B1F7d6e9",
-      "byteLength": 2811
+      "specHash": "0x247dc71285b4f1078c822830ed2044138d61343bbf25cc6719b66742ed5cd5ea",
+      "ref": "app://thought/creative-spec/thought-v2-creative-work-spec-20260723-r1/THOUGHT.v2.md",
+      "byteLength": 14849,
+      "sha256": "67f65b79188d4294e7cc63ab1bd1eadd666ebf7fa6ed4a163eb3bd9ec4c06cd8"
     }
   ],
   "recommendedThoughtSpecName": "THOUGHT.v2.md",
   "recommendedThoughtSpecId": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410",
-  "recommendedThoughtSpecHash": "0xe56691af2ea250f66a09c6766ea90f5180af45f56d129b5cdce1ca42204d7f0a",
+  "recommendedThoughtSpecHash": "0x247dc71285b4f1078c822830ed2044138d61343bbf25cc6719b66742ed5cd5ea",
   "thoughtSpec": {
     "specName": "THOUGHT.v2.md",
     "id": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410",
-    "hash": "0xe56691af2ea250f66a09c6766ea90f5180af45f56d129b5cdce1ca42204d7f0a",
-    "ref": "THOUGHT.v2.md"
+    "hash": "0x247dc71285b4f1078c822830ed2044138d61343bbf25cc6719b66742ed5cd5ea",
+    "ref": "app://thought/creative-spec/thought-v2-creative-work-spec-20260723-r1/THOUGHT.v2.md"
+  },
+  "selectedSpec": {
+    "id": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410",
+    "hash": "0x247dc71285b4f1078c822830ed2044138d61343bbf25cc6719b66742ed5cd5ea",
+    "name": "THOUGHT.v2.md",
+    "ref": "app://thought/creative-spec/thought-v2-creative-work-spec-20260723-r1/THOUGHT.v2.md"
   }
 }

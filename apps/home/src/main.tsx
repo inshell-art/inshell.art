@@ -13,9 +13,11 @@ import {
 } from "@inshell/shared";
 import { WalletProvider } from "@inshell/wallet";
 
+const buildEnv =
+  ((globalThis as any).__INSHELL_VITE_ENV__ as Record<string, unknown> | undefined) ?? {};
 const runtimeEnv = {
   ...import.meta.env,
-  VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN: import.meta.env.VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN,
+  ...buildEnv,
 };
 
 (globalThis as any).__VITE_ENV__ = runtimeEnv;

@@ -2,10 +2,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useWallet, type WalletConnector } from "@inshell/wallet";
 import { resolveInshellLinks } from "./links";
-import { INSHELL_OPEN_WALLET_EVENT } from "./wallet-events";
+import {
+  INSHELL_OPEN_WALLET_EVENT,
+  announceInshellWalletVisibility,
+} from "./wallet-events";
 
 export { resolveInshellLinks } from "./links";
-export { INSHELL_OPEN_WALLET_EVENT, openInshellWallet } from "./wallet-events";
+export {
+  INSHELL_OPEN_WALLET_EVENT,
+  INSHELL_WALLET_VISIBILITY_EVENT,
+  openInshellWallet,
+  type InshellWalletVisibilityDetail,
+} from "./wallet-events";
 
 export type InshellSurface = "home" | "path" | "thought" | "works";
 
@@ -33,6 +41,9 @@ function shortAddress(address?: string | null) {
 }
 
 function networkLabel(chain?: { id?: number; name?: string; network?: string }) {
+  if (chain?.id === 1337 || chain?.id === 31337 || chain?.id === 31338) {
+    return "Local Anvil";
+  }
   const raw = chain?.name?.trim() || chain?.network?.trim() || "";
   if (!raw) return "unknown";
   return raw.replace(/\btestnet\b/gi, "").replace(/\s+/g, " ").trim() || "unknown";
@@ -56,12 +67,7 @@ export function InshellWalletPicker({
     <div className="inshell-wallet-picker" role="menu" aria-label="Wallet options">
       <div className="inshell-wallet-picker__title">wallet options</div>
       <p className="inshell-wallet-picker__note">
-        address read only.
-        <br />
-        no signature.
-        <br />
-        no tx or approval.
-        <br />
+        Connecting shares your address only. No signature or transaction. {" "}
         <a href="/verify#wallet-notes" target="_blank" rel="noopener noreferrer">
           verify ↗
         </a>
@@ -97,7 +103,6 @@ export function InshellWalletModal({ expectedChainId, onRefresh }: InshellWallet
   const expectedMismatch = Boolean(
     expectedChainId && chainId && chainId !== expectedChainId
   );
-  const mode = isConnected ? "read-only connected" : "disconnected";
 
   const connectWith = async (connector?: WalletConnector) => {
     setNotice("");
@@ -157,23 +162,9 @@ export function InshellWalletModal({ expectedChainId, onRefresh }: InshellWallet
           <dt>network</dt>
           <dd>{networkLabel(chain)}</dd>
         </div>
-        <div>
-          <dt>mode</dt>
-          <dd>{mode}</dd>
-        </div>
-        <div>
-          <dt>signature</dt>
-          <dd>none</dd>
-        </div>
-        <div>
-          <dt>transaction</dt>
-          <dd>none</dd>
-        </div>
       </dl>
       <p className="inshell-wallet-modal__copy">
-        address read only.<br />
-        no signature.<br />
-        no tx or approval.
+        This menu never requests a signature or transaction.
       </p>
       <div className="inshell-wallet-modal__actions">
         {!isConnected ? (
@@ -276,6 +267,13 @@ export function InshellTopBar({
       window.removeEventListener(INSHELL_OPEN_WALLET_EVENT, openWallet);
     };
   }, []);
+
+  useEffect(() => {
+    announceInshellWalletVisibility(open);
+    return () => {
+      if (open) announceInshellWalletVisibility(false);
+    };
+  }, [open]);
 
   return (
     <header className={`inshell-topbar${compact ? " inshell-topbar--compact" : ""}`} ref={barRef}>

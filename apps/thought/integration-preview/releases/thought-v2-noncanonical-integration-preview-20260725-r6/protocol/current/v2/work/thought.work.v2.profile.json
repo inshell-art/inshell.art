@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "characterRepertoire": {
+    "allowedCharacters": " ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,?!:;'\"-()/&",
+    "allowedCount": 76,
+    "encoding": "US-ASCII",
+    "punctuation": ".,?!:;'\"-()/&",
+    "punctuationOnlyLinesAllowed": true
+  },
+  "conversationIdentity": {
+    "domainEncoding": "keccak256-utf8",
+    "domainText": "INSHELL_THOUGHT_V2_CONVERSATION_IDENTITY",
+    "encoding": "keccak256-abi-encode-three-bytes32",
+    "inputs": [
+      "conversationIdentityDomain",
+      "promptLineKeccak256",
+      "agentLineKeccak256"
+    ],
+    "ordered": true,
+    "uniquenessKey": true
+  },
+  "declarations": {
+    "assurance": "declared-unverified",
+    "attestationCommitment": "keccak256-exact-utf8",
+    "contextProfileId": "inshell.thought.context.v2.visible-utf8-64",
+    "declaredAgent": "exact-typed-mint-field",
+    "declaredModel": "exact-typed-mint-field",
+    "metadataTraits": {
+      "attested": ["Attested Agent", "Attested Model"],
+      "gate": "nonzero-creation-attestation-digest",
+      "unattested": []
+    },
+    "provenanceRequired": true,
+    "terminalEnglishApplies": false,
+    "typedStateAuthoritative": true,
+    "workIdentityInput": false
+  },
+  "hashes": {
+    "agentLine": "keccak256-exact-ascii",
+    "promptLine": "keccak256-exact-ascii"
+  },
+  "id": "inshell.thought.work.v2.terminal-english-64",
+  "lineProfile": {
+    "agentMaxBytes": 64,
+    "agentMinBytes": 1,
+    "characterAndByteCountsEqual": true,
+    "lineCount": 1,
+    "normalization": "none",
+    "promptMaxBytes": 64,
+    "promptMinBytes": 1,
+    "repeatedInternalSpaces": "reject",
+    "spaces": "U+0020-internal-only"
+  },
+  "renderGeometry": {
+    "artboard": {
+      "height": 1024,
+      "width": 1024
+    },
+    "canvas": {
+      "color": "#000000",
+      "height": 960,
+      "scale": 1,
+      "width": 960,
+      "x": 32,
+      "y": 32
+    },
+    "frame": {
+      "color": "#006100",
+      "unitsPerSide": 32
+    },
+    "glyphColor": "#00ff00"
+  },
+  "rendererId": "inshell.thought.svg.v2.terminal-chat-path-glyphs",
+  "version": 2,
+  "workHash": {
+    "binaryField": false,
+    "domainEncoding": "keccak256-utf8",
+    "domainText": "INSHELL_THOUGHT_V2_WORK",
+    "encoding": "keccak256-abi-encode-four-bytes32",
+    "inputs": [
+      "workDomain",
+      "rendererIdHash",
+      "promptLineKeccak256",
+      "agentLineKeccak256"
+    ]
+  }
+}

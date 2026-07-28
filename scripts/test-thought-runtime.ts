@@ -48,14 +48,35 @@ import {
 import {
   THOUGHT_V2_LOCAL_MAX_PROVENANCE_BYTES,
   THOUGHT_V2_LOCAL_NFT_ABI,
+  THOUGHT_V2_LOCAL_RENDERER_ABI,
   buildThoughtV2LocalProvenance,
+  measureThoughtV2TerminalLine,
   thoughtV2AgentLineHash,
+  thoughtV2ConversationIdentityHashForLines,
 } from "../apps/thought/src/thought-v2-local-mint";
+import {
+  THOUGHT_V2_WORK_PROFILE_ID as CONTRACT_THOUGHT_V2_WORK_PROFILE_ID,
+  deriveThoughtV2WorkHashes as deriveContractThoughtV2WorkHashes,
+  measureThoughtV2Line as measureContractThoughtV2Line,
+} from "../apps/thought/contract-integration/current/reference/thought-v2-terminal-work-profile";
+import {
+  THOUGHT_V2_TERMINAL_WORK_PROFILE_ID,
+  deriveThoughtV2TerminalWorkHashes,
+} from "../packages/shared/src/index";
+import {
+  parseThoughtV2EmptyFrameStyle,
+  thoughtV2EmptyFrameCanvasRect,
+} from "../apps/thought/src/thought-v2-empty-frame";
 import {
   THOUGHT_V2_LOCAL_RELEASE,
   isThoughtV2LocalMintRuntime,
   type ThoughtV2LocalRuntimeFacts,
 } from "../apps/thought/src/thought-v2-local-release";
+import { buildThoughtV2PathAcquisitionBrowserAddresses } from "../apps/thought/src/thought-v2-path-acquisition-runtime";
+import {
+  assertThoughtV2AnvilRuntime,
+  type ThoughtV2AnvilRuntime,
+} from "../apps/thought/src/thought-v2-contract-client";
 import {
   THOUGHT_V2_LOCAL_DEPLOYMENT_MISMATCH_COPY,
   THOUGHT_V2_LOCAL_DEPLOYMENT_UNAVAILABLE_COPY,
@@ -69,16 +90,17 @@ import {
   parseThoughtV2LocalAgentResult,
 } from "../apps/thought/src/thought-v2-local-agent";
 import {
-  buildThoughtAgentFixtureLine,
-  shouldUseThoughtAgentFixture,
-} from "../apps/thought/src/thought-agent-fixture";
-import {
   THOUGHT_V2_ARTIFACT,
   THOUGHT_V2_RENDER_CONTRACT,
   buildThoughtV2Svg,
   measureThoughtV2Line,
 } from "../apps/thought/src/thought-v2-renderer";
 import { describeThoughtTextPolicyIssue } from "../apps/thought/src/thought-text-policy";
+import {
+  appendThoughtPromptHistory,
+  navigateThoughtPromptHistory,
+  parseThoughtPromptHistory,
+} from "../apps/thought/src/thought-prompt-history";
 import {
   JSON_RPC_NO_BATCH_OPTIONS,
   createSingleRequestJsonRpcProvider,
@@ -116,9 +138,37 @@ assert.equal(
   "legacy V1 text behavior must remain unchanged",
 );
 assert.equal(
-  localRelease.source.status,
-  "dirty-local-snapshot",
-  "the local draft must not claim its producer base commit reproduces uncommitted V2 artifacts",
+  localRelease.artifact.id,
+  "thought-v2-noncanonical-integration-preview-20260725-r7",
+  "local development must bind the immutable App/Contract integration preview",
+);
+assert.equal(localRelease.artifact.productionConsumable, false);
+assert.ok(
+  THOUGHT_V2_LOCAL_RENDERER_ABI.some(
+    (entry) =>
+      entry.type === "function" &&
+      entry.name === "IMPLEMENTATION_ID" &&
+      entry.stateMutability === "view",
+  ),
+  "the App must read the active renderer implementation before drawing its empty frame",
+);
+const currentFrameStyle = parseThoughtV2EmptyFrameStyle(
+  "inshell.thought.renderer.v2.humanist-smooth-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom",
+);
+assert.deepEqual(currentFrameStyle, {
+  canvasSize: 960,
+  color: "#006100",
+  inset: 32,
+});
+assert.deepEqual(
+  thoughtV2EmptyFrameCanvasRect(1024, 1024, currentFrameStyle!),
+  { x: 32, y: 32, width: 960, height: 960 },
+  "the empty canvas must reserve the exact native 32px work frame",
+);
+assert.equal(
+  parseThoughtV2EmptyFrameStyle("inshell.thought.renderer.v2.native-paths"),
+  null,
+  "unknown renderer implementation IDs must not silently invent frame geometry",
 );
 assert.deepEqual(
   THOUGHT_V2_LOCAL_AGENT_OUTPUT_SCHEMA.required,
@@ -154,36 +204,76 @@ const localAgentEvidence = {
   rawResponseSha256: "a".repeat(64),
 };
 assert.equal(
-  shouldUseThoughtAgentFixture({ dev: true, hostname: "127.0.0.1", search: "" }),
-  true,
-  "local dev defaults to the fast Agent fixture path",
-);
-assert.equal(
-  shouldUseThoughtAgentFixture({ dev: true, hostname: "localhost", search: "?agent=live" }),
-  false,
-  "the operator can explicitly restore the live Agent path",
-);
-assert.equal(
-  shouldUseThoughtAgentFixture({ dev: false, hostname: "127.0.0.1", search: "?agent=fixture" }),
-  false,
-  "production builds cannot enable Agent fixtures",
-);
-assert.equal(
-  shouldUseThoughtAgentFixture({ dev: true, hostname: "preview.inshell.art", search: "?agent=fixture" }),
-  false,
-  "non-local deployments cannot enable Agent fixtures",
-);
-assert.equal(
-  buildThoughtAgentFixtureLine("claude", "fixture-nonce"),
-  "fixture claude fixture-nonce",
-);
-assert.equal(
   formatSavedWorkPromptLabel("  a prompt   with spaces  "),
   "a prompt with spaces",
 );
 assert.equal(
   formatSavedWorkPromptLabel("abcdefghijklmnopqrstuvwxyz", 12),
   "abcdefghi...",
+);
+
+assert.deepEqual(
+  parseThoughtPromptHistory('["first prompt","second prompt"]', 50),
+  ["first prompt", "second prompt"],
+);
+assert.deepEqual(parseThoughtPromptHistory("not json", 50), []);
+assert.deepEqual(
+  appendThoughtPromptHistory(["first prompt"], "first prompt", 50),
+  ["first prompt"],
+  "consecutive duplicate prompts must not create duplicate history entries",
+);
+assert.deepEqual(
+  appendThoughtPromptHistory(["first prompt", "second prompt"], "third prompt", 2),
+  ["second prompt", "third prompt"],
+  "prompt history must retain only its newest configured entries",
+);
+const promptHistoryOlder = navigateThoughtPromptHistory({
+  history: ["first prompt", "second prompt"],
+  cursor: { index: null, draft: "" },
+  currentValue: "draft prompt",
+  direction: "older",
+});
+assert.deepEqual(promptHistoryOlder, {
+  handled: true,
+  index: 1,
+  draft: "draft prompt",
+  value: "second prompt",
+});
+const promptHistoryOldest = navigateThoughtPromptHistory({
+  history: ["first prompt", "second prompt"],
+  cursor: promptHistoryOlder,
+  currentValue: promptHistoryOlder.value,
+  direction: "older",
+});
+assert.equal(promptHistoryOldest.value, "first prompt");
+const promptHistoryNewer = navigateThoughtPromptHistory({
+  history: ["first prompt", "second prompt"],
+  cursor: promptHistoryOldest,
+  currentValue: promptHistoryOldest.value,
+  direction: "newer",
+});
+assert.equal(promptHistoryNewer.value, "second prompt");
+const promptHistoryDraft = navigateThoughtPromptHistory({
+  history: ["first prompt", "second prompt"],
+  cursor: promptHistoryNewer,
+  currentValue: promptHistoryNewer.value,
+  direction: "newer",
+});
+assert.deepEqual(promptHistoryDraft, {
+  handled: true,
+  index: null,
+  draft: "",
+  value: "draft prompt",
+});
+assert.equal(
+  navigateThoughtPromptHistory({
+    history: ["first prompt", "second prompt"],
+    cursor: { index: null, draft: "" },
+    currentValue: "second prompt",
+    direction: "older",
+  }).value,
+  "first prompt",
+  "ArrowUp from the currently submitted prompt should reveal the preceding entry",
 );
 const storedCodexWork = sanitizeWorkRecord({
   id: 1,
@@ -215,14 +305,24 @@ assert.equal(
   "invalid Agent evidence must fail closed during work-history restore",
 );
 assert.deepEqual(
-  buildThoughtV2LocalAgentProcess(localAgentEvidence, declaredLocalAgentEnvelope.agentLine),
+  buildThoughtV2LocalAgentProcess(localAgentEvidence, declaredLocalAgentEnvelope.agentLine, "codex"),
   {
     kind: "agent-run",
-    agentDeclaration: declaredLocalAgentEnvelope.declaration,
+    agentDeclaration: {
+      label: "Codex",
+      source: "runtime_configured",
+      status: "declared-unverified",
+    },
+    modelDeclaration: {
+      label: "codex",
+      source: "runtime_configured",
+      status: "declared-unverified",
+    },
     transport: {
       adapter: "codex",
-      runId: "tar_local_v2",
-      rawResponseSha256: "a".repeat(64),
+      route: "inshell.thought.agent-run",
+      runReference: "tar_local_v2",
+      resultEnvelope: declaredLocalAgentEnvelope,
     },
   },
   "mint provenance must preserve validated Agent declaration and transport evidence",
@@ -231,17 +331,19 @@ assert.throws(
   () => buildThoughtV2LocalAgentProcess(
     { ...localAgentEvidence, result: localAgentEnvelope },
     localAgentEnvelope.agentLine,
+    "codex",
   ),
   /declaration is required/i,
 );
 assert.throws(
-  () => buildThoughtV2LocalAgentProcess(localAgentEvidence, "different work"),
+  () => buildThoughtV2LocalAgentProcess(localAgentEvidence, "different work", "codex"),
   /does not match the current work/i,
 );
 assert.throws(
   () => buildThoughtV2LocalAgentProcess(
     { ...localAgentEvidence, rawResponseSha256: "sha256:bad" },
     declaredLocalAgentEnvelope.agentLine,
+    "codex",
   ),
   /transport evidence is incomplete/i,
 );
@@ -290,30 +392,46 @@ rejectLocalAgentEnvelope(
   "unknown declaration fields must be rejected locally",
 );
 const localSpecText = await readFile(
-  new URL("../apps/thought/spec/THOUGHT.v2.local.md", import.meta.url),
+  new URL("../apps/thought/spec/THOUGHT.v2.md", import.meta.url),
   "utf8",
 );
-const localAddresses = JSON.parse(await readFile(
-  new URL("../apps/thought/evm/addresses.anvil.json", import.meta.url),
-  "utf8",
-)) as {
-  rpcUrl: string;
-  chainId: number;
-  pathNft: { address: string };
-  thoughtNft: { address: string };
-  thoughtSpecRegistry: { address: string };
-  thoughtRenderer: { address: string };
-  protocolRegistry: { address: string };
-  protocolRelease: {
-    id: string;
-    manifestHash: string;
-    rendererProfileHash: string;
-    workProfileHash: string;
-  };
-  recommendedThoughtSpecId: string;
-  recommendedThoughtSpecHash: string;
-  thoughtSpecs: Array<{ byteLength: number }>;
-};
+const activeAnvilRuntime = assertThoughtV2AnvilRuntime(
+  JSON.parse(
+    await readFile(
+      new URL("../apps/thought/evm/addresses.anvil.json", import.meta.url),
+      "utf8",
+    ),
+  ),
+) as ThoughtV2AnvilRuntime;
+assert.deepEqual(
+  buildThoughtV2PathAcquisitionBrowserAddresses(activeAnvilRuntime),
+  {
+    pathPulseAdapter: activeAnvilRuntime.pathPulseAdapter,
+    pulseAuction: activeAnvilRuntime.pulseAuction,
+    paymentToken: activeAnvilRuntime.paymentToken,
+  },
+  "the THOUGHT browser runtime must retain all in-place $PATH acquisition addresses",
+);
+for (const invalidRuntime of [
+  { ...activeAnvilRuntime, pathPulseAdapter: undefined },
+  { ...activeAnvilRuntime, pulseAuction: undefined },
+  {
+    ...activeAnvilRuntime,
+    pathPulseAdapter: { address: "0x0000000000000000000000000000000000000000" },
+  },
+  {
+    ...activeAnvilRuntime,
+    pulseAuction: { address: "0x0000000000000000000000000000000000000000" },
+  },
+  { ...activeAnvilRuntime, paymentToken: { address: "not-an-address" } },
+]) {
+  assert.throws(
+    () => assertThoughtV2AnvilRuntime(invalidRuntime),
+    /invalid \$PATH acquisition wiring/,
+    "a malformed $PATH acquisition runtime must fail before browser injection",
+  );
+}
+const fakeLocalAddress = "0x1111111111111111111111111111111111111111";
 assert.equal(new TextEncoder().encode(localSpecText).length, localRelease.spec.byteLength);
 assert.equal(keccak256(toUtf8Bytes(localSpecText)), localRelease.spec.evmSpecHash);
 assert.equal(
@@ -327,44 +445,45 @@ assert.equal(
 const localRuntimeFacts: ThoughtV2LocalRuntimeFacts = {
   dev: true,
   hostname: "127.0.0.1",
-  rpcUrl: localAddresses.rpcUrl,
-  pathRpcUrl: localAddresses.rpcUrl,
-  chainId: localAddresses.chainId,
+  rpcUrl: "http://127.0.0.1:8546",
+  pathRpcUrl: "http://127.0.0.1:8546",
+  chainId: localRelease.chainId,
   contracts: {
-    pathNft: localAddresses.pathNft.address,
-    thoughtNft: localAddresses.thoughtNft.address,
-    thoughtSpecRegistry: localAddresses.thoughtSpecRegistry.address,
-    thoughtRenderer: localAddresses.thoughtRenderer.address,
-    protocolRegistry: localAddresses.protocolRegistry.address,
+    pathNft: fakeLocalAddress,
+    thoughtNft: fakeLocalAddress,
+    thoughtSpecRegistry: fakeLocalAddress,
+    thoughtRenderer: fakeLocalAddress,
+    protocolRegistry: fakeLocalAddress,
+    creationAttestationVerifier: fakeLocalAddress,
   },
-  protocolReleaseId: localAddresses.protocolRelease.id,
-  manifestHash: localAddresses.protocolRelease.manifestHash,
-  rendererProfileHash: localAddresses.protocolRelease.rendererProfileHash,
-  workProfileHash: localAddresses.protocolRelease.workProfileHash,
-  specId: localAddresses.recommendedThoughtSpecId,
-  specHash: localAddresses.recommendedThoughtSpecHash,
-  specByteLength: localAddresses.thoughtSpecs[0]!.byteLength,
+  protocolReleaseId: localRelease.protocol.protocolReleaseId,
+  manifestHash: localRelease.protocol.manifestKeccak256,
+  rendererProfileHash: localRelease.protocol.rendererProfile.keccak256,
+  workProfileHash: localRelease.protocol.workProfile.keccak256,
+  contextProfileHash: localRelease.protocol.contextProfile.keccak256,
+  metadataProfileHash: localRelease.protocol.metadataProfile.keccak256,
+  specId: localRelease.spec.evmSpecId,
+  specHash: localRelease.spec.evmSpecHash,
+  specByteLength: localRelease.spec.byteLength,
 };
 const localBytes32Anchors = [
   localRelease.protocol.protocolReleaseId,
   localRelease.protocol.manifestKeccak256,
-  localRelease.protocol.creativeSpec.keccak256,
-  localRelease.protocol.agentResultSchema.keccak256,
   localRelease.protocol.workProfile.keccak256,
   localRelease.protocol.rendererProfile.keccak256,
+  localRelease.protocol.contextProfile.keccak256,
+  localRelease.protocol.metadataProfile.keccak256,
   localRelease.spec.evmSpecId,
   localRelease.spec.evmSpecHash,
-  localAddresses.protocolRelease.id,
-  localAddresses.protocolRelease.manifestHash,
-  localAddresses.protocolRelease.rendererProfileHash,
-  localAddresses.protocolRelease.workProfileHash,
-  localAddresses.recommendedThoughtSpecId,
-  localAddresses.recommendedThoughtSpecHash,
 ];
 for (const anchor of localBytes32Anchors) {
   assert.match(anchor, /^0x[0-9a-f]{64}$/i, `invalid local bytes32 anchor: ${anchor}`);
 }
-assert.equal(isThoughtV2LocalMintRuntime(localRuntimeFacts), true);
+assert.equal(
+  isThoughtV2LocalMintRuntime(localRuntimeFacts),
+  false,
+  "a committed address-free fallback cannot enable minting",
+);
 assert.equal(isThoughtV2LocalMintRuntime({ ...localRuntimeFacts, dev: false }), false);
 assert.equal(isThoughtV2LocalMintRuntime({ ...localRuntimeFacts, hostname: "preview.inshell.art" }), false);
 assert.equal(isThoughtV2LocalMintRuntime({ ...localRuntimeFacts, rpcUrl: "https://rpc.example" }), false);
@@ -463,26 +582,45 @@ const localProvenanceJson = buildThoughtV2LocalProvenance({
   process: {
     kind: "agent-run",
     agentDeclaration: {
-      schema: "inshell.thought.agent-declaration.v1",
+      label: "Codex",
+      source: "runtime_configured",
       status: "declared-unverified",
-      agentLabel: "Codex",
-      declaredOneCreativeResult: true,
+    },
+    modelDeclaration: {
+      label: "codex",
+      source: "runtime_configured",
+      status: "declared-unverified",
+    },
+    transport: {
+      adapter: "codex",
+      route: "inshell.thought.agent-run",
+      runReference: "tar_local_v2",
+      resultEnvelope: declaredLocalAgentEnvelope,
     },
   },
   mintContext: {
     chainId: "31337",
-    thoughtNft: localAddresses.thoughtNft.address,
-    pathNft: localAddresses.pathNft.address,
-    minter: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-    movement: "THOUGHT",
-    pathId: "1",
+    thoughtNft: fakeLocalAddress,
+    intendedMinter: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  },
+  selectedSpec: {
+    name: localRelease.spec.name,
+    text: await readFile(
+      new URL("../apps/thought/spec/THOUGHT.v2.md", import.meta.url),
+      "utf8",
+    ),
   },
 });
 const localProvenance = JSON.parse(localProvenanceJson) as {
   schema: string;
   protocol: { protocolReleaseId: string };
-  work: { agentLineKeccak256: string; promptLine: string; agentLine: string };
-  mintContext: { thoughtNft: string; pathNft: string; minter: string };
+  work: {
+    agentLineKeccak256: string;
+    conversationIdentityHash: string;
+    promptLine: string;
+    agentLine: string;
+  };
+  mintContext: { thoughtNft: string; intendedMinter: string };
 };
 assert.equal(localProvenance.schema, "inshell.thought.provenance.v2");
 assert.equal(localProvenance.protocol.protocolReleaseId, localRelease.protocol.protocolReleaseId);
@@ -491,26 +629,44 @@ assert.equal(localProvenance.work.agentLine, "the exact line survives");
 assert.equal(
   localProvenance.work.agentLineKeccak256,
   thoughtV2AgentLineHash("the exact line survives"),
-  "V2 duplicate identity must use the exact Agent-line hash",
+  "Agent-line hash must preserve exact bytes",
 );
-assert.equal(localProvenance.mintContext.thoughtNft, localAddresses.thoughtNft.address.toLowerCase());
-assert.equal(localProvenance.mintContext.pathNft, localAddresses.pathNft.address.toLowerCase());
-assert.equal(localProvenance.mintContext.minter, "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266");
+assert.equal(
+  localProvenance.work.conversationIdentityHash,
+  thoughtV2ConversationIdentityHashForLines("what survives?", "the exact line survives"),
+  "V2 duplicate identity must commit to the ordered prompt + Agent pair",
+);
+assert.equal(localProvenance.mintContext.thoughtNft, fakeLocalAddress);
+assert.equal(localProvenance.mintContext.intendedMinter, "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266");
 assert(new TextEncoder().encode(localProvenanceJson).length < THOUGHT_V2_LOCAL_MAX_PROVENANCE_BYTES);
 
 const localThoughtInterface = new Interface(THOUGHT_V2_LOCAL_NFT_ABI);
-assert(localThoughtInterface.getFunction("previewSvg"), "local V2 ABI must expose onchain previewSvg");
-assert(localThoughtInterface.getFunction("RENDERER_PROFILE_KECCAK256"), "local V2 ABI must expose renderer profile anchor");
-assert(localThoughtInterface.getFunction("WORK_PROFILE_KECCAK256"), "local V2 ABI must expose work profile anchor");
+assert(localThoughtInterface.getFunction("tokenOfConversationIdentityHash"), "local V2 ABI must expose ordered-pair lookup");
+assert(localThoughtInterface.getFunction("RENDERER_ID_HASH"), "local V2 ABI must expose renderer identity anchor");
+assert(localThoughtInterface.getFunction("WORK_PROFILE_ID_HASH"), "local V2 ABI must expose work-profile identity anchor");
+assert(new Interface(THOUGHT_V2_LOCAL_RENDERER_ABI).getFunction("render"), "preview renderer ABI must expose render");
+assert.equal(
+  localThoughtInterface.getFunction("mint")!.selector,
+  "0x8836aa1b",
+  "local V2 ABI must match the deployed declaration-and-attestation mint shape",
+);
 const localMintCalldata = localThoughtInterface.encodeFunctionData("mint", [{
   promptLine: "what survives?",
   agentLine: "the exact line survives",
+  declaredAgent: "Codex",
+  declaredModel: "codex",
   pathId: 1n,
   thoughtSpecId: localRelease.spec.evmSpecId,
   thoughtSpecHash: localRelease.spec.evmSpecHash,
   provenanceJson: localProvenanceJson,
   deadline: 1n,
   pathSignature: "0x1234",
+  creationAttestation: {
+    runIdHash: `0x${"00".repeat(32)}`,
+    deadline: 0,
+    authorityEpoch: 0,
+    signature: "0x",
+  },
 }]);
 assert(localMintCalldata.startsWith(localThoughtInterface.getFunction("mint")!.selector));
 
@@ -620,10 +776,10 @@ assert.deepEqual(
     "preparing",
   ),
   {
-    message: "mint blocked. provenance too large. 9000 / 8192 bytes.",
+    message: "Work data is too large to mint. Shorten the prompt or Agent response, then run the work again.",
     kind: "thought",
   },
-  "provenance size errors must retain their measured copy",
+  "work-size guidance must not expose internal provenance terminology",
 );
 
 assert.deepEqual(
@@ -631,8 +787,11 @@ assert.deepEqual(
     new Error("provenance is 20001/20000 bytes"),
     "preparing",
   ),
-  { message: "provenance is 20001/20000 bytes", kind: "thought" },
-  "the local V2 provenance limit wording must remain visible",
+  {
+    message: "Work data is too large to mint. Shorten the prompt or Agent response, then run the work again.",
+    kind: "thought",
+  },
+  "local V2 size guidance must explain the recovery in product language",
 );
 
 assert.deepEqual(
@@ -1012,6 +1171,69 @@ assert.deepEqual(measureThoughtV2Line("Bad prompt 你好", "prompt").errors, [])
 assert.deepEqual(measureThoughtV2Line("bad Agent مرحبا", "agent").errors, []);
 assert.deepEqual(measureThoughtV2Line("double  space", "prompt").errors, []);
 
+assert.equal(
+  THOUGHT_V2_TERMINAL_WORK_PROFILE_ID,
+  CONTRACT_THOUGHT_V2_WORK_PROFILE_ID,
+  "the App-owned Terminal English policy must identify the Contract work profile exactly",
+);
+for (const [value, kind] of [
+  ["Terminal English: valid?!", "prompt"],
+  ["", "prompt"],
+  ["A".repeat(64), "agent"],
+  ["A".repeat(65), "agent"],
+  ["double  space", "prompt"],
+  [" leading", "prompt"],
+  ["trailing ", "agent"],
+  ["Bad prompt 你好", "prompt"],
+  ["tab\tcharacter", "agent"],
+] as const) {
+  assert.deepEqual(
+    measureThoughtV2TerminalLine(value, kind),
+    measureContractThoughtV2Line(value, kind),
+    `the App-owned and Contract-vendored Terminal English policies must agree for ${JSON.stringify(value)}`,
+  );
+}
+assert.deepEqual(
+  deriveThoughtV2TerminalWorkHashes("what survives?", "the exact line survives"),
+  deriveContractThoughtV2WorkHashes("what survives?", "the exact line survives"),
+  "the App-owned and Contract-vendored work hashes must remain byte-for-byte equivalent",
+);
+
+assert.deepEqual(
+  measureThoughtV2TerminalLine("Terminal English: valid?!", "prompt").errors,
+  [],
+  "the current work profile must accept its complete punctuation repertoire",
+);
+assert.match(
+  measureThoughtV2TerminalLine("double  space", "prompt").errors.join("; "),
+  /repeated internal spaces/,
+  "the integration-preview work profile must reject repeated internal spaces",
+);
+assert.match(
+  measureThoughtV2TerminalLine("Bad prompt 你好", "prompt").errors.join("; "),
+  /unsupported U\+4F60/,
+  "the integration-preview work profile must reject characters outside Terminal English",
+);
+assert.match(
+  measureThoughtV2TerminalLine(" trailing", "agent").errors.join("; "),
+  /outer space/,
+  "the integration-preview work profile must reject outer spaces without rewriting input",
+);
+
+assert.deepEqual(
+  describeThoughtTextPolicyIssue({
+    value: "@hello",
+    line: "prompt",
+    measure: measureThoughtV2TerminalLine("@hello", "prompt"),
+    maxBytes: 64,
+  }),
+  {
+    title: "\"@\" can't be used",
+    detail:
+      "The \"@\" at character 1 isn't supported in THOUGHT text.\n" +
+      "Allowed: [space] A-Z a-z 0-9 . , ? ! : ; ' \" - ( ) / &",
+  },
+);
 assert.deepEqual(
   describeThoughtTextPolicyIssue({
     value: "keep exact bytes ",
@@ -1021,7 +1243,7 @@ assert.deepEqual(
   }),
   {
     title: "trailing space",
-    detail: "prompt ends with U+0020",
+    detail: "The prompt ends with a space.",
     nextStep: "delete the final space",
   },
 );
@@ -1034,8 +1256,8 @@ assert.deepEqual(
   }),
   {
     title: "invisible character",
-    detail: "prompt contains zero-width space U+200B at character 5",
-    nextStep: "delete U+200B at character 5",
+    detail: "The prompt contains an invisible character at character 5.",
+    nextStep: "delete the invisible character at character 5",
   },
 );
 assert.deepEqual(
@@ -1047,8 +1269,63 @@ assert.deepEqual(
   }),
   {
     title: "trailing space",
-    detail: "Agent output ends with U+0020",
+    detail: "The Agent output ends with a space.",
     nextStep: "reset and run the Agent again; output is never auto-corrected",
+  },
+);
+assert.deepEqual(
+  describeThoughtTextPolicyIssue({
+    value: "double  space",
+    line: "prompt",
+    measure: measureThoughtV2TerminalLine("double  space", "prompt"),
+    maxBytes: 64,
+  }),
+  {
+    title: "extra spaces",
+    detail: "The prompt has more than one space together at character 8.",
+    nextStep: "delete the extra space at character 8",
+  },
+);
+assert.deepEqual(
+  describeThoughtTextPolicyIssue({
+    value: "",
+    line: "prompt",
+    measure: measureThoughtV2TerminalLine("", "prompt"),
+    maxBytes: 64,
+  }),
+  {
+    title: "prompt empty",
+    detail: "The prompt is empty.",
+    nextStep: "enter a prompt",
+  },
+);
+assert.deepEqual(
+  describeThoughtTextPolicyIssue({
+    value: "tab\there",
+    line: "prompt",
+    measure: measureThoughtV2TerminalLine("tab\there", "prompt"),
+    maxBytes: 64,
+  }),
+  {
+    title: "tab not allowed",
+    detail: "The prompt contains a tab at character 4.",
+    nextStep: "replace the tab at character 4 with one regular space",
+  },
+);
+assert.deepEqual(
+  describeThoughtTextPolicyIssue({
+    value: "test",
+    line: "prompt",
+    measure: {
+      byteLength: 4,
+      errors: ["prompt line has an unknown policy mismatch"],
+    },
+    maxBytes: 64,
+  }),
+  {
+    title: "prompt not accepted",
+    detail: "The prompt does not match THOUGHT text rules.",
+    nextStep: "check the prompt for extra spaces or unsupported characters",
   },
 );
 assert.equal(

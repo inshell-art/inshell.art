@@ -15,15 +15,42 @@ Current migration status
 
 `inshell.art` is the single frontend monorepo.
 
-- `apps/home` builds the main site deployed at `inshell.art`.
-- `apps/thought` builds the THOUGHT surface deployed at `thought.inshell.art`.
+- `apps/home` builds the shared-origin site deployed at `inshell.art`.
+- `apps/thought` builds the THOUGHT compatibility artifact; its canonical routes are
+  `inshell.art/thought` and `inshell.art/gallery`.
 - `packages/*` holds shared frontend contract bindings, wallet code, Ethereum client utilities, and common helpers.
 - Protocol contracts remain in separate repos (`pulse/`, `path/`, `THOUGHT/`) and export FE release artifacts into this repo.
 
 Local dev ports are fixed:
 
 - Home: `http://127.0.0.1:5173`
-- THOUGHT: `http://127.0.0.1:5174`
+- THOUGHT upstream: `http://127.0.0.1:5174` (proxied through
+  `http://127.0.0.1:5173/thought` and `/gallery`)
+- Persistent Anvil: `http://127.0.0.1:8546`
+
+Start Anvil with `pnpm dev:anvil`. It stores the complete chain under
+`.local/anvil/inshell-state.json`, including contracts, balances, `$PATH` tokens,
+THOUGHT tokens, and their lifecycle state. The state is saved every second and on a
+clean shutdown, then loaded automatically on the next start.
+
+Use `pnpm dev:anvil:save` for an explicit portable checkpoint before risky local
+contract work. With a blank persistent node running, `pnpm dev:anvil:restore` restores
+that checkpoint and its matching App deployment record.
+
+`pnpm dev:anvil:reset` is the intentional destructive path. It refuses to run while
+Anvil is active, deletes both persistent state and the latest checkpoint, and requires
+PATH + THOUGHT to be redeployed before the frontend is restarted.
+
+The local PATH auction opens 30 seconds after deployment. Override this only for
+focused timing tests with `PATH_AUCTION_OPEN_DELAY_SECONDS=<seconds>`.
+
+With the persistent Anvil running, start the integrated local site with `pnpm dev`.
+Home reads the PATH addresses from
+`apps/thought/evm/addresses.anvil.json`, so `/path`, `/thought`, and `/gallery` share
+one chain and one deployment record.
+
+Do not use the Contract repo's ephemeral `devnode:v2:start` for normal App work; it
+intentionally creates a blank chain. Use it only for isolated contract/gallery tests.
 
 Run Vite only with `127.0.0.1` and `--strictPort`; stop the existing process before reusing a port.
 
@@ -167,7 +194,7 @@ pnpm tsx scripts/sync-env.ts --net sepolia --rpc https://your-sepolia-rpc --addr
 
 # Validate imported PATH release artifacts before using them here
 pnpm tsx scripts/validate-path-artifacts.ts /path/to/fe-release
-# -> rejects stale spark/reserved PATH ABI or manifest surface
+# -> rejects issuer-direct Spark minting and incomplete self-claim ABI/config
 
 ## Optional ABI typing helper
 
@@ -184,15 +211,17 @@ pnpm tsx scripts/abi-json-to-ts.ts /absolute/path/to/PathNFT.json           pack
 ````
 
 PATH note:
-- after `path` removal commit `070ee8342833a4249027146d3ed61cf555e4762f`, do not import artifacts
-  that still expose `RESERVED_ROLE`, `SPARK_BASE`, `mintSparker`, `getReservedCap`,
-  `getReservedRemaining`, or `reserved_cap`
-- current canonical PATH issuance surface is `PathPulseAdapter` settling `PulseAuction` epochs directly into `PathNFT`
+- Public PATH issuance remains `PathPulseAdapter` settling `PulseAuction` epochs directly into `PathNFT`.
+- Spark PATH grants use issuer allowlisting plus recipient self-claim. Reject the obsolete
+  `mintSparker(address,bytes)` issuer-direct mint surface.
+- A Spark-enabled release must publish the complete `allowSparker(address)` / `mintSparker(bytes)`
+  ABI and both `reserved_cap` and positive `spark_claim_duration_sec` deployment config.
+- Existing releases with no Spark surface remain valid until they are redeployed.
 
 ## 2) Run the FE
 
 ```bash
-# Minimum FE env
+# Sepolia FE env
 export VITE_ETH_RPC="https://your-sepolia-rpc"
 export VITE_NETWORK="sepolia"
 export VITE_PULSE_AUCTION_DEPLOY_BLOCK="123456"
@@ -202,8 +231,8 @@ export VITE_REPORT_BUG_URL="https://github.com/inshell-art/inshell.art/issues/ne
 export VITE_GITHUB_URL="https://github.com/inshell-art/"
 export VITE_DEBUG_PANEL="off"
 
-pnpm dev:home
-pnpm dev:thought
+pnpm --filter @inshell/home dev:sepolia
+pnpm dev:thought -- --mode sepolia
 ```
 
 `VITE_ETH_RPC` is the RPC env var used by the frontend.
@@ -226,20 +255,23 @@ pnpm dev:thought
 > and does not call auction contracts. A direct auction address is only accepted when
 > `VITE_PATH_ALLOW_DIRECT_AUCTION=1` or `?direct_auction=1` is set for local debugging.
 
-## 1.5) Local PATH Rehearsal Flow
+## 1.5) Integrated Local Anvil Flow
 
-Run this after starting a clean PATH local node and deploying local contracts from `path/`:
+Run this after starting Anvil on port `8545` and deploying the local PATH + THOUGHT stack.
+The deployment must update `apps/thought/evm/addresses.anvil.json`.
 
 ```bash
-# In path/
-npm run ops:export:local-fe-release -- --rpc-url http://127.0.0.1:8546 --force
-
-# In inshell.art/
-pnpm sync:path-release -- --net devnet --from ../path/artifacts/devnet/current/fe-release
-VITE_NETWORK=devnet \
-VITE_ETH_RPC=http://127.0.0.1:8546 \
-pnpm --filter @inshell/home exec vite --host 127.0.0.1 --strictPort
+pnpm dev
 ```
+
+Open the shared origin:
+
+- PATH auction and token gallery: `http://127.0.0.1:5173/path`
+- THOUGHT work and mint flow: `http://127.0.0.1:5173/thought`
+- THOUGHT gallery: `http://127.0.0.1:5173/gallery`
+
+In devnet mode the PATH gallery reads token ownership and `tokenURI()` directly from
+Anvil. It does not mix in the production PATH or THOUGHT gallery caches.
 
 Expected canvas states:
 - No release imported: `No PATH deployment loaded.`

@@ -1,0 +1,26 @@
+{
+  "schema": "inshell.thought.creative-spec-lock.v1",
+  "artifactId": "thought-v2-creative-work-spec-20260723-r1",
+  "artifact": {
+    "name": "THOUGHT.v2.md",
+    "path": "apps/thought/spec/THOUGHT.v2.md",
+    "version": "v2",
+    "status": "draft-for-corpus-testing-and-release-integration",
+    "byteLength": 14849,
+    "sha256": "67f65b79188d4294e7cc63ab1bd1eadd666ebf7fa6ed4a163eb3bd9ec4c06cd8",
+    "thoughtSpecId": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410",
+    "thoughtSpecHash": "0x247dc71285b4f1078c822830ed2044138d61343bbf25cc6719b66742ed5cd5ea",
+    "encoding": "utf-8",
+    "lineEndings": "lf"
+  },
+  "authority": {
+    "owner": "THOUGHT App",
+    "repository": "https://github.com/inshell-art/inshell.art.git",
+    "changePolicy": "Any byte change requires a new artifact ID and new hashes. Previously locked bytes are never replaced."
+  },
+  "contractIntegration": {
+    "status": "awaiting-compatible-thought-contract-release",
+    "registered": false,
+    "note": "The current disposable Anvil Contract preview pins an earlier Creative Work Specification and must not be represented as compatible with this lock."
+  }
+}

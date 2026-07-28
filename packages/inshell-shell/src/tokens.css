@@ -49,21 +49,33 @@
   --shell-topbar-cluster-gap: 28px;
   --shell-topbar-menu-gap: var(--shell-nav-gap);
   --shell-topbar-wallet-label-width: 14ch;
+  --shell-route-padding-inline: 20px;
+  --shell-route-padding-inline-compact: 14px;
+  --shell-route-padding-inline-current: var(--shell-route-padding-inline);
+  --shell-touch-target-size: 44px;
   --shell-topbar-wallet-note-offset: calc(
     var(--font-size-11) * var(--line-height-tight)
   );
   --shell-topbar-z-index: 20;
   --shell-wallet-modal-z-index: 40;
-  --shell-topbar-width: 100vw;
-  --shell-topbar-max-width: 100vw;
+  --shell-topbar-width: calc(
+    100% + var(--shell-route-padding-inline-current) +
+      var(--shell-route-padding-inline-current)
+  );
+  --shell-topbar-max-width: var(--shell-topbar-width);
   --shell-topbar-min-height: 32px;
   --shell-topbar-template: minmax(0, 1fr) auto;
   --shell-topbar-gap: 18px;
-  --shell-topbar-margin-inline: calc(50% - 50vw);
+  --shell-topbar-margin-inline: calc(
+    var(--shell-route-padding-inline-current) * -1
+  );
   --shell-topbar-margin-block-end: clamp(18px, 3vh, 34px);
   --shell-topbar-compact-cluster-gap: 14px;
   --shell-topbar-compact-menu-gap: 12px;
   --shell-topbar-compact-gap: 12px;
+  --shell-topbar-narrow-cluster-gap: 8px;
+  --shell-topbar-narrow-menu-gap: 10px;
+  --shell-topbar-narrow-wallet-label-width: 13ch;
   --shell-topbar-compact-margin-block-end: 18px;
   --shell-topbar-letter-spacing: 0.02em;
   --shell-topbar-wallet-gap: 10px;
@@ -72,19 +84,30 @@
   --shell-topbar-dot-off: var(--muted);
   --shell-topbar-dot-pending: #d0a200;
   --shell-topbar-dot-error: #cc4c4c;
-  --shell-wallet-modal-width: min(360px, calc(100vw - 40px));
-  --shell-wallet-modal-padding: 18px 20px;
+  --shell-context-popover-width: min(320px, calc(100vw - 40px));
+  --shell-context-popover-padding: 12px 14px;
+  --shell-context-popover-font-size: var(--font-size-12);
+  --shell-context-popover-font-weight: var(--weight-mid);
+  --shell-context-popover-line-height: 1.35;
+  --shell-context-popover-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+  --shell-context-popover-title-margin-block-end: 10px;
+  --shell-context-popover-title-letter-spacing: 0.08em;
+  --shell-context-popover-row-gap: 6px;
+  --shell-context-popover-column-gap: 10px;
+  --shell-context-popover-section-gap: 12px;
+  --shell-wallet-modal-width: var(--shell-context-popover-width);
+  --shell-wallet-modal-padding: var(--shell-context-popover-padding);
   --shell-wallet-modal-offset: 8px;
-  --shell-wallet-modal-shadow: 0 16px 36px rgba(0, 0, 0, 0.24);
-  --shell-wallet-modal-row-label-width: 92px;
+  --shell-wallet-modal-shadow: var(--shell-context-popover-shadow);
+  --shell-wallet-modal-row-label-width: 72px;
   --shell-wallet-modal-action-padding: 6px 8px;
-  --shell-wallet-picker-min-width: 190px;
-  --shell-wallet-picker-padding: 8px 10px;
+  --shell-wallet-picker-min-width: var(--shell-context-popover-width);
+  --shell-wallet-picker-padding: var(--shell-context-popover-padding);
   --shell-wallet-picker-z-index: var(--shell-wallet-modal-z-index);
-  --shell-wallet-picker-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+  --shell-wallet-picker-shadow: var(--shell-context-popover-shadow);
   --shell-wallet-picker-max-height: min(76dvh, 420px);
-  --shell-wallet-picker-title-margin-block-end: 10px;
-  --shell-wallet-picker-note-margin: 0 0 10px;
+  --shell-wallet-picker-title-margin-block-end: var(--shell-context-popover-title-margin-block-end);
+  --shell-wallet-picker-note-margin: 0 0 var(--shell-context-popover-section-gap);
   --shell-wallet-picker-item-padding: 2px 0;
   --shell-wallet-picker-item-gap: 4px;
   --shell-wallet-picker-item-line-height: 1.2;
@@ -128,6 +151,12 @@
   --bid-bg: rgba(255, 255, 255, 0.02);
   --halo-stroke: var(--accent);
   --color-font-frame: rgba(255, 255, 255, 0.24);
+}
+
+@media (max-width: 760px) {
+  :root {
+    --shell-route-padding-inline-current: var(--shell-route-padding-inline-compact);
+  }
 }
 
 @media (prefers-color-scheme: light) {

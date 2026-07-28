@@ -1,0 +1,170 @@
+{
+  "abi": [
+    {
+      "type": "function",
+      "name": "METADATA_PROFILE_ID_HASH",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "RENDERER_ID_HASH",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "render",
+      "inputs": [
+        {
+          "name": "promptLine",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "agentLine",
+          "type": "string",
+          "internalType": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "string",
+          "internalType": "string"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "tokenURI",
+      "inputs": [
+        {
+          "name": "data",
+          "type": "tuple",
+          "internalType": "struct IThoughtRendererV2.TokenData",
+          "components": [
+            {
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "promptLine",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "agentLine",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "declaredAgent",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "declaredModel",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "provenanceJson",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "thoughtSpecId",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "thoughtSpecHash",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "pathId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "pathSerial",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "minter",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "mintedAt",
+              "type": "uint64",
+              "internalType": "uint64"
+            },
+            {
+              "name": "creationAttestationDigest",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "protocolReleaseId",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "manifestKeccak256",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "creationAttestationVerifier",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "string",
+          "internalType": "string"
+        }
+      ],
+      "stateMutability": "view"
+    }
+  ],
+  "bytecode": "0x",
+  "classification": "current-renderer-interface",
+  "compiler": {
+    "version": "0.8.28+commit.7893614a"
+  },
+  "contractName": "IThoughtRendererV2",
+  "deployedBytecode": "0x",
+  "methodIdentifiers": {
+    "METADATA_PROFILE_ID_HASH()": "ef34f5a7",
+    "RENDERER_ID_HASH()": "a7d04dc6",
+    "render(string,string)": "581eebf6",
+    "tokenURI((uint256,string,string,string,string,string,bytes32,bytes32,uint256,uint256,address,uint64,bytes32,bytes32,bytes32,address))": "2dd8f5ae"
+  },
+  "schema": "inshell.thought.compiled-contract.integration-preview.v1",
+  "sourceName": "src/v2/IThoughtRendererV2.sol"
+}

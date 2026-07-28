@@ -1,13 +1,15 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import AuctionCanvas from "@/components/AuctionCanvas";
 import EcosystemHome from "@/components/EcosystemHome";
 import PulsePage from "@/components/PulsePage";
 import ColorFontPage from "@/components/ColorFontPage";
 import PathPage from "@/components/PathPage";
+import DocsPage from "@/components/DocsPage";
 import VerifyPage from "@/components/VerifyPage";
 import ThoughtDetailPage from "@/components/ThoughtDetailPage";
 import ThoughtGalleryPage from "@/components/ThoughtGalleryPage";
+import WillPage from "@/components/WillPage";
 import FloatingReportBug from "@/components/FloatingReportBug";
 import PreviewWatermark from "@/components/PreviewWatermark";
 import { InshellTopBar, type InshellSurface } from "@inshell/inshell-shell";
@@ -38,9 +40,11 @@ function getPrimitiveRoute(locationKey: string) {
     return "path-app";
   }
   if (pathname === "/pulse") return "pulse";
+  if (pathname === "/docs") return "docs";
   if (pathname === "/color-font") return "color-font";
   if (pathname === "/path" || parseTokenRouteId(pathname, "path")) return "path";
   if (pathname === "/gallery") return "gallery";
+  if (pathname === "/will") return "will";
   if (pathname === "/verify") return "verify";
   if (parseTokenRouteId(pathname, "thought")) return "thought";
   return null;
@@ -87,6 +91,7 @@ function setFavicon(href: string) {
 
 export default function App() {
   const [locationKey, setLocationKey] = useState(() => getLocationKey());
+  const [pathInventoryRefreshSignal, setPathInventoryRefreshSignal] = useState(0);
   const pulseAuction = maybeResolveAddress("pulse_auction");
   const primitiveRoute = getPrimitiveRoute(locationKey);
   const pathAppHost = isPathAppHost();
@@ -100,6 +105,13 @@ export default function App() {
   const pathExpectedChainId = shouldRenderPathApp
     ? getProtocolReleaseChainId()
     : undefined;
+  const pathWalletNote =
+    pathExpectedChainId === 31337 || pathExpectedChainId === 1337
+      ? "local ETH"
+      : "Sepolia ETH";
+  const refreshPathInventory = useCallback(() => {
+    setPathInventoryRefreshSignal((value) => value + 1);
+  }, []);
 
   useEffect(() => {
     const updateLocation = () => {
@@ -131,18 +143,23 @@ export default function App() {
       setFavicon("/inshell.svg");
       return;
     }
+    if (primitiveRoute === "docs") {
+      document.title = `docs — ${SURFACE_TERMINOLOGY.ecosystem}`;
+      setFavicon("/inshell.svg");
+      return;
+    }
     if (primitiveRoute === "color-font") {
       document.title = "color-font";
       setFavicon("/inshell.svg");
       return;
     }
-    if (primitiveRoute === "path") {
-      document.title = pathTokenId ? `$PATH #${pathTokenId}` : "$PATH";
+    if (primitiveRoute === "gallery") {
+      document.title = "THOUGHT Gallery";
       setFavicon("/inshell.svg");
       return;
     }
-    if (primitiveRoute === "gallery") {
-      document.title = "THOUGHT Gallery";
+    if (primitiveRoute === "will") {
+      document.title = "WILL";
       setFavicon("/inshell.svg");
       return;
     }
@@ -199,22 +216,33 @@ export default function App() {
             active={activeSurface}
             expectedChainId={pathExpectedChainId}
             disconnectedWalletNote={
-              shouldRenderPathApp ? "Sepolia ETH" : undefined
+              shouldRenderPathApp ? pathWalletNote : undefined
+            }
+            onWalletRefresh={
+              shouldRenderPathApp ? refreshPathInventory : undefined
             }
           />
           {shouldRenderPathApp ? (
             <div className="content content--path-app">
-              <AuctionCanvas address={pulseAuction} />
-              <PathPage tokenId={pathTokenId} />
+              <AuctionCanvas
+                address={pulseAuction}
+                onPathMinted={refreshPathInventory}
+              />
+              <PathPage
+                tokenId={pathTokenId}
+                refreshSignal={pathInventoryRefreshSignal}
+              />
             </div>
           ) : primitiveRoute === "pulse" ? (
             <PulsePage />
+          ) : primitiveRoute === "docs" ? (
+            <DocsPage />
           ) : primitiveRoute === "color-font" ? (
             <ColorFontPage />
-          ) : primitiveRoute === "path" ? (
-            <PathPage tokenId={pathTokenId} />
           ) : primitiveRoute === "gallery" ? (
             <ThoughtGalleryPage />
+          ) : primitiveRoute === "will" ? (
+            <WillPage />
           ) : primitiveRoute === "verify" ? (
             <VerifyPage />
           ) : primitiveRoute === "thought" && thoughtTokenId ? (

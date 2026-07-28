@@ -11,6 +11,7 @@ import {
   buildThoughtCodexClientScript,
   buildThoughtCodexTask,
   type ThoughtCodexReleaseBinding,
+  type ThoughtCodexResultContractBinding,
 } from "../packages/thought-agent-protocol/src/index";
 
 const launchToken = "test-launch-token-must-stay-private";
@@ -22,6 +23,8 @@ let startedAt = "";
 let rejectResult = false;
 let reportedFailure: Record<string, unknown> | null = null;
 let activeRelease: ThoughtCodexReleaseBinding | undefined;
+let activeResultContract: ThoughtCodexResultContractBinding | undefined;
+let activeClaimMutation: ((claim: Record<string, any>) => void) | undefined;
 let activeCandidate: Record<string, unknown> = {
   schema: THOUGHT_AGENT_RESULT_VERSION,
   agentLine: "quiet signal",
@@ -53,17 +56,34 @@ const server = createServer(async (request, response) => {
     assert.equal(parsed.protocolVersion, THOUGHT_AGENT_PROTOCOL_VERSION);
     assert.equal(authorization, `Bearer ${launchToken}`);
     requestOrder.push("claim");
+    const workProfile = activeResultContract?.workProfile ?? THOUGHT_AGENT_LINE_CONTRACT.workProfile;
 
-    sendJson(response, 200, {
+    const instructionsText = "Return one exact agent line.";
+    const promptText = "hello world?";
+    const claimResponse: Record<string, any> = {
       protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
       state: "claimed",
       bridgeToken,
       request: {
-        instructions: { text: "Return one exact agent line." },
-        promptLine: { text: "hello world?" },
+        spec: {
+          text: instructionsText,
+          sha256: sha256(instructionsText),
+        },
+        instructions: {
+          text: instructionsText,
+          sha256: sha256(instructionsText),
+        },
+        promptLine: {
+          text: promptText,
+          sha256: sha256(promptText),
+        },
+        agentInput: {
+          text: promptText,
+          sha256: sha256(promptText),
+        },
         outputContract: {
           agentLine: {
-            workProfile: THOUGHT_AGENT_LINE_CONTRACT.workProfile,
+            workProfile,
             minUtf8Bytes: THOUGHT_AGENT_LINE_CONTRACT.minUtf8Bytes,
             maxUtf8Bytes: THOUGHT_AGENT_LINE_CONTRACT.maxUtf8Bytes,
             normalization: THOUGHT_AGENT_LINE_CONTRACT.normalization,
@@ -73,7 +93,9 @@ const server = createServer(async (request, response) => {
           ...(activeRelease ? { release: activeRelease } : {}),
         },
       },
-    });
+    };
+    activeClaimMutation?.(claimResponse);
+    sendJson(response, 200, claimResponse);
     return;
   }
 
@@ -142,11 +164,13 @@ const server = createServer(async (request, response) => {
     assert.equal(authorization, `Bearer ${bridgeToken}`);
     const parsed = JSON.parse(body) as Record<string, unknown>;
     assert.equal(parsed.protocolVersion, THOUGHT_AGENT_PROTOCOL_VERSION);
-    assert.equal(parsed.invocationId, invocationId);
-    assert.deepEqual(parsed.error, {
-      code: "AGENT_OUTPUT_SCHEMA_INVALID",
-      message: "HTTP 400 AGENT_OUTPUT_SCHEMA_INVALID: Agent line exceeds the 64-byte limit.",
-    });
+    if (invocationId) {
+      assert.equal(parsed.invocationId, invocationId);
+    } else {
+      assert.equal(Object.hasOwn(parsed, "invocationId"), false);
+    }
+    assert.equal(typeof (parsed.error as Record<string, unknown> | undefined)?.code, "string");
+    assert.equal(typeof (parsed.error as Record<string, unknown> | undefined)?.message, "string");
     reportedFailure = parsed;
     sendJson(response, 200, {
       protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
@@ -180,6 +204,11 @@ assert(task.includes("THOUGHT_RESULT_OK"));
 assert(task.includes("UTF-8 bytes"));
 assert(task.includes("Display units are renderer measurements only, not an acceptance limit."));
 assert(task.includes("old 162-display-unit limit"));
+assert(task.includes("completing one THOUGHT run"));
+assert(task.includes("This run may span multiple chat turns for approval or recovery."));
+assert(task.includes("Do not ask the operator to run the command, paste client output, or relay a receipt."));
+assert(task.includes("Terminal errors or exit without both mean the run is incomplete"));
+assert(!task.includes("one THOUGHT round"));
 assert(!task.includes("approval code"));
 assert(!task.includes("bridgeToken"));
 
@@ -187,10 +216,21 @@ const localRelease: ThoughtCodexReleaseBinding = {
   protocolReleaseId: `0x${"1".repeat(64)}`,
   manifestKeccak256: `0x${"2".repeat(64)}`,
 };
+const localResultContract: ThoughtCodexResultContractBinding = {
+  workProfile: "inshell.thought.work.v2.terminal-english-64",
+  declarationLabelField: "label",
+  lineValidation: "terminal-english-64",
+};
 const localCandidate = {
   schema: THOUGHT_AGENT_RESULT_VERSION,
   release: localRelease,
   agentLine: "release-bound signal",
+  declaration: {
+    schema: "inshell.thought.agent-declaration.v1",
+    status: "declared-unverified",
+    label: "Codex",
+    declaredOneCreativeResult: true,
+  },
 };
 const localTask = buildThoughtCodexTask({
   product: "Codex",
@@ -200,22 +240,30 @@ const localTask = buildThoughtCodexTask({
   clientUrl,
   launchToken,
   release: localRelease,
+  resultContract: localResultContract,
 });
 assert(localTask.includes(localRelease.protocolReleaseId));
 assert(localTask.includes(localRelease.manifestKeccak256));
 assert(localTask.includes("inshell.thought.agent-declaration.v1"));
+assert(localTask.includes('"label":"Codex"'));
 
 const runClient = async (options?: {
   release?: ThoughtCodexReleaseBinding;
+  resultContract?: ThoughtCodexResultContractBinding;
   candidate?: Record<string, unknown>;
+  claimMutation?: (claim: Record<string, any>) => void;
 }) => {
   activeRelease = options?.release;
+  activeResultContract = options?.resultContract;
+  activeClaimMutation = options?.claimMutation;
   activeCandidate = options?.candidate ?? {
     schema: THOUGHT_AGENT_RESULT_VERSION,
     agentLine: "quiet signal",
   };
   const child = spawn("/bin/zsh", ["-c", buildThoughtCodexClientScript(
-    activeRelease ? { release: activeRelease } : undefined,
+    activeRelease || activeResultContract
+      ? { release: activeRelease, resultContract: activeResultContract }
+      : undefined,
   )], {
     env: {
       ...process.env,
@@ -287,6 +335,10 @@ assert.equal(rejected.exitCode, 1);
 assert.equal(rejected.sentCandidate, true);
 assert.deepEqual(requestOrder, ["claim", "start", "result", "fail"]);
 assert(reportedFailure);
+assert.deepEqual((reportedFailure.error as Record<string, unknown>), {
+  code: "AGENT_OUTPUT_SCHEMA_INVALID",
+  message: "HTTP 400 AGENT_OUTPUT_SCHEMA_INVALID: Agent line exceeds the 64-byte limit.",
+});
 assert(rejected.stderr.includes("THOUGHT_CLIENT_ERROR HTTP 400 AGENT_OUTPUT_SCHEMA_INVALID"));
 assert(!rejected.stdout.includes("THOUGHT_RESULT_OK"));
 assert(!rejected.stdout.includes(launchToken));
@@ -302,17 +354,134 @@ startedAt = "";
 
 const localSuccess = await runClient({
   release: localRelease,
+  resultContract: localResultContract,
   candidate: localCandidate,
 });
 
 assert.equal(localSuccess.exitCode, 0, localSuccess.stderr || localSuccess.stdout);
 assert.equal(localSuccess.sentCandidate, true);
 assert.deepEqual(requestOrder, ["claim", "start", "result"]);
+assert(localSuccess.stdout.includes("Agent line characters: closed 76-character Terminal English repertoire."));
+assert(localSuccess.stdout.includes("Agent line spacing: single internal U+0020 spaces only."));
 assert(localSuccess.stdout.includes("THOUGHT_RESULT_OK"));
 assert(!localSuccess.stdout.includes(launchToken));
 assert(!localSuccess.stdout.includes(bridgeToken));
 assert(!localSuccess.stderr.includes(launchToken));
 assert(!localSuccess.stderr.includes(bridgeToken));
+
+const resetRunState = () => {
+  requestOrder.length = 0;
+  reportedFailure = null;
+  rejectResult = false;
+  invocationId = "";
+  startedAt = "";
+};
+
+for (const agentLine of [
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
+  `A .,?!:;'"-()/& Z`,
+]) {
+  resetRunState();
+  const valid = await runClient({
+    release: localRelease,
+    resultContract: localResultContract,
+    candidate: {
+      ...localCandidate,
+      agentLine,
+    },
+  });
+  assert.equal(valid.exitCode, 0, valid.stderr || valid.stdout);
+  assert.deepEqual(requestOrder, ["claim", "start", "result"]);
+  assert(valid.stdout.includes("THOUGHT_RESULT_OK"));
+}
+
+for (const [label, claimMutation, expectedCode] of [
+  [
+    "instructions hash",
+    (claim: Record<string, any>) => {
+      claim.request.instructions.text = "Tampered instructions.";
+    },
+    "AGENT_INPUT_HASH_MISMATCH",
+  ],
+  [
+    "prompt hash",
+    (claim: Record<string, any>) => {
+      claim.request.promptLine.text = "tampered prompt";
+    },
+    "PROMPT_HASH_MISMATCH",
+  ],
+  [
+    "Agent input parity",
+    (claim: Record<string, any>) => {
+      claim.request.agentInput.text = "different Agent input";
+      claim.request.agentInput.sha256 = sha256(claim.request.agentInput.text);
+    },
+    "AGENT_INPUT_HASH_MISMATCH",
+  ],
+  [
+    "prompt work profile",
+    (claim: Record<string, any>) => {
+      claim.request.promptLine.text = "invalid_prompt";
+      claim.request.promptLine.sha256 = sha256(claim.request.promptLine.text);
+      claim.request.agentInput.text = claim.request.promptLine.text;
+      claim.request.agentInput.sha256 = claim.request.promptLine.sha256;
+    },
+    "AGENT_OUTPUT_SCHEMA_INVALID",
+  ],
+  [
+    "release binding",
+    (claim: Record<string, any>) => {
+      claim.request.outputContract.release.protocolReleaseId = `0x${"f".repeat(64)}`;
+    },
+    "AGENT_OUTPUT_SCHEMA_INVALID",
+  ],
+] as const) {
+  resetRunState();
+  const failedClaim = await runClient({
+    release: localRelease,
+    resultContract: localResultContract,
+    candidate: localCandidate,
+    claimMutation,
+  });
+  assert.equal(failedClaim.exitCode, 1, `${label} must fail`);
+  assert.equal(failedClaim.sentCandidate, false, `${label} must fail before THOUGHT_INPUT_READY`);
+  assert.deepEqual(requestOrder, ["claim", "fail"], `${label} request order`);
+  assert.equal(
+    (reportedFailure?.error as Record<string, unknown> | undefined)?.code,
+    expectedCode,
+    `${label} failure code`,
+  );
+  assert(!failedClaim.stdout.includes("THOUGHT_INPUT_READY"));
+  assert(!failedClaim.stdout.includes("THOUGHT_RESULT_OK"));
+}
+
+for (const agentLine of [
+  "quiet  signal",
+  " quiet signal",
+  "quiet signal ",
+  "quiet_signal",
+  "quiet 你好",
+  "A".repeat(65),
+]) {
+  resetRunState();
+  const invalidCandidate = {
+    ...localCandidate,
+    agentLine,
+  };
+  const invalid = await runClient({
+    release: localRelease,
+    resultContract: localResultContract,
+    candidate: invalidCandidate,
+  });
+  assert.equal(invalid.exitCode, 1, `${JSON.stringify(agentLine)} must fail`);
+  assert.equal(invalid.sentCandidate, true);
+  assert.deepEqual(requestOrder, ["claim", "start", "fail"]);
+  assert.equal(
+    (reportedFailure?.error as Record<string, unknown> | undefined)?.code,
+    "AGENT_OUTPUT_SCHEMA_INVALID",
+  );
+  assert(!invalid.stdout.includes("THOUGHT_RESULT_OK"));
+}
 
 await new Promise<void>((resolve, reject) => {
   server.close((error) => error ? reject(error) : resolve());

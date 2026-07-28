@@ -110,7 +110,14 @@ function shouldUsePathTokenCache(args: {
 function shouldUsePathTokenApi(args: {
   provider?: ProviderInterface;
 }) {
-  return !args.provider && typeof globalThis.fetch === "function";
+  const env = (globalThis as any).__VITE_ENV__ as Record<string, unknown> | undefined;
+  const buildEnv = (globalThis as any).__INSHELL_VITE_ENV__ as Record<string, unknown> | undefined;
+  const network = String(env?.VITE_NETWORK ?? buildEnv?.VITE_NETWORK ?? "").toLowerCase();
+  return (
+    network !== "devnet" &&
+    !args.provider &&
+    typeof globalThis.fetch === "function"
+  );
 }
 
 function readPathTokensApiUrl() {

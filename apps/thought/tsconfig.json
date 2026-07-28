@@ -15,9 +15,11 @@
   },
   "include": [
     "src",
+    "integration-preview/**/*.ts",
     "THOUGHT.md",
     "THOUGHT.v1.md",
     "colorFontJSON",
+    "contract-integration/**/*.ts",
     "evm",
     "spec",
     "../../packages/*/src"

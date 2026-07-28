@@ -11,6 +11,7 @@ export {
   buildThoughtCodexClientScript,
   buildThoughtCodexTask,
   type ThoughtCodexReleaseBinding,
+  type ThoughtCodexResultContractBinding,
   type ThoughtCodexTaskInput,
 } from "./codex-client";
 

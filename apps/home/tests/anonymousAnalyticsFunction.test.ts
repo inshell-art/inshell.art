@@ -469,6 +469,30 @@ describe("anonymous analytics Pages functions", () => {
     expect(event.visit_hash).toBeTruthy();
   });
 
+  test("classifies WILL pageviews from their same-origin route", async () => {
+    const d1 = createAnalyticsD1Mock();
+    const response = await onAnalyticsEventPost({
+      request: analyticsRequest(
+        "https://inshell.art/api/analytics/event",
+        payload({
+          eventId: "event_will_12345678",
+          path: "/will",
+          contentType: undefined,
+        }),
+      ),
+      env: { INSHELL_CHAIN_DATA_DB: d1.db },
+    });
+
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      stored: true,
+    });
+    const event = d1.events.get("event_will_12345678");
+    expect(event?.path).toBe("/will");
+    expect(event?.content_type).toBe("will");
+    expect(event?.content_id).toBeNull();
+  });
+
   test("stores only a normalized coarse country code from Cloudflare headers", async () => {
     const d1 = createAnalyticsD1Mock();
     await onAnalyticsEventPost({

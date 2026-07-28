@@ -1,10 +1,8 @@
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 import {
-  THOUGHT_V2_ARTIFACT_SAMPLES,
-  THOUGHT_V2_PINNED_ARTIFACT,
-  thoughtV2ArtifactSampleUrl,
-  type ThoughtV2ArtifactSample,
-} from "@inshell/shared";
+  loadThoughtGallery,
+  type ThoughtGalleryItem,
+} from "@/services/thoughtGallery";
 
 type Movement = {
   key: "thought" | "will" | "awa";
@@ -12,6 +10,11 @@ type Movement = {
   note: string;
   href?: string;
 };
+
+type HomeGalleryState =
+  | { status: "loading"; works: ThoughtGalleryItem[]; error: null }
+  | { status: "ready"; works: ThoughtGalleryItem[]; error: null }
+  | { status: "error"; works: ThoughtGalleryItem[]; error: string };
 
 const MOVEMENTS: Movement[] = [
   {
@@ -24,6 +27,7 @@ const MOVEMENTS: Movement[] = [
     key: "will",
     title: "WILL",
     note: "launch in 2027",
+    href: "will",
   },
   {
     key: "awa",
@@ -32,102 +36,142 @@ const MOVEMENTS: Movement[] = [
   },
 ];
 
-type StableJsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | StableJsonValue[]
-  | { [key: string]: StableJsonValue };
-
-type FixtureWork = {
-  agent: string;
-  index: number;
-  provenanceBits: number;
-  provenanceHref: string;
-  sample: ThoughtV2ArtifactSample;
-  svgUrl: string;
-};
-
-const textEncoder = new TextEncoder();
-
-const stableStringify = (value: StableJsonValue): string => {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
-    return JSON.stringify(value);
+function homeThoughtTargetId(): string | null {
+  try {
+    const targetId = decodeURIComponent(window.location.hash.slice(1));
+    return /^thought-[1-9]\d*$/.test(targetId) ? targetId : null;
+  } catch {
+    return null;
   }
+}
 
-  if (Array.isArray(value)) {
-    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
-  }
-
-  return `{${Object.keys(value)
-    .sort()
-    .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
-    .join(",")}}`;
-};
-
-const fixtureAgentLabel = (index: number) => (index % 2 === 0 ? "Codex" : "Claude");
-
-const fixtureProvenanceJson = (sample: ThoughtV2ArtifactSample, agent: string) =>
-  stableStringify({
-    agent,
-    app: "THOUGHT",
-    fixture: {
-      corpusId: sample.corpusId,
-      corpusName: sample.corpusName,
-      id: sample.fixtureId,
-      name: sample.fixtureName,
-    },
-    output: {
-      agentLine: sample.agentLine,
-      format: "thought-v2-line-pair",
-      promptLine: sample.promptLine,
-    },
-    renderer: {
-      artifactId: THOUGHT_V2_PINNED_ARTIFACT.artifactId,
-      channel: THOUGHT_V2_PINNED_ARTIFACT.channel,
-      manifestSha256: THOUGHT_V2_PINNED_ARTIFACT.manifestSha256,
-    },
-    route: agent.toLowerCase(),
-    schema: "thought.provenance.lab.v1",
+function newestThoughtWorks(works: ThoughtGalleryItem[]): ThoughtGalleryItem[] {
+  return works.slice().sort((left, right) => {
+    const leftMintedAt = left.mintedAt;
+    const rightMintedAt = right.mintedAt;
+    if (leftMintedAt != null && rightMintedAt != null) {
+      return rightMintedAt - leftMintedAt || right.tokenId - left.tokenId;
+    }
+    if (leftMintedAt != null) return -1;
+    if (rightMintedAt != null) return 1;
+    return right.tokenId - left.tokenId;
   });
+}
 
-const provenanceHref = (provenanceJson: string) =>
-  `data:application/json;charset=utf-8,${encodeURIComponent(provenanceJson)}`;
-
-const fixtureWorks = (): FixtureWork[] =>
-  THOUGHT_V2_ARTIFACT_SAMPLES.map((sample, index) => {
-    const agent = fixtureAgentLabel(index);
-    const provenanceJson = fixtureProvenanceJson(sample, agent);
-
-    return {
-      agent,
-      index,
-      provenanceBits: textEncoder.encode(provenanceJson).length * 8,
-      provenanceHref: provenanceHref(provenanceJson),
-      sample,
-      svgUrl: thoughtV2ArtifactSampleUrl(sample),
-    };
-  });
+function HomeThoughtCard({
+  work,
+  focused,
+  onFocusFlashEnd,
+}: {
+  work: ThoughtGalleryItem;
+  focused: boolean;
+  onFocusFlashEnd: () => void;
+}) {
+  const attestedAgent = work.attestedAgent?.trim() || "-";
+  const attestedModel = work.attestedModel?.trim() || "-";
+  return (
+    <article
+      id={`thought-${work.tokenId}`}
+      className={`ecosystem-home__work-card${
+        focused ? " ecosystem-home__work-card--focused" : ""
+      }`}
+      data-token-id={work.tokenId}
+      aria-label={`THOUGHT #${work.tokenId} minted work`}
+    >
+      <a
+        className="ecosystem-home__work-canvas"
+        href={`/thought/${work.tokenId}`}
+        aria-label={`Open THOUGHT #${work.tokenId}`}
+        onAnimationEnd={focused ? onFocusFlashEnd : undefined}
+      >
+        <img
+          src={work.image}
+          alt={`THOUGHT #${work.tokenId} canvas`}
+          loading="lazy"
+          decoding="async"
+        />
+      </a>
+      <div className="ecosystem-home__work-meta">
+        <p className="ecosystem-home__work-meta-line">THOUGHT #{work.tokenId}</p>
+        <p className="ecosystem-home__work-meta-line">
+          Attested Agent: {attestedAgent}
+        </p>
+        <p className="ecosystem-home__work-meta-line">
+          Attested Model: {attestedModel}
+        </p>
+      </div>
+    </article>
+  );
+}
 
 export default function EcosystemHome() {
-  const works = useMemo(() => fixtureWorks(), []);
+  const [gallery, setGallery] = useState<HomeGalleryState>({
+    status: "loading",
+    works: [],
+    error: null,
+  });
+  const [focusedTargetId, setFocusedTargetId] = useState(homeThoughtTargetId);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadThoughtGallery()
+      .then((works) => {
+        if (!cancelled) {
+          setGallery({
+            status: "ready",
+            works: newestThoughtWorks(works),
+            error: null,
+          });
+        }
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setGallery({
+          status: "error",
+          works: [],
+          error:
+            error instanceof Error && error.message.trim()
+              ? error.message
+              : "THOUGHT gallery unavailable.",
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (gallery.status !== "ready") return;
+    const targetId = homeThoughtTargetId();
+    if (!targetId) return;
+    const target = document.getElementById(targetId);
+    const workLink = target?.querySelector<HTMLAnchorElement>(
+      ".ecosystem-home__work-canvas",
+    );
+    if (!target || !workLink) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      workLink.focus({ preventScroll: true });
+      target.scrollIntoView({
+        block: "center",
+        behavior: "auto",
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, [gallery]);
 
   return (
     <main className="ecosystem-home" aria-labelledby="ecosystem-home-slogan">
       <section className="ecosystem-home__hero">
         <div className="ecosystem-home__movements" aria-label="Inshell movements">
-          {MOVEMENTS.map((movement) => (
-            movement.href === "thought" ? (
+          {MOVEMENTS.map((movement) =>
+            movement.href ? (
               <a
                 key={movement.key}
                 className="ecosystem-home__movement"
-                href="/thought"
+                href={`/${movement.href}`}
                 aria-label={movement.title}
               >
                 <span className="ecosystem-home__movement-note" data-note={movement.note}>
@@ -143,51 +187,38 @@ export default function EcosystemHome() {
                 <span className="ecosystem-home__movement-title">{movement.title}</span>
               </span>
             )
-          ))}
+          )}
         </div>
         <h1 id="ecosystem-home-slogan" className="ecosystem-home__slogan">
           3 fully onchain movements for Agent Art.
         </h1>
       </section>
       <div
-        className="ecosystem-home__fixture-works"
-        aria-label="THOUGHT V2 fixture works"
-        data-artifact-id={THOUGHT_V2_PINNED_ARTIFACT.artifactId}
-        data-manifest-sha256={THOUGHT_V2_PINNED_ARTIFACT.manifestSha256}
+        className="ecosystem-home__works"
+        aria-label="Minted THOUGHT works"
       >
-        {works.map((work) => (
-          <article
-            className="ecosystem-home__fixture-work-card"
-            data-fixture-id={work.sample.fixtureId}
-            key={work.sample.fixtureId}
-            aria-label={`${work.sample.fixtureName} fixture work`}
-          >
-            <div
-              className="ecosystem-home__fixture-work-canvas"
-            >
-              <img
-                src={work.svgUrl}
-                alt={`${work.sample.fixtureName} fixture preview`}
-                loading="lazy"
-                decoding="async"
-              />
-            </div>
-            <div className="ecosystem-home__fixture-work-meta">
-              <p className="ecosystem-home__fixture-work-meta-line">THOUGHT #{work.index + 1}</p>
-              <p className="ecosystem-home__fixture-work-meta-line">Agent: {work.agent}</p>
-              <p className="ecosystem-home__fixture-work-meta-line">
-                <a
-                  className="ecosystem-home__fixture-work-provenance"
-                  href={work.provenanceHref}
-                  target="_blank"
-                  rel="noopener"
-                >
-                  Provenance {work.provenanceBits} bit
-                </a>
-              </p>
-            </div>
-          </article>
-        ))}
+        {gallery.status === "loading" ? (
+          <p className="ecosystem-home__works-status">reading THOUGHTs from chain...</p>
+        ) : gallery.status === "error" ? (
+          <p className="ecosystem-home__works-status" title={gallery.error}>
+            THOUGHT gallery unavailable.
+          </p>
+        ) : gallery.works.length === 0 ? (
+          <p className="ecosystem-home__works-status">no minted THOUGHTs yet.</p>
+        ) : (
+          gallery.works.map((work) => (
+            <HomeThoughtCard
+              key={work.tokenId}
+              work={work}
+              focused={`thought-${work.tokenId}` === focusedTargetId}
+              onFocusFlashEnd={() => {
+                setFocusedTargetId((current) =>
+                  current === `thought-${work.tokenId}` ? null : current,
+                );
+              }}
+            />
+          ))
+        )}
       </div>
     </main>
   );

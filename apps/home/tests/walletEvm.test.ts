@@ -5,8 +5,11 @@ import {
   chainLabel,
   discoverEip6963Providers,
   fallbackWindowEthereumProviders,
+  injectedProvidersForReconnect,
+  providerDetailKey,
   PUBLIC_WALLETCONNECT_PROJECT_ID,
   readWalletConnectProjectId,
+  shouldRestoreWalletConnect,
   walletConnectMetadata,
   walletConnectEnabled,
   type Eip1193Provider,
@@ -70,6 +73,39 @@ describe("wallet EVM transport helpers", () => {
       "MetaMask",
       "Rabby",
     ]);
+  });
+
+  test("reconnects only the explicitly selected injected wallet", () => {
+    const metamask = {
+      info: { uuid: "mm", name: "MetaMask", rdns: "io.metamask" },
+      provider: mockProvider({ isMetaMask: true }),
+    };
+    const rabby = {
+      info: { uuid: "rabby", name: "Rabby", rdns: "io.rabby" },
+      provider: mockProvider({ isRabby: true }),
+    };
+
+    expect(
+      injectedProvidersForReconnect([metamask, rabby], {
+        kind: "injected",
+        providerKey: providerDetailKey(rabby),
+      }).map((detail) => detail.info.name),
+    ).toEqual(["Rabby"]);
+    expect(
+      injectedProvidersForReconnect([metamask, rabby], {
+        kind: "walletconnect",
+      }),
+    ).toEqual([]);
+  });
+
+  test("does not restore a stale WalletConnect session after injected selection", () => {
+    expect(
+      shouldRestoreWalletConnect({
+        kind: "injected",
+        providerKey: "rdns:io.metamask",
+      }),
+    ).toBe(false);
+    expect(shouldRestoreWalletConnect({ kind: "walletconnect" })).toBe(true);
   });
 
   test("WalletConnect project id is public env config and trims whitespace", () => {
