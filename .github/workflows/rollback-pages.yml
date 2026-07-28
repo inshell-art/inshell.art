@@ -52,13 +52,13 @@ jobs:
           deployments="$(
             curl --fail-with-body --silent --show-error \
               --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$CLOUDFLARE_PAGES_PROJECT/deployments?env=production&per_page=100"
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$CLOUDFLARE_PAGES_PROJECT/deployments?env=production"
           )"
+          jq --exit-status '.success == true' <<<"$deployments" >/dev/null
           deployment_id="$(
             jq --raw-output \
               --arg url "https://$target_host" \
-              --arg host "$target_host" \
-              '.result[] | select(.url == $url or ((.aliases // []) | index($host))) | .id' \
+              '.result[] | select(.url == $url or ((.aliases // []) | index($url))) | .id' \
               <<<"$deployments" |
               head -n 1
           )"
@@ -97,13 +97,13 @@ jobs:
           deployments="$(
             curl --fail-with-body --silent --show-error \
               --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$CLOUDFLARE_PAGES_PROJECT/deployments?env=production&per_page=100"
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$CLOUDFLARE_PAGES_PROJECT/deployments?env=production"
           )"
+          jq --exit-status '.success == true' <<<"$deployments" >/dev/null
           deployment_id="$(
             jq --raw-output \
               --arg url "https://$target_host" \
-              --arg host "$target_host" \
-              '.result[] | select(.url == $url or ((.aliases // []) | index($host))) | .id' \
+              '.result[] | select(.url == $url or ((.aliases // []) | index($url))) | .id' \
               <<<"$deployments" |
               head -n 1
           )"
