@@ -1,8 +1,8 @@
 # THOUGHT v2 — Creative Work Specification
 
-**Artifact:** `THOUGHT.v2.md`
-**Status:** Draft for corpus testing and release integration
-**Date:** 2026-07-23
+**Artifact:** `THOUGHT.v2.md`  
+**Status:** Draft for corpus testing and release integration  
+**Date:** 2026-07-23  
 **Public work:** `THOUGHT`
 
 ## 1. Scope
