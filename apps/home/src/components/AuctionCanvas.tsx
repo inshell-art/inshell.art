@@ -38,9 +38,7 @@ import {
 } from "@inshell/contracts";
 import {
   PUBLIC_NETWORK_CONFIG,
-  PULSE_AUCTION_LIVE_PRICE_REFRESH_MS,
   SURFACE_TERMINOLOGY,
-  formatPulseAuctionDecimal,
   isPathMintHandoffId,
   parsePathMintReturnRecord,
   pathMintReturnStorageKey,
@@ -48,7 +46,6 @@ import {
   removePathMintReturnRecord,
   resolveWalletChainRpcUrls,
   trackInshellAnonymousAnalytics,
-  pulseAuctionPriceAtHalfLives,
   writePathMintReturnRecord,
   type PathMintReturnRecord,
   type PathMintReturnStorageHost,
@@ -56,11 +53,7 @@ import {
 import HeaderWalletCTA from "@/components/HeaderWalletCTA";
 import { useWallet } from "@inshell/wallet";
 import { withPathMintSubmissionLock } from "../pathMintSubmissionLock";
-import {
-  INSHELL_WALLET_VISIBILITY_EVENT,
-  openInshellWallet,
-  type InshellWalletVisibilityDetail,
-} from "@inshell/inshell-shell";
+import { InshellWalletPicker } from "@inshell/inshell-shell";
 import {
   buildReportBugLink,
   getPublicNetworkNotice,
@@ -68,14 +61,12 @@ import {
   shouldShowDebugPanel,
   shouldShowReportBug,
 } from "@/config/publicLaunch";
-import { clampLockedExplorationXWindow } from "@/utils/auctionViewport";
 type Props = {
   address?: string;
   provider?: ProviderInterface;
   refreshMs?: number;
   decimals?: number;
   maxBids?: number;
-  onPathMinted?: () => void;
 };
 
 type TxState = "idle" | "awaiting_signature" | "submitted" | "confirmed" | "failed";
@@ -165,7 +156,9 @@ type MintReviewQuote = {
   ask: U256Num;
   symbol: string;
   priceLabel: string;
+  txValueLabel: string;
   maxPriceLabel: string;
+  nativePayment: boolean;
   requiresApproval: boolean;
 };
 
@@ -327,6 +320,18 @@ type PathMintSubmissionContext = {
 };
 
 const PATH_MINT_RECEIPT_RETRY_MS = 3_000;
+
+function useDesktopOnly(minWidth = 768) {
+  const [isDesktop, setIsDesktop] = useState(
+    typeof window === "undefined" ? true : window.innerWidth >= minWidth
+  );
+  useEffect(() => {
+    const onResize = () => setIsDesktop(window.innerWidth >= minWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [minWidth]);
+  return isDesktop;
+}
 
 function normalizeReturnTo(raw: string | null): string | null {
   if (!raw || typeof window === "undefined") return null;
@@ -715,7 +720,23 @@ function formatTinyDecimalString(
   fixed: string,
   significantDigits = 4
 ): string {
-  return formatPulseAuctionDecimal(fixed, significantDigits);
+  const raw = String(fixed ?? "").trim();
+  if (!raw) return "—";
+
+  const negative = raw.startsWith("-");
+  const unsigned = negative ? raw.slice(1) : raw;
+  const [intRaw, fracRaw = ""] = unsigned.split(".");
+  const intPart = intRaw.replace(/^0+(?=\d)/, "") || "0";
+
+  if (!fracRaw) return negative ? `-${intPart}` : intPart;
+
+  const firstNonZero = fracRaw.search(/[1-9]/);
+  if (firstNonZero < 0) return "0";
+
+  const keepTo = Math.min(fracRaw.length, firstNonZero + significantDigits);
+  const frac = fracRaw.slice(0, keepTo).replace(/0+$/, "");
+  const sign = negative ? "-" : "";
+  return frac ? `${sign}${intPart}.${frac}` : `${sign}${intPart}`;
 }
 
 function formatTokenAmount(u: { dec: string }, decimals: number): string {
@@ -927,10 +948,6 @@ function resolveChainLabel(chainIdHex: string): string {
   return parsed === null ? "target network" : `chain ${parsed.toString()}`;
 }
 
-function isLocalChainId(chainId: bigint | null): boolean {
-  return chainId === 1337n || chainId === 31337n || chainId === 31338n;
-}
-
 function resolveAddChainParams(chainIdHex: string) {
   const normalized = chainIdHex.toLowerCase();
   const rpcUrl =
@@ -941,7 +958,7 @@ function resolveAddChainParams(chainIdHex: string) {
     readRpcUrl: typeof rpcUrl === "string" ? rpcUrl : "",
     walletRpcUrl: typeof walletRpcUrl === "string" ? walletRpcUrl : "",
     currentOrigin: typeof window === "undefined" ? "" : window.location.origin,
-    localFallbackRpcUrl: "http://127.0.0.1:8545",
+    localFallbackRpcUrl: "http://127.0.0.1:8546",
   });
 
   if (normalized === ETH_SEPOLIA_CHAIN_ID_HEX) {
@@ -971,7 +988,7 @@ function resolveAddChainParams(chainIdHex: string) {
       symbol: "ETH",
       decimals: 18,
     },
-    rpcUrls: rpcUrls.length ? rpcUrls : ["http://127.0.0.1:8545"],
+    rpcUrls: rpcUrls.length ? rpcUrls : ["http://127.0.0.1:8546"],
   };
 }
 
@@ -1051,14 +1068,8 @@ function useProtocolReleaseGuard(params: {
   address?: string;
   provider?: ProviderInterface;
   enabled: boolean;
-  verifyReleaseCodeHash?: boolean;
 }) {
-  const {
-    address,
-    provider,
-    enabled,
-    verifyReleaseCodeHash = true,
-  } = params;
+  const { address, provider, enabled } = params;
   const release = useMemo(() => getProtocolRelease(), []);
   const releaseChainId = release?.chain_id;
   const releaseId = release?.deploy_run_id;
@@ -1101,7 +1112,7 @@ function useProtocolReleaseGuard(params: {
           );
         }
 
-        if (verifyReleaseCodeHash && releaseCodeHash) {
+        if (releaseCodeHash) {
           const actualHash = hashBytecode(code);
           if (
             actualHash &&
@@ -1128,15 +1139,7 @@ function useProtocolReleaseGuard(params: {
     return () => {
       cancelled = true;
     };
-  }, [
-    address,
-    enabled,
-    provider,
-    releaseChainId,
-    releaseCodeHash,
-    releaseId,
-    verifyReleaseCodeHash,
-  ]);
+  }, [address, enabled, provider, releaseChainId, releaseCodeHash, releaseId]);
 
   return {
     loading: state.loading,
@@ -1544,7 +1547,7 @@ function premiumAtU(premium: number, uLocal: number): number {
 }
 
 function priceAtU(floor: number, premium: number, uLocal: number): number {
-  return pulseAuctionPriceAtHalfLives(floor, premium, uLocal);
+  return floor + premiumAtU(premium, uLocal);
 }
 
 function uFromPrice(floor: number, premium: number, price: number): number | null {
@@ -2572,7 +2575,6 @@ export default function AuctionCanvas({
   refreshMs = 12000,
   decimals = 18,
   maxBids = 800,
-  onPathMinted,
 }: Props) {
   const useFixture = useMemo(() => fixtureEnabled(), []);
   const fixture = useMemo(() => readPulseFixture(useFixture), [useFixture]);
@@ -2580,15 +2582,10 @@ export default function AuctionCanvas({
     () => (fixture ? fixtureToState(fixture, decimals) : null),
     [fixture, decimals]
   );
+  const isDesktop = useDesktopOnly();
   const bidsFromBlock = useMemo(() => resolveBidsFromBlock(), []);
   const protocolRelease = useMemo(() => getProtocolRelease(), []);
   const allowDirectAuction = useMemo(() => directAuctionOverrideAllowed(), []);
-  const network = useMemo(() => {
-    const raw = getEnvValue("VITE_NETWORK");
-    return typeof raw === "string" ? raw : undefined;
-  }, []);
-  const localAnvil = network === "devnet";
-  const readDirectAuction = allowDirectAuction || localAnvil;
   const cachedAuctionConfig = useMemo(
     () => releaseConfigToAuctionConfig(protocolRelease, decimals),
     [protocolRelease, decimals]
@@ -2596,7 +2593,11 @@ export default function AuctionCanvas({
   const pathMintIntentRead = useMemo(() => readPathMintIntent(), []);
   const pathMintIntent =
     pathMintIntentRead.kind === "valid" ? pathMintIntentRead.intent : null;
-  const releaseMissing = !fixtureState && !readDirectAuction && !protocolRelease;
+  const releaseMissing = !fixtureState && !allowDirectAuction && !protocolRelease;
+  const network = useMemo(() => {
+    const raw = getEnvValue("VITE_NETWORK");
+    return typeof raw === "string" ? raw : undefined;
+  }, []);
   const missingDeployBlock = useMemo(() => {
     if (network === "devnet") return false;
     return bidsFromBlock == null;
@@ -2610,16 +2611,15 @@ export default function AuctionCanvas({
     address: auctionAddress,
     provider,
     enabled:
-      readDirectAuction &&
+      allowDirectAuction &&
       !fixtureState &&
       !releaseMissing &&
       Boolean(auctionAddress),
-    verifyReleaseCodeHash: !localAnvil,
   });
   const liveAuctionEnabled =
     !fixtureState &&
     Boolean(auctionAddress) &&
-    (readDirectAuction ? protocolGuard.ready : Boolean(cachedAuctionConfig));
+    (allowDirectAuction ? protocolGuard.ready : Boolean(cachedAuctionConfig));
   const {
     data: coreData,
     loading: coreLoadingHook,
@@ -2629,11 +2629,11 @@ export default function AuctionCanvas({
     address: auctionAddress,
     provider,
     refreshMs,
-    enabled: readDirectAuction && liveAuctionEnabled,
+    enabled: allowDirectAuction && liveAuctionEnabled,
   });
   const bidHistoryEnabled =
     liveAuctionEnabled &&
-    (readDirectAuction ? Boolean(coreData?.config) : Boolean(cachedAuctionConfig));
+    (allowDirectAuction ? Boolean(coreData?.config) : Boolean(cachedAuctionConfig));
   const {
     bids: bidsHook,
     loading: bidsLoading,
@@ -2645,8 +2645,8 @@ export default function AuctionCanvas({
     refreshMs,
     enabled: bidHistoryEnabled,
     maxBids,
-    preferCacheApi: !readDirectAuction,
-    allowDirectFallback: readDirectAuction,
+    preferCacheApi: !allowDirectAuction,
+    allowDirectFallback: allowDirectAuction,
   });
   const bids = fixtureState?.bids ?? bidsHook;
   const paymentToken = useMemo(() => resolvePaymentToken(), []);
@@ -2659,25 +2659,25 @@ export default function AuctionCanvas({
     [paymentToken]
   );
   const cachedCoreData = useMemo<AuctionSnapshot | null>(() => {
-    if (fixtureState || readDirectAuction || !cachedAuctionConfig) return null;
+    if (fixtureState || allowDirectAuction || !cachedAuctionConfig) return null;
     return {
       active: true,
       price: cachedAuctionConfig.genesisPrice,
       config: cachedAuctionConfig,
       state: null,
     };
-  }, [cachedAuctionConfig, fixtureState, readDirectAuction]);
+  }, [allowDirectAuction, cachedAuctionConfig, fixtureState]);
   const core = useMemo(
     () =>
       fixtureState
         ? { config: fixtureState.config }
-        : readDirectAuction
+        : allowDirectAuction
         ? coreData
         : cachedCoreData,
-    [cachedCoreData, fixtureState, coreData, readDirectAuction]
+    [allowDirectAuction, cachedCoreData, fixtureState, coreData]
   );
   const coreImpliesActive = Boolean(
-    readDirectAuction
+    allowDirectAuction
       ? coreData?.active ||
           coreData?.state?.active ||
           ((coreData?.state?.epochIndex ?? 0) > 0)
@@ -2686,17 +2686,17 @@ export default function AuctionCanvas({
   const bidsLoadingVisible = fixtureState ? false : bidHistoryEnabled && bidsLoading;
   const coreLoading = fixtureState
     ? false
-    : readDirectAuction
+    : allowDirectAuction
     ? protocolGuard.loading || coreLoadingHook
     : false;
   const coreError = fixtureState
     ? null
-    : readDirectAuction
+    : allowDirectAuction
     ? protocolGuard.error ?? coreErrorHook
     : null;
   const refreshCore = useCallback(
-    () => (readDirectAuction ? refreshCoreHook() : Promise.resolve(undefined)),
-    [readDirectAuction, refreshCoreHook]
+    () => (allowDirectAuction ? refreshCoreHook() : Promise.resolve(undefined)),
+    [allowDirectAuction, refreshCoreHook]
   );
   const [coreErrorVisible, setCoreErrorVisible] = useState<unknown>(null);
   const [missingDeployBlockVisible, setMissingDeployBlockVisible] =
@@ -2744,7 +2744,6 @@ export default function AuctionCanvas({
   const [mintProof, setMintProof] = useState<MintProofReceipt | null>(() =>
     readStoredMintProof()
   );
-  const [shellWalletPopoverOpen, setShellWalletPopoverOpen] = useState(false);
   const [persistentNoticeVisible, setPersistentNoticeVisible] =
     useState<Notice | null>(null);
   const persistentNoticeTimerRef = useRef<number | null>(null);
@@ -2771,24 +2770,6 @@ export default function AuctionCanvas({
     error: null,
   });
   const [mintReview, setMintReview] = useState<MintReviewQuote | null>(null);
-  useEffect(() => {
-    const handleWalletVisibility = (event: unknown) => {
-      const detail = (
-        event as { detail?: InshellWalletVisibilityDetail }
-      ).detail;
-      setShellWalletPopoverOpen(Boolean(detail?.open));
-    };
-    window.addEventListener(
-      INSHELL_WALLET_VISIBILITY_EVENT,
-      handleWalletVisibility
-    );
-    return () => {
-      window.removeEventListener(
-        INSHELL_WALLET_VISIBILITY_EVENT,
-        handleWalletVisibility
-      );
-    };
-  }, []);
   const [currentAskQuoteDec, setCurrentAskQuoteDec] = useState<string | null>(null);
   const coreCurrentAskDec = useMemo(() => {
     if (fixtureState || !coreData?.price) return null;
@@ -2870,6 +2851,7 @@ export default function AuctionCanvas({
     },
     [pathMintIntent, persistPathMintReturnState]
   );
+  const [walletPickerOpen, setWalletPickerOpen] = useState(false);
   const preflightRef = useRef<Promise<PreflightResult | null> | null>(null);
   const ctaStackRef = useRef<HTMLDivElement | null>(null);
   const mintReviewRef = useRef<HTMLDivElement | null>(null);
@@ -2880,10 +2862,7 @@ export default function AuctionCanvas({
   const [selectedNow, setSelectedNow] = useState(false);
   const pinnedDotRef = useRef(false);
   const pinnedPointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
-  const suppressCanvasClickRef = useRef(false);
-  const suppressCanvasClickTimerRef = useRef<number | null>(null);
   const [viewport, setViewport] = useState<Viewport | null>(null);
-  const defaultViewportRef = useRef<Viewport | null>(null);
   const [viewportUserLocked, setViewportUserLocked] = useState(false);
   const viewportDataKeyRef = useRef<string | null>(null);
   const viewportUserLockedRef = useRef(false);
@@ -2912,11 +2891,6 @@ export default function AuctionCanvas({
     startViewport: null,
   });
   const hasPinnedDot = selectedBidKey != null || selectedAskKey != null || selectedNow;
-  useEffect(() => () => {
-    if (suppressCanvasClickTimerRef.current !== null) {
-      window.clearTimeout(suppressCanvasClickTimerRef.current);
-    }
-  }, []);
   useEffect(() => {
     pinnedDotRef.current = hasPinnedDot;
   }, [hasPinnedDot]);
@@ -2928,9 +2902,6 @@ export default function AuctionCanvas({
     setSelectedAskKey(null);
     setSelectedNow(false);
     setHover(null);
-    viewportUserLockedRef.current = false;
-    setViewportUserLocked(false);
-    setViewport(defaultViewportRef.current);
   }, []);
   const rememberPinnedPointer = useCallback((clientX?: number, clientY?: number) => {
     pinnedPointerRef.current =
@@ -2964,12 +2935,6 @@ export default function AuctionCanvas({
       if (!pinnedDotRef.current) return;
       const target = event.target as Element | null;
       if (target?.closest?.(".dotfield__point")) return;
-      if (
-        suppressCanvasClickRef.current &&
-        target?.closest?.(".dotfield__canvas")
-      ) {
-        return;
-      }
       clearPinnedDot();
     };
     document.addEventListener("click", handleDocumentClick, true);
@@ -3514,6 +3479,11 @@ export default function AuctionCanvas({
   }, [walletAddress, walletConnected]);
 
   useEffect(() => {
+    if (!walletConnected) return;
+    setWalletPickerOpen(false);
+  }, [walletConnected]);
+
+  useEffect(() => {
     if (!mintReview) return;
     const handleOutsidePointerDown = (event: globalThis.Event) => {
       const target = event.target as globalThis.Node | null;
@@ -3527,6 +3497,20 @@ export default function AuctionCanvas({
       document.removeEventListener("pointerdown", handleOutsidePointerDown, true);
     };
   }, [mintReview]);
+
+  useEffect(() => {
+    if (!walletPickerOpen) return;
+    const handleOutsidePointerDown = (event: globalThis.Event) => {
+      const target = event.target as globalThis.Node | null;
+      if (!target) return;
+      if (ctaStackRef.current?.contains(target)) return;
+      setWalletPickerOpen(false);
+    };
+    document.addEventListener("pointerdown", handleOutsidePointerDown, true);
+    return () => {
+      document.removeEventListener("pointerdown", handleOutsidePointerDown, true);
+    };
+  }, [walletPickerOpen]);
 
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -3781,7 +3765,6 @@ export default function AuctionCanvas({
     });
     updatePathMintReturnTokenId(pendingMint.txHash, tokenId);
     queueToast({ kind: "info", text: `$PATH #${tokenId} minted.` });
-    onPathMinted?.();
     void pullBidsOnce();
     void refreshCore();
     setPendingMint(null);
@@ -3794,7 +3777,6 @@ export default function AuctionCanvas({
     queueToast,
     pullBidsOnce,
     refreshCore,
-    onPathMinted,
     updatePathMintReturnTokenId,
   ]);
 
@@ -3834,7 +3816,7 @@ export default function AuctionCanvas({
 
   const mimicLocalTime = network === "devnet" || protocolRelease?.network === "devnet";
   const useBrowserAuctionClock =
-    mimicLocalTime || (!readDirectAuction && !fixtureState);
+    mimicLocalTime || (!allowDirectAuction && !fixtureState);
 
   // Devnet uses browser time to make local Anvil rehearsals usable even when
   // idle blocks are not mined. Public networks keep following block time.
@@ -3876,7 +3858,7 @@ export default function AuctionCanvas({
     void tick();
     const id = window.setInterval(() => {
       void tick();
-    }, PULSE_AUCTION_LIVE_PRICE_REFRESH_MS);
+    }, 1000);
     return () => {
       cancelled = true;
       window.clearInterval(id);
@@ -3938,7 +3920,7 @@ export default function AuctionCanvas({
 
   // Fallback: fetch config directly if the core hook never fills it.
   useEffect(() => {
-    if (!readDirectAuction) return;
+    if (!allowDirectAuction) return;
     if (fixtureState) return;
     if (core?.config) {
       if (fallbackConfig) setFallbackConfig(null);
@@ -3990,7 +3972,7 @@ export default function AuctionCanvas({
     provider,
     fallbackConfig,
     fixtureState,
-    readDirectAuction,
+    allowDirectAuction,
   ]);
 
   const activeConfig = core?.config ?? fallbackConfig ?? null;
@@ -4084,7 +4066,7 @@ export default function AuctionCanvas({
       return toNumberSafe(decStr);
     };
 
-    const directState = !fixtureState && readDirectAuction ? coreData?.state : null;
+    const directState = !fixtureState && allowDirectAuction ? coreData?.state : null;
     const directStateEpoch = Number(directState?.epochIndex);
     const directStateImpliesActive =
       Boolean(directState?.active) ||
@@ -4272,7 +4254,7 @@ export default function AuctionCanvas({
     };
   }, [
     activeConfig,
-    readDirectAuction,
+    allowDirectAuction,
     bids,
     coreData?.state,
     coreLoading,
@@ -4476,22 +4458,22 @@ export default function AuctionCanvas({
     if (!mintReview) return null;
     return mintReview.priceLabel;
   }, [mintReview]);
+  const mintReviewTxValueLabel = useMemo(() => {
+    if (!mintReview) return null;
+    return mintReview.txValueLabel;
+  }, [mintReview]);
   const mintReviewMaxPriceLabel = useMemo(() => {
     if (!mintReview) return null;
     return mintReview.maxPriceLabel;
   }, [mintReview]);
   const mintReviewContractHref = useMemo(() => {
-    if (!mintReview || !auctionAddress || isLocalChainId(targetChainId)) return null;
+    if (!mintReview || !auctionAddress) return null;
     return resolveExplorerAddressUrl(auctionAddress);
-  }, [auctionAddress, mintReview, targetChainId]);
-  const mintReviewNetworkLabel = useMemo(() => {
-    const chainIdLabel = targetChainId?.toString() ?? "unknown";
-    if (isLocalChainId(targetChainId)) return `Local Anvil · ${chainIdLabel}`;
-    if (targetChainId === BigInt(PUBLIC_NETWORK_CONFIG.chainId) && isSepoliaInviteMode()) {
-      return `${PUBLIC_NETWORK_CONFIG.environmentLabel} · ${chainIdLabel}`;
-    }
-    return `${targetChainLabel} · ${chainIdLabel}`;
-  }, [targetChainId, targetChainLabel]);
+  }, [auctionAddress, mintReview]);
+  const mintReviewChainIdLabel = useMemo(
+    () => targetChainId?.toString() ?? "unknown",
+    [targetChainId]
+  );
   const proofContracts = useMemo(
     () => ({
       PulseAuction: maybeResolveAddress("pulse_auction", auctionAddress) ?? auctionAddress ?? "",
@@ -4610,7 +4592,6 @@ export default function AuctionCanvas({
     fixtureState,
     bids.length,
   ]);
-  defaultViewportRef.current = defaultViewport;
 
   const effectiveViewport = viewport ?? defaultViewport;
 
@@ -4664,30 +4645,19 @@ export default function AuctionCanvas({
       );
       let xMin = prev.xMin;
       let xMax = prev.xMax;
-      if (viewportUserLockedRef.current) {
-        const clamped = clampLockedExplorationXWindow(
-          xMin,
-          xMax,
-          xRange,
-          xEnd,
-        );
-        xMin = clamped.xMin;
-        xMax = clamped.xMax;
-      } else {
-        if (xMax > xEnd) {
-          xMax = xEnd;
-          xMin = Math.max(0, xMax - xRange);
-        }
-        if (xMin < 0) {
-          xMin = 0;
-          xMax = Math.min(xEnd, xMin + xRange);
-        }
-        if (xMax < linked.uEnd && xMin === 0) {
-          xMax = xEnd;
-        }
-        if (xMax - xMin < 1e-6) {
-          xMax = Math.min(xEnd, xMin + BASE_HALF_LIVES);
-        }
+      if (xMax > xEnd) {
+        xMax = xEnd;
+        xMin = Math.max(0, xMax - xRange);
+      }
+      if (xMin < 0) {
+        xMin = 0;
+        xMax = Math.min(xEnd, xMin + xRange);
+      }
+      if (!viewportUserLockedRef.current && xMax < linked.uEnd && xMin === 0) {
+        xMax = xEnd;
+      }
+      if (xMax - xMin < 1e-6) {
+        xMax = Math.min(xEnd, xMin + BASE_HALF_LIVES);
       }
       return xMin === prev.xMin && xMax === prev.xMax ? prev : { ...prev, xMin, xMax };
     });
@@ -4813,10 +4783,17 @@ export default function AuctionCanvas({
       const readPreflightData = async (
         candidateProvider: ProviderInterface
       ): Promise<PreflightResult> => {
+        let ask: U256Num | null = null;
         if (mimicLocalTime) {
           await syncDevnetTimeToBrowser(candidateProvider, liveNowSecRef.current);
+          const askEstimate = currentAskEstimateRef.current;
+          if (askEstimate != null && Number.isFinite(askEstimate)) {
+            ask = humanToU256Num(askEstimate, decimals);
+          }
         }
-        const ask = await readCurrentAskFromContract(candidateProvider, auctionAddress);
+        if (!ask) {
+          ask = await readCurrentAskFromContract(candidateProvider, auctionAddress);
+        }
         let balance: U256Num;
         let allowance: U256Num;
         if (nativePayment) {
@@ -4912,6 +4889,33 @@ export default function AuctionCanvas({
   const mintReviewOpen = mintReview != null;
 
   useEffect(() => {
+    if (!mimicLocalTime || !mintReviewOpen) return;
+    const askEstimate = currentAskEstimate;
+    if (askEstimate == null || !Number.isFinite(askEstimate)) return;
+    const ask = humanToU256Num(askEstimate, decimals);
+    const priceLabel = formatHumanTokenAmount(askEstimate, 8);
+    setMintReview((prev) => {
+      if (!prev) return prev;
+      const txValueLabel = prev.nativePayment ? priceLabel : "0";
+      if (
+        prev.ask.value === ask.value &&
+        prev.priceLabel === priceLabel &&
+        prev.txValueLabel === txValueLabel &&
+        prev.maxPriceLabel === priceLabel
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        ask,
+        priceLabel,
+        txValueLabel,
+        maxPriceLabel: priceLabel,
+      };
+    });
+  }, [mimicLocalTime, mintReviewOpen, currentAskEstimate, decimals]);
+
+  useEffect(() => {
     if (fixtureState || !auctionAddress) {
       setCurrentAskQuoteDec(null);
       return;
@@ -4936,6 +4940,7 @@ export default function AuctionCanvas({
               ...prev,
               ask,
               priceLabel,
+              txValueLabel: prev.nativePayment ? priceLabel : "0",
               maxPriceLabel: priceLabel,
             };
           });
@@ -5036,6 +5041,7 @@ export default function AuctionCanvas({
   const connectWalletConnector = async (connector?: any) => {
     try {
       await connectAsync(connector ? ({ connector } as any) : undefined);
+      setWalletPickerOpen(false);
     } catch (err) {
       handleWalletConnectionError(err);
     }
@@ -5043,7 +5049,11 @@ export default function AuctionCanvas({
 
   const handleConnect = () => {
     setMintReview(null);
-    openInshellWallet();
+    if (availableConnectors.length > 0) {
+      setWalletPickerOpen((open) => !open);
+      return;
+    }
+    void connectWalletConnector();
   };
 
   const handleUnlock = async () => {
@@ -5369,6 +5379,9 @@ export default function AuctionCanvas({
       if (lower.includes("invalid block id") || lower.includes("u256_sub overflow")) {
         void runPreflight();
       }
+      if (isWalletReadOnlyRpcMessage(rawMsg) || isWalletRpcBusyMessage(rawMsg)) {
+        void refreshWalletChainRpc(targetChainIdHex, evm.provider);
+      }
       if (!walletCancelled) {
         console.error("mint failed", err);
       }
@@ -5447,12 +5460,18 @@ export default function AuctionCanvas({
         return;
       }
       if (!confirmingMint) {
-        const priceLabel = formatTokenAmount(data.ask, decimals);
+        const askEstimate = currentAskEstimateRef.current;
+        const priceLabel =
+          mimicLocalTime && askEstimate != null && Number.isFinite(askEstimate)
+            ? formatHumanTokenAmount(askEstimate, 8)
+            : formatTokenAmount(data.ask, decimals);
         setMintReview({
           ask: data.ask,
           symbol: displayTokenSymbol,
           priceLabel,
+          txValueLabel: nativePayment ? priceLabel : "0",
           maxPriceLabel: priceLabel,
+          nativePayment,
           requiresApproval: !nativePayment && data.allowance.value < data.ask.value,
         });
         return;
@@ -5481,46 +5500,14 @@ export default function AuctionCanvas({
           }
         }
 
+        await refreshWalletChainRpc(targetChainIdHex, evm.provider);
         await maybeWatchAsset();
-        const readProvider =
-          provider ?? (getDefaultProvider() as ProviderInterface);
-        const connectedReadProvider =
-          chainOk && evm?.provider && evm.provider !== readProvider
-            ? (evm.provider as ProviderInterface)
-            : null;
-        const readExecutionAsk = async (
-          candidateProvider: ProviderInterface,
-        ): Promise<U256Num> => {
-          if (mimicLocalTime) {
-            await syncDevnetTimeToBrowser(
-              candidateProvider,
-              liveNowSecRef.current,
-            );
-          }
-          return readCurrentAskFromContract(candidateProvider, auctionAddress);
-        };
-        let executionAsk: U256Num;
-        try {
-          executionAsk = await readExecutionAsk(readProvider);
-        } catch (error) {
-          if (!connectedReadProvider || !isTransientRpcError(error)) {
-            throw error;
-          }
-          executionAsk = await readExecutionAsk(connectedReadProvider);
-        }
-        if (data.balance.value < executionAsk.value) {
-          throw new Error("insufficient balance at execution.");
-        }
-        if (!nativePayment && data.allowance.value < executionAsk.value) {
+        if (!nativePayment && data.allowance.value < data.ask.value) {
           const ok = await runTx("approve", () =>
             account.execute({
               contractAddress: paymentToken,
               entrypoint: "approve",
-              calldata: [
-                auctionAddress,
-                executionAsk.raw.low,
-                executionAsk.raw.high,
-              ],
+              calldata: [auctionAddress, data.ask.raw.low, data.ask.raw.high],
             })
           );
           if (!ok) return;
@@ -5536,8 +5523,8 @@ export default function AuctionCanvas({
         const bidCall = {
           contractAddress: auctionAddress,
           entrypoint: "bid",
-          calldata: [executionAsk.raw.low, executionAsk.raw.high],
-          value: nativePayment ? executionAsk.value : undefined,
+          calldata: [data.ask.raw.low, data.ask.raw.high],
+          value: nativePayment ? data.ask.value : undefined,
         };
         await runTx(
           "bid",
@@ -5546,7 +5533,7 @@ export default function AuctionCanvas({
               contractAddress: bidCall.contractAddress,
               expectedContractAddress: auctionAddress,
               calldata: bidCall.calldata,
-              maxPrice: executionAsk,
+              maxPrice: data.ask,
               value: bidCall.value,
               nativePayment,
               chainId: pathSubmission?.chainId ?? chainIdValue,
@@ -5865,13 +5852,13 @@ export default function AuctionCanvas({
       return { label: "mint", disabled: true, onClick: handleMint };
     }
     if (effectiveWalletNeedsUnlock) {
-      return { label: "mint", disabled: false, onClick: handleUnlock };
+      return { label: "connect", disabled: false, onClick: handleUnlock };
     }
     if (effectiveWalletDetected && !effectiveWalletAddressPresent) {
-      return { label: "mint", disabled: false, onClick: handleConnect };
+      return { label: "connect", disabled: false, onClick: handleConnect };
     }
     if (!effectiveWalletDetected) {
-      return { label: "mint", disabled: false, onClick: handleConnect };
+      return { label: "connect", disabled: false, onClick: handleConnect };
     }
     if (auctionBlocksMint) {
       return { label: "mint", disabled: true, onClick: handleMint };
@@ -5904,6 +5891,7 @@ export default function AuctionCanvas({
     return { label: "mint", disabled: true, onClick: handleMint };
   })();
   const displayedCta = ctaDisplay ?? ctaState;
+  const isWalletConnectCta = displayedCta.label === "connect";
   const ctaDelayMs =
     ctaState.label === "connect" ? DELAY_MS : 0;
   useEffect(() => {
@@ -6280,7 +6268,6 @@ export default function AuctionCanvas({
     if (!selectedNow) return;
     if (!showCurvePlot) return;
     if (!effectiveViewport) return;
-    if (viewportUserLocked) return;
     if (isPanning || panRef.current.active) return;
     if (linked.nowU == null || !Number.isFinite(linked.nowU)) return;
 
@@ -6315,7 +6302,6 @@ export default function AuctionCanvas({
     effectiveViewport,
     linked.nowU,
     linked.uEnd,
-    viewportUserLocked,
     isPanning,
   ]);
 
@@ -6344,12 +6330,21 @@ export default function AuctionCanvas({
   };
 
   const clampXWindow = useCallback((xMin: number, xMax: number, xRange: number) => {
-    return clampLockedExplorationXWindow(
-      xMin,
-      xMax,
-      xRange,
-      linked.uEnd,
-    );
+    const xEnd = Math.max(Number.EPSILON, linked.uEnd);
+    if (!Number.isFinite(xMin) || !Number.isFinite(xMax) || xRange <= 0) {
+      return { xMin: 0, xMax: xEnd };
+    }
+    let nextMin = xMin;
+    let nextMax = xMax;
+    if (nextMin < 0) {
+      nextMin = 0;
+      nextMax = nextMin + xRange;
+    }
+    if (nextMax > xEnd) {
+      nextMax = xEnd;
+      nextMin = Math.max(0, nextMax - xRange);
+    }
+    return { xMin: nextMin, xMax: nextMax };
   }, [linked.uEnd]);
 
   const handleCanvasWheel = (event: any) => {
@@ -6409,11 +6404,7 @@ export default function AuctionCanvas({
   const handleCanvasPointerDown = (event: any) => {
     if (!showCurvePlot) return;
     if (!effectiveViewport) return;
-    const target = event.target ?? null;
-    const isCurvePoint =
-      target instanceof Element &&
-      Boolean(target.closest(".dotfield__point"));
-    if (isCanvasInteractiveTarget(target) && !isCurvePoint) return;
+    if (isCanvasInteractiveTarget(event.target ?? null)) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
     const loc = getSvgLoc(event.clientX, event.clientY);
     if (!loc) return;
@@ -6434,7 +6425,7 @@ export default function AuctionCanvas({
     panRef.current.startViewport = effectiveViewport;
     setIsPanning(true);
     if (pinnedDotRef.current) {
-      pinnedPointerRef.current = null;
+      clearPinnedDot();
     } else {
       setHover(null);
     }
@@ -6456,7 +6447,9 @@ export default function AuctionCanvas({
     }
     const dragStarted = !panRef.current.moved;
     panRef.current.moved = true;
-    if (dragStarted && pinnedDotRef.current) pinnedPointerRef.current = null;
+    if (dragStarted && pinnedDotRef.current) {
+      clearPinnedDot();
+    }
     viewportUserLockedRef.current = true;
     setViewportUserLocked(true);
     const xRange = startVp.xMax - startVp.xMin;
@@ -6471,7 +6464,7 @@ export default function AuctionCanvas({
       xMin: clamped.xMin,
       xMax: clamped.xMax,
     }));
-  }, [clampXWindow]);
+  }, [clampXWindow, clearPinnedDot]);
 
   const pickPointAtClient = useCallback(
     (
@@ -6543,16 +6536,6 @@ export default function AuctionCanvas({
     panRef.current.moved = false;
     panRef.current.startViewport = null;
     setIsPanning(false);
-    if (wasMoved) {
-      suppressCanvasClickRef.current = true;
-      if (suppressCanvasClickTimerRef.current !== null) {
-        window.clearTimeout(suppressCanvasClickTimerRef.current);
-      }
-      suppressCanvasClickTimerRef.current = window.setTimeout(() => {
-        suppressCanvasClickRef.current = false;
-        suppressCanvasClickTimerRef.current = null;
-      }, 0);
-    }
     try {
       event.currentTarget?.releasePointerCapture?.(event.pointerId);
     } catch {
@@ -6891,7 +6874,6 @@ export default function AuctionCanvas({
     if (!showCurvePlot) return;
     if (!effectiveViewport) return;
     if (panRef.current.active) return;
-    if (suppressCanvasClickRef.current) return;
     const point = pickPointAtClient(event.clientX, event.clientY, 2.2);
     if (point?.kind === "sale") {
       pinBidDot(point.key, event.clientX, event.clientY);
@@ -7004,15 +6986,29 @@ export default function AuctionCanvas({
       style={dotfieldStyle}
       data-layout-zoomed={isPathStageLayoutZoomed ? "true" : "false"}
     >
+      {!isDesktop && !pathMintIntent && (
+        <div className="dotfield__overlay">
+          <div className="muted small">
+            This view needs more room. Please widen your window or use a larger screen.
+          </div>
+        </div>
+      )}
       <div className="dotfield__nav">
         <div className="dotfield__title-stack">
-          <h1 className="headline dotfield__title">
-            {SURFACE_TERMINOLOGY.pathDapp}
+          <h1 className="headline dotfield__title thin">
+            <a
+              className="dotfield__title-link"
+              href="/path"
+              target="_blank"
+              rel="noreferrer"
+            >
+              {SURFACE_TERMINOLOGY.pathDapp}
+            </a>
           </h1>
           <p className="dotfield__slogan">permission token for movement mints.</p>
         </div>
-        <div className="dotfield__cta-stack" ref={ctaStackRef}>
-          <div className="dotfield__cta-anchor">
+        {!isWalletConnectCta ? (
+          <div className="dotfield__cta-stack" ref={ctaStackRef}>
             <HeaderWalletCTA
               ctaLabel={displayedCta.label}
               ctaDisabled={displayedCta.disabled}
@@ -7039,303 +7035,340 @@ export default function AuctionCanvas({
                 showToast({ kind: "info", text: "wallet disconnected." });
               }}
             />
-            {!shellWalletPopoverOpen && mintReview && effectiveTxState === "idle" && (
-              <div
-                className="dotfield__mint-review"
-                ref={mintReviewRef}
-                aria-live="polite"
-              >
-                <div className="dotfield__mint-review-title">
-                  $PATH mint
-                </div>
-                <div className="dotfield__mint-review-row">
-                  <span>network</span>
-                  <strong>{mintReviewNetworkLabel}</strong>
-                </div>
-                <div className="dotfield__mint-review-row">
-                  <span>contract</span>
-                  <strong>
-                    {mintReviewContractHref ? (
-                      <a
-                        className="dotfield__mint-review-link"
-                        href={mintReviewContractHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {shortAddr(auctionAddress)} ↗
-                      </a>
-                    ) : (
-                      <>{shortAddr(auctionAddress)}</>
-                    )}
-                  </strong>
-                </div>
-                <div className="dotfield__mint-review-row">
-                  <span>price now</span>
-                  <strong>{mintReviewCurrentAskLabel ?? mintReview.priceLabel} {mintReview.symbol}</strong>
-                </div>
-                <div className="dotfield__mint-review-row">
-                  <span>max spend</span>
-                  <strong>{mintReviewMaxPriceLabel ?? mintReview.maxPriceLabel} {mintReview.symbol}</strong>
-                </div>
-                {mintReview.requiresApproval ? (
-                  <div className="dotfield__mint-review-row">
-                    <span>approval</span>
-                    <strong>{mintReview.symbol} first</strong>
-                  </div>
-                ) : null}
-                <div className="dotfield__mint-review-note">
-                  {mintReview.requiresApproval
-                    ? (
-                      <>
-                        Your wallet confirms approval, then the mint transaction and gas.
-                      </>
-                    )
-                    : (
-                      <>
-                        Your wallet confirms the transaction and gas.
-                      </>
-                    )}
-                  <br />
-                  <a
-                    className="dotfield__mint-review-link"
-                    href="/verify"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    verify contracts ↗
-                  </a>
-                </div>
-              </div>
-            )}
-            {!shellWalletPopoverOpen && mintProof && !mintReview && (
-              <div className="dotfield__mint-proof" aria-live="polite">
-                <button
-                  type="button"
-                  className="dotfield__mint-proof-dismiss"
-                  onClick={handleDismissMintProof}
-                  aria-label="Dismiss PATH mint proof"
-                >
-                  x
-                </button>
-                <div className="dotfield__mint-proof-title">$PATH minted</div>
-                <div className="dotfield__mint-proof-token">
-                  PATH #{mintProof.tokenId}
-                  <br />
-                  <span>minted via Pulse</span>
-                </div>
-                <div className="dotfield__mint-review-row">
-                  <span>owner</span>
-                  <strong>{shortAddr(mintProof.owner)}</strong>
-                </div>
-                <div className="dotfield__mint-review-row">
-                  <span>price</span>
-                  <strong>{mintProof.priceLabel} ETH</strong>
-                </div>
-                <div className="dotfield__mint-review-row">
-                  <span>epoch</span>
-                  <strong>{mintProof.epoch}</strong>
-                </div>
-                <div className="dotfield__mint-review-row">
-                  <span>tx</span>
-                  <strong>
-                    <a
-                      className="dotfield__mint-review-link"
-                      href={resolveExplorerTxUrl(mintProof.txHash)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {shortHash(mintProof.txHash)} ↗
-                    </a>
-                  </strong>
-                </div>
-                <div className="dotfield__mint-review-row">
-                  <span>block</span>
-                  <strong>{mintProof.blockNumber ?? "indexing..."}</strong>
-                </div>
-                <div className="dotfield__mint-proof-status">
-                  <span>confirmed</span>
-                  <strong>explorer ready</strong>
-                </div>
-                <div className="dotfield__mint-proof-status">
-                  <span>indexed</span>
-                  <strong>
-                    {mintProof.sourceStatus === "ready"
-                      ? "source ready"
-                      : mintProof.sourceStatus === "unavailable"
-                        ? "source unavailable"
-                        : "source indexing..."}
-                  </strong>
-                </div>
-                <div className="dotfield__mint-proof-actions">
-                  <a
-                    href={`/path/${mintProof.tokenId}`}
-                    onClick={handleLeaveMintProofPanel}
-                    onPointerDown={handleLeaveMintProofPanel}
-                  >
-                    view PATH
-                  </a>
-                  {mintProof.sourceStatus === "ready" ? (
-                    <a
-                      href={mintProof.sourceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      source ↗
-                    </a>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void handleRetryMintProofSource();
-                      }}
-                    >
-                      {mintProof.sourceStatus === "unavailable"
-                        ? "retry source"
-                        : "source indexing"}
-                    </button>
-                  )}
-                  <a
-                    href={resolveExplorerTxUrl(mintProof.txHash)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    explorer ↗
-                  </a>
-                </div>
-                <details className="dotfield__mint-proof-details">
-                  <summary>proof details</summary>
-                  <div className="dotfield__mint-proof-subtitle">contracts</div>
-                  <div className="dotfield__mint-review-row">
-                    <span>PulseAuction</span>
-                    <strong>
-                      {proofContracts.PulseAuction ? (
-                        <a
-                          className="dotfield__mint-review-link"
-                          href={resolveExplorerAddressUrl(proofContracts.PulseAuction)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          {shortAddr(proofContracts.PulseAuction)} ↗
-                        </a>
-                      ) : (
-                        "—"
-                      )}
-                    </strong>
-                  </div>
-                  <div className="dotfield__mint-review-row">
-                    <span>PathPulseAdapter</span>
-                    <strong>
-                      {proofContracts.PathPulseAdapter ? (
-                        <a
-                          className="dotfield__mint-review-link"
-                          href={resolveExplorerAddressUrl(proofContracts.PathPulseAdapter)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          {shortAddr(proofContracts.PathPulseAdapter)} ↗
-                        </a>
-                      ) : (
-                        "—"
-                      )}
-                    </strong>
-                  </div>
-                  <div className="dotfield__mint-review-row">
-                    <span>PathNFT</span>
-                    <strong>
-                      {proofContracts.PathNFT ? (
-                        <a
-                          className="dotfield__mint-review-link"
-                          href={resolveExplorerAddressUrl(proofContracts.PathNFT)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          {shortAddr(proofContracts.PathNFT)} ↗
-                        </a>
-                      ) : (
-                        "—"
-                      )}
-                    </strong>
-                  </div>
-                  <div className="dotfield__mint-proof-subtitle">event trace</div>
-                  <div className="dotfield__mint-proof-list">
-                    PulseAuction.Sale
-                    <br />
-                    PathPulseAdapter.EpochMinted
-                    <br />
-                    PathNFT.Transfer
-                  </div>
-                  <div className="dotfield__mint-review-row">
-                    <span>chain</span>
-                    <strong>{targetChainLabel} / {targetChainId?.toString() ?? "unknown"}</strong>
-                  </div>
-                  <div className="dotfield__mint-review-row">
-                    <span>transaction</span>
-                    <strong>{mintProof.txHash}</strong>
-                  </div>
-                  <button
-                    type="button"
-                    className="dotfield__mint-proof-copy"
-                    onClick={() => {
-                      void handleCopyMintProof();
-                    }}
-                  >
-                    copy proof JSON
-                  </button>
-                </details>
-              </div>
-            )}
+            {walletPickerOpen ? (
+              <InshellWalletPicker
+                connectors={availableConnectors}
+                onConnect={(connector) => {
+                  void connectWalletConnector(connector);
+                }}
+              />
+            ) : null}
           </div>
-          <div
-            className={`dotfield__mint-notice ${
-              displayNotice
-                ? displayNotice.kind === "error"
-                  ? "is-error"
-                  : displayNotice.kind === "warn"
-                  ? "is-warn"
-                  : "is-info"
-                : "is-empty"
-            }`}
-            role="status"
-            aria-live="polite"
-            aria-atomic="true"
-          >
-            {displayNotice?.text ?? ""}
-            {displayWalletRpcFix && (
-              <>
-                {" "}
-                <button
-                  type="button"
-                  className="dotfield__notice-action"
-                  onClick={() => {
-                    void handleFixWalletRpc();
-                  }}
-                  aria-label={
-                    isMetaMaskWallet
-                      ? "Fix MetaMask Sepolia RPC"
-                      : "Fix wallet Sepolia RPC"
-                  }
-                >
-                  {isMetaMaskWallet ? "copy rpc" : "fix rpc ↗"}
-                </button>
-              </>
-            )}
-            {displayNoticeReportLink && (
-              <>
-                {" "}
+        ) : null}
+      </div>
+      <div
+        className={`dotfield__mint-notice ${
+          displayNotice
+            ? displayNotice.kind === "error"
+              ? "is-error"
+              : displayNotice.kind === "warn"
+              ? "is-warn"
+              : "is-info"
+            : "is-empty"
+        }`}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {displayNotice?.text ?? ""}
+        {displayWalletRpcFix && (
+          <>
+            {" "}
+            <button
+              type="button"
+              className="dotfield__notice-action"
+              onClick={() => {
+                void handleFixWalletRpc();
+              }}
+              aria-label={
+                isMetaMaskWallet
+                  ? "Fix MetaMask Sepolia RPC"
+                  : "Fix wallet Sepolia RPC"
+              }
+            >
+              {isMetaMaskWallet ? "copy rpc" : "fix rpc ↗"}
+            </button>
+          </>
+        )}
+        {displayNoticeReportLink && (
+          <>
+            {" "}
+            <a
+              href={displayNoticeReportLink.href}
+              target={displayNoticeReportLink.target}
+              rel={displayNoticeReportLink.rel}
+              aria-label={displayNoticeReportLink.ariaLabel}
+              className={`dotfield__report-bug-link ${displayNoticeReportLink.className}`}
+            >
+              {displayNoticeReportLink.label}
+            </a>
+          </>
+        )}
+      </div>
+      {mintReview && effectiveTxState === "idle" && (
+        <div
+          className="dotfield__mint-review"
+          ref={mintReviewRef}
+          aria-live="polite"
+        >
+          <div className="dotfield__mint-review-title">
+            $PATH mint
+          </div>
+          <div className="dotfield__mint-review-subtitle">
+            Review the $PATH mint before opening your wallet.
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>network</span>
+            <strong>{PUBLIC_NETWORK_CONFIG.environmentLabel}</strong>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>chain</span>
+            <strong>{targetChainLabel}</strong>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>chain id</span>
+            <strong>{mintReviewChainIdLabel}</strong>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>currency</span>
+            <strong>{PUBLIC_NETWORK_CONFIG.currencyLabel}</strong>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>contract</span>
+            <strong>
+              {mintReviewContractHref ? (
                 <a
-                  href={displayNoticeReportLink.href}
-                  target={displayNoticeReportLink.target}
-                  rel={displayNoticeReportLink.rel}
-                  aria-label={displayNoticeReportLink.ariaLabel}
-                  className={`dotfield__report-bug-link ${displayNoticeReportLink.className}`}
+                  className="dotfield__mint-review-link"
+                  href={mintReviewContractHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
                 >
-                  {displayNoticeReportLink.label}
+                  {shortAddr(auctionAddress)} ↗
                 </a>
-              </>
-            )}
+              ) : (
+                <>{shortAddr(auctionAddress)}</>
+              )}
+            </strong>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>function</span>
+            <strong>bid(uint256 maxPrice)</strong>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>current ask</span>
+            <strong>{mintReviewCurrentAskLabel ?? mintReview.priceLabel} {mintReview.symbol}</strong>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>ETH sent</span>
+            <strong>{mintReviewTxValueLabel ?? mintReview.txValueLabel} {mintReview.nativePayment ? mintReview.symbol : "ETH"}</strong>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>max price</span>
+            <strong>{mintReviewMaxPriceLabel ?? mintReview.maxPriceLabel} {mintReview.symbol}</strong>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>approval</span>
+            <strong>{mintReview.requiresApproval ? `${mintReview.symbol} approval first` : "none"}</strong>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>network gas</span>
+            <strong>shown in wallet</strong>
+          </div>
+          <div className="dotfield__mint-review-note">
+            {mintReview.requiresApproval
+              ? (
+                <>
+                  wallet opens next.
+                  <br />
+                  wallet step 1 approves {mintReview.symbol}.
+                  <br />
+                  wallet step 2 mints $PATH.
+                </>
+              )
+              : (
+                <>
+                  wallet opens next.
+                </>
+              )}
+            <br />
+            <a
+              className="dotfield__mint-review-link"
+              href="/verify"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              verify contracts ↗
+            </a>
           </div>
         </div>
-      </div>
+      )}
+      {mintProof && !mintReview && (
+        <div className="dotfield__mint-proof" aria-live="polite">
+          <button
+            type="button"
+            className="dotfield__mint-proof-dismiss"
+            onClick={handleDismissMintProof}
+            aria-label="Dismiss PATH mint proof"
+          >
+            x
+          </button>
+          <div className="dotfield__mint-proof-title">$path minted</div>
+          <div className="dotfield__mint-proof-token">
+            PATH #{mintProof.tokenId}
+            <br />
+            <span>minted by Pulse</span>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>owner</span>
+            <strong>{shortAddr(mintProof.owner)}</strong>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>price</span>
+            <strong>{mintProof.priceLabel} ETH</strong>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>epoch</span>
+            <strong>{mintProof.epoch}</strong>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>tx</span>
+            <strong>
+              <a
+                className="dotfield__mint-review-link"
+                href={resolveExplorerTxUrl(mintProof.txHash)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {shortHash(mintProof.txHash)} ↗
+              </a>
+            </strong>
+          </div>
+          <div className="dotfield__mint-review-row">
+            <span>block</span>
+            <strong>{mintProof.blockNumber ?? "indexing..."}</strong>
+          </div>
+          <div className="dotfield__mint-proof-status">
+            <span>confirmed</span>
+            <strong>explorer ready</strong>
+          </div>
+          <div className="dotfield__mint-proof-status">
+            <span>indexed</span>
+            <strong>
+              {mintProof.sourceStatus === "ready"
+                ? "source ready"
+                : mintProof.sourceStatus === "unavailable"
+                  ? "source unavailable"
+                  : "source indexing..."}
+            </strong>
+          </div>
+          <div className="dotfield__mint-proof-actions">
+            <a
+              href={`/path/${mintProof.tokenId}`}
+              onClick={handleLeaveMintProofPanel}
+              onPointerDown={handleLeaveMintProofPanel}
+            >
+              view PATH
+            </a>
+            {mintProof.sourceStatus === "ready" ? (
+              <a
+                href={mintProof.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                source ↗
+              </a>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  void handleRetryMintProofSource();
+                }}
+              >
+                {mintProof.sourceStatus === "unavailable"
+                  ? "retry source"
+                  : "source indexing"}
+              </button>
+            )}
+            <a
+              href={resolveExplorerTxUrl(mintProof.txHash)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              explorer ↗
+            </a>
+          </div>
+          <details className="dotfield__mint-proof-details">
+            <summary>proof details</summary>
+            <div className="dotfield__mint-proof-subtitle">contracts</div>
+            <div className="dotfield__mint-review-row">
+              <span>PulseAuction</span>
+              <strong>
+                {proofContracts.PulseAuction ? (
+                  <a
+                    className="dotfield__mint-review-link"
+                    href={resolveExplorerAddressUrl(proofContracts.PulseAuction)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {shortAddr(proofContracts.PulseAuction)} ↗
+                  </a>
+                ) : (
+                  "—"
+                )}
+              </strong>
+            </div>
+            <div className="dotfield__mint-review-row">
+              <span>PathPulseAdapter</span>
+              <strong>
+                {proofContracts.PathPulseAdapter ? (
+                  <a
+                    className="dotfield__mint-review-link"
+                    href={resolveExplorerAddressUrl(proofContracts.PathPulseAdapter)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {shortAddr(proofContracts.PathPulseAdapter)} ↗
+                  </a>
+                ) : (
+                  "—"
+                )}
+              </strong>
+            </div>
+            <div className="dotfield__mint-review-row">
+              <span>PathNFT</span>
+              <strong>
+                {proofContracts.PathNFT ? (
+                  <a
+                    className="dotfield__mint-review-link"
+                    href={resolveExplorerAddressUrl(proofContracts.PathNFT)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {shortAddr(proofContracts.PathNFT)} ↗
+                  </a>
+                ) : (
+                  "—"
+                )}
+              </strong>
+            </div>
+            <div className="dotfield__mint-proof-subtitle">event trace</div>
+            <div className="dotfield__mint-proof-list">
+              PulseAuction.Sale
+              <br />
+              PathPulseAdapter.EpochMinted
+              <br />
+              PathNFT.Transfer
+            </div>
+            <div className="dotfield__mint-review-row">
+              <span>chain</span>
+              <strong>{targetChainLabel} / {mintReviewChainIdLabel}</strong>
+            </div>
+            <div className="dotfield__mint-review-row">
+              <span>transaction</span>
+              <strong>{mintProof.txHash}</strong>
+            </div>
+            <button
+              type="button"
+              className="dotfield__mint-proof-copy"
+              onClick={() => {
+                void handleCopyMintProof();
+              }}
+            >
+              copy proof JSON
+            </button>
+          </details>
+        </div>
+      )}
       {debugPanelEnabled && (
         <div className="dotfield__debug">
           <button
@@ -7894,7 +7927,7 @@ export default function AuctionCanvas({
                     data-x={x}
                     data-y={y}
                     onPointerDown={(e) => {
-                      if (!isSelected) e.stopPropagation();
+                      e.stopPropagation();
                     }}
                     onMouseMove={(e) => {
                       e.stopPropagation();
@@ -7922,11 +7955,6 @@ export default function AuctionCanvas({
                     }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (suppressCanvasClickRef.current) return;
-                      if (isSelected) {
-                        clearPinnedDot();
-                        return;
-                      }
                       if (isOpeningFloor) {
                         showOpeningFloorHover(seg, x, y, e.clientX, e.clientY);
                       } else {
@@ -7956,11 +7984,10 @@ export default function AuctionCanvas({
                       top: `${(y / 60) * 100}%`,
                     }}
                     data-kind="sale"
-                    data-dot-key={mark.key}
                     data-x={x}
                     data-y={y}
                     onPointerDown={(e) => {
-                      if (!isSelected) e.stopPropagation();
+                      e.stopPropagation();
                     }}
                     onMouseMove={(e) => {
                       e.stopPropagation();
@@ -7980,11 +8007,6 @@ export default function AuctionCanvas({
                     }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (suppressCanvasClickRef.current) return;
-                      if (isSelected) {
-                        clearPinnedDot();
-                        return;
-                      }
                       showBidHover(mark, seg, x, y, e.clientX, e.clientY);
                       pinBidDot(mark.key, e.clientX, e.clientY);
                     }}
@@ -8004,9 +8026,8 @@ export default function AuctionCanvas({
                     top: `${(nowPt.y / 60) * 100}%`,
                   }}
                   data-kind="now"
-                  data-dot-key="now"
                   onPointerDown={(e) => {
-                    if (!selectedNow) e.stopPropagation();
+                    e.stopPropagation();
                   }}
                   onMouseMove={(e) => {
                     e.stopPropagation();
@@ -8026,11 +8047,6 @@ export default function AuctionCanvas({
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (suppressCanvasClickRef.current) return;
-                    if (selectedNow) {
-                      clearPinnedDot();
-                      return;
-                    }
                     showNowCurveHover(e.clientX, e.clientY);
                     pinNowDot(e.clientX, e.clientY);
                   }}
@@ -8040,7 +8056,7 @@ export default function AuctionCanvas({
               )}
             </div>
 
-            {hover && !shellWalletPopoverOpen && !mintReview && (() => {
+            {hover && (() => {
               const popRows: Array<{ label: string; value: string }> = [];
               const popNotes: string[] = [];
               const isOpeningAsk =
@@ -8258,14 +8274,8 @@ export default function AuctionCanvas({
                       : hover.key === "premium"
                         ? "initial premium"
                         : "ask";
-              const tooltipOrigin = tooltipOriginRect();
-              const popoverViewportY =
-                hover.screenY +
-                (tooltipOrigin?.top ?? 0) -
-                CURVE_TOOLTIP_CURSOR_OFFSET_PX;
               const popoverOpensAbove =
-                typeof window !== "undefined" &&
-                popoverViewportY > window.innerHeight / 2;
+                typeof window !== "undefined" && hover.screenY > window.innerHeight / 2;
 
               return (
                 <div
@@ -8274,8 +8284,11 @@ export default function AuctionCanvas({
                   }`}
                   style={{
                     "--popover-anchor-x": `${hover.screenX}px`,
-                    "--popover-anchor-y": `${hover.screenY}px`,
-                    top: hover.screenY,
+                    ...(popoverOpensAbove
+                      ? {
+                          "--popover-anchor-bottom": `calc(100vh - ${hover.screenY}px + var(--curve-tooltip-cursor-offset))`,
+                        }
+                      : { top: hover.screenY }),
                   } as CSSProperties}
                 >
                   <div className="muted small">{popTitle}</div>

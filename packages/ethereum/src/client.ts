@@ -269,7 +269,7 @@ export function getDefaultProvider(): ProviderInterface {
     return new JsonRpcProvider("/api/path-rpc");
   }
   if (!requiresConfiguredRpc() && isLocalBrowserHost()) {
-    return new JsonRpcProvider("http://127.0.0.1:8545");
+    return new JsonRpcProvider("http://127.0.0.1:8546");
   }
   throw new Error("VITE_PATH_RPC_URL is required outside local development.");
 }

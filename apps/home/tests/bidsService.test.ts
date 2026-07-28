@@ -55,7 +55,6 @@ describe("auction bids service", () => {
   afterEach(() => {
     globalThis.localStorage?.clear();
     globalThis.fetch = originalFetch;
-    delete (globalThis as any).__VITE_ENV__;
     jest.restoreAllMocks();
   });
 
@@ -134,39 +133,6 @@ describe("auction bids service", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/api/pulse-auction"),
       expect.objectContaining({ headers: { accept: "application/json" } })
-    );
-  });
-
-  test("reads sale history directly from Anvil in devnet mode", async () => {
-    (globalThis as any).__VITE_ENV__ = { VITE_NETWORK: "devnet" };
-    const fetchMock = jest.fn(async () => {
-      throw new Error("the indexed API must not be used in devnet");
-    });
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
-    const logs = [saleLog(12, 1n, 100n), saleLog(31, 2n, 120n)];
-    const provider = {
-      request: jest.fn(async ({ method }: any) => {
-        if (method === "eth_blockNumber") return "0x28";
-        if (method === "eth_getLogs") return logs;
-        if (method === "eth_getBlockByNumber") {
-          return { number: "0xc", timestamp: "0x6a000000" };
-        }
-        throw new Error(`unexpected RPC method ${method}`);
-      }),
-    };
-
-    const service = createBidsService({
-      address: AUCTION,
-      provider,
-      fromBlock: 1,
-      reorgDepth: 0,
-    });
-
-    const fresh = await service.pullOnce();
-    expect(fresh.map((bid) => bid.epochIndex)).toEqual([1, 2]);
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(provider.request).toHaveBeenCalledWith(
-      expect.objectContaining({ method: "eth_getLogs" })
     );
   });
 
@@ -450,11 +416,11 @@ describe("auction bids service", () => {
   });
 
   test("does not trust incomplete cached lastBlock when backfilling sale history", async () => {
-    const cacheKey = `inshell:pulse:bids:rpc:${AUCTION.toLowerCase()}:1`;
+    const cacheKey = `inshell:pulse:bids:${AUCTION.toLowerCase()}:1`;
     globalThis.localStorage.setItem(
       cacheKey,
       JSON.stringify({
-        version: 6,
+        version: 5,
         savedAt: Date.now(),
         lastBlock: 500,
         complete: false,
@@ -496,11 +462,11 @@ describe("auction bids service", () => {
   });
 
   test("ignores old complete sale-history caches after cache version changes", async () => {
-    const cacheKey = `inshell:pulse:bids:rpc:${AUCTION.toLowerCase()}:1`;
+    const cacheKey = `inshell:pulse:bids:${AUCTION.toLowerCase()}:1`;
     globalThis.localStorage.setItem(
       cacheKey,
       JSON.stringify({
-        version: 5,
+        version: 4,
         savedAt: Date.now(),
         lastBlock: 500,
         complete: true,
@@ -535,7 +501,7 @@ describe("auction bids service", () => {
     expect(service.getBids()).toEqual([]);
     await expect(service.pullOnce()).resolves.toEqual([]);
 
-    expect(JSON.parse(globalThis.localStorage.getItem(cacheKey) ?? "{}").version).toBe(6);
+    expect(JSON.parse(globalThis.localStorage.getItem(cacheKey) ?? "{}").version).toBe(5);
 
     const firstGetLogsCall = provider.request.mock.calls.find(
       ([arg]: any[]) => arg.method === "eth_getLogs"

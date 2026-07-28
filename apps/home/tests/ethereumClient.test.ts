@@ -50,7 +50,7 @@ describe("Ethereum client production RPC guard", () => {
   test("allows localhost RPC fallback only for local development", () => {
     delete (globalThis as any).__VITE_ENV__;
 
-    expect(providerRpcUrl()).toBe("http://127.0.0.1:8545");
+    expect(providerRpcUrl()).toBe("http://127.0.0.1:8546");
   });
 
   test("uses same-origin RPC proxy for Sepolia launch modes without a public RPC", () => {

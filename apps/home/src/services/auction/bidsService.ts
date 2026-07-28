@@ -29,7 +29,7 @@ const MAX_LOG_FETCH_CONCURRENCY = 1;
 const TIGHT_LOG_RANGE_THRESHOLD = 100;
 const MAX_TIGHT_LOG_PULL_CHUNKS = 4;
 const LOG_RATE_LIMIT_BACKOFF_MS = 45_000;
-const BID_CACHE_VERSION = 6;
+const BID_CACHE_VERSION = 5;
 const BID_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_PULSE_AUCTION_API_URL = "/api/pulse-auction";
 
@@ -112,20 +112,8 @@ function bidCacheStorage(): typeof globalThis.localStorage | null {
   }
 }
 
-type BidCacheSource = "api" | "rpc";
-
-function bidCacheKey(
-  address: string,
-  fromBlock: number | undefined,
-  source: BidCacheSource
-): string {
-  return `inshell:pulse:bids:${source}:${address.toLowerCase()}:${fromBlock ?? "auto"}`;
-}
-
-function isLocalDevnet() {
-  const env = (globalThis as any).__VITE_ENV__ as Record<string, unknown> | undefined;
-  const buildEnv = (globalThis as any).__INSHELL_VITE_ENV__ as Record<string, unknown> | undefined;
-  return String(env?.VITE_NETWORK ?? buildEnv?.VITE_NETWORK ?? "").toLowerCase() === "devnet";
+function bidCacheKey(address: string, fromBlock: number | undefined): string {
+  return `inshell:pulse:bids:${address.toLowerCase()}:${fromBlock ?? "auto"}`;
 }
 
 function readPulseAuctionApiUrl() {
@@ -238,18 +226,16 @@ function reviveBid(bid: SerializedBid): NormalizedBid | null {
 
 function readBidCache(
   address: string,
-  fromBlock: number | undefined,
-  source: BidCacheSource
+  fromBlock: number | undefined
 ): { bids: NormalizedBid[]; lastBlock?: number; complete: boolean } | null {
   const storage = bidCacheStorage();
   if (!storage) return null;
   try {
-    const key = bidCacheKey(address, fromBlock, source);
-    const raw = storage.getItem(key);
+    const raw = storage.getItem(bidCacheKey(address, fromBlock));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as CachedBidSnapshot;
     if (parsed.version !== BID_CACHE_VERSION) {
-      storage.removeItem(key);
+      storage.removeItem(bidCacheKey(address, fromBlock));
       return null;
     }
     if (
@@ -257,7 +243,7 @@ function readBidCache(
       !Number.isFinite(parsed.savedAt) ||
       Date.now() - parsed.savedAt > BID_CACHE_TTL_MS
     ) {
-      storage.removeItem(key);
+      storage.removeItem(bidCacheKey(address, fromBlock));
       return null;
     }
     if (!Array.isArray(parsed.bids)) return null;
@@ -281,7 +267,6 @@ function readBidCache(
 function writeBidCache(
   address: string,
   fromBlock: number | undefined,
-  source: BidCacheSource,
   snapshot: NormalizedBid[],
   lastBlock: number | undefined,
   complete: boolean
@@ -299,7 +284,7 @@ function writeBidCache(
       complete,
       bids: snapshot.map((bid) => serializeBid(bid)),
     };
-    storage.setItem(bidCacheKey(address, fromBlock, source), JSON.stringify(payload));
+    storage.setItem(bidCacheKey(address, fromBlock), JSON.stringify(payload));
   } catch {
     /* localStorage can be full or blocked; the live RPC path still works. */
   }
@@ -339,12 +324,10 @@ export function createBidsService(opts: {
   const address = opts.address;
   const provider: ProviderInterface = opts.provider ?? getDefaultProvider();
   const useCacheApi =
-    !isLocalDevnet() &&
-    (opts.preferCacheApi ??
-      (typeof globalThis.fetch === "function" &&
-        typeof globalThis.location !== "undefined"));
+    opts.preferCacheApi ??
+    (typeof globalThis.fetch === "function" &&
+      typeof globalThis.location !== "undefined");
   const allowDirectFallback = opts.allowDirectFallback ?? !useCacheApi;
-  const cacheSource: BidCacheSource = useCacheApi ? "api" : "rpc";
   const maxBids = opts.maxBids ?? 200;
   const initialChunkSize = Math.max(1, opts.chunkSize ?? DEFAULT_LOG_CHUNK_SIZE);
   const reorgDepth = opts.reorgDepth ?? 2;
@@ -358,7 +341,7 @@ export function createBidsService(opts: {
   let inFlight: Promise<NormalizedBid[]> | null = null;
   const seen = new Set<string>();
   let bids: NormalizedBid[] = [];
-  const cached = readBidCache(address, opts.fromBlock, cacheSource);
+  const cached = readBidCache(address, opts.fromBlock);
   if (cached) {
     bids = cached.bids.slice(-maxBids);
     for (const bid of bids) seen.add(bid.key);
@@ -509,10 +492,10 @@ export function createBidsService(opts: {
           if (fresh.length) {
             bids = [...bids, ...fresh].sort((a, b) => a.atMs - b.atMs);
             if (bids.length > maxBids) bids = bids.slice(-maxBids);
-            writeBidCache(address, opts.fromBlock, cacheSource, bids, lastBlock, true);
+            writeBidCache(address, opts.fromBlock, bids, lastBlock, true);
             emit(fresh);
           } else {
-            writeBidCache(address, opts.fromBlock, cacheSource, bids, lastBlock, true);
+            writeBidCache(address, opts.fromBlock, bids, lastBlock, true);
           }
           return fresh;
         }
@@ -570,17 +553,10 @@ export function createBidsService(opts: {
     if (fresh.length) {
       bids = [...bids, ...fresh].sort((a, b) => a.atMs - b.atMs);
       if (bids.length > maxBids) bids = bids.slice(-maxBids);
-      writeBidCache(
-        address,
-        opts.fromBlock,
-        cacheSource,
-        bids,
-        lastBlock,
-        result.complete
-      );
+      writeBidCache(address, opts.fromBlock, bids, lastBlock, result.complete);
       emit(fresh);
     } else if (result.complete) {
-      writeBidCache(address, opts.fromBlock, cacheSource, bids, lastBlock, true);
+      writeBidCache(address, opts.fromBlock, bids, lastBlock, true);
     }
 
     return fresh;

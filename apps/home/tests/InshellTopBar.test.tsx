@@ -10,11 +10,7 @@ jest.mock("@inshell/wallet", () => ({
   useWallet: () => mockUseWallet(),
 }));
 
-import {
-  INSHELL_WALLET_VISIBILITY_EVENT,
-  InshellTopBar,
-  openInshellWallet,
-} from "@inshell/inshell-shell";
+import { InshellTopBar, openInshellWallet } from "@inshell/inshell-shell";
 
 const ADDRESS = "0x170af4d923de5e3155067e10413c3b11d82e100";
 
@@ -95,9 +91,6 @@ describe("InshellTopBar", () => {
     fireEvent.click(screen.getByRole("button", { name: "connect wallet" }));
 
     expect(screen.getByRole("menu", { name: "Wallet options" })).toBeTruthy();
-    expect(
-      screen.getByText(/Connecting shares your address only\. No signature or transaction\./)
-    ).toBeTruthy();
     await act(async () => {
       fireEvent.click(screen.getByRole("menuitem", { name: "MetaMask" }));
     });
@@ -143,58 +136,17 @@ describe("InshellTopBar", () => {
     expect(screen.getByRole("menu", { name: "Wallet options" })).toBeTruthy();
   });
 
-  test("announces global wallet popover visibility", () => {
-    mockUseWallet.mockReturnValue(walletState());
-    const visibility = jest.fn();
-    window.addEventListener(INSHELL_WALLET_VISIBILITY_EVENT, visibility);
-
-    render(<InshellTopBar />);
-    fireEvent.click(screen.getByRole("button", { name: /wallet 0x170a/i }));
-    expect(visibility).toHaveBeenLastCalledWith(
-      expect.objectContaining({ detail: { open: true } })
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: /wallet 0x170a/i }));
-    expect(visibility).toHaveBeenLastCalledWith(
-      expect.objectContaining({ detail: { open: false } })
-    );
-    window.removeEventListener(INSHELL_WALLET_VISIBILITY_EVENT, visibility);
-  });
-
   test("copies the connected wallet address from the global shell", async () => {
     mockUseWallet.mockReturnValue(walletState());
     render(<InshellTopBar />);
 
     fireEvent.click(screen.getByRole("button", { name: /wallet 0x170a/i }));
-    const walletDialog = screen.getByRole("dialog", { name: "wallet" });
-    expect(walletDialog).toHaveTextContent(ADDRESS);
-    expect(walletDialog).toHaveTextContent("Sepolia");
-    expect(walletDialog).toHaveTextContent(
-      "This menu never requests a signature or transaction."
-    );
-    expect(walletDialog).not.toHaveTextContent("read-only connected");
-    expect(walletDialog).not.toHaveTextContent("approval");
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "copy address" }));
     });
 
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(ADDRESS);
     expect(screen.getByText("address copied.")).toBeTruthy();
-  });
-
-  test("uses the canonical local network label in the wallet modal", () => {
-    mockUseWallet.mockReturnValue(
-      walletState({
-        chain: { id: 31337, name: "Anvil Local", network: "anvil" },
-        chainId: 31337,
-      })
-    );
-    render(<InshellTopBar />);
-
-    fireEvent.click(screen.getByRole("button", { name: /wallet 0x170a/i }));
-
-    expect(screen.getByRole("dialog", { name: "wallet" })).toHaveTextContent("Local Anvil");
-    expect(screen.getByRole("dialog", { name: "wallet" })).not.toHaveTextContent("Anvil Local");
   });
 
   test("soft-disconnects from the global shell wallet modal", async () => {
