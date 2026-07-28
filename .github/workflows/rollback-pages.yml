@@ -55,7 +55,7 @@ jobs:
               "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$CLOUDFLARE_PAGES_PROJECT/deployments?env=production"
           )"
           jq --exit-status '.success == true' <<<"$deployments" >/dev/null
-+          deployment_id="$(
+          deployment_id="$(
             jq --raw-output \
               --arg url "https://$target_host" \
               '.result[] | select(.url == $url or ((.aliases // []) | index($url))) | .id' \
