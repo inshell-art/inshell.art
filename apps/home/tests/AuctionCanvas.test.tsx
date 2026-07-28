@@ -20,13 +20,8 @@ import {
 import { encodeFunctionData, getAbiItem } from "viem";
 import React from "react";
 import AuctionCanvas from "../src/components/AuctionCanvas";
-import { clampLockedExplorationXWindow } from "../src/utils/auctionViewport";
 import { withPathMintSubmissionLock } from "../src/pathMintSubmissionLock";
 import { mockAuctionCore } from "./testUtils";
-import {
-  INSHELL_OPEN_WALLET_EVENT,
-  INSHELL_WALLET_VISIBILITY_EVENT,
-} from "@inshell/inshell-shell";
 /* global SVGLineElement */
 
 const mockUseAuctionBids = jest.fn();
@@ -289,21 +284,6 @@ async function clickMintThenSign() {
   });
 }
 
-function expectCtaAnchoredOverlay(overlay: Element | null) {
-  expect(overlay).toBeTruthy();
-  const anchor = overlay?.parentElement;
-  expect(anchor).toHaveClass("dotfield__cta-anchor");
-  expect(anchor?.querySelector(".dotfield__mint")).toBeTruthy();
-
-  const stack = anchor?.parentElement;
-  expect(stack).toHaveClass("dotfield__cta-stack");
-  const notice = Array.from(stack?.children ?? []).find((child) =>
-    child.classList.contains("dotfield__mint-notice"),
-  );
-  expect(notice).toBeTruthy();
-  expect(anchor?.contains(notice ?? null)).toBe(false);
-}
-
 describe("AuctionCanvas", () => {
   beforeEach(() => {
     clearPathMintReturnRecords(window.localStorage);
@@ -412,11 +392,12 @@ describe("AuctionCanvas", () => {
     const { container } = render(
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />
     );
-    expect(screen.queryByRole("link", { name: "$PATH" })).toBeNull();
+    expect(screen.getByRole("link", { name: "$PATH" })).toHaveAttribute("href", "/path");
+    expect(screen.getByRole("link", { name: "$PATH" })).toHaveAttribute("target", "_blank");
     expect(screen.getByRole("heading", { level: 1, name: "$PATH" })).toBeInTheDocument();
     expect(screen.getByText("permission token for movement mints.")).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Inshell dapps" })).toBeNull();
-    expect(container.querySelector(".dotfield__mint")).toHaveTextContent("mint");
+    expect(container.querySelector(".dotfield__mint")).toBeNull();
 
     const dots = container.querySelectorAll(".dotfield__point, .dotfield__now-dot");
     expect(dots.length).toBeGreaterThan(0);
@@ -507,7 +488,7 @@ describe("AuctionCanvas", () => {
       ...(globalThis as any).__VITE_ENV__,
       VITE_NETWORK: "devnet",
       VITE_EXPECTED_CHAIN_ID: "0x7a69",
-      VITE_PATH_RPC_URL: "http://127.0.0.1:8545",
+      VITE_PATH_RPC_URL: "http://127.0.0.1:8546",
       VITE_WALLET_CHAIN_RPC_URL: "",
     };
     mockAuctionCore(mockUseAuctionCore, {
@@ -1014,32 +995,11 @@ describe("AuctionCanvas", () => {
     expect(container.querySelector(".dotfield__popover")).toBeNull();
   });
 
-  test("every curve dot toggles between locked and unlocked", () => {
+  test("dragging canvas clears selected sale tooltip", async () => {
     const { container } = render(
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />
     );
-    const selectors = [
-      ".dotfield__point--opening-floor",
-      ".dotfield__point--ask:not(.dotfield__point--opening-floor)",
-      ".dotfield__point--sale",
-      ".dotfield__point--now",
-    ];
 
-    for (const selector of selectors) {
-      const dot = container.querySelector(selector) as HTMLElement | null;
-      expect(dot).toBeTruthy();
-      fireEvent.click(dot as HTMLElement);
-      expect(dot?.classList.contains("is-selected")).toBe(true);
-      fireEvent.click(dot as HTMLElement);
-      expect(container.querySelector(".dotfield__point.is-selected")).toBeNull();
-      expect(container.querySelector(".dotfield__popover")).toBeNull();
-    }
-  });
-
-  test("unlocking a dot exits zoom and restores the default viewport", async () => {
-    const { container } = render(
-      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
-    );
     const svg = container.querySelector("svg") as HTMLElement | null;
     expect(svg).toBeTruthy();
     if (svg) {
@@ -1059,150 +1019,32 @@ describe("AuctionCanvas", () => {
       });
     }
 
-    const dot = container.querySelector(
+    const dotButton = container.querySelector(
       ".dotfield__point--sale"
     ) as HTMLElement | null;
-    expect(dot).toBeTruthy();
-    fireEvent.click(dot as HTMLElement);
-    expect(dot?.classList.contains("is-selected")).toBe(true);
-
-    const wheel = createEvent.wheel(svg as HTMLElement, {
-      deltaY: -120,
-      clientX: 500,
-      clientY: 300,
-    });
-    fireEvent(svg as HTMLElement, wheel);
-    await waitFor(() => {
-      expect(container.querySelector(".dotfield")).toHaveAttribute(
-        "data-layout-zoomed",
-        "true"
-      );
-    });
-
-    fireEvent.click(
-      container.querySelector(".dotfield__point--sale.is-selected") as HTMLElement
-    );
-    await waitFor(() => {
-      expect(container.querySelector(".dotfield__point.is-selected")).toBeNull();
-      expect(container.querySelector(".dotfield")).toHaveAttribute(
-        "data-layout-zoomed",
-        "false"
-      );
-    });
-  });
-
-  test("locked exploration admits a full viewport beyond both data edges", () => {
-    const xRange = 10;
-    const xEnd = 100;
-    const firstCurveAtRight = clampLockedExplorationXWindow(
-      -100,
-      -90,
-      xRange,
-      xEnd,
-    );
-    const latestCurveAtLeft = clampLockedExplorationXWindow(
-      110,
-      120,
-      xRange,
-      xEnd,
-    );
-
-    expect(firstCurveAtRight).toEqual({ xMin: -10, xMax: 0 });
-    expect(latestCurveAtLeft).toEqual({ xMin: 100, xMax: 110 });
-    expect(((0 - firstCurveAtRight.xMin) / xRange) * 100).toBe(100);
-    expect(((xEnd - latestCurveAtLeft.xMin) / xRange) * 100).toBe(0);
-  });
-
-  test("locked sale remains selected while its zoomed curve is dragged", async () => {
-    const nowMs = Date.now();
-    mockUseAuctionBids.mockReturnValue({
-      bids: [
-        {
-          ...sampleBids[0],
-          atMs: nowMs - 6 * 60 * 60 * 1000,
-        },
-        {
-          ...sampleBids[1],
-          atMs: nowMs - 3 * 60 * 60 * 1000,
-        },
-      ],
-      ready: true,
-      loading: false,
-      error: null,
-    });
-    mockAuctionCore(mockUseAuctionCore, {
-      openTimeSec: Math.floor(nowMs / 1000) - 8 * 60 * 60,
-    });
-    const { container } = render(
-      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
-    );
-
-    const svg = container.querySelector("svg") as HTMLElement | null;
-    expect(svg).toBeTruthy();
-    if (svg) {
-      Object.defineProperty(svg, "getBoundingClientRect", {
-        configurable: true,
-        value: () => ({
-          left: 0,
-          top: 0,
-          right: 1000,
-          bottom: 600,
-          width: 1000,
-          height: 600,
-          x: 0,
-          y: 0,
-          toJSON: () => ({}),
-        }),
-      });
-    }
-
-    const saleDots = container.querySelectorAll(".dotfield__point--sale");
-    const dotButton = saleDots[saleDots.length - 1] as HTMLElement | null;
     expect(dotButton).toBeTruthy();
     fireEvent.click(dotButton as HTMLElement);
     expect(dotButton?.classList.contains("is-selected")).toBe(true);
     expect(container.querySelector(".dotfield__popover")).toBeTruthy();
 
-    const wheel = createEvent.wheel(svg as HTMLElement, {
-      deltaY: -120,
-      clientX: 500,
-      clientY: 300,
-    });
-    fireEvent(svg as HTMLElement, wheel);
-    await waitFor(() => {
-      expect(container.querySelector(".dotfield")).toHaveAttribute(
-        "data-layout-zoomed",
-        "true"
-      );
-    });
-
-    const selectedDot = container.querySelector(
-      ".dotfield__point--sale.is-selected"
-    ) as HTMLElement | null;
-    expect(selectedDot).toBeTruthy();
-
-    fireEvent.pointerDown(selectedDot as HTMLElement, {
-      clientX: 80,
+    fireEvent.pointerDown(svg as HTMLElement, {
+      clientX: 900,
       clientY: 300,
       pointerId: 1,
       pointerType: "mouse",
       button: 0,
     });
-    fireEvent.pointerMove(container.querySelector(".dotfield__canvas") as HTMLElement, {
-      clientX: 10,
+    fireEvent.pointerMove(svg as HTMLElement, {
+      clientX: 850,
       clientY: 300,
       pointerId: 1,
       pointerType: "mouse",
     });
-    expect(container.querySelector(".dotfield__canvas.is-dragging")).toBeTruthy();
-    fireEvent.pointerUp(container.querySelector(".dotfield__canvas") as HTMLElement, {
-      clientX: 10,
-      clientY: 300,
-      pointerId: 1,
-      pointerType: "mouse",
+
+    await waitFor(() => {
+      expect(container.querySelector(".dotfield__point--sale.is-selected")).toBeNull();
     });
-    expect(container.querySelector(".dotfield__point--sale.is-selected")).toBeTruthy();
-    expect(container.querySelector(".dotfield__popover")).toBeTruthy();
+    expect(container.querySelector(".dotfield__popover")).toBeNull();
   });
 
   test("curve hover shows premium amount", async () => {
@@ -1654,31 +1496,6 @@ describe("AuctionCanvas", () => {
       })
     );
     expect(mockCallContract).not.toHaveBeenCalled();
-  });
-
-  test("devnet reads auction config and sale curves directly from Anvil", async () => {
-    (globalThis as any).__VITE_ENV__ = {
-      VITE_NETWORK: "devnet",
-      VITE_EXPECTED_CHAIN_ID: "0x7a69",
-      VITE_PULSE_AUCTION: TEST_AUCTION_ADDRESS,
-      VITE_PAYMENT_TOKEN: ZERO_ADDRESS,
-      VITE_PAYMENT_TOKEN_SYMBOL: "ETH",
-      VITE_PATH_RPC_URL: "http://127.0.0.1:8545",
-    };
-
-    render(<AuctionCanvas address={TEST_AUCTION_ADDRESS} provider={mockProvider as any} />);
-
-    await waitFor(() => {
-      expect(mockUseAuctionCore).toHaveBeenLastCalledWith(
-        expect.objectContaining({ enabled: true })
-      );
-    });
-    expect(mockUseAuctionBids).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        preferCacheApi: false,
-        allowDirectFallback: true,
-      })
-    );
   });
 
   test("shows no deployment message when no protocol release is loaded", () => {
@@ -2160,25 +1977,16 @@ describe("AuctionCanvas", () => {
     });
   });
 
-  test("keeps mint visible when disconnected and opens the global wallet", async () => {
-    const openWallet = jest.fn();
-    window.addEventListener(INSHELL_OPEN_WALLET_EVENT, openWallet);
+  test("does not duplicate the global wallet control when disconnected", () => {
     mockWalletState = createWalletState({
       isConnected: false,
       address: null,
       account: null,
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    try {
-      const mintButton = await waitFor(() => screen.getByText(/\[\s*mint\s*\]/i));
-      expect(mintButton).not.toBeDisabled();
+    return waitFor(() => {
       expect(screen.queryByRole("button", { name: "connect wallet" })).toBeNull();
-      fireEvent.click(mintButton);
-      expect(openWallet).toHaveBeenCalledTimes(1);
-      expect(mockWalletState.connectAsync).not.toHaveBeenCalled();
-    } finally {
-      window.removeEventListener(INSHELL_OPEN_WALLET_EVENT, openWallet);
-    }
+    });
   });
 
   test("canvas does not initiate a connection when no connectors are present", async () => {
@@ -2193,8 +2001,6 @@ describe("AuctionCanvas", () => {
       connectAsync,
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    const mintButton = await waitFor(() => screen.getByText(/\[\s*mint\s*\]/i));
-    fireEvent.click(mintButton);
     await waitFor(() => {
       expect(screen.queryByRole("button", { name: "connect wallet" })).toBeNull();
       expect(connectAsync).not.toHaveBeenCalled();
@@ -2216,9 +2022,9 @@ describe("AuctionCanvas", () => {
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
 
-    const mintButton = await waitFor(() => screen.getByText(/\[\s*mint\s*\]/i));
-    fireEvent.click(mintButton);
-    expect(screen.queryByRole("button", { name: "connect wallet" })).toBeNull();
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "connect wallet" })).toBeNull();
+    });
     expect(requestedMethods).toEqual([]);
     expect(requestedMethods).not.toContain("eth_sendTransaction");
     expect(requestedMethods).not.toContain("personal_sign");
@@ -2282,9 +2088,7 @@ describe("AuctionCanvas", () => {
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     expect(connectAsync).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByText(/\[\s*mint\s*\]/i));
     expect(screen.queryByRole("menu", { name: "Wallet options" })).toBeNull();
-    expect(connectAsync).not.toHaveBeenCalled();
   });
 
   test("canvas does not open a second pending MetaMask request", async () => {
@@ -2300,13 +2104,13 @@ describe("AuctionCanvas", () => {
       connectAsync,
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    const mintButton = await waitFor(() => screen.getByText(/\[\s*mint\s*\]/i));
-    fireEvent.click(mintButton);
-    expect(screen.queryByRole("button", { name: "connect wallet" })).toBeNull();
-    expect(connectAsync).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "connect wallet" })).toBeNull();
+      expect(connectAsync).not.toHaveBeenCalled();
+    });
   });
 
-  test("does not mutate wallet chain configuration before mint writes", async () => {
+  test("refreshes Sepolia wallet RPC before mint writes", async () => {
     (globalThis as any).__VITE_ENV__ = {
       ...(globalThis as any).__VITE_ENV__,
       VITE_PATH_RPC_URL: "/api/path-rpc",
@@ -2326,7 +2130,15 @@ describe("AuctionCanvas", () => {
 
     await waitFor(() => {
       expect(execute).toHaveBeenCalled();
-      expect(request).not.toHaveBeenCalled();
+      expect(request).toHaveBeenCalledWith({
+        method: "wallet_addEthereumChain",
+        params: [
+          expect.objectContaining({
+            chainId: "0xaa36a7",
+            rpcUrls: ["https://ethereum-sepolia-rpc.publicnode.com"],
+          }),
+        ],
+      });
     });
   });
 
@@ -2573,23 +2385,25 @@ describe("AuctionCanvas", () => {
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     await clickMintForReview();
     const review = screen.getByText("$PATH mint", { exact: true }).closest(".dotfield__mint-review");
-    expectCtaAnchoredOverlay(review);
-    expect(within(review as HTMLElement).getByText("Sepolia · 11155111")).toBeTruthy();
+    expect(review).toBeTruthy();
+    expect(
+      within(review as HTMLElement).getByText(/Review the \$PATH mint/i)
+    ).toBeTruthy();
     expect(within(review as HTMLElement).getByText("contract")).toBeTruthy();
     expect(within(review as HTMLElement).getByRole("link", { name: /0x[a-fA-F0-9]{4}.*↗/ })).toHaveAttribute(
       "href",
       expect.stringContaining("sepolia.etherscan.io/address/"),
     );
+    expect(within(review as HTMLElement).getByText(/function/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getByText("bid(uint256 maxPrice)")).toBeTruthy();
+    expect(within(review as HTMLElement).getByText(/approval/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getByText("none")).toBeTruthy();
     expect(within(review as HTMLElement).getByRole("link", { name: "verify contracts ↗" })).toHaveAttribute(
       "href",
       "/verify",
     );
-    expect(within(review as HTMLElement).getByText(/price now/i)).toBeTruthy();
-    expect(within(review as HTMLElement).getByText(/max spend/i)).toBeTruthy();
-    expect(within(review as HTMLElement).queryByText(/function/i)).toBeNull();
-    expect(within(review as HTMLElement).queryByText(/approval/i)).toBeNull();
-    expect(within(review as HTMLElement).queryByText(/network gas/i)).toBeNull();
-    expect(within(review as HTMLElement).queryByText(/ETH sent/i)).toBeNull();
+    expect(within(review as HTMLElement).getByText(/current ask/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getByText(/max price/i)).toBeTruthy();
     expect(within(review as HTMLElement).queryByText(/decoded call/i)).toBeNull();
     expect(within(review as HTMLElement).queryByText(/raw transaction data/i)).toBeNull();
     expect(within(review as HTMLElement).queryByText(/PulseAuction/i)).toBeNull();
@@ -2628,47 +2442,24 @@ describe("AuctionCanvas", () => {
 
     const review = screen.getByText("$PATH mint", { exact: true }).closest(".dotfield__mint-review");
     expect(review).toBeTruthy();
-    expect(within(review as HTMLElement).getByText(/price now/i)).toBeTruthy();
-    expect(within(review as HTMLElement).getByText(/max spend/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getByText(/current ask/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getAllByText(/ETH sent/i).length).toBeGreaterThan(0);
+    expect(within(review as HTMLElement).getByText(/max price/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getByText(/approval/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getByText(/network gas/i)).toBeTruthy();
     expect(within(review as HTMLElement).getByText("network")).toBeTruthy();
-    expect(within(review as HTMLElement).getByText("Sepolia rehearsal · 11155111")).toBeTruthy();
-    expect(within(review as HTMLElement).queryByText(/ETH sent/i)).toBeNull();
-    expect(within(review as HTMLElement).queryByText(/approval/i)).toBeNull();
-    expect(within(review as HTMLElement).queryByText(/network gas/i)).toBeNull();
-    expect(within(review as HTMLElement).queryByText("chain")).toBeNull();
-    expect(within(review as HTMLElement).queryByText("chain id")).toBeNull();
-    expect(within(review as HTMLElement).queryByText(/currency/i)).toBeNull();
+    expect(within(review as HTMLElement).getByText("Sepolia rehearsal")).toBeTruthy();
+    expect(within(review as HTMLElement).getByText("chain")).toBeTruthy();
+    expect(within(review as HTMLElement).getByText("Sepolia")).toBeTruthy();
+    expect(within(review as HTMLElement).getByText("chain id")).toBeTruthy();
+    expect(within(review as HTMLElement).getByText("11155111")).toBeTruthy();
+    expect(within(review as HTMLElement).getByText(/currency/i)).toBeTruthy();
+    expect(within(review as HTMLElement).getByText("testnet ETH")).toBeTruthy();
     expect(within(review as HTMLElement).queryByText("record")).toBeNull();
     expect(within(review as HTMLElement).queryByText(/Sepolia rehearsal network/i)).toBeNull();
     expect(within(review as HTMLElement).queryByText(/uses testnet ETH/i)).toBeNull();
     expect(screen.queryByRole("link", { name: "Report a Sepolia bug" })).toBeNull();
     expect(execute).not.toHaveBeenCalled();
-  });
-
-  test("local mint review uses Anvil labels and no external explorer", async () => {
-    (globalThis as any).__VITE_ENV__ = {
-      ...(globalThis as any).__VITE_ENV__,
-      VITE_NETWORK: "devnet",
-      VITE_EXPECTED_CHAIN_ID: "0x7a69",
-      VITE_PATH_RPC_URL: "http://127.0.0.1:8545",
-    };
-    mockWalletState = createWalletState({
-      chain: { name: "Anvil Local" },
-      chainId: 31337n,
-      account: { execute: jest.fn().mockResolvedValue({ transaction_hash: "0x1" }) },
-      evm: { chainId: 31337 },
-    });
-
-    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    await clickMintForReview();
-
-    const review = screen.getByText("$PATH mint", { exact: true }).closest(".dotfield__mint-review");
-    expect(review).toBeTruthy();
-    expect(within(review as HTMLElement).getByText("Local Anvil · 31337")).toBeTruthy();
-    expect(
-      within(review as HTMLElement).queryByRole("link", { name: /0x[a-fA-F0-9]{4}.*↗/ })
-    ).toBeNull();
-    expect(within(review as HTMLElement).queryByText(/Sepolia/i)).toBeNull();
   });
 
   test("confirmed mint reopens the current ask tooltip on the next curve", async () => {
@@ -2739,19 +2530,21 @@ describe("AuctionCanvas", () => {
     });
   });
 
-  test("devnet curve estimates never replace the exact contract mint quote", async () => {
+  test("devnet mint review and bid use the local time-mimicked current ask", async () => {
     jest.useFakeTimers();
     const nowMs = Date.UTC(2026, 0, 1, 0, 0, 0);
     jest.setSystemTime(nowMs);
     const nowSec = Math.floor(nowMs / 1000);
     const saleSec = nowSec - 60;
     const oneEth = 10n ** 18n;
-    const contractAsk = 5_349_700_000_000_000_000n;
+    const visualAsk =
+      1.2 + 0.06 / (1 + 60 / (100 / 0.06));
+    const visualAskWei = BigInt(visualAsk.toFixed(18).replace(".", ""));
     (globalThis as any).__VITE_ENV__ = {
       ...(globalThis as any).__VITE_ENV__,
       VITE_NETWORK: "devnet",
       VITE_EXPECTED_CHAIN_ID: "0x7a69",
-      VITE_PATH_RPC_URL: "http://127.0.0.1:8545",
+      VITE_PATH_RPC_URL: "http://127.0.0.1:8546",
       VITE_WALLET_CHAIN_RPC_URL: "",
       VITE_PAYTOKEN: ZERO_ADDRESS,
       VITE_PUBLIC_LAUNCH_MODE: "local",
@@ -2766,7 +2559,7 @@ describe("AuctionCanvas", () => {
     mockCallContract.mockReset();
     mockCallContract.mockImplementation(async (args: any) => {
       if (args?.entrypoint === "get_current_price") {
-        return { price: { low: contractAsk.toString(), high: "0" } } as any;
+        return { price: { low: "5349700000000000000", high: "0" } } as any;
       }
       return { result: [] } as any;
     });
@@ -2806,10 +2599,12 @@ describe("AuctionCanvas", () => {
       const rows = Array.from(
         (review as HTMLElement).querySelectorAll(".dotfield__mint-review-row")
       );
-      const currentAskRow = rows.find((row) => row.textContent?.includes("price now"));
-      const maxBidRow = rows.find((row) => row.textContent?.includes("max spend"));
-      expect(currentAskRow?.textContent).toContain("5.3497 ETH");
-      expect(maxBidRow?.textContent).toContain("5.3497 ETH");
+      const currentAskRow = rows.find((row) => row.textContent?.includes("current ask"));
+      const txValueRow = rows.find((row) => row.textContent?.includes("ETH sent"));
+      const maxBidRow = rows.find((row) => row.textContent?.includes("max price"));
+      expect(currentAskRow?.textContent).toContain(`${visualAsk.toFixed(8)} ETH`);
+      expect(txValueRow?.textContent).toContain(`${visualAsk.toFixed(8)} ETH`);
+      expect(maxBidRow?.textContent).toContain(`${visualAsk.toFixed(8)} ETH`);
 
       await act(async () => {
         fireEvent.click(screen.getByText(/\[\s*confirm\s*\]/i));
@@ -2821,14 +2616,14 @@ describe("AuctionCanvas", () => {
         ([call]) => (call as any)?.entrypoint === "bid"
       )?.[0] as any;
       expect(bidCall).toBeTruthy();
-      expect(bidCall.value).toBe(contractAsk);
-      expect(BigInt(bidCall.calldata[0])).toBe(contractAsk);
+      expect(bidCall.value).toBe(visualAskWei);
+      expect(BigInt(bidCall.calldata[0])).toBe(visualAskWei);
     } finally {
       jest.useRealTimers();
     }
   });
 
-  test("confirm reads the execution-time ask immediately before submission", async () => {
+  test("confirm reruns preflight and bids the refreshed live ask", async () => {
     jest.useFakeTimers();
     const nowMs = Date.UTC(2026, 0, 1, 0, 0, 0);
     jest.setSystemTime(nowMs);
@@ -2838,20 +2633,12 @@ describe("AuctionCanvas", () => {
     const initialAsk = 1n * oneEth;
     const reviewAsk = 2n * oneEth;
     const confirmAsk = 3n * oneEth;
-    const preSubmitAsk = 4n * oneEth;
-    const executionAsk = 5n * oneEth;
-    const askQueue = [
-      initialAsk,
-      reviewAsk,
-      confirmAsk,
-      preSubmitAsk,
-      executionAsk,
-    ];
+    const askQueue = [initialAsk, reviewAsk, confirmAsk];
     (globalThis as any).__VITE_ENV__ = {
       ...(globalThis as any).__VITE_ENV__,
       VITE_NETWORK: "sepolia",
       VITE_EXPECTED_CHAIN_ID: "0xaa36a7",
-      VITE_PATH_RPC_URL: "http://127.0.0.1:8545",
+      VITE_PATH_RPC_URL: "http://127.0.0.1:8546",
       VITE_PAYTOKEN: ZERO_ADDRESS,
       VITE_PAYMENT_TOKEN: ZERO_ADDRESS,
       VITE_PAYMENT_TOKEN_SYMBOL: "ETH",
@@ -2866,7 +2653,7 @@ describe("AuctionCanvas", () => {
     mockCallContract.mockReset();
     mockCallContract.mockImplementation(async (args: any) => {
       if (args?.entrypoint === "get_current_price") {
-        const price = askQueue.shift() ?? executionAsk;
+        const price = askQueue.shift() ?? confirmAsk;
         return { price: { low: price.toString(), high: "0" } } as any;
       }
       return { result: [] } as any;
@@ -2907,7 +2694,7 @@ describe("AuctionCanvas", () => {
       const rows = Array.from(
         (review as HTMLElement).querySelectorAll(".dotfield__mint-review-row")
       );
-      const currentAskRow = rows.find((row) => row.textContent?.includes("price now"));
+      const currentAskRow = rows.find((row) => row.textContent?.includes("current ask"));
       expect(currentAskRow?.textContent).toMatch(/3(?:\.0+)? ETH/);
 
       await act(async () => {
@@ -2920,8 +2707,8 @@ describe("AuctionCanvas", () => {
         ([call]) => (call as any)?.entrypoint === "bid"
       )?.[0] as any;
       expect(bidCall).toBeTruthy();
-      expect(bidCall.value).toBe(executionAsk);
-      expect(BigInt(bidCall.calldata[0])).toBe(executionAsk);
+      expect(bidCall.value).toBe(confirmAsk);
+      expect(BigInt(bidCall.calldata[0])).toBe(confirmAsk);
     } finally {
       jest.useRealTimers();
     }
@@ -3223,7 +3010,15 @@ describe("AuctionCanvas", () => {
       });
       expect(screen.queryByText(/RPC read failed/i)).toBeNull();
       expect(screen.getByText(/\[\s*retry\s*\]/i)).toBeTruthy();
-      expect(request).not.toHaveBeenCalled();
+      expect(request).toHaveBeenCalledWith({
+        method: "wallet_addEthereumChain",
+        params: [
+          expect.objectContaining({
+            chainId: "0xaa36a7",
+            rpcUrls: ["https://ethereum-sepolia-rpc.publicnode.com"],
+          }),
+        ],
+      });
       const report = screen.getByRole("link", { name: "Report a Sepolia bug" });
       const url = new window.URL(report.getAttribute("href") ?? "");
       expect(url.searchParams.get("body")).toContain("state: wallet_rpc_busy");
@@ -4474,12 +4269,12 @@ describe("AuctionCanvas", () => {
     act(() => {
       jest.advanceTimersByTime(3000);
     });
-    const proof = screen.getByText("$PATH minted").closest(".dotfield__mint-proof");
-    expectCtaAnchoredOverlay(proof);
+    const proof = screen.getByText("$path minted").closest(".dotfield__mint-proof");
+    expect(proof).toBeTruthy();
     const proofScope = within(proof as HTMLElement);
-    expect(proofScope.getByText("$PATH minted")).toBeTruthy();
+    expect(proofScope.getByText("$path minted")).toBeTruthy();
     expect(proofScope.getAllByText(/PATH #5/).length).toBeGreaterThan(0);
-    expect(proofScope.getByText("minted via Pulse")).toBeTruthy();
+    expect(proofScope.getByText("minted by Pulse")).toBeTruthy();
     expect(proofScope.getByText("owner")).toBeTruthy();
     expect(proofScope.getAllByText("price").length).toBeGreaterThan(0);
     expect(proofScope.getByText("epoch")).toBeTruthy();
@@ -4525,30 +4320,14 @@ describe("AuctionCanvas", () => {
     const { unmount } = render(
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />
     );
-    const proof = screen.getByText("$PATH minted").closest(".dotfield__mint-proof");
-    expectCtaAnchoredOverlay(proof);
+    const proof = screen.getByText("$path minted").closest(".dotfield__mint-proof");
+    expect(proof).toBeTruthy();
     const proofScope = within(proof as HTMLElement);
     expect(proofScope.getAllByText(/PATH #18/).length).toBeGreaterThan(0);
     expect(proofScope.getByRole("link", { name: "view PATH" })).toHaveAttribute(
       "href",
       "/path/18"
     );
-    act(() => {
-      window.dispatchEvent(
-        new globalThis.CustomEvent(INSHELL_WALLET_VISIBILITY_EVENT, {
-          detail: { open: true },
-        })
-      );
-    });
-    expect(screen.queryByText("$PATH minted")).toBeNull();
-    act(() => {
-      window.dispatchEvent(
-        new globalThis.CustomEvent(INSHELL_WALLET_VISIBILITY_EVENT, {
-          detail: { open: false },
-        })
-      );
-    });
-    expect(screen.getByText("$PATH minted")).toBeTruthy();
     unmount();
 
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
@@ -4556,7 +4335,7 @@ describe("AuctionCanvas", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Dismiss PATH mint proof" })
     );
-    expect(screen.queryByText("$PATH minted")).toBeNull();
+    expect(screen.queryByText("$path minted")).toBeNull();
     expect(window.localStorage.getItem("inshell.pathMintProof.v1")).toBeNull();
   });
 
@@ -4584,9 +4363,6 @@ describe("AuctionCanvas", () => {
       await waitFor(() => {
         expect(screen.getByText(/Need .*; have/i)).toBeTruthy();
       });
-      expect(screen.getByText(/Need .*; have/i).parentElement).toHaveClass(
-        "dotfield__cta-stack",
-      );
       expect(mintButton).toBeDisabled();
       expect(execute).not.toHaveBeenCalled();
     } finally {

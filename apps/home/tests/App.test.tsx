@@ -62,9 +62,6 @@ jest.mock("@/hooks/useAuctionBids", () => ({
 import App from "../src/App";
 import { COLOR_FONT, COLOR_FONT_RAW } from "../src/content/colorFont";
 import { clearPathTokenInventoryCache } from "../src/services/pathTokens";
-import type { ThoughtGalleryItem } from "../src/services/thoughtGallery";
-import { resolveThoughtSpecHref } from "../src/services/thoughtSpecLink";
-import thoughtContractIntegrationLock from "../../thought/contract-integration/current/integration-lock.json";
 import {
   getChainId,
   getCode,
@@ -72,21 +69,23 @@ import {
   hashUtf8String,
 } from "@inshell/ethereum";
 import {
+  THOUGHT_V2_ARTIFACT_SAMPLES,
+  THOUGHT_V2_PINNED_ARTIFACT,
   shouldShowPreviewWatermark,
 } from "@inshell/shared";
 
-const expectHomeThoughtWorks = (tokenIds: number[]) => {
-  for (const tokenId of tokenIds) {
-    expect(screen.getByLabelText(`THOUGHT #${tokenId} minted work`)).toBeInTheDocument();
-    expect(screen.getByText(`THOUGHT #${tokenId}`)).toBeInTheDocument();
-    expect(screen.getByLabelText(`Open THOUGHT #${tokenId}`)).toHaveAttribute(
-      "href",
-      `/thought/${tokenId}`,
-    );
+const expectPinnedThoughtFixtureWorks = () => {
+  expect(THOUGHT_V2_ARTIFACT_SAMPLES.length).toBeGreaterThan(0);
+  for (const [index, sample] of THOUGHT_V2_ARTIFACT_SAMPLES.entries()) {
+    expect(screen.getByLabelText(`${sample.fixtureName} fixture work`)).toBeInTheDocument();
+    expect(screen.getByText(`THOUGHT #${index + 1}`)).toBeInTheDocument();
   }
-  expect(document.querySelectorAll(".ecosystem-home__work-card")).toHaveLength(
-    tokenIds.length,
+  expect(document.querySelectorAll(".ecosystem-home__fixture-work-card")).toHaveLength(
+    THOUGHT_V2_ARTIFACT_SAMPLES.length,
   );
+  expect(
+    screen.getByAltText(`${THOUGHT_V2_ARTIFACT_SAMPLES[0].fixtureName} fixture preview`),
+  ).toHaveAttribute("src", expect.stringContaining(THOUGHT_V2_PINNED_ARTIFACT.artifactId));
 };
 
 const mockedGetChainId = getChainId as jest.MockedFunction<typeof getChainId>;
@@ -134,27 +133,14 @@ function thoughtGalleryItem(overrides: Partial<Record<string, unknown>> = {}) {
     provenanceHash: "0x3333333333333333333333333333333333333333333333333333333333333333",
     thoughtSpecId: "0x4444444444444444444444444444444444444444444444444444444444444444",
     thoughtSpecHash: "0x5555555555555555555555555555555555555555555555555555555555555555",
-    thoughtSpecName: "THOUGHT.v2.md",
-    thoughtSpecRef: "https://inshell.art/docs/thought-v2",
     mintedAt: 1_780_000_000,
     rawText: "THOUGHT WILL AWA",
     prompt: "make a thought",
     mode: "connect",
     provider: "openrouter",
     model: "test-model",
-    declaredAgent: "Codex",
-    declaredModel: "gpt-test",
-    declaredAgentHash: "0x8888888888888888888888888888888888888888888888888888888888888888",
-    declaredModelHash: "0x9999999999999999999999999999999999999999999999999999999999999999",
-    attestedAgent: "Codex",
-    attestedModel: "gpt-test",
     returnedText: "THOUGHT WILL AWA",
     returnedTextHash: "0x6666666666666666666666666666666666666666666666666666666666666666",
-    conversationIdentityHash: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    workHash: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-    pathSerial: "1",
-    currentOwner: "0x170a00000000000000000000000000000000e100",
-    creationAttestationDigest: "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
     provenanceJson: "{}",
     image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E",
     tokenUri: "data:application/json,{}",
@@ -312,17 +298,15 @@ describe("App Component", () => {
       "href",
       "/thought",
     );
-    expect(screen.getByRole("link", { name: "WILL" })).toHaveAttribute(
-      "href",
-      "/will",
-    );
+    expect(screen.getByText("WILL")).toBeInTheDocument();
     expect(screen.getByText("AWA!")).toBeInTheDocument();
     expect(screen.getByText("on Sepolia now")).toBeInTheDocument();
     expect(screen.getByText("launch in 2027")).toBeInTheDocument();
     expect(screen.getByText("launch in 2028")).toBeInTheDocument();
-    expectHomeThoughtWorks([1]);
+    expectPinnedThoughtFixtureWorks();
     expect(screen.queryByText("movement roadmap")).toBeNull();
     expect(screen.queryByText("recent works")).toBeNull();
+    expect(screen.queryByRole("link", { name: /THOUGHT #1/i })).toBeNull();
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
   });
 
@@ -339,32 +323,9 @@ describe("App Component", () => {
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
     expect(screen.getByTestId("auction-canvas")).toBeInTheDocument();
     expect(document.querySelector(".path-page__header")).toBeNull();
-    expect(screen.getByText("all $PATH · 1")).toBeInTheDocument();
+    expect(screen.getByText("1 token")).toBeInTheDocument();
     expect(screen.getByLabelText("$PATH #1 card")).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Inshell surfaces" })).toBeNull();
-  });
-
-  test("renders the WILL surface on the same-origin /will route", () => {
-    window.history.pushState({}, "", "/will");
-    render(<App />);
-
-    expect(document.title).toBe("WILL");
-    expect(document.querySelector('link[rel="icon"]')).toHaveAttribute(
-      "href",
-      "/inshell.svg",
-    );
-    expect(
-      screen.getByRole("heading", { level: 1, name: "WILL" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("many people. many Agents. one will.", { exact: true }),
-    ).toBeInTheDocument();
-    expect(document.querySelector(".will-page__dot-field")).toHaveAttribute(
-      "data-dot-layout",
-      "even",
-    );
-    expect(document.querySelector(".shell--home")).toBeNull();
-    expect(screen.queryByTestId("auction-canvas")).toBeNull();
   });
 
   test("canonicalizes the legacy PATH app route to /path", async () => {
@@ -815,27 +776,6 @@ describe("App Component", () => {
     );
   });
 
-  test("keeps PATH CTA warnings and anchored popovers on one 6px gap contract", () => {
-    const css = readFileSync(
-      nodePath.resolve(cwd(), "src/main.css"),
-      "utf8",
-    );
-
-    expect(css).toMatch(/--path-app-cta-notice-gap:\s*6px;/);
-    expect(css).toMatch(
-      /\.dotfield__mint-notice\s*{[^}]*margin:\s*var\(--path-app-cta-notice-gap\) 0 0;/s,
-    );
-    expect(css).toMatch(
-      /\.dotfield__cta-anchor\s*{[^}]*position:\s*relative;/s,
-    );
-    expect(css).toMatch(
-      /\.dotfield__mint-review\s*{[^}]*top:\s*calc\(100% \+ var\(--path-app-cta-notice-gap\)\);/s,
-    );
-    expect(css).toMatch(
-      /\.dotfield__mint-proof\s*{[^}]*top:\s*calc\(100% \+ var\(--path-app-cta-notice-gap\)\);/s,
-    );
-  });
-
   test("renders the color-font primitive page with onchain authority metadata", async () => {
     window.history.pushState({}, "", "/color-font");
     const colorFontV1Address = "0x627b9A657eac8c3463AD17009a424dFE3FDbd0b1";
@@ -897,9 +837,26 @@ describe("App Component", () => {
     expect(document.title).toBe("$PATH");
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
     expect(document.querySelector(".path-page__header")).toBeNull();
-    expect(screen.queryByText("$PATH is minted by the Pulse auction on the active network.")).toBeNull();
-    expect(screen.queryByRole("link", { name: "View $PATH pricing rule" })).toBeNull();
-    expect(screen.getByText("all $PATH · 1")).toBeInTheDocument();
+    expect(screen.getByText("$PATH is minted by the Sepolia rehearsal Pulse auction.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Each $PATH authorizes movement mints in order: THOUGHT, WILL, then AWA."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("The token image and traits show movement progress."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("A movement minted from $PATH consumes a movement unit and updates the $PATH lifecycle."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("stage shows the current movement phase.")).toBeInTheDocument();
+    expect(screen.getByText("units show used / total movement units.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View $PATH pricing rule" })).toHaveAttribute(
+      "href",
+      "/pulse",
+    );
+    expect(screen.queryByRole("link", { name: "View Pulse pricing" })).toBeNull();
+    expect(screen.getByText("1 token")).toBeInTheDocument();
+    expect(screen.getByText("mode")).toBeInTheDocument();
+    expect(screen.getByText("fixture state gallery")).toBeInTheDocument();
     expect(screen.getByText("$PATH #1")).toBeInTheDocument();
     expect(screen.getAllByText("WILL")).toHaveLength(2);
     expect(screen.getByText("units")).toBeInTheDocument();
@@ -926,8 +883,7 @@ describe("App Component", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/reading from chain: checking latest block/)).toBeInTheDocument();
     await flushAsyncEffects();
-    expect(screen.getByText("token gallery unavailable.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "retry" })).toBeInTheDocument();
+    expect(screen.getByText("token list unavailable")).toBeInTheDocument();
   });
 
   test("overlays confirmed THOUGHT mints onto live PATH unit progress", async () => {
@@ -943,35 +899,13 @@ describe("App Component", () => {
     window.history.pushState({}, "", "/path?fixture=live");
     render(<App />);
 
-    expect(await screen.findByText("all $PATH · 1")).toBeInTheDocument();
+    expect(await screen.findByText("1 token")).toBeInTheDocument();
     const lifecycle = within(screen.getByLabelText("$PATH #1 lifecycle"));
     expect(lifecycle.getAllByText("1 / 1")).toHaveLength(1);
     expect(lifecycle.getAllByText("0 / 1")).toHaveLength(2);
     expect(screen.getByRole("img", { name: "$PATH #1 movement progress" })).toHaveAttribute(
       "src",
       expect.stringContaining("thought-fill"),
-    );
-    expect(lifecycle.queryByRole("link", { name: "THOUGHT #10 ↗" })).toBeNull();
-  });
-
-  test("links authorized movement tokens from a focused live PATH", async () => {
-    mockPathAndThoughtApis({
-      pathItems: [pathTokenApiItem()],
-      thoughtItems: [
-        thoughtGalleryItem({
-          tokenId: 10,
-          pathId: "1",
-        }),
-      ],
-    });
-    window.history.pushState({}, "", "/path/1?fixture=live");
-    render(<App />);
-
-    const lifecycle = within(await screen.findByLabelText("$PATH #1 lifecycle"));
-    expect(lifecycle.getByText("authorized")).toBeInTheDocument();
-    expect(lifecycle.getByRole("link", { name: "THOUGHT #10 ↗" })).toHaveAttribute(
-      "href",
-      "/thought/10",
     );
   });
 
@@ -981,9 +915,9 @@ describe("App Component", () => {
 
     expect(document.title).toBe("$PATH");
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
-    expect(screen.getByText("all $PATH · 8")).toBeInTheDocument();
-    expect(screen.queryByText("fixture state gallery")).toBeNull();
-    expect(screen.queryByText("fixture tokenURI()")).toBeNull();
+    expect(screen.getByText("8 tokens")).toBeInTheDocument();
+    expect(screen.getByText("fixture state gallery")).toBeInTheDocument();
+    expect(screen.getByText("fixture tokenURI()")).toBeInTheDocument();
     for (let tokenId = 1; tokenId <= 8; tokenId += 1) {
       expect(screen.getByText(`$PATH #${tokenId}`)).toBeInTheDocument();
     }
@@ -1012,7 +946,6 @@ describe("App Component", () => {
     const awaProgressImage = screen.getByRole("img", { name: "$PATH #7 movement progress" });
     expect(awaProgressImage).toHaveAttribute("src", expect.stringContaining("awa-fill"));
     expect(awaProgressImage).toHaveAttribute("src", expect.stringContaining("r%3D'15'"));
-    expect(screen.queryByText("authorized")).toBeNull();
     expect(screen.getByTestId("auction-canvas")).toBeInTheDocument();
   });
 
@@ -1024,13 +957,13 @@ describe("App Component", () => {
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
     expect(screen.getByTestId("auction-canvas")).toBeInTheDocument();
     expect(document.querySelector(".path-page__header")).toBeNull();
-    expect(screen.getByRole("link", { name: "all $PATH" })).toHaveAttribute("href", "/path");
-    expect(screen.queryByText("$PATH #1")).toBeNull();
-    expect(screen.queryByText("$PATH #8")).toBeNull();
+    expect(screen.getByText("8 tokens · focused $PATH #4")).toBeInTheDocument();
+    expect(screen.getByText("$PATH #1")).toBeInTheDocument();
+    expect(screen.getByText("$PATH #8")).toBeInTheDocument();
     expect(screen.queryByText("PATH token detail.")).toBeNull();
     expect(screen.queryByText("token detail")).toBeNull();
     expect(screen.queryByText("loaded")).toBeNull();
-    expect(screen.queryByRole("button", { name: "refresh" })).toBeNull();
+    expect(screen.getByRole("button", { name: "refresh" })).toBeInTheDocument();
     const focusedCard = screen.getByLabelText("$PATH #4 focused card");
     expect(focusedCard).toBeInTheDocument();
     expect(focusedCard).toHaveAttribute("id", "path-4");
@@ -1047,11 +980,6 @@ describe("App Component", () => {
     expect(lifecycle.getAllByText("WILL").length).toBeGreaterThanOrEqual(2);
     expect(lifecycle.getByText("3 / 3")).toBeInTheDocument();
     expect(lifecycle.getByText("1 / 10")).toBeInTheDocument();
-    expect(lifecycle.getByText("authorized")).toBeInTheDocument();
-    expect(lifecycle.getByRole("link", { name: "THOUGHT #4 ↗" })).toHaveAttribute(
-      "href",
-      "/thought/4",
-    );
     expect(lifecycle.queryByText("from this $PATH")).toBeNull();
     expect(lifecycle.queryByText("mint")).toBeNull();
     expect(lifecycle.queryByText("pricing")).toBeNull();
@@ -1068,45 +996,6 @@ describe("App Component", () => {
     expect(lifecycle.queryByText("pump")).toBeNull();
     expect(lifecycle.queryByText("drop")).toBeNull();
     expect(screen.queryByRole("link", { name: "Back to all PATH tokens" })).toBeNull();
-  });
-
-  test("renders only a not-found state for a missing focused PATH", () => {
-    window.history.pushState({}, "", "/path/9?fixture=will");
-    render(<App />);
-
-    expect(screen.getByText("$PATH #9 not found.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "view all $PATH" })).toHaveAttribute(
-      "href",
-      "/path",
-    );
-    expect(screen.queryByLabelText("$PATH #1 card")).toBeNull();
-  });
-
-  test("renders PATH documentation on the same-origin docs route", () => {
-    window.history.pushState({}, "", "/docs#docs-path");
-    render(<App />);
-
-    expect(document.title).toBe("docs — Inshell");
-    expect(screen.getByRole("heading", { level: 1, name: "docs" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "$PATH" })).toBeInTheDocument();
-    expect(screen.getByText("$PATH is minted by the Pulse auction on the active network.")).toBeInTheDocument();
-    expect(
-      screen.getByText("Each $PATH authorizes movement mints in order: THOUGHT, WILL, then AWA."),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "view $PATH pricing rule ↗" })).toHaveAttribute(
-      "href",
-      "/pulse",
-    );
-    expect(screen.getByRole("link", { name: "verify $PATH contracts ↗" })).toHaveAttribute(
-      "href",
-      "/verify#verify-contracts",
-    );
-    expect(screen.getByRole("heading", { level: 2, name: "verification" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "open verification ↗" })).toHaveAttribute(
-      "href",
-      "/verify",
-    );
-    expect(screen.queryByTestId("auction-canvas")).toBeNull();
   });
 
   test("focuses PATH cards with in-page anchor navigation", async () => {
@@ -1221,7 +1110,6 @@ describe("App Component", () => {
         tokenId: 1,
         pathId: "4",
         rawText: "one thought",
-        returnedText: "one thought",
       }),
     ]);
     window.history.pushState({}, "", "/thought/1");
@@ -1230,159 +1118,31 @@ describe("App Component", () => {
 
     expect(document.title).toBe("THOUGHT #1");
     expect(screen.getByRole("heading", { level: 1, name: /THOUGHT\s+#\s*1/ })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "[ home ]" })).toHaveAttribute(
-      "href",
-      "/#thought-1",
-    );
+    expect(screen.getByRole("link", { name: "[ gallery ]" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "[ create yours ]" })).toBeInTheDocument();
     expect(screen.getByLabelText("THOUGHT #1 record")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "THOUGHT #1 canvas" })).toBeInTheDocument();
     expect(screen.getByText("one thought")).toBeInTheDocument();
-    const specLink = screen.getByRole("link", { name: "THOUGHT.v2.md ↗" });
-    expect(specLink).toHaveAttribute("href", "https://inshell.art/docs/thought-v2");
+    const specLink = screen.getByRole("link", { name: "THOUGHT.v1.md ↗" });
+    expect(specLink).toHaveAttribute("href", "/api/thought-spec?id=1");
     expect(specLink).not.toHaveAttribute("href", expect.stringContaining("github.com"));
     expect(screen.getByRole("link", { name: "$PATH #4 ↗" })).toHaveAttribute("href", "/path/4");
-    expect(screen.getByText("Inshell THOUGHT App")).toBeInTheDocument();
-    expect(screen.getAllByText("declared-unverified")).toHaveLength(2);
     const txLink = screen.getByRole("link", {
-      name: "0x777777777777...7777777777 ↗",
+      name: /0x77777777777777777777\.\.\.77777777777777 ↗/,
     });
     expect(txLink).toHaveAttribute("id", "thought-detail-view-tx");
-    const provenanceLink = screen.getByRole("link", { name: "open raw provenance ↗" });
+    const provenanceLink = screen.getByRole("link", { name: "2 bytes ↗" });
     expect(provenanceLink).toBeInTheDocument();
     expect(provenanceLink).toHaveAttribute("href", "/api/thought-provenance?id=1");
     expect(provenanceLink).not.toHaveAttribute("download");
-    expect(screen.getByText("provenance · 2 bytes")).toBeInTheDocument();
-    expect(screen.getByText("canonical artwork · ThoughtNFT.svgOf(1)")).toBeInTheDocument();
+    expect(screen.getByText("source: ThoughtNFT.provenanceOf(1)").closest(".thought-detail__viewer"))
+      .toHaveClass("is-hidden");
+    expect(screen.getByRole("link", { name: "Color Font v1 ↗" })).toHaveAttribute(
+      "href",
+      "/color-font",
+    );
     expect(window.location.pathname).toBe("/thought/1");
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
-  });
-
-  test("links the exact local Contract-integrated THOUGHT spec", () => {
-    (globalThis as any).__VITE_ENV__ = {
-      VITE_NETWORK: "devnet",
-    };
-    const selectedSpec =
-      thoughtContractIntegrationLock.runtimeBaseline.selectedSpec;
-    expect(
-      resolveThoughtSpecHref(
-        thoughtGalleryItem({
-          tokenId: 17,
-          thoughtSpecId: selectedSpec.id,
-          thoughtSpecHash: selectedSpec.hash,
-          thoughtSpecRef: selectedSpec.ref,
-        }) as unknown as ThoughtGalleryItem,
-      ),
-    ).toBe("/__test-assets__/THOUGHT.v2.md");
-  });
-
-  test("labels permissionless THOUGHT records as unattested", async () => {
-    mockThoughtGalleryApi([
-      thoughtGalleryItem({
-        tokenId: 2,
-        creationAttestationDigest:
-          "0x0000000000000000000000000000000000000000000000000000000000000000",
-      }),
-    ]);
-    window.history.pushState({}, "", "/thought/2");
-    render(<App />);
-    await flushAsyncEffects();
-
-    expect(screen.getByText("Unattested")).toHaveAttribute(
-      "data-attestation",
-      "unattested",
-    );
-    expect(screen.queryByText("Inshell THOUGHT App")).toBeNull();
-  });
-
-  test("leads THOUGHT detail with creation provenance and canonical metadata traits", async () => {
-    const provenanceJson = JSON.stringify({
-      schema: "inshell.thought.provenance.v2",
-      process: {
-        kind: "agent-run",
-        agentDeclaration: {
-          label: "Codex",
-          source: "connector_observed",
-          status: "declared-unverified",
-        },
-        modelDeclaration: {
-          identifier: "openai/gpt-test",
-          label: "gpt-test",
-          source: "runtime_configured",
-          status: "declared-unverified",
-        },
-        transport: {
-          adapter: "codex",
-          provider: "openai",
-          route: "app",
-          resultEnvelopeKeccak256:
-            "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          runIdHash:
-            "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-        },
-      },
-      protocol: {
-        manifestKeccak256:
-          "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-        protocolReleaseId:
-          "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-      },
-    });
-    const tokenUri = `data:application/json,${encodeURIComponent(
-      JSON.stringify({
-        attributes: [
-          {
-            trait_type: "Creation Attestation",
-            value: "Inshell THOUGHT App",
-          },
-          { trait_type: "Attested Agent", value: "Codex" },
-          { trait_type: "Attested Model", value: "gpt-test" },
-          {
-            trait_type: "Prompt Bytes",
-            value: 12,
-            display_type: "number",
-          },
-        ],
-      }),
-    )}`;
-    mockThoughtGalleryApi([
-      thoughtGalleryItem({ tokenId: 3, provenanceJson, tokenUri }),
-    ]);
-    window.history.pushState({}, "", "/thought/3");
-    render(<App />);
-    await flushAsyncEffects();
-
-    expect(
-      screen.getByRole("heading", { level: 2, name: "creation provenance" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Agent run")).toBeInTheDocument();
-    expect(screen.getByText("codex")).toBeInTheDocument();
-    expect(screen.getByText("connector observed", { exact: false })).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "The App hash-bound this work and provenance in its Creation Attestation.",
-      ),
-    ).toBeInTheDocument();
-
-    const canonicalSection = screen
-      .getByRole("heading", { level: 2, name: "canonical traits" })
-      .closest("section");
-    expect(canonicalSection).not.toBeNull();
-    expect(
-      Array.from(canonicalSection?.querySelectorAll("dt") ?? []).map(
-        (element) => element.textContent,
-      ),
-    ).toEqual([
-      "Creation Attestation",
-      "Attested Agent",
-      "Attested Model",
-      "Prompt Bytes",
-    ]);
-    expect(within(canonicalSection as HTMLElement).getByText("12 · number")).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { level: 2, name: "onchain record" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("verify / raw data")).toBeInTheDocument();
   });
 
   test("renders the canonical THOUGHT gallery route at the Inshell root", async () => {
@@ -1451,16 +1211,8 @@ describe("App Component", () => {
     expect(css).toMatch(/\.thought-detail\s*{[^}]*-moz-osx-font-smoothing:\s*auto;/s);
   });
 
-  test("home body keeps the slogan, movements, and minted works", async () => {
-    mockThoughtGalleryApi([
-      thoughtGalleryItem({
-        tokenId: 3,
-        rawText: "anvil work",
-        provider: "Codex",
-      }),
-    ]);
+  test("home body keeps the slogan, movements, and fixture works", () => {
     render(<App />);
-    await flushAsyncEffects();
 
     expect(
       screen.getByRole("heading", {
@@ -1477,94 +1229,12 @@ describe("App Component", () => {
     expect(screen.getByText("on Sepolia now")).toBeInTheDocument();
     expect(screen.getByText("launch in 2027")).toBeInTheDocument();
     expect(screen.getByText("launch in 2028")).toBeInTheDocument();
-    expectHomeThoughtWorks([3]);
-    expect(screen.getByText("Attested Agent: Codex")).toBeInTheDocument();
-    expect(screen.getByText("Attested Model: gpt-test")).toBeInTheDocument();
-    expect(document.querySelector("[data-fixture-id]")).toBeNull();
+    expectPinnedThoughtFixtureWorks();
     expect(screen.queryByLabelText("Project links")).toBeNull();
     expect(screen.queryByText("movement roadmap")).toBeNull();
     expect(screen.queryByText("recent works")).toBeNull();
     expect(screen.queryByRole("link", { name: "path" })).toBeNull();
     expect(screen.queryByRole("link", { name: "works" })).toBeNull();
-  });
-
-  test("orders home works by mint time descending", async () => {
-    mockThoughtGalleryApi([
-      thoughtGalleryItem({ tokenId: 1, mintedAt: 100 }),
-      thoughtGalleryItem({ tokenId: 4, mintedAt: null }),
-      thoughtGalleryItem({ tokenId: 2, mintedAt: 300 }),
-      thoughtGalleryItem({ tokenId: 5, mintedAt: null }),
-      thoughtGalleryItem({ tokenId: 3, mintedAt: 200 }),
-    ]);
-    render(<App />);
-    await flushAsyncEffects();
-
-    expect(
-      Array.from(document.querySelectorAll(".ecosystem-home__work-card")).map(
-        (card) => card.getAttribute("data-token-id"),
-      ),
-    ).toEqual(["2", "3", "1", "5", "4"]);
-  });
-
-  test("focuses the linked THOUGHT after the home gallery loads", async () => {
-    const originalRequestAnimationFrame = window.requestAnimationFrame;
-    const originalCancelAnimationFrame = window.cancelAnimationFrame;
-    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
-    const scrollIntoView = jest.fn();
-    Object.defineProperty(window, "requestAnimationFrame", {
-      configurable: true,
-      value: (callback: (time: number) => void) => {
-        callback(0);
-        return 1;
-      },
-    });
-    Object.defineProperty(window, "cancelAnimationFrame", {
-      configurable: true,
-      value: jest.fn(),
-    });
-    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
-      configurable: true,
-      value: scrollIntoView,
-    });
-
-    try {
-      mockThoughtGalleryApi([
-        thoughtGalleryItem({ tokenId: 1 }),
-        thoughtGalleryItem({ tokenId: 2 }),
-      ]);
-      window.history.pushState({}, "", "/#thought-2");
-      render(<App />);
-      await flushAsyncEffects();
-
-      const card = screen.getByLabelText("THOUGHT #2 minted work");
-      const workLink = screen.getByLabelText("Open THOUGHT #2");
-      expect(card).toHaveAttribute("id", "thought-2");
-      expect(card).toHaveClass("ecosystem-home__work-card--focused");
-      expect(document.activeElement).toBe(workLink);
-      expect(scrollIntoView).toHaveBeenCalledWith({
-        block: "center",
-        behavior: "auto",
-      });
-      fireEvent.animationEnd(workLink);
-      expect(card).not.toHaveClass("ecosystem-home__work-card--focused");
-    } finally {
-      Object.defineProperty(window, "requestAnimationFrame", {
-        configurable: true,
-        value: originalRequestAnimationFrame,
-      });
-      Object.defineProperty(window, "cancelAnimationFrame", {
-        configurable: true,
-        value: originalCancelAnimationFrame,
-      });
-      if (originalScrollIntoView) {
-        Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
-          configurable: true,
-          value: originalScrollIntoView,
-        });
-      } else {
-        delete HTMLElement.prototype.scrollIntoView;
-      }
-    }
   });
 
   test("home THOUGHT movement routes to the same-origin creation route", () => {

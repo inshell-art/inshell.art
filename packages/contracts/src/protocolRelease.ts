@@ -86,17 +86,6 @@ export function getProtocolReleaseDeployBlock(
   id: string,
   network = currentNetwork()
 ): number | undefined {
-  if (network === currentNetwork()) {
-    const envKey = `VITE_${id.replace(/^VITE_/, "").toUpperCase()}_DEPLOY_BLOCK`;
-    const envValue = getEnv(envKey);
-    const parsedEnvValue =
-      typeof envValue === "string" && /^\d+$/.test(envValue.trim())
-        ? Number.parseInt(envValue.trim(), 10)
-        : envValue;
-    if (typeof parsedEnvValue === "number" && Number.isSafeInteger(parsedEnvValue)) {
-      return Math.max(0, Math.trunc(parsedEnvValue));
-    }
-  }
   const release = getProtocolRelease(network);
   const value = release?.deploy_blocks?.[id.toLowerCase()];
   return typeof value === "number" && Number.isFinite(value)

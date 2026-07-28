@@ -12,6 +12,7 @@ import {
   AbiCoder,
   BrowserProvider,
   Contract,
+  formatEther,
   getBytes,
   id,
   keccak256,
@@ -31,17 +32,14 @@ import {
 import {
   PUBLIC_NETWORK_CONFIG,
   PUBLIC_SEPOLIA_WALLET_RPC_URL,
-  PULSE_AUCTION_LIVE_PRICE_REFRESH_MS,
   PREVIEW_WATERMARK_LABEL,
   SURFACE_TERMINOLOGY,
   buildReportBugLink,
   buildContractStatusSections,
   findContractStatusRow,
-  formatPulseAuctionPrice,
   installInshellAnonymousAnalytics,
   isPathMintHandoffId,
   maybeInstallCloudflareWebAnalytics,
-  pulseAuctionPriceAtTimestamp,
   readPathMintReturnRecord,
   removePathMintReturnRecord,
   writePathMintReturnRecord,
@@ -63,8 +61,8 @@ import {
 } from "@inshell/thought-agent-protocol";
 import colorFontRaw from "../colorFontJSON/colorfont.byToolv2.json?raw";
 import colorFontText from "../spec/COLOR_FONT.v1.txt?raw";
-import latestThoughtCreativeSpec from "../spec/THOUGHT.v2.md?raw";
-import thoughtCreativeSpecLock from "../spec/THOUGHT.v2.lock.json";
+import localThoughtInstructions from "../spec/THOUGHT.v2.local.md?raw";
+import addresses from "../evm/addresses.anvil.json";
 import {
   COLOR_FONT_DOC_FORMAT,
   buildColorFontPlainText,
@@ -132,14 +130,12 @@ import {
 } from "./thought-mint-ui";
 import {
   THOUGHT_CONSOLE_HISTORY_STORAGE_KEY,
+  appendThoughtConsoleContextBoundary,
   appendThoughtConsoleEvent,
   buildThoughtConsoleLines,
   createThoughtConsoleHistory,
-  newestFirstThoughtConsoleEntries,
-  pendingMintWalletChangeTitle,
   parseThoughtConsoleHistory,
   serializeThoughtConsoleHistory,
-  thoughtConsoleVisualRole,
   type ThoughtConsoleContext,
   type ThoughtConsoleEntry,
   type ThoughtConsoleTone,
@@ -150,11 +146,9 @@ import {
 } from "./thought-mint-presentation";
 import {
   THOUGHT_PATH_ACQUISITION_STORAGE_KEY,
-  formatThoughtPathAcquisitionFailure,
   parsePendingThoughtPathAcquisition,
   pendingThoughtPathAcquisitionMatches,
   serializePendingThoughtPathAcquisition,
-  thoughtPathAcquisitionGasLimit,
   withThoughtPathAcquisitionLock,
   type PendingThoughtPathAcquisition,
   type ThoughtPathAcquisitionState,
@@ -187,11 +181,8 @@ import { canonicalThoughtTitle, thoughtProtocolText } from "./thought-display-te
 import {
   THOUGHT_V2_LOCAL_MAX_PROVENANCE_BYTES,
   THOUGHT_V2_LOCAL_NFT_ABI,
-  THOUGHT_V2_LOCAL_RENDERER_ABI,
-  assertThoughtV2Line,
   buildThoughtV2LocalProvenance,
-  measureThoughtV2TerminalLine,
-  thoughtV2ConversationIdentityHashForLines,
+  thoughtV2AgentLineHash,
   type ThoughtV2LocalProcess,
 } from "./thought-v2-local-mint";
 import {
@@ -201,9 +192,9 @@ import {
   type ThoughtV2LocalAgentEvidence,
 } from "./thought-v2-local-agent";
 import {
-  EMPTY_THOUGHT_CREATION_ATTESTATION,
-  type ThoughtV2MintInput,
-} from "./thought-v2-app-mint";
+  buildThoughtAgentFixtureLine,
+  shouldUseThoughtAgentFixture,
+} from "./thought-agent-fixture";
 import {
   THOUGHT_V2_LOCAL_RELEASE,
   isThoughtV2LocalMintRuntime,
@@ -214,12 +205,6 @@ import {
   verifyThoughtV2LocalDeployment,
 } from "./thought-v2-local-deployment";
 import {
-  appendThoughtPromptHistory,
-  navigateThoughtPromptHistory,
-  parseThoughtPromptHistory,
-  type ThoughtPromptHistoryCursor,
-} from "./thought-prompt-history";
-import {
   createThoughtPollWakeScheduler,
   hasThoughtPollDeadlineExpired,
 } from "./thought-poll-wake";
@@ -228,12 +213,6 @@ import {
   measureThoughtV2Line,
   type ThoughtV2LineKind,
 } from "./thought-v2-renderer";
-import {
-  parseThoughtV2EmptyFrameStyle,
-  thoughtV2EmptyFrameCanvasRect,
-  type ThoughtV2EmptyFrameStyle,
-} from "./thought-v2-empty-frame";
-import { normalizeThoughtV2StoredVisual } from "./thought-v2-stored-visual";
 import {
   describeThoughtTextPolicyIssue,
   type ThoughtTextPolicyIssue,
@@ -246,8 +225,6 @@ import {
 
 declare global {
   var __INSHELL_VITE_ENV__: Record<string, unknown> | undefined;
-  var __INSHELL_THOUGHT_CONTRACT_RUNTIME__: Record<string, unknown> | null | undefined;
-  var __INSHELL_THOUGHT_EVM_ADDRESSES__: EvmAddresses | null | undefined;
   var __VITE_ENV__: Record<string, unknown> | undefined;
 }
 
@@ -389,9 +366,6 @@ type EvmAddresses = {
   thoughtRenderer?: {
     address?: string;
   };
-  creationAttestationVerifier?: {
-    address?: string;
-  };
   thoughtNft?: {
     address?: string;
   };
@@ -400,10 +374,6 @@ type EvmAddresses = {
     manifestHash?: string;
     rendererProfileHash?: string;
     workProfileHash?: string;
-    rendererIdHash?: string;
-    workProfileIdHash?: string;
-    contextProfileIdHash?: string;
-    metadataProfileIdHash?: string;
     status?: string;
   };
   thoughtSpec?: {
@@ -438,7 +408,6 @@ type MintFlowErrorKind =
   | "none"
   | "thought"
   | "spec"
-  | "local_deployment"
   | "path_invalid"
   | "path_not_found"
   | "path_consumed"
@@ -464,9 +433,6 @@ type MintFlowState =
   | "minting"
   | "minted"
   | "error";
-
-const isTerminalMintFlowState = (state: MintFlowState) =>
-  state === "text_taken" || state === "minted";
 
 type ThoughtRunState = "idle" | "running" | "candidate_ready" | "output_ready" | "run_failed";
 
@@ -551,7 +517,6 @@ type MintSheetAction =
   | "confirm_path_mint"
   | "view_path_tx"
   | "recover_submission"
-  | "confirm_wallet_request_closed"
   | "reset"
   | "switch_network";
 
@@ -608,7 +573,6 @@ type MintFlowData = {
   thoughtSpecId: string;
   thoughtSpecHash: string;
   provenanceJson: string;
-  creationAttestation: ThoughtV2MintInput["creationAttestation"];
   existingTokenId: number | null;
   pathIdInput: string;
   pathId: bigint | null;
@@ -686,7 +650,7 @@ type ThoughtPreviewProviderTrace = {
   chainId?: number;
   endpointLabel?: string;
   contractAddress?: string;
-  method: "frontendRender" | "previewWork" | "render";
+  method: "frontendRender" | "previewWork" | "previewSvg";
   fetchedAt: string;
 };
 
@@ -925,7 +889,6 @@ type ActiveThoughtSpec = {
 const CANVAS_WIDTH = 960;
 const MIN_CANVAS_SIZE = 180;
 const STACKED_MIN_CLI_HEIGHT = 160;
-const STACKED_CANVAS_MAX_VIEWPORT_RATIO = 0.62;
 const IMAGE_SIZE = 29;
 const IMAGE_GAP = 6;
 const CANVAS_PADDING = 28;
@@ -959,7 +922,7 @@ const CODEX_MODE = "codex";
 const CODEX_MODEL_SOURCE_ID = "codex";
 const CODEX_MODEL = "codex";
 const CODEX_PROVIDER = "codex";
-const CODEX_DESCRIPTION = "local Bridge route. opens Codex for one THOUGHT run.";
+const CODEX_DESCRIPTION = "local Bridge route. opens Codex for one THOUGHT round.";
 const getStorageOrNull = (storage: () => Storage | null | undefined) => {
   try {
     const resolved = storage();
@@ -1255,7 +1218,6 @@ const THOUGHT_DOCK_RETURN_RECEIVED_MS = 420;
 const PREFLIGHT_REQUEST_TIMEOUT_MS = 15000;
 const PATH_AUTHORIZATION_REQUEST_TIMEOUT_MS = 15000;
 const WALLET_TX_SUBMIT_TIMEOUT_MS = 60000;
-const WALLET_RETURN_WITHOUT_HASH_GRACE_MS = 8000;
 const MINT_RECEIPT_TIMEOUT_MS = 120000;
 const MINT_RECEIPT_WAIT_TIMEOUT_MS = 15000;
 const MINT_RECEIPT_POLL_MS = 1000;
@@ -1339,8 +1301,8 @@ const buildSepoliaEvmAddresses = (): EvmAddresses | null => {
 };
 
 const EVM_ADDRESSES = FRONTEND_NETWORK === "sepolia"
-  ? buildSepoliaEvmAddresses() ?? ({} as EvmAddresses)
-  : globalThis.__INSHELL_THOUGHT_EVM_ADDRESSES__ ?? ({} as EvmAddresses);
+  ? buildSepoliaEvmAddresses() ?? (addresses as EvmAddresses)
+  : (addresses as EvmAddresses);
 const THOUGHT_CHAIN_ID = EVM_ADDRESSES.chainId ?? 31337;
 const THOUGHT_CHAIN_ID_HEX = `0x${THOUGHT_CHAIN_ID.toString(16)}`;
 const ZERO_BYTES32 = `0x${"0".repeat(64)}`;
@@ -1350,6 +1312,11 @@ const RECOMMENDED_THOUGHT_SPEC_ID =
   EVM_ADDRESSES.thoughtSpecs?.[0]?.specId?.trim() ||
   "";
 const LOCAL_BROWSER_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+const THOUGHT_AGENT_FIXTURE_MODE = shouldUseThoughtAgentFixture({
+  dev: IS_DEV_MODE,
+  hostname: window.location.hostname,
+  search: window.location.search,
+});
 const DEPLOY_ENV =
   typeof import.meta.env.VITE_DEPLOY_ENV === "string"
     ? import.meta.env.VITE_DEPLOY_ENV.trim().toLowerCase()
@@ -1573,21 +1540,8 @@ const appendThoughtAgentDevBridgeCommand = (launchUri: string) => {
 const resolveThoughtRpcUrl = () => {
   const envRpcUrl =
     typeof import.meta.env.VITE_THOUGHT_RPC_URL === "string" ? import.meta.env.VITE_THOUGHT_RPC_URL.trim() : "";
-  const currentContractRuntimeRpcUrl =
-    typeof globalThis.__INSHELL_THOUGHT_CONTRACT_RUNTIME__?.rpcUrl === "string"
-      ? globalThis.__INSHELL_THOUGHT_CONTRACT_RUNTIME__.rpcUrl.trim()
-      : "";
-  const configuredRpcUrl =
-    currentContractRuntimeRpcUrl ||
-    envRpcUrl ||
-    EVM_ADDRESSES.rpcUrl?.trim() ||
-    "";
-  if (
-    !configuredRpcUrl ||
-    (!currentContractRuntimeRpcUrl && envRpcUrl) ||
-    THOUGHT_CHAIN_ID !== 31337 ||
-    !LOCAL_BROWSER_HOSTS.has(window.location.hostname)
-  ) {
+  const configuredRpcUrl = envRpcUrl || EVM_ADDRESSES.rpcUrl?.trim() || "";
+  if (!configuredRpcUrl || envRpcUrl || THOUGHT_CHAIN_ID !== 31337 || !LOCAL_BROWSER_HOSTS.has(window.location.hostname)) {
     return resolveBrowserRpcUrl(configuredRpcUrl);
   }
 
@@ -1641,17 +1595,11 @@ const PATH_PULSE_ADAPTER_ADDRESS =
   (typeof import.meta.env.VITE_THOUGHT_PATH_ADAPTER_ADDRESS === "string"
     ? import.meta.env.VITE_THOUGHT_PATH_ADAPTER_ADDRESS.trim()
     : "") ||
-  (typeof import.meta.env.VITE_PATH_PULSE_ADAPTER === "string"
-    ? import.meta.env.VITE_PATH_PULSE_ADAPTER.trim()
-    : "") ||
   EVM_ADDRESSES.pathPulseAdapter?.address?.trim() ||
   "";
 const PATH_AUCTION_ADDRESS =
   (typeof import.meta.env.VITE_THOUGHT_PATH_AUCTION_ADDRESS === "string"
     ? import.meta.env.VITE_THOUGHT_PATH_AUCTION_ADDRESS.trim()
-    : "") ||
-  (typeof import.meta.env.VITE_PULSE_AUCTION === "string"
-    ? import.meta.env.VITE_PULSE_AUCTION.trim()
     : "") ||
   EVM_ADDRESSES.pulseAuction?.address?.trim() ||
   "";
@@ -1737,8 +1685,6 @@ const PATH_TOKENS_API_URL = readConfiguredUrl("VITE_PATH_TOKENS_API_URL") || "/a
 const THOUGHT_SPEC_REGISTRY_ADDRESS = EVM_ADDRESSES.thoughtSpecRegistry?.address?.trim() ?? "";
 const THOUGHT_PROTOCOL_REGISTRY_ADDRESS = EVM_ADDRESSES.protocolRegistry?.address?.trim() ?? "";
 const THOUGHT_RENDERER_ADDRESS = EVM_ADDRESSES.thoughtRenderer?.address?.trim() ?? "";
-const THOUGHT_CREATION_ATTESTATION_VERIFIER_ADDRESS =
-  EVM_ADDRESSES.creationAttestationVerifier?.address?.trim() ?? "";
 const THOUGHT_NFT_ADDRESS = EVM_ADDRESSES.thoughtNft?.address?.trim() ?? "";
 const THOUGHT_SPEC_BYTE_LENGTH = EVM_ADDRESSES.thoughtSpecs?.[0]?.byteLength ?? 0;
 const IS_LOCAL_THOUGHT_V2 = isThoughtV2LocalMintRuntime({
@@ -1753,46 +1699,26 @@ const IS_LOCAL_THOUGHT_V2 = isThoughtV2LocalMintRuntime({
     thoughtSpecRegistry: THOUGHT_SPEC_REGISTRY_ADDRESS,
     thoughtRenderer: THOUGHT_RENDERER_ADDRESS,
     protocolRegistry: THOUGHT_PROTOCOL_REGISTRY_ADDRESS,
-    creationAttestationVerifier: THOUGHT_CREATION_ATTESTATION_VERIFIER_ADDRESS,
   },
   protocolReleaseId: EVM_ADDRESSES.protocolRelease?.id?.trim() ?? "",
   manifestHash: EVM_ADDRESSES.protocolRelease?.manifestHash?.trim() ?? "",
-  rendererProfileHash:
-    EVM_ADDRESSES.protocolRelease?.rendererIdHash?.trim() ??
-    EVM_ADDRESSES.protocolRelease?.rendererProfileHash?.trim() ??
-    "",
-  workProfileHash:
-    EVM_ADDRESSES.protocolRelease?.workProfileIdHash?.trim() ??
-    EVM_ADDRESSES.protocolRelease?.workProfileHash?.trim() ??
-    "",
-  contextProfileHash: EVM_ADDRESSES.protocolRelease?.contextProfileIdHash?.trim() ?? "",
-  metadataProfileHash: EVM_ADDRESSES.protocolRelease?.metadataProfileIdHash?.trim() ?? "",
+  rendererProfileHash: EVM_ADDRESSES.protocolRelease?.rendererProfileHash?.trim() ?? "",
+  workProfileHash: EVM_ADDRESSES.protocolRelease?.workProfileHash?.trim() ?? "",
   specId: RECOMMENDED_THOUGHT_SPEC_ID,
   specHash: EVM_ADDRESSES.recommendedThoughtSpecHash?.trim() ?? "",
   specByteLength: THOUGHT_SPEC_BYTE_LENGTH,
 });
 const protocolLineInput = (value: string) => IS_LOCAL_THOUGHT_V2 ? value : value.trim();
-const assertActiveThoughtLine = (value: string, kind: "prompt" | "agent") =>
-  IS_LOCAL_THOUGHT_V2 ? assertThoughtV2Line(value, kind) : assertThoughtLine(value, kind);
-const USE_LATEST_LOCAL_GENERATION_SPEC = IS_DEV_MODE && IS_LOCAL_THOUGHT_V2;
-const LATEST_LOCAL_GENERATION_SPEC = Object.freeze({
-  id: thoughtCreativeSpecLock.artifact.thoughtSpecId,
-  ref: `app://thought/creative-spec/${thoughtCreativeSpecLock.artifactId}/${thoughtCreativeSpecLock.artifact.name}`,
-  hash: thoughtCreativeSpecLock.artifact.thoughtSpecHash,
-  text: latestThoughtCreativeSpec,
-});
 const THOUGHT_AGENT_REGISTERED_SPEC_ID = IS_LOCAL_THOUGHT_V2
-  ? USE_LATEST_LOCAL_GENERATION_SPEC
-    ? LATEST_LOCAL_GENERATION_SPEC.id
-    : THOUGHT_V2_LOCAL_RELEASE.spec.evmSpecId
+  ? THOUGHT_V2_LOCAL_RELEASE.spec.evmSpecId
   : THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId;
 const THOUGHT_V2_MINT_ENABLED =
   THOUGHT_V2_PROTOCOL_RELEASE.deployment.v2MintEnabled || IS_LOCAL_THOUGHT_V2;
 const thoughtInstructions = IS_LOCAL_THOUGHT_V2
-  ? latestThoughtCreativeSpec
+  ? localThoughtInstructions
   : THOUGHT_V2_PROTOCOL_RELEASE.spec.text;
 const thoughtInstructionsUrl = IS_LOCAL_THOUGHT_V2
-  ? `data:text/markdown;charset=utf-8,${encodeURIComponent(latestThoughtCreativeSpec)}`
+  ? `data:text/markdown;charset=utf-8,${encodeURIComponent(localThoughtInstructions)}`
   : THOUGHT_V2_PROTOCOL_RELEASE.publicSpecPath;
 const MAX_PROVENANCE_BYTES = IS_LOCAL_THOUGHT_V2
   ? THOUGHT_V2_LOCAL_MAX_PROVENANCE_BYTES
@@ -1984,9 +1910,7 @@ const PATH_PULSE_ADAPTER_ABI = [
 const PATH_AUCTION_ABI = [
   "function bid(uint256 maxPrice) payable",
   "function curveActive() view returns (bool)",
-  "function getConfig() view returns (uint64 openTime, uint256 genesisPrice, uint256 genesisFloor, uint256 k, uint256 pts)",
   "function getCurrentPrice() view returns (uint256)",
-  "function getState() view returns (uint64 epochIndex, uint64 startTime, uint64 anchorTime, uint256 floorPrice, bool active)",
   "function mintAdapter() view returns (address)",
   "function paymentToken() view returns (address)",
 ] as const;
@@ -2048,7 +1972,7 @@ const frontpageShell = document.querySelector(".frontpage-shell") as HTMLElement
 const thoughtShellRoot = document.getElementById("thought-shell-root") as HTMLElement | null;
 const frontpageStage = document.querySelector(".frontpage-stage") as HTMLElement | null;
 const frontpageMain = document.querySelector(".frontpage-main") as HTMLElement | null;
-const frontpageHeader = document.querySelector(".thought-create__header") as HTMLElement | null;
+const frontpageTitle = document.getElementById("frontpage-title") as HTMLElement | null;
 const modeConnectButton = document.getElementById("mode-connect") as HTMLButtonElement | null;
 const modeDirectButton = document.getElementById("mode-direct") as HTMLButtonElement | null;
 const modeLocalButton = document.getElementById("mode-local") as HTMLButtonElement | null;
@@ -2423,17 +2347,6 @@ let panelWarningMessage = "";
 let panelWarningLevel: PanelWarningLevel = "error";
 let lastRunErrorCliLines: string[] = [];
 let currentOutputText = "";
-const injectedThoughtRenderer = globalThis.__INSHELL_THOUGHT_CONTRACT_RUNTIME__?.renderer;
-const injectedThoughtRendererImplementationId =
-  typeof injectedThoughtRenderer === "object" &&
-  injectedThoughtRenderer !== null &&
-  "implementationId" in injectedThoughtRenderer &&
-  typeof injectedThoughtRenderer.implementationId === "string"
-    ? injectedThoughtRenderer.implementationId
-    : "";
-let contractEmptyFrameStyle: ThoughtV2EmptyFrameStyle | null =
-  parseThoughtV2EmptyFrameStyle(injectedThoughtRendererImplementationId);
-let currentWorkImage = "";
 let currentWorkSvg = "";
 let runInFlight = false;
 let runState: ThoughtRunState = "idle";
@@ -2519,7 +2432,6 @@ type DockRailAction = {
   id: string;
   label: string;
   ariaLabel: string;
-  handlerKey?: string;
   disabled?: boolean;
   expanded?: boolean;
   onClick: () => void;
@@ -2545,8 +2457,6 @@ type StoredThoughtDockRun = {
 };
 
 const THOUGHT_DOCK_PENDING_RUN_KEY = "thought:dock:pending-agent-run:v1";
-const THOUGHT_DOCK_PROMPT_HISTORY_KEY = "thought:dock:prompt-history:v1";
-const THOUGHT_DOCK_PROMPT_HISTORY_LIMIT = 50;
 const THOUGHT_DOCK_AGENT_ADAPTERS: ThoughtDockAgentAdapter[] = [
   {
     id: "codex",
@@ -2568,14 +2478,6 @@ let agentDemoPollGeneration = 0;
 let thoughtDockState: ThoughtDockState = { kind: "empty" };
 let thoughtDockRun: AgentDemoRun | null = null;
 let thoughtDockAdapterId: ThoughtDockAgentAdapterId = "codex";
-let thoughtDockPromptHistory = parseThoughtPromptHistory(
-  readSharedBrowserItem(THOUGHT_DOCK_PROMPT_HISTORY_KEY),
-  THOUGHT_DOCK_PROMPT_HISTORY_LIMIT,
-);
-let thoughtDockPromptHistoryCursor: ThoughtPromptHistoryCursor = {
-  index: null,
-  draft: "",
-};
 let thoughtDockPollGeneration = 0;
 let workLibraryRevealed = false;
 const thoughtDockPollWakeScheduler = createThoughtPollWakeScheduler();
@@ -2586,9 +2488,6 @@ let thoughtDockRailSignature = "";
 let thoughtConsoleHistory = parseThoughtConsoleHistory(
   getSessionStorage()?.getItem(THOUGHT_CONSOLE_HISTORY_STORAGE_KEY) ?? "",
 );
-const restoredDanglingMintRequest = thoughtConsoleHistory.entries.at(-1)?.kind === "transaction_requested"
-  ? thoughtConsoleHistory.entries.at(-1)
-  : undefined;
 const nextMintAttemptId = (prefix = "mint") =>
   createMintAttemptId(prefix, window.crypto);
 let mintAttemptId = nextMintAttemptId("idle");
@@ -2730,11 +2629,6 @@ const buildAgentDemoSealedTask = (
             protocolReleaseId: THOUGHT_V2_LOCAL_RELEASE.protocol.protocolReleaseId,
             manifestKeccak256: THOUGHT_V2_LOCAL_RELEASE.protocol.manifestKeccak256,
           },
-          resultContract: {
-            workProfile: THOUGHT_V2_LOCAL_RELEASE.protocol.workProfile.id,
-            declarationLabelField: "label" as const,
-            lineValidation: "terminal-english-64" as const,
-          },
         }
       : {}),
   });
@@ -2757,7 +2651,7 @@ const buildClaudeCodeAgentUrl = (sealedTask: string) => {
 
 const buildAgentDemoRun = async (): Promise<AgentDemoRun> => {
   const prompt = agentDemoPrompt.value;
-  assertActiveThoughtLine(prompt, "prompt");
+  assertThoughtLine(prompt, "prompt");
   const createPayload = await fetchThoughtAgentJson<ThoughtAgentRunCreateResponse>(
     thoughtAgentApiUrl("runs"),
     {
@@ -2883,7 +2777,7 @@ const parseAgentDemoReturn = (rawValue: string) => {
     throw new Error("Agent result schema invalid.");
   }
   const candidate = parsed.agentLine;
-  assertActiveThoughtLine(candidate, "agent");
+  assertThoughtLine(candidate, "agent");
   const returnedRunId = typeof parsed.runId === "string" ? parsed.runId : null;
   if (agentDemoRun && returnedRunId && returnedRunId !== agentDemoRun.runId) {
     throw new Error("run id mismatch.");
@@ -3015,7 +2909,7 @@ const submitAgentDemoProtocolResult = async (candidate: string) => {
     }),
   });
 
-  assertActiveThoughtLine(candidate, "agent");
+  assertThoughtLine(candidate, "agent");
   const raw = JSON.stringify(agentDemoResultJson(run, candidate));
   const completedAt = new Date().toISOString();
   await fetchThoughtAgentJson<Record<string, unknown>>(run.resultUrl, {
@@ -3248,50 +3142,12 @@ const clearStoredThoughtDockRun = (runId?: string) => {
 };
 
 const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
-  if (state.kind === "agent_select") {
-    emitThoughtConsoleEvent({
-      kind: "work_agent_selection_ready",
-      title: "choose an Agent",
-      detail: "Choose an Agent available on this machine to receive the prompt.",
-      tone: "neutral",
-      eventId: `work-agent-selection:${hashText(state.prompt)}`,
-    });
-    return;
-  }
-  if (state.kind === "claim_authorization") {
-    if (state.authorization.state === "authorized") {
-      emitThoughtConsoleEvent({
-        kind: "work_claim_authorized",
-        title: "Codex authorized",
-        tone: "success",
-        eventId: `work-claim-authorized:${state.run.runId}`,
-      });
-      return;
-    }
-    if (!state.approving) {
-      emitThoughtConsoleEvent({
-        kind: "work_claim_authorization_needed",
-        title: "allow Codex",
-        detail: `Match code ${state.authorization.verificationCode || "------"} with Codex, then select “allow codex” above.`,
-        tone: "neutral",
-        eventId: `work-claim-authorization:${state.run.runId}:${state.authorization.claimRequestId ?? "pending"}`,
-      });
-    }
-    if (state.approving) {
-      emitThoughtConsoleEvent({
-        kind: "work_claim_authorizing",
-        title: "authorizing Codex",
-        tone: "neutral",
-        eventId: `work-claim-authorizing:${state.run.runId}:${state.authorization.claimRequestId ?? "pending"}`,
-      });
-    }
-    // The expiring verification code remains a live control in the panel.
-    return;
-  }
   if (
+    state.kind === "agent_select" ||
     state.kind === "creating_run" ||
     state.kind === "agent_task_ready" ||
     state.kind === "opening_agent" ||
+    state.kind === "claim_authorization" ||
     state.kind === "waiting_for_agent" ||
     state.kind === "agent_returned" ||
     state.kind === "previewing"
@@ -3300,6 +3156,9 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
     emitThoughtConsoleEvent({
       kind: `work_${state.kind}`,
       title: rail.status.replace(/\.\.\.$/, ""),
+      ...(state.kind === "waiting_for_agent" && state.message
+        ? { detail: state.message }
+        : {}),
       tone: rail.tone === "success" || rail.tone === "warning" || rail.tone === "error"
         ? rail.tone
         : "neutral",
@@ -3310,7 +3169,7 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
     emitThoughtConsoleEvent({
       kind: "work_preview_unavailable",
       title: "preview unavailable",
-      detail: "The App could not prepare the artwork preview.",
+      detail: state.reason,
       tone: "warning",
       eventId: `work-preview-unavailable:${hashText(state.rawCandidate)}:${state.reason}`,
     });
@@ -3321,7 +3180,7 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
     emitThoughtConsoleEvent({
       kind: "work_preview_rejected",
       title: state.issue?.title ?? (textTooLong ? "text too long" : "work rejected"),
-      detail: state.issue?.detail ?? "The App could not accept the Agent response.",
+      detail: state.issue?.detail ?? state.reason,
       ...(state.issue?.nextStep ? { nextStep: state.issue.nextStep } : {}),
       tone: state.issue || textTooLong ? "warning" : "error",
       eventId: `work-preview-rejected:${hashText(state.rawCandidate)}:${state.reason}`,
@@ -3331,8 +3190,8 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
   if (state.kind === "run_access_needed") {
     emitThoughtConsoleEvent({
       kind: "work_run_access_needed",
-      title: "Agent request unavailable",
-      detail: "This Agent request cannot continue.",
+      title: "run access needed",
+      detail: state.details,
       tone: "warning",
       eventId: `work-run-access:${state.details}`,
     });
@@ -3341,8 +3200,8 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
   if (state.kind === "expired") {
     emitThoughtConsoleEvent({
       kind: "work_run_expired",
-      title: "Agent request expired",
-      detail: "This Agent request cannot continue.",
+      title: "Agent run expired",
+      detail: "The saved Agent run can no longer be resumed.",
       tone: "error",
       eventId: `work-run-expired:${state.run?.runId ?? mintAttemptId}`,
     });
@@ -3351,8 +3210,8 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
   if (state.kind === "failed") {
     emitThoughtConsoleEvent({
       kind: "work_failed",
-      title: "Agent work failed",
-      detail: "The App could not finish this work.",
+      title: "work error",
+      detail: state.details || state.message,
       tone: "error",
       eventId: `work-error:${state.message}:${state.details ?? ""}`,
     });
@@ -3397,65 +3256,6 @@ const setThoughtDockState = (next: ThoughtDockState) => {
   thoughtDockState = next;
   recordThoughtDockConsoleTransition(next);
   renderThoughtDock();
-};
-
-const resetThoughtDockPromptHistoryCursor = () => {
-  thoughtDockPromptHistoryCursor = { index: null, draft: "" };
-};
-
-const recordThoughtDockPromptHistory = (prompt: string) => {
-  const next = appendThoughtPromptHistory(
-    thoughtDockPromptHistory,
-    prompt,
-    THOUGHT_DOCK_PROMPT_HISTORY_LIMIT,
-  );
-  if (next.length !== thoughtDockPromptHistory.length) {
-    thoughtDockPromptHistory = next;
-    writeSharedBrowserItem(THOUGHT_DOCK_PROMPT_HISTORY_KEY, JSON.stringify(next));
-  }
-  resetThoughtDockPromptHistoryCursor();
-};
-
-const applyThoughtDockPromptValue = (value: string) => {
-  if (!resetMintRuntimeState()) {
-    thoughtDockPrompt.value = sessionState.prompt;
-    return false;
-  }
-  thoughtDockPrompt.value = value;
-  pendingMyBrainRunPayload = null;
-  sessionState.prompt = value;
-  promptBox.value = value;
-  writeSessionState();
-  setWarning("");
-  if (!isThoughtDockRunningState(thoughtDockState)) {
-    setThoughtDockState(value ? { kind: "ready", prompt: value } : { kind: "empty" });
-  } else {
-    syncThoughtDock();
-  }
-  try {
-    thoughtDockPrompt.setSelectionRange(value.length, value.length);
-  } catch {
-    // Focus and history navigation still work when selection APIs are unavailable.
-  }
-  return true;
-};
-
-const navigateThoughtDockPrompt = (direction: "older" | "newer") => {
-  const navigation = navigateThoughtPromptHistory({
-    history: thoughtDockPromptHistory,
-    cursor: thoughtDockPromptHistoryCursor,
-    currentValue: thoughtDockPrompt.value,
-    direction,
-  });
-  if (!navigation.handled) return false;
-  if (!applyThoughtDockPromptValue(navigation.value)) {
-    return true;
-  }
-  thoughtDockPromptHistoryCursor = {
-    index: navigation.index,
-    draft: navigation.draft,
-  };
-  return true;
 };
 
 const focusThoughtDockPrompt = (options?: { preventScroll?: boolean }) => {
@@ -3544,13 +3344,12 @@ const dockRailAction = (
   label: string,
   ariaLabel: string,
   onClick: () => void,
-  options?: { disabled?: boolean; expanded?: boolean; handlerKey?: string },
+  options?: { disabled?: boolean; expanded?: boolean },
 ): DockRailAction => ({
   id,
   label,
   ariaLabel,
   onClick,
-  handlerKey: options?.handlerKey,
   disabled: options?.disabled,
   expanded: options?.expanded,
 });
@@ -3574,7 +3373,6 @@ const thoughtDockRailRenderSignature = (rail: DockRailView) =>
     actions: rail.actions.map((action) => ({
       id: action.id,
       label: action.label,
-      handlerKey: action.handlerKey ?? action.id,
       disabled: !!action.disabled,
       expanded: action.expanded,
     })),
@@ -3590,11 +3388,7 @@ const syncThoughtDockRailInset = () => {
 
 const statusScreenLine = (
   text: string,
-  options: {
-    guidance?: boolean;
-    heading?: boolean;
-    tone?: DockRailTone;
-  } = {},
+  options: { heading?: boolean; tone?: DockRailTone } = {},
 ) => {
   const line = document.createElement("p");
   line.className = [
@@ -3603,7 +3397,6 @@ const statusScreenLine = (
     options.tone === "error" ? "thought-dock-status-screen__line--error" : "",
     options.tone === "success" ? "thought-dock-status-screen__line--success" : "",
     options.tone === "warning" ? "thought-dock-status-screen__line--warning" : "",
-    options.guidance ? "thought-dock-status-screen__line--guidance" : "",
   ].filter(Boolean).join(" ");
   line.textContent = text;
   return line;
@@ -3615,10 +3408,9 @@ const appendThoughtProgressEllipsis = (
   active: boolean,
 ) => {
   element.textContent = text.replace(/\.{1,3}$/, "");
-  if (!active) return;
   const ellipsis = document.createElement("span");
   ellipsis.className = "thought-progress-ellipsis";
-  ellipsis.classList.add("is-active");
+  ellipsis.classList.toggle("is-active", active);
   ellipsis.setAttribute("aria-hidden", "true");
   for (let index = 0; index < 3; index += 1) {
     const dot = document.createElement("span");
@@ -3689,6 +3481,9 @@ type ThoughtConsoleEventDraft = {
   transient?: boolean;
 };
 
+const lowerInitial = (value: string) =>
+  value ? `${value.charAt(0).toLowerCase()}${value.slice(1)}` : value;
+
 const suggestedThoughtConsoleNextStep = (
   input: Pick<ThoughtConsoleEventDraft, "kind" | "title" | "detail">,
 ) => {
@@ -3700,28 +3495,28 @@ const suggestedThoughtConsoleNextStep = (
   }
   switch (input.kind) {
     case "work_preview_unavailable":
-      return "try preview again";
+      return "retry preview";
     case "work_preview_rejected":
-      return "reset, then send the prompt to your Agent again";
+      return "reset and send the work again";
     case "work_run_access_needed":
     case "work_run_expired":
     case "work_failed":
-      return "reset and send the prompt to your Agent again";
+      return "reset and send the work again";
     case "work_blocked":
-      return "reset and send the prompt to your Agent again";
+      return "run the work again, then retry mint";
     case "wallet_connection_failed":
-      return "try the wallet connection again";
+      return "retry wallet connection";
     case "conflicting_mint_reverted":
-      return "wait for the original transaction; do not mint again";
+      return "keep tracking the original transaction";
     case "multiple_mint_hashes_returned":
-      return "wait while both transactions are checked; do not mint again";
+      return "wait for a retained hash; do not submit again";
     case "pending_mint_deployment_mismatch":
-      return "open the browser tab where you submitted the mint; do not mint again here";
+      return "open the original deployment and track the retained hash";
     case "mint_submission_detached":
     case "mint_activity_checked":
-      return "check your wallet before trying again";
+      return "check wallet activity before retrying";
     case "work_save_failed":
-      return "create or load a completed work, then select save";
+      return "complete the work, then save again";
     default:
       break;
   }
@@ -3737,14 +3532,14 @@ const suggestedThoughtConsoleNextStep = (
   if (title.includes("switch network")) {
     return "switch to the THOUGHT network, then refresh wallet from the shell bar";
   }
-  if (title.includes("list unavailable") || title.includes("inventory unavailable")) {
-    return "open the wallet menu and select refresh";
+  if (title.includes("inventory unavailable")) {
+    return "refresh wallet from the shell bar";
   }
   if (title.includes("need a path") || title.includes("no path can mint")) {
-    return "mint a $PATH, then select refresh in the wallet menu";
+    return "mint a $PATH, then refresh wallet from the shell bar";
   }
   if (title.includes("path")) {
-    return "pick another $PATH or select refresh in the wallet menu";
+    return "pick another $PATH or refresh wallet from the shell bar";
   }
   return undefined;
 };
@@ -3753,7 +3548,7 @@ const emitThoughtConsoleEvent = (input: ThoughtConsoleEventDraft) => {
   const actionNeeded = input.tone === "warning" || input.tone === "error";
   const nextStep = actionNeeded
     ? input.nextStep ?? suggestedThoughtConsoleNextStep(input)
-    : undefined;
+    : input.nextStep;
   const next = appendThoughtConsoleEvent(thoughtConsoleHistory, {
     ...input,
     ...(nextStep ? { nextStep } : {}),
@@ -3767,6 +3562,32 @@ const emitThoughtConsoleEvent = (input: ThoughtConsoleEventDraft) => {
   writeThoughtConsoleHistory();
 };
 
+const recordThoughtConsoleContextBoundary = (input?: {
+  kind?: string;
+  title?: string;
+  detail?: string;
+  nextStep?: string;
+  tone?: ThoughtConsoleTone;
+}) => {
+  const actionNeeded = input?.tone === "warning" || input?.tone === "error";
+  const nextStep = actionNeeded
+    ? input?.nextStep ?? suggestedThoughtConsoleNextStep({
+        kind: input.kind ?? "context_warning",
+        title: input.title ?? "context warning",
+        detail: input.detail,
+      })
+    : input?.nextStep;
+  const next = appendThoughtConsoleContextBoundary(thoughtConsoleHistory, {
+    ...input,
+    ...(nextStep ? { nextStep } : {}),
+    time: thoughtDockConsoleTime(),
+    context: currentThoughtConsoleContext(),
+  });
+  if (next === thoughtConsoleHistory) return;
+  thoughtConsoleHistory = next;
+  writeThoughtConsoleHistory();
+};
+
 const thoughtConsoleToneForPresentation = (
   presentation: ThoughtMintPresentation,
 ): ThoughtConsoleTone => {
@@ -3776,16 +3597,15 @@ const thoughtConsoleToneForPresentation = (
   return "neutral";
 };
 
-const mintAttemptConsoleEventId = (
-  kind: string,
-  ...parts: Array<string | number>
-) => [kind, mintAttemptId, ...parts].join(":");
-
-const thoughtMintActionLabel = (
+const thoughtConsoleNextStepForPresentation = (
   presentation: ThoughtMintPresentation,
-  actionId: ThoughtMintPresentation["actions"][number]["id"],
-  fallback: string,
-) => presentation.actions.find((action) => action.id === actionId)?.label ?? fallback;
+) => {
+  if (presentation.consoleNextStep) {
+    return presentation.consoleNextStep;
+  }
+  const action = presentation.actions.find((item) => item.id !== "none" && !item.disabled);
+  return action?.label ? lowerInitial(action.label) : undefined;
+};
 
 const recordMintConsoleState = (
   state: ThoughtDockState,
@@ -3795,10 +3615,8 @@ const recordMintConsoleState = (
     const readiness = getCurrentWorkMintReadiness();
     emitThoughtConsoleEvent({
       kind: readiness.ready ? "work_ready" : "work_blocked",
-      title: readiness.ready ? "ready to mint" : "run this work again",
-      detail: readiness.ready
-        ? "Select “mint” above to start minting this THOUGHT work."
-        : "This work is no longer ready to mint.",
+      title: readiness.ready ? "work ready" : "work blocked",
+      detail: readiness.ready ? "ready to mint" : readiness.reason,
       tone: readiness.ready ? "success" : "warning",
       eventId: `work:${readiness.ready ? "ready" : "blocked"}:${currentRunContext?.clientGeneratedAt ?? currentOutputText}`,
     });
@@ -3809,7 +3627,9 @@ const recordMintConsoleState = (
     return;
   }
 
-  const presentationNextStep = presentation.consoleNextStep;
+  const presentationNextStep = presentation.consoleNextStep || presentation.tone === "warning"
+    ? thoughtConsoleNextStepForPresentation(presentation)
+    : undefined;
   const base = {
     title: presentation.title,
     detail: presentation.detail,
@@ -3821,89 +3641,59 @@ const recordMintConsoleState = (
     return;
   }
   if (mintFlowState === "wallet_required") {
-    // The connect control and wallet state are both live beside the console.
-    // Record the request after the user opens it, not this projected state.
+    emitThoughtConsoleEvent({
+      ...base,
+      kind: "wallet_needed",
+      eventId: `wallet-needed:${mintAttemptId}`,
+    });
     return;
   }
   if (mintFlowState === "path_required") {
     if (!pathInventoryMatchesCurrentWallet() || pathInventoryState.status === "idle" || pathInventoryState.status === "loading") {
       return;
     }
-    if (pathInventoryState.status === "loaded") {
-      // Counts, availability, and auction price are live panel state. Retaining
-      // them makes history stale immediately and duplicates the active control.
-      return;
-    }
     emitThoughtConsoleEvent({
       ...base,
-      kind: "path_inventory_unavailable",
-      eventId: mintAttemptConsoleEventId(
-        "path-inventory",
-        pathInventoryState.status,
-        pathInventoryState.items.map((item) => `${item.pathId.toString()}:${item.status}`).join(","),
-        pathInventoryState.error,
-      ),
+      kind: pathInventoryState.status === "loaded" ? "path_inventory_loaded" : "path_inventory_unavailable",
+      eventId: `path-inventory:${pathInventoryState.status}:${pathInventoryState.items.map((item) => `${item.pathId.toString()}:${item.status}`).join(",")}:${pathInventoryState.error}`,
     });
     return;
   }
   if (mintFlowState === "path_ready") {
-    const path = mintFlowData.pathId ? `$PATH #${mintFlowData.pathId.toString()}` : "$PATH";
-    const signAction = thoughtMintActionLabel(presentation, "authorize", `Sign ${path}`);
     emitThoughtConsoleEvent({
+      ...base,
       kind: "path_selected",
-      title: `${path} picked`,
-      detail: `Select “${signAction}” above to authorize minting this THOUGHT work.`,
-      eventId: mintAttemptConsoleEventId(
-        "path-selected",
-        mintFlowData.pathId?.toString() ?? "unknown",
-      ),
+      detail: mintFlowData.pathId ? `$PATH #${mintFlowData.pathId.toString()} · 1 THOUGHT mint available` : base.detail,
     });
     return;
   }
   if (mintFlowState === "authorizing") {
-    const path = mintFlowData.pathId ? `$PATH #${mintFlowData.pathId.toString()}` : "$PATH";
     emitThoughtConsoleEvent({
+      ...base,
       kind: "authorization_requested",
-      title: `sign ${path} in wallet`,
-      detail: "Approve the signature request. No transaction or gas.",
-      eventId: mintAttemptConsoleEventId(
-        "authorization-requested",
-        mintAuthorizationRequestId,
-      ),
+      detail: "wallet request 1 of 2 · no transaction · no gas",
+      eventId: `authorization-requested:${mintAuthorizationRequestId}`,
     });
     return;
   }
   if (mintFlowState === "authorized") {
-    const path = mintFlowData.pathId ? `$PATH #${mintFlowData.pathId.toString()}` : "$PATH";
-    const mintAction = thoughtMintActionLabel(presentation, "confirm_mint", "Mint THOUGHT");
-    const validUntil = new Date(Number(mintFlowData.deadline ?? 0n) * 1000)
-      .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     emitThoughtConsoleEvent({
       ...base,
       kind: "authorization_signed",
-      title: `${path} signed`,
-      detail: `Select “${mintAction}” above to submit this THOUGHT work to the network. Signature valid until ${validUntil}.`,
-      eventId: mintAttemptConsoleEventId(
-        "authorization-signed",
-        mintAuthorizationRequestId,
-      ),
+      detail: mintFlowData.pathId
+        ? `$PATH #${mintFlowData.pathId.toString()} · valid until ${new Date(Number(mintFlowData.deadline ?? 0n) * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+        : base.detail,
+      eventId: `authorization-signed:${mintAuthorizationRequestId}`,
     });
     return;
   }
   if (mintFlowState === "minting") {
     const txHash = walletState.txHash || mintFlowData.txHash;
     emitThoughtConsoleEvent({
+      ...base,
       kind: txHash ? "transaction_submitted" : "transaction_requested",
-      title: txHash ? "THOUGHT mint submitted" : "confirm THOUGHT mint in wallet",
-      detail: txHash
-        ? shortHex(txHash, 10, 8)
-        : "Open your wallet and confirm the transaction. Gas applies.",
-      eventId: txHash
-        ? `transaction:${txHash.toLowerCase()}`
-        : mintAttemptConsoleEventId(
-            "transaction-requested",
-            mintTransactionRequestId,
-          ),
+      detail: txHash ? `${shortHex(txHash, 10, 8)} · waiting for confirmation` : "wallet request 2 of 2 · transaction · gas applies",
+      eventId: txHash ? `transaction:${txHash.toLowerCase()}` : `transaction-requested:${mintTransactionRequestId}`,
     });
     return;
   }
@@ -3911,28 +3701,14 @@ const recordMintConsoleState = (
     emitThoughtConsoleEvent({
       ...base,
       kind: "thought_exists",
-      tone: "warning",
       eventId: `existing:${mintFlowData.existingTokenId ?? mintFlowData.textHash}`,
     });
     return;
   }
   if (mintFlowState === "minted" || state.kind === "minted") {
-    const tokenId = walletState.mintedTokenId ?? mintFlowData.existingTokenId;
-    const path = mintFlowData.pathId ? `$PATH #${mintFlowData.pathId.toString()}` : "$PATH";
-    const viewAction = thoughtMintActionLabel(
-      presentation,
-      "view_thought",
-      "View THOUGHT",
-    );
     emitThoughtConsoleEvent({
+      ...base,
       kind: "transaction_confirmed",
-      title: tokenId === null || tokenId === undefined
-        ? "THOUGHT minted"
-        : `THOUGHT #${tokenId} minted`,
-      detail: `${path} used${walletState.txHash || mintFlowData.txHash
-        ? ` · ${shortHex(walletState.txHash || mintFlowData.txHash, 10, 8)}`
-        : ""}. Select “${viewAction}” above to open it.`,
-      tone: "success",
       eventId: `minted:${walletState.mintedTokenId ?? mintFlowData.existingTokenId ?? walletState.txHash ?? mintFlowData.txHash}`,
     });
     return;
@@ -3941,7 +3717,7 @@ const recordMintConsoleState = (
     emitThoughtConsoleEvent({
       ...base,
       kind: `${mintFlowData.errorKind || "mint"}_failed`,
-      eventId: mintAttemptConsoleEventId("mint-error", mintErrorSequence),
+      eventId: `mint-error:${mintErrorSequence}`,
     });
   }
 };
@@ -3949,7 +3725,6 @@ const recordMintConsoleState = (
 const THOUGHT_CONSOLE_PROGRESS_KINDS = new Set([
   "work_creating_run",
   "work_opening_agent",
-  "work_claim_authorizing",
   "work_waiting_for_agent",
   "work_agent_returned",
   "work_previewing",
@@ -3962,7 +3737,8 @@ const THOUGHT_CONSOLE_PROGRESS_KINDS = new Set([
 ]);
 
 const isThoughtConsoleProgressEntry = (entry: ThoughtConsoleEntry) =>
-  THOUGHT_CONSOLE_PROGRESS_KINDS.has(entry.kind);
+  THOUGHT_CONSOLE_PROGRESS_KINDS.has(entry.kind) ||
+  (entry.kind === "work_claim_authorization" && entry.title === "Codex authorized");
 
 const isThoughtConsoleProgressActive = (
   entry: ThoughtConsoleEntry,
@@ -3979,7 +3755,7 @@ const isThoughtConsoleProgressActive = (
       return state.kind === "agent_returned";
     case "work_previewing":
       return state.kind === "previewing";
-    case "work_claim_authorizing":
+    case "work_claim_authorization":
       return state.kind === "claim_authorization" && Boolean(state.approving);
     case "wallet_connection_requested":
       return walletConnectInFlight;
@@ -3997,6 +3773,19 @@ const isThoughtConsoleProgressActive = (
 
 const THOUGHT_CONSOLE_TOP_EPSILON_PX = 2;
 
+const newestFirstThoughtConsoleEntries = (entries: ThoughtConsoleEntry[]) => {
+  const timeGroups: ThoughtConsoleEntry[][] = [];
+  entries.forEach((entry) => {
+    const currentGroup = timeGroups.at(-1);
+    if (currentGroup?.at(-1)?.time === entry.time) {
+      currentGroup.push(entry);
+      return;
+    }
+    timeGroups.push([entry]);
+  });
+  return timeGroups.reverse().flat();
+};
+
 const renderThoughtConsoleHistory = (state: ThoughtDockState) => {
   const newestEntry = thoughtConsoleHistory.entries.at(-1);
   const previousNewestEntryId = thoughtDockDetailsBody.dataset.newestEntryId || undefined;
@@ -4004,7 +3793,6 @@ const renderThoughtConsoleHistory = (state: ThoughtDockState) => {
   const wasPinnedToLatest = previousScrollTop <= THOUGHT_CONSOLE_TOP_EPSILON_PX;
   const entries = newestFirstThoughtConsoleEntries(thoughtConsoleHistory.entries).map((entry) => {
     const tone: DockRailTone = entry.tone === "neutral" ? "idle" : entry.tone;
-    const guidance = thoughtConsoleVisualRole(entry) === "guidance";
     const actionNeeded = entry.tone === "warning" || entry.tone === "error";
     const nextStep = actionNeeded
       ? entry.nextStep ?? suggestedThoughtConsoleNextStep(entry)
@@ -4013,7 +3801,6 @@ const renderThoughtConsoleHistory = (state: ThoughtDockState) => {
       ...entry,
       ...(nextStep ? { nextStep } : {}),
     }).map((line, index) => statusScreenLine(line, {
-      guidance,
       heading: index === 0,
       tone,
     }));
@@ -4026,7 +3813,6 @@ const renderThoughtConsoleHistory = (state: ThoughtDockState) => {
     }
     const element = statusScreenEntry(lines);
     element.dataset.consoleEntryId = entry.id;
-    element.dataset.consoleKind = entry.kind;
     element.dataset.attemptId = entry.context.attemptId;
     element.classList.toggle("is-boundary", entry.boundary);
     element.classList.toggle("is-current-attempt", entry.context.attemptId === mintAttemptId);
@@ -4051,24 +3837,18 @@ const renderThoughtDockDetails = (
 };
 
 const getResolvedThoughtDockState = (): ThoughtDockState => {
-  const resolvedTokenId =
-    walletState.mintedTokenId ?? mintFlowData.existingTokenId;
-  if (mintFlowState === "minted") {
+  if (walletState.mintedTokenId !== null) {
     return {
       kind: "minted",
-      ...(resolvedTokenId !== null
-        ? { tokenId: String(resolvedTokenId) }
-        : {}),
-      ...(walletState.txHash || mintFlowData.txHash
-        ? { txHash: walletState.txHash || mintFlowData.txHash }
-        : {}),
+      tokenId: String(walletState.mintedTokenId),
+      txHash: walletState.txHash || undefined,
     };
   }
 
-  if (mintFlowState === "text_taken" && resolvedTokenId !== null) {
+  if (mintFlowState === "text_taken" && mintFlowData.existingTokenId !== null) {
     return {
       kind: "minted",
-      tokenId: String(resolvedTokenId),
+      tokenId: String(mintFlowData.existingTokenId),
       existing: true,
     };
   }
@@ -4087,71 +3867,36 @@ const getResolvedThoughtDockState = (): ThoughtDockState => {
 
 type ThoughtWorkMintReadiness =
   | { ready: true }
-  | { ready: false; reason: string; blockedTitle: "mint unavailable" | "work needs rerun" };
+  | { ready: false; reason: string };
 
 const getCurrentWorkMintReadiness = (): ThoughtWorkMintReadiness => {
   if (!THOUGHT_V2_MINT_ENABLED) {
-    return { ready: false, reason: THOUGHT_V2_MINT_UNAVAILABLE_COPY, blockedTitle: "mint unavailable" };
+    return { ready: false, reason: THOUGHT_V2_MINT_UNAVAILABLE_COPY };
   }
   if (!currentOutputText || !currentRunContext) {
-    return {
-      ready: false,
-      reason: "This work has no current V2 run context. Run it again before minting.",
-      blockedTitle: "work needs rerun",
-    };
+    return { ready: false, reason: "This work has no current V2 run context. Run it again before minting." };
   }
   if (!hasCurrentContractWorkSvg()) {
-    return {
-      ready: false,
-      reason: "This work has no verified contract preview. Run it again before minting.",
-      blockedTitle: "work needs rerun",
-    };
+    return { ready: false, reason: "This work has no verified contract preview. Run it again before minting." };
   }
   if (!IS_LOCAL_THOUGHT_V2) {
     return { ready: true };
   }
   if (currentRunContext.mode === MY_BRAIN_MODE) {
-    return {
-      ready: false,
-      reason: "THOUGHT V2 minting requires a current Agent work.",
-      blockedTitle: "work needs rerun",
-    };
+    return { ready: false, reason: "THOUGHT V2 minting requires a current Agent work." };
   }
   if (!currentRunContext.thoughtSpec) {
-    return {
-      ready: false,
-      reason: "This work has no current V2 spec anchor. Run it again before minting.",
-      blockedTitle: "work needs rerun",
-    };
-  }
-  if (
-    currentRunContext.thoughtSpec.id.toLowerCase() !== THOUGHT_V2_LOCAL_RELEASE.spec.evmSpecId.toLowerCase() ||
-    currentRunContext.thoughtSpec.hash.toLowerCase() !== THOUGHT_V2_LOCAL_RELEASE.spec.evmSpecHash.toLowerCase()
-  ) {
-    return {
-      ready: false,
-      reason: "This work uses the temporary App creative spec. The current Anvil contract pins another spec.",
-      blockedTitle: "mint unavailable",
-    };
+    return { ready: false, reason: "This work has no current V2 spec anchor. Run it again before minting." };
   }
   if (!currentRunContext.agentEvidence) {
-    return {
-      ready: false,
-      reason: "This work has no current V2 Agent evidence. Run it again before minting.",
-      blockedTitle: "work needs rerun",
-    };
+    return { ready: false, reason: "This work has no current V2 Agent evidence. Run it again before minting." };
   }
   try {
-    buildThoughtV2LocalAgentProcess(
-      currentRunContext.agentEvidence,
-      currentOutputText,
-      currentRunContext.model,
-    );
+    buildThoughtV2LocalAgentProcess(currentRunContext.agentEvidence, currentOutputText);
   } catch (error) {
     return {
       ready: false,
       reason: error instanceof Error ? error.message : "This work is not valid for THOUGHT V2 minting.",
-      blockedTitle: "work needs rerun",
     };
   }
   return { ready: true };
@@ -4187,12 +3932,12 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         return;
       }
       resetThoughtDock({ clearPrompt: true, focusPrompt: true });
-    }, { handlerKey: run ? `reset:${run.runId}` : "reset" });
+    });
   const cancelAgentSelectAction = (prompt: string) =>
     dockRailAction("cancel", "cancel", "cancel Agent selection", () => {
       setThoughtDockState({ kind: "ready", prompt });
       focusThoughtDockPrompt({ preventScroll: true });
-    }, { handlerKey: `cancel:${hashText(prompt)}` });
+    });
   const loadAction = () => {
     const loadPanelOpen = workLibraryRevealed;
     return dockRailAction(
@@ -4207,7 +3952,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
           emitThoughtConsoleEvent({
             kind: "work_library_opened",
             title: "load a saved work",
-            detail: "Saved in this browser only—not on-chain or synced.",
+            detail: "Saved works use this browser's local storage. They are not on-chain or synced across browsers or devices.",
             tone: "neutral",
           });
         }
@@ -4286,16 +4031,11 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
       };
     case "claim_authorization": {
       const code = state.authorization.verificationCode || "------";
-      const authorized = state.authorization.state === "authorized";
-      const approving = Boolean(state.approving) && !authorized;
+      const authorized = state.authorization.state === "authorized" || state.approving;
       return {
-        status: authorized
-          ? "Codex authorized"
-          : approving
-            ? "Authorizing Codex..."
-            : `Code ${code}`,
-        tone: authorized || approving ? "running" : "warning",
-        actions: authorized || approving
+        status: authorized ? "Codex authorized" : `Code ${code}`,
+        tone: authorized ? "running" : "warning",
+        actions: authorized
           ? [resetAction(state.run)]
           : [
               dockRailAction(
@@ -4349,11 +4089,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
           getWorkById(readStoredThoughtWorks(), currentWorkId),
         );
         return {
-          status: workMintReadiness.ready
-            ? "Work ready"
-            : workMintReadiness.blockedTitle === "work needs rerun"
-              ? "Work needs rerun"
-              : "Mint unavailable",
+          status: canOpenMint ? "Work ready" : "Work blocked",
           tone: canOpenMint ? "success" : "warning",
           actions: [
             ...(canOpenMint
@@ -4372,7 +4108,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
                     emitThoughtConsoleEvent({
                       kind: "mint_requirement",
                       title: "to mint THOUGHT",
-                      detail: "Minting 1 THOUGHT uses 1 available $PATH. Pick one, or mint a new $PATH here.",
+                      detail: "1 THOUGHT requires 1 available $PATH. $PATH is the permission token for Inshell’s three fully on-chain movements for Agent Art.",
                       tone: "warning",
                     });
                     syncThoughtDock();
@@ -4406,7 +4142,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         actions: [
           dockRailAction("view", "view", "view minted THOUGHT", () => {
             void handleViewThought(state.tokenId ? Number(state.tokenId) : walletState.mintedTokenId);
-          }, { handlerKey: `view:${state.tokenId ?? walletState.mintedTokenId ?? "unknown"}` }),
+          }),
           dockRailAction(
             "save",
             currentWorkSaved ? "saved" : "save",
@@ -4449,22 +4185,19 @@ const shortRunId = (runId: string) =>
 const isInjectedWalletMissing = () => !walletState.detected && !getEthereumProvider();
 
 const formatPathAcquisitionPrice = (price: bigint) => {
-  return formatPulseAuctionPrice(price);
+  const [whole, rawFraction = ""] = formatEther(price).split(".");
+  const fraction = rawFraction.replace(/0+$/, "");
+  if (!fraction) return whole;
+  const firstNonZero = fraction.search(/[1-9]/);
+  const visibleLength = whole === "0" && firstNonZero >= 0
+    ? Math.min(fraction.length, firstNonZero + 6)
+    : Math.min(fraction.length, 6);
+  return `${whole}.${fraction.slice(0, visibleLength)}`;
 };
 
 const getCurrentMintPresentation = () => presentThoughtMint({
   state: mintFlowState,
   mintEnabled: THOUGHT_V2_MINT_ENABLED,
-  work: (() => {
-    const readiness = getCurrentWorkMintReadiness();
-    return readiness.ready
-      ? { ready: true, blockedTitle: "", reason: "" }
-      : {
-          ready: false,
-          blockedTitle: readiness.blockedTitle,
-          reason: readiness.reason,
-        };
-  })(),
   providerDetected: !isInjectedWalletMissing(),
   walletRequestPending: walletConnectInFlight,
   address: walletState.address,
@@ -4583,9 +4316,7 @@ const buildThoughtDockRunPayload = async (prompt: string) => {
   sessionState.prompt = prompt;
   promptBox.value = prompt;
   writeSessionState();
-  if (!USE_LATEST_LOCAL_GENERATION_SPEC) {
-    await ensureThoughtDockActiveSpec();
-  }
+  await ensureThoughtDockActiveSpec();
   syncThoughtInstructionsControls();
   return buildCurrentThoughtRunPayload(prompt, CODEX_MODEL);
 };
@@ -4595,7 +4326,7 @@ const createThoughtDockRun = async (
   payload: ThoughtRunPayload,
   adapterId: ThoughtDockAgentAdapterId,
 ): Promise<AgentDemoRun> => {
-  assertActiveThoughtLine(prompt, "prompt");
+  assertThoughtLine(prompt, "prompt");
   if (payload.input.promptLine !== prompt) {
     throw new Error("sealed promptLine does not match the run payload.");
   }
@@ -4689,7 +4420,7 @@ const launchThoughtDockAgentLink = (url: string) => {
 };
 
 const rejectInvalidThoughtDockPrompt = (prompt: string) => {
-  const measure = measureThoughtV2TerminalLine(prompt, "prompt");
+  const measure = measureThoughtV2Line(prompt, "prompt");
   const issue = describeThoughtTextPolicyIssue({
     value: prompt,
     line: "prompt",
@@ -4723,6 +4454,69 @@ const openThoughtDockAgentSelect = () => {
   setThoughtDockState({ kind: "agent_select", prompt });
 };
 
+const buildThoughtDockFixtureRun = async (
+  adapterId: ThoughtDockAgentAdapterId,
+  prompt: string,
+  agentLine: string,
+): Promise<AgentDemoRun> => {
+  const runId = `fixture_${adapterId}_${Date.now().toString(36)}_${agentDemoRandom(3)}`;
+  const result = IS_LOCAL_THOUGHT_V2
+    ? buildThoughtV2LocalAgentResult(agentLine, thoughtAgentProductLabel(adapterId))
+    : null;
+  const rawResponseSha256 = result
+    ? (await sha256Hex(JSON.stringify(result))).replace(THOUGHT_SHA256_PREFIX, "")
+    : "";
+
+  return {
+    runId,
+    prompt,
+    promptHash: await agentDemoSha256(prompt),
+    launchUri: "",
+    launchToken: "",
+    browserToken: "",
+    statusUrl: "",
+    claimUrl: "",
+    startUrl: "",
+    resultUrl: "",
+    codexUrl: "",
+    claudeUrl: "",
+    sealedTask: "",
+    candidate: agentLine,
+    remoteState: "returned",
+    ...(result
+      ? {
+          agentEvidence: {
+            result,
+            runId,
+            adapter: adapterId,
+            rawResponseSha256,
+          },
+        }
+      : {}),
+  };
+};
+
+const runThoughtDockFixtureAdapter = async (
+  adapterId: ThoughtDockAgentAdapterId,
+  prompt: string,
+  payload: ThoughtRunPayload,
+  runSessionId: number,
+) => {
+  const nonce = `${Date.now().toString(36)} ${agentDemoRandom(3)}`;
+  const agentLine = buildThoughtAgentFixtureLine(adapterId, nonce);
+  assertThoughtLine(agentLine, "agent");
+  const run = await buildThoughtDockFixtureRun(adapterId, prompt, agentLine);
+  thoughtDockRun = run;
+  emitThoughtConsoleEvent({
+    kind: "work_agent_fixture",
+    title: `${thoughtAgentProductLabel(adapterId)} fixture return`,
+    detail: "local dev Agent bypass",
+    tone: "neutral",
+    eventId: run.runId,
+  });
+  await handleThoughtDockReturnedWork(run, agentLine, payload, runSessionId);
+};
+
 const runThoughtDockAdapter = async (adapterId: ThoughtDockAgentAdapterId) => {
   if (blockPendingMintMutation()) {
     return;
@@ -4739,7 +4533,7 @@ const runThoughtDockAdapter = async (adapterId: ThoughtDockAgentAdapterId) => {
     setThoughtDockState({ kind: "failed", message: "Agent adapter unavailable." });
     return;
   }
-  if (!adapter.canDeepLink) {
+  if (!THOUGHT_AGENT_FIXTURE_MODE && !adapter.canDeepLink) {
     setThoughtDockState({
       kind: "failed",
       message: `${thoughtAgentProductLabel(adapterId)} deep link unavailable.`,
@@ -4747,8 +4541,6 @@ const runThoughtDockAdapter = async (adapterId: ThoughtDockAgentAdapterId) => {
     });
     return;
   }
-
-  recordThoughtDockPromptHistory(prompt);
 
   const runSessionId = startRunSession();
   lastRunErrorCliLines = [];
@@ -4762,6 +4554,10 @@ const runThoughtDockAdapter = async (adapterId: ThoughtDockAgentAdapterId) => {
   try {
     const payload = await buildThoughtDockRunPayload(prompt);
     if (!isCurrentRunSession(runSessionId)) {
+      return;
+    }
+    if (THOUGHT_AGENT_FIXTURE_MODE) {
+      await runThoughtDockFixtureAdapter(adapterId, prompt, payload, runSessionId);
       return;
     }
     const run = await createThoughtDockRun(prompt, payload, adapterId);
@@ -4851,12 +4647,6 @@ const approveThoughtDockClaim = async (
         }),
       },
     );
-    emitThoughtConsoleEvent({
-      kind: "work_claim_authorized",
-      title: "Codex authorized",
-      tone: "success",
-      eventId: `work-claim-authorized:${run.runId}`,
-    });
     setThoughtDockState({
       kind: "waiting_for_agent",
       run,
@@ -5193,11 +4983,6 @@ const retryThoughtDockPreview = async () => {
 };
 
 const mintThoughtDockWork = async (options?: { attemptId?: string; pathId?: string }) => {
-  if (isTerminalMintFlowState(mintFlowState)) {
-    syncInterface();
-    return true;
-  }
-
   if (blockPendingMintMutation()) {
     return true;
   }
@@ -5213,8 +4998,8 @@ const mintThoughtDockWork = async (options?: { attemptId?: string; pathId?: stri
     setThoughtDockState({ kind: "work_ready", work });
     emitThoughtConsoleEvent({
       kind: "work_blocked",
-      title: "run this work again",
-      detail: "This work is no longer ready to mint.",
+      title: "work blocked",
+      detail: readiness.reason,
       tone: "warning",
       eventId: `work-blocked:${currentRunContext?.clientGeneratedAt ?? currentOutputText}`,
     });
@@ -5231,16 +5016,14 @@ const mintThoughtDockWork = async (options?: { attemptId?: string; pathId?: stri
   setThoughtDockState({ kind: "work_ready", work });
   try {
     await openMintFlow(THOUGHT_PANEL_MINT_UI_MODE, { ...options, work: mintWork });
-    if (!isTerminalMintFlowState(mintFlowState)) {
-      await resumePendingPathAcquisition();
-    }
+    await resumePendingPathAcquisition();
     syncInterface();
     return true;
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Mint unavailable.";
-    setMintFlowError(message, "thought");
-    setThoughtDockState({ kind: "work_ready", work });
-    syncInterface();
+    setThoughtDockState({
+      kind: "failed",
+      message: error instanceof Error ? error.message : "Mint unavailable.",
+    });
     return false;
   }
 };
@@ -5281,11 +5064,7 @@ const connectThoughtDockWallet = async () => {
 };
 
 const syncMintFlowAfterWalletCommand = () => {
-  if (
-    mintFlowState === "closed" ||
-    isTerminalMintFlowState(mintFlowState) ||
-    pendingMintTransaction
-  ) {
+  if (mintFlowState === "closed" || mintFlowState === "minted" || pendingMintTransaction) {
     return;
   }
 
@@ -5327,11 +5106,7 @@ const runThoughtDockWalletCommand = async () => {
   }
 
   if (walletState.chainId !== THOUGHT_CHAIN_ID) {
-    const switched = await switchWalletChain();
-    if (!switched) {
-      syncInterface();
-      return;
-    }
+    await switchWalletChain();
     syncMintFlowAfterWalletCommand();
     syncInterface();
     return;
@@ -5352,16 +5127,7 @@ const switchThoughtDockWalletNetwork = async () => {
   }
 
   setThoughtDockState({ kind: "work_ready", work });
-  const switched = await switchWalletChain();
-  if (!switched) {
-    syncInterface();
-    return;
-  }
-
-  if (isTerminalMintFlowState(mintFlowState)) {
-    syncInterface();
-    return;
-  }
+  await switchWalletChain();
 
   if (!walletState.address) {
     mintFlowState = "wallet_required";
@@ -5399,7 +5165,7 @@ function cancelThoughtDockRun(run?: AgentDemoRun | null, options?: { clearPrompt
 }
 
 const resetThoughtDock = (options?: { clearPrompt?: boolean; focusPrompt?: boolean }) => {
-  if (!resetThought()) {
+  if (blockPendingMintMutation()) {
     return false;
   }
   thoughtDockPollGeneration += 1;
@@ -5409,6 +5175,7 @@ const resetThoughtDock = (options?: { clearPrompt?: boolean; focusPrompt?: boole
   thoughtDockRun = null;
   thoughtDockAdapterId = "codex";
   runInFlight = false;
+  resetThought();
   if (options?.clearPrompt) {
     sessionState.prompt = "";
     promptBox.value = "";
@@ -5417,14 +5184,6 @@ const resetThoughtDock = (options?: { clearPrompt?: boolean; focusPrompt?: boole
   }
   const prompt = thoughtDockPrompt.value;
   setThoughtDockState(prompt ? { kind: "ready", prompt } : { kind: "empty" });
-  emitThoughtConsoleEvent({
-    kind: "work_reset",
-    title: "work reset",
-    detail: options?.clearPrompt
-      ? "Prompt, current work, and open panels cleared."
-      : "Current work and open panels cleared.",
-    tone: "neutral",
-  });
   syncInterface();
   if (options?.focusPrompt) {
     focusThoughtDockPrompt({ preventScroll: true });
@@ -5814,7 +5573,6 @@ const mintFlowData: MintFlowData = {
   thoughtSpecId: "",
   thoughtSpecHash: "",
   provenanceJson: "",
-  creationAttestation: EMPTY_THOUGHT_CREATION_ATTESTATION,
   existingTokenId: null,
   pathIdInput: "",
   pathId: null,
@@ -5834,15 +5592,6 @@ let pathInventoryState: PathInventoryState = {
 };
 let pathAcquisitionState: ThoughtPathAcquisitionState = "idle";
 let pathAcquisitionPrice = 0n;
-type PathAcquisitionPricingSnapshot = Readonly<{
-  openTimeSec: bigint;
-  curveK: bigint;
-  anchorTimeSec: bigint;
-  floorPrice: bigint;
-}>;
-let pathAcquisitionPricingSnapshot: PathAcquisitionPricingSnapshot | null = null;
-let pathAcquisitionPriceTimer: number | null = null;
-let pathAcquisitionPriceRefreshInFlight = false;
 let pathAcquisitionTxHash = "";
 let pathAcquisitionError = "";
 let pathAcquisitionCompletedForAttempt = false;
@@ -5885,7 +5634,6 @@ let walletListenersBound = false;
 let thoughtShellWalletSubscribed = false;
 let thoughtShellWalletRefreshQueued = false;
 let mintAuthorizationRequestId = 0;
-let walletNetworkSwitchRequestId = 0;
 let mintSheetPrimaryAction: MintSheetAction = "none";
 let mintSheetSecondaryAction: MintSheetAction = "none";
 let mintSheetTertiaryAction: MintSheetAction = "none";
@@ -6560,7 +6308,6 @@ const verifyLocalThoughtV2Deployment = async () => {
       expected.contracts.thoughtSpecRegistry,
       expected.contracts.thoughtRenderer,
       expected.contracts.protocolRegistry,
-      expected.contracts.creationAttestationVerifier,
     ];
     const sameAddress = (left: string, right: string) => left.toLowerCase() === right.toLowerCase();
     await verifyThoughtV2LocalDeployment({
@@ -6574,13 +6321,10 @@ const verifyLocalThoughtV2Deployment = async () => {
           specRegistryAddress,
           rendererAddress,
           protocolRegistryAddress,
-          creationAttestationVerifierAddress,
           releaseId,
           manifestHash,
           rendererProfileHash,
           workProfileHash,
-          contextProfileHash,
-          metadataProfileHash,
           authorizedMinter,
           quota,
           frozen,
@@ -6590,13 +6334,10 @@ const verifyLocalThoughtV2Deployment = async () => {
           thought.thoughtSpecRegistry() as Promise<string>,
           thought.thoughtRenderer() as Promise<string>,
           thought.protocolRegistry() as Promise<string>,
-          thought.creationAttestationVerifier() as Promise<string>,
           thought.protocolReleaseId() as Promise<string>,
           thought.protocolManifestHash() as Promise<string>,
-          thought.RENDERER_ID_HASH() as Promise<string>,
-          thought.WORK_PROFILE_ID_HASH() as Promise<string>,
-          thought.CONTEXT_PROFILE_ID_HASH() as Promise<string>,
-          thought.METADATA_PROFILE_ID_HASH() as Promise<string>,
+          thought.RENDERER_PROFILE_KECCAK256() as Promise<string>,
+          thought.WORK_PROFILE_KECCAK256() as Promise<string>,
           pathNft.getAuthorizedMinter(PATH_MOVEMENT_THOUGHT) as Promise<string>,
           pathNft.getMovementQuota(PATH_MOVEMENT_THOUGHT) as Promise<bigint>,
           pathNft.isMovementFrozen(PATH_MOVEMENT_THOUGHT) as Promise<boolean>,
@@ -6607,13 +6348,10 @@ const verifyLocalThoughtV2Deployment = async () => {
           specRegistryAddress,
           rendererAddress,
           protocolRegistryAddress,
-          creationAttestationVerifierAddress,
           releaseId,
           manifestHash,
           rendererProfileHash,
           workProfileHash,
-          contextProfileHash,
-          metadataProfileHash,
           authorizedMinter,
           quota,
           frozen,
@@ -6625,13 +6363,10 @@ const verifyLocalThoughtV2Deployment = async () => {
         specRegistryAddress,
         rendererAddress,
         protocolRegistryAddress,
-        creationAttestationVerifierAddress,
         releaseId,
         manifestHash,
         rendererProfileHash,
         workProfileHash,
-        contextProfileHash,
-        metadataProfileHash,
         authorizedMinter,
         quota,
         frozen,
@@ -6641,16 +6376,10 @@ const verifyLocalThoughtV2Deployment = async () => {
         sameAddress(specRegistryAddress, expected.contracts.thoughtSpecRegistry) &&
         sameAddress(rendererAddress, expected.contracts.thoughtRenderer) &&
         sameAddress(protocolRegistryAddress, expected.contracts.protocolRegistry) &&
-        sameAddress(
-          creationAttestationVerifierAddress,
-          expected.contracts.creationAttestationVerifier,
-        ) &&
         releaseId.toLowerCase() === expected.protocol.protocolReleaseId &&
         manifestHash.toLowerCase() === expected.protocol.manifestKeccak256 &&
         rendererProfileHash.toLowerCase() === expected.protocol.rendererProfile.keccak256 &&
         workProfileHash.toLowerCase() === expected.protocol.workProfile.keccak256 &&
-        contextProfileHash.toLowerCase() === expected.protocol.contextProfile.keccak256 &&
-        metadataProfileHash.toLowerCase() === expected.protocol.metadataProfile.keccak256 &&
         sameAddress(authorizedMinter, expected.contracts.thoughtNft) &&
         quota === 1n &&
         frozen &&
@@ -6736,9 +6465,7 @@ const prevalidateThoughtV2Preview = (input: {
     };
   }
 
-  const promptMeasure = IS_LOCAL_THOUGHT_V2
-    ? measureThoughtV2TerminalLine(promptLine, "prompt")
-    : measureThoughtV2Line(promptLine, "prompt");
+  const promptMeasure = measureThoughtV2Line(promptLine, "prompt");
   if (promptMeasure.errors.length > 0) {
     const issue = describeThoughtTextPolicyIssue({
       value: promptLine,
@@ -6764,9 +6491,7 @@ const prevalidateThoughtV2Preview = (input: {
     };
   }
 
-  const agentMeasure = IS_LOCAL_THOUGHT_V2
-    ? measureThoughtV2TerminalLine(agentLine, "agent")
-    : measureThoughtV2Line(agentLine, "agent");
+  const agentMeasure = measureThoughtV2Line(agentLine, "agent");
   if (agentMeasure.errors.length > 0) {
     const issue = describeThoughtTextPolicyIssue({
       value: agentLine,
@@ -6886,10 +6611,7 @@ const rememberRejectedRun = (
 
 const rejectedRunReasonLines = (rejected: LastRejectedRun) => {
   if (rejected.issue) {
-    return [
-      rejected.issue.detail,
-      ...(rejected.issue.nextStep ? ["", `next: ${rejected.issue.nextStep}`] : []),
-    ];
+    return [rejected.issue.detail, "", `next: ${rejected.issue.nextStep}`];
   }
   if (rejected.reasonCode === 1) {
     return ["canonical text is empty after normalization."];
@@ -7000,12 +6722,7 @@ const previewWorkViaAllowedProvider = async (
         ...(validation.issue ? { issue: validation.issue } : {}),
       };
     }
-    const renderer = new Contract(
-      THOUGHT_RENDERER_ADDRESS,
-      THOUGHT_V2_LOCAL_RENDERER_ABI,
-      token.runner,
-    );
-    const svg = await renderer.render(validation.promptLine, validation.agentLine) as string;
+    const svg = await token.previewSvg(validation.promptLine, validation.agentLine) as string;
     return {
       ok: true,
       text: validation.agentLine,
@@ -7046,7 +6763,7 @@ const createThoughtPreviewProvider = (
       chainId,
       endpointLabel,
       contractAddress: THOUGHT_NFT_ADDRESS,
-      method: IS_LOCAL_THOUGHT_V2 ? "render" : "previewWork",
+      method: IS_LOCAL_THOUGHT_V2 ? "previewSvg" : "previewWork",
       fetchedAt: new Date().toISOString(),
     }),
   };
@@ -7125,6 +6842,9 @@ const selectThoughtPreviewProvider = async () => {
   const mode = readPreviewMode();
   if (mode === "off") {
     return { provider: null, reason: "preview is off." };
+  }
+  if (THOUGHT_AGENT_FIXTURE_MODE) {
+    return { provider: createFrontendPreviewProvider(), reason: "" };
   }
   if (IS_LOCAL_THOUGHT_V2) {
     const provider = getReadProvider();
@@ -7468,12 +7188,9 @@ const attemptContractPreviewForCandidate = async (
   }
 };
 
-const textHashFromContract = async (
-  canonicalText: string,
-  promptLine = currentRunContext?.prompt ?? sessionState.prompt,
-) => {
+const textHashFromContract = async (canonicalText: string) => {
   if (IS_LOCAL_THOUGHT_V2) {
-    return thoughtV2ConversationIdentityHashForLines(promptLine, canonicalText);
+    return thoughtV2AgentLineHash(canonicalText);
   }
   const token = getReadThoughtNFT();
   if (!token) {
@@ -7693,7 +7410,6 @@ const thoughtSpecHash = () =>
   "";
 
 const pulseAuctionAddress = () =>
-  PATH_AUCTION_ADDRESS ||
   getProtocolReleaseAddress("pulse_auction", "sepolia") ||
   maybeResolveAddress("pulse_auction") ||
   "";
@@ -8145,7 +7861,15 @@ const buildBundledActiveThoughtSpec = (): ActiveThoughtSpec => ({
   fetchedAt: new Date().toISOString(),
 });
 
+const shouldUseBundledThoughtSpecFallback = () =>
+  IS_DEV_MODE && LOCAL_BROWSER_HOSTS.has(window.location.hostname);
+
 const ensureThoughtDockActiveSpec = async () => {
+  if (THOUGHT_AGENT_FIXTURE_MODE && shouldUseBundledThoughtSpecFallback()) {
+    activeThoughtSpec = buildBundledActiveThoughtSpec();
+    activeThoughtSpecPromise = null;
+    return activeThoughtSpec;
+  }
   if (IS_LOCAL_THOUGHT_V2) {
     return ensureActiveThoughtSpec({ force: true });
   }
@@ -8223,15 +7947,6 @@ const isThoughtRunProvider = (value: string): value is ThoughtRunProvider =>
   value === CODEX_PROVIDER;
 
 const buildCurrentThoughtRunPayload = (prompt: string, model: string) => {
-  if (USE_LATEST_LOCAL_GENERATION_SPEC) {
-    return buildThoughtRunPayload({
-      route: sessionState.mode,
-      provider: getCurrentProviderForProvenance(),
-      model,
-      promptLine: prompt,
-      thoughtSpec: LATEST_LOCAL_GENERATION_SPEC,
-    });
-  }
   const spec = activeThoughtSpec;
   if (!spec) {
     throw new Error("spec unavailable.");
@@ -8252,15 +7967,6 @@ const buildCurrentThoughtRunPayload = (prompt: string, model: string) => {
 };
 
 const buildThoughtRunPayloadFromContext = (context: ThoughtRunContext) => {
-  if (USE_LATEST_LOCAL_GENERATION_SPEC) {
-    return buildThoughtRunPayload({
-      route: context.mode,
-      provider: isThoughtRunProvider(context.provider) ? context.provider : getCurrentProviderForProvenance(),
-      model: context.model,
-      promptLine: context.prompt,
-      thoughtSpec: LATEST_LOCAL_GENERATION_SPEC,
-    });
-  }
   const spec = activeThoughtSpec;
   if (!spec) {
     throw new Error("spec unavailable.");
@@ -8319,40 +8025,27 @@ const buildProvenanceJson = (
     const agentLine = work?.text || currentOutputText || context.returnedText || "";
     let process: ThoughtV2LocalProcess;
     if (context.mode === MY_BRAIN_MODE) {
-      process = {
-        kind: "manual",
-        agentDeclaration: {
-          label: "My Brain",
-          source: "manual",
-          status: "declared-unverified",
-        },
-        modelDeclaration: {
-          label: context.model || "Manual",
-          source: "manual",
-          status: "declared-unverified",
-        },
-      };
+      process = { kind: "manual" };
     } else {
       const evidence = context.agentEvidence;
       if (!evidence) {
         throw new Error("This work has no current V2 Agent evidence. Run the work again before minting.");
       }
-      process = buildThoughtV2LocalAgentProcess(evidence, agentLine, context.model);
+      process = buildThoughtV2LocalAgentProcess(evidence, agentLine);
     }
     return buildThoughtV2LocalProvenance({
       promptLine: context.prompt,
       agentLine,
       process,
-    mintContext: {
-      chainId: String(THOUGHT_CHAIN_ID),
-      thoughtNft: THOUGHT_NFT_ADDRESS,
-      intendedMinter: mint.minter,
-    },
-    selectedSpec: {
-      name: spec.ref.split("/").at(-1) || THOUGHT_V2_LOCAL_RELEASE.spec.name,
-      text: spec.text,
-    },
-  });
+      mintContext: {
+        chainId: String(THOUGHT_CHAIN_ID),
+        thoughtNft: THOUGHT_NFT_ADDRESS,
+        pathNft: PATH_NFT_ADDRESS,
+        minter: mint.minter,
+        movement: "THOUGHT",
+        pathId: typeof mint.pathId === "bigint" ? mint.pathId.toString() : mint.pathId,
+      },
+    });
   }
   const fallbackPayload = buildThoughtRunPayloadFromContext(context);
   const isExternalReturnRun = context.mode === MY_BRAIN_MODE || context.mode === CODEX_MODE;
@@ -8431,26 +8124,6 @@ const buildProvenanceJson = (
   });
 };
 
-const getLocalMintDeclarations = (work: ThoughtMintWorkSnapshot) => {
-  const evidence = work.runContext.agentEvidence;
-  if (!evidence) {
-    throw new Error("This work has no current V2 Agent evidence. Run the work again before minting.");
-  }
-  const process = buildThoughtV2LocalAgentProcess(evidence, work.text, work.runContext.model);
-  if (process.kind !== "agent-run") {
-    throw new Error("A validated Agent declaration is required to mint this local THOUGHT V2 work.");
-  }
-  const declaredAgent = process.agentDeclaration.label;
-  const declaredModel = process.modelDeclaration.label;
-  const invalidContext = [declaredAgent, declaredModel].some(
-    (value) => !value || value !== value.trim() || byteLength(value) > 64,
-  );
-  if (invalidContext) {
-    throw new Error("Agent or model declaration is invalid. Run the work again before minting.");
-  }
-  return Object.freeze({ declaredAgent, declaredModel });
-};
-
 const parsePathTokenId = (value: string) => {
   const trimmed = value.trim();
   if (!/^[1-9]\d*$/.test(trimmed)) {
@@ -8491,7 +8164,6 @@ const clearMintAuthorization = () => {
   mintAuthorizationRequestId += 1;
   mintFlowData.deadline = null;
   mintFlowData.signature = "";
-  mintFlowData.creationAttestation = EMPTY_THOUGHT_CREATION_ATTESTATION;
 };
 
 const clearMintPathSelection = () => {
@@ -8594,10 +8266,10 @@ const blockPendingMintMutation = (options?: { cli?: boolean }) => {
   runInFlight = false;
   emitThoughtConsoleEvent({
     kind: pending ? "pending_mint_preserved" : "wallet_mint_request_preserved",
-    title: pending ? "THOUGHT mint pending" : "wallet request still open",
+    title: pending ? "mint still pending" : "wallet mint request still open",
     detail: pending
-      ? `Wait for ${shortHex(pending.hash, 10, 8)} to finish. Do not mint again.`
-      : "Finish or cancel the wallet request before changing this work.",
+      ? `Keep tracking ${shortHex(pending.hash, 10, 8)} before changing this work.`
+      : "Resolve or cancel the wallet request before changing this work.",
     eventId: pending
       ? `pending-preserved:${pending.hash.toLowerCase()}`
       : `wallet-request-preserved:${activeMintTransactionRequestId}`,
@@ -8630,13 +8302,11 @@ function resetPathInventoryState() {
 }
 
 const resetPathAcquisitionUiState = () => {
-  stopPathAcquisitionPriceTicker();
   pathAcquisitionRequestId += 1;
   pathAcquisitionReceiptMonitorHash = "";
   const pending = readPendingPathAcquisition();
   pathAcquisitionState = pending ? "submitted" : "idle";
   pathAcquisitionPrice = 0n;
-  pathAcquisitionPricingSnapshot = null;
   pathAcquisitionTxHash = pending?.txHash ?? "";
   pathAcquisitionError = "";
   pathAcquisitionCompletedForAttempt = false;
@@ -8659,7 +8329,6 @@ const resetMintFlow = (options?: { preserveAttempt?: boolean }) => {
   mintFlowData.thoughtSpecId = "";
   mintFlowData.thoughtSpecHash = "";
   mintFlowData.provenanceJson = "";
-  mintFlowData.creationAttestation = EMPTY_THOUGHT_CREATION_ATTESTATION;
   mintFlowData.existingTokenId = null;
   mintFlowData.pathIdInput = "";
   mintFlowData.pathId = null;
@@ -9105,10 +8774,6 @@ const setMintFlowError = (
   kind: MintFlowErrorKind = "mint",
   options: { preserveAuthorization?: boolean; preserveSubmittedTransaction?: boolean } = {},
 ) => {
-  if (isTerminalMintFlowState(mintFlowState)) {
-    return;
-  }
-
   mintErrorSequence += 1;
   mintFlowState = "error";
   mintFlowData.error = message;
@@ -9120,43 +8785,6 @@ const setMintFlowError = (
     walletState.txState = "failed";
   }
   walletState.txError = message;
-  const walletRequestCanceled = /reject|denied|cancel/i.test(message);
-  if (kind === "signature" && walletRequestCanceled) {
-    const path = mintFlowData.pathId
-      ? `$PATH #${mintFlowData.pathId.toString()}`
-      : "$PATH";
-    emitThoughtConsoleEvent({
-      kind: "authorization_canceled",
-      title: `${path} signature canceled`,
-      detail: "No signature was created. No transaction or gas.",
-      nextStep: "select “Try again”, or pick another $PATH",
-      tone: "warning",
-      eventId: mintAttemptConsoleEventId(
-        "authorization-canceled",
-        mintAuthorizationRequestId,
-        mintErrorSequence,
-      ),
-    });
-    return;
-  }
-  const mintRequestCanceled = kind === "mint" && walletRequestCanceled;
-  if (mintRequestCanceled) {
-    const path = mintFlowData.pathId
-      ? `$PATH #${mintFlowData.pathId.toString()}`
-      : "the selected $PATH";
-    const submitted = Boolean(walletState.txHash || mintFlowData.txHash);
-    emitThoughtConsoleEvent({
-      kind: "transaction_canceled",
-      title: "THOUGHT mint canceled",
-      detail: submitted
-        ? `The submitted mint was canceled. No THOUGHT was created, and ${path} was not used.`
-        : `No transaction was submitted, and ${path} was not used.`,
-      nextStep: "select “Try again”, or pick another $PATH",
-      tone: "warning",
-      eventId: mintAttemptConsoleEventId("mint-canceled", mintErrorSequence),
-    });
-    return;
-  }
   recordCurrentMintConsoleState();
 };
 
@@ -9191,7 +8819,6 @@ const isThoughtLevelMintError = () =>
   (
     mintFlowData.errorKind === "thought" ||
     mintFlowData.errorKind === "spec" ||
-    mintFlowData.errorKind === "local_deployment" ||
     mintFlowData.errorKind === "mint" ||
     mintFlowData.errorKind === "funds" ||
     mintFlowData.errorKind === "signature"
@@ -9200,10 +8827,6 @@ const isThoughtLevelMintError = () =>
 const canContinueWithPathInput = () => parsePathTokenId(mintFlowData.pathIdInput) !== null;
 
 const applyMintPathInputValue = (value: string) => {
-  if (isTerminalMintFlowState(mintFlowState)) {
-    return;
-  }
-
   const trimmed = value.trim();
   mintFlowData.pathIdInput = trimmed;
   mintFlowData.pathId = parsePathTokenId(trimmed);
@@ -9294,12 +8917,10 @@ const refreshPathInventoryForCurrentWallet = async (options?: { force?: boolean 
         items: [],
         error: inventory.message,
       };
-      if (!isTerminalMintFlowState(mintFlowState)) {
-        if (IS_LOCAL_THOUGHT_V2 && isThoughtV2LocalDeploymentError(inventory.message)) {
-          setMintFlowError(inventory.message, "thought");
-        } else {
-          recordCurrentMintConsoleState();
-        }
+      if (IS_LOCAL_THOUGHT_V2 && isThoughtV2LocalDeploymentError(inventory.message)) {
+        setMintFlowError(inventory.message, "thought");
+      } else {
+        recordCurrentMintConsoleState();
       }
     } else {
       pathInventoryState = {
@@ -9310,12 +8931,12 @@ const refreshPathInventoryForCurrentWallet = async (options?: { force?: boolean 
         error: "",
       };
       const availableItems = inventory.items.filter((item) => item.status === "available");
-      if (availableItems.length === 0 && !isTerminalMintFlowState(mintFlowState)) {
+      if (availableItems.length === 0) {
         clearMintPathSelection();
         if (mintFlowState === "error" && isPathRecoveryError()) {
           mintFlowState = "path_required";
         }
-        if (pathAcquisitionState === "idle" && mintFlowState === "path_required") {
+        if (pathAcquisitionState === "idle") {
           void handleMintPath();
         } else {
           recordCurrentMintConsoleState();
@@ -9342,10 +8963,6 @@ const refreshPathInventoryForCurrentWallet = async (options?: { force?: boolean 
 };
 
 const moveMintFlowToWalletOrPathSelection = () => {
-  if (isTerminalMintFlowState(mintFlowState)) {
-    return false;
-  }
-
   if (!walletState.address) {
     mintFlowState = "wallet_required";
     mintFlowData.error = "";
@@ -9696,7 +9313,7 @@ const getLegacyMintSheetStatusCopy = () => {
     return "checking uniqueness and mint state.";
   }
   if (mintFlowState === "text_taken") {
-    return "This exact prompt + Agent response pair is already on-chain; your $PATH was not used.";
+    return "This exact THOUGHT is already on-chain; your $PATH was not used.";
   }
   if (mintFlowState === "wallet_required") {
     if (isInjectedWalletMissing()) {
@@ -10286,49 +9903,36 @@ const refreshWalletState = async () => {
     }
   }
 
-  const walletContextChanged =
-    walletState.address !== previousAddress || walletState.chainId !== previousChainId;
   if (
-    walletContextChanged &&
-    (walletStateHydrated || pendingMintTransaction !== null)
+    walletStateHydrated &&
+    (walletState.address !== previousAddress || walletState.chainId !== previousChainId)
   ) {
     resetPathInventoryState();
     if (pendingMintTransaction) {
-      const title = pendingMintWalletChangeTitle({
-        previousAddress,
-        previousChainId,
-        nextAddress: walletState.address,
-        nextChainId: walletState.chainId,
-        trackedAddress: pendingMintTransaction.account,
-        trackedChainId: pendingMintTransaction.chainId,
+      emitThoughtConsoleEvent({
+        kind: "wallet_changed_after_submission",
+        title: "wallet changed",
+        detail: `Active wallet: ${walletState.address ? shortHex(walletState.address) : "disconnected"} on chain ${walletState.chainId ?? "none"}. Mint from ${shortHex(pendingMintTransaction.account)} keeps tracking.`,
       });
-      if (title) {
-        emitThoughtConsoleEvent({
-          kind: "wallet_changed_after_submission",
-          title,
-          detail: `Return to ${shortHex(pendingMintTransaction.account)} on chain ${pendingMintTransaction.chainId} to continue checking the submitted mint. Do not mint again.`,
-        });
-      }
     } else {
-      if (!isTerminalMintFlowState(mintFlowState)) {
-        mintAttemptId = nextMintAttemptId("wallet");
-        clearMintPathSelection();
-        if (mintFlowState !== "closed" && mintFlowState !== "wallet_required") {
-          if (!walletState.address) {
-            mintFlowState = "wallet_required";
-            mintFlowData.error = "";
-            mintFlowData.errorKind = "none";
-          } else if (walletState.chainId !== THOUGHT_CHAIN_ID) {
-            mintFlowState = "error";
-            mintFlowData.error = "wrong network.";
-            mintFlowData.errorKind = "wrong_network";
-          } else {
-            mintFlowState = "path_required";
-            mintFlowData.error = "";
-            mintFlowData.errorKind = "none";
-          }
+      mintAttemptId = nextMintAttemptId("wallet");
+      clearMintPathSelection();
+      if (mintFlowState !== "closed" && mintFlowState !== "wallet_required") {
+        if (!walletState.address) {
+          mintFlowState = "wallet_required";
+          mintFlowData.error = "";
+          mintFlowData.errorKind = "none";
+        } else if (walletState.chainId !== THOUGHT_CHAIN_ID) {
+          mintFlowState = "error";
+          mintFlowData.error = "wrong network.";
+          mintFlowData.errorKind = "wrong_network";
+        } else {
+          mintFlowState = "path_required";
+          mintFlowData.error = "";
+          mintFlowData.errorKind = "none";
         }
       }
+      recordThoughtConsoleContextBoundary();
       if (mintFlowState !== "closed") {
         recordCurrentMintConsoleState();
       }
@@ -10347,11 +9951,6 @@ async function refreshThoughtWalletFromShell() {
 
   await refreshWalletState();
   syncMintFlowAfterWalletCommand();
-
-  if (isTerminalMintFlowState(mintFlowState)) {
-    syncInterface();
-    return;
-  }
 
   const pathHandoff = readPathMintHandoff();
   const pathReturn = pathHandoff
@@ -10498,25 +10097,12 @@ const walletConnectionConsoleFailure = (error: unknown) => {
       ? String((error as { code?: unknown }).code)
       : "";
   if (code === "4001" || /reject|denied|cancel/i.test(message)) {
-    return {
-      kind: "wallet_connection_canceled",
-      title: "wallet connection canceled",
-      detail: "No account access was granted.",
-      nextStep: "select “Connect wallet” when ready",
-    };
+    return { title: "wallet connection canceled", detail: "nothing changed" };
   }
   if (code === "-32002" || /already.*(?:pending|open)|request.*pending/i.test(message)) {
-    return {
-      kind: "wallet_connection_failed",
-      title: "wallet request already open",
-      detail: "Finish or cancel the request in your wallet.",
-    };
+    return { title: "wallet request already open", detail: "finish or cancel it in your wallet" };
   }
-  return {
-    kind: "wallet_connection_failed",
-    title: "wallet did not connect",
-    detail: "The App could not confirm the wallet connection.",
-  };
+  return { title: "wallet not connected", detail: "try connecting again" };
 };
 
 const requestWalletConnect = async () => {
@@ -10532,8 +10118,8 @@ const requestWalletConnect = async () => {
     if (mintFlowState !== "closed") {
       emitThoughtConsoleEvent({
         kind: "wallet_connection_requested",
-        title: "approve wallet connection",
-        detail: "Open your wallet and approve the connection. No signature or transaction.",
+        title: "wallet connection requested",
+        detail: "finish or cancel the request in your wallet",
       });
     }
     syncInterface();
@@ -10567,6 +10153,7 @@ const requestWalletConnect = async () => {
       if (mintFlowState !== "closed") {
         const consoleFailure = walletConnectionConsoleFailure(error);
         emitThoughtConsoleEvent({
+          kind: "wallet_connection_failed",
           ...consoleFailure,
           tone: "warning",
         });
@@ -10600,8 +10187,8 @@ const requestWalletConnect = async () => {
   if (mintFlowState !== "closed") {
     emitThoughtConsoleEvent({
       kind: "wallet_connection_requested",
-      title: "approve wallet connection",
-      detail: "Open your wallet and approve the connection. No signature or transaction.",
+      title: "wallet connection requested",
+      detail: "finish or cancel the request in your wallet",
     });
   }
   syncInterface();
@@ -10656,6 +10243,7 @@ const requestWalletConnect = async () => {
     if (mintFlowState !== "closed") {
       const consoleFailure = walletConnectionConsoleFailure(error);
       emitThoughtConsoleEvent({
+        kind: "wallet_connection_failed",
         ...consoleFailure,
         tone: "warning",
       });
@@ -10666,42 +10254,16 @@ const requestWalletConnect = async () => {
   }
 };
 
-const recordWalletNetworkSwitchFailure = (error: unknown, requestId: number) => {
-  const canceled = thoughtAnalyticsErrorCategory(error) === "wallet_rejected";
-  const message = error instanceof Error ? error.message : "wallet switch failed.";
-  setWarning(message);
-  setStatus("");
-  if (mintFlowState === "closed") {
-    return;
-  }
-  emitThoughtConsoleEvent({
-    kind: canceled ? "network_switch_canceled" : "network_switch_failed",
-    title: canceled ? "network switch canceled" : "network switch failed",
-    detail: canceled
-      ? "The wallet network did not change."
-      : `The wallet did not switch to ${THOUGHT_CHAIN_NAME}.`,
-    nextStep: "select “Switch network” when ready",
-    tone: "warning",
-    eventId: mintAttemptConsoleEventId(
-      "network-switch",
-      requestId,
-      canceled ? "canceled" : "failed",
-    ),
-  });
-};
-
 const switchWalletChain = async () => {
   const ethereum = getEthereumProvider();
   if (!ethereum) {
     setWarning("No supported wallet found.", { level: "warn" });
     setStatus("");
-    return false;
+    return;
   }
 
   setWarning("");
   setStatus("");
-  const requestId = walletNetworkSwitchRequestId + 1;
-  walletNetworkSwitchRequestId = requestId;
 
   try {
     await ethereum.request({
@@ -10715,37 +10277,33 @@ const switchWalletChain = async () => {
         : null;
 
     if (errorCode === 4902) {
-      try {
-        await ethereum.request({
-          method: "wallet_addEthereumChain",
-          params: [
-            {
-              chainId: THOUGHT_CHAIN_ID_HEX,
-              chainName: THOUGHT_CHAIN_NAME,
-              nativeCurrency: {
-                name: "Ether",
-                symbol: "ETH",
-                decimals: 18,
-              },
-              rpcUrls: THOUGHT_WALLET_RPC_URLS,
-              blockExplorerUrls: THOUGHT_EXPLORER_BASE_URL ? [THOUGHT_EXPLORER_BASE_URL] : [],
+      await ethereum.request({
+        method: "wallet_addEthereumChain",
+        params: [
+          {
+            chainId: THOUGHT_CHAIN_ID_HEX,
+            chainName: THOUGHT_CHAIN_NAME,
+            nativeCurrency: {
+              name: "Ether",
+              symbol: "ETH",
+              decimals: 18,
             },
-          ],
-        });
-      } catch (addError) {
-        recordWalletNetworkSwitchFailure(addError, requestId);
-        return false;
-      }
+            rpcUrls: THOUGHT_WALLET_RPC_URLS,
+            blockExplorerUrls: THOUGHT_EXPLORER_BASE_URL ? [THOUGHT_EXPLORER_BASE_URL] : [],
+          },
+        ],
+      });
     } else {
-      recordWalletNetworkSwitchFailure(error, requestId);
-      return false;
+      const message = error instanceof Error ? error.message : "wallet switch failed.";
+      setWarning(message);
+      setStatus("");
+      return;
     }
   }
 
   await refreshWalletState();
   syncInterface();
   setStatus("chain ready.", { flashMs: NOTICE_FLASH_MS });
-  return true;
 };
 
 const disconnectThoughtDockWallet = (options?: { appendCli?: boolean }) => {
@@ -10763,20 +10321,14 @@ const disconnectThoughtDockWallet = (options?: { appendCli?: boolean }) => {
   walletState.preflightError = "";
   if (!trackedMint) {
     resetPathInventoryState();
-    if (!isTerminalMintFlowState(mintFlowState)) {
-      clearMintPathSelection();
-    }
+    clearMintPathSelection();
   }
 
-  if (!keepsSubmittedMint && !isTerminalMintFlowState(mintFlowState)) {
+  if (!keepsSubmittedMint) {
     mintAttemptId = nextMintAttemptId("wallet");
   }
 
-  if (
-    !trackedMint &&
-    mintFlowState !== "closed" &&
-    !isTerminalMintFlowState(mintFlowState)
-  ) {
+  if (!trackedMint && mintFlowState !== "closed" && mintFlowState !== "minted") {
     mintFlowState = "wallet_required";
     mintFlowData.error = "";
     mintFlowData.errorKind = "none";
@@ -10799,9 +10351,10 @@ const disconnectThoughtDockWallet = (options?: { appendCli?: boolean }) => {
     emitThoughtConsoleEvent({
       kind: "wallet_changed_after_submission",
       title: "wallet disconnected",
-      detail: `Reconnect ${shortHex(trackedMint.account)} on chain ${trackedMint.chainId} to continue checking the submitted mint. Do not mint again.`,
+      detail: `Mint from ${shortHex(trackedMint.account)} on chain ${trackedMint.chainId} keeps tracking.`,
     });
   } else {
+    recordThoughtConsoleContextBoundary();
     if (mintFlowState !== "closed") recordCurrentMintConsoleState();
   }
 
@@ -10857,10 +10410,10 @@ const extractMintedTokenId = (receipt: { logs?: readonly { topics: readonly stri
   return null;
 };
 
-const lookupExistingThoughtToken = async (token: Contract, identityHash: string) =>
+const lookupExistingThoughtToken = async (token: Contract, agentLineHash: string) =>
   IS_LOCAL_THOUGHT_V2
-    ? token.tokenOfConversationIdentityHash(identityHash) as Promise<bigint>
-    : token.tokenOfThought(identityHash) as Promise<bigint>;
+    ? token.tokenOfAgentLineHash(agentLineHash) as Promise<bigint>
+    : token.tokenOfThought(agentLineHash) as Promise<bigint>;
 
 const preflightCurrentThoughtExistence = async () => {
   if (!currentOutputText || runState !== "output_ready") {
@@ -10873,10 +10426,7 @@ const preflightCurrentThoughtExistence = async () => {
 
   try {
     await verifyLocalThoughtV2Deployment();
-    const textHash = await textHashFromContract(
-      checkedText,
-      currentRunContext?.prompt ?? sessionState.prompt,
-    );
+    const textHash = await textHashFromContract(checkedText);
     const token = getReadThoughtNFT();
     if (!token) return;
     const existingTokenId = await lookupExistingThoughtToken(token, textHash);
@@ -10892,15 +10442,6 @@ const preflightCurrentThoughtExistence = async () => {
       return;
     }
 
-    await hydrateCurrentWorkFromTokenUri(token, existingTokenId, checkedText);
-    if (
-      requestId !== thoughtExistenceCheckRequestId ||
-      currentOutputText !== checkedText ||
-      runState !== "output_ready" ||
-      mintFlowState !== "closed"
-    ) {
-      return;
-    }
     mintFlowData.rawText = checkedText;
     mintFlowData.textHash = textHash;
     mintFlowData.existingTokenId = Number(existingTokenId);
@@ -10929,11 +10470,6 @@ const openMintFlow = async (
   uiMode: MintFlowUiMode = THOUGHT_PANEL_MINT_UI_MODE,
   options?: { attemptId?: string; pathId?: string; work?: ThoughtMintWorkSnapshot },
 ) => {
-  if (isTerminalMintFlowState(mintFlowState)) {
-    syncInterface();
-    return;
-  }
-
   const trackedMint = adoptDurablePendingMintTransaction();
   if (trackedMint) {
     projectPendingMintTransaction(trackedMint, {
@@ -10988,17 +10524,14 @@ const openMintFlow = async (
   } catch (error) {
     setMintFlowError(
       error instanceof Error ? error.message : "local THOUGHT V2 deployment unavailable.",
-      "local_deployment",
+      "thought",
     );
     syncInterface();
     return;
   }
 
   try {
-    mintFlowData.textHash = await textHashFromContract(
-      mintWork.text,
-      mintWork.runContext.prompt,
-    );
+    mintFlowData.textHash = await textHashFromContract(mintWork.text);
   } catch {
     setMintFlowError("text preview unavailable.", "thought");
     syncInterface();
@@ -11026,7 +10559,6 @@ const openMintFlow = async (
   mintFlowData.thoughtSpecHash = spec.specHash;
   if (IS_LOCAL_THOUGHT_V2) {
     mintFlowData.provenanceJson = "";
-    mintFlowData.creationAttestation = EMPTY_THOUGHT_CREATION_ATTESTATION;
   } else {
     const provenanceJson = buildProvenanceJson(mintFlowData.textHash, undefined, mintWork);
     const provenanceBytes = byteLength(provenanceJson);
@@ -11040,12 +10572,7 @@ const openMintFlow = async (
 
   const token = getReadThoughtNFT();
   if (!token) {
-    setMintFlowError(
-      IS_LOCAL_THOUGHT_V2
-        ? THOUGHT_V2_LOCAL_DEPLOYMENT_UNAVAILABLE_COPY
-        : "mint unavailable.",
-      IS_LOCAL_THOUGHT_V2 ? "local_deployment" : "thought",
-    );
+    setMintFlowError("mint unavailable.", "thought");
     syncInterface();
     return;
   }
@@ -11077,20 +10604,8 @@ const openMintFlow = async (
     if (pathSelectionReady) {
       focusMintPathInput();
     }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "";
-    const localDeploymentFailure =
-      IS_LOCAL_THOUGHT_V2 &&
-      (
-        isThoughtV2LocalDeploymentError(message) ||
-        /failed to fetch|network|connection refused|could not connect|econnrefused|missing response/i.test(message)
-      );
-    setMintFlowError(
-      localDeploymentFailure
-        ? THOUGHT_V2_LOCAL_DEPLOYMENT_UNAVAILABLE_COPY
-        : "mint unavailable.",
-      localDeploymentFailure ? "local_deployment" : "thought",
-    );
+  } catch {
+    setMintFlowError("mint unavailable.", "thought");
     syncInterface();
   }
 };
@@ -11105,13 +10620,7 @@ const readPathEligibility = async (
 ): Promise<PathEligibilityResult> => {
   const pathNft = getReadPathNft();
   if (!pathNft) {
-    return {
-      ok: false,
-      kind: IS_LOCAL_THOUGHT_V2 ? "local_deployment" : "thought",
-      message: IS_LOCAL_THOUGHT_V2
-        ? THOUGHT_V2_LOCAL_DEPLOYMENT_UNAVAILABLE_COPY
-        : "mint unavailable.",
-    };
+    return { ok: false, kind: "thought", message: "mint unavailable." };
   }
 
   try {
@@ -11160,21 +10669,12 @@ const readPathEligibility = async (
 };
 
 const checkPathEligibility = async () => {
-  if (isTerminalMintFlowState(mintFlowState)) {
-    return;
-  }
-
   clearMintAuthorization();
   walletState.txState = "idle";
   walletState.txError = "";
 
   if (!PATH_NFT_ADDRESS || !THOUGHT_NFT_ADDRESS) {
-    setMintFlowError(
-      IS_LOCAL_THOUGHT_V2
-        ? THOUGHT_V2_LOCAL_DEPLOYMENT_UNAVAILABLE_COPY
-        : "mint unavailable.",
-      IS_LOCAL_THOUGHT_V2 ? "local_deployment" : "thought",
-    );
+    setMintFlowError("mint unavailable.", "thought");
     syncInterface();
     focusMintDockStage();
     return;
@@ -11190,9 +10690,6 @@ const checkPathEligibility = async () => {
   }
 
   await refreshWalletState();
-  if (isTerminalMintFlowState(mintFlowState)) {
-    return;
-  }
 
   if (!walletState.address) {
     mintFlowState = "wallet_required";
@@ -11224,9 +10721,6 @@ const checkPathEligibility = async () => {
   syncInterface();
 
   const eligibility = await readPathEligibility(pathId, walletState.address);
-  if (isTerminalMintFlowState(mintFlowState)) {
-    return;
-  }
   if (!eligibility.ok) {
     setMintFlowError(eligibility.message, eligibility.kind);
     syncInterface();
@@ -11236,9 +10730,6 @@ const checkPathEligibility = async () => {
 
   try {
     await rebuildFinalMintProvenance();
-    if (isTerminalMintFlowState(mintFlowState)) {
-      return;
-    }
   } catch (error) {
     const presentation = formatThoughtAuthorizationError(error, "preparing");
     setMintFlowError(presentation.message, presentation.kind);
@@ -11256,10 +10747,6 @@ const checkPathEligibility = async () => {
 };
 
 const authorizeMint = async () => {
-  if (isTerminalMintFlowState(mintFlowState)) {
-    return;
-  }
-
   if (mintAuthorizationInFlight) {
     return;
   }
@@ -11370,55 +10857,6 @@ type MintReceiptResult = Readonly<{
   receipt: MintReceipt;
 }>;
 
-const createWalletReturnWithoutHashGuard = () => {
-  let sawWalletLeave = false;
-  let returnTimer = 0;
-  let rejectWithoutHash!: (error: Error) => void;
-  const promise = new Promise<never>((_, reject) => {
-    rejectWithoutHash = reject;
-  });
-
-  const clearReturnTimer = () => {
-    if (!returnTimer) return;
-    window.clearTimeout(returnTimer);
-    returnTimer = 0;
-  };
-  const markWalletLeave = () => {
-    sawWalletLeave = true;
-    clearReturnTimer();
-  };
-  const scheduleWalletReturnCheck = () => {
-    if (!sawWalletLeave || returnTimer) return;
-    returnTimer = window.setTimeout(() => {
-      returnTimer = 0;
-      rejectWithoutHash(
-        new Error("wallet returned but the transaction was not submitted."),
-      );
-    }, WALLET_RETURN_WITHOUT_HASH_GRACE_MS);
-  };
-  const handleVisibilityChange = () => {
-    if (document.visibilityState === "hidden") {
-      markWalletLeave();
-      return;
-    }
-    scheduleWalletReturnCheck();
-  };
-
-  window.addEventListener("blur", markWalletLeave);
-  window.addEventListener("focus", scheduleWalletReturnCheck);
-  document.addEventListener("visibilitychange", handleVisibilityChange);
-
-  return Object.freeze({
-    promise,
-    dispose: () => {
-      clearReturnTimer();
-      window.removeEventListener("blur", markWalletLeave);
-      window.removeEventListener("focus", scheduleWalletReturnCheck);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    },
-  });
-};
-
 const mintErrorMessage = (error: unknown) => {
   const errorName =
     typeof error === "object" && error !== null && "errorName" in error
@@ -11431,11 +10869,10 @@ const mintErrorMessage = (error: unknown) => {
   const message = error instanceof Error ? error.message : shortMessage;
 
   if (
-    errorName === "ConversationAlreadyMinted" ||
-    errorName === "WorkAlreadyMinted" ||
-    /ConversationAlreadyMinted|WorkAlreadyMinted/i.test(message)
+    errorName === "AgentLineAlreadyMinted" ||
+    /AgentLineAlreadyMinted/i.test(message)
   ) {
-    return "this exact prompt + Agent response pair is already on-chain.";
+    return "this exact Agent line is already minted.";
   }
   if (errorName === "ThoughtAlreadyMinted" || /ThoughtAlreadyMinted/i.test(message)) {
     return "this exact THOUGHT is already on-chain.";
@@ -11662,10 +11099,7 @@ const recoverMintStateAfterRevert = async (
     walletState.txError = "";
     walletState.mintedTokenId = existingTokenId;
     mintFlowData.existingTokenId = existingTokenId;
-    // The selected local $PATH is not proven to have minted a token found
-    // during revert reconciliation. Present the authoritative uniqueness
-    // outcome without claiming that this wallet's $PATH was used.
-    mintFlowState = "text_taken";
+    mintFlowState = "minted";
     pendingMyBrainRunPayload = null;
     clearThoughtGalleryCache();
     await refreshMintPreflight();
@@ -11673,10 +11107,11 @@ const recoverMintStateAfterRevert = async (
     syncInterface();
 
     if (shouldAppendCliResult) {
+      const consumedPathId = selectedCliPathId();
       appendCliOutput([
         "already minted.",
         `THOUGHT: #${existingTokenId}`,
-        "The existing token may have been minted by another transaction; this $PATH use is not proven.",
+        consumedPathId ? `$PATH #${consumedPathId} THOUGHT mint already used.` : "",
         walletState.txHash || mintFlowData.txHash ? "use: view tx" : "",
         viewThoughtUseLine(existingTokenId),
         "use: gallery",
@@ -11916,6 +11351,12 @@ const finalizeSuccessfulKnownMint = async (
   pendingMyBrainRunPayload = null;
   clearThoughtGalleryCache();
   await refreshMintPreflight();
+  emitThoughtConsoleEvent({
+    kind: "mint_receipt_confirmed",
+    title: "THOUGHT mint confirmed",
+    detail: `${shortHex(transaction.hash, 10, 8)} confirmed on-chain.`,
+    eventId: `mint-confirmed:${transaction.hash}`,
+  });
   recordCurrentMintConsoleState();
   syncInterface();
   trackThoughtAnalytics("mint_succeeded", {
@@ -12006,8 +11447,8 @@ const reconcileKnownMintReceipt = async (
   }
   emitThoughtConsoleEvent({
     kind: "conflicting_mint_reverted",
-    title: "one mint transaction failed",
-    detail: "The other mint transaction is still being checked.",
+    title: "returned mint hash reverted",
+    detail: `${shortHex(transaction.hash, 10, 8)} reverted; the original hash remains tracked.`,
     eventId: `conflicting-mint-reverted:${transaction.hash}`,
     tone: "warning",
   });
@@ -12114,8 +11555,8 @@ const registerSubmittedMintTx = async (
       appendConflictingMintTransaction(returnedTransaction);
       emitThoughtConsoleEvent({
         kind: "multiple_mint_hashes_returned",
-        title: "more than one mint transaction found",
-        detail: "The App is checking both transactions. Do not mint again.",
+        title: "multiple mint hashes returned",
+        detail: `${shortHex(existing.hash, 10, 8)} and ${shortHex(returnedTransaction.hash, 10, 8)} are both retained and monitored. Do not submit a duplicate.`,
         eventId: `multiple-mint-hashes:${existing.hash}:${returnedTransaction.hash}`,
         tone: "warning",
       });
@@ -12240,8 +11681,8 @@ const resumePendingMintTransaction = async () => {
     projectPendingMintTransaction(pending, { deploymentWarning: true });
     emitThoughtConsoleEvent({
       kind: "pending_mint_deployment_mismatch",
-      title: "check the earlier mint",
-      detail: `Open the browser tab where you submitted ${shortHex(pending.hash, 10, 8)} on chain ${pending.chainId}. Do not mint again here.`,
+      title: "mint deployment changed",
+      detail: `Keep tracking ${shortHex(pending.hash, 10, 8)} on chain ${pending.chainId}; this deployment cannot inspect it.`,
       eventId: `pending-deployment:${pending.hash.toLowerCase()}`,
       tone: "warning",
     });
@@ -12273,10 +11714,9 @@ const restorePathMintHandoffWork = (handoff: PathMintHandoff) => {
     if (keccak256(toUtf8Bytes(output)).toLowerCase() !== handoff.workHash.toLowerCase()) {
       return false;
     }
-    const normalized = normalizeStoredWorkVisual(handoff.work.svg);
+    const migratedSvg = migrateLegacyThoughtV2Svg(output, handoff.work.svg);
     currentOutputText = output;
-    currentWorkSvg = normalized.svg;
-    currentWorkImage = normalized.image;
+    currentWorkSvg = migratedSvg.svg;
     currentRunContext = isThoughtRunContext(handoff.work.runContext) ? handoff.work.runContext : null;
     currentWorkId = handoff.work.workId;
     runState = "output_ready";
@@ -12388,6 +11828,10 @@ const resumePathMintHandoff = async () => {
   mintFlowUiMode = THOUGHT_PANEL_MINT_UI_MODE;
   mintFlowData.rawText = currentOutputText;
   mintFlowData.textHash = handoff.workHash;
+  if (!confirmedReturn && !resumesSameWallet) {
+    recordThoughtConsoleContextBoundary();
+  }
+
   const showReturnError = (message: string, kind: MintFlowErrorKind) => {
     const work = getThoughtDockWorkView();
     if (work) {
@@ -12431,7 +11875,7 @@ const resumePathMintHandoff = async () => {
     (!walletState.address || walletState.address.toLowerCase() !== confirmedReturn.account.toLowerCase())
   ) {
     return showReturnError(
-      `$PATH was minted to ${shortHex(confirmedReturn.account)}; select that account in your wallet to use it for this THOUGHT work.`,
+      `$PATH was minted to ${shortHex(confirmedReturn.account)}; select that account in your wallet to continue.`,
       "wallet_account_mismatch",
     );
   }
@@ -12491,100 +11935,6 @@ const resumePathMintHandoff = async () => {
   return true;
 };
 
-const requestLocalMockOfficialMint = async (
-  work: ThoughtMintWorkSnapshot,
-  spec: ActiveThoughtSpec,
-): Promise<ThoughtV2MintInput> => {
-  if (
-    !walletState.address ||
-    mintFlowData.pathId === null ||
-    !mintFlowData.deadline ||
-    !mintFlowData.signature
-  ) {
-    throw new Error("Local App attestation requires a current $PATH authorization.");
-  }
-  const evidence = work.runContext.agentEvidence;
-  if (!evidence) {
-    throw new Error("Local App attestation requires current Agent evidence.");
-  }
-  const process = buildThoughtV2LocalAgentProcess(
-    evidence,
-    work.text,
-    work.runContext.model,
-  );
-  const response = await fetch("/api/thought-contract/v1/mock-attestation", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      intendedMinter: walletState.address,
-      promptLine: work.runContext.prompt,
-      agentLine: work.text,
-      process,
-      path: {
-        pathId: mintFlowData.pathId.toString(),
-        deadline: mintFlowData.deadline.toString(),
-        pathSignature: mintFlowData.signature,
-      },
-      attestationDeadline: mintFlowData.deadline.toString(),
-    }),
-  });
-  const raw = await response.json() as Record<string, unknown>;
-  if (!response.ok) {
-    const errorBody =
-      typeof raw.error === "object" && raw.error !== null
-        ? raw.error as Record<string, unknown>
-        : null;
-    const message = typeof raw.message === "string"
-      ? raw.message
-      : typeof errorBody?.message === "string"
-        ? errorBody.message
-        : "Local App attestation failed.";
-    throw new Error(message);
-  }
-
-  const proof = raw.creationAttestation as Record<string, unknown> | undefined;
-  const mock = raw.mock as Record<string, unknown> | undefined;
-  const result: ThoughtV2MintInput = {
-    promptLine: String(raw.promptLine ?? ""),
-    agentLine: String(raw.agentLine ?? ""),
-    declaredAgent: String(raw.declaredAgent ?? ""),
-    declaredModel: String(raw.declaredModel ?? ""),
-    pathId: BigInt(String(raw.pathId ?? "0")),
-    thoughtSpecId: String(raw.thoughtSpecId ?? "") as `0x${string}`,
-    thoughtSpecHash: String(raw.thoughtSpecHash ?? "") as `0x${string}`,
-    provenanceJson: String(raw.provenanceJson ?? ""),
-    deadline: BigInt(String(raw.deadline ?? "0")),
-    pathSignature: String(raw.pathSignature ?? "") as `0x${string}`,
-    creationAttestation: {
-      runIdHash: String(proof?.runIdHash ?? "") as `0x${string}`,
-      deadline: BigInt(String(proof?.deadline ?? "0")),
-      authorityEpoch: BigInt(String(proof?.authorityEpoch ?? "0")),
-      signature: String(proof?.signature ?? "") as `0x${string}`,
-    },
-  };
-  const declarations = getLocalMintDeclarations(work);
-  const responseMatchesMint =
-    mock?.environment === "disposable-anvil" &&
-    mock.productionAuthorized === false &&
-    result.promptLine === work.runContext.prompt &&
-    result.agentLine === work.text &&
-    result.declaredAgent === declarations.declaredAgent &&
-    result.declaredModel === declarations.declaredModel &&
-    result.pathId === mintFlowData.pathId &&
-    result.deadline === mintFlowData.deadline &&
-    result.pathSignature === mintFlowData.signature &&
-    result.thoughtSpecId.toLowerCase() === spec.specId.toLowerCase() &&
-    result.thoughtSpecHash.toLowerCase() === spec.specHash.toLowerCase() &&
-    /^0x[0-9a-f]{64}$/.test(result.creationAttestation.runIdHash) &&
-    result.creationAttestation.deadline === mintFlowData.deadline &&
-    result.creationAttestation.authorityEpoch > 0n &&
-    /^0x[0-9a-f]+$/.test(result.creationAttestation.signature);
-  if (!responseMatchesMint) {
-    throw new Error("Local App attestation response does not match the current mint.");
-  }
-  return result;
-};
-
 const rebuildFinalMintProvenance = async () => {
   if (!walletState.address || mintFlowData.pathId === null || !activeMintWork) {
     throw new Error("mint context unavailable.");
@@ -12597,24 +11947,15 @@ const rebuildFinalMintProvenance = async () => {
   mintFlowData.thoughtSpecId = spec.specId;
   mintFlowData.thoughtSpecHash = spec.specHash;
   if (!mintFlowData.textHash) {
-    mintFlowData.textHash = await textHashFromContract(
-      mintFlowData.rawText,
-      activeMintWork.runContext.prompt,
-    );
+    mintFlowData.textHash = await textHashFromContract(mintFlowData.rawText);
   }
   const promptHash = hashText(activeMintWork.runContext.prompt);
   mintFlowData.promptHash = promptHash;
-  let provenanceJson = buildProvenanceJson(mintFlowData.textHash, {
+  const provenanceJson = buildProvenanceJson(mintFlowData.textHash, {
     minter: walletState.address,
     pathId: mintFlowData.pathId,
     promptHash,
   }, activeMintWork);
-  mintFlowData.creationAttestation = EMPTY_THOUGHT_CREATION_ATTESTATION;
-  if (IS_LOCAL_THOUGHT_V2 && mintFlowData.deadline && mintFlowData.signature) {
-    const attestedMint = await requestLocalMockOfficialMint(activeMintWork, spec);
-    provenanceJson = attestedMint.provenanceJson;
-    mintFlowData.creationAttestation = attestedMint.creationAttestation;
-  }
   const provenanceBytes = byteLength(provenanceJson);
   if (provenanceBytes > MAX_PROVENANCE_BYTES) {
     throw new Error(provenanceTooLargeMessage(provenanceBytes));
@@ -12624,10 +11965,6 @@ const rebuildFinalMintProvenance = async () => {
 
 const confirmMint = async (options?: { appendCliResult?: boolean }) => {
   const shouldAppendCliResult = options?.appendCliResult ?? false;
-  if (isTerminalMintFlowState(mintFlowState)) {
-    return null;
-  }
-
   if (mintTransactionInFlight) {
     return null;
   }
@@ -12702,9 +12039,6 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
       account: capturedAuthorization.account,
       promptLine: activeMintWork.runContext.prompt,
       agentLine: capturedAuthorization.rawText,
-      ...(IS_LOCAL_THOUGHT_V2
-        ? getLocalMintDeclarations(activeMintWork)
-        : { declaredAgent: "", declaredModel: "" }),
       pathId: capturedAuthorization.pathId,
       thoughtSpecId: mintFlowData.thoughtSpecId,
       thoughtSpecHash: mintFlowData.thoughtSpecHash,
@@ -12712,7 +12046,6 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
       provenanceJson: mintFlowData.provenanceJson,
       deadline: capturedAuthorization.deadline,
       pathSignature: capturedAuthorization.signature,
-      creationAttestation: mintFlowData.creationAttestation,
       workHash: mintFlowData.textHash,
     });
     const browserProvider = new BrowserProvider(ethereum);
@@ -12809,15 +12142,12 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
               {
                 promptLine: payload.promptLine,
                 agentLine: payload.agentLine,
-                declaredAgent: payload.declaredAgent,
-                declaredModel: payload.declaredModel,
                 pathId: payload.pathId,
                 thoughtSpecId: payload.thoughtSpecId,
                 thoughtSpecHash: payload.thoughtSpecHash,
                 provenanceJson: payload.provenanceJson,
                 deadline: payload.deadline,
                 pathSignature: payload.pathSignature,
-                creationAttestation: payload.creationAttestation,
               },
               { nonce },
             )
@@ -12841,11 +12171,10 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
           releaseLockAfterRecovery,
           releaseCompleted,
         });
-        const walletReturnGuard = createWalletReturnWithoutHashGuard();
         try {
           try {
             const tx = await withTimeout(
-              Promise.race([txPromise, walletReturnGuard.promise]),
+              txPromise,
               WALLET_TX_SUBMIT_TIMEOUT_MS,
               "wallet transaction not submitted.",
             );
@@ -12886,6 +12215,7 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
               const lateError = lateOutcome.error;
               const lateMessage = mintErrorMessage(lateError);
               setMintFlowError(lateMessage, "mint", { preserveAuthorization: true });
+              recordCurrentMintConsoleState();
               trackThoughtAnalytics("mint_failed", {
                 mintStage: "wallet_signature",
                 errorCategory: thoughtAnalyticsErrorCategory(lateError),
@@ -12916,7 +12246,6 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
             return null;
           }
         } finally {
-          walletReturnGuard.dispose();
           if (unresolvedMintSubmission?.requestId === requestId) {
             unresolvedMintSubmission = null;
             walletMintSubmitPromiseUnresolved = false;
@@ -12997,8 +12326,8 @@ const recoverUnresolvedMintSubmission = async () => {
     resumeConflictingMintReceiptMonitoring();
     emitThoughtConsoleEvent({
       kind: "mint_activity_checked",
-      title: "THOUGHT mint still pending",
-      detail: `Wait for ${shortHex(durable.hash, 10, 8)} to finish. Do not mint again.`,
+      title: "mint activity checked",
+      detail: `Transaction hash ${shortHex(durable.hash, 10, 8)} is retained. Do not submit a duplicate.`,
       eventId: `mint-activity-checked:${durable.hash}`,
     });
     recordCurrentMintConsoleState();
@@ -13083,21 +12412,30 @@ const recoverUnresolvedMintSubmission = async () => {
     !nonceAdvanced;
 
   if (safelyClear) {
-    setMintFlowError(
-      "No submitted transaction was found, but the wallet request may still be open. Cancel or reject it in the wallet, then confirm that it is closed here.",
-      "mint",
-      { preserveAuthorization: true, preserveSubmittedTransaction: true },
-    );
-    emitThoughtConsoleEvent({
-      kind: "mint_activity_checked",
-      title: "close the previous wallet request",
-      detail: "No transaction was found. Cancel or reject the previous request in your wallet before retrying.",
-      nextStep: "cancel the previous wallet request, then select “I closed it”",
-      eventId: `mint-activity-checked:${unresolved.requestId}:close-wallet`,
-      tone: "warning",
-    });
-    syncInterface();
-    return;
+    unresolved.releaseLockAfterRecovery();
+    try {
+      await withTimeout(
+        unresolved.releaseCompleted,
+        PATH_AUTHORIZATION_REQUEST_TIMEOUT_MS,
+        "mint recovery release timed out.",
+      );
+      setMintFlowError(
+        "Recovery check complete: two nonce checks found no hash or account activity. The old wallet waiter is detached and any late hash will still be retained and monitored. Retry only after confirming the wallet shows no open request.",
+        "mint",
+        { preserveAuthorization: true },
+      );
+      emitThoughtConsoleEvent({
+        kind: "mint_submission_detached",
+        title: "wallet waiter safely detached",
+        detail: "No hash or nonce activity was found twice. Any late transaction remains monitored.",
+        eventId: `mint-submission-detached:${unresolved.requestId}`,
+        tone: "warning",
+      });
+      syncInterface();
+      return;
+    } catch {
+      // A failed release is inconclusive; keep the UI in no-duplicate mode.
+    }
   }
 
   setMintFlowError(
@@ -13109,46 +12447,9 @@ const recoverUnresolvedMintSubmission = async () => {
   );
   emitThoughtConsoleEvent({
     kind: "mint_activity_checked",
-    title: "previous mint may still be open",
-    detail: "Check your wallet. Do not mint again until the previous request is confirmed or canceled.",
+    title: nonceAdvanced ? "wallet activity detected" : "wallet request still unresolved",
+    detail: mintFlowData.error,
     eventId: `mint-activity-checked:${unresolved.requestId}:${nonceAdvanced ? "advanced" : "waiting"}`,
-    tone: "warning",
-  });
-  syncInterface();
-};
-
-const confirmPreviousWalletRequestClosed = async () => {
-  const unresolved = unresolvedMintSubmission;
-  if (unresolved) {
-    unresolved.releaseLockAfterRecovery();
-    try {
-      await withTimeout(
-        unresolved.releaseCompleted,
-        PATH_AUTHORIZATION_REQUEST_TIMEOUT_MS,
-        "mint recovery release timed out.",
-      );
-    } catch {
-      setMintFlowError(
-        "The previous wallet request could not be released yet. Check the wallet again; do not submit a duplicate.",
-        "mint",
-        { preserveAuthorization: true, preserveSubmittedTransaction: true },
-      );
-      syncInterface();
-      return;
-    }
-  }
-
-  setMintFlowError(
-    "Recovery check complete: the previous wallet request was closed.",
-    "mint",
-    { preserveAuthorization: true },
-  );
-  emitThoughtConsoleEvent({
-    kind: "mint_submission_detached",
-    title: "ready to retry",
-    detail: "The previous wallet request is closed. No transaction was submitted.",
-    nextStep: "select “Try again”",
-    eventId: `mint-submission-detached:${unresolved?.requestId ?? mintAttemptId}:confirmed-closed`,
     tone: "warning",
   });
   syncInterface();
@@ -13173,17 +12474,7 @@ const readPathAcquisitionQuote = async () => {
     throw new Error("The configured $PATH auction deployment is unavailable on this network.");
   }
 
-  const [
-    active,
-    contractPrice,
-    mintAdapter,
-    paymentToken,
-    adapterAuction,
-    adapterPathNft,
-    wiringFrozen,
-    config,
-    state,
-  ] =
+  const [active, price, mintAdapter, paymentToken, adapterAuction, adapterPathNft, wiringFrozen] =
     await Promise.all([
       auction.curveActive() as Promise<boolean>,
       auction.getCurrentPrice() as Promise<bigint>,
@@ -13192,11 +12483,10 @@ const readPathAcquisitionQuote = async () => {
       adapter.auction() as Promise<string>,
       adapter.pathNft() as Promise<string>,
       adapter.wiringFrozen() as Promise<boolean>,
-      auction.getConfig() as Promise<readonly [bigint, bigint, bigint, bigint, bigint]>,
-      auction.getState() as Promise<readonly [bigint, bigint, bigint, bigint, boolean]>,
     ]);
 
   if (!active) throw new Error("The $PATH auction is not open yet.");
+  if (price <= 0n) throw new Error("The $PATH auction returned an invalid price.");
   if (
     mintAdapter.toLowerCase() !== PATH_PULSE_ADAPTER_ADDRESS.toLowerCase() ||
     adapterAuction.toLowerCase() !== PATH_AUCTION_ADDRESS.toLowerCase() ||
@@ -13209,103 +12499,46 @@ const readPathAcquisitionQuote = async () => {
     throw new Error("This $PATH auction uses a token approval flow that is not supported here yet.");
   }
 
-  const pricing: PathAcquisitionPricingSnapshot = Object.freeze({
-    openTimeSec: BigInt(config[0]),
-    curveK: BigInt(config[3]),
-    anchorTimeSec: BigInt(state[2]),
-    floorPrice: BigInt(state[3]),
-  });
-  const price = IS_LOCAL_THOUGHT_V2
-    ? pulseAuctionPriceAtTimestamp({
-        ...pricing,
-        timestampSec: BigInt(Math.floor(Date.now() / 1_000)),
-      })
-    : contractPrice;
-  if (price <= 0n) throw new Error("The $PATH auction returned an invalid price.");
-
-  return { price, pricing };
+  return { price };
 };
 
-const stopPathAcquisitionPriceTicker = () => {
-  if (pathAcquisitionPriceTimer !== null) {
-    window.clearInterval(pathAcquisitionPriceTimer);
-    pathAcquisitionPriceTimer = null;
+const pathAcquisitionFailureCopy = (error: unknown) => {
+  const message = String(
+    (error as { shortMessage?: unknown; message?: unknown })?.shortMessage ??
+      (error as Error)?.message ??
+      error ??
+      "",
+  );
+  const code = String((error as { code?: unknown })?.code ?? "");
+  if (code === "4001" || /reject|denied|cancel/i.test(message)) {
+    return "$PATH transaction rejected in wallet.";
   }
-  pathAcquisitionPriceRefreshInFlight = false;
-};
-
-const refreshPathAcquisitionDisplayedPrice = async () => {
-  if (pathAcquisitionState !== "review" || pathAcquisitionPriceRefreshInFlight) {
-    return;
+  if (code === "-32002" || /already.*(?:pending|open)|request.*pending/i.test(message)) {
+    return "A wallet request is already open.";
   }
-
-  pathAcquisitionPriceRefreshInFlight = true;
-  try {
-    let nextPrice: bigint;
-    if (IS_LOCAL_THOUGHT_V2 && pathAcquisitionPricingSnapshot) {
-      nextPrice = pulseAuctionPriceAtTimestamp({
-        ...pathAcquisitionPricingSnapshot,
-        timestampSec: BigInt(Math.floor(Date.now() / 1_000)),
-      });
-    } else {
-      const provider = getPathReadProvider();
-      if (!provider || !PATH_AUCTION_ADDRESS) return;
-      const auction = new Contract(PATH_AUCTION_ADDRESS, PATH_AUCTION_ABI, provider);
-      nextPrice = await auction.getCurrentPrice() as bigint;
-    }
-
-    if (
-      pathAcquisitionState === "review" &&
-      nextPrice > 0n &&
-      nextPrice !== pathAcquisitionPrice
-    ) {
-      pathAcquisitionPrice = nextPrice;
-      syncInterface();
-    }
-  } catch {
-    // Keep the last verified quote visible. Submission re-reads the contract.
-  } finally {
-    pathAcquisitionPriceRefreshInFlight = false;
+  if (/insufficient funds|exceeds balance/i.test(message)) {
+    return `Insufficient ${THOUGHT_CURRENCY_LABEL} for the $PATH price and gas.`;
   }
-};
-
-const startPathAcquisitionPriceTicker = () => {
-  stopPathAcquisitionPriceTicker();
-  void refreshPathAcquisitionDisplayedPrice();
-  pathAcquisitionPriceTimer = window.setInterval(() => {
-    void refreshPathAcquisitionDisplayedPrice();
-  }, PULSE_AUCTION_LIVE_PRICE_REFRESH_MS);
+  return message || "$PATH mint failed.";
 };
 
 const setPathAcquisitionError = (error: unknown) => {
-  stopPathAcquisitionPriceTicker();
-  const failure = formatThoughtPathAcquisitionFailure(error, THOUGHT_CURRENCY_LABEL);
-  const failedRequestId = pathAcquisitionRequestId;
   pathAcquisitionRequestId += 1;
   pathAcquisitionState = "error";
-  pathAcquisitionError = failure.detail;
-  const canceled = failure.title === "$PATH mint canceled";
+  pathAcquisitionError = pathAcquisitionFailureCopy(error);
   emitThoughtConsoleEvent({
-    kind: canceled ? "path_acquisition_canceled" : "path_acquisition_failed",
-    title: failure.title,
+    kind: "path_acquisition_failed",
+    title: "$PATH mint unavailable",
     detail: pathAcquisitionError,
-    nextStep: failure.nextStep,
+    nextStep: "retry here, or explore $PATH at /path",
     tone: "warning",
-    eventId: mintAttemptConsoleEventId(
-      `path-acquisition-${canceled ? "canceled" : "failed"}`,
-      failedRequestId,
-      pathAcquisitionError,
-    ),
+    eventId: `path-acquisition-failed:${mintAttemptId}:${pathAcquisitionError}`,
   });
   syncInterface();
   focusMintDockStage();
 };
 
 const handleMintPath = async (options?: { submit?: boolean }) => {
-  if (isTerminalMintFlowState(mintFlowState)) {
-    return;
-  }
-
   if (!currentOutputText) {
     setMintFlowError("No accepted work to preserve for $PATH mint.", "thought");
     syncInterface();
@@ -13338,10 +12571,15 @@ const handleMintPath = async (options?: { submit?: boolean }) => {
     const quote = await readPathAcquisitionQuote();
     if (requestId !== pathAcquisitionRequestId) return;
     pathAcquisitionPrice = quote.price;
-    pathAcquisitionPricingSnapshot = quote.pricing;
     pathAcquisitionState = "review";
+    emitThoughtConsoleEvent({
+      kind: "path_acquisition_quote",
+      title: "$PATH quote ready",
+      detail: `${formatPathAcquisitionPrice(quote.price)} ${THOUGHT_CURRENCY_LABEL} at the current auction price.`,
+      nextStep: "mint here, or explore $PATH at /path",
+      eventId: `path-acquisition-quote:${mintAttemptId}:${quote.price}`,
+    });
     syncInterface();
-    startPathAcquisitionPriceTicker();
     focusMintDockStage();
     if (options?.submit) {
       await confirmPathAcquisition();
@@ -13356,15 +12594,6 @@ const finishPathAcquisitionReceipt = async (
   pending: PendingThoughtPathAcquisition,
   receipt: { status?: unknown; logs?: readonly { address?: string; topics?: readonly string[] }[] },
 ) => {
-  if (pathAcquisitionReceiptMonitorHash !== pending.txHash) {
-    return false;
-  }
-  const durablePending = readPendingPathAcquisition();
-  if (!durablePending || durablePending.txHash !== pending.txHash) {
-    return false;
-  }
-  const completionRequestId = pathAcquisitionRequestId;
-  stopPathAcquisitionPriceTicker();
   const outcome = mintReceiptStatusOutcome(receipt.status);
   if (outcome === "unknown") return false;
   pathAcquisitionReceiptMonitorHash = "";
@@ -13382,21 +12611,15 @@ const finishPathAcquisitionReceipt = async (
   pathAcquisitionCompletedForAttempt = true;
   emitThoughtConsoleEvent({
     kind: "path_acquisition_confirmed",
-    title: tokenId ? `$PATH #${tokenId} minted` : "$PATH minted",
+    title: "$PATH minted",
     detail: tokenId
-      ? "Added to this wallet. Checking it for this THOUGHT."
-      : "Updating the wallet’s $PATH list.",
+      ? `$PATH #${tokenId} confirmed. Picking it for this THOUGHT.`
+      : "$PATH confirmed. Refreshing inventory for this THOUGHT.",
     eventId: `path-acquisition-confirmed:${pending.txHash}`,
     tone: "success",
   });
 
   await refreshPathInventoryForCurrentWallet({ force: true });
-  if (completionRequestId !== pathAcquisitionRequestId) {
-    return true;
-  }
-  if (isTerminalMintFlowState(mintFlowState)) {
-    return true;
-  }
   if (tokenId) {
     applyMintPathInputValue(tokenId);
     syncInterface();
@@ -13410,20 +12633,11 @@ const finishPathAcquisitionReceipt = async (
     return true;
   }
 
-  pathAcquisitionState = "inventory_pending";
-  pathAcquisitionError = available.length > 1
-    ? "The transaction confirmed. Pick the new $PATH from the refreshed list."
-    : "The transaction confirmed, but the new $PATH is not visible yet.";
-  emitThoughtConsoleEvent({
-    kind: "path_acquisition_inventory_pending",
-    title: "new $PATH not visible yet",
-    detail: "The mint succeeded, but the wallet list has not updated.",
-    nextStep: "open the wallet menu and select refresh",
-    tone: "warning",
-    eventId: `path-acquisition-inventory-pending:${pending.txHash}`,
-  });
-  syncInterface();
-  focusMintDockStage();
+  setPathAcquisitionError(
+    available.length > 1
+      ? "$PATH confirmed, but the minted token could not be identified. Pick it from the updated list."
+      : "$PATH confirmed, but the updated token is not visible in inventory yet. Refresh wallet from the shell bar.",
+  );
   return true;
 };
 
@@ -13434,7 +12648,6 @@ const monitorPendingPathAcquisition = async (pending: PendingThoughtPathAcquisit
     for (const provider of getMintReceiptMonitoringProviders()) {
       try {
         const receipt = await provider.getTransactionReceipt(pending.txHash);
-        if (pathAcquisitionReceiptMonitorHash !== pending.txHash) return;
         if (receipt && await finishPathAcquisitionReceipt(pending, receipt)) return;
       } catch {
         // Keep the durable hash and retry through the available providers.
@@ -13445,7 +12658,6 @@ const monitorPendingPathAcquisition = async (pending: PendingThoughtPathAcquisit
 };
 
 const resumePendingPathAcquisition = async () => {
-  stopPathAcquisitionPriceTicker();
   const pending = readPendingPathAcquisition();
   if (!pending) return false;
   const workHash = currentOutputText ? keccak256(toUtf8Bytes(currentOutputText)) : "";
@@ -13462,8 +12674,8 @@ const resumePendingPathAcquisition = async () => {
     pathAcquisitionError = "A pending $PATH transaction belongs to another wallet, work, or V2 deployment.";
     emitThoughtConsoleEvent({
       kind: "path_acquisition_context_mismatch",
-      title: "$PATH mint belongs to another work",
-      detail: "This pending $PATH cannot be used for the current THOUGHT.",
+      title: "$PATH mint context changed",
+      detail: "The retained transaction hash will not be applied to this THOUGHT.",
       nextStep: "restore the original wallet and work",
       tone: "warning",
       eventId: `path-acquisition-mismatch:${pending.txHash}`,
@@ -13490,25 +12702,20 @@ const blockPendingPathAcquisitionMutation = () => {
     kind: "path_acquisition_preserved",
     title: pending ? "$PATH mint still pending" : "$PATH wallet request still open",
     detail: pending
-      ? `Wait for ${shortHex(pending.txHash, 10, 8)} to finish before changing this work.`
-      : "Finish or cancel the wallet request before changing this work.",
+      ? `${shortHex(pending.txHash, 10, 8)} remains attached to this work.`
+      : "Resolve or reject the wallet request before changing this work.",
     eventId: pending
       ? `path-acquisition-preserved:${pending.txHash}`
       : `path-acquisition-wallet-preserved:${mintAttemptId}`,
     tone: "warning",
-    nextStep: pending ? "wait for confirmation" : "finish or cancel the wallet request",
+    nextStep: pending ? "wait for confirmation" : "resolve the wallet request",
   });
   syncInterface();
   return true;
 };
 
 const confirmPathAcquisition = async () => {
-  if (isTerminalMintFlowState(mintFlowState)) {
-    return;
-  }
-
   if (pathAcquisitionState !== "review" || pathAcquisitionPrice <= 0n) return;
-  stopPathAcquisitionPriceTicker();
   const ethereum = getEthereumProvider();
   if (!ethereum || !walletState.address || walletState.chainId !== THOUGHT_CHAIN_ID) {
     setPathAcquisitionError("Connect the correct wallet and network before minting $PATH.");
@@ -13523,8 +12730,8 @@ const confirmPathAcquisition = async () => {
   pathAcquisitionError = "";
   emitThoughtConsoleEvent({
     kind: "path_acquisition_wallet",
-    title: "confirm $PATH mint in wallet",
-    detail: "Open your wallet and confirm the transaction. Gas applies.",
+    title: "confirm $PATH mint",
+    detail: "Wallet request 1 of 3 for the complete THOUGHT flow.",
     eventId: `path-acquisition-wallet:${mintAttemptId}`,
   });
   syncInterface();
@@ -13538,11 +12745,6 @@ const confirmPathAcquisition = async () => {
         if (readPendingPathAcquisition()) {
           throw new Error("A $PATH mint transaction is already pending.");
         }
-        // Refresh the wallet's local-chain registration from the same operator
-        // RPC used by App reads before asking that wallet to submit. MetaMask can
-        // retain chain 31337 while its saved RPC still points at an older Anvil
-        // process, so matching only the chain ID is not enough.
-        await refreshWalletChainRpc();
         const [accounts, chainHex] = await Promise.all([
           ethereum.request({ method: "eth_accounts" }),
           ethereum.request({ method: "eth_chainId" }),
@@ -13558,61 +12760,10 @@ const confirmPathAcquisition = async () => {
 
         const quote = await readPathAcquisitionQuote();
         pathAcquisitionPrice = quote.price;
-        pathAcquisitionPricingSnapshot = quote.pricing;
-        const targetProvider = getPathReadProvider();
-        if (!targetProvider) {
-          throw new Error("The active Local Anvil RPC is unavailable.");
-        }
-        const targetBalance = await targetProvider.getBalance(expectedAccount);
-        if (targetBalance <= quote.price) {
-          throw new Error(
-            `Insufficient ${THOUGHT_CURRENCY_LABEL} for the $PATH price and gas.`,
-          );
-        }
         const browserProvider = new BrowserProvider(ethereum);
-        let walletAuctionCode = "";
-        try {
-          walletAuctionCode = await browserProvider.getCode(PATH_AUCTION_ADDRESS);
-        } catch {
-          throw new Error(
-            "Wallet RPC cannot reach the active Local Anvil node at http://127.0.0.1:8546.",
-          );
-        }
-        const targetAuctionCode = await targetProvider.getCode(PATH_AUCTION_ADDRESS);
-        if (
-          walletAuctionCode === "0x" ||
-          keccak256(walletAuctionCode) !== keccak256(targetAuctionCode)
-        ) {
-          throw new Error(
-            "Wallet RPC is not using the active Local Anvil deployment at http://127.0.0.1:8546.",
-          );
-        }
-        const walletAuction = new Contract(
-          PATH_AUCTION_ADDRESS,
-          PATH_AUCTION_ABI,
-          browserProvider,
-        );
-        const executionPrice = await walletAuction.getCurrentPrice() as bigint;
-        if (executionPrice <= 0n) {
-          throw new Error("The $PATH auction returned an invalid execution price.");
-        }
-        pathAcquisitionPrice = executionPrice;
-        if (targetBalance <= executionPrice) {
-          throw new Error(
-            `Insufficient ${THOUGHT_CURRENCY_LABEL} for the $PATH price and gas.`,
-          );
-        }
-
         const signer = await browserProvider.getSigner(expectedAccount);
         const auction = new Contract(PATH_AUCTION_ADDRESS, PATH_AUCTION_ABI, signer);
-        const estimatedGas = await auction.bid.estimateGas(executionPrice, {
-          value: executionPrice,
-        }) as bigint;
-        const gasLimit = thoughtPathAcquisitionGasLimit(estimatedGas);
-        const tx = await auction.bid(executionPrice, {
-          value: executionPrice,
-          gasLimit,
-        }) as { hash: string };
+        const tx = await auction.bid(quote.price, { value: quote.price }) as { hash: string };
         const pending: PendingThoughtPathAcquisition = Object.freeze({
           version: 1,
           account: expectedAccount.toLowerCase(),
@@ -13641,7 +12792,7 @@ const confirmPathAcquisition = async () => {
     emitThoughtConsoleEvent({
       kind: "path_acquisition_submitted",
       title: "$PATH mint submitted",
-      detail: shortHex(lockResult.value.txHash, 10, 8),
+      detail: `${shortHex(lockResult.value.txHash, 10, 8)} · waiting for confirmation.`,
       eventId: `path-acquisition-submitted:${lockResult.value.txHash}`,
     });
     syncInterface();
@@ -13663,10 +12814,6 @@ const viewPathAcquisitionTx = async () => {
 };
 
 const chooseAnotherPath = () => {
-  if (isTerminalMintFlowState(mintFlowState)) {
-    return;
-  }
-
   clearMintAuthorization();
   walletState.txState = "idle";
   walletState.txError = "";
@@ -13686,20 +12833,7 @@ const handleMintSheetAction = async (action: MintSheetAction) => {
     return;
   }
 
-  if (
-    isTerminalMintFlowState(mintFlowState) &&
-    action !== "view_thought" &&
-    action !== "view_tx" &&
-    action !== "reset"
-  ) {
-    return;
-  }
-
   if (action === "continue") {
-    if (mintFlowState === "error") {
-      await openMintFlow(mintFlowUiMode);
-      return;
-    }
     await checkPathEligibility();
     return;
   }
@@ -13757,11 +12891,6 @@ const handleMintSheetAction = async (action: MintSheetAction) => {
     return;
   }
 
-  if (action === "confirm_wallet_request_closed") {
-    await confirmPreviousWalletRequestClosed();
-    return;
-  }
-
   if (action === "view_thought") {
     await handleViewThought(walletState.mintedTokenId ?? mintFlowData.existingTokenId);
     return;
@@ -13793,17 +12922,13 @@ const handleMintSheetAction = async (action: MintSheetAction) => {
   }
 
   if (action === "reset") {
-    resetThoughtDock({ clearPrompt: true, focusPrompt: true });
+    closeMintSheet();
+    resetThought();
     return;
   }
 
   if (action === "switch_network") {
-    const switched = await switchWalletChain();
-    if (!switched) {
-      syncInterface();
-      focusMintDockStage("path");
-      return;
-    }
+    await switchWalletChain();
     if (walletState.address && walletState.chainId === THOUGHT_CHAIN_ID && readPathMintHandoff()) {
       const resumed = await resumePathMintHandoff();
       if (resumed) {
@@ -13968,41 +13093,6 @@ const readTokenUriPayload = (uri: string): ThoughtNFTUriPayload => {
     return { metadata: {}, image: "" };
   }
 };
-
-async function hydrateCurrentWorkFromTokenUri(
-  token: Contract,
-  tokenId: bigint | number,
-  expectedOutput: string,
-) {
-  const tokenUri = await token.tokenURI(tokenId, {
-    gasLimit: TOKEN_URI_CALL_GAS_LIMIT,
-  }) as string;
-  const payload = readTokenUriPayload(tokenUri);
-  const normalized = normalizeThoughtV2StoredVisual({
-    image: payload.image,
-    implementationId:
-      injectedThoughtRendererImplementationId ||
-      THOUGHT_V2_LOCAL_RELEASE.protocol.rendererProfile.implementation,
-  });
-  if (!normalized.image || !normalized.svg || currentOutputText !== expectedOutput) {
-    return false;
-  }
-
-  currentWorkImage = normalized.image;
-  currentWorkSvg = normalized.svg;
-  if (currentWorkId !== null) {
-    const works = readStoredThoughtWorks();
-    const updated = works.map((work) =>
-      work.id === currentWorkId
-        ? { ...work, image: normalized.image, svg: normalized.svg }
-        : work
-    );
-    writeStoredThoughtWorks(updated);
-  }
-  writeCurrentOutputSession();
-  syncCurrentWorkVisual({ suppressWarning: true });
-  return true;
-}
 
 const metadataString = (value: unknown) => {
   if (typeof value === "string") {
@@ -14291,7 +13381,7 @@ const syncThoughtDetailEmbeddedHeights = () => {
 
     if (
       !embeddedWindows.length ||
-      window.matchMedia("(max-width: 1023px)").matches ||
+      window.matchMedia("(max-width: 900px)").matches ||
       thoughtDetailBody.classList.contains("is-hidden")
     ) {
       return;
@@ -15058,7 +14148,7 @@ const getThoughtDockViewportReserve = () => {
 };
 
 const isStackedOperatorLayout = () =>
-  window.matchMedia("(max-width: 1023px)").matches &&
+  window.matchMedia("(max-width: 900px)").matches &&
   !frontpageStage.classList.contains("is-hidden");
 
 const getStackedOperatorAvailableHeight = () => {
@@ -15071,7 +14161,7 @@ const getStackedOperatorAvailableHeight = () => {
   const frameStyles = window.getComputedStyle(thoughtCanvasFrame);
   const footer = document.querySelector(".frontpage-side .color-font-footer") as HTMLElement | null;
   const shellInset = readPx(shellStyles.paddingTop) + readPx(shellStyles.paddingBottom);
-  const headerHeight = visibleBlockOuterHeight(frontpageHeader);
+  const titleHeight = frontpageTitle?.getBoundingClientRect().height ?? 0;
   const canvasColumnGap = readPx(columnStyles.rowGap);
   const frameInset = readPx(frameStyles.paddingTop) + readPx(frameStyles.paddingBottom);
   const mainGap = readPx(mainStyles.rowGap);
@@ -15080,7 +14170,7 @@ const getStackedOperatorAvailableHeight = () => {
   return Math.floor(
     viewportHeight -
       shellInset -
-      headerHeight -
+      titleHeight -
       canvasColumnGap -
       frameInset -
       mainGap -
@@ -15091,13 +14181,9 @@ const getStackedOperatorAvailableHeight = () => {
 
 const getViewportWidthCap = () => {
   if (isStackedOperatorLayout()) {
-    const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
     return Math.max(
       MIN_CANVAS_SIZE,
-      Math.min(
-        getStackedOperatorAvailableHeight() - STACKED_MIN_CLI_HEIGHT,
-        Math.floor(viewportHeight * STACKED_CANVAS_MAX_VIEWPORT_RATIO),
-      ),
+      getStackedOperatorAvailableHeight() - STACKED_MIN_CLI_HEIGHT,
     );
   }
 
@@ -15150,14 +14236,7 @@ const resizeCanvas = (displayWidth: number, height: number) => {
   canvas.style.width = `${displayWidth}px`;
   canvas.style.height = `${height}px`;
   thoughtDock.style.setProperty("--thought-dock-width", `${displayWidth + frameHorizontalInset}px`);
-  thoughtCanvasPanel.style.setProperty(
-    "--thought-canvas-frame-width",
-    `${displayWidth + frameHorizontalInset}px`,
-  );
-  frontpageStage.style.setProperty(
-    "--thought-create-identity-width",
-    `${displayWidth + frameHorizontalInset}px`,
-  );
+  thoughtCanvasPanel.style.setProperty("--thought-canvas-frame-width", `${displayWidth + frameHorizontalInset}px`);
   syncThoughtDockRailInset();
   document.documentElement.style.setProperty("--thought-canvas-outer-height", `${height}px`);
   document.documentElement.style.setProperty("--thought-cli-height", `${cliHeight}px`);
@@ -15217,86 +14296,33 @@ const hideContractSvgPreview = () => {
   canvas.classList.remove("is-hidden");
 };
 
-const currentRendererImplementationId = () =>
-  injectedThoughtRendererImplementationId ||
-  THOUGHT_V2_LOCAL_RELEASE.protocol.rendererProfile.implementation;
-
-const normalizeStoredWorkVisual = (svg?: string, image?: string) =>
-  normalizeThoughtV2StoredVisual({
-    svg,
-    image,
-    implementationId: currentRendererImplementationId(),
-  });
-
-const showContractImagePreview = (image: string) => {
+const showContractSvgPreview = (svg: string) => {
   resizeWorkSurface();
-  thoughtSvgPreview.src = image;
+  thoughtSvgPreview.src = svgToImageUri(svg);
   thoughtSvgPreview.classList.remove("is-hidden");
   canvas.classList.add("is-hidden");
 };
 
-const showContractSvgPreview = (svg: string) => {
-  showContractImagePreview(svgToImageUri(svg));
-};
-
 const syncCurrentWorkVisual = (options?: { suppressWarning?: boolean }) => {
-  if (currentWorkSvg || currentWorkImage) {
-    const normalized = normalizeStoredWorkVisual(currentWorkSvg, currentWorkImage);
-    if (normalized.migrated) {
-      currentWorkSvg = normalized.svg;
-      currentWorkImage = normalized.image;
+  if (currentWorkSvg) {
+    const migratedSvg = migrateLegacyThoughtV2Svg(currentOutputText, currentWorkSvg);
+    if (migratedSvg.migrated) {
+      currentWorkSvg = migratedSvg.svg;
       writeCurrentOutputSession();
     }
-    if (currentWorkImage) {
-      showContractImagePreview(currentWorkImage);
-      return;
-    }
-    if (currentWorkSvg) {
-      showContractSvgPreview(currentWorkSvg);
-      return;
-    }
+    showContractSvgPreview(currentWorkSvg);
+    return;
   }
 
-  syncOutputToCanvas(IS_LOCAL_THOUGHT_V2 ? "" : currentOutputText, options);
+  syncOutputToCanvas(currentOutputText, options);
 };
-
-const readThoughtCssToken = (name: string) => {
-  const value = window.getComputedStyle(document.body).getPropertyValue(name).trim();
-  if (!value) {
-    throw new Error(`Missing THOUGHT visual token: ${name}`);
-  }
-  return value;
-};
-
-const readThoughtCssNumber = (name: string) => {
-  const value = Number(readThoughtCssToken(name));
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(`Invalid THOUGHT visual token: ${name}`);
-  }
-  return value;
-};
-
-const getEmptyFrameStyle = (): ThoughtV2EmptyFrameStyle =>
-  contractEmptyFrameStyle ?? {
-    canvasSize: readThoughtCssNumber("--thought-work-canvas-size"),
-    color: readThoughtCssToken("--thought-work-frame-color"),
-    inset: readThoughtCssNumber("--thought-work-frame-inset"),
-  };
 
 const renderCanvas = (rawText: string) => {
   const { displayWidth, height } = resizeWorkSurface();
-  const emptyFrameStyle = getEmptyFrameStyle();
-  const canvasRect = thoughtV2EmptyFrameCanvasRect(
-    displayWidth,
-    height,
-    emptyFrameStyle,
-  );
 
   context.clearRect(0, 0, displayWidth, height);
-  context.fillStyle = emptyFrameStyle.color;
+  context.fillStyle = BACKGROUND_FILL;
   context.fillRect(0, 0, displayWidth, height);
-  context.fillStyle = readThoughtCssToken("--thought-art-canvas-bg");
-  context.fillRect(canvasRect.x, canvasRect.y, canvasRect.width, canvasRect.height);
 };
 
 const syncOutputToCanvas = (raw: string, options?: { suppressWarning?: boolean }) => {
@@ -15316,35 +14342,6 @@ const syncOutputToCanvas = (raw: string, options?: { suppressWarning?: boolean }
   renderCanvas(raw);
 };
 
-const syncEmptyFrameStyleFromContract = async () => {
-  if (!IS_LOCAL_THOUGHT_V2 || !THOUGHT_RENDERER_ADDRESS) {
-    return;
-  }
-  const provider = getReadProvider();
-  if (!provider) {
-    return;
-  }
-
-  try {
-    const renderer = new Contract(
-      THOUGHT_RENDERER_ADDRESS,
-      THOUGHT_V2_LOCAL_RENDERER_ABI,
-      provider,
-    );
-    const implementationId = String(await renderer.IMPLEMENTATION_ID());
-    const parsed = parseThoughtV2EmptyFrameStyle(implementationId);
-    if (!parsed) {
-      return;
-    }
-    contractEmptyFrameStyle = parsed;
-    if (!currentWorkSvg) {
-      syncOutputToCanvas(currentOutputText, { suppressWarning: true });
-    }
-  } catch {
-    // The empty state retains the bundled current-contract frame if RPC is unavailable.
-  }
-};
-
 const setAgentOutput = (text: string, _rawOutput: string, svg: string) => {
   if (blockPendingMintMutation() || blockPendingPathAcquisitionMutation()) {
     return false;
@@ -15353,7 +14350,6 @@ const setAgentOutput = (text: string, _rawOutput: string, svg: string) => {
   mintDockRevealed = false;
   currentOutputText = text;
   currentWorkSvg = svg;
-  currentWorkImage = svgToImageUri(svg);
   showContractSvgPreview(svg);
   currentWorkId = null;
   writeCurrentOutputSession();
@@ -15383,9 +14379,7 @@ const recordCurrentWork = (rawOutput: string) => {
     text: currentOutputText,
     title: currentOutputText,
     rawOutput,
-    image:
-      currentWorkImage ||
-      (currentWorkSvg ? svgToImageUri(currentWorkSvg) : galleryThumbnailUri(currentOutputText)),
+    image: currentWorkSvg ? svgToImageUri(currentWorkSvg) : galleryThumbnailUri(currentOutputText),
     svg: currentWorkSvg,
     route: currentRunContext.mode,
     provider: currentRunContext.provider,
@@ -15425,8 +14419,8 @@ const saveCurrentWorkFromDock = () => {
   if (savedId === null) {
     emitThoughtConsoleEvent({
       kind: "work_save_failed",
-      title: "nothing to save",
-      detail: "Create or load a completed work first.",
+      title: "work not saved",
+      detail: "current work is incomplete",
       tone: "warning",
     });
     syncInterface();
@@ -15437,7 +14431,7 @@ const saveCurrentWorkFromDock = () => {
   emitThoughtConsoleEvent({
     kind: "work_saved",
     title: "work saved",
-    detail: "Stored in this browser.",
+    detail: currentRunContext?.prompt ?? "",
     tone: "success",
     eventId: `work-saved:${savedId}`,
   });
@@ -15451,9 +14445,7 @@ const loadWorkRecord = (work: ThoughtWorkRecord) => {
   resetMintRuntimeState();
   mintDockRevealed = false;
   currentOutputText = thoughtProtocolText(work.text || work.title, IS_LOCAL_THOUGHT_V2);
-  const normalized = normalizeStoredWorkVisual(work.svg, work.image);
-  currentWorkSvg = normalized.svg;
-  currentWorkImage = normalized.image;
+  currentWorkSvg = work.svg ?? "";
   currentRunContext = workRunContextToThoughtRunContext(work);
   currentWorkId = work.id;
   sessionState.prompt = work.prompt || work.runContext.prompt;
@@ -15484,6 +14476,34 @@ const isThoughtRunContext = (value: unknown): value is ThoughtRunContext => {
   );
 };
 
+const migrateLegacyThoughtV2Svg = (output: string, svg: string) => {
+  if (
+    svg.includes('width="960" height="960" viewBox="0 0 960 960"') &&
+    svg.includes('id="binary-background"') &&
+    svg.includes('data-grid-columns="32"') &&
+    !svg.includes('id="agent-line-bg"') &&
+    !svg.includes('id="prompt-line-bg"')
+  ) {
+    return { svg, migrated: false };
+  }
+
+  if (!svg.includes("prompt-line")) {
+    return { svg, migrated: false };
+  }
+
+  try {
+    return {
+      svg: buildThoughtV2Svg({
+        agentLine: deriveThoughtV2VisibleLine(output),
+        promptLine: deriveThoughtV2VisibleLine(currentRunContext?.prompt ?? sessionState.prompt),
+      }),
+      migrated: true,
+    };
+  } catch {
+    return { svg: "", migrated: true };
+  }
+};
+
 const readCurrentOutputSession = () => {
   const raw = readSharedBrowserItem(THOUGHT_OUTPUT_STORAGE_KEY);
   if (!raw) {
@@ -15498,7 +14518,6 @@ const readCurrentOutputSession = () => {
 
     const candidate = parsed as {
       output?: unknown;
-      image?: unknown;
       svg?: unknown;
       runContext?: unknown;
       workId?: unknown;
@@ -15511,14 +14530,12 @@ const readCurrentOutputSession = () => {
       return null;
     }
     const storedSvg = typeof candidate.svg === "string" ? candidate.svg : "";
-    const storedImage = typeof candidate.image === "string" ? candidate.image : "";
-    const normalized = normalizeStoredWorkVisual(storedSvg, storedImage);
+    const migratedSvg = migrateLegacyThoughtV2Svg(output, storedSvg);
 
     return {
       output,
-      image: normalized.image,
-      svg: normalized.svg,
-      migrated: normalized.migrated,
+      svg: migratedSvg.svg,
+      migrated: migratedSvg.migrated,
       runContext: isThoughtRunContext(candidate.runContext) ? candidate.runContext : null,
       workId: Number.isSafeInteger(candidate.workId) && Number(candidate.workId) > 0
         ? Number(candidate.workId)
@@ -15540,7 +14557,6 @@ const writeCurrentOutputSession = () => {
     THOUGHT_OUTPUT_STORAGE_KEY,
     JSON.stringify({
       output: currentOutputText,
-      image: currentWorkImage,
       svg: currentWorkSvg,
       runContext: currentRunContext,
       workId: currentWorkId,
@@ -15557,7 +14573,6 @@ const restoreCurrentOutputSession = () => {
 
   currentOutputText = stored.output;
   currentWorkSvg = stored.svg;
-  currentWorkImage = stored.image;
   currentRunContext = stored.runContext;
   currentWorkId = stored.workId;
   mintDockRevealed = stored.mintDockRevealed;
@@ -15623,7 +14638,6 @@ const resetThought = (options?: { preserveStoredOutput?: boolean }) => {
   walletConnectInFlight = false;
   pendingMyBrainRunPayload = null;
   currentOutputText = "";
-  currentWorkImage = "";
   currentWorkSvg = "";
   currentRunContext = null;
   currentWorkId = null;
@@ -15992,7 +15006,7 @@ const readThoughtAgentReturn = async (
   if (typeof agentLine !== "string") {
     return { agentLine: "" };
   }
-  assertActiveThoughtLine(agentLine, "agent");
+  assertThoughtLine(agentLine, "agent");
   if (!IS_LOCAL_THOUGHT_V2) {
     return { agentLine };
   }
@@ -17170,9 +16184,7 @@ const runAgent = async (options?: { forceGenerate?: boolean; cli?: boolean }) =>
   lastPreviewRetryContext = null;
 
   try {
-    if (!USE_LATEST_LOCAL_GENERATION_SPEC) {
-      await ensureActiveThoughtSpec({ force: true });
-    }
+    await ensureActiveThoughtSpec({ force: true });
     if (!isCurrentRunSession(runId)) {
       return;
     }
@@ -19560,9 +18572,7 @@ const currentWorkRecord = (): ThoughtWorkRecord | null => {
     text: currentOutputText,
     title: currentOutputText,
     rawOutput: currentRunContext.returnedText ?? "",
-    image:
-      currentWorkImage ||
-      (currentWorkSvg ? svgToImageUri(currentWorkSvg) : galleryThumbnailUri(currentOutputText)),
+    image: currentWorkSvg ? svgToImageUri(currentWorkSvg) : galleryThumbnailUri(currentOutputText),
     svg: currentWorkSvg,
     route: currentRunContext.mode,
     provider: currentRunContext.provider,
@@ -19745,9 +18755,7 @@ const buildMyBrainRunPayload = async (): Promise<PendingMyBrainRound> => {
     throw new Error("prompt empty.");
   }
 
-  if (!USE_LATEST_LOCAL_GENERATION_SPEC) {
-    await ensureActiveThoughtSpec({ force: true });
-  }
+  await ensureActiveThoughtSpec({ force: true });
   syncThoughtInstructionsControls();
   const payload = buildCurrentThoughtRunPayload(prompt, MY_BRAIN_MODEL);
   return {
@@ -21454,13 +20462,10 @@ const executeCliCommand = async (rawCommand: string) => {
       writeCliTranscript();
       initializeCliTranscript();
     } else if (lowerHead === "reset") {
-      if (resetThoughtDock()) {
+      if (resetThought()) {
         appendCliOutput(["reset current work, canvas, and mint state.", "next: prompt <text>"]);
       } else {
-        appendCliOutput([
-          "reset blocked.",
-          "resolve the pending wallet request or transaction first.",
-        ]);
+        blockPendingMintMutation({ cli: true });
       }
     } else if (lowerHead === "gallery") {
       if (hasPendingMintTransaction()) {
@@ -21784,21 +20789,21 @@ thoughtDockPrompt.addEventListener("input", () => {
     thoughtDockPrompt.value = sessionState.prompt;
     return;
   }
-  resetThoughtDockPromptHistoryCursor();
-  applyThoughtDockPromptValue(thoughtDockPrompt.value);
+  resetMintRuntimeState();
+  pendingMyBrainRunPayload = null;
+  sessionState.prompt = thoughtDockPrompt.value;
+  promptBox.value = thoughtDockPrompt.value;
+  writeSessionState();
+  setWarning("");
+  if (!isThoughtDockRunningState(thoughtDockState)) {
+    const prompt = thoughtDockPrompt.value;
+    setThoughtDockState(prompt ? { kind: "ready", prompt } : { kind: "empty" });
+  } else {
+    syncThoughtDock();
+  }
 });
 
 thoughtDockPrompt.addEventListener("keydown", (event) => {
-  if (!event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey) {
-    if (event.key === "ArrowUp" && navigateThoughtDockPrompt("older")) {
-      event.preventDefault();
-      return;
-    }
-    if (event.key === "ArrowDown" && navigateThoughtDockPrompt("newer")) {
-      event.preventDefault();
-      return;
-    }
-  }
   if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && !event.isComposing) {
     event.preventDefault();
     openThoughtDockAgentSelect();
@@ -21814,7 +20819,7 @@ thoughtDockWorksSelect.addEventListener("change", () => {
   emitThoughtConsoleEvent({
     kind: "work_loaded",
     title: "work loaded",
-    detail: "Loaded from this browser.",
+    detail: work.prompt || work.runContext.prompt,
     tone: "success",
     eventId: `work-loaded:${work.id}:${Date.now()}`,
   });
@@ -21955,7 +20960,7 @@ resetThoughtButton.addEventListener("click", () => {
   }
 
   if (secondaryActionState === "reset") {
-    resetThoughtDock({ clearPrompt: true, focusPrompt: true });
+    resetThought();
     return;
   }
 
@@ -22210,7 +21215,6 @@ const initFrontpage = async () => {
   }
   initializeCliTranscript();
   syncInterface();
-  void syncEmptyFrameStyleFromContract();
 
   try {
     const handledOpenRouterCallback = await handleOpenRouterCallback();
@@ -22243,21 +21247,6 @@ const initFrontpage = async () => {
       await mintThoughtDockWork();
     } else {
       recordCurrentMintConsoleState();
-    }
-    if (
-      restoredDanglingMintRequest &&
-      !pendingMintTransaction &&
-      mintFlowState !== "minted" &&
-      mintFlowState !== "text_taken"
-    ) {
-      emitThoughtConsoleEvent({
-        kind: "mint_request_interrupted",
-        title: "mint status needs checking",
-        detail: "The page reloaded before the wallet returned a transaction hash.",
-        nextStep: "check wallet activity before trying again",
-        tone: "warning",
-        eventId: `mint-request-interrupted:${restoredDanglingMintRequest.id}`,
-      });
     }
   }
   syncInterface();

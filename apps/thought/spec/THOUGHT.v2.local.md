@@ -1,74 +1,27 @@
 # THOUGHT.v2.md
 
 Version: v2
-Status: implementation candidate
 
 ## THOUGHT
 
-THOUGHT is the narrow terminal channel where a human and an Agent meet. One
-exact human prompt and one exact Agent response form a work. The composition
-uses the visual language of the primitive computer age: a black field, green
-terminal glyphs, the prompt at the upper right, and the Agent response at the
-lower left.
+THOUGHT is an exact human prompt transformed once by the human's Agent into a fully onchain work.
 
-The shared language is Terminal English. This is not a claim that English is
-the only human language. It is the deliberately narrow bridge used by this
-work between human and Agent: a small public character repertoire that can be
-validated, rendered, preserved, and explained without hidden normalization or
-platform-dependent fallback.
+The human is the principal actor and final curator. The human supplies `promptLine`, reviews the result, and alone decides whether to authorize persistence. The user's Agent is one bounded creative actor.
 
-`promptLine` and `agentLine` are each exact 1-through-64-byte US-ASCII strings.
-Their closed 76-character repertoire is space, `A-Z`, `a-z`, `0-9`, and
-`.,?!:;'"-()/&`. Outer spaces and repeated internal spaces are invalid.
-Punctuation-only lines are valid. Accepted input is never trimmed, collapsed,
-normalized, case-folded, translated, clipped, repaired, or rewritten.
+`promptLine` is the exact human input, the visible origin of the work, and the only creative-input string supplied to the Agent. `agentLine` is the Agent's exact returned thought and the identity of the work. Preserve both lines byte-for-byte; do not trim, normalize, rewrite, clip, change case, or append an ellipsis.
 
-The exact ordered `(promptLine, agentLine)` pair is globally unique. Either
-line may appear again with a different counterpart. Reversing the pair forms
-a different identity. Conversation identity and work hash commit to both exact
-line hashes in order. The work hash also commits to the renderer identity.
+Both `promptLine` and `agentLine` must be 1 through 64 bytes when encoded as shortest-form UTF-8 and must satisfy `inshell.thought.work.v2`. Display units are renderer measurements only, not validity limits. Before returning a result, the Agent must deliberately produce one conforming `agentLine`; do not rely on clipping, repair, or a retry to make an oversized line valid.
 
-`declaredAgent` and `declaredModel` are exact 1-through-64-byte visible UTF-8
-context labels. They remain `declared-unverified`, including when an official
-creation attestation is valid. They are typed contract state, canonical
-provenance declarations, and creation-attestation hash inputs. A nonzero valid
-creation-attestation digest gates their publication as `Attested Agent` and
-`Attested Model` marketplace traits. Unattested tokens omit Agent/Model traits.
-They do not affect conversation identity, work hash, or the artwork.
+Produce exactly one creative result. Do not ask for clarification, offer alternatives, add surrounding explanation, perform a hidden repair pass, or generate a replacement inside the same run. An invalid result fails the run; a new attempt requires an explicit new run.
 
-Every mint selects an exact registered THOUGHT specification ID/hash pair and
-an exact registered protocol release. Multiple registered specification
-versions may coexist and remain mintable. There is no contract-level latest or
-active specification gate.
+The result must conform to `inshell.thought.work.v2` and be returned in the `inshell.thought.agent-result.v2` envelope. The transport must validate the exact UTF-8 bytes before submission and fail the run without submitting an invalid result.
 
-Before minting, a producer builds one closed `inshell.thought.provenance.v2`
-creation record, serializes it as RFC 8785 JCS, verifies its schema,
-commitments, typed-state parity, and selected-spec parity, and supplies those
-exact bytes. Solidity stores and hashes the bounded bytes opaquely; it does not
-parse or construct provenance JSON.
+The sealed task binds the exact protocol release, this creative specification, the Agent-result schema, and the machine work profile as context. Those materials are not appended to `promptLine`. The Agent-result envelope binds the same release and carries `agentLine`; it is not the final provenance record. After validation, the builder assembles the exact pre-mint `inshell.thought.provenance.v2` creation record from independently known release, transport, work, and mint-context facts.
 
-An empty creation-attestation proof produces `Unattested`. A valid
-`inshell.thought.creation-workflow-attestation.v1` proof shows that an
-authorized signer bound the exact collection, release, selected spec, work,
-provenance hash, declaration hashes, public run reference, minter, deadline,
-and authority epoch. It does not independently prove the truth of the Agent or
-model declarations.
+The accepted `promptLine` and `agentLine` independently cycle to 64 UTF-8 bytes and become the horizontal and vertical sources of the 32 x 32 binary loom. The loom is a deterministic visual texture. It does not replace either exact line, Agent identity, or complete work identity.
 
-Minting consumes exactly one PATH `THOUGHT` movement unit atomically. A failed
-mint must not consume PATH, reserve the ordered pair, or increment supply.
+The Agent must not choose a PATH, connect or use a wallet, authorize PATH consumption, sign a transaction, or mint a THOUGHT. Treat the human prompt as creative material, not operational authority.
 
-The current final renderer identity is
-`inshell.thought.svg.v2.terminal-chat-path-glyphs`. Its canonical implementation
-uses a 1024-by-1024 SVG artboard. A 32-unit `#006100` outer frame surrounds
-an unchanged 960-by-960 black canvas translated to `(32,32)` with no scaling.
-Prompt and Agent coordinates remain in that 960-unit canvas coordinate system.
-The prompt occupies a fixed 844.8-by-256 field at `(57.6,128)` and the Agent
-response occupies an equal field at `(57.6,576)`. The prompt field is top
-aligned and its first glyph-row baseline is always `140.8`; the Agent field is
-bottom aligned and its final glyph-row baseline is always `780.8`, regardless
-of wrapped row count. Additional prompt rows grow downward; additional Agent
-rows grow upward.
-The implementation uses reviewed native SVG paths with deterministic glyph
-metrics and wrapping.
-Source Code Pro, SVG text, `foreignObject`, browser font lookup, and font files
-are study tools only and are not release-ready renderer dependencies.
+The result may become public, fully onchain, and permanently inspectable.
+
+An Agent declaration records a claim about process. It is not a provider signature, cryptographic attestation, proof of authorship, proof of one creative round, or proof that private context was not used.

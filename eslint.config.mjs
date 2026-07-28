@@ -81,7 +81,6 @@ const testGlobals = {
 };
 
 const nodeGlobals = {
-  Buffer: "readonly",
   process: "readonly",
   __dirname: "readonly",
   __filename: "readonly",
@@ -120,14 +119,7 @@ const reactRefresh = require("eslint-plugin-react-refresh");
 
 export default [
   {
-    ignores: [
-      "**/coverage/**",
-      "**/dist/**",
-      "node_modules/**",
-      "apps/thought/contract-integration/current/reference/**",
-      "apps/thought/integration-preview/releases/**",
-      ".eslintrc.cjs",
-    ],
+    ignores: ["**/coverage/**", "**/dist/**", "node_modules/**", ".eslintrc.cjs"],
   },
   {
     files: ["**/*.{js,jsx,ts,tsx}"],
@@ -168,7 +160,6 @@ export default [
     files: [
       "**/*.{config,scripts}.{js,ts}",
       "scripts/**/*.{js,ts}",
-      "apps/*/scripts/**/*.{js,ts}",
       "vite.config.ts",
       "jest.config.js",
       "cypress.config.ts",

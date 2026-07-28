@@ -126,38 +126,6 @@ describe("Inshell anonymous analytics client", () => {
     });
   });
 
-  test("classifies the same-origin WILL surface", async () => {
-    const fetchMock = jest.fn(async () => new Response("{}", { status: 200 }));
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
-    document.title = "WILL";
-
-    expect(
-      installInshellAnonymousAnalytics({
-        hostname: "inshell.art",
-        window,
-        document,
-        navigator: testNavigator,
-        location: {
-          href: "https://inshell.art/will",
-          hostname: "inshell.art",
-          pathname: "/will",
-          search: "",
-          hash: "",
-          origin: "https://inshell.art",
-        },
-      }),
-    ).toBe(true);
-
-    const [, init] = fetchMock.mock.calls[0] as [string, globalThis.RequestInit];
-    expect(JSON.parse(String(init.body))).toMatchObject({
-      eventType: "pageview",
-      path: "/will",
-      contentType: "will",
-      contentId: null,
-      title: "WILL",
-    });
-  });
-
   test("splits same-tab activity into visits after 30 minutes of inactivity", async () => {
     const ids = [
       "visitor_11111111",

@@ -1,10 +1,8 @@
 import assert from "node:assert/strict";
 import {
-  formatThoughtPathAcquisitionFailure,
   parsePendingThoughtPathAcquisition,
   pendingThoughtPathAcquisitionMatches,
   serializePendingThoughtPathAcquisition,
-  thoughtPathAcquisitionGasLimit,
   withThoughtPathAcquisitionLock,
 } from "./thought-path-acquisition";
 
@@ -60,108 +58,6 @@ export const runThoughtPathAcquisitionTests = async () => {
         async () => "unused",
       ),
       { acquired: false, reason: "busy" },
-    );
-  }
-
-  {
-    assert.equal(
-      thoughtPathAcquisitionGasLimit(136_409n),
-      200_512n,
-      "PATH submission must retain a settlement gas margin above the RPC estimate",
-    );
-  }
-
-  {
-    assert.deepEqual(
-      formatThoughtPathAcquisitionFailure(
-        {
-          shortMessage: "could not coalesce error",
-          info: {
-            error: {
-              code: -32603,
-              data: {
-                originalError: {
-                  message: "Insufficient funds for gas * price + value",
-                },
-              },
-            },
-          },
-        },
-        "local ETH",
-      ),
-      {
-        title: "not enough funds",
-        detail: "This wallet needs enough local ETH for the $PATH price and gas.",
-        nextStep: "add local ETH, then try again",
-      },
-      "nested wallet failures must take precedence over ethers' generic wrapper",
-    );
-    assert.deepEqual(
-      formatThoughtPathAcquisitionFailure(
-        new Error("could not coalesce error"),
-        "local ETH",
-      ),
-      {
-        title: "wallet is connected to the wrong local node",
-        detail: "Set chain 31337 RPC to http://127.0.0.1:8546.",
-        nextStep: "update the wallet network, then try again",
-      },
-    );
-    assert.deepEqual(
-      formatThoughtPathAcquisitionFailure(
-        new Error("execution reverted: ASK_ABOVE_MAX_PRICE"),
-        "local ETH",
-      ),
-      {
-        title: "$PATH price changed",
-        detail: "The price changed before your wallet submitted the transaction.",
-        nextStep: "try again with the refreshed price",
-      },
-    );
-    assert.deepEqual(
-      formatThoughtPathAcquisitionFailure(
-        new Error("out of gas: not enough gas for reentrancy sentry"),
-        "local ETH",
-      ),
-      {
-        title: "$PATH mint failed",
-        detail: "The transaction did not have enough gas.",
-        nextStep: "try again",
-      },
-    );
-    assert.deepEqual(
-      formatThoughtPathAcquisitionFailure(
-        { code: 4001, message: "User rejected the request" },
-        "local ETH",
-      ),
-      {
-        title: "$PATH mint canceled",
-        detail: "No transaction was submitted. No $PATH was created.",
-        nextStep: "select “Try again” when ready",
-      },
-    );
-    assert.deepEqual(
-      formatThoughtPathAcquisitionFailure(
-        new Error("transaction reverted on-chain"),
-        "local ETH",
-      ),
-      {
-        title: "$PATH mint failed",
-        detail: "The transaction failed. No $PATH was created.",
-        nextStep: "try again",
-      },
-    );
-    assert.deepEqual(
-      formatThoughtPathAcquisitionFailure(
-        new Error("unrecognized provider failure: raw internals"),
-        "local ETH",
-      ),
-      {
-        title: "$PATH mint failed",
-        detail: "The App could not complete the transaction.",
-        nextStep: "try again, or open /path",
-      },
-      "unknown provider errors must not leak raw internals into guidance",
     );
   }
 };

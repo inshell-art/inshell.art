@@ -1,70 +1,6 @@
-import {
-  decodeFunctionResult,
-  encodeFunctionData,
-  getAddress,
-  parseAbi,
-  type Hex,
-} from "viem";
-import {
-  getDefaultProvider,
-  supportsRpcRequest,
-  type ProviderInterface,
-} from "@inshell/ethereum";
-
 const DEFAULT_THOUGHT_GALLERY_API_URL = "/api/thought-gallery";
 const THOUGHT_GALLERY_CACHE_TTL_MS = 60_000;
 const THOUGHT_GALLERY_CACHE_KEY = "inshell:thought-gallery:v1";
-const MAX_LOCAL_THOUGHT_SUPPLY = 10_000;
-const LOCAL_THOUGHT_READ_BATCH_SIZE = 8;
-
-const localThoughtNftAbi = parseAbi([
-  "function totalSupply() view returns (uint256)",
-  "function promptLineOf(uint256 tokenId) view returns (string)",
-  "function agentLineOf(uint256 tokenId) view returns (string)",
-  "function declaredAgentOf(uint256 tokenId) view returns (string)",
-  "function declaredModelOf(uint256 tokenId) view returns (string)",
-  "function declaredAgentHashOf(uint256 tokenId) view returns (bytes32)",
-  "function declaredModelHashOf(uint256 tokenId) view returns (bytes32)",
-  "function provenanceOf(uint256 tokenId) view returns (string)",
-  "function promptLineHashOf(uint256 tokenId) view returns (bytes32)",
-  "function agentLineHashOf(uint256 tokenId) view returns (bytes32)",
-  "function provenanceHashOf(uint256 tokenId) view returns (bytes32)",
-  "function conversationIdentityHashOf(uint256 tokenId) view returns (bytes32)",
-  "function workHashOf(uint256 tokenId) view returns (bytes32)",
-  "function pathIdOf(uint256 tokenId) view returns (uint256)",
-  "function pathSerialOf(uint256 tokenId) view returns (uint256)",
-  "function authorOf(uint256 tokenId) view returns (address)",
-  "function ownerOf(uint256 tokenId) view returns (address)",
-  "function mintedAtOf(uint256 tokenId) view returns (uint64)",
-  "function creationAttestationDigestOf(uint256 tokenId) view returns (bytes32)",
-  "function thoughtSpecOf(uint256 tokenId) view returns (bytes32 specId,bytes32 specHash,string specName,string ref)",
-  "function svgOf(uint256 tokenId) view returns (string)",
-  "function tokenURI(uint256 tokenId) view returns (string)",
-]);
-
-type LocalThoughtFunctionName =
-  | "totalSupply"
-  | "promptLineOf"
-  | "agentLineOf"
-  | "declaredAgentOf"
-  | "declaredModelOf"
-  | "declaredAgentHashOf"
-  | "declaredModelHashOf"
-  | "provenanceOf"
-  | "promptLineHashOf"
-  | "agentLineHashOf"
-  | "provenanceHashOf"
-  | "conversationIdentityHashOf"
-  | "workHashOf"
-  | "pathIdOf"
-  | "pathSerialOf"
-  | "authorOf"
-  | "ownerOf"
-  | "mintedAtOf"
-  | "creationAttestationDigestOf"
-  | "thoughtSpecOf"
-  | "svgOf"
-  | "tokenURI";
 
 export type ThoughtGalleryItem = {
   tokenId: number;
@@ -75,27 +11,14 @@ export type ThoughtGalleryItem = {
   provenanceHash: string;
   thoughtSpecId: string;
   thoughtSpecHash: string;
-  thoughtSpecName?: string;
-  thoughtSpecRef?: string;
   mintedAt: number | null;
   rawText: string;
   prompt: string;
   mode: string;
   provider: string;
   model: string;
-  declaredAgent?: string;
-  declaredModel?: string;
-  declaredAgentHash?: string;
-  declaredModelHash?: string;
-  attestedAgent?: string;
-  attestedModel?: string;
   returnedText: string;
   returnedTextHash: string;
-  conversationIdentityHash?: string;
-  workHash?: string;
-  pathSerial?: string;
-  currentOwner?: string;
-  creationAttestationDigest?: string;
   provenanceJson: string;
   image: string;
   tokenUri: string;
@@ -130,412 +53,6 @@ function readThoughtGalleryApiUrl() {
   return typeof value === "string" && value.trim()
     ? value.trim()
     : DEFAULT_THOUGHT_GALLERY_API_URL;
-}
-
-function isLocalDevnet() {
-  return String(getEnvValue("VITE_NETWORK") ?? "").toLowerCase() === "devnet";
-}
-
-function readLocalThoughtNftAddress() {
-  const value =
-    getEnvValue("VITE_THOUGHT_NFT") ??
-    getEnvValue("VITE_THOUGHT_NFT_ADDRESS");
-  return typeof value === "string" && value.trim() ? value.trim() : "";
-}
-
-function normalizeProvider(provider?: ProviderInterface) {
-  if (provider && supportsRpcRequest(provider)) return provider;
-  return getDefaultProvider();
-}
-
-async function localThoughtCall<T>(args: {
-  provider: ProviderInterface;
-  thoughtNftAddress: string;
-  functionName: LocalThoughtFunctionName;
-  functionArgs?: readonly unknown[];
-}): Promise<T> {
-  if (!supportsRpcRequest(args.provider)) {
-    throw new Error("Local THOUGHT provider is missing JSON-RPC support.");
-  }
-  const data = encodeFunctionData({
-    abi: localThoughtNftAbi,
-    functionName: args.functionName,
-    args: args.functionArgs ?? [],
-  } as any);
-  const result = (await args.provider.request?.({
-    method: "eth_call",
-    params: [
-      {
-        to: getAddress(args.thoughtNftAddress),
-        data,
-        gas: "0x5f5e100",
-      },
-      "latest",
-    ],
-  })) as Hex;
-  if (!result || result === "0x") {
-    throw new Error(`No local THOUGHT data returned from ${args.functionName}.`);
-  }
-  return decodeFunctionResult({
-    abi: localThoughtNftAbi,
-    functionName: args.functionName,
-    data: result,
-  } as any) as T;
-}
-
-function parseLocalProvenance(value: string) {
-  const fallback = {
-    mode: "",
-    provider: "",
-    model: "",
-  };
-  if (!value) return fallback;
-  try {
-    const parsed = JSON.parse(value) as {
-      route?: unknown;
-      provider?: unknown;
-      model?: unknown;
-      process?: {
-        kind?: unknown;
-        agentDeclaration?: {
-          agentLabel?: unknown;
-          modelLabel?: unknown;
-        };
-        transport?: {
-          adapter?: unknown;
-        };
-      };
-    };
-    return {
-      mode:
-        typeof parsed.process?.kind === "string"
-          ? parsed.process.kind
-          : typeof parsed.route === "string"
-            ? parsed.route
-            : "",
-      provider:
-        typeof parsed.process?.transport?.adapter === "string"
-          ? parsed.process.transport.adapter
-          : typeof parsed.process?.agentDeclaration?.agentLabel === "string"
-            ? parsed.process.agentDeclaration.agentLabel
-            : typeof parsed.provider === "string"
-              ? parsed.provider
-              : "",
-      model:
-        typeof parsed.process?.agentDeclaration?.modelLabel === "string"
-          ? parsed.process.agentDeclaration.modelLabel
-          : typeof parsed.process?.agentDeclaration?.agentLabel === "string"
-            ? parsed.process.agentDeclaration.agentLabel
-            : typeof parsed.model === "string"
-              ? parsed.model
-              : "",
-    };
-  } catch {
-    return fallback;
-  }
-}
-
-function svgDataUri(svg: string) {
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-}
-
-function parseThoughtTokenMetadata(tokenUri: string): Record<string, unknown> | null {
-  if (!tokenUri.startsWith("data:application/json")) return null;
-  const commaIndex = tokenUri.indexOf(",");
-  if (commaIndex < 0) return null;
-  const header = tokenUri.slice(0, commaIndex).toLowerCase();
-  const body = tokenUri.slice(commaIndex + 1);
-  try {
-    const json = header.includes(";base64")
-      ? new TextDecoder().decode(
-          Uint8Array.from(globalThis.atob(body), (character) =>
-            character.charCodeAt(0)
-          )
-        )
-      : decodeURIComponent(body);
-    const metadata = JSON.parse(json) as unknown;
-    return metadata && typeof metadata === "object"
-      ? (metadata as Record<string, unknown>)
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function metadataTrait(
-  metadata: Record<string, unknown> | null,
-  traitType: string
-) {
-  const attributes = metadata?.attributes;
-  if (!Array.isArray(attributes)) return undefined;
-  const attribute = attributes.find(
-    (candidate) =>
-      candidate != null &&
-      typeof candidate === "object" &&
-      (candidate as Record<string, unknown>).trait_type === traitType
-  ) as Record<string, unknown> | undefined;
-  const value = attribute?.value;
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
-
-function withAttestedTraits(
-  thought: ThoughtGalleryItem
-): ThoughtGalleryItem {
-  if (thought.attestedAgent && thought.attestedModel) return thought;
-  const metadata = parseThoughtTokenMetadata(thought.tokenUri);
-  return {
-    ...thought,
-    attestedAgent:
-      thought.attestedAgent ?? metadataTrait(metadata, "Attested Agent"),
-    attestedModel:
-      thought.attestedModel ?? metadataTrait(metadata, "Attested Model"),
-  };
-}
-
-async function readLocalThought(args: {
-  provider: ProviderInterface;
-  thoughtNftAddress: string;
-  tokenId: number;
-}): Promise<ThoughtGalleryItem> {
-  const tokenArgs = [BigInt(args.tokenId)] as const;
-  const [
-    prompt,
-    agentLine,
-    declaredAgent,
-    declaredModel,
-    declaredAgentHash,
-    declaredModelHash,
-    provenanceJson,
-    promptHash,
-    agentLineHash,
-    provenanceHash,
-    conversationIdentityHash,
-    workHash,
-    pathId,
-    pathSerial,
-    minter,
-    currentOwner,
-    mintedAt,
-    creationAttestationDigest,
-    thoughtSpec,
-    svg,
-    tokenUri,
-  ] = await Promise.all([
-    localThoughtCall<string>({
-      ...args,
-      functionName: "promptLineOf",
-      functionArgs: tokenArgs,
-    }),
-    localThoughtCall<string>({
-      ...args,
-      functionName: "agentLineOf",
-      functionArgs: tokenArgs,
-    }),
-    localThoughtCall<string>({
-      ...args,
-      functionName: "declaredAgentOf",
-      functionArgs: tokenArgs,
-    }),
-    localThoughtCall<string>({
-      ...args,
-      functionName: "declaredModelOf",
-      functionArgs: tokenArgs,
-    }),
-    localThoughtCall<Hex>({
-      ...args,
-      functionName: "declaredAgentHashOf",
-      functionArgs: tokenArgs,
-    }),
-    localThoughtCall<Hex>({
-      ...args,
-      functionName: "declaredModelHashOf",
-      functionArgs: tokenArgs,
-    }),
-    localThoughtCall<string>({
-      ...args,
-      functionName: "provenanceOf",
-      functionArgs: tokenArgs,
-    }),
-    localThoughtCall<Hex>({
-      ...args,
-      functionName: "promptLineHashOf",
-      functionArgs: tokenArgs,
-    }),
-    localThoughtCall<Hex>({
-      ...args,
-      functionName: "agentLineHashOf",
-      functionArgs: tokenArgs,
-    }),
-    localThoughtCall<Hex>({
-      ...args,
-      functionName: "provenanceHashOf",
-      functionArgs: tokenArgs,
-    }),
-    localThoughtCall<Hex>({
-      ...args,
-      functionName: "conversationIdentityHashOf",
-      functionArgs: tokenArgs,
-    }),
-    localThoughtCall<Hex>({
-      ...args,
-      functionName: "workHashOf",
-      functionArgs: tokenArgs,
-    }),
-    localThoughtCall<bigint>({
-      ...args,
-      functionName: "pathIdOf",
-      functionArgs: tokenArgs,
-    }),
-    localThoughtCall<bigint>({
-      ...args,
-      functionName: "pathSerialOf",
-      functionArgs: tokenArgs,
-    }),
-    localThoughtCall<string>({
-      ...args,
-      functionName: "authorOf",
-      functionArgs: tokenArgs,
-    }),
-    localThoughtCall<string>({
-      ...args,
-      functionName: "ownerOf",
-      functionArgs: tokenArgs,
-    }),
-    localThoughtCall<bigint>({
-      ...args,
-      functionName: "mintedAtOf",
-      functionArgs: tokenArgs,
-    }),
-    localThoughtCall<Hex>({
-      ...args,
-      functionName: "creationAttestationDigestOf",
-      functionArgs: tokenArgs,
-    }),
-    localThoughtCall<readonly [Hex, Hex, string, string]>({
-      ...args,
-      functionName: "thoughtSpecOf",
-      functionArgs: tokenArgs,
-    }),
-    localThoughtCall<string>({
-      ...args,
-      functionName: "svgOf",
-      functionArgs: tokenArgs,
-    }),
-    localThoughtCall<string>({
-      ...args,
-      functionName: "tokenURI",
-      functionArgs: tokenArgs,
-    }),
-  ]);
-  const provenance = parseLocalProvenance(provenanceJson);
-  const tokenMetadata = parseThoughtTokenMetadata(tokenUri);
-  const metadataImage =
-    typeof tokenMetadata?.image === "string" && tokenMetadata.image.trim()
-      ? tokenMetadata.image
-      : svgDataUri(svg);
-  const attestedTraits = withAttestedTraits({
-    tokenId: args.tokenId,
-    pathId: pathId.toString(),
-    minter,
-    textHash: agentLineHash,
-    promptHash,
-    provenanceHash,
-    thoughtSpecId: thoughtSpec[0],
-    thoughtSpecHash: thoughtSpec[1],
-    thoughtSpecName: thoughtSpec[2],
-    thoughtSpecRef: thoughtSpec[3],
-    mintedAt: Number(mintedAt),
-    rawText: agentLine,
-    prompt,
-    mode: provenance.mode,
-    provider: provenance.provider || declaredAgent,
-    model: provenance.model || declaredModel,
-    declaredAgent,
-    declaredModel,
-    declaredAgentHash,
-    declaredModelHash,
-    returnedText: agentLine,
-    returnedTextHash: agentLineHash,
-    conversationIdentityHash,
-    workHash,
-    pathSerial: pathSerial.toString(),
-    currentOwner,
-    creationAttestationDigest,
-    provenanceJson,
-    image: metadataImage,
-    tokenUri,
-    txHash: "",
-    blockNumber: 0,
-  });
-
-  return attestedTraits;
-}
-
-export async function loadThoughtGalleryItem(
-  tokenId: number
-): Promise<ThoughtGalleryItem | null> {
-  if (!Number.isSafeInteger(tokenId) || tokenId < 1) return null;
-  if (!isLocalDevnet()) {
-    const thoughts = await loadThoughtGallery();
-    return thoughts.find((thought) => thought.tokenId === tokenId) ?? null;
-  }
-
-  const thoughtNftAddress = readLocalThoughtNftAddress();
-  if (!thoughtNftAddress) {
-    throw new Error("Local THOUGHT contract is not configured.");
-  }
-  const provider = normalizeProvider();
-  const totalSupply = await localThoughtCall<bigint>({
-    provider,
-    thoughtNftAddress,
-    functionName: "totalSupply",
-  });
-  if (BigInt(tokenId) > totalSupply) return null;
-  return readLocalThought({ provider, thoughtNftAddress, tokenId });
-}
-
-export async function loadLocalThoughtGallery(args?: {
-  provider?: ProviderInterface;
-  thoughtNftAddress?: string;
-}): Promise<ThoughtGalleryItem[]> {
-  const thoughtNftAddress =
-    args?.thoughtNftAddress?.trim() || readLocalThoughtNftAddress();
-  if (!thoughtNftAddress) {
-    throw new Error("Local THOUGHT contract is not configured.");
-  }
-  const provider = normalizeProvider(args?.provider);
-  const totalSupply = await localThoughtCall<bigint>({
-    provider,
-    thoughtNftAddress,
-    functionName: "totalSupply",
-  });
-  if (totalSupply > BigInt(MAX_LOCAL_THOUGHT_SUPPLY)) {
-    throw new Error(
-      `Local THOUGHT supply ${totalSupply.toString()} exceeds the gallery read limit.`
-    );
-  }
-
-  const tokenIds = Array.from(
-    { length: Number(totalSupply) },
-    (_, index) => index + 1
-  );
-  const thoughts: ThoughtGalleryItem[] = [];
-  for (
-    let start = 0;
-    start < tokenIds.length;
-    start += LOCAL_THOUGHT_READ_BATCH_SIZE
-  ) {
-    thoughts.push(
-      ...(await Promise.all(
-        tokenIds
-          .slice(start, start + LOCAL_THOUGHT_READ_BATCH_SIZE)
-          .map((tokenId) =>
-            readLocalThought({ provider, thoughtNftAddress, tokenId })
-          )
-      ))
-    );
-  }
-  return sortThoughts(thoughts);
 }
 
 function storage() {
@@ -589,11 +106,10 @@ function validPayload(payload: ThoughtGalleryCachePayload | null) {
   if (!Array.isArray(payload.thoughts) || !payload.thoughts.every(isThoughtGalleryItem)) {
     return null;
   }
-  return sortThoughts(payload.thoughts.map(withAttestedTraits));
+  return sortThoughts(payload.thoughts);
 }
 
 export function readCachedThoughtGallery(): ThoughtGalleryItem[] | null {
-  if (isLocalDevnet()) return null;
   const memory = validPayload(thoughtGalleryMemoryCache);
   if (memory) return memory;
 
@@ -636,7 +152,6 @@ function writeThoughtGalleryCache(thoughts: ThoughtGalleryItem[]) {
 export async function loadThoughtGallery(options?: {
   cacheMode?: "default" | "bypass";
 }): Promise<ThoughtGalleryItem[]> {
-  if (isLocalDevnet()) return loadLocalThoughtGallery();
   if (typeof globalThis.fetch !== "function") {
     throw new Error("Gallery API unavailable.");
   }
@@ -662,11 +177,7 @@ export async function loadThoughtGallery(options?: {
     throw new Error("Gallery API returned invalid payload.");
   }
 
-  const thoughts = sortThoughts(
-    payload.thoughts
-      .filter(isThoughtGalleryItem)
-      .map(withAttestedTraits)
-  );
+  const thoughts = sortThoughts(payload.thoughts.filter(isThoughtGalleryItem));
   writeThoughtGalleryCache(thoughts);
   return thoughts;
 }

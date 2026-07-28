@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import {
+  getProtocolReleaseChainId,
   getProtocolReleaseDeployBlock,
   maybeResolveAddress,
 } from "@inshell/contracts";
+import { PUBLIC_NETWORK_CONFIG } from "@inshell/shared";
 import {
   loadAllPathTokens,
   readCachedAllPathTokens,
@@ -22,16 +24,15 @@ type LoadState =
 
 type PathPageProps = {
   tokenId?: string | null;
-  refreshSignal?: number;
 };
 
 const FIXTURE_OWNER = "0x1111222233334444555566667777888899990000";
 const PATH_DESCRIPTION =
-  "$PATH is the permission token. It is minted by the Pulse auction and authorizes movement mints in order: THOUGHT, WILL, then AWA. The token image and traits show movement progress.";
+  "$PATH is the permission token. It is minted by the Sepolia rehearsal Pulse auction and authorizes movement mints in order: THOUGHT, WILL, then AWA. The token image and traits show movement progress.";
 const CHAIN_LOADING_DETAIL_MS = 1400;
 const PATH_LOADING_DETAILS = [
   "checking latest block",
-  "scanning $PATH transfer logs",
+  "scanning PATH transfer logs",
   "collecting token ids",
   "checking current owners",
   "reading token metadata",
@@ -63,6 +64,13 @@ function readPathFixture(): string | null {
   if (envCache?.MODE === "production" || envCache?.PROD === true) return null;
   const fixture = new globalThis.URLSearchParams(window.location.search).get("fixture");
   return fixture?.trim().toLowerCase() || null;
+}
+
+function chainLabelFromChainId(chainId: number | undefined): string {
+  if (chainId === 1) return "Ethereum";
+  if (chainId === 11155111) return "Sepolia";
+  if (chainId === 31337 || chainId === 1337) return "Local Devnet";
+  return Number.isFinite(chainId) ? `Chain ${chainId}` : "current RPC";
 }
 
 function attrValue(attribute: PathTokenAttribute): string {
@@ -158,23 +166,20 @@ function pathIdKey(value: string): string | null {
   return BigInt(trimmed).toString();
 }
 
-function thoughtMintsByPath(thoughts: ThoughtGalleryItem[]) {
-  const mints = new Map<string, ThoughtGalleryItem[]>();
+function thoughtMintCountsByPath(thoughts: ThoughtGalleryItem[]) {
+  const counts = new Map<string, number>();
   for (const thought of thoughts) {
     const key = pathIdKey(thought.pathId);
     if (!key) continue;
-    const current = mints.get(key) ?? [];
-    current.push(thought);
-    mints.set(key, current);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
   }
-  return mints;
+  return counts;
 }
 
 function overlayThoughtMintProgress(
   item: PathTokenInventoryItem,
-  thoughtMints: ThoughtGalleryItem[]
+  thoughtMintCount: number
 ): PathTokenInventoryItem {
-  const thoughtMintCount = thoughtMints.length;
   if (thoughtMintCount <= 0) return item;
   const thoughtProgress = progressWithUsedFloor(
     movementProgress(item, "THOUGHT"),
@@ -188,19 +193,6 @@ function overlayThoughtMintProgress(
   const metadata = {
     ...item.metadata,
     attributes,
-    movementTokens: {
-      ...(typeof item.metadata.movementTokens === "object" &&
-      item.metadata.movementTokens !== null
-        ? item.metadata.movementTokens
-        : {}),
-      THOUGHT: thoughtMints
-        .slice()
-        .sort((a, b) => a.tokenId - b.tokenId)
-        .map((thought) => ({
-          tokenId: thought.tokenId,
-          url: `/thought/${thought.tokenId}`,
-        })),
-    },
   };
 
   if (thoughtProgress.used != null && thoughtProgress.total != null) {
@@ -227,58 +219,13 @@ function overlayThoughtMints(
   thoughts: ThoughtGalleryItem[] | null
 ) {
   if (!thoughts?.length) return items;
-  const mints = thoughtMintsByPath(thoughts);
-  if (mints.size === 0) return items;
+  const counts = thoughtMintCountsByPath(thoughts);
+  if (counts.size === 0) return items;
   return items.map((item) => {
     const key = pathIdKey(item.tokenIdLabel);
     if (!key) return item;
-    return overlayThoughtMintProgress(item, mints.get(key) ?? []);
+    return overlayThoughtMintProgress(item, counts.get(key) ?? 0);
   });
-}
-
-type MovementTokenLink = {
-  movement: string;
-  tokenId: string;
-  href: string;
-};
-
-function movementTokenLinks(item: PathTokenInventoryItem): MovementTokenLink[] {
-  const raw = item.metadata.movementTokens;
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
-
-  const links: MovementTokenLink[] = [];
-  for (const movement of MOVEMENT_TRAITS) {
-    const entries = (raw as Record<string, unknown>)[movement];
-    const candidates = Array.isArray(entries) ? entries : entries ? [entries] : [];
-    for (const candidate of candidates) {
-      if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
-        continue;
-      }
-      const token = candidate as Record<string, unknown>;
-      const tokenId =
-        typeof token.tokenId === "string" || typeof token.tokenId === "number"
-          ? String(token.tokenId)
-          : null;
-      if (!tokenId) continue;
-      const href =
-        typeof token.url === "string" && token.url.trim()
-          ? token.url.trim()
-          : movement === "THOUGHT"
-            ? `/thought/${tokenId}`
-            : null;
-      if (!href) continue;
-      links.push({ movement, tokenId, href });
-    }
-  }
-
-  return links.filter(
-    (link, index) =>
-      links.findIndex(
-        (candidate) =>
-          candidate.movement === link.movement &&
-          candidate.tokenId === link.tokenId
-      ) === index
-  );
 }
 
 function metadataName(item: PathTokenInventoryItem): string {
@@ -304,7 +251,7 @@ function dispatchLocationChange() {
   window.dispatchEvent(event);
 }
 
-function handlePathRouteAnchorClick(event: MouseEvent<globalThis.HTMLAnchorElement>) {
+function handlePathTokenAnchorClick(event: MouseEvent<globalThis.HTMLAnchorElement>) {
   if (
     typeof window === "undefined" ||
     event.defaultPrevented ||
@@ -321,7 +268,7 @@ function handlePathRouteAnchorClick(event: MouseEvent<globalThis.HTMLAnchorEleme
   const nextUrl = new globalThis.URL(href, window.location.href);
   if (
     nextUrl.origin !== window.location.origin ||
-    !/^\/path(?:\/[1-9]\d*)?$/.test(nextUrl.pathname)
+    !/^\/path\/[1-9]\d*$/.test(nextUrl.pathname)
   ) {
     return;
   }
@@ -617,7 +564,6 @@ function PathTokenCard({
   const metadataLabel = metadataName(item);
   const name = displayTokenName(item);
   const units = unitProgressByMovement(item);
-  const movementLinks = focused ? movementTokenLinks(item) : [];
   const shareHref = pathTokenHref(item.tokenIdLabel);
 
   return (
@@ -634,7 +580,7 @@ function PathTokenCard({
             className="path-page-token__media-link"
             href={shareHref}
             aria-label={`Open ${name}`}
-            onClick={handlePathRouteAnchorClick}
+            onClick={handlePathTokenAnchorClick}
           >
             <img
               src={image}
@@ -667,35 +613,22 @@ function PathTokenCard({
             </div>
           ))}
         </dl>
-        {movementLinks.length > 0 ? (
-          <div className="path-page-token__stage path-page-token__authorized">
-            <span>authorized</span>
-            <strong>
-              {movementLinks.map((link, index) => (
-                <span key={`${link.movement}-${link.tokenId}`}>
-                  {index > 0 ? ", " : ""}
-                  <a className="path-detail__value-link" href={link.href}>
-                    {link.movement} #{link.tokenId} ↗
-                  </a>
-                </span>
-              ))}
-            </strong>
-          </div>
-        ) : null}
       </div>
     </article>
   );
 }
 
-export default function PathPage({
-  tokenId = null,
-  refreshSignal = 0,
-}: PathPageProps) {
+export default function PathPage({ tokenId = null }: PathPageProps) {
   const fixture = useMemo(() => readPathFixture(), []);
   const fixtureItems = useMemo(() => pathFixtureItems(fixture), [fixture]);
   const pathNftAddress = useMemo(() => maybeResolveAddress("path_nft"), []);
   const fromBlock = useMemo(() => getProtocolReleaseDeployBlock("path_nft"), []);
-  const [retryNonce, setRetryNonce] = useState(0);
+  const chainId = useMemo(() => getProtocolReleaseChainId(), []);
+  const chainLabel = useMemo(
+    () => chainLabelFromChainId(chainId),
+    [chainId]
+  );
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const [state, setState] = useState<LoadState>({
     status: "loading",
     items: [],
@@ -717,19 +650,7 @@ export default function PathPage({
     return () => {
       window.clearInterval(timer);
     };
-  }, [state.status, refreshSignal, retryNonce]);
-
-  useEffect(() => {
-    const refreshWhenVisible = () => {
-      if (document.visibilityState === "visible") {
-        setRetryNonce((value) => value + 1);
-      }
-    };
-    document.addEventListener("visibilitychange", refreshWhenVisible);
-    return () => {
-      document.removeEventListener("visibilitychange", refreshWhenVisible);
-    };
-  }, []);
+  }, [state.status, refreshNonce]);
 
   useEffect(() => {
     if (fixtureItems) {
@@ -755,7 +676,7 @@ export default function PathPage({
     let cancelled = false;
     const cachedThoughts = readCachedThoughtGallery();
     const cached =
-      refreshSignal === 0 && retryNonce === 0
+      refreshNonce === 0
         ? readCachedAllPathTokens({
             pathNftAddress,
             fromBlock,
@@ -774,10 +695,10 @@ export default function PathPage({
       loadAllPathTokens({
         pathNftAddress,
         fromBlock,
-        cacheMode: refreshSignal > 0 || retryNonce > 0 ? "bypass" : "default",
+        cacheMode: refreshNonce > 0 ? "bypass" : "default",
       }),
       loadThoughtGallery({
-        cacheMode: refreshSignal > 0 || retryNonce > 0 ? "bypass" : "default",
+        cacheMode: refreshNonce > 0 ? "bypass" : "default",
       }).catch(() => cachedThoughts ?? []),
     ])
       .then(([items, thoughts]) => {
@@ -799,12 +720,11 @@ export default function PathPage({
     return () => {
       cancelled = true;
     };
-  }, [fixtureItems, fromBlock, pathNftAddress, refreshSignal, retryNonce]);
+  }, [fixtureItems, fromBlock, pathNftAddress, refreshNonce]);
 
   const focusedItem = tokenId
     ? state.items.find((item) => item.tokenIdLabel === tokenId)
     : null;
-  const visibleItems = tokenId ? (focusedItem ? [focusedItem] : []) : state.items;
 
   useEffect(() => {
     if (!tokenId || state.status !== "ready") return;
@@ -816,54 +736,111 @@ export default function PathPage({
     <main className="primitive-page path-page">
       <section
         className="path-page__body"
-        aria-label={tokenId ? `$PATH #${tokenId}` : "All $PATH tokens"}
+        aria-label="All $PATH tokens"
       >
-        <div className="path-page__toolbar">
-          {tokenId ? (
-            <nav className="primitive-page__links path-page__focus-nav" aria-label="$PATH location">
-              <a href="/path" onClick={handlePathRouteAnchorClick}>all $PATH</a>
-              <span aria-hidden="true">/</span>
-              <span>$PATH #{tokenId}</span>
-            </nav>
-          ) : (
-            <div className="path-page__section-title">
-              all $PATH{state.status === "ready" ? ` · ${state.items.length}` : ""}
-            </div>
-          )}
-          {state.status === "loading" ? (
-            <div className="path-page__sub">
-              <ChainLoadingStatus
-                status={PATH_LOADING_DETAILS[loadingDetailIndex]}
-              />
-            </div>
-          ) : null}
+        <div className="path-page__intro">
+          <p>$PATH is minted by the Sepolia rehearsal Pulse auction.</p>
+          <p>Each $PATH authorizes movement mints in order: THOUGHT, WILL, then AWA.</p>
+          <p>A movement minted from $PATH consumes a movement unit and updates the $PATH lifecycle.</p>
+          <p>stage shows the current movement phase.</p>
+          <p>units show used / total movement units.</p>
+          <p>The token image and traits show movement progress.</p>
         </div>
+
+        <nav
+          className="primitive-page__links path-page__links"
+          aria-label="PATH page links"
+        >
+          <a
+            href="/pulse"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="View $PATH pricing rule"
+          >
+            View $PATH pricing rule ↗
+          </a>
+        </nav>
+
+        <div className="path-page__toolbar">
+          <div>
+            <div className="path-page__section-title">all tokens</div>
+            <div className="path-page__sub">
+              {state.status === "ready"
+                ? `${state.items.length} token${state.items.length === 1 ? "" : "s"}${focusedItem ? ` · focused $PATH #${focusedItem.tokenIdLabel}` : ""}`
+                : state.status === "loading"
+                  ? (
+                    <ChainLoadingStatus
+                      status={PATH_LOADING_DETAILS[loadingDetailIndex]}
+                    />
+                  )
+                  : "token list unavailable"}
+            </div>
+          </div>
+          <button
+            type="button"
+            className="path-page__refresh"
+            onClick={() => setRefreshNonce((value) => value + 1)}
+          >
+            refresh
+          </button>
+        </div>
+
+        <dl className="primitive-page__fields path-page__fields">
+          <div>
+            <dt>mode</dt>
+            <dd>{fixtureItems ? "fixture state gallery" : "live token gallery"}</dd>
+          </div>
+          <div>
+            <dt>network</dt>
+            <dd>{fixtureItems ? "fixture" : PUBLIC_NETWORK_CONFIG.environmentLabel}</dd>
+          </div>
+          <div>
+            <dt>chain</dt>
+            <dd>{fixtureItems ? "fixture" : chainLabel}</dd>
+          </div>
+          <div>
+            <dt>chain id</dt>
+            <dd>{fixtureItems ? "fixture" : String(chainId)}</dd>
+          </div>
+          <div>
+            <dt>currency</dt>
+            <dd>{fixtureItems ? "fixture" : PUBLIC_NETWORK_CONFIG.currencyLabel}</dd>
+          </div>
+          <div>
+            <dt>source</dt>
+            <dd>{fixtureItems ? "fixture tokenURI()" : "live tokenURI()"}</dd>
+          </div>
+          <div>
+            <dt>contract</dt>
+            <dd>
+              {fixtureItems
+                ? "not connected"
+                : pathNftAddress
+                  ? `PathNFT ${shortAddress(pathNftAddress)}`
+                  : "missing"}
+            </dd>
+          </div>
+          <div>
+            <dt>from block</dt>
+            <dd>{fixtureItems ? "n/a" : fromBlock == null ? "missing" : String(fromBlock)}</dd>
+          </div>
+        </dl>
 
         {state.status === "error" && (
           <div className="path-page__notice path-page__notice--error">
-            <span title={state.error}>token gallery unavailable.</span>
-            <button
-              type="button"
-              className="path-page__retry"
-              onClick={() => setRetryNonce((value) => value + 1)}
-            >
-              retry
-            </button>
+            {state.error}
           </div>
         )}
 
         {tokenId && state.status === "ready" && !focusedItem ? (
-          <div className="path-page__notice path-page__notice--not-found">
-            <span>$PATH #{tokenId} not found.</span>
-            <a href="/path" onClick={handlePathRouteAnchorClick}>view all $PATH</a>
-          </div>
+          <div className="path-page__notice">$PATH #{tokenId} not found.</div>
         ) : null}
 
-        {!tokenId && state.status === "ready" && state.items.length === 0 ? (
-          <div className="path-page__notice">no $PATH minted yet.</div>
-        ) : visibleItems.length > 0 ? (
-          <div className={`path-page__grid${tokenId ? " path-page__grid--focused" : ""}`}>
-            {visibleItems.map((item) => (
+        {state.status === "ready" && state.items.length === 0 ? (
+          <div className="path-page__notice">no PATH minted yet.</div>
+        ) : state.items.length > 0 ? (
+          <div className="path-page__grid">
+            {state.items.map((item) => (
               <PathTokenCard
                 key={item.tokenIdLabel}
                 item={item}

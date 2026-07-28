@@ -148,29 +148,25 @@
   background: var(--panel);
   border: 1px solid var(--panel-border);
   box-shadow: var(--shell-wallet-modal-shadow);
-  font-size: var(--shell-context-popover-font-size);
-  font-weight: var(--shell-context-popover-font-weight);
-  line-height: var(--shell-context-popover-line-height);
 }
 
 .inshell-wallet-modal h2 {
-  margin: 0 0 var(--shell-context-popover-title-margin-block-end);
+  margin: 0 0 16px;
   color: var(--accent);
-  font-size: inherit;
-  font-weight: inherit;
-  letter-spacing: var(--shell-context-popover-title-letter-spacing);
+  font-size: var(--font-size-14);
+  font-weight: var(--weight-mid);
 }
 
 .inshell-wallet-modal__rows {
   display: grid;
-  gap: var(--shell-context-popover-row-gap);
+  gap: 8px;
   margin: 0;
 }
 
 .inshell-wallet-modal__rows div {
   display: grid;
   grid-template-columns: var(--shell-wallet-modal-row-label-width) minmax(0, 1fr);
-  gap: var(--shell-context-popover-column-gap);
+  gap: 12px;
 }
 
 .inshell-wallet-modal__rows dt {
@@ -185,16 +181,16 @@
 
 .inshell-wallet-modal__copy,
 .inshell-wallet-modal__notice {
-  margin: var(--shell-context-popover-section-gap) 0 0;
+  margin: 16px 0 0;
   color: var(--muted);
-  line-height: inherit;
+  line-height: 1.5;
 }
 
 .inshell-wallet-modal__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: var(--shell-context-popover-section-gap);
+  margin-top: 18px;
 }
 
 .inshell-wallet-modal__actions button {
@@ -222,9 +218,7 @@
   gap: 0;
   overflow: auto;
   color: var(--text);
-  font-size: var(--shell-context-popover-font-size);
-  font-weight: var(--shell-context-popover-font-weight);
-  line-height: var(--shell-context-popover-line-height);
+  font-size: var(--font-size-11);
   border: 1px solid var(--panel-border);
   background: var(--panel);
   box-shadow: var(--shell-wallet-picker-shadow);
@@ -233,18 +227,18 @@
 .inshell-wallet-picker__title {
   margin-block-end: var(--shell-wallet-picker-title-margin-block-end);
   color: var(--accent);
-  font-size: inherit;
-  line-height: inherit;
-  letter-spacing: var(--shell-context-popover-title-letter-spacing);
+  font-size: var(--font-size-11);
+  line-height: 1.15;
+  letter-spacing: 0.08em;
   text-transform: lowercase;
 }
 
 .inshell-wallet-picker__note {
   margin: var(--shell-wallet-picker-note-margin);
   color: var(--muted);
-  font-size: inherit;
-  font-weight: inherit;
-  line-height: inherit;
+  font-size: var(--font-size-11);
+  font-weight: var(--weight-mid);
+  line-height: 1.35;
 }
 
 .inshell-wallet-picker__note a {
@@ -264,7 +258,7 @@
   border: 0;
   background: transparent;
   font: inherit;
-  font-size: inherit;
+  font-size: var(--font-size-11);
   line-height: var(--shell-wallet-picker-item-line-height);
   letter-spacing: 0.06em;
   text-align: left;
@@ -273,7 +267,7 @@
 }
 
 .inshell-topbar .inshell-wallet-picker__item {
-  font-size: inherit;
+  font-size: var(--font-size-11);
   line-height: var(--shell-wallet-picker-item-line-height);
 }
 
@@ -319,9 +313,7 @@
     gap: var(--topbar-menu-gap);
   }
 
-  .inshell-wallet-modal,
-  .inshell-wallet-picker,
-  .inshell-wallet-picker__notice {
+  .inshell-wallet-picker {
     position: fixed;
     right: var(--shell-wallet-picker-mobile-inset);
     bottom: calc(
@@ -332,35 +324,5 @@
     min-width: 0;
     max-width: none;
     width: auto;
-    max-height: var(--shell-wallet-picker-max-height);
-    overflow: auto;
-  }
-}
-
-@media (max-width: 380px) {
-  .inshell-topbar {
-    --topbar-cluster-gap: var(--shell-topbar-narrow-cluster-gap);
-    --topbar-menu-gap: var(--shell-topbar-narrow-menu-gap);
-    --wallet-label-width: var(--shell-topbar-narrow-wallet-label-width);
-  }
-
-  .inshell-topbar__nav a[target="_blank"] {
-    display: none;
-  }
-}
-
-@media (pointer: coarse) {
-  .inshell-topbar {
-    min-height: var(--shell-touch-target-size);
-  }
-
-  .inshell-topbar__brand,
-  .inshell-topbar__link,
-  .inshell-topbar__wallet,
-  .inshell-wallet-modal__actions button,
-  .inshell-wallet-picker__item {
-    min-height: var(--shell-touch-target-size);
-    display: inline-flex;
-    align-items: center;
   }
 }

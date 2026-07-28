@@ -16,12 +16,6 @@ export type ThoughtCodexReleaseBinding = {
   manifestKeccak256: `0x${string}`;
 };
 
-export type ThoughtCodexResultContractBinding = {
-  workProfile: string;
-  declarationLabelField: "agentLabel" | "label";
-  lineValidation?: "terminal-english-64";
-};
-
 export type ThoughtCodexTaskInput = {
   product: string;
   runId: string;
@@ -30,13 +24,11 @@ export type ThoughtCodexTaskInput = {
   clientUrl: string;
   launchToken: string;
   release?: ThoughtCodexReleaseBinding;
-  resultContract?: ThoughtCodexResultContractBinding;
 };
 
 const shellQuote = (value: string) => `'${value.replace(/'/g, `'"'"'`)}'`;
 
 export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
-  const declarationLabelField = input.resultContract?.declarationLabelField ?? "agentLabel";
   const resultExample = JSON.stringify(input.release
     ? {
         schema: THOUGHT_AGENT_RESULT_VERSION,
@@ -45,7 +37,7 @@ export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
         declaration: {
           schema: "inshell.thought.agent-declaration.v1",
           status: "declared-unverified",
-          [declarationLabelField]: input.product,
+          agentLabel: input.product,
           declaredOneCreativeResult: true,
         },
       }
@@ -61,9 +53,7 @@ export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
   ].join(" ");
 
   return [
-    `You are ${input.product} completing one THOUGHT run.`,
-    "",
-    "This run may span multiple chat turns for approval or recovery. A chat turn does not complete the run. The run completes only after exactly one result is accepted and the client prints THOUGHT_RESULT_OK.",
+    `You are ${input.product} running one THOUGHT round.`,
     "",
     "Run:",
     input.runId,
@@ -71,35 +61,30 @@ export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
     "Task:",
     input.promptLine,
     "",
-    "Before the client prints THOUGHT_INPUT_READY, you may diagnose execution blockers, but do not answer or reason about Task.",
+    "Do not answer or reason about Task before the client prints THOUGHT_INPUT_READY.",
     "",
     "Protocol execution:",
     "1. Your first action must be this exact shell command in a PTY:",
     command,
     "2. If localhost is blocked by the managed sandbox, rerun that exact command with network escalation. Do not change the command.",
-    "3. If escalation requires operator approval, ask for that approval immediately. After approval, retry the same exact command and continue this run.",
-    "4. Do not ask the operator to run the command, paste client output, or relay a receipt. Execution and result submission must remain in this Agent session.",
-    "5. Only after the client prints THOUGHT_INPUT_READY, read the verified instructions and prompt and generate exactly one result.",
-    "6. The active V2 output contract is authoritative:",
+    "3. Only after the client prints THOUGHT_INPUT_READY, read the verified instructions and prompt and generate exactly one result.",
+    "4. The active V2 output contract is authoritative:",
     `- agentLine must be 1-${THOUGHT_AGENT_LINE_CONTRACT.maxUtf8Bytes} UTF-8 bytes.`,
     "- Preserve the exact returned bytes; normalization is none.",
     "- Display units are renderer measurements only, not an acceptance limit.",
     "- Do not use the old 162-display-unit limit or rely on clipping/repair.",
-    `7. Send one JSON line to the same shell session: ${resultExample}`,
-    "8. Wait for THOUGHT_RESULT_OK and an exact Receipt line. Terminal errors or exit without both mean the run is incomplete: diagnose the blocker and retry the same run without generating another candidate.",
+    `5. Send one JSON line to the same shell session: ${resultExample}`,
+    "6. Wait for THOUGHT_RESULT_OK and an exact Receipt line. Any other terminal output is failure.",
     "",
     "Final chat response:",
     "Only after THOUGHT_RESULT_OK, show exactly:",
     "Return to the THOUGHT browser tab. It is polling this run and will show the preview automatically.",
     "Receipt: <exact receipt printed by the client>",
-    "Before success, respond only as needed to request approval or report a concrete execution blocker. Do not answer Task or show the candidate JSON.",
+    "Do not show the candidate JSON.",
   ].join("\n");
 }
 
-export function buildThoughtCodexClientScript(options?: {
-  release?: ThoughtCodexReleaseBinding;
-  resultContract?: ThoughtCodexResultContractBinding;
-}) {
+export function buildThoughtCodexClientScript(options?: { release?: ThoughtCodexReleaseBinding }) {
   const claimBody = JSON.stringify({
     protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
     bridge: {
@@ -137,9 +122,6 @@ export function buildThoughtCodexClientScript(options?: {
     userConfigPolicy: "agent-owned",
   });
   const release = options?.release;
-  const workProfile = options?.resultContract?.workProfile ?? THOUGHT_AGENT_LINE_CONTRACT.workProfile;
-  const declarationLabelField = options?.resultContract?.declarationLabelField ?? "agentLabel";
-  const lineValidation = options?.resultContract?.lineValidation ?? "released";
   const releaseConstantLines = release
     ? [
         `readonly THOUGHT_PROTOCOL_RELEASE_ID=${shellQuote(release.protocolReleaseId)}`,
@@ -154,11 +136,8 @@ export function buildThoughtCodexClientScript(options?: {
         '[[ "$THOUGHT_CLAIM_MANIFEST_HASH" == "$THOUGHT_MANIFEST_KECCAK256" ]] || thought_fail "Claim manifest hash mismatch" "AGENT_OUTPUT_SCHEMA_INVALID"',
       ]
     : [];
-  const declarationFilter = declarationLabelField === "label"
-    ? '((.declaration | keys_unsorted | sort) == ["declaredOneCreativeResult","label","schema","status"]) and .declaration.schema == "inshell.thought.agent-declaration.v1" and .declaration.status == "declared-unverified" and (.declaration.label | type) == "string" and (.declaration.label | length) >= 1 and .declaration.declaredOneCreativeResult == true'
-    : '((.declaration | keys_unsorted | sort) == ["agentLabel","declaredOneCreativeResult","schema","status"]) and .declaration.schema == "inshell.thought.agent-declaration.v1" and .declaration.status == "declared-unverified" and (.declaration.agentLabel | type) == "string" and (.declaration.agentLabel | length) >= 1 and (.declaration.agentLabel | length) <= 100 and .declaration.declaredOneCreativeResult == true';
   const parseAgentLine = release
-    ? `THOUGHT_AGENT_LINE="$(printf %s "$THOUGHT_RAW_OUTPUT" | jq -er --arg schema "$THOUGHT_RESULT_SCHEMA" --arg release "$THOUGHT_PROTOCOL_RELEASE_ID" --arg manifest "$THOUGHT_MANIFEST_KECCAK256" 'if type == "object" and .schema == $schema and (.agentLine | type) == "string" and (((keys_unsorted | sort) == ["agentLine","release","schema"]) or ((keys_unsorted | sort) == ["agentLine","declaration","release","schema"])) and (.release | type) == "object" and ((.release | keys_unsorted | sort) == ["manifestKeccak256","protocolReleaseId"]) and .release.protocolReleaseId == $release and .release.manifestKeccak256 == $manifest and ((has("declaration") | not) or ((.declaration | type) == "object" and ${declarationFilter})) then .agentLine else error("candidate schema invalid") end')" || thought_fail "candidate JSON invalid" "AGENT_OUTPUT_UNPARSEABLE"`
+    ? 'THOUGHT_AGENT_LINE="$(printf %s "$THOUGHT_RAW_OUTPUT" | jq -er --arg schema "$THOUGHT_RESULT_SCHEMA" --arg release "$THOUGHT_PROTOCOL_RELEASE_ID" --arg manifest "$THOUGHT_MANIFEST_KECCAK256" \'if type == "object" and .schema == $schema and (.agentLine | type) == "string" and (((keys_unsorted | sort) == ["agentLine","release","schema"]) or ((keys_unsorted | sort) == ["agentLine","declaration","release","schema"])) and (.release | type) == "object" and ((.release | keys_unsorted | sort) == ["manifestKeccak256","protocolReleaseId"]) and .release.protocolReleaseId == $release and .release.manifestKeccak256 == $manifest and ((has("declaration") | not) or ((.declaration | type) == "object" and ((.declaration | keys_unsorted | sort) == ["agentLabel","declaredOneCreativeResult","schema","status"]) and .declaration.schema == "inshell.thought.agent-declaration.v1" and .declaration.status == "declared-unverified" and (.declaration.agentLabel | type) == "string" and (.declaration.agentLabel | length) >= 1 and (.declaration.agentLabel | length) <= 100 and .declaration.declaredOneCreativeResult == true)) then .agentLine else error("candidate schema invalid") end\')" || thought_fail "candidate JSON invalid" "AGENT_OUTPUT_UNPARSEABLE"'
     : 'THOUGHT_AGENT_LINE="$(printf %s "$THOUGHT_RAW_OUTPUT" | jq -er --arg schema "$THOUGHT_RESULT_SCHEMA" \'if type == "object" and .schema == $schema and (.agentLine | type) == "string" and ((keys_unsorted - ["schema", "agentLine"]) | length) == 0 then .agentLine else error("candidate schema invalid") end\')" || thought_fail "candidate JSON invalid" "AGENT_OUTPUT_UNPARSEABLE"';
 
   return [
@@ -169,8 +148,7 @@ export function buildThoughtCodexClientScript(options?: {
     ': "${THOUGHT_LAUNCH_TOKEN:?THOUGHT_LAUNCH_TOKEN is required}"',
     `readonly THOUGHT_PROTOCOL=${shellQuote(THOUGHT_AGENT_PROTOCOL_VERSION)}`,
     `readonly THOUGHT_RESULT_SCHEMA=${shellQuote(THOUGHT_AGENT_RESULT_VERSION)}`,
-    `readonly THOUGHT_WORK_PROFILE=${shellQuote(workProfile)}`,
-    `readonly THOUGHT_LINE_VALIDATION=${shellQuote(lineValidation)}`,
+    `readonly THOUGHT_WORK_PROFILE=${shellQuote(THOUGHT_AGENT_LINE_CONTRACT.workProfile)}`,
     `readonly THOUGHT_AGENT_LINE_MIN_BYTES=${shellQuote(String(THOUGHT_AGENT_LINE_CONTRACT.minUtf8Bytes))}`,
     `readonly THOUGHT_AGENT_LINE_MAX_BYTES=${shellQuote(String(THOUGHT_AGENT_LINE_CONTRACT.maxUtf8Bytes))}`,
     ...releaseConstantLines,
@@ -238,18 +216,6 @@ export function buildThoughtCodexClientScript(options?: {
     '  thought_fail "HTTP ${THOUGHT_HTTP_CODE} ${error_code}: ${error_message}" "$error_code"',
     "}",
     "",
-    "thought_claim_text_sha256() {",
-    '  local jq_path="$1"',
-    '  printf %s "$THOUGHT_CLAIM_RESPONSE" | jq -j "$jq_path" | shasum -a 256 | awk \'{print "sha256:" $1}\'',
-    "}",
-    "",
-    "thought_validate_terminal_english_64_json() {",
-    '  local json_value="$1"',
-    '  local jq_path="$2"',
-    '  local line_label="$3"',
-    '  printf %s "$json_value" | jq -e "def terminal_english_64: type == \\"string\\" and (length >= 1 and length <= 64) and (startswith(\\" \\") | not) and (endswith(\\" \\") | not) and (contains(\\"  \\") | not) and (explode | all(. == 32 or (. >= 48 and . <= 57) or (. >= 65 and . <= 90) or (. >= 97 and . <= 122) or . == 33 or . == 34 or . == 38 or . == 39 or . == 40 or . == 41 or . == 44 or . == 45 or . == 46 or . == 47 or . == 58 or . == 59 or . == 63)); ${jq_path} | terminal_english_64" >/dev/null || thought_fail "${line_label} violates terminal-english-64" "AGENT_OUTPUT_SCHEMA_INVALID"',
-    "}",
-    "",
     'thought_request POST "$THOUGHT_CLAIM_URL" "$THOUGHT_LAUNCH_TOKEN" "$THOUGHT_CLAIM_BODY"',
     '[[ "$THOUGHT_HTTP_CODE" == "200" ]] || thought_api_error',
     "",
@@ -266,17 +232,6 @@ export function buildThoughtCodexClientScript(options?: {
     '[[ "$THOUGHT_CLAIM_NORMALIZATION" == "none" ]] || thought_fail "Claim normalization mismatch" "AGENT_OUTPUT_SCHEMA_INVALID"',
     '[[ "$THOUGHT_CLAIM_DISPLAY_LIMIT" == "false" ]] || thought_fail "Claim incorrectly makes display units an acceptance limit" "AGENT_OUTPUT_SCHEMA_INVALID"',
     ...claimReleaseLines,
-    'THOUGHT_CLAIM_INSTRUCTIONS_HASH="$(printf %s "$THOUGHT_CLAIM_RESPONSE" | jq -er .request.instructions.sha256)" || thought_fail "Claim instructions hash missing" "AGENT_INPUT_HASH_MISMATCH"',
-    'THOUGHT_CLAIM_PROMPT_HASH="$(printf %s "$THOUGHT_CLAIM_RESPONSE" | jq -er .request.promptLine.sha256)" || thought_fail "Claim prompt hash missing" "PROMPT_HASH_MISMATCH"',
-    'THOUGHT_CLAIM_AGENT_INPUT_HASH="$(printf %s "$THOUGHT_CLAIM_RESPONSE" | jq -er .request.agentInput.sha256)" || thought_fail "Claim Agent input hash missing" "AGENT_INPUT_HASH_MISMATCH"',
-    '[[ "$(thought_claim_text_sha256 .request.instructions.text)" == "$THOUGHT_CLAIM_INSTRUCTIONS_HASH" ]] || thought_fail "Claim instructions hash mismatch" "AGENT_INPUT_HASH_MISMATCH"',
-    '[[ "$(thought_claim_text_sha256 .request.promptLine.text)" == "$THOUGHT_CLAIM_PROMPT_HASH" ]] || thought_fail "Claim prompt hash mismatch" "PROMPT_HASH_MISMATCH"',
-    '[[ "$(thought_claim_text_sha256 .request.agentInput.text)" == "$THOUGHT_CLAIM_AGENT_INPUT_HASH" ]] || thought_fail "Claim Agent input hash mismatch" "AGENT_INPUT_HASH_MISMATCH"',
-    'printf %s "$THOUGHT_CLAIM_RESPONSE" | jq -e \'.request.instructions.text == .request.spec.text and .request.instructions.sha256 == .request.spec.sha256\' >/dev/null || thought_fail "Claim instructions do not match the bound spec" "SPEC_HASH_MISMATCH"',
-    'printf %s "$THOUGHT_CLAIM_RESPONSE" | jq -e \'.request.promptLine.text == .request.agentInput.text and .request.promptLine.sha256 == .request.agentInput.sha256\' >/dev/null || thought_fail "Claim prompt does not match Agent input" "AGENT_INPUT_HASH_MISMATCH"',
-    'if [[ "$THOUGHT_LINE_VALIDATION" == "terminal-english-64" ]]; then',
-    '  thought_validate_terminal_english_64_json "$THOUGHT_CLAIM_RESPONSE" ".request.promptLine.text" "prompt line"',
-    "fi",
     'THOUGHT_INVOCATION_ID="tai_$(openssl rand -hex 12)"',
     'THOUGHT_STARTED_AT="$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")"',
     'THOUGHT_START_BODY="$(jq -cn --arg protocol "$THOUGHT_PROTOCOL" --arg invocationId "$THOUGHT_INVOCATION_ID" --arg startedAt "$THOUGHT_STARTED_AT" \'{protocolVersion:$protocol,invocationId:$invocationId,startedAt:$startedAt}\')"',
@@ -293,10 +248,6 @@ export function buildThoughtCodexClientScript(options?: {
     'print -r -- "Agent line work profile: ${THOUGHT_CLAIM_WORK_PROFILE}"',
     'print -r -- "Agent line UTF-8 bytes: ${THOUGHT_CLAIM_MIN_BYTES}-${THOUGHT_CLAIM_MAX_BYTES}"',
     'print -r -- "Agent line normalization: ${THOUGHT_CLAIM_NORMALIZATION}"',
-    'if [[ "$THOUGHT_LINE_VALIDATION" == "terminal-english-64" ]]; then',
-    '  print -r -- "Agent line characters: closed 76-character Terminal English repertoire."',
-    '  print -r -- "Agent line spacing: single internal U+0020 spaces only."',
-    "fi",
     'print -r -- "Display units are not acceptance limits."',
     'print -r -- "THOUGHT_VERIFIED_OUTPUT_CONTRACT_END"',
     'print -r -- "THOUGHT_INPUT_READY"',
@@ -306,9 +257,6 @@ export function buildThoughtCodexClientScript(options?: {
     'THOUGHT_AGENT_LINE_BYTES="$(LC_ALL=C printf %s "$THOUGHT_AGENT_LINE" | wc -c | tr -d "[:space:]")"',
     '[[ "$THOUGHT_AGENT_LINE_BYTES" -ge "$THOUGHT_CLAIM_MIN_BYTES" ]] || thought_fail "agent line is ${THOUGHT_AGENT_LINE_BYTES}/${THOUGHT_CLAIM_MAX_BYTES} UTF-8 bytes" "AGENT_OUTPUT_SCHEMA_INVALID"',
     '[[ "$THOUGHT_AGENT_LINE_BYTES" -le "$THOUGHT_CLAIM_MAX_BYTES" ]] || thought_fail "agent line is ${THOUGHT_AGENT_LINE_BYTES}/${THOUGHT_CLAIM_MAX_BYTES} UTF-8 bytes" "AGENT_OUTPUT_SCHEMA_INVALID"',
-    'if [[ "$THOUGHT_LINE_VALIDATION" == "terminal-english-64" ]]; then',
-    '  thought_validate_terminal_english_64_json "$THOUGHT_RAW_OUTPUT" ".agentLine" "agent line"',
-    "fi",
     'THOUGHT_RAW_HASH="sha256:$(printf %s "$THOUGHT_RAW_OUTPUT" | shasum -a 256 | awk \'{print $1}\')"',
     'THOUGHT_AGENT_LINE_HASH="sha256:$(printf %s "$THOUGHT_AGENT_LINE" | shasum -a 256 | awk \'{print $1}\')"',
     'THOUGHT_COMPLETED_AT="$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")"',

@@ -16,7 +16,7 @@
   <meta name="twitter:description" content="THOUGHT creation, minting, and gallery for Inshell." />
   <meta name="twitter:image" content="https://inshell.art/og.png" />
   <meta name="theme-color" content="#008080" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script>
     (() => {
       const params = new URLSearchParams(window.location.search);
@@ -110,10 +110,11 @@
     <div id="thought-shell-root"></div>
     <section class="frontpage-stage" aria-labelledby="frontpage-title">
       <header class="thought-create__header">
-        <div class="thought-create__identity">
-          <h1 id="frontpage-title" class="thought-create__title">THOUGHT</h1>
-          <p class="thought-create__slogan">one person. one Agent. one thought.</p>
-        </div>
+        <h1 id="frontpage-title" class="thought-create__title">THOUGHT</h1>
+        <nav class="thought-create__links" aria-label="THOUGHT create links">
+          <a href="/thought/plugin">[ plugin ]</a>
+          <a href="/thought/verify">[ verify ]</a>
+        </nav>
       </header>
       <div class="frontpage-main">
         <div class="thought-canvas-column">
@@ -141,6 +142,8 @@
             <p class="thought-panel__subtitle">made by your Agent</p>
             <nav class="thought-panel__links" aria-label="THOUGHT panel links">
               <a href="/gallery">Gallery</a>
+              <a href="/thought/plugin">Plugin</a>
+              <a href="/thought/verify">Verify</a>
             </nav>
           </header>
           <div class="thought-panel__body">
@@ -157,7 +160,6 @@
                     autocomplete="off"
                     spellcheck="true"
                     placeholder="give a thought here"
-                    title="Up/Down: prompt history"
                   />
                 </div>
                 <section

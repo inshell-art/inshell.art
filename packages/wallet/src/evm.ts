@@ -41,10 +41,6 @@ export type WalletConnector = {
   detail?: Eip6963ProviderDetail;
 };
 
-export type WalletConnectorPreference =
-  | { kind: "injected"; providerKey: string }
-  | { kind: "walletconnect" };
-
 export type WalletEnvReader = (name: string) => unknown;
 export type WalletConnectRpcMap = Record<string, string>;
 type WalletConnectProviderOptions = {
@@ -132,23 +128,6 @@ export function mergeProviderDetails(
     if (rankDiff !== 0) return rankDiff;
     return a.info.name.localeCompare(b.info.name);
   });
-}
-
-export function injectedProvidersForReconnect(
-  providers: Eip6963ProviderDetail[],
-  preference: WalletConnectorPreference | null
-): Eip6963ProviderDetail[] {
-  if (!preference) return providers;
-  if (preference.kind !== "injected") return [];
-  return providers.filter(
-    (provider) => providerDetailKey(provider) === preference.providerKey
-  );
-}
-
-export function shouldRestoreWalletConnect(
-  preference: WalletConnectorPreference | null
-): boolean {
-  return !preference || preference.kind === "walletconnect";
 }
 
 export function inferFallbackProviderInfo(
@@ -366,7 +345,7 @@ export function walletConnectRpcMap(
       readRpcUrl: typeof readRpcUrl === "string" ? readRpcUrl : "",
       walletRpcUrl: typeof walletRpcUrl === "string" ? walletRpcUrl : "",
       currentOrigin,
-      localFallbackRpcUrl: "http://127.0.0.1:8545",
+      localFallbackRpcUrl: "http://127.0.0.1:8546",
     });
     if (urls[0]) rpcMap[String(chainId)] = urls[0];
   }
