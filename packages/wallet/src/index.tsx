@@ -23,15 +23,12 @@ import {
   createWalletConnectEthereumProvider,
   discoverEip6963Providers,
   fallbackWindowEthereumProviders,
-  injectedProvidersForReconnect,
   mergeProviderDetails,
   normalizeProviderDetail,
   parseChainId,
-  providerDetailKey,
   readEvmChainIds,
   readWalletConnectProjectId,
   readWalletConnectRelayUrl,
-  shouldRestoreWalletConnect,
   walletAnalyticsErrorCategory,
   walletConnectMetadata,
   walletConnectRpcMap,
@@ -40,7 +37,6 @@ import {
   type Eip6963ProviderInfo,
   type WalletConnectEthereumProvider,
   type WalletConnector,
-  type WalletConnectorPreference,
 } from "./evm";
 
 export * from "./evm";
@@ -56,48 +52,6 @@ function getEnv(name: string): any {
 
 let walletConnectConfigWarningShown = false;
 const INSHELL_WALLET_SOFT_DISCONNECT_KEY = "inshell.wallet.soft-disconnected.v1";
-const INSHELL_WALLET_CONNECTOR_KEY = "inshell.wallet.last-connector.v1";
-
-function readWalletConnectorPreference(): WalletConnectorPreference | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(INSHELL_WALLET_CONNECTOR_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as {
-      kind?: unknown;
-      providerKey?: unknown;
-    };
-    if (parsed.kind === "walletconnect") return { kind: "walletconnect" };
-    if (
-      parsed.kind === "injected" &&
-      typeof parsed.providerKey === "string" &&
-      parsed.providerKey.trim()
-    ) {
-      return { kind: "injected", providerKey: parsed.providerKey.trim() };
-    }
-  } catch {
-    /* Ignore blocked or malformed connector storage. */
-  }
-  return null;
-}
-
-function writeWalletConnectorPreference(
-  preference: WalletConnectorPreference | null
-) {
-  if (typeof window === "undefined") return;
-  try {
-    if (preference) {
-      window.localStorage.setItem(
-        INSHELL_WALLET_CONNECTOR_KEY,
-        JSON.stringify(preference)
-      );
-    } else {
-      window.localStorage.removeItem(INSHELL_WALLET_CONNECTOR_KEY);
-    }
-  } catch {
-    /* Wallet connection still works when browser storage is unavailable. */
-  }
-}
 
 function isWalletSoftDisconnected() {
   if (typeof window === "undefined") return false;
@@ -448,7 +402,6 @@ export function WalletProvider({ children }: WalletProviderProps) {
   );
 
   const restoreWalletConnectV2 = useCallback(async (options?: { force?: boolean }) => {
-    if (!shouldRestoreWalletConnect(readWalletConnectorPreference())) return;
     if (
       activeProvider ||
       evmAddress ||
@@ -522,11 +475,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
     let stopped = false;
     const timer = window.setTimeout(() => {
       void (async () => {
-        const reconnectProviders = injectedProvidersForReconnect(
-          evmProviders,
-          readWalletConnectorPreference()
-        );
-        for (const detail of reconnectProviders) {
+        for (const detail of evmProviders) {
           try {
             const accountsRaw = await detail.provider.request({ method: "eth_accounts" });
             const accounts = Array.isArray(accountsRaw)
@@ -600,10 +549,6 @@ export function WalletProvider({ children }: WalletProviderProps) {
         throw new Error("No EIP-1193 injected wallet found.");
       }
       const connected = await connectEip1193Provider(detail);
-      writeWalletConnectorPreference({
-        kind: "injected",
-        providerKey: providerDetailKey(detail),
-      });
       setEvmProviders(mergeProviderDetails(merged, [detail]));
       if (walletConnectProvider) {
         try {
@@ -652,7 +597,6 @@ export function WalletProvider({ children }: WalletProviderProps) {
         chainId: parseChainId(chainIdRaw),
       };
       setWalletConnectProvider(wcProvider);
-      writeWalletConnectorPreference({ kind: "walletconnect" });
       setConnectedState(wcProvider, connected, "WalletConnect");
       trackWalletAnalytics("wallet_connect_succeeded", {
         walletKind: "walletconnect",
@@ -686,7 +630,6 @@ export function WalletProvider({ children }: WalletProviderProps) {
     setEvmProviderLabel(null);
     setConnectError(null);
     setConnectStatus("idle");
-    writeWalletConnectorPreference(null);
     setWalletSoftDisconnected(true);
   }, [walletConnectProvider]);
 
@@ -724,10 +667,6 @@ export function WalletProvider({ children }: WalletProviderProps) {
         });
         try {
           const connected = await connectEip1193Provider(connector.detail);
-          writeWalletConnectorPreference({
-            kind: "injected",
-            providerKey: providerDetailKey(connector.detail),
-          });
           setConnectedState(
             connector.detail.provider,
             connected,
@@ -804,19 +743,6 @@ export function WalletProvider({ children }: WalletProviderProps) {
           ? accountsRaw.map((item) => String(item))
           : [];
         const chainIdRaw = await activeProvider.request({ method: "eth_chainId" });
-        if (walletConnectProvider === activeProvider) {
-          writeWalletConnectorPreference({ kind: "walletconnect" });
-        } else {
-          const selectedProvider = evmProviders.find(
-            (detail) => detail.provider === activeProvider
-          );
-          if (selectedProvider) {
-            writeWalletConnectorPreference({
-              kind: "injected",
-              providerKey: providerDetailKey(selectedProvider),
-            });
-          }
-        }
         setEvmAddress(accounts[0] ?? null);
         setEvmChainId(parseChainId(chainIdRaw));
         setConnectStatus(accounts[0] ? "connected" : "idle");
@@ -831,7 +757,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
     if (!accounts?.length) {
       setConnectStatus("idle");
     }
-  }, [activeProvider, evmProviders, requestAccounts, walletConnectProvider]);
+  }, [activeProvider, requestAccounts]);
 
   const ensureWalletConnected = useCallback(
     async (options?: EnsureWalletOptions): Promise<EnsureWalletResult> => {

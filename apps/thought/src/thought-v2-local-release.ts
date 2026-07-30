@@ -1,153 +1,67 @@
-import integrationLock from "../contract-integration/current/integration-lock.json";
-import creativeSpecLock from "../spec/THOUGHT.v2.lock.json";
-
-export type ThoughtV2LocalRuntimeAddresses = {
-  chainId: number;
-  pathNft: { address: string };
-  thoughtNft: { address: string };
-  thoughtSpecRegistry: { address: string };
-  protocolRegistry: { address: string };
-  protocolRelease: {
-    id: string;
-    manifestHash: string;
-    rendererIdHash: string;
-    workProfileIdHash: string;
-    contextProfileIdHash: string;
-    metadataProfileIdHash: string;
-    creationAttestationProfileIdHash: string;
-  };
-  localContractIntegration?: {
-    id?: string;
-    productionConsumable?: boolean;
-  };
-  creationAttestationVerifier?: { address?: string };
-  thoughtRenderer?: { address?: string };
-  thoughtSpecs?: Array<{
-    specName?: string;
-    specId?: string;
-    specHash?: string;
-    ref?: string;
-    byteLength?: number;
-    sha256?: string;
-  }>;
+export type ThoughtV2ArtifactBinding = {
+  id: string;
+  path: string;
+  keccak256: `0x${string}`;
 };
 
-const lockedBaselineRuntime: ThoughtV2LocalRuntimeAddresses = {
-  chainId: integrationLock.chain.chainId,
-  pathNft: { address: "" },
-  thoughtNft: { address: "" },
-  thoughtSpecRegistry: { address: "" },
-  protocolRegistry: { address: "" },
-  thoughtRenderer: { address: "" },
-  creationAttestationVerifier: { address: "" },
-  protocolRelease: {
-    id: integrationLock.runtimeBaseline.protocolRelease.id,
-    manifestHash: integrationLock.runtimeBaseline.protocolRelease.manifestHash,
-    rendererIdHash: integrationLock.runtimeBaseline.protocolRelease.rendererProfileHash,
-    workProfileIdHash: integrationLock.runtimeBaseline.protocolRelease.workProfileHash,
-    contextProfileIdHash: integrationLock.runtimeBaseline.protocolRelease.contextProfileHash,
-    metadataProfileIdHash: integrationLock.runtimeBaseline.protocolRelease.metadataProfileHash,
-    creationAttestationProfileIdHash:
-      integrationLock.runtimeBaseline.protocolRelease.creationAttestationProfileHash,
+export type ThoughtV2ProtocolBinding = {
+  protocolReleaseId: `0x${string}`;
+  manifestKeccak256: `0x${string}`;
+  creativeSpec: ThoughtV2ArtifactBinding;
+  agentResultSchema: ThoughtV2ArtifactBinding;
+  workProfile: ThoughtV2ArtifactBinding;
+  rendererProfile: ThoughtV2ArtifactBinding;
+};
+
+export const THOUGHT_V2_LOCAL_RELEASE = {
+  eligibleForLocalMint: true,
+  source: {
+    status: "dirty-local-snapshot",
+    producerRepo: "THOUGHT",
+    producerBaseCommit: "ec46cbf2f9ed5f7627c374bdf9963a38b5dad4c3",
+    snapshotIdentity: "protocol-and-contract-anchors-below",
   },
-  thoughtSpecs: [{
-    specName: integrationLock.runtimeBaseline.selectedSpec.name,
-    specId: integrationLock.runtimeBaseline.selectedSpec.id,
-    specHash: integrationLock.runtimeBaseline.selectedSpec.hash,
-    ref: integrationLock.runtimeBaseline.selectedSpec.ref,
-    byteLength: integrationLock.runtimeBaseline.selectedSpec.byteLength,
-    sha256: integrationLock.runtimeBaseline.selectedSpec.sha256,
-  }],
-};
-const injectedRuntime = (
-  globalThis as typeof globalThis & {
-    __INSHELL_THOUGHT_EVM_ADDRESSES__?: ThoughtV2LocalRuntimeAddresses | null;
-  }
-).__INSHELL_THOUGHT_EVM_ADDRESSES__;
-const WORK_PROFILE_ID = "inshell.thought.work.v2.terminal-english-64";
-const RENDERER_ID = "inshell.thought.svg.v2.terminal-chat-path-glyphs";
-const CONTEXT_PROFILE_ID = "inshell.thought.context.v2.visible-utf8-64";
-const METADATA_PROFILE_ID = "inshell.thought.metadata.v2.terminal-chat";
-const CREATION_ATTESTATION_ID = "inshell.thought.creation-workflow-attestation.v1";
-
-export const buildThoughtV2LocalRelease = (
-  runtime: ThoughtV2LocalRuntimeAddresses = injectedRuntime ?? lockedBaselineRuntime,
-) => {
-  const runtimeSpec = runtime.thoughtSpecs?.[0];
-  const isCanonicalAppSpec =
-    runtimeSpec?.specName === creativeSpecLock.artifact.name &&
-    runtimeSpec.specId?.toLowerCase() === creativeSpecLock.artifact.thoughtSpecId.toLowerCase() &&
-    runtimeSpec.specHash?.toLowerCase() === creativeSpecLock.artifact.thoughtSpecHash.toLowerCase() &&
-    runtimeSpec.byteLength === creativeSpecLock.artifact.byteLength &&
-    runtimeSpec.sha256 === creativeSpecLock.artifact.sha256;
-  const isCurrentLocalIntegration =
-    runtime.localContractIntegration?.id === integrationLock.id &&
-    runtime.localContractIntegration.productionConsumable === false &&
-    isCanonicalAppSpec;
-
-  return {
-    eligibleForLocalMint: isCurrentLocalIntegration,
-    classification: integrationLock.artifact.classification,
-    artifact: {
-      id: integrationLock.id,
-      manifestSha256: integrationLock.artifact.manifestSha256,
-      sourceTag: integrationLock.artifact.sourceTag,
-      sourceCommit: integrationLock.source.commit,
-      productionConsumable: false,
-      deploymentAuthorized: false,
-      registrationAuthorized: false,
+  chainId: 31337,
+  protocol: {
+    protocolReleaseId: "0xea4493c669fc366e224e66a43233e1e97efecd18568ef494dfc31b4a3c961b65",
+    manifestKeccak256: "0x305f59465c93edf46e5ab0ca372b017f6cba5c98052e695ae6b9ca5778515d4b",
+    creativeSpec: {
+      id: "inshell.thought.v2",
+      path: "THOUGHT.v2.md",
+      keccak256: "0xe56691af2ea250f66a09c6766ea90f5180af45f56d129b5cdce1ca42204d7f0a",
     },
-    chainId: runtime.chainId,
-    protocol: {
-      id: "inshell.thought.protocol.v2",
-      protocolReleaseId: runtime.protocolRelease.id as `0x${string}`,
-      manifestKeccak256: runtime.protocolRelease.manifestHash as `0x${string}`,
-      workProfile: {
-        id: WORK_PROFILE_ID,
-        keccak256: integrationLock.runtimeBaseline.protocolRelease.workProfileHash,
-      },
-      rendererProfile: {
-        id: RENDERER_ID,
-        keccak256: integrationLock.runtimeBaseline.protocolRelease.rendererProfileHash,
-        implementation:
-          integrationLock.runtimeBaseline.protocolRelease.rendererImplementationId,
-      },
-      contextProfile: {
-        id: CONTEXT_PROFILE_ID,
-        keccak256: integrationLock.runtimeBaseline.protocolRelease.contextProfileHash,
-      },
-      metadataProfile: {
-        id: METADATA_PROFILE_ID,
-        keccak256: integrationLock.runtimeBaseline.protocolRelease.metadataProfileHash,
-      },
-      creationAttestation: {
-        id: CREATION_ATTESTATION_ID,
-        keccak256:
-          integrationLock.runtimeBaseline.protocolRelease.creationAttestationProfileHash,
-      },
+    agentResultSchema: {
+      id: "inshell.thought.agent-result.v2",
+      path: "thought.agent-result.v2.schema.json",
+      keccak256: "0x6091b7df2f41de70336f64b4520dacb98a8b7015267e2a51faac1876f36a01b2",
     },
-    spec: {
-      name: creativeSpecLock.artifact.name,
-      ref: `app://thought/creative-spec/${creativeSpecLock.artifactId}/${creativeSpecLock.artifact.name}`,
-      evmSpecId: creativeSpecLock.artifact.thoughtSpecId as `0x${string}`,
-      evmSpecHash: creativeSpecLock.artifact.thoughtSpecHash as `0x${string}`,
-      sha256: creativeSpecLock.artifact.sha256,
-      byteLength: creativeSpecLock.artifact.byteLength,
+    workProfile: {
+      id: "inshell.thought.work.v2",
+      path: "thought.work.v2.profile.json",
+      keccak256: "0x8b590ab95432b0dd5002a4fb1419475751bdf0210a73338bf633533005d182bb",
     },
-    contracts: {
-      pathNft: runtime.pathNft.address,
-      thoughtNft: runtime.thoughtNft.address,
-      thoughtSpecRegistry: runtime.thoughtSpecRegistry.address,
-      thoughtRenderer: runtime.thoughtRenderer?.address ?? "",
-      protocolRegistry: runtime.protocolRegistry.address,
-      creationAttestationVerifier: runtime.creationAttestationVerifier?.address ?? "",
+    rendererProfile: {
+      id: "inshell.thought.svg.v2.binary-weave-32",
+      path: "thought.renderer.v2.profile.json",
+      keccak256: "0x6c124e260dcbfe801614b89da24bb31d407303e7cd93cc3e6a6ac372c862de88",
     },
-  } as const;
-};
-
-export type ThoughtV2LocalRelease = ReturnType<typeof buildThoughtV2LocalRelease>;
-
-export const THOUGHT_V2_LOCAL_RELEASE = buildThoughtV2LocalRelease();
+  } satisfies ThoughtV2ProtocolBinding,
+  spec: {
+    name: "THOUGHT.v2.md",
+    ref: "THOUGHT.v2.md",
+    evmSpecId: "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410",
+    evmSpecHash: "0xe56691af2ea250f66a09c6766ea90f5180af45f56d129b5cdce1ca42204d7f0a",
+    sha256: "7f4716703b3b1ace62f67be83d3754f3a82d5c6a75ad35a92d304253d3095932",
+    byteLength: 2811,
+  },
+  contracts: {
+    pathNft: "0x2e8880cAdC08E9B438c6052F5ce3869FBd6cE513",
+    thoughtNft: "0xa779C1D17bC5230c07afdC51376CAC1cb3Dd5314",
+    thoughtSpecRegistry: "0x4DAf17c8142A483B2E2348f56ae0F2cFDAe22ceE",
+    thoughtRenderer: "0x618fB9dbd2BD6eb968B4c1af36af6CB0b45310Ec",
+    protocolRegistry: "0x24d41dbc3d60d0784f8a937c59FBDe51440D5140",
+  },
+} as const;
 
 export type ThoughtV2LocalRuntimeFacts = {
   dev: boolean;
@@ -161,20 +75,18 @@ export type ThoughtV2LocalRuntimeFacts = {
     thoughtSpecRegistry: string;
     thoughtRenderer: string;
     protocolRegistry: string;
-    creationAttestationVerifier: string;
   };
   protocolReleaseId: string;
   manifestHash: string;
   rendererProfileHash: string;
   workProfileHash: string;
-  contextProfileHash: string;
-  metadataProfileHash: string;
   specId: string;
   specHash: string;
   specByteLength: number;
 };
 
-const sameHex = (left: string, right: string) => left.toLowerCase() === right.toLowerCase();
+const sameHex = (left: string, right: string) =>
+  left.toLowerCase() === right.toLowerCase();
 
 const isLoopbackRpc = (value: string) => {
   try {
@@ -194,19 +106,15 @@ export const isThoughtV2LocalMintRuntime = (facts: ThoughtV2LocalRuntimeFacts) =
     isLoopbackRpc(facts.pathRpcUrl) &&
     facts.chainId === release.chainId &&
     release.eligibleForLocalMint &&
-    release.artifact.productionConsumable === false &&
     sameHex(facts.contracts.pathNft, release.contracts.pathNft) &&
     sameHex(facts.contracts.thoughtNft, release.contracts.thoughtNft) &&
     sameHex(facts.contracts.thoughtSpecRegistry, release.contracts.thoughtSpecRegistry) &&
     sameHex(facts.contracts.thoughtRenderer, release.contracts.thoughtRenderer) &&
     sameHex(facts.contracts.protocolRegistry, release.contracts.protocolRegistry) &&
-    sameHex(facts.contracts.creationAttestationVerifier, release.contracts.creationAttestationVerifier) &&
     sameHex(facts.protocolReleaseId, release.protocol.protocolReleaseId) &&
     sameHex(facts.manifestHash, release.protocol.manifestKeccak256) &&
     sameHex(facts.rendererProfileHash, release.protocol.rendererProfile.keccak256) &&
     sameHex(facts.workProfileHash, release.protocol.workProfile.keccak256) &&
-    sameHex(facts.contextProfileHash, release.protocol.contextProfile.keccak256) &&
-    sameHex(facts.metadataProfileHash, release.protocol.metadataProfile.keccak256) &&
     sameHex(facts.specId, release.spec.evmSpecId) &&
     sameHex(facts.specHash, release.spec.evmSpecHash) &&
     facts.specByteLength === release.spec.byteLength;

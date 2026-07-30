@@ -8,16 +8,18 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { fileURLToPath, URL } from "node:url";
-import { Contract, JsonRpcProvider, toUtf8Bytes } from "ethers";
+import { URL } from "node:url";
 import {
+  THOUGHT_AGENT_LINE_CONTRACT,
   THOUGHT_AGENT_PROTOCOL_VERSION,
   THOUGHT_AGENT_RECEIPT_VERSION,
   THOUGHT_AGENT_RESULT_VERSION,
   THOUGHT_AGENT_ERROR_CODES,
   ThoughtAgentProtocolError,
+  assertThoughtLine,
   assertProtocolVersion,
   buildThoughtCodexClientScript,
+  buildThoughtAgentInput,
   buildThoughtAgentReceipt,
   isThoughtSha256,
   parseAdapterInfo,
@@ -33,28 +35,11 @@ import {
 } from "../../packages/thought-agent-protocol/src/index";
 import type { RollupLog, RollupLogHandler } from "rollup";
 import {
-  buildThoughtV2LocalAgentOutputSchema,
+  THOUGHT_V2_LOCAL_AGENT_OUTPUT_SCHEMA,
   buildThoughtV2LocalAgentResult,
   parseThoughtV2LocalAgentResult,
 } from "./src/thought-v2-local-agent";
-import thoughtCreativeSpecLock from "./spec/THOUGHT.v2.lock.json";
-import { assertThoughtV2Line } from "./src/thought-v2-local-mint";
-import {
-  THOUGHT_V2_LOCAL_RELEASE,
-  buildThoughtV2LocalRelease,
-  type ThoughtV2LocalRelease,
-} from "./src/thought-v2-local-release";
-import {
-  assertThoughtV2AnvilRuntime,
-  type ThoughtV2AnvilRuntime,
-} from "./src/thought-v2-contract-client";
-import { buildThoughtV2PathAcquisitionBrowserAddresses } from "./src/thought-v2-path-acquisition-runtime";
-import type { ThoughtV2ProcessEvidence } from "./contract-integration/current/reference/thought-v2-terminal-provenance";
-import { buildBackendOnlyMockThoughtV2Mint } from "./scripts/mock-thought-v2-anvil-signer";
-import {
-  loadReturnedDevRuns,
-  persistReturnedDevRuns,
-} from "./scripts/thought-agent-dev-run-store";
+import { THOUGHT_V2_LOCAL_RELEASE } from "./src/thought-v2-local-release";
 
 function ignoreKnownRollupWarnings(warning: RollupLog, warn: RollupLogHandler) {
   if (
@@ -80,102 +65,6 @@ function normalizeViteBase(value: string | undefined) {
 function readOutDir(rootDir: string) {
   const configured = process.env.INSHELL_THOUGHT_OUT_DIR?.trim();
   return path.resolve(rootDir, configured || "../../dist/thought");
-}
-
-function readCurrentThoughtContractRuntime(
-  workspaceRoot: string,
-  command: "build" | "serve",
-  mode: string,
-) {
-  if (
-    command !== "serve" ||
-    mode === "sepolia" ||
-    process.env.INSHELL_THOUGHT_USE_CONTRACT_RUNTIME === "0"
-  ) {
-    return null;
-  }
-  const configuredDescriptor = process.env.INSHELL_THOUGHT_CONTRACT_RUNTIME_FILE?.trim();
-  const descriptorPath = configuredDescriptor
-    ? path.resolve(workspaceRoot, configuredDescriptor)
-    : path.join(workspaceRoot, "apps/thought/evm/addresses.anvil.json");
-  if (!fs.existsSync(descriptorPath)) {
-    return null;
-  }
-  const runtime = assertThoughtV2AnvilRuntime(
-    JSON.parse(fs.readFileSync(descriptorPath, "utf8")),
-  );
-  if (
-    runtime.schema !== "inshell.thought.v2.anvil-gallery-runtime.v1" ||
-    runtime.status !== "ready" ||
-    runtime.chainId !== 31337
-  ) {
-    throw new Error(`Incompatible THOUGHT Contract runtime descriptor: ${descriptorPath}`);
-  }
-  const selectedSpecPath = path.join(workspaceRoot, "apps/thought/spec/THOUGHT.v2.md");
-  const selectedSpecBytes = fs.readFileSync(selectedSpecPath);
-  const selectedSpecSha256 = crypto.createHash("sha256").update(selectedSpecBytes).digest("hex");
-  if (
-    runtime.selectedSpec?.name !== thoughtCreativeSpecLock.artifact.name ||
-    runtime.selectedSpec?.id?.toLowerCase() !==
-      thoughtCreativeSpecLock.artifact.thoughtSpecId.toLowerCase() ||
-    runtime.selectedSpec?.hash?.toLowerCase() !==
-      thoughtCreativeSpecLock.artifact.thoughtSpecHash.toLowerCase() ||
-    selectedSpecBytes.length !== thoughtCreativeSpecLock.artifact.byteLength ||
-    selectedSpecSha256 !== thoughtCreativeSpecLock.artifact.sha256
-  ) {
-    throw new Error(`THOUGHT runtime does not bind the App creative spec: ${descriptorPath}`);
-  }
-  return {
-    descriptorPath,
-    raw: runtime,
-    evmAddresses: {
-      schema: "inshell.thought.app-current-contract-anvil-runtime.v1",
-      rpcUrl: runtime.rpcUrl,
-      chainId: runtime.chainId,
-      path: { address: runtime.contracts.pathNft },
-      pathNft: { address: runtime.contracts.pathNft },
-      ...buildThoughtV2PathAcquisitionBrowserAddresses(runtime),
-      thoughtSpecRegistry: { address: runtime.contracts.thoughtSpecRegistry },
-      protocolRegistry: { address: runtime.contracts.protocolRegistry },
-      thoughtRenderer: { address: runtime.contracts.thoughtRenderer },
-      creationAttestationVerifier: { address: runtime.contracts.creationAttestationVerifier },
-      thought: { address: runtime.contracts.thoughtNft },
-      thoughtNft: { address: runtime.contracts.thoughtNft },
-      protocolRelease: {
-        id: runtime.protocolRelease.id,
-        manifestHash: runtime.protocolRelease.manifestHash,
-        manifestURI: runtime.protocolRelease.manifestUri,
-        status: runtime.protocolRelease.status,
-        rendererIdHash: runtime.protocolRelease.manifest.identifiers.rendererHash,
-        workProfileIdHash: runtime.protocolRelease.manifest.identifiers.workProfileHash,
-        contextProfileIdHash: runtime.protocolRelease.manifest.identifiers.contextProfileHash,
-        metadataProfileIdHash: runtime.protocolRelease.manifest.identifiers.metadataProfileHash,
-        creationAttestationProfileIdHash: runtime.attestation.profileId,
-      },
-      thoughtSpecs: [{
-        specName: runtime.selectedSpec.name,
-        specId: runtime.selectedSpec.id,
-        specHash: runtime.selectedSpec.hash,
-        ref: runtime.selectedSpec.ref,
-        byteLength: selectedSpecBytes.length,
-        sha256: selectedSpecSha256,
-      }],
-      recommendedThoughtSpecName: runtime.selectedSpec.name,
-      recommendedThoughtSpecId: runtime.selectedSpec.id,
-      recommendedThoughtSpecHash: runtime.selectedSpec.hash,
-      thoughtSpec: {
-        specName: runtime.selectedSpec.name,
-        id: runtime.selectedSpec.id,
-        hash: runtime.selectedSpec.hash,
-        ref: runtime.selectedSpec.ref,
-      },
-      localContractIntegration: {
-        id: THOUGHT_V2_LOCAL_RELEASE.artifact.id,
-        productionConsumable: false,
-        runtimeDescriptorPath: descriptorPath,
-      },
-    },
-  };
 }
 
 function existingRealPaths(paths: string[]) {
@@ -238,22 +127,12 @@ type DevThoughtClaimAuthorization = {
 };
 
 const DEV_AGENT_API_PREFIXES = ["/api/thought-agent/v1", "/api/thought-agent/v2"] as const;
-const DEV_AGENT_SPEC_ID = thoughtCreativeSpecLock.artifact.thoughtSpecId;
-const DEV_AGENT_SPEC_REF =
-  `app://thought/creative-spec/${thoughtCreativeSpecLock.artifactId}/${thoughtCreativeSpecLock.artifact.name}`;
+const DEV_AGENT_SPEC_ID = THOUGHT_V2_LOCAL_RELEASE.spec.evmSpecId;
+const DEV_AGENT_SPEC_REF = THOUGHT_V2_LOCAL_RELEASE.spec.ref;
 const DEV_AGENT_SPEC_TEXT = fs.readFileSync(
-  new URL("./spec/THOUGHT.v2.md", import.meta.url),
+  new URL("./spec/THOUGHT.v2.local.md", import.meta.url),
   "utf8",
 );
-const DEV_AGENT_SPEC_SHA256 = thoughtCreativeSpecLock.artifact.sha256;
-const DEV_AGENT_SPEC_HASH = thoughtCreativeSpecLock.artifact.thoughtSpecHash;
-const devAgentLineContract = (release: ThoughtV2LocalRelease) => ({
-  workProfile: release.protocol.workProfile.id,
-  minUtf8Bytes: 1,
-  maxUtf8Bytes: 64,
-  normalization: "none",
-  displayUnitsAreAcceptanceLimits: false,
-} as const);
 const DEV_AGENT_CLAIM_TTL_MS = 5 * 60 * 1000;
 const DEV_AGENT_CLAIM_AUTHORIZATION_TTL_MS = 2 * 60 * 1000;
 const DEV_AGENT_RUN_TTL_MS = 10 * 60 * 1000;
@@ -262,20 +141,17 @@ const DEV_AGENT_BRIDGE_VERSION = "0.1.0-dev";
 const DEV_AGENT_ADAPTER_VERSION = "codex-cli";
 const DEV_AGENT_CODEX_BIN = process.env.THOUGHT_BRIDGE_CODEX_BIN || "codex";
 const DEV_AGENT_CODEX_TIMEOUT_MS = Number(process.env.THOUGHT_BRIDGE_CODEX_TIMEOUT_MS || 180000);
-const DEV_AGENT_RETURNED_RUN_STORE_PATH = fileURLToPath(
-  new URL("../../.local/thought-agent-dev-returned-runs.json", import.meta.url),
-);
 const DEV_AGENT_CODEX_AUTORUN = process.env.INSHELL_THOUGHT_DEV_CODEX_AUTORUN === "1";
 const DEV_AGENT_FAKE_WORK = process.env.THOUGHT_BRIDGE_FAKE_WORK || "";
 const DEV_AGENT_MAX_REQUEST_BYTES = 32 * 1024;
 
-const parseDevAgentOutput = async (raw: string, release: ThoughtV2LocalRelease) => {
+const parseDevAgentOutput = async (raw: string) => {
   if (Buffer.byteLength(raw, "utf8") > 16 * 1024) {
     throw new ThoughtAgentProtocolError("RESULT_TOO_LARGE", "Agent raw result is too large.");
   }
   let result;
   try {
-    result = parseThoughtV2LocalAgentResult(raw, release);
+    result = parseThoughtV2LocalAgentResult(raw);
   } catch (error) {
     throw new ThoughtAgentProtocolError(
       "AGENT_OUTPUT_SCHEMA_INVALID",
@@ -509,7 +385,7 @@ function statusPayload(run: DevThoughtAgentRun) {
   return base;
 }
 
-function claimRequestPayload(run: DevThoughtAgentRun, release: ThoughtV2LocalRelease) {
+function claimRequestPayload(run: DevThoughtAgentRun) {
   return {
     intent: "generate-thought-candidate",
     requestedAgent: {
@@ -526,7 +402,7 @@ function claimRequestPayload(run: DevThoughtAgentRun, release: ThoughtV2LocalRel
     spec: {
       id: run.specId,
       ref: run.specRef,
-      contractSpecId: run.specId,
+      contractSpecId: THOUGHT_V2_LOCAL_RELEASE.spec.evmSpecId,
       mediaType: "text/markdown; charset=utf-8",
       text: run.specText,
       sha256: run.specSha256,
@@ -551,11 +427,11 @@ function claimRequestPayload(run: DevThoughtAgentRun, release: ThoughtV2LocalRel
       maxRawBytes: 16 * 1024,
       resultSchema: THOUGHT_AGENT_RESULT_VERSION,
       release: {
-        protocolReleaseId: release.protocol.protocolReleaseId,
-        manifestKeccak256: release.protocol.manifestKeccak256,
+        protocolReleaseId: THOUGHT_V2_LOCAL_RELEASE.protocol.protocolReleaseId,
+        manifestKeccak256: THOUGHT_V2_LOCAL_RELEASE.protocol.manifestKeccak256,
       },
-      agentLine: devAgentLineContract(release),
-      schema: buildThoughtV2LocalAgentOutputSchema(release),
+      agentLine: THOUGHT_AGENT_LINE_CONTRACT,
+      schema: THOUGHT_V2_LOCAL_AGENT_OUTPUT_SCHEMA,
     },
   };
 }
@@ -604,32 +480,18 @@ function devExecutionInfo(): ThoughtAgentExecutionInfo {
   };
 }
 
-async function runDevCodex(
-  promptLine: string,
-  specText: string,
-  release: ThoughtV2LocalRelease,
-) {
+async function runDevCodex(promptLine: string, specText: string) {
   if (DEV_AGENT_FAKE_WORK) {
-    return parseDevAgentOutput(
-      JSON.stringify(
-        buildThoughtV2LocalAgentResult(
-          DEV_AGENT_FAKE_WORK,
-          "THOUGHT Bridge dev fake",
-          release,
-        ),
-      ),
-      release,
-    );
+    return parseDevAgentOutput(JSON.stringify(
+      buildThoughtV2LocalAgentResult(DEV_AGENT_FAKE_WORK, "THOUGHT Bridge dev fake"),
+    ));
   }
 
   const runDir = await mkdtemp(path.join(tmpdir(), "thought-bridge-codex-"));
   const schemaPath = path.join(runDir, "output.schema.json");
   const finalPath = path.join(runDir, "final.json");
   const instructionsPath = path.join(runDir, "AGENTS.md");
-  await writeFile(
-    schemaPath,
-    JSON.stringify(buildThoughtV2LocalAgentOutputSchema(release), null, 2),
-  );
+  await writeFile(schemaPath, JSON.stringify(THOUGHT_V2_LOCAL_AGENT_OUTPUT_SCHEMA, null, 2));
   await writeFile(instructionsPath, specText);
 
   const args = [
@@ -691,16 +553,13 @@ async function runDevCodex(
       child.stdin.end(promptLine);
     });
 
-    return parseDevAgentOutput(await readFile(finalPath, "utf8"), release);
+    return parseDevAgentOutput(await readFile(finalPath, "utf8"));
   } finally {
     await rm(runDir, { recursive: true, force: true }).catch(() => {});
   }
 }
 
-async function autoRunDevCodex(
-  run: DevThoughtAgentRun,
-  release: ThoughtV2LocalRelease,
-) {
+async function autoRunDevCodex(run: DevThoughtAgentRun) {
   if (run.state !== "created") {
     return;
   }
@@ -718,7 +577,7 @@ async function autoRunDevCodex(
   run.updatedAt = run.startedAt;
 
   try {
-    const parsedOutput = await runDevCodex(run.promptText, run.specText, release);
+    const parsedOutput = await runDevCodex(run.promptText, run.specText);
     run.agent = devAgentInfo();
     run.execution = devExecutionInfo();
     run.completedAt = new Date().toISOString();
@@ -766,46 +625,8 @@ async function autoRunDevCodex(
   }
 }
 
-function createThoughtAgentDevApiPlugin(
-  contractRuntime: ThoughtV2AnvilRuntime | null,
-  activeRelease: ThoughtV2LocalRelease,
-) {
-  const validateStoredReturnedRun = (candidate: unknown): DevThoughtAgentRun | null => {
-    if (!candidate || typeof candidate !== "object") return null;
-    const run = candidate as Partial<DevThoughtAgentRun>;
-    if (
-      run.state !== "returned" ||
-      typeof run.runId !== "string" ||
-      typeof run.updatedAt !== "string" ||
-      typeof run.rawResult !== "string" ||
-      typeof run.agentLine !== "string" ||
-      typeof run.browserToken !== "string" ||
-      !run.adapter ||
-      !run.agent
-    ) {
-      return null;
-    }
-    try {
-      const result = parseThoughtV2LocalAgentResult(run.rawResult, activeRelease);
-      if (
-        result.agentLine !== run.agentLine ||
-        run.specId !== DEV_AGENT_SPEC_ID ||
-        run.contractSpecHash?.toLowerCase() !== DEV_AGENT_SPEC_HASH.toLowerCase()
-      ) {
-        return null;
-      }
-    } catch {
-      return null;
-    }
-    return run as DevThoughtAgentRun;
-  };
-  const runs = loadReturnedDevRuns(
-    DEV_AGENT_RETURNED_RUN_STORE_PATH,
-    validateStoredReturnedRun,
-  );
-  const persistRuns = () => {
-    persistReturnedDevRuns(DEV_AGENT_RETURNED_RUN_STORE_PATH, runs.values());
-  };
+function createThoughtAgentDevApiPlugin() {
+  const runs = new Map<string, DevThoughtAgentRun>();
   const specText = DEV_AGENT_SPEC_TEXT;
 
   return {
@@ -815,120 +636,6 @@ function createThoughtAgentDevApiPlugin(
       server.middlewares.use(async (req, res, next) => {
         try {
           const requestUrl = new URL(req.url ?? "/", "http://127.0.0.1");
-          if (
-            requestUrl.pathname === "/api/thought-contract/v1/mock-attestation" &&
-            req.method === "POST"
-          ) {
-            if (!contractRuntime) {
-              protocolError(res, 503, "SERVER_UNAVAILABLE", "Current THOUGHT Contract runtime is unavailable.");
-              return;
-            }
-            const runtime = assertThoughtV2AnvilRuntime(contractRuntime);
-            const body = await readJson(req);
-            const process = body.process as ThoughtV2ProcessEvidence | undefined;
-            const runReference = process?.kind === "agent-run"
-              ? process.transport.runReference
-              : "";
-            const authoritativeRun = runReference ? runs.get(runReference) : undefined;
-            if (
-              !authoritativeRun ||
-              authoritativeRun.state !== "returned" ||
-              !authoritativeRun.rawResult ||
-              !authoritativeRun.agentLine ||
-              !authoritativeRun.adapter ||
-              !authoritativeRun.agent
-            ) {
-              protocolError(
-                res,
-                409,
-                "RUN_STATE_CONFLICT",
-                "App attestation requires a returned Agent run held by this dev backend.",
-              );
-              return;
-            }
-            const resultEnvelope = parseThoughtV2LocalAgentResult(
-              authoritativeRun.rawResult,
-              activeRelease,
-            );
-            const authoritativeAgent = resultEnvelope.declaration?.label ?? "";
-            const authoritativeModel =
-              authoritativeRun.requestedModel || authoritativeRun.agent.model;
-            const processMatchesRun =
-              authoritativeRun.promptText === String(body.promptLine ?? "") &&
-              authoritativeRun.agentLine === String(body.agentLine ?? "") &&
-              authoritativeRun.specId.toLowerCase() === runtime.selectedSpec.id.toLowerCase() &&
-              authoritativeRun.contractSpecHash?.toLowerCase() === runtime.selectedSpec.hash.toLowerCase() &&
-              process.kind === "agent-run" &&
-              process.agentDeclaration.label === authoritativeAgent &&
-              process.modelDeclaration.label === authoritativeModel &&
-              process.transport.adapter === authoritativeRun.adapter.adapterId &&
-              process.transport.route === "inshell.thought.agent-run" &&
-              JSON.stringify(process.transport.resultEnvelope) === JSON.stringify(resultEnvelope);
-            if (!processMatchesRun) {
-              protocolError(
-                res,
-                409,
-                "RESULT_CONFLICT",
-                "App attestation evidence does not match the authoritative Agent run.",
-              );
-              return;
-            }
-            const provider = new JsonRpcProvider(runtime.rpcUrl, runtime.chainId);
-            try {
-              const registry = new Contract(runtime.contracts.thoughtSpecRegistry, [
-                "function thoughtSpecText(bytes32 specId) view returns (string)",
-              ], provider);
-              const selectedSpecText = await registry.thoughtSpecText(runtime.selectedSpec.id) as string;
-              const path = body.path as {
-                pathId?: unknown;
-                deadline?: unknown;
-                pathSignature?: unknown;
-              } | undefined;
-              const mint = await buildBackendOnlyMockThoughtV2Mint(runtime, {
-                chainId: BigInt(runtime.chainId),
-                thoughtNft: runtime.contracts.thoughtNft.toLowerCase() as `0x${string}`,
-                intendedMinter: String(body.intendedMinter ?? "").toLowerCase() as `0x${string}`,
-                promptLine: String(body.promptLine ?? ""),
-                agentLine: String(body.agentLine ?? ""),
-                process,
-                protocol: {
-                  manifestKeccak256: runtime.protocolRelease.manifestHash.toLowerCase() as `0x${string}`,
-                  protocolReleaseId: runtime.protocolRelease.id.toLowerCase() as `0x${string}`,
-                  thoughtSpecHash: runtime.selectedSpec.hash.toLowerCase() as `0x${string}`,
-                  thoughtSpecId: runtime.selectedSpec.id.toLowerCase() as `0x${string}`,
-                },
-                selectedSpec: {
-                  exactSpecBytes: toUtf8Bytes(selectedSpecText),
-                  specName: runtime.selectedSpec.name,
-                },
-                path: {
-                  pathId: BigInt(String(path?.pathId ?? "0")),
-                  deadline: BigInt(String(path?.deadline ?? "0")),
-                  pathSignature: String(path?.pathSignature ?? "") as `0x${string}`,
-                },
-              }, {
-                provider,
-                attestationDeadline: BigInt(String(body.attestationDeadline ?? "0")),
-              });
-              protocolJson(res, 200, {
-                ...mint,
-                pathId: mint.pathId.toString(),
-                deadline: mint.deadline.toString(),
-                creationAttestation: {
-                  ...mint.creationAttestation,
-                  deadline: mint.creationAttestation.deadline.toString(),
-                  authorityEpoch: mint.creationAttestation.authorityEpoch.toString(),
-                },
-                mock: {
-                  environment: "disposable-anvil",
-                  productionAuthorized: false,
-                },
-              });
-            } finally {
-              await provider.destroy();
-            }
-            return;
-          }
           const apiPrefix = DEV_AGENT_API_PREFIXES.find((prefix) =>
             requestUrl.pathname === prefix || requestUrl.pathname.startsWith(`${prefix}/`)
           );
@@ -958,13 +665,8 @@ function createThoughtAgentDevApiPlugin(
             res.setHeader("x-content-type-options", "nosniff");
             res.end(buildThoughtCodexClientScript({
               release: {
-                protocolReleaseId: activeRelease.protocol.protocolReleaseId,
-                manifestKeccak256: activeRelease.protocol.manifestKeccak256,
-              },
-              resultContract: {
-                workProfile: activeRelease.protocol.workProfile.id,
-                declarationLabelField: "label",
-                lineValidation: "terminal-english-64",
+                protocolReleaseId: THOUGHT_V2_LOCAL_RELEASE.protocol.protocolReleaseId,
+                manifestKeccak256: THOUGHT_V2_LOCAL_RELEASE.protocol.manifestKeccak256,
               },
             }));
             return;
@@ -987,22 +689,19 @@ function createThoughtAgentDevApiPlugin(
               return;
             }
             const prompt = typeof body.promptLine === "string" ? body.promptLine : "";
-            assertThoughtV2Line(prompt, "prompt");
+            assertThoughtLine(prompt, "prompt");
 
             const now = new Date();
             const id = runId();
             const browserToken = randomToken(32);
             const launchToken = randomToken(32);
             const specSha256 = await sha256Hex(specText);
-            if (specSha256 !== `sha256:${DEV_AGENT_SPEC_SHA256}`) {
-              protocolError(res, 500, "SPEC_HASH_MISMATCH", "Locked THOUGHT generation spec source mismatch.");
+            if (specSha256 !== `sha256:${THOUGHT_V2_LOCAL_RELEASE.spec.sha256}`) {
+              protocolError(res, 500, "SPEC_HASH_MISMATCH", "Registered THOUGHT spec source mismatch.");
               return;
             }
             const promptSha256 = await sha256Hex(prompt);
-            const agentInput = {
-              text: prompt,
-              sha256: promptSha256,
-            };
+            const agentInput = await buildThoughtAgentInput({ promptLine: prompt });
             const createdAt = now.toISOString();
             const claimExpiresAt = new Date(now.getTime() + DEV_AGENT_CLAIM_TTL_MS).toISOString();
             const runExpiresAt = new Date(now.getTime() + DEV_AGENT_RUN_TTL_MS).toISOString();
@@ -1016,7 +715,7 @@ function createThoughtAgentDevApiPlugin(
               specId: DEV_AGENT_SPEC_ID,
               specRef: DEV_AGENT_SPEC_REF,
               specSha256,
-              contractSpecHash: DEV_AGENT_SPEC_HASH,
+              contractSpecHash: THOUGHT_V2_LOCAL_RELEASE.spec.evmSpecHash,
               specText,
               promptText: prompt,
               promptSha256,
@@ -1056,13 +755,11 @@ function createThoughtAgentDevApiPlugin(
               statusUrl: `${apiPrefix}/runs/${id}`,
               createdAt,
               claimExpiresAt,
-              devRuntime: "vite-local-returned-run-store",
+              devRuntime: "vite-memory",
               devAutoRun,
             });
             if (devAutoRun) {
-              void autoRunDevCodex(run, activeRelease).finally(() => {
-                if (run.state === "returned") persistRuns();
-              });
+              void autoRunDevCodex(run);
             }
             return;
           }
@@ -1122,7 +819,7 @@ function createThoughtAgentDevApiPlugin(
               state: run.state,
               bridgeToken: run.bridgeToken,
               runExpiresAt: run.runExpiresAt,
-              request: claimRequestPayload(run, activeRelease),
+              request: claimRequestPayload(run),
             });
             return;
           }
@@ -1208,7 +905,7 @@ function createThoughtAgentDevApiPlugin(
               protocolError(res, 409, "RESULT_CONFLICT", "Result invocation ID does not match the running invocation.");
               return;
             }
-            const parsedOutput = await parseDevAgentOutput(body.output.raw, activeRelease);
+            const parsedOutput = await parseDevAgentOutput(body.output.raw);
             if (
               !isThoughtSha256(body.output.rawSha256) ||
               !isThoughtSha256(body.output.agentLineSha256) ||
@@ -1272,7 +969,6 @@ function createThoughtAgentDevApiPlugin(
             run.receiptSha256 = receipt.sha256;
             run.state = "returned";
             run.updatedAt = new Date().toISOString();
-            persistRuns();
             protocolJson(res, 200, statusPayload(run));
             return;
           }
@@ -1346,13 +1042,9 @@ function createThoughtAgentDevApiPlugin(
   };
 }
 
-export default defineConfig(({ command, mode }) => {
+export default defineConfig(({ mode }) => {
   const rootDir = process.cwd();
   const workspaceRoot = path.resolve(rootDir, "../..");
-  const currentContractRuntime = readCurrentThoughtContractRuntime(workspaceRoot, command, mode);
-  const activeLocalRelease = currentContractRuntime?.evmAddresses
-    ? buildThoughtV2LocalRelease(currentContractRuntime.evmAddresses)
-    : THOUGHT_V2_LOCAL_RELEASE;
   const routeBase = normalizeViteBase(process.env.VITE_THOUGHT_ROUTE_BASE);
   const publicEnv = {
     ...loadEnv(mode, rootDir, "VITE_"),
@@ -1365,15 +1057,7 @@ export default defineConfig(({ command, mode }) => {
   return {
     root: rootDir,
     base: routeBase,
-    plugins: [
-      createThoughtAgentDevApiPlugin(
-        currentContractRuntime?.raw
-          ? assertThoughtV2AnvilRuntime(currentContractRuntime.raw)
-          : null,
-        activeLocalRelease,
-      ),
-      react(),
-    ],
+    plugins: [createThoughtAgentDevApiPlugin(), react()],
     build: {
       outDir: readOutDir(rootDir),
       emptyOutDir: true,
@@ -1407,12 +1091,6 @@ export default defineConfig(({ command, mode }) => {
     envDir: rootDir,
     define: {
       "globalThis.__INSHELL_VITE_ENV__": JSON.stringify(publicEnv),
-      "globalThis.__INSHELL_THOUGHT_CONTRACT_RUNTIME__": JSON.stringify(
-        currentContractRuntime?.raw ?? null,
-      ),
-      "globalThis.__INSHELL_THOUGHT_EVM_ADDRESSES__": JSON.stringify(
-        currentContractRuntime?.evmAddresses ?? null,
-      ),
       "import.meta.env.MODE": JSON.stringify(mode),
     },
     resolve: {

@@ -312,13 +312,11 @@ function isAppShellRoute(pathname: string) {
   return (
     pathname === "/" ||
     pathname === "/pulse" ||
-    pathname === "/docs" ||
     pathname === "/color-font" ||
     pathname === "/verify" ||
     pathname === "/path-app" ||
     pathname === "/path" ||
     pathname === "/gallery" ||
-    pathname === "/will" ||
     isTokenRoute(pathname, "path")
   );
 }

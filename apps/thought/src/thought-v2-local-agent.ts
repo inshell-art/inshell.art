@@ -1,16 +1,12 @@
-import { assertThoughtV2TerminalLine as assertThoughtV2Line } from "@inshell/shared";
+import { assertThoughtLine } from "@inshell/shared";
 
-import { assertThoughtV2Context } from "../contract-integration/current/reference/thought-v2-context-profile";
-import {
-  THOUGHT_V2_LOCAL_RELEASE,
-  type ThoughtV2LocalRelease,
-} from "./thought-v2-local-release";
+import { THOUGHT_V2_LOCAL_RELEASE } from "./thought-v2-local-release";
 import type { ThoughtV2LocalProcess } from "./thought-v2-local-mint";
 
 export type ThoughtV2LocalAgentDeclaration = {
   schema: "inshell.thought.agent-declaration.v1";
   status: "declared-unverified";
-  label: string;
+  agentLabel: string;
   declaredOneCreativeResult: true;
 };
 
@@ -31,9 +27,7 @@ export type ThoughtV2LocalAgentEvidence = {
   rawResponseSha256: string;
 };
 
-export const buildThoughtV2LocalAgentOutputSchema = (
-  release: ThoughtV2LocalRelease = THOUGHT_V2_LOCAL_RELEASE,
-) => ({
+export const THOUGHT_V2_LOCAL_AGENT_OUTPUT_SCHEMA = {
   type: "object",
   additionalProperties: false,
   required: ["schema", "release", "agentLine"],
@@ -44,72 +38,71 @@ export const buildThoughtV2LocalAgentOutputSchema = (
       additionalProperties: false,
       required: ["protocolReleaseId", "manifestKeccak256"],
       properties: {
-        protocolReleaseId: { const: release.protocol.protocolReleaseId },
-        manifestKeccak256: { const: release.protocol.manifestKeccak256 },
+        protocolReleaseId: { const: THOUGHT_V2_LOCAL_RELEASE.protocol.protocolReleaseId },
+        manifestKeccak256: { const: THOUGHT_V2_LOCAL_RELEASE.protocol.manifestKeccak256 },
       },
     },
     agentLine: {
       type: "string",
       minLength: 1,
-      "x-thought-line-profile": release.protocol.workProfile.id,
+      "x-thought-line-profile": THOUGHT_V2_LOCAL_RELEASE.protocol.workProfile.id,
       "x-thought-utf8-max-bytes": 64,
     },
     declaration: {
       type: "object",
       additionalProperties: false,
-      required: ["schema", "status", "label", "declaredOneCreativeResult"],
+      required: ["schema", "status", "agentLabel", "declaredOneCreativeResult"],
       properties: {
         schema: { const: "inshell.thought.agent-declaration.v1" },
         status: { const: "declared-unverified" },
-        label: {
-          type: "string",
-          minLength: 1,
-          "x-thought-context-profile": release.protocol.contextProfile.id,
-          "x-thought-utf8-max-bytes": 64,
-        },
+        agentLabel: { type: "string", minLength: 1, maxLength: 100 },
         declaredOneCreativeResult: { const: true },
       },
     },
   },
-} as const);
+} as const;
 
-export const THOUGHT_V2_LOCAL_AGENT_OUTPUT_SCHEMA =
-  buildThoughtV2LocalAgentOutputSchema();
-
-const exactKeys = (value: unknown, required: readonly string[], optional: readonly string[] = []) => {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+const exactKeys = (
+  value: unknown,
+  required: readonly string[],
+  optional: readonly string[] = [],
+) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
   const keys = Object.keys(value);
   const allowed = new Set([...required, ...optional]);
-  return required.every((key) => Object.hasOwn(value, key)) && keys.every((key) => allowed.has(key));
+  return (
+    required.every((key) => Object.hasOwn(value, key)) &&
+    keys.every((key) => allowed.has(key))
+  );
 };
 
 export const buildThoughtV2LocalAgentResult = (
   agentLine: string,
   agentLabel: string,
-  release: ThoughtV2LocalRelease = THOUGHT_V2_LOCAL_RELEASE,
 ): ThoughtV2LocalAgentResult => {
-  assertThoughtV2Line(agentLine, "agent");
-  assertThoughtV2Context(agentLabel, "declaredAgent");
+  assertThoughtLine(agentLine, "agent");
+  if (!agentLabel || agentLabel.length > 100) {
+    throw new Error("Agent label is invalid.");
+  }
   return {
     schema: "inshell.thought.agent-result.v2",
     release: {
-      protocolReleaseId: release.protocol.protocolReleaseId,
-      manifestKeccak256: release.protocol.manifestKeccak256,
+      protocolReleaseId: THOUGHT_V2_LOCAL_RELEASE.protocol.protocolReleaseId,
+      manifestKeccak256: THOUGHT_V2_LOCAL_RELEASE.protocol.manifestKeccak256,
     },
     agentLine,
     declaration: {
       schema: "inshell.thought.agent-declaration.v1",
       status: "declared-unverified",
-      label: agentLabel,
+      agentLabel,
       declaredOneCreativeResult: true,
     },
   };
 };
 
-export const parseThoughtV2LocalAgentResult = (
-  raw: string,
-  release: ThoughtV2LocalRelease = THOUGHT_V2_LOCAL_RELEASE,
-): ThoughtV2LocalAgentResult => {
+export const parseThoughtV2LocalAgentResult = (raw: string): ThoughtV2LocalAgentResult => {
   let value: unknown;
   try {
     value = JSON.parse(raw);
@@ -119,30 +112,35 @@ export const parseThoughtV2LocalAgentResult = (
   if (!exactKeys(value, ["schema", "release", "agentLine"], ["declaration"])) {
     throw new Error("Agent result shape mismatch.");
   }
+
   const result = value as ThoughtV2LocalAgentResult;
-  if (result.schema !== "inshell.thought.agent-result.v2") throw new Error("Agent result schema mismatch.");
+  if (result.schema !== "inshell.thought.agent-result.v2") {
+    throw new Error("Agent result schema mismatch.");
+  }
   if (!exactKeys(result.release, ["protocolReleaseId", "manifestKeccak256"])) {
     throw new Error("Agent result release shape mismatch.");
   }
   if (
-    result.release.protocolReleaseId !== release.protocol.protocolReleaseId ||
-    result.release.manifestKeccak256 !== release.protocol.manifestKeccak256
+    result.release.protocolReleaseId !== THOUGHT_V2_LOCAL_RELEASE.protocol.protocolReleaseId ||
+    result.release.manifestKeccak256 !== THOUGHT_V2_LOCAL_RELEASE.protocol.manifestKeccak256
   ) {
     throw new Error("Agent result release mismatch.");
   }
-  assertThoughtV2Line(result.agentLine, "agent");
+  assertThoughtLine(result.agentLine, "agent");
   if (result.declaration !== undefined) {
-    if (!exactKeys(result.declaration, ["schema", "status", "label", "declaredOneCreativeResult"])) {
+    if (!exactKeys(result.declaration, ["schema", "status", "agentLabel", "declaredOneCreativeResult"])) {
       throw new Error("Agent declaration shape mismatch.");
     }
     if (
       result.declaration.schema !== "inshell.thought.agent-declaration.v1" ||
       result.declaration.status !== "declared-unverified" ||
+      typeof result.declaration.agentLabel !== "string" ||
+      result.declaration.agentLabel.length < 1 ||
+      result.declaration.agentLabel.length > 100 ||
       result.declaration.declaredOneCreativeResult !== true
     ) {
       throw new Error("Agent declaration mismatch.");
     }
-    assertThoughtV2Context(result.declaration.label, "declaredAgent");
   }
   return result;
 };
@@ -150,7 +148,6 @@ export const parseThoughtV2LocalAgentResult = (
 export const buildThoughtV2LocalAgentProcess = (
   evidence: ThoughtV2LocalAgentEvidence,
   agentLine: string,
-  declaredModel: string,
 ): ThoughtV2LocalProcess => {
   const result = parseThoughtV2LocalAgentResult(JSON.stringify(evidence.result));
   if (!result.declaration) {
@@ -159,27 +156,20 @@ export const buildThoughtV2LocalAgentProcess = (
   if (result.agentLine !== agentLine) {
     throw new Error("The validated Agent result does not match the current work.");
   }
-  assertThoughtV2Context(declaredModel, "declaredModel");
-  if (!evidence.runId || !evidence.adapter || !/^[0-9a-f]{64}$/.test(evidence.rawResponseSha256)) {
+  if (
+    !evidence.runId ||
+    !evidence.adapter ||
+    !/^[0-9a-f]{64}$/.test(evidence.rawResponseSha256)
+  ) {
     throw new Error("THOUGHT V2 Agent transport evidence is incomplete.");
   }
   return {
     kind: "agent-run",
-    agentDeclaration: {
-      label: result.declaration.label,
-      source: "runtime_configured",
-      status: "declared-unverified",
-    },
-    modelDeclaration: {
-      label: declaredModel,
-      source: "runtime_configured",
-      status: "declared-unverified",
-    },
+    agentDeclaration: result.declaration,
     transport: {
       adapter: evidence.adapter,
-      route: "inshell.thought.agent-run",
-      runReference: evidence.runId,
-      resultEnvelope: result,
+      runId: evidence.runId,
+      rawResponseSha256: evidence.rawResponseSha256,
     },
   };
 };

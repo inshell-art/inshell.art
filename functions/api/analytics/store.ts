@@ -46,7 +46,6 @@ const ANALYTICS_CONTENT_TYPES = [
   "home",
   "path",
   "thought",
-  "will",
   "gallery",
   "pulse",
   "verify",
@@ -1157,7 +1156,6 @@ function contentTypeForPath(path: string): AnalyticsContentType {
   if (path === "/verify" || path.startsWith("/verify/")) return "verify";
   if (path === "/gallery" || path.startsWith("/gallery/")) return "gallery";
   if (path === "/thought" || path.startsWith("/thought/")) return "thought";
-  if (path === "/will" || path.startsWith("/will/")) return "will";
   if (path === "/pulse" || path.startsWith("/pulse/")) return "pulse";
   if (path === "/path" || path.startsWith("/path/")) return "path";
   return "unknown";

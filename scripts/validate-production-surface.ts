@@ -582,7 +582,6 @@ function checkCloudflareRpcProxy() {
     "/color-font",
     "/path",
     "/gallery",
-    "/will",
     "/thought",
     "application/rss+xml; charset=utf-8",
     "public, max-age=60",

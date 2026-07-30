@@ -20,12 +20,6 @@
 - Always run Vite with `--host 127.0.0.1` and `--strictPort`.
 - Never run two servers on the same port (including IPv4/IPv6 split).
 - If a port is occupied, stop the existing process before starting a new one.
-- For normal integrated PATH + THOUGHT work, start Anvil with `pnpm dev:anvil`.
-  It persists the complete local chain to `.local/anvil/inshell-state.json`.
-- Do not use the Contract repo's ephemeral `devnode:v2:start` for normal App work;
-  it intentionally starts a blank chain and discards locally minted tokens.
-- Before risky local contract changes, run `pnpm dev:anvil:save` to create an
-  explicit checkpoint containing chain state and the matching App deployment record.
 
 ## Preview/Staging Deployment Discipline
 - Treat `staging` as the frontend preview gate and `main` as production.

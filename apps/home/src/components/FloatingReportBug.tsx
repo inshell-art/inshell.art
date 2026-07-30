@@ -12,7 +12,6 @@ function currentPageState(): string {
   if (pathname === "/pulse") return "pulse";
   if (pathname === "/color-font") return "color_font";
   if (pathname === "/path") return "path_app";
-  if (pathname === "/will") return "will";
   if (pathname === "/verify") return "verify";
   return "home";
 }
