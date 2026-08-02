@@ -36,6 +36,15 @@ const MOVEMENTS: Movement[] = [
   },
 ];
 
+function thoughtAvailabilityNote() {
+  const env = (globalThis as any).__VITE_ENV__ as
+    | Record<string, unknown>
+    | undefined;
+  return String(env?.VITE_NETWORK ?? "").toLowerCase() === "devnet"
+    ? "local Anvil"
+    : "on Sepolia now";
+}
+
 function homeThoughtTargetId(): string | null {
   try {
     const targetId = decodeURIComponent(window.location.hash.slice(1));
@@ -67,8 +76,8 @@ function HomeThoughtCard({
   focused: boolean;
   onFocusFlashEnd: () => void;
 }) {
-  const attestedAgent = work.attestedAgent?.trim() || "-";
-  const attestedModel = work.attestedModel?.trim() || "-";
+  const agent = work.agent?.trim() || work.declaredAgent?.trim() || "-";
+  const model = work.model?.trim() || work.declaredModel?.trim() || "-";
   return (
     <article
       id={`thought-${work.tokenId}`}
@@ -94,10 +103,10 @@ function HomeThoughtCard({
       <div className="ecosystem-home__work-meta">
         <p className="ecosystem-home__work-meta-line">THOUGHT #{work.tokenId}</p>
         <p className="ecosystem-home__work-meta-line">
-          Attested Agent: {attestedAgent}
+          Agent: {agent}
         </p>
         <p className="ecosystem-home__work-meta-line">
-          Attested Model: {attestedModel}
+          Model: {model}
         </p>
       </div>
     </article>
@@ -114,29 +123,40 @@ export default function EcosystemHome() {
 
   useEffect(() => {
     let cancelled = false;
-    void loadThoughtGallery()
-      .then((works) => {
-        if (!cancelled) {
+    let requestId = 0;
+    const readChain = () => {
+      const currentRequestId = ++requestId;
+      void loadThoughtGallery({ cacheMode: "bypass" })
+        .then((works) => {
+          if (!cancelled && currentRequestId === requestId) {
+            setGallery({
+              status: "ready",
+              works: newestThoughtWorks(works),
+              error: null,
+            });
+          }
+        })
+        .catch((error: unknown) => {
+          if (cancelled || currentRequestId !== requestId) return;
           setGallery({
-            status: "ready",
-            works: newestThoughtWorks(works),
-            error: null,
+            status: "error",
+            works: [],
+            error:
+              error instanceof Error && error.message.trim()
+                ? error.message
+                : "THOUGHT gallery unavailable.",
           });
-        }
-      })
-      .catch((error: unknown) => {
-        if (cancelled) return;
-        setGallery({
-          status: "error",
-          works: [],
-          error:
-            error instanceof Error && error.message.trim()
-              ? error.message
-              : "THOUGHT gallery unavailable.",
         });
-      });
+    };
+    const readChainWhenVisible = () => {
+      if (document.visibilityState === "visible") readChain();
+    };
+
+    readChain();
+    document.addEventListener("visibilitychange", readChainWhenVisible);
     return () => {
       cancelled = true;
+      document.removeEventListener("visibilitychange", readChainWhenVisible);
     };
   }, []);
 
@@ -166,7 +186,12 @@ export default function EcosystemHome() {
     <main className="ecosystem-home" aria-labelledby="ecosystem-home-slogan">
       <section className="ecosystem-home__hero">
         <div className="ecosystem-home__movements" aria-label="Inshell movements">
-          {MOVEMENTS.map((movement) =>
+          {MOVEMENTS.map((movement) => {
+            const note =
+              movement.key === "thought"
+                ? thoughtAvailabilityNote()
+                : movement.note;
+            return (
             movement.href ? (
               <a
                 key={movement.key}
@@ -174,20 +199,21 @@ export default function EcosystemHome() {
                 href={`/${movement.href}`}
                 aria-label={movement.title}
               >
-                <span className="ecosystem-home__movement-note" data-note={movement.note}>
-                  {movement.note}
+                <span className="ecosystem-home__movement-note" data-note={note}>
+                  {note}
                 </span>
                 <span className="ecosystem-home__movement-title">{movement.title}</span>
               </a>
             ) : (
               <span key={movement.key} className="ecosystem-home__movement">
-                <span className="ecosystem-home__movement-note" data-note={movement.note}>
-                  {movement.note}
+                <span className="ecosystem-home__movement-note" data-note={note}>
+                  {note}
                 </span>
                 <span className="ecosystem-home__movement-title">{movement.title}</span>
               </span>
             )
-          )}
+            );
+          })}
         </div>
         <h1 id="ecosystem-home-slogan" className="ecosystem-home__slogan">
           3 fully onchain movements for Agent Art.

@@ -137,21 +137,30 @@ describe("auction bids service", () => {
     );
   });
 
-  test("reads sale history directly from Anvil in devnet mode", async () => {
+  test("reads complete persisted sale history before direct Anvil logs in devnet mode", async () => {
     (globalThis as any).__VITE_ENV__ = { VITE_NETWORK: "devnet" };
-    const fetchMock = jest.fn(async () => {
-      throw new Error("the indexed API must not be used in devnet");
-    });
+    const fetchMock = jest.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        lastScannedBlock: 40,
+        bids: [
+          {
+            key: "tx:persisted",
+            atMs: 1_778_888_000_000,
+            bidder: BUYER,
+            amount: { dec: "100" },
+            floorB: { dec: "100" },
+            blockNumber: 12,
+            epochIndex: 1,
+            tokenId: 1,
+          },
+        ],
+      }),
+    }));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
-    const logs = [saleLog(12, 1n, 100n), saleLog(31, 2n, 120n)];
     const provider = {
-      request: jest.fn(async ({ method }: any) => {
-        if (method === "eth_blockNumber") return "0x28";
-        if (method === "eth_getLogs") return logs;
-        if (method === "eth_getBlockByNumber") {
-          return { number: "0xc", timestamp: "0x6a000000" };
-        }
-        throw new Error(`unexpected RPC method ${method}`);
+      request: jest.fn(async () => {
+        throw new Error("direct RPC sale logs must not replace persisted dev history");
       }),
     };
 
@@ -163,11 +172,12 @@ describe("auction bids service", () => {
     });
 
     const fresh = await service.pullOnce();
-    expect(fresh.map((bid) => bid.epochIndex)).toEqual([1, 2]);
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(provider.request).toHaveBeenCalledWith(
-      expect.objectContaining({ method: "eth_getLogs" })
+    expect(fresh.map((bid) => bid.epochIndex)).toEqual([1]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/pulse-auction"),
+      expect.objectContaining({ headers: { accept: "application/json" } })
     );
+    expect(provider.request).not.toHaveBeenCalled();
   });
 
   test("uses the cached API even when a provider is available", async () => {

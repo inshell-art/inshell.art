@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "id": "inshell.thought.marketplace-traits.v2.portable",
+  "metadataProfile": "inshell.thought.metadata.v2.terminal-chat",
+  "status": "local-policy-requires-next-contract-artifact",
+  "exactOrder": [
+    "Agent",
+    "Model",
+    "Creation Attestation",
+    "Prompt Bytes",
+    "Agent Bytes"
+  ],
+  "numericTraits": {
+    "Prompt Bytes": {
+      "display_type": "number",
+      "max_value": 64
+    },
+    "Agent Bytes": {
+      "display_type": "number",
+      "max_value": 64
+    }
+  },
+  "removedAsRedundant": [
+    "Pair Bytes",
+    "Prompt Length",
+    "Agent Length"
+  ],
+  "rationale": {
+    "Pair Bytes": "It is the sum of the two retained byte traits and adds no independent filter dimension.",
+    "Prompt Length": "Terminal English is ASCII, so this categorical trait duplicates Prompt Bytes with less precision.",
+    "Agent Length": "Terminal English is ASCII, so this categorical trait duplicates Agent Bytes with less precision."
+  },
+  "conventionalMetadata": {
+    "externalUrlBase": "https://inshell.art/thought/",
+    "externalUrlRequired": true,
+    "externalUrlInsideThoughtNamespace": false
+  },
+  "assuranceBoundary": {
+    "Agent": "neutral creation record",
+    "Model": "neutral creation record",
+    "Creation Attestation": "contract-recorded assurance state"
+  }
+}

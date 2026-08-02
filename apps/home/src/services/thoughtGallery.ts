@@ -21,10 +21,10 @@ const localThoughtNftAbi = parseAbi([
   "function totalSupply() view returns (uint256)",
   "function promptLineOf(uint256 tokenId) view returns (string)",
   "function agentLineOf(uint256 tokenId) view returns (string)",
-  "function declaredAgentOf(uint256 tokenId) view returns (string)",
-  "function declaredModelOf(uint256 tokenId) view returns (string)",
-  "function declaredAgentHashOf(uint256 tokenId) view returns (bytes32)",
-  "function declaredModelHashOf(uint256 tokenId) view returns (bytes32)",
+  "function agentOf(uint256 tokenId) view returns (string)",
+  "function modelOf(uint256 tokenId) view returns (string)",
+  "function agentHashOf(uint256 tokenId) view returns (bytes32)",
+  "function modelHashOf(uint256 tokenId) view returns (bytes32)",
   "function provenanceOf(uint256 tokenId) view returns (string)",
   "function promptLineHashOf(uint256 tokenId) view returns (bytes32)",
   "function agentLineHashOf(uint256 tokenId) view returns (bytes32)",
@@ -46,10 +46,10 @@ type LocalThoughtFunctionName =
   | "totalSupply"
   | "promptLineOf"
   | "agentLineOf"
-  | "declaredAgentOf"
-  | "declaredModelOf"
-  | "declaredAgentHashOf"
-  | "declaredModelHashOf"
+  | "agentOf"
+  | "modelOf"
+  | "agentHashOf"
+  | "modelHashOf"
   | "provenanceOf"
   | "promptLineHashOf"
   | "agentLineHashOf"
@@ -82,7 +82,11 @@ export type ThoughtGalleryItem = {
   prompt: string;
   mode: string;
   provider: string;
+  agent?: string;
   model: string;
+  agentHash?: string;
+  modelHash?: string;
+  /** Legacy API/cache fields retained while older deployments are read. */
   declaredAgent?: string;
   declaredModel?: string;
   declaredAgentHash?: string;
@@ -197,11 +201,13 @@ function parseLocalProvenance(value: string) {
       model?: unknown;
       process?: {
         kind?: unknown;
-        agentDeclaration?: {
-          agentLabel?: unknown;
-          modelLabel?: unknown;
+        agent?: {
+          label?: unknown;
         };
-        transport?: {
+        model?: {
+          label?: unknown;
+        };
+        run?: {
           adapter?: unknown;
         };
       };
@@ -214,18 +220,16 @@ function parseLocalProvenance(value: string) {
             ? parsed.route
             : "",
       provider:
-        typeof parsed.process?.transport?.adapter === "string"
-          ? parsed.process.transport.adapter
-          : typeof parsed.process?.agentDeclaration?.agentLabel === "string"
-            ? parsed.process.agentDeclaration.agentLabel
+        typeof parsed.process?.run?.adapter === "string"
+          ? parsed.process.run.adapter
+          : typeof parsed.process?.agent?.label === "string"
+            ? parsed.process.agent.label
             : typeof parsed.provider === "string"
               ? parsed.provider
               : "",
       model:
-        typeof parsed.process?.agentDeclaration?.modelLabel === "string"
-          ? parsed.process.agentDeclaration.modelLabel
-          : typeof parsed.process?.agentDeclaration?.agentLabel === "string"
-            ? parsed.process.agentDeclaration.agentLabel
+        typeof parsed.process?.model?.label === "string"
+          ? parsed.process.model.label
             : typeof parsed.model === "string"
               ? parsed.model
               : "",
@@ -278,17 +282,29 @@ function metadataTrait(
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
-function withAttestedTraits(
+function withCreationIdentity(
   thought: ThoughtGalleryItem
 ): ThoughtGalleryItem {
-  if (thought.attestedAgent && thought.attestedModel) return thought;
   const metadata = parseThoughtTokenMetadata(thought.tokenUri);
+  const metadataAgent =
+    metadataTrait(metadata, "Agent") ??
+    metadataTrait(metadata, "Attested Agent");
+  const metadataModel =
+    metadataTrait(metadata, "Model") ??
+    metadataTrait(metadata, "Attested Model");
   return {
     ...thought,
-    attestedAgent:
-      thought.attestedAgent ?? metadataTrait(metadata, "Attested Agent"),
-    attestedModel:
-      thought.attestedModel ?? metadataTrait(metadata, "Attested Model"),
+    agent:
+      thought.agent ??
+      metadataAgent ??
+      thought.declaredAgent ??
+      thought.attestedAgent,
+    model:
+      thought.model ??
+      metadataModel ??
+      thought.declaredModel ??
+      thought.attestedModel ??
+      "",
   };
 }
 
@@ -301,10 +317,10 @@ async function readLocalThought(args: {
   const [
     prompt,
     agentLine,
-    declaredAgent,
-    declaredModel,
-    declaredAgentHash,
-    declaredModelHash,
+    agent,
+    model,
+    agentHash,
+    modelHash,
     provenanceJson,
     promptHash,
     agentLineHash,
@@ -333,22 +349,22 @@ async function readLocalThought(args: {
     }),
     localThoughtCall<string>({
       ...args,
-      functionName: "declaredAgentOf",
+      functionName: "agentOf",
       functionArgs: tokenArgs,
     }),
     localThoughtCall<string>({
       ...args,
-      functionName: "declaredModelOf",
+      functionName: "modelOf",
       functionArgs: tokenArgs,
     }),
     localThoughtCall<Hex>({
       ...args,
-      functionName: "declaredAgentHashOf",
+      functionName: "agentHashOf",
       functionArgs: tokenArgs,
     }),
     localThoughtCall<Hex>({
       ...args,
-      functionName: "declaredModelHashOf",
+      functionName: "modelHashOf",
       functionArgs: tokenArgs,
     }),
     localThoughtCall<string>({
@@ -433,7 +449,7 @@ async function readLocalThought(args: {
     typeof tokenMetadata?.image === "string" && tokenMetadata.image.trim()
       ? tokenMetadata.image
       : svgDataUri(svg);
-  const attestedTraits = withAttestedTraits({
+  const creationIdentity = withCreationIdentity({
     tokenId: args.tokenId,
     pathId: pathId.toString(),
     minter,
@@ -448,12 +464,11 @@ async function readLocalThought(args: {
     rawText: agentLine,
     prompt,
     mode: provenance.mode,
-    provider: provenance.provider || declaredAgent,
-    model: provenance.model || declaredModel,
-    declaredAgent,
-    declaredModel,
-    declaredAgentHash,
-    declaredModelHash,
+    provider: provenance.provider || agent,
+    agent,
+    model,
+    agentHash,
+    modelHash,
     returnedText: agentLine,
     returnedTextHash: agentLineHash,
     conversationIdentityHash,
@@ -468,7 +483,7 @@ async function readLocalThought(args: {
     blockNumber: 0,
   });
 
-  return attestedTraits;
+  return creationIdentity;
 }
 
 export async function loadThoughtGalleryItem(
@@ -589,7 +604,7 @@ function validPayload(payload: ThoughtGalleryCachePayload | null) {
   if (!Array.isArray(payload.thoughts) || !payload.thoughts.every(isThoughtGalleryItem)) {
     return null;
   }
-  return sortThoughts(payload.thoughts.map(withAttestedTraits));
+  return sortThoughts(payload.thoughts.map(withCreationIdentity));
 }
 
 export function readCachedThoughtGallery(): ThoughtGalleryItem[] | null {
@@ -665,7 +680,7 @@ export async function loadThoughtGallery(options?: {
   const thoughts = sortThoughts(
     payload.thoughts
       .filter(isThoughtGalleryItem)
-      .map(withAttestedTraits)
+      .map(withCreationIdentity)
   );
   writeThoughtGalleryCache(thoughts);
   return thoughts;

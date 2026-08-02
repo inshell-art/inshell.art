@@ -24,6 +24,7 @@ import {
   verifyThoughtV2CurrentRuntime,
 } from "../src/thought-v2-contract-client";
 import { buildBackendOnlyMockThoughtV2Mint } from "./mock-thought-v2-anvil-signer";
+import { verifyThoughtTokenProvenance } from "../../../scripts/verify-thought-provenance";
 
 const root = path.resolve(import.meta.dirname, "../../..");
 const runtimePath = path.resolve(
@@ -99,13 +100,24 @@ const decodeMetadata = (tokenUri: string) => {
   assert.ok(tokenUri.startsWith(prefix));
   return JSON.parse(Buffer.from(tokenUri.slice(prefix.length), "base64").toString("utf8")) as {
     attributes: Array<{ trait_type: string; value: unknown }>;
+    description: string;
+    external_url: string;
     image: string;
     properties: {
+      agent: string;
+      agentKeccak256: string;
       glyphDefinitionsKeccak256: string;
       glyphLibraryMemberId: string;
+      model: string;
+      modelKeccak256: string;
       rendererImplementationId: string;
     };
     thought: {
+      records: {
+        agent: { keccak256: string; label: string };
+        model: { keccak256: string; label: string };
+        workIdentityInput: false;
+      };
       rendererReleaseReady: boolean;
     };
   };
@@ -118,13 +130,21 @@ const decodeSvgImage = (image: string) => {
 };
 
 const fieldGroup = (svg: string, id: "prompt-line" | "agent-line") => {
-  const match = svg.match(new RegExp(`<g id="${id}"[^>]*>[\\s\\S]*?<\\/g>`));
-  assert.ok(match, `${id} group missing`);
-  return match[0];
+  const start = svg.indexOf(`<g id="${id}"`);
+  assert.notEqual(start, -1, `${id} group missing`);
+  const groupTags = /<g(?:\s[^>]*)?>|<\/g>/g;
+  groupTags.lastIndex = start;
+  let depth = 0;
+  for (const match of svg.matchAll(groupTags)) {
+    if (match.index < start) continue;
+    depth += match[0] === "</g>" ? -1 : 1;
+    if (depth === 0) return svg.slice(start, match.index + match[0].length);
+  }
+  assert.fail(`${id} group is not closed`);
 };
 
 const glyphBaselines = (group: string) =>
-  [...group.matchAll(/transform="translate\([^ ]+ ([0-9.]+)\) scale\(4\.8\)"/g)]
+  [...group.matchAll(/transform="translate\([^ ]+ ([0-9.]+)\) scale\(2\.88 -2\.88\)"/g)]
     .map((match) => Number(match[1]));
 
 const selectedSpecText = await registry.thoughtSpecText(runtime.selectedSpec.id) as string;
@@ -159,10 +179,10 @@ try {
     const agentY = glyphBaselines(agentGroup);
     assert.match(promptGroup, new RegExp(`data-rows="${expectedRows}"`));
     assert.match(agentGroup, new RegExp(`data-rows="${expectedRows}"`));
-    assert.equal(promptY[0], 140.8, `prompt row ${expectedRows} did not stay top-packed`);
+    assert.equal(promptY[0], 171.52, `prompt row ${expectedRows} did not stay top-packed`);
     assert.equal(
       agentY.at(-1),
-      780.8,
+      811.52,
       `Agent row ${expectedRows} did not stay bottom-packed`,
     );
     assert.doesNotMatch(svg, /<text\b|<foreignObject\b|@font-face/i);
@@ -171,9 +191,11 @@ try {
   }
 
   const basePathId = await acquirePath();
-  const latestBlock = await provider.getBlock("latest");
+  const latestBlock = await provider.send("eth_getBlockByNumber", ["latest", false]) as {
+    timestamp: string;
+  } | null;
   assert.ok(latestBlock);
-  const deadline = BigInt(latestBlock.timestamp + 3_600);
+  const deadline = BigInt(latestBlock.timestamp) + 3_600n;
 
   const manualFacts: ThoughtV2AppMintFacts = {
     chainId: BigInt(runtime.chainId),
@@ -182,16 +204,14 @@ try {
     promptLine: "Can provenance certify itself?",
     agentLine: "A label cannot elevate its own evidence.",
     process: {
-      agentDeclaration: {
+      agent: {
         label: "Pretend Attested Agent",
-        source: "manual",
-        status: "declared-unverified",
+        source: "minter-supplied",
       },
       kind: "manual",
-      modelDeclaration: {
+      model: {
         label: "Pretend Attested Model",
-        source: "manual",
-        status: "declared-unverified",
+        source: "minter-supplied",
       },
     },
     protocol,
@@ -206,14 +226,32 @@ try {
   await (await thought.mint(unattested)).wait();
   const unattestedTokenId = await thought.totalSupply() as bigint;
   const unattestedMetadata = decodeMetadata(await thought.tokenURI(unattestedTokenId));
+  assert.equal(
+    unattestedMetadata.external_url,
+    `https://inshell.art/thought/${unattestedTokenId}`,
+  );
   const unattestedTraits = unattestedMetadata.attributes.map(({ trait_type }) => trait_type);
-  assert.ok(unattestedTraits.includes("Creation Attestation"));
-  assert.ok(!unattestedTraits.includes("Attested Agent"));
-  assert.ok(!unattestedTraits.includes("Attested Model"));
+  assert.deepEqual(
+    unattestedTraits,
+    ["Agent", "Model", "Creation Attestation", "Prompt Bytes", "Agent Bytes"],
+  );
   assert.equal(
     await thought.provenanceHashOf(unattestedTokenId),
     keccak256(toUtf8Bytes(unattested.provenanceJson)),
   );
+  const unattestedVerification = await verifyThoughtTokenProvenance({
+    chainId: BigInt(runtime.chainId),
+    contract: runtime.contracts.thoughtNft,
+    provider,
+    tokenId: unattestedTokenId,
+  });
+  assert.equal(unattestedVerification.conforming, true);
+  assert.equal(unattestedVerification.portable, true);
+  assert.equal(
+    unattestedVerification.creationAttestation.status,
+    "unattested",
+  );
+  assert.deepEqual(unattestedVerification.portabilityIssues, []);
 
   const attestedPathId = await acquirePath();
   const agentFacts: ThoughtV2AppMintFacts = {
@@ -223,27 +261,25 @@ try {
     promptLine: "Who signs the boundary?",
     agentLine: "The App signs facts the Contract can replay.",
     process: {
-      agentDeclaration: {
+      agent: {
+        identifier: "codex",
         label: "Codex",
-        source: "runtime_configured",
-        status: "declared-unverified",
+        source: "producer-selected",
       },
       kind: "agent-run",
-      modelDeclaration: {
+      model: {
         identifier: "gpt-5.6",
         label: "gpt-5.6",
-        source: "runtime_configured",
-        status: "declared-unverified",
+        source: "runtime-reported",
       },
-      transport: {
+      run: {
         adapter: "inshell.thought.app",
-        provider: "openai",
         resultEnvelope: {
           agentLine: "The App signs facts the Contract can replay.",
           schema: "inshell.thought.agent-result.v2",
         },
         route: "local.mock-official",
-        runReference: "public-app-contract-parity-run-0001",
+        reference: "public-app-contract-parity-run-0001",
       },
     },
     protocol,
@@ -262,6 +298,10 @@ try {
   await (await thought.mint(attested)).wait();
   const attestedTokenId = await thought.totalSupply() as bigint;
   const attestedMetadata = decodeMetadata(await thought.tokenURI(attestedTokenId));
+  assert.equal(
+    attestedMetadata.external_url,
+    `https://inshell.art/thought/${attestedTokenId}`,
+  );
   const attestedSvg = decodeSvgImage(attestedMetadata.image);
   assert.equal(
     attestedSvg,
@@ -286,12 +326,35 @@ try {
     attestedMetadata.attributes.map(({ trait_type, value }) => [trait_type, value]),
   );
   assert.equal(traitMap.get("Creation Attestation"), "Inshell THOUGHT App");
-  assert.equal(traitMap.get("Attested Agent"), "Codex");
-  assert.equal(traitMap.get("Attested Model"), "gpt-5.6");
+  assert.equal(traitMap.get("Agent"), "Codex");
+  assert.equal(traitMap.get("Model"), "gpt-5.6");
+  assert.deepEqual(
+    attestedMetadata.attributes.map(({ trait_type }) => trait_type),
+    ["Agent", "Model", "Creation Attestation", "Prompt Bytes", "Agent Bytes"],
+  );
   assert.equal(await thought.promptLineOf(attestedTokenId), agentFacts.promptLine);
   assert.equal(await thought.agentLineOf(attestedTokenId), agentFacts.agentLine);
-  assert.equal(await thought.declaredAgentOf(attestedTokenId), "Codex");
-  assert.equal(await thought.declaredModelOf(attestedTokenId), "gpt-5.6");
+  assert.equal(await thought.agentOf(attestedTokenId), "Codex");
+  assert.equal(await thought.modelOf(attestedTokenId), "gpt-5.6");
+  assert.equal(await thought.agentHashOf(attestedTokenId), keccak256(toUtf8Bytes("Codex")));
+  assert.equal(await thought.modelHashOf(attestedTokenId), keccak256(toUtf8Bytes("gpt-5.6")));
+  assert.equal(attestedMetadata.properties.agent, "Codex");
+  assert.equal(attestedMetadata.properties.model, "gpt-5.6");
+  assert.equal(attestedMetadata.thought.records.agent.label, "Codex");
+  assert.equal(attestedMetadata.thought.records.model.label, "gpt-5.6");
+  assert.equal(attestedMetadata.thought.records.workIdentityInput, false);
+  assert.equal(
+    attestedMetadata.properties.agentKeccak256,
+    keccak256(toUtf8Bytes("Codex")),
+  );
+  assert.equal(
+    attestedMetadata.properties.modelKeccak256,
+    keccak256(toUtf8Bytes("gpt-5.6")),
+  );
+  assert.equal(
+    attestedMetadata.description,
+    "THOUGHT V2 preserves a narrow terminal channel between human intention and Agent response, transforming their dialogue into an on-chain artwork.",
+  );
   assert.equal(
     await thought.provenanceHashOf(attestedTokenId),
     keccak256(toUtf8Bytes(attested.provenanceJson)),
@@ -300,23 +363,40 @@ try {
     await thought.creationAttestationDigestOf(attestedTokenId),
     `0x${"00".repeat(32)}`,
   );
+  const attestedVerification = await verifyThoughtTokenProvenance({
+    chainId: BigInt(runtime.chainId),
+    contract: runtime.contracts.thoughtNft,
+    provider,
+    tokenId: attestedTokenId,
+  });
+  assert.equal(attestedVerification.conforming, true);
+  assert.equal(attestedVerification.portable, true);
+  assert.equal(
+    attestedVerification.creationAttestation.status,
+    "contract-verified",
+  );
+  assert.deepEqual(attestedVerification.portabilityIssues, []);
 
   console.log(JSON.stringify({
     runtime: path.relative(root, runtimePath),
     chainId: runtime.chainId,
     unattested: {
       tokenId: unattestedTokenId.toString(),
-      agentModelTraits: false,
+      agentModelTraits: true,
+      conforming: unattestedVerification.conforming,
+      portable: unattestedVerification.portable,
     },
     mockOfficial: {
       tokenId: attestedTokenId.toString(),
-      agent: traitMap.get("Attested Agent"),
-      model: traitMap.get("Attested Model"),
+      agent: traitMap.get("Agent"),
+      model: traitMap.get("Model"),
+      conforming: attestedVerification.conforming,
+      portable: attestedVerification.portable,
     },
     rendererEvidence: {
       rowCounts: [1, 2, 3, 4],
-      promptFirstBaseline: 140.8,
-      agentFinalBaseline: 780.8,
+      promptFirstBaseline: 171.52,
+      agentFinalBaseline: 811.52,
       nativeSvgPaths: true,
       rendererReleaseReady: attestedMetadata.thought.rendererReleaseReady,
       tokenUriImageExact: true,

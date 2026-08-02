@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 
 import {
+  THOUGHT_AGENT_CLAIM_TTL_MS,
   THOUGHT_AGENT_PROTOCOL_VERSION,
   sha256Hex,
 } from "../packages/thought-agent-protocol/src/index";
@@ -16,6 +17,7 @@ const origin = (process.env.THOUGHT_LIVE_ORIGIN || "http://127.0.0.1:5173").repl
 const apiBase = `${origin}/api/thought-agent/v2`;
 const promptLine = `Who are you? / App & Agent`;
 const agentLine = "I am Codex.";
+const reviewDelayMs = Number(process.env.THOUGHT_LIVE_REVIEW_DELAY_MS || 0);
 const creativeSpecText = await readFile(
   new URL("../apps/thought/spec/THOUGHT.v2.md", import.meta.url),
   "utf8",
@@ -54,9 +56,18 @@ const created = await requestJson<{
   browserToken: string;
   statusUrl: string;
   launchUri: string;
+  client: {
+    url: string;
+    sha256: string;
+  };
+  createdAt: string;
+  claimExpiresAt: string;
 }>(`${apiBase}/runs`, {
   method: "POST",
-  headers: { "content-type": "application/json" },
+  headers: {
+    "content-type": "application/json",
+    origin,
+  },
   body: JSON.stringify({
     protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
     promptLine,
@@ -68,15 +79,28 @@ const created = await requestJson<{
 });
 
 assert.match(created.runId, /^tar_/);
+const issuedClaimWindowMs =
+  Date.parse(created.claimExpiresAt) - Date.parse(created.createdAt);
+assert(
+  issuedClaimWindowMs >= THOUGHT_AGENT_CLAIM_TTL_MS,
+  `Claim window ${issuedClaimWindowMs}ms is shorter than the reviewed-client policy.`,
+);
 const runUrl = new URL(created.statusUrl, origin).toString();
 const launchToken = new URL(created.launchUri).searchParams.get("token") ?? "";
 assert.notEqual(launchToken, "");
-const clientResponse = await fetch(`${apiBase}/client`);
+assert.equal(new URL(created.client.url).origin, new URL(origin).origin);
+assert.equal(new URL(created.client.url).pathname, "/api/thought-agent/v2/client");
+const clientResponse = await fetch(created.client.url, { cache: "no-store" });
 assert.equal(clientResponse.status, 200);
 assert.match(clientResponse.headers.get("content-type") ?? "", /^text\/plain/);
 const clientScript = await clientResponse.text();
+assert.equal(await sha256Hex(clientScript), created.client.sha256);
 assert(clientScript.includes("THOUGHT_INPUT_READY"));
 assert(clientScript.includes("THOUGHT_RESULT_OK"));
+
+if (reviewDelayMs > 0) {
+  await new Promise((resolve) => setTimeout(resolve, reviewDelayMs));
+}
 
 const child = spawn("/bin/zsh", ["-c", clientScript], {
   env: { ...process.env, THOUGHT_RUN_URL: runUrl, THOUGHT_LAUNCH_TOKEN: launchToken },
@@ -170,5 +194,7 @@ console.log(JSON.stringify({
   protocolReleaseId: liveRelease.protocol.protocolReleaseId,
   manifestKeccak256: liveRelease.protocol.manifestKeccak256,
   receipt: finalStatus.result?.receipt?.receiptSha256,
+  reviewDelayMs,
+  issuedClaimWindowMs,
   state: finalStatus.state,
 }, null, 2));

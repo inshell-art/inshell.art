@@ -10,8 +10,10 @@ import { onRequestPost as onFailRun } from "../../../functions/api/thought-agent
 import { onRequestPut as onSubmitResult } from "../../../functions/api/thought-agent/v1/runs/[runId]/result";
 import { onRequestPost as onStartRun } from "../../../functions/api/thought-agent/v1/runs/[runId]/start";
 import {
+  THOUGHT_AGENT_CLAIM_TTL_MS,
   THOUGHT_AGENT_PROTOCOL_VERSION,
   THOUGHT_AGENT_RESULT_VERSION,
+  THOUGHT_AGENT_RUN_TTL_MS,
   THOUGHT_V2_PROTOCOL_RELEASE,
   sha256Hex,
 } from "../../../packages/thought-agent-protocol/src/index";
@@ -436,6 +438,7 @@ describe("THOUGHT Agent Pages API", () => {
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     globalThis.Response = originalResponse;
     globalThis.Headers = originalHeaders;
     Object.defineProperty(globalThis, "crypto", {
@@ -517,6 +520,38 @@ describe("THOUGHT Agent Pages API", () => {
     });
   });
 
+  test("survives reviewed-client delay and rebases execution time on claim", async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date("2026-07-30T00:00:00.000Z"));
+    const d1 = createD1Mock();
+    const env = { INSHELL_CHAIN_DATA_DB: d1.db };
+    const created = await createRun(env, "review this client first");
+    const launchUrl = new globalThis.URL(created.payload.launchUri);
+    const runId = launchUrl.searchParams.get("run_id") ?? "";
+    const launchToken = launchUrl.searchParams.get("token") ?? "";
+
+    expect(
+      Date.parse(created.payload.claimExpiresAt) - Date.parse(created.payload.createdAt),
+    ).toBe(THOUGHT_AGENT_CLAIM_TTL_MS);
+
+    jest.advanceTimersByTime(6 * 60 * 1000);
+    const claimedAt = Date.now();
+    const claimed = await claimRun(env, runId, launchToken);
+    expect(claimed.response.status).toBe(200);
+    expect(Date.parse(claimed.payload.runExpiresAt) - claimedAt).toBe(
+      THOUGHT_AGENT_RUN_TTL_MS,
+    );
+
+    jest.advanceTimersByTime(5 * 60 * 1000);
+    const started = await startRun(
+      env,
+      runId,
+      claimed.payload.bridgeToken,
+      "tai_delayed_review_run",
+    );
+    expect(started.status).toBe(200);
+  });
+
   test("expires an unclaimed bearer link and exposes the terminal state to the browser", async () => {
     const d1 = createD1Mock();
     const env = { INSHELL_CHAIN_DATA_DB: d1.db };
@@ -586,9 +621,17 @@ describe("THOUGHT Agent Pages API", () => {
     });
 
     expect(response.status).toBe(201);
-    await expect(response.json()).resolves.toMatchObject({
+    const payload = await response.json();
+    expect(payload).toMatchObject({
       statusUrl: expect.stringMatching(/^\/api\/thought-agent\/v2\/runs\/tar_/),
+      client: {
+        url: "https://thought.inshell.art/api/thought-agent/v2/client",
+        sha256: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
+      },
     });
+    const clientResponse = onGetCodexClient() as unknown as TestResponse;
+    const clientScript = await clientResponse.text();
+    expect(await sha256Hex(clientScript)).toBe(payload.client.sha256);
   });
 
   test("serves the maintained Codex protocol client", async () => {

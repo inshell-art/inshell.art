@@ -1,7 +1,7 @@
 # THOUGHT App response to App / Contract boundary v1
 
 Status: App-owner response for local Anvil integration
-Date: 2026-07-23
+Date: 2026-07-31
 Production authorization: none
 
 The App accepts the current registry-bound Contract ABI as the only executable
@@ -11,8 +11,8 @@ deployment.
 
 | Decision | Response | App position |
 | --- | --- | --- |
-| D1 | accept | Keep `inshell.thought.creation-workflow-attestation.v1` and its current exact EIP-712 field order as the local integration baseline. A future incompatible claim requires a new profile. |
-| D2 | amend | Product vocabulary is `Manual work`, `Declared Agent`, and `Declared Model`. Do not reintroduce `My Brain` as protocol vocabulary. The first local slice may expose the builder before exposing a primary manual-work UI. |
+| D1 | accept | Use `inshell.thought.creation-workflow-attestation.v2` and its exact `agentHash` / `modelHash` EIP-712 field order for the r8 local integration baseline. V1 signatures are incompatible and must not be reused. |
+| D2 | amend | Product and Contract vocabulary is `Manual work`, `Agent`, and `Model`. Canonical App provenance intentionally retains `agentDeclaration` and `modelDeclaration` as evidence-structure keys, without implying independent identity verification. |
 | D3 | accept | The strict manual variant of canonical `inshell.thought.provenance.v2` is the guided Unattested minimum. Fixture, corpus, source-path, and harness fields remain outside it. |
 | D4 | accept | Expose exact raw provenance on token detail behind a secondary disclosure/download action. Do not put it in the primary mint controls. |
 | D5 | defer | Production authority, custody, pause, rotation, and epoch operations remain undefined. Local testing may use only the verifier’s disposable Anvil authority through a backend-only mock signer. |

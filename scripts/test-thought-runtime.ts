@@ -60,6 +60,12 @@ import {
   measureThoughtV2Line as measureContractThoughtV2Line,
 } from "../apps/thought/contract-integration/current/reference/thought-v2-terminal-work-profile";
 import {
+  CREATION_ATTESTATION_TYPEHASH,
+  hashCreationAttestationClaim,
+  hashCreationAttestationStruct,
+  type ThoughtCreationAttestationClaim,
+} from "../apps/thought/contract-integration/current/reference/thought-v2-current-creation-attestation";
+import {
   THOUGHT_V2_TERMINAL_WORK_PROFILE_ID,
   deriveThoughtV2TerminalWorkHashes,
 } from "../packages/shared/src/index";
@@ -69,7 +75,9 @@ import {
 } from "../apps/thought/src/thought-v2-empty-frame";
 import {
   THOUGHT_V2_LOCAL_RELEASE,
+  alignThoughtV2LocalRpcHost,
   isThoughtV2LocalMintRuntime,
+  type ThoughtV2LocalRelease,
   type ThoughtV2LocalRuntimeFacts,
 } from "../apps/thought/src/thought-v2-local-release";
 import { buildThoughtV2PathAcquisitionBrowserAddresses } from "../apps/thought/src/thought-v2-path-acquisition-runtime";
@@ -139,10 +147,103 @@ assert.equal(
 );
 assert.equal(
   localRelease.artifact.id,
-  "thought-v2-noncanonical-integration-preview-20260725-r7",
-  "local development must bind the immutable App/Contract integration preview",
+  "thought-v2-canonical-portable-release-20260801-r1",
+  "local development must bind the immutable canonical portable Contract release",
 );
-assert.equal(localRelease.artifact.productionConsumable, false);
+assert.equal(localRelease.artifact.productionConsumable, true);
+assert.equal(localRelease.artifact.deploymentAuthorized, false);
+const neutralRecordFixtures = JSON.parse(
+  await readFile(
+    new URL(
+      "../apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260801-r1/fixtures/neutral-agent-model-token-uri-examples.anvil.json",
+      import.meta.url,
+    ),
+    "utf8",
+  ),
+) as {
+  examples: Array<{
+    tokenId: number;
+    metadata: {
+      attributes: Array<{ trait_type: string; value: unknown }>;
+      description: string;
+      external_url: string;
+      properties: Record<string, unknown>;
+      thought: {
+        records: {
+          agent: { keccak256: string; label: string };
+          model: { keccak256: string; label: string };
+          workIdentityInput: boolean;
+        };
+      };
+    };
+  }>;
+};
+assert.equal(neutralRecordFixtures.examples.length, 3);
+for (const { metadata, tokenId } of neutralRecordFixtures.examples) {
+  assert.deepEqual(
+    metadata.attributes.map(({ trait_type }) => trait_type),
+    ["Agent", "Model", "Creation Attestation", "Prompt Bytes", "Agent Bytes"],
+  );
+  assert.equal(
+    metadata.description,
+    "THOUGHT V2 preserves a narrow terminal channel between human intention and Agent response, transforming their dialogue into an on-chain artwork.",
+  );
+  assert.equal(metadata.external_url, `https://inshell.art/thought/${tokenId}`);
+  assert.equal(metadata.properties.agent, metadata.thought.records.agent.label);
+  assert.equal(
+    metadata.properties.agentKeccak256,
+    metadata.thought.records.agent.keccak256,
+  );
+  assert.equal(metadata.properties.model, metadata.thought.records.model.label);
+  assert.equal(
+    metadata.properties.modelKeccak256,
+    metadata.thought.records.model.keccak256,
+  );
+  assert.equal(metadata.thought.records.workIdentityInput, false);
+  assert.equal(
+    metadata.attributes.some(({ trait_type }) =>
+      /^(Declared|Attested) (Agent|Model)$/.test(trait_type)
+    ),
+    false,
+  );
+}
+const attestationVectors = JSON.parse(
+  await readFile(
+    new URL(
+      "../apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260801-r1/protocol/current/v2/attestation/fixtures/creation-attestation-v2-vectors.json",
+      import.meta.url,
+    ),
+    "utf8",
+  ),
+) as {
+  domain: { chainId: string; verifyingContract: `0x${string}` };
+  typeHash: `0x${string}`;
+  vectors: Array<{
+    claim: Omit<ThoughtCreationAttestationClaim, "deadline" | "authorityEpoch"> & {
+      deadline: string;
+      authorityEpoch: string;
+    };
+    digest: `0x${string}`;
+    structHash: `0x${string}`;
+  }>;
+};
+assert.equal(CREATION_ATTESTATION_TYPEHASH, attestationVectors.typeHash);
+for (const vector of attestationVectors.vectors) {
+  const claim: ThoughtCreationAttestationClaim = {
+    ...vector.claim,
+    deadline: BigInt(vector.claim.deadline),
+    authorityEpoch: BigInt(vector.claim.authorityEpoch),
+  };
+  assert.equal(hashCreationAttestationStruct(claim), vector.structHash);
+  assert.equal(
+    hashCreationAttestationClaim(
+      BigInt(attestationVectors.domain.chainId),
+      attestationVectors.domain.verifyingContract,
+      claim,
+    ),
+    vector.digest,
+  );
+}
 assert.ok(
   THOUGHT_V2_LOCAL_RENDERER_ABI.some(
     (entry) =>
@@ -153,7 +254,7 @@ assert.ok(
   "the App must read the active renderer implementation before drawing its empty frame",
 );
 const currentFrameStyle = parseThoughtV2EmptyFrameStyle(
-  "inshell.thought.renderer.v2.humanist-smooth-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom",
+  "inshell.thought.renderer.v2.mono-76-v1-im76-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom",
 );
 assert.deepEqual(currentFrameStyle, {
   canvasSize: 960,
@@ -202,7 +303,10 @@ const localAgentEvidence = {
   runId: "tar_local_v2",
   adapter: "codex",
   rawResponseSha256: "a".repeat(64),
-};
+  model: "gpt-5.6-sol",
+  reasoningEffort: "ultra",
+  metadataSource: "reported",
+} as const;
 assert.equal(
   formatSavedWorkPromptLabel("  a prompt   with spaces  "),
   "a prompt with spaces",
@@ -305,45 +409,44 @@ assert.equal(
   "invalid Agent evidence must fail closed during work-history restore",
 );
 assert.deepEqual(
-  buildThoughtV2LocalAgentProcess(localAgentEvidence, declaredLocalAgentEnvelope.agentLine, "codex"),
+  buildThoughtV2LocalAgentProcess(localAgentEvidence, declaredLocalAgentEnvelope.agentLine),
   {
     kind: "agent-run",
-    agentDeclaration: {
+    agent: {
+      identifier: "codex",
       label: "Codex",
-      source: "runtime_configured",
-      status: "declared-unverified",
+      source: "producer-selected",
     },
-    modelDeclaration: {
-      label: "codex",
-      source: "runtime_configured",
-      status: "declared-unverified",
+    model: {
+      identifier: "gpt-5.6-sol/reasoning_effort/ultra",
+      label: "GPT-5.6 Sol · Ultra",
+      source: "runtime-reported",
     },
-    transport: {
+    run: {
       adapter: "codex",
       route: "inshell.thought.agent-run",
-      runReference: "tar_local_v2",
+      reference: "tar_local_v2",
       resultEnvelope: declaredLocalAgentEnvelope,
     },
   },
   "mint provenance must preserve validated Agent declaration and transport evidence",
 );
-assert.throws(
-  () => buildThoughtV2LocalAgentProcess(
+assert.equal(
+  buildThoughtV2LocalAgentProcess(
     { ...localAgentEvidence, result: localAgentEnvelope },
     localAgentEnvelope.agentLine,
-    "codex",
-  ),
-  /declaration is required/i,
+  ).agent.label,
+  "Codex",
+  "the selected adapter must supply Agent identity when the result has no legacy declaration",
 );
 assert.throws(
-  () => buildThoughtV2LocalAgentProcess(localAgentEvidence, "different work", "codex"),
+  () => buildThoughtV2LocalAgentProcess(localAgentEvidence, "different work"),
   /does not match the current work/i,
 );
 assert.throws(
   () => buildThoughtV2LocalAgentProcess(
     { ...localAgentEvidence, rawResponseSha256: "sha256:bad" },
     declaredLocalAgentEnvelope.agentLine,
-    "codex",
   ),
   /transport evidence is incomplete/i,
 );
@@ -432,6 +535,18 @@ for (const invalidRuntime of [
   );
 }
 const fakeLocalAddress = "0x1111111111111111111111111111111111111111";
+const eligibleLocalRelease = {
+  ...localRelease,
+  eligibleForLocalMint: true,
+  contracts: {
+    pathNft: fakeLocalAddress,
+    thoughtNft: fakeLocalAddress,
+    thoughtSpecRegistry: fakeLocalAddress,
+    thoughtRenderer: fakeLocalAddress,
+    protocolRegistry: fakeLocalAddress,
+    creationAttestationVerifier: fakeLocalAddress,
+  },
+} satisfies ThoughtV2LocalRelease;
 assert.equal(new TextEncoder().encode(localSpecText).length, localRelease.spec.byteLength);
 assert.equal(keccak256(toUtf8Bytes(localSpecText)), localRelease.spec.evmSpecHash);
 assert.equal(
@@ -483,6 +598,63 @@ assert.equal(
   isThoughtV2LocalMintRuntime(localRuntimeFacts),
   false,
   "a committed address-free fallback cannot enable minting",
+);
+const eligibleLocalRuntimeFacts: ThoughtV2LocalRuntimeFacts = {
+  ...localRuntimeFacts,
+  contracts: {
+    pathNft: eligibleLocalRelease.contracts.pathNft,
+    thoughtNft: eligibleLocalRelease.contracts.thoughtNft,
+    thoughtSpecRegistry: eligibleLocalRelease.contracts.thoughtSpecRegistry,
+    thoughtRenderer: eligibleLocalRelease.contracts.thoughtRenderer,
+    protocolRegistry: eligibleLocalRelease.contracts.protocolRegistry,
+    creationAttestationVerifier: eligibleLocalRelease.contracts.creationAttestationVerifier,
+  },
+};
+assert.equal(
+  isThoughtV2LocalMintRuntime(eligibleLocalRuntimeFacts, eligibleLocalRelease),
+  true,
+  "an exact eligible loopback runtime must enable local V2",
+);
+assert.equal(
+  isThoughtV2LocalMintRuntime({
+    ...eligibleLocalRuntimeFacts,
+    hostname: "192.168.0.104",
+    rpcUrl: "http://192.168.0.104:8546",
+    pathRpcUrl: "http://192.168.0.104:8546",
+  }, eligibleLocalRelease),
+  true,
+  "an exact eligible private-LAN runtime must keep the local V2 contract",
+);
+assert.equal(
+  alignThoughtV2LocalRpcHost("http://127.0.0.1:8546", "192.168.0.104"),
+  "http://192.168.0.104:8546/",
+  "the LAN App must advertise the host-reachable Anvil address instead of loopback",
+);
+assert.equal(
+  alignThoughtV2LocalRpcHost("http://192.168.0.104:8546", "127.0.0.1"),
+  "http://127.0.0.1:8546/",
+  "the loopback App must keep its local Anvil request on loopback",
+);
+assert.equal(
+  alignThoughtV2LocalRpcHost("https://rpc.example", "192.168.0.104"),
+  "https://rpc.example",
+  "a configured public RPC must not be rewritten as a LAN endpoint",
+);
+assert.equal(
+  isThoughtV2LocalMintRuntime({
+    ...eligibleLocalRuntimeFacts,
+    hostname: "preview.inshell.art",
+  }, eligibleLocalRelease),
+  false,
+  "a public preview host must not enable the local V2 contract",
+);
+assert.equal(
+  isThoughtV2LocalMintRuntime({
+    ...eligibleLocalRuntimeFacts,
+    rpcUrl: "https://rpc.example",
+  }, eligibleLocalRelease),
+  false,
+  "a public RPC must not enable the local V2 contract",
 );
 assert.equal(isThoughtV2LocalMintRuntime({ ...localRuntimeFacts, dev: false }), false);
 assert.equal(isThoughtV2LocalMintRuntime({ ...localRuntimeFacts, hostname: "preview.inshell.art" }), false);
@@ -581,20 +753,20 @@ const localProvenanceJson = buildThoughtV2LocalProvenance({
   agentLine: "the exact line survives",
   process: {
     kind: "agent-run",
-    agentDeclaration: {
+    agent: {
+      identifier: "codex",
       label: "Codex",
-      source: "runtime_configured",
-      status: "declared-unverified",
+      source: "producer-selected",
     },
-    modelDeclaration: {
-      label: "codex",
-      source: "runtime_configured",
-      status: "declared-unverified",
+    model: {
+      identifier: "gpt-5.6-sol/reasoning_effort/ultra",
+      label: "GPT-5.6 Sol · Ultra",
+      source: "runtime-reported",
     },
-    transport: {
+    run: {
       adapter: "codex",
       route: "inshell.thought.agent-run",
-      runReference: "tar_local_v2",
+      reference: "tar_local_v2",
       resultEnvelope: declaredLocalAgentEnvelope,
     },
   },
@@ -648,13 +820,13 @@ assert(new Interface(THOUGHT_V2_LOCAL_RENDERER_ABI).getFunction("render"), "prev
 assert.equal(
   localThoughtInterface.getFunction("mint")!.selector,
   "0x8836aa1b",
-  "local V2 ABI must match the deployed declaration-and-attestation mint shape",
+  "local V2 ABI must match the deployed neutral-record-and-attestation mint shape",
 );
 const localMintCalldata = localThoughtInterface.encodeFunctionData("mint", [{
   promptLine: "what survives?",
   agentLine: "the exact line survives",
-  declaredAgent: "Codex",
-  declaredModel: "codex",
+  agent: "Codex",
+  model: "GPT-5.6 Sol · Ultra",
   pathId: 1n,
   thoughtSpecId: localRelease.spec.evmSpecId,
   thoughtSpecHash: localRelease.spec.evmSpecHash,

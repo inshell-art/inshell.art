@@ -3,17 +3,7 @@
     "type": "constructor",
     "inputs": [
       {
-        "name": "glyphDefinitionsPointer1_",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "glyphDefinitionsPointer2_",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "glyphDefinitionsIndexPointer_",
+        "name": "glyphDataPointer",
         "type": "address",
         "internalType": "address"
       }
@@ -48,6 +38,19 @@
   },
   {
     "type": "function",
+    "name": "EXTERNAL_URL_BASE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "FRAME_COLOR",
     "inputs": [],
     "outputs": [
@@ -61,6 +64,19 @@
   },
   {
     "type": "function",
+    "name": "GLYPH_CELL_WIDTH_HUNDREDTHS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "GLYPH_COLOR",
     "inputs": [],
     "outputs": [
@@ -68,45 +84,6 @@
         "name": "",
         "type": "string",
         "internalType": "string"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "GLYPH_DEFINITIONS_INDEX_KECCAK256",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "GLYPH_DEFINITIONS_PART_1_KECCAK256",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "GLYPH_DEFINITIONS_PART_2_KECCAK256",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
       }
     ],
     "stateMutability": "view"
@@ -178,7 +155,20 @@
   },
   {
     "type": "function",
-    "name": "GLYPH_SCALE_TENTHS",
+    "name": "GLYPH_MANUAL_EDIT_PAYLOAD_SHA256",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "GLYPH_ORIGIN_SHIFT_HUNDREDTHS",
     "inputs": [],
     "outputs": [
       {
@@ -191,13 +181,52 @@
   },
   {
     "type": "function",
-    "name": "GLYPH_SOURCE_KECCAK256",
+    "name": "GLYPH_PACKED_KECCAK256",
     "inputs": [],
     "outputs": [
       {
         "name": "",
         "type": "bytes32",
         "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "GLYPH_PACKED_SHA256",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "GLYPH_RELEASE_TAG",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "GLYPH_SCALE_HUNDREDTHS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -217,7 +246,7 @@
   },
   {
     "type": "function",
-    "name": "GLYPH_VISUAL_BASELINE_HUNDREDTHS",
+    "name": "GLYPH_STROKE_WIDTH_HUNDREDTHS",
     "inputs": [],
     "outputs": [
       {
@@ -356,7 +385,7 @@
         "internalType": "address"
       }
     ],
-    "stateMutability": "view"
+    "stateMutability": "pure"
   },
   {
     "type": "function",
@@ -395,7 +424,7 @@
         "internalType": "address"
       }
     ],
-    "stateMutability": "view"
+    "stateMutability": "pure"
   },
   {
     "type": "function",
@@ -446,12 +475,12 @@
             "internalType": "string"
           },
           {
-            "name": "declaredAgent",
+            "name": "agent",
             "type": "string",
             "internalType": "string"
           },
           {
-            "name": "declaredModel",
+            "name": "model",
             "type": "string",
             "internalType": "string"
           },
@@ -524,38 +553,6 @@
   },
   {
     "type": "error",
-    "name": "ContextEmpty",
-    "inputs": [
-      {
-        "name": "kind",
-        "type": "uint8",
-        "internalType": "enum ThoughtV2ContextProfile.ContextKind"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "ContextTooLarge",
-    "inputs": [
-      {
-        "name": "kind",
-        "type": "uint8",
-        "internalType": "enum ThoughtV2ContextProfile.ContextKind"
-      },
-      {
-        "name": "actual",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "max",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
     "name": "ContractCodeStorageInvalidPointer",
     "inputs": [
       {
@@ -567,52 +564,8 @@
   },
   {
     "type": "error",
-    "name": "InvalidContextCharacter",
-    "inputs": [
-      {
-        "name": "kind",
-        "type": "uint8",
-        "internalType": "enum ThoughtV2ContextProfile.ContextKind"
-      },
-      {
-        "name": "codepoint",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "InvalidContextEncoding",
-    "inputs": [
-      {
-        "name": "kind",
-        "type": "uint8",
-        "internalType": "enum ThoughtV2ContextProfile.ContextKind"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "InvalidContextSpacing",
-    "inputs": [
-      {
-        "name": "kind",
-        "type": "uint8",
-        "internalType": "enum ThoughtV2ContextProfile.ContextKind"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "InvalidGlyphDefinitionsPointer",
-    "inputs": [
-      {
-        "name": "part",
-        "type": "uint8",
-        "internalType": "uint8"
-      }
-    ]
+    "name": "InvalidGlyphDataPointer",
+    "inputs": []
   },
   {
     "type": "error",

@@ -817,12 +817,30 @@ button,
   text-transform: lowercase;
 }
 
-.verify-page__section p {
+.verify-page__section p,
+.verify-page__body > p {
   margin: 0;
   color: var(--muted);
   font-size: var(--font-size-12);
   font-weight: var(--weight-mid);
   line-height: 1.65;
+}
+
+.docs-page .verify-page__section h2,
+.docs-page .verify-page__section p,
+.docs-page .primitive-page__links a,
+.docs-page .primitive-page__links button,
+.verify-page .primitive-page__copy p,
+.verify-page .verify-page__section h2,
+.verify-page .verify-page__section p,
+.verify-page .verify-page__body > p,
+.verify-page .verify-page__notes h3,
+.verify-page .primitive-page__fields dt,
+.verify-page .primitive-page__fields dd,
+.verify-page .verify-page__contract-row,
+.verify-page .primitive-page__links a,
+.verify-page .primitive-page__links button {
+  font-size: var(--font-size-14);
 }
 
 .verify-page__notes {

@@ -4099,7 +4099,11 @@ export default function AuctionCanvas({
       const floor = Number.isFinite(floorRaw)
         ? floorRaw / decFactor
         : Number.NaN;
-      const tHalf = stateStartSec - stateAnchorSec;
+      const anchorGapSec = stateStartSec - stateAnchorSec;
+      // Pulse intentionally allows anchor == start after a large pump. Its
+      // integer-time clamp holds the premium at k through t + 1, then reaches
+      // k / 2 at t + 2, so the first visible half-life is two seconds.
+      const tHalf = anchorGapSec === 0 ? 2 : anchorGapSec;
       const premium = kHuman / positiveDenominator(tHalf);
       if (
         !Number.isFinite(stateStartSec) ||

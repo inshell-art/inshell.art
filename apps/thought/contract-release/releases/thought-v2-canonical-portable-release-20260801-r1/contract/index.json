@@ -1,0 +1,106 @@
+{
+  "contracts": [
+    {
+      "artifact": "contract/compiled/ThoughtNFTV2.json",
+      "classification": "current-contract-candidate",
+      "contractName": "ThoughtNFTV2",
+      "sourceName": "src/v2/ThoughtNFTV2.sol"
+    },
+    {
+      "artifact": "contract/compiled/IThoughtRendererV2.json",
+      "classification": "current-renderer-interface",
+      "contractName": "IThoughtRendererV2",
+      "sourceName": "src/v2/IThoughtRendererV2.sol"
+    },
+    {
+      "artifact": "contract/compiled/IThoughtSvgRendererV2.json",
+      "classification": "current-svg-renderer-interface",
+      "contractName": "IThoughtSvgRendererV2",
+      "sourceName": "src/v2/IThoughtSvgRendererV2.sol"
+    },
+    {
+      "artifact": "contract/compiled/ThoughtRendererV2.json",
+      "classification": "current-native-path-renderer-candidate",
+      "contractName": "ThoughtRendererV2",
+      "sourceName": "src/v2/ThoughtRendererV2.sol"
+    },
+    {
+      "artifact": "contract/compiled/ThoughtSvgRendererV2.json",
+      "classification": "current-standalone-svg-renderer-candidate",
+      "contractName": "ThoughtSvgRendererV2",
+      "sourceName": "src/v2/ThoughtSvgRendererV2.sol"
+    },
+    {
+      "artifact": "contract/compiled/ThoughtRendererV2Split.json",
+      "classification": "current-split-metadata-renderer-candidate",
+      "contractName": "ThoughtRendererV2Split",
+      "sourceName": "src/v2/ThoughtRendererV2Split.sol"
+    },
+    {
+      "artifact": "contract/compiled/ICreationAttestationVerifierV2.json",
+      "classification": "current-attestation-interface",
+      "contractName": "ICreationAttestationVerifierV2",
+      "sourceName": "src/v2/ICreationAttestationVerifierV2.sol"
+    },
+    {
+      "artifact": "contract/compiled/CreationAttestationVerifierV2.json",
+      "classification": "current-neutral-record-attestation-verifier",
+      "contractName": "CreationAttestationVerifierV2",
+      "sourceName": "src/v2/CreationAttestationVerifierV2.sol"
+    },
+    {
+      "artifact": "contract/compiled/ThoughtSpecRegistry.json",
+      "classification": "shared-current-dependency",
+      "contractName": "ThoughtSpecRegistry",
+      "sourceName": "src/ThoughtSpecRegistry.sol"
+    },
+    {
+      "artifact": "contract/compiled/ThoughtSpecRegistryV2.json",
+      "classification": "shared-current-protocol-release-registry",
+      "contractName": "ThoughtSpecRegistryV2",
+      "sourceName": "src/ThoughtSpecRegistryV2.sol"
+    }
+  ],
+  "externalDependencies": {
+    "pathNft": {
+      "bundled": false,
+      "movement": "THOUGHT",
+      "ownerRepository": "PATH",
+      "requiredMethod": "consumeUnit(uint256,bytes32,address,uint256,bytes)",
+      "requiredReturnType": "uint32"
+    },
+    "thoughtSpecRegistry": {
+      "bundled": true,
+      "dependencyChangedByReleaseClassification": false,
+      "requiredByThoughtNFTV2": true
+    }
+  },
+  "persistentNetworkDeployments": [],
+  "schema": "inshell.thought.contract-index.canonical-portable-release.v1",
+  "targetChains": [
+    {
+      "chainId": 31337,
+      "deploymentAuthorized": false,
+      "name": "Disposable Anvil",
+      "persistent": false,
+      "purpose": "downstream chain-first acceptance only",
+      "runtimeSizeCompatible": true
+    },
+    {
+      "chainId": 11155111,
+      "deploymentAuthorized": false,
+      "name": "Sepolia",
+      "persistent": true,
+      "prerequisite": "explicit operator approval and reviewed network configuration",
+      "runtimeSizeCompatible": true
+    },
+    {
+      "chainId": 1,
+      "deploymentAuthorized": false,
+      "name": "Ethereum mainnet",
+      "persistent": true,
+      "prerequisite": "separate operator approval after accepted Sepolia evidence",
+      "runtimeSizeCompatible": true
+    }
+  ]
+}

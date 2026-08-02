@@ -1,0 +1,292 @@
+{
+  "baseline": {
+    "artifactId": "thought-v2-noncanonical-integration-preview-20260801-r10",
+    "manifestSha256": "eefce7c7ea8c1422c9ab3e631ebe15bed7935fbaf79588158ed8fb28eb746e94",
+    "publicationCommit": "0cea80f10d6b5477d029560466628b315f48bf39",
+    "metadataProfile": {
+      "attributeOrder": [
+        "Agent",
+        "Model",
+        "Creation Attestation",
+        "Prompt Bytes",
+        "Agent Bytes",
+        "Pair Bytes",
+        "Prompt Length",
+        "Agent Length"
+      ],
+      "sha256": "856935f5e13fd4f62eb7c0945744e4af13011417a2f91cdb0636cc2c5f81a560"
+    },
+    "selectedSpec": {
+      "byteLength": 4627,
+      "name": "THOUGHT.v2.md",
+      "sha256": "90df786a3ffb5ec38bffd09ff356ec560d0b7dddcdf57170891149a92a399e9b",
+      "thoughtSpecHash": "0xb2b0a167678816a7ae9dc9098b0d6a6852c0dc95feb59f9581de75bd2cc2231f",
+      "thoughtSpecId": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410"
+    },
+    "sourceBaseCommit": "3f48361b78d8062fbe9e2eca9774d82d40524fb4"
+  },
+  "current": {
+    "artifactId": "thought-v2-noncanonical-integration-preview-20260801-r11",
+    "metadataProfile": {
+      "attributeOrder": [
+        "Agent",
+        "Model",
+        "Creation Attestation",
+        "Prompt Bytes",
+        "Agent Bytes"
+      ],
+      "sha256": "a08842ac2bf8432a054f182f0a93fe8e73c3d0bdf9c73239018c4c78e6363af7"
+    },
+    "selectedSpec": {
+      "byteLength": 4627,
+      "name": "THOUGHT.v2.md",
+      "sha256": "90df786a3ffb5ec38bffd09ff356ec560d0b7dddcdf57170891149a92a399e9b",
+      "thoughtSpecHash": "0xb2b0a167678816a7ae9dc9098b0d6a6852c0dc95feb59f9581de75bd2cc2231f",
+      "thoughtSpecId": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410"
+    }
+  },
+  "declaredChanges": {
+    "marketplaceAttributes": true,
+    "metadataProfileBytesAndHash": true,
+    "rendererMetadataBytecode": true,
+    "tokenUriBytes": true
+  },
+  "declaredUnchanged": {
+    "canonicalExternalUrl": true,
+    "creationAttestation": true,
+    "provenanceBoundary": true,
+    "publicNftAbiAndBytecode": true,
+    "rendererIdentity": true,
+    "selectedSpecBytesAndHash": true,
+    "svgAndArtworkBytes": true
+  },
+  "fixtureComparisons": [
+    {
+      "agentLine": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "baselineImageSha256": "de87bce087663023390b6938241440234531ea468559b8b93c253eba499194d6",
+      "baselineTokenId": 1,
+      "currentAttributeOrder": [
+        "Agent",
+        "Model",
+        "Creation Attestation",
+        "Prompt Bytes",
+        "Agent Bytes"
+      ],
+      "currentImageSha256": "de87bce087663023390b6938241440234531ea468559b8b93c253eba499194d6",
+      "currentTokenId": 1,
+      "duplicateTraitNames": 0,
+      "externalUrlEqual": true,
+      "imageBytesEqual": true,
+      "promptLine": "THOUGHT WILL AWA",
+      "typedStateParity": true
+    },
+    {
+      "agentLine": "0123456789.",
+      "baselineImageSha256": "a3be2c4027507967c5c010e66f322852ad25e0db2340f98dac3bffe676944467",
+      "baselineTokenId": 2,
+      "currentAttributeOrder": [
+        "Agent",
+        "Model",
+        "Creation Attestation",
+        "Prompt Bytes",
+        "Agent Bytes"
+      ],
+      "currentImageSha256": "a3be2c4027507967c5c010e66f322852ad25e0db2340f98dac3bffe676944467",
+      "currentTokenId": 2,
+      "duplicateTraitNames": 0,
+      "externalUrlEqual": true,
+      "imageBytesEqual": true,
+      "promptLine": "Can you count from 0 to 9?",
+      "typedStateParity": true
+    },
+    {
+      "agentLine": "Then choose the next visible kindness.",
+      "baselineImageSha256": "a517a9d2ad3d57b503e1b7053573c7ea2357c6bc964ef2d2218d46c2def717f7",
+      "baselineTokenId": 42,
+      "currentAttributeOrder": [
+        "Agent",
+        "Model",
+        "Creation Attestation",
+        "Prompt Bytes",
+        "Agent Bytes"
+      ],
+      "currentImageSha256": "a517a9d2ad3d57b503e1b7053573c7ea2357c6bc964ef2d2218d46c2def717f7",
+      "currentTokenId": 42,
+      "duplicateTraitNames": 0,
+      "externalUrlEqual": true,
+      "imageBytesEqual": true,
+      "promptLine": "What if the future stays unclear?",
+      "typedStateParity": true
+    }
+  ],
+  "removedTraits": [
+    "Pair Bytes",
+    "Prompt Length",
+    "Agent Length"
+  ],
+  "schema": "inshell.thought.r10-to-r11-portable-marketplace-traits.integration-preview.v1",
+  "changedRendererArtifacts": [
+    {
+      "abiEqual": true,
+      "baseline": {
+        "abiSha256": "dd0a4f6b0d1757188ba29f6bc729d528ea117f360da373994e5676f9d7999e02",
+        "creationBytecodeSha256": "45d94050f9af2ce8c980b20cf6e6b1cf688b2763d483ac15c111e0f20270a030",
+        "runtimeBytecodeSha256": "45d7242b16bd14b0b858078db7f9257a5502b5d2b6c795a6b708c4246186b71b"
+      },
+      "contractName": "ThoughtRendererV2",
+      "creationBytecodeEqual": false,
+      "current": {
+        "abiSha256": "dd0a4f6b0d1757188ba29f6bc729d528ea117f360da373994e5676f9d7999e02",
+        "creationBytecodeSha256": "54b99a8b102cbaf6d6520bf7bbd57a991ed005e30241051b32832cd0245c414a",
+        "runtimeBytecodeSha256": "5e4157f51487a0a83fb0ba9cfff635dbdd2a84dc734512811907937c8de0da6d"
+      },
+      "runtimeBytecodeEqual": false
+    },
+    {
+      "abiEqual": true,
+      "baseline": {
+        "abiSha256": "ba6a8635274298ea8ce63aa79f3a1b3adfd6e2a99ea20c5737a65993825036fa",
+        "creationBytecodeSha256": "ce7a246020d3c68f0087d74c22f7dfe5d5820e6b047834f3fa8d15c577271cbb",
+        "runtimeBytecodeSha256": "062d98e425411c7dfd61a21886b0028c0e837d3b3fb4b39d0d060ad8957b9610"
+      },
+      "contractName": "ThoughtRendererV2Split",
+      "creationBytecodeEqual": false,
+      "current": {
+        "abiSha256": "ba6a8635274298ea8ce63aa79f3a1b3adfd6e2a99ea20c5737a65993825036fa",
+        "creationBytecodeSha256": "3320162c324e22595582b4fa39d623dd1e3f3d4acb7f101496d7015a4861fd27",
+        "runtimeBytecodeSha256": "a353225d598e8f28493fbd83462cfe35071dd259e52b17e6a64fd850b3bed469"
+      },
+      "runtimeBytecodeEqual": false
+    }
+  ],
+  "unchangedContractArtifacts": [
+    {
+      "abiEqual": true,
+      "baseline": {
+        "abiSha256": "fe5b520f8c918d08cdfec067cb66034c8f0f470febc8bdf83c352f58c4aabf1e",
+        "creationBytecodeSha256": "45dada162351b121cc95e4907ea334bbad4b09acc21cc496672f06a570071d34",
+        "runtimeBytecodeSha256": "7d818453e4cd26ed6a23a3052142d36888aaa84f58d08e690b2504d0976462c5"
+      },
+      "contractName": "ThoughtNFTV2",
+      "creationBytecodeEqual": true,
+      "current": {
+        "abiSha256": "fe5b520f8c918d08cdfec067cb66034c8f0f470febc8bdf83c352f58c4aabf1e",
+        "creationBytecodeSha256": "45dada162351b121cc95e4907ea334bbad4b09acc21cc496672f06a570071d34",
+        "runtimeBytecodeSha256": "7d818453e4cd26ed6a23a3052142d36888aaa84f58d08e690b2504d0976462c5"
+      },
+      "runtimeBytecodeEqual": true
+    },
+    {
+      "abiEqual": true,
+      "baseline": {
+        "abiSha256": "722e698a4ec0ad137085f1c3775e8d6d3b7dafdb59573fde9785f208cc941af9",
+        "creationBytecodeSha256": "82f1b0c2067975cb2783e4adbe00981ccb3fac8b172b7e8112a2ce51b6041fc7",
+        "runtimeBytecodeSha256": "e382a80743d7e61736c11bc8d3a087bc8cb93ed47d7f918bbb41f910c2e8a8ac"
+      },
+      "contractName": "CreationAttestationVerifierV2",
+      "creationBytecodeEqual": true,
+      "current": {
+        "abiSha256": "722e698a4ec0ad137085f1c3775e8d6d3b7dafdb59573fde9785f208cc941af9",
+        "creationBytecodeSha256": "82f1b0c2067975cb2783e4adbe00981ccb3fac8b172b7e8112a2ce51b6041fc7",
+        "runtimeBytecodeSha256": "e382a80743d7e61736c11bc8d3a087bc8cb93ed47d7f918bbb41f910c2e8a8ac"
+      },
+      "runtimeBytecodeEqual": true
+    },
+    {
+      "abiEqual": true,
+      "baseline": {
+        "abiSha256": "18ef94fcd3592f454cb1a03dd6c573cef3b3803eb565355bb2f401722e216f7e",
+        "creationBytecodeSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "runtimeBytecodeSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "contractName": "IThoughtRendererV2",
+      "creationBytecodeEqual": true,
+      "current": {
+        "abiSha256": "18ef94fcd3592f454cb1a03dd6c573cef3b3803eb565355bb2f401722e216f7e",
+        "creationBytecodeSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "runtimeBytecodeSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "runtimeBytecodeEqual": true
+    },
+    {
+      "abiEqual": true,
+      "baseline": {
+        "abiSha256": "2575fc6be2365146be0fe33c5dff476a6025312608fc4750c29d2970857b0d11",
+        "creationBytecodeSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "runtimeBytecodeSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "contractName": "IThoughtSvgRendererV2",
+      "creationBytecodeEqual": true,
+      "current": {
+        "abiSha256": "2575fc6be2365146be0fe33c5dff476a6025312608fc4750c29d2970857b0d11",
+        "creationBytecodeSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "runtimeBytecodeSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "runtimeBytecodeEqual": true
+    },
+    {
+      "abiEqual": true,
+      "baseline": {
+        "abiSha256": "7bc4edc7b5dddce55b5cb6502258f936f273398947a0448f4ef9086bae3e0ef1",
+        "creationBytecodeSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "runtimeBytecodeSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "contractName": "ICreationAttestationVerifierV2",
+      "creationBytecodeEqual": true,
+      "current": {
+        "abiSha256": "7bc4edc7b5dddce55b5cb6502258f936f273398947a0448f4ef9086bae3e0ef1",
+        "creationBytecodeSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "runtimeBytecodeSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "runtimeBytecodeEqual": true
+    },
+    {
+      "abiEqual": true,
+      "baseline": {
+        "abiSha256": "cc4571806ebaeff3b5b593baaa769612dc4dc9d665b2d076b68047e847627d9d",
+        "creationBytecodeSha256": "815ba64ca9b9a2a63002e494acf422b83e41e7d4abe3769cefd718c81a640e90",
+        "runtimeBytecodeSha256": "d0f6015d407d848e933802ea0470956c7c2c27d649f09c236d2ca881221a2dfe"
+      },
+      "contractName": "ThoughtSpecRegistry",
+      "creationBytecodeEqual": true,
+      "current": {
+        "abiSha256": "cc4571806ebaeff3b5b593baaa769612dc4dc9d665b2d076b68047e847627d9d",
+        "creationBytecodeSha256": "815ba64ca9b9a2a63002e494acf422b83e41e7d4abe3769cefd718c81a640e90",
+        "runtimeBytecodeSha256": "d0f6015d407d848e933802ea0470956c7c2c27d649f09c236d2ca881221a2dfe"
+      },
+      "runtimeBytecodeEqual": true
+    },
+    {
+      "abiEqual": true,
+      "baseline": {
+        "abiSha256": "5ebb12aa1a9ab26d2837640f54a6bb273b2841133b1d6a3d23b7d8e29e7a571e",
+        "creationBytecodeSha256": "bebd21bd37b672a5bde5e00f096162a50f2f84c83da2f8041c371db7548404e2",
+        "runtimeBytecodeSha256": "cf0e47793ac7cbd5e7261f577db967a7727766d34ab38bf9a8005c7c1f57e928"
+      },
+      "contractName": "ThoughtSpecRegistryV2",
+      "creationBytecodeEqual": true,
+      "current": {
+        "abiSha256": "5ebb12aa1a9ab26d2837640f54a6bb273b2841133b1d6a3d23b7d8e29e7a571e",
+        "creationBytecodeSha256": "bebd21bd37b672a5bde5e00f096162a50f2f84c83da2f8041c371db7548404e2",
+        "runtimeBytecodeSha256": "cf0e47793ac7cbd5e7261f577db967a7727766d34ab38bf9a8005c7c1f57e928"
+      },
+      "runtimeBytecodeEqual": true
+    },
+    {
+      "abiEqual": true,
+      "baseline": {
+        "abiSha256": "240925e366a70f2ed6112248ea4730347154a17c954ac1f743f6b01e7a3a075c",
+        "creationBytecodeSha256": "6fde73de3d4a4f125c2a27b6f82b53b54321d57d6595c11e6401d82afe2993bd",
+        "runtimeBytecodeSha256": "6a5bdba4cdc195cab497bfdd9e8a096545f13de82dc737969ca62dd0b5e87e0a"
+      },
+      "contractName": "ThoughtSvgRendererV2",
+      "creationBytecodeEqual": true,
+      "current": {
+        "abiSha256": "240925e366a70f2ed6112248ea4730347154a17c954ac1f743f6b01e7a3a075c",
+        "creationBytecodeSha256": "6fde73de3d4a4f125c2a27b6f82b53b54321d57d6595c11e6401d82afe2993bd",
+        "runtimeBytecodeSha256": "6a5bdba4cdc195cab497bfdd9e8a096545f13de82dc737969ca62dd0b5e87e0a"
+      },
+      "runtimeBytecodeEqual": true
+    }
+  ]
+}

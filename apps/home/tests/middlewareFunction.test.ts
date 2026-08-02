@@ -258,6 +258,65 @@ describe("Pages middleware canonical routes", () => {
     expect(ctx.next).not.toHaveBeenCalled();
   });
 
+  test("serves immutable protocol artifacts without the app-shell fallback", async () => {
+    const ctx = middlewareContext(
+      "https://inshell.art/protocol/releases/thought-provenance-v2-20260731-r1/thought.provenance.v2.schema.json",
+    );
+    ctx.assetsFetch.mockResolvedValueOnce(
+      new Response("{\"schema\":true}", {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe(
+      "application/schema+json; charset=utf-8",
+    );
+    expect(response.headers.get("cache-control")).toBe(
+      "public, max-age=31536000, immutable",
+    );
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
+    expect(ctx.next).not.toHaveBeenCalled();
+  });
+
+  test("returns 404 instead of an app shell for a missing immutable artifact", async () => {
+    const ctx = middlewareContext(
+      "https://inshell.art/protocol/releases/thought-provenance-v2-20260731-r1/missing.json",
+    );
+    ctx.assetsFetch.mockResolvedValueOnce(
+      new Response("<!doctype html><title>app</title>", {
+        status: 200,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      }),
+    );
+
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
+    expect(ctx.next).not.toHaveBeenCalled();
+  });
+
+  test("keeps immutable protocol artifacts read-only", async () => {
+    const ctx = middlewareContext(
+      "https://inshell.art/protocol/releases/thought-provenance-v2-20260731-r1/manifest.json",
+      { method: "POST" },
+    );
+
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(405);
+    expect(response.headers.get("allow")).toBe("GET, HEAD");
+    expect(ctx.assetsFetch).not.toHaveBeenCalled();
+    expect(ctx.next).not.toHaveBeenCalled();
+  });
+
   test("routes PUB reserved paths to the PUB upstream before the app shell", async () => {
     const fetchMock = jest.fn(
       async () =>

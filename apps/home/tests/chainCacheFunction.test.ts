@@ -5,6 +5,7 @@ import {
   createChainCacheDiagnostics,
   getLogsChunked,
   json,
+  parseProvenanceMaterial,
   readResponseCache,
   readSnapshot,
   withChainCacheDiagnostics,
@@ -38,6 +39,36 @@ const THOUGHT_MINTED_TOPIC =
   "0xf83a962c31fcc481a4796d3bd1f81a4b58d1b05ec5cb34e434b2d40962596860";
 const ZERO_TOPIC =
   "0x0000000000000000000000000000000000000000000000000000000000000000";
+
+test("current THOUGHT provenance preserves recorded Agent and runtime Model", () => {
+  expect(
+    parseProvenanceMaterial(
+      JSON.stringify({
+        work: {
+          promptLine: "Who are you?",
+          promptLineKeccak256: "0xprompt",
+          agentLine: "A bounded answer.",
+          agentLineKeccak256: "0xagent",
+        },
+        process: {
+          kind: "agent-run",
+          agent: { label: "Codex" },
+          model: { label: "GPT-5.6 Sol · Ultra" },
+          run: { adapter: "codex" },
+        },
+      }),
+    ),
+  ).toEqual({
+    prompt: "Who are you?",
+    promptHash: "0xprompt",
+    returnedText: "A bounded answer.",
+    returnedTextHash: "0xagent",
+    mode: "agent-run",
+    provider: "codex",
+    agent: "Codex",
+    model: "GPT-5.6 Sol · Ultra",
+  });
+});
 
 function word(value: bigint) {
   return value.toString(16).padStart(64, "0");

@@ -24,17 +24,23 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const rpcUrl = process.env.RPC_URL ?? "http://127.0.0.1:8546";
 const treasury = process.env.PATH_TREASURY ?? "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC";
 const pathArtifactRoot = process.env.PATH_EVM_DIR ?? path.resolve(root, "../path/evm");
-const artifactId = "thought-v2-noncanonical-integration-preview-20260725-r7";
+const artifactId = "thought-v2-canonical-portable-release-20260801-r1";
 const previewRoot = path.join(
   root,
-  "apps/thought/integration-preview/releases",
+  "apps/thought/contract-release/releases",
   artifactId,
 );
 const compiledRoot = path.join(previewRoot, "contract/compiled");
 const creativeSpecLockFile = path.join(root, "apps/thought/spec/THOUGHT.v2.lock.json");
 const creativeSpecFile = path.join(root, "apps/thought/spec/THOUGHT.v2.md");
+const provenanceRoot = path.join(root, "apps/thought/provenance/v2");
+const provenanceLockFile = path.join(provenanceRoot, "provenance-lock.json");
+const provenanceSchemaFile = path.join(
+  provenanceRoot,
+  "thought.provenance.v2.schema.json",
+);
 const addressesFile = path.join(root, "apps/thought/evm/addresses.anvil.json");
-const lockFile = path.join(root, "apps/thought/integration-preview/consumer-lock.json");
+const lockFile = path.join(root, "apps/thought/contract-release/consumer-lock.json");
 const movement = encodeBytes32String("THOUGHT");
 const auctionOpenDelaySeconds = Number.parseInt(
   process.env.PATH_AUCTION_OPEN_DELAY_SECONDS ?? "30",
@@ -103,23 +109,29 @@ const assertDataPointer = async (provider, pointer, expectedKeccak256, label) =>
 const previewFileKeccak = async (relativePath) =>
   keccak256(await fs.readFile(path.join(previewRoot, relativePath)));
 
+const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
+
 async function main() {
   const provider = new JsonRpcProvider(rpcUrl);
   const network = await provider.getNetwork();
-  if (network.chainId !== 31_337n) throw new Error(`preview deploy requires Anvil chain 31337, got ${network.chainId}`);
+  if (network.chainId !== 31_337n) throw new Error(`local acceptance deploy requires Anvil chain 31337, got ${network.chainId}`);
   const unlockedSigner = await provider.getSigner(0);
   const deployerAddress = await unlockedSigner.getAddress();
   const existingNonce = await provider.getTransactionCount(deployerAddress);
   if (existingNonce !== 0 && process.env.INSHELL_ALLOW_LOCAL_REDEPLOY !== "1") {
     throw new Error(
-      `preview deploy requires fresh Anvil; deployer nonce is ${existingNonce}. ` +
+      `local acceptance deploy requires fresh Anvil; deployer nonce is ${existingNonce}. ` +
       "Set INSHELL_ALLOW_LOCAL_REDEPLOY=1 only after saving an explicit local-chain checkpoint.",
     );
   }
   const signer = new NonceManager(unlockedSigner);
   const vendorLock = JSON.parse(await fs.readFile(lockFile, "utf8"));
-  if (vendorLock.artifactId !== artifactId || vendorLock.productionConsumable !== false) {
-    throw new Error("noncanonical integration preview lock mismatch");
+  if (
+    vendorLock.artifactId !== artifactId ||
+    vendorLock.productionConsumable !== true ||
+    vendorLock.deploymentAuthorized !== false
+  ) {
+    throw new Error("canonical portable Contract release lock mismatch");
   }
   const creativeSpecLock = JSON.parse(await fs.readFile(creativeSpecLockFile, "utf8"));
   if (
@@ -135,6 +147,20 @@ async function main() {
   if (specName !== "THOUGHT.v2.md") {
     throw new Error("App-owned creative spec name mismatch");
   }
+  const provenanceLock = JSON.parse(await fs.readFile(provenanceLockFile, "utf8"));
+  const provenanceSchemaBytes = await fs.readFile(provenanceSchemaFile);
+  if (
+    provenanceLock.schema !== "inshell.thought.provenance-lock.v1" ||
+    provenanceLock.authority?.owner !== "THOUGHT App" ||
+    provenanceLock.provenanceSchema !== "inshell.thought.provenance.v2" ||
+    provenanceLock.publication?.published !== false ||
+    provenanceLock.artifacts?.schema?.sha256 !== sha256(provenanceSchemaBytes) ||
+    provenanceLock.artifacts?.schema?.keccak256 !== keccak256(provenanceSchemaBytes)
+  ) {
+    throw new Error("App-owned provenance V2 lock mismatch");
+  }
+  const provenanceSchemaRef =
+    `app://thought/provenance/${provenanceLock.artifactId}/thought.provenance.v2.schema.json`;
 
   const latest = await provider.getBlock("latest");
   if (!latest) throw new Error("latest Anvil block unavailable");
@@ -204,65 +230,52 @@ async function main() {
     path.join(previewRoot, "protocol/current/v2/renderer/thought.renderer.v2.profile.json"),
     "utf8",
   ));
-  const [glyphDefinitionsPart1, glyphDefinitionsPart2, glyphDefinitionsIndex] =
-    await Promise.all([
-      fs.readFile(path.join(previewRoot, rendererProfile.glyphSource.pathDefinitions[0].path)),
-      fs.readFile(path.join(previewRoot, rendererProfile.glyphSource.pathDefinitions[1].path)),
-      fs.readFile(path.join(previewRoot, rendererProfile.glyphSource.pathDefinitionIndex.path)),
-    ]);
-  const glyphDefinitionsPart1Pointer = await deployDataPointer(
-    signer,
-    glyphDefinitionsPart1,
+  const glyphPackedBytes = await fs.readFile(
+    path.join(previewRoot, rendererProfile.format.packedPath),
   );
-  const glyphDefinitionsPart2Pointer = await deployDataPointer(
-    signer,
-    glyphDefinitionsPart2,
+  const glyphPackedKeccak256 = keccak256(glyphPackedBytes);
+  const glyphPackedSha256 = sha256(glyphPackedBytes);
+  if (
+    glyphPackedBytes.length !== rendererProfile.format.totalBytes ||
+    glyphPackedKeccak256 !== rendererProfile.format.packedKeccak256 ||
+    glyphPackedSha256 !== rendererProfile.format.packedSha256
+  ) {
+    throw new Error("Mono 76 packed renderer payload mismatch");
+  }
+  const glyphDataPointer = await deployDataPointer(signer, glyphPackedBytes);
+  await assertDataPointer(
+    provider,
+    glyphDataPointer,
+    glyphPackedKeccak256,
+    "Mono 76 packed glyph data",
   );
-  const glyphDefinitionsIndexPointer = await deployDataPointer(
+  const renderer = await deploy(
     signer,
-    glyphDefinitionsIndex,
+    thoughtArtifact("ThoughtRendererV2"),
+    [glyphDataPointer],
   );
-  await Promise.all([
-    assertDataPointer(
-      provider,
-      glyphDefinitionsPart1Pointer,
-      rendererProfile.glyphSource.pathDefinitions[0].keccak256,
-      "glyph definitions part 1",
-    ),
-    assertDataPointer(
-      provider,
-      glyphDefinitionsPart2Pointer,
-      rendererProfile.glyphSource.pathDefinitions[1].keccak256,
-      "glyph definitions part 2",
-    ),
-    assertDataPointer(
-      provider,
-      glyphDefinitionsIndexPointer,
-      rendererProfile.glyphSource.pathDefinitionIndex.keccak256,
-      "glyph definitions index",
-    ),
-  ]);
-  const renderer = await deploy(signer, thoughtArtifact("ThoughtRendererV2"), [
-    glyphDefinitionsPart1Pointer,
-    glyphDefinitionsPart2Pointer,
-    glyphDefinitionsIndexPointer,
-  ]);
   const rendererAddress = await renderer.getAddress();
-  const glyphDefinitionsHash = keccak256(
-    concat([glyphDefinitionsPart1, glyphDefinitionsPart2]),
-  );
   if (
     await renderer.IMPLEMENTATION_ID() !== rendererProfile.implementationId ||
     await renderer.GLYPH_LIBRARY_MEMBER_ID() !==
       rendererProfile.glyphSource.libraryMemberId ||
-    await renderer.glyphDefinitionsKeccak256() !== glyphDefinitionsHash ||
-    await renderer.GLYPH_DEFINITIONS_INDEX_KECCAK256() !==
-      rendererProfile.glyphSource.pathDefinitionIndex.keccak256
+    await renderer.glyphDefinitionsPointer1() !== glyphDataPointer ||
+    await renderer.glyphDefinitionsPointer2() !== ZeroAddress ||
+    await renderer.glyphDefinitionsIndexPointer() !== ZeroAddress ||
+    await renderer.glyphDefinitionsKeccak256() !== glyphPackedKeccak256 ||
+    await renderer.GLYPH_PACKED_KECCAK256() !== glyphPackedKeccak256 ||
+    await renderer.EXTERNAL_URL_BASE() !==
+      vendorLock.compatibility.metadataProfile.externalUrl.base
   ) {
-    throw new Error("Humanist Smooth renderer compatibility check failed");
+    throw new Error("Mono 76 renderer compatibility check failed");
   }
 
   const manifestArtifacts = [
+    {
+      keccak256: provenanceLock.artifacts.schema.keccak256,
+      path: provenanceSchemaRef,
+      role: "provenance-schema",
+    },
     {
       keccak256: thoughtSpecHash,
       path: specRef,
@@ -272,8 +285,13 @@ async function main() {
     ["work-profile", "protocol/current/v2/work/thought.work.v2.profile.json"],
     ["context-profile", "protocol/current/v2/context/thought.context.v2.profile.json"],
     ["metadata-profile", "protocol/current/v2/metadata/thought.metadata.v2.profile.json"],
-    ["provenance-schema", "protocol/current/v2/provenance/thought.provenance.v2.schema.json"],
-    ["creation-attestation-profile", "protocol/current/v2/attestation/thought.creation-workflow-attestation.v1.md"],
+    ["creation-attestation-profile", "protocol/current/v2/attestation/thought.creation-workflow-attestation.v2.md"],
+    ["renderer-profile", "protocol/current/v2/renderer/thought.renderer.v2.profile.json"],
+    ["renderer-glyph-packed-im76", "protocol/current/v2/renderer/mono-76.im76.bin"],
+    ["renderer-glyph-package-manifest", "dependencies/mono-76/manifest.json"],
+    ["renderer-glyph-provenance", "dependencies/mono-76/PROVENANCE.md"],
+    ["renderer-glyph-license", "dependencies/mono-76/UNLICENSED.md"],
+    ["renderer-glyph-notice", "dependencies/mono-76/NOTICE.md"],
     ].map(async ([role, artifactPath]) => ({
       keccak256: await previewFileKeccak(artifactPath),
       path: artifactPath,
@@ -285,15 +303,18 @@ async function main() {
     artifacts: manifestArtifacts,
     chainId: network.chainId.toString(),
     glyphLibrary: {
-      definitionsIndexKeccak256:
-        rendererProfile.glyphSource.pathDefinitionIndex.keccak256,
-      definitionsKeccak256: glyphDefinitionsHash,
-      definitionsPart1Keccak256:
-        rendererProfile.glyphSource.pathDefinitions[0].keccak256,
-      definitionsPart2Keccak256:
-        rendererProfile.glyphSource.pathDefinitions[1].keccak256,
-      memberId: rendererProfile.glyphSource.libraryMemberId,
+      family: rendererProfile.glyphSource.familyName,
+      faceSha256: rendererProfile.glyphSource.faceSha256,
+      libraryMemberId: rendererProfile.glyphSource.libraryMemberId,
+      librarySetId: rendererProfile.glyphSource.familyId,
+      manualEditPayloadSha256:
+        rendererProfile.glyphSource.manualEditPayloadSha256,
+      packedBytes: glyphPackedBytes.length,
+      packedKeccak256: glyphPackedKeccak256,
+      packedSha256: `0x${glyphPackedSha256}`,
+      releaseTag: rendererProfile.glyphSource.releaseTag,
       releaseReady: rendererProfile.qualification.rendererReleaseReady,
+      role: "canonical-native-svg-paths",
     },
     identifiers: {
       contextProfile: compatibility.contextProfile.id,
@@ -323,7 +344,7 @@ async function main() {
   const protocolReleaseId = await protocolRegistry.registerRelease.staticCall(manifestHash, manifestURI);
   await (await protocolRegistry.registerRelease(manifestHash, manifestURI)).wait();
 
-  const verifier = await deploy(signer, thoughtArtifact("CreationAttestationVerifier"), [deployerAddress, deployerAddress]);
+  const verifier = await deploy(signer, thoughtArtifact("CreationAttestationVerifierV2"), [deployerAddress, deployerAddress]);
   const verifierAddress = await verifier.getAddress();
   const thoughtNft = await deploy(signer, thoughtArtifact("ThoughtNFTV2"), [
     pathNftAddress,
@@ -347,7 +368,15 @@ async function main() {
       manifestSha256: vendorLock.manifestSha256,
       sourceTag: vendorLock.sourceTag,
       sourceCommit: vendorLock.sourceCommit,
-      productionConsumable: false,
+      productionConsumable: true,
+      deploymentAuthorized: false,
+      acceptanceOnly: true,
+    },
+    localContractIntegration: {
+      id: artifactId,
+      productionConsumable: true,
+      deploymentAuthorized: false,
+      acceptanceOnly: true,
     },
     creativeSpec: {
       artifactId: creativeSpecLock.artifactId,
@@ -358,6 +387,14 @@ async function main() {
       sha256: specSha256,
       thoughtSpecHash,
       thoughtSpecId,
+    },
+    provenance: {
+      artifactId: provenanceLock.artifactId,
+      authority: provenanceLock.authority.owner,
+      id: provenanceLock.provenanceSchema,
+      ref: provenanceSchemaRef,
+      schemaKeccak256: provenanceLock.artifacts.schema.keccak256,
+      schemaSha256: provenanceLock.artifacts.schema.sha256,
     },
     rpcUrl,
     chainId: Number(network.chainId),
@@ -397,24 +434,24 @@ async function main() {
       id: await renderer.RENDERER_ID(),
       idHash: await renderer.RENDERER_ID_HASH(),
       implementationId: await renderer.IMPLEMENTATION_ID(),
-      glyphDefinitionsPointer1: glyphDefinitionsPart1Pointer,
-      glyphDefinitionsPointer2: glyphDefinitionsPart2Pointer,
-      glyphDefinitionsIndexPointer,
-      glyphDefinitionsKeccak256: glyphDefinitionsHash,
-      glyphDefinitionsIndexKeccak256:
-        rendererProfile.glyphSource.pathDefinitionIndex.keccak256,
+      externalUrlBase: await renderer.EXTERNAL_URL_BASE(),
+      glyphDataPointer,
+      glyphDefinitionsKeccak256: glyphPackedKeccak256,
+      glyphPackedBytes: glyphPackedBytes.length,
+      glyphPackedKeccak256,
+      glyphPackedSha256,
       glyphLibraryMemberId: await renderer.GLYPH_LIBRARY_MEMBER_ID(),
     },
     renderer: {
       canonicalRendererId: await renderer.RENDERER_ID(),
       implementationId: await renderer.IMPLEMENTATION_ID(),
       releaseReady: rendererProfile.qualification.rendererReleaseReady,
-      glyphDefinitionsPointer1: glyphDefinitionsPart1Pointer,
-      glyphDefinitionsPointer2: glyphDefinitionsPart2Pointer,
-      glyphDefinitionsIndexPointer,
-      glyphDefinitionsKeccak256: glyphDefinitionsHash,
-      glyphDefinitionsIndexKeccak256:
-        rendererProfile.glyphSource.pathDefinitionIndex.keccak256,
+      externalUrlBase: await renderer.EXTERNAL_URL_BASE(),
+      glyphDataPointer,
+      glyphDefinitionsKeccak256: glyphPackedKeccak256,
+      glyphPackedBytes: glyphPackedBytes.length,
+      glyphPackedKeccak256,
+      glyphPackedSha256,
       glyphLibraryMemberId: await renderer.GLYPH_LIBRARY_MEMBER_ID(),
     },
     creationAttestationVerifier: {

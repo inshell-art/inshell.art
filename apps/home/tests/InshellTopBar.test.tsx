@@ -13,6 +13,7 @@ jest.mock("@inshell/wallet", () => ({
 import {
   INSHELL_WALLET_VISIBILITY_EVENT,
   InshellTopBar,
+  isLocalRuntimeHost,
   openInshellWallet,
 } from "@inshell/inshell-shell";
 
@@ -76,6 +77,15 @@ describe("InshellTopBar", () => {
     expect(
       screen.getByRole("button", { name: "connect wallet" })
     ).toBeTruthy();
+  });
+
+  test("recognizes LAN hosts as local same-origin runtimes", () => {
+    expect(isLocalRuntimeHost("192.168.0.104")).toBe(true);
+    expect(isLocalRuntimeHost("10.0.0.42")).toBe(true);
+    expect(isLocalRuntimeHost("172.16.4.8")).toBe(true);
+    expect(isLocalRuntimeHost("studio-mac.local")).toBe(true);
+    expect(isLocalRuntimeHost("inshell.art")).toBe(false);
+    expect(isLocalRuntimeHost("preview.inshell.art")).toBe(false);
   });
 
   test("uses the PATH wallet-options picker while disconnected", async () => {

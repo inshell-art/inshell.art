@@ -4,6 +4,7 @@ import {
   type ThoughtGalleryItem,
 } from "@/services/thoughtGallery";
 import { resolveThoughtSpecHref } from "@/services/thoughtSpecLink";
+import { isLocalRuntimeHost, resolveInshellLinks } from "@inshell/inshell-shell";
 import { PUBLIC_NETWORK_CONFIG } from "@inshell/shared";
 
 type LoadState =
@@ -58,22 +59,6 @@ function getEnvValue(name: string): unknown {
   return runtimeEnv?.[name] ?? buildEnv?.[name] ?? procEnv?.[name];
 }
 
-function isPreviewDeployment(): boolean {
-  const deployEnv = getEnvValue("VITE_DEPLOY_ENV");
-  if (typeof deployEnv === "string" && deployEnv.trim().toLowerCase() === "preview") {
-    return true;
-  }
-  if (typeof window === "undefined") return false;
-  const hostname = window.location.hostname.toLowerCase();
-  return (
-    hostname === "preview.inshell.art" ||
-    hostname.endsWith(".preview.inshell.art") ||
-    hostname === "staging.inshell-art.pages.dev" ||
-    hostname === "staging.thought-inshell-art.pages.dev" ||
-    (hostname.startsWith("staging.") && hostname.endsWith(".pages.dev"))
-  );
-}
-
 function configuredUrl(name: string) {
   const value = getEnvValue(name);
   if (typeof value !== "string") return null;
@@ -81,17 +66,16 @@ function configuredUrl(name: string) {
   return /^https?:\/\//i.test(trimmed) || trimmed.startsWith("/") ? trimmed : null;
 }
 
-function isLocalBrowserHost(): boolean {
-  if (typeof window === "undefined") return false;
-  const hostname = window.location.hostname.toLowerCase();
-  return hostname === "localhost" || hostname === "127.0.0.1";
-}
-
 function thoughtAppUrl(): string {
+  if (
+    typeof window !== "undefined" &&
+    isLocalRuntimeHost(window.location.hostname)
+  ) {
+    return resolveInshellLinks().thought;
+  }
   const configured = configuredUrl("VITE_THOUGHT_URL");
   if (configured) return configured;
-  if (isPreviewDeployment()) return "https://preview.inshell.art/thought";
-  return isLocalBrowserHost() ? "/thought" : "https://inshell.art/thought";
+  return resolveInshellLinks().thought;
 }
 
 function shortValue(value?: string, head = 6, tail = 4): string {
@@ -270,24 +254,22 @@ function parseProvenance(value: string): ProvenanceMaterial {
     const provenance = asObject(JSON.parse(value) as unknown);
     if (!provenance) return empty;
     const process = asObject(provenance.process);
-    const agentDeclaration = asObject(process?.agentDeclaration);
-    const modelDeclaration = asObject(process?.modelDeclaration);
-    const transport = asObject(process?.transport);
+    const agent = asObject(process?.agent);
+    const model = asObject(process?.model);
+    const run = asObject(process?.run);
     const protocol = asObject(provenance.protocol);
     return {
       schema: optionalString(provenance.schema),
       processKind: optionalString(process?.kind),
-      agentSource: optionalString(agentDeclaration?.source),
-      modelSource: optionalString(modelDeclaration?.source),
-      modelIdentifier: optionalString(modelDeclaration?.identifier),
-      adapter: optionalString(transport?.adapter),
-      provider:
-        optionalString(transport?.provider) ??
-        optionalString(provenance.provider),
+      agentSource: optionalString(agent?.source),
+      modelSource: optionalString(model?.source),
+      modelIdentifier: optionalString(model?.identifier),
+      adapter: optionalString(run?.adapter),
+      provider: optionalString(provenance.provider),
       route:
-        optionalString(transport?.route) ?? optionalString(provenance.route),
-      runIdHash: optionalString(transport?.runIdHash),
-      resultEnvelopeHash: optionalString(transport?.resultEnvelopeKeccak256),
+        optionalString(run?.route) ?? optionalString(provenance.route),
+      runIdHash: optionalString(run?.referenceKeccak256),
+      resultEnvelopeHash: optionalString(run?.resultEnvelopeKeccak256),
       protocolReleaseId: optionalString(protocol?.protocolReleaseId),
       manifestHash: optionalString(protocol?.manifestKeccak256),
     };
@@ -312,9 +294,26 @@ function processLabel(value: string | null, fallback: string): string {
   return value || fallback || "Unavailable";
 }
 
-function sourceLabel(value: string | null): string {
-  if (!value) return "declared-unverified";
-  return `declared-unverified · ${value.replace(/_/g, " ")}`;
+function creationIdentitySource(
+  field: "agent" | "model",
+  source: string | null
+): string {
+  if (field === "agent") {
+    if (source === "minter-supplied") return "supplied by the minter";
+    if (source === "producer-selected") return "selected by the producer";
+    return "selected in the THOUGHT App";
+  }
+  if (source === "runtime-reported") {
+    return "reported by the Agent runtime";
+  }
+  if (source === "minter-supplied") return "supplied by the minter";
+  return "runtime source unavailable";
+}
+
+function canonicalTraitLabel(label: string): string {
+  if (label === "Attested Agent") return "Agent";
+  if (label === "Attested Model") return "Model";
+  return label;
 }
 
 function traitValue(attribute: TokenAttribute): string {
@@ -366,8 +365,16 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
   const isAttested = attestation === "Inshell THOUGHT App";
   const provenanceBytes = byteLength(item.provenanceJson);
   const specName = item.thoughtSpecName?.trim() || "THOUGHT specification";
-  const declaredAgent = item.declaredAgent?.trim() || item.provider || "-";
-  const declaredModel = item.declaredModel?.trim() || item.model || "-";
+  const displayedAgent =
+    item.agent?.trim() ||
+    item.declaredAgent?.trim() ||
+    item.attestedAgent?.trim() ||
+    "-";
+  const displayedModel =
+    item.model?.trim() ||
+    item.declaredModel?.trim() ||
+    item.attestedModel?.trim() ||
+    "-";
   const canonicalTraits = metadata.attributes;
   const tokenMetadataHref = safeTokenMetadataHref(item.tokenUri);
 
@@ -420,28 +427,34 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
               </span>
               <span>
                 {isAttested
-                  ? "The App hash-bound this work and provenance in its Creation Attestation."
-                  : "Contract-valid THOUGHT. Its creation process was not attested by the App."}
+                  ? "The THOUGHT Contract verified this Inshell THOUGHT App Creation Attestation and its bound creation record."
+                  : "Contract-valid THOUGHT without an Inshell THOUGHT App Creation Attestation."}
               </span>
+              <a
+                className="thought-detail__value-link"
+                href="/docs#thought-creation-provenance"
+              >
+                how this record is made ↗
+              </a>
             </p>
             <DetailFields>
               <DetailField label="process">
                 {processLabel(provenance.processKind, item.mode)}
               </DetailField>
-              <DetailField label="declared Agent">
-                {declaredAgent}
+              <DetailField label="Agent">
+                {displayedAgent}
                 <span className="thought-detail__assurance">
-                  {sourceLabel(provenance.agentSource)}
+                  {creationIdentitySource("agent", provenance.agentSource)}
                 </span>
               </DetailField>
-              <DetailField label="declared model">
-                {declaredModel}
+              <DetailField label="Model">
+                {displayedModel}
                 <span className="thought-detail__assurance">
-                  {sourceLabel(provenance.modelSource)}
+                  {creationIdentitySource("model", provenance.modelSource)}
                 </span>
               </DetailField>
               {provenance.modelIdentifier && (
-                <DetailField label="model ID">
+                <DetailField label="model identifier">
                   {provenance.modelIdentifier}
                 </DetailField>
               )}
@@ -455,7 +468,7 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
                 <DetailField label="route">{provenance.route}</DetailField>
               )}
               {provenance.runIdHash && (
-                <DetailField label="run">
+                <DetailField label="run reference">
                   <span title={provenance.runIdHash}>
                     {shortValue(provenance.runIdHash, 12, 10)}
                   </span>
@@ -472,7 +485,7 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
                 </a>
                 {item.pathSerial && (
                   <span className="thought-detail__assurance">
-                    movement unit {item.pathSerial}
+                    PATH serial {item.pathSerial}
                   </span>
                 )}
               </DetailField>
@@ -503,7 +516,7 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
               {canonicalTraits.map((attribute, index) => (
                 <DetailField
                   key={`${attribute.trait_type}-${index}`}
-                  label={attribute.trait_type}
+                  label={canonicalTraitLabel(attribute.trait_type)}
                 >
                   {traitValue(attribute)}
                 </DetailField>
@@ -514,7 +527,7 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
           )}
         </ThoughtSection>
 
-        <ThoughtSection title="onchain record">
+        <ThoughtSection title="on-chain record">
           <DetailFields>
             <DetailField label="token">THOUGHT #{item.tokenId}</DetailField>
             <DetailField label="author">
@@ -573,37 +586,37 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
             <div>
               <h3>contract commitments</h3>
               <DetailFields>
-                <DetailField label="provenance">
+                <DetailField label="provenance hash">
                   <span title={item.provenanceHash}>
                     {shortValue(item.provenanceHash, 12, 10)}
                   </span>
                 </DetailField>
-                <DetailField label="prompt">
+                <DetailField label="prompt hash">
                   <span title={item.promptHash}>
                     {shortValue(item.promptHash, 12, 10)}
                   </span>
                 </DetailField>
-                <DetailField label="Agent line">
+                <DetailField label="Agent line hash">
                   <span title={item.returnedTextHash || item.textHash}>
                     {shortValue(item.returnedTextHash || item.textHash, 12, 10)}
                   </span>
                 </DetailField>
                 {item.conversationIdentityHash && (
-                  <DetailField label="dialogue">
+                  <DetailField label="dialogue hash">
                     <span title={item.conversationIdentityHash}>
                       {shortValue(item.conversationIdentityHash, 12, 10)}
                     </span>
                   </DetailField>
                 )}
                 {item.workHash && (
-                  <DetailField label="work">
+                  <DetailField label="work hash">
                     <span title={item.workHash}>
                       {shortValue(item.workHash, 12, 10)}
                     </span>
                   </DetailField>
                 )}
                 {item.creationAttestationDigest && (
-                  <DetailField label="attestation">
+                  <DetailField label="attestation digest">
                     <span title={item.creationAttestationDigest}>
                       {shortValue(item.creationAttestationDigest, 12, 10)}
                     </span>
@@ -625,14 +638,14 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
                   </span>
                 </DetailField>
                 {provenance.protocolReleaseId && (
-                  <DetailField label="release">
+                  <DetailField label="protocol release">
                     <span title={provenance.protocolReleaseId}>
                       {shortValue(provenance.protocolReleaseId, 12, 10)}
                     </span>
                   </DetailField>
                 )}
                 {provenance.manifestHash && (
-                  <DetailField label="manifest">
+                  <DetailField label="manifest hash">
                     <span title={provenance.manifestHash}>
                       {shortValue(provenance.manifestHash, 12, 10)}
                     </span>
@@ -642,7 +655,7 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
                   <DetailField label="schema">{provenance.schema}</DetailField>
                 )}
                 {provenance.resultEnvelopeHash && (
-                  <DetailField label="result">
+                  <DetailField label="result envelope hash">
                     <span title={provenance.resultEnvelopeHash}>
                       {shortValue(provenance.resultEnvelopeHash, 12, 10)}
                     </span>

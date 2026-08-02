@@ -4,6 +4,7 @@ import {
   readCachedThoughtGallery,
   type ThoughtGalleryItem,
 } from "@/services/thoughtGallery";
+import { isLocalRuntimeHost, resolveInshellLinks } from "@inshell/inshell-shell";
 import { PUBLIC_NETWORK_CONFIG } from "@inshell/shared";
 
 type LoadState =
@@ -36,35 +37,18 @@ function configuredUrl(name: string) {
   return /^https?:\/\//i.test(trimmed) || trimmed.startsWith("/") ? trimmed : null;
 }
 
-function isPreviewDeployment(): boolean {
-  const deployEnv = getEnvValue("VITE_DEPLOY_ENV");
-  if (typeof deployEnv === "string" && deployEnv.trim().toLowerCase() === "preview") {
-    return true;
-  }
-  if (typeof window === "undefined") return false;
-  const hostname = window.location.hostname.toLowerCase();
-  return (
-    hostname === "preview.inshell.art" ||
-    hostname.endsWith(".preview.inshell.art") ||
-    hostname === "staging.inshell-art.pages.dev" ||
-    hostname === "staging.thought-inshell-art.pages.dev" ||
-    (hostname.startsWith("staging.") && hostname.endsWith(".pages.dev"))
-  );
-}
-
 function thoughtAppUrl(): string {
-  return (
-    configuredUrl("VITE_THOUGHT_URL") ??
-    (isPreviewDeployment()
-      ? "https://preview.inshell.art/thought"
-      : "https://inshell.art/thought")
-  );
+  if (
+    typeof window !== "undefined" &&
+    isLocalRuntimeHost(window.location.hostname)
+  ) {
+    return resolveInshellLinks().thought;
+  }
+  return configuredUrl("VITE_THOUGHT_URL") ?? resolveInshellLinks().thought;
 }
 
 function colorFontUrl(): string {
-  return isPreviewDeployment()
-    ? "https://preview.inshell.art/color-font"
-    : "/color-font";
+  return "/color-font";
 }
 
 function canonicalThoughtTitle(value: string): string {

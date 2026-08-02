@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import { isLocalRuntimeHost, resolveInshellLinks } from "@inshell/inshell-shell";
 import styles from "./Footer.module.css";
 
 type FooterLink = {
@@ -54,35 +55,17 @@ function renderSquares(link: FooterLink): string {
   return buildSquares(link.label);
 }
 
-function isPreviewDeployment(): boolean {
-  const deployEnv = getEnvValue("VITE_DEPLOY_ENV");
-  if (typeof deployEnv === "string" && deployEnv.trim().toLowerCase() === "preview") {
-    return true;
-  }
-  if (typeof window === "undefined") return false;
-  const hostname = window.location.hostname.toLowerCase();
-  return (
-    hostname === "preview.inshell.art" ||
-    hostname.endsWith(".preview.inshell.art") ||
-    hostname === "staging.inshell-art.pages.dev" ||
-    hostname === "staging.thought-inshell-art.pages.dev" ||
-    (hostname.startsWith("staging.") && hostname.endsWith(".pages.dev"))
-  );
-}
-
-function isLocalBrowserHost(): boolean {
-  if (typeof window === "undefined") return false;
-  const hostname = window.location.hostname.toLowerCase();
-  return hostname === "localhost" || hostname === "127.0.0.1";
-}
-
 function defaultGalleryUrl(): string {
-  if (isPreviewDeployment()) return "https://preview.inshell.art/gallery";
-  if (isLocalBrowserHost()) return "/gallery";
-  return "https://inshell.art/gallery";
+  return resolveInshellLinks().works;
 }
 
 function resolveGalleryUrl(): string {
+  if (
+    typeof window !== "undefined" &&
+    isLocalRuntimeHost(window.location.hostname)
+  ) {
+    return defaultGalleryUrl();
+  }
   const direct = readEnvUrl(["VITE_GALLERY_URL", "VITE_THOUGHT_GALLERY_URL"]);
   if (direct) {
     try {

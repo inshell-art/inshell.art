@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  advanceThoughtPathAcquisitionLocalBlock,
   formatThoughtPathAcquisitionFailure,
   parsePendingThoughtPathAcquisition,
   pendingThoughtPathAcquisitionMatches,
@@ -49,8 +50,8 @@ export const runThoughtPathAcquisitionTests = async () => {
 
   {
     assert.deepEqual(
-      await withThoughtPathAcquisitionLock(null, async () => "unused"),
-      { acquired: false, reason: "unsupported" },
+      await withThoughtPathAcquisitionLock(null, async () => "fallback"),
+      { acquired: true, value: "fallback" },
     );
     assert.deepEqual(
       await withThoughtPathAcquisitionLock(
@@ -61,6 +62,27 @@ export const runThoughtPathAcquisitionTests = async () => {
       ),
       { acquired: false, reason: "busy" },
     );
+
+    let releaseFallback: (() => void) | undefined;
+    let markFallbackStarted: (() => void) | undefined;
+    const fallbackStarted = new Promise<void>((resolve) => {
+      markFallbackStarted = resolve;
+    });
+    const fallbackRelease = new Promise<void>((resolve) => {
+      releaseFallback = resolve;
+    });
+    const activeFallback = withThoughtPathAcquisitionLock(null, async () => {
+      markFallbackStarted?.();
+      await fallbackRelease;
+      return "first";
+    });
+    await fallbackStarted;
+    assert.deepEqual(
+      await withThoughtPathAcquisitionLock(null, async () => "second"),
+      { acquired: false, reason: "busy" },
+    );
+    releaseFallback?.();
+    assert.deepEqual(await activeFallback, { acquired: true, value: "first" });
   }
 
   {
@@ -68,6 +90,55 @@ export const runThoughtPathAcquisitionTests = async () => {
       thoughtPathAcquisitionGasLimit(136_409n),
       200_512n,
       "PATH submission must retain a settlement gas margin above the RPC estimate",
+    );
+  }
+
+  {
+    const calls: Array<{ method: string; params: unknown[] }> = [];
+    assert.equal(
+      await advanceThoughtPathAcquisitionLocalBlock(
+        {
+          getBlockNumber: async () => 148,
+          send: async (method, params) => {
+            calls.push({ method, params });
+            return "0x0";
+          },
+        },
+        742n,
+        true,
+      ),
+      true,
+    );
+    assert.deepEqual(calls, [{ method: "anvil_mine", params: ["0x253"] }]);
+    const settledCalls: Array<{ method: string; params: unknown[] }> = [];
+    assert.equal(
+      await advanceThoughtPathAcquisitionLocalBlock(
+        {
+          getBlockNumber: async () => 743,
+          send: async (method, params) => {
+            settledCalls.push({ method, params });
+            return "0x0";
+          },
+        },
+        742n,
+        true,
+      ),
+      false,
+    );
+    assert.deepEqual(settledCalls, []);
+    assert.equal(
+      await advanceThoughtPathAcquisitionLocalBlock(
+        {
+          getBlockNumber: async () => 148,
+          send: async () => {
+            throw new Error("method unavailable");
+          },
+        },
+        742n,
+        false,
+      ),
+      false,
+      "public runtimes must not request a dev-only block",
     );
   }
 
@@ -116,6 +187,17 @@ export const runThoughtPathAcquisitionTests = async () => {
         title: "$PATH price changed",
         detail: "The price changed before your wallet submitted the transaction.",
         nextStep: "try again with the refreshed price",
+      },
+    );
+    assert.deepEqual(
+      formatThoughtPathAcquisitionFailure(
+        new Error("execution reverted: ONE_BID_PER_BLOCK"),
+        "local ETH",
+      ),
+      {
+        title: "$PATH auction is settling",
+        detail: "The previous bid is still in the latest block.",
+        nextStep: "try again",
       },
     );
     assert.deepEqual(

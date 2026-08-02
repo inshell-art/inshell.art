@@ -4,6 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { RollupLog, RollupLogHandler } from "rollup";
+import type { Plugin } from "vite";
+import { readLocalAnvilSaleHistory } from "./dev/localAnvilSaleHistory";
 
 function ignoreKnownRollupWarnings(warning: RollupLog, warn: RollupLogHandler) {
   if (
@@ -121,6 +123,56 @@ function readLocalAnvilEnv(workspaceRoot: string): Record<string, string> {
   };
 }
 
+function localAnvilSaleHistoryPlugin(
+  workspaceRoot: string,
+  pulseAuctionAddress: string
+): Plugin {
+  const stateFile =
+    process.env.INSHELL_ANVIL_STATE_FILE?.trim() ||
+    path.join(workspaceRoot, ".local", "anvil", "inshell-state.json");
+
+  return {
+    name: "inshell-local-anvil-sale-history",
+    configureServer(server) {
+      server.middlewares.use(async (request, response, next) => {
+        const pathname = (request.url ?? "").split(/[?#]/)[0];
+        if (pathname !== "/api/pulse-auction") {
+          next();
+          return;
+        }
+        if (request.method !== "GET" && request.method !== "HEAD") {
+          response.statusCode = 405;
+          response.setHeader("allow", "GET, HEAD");
+          response.end();
+          return;
+        }
+
+        try {
+          const payload = await readLocalAnvilSaleHistory(
+            stateFile,
+            pulseAuctionAddress
+          );
+          response.statusCode = 200;
+          response.setHeader("content-type", "application/json; charset=utf-8");
+          response.setHeader("cache-control", "no-store");
+          response.end(request.method === "HEAD" ? undefined : JSON.stringify(payload));
+        } catch (error) {
+          server.config.logger.error(
+            `Local Anvil sale history unavailable: ${String(
+              (error as Error)?.message ?? error
+            )}`
+          );
+          response.statusCode = 503;
+          response.setHeader("content-type", "application/json; charset=utf-8");
+          response.end(
+            JSON.stringify({ error: "Local Anvil sale history unavailable." })
+          );
+        }
+      });
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const rootDir =
     typeof __dirname === "string"
@@ -143,7 +195,17 @@ export default defineConfig(({ mode }) => {
 
   return {
     root: rootDir,
-    plugins: [react()],
+    plugins: [
+      react(),
+      ...(mode === "devnet"
+        ? [
+            localAnvilSaleHistoryPlugin(
+              workspaceRoot,
+              localAnvilEnv.VITE_PULSE_AUCTION
+            ),
+          ]
+        : []),
+    ],
     build: {
       outDir: path.resolve(rootDir, "../../dist/home"),
       emptyOutDir: true,

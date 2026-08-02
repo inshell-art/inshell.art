@@ -12,10 +12,10 @@ const thoughtNftAbi = parseAbi([
   "function totalSupply() view returns (uint256)",
   "function promptLineOf(uint256 tokenId) view returns (string)",
   "function agentLineOf(uint256 tokenId) view returns (string)",
-  "function declaredAgentOf(uint256 tokenId) view returns (string)",
-  "function declaredModelOf(uint256 tokenId) view returns (string)",
-  "function declaredAgentHashOf(uint256 tokenId) view returns (bytes32)",
-  "function declaredModelHashOf(uint256 tokenId) view returns (bytes32)",
+  "function agentOf(uint256 tokenId) view returns (string)",
+  "function modelOf(uint256 tokenId) view returns (string)",
+  "function agentHashOf(uint256 tokenId) view returns (bytes32)",
+  "function modelHashOf(uint256 tokenId) view returns (bytes32)",
   "function provenanceOf(uint256 tokenId) view returns (string)",
   "function promptLineHashOf(uint256 tokenId) view returns (bytes32)",
   "function agentLineHashOf(uint256 tokenId) view returns (bytes32)",
@@ -45,9 +45,9 @@ const SPEC_ID =
   "0x4444444444444444444444444444444444444444444444444444444444444444";
 const SPEC_HASH =
   "0x5555555555555555555555555555555555555555555555555555555555555555";
-const DECLARED_AGENT_HASH =
+const AGENT_RECORD_HASH =
   "0x6666666666666666666666666666666666666666666666666666666666666666";
-const DECLARED_MODEL_HASH =
+const MODEL_RECORD_HASH =
   "0x7777777777777777777777777777777777777777777777777777777777777777";
 const CONVERSATION_HASH =
   "0x8888888888888888888888888888888888888888888888888888888888888888";
@@ -76,12 +76,14 @@ function localThoughtProvider(
 ) {
   const provenance = JSON.stringify({
     process: {
-      kind: "agent",
-      agentDeclaration: {
-        agentLabel: "Codex",
-        modelLabel: "gpt-test",
+      kind: "agent-run",
+      agent: {
+        label: "Codex",
       },
-      transport: {
+      model: {
+        label: "gpt-test",
+      },
+      run: {
         adapter: "codex",
       },
     },
@@ -92,10 +94,21 @@ function localThoughtProvider(
       image: CANONICAL_IMAGE,
       attributes: includeAttestedTraits
         ? [
-            { trait_type: "Attested Agent", value: "Codex" },
-            { trait_type: "Attested Model", value: "gpt-test" },
+            { trait_type: "Agent", value: "Codex" },
+            { trait_type: "Model", value: "gpt-test" },
+            { trait_type: "Creation Attestation", value: "Inshell THOUGHT App" },
           ]
-        : [{ trait_type: "Creation Attestation", value: "Unattested" }],
+        : [
+            { trait_type: "Agent", value: "Codex" },
+            { trait_type: "Model", value: "gpt-test" },
+            { trait_type: "Creation Attestation", value: "Unattested" },
+          ],
+      properties: {
+        agent: "Codex",
+        agentKeccak256: AGENT_RECORD_HASH,
+        model: "gpt-test",
+        modelKeccak256: MODEL_RECORD_HASH,
+      },
     })
   )}`;
   return {
@@ -115,14 +128,14 @@ function localThoughtProvider(
           return result("promptLineOf", "why?");
         case "agentLineOf":
           return result("agentLineOf", "because");
-        case "declaredAgentOf":
-          return result("declaredAgentOf", "Codex");
-        case "declaredModelOf":
-          return result("declaredModelOf", "gpt-test");
-        case "declaredAgentHashOf":
-          return result("declaredAgentHashOf", DECLARED_AGENT_HASH);
-        case "declaredModelHashOf":
-          return result("declaredModelHashOf", DECLARED_MODEL_HASH);
+        case "agentOf":
+          return result("agentOf", "Codex");
+        case "modelOf":
+          return result("modelOf", "gpt-test");
+        case "agentHashOf":
+          return result("agentHashOf", AGENT_RECORD_HASH);
+        case "modelHashOf":
+          return result("modelHashOf", MODEL_RECORD_HASH);
         case "provenanceOf":
           return result("provenanceOf", provenance);
         case "promptLineHashOf":
@@ -186,13 +199,10 @@ describe("local THOUGHT gallery", () => {
       rawText: "because",
       returnedText: "because",
       provider: "codex",
+      agent: "Codex",
       model: "gpt-test",
-      declaredAgent: "Codex",
-      declaredModel: "gpt-test",
-      declaredAgentHash: DECLARED_AGENT_HASH,
-      declaredModelHash: DECLARED_MODEL_HASH,
-      attestedAgent: "Codex",
-      attestedModel: "gpt-test",
+      agentHash: AGENT_RECORD_HASH,
+      modelHash: MODEL_RECORD_HASH,
       thoughtSpecId: SPEC_ID,
       thoughtSpecHash: SPEC_HASH,
       thoughtSpecName: "THOUGHT.v2.md",
@@ -220,17 +230,15 @@ describe("local THOUGHT gallery", () => {
     expect(provider.request).toHaveBeenCalledTimes(1);
   });
 
-  test("does not publish declared labels as attested traits for Unattested metadata", async () => {
+  test("keeps neutral Agent and Model records for Unattested metadata", async () => {
     const thoughts = await loadLocalThoughtGallery({
       provider: localThoughtProvider(1n, false),
       thoughtNftAddress: THOUGHT_NFT,
     });
 
     expect(thoughts[0]).toMatchObject({
-      declaredAgent: "Codex",
-      declaredModel: "gpt-test",
+      agent: "Codex",
+      model: "gpt-test",
     });
-    expect(thoughts[0]?.attestedAgent).toBeUndefined();
-    expect(thoughts[0]?.attestedModel).toBeUndefined();
   });
 });

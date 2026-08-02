@@ -15,11 +15,11 @@ const specPath = path.join(root, "apps/thought/spec/THOUGHT.v2.md");
 const lockPath = path.join(root, "apps/thought/spec/THOUGHT.v2.lock.json");
 
 const expected = {
-  artifactId: "thought-v2-creative-work-spec-20260723-r1",
-  byteLength: 14849,
-  sha256: "67f65b79188d4294e7cc63ab1bd1eadd666ebf7fa6ed4a163eb3bd9ec4c06cd8",
+  artifactId: "thought-v2-selected-spec-20260801-r10",
+  byteLength: 4627,
+  sha256: "90df786a3ffb5ec38bffd09ff356ec560d0b7dddcdf57170891149a92a399e9b",
   thoughtSpecId: "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410",
-  thoughtSpecHash: "0x247dc71285b4f1078c822830ed2044138d61343bbf25cc6719b66742ed5cd5ea",
+  thoughtSpecHash: "0xb2b0a167678816a7ae9dc9098b0d6a6852c0dc95feb59f9581de75bd2cc2231f",
 };
 
 const assert = (condition, message) => {
@@ -37,7 +37,7 @@ assert(!specBytes.subarray(0, 3).equals(Buffer.from([0xef, 0xbb, 0xbf])), "creat
 assert(!specBytes.includes(13), "creative spec must use LF line endings");
 assert(specText.endsWith("\n"), "creative spec must end with one LF");
 assert(
-  specText.startsWith("# THOUGHT v2 — Creative Work Specification\n"),
+  specText.startsWith("# THOUGHT.v2.md\n"),
   "creative spec heading mismatch",
 );
 assert(lock.schema === "inshell.thought.creative-spec-lock.v1", "creative spec lock schema mismatch");

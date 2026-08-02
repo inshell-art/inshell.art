@@ -26,6 +26,10 @@ export const THOUGHT_AGENT_RESULT_VERSION =
 export const THOUGHT_AGENT_DECLARATION_VERSION =
   THOUGHT_V2_PROTOCOL_RELEASE.identifiers.agentDeclaration;
 export const THOUGHT_SHA256_PREFIX = "sha256:" as const;
+export const THOUGHT_AGENT_CLAIM_TTL_MS = 30 * 60 * 1000;
+export const THOUGHT_AGENT_RUN_TTL_MS = 30 * 60 * 1000;
+export const THOUGHT_AGENT_POLL_TIMEOUT_MS =
+  THOUGHT_AGENT_CLAIM_TTL_MS + THOUGHT_AGENT_RUN_TTL_MS;
 
 export const THOUGHT_AGENT_LINE_CONTRACT = {
   workProfile: THOUGHT_V2_PROTOCOL_RELEASE.identifiers.workProfile,
@@ -142,13 +146,76 @@ export type ThoughtAgentAdapterInfo = {
   adapterVersion: string;
 };
 
+export const THOUGHT_AGENT_REASONING_EFFORTS = [
+  "none",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+  "ultra",
+] as const;
+
+export type ThoughtAgentReasoningEffort =
+  (typeof THOUGHT_AGENT_REASONING_EFFORTS)[number];
+
+export type ThoughtAgentMetadataSource =
+  | "reported"
+  | "configured"
+  | "unknown";
+
 export type ThoughtAgentInfo = {
   product: string;
   productVersion?: string;
   provider?: string;
   model?: string;
-  metadataSource: "reported" | "configured" | "unknown";
+  reasoningEffort?: ThoughtAgentReasoningEffort;
+  metadataSource: ThoughtAgentMetadataSource;
 };
+
+const displayModelPart = (value: string) => {
+  const normalized = value.toLowerCase();
+  if (normalized === "gpt") return "GPT";
+  if (normalized === "codex") return "Codex";
+  if (normalized === "xhigh") return "XHigh";
+  return value.length > 0
+    ? `${value.slice(0, 1).toUpperCase()}${value.slice(1)}`
+    : value;
+};
+
+export function formatThoughtAgentModelLabel(
+  model: string | null | undefined,
+  reasoningEffort?: string | null,
+): string {
+  const exactModel = model?.trim() ?? "";
+  if (!exactModel || exactModel.toLowerCase() === "unknown") {
+    return "unknown";
+  }
+  const parts = exactModel.split("-").filter(Boolean);
+  const modelLabel =
+    parts[0]?.toLowerCase() === "gpt" && parts.length > 1
+      ? `GPT-${parts.slice(1).map(displayModelPart).join(" ")}`
+      : parts.map(displayModelPart).join(" ");
+  const exactEffort = reasoningEffort?.trim() ?? "";
+  return exactEffort && exactEffort.toLowerCase() !== "unknown"
+    ? `${modelLabel} · ${displayModelPart(exactEffort)}`
+    : modelLabel;
+}
+
+export function thoughtAgentModelIdentifier(
+  model: string | null | undefined,
+  reasoningEffort?: string | null,
+): string | undefined {
+  const exactModel = model?.trim() ?? "";
+  if (!exactModel || exactModel.toLowerCase() === "unknown") {
+    return undefined;
+  }
+  const exactEffort = reasoningEffort?.trim() ?? "";
+  return exactEffort && exactEffort.toLowerCase() !== "unknown"
+    ? `${exactModel}/reasoning_effort/${exactEffort}`
+    : exactModel;
+}
 
 export type ThoughtAgentExecutionInfo = {
   visibleTurns: number;
@@ -462,6 +529,18 @@ export function parseAgentInfo(value: unknown): ThoughtAgentInfo {
       "Invalid agent metadataSource.",
     );
   }
+  const reasoningEffort = object.reasoningEffort;
+  if (
+    reasoningEffort !== undefined &&
+    !THOUGHT_AGENT_REASONING_EFFORTS.includes(
+      reasoningEffort as ThoughtAgentReasoningEffort,
+    )
+  ) {
+    throw new ThoughtAgentProtocolError(
+      "AGENT_OUTPUT_SCHEMA_INVALID",
+      "Invalid agent reasoningEffort.",
+    );
+  }
   return {
     product: requireString(object.product, "agent.product"),
     ...(optionalString(object.productVersion)
@@ -469,6 +548,9 @@ export function parseAgentInfo(value: unknown): ThoughtAgentInfo {
       : {}),
     ...(optionalString(object.provider) ? { provider: String(object.provider) } : {}),
     ...(optionalString(object.model) ? { model: String(object.model) } : {}),
+    ...(reasoningEffort
+      ? { reasoningEffort: reasoningEffort as ThoughtAgentReasoningEffort }
+      : {}),
     metadataSource,
   };
 }

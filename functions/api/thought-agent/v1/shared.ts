@@ -1,8 +1,10 @@
 import {
   THOUGHT_AGENT_LINE_CONTRACT,
   THOUGHT_AGENT_OUTPUT_SCHEMA,
+  THOUGHT_AGENT_CLAIM_TTL_MS,
   THOUGHT_AGENT_PROTOCOL_VERSION,
   THOUGHT_AGENT_RECEIPT_VERSION,
+  THOUGHT_AGENT_RUN_TTL_MS,
   THOUGHT_V2_PROTOCOL_RELEASE,
   ThoughtAgentProtocolError,
   assertThoughtLine,
@@ -26,6 +28,7 @@ import {
   type ThoughtAgentState,
   type ThoughtSha256,
 } from "../../../../packages/thought-agent-protocol/src/index";
+import { THOUGHT_CODEX_CLIENT_SCRIPT } from "../v2/client-script";
 import type { ChainCacheEnv } from "../../chain-cache";
 import {
   THOUGHT_AGENT_CONTRACT_SPEC_HASH,
@@ -133,9 +136,7 @@ const CREATE_CLAIM_AUTHORIZATIONS_RUN_INDEX_SQL =
 const ensuredDbs = new WeakSet<object>();
 const RAW_RESULT_MAX_BYTES = 16 * 1024;
 const ACTIVE_RUN_LIMIT = 3;
-const CLAIM_TTL_MS = 5 * 60 * 1000;
 const CLAIM_AUTHORIZATION_TTL_MS = 2 * 60 * 1000;
-const RUN_TTL_MS = 10 * 60 * 1000;
 const DELETE_AFTER_MS = 24 * 60 * 60 * 1000;
 
 const thoughtAgentApiBase = (request: Request) => {
@@ -226,8 +227,12 @@ export async function createRun(ctx: ThoughtAgentRouteContext): Promise<Response
     const browserTokenHash = await sha256Hex(browserToken);
     const launchTokenHash = await sha256Hex(launchToken);
     const createdAt = now.toISOString();
-    const claimExpiresAt = new Date(now.getTime() + CLAIM_TTL_MS).toISOString();
-    const runExpiresAt = new Date(now.getTime() + RUN_TTL_MS).toISOString();
+    const claimExpiresAt = new Date(
+      now.getTime() + THOUGHT_AGENT_CLAIM_TTL_MS,
+    ).toISOString();
+    const runExpiresAt = new Date(
+      now.getTime() + THOUGHT_AGENT_RUN_TTL_MS,
+    ).toISOString();
     const deleteAfter = new Date(now.getTime() + DELETE_AFTER_MS).toISOString();
 
     await insertRun(db, {
@@ -274,6 +279,7 @@ export async function createRun(ctx: ThoughtAgentRouteContext): Promise<Response
     const launchUri = `thought://agent/run?run_id=${encodeURIComponent(
       runId,
     )}&token=${encodeURIComponent(launchToken)}&api_origin=${encodeURIComponent(origin)}`;
+    const isV2Run = thoughtAgentApiBase(ctx.request) === "/api/thought-agent/v2";
 
     return protocolJson(ctx, 201, {
       runId,
@@ -281,6 +287,17 @@ export async function createRun(ctx: ThoughtAgentRouteContext): Promise<Response
       launchUri,
       browserToken,
       statusUrl: `${thoughtAgentApiBase(ctx.request)}/runs/${runId}`,
+      ...(isV2Run
+        ? {
+            client: {
+              url: new globalThis.URL(
+                "/api/thought-agent/v2/client",
+                ctx.request.url,
+              ).toString(),
+              sha256: await sha256Hex(THOUGHT_CODEX_CLIENT_SCRIPT),
+            },
+          }
+        : {}),
       createdAt,
       claimExpiresAt,
     });
@@ -329,7 +346,11 @@ export async function claimRun(ctx: ThoughtAgentRouteContext): Promise<Response>
 
     const bridgeToken = randomToken(32);
     const bridgeTokenHash = await sha256Hex(bridgeToken);
-    const updatedAt = new Date().toISOString();
+    const claimedAt = new Date();
+    const updatedAt = claimedAt.toISOString();
+    const runExpiresAt = new Date(
+      claimedAt.getTime() + THOUGHT_AGENT_RUN_TTL_MS,
+    ).toISOString();
     const changed = await updateClaimed(
       db,
       current.run_id,
@@ -338,7 +359,7 @@ export async function claimRun(ctx: ThoughtAgentRouteContext): Promise<Response>
       JSON.stringify(bridge),
       JSON.stringify(adapter),
       updatedAt,
-      current.run_expires_at,
+      runExpiresAt,
     );
     if (!changed) {
       throw new HttpProtocolError(
@@ -351,7 +372,7 @@ export async function claimRun(ctx: ThoughtAgentRouteContext): Promise<Response>
       runId: current.run_id,
       state: "claimed",
       bridgeToken,
-      runExpiresAt: current.run_expires_at,
+      runExpiresAt,
       request: claimRequestPayload(current),
     });
   });
@@ -1115,6 +1136,7 @@ function statusPayload(row: ThoughtAgentRow): Record<string, unknown> {
     },
   };
   if (row.state === "returned") {
+    const agentMetadata = receiptAgentMetadata(row.agent_metadata_json);
     base.result = {
       raw: row.raw_result,
       agentLine: row.work_text,
@@ -1122,7 +1144,9 @@ function statusPayload(row: ThoughtAgentRow): Record<string, unknown> {
         receiptVersion: THOUGHT_AGENT_RECEIPT_VERSION,
         receiptSha256: row.receipt_sha256,
         adapterId: row.requested_adapter_id,
-        model: receiptModel(row.agent_metadata_json),
+        model: agentMetadata.model,
+        reasoningEffort: agentMetadata.reasoningEffort,
+        metadataSource: agentMetadata.metadataSource,
         providerAttested: false,
       },
     };
@@ -1207,15 +1231,46 @@ function stageForState(state: ThoughtAgentState): string {
   }
 }
 
-function receiptModel(agentJson: string | null): string {
-  if (!agentJson) return "unknown";
+function receiptAgentMetadata(agentJson: string | null): {
+  model: string;
+  reasoningEffort: string | null;
+  metadataSource: string;
+} {
+  if (!agentJson) {
+    return {
+      model: "unknown",
+      reasoningEffort: null,
+      metadataSource: "unknown",
+    };
+  }
   try {
-    const parsed = JSON.parse(agentJson) as { model?: unknown };
-    return typeof parsed.model === "string" && parsed.model.length > 0
-      ? parsed.model
-      : "unknown";
+    const parsed = JSON.parse(agentJson) as {
+      model?: unknown;
+      reasoningEffort?: unknown;
+      metadataSource?: unknown;
+    };
+    return {
+      model:
+        typeof parsed.model === "string" && parsed.model.length > 0
+          ? parsed.model
+          : "unknown",
+      reasoningEffort:
+        typeof parsed.reasoningEffort === "string" &&
+        parsed.reasoningEffort.length > 0
+          ? parsed.reasoningEffort
+          : null,
+      metadataSource:
+        typeof parsed.metadataSource === "string" &&
+        parsed.metadataSource.length > 0
+          ? parsed.metadataSource
+          : "unknown",
+    };
   } catch {
-    return "unknown";
+    return {
+      model: "unknown",
+      reasoningEffort: null,
+      metadataSource: "unknown",
+    };
   }
 }
 

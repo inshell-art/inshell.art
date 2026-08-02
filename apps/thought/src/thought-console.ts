@@ -64,6 +64,7 @@ export type ThoughtConsoleHistory = {
 
 const THOUGHT_CONSOLE_GUIDANCE_KINDS = new Set([
   "work_agent_selection_ready",
+  "work_waiting_for_agent",
   "work_claim_authorization_needed",
   "work_ready",
   "path_selected",

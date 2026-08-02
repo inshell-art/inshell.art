@@ -1,4 +1,10 @@
 import { assertThoughtV2TerminalLine as assertThoughtV2Line } from "@inshell/shared";
+import {
+  formatThoughtAgentModelLabel,
+  thoughtAgentModelIdentifier,
+  type ThoughtAgentMetadataSource,
+  type ThoughtAgentReasoningEffort,
+} from "@inshell/thought-agent-protocol";
 
 import { assertThoughtV2Context } from "../contract-integration/current/reference/thought-v2-context-profile";
 import {
@@ -29,6 +35,9 @@ export type ThoughtV2LocalAgentEvidence = {
   runId: string;
   adapter: string;
   rawResponseSha256: string;
+  model?: string;
+  reasoningEffort?: ThoughtAgentReasoningEffort;
+  metadataSource?: ThoughtAgentMetadataSource;
 };
 
 export const buildThoughtV2LocalAgentOutputSchema = (
@@ -89,7 +98,7 @@ export const buildThoughtV2LocalAgentResult = (
   release: ThoughtV2LocalRelease = THOUGHT_V2_LOCAL_RELEASE,
 ): ThoughtV2LocalAgentResult => {
   assertThoughtV2Line(agentLine, "agent");
-  assertThoughtV2Context(agentLabel, "declaredAgent");
+  assertThoughtV2Context(agentLabel, "agent");
   return {
     schema: "inshell.thought.agent-result.v2",
     release: {
@@ -142,7 +151,7 @@ export const parseThoughtV2LocalAgentResult = (
     ) {
       throw new Error("Agent declaration mismatch.");
     }
-    assertThoughtV2Context(result.declaration.label, "declaredAgent");
+    assertThoughtV2Context(result.declaration.label, "agent");
   }
   return result;
 };
@@ -150,35 +159,63 @@ export const parseThoughtV2LocalAgentResult = (
 export const buildThoughtV2LocalAgentProcess = (
   evidence: ThoughtV2LocalAgentEvidence,
   agentLine: string,
-  declaredModel: string,
 ): ThoughtV2LocalProcess => {
   const result = parseThoughtV2LocalAgentResult(JSON.stringify(evidence.result));
-  if (!result.declaration) {
-    throw new Error("A validated Agent declaration is required to mint this local THOUGHT V2 work.");
-  }
   if (result.agentLine !== agentLine) {
     throw new Error("The validated Agent result does not match the current work.");
   }
-  assertThoughtV2Context(declaredModel, "declaredModel");
+  const selectedAgent =
+    evidence.adapter === "codex"
+      ? "Codex"
+      : evidence.adapter === "claude"
+        ? "Claude"
+        : "";
+  if (!selectedAgent) {
+    throw new Error("The selected Agent adapter is not supported.");
+  }
+  if (result.declaration && result.declaration.label !== selectedAgent) {
+    throw new Error(
+      "The Agent result label does not match the Agent selected by the App.",
+    );
+  }
+  const modelLabel = formatThoughtAgentModelLabel(
+    evidence.model,
+    evidence.reasoningEffort,
+  );
+  const modelIdentifier = thoughtAgentModelIdentifier(
+    evidence.model,
+    evidence.reasoningEffort,
+  );
+  if (modelLabel === "unknown") {
+    throw new Error(
+      "This Agent run has no exact model metadata. Run the work again before minting.",
+    );
+  }
+  if (evidence.metadataSource !== "reported") {
+    throw new Error(
+      "This Agent run did not report exact model metadata. Run the work again before minting.",
+    );
+  }
+  assertThoughtV2Context(modelLabel, "model");
   if (!evidence.runId || !evidence.adapter || !/^[0-9a-f]{64}$/.test(evidence.rawResponseSha256)) {
     throw new Error("THOUGHT V2 Agent transport evidence is incomplete.");
   }
   return {
     kind: "agent-run",
-    agentDeclaration: {
-      label: result.declaration.label,
-      source: "runtime_configured",
-      status: "declared-unverified",
+    agent: {
+      identifier: evidence.adapter,
+      label: selectedAgent,
+      source: "producer-selected",
     },
-    modelDeclaration: {
-      label: declaredModel,
-      source: "runtime_configured",
-      status: "declared-unverified",
+    model: {
+      label: modelLabel,
+      source: "runtime-reported",
+      ...(modelIdentifier ? { identifier: modelIdentifier } : {}),
     },
-    transport: {
+    run: {
       adapter: evidence.adapter,
       route: "inshell.thought.agent-run",
-      runReference: evidence.runId,
+      reference: evidence.runId,
       resultEnvelope: result,
     },
   };

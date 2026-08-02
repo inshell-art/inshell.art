@@ -8,7 +8,7 @@ import {
 } from "./thought-v2-stored-visual";
 
 const implementationId =
-  "inshell.thought.renderer.v2.humanist-smooth-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom";
+  "inshell.thought.renderer.v2.mono-76-v1-im76-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom";
 const currentSvg = [
   `<svg data-renderer="${implementationId}">`,
   '<rect id="work-frame" width="1024" height="1024" fill="#006100"/>',

@@ -9,7 +9,7 @@ import {
   buildVerifiedCanonicalThoughtV2Provenance,
   THOUGHT_V2_MAX_PROVENANCE_BYTES,
   type ThoughtV2ProcessEvidence,
-} from "../contract-integration/current/reference/thought-v2-terminal-provenance";
+} from "./thought-v2-provenance";
 import {
   THOUGHT_V2_CURRENT_ABI,
   THOUGHT_V2_CURRENT_RENDERER_ABI,

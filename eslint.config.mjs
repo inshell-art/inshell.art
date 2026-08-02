@@ -125,6 +125,7 @@ export default [
       "**/dist/**",
       "node_modules/**",
       "apps/thought/contract-integration/current/reference/**",
+      "apps/thought/contract-release/releases/**",
       "apps/thought/integration-preview/releases/**",
       ".eslintrc.cjs",
     ],

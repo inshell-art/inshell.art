@@ -28,7 +28,12 @@ const localAddresses = JSON.parse(await readFile(
   new URL("../apps/thought/evm/addresses.anvil.json", import.meta.url),
   "utf8",
 )) as {
-  artifact: { artifactId: string; productionConsumable: false };
+  artifact: {
+    acceptanceOnly: true;
+    artifactId: string;
+    deploymentAuthorized: false;
+    productionConsumable: true;
+  };
   chainId: number;
   pathNft: { address: string };
   thoughtNft: { address: string };
@@ -65,6 +70,8 @@ const selectedSpecText = await readFile(
 }).__INSHELL_THOUGHT_EVM_ADDRESSES__ = {
   ...localAddresses,
   localContractIntegration: {
+    acceptanceOnly: localAddresses.artifact.acceptanceOnly,
+    deploymentAuthorized: localAddresses.artifact.deploymentAuthorized,
     id: localAddresses.artifact.artifactId,
     productionConsumable: localAddresses.artifact.productionConsumable,
   },
@@ -186,15 +193,13 @@ const runSmoke = async () => {
     agentLine,
     process: {
       kind: "manual",
-      agentDeclaration: {
+      agent: {
         label: "Inshell THOUGHT App",
-        source: "manual",
-        status: "declared-unverified",
+        source: "minter-supplied",
       },
-      modelDeclaration: {
+      model: {
         label: "Local smoke",
-        source: "manual",
-        status: "declared-unverified",
+        source: "minter-supplied",
       },
     },
     mintContext: {
@@ -212,8 +217,8 @@ const runSmoke = async () => {
   const tx = await thought.mint({
     promptLine,
     agentLine,
-    declaredAgent: "Inshell THOUGHT App",
-    declaredModel: "Local smoke",
+    agent: "Inshell THOUGHT App",
+    model: "Local smoke",
     pathId,
     thoughtSpecId: release.spec.evmSpecId,
     thoughtSpecHash: release.spec.evmSpecHash,

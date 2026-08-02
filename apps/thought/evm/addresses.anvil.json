@@ -1,38 +1,54 @@
 {
   "schema": "inshell.thought.v2.anvil-gallery-runtime.v1",
   "status": "ready",
-  "generatedAt": "2026-07-25T09:56:33.817Z",
+  "generatedAt": "2026-08-02T10:52:46.782Z",
   "artifact": {
-    "artifactId": "thought-v2-noncanonical-integration-preview-20260725-r7",
-    "classification": "noncanonical-integration-preview",
-    "manifestSha256": "b2eb9fb0e5ed3b7ce11a46726b1f9b9d93d6a7868317b2b219076d6c6b978dbd",
-    "sourceTag": "thought-v2-noncanonical-integration-preview-20260725-r7",
-    "sourceCommit": "be0e9a5088856d1ab9262d86f4c2fead4a788867",
-    "productionConsumable": false
+    "artifactId": "thought-v2-canonical-portable-release-20260801-r1",
+    "classification": "canonical-portable-contract-release",
+    "manifestSha256": "4d60feba36165c19a3cf3680078cc6baa7ba066c147ca607e5c82d0306f65b1a",
+    "sourceTag": "thought-v2-canonical-portable-release-20260801-r1",
+    "sourceCommit": "a48191f5c0d5b51fab0de26707eaed86f2f1da5b",
+    "productionConsumable": true,
+    "deploymentAuthorized": false,
+    "acceptanceOnly": true
+  },
+  "localContractIntegration": {
+    "id": "thought-v2-canonical-portable-release-20260801-r1",
+    "productionConsumable": true,
+    "deploymentAuthorized": false,
+    "acceptanceOnly": true
   },
   "creativeSpec": {
-    "artifactId": "thought-v2-creative-work-spec-20260723-r1",
+    "artifactId": "thought-v2-selected-spec-20260801-r10",
     "authority": "THOUGHT App",
-    "byteLength": 14849,
+    "byteLength": 4627,
     "name": "THOUGHT.v2.md",
-    "ref": "app://thought/creative-spec/thought-v2-creative-work-spec-20260723-r1/THOUGHT.v2.md",
-    "sha256": "67f65b79188d4294e7cc63ab1bd1eadd666ebf7fa6ed4a163eb3bd9ec4c06cd8",
-    "thoughtSpecHash": "0x247dc71285b4f1078c822830ed2044138d61343bbf25cc6719b66742ed5cd5ea",
+    "ref": "app://thought/creative-spec/thought-v2-selected-spec-20260801-r10/THOUGHT.v2.md",
+    "sha256": "90df786a3ffb5ec38bffd09ff356ec560d0b7dddcdf57170891149a92a399e9b",
+    "thoughtSpecHash": "0xb2b0a167678816a7ae9dc9098b0d6a6852c0dc95feb59f9581de75bd2cc2231f",
     "thoughtSpecId": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410"
+  },
+  "provenance": {
+    "artifactId": "thought-provenance-v2-20260731-r1",
+    "authority": "THOUGHT App",
+    "id": "inshell.thought.provenance.v2",
+    "ref": "app://thought/provenance/thought-provenance-v2-20260731-r1/thought.provenance.v2.schema.json",
+    "schemaKeccak256": "0x283afe4c96527dd33c17b99444a5ef27300b01af474e2daca1d5c017a50dafa4",
+    "schemaSha256": "210abc0735cf7fb480491ec94f04495deb153560838c514c8f2ef19541821ff8"
   },
   "rpcUrl": "http://127.0.0.1:8546",
   "chainId": 31337,
   "path": {
-    "address": "0x02b0B4EFd909240FCB2Eb5FAe060dC60D112E3a4"
+    "address": "0xe1Fd27F4390DcBE165f4D60DBF821e4B9Bb02dEd"
   },
   "pathNft": {
-    "address": "0x02b0B4EFd909240FCB2Eb5FAe060dC60D112E3a4"
+    "address": "0xe1Fd27F4390DcBE165f4D60DBF821e4B9Bb02dEd"
   },
   "pathPulseAdapter": {
-    "address": "0x638A246F0Ec8883eF68280293FFE8Cfbabe61B44"
+    "address": "0xc582Bc0317dbb0908203541971a358c44b1F3766"
   },
   "pulseAuction": {
-    "address": "0x6C2d83262fF84cBaDb3e416D527403135D757892"
+    "address": "0xB2b580ce436E6F77A5713D80887e14788Ef49c9A"
   },
   "paymentToken": {
     "address": "0x0000000000000000000000000000000000000000"
@@ -50,7 +66,7 @@
     "claimDurationSeconds": 604800
   },
   "pathAuction": {
-    "openTime": 1784973422,
+    "openTime": 1785667995,
     "k": "600000000000000000",
     "genesisPrice": "10000000000000000",
     "genesisFloor": "9000000000000000",
@@ -58,111 +74,148 @@
     "treasury": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
   },
   "thoughtSpecRegistry": {
-    "address": "0x4bf010f1b9beDA5450a8dD702ED602A104ff65EE",
+    "address": "0xefAB0Beb0A557E452b398035eA964948c750b2Fd",
     "owner": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
   },
   "protocolRegistry": {
-    "address": "0x96F3Ce39Ad2BfDCf92C0F6E2C2CAbF83874660Fc",
+    "address": "0x70bDA08DBe07363968e9EE53d899dFE48560605B",
     "owner": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
   },
   "contracts": {
-    "pathNft": "0x02b0B4EFd909240FCB2Eb5FAe060dC60D112E3a4",
-    "thoughtSpecRegistry": "0x4bf010f1b9beDA5450a8dD702ED602A104ff65EE",
-    "thoughtRenderer": "0x870526b7973b56163a6997bB7C886F5E4EA53638",
-    "protocolRegistry": "0x96F3Ce39Ad2BfDCf92C0F6E2C2CAbF83874660Fc",
-    "creationAttestationVerifier": "0xe1Fd27F4390DcBE165f4D60DBF821e4B9Bb02dEd",
-    "thoughtNft": "0xc582Bc0317dbb0908203541971a358c44b1F3766"
+    "pathNft": "0xe1Fd27F4390DcBE165f4D60DBF821e4B9Bb02dEd",
+    "thoughtSpecRegistry": "0xefAB0Beb0A557E452b398035eA964948c750b2Fd",
+    "thoughtRenderer": "0xA56F946D6398Dd7d9D4D9B337Cf9E0F68982ca5B",
+    "protocolRegistry": "0x70bDA08DBe07363968e9EE53d899dFE48560605B",
+    "creationAttestationVerifier": "0xddE78e6202518FF4936b5302cC2891ec180E8bFf",
+    "thoughtNft": "0xB06c856C8eaBd1d8321b687E188204C1018BC4E5"
   },
   "thoughtRenderer": {
-    "address": "0x870526b7973b56163a6997bB7C886F5E4EA53638",
+    "address": "0xA56F946D6398Dd7d9D4D9B337Cf9E0F68982ca5B",
     "id": "inshell.thought.svg.v2.terminal-chat-path-glyphs",
     "idHash": "0x01982604c90acf1ca63020e0c3761b25d8dc8fc3c267d27ace14cb0d2c813d73",
-    "implementationId": "inshell.thought.renderer.v2.humanist-smooth-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom",
-    "glyphDefinitionsPointer1": "0x986aaa537b8cc170761FDAC6aC4fc7F9d8a20A8C",
-    "glyphDefinitionsPointer2": "0xde2Bd2ffEA002b8E84ADeA96e5976aF664115E2c",
-    "glyphDefinitionsIndexPointer": "0xefc1aB2475ACb7E60499Efb171D173be19928a05",
-    "glyphDefinitionsKeccak256": "0xa2399aaebb7f06859e09df4d3b152f93efb6c63813964bd632e79690a33796ca",
-    "glyphDefinitionsIndexKeccak256": "0x113d43ed0e3a6ce486779bca9734801493dd9c5c629e4816b8be3d445f1b9825",
-    "glyphLibraryMemberId": "inshell.thought.glyph-library.set-03.humanist-smooth"
+    "implementationId": "inshell.thought.renderer.v2.mono-76-v1-im76-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom",
+    "externalUrlBase": "https://inshell.art/thought/",
+    "glyphDataPointer": "0x26B862f640357268Bd2d9E95bc81553a2Aa81D7E",
+    "glyphDefinitionsKeccak256": "0xba37d00bb395b84f0487791300a29cdd2b1712b078fa218c6ed74fa11d74a081",
+    "glyphPackedBytes": 4600,
+    "glyphPackedKeccak256": "0xba37d00bb395b84f0487791300a29cdd2b1712b078fa218c6ed74fa11d74a081",
+    "glyphPackedSha256": "3acc0a9cf60c00aa2d512356386d1e2a999499896e25661e8e631d53d5e10926",
+    "glyphLibraryMemberId": "inshell.mono-76"
   },
   "renderer": {
     "canonicalRendererId": "inshell.thought.svg.v2.terminal-chat-path-glyphs",
-    "implementationId": "inshell.thought.renderer.v2.humanist-smooth-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom",
+    "implementationId": "inshell.thought.renderer.v2.mono-76-v1-im76-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom",
     "releaseReady": true,
-    "glyphDefinitionsPointer1": "0x986aaa537b8cc170761FDAC6aC4fc7F9d8a20A8C",
-    "glyphDefinitionsPointer2": "0xde2Bd2ffEA002b8E84ADeA96e5976aF664115E2c",
-    "glyphDefinitionsIndexPointer": "0xefc1aB2475ACb7E60499Efb171D173be19928a05",
-    "glyphDefinitionsKeccak256": "0xa2399aaebb7f06859e09df4d3b152f93efb6c63813964bd632e79690a33796ca",
-    "glyphDefinitionsIndexKeccak256": "0x113d43ed0e3a6ce486779bca9734801493dd9c5c629e4816b8be3d445f1b9825",
-    "glyphLibraryMemberId": "inshell.thought.glyph-library.set-03.humanist-smooth"
+    "externalUrlBase": "https://inshell.art/thought/",
+    "glyphDataPointer": "0x26B862f640357268Bd2d9E95bc81553a2Aa81D7E",
+    "glyphDefinitionsKeccak256": "0xba37d00bb395b84f0487791300a29cdd2b1712b078fa218c6ed74fa11d74a081",
+    "glyphPackedBytes": 4600,
+    "glyphPackedKeccak256": "0xba37d00bb395b84f0487791300a29cdd2b1712b078fa218c6ed74fa11d74a081",
+    "glyphPackedSha256": "3acc0a9cf60c00aa2d512356386d1e2a999499896e25661e8e631d53d5e10926",
+    "glyphLibraryMemberId": "inshell.mono-76"
   },
   "creationAttestationVerifier": {
-    "address": "0xe1Fd27F4390DcBE165f4D60DBF821e4B9Bb02dEd",
+    "address": "0xddE78e6202518FF4936b5302cC2891ec180E8bFf",
     "authority": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
     "authorityEpoch": 1,
     "owner": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-    "profileId": "0x0dc216b0e8f18cabaa4afee047e80f349ed3c2de67ace911157300279f74c669"
+    "profileId": "0x5759a606b1b0b1ba997b2d7b851c7e2022ed8ff4e0238e55e29ad8b36ce9194a"
   },
   "attestation": {
     "authority": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
     "authorityEpoch": 1,
-    "profileId": "0x0dc216b0e8f18cabaa4afee047e80f349ed3c2de67ace911157300279f74c669",
+    "profileId": "0x5759a606b1b0b1ba997b2d7b851c7e2022ed8ff4e0238e55e29ad8b36ce9194a",
     "status": "mock-valid-eip712",
-    "verifier": "0xe1Fd27F4390DcBE165f4D60DBF821e4B9Bb02dEd"
+    "verifier": "0xddE78e6202518FF4936b5302cC2891ec180E8bFf"
   },
   "thought": {
-    "address": "0xc582Bc0317dbb0908203541971a358c44b1F3766"
+    "address": "0xB06c856C8eaBd1d8321b687E188204C1018BC4E5"
   },
   "thoughtNft": {
-    "address": "0xc582Bc0317dbb0908203541971a358c44b1F3766"
+    "address": "0xB06c856C8eaBd1d8321b687E188204C1018BC4E5"
   },
   "protocolRelease": {
-    "id": "0xffdf32afb6a28a554869abc2a61e0d1e74ea3619b44e8cb33153b1ecc537b779",
-    "manifestHash": "0xefd6d98623d19efe5f99f2419cb1c1f19d6c6f4babda49a77b193eead8e3bdc1",
-    "manifestUri": "dev://thought/v2/anvil/0xefd6d98623d19efe5f99f2419cb1c1f19d6c6f4babda49a77b193eead8e3bdc1",
-    "manifestURI": "dev://thought/v2/anvil/0xefd6d98623d19efe5f99f2419cb1c1f19d6c6f4babda49a77b193eead8e3bdc1",
+    "id": "0x556973fd1ded2e8aa704d9e7e90c5eef2e4792bd1a7660e7a434964dac75cc5e",
+    "manifestHash": "0x08ad7d098ffee99bb05eef41d4a270bbeca35f9cdba2830b8754b3d4413996ef",
+    "manifestUri": "dev://thought/v2/anvil/0x08ad7d098ffee99bb05eef41d4a270bbeca35f9cdba2830b8754b3d4413996ef",
+    "manifestURI": "dev://thought/v2/anvil/0x08ad7d098ffee99bb05eef41d4a270bbeca35f9cdba2830b8754b3d4413996ef",
     "status": "registered-disposable-anvil",
     "manifest": {
       "artifacts": [
         {
-          "keccak256": "0x247dc71285b4f1078c822830ed2044138d61343bbf25cc6719b66742ed5cd5ea",
-          "path": "app://thought/creative-spec/thought-v2-creative-work-spec-20260723-r1/THOUGHT.v2.md",
+          "keccak256": "0x283afe4c96527dd33c17b99444a5ef27300b01af474e2daca1d5c017a50dafa4",
+          "path": "app://thought/provenance/thought-provenance-v2-20260731-r1/thought.provenance.v2.schema.json",
+          "role": "provenance-schema"
+        },
+        {
+          "keccak256": "0xb2b0a167678816a7ae9dc9098b0d6a6852c0dc95feb59f9581de75bd2cc2231f",
+          "path": "app://thought/creative-spec/thought-v2-selected-spec-20260801-r10/THOUGHT.v2.md",
           "role": "creative-spec"
         },
         {
-          "keccak256": "0xc2b5db118c8a84ae32b03b25c5dff30e6997c6792396f3d6c8e3c22db36a53fe",
+          "keccak256": "0x5f90d77ebde530fc8a6580f638f3f1b18625b7edcc10770c971b21b655b087f0",
           "path": "protocol/current/v2/work/thought.work.v2.profile.json",
           "role": "work-profile"
         },
         {
-          "keccak256": "0xea2c5e7be4b20f212eee62a8d005d5af3d22dfbadc7d142ca434ba70f5aca7b3",
+          "keccak256": "0x2a7dba2bb85ab8001cd850ac2e3c6b80191c7687dcc5bb665c1a51e233e42bf0",
           "path": "protocol/current/v2/context/thought.context.v2.profile.json",
           "role": "context-profile"
         },
         {
-          "keccak256": "0x9c7d133821638acc74b90aa6311734c3c8b91adc4772ead546890ed037aee0bd",
+          "keccak256": "0xffe0700c203e88b20545e2faf72c2e5f66d3c2d6752b3f8c6b8fe318d7ce5dba",
           "path": "protocol/current/v2/metadata/thought.metadata.v2.profile.json",
           "role": "metadata-profile"
         },
         {
-          "keccak256": "0x245dc29490f3ea21b5d3d9c6859cd7c8b717917af624626bb6006ed15761ac37",
-          "path": "protocol/current/v2/provenance/thought.provenance.v2.schema.json",
-          "role": "provenance-schema"
+          "keccak256": "0xd58e33b3058bf10d6c403377088a63a49c19e990e373c23e0ee95135aed81a30",
+          "path": "protocol/current/v2/attestation/thought.creation-workflow-attestation.v2.md",
+          "role": "creation-attestation-profile"
         },
         {
-          "keccak256": "0x893abf6c70d6c81d8b71f9c97f1acffeef26ecde152e001e5bf870356cd7cd5e",
-          "path": "protocol/current/v2/attestation/thought.creation-workflow-attestation.v1.md",
-          "role": "creation-attestation-profile"
+          "keccak256": "0xafbf5c86f2a9126f0bbc4f3f141c0a1b905290dce294fd941f9f1043c1af1ae2",
+          "path": "protocol/current/v2/renderer/thought.renderer.v2.profile.json",
+          "role": "renderer-profile"
+        },
+        {
+          "keccak256": "0xba37d00bb395b84f0487791300a29cdd2b1712b078fa218c6ed74fa11d74a081",
+          "path": "protocol/current/v2/renderer/mono-76.im76.bin",
+          "role": "renderer-glyph-packed-im76"
+        },
+        {
+          "keccak256": "0x8bdc6533c868933b61df2e31db77a99a8f91e4cf025788d23ebb9b2c0923d7a8",
+          "path": "dependencies/mono-76/manifest.json",
+          "role": "renderer-glyph-package-manifest"
+        },
+        {
+          "keccak256": "0xc7f8402234a7677a64991f8fe6bca4e183ae9a65327c1ced8d413a580526e82f",
+          "path": "dependencies/mono-76/PROVENANCE.md",
+          "role": "renderer-glyph-provenance"
+        },
+        {
+          "keccak256": "0x1b8b7f48d9cde12030c07d27aee90e3efdc281fe1542126c9bbd0b4826ff9cb7",
+          "path": "dependencies/mono-76/UNLICENSED.md",
+          "role": "renderer-glyph-license"
+        },
+        {
+          "keccak256": "0xabdd45565355d8ceaf52fec9acff99b9abea698cc5854baec8d1764ef4ffdcfb",
+          "path": "dependencies/mono-76/NOTICE.md",
+          "role": "renderer-glyph-notice"
         }
       ],
       "chainId": "31337",
       "glyphLibrary": {
-        "definitionsIndexKeccak256": "0x113d43ed0e3a6ce486779bca9734801493dd9c5c629e4816b8be3d445f1b9825",
-        "definitionsKeccak256": "0xa2399aaebb7f06859e09df4d3b152f93efb6c63813964bd632e79690a33796ca",
-        "definitionsPart1Keccak256": "0x3397ceb983a0e0fcbeee7154eebe059501315c7f34b1730ce9d37f2982425f5e",
-        "definitionsPart2Keccak256": "0x9bc9bd78a6ed099748994515be64879548413a98187dcc45faaba65af72c7f32",
-        "memberId": "inshell.thought.glyph-library.set-03.humanist-smooth",
-        "releaseReady": true
+        "family": "Inshell Mono 76",
+        "faceSha256": "7ed61ed6335fce2c1e58184916f5d344b8384fc05d4c616e83c35ad4fa9ed47f",
+        "libraryMemberId": "inshell.mono-76",
+        "librarySetId": "inshell.mono-76",
+        "manualEditPayloadSha256": "755f16a8f70d9141a8b2175bc1bafeaef93ead366179d85f3597bc3dfc9ddc56",
+        "packedBytes": 4600,
+        "packedKeccak256": "0xba37d00bb395b84f0487791300a29cdd2b1712b078fa218c6ed74fa11d74a081",
+        "packedSha256": "0x3acc0a9cf60c00aa2d512356386d1e2a999499896e25661e8e631d53d5e10926",
+        "releaseTag": "v1.0.0",
+        "releaseReady": true,
+        "role": "canonical-native-svg-paths"
       },
       "identifiers": {
         "contextProfile": "inshell.thought.context.v2.visible-utf8-64",
@@ -177,7 +230,7 @@
       },
       "productionRegistrationAuthorized": false,
       "rendererImplementation": {
-        "id": "inshell.thought.renderer.v2.humanist-smooth-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom",
+        "id": "inshell.thought.renderer.v2.mono-76-v1-im76-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom",
         "releaseReady": true,
         "usesForeignObject": false,
         "usesNativeSvgPaths": true
@@ -185,41 +238,41 @@
       "schema": "inshell.thought.protocol.v2.disposable-anvil-manifest.v1",
       "selectedSpec": {
         "name": "THOUGHT.v2.md",
-        "thoughtSpecHash": "0x247dc71285b4f1078c822830ed2044138d61343bbf25cc6719b66742ed5cd5ea",
+        "thoughtSpecHash": "0xb2b0a167678816a7ae9dc9098b0d6a6852c0dc95feb59f9581de75bd2cc2231f",
         "thoughtSpecId": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410"
       },
       "status": "registered-disposable-anvil"
     },
-    "manifestJson": "{\"artifacts\":[{\"keccak256\":\"0x247dc71285b4f1078c822830ed2044138d61343bbf25cc6719b66742ed5cd5ea\",\"path\":\"app://thought/creative-spec/thought-v2-creative-work-spec-20260723-r1/THOUGHT.v2.md\",\"role\":\"creative-spec\"},{\"keccak256\":\"0xc2b5db118c8a84ae32b03b25c5dff30e6997c6792396f3d6c8e3c22db36a53fe\",\"path\":\"protocol/current/v2/work/thought.work.v2.profile.json\",\"role\":\"work-profile\"},{\"keccak256\":\"0xea2c5e7be4b20f212eee62a8d005d5af3d22dfbadc7d142ca434ba70f5aca7b3\",\"path\":\"protocol/current/v2/context/thought.context.v2.profile.json\",\"role\":\"context-profile\"},{\"keccak256\":\"0x9c7d133821638acc74b90aa6311734c3c8b91adc4772ead546890ed037aee0bd\",\"path\":\"protocol/current/v2/metadata/thought.metadata.v2.profile.json\",\"role\":\"metadata-profile\"},{\"keccak256\":\"0x245dc29490f3ea21b5d3d9c6859cd7c8b717917af624626bb6006ed15761ac37\",\"path\":\"protocol/current/v2/provenance/thought.provenance.v2.schema.json\",\"role\":\"provenance-schema\"},{\"keccak256\":\"0x893abf6c70d6c81d8b71f9c97f1acffeef26ecde152e001e5bf870356cd7cd5e\",\"path\":\"protocol/current/v2/attestation/thought.creation-workflow-attestation.v1.md\",\"role\":\"creation-attestation-profile\"}],\"chainId\":\"31337\",\"glyphLibrary\":{\"definitionsIndexKeccak256\":\"0x113d43ed0e3a6ce486779bca9734801493dd9c5c629e4816b8be3d445f1b9825\",\"definitionsKeccak256\":\"0xa2399aaebb7f06859e09df4d3b152f93efb6c63813964bd632e79690a33796ca\",\"definitionsPart1Keccak256\":\"0x3397ceb983a0e0fcbeee7154eebe059501315c7f34b1730ce9d37f2982425f5e\",\"definitionsPart2Keccak256\":\"0x9bc9bd78a6ed099748994515be64879548413a98187dcc45faaba65af72c7f32\",\"memberId\":\"inshell.thought.glyph-library.set-03.humanist-smooth\",\"releaseReady\":true},\"identifiers\":{\"contextProfile\":\"inshell.thought.context.v2.visible-utf8-64\",\"contextProfileHash\":\"0x9894359f9294f4b3a871442b19d851203138fad4a648c16f62fc04f55dff02b8\",\"metadataProfile\":\"inshell.thought.metadata.v2.terminal-chat\",\"metadataProfileHash\":\"0x4cefae9cf44cc61bc8ec16e266ecb31f53e634834fe5975cc564ae9dfc51858b\",\"provenance\":\"inshell.thought.provenance.v2\",\"renderer\":\"inshell.thought.svg.v2.terminal-chat-path-glyphs\",\"rendererHash\":\"0x01982604c90acf1ca63020e0c3761b25d8dc8fc3c267d27ace14cb0d2c813d73\",\"workProfile\":\"inshell.thought.work.v2.terminal-english-64\",\"workProfileHash\":\"0x2bf311e6034eb35e6d1f7bd92894012ee7e528609830cb3b28df1ce5dd82f85a\"},\"productionRegistrationAuthorized\":false,\"rendererImplementation\":{\"id\":\"inshell.thought.renderer.v2.humanist-smooth-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom\",\"releaseReady\":true,\"usesForeignObject\":false,\"usesNativeSvgPaths\":true},\"schema\":\"inshell.thought.protocol.v2.disposable-anvil-manifest.v1\",\"selectedSpec\":{\"name\":\"THOUGHT.v2.md\",\"thoughtSpecHash\":\"0x247dc71285b4f1078c822830ed2044138d61343bbf25cc6719b66742ed5cd5ea\",\"thoughtSpecId\":\"0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410\"},\"status\":\"registered-disposable-anvil\"}",
+    "manifestJson": "{\"artifacts\":[{\"keccak256\":\"0x283afe4c96527dd33c17b99444a5ef27300b01af474e2daca1d5c017a50dafa4\",\"path\":\"app://thought/provenance/thought-provenance-v2-20260731-r1/thought.provenance.v2.schema.json\",\"role\":\"provenance-schema\"},{\"keccak256\":\"0xb2b0a167678816a7ae9dc9098b0d6a6852c0dc95feb59f9581de75bd2cc2231f\",\"path\":\"app://thought/creative-spec/thought-v2-selected-spec-20260801-r10/THOUGHT.v2.md\",\"role\":\"creative-spec\"},{\"keccak256\":\"0x5f90d77ebde530fc8a6580f638f3f1b18625b7edcc10770c971b21b655b087f0\",\"path\":\"protocol/current/v2/work/thought.work.v2.profile.json\",\"role\":\"work-profile\"},{\"keccak256\":\"0x2a7dba2bb85ab8001cd850ac2e3c6b80191c7687dcc5bb665c1a51e233e42bf0\",\"path\":\"protocol/current/v2/context/thought.context.v2.profile.json\",\"role\":\"context-profile\"},{\"keccak256\":\"0xffe0700c203e88b20545e2faf72c2e5f66d3c2d6752b3f8c6b8fe318d7ce5dba\",\"path\":\"protocol/current/v2/metadata/thought.metadata.v2.profile.json\",\"role\":\"metadata-profile\"},{\"keccak256\":\"0xd58e33b3058bf10d6c403377088a63a49c19e990e373c23e0ee95135aed81a30\",\"path\":\"protocol/current/v2/attestation/thought.creation-workflow-attestation.v2.md\",\"role\":\"creation-attestation-profile\"},{\"keccak256\":\"0xafbf5c86f2a9126f0bbc4f3f141c0a1b905290dce294fd941f9f1043c1af1ae2\",\"path\":\"protocol/current/v2/renderer/thought.renderer.v2.profile.json\",\"role\":\"renderer-profile\"},{\"keccak256\":\"0xba37d00bb395b84f0487791300a29cdd2b1712b078fa218c6ed74fa11d74a081\",\"path\":\"protocol/current/v2/renderer/mono-76.im76.bin\",\"role\":\"renderer-glyph-packed-im76\"},{\"keccak256\":\"0x8bdc6533c868933b61df2e31db77a99a8f91e4cf025788d23ebb9b2c0923d7a8\",\"path\":\"dependencies/mono-76/manifest.json\",\"role\":\"renderer-glyph-package-manifest\"},{\"keccak256\":\"0xc7f8402234a7677a64991f8fe6bca4e183ae9a65327c1ced8d413a580526e82f\",\"path\":\"dependencies/mono-76/PROVENANCE.md\",\"role\":\"renderer-glyph-provenance\"},{\"keccak256\":\"0x1b8b7f48d9cde12030c07d27aee90e3efdc281fe1542126c9bbd0b4826ff9cb7\",\"path\":\"dependencies/mono-76/UNLICENSED.md\",\"role\":\"renderer-glyph-license\"},{\"keccak256\":\"0xabdd45565355d8ceaf52fec9acff99b9abea698cc5854baec8d1764ef4ffdcfb\",\"path\":\"dependencies/mono-76/NOTICE.md\",\"role\":\"renderer-glyph-notice\"}],\"chainId\":\"31337\",\"glyphLibrary\":{\"faceSha256\":\"7ed61ed6335fce2c1e58184916f5d344b8384fc05d4c616e83c35ad4fa9ed47f\",\"family\":\"Inshell Mono 76\",\"libraryMemberId\":\"inshell.mono-76\",\"librarySetId\":\"inshell.mono-76\",\"manualEditPayloadSha256\":\"755f16a8f70d9141a8b2175bc1bafeaef93ead366179d85f3597bc3dfc9ddc56\",\"packedBytes\":4600,\"packedKeccak256\":\"0xba37d00bb395b84f0487791300a29cdd2b1712b078fa218c6ed74fa11d74a081\",\"packedSha256\":\"0x3acc0a9cf60c00aa2d512356386d1e2a999499896e25661e8e631d53d5e10926\",\"releaseReady\":true,\"releaseTag\":\"v1.0.0\",\"role\":\"canonical-native-svg-paths\"},\"identifiers\":{\"contextProfile\":\"inshell.thought.context.v2.visible-utf8-64\",\"contextProfileHash\":\"0x9894359f9294f4b3a871442b19d851203138fad4a648c16f62fc04f55dff02b8\",\"metadataProfile\":\"inshell.thought.metadata.v2.terminal-chat\",\"metadataProfileHash\":\"0x4cefae9cf44cc61bc8ec16e266ecb31f53e634834fe5975cc564ae9dfc51858b\",\"provenance\":\"inshell.thought.provenance.v2\",\"renderer\":\"inshell.thought.svg.v2.terminal-chat-path-glyphs\",\"rendererHash\":\"0x01982604c90acf1ca63020e0c3761b25d8dc8fc3c267d27ace14cb0d2c813d73\",\"workProfile\":\"inshell.thought.work.v2.terminal-english-64\",\"workProfileHash\":\"0x2bf311e6034eb35e6d1f7bd92894012ee7e528609830cb3b28df1ce5dd82f85a\"},\"productionRegistrationAuthorized\":false,\"rendererImplementation\":{\"id\":\"inshell.thought.renderer.v2.mono-76-v1-im76-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom\",\"releaseReady\":true,\"usesForeignObject\":false,\"usesNativeSvgPaths\":true},\"schema\":\"inshell.thought.protocol.v2.disposable-anvil-manifest.v1\",\"selectedSpec\":{\"name\":\"THOUGHT.v2.md\",\"thoughtSpecHash\":\"0xb2b0a167678816a7ae9dc9098b0d6a6852c0dc95feb59f9581de75bd2cc2231f\",\"thoughtSpecId\":\"0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410\"},\"status\":\"registered-disposable-anvil\"}",
     "rendererIdHash": "0x01982604c90acf1ca63020e0c3761b25d8dc8fc3c267d27ace14cb0d2c813d73",
     "workProfileIdHash": "0x2bf311e6034eb35e6d1f7bd92894012ee7e528609830cb3b28df1ce5dd82f85a",
     "contextProfileIdHash": "0x9894359f9294f4b3a871442b19d851203138fad4a648c16f62fc04f55dff02b8",
     "metadataProfileIdHash": "0x4cefae9cf44cc61bc8ec16e266ecb31f53e634834fe5975cc564ae9dfc51858b",
-    "creationAttestationProfileIdHash": "0x0dc216b0e8f18cabaa4afee047e80f349ed3c2de67ace911157300279f74c669"
+    "creationAttestationProfileIdHash": "0x5759a606b1b0b1ba997b2d7b851c7e2022ed8ff4e0238e55e29ad8b36ce9194a"
   },
   "thoughtSpecs": [
     {
       "specName": "THOUGHT.v2.md",
       "specId": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410",
-      "specHash": "0x247dc71285b4f1078c822830ed2044138d61343bbf25cc6719b66742ed5cd5ea",
-      "ref": "app://thought/creative-spec/thought-v2-creative-work-spec-20260723-r1/THOUGHT.v2.md",
-      "byteLength": 14849,
-      "sha256": "67f65b79188d4294e7cc63ab1bd1eadd666ebf7fa6ed4a163eb3bd9ec4c06cd8"
+      "specHash": "0xb2b0a167678816a7ae9dc9098b0d6a6852c0dc95feb59f9581de75bd2cc2231f",
+      "ref": "app://thought/creative-spec/thought-v2-selected-spec-20260801-r10/THOUGHT.v2.md",
+      "byteLength": 4627,
+      "sha256": "90df786a3ffb5ec38bffd09ff356ec560d0b7dddcdf57170891149a92a399e9b"
     }
   ],
   "recommendedThoughtSpecName": "THOUGHT.v2.md",
   "recommendedThoughtSpecId": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410",
-  "recommendedThoughtSpecHash": "0x247dc71285b4f1078c822830ed2044138d61343bbf25cc6719b66742ed5cd5ea",
+  "recommendedThoughtSpecHash": "0xb2b0a167678816a7ae9dc9098b0d6a6852c0dc95feb59f9581de75bd2cc2231f",
   "thoughtSpec": {
     "specName": "THOUGHT.v2.md",
     "id": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410",
-    "hash": "0x247dc71285b4f1078c822830ed2044138d61343bbf25cc6719b66742ed5cd5ea",
-    "ref": "app://thought/creative-spec/thought-v2-creative-work-spec-20260723-r1/THOUGHT.v2.md"
+    "hash": "0xb2b0a167678816a7ae9dc9098b0d6a6852c0dc95feb59f9581de75bd2cc2231f",
+    "ref": "app://thought/creative-spec/thought-v2-selected-spec-20260801-r10/THOUGHT.v2.md"
   },
   "selectedSpec": {
     "id": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410",
-    "hash": "0x247dc71285b4f1078c822830ed2044138d61343bbf25cc6719b66742ed5cd5ea",
+    "hash": "0xb2b0a167678816a7ae9dc9098b0d6a6852c0dc95feb59f9581de75bd2cc2231f",
     "name": "THOUGHT.v2.md",
-    "ref": "app://thought/creative-spec/thought-v2-creative-work-spec-20260723-r1/THOUGHT.v2.md"
+    "ref": "app://thought/creative-spec/thought-v2-selected-spec-20260801-r10/THOUGHT.v2.md"
   }
 }

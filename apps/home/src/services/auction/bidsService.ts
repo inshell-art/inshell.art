@@ -338,8 +338,9 @@ export function createBidsService(opts: {
 }) {
   const address = opts.address;
   const provider: ProviderInterface = opts.provider ?? getDefaultProvider();
+  const localDevnet = isLocalDevnet();
   const useCacheApi =
-    !isLocalDevnet() &&
+    localDevnet ||
     (opts.preferCacheApi ??
       (typeof globalThis.fetch === "function" &&
         typeof globalThis.location !== "undefined"));

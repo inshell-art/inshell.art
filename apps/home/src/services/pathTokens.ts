@@ -100,21 +100,34 @@ function pathTokenCacheKey(parts: Array<string | number | undefined>) {
     .join(":")}`;
 }
 
+function isLocalDevnet() {
+  const env = (globalThis as any).__VITE_ENV__ as
+    | Record<string, unknown>
+    | undefined;
+  const buildEnv = (globalThis as any).__INSHELL_VITE_ENV__ as
+    | Record<string, unknown>
+    | undefined;
+  return String(
+    env?.VITE_NETWORK ?? buildEnv?.VITE_NETWORK ?? "",
+  ).toLowerCase() === "devnet";
+}
+
 function shouldUsePathTokenCache(args: {
   provider?: ProviderInterface;
   cacheMode?: PathTokenCacheMode;
 }) {
-  return !args.provider && args.cacheMode !== "bypass";
+  return (
+    !isLocalDevnet() &&
+    !args.provider &&
+    args.cacheMode !== "bypass"
+  );
 }
 
 function shouldUsePathTokenApi(args: {
   provider?: ProviderInterface;
 }) {
-  const env = (globalThis as any).__VITE_ENV__ as Record<string, unknown> | undefined;
-  const buildEnv = (globalThis as any).__INSHELL_VITE_ENV__ as Record<string, unknown> | undefined;
-  const network = String(env?.VITE_NETWORK ?? buildEnv?.VITE_NETWORK ?? "").toLowerCase();
   return (
-    network !== "devnet" &&
+    !isLocalDevnet() &&
     !args.provider &&
     typeof globalThis.fetch === "function"
   );
@@ -250,6 +263,7 @@ export function readCachedAllPathTokens(args: {
   chunkSize?: number;
   maxSequentialTokenId?: number;
 }): PathTokenInventoryItem[] | null {
+  if (isLocalDevnet()) return null;
   return readPathTokenCache(
     pathTokenCacheKey([
       "all",

@@ -1,4 +1,7 @@
+import { isLocalRuntimeHost } from "@inshell/inshell-shell";
+
 import integrationLock from "../contract-integration/current/integration-lock.json";
+import provenanceLock from "../provenance/v2/provenance-lock.json";
 import creativeSpecLock from "../spec/THOUGHT.v2.lock.json";
 
 export type ThoughtV2LocalRuntimeAddresses = {
@@ -17,8 +20,18 @@ export type ThoughtV2LocalRuntimeAddresses = {
     creationAttestationProfileIdHash: string;
   };
   localContractIntegration?: {
+    acceptanceOnly?: boolean;
+    deploymentAuthorized?: boolean;
     id?: string;
     productionConsumable?: boolean;
+  };
+  provenance?: {
+    artifactId?: string;
+    authority?: string;
+    id?: string;
+    ref?: string;
+    schemaKeccak256?: string;
+    schemaSha256?: string;
   };
   creationAttestationVerifier?: { address?: string };
   thoughtRenderer?: { address?: string };
@@ -68,7 +81,7 @@ const WORK_PROFILE_ID = "inshell.thought.work.v2.terminal-english-64";
 const RENDERER_ID = "inshell.thought.svg.v2.terminal-chat-path-glyphs";
 const CONTEXT_PROFILE_ID = "inshell.thought.context.v2.visible-utf8-64";
 const METADATA_PROFILE_ID = "inshell.thought.metadata.v2.terminal-chat";
-const CREATION_ATTESTATION_ID = "inshell.thought.creation-workflow-attestation.v1";
+const CREATION_ATTESTATION_ID = "inshell.thought.creation-workflow-attestation.v2";
 
 export const buildThoughtV2LocalRelease = (
   runtime: ThoughtV2LocalRuntimeAddresses = injectedRuntime ?? lockedBaselineRuntime,
@@ -82,8 +95,18 @@ export const buildThoughtV2LocalRelease = (
     runtimeSpec.sha256 === creativeSpecLock.artifact.sha256;
   const isCurrentLocalIntegration =
     runtime.localContractIntegration?.id === integrationLock.id &&
-    runtime.localContractIntegration.productionConsumable === false &&
-    isCanonicalAppSpec;
+    runtime.localContractIntegration.productionConsumable ===
+      integrationLock.artifact.productionConsumable &&
+    runtime.localContractIntegration.deploymentAuthorized ===
+      integrationLock.artifact.deploymentAuthorized &&
+    runtime.localContractIntegration.acceptanceOnly === true &&
+    isCanonicalAppSpec &&
+    runtime.provenance?.artifactId === provenanceLock.artifactId &&
+    runtime.provenance.authority === provenanceLock.authority.owner &&
+    runtime.provenance.id === provenanceLock.provenanceSchema &&
+    runtime.provenance.schemaKeccak256?.toLowerCase() ===
+      provenanceLock.artifacts.schema.keccak256.toLowerCase() &&
+    runtime.provenance.schemaSha256 === provenanceLock.artifacts.schema.sha256;
 
   return {
     eligibleForLocalMint: isCurrentLocalIntegration,
@@ -93,9 +116,9 @@ export const buildThoughtV2LocalRelease = (
       manifestSha256: integrationLock.artifact.manifestSha256,
       sourceTag: integrationLock.artifact.sourceTag,
       sourceCommit: integrationLock.source.commit,
-      productionConsumable: false,
-      deploymentAuthorized: false,
-      registrationAuthorized: false,
+      productionConsumable: integrationLock.artifact.productionConsumable,
+      deploymentAuthorized: integrationLock.artifact.deploymentAuthorized,
+      registrationAuthorized: integrationLock.artifact.registrationAuthorized,
     },
     chainId: runtime.chainId,
     protocol: {
@@ -176,25 +199,45 @@ export type ThoughtV2LocalRuntimeFacts = {
 
 const sameHex = (left: string, right: string) => left.toLowerCase() === right.toLowerCase();
 
-const isLoopbackRpc = (value: string) => {
+const isLocalRuntimeRpc = (value: string) => {
   try {
-    const hostname = new URL(value).hostname.toLowerCase();
-    return hostname === "127.0.0.1" || hostname === "localhost" || hostname === "[::1]" || hostname === "::1";
+    return isLocalRuntimeHost(new URL(value).hostname);
   } catch {
     return false;
   }
 };
 
-export const isThoughtV2LocalMintRuntime = (facts: ThoughtV2LocalRuntimeFacts) => {
-  const localHost = facts.hostname === "127.0.0.1" || facts.hostname === "localhost" || facts.hostname === "::1" || facts.hostname === "[::1]";
-  const release = THOUGHT_V2_LOCAL_RELEASE;
+export const alignThoughtV2LocalRpcHost = (
+  rpcUrl: string,
+  browserHostname: string,
+) => {
+  if (!isLocalRuntimeHost(browserHostname)) {
+    return rpcUrl;
+  }
+  try {
+    const parsed = new URL(rpcUrl);
+    if (!isLocalRuntimeHost(parsed.hostname)) {
+      return rpcUrl;
+    }
+    parsed.hostname = browserHostname;
+    return parsed.toString();
+  } catch {
+    return rpcUrl;
+  }
+};
+
+export const isThoughtV2LocalMintRuntime = (
+  facts: ThoughtV2LocalRuntimeFacts,
+  release: ThoughtV2LocalRelease = THOUGHT_V2_LOCAL_RELEASE,
+) => {
   return facts.dev &&
-    localHost &&
-    isLoopbackRpc(facts.rpcUrl) &&
-    isLoopbackRpc(facts.pathRpcUrl) &&
+    isLocalRuntimeHost(facts.hostname) &&
+    isLocalRuntimeRpc(facts.rpcUrl) &&
+    isLocalRuntimeRpc(facts.pathRpcUrl) &&
     facts.chainId === release.chainId &&
     release.eligibleForLocalMint &&
-    release.artifact.productionConsumable === false &&
+    release.artifact.productionConsumable === true &&
+    release.artifact.deploymentAuthorized === false &&
     sameHex(facts.contracts.pathNft, release.contracts.pathNft) &&
     sameHex(facts.contracts.thoughtNft, release.contracts.thoughtNft) &&
     sameHex(facts.contracts.thoughtSpecRegistry, release.contracts.thoughtSpecRegistry) &&

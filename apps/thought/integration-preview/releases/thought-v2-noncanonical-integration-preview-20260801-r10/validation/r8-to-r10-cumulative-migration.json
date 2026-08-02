@@ -1,0 +1,206 @@
+{
+  "baseline": {
+    "artifactId": "thought-v2-noncanonical-integration-preview-20260731-r8",
+    "manifestSha256": "243b2057ac58b62c4a78ced96e5db2e23d7d05e332f60a9f008dbb8dcd84d3df",
+    "publicationCommit": "1f281a60f398704560f373085b84671f49ecedc3",
+    "renderer": {
+      "constructorInputs": [
+        {
+          "name": "glyphDefinitionsPointer1_",
+          "type": "address"
+        },
+        {
+          "name": "glyphDefinitionsPointer2_",
+          "type": "address"
+        },
+        {
+          "name": "glyphDefinitionsIndexPointer_",
+          "type": "address"
+        }
+      ],
+      "implementationId": "inshell.thought.renderer.v2.humanist-smooth-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom",
+      "profileSha256": "32641c0a5b9c1f39a2d37bd153b24c5d60b72dd015006c04faa452b2d044086b",
+      "runtimeBytecodeSha256": "1e31e47d78aef9924d649ec2ef98d333375faf8c233e9a49cc17885e83031538",
+      "storageTopology": {
+        "indexBytes": 375,
+        "kind": "two-svg-path-fragments-plus-index",
+        "pathDefinitionBytes": [
+          15557,
+          12779
+        ]
+      }
+    },
+    "selectedSpec": {
+      "byteLength": 3936,
+      "name": "THOUGHT.v2.md",
+      "sha256": "58c353a6283fdd3dbae4a212bb5470ffe3afaca8c592ad9aff2e97b855082e82",
+      "thoughtSpecHash": "0xc0661f522867afd109cfe28bcd3f28d04a849757de946879e0992718a72e6a61",
+      "thoughtSpecId": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410"
+    },
+    "sourceBaseCommit": "7000bfd8816011c079eb2494d535e0b443879370"
+  },
+  "current": {
+    "artifactId": "thought-v2-noncanonical-integration-preview-20260801-r10",
+    "externalUrl": {
+      "base": "https://inshell.art/thought/",
+      "location": "top-level"
+    },
+    "renderer": {
+      "constructorInputs": [
+        {
+          "name": "glyphDataPointer",
+          "type": "address"
+        }
+      ],
+      "implementationId": "inshell.thought.renderer.v2.mono-76-v1-im76-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom",
+      "profileSha256": "3ce86a2db35a969aea2d3286688adddbf5fa2daf1fd71ccefd37171e91fad3c5",
+      "runtimeBytecodeSha256": "45d7242b16bd14b0b858078db7f9257a5502b5d2b6c795a6b708c4246186b71b",
+      "storageTopology": {
+        "headerBytes": 162,
+        "kind": "single-packed-im76-pointer",
+        "packedKeccak256": "0xba37d00bb395b84f0487791300a29cdd2b1712b078fa218c6ed74fa11d74a081",
+        "packedSha256": "3acc0a9cf60c00aa2d512356386d1e2a999499896e25661e8e631d53d5e10926",
+        "pathBytes": 4438,
+        "totalBytes": 4600
+      }
+    },
+    "selectedSpec": {
+      "byteLength": 4627,
+      "name": "THOUGHT.v2.md",
+      "sha256": "90df786a3ffb5ec38bffd09ff356ec560d0b7dddcdf57170891149a92a399e9b",
+      "thoughtSpecHash": "0xb2b0a167678816a7ae9dc9098b0d6a6852c0dc95feb59f9581de75bd2cc2231f",
+      "thoughtSpecId": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410"
+    }
+  },
+  "declaredChanges": {
+    "artworkBytes": true,
+    "canonicalExternalUrl": true,
+    "rendererDeploymentTopology": true,
+    "rendererImplementation": true,
+    "selectedSpecBytesAndHash": true
+  },
+  "fixtureImageComparisons": [
+    {
+      "agentLine": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "baselineImageSha256": "ee150047015acd3316fc44c89e38e87f2104ad423e3153da614a6b81d6409582",
+      "baselineTokenId": 1,
+      "currentImageSha256": "de87bce087663023390b6938241440234531ea468559b8b93c253eba499194d6",
+      "currentTokenId": 1,
+      "imageBytesEqual": false,
+      "promptLine": "THOUGHT WILL AWA"
+    },
+    {
+      "agentLine": "0123456789.",
+      "baselineImageSha256": "70c82eb738440047593884d06dd755a3400b42b4ec72a1abce63d9544cd53fd1",
+      "baselineTokenId": 2,
+      "currentImageSha256": "a3be2c4027507967c5c010e66f322852ad25e0db2340f98dac3bffe676944467",
+      "currentTokenId": 2,
+      "imageBytesEqual": false,
+      "promptLine": "Can you count from 0 to 9?"
+    }
+  ],
+  "rejectedIntermediate": {
+    "artifactId": "thought-v2-noncanonical-integration-preview-20260801-r9",
+    "disposition": "immutable-integrity-valid-downstream-rejected-for-inaccurate-external-url-only-scope",
+    "tagMustNotMove": true
+  },
+  "schema": "inshell.thought.r8-to-current-cumulative-migration.integration-preview.v1",
+  "unchangedContractArtifacts": [
+    {
+      "abiEqual": true,
+      "baseline": {
+        "abiSha256": "fe5b520f8c918d08cdfec067cb66034c8f0f470febc8bdf83c352f58c4aabf1e",
+        "creationBytecodeSha256": "45dada162351b121cc95e4907ea334bbad4b09acc21cc496672f06a570071d34",
+        "runtimeBytecodeSha256": "7d818453e4cd26ed6a23a3052142d36888aaa84f58d08e690b2504d0976462c5"
+      },
+      "contractName": "ThoughtNFTV2",
+      "creationBytecodeEqual": true,
+      "current": {
+        "abiSha256": "fe5b520f8c918d08cdfec067cb66034c8f0f470febc8bdf83c352f58c4aabf1e",
+        "creationBytecodeSha256": "45dada162351b121cc95e4907ea334bbad4b09acc21cc496672f06a570071d34",
+        "runtimeBytecodeSha256": "7d818453e4cd26ed6a23a3052142d36888aaa84f58d08e690b2504d0976462c5"
+      },
+      "runtimeBytecodeEqual": true
+    },
+    {
+      "abiEqual": true,
+      "baseline": {
+        "abiSha256": "722e698a4ec0ad137085f1c3775e8d6d3b7dafdb59573fde9785f208cc941af9",
+        "creationBytecodeSha256": "82f1b0c2067975cb2783e4adbe00981ccb3fac8b172b7e8112a2ce51b6041fc7",
+        "runtimeBytecodeSha256": "e382a80743d7e61736c11bc8d3a087bc8cb93ed47d7f918bbb41f910c2e8a8ac"
+      },
+      "contractName": "CreationAttestationVerifierV2",
+      "creationBytecodeEqual": true,
+      "current": {
+        "abiSha256": "722e698a4ec0ad137085f1c3775e8d6d3b7dafdb59573fde9785f208cc941af9",
+        "creationBytecodeSha256": "82f1b0c2067975cb2783e4adbe00981ccb3fac8b172b7e8112a2ce51b6041fc7",
+        "runtimeBytecodeSha256": "e382a80743d7e61736c11bc8d3a087bc8cb93ed47d7f918bbb41f910c2e8a8ac"
+      },
+      "runtimeBytecodeEqual": true
+    },
+    {
+      "abiEqual": true,
+      "baseline": {
+        "abiSha256": "18ef94fcd3592f454cb1a03dd6c573cef3b3803eb565355bb2f401722e216f7e",
+        "creationBytecodeSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "runtimeBytecodeSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "contractName": "IThoughtRendererV2",
+      "creationBytecodeEqual": true,
+      "current": {
+        "abiSha256": "18ef94fcd3592f454cb1a03dd6c573cef3b3803eb565355bb2f401722e216f7e",
+        "creationBytecodeSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "runtimeBytecodeSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "runtimeBytecodeEqual": true
+    },
+    {
+      "abiEqual": true,
+      "baseline": {
+        "abiSha256": "7bc4edc7b5dddce55b5cb6502258f936f273398947a0448f4ef9086bae3e0ef1",
+        "creationBytecodeSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "runtimeBytecodeSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "contractName": "ICreationAttestationVerifierV2",
+      "creationBytecodeEqual": true,
+      "current": {
+        "abiSha256": "7bc4edc7b5dddce55b5cb6502258f936f273398947a0448f4ef9086bae3e0ef1",
+        "creationBytecodeSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "runtimeBytecodeSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "runtimeBytecodeEqual": true
+    },
+    {
+      "abiEqual": true,
+      "baseline": {
+        "abiSha256": "cc4571806ebaeff3b5b593baaa769612dc4dc9d665b2d076b68047e847627d9d",
+        "creationBytecodeSha256": "815ba64ca9b9a2a63002e494acf422b83e41e7d4abe3769cefd718c81a640e90",
+        "runtimeBytecodeSha256": "d0f6015d407d848e933802ea0470956c7c2c27d649f09c236d2ca881221a2dfe"
+      },
+      "contractName": "ThoughtSpecRegistry",
+      "creationBytecodeEqual": true,
+      "current": {
+        "abiSha256": "cc4571806ebaeff3b5b593baaa769612dc4dc9d665b2d076b68047e847627d9d",
+        "creationBytecodeSha256": "815ba64ca9b9a2a63002e494acf422b83e41e7d4abe3769cefd718c81a640e90",
+        "runtimeBytecodeSha256": "d0f6015d407d848e933802ea0470956c7c2c27d649f09c236d2ca881221a2dfe"
+      },
+      "runtimeBytecodeEqual": true
+    },
+    {
+      "abiEqual": true,
+      "baseline": {
+        "abiSha256": "5ebb12aa1a9ab26d2837640f54a6bb273b2841133b1d6a3d23b7d8e29e7a571e",
+        "creationBytecodeSha256": "bebd21bd37b672a5bde5e00f096162a50f2f84c83da2f8041c371db7548404e2",
+        "runtimeBytecodeSha256": "cf0e47793ac7cbd5e7261f577db967a7727766d34ab38bf9a8005c7c1f57e928"
+      },
+      "contractName": "ThoughtSpecRegistryV2",
+      "creationBytecodeEqual": true,
+      "current": {
+        "abiSha256": "5ebb12aa1a9ab26d2837640f54a6bb273b2841133b1d6a3d23b7d8e29e7a571e",
+        "creationBytecodeSha256": "bebd21bd37b672a5bde5e00f096162a50f2f84c83da2f8041c371db7548404e2",
+        "runtimeBytecodeSha256": "cf0e47793ac7cbd5e7261f577db967a7727766d34ab38bf9a8005c7c1f57e928"
+      },
+      "runtimeBytecodeEqual": true
+    }
+  ]
+}

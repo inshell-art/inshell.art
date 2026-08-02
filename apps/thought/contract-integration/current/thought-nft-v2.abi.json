@@ -102,7 +102,7 @@
   },
   {
     "type": "function",
-    "name": "MAX_DECLARED_AGENT_BYTES",
+    "name": "MAX_AGENT_RECORD_BYTES",
     "inputs": [],
     "outputs": [
       {
@@ -115,7 +115,7 @@
   },
   {
     "type": "function",
-    "name": "MAX_DECLARED_MODEL_BYTES",
+    "name": "MAX_MODEL_RECORD_BYTES",
     "inputs": [],
     "outputs": [
       {
@@ -258,6 +258,25 @@
   },
   {
     "type": "function",
+    "name": "agentHashOf",
+    "inputs": [
+      {
+        "name": "tokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "agentLineHashOf",
     "inputs": [
       {
@@ -278,6 +297,25 @@
   {
     "type": "function",
     "name": "agentLineOf",
+    "inputs": [
+      {
+        "name": "tokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "agentOf",
     "inputs": [
       {
         "name": "tokenId",
@@ -451,82 +489,6 @@
   },
   {
     "type": "function",
-    "name": "declaredAgentHashOf",
-    "inputs": [
-      {
-        "name": "tokenId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "declaredAgentOf",
-    "inputs": [
-      {
-        "name": "tokenId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "declaredModelHashOf",
-    "inputs": [
-      {
-        "name": "tokenId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "declaredModelOf",
-    "inputs": [
-      {
-        "name": "tokenId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "getApproved",
     "inputs": [
       {
@@ -607,12 +569,12 @@
             "internalType": "string"
           },
           {
-            "name": "declaredAgent",
+            "name": "agent",
             "type": "string",
             "internalType": "string"
           },
           {
-            "name": "declaredModel",
+            "name": "model",
             "type": "string",
             "internalType": "string"
           },
@@ -700,6 +662,44 @@
         "name": "",
         "type": "uint64",
         "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "modelHashOf",
+    "inputs": [
+      {
+        "name": "tokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "modelOf",
+    "inputs": [
+      {
+        "name": "tokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
       }
     ],
     "stateMutability": "view"
@@ -1214,27 +1214,27 @@
   },
   {
     "type": "function",
-    "name": "validateDeclarations",
+    "name": "validateRecords",
     "inputs": [
       {
-        "name": "declaredAgent",
+        "name": "agent",
         "type": "string",
         "internalType": "string"
       },
       {
-        "name": "declaredModel",
+        "name": "model",
         "type": "string",
         "internalType": "string"
       }
     ],
     "outputs": [
       {
-        "name": "declaredAgentBytes",
+        "name": "agentBytes",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
-        "name": "declaredModelBytes",
+        "name": "modelBytes",
         "type": "uint256",
         "internalType": "uint256"
       }

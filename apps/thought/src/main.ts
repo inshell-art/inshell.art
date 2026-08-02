@@ -15,6 +15,7 @@ import {
   getBytes,
   id,
   keccak256,
+  sha256,
   toUtf8Bytes,
   type JsonRpcProvider,
   type JsonRpcSigner,
@@ -50,16 +51,22 @@ import {
   trackInshellAnonymousAnalytics,
   type PublicLaunchMode,
 } from "@inshell/shared";
-import { openInshellWallet } from "@inshell/inshell-shell";
 import {
-  THOUGHT_CODEX_CLIENT_ROUTE,
+  isLocalRuntimeHost,
+  openInshellWallet,
+  resolveInshellLinks,
+} from "@inshell/inshell-shell";
+import {
+  THOUGHT_AGENT_POLL_TIMEOUT_MS,
   THOUGHT_AGENT_RESULT_VERSION,
   THOUGHT_AGENT_PROTOCOL_VERSION,
   THOUGHT_SHA256_PREFIX,
   THOUGHT_V2_PROTOCOL_RELEASE,
   assertThoughtLine,
   buildThoughtCodexTask,
-  sha256Hex,
+  type ThoughtAgentMetadataSource,
+  type ThoughtAgentReasoningEffort,
+  type ThoughtSha256,
 } from "@inshell/thought-agent-protocol";
 import colorFontRaw from "../colorFontJSON/colorfont.byToolv2.json?raw";
 import colorFontText from "../spec/COLOR_FONT.v1.txt?raw";
@@ -150,6 +157,7 @@ import {
 } from "./thought-mint-presentation";
 import {
   THOUGHT_PATH_ACQUISITION_STORAGE_KEY,
+  advanceThoughtPathAcquisitionLocalBlock,
   formatThoughtPathAcquisitionFailure,
   parsePendingThoughtPathAcquisition,
   pendingThoughtPathAcquisitionMatches,
@@ -206,6 +214,7 @@ import {
 } from "./thought-v2-app-mint";
 import {
   THOUGHT_V2_LOCAL_RELEASE,
+  alignThoughtV2LocalRpcHost,
   isThoughtV2LocalMintRuntime,
 } from "./thought-v2-local-release";
 import {
@@ -608,6 +617,8 @@ type MintFlowData = {
   thoughtSpecId: string;
   thoughtSpecHash: string;
   provenanceJson: string;
+  agent: string;
+  model: string;
   creationAttestation: ThoughtV2MintInput["creationAttestation"];
   existingTokenId: number | null;
   pathIdInput: string;
@@ -728,6 +739,10 @@ type ThoughtAgentRunCreateResponse = {
   statusUrl?: string;
   createdAt?: string;
   claimExpiresAt?: string;
+  client?: {
+    url?: string;
+    sha256?: string;
+  };
   devAutoRun?: boolean;
   error?: {
     code?: string;
@@ -774,6 +789,8 @@ type ThoughtAgentRunStatusResponse = {
       receiptSha256?: string | null;
       adapterId?: string | null;
       model?: string | null;
+      reasoningEffort?: ThoughtAgentReasoningEffort | null;
+      metadataSource?: ThoughtAgentMetadataSource | null;
       providerAttested?: boolean | null;
     };
   };
@@ -977,6 +994,13 @@ const mintSubmissionLockEnvironment = (): MintSubmissionLockEnvironment => ({
     ? navigator.locks as unknown as MintSubmissionLockEnvironment["locks"]
     : null,
   crypto: window.crypto,
+  // Plain HTTP LAN runtimes are intentionally local-only and do not expose
+  // Web Locks. Keep same-page duplicate suppression so the disposable Anvil
+  // flow can still open one wallet request at a time.
+  allowSamePageFallback:
+    IS_DEV_MODE &&
+    IS_LOCAL_RUNTIME_HOST &&
+    THOUGHT_CHAIN_ID === 31337,
 });
 
 const safeStorageGet = (storage: Storage | null, key: string) => {
@@ -1250,7 +1274,6 @@ const ROUTE_COPY: Record<Mode, {
 const NOTICE_FLASH_MS = 2400;
 const AGENT_REQUEST_TIMEOUT_MS = 45000;
 const THOUGHT_AGENT_STATUS_POLL_MS = 1000;
-const THOUGHT_AGENT_POLL_TIMEOUT_MS = 5 * 60 * 1000;
 const THOUGHT_DOCK_RETURN_RECEIVED_MS = 420;
 const PREFLIGHT_REQUEST_TIMEOUT_MS = 15000;
 const PATH_AUTHORIZATION_REQUEST_TIMEOUT_MS = 15000;
@@ -1272,7 +1295,10 @@ const IS_DEV_MODE = import.meta.env.DEV || import.meta.env.MODE === "development
 const MAX_RAW_RETURN_BYTES = 512;
 const MAX_TEXT_BYTES = 128;
 const COLOR_FONT_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-const COLOR_FONT_CANONICAL_URL = "https://inshell.art/color-font";
+const COLOR_FONT_CANONICAL_URL = new URL(
+  "/color-font",
+  resolveInshellLinks().home,
+).toString();
 const SVG_TEXT_MIN_SIZE = 9;
 const SVG_TEXT_MAX_SIZE = 18;
 const SVG_TEXT_CHAR_ADVANCE = 0.6;
@@ -1363,6 +1389,8 @@ const isPreviewHostname = (hostname: string) =>
   (hostname.startsWith("staging.") && hostname.endsWith(".pages.dev"));
 const IS_PREVIEW_DEPLOYMENT =
   DEPLOY_ENV === "preview" || isPreviewHostname(DEPLOY_HOSTNAME);
+const IS_LOCAL_RUNTIME_HOST = isLocalRuntimeHost(DEPLOY_HOSTNAME);
+const INSHELL_LINKS = resolveInshellLinks();
 
 const readConfiguredUrl = (name: string) => {
   const value = (import.meta.env as Record<string, unknown>)[name];
@@ -1586,20 +1614,14 @@ const resolveThoughtRpcUrl = () => {
     !configuredRpcUrl ||
     (!currentContractRuntimeRpcUrl && envRpcUrl) ||
     THOUGHT_CHAIN_ID !== 31337 ||
-    !LOCAL_BROWSER_HOSTS.has(window.location.hostname)
+    !IS_LOCAL_RUNTIME_HOST
   ) {
     return resolveBrowserRpcUrl(configuredRpcUrl);
   }
-
-  try {
-    const parsed = new URL(configuredRpcUrl, window.location.origin);
-    if (parsed.hostname !== "127.0.0.1" && parsed.hostname !== "localhost") {
-      parsed.hostname = "127.0.0.1";
-    }
-    return parsed.toString();
-  } catch {
-    return configuredRpcUrl;
-  }
+  return alignThoughtV2LocalRpcHost(
+    resolveBrowserRpcUrl(configuredRpcUrl),
+    window.location.hostname,
+  );
 };
 const THOUGHT_RPC_URL = resolveThoughtRpcUrl();
 const resolvePathRpcUrl = () => {
@@ -1607,7 +1629,7 @@ const resolvePathRpcUrl = () => {
   if (configuredPathRpcUrl) {
     return resolveBrowserRpcUrl(configuredPathRpcUrl);
   }
-  if (LOCAL_BROWSER_HOSTS.has(window.location.hostname)) {
+  if (IS_LOCAL_RUNTIME_HOST) {
     return THOUGHT_RPC_URL;
   }
   return resolveBrowserRpcUrl("/api/path-rpc");
@@ -1656,44 +1678,30 @@ const PATH_AUCTION_ADDRESS =
   EVM_ADDRESSES.pulseAuction?.address?.trim() ||
   "";
 const defaultPathMintUrl = () => {
-  if (LOCAL_BROWSER_HOSTS.has(window.location.hostname)) {
-    return sameOriginAppUrl("/path");
-  }
-  return IS_PREVIEW_DEPLOYMENT ? "https://preview.inshell.art/path" : "https://inshell.art/path";
+  return INSHELL_LINKS.path;
 };
 const PATH_MINT_URL =
-  typeof import.meta.env.VITE_PATH_MINT_URL === "string" && import.meta.env.VITE_PATH_MINT_URL.trim()
+  !IS_LOCAL_RUNTIME_HOST &&
+  typeof import.meta.env.VITE_PATH_MINT_URL === "string" &&
+  import.meta.env.VITE_PATH_MINT_URL.trim()
     ? import.meta.env.VITE_PATH_MINT_URL.trim()
     : defaultPathMintUrl();
 const PATH_MINT_ABSOLUTE_URL = new URL(PATH_MINT_URL, sameOriginAppOrigin()).toString();
-const INSHELL_HOME_URL = LOCAL_BROWSER_HOSTS.has(window.location.hostname)
-  ? sameOriginAppUrl("/")
-  : IS_PREVIEW_DEPLOYMENT
-    ? "https://preview.inshell.art/"
-    : "https://inshell.art/";
+const INSHELL_HOME_URL = INSHELL_LINKS.home;
 const PATH_VERIFY_CONTRACTS_URL = new URL("/verify#verify-contracts", PATH_MINT_ABSOLUTE_URL).toString();
 const GALLERY_URL =
-  readConfiguredUrl("VITE_GALLERY_URL") ||
-  readConfiguredUrl("VITE_THOUGHT_GALLERY_URL") ||
-  (LOCAL_BROWSER_HOSTS.has(window.location.hostname)
-    ? sameOriginAppUrl("/gallery")
-    : IS_PREVIEW_DEPLOYMENT
-      ? "https://preview.inshell.art/gallery"
-      : "https://inshell.art/gallery");
+  (!IS_LOCAL_RUNTIME_HOST &&
+    (readConfiguredUrl("VITE_GALLERY_URL") ||
+      readConfiguredUrl("VITE_THOUGHT_GALLERY_URL"))) ||
+  INSHELL_LINKS.works;
 const THOUGHT_APP_URL =
-  readConfiguredUrl("VITE_THOUGHT_URL") ||
-  (LOCAL_BROWSER_HOSTS.has(window.location.hostname)
-    ? sameOriginAppUrl(thoughtRoutePath("/"))
-    : IS_PREVIEW_DEPLOYMENT
-      ? "https://preview.inshell.art/thought"
-      : "https://inshell.art/thought");
+  (!IS_LOCAL_RUNTIME_HOST && readConfiguredUrl("VITE_THOUGHT_URL")) ||
+  INSHELL_LINKS.thought;
 const defaultThoughtDetailBaseUrl = () => {
-  if (LOCAL_BROWSER_HOSTS.has(window.location.hostname)) {
-    return sameOriginAppUrl(thoughtRoutePath("/"));
-  }
-  return IS_PREVIEW_DEPLOYMENT ? "https://preview.inshell.art/thought" : "https://inshell.art/thought";
+  return INSHELL_LINKS.thought;
 };
 const THOUGHT_DETAIL_BASE_URL = (() => {
+  if (IS_LOCAL_RUNTIME_HOST) return defaultThoughtDetailBaseUrl();
   const configured = readConfiguredUrl("VITE_THOUGHT_DETAIL_BASE_URL");
   const fallback = defaultThoughtDetailBaseUrl();
   if (!configured) return fallback;
@@ -1718,7 +1726,7 @@ const THOUGHT_DETAIL_BASE_URL = (() => {
     }
     if (
       !IS_PREVIEW_DEPLOYMENT &&
-      !LOCAL_BROWSER_HOSTS.has(window.location.hostname) &&
+      !IS_LOCAL_RUNTIME_HOST &&
       host !== "inshell.art"
     ) {
       return fallback;
@@ -1987,6 +1995,7 @@ const PATH_AUCTION_ABI = [
   "function getConfig() view returns (uint64 openTime, uint256 genesisPrice, uint256 genesisFloor, uint256 k, uint256 pts)",
   "function getCurrentPrice() view returns (uint256)",
   "function getState() view returns (uint64 epochIndex, uint64 startTime, uint64 anchorTime, uint256 floorPrice, bool active)",
+  "function lastBlock() view returns (uint64)",
   "function mintAdapter() view returns (address)",
   "function paymentToken() view returns (address)",
 ] as const;
@@ -2488,7 +2497,13 @@ type ThoughtDockState =
   | { kind: "ready"; prompt: string }
   | { kind: "agent_select"; prompt: string }
   | { kind: "creating_run"; prompt: string; adapterId: ThoughtDockAgentAdapterId }
-  | { kind: "agent_task_ready"; run: AgentDemoRun; adapterId: ThoughtDockAgentAdapterId; message?: string }
+  | {
+      kind: "agent_task_ready";
+      run: AgentDemoRun;
+      adapterId: ThoughtDockAgentAdapterId;
+      payload: ThoughtRunPayload;
+      runSessionId: number;
+    }
   | { kind: "opening_agent"; run: AgentDemoRun; adapterId: ThoughtDockAgentAdapterId }
   | { kind: "claim_authorization"; run: AgentDemoRun; adapterId: ThoughtDockAgentAdapterId; authorization: ThoughtClaimAuthorization; approving?: boolean }
   | { kind: "waiting_for_agent"; run: AgentDemoRun; adapterId: ThoughtDockAgentAdapterId; message?: string }
@@ -2544,7 +2559,8 @@ type StoredThoughtDockRun = {
   remoteState?: string;
 };
 
-const THOUGHT_DOCK_PENDING_RUN_KEY = "thought:dock:pending-agent-run:v1";
+const THOUGHT_DOCK_PENDING_RUN_KEY = "thought:dock:pending-agent-run:v2";
+const THOUGHT_DOCK_PENDING_LAUNCH_KEY = "thought:dock:pending-agent-launch:v1";
 const THOUGHT_DOCK_PROMPT_HISTORY_KEY = "thought:dock:prompt-history:v1";
 const THOUGHT_DOCK_PROMPT_HISTORY_LIMIT = 50;
 const THOUGHT_DOCK_AGENT_ADAPTERS: ThoughtDockAgentAdapter[] = [
@@ -2619,7 +2635,8 @@ const agentDemoSetHidden = (element: HTMLElement, hidden: boolean) => {
   element.classList.toggle("is-hidden", hidden);
 };
 
-const agentDemoSha256 = sha256Hex;
+const agentDemoSha256 = (value: string): ThoughtSha256 =>
+  `${THOUGHT_SHA256_PREFIX}${sha256(toUtf8Bytes(value)).slice(2)}`;
 
 const agentDemoBridgeInfo = () => ({
   bridgeId: "inshell-thought-agent-demo",
@@ -2716,13 +2733,11 @@ const buildAgentDemoSealedTask = (
     : "";
   const statusUrl = run.statusUrl || derivedStatusUrl;
   const absoluteStatusUrl = new URL(statusUrl, window.location.href).toString().replace(/\/+$/g, "");
-  const clientUrl = `${new URL(absoluteStatusUrl).origin}${THOUGHT_CODEX_CLIENT_ROUTE}`;
   return buildThoughtCodexTask({
     product,
     runId: run.runId,
     promptLine: run.prompt,
     runUrl: absoluteStatusUrl,
-    clientUrl,
     launchToken: run.launchToken,
     ...(IS_LOCAL_THOUGHT_V2
       ? {
@@ -2732,7 +2747,6 @@ const buildAgentDemoSealedTask = (
           },
           resultContract: {
             workProfile: THOUGHT_V2_LOCAL_RELEASE.protocol.workProfile.id,
-            declarationLabelField: "label" as const,
             lineValidation: "terminal-english-64" as const,
           },
         }
@@ -3224,6 +3238,7 @@ const readStoredThoughtDockRun = (): StoredThoughtDockRun | null => {
       remoteState: stringOrNull(parsed.remoteState) ?? undefined,
     };
   } catch {
+    safeStorageRemove(getSessionStorage(), THOUGHT_DOCK_PENDING_LAUNCH_KEY);
     removeSharedBrowserItem(THOUGHT_DOCK_PENDING_RUN_KEY);
     return null;
   }
@@ -3237,6 +3252,38 @@ const writeStoredThoughtDockRun = (run: StoredThoughtDockRun) => {
   }
 };
 
+const readStoredThoughtDockLaunch = (runId: string) => {
+  const raw = safeStorageGet(getSessionStorage(), THOUGHT_DOCK_PENDING_LAUNCH_KEY);
+  if (!raw) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (
+      !isRecord(parsed) ||
+      stringOrNull(parsed.runId) !== runId ||
+      !stringOrNull(parsed.sealedTask)
+    ) {
+      throw new Error("stored Agent launch is invalid.");
+    }
+    return stringOrNull(parsed.sealedTask);
+  } catch {
+    safeStorageRemove(getSessionStorage(), THOUGHT_DOCK_PENDING_LAUNCH_KEY);
+    return null;
+  }
+};
+
+const writeStoredThoughtDockLaunch = (run: AgentDemoRun) => {
+  safeStorageSet(
+    getSessionStorage(),
+    THOUGHT_DOCK_PENDING_LAUNCH_KEY,
+    JSON.stringify({
+      runId: run.runId,
+      sealedTask: run.sealedTask,
+    }),
+  );
+};
+
 const clearStoredThoughtDockRun = (runId?: string) => {
   if (runId) {
     const current = readStoredThoughtDockRun();
@@ -3244,17 +3291,19 @@ const clearStoredThoughtDockRun = (runId?: string) => {
       return;
     }
   }
+  safeStorageRemove(getSessionStorage(), THOUGHT_DOCK_PENDING_LAUNCH_KEY);
   removeSharedBrowserItem(THOUGHT_DOCK_PENDING_RUN_KEY);
 };
 
 const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
-  if (state.kind === "agent_select") {
+  if (state.kind === "agent_select" || state.kind === "agent_task_ready") {
+    const prompt = state.kind === "agent_select" ? state.prompt : state.run.prompt;
     emitThoughtConsoleEvent({
       kind: "work_agent_selection_ready",
       title: "choose an Agent",
       detail: "Choose an Agent available on this machine to receive the prompt.",
       tone: "neutral",
-      eventId: `work-agent-selection:${hashText(state.prompt)}`,
+      eventId: `work-agent-selection:${hashText(prompt)}`,
     });
     return;
   }
@@ -3288,11 +3337,28 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
     // The expiring verification code remains a live control in the panel.
     return;
   }
+  if (state.kind === "waiting_for_agent") {
+    const product = thoughtAgentProductLabel(state.adapterId);
+    const canReopen = thoughtDockLaunchUrl(state.run, state.adapterId) !== "#";
+    emitThoughtConsoleEvent({
+      kind: "work_waiting_for_agent",
+      title: state.run.remoteState === "created"
+        ? `${product} launch requested`
+        : thoughtDockAgentLifecycleTitle(state.adapterId, state.run.remoteState),
+      detail: state.run.remoteState === "created"
+        ? `The App asked ${product} to open this THOUGHT task.`
+        : `${product} is working on this THOUGHT task.`,
+      ...(canReopen
+        ? { nextStep: `if ${product} did not open, select “open ${product}” above` }
+        : { nextStep: `keep this page open while ${product} finishes` }),
+      tone: "neutral",
+      eventId: `work-waiting:${state.run.runId}:${state.run.remoteState ?? "created"}:${canReopen ? "reopen" : "resume"}`,
+    });
+    return;
+  }
   if (
     state.kind === "creating_run" ||
-    state.kind === "agent_task_ready" ||
     state.kind === "opening_agent" ||
-    state.kind === "waiting_for_agent" ||
     state.kind === "agent_returned" ||
     state.kind === "previewing"
   ) {
@@ -3359,27 +3425,31 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
   }
 };
 
-const thoughtDockRunFromStored = (stored: StoredThoughtDockRun): AgentDemoRun => ({
-  runId: stored.runId,
-  prompt: stored.prompt,
-  promptHash: stored.promptHash,
-  launchUri: "",
-  launchToken: "",
-  browserToken: stored.browserToken,
-  statusUrl: stored.statusUrl,
-  claimUrl: agentDemoRunActionUrl(stored.statusUrl, "claim"),
-  startUrl: agentDemoRunActionUrl(stored.statusUrl, "start"),
-  resultUrl: agentDemoRunActionUrl(stored.statusUrl, "result"),
-  codexUrl: "#",
-  claudeUrl: "#",
-  sealedTask: "Agent Task is not available after refresh. Keep waiting or reset.",
-  candidate: null,
-  remoteState: stored.remoteState ?? "created",
-  expiresAt: stored.expiresAt,
-});
+const thoughtDockRunFromStored = (stored: StoredThoughtDockRun): AgentDemoRun => {
+  const sealedTask = readStoredThoughtDockLaunch(stored.runId);
+  return {
+    runId: stored.runId,
+    prompt: stored.prompt,
+    promptHash: stored.promptHash,
+    launchUri: "",
+    launchToken: "",
+    browserToken: stored.browserToken,
+    statusUrl: stored.statusUrl,
+    claimUrl: agentDemoRunActionUrl(stored.statusUrl, "claim"),
+    startUrl: agentDemoRunActionUrl(stored.statusUrl, "start"),
+    resultUrl: agentDemoRunActionUrl(stored.statusUrl, "result"),
+    codexUrl: sealedTask ? buildCodexAgentUrl(sealedTask) : "#",
+    claudeUrl: sealedTask ? buildClaudeCodeAgentUrl(sealedTask) : "#",
+    sealedTask: sealedTask ?? "Agent task launch is unavailable after this browser session.",
+    candidate: null,
+    remoteState: stored.remoteState ?? "created",
+    expiresAt: stored.expiresAt,
+  };
+};
 
 const storeThoughtDockRun = (run: AgentDemoRun, adapterId: ThoughtDockAgentAdapterId, createdAt?: string) => {
   thoughtDockAdapterId = adapterId;
+  writeStoredThoughtDockLaunch(run);
   writeStoredThoughtDockRun({
     runId: run.runId,
     adapterId,
@@ -3416,7 +3486,14 @@ const recordThoughtDockPromptHistory = (prompt: string) => {
   resetThoughtDockPromptHistoryCursor();
 };
 
-const applyThoughtDockPromptValue = (value: string) => {
+const applyThoughtDockPromptValue = (
+  value: string,
+  selection?: {
+    start: number;
+    end: number;
+    direction: "forward" | "backward" | "none";
+  },
+) => {
   if (!resetMintRuntimeState()) {
     thoughtDockPrompt.value = sessionState.prompt;
     return false;
@@ -3432,10 +3509,16 @@ const applyThoughtDockPromptValue = (value: string) => {
   } else {
     syncThoughtDock();
   }
-  try {
-    thoughtDockPrompt.setSelectionRange(value.length, value.length);
-  } catch {
-    // Focus and history navigation still work when selection APIs are unavailable.
+  if (selection) {
+    try {
+      thoughtDockPrompt.setSelectionRange(
+        selection.start,
+        selection.end,
+        selection.direction,
+      );
+    } catch {
+      // Input remains usable when selection APIs are unavailable.
+    }
   }
   return true;
 };
@@ -3450,6 +3533,12 @@ const navigateThoughtDockPrompt = (direction: "older" | "newer") => {
   if (!navigation.handled) return false;
   if (!applyThoughtDockPromptValue(navigation.value)) {
     return true;
+  }
+  try {
+    const cursorPosition = navigation.value.length;
+    thoughtDockPrompt.setSelectionRange(cursorPosition, cursorPosition);
+  } catch {
+    // History navigation still works when selection APIs are unavailable.
   }
   thoughtDockPromptHistoryCursor = {
     index: navigation.index,
@@ -4145,7 +4234,6 @@ const getCurrentWorkMintReadiness = (): ThoughtWorkMintReadiness => {
     buildThoughtV2LocalAgentProcess(
       currentRunContext.agentEvidence,
       currentOutputText,
-      currentRunContext.model,
     );
   } catch (error) {
     return {
@@ -4246,7 +4334,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         tone: "idle",
         actions: [
           dockRailAction("send-agent", "send to your agent", "run this THOUGHT with your Agent", () => {
-            openThoughtDockAgentSelect();
+            void openThoughtDockAgentSelect();
           }),
           loadAction(),
         ],
@@ -4257,10 +4345,10 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         tone: "idle",
         actions: [
           dockRailAction("codex", "codex", "run this THOUGHT with Codex", () => {
-            void runThoughtDockAdapter("codex");
+            runThoughtDockAdapter("codex");
           }),
           dockRailAction("claude", "claude", "open this THOUGHT in Claude Code", () => {
-            void runThoughtDockAdapter("claude");
+            runThoughtDockAdapter("claude");
           }),
           cancelAgentSelectAction(state.prompt),
         ],
@@ -4268,15 +4356,26 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
       };
     case "creating_run":
       return {
-        status: thoughtDockAgentLifecycleStatus(state.adapterId),
+        status: "Preparing Agent task...",
         tone: "running",
         actions: [],
       };
     case "agent_task_ready":
       return {
-        status: "Task ready",
+        status: "Choose Agent",
         tone: "idle",
-        actions: [resetAction(state.run)],
+        actions: [
+          dockRailAction("codex", "codex", "open this THOUGHT task in Codex", () => {
+            runThoughtDockAdapter("codex");
+          }),
+          dockRailAction("claude", "claude", "open this THOUGHT task in Claude Code", () => {
+            runThoughtDockAdapter("claude");
+          }),
+          dockRailAction("cancel", "cancel", "cancel Agent selection", () => {
+            cancelThoughtDockRun(state.run, { focusPrompt: true });
+          }),
+        ],
+        maxActions: 3,
       };
     case "opening_agent":
       return {
@@ -4314,7 +4413,22 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
       return {
         status: thoughtDockAgentLifecycleStatus(state.adapterId, state.run.remoteState),
         tone: "running",
-        actions: [resetAction(state.run)],
+        actions: [
+          ...(thoughtDockLaunchUrl(state.run, state.adapterId) === "#"
+            ? []
+            : [
+                dockRailAction(
+                  `open-${state.adapterId}`,
+                  `open ${thoughtAgentProductLabel(state.adapterId)}`,
+                  `open ${thoughtAgentProductLabel(state.adapterId)} for this THOUGHT run`,
+                  () => {
+                    launchThoughtDockAgentLink(thoughtDockLaunchUrl(state.run, state.adapterId));
+                  },
+                  { handlerKey: `open:${state.adapterId}:${state.run.runId}` },
+                ),
+              ]),
+          resetAction(state.run),
+        ],
       };
     case "agent_returned":
       return { status: "Return received...", tone: "success", actions: [] };
@@ -4712,7 +4826,7 @@ const rejectInvalidThoughtDockPrompt = (prompt: string) => {
   return true;
 };
 
-const openThoughtDockAgentSelect = () => {
+const openThoughtDockAgentSelect = async () => {
   if (blockPendingMintMutation()) {
     return;
   }
@@ -4720,36 +4834,7 @@ const openThoughtDockAgentSelect = () => {
   if (rejectInvalidThoughtDockPrompt(prompt)) {
     return;
   }
-  setThoughtDockState({ kind: "agent_select", prompt });
-};
-
-const runThoughtDockAdapter = async (adapterId: ThoughtDockAgentAdapterId) => {
-  if (blockPendingMintMutation()) {
-    return;
-  }
-  const prompt = thoughtDockPrompt.value;
-  if (!prompt) {
-    setThoughtDockState({ kind: "failed", message: "Prompt is empty." });
-    thoughtDockPrompt.focus();
-    return;
-  }
-
-  const adapter = THOUGHT_DOCK_AGENT_ADAPTERS.find((candidate) => candidate.id === adapterId);
-  if (!adapter) {
-    setThoughtDockState({ kind: "failed", message: "Agent adapter unavailable." });
-    return;
-  }
-  if (!adapter.canDeepLink) {
-    setThoughtDockState({
-      kind: "failed",
-      message: `${thoughtAgentProductLabel(adapterId)} deep link unavailable.`,
-      details: `${thoughtAgentProductLabel(adapterId)} does not expose a supported deep-link callback flow yet.`,
-    });
-    return;
-  }
-
-  recordThoughtDockPromptHistory(prompt);
-
+  const adapterId: ThoughtDockAgentAdapterId = "codex";
   const runSessionId = startRunSession();
   lastRunErrorCliLines = [];
   lastPreviewRetryContext = null;
@@ -4769,19 +4854,13 @@ const runThoughtDockAdapter = async (adapterId: ThoughtDockAgentAdapterId) => {
       return;
     }
     thoughtDockRun = run;
+    recordThoughtDockPromptHistory(prompt);
     setThoughtDockState({
-      kind: "opening_agent",
+      kind: "agent_task_ready",
       run,
       adapterId,
-    });
-    storeThoughtDockRun(run, adapterId);
-    startThoughtDockPolling(run, payload, adapterId, runSessionId);
-    launchThoughtDockAgentLink(thoughtDockLaunchUrl(run, adapterId));
-    setThoughtDockState({
-      kind: "waiting_for_agent",
-      run,
-      adapterId,
-      message: `${thoughtAgentProductLabel(adapterId)} was opened if your browser allowed it.`,
+      payload,
+      runSessionId,
     });
   } catch (error) {
     if (!isCurrentRunSession(runSessionId)) {
@@ -4796,6 +4875,59 @@ const runThoughtDockAdapter = async (adapterId: ThoughtDockAgentAdapterId) => {
     setThoughtDockState({ kind: "failed", message });
     syncInterface();
   }
+};
+
+const runThoughtDockAdapter = (adapterId: ThoughtDockAgentAdapterId) => {
+  if (blockPendingMintMutation()) {
+    return;
+  }
+  const adapter = THOUGHT_DOCK_AGENT_ADAPTERS.find((candidate) => candidate.id === adapterId);
+  if (!adapter) {
+    setThoughtDockState({ kind: "failed", message: "Agent adapter unavailable." });
+    return;
+  }
+  if (!adapter.canDeepLink) {
+    emitThoughtConsoleEvent({
+      kind: "work_agent_adapter_unavailable",
+      title: `${thoughtAgentProductLabel(adapterId)} unavailable`,
+      detail: `${thoughtAgentProductLabel(adapterId)} does not expose a supported App link yet.`,
+      tone: "warning",
+      eventId: `work-agent-adapter-unavailable:${adapterId}`,
+    });
+    return;
+  }
+  if (thoughtDockState.kind !== "agent_task_ready") {
+    setThoughtDockState({
+      kind: "failed",
+      message: "Agent task is not ready.",
+      details: "Reset and send the prompt to your Agent again.",
+    });
+    return;
+  }
+
+  const { run, payload, runSessionId } = thoughtDockState;
+  if (!isCurrentRunSession(runSessionId)) {
+    setThoughtDockState({
+      kind: "failed",
+      message: "Agent task expired.",
+      details: "Reset and send the prompt to your Agent again.",
+    });
+    return;
+  }
+
+  // This custom-protocol navigation must remain inside the direct Agent-button
+  // click. Earlier asynchronous work can consume browser activation and
+  // silently prevent Codex from opening.
+  launchThoughtDockAgentLink(thoughtDockLaunchUrl(run, adapterId));
+  thoughtDockRun = run;
+  storeThoughtDockRun(run, adapterId);
+  setThoughtDockState({
+    kind: "waiting_for_agent",
+    run,
+    adapterId,
+    message: `${thoughtAgentProductLabel(adapterId)} launch requested.`,
+  });
+  startThoughtDockPolling(run, payload, adapterId, runSessionId);
 };
 
 const updateThoughtDockRunState = (run: AgentDemoRun, remoteState: string, expiresAt?: string) => {
@@ -5505,13 +5637,13 @@ const thoughtDockRunFromStatus = async (
     remoteState: status.state ?? "created",
     expiresAt: status.expiresAt,
   };
-  const sealedTask = status.request?.agentInput?.text || buildAgentDemoSealedTask(baseRun, adapterId);
+  const sealedTask = readStoredThoughtDockLaunch(runId);
   const returned = await readThoughtAgentReturn(status, runId, adapterId);
   return {
     ...baseRun,
-    sealedTask,
-    codexUrl: buildCodexAgentUrl(sealedTask),
-    claudeUrl: buildClaudeCodeAgentUrl(sealedTask),
+    sealedTask: sealedTask ?? "Agent task launch is unavailable from this run link.",
+    codexUrl: sealedTask ? buildCodexAgentUrl(sealedTask) : "#",
+    claudeUrl: sealedTask ? buildClaudeCodeAgentUrl(sealedTask) : "#",
     candidate: returned.agentLine || null,
     ...(returned.agentEvidence ? { agentEvidence: returned.agentEvidence } : {}),
   };
@@ -5814,6 +5946,8 @@ const mintFlowData: MintFlowData = {
   thoughtSpecId: "",
   thoughtSpecHash: "",
   provenanceJson: "",
+  agent: "",
+  model: "",
   creationAttestation: EMPTY_THOUGHT_CREATION_ATTESTATION,
   existingTokenId: null,
   pathIdInput: "",
@@ -8321,15 +8455,13 @@ const buildProvenanceJson = (
     if (context.mode === MY_BRAIN_MODE) {
       process = {
         kind: "manual",
-        agentDeclaration: {
-          label: "My Brain",
-          source: "manual",
-          status: "declared-unverified",
+        agent: {
+          label: "Human",
+          source: "minter-supplied",
         },
-        modelDeclaration: {
-          label: context.model || "Manual",
-          source: "manual",
-          status: "declared-unverified",
+        model: {
+          label: "None",
+          source: "minter-supplied",
         },
       };
     } else {
@@ -8337,7 +8469,7 @@ const buildProvenanceJson = (
       if (!evidence) {
         throw new Error("This work has no current V2 Agent evidence. Run the work again before minting.");
       }
-      process = buildThoughtV2LocalAgentProcess(evidence, agentLine, context.model);
+      process = buildThoughtV2LocalAgentProcess(evidence, agentLine);
     }
     return buildThoughtV2LocalProvenance({
       promptLine: context.prompt,
@@ -8431,24 +8563,24 @@ const buildProvenanceJson = (
   });
 };
 
-const getLocalMintDeclarations = (work: ThoughtMintWorkSnapshot) => {
+const getLocalMintRecords = (work: ThoughtMintWorkSnapshot) => {
   const evidence = work.runContext.agentEvidence;
   if (!evidence) {
     throw new Error("This work has no current V2 Agent evidence. Run the work again before minting.");
   }
-  const process = buildThoughtV2LocalAgentProcess(evidence, work.text, work.runContext.model);
+  const process = buildThoughtV2LocalAgentProcess(evidence, work.text);
   if (process.kind !== "agent-run") {
-    throw new Error("A validated Agent declaration is required to mint this local THOUGHT V2 work.");
+    throw new Error("A validated Agent run is required to mint this local THOUGHT V2 work.");
   }
-  const declaredAgent = process.agentDeclaration.label;
-  const declaredModel = process.modelDeclaration.label;
-  const invalidContext = [declaredAgent, declaredModel].some(
+  const agent = process.agent.label;
+  const model = process.model.label;
+  const invalidContext = [agent, model].some(
     (value) => !value || value !== value.trim() || byteLength(value) > 64,
   );
   if (invalidContext) {
-    throw new Error("Agent or model declaration is invalid. Run the work again before minting.");
+    throw new Error("The Agent or Model record is invalid. Run the work again before minting.");
   }
-  return Object.freeze({ declaredAgent, declaredModel });
+  return Object.freeze({ agent, model });
 };
 
 const parsePathTokenId = (value: string) => {
@@ -8491,6 +8623,8 @@ const clearMintAuthorization = () => {
   mintAuthorizationRequestId += 1;
   mintFlowData.deadline = null;
   mintFlowData.signature = "";
+  mintFlowData.agent = "";
+  mintFlowData.model = "";
   mintFlowData.creationAttestation = EMPTY_THOUGHT_CREATION_ATTESTATION;
 };
 
@@ -8659,6 +8793,8 @@ const resetMintFlow = (options?: { preserveAttempt?: boolean }) => {
   mintFlowData.thoughtSpecId = "";
   mintFlowData.thoughtSpecHash = "";
   mintFlowData.provenanceJson = "";
+  mintFlowData.agent = "";
+  mintFlowData.model = "";
   mintFlowData.creationAttestation = EMPTY_THOUGHT_CREATION_ATTESTATION;
   mintFlowData.existingTokenId = null;
   mintFlowData.pathIdInput = "";
@@ -11026,6 +11162,8 @@ const openMintFlow = async (
   mintFlowData.thoughtSpecHash = spec.specHash;
   if (IS_LOCAL_THOUGHT_V2) {
     mintFlowData.provenanceJson = "";
+    mintFlowData.agent = "";
+    mintFlowData.model = "";
     mintFlowData.creationAttestation = EMPTY_THOUGHT_CREATION_ATTESTATION;
   } else {
     const provenanceJson = buildProvenanceJson(mintFlowData.textHash, undefined, mintWork);
@@ -12510,7 +12648,6 @@ const requestLocalMockOfficialMint = async (
   const process = buildThoughtV2LocalAgentProcess(
     evidence,
     work.text,
-    work.runContext.model,
   );
   const response = await fetch("/api/thought-contract/v1/mock-attestation", {
     method: "POST",
@@ -12547,8 +12684,8 @@ const requestLocalMockOfficialMint = async (
   const result: ThoughtV2MintInput = {
     promptLine: String(raw.promptLine ?? ""),
     agentLine: String(raw.agentLine ?? ""),
-    declaredAgent: String(raw.declaredAgent ?? ""),
-    declaredModel: String(raw.declaredModel ?? ""),
+    agent: String(raw.agent ?? ""),
+    model: String(raw.model ?? ""),
     pathId: BigInt(String(raw.pathId ?? "0")),
     thoughtSpecId: String(raw.thoughtSpecId ?? "") as `0x${string}`,
     thoughtSpecHash: String(raw.thoughtSpecHash ?? "") as `0x${string}`,
@@ -12562,14 +12699,18 @@ const requestLocalMockOfficialMint = async (
       signature: String(proof?.signature ?? "") as `0x${string}`,
     },
   };
-  const declarations = getLocalMintDeclarations(work);
+  const expectedAgent = process.agent.label;
+  const authoritativeRecordsValid =
+    result.agent === expectedAgent &&
+    Boolean(result.model) &&
+    result.model === result.model.trim() &&
+    byteLength(result.model) <= 64;
   const responseMatchesMint =
     mock?.environment === "disposable-anvil" &&
     mock.productionAuthorized === false &&
     result.promptLine === work.runContext.prompt &&
     result.agentLine === work.text &&
-    result.declaredAgent === declarations.declaredAgent &&
-    result.declaredModel === declarations.declaredModel &&
+    authoritativeRecordsValid &&
     result.pathId === mintFlowData.pathId &&
     result.deadline === mintFlowData.deadline &&
     result.pathSignature === mintFlowData.signature &&
@@ -12610,9 +12751,13 @@ const rebuildFinalMintProvenance = async () => {
     promptHash,
   }, activeMintWork);
   mintFlowData.creationAttestation = EMPTY_THOUGHT_CREATION_ATTESTATION;
+  mintFlowData.agent = "";
+  mintFlowData.model = "";
   if (IS_LOCAL_THOUGHT_V2 && mintFlowData.deadline && mintFlowData.signature) {
     const attestedMint = await requestLocalMockOfficialMint(activeMintWork, spec);
     provenanceJson = attestedMint.provenanceJson;
+    mintFlowData.agent = attestedMint.agent;
+    mintFlowData.model = attestedMint.model;
     mintFlowData.creationAttestation = attestedMint.creationAttestation;
   }
   const provenanceBytes = byteLength(provenanceJson);
@@ -12703,8 +12848,11 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
       promptLine: activeMintWork.runContext.prompt,
       agentLine: capturedAuthorization.rawText,
       ...(IS_LOCAL_THOUGHT_V2
-        ? getLocalMintDeclarations(activeMintWork)
-        : { declaredAgent: "", declaredModel: "" }),
+        ? {
+            agent: mintFlowData.agent,
+            model: mintFlowData.model,
+          }
+        : { agent: "", model: "" }),
       pathId: capturedAuthorization.pathId,
       thoughtSpecId: mintFlowData.thoughtSpecId,
       thoughtSpecHash: mintFlowData.thoughtSpecHash,
@@ -12809,8 +12957,8 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
               {
                 promptLine: payload.promptLine,
                 agentLine: payload.agentLine,
-                declaredAgent: payload.declaredAgent,
-                declaredModel: payload.declaredModel,
+                agent: payload.agent,
+                model: payload.model,
                 pathId: payload.pathId,
                 thoughtSpecId: payload.thoughtSpecId,
                 thoughtSpecHash: payload.thoughtSpecHash,
@@ -13183,6 +13331,7 @@ const readPathAcquisitionQuote = async () => {
     wiringFrozen,
     config,
     state,
+    lastBidBlock,
   ] =
     await Promise.all([
       auction.curveActive() as Promise<boolean>,
@@ -13194,6 +13343,7 @@ const readPathAcquisitionQuote = async () => {
       adapter.wiringFrozen() as Promise<boolean>,
       auction.getConfig() as Promise<readonly [bigint, bigint, bigint, bigint, bigint]>,
       auction.getState() as Promise<readonly [bigint, bigint, bigint, bigint, boolean]>,
+      auction.lastBlock() as Promise<bigint>,
     ]);
 
   if (!active) throw new Error("The $PATH auction is not open yet.");
@@ -13223,7 +13373,7 @@ const readPathAcquisitionQuote = async () => {
     : contractPrice;
   if (price <= 0n) throw new Error("The $PATH auction returned an invalid price.");
 
-  return { price, pricing };
+  return { price, pricing, lastBidBlock };
 };
 
 const stopPathAcquisitionPriceTicker = () => {
@@ -13563,6 +13713,11 @@ const confirmPathAcquisition = async () => {
         if (!targetProvider) {
           throw new Error("The active Local Anvil RPC is unavailable.");
         }
+        await advanceThoughtPathAcquisitionLocalBlock(
+          targetProvider,
+          quote.lastBidBlock,
+          IS_LOCAL_THOUGHT_V2,
+        );
         const targetBalance = await targetProvider.getBalance(expectedAccount);
         if (targetBalance <= quote.price) {
           throw new Error(
@@ -13630,11 +13785,7 @@ const confirmPathAcquisition = async () => {
 
     if (requestId !== pathAcquisitionRequestId) return;
     if (!lockResult.acquired) {
-      throw new Error(
-        lockResult.reason === "busy"
-          ? "This $PATH mint is already open in another tab."
-          : "$PATH minting requires browser tab coordination (Web Locks).",
-      );
+      throw new Error("This $PATH mint is already open in another tab.");
     }
     pathAcquisitionState = "submitted";
     pathAcquisitionTxHash = lockResult.value.txHash;
@@ -13916,6 +14067,11 @@ const configureGalleryLink = () => {
   galleryCreateLink.href = thoughtCreateUrl();
   galleryHomeLink.href = inshellHomeUrl();
   thoughtDetailCreateLink.href = thoughtCreateUrl();
+  document
+    .querySelectorAll<HTMLAnchorElement>(".color-font-footer__link")
+    .forEach((link) => {
+      link.href = COLOR_FONT_CANONICAL_URL;
+    });
 };
 
 const decodeBase64Utf8 = (value: string) => {
@@ -14116,10 +14272,13 @@ const parseProvenanceMaterial = (provenanceJson: string) => {
       };
       process?: {
         kind?: unknown;
-        agentDeclaration?: {
-          agentLabel?: unknown;
+        agent?: {
+          label?: unknown;
         };
-        transport?: {
+        model?: {
+          label?: unknown;
+        };
+        run?: {
           adapter?: unknown;
         };
       };
@@ -14140,14 +14299,14 @@ const parseProvenanceMaterial = (provenanceJson: string) => {
       const returnedTextHash = typeof parsed.work.agentLineKeccak256 === "string"
         ? parsed.work.agentLineKeccak256
         : returnedText ? hashText(returnedText) : "";
-      const provider = typeof parsed.process?.transport?.adapter === "string"
-        ? parsed.process.transport.adapter
-        : typeof parsed.process?.agentDeclaration?.agentLabel === "string"
-          ? parsed.process.agentDeclaration.agentLabel
+      const provider = typeof parsed.process?.run?.adapter === "string"
+        ? parsed.process.run.adapter
+        : typeof parsed.process?.agent?.label === "string"
+          ? parsed.process.agent.label
           : parsed.process?.kind === "manual" ? "me" : "";
-      const model = typeof parsed.process?.agentDeclaration?.agentLabel === "string"
-        ? parsed.process.agentDeclaration.agentLabel
-        : provider;
+      const model = typeof parsed.process?.model?.label === "string"
+        ? parsed.process.model.label
+        : "";
       return {
         prompt,
         promptHash,
@@ -16004,12 +16163,15 @@ const readThoughtAgentReturn = async (
     throw new Error("Agent result evidence is incomplete.");
   }
   const result = parseThoughtV2LocalAgentResult(raw);
-  const verifiedRawSha256 = await sha256Hex(raw);
+  const verifiedRawSha256 = agentDemoSha256(raw);
   if (result.agentLine !== agentLine || verifiedRawSha256 !== rawSha256) {
     throw new Error("Agent result evidence hash mismatch.");
   }
   const runId = payload.runId || fallbackRunId;
   const adapter = payloadResult?.receipt?.adapterId || fallbackAdapter;
+  const model = payloadResult?.receipt?.model?.trim() || "";
+  const reasoningEffort = payloadResult?.receipt?.reasoningEffort ?? undefined;
+  const metadataSource = payloadResult?.receipt?.metadataSource ?? undefined;
   if (!runId || !adapter) {
     throw new Error("Agent result transport evidence is incomplete.");
   }
@@ -16020,6 +16182,9 @@ const readThoughtAgentReturn = async (
       runId,
       adapter,
       rawResponseSha256: rawSha256.replace(/^sha256:/, ""),
+      ...(model ? { model } : {}),
+      ...(reasoningEffort ? { reasoningEffort } : {}),
+      ...(metadataSource ? { metadataSource } : {}),
     } satisfies ThoughtV2LocalAgentEvidence,
   };
 };
@@ -21785,7 +21950,19 @@ thoughtDockPrompt.addEventListener("input", () => {
     return;
   }
   resetThoughtDockPromptHistoryCursor();
-  applyThoughtDockPromptValue(thoughtDockPrompt.value);
+  const start = thoughtDockPrompt.selectionStart;
+  const end = thoughtDockPrompt.selectionEnd;
+  const direction = thoughtDockPrompt.selectionDirection;
+  applyThoughtDockPromptValue(
+    thoughtDockPrompt.value,
+    start === null || end === null
+      ? undefined
+      : {
+          start,
+          end,
+          direction: direction ?? "none",
+        },
+  );
 });
 
 thoughtDockPrompt.addEventListener("keydown", (event) => {
@@ -21801,7 +21978,7 @@ thoughtDockPrompt.addEventListener("keydown", (event) => {
   }
   if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && !event.isComposing) {
     event.preventDefault();
-    openThoughtDockAgentSelect();
+    void openThoughtDockAgentSelect();
   }
 });
 

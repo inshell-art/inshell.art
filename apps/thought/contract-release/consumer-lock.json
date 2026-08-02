@@ -1,0 +1,129 @@
+{
+  "schema": "inshell.thought.canonical-contract-release-consumer-lock.v1",
+  "artifactId": "thought-v2-canonical-portable-release-20260801-r1",
+  "classification": "canonical-portable-contract-release",
+  "channel": "stable",
+  "manifestSha256": "4d60feba36165c19a3cf3680078cc6baa7ba066c147ca607e5c82d0306f65b1a",
+  "sourceTag": "thought-v2-canonical-portable-release-20260801-r1",
+  "sourceTagObject": "bfba44f93a8562989361174c769ffd95264b36ee",
+  "sourceTagTarget": "9617892bda9d7f7e880b614f84f1b6360ad8a652",
+  "sourceTagPublished": true,
+  "sourceCommit": "a48191f5c0d5b51fab0de26707eaed86f2f1da5b",
+  "sourcePublicationCommit": "9617892bda9d7f7e880b614f84f1b6360ad8a652",
+  "stableReceiptCommit": "a19d1cc3c0e9ff81b2e31f89a4b327784d897854",
+  "stableReceiptPath": "artifacts/thought-v2-contract-release/stable.json",
+  "productionConsumable": true,
+  "deploymentAuthorized": false,
+  "registrationApplicable": false,
+  "registrationAuthorized": false,
+  "deploymentPolicy": {
+    "authorizedNow": false,
+    "targetChains": [
+      {
+        "chainId": 31337,
+        "deploymentAuthorized": false,
+        "name": "Disposable Anvil",
+        "persistent": false,
+        "purpose": "downstream chain-first acceptance only",
+        "runtimeSizeCompatible": true
+      },
+      {
+        "chainId": 11155111,
+        "deploymentAuthorized": false,
+        "name": "Sepolia",
+        "persistent": true,
+        "prerequisite": "explicit operator approval and reviewed network configuration",
+        "runtimeSizeCompatible": true
+      },
+      {
+        "chainId": 1,
+        "deploymentAuthorized": false,
+        "name": "Ethereum mainnet",
+        "persistent": true,
+        "prerequisite": "separate operator approval after accepted Sepolia evidence",
+        "runtimeSizeCompatible": true
+      }
+    ]
+  },
+  "compatibility": {
+    "creationAttestation": {
+      "id": "inshell.thought.creation-workflow-attestation.v2",
+      "idKeccak256": "0x5759a606b1b0b1ba997b2d7b851c7e2022ed8ff4e0238e55e29ad8b36ce9194a"
+    },
+    "contextProfile": {
+      "id": "inshell.thought.context.v2.visible-utf8-64",
+      "idKeccak256": "0x9894359f9294f4b3a871442b19d851203138fad4a648c16f62fc04f55dff02b8"
+    },
+    "metadataProfile": {
+      "attributeOrder": [
+        "Agent",
+        "Model",
+        "Creation Attestation",
+        "Prompt Bytes",
+        "Agent Bytes"
+      ],
+      "externalUrl": {
+        "base": "https://inshell.art/thought/",
+        "identityInput": false,
+        "location": "top-level",
+        "tokenIdFormat": "unsigned-base-10-no-leading-zeroes"
+      },
+      "id": "inshell.thought.metadata.v2.terminal-chat",
+      "idKeccak256": "0x4cefae9cf44cc61bc8ec16e266ecb31f53e634834fe5975cc564ae9dfc51858b",
+      "profileSha256": "a08842ac2bf8432a054f182f0a93fe8e73c3d0bdf9c73239018c4c78e6363af7"
+    },
+    "protocol": {
+      "id": "inshell.thought.protocol.v2",
+      "release": "v2",
+      "status": "canonical-portable-release"
+    },
+    "provenance": {
+      "id": "inshell.thought.provenance.v2"
+    },
+    "renderer": {
+      "canonicalId": "inshell.thought.svg.v2.terminal-chat-path-glyphs",
+      "canonicalIdKeccak256": "0x01982604c90acf1ca63020e0c3761b25d8dc8fc3c267d27ace14cb0d2c813d73",
+      "finalImplementationIncluded": true,
+      "geometry": {
+        "artboard": "1024x1024",
+        "canvas": "960x960@32,32",
+        "canvasScale": 1,
+        "fields": {
+          "agent": {
+            "bottom": 832,
+            "height": 256,
+            "horizontalAlign": "left",
+            "verticalAlign": "bottom",
+            "width": 844.8,
+            "x": 57.6,
+            "y": 576
+          },
+          "prompt": {
+            "bottom": 384,
+            "height": 256,
+            "horizontalAlign": "right",
+            "verticalAlign": "top",
+            "width": 844.8,
+            "x": 57.6,
+            "y": 128
+          }
+        },
+        "frameColor": "#006100",
+        "frameUnitsPerSide": 32,
+        "glyphColor": "#00ff00"
+      },
+      "packagedImplementation": "inshell.thought.renderer.v2.mono-76-v1-im76-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom"
+    },
+    "selectedSpec": {
+      "byteLength": 4627,
+      "name": "THOUGHT.v2.md",
+      "sha256": "90df786a3ffb5ec38bffd09ff356ec560d0b7dddcdf57170891149a92a399e9b",
+      "thoughtSpecHash": "0xb2b0a167678816a7ae9dc9098b0d6a6852c0dc95feb59f9581de75bd2cc2231f",
+      "thoughtSpecId": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410"
+    },
+    "workProfile": {
+      "id": "inshell.thought.work.v2.terminal-english-64",
+      "idKeccak256": "0x2bf311e6034eb35e6d1f7bd92894012ee7e528609830cb3b28df1ce5dd82f85a"
+    }
+  }
+}

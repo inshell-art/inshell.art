@@ -7,7 +7,7 @@ import {
   announceInshellWalletVisibility,
 } from "./wallet-events";
 
-export { resolveInshellLinks } from "./links";
+export { isLocalRuntimeHost, resolveInshellLinks } from "./links";
 export {
   INSHELL_OPEN_WALLET_EVENT,
   INSHELL_WALLET_VISIBILITY_EVENT,

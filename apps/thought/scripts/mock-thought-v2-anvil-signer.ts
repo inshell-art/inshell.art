@@ -18,7 +18,7 @@ import {
   CREATION_ATTESTATION_TYPES,
   creationAttestationDomain,
   hashCreationAttestationClaim,
-} from "../contract-integration/current/reference/thought-v2-creation-attestation";
+} from "../contract-integration/current/reference/thought-v2-current-creation-attestation";
 
 const isLoopbackRpc = (value: string) => {
   const hostname = new URL(value).hostname.toLowerCase();

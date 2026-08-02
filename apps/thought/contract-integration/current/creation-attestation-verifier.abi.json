@@ -150,7 +150,7 @@
       {
         "name": "claim",
         "type": "tuple",
-        "internalType": "struct ICreationAttestationVerifier.Claim",
+        "internalType": "struct ICreationAttestationVerifierV2.Claim",
         "components": [
           {
             "name": "profileId",
@@ -188,12 +188,12 @@
             "internalType": "bytes32"
           },
           {
-            "name": "declaredAgentHash",
+            "name": "agentHash",
             "type": "bytes32",
             "internalType": "bytes32"
           },
           {
-            "name": "declaredModelHash",
+            "name": "modelHash",
             "type": "bytes32",
             "internalType": "bytes32"
           },
@@ -236,7 +236,7 @@
       {
         "name": "claim",
         "type": "tuple",
-        "internalType": "struct ICreationAttestationVerifier.Claim",
+        "internalType": "struct ICreationAttestationVerifierV2.Claim",
         "components": [
           {
             "name": "profileId",
@@ -274,12 +274,12 @@
             "internalType": "bytes32"
           },
           {
-            "name": "declaredAgentHash",
+            "name": "agentHash",
             "type": "bytes32",
             "internalType": "bytes32"
           },
           {
-            "name": "declaredModelHash",
+            "name": "modelHash",
             "type": "bytes32",
             "internalType": "bytes32"
           },
@@ -421,7 +421,7 @@
       {
         "name": "claim",
         "type": "tuple",
-        "internalType": "struct ICreationAttestationVerifier.Claim",
+        "internalType": "struct ICreationAttestationVerifierV2.Claim",
         "components": [
           {
             "name": "profileId",
@@ -459,12 +459,12 @@
             "internalType": "bytes32"
           },
           {
-            "name": "declaredAgentHash",
+            "name": "agentHash",
             "type": "bytes32",
             "internalType": "bytes32"
           },
           {
-            "name": "declaredModelHash",
+            "name": "modelHash",
             "type": "bytes32",
             "internalType": "bytes32"
           },

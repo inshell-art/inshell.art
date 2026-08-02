@@ -27,6 +27,9 @@ export async function onRequest(ctx: MiddlewareContext): Promise<Response> {
   }
 
   const pathname = normalizePathname(url.pathname);
+  if (isImmutableProtocolReleasePathname(pathname)) {
+    return serveImmutableProtocolRelease(ctx, pathname);
+  }
   const galleryRedirect = canonicalGalleryHostRedirect(ctx.request, url, pathname);
   const sepoliaRedirect = temporarySepoliaHostRedirect(url);
   const thoughtRedirect = canonicalThoughtRedirect(ctx.request, url, pathname);
@@ -83,6 +86,65 @@ function isPubReservedPathname(pathname: string) {
     pathname === "/pub/" ||
     pathname.startsWith("/pub/")
   );
+}
+
+function isImmutableProtocolReleasePathname(pathname: string) {
+  return pathname === "/protocol/releases" || pathname.startsWith("/protocol/releases/");
+}
+
+async function serveImmutableProtocolRelease(
+  ctx: MiddlewareContext,
+  pathname: string,
+): Promise<Response> {
+  if (ctx.request.method !== "GET" && ctx.request.method !== "HEAD") {
+    return new Response("Immutable protocol artifacts are read-only.", {
+      status: 405,
+      headers: {
+        allow: "GET, HEAD",
+        "cache-control": "no-store",
+        "content-type": "text/plain; charset=utf-8",
+        "x-content-type-options": "nosniff",
+      },
+    });
+  }
+
+  const response = ctx.env.ASSETS
+    ? await ctx.env.ASSETS.fetch(ctx.request)
+    : await ctx.next(ctx.request);
+  const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+  if (!response.ok || contentType.includes("text/html")) {
+    return new Response("Immutable protocol artifact not found.", {
+      status: 404,
+      headers: {
+        "cache-control": "no-store",
+        "content-type": "text/plain; charset=utf-8",
+        "x-content-type-options": "nosniff",
+      },
+    });
+  }
+
+  const headers = new Headers(response.headers);
+  headers.set("cache-control", "public, max-age=31536000, immutable");
+  headers.set("content-type", immutableProtocolContentType(pathname));
+  headers.set("x-content-type-options", "nosniff");
+  return new Response(ctx.request.method === "HEAD" ? null : response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+function immutableProtocolContentType(pathname: string) {
+  if (pathname.endsWith(".schema.json")) {
+    return "application/schema+json; charset=utf-8";
+  }
+  if (pathname.endsWith(".json")) {
+    return "application/json; charset=utf-8";
+  }
+  if (pathname.endsWith(".md")) {
+    return "text/markdown; charset=utf-8";
+  }
+  return "application/octet-stream";
 }
 
 function isPubRouteHost(hostname: string) {

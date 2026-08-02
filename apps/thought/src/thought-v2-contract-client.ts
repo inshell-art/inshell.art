@@ -1,5 +1,6 @@
 import {
   Contract,
+  ZeroAddress,
   encodeBytes32String,
   getAddress,
   keccak256,
@@ -12,6 +13,7 @@ import thoughtNftV2Abi from "../contract-integration/current/thought-nft-v2.abi.
 import thoughtRendererV2Abi from "../contract-integration/current/thought-renderer-v2.abi.json";
 import verifierAbi from "../contract-integration/current/creation-attestation-verifier.abi.json";
 import integrationLock from "../contract-integration/current/integration-lock.json";
+import provenanceLock from "../provenance/v2/provenance-lock.json";
 import creativeSpecLock from "../spec/THOUGHT.v2.lock.json";
 
 export const THOUGHT_V2_CURRENT_ABI = thoughtNftV2Abi;
@@ -41,6 +43,14 @@ export type ThoughtV2AnvilRuntime = {
   paymentToken: {
     address: string;
   };
+  provenance: {
+    artifactId: string;
+    authority: string;
+    id: string;
+    ref: string;
+    schemaKeccak256: string;
+    schemaSha256: string;
+  };
   attestation: {
     authority: string;
     authorityEpoch: number;
@@ -54,11 +64,17 @@ export type ThoughtV2AnvilRuntime = {
     manifestUri: string;
     status: string;
     manifest: {
+      artifacts: Array<{
+        keccak256: string;
+        path: string;
+        role: string;
+      }>;
       identifiers: {
         contextProfile: string;
         contextProfileHash: string;
         metadataProfile: string;
         metadataProfileHash: string;
+        provenance: string;
         renderer: string;
         rendererHash: string;
         workProfile: string;
@@ -71,12 +87,17 @@ export type ThoughtV2AnvilRuntime = {
         usesNativeSvgPaths: boolean;
       };
       glyphLibrary: {
-        definitionsIndexKeccak256: string;
-        definitionsKeccak256: string;
-        definitionsPart1Keccak256: string;
-        definitionsPart2Keccak256: string;
-        memberId: string;
+        family: string;
+        faceSha256: string;
+        libraryMemberId: string;
+        librarySetId: string;
+        manualEditPayloadSha256: string;
+        packedBytes: number;
+        packedKeccak256: string;
+        packedSha256: string;
+        releaseTag: string;
         releaseReady: boolean;
+        role: string;
       };
       selectedSpec: {
         name: string;
@@ -89,11 +110,12 @@ export type ThoughtV2AnvilRuntime = {
     canonicalRendererId: string;
     implementationId: string;
     releaseReady: boolean;
-    glyphDefinitionsPointer1: string;
-    glyphDefinitionsPointer2: string;
-    glyphDefinitionsIndexPointer: string;
+    externalUrlBase: string;
+    glyphDataPointer: string;
     glyphDefinitionsKeccak256: string;
-    glyphDefinitionsIndexKeccak256: string;
+    glyphPackedBytes: number;
+    glyphPackedKeccak256: string;
+    glyphPackedSha256: string;
     glyphLibraryMemberId: string;
   };
   selectedSpec: {
@@ -144,6 +166,27 @@ export const assertThoughtV2AnvilRuntime = (value: unknown): ThoughtV2AnvilRunti
     !/^0x[0-9a-f]{40}$/i.test(runtime.paymentToken?.address)
   ) {
     throw new Error("THOUGHT Contract runtime descriptor has invalid $PATH acquisition wiring.");
+  }
+  if (
+    runtime.provenance?.artifactId !== provenanceLock.artifactId ||
+    runtime.provenance?.authority !== provenanceLock.authority.owner ||
+    runtime.provenance?.id !== provenanceLock.provenanceSchema ||
+    !sameHex(
+      runtime.provenance?.schemaKeccak256 ?? "",
+      provenanceLock.artifacts.schema.keccak256,
+    ) ||
+    runtime.provenance?.schemaSha256 !== provenanceLock.artifacts.schema.sha256
+  ) {
+    throw new Error("THOUGHT Contract runtime descriptor has a stale provenance schema.");
+  }
+  if (
+    !nonzeroAddress(runtime.renderer?.glyphDataPointer) ||
+    runtime.renderer?.externalUrlBase !== "https://inshell.art/thought/" ||
+    runtime.renderer?.glyphPackedBytes !== 4_600 ||
+    !/^0x[0-9a-f]{64}$/i.test(runtime.renderer?.glyphPackedKeccak256 ?? "") ||
+    !/^[0-9a-f]{64}$/i.test(runtime.renderer?.glyphPackedSha256 ?? "")
+  ) {
+    throw new Error("THOUGHT Contract runtime descriptor has invalid Mono 76 renderer data.");
   }
   return runtime;
 };
@@ -228,8 +271,8 @@ export const verifyThoughtV2CurrentRuntime = async (
     metadataProfileHash,
     maxPromptBytes,
     maxAgentBytes,
-    maxDeclaredAgentBytes,
-    maxDeclaredModelBytes,
+    maxAgentRecordBytes,
+    maxModelRecordBytes,
     maxProvenanceBytes,
     verifierProfile,
     authority,
@@ -242,12 +285,13 @@ export const verifyThoughtV2CurrentRuntime = async (
     rendererImplementationId,
     rendererCanonicalId,
     rendererMetadataProfileId,
+    rendererExternalUrlBase,
     glyphLibraryMemberId,
-    glyphDefinitionsPointer1,
+    glyphDataPointer,
     glyphDefinitionsPointer2,
     glyphDefinitionsIndexPointer,
     glyphDefinitionsKeccak256,
-    glyphDefinitionsIndexKeccak256,
+    glyphPackedKeccak256,
   ] = await Promise.all([
     thought.pathNft(),
     thought.thoughtSpecRegistry(),
@@ -266,8 +310,8 @@ export const verifyThoughtV2CurrentRuntime = async (
     thought.METADATA_PROFILE_ID_HASH(),
     thought.MAX_PROMPT_LINE_BYTES(),
     thought.MAX_AGENT_LINE_BYTES(),
-    thought.MAX_DECLARED_AGENT_BYTES(),
-    thought.MAX_DECLARED_MODEL_BYTES(),
+    thought.MAX_AGENT_RECORD_BYTES(),
+    thought.MAX_MODEL_RECORD_BYTES(),
     thought.MAX_PROVENANCE_BYTES(),
     verifier.PROFILE_ID(),
     verifier.authority(),
@@ -280,12 +324,13 @@ export const verifyThoughtV2CurrentRuntime = async (
     rendererContract.IMPLEMENTATION_ID(),
     rendererContract.RENDERER_ID(),
     rendererContract.METADATA_PROFILE_ID(),
+    rendererContract.EXTERNAL_URL_BASE(),
     rendererContract.GLYPH_LIBRARY_MEMBER_ID(),
     rendererContract.glyphDefinitionsPointer1(),
     rendererContract.glyphDefinitionsPointer2(),
     rendererContract.glyphDefinitionsIndexPointer(),
     rendererContract.glyphDefinitionsKeccak256(),
-    rendererContract.GLYPH_DEFINITIONS_INDEX_KECCAK256(),
+    rendererContract.GLYPH_PACKED_KECCAK256(),
   ]);
 
   const checkHex = (label: string, actual: string, expected: string) => {
@@ -348,6 +393,20 @@ export const verifyThoughtV2CurrentRuntime = async (
   if (runtime.selectedSpec.name !== creativeSpecLock.artifact.name) {
     issues.push("App creative spec name mismatch");
   }
+  const provenanceArtifact = runtime.protocolRelease.manifest.artifacts.find(
+    ({ role }) => role === "provenance-schema",
+  );
+  if (
+    runtime.protocolRelease.manifest.identifiers.provenance !==
+      provenanceLock.provenanceSchema ||
+    provenanceArtifact?.path !== runtime.provenance.ref ||
+    !sameHex(
+      provenanceArtifact?.keccak256 ?? "",
+      provenanceLock.artifacts.schema.keccak256,
+    )
+  ) {
+    issues.push("App provenance schema binding mismatch");
+  }
   if (
     runtime.renderer.implementationId !== lockedRelease.rendererImplementationId ||
     runtime.protocolRelease.manifest.rendererImplementation.id !==
@@ -361,45 +420,53 @@ export const verifyThoughtV2CurrentRuntime = async (
     rendererMetadataProfileId !==
       runtime.protocolRelease.manifest.identifiers.metadataProfile ||
     glyphLibraryMemberId !== lockedRenderer.glyphLibraryMemberId ||
-    glyphLibraryMemberId !== runtime.protocolRelease.manifest.glyphLibrary.memberId
+    glyphLibraryMemberId !==
+      runtime.protocolRelease.manifest.glyphLibrary.libraryMemberId
   ) {
     issues.push("renderer identity or glyph library mismatch");
   }
+  if (
+    rendererExternalUrlBase !== lockedRenderer.externalUrlBase ||
+    rendererExternalUrlBase !== runtime.renderer.externalUrlBase
+  ) {
+    issues.push("renderer external URL base mismatch");
+  }
   checkAddress(
-    "glyph definitions pointer 1",
-    glyphDefinitionsPointer1,
-    runtime.renderer.glyphDefinitionsPointer1,
+    "packed glyph data pointer",
+    glyphDataPointer,
+    runtime.renderer.glyphDataPointer,
   );
-  checkAddress(
-    "glyph definitions pointer 2",
-    glyphDefinitionsPointer2,
-    runtime.renderer.glyphDefinitionsPointer2,
-  );
-  checkAddress(
-    "glyph definitions index pointer",
-    glyphDefinitionsIndexPointer,
-    runtime.renderer.glyphDefinitionsIndexPointer,
-  );
+  if (glyphDefinitionsPointer2 !== ZeroAddress) {
+    issues.push("legacy glyph definitions pointer 2 is not empty");
+  }
+  if (glyphDefinitionsIndexPointer !== ZeroAddress) {
+    issues.push("legacy glyph definitions index pointer is not empty");
+  }
   checkHex(
-    "glyph definitions",
+    "packed glyph definitions",
     glyphDefinitionsKeccak256,
-    lockedRenderer.glyphDefinitionsKeccak256,
+    lockedRenderer.glyphPackedKeccak256,
   );
   checkHex(
-    "glyph definitions index",
-    glyphDefinitionsIndexKeccak256,
-    lockedRenderer.glyphDefinitionsIndexKeccak256,
+    "renderer packed glyph constant",
+    glyphPackedKeccak256,
+    lockedRenderer.glyphPackedKeccak256,
   );
-  const glyphPointerCodes = await Promise.all([
-    provider.getCode(glyphDefinitionsPointer1),
-    provider.getCode(glyphDefinitionsPointer2),
-    provider.getCode(glyphDefinitionsIndexPointer),
-  ]);
-  glyphPointerCodes.forEach((code, index) => {
-    if (!/^0x[0-9a-f]+$/i.test(code) || /^0x0*$/i.test(code)) {
-      issues.push(`no bytecode at renderer glyph pointer ${index + 1}`);
-    }
-  });
+  checkHex(
+    "runtime packed glyph hash",
+    runtime.renderer.glyphPackedKeccak256,
+    lockedRenderer.glyphPackedKeccak256,
+  );
+  if (
+    runtime.renderer.glyphPackedBytes !== lockedRenderer.glyphPackedBytes ||
+    runtime.renderer.glyphPackedSha256 !== lockedRenderer.glyphPackedSha256
+  ) {
+    issues.push("runtime packed glyph payload mismatch");
+  }
+  const glyphPointerCode = await provider.getCode(glyphDataPointer);
+  if (!/^0x[0-9a-f]+$/i.test(glyphPointerCode) || /^0x0*$/i.test(glyphPointerCode)) {
+    issues.push("no bytecode at packed renderer glyph pointer");
+  }
 
   if (rendererId !== runtime.renderer.canonicalRendererId) issues.push("renderer ID mismatch");
   if (workProfileId !== runtime.protocolRelease.manifest.identifiers.workProfile) {
@@ -414,8 +481,8 @@ export const verifyThoughtV2CurrentRuntime = async (
   if (
     maxPromptBytes !== 64n ||
     maxAgentBytes !== 64n ||
-    maxDeclaredAgentBytes !== 64n ||
-    maxDeclaredModelBytes !== 64n ||
+    maxAgentRecordBytes !== 64n ||
+    maxModelRecordBytes !== 64n ||
     maxProvenanceBytes !== 20_000n
   ) {
     issues.push("Contract limits mismatch");

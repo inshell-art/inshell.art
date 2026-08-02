@@ -1,4 +1,4 @@
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
@@ -11,6 +11,8 @@ import path from "node:path";
 import { fileURLToPath, URL } from "node:url";
 import { Contract, JsonRpcProvider, toUtf8Bytes } from "ethers";
 import {
+  THOUGHT_AGENT_CLAIM_TTL_MS,
+  THOUGHT_AGENT_RUN_TTL_MS,
   THOUGHT_AGENT_PROTOCOL_VERSION,
   THOUGHT_AGENT_RECEIPT_VERSION,
   THOUGHT_AGENT_RESULT_VERSION,
@@ -19,11 +21,13 @@ import {
   assertProtocolVersion,
   buildThoughtCodexClientScript,
   buildThoughtAgentReceipt,
+  formatThoughtAgentModelLabel,
   isThoughtSha256,
   parseAdapterInfo,
   parseBridgeInfo,
   parseResultRequest,
   sha256Hex,
+  thoughtAgentModelIdentifier,
   type ThoughtAgentAdapterInfo,
   type ThoughtAgentBridgeInfo,
   type ThoughtAgentExecutionInfo,
@@ -49,7 +53,7 @@ import {
   type ThoughtV2AnvilRuntime,
 } from "./src/thought-v2-contract-client";
 import { buildThoughtV2PathAcquisitionBrowserAddresses } from "./src/thought-v2-path-acquisition-runtime";
-import type { ThoughtV2ProcessEvidence } from "./contract-integration/current/reference/thought-v2-terminal-provenance";
+import type { ThoughtV2ProcessEvidence } from "./src/thought-v2-provenance";
 import { buildBackendOnlyMockThoughtV2Mint } from "./scripts/mock-thought-v2-anvil-signer";
 import {
   loadReturnedDevRuns,
@@ -170,10 +174,47 @@ function readCurrentThoughtContractRuntime(
         ref: runtime.selectedSpec.ref,
       },
       localContractIntegration: {
+        acceptanceOnly: true,
+        deploymentAuthorized: THOUGHT_V2_LOCAL_RELEASE.artifact.deploymentAuthorized,
         id: THOUGHT_V2_LOCAL_RELEASE.artifact.id,
-        productionConsumable: false,
+        productionConsumable: THOUGHT_V2_LOCAL_RELEASE.artifact.productionConsumable,
         runtimeDescriptorPath: descriptorPath,
       },
+    },
+  };
+}
+
+function serializeForInlineScript(value: unknown) {
+  return JSON.stringify(value)
+    .replace(/</g, "\\u003c")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
+function createThoughtDevRuntimeBootstrapPlugin({
+  contractRuntime,
+  evmAddresses,
+  publicEnv,
+}: {
+  contractRuntime: Record<string, unknown> | null;
+  evmAddresses: Record<string, unknown> | null;
+  publicEnv: Record<string, string>;
+}): Plugin {
+  const bootstrap = [
+    `globalThis.__INSHELL_VITE_ENV__ = ${serializeForInlineScript(publicEnv)};`,
+    `globalThis.__INSHELL_THOUGHT_CONTRACT_RUNTIME__ = ${serializeForInlineScript(contractRuntime)};`,
+    `globalThis.__INSHELL_THOUGHT_EVM_ADDRESSES__ = ${serializeForInlineScript(evmAddresses)};`,
+  ].join("\n");
+
+  return {
+    name: "inshell-thought-dev-runtime-bootstrap",
+    apply: "serve",
+    transformIndexHtml() {
+      return [{
+        tag: "script",
+        children: bootstrap,
+        injectTo: "head-prepend",
+      }];
     },
   };
 }
@@ -254,9 +295,7 @@ const devAgentLineContract = (release: ThoughtV2LocalRelease) => ({
   normalization: "none",
   displayUnitsAreAcceptanceLimits: false,
 } as const);
-const DEV_AGENT_CLAIM_TTL_MS = 5 * 60 * 1000;
 const DEV_AGENT_CLAIM_AUTHORIZATION_TTL_MS = 2 * 60 * 1000;
-const DEV_AGENT_RUN_TTL_MS = 10 * 60 * 1000;
 const DEV_AGENT_BRIDGE_ID = "inshell-thought-bridge-dev";
 const DEV_AGENT_BRIDGE_VERSION = "0.1.0-dev";
 const DEV_AGENT_ADAPTER_VERSION = "codex-cli";
@@ -468,6 +507,8 @@ function statusPayload(run: DevThoughtAgentRun) {
         receiptSha256: run.receiptSha256,
         adapterId: run.requestedAdapterId,
         model: run.agent?.model ?? "unknown",
+        reasoningEffort: run.agent?.reasoningEffort ?? null,
+        metadataSource: run.agent?.metadataSource ?? "unknown",
         providerAttested: false,
       },
     };
@@ -770,6 +811,19 @@ function createThoughtAgentDevApiPlugin(
   contractRuntime: ThoughtV2AnvilRuntime | null,
   activeRelease: ThoughtV2LocalRelease,
 ) {
+  const clientScript = buildThoughtCodexClientScript({
+    release: {
+      protocolReleaseId: activeRelease.protocol.protocolReleaseId,
+      manifestKeccak256: activeRelease.protocol.manifestKeccak256,
+    },
+    resultContract: {
+      workProfile: activeRelease.protocol.workProfile.id,
+      declarationLabelField: "label",
+      lineValidation: "terminal-english-64",
+    },
+  });
+  const clientScriptSha256 =
+    `sha256:${crypto.createHash("sha256").update(clientScript, "utf8").digest("hex")}` as ThoughtSha256;
   const validateStoredReturnedRun = (candidate: unknown): DevThoughtAgentRun | null => {
     if (!candidate || typeof candidate !== "object") return null;
     const run = candidate as Partial<DevThoughtAgentRun>;
@@ -827,7 +881,7 @@ function createThoughtAgentDevApiPlugin(
             const body = await readJson(req);
             const process = body.process as ThoughtV2ProcessEvidence | undefined;
             const runReference = process?.kind === "agent-run"
-              ? process.transport.runReference
+              ? process.run.reference
               : "";
             const authoritativeRun = runReference ? runs.get(runReference) : undefined;
             if (
@@ -850,20 +904,78 @@ function createThoughtAgentDevApiPlugin(
               authoritativeRun.rawResult,
               activeRelease,
             );
-            const authoritativeAgent = resultEnvelope.declaration?.label ?? "";
-            const authoritativeModel =
-              authoritativeRun.requestedModel || authoritativeRun.agent.model;
+            const selectedAgent =
+              authoritativeRun.requestedAdapterId === "codex"
+                ? "Codex"
+                : authoritativeRun.requestedAdapterId;
+            const resultAgent = resultEnvelope.declaration?.label;
+            if (resultAgent && resultAgent !== selectedAgent) {
+              protocolError(
+                res,
+                409,
+                "AGENT_METADATA_CONFLICT",
+                "The Agent result label does not match the Agent selected by the App.",
+              );
+              return;
+            }
+            const reportedModel = authoritativeRun.agent.model?.trim() || "";
+            const modelIdentifier = thoughtAgentModelIdentifier(
+              reportedModel,
+              authoritativeRun.agent.reasoningEffort,
+            );
+            const authoritativeModel = formatThoughtAgentModelLabel(
+              reportedModel,
+              authoritativeRun.agent.reasoningEffort,
+            );
+            if (authoritativeModel === "unknown") {
+              protocolError(
+                res,
+                409,
+                "MODEL_METADATA_UNAVAILABLE",
+                "The Agent run did not return exact model metadata. Run the work again.",
+              );
+              return;
+            }
+            if (authoritativeRun.agent.metadataSource !== "reported") {
+              protocolError(
+                res,
+                409,
+                "MODEL_METADATA_UNAVAILABLE",
+                "The Agent runtime did not report exact model metadata. Run the work again.",
+              );
+              return;
+            }
+            const authoritativeProcess: ThoughtV2ProcessEvidence = {
+              kind: "agent-run",
+              agent: {
+                identifier: authoritativeRun.adapter.adapterId,
+                label: selectedAgent,
+                source: "producer-selected",
+              },
+              model: {
+                label: authoritativeModel,
+                source: "runtime-reported",
+                ...(modelIdentifier ? { identifier: modelIdentifier } : {}),
+              },
+              run: {
+                adapter: authoritativeRun.adapter.adapterId,
+                route: "inshell.thought.agent-run",
+                reference: authoritativeRun.runId,
+                resultEnvelope,
+              },
+            };
             const processMatchesRun =
               authoritativeRun.promptText === String(body.promptLine ?? "") &&
               authoritativeRun.agentLine === String(body.agentLine ?? "") &&
               authoritativeRun.specId.toLowerCase() === runtime.selectedSpec.id.toLowerCase() &&
               authoritativeRun.contractSpecHash?.toLowerCase() === runtime.selectedSpec.hash.toLowerCase() &&
               process.kind === "agent-run" &&
-              process.agentDeclaration.label === authoritativeAgent &&
-              process.modelDeclaration.label === authoritativeModel &&
-              process.transport.adapter === authoritativeRun.adapter.adapterId &&
-              process.transport.route === "inshell.thought.agent-run" &&
-              JSON.stringify(process.transport.resultEnvelope) === JSON.stringify(resultEnvelope);
+              process.agent.label === selectedAgent &&
+              process.model.label === authoritativeModel &&
+              process.run.adapter === authoritativeRun.adapter.adapterId &&
+              process.run.route === "inshell.thought.agent-run" &&
+              process.run.reference === authoritativeRun.runId &&
+              JSON.stringify(process.run.resultEnvelope) === JSON.stringify(resultEnvelope);
             if (!processMatchesRun) {
               protocolError(
                 res,
@@ -890,7 +1002,7 @@ function createThoughtAgentDevApiPlugin(
                 intendedMinter: String(body.intendedMinter ?? "").toLowerCase() as `0x${string}`,
                 promptLine: String(body.promptLine ?? ""),
                 agentLine: String(body.agentLine ?? ""),
-                process,
+                process: authoritativeProcess,
                 protocol: {
                   manifestKeccak256: runtime.protocolRelease.manifestHash.toLowerCase() as `0x${string}`,
                   protocolReleaseId: runtime.protocolRelease.id.toLowerCase() as `0x${string}`,
@@ -956,17 +1068,7 @@ function createThoughtAgentDevApiPlugin(
             res.setHeader("cache-control", "no-store");
             res.setHeader("content-type", "text/plain; charset=utf-8");
             res.setHeader("x-content-type-options", "nosniff");
-            res.end(buildThoughtCodexClientScript({
-              release: {
-                protocolReleaseId: activeRelease.protocol.protocolReleaseId,
-                manifestKeccak256: activeRelease.protocol.manifestKeccak256,
-              },
-              resultContract: {
-                workProfile: activeRelease.protocol.workProfile.id,
-                declarationLabelField: "label",
-                lineValidation: "terminal-english-64",
-              },
-            }));
+            res.end(clientScript);
             return;
           }
 
@@ -1004,8 +1106,12 @@ function createThoughtAgentDevApiPlugin(
               sha256: promptSha256,
             };
             const createdAt = now.toISOString();
-            const claimExpiresAt = new Date(now.getTime() + DEV_AGENT_CLAIM_TTL_MS).toISOString();
-            const runExpiresAt = new Date(now.getTime() + DEV_AGENT_RUN_TTL_MS).toISOString();
+            const claimExpiresAt = new Date(
+              now.getTime() + THOUGHT_AGENT_CLAIM_TTL_MS,
+            ).toISOString();
+            const runExpiresAt = new Date(
+              now.getTime() + THOUGHT_AGENT_RUN_TTL_MS,
+            ).toISOString();
             const webOrigin = requestOrigin(req);
             const run: DevThoughtAgentRun = {
               runId: id,
@@ -1054,6 +1160,10 @@ function createThoughtAgentDevApiPlugin(
               launchUri: `thought://agent/run?run_id=${encodeURIComponent(id)}&token=${encodeURIComponent(launchToken)}&api_origin=${encodeURIComponent(webOrigin)}`,
               browserToken,
               statusUrl: `${apiPrefix}/runs/${id}`,
+              client: {
+                url: new URL(clientPath, webOrigin).toString(),
+                sha256: clientScriptSha256,
+              },
               createdAt,
               claimExpiresAt,
               devRuntime: "vite-local-returned-run-store",
@@ -1116,7 +1226,11 @@ function createThoughtAgentDevApiPlugin(
             run.bridgeToken = randomToken(32);
             run.launchToken = null;
             run.state = "claimed";
-            run.updatedAt = new Date().toISOString();
+            const claimedAt = new Date();
+            run.updatedAt = claimedAt.toISOString();
+            run.runExpiresAt = new Date(
+              claimedAt.getTime() + THOUGHT_AGENT_RUN_TTL_MS,
+            ).toISOString();
             protocolJson(res, 200, {
               runId: run.runId,
               state: run.state,
@@ -1366,6 +1480,11 @@ export default defineConfig(({ command, mode }) => {
     root: rootDir,
     base: routeBase,
     plugins: [
+      createThoughtDevRuntimeBootstrapPlugin({
+        contractRuntime: currentContractRuntime?.raw ?? null,
+        evmAddresses: currentContractRuntime?.evmAddresses ?? null,
+        publicEnv,
+      }),
       createThoughtAgentDevApiPlugin(
         currentContractRuntime?.raw
           ? assertThoughtV2AnvilRuntime(currentContractRuntime.raw)

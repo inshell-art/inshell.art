@@ -1,4 +1,4 @@
-import { buildThoughtCodexClientScript } from "../../../../packages/thought-agent-protocol/src/index";
+import { THOUGHT_CODEX_CLIENT_SCRIPT } from "./client-script";
 
 const responseHeaders = {
   "access-control-allow-origin": "*",
@@ -8,7 +8,7 @@ const responseHeaders = {
 };
 
 export function onRequestGet() {
-  return new Response(buildThoughtCodexClientScript(), {
+  return new Response(THOUGHT_CODEX_CLIENT_SCRIPT, {
     status: 200,
     headers: responseHeaders,
   });

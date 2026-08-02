@@ -103,6 +103,37 @@ describe("path token inventory", () => {
     expect(cached?.[0]?.metadata.name).toBe("PATH #7");
   });
 
+  test("ignores browser PATH token cache on local Anvil", () => {
+    const cacheKey = `inshell:path-token-cache:v1:all:${PATH_NFT.toLowerCase()}:1:none:none`;
+    globalThis.localStorage.setItem(
+      cacheKey,
+      JSON.stringify({
+        cachedAt: Date.now(),
+        items: [
+          {
+            tokenId: "7",
+            tokenIdLabel: "7",
+            owner: OWNER,
+            tokenUri: metadataUri("PATH #7"),
+            metadata: { name: "PATH #7" },
+          },
+        ],
+      })
+    );
+    (globalThis as any).__VITE_ENV__ = { VITE_NETWORK: "devnet" };
+
+    try {
+      expect(
+        readCachedAllPathTokens({
+          pathNftAddress: PATH_NFT,
+          fromBlock: 1,
+        }),
+      ).toBeNull();
+    } finally {
+      delete (globalThis as any).__VITE_ENV__;
+    }
+  });
+
   test("loads owned PATH tokens from Transfer logs and tokenURI metadata", async () => {
     const logs = [
       transferLog(ZERO_TOPIC, OWNER, 1n, 2, 0),

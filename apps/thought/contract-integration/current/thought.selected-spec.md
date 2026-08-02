@@ -28,18 +28,23 @@ line may appear again with a different counterpart. Reversing the pair forms
 a different identity. Conversation identity and work hash commit to both exact
 line hashes in order. The work hash also commits to the renderer identity.
 
-`declaredAgent` and `declaredModel` are exact 1-through-64-byte visible UTF-8
-context labels. They remain `declared-unverified`, including when an official
-creation attestation is valid. They are typed contract state, canonical
-provenance declarations, and creation-attestation hash inputs. A nonzero valid
-creation-attestation digest gates their publication as `Attested Agent` and
-`Attested Model` marketplace traits. Unattested tokens omit Agent/Model traits.
+`agent` and `model` are exact 1-through-64-byte visible UTF-8 neutral records.
+They are typed contract state, map to canonical provenance data, and are
+creation-attestation hash inputs. Every token publishes them as `Agent` and
+`Model` marketplace traits; attestation status is represented separately.
 They do not affect conversation identity, work hash, or the artwork.
 
 Every mint selects an exact registered THOUGHT specification ID/hash pair and
 an exact registered protocol release. Multiple registered specification
 versions may coexist and remain mintable. There is no contract-level latest or
 active specification gate.
+
+Every minted token's canonical ERC-721 metadata includes the top-level
+`external_url` value `https://inshell.art/thought/<tokenId>`, where `tokenId`
+is unsigned base-10 without leading zeroes. The Contract renderer owns these
+exact bytes. The URL is presentation metadata only and is not an input to
+conversation identity, work hash, uniqueness, provenance, Creation
+Attestation, or PATH consumption.
 
 Before minting, a producer builds one closed `inshell.thought.provenance.v2`
 creation record, serializes it as RFC 8785 JCS, verifies its schema,
@@ -48,11 +53,11 @@ exact bytes. Solidity stores and hashes the bounded bytes opaquely; it does not
 parse or construct provenance JSON.
 
 An empty creation-attestation proof produces `Unattested`. A valid
-`inshell.thought.creation-workflow-attestation.v1` proof shows that an
+`inshell.thought.creation-workflow-attestation.v2` proof shows that an
 authorized signer bound the exact collection, release, selected spec, work,
-provenance hash, declaration hashes, public run reference, minter, deadline,
+provenance hash, Agent/Model record hashes, public run reference, minter, deadline,
 and authority epoch. It does not independently prove the truth of the Agent or
-model declarations.
+model records.
 
 Minting consumes exactly one PATH `THOUGHT` movement unit atomically. A failed
 mint must not consume PATH, reserve the ordered pair, or increment supply.
@@ -64,11 +69,15 @@ an unchanged 960-by-960 black canvas translated to `(32,32)` with no scaling.
 Prompt and Agent coordinates remain in that 960-unit canvas coordinate system.
 The prompt occupies a fixed 844.8-by-256 field at `(57.6,128)` and the Agent
 response occupies an equal field at `(57.6,576)`. The prompt field is top
-aligned and its first glyph-row baseline is always `140.8`; the Agent field is
-bottom aligned and its final glyph-row baseline is always `780.8`, regardless
+aligned and its first glyph-row baseline is always `171.52`; the Agent field is
+bottom aligned and its final glyph-row baseline is always `811.52`, regardless
 of wrapped row count. Additional prompt rows grow downward; additional Agent
 rows grow upward.
-The implementation uses reviewed native SVG paths with deterministic glyph
-metrics and wrapping.
+The implementation uses the sealed Inshell Mono 76 v1.0.0 centerline SVG
+paths with deterministic metrics and wrapping: no fill, 1.23-unit strokes,
+round caps and joins, fixed 10-unit advance at 2.88 scale, a 12-unit SVG
+baseline, and a global +1 glyph-origin shift. Reviewed optical translations
+are baked into the path bytes; no runtime kerning or second offset table is
+permitted.
 Source Code Pro, SVG text, `foreignObject`, browser font lookup, and font files
 are study tools only and are not release-ready renderer dependencies.

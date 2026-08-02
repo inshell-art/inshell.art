@@ -219,7 +219,10 @@ export type ThoughtGalleryApiItem = {
   prompt: string;
   mode: string;
   provider: string;
+  agent?: string;
   model: string;
+  agentHash?: string;
+  modelHash?: string;
   returnedText: string;
   returnedTextHash: string;
   provenanceJson: string;
@@ -944,16 +947,18 @@ export function metadataNumber(value: unknown) {
 }
 
 export function parseProvenanceMaterial(provenanceJson: string) {
+  const empty = {
+    prompt: "",
+    promptHash: "",
+    returnedText: "",
+    returnedTextHash: "",
+    mode: "",
+    provider: "",
+    agent: "",
+    model: "",
+  };
   if (!provenanceJson) {
-    return {
-      prompt: "",
-      promptHash: "",
-      returnedText: "",
-      returnedTextHash: "",
-      mode: "",
-      provider: "",
-      model: "",
-    };
+    return empty;
   }
   try {
     const parsed = JSON.parse(provenanceJson) as {
@@ -963,29 +968,71 @@ export function parseProvenanceMaterial(provenanceJson: string) {
       model?: unknown;
       output?: { returnedText?: unknown };
       hashes?: { promptHash?: unknown; returnedTextHash?: unknown };
+      work?: {
+        promptLine?: unknown;
+        promptLineKeccak256?: unknown;
+        agentLine?: unknown;
+        agentLineKeccak256?: unknown;
+      };
+      process?: {
+        kind?: unknown;
+        agent?: { label?: unknown };
+        model?: { label?: unknown };
+        run?: { adapter?: unknown };
+      };
     };
+    const process = parsed.process;
+    const work = parsed.work;
     return {
-      prompt: typeof parsed.prompt === "string" ? parsed.prompt : "",
-      promptHash: typeof parsed.hashes?.promptHash === "string" ? parsed.hashes.promptHash : "",
-      returnedText: typeof parsed.output?.returnedText === "string" ? parsed.output.returnedText : "",
+      prompt:
+        typeof work?.promptLine === "string"
+          ? work.promptLine
+          : typeof parsed.prompt === "string"
+            ? parsed.prompt
+            : "",
+      promptHash:
+        typeof work?.promptLineKeccak256 === "string"
+          ? work.promptLineKeccak256
+          : typeof parsed.hashes?.promptHash === "string"
+            ? parsed.hashes.promptHash
+            : "",
+      returnedText:
+        typeof work?.agentLine === "string"
+          ? work.agentLine
+          : typeof parsed.output?.returnedText === "string"
+            ? parsed.output.returnedText
+            : "",
       returnedTextHash:
-        typeof parsed.hashes?.returnedTextHash === "string"
+        typeof work?.agentLineKeccak256 === "string"
+          ? work.agentLineKeccak256
+          : typeof parsed.hashes?.returnedTextHash === "string"
           ? parsed.hashes.returnedTextHash
           : "",
-      mode: typeof parsed.route === "string" ? parsed.route : "",
-      provider: typeof parsed.provider === "string" ? parsed.provider : "",
-      model: typeof parsed.model === "string" ? parsed.model : "",
+      mode:
+        typeof process?.kind === "string"
+          ? process.kind
+          : typeof parsed.route === "string"
+            ? parsed.route
+            : "",
+      provider:
+        typeof process?.run?.adapter === "string"
+          ? process.run.adapter
+            : typeof parsed.provider === "string"
+              ? parsed.provider
+              : "",
+      agent:
+        typeof process?.agent?.label === "string"
+          ? process.agent.label
+          : "",
+      model:
+        typeof process?.model?.label === "string"
+          ? process.model.label
+          : typeof parsed.model === "string"
+            ? parsed.model
+            : "",
     };
   } catch {
-    return {
-      prompt: "",
-      promptHash: "",
-      returnedText: "",
-      returnedTextHash: "",
-      mode: "",
-      provider: "",
-      model: "",
-    };
+    return empty;
   }
 }
 

@@ -110,7 +110,23 @@ type PathMintLockManager = {
 
 export type ThoughtPathAcquisitionLockResult<T> =
   | Readonly<{ acquired: true; value: T }>
-  | Readonly<{ acquired: false; reason: "busy" | "unsupported" }>;
+  | Readonly<{ acquired: false; reason: "busy" }>;
+
+let fallbackPathAcquisitionLockActive = false;
+
+const withFallbackThoughtPathAcquisitionLock = async <T>(
+  task: () => Promise<T>,
+): Promise<ThoughtPathAcquisitionLockResult<T>> => {
+  if (fallbackPathAcquisitionLockActive) {
+    return Object.freeze({ acquired: false as const, reason: "busy" as const });
+  }
+  fallbackPathAcquisitionLockActive = true;
+  try {
+    return Object.freeze({ acquired: true as const, value: await task() });
+  } finally {
+    fallbackPathAcquisitionLockActive = false;
+  }
+};
 
 type ThoughtPathAcquisitionErrorLike = {
   cause?: unknown;
@@ -138,6 +154,33 @@ export const thoughtPathAcquisitionGasLimit = (estimatedGas: bigint) => {
   // on local Anvil. A percentage margin covers execution variance; the fixed
   // reserve covers the adapter/NFT call boundary. Unused gas is not charged.
   return (estimatedGas * 125n + 99n) / 100n + 30_000n;
+};
+
+type ThoughtPathAcquisitionLocalBlockProvider = {
+  getBlockNumber(): Promise<number>;
+  send(method: string, params: unknown[]): Promise<unknown>;
+};
+
+export const advanceThoughtPathAcquisitionLocalBlock = async (
+  provider: ThoughtPathAcquisitionLocalBlockProvider,
+  lastBidBlock: bigint,
+  enabled: boolean,
+) => {
+  if (!enabled) return false;
+  const currentBlock = BigInt(await provider.getBlockNumber());
+  if (lastBidBlock < currentBlock) return false;
+  const blocksNeeded = lastBidBlock - currentBlock + 1n;
+  try {
+    // Pulse accepts only one bid per block. Restored local state can also carry
+    // an auction lastBlock ahead of Anvil's restored head. Advance directly
+    // past that stored block so the wallet's gas estimate can succeed.
+    await provider.send("anvil_mine", [`0x${blocksNeeded.toString(16)}`]);
+    return true;
+  } catch {
+    // Public networks and restricted RPCs advance independently. Let the
+    // normal estimate surface the current chain outcome.
+    return false;
+  }
 };
 
 const collectPathAcquisitionErrorDetails = (error: unknown) => {
@@ -232,6 +275,13 @@ export const formatThoughtPathAcquisitionFailure = (
       nextStep: "try again with the refreshed price",
     };
   }
+  if (/one_bid_per_block/.test(normalized)) {
+    return {
+      title: "$PATH auction is settling",
+      detail: "The previous bid is still in the latest block.",
+      nextStep: "try again",
+    };
+  }
   if (/out of gas|reentrancy sentry/.test(normalized)) {
     return {
       title: "$PATH mint failed",
@@ -291,7 +341,11 @@ export const withThoughtPathAcquisitionLock = async <T>(
   task: () => Promise<T>,
 ): Promise<ThoughtPathAcquisitionLockResult<T>> => {
   if (!locks || typeof locks.request !== "function") {
-    return Object.freeze({ acquired: false as const, reason: "unsupported" as const });
+    // Web Locks requires a secure context and is unavailable on plain-HTTP LAN
+    // dev URLs. Preserve same-page duplicate-submit protection there instead
+    // of blocking the wallet flow entirely. Secure origins still coordinate
+    // across tabs through the Web Locks branch below.
+    return withFallbackThoughtPathAcquisitionLock(task);
   }
 
   let callbackStarted = false;
@@ -309,7 +363,7 @@ export const withThoughtPathAcquisitionLock = async <T>(
     );
   } catch (error) {
     if (!callbackStarted) {
-      return Object.freeze({ acquired: false as const, reason: "unsupported" as const });
+      return withFallbackThoughtPathAcquisitionLock(task);
     }
     throw error;
   }

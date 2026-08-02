@@ -42,6 +42,10 @@ const homeViteConfig = await readFile(
   new URL("../apps/home/vite.config.ts", import.meta.url),
   "utf8",
 );
+const thoughtViteConfig = await readFile(
+  new URL("../apps/thought/vite.config.ts", import.meta.url),
+  "utf8",
+);
 
 const ruleBody = (selector) => {
   const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -968,11 +972,11 @@ test("text-too-long rejection is a byte-usage warning", () => {
   assert.match(thoughtMain, /const deriveThoughtV2VisibleLine = \(value: string\): string => value/);
   assert.match(
     thoughtMain,
-    /const openThoughtDockAgentSelect = \(\) => \{[\s\S]*?const prompt = thoughtDockPrompt\.value;\s*if \(rejectInvalidThoughtDockPrompt\(prompt\)\)/,
+    /const openThoughtDockAgentSelect = async \(\) => \{[\s\S]*?const prompt = thoughtDockPrompt\.value;\s*if \(rejectInvalidThoughtDockPrompt\(prompt\)\)/,
   );
   assert.match(
     thoughtMain,
-    /if \(rejectInvalidThoughtDockPrompt\(prompt\)\) \{[\s\S]*?return;[\s\S]*?\}[\s\S]*?setThoughtDockState\(\{ kind: "agent_select", prompt \}\)/,
+    /if \(rejectInvalidThoughtDockPrompt\(prompt\)\) \{[\s\S]*?return;[\s\S]*?\}[\s\S]*?setThoughtDockState\(\{ kind: "creating_run", prompt, adapterId \}\)/,
   );
 });
 
@@ -1051,27 +1055,97 @@ test("console rendering is read-only and mint attempts survive navigation", () =
 });
 
 test("Codex launch errors keep their actionable message in Console", () => {
-  const runStart = thoughtMain.indexOf("const runThoughtDockAdapter = async");
-  const runEnd = thoughtMain.indexOf("const updateThoughtDockRunState =", runStart);
-  const runBody = thoughtMain.slice(runStart, runEnd);
+  const prepareStart = thoughtMain.indexOf("const openThoughtDockAgentSelect = async");
+  const prepareEnd = thoughtMain.indexOf("const runThoughtDockAdapter =", prepareStart);
+  const prepareBody = thoughtMain.slice(prepareStart, prepareEnd);
 
-  assert.match(runBody, /setThoughtDockState\(\{ kind: "failed", message \}\)/);
-  assert.doesNotMatch(runBody, /details:\s*"Try again\."/);
+  assert.match(prepareBody, /setThoughtDockState\(\{ kind: "failed", message \}\)/);
+  assert.doesNotMatch(prepareBody, /details:\s*"Try again\."/);
 });
 
 test("Agent selection always enters the real Agent run protocol", () => {
-  const runStart = thoughtMain.indexOf("const runThoughtDockAdapter = async");
+  const prepareStart = thoughtMain.indexOf("const openThoughtDockAgentSelect = async");
+  const prepareEnd = thoughtMain.indexOf("const runThoughtDockAdapter =", prepareStart);
+  const prepareBody = thoughtMain.slice(prepareStart, prepareEnd);
+  const runStart = prepareEnd;
   const runEnd = thoughtMain.indexOf("const updateThoughtDockRunState =", runStart);
   const runBody = thoughtMain.slice(runStart, runEnd);
 
-  assert.match(runBody, /if \(!adapter\.canDeepLink\)/);
+  assert.match(prepareBody, /const payload = await buildThoughtDockRunPayload\(prompt\)/);
   assert.match(
-    runBody,
+    prepareBody,
     /const payload = await buildThoughtDockRunPayload\(prompt\);[\s\S]*?const run = await createThoughtDockRun\(prompt, payload, adapterId\)/,
   );
+  assert.match(
+    prepareBody,
+    /kind: "agent_task_ready",[\s\S]*?run,[\s\S]*?adapterId,[\s\S]*?payload,[\s\S]*?runSessionId/,
+    "the run must be sealed before the Agent picker accepts a launch click",
+  );
+  assert.doesNotMatch(
+    prepareBody,
+    /launchThoughtDockAgentLink/,
+    "preparing a task must not claim that the Agent was opened",
+  );
+  assert.match(runBody, /if \(!adapter\.canDeepLink\)/);
+  assert.doesNotMatch(
+    runBody,
+    /\bawait\b/,
+    "the direct Agent-button handler must not lose browser activation to asynchronous work",
+  );
+  assert.match(
+    runBody,
+    /launchThoughtDockAgentLink\(thoughtDockLaunchUrl\(run, adapterId\)\)/,
+  );
+  assert.ok(
+    runBody.indexOf("launchThoughtDockAgentLink") < runBody.indexOf("storeThoughtDockRun"),
+    "the custom-protocol navigation must be the first launch side effect",
+  );
+  assert.match(runBody, /storeThoughtDockRun\(run, adapterId\)/);
   assert.match(runBody, /startThoughtDockPolling\(run, payload, adapterId, runSessionId\)/);
-  assert.match(runBody, /launchThoughtDockAgentLink\(thoughtDockLaunchUrl\(run, adapterId\)\)/);
+  assert.match(
+    thoughtMain,
+    /case "waiting_for_agent":[\s\S]*?`open-\$\{state\.adapterId\}`[\s\S]*?launchThoughtDockAgentLink\(thoughtDockLaunchUrl\(state\.run, state\.adapterId\)\)/,
+    "a waiting run must retain a direct Agent relaunch control",
+  );
+  assert.match(thoughtMain, /const THOUGHT_DOCK_PENDING_LAUNCH_KEY = "thought:dock:pending-agent-launch:v1"/);
+  assert.match(thoughtMain, /const writeStoredThoughtDockLaunch = \(run: AgentDemoRun\)[\s\S]*?sealedTask: run\.sealedTask/);
+  assert.match(
+    thoughtMain,
+    /const thoughtDockRunFromStored = \(stored: StoredThoughtDockRun\)[\s\S]*?const sealedTask = readStoredThoughtDockLaunch\(stored\.runId\)[\s\S]*?codexUrl: sealedTask \? buildCodexAgentUrl\(sealedTask\) : "#"/,
+    "a same-tab refresh must retain the complete sealed Agent task for a direct relaunch",
+  );
+  assert.doesNotMatch(
+    thoughtMain,
+    /const sealedTask = response\.request\?\.agentInput\?\.text/,
+    "the raw prompt returned as Agent input must never be mistaken for the sealed Agent task",
+  );
+  assert.doesNotMatch(thoughtMain, /reserveThoughtDockAgentLaunch/);
+  assert.doesNotMatch(`${prepareBody}\n${runBody}`, /about:blank/);
   assert.doesNotMatch(thoughtMain, /THOUGHT_AGENT_FIXTURE_MODE|runThoughtDockFixtureAdapter|local dev Agent bypass/);
+  assert.match(
+    thoughtMain,
+    /const agentDemoSha256 = \(value: string\): ThoughtSha256 =>\s*`\$\{THOUGHT_SHA256_PREFIX\}\$\{sha256\(toUtf8Bytes\(value\)\)\.slice\(2\)\}`/,
+    "LAN HTTP must use the synchronous ethers SHA-256 implementation instead of secure-context-only crypto.subtle",
+  );
+  assert.doesNotMatch(
+    thoughtMain,
+    /\bsha256Hex\b/,
+    "the browser run path must not depend on WebCrypto subtle, which is unavailable on LAN HTTP",
+  );
+});
+
+test("Agent launch uses direct data-only protocol calls without a client binding", () => {
+  assert.doesNotMatch(thoughtMain, /resolveThoughtAgentClientBinding/);
+  assert.doesNotMatch(
+    thoughtMain,
+    /if \(!run\.clientUrl \|\| !run\.clientSha256\)/,
+    "a compatibility client artifact must not gate direct protocol task creation",
+  );
+  assert.match(
+    thoughtMain,
+    /return buildThoughtCodexTask\(\{[\s\S]*?runUrl: absoluteStatusUrl,[\s\S]*?launchToken: run\.launchToken/,
+    "the sealed Agent task must bind direct calls to the exact run URL and one-time token",
+  );
 });
 
 test("Work prompt exposes persistent terminal-style history navigation", () => {
@@ -1079,7 +1153,7 @@ test("Work prompt exposes persistent terminal-style history navigation", () => {
   assert.match(thoughtMain, /THOUGHT_DOCK_PROMPT_HISTORY_LIMIT = 50/);
   assert.match(
     thoughtMain,
-    /const runThoughtDockAdapter = async[\s\S]*?recordThoughtDockPromptHistory\(prompt\)[\s\S]*?const runSessionId = startRunSession\(\)/,
+    /const openThoughtDockAgentSelect = async[\s\S]*?const run = await createThoughtDockRun\(prompt, payload, adapterId\)[\s\S]*?recordThoughtDockPromptHistory\(prompt\)/,
     "only an accepted real Agent run should record its exact prompt",
   );
   assert.match(
@@ -1087,6 +1161,15 @@ test("Work prompt exposes persistent terminal-style history navigation", () => {
     /thoughtDockPrompt\.addEventListener\("keydown"[\s\S]*?event\.key === "ArrowUp" && navigateThoughtDockPrompt\("older"\)[\s\S]*?event\.key === "ArrowDown" && navigateThoughtDockPrompt\("newer"\)/,
   );
   assert.match(indexHtml, /id="thought-dock-prompt"[\s\S]*?title="Up\/Down: prompt history"/);
+  assert.match(
+    thoughtMain,
+    /thoughtDockPrompt\.addEventListener\("input"[\s\S]*?const start = thoughtDockPrompt\.selectionStart;[\s\S]*?const end = thoughtDockPrompt\.selectionEnd;[\s\S]*?applyThoughtDockPromptValue\([\s\S]*?\{\s*start,\s*end,\s*direction: direction \?\? "none"/,
+    "typing must preserve the live caret and selection instead of moving them to the prompt end",
+  );
+  assert.match(
+    thoughtMain,
+    /if \(selection\) \{[\s\S]*?thoughtDockPrompt\.setSelectionRange\(\s*selection\.start,\s*selection\.end,\s*selection\.direction/,
+  );
 });
 
 test("Work owns mutually exclusive Mint and Load disclosures", () => {
@@ -1216,6 +1299,12 @@ test("Work owns mutually exclusive Mint and Load disclosures", () => {
 });
 
 test("mint submission and recovery keep one durable hash", () => {
+  assert.match(
+    thoughtMain,
+    /const mintSubmissionLockEnvironment = \(\): MintSubmissionLockEnvironment => \(\{[\s\S]*?allowSamePageFallback:\s*IS_DEV_MODE\s*&&\s*IS_LOCAL_RUNTIME_HOST\s*&&\s*THOUGHT_CHAIN_ID === 31337,/,
+    "disposable LAN runtimes must not reject THOUGHT minting solely because plain HTTP lacks Web Locks",
+  );
+
   const pathCheckStart = thoughtMain.indexOf("const checkPathEligibility = async");
   const pathCheckEnd = thoughtMain.indexOf("const authorizeMint = async", pathCheckStart);
   const pathCheckBody = thoughtMain.slice(pathCheckStart, pathCheckEnd);
@@ -1284,6 +1373,42 @@ test("mint submission and recovery keep one durable hash", () => {
   assert.match(thoughtMain, /window\.addEventListener\("storage"[\s\S]*?event\.newValue === null[\s\S]*?return/);
   assert.match(thoughtMain, /const resetThought = [\s\S]*?blockPendingMintMutation\(\) \|\| blockPendingPathAcquisitionMutation\(\)/);
   assert.match(thoughtMain, /const setAgentOutput = [\s\S]*?blockPendingMintMutation\(\) \|\| blockPendingPathAcquisitionMutation\(\)/);
+});
+
+test("local App attestation binds selected Agent and runtime-reported Model records", () => {
+  assert.match(
+    thoughtViteConfig,
+    /const selectedAgent =[\s\S]*?authoritativeRun\.requestedAdapterId[\s\S]*?const reportedModel = authoritativeRun\.agent\.model\?\.trim\(\) \|\| "";[\s\S]*?const authoritativeModel = formatThoughtAgentModelLabel\(/,
+    "the backend must derive Agent from the selected adapter and Model from returned runtime metadata",
+  );
+  assert.match(
+    thoughtViteConfig,
+    /if \(authoritativeModel === "unknown"\)[\s\S]*?"MODEL_METADATA_UNAVAILABLE"/,
+    "the backend must fail closed instead of attesting an unknown model",
+  );
+  assert.match(
+    thoughtViteConfig,
+    /const authoritativeProcess: ThoughtV2ProcessEvidence = \{[\s\S]*?agent:\s*\{[\s\S]*?label: selectedAgent,[\s\S]*?model:\s*\{[\s\S]*?label: authoritativeModel,[\s\S]*?reference: authoritativeRun\.runId,[\s\S]*?resultEnvelope,/,
+  );
+  assert.match(
+    thoughtViteConfig,
+    /buildBackendOnlyMockThoughtV2Mint\(runtime, \{[\s\S]*?process: authoritativeProcess,/,
+    "the signed attestation must use the backend-canonical process",
+  );
+  assert.match(
+    thoughtViteConfig,
+    /process\.model\.label === authoritativeModel/,
+    "the submitted Model record must exactly match the backend's runtime-reported Model record",
+  );
+  assert.match(
+    thoughtMain,
+    /mintFlowData\.agent = attestedMint\.agent;[\s\S]*?mintFlowData\.model = attestedMint\.model;/,
+    "the final contract payload must carry the neutral records signed by the backend",
+  );
+  assert.match(
+    thoughtMain,
+    /agent: payload\.agent,[\s\S]*?model: payload\.model,/,
+  );
 });
 
 test("console outcomes require the action or async result they describe", () => {

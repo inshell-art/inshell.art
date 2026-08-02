@@ -6,14 +6,14 @@ import {
   assertCreationAttestationProof,
   type ThoughtCreationAttestationClaim,
   type ThoughtCreationAttestationProof,
-} from "../contract-integration/current/reference/thought-v2-creation-attestation";
+} from "../contract-integration/current/reference/thought-v2-current-creation-attestation";
 import {
   buildVerifiedCanonicalThoughtV2Provenance,
   verifyThoughtV2Provenance,
   type ThoughtV2ProcessEvidence,
   type ThoughtV2ProtocolBinding,
   type ThoughtV2SelectedSpecEvidence,
-} from "../contract-integration/current/reference/thought-v2-terminal-provenance";
+} from "./thought-v2-provenance";
 
 export { CREATION_ATTESTATION_TYPES };
 
@@ -45,8 +45,8 @@ export type ThoughtV2AppMintFacts = {
 export type ThoughtV2MintInput = {
   promptLine: string;
   agentLine: string;
-  declaredAgent: string;
-  declaredModel: string;
+  agent: string;
+  model: string;
   pathId: bigint;
   thoughtSpecId: `0x${string}`;
   thoughtSpecHash: `0x${string}`;
@@ -77,17 +77,17 @@ export const buildThoughtV2VerifiedMintFoundation = (
     protocol: facts.protocol,
     selectedSpec: facts.selectedSpec,
   });
-  const declaredAgent = built.provenance.process.agentDeclaration.label;
-  const declaredModel = built.provenance.process.modelDeclaration.label;
+  const agent = built.provenance.process.agent.label;
+  const model = built.provenance.process.model.label;
   const runIdHash = built.provenance.process.kind === "agent-run"
-    ? built.provenance.process.transport.runIdHash
+    ? built.provenance.process.run.referenceKeccak256
     : EMPTY_THOUGHT_CREATION_ATTESTATION.runIdHash;
 
   const mintInput = {
     promptLine: facts.promptLine,
     agentLine: facts.agentLine,
-    declaredAgent,
-    declaredModel,
+    agent,
+    model,
     pathId: facts.path.pathId,
     thoughtSpecId: facts.protocol.thoughtSpecId,
     thoughtSpecHash: facts.protocol.thoughtSpecHash,
@@ -103,8 +103,8 @@ export const buildThoughtV2VerifiedMintFoundation = (
     thoughtSpecHash: facts.protocol.thoughtSpecHash,
     workHash: built.provenance.work.workHash as `0x${string}`,
     provenanceHash: built.provenanceHash,
-    declaredAgentHash: keccak256(toUtf8Bytes(declaredAgent)) as `0x${string}`,
-    declaredModelHash: keccak256(toUtf8Bytes(declaredModel)) as `0x${string}`,
+    agentHash: keccak256(toUtf8Bytes(agent)) as `0x${string}`,
+    modelHash: keccak256(toUtf8Bytes(model)) as `0x${string}`,
     runIdHash,
     intendedMinter: facts.intendedMinter,
   };
@@ -155,8 +155,8 @@ export const buildThoughtV2MockOfficialMint = async (
       agentLine: facts.agentLine,
       attestationClaim: {
         chainId: facts.chainId.toString(),
-        declaredAgentHash: claim.declaredAgentHash,
-        declaredModelHash: claim.declaredModelHash,
+        agentHash: claim.agentHash,
+        modelHash: claim.modelHash,
         intendedMinter: claim.intendedMinter,
         protocolReleaseId: claim.protocolReleaseId,
         provenanceHash: claim.provenanceHash,
@@ -167,8 +167,8 @@ export const buildThoughtV2MockOfficialMint = async (
         workHash: claim.workHash,
       },
       chainId: facts.chainId.toString(),
-      declaredAgent: foundation.mintInput.declaredAgent,
-      declaredModel: foundation.mintInput.declaredModel,
+      agent: foundation.mintInput.agent,
+      model: foundation.mintInput.model,
       intendedMinter: facts.intendedMinter,
       manifestKeccak256: facts.protocol.manifestKeccak256,
       promptLine: facts.promptLine,

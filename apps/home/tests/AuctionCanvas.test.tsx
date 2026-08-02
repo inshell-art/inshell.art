@@ -1825,6 +1825,47 @@ describe("AuctionCanvas", () => {
     expect(container.querySelector(".dotfield__curve")).toBeTruthy();
   });
 
+  test("renders Pulse's valid anchor-equals-start clamp state", () => {
+    const nowSec = Math.floor(Date.now() / 1000);
+    mockUseAuctionCore.mockReturnValue({
+      data: {
+        active: true,
+        price: { dec: "1200000000000000000" },
+        config: {
+          openTimeSec: nowSec - 120,
+          genesisPrice: { dec: "1000000000000000000" },
+          genesisFloor: { dec: "100000000000000000" },
+          k: { dec: "10000000000000000000" },
+          pts: "1000000000000000000",
+        },
+        state: {
+          epochIndex: 3,
+          startTimeSec: nowSec - 10,
+          anchorTimeSec: nowSec - 10,
+          floorPrice: { dec: "500000000000000000" },
+          active: true,
+        },
+      },
+      ready: true,
+      loading: false,
+      error: null,
+      refresh: jest.fn(),
+    });
+    mockUseAuctionBids.mockReturnValue({
+      bids: [],
+      ready: true,
+      loading: false,
+      error: null,
+    });
+
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
+
+    expect(screen.queryByText(/invalid half-life/i)).toBeNull();
+    expect(container.querySelector(".dotfield__curve")).toBeTruthy();
+  });
+
   test("keeps active state from contract state when sale history backfill errors", () => {
     const nowSec = Math.floor(Date.now() / 1000);
     mockUseAuctionCore.mockReturnValue({

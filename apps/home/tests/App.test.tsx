@@ -33,6 +33,8 @@ jest.mock("@inshell/inshell-shell", () => ({
     thought: "/thought",
     works: "/gallery",
   }),
+  isLocalRuntimeHost: (hostname: string) =>
+    hostname === "localhost" || hostname === "127.0.0.1",
 }));
 
 jest.mock("@inshell/ethereum", () => ({
@@ -141,11 +143,10 @@ function thoughtGalleryItem(overrides: Partial<Record<string, unknown>> = {}) {
     prompt: "make a thought",
     mode: "connect",
     provider: "openrouter",
-    model: "test-model",
-    declaredAgent: "Codex",
-    declaredModel: "gpt-test",
-    declaredAgentHash: "0x8888888888888888888888888888888888888888888888888888888888888888",
-    declaredModelHash: "0x9999999999999999999999999999999999999999999999999999999999999999",
+    agent: "Codex",
+    model: "gpt-test",
+    agentHash: "0x8888888888888888888888888888888888888888888888888888888888888888",
+    modelHash: "0x9999999999999999999999999999999999999999999999999999999999999999",
     attestedAgent: "Codex",
     attestedModel: "gpt-test",
     returnedText: "THOUGHT WILL AWA",
@@ -246,14 +247,7 @@ function expectedColorFontFallbackChainLabel() {
 }
 
 function expectedDefaultThoughtUrl() {
-  const configured = env.VITE_THOUGHT_URL;
-  if (configured) {
-    return new globalThis.URL(configured).toString();
-  }
-  if (String(env.VITE_DEPLOY_ENV ?? "").toLowerCase() === "preview") {
-    return "https://preview.inshell.art/thought";
-  }
-  return "https://inshell.art/thought";
+  return "/thought";
 }
 
 describe("App Component", () => {
@@ -324,6 +318,55 @@ describe("App Component", () => {
     expect(screen.queryByText("movement roadmap")).toBeNull();
     expect(screen.queryByText("recent works")).toBeNull();
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
+  });
+
+  test("labels the THOUGHT movement as local on the devnet runtime", async () => {
+    (globalThis as any).__VITE_ENV__ = { VITE_NETWORK: "devnet" };
+    mockThoughtGalleryApi([]);
+
+    render(<App />);
+    await flushAsyncEffects();
+
+    expect(screen.getByText("local Anvil")).toBeInTheDocument();
+    expect(screen.queryByText("on Sepolia now")).toBeNull();
+  });
+
+  test("refreshes home THOUGHTs from chain when the tab becomes visible", async () => {
+    let items = [
+      thoughtGalleryItem({
+        tokenId: 1,
+        rawText: "first work",
+      }),
+    ];
+    const fetchMock = jest.fn(async () => ({
+      ok: true,
+      json: async () => ({ thoughts: items }),
+    }));
+    globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
+    const visibility = jest
+      .spyOn(document, "visibilityState", "get")
+      .mockReturnValue("visible");
+
+    try {
+      render(<App />);
+      await flushAsyncEffects();
+      expectHomeThoughtWorks([1]);
+
+      items = [
+        thoughtGalleryItem({
+          tokenId: 2,
+          rawText: "new onchain work",
+        }),
+      ];
+      fireEvent(document, new globalThis.Event("visibilitychange"));
+      await flushAsyncEffects();
+
+      expectHomeThoughtWorks([2]);
+      expect(screen.queryByLabelText("THOUGHT #1 minted work")).toBeNull();
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      visibility.mockRestore();
+    }
   });
 
   test("renders the PATH auction app and token page on /path", async () => {
@@ -1243,7 +1286,14 @@ describe("App Component", () => {
     expect(specLink).not.toHaveAttribute("href", expect.stringContaining("github.com"));
     expect(screen.getByRole("link", { name: "$PATH #4 ↗" })).toHaveAttribute("href", "/path/4");
     expect(screen.getByText("Inshell THOUGHT App")).toBeInTheDocument();
-    expect(screen.getAllByText("declared-unverified")).toHaveLength(2);
+    expect(screen.getAllByText("Agent")).toHaveLength(2);
+    expect(screen.getByText("Model")).toBeInTheDocument();
+    expect(screen.getByText("selected in the THOUGHT App")).toBeInTheDocument();
+    expect(screen.getByText("runtime source unavailable")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "how this record is made ↗" }),
+    ).toHaveAttribute("href", "/docs#thought-creation-provenance");
+    expect(screen.getByText("PATH serial 1")).toBeInTheDocument();
     const txLink = screen.getByRole("link", {
       name: "0x777777777777...7777777777 ↗",
     });
@@ -1293,6 +1343,10 @@ describe("App Component", () => {
       "unattested",
     );
     expect(screen.queryByText("Inshell THOUGHT App")).toBeNull();
+    expect(screen.getAllByText("Agent")).toHaveLength(2);
+    expect(screen.getByText("Model")).toBeInTheDocument();
+    expect(screen.getByText("selected in the THOUGHT App")).toBeInTheDocument();
+    expect(screen.getByText("runtime source unavailable")).toBeInTheDocument();
   });
 
   test("leads THOUGHT detail with creation provenance and canonical metadata traits", async () => {
@@ -1300,24 +1354,21 @@ describe("App Component", () => {
       schema: "inshell.thought.provenance.v2",
       process: {
         kind: "agent-run",
-        agentDeclaration: {
+        agent: {
           label: "Codex",
-          source: "connector_observed",
-          status: "declared-unverified",
+          source: "producer-selected",
         },
-        modelDeclaration: {
+        model: {
           identifier: "openai/gpt-test",
           label: "gpt-test",
-          source: "runtime_configured",
-          status: "declared-unverified",
+          source: "runtime-reported",
         },
-        transport: {
+        run: {
           adapter: "codex",
-          provider: "openai",
           route: "app",
           resultEnvelopeKeccak256:
             "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          runIdHash:
+          referenceKeccak256:
             "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         },
       },
@@ -1335,8 +1386,8 @@ describe("App Component", () => {
             trait_type: "Creation Attestation",
             value: "Inshell THOUGHT App",
           },
-          { trait_type: "Attested Agent", value: "Codex" },
-          { trait_type: "Attested Model", value: "gpt-test" },
+          { trait_type: "Agent", value: "Codex" },
+          { trait_type: "Model", value: "gpt-test" },
           {
             trait_type: "Prompt Bytes",
             value: 12,
@@ -1357,12 +1408,34 @@ describe("App Component", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Agent run")).toBeInTheDocument();
     expect(screen.getByText("codex")).toBeInTheDocument();
-    expect(screen.getByText("connector observed", { exact: false })).toBeInTheDocument();
+    expect(screen.getByText("selected by the producer")).toBeInTheDocument();
+    expect(
+      screen.getByText("reported by the Agent runtime"),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "The App hash-bound this work and provenance in its Creation Attestation.",
+        "The THOUGHT Contract verified this Inshell THOUGHT App Creation Attestation and its bound creation record.",
       ),
     ).toBeInTheDocument();
+    const provenanceSection = screen
+      .getByRole("heading", { level: 2, name: "creation provenance" })
+      .closest("section");
+    expect(provenanceSection).not.toBeNull();
+    expect(
+      Array.from(provenanceSection?.querySelectorAll("dt") ?? []).map(
+        (element) => element.textContent,
+      ),
+    ).toEqual([
+      "process",
+      "Agent",
+      "Model",
+      "model identifier",
+      "adapter",
+      "route",
+      "run reference",
+      "$PATH",
+      "spec",
+    ]);
 
     const canonicalSection = screen
       .getByRole("heading", { level: 2, name: "canonical traits" })
@@ -1374,13 +1447,13 @@ describe("App Component", () => {
       ),
     ).toEqual([
       "Creation Attestation",
-      "Attested Agent",
-      "Attested Model",
+      "Agent",
+      "Model",
       "Prompt Bytes",
     ]);
     expect(within(canonicalSection as HTMLElement).getByText("12 · number")).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { level: 2, name: "onchain record" }),
+      screen.getByRole("heading", { level: 2, name: "on-chain record" }),
     ).toBeInTheDocument();
     expect(screen.getByText("verify / raw data")).toBeInTheDocument();
   });
@@ -1478,8 +1551,8 @@ describe("App Component", () => {
     expect(screen.getByText("launch in 2027")).toBeInTheDocument();
     expect(screen.getByText("launch in 2028")).toBeInTheDocument();
     expectHomeThoughtWorks([3]);
-    expect(screen.getByText("Attested Agent: Codex")).toBeInTheDocument();
-    expect(screen.getByText("Attested Model: gpt-test")).toBeInTheDocument();
+    expect(screen.getByText("Agent: Codex")).toBeInTheDocument();
+    expect(screen.getByText("Model: gpt-test")).toBeInTheDocument();
     expect(document.querySelector("[data-fixture-id]")).toBeNull();
     expect(screen.queryByLabelText("Project links")).toBeNull();
     expect(screen.queryByText("movement roadmap")).toBeNull();
