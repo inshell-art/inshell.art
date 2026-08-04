@@ -110,8 +110,7 @@ function readCurrentThoughtContractRuntime(
   );
   if (
     runtime.schema !== "inshell.thought.v2.anvil-gallery-runtime.v1" ||
-    runtime.status !== "ready" ||
-    runtime.chainId !== 31337
+    runtime.status !== "ready"
   ) {
     throw new Error(`Incompatible THOUGHT Contract runtime descriptor: ${descriptorPath}`);
   }
@@ -156,6 +155,7 @@ function readCurrentThoughtContractRuntime(
         metadataProfileIdHash: runtime.protocolRelease.manifest.identifiers.metadataProfileHash,
         creationAttestationProfileIdHash: runtime.attestation.profileId,
       },
+      provenance: runtime.provenance,
       thoughtSpecs: [{
         specName: runtime.selectedSpec.name,
         specId: runtime.selectedSpec.id,

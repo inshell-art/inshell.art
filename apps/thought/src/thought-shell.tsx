@@ -92,7 +92,7 @@ function ThoughtWalletBridge() {
 
 const disconnectedWalletNote = (chainId: number) => {
   if (chainId === 11155111) return "Sepolia ETH";
-  if (chainId === 31337) return "Local ETH";
+  if (chainId === 31337 || chainId === 31338) return "Local ETH";
   return undefined;
 };
 

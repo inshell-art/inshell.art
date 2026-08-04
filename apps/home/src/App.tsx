@@ -8,7 +8,6 @@ import PathPage from "@/components/PathPage";
 import DocsPage from "@/components/DocsPage";
 import VerifyPage from "@/components/VerifyPage";
 import ThoughtDetailPage from "@/components/ThoughtDetailPage";
-import ThoughtGalleryPage from "@/components/ThoughtGalleryPage";
 import WillPage from "@/components/WillPage";
 import FloatingReportBug from "@/components/FloatingReportBug";
 import PreviewWatermark from "@/components/PreviewWatermark";
@@ -43,7 +42,6 @@ function getPrimitiveRoute(locationKey: string) {
   if (pathname === "/docs") return "docs";
   if (pathname === "/color-font") return "color-font";
   if (pathname === "/path" || parseTokenRouteId(pathname, "path")) return "path";
-  if (pathname === "/gallery") return "gallery";
   if (pathname === "/will") return "will";
   if (pathname === "/verify") return "verify";
   if (parseTokenRouteId(pathname, "thought")) return "thought";
@@ -62,7 +60,7 @@ function isPathAppHost() {
 
 function activeSurfaceForRoute(route: string | null): InshellSurface {
   if (route === "path-app" || route === "path" || route === "pulse") return "path";
-  if (route === "gallery" || route === "thought") return "works";
+  if (route === "thought") return "works";
   return "home";
 }
 
@@ -125,6 +123,15 @@ export default function App() {
 
   useEffect(() => {
     const pathname = pathnameFromLocationKey(locationKey);
+    if (pathname !== "/gallery") return;
+    const [, suffix = ""] = locationKey.split("/gallery");
+    const nextPath = `/${suffix.replace(/^\/+/, "")}`;
+    window.history.replaceState({}, "", nextPath);
+    setLocationKey(getLocationKey());
+  }, [locationKey]);
+
+  useEffect(() => {
+    const pathname = pathnameFromLocationKey(locationKey);
     if (pathname !== "/path-app") return;
     const [, suffix = ""] = locationKey.split("/path-app");
     const nextPath = `/path${suffix}`;
@@ -150,11 +157,6 @@ export default function App() {
     }
     if (primitiveRoute === "color-font") {
       document.title = "color-font";
-      setFavicon("/inshell.svg");
-      return;
-    }
-    if (primitiveRoute === "gallery") {
-      document.title = "THOUGHT Gallery";
       setFavicon("/inshell.svg");
       return;
     }
@@ -239,8 +241,6 @@ export default function App() {
             <DocsPage />
           ) : primitiveRoute === "color-font" ? (
             <ColorFontPage />
-          ) : primitiveRoute === "gallery" ? (
-            <ThoughtGalleryPage />
           ) : primitiveRoute === "will" ? (
             <WillPage />
           ) : primitiveRoute === "verify" ? (

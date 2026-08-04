@@ -1,7 +1,7 @@
 {
   "schema": "inshell.thought.v2.anvil-gallery-runtime.v1",
   "status": "ready",
-  "generatedAt": "2026-08-02T10:52:46.782Z",
+  "generatedAt": "2026-08-02T11:37:06.932Z",
   "artifact": {
     "artifactId": "thought-v2-canonical-portable-release-20260801-r1",
     "classification": "canonical-portable-contract-release",
@@ -39,16 +39,16 @@
   "rpcUrl": "http://127.0.0.1:8546",
   "chainId": 31337,
   "path": {
-    "address": "0xe1Fd27F4390DcBE165f4D60DBF821e4B9Bb02dEd"
+    "address": "0x38A70c040CA5F5439ad52d0e821063b0EC0B52b6"
   },
   "pathNft": {
-    "address": "0xe1Fd27F4390DcBE165f4D60DBF821e4B9Bb02dEd"
+    "address": "0x38A70c040CA5F5439ad52d0e821063b0EC0B52b6"
   },
   "pathPulseAdapter": {
-    "address": "0xc582Bc0317dbb0908203541971a358c44b1F3766"
+    "address": "0x54B8d8E2455946f2A5B8982283f2359812e815ce"
   },
   "pulseAuction": {
-    "address": "0xB2b580ce436E6F77A5713D80887e14788Ef49c9A"
+    "address": "0xf090f16dEc8b6D24082Edd25B1C8D26f2bC86128"
   },
   "paymentToken": {
     "address": "0x0000000000000000000000000000000000000000"
@@ -66,7 +66,7 @@
     "claimDurationSeconds": 604800
   },
   "pathAuction": {
-    "openTime": 1785667995,
+    "openTime": 1785670655,
     "k": "600000000000000000",
     "genesisPrice": "10000000000000000",
     "genesisFloor": "9000000000000000",
@@ -74,28 +74,28 @@
     "treasury": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
   },
   "thoughtSpecRegistry": {
-    "address": "0xefAB0Beb0A557E452b398035eA964948c750b2Fd",
+    "address": "0x071586BA1b380B00B793Cc336fe01106B0BFbE6D",
     "owner": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
   },
   "protocolRegistry": {
-    "address": "0x70bDA08DBe07363968e9EE53d899dFE48560605B",
+    "address": "0x3C15538ED063e688c8DF3d571Cb7a0062d2fB18D",
     "owner": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
   },
   "contracts": {
-    "pathNft": "0xe1Fd27F4390DcBE165f4D60DBF821e4B9Bb02dEd",
-    "thoughtSpecRegistry": "0xefAB0Beb0A557E452b398035eA964948c750b2Fd",
-    "thoughtRenderer": "0xA56F946D6398Dd7d9D4D9B337Cf9E0F68982ca5B",
-    "protocolRegistry": "0x70bDA08DBe07363968e9EE53d899dFE48560605B",
-    "creationAttestationVerifier": "0xddE78e6202518FF4936b5302cC2891ec180E8bFf",
-    "thoughtNft": "0xB06c856C8eaBd1d8321b687E188204C1018BC4E5"
+    "pathNft": "0x38A70c040CA5F5439ad52d0e821063b0EC0B52b6",
+    "thoughtSpecRegistry": "0x071586BA1b380B00B793Cc336fe01106B0BFbE6D",
+    "thoughtRenderer": "0x3904b8f5b0F49cD206b7d5AABeE5D1F37eE15D8d",
+    "protocolRegistry": "0x3C15538ED063e688c8DF3d571Cb7a0062d2fB18D",
+    "creationAttestationVerifier": "0x56fC17a65ccFEC6B7ad0aDe9BD9416CB365B9BE8",
+    "thoughtNft": "0x2625760C4A8e8101801D3a48eE64B2bEA42f1E96"
   },
   "thoughtRenderer": {
-    "address": "0xA56F946D6398Dd7d9D4D9B337Cf9E0F68982ca5B",
+    "address": "0x3904b8f5b0F49cD206b7d5AABeE5D1F37eE15D8d",
     "id": "inshell.thought.svg.v2.terminal-chat-path-glyphs",
     "idHash": "0x01982604c90acf1ca63020e0c3761b25d8dc8fc3c267d27ace14cb0d2c813d73",
     "implementationId": "inshell.thought.renderer.v2.mono-76-v1-im76-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom",
     "externalUrlBase": "https://inshell.art/thought/",
-    "glyphDataPointer": "0x26B862f640357268Bd2d9E95bc81553a2Aa81D7E",
+    "glyphDataPointer": "0xccf1769D8713099172642EB55DDFFC0c5A444FE9",
     "glyphDefinitionsKeccak256": "0xba37d00bb395b84f0487791300a29cdd2b1712b078fa218c6ed74fa11d74a081",
     "glyphPackedBytes": 4600,
     "glyphPackedKeccak256": "0xba37d00bb395b84f0487791300a29cdd2b1712b078fa218c6ed74fa11d74a081",
@@ -107,7 +107,7 @@
     "implementationId": "inshell.thought.renderer.v2.mono-76-v1-im76-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom",
     "releaseReady": true,
     "externalUrlBase": "https://inshell.art/thought/",
-    "glyphDataPointer": "0x26B862f640357268Bd2d9E95bc81553a2Aa81D7E",
+    "glyphDataPointer": "0xccf1769D8713099172642EB55DDFFC0c5A444FE9",
     "glyphDefinitionsKeccak256": "0xba37d00bb395b84f0487791300a29cdd2b1712b078fa218c6ed74fa11d74a081",
     "glyphPackedBytes": 4600,
     "glyphPackedKeccak256": "0xba37d00bb395b84f0487791300a29cdd2b1712b078fa218c6ed74fa11d74a081",
@@ -115,7 +115,7 @@
     "glyphLibraryMemberId": "inshell.mono-76"
   },
   "creationAttestationVerifier": {
-    "address": "0xddE78e6202518FF4936b5302cC2891ec180E8bFf",
+    "address": "0x56fC17a65ccFEC6B7ad0aDe9BD9416CB365B9BE8",
     "authority": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
     "authorityEpoch": 1,
     "owner": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
@@ -126,13 +126,13 @@
     "authorityEpoch": 1,
     "profileId": "0x5759a606b1b0b1ba997b2d7b851c7e2022ed8ff4e0238e55e29ad8b36ce9194a",
     "status": "mock-valid-eip712",
-    "verifier": "0xddE78e6202518FF4936b5302cC2891ec180E8bFf"
+    "verifier": "0x56fC17a65ccFEC6B7ad0aDe9BD9416CB365B9BE8"
   },
   "thought": {
-    "address": "0xB06c856C8eaBd1d8321b687E188204C1018BC4E5"
+    "address": "0x2625760C4A8e8101801D3a48eE64B2bEA42f1E96"
   },
   "thoughtNft": {
-    "address": "0xB06c856C8eaBd1d8321b687E188204C1018BC4E5"
+    "address": "0x2625760C4A8e8101801D3a48eE64B2bEA42f1E96"
   },
   "protocolRelease": {
     "id": "0x556973fd1ded2e8aa704d9e7e90c5eef2e4792bd1a7660e7a434964dac75cc5e",

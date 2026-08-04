@@ -17,15 +17,9 @@ const {
   keccak256,
 } = await import(ethersEntry);
 
-const rpcUrl = process.env.RPC_URL?.trim() || "http://127.0.0.1:8546";
-const rpc = new URL(rpcUrl);
-assert(
-  rpc.hostname === "127.0.0.1" || rpc.hostname === "localhost" || rpc.hostname === "[::1]",
-  "Anvil smoke test refuses a non-loopback RPC",
-);
-
 const localAddresses = JSON.parse(await readFile(
-  new URL("../apps/thought/evm/addresses.anvil.json", import.meta.url),
+  process.env.INSHELL_THOUGHT_CONTRACT_RUNTIME_FILE?.trim() ||
+    fileURLToPath(new URL("../apps/thought/evm/addresses.anvil.json", import.meta.url)),
   "utf8",
 )) as {
   artifact: {
@@ -59,7 +53,17 @@ const localAddresses = JSON.parse(await readFile(
   }>;
   pulseAuction: { address: string };
   pathAuction: { openTime: number };
+  rpcUrl?: string;
 };
+const rpcUrl =
+  process.env.RPC_URL?.trim() ||
+  localAddresses.rpcUrl?.trim() ||
+  "http://127.0.0.1:8546";
+const rpc = new URL(rpcUrl);
+assert(
+  rpc.hostname === "127.0.0.1" || rpc.hostname === "localhost" || rpc.hostname === "[::1]",
+  "Anvil smoke test refuses a non-loopback RPC",
+);
 const selectedSpecText = await readFile(
   new URL("../apps/thought/spec/THOUGHT.v2.md", import.meta.url),
   "utf8",
@@ -116,8 +120,19 @@ const runSmoke = async () => {
     const latest = await provider.getBlock("latest");
     assert(latest, "latest Anvil block unavailable before $PATH acquisition");
     if (latest.timestamp < localAddresses.pathAuction.openTime) {
-      await provider.send("evm_setNextBlockTimestamp", [localAddresses.pathAuction.openTime]);
-      await provider.send("evm_mine", []);
+      try {
+        await provider.send("evm_setNextBlockTimestamp", [localAddresses.pathAuction.openTime]);
+        await provider.send("evm_mine", []);
+      } catch (error) {
+        // The persistent dev chain can be advanced by the running App between
+        // the latest-block read and this timestamp update. Treat that race as
+        // success only when a fresh uncached RPC read proves the auction is open.
+        const currentBlock = await provider.send("eth_getBlockByNumber", ["latest", false]) as {
+          timestamp?: string;
+        };
+        const currentTimestamp = Number.parseInt(currentBlock.timestamp ?? "0x0", 16);
+        if (currentTimestamp < localAddresses.pathAuction.openTime) throw error;
+      }
     }
     const auction = new Contract(localAddresses.pulseAuction.address, auctionAbi, signer);
     const price = await auction.getCurrentPrice() as bigint;

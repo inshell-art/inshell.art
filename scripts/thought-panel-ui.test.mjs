@@ -144,7 +144,7 @@ test("same-origin dev routes local THOUGHT contract attestation to the THOUGHT b
   );
   assert.match(
     homeViteConfig.slice(contractProxyIndex, genericApiProxyIndex),
-    /target:\s*"http:\/\/127\.0\.0\.1:5174"/,
+    /target:\s*thoughtAppOrigin/,
   );
 });
 
@@ -203,6 +203,19 @@ test("empty creation canvas follows the active contract work frame", () => {
     /buildThoughtV2Svg/,
     "the active V2 contract preview must not be reconstructed by the frontend",
   );
+  assert.doesNotMatch(
+    thoughtMain,
+    /const createFrontendPreviewProvider =/,
+    "the current App must not expose an unpinned frontend renderer fallback",
+  );
+  const providerSelectionStart = thoughtMain.indexOf("const selectThoughtPreviewProvider =");
+  const providerSelectionEnd = thoughtMain.indexOf(
+    "const prunePreviewRateEvents =",
+    providerSelectionStart,
+  );
+  const providerSelectionBody = thoughtMain.slice(providerSelectionStart, providerSelectionEnd);
+  assert.match(providerSelectionBody, /pinned THOUGHT renderer release mismatch; preview stopped\./);
+  assert.doesNotMatch(providerSelectionBody, /frontend-renderer|createFrontendPreviewProvider/);
   const rpcStart = thoughtMain.indexOf("const resolveThoughtRpcUrl =");
   const rpcEnd = thoughtMain.indexOf("const THOUGHT_RPC_URL =", rpcStart);
   const rpcBody = thoughtMain.slice(rpcStart, rpcEnd);
@@ -223,6 +236,18 @@ test("empty creation canvas follows the active contract work frame", () => {
     (previewBody.match(/thoughtV2EmptyFrameCanvasRect/g) ?? []).length,
     0,
     "a contract SVG already contains its frame; the App must not draw a second frame",
+  );
+});
+
+test("local runtime bootstrap preserves provenance eligibility facts", () => {
+  const addressesStart = thoughtViteConfig.indexOf("evmAddresses: {");
+  const addressesEnd = thoughtViteConfig.indexOf("function serializeForInlineScript", addressesStart);
+  assert.ok(addressesStart >= 0 && addressesEnd > addressesStart);
+  const addressesBody = thoughtViteConfig.slice(addressesStart, addressesEnd);
+  assert.match(
+    addressesBody,
+    /provenance:\s*runtime\.provenance/,
+    "the reduced browser address runtime must retain the provenance pin required by the local release gate",
   );
 });
 
@@ -1301,7 +1326,7 @@ test("Work owns mutually exclusive Mint and Load disclosures", () => {
 test("mint submission and recovery keep one durable hash", () => {
   assert.match(
     thoughtMain,
-    /const mintSubmissionLockEnvironment = \(\): MintSubmissionLockEnvironment => \(\{[\s\S]*?allowSamePageFallback:\s*IS_DEV_MODE\s*&&\s*IS_LOCAL_RUNTIME_HOST\s*&&\s*THOUGHT_CHAIN_ID === 31337,/,
+    /const mintSubmissionLockEnvironment = \(\): MintSubmissionLockEnvironment => \(\{[\s\S]*?allowSamePageFallback:\s*IS_DEV_MODE\s*&&\s*IS_LOCAL_RUNTIME_HOST,/,
     "disposable LAN runtimes must not reject THOUGHT minting solely because plain HTTP lacks Web Locks",
   );
 
@@ -1525,6 +1550,53 @@ test("current work verifies THOUGHT uniqueness before PICK and before submission
     confirmBody.indexOf("lookupExistingThoughtToken(readToken, payload.workHash)") <
       confirmBody.indexOf('getTransactionCount(signerAddress, "pending")'),
     "the race guard rechecks uniqueness before opening the transaction request",
+  );
+});
+
+test("post-mint View THOUGHT enters the canonical home gallery before token detail", () => {
+  assert.match(
+    thoughtMain,
+    /const handleViewThought = async[\s\S]*?window\.location\.href = galleryUrl\(thoughtNftId\);/,
+  );
+  assert.match(thoughtMain, /const GALLERY_URL = INSHELL_HOME_URL;/);
+  assert.match(
+    thoughtMain,
+    /if \(IS_GALLERY_PAGE\) \{\s*window\.location\.replace\(galleryUrl\(GALLERY_TARGET_TOKEN_ID\)\);\s*return;/,
+  );
+  assert.match(
+    thoughtMain,
+    /imageLink\.href = thoughtDetailUrl\(thought\.tokenId\);/,
+  );
+});
+
+test("creation links reset minted work but resume unfinished creation state", () => {
+  assert.match(
+    thoughtMain,
+    /const IS_FRESH_CREATION_ENTRY = ROUTE_SEARCH_PARAMS\.get\("new"\) === "1";/,
+  );
+  assert.match(
+    thoughtMain,
+    /const thoughtCreateUrl = \(\) => \{[\s\S]*?url\.searchParams\.set\("new", "1"\);/,
+  );
+  assert.match(
+    thoughtMain,
+    /const beginFreshThoughtCreation = \(\) => \{[\s\S]*?if \(!resetThought\(\)\) \{\s*return false;[\s\S]*?sessionState\.prompt = "";[\s\S]*?setThoughtDockState\(\{ kind: "empty" \}\);/,
+  );
+  assert.match(
+    thoughtMain,
+    /const consumeFreshCreationEntryUrl = \(\) => \{[\s\S]*?url\.searchParams\.delete\("new"\);[\s\S]*?window\.history\.replaceState/,
+  );
+  assert.match(
+    thoughtMain,
+    /const currentOutputSessionIsMinted = async \(\) => \{[\s\S]*?const stored = readCurrentOutputSession\(\);[\s\S]*?lookupExistingThoughtToken\(token, identityHash\)[\s\S]*?Only a proven mint resets it\./,
+  );
+  assert.match(
+    thoughtMain,
+    /const openedFreshCreation =\s*IS_FRESH_CREATION_ENTRY &&\s*await currentOutputSessionIsMinted\(\) &&\s*beginFreshThoughtCreation\(\);\s*if \(!openedFreshCreation\) \{\s*resetThought\(\{ preserveStoredOutput: true \}\);\s*restoreCurrentOutputSession\(\);\s*restoreCurrentCandidateSession\(\);/,
+  );
+  assert.match(
+    thoughtMain,
+    /if \(IS_FRESH_CREATION_ENTRY\) \{\s*consumeFreshCreationEntryUrl\(\);\s*\}/,
   );
 });
 

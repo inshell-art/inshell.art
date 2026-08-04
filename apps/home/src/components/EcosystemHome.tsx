@@ -21,7 +21,7 @@ const MOVEMENTS: Movement[] = [
     key: "thought",
     title: "THOUGHT",
     note: "on Sepolia now",
-    href: "thought",
+    href: "thought?new=1",
   },
   {
     key: "will",

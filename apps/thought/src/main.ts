@@ -205,6 +205,7 @@ import {
 import {
   buildThoughtV2LocalAgentProcess,
   buildThoughtV2LocalAgentResult,
+  buildThoughtV2LocalAgentTaskBinding,
   parseThoughtV2LocalAgentResult,
   type ThoughtV2LocalAgentEvidence,
 } from "./thought-v2-local-agent";
@@ -212,6 +213,7 @@ import {
   EMPTY_THOUGHT_CREATION_ATTESTATION,
   type ThoughtV2MintInput,
 } from "./thought-v2-app-mint";
+import { THOUGHT_V2_CURRENT_MINTED_TOPIC } from "./thought-v2-contract-client";
 import {
   THOUGHT_V2_LOCAL_RELEASE,
   alignThoughtV2LocalRpcHost,
@@ -233,7 +235,6 @@ import {
   hasThoughtPollDeadlineExpired,
 } from "./thought-poll-wake";
 import {
-  buildThoughtV2Svg,
   measureThoughtV2Line,
   type ThoughtV2LineKind,
 } from "./thought-v2-renderer";
@@ -415,6 +416,14 @@ type EvmAddresses = {
     metadataProfileIdHash?: string;
     status?: string;
   };
+  provenance?: {
+    artifactId?: string;
+    authority?: string;
+    id?: string;
+    ref?: string;
+    schemaKeccak256?: string;
+    schemaSha256?: string;
+  };
   thoughtSpec?: {
     specName?: string;
     id?: string;
@@ -431,6 +440,12 @@ type EvmAddresses = {
   }>;
   colorFontV1?: {
     address?: string;
+  };
+  localContractIntegration?: {
+    acceptanceOnly?: boolean;
+    deploymentAuthorized?: boolean;
+    id?: string;
+    productionConsumable?: boolean;
   };
 };
 
@@ -553,6 +568,7 @@ type MintSheetAction =
   | "authorize"
   | "confirm_mint"
   | "view_tx"
+  | "archive_legacy_local_mint"
   | "view_thought"
   | "choose_another"
   | "enter_path_manually"
@@ -999,8 +1015,7 @@ const mintSubmissionLockEnvironment = (): MintSubmissionLockEnvironment => ({
   // flow can still open one wallet request at a time.
   allowSamePageFallback:
     IS_DEV_MODE &&
-    IS_LOCAL_RUNTIME_HOST &&
-    THOUGHT_CHAIN_ID === 31337,
+    IS_LOCAL_RUNTIME_HOST,
 });
 
 const safeStorageGet = (storage: Storage | null, key: string) => {
@@ -1390,6 +1405,9 @@ const isPreviewHostname = (hostname: string) =>
 const IS_PREVIEW_DEPLOYMENT =
   DEPLOY_ENV === "preview" || isPreviewHostname(DEPLOY_HOSTNAME);
 const IS_LOCAL_RUNTIME_HOST = isLocalRuntimeHost(DEPLOY_HOSTNAME);
+const IS_LOCAL_CONTRACT_INTEGRATION =
+  IS_LOCAL_RUNTIME_HOST &&
+  EVM_ADDRESSES.localContractIntegration?.acceptanceOnly === true;
 const INSHELL_LINKS = resolveInshellLinks();
 
 const readConfiguredUrl = (name: string) => {
@@ -1613,7 +1631,7 @@ const resolveThoughtRpcUrl = () => {
   if (
     !configuredRpcUrl ||
     (!currentContractRuntimeRpcUrl && envRpcUrl) ||
-    THOUGHT_CHAIN_ID !== 31337 ||
+    !IS_LOCAL_CONTRACT_INTEGRATION ||
     !IS_LOCAL_RUNTIME_HOST
   ) {
     return resolveBrowserRpcUrl(configuredRpcUrl);
@@ -1656,7 +1674,7 @@ const THOUGHT_WALLET_RPC_URLS = resolveWalletChainRpcUrls({
   readRpcUrl: THOUGHT_RPC_URL,
   walletRpcUrl: walletChainRpcUrl,
   currentOrigin: window.location.origin,
-  localFallbackRpcUrl: "http://127.0.0.1:8546",
+  localFallbackRpcUrl: THOUGHT_RPC_URL,
 });
 const PATH_NFT_ADDRESS = EVM_ADDRESSES.pathNft?.address?.trim() ?? "";
 const PATH_PULSE_ADAPTER_ADDRESS =
@@ -1687,18 +1705,15 @@ const PATH_MINT_URL =
     ? import.meta.env.VITE_PATH_MINT_URL.trim()
     : defaultPathMintUrl();
 const PATH_MINT_ABSOLUTE_URL = new URL(PATH_MINT_URL, sameOriginAppOrigin()).toString();
-const INSHELL_HOME_URL = INSHELL_LINKS.home;
+const INSHELL_HOME_URL =
+  readConfiguredUrl("VITE_INSHELL_HOME_URL") || INSHELL_LINKS.home;
 const PATH_VERIFY_CONTRACTS_URL = new URL("/verify#verify-contracts", PATH_MINT_ABSOLUTE_URL).toString();
-const GALLERY_URL =
-  (!IS_LOCAL_RUNTIME_HOST &&
-    (readConfiguredUrl("VITE_GALLERY_URL") ||
-      readConfiguredUrl("VITE_THOUGHT_GALLERY_URL"))) ||
-  INSHELL_LINKS.works;
+const GALLERY_URL = INSHELL_HOME_URL;
 const THOUGHT_APP_URL =
   (!IS_LOCAL_RUNTIME_HOST && readConfiguredUrl("VITE_THOUGHT_URL")) ||
   INSHELL_LINKS.thought;
 const defaultThoughtDetailBaseUrl = () => {
-  return INSHELL_LINKS.thought;
+  return new URL("/thought", INSHELL_HOME_URL).toString();
 };
 const THOUGHT_DETAIL_BASE_URL = (() => {
   if (IS_LOCAL_RUNTIME_HOST) return defaultThoughtDetailBaseUrl();
@@ -1807,9 +1822,17 @@ const MAX_PROVENANCE_BYTES = IS_LOCAL_THOUGHT_V2
   : 2048;
 const COLOR_FONT_V1_ADDRESS = EVM_ADDRESSES.colorFontV1?.address?.trim() ?? "";
 const THOUGHT_CHAIN_NAME =
-  THOUGHT_CHAIN_ID === 31337 ? "Anvil Local" : THOUGHT_CHAIN_ID === 11155111 ? "Sepolia" : "THOUGHT";
-const THOUGHT_ENVIRONMENT_LABEL = THOUGHT_CHAIN_ID === 31337 ? "Local development" : PUBLIC_NETWORK_CONFIG.environmentLabel;
-const THOUGHT_CURRENCY_LABEL = THOUGHT_CHAIN_ID === 31337 ? "local ETH" : PUBLIC_NETWORK_CONFIG.currencyLabel;
+  IS_LOCAL_CONTRACT_INTEGRATION
+    ? "THOUGHT Anvil"
+    : THOUGHT_CHAIN_ID === 11155111
+      ? "Sepolia"
+      : "THOUGHT";
+const THOUGHT_ENVIRONMENT_LABEL = IS_LOCAL_CONTRACT_INTEGRATION
+  ? "Local development"
+  : PUBLIC_NETWORK_CONFIG.environmentLabel;
+const THOUGHT_CURRENCY_LABEL = IS_LOCAL_CONTRACT_INTEGRATION
+  ? "local ETH"
+  : PUBLIC_NETWORK_CONFIG.currencyLabel;
 const configuredExplorerBaseUrl =
   typeof import.meta.env.VITE_THOUGHT_EXPLORER_BASE_URL === "string" &&
   import.meta.env.VITE_THOUGHT_EXPLORER_BASE_URL.trim()
@@ -1828,7 +1851,7 @@ const thoughtAddressUrl = (address: string) =>
   THOUGHT_EXPLORER_BASE_URL && address ? `${THOUGHT_EXPLORER_BASE_URL}/address/${address}` : "";
 const PATH_MOVEMENT_THOUGHT = "0x54484f5547485400000000000000000000000000000000000000000000000000";
 const PATH_NFT_DEPLOY_BLOCK =
-  THOUGHT_CHAIN_ID === 31337
+  IS_LOCAL_CONTRACT_INTEGRATION
     ? 0
     : getProtocolReleaseDeployBlock("path_nft") ??
       getProtocolReleaseDeployBlock("path_nft", "sepolia") ??
@@ -1875,6 +1898,7 @@ const CONSUME_AUTHORIZATION_TYPEHASH = id(
 );
 const PATH_CONSUME_AUTH_TTL_SECONDS = 3600n;
 const ROUTE_SEARCH_PARAMS = new URLSearchParams(window.location.search);
+const IS_FRESH_CREATION_ENTRY = ROUTE_SEARCH_PARAMS.get("new") === "1";
 const ROUTE_PATHNAME = logicalThoughtRoutePathname(window.location.pathname);
 const IS_COLOR_FONT_PAGE = ROUTE_PATHNAME === "/color-font";
 const IS_VERIFY_PAGE = ROUTE_PATHNAME === "/verify";
@@ -1925,11 +1949,9 @@ const IS_THOUGHT_PAGE =
   !IS_RUN_PAGE &&
   !IS_GALLERY_PAGE &&
   ROUTE_THOUGHT_NFT_ID !== null;
-const THOUGHT_MINTED_TOPIC = id(
-  IS_LOCAL_THOUGHT_V2
-    ? "ThoughtMinted(uint256,address,bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,bytes32,bytes32)"
-    : "ThoughtMinted(uint256,address,uint256,bytes32,bytes32,bytes32,bytes32,uint64)",
-);
+const THOUGHT_MINTED_TOPIC = IS_LOCAL_THOUGHT_V2
+  ? THOUGHT_V2_CURRENT_MINTED_TOPIC
+  : id("ThoughtMinted(uint256,address,uint256,bytes32,bytes32,bytes32,bytes32,uint64)");
 const TOKEN_URI_CALL_GAS_LIMIT = 100_000_000n;
 const THOUGHT_V1_NFT_ABI = [
   "error EmptyProvenance()",
@@ -2739,18 +2761,11 @@ const buildAgentDemoSealedTask = (
     promptLine: run.prompt,
     runUrl: absoluteStatusUrl,
     launchToken: run.launchToken,
-    ...(IS_LOCAL_THOUGHT_V2
-      ? {
-          release: {
-            protocolReleaseId: THOUGHT_V2_LOCAL_RELEASE.protocol.protocolReleaseId,
-            manifestKeccak256: THOUGHT_V2_LOCAL_RELEASE.protocol.manifestKeccak256,
-          },
-          resultContract: {
-            workProfile: THOUGHT_V2_LOCAL_RELEASE.protocol.workProfile.id,
-            lineValidation: "terminal-english-64" as const,
-          },
-        }
-      : {}),
+    // The Vite Agent API always serves the active local contract release, even
+    // while the browser is still diagnosing whether minting is available. Keep
+    // its sealed Agent task release-bound instead of falling back to the older
+    // generic Agent-protocol profile during that diagnostic window.
+    ...(IS_DEV_MODE ? buildThoughtV2LocalAgentTaskBinding() : {}),
   });
 };
 
@@ -4610,6 +4625,9 @@ const getCurrentMintPresentation = () => presentThoughtMint({
   transaction: {
     state: walletState.txState,
     hash: walletState.txHash || mintFlowData.txHash,
+    canArchiveLegacyLocalMint: canArchiveLegacyLocalPendingMint(
+      pendingMintTransaction ?? readPendingMintTransaction(),
+    ),
   },
   error: {
     kind: mintFlowData.errorKind,
@@ -7186,46 +7204,6 @@ const createThoughtPreviewProvider = (
   };
 };
 
-const createFrontendPreviewProvider = (): ThoughtPreviewProvider => ({
-  kind: "frontend-renderer",
-  chainId: THOUGHT_CHAIN_ID,
-  endpointLabel: "browser",
-  preview: async (rawReturn: string, context?: { prompt?: string }) => {
-    const validation = prevalidateThoughtV2Preview({
-      rawPrompt: context?.prompt ?? sessionState.prompt,
-      rawReturn,
-    });
-
-    if (!validation.ok) {
-      return {
-        ok: false,
-        text: validation.agentLine,
-        svg: "",
-        reasonCode: validation.reasonCode,
-        ...(validation.byteLimit ? { byteLimit: validation.byteLimit } : {}),
-        ...(validation.issue ? { issue: validation.issue } : {}),
-      };
-    }
-
-    return {
-      ok: true,
-      text: validation.agentLine,
-      svg: buildThoughtV2Svg({
-        agentLine: validation.agentLine,
-        promptLine: validation.promptLine,
-      }),
-      reasonCode: 0,
-    };
-  },
-  trace: () => ({
-    kind: "frontend-renderer",
-    chainId: THOUGHT_CHAIN_ID,
-    endpointLabel: "browser",
-    method: "frontendRender",
-    fetchedAt: new Date().toISOString(),
-  }),
-});
-
 const createWalletPreviewProvider = (): ThoughtPreviewProvider | null => {
   if (!THOUGHT_NFT_ADDRESS || !walletState.address || walletState.chainId !== THOUGHT_CHAIN_ID) {
     return null;
@@ -7274,8 +7252,10 @@ const selectThoughtPreviewProvider = async () => {
         }
       : { provider: null, reason: "local THOUGHT V2 unavailable." };
   }
-  // V2 is source-only: pre-mint previews must use the verified shared renderer.
-  return { provider: createFrontendPreviewProvider(), reason: "" };
+  return {
+    provider: null,
+    reason: "pinned THOUGHT renderer release mismatch; preview stopped.",
+  };
 };
 
 const prunePreviewRateEvents = (events: number[], now: number) => {
@@ -8641,6 +8621,14 @@ const clearMintPathSelection = () => {
 const isPendingMintDeploymentCompatible = (pending: PendingMintTransaction) =>
   pending.chainId === THOUGHT_CHAIN_ID &&
   pending.thoughtNft.toLowerCase() === THOUGHT_NFT_ADDRESS.toLowerCase();
+
+const canArchiveLegacyLocalPendingMint = (pending: PendingMintTransaction | null) =>
+  Boolean(
+    pending &&
+    IS_LOCAL_CONTRACT_INTEGRATION &&
+    pending.chainId === 31337 &&
+    pending.chainId !== THOUGHT_CHAIN_ID,
+  );
 
 const projectPendingMintTransaction = (
   pending: PendingMintTransaction,
@@ -13429,7 +13417,12 @@ const startPathAcquisitionPriceTicker = () => {
 
 const setPathAcquisitionError = (error: unknown) => {
   stopPathAcquisitionPriceTicker();
-  const failure = formatThoughtPathAcquisitionFailure(error, THOUGHT_CURRENCY_LABEL);
+  const failure = formatThoughtPathAcquisitionFailure(
+    error,
+    THOUGHT_CURRENCY_LABEL,
+    THOUGHT_RPC_URL,
+    THOUGHT_CHAIN_ID,
+  );
   const failedRequestId = pathAcquisitionRequestId;
   pathAcquisitionRequestId += 1;
   pathAcquisitionState = "error";
@@ -13690,7 +13683,7 @@ const confirmPathAcquisition = async () => {
         }
         // Refresh the wallet's local-chain registration from the same operator
         // RPC used by App reads before asking that wallet to submit. MetaMask can
-        // retain chain 31337 while its saved RPC still points at an older Anvil
+        // retain a local chain while its saved RPC still points at an older Anvil
         // process, so matching only the chain ID is not enough.
         await refreshWalletChainRpc();
         const [accounts, chainHex] = await Promise.all([
@@ -13730,7 +13723,7 @@ const confirmPathAcquisition = async () => {
           walletAuctionCode = await browserProvider.getCode(PATH_AUCTION_ADDRESS);
         } catch {
           throw new Error(
-            "Wallet RPC cannot reach the active Local Anvil node at http://127.0.0.1:8546.",
+            `Wallet RPC cannot reach the active Local Anvil node at ${THOUGHT_RPC_URL}.`,
           );
         }
         const targetAuctionCode = await targetProvider.getCode(PATH_AUCTION_ADDRESS);
@@ -13739,7 +13732,7 @@ const confirmPathAcquisition = async () => {
           keccak256(walletAuctionCode) !== keccak256(targetAuctionCode)
         ) {
           throw new Error(
-            "Wallet RPC is not using the active Local Anvil deployment at http://127.0.0.1:8546.",
+            `Wallet RPC is not using the active Local Anvil deployment at ${THOUGHT_RPC_URL}.`,
           );
         }
         const walletAuction = new Contract(
@@ -13832,6 +13825,40 @@ const chooseAnotherPath = () => {
   }
 };
 
+const archiveLegacyLocalPendingMint = () => {
+  const pending = pendingMintTransaction ?? readPendingMintTransaction();
+  if (!canArchiveLegacyLocalPendingMint(pending)) {
+    setStatus("local mint archive unavailable.", { flashMs: NOTICE_FLASH_MS });
+    return false;
+  }
+  if (!clearPendingMintIdentityIfMatches(pending!)) {
+    setStatus("local mint record changed. refresh and check again.", {
+      flashMs: NOTICE_FLASH_MS,
+    });
+    return false;
+  }
+
+  removeConflictingMintIdentity(pending!);
+  pendingMintReceiptMonitorGeneration += 1;
+  pendingMintReceiptMonitorHash = "";
+  walletState.txState = "idle";
+  walletState.txHash = "";
+  walletState.txError = "";
+  walletState.mintedTokenId = null;
+  resetMintFlow();
+  emitThoughtConsoleEvent({
+    kind: "legacy_local_mint_archived",
+    title: "old local mint archived",
+    detail: `${shortHex(pending!.hash, 10, 8)} on retired local chain ${pending!.chainId} is no longer blocking THOUGHT Anvil chain ${THOUGHT_CHAIN_ID}.`,
+    nextStep: "select mint and use THOUGHT Anvil",
+    eventId: `legacy-local-mint-archived:${pending!.hash.toLowerCase()}`,
+    tone: "warning",
+  });
+  recordCurrentMintConsoleState();
+  syncInterface();
+  return true;
+};
+
 const handleMintSheetAction = async (action: MintSheetAction) => {
   if (action === "none") {
     return;
@@ -13900,6 +13927,11 @@ const handleMintSheetAction = async (action: MintSheetAction) => {
 
   if (action === "view_tx") {
     await handleViewTx();
+    return;
+  }
+
+  if (action === "archive_legacy_local_mint") {
+    archiveLegacyLocalPendingMint();
     return;
   }
 
@@ -14006,7 +14038,7 @@ const handleViewThought = async (tokenId?: number | null) => {
     return;
   }
 
-  window.location.href = thoughtDetailUrl(thoughtNftId);
+  window.location.href = galleryUrl(thoughtNftId);
 };
 
 const galleryUrl = (targetTokenId?: number | null) => {
@@ -14059,7 +14091,11 @@ const parseThoughtNFTIdInput = (input: string) => {
 const viewThoughtUseLine = (tokenId?: number | null) =>
   `use: view THOUGHT ${tokenId ?? "<id>"}`;
 
-const thoughtCreateUrl = () => new URL(THOUGHT_APP_URL, window.location.origin).toString();
+const thoughtCreateUrl = () => {
+  const url = new URL(THOUGHT_APP_URL, window.location.origin);
+  url.searchParams.set("new", "1");
+  return url.toString();
+};
 const inshellHomeUrl = () => INSHELL_HOME_URL;
 const configureGalleryLink = () => {
   thoughtGalleryLink.href = galleryUrl();
@@ -15801,6 +15837,51 @@ const resetThought = (options?: { preserveStoredOutput?: boolean }) => {
   syncCtaState();
   syncPrimaryCtaAvailability();
   return true;
+};
+
+const beginFreshThoughtCreation = () => {
+  if (!resetThought()) {
+    return false;
+  }
+  clearStoredThoughtDockRun();
+  thoughtDockRun = null;
+  runInFlight = false;
+  sessionState.prompt = "";
+  promptBox.value = "";
+  thoughtDockPrompt.value = "";
+  writeSessionState();
+  setThoughtDockState({ kind: "empty" });
+  return true;
+};
+
+const consumeFreshCreationEntryUrl = () => {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("new");
+  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+};
+
+const currentOutputSessionIsMinted = async () => {
+  const stored = readCurrentOutputSession();
+  if (!stored) {
+    return false;
+  }
+
+  try {
+    await verifyLocalThoughtV2Deployment();
+    const token = getReadThoughtNFT();
+    if (!token) {
+      return false;
+    }
+    const identityHash = await textHashFromContract(
+      stored.output,
+      stored.runContext?.prompt ?? sessionState.prompt,
+    );
+    return (await lookupExistingThoughtToken(token, identityHash)) !== 0n;
+  } catch {
+    // A fresh-entry link must not destroy an unfinished work merely because
+    // the canonical contract cannot be reached. Only a proven mint resets it.
+    return false;
+  }
 };
 
 const base64UrlEncode = (bytes: Uint8Array) => {
@@ -20695,7 +20776,7 @@ const readWalletPathInventory = async (walletAddress: string): Promise<PathInven
   }
 
   let candidateIds: Set<bigint> | null = null;
-  if (THOUGHT_CHAIN_ID !== 31337) {
+  if (!IS_LOCAL_CONTRACT_INTEGRATION) {
     try {
       candidateIds = await fetchPathTokenIdsForWalletFromApi(walletAddress);
     } catch {
@@ -22275,6 +22356,10 @@ const initFrontpage = async () => {
   configurePreviewWatermark();
   configureReportBugLink();
   configureGalleryLink();
+  if (IS_GALLERY_PAGE) {
+    window.location.replace(galleryUrl(GALLERY_TARGET_TOKEN_ID));
+    return;
+  }
   document.title = IS_COLOR_FONT_PAGE
     ? "Color Font"
     : IS_VERIFY_PAGE
@@ -22287,9 +22372,7 @@ const initFrontpage = async () => {
             : ROUTE_PLUGIN_AGENT === "claude"
               ? "THOUGHT Plugin · Claude"
               : "THOUGHT Plugin"
-        : IS_GALLERY_PAGE
-          ? "Gallery"
-          : IS_RUN_PAGE
+        : IS_RUN_PAGE
             ? "THOUGHT Run"
           : SURFACE_TERMINOLOGY.thoughtDapp;
 
@@ -22341,18 +22424,6 @@ const initFrontpage = async () => {
     return;
   }
 
-  if (IS_GALLERY_PAGE) {
-    frontpageStage.classList.add("is-hidden");
-    galleryPage.classList.remove("is-hidden");
-    thoughtPage.classList.add("is-hidden");
-    agentDemoPage.classList.add("is-hidden");
-    pluginPage.classList.add("is-hidden");
-    colorFontPage.classList.add("is-hidden");
-    verifyPage.classList.add("is-hidden");
-    await loadThoughtGallery();
-    return;
-  }
-
   if (IS_THOUGHT_PAGE) {
     frontpageStage.classList.add("is-hidden");
     galleryPage.classList.add("is-hidden");
@@ -22381,9 +22452,18 @@ const initFrontpage = async () => {
   }
   loadCliCommandHistory();
   if (!hydratedRunLink && !resumedPendingThoughtDockRun && !resumedPendingThoughtAgentRun) {
-    resetThought({ preserveStoredOutput: true });
-    restoreCurrentOutputSession();
-    restoreCurrentCandidateSession();
+    const openedFreshCreation =
+      IS_FRESH_CREATION_ENTRY &&
+      await currentOutputSessionIsMinted() &&
+      beginFreshThoughtCreation();
+    if (!openedFreshCreation) {
+      resetThought({ preserveStoredOutput: true });
+      restoreCurrentOutputSession();
+      restoreCurrentCandidateSession();
+    }
+  }
+  if (IS_FRESH_CREATION_ENTRY) {
+    consumeFreshCreationEntryUrl();
   }
   initializeCliTranscript();
   syncInterface();

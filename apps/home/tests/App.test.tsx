@@ -246,10 +246,6 @@ function expectedColorFontFallbackChainLabel() {
     : "Local Devnet";
 }
 
-function expectedDefaultThoughtUrl() {
-  return "/thought";
-}
-
 describe("App Component", () => {
   beforeEach(() => {
     window.history.pushState({}, "", "/");
@@ -304,7 +300,7 @@ describe("App Component", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "THOUGHT" })).toHaveAttribute(
       "href",
-      "/thought",
+      "/thought?new=1",
     );
     expect(screen.getByRole("link", { name: "WILL" })).toHaveAttribute(
       "href",
@@ -1278,6 +1274,10 @@ describe("App Component", () => {
       "/#thought-1",
     );
     expect(screen.getByRole("link", { name: "[ create yours ]" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "[ create yours ]" })).toHaveAttribute(
+      "href",
+      "/thought?new=1",
+    );
     expect(screen.getByLabelText("THOUGHT #1 record")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "THOUGHT #1 canvas" })).toBeInTheDocument();
     expect(screen.getByText("one thought")).toBeInTheDocument();
@@ -1458,7 +1458,7 @@ describe("App Component", () => {
     expect(screen.getByText("verify / raw data")).toBeInTheDocument();
   });
 
-  test("renders the canonical THOUGHT gallery route at the Inshell root", async () => {
+  test("retires /gallery into the canonical home gallery", async () => {
     mockThoughtGalleryApi([
       thoughtGalleryItem({
         tokenId: 1,
@@ -1475,22 +1475,16 @@ describe("App Component", () => {
     render(<App />);
     await flushAsyncEffects();
 
-    expect(document.title).toBe("THOUGHT Gallery");
+    expect(window.location.pathname).toBe("/");
+    expect(document.title).toBe("Inshell");
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
-    expect(screen.getByRole("heading", { level: 1, name: "Gallery" })).toBeInTheDocument();
-    expect(screen.getByText("2 minted THOUGHTs.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "create your THOUGHT" })).toHaveAttribute(
-      "href",
-      expectedDefaultThoughtUrl(),
-    );
-    expect(screen.getByRole("link", { name: "[ home ]" })).toHaveAttribute("href", "/");
-    expect(screen.getByLabelText("Open THOUGHT #1")).toHaveAttribute("href", "/thought/1");
-    expect(screen.getByLabelText("Open THOUGHT #2")).toHaveAttribute("href", "/thought/2");
-    expect(screen.getByRole("img", { name: "THOUGHT #1" })).toHaveAttribute(
-      "src",
-      "/api/thought-image?id=1",
-    );
-    expect(screen.getByText("$PATH #4 THOUGHT unit consumed")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "3 fully onchain movements for Agent Art.",
+      }),
+    ).toBeInTheDocument();
+    expectHomeThoughtWorks([1, 2]);
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
   });
 
@@ -1543,7 +1537,7 @@ describe("App Component", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "THOUGHT" })).toHaveAttribute(
       "href",
-      "/thought",
+      "/thought?new=1",
     );
     expect(screen.getByText("WILL")).toBeInTheDocument();
     expect(screen.getByText("AWA!")).toBeInTheDocument();
@@ -1649,7 +1643,7 @@ describe("App Component", () => {
 
     expect(screen.getByRole("link", { name: "THOUGHT" })).toHaveAttribute(
       "href",
-      "/thought",
+      "/thought?new=1",
     );
   });
 

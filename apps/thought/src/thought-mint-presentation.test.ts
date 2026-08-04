@@ -41,6 +41,7 @@ const baseFacts = (): ThoughtMintFacts => ({
   transaction: {
     state: "idle",
     hash: "",
+    canArchiveLegacyLocalMint: false,
   },
   error: {
     kind: "none",
@@ -72,6 +73,32 @@ export const runThoughtMintPresentationTests = () => {
   assert.equal(currentWork.title, "work ready");
   assert.equal(currentWork.detail, "Select “mint” above to start minting this THOUGHT work.");
   assert.equal(currentWork.stageCopy, "1 THOUGHT requires 1 available $PATH.");
+
+  const legacyLocalMint = presentThoughtMint({
+    ...baseFacts(),
+    state: "minting",
+    transaction: {
+      state: "submitted",
+      hash: "0xa69004329629004619e2a6924cce4ac108246435de3776b6b9ad3c9c94bb4549",
+      canArchiveLegacyLocalMint: true,
+    },
+    error: {
+      kind: "mint",
+      message: "Automatic confirmation monitoring is unavailable.",
+    },
+  });
+  assert.equal(legacyLocalMint.title, "old local mint cannot confirm here");
+  assert.equal(
+    legacyLocalMint.detail,
+    "This hash was sent to the retired shared local node, not the current THOUGHT node.",
+  );
+  assert.deepEqual(
+    legacyLocalMint.actions.map(({ id, label }) => [id, label]),
+    [
+      ["view_tx", "View transaction"],
+      ["archive_legacy_local_mint", "Archive old local mint"],
+    ],
+  );
 
   const connectWallet = presentThoughtMint({
     ...baseFacts(),

@@ -48,6 +48,7 @@ export type ThoughtMintActionId =
   | "authorize"
   | "confirm_mint"
   | "view_tx"
+  | "archive_legacy_local_mint"
   | "view_thought"
   | "choose_another"
   | "enter_path_manually"
@@ -121,6 +122,7 @@ export type ThoughtMintFacts = {
   transaction: {
     state: "idle" | "awaiting_signature" | "submitted" | "failed";
     hash: string;
+    canArchiveLegacyLocalMint?: boolean;
   };
   error: {
     kind: ThoughtMintErrorKind;
@@ -680,21 +682,37 @@ export const presentThoughtMint = (facts: ThoughtMintFacts): ThoughtMintPresenta
       const trackingWarning = facts.error.kind === "mint" && facts.error.message.trim()
         ? facts.error.message.trim()
         : "";
+      const legacyLocalMismatch = facts.transaction.canArchiveLegacyLocalMint === true;
       return withDefaults({
-        title: trackingWarning ? "mint tracking delayed" : "mint submitted",
-        detail: trackingWarning
-          ? "The transaction was submitted, but confirmation is delayed."
+        title: legacyLocalMismatch
+          ? "old local mint cannot confirm here"
+          : trackingWarning
+            ? "mint tracking delayed"
+            : "mint submitted",
+        detail: legacyLocalMismatch
+          ? "This hash was sent to the retired shared local node, not the current THOUGHT node."
+          : trackingWarning
+            ? "The transaction was submitted, but confirmation is delayed."
           : (facts.transaction.hash
           ? `${shortHash(facts.transaction.hash)} · waiting for chain confirmation.`
           : "Waiting for chain confirmation."),
-        stageCopy: trackingWarning
-          ? "View the transaction to check its status. Do not submit another mint."
+        stageCopy: legacyLocalMismatch
+          ? "Archive this local-only record, then mint again on THOUGHT Anvil."
+          : trackingWarning
+            ? "View the transaction to check its status. Do not submit another mint."
           : "Wait for confirmation. Do not submit another mint.",
         tone: trackingWarning ? "warning" : "running",
         panelMode: "minting",
         activeStep: "mint",
         completedSteps: ["path", "sign"],
-        actions: facts.transaction.hash ? [action("view_tx", "View transaction")] : [noAction()],
+        actions: facts.transaction.hash
+          ? [
+              action("view_tx", "View transaction"),
+              ...(legacyLocalMismatch
+                ? [action("archive_legacy_local_mint", "Archive old local mint")]
+                : []),
+            ]
+          : [noAction()],
       });
     }
 

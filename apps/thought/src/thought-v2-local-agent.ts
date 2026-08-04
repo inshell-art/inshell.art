@@ -2,6 +2,8 @@ import { assertThoughtV2TerminalLine as assertThoughtV2Line } from "@inshell/sha
 import {
   formatThoughtAgentModelLabel,
   thoughtAgentModelIdentifier,
+  type ThoughtCodexReleaseBinding,
+  type ThoughtCodexResultContractBinding,
   type ThoughtAgentMetadataSource,
   type ThoughtAgentReasoningEffort,
 } from "@inshell/thought-agent-protocol";
@@ -39,6 +41,24 @@ export type ThoughtV2LocalAgentEvidence = {
   reasoningEffort?: ThoughtAgentReasoningEffort;
   metadataSource?: ThoughtAgentMetadataSource;
 };
+
+export type ThoughtV2LocalAgentTaskBinding = {
+  release: ThoughtCodexReleaseBinding;
+  resultContract: ThoughtCodexResultContractBinding;
+};
+
+export const buildThoughtV2LocalAgentTaskBinding = (
+  release: ThoughtV2LocalRelease = THOUGHT_V2_LOCAL_RELEASE,
+): ThoughtV2LocalAgentTaskBinding => ({
+  release: {
+    protocolReleaseId: release.protocol.protocolReleaseId,
+    manifestKeccak256: release.protocol.manifestKeccak256,
+  },
+  resultContract: {
+    workProfile: release.protocol.workProfile.id,
+    lineValidation: "terminal-english-64",
+  },
+});
 
 export const buildThoughtV2LocalAgentOutputSchema = (
   release: ThoughtV2LocalRelease = THOUGHT_V2_LOCAL_RELEASE,

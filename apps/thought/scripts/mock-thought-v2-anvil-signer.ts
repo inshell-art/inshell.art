@@ -10,6 +10,7 @@ import {
   type ThoughtV2MintInput,
 } from "../src/thought-v2-app-mint";
 import {
+  THOUGHT_V2_DEDICATED_ANVIL_CHAIN_ID,
   createThoughtV2VerifierContract,
   verifyThoughtV2CurrentRuntime,
   type ThoughtV2AnvilRuntime,
@@ -35,8 +36,11 @@ export const buildBackendOnlyMockThoughtV2Mint = async (
     attestationDeadline: bigint;
   },
 ): Promise<ThoughtV2MintInput> => {
-  if (!isLoopbackRpc(runtime.rpcUrl) || runtime.chainId !== 31_337) {
-    throw new Error("Mock THOUGHT signer is restricted to loopback Anvil chain 31337.");
+  if (
+    !isLoopbackRpc(runtime.rpcUrl) ||
+    ![31_337, THOUGHT_V2_DEDICATED_ANVIL_CHAIN_ID].includes(runtime.chainId)
+  ) {
+    throw new Error("Mock THOUGHT signer is restricted to an approved loopback Anvil chain.");
   }
   const provider = options.provider ?? new JsonRpcProvider(runtime.rpcUrl, runtime.chainId);
   const verification = await verifyThoughtV2CurrentRuntime(provider, runtime);

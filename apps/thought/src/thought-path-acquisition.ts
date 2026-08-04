@@ -237,6 +237,8 @@ const collectPathAcquisitionErrorDetails = (error: unknown) => {
 export const formatThoughtPathAcquisitionFailure = (
   error: unknown,
   currencyLabel: string,
+  localRpcUrl = "http://127.0.0.1:8546",
+  localChainId = 31337,
 ): ThoughtPathAcquisitionFailure => {
   const { codes, messages, normalized } = collectPathAcquisitionErrorDetails(error);
 
@@ -307,7 +309,7 @@ export const formatThoughtPathAcquisitionFailure = (
   ) {
     return {
       title: "wallet is connected to the wrong local node",
-      detail: "Set chain 31337 RPC to http://127.0.0.1:8546.",
+      detail: `Set chain ${localChainId} RPC to ${localRpcUrl}.`,
       nextStep: "update the wallet network, then try again",
     };
   }

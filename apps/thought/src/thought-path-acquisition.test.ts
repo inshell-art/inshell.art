@@ -180,6 +180,18 @@ export const runThoughtPathAcquisitionTests = async () => {
     );
     assert.deepEqual(
       formatThoughtPathAcquisitionFailure(
+        new Error("Wallet RPC cannot reach the active Local Anvil node"),
+        "local ETH",
+        "http://127.0.0.1:8547",
+      ),
+      {
+        title: "wallet is connected to the wrong local node",
+        detail: "Set chain 31337 RPC to http://127.0.0.1:8547.",
+        nextStep: "update the wallet network, then try again",
+      },
+    );
+    assert.deepEqual(
+      formatThoughtPathAcquisitionFailure(
         new Error("execution reverted: ASK_ABOVE_MAX_PRICE"),
         "local ETH",
       ),

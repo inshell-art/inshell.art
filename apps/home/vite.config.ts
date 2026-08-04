@@ -21,6 +21,10 @@ function readDevApiOrigin() {
   return process.env.INSHELL_DEV_API_ORIGIN?.trim() || "https://inshell.art";
 }
 
+function readThoughtAppOrigin() {
+  return process.env.INSHELL_THOUGHT_APP_ORIGIN?.trim() || "http://127.0.0.1:5174";
+}
+
 type LocalAnvilDeployment = {
   rpcUrl?: string;
   chainId?: number;
@@ -192,6 +196,7 @@ export default defineConfig(({ mode }) => {
     ),
     ...localAnvilEnv,
   };
+  const thoughtAppOrigin = readThoughtAppOrigin();
 
   return {
     root: rootDir,
@@ -220,17 +225,17 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
       proxy: {
         "/api/thought-agent": {
-          target: "http://127.0.0.1:5174",
+          target: thoughtAppOrigin,
           changeOrigin: true,
           secure: false,
         },
         "/api/thought-contract": {
-          target: "http://127.0.0.1:5174",
+          target: thoughtAppOrigin,
           changeOrigin: true,
           secure: false,
         },
         "/thought": {
-          target: "http://127.0.0.1:5174",
+          target: thoughtAppOrigin,
           changeOrigin: true,
           secure: false,
           bypass: (request) => {
@@ -241,13 +246,6 @@ export default defineConfig(({ mode }) => {
           },
           rewrite: (requestPath) =>
             requestPath.replace(/^\/thought(?=$|\?)/, "/thought/"),
-        },
-        "/gallery": {
-          target: "http://127.0.0.1:5174",
-          changeOrigin: true,
-          secure: false,
-          rewrite: (requestPath) =>
-            requestPath.replace(/^\/gallery\/?(?=$|\?)/, "/thought/"),
         },
         "/api": {
           target: readDevApiOrigin(),

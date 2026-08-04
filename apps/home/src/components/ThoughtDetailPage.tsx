@@ -78,6 +78,15 @@ function thoughtAppUrl(): string {
   return resolveInshellLinks().thought;
 }
 
+function freshThoughtAppUrl(): string {
+  const configured = thoughtAppUrl();
+  const url = new URL(configured, "https://inshell.invalid");
+  url.searchParams.set("new", "1");
+  return configured.startsWith("/")
+    ? `${url.pathname}${url.search}${url.hash}`
+    : url.toString();
+}
+
 function shortValue(value?: string, head = 6, tail = 4): string {
   if (!value) return "-";
   const trimmed = value.trim();
@@ -745,7 +754,7 @@ export default function ThoughtDetailPage({ tokenId }: { tokenId: string }) {
           >
             [ home ]
           </a>
-          <a className="thought-detail__link" href={thoughtAppUrl()}>
+          <a className="thought-detail__link" href={freshThoughtAppUrl()}>
             [ create yours ]
           </a>
         </nav>

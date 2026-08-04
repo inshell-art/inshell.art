@@ -83,6 +83,7 @@ import {
 import { buildThoughtV2PathAcquisitionBrowserAddresses } from "../apps/thought/src/thought-v2-path-acquisition-runtime";
 import {
   assertThoughtV2AnvilRuntime,
+  THOUGHT_V2_CURRENT_MINTED_TOPIC,
   type ThoughtV2AnvilRuntime,
 } from "../apps/thought/src/thought-v2-contract-client";
 import {
@@ -95,6 +96,7 @@ import {
   THOUGHT_V2_LOCAL_AGENT_OUTPUT_SCHEMA,
   buildThoughtV2LocalAgentProcess,
   buildThoughtV2LocalAgentResult,
+  buildThoughtV2LocalAgentTaskBinding,
   parseThoughtV2LocalAgentResult,
 } from "../apps/thought/src/thought-v2-local-agent";
 import {
@@ -137,6 +139,11 @@ const thoughtSpec: ThoughtRunSpec = {
 };
 
 const localRelease = THOUGHT_V2_LOCAL_RELEASE;
+assert.equal(
+  THOUGHT_V2_CURRENT_MINTED_TOPIC,
+  id("ThoughtMinted(uint256,address,bytes32,bytes32,bytes32,bytes32,uint256,uint256,bytes32,bytes32)"),
+  "gallery reads must use the exact ThoughtMinted topic from the pinned current-V2 ABI",
+);
 assert.equal(canonicalThoughtTitle("quiet signal"), "QUIET SIGNAL");
 assert.equal(thoughtProtocolText("quiet signal", true), "quiet signal");
 assert.equal(thoughtProtocolText("静かな信号 🟢", true), "静かな信号 🟢");
@@ -515,6 +522,82 @@ assert.deepEqual(
   },
   "the THOUGHT browser runtime must retain all in-place $PATH acquisition addresses",
 );
+const localPathFixtureOwner = "0x70997970c51812dc3a010c7d01b50e0d17dc79c8";
+const localPathFixtures = {
+  schema: "inshell.thought.local-path-fixtures.v1",
+  purpose: "routine-thought-development-without-path-auction-dependency",
+  disposableOnly: true,
+  source: "reserved-spark-self-claim",
+  pathReleaseTag: "v0.4.2",
+  ownerSignerIndex: 1,
+  initialOwner: localPathFixtureOwner,
+  movement: "THOUGHT",
+  movementQuotaPerToken: 1,
+  count: 1,
+  tokens: [{
+    tokenId: "1000000000000000",
+    initialOwner: localPathFixtureOwner,
+    initialStage: 0,
+    initialStageMinted: 0,
+    sparker: true,
+  }],
+} as const;
+assert.doesNotThrow(
+  () => assertThoughtV2AnvilRuntime({
+    ...activeAnvilRuntime,
+    pathFixtures: localPathFixtures,
+  }),
+  "canonical disposable PATH fixture descriptors must pass the runtime gate",
+);
+const dedicatedThoughtLane = {
+  id: "thought",
+  isolation: "dedicated-anvil",
+  pathRelease: {
+    releaseTag: "v0.4.2",
+    releasePublicationCommit: "8a8e4fe91857fdff8c54e9d4cc918b1e1f08cd76",
+    contractSourceCommit: "1c846e1cfcd761a8e7b7e908edfa655204b62036",
+    manifestSha256: "41cd0bc56398fe6823a3bd40a7497851b8ec132a8002a4f0a15bc5b284a29393",
+  },
+} as const;
+assert.doesNotThrow(
+  () => assertThoughtV2AnvilRuntime({
+    ...activeAnvilRuntime,
+    chainId: 31338,
+    localLane: dedicatedThoughtLane,
+    pathFixtures: localPathFixtures,
+  }),
+  "the isolated THOUGHT lane must use its wallet-distinct local chain ID",
+);
+assert.throws(
+  () => assertThoughtV2AnvilRuntime({
+    ...activeAnvilRuntime,
+    chainId: 31338,
+    pathFixtures: localPathFixtures,
+  }),
+  /runtime descriptor is incompatible/,
+  "a noncanonical local chain ID must fail without the dedicated THOUGHT lane marker",
+);
+for (const invalidFixtures of [
+  { ...localPathFixtures, source: "auction" },
+  { ...localPathFixtures, count: 2 },
+  {
+    ...localPathFixtures,
+    tokens: [{ ...localPathFixtures.tokens[0], initialStage: 1 }],
+  },
+  {
+    ...localPathFixtures,
+    tokens: [{ ...localPathFixtures.tokens[0], sparker: false }],
+  },
+]) {
+  assert.throws(
+    () => assertThoughtV2AnvilRuntime({
+      ...activeAnvilRuntime,
+      pathFixtures: invalidFixtures,
+    }),
+    /invalid local \$PATH fixtures/,
+    "malformed disposable PATH fixture descriptors must fail closed",
+  );
+}
 for (const invalidRuntime of [
   { ...activeAnvilRuntime, pathPulseAdapter: undefined },
   { ...activeAnvilRuntime, pulseAuction: undefined },
@@ -591,6 +674,20 @@ const localBytes32Anchors = [
   localRelease.spec.evmSpecId,
   localRelease.spec.evmSpecHash,
 ];
+assert.deepEqual(
+  buildThoughtV2LocalAgentTaskBinding(localRelease),
+  {
+    release: {
+      protocolReleaseId: localRelease.protocol.protocolReleaseId,
+      manifestKeccak256: localRelease.protocol.manifestKeccak256,
+    },
+    resultContract: {
+      workProfile: "inshell.thought.work.v2.terminal-english-64",
+      lineValidation: "terminal-english-64",
+    },
+  },
+  "the dev Agent task must verify the same output contract served by the active local release",
+);
 for (const anchor of localBytes32Anchors) {
   assert.match(anchor, /^0x[0-9a-f]{64}$/i, `invalid local bytes32 anchor: ${anchor}`);
 }

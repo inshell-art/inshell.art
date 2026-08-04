@@ -1,5 +1,6 @@
 import {
   Contract,
+  Interface,
   ZeroAddress,
   encodeBytes32String,
   getAddress,
@@ -20,12 +21,30 @@ export const THOUGHT_V2_CURRENT_ABI = thoughtNftV2Abi;
 export const THOUGHT_V2_CURRENT_RENDERER_ABI = thoughtRendererV2Abi;
 export const THOUGHT_V2_CURRENT_VERIFIER_ABI = verifierAbi;
 export const THOUGHT_V2_CURRENT_INTEGRATION_LOCK = integrationLock;
+export const THOUGHT_V2_DEDICATED_ANVIL_CHAIN_ID = 31338;
+export const THOUGHT_V2_CURRENT_MINTED_TOPIC = (() => {
+  const event = new Interface(THOUGHT_V2_CURRENT_ABI).getEvent("ThoughtMinted");
+  if (!event) {
+    throw new Error("Pinned THOUGHT V2 ABI has no ThoughtMinted event.");
+  }
+  return event.topicHash;
+})();
 
 export type ThoughtV2AnvilRuntime = {
   schema: "inshell.thought.v2.anvil-gallery-runtime.v1";
   status: "ready";
-  chainId: 31337;
+  chainId: number;
   rpcUrl: string;
+  localLane?: {
+    id: "thought";
+    isolation: "dedicated-anvil";
+    pathRelease: {
+      releaseTag: string;
+      releasePublicationCommit: string;
+      contractSourceCommit: string;
+      manifestSha256: string;
+    };
+  };
   contracts: {
     pathNft: string;
     thoughtSpecRegistry: string;
@@ -42,6 +61,25 @@ export type ThoughtV2AnvilRuntime = {
   };
   paymentToken: {
     address: string;
+  };
+  pathFixtures?: {
+    schema: "inshell.thought.local-path-fixtures.v1";
+    purpose: string;
+    disposableOnly: true;
+    source: "reserved-spark-self-claim";
+    pathReleaseTag: string;
+    ownerSignerIndex: number;
+    initialOwner: string;
+    movement: "THOUGHT";
+    movementQuotaPerToken: 1;
+    count: number;
+    tokens: Array<{
+      tokenId: string;
+      initialOwner: string;
+      initialStage: 0;
+      initialStageMinted: 0;
+      sparker: true;
+    }>;
   };
   provenance: {
     artifactId: string;
@@ -142,10 +180,22 @@ export const assertThoughtV2AnvilRuntime = (value: unknown): ThoughtV2AnvilRunti
     throw new Error("THOUGHT Contract runtime descriptor is missing.");
   }
   const runtime = value as ThoughtV2AnvilRuntime;
+  const dedicatedLane = runtime.localLane !== undefined;
+  const expectedChainId = dedicatedLane
+    ? THOUGHT_V2_DEDICATED_ANVIL_CHAIN_ID
+    : integrationLock.chain.chainId;
   if (
     runtime.schema !== integrationLock.chain.runtimeDescriptorSchema ||
     runtime.status !== "ready" ||
-    runtime.chainId !== integrationLock.chain.chainId
+    runtime.chainId !== expectedChainId ||
+    (dedicatedLane && (
+      runtime.localLane?.id !== "thought" ||
+      runtime.localLane.isolation !== "dedicated-anvil" ||
+      !runtime.localLane.pathRelease?.releaseTag ||
+      !/^[0-9a-f]{40}$/i.test(runtime.localLane.pathRelease.releasePublicationCommit) ||
+      !/^[0-9a-f]{40}$/i.test(runtime.localLane.pathRelease.contractSourceCommit) ||
+      !/^[0-9a-f]{64}$/i.test(runtime.localLane.pathRelease.manifestSha256)
+    ))
   ) {
     throw new Error("THOUGHT Contract runtime descriptor is incompatible.");
   }
@@ -166,6 +216,40 @@ export const assertThoughtV2AnvilRuntime = (value: unknown): ThoughtV2AnvilRunti
     !/^0x[0-9a-f]{40}$/i.test(runtime.paymentToken?.address)
   ) {
     throw new Error("THOUGHT Contract runtime descriptor has invalid $PATH acquisition wiring.");
+  }
+  if (runtime.pathFixtures !== undefined) {
+    const fixtures = runtime.pathFixtures;
+    const fixtureTokens = Array.isArray(fixtures.tokens) ? fixtures.tokens : [];
+    const fixtureTokenIds = fixtureTokens.map((token) => token?.tokenId ?? "");
+    if (
+      fixtures.schema !== "inshell.thought.local-path-fixtures.v1" ||
+      typeof fixtures.purpose !== "string" ||
+      fixtures.purpose.length === 0 ||
+      fixtures.disposableOnly !== true ||
+      fixtures.source !== "reserved-spark-self-claim" ||
+      typeof fixtures.pathReleaseTag !== "string" ||
+      fixtures.pathReleaseTag.length === 0 ||
+      !Number.isSafeInteger(fixtures.ownerSignerIndex) ||
+      fixtures.ownerSignerIndex < 0 ||
+      !nonzeroAddress(fixtures.initialOwner) ||
+      fixtures.movement !== "THOUGHT" ||
+      fixtures.movementQuotaPerToken !== 1 ||
+      !Number.isSafeInteger(fixtures.count) ||
+      fixtures.count < 1 ||
+      fixtures.count !== fixtureTokens.length ||
+      new Set(fixtureTokenIds).size !== fixtureTokenIds.length ||
+      fixtureTokens.some((token) =>
+        !/^\d+$/.test(token?.tokenId ?? "") ||
+        BigInt(token.tokenId) < 1_000_000_000_000_000n ||
+        !nonzeroAddress(token?.initialOwner ?? "") ||
+        !sameHex(token.initialOwner, fixtures.initialOwner) ||
+        token.initialStage !== 0 ||
+        token.initialStageMinted !== 0 ||
+        token.sparker !== true
+      )
+    ) {
+      throw new Error("THOUGHT Contract runtime descriptor has invalid local $PATH fixtures.");
+    }
   }
   if (
     runtime.provenance?.artifactId !== provenanceLock.artifactId ||
@@ -224,8 +308,8 @@ export const verifyThoughtV2CurrentRuntime = async (
   const runtime = assertThoughtV2AnvilRuntime(input);
   const issues: string[] = [];
   const network = await provider.getNetwork();
-  if (network.chainId !== BigInt(integrationLock.chain.chainId)) {
-    issues.push(`chain ID ${network.chainId} does not match ${integrationLock.chain.chainId}`);
+  if (network.chainId !== BigInt(runtime.chainId)) {
+    issues.push(`chain ID ${network.chainId} does not match ${runtime.chainId}`);
   }
 
   const addresses = Object.values(runtime.contracts);

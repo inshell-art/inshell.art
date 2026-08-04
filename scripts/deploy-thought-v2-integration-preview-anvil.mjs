@@ -19,11 +19,18 @@ import {
   JsonRpcProvider,
   ZeroAddress,
 } from "../apps/thought/node_modules/ethers/lib.esm/index.js";
+import {
+  THOUGHT_ANVIL_CHAIN_ID,
+  THOUGHT_ANVIL_RPC_URL,
+  THOUGHT_CONTRACT_RUNTIME_FILE,
+  THOUGHT_PATH_FIXTURE_COUNT,
+  THOUGHT_PATH_FIXTURE_SIGNER_INDEX,
+  resolvePinnedPathRelease,
+} from "./thought-local-lane.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const rpcUrl = process.env.RPC_URL ?? "http://127.0.0.1:8546";
+const rpcUrl = process.env.RPC_URL?.trim() || THOUGHT_ANVIL_RPC_URL;
 const treasury = process.env.PATH_TREASURY ?? "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC";
-const pathArtifactRoot = process.env.PATH_EVM_DIR ?? path.resolve(root, "../path/evm");
 const artifactId = "thought-v2-canonical-portable-release-20260801-r1";
 const previewRoot = path.join(
   root,
@@ -39,7 +46,7 @@ const provenanceSchemaFile = path.join(
   provenanceRoot,
   "thought.provenance.v2.schema.json",
 );
-const addressesFile = path.join(root, "apps/thought/evm/addresses.anvil.json");
+const addressesFile = THOUGHT_CONTRACT_RUNTIME_FILE;
 const lockFile = path.join(root, "apps/thought/contract-release/consumer-lock.json");
 const movement = encodeBytes32String("THOUGHT");
 const auctionOpenDelaySeconds = Number.parseInt(
@@ -68,7 +75,6 @@ const deploy = async (signer, file, args = []) => {
   return contract;
 };
 
-const pathArtifact = (contract) => path.join(pathArtifactRoot, "artifacts/src", `${contract}.sol`, `${contract}.json`);
 const thoughtArtifact = (contract) => path.join(compiledRoot, `${contract}.json`);
 
 const normalizeCanonicalJson = (value) => {
@@ -113,8 +119,13 @@ const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
 async function main() {
   const provider = new JsonRpcProvider(rpcUrl);
+  const pathRelease = await resolvePinnedPathRelease();
   const network = await provider.getNetwork();
-  if (network.chainId !== 31_337n) throw new Error(`local acceptance deploy requires Anvil chain 31337, got ${network.chainId}`);
+  if (network.chainId !== BigInt(THOUGHT_ANVIL_CHAIN_ID)) {
+    throw new Error(
+      `local acceptance deploy requires THOUGHT Anvil chain ${THOUGHT_ANVIL_CHAIN_ID}, got ${network.chainId}`,
+    );
+  }
   const unlockedSigner = await provider.getSigner(0);
   const deployerAddress = await unlockedSigner.getAddress();
   const existingNonce = await provider.getTransactionCount(deployerAddress);
@@ -169,7 +180,7 @@ async function main() {
     Math.max(latest.timestamp, currentWallClock) + auctionOpenDelaySeconds,
   );
 
-  const pathNft = await deploy(signer, pathArtifact("PathNFT"), [
+  const pathNft = await deploy(signer, pathRelease.artifacts.PathNFT, [
     deployerAddress,
     "PATH",
     "PATH",
@@ -178,7 +189,7 @@ async function main() {
     604_800n,
   ]);
   const pathNftAddress = await pathNft.getAddress();
-  const adapter = await deploy(signer, pathArtifact("PathPulseAdapter"), [
+  const adapter = await deploy(signer, pathRelease.artifacts.PathPulseAdapter, [
     deployerAddress,
     ZeroAddress,
     pathNftAddress,
@@ -186,7 +197,7 @@ async function main() {
     1n,
   ]);
   const adapterAddress = await adapter.getAddress();
-  const auction = await deploy(signer, pathArtifact("PulseAuction"), [
+  const auction = await deploy(signer, pathRelease.artifacts.PulseAuction, [
     openTime,
     600_000_000_000_000_000n,
     10_000_000_000_000_000n,
@@ -358,6 +369,45 @@ async function main() {
   await (await pathNft.setMovementConfig(movement, thoughtNftAddress, 1)).wait();
   await (await pathNft.freezeMovementConfig(movement)).wait();
 
+  // Daily THOUGHT App work must exercise the canonical PATH contract boundary,
+  // but it must not depend on the separately owned auction flow. Seed disposable
+  // Spark fixtures through PATH's official issuer-allowlist/self-claim path.
+  const fixtureUnlockedSigner = await provider.getSigner(
+    THOUGHT_PATH_FIXTURE_SIGNER_INDEX,
+  );
+  const fixtureOwner = await fixtureUnlockedSigner.getAddress();
+  const fixtureSigner = new NonceManager(fixtureUnlockedSigner);
+  const fixturePathNft = pathNft.connect(fixtureSigner);
+  await (await pathNft.grantRole(id("RESERVED_ROLE"), deployerAddress)).wait();
+  const pathFixtureTokens = [];
+  for (let index = 0; index < THOUGHT_PATH_FIXTURE_COUNT; index += 1) {
+    await (await pathNft.allowSparker(fixtureOwner)).wait();
+    const tokenId = await fixturePathNft.mintSparker.staticCall("0x");
+    await (await fixturePathNft.mintSparker("0x")).wait();
+    const [owner, stage, stageMinted, sparker] = await Promise.all([
+      pathNft.ownerOf(tokenId),
+      pathNft.getStage(tokenId),
+      pathNft.getStageMinted(tokenId),
+      pathNft.isSparker(tokenId),
+    ]);
+    if (
+      owner.toLowerCase() !== fixtureOwner.toLowerCase() ||
+      stage !== 0n ||
+      stageMinted !== 0n ||
+      sparker !== true
+    ) {
+      throw new Error(`seeded PATH fixture ${tokenId} failed canonical readback`);
+    }
+    pathFixtureTokens.push({
+      tokenId: tokenId.toString(),
+      initialOwner: owner,
+      initialStage: Number(stage),
+      initialStageMinted: Number(stageMinted),
+      sparker,
+    });
+  }
+  const pathReservedRemaining = Number(await pathNft.getReservedRemaining());
+
   const runtime = {
     schema: "inshell.thought.v2.anvil-gallery-runtime.v1",
     status: "ready",
@@ -377,6 +427,16 @@ async function main() {
       productionConsumable: true,
       deploymentAuthorized: false,
       acceptanceOnly: true,
+    },
+    localLane: {
+      id: "thought",
+      isolation: "dedicated-anvil",
+      pathRelease: {
+        releaseTag: pathRelease.pin.releaseTag,
+        releasePublicationCommit: pathRelease.pin.releasePublicationCommit,
+        contractSourceCommit: pathRelease.pin.contractSourceCommit,
+        manifestSha256: pathRelease.pin.manifestSha256,
+      },
     },
     creativeSpec: {
       artifactId: creativeSpecLock.artifactId,
@@ -408,8 +468,21 @@ async function main() {
       claimMode: "issuer-allowlist-recipient-self-claim",
       issuer: deployerAddress,
       reservedCap: 99,
-      reservedRemaining: 99,
+      reservedRemaining: pathReservedRemaining,
       claimDurationSeconds: 604800,
+    },
+    pathFixtures: {
+      schema: "inshell.thought.local-path-fixtures.v1",
+      purpose: "routine-thought-development-without-path-auction-dependency",
+      disposableOnly: true,
+      source: "reserved-spark-self-claim",
+      pathReleaseTag: pathRelease.pin.releaseTag,
+      ownerSignerIndex: THOUGHT_PATH_FIXTURE_SIGNER_INDEX,
+      initialOwner: fixtureOwner,
+      movement: "THOUGHT",
+      movementQuotaPerToken: 1,
+      count: pathFixtureTokens.length,
+      tokens: pathFixtureTokens,
     },
     pathAuction: {
       openTime: Number(openTime),
@@ -503,6 +576,7 @@ async function main() {
       ref: specRef,
     },
   };
+  await fs.mkdir(path.dirname(addressesFile), { recursive: true });
   await fs.writeFile(addressesFile, `${JSON.stringify(runtime, null, 2)}\n`, "utf8");
   console.log(JSON.stringify(runtime, null, 2));
 }
