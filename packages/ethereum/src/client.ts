@@ -572,6 +572,19 @@ export async function waitForTransaction(
   throw new Error("Transaction was not confirmed before timeout.");
 }
 
+const TRANSACTION_GAS_BUFFER_MIN = 50_000n;
+const TRANSACTION_GAS_BUFFER_MAX = 250_000n;
+
+function bufferedTransactionGas(estimate: bigint): bigint {
+  let buffer = estimate / 5n;
+  if (buffer < TRANSACTION_GAS_BUFFER_MIN) {
+    buffer = TRANSACTION_GAS_BUFFER_MIN;
+  } else if (buffer > TRANSACTION_GAS_BUFFER_MAX) {
+    buffer = TRANSACTION_GAS_BUFFER_MAX;
+  }
+  return estimate + buffer;
+}
+
 export async function sendTransaction(
   provider: ProviderInterface,
   tx: {
@@ -587,6 +600,7 @@ export async function sendTransaction(
     to: Address;
     data: Hex;
     value?: Hex;
+    gas?: Hex;
   } = {
     from: normalizeAddress(tx.from),
     to: normalizeAddress(tx.to),
@@ -594,6 +608,21 @@ export async function sendTransaction(
   };
   if (typeof tx.value === "bigint" && tx.value > 0n) {
     txParams.value = toHexQuantity(tx.value);
+  }
+  try {
+    const rawEstimate = await provider.request({
+      method: "eth_estimateGas",
+      params: [{ ...txParams }],
+    });
+    if (
+      typeof rawEstimate === "string" &&
+      /^0x[0-9a-f]+$/i.test(rawEstimate)
+    ) {
+      const estimate = BigInt(rawEstimate);
+      txParams.gas = toHexQuantity(bufferedTransactionGas(estimate));
+    }
+  } catch {
+    // Wallets can still estimate when an injected provider rejects preflight.
   }
   const hash = (await provider.request({
     method: "eth_sendTransaction",

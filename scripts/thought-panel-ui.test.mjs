@@ -203,6 +203,19 @@ test("empty creation canvas follows the active contract work frame", () => {
     /buildThoughtV2Svg/,
     "the active V2 contract preview must not be reconstructed by the frontend",
   );
+  assert.doesNotMatch(
+    thoughtMain,
+    /const createFrontendPreviewProvider =/,
+    "the current App must not expose an unpinned frontend renderer fallback",
+  );
+  const providerSelectionStart = thoughtMain.indexOf("const selectThoughtPreviewProvider =");
+  const providerSelectionEnd = thoughtMain.indexOf(
+    "const prunePreviewRateEvents =",
+    providerSelectionStart,
+  );
+  const providerSelectionBody = thoughtMain.slice(providerSelectionStart, providerSelectionEnd);
+  assert.match(providerSelectionBody, /pinned THOUGHT renderer release mismatch; preview stopped\./);
+  assert.doesNotMatch(providerSelectionBody, /frontend-renderer|createFrontendPreviewProvider/);
   const rpcStart = thoughtMain.indexOf("const resolveThoughtRpcUrl =");
   const rpcEnd = thoughtMain.indexOf("const THOUGHT_RPC_URL =", rpcStart);
   const rpcBody = thoughtMain.slice(rpcStart, rpcEnd);

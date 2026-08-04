@@ -23,7 +23,17 @@ import {
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const rpcUrl = process.env.RPC_URL ?? "http://127.0.0.1:8546";
 const treasury = process.env.PATH_TREASURY ?? "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC";
-const pathArtifactRoot = process.env.PATH_EVM_DIR ?? path.resolve(root, "../path/evm");
+const pathReleaseTag = "v0.4.2";
+const pathReleaseManifestSha256 = "41cd0bc56398fe6823a3bd40a7497851b8ec132a8002a4f0a15bc5b284a29393";
+const pathArtifactRoot = path.join(
+  root,
+  "packages/contracts/src/path-release/releases",
+  pathReleaseTag,
+);
+const pathReleaseLockFile = path.join(
+  root,
+  "packages/contracts/src/path-release/consumer-lock.json",
+);
 const artifactId = "thought-v2-canonical-portable-release-20260801-r1";
 const previewRoot = path.join(
   root,
@@ -40,7 +50,21 @@ const provenanceSchemaFile = path.join(
   "thought.provenance.v2.schema.json",
 );
 const addressesFile = path.join(root, "apps/thought/evm/addresses.anvil.json");
+const pathDevnetAddressesFile = path.join(
+  root,
+  "packages/contracts/src/addresses/addresses.devnet.json",
+);
+const pathDevnetReleaseFile = path.join(
+  root,
+  "packages/contracts/src/releases/release.devnet.json",
+);
 const lockFile = path.join(root, "apps/thought/contract-release/consumer-lock.json");
+const appIntegrationRoot = path.join(
+  root,
+  "apps/thought/contract-integration/current",
+);
+const appIntegrationLockFile = path.join(appIntegrationRoot, "integration-lock.json");
+const appRuntimeManifestFile = path.join(appIntegrationRoot, "runtime-manifest.json");
 const movement = encodeBytes32String("THOUGHT");
 const auctionOpenDelaySeconds = Number.parseInt(
   process.env.PATH_AUCTION_OPEN_DELAY_SECONDS ?? "30",
@@ -68,7 +92,7 @@ const deploy = async (signer, file, args = []) => {
   return contract;
 };
 
-const pathArtifact = (contract) => path.join(pathArtifactRoot, "artifacts/src", `${contract}.sol`, `${contract}.json`);
+const pathArtifact = (contract) => path.join(pathArtifactRoot, "hardhat", `${contract}.json`);
 const thoughtArtifact = (contract) => path.join(compiledRoot, `${contract}.json`);
 
 const normalizeCanonicalJson = (value) => {
@@ -111,7 +135,42 @@ const previewFileKeccak = async (relativePath) =>
 
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
+const deploymentRecord = async (contract, label) => {
+  const transaction = contract.deploymentTransaction();
+  if (!transaction) throw new Error(`${label} deployment transaction unavailable`);
+  const receipt = await transaction.wait();
+  if (!receipt) throw new Error(`${label} deployment receipt unavailable`);
+  return { blockNumber: receipt.blockNumber, transactionHash: transaction.hash };
+};
+
+const runtimeCodeHash = async (provider, address, label) => {
+  const code = await provider.getCode(address);
+  if (code === "0x") throw new Error(`${label} runtime code unavailable`);
+  return keccak256(code);
+};
+
 async function main() {
+  const pathReleaseLock = JSON.parse(await fs.readFile(pathReleaseLockFile, "utf8"));
+  const pathReleaseManifestBytes = await fs.readFile(
+    path.join(pathArtifactRoot, "manifest.json"),
+  );
+  if (
+    pathReleaseLock.schema !== "inshell.path.contract-release-consumer-lock.v1" ||
+    pathReleaseLock.releaseTag !== pathReleaseTag ||
+    pathReleaseLock.manifestSha256 !== pathReleaseManifestSha256 ||
+    pathReleaseLock.deploymentAddressesIncluded !== false ||
+    sha256(pathReleaseManifestBytes) !== pathReleaseManifestSha256
+  ) {
+    throw new Error("pinned PATH contract release lock mismatch");
+  }
+  for (const [relativePath, expectedSha256] of Object.entries(
+    pathReleaseLock.checksums ?? {},
+  )) {
+    const bytes = await fs.readFile(path.join(pathArtifactRoot, relativePath));
+    if (sha256(bytes) !== expectedSha256) {
+      throw new Error(`pinned PATH contract artifact mismatch: ${relativePath}`);
+    }
+  }
   const provider = new JsonRpcProvider(rpcUrl);
   const network = await provider.getNetwork();
   if (network.chainId !== 31_337n) throw new Error(`local acceptance deploy requires Anvil chain 31337, got ${network.chainId}`);
@@ -132,6 +191,19 @@ async function main() {
     vendorLock.deploymentAuthorized !== false
   ) {
     throw new Error("canonical portable Contract release lock mismatch");
+  }
+  const appIntegrationLock = JSON.parse(
+    await fs.readFile(appIntegrationLockFile, "utf8"),
+  );
+  if (
+    appIntegrationLock.schema !== "inshell.thought.app-contract-integration-lock.v2" ||
+    appIntegrationLock.id !== artifactId ||
+    appIntegrationLock.artifactGraph?.closed !== true ||
+    appIntegrationLock.artifactGraph?.consumer?.previewRenderer !== "pinned-contract-only" ||
+    appIntegrationLock.artifactGraph?.consumer?.legacyFrontendRendererAllowed !== false ||
+    appIntegrationLock.artifactGraph?.release?.manifestSha256 !== vendorLock.manifestSha256
+  ) {
+    throw new Error("closed App Contract artifact graph mismatch");
   }
   const creativeSpecLock = JSON.parse(await fs.readFile(creativeSpecLockFile, "utf8"));
   if (
@@ -339,7 +411,21 @@ async function main() {
     status: "registered-disposable-anvil",
   };
   const manifestJson = canonicalJsonStringify(manifest);
+  const pinnedRuntimeManifestBytes = await fs.readFile(appRuntimeManifestFile);
+  const pinnedRuntimeManifest = JSON.parse(pinnedRuntimeManifestBytes.toString("utf8"));
+  if (
+    sha256(pinnedRuntimeManifestBytes) !==
+      appIntegrationLock.runtimeBaseline.protocolRelease.manifestSha256 ||
+    canonicalJsonStringify(pinnedRuntimeManifest) !== manifestJson
+  ) {
+    throw new Error("deployment manifest drifted from the closed App artifact graph");
+  }
   const manifestHash = keccak256(toUtf8Bytes(manifestJson));
+  if (
+    manifestHash !== appIntegrationLock.runtimeBaseline.protocolRelease.manifestHash
+  ) {
+    throw new Error("deployment manifest hash drifted from the App integration lock");
+  }
   const manifestURI = `dev://thought/v2/anvil/${manifestHash}`;
   const protocolReleaseId = await protocolRegistry.registerRelease.staticCall(manifestHash, manifestURI);
   await (await protocolRegistry.registerRelease(manifestHash, manifestURI)).wait();
@@ -358,10 +444,92 @@ async function main() {
   await (await pathNft.setMovementConfig(movement, thoughtNftAddress, 1)).wait();
   await (await pathNft.freezeMovementConfig(movement)).wait();
 
+  const [pathNftDeployment, adapterDeployment, auctionDeployment] =
+    await Promise.all([
+      deploymentRecord(pathNft, "PathNFT"),
+      deploymentRecord(adapter, "PathPulseAdapter"),
+      deploymentRecord(auction, "PulseAuction"),
+    ]);
+  const [pathNftCodeHash, adapterCodeHash, auctionCodeHash] = await Promise.all([
+    runtimeCodeHash(provider, pathNftAddress, "PathNFT"),
+    runtimeCodeHash(provider, adapterAddress, "PathPulseAdapter"),
+    runtimeCodeHash(provider, auctionAddress, "PulseAuction"),
+  ]);
+  const generatedAt = new Date().toISOString();
+  const pathAddresses = {
+    path_nft: pathNftAddress,
+    path_pulse_adapter: adapterAddress,
+    pulse_auction: auctionAddress,
+    treasury,
+    payment_token: ZeroAddress,
+  };
+  const pathRelease = {
+    schema_version: 2,
+    protocol: "path",
+    network: "devnet",
+    chain_id: Number(network.chainId),
+    repo_commit: pathReleaseLock.contractSourceCommit,
+    deploy_run_id: `anvil-${pathReleaseTag}-${generatedAt.replace(/[-:.]/g, "")}`,
+    release_tier: "temporary",
+    deployer: deployerAddress,
+    admin: deployerAddress,
+    treasury,
+    payment_token: ZeroAddress,
+    contracts: {
+      path_nft: pathNftAddress,
+      path_pulse_adapter: adapterAddress,
+      pulse_auction: auctionAddress,
+    },
+    deploy_txs: {
+      path_nft: pathNftDeployment.transactionHash,
+      path_pulse_adapter: adapterDeployment.transactionHash,
+      pulse_auction: auctionDeployment.transactionHash,
+    },
+    deploy_blocks: {
+      path_nft: pathNftDeployment.blockNumber,
+      path_pulse_adapter: adapterDeployment.blockNumber,
+      pulse_auction: auctionDeployment.blockNumber,
+    },
+    code_hashes: {
+      path_nft: pathNftCodeHash,
+      path_pulse_adapter: adapterCodeHash,
+      pulse_auction: auctionCodeHash,
+    },
+    config: {
+      name: "PATH",
+      symbol: "PATH",
+      base_uri: "",
+      open_time: Number(openTime),
+      open_time_iso: new Date(Number(openTime) * 1000).toISOString(),
+      start_delay_sec: auctionOpenDelaySeconds,
+      k: "600000000000000000",
+      genesis_price: "10000000000000000",
+      genesis_floor: "9000000000000000",
+      pts: "100000000000000",
+      token_base: 1,
+      epoch_base: 1,
+      reserved_cap: "99",
+      spark_claim_duration_sec: "604800",
+    },
+    status: {
+      postconditions: "pass",
+      audit: "none",
+      audit_id: null,
+      ready_for_fe: true,
+      notes: `persistent Anvil deployment from pinned PATH ${pathReleaseTag} artifacts`,
+    },
+    source_artifacts: {
+      release_tag: pathReleaseTag,
+      manifest_sha256: pathReleaseManifestSha256,
+      bundle_relpath: `packages/contracts/src/path-release/releases/${pathReleaseTag}`,
+    },
+    generated_at: generatedAt,
+  };
+
   const runtime = {
     schema: "inshell.thought.v2.anvil-gallery-runtime.v1",
     status: "ready",
-    generatedAt: new Date().toISOString(),
+    generatedAt,
     artifact: {
       artifactId,
       classification: vendorLock.classification,
@@ -503,7 +671,19 @@ async function main() {
       ref: specRef,
     },
   };
-  await fs.writeFile(addressesFile, `${JSON.stringify(runtime, null, 2)}\n`, "utf8");
+  await Promise.all([
+    fs.writeFile(addressesFile, `${JSON.stringify(runtime, null, 2)}\n`, "utf8"),
+    fs.writeFile(
+      pathDevnetAddressesFile,
+      `${JSON.stringify(pathAddresses, null, 2)}\n`,
+      "utf8",
+    ),
+    fs.writeFile(
+      pathDevnetReleaseFile,
+      `${JSON.stringify(pathRelease, null, 2)}\n`,
+      "utf8",
+    ),
+  ]);
   console.log(JSON.stringify(runtime, null, 2));
 }
 

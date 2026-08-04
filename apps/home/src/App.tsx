@@ -5,6 +5,7 @@ import EcosystemHome from "@/components/EcosystemHome";
 import PulsePage from "@/components/PulsePage";
 import ColorFontPage from "@/components/ColorFontPage";
 import PathPage from "@/components/PathPage";
+import PathMarketplaceLabPage from "@/components/PathMarketplaceLabPage";
 import DocsPage from "@/components/DocsPage";
 import VerifyPage from "@/components/VerifyPage";
 import ThoughtDetailPage from "@/components/ThoughtDetailPage";
@@ -42,6 +43,10 @@ function getPrimitiveRoute(locationKey: string) {
   if (pathname === "/pulse") return "pulse";
   if (pathname === "/docs") return "docs";
   if (pathname === "/color-font") return "color-font";
+  if (
+    pathname === "/lab/path-marketplace" ||
+    getPathMarketplaceRouteTokenId(locationKey)
+  ) return "path-marketplace-lab";
   if (pathname === "/path" || parseTokenRouteId(pathname, "path")) return "path";
   if (pathname === "/gallery") return "gallery";
   if (pathname === "/will") return "will";
@@ -61,7 +66,12 @@ function isPathAppHost() {
 }
 
 function activeSurfaceForRoute(route: string | null): InshellSurface {
-  if (route === "path-app" || route === "path" || route === "pulse") return "path";
+  if (
+    route === "path-app" ||
+    route === "path" ||
+    route === "pulse" ||
+    route === "path-marketplace-lab"
+  ) return "path";
   if (route === "gallery" || route === "thought") return "works";
   return "home";
 }
@@ -74,6 +84,14 @@ function getPathRouteTokenId(locationKey: string) {
 function getThoughtRouteTokenId(locationKey: string) {
   const pathname = pathnameFromLocationKey(locationKey);
   return parseTokenRouteId(pathname, "thought");
+}
+
+function getPathMarketplaceRouteTokenId(locationKey: string) {
+  const pathname = pathnameFromLocationKey(locationKey);
+  const match = /^\/lab\/path-marketplace\/([1-9]\d{0,8})$/.exec(pathname);
+  if (!match) return null;
+  const id = Number(match[1]);
+  return Number.isSafeInteger(id) ? match[1] : null;
 }
 
 function setFavicon(href: string) {
@@ -97,12 +115,15 @@ export default function App() {
   const pathAppHost = isPathAppHost();
   const pathTokenId = getPathRouteTokenId(locationKey);
   const thoughtTokenId = getThoughtRouteTokenId(locationKey);
+  const pathMarketplaceTokenId = getPathMarketplaceRouteTokenId(locationKey);
   const shouldRenderPathApp =
     primitiveRoute === "path-app" ||
     primitiveRoute === "path" ||
     (pathAppHost && !primitiveRoute);
+  const isPathContext =
+    shouldRenderPathApp || primitiveRoute === "path-marketplace-lab";
   const activeSurface = shouldRenderPathApp ? "path" : activeSurfaceForRoute(primitiveRoute);
-  const pathExpectedChainId = shouldRenderPathApp
+  const pathExpectedChainId = isPathContext
     ? getProtocolReleaseChainId()
     : undefined;
   const pathWalletNote =
@@ -153,6 +174,13 @@ export default function App() {
       setFavicon("/inshell.svg");
       return;
     }
+    if (primitiveRoute === "path-marketplace-lab") {
+      document.title = pathMarketplaceTokenId
+        ? `$PATH #${pathMarketplaceTokenId} marketplace lab`
+        : "$PATH marketplace lab";
+      setFavicon("/inshell.svg");
+      return;
+    }
     if (primitiveRoute === "gallery") {
       document.title = "THOUGHT Gallery";
       setFavicon("/inshell.svg");
@@ -175,7 +203,7 @@ export default function App() {
     }
     document.title = SURFACE_TERMINOLOGY.ecosystem;
     setFavicon("/inshell.svg");
-  }, [pathTokenId, primitiveRoute, shouldRenderPathApp, thoughtTokenId]);
+  }, [pathMarketplaceTokenId, pathTokenId, primitiveRoute, shouldRenderPathApp, thoughtTokenId]);
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -216,18 +244,20 @@ export default function App() {
             active={activeSurface}
             expectedChainId={pathExpectedChainId}
             disconnectedWalletNote={
-              shouldRenderPathApp ? pathWalletNote : undefined
+              isPathContext ? pathWalletNote : undefined
             }
             onWalletRefresh={
-              shouldRenderPathApp ? refreshPathInventory : undefined
+              isPathContext ? refreshPathInventory : undefined
             }
           />
           {shouldRenderPathApp ? (
-            <div className="content content--path-app">
-              <AuctionCanvas
-                address={pulseAuction}
-                onPathMinted={refreshPathInventory}
-              />
+            <div className={`content content--path-app${pathTokenId ? " content--path-detail" : ""}`}>
+              {!pathTokenId ? (
+                <AuctionCanvas
+                  address={pulseAuction}
+                  onPathMinted={refreshPathInventory}
+                />
+              ) : null}
               <PathPage
                 tokenId={pathTokenId}
                 refreshSignal={pathInventoryRefreshSignal}
@@ -239,6 +269,11 @@ export default function App() {
             <DocsPage />
           ) : primitiveRoute === "color-font" ? (
             <ColorFontPage />
+          ) : primitiveRoute === "path-marketplace-lab" ? (
+            <PathMarketplaceLabPage
+              refreshSignal={pathInventoryRefreshSignal}
+              tokenId={pathMarketplaceTokenId}
+            />
           ) : primitiveRoute === "gallery" ? (
             <ThoughtGalleryPage />
           ) : primitiveRoute === "will" ? (

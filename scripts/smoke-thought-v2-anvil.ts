@@ -116,8 +116,19 @@ const runSmoke = async () => {
     const latest = await provider.getBlock("latest");
     assert(latest, "latest Anvil block unavailable before $PATH acquisition");
     if (latest.timestamp < localAddresses.pathAuction.openTime) {
-      await provider.send("evm_setNextBlockTimestamp", [localAddresses.pathAuction.openTime]);
-      await provider.send("evm_mine", []);
+      try {
+        await provider.send("evm_setNextBlockTimestamp", [localAddresses.pathAuction.openTime]);
+        await provider.send("evm_mine", []);
+      } catch (error) {
+        // The persistent dev chain can be advanced by the running App between
+        // the latest-block read and this timestamp update. Treat that race as
+        // success only when a fresh uncached RPC read proves the auction is open.
+        const currentBlock = await provider.send("eth_getBlockByNumber", ["latest", false]) as {
+          timestamp?: string;
+        };
+        const currentTimestamp = Number.parseInt(currentBlock.timestamp ?? "0x0", 16);
+        if (currentTimestamp < localAddresses.pathAuction.openTime) throw error;
+      }
     }
     const auction = new Contract(localAddresses.pulseAuction.address, auctionAbi, signer);
     const price = await auction.getCurrentPrice() as bigint;

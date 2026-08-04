@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import {
+  getProtocolReleaseChainId,
   getProtocolReleaseDeployBlock,
+  getProtocolRelease,
   maybeResolveAddress,
 } from "@inshell/contracts";
 import {
@@ -14,6 +16,19 @@ import {
   readCachedThoughtGallery,
   type ThoughtGalleryItem,
 } from "@/services/thoughtGallery";
+import { PUBLIC_NETWORK_CONFIG } from "@inshell/shared";
+import {
+  PATH_MOVEMENT_QUOTA_LINES,
+  PATH_MOVEMENT_QUOTA_NOTE,
+  PATH_OVERVIEW,
+  PATH_OVERVIEW_LINES,
+} from "@/content/path";
+import { useAuctionBids } from "@/hooks/useAuctionBids";
+import {
+  findPathIssuance,
+  formatPathMintPrice,
+  type PathIssuance,
+} from "@/services/pathIssuance";
 
 type LoadState =
   | { status: "loading"; items: PathTokenInventoryItem[]; error: null }
@@ -351,6 +366,33 @@ function unitProgressByMovement(item: PathTokenInventoryItem) {
   }));
 }
 
+function pathNetworkLabel(chainId?: number): string {
+  if (chainId == null) return "—";
+  if (chainId === 31337 || chainId === 1337) return "Local Anvil";
+  if (chainId === 11155111) return "Sepolia";
+  return `chain ${chainId}`;
+}
+
+function pathAddressExplorerHref(
+  chainId: number | undefined,
+  address: string | undefined,
+): string | null {
+  if (!address || chainId !== PUBLIC_NETWORK_CONFIG.chainId) return null;
+  return `${PUBLIC_NETWORK_CONFIG.explorerBaseUrl}/address/${address}`;
+}
+
+function pathTransactionExplorerHref(
+  chainId: number | undefined,
+  transactionHash: string | undefined,
+): string | null {
+  if (chainId !== PUBLIC_NETWORK_CONFIG.chainId || !transactionHash) return null;
+  return `${PUBLIC_NETWORK_CONFIG.explorerUrl}/tx/${transactionHash}`;
+}
+
+function pathCurrencyLabel(chainId: number | undefined): string {
+  return chainId === 31337 || chainId === 1337 ? "local ETH" : "ETH";
+}
+
 function makePathProgressSvg(args: {
   thoughtMinted: number;
   thoughtQuota: number;
@@ -606,27 +648,21 @@ function ChainLoadingStatus({
 
 function PathTokenCard({
   item,
-  focused,
-  registerRef,
 }: {
   item: PathTokenInventoryItem;
-  focused: boolean;
-  registerRef?: (node: HTMLElement | null) => void;
 }) {
   const image = metadataImage(item);
   const metadataLabel = metadataName(item);
   const name = displayTokenName(item);
   const units = unitProgressByMovement(item);
-  const movementLinks = focused ? movementTokenLinks(item) : [];
   const shareHref = pathTokenHref(item.tokenIdLabel);
 
   return (
     <article
       id={`path-${item.tokenIdLabel}`}
-      ref={registerRef}
-      className={`path-page-token${focused ? " path-page-token--focused" : ""}`}
+      className="path-page-token"
       data-path-token-id={item.tokenIdLabel}
-      aria-label={focused ? `${name} focused card` : `${name} card`}
+      aria-label={`${name} card`}
     >
       <div className="path-page-token__media">
         {image ? (
@@ -667,23 +703,262 @@ function PathTokenCard({
             </div>
           ))}
         </dl>
-        {movementLinks.length > 0 ? (
-          <div className="path-page-token__stage path-page-token__authorized">
-            <span>authorized</span>
-            <strong>
-              {movementLinks.map((link, index) => (
-                <span key={`${link.movement}-${link.tokenId}`}>
-                  {index > 0 ? ", " : ""}
-                  <a className="path-detail__value-link" href={link.href}>
-                    {link.movement} #{link.tokenId} ↗
-                  </a>
-                </span>
-              ))}
-            </strong>
-          </div>
-        ) : null}
       </div>
     </article>
+  );
+}
+
+function PathDetailDisclosure({
+  id,
+  label,
+  summary,
+  lines,
+}: {
+  id: string;
+  label: string;
+  summary: string;
+  lines: readonly string[];
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="path-detail__disclosure">
+      <div className="path-detail__disclosure-row">
+        <p className="path-detail__disclosure-summary">{summary}</p>
+        <button
+          aria-controls={id}
+          aria-expanded={expanded}
+          aria-label={`${expanded ? "collapse" : "expand"} ${label}`}
+          className="path-detail__disclosure-toggle"
+          onClick={() => setExpanded((current) => !current)}
+          type="button"
+        >
+          [ {expanded ? "less" : "more"} ]
+        </button>
+      </div>
+      {expanded ? (
+        <p className="path-detail__disclosure-lines" id={id}>
+          {lines.map((line) => (
+            <span key={line}>{line}</span>
+          ))}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function PathTokenDetail({
+  item,
+  chainId,
+  contractAddress,
+  issuance,
+}: {
+  item: PathTokenInventoryItem;
+  chainId?: number;
+  contractAddress?: string;
+  issuance: PathIssuance | null;
+}) {
+  const image = metadataImage(item);
+  const name = displayTokenName(item);
+  const units = unitProgressByMovement(item);
+  const movementLinks = movementTokenLinks(item);
+  const nextMovement = units.find(
+    ({ progress }) =>
+      progress.used != null &&
+      progress.total != null &&
+      progress.used < progress.total
+  );
+  const remaining = nextMovement?.progress.total != null && nextMovement.progress.used != null
+    ? nextMovement.progress.total - nextMovement.progress.used
+    : 0;
+  const ownerExplorerHref = pathAddressExplorerHref(chainId, item.owner);
+  const contractExplorerHref = pathAddressExplorerHref(chainId, contractAddress);
+  const mintTransactionExplorerHref = pathTransactionExplorerHref(
+    chainId,
+    issuance?.transactionHash,
+  );
+  return (
+    <div className="path-detail">
+      <div className="path-detail__canvas-column">
+        {image ? (
+          <img
+            className="path-detail__image"
+            src={image}
+            alt={`${name} movement progress`}
+            title={metadataName(item)}
+          />
+        ) : (
+          <div className="path-detail__missing">image unavailable</div>
+        )}
+        <p className="path-detail__artwork-source">
+          canonical artwork · PathNFT tokenURI()
+        </p>
+      </div>
+
+      <div className="path-detail__rail" aria-label={`${name} lifecycle`}>
+        <section className="path-detail__section">
+          <h2>about</h2>
+          <PathDetailDisclosure
+            id="path-about"
+            label="about $PATH"
+            summary={PATH_OVERVIEW}
+            lines={PATH_OVERVIEW_LINES}
+          />
+        </section>
+
+        <section className="path-detail__section">
+          <h2>next movement</h2>
+          {nextMovement ? (
+            <div className="path-detail__capability">
+              <strong>
+                {nextMovement.movement} · {remaining} unit{remaining === 1 ? "" : "s"} remaining
+              </strong>
+              <p>
+                Each unit can authorize one {nextMovement.movement} work mint.
+              </p>
+              {nextMovement.movement === "THOUGHT" ? (
+                <a className="path-detail__cta" href="/thought">
+                  create a THOUGHT
+                </a>
+              ) : null}
+            </div>
+          ) : (
+            <p className="path-detail__text">All available movement units have been used.</p>
+          )}
+        </section>
+
+        <section className="path-detail__section">
+          <h2>movement quotas</h2>
+          <dl className="path-detail__fields">
+            <div>
+              <dt>stage</dt>
+              <dd>{stageValue(item)}</dd>
+            </div>
+            {units.map(({ movement, progress }) => (
+              <div key={`${item.tokenIdLabel}-${movement}`}>
+                <dt>{movement}</dt>
+                <dd>{progress.label}</dd>
+              </div>
+            ))}
+          </dl>
+          <PathDetailDisclosure
+            id="path-movement-quotas"
+            label="movement quota guide"
+            summary={PATH_MOVEMENT_QUOTA_NOTE}
+            lines={PATH_MOVEMENT_QUOTA_LINES}
+          />
+        </section>
+
+        {movementLinks.length > 0 ? (
+          <section className="path-detail__section">
+            <h2>movement tokens</h2>
+            <div className="path-detail__movement-links">
+              {movementLinks.map((link) => (
+                <a
+                  className="path-detail__value-link"
+                  href={link.href}
+                  key={`${link.movement}-${link.tokenId}`}
+                >
+                  {link.movement} #{link.tokenId} ↗
+                </a>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        <section className="path-detail__section">
+          <h2>token details</h2>
+          <dl className="path-detail__fields">
+            <div>
+              <dt>owner</dt>
+              <dd title={item.owner}>
+                {ownerExplorerHref ? (
+                  <a className="path-detail__value-link" href={ownerExplorerHref}>
+                    {shortAddress(item.owner)} ↗
+                  </a>
+                ) : (
+                  shortAddress(item.owner)
+                )}
+              </dd>
+            </div>
+            {issuance ? (
+              <>
+                <div>
+                  <dt>mint price</dt>
+                  <dd title={`${issuance.price.dec} wei`}>
+                    {formatPathMintPrice(issuance.price)} {pathCurrencyLabel(chainId)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>initial minter</dt>
+                  <dd title={issuance.initialMinter}>
+                    {shortAddress(issuance.initialMinter)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>mint block</dt>
+                  <dd>{issuance.blockNumber ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt>mint transaction</dt>
+                  <dd title={issuance.transactionHash}>
+                    {mintTransactionExplorerHref ? (
+                      <a
+                        className="path-detail__value-link"
+                        href={mintTransactionExplorerHref}
+                      >
+                        {shortAddress(issuance.transactionHash)} ↗
+                      </a>
+                    ) : (
+                      shortAddress(issuance.transactionHash)
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt>minted via</dt>
+                  <dd>
+                    <a className="path-detail__value-link" href="/pulse">
+                      Pulse ↗
+                    </a>
+                  </dd>
+                </div>
+              </>
+            ) : null}
+            <div>
+              <dt>contract</dt>
+              <dd title={contractAddress}>
+                {contractExplorerHref ? (
+                  <a className="path-detail__value-link" href={contractExplorerHref}>
+                    {shortAddress(contractAddress)} ↗
+                  </a>
+                ) : (
+                  shortAddress(contractAddress)
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>token ID</dt>
+              <dd>{item.tokenIdLabel}</dd>
+            </div>
+            <div>
+              <dt>network</dt>
+              <dd>{pathNetworkLabel(chainId)}</dd>
+            </div>
+            <div>
+              <dt>chain ID</dt>
+              <dd>{chainId ?? "—"}</dd>
+            </div>
+            <div>
+              <dt>standard</dt>
+              <dd>ERC-721</dd>
+            </div>
+            <div>
+              <dt>metadata</dt>
+              <dd>tokenURI()</dd>
+            </div>
+          </dl>
+        </section>
+      </div>
+    </div>
   );
 }
 
@@ -695,6 +970,18 @@ export default function PathPage({
   const fixtureItems = useMemo(() => pathFixtureItems(fixture), [fixture]);
   const pathNftAddress = useMemo(() => maybeResolveAddress("path_nft"), []);
   const fromBlock = useMemo(() => getProtocolReleaseDeployBlock("path_nft"), []);
+  const chainId = useMemo(() => getProtocolReleaseChainId(), []);
+  const release = useMemo(() => getProtocolRelease(), []);
+  const pulseAuctionAddress = useMemo(() => maybeResolveAddress("pulse_auction"), []);
+  const pulseAuctionFromBlock = useMemo(
+    () => getProtocolReleaseDeployBlock("pulse_auction"),
+    [],
+  );
+  const saleHistory = useAuctionBids({
+    address: pulseAuctionAddress ?? "0x0000000000000000000000000000000000000000",
+    fromBlock: pulseAuctionFromBlock,
+    enabled: Boolean(tokenId && pulseAuctionAddress),
+  });
   const [retryNonce, setRetryNonce] = useState(0);
   const [state, setState] = useState<LoadState>({
     status: "loading",
@@ -702,7 +989,6 @@ export default function PathPage({
     error: null,
   });
   const [loadingDetailIndex, setLoadingDetailIndex] = useState(0);
-  const tokenRefs = useRef<Record<string, HTMLElement | null>>({});
 
   useEffect(() => {
     if (state.status !== "loading") {
@@ -801,35 +1087,81 @@ export default function PathPage({
     };
   }, [fixtureItems, fromBlock, pathNftAddress, refreshSignal, retryNonce]);
 
-  const focusedItem = tokenId
+  const selectedItem = tokenId
     ? state.items.find((item) => item.tokenIdLabel === tokenId)
     : null;
-  const visibleItems = tokenId ? (focusedItem ? [focusedItem] : []) : state.items;
+  const issuance = selectedItem
+    ? findPathIssuance({
+        tokenId: selectedItem.tokenId,
+        sales: saleHistory.bids,
+        tokenBase: release?.config?.token_base,
+        epochBase: release?.config?.epoch_base,
+      })
+    : null;
 
-  useEffect(() => {
-    if (!tokenId || state.status !== "ready") return;
-    const target = tokenRefs.current[tokenId];
-    target?.scrollIntoView?.({ block: "center", behavior: "smooth" });
-  }, [state.status, tokenId]);
+  if (tokenId) {
+    return (
+      <main
+        className="path-detail-page"
+        aria-labelledby="path-detail-title"
+      >
+        <header className="path-detail__header">
+          <h1 id="path-detail-title" className="path-detail__title">
+            $PATH #{tokenId}
+          </h1>
+          <nav className="path-detail__links" aria-label="$PATH detail links">
+            <a
+              className="path-detail__link"
+              href="/path"
+              onClick={handlePathRouteAnchorClick}
+            >
+              [ all $PATH ]
+            </a>
+          </nav>
+        </header>
+
+        {state.status === "error" ? (
+          <div className="path-detail__status path-detail__status--error">
+            <span title={state.error}>$PATH record unavailable.</span>
+            <button
+              type="button"
+              className="path-page__retry"
+              onClick={() => setRetryNonce((value) => value + 1)}
+            >
+              retry
+            </button>
+          </div>
+        ) : state.status === "loading" ? (
+          <p className="path-detail__status">
+            <ChainLoadingStatus status={PATH_LOADING_DETAILS[loadingDetailIndex]} />
+          </p>
+        ) : selectedItem ? (
+          <PathTokenDetail
+            item={selectedItem}
+            chainId={chainId}
+            contractAddress={pathNftAddress}
+            issuance={issuance}
+          />
+        ) : (
+          <div className="path-detail__status path-detail__status--not-found">
+            <span>$PATH #{tokenId} not found.</span>
+            <a href="/path" onClick={handlePathRouteAnchorClick}>view all $PATH</a>
+          </div>
+        )}
+      </main>
+    );
+  }
 
   return (
     <main className="primitive-page path-page">
       <section
         className="path-page__body"
-        aria-label={tokenId ? `$PATH #${tokenId}` : "All $PATH tokens"}
+        aria-label="All $PATH tokens"
       >
         <div className="path-page__toolbar">
-          {tokenId ? (
-            <nav className="primitive-page__links path-page__focus-nav" aria-label="$PATH location">
-              <a href="/path" onClick={handlePathRouteAnchorClick}>all $PATH</a>
-              <span aria-hidden="true">/</span>
-              <span>$PATH #{tokenId}</span>
-            </nav>
-          ) : (
-            <div className="path-page__section-title">
-              all $PATH{state.status === "ready" ? ` · ${state.items.length}` : ""}
-            </div>
-          )}
+          <div className="path-page__section-title">
+            all $PATH{state.status === "ready" ? ` · ${state.items.length}` : ""}
+          </div>
           {state.status === "loading" ? (
             <div className="path-page__sub">
               <ChainLoadingStatus
@@ -852,25 +1184,14 @@ export default function PathPage({
           </div>
         )}
 
-        {tokenId && state.status === "ready" && !focusedItem ? (
-          <div className="path-page__notice path-page__notice--not-found">
-            <span>$PATH #{tokenId} not found.</span>
-            <a href="/path" onClick={handlePathRouteAnchorClick}>view all $PATH</a>
-          </div>
-        ) : null}
-
-        {!tokenId && state.status === "ready" && state.items.length === 0 ? (
+        {state.status === "ready" && state.items.length === 0 ? (
           <div className="path-page__notice">no $PATH minted yet.</div>
-        ) : visibleItems.length > 0 ? (
-          <div className={`path-page__grid${tokenId ? " path-page__grid--focused" : ""}`}>
-            {visibleItems.map((item) => (
+        ) : state.items.length > 0 ? (
+          <div className="path-page__grid">
+            {state.items.map((item) => (
               <PathTokenCard
                 key={item.tokenIdLabel}
                 item={item}
-                focused={item.tokenIdLabel === tokenId}
-                registerRef={(node) => {
-                  tokenRefs.current[item.tokenIdLabel] = node;
-                }}
               />
             ))}
           </div>

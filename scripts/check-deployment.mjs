@@ -37,6 +37,10 @@ function readReport() {
 }
 
 run("Validate production surface", "pnpm", ["tsx", "scripts/validate-production-surface.ts"]);
+run("Validate pinned PATH contract release", "node", [
+  "scripts/sync-path-contract-release.mjs",
+  "--check",
+]);
 run("Validate imported PATH/THOUGHT artifacts", "pnpm", [
   "tsx",
   "scripts/validate-path-artifacts.ts",

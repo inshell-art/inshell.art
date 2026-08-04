@@ -387,6 +387,127 @@ describe("App Component", () => {
     expect(screen.queryByRole("navigation", { name: "Inshell surfaces" })).toBeNull();
   });
 
+  test("renders the isolated live $PATH marketplace collection lab", async () => {
+    mockPathAndThoughtApis({
+      pathItems: [
+        pathTokenApiItem({
+          tokenId: "1",
+          owner: "0x170a00000000000000000000000000000000e100",
+          metadata: {
+            name: "$PATH #1",
+            image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E",
+            attributes: [
+              { trait_type: "Stage", value: "THOUGHT" },
+              { trait_type: "THOUGHT", value: "Minted(0/1)" },
+              { trait_type: "WILL", value: "Minted(0/1)" },
+              { trait_type: "AWA", value: "Minted(0/1)" },
+            ],
+          },
+        }),
+        pathTokenApiItem({
+          tokenId: "2",
+          owner: "0x170a00000000000000000000000000000000e100",
+          metadata: {
+            name: "$PATH #2",
+            image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E",
+            attributes: [
+              { trait_type: "Stage", value: "WILL" },
+              { trait_type: "THOUGHT", value: "Minted(1/1)" },
+              { trait_type: "WILL", value: "Minted(0/1)" },
+              { trait_type: "AWA", value: "Minted(0/1)" },
+            ],
+          },
+        }),
+      ],
+      thoughtItems: [],
+    });
+    window.history.pushState({}, "", "/lab/path-marketplace");
+    render(<App />);
+    await flushAsyncEffects();
+
+    expect(document.title).toBe("$PATH marketplace lab");
+    expect(screen.getByRole("heading", { level: 1, name: "$PATH" })).toBeInTheDocument();
+    expect(screen.getByText("marketplace collection study · Local Anvil")).toBeInTheDocument();
+    expect(screen.getByLabelText("$PATH #1 marketplace card")).toBeInTheDocument();
+    expect(screen.getByLabelText("$PATH #2 marketplace card")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View $PATH #2" })).toHaveAttribute(
+      "href",
+      "/lab/path-marketplace/2",
+    );
+    expect(screen.getByText("2 items")).toBeInTheDocument();
+    expect(screen.getByText("1 / 6")).toBeInTheDocument();
+    expect(screen.queryByTestId("auction-canvas")).toBeNull();
+
+    fireEvent.change(screen.getByLabelText("Search $PATH tokens"), {
+      target: { value: "#2" },
+    });
+    expect(screen.queryByLabelText("$PATH #1 marketplace card")).toBeNull();
+    expect(screen.getByLabelText("$PATH #2 marketplace card")).toBeInTheDocument();
+    expect(screen.getByText("1 item")).toBeInTheDocument();
+  });
+
+  test("renders a truthful live $PATH marketplace detail study", async () => {
+    mockPathAndThoughtApis({
+      pathItems: [
+        pathTokenApiItem({
+          tokenId: "2",
+          owner: "0x170a00000000000000000000000000000000e100",
+          metadata: {
+            name: "$PATH #2",
+            description: "$PATH authorizes movement mints in sequence.",
+            image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E",
+            attributes: [
+              { trait_type: "Stage", value: "THOUGHT" },
+              { trait_type: "THOUGHT", value: "Minted(0/1)" },
+              { trait_type: "WILL", value: "Minted(0/1)" },
+              { trait_type: "AWA", value: "Minted(0/1)" },
+            ],
+          },
+        }),
+      ],
+      thoughtItems: [],
+    });
+    window.history.pushState({}, "", "/lab/path-marketplace/2");
+    render(<App />);
+    await flushAsyncEffects();
+
+    expect(document.title).toBe("$PATH #2 marketplace lab");
+    expect(
+      screen.getByRole("heading", { level: 1, name: "$PATH #2" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("THOUGHT · 1 unit remaining")).toBeInTheDocument();
+    expect(
+      screen.getByText("Each unit can authorize one THOUGHT work mint."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "create a THOUGHT" })).toHaveAttribute(
+      "href",
+      "/thought",
+    );
+    expect(
+      screen.getByRole("heading", { name: "about" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("THOUGHT. WILL. AWA. One after another.")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "description" })).toBeNull();
+    expect(
+      screen.queryByText("$PATH authorizes movement mints in sequence."),
+    ).toBeNull();
+    expect(screen.getByText("One quota. Many units. One unit per work mint.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Pulse ↗" })).toHaveAttribute(
+      "href",
+      "/pulse",
+    );
+    expect(screen.getByText("not listed")).toBeInTheDocument();
+    expect(screen.getByText("No marketplace activity is indexed in this local study.")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "view canonical $PATH ↗" }),
+    ).toHaveAttribute("href", "/path/2");
+    expect(screen.getByRole("link", { name: "← $PATH collection" })).toHaveAttribute(
+      "href",
+      "/lab/path-marketplace",
+    );
+    expect(screen.queryByTestId("auction-canvas")).toBeNull();
+  });
+
   test("renders the WILL surface on the same-origin /will route", () => {
     window.history.pushState({}, "", "/will");
     render(<App />);
@@ -997,7 +1118,7 @@ describe("App Component", () => {
     expect(lifecycle.queryByRole("link", { name: "THOUGHT #10 ↗" })).toBeNull();
   });
 
-  test("links authorized movement tokens from a focused live PATH", async () => {
+  test("links confirmed movement tokens from a PATH detail page", async () => {
     mockPathAndThoughtApis({
       pathItems: [pathTokenApiItem()],
       thoughtItems: [
@@ -1011,7 +1132,7 @@ describe("App Component", () => {
     render(<App />);
 
     const lifecycle = within(await screen.findByLabelText("$PATH #1 lifecycle"));
-    expect(lifecycle.getByText("authorized")).toBeInTheDocument();
+    expect(lifecycle.getByRole("heading", { name: "movement tokens" })).toBeInTheDocument();
     expect(lifecycle.getByRole("link", { name: "THOUGHT #10 ↗" })).toHaveAttribute(
       "href",
       "/thought/10",
@@ -1059,61 +1180,99 @@ describe("App Component", () => {
     expect(screen.getByTestId("auction-canvas")).toBeInTheDocument();
   });
 
-  test("renders a focused PATH token card route", () => {
+  test("renders a native PATH detail route", () => {
+    mockUseAuctionBids.mockReturnValue({
+      bids: [
+        {
+          key: "tx:path-4",
+          atMs: 1_778_888_000_000,
+          bidder: "0x2222333344445555666677778888999900001111",
+          amount: u256(9_041_000_000_000_000n),
+          txHash:
+            "0x4444444444444444444444444444444444444444444444444444444444444444",
+          blockNumber: 412,
+          epochIndex: 4,
+          tokenId: 4,
+        },
+      ],
+      loading: false,
+      error: null,
+      ready: true,
+      pullOnce: jest.fn(),
+    });
     window.history.pushState({}, "", "/path/4?fixture=states");
     render(<App />);
 
     expect(document.title).toBe("$PATH #4");
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
-    expect(screen.getByTestId("auction-canvas")).toBeInTheDocument();
-    expect(document.querySelector(".path-page__header")).toBeNull();
-    expect(screen.getByRole("link", { name: "all $PATH" })).toHaveAttribute("href", "/path");
+    expect(screen.queryByTestId("auction-canvas")).toBeNull();
+    expect(screen.getByRole("heading", { level: 1, name: "$PATH #4" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "[ all $PATH ]" })).toHaveAttribute("href", "/path");
     expect(screen.queryByText("$PATH #1")).toBeNull();
     expect(screen.queryByText("$PATH #8")).toBeNull();
-    expect(screen.queryByText("PATH token detail.")).toBeNull();
-    expect(screen.queryByText("token detail")).toBeNull();
-    expect(screen.queryByText("loaded")).toBeNull();
-    expect(screen.queryByRole("button", { name: "refresh" })).toBeNull();
-    const focusedCard = screen.getByLabelText("$PATH #4 focused card");
-    expect(focusedCard).toBeInTheDocument();
-    expect(focusedCard).toHaveAttribute("id", "path-4");
-    expect(focusedCard).toHaveClass("path-page-token--focused");
+    expect(document.querySelector(".path-page-token--focused")).toBeNull();
     expect(screen.getByRole("img", { name: "$PATH #4 movement progress" })).toHaveAttribute(
       "src",
       expect.stringContaining("will-fill"),
     );
     const lifecycle = within(screen.getByLabelText("$PATH #4 lifecycle"));
-    expect(lifecycle.queryByText(/This \$PATH/)).toBeNull();
-    expect(lifecycle.getByText("units")).toBeInTheDocument();
-    expect(lifecycle.getByText(/owner\s+0x1111\.\.\.0000/)).toBeInTheDocument();
+    expect(
+      lifecycle.getByRole("heading", { name: "about" }),
+    ).toBeInTheDocument();
+    expect(lifecycle.getByText("THOUGHT. WILL. AWA. One after another.")).toBeInTheDocument();
+    expect(lifecycle.queryByText("Three movements.")).toBeNull();
+    fireEvent.click(lifecycle.getByRole("button", { name: "expand about $PATH" }));
+    expect(lifecycle.getByText("Three movements.")).toBeInTheDocument();
+    expect(lifecycle.getByText("Each work mint moves $PATH forward.")).toBeInTheDocument();
+    expect(lifecycle.getByRole("heading", { name: "next movement" })).toBeInTheDocument();
+    expect(lifecycle.getByText("WILL · 9 units remaining")).toBeInTheDocument();
+    expect(lifecycle.getByText("Each unit can authorize one WILL work mint.")).toBeInTheDocument();
+    expect(lifecycle.getByRole("heading", { name: "movement quotas" })).toBeInTheDocument();
+    expect(lifecycle.getByText("One quota. Many units. One unit per work mint.")).toBeInTheDocument();
+    expect(lifecycle.queryByText("One movement holds one quota.")).toBeNull();
+    fireEvent.click(
+      lifecycle.getByRole("button", { name: "expand movement quota guide" }),
+    );
+    expect(lifecycle.getByText("One movement holds one quota.")).toBeInTheDocument();
+    expect(lifecycle.getByText("The final unit opens the next movement.")).toBeInTheDocument();
     expect(lifecycle.getByText("stage")).toBeInTheDocument();
     expect(lifecycle.getAllByText("WILL").length).toBeGreaterThanOrEqual(2);
     expect(lifecycle.getByText("3 / 3")).toBeInTheDocument();
     expect(lifecycle.getByText("1 / 10")).toBeInTheDocument();
-    expect(lifecycle.getByText("authorized")).toBeInTheDocument();
+    expect(lifecycle.getByRole("heading", { name: "movement tokens" })).toBeInTheDocument();
     expect(lifecycle.getByRole("link", { name: "THOUGHT #4 ↗" })).toHaveAttribute(
       "href",
       "/thought/4",
     );
-    expect(lifecycle.queryByText("from this $PATH")).toBeNull();
-    expect(lifecycle.queryByText("mint")).toBeNull();
-    expect(lifecycle.queryByText("pricing")).toBeNull();
-    expect(lifecycle.queryByText("share")).toBeNull();
-    expect(lifecycle.queryByText("start ask")).toBeNull();
-    expect(screen.getByRole("link", { name: "Open $PATH #4" })).toHaveAttribute(
-      "href",
-      "/path/4?fixture=states",
+    expect(lifecycle.getByRole("heading", { name: "token details" })).toBeInTheDocument();
+    expect(lifecycle.getByText("0.009041 local ETH")).toHaveAttribute(
+      "title",
+      "9041000000000000 wei",
     );
-    expect(lifecycle.queryByRole("link", { name: "View Pulse pricing ↗" })).toBeNull();
-    expect(lifecycle.queryByText("PATH burned")).toBeNull();
-    expect(lifecycle.queryByText("PATH destroyed")).toBeNull();
-    expect(lifecycle.queryByText("$PATH consumed")).toBeNull();
-    expect(lifecycle.queryByText("pump")).toBeNull();
-    expect(lifecycle.queryByText("drop")).toBeNull();
-    expect(screen.queryByRole("link", { name: "Back to all PATH tokens" })).toBeNull();
+    expect(lifecycle.getByText("0x2222...1111")).toHaveAttribute(
+      "title",
+      "0x2222333344445555666677778888999900001111",
+    );
+    expect(lifecycle.getByText("412")).toBeInTheDocument();
+    expect(lifecycle.getByText("0x4444...4444")).toHaveAttribute(
+      "title",
+      "0x4444444444444444444444444444444444444444444444444444444444444444",
+    );
+    expect(lifecycle.getByRole("link", { name: "Pulse ↗" })).toHaveAttribute(
+      "href",
+      "/pulse",
+    );
+    expect(lifecycle.queryByRole("heading", { name: "issuance" })).toBeNull();
+    expect(lifecycle.queryByRole("heading", { name: "on-chain record" })).toBeNull();
+    expect(lifecycle.getByText("0x1111...0000")).toHaveAttribute(
+      "title",
+      "0x1111222233334444555566667777888899990000",
+    );
+    expect(lifecycle.getByText("ERC-721")).toBeInTheDocument();
+    expect(screen.getByText("canonical artwork · PathNFT tokenURI()")).toBeInTheDocument();
   });
 
-  test("renders only a not-found state for a missing focused PATH", () => {
+  test("renders only a not-found state for a missing PATH detail", () => {
     window.history.pushState({}, "", "/path/9?fixture=will");
     render(<App />);
 
@@ -1152,15 +1311,9 @@ describe("App Component", () => {
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
   });
 
-  test("focuses PATH cards with in-page anchor navigation", async () => {
+  test("opens PATH detail routes from collection cards", async () => {
     window.history.pushState({}, "", "/path?fixture=states");
     const pushStateSpy = jest.spyOn(window.history, "pushState");
-    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
-    const scrollIntoView = jest.fn();
-    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
-      configurable: true,
-      value: scrollIntoView,
-    });
 
     try {
       render(<App />);
@@ -1172,20 +1325,10 @@ describe("App Component", () => {
       expect(pushStateSpy).toHaveBeenCalledWith({}, "", "/path/4?fixture=states");
       expect(window.location.pathname).toBe("/path/4");
       expect(document.title).toBe("$PATH #4");
-      expect(screen.getByLabelText("$PATH #4 focused card")).toHaveAttribute("id", "path-4");
-      expect(scrollIntoView).toHaveBeenCalledWith({
-        block: "center",
-        behavior: "smooth",
-      });
+      expect(screen.getByRole("heading", { level: 1, name: "$PATH #4" })).toBeInTheDocument();
+      expect(screen.queryByTestId("auction-canvas")).toBeNull();
+      expect(document.querySelector(".path-page-token--focused")).toBeNull();
     } finally {
-      if (originalScrollIntoView) {
-        Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
-          configurable: true,
-          value: originalScrollIntoView,
-        });
-      } else {
-        delete HTMLElement.prototype.scrollIntoView;
-      }
       pushStateSpy.mockRestore();
     }
   });
@@ -1243,14 +1386,20 @@ describe("App Component", () => {
     }
   });
 
-  test("renders a fresh focused PATH card without movement token links", () => {
+  test("renders a fresh PATH detail without movement token links", () => {
     window.history.pushState({}, "", "/path/1?fixture=states");
     render(<App />);
 
-    expect(screen.getByTestId("auction-canvas")).toBeInTheDocument();
+    expect(screen.queryByTestId("auction-canvas")).toBeNull();
     const lifecycle = within(screen.getByLabelText("$PATH #1 lifecycle"));
-    expect(lifecycle.queryByText(/This \$PATH/)).toBeNull();
-    expect(lifecycle.getByText(/owner\s+0x1111\.\.\.0000/)).toBeInTheDocument();
+    expect(lifecycle.getByText("THOUGHT · 3 units remaining")).toBeInTheDocument();
+    expect(lifecycle.getByText("Each unit can authorize one THOUGHT work mint.")).toBeInTheDocument();
+    expect(lifecycle.getByRole("link", { name: "create a THOUGHT" })).toHaveAttribute(
+      "href",
+      "/thought",
+    );
+    expect(lifecycle.getByText("One quota. Many units. One unit per work mint.")).toBeInTheDocument();
+    expect(lifecycle.getByText("0x1111...0000")).toBeInTheDocument();
     expect(lifecycle.getByText("stage")).toBeInTheDocument();
     expect(lifecycle.getByText("0 / 3")).toBeInTheDocument();
     expect(lifecycle.getByText("0 / 10")).toBeInTheDocument();

@@ -95,6 +95,7 @@ import {
   THOUGHT_V2_LOCAL_AGENT_OUTPUT_SCHEMA,
   buildThoughtV2LocalAgentProcess,
   buildThoughtV2LocalAgentResult,
+  buildThoughtV2LocalAgentTaskBinding,
   parseThoughtV2LocalAgentResult,
 } from "../apps/thought/src/thought-v2-local-agent";
 import {
@@ -591,6 +592,20 @@ const localBytes32Anchors = [
   localRelease.spec.evmSpecId,
   localRelease.spec.evmSpecHash,
 ];
+assert.deepEqual(
+  buildThoughtV2LocalAgentTaskBinding(localRelease),
+  {
+    release: {
+      protocolReleaseId: localRelease.protocol.protocolReleaseId,
+      manifestKeccak256: localRelease.protocol.manifestKeccak256,
+    },
+    resultContract: {
+      workProfile: "inshell.thought.work.v2.terminal-english-64",
+      lineValidation: "terminal-english-64",
+    },
+  },
+  "the dev Agent task must verify the same output contract served by the active local release",
+);
 for (const anchor of localBytes32Anchors) {
   assert.match(anchor, /^0x[0-9a-f]{64}$/i, `invalid local bytes32 anchor: ${anchor}`);
 }

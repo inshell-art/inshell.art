@@ -13,6 +13,7 @@ Task scripts for syncing **addresses**, writing **env**, and validating imported
 | `check-deployment.mjs` | Run the integrated deployment validation gates in offline-by-default mode. |
 | `dev-github-quality-loop.mjs` | Inspect DEV-owned GitHub Actions/security quality surfaces and write OPS-readable status artifacts. |
 | `validate-path-artifacts.ts` | Reject issuer-direct Spark minting and incomplete PATH self-claim ABI/release config. |
+| `sync-path-contract-release.mjs` | Pin and verify the address-free PATH v0.4.2 ABI/bytecode bundle used by local deployment tooling. |
 | `validate-inshell-contracts.mjs` | Generate the Sepolia PATH/THOUGHT validation report from release manifests, bytecode hashes, sibling repo evidence, and optional live RPC reads. |
 | `abi-json-to-ts.ts` | Convert ABI JSON into a typed TS export for runtime/typing. |
 | `loadEnv.ts` | Load the best matching `.env.*` file for scripts/builds. |
@@ -29,6 +30,7 @@ Task scripts for syncing **addresses**, writing **env**, and validating imported
 - `check-deployment.mjs` — orchestrates production-surface validation, imported artifact validation, and contract deployment report generation. It skips live RPC by default; use `pnpm run check:deployment:live` for an operator release check.
 - `dev-github-quality-loop.mjs` — writes `.ops/dev-quality/status.json` and a run note for OPS. It checks default-branch Actions, Dependabot, code scanning, and secret scanning through `gh api`; use `pnpm run quality:github`.
 - `validate-path-artifacts.ts` — accepts Spark-free releases or the complete self-claim surface, and rejects issuer-direct or partial Spark artifacts.
+- `sync-path-contract-release.mjs` — keeps immutable PATH contract artifacts separate from network deployment addresses; `--check` verifies all release checksums and the canonical movement/self-claim ABI.
 - `validate-inshell-contracts.mjs` — writes contract validation reports to `tmp/validation/` by default. Set `INSHELL_VALIDATION_SKIP_LIVE=1` to avoid live RPC reads. Set `INSHELL_VALIDATION_ENV_FILE=<path>` when you want it to read an operator-managed env file outside the repo.
 
 ## PATH artifact policy

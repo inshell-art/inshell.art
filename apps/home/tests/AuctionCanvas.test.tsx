@@ -355,6 +355,7 @@ describe("AuctionCanvas", () => {
     delete (window as any).ethereum;
     window.localStorage.removeItem("inshellDebug");
     window.localStorage.removeItem("inshell.pathMintProof.v1");
+    window.localStorage.removeItem("inshell.pathMintProof.v2");
     clearPathMintReturnRecords(window.localStorage);
     clearPathMintReturnRecords(window.sessionStorage);
     setPathMintLockRequest(null);
@@ -378,7 +379,9 @@ describe("AuctionCanvas", () => {
   });
 
   test("wallet transaction payload omits undefined value", async () => {
-    const request = jest.fn(async () => "0xabc");
+    const request = jest.fn(async ({ method }: { method: string }) =>
+      method === "eth_estimateGas" ? "0x28b79" : "0xabc"
+    );
     await sendTransaction(
       {
         request,
@@ -390,7 +393,53 @@ describe("AuctionCanvas", () => {
       }
     );
 
-    expect(request).toHaveBeenCalledWith({
+    expect(request).toHaveBeenNthCalledWith(1, {
+      method: "eth_estimateGas",
+      params: [
+        {
+          from: DEFAULT_WALLET_ADDRESS,
+          to: TEST_AUCTION_ADDRESS,
+          data: "0x454a2ab3",
+        },
+      ],
+    });
+    expect(request).toHaveBeenNthCalledWith(2, {
+      method: "eth_sendTransaction",
+      params: [
+        {
+          from: DEFAULT_WALLET_ADDRESS,
+          to: TEST_AUCTION_ADDRESS,
+          data: "0x454a2ab3",
+          gas: "0x34ec9",
+        },
+      ],
+    });
+    expect(
+      Object.prototype.hasOwnProperty.call(
+        (request.mock.calls[1]?.[0] as any).params[0],
+        "value"
+      )
+    ).toBe(false);
+  });
+
+  test("wallet transaction falls back when gas preflight is unavailable", async () => {
+    const request = jest.fn(async ({ method }: { method: string }) => {
+      if (method === "eth_estimateGas") {
+        throw new Error("estimate unavailable");
+      }
+      return "0xabc";
+    });
+
+    await sendTransaction(
+      { request },
+      {
+        from: DEFAULT_WALLET_ADDRESS,
+        to: TEST_AUCTION_ADDRESS,
+        data: "0x454a2ab3",
+      }
+    );
+
+    expect(request).toHaveBeenLastCalledWith({
       method: "eth_sendTransaction",
       params: [
         {
@@ -400,12 +449,6 @@ describe("AuctionCanvas", () => {
         },
       ],
     });
-    expect(
-      Object.prototype.hasOwnProperty.call(
-        (request.mock.calls[0]?.[0] as any).params[0],
-        "value"
-      )
-    ).toBe(false);
   });
 
   test("renders PATH context and dots without a duplicate wallet control", () => {
@@ -4540,17 +4583,32 @@ describe("AuctionCanvas", () => {
     expect(proof).toHaveTextContent("PathNFT.Transfer");
     expect(proofScope.getByRole("button", { name: "copy proof JSON" })).toBeTruthy();
     expect(
-      JSON.parse(window.localStorage.getItem("inshell.pathMintProof.v1") ?? "{}")
+      JSON.parse(window.localStorage.getItem("inshell.pathMintProof.v2") ?? "{}")
         .tokenId
     ).toBe(5);
     jest.useRealTimers();
   });
 
-  test("restores PATH mint proof across navigation until dismissed", () => {
+  test("restores PATH mint proof only after its active-chain receipt is verified", async () => {
+    (mockProvider as any).request = jest.fn(
+      async ({ method }: { method: string }) => {
+        if (method === "eth_getTransactionReceipt") {
+          return {
+            status: "0x1",
+            to: TEST_AUCTION_ADDRESS,
+            transactionHash: "0xstoredmint",
+            blockNumber: "0x7b",
+          };
+        }
+        return null;
+      },
+    );
     window.localStorage.setItem(
-      "inshell.pathMintProof.v1",
+      "inshell.pathMintProof.v2",
       JSON.stringify({
-        version: 1,
+        version: 2,
+        chainId: 11155111,
+        pulseAuction: TEST_AUCTION_ADDRESS,
         tokenId: 18,
         epoch: 18,
         owner: DEFAULT_WALLET_ADDRESS,
@@ -4566,7 +4624,9 @@ describe("AuctionCanvas", () => {
     const { unmount } = render(
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />
     );
-    const proof = screen.getByText("$PATH minted").closest(".dotfield__mint-proof");
+    const proof = (await screen.findByText("$PATH minted")).closest(
+      ".dotfield__mint-proof",
+    );
     expectCtaAnchoredOverlay(proof);
     const proofScope = within(proof as HTMLElement);
     expect(proofScope.getAllByText(/PATH #18/).length).toBeGreaterThan(0);
@@ -4593,12 +4653,67 @@ describe("AuctionCanvas", () => {
     unmount();
 
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    expect(screen.getAllByText(/PATH #18/).length).toBeGreaterThan(0);
+    await waitFor(() => {
+      expect(screen.getAllByText(/PATH #18/).length).toBeGreaterThan(0);
+    });
     fireEvent.click(
       screen.getByRole("button", { name: "Dismiss PATH mint proof" })
     );
     expect(screen.queryByText("$PATH minted")).toBeNull();
-    expect(window.localStorage.getItem("inshell.pathMintProof.v1")).toBeNull();
+    expect(window.localStorage.getItem("inshell.pathMintProof.v2")).toBeNull();
+  });
+
+  test("discards legacy PATH mint proof instead of mixing it with a new chain", async () => {
+    window.localStorage.setItem(
+      "inshell.pathMintProof.v1",
+      JSON.stringify({
+        version: 1,
+        tokenId: 3,
+        epoch: 3,
+        owner: DEFAULT_WALLET_ADDRESS,
+        priceDec: "9041000000000000",
+        priceLabel: "0.009041",
+        txHash: "0xstale",
+        blockNumber: 742,
+        sourceUrl: "https://example.test/stale",
+        sourceStatus: "ready",
+      }),
+    );
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+
+    await waitFor(() => {
+      expect(window.localStorage.getItem("inshell.pathMintProof.v1")).toBeNull();
+    });
+    expect(screen.queryByText("$PATH minted")).toBeNull();
+  });
+
+  test("discards a stored PATH mint proof when its receipt no longer exists", async () => {
+    (mockProvider as any).request = jest.fn(async () => null);
+    window.localStorage.setItem(
+      "inshell.pathMintProof.v2",
+      JSON.stringify({
+        version: 2,
+        chainId: 11155111,
+        pulseAuction: TEST_AUCTION_ADDRESS,
+        tokenId: 3,
+        epoch: 3,
+        owner: DEFAULT_WALLET_ADDRESS,
+        priceDec: "9041000000000000",
+        priceLabel: "0.009041",
+        txHash: "0xmissing",
+        blockNumber: 742,
+        sourceUrl: "https://example.test/missing",
+        sourceStatus: "ready",
+      }),
+    );
+
+    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+
+    await waitFor(() => {
+      expect(window.localStorage.getItem("inshell.pathMintProof.v2")).toBeNull();
+    });
+    expect(screen.queryByText("$PATH minted")).toBeNull();
   });
 
   test("shows inline error when balance is insufficient", async () => {

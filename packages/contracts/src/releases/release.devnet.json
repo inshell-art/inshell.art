@@ -3,30 +3,30 @@
   "protocol": "path",
   "network": "devnet",
   "chain_id": 31337,
-  "repo_commit": "d74ca481bd43d31caf22fe2faad50cd91e995c03",
-  "deploy_run_id": "devnet-local-20260721T120503Z",
+  "repo_commit": "1c846e1cfcd761a8e7b7e908edfa655204b62036",
+  "deploy_run_id": "anvil-v0.4.2-20260802T113706932Z",
   "release_tier": "temporary",
   "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
   "admin": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
   "treasury": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
   "payment_token": "0x0000000000000000000000000000000000000000",
   "contracts": {
-    "path_nft": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-    "path_pulse_adapter": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-    "pulse_auction": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0"
+    "path_nft": "0x38A70c040CA5F5439ad52d0e821063b0EC0B52b6",
+    "path_pulse_adapter": "0x54B8d8E2455946f2A5B8982283f2359812e815ce",
+    "pulse_auction": "0xf090f16dEc8b6D24082Edd25B1C8D26f2bC86128"
   },
   "deploy_txs": {
-    "path_nft": "0x3d5144b723f7fd9e1756a5bb60b0c1bdba86433db7582545cd61b9c6943ee408",
-    "path_pulse_adapter": "0x5a7c29e286ded713bae7879e4df76c0f4e1a4f0478a261327b603afc207505b9",
-    "pulse_auction": "0xb69b46cc4beb7a08b3c53ec4a507b4b272d0dca9f10e39cd31a4eeabcf8dab0b"
+    "path_nft": "0xfc5bd4904c7a58f2319918d75249cf1caaec4aa0a2de94ef629b861a6dc73275",
+    "path_pulse_adapter": "0x24f60aa903a871d8c2445226199fbfd64da1c7bf163d53c06cef1c5deda1cb84",
+    "pulse_auction": "0x6c4d7d17ecabdf120f536f3e9aaae144fcc73f6b5df9e9d43ebc2d1a7f2664da"
   },
   "deploy_blocks": {
-    "path_nft": 1,
-    "path_pulse_adapter": 2,
-    "pulse_auction": 3
+    "path_nft": 197,
+    "path_pulse_adapter": 198,
+    "pulse_auction": 199
   },
   "code_hashes": {
-    "path_nft": "0xb544d810f30664b267f1dea08b5e0225a89703cae7a1a90fbafaa75084bd5241",
+    "path_nft": "0xf547ec0b9305d626df2c6afd3dd876623bceb5baf6bd6d35102da23495ad4dd6",
     "path_pulse_adapter": "0x9443eb6e8f635bcac03afd201de549a13c9f7358cb967e6240f557426cbf1777",
     "pulse_auction": "0xe84c54495632b1e16fb8e3996f538c11d73d4e2238468952ff29963f36d156e1"
   },
@@ -34,9 +34,9 @@
     "name": "PATH",
     "symbol": "PATH",
     "base_uri": "",
-    "open_time": 1784635570,
-    "open_time_iso": "2026-07-21T12:06:10.000Z",
-    "start_delay_sec": 120,
+    "open_time": 1785670655,
+    "open_time_iso": "2026-08-02T11:37:35.000Z",
+    "start_delay_sec": 30,
     "k": "600000000000000000",
     "genesis_price": "10000000000000000",
     "genesis_floor": "9000000000000000",
@@ -51,11 +51,12 @@
     "audit": "none",
     "audit_id": null,
     "ready_for_fe": true,
-    "notes": "local devnet rehearsal release"
+    "notes": "persistent Anvil deployment from pinned PATH v0.4.2 artifacts"
   },
   "source_artifacts": {
-    "deployment_relpath": "evm/deployments/localhost-eth.json",
-    "bundle_relpath": "evm/deployments"
+    "release_tag": "v0.4.2",
+    "manifest_sha256": "41cd0bc56398fe6823a3bd40a7497851b8ec132a8002a4f0a15bc5b284a29393",
+    "bundle_relpath": "packages/contracts/src/path-release/releases/v0.4.2"
   },
-  "generated_at": "2026-07-21T12:05:03.380Z"
+  "generated_at": "2026-08-02T11:37:06.932Z"
 }

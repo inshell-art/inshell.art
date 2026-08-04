@@ -172,6 +172,8 @@ type MintReviewQuote = {
 type MintProofSourceStatus = "indexing" | "ready" | "unavailable";
 
 type MintProofReceipt = {
+  chainId: number;
+  pulseAuction: string;
   tokenId: number;
   epoch: number;
   owner: string;
@@ -184,7 +186,9 @@ type MintProofReceipt = {
 };
 
 type StoredMintProofReceipt = {
-  version: 1;
+  version: 2;
+  chainId: number;
+  pulseAuction: string;
   tokenId: number;
   epoch: number;
   owner: string;
@@ -196,7 +200,8 @@ type StoredMintProofReceipt = {
   sourceStatus: MintProofSourceStatus;
 };
 
-const PATH_MINT_PROOF_STORAGE_KEY = "inshell.pathMintProof.v1";
+const PATH_MINT_PROOF_STORAGE_KEY = "inshell.pathMintProof.v2";
+const LEGACY_PATH_MINT_PROOF_STORAGE_KEY = "inshell.pathMintProof.v1";
 
 function isMintProofSourceStatus(value: unknown): value is MintProofSourceStatus {
   return value === "indexing" || value === "ready" || value === "unavailable";
@@ -204,7 +209,9 @@ function isMintProofSourceStatus(value: unknown): value is MintProofSourceStatus
 
 function serializeMintProof(proof: MintProofReceipt): StoredMintProofReceipt {
   return {
-    version: 1,
+    version: 2,
+    chainId: proof.chainId,
+    pulseAuction: proof.pulseAuction,
     tokenId: proof.tokenId,
     epoch: proof.epoch,
     owner: proof.owner,
@@ -221,8 +228,14 @@ function parseStoredMintProof(raw: string | null): MintProofReceipt | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as Partial<StoredMintProofReceipt>;
+    const chainId = Number(parsed.chainId);
     const tokenId = Number(parsed.tokenId);
     const epoch = Number(parsed.epoch);
+    if (parsed.version !== 2) return null;
+    if (!Number.isSafeInteger(chainId) || chainId <= 0) return null;
+    if (typeof parsed.pulseAuction !== "string" || !isEvmAddress(parsed.pulseAuction)) {
+      return null;
+    }
     if (!Number.isFinite(tokenId) || tokenId <= 0) return null;
     if (!Number.isFinite(epoch) || epoch <= 0) return null;
     if (typeof parsed.owner !== "string" || !parsed.owner.trim()) return null;
@@ -234,6 +247,8 @@ function parseStoredMintProof(raw: string | null): MintProofReceipt | null {
         ? toU256Num(readU256(parsed.priceDec))
         : null;
     return {
+      chainId,
+      pulseAuction: parsed.pulseAuction.toLowerCase(),
       tokenId,
       epoch,
       owner: parsed.owner,
@@ -268,6 +283,13 @@ function readStoredMintProof(): MintProofReceipt | null {
 
 function writeStoredMintProof(proof: MintProofReceipt): void {
   if (typeof window === "undefined") return;
+  if (
+    !Number.isSafeInteger(proof.chainId) ||
+    proof.chainId <= 0 ||
+    !isEvmAddress(proof.pulseAuction)
+  ) {
+    return;
+  }
   try {
     window.localStorage.setItem(
       PATH_MINT_PROOF_STORAGE_KEY,
@@ -282,8 +304,18 @@ function clearStoredMintProof(): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.removeItem(PATH_MINT_PROOF_STORAGE_KEY);
+    window.localStorage.removeItem(LEGACY_PATH_MINT_PROOF_STORAGE_KEY);
   } catch {
     // Ignore storage failures; the in-memory state is cleared by the caller.
+  }
+}
+
+function clearLegacyStoredMintProof(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(LEGACY_PATH_MINT_PROOF_STORAGE_KEY);
+  } catch {
+    // Ignore storage failures; legacy proof data is never rendered.
   }
 }
 
@@ -479,6 +511,41 @@ function transactionReceiptOutcome(receipt: unknown): TransactionReceiptOutcome 
     return "reverted";
   }
   return sawSuccess ? "success" : "unknown";
+}
+
+function parseReceiptBlockNumber(value: unknown): number | null {
+  if (typeof value === "number") {
+    return Number.isSafeInteger(value) && value >= 0 ? value : null;
+  }
+  if (typeof value === "bigint") {
+    const parsed = Number(value);
+    return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+  }
+  if (typeof value !== "string" || !value.trim()) return null;
+  const parsed = value.trim().toLowerCase().startsWith("0x")
+    ? Number.parseInt(value, 16)
+    : Number.parseInt(value, 10);
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function receiptMatchesMintProof(
+  receipt: unknown,
+  proof: MintProofReceipt,
+): boolean {
+  if (transactionReceiptOutcome(receipt) !== "success") return false;
+  if (!receipt || typeof receipt !== "object") return false;
+  const candidate = receipt as Record<string, unknown>;
+  const receiptTo = String(candidate.to ?? "").toLowerCase();
+  const receiptHash = String(
+    candidate.transactionHash ?? candidate.hash ?? "",
+  ).toLowerCase();
+  if (receiptTo !== proof.pulseAuction.toLowerCase()) return false;
+  if (receiptHash !== proof.txHash.toLowerCase()) return false;
+  if (proof.blockNumber !== null) {
+    const receiptBlockNumber = parseReceiptBlockNumber(candidate.blockNumber);
+    if (receiptBlockNumber !== proof.blockNumber) return false;
+  }
+  return true;
 }
 
 function isExplicitTransactionFailure(error: unknown): boolean {
@@ -2741,9 +2808,8 @@ export default function AuctionCanvas({
     address: string;
     baselineTokenId: number | null;
   } | null>(null);
-  const [mintProof, setMintProof] = useState<MintProofReceipt | null>(() =>
-    readStoredMintProof()
-  );
+  const [mintProof, setMintProof] = useState<MintProofReceipt | null>(null);
+  const mintProofHydrationKeyRef = useRef<string | null>(null);
   const [shellWalletPopoverOpen, setShellWalletPopoverOpen] = useState(false);
   const [persistentNoticeVisible, setPersistentNoticeVisible] =
     useState<Notice | null>(null);
@@ -3768,7 +3834,12 @@ export default function AuctionCanvas({
     if (tokenId == null) return;
     const epoch = proofBid?.epochIndex ?? proofBid?.id ?? tokenId;
     const price = proofBid?.amount ?? null;
+    const proofChainId = targetChainId === null ? 0 : Number(targetChainId);
+    const proofPulseAuction =
+      maybeResolveAddress("pulse_auction", auctionAddress) ?? auctionAddress ?? "";
     setMintProof({
+      chainId: proofChainId,
+      pulseAuction: proofPulseAuction.toLowerCase(),
       tokenId,
       epoch,
       owner: proofBid?.bidder ?? pendingMint.address,
@@ -3796,6 +3867,8 @@ export default function AuctionCanvas({
     refreshCore,
     onPathMinted,
     updatePathMintReturnTokenId,
+    targetChainId,
+    auctionAddress,
   ]);
 
   useEffect(() => {
@@ -4504,6 +4577,51 @@ export default function AuctionCanvas({
     }),
     [auctionAddress]
   );
+  useEffect(() => {
+    clearLegacyStoredMintProof();
+    const chainId = targetChainId === null ? null : Number(targetChainId);
+    const pulseAuction = proofContracts.PulseAuction.toLowerCase();
+    if (
+      chainId === null ||
+      !Number.isSafeInteger(chainId) ||
+      chainId <= 0 ||
+      !isEvmAddress(pulseAuction)
+    ) {
+      return;
+    }
+    const hydrationKey = `${chainId}:${pulseAuction}`;
+    if (mintProofHydrationKeyRef.current === hydrationKey) return;
+    mintProofHydrationKeyRef.current = hydrationKey;
+    setMintProof(null);
+
+    const storedProof = readStoredMintProof();
+    if (!storedProof) return;
+    if (
+      storedProof.chainId !== chainId ||
+      storedProof.pulseAuction !== pulseAuction
+    ) {
+      clearStoredMintProof();
+      return;
+    }
+
+    let active = true;
+    const receiptProvider = provider ?? (getDefaultProvider() as ProviderInterface);
+    void readPathMintTransactionReceipt(receiptProvider, storedProof.txHash)
+      .then((receipt) => {
+        if (!active) return;
+        if (!receiptMatchesMintProof(receipt, storedProof)) {
+          clearStoredMintProof();
+          return;
+        }
+        setMintProof(storedProof);
+      })
+      .catch(() => {
+        // Keep the stored proof for a later load if the RPC is temporarily unavailable.
+      });
+    return () => {
+      active = false;
+    };
+  }, [proofContracts.PulseAuction, provider, targetChainId]);
   const handleDismissMintProof = useCallback(() => {
     clearStoredMintProof();
     setMintProof(null);

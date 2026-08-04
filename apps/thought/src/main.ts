@@ -205,6 +205,7 @@ import {
 import {
   buildThoughtV2LocalAgentProcess,
   buildThoughtV2LocalAgentResult,
+  buildThoughtV2LocalAgentTaskBinding,
   parseThoughtV2LocalAgentResult,
   type ThoughtV2LocalAgentEvidence,
 } from "./thought-v2-local-agent";
@@ -233,7 +234,6 @@ import {
   hasThoughtPollDeadlineExpired,
 } from "./thought-poll-wake";
 import {
-  buildThoughtV2Svg,
   measureThoughtV2Line,
   type ThoughtV2LineKind,
 } from "./thought-v2-renderer";
@@ -2739,18 +2739,11 @@ const buildAgentDemoSealedTask = (
     promptLine: run.prompt,
     runUrl: absoluteStatusUrl,
     launchToken: run.launchToken,
-    ...(IS_LOCAL_THOUGHT_V2
-      ? {
-          release: {
-            protocolReleaseId: THOUGHT_V2_LOCAL_RELEASE.protocol.protocolReleaseId,
-            manifestKeccak256: THOUGHT_V2_LOCAL_RELEASE.protocol.manifestKeccak256,
-          },
-          resultContract: {
-            workProfile: THOUGHT_V2_LOCAL_RELEASE.protocol.workProfile.id,
-            lineValidation: "terminal-english-64" as const,
-          },
-        }
-      : {}),
+    // The Vite Agent API always serves the active local contract release, even
+    // while the browser is still diagnosing whether minting is available. Keep
+    // its sealed Agent task release-bound instead of falling back to the older
+    // generic Agent-protocol profile during that diagnostic window.
+    ...(IS_DEV_MODE ? buildThoughtV2LocalAgentTaskBinding() : {}),
   });
 };
 
@@ -7186,46 +7179,6 @@ const createThoughtPreviewProvider = (
   };
 };
 
-const createFrontendPreviewProvider = (): ThoughtPreviewProvider => ({
-  kind: "frontend-renderer",
-  chainId: THOUGHT_CHAIN_ID,
-  endpointLabel: "browser",
-  preview: async (rawReturn: string, context?: { prompt?: string }) => {
-    const validation = prevalidateThoughtV2Preview({
-      rawPrompt: context?.prompt ?? sessionState.prompt,
-      rawReturn,
-    });
-
-    if (!validation.ok) {
-      return {
-        ok: false,
-        text: validation.agentLine,
-        svg: "",
-        reasonCode: validation.reasonCode,
-        ...(validation.byteLimit ? { byteLimit: validation.byteLimit } : {}),
-        ...(validation.issue ? { issue: validation.issue } : {}),
-      };
-    }
-
-    return {
-      ok: true,
-      text: validation.agentLine,
-      svg: buildThoughtV2Svg({
-        agentLine: validation.agentLine,
-        promptLine: validation.promptLine,
-      }),
-      reasonCode: 0,
-    };
-  },
-  trace: () => ({
-    kind: "frontend-renderer",
-    chainId: THOUGHT_CHAIN_ID,
-    endpointLabel: "browser",
-    method: "frontendRender",
-    fetchedAt: new Date().toISOString(),
-  }),
-});
-
 const createWalletPreviewProvider = (): ThoughtPreviewProvider | null => {
   if (!THOUGHT_NFT_ADDRESS || !walletState.address || walletState.chainId !== THOUGHT_CHAIN_ID) {
     return null;
@@ -7274,8 +7227,10 @@ const selectThoughtPreviewProvider = async () => {
         }
       : { provider: null, reason: "local THOUGHT V2 unavailable." };
   }
-  // V2 is source-only: pre-mint previews must use the verified shared renderer.
-  return { provider: createFrontendPreviewProvider(), reason: "" };
+  return {
+    provider: null,
+    reason: "pinned THOUGHT renderer release mismatch; preview stopped.",
+  };
 };
 
 const prunePreviewRateEvents = (events: number[], now: number) => {

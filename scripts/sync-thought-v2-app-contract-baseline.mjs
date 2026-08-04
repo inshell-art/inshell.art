@@ -32,6 +32,11 @@ const previewRoot = path.join(
 );
 const outputRoot = path.join(root, "apps", "thought", "contract-integration", "current");
 const referenceOutputRoot = path.join(outputRoot, "reference");
+const creativeSpecLockFile = path.join(root, "apps", "thought", "spec", "THOUGHT.v2.lock.json");
+const creativeSpecFile = path.join(root, "apps", "thought", "spec", "THOUGHT.v2.md");
+const provenanceRoot = path.join(root, "apps", "thought", "provenance", "v2");
+const provenanceLockFile = path.join(provenanceRoot, "provenance-lock.json");
+const provenanceSchemaFile = path.join(provenanceRoot, "thought.provenance.v2.schema.json");
 const checkOnly = process.argv.includes("--check");
 
 const preview = (...parts) => path.join(previewRoot, ...parts);
@@ -146,12 +151,42 @@ const main = async () => {
   const manifest = await verifyPreview();
   const metadataPortability = await verifyMetadataPortability(manifest);
   const compatibility = manifest.compatibility;
+  const creativeSpecLock = await readJson(creativeSpecLockFile);
+  const creativeSpecBytes = await fs.readFile(creativeSpecFile);
+  const creativeSpecSha256 = sha256(creativeSpecBytes);
+  const creativeSpecKeccak256 = keccak256(creativeSpecBytes);
+  if (
+    creativeSpecLock.schema !== "inshell.thought.creative-spec-lock.v1" ||
+    creativeSpecLock.authority?.owner !== "THOUGHT App" ||
+    creativeSpecLock.artifact?.name !== compatibility.selectedSpec.name ||
+    creativeSpecLock.artifact?.byteLength !== creativeSpecBytes.length ||
+    creativeSpecLock.artifact?.sha256 !== creativeSpecSha256 ||
+    creativeSpecLock.artifact?.thoughtSpecHash !== creativeSpecKeccak256 ||
+    creativeSpecLock.artifact?.thoughtSpecId !== compatibility.selectedSpec.thoughtSpecId
+  ) {
+    throw new Error("App-owned creative spec lock mismatch");
+  }
+  const creativeSpecRef =
+    `app://thought/creative-spec/${creativeSpecLock.artifactId}/${creativeSpecLock.artifact.name}`;
+  const provenanceLock = await readJson(provenanceLockFile);
+  const provenanceSchemaBytes = await fs.readFile(provenanceSchemaFile);
+  const provenanceSchemaSha256 = sha256(provenanceSchemaBytes);
+  const provenanceSchemaKeccak256 = keccak256(provenanceSchemaBytes);
+  if (
+    provenanceLock.schema !== "inshell.thought.provenance-lock.v1" ||
+    provenanceLock.authority?.owner !== "THOUGHT App" ||
+    provenanceLock.provenanceSchema !== compatibility.provenance.id ||
+    provenanceLock.artifacts?.schema?.sha256 !== provenanceSchemaSha256 ||
+    provenanceLock.artifacts?.schema?.keccak256 !== provenanceSchemaKeccak256
+  ) {
+    throw new Error("App-owned provenance schema lock mismatch");
+  }
+  const provenanceSchemaRef =
+    `app://thought/provenance/${provenanceLock.artifactId}/thought.provenance.v2.schema.json`;
   const runtimeManifestArtifacts = await Promise.all([
-    ["creative-spec", "protocol/current/v2/THOUGHT.v2.md"],
     ["work-profile", "protocol/current/v2/work/thought.work.v2.profile.json"],
     ["context-profile", "protocol/current/v2/context/thought.context.v2.profile.json"],
     ["metadata-profile", "protocol/current/v2/metadata/thought.metadata.v2.profile.json"],
-    ["provenance-schema", "protocol/current/v2/provenance/thought.provenance.v2.schema.json"],
     [
       "creation-attestation-profile",
       "protocol/current/v2/attestation/thought.creation-workflow-attestation.v2.md",
@@ -181,7 +216,19 @@ const main = async () => {
     throw new Error("Mono 76 packed renderer payload mismatch");
   }
   const runtimeManifest = {
-    artifacts: runtimeManifestArtifacts,
+    artifacts: [
+      {
+        keccak256: provenanceSchemaKeccak256,
+        path: provenanceSchemaRef,
+        role: "provenance-schema",
+      },
+      {
+        keccak256: creativeSpecKeccak256,
+        path: creativeSpecRef,
+        role: "creative-spec",
+      },
+      ...runtimeManifestArtifacts,
+    ],
     chainId: "31337",
     glyphLibrary: {
       family: rendererProfile.glyphSource.familyName,
@@ -223,6 +270,8 @@ const main = async () => {
     },
     status: "registered-disposable-anvil",
   };
+  const runtimeManifestBytes = jsonBytes(runtimeManifest);
+  await writeOrCheck(output("runtime-manifest.json"), runtimeManifestBytes);
   const runtimeManifestHash = keccak256(
     toUtf8Bytes(canonicalJsonStringify(runtimeManifest)),
   );
@@ -263,6 +312,19 @@ const main = async () => {
   const verifierAbiJson = JSON.stringify(verifierArtifact.abi);
   const verifierInterfaceAbiJson = JSON.stringify(verifierInterfaceArtifact.abi);
   const rendererAbiJson = JSON.stringify(rendererArtifact.abi);
+  const rendererDeployedBytecode =
+    typeof rendererArtifact.deployedBytecode === "string"
+      ? rendererArtifact.deployedBytecode
+      : rendererArtifact.deployedBytecode?.object ?? "";
+
+  const releaseFiles = manifest.files.map(({ path: filePath, byteLength, sha256: fileSha256 }) => ({
+    byteLength,
+    path: filePath,
+    sha256: fileSha256,
+  }));
+  const releaseFilesSha256 = sha256(
+    Buffer.from(canonicalJsonStringify(releaseFiles), "utf8"),
+  );
 
   await writeOrCheck(output("thought-nft-v2.abi.json"), jsonBytes(thoughtArtifact.abi));
   await writeOrCheck(
@@ -366,7 +428,7 @@ const main = async () => {
       ? thoughtArtifact.deployedBytecode
       : thoughtArtifact.deployedBytecode?.object ?? "";
   const lock = {
-    schema: "inshell.thought.app-contract-integration-lock.v1",
+    schema: "inshell.thought.app-contract-integration-lock.v2",
     id: artifactId,
     status: "canonical-portable-local-acceptance",
     productionConsumable: true,
@@ -383,6 +445,38 @@ const main = async () => {
       deploymentAuthorized: false,
       registrationApplicable: false,
       registrationAuthorized: false,
+    },
+    artifactGraph: {
+      schema: "inshell.thought.closed-artifact-graph.v1",
+      closed: true,
+      release: {
+        manifestSha256,
+        fileCount: releaseFiles.length,
+        filesSha256: releaseFilesSha256,
+        files: releaseFiles,
+      },
+      appOwned: {
+        creativeSpec: {
+          path: "apps/thought/spec/THOUGHT.v2.md",
+          ref: creativeSpecRef,
+          byteLength: creativeSpecBytes.length,
+          sha256: creativeSpecSha256,
+          keccak256: creativeSpecKeccak256,
+        },
+        provenanceSchema: {
+          path: "apps/thought/provenance/v2/thought.provenance.v2.schema.json",
+          ref: provenanceSchemaRef,
+          byteLength: provenanceSchemaBytes.length,
+          sha256: provenanceSchemaSha256,
+          keccak256: provenanceSchemaKeccak256,
+        },
+      },
+      consumer: {
+        previewRenderer: "pinned-contract-only",
+        legacyFrontendRendererAllowed: false,
+        requiredRendererId: compatibility.renderer.canonicalId,
+        requiredRendererImplementationId: compatibility.renderer.packagedImplementation,
+      },
     },
     source: {
       repository: "THOUGHT",
@@ -407,6 +501,8 @@ const main = async () => {
       protocolRelease: {
         id: runtimeReleaseId,
         manifestHash: runtimeManifestHash,
+        manifestFile: "runtime-manifest.json",
+        manifestSha256: sha256(runtimeManifestBytes),
         status: "registered-disposable-anvil",
         rendererProfileHash: compatibility.renderer.canonicalIdKeccak256,
         workProfileHash: compatibility.workProfile.idKeccak256,
@@ -451,6 +547,9 @@ const main = async () => {
         canonicalJsonSha256: sha256(rendererAbiJson),
         file: "thought-renderer-v2.abi.json",
       },
+      deployedBytecodeSha256: sha256(
+        Buffer.from(rendererDeployedBytecode.replace(/^0x/, ""), "hex"),
+      ),
       profile: {
         id: compatibility.renderer.canonicalId,
         implementationId: compatibility.renderer.packagedImplementation,
