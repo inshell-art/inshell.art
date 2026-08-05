@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   chmod,
@@ -20,6 +19,7 @@ import {
   THOUGHT_AGENT_LINE_CONTRACT,
   THOUGHT_AGENT_PROTOCOL_VERSION,
   THOUGHT_AGENT_RESULT_VERSION,
+  buildThoughtCodexOperationContract,
   buildThoughtCodexTask,
   type ThoughtCodexReleaseBinding,
   type ThoughtCodexResultContractBinding,
@@ -29,9 +29,8 @@ export const THOUGHT_CODEX_HANDOFF_LAB_VERSION =
   "inshell.thought.codex-handoff-lab.v1" as const;
 export const THOUGHT_CODEX_HANDOFF_REPORT_VERSION =
   "inshell.thought.codex-handoff-report.v1" as const;
+const THOUGHT_CODEX_HANDOFF_MAX_BYTES = 8_000;
 
-const CONTROL_CAPABILITY_VERSION =
-  "inshell.thought.agent-control-capability.v1";
 const FIXTURE_RELEASE: ThoughtCodexReleaseBinding = {
   protocolReleaseId: `0x${"1".repeat(64)}`,
   manifestKeccak256: `0x${"2".repeat(64)}`,
@@ -111,7 +110,7 @@ export const THOUGHT_CODEX_HANDOFF_CASES: readonly ThoughtCodexLabCaseDefinition
   {
     id: "quoted-transport",
     title: "Quoted transport values",
-    purpose: "Shell quoting preserves valid apostrophes in sealed transport values.",
+    purpose: "Declarative transport preserves apostrophes without shell-specific quoting.",
     fault: "none",
     promptLine: "Can 'quotes' and / paths coexist?",
     agentLine: "Quotes and paths can coexist.",
@@ -551,34 +550,6 @@ class ThoughtCodexFixtureServer {
   }
 }
 
-const exactTaskCommandAfter = (task: string, label: string) => {
-  const lines = task.split("\n");
-  const labelIndex = lines.findIndex((line) => line.startsWith(label));
-  if (labelIndex < 0 || !lines[labelIndex + 1]) {
-    throw new Error(`Codex handoff step not found: ${label}`);
-  }
-  return lines[labelIndex + 1];
-};
-
-const runShellCommand = async (command: string): Promise<CommandExecution> => {
-  const child = spawn("/bin/zsh", ["-dfc", command], {
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  let stdout = "";
-  let stderr = "";
-  child.stdout.on("data", (chunk) => {
-    stdout += chunk.toString();
-  });
-  child.stderr.on("data", (chunk) => {
-    stderr += chunk.toString();
-  });
-  const exitCode = await new Promise<number | null>((resolveExit, rejectExit) => {
-    child.once("error", rejectExit);
-    child.once("close", resolveExit);
-  });
-  return { exitCode, stdout, stderr };
-};
-
 const resultMarkers = (value: string) => [
   "THOUGHT_CLAIM_VERIFIED",
   "THOUGHT_READY_REQUEST_PREPARED",
@@ -609,42 +580,30 @@ const pushAssertion = (
   evidence: string,
 ) => assertions.push({ id, passed, evidence });
 
-const tempFilesForRun = (runId: string) => [
-  "claim.json",
-  "bridge-header",
-  "control-evidence.json",
-  "ready-request.json",
-  "ready-response.json",
-  "control-failure-request.json",
-  "control-failure-response.json",
-  "started-at",
-  "start-request.json",
-  "start-response.json",
-  "candidate.json",
-  "runtime-metadata.json",
-  "result-request.json",
-  "result-response.json",
-].map((suffix) => join("/tmp", `inshell-thought-${runId}.${suffix}`));
-
-const cleanRunFiles = async (runId: string) => {
-  await Promise.all(tempFilesForRun(runId).map((path) => rm(path, { force: true })));
-};
-
-const runExpected = async (
+const runExpected = async <T>(
   commands: ThoughtCodexLabCommandResult[],
   step: string,
-  command: string,
+  action: () => Promise<T> | T,
   expectedExit: "zero" | "nonzero" = "zero",
-) => {
-  const result = await runShellCommand(command);
-  commands.push(commandReport(step, expectedExit, result));
-  const passed = expectedExit === "zero" ? result.exitCode === 0 : result.exitCode !== 0;
-  if (!passed) {
-    throw new Error(
-      `${step} expected ${expectedExit} exit, got ${String(result.exitCode)}: ${result.stderr || result.stdout}`,
-    );
+) : Promise<T | undefined> => {
+  try {
+    const value = await action();
+    const result = { exitCode: 0, stdout: `THOUGHT_${step.toUpperCase().replaceAll("-", "_")}_OK`, stderr: "" };
+    commands.push(commandReport(step, expectedExit, result));
+    if (expectedExit === "nonzero") {
+      throw new Error(`${step} expected rejection but passed without an error.`);
+    }
+    return value;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message === `${step} expected rejection but passed without an error.`) {
+      throw error;
+    }
+    const result = { exitCode: 1, stdout: "", stderr: message };
+    commands.push(commandReport(step, expectedExit, result));
+    if (expectedExit === "zero") throw error;
+    return undefined;
   }
-  return result;
 };
 
 const writePrivateJson = async (path: string, value: unknown) => {
@@ -655,13 +614,16 @@ const writePrivateJson = async (path: string, value: unknown) => {
 const staticHandoffAssertions = (
   task: string,
   promptLine: string,
+  runId: string,
+  baseUrl: string,
+  launchToken: string,
 ): ThoughtCodexLabAssertion[] => {
   const assertions: ThoughtCodexLabAssertion[] = [];
   pushAssertion(
     assertions,
     "automatic-continuation",
-    task.includes("If control passes, continue directly into the creative phase in this same turn.") &&
-      task.includes("Do not ask the creator to continue and do not stop."),
+    task.includes("If verification passes, continue immediately and create exactly one answer in this same turn.") &&
+      task.includes("do not stop or ask the creator to continue"),
     "Successful preflight must continue in the same Agent turn.",
   );
   pushAssertion(
@@ -680,15 +642,26 @@ const staticHandoffAssertions = (
     assertions,
     "no-installation-request",
     task.includes("Never ask the creator to install, configure, or learn anything") &&
-      task.includes("Do not install anything."),
+      task.includes("Download and execute nothing."),
     "Missing capability remains a platform failure, not a creator setup task.",
   );
   pushAssertion(
     assertions,
     "bounded-recovery",
     task.includes("then reply RETRY") &&
-      task.includes("RETRY itself never opens creative input"),
-    "Only evidenced control failures may request RETRY.",
+      (
+        (
+          task.includes("Before any turn exchanges data with the App—including every RETRY turn") &&
+          task.includes("loopback connection refusal without active permission is not evidence that the App stopped") &&
+          task.includes("On an exact RETRY, first request the same narrow App network permission for the new turn")
+        ) ||
+        (
+          task.includes("This lab session already has App network access") &&
+          task.includes("On an exact RETRY, repeat only the failed operation")
+        )
+      ) &&
+      task.includes("RETRY never opens the creative prompt"),
+    "Only evidenced control failures may request RETRY, and every new control turn reacquires narrow App access.",
   );
   const creatorMessages = task
     .split("\n")
@@ -705,7 +678,166 @@ const staticHandoffAssertions = (
       ? "Exact creator-facing recovery messages contain no implementation jargon."
       : `Creator-facing recovery contains: ${[...new Set(jargon)].join(", ")}`,
   );
+  pushAssertion(
+    assertions,
+    "declarative-no-shell",
+    !task.includes("/bin/zsh") &&
+      !task.includes("curl ") &&
+      !task.includes("jq ") &&
+      !task.includes("nodeRepl.") &&
+      !task.includes("/tmp/") &&
+      !task.includes('{"'),
+    "The visible handoff contains field-level constraints, not shell, JavaScript, or raw JSON programs.",
+  );
+  const endpointTemplate = baseUrl.replaceAll(runId, "<run_id>");
+  const operationPlaceholders = [
+    "POST <app_endpoint>/claim",
+    "POST <app_endpoint>/ready",
+    "POST <app_endpoint>/start",
+    "PUT <app_endpoint>/result",
+    "POST <app_endpoint>/fail",
+  ];
+  pushAssertion(
+    assertions,
+    "defined-placeholders",
+    task.includes(`<run_id> = ${runId}`) &&
+      task.includes(`<app_endpoint> = ${endpointTemplate}`) &&
+      task.includes(`<launch_credential> = ${launchToken}`) &&
+      operationPlaceholders.every((operation) => task.includes(operation)),
+    "Concrete private values are defined once and operations use conventional angle-bracket placeholders.",
+  );
+  pushAssertion(
+    assertions,
+    "exact-nested-field-paths",
+    task.includes("bridge.bridgeId = inshell-thought-agent-direct") &&
+      task.includes("bridge.bridgeVersion = 0.0.3+direct") &&
+      task.includes("bridge.platform = codex-direct-http") &&
+      task.includes("adapter.adapterId = codex") &&
+      task.includes("adapter.adapterVersion = direct-http") &&
+      task.includes("control.schema = <control_schema>") &&
+      task.includes("control.creativeInputOpened = false") &&
+      task.includes("output.agentLineSha256 = hash of output.agentLine") &&
+      !task.includes("bridge = id "),
+    "Declarative request bodies preserve exact nested field names without raw JSON.",
+  );
+  pushAssertion(
+    assertions,
+    "private-literal-once",
+    task.split(runId).length - 1 === 1 && task.split(launchToken).length - 1 === 1,
+    "The raw run ID and launch credential each appear exactly once.",
+  );
+  pushAssertion(
+    assertions,
+    "human-readable-size",
+    byteLength(task) <= THOUGHT_CODEX_HANDOFF_MAX_BYTES,
+    `Visible handoff is ${byteLength(task)} bytes; limit is ${THOUGHT_CODEX_HANDOFF_MAX_BYTES}.`,
+  );
+  pushAssertion(
+    assertions,
+    "four-operation-contract",
+    ["Operation 1 — Claim control", "Operation 2 — Prove readiness", "Operation 3 — Open one creative turn", "Operation 4 — Return the result"]
+      .every((heading) => task.includes(heading)),
+    "The handoff exposes four ordered, named operations.",
+  );
   return assertions;
+};
+
+const requireRecord = (value: unknown, message: string) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(message);
+  }
+  return value as Record<string, any>;
+};
+
+const postJson = async (input: {
+  url: string;
+  method: "POST" | "PUT";
+  token: string;
+  body: unknown;
+  idempotencyKey?: string;
+}) => {
+  const response = await fetch(input.url, {
+    method: input.method,
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${input.token}`,
+      ...(input.idempotencyKey ? { "idempotency-key": input.idempotencyKey } : {}),
+    },
+    body: JSON.stringify(input.body),
+  });
+  const payload = await response.json() as Record<string, any>;
+  if (!response.ok) {
+    throw new Error(`${response.status} ${payload.error?.code ?? "HTTP_ERROR"}`);
+  }
+  return payload;
+};
+
+const validateClaim = (payload: unknown, runId: string) => {
+  const claim = requireRecord(payload, "Claim must be an object.");
+  if (claim.runId !== runId || claim.state !== "claimed" || typeof claim.bridgeToken !== "string" || !claim.bridgeToken) {
+    throw new Error("Claim identity or bridge credential is invalid.");
+  }
+  if (JSON.stringify(claim.request) !== JSON.stringify(controlRequest())) {
+    throw new Error("Claim control contract drifted.");
+  }
+  if (responseContainsCreativeInput(claim.request)) {
+    throw new Error("Claim exposed creative input.");
+  }
+  return claim;
+};
+
+const validateReady = (payload: unknown, runId: string) => {
+  const ready = requireRecord(payload, "Readiness response must be an object.");
+  if (
+    ready.runId !== runId ||
+    ready.state !== "ready" ||
+    ready.stage !== "control-verified" ||
+    ready.creatorAction != null ||
+    JSON.stringify(ready.control) !== JSON.stringify(controlEvidence())
+  ) {
+    throw new Error("Readiness contract drifted.");
+  }
+  return ready;
+};
+
+const validateCreative = (payload: unknown, runId: string, invocationId: string) => {
+  const running = requireRecord(payload, "Creative response must be an object.");
+  const request = requireRecord(running.request, "Creative request is missing.");
+  if (
+    running.runId !== runId ||
+    running.state !== "running" ||
+    running.invocationId !== invocationId ||
+    request.intent !== "generate-thought-candidate"
+  ) {
+    throw new Error("Creative response identity drifted.");
+  }
+  const instructions = requireRecord(request.instructions, "Instructions are missing.");
+  const spec = requireRecord(request.spec, "Spec is missing.");
+  const prompt = requireRecord(request.promptLine, "Prompt is missing.");
+  const agentInput = requireRecord(request.agentInput, "Agent input is missing.");
+  if (
+    instructions.text !== spec.text ||
+    instructions.sha256 !== spec.sha256 ||
+    instructions.sha256 !== sha256(String(instructions.text)) ||
+    prompt.text !== agentInput.text ||
+    prompt.sha256 !== agentInput.sha256 ||
+    prompt.sha256 !== sha256(String(prompt.text))
+  ) {
+    throw new Error("Creative byte or hash parity failed.");
+  }
+  const outputContract = requireRecord(request.outputContract, "Output contract is missing.");
+  const agentLine = requireRecord(outputContract.agentLine, "Agent line contract is missing.");
+  if (
+    JSON.stringify(outputContract.release) !== JSON.stringify(FIXTURE_RELEASE) ||
+    agentLine.workProfile !== FIXTURE_RESULT_CONTRACT.workProfile ||
+    agentLine.minUtf8Bytes !== THOUGHT_AGENT_LINE_CONTRACT.minUtf8Bytes ||
+    agentLine.maxUtf8Bytes !== THOUGHT_AGENT_LINE_CONTRACT.maxUtf8Bytes ||
+    agentLine.normalization !== THOUGHT_AGENT_LINE_CONTRACT.normalization ||
+    agentLine.displayUnitsAreAcceptanceLimits !== false
+  ) {
+    throw new Error("Creative output contract drifted.");
+  }
+  return running;
 };
 
 const runDeterministicCase = async (
@@ -714,9 +846,8 @@ const runDeterministicCase = async (
 ): Promise<ThoughtCodexLabCaseReport> => {
   const startedAt = new Date().toISOString();
   const run = server.register(definition);
-  await cleanRunFiles(run.runId);
   const runUrl = `${server.origin}/runs/${encodeURIComponent(run.runId)}`;
-  const task = buildThoughtCodexTask({
+  const taskInput = {
     product: "Codex",
     runId: run.runId,
     runUrl,
@@ -724,98 +855,147 @@ const runDeterministicCase = async (
     networkAuthorization: "preauthorized",
     release: FIXTURE_RELEASE,
     resultContract: FIXTURE_RESULT_CONTRACT,
-  });
+  } as const;
+  const contract = buildThoughtCodexOperationContract(taskInput);
+  const task = buildThoughtCodexTask(taskInput);
   const commands: ThoughtCodexLabCommandResult[] = [];
-  const assertions = staticHandoffAssertions(task, definition.promptLine);
-  const claim = exactTaskCommandAfter(task, "1. Run this exact App-exchange command through");
-  const validateClaim = exactTaskCommandAfter(task, "2. Run this exact local-only validation command.");
-  const prepareReady = exactTaskCommandAfter(
+  const assertions = staticHandoffAssertions(
     task,
-    "4. Run this exact local-only command to prepare closed readiness evidence",
+    definition.promptLine,
+    run.runId,
+    runUrl,
+    run.launchToken,
   );
-  const postReady = exactTaskCommandAfter(task, "5. Run this exact static App-exchange command");
-  const validateReady = exactTaskCommandAfter(
-    task,
-    "6. Run this exact local-only readiness validation command",
-  );
-  const prepareFailure = exactTaskCommandAfter(
-    task,
-    "Failure-reporting step A — prepare the terminal state locally:",
-  );
-  const postFailure = exactTaskCommandAfter(
-    task,
-    "Failure-reporting step B — send it with the same narrow App permission:",
-  );
-  const validateFailure = exactTaskCommandAfter(
-    task,
-    "Failure-reporting step C — verify it and clear this run's temporary files:",
-  );
-  const prepareStart = exactTaskCommandAfter(task, "9. Run this exact local-only command.");
-  const postStart = exactTaskCommandAfter(task, "10. Run this exact static App-exchange command");
-  const validateCreative = exactTaskCommandAfter(task, "11. Run this exact local-only command.");
-  const prepareResult = exactTaskCommandAfter(task, "15. Run this exact local-only command.");
-  const postResult = exactTaskCommandAfter(task, "16. Run this exact static App-exchange command");
-  const validateReceipt = exactTaskCommandAfter(
-    task,
-    "17. Run this exact local-only command to verify acceptance",
-  );
+  const { bridge, adapter, execution, invocationId } = contract;
 
-  try {
-    await runExpected(commands, "claim", claim);
-    if (definition.fault === "malformed-claim") {
-      await runExpected(commands, "validate-claim", validateClaim, "nonzero");
+  const claimPayload = await runExpected(commands, "claim", () => postJson({
+    url: contract.endpoints.claim,
+    method: "POST",
+    token: run.launchToken,
+    body: contract.claim,
+  }));
+  if (!claimPayload) throw new Error("Claim request did not return a payload.");
+  const validatedClaim = await runExpected(
+    commands,
+    "validate-claim",
+    () => validateClaim(claimPayload, run.runId),
+    definition.fault === "malformed-claim" ? "nonzero" : "zero",
+  );
+  if (definition.fault !== "malformed-claim") {
+    if (!validatedClaim) throw new Error("Claim validation did not return a payload.");
+    const bridgeToken = String(validatedClaim.bridgeToken);
+    if (definition.fault === "runtime-capability-unavailable") {
+      const failurePayload = await runExpected(commands, "post-failure", () => postJson({
+        url: contract.endpoints.fail,
+        method: "POST",
+        token: bridgeToken,
+        body: {
+          protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+          failedAt: new Date().toISOString(),
+          error: {
+            code: "AGENT_START_FAILED",
+            message: "Codex could not prepare this run. Return to THOUGHT and choose Codex again.",
+          },
+        },
+      }));
+      await runExpected(commands, "validate-failure", () => {
+        if (failurePayload?.runId !== run.runId || failurePayload.state !== "failed" || failurePayload.error?.code !== "AGENT_START_FAILED") {
+          throw new Error("Failure response drifted.");
+        }
+      });
     } else {
-      await runExpected(commands, "validate-claim", validateClaim);
-      if (definition.fault === "runtime-capability-unavailable") {
-        await runExpected(commands, "prepare-failure", prepareFailure);
-        await runExpected(commands, "post-failure", postFailure);
-        await runExpected(commands, "validate-failure", validateFailure);
-      } else {
-        await writePrivateJson(
-          join("/tmp", `inshell-thought-${run.runId}.control-evidence.json`),
-          { schema: CONTROL_CAPABILITY_VERSION, runtimeIdentity: "available" },
+      const readyPayload = await runExpected(commands, "post-ready", () => postJson({
+        url: contract.endpoints.ready,
+        method: "POST",
+        token: bridgeToken,
+        body: contract.ready,
+      }));
+      if (!readyPayload) throw new Error("Readiness request did not return a payload.");
+      const validatedReady = await runExpected(
+        commands,
+        "validate-ready",
+        () => validateReady(readyPayload, run.runId),
+        definition.fault === "malformed-ready" ? "nonzero" : "zero",
+      );
+      if (definition.fault !== "malformed-ready" && definition.fault !== "runtime-metadata-unavailable") {
+        if (!validatedReady) throw new Error("Readiness validation did not return a payload.");
+        const startedAtValue = new Date().toISOString();
+        const startPayload = await runExpected(commands, "post-start", () => postJson({
+          url: contract.endpoints.start,
+          method: "POST",
+          token: bridgeToken,
+          body: {
+            protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+            invocationId,
+            startedAt: startedAtValue,
+          },
+        }));
+        if (!startPayload) throw new Error("Creative start did not return a payload.");
+        const validatedCreative = await runExpected(
+          commands,
+          "validate-creative",
+          () => validateCreative(startPayload, run.runId, invocationId),
+          definition.fault === "malformed-creative-release" ? "nonzero" : "zero",
         );
-        await runExpected(commands, "prepare-ready", prepareReady);
-        await runExpected(commands, "post-ready", postReady);
-        if (definition.fault === "malformed-ready") {
-          await runExpected(commands, "validate-ready", validateReady, "nonzero");
-        } else {
-          await runExpected(commands, "validate-ready", validateReady);
-          if (definition.fault === "runtime-metadata-unavailable") {
-            await runExpected(commands, "prepare-start", prepareStart, "nonzero");
-          } else {
-            await writePrivateJson(
-              join("/tmp", `inshell-thought-${run.runId}.runtime-metadata.json`),
-              { model: "gpt-5-lab", reasoningEffort: "high" },
-            );
-            await runExpected(commands, "prepare-start", prepareStart);
-            await runExpected(commands, "post-start", postStart);
-            if (definition.fault === "malformed-creative-release") {
-              await runExpected(commands, "validate-creative", validateCreative, "nonzero");
-            } else {
-              await runExpected(commands, "validate-creative", validateCreative);
-              await writePrivateJson(
-                join("/tmp", `inshell-thought-${run.runId}.candidate.json`),
-                {
-                  schema: THOUGHT_AGENT_RESULT_VERSION,
-                  release: FIXTURE_RELEASE,
-                  agentLine: definition.agentLine,
-                },
-              );
-              await runExpected(commands, "prepare-result", prepareResult);
-              if (definition.fault === "result-rejected") {
-                await runExpected(commands, "post-result", postResult, "nonzero");
-              } else {
-                await runExpected(commands, "post-result", postResult);
-                await runExpected(commands, "validate-receipt", validateReceipt);
+        if (definition.fault !== "malformed-creative-release") {
+          if (!validatedCreative) throw new Error("Creative validation did not return a payload.");
+          const candidate = {
+            ...contract.candidateTemplate,
+            agentLine: definition.agentLine,
+          };
+          const raw = JSON.stringify(candidate);
+          const resultBody = {
+            protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+            invocationId,
+            bridge,
+            adapter,
+            agent: {
+              product: "Codex",
+              productVersion: "unknown",
+              provider: "codex",
+              model: "gpt-5-lab",
+              reasoningEffort: "high",
+              metadataSource: "reported",
+            },
+            execution,
+            startedAt: startedAtValue,
+            completedAt: new Date().toISOString(),
+            output: {
+              mediaType: "application/json",
+              raw,
+              rawSha256: sha256(raw),
+              agentLine: definition.agentLine,
+              agentLineSha256: sha256(definition.agentLine),
+            },
+          };
+          const resultPayload = await runExpected(
+            commands,
+            "post-result",
+            () => postJson({
+              url: contract.endpoints.result,
+              method: "PUT",
+              token: bridgeToken,
+              idempotencyKey: invocationId,
+              body: resultBody,
+            }),
+            definition.fault === "result-rejected" ? "nonzero" : "zero",
+          );
+          if (definition.fault !== "result-rejected") {
+            await runExpected(commands, "validate-receipt", () => {
+              if (
+                resultPayload?.runId !== run.runId ||
+                resultPayload.state !== "returned" ||
+                typeof resultPayload.result?.receipt?.receiptSha256 !== "string" ||
+                !resultPayload.result.receipt.receiptSha256.startsWith("sha256:")
+              ) {
+                throw new Error("Result receipt drifted.");
               }
-            }
+              return "THOUGHT_RESULT_OK";
+            });
           }
         }
       }
     }
-  } finally {
-    await cleanRunFiles(run.runId);
   }
 
   const operations = run.events.map((event) => event.operation);
@@ -856,9 +1036,7 @@ const runDeterministicCase = async (
     !combinedOutput.includes(run.launchToken) && !combinedOutput.includes(run.bridgeToken),
     "Command reports contain hashes and markers, never transport credentials.",
   );
-  const successMarker = commands.some((command) =>
-    command.stdoutMarkers.includes("THOUGHT_RESULT_OK"),
-  );
+  const successMarker = run.state === "returned" && commands.some((command) => command.step === "validate-receipt" && command.exitCode === 0);
   pushAssertion(
     assertions,
     "success-marker-parity",
@@ -1075,6 +1253,11 @@ export const prepareThoughtCodexRealCanary = async (options: {
     release: options.release,
     resultContract: options.resultContract,
   });
+  if (byteLength(task) > THOUGHT_CODEX_HANDOFF_MAX_BYTES) {
+    throw new Error(
+      `Codex canary handoff is ${byteLength(task)} bytes; limit is ${THOUGHT_CODEX_HANDOFF_MAX_BYTES}.`,
+    );
+  }
   const sessionDir = resolve(options.outputDir, payload.runId);
   await mkdir(sessionDir, { recursive: true });
   const taskPath = join(sessionDir, "sealed-task.txt");

@@ -6,10 +6,21 @@ This lab develops and release-checks the sealed THOUGHT handoff for Codex only. 
 
 The lab has two lanes:
 
-1. **Deterministic lane:** runs the exact generated shell commands against an isolated fixture backend. It is fast, repeatable, and required after every handoff change.
+1. **Deterministic lane:** exercises the handoff's four declarative operations against an isolated fixture backend. It is fast, repeatable, and required after every handoff change.
 2. **Real Codex canary:** creates one local THOUGHT run and opens the actual sealed handoff in Codex Desktop. It captures environment-dependent behavior that a fixture cannot simulate, including permission flow and active-turn runtime evidence.
 
-The deterministic report contains hashes, operation names, command exit states, and assertions. It never contains launch tokens, bridge tokens, the returned Agent line, or the creative prompt.
+The deterministic report contains hashes, operation names, validation states, and assertions. It never contains launch credentials, bridge credentials, the returned Agent line, or the creative prompt.
+
+The visible handoff is deliberately split into two layers:
+
+- a short creator-facing explanation of what will happen and when interaction is justified;
+- a constrained declarative contract naming four ordered operations, exact evidence, accepted states, and stop conditions.
+
+Concrete private values are defined once in the Run Capsule using conventional placeholders such as `<run_id>` and `<app_endpoint>`. Every operation refers back to those placeholders instead of repeating raw identifiers, URLs, or credentials. Payload requirements use exact dotted field paths such as `bridge.bridgeId`, which preserve nesting without exposing raw JSON programs.
+
+Codex chooses the available mechanics for those operations. It may not change endpoints, reorder operations, invent runtime identity, open creative input before readiness, or claim success without a receipt. The handoff contains no generated shell, JavaScript, raw JSON program, or temporary-file program.
+
+Local App authorization is treated as Codex-turn scoped. The initial turn and every later `RETRY` turn must acquire the same narrow App permission before making an exchange. A loopback connection refusal without active permission is not accepted as evidence that the App itself stopped.
 
 ## What is tested
 
@@ -17,13 +28,14 @@ The V1 matrix covers:
 
 - automatic control-to-creative success without a `CREATE` gate;
 - the exact 64-byte Agent-line boundary;
-- shell quoting in sealed transport values;
+- quoted values in declarative transport data;
 - malformed claim, readiness, and creative-release responses;
 - unavailable runtime capability and active-turn runtime metadata;
 - rejected result submission;
 - prompt sealing until readiness;
 - at most one result submission;
-- fail-closed behavior and redacted reports.
+- fail-closed behavior and redacted reports;
+- no embedded shell/JavaScript/raw-JSON programs, exact nested request field paths, defined angle-bracket placeholders, one occurrence of each private literal, four-operation structure, and an 8 KB visible-handoff ceiling.
 
 ## Deterministic workflow
 
@@ -73,7 +85,7 @@ The observer writes `real-canary-report.json` in the canary directory. The repor
 
 ## Reading failures
 
-- **Deterministic failure:** first treat it as a handoff or fixture-harness regression. Inspect the failed assertion and command marker in `report.md`.
+- **Deterministic failure:** first treat it as a handoff or fixture-harness regression. Inspect the failed assertion and operation marker in `report.md`.
 - **Real canary failure with deterministic PASS:** treat it as Codex-environment evidence. Preserve the redacted report and the exact plain creator-facing message, then add the smallest reproducible matrix case before changing the handoff.
 - **Both lanes fail:** fix the deterministic defect first, rerun the complete matrix, then repeat one real canary.
 

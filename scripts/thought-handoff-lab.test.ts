@@ -25,24 +25,41 @@ test("the Codex handoff matrix has stable unique case IDs", () => {
 
 test("the candidate handoff runs control first and continues automatically", () => {
   const task = thoughtCodexCanonicalCandidate();
-  const controlIndex = task.indexOf("Control phase:");
-  const creativeIndex = task.indexOf("Creative phase — immediately after successful control:");
+  const controlIndex = task.indexOf("Operation 1 — Claim control:");
+  const creativeIndex = task.indexOf("Operation 3 — Open one creative turn:");
   assert.ok(controlIndex >= 0);
   assert.ok(creativeIndex > controlIndex);
   assert.match(
     task,
-    /If control passes, continue directly into the creative phase in this same turn\./,
+    /If verification passes, continue immediately and create exactly one answer in this same turn\./,
   );
-  assert.match(task, /Do not ask the creator to continue and do not stop\./);
+  assert.match(task, /do not stop or ask the creator to continue\./);
   assert.doesNotMatch(task, /reply CREATE/i);
   assert.doesNotMatch(task, /exact CREATE/i);
 });
 
 test("the candidate handoff keeps creative input sealed and forbids setup work", () => {
   const task = thoughtCodexCanonicalCandidate();
-  assert.match(task, /The creative prompt is not present in this task or the claim response\./);
+  assert.match(task, /The creative prompt is absent until \/start succeeds\./);
   assert.match(task, /Never ask the creator to install, configure, or learn anything\./);
-  assert.match(task, /RETRY itself never opens creative input\./);
+  assert.match(task, /Before any turn exchanges data with the App—including every RETRY turn—request only the narrow network permission/);
+  assert.match(task, /loopback connection refusal without active permission is not evidence that the App stopped/);
+  assert.match(task, /On an exact RETRY, first request the same narrow App network permission for the new turn/);
+  assert.match(task, /RETRY never opens the creative prompt\./);
+  assert.doesNotMatch(task, /\/bin\/zsh|\bcurl\s|\bjq\s|nodeRepl\.|\/tmp\//);
+  assert.doesNotMatch(task, /\{"/);
+  assert.match(task, /<run_id> = tar_handoff_candidate/);
+  assert.match(task, /<app_endpoint> = https:\/\/handoff-lab\.invalid\/runs\/<run_id>/);
+  assert.match(task, /POST <app_endpoint>\/claim/);
+  assert.match(task, /PUT <app_endpoint>\/result/);
+  assert.match(task, /bridge\.bridgeId = inshell-thought-agent-direct/);
+  assert.match(task, /bridge\.bridgeVersion = 0\.0\.3\+direct/);
+  assert.match(task, /adapter\.adapterId = codex/);
+  assert.match(task, /control\.schema = <control_schema>/);
+  assert.match(task, /output\.agentLineSha256 = hash of output\.agentLine/);
+  assert.doesNotMatch(task, /bridge = id /);
+  assert.equal(task.split("tar_handoff_candidate").length - 1, 1);
+  assert.ok(Buffer.byteLength(task) <= 8_000);
   assert.doesNotMatch(task, /Can a verified path remain simple\?/);
 });
 

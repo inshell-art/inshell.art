@@ -9,6 +9,7 @@ export { THOUGHT_V2_PROTOCOL_RELEASE } from "./release.generated";
 export {
   THOUGHT_CODEX_CLIENT_ROUTE,
   buildThoughtCodexClientScript,
+  buildThoughtCodexOperationContract,
   buildThoughtCodexTask,
   type ThoughtCodexReleaseBinding,
   type ThoughtCodexResultContractBinding,
