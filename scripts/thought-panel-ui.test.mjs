@@ -1173,6 +1173,27 @@ test("Agent launch uses direct data-only protocol calls without a client binding
   );
 });
 
+test("Agent readiness is an internal checkpoint that continues automatically", () => {
+  assert.match(
+    thoughtMain,
+    /case "ready":\s*return `\$\{product\} creating\.\.\.`/,
+  );
+  assert.match(
+    thoughtMain,
+    /const controlVerified = state\.run\.remoteState === "ready";[\s\S]*?detail: controlVerified[\s\S]*?"Control checks passed\. Creation is continuing automatically\."[\s\S]*?nextStep: `keep this page open while \$\{product\} creates`/,
+  );
+  assert.match(
+    thoughtMain,
+    /message: remoteState === "ready"[\s\S]*?"Codex passed preflight and is continuing automatically\."/,
+  );
+  assert.doesNotMatch(thoughtMain, /Reply CREATE/);
+  assert.match(
+    thoughtMain,
+    /const submitAgentDemoProtocolResult = async[\s\S]*?fetchThoughtAgentJson<Record<string, unknown>>\(run\.readyUrl,[\s\S]*?control: agentDemoControlEvidence\(\)[\s\S]*?fetchThoughtAgentJson<Record<string, unknown>>\(run\.startUrl/,
+    "the manual demo callback must pass readiness before opening the creative request",
+  );
+});
+
 test("Work prompt exposes persistent terminal-style history navigation", () => {
   assert.match(thoughtMain, /THOUGHT_DOCK_PROMPT_HISTORY_KEY = "thought:dock:prompt-history:v1"/);
   assert.match(thoughtMain, /THOUGHT_DOCK_PROMPT_HISTORY_LIMIT = 50/);

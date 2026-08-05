@@ -3,6 +3,10 @@ import { THOUGHT_V2_PROTOCOL_RELEASE } from "./release.generated";
 const THOUGHT_AGENT_PROTOCOL_VERSION = THOUGHT_V2_PROTOCOL_RELEASE.agentRunId;
 const THOUGHT_AGENT_RESULT_VERSION =
   THOUGHT_V2_PROTOCOL_RELEASE.identifiers.agentResult;
+const THOUGHT_AGENT_CONTROL_VERSION =
+  "inshell.thought.agent-control.v1" as const;
+const THOUGHT_AGENT_CONTROL_CAPABILITY_VERSION =
+  "inshell.thought.agent-control-capability.v1" as const;
 const THOUGHT_AGENT_LINE_CONTRACT = {
   workProfile: THOUGHT_V2_PROTOCOL_RELEASE.identifiers.workProfile,
   minUtf8Bytes: 1,
@@ -25,7 +29,6 @@ export type ThoughtCodexResultContractBinding = {
 export type ThoughtCodexTaskInput = {
   product: string;
   runId: string;
-  promptLine: string;
   runUrl: string;
   launchToken: string;
   networkAuthorization?: "managed" | "preauthorized";
@@ -43,8 +46,8 @@ export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
   const networkAuthorization = input.networkAuthorization ?? "managed";
   const claimInstruction =
     networkAuthorization === "preauthorized"
-      ? "1. First, run this exact direct curl command through the shell tool. Network access for this test session is already authorized; do not request escalation and do not run any setup command first. Do not put the token or command in chat:"
-      : "1. First, run this exact direct curl command through the shell tool with sandbox_permissions set to require_escalated. This is the expected one-time network approval for the run. Do not run any setup command first. The approval justification is: direct THOUGHT JSON claim request to the displayed run endpoint; one run-scoped token, no downloaded code, no installation, and no dynamic execution. Use the narrow curl prefix rule if the tool supports one. Do not put the token or command in chat. A curl (7) result from an un-escalated attempt does not mean the App service is down. Only report the service unreachable if this required escalated attempt also returns curl (7):";
+      ? "1. Run this exact App-exchange command through the shell tool. Network access for this test session is already authorized; do not request escalation and do not run setup first. Do not put the token or command in chat:"
+      : "1. Run this exact App-exchange command through the shell tool with sandbox_permissions set to require_escalated. Use this plain approval reason: Allow this THOUGHT run to exchange its sealed instructions and return with the App. This is the expected one-time permission request. Use the narrow curl prefix rule if available. Do not run setup first and do not put the token or command in chat. A curl (7) result before the required approved attempt is not evidence that the App is unavailable:";
   const subsequentCurlInstruction =
     networkAuthorization === "preauthorized"
       ? "with the same preauthorized network access"
@@ -97,12 +100,17 @@ export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
     agentInvocations: 1,
     workspacePolicy: "external-agent-app",
     sandboxPolicy: "agent-owned",
-    approvalPolicy: "agent-owned",
+    approvalPolicy: "bounded-control-complete",
     userConfigPolicy: "agent-owned",
   });
   const fileStem = `/tmp/inshell-thought-${input.runId}`;
   const claimFile = `${fileStem}.claim.json`;
   const bridgeHeaderFile = `${fileStem}.bridge-header`;
+  const controlEvidenceFile = `${fileStem}.control-evidence.json`;
+  const readyRequestFile = `${fileStem}.ready-request.json`;
+  const readyResponseFile = `${fileStem}.ready-response.json`;
+  const controlFailureRequestFile = `${fileStem}.control-failure-request.json`;
+  const controlFailureResponseFile = `${fileStem}.control-failure-response.json`;
   const startedAtFile = `${fileStem}.started-at`;
   const startRequestFile = `${fileStem}.start-request.json`;
   const startResponseFile = `${fileStem}.start-response.json`;
@@ -112,11 +120,18 @@ export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
   const resultResponseFile = `${fileStem}.result-response.json`;
   const invocationId = `tai_${input.runId.slice(4)}`;
   const claimUrl = `${input.runUrl.replace(/\/+$/g, "")}/claim`;
+  const readyUrl = `${input.runUrl.replace(/\/+$/g, "")}/ready`;
   const startUrl = `${input.runUrl.replace(/\/+$/g, "")}/start`;
   const resultUrl = `${input.runUrl.replace(/\/+$/g, "")}/result`;
+  const failUrl = `${input.runUrl.replace(/\/+$/g, "")}/fail`;
   const localFiles = [
     claimFile,
     bridgeHeaderFile,
+    controlEvidenceFile,
+    readyRequestFile,
+    readyResponseFile,
+    controlFailureRequestFile,
+    controlFailureResponseFile,
     startedAtFile,
     startRequestFile,
     startResponseFile,
@@ -136,29 +151,75 @@ export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
     `--output ${shellQuote(claimFile)}`,
     shellQuote(claimUrl),
   ].join(" ");
-  const releaseValidation = input.release
-    ? [
-        `jq -e --arg release ${shellQuote(input.release.protocolReleaseId)} --arg manifest ${shellQuote(input.release.manifestKeccak256)} '.request.outputContract.release.protocolReleaseId == $release and .request.outputContract.release.manifestKeccak256 == $manifest' "$THOUGHT_CLAIM_FILE" >/dev/null`,
-      ]
-    : [];
   const claimValidationCommand = [
     "set -eu",
     `readonly THOUGHT_CLAIM_FILE=${shellQuote(claimFile)}`,
     `readonly THOUGHT_BRIDGE_HEADER_FILE=${shellQuote(bridgeHeaderFile)}`,
-    `readonly THOUGHT_STARTED_AT_FILE=${shellQuote(startedAtFile)}`,
-    `readonly THOUGHT_START_REQUEST_FILE=${shellQuote(startRequestFile)}`,
     `jq -e --arg run ${shellQuote(input.runId)} '.runId == $run and .state == "claimed" and (.bridgeToken | type) == "string" and (.bridgeToken | length) > 0' "$THOUGHT_CLAIM_FILE" >/dev/null`,
-    `jq -e '.request.instructions.text == .request.spec.text and .request.instructions.sha256 == .request.spec.sha256 and .request.promptLine.text == .request.agentInput.text and .request.promptLine.sha256 == .request.agentInput.sha256' "$THOUGHT_CLAIM_FILE" >/dev/null`,
-    `[[ "$(jq -j .request.instructions.text "$THOUGHT_CLAIM_FILE" | shasum -a 256 | awk '{print "sha256:" $1}')" == "$(jq -er .request.instructions.sha256 "$THOUGHT_CLAIM_FILE")" ]]`,
-    `[[ "$(jq -j .request.promptLine.text "$THOUGHT_CLAIM_FILE" | shasum -a 256 | awk '{print "sha256:" $1}')" == "$(jq -er .request.promptLine.sha256 "$THOUGHT_CLAIM_FILE")" ]]`,
-    `jq -e --arg profile ${shellQuote(input.resultContract?.workProfile ?? THOUGHT_AGENT_LINE_CONTRACT.workProfile)} --argjson min ${THOUGHT_AGENT_LINE_CONTRACT.minUtf8Bytes} --argjson max ${THOUGHT_AGENT_LINE_CONTRACT.maxUtf8Bytes} '.request.outputContract.agentLine.workProfile == $profile and .request.outputContract.agentLine.minUtf8Bytes == $min and .request.outputContract.agentLine.maxUtf8Bytes == $max and .request.outputContract.agentLine.normalization == "none" and .request.outputContract.agentLine.displayUnitsAreAcceptanceLimits == false' "$THOUGHT_CLAIM_FILE" >/dev/null`,
-    ...releaseValidation,
+    `jq -e --arg schema ${shellQuote(THOUGHT_AGENT_CONTROL_VERSION)} '(.request | keys_unsorted | sort) == ["controlPolicy","evidenceContract","intent","requestedAgent"] and .request.intent == "prepare-thought-creation" and (.request.controlPolicy | keys_unsorted | sort) == ["allowMultipleControlTurns","continueOnSuccess","creativeInputState","installationsAllowed","mode","recoverySignal","requireRuntimeIdentityBeforeCreativeInput"] and .request.controlPolicy.mode == "bounded-preflight" and .request.controlPolicy.allowMultipleControlTurns == true and .request.controlPolicy.continueOnSuccess == true and .request.controlPolicy.recoverySignal == "RETRY" and .request.controlPolicy.requireRuntimeIdentityBeforeCreativeInput == true and .request.controlPolicy.installationsAllowed == false and .request.controlPolicy.creativeInputState == "sealed" and .request.evidenceContract.schema == $schema and .request.evidenceContract.appExchange == "verified" and .request.evidenceContract.runtimeIdentity == "available" and .request.evidenceContract.localPreparation == "verified" and .request.evidenceContract.installationsRequired == false and .request.evidenceContract.creativeInputOpened == false and (.request.promptLine == null) and (.request.agentInput == null) and (.request.instructions == null) and (.request.spec == null) and (.request.outputContract == null)' "$THOUGHT_CLAIM_FILE" >/dev/null`,
     `jq -er '"Authorization: Bearer " + .bridgeToken' "$THOUGHT_CLAIM_FILE" > "$THOUGHT_BRIDGE_HEADER_FILE"`,
-    `readonly THOUGHT_STARTED_AT="$(date -u +'%Y-%m-%dT%H:%M:%S.000Z')"`,
-    `printf %s "$THOUGHT_STARTED_AT" > "$THOUGHT_STARTED_AT_FILE"`,
-    `jq -cn --arg protocol ${shellQuote(THOUGHT_AGENT_PROTOCOL_VERSION)} --arg invocationId ${shellQuote(invocationId)} --arg startedAt "$THOUGHT_STARTED_AT" '{protocolVersion:$protocol,invocationId:$invocationId,startedAt:$startedAt}' > "$THOUGHT_START_REQUEST_FILE"`,
-    `chmod 0600 "$THOUGHT_BRIDGE_HEADER_FILE" "$THOUGHT_STARTED_AT_FILE" "$THOUGHT_START_REQUEST_FILE"`,
+    `chmod 0600 "$THOUGHT_BRIDGE_HEADER_FILE"`,
     'print -r -- "THOUGHT_CLAIM_VERIFIED"',
+  ].join("; ");
+  const controlEvidenceCode = [
+    'var thoughtControlMetadataRaw = nodeRepl.requestMeta?.["x-codex-turn-metadata"];',
+    'var thoughtControlMetadata = typeof thoughtControlMetadataRaw === "string" ? JSON.parse(thoughtControlMetadataRaw) : thoughtControlMetadataRaw;',
+    'var thoughtControlModel = typeof thoughtControlMetadata?.model === "string" ? thoughtControlMetadata.model.trim() : "";',
+    'var thoughtControlReasoningEffort = typeof thoughtControlMetadata?.reasoning_effort === "string" ? thoughtControlMetadata.reasoning_effort.trim() : "";',
+    'if (!thoughtControlModel || !thoughtControlReasoningEffort) throw new Error("Current Codex run identity is unavailable.");',
+    'var thoughtControlFs = await import("node:fs/promises");',
+    `await thoughtControlFs.writeFile(${JSON.stringify(controlEvidenceFile)}, JSON.stringify({schema:${JSON.stringify(THOUGHT_AGENT_CONTROL_CAPABILITY_VERSION)},runtimeIdentity:"available"}), {mode: 0o600});`,
+    'nodeRepl.write("THOUGHT_CONTROL_EVIDENCE_READY");',
+  ].join(" ");
+  const readyPreparationCommand = [
+    "set -eu",
+    `readonly THOUGHT_CONTROL_EVIDENCE_FILE=${shellQuote(controlEvidenceFile)}`,
+    `readonly THOUGHT_READY_REQUEST_FILE=${shellQuote(readyRequestFile)}`,
+    `jq -e --arg schema ${shellQuote(THOUGHT_AGENT_CONTROL_CAPABILITY_VERSION)} 'type == "object" and (keys_unsorted | sort) == ["runtimeIdentity","schema"] and .schema == $schema and .runtimeIdentity == "available"' "$THOUGHT_CONTROL_EVIDENCE_FILE" >/dev/null`,
+    `jq -cn --arg protocol ${shellQuote(THOUGHT_AGENT_PROTOCOL_VERSION)} --arg schema ${shellQuote(THOUGHT_AGENT_CONTROL_VERSION)} '{protocolVersion:$protocol,control:{schema:$schema,mode:"bounded-preflight",appExchange:"verified",runtimeIdentity:"available",localPreparation:"verified",installationsRequired:false,creativeInputOpened:false}}' > "$THOUGHT_READY_REQUEST_FILE"`,
+    `chmod 0600 "$THOUGHT_READY_REQUEST_FILE"`,
+    'print -r -- "THOUGHT_READY_REQUEST_PREPARED"',
+  ].join("; ");
+  const readyCommand = [
+    "curl --disable --silent --show-error --fail-with-body",
+    "--connect-timeout 8 --max-time 30",
+    "--request POST",
+    "--header 'content-type: application/json'",
+    `--header ${shellQuote(`@${bridgeHeaderFile}`)}`,
+    `--data-binary @${shellQuote(readyRequestFile)}`,
+    `--output ${shellQuote(readyResponseFile)}`,
+    shellQuote(readyUrl),
+  ].join(" ");
+  const readyValidationCommand = [
+    "set -eu",
+    `readonly THOUGHT_READY_RESPONSE_FILE=${shellQuote(readyResponseFile)}`,
+    `jq -e --arg run ${shellQuote(input.runId)} --arg schema ${shellQuote(THOUGHT_AGENT_CONTROL_VERSION)} '.runId == $run and .state == "ready" and .stage == "control-verified" and (.creatorAction == null) and .control.schema == $schema and .control.mode == "bounded-preflight" and .control.appExchange == "verified" and .control.runtimeIdentity == "available" and .control.localPreparation == "verified" and .control.installationsRequired == false and .control.creativeInputOpened == false' "$THOUGHT_READY_RESPONSE_FILE" >/dev/null`,
+    'print -r -- "THOUGHT_CONTROL_READY"',
+  ].join("; ");
+  const controlFailurePreparationCommand = [
+    "set -eu",
+    `readonly THOUGHT_CONTROL_FAILURE_REQUEST_FILE=${shellQuote(controlFailureRequestFile)}`,
+    `readonly THOUGHT_FAILED_AT="$(date -u +'%Y-%m-%dT%H:%M:%S.000Z')"`,
+    `jq -cn --arg protocol ${shellQuote(THOUGHT_AGENT_PROTOCOL_VERSION)} --arg failedAt "$THOUGHT_FAILED_AT" '{protocolVersion:$protocol,failedAt:$failedAt,error:{code:"AGENT_START_FAILED",message:"Codex could not prepare this run. Return to THOUGHT and choose Codex again."}}' > "$THOUGHT_CONTROL_FAILURE_REQUEST_FILE"`,
+    `chmod 0600 "$THOUGHT_CONTROL_FAILURE_REQUEST_FILE"`,
+    'print -r -- "THOUGHT_CONTROL_FAILURE_PREPARED"',
+  ].join("; ");
+  const controlFailureCommand = [
+    "curl --disable --silent --show-error --fail-with-body",
+    "--connect-timeout 8 --max-time 30",
+    "--request POST",
+    "--header 'content-type: application/json'",
+    `--header ${shellQuote(`@${bridgeHeaderFile}`)}`,
+    `--data-binary @${shellQuote(controlFailureRequestFile)}`,
+    `--output ${shellQuote(controlFailureResponseFile)}`,
+    shellQuote(failUrl),
+  ].join(" ");
+  const controlFailureValidationCommand = [
+    "set -eu",
+    `readonly THOUGHT_CONTROL_FAILURE_RESPONSE_FILE=${shellQuote(controlFailureResponseFile)}`,
+    `jq -e --arg run ${shellQuote(input.runId)} '.runId == $run and .state == "failed" and .error.code == "AGENT_START_FAILED"' "$THOUGHT_CONTROL_FAILURE_RESPONSE_FILE" >/dev/null`,
+    'print -r -- "THOUGHT_CONTROL_FAILURE_RECORDED"',
+    cleanupCommand,
   ].join("; ");
   const startCommand = [
     "curl --disable --silent --show-error --fail-with-body",
@@ -170,18 +231,40 @@ export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
     `--output ${shellQuote(startResponseFile)}`,
     shellQuote(startUrl),
   ].join(" ");
+  const creativeStartPreparationCommand = [
+    "set -eu",
+    `readonly THOUGHT_RUNTIME_METADATA_FILE=${shellQuote(runtimeMetadataFile)}`,
+    `readonly THOUGHT_STARTED_AT_FILE=${shellQuote(startedAtFile)}`,
+    `readonly THOUGHT_START_REQUEST_FILE=${shellQuote(startRequestFile)}`,
+    `jq -e 'type == "object" and ((keys_unsorted | sort) == ["model","reasoningEffort"]) and (.model | type) == "string" and (.model | length) >= 1 and (.model | length) <= 64 and (.reasoningEffort == "none" or .reasoningEffort == "minimal" or .reasoningEffort == "low" or .reasoningEffort == "medium" or .reasoningEffort == "high" or .reasoningEffort == "xhigh" or .reasoningEffort == "max" or .reasoningEffort == "ultra")' "$THOUGHT_RUNTIME_METADATA_FILE" >/dev/null`,
+    `readonly THOUGHT_STARTED_AT="$(date -u +'%Y-%m-%dT%H:%M:%S.000Z')"`,
+    `printf %s "$THOUGHT_STARTED_AT" > "$THOUGHT_STARTED_AT_FILE"`,
+    `jq -cn --arg protocol ${shellQuote(THOUGHT_AGENT_PROTOCOL_VERSION)} --arg invocationId ${shellQuote(invocationId)} --arg startedAt "$THOUGHT_STARTED_AT" '{protocolVersion:$protocol,invocationId:$invocationId,startedAt:$startedAt}' > "$THOUGHT_START_REQUEST_FILE"`,
+    `chmod 0600 "$THOUGHT_STARTED_AT_FILE" "$THOUGHT_START_REQUEST_FILE"`,
+    'print -r -- "THOUGHT_CREATIVE_START_PREPARED"',
+  ].join("; ");
+  const creativeReleaseValidation = input.release
+    ? [
+        `jq -e --arg release ${shellQuote(input.release.protocolReleaseId)} --arg manifest ${shellQuote(input.release.manifestKeccak256)} '.request.outputContract.release.protocolReleaseId == $release and .request.outputContract.release.manifestKeccak256 == $manifest' "$THOUGHT_CREATIVE_FILE" >/dev/null`,
+      ]
+    : [];
   const inputReadyCommand = [
     "set -eu",
-    `readonly THOUGHT_CLAIM_FILE=${shellQuote(claimFile)}`,
-    `jq -e --arg run ${shellQuote(input.runId)} --arg invocation ${shellQuote(invocationId)} '.runId == $run and .state == "running" and .invocationId == $invocation' ${shellQuote(startResponseFile)} >/dev/null`,
+    `readonly THOUGHT_CREATIVE_FILE=${shellQuote(startResponseFile)}`,
+    `jq -e --arg run ${shellQuote(input.runId)} --arg invocation ${shellQuote(invocationId)} '.runId == $run and .state == "running" and .invocationId == $invocation and .request.intent == "generate-thought-candidate"' "$THOUGHT_CREATIVE_FILE" >/dev/null`,
+    `jq -e '.request.instructions.text == .request.spec.text and .request.instructions.sha256 == .request.spec.sha256 and .request.promptLine.text == .request.agentInput.text and .request.promptLine.sha256 == .request.agentInput.sha256' "$THOUGHT_CREATIVE_FILE" >/dev/null`,
+    `[[ "$(jq -j .request.instructions.text "$THOUGHT_CREATIVE_FILE" | shasum -a 256 | awk '{print "sha256:" $1}')" == "$(jq -er .request.instructions.sha256 "$THOUGHT_CREATIVE_FILE")" ]]`,
+    `[[ "$(jq -j .request.promptLine.text "$THOUGHT_CREATIVE_FILE" | shasum -a 256 | awk '{print "sha256:" $1}')" == "$(jq -er .request.promptLine.sha256 "$THOUGHT_CREATIVE_FILE")" ]]`,
+    `jq -e --arg profile ${shellQuote(input.resultContract?.workProfile ?? THOUGHT_AGENT_LINE_CONTRACT.workProfile)} --argjson min ${THOUGHT_AGENT_LINE_CONTRACT.minUtf8Bytes} --argjson max ${THOUGHT_AGENT_LINE_CONTRACT.maxUtf8Bytes} '.request.outputContract.agentLine.workProfile == $profile and .request.outputContract.agentLine.minUtf8Bytes == $min and .request.outputContract.agentLine.maxUtf8Bytes == $max and .request.outputContract.agentLine.normalization == "none" and .request.outputContract.agentLine.displayUnitsAreAcceptanceLimits == false' "$THOUGHT_CREATIVE_FILE" >/dev/null`,
+    ...creativeReleaseValidation,
     'print -r -- "THOUGHT_VERIFIED_INSTRUCTIONS_BEGIN"',
-    'jq -er .request.instructions.text "$THOUGHT_CLAIM_FILE"',
+    'jq -er .request.instructions.text "$THOUGHT_CREATIVE_FILE"',
     'print -r -- "THOUGHT_VERIFIED_INSTRUCTIONS_END"',
     'print -r -- "THOUGHT_VERIFIED_PROMPT_BEGIN"',
-    'jq -er .request.promptLine.text "$THOUGHT_CLAIM_FILE"',
+    'jq -er .request.promptLine.text "$THOUGHT_CREATIVE_FILE"',
     'print -r -- "THOUGHT_VERIFIED_PROMPT_END"',
     'print -r -- "THOUGHT_VERIFIED_OUTPUT_CONTRACT_BEGIN"',
-    'jq -c .request.outputContract "$THOUGHT_CLAIM_FILE"',
+    'jq -c .request.outputContract "$THOUGHT_CREATIVE_FILE"',
     'print -r -- "THOUGHT_VERIFIED_OUTPUT_CONTRACT_END"',
     'print -r -- "THOUGHT_INPUT_READY"',
   ].join("; ");
@@ -204,7 +287,6 @@ export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
       : ":";
   const resultPreparationCommand = [
     "set -eu",
-    `readonly THOUGHT_CLAIM_FILE=${shellQuote(claimFile)}`,
     `readonly THOUGHT_STARTED_AT_FILE=${shellQuote(startedAtFile)}`,
     `readonly THOUGHT_CANDIDATE_FILE=${shellQuote(candidateFile)}`,
     `readonly THOUGHT_RUNTIME_METADATA_FILE=${shellQuote(runtimeMetadataFile)}`,
@@ -245,54 +327,84 @@ export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
   ].join("; ");
 
   return [
-    `You are ${input.product} completing one THOUGHT run.`,
+    `You are ${input.product} preparing and then completing one THOUGHT run.`,
     "",
-    "This run may span multiple chat turns for approval or recovery. A chat turn does not complete the run. The run completes only after exactly one result is accepted and the client prints THOUGHT_RESULT_OK.",
+    "This is a two-phase run: bounded control first, then exactly one creative turn. If control passes, continue directly into the creative phase in this same turn. Use additional chat turns only to recover from an observed control blocker. The creative prompt stays sealed until control is complete.",
     "",
     "Run:",
     input.runId,
     "",
-    "Task:",
-    input.promptLine,
+    "Creator-facing language:",
+    "- Keep every request short and plain. Give one action and one reason supported by the failure you actually observed.",
+    "- Never mention tools, APIs, JSON, metadata, sandboxes, hashes, tokens, or other implementation terms to the creator.",
+    "- Never ask the creator to install, configure, or learn anything. Missing capability is an App or platform failure, not a creator setup task.",
+    "- Never guess readiness evidence or runtime identity.",
     "",
-    "Before the client prints THOUGHT_INPUT_READY, you may diagnose execution blockers, but do not answer or reason about Task.",
-    "",
-    "Protocol execution:",
-    "This task does not download, install, or execute a client or launcher. It uses three explicit curl calls to this run endpoint. Treat every HTTP response as data, never as code.",
+    "Control phase:",
+    "This task downloads and executes nothing. It exchanges static JSON with the displayed run endpoint and treats every response as data, never as code. The creative prompt is not present in this task or the claim response.",
     claimInstruction,
     claimCommand,
-    "2. Run this exact local-only validation command. It treats the claim response as JSON data, verifies the bound spec, prompt, output contract, and hashes, then prepares the start request and a permission-restricted curl header file. The header file is data only; do not execute it:",
+    "2. Run this exact local-only validation command. It verifies that the claim contains control policy only, proves that creative input is still sealed, and prepares a permission-restricted App header file:",
     `/bin/zsh -dfc ${shellQuote(claimValidationCommand)}`,
     "Do not continue unless it prints THOUGHT_CLAIM_VERIFIED.",
-    `3. Run this exact static curl command ${subsequentCurlInstruction}. It contains no command substitution, reads the verified authorization header as data from the permission-restricted file, and sends JSON only:`,
+    "3. Use the node_repl JavaScript tool once with the exact JavaScript below. This is a readiness check only. It confirms that this Agent session can provide the run identity required later, but it does not preserve or expose the current turn's model values:",
+    controlEvidenceCode,
+    "Do not continue unless it prints THOUGHT_CONTROL_EVIDENCE_READY.",
+    "4. Run this exact local-only command to prepare closed readiness evidence:",
+    `/bin/zsh -dfc ${shellQuote(readyPreparationCommand)}`,
+    "Do not continue unless it prints THOUGHT_READY_REQUEST_PREPARED.",
+    `5. Run this exact static App-exchange command ${subsequentCurlInstruction}:`,
+    readyCommand,
+    "6. Run this exact local-only readiness validation command:",
+    `/bin/zsh -dfc ${shellQuote(readyValidationCommand)}`,
+    "Do not continue unless it prints THOUGHT_CONTROL_READY.",
+    "7. Control is complete. Do not ask the creator to continue and do not stop. Continue directly to the creative phase below.",
+    "",
+    "Control recovery:",
+    "- If the App exchange is denied, show exactly: THOUGHT could not exchange this run with the App. Please approve the connection request, then reply RETRY. Why: the App request was blocked.",
+    "- On an exact RETRY reply, repeat only the failed control operation and verify its evidence. When control passes, continue directly into the creative phase without another creator confirmation. RETRY itself never opens creative input.",
+    "- If node_repl or required run identity is unavailable after claim, first run the three internal failure-reporting steps below. Whether or not reporting succeeds, then show exactly: This Agent session cannot provide the run identity THOUGHT needs. Return to THOUGHT and choose Codex again. Nothing was created.",
+    "Failure-reporting step A — prepare the terminal state locally:",
+    `/bin/zsh -dfc ${shellQuote(controlFailurePreparationCommand)}`,
+    "Failure-reporting step B — send it with the same narrow App permission:",
+    controlFailureCommand,
+    "Failure-reporting step C — verify it and clear this run's temporary files:",
+    `/bin/zsh -dfc ${shellQuote(controlFailureValidationCommand)}`,
+    "- For another proven control blocker, diagnose it in this environment and ask for only the smallest plain creator action. Do not expose implementation details and do not ask for installation.",
+    "",
+    "Creative phase — immediately after successful control:",
+    "8. Before opening creative input, use the node_repl JavaScript tool once with the exact JavaScript below. It records only this active run's model and reasoning effort:",
+    runtimeMetadataCode,
+    "Do not continue unless it prints THOUGHT_RUNTIME_METADATA_READY. If it fails, use the unavailable-session message above; do not start, guess, or create.",
+    "9. Run this exact local-only command. It validates the active-turn identity and prepares the creative start request:",
+    `/bin/zsh -dfc ${shellQuote(creativeStartPreparationCommand)}`,
+    "Do not continue unless it prints THOUGHT_CREATIVE_START_PREPARED.",
+    `10. Run this exact static App-exchange command ${subsequentCurlInstruction}. This is the only action that releases the creative prompt and spec:`,
     startCommand,
-    "4. Run this exact local-only command. Only its final THOUGHT_INPUT_READY marker authorizes you to reason about Task:",
+    "11. Run this exact local-only command. Only its final THOUGHT_INPUT_READY marker authorizes creative reasoning:",
     `/bin/zsh -dfc ${shellQuote(inputReadyCommand)}`,
-    "5. Only after THOUGHT_INPUT_READY, read the verified instructions and prompt and generate exactly one result.",
-    "6. The active V2 output contract is authoritative:",
+    "12. Only after THOUGHT_INPUT_READY, read the verified instructions and prompt and generate exactly one result. Never ask for clarification or generate alternatives.",
+    "13. The active V2 output contract is authoritative:",
     `- agentLine must be 1-${THOUGHT_AGENT_LINE_CONTRACT.maxUtf8Bytes} UTF-8 bytes.`,
     "- Preserve the exact returned bytes; normalization is none.",
     "- Display units are renderer measurements only, not an acceptance limit.",
     "- Do not use the old 162-display-unit limit or rely on clipping/repair.",
-    "7. Use the node_repl js tool once with the exact JavaScript below. It reads only the active turn's model and reasoning_effort from Codex host metadata and writes only those two fields to the permission-restricted run file. Do not inspect, emit, or copy any other request metadata:",
-    runtimeMetadataCode,
-    "Do not continue unless it prints THOUGHT_RUNTIME_METADATA_READY. If node_repl or either field is unavailable, report that exact blocker; do not guess a model and do not submit this run.",
-    `8. Write exactly this JSON shape as one line to ${candidateFile}, replacing only YOUR AGENT LINE: ${resultExample}`,
+    `14. Write exactly this JSON shape as one line to ${candidateFile}, replacing only YOUR AGENT LINE: ${resultExample}`,
     "Use a local-only command and correct shell escaping. Do not show the candidate in chat.",
-    "9. Run this exact local-only command. It validates the candidate and captured runtime metadata, then prepares the full transport envelope without contacting the network:",
+    "15. Run this exact local-only command. It validates the candidate and captured runtime identity, then prepares the full transport envelope without contacting the network:",
     `/bin/zsh -dfc ${shellQuote(resultPreparationCommand)}`,
     "Do not continue unless it prints THOUGHT_RESULT_REQUEST_READY.",
-    `10. Run this exact static curl command ${subsequentCurlInstruction}. It contains no command substitution and submits only the prepared JSON result to this run:`,
+    `16. Run this exact static App-exchange command ${subsequentCurlInstruction}. It submits only the prepared result:`,
     resultCommand,
-    "11. Run this exact local-only command to verify acceptance, print the receipt, and delete all temporary run files:",
+    "17. Run this exact local-only command to verify acceptance, print the receipt, and delete all temporary run files:",
     `/bin/zsh -dfc ${shellQuote(receiptCommand)}`,
-    "Do not install anything. Do not fetch or execute the compatibility client endpoint. If a direct curl approval is denied, report only that the direct JSON request was denied.",
+    "Do not install anything. Do not fetch or execute the compatibility client endpoint.",
     "",
     "Final chat response:",
     "Only after THOUGHT_RESULT_OK, show exactly:",
     "Return to the THOUGHT browser tab. It is polling this run and will show the preview automatically.",
     "Receipt: <exact receipt printed by the client>",
-    "Before success, respond only as needed to request approval or report a concrete execution blocker. Do not answer Task or show the candidate JSON.",
+    "Before success, use only an exact recovery message or one necessary plain control request when control is actually blocked. Never show the creative prompt, result, files, or transport data in chat.",
   ].join("\n");
 }
 

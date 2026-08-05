@@ -3,6 +3,9 @@ import { webcrypto, randomFillSync } from "node:crypto";
 import { onRequestPost as onCreateRun } from "../../../functions/api/thought-agent/v1/runs";
 import { onRequestGet as onGetCodexClient } from "../../../functions/api/thought-agent/v2/client";
 import { onRequestPost as onCreateRunV2 } from "../../../functions/api/thought-agent/v2/runs";
+import { onRequestPost as onClaimRunV2 } from "../../../functions/api/thought-agent/v2/runs/[runId]/claim";
+import { onRequestPost as onReadyRunV2 } from "../../../functions/api/thought-agent/v2/runs/[runId]/ready";
+import { onRequestPost as onStartRunV2 } from "../../../functions/api/thought-agent/v2/runs/[runId]/start";
 import { onRequestGet as onGetRun } from "../../../functions/api/thought-agent/v1/runs/[runId]";
 import { onRequestPost as onCancelRun } from "../../../functions/api/thought-agent/v1/runs/[runId]/cancel";
 import { onRequestPost as onClaimRun } from "../../../functions/api/thought-agent/v1/runs/[runId]/claim";
@@ -125,7 +128,7 @@ function createD1Mock() {
           const active_count = [...rows.values()].filter(
             (row) =>
               row.visitor_hash === visitorHash &&
-              ["created", "claimed", "running"].includes(String(row.state)),
+              ["created", "claimed", "ready", "running"].includes(String(row.state)),
           ).length;
           return { active_count };
         }
@@ -189,10 +192,25 @@ function createD1Mock() {
           }
           return { meta: { changes } };
         }
-        if (/set\s+state\s*=\s*'running'/i.test(query)) {
+        if (/set\s+state\s*=\s*'ready'/i.test(query)) {
           const row = rows.get(String(bound[0]));
           const changes =
             row?.state === "claimed" &&
+            row.bridge_token_hash === bound[3] &&
+            row.invocation_id == null
+              ? 1
+              : 0;
+          if (row && changes) {
+            row.state = "ready";
+            row.execution_metadata_json = bound[1];
+            row.updated_at = bound[2];
+          }
+          return { meta: { changes } };
+        }
+        if (/set\s+state\s*=\s*'running'/i.test(query)) {
+          const row = rows.get(String(bound[0]));
+          const changes =
+            ["claimed", "ready"].includes(String(row?.state)) &&
             row.bridge_token_hash === bound[4] &&
             row.invocation_id == null
               ? 1
@@ -235,7 +253,7 @@ function createD1Mock() {
           const row = rows.get(String(bound[0]));
           const changes =
             row &&
-            ["claimed", "running"].includes(String(row.state)) &&
+            ["claimed", "ready", "running"].includes(String(row.state)) &&
             row.bridge_token_hash === bound[6]
               ? 1
               : 0;
@@ -254,7 +272,7 @@ function createD1Mock() {
           const changes =
             row &&
             row.browser_token_hash === bound[1] &&
-            ["created", "claimed", "running"].includes(String(row.state))
+            ["created", "claimed", "ready", "running"].includes(String(row.state))
               ? 1
               : 0;
           if (row && changes) {
@@ -624,30 +642,162 @@ describe("THOUGHT Agent Pages API", () => {
     const payload = await response.json();
     expect(payload).toMatchObject({
       statusUrl: expect.stringMatching(/^\/api\/thought-agent\/v2\/runs\/tar_/),
-      client: {
-        url: "https://thought.inshell.art/api/thought-agent/v2/client",
-        sha256: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
-      },
     });
-    const clientResponse = onGetCodexClient() as unknown as TestResponse;
-    const clientScript = await clientResponse.text();
-    expect(await sha256Hex(clientScript)).toBe(payload.client.sha256);
+    expect(payload.client).toBeUndefined();
   });
 
-  test("serves the maintained Codex protocol client", async () => {
-    const response = onGetCodexClient() as unknown as TestResponse;
-    const script = await response.text();
+  test("keeps V2 creative input sealed until readiness, then permits automatic continuation", async () => {
+    const d1 = createD1Mock();
+    const env = { INSHELL_CHAIN_DATA_DB: d1.db };
+    const createdResponse = await onCreateRunV2({
+      request: request(
+        "https://thought.inshell.art/api/thought-agent/v2/runs",
+        {
+          protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+          promptLine: "keep this prompt sealed",
+          specId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+          requestedAgent: { adapterId: "codex", model: null },
+          client: { surface: "thought-web", appVersion: "test" },
+        },
+        {
+          origin: "https://thought.inshell.art",
+          cookie: "inshell_anon_visitor=visitor-v2-control",
+        },
+      ),
+      env,
+    });
+    const created = await createdResponse.json();
+    const launchUrl = new globalThis.URL(created.launchUri);
+    const runId = launchUrl.searchParams.get("run_id") ?? "";
+    const launchToken = launchUrl.searchParams.get("token") ?? "";
 
-    expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    const claimResponse = await onClaimRunV2({
+      request: request(
+        `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}/claim`,
+        claimBody,
+        auth(launchToken),
+      ),
+      env,
+      params: { runId },
+    });
+    const claimed = await claimResponse.json();
+    expect(claimed).toMatchObject({
+      state: "claimed",
+      request: {
+        intent: "prepare-thought-creation",
+        controlPolicy: {
+          continueOnSuccess: true,
+          recoverySignal: "RETRY",
+          installationsAllowed: false,
+          creativeInputState: "sealed",
+        },
+      },
+    });
+    expect(JSON.stringify(claimed)).not.toContain("keep this prompt sealed");
+    expect(claimed.request).not.toHaveProperty("promptLine");
+    expect(claimed.request).not.toHaveProperty("spec");
+    expect(claimed.request).not.toHaveProperty("outputContract");
+
+    const earlyStart = await onStartRunV2({
+      request: request(
+        `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}/start`,
+        {
+          protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+          invocationId: "tai_v2_control_run",
+          startedAt: "2026-08-04T00:00:00.000Z",
+        },
+        auth(claimed.bridgeToken),
+      ),
+      env,
+      params: { runId },
+    });
+    expect(earlyStart.status).toBe(409);
+
+    const control = {
+      schema: "inshell.thought.agent-control.v1",
+      mode: "bounded-preflight",
+      appExchange: "verified",
+      runtimeIdentity: "available",
+      localPreparation: "verified",
+      installationsRequired: false,
+      creativeInputOpened: false,
+    };
+    const readyResponse = await onReadyRunV2({
+      request: request(
+        `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}/ready`,
+        { protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION, control },
+        auth(claimed.bridgeToken),
+      ),
+      env,
+      params: { runId },
+    });
+    await expect(readyResponse.json()).resolves.toMatchObject({
+      state: "ready",
+      stage: "control-verified",
+      control,
+    });
+
+    const repeatedReadyResponse = await onReadyRunV2({
+      request: request(
+        `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}/ready`,
+        { protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION, control },
+        auth(claimed.bridgeToken),
+      ),
+      env,
+      params: { runId },
+    });
+    const repeatedReady = await repeatedReadyResponse.json();
+    expect(repeatedReady).toMatchObject({
+      state: "ready",
+      stage: "control-verified",
+      control,
+    });
+    expect(repeatedReady).not.toHaveProperty("creatorAction");
+    expect(JSON.stringify(repeatedReady)).not.toContain("keep this prompt sealed");
+    expect(repeatedReady).not.toHaveProperty("request");
+
+    const startResponse = await onStartRunV2({
+      request: request(
+        `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}/start`,
+        {
+          protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+          invocationId: "tai_v2_control_run",
+          startedAt: "2026-08-04T00:00:00.000Z",
+        },
+        auth(claimed.bridgeToken),
+      ),
+      env,
+      params: { runId },
+    });
+    const started = await startResponse.json();
+    expect(started).toMatchObject({
+      state: "running",
+      request: {
+        intent: "generate-thought-candidate",
+        promptLine: { text: "keep this prompt sealed" },
+        agentInput: { text: "keep this prompt sealed" },
+      },
+    });
+    expect(started.request.spec.text).toBe(THOUGHT_V2_PROTOCOL_RELEASE.spec.text);
+    expect(started.request.outputContract.resultSchema).toBe(
+      THOUGHT_AGENT_RESULT_VERSION,
+    );
+  });
+
+  test("retires the one-shot Codex compatibility client", async () => {
+    const response = onGetCodexClient() as unknown as TestResponse;
+    const payload = await response.json();
+
+    expect(response.status).toBe(410);
+    expect(response.headers.get("content-type")).toBe("application/json; charset=utf-8");
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
-    expect(script).toContain("THOUGHT_LAUNCH_TOKEN");
-    expect(script).toContain("THOUGHT_INPUT_READY");
-    expect(script).toContain("THOUGHT_RESULT_OK");
-    expect(script).toContain("Idempotency-Key");
-    expect(script).not.toContain("test-claim-token");
-    expect(script).not.toContain("test-bridge-token");
+    expect(payload).toEqual({
+      error: {
+        code: "PROTOCOL_UNSUPPORTED",
+        message: "This compatibility client is retired. Open the Agent task from THOUGHT.",
+      },
+    });
   });
 
   test("keeps result submission idempotent and rejects conflicting bytes", async () => {

@@ -1,15 +1,18 @@
-import { THOUGHT_CODEX_CLIENT_SCRIPT } from "./client-script";
-
 const responseHeaders = {
   "access-control-allow-origin": "*",
   "cache-control": "no-store",
-  "content-type": "text/plain; charset=utf-8",
+  "content-type": "application/json; charset=utf-8",
   "x-content-type-options": "nosniff",
 };
 
 export function onRequestGet() {
-  return new Response(THOUGHT_CODEX_CLIENT_SCRIPT, {
-    status: 200,
+  return new Response(JSON.stringify({
+    error: {
+      code: "PROTOCOL_UNSUPPORTED",
+      message: "This compatibility client is retired. Open the Agent task from THOUGHT.",
+    },
+  }), {
+    status: 410,
     headers: responseHeaders,
   });
 }

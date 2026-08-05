@@ -1,5 +1,6 @@
 import {
   THOUGHT_AGENT_LINE_CONTRACT,
+  THOUGHT_AGENT_CONTROL_VERSION,
   THOUGHT_AGENT_OUTPUT_SCHEMA,
   THOUGHT_AGENT_CLAIM_TTL_MS,
   THOUGHT_AGENT_PROTOCOL_VERSION,
@@ -19,16 +20,17 @@ import {
   parseAgentOutput,
   parseBridgeInfo,
   parseCreateRunRequest,
+  parseThoughtAgentControlEvidence,
   parseResultRequest,
   sha256Hex,
   type ParsedThoughtAgentOutput,
   type ThoughtAgentAdapterInfo,
   type ThoughtAgentBridgeInfo,
+  type ThoughtAgentControlEvidence,
   type ThoughtAgentErrorCode,
   type ThoughtAgentState,
   type ThoughtSha256,
 } from "../../../../packages/thought-agent-protocol/src/index";
-import { THOUGHT_CODEX_CLIENT_SCRIPT } from "../v2/client-script";
 import type { ChainCacheEnv } from "../../chain-cache";
 import {
   THOUGHT_AGENT_CONTRACT_SPEC_HASH,
@@ -279,25 +281,12 @@ export async function createRun(ctx: ThoughtAgentRouteContext): Promise<Response
     const launchUri = `thought://agent/run?run_id=${encodeURIComponent(
       runId,
     )}&token=${encodeURIComponent(launchToken)}&api_origin=${encodeURIComponent(origin)}`;
-    const isV2Run = thoughtAgentApiBase(ctx.request) === "/api/thought-agent/v2";
-
     return protocolJson(ctx, 201, {
       runId,
       state: "created",
       launchUri,
       browserToken,
       statusUrl: `${thoughtAgentApiBase(ctx.request)}/runs/${runId}`,
-      ...(isV2Run
-        ? {
-            client: {
-              url: new globalThis.URL(
-                "/api/thought-agent/v2/client",
-                ctx.request.url,
-              ).toString(),
-              sha256: await sha256Hex(THOUGHT_CODEX_CLIENT_SCRIPT),
-            },
-          }
-        : {}),
       createdAt,
       claimExpiresAt,
     });
@@ -373,7 +362,10 @@ export async function claimRun(ctx: ThoughtAgentRouteContext): Promise<Response>
       state: "claimed",
       bridgeToken,
       runExpiresAt,
-      request: claimRequestPayload(current),
+      request:
+        thoughtAgentApiBase(ctx.request) === "/api/thought-agent/v2"
+          ? controlRequestPayload(current)
+          : creativeRequestPayload(current),
     });
   });
 }
@@ -430,13 +422,62 @@ export async function authorizeClaimRun(
   });
 }
 
+export async function readyRun(ctx: ThoughtAgentRouteContext): Promise<Response> {
+  return withProtocolErrors(ctx, async () => {
+    const db = await getDb(ctx);
+    const row = await requireRun(db, runIdFromContext(ctx));
+    const current = await expireIfNeeded(db, row);
+    await verifyBridgeToken(ctx.request, current);
+    if (current.state === "ready") {
+      if (!current.execution_metadata_json) {
+        throw stateConflict(current.state);
+      }
+      return protocolJson(ctx, 200, {
+        runId: current.run_id,
+        state: "ready",
+        stage: "control-verified",
+        updatedAt: current.updated_at,
+        control: parseThoughtAgentControlEvidence(
+          JSON.parse(current.execution_metadata_json),
+        ),
+      });
+    }
+    if (current.state !== "claimed") {
+      throw stateConflict(current.state);
+    }
+    const body = asProtocolObject(await readJson(ctx.request, 4 * 1024));
+    assertProtocolVersion(body.protocolVersion);
+    const control = parseThoughtAgentControlEvidence(body.control);
+    const updatedAt = new Date().toISOString();
+    const changed = await updateReady(
+      db,
+      current.run_id,
+      current.bridge_token_hash,
+      control,
+      updatedAt,
+    );
+    if (!changed) {
+      throw stateConflict(current.state);
+    }
+    return protocolJson(ctx, 200, {
+      runId: current.run_id,
+      state: "ready",
+      stage: "control-verified",
+      updatedAt,
+      control,
+    });
+  });
+}
+
 export async function startRun(ctx: ThoughtAgentRouteContext): Promise<Response> {
   return withProtocolErrors(ctx, async () => {
     const db = await getDb(ctx);
     const row = await requireRun(db, runIdFromContext(ctx));
     const current = await expireIfNeeded(db, row);
     await verifyBridgeToken(ctx.request, current);
-    if (current.state !== "claimed") {
+    const boundedControl =
+      thoughtAgentApiBase(ctx.request) === "/api/thought-agent/v2";
+    if (current.state !== (boundedControl ? "ready" : "claimed")) {
       throw stateConflict(current.state);
     }
     const body = asProtocolObject(await readJson(ctx.request, 4 * 1024));
@@ -460,6 +501,9 @@ export async function startRun(ctx: ThoughtAgentRouteContext): Promise<Response>
       state: "running",
       invocationId,
       startedAt,
+      ...(boundedControl
+        ? { request: creativeRequestPayload(current) }
+        : {}),
     });
   });
 }
@@ -608,7 +652,11 @@ export async function failRun(ctx: ThoughtAgentRouteContext): Promise<Response> 
     const row = await requireRun(db, runIdFromContext(ctx));
     const current = await expireIfNeeded(db, row);
     await verifyBridgeToken(ctx.request, current);
-    if (current.state !== "claimed" && current.state !== "running") {
+    if (
+      current.state !== "claimed" &&
+      current.state !== "ready" &&
+      current.state !== "running"
+    ) {
       throw stateConflict(current.state);
     }
     const body = asProtocolObject(await readJson(ctx.request, 8 * 1024));
@@ -954,6 +1002,27 @@ async function updateClaimed(
   return changed(result);
 }
 
+async function updateReady(
+  db: D1Database,
+  runId: string,
+  bridgeTokenHash: ThoughtSha256 | null,
+  control: ThoughtAgentControlEvidence,
+  updatedAt: string,
+): Promise<boolean> {
+  const result = await db
+    .prepare(
+      "UPDATE thought_agent_runs SET state = 'ready', execution_metadata_json = ?2, updated_at = ?3 WHERE run_id = ?1 AND state = 'claimed' AND bridge_token_hash = ?4 AND invocation_id IS NULL",
+    )
+    .bind(
+      runId,
+      JSON.stringify(control),
+      updatedAt,
+      bridgeTokenHash,
+    )
+    .run();
+  return changed(result);
+}
+
 async function updateStarted(
   db: D1Database,
   runId: string,
@@ -964,7 +1033,7 @@ async function updateStarted(
 ): Promise<boolean> {
   const result = await db
     .prepare(
-      "UPDATE thought_agent_runs SET state = 'running', invocation_id = ?2, started_at = ?3, updated_at = ?4 WHERE run_id = ?1 AND state = 'claimed' AND bridge_token_hash = ?5 AND invocation_id IS NULL",
+      "UPDATE thought_agent_runs SET state = 'running', invocation_id = ?2, started_at = ?3, updated_at = ?4 WHERE run_id = ?1 AND state IN ('claimed', 'ready') AND bridge_token_hash = ?5 AND invocation_id IS NULL",
     )
     .bind(runId, invocationId, startedAt, updatedAt, bridgeTokenHash)
     .run();
@@ -1025,7 +1094,7 @@ async function updateFailed(
 ): Promise<boolean> {
   const result = await db
     .prepare(
-      "UPDATE thought_agent_runs SET state = 'failed', invocation_id = COALESCE(invocation_id, ?2), completed_at = ?3, error_code = ?4, error_message = ?5, updated_at = ?6 WHERE run_id = ?1 AND state IN ('claimed', 'running') AND bridge_token_hash = ?7",
+      "UPDATE thought_agent_runs SET state = 'failed', invocation_id = COALESCE(invocation_id, ?2), completed_at = ?3, error_code = ?4, error_message = ?5, updated_at = ?6 WHERE run_id = ?1 AND state IN ('claimed', 'ready', 'running') AND bridge_token_hash = ?7",
     )
     .bind(
       runId,
@@ -1048,7 +1117,7 @@ async function updateCancelled(
 ): Promise<boolean> {
   const result = await db
     .prepare(
-      "UPDATE thought_agent_runs SET state = 'cancelled', updated_at = ?3 WHERE run_id = ?1 AND browser_token_hash = ?2 AND state IN ('created', 'claimed', 'running')",
+      "UPDATE thought_agent_runs SET state = 'cancelled', updated_at = ?3 WHERE run_id = ?1 AND browser_token_hash = ?2 AND state IN ('created', 'claimed', 'ready', 'running')",
     )
     .bind(runId, browserTokenHash, updatedAt)
     .run();
@@ -1076,7 +1145,7 @@ async function activeRunCount(
 ): Promise<number> {
   const row = await db
     .prepare(
-      "SELECT COUNT(*) AS active_count FROM thought_agent_runs WHERE visitor_hash = ?1 AND state IN ('created', 'claimed', 'running')",
+      "SELECT COUNT(*) AS active_count FROM thought_agent_runs WHERE visitor_hash = ?1 AND state IN ('created', 'claimed', 'ready', 'running')",
     )
     .bind(visitorHash)
     .first<{ active_count?: number }>();
@@ -1156,6 +1225,12 @@ function statusPayload(row: ThoughtAgentRow): Record<string, unknown> {
       error: null,
     };
   }
+  if (row.state === "ready" && row.execution_metadata_json) {
+    const control = parseThoughtAgentControlEvidence(
+      JSON.parse(row.execution_metadata_json),
+    );
+    base.control = control;
+  }
   if (row.state === "failed") {
     base.error = {
       code: row.error_code,
@@ -1165,7 +1240,34 @@ function statusPayload(row: ThoughtAgentRow): Record<string, unknown> {
   return base;
 }
 
-function claimRequestPayload(row: ThoughtAgentRow): Record<string, unknown> {
+function controlRequestPayload(row: ThoughtAgentRow): Record<string, unknown> {
+  return {
+    intent: "prepare-thought-creation",
+    requestedAgent: {
+      adapterId: row.requested_adapter_id,
+      model: row.requested_model,
+    },
+    controlPolicy: {
+      mode: "bounded-preflight",
+      allowMultipleControlTurns: true,
+      continueOnSuccess: true,
+      recoverySignal: "RETRY",
+      requireRuntimeIdentityBeforeCreativeInput: true,
+      installationsAllowed: false,
+      creativeInputState: "sealed",
+    },
+    evidenceContract: {
+      schema: THOUGHT_AGENT_CONTROL_VERSION,
+      appExchange: "verified",
+      runtimeIdentity: "available",
+      localPreparation: "verified",
+      installationsRequired: false,
+      creativeInputOpened: false,
+    },
+  };
+}
+
+function creativeRequestPayload(row: ThoughtAgentRow): Record<string, unknown> {
   return {
     intent: "generate-thought-candidate",
     requestedAgent: {
@@ -1218,6 +1320,8 @@ function stageForState(state: ThoughtAgentState): string {
       return "waiting-for-bridge";
     case "claimed":
       return "bridge-claimed";
+    case "ready":
+      return "control-verified";
     case "running":
       return "agent-running";
     case "returned":

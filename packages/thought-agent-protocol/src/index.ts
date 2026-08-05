@@ -63,6 +63,7 @@ export const THOUGHT_AGENT_OUTPUT_SCHEMA = {
 export const THOUGHT_AGENT_STATES = [
   "created",
   "claimed",
+  "ready",
   "running",
   "returned",
   "failed",
@@ -226,6 +227,19 @@ export type ThoughtAgentExecutionInfo = {
   userConfigPolicy: string;
 };
 
+export const THOUGHT_AGENT_CONTROL_VERSION =
+  "inshell.thought.agent-control.v1" as const;
+
+export type ThoughtAgentControlEvidence = {
+  schema: typeof THOUGHT_AGENT_CONTROL_VERSION;
+  mode: "bounded-preflight";
+  appExchange: "verified";
+  runtimeIdentity: "available";
+  localPreparation: "verified";
+  installationsRequired: false;
+  creativeInputOpened: false;
+};
+
 export type ThoughtAgentOutput = {
   mediaType: "application/json";
   raw: string;
@@ -357,7 +371,8 @@ export class ThoughtAgentProtocolError extends Error {
 const allowedTransitions: Record<ThoughtAgentState, readonly ThoughtAgentState[]> =
   {
     created: ["claimed", "cancelled", "expired"],
-    claimed: ["running", "failed", "cancelled", "expired"],
+    claimed: ["ready", "failed", "cancelled", "expired"],
+    ready: ["running", "failed", "cancelled", "expired"],
     running: ["returned", "failed", "cancelled", "expired"],
     returned: [],
     failed: [],
@@ -570,6 +585,47 @@ export function parseExecutionInfo(value: unknown): ThoughtAgentExecutionInfo {
       object.userConfigPolicy,
       "userConfigPolicy",
     ),
+  };
+}
+
+export function parseThoughtAgentControlEvidence(
+  value: unknown,
+): ThoughtAgentControlEvidence {
+  const object = asObject(value, "control evidence");
+  const requiredKeys = [
+    "schema",
+    "mode",
+    "appExchange",
+    "runtimeIdentity",
+    "localPreparation",
+    "installationsRequired",
+    "creativeInputOpened",
+  ];
+  const keys = Object.keys(object);
+  if (
+    keys.length !== requiredKeys.length ||
+    requiredKeys.some((key) => !keys.includes(key)) ||
+    object.schema !== THOUGHT_AGENT_CONTROL_VERSION ||
+    object.mode !== "bounded-preflight" ||
+    object.appExchange !== "verified" ||
+    object.runtimeIdentity !== "available" ||
+    object.localPreparation !== "verified" ||
+    object.installationsRequired !== false ||
+    object.creativeInputOpened !== false
+  ) {
+    throw new ThoughtAgentProtocolError(
+      "AGENT_OUTPUT_SCHEMA_INVALID",
+      "The Agent control evidence did not match the required schema.",
+    );
+  }
+  return {
+    schema: THOUGHT_AGENT_CONTROL_VERSION,
+    mode: "bounded-preflight",
+    appExchange: "verified",
+    runtimeIdentity: "available",
+    localPreparation: "verified",
+    installationsRequired: false,
+    creativeInputOpened: false,
   };
 }
 

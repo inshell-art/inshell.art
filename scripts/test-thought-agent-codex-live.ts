@@ -65,7 +65,6 @@ const runUrl = new URL(created.statusUrl, origin).toString().replace(/\/+$/g, ""
 const task = buildThoughtCodexTask({
   product: "Codex",
   runId: created.runId,
-  promptLine,
   runUrl,
   launchToken,
   networkAuthorization:

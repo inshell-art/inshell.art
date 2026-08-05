@@ -57,6 +57,7 @@ import {
   resolveInshellLinks,
 } from "@inshell/inshell-shell";
 import {
+  THOUGHT_AGENT_CONTROL_VERSION,
   THOUGHT_AGENT_POLL_TIMEOUT_MS,
   THOUGHT_AGENT_RESULT_VERSION,
   THOUGHT_AGENT_PROTOCOL_VERSION,
@@ -64,6 +65,7 @@ import {
   THOUGHT_V2_PROTOCOL_RELEASE,
   assertThoughtLine,
   buildThoughtCodexTask,
+  type ThoughtAgentControlEvidence,
   type ThoughtAgentMetadataSource,
   type ThoughtAgentReasoningEffort,
   type ThoughtSha256,
@@ -755,10 +757,6 @@ type ThoughtAgentRunCreateResponse = {
   statusUrl?: string;
   createdAt?: string;
   claimExpiresAt?: string;
-  client?: {
-    url?: string;
-    sha256?: string;
-  };
   devAutoRun?: boolean;
   error?: {
     code?: string;
@@ -775,6 +773,15 @@ type ThoughtAgentRunStatusResponse = {
   updatedAt?: string;
   expiresAt?: string;
   claimAuthorization?: ThoughtClaimAuthorization;
+  control?: {
+    schema?: string;
+    mode?: string;
+    appExchange?: string;
+    runtimeIdentity?: string;
+    localPreparation?: string;
+    installationsRequired?: boolean;
+    creativeInputOpened?: boolean;
+  };
   request?: {
     promptLine?: {
       text?: string | null;
@@ -2480,6 +2487,7 @@ type AgentDemoRun = {
   browserToken: string;
   statusUrl: string;
   claimUrl: string;
+  readyUrl: string;
   startUrl: string;
   resultUrl: string;
   codexUrl: string;
@@ -2688,6 +2696,16 @@ const agentDemoExecutionInfo = () => ({
   userConfigPolicy: "agent-owned",
 });
 
+const agentDemoControlEvidence = (): ThoughtAgentControlEvidence => ({
+  schema: THOUGHT_AGENT_CONTROL_VERSION,
+  mode: "bounded-preflight",
+  appExchange: "verified",
+  runtimeIdentity: "available",
+  localPreparation: "verified",
+  installationsRequired: false,
+  creativeInputOpened: false,
+});
+
 const agentDemoRunActionUrl = (statusUrl: string, action: string) =>
   `${resolveThoughtAgentStatusUrl(statusUrl).replace(/\/+$/g, "")}/${action}`;
 
@@ -2726,6 +2744,8 @@ const thoughtDockAgentLifecycleStatus = (adapterId: ThoughtDockAgentAdapterId, r
   switch (remoteState) {
     case "claimed":
       return `${product} accepted task...`;
+    case "ready":
+      return `${product} creating...`;
     case "running":
       return `${product} running...`;
     case "returned":
@@ -2758,7 +2778,6 @@ const buildAgentDemoSealedTask = (
   return buildThoughtCodexTask({
     product,
     runId: run.runId,
-    promptLine: run.prompt,
     runUrl: absoluteStatusUrl,
     launchToken: run.launchToken,
     // The Vite Agent API always serves the active local contract release, even
@@ -2831,6 +2850,7 @@ const buildAgentDemoRun = async (): Promise<AgentDemoRun> => {
     browserToken: createPayload.browserToken,
     statusUrl,
     claimUrl: agentDemoRunActionUrl(statusUrl, "claim"),
+    readyUrl: agentDemoRunActionUrl(statusUrl, "ready"),
     startUrl: agentDemoRunActionUrl(statusUrl, "start"),
     resultUrl: agentDemoRunActionUrl(statusUrl, "result"),
     remoteState: createPayload.state ?? "created",
@@ -3029,6 +3049,17 @@ const submitAgentDemoProtocolResult = async (candidate: string) => {
   if (!claimPayload.bridgeToken) {
     throw new Error("claim response missing bridge token.");
   }
+
+  await fetchThoughtAgentJson<Record<string, unknown>>(run.readyUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${claimPayload.bridgeToken}`,
+    },
+    body: JSON.stringify({
+      protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+      control: agentDemoControlEvidence(),
+    }),
+  });
 
   const invocationId = `tai_${agentDemoRandom(12)}`;
   const startedAt = new Date().toISOString();
@@ -3355,15 +3386,22 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
   if (state.kind === "waiting_for_agent") {
     const product = thoughtAgentProductLabel(state.adapterId);
     const canReopen = thoughtDockLaunchUrl(state.run, state.adapterId) !== "#";
+    const controlVerified = state.run.remoteState === "ready";
     emitThoughtConsoleEvent({
       kind: "work_waiting_for_agent",
-      title: state.run.remoteState === "created"
+      title: controlVerified
+        ? `${product} passed preflight`
+        : state.run.remoteState === "created"
         ? `${product} launch requested`
         : thoughtDockAgentLifecycleTitle(state.adapterId, state.run.remoteState),
-      detail: state.run.remoteState === "created"
+      detail: controlVerified
+        ? "Control checks passed. Creation is continuing automatically."
+        : state.run.remoteState === "created"
         ? `The App asked ${product} to open this THOUGHT task.`
         : `${product} is working on this THOUGHT task.`,
-      ...(canReopen
+      ...(controlVerified
+        ? { nextStep: `keep this page open while ${product} creates` }
+        : canReopen
         ? { nextStep: `if ${product} did not open, select “open ${product}” above` }
         : { nextStep: `keep this page open while ${product} finishes` }),
       tone: "neutral",
@@ -3451,6 +3489,7 @@ const thoughtDockRunFromStored = (stored: StoredThoughtDockRun): AgentDemoRun =>
     browserToken: stored.browserToken,
     statusUrl: stored.statusUrl,
     claimUrl: agentDemoRunActionUrl(stored.statusUrl, "claim"),
+    readyUrl: agentDemoRunActionUrl(stored.statusUrl, "ready"),
     startUrl: agentDemoRunActionUrl(stored.statusUrl, "start"),
     resultUrl: agentDemoRunActionUrl(stored.statusUrl, "result"),
     codexUrl: sealedTask ? buildCodexAgentUrl(sealedTask) : "#",
@@ -4427,7 +4466,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
     case "waiting_for_agent":
       return {
         status: thoughtDockAgentLifecycleStatus(state.adapterId, state.run.remoteState),
-        tone: "running",
+        tone: state.run.remoteState === "ready" ? "warning" : "running",
         actions: [
           ...(thoughtDockLaunchUrl(state.run, state.adapterId) === "#"
             ? []
@@ -4775,6 +4814,7 @@ const createThoughtDockRun = async (
     browserToken: createPayload.browserToken,
     statusUrl,
     claimUrl: agentDemoRunActionUrl(statusUrl, "claim"),
+    readyUrl: agentDemoRunActionUrl(statusUrl, "ready"),
     startUrl: agentDemoRunActionUrl(statusUrl, "start"),
     resultUrl: agentDemoRunActionUrl(statusUrl, "result"),
     remoteState: createPayload.state ?? "created",
@@ -5140,7 +5180,9 @@ const startThoughtDockPolling = (
         kind: "waiting_for_agent",
         run: activeRun,
         adapterId,
-        message: remoteState === "created"
+        message: remoteState === "ready"
+          ? "Codex passed preflight and is continuing automatically."
+          : remoteState === "created"
           ? "Waiting for your Agent. Return here after it finishes."
           : `Agent is ${remoteState}. Return here after it finishes.`,
       });
@@ -5650,6 +5692,7 @@ const thoughtDockRunFromStatus = async (
     browserToken,
     statusUrl,
     claimUrl: agentDemoRunActionUrl(statusUrl, "claim"),
+    readyUrl: agentDemoRunActionUrl(statusUrl, "ready"),
     startUrl: agentDemoRunActionUrl(statusUrl, "start"),
     resultUrl: agentDemoRunActionUrl(statusUrl, "result"),
     remoteState: status.state ?? "created",
@@ -16315,7 +16358,9 @@ const pollThoughtAgentRun = async (input: {
     }
 
     setStatus(
-      state === "created"
+      state === "ready"
+        ? `Codex passed preflight for ${input.runId} and is continuing automatically.`
+        : state === "created"
         ? `waiting for THOUGHT Bridge ${input.runId}...`
         : `Codex running ${input.runId}...`,
     );
