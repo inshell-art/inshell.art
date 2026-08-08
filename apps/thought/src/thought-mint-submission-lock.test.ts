@@ -76,6 +76,35 @@ export const runThoughtMintSubmissionLockTests = async () => {
   assert.deepEqual(noWebLocks, { acquired: false, reason: "unavailable" });
   assert.equal(unavailableTaskCalled, false, "no Web Locks means no wallet request");
 
+  let releaseFallback!: () => void;
+  const fallbackHeld = new Promise<void>((resolve) => {
+    releaseFallback = resolve;
+  });
+  let fallbackOwnsExclusion = false;
+  const fallbackFirst = withMintSubmissionLock({
+    crypto,
+    locks: null,
+    allowSamePageFallback: true,
+  }, async (handle) => {
+    assert.equal(handle.kind, "same-page");
+    fallbackOwnsExclusion = handle.ownsExclusion();
+    await fallbackHeld;
+    return "local-safe";
+  });
+  const fallbackBusy = await withMintSubmissionLock({
+    crypto,
+    locks: null,
+    allowSamePageFallback: true,
+  }, async () => "unsafe");
+  assert.equal(fallbackOwnsExclusion, true);
+  assert.deepEqual(fallbackBusy, { acquired: false, reason: "busy" });
+  releaseFallback();
+  assert.deepEqual(
+    await fallbackFirst,
+    { acquired: true, value: "local-safe" },
+    "local fallback serializes same-page wallet requests",
+  );
+
   let rejectedTaskCalled = false;
   const rejectedWebLocks = await withMintSubmissionLock({
     crypto,
@@ -90,6 +119,25 @@ export const runThoughtMintSubmissionLockTests = async () => {
   });
   assert.deepEqual(rejectedWebLocks, { acquired: false, reason: "unavailable" });
   assert.equal(rejectedTaskCalled, false, "a rejected lock request fails closed");
+
+  const rejectedWebLocksWithFallback = await withMintSubmissionLock({
+    crypto,
+    locks: {
+      request: async () => {
+        throw new Error("Web Locks denied");
+      },
+    },
+    allowSamePageFallback: true,
+  }, async (handle) => {
+    assert.equal(handle.kind, "same-page");
+    assert.equal(handle.ownsExclusion(), true);
+    return "local-safe";
+  });
+  assert.deepEqual(
+    rejectedWebLocksWithFallback,
+    { acquired: true, value: "local-safe" },
+    "local fallback handles restricted Web Locks contexts",
+  );
 
   let releaseNeverSettling!: () => void;
   const neverSettling = new Promise<string>(() => {});

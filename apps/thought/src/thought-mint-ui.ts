@@ -95,7 +95,7 @@ export const formatThoughtAuthorizationError = (
     /provenance (?:is )?\d+\s*\/\s*\d+ bytes|provenance (?:is )?.*too large|provenance too large/.test(normalized)
   ) {
     return {
-      message: primaryMessage || "provenance too large.",
+      message: "Work data is too large to mint. Shorten the prompt or Agent response, then run the work again.",
       kind: "thought",
     };
   }

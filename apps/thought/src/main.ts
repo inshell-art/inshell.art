@@ -9,13 +9,12 @@ import "@fontsource/source-code-pro/900.css";
 import "@fontsource-variable/roboto-mono/wght.css";
 import "@inshell/shared/design.css";
 import {
-  AbiCoder,
   BrowserProvider,
   Contract,
-  formatEther,
   getBytes,
   id,
   keccak256,
+  sha256,
   toUtf8Bytes,
   type JsonRpcProvider,
   type JsonRpcSigner,
@@ -48,21 +47,30 @@ import {
   trackInshellAnonymousAnalytics,
   type PublicLaunchMode,
 } from "@inshell/shared";
-import { openInshellWallet } from "@inshell/inshell-shell";
+import { openInshellWallet, resolveInshellLinks } from "@inshell/inshell-shell";
 import {
-  THOUGHT_CODEX_CLIENT_ROUTE,
+  THOUGHT_AGENT_CONTROL_VERSION,
+  THOUGHT_AGENT_POLL_TIMEOUT_MS,
   THOUGHT_AGENT_RESULT_VERSION,
   THOUGHT_AGENT_PROTOCOL_VERSION,
+  THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION,
   THOUGHT_SHA256_PREFIX,
   THOUGHT_V2_PROTOCOL_RELEASE,
-  assertThoughtLine,
   buildThoughtCodexTask,
-  sha256Hex,
+  buildThoughtClaudeTask,
+  isThoughtClaudeCoworkPublicHttpsOrigin,
+  type ThoughtAgentControlEvidence,
+  type ThoughtAgentMetadataSource,
+  type ThoughtAgentReasoningEffort,
+  type ThoughtClaudeSurface,
+  type ThoughtSha256,
 } from "@inshell/thought-agent-protocol";
 import colorFontRaw from "../colorFontJSON/colorfont.byToolv2.json?raw";
 import colorFontText from "../spec/COLOR_FONT.v1.txt?raw";
-import localThoughtInstructions from "../spec/THOUGHT.v2.local.md?raw";
-import addresses from "../evm/addresses.anvil.json";
+import latestThoughtCreativeSpec from "../spec/THOUGHT.v2.md?raw";
+import thoughtCreativeSpecLock from "../spec/THOUGHT.v2.lock.json";
+import { THOUGHT_CLAUDE_COWORK_QUALIFICATION } from
+  "./thought-claude-cowork-qualification";
 import {
   COLOR_FONT_DOC_FORMAT,
   buildColorFontPlainText,
@@ -129,13 +137,20 @@ import {
   type ThoughtAuthorizationStage,
 } from "./thought-mint-ui";
 import {
+  THOUGHT_CONSOLE_EMPTY_DETAIL,
+  THOUGHT_CONSOLE_EMPTY_TITLE,
   THOUGHT_CONSOLE_HISTORY_STORAGE_KEY,
-  appendThoughtConsoleContextBoundary,
+  THOUGHT_PATH_REQUIRED_DETAIL,
+  THOUGHT_PATH_SELECTION_DETAIL,
   appendThoughtConsoleEvent,
   buildThoughtConsoleLines,
   createThoughtConsoleHistory,
+  newestFirstThoughtConsoleEntries,
+  pendingMintWalletChangeTitle,
   parseThoughtConsoleHistory,
   serializeThoughtConsoleHistory,
+  thoughtConsolePathLinkParts,
+  thoughtConsoleVisualRole,
   type ThoughtConsoleContext,
   type ThoughtConsoleEntry,
   type ThoughtConsoleTone,
@@ -146,13 +161,17 @@ import {
 } from "./thought-mint-presentation";
 import {
   THOUGHT_PATH_ACQUISITION_STORAGE_KEY,
+  advanceThoughtPathAcquisitionLocalBlock,
+  formatThoughtPathAcquisitionFailure,
   parsePendingThoughtPathAcquisition,
   pendingThoughtPathAcquisitionMatches,
   serializePendingThoughtPathAcquisition,
+  thoughtPathAcquisitionGasLimit,
   withThoughtPathAcquisitionLock,
   type PendingThoughtPathAcquisition,
   type ThoughtPathAcquisitionState,
 } from "./thought-path-acquisition";
+import { hashPathV050ConsumeAuthorization } from "./thought-path-consume-authorization";
 import {
   THOUGHT_CONFLICTING_MINT_TX_STORAGE_KEY,
   THOUGHT_PENDING_MINT_TX_STORAGE_KEY,
@@ -181,38 +200,58 @@ import { canonicalThoughtTitle, thoughtProtocolText } from "./thought-display-te
 import {
   THOUGHT_V2_LOCAL_MAX_PROVENANCE_BYTES,
   THOUGHT_V2_LOCAL_NFT_ABI,
+  THOUGHT_V2_LOCAL_RENDERER_ABI,
+  assertThoughtV2Line,
   buildThoughtV2LocalProvenance,
-  thoughtV2AgentLineHash,
+  measureThoughtV2TerminalLine,
+  thoughtV2ConversationIdentityHashForLines,
   type ThoughtV2LocalProcess,
 } from "./thought-v2-local-mint";
 import {
   buildThoughtV2LocalAgentProcess,
   buildThoughtV2LocalAgentResult,
+  buildThoughtV2LocalAgentTaskBinding,
   parseThoughtV2LocalAgentResult,
   type ThoughtV2LocalAgentEvidence,
 } from "./thought-v2-local-agent";
 import {
-  buildThoughtAgentFixtureLine,
-  shouldUseThoughtAgentFixture,
-} from "./thought-agent-fixture";
+  EMPTY_THOUGHT_CREATION_ATTESTATION,
+  type ThoughtV2MintInput,
+} from "./thought-v2-app-mint";
+import { THOUGHT_V2_CURRENT_MINTED_TOPIC } from "./thought-v2-contract-client";
 import {
   THOUGHT_V2_LOCAL_RELEASE,
+  alignThoughtV2LocalRpcHost,
+  isThoughtLocalRuntimeHost,
   isThoughtV2LocalMintRuntime,
 } from "./thought-v2-local-release";
+import {
+  PULSE_AUCTION_LIVE_PRICE_REFRESH_MS,
+  formatPulseAuctionPrice,
+  pulseAuctionPriceAtTimestamp,
+} from "./thought-pulse-auction-price";
+import { THOUGHT_V2_PRODUCTION_DEPLOYMENT } from "./thought-v2-production-deployment";
 import {
   THOUGHT_V2_LOCAL_DEPLOYMENT_UNAVAILABLE_COPY,
   isThoughtV2LocalDeploymentError,
   verifyThoughtV2LocalDeployment,
 } from "./thought-v2-local-deployment";
 import {
+  appendThoughtPromptHistory,
+  navigateThoughtPromptHistory,
+  parseThoughtPromptHistory,
+  type ThoughtPromptHistoryCursor,
+} from "./thought-prompt-history";
+import {
   createThoughtPollWakeScheduler,
   hasThoughtPollDeadlineExpired,
 } from "./thought-poll-wake";
 import {
-  buildThoughtV2Svg,
-  measureThoughtV2Line,
-  type ThoughtV2LineKind,
-} from "./thought-v2-renderer";
+  parseThoughtV2EmptyFrameStyle,
+  thoughtV2EmptyFrameCanvasRect,
+  type ThoughtV2EmptyFrameStyle,
+} from "./thought-v2-empty-frame";
+import { normalizeThoughtV2StoredVisual } from "./thought-v2-stored-visual";
 import {
   describeThoughtTextPolicyIssue,
   type ThoughtTextPolicyIssue,
@@ -225,6 +264,8 @@ import {
 
 declare global {
   var __INSHELL_VITE_ENV__: Record<string, unknown> | undefined;
+  var __INSHELL_THOUGHT_CONTRACT_RUNTIME__: Record<string, unknown> | null | undefined;
+  var __INSHELL_THOUGHT_EVM_ADDRESSES__: EvmAddresses | null | undefined;
   var __VITE_ENV__: Record<string, unknown> | undefined;
 }
 
@@ -318,10 +359,9 @@ type ThoughtSessionState = {
 };
 
 type StoredThoughtSessionState = {
-  version: 1;
+  version: 2;
   routeConfigured: boolean;
   mode: Mode;
-  prompt: string;
   connect: {
     model: string;
   };
@@ -366,6 +406,9 @@ type EvmAddresses = {
   thoughtRenderer?: {
     address?: string;
   };
+  creationAttestationVerifier?: {
+    address?: string;
+  };
   thoughtNft?: {
     address?: string;
   };
@@ -374,7 +417,19 @@ type EvmAddresses = {
     manifestHash?: string;
     rendererProfileHash?: string;
     workProfileHash?: string;
+    rendererIdHash?: string;
+    workProfileIdHash?: string;
+    contextProfileIdHash?: string;
+    metadataProfileIdHash?: string;
     status?: string;
+  };
+  provenance?: {
+    artifactId?: string;
+    authority?: string;
+    id?: string;
+    ref?: string;
+    schemaKeccak256?: string;
+    schemaSha256?: string;
   };
   thoughtSpec?: {
     specName?: string;
@@ -393,6 +448,12 @@ type EvmAddresses = {
   colorFontV1?: {
     address?: string;
   };
+  localContractIntegration?: {
+    acceptanceOnly?: boolean;
+    deploymentAuthorized?: boolean;
+    id?: string;
+    productionConsumable?: boolean;
+  };
 };
 
 type EthereumProvider = {
@@ -408,6 +469,7 @@ type MintFlowErrorKind =
   | "none"
   | "thought"
   | "spec"
+  | "local_deployment"
   | "path_invalid"
   | "path_not_found"
   | "path_consumed"
@@ -433,6 +495,9 @@ type MintFlowState =
   | "minting"
   | "minted"
   | "error";
+
+const isTerminalMintFlowState = (state: MintFlowState) =>
+  state === "text_taken" || state === "minted";
 
 type ThoughtRunState = "idle" | "running" | "candidate_ready" | "output_ready" | "run_failed";
 
@@ -510,6 +575,7 @@ type MintSheetAction =
   | "authorize"
   | "confirm_mint"
   | "view_tx"
+  | "archive_legacy_local_mint"
   | "view_thought"
   | "choose_another"
   | "enter_path_manually"
@@ -517,6 +583,7 @@ type MintSheetAction =
   | "confirm_path_mint"
   | "view_path_tx"
   | "recover_submission"
+  | "confirm_wallet_request_closed"
   | "reset"
   | "switch_network";
 
@@ -573,6 +640,9 @@ type MintFlowData = {
   thoughtSpecId: string;
   thoughtSpecHash: string;
   provenanceJson: string;
+  agent: string;
+  model: string;
+  creationAttestation: ThoughtV2MintInput["creationAttestation"];
   existingTokenId: number | null;
   pathIdInput: string;
   pathId: bigint | null;
@@ -650,7 +720,7 @@ type ThoughtPreviewProviderTrace = {
   chainId?: number;
   endpointLabel?: string;
   contractAddress?: string;
-  method: "frontendRender" | "previewWork" | "previewSvg";
+  method: "frontendRender" | "previewWork" | "render";
   fetchedAt: string;
 };
 
@@ -708,6 +778,15 @@ type ThoughtAgentRunStatusResponse = {
   updatedAt?: string;
   expiresAt?: string;
   claimAuthorization?: ThoughtClaimAuthorization;
+  control?: {
+    schema?: string;
+    mode?: string;
+    appExchange?: string;
+    runtimeIdentity?: string;
+    localPreparation?: string;
+    installationsRequired?: boolean;
+    creativeInputOpened?: boolean;
+  };
   request?: {
     promptLine?: {
       text?: string | null;
@@ -738,6 +817,9 @@ type ThoughtAgentRunStatusResponse = {
       receiptSha256?: string | null;
       adapterId?: string | null;
       model?: string | null;
+      reasoningEffort?: ThoughtAgentReasoningEffort | null;
+      metadataSource?: ThoughtAgentMetadataSource | null;
+      appAcceptedAndBound?: boolean | null;
       providerAttested?: boolean | null;
     };
   };
@@ -889,6 +971,7 @@ type ActiveThoughtSpec = {
 const CANVAS_WIDTH = 960;
 const MIN_CANVAS_SIZE = 180;
 const STACKED_MIN_CLI_HEIGHT = 160;
+const STACKED_CANVAS_MAX_VIEWPORT_RATIO = 0.62;
 const IMAGE_SIZE = 29;
 const IMAGE_GAP = 6;
 const CANVAS_PADDING = 28;
@@ -898,6 +981,7 @@ const CANVAS_LABEL_FILL = "#ffffff";
 const THOUGHT_SESSION_STORAGE_KEY = "thought-provider-session";
 const THOUGHT_CLI_HISTORY_STORAGE_KEY = "thought-cli-command-history";
 const THOUGHT_CLI_TRANSCRIPT_STORAGE_KEY = "thought-cli-transcript";
+const THOUGHT_PROMPT_SESSION_STORAGE_KEY = "thought-current-prompt:v1";
 const THOUGHT_OUTPUT_STORAGE_KEY = "thought-current-output";
 const THOUGHT_INSTRUCTIONS_OVERRIDE_KEY = "thought-instructions-override";
 const THOUGHT_AGENT_PENDING_RUN_STORAGE_KEY = "thought-agent-pending-run";
@@ -922,7 +1006,8 @@ const CODEX_MODE = "codex";
 const CODEX_MODEL_SOURCE_ID = "codex";
 const CODEX_MODEL = "codex";
 const CODEX_PROVIDER = "codex";
-const CODEX_DESCRIPTION = "local Bridge route. opens Codex for one THOUGHT round.";
+const CODEX_DESCRIPTION =
+  "local Bridge route. opens Codex in the ChatGPT desktop app for one THOUGHT run.";
 const getStorageOrNull = (storage: () => Storage | null | undefined) => {
   try {
     const resolved = storage();
@@ -940,6 +1025,12 @@ const mintSubmissionLockEnvironment = (): MintSubmissionLockEnvironment => ({
     ? navigator.locks as unknown as MintSubmissionLockEnvironment["locks"]
     : null,
   crypto: window.crypto,
+  // Plain HTTP LAN runtimes are intentionally local-only and do not expose
+  // Web Locks. Keep same-page duplicate suppression so the disposable Anvil
+  // flow can still open one wallet request at a time.
+  allowSamePageFallback:
+    IS_DEV_MODE &&
+    IS_LOCAL_RUNTIME_HOST,
 });
 
 const safeStorageGet = (storage: Storage | null, key: string) => {
@@ -999,6 +1090,26 @@ const writeSharedBrowserItem = (key: string, value: string) => {
 };
 
 const removeSharedBrowserItem = (key: string) => {
+  safeStorageRemove(getStorageOrNull(() => window.localStorage), key);
+  safeStorageRemove(getSessionStorage(), key);
+};
+
+// Unminted creation state belongs only to the tab that created it. Never fall
+// back to localStorage here: that would let another tab, browser profile, or a
+// copied browser data directory restore a private draft. Explicitly saved
+// works use shared browser storage; minted works use the chain; shared run
+// links carry their own view capability in the URL.
+const readPrivateCreationSessionItem = (key: string) => {
+  safeStorageRemove(getStorageOrNull(() => window.localStorage), key);
+  return safeStorageGet(getSessionStorage(), key);
+};
+
+const writePrivateCreationSessionItem = (key: string, value: string) => {
+  safeStorageRemove(getStorageOrNull(() => window.localStorage), key);
+  safeStorageSet(getSessionStorage(), key, value);
+};
+
+const removePrivateCreationSessionItem = (key: string) => {
   safeStorageRemove(getStorageOrNull(() => window.localStorage), key);
   safeStorageRemove(getSessionStorage(), key);
 };
@@ -1213,11 +1324,11 @@ const ROUTE_COPY: Record<Mode, {
 const NOTICE_FLASH_MS = 2400;
 const AGENT_REQUEST_TIMEOUT_MS = 45000;
 const THOUGHT_AGENT_STATUS_POLL_MS = 1000;
-const THOUGHT_AGENT_POLL_TIMEOUT_MS = 5 * 60 * 1000;
 const THOUGHT_DOCK_RETURN_RECEIVED_MS = 420;
 const PREFLIGHT_REQUEST_TIMEOUT_MS = 15000;
 const PATH_AUTHORIZATION_REQUEST_TIMEOUT_MS = 15000;
 const WALLET_TX_SUBMIT_TIMEOUT_MS = 60000;
+const WALLET_RETURN_WITHOUT_HASH_GRACE_MS = 8000;
 const MINT_RECEIPT_TIMEOUT_MS = 120000;
 const MINT_RECEIPT_WAIT_TIMEOUT_MS = 15000;
 const MINT_RECEIPT_POLL_MS = 1000;
@@ -1234,7 +1345,10 @@ const IS_DEV_MODE = import.meta.env.DEV || import.meta.env.MODE === "development
 const MAX_RAW_RETURN_BYTES = 512;
 const MAX_TEXT_BYTES = 128;
 const COLOR_FONT_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-const COLOR_FONT_CANONICAL_URL = "https://inshell.art/color-font";
+const COLOR_FONT_CANONICAL_URL = new URL(
+  "/color-font",
+  resolveInshellLinks().home,
+).toString();
 const SVG_TEXT_MIN_SIZE = 9;
 const SVG_TEXT_MAX_SIZE = 18;
 const SVG_TEXT_CHAR_ADVANCE = 0.6;
@@ -1301,8 +1415,8 @@ const buildSepoliaEvmAddresses = (): EvmAddresses | null => {
 };
 
 const EVM_ADDRESSES = FRONTEND_NETWORK === "sepolia"
-  ? buildSepoliaEvmAddresses() ?? (addresses as EvmAddresses)
-  : (addresses as EvmAddresses);
+  ? buildSepoliaEvmAddresses() ?? ({} as EvmAddresses)
+  : globalThis.__INSHELL_THOUGHT_EVM_ADDRESSES__ ?? ({} as EvmAddresses);
 const THOUGHT_CHAIN_ID = EVM_ADDRESSES.chainId ?? 31337;
 const THOUGHT_CHAIN_ID_HEX = `0x${THOUGHT_CHAIN_ID.toString(16)}`;
 const ZERO_BYTES32 = `0x${"0".repeat(64)}`;
@@ -1312,11 +1426,6 @@ const RECOMMENDED_THOUGHT_SPEC_ID =
   EVM_ADDRESSES.thoughtSpecs?.[0]?.specId?.trim() ||
   "";
 const LOCAL_BROWSER_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
-const THOUGHT_AGENT_FIXTURE_MODE = shouldUseThoughtAgentFixture({
-  dev: IS_DEV_MODE,
-  hostname: window.location.hostname,
-  search: window.location.search,
-});
 const DEPLOY_ENV =
   typeof import.meta.env.VITE_DEPLOY_ENV === "string"
     ? import.meta.env.VITE_DEPLOY_ENV.trim().toLowerCase()
@@ -1330,6 +1439,11 @@ const isPreviewHostname = (hostname: string) =>
   (hostname.startsWith("staging.") && hostname.endsWith(".pages.dev"));
 const IS_PREVIEW_DEPLOYMENT =
   DEPLOY_ENV === "preview" || isPreviewHostname(DEPLOY_HOSTNAME);
+const IS_LOCAL_RUNTIME_HOST = isThoughtLocalRuntimeHost(DEPLOY_HOSTNAME);
+const IS_LOCAL_CONTRACT_INTEGRATION =
+  IS_LOCAL_RUNTIME_HOST &&
+  EVM_ADDRESSES.localContractIntegration?.acceptanceOnly === true;
+const INSHELL_LINKS = resolveInshellLinks();
 
 const readConfiguredUrl = (name: string) => {
   const value = (import.meta.env as Record<string, unknown>)[name];
@@ -1396,15 +1510,29 @@ const thoughtAgentApiUrl = (path: string) => {
   return new URL(normalizedPath, `${THOUGHT_AGENT_API_BASE}/`).toString();
 };
 
-const THOUGHT_DOCK_AGENT_API_BASE = resolveBrowserRpcUrl("/api/thought-agent/v2").replace(/\/+$/g, "");
+const THOUGHT_DOCK_AGENT_API_BASE = THOUGHT_AGENT_API_BASE;
+const THOUGHT_DOCK_AGENT_PUBLIC_API_BASE = (
+  readConfiguredUrl("VITE_THOUGHT_AGENT_PUBLIC_API_BASE") ||
+  THOUGHT_DOCK_AGENT_API_BASE
+).replace(/\/+$/g, "");
 
 const thoughtDockAgentApiUrl = (path: string) => {
   const normalizedPath = path.replace(/^\/+/, "");
   return new URL(normalizedPath, `${THOUGHT_DOCK_AGENT_API_BASE}/`).toString();
 };
 
-const thoughtDockAgentApiOrigin = () =>
-  new URL(`${THOUGHT_DOCK_AGENT_API_BASE}/`, window.location.origin).origin;
+const thoughtDockAgentPublicApiOrigin = () =>
+  new URL(`${THOUGHT_DOCK_AGENT_PUBLIC_API_BASE}/`, window.location.origin).origin;
+
+const thoughtDockAgentPublicRunUrl = (runId: string, browserStatusUrl: string) => {
+  if (THOUGHT_DOCK_AGENT_PUBLIC_API_BASE === THOUGHT_DOCK_AGENT_API_BASE) {
+    return browserStatusUrl;
+  }
+  return new URL(
+    `runs/${encodeURIComponent(runId)}`,
+    `${THOUGHT_DOCK_AGENT_PUBLIC_API_BASE}/`,
+  ).toString();
+};
 
 const resolveThoughtDockAgentStatusUrl = (statusUrl: string) => {
   try {
@@ -1421,7 +1549,7 @@ const resolveThoughtDockAgentStatusUrl = (statusUrl: string) => {
 const resolveThoughtDockAgentLaunchUri = (launchUri: string) => {
   try {
     const url = new URL(launchUri);
-    url.searchParams.set("api_origin", thoughtDockAgentApiOrigin());
+    url.searchParams.set("api_origin", thoughtDockAgentPublicApiOrigin());
     return url.toString();
   } catch {
     return launchUri;
@@ -1540,20 +1668,27 @@ const appendThoughtAgentDevBridgeCommand = (launchUri: string) => {
 const resolveThoughtRpcUrl = () => {
   const envRpcUrl =
     typeof import.meta.env.VITE_THOUGHT_RPC_URL === "string" ? import.meta.env.VITE_THOUGHT_RPC_URL.trim() : "";
-  const configuredRpcUrl = envRpcUrl || EVM_ADDRESSES.rpcUrl?.trim() || "";
-  if (!configuredRpcUrl || envRpcUrl || THOUGHT_CHAIN_ID !== 31337 || !LOCAL_BROWSER_HOSTS.has(window.location.hostname)) {
+  const currentContractRuntimeRpcUrl =
+    typeof globalThis.__INSHELL_THOUGHT_CONTRACT_RUNTIME__?.rpcUrl === "string"
+      ? globalThis.__INSHELL_THOUGHT_CONTRACT_RUNTIME__.rpcUrl.trim()
+      : "";
+  const configuredRpcUrl =
+    currentContractRuntimeRpcUrl ||
+    envRpcUrl ||
+    EVM_ADDRESSES.rpcUrl?.trim() ||
+    "";
+  if (
+    !configuredRpcUrl ||
+    (!currentContractRuntimeRpcUrl && envRpcUrl) ||
+    !IS_LOCAL_CONTRACT_INTEGRATION ||
+    !IS_LOCAL_RUNTIME_HOST
+  ) {
     return resolveBrowserRpcUrl(configuredRpcUrl);
   }
-
-  try {
-    const parsed = new URL(configuredRpcUrl, window.location.origin);
-    if (parsed.hostname !== "127.0.0.1" && parsed.hostname !== "localhost") {
-      parsed.hostname = "127.0.0.1";
-    }
-    return parsed.toString();
-  } catch {
-    return configuredRpcUrl;
-  }
+  return alignThoughtV2LocalRpcHost(
+    resolveBrowserRpcUrl(configuredRpcUrl),
+    window.location.hostname,
+  );
 };
 const THOUGHT_RPC_URL = resolveThoughtRpcUrl();
 const resolvePathRpcUrl = () => {
@@ -1561,7 +1696,7 @@ const resolvePathRpcUrl = () => {
   if (configuredPathRpcUrl) {
     return resolveBrowserRpcUrl(configuredPathRpcUrl);
   }
-  if (LOCAL_BROWSER_HOSTS.has(window.location.hostname)) {
+  if (IS_LOCAL_RUNTIME_HOST) {
     return THOUGHT_RPC_URL;
   }
   return resolveBrowserRpcUrl("/api/path-rpc");
@@ -1588,12 +1723,15 @@ const THOUGHT_WALLET_RPC_URLS = resolveWalletChainRpcUrls({
   readRpcUrl: THOUGHT_RPC_URL,
   walletRpcUrl: walletChainRpcUrl,
   currentOrigin: window.location.origin,
-  localFallbackRpcUrl: "http://127.0.0.1:8546",
+  localFallbackRpcUrl: THOUGHT_RPC_URL,
 });
 const PATH_NFT_ADDRESS = EVM_ADDRESSES.pathNft?.address?.trim() ?? "";
 const PATH_PULSE_ADAPTER_ADDRESS =
   (typeof import.meta.env.VITE_THOUGHT_PATH_ADAPTER_ADDRESS === "string"
     ? import.meta.env.VITE_THOUGHT_PATH_ADAPTER_ADDRESS.trim()
+    : "") ||
+  (typeof import.meta.env.VITE_PATH_PULSE_ADAPTER === "string"
+    ? import.meta.env.VITE_PATH_PULSE_ADAPTER.trim()
     : "") ||
   EVM_ADDRESSES.pathPulseAdapter?.address?.trim() ||
   "";
@@ -1601,47 +1739,33 @@ const PATH_AUCTION_ADDRESS =
   (typeof import.meta.env.VITE_THOUGHT_PATH_AUCTION_ADDRESS === "string"
     ? import.meta.env.VITE_THOUGHT_PATH_AUCTION_ADDRESS.trim()
     : "") ||
+  (typeof import.meta.env.VITE_PULSE_AUCTION === "string"
+    ? import.meta.env.VITE_PULSE_AUCTION.trim()
+    : "") ||
   EVM_ADDRESSES.pulseAuction?.address?.trim() ||
   "";
 const defaultPathMintUrl = () => {
-  if (LOCAL_BROWSER_HOSTS.has(window.location.hostname)) {
-    return sameOriginAppUrl("/path");
-  }
-  return IS_PREVIEW_DEPLOYMENT ? "https://preview.inshell.art/path" : "https://inshell.art/path";
+  return INSHELL_LINKS.path;
 };
 const PATH_MINT_URL =
-  typeof import.meta.env.VITE_PATH_MINT_URL === "string" && import.meta.env.VITE_PATH_MINT_URL.trim()
+  !IS_LOCAL_RUNTIME_HOST &&
+  typeof import.meta.env.VITE_PATH_MINT_URL === "string" &&
+  import.meta.env.VITE_PATH_MINT_URL.trim()
     ? import.meta.env.VITE_PATH_MINT_URL.trim()
     : defaultPathMintUrl();
 const PATH_MINT_ABSOLUTE_URL = new URL(PATH_MINT_URL, sameOriginAppOrigin()).toString();
-const INSHELL_HOME_URL = LOCAL_BROWSER_HOSTS.has(window.location.hostname)
-  ? sameOriginAppUrl("/")
-  : IS_PREVIEW_DEPLOYMENT
-    ? "https://preview.inshell.art/"
-    : "https://inshell.art/";
+const INSHELL_HOME_URL =
+  readConfiguredUrl("VITE_INSHELL_HOME_URL") || INSHELL_LINKS.home;
 const PATH_VERIFY_CONTRACTS_URL = new URL("/verify#verify-contracts", PATH_MINT_ABSOLUTE_URL).toString();
-const GALLERY_URL =
-  readConfiguredUrl("VITE_GALLERY_URL") ||
-  readConfiguredUrl("VITE_THOUGHT_GALLERY_URL") ||
-  (LOCAL_BROWSER_HOSTS.has(window.location.hostname)
-    ? sameOriginAppUrl("/gallery")
-    : IS_PREVIEW_DEPLOYMENT
-      ? "https://preview.inshell.art/gallery"
-      : "https://inshell.art/gallery");
+const GALLERY_URL = INSHELL_HOME_URL;
 const THOUGHT_APP_URL =
-  readConfiguredUrl("VITE_THOUGHT_URL") ||
-  (LOCAL_BROWSER_HOSTS.has(window.location.hostname)
-    ? sameOriginAppUrl(thoughtRoutePath("/"))
-    : IS_PREVIEW_DEPLOYMENT
-      ? "https://preview.inshell.art/thought"
-      : "https://inshell.art/thought");
+  (!IS_LOCAL_RUNTIME_HOST && readConfiguredUrl("VITE_THOUGHT_URL")) ||
+  INSHELL_LINKS.thought;
 const defaultThoughtDetailBaseUrl = () => {
-  if (LOCAL_BROWSER_HOSTS.has(window.location.hostname)) {
-    return sameOriginAppUrl(thoughtRoutePath("/"));
-  }
-  return IS_PREVIEW_DEPLOYMENT ? "https://preview.inshell.art/thought" : "https://inshell.art/thought";
+  return new URL("/thought", INSHELL_HOME_URL).toString();
 };
 const THOUGHT_DETAIL_BASE_URL = (() => {
+  if (IS_LOCAL_RUNTIME_HOST) return defaultThoughtDetailBaseUrl();
   const configured = readConfiguredUrl("VITE_THOUGHT_DETAIL_BASE_URL");
   const fallback = defaultThoughtDetailBaseUrl();
   if (!configured) return fallback;
@@ -1666,7 +1790,7 @@ const THOUGHT_DETAIL_BASE_URL = (() => {
     }
     if (
       !IS_PREVIEW_DEPLOYMENT &&
-      !LOCAL_BROWSER_HOSTS.has(window.location.hostname) &&
+      !IS_LOCAL_RUNTIME_HOST &&
       host !== "inshell.art"
     ) {
       return fallback;
@@ -1685,6 +1809,8 @@ const PATH_TOKENS_API_URL = readConfiguredUrl("VITE_PATH_TOKENS_API_URL") || "/a
 const THOUGHT_SPEC_REGISTRY_ADDRESS = EVM_ADDRESSES.thoughtSpecRegistry?.address?.trim() ?? "";
 const THOUGHT_PROTOCOL_REGISTRY_ADDRESS = EVM_ADDRESSES.protocolRegistry?.address?.trim() ?? "";
 const THOUGHT_RENDERER_ADDRESS = EVM_ADDRESSES.thoughtRenderer?.address?.trim() ?? "";
+const THOUGHT_CREATION_ATTESTATION_VERIFIER_ADDRESS =
+  EVM_ADDRESSES.creationAttestationVerifier?.address?.trim() ?? "";
 const THOUGHT_NFT_ADDRESS = EVM_ADDRESSES.thoughtNft?.address?.trim() ?? "";
 const THOUGHT_SPEC_BYTE_LENGTH = EVM_ADDRESSES.thoughtSpecs?.[0]?.byteLength ?? 0;
 const IS_LOCAL_THOUGHT_V2 = isThoughtV2LocalMintRuntime({
@@ -1699,35 +1825,66 @@ const IS_LOCAL_THOUGHT_V2 = isThoughtV2LocalMintRuntime({
     thoughtSpecRegistry: THOUGHT_SPEC_REGISTRY_ADDRESS,
     thoughtRenderer: THOUGHT_RENDERER_ADDRESS,
     protocolRegistry: THOUGHT_PROTOCOL_REGISTRY_ADDRESS,
+    creationAttestationVerifier: THOUGHT_CREATION_ATTESTATION_VERIFIER_ADDRESS,
   },
   protocolReleaseId: EVM_ADDRESSES.protocolRelease?.id?.trim() ?? "",
   manifestHash: EVM_ADDRESSES.protocolRelease?.manifestHash?.trim() ?? "",
-  rendererProfileHash: EVM_ADDRESSES.protocolRelease?.rendererProfileHash?.trim() ?? "",
-  workProfileHash: EVM_ADDRESSES.protocolRelease?.workProfileHash?.trim() ?? "",
+  rendererProfileHash:
+    EVM_ADDRESSES.protocolRelease?.rendererIdHash?.trim() ??
+    EVM_ADDRESSES.protocolRelease?.rendererProfileHash?.trim() ??
+    "",
+  workProfileHash:
+    EVM_ADDRESSES.protocolRelease?.workProfileIdHash?.trim() ??
+    EVM_ADDRESSES.protocolRelease?.workProfileHash?.trim() ??
+    "",
+  contextProfileHash: EVM_ADDRESSES.protocolRelease?.contextProfileIdHash?.trim() ?? "",
+  metadataProfileHash: EVM_ADDRESSES.protocolRelease?.metadataProfileIdHash?.trim() ?? "",
   specId: RECOMMENDED_THOUGHT_SPEC_ID,
   specHash: EVM_ADDRESSES.recommendedThoughtSpecHash?.trim() ?? "",
   specByteLength: THOUGHT_SPEC_BYTE_LENGTH,
 });
-const protocolLineInput = (value: string) => IS_LOCAL_THOUGHT_V2 ? value : value.trim();
+const protocolLineInput = (value: string) => value;
+const assertActiveThoughtLine = (value: string, kind: "prompt" | "agent") =>
+  assertThoughtV2Line(value, kind);
+const USE_LATEST_LOCAL_GENERATION_SPEC = IS_DEV_MODE && IS_LOCAL_THOUGHT_V2;
+const LATEST_LOCAL_GENERATION_SPEC = Object.freeze({
+  id: thoughtCreativeSpecLock.artifact.thoughtSpecId,
+  ref: `app://thought/creative-spec/${thoughtCreativeSpecLock.artifactId}/${thoughtCreativeSpecLock.artifact.name}`,
+  hash: thoughtCreativeSpecLock.artifact.thoughtSpecHash,
+  text: latestThoughtCreativeSpec,
+});
 const THOUGHT_AGENT_REGISTERED_SPEC_ID = IS_LOCAL_THOUGHT_V2
-  ? THOUGHT_V2_LOCAL_RELEASE.spec.evmSpecId
+  ? USE_LATEST_LOCAL_GENERATION_SPEC
+    ? LATEST_LOCAL_GENERATION_SPEC.id
+    : THOUGHT_V2_LOCAL_RELEASE.spec.evmSpecId
   : THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId;
 const THOUGHT_V2_MINT_ENABLED =
-  THOUGHT_V2_PROTOCOL_RELEASE.deployment.v2MintEnabled || IS_LOCAL_THOUGHT_V2;
+  IS_LOCAL_THOUGHT_V2 || (
+    THOUGHT_V2_PROTOCOL_RELEASE.deployment.v2MintEnabled &&
+    THOUGHT_V2_PRODUCTION_DEPLOYMENT !== null
+  );
 const thoughtInstructions = IS_LOCAL_THOUGHT_V2
-  ? localThoughtInstructions
+  ? latestThoughtCreativeSpec
   : THOUGHT_V2_PROTOCOL_RELEASE.spec.text;
 const thoughtInstructionsUrl = IS_LOCAL_THOUGHT_V2
-  ? `data:text/markdown;charset=utf-8,${encodeURIComponent(localThoughtInstructions)}`
+  ? `data:text/markdown;charset=utf-8,${encodeURIComponent(latestThoughtCreativeSpec)}`
   : THOUGHT_V2_PROTOCOL_RELEASE.publicSpecPath;
 const MAX_PROVENANCE_BYTES = IS_LOCAL_THOUGHT_V2
   ? THOUGHT_V2_LOCAL_MAX_PROVENANCE_BYTES
   : 2048;
 const COLOR_FONT_V1_ADDRESS = EVM_ADDRESSES.colorFontV1?.address?.trim() ?? "";
 const THOUGHT_CHAIN_NAME =
-  THOUGHT_CHAIN_ID === 31337 ? "Anvil Local" : THOUGHT_CHAIN_ID === 11155111 ? "Sepolia" : "THOUGHT";
-const THOUGHT_ENVIRONMENT_LABEL = THOUGHT_CHAIN_ID === 31337 ? "Local development" : PUBLIC_NETWORK_CONFIG.environmentLabel;
-const THOUGHT_CURRENCY_LABEL = THOUGHT_CHAIN_ID === 31337 ? "local ETH" : PUBLIC_NETWORK_CONFIG.currencyLabel;
+  IS_LOCAL_CONTRACT_INTEGRATION
+    ? "THOUGHT Anvil"
+    : THOUGHT_CHAIN_ID === 11155111
+      ? "Sepolia"
+      : "THOUGHT";
+const THOUGHT_ENVIRONMENT_LABEL = IS_LOCAL_CONTRACT_INTEGRATION
+  ? "Local development"
+  : PUBLIC_NETWORK_CONFIG.environmentLabel;
+const THOUGHT_CURRENCY_LABEL = IS_LOCAL_CONTRACT_INTEGRATION
+  ? "local ETH"
+  : PUBLIC_NETWORK_CONFIG.currencyLabel;
 const configuredExplorerBaseUrl =
   typeof import.meta.env.VITE_THOUGHT_EXPLORER_BASE_URL === "string" &&
   import.meta.env.VITE_THOUGHT_EXPLORER_BASE_URL.trim()
@@ -1746,7 +1903,7 @@ const thoughtAddressUrl = (address: string) =>
   THOUGHT_EXPLORER_BASE_URL && address ? `${THOUGHT_EXPLORER_BASE_URL}/address/${address}` : "";
 const PATH_MOVEMENT_THOUGHT = "0x54484f5547485400000000000000000000000000000000000000000000000000";
 const PATH_NFT_DEPLOY_BLOCK =
-  THOUGHT_CHAIN_ID === 31337
+  IS_LOCAL_CONTRACT_INTEGRATION
     ? 0
     : getProtocolReleaseDeployBlock("path_nft") ??
       getProtocolReleaseDeployBlock("path_nft", "sepolia") ??
@@ -1788,11 +1945,9 @@ const MINT_PREP_LOADING_DETAILS = [
   "checking wallet state.",
 ] as const;
 const ERC721_TRANSFER_TOPIC = id("Transfer(address,address,uint256)");
-const CONSUME_AUTHORIZATION_TYPEHASH = id(
-  "ConsumeAuthorization(address pathNft,uint256 chainId,uint256 pathId,bytes32 movement,address claimer,address executor,uint256 nonce,uint256 deadline)",
-);
 const PATH_CONSUME_AUTH_TTL_SECONDS = 3600n;
 const ROUTE_SEARCH_PARAMS = new URLSearchParams(window.location.search);
+const IS_FRESH_CREATION_ENTRY = ROUTE_SEARCH_PARAMS.get("new") === "1";
 const ROUTE_PATHNAME = logicalThoughtRoutePathname(window.location.pathname);
 const IS_COLOR_FONT_PAGE = ROUTE_PATHNAME === "/color-font";
 const IS_VERIFY_PAGE = ROUTE_PATHNAME === "/verify";
@@ -1843,11 +1998,9 @@ const IS_THOUGHT_PAGE =
   !IS_RUN_PAGE &&
   !IS_GALLERY_PAGE &&
   ROUTE_THOUGHT_NFT_ID !== null;
-const THOUGHT_MINTED_TOPIC = id(
-  IS_LOCAL_THOUGHT_V2
-    ? "ThoughtMinted(uint256,address,bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,bytes32,bytes32)"
-    : "ThoughtMinted(uint256,address,uint256,bytes32,bytes32,bytes32,bytes32,uint64)",
-);
+const THOUGHT_MINTED_TOPIC = IS_LOCAL_THOUGHT_V2
+  ? THOUGHT_V2_CURRENT_MINTED_TOPIC
+  : id("ThoughtMinted(uint256,address,uint256,bytes32,bytes32,bytes32,bytes32,uint64)");
 const TOKEN_URI_CALL_GAS_LIMIT = 100_000_000n;
 const THOUGHT_V1_NFT_ABI = [
   "error EmptyProvenance()",
@@ -1895,6 +2048,7 @@ const COLOR_FONT_V1_ABI = [
 ] as const;
 const PATH_NFT_ABI = [
   "function getConsumeNonce(address claimer) view returns (uint256)",
+  "function getPermissionEpoch(uint256 pathId) view returns (uint256)",
   "function getAuthorizedMinter(bytes32 movement) view returns (address)",
   "function getMovementQuota(bytes32 movement) view returns (uint32)",
   "function isMovementFrozen(bytes32 movement) view returns (bool)",
@@ -1910,7 +2064,10 @@ const PATH_PULSE_ADAPTER_ABI = [
 const PATH_AUCTION_ABI = [
   "function bid(uint256 maxPrice) payable",
   "function curveActive() view returns (bool)",
+  "function getConfig() view returns (uint64 openTime, uint256 genesisPrice, uint256 genesisFloor, uint256 k, uint256 pts)",
   "function getCurrentPrice() view returns (uint256)",
+  "function getState() view returns (uint64 epochIndex, uint64 startTime, uint64 anchorTime, uint256 floorPrice, bool active)",
+  "function lastBlock() view returns (uint64)",
   "function mintAdapter() view returns (address)",
   "function paymentToken() view returns (address)",
 ] as const;
@@ -1921,8 +2078,6 @@ const THOUGHT_SPEC_REGISTRY_ABI = [
   "function validateThoughtSpec(bytes32 specId, bytes32 specHash) view returns (bool)",
   "function isRegisteredThoughtSpec(bytes32 specId, bytes32 specHash) view returns (bool)",
 ] as const;
-const EVM_ABI_CODER = AbiCoder.defaultAbiCoder();
-
 const DIRECT_PROVIDERS: Record<DirectProviderId, ProviderConfig> = {
   openai: {
     id: "openai",
@@ -1972,7 +2127,7 @@ const frontpageShell = document.querySelector(".frontpage-shell") as HTMLElement
 const thoughtShellRoot = document.getElementById("thought-shell-root") as HTMLElement | null;
 const frontpageStage = document.querySelector(".frontpage-stage") as HTMLElement | null;
 const frontpageMain = document.querySelector(".frontpage-main") as HTMLElement | null;
-const frontpageTitle = document.getElementById("frontpage-title") as HTMLElement | null;
+const frontpageHeader = document.querySelector(".thought-create__header") as HTMLElement | null;
 const modeConnectButton = document.getElementById("mode-connect") as HTMLButtonElement | null;
 const modeDirectButton = document.getElementById("mode-direct") as HTMLButtonElement | null;
 const modeLocalButton = document.getElementById("mode-local") as HTMLButtonElement | null;
@@ -2347,6 +2502,17 @@ let panelWarningMessage = "";
 let panelWarningLevel: PanelWarningLevel = "error";
 let lastRunErrorCliLines: string[] = [];
 let currentOutputText = "";
+const injectedThoughtRenderer = globalThis.__INSHELL_THOUGHT_CONTRACT_RUNTIME__?.renderer;
+const injectedThoughtRendererImplementationId =
+  typeof injectedThoughtRenderer === "object" &&
+  injectedThoughtRenderer !== null &&
+  "implementationId" in injectedThoughtRenderer &&
+  typeof injectedThoughtRenderer.implementationId === "string"
+    ? injectedThoughtRenderer.implementationId
+    : "";
+let contractEmptyFrameStyle: ThoughtV2EmptyFrameStyle | null =
+  parseThoughtV2EmptyFrameStyle(injectedThoughtRendererImplementationId);
+let currentWorkImage = "";
 let currentWorkSvg = "";
 let runInFlight = false;
 let runState: ThoughtRunState = "idle";
@@ -2355,33 +2521,43 @@ type AgentDemoPhase = "draft" | "choose-agent" | "creating" | "sealed" | "waitin
 
 type AgentDemoRun = {
   runId: string;
+  surface: ThoughtDockAgentSurface;
   prompt: string;
   promptHash: string;
   launchUri: string;
   launchToken: string;
   browserToken: string;
   statusUrl: string;
+  agentStatusUrl?: string;
   claimUrl: string;
+  readyUrl: string;
   startUrl: string;
   resultUrl: string;
   codexUrl: string;
   claudeUrl: string;
   sealedTask: string;
+  handoffSha256: ThoughtSha256 | null;
   candidate: string | null;
   remoteState: string;
   expiresAt?: string;
   agentEvidence?: ThoughtV2LocalAgentEvidence;
 };
 
+const thoughtAgentHandoffSha256 = (sealedTask: string): ThoughtSha256 =>
+  `${THOUGHT_SHA256_PREFIX}${sha256(toUtf8Bytes(sealedTask)).slice(2)}` as ThoughtSha256;
+
 type ThoughtDockAgentAdapterId = "codex" | "claude";
+type ThoughtDockAgentSurface = "codex" | "claude-cowork" | "claude-code";
 
 type ThoughtDockAgentAdapter = {
   id: ThoughtDockAgentAdapterId;
   label: string;
+  defaultSurface: ThoughtDockAgentSurface;
   canDeepLink: boolean;
 };
 
 const CODEX_AGENT_ROUTE = "codex://new";
+const CLAUDE_COWORK_AGENT_ROUTE = "claude://cowork/new";
 const CLAUDE_CODE_AGENT_ROUTE = "claude://code/new";
 
 type ThoughtDockWorkView = {
@@ -2401,8 +2577,6 @@ type ThoughtDockState =
   | { kind: "ready"; prompt: string }
   | { kind: "agent_select"; prompt: string }
   | { kind: "creating_run"; prompt: string; adapterId: ThoughtDockAgentAdapterId }
-  | { kind: "agent_task_ready"; run: AgentDemoRun; adapterId: ThoughtDockAgentAdapterId; message?: string }
-  | { kind: "opening_agent"; run: AgentDemoRun; adapterId: ThoughtDockAgentAdapterId }
   | { kind: "claim_authorization"; run: AgentDemoRun; adapterId: ThoughtDockAgentAdapterId; authorization: ThoughtClaimAuthorization; approving?: boolean }
   | { kind: "waiting_for_agent"; run: AgentDemoRun; adapterId: ThoughtDockAgentAdapterId; message?: string }
   | { kind: "agent_returned"; run: AgentDemoRun; rawCandidate: string }
@@ -2419,7 +2593,14 @@ type ThoughtDockState =
   | { kind: "minted"; tokenId?: string; txHash?: string; existing?: boolean }
   | { kind: "run_access_needed"; details: string }
   | { kind: "expired"; run?: AgentDemoRun }
-  | { kind: "failed"; message: string; details?: string };
+  | {
+      kind: "failed";
+      message: string;
+      details?: string;
+      run?: AgentDemoRun;
+      /** True only when the Agent service reported a terminal failed/cancelled state. */
+      confirmedRunFailure?: boolean;
+    };
 
 type DockRailTone =
   | "idle"
@@ -2432,6 +2613,7 @@ type DockRailAction = {
   id: string;
   label: string;
   ariaLabel: string;
+  handlerKey?: string;
   disabled?: boolean;
   expanded?: boolean;
   onClick: () => void;
@@ -2447,6 +2629,7 @@ type DockRailView = {
 type StoredThoughtDockRun = {
   runId: string;
   adapterId: ThoughtDockAgentAdapterId;
+  surface: ThoughtDockAgentSurface;
   browserToken: string;
   statusUrl: string;
   prompt: string;
@@ -2456,17 +2639,22 @@ type StoredThoughtDockRun = {
   remoteState?: string;
 };
 
-const THOUGHT_DOCK_PENDING_RUN_KEY = "thought:dock:pending-agent-run:v1";
+const THOUGHT_DOCK_PENDING_RUN_KEY = "thought:dock:pending-agent-run:v2";
+const THOUGHT_DOCK_PENDING_LAUNCH_KEY = "thought:dock:pending-agent-launch:v1";
+const THOUGHT_DOCK_PROMPT_HISTORY_KEY = "thought:dock:prompt-history:v1";
+const THOUGHT_DOCK_PROMPT_HISTORY_LIMIT = 50;
 const THOUGHT_DOCK_AGENT_ADAPTERS: ThoughtDockAgentAdapter[] = [
   {
     id: "codex",
     label: "Codex",
+    defaultSurface: "codex",
     canDeepLink: true,
   },
   {
     id: "claude",
     label: "Claude",
-    canDeepLink: false,
+    defaultSurface: "claude-cowork",
+    canDeepLink: true,
   },
 ];
 
@@ -2478,6 +2666,15 @@ let agentDemoPollGeneration = 0;
 let thoughtDockState: ThoughtDockState = { kind: "empty" };
 let thoughtDockRun: AgentDemoRun | null = null;
 let thoughtDockAdapterId: ThoughtDockAgentAdapterId = "codex";
+const launchedThoughtDockRunIds = new Set<string>();
+let thoughtDockPromptHistory = parseThoughtPromptHistory(
+  readSharedBrowserItem(THOUGHT_DOCK_PROMPT_HISTORY_KEY),
+  THOUGHT_DOCK_PROMPT_HISTORY_LIMIT,
+);
+let thoughtDockPromptHistoryCursor: ThoughtPromptHistoryCursor = {
+  index: null,
+  draft: "",
+};
 let thoughtDockPollGeneration = 0;
 let workLibraryRevealed = false;
 const thoughtDockPollWakeScheduler = createThoughtPollWakeScheduler();
@@ -2488,6 +2685,9 @@ let thoughtDockRailSignature = "";
 let thoughtConsoleHistory = parseThoughtConsoleHistory(
   getSessionStorage()?.getItem(THOUGHT_CONSOLE_HISTORY_STORAGE_KEY) ?? "",
 );
+const restoredDanglingMintRequest = thoughtConsoleHistory.entries.at(-1)?.kind === "transaction_requested"
+  ? thoughtConsoleHistory.entries.at(-1)
+  : undefined;
 const nextMintAttemptId = (prefix = "mint") =>
   createMintAttemptId(prefix, window.crypto);
 let mintAttemptId = nextMintAttemptId("idle");
@@ -2518,7 +2718,8 @@ const agentDemoSetHidden = (element: HTMLElement, hidden: boolean) => {
   element.classList.toggle("is-hidden", hidden);
 };
 
-const agentDemoSha256 = sha256Hex;
+const agentDemoSha256 = (value: string): ThoughtSha256 =>
+  `${THOUGHT_SHA256_PREFIX}${sha256(toUtf8Bytes(value)).slice(2)}`;
 
 const agentDemoBridgeInfo = () => ({
   bridgeId: "inshell-thought-agent-demo",
@@ -2548,6 +2749,16 @@ const agentDemoExecutionInfo = () => ({
   userConfigPolicy: "agent-owned",
 });
 
+const agentDemoControlEvidence = (): ThoughtAgentControlEvidence => ({
+  schema: THOUGHT_AGENT_CONTROL_VERSION,
+  mode: "bounded-preflight",
+  appExchange: "verified",
+  runtimeIdentity: "available",
+  localPreparation: "verified",
+  installationsRequired: false,
+  creativeInputOpened: false,
+});
+
 const agentDemoRunActionUrl = (statusUrl: string, action: string) =>
   `${resolveThoughtAgentStatusUrl(statusUrl).replace(/\/+$/g, "")}/${action}`;
 
@@ -2567,16 +2778,71 @@ const agentDemoResultJson = (
   ? buildThoughtV2LocalAgentResult(candidate, thoughtAgentProductLabel(adapterId))
   : {
       schema: THOUGHT_AGENT_RESULT_VERSION,
+      release: THOUGHT_V2_PROTOCOL_RELEASE.release,
       agentLine: candidate,
+      declaration: {
+        schema: "inshell.thought.agent-declaration.v1" as const,
+        status: "declared-unverified" as const,
+        label: thoughtAgentProductLabel(adapterId),
+        declaredOneCreativeResult: true as const,
+      },
     };
 
 const thoughtAgentProductLabel = (adapterId: ThoughtDockAgentAdapterId) =>
   THOUGHT_DOCK_AGENT_ADAPTERS.find((adapter) => adapter.id === adapterId)?.label ?? "Agent";
 
+const claudeCoworkQualifiedForCurrentOrigin = () =>
+  isThoughtClaudeCoworkPublicHttpsOrigin(thoughtDockAgentPublicApiOrigin()) &&
+  (
+    IS_DEV_MODE ||
+    IS_PREVIEW_DEPLOYMENT ||
+    (
+      THOUGHT_CLAUDE_COWORK_QUALIFICATION.qualified === true &&
+      THOUGHT_CLAUDE_COWORK_QUALIFICATION.handoffRevision ===
+        THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION
+    )
+  );
+
+const defaultThoughtDockAgentSurface = (
+  adapterId: ThoughtDockAgentAdapterId,
+): ThoughtDockAgentSurface => {
+  if (adapterId === "claude") {
+    return claudeCoworkQualifiedForCurrentOrigin()
+      ? "claude-cowork"
+      : "claude-code";
+  }
+  return THOUGHT_DOCK_AGENT_ADAPTERS.find((adapter) => adapter.id === adapterId)
+    ?.defaultSurface ?? "codex";
+};
+
+const normalizeThoughtDockAgentSurface = (
+  adapterId: ThoughtDockAgentAdapterId,
+  value: unknown,
+): ThoughtDockAgentSurface => {
+  if (adapterId === "codex") return "codex";
+  return value === "claude-code" || value === "claude-code-direct-http"
+    ? "claude-code"
+    : "claude-cowork";
+};
+
+const thoughtClaudeSurface = (
+  surface: ThoughtDockAgentSurface,
+): ThoughtClaudeSurface => surface === "claude-code" ? "code" : "cowork";
+
+const thoughtAgentLaunchActionDescription = (adapterId: ThoughtDockAgentAdapterId) =>
+  adapterId === "codex"
+    ? "open this THOUGHT task in Codex within the ChatGPT desktop app"
+    : "open this THOUGHT task in Claude";
+
+const thoughtAgentLaunchRequestedDetail = (adapterId: ThoughtDockAgentAdapterId) =>
+  adapterId === "codex"
+    ? "The App asked the ChatGPT desktop app to open this THOUGHT task in Codex."
+    : "The App asked Claude to open this THOUGHT task.";
+
 const normalizeThoughtAgentProtocolError = (message: string, adapterId: ThoughtDockAgentAdapterId = "codex") => {
   const trimmed = message.trim();
   if (/failed to fetch|network|connection refused|could not connect|econnrefused/i.test(trimmed)) {
-    return `${thoughtAgentProductLabel(adapterId)} could not reach the THOUGHT Agent API. Retry the protocol calls with curl against the local URL.`;
+    return `${thoughtAgentProductLabel(adapterId)} could not reach the THOUGHT service.`;
   }
   return trimmed;
 };
@@ -2586,6 +2852,8 @@ const thoughtDockAgentLifecycleStatus = (adapterId: ThoughtDockAgentAdapterId, r
   switch (remoteState) {
     case "claimed":
       return `${product} accepted task...`;
+    case "ready":
+      return `${product} creating...`;
     case "running":
       return `${product} running...`;
     case "returned":
@@ -2599,10 +2867,16 @@ const thoughtDockAgentLifecycleTitle = (adapterId: ThoughtDockAgentAdapterId, re
   thoughtDockAgentLifecycleStatus(adapterId, remoteState).replace(/\.\.\.$/, "");
 
 const buildAgentDemoSealedTask = (
-  run: Omit<AgentDemoRun, "codexUrl" | "claudeUrl" | "sealedTask" | "candidate">,
+  run: Omit<
+    AgentDemoRun,
+    "codexUrl" | "claudeUrl" | "sealedTask" | "handoffSha256" | "candidate"
+  >,
   adapterId: ThoughtDockAgentAdapterId = "codex",
 ) => {
   const product = thoughtAgentProductLabel(adapterId);
+  const buildTask = adapterId === "claude"
+    ? buildThoughtClaudeTask
+    : buildThoughtCodexTask;
   const launchApiOrigin = (() => {
     try {
       return new URL(run.launchUri).searchParams.get("api_origin") || "";
@@ -2613,24 +2887,30 @@ const buildAgentDemoSealedTask = (
   const derivedStatusUrl = launchApiOrigin
     ? `${launchApiOrigin.replace(/\/+$/g, "")}/api/thought-agent/v2/runs/${encodeURIComponent(run.runId)}`
     : "";
-  const statusUrl = run.statusUrl || derivedStatusUrl;
+  const statusUrl = run.agentStatusUrl || run.statusUrl || derivedStatusUrl;
   const absoluteStatusUrl = new URL(statusUrl, window.location.href).toString().replace(/\/+$/g, "");
-  const clientUrl = `${new URL(absoluteStatusUrl).origin}${THOUGHT_CODEX_CLIENT_ROUTE}`;
-  return buildThoughtCodexTask({
+  return buildTask({
     product,
     runId: run.runId,
-    promptLine: run.prompt,
     runUrl: absoluteStatusUrl,
-    clientUrl,
     launchToken: run.launchToken,
-    ...(IS_LOCAL_THOUGHT_V2
-      ? {
-          release: {
-            protocolReleaseId: THOUGHT_V2_LOCAL_RELEASE.protocol.protocolReleaseId,
-            manifestKeccak256: THOUGHT_V2_LOCAL_RELEASE.protocol.manifestKeccak256,
-          },
-        }
+    ...(adapterId === "claude"
+      ? { surface: thoughtClaudeSurface(run.surface) }
       : {}),
+    // The Vite Agent API always serves the active local contract release, even
+    // while the browser is still diagnosing whether minting is available. Keep
+    // its sealed Agent task release-bound instead of falling back to the older
+    // generic Agent-protocol profile during that diagnostic window.
+    ...(IS_DEV_MODE
+      ? buildThoughtV2LocalAgentTaskBinding()
+      : {
+          release: THOUGHT_V2_PROTOCOL_RELEASE.release,
+          resultContract: {
+            workProfile: THOUGHT_V2_PROTOCOL_RELEASE.identifiers.workProfile,
+            lineValidation: "terminal-english-64" as const,
+            declarationLabelField: "label" as const,
+          },
+        }),
   });
 };
 
@@ -2642,16 +2922,22 @@ const buildCodexAgentUrl = (sealedTask: string) => {
   return `${CODEX_AGENT_ROUTE}?${params.toString()}`;
 };
 
-const buildClaudeCodeAgentUrl = (sealedTask: string) => {
+const buildClaudeAgentUrl = (
+  sealedTask: string,
+  surface: ThoughtDockAgentSurface = "claude-cowork",
+) => {
   const params = new URLSearchParams({
     q: sealedTask,
   });
-  return `${CLAUDE_CODE_AGENT_ROUTE}?${params.toString()}`;
+  const route = surface === "claude-code"
+    ? CLAUDE_CODE_AGENT_ROUTE
+    : CLAUDE_COWORK_AGENT_ROUTE;
+  return `${route}?${params.toString()}`;
 };
 
 const buildAgentDemoRun = async (): Promise<AgentDemoRun> => {
   const prompt = agentDemoPrompt.value;
-  assertThoughtLine(prompt, "prompt");
+  assertActiveThoughtLine(prompt, "prompt");
   const createPayload = await fetchThoughtAgentJson<ThoughtAgentRunCreateResponse>(
     thoughtAgentApiUrl("runs"),
     {
@@ -2689,24 +2975,29 @@ const buildAgentDemoRun = async (): Promise<AgentDemoRun> => {
   const promptHash = await agentDemoSha256(prompt);
   const baseRun = {
     runId: createPayload.runId,
+    surface: "codex" as const,
     prompt,
     promptHash,
     launchUri,
     launchToken,
     browserToken: createPayload.browserToken,
     statusUrl,
+    agentStatusUrl: thoughtDockAgentPublicRunUrl(createPayload.runId, statusUrl),
     claimUrl: agentDemoRunActionUrl(statusUrl, "claim"),
+    readyUrl: agentDemoRunActionUrl(statusUrl, "ready"),
     startUrl: agentDemoRunActionUrl(statusUrl, "start"),
     resultUrl: agentDemoRunActionUrl(statusUrl, "result"),
     remoteState: createPayload.state ?? "created",
     expiresAt: createPayload.claimExpiresAt,
   };
   const sealedTask = buildAgentDemoSealedTask(baseRun);
+  const handoffSha256 = thoughtAgentHandoffSha256(sealedTask);
   return {
     ...baseRun,
     sealedTask,
+    handoffSha256,
     codexUrl: buildCodexAgentUrl(sealedTask),
-    claudeUrl: buildClaudeCodeAgentUrl(sealedTask),
+    claudeUrl: buildClaudeAgentUrl(sealedTask),
     candidate: null,
   };
 };
@@ -2777,7 +3068,7 @@ const parseAgentDemoReturn = (rawValue: string) => {
     throw new Error("Agent result schema invalid.");
   }
   const candidate = parsed.agentLine;
-  assertThoughtLine(candidate, "agent");
+  assertActiveThoughtLine(candidate, "agent");
   const returnedRunId = typeof parsed.runId === "string" ? parsed.runId : null;
   if (agentDemoRun && returnedRunId && returnedRunId !== agentDemoRun.runId) {
     throw new Error("run id mismatch.");
@@ -2895,6 +3186,17 @@ const submitAgentDemoProtocolResult = async (candidate: string) => {
     throw new Error("claim response missing bridge token.");
   }
 
+  await fetchThoughtAgentJson<Record<string, unknown>>(run.readyUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${claimPayload.bridgeToken}`,
+    },
+    body: JSON.stringify({
+      protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+      control: agentDemoControlEvidence(),
+    }),
+  });
+
   const invocationId = `tai_${agentDemoRandom(12)}`;
   const startedAt = new Date().toISOString();
   await fetchThoughtAgentJson<Record<string, unknown>>(run.startUrl, {
@@ -2909,7 +3211,7 @@ const submitAgentDemoProtocolResult = async (candidate: string) => {
     }),
   });
 
-  assertThoughtLine(candidate, "agent");
+  assertActiveThoughtLine(candidate, "agent");
   const raw = JSON.stringify(agentDemoResultJson(run, candidate));
   const completedAt = new Date().toISOString();
   await fetchThoughtAgentJson<Record<string, unknown>>(run.resultUrl, {
@@ -3058,8 +3360,6 @@ const isThoughtDockActiveState = (state: ThoughtDockState) =>
 const isThoughtDockRunningState = (state: ThoughtDockState) =>
   state.kind === "agent_select" ||
   state.kind === "creating_run" ||
-  state.kind === "agent_task_ready" ||
-  state.kind === "opening_agent" ||
   state.kind === "claim_authorization" ||
   state.kind === "waiting_for_agent" ||
   state.kind === "agent_returned" ||
@@ -3072,7 +3372,7 @@ const getThoughtDockWorkView = (): ThoughtDockWorkView | null =>
   currentOutputText ? { text: currentOutputText, workId: currentWorkId } : null;
 
 const readStoredThoughtDockRun = (): StoredThoughtDockRun | null => {
-  const raw = readSharedBrowserItem(THOUGHT_DOCK_PENDING_RUN_KEY);
+  const raw = readPrivateCreationSessionItem(THOUGHT_DOCK_PENDING_RUN_KEY);
   if (!raw) {
     return null;
   }
@@ -3084,6 +3384,7 @@ const readStoredThoughtDockRun = (): StoredThoughtDockRun | null => {
     }
     const runId = stringOrNull(parsed.runId);
     const adapterId = stringOrNull(parsed.adapterId) as ThoughtDockAgentAdapterId | null;
+    const storedSurface = stringOrNull(parsed.surface) as ThoughtDockAgentSurface | null;
     const browserToken = stringOrNull(parsed.browserToken);
     const statusUrl = stringOrNull(parsed.statusUrl);
     const prompt = stringOrNull(parsed.prompt);
@@ -3092,6 +3393,10 @@ const readStoredThoughtDockRun = (): StoredThoughtDockRun | null => {
     if (
       !runId ||
       (adapterId !== "codex" && adapterId !== "claude") ||
+      (storedSurface !== null &&
+        storedSurface !== "codex" &&
+        storedSurface !== "claude-cowork" &&
+        storedSurface !== "claude-code") ||
       !browserToken ||
       !statusUrl ||
       !prompt ||
@@ -3099,6 +3404,13 @@ const readStoredThoughtDockRun = (): StoredThoughtDockRun | null => {
       !createdAt
     ) {
       throw new Error("stored Dock run is incomplete.");
+    }
+    const surface = normalizeThoughtDockAgentSurface(adapterId, storedSurface);
+    if (
+      (adapterId === "codex" && surface !== "codex") ||
+      (adapterId === "claude" && surface !== "claude-cowork" && surface !== "claude-code")
+    ) {
+      throw new Error("stored Dock Agent surface does not match its adapter.");
     }
     const createdAtMs = Date.parse(createdAt);
     const expiresAt = stringOrNull(parsed.expiresAt);
@@ -3109,6 +3421,7 @@ const readStoredThoughtDockRun = (): StoredThoughtDockRun | null => {
     return {
       runId,
       adapterId,
+      surface,
       browserToken,
       statusUrl: resolveThoughtAgentStatusUrl(statusUrl),
       prompt,
@@ -3118,17 +3431,63 @@ const readStoredThoughtDockRun = (): StoredThoughtDockRun | null => {
       remoteState: stringOrNull(parsed.remoteState) ?? undefined,
     };
   } catch {
-    removeSharedBrowserItem(THOUGHT_DOCK_PENDING_RUN_KEY);
+    safeStorageRemove(getSessionStorage(), THOUGHT_DOCK_PENDING_LAUNCH_KEY);
+    removePrivateCreationSessionItem(THOUGHT_DOCK_PENDING_RUN_KEY);
     return null;
   }
 };
 
 const writeStoredThoughtDockRun = (run: StoredThoughtDockRun) => {
   try {
-    writeSharedBrowserItem(THOUGHT_DOCK_PENDING_RUN_KEY, JSON.stringify(run));
+    writePrivateCreationSessionItem(THOUGHT_DOCK_PENDING_RUN_KEY, JSON.stringify(run));
   } catch {
     // A live in-memory run can still complete when browser storage is blocked.
   }
+};
+
+const readStoredThoughtDockLaunch = (runId: string) => {
+  const raw = safeStorageGet(getSessionStorage(), THOUGHT_DOCK_PENDING_LAUNCH_KEY);
+  if (!raw) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (
+      !isRecord(parsed) ||
+      stringOrNull(parsed.runId) !== runId ||
+      !stringOrNull(parsed.sealedTask) ||
+      !stringOrNull(parsed.handoffSha256)
+    ) {
+      throw new Error("stored Agent launch is invalid.");
+    }
+    const sealedTask = stringOrNull(parsed.sealedTask) as string;
+    const handoffSha256 = stringOrNull(parsed.handoffSha256) as string;
+    if (
+      !/^sha256:[0-9a-f]{64}$/.test(handoffSha256) ||
+      thoughtAgentHandoffSha256(sealedTask) !== handoffSha256
+    ) {
+      throw new Error("stored Agent handoff digest mismatch.");
+    }
+    return {
+      sealedTask,
+      handoffSha256: handoffSha256 as ThoughtSha256,
+    };
+  } catch {
+    safeStorageRemove(getSessionStorage(), THOUGHT_DOCK_PENDING_LAUNCH_KEY);
+    return null;
+  }
+};
+
+const writeStoredThoughtDockLaunch = (run: AgentDemoRun) => {
+  safeStorageSet(
+    getSessionStorage(),
+    THOUGHT_DOCK_PENDING_LAUNCH_KEY,
+    JSON.stringify({
+      runId: run.runId,
+      sealedTask: run.sealedTask,
+      handoffSha256: run.handoffSha256,
+    }),
+  );
 };
 
 const clearStoredThoughtDockRun = (runId?: string) => {
@@ -3138,17 +3497,79 @@ const clearStoredThoughtDockRun = (runId?: string) => {
       return;
     }
   }
-  removeSharedBrowserItem(THOUGHT_DOCK_PENDING_RUN_KEY);
+  safeStorageRemove(getSessionStorage(), THOUGHT_DOCK_PENDING_LAUNCH_KEY);
+  removePrivateCreationSessionItem(THOUGHT_DOCK_PENDING_RUN_KEY);
 };
 
 const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
+  if (state.kind === "agent_select") {
+    emitThoughtConsoleEvent({
+      kind: "work_agent_selection_ready",
+      title: "choose an Agent",
+      detail: "Choose an Agent available on this machine to receive the prompt.",
+      tone: "neutral",
+      eventId: `work-agent-selection:${hashText(state.prompt)}`,
+    });
+    return;
+  }
+  if (state.kind === "claim_authorization") {
+    const product = thoughtAgentProductLabel(state.adapterId);
+    if (state.authorization.state === "authorized") {
+      emitThoughtConsoleEvent({
+        kind: "work_claim_authorized",
+        title: `${product} authorized`,
+        tone: "success",
+        eventId: `work-claim-authorized:${state.run.runId}`,
+      });
+      return;
+    }
+    if (!state.approving) {
+      emitThoughtConsoleEvent({
+        kind: "work_claim_authorization_needed",
+        title: `allow ${product}`,
+        detail: `Match code ${state.authorization.verificationCode || "------"} with ${product}, then select “allow ${product.toLowerCase()}” above.`,
+        tone: "neutral",
+        eventId: `work-claim-authorization:${state.run.runId}:${state.authorization.claimRequestId ?? "pending"}`,
+      });
+    }
+    if (state.approving) {
+      emitThoughtConsoleEvent({
+        kind: "work_claim_authorizing",
+        title: `authorizing ${product}`,
+        tone: "neutral",
+        eventId: `work-claim-authorizing:${state.run.runId}:${state.authorization.claimRequestId ?? "pending"}`,
+      });
+    }
+    // The expiring verification code remains a live control in the panel.
+    return;
+  }
+  if (state.kind === "waiting_for_agent") {
+    const product = thoughtAgentProductLabel(state.adapterId);
+    const controlVerified = state.run.remoteState === "ready";
+    emitThoughtConsoleEvent({
+      kind: "work_waiting_for_agent",
+      title: controlVerified
+        ? `${product} passed preflight`
+        : state.run.remoteState === "created"
+        ? `${product} launch requested`
+        : thoughtDockAgentLifecycleTitle(state.adapterId, state.run.remoteState),
+      detail: controlVerified
+        ? "Control checks passed. Creation is continuing automatically."
+        : state.run.remoteState === "created"
+        ? thoughtAgentLaunchRequestedDetail(state.adapterId)
+        : `${product} is working on this THOUGHT task.`,
+      ...(controlVerified
+        ? { nextStep: `keep this page open while ${product} creates` }
+        : state.run.remoteState === "created"
+        ? { nextStep: `keep this page open while ${product} connects` }
+        : { nextStep: `keep this page open while ${product} finishes` }),
+      tone: "neutral",
+      eventId: `work-waiting:${state.run.runId}:${state.run.remoteState ?? "created"}`,
+    });
+    return;
+  }
   if (
-    state.kind === "agent_select" ||
     state.kind === "creating_run" ||
-    state.kind === "agent_task_ready" ||
-    state.kind === "opening_agent" ||
-    state.kind === "claim_authorization" ||
-    state.kind === "waiting_for_agent" ||
     state.kind === "agent_returned" ||
     state.kind === "previewing"
   ) {
@@ -3156,9 +3577,6 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
     emitThoughtConsoleEvent({
       kind: `work_${state.kind}`,
       title: rail.status.replace(/\.\.\.$/, ""),
-      ...(state.kind === "waiting_for_agent" && state.message
-        ? { detail: state.message }
-        : {}),
       tone: rail.tone === "success" || rail.tone === "warning" || rail.tone === "error"
         ? rail.tone
         : "neutral",
@@ -3169,7 +3587,7 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
     emitThoughtConsoleEvent({
       kind: "work_preview_unavailable",
       title: "preview unavailable",
-      detail: state.reason,
+      detail: "The App could not prepare the artwork preview.",
       tone: "warning",
       eventId: `work-preview-unavailable:${hashText(state.rawCandidate)}:${state.reason}`,
     });
@@ -3180,7 +3598,7 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
     emitThoughtConsoleEvent({
       kind: "work_preview_rejected",
       title: state.issue?.title ?? (textTooLong ? "text too long" : "work rejected"),
-      detail: state.issue?.detail ?? state.reason,
+      detail: state.issue?.detail ?? "The App could not accept the Agent response.",
       ...(state.issue?.nextStep ? { nextStep: state.issue.nextStep } : {}),
       tone: state.issue || textTooLong ? "warning" : "error",
       eventId: `work-preview-rejected:${hashText(state.rawCandidate)}:${state.reason}`,
@@ -3190,8 +3608,8 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
   if (state.kind === "run_access_needed") {
     emitThoughtConsoleEvent({
       kind: "work_run_access_needed",
-      title: "run access needed",
-      detail: state.details,
+      title: "Agent request unavailable",
+      detail: "This Agent request cannot continue.",
       tone: "warning",
       eventId: `work-run-access:${state.details}`,
     });
@@ -3200,8 +3618,9 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
   if (state.kind === "expired") {
     emitThoughtConsoleEvent({
       kind: "work_run_expired",
-      title: "Agent run expired",
-      detail: "The saved Agent run can no longer be resumed.",
+      title: "Agent request expired",
+      detail: "This Agent request cannot continue.",
+      nextStep: "start a new Agent run",
       tone: "error",
       eventId: `work-run-expired:${state.run?.runId ?? mintAttemptId}`,
     });
@@ -3209,39 +3628,55 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
   }
   if (state.kind === "failed") {
     emitThoughtConsoleEvent({
-      kind: "work_failed",
-      title: "work error",
-      detail: state.details || state.message,
+      kind: state.confirmedRunFailure ? "work_run_failed" : "work_failed",
+      title: state.confirmedRunFailure ? "Agent run failed" : "Agent work failed",
+      detail: state.confirmedRunFailure
+        ? state.message
+        : "The App could not finish this work.",
+      ...(state.confirmedRunFailure
+        ? {
+            nextStep: "start a new Agent run",
+          }
+        : {}),
       tone: "error",
-      eventId: `work-error:${state.message}:${state.details ?? ""}`,
+      eventId: `work-error:${state.confirmedRunFailure ? "terminal" : "local"}:${state.message}:${state.details ?? ""}`,
     });
   }
 };
 
-const thoughtDockRunFromStored = (stored: StoredThoughtDockRun): AgentDemoRun => ({
-  runId: stored.runId,
-  prompt: stored.prompt,
-  promptHash: stored.promptHash,
-  launchUri: "",
-  launchToken: "",
-  browserToken: stored.browserToken,
-  statusUrl: stored.statusUrl,
-  claimUrl: agentDemoRunActionUrl(stored.statusUrl, "claim"),
-  startUrl: agentDemoRunActionUrl(stored.statusUrl, "start"),
-  resultUrl: agentDemoRunActionUrl(stored.statusUrl, "result"),
-  codexUrl: "#",
-  claudeUrl: "#",
-  sealedTask: "Agent Task is not available after refresh. Keep waiting or reset.",
-  candidate: null,
-  remoteState: stored.remoteState ?? "created",
-  expiresAt: stored.expiresAt,
-});
+const thoughtDockRunFromStored = (stored: StoredThoughtDockRun): AgentDemoRun => {
+  const launch = readStoredThoughtDockLaunch(stored.runId);
+  const sealedTask = launch?.sealedTask ?? null;
+  return {
+    runId: stored.runId,
+    surface: stored.surface,
+    prompt: stored.prompt,
+    promptHash: stored.promptHash,
+    launchUri: "",
+    launchToken: "",
+    browserToken: stored.browserToken,
+    statusUrl: stored.statusUrl,
+    claimUrl: agentDemoRunActionUrl(stored.statusUrl, "claim"),
+    readyUrl: agentDemoRunActionUrl(stored.statusUrl, "ready"),
+    startUrl: agentDemoRunActionUrl(stored.statusUrl, "start"),
+    resultUrl: agentDemoRunActionUrl(stored.statusUrl, "result"),
+    codexUrl: sealedTask ? buildCodexAgentUrl(sealedTask) : "#",
+    claudeUrl: sealedTask ? buildClaudeAgentUrl(sealedTask, stored.surface) : "#",
+    sealedTask: sealedTask ?? "Agent task launch is unavailable after this browser session.",
+    handoffSha256: launch?.handoffSha256 ?? null,
+    candidate: null,
+    remoteState: stored.remoteState ?? "created",
+    expiresAt: stored.expiresAt,
+  };
+};
 
 const storeThoughtDockRun = (run: AgentDemoRun, adapterId: ThoughtDockAgentAdapterId, createdAt?: string) => {
   thoughtDockAdapterId = adapterId;
+  writeStoredThoughtDockLaunch(run);
   writeStoredThoughtDockRun({
     runId: run.runId,
     adapterId,
+    surface: run.surface,
     browserToken: run.browserToken,
     statusUrl: run.statusUrl,
     prompt: run.prompt,
@@ -3256,6 +3691,84 @@ const setThoughtDockState = (next: ThoughtDockState) => {
   thoughtDockState = next;
   recordThoughtDockConsoleTransition(next);
   renderThoughtDock();
+};
+
+const resetThoughtDockPromptHistoryCursor = () => {
+  thoughtDockPromptHistoryCursor = { index: null, draft: "" };
+};
+
+const recordThoughtDockPromptHistory = (prompt: string) => {
+  const next = appendThoughtPromptHistory(
+    thoughtDockPromptHistory,
+    prompt,
+    THOUGHT_DOCK_PROMPT_HISTORY_LIMIT,
+  );
+  if (next.length !== thoughtDockPromptHistory.length) {
+    thoughtDockPromptHistory = next;
+    writeSharedBrowserItem(THOUGHT_DOCK_PROMPT_HISTORY_KEY, JSON.stringify(next));
+  }
+  resetThoughtDockPromptHistoryCursor();
+};
+
+const applyThoughtDockPromptValue = (
+  value: string,
+  selection?: {
+    start: number;
+    end: number;
+    direction: "forward" | "backward" | "none";
+  },
+) => {
+  if (!resetMintRuntimeState()) {
+    thoughtDockPrompt.value = sessionState.prompt;
+    return false;
+  }
+  thoughtDockPrompt.value = value;
+  pendingMyBrainRunPayload = null;
+  sessionState.prompt = value;
+  promptBox.value = value;
+  writeSessionState();
+  setWarning("");
+  if (!isThoughtDockRunningState(thoughtDockState)) {
+    setThoughtDockState(value ? { kind: "ready", prompt: value } : { kind: "empty" });
+  } else {
+    syncThoughtDock();
+  }
+  if (selection) {
+    try {
+      thoughtDockPrompt.setSelectionRange(
+        selection.start,
+        selection.end,
+        selection.direction,
+      );
+    } catch {
+      // Input remains usable when selection APIs are unavailable.
+    }
+  }
+  return true;
+};
+
+const navigateThoughtDockPrompt = (direction: "older" | "newer") => {
+  const navigation = navigateThoughtPromptHistory({
+    history: thoughtDockPromptHistory,
+    cursor: thoughtDockPromptHistoryCursor,
+    currentValue: thoughtDockPrompt.value,
+    direction,
+  });
+  if (!navigation.handled) return false;
+  if (!applyThoughtDockPromptValue(navigation.value)) {
+    return true;
+  }
+  try {
+    const cursorPosition = navigation.value.length;
+    thoughtDockPrompt.setSelectionRange(cursorPosition, cursorPosition);
+  } catch {
+    // History navigation still works when selection APIs are unavailable.
+  }
+  thoughtDockPromptHistoryCursor = {
+    index: navigation.index,
+    draft: navigation.draft,
+  };
+  return true;
 };
 
 const focusThoughtDockPrompt = (options?: { preventScroll?: boolean }) => {
@@ -3344,12 +3857,13 @@ const dockRailAction = (
   label: string,
   ariaLabel: string,
   onClick: () => void,
-  options?: { disabled?: boolean; expanded?: boolean },
+  options?: { disabled?: boolean; expanded?: boolean; handlerKey?: string },
 ): DockRailAction => ({
   id,
   label,
   ariaLabel,
   onClick,
+  handlerKey: options?.handlerKey,
   disabled: options?.disabled,
   expanded: options?.expanded,
 });
@@ -3373,6 +3887,7 @@ const thoughtDockRailRenderSignature = (rail: DockRailView) =>
     actions: rail.actions.map((action) => ({
       id: action.id,
       label: action.label,
+      handlerKey: action.handlerKey ?? action.id,
       disabled: !!action.disabled,
       expanded: action.expanded,
     })),
@@ -3388,7 +3903,11 @@ const syncThoughtDockRailInset = () => {
 
 const statusScreenLine = (
   text: string,
-  options: { heading?: boolean; tone?: DockRailTone } = {},
+  options: {
+    guidance?: boolean;
+    heading?: boolean;
+    tone?: DockRailTone;
+  } = {},
 ) => {
   const line = document.createElement("p");
   line.className = [
@@ -3397,6 +3916,7 @@ const statusScreenLine = (
     options.tone === "error" ? "thought-dock-status-screen__line--error" : "",
     options.tone === "success" ? "thought-dock-status-screen__line--success" : "",
     options.tone === "warning" ? "thought-dock-status-screen__line--warning" : "",
+    options.guidance ? "thought-dock-status-screen__line--guidance" : "",
   ].filter(Boolean).join(" ");
   line.textContent = text;
   return line;
@@ -3408,9 +3928,10 @@ const appendThoughtProgressEllipsis = (
   active: boolean,
 ) => {
   element.textContent = text.replace(/\.{1,3}$/, "");
+  if (!active) return;
   const ellipsis = document.createElement("span");
   ellipsis.className = "thought-progress-ellipsis";
-  ellipsis.classList.toggle("is-active", active);
+  ellipsis.classList.add("is-active");
   ellipsis.setAttribute("aria-hidden", "true");
   for (let index = 0; index < 3; index += 1) {
     const dot = document.createElement("span");
@@ -3421,11 +3942,109 @@ const appendThoughtProgressEllipsis = (
   element.append(ellipsis);
 };
 
+const syncThoughtProgressEllipsis = (
+  element: HTMLElement,
+  active: boolean,
+) => {
+  const ellipsis = element.querySelector<HTMLElement>(".thought-progress-ellipsis");
+  if (ellipsis) {
+    if (!active) {
+      ellipsis.remove();
+    }
+    return;
+  }
+  if (!active) return;
+  appendThoughtProgressEllipsis(element, element.textContent ?? "", true);
+};
+
 const statusScreenEntry = (lines: HTMLElement[]) => {
   const entry = document.createElement("article");
   entry.className = "thought-dock-status-screen__entry";
   entry.append(...lines);
   return entry;
+};
+
+const addThoughtConsolePathLink = (
+  lineElement: HTMLElement,
+  entry: ThoughtConsoleEntry,
+  lineText: string,
+) => {
+  const linkParts = thoughtConsolePathLinkParts(entry, lineText);
+  if (!linkParts) return;
+  const link = document.createElement("a");
+  link.className = "thought-dock-status-screen__link";
+  link.href = PATH_MINT_URL;
+  link.textContent = linkParts.label;
+  link.title = "Open $PATH";
+  lineElement.replaceChildren(
+    document.createTextNode(linkParts.leadingText),
+    link,
+  );
+};
+
+const addThoughtConsoleTransactionLink = (
+  lineElement: HTMLElement,
+  entry: ThoughtConsoleEntry,
+  lineText: string,
+) => {
+  if (entry.kind !== "transaction_confirmed") return;
+  const transactionHash =
+    entry.transactionHash || walletState.txHash || mintFlowData.txHash;
+  const transactionUrl = transactionHash ? thoughtTxUrl(transactionHash) : "";
+  if (!transactionHash || !transactionUrl) return;
+
+  const shortTransactionHash = shortHex(transactionHash, 10, 8);
+  const hashOffset = lineText.indexOf(shortTransactionHash);
+  if (hashOffset < 0) return;
+
+  const link = document.createElement("a");
+  link.className = "thought-dock-status-screen__link";
+  link.href = transactionUrl;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.textContent = `${shortTransactionHash} ↗`;
+  link.title = "Open transaction";
+  lineElement.replaceChildren(
+    document.createTextNode(lineText.slice(0, hashOffset)),
+    link,
+    document.createTextNode(
+      lineText.slice(hashOffset + shortTransactionHash.length),
+    ),
+  );
+};
+
+const thoughtConsoleRunRecoveryAvailable = (
+  entry: ThoughtConsoleEntry,
+  state: ThoughtDockState,
+) =>
+  (entry.kind === "work_run_expired" && state.kind === "expired") ||
+  (entry.kind === "work_run_failed" &&
+    state.kind === "failed" &&
+    state.confirmedRunFailure === true);
+
+const retryThoughtDockAgentRunFromConsole = () => {
+  const state = thoughtDockState;
+  const recoveryConfirmed =
+    state.kind === "expired" ||
+    (state.kind === "failed" && state.confirmedRunFailure === true);
+  if (!recoveryConfirmed || !resetThoughtDock()) return;
+  void openThoughtDockAgentSelect();
+};
+
+const addThoughtConsoleRunRecoveryAction = (
+  element: HTMLElement,
+  state: ThoughtDockState,
+) => {
+  const line = statusScreenLine("", { guidance: true });
+  const action = document.createElement("button");
+  action.type = "button";
+  action.className =
+    "thought-dock-status-screen__link thought-dock-status-screen__action";
+  action.textContent = "[ try again ]";
+  action.setAttribute("aria-label", "start a new Agent run");
+  action.addEventListener("click", retryThoughtDockAgentRunFromConsole);
+  line.append(action);
+  element.append(line);
 };
 
 const thoughtDockConsoleTime = () =>
@@ -3477,12 +4096,10 @@ type ThoughtConsoleEventDraft = {
   detail?: string;
   nextStep?: string;
   eventId?: string;
+  transactionHash?: string;
   tone?: ThoughtConsoleTone;
   transient?: boolean;
 };
-
-const lowerInitial = (value: string) =>
-  value ? `${value.charAt(0).toLowerCase()}${value.slice(1)}` : value;
 
 const suggestedThoughtConsoleNextStep = (
   input: Pick<ThoughtConsoleEventDraft, "kind" | "title" | "detail">,
@@ -3495,28 +4112,30 @@ const suggestedThoughtConsoleNextStep = (
   }
   switch (input.kind) {
     case "work_preview_unavailable":
-      return "retry preview";
+      return "try preview again";
     case "work_preview_rejected":
-      return "reset and send the work again";
+      return "reset, then send the prompt to your Agent again";
     case "work_run_access_needed":
-    case "work_run_expired":
     case "work_failed":
-      return "reset and send the work again";
+      return "reset and send the prompt to your Agent again";
+    case "work_run_expired":
+    case "work_run_failed":
+      return "start a new Agent run";
     case "work_blocked":
-      return "run the work again, then retry mint";
+      return "reset and send the prompt to your Agent again";
     case "wallet_connection_failed":
-      return "retry wallet connection";
+      return "try the wallet connection again";
     case "conflicting_mint_reverted":
-      return "keep tracking the original transaction";
+      return "wait for the original transaction; do not mint again";
     case "multiple_mint_hashes_returned":
-      return "wait for a retained hash; do not submit again";
+      return "wait while both transactions are checked; do not mint again";
     case "pending_mint_deployment_mismatch":
-      return "open the original deployment and track the retained hash";
+      return "open the browser tab where you submitted the mint; do not mint again here";
     case "mint_submission_detached":
     case "mint_activity_checked":
-      return "check wallet activity before retrying";
+      return "check your wallet before trying again";
     case "work_save_failed":
-      return "complete the work, then save again";
+      return "create or load a completed work, then select save";
     default:
       break;
   }
@@ -3532,14 +4151,14 @@ const suggestedThoughtConsoleNextStep = (
   if (title.includes("switch network")) {
     return "switch to the THOUGHT network, then refresh wallet from the shell bar";
   }
-  if (title.includes("inventory unavailable")) {
-    return "refresh wallet from the shell bar";
+  if (title.includes("list unavailable") || title.includes("inventory unavailable")) {
+    return "open the wallet menu and select refresh";
   }
   if (title.includes("need a path") || title.includes("no path can mint")) {
-    return "mint a $PATH, then refresh wallet from the shell bar";
+    return "mint a $PATH, then select refresh in the wallet menu";
   }
   if (title.includes("path")) {
-    return "pick another $PATH or refresh wallet from the shell bar";
+    return "pick another $PATH or select refresh in the wallet menu";
   }
   return undefined;
 };
@@ -3548,7 +4167,7 @@ const emitThoughtConsoleEvent = (input: ThoughtConsoleEventDraft) => {
   const actionNeeded = input.tone === "warning" || input.tone === "error";
   const nextStep = actionNeeded
     ? input.nextStep ?? suggestedThoughtConsoleNextStep(input)
-    : input.nextStep;
+    : undefined;
   const next = appendThoughtConsoleEvent(thoughtConsoleHistory, {
     ...input,
     ...(nextStep ? { nextStep } : {}),
@@ -3562,30 +4181,15 @@ const emitThoughtConsoleEvent = (input: ThoughtConsoleEventDraft) => {
   writeThoughtConsoleHistory();
 };
 
-const recordThoughtConsoleContextBoundary = (input?: {
-  kind?: string;
-  title?: string;
-  detail?: string;
-  nextStep?: string;
-  tone?: ThoughtConsoleTone;
-}) => {
-  const actionNeeded = input?.tone === "warning" || input?.tone === "error";
-  const nextStep = actionNeeded
-    ? input?.nextStep ?? suggestedThoughtConsoleNextStep({
-        kind: input.kind ?? "context_warning",
-        title: input.title ?? "context warning",
-        detail: input.detail,
-      })
-    : input?.nextStep;
-  const next = appendThoughtConsoleContextBoundary(thoughtConsoleHistory, {
-    ...input,
-    ...(nextStep ? { nextStep } : {}),
-    time: thoughtDockConsoleTime(),
-    context: currentThoughtConsoleContext(),
+const ensureThoughtConsoleWelcomeMessage = () => {
+  if (thoughtConsoleHistory.entries.length > 0) return;
+  emitThoughtConsoleEvent({
+    kind: "console_welcome",
+    title: THOUGHT_CONSOLE_EMPTY_TITLE,
+    detail: THOUGHT_CONSOLE_EMPTY_DETAIL,
+    tone: "neutral",
+    eventId: "console-welcome",
   });
-  if (next === thoughtConsoleHistory) return;
-  thoughtConsoleHistory = next;
-  writeThoughtConsoleHistory();
 };
 
 const thoughtConsoleToneForPresentation = (
@@ -3597,15 +4201,16 @@ const thoughtConsoleToneForPresentation = (
   return "neutral";
 };
 
-const thoughtConsoleNextStepForPresentation = (
+const mintAttemptConsoleEventId = (
+  kind: string,
+  ...parts: Array<string | number>
+) => [kind, mintAttemptId, ...parts].join(":");
+
+const thoughtMintActionLabel = (
   presentation: ThoughtMintPresentation,
-) => {
-  if (presentation.consoleNextStep) {
-    return presentation.consoleNextStep;
-  }
-  const action = presentation.actions.find((item) => item.id !== "none" && !item.disabled);
-  return action?.label ? lowerInitial(action.label) : undefined;
-};
+  actionId: ThoughtMintPresentation["actions"][number]["id"],
+  fallback: string,
+) => presentation.actions.find((action) => action.id === actionId)?.label ?? fallback;
 
 const recordMintConsoleState = (
   state: ThoughtDockState,
@@ -3615,8 +4220,10 @@ const recordMintConsoleState = (
     const readiness = getCurrentWorkMintReadiness();
     emitThoughtConsoleEvent({
       kind: readiness.ready ? "work_ready" : "work_blocked",
-      title: readiness.ready ? "work ready" : "work blocked",
-      detail: readiness.ready ? "ready to mint" : readiness.reason,
+      title: readiness.ready ? "ready to mint" : "run this work again",
+      detail: readiness.ready
+        ? "Select “mint” above to start minting this THOUGHT work."
+        : "This work is no longer ready to mint.",
       tone: readiness.ready ? "success" : "warning",
       eventId: `work:${readiness.ready ? "ready" : "blocked"}:${currentRunContext?.clientGeneratedAt ?? currentOutputText}`,
     });
@@ -3627,9 +4234,7 @@ const recordMintConsoleState = (
     return;
   }
 
-  const presentationNextStep = presentation.consoleNextStep || presentation.tone === "warning"
-    ? thoughtConsoleNextStepForPresentation(presentation)
-    : undefined;
+  const presentationNextStep = presentation.consoleNextStep;
   const base = {
     title: presentation.title,
     detail: presentation.detail,
@@ -3643,8 +4248,11 @@ const recordMintConsoleState = (
   if (mintFlowState === "wallet_required") {
     emitThoughtConsoleEvent({
       ...base,
-      kind: "wallet_needed",
-      eventId: `wallet-needed:${mintAttemptId}`,
+      kind: "wallet_required",
+      eventId: mintAttemptConsoleEventId(
+        "wallet-required",
+        presentation.title,
+      ),
     });
     return;
   }
@@ -3652,48 +4260,91 @@ const recordMintConsoleState = (
     if (!pathInventoryMatchesCurrentWallet() || pathInventoryState.status === "idle" || pathInventoryState.status === "loading") {
       return;
     }
+    if (pathInventoryState.status === "loaded") {
+      const hasAvailablePath = availablePathInventoryItems().length > 0;
+      emitThoughtConsoleEvent({
+        ...base,
+        kind: "mint_requirement",
+        detail: hasAvailablePath
+          ? THOUGHT_PATH_SELECTION_DETAIL
+          : THOUGHT_PATH_REQUIRED_DETAIL,
+        eventId: mintAttemptConsoleEventId(
+          "path-requirement",
+          hasAvailablePath ? "available" : "needed",
+        ),
+      });
+      return;
+    }
     emitThoughtConsoleEvent({
       ...base,
-      kind: pathInventoryState.status === "loaded" ? "path_inventory_loaded" : "path_inventory_unavailable",
-      eventId: `path-inventory:${pathInventoryState.status}:${pathInventoryState.items.map((item) => `${item.pathId.toString()}:${item.status}`).join(",")}:${pathInventoryState.error}`,
+      kind: "path_inventory_unavailable",
+      eventId: mintAttemptConsoleEventId(
+        "path-inventory",
+        pathInventoryState.status,
+        pathInventoryState.items.map((item) => `${item.pathId.toString()}:${item.status}`).join(","),
+        pathInventoryState.error,
+      ),
     });
     return;
   }
   if (mintFlowState === "path_ready") {
+    const path = mintFlowData.pathId ? `$PATH #${mintFlowData.pathId.toString()}` : "$PATH";
+    const signAction = thoughtMintActionLabel(presentation, "authorize", `Sign ${path}`);
     emitThoughtConsoleEvent({
-      ...base,
       kind: "path_selected",
-      detail: mintFlowData.pathId ? `$PATH #${mintFlowData.pathId.toString()} · 1 THOUGHT mint available` : base.detail,
+      title: `${path} picked`,
+      detail: `Select “${signAction}” above to authorize minting this THOUGHT work.`,
+      eventId: mintAttemptConsoleEventId(
+        "path-selected",
+        mintFlowData.pathId?.toString() ?? "unknown",
+      ),
     });
     return;
   }
   if (mintFlowState === "authorizing") {
+    const path = mintFlowData.pathId ? `$PATH #${mintFlowData.pathId.toString()}` : "$PATH";
     emitThoughtConsoleEvent({
-      ...base,
       kind: "authorization_requested",
-      detail: "wallet request 1 of 2 · no transaction · no gas",
-      eventId: `authorization-requested:${mintAuthorizationRequestId}`,
+      title: `sign ${path} in wallet`,
+      detail: "Approve the signature request. No transaction or gas.",
+      eventId: mintAttemptConsoleEventId(
+        "authorization-requested",
+        mintAuthorizationRequestId,
+      ),
     });
     return;
   }
   if (mintFlowState === "authorized") {
+    const path = mintFlowData.pathId ? `$PATH #${mintFlowData.pathId.toString()}` : "$PATH";
+    const mintAction = thoughtMintActionLabel(presentation, "confirm_mint", "Mint THOUGHT");
+    const validUntil = new Date(Number(mintFlowData.deadline ?? 0n) * 1000)
+      .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     emitThoughtConsoleEvent({
       ...base,
       kind: "authorization_signed",
-      detail: mintFlowData.pathId
-        ? `$PATH #${mintFlowData.pathId.toString()} · valid until ${new Date(Number(mintFlowData.deadline ?? 0n) * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-        : base.detail,
-      eventId: `authorization-signed:${mintAuthorizationRequestId}`,
+      title: `${path} signed`,
+      detail: `Select “${mintAction}” above to submit this THOUGHT work to ${THOUGHT_CHAIN_NAME}. Signature valid until ${validUntil}.`,
+      eventId: mintAttemptConsoleEventId(
+        "authorization-signed",
+        mintAuthorizationRequestId,
+      ),
     });
     return;
   }
   if (mintFlowState === "minting") {
     const txHash = walletState.txHash || mintFlowData.txHash;
     emitThoughtConsoleEvent({
-      ...base,
       kind: txHash ? "transaction_submitted" : "transaction_requested",
-      detail: txHash ? `${shortHex(txHash, 10, 8)} · waiting for confirmation` : "wallet request 2 of 2 · transaction · gas applies",
-      eventId: txHash ? `transaction:${txHash.toLowerCase()}` : `transaction-requested:${mintTransactionRequestId}`,
+      title: txHash ? "THOUGHT mint submitted" : "confirm THOUGHT mint in wallet",
+      detail: txHash
+        ? shortHex(txHash, 10, 8)
+        : "Open your wallet and confirm the transaction. Gas applies.",
+      eventId: txHash
+        ? `transaction:${txHash.toLowerCase()}`
+        : mintAttemptConsoleEventId(
+            "transaction-requested",
+            mintTransactionRequestId,
+          ),
     });
     return;
   }
@@ -3701,14 +4352,31 @@ const recordMintConsoleState = (
     emitThoughtConsoleEvent({
       ...base,
       kind: "thought_exists",
+      tone: "warning",
       eventId: `existing:${mintFlowData.existingTokenId ?? mintFlowData.textHash}`,
     });
     return;
   }
   if (mintFlowState === "minted" || state.kind === "minted") {
+    const tokenId = walletState.mintedTokenId ?? mintFlowData.existingTokenId;
+    const path = mintFlowData.pathId ? `$PATH #${mintFlowData.pathId.toString()}` : "$PATH";
+    const viewAction = thoughtMintActionLabel(
+      presentation,
+      "view_thought",
+      "View THOUGHT",
+    );
     emitThoughtConsoleEvent({
-      ...base,
       kind: "transaction_confirmed",
+      title: tokenId === null || tokenId === undefined
+        ? "THOUGHT minted"
+        : `THOUGHT #${tokenId} minted`,
+      detail: `${path} used${walletState.txHash || mintFlowData.txHash
+        ? ` · transaction ${shortHex(walletState.txHash || mintFlowData.txHash, 10, 8)}`
+        : ""}. Select “${viewAction}” above to open it.`,
+      ...(walletState.txHash || mintFlowData.txHash
+        ? { transactionHash: walletState.txHash || mintFlowData.txHash }
+        : {}),
+      tone: "success",
       eventId: `minted:${walletState.mintedTokenId ?? mintFlowData.existingTokenId ?? walletState.txHash ?? mintFlowData.txHash}`,
     });
     return;
@@ -3717,14 +4385,14 @@ const recordMintConsoleState = (
     emitThoughtConsoleEvent({
       ...base,
       kind: `${mintFlowData.errorKind || "mint"}_failed`,
-      eventId: `mint-error:${mintErrorSequence}`,
+      eventId: mintAttemptConsoleEventId("mint-error", mintErrorSequence),
     });
   }
 };
 
 const THOUGHT_CONSOLE_PROGRESS_KINDS = new Set([
   "work_creating_run",
-  "work_opening_agent",
+  "work_claim_authorizing",
   "work_waiting_for_agent",
   "work_agent_returned",
   "work_previewing",
@@ -3737,8 +4405,7 @@ const THOUGHT_CONSOLE_PROGRESS_KINDS = new Set([
 ]);
 
 const isThoughtConsoleProgressEntry = (entry: ThoughtConsoleEntry) =>
-  THOUGHT_CONSOLE_PROGRESS_KINDS.has(entry.kind) ||
-  (entry.kind === "work_claim_authorization" && entry.title === "Codex authorized");
+  THOUGHT_CONSOLE_PROGRESS_KINDS.has(entry.kind);
 
 const isThoughtConsoleProgressActive = (
   entry: ThoughtConsoleEntry,
@@ -3747,15 +4414,13 @@ const isThoughtConsoleProgressActive = (
   switch (entry.kind) {
     case "work_creating_run":
       return state.kind === "creating_run";
-    case "work_opening_agent":
-      return state.kind === "opening_agent";
     case "work_waiting_for_agent":
       return state.kind === "waiting_for_agent";
     case "work_agent_returned":
       return state.kind === "agent_returned";
     case "work_previewing":
       return state.kind === "previewing";
-    case "work_claim_authorization":
+    case "work_claim_authorizing":
       return state.kind === "claim_authorization" && Boolean(state.approving);
     case "wallet_connection_requested":
       return walletConnectInFlight;
@@ -3773,52 +4438,112 @@ const isThoughtConsoleProgressActive = (
 
 const THOUGHT_CONSOLE_TOP_EPSILON_PX = 2;
 
-const newestFirstThoughtConsoleEntries = (entries: ThoughtConsoleEntry[]) => {
-  const timeGroups: ThoughtConsoleEntry[][] = [];
-  entries.forEach((entry) => {
-    const currentGroup = timeGroups.at(-1);
-    if (currentGroup?.at(-1)?.time === entry.time) {
-      currentGroup.push(entry);
-      return;
-    }
-    timeGroups.push([entry]);
-  });
-  return timeGroups.reverse().flat();
+const withCurrentThoughtNetworkName = (entry: ThoughtConsoleEntry): ThoughtConsoleEntry => {
+  if (
+    entry.kind !== "authorization_signed" ||
+    !entry.detail?.includes("submit this THOUGHT work to the network.")
+  ) {
+    return entry;
+  }
+  return {
+    ...entry,
+    detail: entry.detail.replace(
+      "submit this THOUGHT work to the network.",
+      `submit this THOUGHT work to ${THOUGHT_CHAIN_NAME}.`,
+    ),
+  };
 };
 
 const renderThoughtConsoleHistory = (state: ThoughtDockState) => {
   const newestEntry = thoughtConsoleHistory.entries.at(-1);
+  const runRecoveryEntryId = [...thoughtConsoleHistory.entries]
+    .reverse()
+    .find((entry) => thoughtConsoleRunRecoveryAvailable(entry, state))?.id;
   const previousNewestEntryId = thoughtDockDetailsBody.dataset.newestEntryId || undefined;
   const previousScrollTop = thoughtDockDetails.scrollTop;
   const wasPinnedToLatest = previousScrollTop <= THOUGHT_CONSOLE_TOP_EPSILON_PX;
-  const entries = newestFirstThoughtConsoleEntries(thoughtConsoleHistory.entries).map((entry) => {
+  const currentElements = new Map(
+    Array.from(thoughtDockDetailsBody.children).flatMap((child) => {
+      if (!(child instanceof HTMLElement)) return [];
+      const id = child.dataset.consoleEntryId;
+      return id ? [[id, child] as const] : [];
+    }),
+  );
+  const entries = newestFirstThoughtConsoleEntries(thoughtConsoleHistory.entries)
+    .map(withCurrentThoughtNetworkName)
+    .map((entry) => {
     const tone: DockRailTone = entry.tone === "neutral" ? "idle" : entry.tone;
+    const guidance = thoughtConsoleVisualRole(entry) === "guidance";
     const actionNeeded = entry.tone === "warning" || entry.tone === "error";
     const nextStep = actionNeeded
       ? entry.nextStep ?? suggestedThoughtConsoleNextStep(entry)
       : entry.nextStep;
-    const lines = buildThoughtConsoleLines({
+    const progressEntry = isThoughtConsoleProgressEntry(entry);
+    const progressActive = progressEntry &&
+      entry.id === newestEntry?.id &&
+      isThoughtConsoleProgressActive(entry, state);
+    const runRecoveryAvailable = entry.id === runRecoveryEntryId;
+    const renderSignature = hashText(JSON.stringify({
+      entry,
+      nextStep: nextStep ?? null,
+      guidance,
+      tone,
+      runRecoveryAvailable,
+    }));
+    const currentElement = currentElements.get(entry.id);
+    if (currentElement?.dataset.consoleRenderSignature === renderSignature) {
+      if (progressEntry) {
+        const heading = currentElement.querySelector<HTMLElement>(
+          ".thought-dock-status-screen__line--heading",
+        );
+        if (heading) syncThoughtProgressEllipsis(heading, progressActive);
+      }
+      return currentElement;
+    }
+
+    const lineTexts = buildThoughtConsoleLines({
       ...entry,
       ...(nextStep ? { nextStep } : {}),
-    }).map((line, index) => statusScreenLine(line, {
-      heading: index === 0,
-      tone,
-    }));
-    if (lines[0] && isThoughtConsoleProgressEntry(entry)) {
-      appendThoughtProgressEllipsis(
-        lines[0],
-        lines[0].textContent ?? "",
-        entry.id === newestEntry?.id && isThoughtConsoleProgressActive(entry, state),
-      );
+    });
+    const lines = lineTexts.map((line, index) => {
+      const lineElement = statusScreenLine(line, {
+        guidance,
+        heading: index === 0,
+        tone,
+      });
+      addThoughtConsolePathLink(lineElement, entry, line);
+      addThoughtConsoleTransactionLink(lineElement, entry, line);
+      return lineElement;
+    });
+    if (lines[0] && progressEntry) {
+      appendThoughtProgressEllipsis(lines[0], lines[0].textContent ?? "", progressActive);
     }
     const element = statusScreenEntry(lines);
+    if (runRecoveryAvailable) {
+      addThoughtConsoleRunRecoveryAction(element, state);
+    }
     element.dataset.consoleEntryId = entry.id;
+    element.dataset.consoleKind = entry.kind;
     element.dataset.attemptId = entry.context.attemptId;
+    element.dataset.consoleRenderSignature = renderSignature;
     element.classList.toggle("is-boundary", entry.boundary);
     element.classList.toggle("is-current-attempt", entry.context.attemptId === mintAttemptId);
     return element;
-  });
-  thoughtDockDetailsBody.replaceChildren(...entries);
+    });
+  let cursor = thoughtDockDetailsBody.firstElementChild;
+  for (const element of entries) {
+    if (cursor === element) {
+      cursor = cursor.nextElementSibling;
+    } else {
+      thoughtDockDetailsBody.insertBefore(element, cursor);
+    }
+  }
+  const retainedElements = new Set(entries);
+  for (const element of Array.from(thoughtDockDetailsBody.children)) {
+    if (!retainedElements.has(element as HTMLElement)) {
+      element.remove();
+    }
+  }
   thoughtDockDetailsBody.dataset.newestEntryId = newestEntry?.id ?? "";
   thoughtDockDetails.hidden = false;
   const hasNewLatestEntry = newestEntry?.id !== previousNewestEntryId;
@@ -3837,18 +4562,24 @@ const renderThoughtDockDetails = (
 };
 
 const getResolvedThoughtDockState = (): ThoughtDockState => {
-  if (walletState.mintedTokenId !== null) {
+  const resolvedTokenId =
+    walletState.mintedTokenId ?? mintFlowData.existingTokenId;
+  if (mintFlowState === "minted") {
     return {
       kind: "minted",
-      tokenId: String(walletState.mintedTokenId),
-      txHash: walletState.txHash || undefined,
+      ...(resolvedTokenId !== null
+        ? { tokenId: String(resolvedTokenId) }
+        : {}),
+      ...(walletState.txHash || mintFlowData.txHash
+        ? { txHash: walletState.txHash || mintFlowData.txHash }
+        : {}),
     };
   }
 
-  if (mintFlowState === "text_taken" && mintFlowData.existingTokenId !== null) {
+  if (mintFlowState === "text_taken" && resolvedTokenId !== null) {
     return {
       kind: "minted",
-      tokenId: String(mintFlowData.existingTokenId),
+      tokenId: String(resolvedTokenId),
       existing: true,
     };
   }
@@ -3867,36 +4598,70 @@ const getResolvedThoughtDockState = (): ThoughtDockState => {
 
 type ThoughtWorkMintReadiness =
   | { ready: true }
-  | { ready: false; reason: string };
+  | { ready: false; reason: string; blockedTitle: "mint unavailable" | "work needs rerun" };
 
 const getCurrentWorkMintReadiness = (): ThoughtWorkMintReadiness => {
   if (!THOUGHT_V2_MINT_ENABLED) {
-    return { ready: false, reason: THOUGHT_V2_MINT_UNAVAILABLE_COPY };
+    return { ready: false, reason: THOUGHT_V2_MINT_UNAVAILABLE_COPY, blockedTitle: "mint unavailable" };
   }
   if (!currentOutputText || !currentRunContext) {
-    return { ready: false, reason: "This work has no current V2 run context. Run it again before minting." };
+    return {
+      ready: false,
+      reason: "This work has no current V2 run context. Run it again before minting.",
+      blockedTitle: "work needs rerun",
+    };
   }
   if (!hasCurrentContractWorkSvg()) {
-    return { ready: false, reason: "This work has no verified contract preview. Run it again before minting." };
+    return {
+      ready: false,
+      reason: "This work has no verified contract preview. Run it again before minting.",
+      blockedTitle: "work needs rerun",
+    };
   }
   if (!IS_LOCAL_THOUGHT_V2) {
     return { ready: true };
   }
   if (currentRunContext.mode === MY_BRAIN_MODE) {
-    return { ready: false, reason: "THOUGHT V2 minting requires a current Agent work." };
+    return {
+      ready: false,
+      reason: "THOUGHT V2 minting requires a current Agent work.",
+      blockedTitle: "work needs rerun",
+    };
   }
   if (!currentRunContext.thoughtSpec) {
-    return { ready: false, reason: "This work has no current V2 spec anchor. Run it again before minting." };
+    return {
+      ready: false,
+      reason: "This work has no current V2 spec anchor. Run it again before minting.",
+      blockedTitle: "work needs rerun",
+    };
+  }
+  if (
+    currentRunContext.thoughtSpec.id.toLowerCase() !== THOUGHT_V2_LOCAL_RELEASE.spec.evmSpecId.toLowerCase() ||
+    currentRunContext.thoughtSpec.hash.toLowerCase() !== THOUGHT_V2_LOCAL_RELEASE.spec.evmSpecHash.toLowerCase()
+  ) {
+    return {
+      ready: false,
+      reason: "This work uses the temporary App creative spec. The current Anvil contract pins another spec.",
+      blockedTitle: "mint unavailable",
+    };
   }
   if (!currentRunContext.agentEvidence) {
-    return { ready: false, reason: "This work has no current V2 Agent evidence. Run it again before minting." };
+    return {
+      ready: false,
+      reason: "This work has no current V2 Agent evidence. Run it again before minting.",
+      blockedTitle: "work needs rerun",
+    };
   }
   try {
-    buildThoughtV2LocalAgentProcess(currentRunContext.agentEvidence, currentOutputText);
+    buildThoughtV2LocalAgentProcess(
+      currentRunContext.agentEvidence,
+      currentOutputText,
+    );
   } catch (error) {
     return {
       ready: false,
       reason: error instanceof Error ? error.message : "This work is not valid for THOUGHT V2 minting.",
+      blockedTitle: "work needs rerun",
     };
   }
   return { ready: true };
@@ -3932,12 +4697,12 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         return;
       }
       resetThoughtDock({ clearPrompt: true, focusPrompt: true });
-    });
+    }, { handlerKey: run ? `reset:${run.runId}` : "reset" });
   const cancelAgentSelectAction = (prompt: string) =>
     dockRailAction("cancel", "cancel", "cancel Agent selection", () => {
       setThoughtDockState({ kind: "ready", prompt });
       focusThoughtDockPrompt({ preventScroll: true });
-    });
+    }, { handlerKey: `cancel:${hashText(prompt)}` });
   const loadAction = () => {
     const loadPanelOpen = workLibraryRevealed;
     return dockRailAction(
@@ -3952,7 +4717,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
           emitThoughtConsoleEvent({
             kind: "work_library_opened",
             title: "load a saved work",
-            detail: "Saved works use this browser's local storage. They are not on-chain or synced across browsers or devices.",
+            detail: "Saved in this browser only—not on-chain or synced.",
             tone: "neutral",
           });
         }
@@ -3991,7 +4756,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         tone: "idle",
         actions: [
           dockRailAction("send-agent", "send to your agent", "run this THOUGHT with your Agent", () => {
-            openThoughtDockAgentSelect();
+            void openThoughtDockAgentSelect();
           }),
           loadAction(),
         ],
@@ -4001,11 +4766,11 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         status: "Choose Agent",
         tone: "idle",
         actions: [
-          dockRailAction("codex", "codex", "run this THOUGHT with Codex", () => {
-            void runThoughtDockAdapter("codex");
+          dockRailAction("codex", "codex", thoughtAgentLaunchActionDescription("codex"), () => {
+            void prepareThoughtDockAdapter("codex");
           }),
-          dockRailAction("claude", "claude", "open this THOUGHT in Claude Code", () => {
-            void runThoughtDockAdapter("claude");
+          dockRailAction("claude", "claude", thoughtAgentLaunchActionDescription("claude"), () => {
+            void prepareThoughtDockAdapter("claude");
           }),
           cancelAgentSelectAction(state.prompt),
         ],
@@ -4013,35 +4778,29 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
       };
     case "creating_run":
       return {
-        status: thoughtDockAgentLifecycleStatus(state.adapterId),
+        status: "Preparing Agent task...",
         tone: "running",
         actions: [],
       };
-    case "agent_task_ready":
-      return {
-        status: "Task ready",
-        tone: "idle",
-        actions: [resetAction(state.run)],
-      };
-    case "opening_agent":
-      return {
-        status: `Opening ${thoughtAgentProductLabel(state.adapterId)}...`,
-        tone: "running",
-        actions: [resetAction(state.run)],
-      };
     case "claim_authorization": {
       const code = state.authorization.verificationCode || "------";
-      const authorized = state.authorization.state === "authorized" || state.approving;
+      const product = thoughtAgentProductLabel(state.adapterId);
+      const authorized = state.authorization.state === "authorized";
+      const approving = Boolean(state.approving) && !authorized;
       return {
-        status: authorized ? "Codex authorized" : `Code ${code}`,
-        tone: authorized ? "running" : "warning",
-        actions: authorized
+        status: authorized
+          ? `${product} authorized`
+          : approving
+            ? `Authorizing ${product}...`
+            : `Code ${code}`,
+        tone: authorized || approving ? "running" : "warning",
+        actions: authorized || approving
           ? [resetAction(state.run)]
           : [
               dockRailAction(
-                "allow-codex",
-                "allow codex",
-                `allow Codex claim ${code}`,
+                `allow-${state.adapterId}`,
+                `allow ${state.adapterId}`,
+                `allow ${product} claim ${code}`,
                 () => {
                   void approveThoughtDockClaim(state.run, state.adapterId, state.authorization);
                 },
@@ -4053,7 +4812,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
     case "waiting_for_agent":
       return {
         status: thoughtDockAgentLifecycleStatus(state.adapterId, state.run.remoteState),
-        tone: "running",
+        tone: state.run.remoteState === "ready" ? "warning" : "running",
         actions: [resetAction(state.run)],
       };
     case "agent_returned":
@@ -4089,7 +4848,11 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
           getWorkById(readStoredThoughtWorks(), currentWorkId),
         );
         return {
-          status: canOpenMint ? "Work ready" : "Work blocked",
+          status: workMintReadiness.ready
+            ? "Work ready"
+            : workMintReadiness.blockedTitle === "work needs rerun"
+              ? "Work needs rerun"
+              : "Mint unavailable",
           tone: canOpenMint ? "success" : "warning",
           actions: [
             ...(canOpenMint
@@ -4105,12 +4868,6 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
                       return;
                     }
                     revealMintDock();
-                    emitThoughtConsoleEvent({
-                      kind: "mint_requirement",
-                      title: "to mint THOUGHT",
-                      detail: "1 THOUGHT requires 1 available $PATH. $PATH is the permission token for Inshell’s three fully on-chain movements for Agent Art.",
-                      tone: "warning",
-                    });
                     syncThoughtDock();
                     void mintThoughtDockWork();
                   },
@@ -4142,7 +4899,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         actions: [
           dockRailAction("view", "view", "view minted THOUGHT", () => {
             void handleViewThought(state.tokenId ? Number(state.tokenId) : walletState.mintedTokenId);
-          }),
+          }, { handlerKey: `view:${state.tokenId ?? walletState.mintedTokenId ?? "unknown"}` }),
           dockRailAction(
             "save",
             currentWorkSaved ? "saved" : "save",
@@ -4166,7 +4923,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
       };
     case "expired":
       return {
-        status: "Codex link expired",
+        status: "Agent link expired",
         tone: "error",
         actions: [resetAction()],
       };
@@ -4185,19 +4942,22 @@ const shortRunId = (runId: string) =>
 const isInjectedWalletMissing = () => !walletState.detected && !getEthereumProvider();
 
 const formatPathAcquisitionPrice = (price: bigint) => {
-  const [whole, rawFraction = ""] = formatEther(price).split(".");
-  const fraction = rawFraction.replace(/0+$/, "");
-  if (!fraction) return whole;
-  const firstNonZero = fraction.search(/[1-9]/);
-  const visibleLength = whole === "0" && firstNonZero >= 0
-    ? Math.min(fraction.length, firstNonZero + 6)
-    : Math.min(fraction.length, 6);
-  return `${whole}.${fraction.slice(0, visibleLength)}`;
+  return formatPulseAuctionPrice(price);
 };
 
 const getCurrentMintPresentation = () => presentThoughtMint({
   state: mintFlowState,
   mintEnabled: THOUGHT_V2_MINT_ENABLED,
+  work: (() => {
+    const readiness = getCurrentWorkMintReadiness();
+    return readiness.ready
+      ? { ready: true, blockedTitle: "", reason: "" }
+      : {
+          ready: false,
+          blockedTitle: readiness.blockedTitle,
+          reason: readiness.reason,
+        };
+  })(),
   providerDetected: !isInjectedWalletMissing(),
   walletRequestPending: walletConnectInFlight,
   address: walletState.address,
@@ -4229,6 +4989,9 @@ const getCurrentMintPresentation = () => presentThoughtMint({
   transaction: {
     state: walletState.txState,
     hash: walletState.txHash || mintFlowData.txHash,
+    canArchiveLegacyLocalMint: canArchiveLegacyLocalPendingMint(
+      pendingMintTransaction ?? readPendingMintTransaction(),
+    ),
   },
   error: {
     kind: mintFlowData.errorKind,
@@ -4241,6 +5004,16 @@ const recordCurrentMintConsoleState = () => {
     getResolvedThoughtDockState(),
     getCurrentMintPresentation(),
   );
+};
+
+const recordTemporaryThoughtWork = (work: ThoughtDockWorkView) => {
+  emitThoughtConsoleEvent({
+    kind: "work_created_temporarily",
+    title: "the work is created by you",
+    detail: "Stored temporarily. A new work replaces it; select “save” above to keep it in this browser.",
+    tone: "neutral",
+    eventId: `work-created:${currentRunContext?.clientGeneratedAt ?? hashText(work.text)}`,
+  });
 };
 
 const visibleMintErrorCopy = () => {
@@ -4316,7 +5089,9 @@ const buildThoughtDockRunPayload = async (prompt: string) => {
   sessionState.prompt = prompt;
   promptBox.value = prompt;
   writeSessionState();
-  await ensureThoughtDockActiveSpec();
+  if (!USE_LATEST_LOCAL_GENERATION_SPEC) {
+    await ensureThoughtDockActiveSpec();
+  }
   syncThoughtInstructionsControls();
   return buildCurrentThoughtRunPayload(prompt, CODEX_MODEL);
 };
@@ -4325,8 +5100,9 @@ const createThoughtDockRun = async (
   prompt: string,
   payload: ThoughtRunPayload,
   adapterId: ThoughtDockAgentAdapterId,
+  surface: ThoughtDockAgentSurface,
 ): Promise<AgentDemoRun> => {
-  assertThoughtLine(prompt, "prompt");
+  assertActiveThoughtLine(prompt, "prompt");
   if (payload.input.promptLine !== prompt) {
     throw new Error("sealed promptLine does not match the run payload.");
   }
@@ -4339,11 +5115,11 @@ const createThoughtDockRun = async (
         promptLine: prompt,
         specId: THOUGHT_AGENT_REGISTERED_SPEC_ID,
         requestedAgent: {
-          adapterId: CODEX_PROVIDER,
+          adapterId,
           model: null,
         },
         client: {
-          surface: "thought-dock",
+          surface: surface === "codex" ? "thought-dock" : `thought-dock:${surface}`,
           appVersion: `${APP_VERSION}+${APP_BUILD}`,
         },
         devAutoRun: false,
@@ -4367,24 +5143,29 @@ const createThoughtDockRun = async (
   const promptHash = await agentDemoSha256(prompt);
   const baseRun = {
     runId: createPayload.runId,
+    surface,
     prompt,
     promptHash,
     launchUri,
     launchToken,
     browserToken: createPayload.browserToken,
     statusUrl,
+    agentStatusUrl: thoughtDockAgentPublicRunUrl(createPayload.runId, statusUrl),
     claimUrl: agentDemoRunActionUrl(statusUrl, "claim"),
+    readyUrl: agentDemoRunActionUrl(statusUrl, "ready"),
     startUrl: agentDemoRunActionUrl(statusUrl, "start"),
     resultUrl: agentDemoRunActionUrl(statusUrl, "result"),
     remoteState: createPayload.state ?? "created",
     expiresAt: createPayload.claimExpiresAt,
   };
   const sealedTask = buildAgentDemoSealedTask(baseRun, adapterId);
+  const handoffSha256 = thoughtAgentHandoffSha256(sealedTask);
   return {
     ...baseRun,
     sealedTask,
+    handoffSha256,
     codexUrl: buildCodexAgentUrl(sealedTask),
-    claudeUrl: buildClaudeCodeAgentUrl(sealedTask),
+    claudeUrl: buildClaudeAgentUrl(sealedTask, surface),
     candidate: null,
   };
 };
@@ -4402,8 +5183,8 @@ const requestThoughtDockRunCancellation = async (run: AgentDemoRun) => {
   );
 };
 
-const thoughtDockLaunchUrl = (run: AgentDemoRun, adapterId: ThoughtDockAgentAdapterId) =>
-  adapterId === "claude" ? run.claudeUrl : run.codexUrl;
+const thoughtDockLaunchUrl = (run: AgentDemoRun) =>
+  run.surface === "codex" ? run.codexUrl : run.claudeUrl;
 
 const launchThoughtDockAgentLink = (url: string) => {
   suppressBridgeLaunchUnloadUntil = Date.now() + 3000;
@@ -4420,7 +5201,7 @@ const launchThoughtDockAgentLink = (url: string) => {
 };
 
 const rejectInvalidThoughtDockPrompt = (prompt: string) => {
-  const measure = measureThoughtV2Line(prompt, "prompt");
+  const measure = measureThoughtV2TerminalLine(prompt, "prompt");
   const issue = describeThoughtTextPolicyIssue({
     value: prompt,
     line: "prompt",
@@ -4454,94 +5235,51 @@ const openThoughtDockAgentSelect = () => {
   setThoughtDockState({ kind: "agent_select", prompt });
 };
 
-const buildThoughtDockFixtureRun = async (
-  adapterId: ThoughtDockAgentAdapterId,
-  prompt: string,
-  agentLine: string,
-): Promise<AgentDemoRun> => {
-  const runId = `fixture_${adapterId}_${Date.now().toString(36)}_${agentDemoRandom(3)}`;
-  const result = IS_LOCAL_THOUGHT_V2
-    ? buildThoughtV2LocalAgentResult(agentLine, thoughtAgentProductLabel(adapterId))
-    : null;
-  const rawResponseSha256 = result
-    ? (await sha256Hex(JSON.stringify(result))).replace(THOUGHT_SHA256_PREFIX, "")
-    : "";
-
-  return {
-    runId,
-    prompt,
-    promptHash: await agentDemoSha256(prompt),
-    launchUri: "",
-    launchToken: "",
-    browserToken: "",
-    statusUrl: "",
-    claimUrl: "",
-    startUrl: "",
-    resultUrl: "",
-    codexUrl: "",
-    claudeUrl: "",
-    sealedTask: "",
-    candidate: agentLine,
-    remoteState: "returned",
-    ...(result
-      ? {
-          agentEvidence: {
-            result,
-            runId,
-            adapter: adapterId,
-            rawResponseSha256,
-          },
-        }
-      : {}),
-  };
-};
-
-const runThoughtDockFixtureAdapter = async (
-  adapterId: ThoughtDockAgentAdapterId,
-  prompt: string,
-  payload: ThoughtRunPayload,
-  runSessionId: number,
-) => {
-  const nonce = `${Date.now().toString(36)} ${agentDemoRandom(3)}`;
-  const agentLine = buildThoughtAgentFixtureLine(adapterId, nonce);
-  assertThoughtLine(agentLine, "agent");
-  const run = await buildThoughtDockFixtureRun(adapterId, prompt, agentLine);
-  thoughtDockRun = run;
-  emitThoughtConsoleEvent({
-    kind: "work_agent_fixture",
-    title: `${thoughtAgentProductLabel(adapterId)} fixture return`,
-    detail: "local dev Agent bypass",
-    tone: "neutral",
-    eventId: run.runId,
-  });
-  await handleThoughtDockReturnedWork(run, agentLine, payload, runSessionId);
-};
-
-const runThoughtDockAdapter = async (adapterId: ThoughtDockAgentAdapterId) => {
-  if (blockPendingMintMutation()) {
-    return;
-  }
-  const prompt = thoughtDockPrompt.value;
-  if (!prompt) {
-    setThoughtDockState({ kind: "failed", message: "Prompt is empty." });
-    thoughtDockPrompt.focus();
-    return;
-  }
-
-  const adapter = THOUGHT_DOCK_AGENT_ADAPTERS.find((candidate) => candidate.id === adapterId);
-  if (!adapter) {
-    setThoughtDockState({ kind: "failed", message: "Agent adapter unavailable." });
-    return;
-  }
-  if (!THOUGHT_AGENT_FIXTURE_MODE && !adapter.canDeepLink) {
+const prepareThoughtDockAdapter = (adapterId: ThoughtDockAgentAdapterId) => {
+  if (thoughtDockState.kind !== "agent_select") {
     setThoughtDockState({
       kind: "failed",
-      message: `${thoughtAgentProductLabel(adapterId)} deep link unavailable.`,
-      details: `${thoughtAgentProductLabel(adapterId)} does not expose a supported deep-link callback flow yet.`,
+      message: "Agent selection is not ready.",
+      details: "Reset and send the prompt to your Agent again.",
     });
     return;
   }
+  return prepareThoughtDockRun(
+    thoughtDockState.prompt,
+    adapterId,
+    defaultThoughtDockAgentSurface(adapterId),
+  );
+};
 
+const prepareThoughtDockRun = async (
+  prompt: string,
+  adapterId: ThoughtDockAgentAdapterId,
+  surface: ThoughtDockAgentSurface,
+) => {
+  if (blockPendingMintMutation()) {
+    return;
+  }
+  if (
+    (adapterId === "codex" && surface !== "codex") ||
+    (adapterId === "claude" && surface !== "claude-cowork" && surface !== "claude-code")
+  ) {
+    setThoughtDockState({
+      kind: "failed",
+      message: "Agent launch surface does not match its adapter.",
+    });
+    return;
+  }
+  const adapter = THOUGHT_DOCK_AGENT_ADAPTERS.find((candidate) => candidate.id === adapterId);
+  if (!adapter || !adapter.canDeepLink) {
+    emitThoughtConsoleEvent({
+      kind: "work_agent_adapter_unavailable",
+      title: `${thoughtAgentProductLabel(adapterId)} unavailable`,
+      detail: `${thoughtAgentProductLabel(adapterId)} does not expose a supported App link yet.`,
+      tone: "warning",
+      eventId: `work-agent-adapter-unavailable:${adapterId}`,
+    });
+    return;
+  }
   const runSessionId = startRunSession();
   lastRunErrorCliLines = [];
   lastPreviewRetryContext = null;
@@ -4556,28 +5294,16 @@ const runThoughtDockAdapter = async (adapterId: ThoughtDockAgentAdapterId) => {
     if (!isCurrentRunSession(runSessionId)) {
       return;
     }
-    if (THOUGHT_AGENT_FIXTURE_MODE) {
-      await runThoughtDockFixtureAdapter(adapterId, prompt, payload, runSessionId);
-      return;
-    }
-    const run = await createThoughtDockRun(prompt, payload, adapterId);
+    const run = await createThoughtDockRun(prompt, payload, adapterId, surface);
     if (!isCurrentRunSession(runSessionId)) {
       return;
     }
-    thoughtDockRun = run;
-    setThoughtDockState({
-      kind: "opening_agent",
+    recordThoughtDockPromptHistory(prompt);
+    launchPreparedThoughtDockAdapter({
       run,
       adapterId,
-    });
-    storeThoughtDockRun(run, adapterId);
-    startThoughtDockPolling(run, payload, adapterId, runSessionId);
-    launchThoughtDockAgentLink(thoughtDockLaunchUrl(run, adapterId));
-    setThoughtDockState({
-      kind: "waiting_for_agent",
-      run,
-      adapterId,
-      message: `${thoughtAgentProductLabel(adapterId)} was opened if your browser allowed it.`,
+      payload,
+      runSessionId,
     });
   } catch (error) {
     if (!isCurrentRunSession(runSessionId)) {
@@ -4592,6 +5318,36 @@ const runThoughtDockAdapter = async (adapterId: ThoughtDockAgentAdapterId) => {
     setThoughtDockState({ kind: "failed", message });
     syncInterface();
   }
+};
+
+const launchPreparedThoughtDockAdapter = ({
+  run,
+  adapterId,
+  payload,
+  runSessionId,
+}: {
+  run: AgentDemoRun;
+  adapterId: ThoughtDockAgentAdapterId;
+  payload: ThoughtRunPayload;
+  runSessionId: number;
+}) => {
+  if (!isCurrentRunSession(runSessionId)) {
+    return;
+  }
+  if (launchedThoughtDockRunIds.has(run.runId)) {
+    return;
+  }
+  launchThoughtDockAgentLink(thoughtDockLaunchUrl(run));
+  launchedThoughtDockRunIds.add(run.runId);
+  thoughtDockRun = run;
+  storeThoughtDockRun(run, adapterId);
+  setThoughtDockState({
+    kind: "waiting_for_agent",
+    run,
+    adapterId,
+    message: `${thoughtAgentProductLabel(adapterId)} launch requested.`,
+  });
+  startThoughtDockPolling(run, payload, adapterId, runSessionId);
 };
 
 const updateThoughtDockRunState = (run: AgentDemoRun, remoteState: string, expiresAt?: string) => {
@@ -4619,7 +5375,7 @@ const approveThoughtDockClaim = async (
   if (!authorization.claimRequestId) {
     setThoughtDockState({
       kind: "failed",
-      message: "Codex claim request is incomplete.",
+      message: `${thoughtAgentProductLabel(adapterId)} claim request is incomplete.`,
       details: "Reset and open a new Agent run.",
     });
     return;
@@ -4647,17 +5403,23 @@ const approveThoughtDockClaim = async (
         }),
       },
     );
+    emitThoughtConsoleEvent({
+      kind: "work_claim_authorized",
+      title: `${thoughtAgentProductLabel(adapterId)} authorized`,
+      tone: "success",
+      eventId: `work-claim-authorized:${run.runId}`,
+    });
     setThoughtDockState({
       kind: "waiting_for_agent",
       run,
       adapterId,
-      message: "Codex authorized. Waiting for its return.",
+      message: `${thoughtAgentProductLabel(adapterId)} authorized. Waiting for its return.`,
     });
     refreshThoughtDockPolling();
   } catch (error) {
     setThoughtDockState({
       kind: "failed",
-      message: "Could not authorize Codex.",
+      message: `Could not authorize ${thoughtAgentProductLabel(adapterId)}.`,
       details: error instanceof Error ? error.message : undefined,
     });
   }
@@ -4685,7 +5447,7 @@ const startThoughtDockPolling = (
       return true;
     }
 
-    if (activeRun.remoteState === "created" && hasThoughtPollDeadlineExpired(activeRun.expiresAt)) {
+    if (hasThoughtPollDeadlineExpired(activeRun.expiresAt)) {
       terminalHandled = true;
       clearStoredThoughtDockRun(activeRun.runId);
       runState = "run_failed";
@@ -4763,6 +5525,8 @@ const startThoughtDockPolling = (
                 response.error?.message || `Agent run ${remoteState}.`,
                 adapterId,
               ),
+              run: activeRun,
+              confirmedRunFailure: true,
             },
       );
       syncInterface();
@@ -4772,15 +5536,15 @@ const startThoughtDockPolling = (
     const currentState = thoughtDockState;
     if (
       currentState.kind === "waiting_for_agent" ||
-      currentState.kind === "opening_agent" ||
-      currentState.kind === "agent_task_ready" ||
       currentState.kind === "claim_authorization"
     ) {
       setThoughtDockState({
         kind: "waiting_for_agent",
         run: activeRun,
         adapterId,
-        message: remoteState === "created"
+        message: remoteState === "ready"
+          ? `${thoughtAgentProductLabel(adapterId)} passed preflight and is continuing automatically.`
+          : remoteState === "created"
           ? "Waiting for your Agent. Return here after it finishes."
           : `Agent is ${remoteState}. Return here after it finishes.`,
       });
@@ -4888,7 +5652,10 @@ const handleThoughtDockReturnedWork = async (
     runInFlight = false;
     const work = getThoughtDockWorkView();
     setThoughtDockState(work ? { kind: "work_ready", work } : { kind: "failed", message: "Preview accepted no work." });
-    if (work) recordCurrentMintConsoleState();
+    if (work) {
+      recordTemporaryThoughtWork(work);
+      recordCurrentMintConsoleState();
+    }
     syncInterface();
   } catch (error) {
     if (!isCurrentRunSession(runSessionId)) {
@@ -4969,7 +5736,10 @@ const retryThoughtDockPreview = async () => {
     }
     const work = getThoughtDockWorkView();
     setThoughtDockState(work ? { kind: "work_ready", work } : { kind: "failed", message: "Preview accepted no work." });
-    if (work) recordCurrentMintConsoleState();
+    if (work) {
+      recordTemporaryThoughtWork(work);
+      recordCurrentMintConsoleState();
+    }
     syncInterface();
   } catch (error) {
     setThoughtDockState({
@@ -4983,6 +5753,11 @@ const retryThoughtDockPreview = async () => {
 };
 
 const mintThoughtDockWork = async (options?: { attemptId?: string; pathId?: string }) => {
+  if (isTerminalMintFlowState(mintFlowState)) {
+    syncInterface();
+    return true;
+  }
+
   if (blockPendingMintMutation()) {
     return true;
   }
@@ -4998,8 +5773,8 @@ const mintThoughtDockWork = async (options?: { attemptId?: string; pathId?: stri
     setThoughtDockState({ kind: "work_ready", work });
     emitThoughtConsoleEvent({
       kind: "work_blocked",
-      title: "work blocked",
-      detail: readiness.reason,
+      title: "run this work again",
+      detail: "This work is no longer ready to mint.",
       tone: "warning",
       eventId: `work-blocked:${currentRunContext?.clientGeneratedAt ?? currentOutputText}`,
     });
@@ -5016,14 +5791,16 @@ const mintThoughtDockWork = async (options?: { attemptId?: string; pathId?: stri
   setThoughtDockState({ kind: "work_ready", work });
   try {
     await openMintFlow(THOUGHT_PANEL_MINT_UI_MODE, { ...options, work: mintWork });
-    await resumePendingPathAcquisition();
+    if (!isTerminalMintFlowState(mintFlowState)) {
+      await resumePendingPathAcquisition();
+    }
     syncInterface();
     return true;
   } catch (error) {
-    setThoughtDockState({
-      kind: "failed",
-      message: error instanceof Error ? error.message : "Mint unavailable.",
-    });
+    const message = error instanceof Error ? error.message : "Mint unavailable.";
+    setMintFlowError(message, "thought");
+    setThoughtDockState({ kind: "work_ready", work });
+    syncInterface();
     return false;
   }
 };
@@ -5064,7 +5841,11 @@ const connectThoughtDockWallet = async () => {
 };
 
 const syncMintFlowAfterWalletCommand = () => {
-  if (mintFlowState === "closed" || mintFlowState === "minted" || pendingMintTransaction) {
+  if (
+    mintFlowState === "closed" ||
+    isTerminalMintFlowState(mintFlowState) ||
+    pendingMintTransaction
+  ) {
     return;
   }
 
@@ -5106,7 +5887,11 @@ const runThoughtDockWalletCommand = async () => {
   }
 
   if (walletState.chainId !== THOUGHT_CHAIN_ID) {
-    await switchWalletChain();
+    const switched = await switchWalletChain();
+    if (!switched) {
+      syncInterface();
+      return;
+    }
     syncMintFlowAfterWalletCommand();
     syncInterface();
     return;
@@ -5127,7 +5912,16 @@ const switchThoughtDockWalletNetwork = async () => {
   }
 
   setThoughtDockState({ kind: "work_ready", work });
-  await switchWalletChain();
+  const switched = await switchWalletChain();
+  if (!switched) {
+    syncInterface();
+    return;
+  }
+
+  if (isTerminalMintFlowState(mintFlowState)) {
+    syncInterface();
+    return;
+  }
 
   if (!walletState.address) {
     mintFlowState = "wallet_required";
@@ -5165,7 +5959,7 @@ function cancelThoughtDockRun(run?: AgentDemoRun | null, options?: { clearPrompt
 }
 
 const resetThoughtDock = (options?: { clearPrompt?: boolean; focusPrompt?: boolean }) => {
-  if (blockPendingMintMutation()) {
+  if (!resetThought()) {
     return false;
   }
   thoughtDockPollGeneration += 1;
@@ -5175,7 +5969,6 @@ const resetThoughtDock = (options?: { clearPrompt?: boolean; focusPrompt?: boole
   thoughtDockRun = null;
   thoughtDockAdapterId = "codex";
   runInFlight = false;
-  resetThought();
   if (options?.clearPrompt) {
     sessionState.prompt = "";
     promptBox.value = "";
@@ -5184,6 +5977,14 @@ const resetThoughtDock = (options?: { clearPrompt?: boolean; focusPrompt?: boole
   }
   const prompt = thoughtDockPrompt.value;
   setThoughtDockState(prompt ? { kind: "ready", prompt } : { kind: "empty" });
+  emitThoughtConsoleEvent({
+    kind: "work_reset",
+    title: "work reset",
+    detail: options?.clearPrompt
+      ? "Prompt, current work, and open panels cleared."
+      : "Current work and open panels cleared.",
+    tone: "neutral",
+  });
   syncInterface();
   if (options?.focusPrompt) {
     focusThoughtDockPrompt({ preventScroll: true });
@@ -5250,8 +6051,16 @@ const thoughtDockRunFromStatus = async (
   const prompt = status.request?.promptLine?.text ?? "";
   const promptHash = status.request?.promptLine?.sha256 || hashText(prompt);
   const adapterId = normalizeThoughtDockAdapterId(status.request?.requestedAgent?.adapterId);
+  const storedRun = readStoredThoughtDockRun();
+  const surface = storedRun?.runId === runId
+    ? storedRun.surface
+    : normalizeThoughtDockAgentSurface(
+        adapterId,
+        status.claimAuthorization?.bridge?.platform,
+      );
   const baseRun = {
     runId,
+    surface,
     prompt,
     promptHash,
     launchUri: "",
@@ -5259,18 +6068,21 @@ const thoughtDockRunFromStatus = async (
     browserToken,
     statusUrl,
     claimUrl: agentDemoRunActionUrl(statusUrl, "claim"),
+    readyUrl: agentDemoRunActionUrl(statusUrl, "ready"),
     startUrl: agentDemoRunActionUrl(statusUrl, "start"),
     resultUrl: agentDemoRunActionUrl(statusUrl, "result"),
     remoteState: status.state ?? "created",
     expiresAt: status.expiresAt,
   };
-  const sealedTask = status.request?.agentInput?.text || buildAgentDemoSealedTask(baseRun, adapterId);
+  const launch = readStoredThoughtDockLaunch(runId);
+  const sealedTask = launch?.sealedTask ?? null;
   const returned = await readThoughtAgentReturn(status, runId, adapterId);
   return {
     ...baseRun,
-    sealedTask,
-    codexUrl: buildCodexAgentUrl(sealedTask),
-    claudeUrl: buildClaudeCodeAgentUrl(sealedTask),
+    sealedTask: sealedTask ?? "Agent task launch is unavailable from this run link.",
+    handoffSha256: launch?.handoffSha256 ?? null,
+    codexUrl: sealedTask ? buildCodexAgentUrl(sealedTask) : "#",
+    claudeUrl: sealedTask ? buildClaudeAgentUrl(sealedTask, surface) : "#",
     candidate: returned.agentLine || null,
     ...(returned.agentEvidence ? { agentEvidence: returned.agentEvidence } : {}),
   };
@@ -5351,6 +6163,8 @@ const hydrateThoughtRunLink = async () => {
                 status.error?.message || `Agent run ${status.state}.`,
                 adapterId,
               ),
+              run,
+              confirmedRunFailure: true,
             },
       );
       return true;
@@ -5573,6 +6387,9 @@ const mintFlowData: MintFlowData = {
   thoughtSpecId: "",
   thoughtSpecHash: "",
   provenanceJson: "",
+  agent: "",
+  model: "",
+  creationAttestation: EMPTY_THOUGHT_CREATION_ATTESTATION,
   existingTokenId: null,
   pathIdInput: "",
   pathId: null,
@@ -5592,6 +6409,15 @@ let pathInventoryState: PathInventoryState = {
 };
 let pathAcquisitionState: ThoughtPathAcquisitionState = "idle";
 let pathAcquisitionPrice = 0n;
+type PathAcquisitionPricingSnapshot = Readonly<{
+  openTimeSec: bigint;
+  curveK: bigint;
+  anchorTimeSec: bigint;
+  floorPrice: bigint;
+}>;
+let pathAcquisitionPricingSnapshot: PathAcquisitionPricingSnapshot | null = null;
+let pathAcquisitionPriceTimer: number | null = null;
+let pathAcquisitionPriceRefreshInFlight = false;
 let pathAcquisitionTxHash = "";
 let pathAcquisitionError = "";
 let pathAcquisitionCompletedForAttempt = false;
@@ -5634,6 +6460,7 @@ let walletListenersBound = false;
 let thoughtShellWalletSubscribed = false;
 let thoughtShellWalletRefreshQueued = false;
 let mintAuthorizationRequestId = 0;
+let walletNetworkSwitchRequestId = 0;
 let mintSheetPrimaryAction: MintSheetAction = "none";
 let mintSheetSecondaryAction: MintSheetAction = "none";
 let mintSheetTertiaryAction: MintSheetAction = "none";
@@ -5800,7 +6627,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const stringOrNull = (value: unknown) => (typeof value === "string" ? value : null);
 
 const readPendingThoughtAgentRun = (): PendingThoughtAgentRun | null => {
-  const raw = readSharedBrowserItem(THOUGHT_AGENT_PENDING_RUN_STORAGE_KEY);
+  const raw = readPrivateCreationSessionItem(THOUGHT_AGENT_PENDING_RUN_STORAGE_KEY);
   if (!raw) {
     return null;
   }
@@ -5832,14 +6659,14 @@ const readPendingThoughtAgentRun = (): PendingThoughtAgentRun | null => {
       createdAt,
     };
   } catch {
-    removeSharedBrowserItem(THOUGHT_AGENT_PENDING_RUN_STORAGE_KEY);
+    removePrivateCreationSessionItem(THOUGHT_AGENT_PENDING_RUN_STORAGE_KEY);
     return null;
   }
 };
 
 const writePendingThoughtAgentRun = (run: PendingThoughtAgentRun) => {
   try {
-    writeSharedBrowserItem(THOUGHT_AGENT_PENDING_RUN_STORAGE_KEY, JSON.stringify(run));
+    writePrivateCreationSessionItem(THOUGHT_AGENT_PENDING_RUN_STORAGE_KEY, JSON.stringify(run));
   } catch {
     // If storage is unavailable, the active in-memory run can still complete.
   }
@@ -5852,7 +6679,7 @@ const clearPendingThoughtAgentRun = (runId?: string) => {
       return;
     }
   }
-  removeSharedBrowserItem(THOUGHT_AGENT_PENDING_RUN_STORAGE_KEY);
+  removePrivateCreationSessionItem(THOUGHT_AGENT_PENDING_RUN_STORAGE_KEY);
 };
 
 const isRouteConfigured = () => sessionState.routeConfigured;
@@ -5901,10 +6728,9 @@ const ollamaOriginBlockedMessage = () =>
   `ollama is running but blocked this browser origin. restart ollama with: ${ollamaCorsSetupCommand()}`;
 
 const serializeSessionState = (state: ThoughtSessionState): StoredThoughtSessionState => ({
-  version: 1,
+  version: 2,
   routeConfigured: state.routeConfigured,
   mode: state.mode,
-  prompt: state.prompt,
   connect: {
     model: state.connect.model,
   },
@@ -5933,11 +6759,6 @@ const mergeStoredSessionState = (
 
   if (isMode(stored.mode)) {
     restored.mode = stored.mode;
-  }
-
-  const prompt = stringOrNull(stored.prompt);
-  if (prompt !== null) {
-    restored.prompt = prompt;
   }
 
   const connect = isRecord(stored.connect) ? stored.connect : null;
@@ -5986,6 +6807,7 @@ const mergeStoredSessionState = (
 
 const readSessionState = (): ThoughtSessionState => {
   const fallback = getDefaultSessionState();
+  fallback.prompt = readPrivateCreationSessionItem(THOUGHT_PROMPT_SESSION_STORAGE_KEY) ?? "";
   const raw = readSharedBrowserItem(THOUGHT_SESSION_STORAGE_KEY);
   if (!raw) {
     return fallback;
@@ -6011,6 +6833,7 @@ const writeSessionState = () => {
       THOUGHT_SESSION_STORAGE_KEY,
       JSON.stringify(serializeSessionState(sessionState)),
     );
+    writePrivateCreationSessionItem(THOUGHT_PROMPT_SESSION_STORAGE_KEY, sessionState.prompt);
   } catch {
     // Browsers can deny storage or run out of quota. THOUGHT still works with memory state.
   }
@@ -6308,6 +7131,7 @@ const verifyLocalThoughtV2Deployment = async () => {
       expected.contracts.thoughtSpecRegistry,
       expected.contracts.thoughtRenderer,
       expected.contracts.protocolRegistry,
+      expected.contracts.creationAttestationVerifier,
     ];
     const sameAddress = (left: string, right: string) => left.toLowerCase() === right.toLowerCase();
     await verifyThoughtV2LocalDeployment({
@@ -6321,10 +7145,13 @@ const verifyLocalThoughtV2Deployment = async () => {
           specRegistryAddress,
           rendererAddress,
           protocolRegistryAddress,
+          creationAttestationVerifierAddress,
           releaseId,
           manifestHash,
           rendererProfileHash,
           workProfileHash,
+          contextProfileHash,
+          metadataProfileHash,
           authorizedMinter,
           quota,
           frozen,
@@ -6334,10 +7161,13 @@ const verifyLocalThoughtV2Deployment = async () => {
           thought.thoughtSpecRegistry() as Promise<string>,
           thought.thoughtRenderer() as Promise<string>,
           thought.protocolRegistry() as Promise<string>,
+          thought.creationAttestationVerifier() as Promise<string>,
           thought.protocolReleaseId() as Promise<string>,
           thought.protocolManifestHash() as Promise<string>,
-          thought.RENDERER_PROFILE_KECCAK256() as Promise<string>,
-          thought.WORK_PROFILE_KECCAK256() as Promise<string>,
+          thought.RENDERER_ID_HASH() as Promise<string>,
+          thought.WORK_PROFILE_ID_HASH() as Promise<string>,
+          thought.CONTEXT_PROFILE_ID_HASH() as Promise<string>,
+          thought.METADATA_PROFILE_ID_HASH() as Promise<string>,
           pathNft.getAuthorizedMinter(PATH_MOVEMENT_THOUGHT) as Promise<string>,
           pathNft.getMovementQuota(PATH_MOVEMENT_THOUGHT) as Promise<bigint>,
           pathNft.isMovementFrozen(PATH_MOVEMENT_THOUGHT) as Promise<boolean>,
@@ -6348,10 +7178,13 @@ const verifyLocalThoughtV2Deployment = async () => {
           specRegistryAddress,
           rendererAddress,
           protocolRegistryAddress,
+          creationAttestationVerifierAddress,
           releaseId,
           manifestHash,
           rendererProfileHash,
           workProfileHash,
+          contextProfileHash,
+          metadataProfileHash,
           authorizedMinter,
           quota,
           frozen,
@@ -6363,10 +7196,13 @@ const verifyLocalThoughtV2Deployment = async () => {
         specRegistryAddress,
         rendererAddress,
         protocolRegistryAddress,
+        creationAttestationVerifierAddress,
         releaseId,
         manifestHash,
         rendererProfileHash,
         workProfileHash,
+        contextProfileHash,
+        metadataProfileHash,
         authorizedMinter,
         quota,
         frozen,
@@ -6376,10 +7212,16 @@ const verifyLocalThoughtV2Deployment = async () => {
         sameAddress(specRegistryAddress, expected.contracts.thoughtSpecRegistry) &&
         sameAddress(rendererAddress, expected.contracts.thoughtRenderer) &&
         sameAddress(protocolRegistryAddress, expected.contracts.protocolRegistry) &&
+        sameAddress(
+          creationAttestationVerifierAddress,
+          expected.contracts.creationAttestationVerifier,
+        ) &&
         releaseId.toLowerCase() === expected.protocol.protocolReleaseId &&
         manifestHash.toLowerCase() === expected.protocol.manifestKeccak256 &&
         rendererProfileHash.toLowerCase() === expected.protocol.rendererProfile.keccak256 &&
         workProfileHash.toLowerCase() === expected.protocol.workProfile.keccak256 &&
+        contextProfileHash.toLowerCase() === expected.protocol.contextProfile.keccak256 &&
+        metadataProfileHash.toLowerCase() === expected.protocol.metadataProfile.keccak256 &&
         sameAddress(authorizedMinter, expected.contracts.thoughtNft) &&
         quota === 1n &&
         frozen &&
@@ -6434,7 +7276,7 @@ type ThoughtV2PreviewValidation = {
 
 const deriveThoughtV2VisibleLine = (value: string): string => value;
 
-const thoughtV2ReasonCode = (kind: ThoughtV2LineKind, errors: string[]) => {
+const thoughtV2ReasonCode = (kind: "prompt" | "agent", errors: string[]) => {
   if (errors.some((error) => error === `${kind} line is empty`)) {
     return 1;
   }
@@ -6465,7 +7307,7 @@ const prevalidateThoughtV2Preview = (input: {
     };
   }
 
-  const promptMeasure = measureThoughtV2Line(promptLine, "prompt");
+  const promptMeasure = measureThoughtV2TerminalLine(promptLine, "prompt");
   if (promptMeasure.errors.length > 0) {
     const issue = describeThoughtTextPolicyIssue({
       value: promptLine,
@@ -6491,7 +7333,7 @@ const prevalidateThoughtV2Preview = (input: {
     };
   }
 
-  const agentMeasure = measureThoughtV2Line(agentLine, "agent");
+  const agentMeasure = measureThoughtV2TerminalLine(agentLine, "agent");
   if (agentMeasure.errors.length > 0) {
     const issue = describeThoughtTextPolicyIssue({
       value: agentLine,
@@ -6611,7 +7453,10 @@ const rememberRejectedRun = (
 
 const rejectedRunReasonLines = (rejected: LastRejectedRun) => {
   if (rejected.issue) {
-    return [rejected.issue.detail, "", `next: ${rejected.issue.nextStep}`];
+    return [
+      rejected.issue.detail,
+      ...(rejected.issue.nextStep ? ["", `next: ${rejected.issue.nextStep}`] : []),
+    ];
   }
   if (rejected.reasonCode === 1) {
     return ["canonical text is empty after normalization."];
@@ -6722,7 +7567,12 @@ const previewWorkViaAllowedProvider = async (
         ...(validation.issue ? { issue: validation.issue } : {}),
       };
     }
-    const svg = await token.previewSvg(validation.promptLine, validation.agentLine) as string;
+    const renderer = new Contract(
+      THOUGHT_RENDERER_ADDRESS,
+      THOUGHT_V2_LOCAL_RENDERER_ABI,
+      token.runner,
+    );
+    const svg = await renderer.render(validation.promptLine, validation.agentLine) as string;
     return {
       ok: true,
       text: validation.agentLine,
@@ -6763,51 +7613,11 @@ const createThoughtPreviewProvider = (
       chainId,
       endpointLabel,
       contractAddress: THOUGHT_NFT_ADDRESS,
-      method: IS_LOCAL_THOUGHT_V2 ? "previewSvg" : "previewWork",
+      method: IS_LOCAL_THOUGHT_V2 ? "render" : "previewWork",
       fetchedAt: new Date().toISOString(),
     }),
   };
 };
-
-const createFrontendPreviewProvider = (): ThoughtPreviewProvider => ({
-  kind: "frontend-renderer",
-  chainId: THOUGHT_CHAIN_ID,
-  endpointLabel: "browser",
-  preview: async (rawReturn: string, context?: { prompt?: string }) => {
-    const validation = prevalidateThoughtV2Preview({
-      rawPrompt: context?.prompt ?? sessionState.prompt,
-      rawReturn,
-    });
-
-    if (!validation.ok) {
-      return {
-        ok: false,
-        text: validation.agentLine,
-        svg: "",
-        reasonCode: validation.reasonCode,
-        ...(validation.byteLimit ? { byteLimit: validation.byteLimit } : {}),
-        ...(validation.issue ? { issue: validation.issue } : {}),
-      };
-    }
-
-    return {
-      ok: true,
-      text: validation.agentLine,
-      svg: buildThoughtV2Svg({
-        agentLine: validation.agentLine,
-        promptLine: validation.promptLine,
-      }),
-      reasonCode: 0,
-    };
-  },
-  trace: () => ({
-    kind: "frontend-renderer",
-    chainId: THOUGHT_CHAIN_ID,
-    endpointLabel: "browser",
-    method: "frontendRender",
-    fetchedAt: new Date().toISOString(),
-  }),
-});
 
 const createWalletPreviewProvider = (): ThoughtPreviewProvider | null => {
   if (!THOUGHT_NFT_ADDRESS || !walletState.address || walletState.chainId !== THOUGHT_CHAIN_ID) {
@@ -6843,9 +7653,6 @@ const selectThoughtPreviewProvider = async () => {
   if (mode === "off") {
     return { provider: null, reason: "preview is off." };
   }
-  if (THOUGHT_AGENT_FIXTURE_MODE) {
-    return { provider: createFrontendPreviewProvider(), reason: "" };
-  }
   if (IS_LOCAL_THOUGHT_V2) {
     const provider = getReadProvider();
     return provider
@@ -6860,8 +7667,10 @@ const selectThoughtPreviewProvider = async () => {
         }
       : { provider: null, reason: "local THOUGHT V2 unavailable." };
   }
-  // V2 is source-only: pre-mint previews must use the verified shared renderer.
-  return { provider: createFrontendPreviewProvider(), reason: "" };
+  return {
+    provider: null,
+    reason: "pinned THOUGHT renderer release mismatch; preview stopped.",
+  };
 };
 
 const prunePreviewRateEvents = (events: number[], now: number) => {
@@ -6925,11 +7734,11 @@ const isThoughtCandidateValue = (value: unknown): value is ThoughtCandidate => {
 const writeCurrentCandidateSession = () => {
   try {
     if (!currentCandidate) {
-      removeSharedBrowserItem(THOUGHT_CURRENT_CANDIDATE_STORAGE_KEY);
+      removePrivateCreationSessionItem(THOUGHT_CURRENT_CANDIDATE_STORAGE_KEY);
       return;
     }
 
-    writeSharedBrowserItem(
+    writePrivateCreationSessionItem(
       THOUGHT_CURRENT_CANDIDATE_STORAGE_KEY,
       JSON.stringify({
         version: 1,
@@ -6947,7 +7756,7 @@ const clearCurrentCandidate = () => {
 };
 
 const readCurrentCandidateSession = (): ThoughtCandidate | null => {
-  const raw = readSharedBrowserItem(THOUGHT_CURRENT_CANDIDATE_STORAGE_KEY);
+  const raw = readPrivateCreationSessionItem(THOUGHT_CURRENT_CANDIDATE_STORAGE_KEY);
   if (!raw) {
     return null;
   }
@@ -6960,7 +7769,7 @@ const readCurrentCandidateSession = (): ThoughtCandidate | null => {
     }
     return candidate;
   } catch {
-    removeSharedBrowserItem(THOUGHT_CURRENT_CANDIDATE_STORAGE_KEY);
+    removePrivateCreationSessionItem(THOUGHT_CURRENT_CANDIDATE_STORAGE_KEY);
     return null;
   }
 };
@@ -7188,9 +7997,12 @@ const attemptContractPreviewForCandidate = async (
   }
 };
 
-const textHashFromContract = async (canonicalText: string) => {
+const textHashFromContract = async (
+  canonicalText: string,
+  promptLine = currentRunContext?.prompt ?? sessionState.prompt,
+) => {
   if (IS_LOCAL_THOUGHT_V2) {
-    return thoughtV2AgentLineHash(canonicalText);
+    return thoughtV2ConversationIdentityHashForLines(promptLine, canonicalText);
   }
   const token = getReadThoughtNFT();
   if (!token) {
@@ -7410,6 +8222,7 @@ const thoughtSpecHash = () =>
   "";
 
 const pulseAuctionAddress = () =>
+  PATH_AUCTION_ADDRESS ||
   getProtocolReleaseAddress("pulse_auction", "sepolia") ||
   maybeResolveAddress("pulse_auction") ||
   "";
@@ -7861,15 +8674,7 @@ const buildBundledActiveThoughtSpec = (): ActiveThoughtSpec => ({
   fetchedAt: new Date().toISOString(),
 });
 
-const shouldUseBundledThoughtSpecFallback = () =>
-  IS_DEV_MODE && LOCAL_BROWSER_HOSTS.has(window.location.hostname);
-
 const ensureThoughtDockActiveSpec = async () => {
-  if (THOUGHT_AGENT_FIXTURE_MODE && shouldUseBundledThoughtSpecFallback()) {
-    activeThoughtSpec = buildBundledActiveThoughtSpec();
-    activeThoughtSpecPromise = null;
-    return activeThoughtSpec;
-  }
   if (IS_LOCAL_THOUGHT_V2) {
     return ensureActiveThoughtSpec({ force: true });
   }
@@ -7947,6 +8752,15 @@ const isThoughtRunProvider = (value: string): value is ThoughtRunProvider =>
   value === CODEX_PROVIDER;
 
 const buildCurrentThoughtRunPayload = (prompt: string, model: string) => {
+  if (USE_LATEST_LOCAL_GENERATION_SPEC) {
+    return buildThoughtRunPayload({
+      route: sessionState.mode,
+      provider: getCurrentProviderForProvenance(),
+      model,
+      promptLine: prompt,
+      thoughtSpec: LATEST_LOCAL_GENERATION_SPEC,
+    });
+  }
   const spec = activeThoughtSpec;
   if (!spec) {
     throw new Error("spec unavailable.");
@@ -7967,6 +8781,15 @@ const buildCurrentThoughtRunPayload = (prompt: string, model: string) => {
 };
 
 const buildThoughtRunPayloadFromContext = (context: ThoughtRunContext) => {
+  if (USE_LATEST_LOCAL_GENERATION_SPEC) {
+    return buildThoughtRunPayload({
+      route: context.mode,
+      provider: isThoughtRunProvider(context.provider) ? context.provider : getCurrentProviderForProvenance(),
+      model: context.model,
+      promptLine: context.prompt,
+      thoughtSpec: LATEST_LOCAL_GENERATION_SPEC,
+    });
+  }
   const spec = activeThoughtSpec;
   if (!spec) {
     throw new Error("spec unavailable.");
@@ -8025,7 +8848,17 @@ const buildProvenanceJson = (
     const agentLine = work?.text || currentOutputText || context.returnedText || "";
     let process: ThoughtV2LocalProcess;
     if (context.mode === MY_BRAIN_MODE) {
-      process = { kind: "manual" };
+      process = {
+        kind: "manual",
+        agent: {
+          label: "Human",
+          source: "minter-supplied",
+        },
+        model: {
+          label: "None",
+          source: "minter-supplied",
+        },
+      };
     } else {
       const evidence = context.agentEvidence;
       if (!evidence) {
@@ -8037,15 +8870,16 @@ const buildProvenanceJson = (
       promptLine: context.prompt,
       agentLine,
       process,
-      mintContext: {
-        chainId: String(THOUGHT_CHAIN_ID),
-        thoughtNft: THOUGHT_NFT_ADDRESS,
-        pathNft: PATH_NFT_ADDRESS,
-        minter: mint.minter,
-        movement: "THOUGHT",
-        pathId: typeof mint.pathId === "bigint" ? mint.pathId.toString() : mint.pathId,
-      },
-    });
+    mintContext: {
+      chainId: String(THOUGHT_CHAIN_ID),
+      thoughtNft: THOUGHT_NFT_ADDRESS,
+      intendedMinter: mint.minter,
+    },
+    selectedSpec: {
+      name: spec.ref.split("/").at(-1) || THOUGHT_V2_LOCAL_RELEASE.spec.name,
+      text: spec.text,
+    },
+  });
   }
   const fallbackPayload = buildThoughtRunPayloadFromContext(context);
   const isExternalReturnRun = context.mode === MY_BRAIN_MODE || context.mode === CODEX_MODE;
@@ -8124,6 +8958,26 @@ const buildProvenanceJson = (
   });
 };
 
+const getLocalMintRecords = (work: ThoughtMintWorkSnapshot) => {
+  const evidence = work.runContext.agentEvidence;
+  if (!evidence) {
+    throw new Error("This work has no current V2 Agent evidence. Run the work again before minting.");
+  }
+  const process = buildThoughtV2LocalAgentProcess(evidence, work.text);
+  if (process.kind !== "agent-run") {
+    throw new Error("A validated Agent run is required to mint this local THOUGHT V2 work.");
+  }
+  const agent = process.agent.label;
+  const model = process.model.label;
+  const invalidContext = [agent, model].some(
+    (value) => !value || value !== value.trim() || byteLength(value) > 64,
+  );
+  if (invalidContext) {
+    throw new Error("The Agent or Model record is invalid. Run the work again before minting.");
+  }
+  return Object.freeze({ agent, model });
+};
+
 const parsePathTokenId = (value: string) => {
   const trimmed = value.trim();
   if (!/^[1-9]\d*$/.test(trimmed)) {
@@ -8164,6 +9018,9 @@ const clearMintAuthorization = () => {
   mintAuthorizationRequestId += 1;
   mintFlowData.deadline = null;
   mintFlowData.signature = "";
+  mintFlowData.agent = "";
+  mintFlowData.model = "";
+  mintFlowData.creationAttestation = EMPTY_THOUGHT_CREATION_ATTESTATION;
 };
 
 const clearMintPathSelection = () => {
@@ -8179,6 +9036,14 @@ const clearMintPathSelection = () => {
 const isPendingMintDeploymentCompatible = (pending: PendingMintTransaction) =>
   pending.chainId === THOUGHT_CHAIN_ID &&
   pending.thoughtNft.toLowerCase() === THOUGHT_NFT_ADDRESS.toLowerCase();
+
+const canArchiveLegacyLocalPendingMint = (pending: PendingMintTransaction | null) =>
+  Boolean(
+    pending &&
+    IS_LOCAL_CONTRACT_INTEGRATION &&
+    pending.chainId === 31337 &&
+    pending.chainId !== THOUGHT_CHAIN_ID,
+  );
 
 const projectPendingMintTransaction = (
   pending: PendingMintTransaction,
@@ -8266,10 +9131,10 @@ const blockPendingMintMutation = (options?: { cli?: boolean }) => {
   runInFlight = false;
   emitThoughtConsoleEvent({
     kind: pending ? "pending_mint_preserved" : "wallet_mint_request_preserved",
-    title: pending ? "mint still pending" : "wallet mint request still open",
+    title: pending ? "THOUGHT mint pending" : "wallet request still open",
     detail: pending
-      ? `Keep tracking ${shortHex(pending.hash, 10, 8)} before changing this work.`
-      : "Resolve or cancel the wallet request before changing this work.",
+      ? `Wait for ${shortHex(pending.hash, 10, 8)} to finish. Do not mint again.`
+      : "Finish or cancel the wallet request before changing this work.",
     eventId: pending
       ? `pending-preserved:${pending.hash.toLowerCase()}`
       : `wallet-request-preserved:${activeMintTransactionRequestId}`,
@@ -8302,11 +9167,13 @@ function resetPathInventoryState() {
 }
 
 const resetPathAcquisitionUiState = () => {
+  stopPathAcquisitionPriceTicker();
   pathAcquisitionRequestId += 1;
   pathAcquisitionReceiptMonitorHash = "";
   const pending = readPendingPathAcquisition();
   pathAcquisitionState = pending ? "submitted" : "idle";
   pathAcquisitionPrice = 0n;
+  pathAcquisitionPricingSnapshot = null;
   pathAcquisitionTxHash = pending?.txHash ?? "";
   pathAcquisitionError = "";
   pathAcquisitionCompletedForAttempt = false;
@@ -8329,6 +9196,9 @@ const resetMintFlow = (options?: { preserveAttempt?: boolean }) => {
   mintFlowData.thoughtSpecId = "";
   mintFlowData.thoughtSpecHash = "";
   mintFlowData.provenanceJson = "";
+  mintFlowData.agent = "";
+  mintFlowData.model = "";
+  mintFlowData.creationAttestation = EMPTY_THOUGHT_CREATION_ATTESTATION;
   mintFlowData.existingTokenId = null;
   mintFlowData.pathIdInput = "";
   mintFlowData.pathId = null;
@@ -8372,39 +9242,27 @@ const signPathConsumeAuthorization = async (
     throw new Error("$PATH signature unavailable.");
   }
   onStage("nonce");
-  const nonce = await withTimeout(
-    pathNft.getConsumeNonce(claimer) as Promise<bigint>,
+  const [permissionEpoch, nonce] = await withTimeout(
+    Promise.all([
+      pathNft.getPermissionEpoch(pathId) as Promise<bigint>,
+      pathNft.getConsumeNonce(claimer) as Promise<bigint>,
+    ]),
     PATH_AUTHORIZATION_REQUEST_TIMEOUT_MS,
     "$PATH signature request timed out.",
   );
   const deadline = BigInt(Math.floor(Date.now() / 1000)) + PATH_CONSUME_AUTH_TTL_SECONDS;
   onStage("digest");
-  const structHash = keccak256(
-    EVM_ABI_CODER.encode(
-      [
-        "bytes32",
-        "address",
-        "uint256",
-        "uint256",
-        "bytes32",
-        "address",
-        "address",
-        "uint256",
-        "uint256",
-      ],
-      [
-        CONSUME_AUTHORIZATION_TYPEHASH,
-        PATH_NFT_ADDRESS,
-        BigInt(THOUGHT_CHAIN_ID),
-        pathId,
-        PATH_MOVEMENT_THOUGHT,
-        claimer,
-        THOUGHT_NFT_ADDRESS,
-        nonce,
-        deadline,
-      ],
-    ),
-  );
+  const structHash = hashPathV050ConsumeAuthorization({
+    pathNft: PATH_NFT_ADDRESS,
+    chainId: BigInt(THOUGHT_CHAIN_ID),
+    pathId,
+    movement: PATH_MOVEMENT_THOUGHT,
+    claimer,
+    executor: THOUGHT_NFT_ADDRESS,
+    permissionEpoch,
+    nonce,
+    deadline,
+  });
   onStage("signature");
   const signature = await signer.signMessage(getBytes(structHash));
   return { deadline, signature };
@@ -8774,6 +9632,10 @@ const setMintFlowError = (
   kind: MintFlowErrorKind = "mint",
   options: { preserveAuthorization?: boolean; preserveSubmittedTransaction?: boolean } = {},
 ) => {
+  if (isTerminalMintFlowState(mintFlowState)) {
+    return;
+  }
+
   mintErrorSequence += 1;
   mintFlowState = "error";
   mintFlowData.error = message;
@@ -8785,6 +9647,43 @@ const setMintFlowError = (
     walletState.txState = "failed";
   }
   walletState.txError = message;
+  const walletRequestCanceled = /reject|denied|cancel/i.test(message);
+  if (kind === "signature" && walletRequestCanceled) {
+    const path = mintFlowData.pathId
+      ? `$PATH #${mintFlowData.pathId.toString()}`
+      : "$PATH";
+    emitThoughtConsoleEvent({
+      kind: "authorization_canceled",
+      title: `${path} signature canceled`,
+      detail: "No signature was created. No transaction or gas.",
+      nextStep: "select “Try again”, or pick another $PATH",
+      tone: "warning",
+      eventId: mintAttemptConsoleEventId(
+        "authorization-canceled",
+        mintAuthorizationRequestId,
+        mintErrorSequence,
+      ),
+    });
+    return;
+  }
+  const mintRequestCanceled = kind === "mint" && walletRequestCanceled;
+  if (mintRequestCanceled) {
+    const path = mintFlowData.pathId
+      ? `$PATH #${mintFlowData.pathId.toString()}`
+      : "the selected $PATH";
+    const submitted = Boolean(walletState.txHash || mintFlowData.txHash);
+    emitThoughtConsoleEvent({
+      kind: "transaction_canceled",
+      title: "THOUGHT mint canceled",
+      detail: submitted
+        ? `The submitted mint was canceled. No THOUGHT was created, and ${path} was not used.`
+        : `No transaction was submitted, and ${path} was not used.`,
+      nextStep: "select “Try again”, or pick another $PATH",
+      tone: "warning",
+      eventId: mintAttemptConsoleEventId("mint-canceled", mintErrorSequence),
+    });
+    return;
+  }
   recordCurrentMintConsoleState();
 };
 
@@ -8819,6 +9718,7 @@ const isThoughtLevelMintError = () =>
   (
     mintFlowData.errorKind === "thought" ||
     mintFlowData.errorKind === "spec" ||
+    mintFlowData.errorKind === "local_deployment" ||
     mintFlowData.errorKind === "mint" ||
     mintFlowData.errorKind === "funds" ||
     mintFlowData.errorKind === "signature"
@@ -8827,6 +9727,10 @@ const isThoughtLevelMintError = () =>
 const canContinueWithPathInput = () => parsePathTokenId(mintFlowData.pathIdInput) !== null;
 
 const applyMintPathInputValue = (value: string) => {
+  if (isTerminalMintFlowState(mintFlowState)) {
+    return;
+  }
+
   const trimmed = value.trim();
   mintFlowData.pathIdInput = trimmed;
   mintFlowData.pathId = parsePathTokenId(trimmed);
@@ -8917,10 +9821,12 @@ const refreshPathInventoryForCurrentWallet = async (options?: { force?: boolean 
         items: [],
         error: inventory.message,
       };
-      if (IS_LOCAL_THOUGHT_V2 && isThoughtV2LocalDeploymentError(inventory.message)) {
-        setMintFlowError(inventory.message, "thought");
-      } else {
-        recordCurrentMintConsoleState();
+      if (!isTerminalMintFlowState(mintFlowState)) {
+        if (IS_LOCAL_THOUGHT_V2 && isThoughtV2LocalDeploymentError(inventory.message)) {
+          setMintFlowError(inventory.message, "thought");
+        } else {
+          recordCurrentMintConsoleState();
+        }
       }
     } else {
       pathInventoryState = {
@@ -8931,12 +9837,13 @@ const refreshPathInventoryForCurrentWallet = async (options?: { force?: boolean 
         error: "",
       };
       const availableItems = inventory.items.filter((item) => item.status === "available");
-      if (availableItems.length === 0) {
+      if (availableItems.length === 0 && !isTerminalMintFlowState(mintFlowState)) {
         clearMintPathSelection();
         if (mintFlowState === "error" && isPathRecoveryError()) {
           mintFlowState = "path_required";
         }
-        if (pathAcquisitionState === "idle") {
+        if (pathAcquisitionState === "idle" && mintFlowState === "path_required") {
+          recordCurrentMintConsoleState();
           void handleMintPath();
         } else {
           recordCurrentMintConsoleState();
@@ -8963,6 +9870,10 @@ const refreshPathInventoryForCurrentWallet = async (options?: { force?: boolean 
 };
 
 const moveMintFlowToWalletOrPathSelection = () => {
+  if (isTerminalMintFlowState(mintFlowState)) {
+    return false;
+  }
+
   if (!walletState.address) {
     mintFlowState = "wallet_required";
     mintFlowData.error = "";
@@ -9313,7 +10224,7 @@ const getLegacyMintSheetStatusCopy = () => {
     return "checking uniqueness and mint state.";
   }
   if (mintFlowState === "text_taken") {
-    return "This exact THOUGHT is already on-chain; your $PATH was not used.";
+    return "This exact prompt + Agent response pair is already on-chain; your $PATH was not used.";
   }
   if (mintFlowState === "wallet_required") {
     if (isInjectedWalletMissing()) {
@@ -9903,36 +10814,49 @@ const refreshWalletState = async () => {
     }
   }
 
+  const walletContextChanged =
+    walletState.address !== previousAddress || walletState.chainId !== previousChainId;
   if (
-    walletStateHydrated &&
-    (walletState.address !== previousAddress || walletState.chainId !== previousChainId)
+    walletContextChanged &&
+    (walletStateHydrated || pendingMintTransaction !== null)
   ) {
     resetPathInventoryState();
     if (pendingMintTransaction) {
-      emitThoughtConsoleEvent({
-        kind: "wallet_changed_after_submission",
-        title: "wallet changed",
-        detail: `Active wallet: ${walletState.address ? shortHex(walletState.address) : "disconnected"} on chain ${walletState.chainId ?? "none"}. Mint from ${shortHex(pendingMintTransaction.account)} keeps tracking.`,
+      const title = pendingMintWalletChangeTitle({
+        previousAddress,
+        previousChainId,
+        nextAddress: walletState.address,
+        nextChainId: walletState.chainId,
+        trackedAddress: pendingMintTransaction.account,
+        trackedChainId: pendingMintTransaction.chainId,
       });
+      if (title) {
+        emitThoughtConsoleEvent({
+          kind: "wallet_changed_after_submission",
+          title,
+          detail: `Return to ${shortHex(pendingMintTransaction.account)} on chain ${pendingMintTransaction.chainId} to continue checking the submitted mint. Do not mint again.`,
+        });
+      }
     } else {
-      mintAttemptId = nextMintAttemptId("wallet");
-      clearMintPathSelection();
-      if (mintFlowState !== "closed" && mintFlowState !== "wallet_required") {
-        if (!walletState.address) {
-          mintFlowState = "wallet_required";
-          mintFlowData.error = "";
-          mintFlowData.errorKind = "none";
-        } else if (walletState.chainId !== THOUGHT_CHAIN_ID) {
-          mintFlowState = "error";
-          mintFlowData.error = "wrong network.";
-          mintFlowData.errorKind = "wrong_network";
-        } else {
-          mintFlowState = "path_required";
-          mintFlowData.error = "";
-          mintFlowData.errorKind = "none";
+      if (!isTerminalMintFlowState(mintFlowState)) {
+        mintAttemptId = nextMintAttemptId("wallet");
+        clearMintPathSelection();
+        if (mintFlowState !== "closed" && mintFlowState !== "wallet_required") {
+          if (!walletState.address) {
+            mintFlowState = "wallet_required";
+            mintFlowData.error = "";
+            mintFlowData.errorKind = "none";
+          } else if (walletState.chainId !== THOUGHT_CHAIN_ID) {
+            mintFlowState = "error";
+            mintFlowData.error = "wrong network.";
+            mintFlowData.errorKind = "wrong_network";
+          } else {
+            mintFlowState = "path_required";
+            mintFlowData.error = "";
+            mintFlowData.errorKind = "none";
+          }
         }
       }
-      recordThoughtConsoleContextBoundary();
       if (mintFlowState !== "closed") {
         recordCurrentMintConsoleState();
       }
@@ -9951,6 +10875,11 @@ async function refreshThoughtWalletFromShell() {
 
   await refreshWalletState();
   syncMintFlowAfterWalletCommand();
+
+  if (isTerminalMintFlowState(mintFlowState)) {
+    syncInterface();
+    return;
+  }
 
   const pathHandoff = readPathMintHandoff();
   const pathReturn = pathHandoff
@@ -10097,12 +11026,25 @@ const walletConnectionConsoleFailure = (error: unknown) => {
       ? String((error as { code?: unknown }).code)
       : "";
   if (code === "4001" || /reject|denied|cancel/i.test(message)) {
-    return { title: "wallet connection canceled", detail: "nothing changed" };
+    return {
+      kind: "wallet_connection_canceled",
+      title: "wallet connection canceled",
+      detail: "No account access was granted.",
+      nextStep: "select “Connect wallet” when ready",
+    };
   }
   if (code === "-32002" || /already.*(?:pending|open)|request.*pending/i.test(message)) {
-    return { title: "wallet request already open", detail: "finish or cancel it in your wallet" };
+    return {
+      kind: "wallet_connection_failed",
+      title: "wallet request already open",
+      detail: "Finish or cancel the request in your wallet.",
+    };
   }
-  return { title: "wallet not connected", detail: "try connecting again" };
+  return {
+    kind: "wallet_connection_failed",
+    title: "wallet did not connect",
+    detail: "The App could not confirm the wallet connection.",
+  };
 };
 
 const requestWalletConnect = async () => {
@@ -10118,8 +11060,8 @@ const requestWalletConnect = async () => {
     if (mintFlowState !== "closed") {
       emitThoughtConsoleEvent({
         kind: "wallet_connection_requested",
-        title: "wallet connection requested",
-        detail: "finish or cancel the request in your wallet",
+        title: "approve wallet connection",
+        detail: "Open your wallet and approve the connection. No signature or transaction.",
       });
     }
     syncInterface();
@@ -10153,7 +11095,6 @@ const requestWalletConnect = async () => {
       if (mintFlowState !== "closed") {
         const consoleFailure = walletConnectionConsoleFailure(error);
         emitThoughtConsoleEvent({
-          kind: "wallet_connection_failed",
           ...consoleFailure,
           tone: "warning",
         });
@@ -10187,8 +11128,8 @@ const requestWalletConnect = async () => {
   if (mintFlowState !== "closed") {
     emitThoughtConsoleEvent({
       kind: "wallet_connection_requested",
-      title: "wallet connection requested",
-      detail: "finish or cancel the request in your wallet",
+      title: "approve wallet connection",
+      detail: "Open your wallet and approve the connection. No signature or transaction.",
     });
   }
   syncInterface();
@@ -10243,7 +11184,6 @@ const requestWalletConnect = async () => {
     if (mintFlowState !== "closed") {
       const consoleFailure = walletConnectionConsoleFailure(error);
       emitThoughtConsoleEvent({
-        kind: "wallet_connection_failed",
         ...consoleFailure,
         tone: "warning",
       });
@@ -10254,56 +11194,113 @@ const requestWalletConnect = async () => {
   }
 };
 
+const recordWalletNetworkSwitchFailure = (error: unknown, requestId: number) => {
+  const canceled = thoughtAnalyticsErrorCategory(error) === "wallet_rejected";
+  const message = error instanceof Error ? error.message : "wallet switch failed.";
+  setWarning(message);
+  setStatus("");
+  if (mintFlowState === "closed") {
+    return;
+  }
+  emitThoughtConsoleEvent({
+    kind: canceled ? "network_switch_canceled" : "network_switch_failed",
+    title: canceled ? "network switch canceled" : "network switch failed",
+    detail: canceled
+      ? "The wallet network did not change."
+      : `The wallet did not switch to ${THOUGHT_CHAIN_NAME}.`,
+    nextStep: "select “Switch network” when ready",
+    tone: "warning",
+    eventId: mintAttemptConsoleEventId(
+      "network-switch",
+      requestId,
+      canceled ? "canceled" : "failed",
+    ),
+  });
+};
+
+const thoughtWalletChainRegistration = () => ({
+  chainId: THOUGHT_CHAIN_ID_HEX,
+  chainName: THOUGHT_CHAIN_NAME,
+  nativeCurrency: {
+    name: "Ether",
+    symbol: "ETH",
+    decimals: 18,
+  },
+  rpcUrls: THOUGHT_WALLET_RPC_URLS,
+  blockExplorerUrls: THOUGHT_EXPLORER_BASE_URL ? [THOUGHT_EXPLORER_BASE_URL] : [],
+});
+
+const requestThoughtWalletChainRegistration = (ethereum: EthereumProvider) =>
+  ethereum.request({
+    method: "wallet_addEthereumChain",
+    params: [thoughtWalletChainRegistration()],
+  });
+
+const requestThoughtWalletChainSwitch = (ethereum: EthereumProvider) =>
+  ethereum.request({
+    method: "wallet_switchEthereumChain",
+    params: [{ chainId: THOUGHT_CHAIN_ID_HEX }],
+  });
+
 const switchWalletChain = async () => {
   const ethereum = getEthereumProvider();
   if (!ethereum) {
     setWarning("No supported wallet found.", { level: "warn" });
     setStatus("");
-    return;
+    return false;
   }
 
   setWarning("");
   setStatus("");
+  const requestId = walletNetworkSwitchRequestId + 1;
+  walletNetworkSwitchRequestId = requestId;
 
   try {
-    await ethereum.request({
-      method: "wallet_switchEthereumChain",
-      params: [{ chainId: THOUGHT_CHAIN_ID_HEX }],
-    });
+    await requestThoughtWalletChainSwitch(ethereum);
   } catch (error) {
     const errorCode =
       typeof error === "object" && error !== null && "code" in error
         ? Number((error as { code?: unknown }).code)
         : null;
+    const errorCategory = thoughtAnalyticsErrorCategory(error);
+    const shouldRegisterOrRepair =
+      errorCode === 4902 ||
+      (
+        IS_LOCAL_CONTRACT_INTEGRATION &&
+        THOUGHT_WALLET_RPC_URLS.length > 0 &&
+        errorCategory !== "wallet_rejected" &&
+        errorCategory !== "wallet_busy"
+      );
 
-    if (errorCode === 4902) {
-      await ethereum.request({
-        method: "wallet_addEthereumChain",
-        params: [
-          {
-            chainId: THOUGHT_CHAIN_ID_HEX,
-            chainName: THOUGHT_CHAIN_NAME,
-            nativeCurrency: {
-              name: "Ether",
-              symbol: "ETH",
-              decimals: 18,
-            },
-            rpcUrls: THOUGHT_WALLET_RPC_URLS,
-            blockExplorerUrls: THOUGHT_EXPLORER_BASE_URL ? [THOUGHT_EXPLORER_BASE_URL] : [],
-          },
-        ],
-      });
-    } else {
-      const message = error instanceof Error ? error.message : "wallet switch failed.";
-      setWarning(message);
-      setStatus("");
-      return;
+    if (!shouldRegisterOrRepair) {
+      recordWalletNetworkSwitchFailure(error, requestId);
+      return false;
+    }
+
+    try {
+      // Re-submit the active LAN RPC even when this chain ID already exists.
+      // A wallet can retain an earlier loopback RPC for the same disposable
+      // chain, which is unreachable from a different LAN device.
+      await requestThoughtWalletChainRegistration(ethereum);
+      // EIP-3085 does not guarantee that adding a chain also selects it.
+      await requestThoughtWalletChainSwitch(ethereum);
+    } catch (repairError) {
+      recordWalletNetworkSwitchFailure(repairError, requestId);
+      return false;
     }
   }
 
   await refreshWalletState();
+  if (walletState.chainId !== THOUGHT_CHAIN_ID) {
+    recordWalletNetworkSwitchFailure(
+      new Error(`Wallet remained on chain ${walletState.chainId ?? "unknown"}.`),
+      requestId,
+    );
+    return false;
+  }
   syncInterface();
   setStatus("chain ready.", { flashMs: NOTICE_FLASH_MS });
+  return true;
 };
 
 const disconnectThoughtDockWallet = (options?: { appendCli?: boolean }) => {
@@ -10321,14 +11318,20 @@ const disconnectThoughtDockWallet = (options?: { appendCli?: boolean }) => {
   walletState.preflightError = "";
   if (!trackedMint) {
     resetPathInventoryState();
-    clearMintPathSelection();
+    if (!isTerminalMintFlowState(mintFlowState)) {
+      clearMintPathSelection();
+    }
   }
 
-  if (!keepsSubmittedMint) {
+  if (!keepsSubmittedMint && !isTerminalMintFlowState(mintFlowState)) {
     mintAttemptId = nextMintAttemptId("wallet");
   }
 
-  if (!trackedMint && mintFlowState !== "closed" && mintFlowState !== "minted") {
+  if (
+    !trackedMint &&
+    mintFlowState !== "closed" &&
+    !isTerminalMintFlowState(mintFlowState)
+  ) {
     mintFlowState = "wallet_required";
     mintFlowData.error = "";
     mintFlowData.errorKind = "none";
@@ -10351,10 +11354,9 @@ const disconnectThoughtDockWallet = (options?: { appendCli?: boolean }) => {
     emitThoughtConsoleEvent({
       kind: "wallet_changed_after_submission",
       title: "wallet disconnected",
-      detail: `Mint from ${shortHex(trackedMint.account)} on chain ${trackedMint.chainId} keeps tracking.`,
+      detail: `Reconnect ${shortHex(trackedMint.account)} on chain ${trackedMint.chainId} to continue checking the submitted mint. Do not mint again.`,
     });
   } else {
-    recordThoughtConsoleContextBoundary();
     if (mintFlowState !== "closed") recordCurrentMintConsoleState();
   }
 
@@ -10368,22 +11370,7 @@ const refreshWalletChainRpc = async () => {
   }
 
   try {
-    await ethereum.request({
-      method: "wallet_addEthereumChain",
-      params: [
-        {
-          chainId: THOUGHT_CHAIN_ID_HEX,
-          chainName: THOUGHT_CHAIN_NAME,
-          nativeCurrency: {
-            name: "Ether",
-            symbol: "ETH",
-            decimals: 18,
-          },
-          rpcUrls: THOUGHT_WALLET_RPC_URLS,
-          blockExplorerUrls: THOUGHT_EXPLORER_BASE_URL ? [THOUGHT_EXPLORER_BASE_URL] : [],
-        },
-      ],
-    });
+    await requestThoughtWalletChainRegistration(ethereum);
     return true;
   } catch {
     return false;
@@ -10410,10 +11397,10 @@ const extractMintedTokenId = (receipt: { logs?: readonly { topics: readonly stri
   return null;
 };
 
-const lookupExistingThoughtToken = async (token: Contract, agentLineHash: string) =>
+const lookupExistingThoughtToken = async (token: Contract, identityHash: string) =>
   IS_LOCAL_THOUGHT_V2
-    ? token.tokenOfAgentLineHash(agentLineHash) as Promise<bigint>
-    : token.tokenOfThought(agentLineHash) as Promise<bigint>;
+    ? token.tokenOfConversationIdentityHash(identityHash) as Promise<bigint>
+    : token.tokenOfThought(identityHash) as Promise<bigint>;
 
 const preflightCurrentThoughtExistence = async () => {
   if (!currentOutputText || runState !== "output_ready") {
@@ -10426,7 +11413,10 @@ const preflightCurrentThoughtExistence = async () => {
 
   try {
     await verifyLocalThoughtV2Deployment();
-    const textHash = await textHashFromContract(checkedText);
+    const textHash = await textHashFromContract(
+      checkedText,
+      currentRunContext?.prompt ?? sessionState.prompt,
+    );
     const token = getReadThoughtNFT();
     if (!token) return;
     const existingTokenId = await lookupExistingThoughtToken(token, textHash);
@@ -10442,6 +11432,15 @@ const preflightCurrentThoughtExistence = async () => {
       return;
     }
 
+    await hydrateCurrentWorkFromTokenUri(token, existingTokenId, checkedText);
+    if (
+      requestId !== thoughtExistenceCheckRequestId ||
+      currentOutputText !== checkedText ||
+      runState !== "output_ready" ||
+      mintFlowState !== "closed"
+    ) {
+      return;
+    }
     mintFlowData.rawText = checkedText;
     mintFlowData.textHash = textHash;
     mintFlowData.existingTokenId = Number(existingTokenId);
@@ -10470,6 +11469,11 @@ const openMintFlow = async (
   uiMode: MintFlowUiMode = THOUGHT_PANEL_MINT_UI_MODE,
   options?: { attemptId?: string; pathId?: string; work?: ThoughtMintWorkSnapshot },
 ) => {
+  if (isTerminalMintFlowState(mintFlowState)) {
+    syncInterface();
+    return;
+  }
+
   const trackedMint = adoptDurablePendingMintTransaction();
   if (trackedMint) {
     projectPendingMintTransaction(trackedMint, {
@@ -10491,6 +11495,13 @@ const openMintFlow = async (
   mintAttemptId = options?.attemptId?.trim() || nextMintAttemptId("mint");
   mintFlowData.pathIdInput = options?.pathId?.trim() ?? "";
   mintFlowUiMode = uiMode;
+  emitThoughtConsoleEvent({
+    kind: "mint_flow_opened",
+    title: "to mint this THOUGHT",
+    detail: "Pick a $PATH, sign for this work, then mint.",
+    tone: "neutral",
+    eventId: mintAttemptConsoleEventId("mint-flow-opened"),
+  });
 
   if (!THOUGHT_V2_MINT_ENABLED) {
     setMintFlowError(THOUGHT_V2_MINT_UNAVAILABLE_COPY, "thought");
@@ -10524,14 +11535,17 @@ const openMintFlow = async (
   } catch (error) {
     setMintFlowError(
       error instanceof Error ? error.message : "local THOUGHT V2 deployment unavailable.",
-      "thought",
+      "local_deployment",
     );
     syncInterface();
     return;
   }
 
   try {
-    mintFlowData.textHash = await textHashFromContract(mintWork.text);
+    mintFlowData.textHash = await textHashFromContract(
+      mintWork.text,
+      mintWork.runContext.prompt,
+    );
   } catch {
     setMintFlowError("text preview unavailable.", "thought");
     syncInterface();
@@ -10559,6 +11573,9 @@ const openMintFlow = async (
   mintFlowData.thoughtSpecHash = spec.specHash;
   if (IS_LOCAL_THOUGHT_V2) {
     mintFlowData.provenanceJson = "";
+    mintFlowData.agent = "";
+    mintFlowData.model = "";
+    mintFlowData.creationAttestation = EMPTY_THOUGHT_CREATION_ATTESTATION;
   } else {
     const provenanceJson = buildProvenanceJson(mintFlowData.textHash, undefined, mintWork);
     const provenanceBytes = byteLength(provenanceJson);
@@ -10572,7 +11589,12 @@ const openMintFlow = async (
 
   const token = getReadThoughtNFT();
   if (!token) {
-    setMintFlowError("mint unavailable.", "thought");
+    setMintFlowError(
+      IS_LOCAL_THOUGHT_V2
+        ? THOUGHT_V2_LOCAL_DEPLOYMENT_UNAVAILABLE_COPY
+        : "mint unavailable.",
+      IS_LOCAL_THOUGHT_V2 ? "local_deployment" : "thought",
+    );
     syncInterface();
     return;
   }
@@ -10604,8 +11626,20 @@ const openMintFlow = async (
     if (pathSelectionReady) {
       focusMintPathInput();
     }
-  } catch {
-    setMintFlowError("mint unavailable.", "thought");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    const localDeploymentFailure =
+      IS_LOCAL_THOUGHT_V2 &&
+      (
+        isThoughtV2LocalDeploymentError(message) ||
+        /failed to fetch|network|connection refused|could not connect|econnrefused|missing response/i.test(message)
+      );
+    setMintFlowError(
+      localDeploymentFailure
+        ? THOUGHT_V2_LOCAL_DEPLOYMENT_UNAVAILABLE_COPY
+        : "mint unavailable.",
+      localDeploymentFailure ? "local_deployment" : "thought",
+    );
     syncInterface();
   }
 };
@@ -10620,7 +11654,13 @@ const readPathEligibility = async (
 ): Promise<PathEligibilityResult> => {
   const pathNft = getReadPathNft();
   if (!pathNft) {
-    return { ok: false, kind: "thought", message: "mint unavailable." };
+    return {
+      ok: false,
+      kind: IS_LOCAL_THOUGHT_V2 ? "local_deployment" : "thought",
+      message: IS_LOCAL_THOUGHT_V2
+        ? THOUGHT_V2_LOCAL_DEPLOYMENT_UNAVAILABLE_COPY
+        : "mint unavailable.",
+    };
   }
 
   try {
@@ -10669,12 +11709,21 @@ const readPathEligibility = async (
 };
 
 const checkPathEligibility = async () => {
+  if (isTerminalMintFlowState(mintFlowState)) {
+    return;
+  }
+
   clearMintAuthorization();
   walletState.txState = "idle";
   walletState.txError = "";
 
   if (!PATH_NFT_ADDRESS || !THOUGHT_NFT_ADDRESS) {
-    setMintFlowError("mint unavailable.", "thought");
+    setMintFlowError(
+      IS_LOCAL_THOUGHT_V2
+        ? THOUGHT_V2_LOCAL_DEPLOYMENT_UNAVAILABLE_COPY
+        : "mint unavailable.",
+      IS_LOCAL_THOUGHT_V2 ? "local_deployment" : "thought",
+    );
     syncInterface();
     focusMintDockStage();
     return;
@@ -10690,6 +11739,9 @@ const checkPathEligibility = async () => {
   }
 
   await refreshWalletState();
+  if (isTerminalMintFlowState(mintFlowState)) {
+    return;
+  }
 
   if (!walletState.address) {
     mintFlowState = "wallet_required";
@@ -10721,6 +11773,9 @@ const checkPathEligibility = async () => {
   syncInterface();
 
   const eligibility = await readPathEligibility(pathId, walletState.address);
+  if (isTerminalMintFlowState(mintFlowState)) {
+    return;
+  }
   if (!eligibility.ok) {
     setMintFlowError(eligibility.message, eligibility.kind);
     syncInterface();
@@ -10730,6 +11785,9 @@ const checkPathEligibility = async () => {
 
   try {
     await rebuildFinalMintProvenance();
+    if (isTerminalMintFlowState(mintFlowState)) {
+      return;
+    }
   } catch (error) {
     const presentation = formatThoughtAuthorizationError(error, "preparing");
     setMintFlowError(presentation.message, presentation.kind);
@@ -10747,6 +11805,10 @@ const checkPathEligibility = async () => {
 };
 
 const authorizeMint = async () => {
+  if (isTerminalMintFlowState(mintFlowState)) {
+    return;
+  }
+
   if (mintAuthorizationInFlight) {
     return;
   }
@@ -10857,6 +11919,55 @@ type MintReceiptResult = Readonly<{
   receipt: MintReceipt;
 }>;
 
+const createWalletReturnWithoutHashGuard = () => {
+  let sawWalletLeave = false;
+  let returnTimer = 0;
+  let rejectWithoutHash!: (error: Error) => void;
+  const promise = new Promise<never>((_, reject) => {
+    rejectWithoutHash = reject;
+  });
+
+  const clearReturnTimer = () => {
+    if (!returnTimer) return;
+    window.clearTimeout(returnTimer);
+    returnTimer = 0;
+  };
+  const markWalletLeave = () => {
+    sawWalletLeave = true;
+    clearReturnTimer();
+  };
+  const scheduleWalletReturnCheck = () => {
+    if (!sawWalletLeave || returnTimer) return;
+    returnTimer = window.setTimeout(() => {
+      returnTimer = 0;
+      rejectWithoutHash(
+        new Error("wallet returned but the transaction was not submitted."),
+      );
+    }, WALLET_RETURN_WITHOUT_HASH_GRACE_MS);
+  };
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === "hidden") {
+      markWalletLeave();
+      return;
+    }
+    scheduleWalletReturnCheck();
+  };
+
+  window.addEventListener("blur", markWalletLeave);
+  window.addEventListener("focus", scheduleWalletReturnCheck);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+
+  return Object.freeze({
+    promise,
+    dispose: () => {
+      clearReturnTimer();
+      window.removeEventListener("blur", markWalletLeave);
+      window.removeEventListener("focus", scheduleWalletReturnCheck);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    },
+  });
+};
+
 const mintErrorMessage = (error: unknown) => {
   const errorName =
     typeof error === "object" && error !== null && "errorName" in error
@@ -10869,10 +11980,11 @@ const mintErrorMessage = (error: unknown) => {
   const message = error instanceof Error ? error.message : shortMessage;
 
   if (
-    errorName === "AgentLineAlreadyMinted" ||
-    /AgentLineAlreadyMinted/i.test(message)
+    errorName === "ConversationAlreadyMinted" ||
+    errorName === "WorkAlreadyMinted" ||
+    /ConversationAlreadyMinted|WorkAlreadyMinted/i.test(message)
   ) {
-    return "this exact Agent line is already minted.";
+    return "this exact prompt + Agent response pair is already on-chain.";
   }
   if (errorName === "ThoughtAlreadyMinted" || /ThoughtAlreadyMinted/i.test(message)) {
     return "this exact THOUGHT is already on-chain.";
@@ -11099,7 +12211,10 @@ const recoverMintStateAfterRevert = async (
     walletState.txError = "";
     walletState.mintedTokenId = existingTokenId;
     mintFlowData.existingTokenId = existingTokenId;
-    mintFlowState = "minted";
+    // The selected local $PATH is not proven to have minted a token found
+    // during revert reconciliation. Present the authoritative uniqueness
+    // outcome without claiming that this wallet's $PATH was used.
+    mintFlowState = "text_taken";
     pendingMyBrainRunPayload = null;
     clearThoughtGalleryCache();
     await refreshMintPreflight();
@@ -11107,11 +12222,10 @@ const recoverMintStateAfterRevert = async (
     syncInterface();
 
     if (shouldAppendCliResult) {
-      const consumedPathId = selectedCliPathId();
       appendCliOutput([
         "already minted.",
         `THOUGHT: #${existingTokenId}`,
-        consumedPathId ? `$PATH #${consumedPathId} THOUGHT mint already used.` : "",
+        "The existing token may have been minted by another transaction; this $PATH use is not proven.",
         walletState.txHash || mintFlowData.txHash ? "use: view tx" : "",
         viewThoughtUseLine(existingTokenId),
         "use: gallery",
@@ -11351,12 +12465,6 @@ const finalizeSuccessfulKnownMint = async (
   pendingMyBrainRunPayload = null;
   clearThoughtGalleryCache();
   await refreshMintPreflight();
-  emitThoughtConsoleEvent({
-    kind: "mint_receipt_confirmed",
-    title: "THOUGHT mint confirmed",
-    detail: `${shortHex(transaction.hash, 10, 8)} confirmed on-chain.`,
-    eventId: `mint-confirmed:${transaction.hash}`,
-  });
   recordCurrentMintConsoleState();
   syncInterface();
   trackThoughtAnalytics("mint_succeeded", {
@@ -11447,8 +12555,8 @@ const reconcileKnownMintReceipt = async (
   }
   emitThoughtConsoleEvent({
     kind: "conflicting_mint_reverted",
-    title: "returned mint hash reverted",
-    detail: `${shortHex(transaction.hash, 10, 8)} reverted; the original hash remains tracked.`,
+    title: "one mint transaction failed",
+    detail: "The other mint transaction is still being checked.",
     eventId: `conflicting-mint-reverted:${transaction.hash}`,
     tone: "warning",
   });
@@ -11555,8 +12663,8 @@ const registerSubmittedMintTx = async (
       appendConflictingMintTransaction(returnedTransaction);
       emitThoughtConsoleEvent({
         kind: "multiple_mint_hashes_returned",
-        title: "multiple mint hashes returned",
-        detail: `${shortHex(existing.hash, 10, 8)} and ${shortHex(returnedTransaction.hash, 10, 8)} are both retained and monitored. Do not submit a duplicate.`,
+        title: "more than one mint transaction found",
+        detail: "The App is checking both transactions. Do not mint again.",
         eventId: `multiple-mint-hashes:${existing.hash}:${returnedTransaction.hash}`,
         tone: "warning",
       });
@@ -11681,8 +12789,8 @@ const resumePendingMintTransaction = async () => {
     projectPendingMintTransaction(pending, { deploymentWarning: true });
     emitThoughtConsoleEvent({
       kind: "pending_mint_deployment_mismatch",
-      title: "mint deployment changed",
-      detail: `Keep tracking ${shortHex(pending.hash, 10, 8)} on chain ${pending.chainId}; this deployment cannot inspect it.`,
+      title: "check the earlier mint",
+      detail: `Open the browser tab where you submitted ${shortHex(pending.hash, 10, 8)} on chain ${pending.chainId}. Do not mint again here.`,
       eventId: `pending-deployment:${pending.hash.toLowerCase()}`,
       tone: "warning",
     });
@@ -11714,9 +12822,10 @@ const restorePathMintHandoffWork = (handoff: PathMintHandoff) => {
     if (keccak256(toUtf8Bytes(output)).toLowerCase() !== handoff.workHash.toLowerCase()) {
       return false;
     }
-    const migratedSvg = migrateLegacyThoughtV2Svg(output, handoff.work.svg);
+    const normalized = normalizeStoredWorkVisual(handoff.work.svg);
     currentOutputText = output;
-    currentWorkSvg = migratedSvg.svg;
+    currentWorkSvg = normalized.svg;
+    currentWorkImage = normalized.image;
     currentRunContext = isThoughtRunContext(handoff.work.runContext) ? handoff.work.runContext : null;
     currentWorkId = handoff.work.workId;
     runState = "output_ready";
@@ -11828,10 +12937,6 @@ const resumePathMintHandoff = async () => {
   mintFlowUiMode = THOUGHT_PANEL_MINT_UI_MODE;
   mintFlowData.rawText = currentOutputText;
   mintFlowData.textHash = handoff.workHash;
-  if (!confirmedReturn && !resumesSameWallet) {
-    recordThoughtConsoleContextBoundary();
-  }
-
   const showReturnError = (message: string, kind: MintFlowErrorKind) => {
     const work = getThoughtDockWorkView();
     if (work) {
@@ -11875,7 +12980,7 @@ const resumePathMintHandoff = async () => {
     (!walletState.address || walletState.address.toLowerCase() !== confirmedReturn.account.toLowerCase())
   ) {
     return showReturnError(
-      `$PATH was minted to ${shortHex(confirmedReturn.account)}; select that account in your wallet to continue.`,
+      `$PATH was minted to ${shortHex(confirmedReturn.account)}; select that account in your wallet to use it for this THOUGHT work.`,
       "wallet_account_mismatch",
     );
   }
@@ -11935,6 +13040,103 @@ const resumePathMintHandoff = async () => {
   return true;
 };
 
+const requestLocalMockOfficialMint = async (
+  work: ThoughtMintWorkSnapshot,
+  spec: ActiveThoughtSpec,
+): Promise<ThoughtV2MintInput> => {
+  if (
+    !walletState.address ||
+    mintFlowData.pathId === null ||
+    !mintFlowData.deadline ||
+    !mintFlowData.signature
+  ) {
+    throw new Error("Local App attestation requires a current $PATH authorization.");
+  }
+  const evidence = work.runContext.agentEvidence;
+  if (!evidence) {
+    throw new Error("Local App attestation requires current Agent evidence.");
+  }
+  const process = buildThoughtV2LocalAgentProcess(
+    evidence,
+    work.text,
+  );
+  const response = await fetch("/api/thought-contract/v1/mock-attestation", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      intendedMinter: walletState.address,
+      promptLine: work.runContext.prompt,
+      agentLine: work.text,
+      process,
+      path: {
+        pathId: mintFlowData.pathId.toString(),
+        deadline: mintFlowData.deadline.toString(),
+        pathSignature: mintFlowData.signature,
+      },
+      attestationDeadline: mintFlowData.deadline.toString(),
+    }),
+  });
+  const raw = await response.json() as Record<string, unknown>;
+  if (!response.ok) {
+    const errorBody =
+      typeof raw.error === "object" && raw.error !== null
+        ? raw.error as Record<string, unknown>
+        : null;
+    const message = typeof raw.message === "string"
+      ? raw.message
+      : typeof errorBody?.message === "string"
+        ? errorBody.message
+        : "Local App attestation failed.";
+    throw new Error(message);
+  }
+
+  const proof = raw.creationAttestation as Record<string, unknown> | undefined;
+  const mock = raw.mock as Record<string, unknown> | undefined;
+  const result: ThoughtV2MintInput = {
+    promptLine: String(raw.promptLine ?? ""),
+    agentLine: String(raw.agentLine ?? ""),
+    agent: String(raw.agent ?? ""),
+    model: String(raw.model ?? ""),
+    pathId: BigInt(String(raw.pathId ?? "0")),
+    thoughtSpecId: String(raw.thoughtSpecId ?? "") as `0x${string}`,
+    thoughtSpecHash: String(raw.thoughtSpecHash ?? "") as `0x${string}`,
+    provenanceJson: String(raw.provenanceJson ?? ""),
+    deadline: BigInt(String(raw.deadline ?? "0")),
+    pathSignature: String(raw.pathSignature ?? "") as `0x${string}`,
+    creationAttestation: {
+      runIdHash: String(proof?.runIdHash ?? "") as `0x${string}`,
+      deadline: BigInt(String(proof?.deadline ?? "0")),
+      authorityEpoch: BigInt(String(proof?.authorityEpoch ?? "0")),
+      signature: String(proof?.signature ?? "") as `0x${string}`,
+    },
+  };
+  const expectedAgent = process.agent.label;
+  const authoritativeRecordsValid =
+    result.agent === expectedAgent &&
+    Boolean(result.model) &&
+    result.model === result.model.trim() &&
+    byteLength(result.model) <= 64;
+  const responseMatchesMint =
+    mock?.environment === "disposable-anvil" &&
+    mock.productionAuthorized === false &&
+    result.promptLine === work.runContext.prompt &&
+    result.agentLine === work.text &&
+    authoritativeRecordsValid &&
+    result.pathId === mintFlowData.pathId &&
+    result.deadline === mintFlowData.deadline &&
+    result.pathSignature === mintFlowData.signature &&
+    result.thoughtSpecId.toLowerCase() === spec.specId.toLowerCase() &&
+    result.thoughtSpecHash.toLowerCase() === spec.specHash.toLowerCase() &&
+    /^0x[0-9a-f]{64}$/.test(result.creationAttestation.runIdHash) &&
+    result.creationAttestation.deadline === mintFlowData.deadline &&
+    result.creationAttestation.authorityEpoch > 0n &&
+    /^0x[0-9a-f]+$/.test(result.creationAttestation.signature);
+  if (!responseMatchesMint) {
+    throw new Error("Local App attestation response does not match the current mint.");
+  }
+  return result;
+};
+
 const rebuildFinalMintProvenance = async () => {
   if (!walletState.address || mintFlowData.pathId === null || !activeMintWork) {
     throw new Error("mint context unavailable.");
@@ -11947,15 +13149,28 @@ const rebuildFinalMintProvenance = async () => {
   mintFlowData.thoughtSpecId = spec.specId;
   mintFlowData.thoughtSpecHash = spec.specHash;
   if (!mintFlowData.textHash) {
-    mintFlowData.textHash = await textHashFromContract(mintFlowData.rawText);
+    mintFlowData.textHash = await textHashFromContract(
+      mintFlowData.rawText,
+      activeMintWork.runContext.prompt,
+    );
   }
   const promptHash = hashText(activeMintWork.runContext.prompt);
   mintFlowData.promptHash = promptHash;
-  const provenanceJson = buildProvenanceJson(mintFlowData.textHash, {
+  let provenanceJson = buildProvenanceJson(mintFlowData.textHash, {
     minter: walletState.address,
     pathId: mintFlowData.pathId,
     promptHash,
   }, activeMintWork);
+  mintFlowData.creationAttestation = EMPTY_THOUGHT_CREATION_ATTESTATION;
+  mintFlowData.agent = "";
+  mintFlowData.model = "";
+  if (IS_LOCAL_THOUGHT_V2 && mintFlowData.deadline && mintFlowData.signature) {
+    const attestedMint = await requestLocalMockOfficialMint(activeMintWork, spec);
+    provenanceJson = attestedMint.provenanceJson;
+    mintFlowData.agent = attestedMint.agent;
+    mintFlowData.model = attestedMint.model;
+    mintFlowData.creationAttestation = attestedMint.creationAttestation;
+  }
   const provenanceBytes = byteLength(provenanceJson);
   if (provenanceBytes > MAX_PROVENANCE_BYTES) {
     throw new Error(provenanceTooLargeMessage(provenanceBytes));
@@ -11965,6 +13180,10 @@ const rebuildFinalMintProvenance = async () => {
 
 const confirmMint = async (options?: { appendCliResult?: boolean }) => {
   const shouldAppendCliResult = options?.appendCliResult ?? false;
+  if (isTerminalMintFlowState(mintFlowState)) {
+    return null;
+  }
+
   if (mintTransactionInFlight) {
     return null;
   }
@@ -12039,6 +13258,12 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
       account: capturedAuthorization.account,
       promptLine: activeMintWork.runContext.prompt,
       agentLine: capturedAuthorization.rawText,
+      ...(IS_LOCAL_THOUGHT_V2
+        ? {
+            agent: mintFlowData.agent,
+            model: mintFlowData.model,
+          }
+        : { agent: "", model: "" }),
       pathId: capturedAuthorization.pathId,
       thoughtSpecId: mintFlowData.thoughtSpecId,
       thoughtSpecHash: mintFlowData.thoughtSpecHash,
@@ -12046,6 +13271,7 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
       provenanceJson: mintFlowData.provenanceJson,
       deadline: capturedAuthorization.deadline,
       pathSignature: capturedAuthorization.signature,
+      creationAttestation: mintFlowData.creationAttestation,
       workHash: mintFlowData.textHash,
     });
     const browserProvider = new BrowserProvider(ethereum);
@@ -12142,12 +13368,15 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
               {
                 promptLine: payload.promptLine,
                 agentLine: payload.agentLine,
+                agent: payload.agent,
+                model: payload.model,
                 pathId: payload.pathId,
                 thoughtSpecId: payload.thoughtSpecId,
                 thoughtSpecHash: payload.thoughtSpecHash,
                 provenanceJson: payload.provenanceJson,
                 deadline: payload.deadline,
                 pathSignature: payload.pathSignature,
+                creationAttestation: payload.creationAttestation,
               },
               { nonce },
             )
@@ -12171,10 +13400,11 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
           releaseLockAfterRecovery,
           releaseCompleted,
         });
+        const walletReturnGuard = createWalletReturnWithoutHashGuard();
         try {
           try {
             const tx = await withTimeout(
-              txPromise,
+              Promise.race([txPromise, walletReturnGuard.promise]),
               WALLET_TX_SUBMIT_TIMEOUT_MS,
               "wallet transaction not submitted.",
             );
@@ -12215,7 +13445,6 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
               const lateError = lateOutcome.error;
               const lateMessage = mintErrorMessage(lateError);
               setMintFlowError(lateMessage, "mint", { preserveAuthorization: true });
-              recordCurrentMintConsoleState();
               trackThoughtAnalytics("mint_failed", {
                 mintStage: "wallet_signature",
                 errorCategory: thoughtAnalyticsErrorCategory(lateError),
@@ -12246,6 +13475,7 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
             return null;
           }
         } finally {
+          walletReturnGuard.dispose();
           if (unresolvedMintSubmission?.requestId === requestId) {
             unresolvedMintSubmission = null;
             walletMintSubmitPromiseUnresolved = false;
@@ -12326,8 +13556,8 @@ const recoverUnresolvedMintSubmission = async () => {
     resumeConflictingMintReceiptMonitoring();
     emitThoughtConsoleEvent({
       kind: "mint_activity_checked",
-      title: "mint activity checked",
-      detail: `Transaction hash ${shortHex(durable.hash, 10, 8)} is retained. Do not submit a duplicate.`,
+      title: "THOUGHT mint still pending",
+      detail: `Wait for ${shortHex(durable.hash, 10, 8)} to finish. Do not mint again.`,
       eventId: `mint-activity-checked:${durable.hash}`,
     });
     recordCurrentMintConsoleState();
@@ -12412,30 +13642,21 @@ const recoverUnresolvedMintSubmission = async () => {
     !nonceAdvanced;
 
   if (safelyClear) {
-    unresolved.releaseLockAfterRecovery();
-    try {
-      await withTimeout(
-        unresolved.releaseCompleted,
-        PATH_AUTHORIZATION_REQUEST_TIMEOUT_MS,
-        "mint recovery release timed out.",
-      );
-      setMintFlowError(
-        "Recovery check complete: two nonce checks found no hash or account activity. The old wallet waiter is detached and any late hash will still be retained and monitored. Retry only after confirming the wallet shows no open request.",
-        "mint",
-        { preserveAuthorization: true },
-      );
-      emitThoughtConsoleEvent({
-        kind: "mint_submission_detached",
-        title: "wallet waiter safely detached",
-        detail: "No hash or nonce activity was found twice. Any late transaction remains monitored.",
-        eventId: `mint-submission-detached:${unresolved.requestId}`,
-        tone: "warning",
-      });
-      syncInterface();
-      return;
-    } catch {
-      // A failed release is inconclusive; keep the UI in no-duplicate mode.
-    }
+    setMintFlowError(
+      "No submitted transaction was found, but the wallet request may still be open. Cancel or reject it in the wallet, then confirm that it is closed here.",
+      "mint",
+      { preserveAuthorization: true, preserveSubmittedTransaction: true },
+    );
+    emitThoughtConsoleEvent({
+      kind: "mint_activity_checked",
+      title: "close the previous wallet request",
+      detail: "No transaction was found. Cancel or reject the previous request in your wallet before retrying.",
+      nextStep: "cancel the previous wallet request, then select “I closed it”",
+      eventId: `mint-activity-checked:${unresolved.requestId}:close-wallet`,
+      tone: "warning",
+    });
+    syncInterface();
+    return;
   }
 
   setMintFlowError(
@@ -12447,9 +13668,46 @@ const recoverUnresolvedMintSubmission = async () => {
   );
   emitThoughtConsoleEvent({
     kind: "mint_activity_checked",
-    title: nonceAdvanced ? "wallet activity detected" : "wallet request still unresolved",
-    detail: mintFlowData.error,
+    title: "previous mint may still be open",
+    detail: "Check your wallet. Do not mint again until the previous request is confirmed or canceled.",
     eventId: `mint-activity-checked:${unresolved.requestId}:${nonceAdvanced ? "advanced" : "waiting"}`,
+    tone: "warning",
+  });
+  syncInterface();
+};
+
+const confirmPreviousWalletRequestClosed = async () => {
+  const unresolved = unresolvedMintSubmission;
+  if (unresolved) {
+    unresolved.releaseLockAfterRecovery();
+    try {
+      await withTimeout(
+        unresolved.releaseCompleted,
+        PATH_AUTHORIZATION_REQUEST_TIMEOUT_MS,
+        "mint recovery release timed out.",
+      );
+    } catch {
+      setMintFlowError(
+        "The previous wallet request could not be released yet. Check the wallet again; do not submit a duplicate.",
+        "mint",
+        { preserveAuthorization: true, preserveSubmittedTransaction: true },
+      );
+      syncInterface();
+      return;
+    }
+  }
+
+  setMintFlowError(
+    "Recovery check complete: the previous wallet request was closed.",
+    "mint",
+    { preserveAuthorization: true },
+  );
+  emitThoughtConsoleEvent({
+    kind: "mint_submission_detached",
+    title: "ready to retry",
+    detail: "The previous wallet request is closed. No transaction was submitted.",
+    nextStep: "select “Try again”",
+    eventId: `mint-submission-detached:${unresolved?.requestId ?? mintAttemptId}:confirmed-closed`,
     tone: "warning",
   });
   syncInterface();
@@ -12474,7 +13732,18 @@ const readPathAcquisitionQuote = async () => {
     throw new Error("The configured $PATH auction deployment is unavailable on this network.");
   }
 
-  const [active, price, mintAdapter, paymentToken, adapterAuction, adapterPathNft, wiringFrozen] =
+  const [
+    active,
+    contractPrice,
+    mintAdapter,
+    paymentToken,
+    adapterAuction,
+    adapterPathNft,
+    wiringFrozen,
+    config,
+    state,
+    lastBidBlock,
+  ] =
     await Promise.all([
       auction.curveActive() as Promise<boolean>,
       auction.getCurrentPrice() as Promise<bigint>,
@@ -12483,10 +13752,12 @@ const readPathAcquisitionQuote = async () => {
       adapter.auction() as Promise<string>,
       adapter.pathNft() as Promise<string>,
       adapter.wiringFrozen() as Promise<boolean>,
+      auction.getConfig() as Promise<readonly [bigint, bigint, bigint, bigint, bigint]>,
+      auction.getState() as Promise<readonly [bigint, bigint, bigint, bigint, boolean]>,
+      auction.lastBlock() as Promise<bigint>,
     ]);
 
   if (!active) throw new Error("The $PATH auction is not open yet.");
-  if (price <= 0n) throw new Error("The $PATH auction returned an invalid price.");
   if (
     mintAdapter.toLowerCase() !== PATH_PULSE_ADAPTER_ADDRESS.toLowerCase() ||
     adapterAuction.toLowerCase() !== PATH_AUCTION_ADDRESS.toLowerCase() ||
@@ -12499,46 +13770,108 @@ const readPathAcquisitionQuote = async () => {
     throw new Error("This $PATH auction uses a token approval flow that is not supported here yet.");
   }
 
-  return { price };
+  const pricing: PathAcquisitionPricingSnapshot = Object.freeze({
+    openTimeSec: BigInt(config[0]),
+    curveK: BigInt(config[3]),
+    anchorTimeSec: BigInt(state[2]),
+    floorPrice: BigInt(state[3]),
+  });
+  const price = IS_LOCAL_THOUGHT_V2
+    ? pulseAuctionPriceAtTimestamp({
+        ...pricing,
+        timestampSec: BigInt(Math.floor(Date.now() / 1_000)),
+      })
+    : contractPrice;
+  if (price <= 0n) throw new Error("The $PATH auction returned an invalid price.");
+
+  return { price, pricing, lastBidBlock };
 };
 
-const pathAcquisitionFailureCopy = (error: unknown) => {
-  const message = String(
-    (error as { shortMessage?: unknown; message?: unknown })?.shortMessage ??
-      (error as Error)?.message ??
-      error ??
-      "",
-  );
-  const code = String((error as { code?: unknown })?.code ?? "");
-  if (code === "4001" || /reject|denied|cancel/i.test(message)) {
-    return "$PATH transaction rejected in wallet.";
+const stopPathAcquisitionPriceTicker = () => {
+  if (pathAcquisitionPriceTimer !== null) {
+    window.clearInterval(pathAcquisitionPriceTimer);
+    pathAcquisitionPriceTimer = null;
   }
-  if (code === "-32002" || /already.*(?:pending|open)|request.*pending/i.test(message)) {
-    return "A wallet request is already open.";
+  pathAcquisitionPriceRefreshInFlight = false;
+};
+
+const refreshPathAcquisitionDisplayedPrice = async () => {
+  if (pathAcquisitionState !== "review" || pathAcquisitionPriceRefreshInFlight) {
+    return;
   }
-  if (/insufficient funds|exceeds balance/i.test(message)) {
-    return `Insufficient ${THOUGHT_CURRENCY_LABEL} for the $PATH price and gas.`;
+
+  pathAcquisitionPriceRefreshInFlight = true;
+  try {
+    let nextPrice: bigint;
+    if (IS_LOCAL_THOUGHT_V2 && pathAcquisitionPricingSnapshot) {
+      nextPrice = pulseAuctionPriceAtTimestamp({
+        ...pathAcquisitionPricingSnapshot,
+        timestampSec: BigInt(Math.floor(Date.now() / 1_000)),
+      });
+    } else {
+      const provider = getPathReadProvider();
+      if (!provider || !PATH_AUCTION_ADDRESS) return;
+      const auction = new Contract(PATH_AUCTION_ADDRESS, PATH_AUCTION_ABI, provider);
+      nextPrice = await auction.getCurrentPrice() as bigint;
+    }
+
+    if (
+      pathAcquisitionState === "review" &&
+      nextPrice > 0n &&
+      nextPrice !== pathAcquisitionPrice
+    ) {
+      pathAcquisitionPrice = nextPrice;
+      syncInterface();
+    }
+  } catch {
+    // Keep the last verified quote visible. Submission re-reads the contract.
+  } finally {
+    pathAcquisitionPriceRefreshInFlight = false;
   }
-  return message || "$PATH mint failed.";
+};
+
+const startPathAcquisitionPriceTicker = () => {
+  stopPathAcquisitionPriceTicker();
+  void refreshPathAcquisitionDisplayedPrice();
+  pathAcquisitionPriceTimer = window.setInterval(() => {
+    void refreshPathAcquisitionDisplayedPrice();
+  }, PULSE_AUCTION_LIVE_PRICE_REFRESH_MS);
 };
 
 const setPathAcquisitionError = (error: unknown) => {
+  stopPathAcquisitionPriceTicker();
+  const failure = formatThoughtPathAcquisitionFailure(
+    error,
+    THOUGHT_CURRENCY_LABEL,
+    THOUGHT_RPC_URL,
+    THOUGHT_CHAIN_ID,
+  );
+  const failedRequestId = pathAcquisitionRequestId;
   pathAcquisitionRequestId += 1;
   pathAcquisitionState = "error";
-  pathAcquisitionError = pathAcquisitionFailureCopy(error);
+  pathAcquisitionError = failure.detail;
+  const canceled = failure.title === "$PATH mint canceled";
   emitThoughtConsoleEvent({
-    kind: "path_acquisition_failed",
-    title: "$PATH mint unavailable",
+    kind: canceled ? "path_acquisition_canceled" : "path_acquisition_failed",
+    title: failure.title,
     detail: pathAcquisitionError,
-    nextStep: "retry here, or explore $PATH at /path",
+    nextStep: failure.nextStep,
     tone: "warning",
-    eventId: `path-acquisition-failed:${mintAttemptId}:${pathAcquisitionError}`,
+    eventId: mintAttemptConsoleEventId(
+      `path-acquisition-${canceled ? "canceled" : "failed"}`,
+      failedRequestId,
+      pathAcquisitionError,
+    ),
   });
   syncInterface();
   focusMintDockStage();
 };
 
 const handleMintPath = async (options?: { submit?: boolean }) => {
+  if (isTerminalMintFlowState(mintFlowState)) {
+    return;
+  }
+
   if (!currentOutputText) {
     setMintFlowError("No accepted work to preserve for $PATH mint.", "thought");
     syncInterface();
@@ -12571,15 +13904,10 @@ const handleMintPath = async (options?: { submit?: boolean }) => {
     const quote = await readPathAcquisitionQuote();
     if (requestId !== pathAcquisitionRequestId) return;
     pathAcquisitionPrice = quote.price;
+    pathAcquisitionPricingSnapshot = quote.pricing;
     pathAcquisitionState = "review";
-    emitThoughtConsoleEvent({
-      kind: "path_acquisition_quote",
-      title: "$PATH quote ready",
-      detail: `${formatPathAcquisitionPrice(quote.price)} ${THOUGHT_CURRENCY_LABEL} at the current auction price.`,
-      nextStep: "mint here, or explore $PATH at /path",
-      eventId: `path-acquisition-quote:${mintAttemptId}:${quote.price}`,
-    });
     syncInterface();
+    startPathAcquisitionPriceTicker();
     focusMintDockStage();
     if (options?.submit) {
       await confirmPathAcquisition();
@@ -12594,6 +13922,15 @@ const finishPathAcquisitionReceipt = async (
   pending: PendingThoughtPathAcquisition,
   receipt: { status?: unknown; logs?: readonly { address?: string; topics?: readonly string[] }[] },
 ) => {
+  if (pathAcquisitionReceiptMonitorHash !== pending.txHash) {
+    return false;
+  }
+  const durablePending = readPendingPathAcquisition();
+  if (!durablePending || durablePending.txHash !== pending.txHash) {
+    return false;
+  }
+  const completionRequestId = pathAcquisitionRequestId;
+  stopPathAcquisitionPriceTicker();
   const outcome = mintReceiptStatusOutcome(receipt.status);
   if (outcome === "unknown") return false;
   pathAcquisitionReceiptMonitorHash = "";
@@ -12611,15 +13948,21 @@ const finishPathAcquisitionReceipt = async (
   pathAcquisitionCompletedForAttempt = true;
   emitThoughtConsoleEvent({
     kind: "path_acquisition_confirmed",
-    title: "$PATH minted",
+    title: tokenId ? `$PATH #${tokenId} minted` : "$PATH minted",
     detail: tokenId
-      ? `$PATH #${tokenId} confirmed. Picking it for this THOUGHT.`
-      : "$PATH confirmed. Refreshing inventory for this THOUGHT.",
+      ? "Added to this wallet. Checking it for this THOUGHT."
+      : "Updating the wallet’s $PATH list.",
     eventId: `path-acquisition-confirmed:${pending.txHash}`,
     tone: "success",
   });
 
   await refreshPathInventoryForCurrentWallet({ force: true });
+  if (completionRequestId !== pathAcquisitionRequestId) {
+    return true;
+  }
+  if (isTerminalMintFlowState(mintFlowState)) {
+    return true;
+  }
   if (tokenId) {
     applyMintPathInputValue(tokenId);
     syncInterface();
@@ -12633,11 +13976,20 @@ const finishPathAcquisitionReceipt = async (
     return true;
   }
 
-  setPathAcquisitionError(
-    available.length > 1
-      ? "$PATH confirmed, but the minted token could not be identified. Pick it from the updated list."
-      : "$PATH confirmed, but the updated token is not visible in inventory yet. Refresh wallet from the shell bar.",
-  );
+  pathAcquisitionState = "inventory_pending";
+  pathAcquisitionError = available.length > 1
+    ? "The transaction confirmed. Pick the new $PATH from the refreshed list."
+    : "The transaction confirmed, but the new $PATH is not visible yet.";
+  emitThoughtConsoleEvent({
+    kind: "path_acquisition_inventory_pending",
+    title: "new $PATH not visible yet",
+    detail: "The mint succeeded, but the wallet list has not updated.",
+    nextStep: "open the wallet menu and select refresh",
+    tone: "warning",
+    eventId: `path-acquisition-inventory-pending:${pending.txHash}`,
+  });
+  syncInterface();
+  focusMintDockStage();
   return true;
 };
 
@@ -12648,6 +14000,7 @@ const monitorPendingPathAcquisition = async (pending: PendingThoughtPathAcquisit
     for (const provider of getMintReceiptMonitoringProviders()) {
       try {
         const receipt = await provider.getTransactionReceipt(pending.txHash);
+        if (pathAcquisitionReceiptMonitorHash !== pending.txHash) return;
         if (receipt && await finishPathAcquisitionReceipt(pending, receipt)) return;
       } catch {
         // Keep the durable hash and retry through the available providers.
@@ -12658,6 +14011,7 @@ const monitorPendingPathAcquisition = async (pending: PendingThoughtPathAcquisit
 };
 
 const resumePendingPathAcquisition = async () => {
+  stopPathAcquisitionPriceTicker();
   const pending = readPendingPathAcquisition();
   if (!pending) return false;
   const workHash = currentOutputText ? keccak256(toUtf8Bytes(currentOutputText)) : "";
@@ -12674,8 +14028,8 @@ const resumePendingPathAcquisition = async () => {
     pathAcquisitionError = "A pending $PATH transaction belongs to another wallet, work, or V2 deployment.";
     emitThoughtConsoleEvent({
       kind: "path_acquisition_context_mismatch",
-      title: "$PATH mint context changed",
-      detail: "The retained transaction hash will not be applied to this THOUGHT.",
+      title: "$PATH mint belongs to another work",
+      detail: "This pending $PATH cannot be used for the current THOUGHT.",
       nextStep: "restore the original wallet and work",
       tone: "warning",
       eventId: `path-acquisition-mismatch:${pending.txHash}`,
@@ -12702,20 +14056,25 @@ const blockPendingPathAcquisitionMutation = () => {
     kind: "path_acquisition_preserved",
     title: pending ? "$PATH mint still pending" : "$PATH wallet request still open",
     detail: pending
-      ? `${shortHex(pending.txHash, 10, 8)} remains attached to this work.`
-      : "Resolve or reject the wallet request before changing this work.",
+      ? `Wait for ${shortHex(pending.txHash, 10, 8)} to finish before changing this work.`
+      : "Finish or cancel the wallet request before changing this work.",
     eventId: pending
       ? `path-acquisition-preserved:${pending.txHash}`
       : `path-acquisition-wallet-preserved:${mintAttemptId}`,
     tone: "warning",
-    nextStep: pending ? "wait for confirmation" : "resolve the wallet request",
+    nextStep: pending ? "wait for confirmation" : "finish or cancel the wallet request",
   });
   syncInterface();
   return true;
 };
 
 const confirmPathAcquisition = async () => {
+  if (isTerminalMintFlowState(mintFlowState)) {
+    return;
+  }
+
   if (pathAcquisitionState !== "review" || pathAcquisitionPrice <= 0n) return;
+  stopPathAcquisitionPriceTicker();
   const ethereum = getEthereumProvider();
   if (!ethereum || !walletState.address || walletState.chainId !== THOUGHT_CHAIN_ID) {
     setPathAcquisitionError("Connect the correct wallet and network before minting $PATH.");
@@ -12730,8 +14089,8 @@ const confirmPathAcquisition = async () => {
   pathAcquisitionError = "";
   emitThoughtConsoleEvent({
     kind: "path_acquisition_wallet",
-    title: "confirm $PATH mint",
-    detail: "Wallet request 1 of 3 for the complete THOUGHT flow.",
+    title: "confirm $PATH mint in wallet",
+    detail: "Open your wallet and confirm the transaction. Gas applies.",
     eventId: `path-acquisition-wallet:${mintAttemptId}`,
   });
   syncInterface();
@@ -12745,6 +14104,11 @@ const confirmPathAcquisition = async () => {
         if (readPendingPathAcquisition()) {
           throw new Error("A $PATH mint transaction is already pending.");
         }
+        // Refresh the wallet's local-chain registration from the same operator
+        // RPC used by App reads before asking that wallet to submit. MetaMask can
+        // retain a local chain while its saved RPC still points at an older Anvil
+        // process, so matching only the chain ID is not enough.
+        await refreshWalletChainRpc();
         const [accounts, chainHex] = await Promise.all([
           ethereum.request({ method: "eth_accounts" }),
           ethereum.request({ method: "eth_chainId" }),
@@ -12760,10 +14124,66 @@ const confirmPathAcquisition = async () => {
 
         const quote = await readPathAcquisitionQuote();
         pathAcquisitionPrice = quote.price;
+        pathAcquisitionPricingSnapshot = quote.pricing;
+        const targetProvider = getPathReadProvider();
+        if (!targetProvider) {
+          throw new Error("The active Local Anvil RPC is unavailable.");
+        }
+        await advanceThoughtPathAcquisitionLocalBlock(
+          targetProvider,
+          quote.lastBidBlock,
+          IS_LOCAL_THOUGHT_V2,
+        );
+        const targetBalance = await targetProvider.getBalance(expectedAccount);
+        if (targetBalance <= quote.price) {
+          throw new Error(
+            `Insufficient ${THOUGHT_CURRENCY_LABEL} for the $PATH price and gas.`,
+          );
+        }
         const browserProvider = new BrowserProvider(ethereum);
+        let walletAuctionCode = "";
+        try {
+          walletAuctionCode = await browserProvider.getCode(PATH_AUCTION_ADDRESS);
+        } catch {
+          throw new Error(
+            `Wallet RPC cannot reach the active Local Anvil node at ${THOUGHT_RPC_URL}.`,
+          );
+        }
+        const targetAuctionCode = await targetProvider.getCode(PATH_AUCTION_ADDRESS);
+        if (
+          walletAuctionCode === "0x" ||
+          keccak256(walletAuctionCode) !== keccak256(targetAuctionCode)
+        ) {
+          throw new Error(
+            `Wallet RPC is not using the active Local Anvil deployment at ${THOUGHT_RPC_URL}.`,
+          );
+        }
+        const walletAuction = new Contract(
+          PATH_AUCTION_ADDRESS,
+          PATH_AUCTION_ABI,
+          browserProvider,
+        );
+        const executionPrice = await walletAuction.getCurrentPrice() as bigint;
+        if (executionPrice <= 0n) {
+          throw new Error("The $PATH auction returned an invalid execution price.");
+        }
+        pathAcquisitionPrice = executionPrice;
+        if (targetBalance <= executionPrice) {
+          throw new Error(
+            `Insufficient ${THOUGHT_CURRENCY_LABEL} for the $PATH price and gas.`,
+          );
+        }
+
         const signer = await browserProvider.getSigner(expectedAccount);
         const auction = new Contract(PATH_AUCTION_ADDRESS, PATH_AUCTION_ABI, signer);
-        const tx = await auction.bid(quote.price, { value: quote.price }) as { hash: string };
+        const estimatedGas = await auction.bid.estimateGas(executionPrice, {
+          value: executionPrice,
+        }) as bigint;
+        const gasLimit = thoughtPathAcquisitionGasLimit(estimatedGas);
+        const tx = await auction.bid(executionPrice, {
+          value: executionPrice,
+          gasLimit,
+        }) as { hash: string };
         const pending: PendingThoughtPathAcquisition = Object.freeze({
           version: 1,
           account: expectedAccount.toLowerCase(),
@@ -12781,18 +14201,14 @@ const confirmPathAcquisition = async () => {
 
     if (requestId !== pathAcquisitionRequestId) return;
     if (!lockResult.acquired) {
-      throw new Error(
-        lockResult.reason === "busy"
-          ? "This $PATH mint is already open in another tab."
-          : "$PATH minting requires browser tab coordination (Web Locks).",
-      );
+      throw new Error("This $PATH mint is already open in another tab.");
     }
     pathAcquisitionState = "submitted";
     pathAcquisitionTxHash = lockResult.value.txHash;
     emitThoughtConsoleEvent({
       kind: "path_acquisition_submitted",
       title: "$PATH mint submitted",
-      detail: `${shortHex(lockResult.value.txHash, 10, 8)} · waiting for confirmation.`,
+      detail: shortHex(lockResult.value.txHash, 10, 8),
       eventId: `path-acquisition-submitted:${lockResult.value.txHash}`,
     });
     syncInterface();
@@ -12814,6 +14230,10 @@ const viewPathAcquisitionTx = async () => {
 };
 
 const chooseAnotherPath = () => {
+  if (isTerminalMintFlowState(mintFlowState)) {
+    return;
+  }
+
   clearMintAuthorization();
   walletState.txState = "idle";
   walletState.txError = "";
@@ -12828,12 +14248,59 @@ const chooseAnotherPath = () => {
   }
 };
 
+const archiveLegacyLocalPendingMint = () => {
+  const pending = pendingMintTransaction ?? readPendingMintTransaction();
+  if (!canArchiveLegacyLocalPendingMint(pending)) {
+    setStatus("local mint archive unavailable.", { flashMs: NOTICE_FLASH_MS });
+    return false;
+  }
+  if (!clearPendingMintIdentityIfMatches(pending!)) {
+    setStatus("local mint record changed. refresh and check again.", {
+      flashMs: NOTICE_FLASH_MS,
+    });
+    return false;
+  }
+
+  removeConflictingMintIdentity(pending!);
+  pendingMintReceiptMonitorGeneration += 1;
+  pendingMintReceiptMonitorHash = "";
+  walletState.txState = "idle";
+  walletState.txHash = "";
+  walletState.txError = "";
+  walletState.mintedTokenId = null;
+  resetMintFlow();
+  emitThoughtConsoleEvent({
+    kind: "legacy_local_mint_archived",
+    title: "old local mint archived",
+    detail: `${shortHex(pending!.hash, 10, 8)} on retired local chain ${pending!.chainId} is no longer blocking THOUGHT Anvil chain ${THOUGHT_CHAIN_ID}.`,
+    nextStep: "select mint and use THOUGHT Anvil",
+    eventId: `legacy-local-mint-archived:${pending!.hash.toLowerCase()}`,
+    tone: "warning",
+  });
+  recordCurrentMintConsoleState();
+  syncInterface();
+  return true;
+};
+
 const handleMintSheetAction = async (action: MintSheetAction) => {
   if (action === "none") {
     return;
   }
 
+  if (
+    isTerminalMintFlowState(mintFlowState) &&
+    action !== "view_thought" &&
+    action !== "view_tx" &&
+    action !== "reset"
+  ) {
+    return;
+  }
+
   if (action === "continue") {
+    if (mintFlowState === "error") {
+      await openMintFlow(mintFlowUiMode);
+      return;
+    }
     await checkPathEligibility();
     return;
   }
@@ -12886,8 +14353,18 @@ const handleMintSheetAction = async (action: MintSheetAction) => {
     return;
   }
 
+  if (action === "archive_legacy_local_mint") {
+    archiveLegacyLocalPendingMint();
+    return;
+  }
+
   if (action === "recover_submission") {
     await recoverUnresolvedMintSubmission();
+    return;
+  }
+
+  if (action === "confirm_wallet_request_closed") {
+    await confirmPreviousWalletRequestClosed();
     return;
   }
 
@@ -12922,13 +14399,17 @@ const handleMintSheetAction = async (action: MintSheetAction) => {
   }
 
   if (action === "reset") {
-    closeMintSheet();
-    resetThought();
+    resetThoughtDock({ clearPrompt: true, focusPrompt: true });
     return;
   }
 
   if (action === "switch_network") {
-    await switchWalletChain();
+    const switched = await switchWalletChain();
+    if (!switched) {
+      syncInterface();
+      focusMintDockStage("path");
+      return;
+    }
     if (walletState.address && walletState.chainId === THOUGHT_CHAIN_ID && readPathMintHandoff()) {
       const resumed = await resumePathMintHandoff();
       if (resumed) {
@@ -13033,7 +14514,11 @@ const parseThoughtNFTIdInput = (input: string) => {
 const viewThoughtUseLine = (tokenId?: number | null) =>
   `use: view THOUGHT ${tokenId ?? "<id>"}`;
 
-const thoughtCreateUrl = () => new URL(THOUGHT_APP_URL, window.location.origin).toString();
+const thoughtCreateUrl = () => {
+  const url = new URL(THOUGHT_APP_URL, window.location.origin);
+  url.searchParams.set("new", "1");
+  return url.toString();
+};
 const inshellHomeUrl = () => INSHELL_HOME_URL;
 const configureGalleryLink = () => {
   thoughtGalleryLink.href = galleryUrl();
@@ -13041,6 +14526,11 @@ const configureGalleryLink = () => {
   galleryCreateLink.href = thoughtCreateUrl();
   galleryHomeLink.href = inshellHomeUrl();
   thoughtDetailCreateLink.href = thoughtCreateUrl();
+  document
+    .querySelectorAll<HTMLAnchorElement>(".color-font-footer__link")
+    .forEach((link) => {
+      link.href = COLOR_FONT_CANONICAL_URL;
+    });
 };
 
 const decodeBase64Utf8 = (value: string) => {
@@ -13093,6 +14583,41 @@ const readTokenUriPayload = (uri: string): ThoughtNFTUriPayload => {
     return { metadata: {}, image: "" };
   }
 };
+
+async function hydrateCurrentWorkFromTokenUri(
+  token: Contract,
+  tokenId: bigint | number,
+  expectedOutput: string,
+) {
+  const tokenUri = await token.tokenURI(tokenId, {
+    gasLimit: TOKEN_URI_CALL_GAS_LIMIT,
+  }) as string;
+  const payload = readTokenUriPayload(tokenUri);
+  const normalized = normalizeThoughtV2StoredVisual({
+    image: payload.image,
+    implementationId:
+      injectedThoughtRendererImplementationId ||
+      THOUGHT_V2_LOCAL_RELEASE.protocol.rendererProfile.implementation,
+  });
+  if (!normalized.image || !normalized.svg || currentOutputText !== expectedOutput) {
+    return false;
+  }
+
+  currentWorkImage = normalized.image;
+  currentWorkSvg = normalized.svg;
+  if (currentWorkId !== null) {
+    const works = readStoredThoughtWorks();
+    const updated = works.map((work) =>
+      work.id === currentWorkId
+        ? { ...work, image: normalized.image, svg: normalized.svg }
+        : work
+    );
+    writeStoredThoughtWorks(updated);
+  }
+  writeCurrentOutputSession();
+  syncCurrentWorkVisual({ suppressWarning: true });
+  return true;
+}
 
 const metadataString = (value: unknown) => {
   if (typeof value === "string") {
@@ -13206,10 +14731,13 @@ const parseProvenanceMaterial = (provenanceJson: string) => {
       };
       process?: {
         kind?: unknown;
-        agentDeclaration?: {
-          agentLabel?: unknown;
+        agent?: {
+          label?: unknown;
         };
-        transport?: {
+        model?: {
+          label?: unknown;
+        };
+        run?: {
           adapter?: unknown;
         };
       };
@@ -13230,14 +14758,14 @@ const parseProvenanceMaterial = (provenanceJson: string) => {
       const returnedTextHash = typeof parsed.work.agentLineKeccak256 === "string"
         ? parsed.work.agentLineKeccak256
         : returnedText ? hashText(returnedText) : "";
-      const provider = typeof parsed.process?.transport?.adapter === "string"
-        ? parsed.process.transport.adapter
-        : typeof parsed.process?.agentDeclaration?.agentLabel === "string"
-          ? parsed.process.agentDeclaration.agentLabel
+      const provider = typeof parsed.process?.run?.adapter === "string"
+        ? parsed.process.run.adapter
+        : typeof parsed.process?.agent?.label === "string"
+          ? parsed.process.agent.label
           : parsed.process?.kind === "manual" ? "me" : "";
-      const model = typeof parsed.process?.agentDeclaration?.agentLabel === "string"
-        ? parsed.process.agentDeclaration.agentLabel
-        : provider;
+      const model = typeof parsed.process?.model?.label === "string"
+        ? parsed.process.model.label
+        : "";
       return {
         prompt,
         promptHash,
@@ -13381,7 +14909,7 @@ const syncThoughtDetailEmbeddedHeights = () => {
 
     if (
       !embeddedWindows.length ||
-      window.matchMedia("(max-width: 900px)").matches ||
+      window.matchMedia("(max-width: 1023px)").matches ||
       thoughtDetailBody.classList.contains("is-hidden")
     ) {
       return;
@@ -14148,7 +15676,7 @@ const getThoughtDockViewportReserve = () => {
 };
 
 const isStackedOperatorLayout = () =>
-  window.matchMedia("(max-width: 900px)").matches &&
+  window.matchMedia("(max-width: 1023px)").matches &&
   !frontpageStage.classList.contains("is-hidden");
 
 const getStackedOperatorAvailableHeight = () => {
@@ -14161,7 +15689,7 @@ const getStackedOperatorAvailableHeight = () => {
   const frameStyles = window.getComputedStyle(thoughtCanvasFrame);
   const footer = document.querySelector(".frontpage-side .color-font-footer") as HTMLElement | null;
   const shellInset = readPx(shellStyles.paddingTop) + readPx(shellStyles.paddingBottom);
-  const titleHeight = frontpageTitle?.getBoundingClientRect().height ?? 0;
+  const headerHeight = visibleBlockOuterHeight(frontpageHeader);
   const canvasColumnGap = readPx(columnStyles.rowGap);
   const frameInset = readPx(frameStyles.paddingTop) + readPx(frameStyles.paddingBottom);
   const mainGap = readPx(mainStyles.rowGap);
@@ -14170,7 +15698,7 @@ const getStackedOperatorAvailableHeight = () => {
   return Math.floor(
     viewportHeight -
       shellInset -
-      titleHeight -
+      headerHeight -
       canvasColumnGap -
       frameInset -
       mainGap -
@@ -14181,9 +15709,13 @@ const getStackedOperatorAvailableHeight = () => {
 
 const getViewportWidthCap = () => {
   if (isStackedOperatorLayout()) {
+    const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
     return Math.max(
       MIN_CANVAS_SIZE,
-      getStackedOperatorAvailableHeight() - STACKED_MIN_CLI_HEIGHT,
+      Math.min(
+        getStackedOperatorAvailableHeight() - STACKED_MIN_CLI_HEIGHT,
+        Math.floor(viewportHeight * STACKED_CANVAS_MAX_VIEWPORT_RATIO),
+      ),
     );
   }
 
@@ -14236,7 +15768,14 @@ const resizeCanvas = (displayWidth: number, height: number) => {
   canvas.style.width = `${displayWidth}px`;
   canvas.style.height = `${height}px`;
   thoughtDock.style.setProperty("--thought-dock-width", `${displayWidth + frameHorizontalInset}px`);
-  thoughtCanvasPanel.style.setProperty("--thought-canvas-frame-width", `${displayWidth + frameHorizontalInset}px`);
+  thoughtCanvasPanel.style.setProperty(
+    "--thought-canvas-frame-width",
+    `${displayWidth + frameHorizontalInset}px`,
+  );
+  frontpageStage.style.setProperty(
+    "--thought-create-identity-width",
+    `${displayWidth + frameHorizontalInset}px`,
+  );
   syncThoughtDockRailInset();
   document.documentElement.style.setProperty("--thought-canvas-outer-height", `${height}px`);
   document.documentElement.style.setProperty("--thought-cli-height", `${cliHeight}px`);
@@ -14296,33 +15835,86 @@ const hideContractSvgPreview = () => {
   canvas.classList.remove("is-hidden");
 };
 
-const showContractSvgPreview = (svg: string) => {
+const currentRendererImplementationId = () =>
+  injectedThoughtRendererImplementationId ||
+  THOUGHT_V2_LOCAL_RELEASE.protocol.rendererProfile.implementation;
+
+const normalizeStoredWorkVisual = (svg?: string, image?: string) =>
+  normalizeThoughtV2StoredVisual({
+    svg,
+    image,
+    implementationId: currentRendererImplementationId(),
+  });
+
+const showContractImagePreview = (image: string) => {
   resizeWorkSurface();
-  thoughtSvgPreview.src = svgToImageUri(svg);
+  thoughtSvgPreview.src = image;
   thoughtSvgPreview.classList.remove("is-hidden");
   canvas.classList.add("is-hidden");
 };
 
+const showContractSvgPreview = (svg: string) => {
+  showContractImagePreview(svgToImageUri(svg));
+};
+
 const syncCurrentWorkVisual = (options?: { suppressWarning?: boolean }) => {
-  if (currentWorkSvg) {
-    const migratedSvg = migrateLegacyThoughtV2Svg(currentOutputText, currentWorkSvg);
-    if (migratedSvg.migrated) {
-      currentWorkSvg = migratedSvg.svg;
+  if (currentWorkSvg || currentWorkImage) {
+    const normalized = normalizeStoredWorkVisual(currentWorkSvg, currentWorkImage);
+    if (normalized.migrated) {
+      currentWorkSvg = normalized.svg;
+      currentWorkImage = normalized.image;
       writeCurrentOutputSession();
     }
-    showContractSvgPreview(currentWorkSvg);
-    return;
+    if (currentWorkImage) {
+      showContractImagePreview(currentWorkImage);
+      return;
+    }
+    if (currentWorkSvg) {
+      showContractSvgPreview(currentWorkSvg);
+      return;
+    }
   }
 
-  syncOutputToCanvas(currentOutputText, options);
+  syncOutputToCanvas(IS_LOCAL_THOUGHT_V2 ? "" : currentOutputText, options);
 };
+
+const readThoughtCssToken = (name: string) => {
+  const value = window.getComputedStyle(document.body).getPropertyValue(name).trim();
+  if (!value) {
+    throw new Error(`Missing THOUGHT visual token: ${name}`);
+  }
+  return value;
+};
+
+const readThoughtCssNumber = (name: string) => {
+  const value = Number(readThoughtCssToken(name));
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`Invalid THOUGHT visual token: ${name}`);
+  }
+  return value;
+};
+
+const getEmptyFrameStyle = (): ThoughtV2EmptyFrameStyle =>
+  contractEmptyFrameStyle ?? {
+    canvasSize: readThoughtCssNumber("--thought-work-canvas-size"),
+    color: readThoughtCssToken("--thought-work-frame-color"),
+    inset: readThoughtCssNumber("--thought-work-frame-inset"),
+  };
 
 const renderCanvas = (rawText: string) => {
   const { displayWidth, height } = resizeWorkSurface();
+  const emptyFrameStyle = getEmptyFrameStyle();
+  const canvasRect = thoughtV2EmptyFrameCanvasRect(
+    displayWidth,
+    height,
+    emptyFrameStyle,
+  );
 
   context.clearRect(0, 0, displayWidth, height);
-  context.fillStyle = BACKGROUND_FILL;
+  context.fillStyle = emptyFrameStyle.color;
   context.fillRect(0, 0, displayWidth, height);
+  context.fillStyle = readThoughtCssToken("--thought-art-canvas-bg");
+  context.fillRect(canvasRect.x, canvasRect.y, canvasRect.width, canvasRect.height);
 };
 
 const syncOutputToCanvas = (raw: string, options?: { suppressWarning?: boolean }) => {
@@ -14342,6 +15934,35 @@ const syncOutputToCanvas = (raw: string, options?: { suppressWarning?: boolean }
   renderCanvas(raw);
 };
 
+const syncEmptyFrameStyleFromContract = async () => {
+  if (!IS_LOCAL_THOUGHT_V2 || !THOUGHT_RENDERER_ADDRESS) {
+    return;
+  }
+  const provider = getReadProvider();
+  if (!provider) {
+    return;
+  }
+
+  try {
+    const renderer = new Contract(
+      THOUGHT_RENDERER_ADDRESS,
+      THOUGHT_V2_LOCAL_RENDERER_ABI,
+      provider,
+    );
+    const implementationId = String(await renderer.IMPLEMENTATION_ID());
+    const parsed = parseThoughtV2EmptyFrameStyle(implementationId);
+    if (!parsed) {
+      return;
+    }
+    contractEmptyFrameStyle = parsed;
+    if (!currentWorkSvg) {
+      syncOutputToCanvas(currentOutputText, { suppressWarning: true });
+    }
+  } catch {
+    // The empty state retains the bundled current-contract frame if RPC is unavailable.
+  }
+};
+
 const setAgentOutput = (text: string, _rawOutput: string, svg: string) => {
   if (blockPendingMintMutation() || blockPendingPathAcquisitionMutation()) {
     return false;
@@ -14350,6 +15971,7 @@ const setAgentOutput = (text: string, _rawOutput: string, svg: string) => {
   mintDockRevealed = false;
   currentOutputText = text;
   currentWorkSvg = svg;
+  currentWorkImage = svgToImageUri(svg);
   showContractSvgPreview(svg);
   currentWorkId = null;
   writeCurrentOutputSession();
@@ -14379,7 +16001,9 @@ const recordCurrentWork = (rawOutput: string) => {
     text: currentOutputText,
     title: currentOutputText,
     rawOutput,
-    image: currentWorkSvg ? svgToImageUri(currentWorkSvg) : galleryThumbnailUri(currentOutputText),
+    image:
+      currentWorkImage ||
+      (currentWorkSvg ? svgToImageUri(currentWorkSvg) : galleryThumbnailUri(currentOutputText)),
     svg: currentWorkSvg,
     route: currentRunContext.mode,
     provider: currentRunContext.provider,
@@ -14419,8 +16043,8 @@ const saveCurrentWorkFromDock = () => {
   if (savedId === null) {
     emitThoughtConsoleEvent({
       kind: "work_save_failed",
-      title: "work not saved",
-      detail: "current work is incomplete",
+      title: "nothing to save",
+      detail: "Create or load a completed work first.",
       tone: "warning",
     });
     syncInterface();
@@ -14431,7 +16055,7 @@ const saveCurrentWorkFromDock = () => {
   emitThoughtConsoleEvent({
     kind: "work_saved",
     title: "work saved",
-    detail: currentRunContext?.prompt ?? "",
+    detail: "Stored in this browser. You can load it later.",
     tone: "success",
     eventId: `work-saved:${savedId}`,
   });
@@ -14445,7 +16069,9 @@ const loadWorkRecord = (work: ThoughtWorkRecord) => {
   resetMintRuntimeState();
   mintDockRevealed = false;
   currentOutputText = thoughtProtocolText(work.text || work.title, IS_LOCAL_THOUGHT_V2);
-  currentWorkSvg = work.svg ?? "";
+  const normalized = normalizeStoredWorkVisual(work.svg, work.image);
+  currentWorkSvg = normalized.svg;
+  currentWorkImage = normalized.image;
   currentRunContext = workRunContextToThoughtRunContext(work);
   currentWorkId = work.id;
   sessionState.prompt = work.prompt || work.runContext.prompt;
@@ -14476,36 +16102,8 @@ const isThoughtRunContext = (value: unknown): value is ThoughtRunContext => {
   );
 };
 
-const migrateLegacyThoughtV2Svg = (output: string, svg: string) => {
-  if (
-    svg.includes('width="960" height="960" viewBox="0 0 960 960"') &&
-    svg.includes('id="binary-background"') &&
-    svg.includes('data-grid-columns="32"') &&
-    !svg.includes('id="agent-line-bg"') &&
-    !svg.includes('id="prompt-line-bg"')
-  ) {
-    return { svg, migrated: false };
-  }
-
-  if (!svg.includes("prompt-line")) {
-    return { svg, migrated: false };
-  }
-
-  try {
-    return {
-      svg: buildThoughtV2Svg({
-        agentLine: deriveThoughtV2VisibleLine(output),
-        promptLine: deriveThoughtV2VisibleLine(currentRunContext?.prompt ?? sessionState.prompt),
-      }),
-      migrated: true,
-    };
-  } catch {
-    return { svg: "", migrated: true };
-  }
-};
-
 const readCurrentOutputSession = () => {
-  const raw = readSharedBrowserItem(THOUGHT_OUTPUT_STORAGE_KEY);
+  const raw = readPrivateCreationSessionItem(THOUGHT_OUTPUT_STORAGE_KEY);
   if (!raw) {
     return null;
   }
@@ -14518,6 +16116,7 @@ const readCurrentOutputSession = () => {
 
     const candidate = parsed as {
       output?: unknown;
+      image?: unknown;
       svg?: unknown;
       runContext?: unknown;
       workId?: unknown;
@@ -14530,12 +16129,14 @@ const readCurrentOutputSession = () => {
       return null;
     }
     const storedSvg = typeof candidate.svg === "string" ? candidate.svg : "";
-    const migratedSvg = migrateLegacyThoughtV2Svg(output, storedSvg);
+    const storedImage = typeof candidate.image === "string" ? candidate.image : "";
+    const normalized = normalizeStoredWorkVisual(storedSvg, storedImage);
 
     return {
       output,
-      svg: migratedSvg.svg,
-      migrated: migratedSvg.migrated,
+      image: normalized.image,
+      svg: normalized.svg,
+      migrated: normalized.migrated,
       runContext: isThoughtRunContext(candidate.runContext) ? candidate.runContext : null,
       workId: Number.isSafeInteger(candidate.workId) && Number(candidate.workId) > 0
         ? Number(candidate.workId)
@@ -14549,14 +16150,15 @@ const readCurrentOutputSession = () => {
 
 const writeCurrentOutputSession = () => {
   if (!currentOutputText) {
-    removeSharedBrowserItem(THOUGHT_OUTPUT_STORAGE_KEY);
+    removePrivateCreationSessionItem(THOUGHT_OUTPUT_STORAGE_KEY);
     return;
   }
 
-  writeSharedBrowserItem(
+  writePrivateCreationSessionItem(
     THOUGHT_OUTPUT_STORAGE_KEY,
     JSON.stringify({
       output: currentOutputText,
+      image: currentWorkImage,
       svg: currentWorkSvg,
       runContext: currentRunContext,
       workId: currentWorkId,
@@ -14573,6 +16175,7 @@ const restoreCurrentOutputSession = () => {
 
   currentOutputText = stored.output;
   currentWorkSvg = stored.svg;
+  currentWorkImage = stored.image;
   currentRunContext = stored.runContext;
   currentWorkId = stored.workId;
   mintDockRevealed = stored.mintDockRevealed;
@@ -14638,6 +16241,7 @@ const resetThought = (options?: { preserveStoredOutput?: boolean }) => {
   walletConnectInFlight = false;
   pendingMyBrainRunPayload = null;
   currentOutputText = "";
+  currentWorkImage = "";
   currentWorkSvg = "";
   currentRunContext = null;
   currentWorkId = null;
@@ -14656,6 +16260,51 @@ const resetThought = (options?: { preserveStoredOutput?: boolean }) => {
   syncCtaState();
   syncPrimaryCtaAvailability();
   return true;
+};
+
+const beginFreshThoughtCreation = () => {
+  if (!resetThought()) {
+    return false;
+  }
+  clearStoredThoughtDockRun();
+  thoughtDockRun = null;
+  runInFlight = false;
+  sessionState.prompt = "";
+  promptBox.value = "";
+  thoughtDockPrompt.value = "";
+  writeSessionState();
+  setThoughtDockState({ kind: "empty" });
+  return true;
+};
+
+const consumeFreshCreationEntryUrl = () => {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("new");
+  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+};
+
+const currentOutputSessionIsMinted = async () => {
+  const stored = readCurrentOutputSession();
+  if (!stored) {
+    return false;
+  }
+
+  try {
+    await verifyLocalThoughtV2Deployment();
+    const token = getReadThoughtNFT();
+    if (!token) {
+      return false;
+    }
+    const identityHash = await textHashFromContract(
+      stored.output,
+      stored.runContext?.prompt ?? sessionState.prompt,
+    );
+    return (await lookupExistingThoughtToken(token, identityHash)) !== 0n;
+  } catch {
+    // A fresh-entry link must not destroy an unfinished work merely because
+    // the canonical contract cannot be reached. Only a proven mint resets it.
+    return false;
+  }
 };
 
 const base64UrlEncode = (bytes: Uint8Array) => {
@@ -15006,8 +16655,8 @@ const readThoughtAgentReturn = async (
   if (typeof agentLine !== "string") {
     return { agentLine: "" };
   }
-  assertThoughtLine(agentLine, "agent");
-  if (!IS_LOCAL_THOUGHT_V2) {
+  assertActiveThoughtLine(agentLine, "agent");
+  if (!THOUGHT_V2_MINT_ENABLED) {
     return { agentLine };
   }
 
@@ -15018,14 +16667,22 @@ const readThoughtAgentReturn = async (
     throw new Error("Agent result evidence is incomplete.");
   }
   const result = parseThoughtV2LocalAgentResult(raw);
-  const verifiedRawSha256 = await sha256Hex(raw);
+  const verifiedRawSha256 = agentDemoSha256(raw);
   if (result.agentLine !== agentLine || verifiedRawSha256 !== rawSha256) {
     throw new Error("Agent result evidence hash mismatch.");
   }
   const runId = payload.runId || fallbackRunId;
   const adapter = payloadResult?.receipt?.adapterId || fallbackAdapter;
+  const model = payloadResult?.receipt?.model?.trim() || "";
+  const reasoningEffort = payloadResult?.receipt?.reasoningEffort ?? undefined;
+  const metadataSource = payloadResult?.receipt?.metadataSource ?? undefined;
+  const appAcceptedAndBound = payloadResult?.receipt?.appAcceptedAndBound;
+  const providerAttested = payloadResult?.receipt?.providerAttested;
   if (!runId || !adapter) {
     throw new Error("Agent result transport evidence is incomplete.");
+  }
+  if (appAcceptedAndBound !== true || providerAttested !== false) {
+    throw new Error("Agent result trust evidence is incomplete.");
   }
   return {
     agentLine,
@@ -15034,6 +16691,9 @@ const readThoughtAgentReturn = async (
       runId,
       adapter,
       rawResponseSha256: rawSha256.replace(/^sha256:/, ""),
+      ...(model ? { model } : {}),
+      ...(reasoningEffort ? { reasoningEffort } : {}),
+      ...(metadataSource ? { metadataSource } : {}),
     } satisfies ThoughtV2LocalAgentEvidence,
   };
 };
@@ -15083,7 +16743,9 @@ const pollThoughtAgentRun = async (input: {
     }
 
     setStatus(
-      state === "created"
+      state === "ready"
+        ? `Codex passed preflight for ${input.runId} and is continuing automatically.`
+        : state === "created"
         ? `waiting for THOUGHT Bridge ${input.runId}...`
         : `Codex running ${input.runId}...`,
     );
@@ -16184,7 +17846,9 @@ const runAgent = async (options?: { forceGenerate?: boolean; cli?: boolean }) =>
   lastPreviewRetryContext = null;
 
   try {
-    await ensureActiveThoughtSpec({ force: true });
+    if (!USE_LATEST_LOCAL_GENERATION_SPEC) {
+      await ensureActiveThoughtSpec({ force: true });
+    }
     if (!isCurrentRunSession(runId)) {
       return;
     }
@@ -18572,7 +20236,9 @@ const currentWorkRecord = (): ThoughtWorkRecord | null => {
     text: currentOutputText,
     title: currentOutputText,
     rawOutput: currentRunContext.returnedText ?? "",
-    image: currentWorkSvg ? svgToImageUri(currentWorkSvg) : galleryThumbnailUri(currentOutputText),
+    image:
+      currentWorkImage ||
+      (currentWorkSvg ? svgToImageUri(currentWorkSvg) : galleryThumbnailUri(currentOutputText)),
     svg: currentWorkSvg,
     route: currentRunContext.mode,
     provider: currentRunContext.provider,
@@ -18755,7 +20421,9 @@ const buildMyBrainRunPayload = async (): Promise<PendingMyBrainRound> => {
     throw new Error("prompt empty.");
   }
 
-  await ensureActiveThoughtSpec({ force: true });
+  if (!USE_LATEST_LOCAL_GENERATION_SPEC) {
+    await ensureActiveThoughtSpec({ force: true });
+  }
   syncThoughtInstructionsControls();
   const payload = buildCurrentThoughtRunPayload(prompt, MY_BRAIN_MODEL);
   return {
@@ -19538,7 +21206,7 @@ const readWalletPathInventory = async (walletAddress: string): Promise<PathInven
   }
 
   let candidateIds: Set<bigint> | null = null;
-  if (THOUGHT_CHAIN_ID !== 31337) {
+  if (!IS_LOCAL_CONTRACT_INTEGRATION) {
     try {
       candidateIds = await fetchPathTokenIdsForWalletFromApi(walletAddress);
     } catch {
@@ -20462,10 +22130,13 @@ const executeCliCommand = async (rawCommand: string) => {
       writeCliTranscript();
       initializeCliTranscript();
     } else if (lowerHead === "reset") {
-      if (resetThought()) {
+      if (resetThoughtDock()) {
         appendCliOutput(["reset current work, canvas, and mint state.", "next: prompt <text>"]);
       } else {
-        blockPendingMintMutation({ cli: true });
+        appendCliOutput([
+          "reset blocked.",
+          "resolve the pending wallet request or transaction first.",
+        ]);
       }
     } else if (lowerHead === "gallery") {
       if (hasPendingMintTransaction()) {
@@ -20789,24 +22460,36 @@ thoughtDockPrompt.addEventListener("input", () => {
     thoughtDockPrompt.value = sessionState.prompt;
     return;
   }
-  resetMintRuntimeState();
-  pendingMyBrainRunPayload = null;
-  sessionState.prompt = thoughtDockPrompt.value;
-  promptBox.value = thoughtDockPrompt.value;
-  writeSessionState();
-  setWarning("");
-  if (!isThoughtDockRunningState(thoughtDockState)) {
-    const prompt = thoughtDockPrompt.value;
-    setThoughtDockState(prompt ? { kind: "ready", prompt } : { kind: "empty" });
-  } else {
-    syncThoughtDock();
-  }
+  resetThoughtDockPromptHistoryCursor();
+  const start = thoughtDockPrompt.selectionStart;
+  const end = thoughtDockPrompt.selectionEnd;
+  const direction = thoughtDockPrompt.selectionDirection;
+  applyThoughtDockPromptValue(
+    thoughtDockPrompt.value,
+    start === null || end === null
+      ? undefined
+      : {
+          start,
+          end,
+          direction: direction ?? "none",
+        },
+  );
 });
 
 thoughtDockPrompt.addEventListener("keydown", (event) => {
+  if (!event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey) {
+    if (event.key === "ArrowUp" && navigateThoughtDockPrompt("older")) {
+      event.preventDefault();
+      return;
+    }
+    if (event.key === "ArrowDown" && navigateThoughtDockPrompt("newer")) {
+      event.preventDefault();
+      return;
+    }
+  }
   if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && !event.isComposing) {
     event.preventDefault();
-    openThoughtDockAgentSelect();
+    void openThoughtDockAgentSelect();
   }
 });
 
@@ -20819,7 +22502,7 @@ thoughtDockWorksSelect.addEventListener("change", () => {
   emitThoughtConsoleEvent({
     kind: "work_loaded",
     title: "work loaded",
-    detail: work.prompt || work.runContext.prompt,
+    detail: "Loaded from this browser.",
     tone: "success",
     eventId: `work-loaded:${work.id}:${Date.now()}`,
   });
@@ -20960,7 +22643,7 @@ resetThoughtButton.addEventListener("click", () => {
   }
 
   if (secondaryActionState === "reset") {
-    resetThought();
+    resetThoughtDock({ clearPrompt: true, focusPrompt: true });
     return;
   }
 
@@ -21103,6 +22786,10 @@ const initFrontpage = async () => {
   configurePreviewWatermark();
   configureReportBugLink();
   configureGalleryLink();
+  if (IS_GALLERY_PAGE) {
+    window.location.replace(galleryUrl(GALLERY_TARGET_TOKEN_ID));
+    return;
+  }
   document.title = IS_COLOR_FONT_PAGE
     ? "Color Font"
     : IS_VERIFY_PAGE
@@ -21115,9 +22802,7 @@ const initFrontpage = async () => {
             : ROUTE_PLUGIN_AGENT === "claude"
               ? "THOUGHT Plugin · Claude"
               : "THOUGHT Plugin"
-        : IS_GALLERY_PAGE
-          ? "Gallery"
-          : IS_RUN_PAGE
+        : IS_RUN_PAGE
             ? "THOUGHT Run"
           : SURFACE_TERMINOLOGY.thoughtDapp;
 
@@ -21169,18 +22854,6 @@ const initFrontpage = async () => {
     return;
   }
 
-  if (IS_GALLERY_PAGE) {
-    frontpageStage.classList.add("is-hidden");
-    galleryPage.classList.remove("is-hidden");
-    thoughtPage.classList.add("is-hidden");
-    agentDemoPage.classList.add("is-hidden");
-    pluginPage.classList.add("is-hidden");
-    colorFontPage.classList.add("is-hidden");
-    verifyPage.classList.add("is-hidden");
-    await loadThoughtGallery();
-    return;
-  }
-
   if (IS_THOUGHT_PAGE) {
     frontpageStage.classList.add("is-hidden");
     galleryPage.classList.add("is-hidden");
@@ -21200,6 +22873,7 @@ const initFrontpage = async () => {
   pluginPage.classList.add("is-hidden");
   colorFontPage.classList.add("is-hidden");
   verifyPage.classList.add("is-hidden");
+  ensureThoughtConsoleWelcomeMessage();
   loadCliTranscript();
   const hydratedRunLink = await hydrateThoughtRunLink();
   const resumedPendingThoughtDockRun = hydratedRunLink ? false : resumeThoughtDockPendingRun();
@@ -21209,12 +22883,22 @@ const initFrontpage = async () => {
   }
   loadCliCommandHistory();
   if (!hydratedRunLink && !resumedPendingThoughtDockRun && !resumedPendingThoughtAgentRun) {
-    resetThought({ preserveStoredOutput: true });
-    restoreCurrentOutputSession();
-    restoreCurrentCandidateSession();
+    const openedFreshCreation =
+      IS_FRESH_CREATION_ENTRY &&
+      await currentOutputSessionIsMinted() &&
+      beginFreshThoughtCreation();
+    if (!openedFreshCreation) {
+      resetThought({ preserveStoredOutput: true });
+      restoreCurrentOutputSession();
+      restoreCurrentCandidateSession();
+    }
+  }
+  if (IS_FRESH_CREATION_ENTRY) {
+    consumeFreshCreationEntryUrl();
   }
   initializeCliTranscript();
   syncInterface();
+  void syncEmptyFrameStyleFromContract();
 
   try {
     const handledOpenRouterCallback = await handleOpenRouterCallback();
@@ -21247,6 +22931,21 @@ const initFrontpage = async () => {
       await mintThoughtDockWork();
     } else {
       recordCurrentMintConsoleState();
+    }
+    if (
+      restoredDanglingMintRequest &&
+      !pendingMintTransaction &&
+      mintFlowState !== "minted" &&
+      mintFlowState !== "text_taken"
+    ) {
+      emitThoughtConsoleEvent({
+        kind: "mint_request_interrupted",
+        title: "mint status needs checking",
+        detail: "The page reloaded before the wallet returned a transaction hash.",
+        nextStep: "check wallet activity before trying again",
+        tone: "warning",
+        eventId: `mint-request-interrupted:${restoredDanglingMintRequest.id}`,
+      });
     }
   }
   syncInterface();

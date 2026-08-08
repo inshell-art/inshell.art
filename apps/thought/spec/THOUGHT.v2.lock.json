@@ -1,0 +1,26 @@
+{
+  "schema": "inshell.thought.creative-spec-lock.v1",
+  "artifactId": "thought-v2-selected-spec-20260801-r10",
+  "artifact": {
+    "name": "THOUGHT.v2.md",
+    "path": "apps/thought/spec/THOUGHT.v2.md",
+    "version": "v2",
+    "status": "selected-by-canonical-portable-contract-release",
+    "byteLength": 4627,
+    "sha256": "90df786a3ffb5ec38bffd09ff356ec560d0b7dddcdf57170891149a92a399e9b",
+    "thoughtSpecId": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410",
+    "thoughtSpecHash": "0xb2b0a167678816a7ae9dc9098b0d6a6852c0dc95feb59f9581de75bd2cc2231f",
+    "encoding": "utf-8",
+    "lineEndings": "lf"
+  },
+  "authority": {
+    "owner": "THOUGHT App",
+    "repository": "https://github.com/inshell-art/inshell.art.git",
+    "changePolicy": "Any byte change requires a new artifact ID and new hashes. Previously locked bytes are never replaced."
+  },
+  "contractIntegration": {
+    "status": "accepted-by-canonical-portable-release-local",
+    "registered": false,
+    "note": "The exact r10 selected-spec bytes are pinned unchanged by thought-v2-canonical-portable-release-20260801-r1. Local disposable acceptance passed; persistent deployment and production registration remain unauthorized."
+  }
+}

@@ -1,0 +1,379 @@
+{
+  "artifactId": "thought-v2-noncanonical-integration-preview-20260731-r8",
+  "artifactKind": "thought-v2-contract-integration-preview",
+  "channel": "experimental",
+  "classification": "noncanonical-integration-preview",
+  "compatibility": {
+    "creationAttestation": {
+      "id": "inshell.thought.creation-workflow-attestation.v2",
+      "idKeccak256": "0x5759a606b1b0b1ba997b2d7b851c7e2022ed8ff4e0238e55e29ad8b36ce9194a"
+    },
+    "contextProfile": {
+      "id": "inshell.thought.context.v2.visible-utf8-64",
+      "idKeccak256": "0x9894359f9294f4b3a871442b19d851203138fad4a648c16f62fc04f55dff02b8"
+    },
+    "metadataProfile": {
+      "id": "inshell.thought.metadata.v2.terminal-chat",
+      "idKeccak256": "0x4cefae9cf44cc61bc8ec16e266ecb31f53e634834fe5975cc564ae9dfc51858b"
+    },
+    "protocol": {
+      "id": "inshell.thought.protocol.v2",
+      "release": "v2",
+      "status": "implementation-candidate"
+    },
+    "provenance": {
+      "id": "inshell.thought.provenance.v2"
+    },
+    "renderer": {
+      "canonicalId": "inshell.thought.svg.v2.terminal-chat-path-glyphs",
+      "canonicalIdKeccak256": "0x01982604c90acf1ca63020e0c3761b25d8dc8fc3c267d27ace14cb0d2c813d73",
+      "finalImplementationIncluded": true,
+      "geometry": {
+        "artboard": "1024x1024",
+        "canvas": "960x960@32,32",
+        "canvasScale": 1,
+        "fields": {
+          "agent": {
+            "bottom": 832,
+            "height": 256,
+            "horizontalAlign": "left",
+            "verticalAlign": "bottom",
+            "width": 844.8,
+            "x": 57.6,
+            "y": 576
+          },
+          "prompt": {
+            "bottom": 384,
+            "height": 256,
+            "horizontalAlign": "right",
+            "verticalAlign": "top",
+            "width": 844.8,
+            "x": 57.6,
+            "y": 128
+          }
+        },
+        "frameColor": "#006100",
+        "frameUnitsPerSide": 32,
+        "glyphColor": "#00ff00"
+      },
+      "packagedImplementation": "inshell.thought.renderer.v2.humanist-smooth-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom"
+    },
+    "selectedSpec": {
+      "byteLength": 3936,
+      "name": "THOUGHT.v2.md",
+      "sha256": "58c353a6283fdd3dbae4a212bb5470ffe3afaca8c592ad9aff2e97b855082e82",
+      "thoughtSpecHash": "0xc0661f522867afd109cfe28bcd3f28d04a849757de946879e0992718a72e6a61",
+      "thoughtSpecId": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410"
+    },
+    "workProfile": {
+      "id": "inshell.thought.work.v2.terminal-english-64",
+      "idKeccak256": "0x2bf311e6034eb35e6d1f7bd92894012ee7e528609830cb3b28df1ce5dd82f85a"
+    }
+  },
+  "createdAt": "2026-07-31T10:51:23Z",
+  "files": [
+    {
+      "byteLength": 36126,
+      "mediaType": "application/json",
+      "path": "contract/compiled/CreationAttestationVerifierV2.json",
+      "sha256": "207da0ebf4bb89fc4e008a6a85ece1ed46fc4d59f1686ed8e7b03d9d23150518"
+    },
+    {
+      "byteLength": 5687,
+      "mediaType": "application/json",
+      "path": "contract/compiled/ICreationAttestationVerifierV2.json",
+      "sha256": "b342a8fe6c16f3f7053d6f4841c22ab0f3e64f3a7cb3aa17349aef29dc35eb98"
+    },
+    {
+      "byteLength": 4320,
+      "mediaType": "application/json",
+      "path": "contract/compiled/IThoughtRendererV2.json",
+      "sha256": "568b2fd2e480e277a15a48e2a9d1ae5c341bd8e6a86927ca681128ca2263133e"
+    },
+    {
+      "byteLength": 116966,
+      "mediaType": "application/json",
+      "path": "contract/compiled/ThoughtNFTV2.json",
+      "sha256": "7413b430cbdccee597768b7c6b75d88beeccd51b3d6b6ae853264e02ded1b0fc"
+    },
+    {
+      "byteLength": 89936,
+      "mediaType": "application/json",
+      "path": "contract/compiled/ThoughtRendererV2.json",
+      "sha256": "d8806a0c5f6b854beaceac9e3da80ce7f670951368ed269c3850d0e85a7f2822"
+    },
+    {
+      "byteLength": 31310,
+      "mediaType": "application/json",
+      "path": "contract/compiled/ThoughtSpecRegistry.json",
+      "sha256": "461a0a54f6ab7a07c66491ea28697184b51abee2042d2b0b06837378495c532d"
+    },
+    {
+      "byteLength": 13916,
+      "mediaType": "application/json",
+      "path": "contract/compiled/ThoughtSpecRegistryV2.json",
+      "sha256": "a4dd41ea531cfed129fdaffa9be49a5f277564571a976549521d0d0e8502cb9d"
+    },
+    {
+      "byteLength": 2069,
+      "mediaType": "application/json",
+      "path": "contract/index.json",
+      "sha256": "ce4cea3e6a35d6f37bf56bd7483495287fba6f27f43d83d0320c95cd13aad020"
+    },
+    {
+      "byteLength": 115038,
+      "mediaType": "application/json",
+      "path": "fixtures/neutral-agent-model-token-uri-examples.anvil.json",
+      "sha256": "37c3d62b69d9af55325af23220150029b756743288833aa6c127b1e54e973fb4"
+    },
+    {
+      "byteLength": 5591,
+      "mediaType": "text/markdown; charset=utf-8",
+      "path": "handoff.md",
+      "sha256": "d909085500942d9995e018ff08f91bc9ecffe8f2d726094d441e34eab8c906ef"
+    },
+    {
+      "byteLength": 564,
+      "mediaType": "application/json",
+      "path": "limitations.json",
+      "sha256": "128fa80d0517cc6648ccdac4e98e2f26c8b3dff730f28c650b8f6632e176b1c7"
+    },
+    {
+      "byteLength": 710,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/agent/thought.agent-declaration.v1.schema.json",
+      "sha256": "d9564d994763e643c77d853d9200f39a31677f718c715dce3b4c3ec29f406afd"
+    },
+    {
+      "byteLength": 2241,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/attestation/fixtures/creation-attestation-v2-vectors.json",
+      "sha256": "864078414975468447cb754f665543787f2c90143de70af7f2dfb0283e05ae0d"
+    },
+    {
+      "byteLength": 3753,
+      "mediaType": "text/markdown; charset=utf-8",
+      "path": "protocol/current/v2/attestation/thought.creation-workflow-attestation.v2.md",
+      "sha256": "7bb817b84df2537b3e9cb7bc46c7cc729c6557911abf4f58579672d2cf3aff5c"
+    },
+    {
+      "byteLength": 1090,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/conformance/work-hash-vectors.json",
+      "sha256": "2fc13425cee5da853ac0f9b658857c5cf89c0bbdf6e6c55583ded6bf0e5ab6fb"
+    },
+    {
+      "byteLength": 1179,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/context/thought.context.v2.profile.json",
+      "sha256": "2d81e42a3690869f86c2dc2b753a82af33ec7ecdbe079e5a41b9e0ce8482f63f"
+    },
+    {
+      "byteLength": 2347,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/contract/thought.mint-input.v2.schema.json",
+      "sha256": "716054091c607f748aa083049a4bd6dcbe009bb207a1526f5cd2855a1a441654"
+    },
+    {
+      "byteLength": 6099,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/integration/thought.app-contract-boundary.v1.json",
+      "sha256": "78a8962f0a566b7b80865bc2e9fd00d7f100e1457615b772b38ce0035ce9dbd1"
+    },
+    {
+      "byteLength": 7470,
+      "mediaType": "text/markdown; charset=utf-8",
+      "path": "protocol/current/v2/integration/thought.app-contract-boundary.v1.md",
+      "sha256": "881fa82fbe80dae2a28a6fe369230d1a0c637ac53c5d670566f60b80951b8fbf"
+    },
+    {
+      "byteLength": 1547,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/metadata/thought.metadata.v2.profile.json",
+      "sha256": "8d422d1e91db7c1133e31417e277d561508a5887e4becc11e948242a4e7e1a7e"
+    },
+    {
+      "byteLength": 3454,
+      "mediaType": "text/markdown; charset=utf-8",
+      "path": "protocol/current/v2/provenance/thought.provenance.v2.md",
+      "sha256": "495aee4aab4d43170a16f64e431d3d507839fd5b68be277351aeaf26f1687a7a"
+    },
+    {
+      "byteLength": 6272,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/provenance/thought.provenance.v2.schema.json",
+      "sha256": "0a353167ea460f7fb24c52d0cce106c9bedaa348e561bab1c683beb43fa59398"
+    },
+    {
+      "byteLength": 3349,
+      "mediaType": "text/markdown; charset=utf-8",
+      "path": "protocol/current/v2/README.md",
+      "sha256": "dcff0d17b5c28648ca2211ab2421dcee74a49d83d4933a020c0959a50a6c0e79"
+    },
+    {
+      "byteLength": 3496,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/release-input.json",
+      "sha256": "d6dd8d361c3bdebdbbcbed8bdbb52d2cf6a6abd45838a1018c6040ca413ae778"
+    },
+    {
+      "byteLength": 2540,
+      "mediaType": "application/octet-stream",
+      "path": "protocol/current/v2/renderer/experiments/classic-book/classic-book.im76.bin",
+      "sha256": "3ab51d7dcdce7e358e7c76002b8f78ddaa448a99de2116a238f7e22209f2bd60"
+    },
+    {
+      "byteLength": 3094,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/renderer/experiments/classic-book/thought.renderer.v2.classic-book.experiment.json",
+      "sha256": "b7f047f381d22090cb67a7b4e461b1f29117b6df561e5b8e14dc703a816ce51b"
+    },
+    {
+      "byteLength": 2631,
+      "mediaType": "application/octet-stream",
+      "path": "protocol/current/v2/renderer/experiments/classic-compact/classic-compact.im76.bin",
+      "sha256": "204bf9e84103b57175e1dc0be06b3f42e91a4d0f8fb5b8b7457b52ff63c79393"
+    },
+    {
+      "byteLength": 3114,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/renderer/experiments/classic-compact/thought.renderer.v2.classic-compact.experiment.json",
+      "sha256": "d480004484e3d62e7098629078f4e7e4e92e812fed55793e40a47ce249292832"
+    },
+    {
+      "byteLength": 2514,
+      "mediaType": "application/octet-stream",
+      "path": "protocol/current/v2/renderer/experiments/classic-line/classic-line.im76.bin",
+      "sha256": "d06f7403b4963d8f46e6e8559c7ab0e4a21a65aa3681b210bfe433d74ea56b42"
+    },
+    {
+      "byteLength": 3094,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/renderer/experiments/classic-line/thought.renderer.v2.classic-line.experiment.json",
+      "sha256": "279537baabdac99fe073139dc5ae407076346f7d1d5522275e7e1eca3c2e607e"
+    },
+    {
+      "byteLength": 2696,
+      "mediaType": "application/octet-stream",
+      "path": "protocol/current/v2/renderer/experiments/classic-round/classic-round.im76.bin",
+      "sha256": "72ea88523caf278828b833368c4a3a289f7b80866ac464325d04f031c48e3a01"
+    },
+    {
+      "byteLength": 3101,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/renderer/experiments/classic-round/thought.renderer.v2.classic-round.experiment.json",
+      "sha256": "084a3e8b2b085975e3807911ec1bf8a2ace3e50026c53cbf61c2abed1d8e4b22"
+    },
+    {
+      "byteLength": 15557,
+      "mediaType": "application/octet-stream",
+      "path": "protocol/current/v2/renderer/humanist-smooth-defs-1.svgfrag",
+      "sha256": "e344b7b8af8b9b11094594cf1e8d7efb05572e6d81b99d60c9afd313cc7a42bd"
+    },
+    {
+      "byteLength": 12779,
+      "mediaType": "application/octet-stream",
+      "path": "protocol/current/v2/renderer/humanist-smooth-defs-2.svgfrag",
+      "sha256": "95e5e25a99f3cc176e80d3aebe42be3230b50d489d1788aa1d22e58350030962"
+    },
+    {
+      "byteLength": 375,
+      "mediaType": "application/octet-stream",
+      "path": "protocol/current/v2/renderer/humanist-smooth-index.bin",
+      "sha256": "daa5c1b21eba07ab39712bc560faaf4156d137ee3575c5323cf98539c9ca8102"
+    },
+    {
+      "byteLength": 4473,
+      "mediaType": "text/markdown; charset=utf-8",
+      "path": "protocol/current/v2/renderer/LICENSE-HUMANIST-SMOOTH-OFL-1.1.md",
+      "sha256": "6234e3f17f21084f690e3adae017a32f866d5880ed2b5daaae59d8d78f021968"
+    },
+    {
+      "byteLength": 782,
+      "mediaType": "text/markdown; charset=utf-8",
+      "path": "protocol/current/v2/renderer/NOTICE-HUMANIST-SMOOTH.md",
+      "sha256": "aa70cd4ab472ebaaddbc870e0affd7826b018c1b22d6fb2a423681d24949a0a2"
+    },
+    {
+      "byteLength": 3892,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/renderer/thought.renderer.v2.profile.json",
+      "sha256": "32641c0a5b9c1f39a2d37bd153b24c5d60b72dd015006c04faa452b2d044086b"
+    },
+    {
+      "byteLength": 3936,
+      "mediaType": "text/markdown; charset=utf-8",
+      "path": "protocol/current/v2/THOUGHT.v2.md",
+      "sha256": "58c353a6283fdd3dbae4a212bb5470ffe3afaca8c592ad9aff2e97b855082e82"
+    },
+    {
+      "byteLength": 5734,
+      "mediaType": "text/markdown; charset=utf-8",
+      "path": "protocol/current/v2/work/thought.work.v2.md",
+      "sha256": "b3f744ea3ba5b4252da3e676c3ae0f28bf8a5cb6455d457d7c2c7c1e0eeb2cc4"
+    },
+    {
+      "byteLength": 2254,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/work/thought.work.v2.profile.json",
+      "sha256": "f7b2981d1bdf15923a1b73cc91dea0bbf6483f469583a3f66cb71c414f4382bf"
+    },
+    {
+      "byteLength": 815,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/work/thought.work.v2.schema.json",
+      "sha256": "47571f007fc4325ceab960be2d41bc286fa0ca71d303d57c3487d7673823e066"
+    },
+    {
+      "byteLength": 331,
+      "mediaType": "application/json",
+      "path": "README.json",
+      "sha256": "bf250552b8f909221b0e88021964dfb945fcdb099479c1143718b9a346105595"
+    },
+    {
+      "byteLength": 994,
+      "mediaType": "text/typescript; charset=utf-8",
+      "path": "reference/thought-v2-canonical-json.ts",
+      "sha256": "1392290634e9e6ce93f3fdbc58cf1f3d672f9696fc9e8656e761e8ce2c4f74db"
+    },
+    {
+      "byteLength": 3255,
+      "mediaType": "text/typescript; charset=utf-8",
+      "path": "reference/thought-v2-context-profile.ts",
+      "sha256": "be4c3223491ef5b09c560bbbb1b23dd143e6855f6d1d72707e0e51d286cc6a8d"
+    },
+    {
+      "byteLength": 5286,
+      "mediaType": "text/typescript; charset=utf-8",
+      "path": "reference/thought-v2-current-creation-attestation.ts",
+      "sha256": "8a8e42bd0c456e4b56b97ee9b5d76ebb79d6398ada988f8e807eebd88474876a"
+    },
+    {
+      "byteLength": 21092,
+      "mediaType": "text/typescript; charset=utf-8",
+      "path": "reference/thought-v2-terminal-provenance.ts",
+      "sha256": "e78145a72c0b07b641d716ac1cca3111bccb64d67795ce88eec6fde966b01ad2"
+    },
+    {
+      "byteLength": 4872,
+      "mediaType": "text/typescript; charset=utf-8",
+      "path": "reference/thought-v2-terminal-work-profile.ts",
+      "sha256": "345bb3783bb859995b0d109a55f1553c7ac42662c665c58dd57147d033284b22"
+    }
+  ],
+  "flags": {
+    "candidateOrStable": false,
+    "deploymentAuthorized": false,
+    "productionConsumable": false,
+    "registrationAuthorized": false
+  },
+  "schema": "inshell.thought.immutable-artifact-manifest.v1",
+  "source": {
+    "baseCommit": "7000bfd8816011c079eb2494d535e0b443879370",
+    "branch": "codex/thought-v2-chat-svg-experiment",
+    "changedPaths": [],
+    "dirty": false,
+    "remote": "https://github.com/inshell-art/THOUGHT.git",
+    "tag": "thought-v2-noncanonical-integration-preview-20260731-r8"
+  }
+}

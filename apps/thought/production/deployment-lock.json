@@ -1,0 +1,21 @@
+{
+  "schema": "inshell.thought.production-deployment-lock.v1",
+  "status": "not-deployed",
+  "enabled": false,
+  "requiredArtifactId": "thought-v2-canonical-portable-release-20260807-r2",
+  "artifactId": null,
+  "manifestSha256": null,
+  "chainId": null,
+  "contracts": null,
+  "release": null,
+  "attestation": null,
+  "serverBindings": {
+    "rpc": "THOUGHT_RPC_URL",
+    "signer": "THOUGHT_ATTESTATION_SIGNER"
+  },
+  "authorization": {
+    "deploymentApproved": false,
+    "frontendActivationApproved": false,
+    "signerActivationApproved": false
+  }
+}

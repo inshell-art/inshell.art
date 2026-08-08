@@ -16,7 +16,7 @@
   <meta name="twitter:description" content="THOUGHT creation, minting, and gallery for Inshell." />
   <meta name="twitter:image" content="https://inshell.art/og.png" />
   <meta name="theme-color" content="#008080" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <script>
     (() => {
       const params = new URLSearchParams(window.location.search);
@@ -110,11 +110,10 @@
     <div id="thought-shell-root"></div>
     <section class="frontpage-stage" aria-labelledby="frontpage-title">
       <header class="thought-create__header">
-        <h1 id="frontpage-title" class="thought-create__title">THOUGHT</h1>
-        <nav class="thought-create__links" aria-label="THOUGHT create links">
-          <a href="/thought/plugin">[ plugin ]</a>
-          <a href="/thought/verify">[ verify ]</a>
-        </nav>
+        <div class="thought-create__identity">
+          <h1 id="frontpage-title" class="thought-create__title">THOUGHT</h1>
+          <p class="thought-create__slogan">one person. one Agent. one thought.</p>
+        </div>
       </header>
       <div class="frontpage-main">
         <div class="thought-canvas-column">
@@ -142,8 +141,6 @@
             <p class="thought-panel__subtitle">made by your Agent</p>
             <nav class="thought-panel__links" aria-label="THOUGHT panel links">
               <a href="/gallery">Gallery</a>
-              <a href="/thought/plugin">Plugin</a>
-              <a href="/thought/verify">Verify</a>
             </nav>
           </header>
           <div class="thought-panel__body">
@@ -160,6 +157,7 @@
                     autocomplete="off"
                     spellcheck="true"
                     placeholder="give a thought here"
+                    title="Up/Down: prompt history"
                   />
                 </div>
                 <section
@@ -481,7 +479,7 @@
 
     <section id="plugin-page" class="thought-plugin-page is-hidden" aria-labelledby="plugin-title">
       <header class="thought-plugin-page__header">
-        <p class="thought-plugin-page__eyebrow">THOUGHT Plugin</p>
+        <p class="thought-plugin-page__eyebrow">THOUGHT Agent launch</p>
         <h1 id="plugin-title" class="thought-plugin-page__title">Start from your Agent app</h1>
         <p id="plugin-summary" class="thought-plugin-page__summary">
           The Agent makes the candidate. THOUGHT is where you review and mint it.
@@ -490,22 +488,23 @@
       <div class="thought-plugin-page__grid">
         <article id="plugin-codex-card" class="thought-plugin-card">
           <h2>Codex</h2>
-          <p>Use Codex to open a sealed THOUGHT task, return one candidate, and send the result back to the run link.</p>
+          <p>Open one sealed THOUGHT task in Codex within the ChatGPT desktop app.</p>
           <ol>
-            <li>Install or enable the THOUGHT Plugin for Codex.</li>
-            <li>Ask Codex to make a THOUGHT.</li>
-            <li>Open the returned run link here to review and mint.</li>
+            <li>Start a THOUGHT and choose Codex.</li>
+            <li>Open the prefilled Codex task and select Submit once.</li>
+            <li>Return here to review and mint the verified result.</li>
           </ol>
           <a href="/">Create from website</a>
         </article>
         <article id="plugin-claude-card" class="thought-plugin-card">
           <h2>Claude</h2>
-          <p>Use Claude to receive the same sealed task format and return a THOUGHT run link for review.</p>
+          <p>Open one sealed THOUGHT task in Claude. THOUGHT uses Cowork first.</p>
           <ol>
-            <li>Install or enable the THOUGHT Plugin for Claude.</li>
-            <li>Ask Claude to make a THOUGHT.</li>
-            <li>Open the returned run link here to review and mint.</li>
+            <li>Start a THOUGHT and choose Claude.</li>
+            <li>Open the prefilled Claude task and select Submit once.</li>
+            <li>Return here to review and mint the verified result.</li>
           </ol>
+          <p>Claude Code appears only as recovery after Cowork cannot finish a run.</p>
           <a href="/">Create from website</a>
         </article>
       </div>

@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "id": "inshell.thought.app-contract-boundary.v1",
+  "status": "contract-owner-draft-for-joint-review",
+  "authoritative": false,
+  "productionAuthorization": false,
+  "implementationBaseline": "current-v2-registry-bound-candidate",
+  "currentExecutableBoundary": {
+    "constructorDependencies": [
+      "pathNft",
+      "thoughtSpecRegistry",
+      "thoughtRenderer",
+      "protocolRegistry",
+      "protocolReleaseId",
+      "creationAttestationVerifier"
+    ],
+    "mintInputFields": [
+      "promptLine",
+      "agentLine",
+      "declaredAgent",
+      "declaredModel",
+      "pathId",
+      "thoughtSpecId",
+      "thoughtSpecHash",
+      "provenanceJson",
+      "deadline",
+      "pathSignature",
+      "creationAttestation"
+    ],
+    "profiles": {
+      "work": "inshell.thought.work.v2.terminal-english-64",
+      "context": "inshell.thought.context.v2.visible-utf8-64",
+      "metadata": "inshell.thought.metadata.v2.terminal-chat",
+      "renderer": "inshell.thought.svg.v2.terminal-chat-path-glyphs",
+      "provenance": "inshell.thought.provenance.v2",
+      "creationAttestation": "inshell.thought.creation-workflow-attestation.v1"
+    },
+    "limits": {
+      "promptLineUtf8Bytes": 64,
+      "agentLineUtf8Bytes": 64,
+      "declaredAgentUtf8Bytes": 64,
+      "declaredModelUtf8Bytes": 64,
+      "provenanceUtf8Bytes": 20000
+    },
+    "registryDependencies": {
+      "thoughtSpecRegistry": "required-at-construction-and-mint",
+      "protocolRegistry": "required-at-construction",
+      "protocolReleaseId": "required-registered-immutable-constructor-pin",
+      "selectedSpecPair": "required-registered-mint-input-and-stored-state"
+    },
+    "provenance": {
+      "submittedBy": "mint-caller",
+      "contractHandling": "store-opaque-exact-bytes-and-derive-keccak256",
+      "contractSemanticValidation": false,
+      "positiveAppFlowExpectation": "canonical-inshell.thought.provenance.v2-built-and-verified-offchain",
+      "attestationBinding": "keccak256-of-exact-provenance-bytes"
+    },
+    "creationAttestation": {
+      "domainName": "Inshell THOUGHT Creation Attestation",
+      "domainVersion": "1",
+      "primaryType": "CreationAttestation",
+      "claimFields": [
+        "profileId",
+        "thoughtNft",
+        "protocolReleaseId",
+        "thoughtSpecId",
+        "thoughtSpecHash",
+        "workHash",
+        "provenanceHash",
+        "declaredAgentHash",
+        "declaredModelHash",
+        "runIdHash",
+        "intendedMinter",
+        "deadline",
+        "authorityEpoch"
+      ],
+      "emptyProof": {
+        "runIdHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "deadline": "0",
+        "authorityEpoch": 0,
+        "signature": "0x",
+        "result": "Unattested"
+      },
+      "validNonemptyProofResult": "Inshell THOUGHT App",
+      "meaning": "the configured authority signed the exact claim; it does not independently prove provider identity, model identity, or semantic compliance"
+    },
+    "metadataTraits": {
+      "attested": [
+        "Attested Agent",
+        "Attested Model",
+        "Creation Attestation",
+        "Prompt Bytes",
+        "Agent Bytes",
+        "Pair Bytes",
+        "Prompt Length",
+        "Agent Length"
+      ],
+      "unattested": [
+        "Creation Attestation",
+        "Prompt Bytes",
+        "Agent Bytes",
+        "Pair Bytes",
+        "Prompt Length",
+        "Agent Length"
+      ],
+      "agentModelGate": "nonzero-creation-attestation-digest",
+      "declarationAssurance": "declared-unverified"
+    },
+    "contractOutputs": [
+      "typed-token-state",
+      "provenance-exact-bytes-and-hash",
+      "creation-attestation-digest",
+      "embedded-erc721-metadata",
+      "embedded-svg",
+      "selected-spec-readback",
+      "protocol-manifest-readback"
+    ]
+  },
+  "proposedOwnership": {
+    "status": "requires-joint-approval",
+    "appOwner": [
+      "creative-work-specification",
+      "official-creation-workflow",
+      "canonical-provenance-schema-and-builder",
+      "official-claim-reconstruction-and-signing-policy",
+      "wallet-and-path-selection-ux",
+      "mint-calldata-construction"
+    ],
+    "contractOwner": [
+      "hard-work-and-declaration-validation",
+      "work-identity-and-uniqueness",
+      "creation-attestation-verifier",
+      "path-consumption-and-atomic-mint",
+      "typed-token-state",
+      "metadata-and-renderer",
+      "contract-release-artifacts-and-conformance"
+    ],
+    "jointIntegrationSurface": [
+      "mint-abi",
+      "creation-attestation-eip712-profile",
+      "contract-release-lock",
+      "app-integration-lock",
+      "cross-repository-conformance-vectors"
+    ]
+  },
+  "proposedTarget": {
+    "status": "discussion-only-not-authorized",
+    "removeFromActiveMintPath": [
+      "thoughtSpecRegistry",
+      "thoughtSpecId",
+      "thoughtSpecHash",
+      "protocolRegistry",
+      "protocolReleaseId"
+    ],
+    "replacementRegistryAuthorized": false,
+    "implementationAuthorized": false
+  },
+  "knownAuthorityConflict": {
+    "document": "docs/agent/THOUGHT_ARTIFACT_CONSUMPTION_BOOK.md",
+    "issue": "the current authority document assigns creative-spec and provenance-schema ownership to THOUGHT, while this draft proposes THOUGHT App ownership",
+    "resolution": "joint-review-required-before-authoritative-document-or-contract-change"
+  },
+  "openDecisions": [
+    {
+      "id": "D1",
+      "topic": "final Creation Attestation EIP-712 type and technical profile name"
+    },
+    {
+      "id": "D2",
+      "topic": "manual-work UI entry and field labels"
+    },
+    {
+      "id": "D3",
+      "topic": "minimal deterministic provenance profile for guided Unattested mints"
+    },
+    {
+      "id": "D4",
+      "topic": "whether raw provenance is exposed by the App or only by Contract Lab and direct calldata"
+    },
+    {
+      "id": "D5",
+      "topic": "signer authority, rotation, pause, custody, and epoch policy"
+    },
+    {
+      "id": "D6",
+      "topic": "final uniqueness policy and accepted Unattested ordering race"
+    },
+    {
+      "id": "D7",
+      "topic": "historical and publication status of registry and verifier artifacts before any detachment"
+    },
+    {
+      "id": "D8",
+      "topic": "cross-repository handoff and immutable integration-lock formats"
+    }
+  ]
+}

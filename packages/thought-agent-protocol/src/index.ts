@@ -1,18 +1,80 @@
-import {
-  measureThoughtLine as measureReleasedThoughtLine,
-  type ThoughtLineKind,
-  type ThoughtLineMeasure,
-} from "@inshell/shared";
 import { THOUGHT_V2_PROTOCOL_RELEASE } from "./release.generated";
 
+type ThoughtLineKind = "prompt" | "agent";
+
+type ThoughtLineMeasure = {
+  byteLength: number;
+  errors: string[];
+};
+
+const THOUGHT_TERMINAL_PUNCTUATION = `.,?!:;'"-()/&`;
+const THOUGHT_TERMINAL_CHARACTERS =
+  ` ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789${THOUGHT_TERMINAL_PUNCTUATION}`;
+const thoughtTerminalCharacterSet = new Set(THOUGHT_TERMINAL_CHARACTERS);
+
+if (
+  THOUGHT_TERMINAL_CHARACTERS.length !== 76 ||
+  thoughtTerminalCharacterSet.size !== 76
+) {
+  throw new Error("THOUGHT terminal repertoire must contain 76 unique characters");
+}
+
+const thoughtCodepointLabel = (value: string): string => {
+  const codepoint = value.codePointAt(0);
+  return codepoint === undefined
+    ? "unknown"
+    : `U+${codepoint.toString(16).toUpperCase().padStart(4, "0")}`;
+};
+
+const measureReleasedThoughtLine = (
+  value: string,
+  kind: ThoughtLineKind,
+): ThoughtLineMeasure => {
+  const byteLength = new TextEncoder().encode(value).byteLength;
+  const errors: string[] = [];
+
+  if (byteLength === 0) errors.push(`${kind} line is empty`);
+  if (byteLength > THOUGHT_V2_PROTOCOL_RELEASE.limits.agentMaxBytes) {
+    errors.push(
+      `${kind} line is ${byteLength}/${THOUGHT_V2_PROTOCOL_RELEASE.limits.agentMaxBytes} bytes`,
+    );
+  }
+  if (value.startsWith(" ") || value.endsWith(" ")) {
+    errors.push(`${kind} line has an outer space`);
+  }
+  if (value.includes("  ")) {
+    errors.push(`${kind} line has repeated internal spaces`);
+  }
+  for (const character of value) {
+    if (!thoughtTerminalCharacterSet.has(character)) {
+      errors.push(`${kind} line contains unsupported ${thoughtCodepointLabel(character)}`);
+    }
+  }
+
+  return { byteLength, errors };
+};
+
 export { THOUGHT_V2_PROTOCOL_RELEASE } from "./release.generated";
+export { THOUGHT_AGENT_CREATIVE_BRIEF } from "./creative-brief.generated";
 export {
   THOUGHT_CODEX_CLIENT_ROUTE,
   buildThoughtCodexClientScript,
+  buildThoughtCodexOperationContract,
   buildThoughtCodexTask,
   type ThoughtCodexReleaseBinding,
+  type ThoughtCodexResultContractBinding,
   type ThoughtCodexTaskInput,
 } from "./codex-client";
+export {
+  THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION,
+  buildThoughtClaudeOperationContract,
+  buildThoughtClaudeTask,
+  isThoughtClaudeCoworkPublicHttpsOrigin,
+  type ThoughtClaudeReleaseBinding,
+  type ThoughtClaudeResultContractBinding,
+  type ThoughtClaudeSurface,
+  type ThoughtClaudeTaskInput,
+} from "./claude-client";
 
 export const THOUGHT_AGENT_PROTOCOL_VERSION =
   THOUGHT_V2_PROTOCOL_RELEASE.agentRunId;
@@ -25,6 +87,10 @@ export const THOUGHT_AGENT_RESULT_VERSION =
 export const THOUGHT_AGENT_DECLARATION_VERSION =
   THOUGHT_V2_PROTOCOL_RELEASE.identifiers.agentDeclaration;
 export const THOUGHT_SHA256_PREFIX = "sha256:" as const;
+export const THOUGHT_AGENT_CLAIM_TTL_MS = 30 * 60 * 1000;
+export const THOUGHT_AGENT_RUN_TTL_MS = 30 * 60 * 1000;
+export const THOUGHT_AGENT_POLL_TIMEOUT_MS =
+  THOUGHT_AGENT_CLAIM_TTL_MS + THOUGHT_AGENT_RUN_TTL_MS;
 
 export const THOUGHT_AGENT_LINE_CONTRACT = {
   workProfile: THOUGHT_V2_PROTOCOL_RELEASE.identifiers.workProfile,
@@ -35,29 +101,13 @@ export const THOUGHT_AGENT_LINE_CONTRACT = {
     THOUGHT_V2_PROTOCOL_RELEASE.limits.displayUnitsAreAcceptanceLimits,
 } as const;
 
-export const THOUGHT_AGENT_OUTPUT_SCHEMA = {
-  type: "object",
-  properties: {
-    schema: {
-      const: THOUGHT_AGENT_RESULT_VERSION,
-    },
-    agentLine: {
-      type: "string",
-      minLength: 1,
-      "x-thought-line-profile": THOUGHT_AGENT_LINE_CONTRACT.workProfile,
-      "x-thought-utf8-min-bytes": THOUGHT_AGENT_LINE_CONTRACT.minUtf8Bytes,
-      "x-thought-utf8-max-bytes": THOUGHT_AGENT_LINE_CONTRACT.maxUtf8Bytes,
-      "x-thought-normalization": THOUGHT_AGENT_LINE_CONTRACT.normalization,
-    },
-    declaration: THOUGHT_V2_PROTOCOL_RELEASE.declarationSchema,
-  },
-  required: ["schema", "agentLine"],
-  additionalProperties: false,
-} as const;
+export const THOUGHT_AGENT_OUTPUT_SCHEMA =
+  THOUGHT_V2_PROTOCOL_RELEASE.resultSchema;
 
 export const THOUGHT_AGENT_STATES = [
   "created",
   "claimed",
+  "ready",
   "running",
   "returned",
   "failed",
@@ -141,13 +191,76 @@ export type ThoughtAgentAdapterInfo = {
   adapterVersion: string;
 };
 
+export const THOUGHT_AGENT_REASONING_EFFORTS = [
+  "none",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+  "ultra",
+] as const;
+
+export type ThoughtAgentReasoningEffort =
+  (typeof THOUGHT_AGENT_REASONING_EFFORTS)[number];
+
+export type ThoughtAgentMetadataSource =
+  | "reported"
+  | "configured"
+  | "unknown";
+
 export type ThoughtAgentInfo = {
   product: string;
   productVersion?: string;
   provider?: string;
   model?: string;
-  metadataSource: "reported" | "configured" | "unknown";
+  reasoningEffort?: ThoughtAgentReasoningEffort;
+  metadataSource: ThoughtAgentMetadataSource;
 };
+
+const displayModelPart = (value: string) => {
+  const normalized = value.toLowerCase();
+  if (normalized === "gpt") return "GPT";
+  if (normalized === "codex") return "Codex";
+  if (normalized === "xhigh") return "XHigh";
+  return value.length > 0
+    ? `${value.slice(0, 1).toUpperCase()}${value.slice(1)}`
+    : value;
+};
+
+export function formatThoughtAgentModelLabel(
+  model: string | null | undefined,
+  reasoningEffort?: string | null,
+): string {
+  const exactModel = model?.trim() ?? "";
+  if (!exactModel || exactModel.toLowerCase() === "unknown") {
+    return "unknown";
+  }
+  const parts = exactModel.split("-").filter(Boolean);
+  const modelLabel =
+    parts[0]?.toLowerCase() === "gpt" && parts.length > 1
+      ? `GPT-${parts.slice(1).map(displayModelPart).join(" ")}`
+      : parts.map(displayModelPart).join(" ");
+  const exactEffort = reasoningEffort?.trim() ?? "";
+  return exactEffort && exactEffort.toLowerCase() !== "unknown"
+    ? `${modelLabel} · ${displayModelPart(exactEffort)}`
+    : modelLabel;
+}
+
+export function thoughtAgentModelIdentifier(
+  model: string | null | undefined,
+  reasoningEffort?: string | null,
+): string | undefined {
+  const exactModel = model?.trim() ?? "";
+  if (!exactModel || exactModel.toLowerCase() === "unknown") {
+    return undefined;
+  }
+  const exactEffort = reasoningEffort?.trim() ?? "";
+  return exactEffort && exactEffort.toLowerCase() !== "unknown"
+    ? `${exactModel}/reasoning_effort/${exactEffort}`
+    : exactModel;
+}
 
 export type ThoughtAgentExecutionInfo = {
   visibleTurns: number;
@@ -156,6 +269,19 @@ export type ThoughtAgentExecutionInfo = {
   sandboxPolicy: string;
   approvalPolicy: string;
   userConfigPolicy: string;
+};
+
+export const THOUGHT_AGENT_CONTROL_VERSION =
+  "inshell.thought.agent-control.v1" as const;
+
+export type ThoughtAgentControlEvidence = {
+  schema: typeof THOUGHT_AGENT_CONTROL_VERSION;
+  mode: "bounded-preflight";
+  appExchange: "verified";
+  runtimeIdentity: "available";
+  localPreparation: "verified";
+  installationsRequired: false;
+  creativeInputOpened: false;
 };
 
 export type ThoughtAgentOutput = {
@@ -244,6 +370,7 @@ export type ThoughtAgentReceipt = {
   trust: {
     transportVerified: true;
     bridgeDeclared: true;
+    appAcceptedAndBound: true;
     providerAttested: false;
   };
 };
@@ -257,6 +384,10 @@ export type BuiltThoughtAgentInput = {
 export type ParsedThoughtAgentOutput = {
   raw: string;
   rawSha256: ThoughtSha256;
+  release: {
+    protocolReleaseId: typeof THOUGHT_V2_PROTOCOL_RELEASE.release.protocolReleaseId;
+    manifestKeccak256: typeof THOUGHT_V2_PROTOCOL_RELEASE.release.manifestKeccak256;
+  };
   agentLine: string;
   agentLineSha256: ThoughtSha256;
   declaration?: ThoughtAgentDeclaration;
@@ -264,9 +395,8 @@ export type ParsedThoughtAgentOutput = {
 
 export type ThoughtAgentDeclaration = {
   schema: typeof THOUGHT_AGENT_DECLARATION_VERSION;
-  agentLabel: string;
-  specId: string;
-  specHash: string;
+  status: "declared-unverified";
+  label: string;
   declaredOneCreativeResult: true;
 };
 
@@ -289,7 +419,8 @@ export class ThoughtAgentProtocolError extends Error {
 const allowedTransitions: Record<ThoughtAgentState, readonly ThoughtAgentState[]> =
   {
     created: ["claimed", "cancelled", "expired"],
-    claimed: ["running", "failed", "cancelled", "expired"],
+    claimed: ["ready", "failed", "cancelled", "expired"],
+    ready: ["running", "failed", "cancelled", "expired"],
     running: ["returned", "failed", "cancelled", "expired"],
     returned: [],
     failed: [],
@@ -461,6 +592,18 @@ export function parseAgentInfo(value: unknown): ThoughtAgentInfo {
       "Invalid agent metadataSource.",
     );
   }
+  const reasoningEffort = object.reasoningEffort;
+  if (
+    reasoningEffort !== undefined &&
+    !THOUGHT_AGENT_REASONING_EFFORTS.includes(
+      reasoningEffort as ThoughtAgentReasoningEffort,
+    )
+  ) {
+    throw new ThoughtAgentProtocolError(
+      "AGENT_OUTPUT_SCHEMA_INVALID",
+      "Invalid agent reasoningEffort.",
+    );
+  }
   return {
     product: requireString(object.product, "agent.product"),
     ...(optionalString(object.productVersion)
@@ -468,6 +611,9 @@ export function parseAgentInfo(value: unknown): ThoughtAgentInfo {
       : {}),
     ...(optionalString(object.provider) ? { provider: String(object.provider) } : {}),
     ...(optionalString(object.model) ? { model: String(object.model) } : {}),
+    ...(reasoningEffort
+      ? { reasoningEffort: reasoningEffort as ThoughtAgentReasoningEffort }
+      : {}),
     metadataSource,
   };
 }
@@ -487,6 +633,47 @@ export function parseExecutionInfo(value: unknown): ThoughtAgentExecutionInfo {
       object.userConfigPolicy,
       "userConfigPolicy",
     ),
+  };
+}
+
+export function parseThoughtAgentControlEvidence(
+  value: unknown,
+): ThoughtAgentControlEvidence {
+  const object = asObject(value, "control evidence");
+  const requiredKeys = [
+    "schema",
+    "mode",
+    "appExchange",
+    "runtimeIdentity",
+    "localPreparation",
+    "installationsRequired",
+    "creativeInputOpened",
+  ];
+  const keys = Object.keys(object);
+  if (
+    keys.length !== requiredKeys.length ||
+    requiredKeys.some((key) => !keys.includes(key)) ||
+    object.schema !== THOUGHT_AGENT_CONTROL_VERSION ||
+    object.mode !== "bounded-preflight" ||
+    object.appExchange !== "verified" ||
+    object.runtimeIdentity !== "available" ||
+    object.localPreparation !== "verified" ||
+    object.installationsRequired !== false ||
+    object.creativeInputOpened !== false
+  ) {
+    throw new ThoughtAgentProtocolError(
+      "AGENT_OUTPUT_SCHEMA_INVALID",
+      "The Agent control evidence did not match the required schema.",
+    );
+  }
+  return {
+    schema: THOUGHT_AGENT_CONTROL_VERSION,
+    mode: "bounded-preflight",
+    appExchange: "verified",
+    runtimeIdentity: "available",
+    localPreparation: "verified",
+    installationsRequired: false,
+    creativeInputOpened: false,
   };
 }
 
@@ -513,15 +700,32 @@ export async function parseAgentOutput(
 
   const object = asObject(parsed, "agent output");
   const keys = Object.keys(object);
-  const allowedKeys = new Set(["schema", "agentLine", "declaration"]);
+  const allowedKeys = new Set(["schema", "release", "agentLine", "declaration"]);
   if (
     keys.some((key) => !allowedKeys.has(key)) ||
+    !keys.includes("release") ||
     object.schema !== THOUGHT_AGENT_RESULT_VERSION ||
     typeof object.agentLine !== "string"
   ) {
     throw new ThoughtAgentProtocolError(
       "AGENT_OUTPUT_SCHEMA_INVALID",
       "The agent final response did not match the required schema.",
+    );
+  }
+  const release = asObject(object.release, "agent output release");
+  const releaseKeys = Object.keys(release);
+  if (
+    releaseKeys.length !== 2 ||
+    !releaseKeys.includes("protocolReleaseId") ||
+    !releaseKeys.includes("manifestKeccak256") ||
+    release.protocolReleaseId !==
+      THOUGHT_V2_PROTOCOL_RELEASE.release.protocolReleaseId ||
+    release.manifestKeccak256 !==
+      THOUGHT_V2_PROTOCOL_RELEASE.release.manifestKeccak256
+  ) {
+    throw new ThoughtAgentProtocolError(
+      "AGENT_OUTPUT_SCHEMA_INVALID",
+      "The agent final response release binding did not match the required release.",
     );
   }
   assertThoughtLine(object.agentLine, "agent");
@@ -533,6 +737,10 @@ export async function parseAgentOutput(
   return {
     raw,
     rawSha256: await sha256Hex(raw),
+    release: {
+      protocolReleaseId: THOUGHT_V2_PROTOCOL_RELEASE.release.protocolReleaseId,
+      manifestKeccak256: THOUGHT_V2_PROTOCOL_RELEASE.release.manifestKeccak256,
+    },
     agentLine: object.agentLine,
     agentLineSha256: await sha256Hex(object.agentLine),
     ...(declaration ? { declaration } : {}),
@@ -557,15 +765,15 @@ export function parseAgentDeclaration(value: unknown): ThoughtAgentDeclaration {
   const keys = Object.keys(object);
   const requiredKeys = [
     "schema",
-    "agentLabel",
-    "specId",
-    "specHash",
+    "status",
+    "label",
     "declaredOneCreativeResult",
   ];
   if (
     keys.length !== requiredKeys.length ||
     requiredKeys.some((key) => !keys.includes(key)) ||
     object.schema !== THOUGHT_AGENT_DECLARATION_VERSION ||
+    object.status !== "declared-unverified" ||
     object.declaredOneCreativeResult !== true
   ) {
     throw new ThoughtAgentProtocolError(
@@ -573,14 +781,12 @@ export function parseAgentDeclaration(value: unknown): ThoughtAgentDeclaration {
       "The Agent declaration did not match the required schema.",
     );
   }
-  const agentLabel = requireString(object.agentLabel, "declaration.agentLabel");
-  const specId = requireString(object.specId, "declaration.specId");
-  const specHash = requireString(object.specHash, "declaration.specHash");
-  if (
-    byteLengthUtf8(agentLabel) > 128 ||
-    !/^0x[0-9a-f]{64}$/.test(specId) ||
-    !/^0x[0-9a-f]{64}$/.test(specHash)
-  ) {
+  const label = requireString(object.label, "declaration.label");
+  const hasControlByte = Array.from(label).some((character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return codePoint <= 0x1f || codePoint === 0x7f;
+  });
+  if (byteLengthUtf8(label) > 64 || hasControlByte) {
     throw new ThoughtAgentProtocolError(
       "AGENT_OUTPUT_SCHEMA_INVALID",
       "The Agent declaration contains invalid fields.",
@@ -588,9 +794,8 @@ export function parseAgentDeclaration(value: unknown): ThoughtAgentDeclaration {
   }
   return {
     schema: THOUGHT_AGENT_DECLARATION_VERSION,
-    agentLabel,
-    specId,
-    specHash,
+    status: "declared-unverified",
+    label,
     declaredOneCreativeResult: true,
   };
 }
@@ -622,6 +827,7 @@ export async function buildThoughtAgentReceipt(
     trust: {
       transportVerified: true,
       bridgeDeclared: true,
+      appAcceptedAndBound: true,
       providerAttested: false,
     },
   };

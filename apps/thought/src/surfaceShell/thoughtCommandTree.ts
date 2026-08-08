@@ -194,7 +194,7 @@ export const thoughtCommandTree: ThoughtCommandNode[] = [
         renderHelp: () => ({
           kind: "guidance",
           title: "my-brain route",
-          body: "you become the model for one THOUGHT round.",
+          body: "you become the model for one THOUGHT run.",
           sections: [
             {
               title: "use",
@@ -209,7 +209,7 @@ export const thoughtCommandTree: ThoughtCommandNode[] = [
         renderHelp: () => ({
           kind: "guidance",
           title: "Codex route",
-          body: "THOUGHT Bridge opens Codex for one THOUGHT round.",
+          body: "THOUGHT Bridge opens Codex for one THOUGHT run.",
           sections: [
             {
               title: "use",

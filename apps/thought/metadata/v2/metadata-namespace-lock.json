@@ -1,0 +1,48 @@
+{
+  "schema": "inshell.thought.metadata-namespace-lock.v1",
+  "artifactId": "thought-metadata-namespace-v2-20260731-r1",
+  "namespace": "thought",
+  "metadataProfile": "inshell.thought.metadata.v2.terminal-chat",
+  "authority": {
+    "tokenMetadataOwner": "THOUGHT Contract",
+    "provenanceDocumentOwner": "THOUGHT App"
+  },
+  "publication": {
+    "published": false,
+    "packaged": true,
+    "requiresCanonicalExternalUrlRelease": true,
+    "canonicalOrigin": "https://inshell.art",
+    "previewOrigin": "https://preview.inshell.art",
+    "immutableReleasePath": "/protocol/releases/thought-metadata-namespace-v2-20260731-r1/",
+    "manifest": {
+      "file": "manifest.json",
+      "sha256": "7cfeaff4c95edd4db6a48e97fa8bf3550fbf9b30c7cc0c90a2023fdbdd021790",
+      "keccak256": "0x570f53f2b32a46e8bfeca743f204eb57b326d4f3a0347d62fdadbf0c8aec1c6c"
+    }
+  },
+  "conventionalMetadata": {
+    "externalUrlBase": "https://inshell.art/thought/",
+    "externalUrlInsideNamespace": false
+  },
+  "validation": {
+    "contractArtifactId": "thought-v2-canonical-portable-release-20260801-r1",
+    "decodedFixture": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260801-r1/fixtures/neutral-agent-model-token-uri-examples.anvil.json",
+    "decodedExamples": 3,
+    "creationAttestationStatuses": [
+      "Inshell THOUGHT App",
+      "Unattested"
+    ]
+  },
+  "artifacts": {
+    "schema": {
+      "file": "thought.metadata-namespace.v2.schema.json",
+      "sha256": "f901946d37298227f6d8888f66e66d9d93976d61c4f7ab7c46b53e3d8aa451a3",
+      "keccak256": "0xd9686c01b90b739f6bcfcdd2db373820f0f8380f413628bb153395d8c025fa52"
+    },
+    "spec": {
+      "file": "thought.metadata-namespace.v2.md",
+      "sha256": "0f3a9a6a7225f8a18606cf504ab2d980c30035d7078bd1158258cdb991a2b523",
+      "keccak256": "0x20971bc83795840aea1ad1967c0fa20960eb4577da2948b74ff67fdfb10e4bc4"
+    }
+  }
+}

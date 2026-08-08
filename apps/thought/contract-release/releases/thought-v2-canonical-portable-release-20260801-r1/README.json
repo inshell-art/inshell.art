@@ -1,0 +1,10 @@
+{
+  "artifactId": "thought-v2-canonical-portable-release-20260801-r1",
+  "channel": "stable",
+  "classification": "canonical-portable-contract-release",
+  "deploymentAuthorized": false,
+  "productionConsumable": true,
+  "registrationApplicable": false,
+  "registrationAuthorized": false,
+  "sourceTag": "thought-v2-canonical-portable-release-20260801-r1"
+}

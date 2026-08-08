@@ -1,0 +1,152 @@
+{
+  "abi": [
+    {
+      "type": "function",
+      "name": "GLYPH_LIBRARY_MEMBER_ID",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "string",
+          "internalType": "string"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "GLYPH_SOURCE_SHA256",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "IMPLEMENTATION_ID",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "string",
+          "internalType": "string"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "IMPLEMENTATION_ID_HASH",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "glyphDefinitionsIndexPointer",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "glyphDefinitionsKeccak256",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "glyphDefinitionsPointer1",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "glyphDefinitionsPointer2",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "render",
+      "inputs": [
+        {
+          "name": "promptLine",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "agentLine",
+          "type": "string",
+          "internalType": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "string",
+          "internalType": "string"
+        }
+      ],
+      "stateMutability": "view"
+    }
+  ],
+  "bytecode": "0x",
+  "classification": "current-svg-renderer-interface",
+  "compiler": {
+    "version": "0.8.28+commit.7893614a"
+  },
+  "contractName": "IThoughtSvgRendererV2",
+  "deployedBytecode": "0x",
+  "methodIdentifiers": {
+    "GLYPH_LIBRARY_MEMBER_ID()": "8513ea4e",
+    "GLYPH_SOURCE_SHA256()": "8fd36d25",
+    "IMPLEMENTATION_ID()": "fa20c43d",
+    "IMPLEMENTATION_ID_HASH()": "f1679a6f",
+    "glyphDefinitionsIndexPointer()": "85449a9a",
+    "glyphDefinitionsKeccak256()": "0fa61b0c",
+    "glyphDefinitionsPointer1()": "152693ca",
+    "glyphDefinitionsPointer2()": "1bd3603f",
+    "render(string,string)": "581eebf6"
+  },
+  "schema": "inshell.thought.compiled-contract.integration-preview.v1",
+  "sourceName": "src/v2/IThoughtSvgRendererV2.sol"
+}

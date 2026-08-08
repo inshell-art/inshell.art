@@ -444,7 +444,6 @@ function checkThoughtProductionGuards() {
     "const OPENROUTER_DEFAULT_MODEL = \"openrouter/free\";",
     "const token = getReadThoughtNFT();",
     "previewWorkViaAllowedProvider",
-    "createFrontendPreviewProvider",
     "VITE_THOUGHT_PREVIEW_ENDPOINT_ENABLED",
     "THOUGHT_PREVIEW_TIMEOUT_MS",
     "current candidate is not previewed.",
@@ -471,6 +470,15 @@ function checkThoughtProductionGuards() {
     if (!text.includes(snippet)) {
       fail(`apps/thought/src/main.ts is missing THOUGHT production guard: ${snippet}`);
     }
+  }
+  if (!text.includes("pinned THOUGHT renderer release mismatch; preview stopped.")) {
+    fail("apps/thought/src/main.ts must fail closed when the current renderer release is unavailable");
+  }
+  if (
+    text.includes("const createFrontendPreviewProvider =") ||
+    text.includes("buildThoughtV2Svg")
+  ) {
+    fail("apps/thought/src/main.ts must not expose an unpinned frontend renderer fallback");
   }
   if (text.includes("sessionStorage.setItem(THOUGHT_SESSION_STORAGE_KEY")) {
     fail("apps/thought/src/main.ts must use shared browser storage wrappers for THOUGHT provider route state");

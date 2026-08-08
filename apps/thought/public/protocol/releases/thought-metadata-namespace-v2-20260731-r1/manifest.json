@@ -1,0 +1,24 @@
+{
+  "schema": "inshell.thought.metadata-namespace-release-manifest.v1",
+  "artifactId": "thought-metadata-namespace-v2-20260731-r1",
+  "metadataProfile": "inshell.thought.metadata.v2.terminal-chat",
+  "namespace": "thought",
+  "releasePath": "/protocol/releases/thought-metadata-namespace-v2-20260731-r1/",
+  "status": "immutable",
+  "files": [
+    {
+      "path": "thought.metadata-namespace.v2.md",
+      "mediaType": "text/markdown; charset=utf-8",
+      "bytes": 8875,
+      "sha256": "0f3a9a6a7225f8a18606cf504ab2d980c30035d7078bd1158258cdb991a2b523",
+      "keccak256": "0x20971bc83795840aea1ad1967c0fa20960eb4577da2948b74ff67fdfb10e4bc4"
+    },
+    {
+      "path": "thought.metadata-namespace.v2.schema.json",
+      "mediaType": "application/schema+json; charset=utf-8",
+      "bytes": 7260,
+      "sha256": "f901946d37298227f6d8888f66e66d9d93976d61c4f7ab7c46b53e3d8aa451a3",
+      "keccak256": "0xd9686c01b90b739f6bcfcdd2db373820f0f8380f413628bb153395d8c025fa52"
+    }
+  ]
+}

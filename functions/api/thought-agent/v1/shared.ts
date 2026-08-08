@@ -1,8 +1,11 @@
 import {
   THOUGHT_AGENT_LINE_CONTRACT,
+  THOUGHT_AGENT_CONTROL_VERSION,
   THOUGHT_AGENT_OUTPUT_SCHEMA,
+  THOUGHT_AGENT_CLAIM_TTL_MS,
   THOUGHT_AGENT_PROTOCOL_VERSION,
   THOUGHT_AGENT_RECEIPT_VERSION,
+  THOUGHT_AGENT_RUN_TTL_MS,
   THOUGHT_V2_PROTOCOL_RELEASE,
   ThoughtAgentProtocolError,
   assertThoughtLine,
@@ -17,11 +20,13 @@ import {
   parseAgentOutput,
   parseBridgeInfo,
   parseCreateRunRequest,
+  parseThoughtAgentControlEvidence,
   parseResultRequest,
   sha256Hex,
   type ParsedThoughtAgentOutput,
   type ThoughtAgentAdapterInfo,
   type ThoughtAgentBridgeInfo,
+  type ThoughtAgentControlEvidence,
   type ThoughtAgentErrorCode,
   type ThoughtAgentState,
   type ThoughtSha256,
@@ -35,7 +40,13 @@ import {
   THOUGHT_AGENT_SPEC_BYTE_LENGTH,
   THOUGHT_AGENT_SPEC_SHA256_HEX,
   THOUGHT_AGENT_SPEC_TEXT,
+  THOUGHT_AGENT_CREATIVE_BRIEF_ARTIFACT_ID,
+  THOUGHT_AGENT_CREATIVE_BRIEF_BYTE_LENGTH,
+  THOUGHT_AGENT_CREATIVE_BRIEF_ID,
+  THOUGHT_AGENT_CREATIVE_BRIEF_SHA256_HEX,
+  THOUGHT_AGENT_CREATIVE_BRIEF_TEXT,
 } from "./thought-spec-source";
+import { THOUGHT_V2_PRODUCTION_DEPLOYMENT } from "../../../../apps/thought/src/thought-v2-production-deployment";
 
 type D1Statement = {
   bind: (...values: unknown[]) => D1Statement;
@@ -133,9 +144,7 @@ const CREATE_CLAIM_AUTHORIZATIONS_RUN_INDEX_SQL =
 const ensuredDbs = new WeakSet<object>();
 const RAW_RESULT_MAX_BYTES = 16 * 1024;
 const ACTIVE_RUN_LIMIT = 3;
-const CLAIM_TTL_MS = 5 * 60 * 1000;
 const CLAIM_AUTHORIZATION_TTL_MS = 2 * 60 * 1000;
-const RUN_TTL_MS = 10 * 60 * 1000;
 const DELETE_AFTER_MS = 24 * 60 * 60 * 1000;
 
 const thoughtAgentApiBase = (request: Request) => {
@@ -153,24 +162,39 @@ export const THOUGHT_AGENT_STATUS = {
   protocolReleaseKeccak256:
     THOUGHT_V2_PROTOCOL_RELEASE.protocolReleaseKeccak256,
   deploymentStatus: THOUGHT_V2_PROTOCOL_RELEASE.deployment.status,
-  v2MintEnabled: THOUGHT_V2_PROTOCOL_RELEASE.deployment.v2MintEnabled,
+  v2MintEnabled:
+    THOUGHT_V2_PROTOCOL_RELEASE.deployment.v2MintEnabled &&
+    THOUGHT_V2_PRODUCTION_DEPLOYMENT !== null,
   enabled: true,
   runStore: "d1",
   cleanupStatus: "ok",
-  supportedAdapters: ["codex"],
+  supportedAdapters: ["codex", "claude"],
   statusError: null,
 } as const;
 
-export function onRequestOptions(): Response {
+export function onRequestOptions(ctx?: ThoughtAgentRouteContext): Response {
+  const headers: Record<string, string> = {
+    Allow: "GET, POST, PUT, OPTIONS",
+    "Access-Control-Allow-Headers":
+      "authorization, content-type, idempotency-key",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
+    "Cache-Control": "no-store",
+  };
+  const origin = ctx?.request.headers.get("origin")?.trim();
+  if (origin) {
+    try {
+      const normalized = new globalThis.URL(origin).origin;
+      if (ctx && isAllowedOrigin(normalized, ctx.env)) {
+        headers["Access-Control-Allow-Origin"] = normalized;
+        headers.Vary = "Origin";
+      }
+    } catch {
+      // Invalid origins do not receive cross-origin authorization.
+    }
+  }
   return new Response(null, {
     status: 204,
-    headers: {
-      Allow: "GET, POST, PUT, OPTIONS",
-      "Access-Control-Allow-Headers":
-        "authorization, content-type, idempotency-key",
-      "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
-      "Cache-Control": "no-store",
-    },
+    headers,
   });
 }
 
@@ -184,7 +208,10 @@ export async function createRun(ctx: ThoughtAgentRouteContext): Promise<Response
     if (body.specId !== THOUGHT_AGENT_REGISTERED_SPEC_ID) {
       throw new HttpProtocolError(404, "SPEC_NOT_FOUND", "THOUGHT spec not found.");
     }
-    if (body.requestedAgent.adapterId !== "codex") {
+    if (
+      body.requestedAgent.adapterId !== "codex" &&
+      body.requestedAgent.adapterId !== "claude"
+    ) {
       throw new HttpProtocolError(
         400,
         "ADAPTER_NOT_INSTALLED",
@@ -194,14 +221,21 @@ export async function createRun(ctx: ThoughtAgentRouteContext): Promise<Response
 
     const specSha256 = await registeredSpecSha256();
     const expectedSpecSha256 = `sha256:${THOUGHT_AGENT_SPEC_SHA256_HEX}`;
+    const creativeBriefSha256 = await sha256Hex(
+      THOUGHT_AGENT_CREATIVE_BRIEF_TEXT,
+    );
     if (
       byteLengthUtf8(THOUGHT_AGENT_SPEC_TEXT) !== THOUGHT_AGENT_SPEC_BYTE_LENGTH ||
-      specSha256 !== expectedSpecSha256
+      specSha256 !== expectedSpecSha256 ||
+      byteLengthUtf8(THOUGHT_AGENT_CREATIVE_BRIEF_TEXT) !==
+        THOUGHT_AGENT_CREATIVE_BRIEF_BYTE_LENGTH ||
+      creativeBriefSha256 !==
+        `sha256:${THOUGHT_AGENT_CREATIVE_BRIEF_SHA256_HEX}`
     ) {
       throw new HttpProtocolError(
         500,
         "SPEC_HASH_MISMATCH",
-        "Registered THOUGHT spec source mismatch.",
+        "Pinned THOUGHT spec or creative brief source mismatch.",
       );
     }
 
@@ -226,8 +260,12 @@ export async function createRun(ctx: ThoughtAgentRouteContext): Promise<Response
     const browserTokenHash = await sha256Hex(browserToken);
     const launchTokenHash = await sha256Hex(launchToken);
     const createdAt = now.toISOString();
-    const claimExpiresAt = new Date(now.getTime() + CLAIM_TTL_MS).toISOString();
-    const runExpiresAt = new Date(now.getTime() + RUN_TTL_MS).toISOString();
+    const claimExpiresAt = new Date(
+      now.getTime() + THOUGHT_AGENT_CLAIM_TTL_MS,
+    ).toISOString();
+    const runExpiresAt = new Date(
+      now.getTime() + THOUGHT_AGENT_RUN_TTL_MS,
+    ).toISOString();
     const deleteAfter = new Date(now.getTime() + DELETE_AFTER_MS).toISOString();
 
     await insertRun(db, {
@@ -241,7 +279,9 @@ export async function createRun(ctx: ThoughtAgentRouteContext): Promise<Response
       spec_id: THOUGHT_AGENT_REGISTERED_SPEC_ID,
       spec_sha256: specSha256,
       contract_spec_hash: THOUGHT_AGENT_CONTRACT_SPEC_HASH,
-      spec_text: THOUGHT_AGENT_SPEC_TEXT,
+      // The legacy column name is retained for D1 compatibility. New V2 rows
+      // store the separately locked Agent-facing creative brief here.
+      spec_text: THOUGHT_AGENT_CREATIVE_BRIEF_TEXT,
       prompt_text: prompt,
       prompt_sha256: promptSha256,
       agent_input_text: agentInput.text,
@@ -274,7 +314,6 @@ export async function createRun(ctx: ThoughtAgentRouteContext): Promise<Response
     const launchUri = `thought://agent/run?run_id=${encodeURIComponent(
       runId,
     )}&token=${encodeURIComponent(launchToken)}&api_origin=${encodeURIComponent(origin)}`;
-
     return protocolJson(ctx, 201, {
       runId,
       state: "created",
@@ -329,7 +368,11 @@ export async function claimRun(ctx: ThoughtAgentRouteContext): Promise<Response>
 
     const bridgeToken = randomToken(32);
     const bridgeTokenHash = await sha256Hex(bridgeToken);
-    const updatedAt = new Date().toISOString();
+    const claimedAt = new Date();
+    const updatedAt = claimedAt.toISOString();
+    const runExpiresAt = new Date(
+      claimedAt.getTime() + THOUGHT_AGENT_RUN_TTL_MS,
+    ).toISOString();
     const changed = await updateClaimed(
       db,
       current.run_id,
@@ -338,7 +381,7 @@ export async function claimRun(ctx: ThoughtAgentRouteContext): Promise<Response>
       JSON.stringify(bridge),
       JSON.stringify(adapter),
       updatedAt,
-      current.run_expires_at,
+      runExpiresAt,
     );
     if (!changed) {
       throw new HttpProtocolError(
@@ -351,8 +394,11 @@ export async function claimRun(ctx: ThoughtAgentRouteContext): Promise<Response>
       runId: current.run_id,
       state: "claimed",
       bridgeToken,
-      runExpiresAt: current.run_expires_at,
-      request: claimRequestPayload(current),
+      runExpiresAt,
+      request:
+        thoughtAgentApiBase(ctx.request) === "/api/thought-agent/v2"
+          ? controlRequestPayload(current)
+          : creativeRequestPayload(current),
     });
   });
 }
@@ -409,13 +455,62 @@ export async function authorizeClaimRun(
   });
 }
 
+export async function readyRun(ctx: ThoughtAgentRouteContext): Promise<Response> {
+  return withProtocolErrors(ctx, async () => {
+    const db = await getDb(ctx);
+    const row = await requireRun(db, runIdFromContext(ctx));
+    const current = await expireIfNeeded(db, row);
+    await verifyBridgeToken(ctx.request, current);
+    if (current.state === "ready") {
+      if (!current.execution_metadata_json) {
+        throw stateConflict(current.state);
+      }
+      return protocolJson(ctx, 200, {
+        runId: current.run_id,
+        state: "ready",
+        stage: "control-verified",
+        updatedAt: current.updated_at,
+        control: parseThoughtAgentControlEvidence(
+          JSON.parse(current.execution_metadata_json),
+        ),
+      });
+    }
+    if (current.state !== "claimed") {
+      throw stateConflict(current.state);
+    }
+    const body = asProtocolObject(await readJson(ctx.request, 4 * 1024));
+    assertProtocolVersion(body.protocolVersion);
+    const control = parseThoughtAgentControlEvidence(body.control);
+    const updatedAt = new Date().toISOString();
+    const changed = await updateReady(
+      db,
+      current.run_id,
+      current.bridge_token_hash,
+      control,
+      updatedAt,
+    );
+    if (!changed) {
+      throw stateConflict(current.state);
+    }
+    return protocolJson(ctx, 200, {
+      runId: current.run_id,
+      state: "ready",
+      stage: "control-verified",
+      updatedAt,
+      control,
+    });
+  });
+}
+
 export async function startRun(ctx: ThoughtAgentRouteContext): Promise<Response> {
   return withProtocolErrors(ctx, async () => {
     const db = await getDb(ctx);
     const row = await requireRun(db, runIdFromContext(ctx));
     const current = await expireIfNeeded(db, row);
     await verifyBridgeToken(ctx.request, current);
-    if (current.state !== "claimed") {
+    const boundedControl =
+      thoughtAgentApiBase(ctx.request) === "/api/thought-agent/v2";
+    if (current.state !== (boundedControl ? "ready" : "claimed")) {
       throw stateConflict(current.state);
     }
     const body = asProtocolObject(await readJson(ctx.request, 4 * 1024));
@@ -439,6 +534,9 @@ export async function startRun(ctx: ThoughtAgentRouteContext): Promise<Response>
       state: "running",
       invocationId,
       startedAt,
+      ...(boundedControl
+        ? { request: creativeRequestPayload(current) }
+        : {}),
     });
   });
 }
@@ -587,7 +685,11 @@ export async function failRun(ctx: ThoughtAgentRouteContext): Promise<Response> 
     const row = await requireRun(db, runIdFromContext(ctx));
     const current = await expireIfNeeded(db, row);
     await verifyBridgeToken(ctx.request, current);
-    if (current.state !== "claimed" && current.state !== "running") {
+    if (
+      current.state !== "claimed" &&
+      current.state !== "ready" &&
+      current.state !== "running"
+    ) {
       throw stateConflict(current.state);
     }
     const body = asProtocolObject(await readJson(ctx.request, 8 * 1024));
@@ -933,6 +1035,27 @@ async function updateClaimed(
   return changed(result);
 }
 
+async function updateReady(
+  db: D1Database,
+  runId: string,
+  bridgeTokenHash: ThoughtSha256 | null,
+  control: ThoughtAgentControlEvidence,
+  updatedAt: string,
+): Promise<boolean> {
+  const result = await db
+    .prepare(
+      "UPDATE thought_agent_runs SET state = 'ready', execution_metadata_json = ?2, updated_at = ?3 WHERE run_id = ?1 AND state = 'claimed' AND bridge_token_hash = ?4 AND invocation_id IS NULL",
+    )
+    .bind(
+      runId,
+      JSON.stringify(control),
+      updatedAt,
+      bridgeTokenHash,
+    )
+    .run();
+  return changed(result);
+}
+
 async function updateStarted(
   db: D1Database,
   runId: string,
@@ -943,7 +1066,7 @@ async function updateStarted(
 ): Promise<boolean> {
   const result = await db
     .prepare(
-      "UPDATE thought_agent_runs SET state = 'running', invocation_id = ?2, started_at = ?3, updated_at = ?4 WHERE run_id = ?1 AND state = 'claimed' AND bridge_token_hash = ?5 AND invocation_id IS NULL",
+      "UPDATE thought_agent_runs SET state = 'running', invocation_id = ?2, started_at = ?3, updated_at = ?4 WHERE run_id = ?1 AND state IN ('claimed', 'ready') AND bridge_token_hash = ?5 AND invocation_id IS NULL",
     )
     .bind(runId, invocationId, startedAt, updatedAt, bridgeTokenHash)
     .run();
@@ -1004,7 +1127,7 @@ async function updateFailed(
 ): Promise<boolean> {
   const result = await db
     .prepare(
-      "UPDATE thought_agent_runs SET state = 'failed', invocation_id = COALESCE(invocation_id, ?2), completed_at = ?3, error_code = ?4, error_message = ?5, updated_at = ?6 WHERE run_id = ?1 AND state IN ('claimed', 'running') AND bridge_token_hash = ?7",
+      "UPDATE thought_agent_runs SET state = 'failed', invocation_id = COALESCE(invocation_id, ?2), completed_at = ?3, error_code = ?4, error_message = ?5, updated_at = ?6 WHERE run_id = ?1 AND state IN ('claimed', 'ready', 'running') AND bridge_token_hash = ?7",
     )
     .bind(
       runId,
@@ -1027,7 +1150,7 @@ async function updateCancelled(
 ): Promise<boolean> {
   const result = await db
     .prepare(
-      "UPDATE thought_agent_runs SET state = 'cancelled', updated_at = ?3 WHERE run_id = ?1 AND browser_token_hash = ?2 AND state IN ('created', 'claimed', 'running')",
+      "UPDATE thought_agent_runs SET state = 'cancelled', updated_at = ?3 WHERE run_id = ?1 AND browser_token_hash = ?2 AND state IN ('created', 'claimed', 'ready', 'running')",
     )
     .bind(runId, browserTokenHash, updatedAt)
     .run();
@@ -1055,7 +1178,7 @@ async function activeRunCount(
 ): Promise<number> {
   const row = await db
     .prepare(
-      "SELECT COUNT(*) AS active_count FROM thought_agent_runs WHERE visitor_hash = ?1 AND state IN ('created', 'claimed', 'running')",
+      "SELECT COUNT(*) AS active_count FROM thought_agent_runs WHERE visitor_hash = ?1 AND state IN ('created', 'claimed', 'ready', 'running')",
     )
     .bind(visitorHash)
     .first<{ active_count?: number }>();
@@ -1115,6 +1238,7 @@ function statusPayload(row: ThoughtAgentRow): Record<string, unknown> {
     },
   };
   if (row.state === "returned") {
+    const agentMetadata = receiptAgentMetadata(row.agent_metadata_json);
     base.result = {
       raw: row.raw_result,
       agentLine: row.work_text,
@@ -1122,7 +1246,10 @@ function statusPayload(row: ThoughtAgentRow): Record<string, unknown> {
         receiptVersion: THOUGHT_AGENT_RECEIPT_VERSION,
         receiptSha256: row.receipt_sha256,
         adapterId: row.requested_adapter_id,
-        model: receiptModel(row.agent_metadata_json),
+        model: agentMetadata.model,
+        reasoningEffort: agentMetadata.reasoningEffort,
+        metadataSource: agentMetadata.metadataSource,
+        appAcceptedAndBound: true,
         providerAttested: false,
       },
     };
@@ -1131,6 +1258,12 @@ function statusPayload(row: ThoughtAgentRow): Record<string, unknown> {
       canonicalText: null,
       error: null,
     };
+  }
+  if (row.state === "ready" && row.execution_metadata_json) {
+    const control = parseThoughtAgentControlEvidence(
+      JSON.parse(row.execution_metadata_json),
+    );
+    base.control = control;
   }
   if (row.state === "failed") {
     base.error = {
@@ -1141,7 +1274,34 @@ function statusPayload(row: ThoughtAgentRow): Record<string, unknown> {
   return base;
 }
 
-function claimRequestPayload(row: ThoughtAgentRow): Record<string, unknown> {
+function controlRequestPayload(row: ThoughtAgentRow): Record<string, unknown> {
+  return {
+    intent: "prepare-thought-creation",
+    requestedAgent: {
+      adapterId: row.requested_adapter_id,
+      model: row.requested_model,
+    },
+    controlPolicy: {
+      mode: "bounded-preflight",
+      allowMultipleControlTurns: true,
+      continueOnSuccess: true,
+      recoverySignal: "RETRY",
+      requireRuntimeIdentityBeforeCreativeInput: true,
+      installationsAllowed: false,
+      creativeInputState: "sealed",
+    },
+    evidenceContract: {
+      schema: THOUGHT_AGENT_CONTROL_VERSION,
+      appExchange: "verified",
+      runtimeIdentity: "available",
+      localPreparation: "verified",
+      installationsRequired: false,
+      creativeInputOpened: false,
+    },
+  };
+}
+
+function creativeRequestPayload(row: ThoughtAgentRow): Record<string, unknown> {
   return {
     intent: "generate-thought-candidate",
     requestedAgent: {
@@ -1160,14 +1320,16 @@ function claimRequestPayload(row: ThoughtAgentRow): Record<string, unknown> {
       ref: THOUGHT_AGENT_REGISTERED_SPEC_REF,
       contractSpecId: THOUGHT_AGENT_CONTRACT_SPEC_ID,
       mediaType: "text/markdown; charset=utf-8",
-      text: row.spec_text,
+      text: THOUGHT_AGENT_SPEC_TEXT,
       sha256: row.spec_sha256,
       contractSpecHash: row.contract_spec_hash,
     },
     instructions: {
+      id: THOUGHT_AGENT_CREATIVE_BRIEF_ID,
+      artifactId: THOUGHT_AGENT_CREATIVE_BRIEF_ARTIFACT_ID,
       mediaType: "text/markdown; charset=utf-8",
       text: row.spec_text,
-      sha256: row.spec_sha256,
+      sha256: `sha256:${THOUGHT_AGENT_CREATIVE_BRIEF_SHA256_HEX}`,
     },
     promptLine: {
       text: row.prompt_text,
@@ -1194,6 +1356,8 @@ function stageForState(state: ThoughtAgentState): string {
       return "waiting-for-bridge";
     case "claimed":
       return "bridge-claimed";
+    case "ready":
+      return "control-verified";
     case "running":
       return "agent-running";
     case "returned":
@@ -1207,15 +1371,46 @@ function stageForState(state: ThoughtAgentState): string {
   }
 }
 
-function receiptModel(agentJson: string | null): string {
-  if (!agentJson) return "unknown";
+function receiptAgentMetadata(agentJson: string | null): {
+  model: string;
+  reasoningEffort: string | null;
+  metadataSource: string;
+} {
+  if (!agentJson) {
+    return {
+      model: "unknown",
+      reasoningEffort: null,
+      metadataSource: "unknown",
+    };
+  }
   try {
-    const parsed = JSON.parse(agentJson) as { model?: unknown };
-    return typeof parsed.model === "string" && parsed.model.length > 0
-      ? parsed.model
-      : "unknown";
+    const parsed = JSON.parse(agentJson) as {
+      model?: unknown;
+      reasoningEffort?: unknown;
+      metadataSource?: unknown;
+    };
+    return {
+      model:
+        typeof parsed.model === "string" && parsed.model.length > 0
+          ? parsed.model
+          : "unknown",
+      reasoningEffort:
+        typeof parsed.reasoningEffort === "string" &&
+        parsed.reasoningEffort.length > 0
+          ? parsed.reasoningEffort
+          : null,
+      metadataSource:
+        typeof parsed.metadataSource === "string" &&
+        parsed.metadataSource.length > 0
+          ? parsed.metadataSource
+          : "unknown",
+    };
   } catch {
-    return "unknown";
+    return {
+      model: "unknown",
+      reasoningEffort: null,
+      metadataSource: "unknown",
+    };
   }
 }
 

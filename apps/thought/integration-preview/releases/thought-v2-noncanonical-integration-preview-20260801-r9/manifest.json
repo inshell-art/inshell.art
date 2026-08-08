@@ -1,0 +1,511 @@
+{
+  "artifactId": "thought-v2-noncanonical-integration-preview-20260801-r9",
+  "artifactKind": "thought-v2-contract-integration-preview",
+  "channel": "experimental",
+  "classification": "noncanonical-integration-preview",
+  "compatibility": {
+    "creationAttestation": {
+      "id": "inshell.thought.creation-workflow-attestation.v2",
+      "idKeccak256": "0x5759a606b1b0b1ba997b2d7b851c7e2022ed8ff4e0238e55e29ad8b36ce9194a"
+    },
+    "contextProfile": {
+      "id": "inshell.thought.context.v2.visible-utf8-64",
+      "idKeccak256": "0x9894359f9294f4b3a871442b19d851203138fad4a648c16f62fc04f55dff02b8"
+    },
+    "metadataProfile": {
+      "externalUrl": {
+        "base": "https://inshell.art/thought/",
+        "identityInput": false,
+        "location": "top-level",
+        "tokenIdFormat": "unsigned-base-10-no-leading-zeroes"
+      },
+      "id": "inshell.thought.metadata.v2.terminal-chat",
+      "idKeccak256": "0x4cefae9cf44cc61bc8ec16e266ecb31f53e634834fe5975cc564ae9dfc51858b"
+    },
+    "protocol": {
+      "id": "inshell.thought.protocol.v2",
+      "release": "v2",
+      "status": "implementation-candidate"
+    },
+    "provenance": {
+      "id": "inshell.thought.provenance.v2"
+    },
+    "renderer": {
+      "canonicalId": "inshell.thought.svg.v2.terminal-chat-path-glyphs",
+      "canonicalIdKeccak256": "0x01982604c90acf1ca63020e0c3761b25d8dc8fc3c267d27ace14cb0d2c813d73",
+      "finalImplementationIncluded": true,
+      "geometry": {
+        "artboard": "1024x1024",
+        "canvas": "960x960@32,32",
+        "canvasScale": 1,
+        "fields": {
+          "agent": {
+            "bottom": 832,
+            "height": 256,
+            "horizontalAlign": "left",
+            "verticalAlign": "bottom",
+            "width": 844.8,
+            "x": 57.6,
+            "y": 576
+          },
+          "prompt": {
+            "bottom": 384,
+            "height": 256,
+            "horizontalAlign": "right",
+            "verticalAlign": "top",
+            "width": 844.8,
+            "x": 57.6,
+            "y": 128
+          }
+        },
+        "frameColor": "#006100",
+        "frameUnitsPerSide": 32,
+        "glyphColor": "#00ff00"
+      },
+      "packagedImplementation": "inshell.thought.renderer.v2.mono-76-v1-im76-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom"
+    },
+    "selectedSpec": {
+      "byteLength": 4627,
+      "name": "THOUGHT.v2.md",
+      "sha256": "90df786a3ffb5ec38bffd09ff356ec560d0b7dddcdf57170891149a92a399e9b",
+      "thoughtSpecHash": "0xb2b0a167678816a7ae9dc9098b0d6a6852c0dc95feb59f9581de75bd2cc2231f",
+      "thoughtSpecId": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410"
+    },
+    "workProfile": {
+      "id": "inshell.thought.work.v2.terminal-english-64",
+      "idKeccak256": "0x2bf311e6034eb35e6d1f7bd92894012ee7e528609830cb3b28df1ce5dd82f85a"
+    }
+  },
+  "createdAt": "2026-08-01T03:32:43Z",
+  "files": [
+    {
+      "byteLength": 36126,
+      "mediaType": "application/json",
+      "path": "contract/compiled/CreationAttestationVerifierV2.json",
+      "sha256": "207da0ebf4bb89fc4e008a6a85ece1ed46fc4d59f1686ed8e7b03d9d23150518"
+    },
+    {
+      "byteLength": 5687,
+      "mediaType": "application/json",
+      "path": "contract/compiled/ICreationAttestationVerifierV2.json",
+      "sha256": "b342a8fe6c16f3f7053d6f4841c22ab0f3e64f3a7cb3aa17349aef29dc35eb98"
+    },
+    {
+      "byteLength": 4320,
+      "mediaType": "application/json",
+      "path": "contract/compiled/IThoughtRendererV2.json",
+      "sha256": "568b2fd2e480e277a15a48e2a9d1ae5c341bd8e6a86927ca681128ca2263133e"
+    },
+    {
+      "byteLength": 3391,
+      "mediaType": "application/json",
+      "path": "contract/compiled/IThoughtSvgRendererV2.json",
+      "sha256": "3ec701be7f850242e8c1e841f7d8d69f26daa89522ac88f9e41c7be2fb20af73"
+    },
+    {
+      "byteLength": 116966,
+      "mediaType": "application/json",
+      "path": "contract/compiled/ThoughtNFTV2.json",
+      "sha256": "7413b430cbdccee597768b7c6b75d88beeccd51b3d6b6ae853264e02ded1b0fc"
+    },
+    {
+      "byteLength": 97408,
+      "mediaType": "application/json",
+      "path": "contract/compiled/ThoughtRendererV2.json",
+      "sha256": "fb592a6a48c3a6c8825461efd0065121509248dd60ada45bf94792f310a2e6e6"
+    },
+    {
+      "byteLength": 56792,
+      "mediaType": "application/json",
+      "path": "contract/compiled/ThoughtRendererV2Split.json",
+      "sha256": "a1ea4a5537aee3a0c5a623b2b67d6b84fedb00b1a582de5ea0945f95eaee4259"
+    },
+    {
+      "byteLength": 31310,
+      "mediaType": "application/json",
+      "path": "contract/compiled/ThoughtSpecRegistry.json",
+      "sha256": "461a0a54f6ab7a07c66491ea28697184b51abee2042d2b0b06837378495c532d"
+    },
+    {
+      "byteLength": 13916,
+      "mediaType": "application/json",
+      "path": "contract/compiled/ThoughtSpecRegistryV2.json",
+      "sha256": "a4dd41ea531cfed129fdaffa9be49a5f277564571a976549521d0d0e8502cb9d"
+    },
+    {
+      "byteLength": 48450,
+      "mediaType": "application/json",
+      "path": "contract/compiled/ThoughtSvgRendererV2.json",
+      "sha256": "e0ba236be155553f1a999872fe05c146b490c3fa0b7b4319b52ac8f51cd82f2c"
+    },
+    {
+      "byteLength": 2808,
+      "mediaType": "application/json",
+      "path": "contract/index.json",
+      "sha256": "f52d4f85e4fe93ba45f78312a99889279f15864a599bd688c4a57566b0108b96"
+    },
+    {
+      "byteLength": 21389,
+      "mediaType": "application/json",
+      "path": "dependencies/mono-76/glyphs.json",
+      "sha256": "7ed61ed6335fce2c1e58184916f5d344b8384fc05d4c616e83c35ad4fa9ed47f"
+    },
+    {
+      "byteLength": 4240,
+      "mediaType": "text/markdown; charset=utf-8",
+      "path": "dependencies/mono-76/HANDOFF.md",
+      "sha256": "2938ccebf1ef4b862370c35eb6f655f95825fae178a3d6eac2c0e21ce3eed031"
+    },
+    {
+      "byteLength": 5234,
+      "mediaType": "application/octet-stream",
+      "path": "dependencies/mono-76/index.mjs",
+      "sha256": "701b72023138f9ed59cf2a303489d00275f71d4983a4a857ad68950e252d6d77"
+    },
+    {
+      "byteLength": 387,
+      "mediaType": "text/markdown; charset=utf-8",
+      "path": "dependencies/mono-76/LICENSES.md",
+      "sha256": "9527d9bf0cf4ca91976349190f85ddc4130f9a779595b0169355ce632522213f"
+    },
+    {
+      "byteLength": 1561,
+      "mediaType": "application/json",
+      "path": "dependencies/mono-76/manifest.json",
+      "sha256": "3506060e6262da142b5d6cc858d03ebe875f3b9a5c52edc30d078b2f4a944c8c"
+    },
+    {
+      "byteLength": 371,
+      "mediaType": "text/markdown; charset=utf-8",
+      "path": "dependencies/mono-76/NOTICE.md",
+      "sha256": "b3710d851a323736371369a68281d5c27b0c7c84a8e67f457f8cacce0825d064"
+    },
+    {
+      "byteLength": 2776,
+      "mediaType": "application/octet-stream",
+      "path": "dependencies/mono-76/onchain/decoder.mjs",
+      "sha256": "95dba164b34f18f32025e58b738cda7c98c29206e48305a456f28928b94be71b"
+    },
+    {
+      "byteLength": 656,
+      "mediaType": "application/json",
+      "path": "dependencies/mono-76/onchain/metadata.json",
+      "sha256": "0245728579ad2d929403935e0d0646e66f3b0a08fe73a2e16e4092ee50660480"
+    },
+    {
+      "byteLength": 4600,
+      "mediaType": "application/octet-stream",
+      "path": "dependencies/mono-76/onchain/packed.bin",
+      "sha256": "3acc0a9cf60c00aa2d512356386d1e2a999499896e25661e8e631d53d5e10926"
+    },
+    {
+      "byteLength": 9203,
+      "mediaType": "application/octet-stream",
+      "path": "dependencies/mono-76/onchain/packed.hex",
+      "sha256": "3a05d62ccbd82cad03d7c2521bf1396ce5bb323f36d5a4ce5c0b3f54b3971690"
+    },
+    {
+      "byteLength": 1053,
+      "mediaType": "application/json",
+      "path": "dependencies/mono-76/package.json",
+      "sha256": "4bb311c1647f17b56420ac6a8d649f8ec2658757023225710dcc467084e43c1c"
+    },
+    {
+      "byteLength": 1564,
+      "mediaType": "text/markdown; charset=utf-8",
+      "path": "dependencies/mono-76/PROVENANCE.md",
+      "sha256": "ee9fc87dc3e254061d59f2383cfeccb644409f0e6c2fb369af3d810d938cefaf"
+    },
+    {
+      "byteLength": 484,
+      "mediaType": "text/markdown; charset=utf-8",
+      "path": "dependencies/mono-76/README.md",
+      "sha256": "9754bb3797e2c90df29e9ad1e4996a00ef450fe92ce0c60dd2a393b5b67f0755"
+    },
+    {
+      "byteLength": 1201,
+      "mediaType": "application/octet-stream",
+      "path": "dependencies/mono-76/SHA256SUMS",
+      "sha256": "bfc2076443f5268e3505f7ff5bf3994e19d2c8d6c17a3a9394c533ffdbc0b9b0"
+    },
+    {
+      "byteLength": 463,
+      "mediaType": "text/markdown; charset=utf-8",
+      "path": "dependencies/mono-76/UNLICENSED.md",
+      "sha256": "0c474524707e464dfe534342e091babfc283a1f0c39395c4e141a92353ef773f"
+    },
+    {
+      "byteLength": 5775,
+      "mediaType": "application/octet-stream",
+      "path": "dependencies/mono-76/verify.mjs",
+      "sha256": "4e7ce6acbd22053bc5ed2609990dea002e1b813f13539b3259738544fc0f723e"
+    },
+    {
+      "byteLength": 90663,
+      "mediaType": "application/json",
+      "path": "fixtures/neutral-agent-model-token-uri-examples.anvil.json",
+      "sha256": "033e31ce52bcbd25e1037ac6eb8060ae51676a532478e064af482217770a3c06"
+    },
+    {
+      "byteLength": 4048,
+      "mediaType": "text/markdown; charset=utf-8",
+      "path": "handoff.md",
+      "sha256": "285e920f4b08da10159053efe7885d311c88d0b993a877276d7df926bbb03d11"
+    },
+    {
+      "byteLength": 578,
+      "mediaType": "application/json",
+      "path": "limitations.json",
+      "sha256": "25ab83664eed26a7b0cf3eadccbfe12c51f33a8987a3f2ba289a4a88e09981e5"
+    },
+    {
+      "byteLength": 710,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/agent/thought.agent-declaration.v1.schema.json",
+      "sha256": "d9564d994763e643c77d853d9200f39a31677f718c715dce3b4c3ec29f406afd"
+    },
+    {
+      "byteLength": 2241,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/attestation/fixtures/creation-attestation-v2-vectors.json",
+      "sha256": "864078414975468447cb754f665543787f2c90143de70af7f2dfb0283e05ae0d"
+    },
+    {
+      "byteLength": 3753,
+      "mediaType": "text/markdown; charset=utf-8",
+      "path": "protocol/current/v2/attestation/thought.creation-workflow-attestation.v2.md",
+      "sha256": "7bb817b84df2537b3e9cb7bc46c7cc729c6557911abf4f58579672d2cf3aff5c"
+    },
+    {
+      "byteLength": 1090,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/conformance/work-hash-vectors.json",
+      "sha256": "2fc13425cee5da853ac0f9b658857c5cf89c0bbdf6e6c55583ded6bf0e5ab6fb"
+    },
+    {
+      "byteLength": 1179,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/context/thought.context.v2.profile.json",
+      "sha256": "2d81e42a3690869f86c2dc2b753a82af33ec7ecdbe079e5a41b9e0ce8482f63f"
+    },
+    {
+      "byteLength": 2347,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/contract/thought.mint-input.v2.schema.json",
+      "sha256": "716054091c607f748aa083049a4bd6dcbe009bb207a1526f5cd2855a1a441654"
+    },
+    {
+      "byteLength": 6400,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/integration/thought.app-contract-boundary.v1.json",
+      "sha256": "42ed4e3d9bee8ddf443cd5fa485bdcb822eaeb0188a61138d4f47f8d625740a1"
+    },
+    {
+      "byteLength": 7833,
+      "mediaType": "text/markdown; charset=utf-8",
+      "path": "protocol/current/v2/integration/thought.app-contract-boundary.v1.md",
+      "sha256": "feae032481f06d2c419160345b72383b85499df37359575736f7d2423af9ae9c"
+    },
+    {
+      "byteLength": 1563,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/metadata/thought.metadata.v2.profile.json",
+      "sha256": "856935f5e13fd4f62eb7c0945744e4af13011417a2f91cdb0636cc2c5f81a560"
+    },
+    {
+      "byteLength": 3454,
+      "mediaType": "text/markdown; charset=utf-8",
+      "path": "protocol/current/v2/provenance/thought.provenance.v2.md",
+      "sha256": "495aee4aab4d43170a16f64e431d3d507839fd5b68be277351aeaf26f1687a7a"
+    },
+    {
+      "byteLength": 6272,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/provenance/thought.provenance.v2.schema.json",
+      "sha256": "0a353167ea460f7fb24c52d0cce106c9bedaa348e561bab1c683beb43fa59398"
+    },
+    {
+      "byteLength": 3700,
+      "mediaType": "text/markdown; charset=utf-8",
+      "path": "protocol/current/v2/README.md",
+      "sha256": "cc1dc726176c87b3038c1499ee959a863d03ca751d9cbde1530b9865bfebdc3d"
+    },
+    {
+      "byteLength": 3100,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/release-input.json",
+      "sha256": "f2e447f5b283e4f530648b40ed06d87c251e7fcf0324a3d67ddbb442072d399c"
+    },
+    {
+      "byteLength": 2540,
+      "mediaType": "application/octet-stream",
+      "path": "protocol/current/v2/renderer/experiments/classic-book/classic-book.im76.bin",
+      "sha256": "3ab51d7dcdce7e358e7c76002b8f78ddaa448a99de2116a238f7e22209f2bd60"
+    },
+    {
+      "byteLength": 3094,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/renderer/experiments/classic-book/thought.renderer.v2.classic-book.experiment.json",
+      "sha256": "b7f047f381d22090cb67a7b4e461b1f29117b6df561e5b8e14dc703a816ce51b"
+    },
+    {
+      "byteLength": 2631,
+      "mediaType": "application/octet-stream",
+      "path": "protocol/current/v2/renderer/experiments/classic-compact/classic-compact.im76.bin",
+      "sha256": "204bf9e84103b57175e1dc0be06b3f42e91a4d0f8fb5b8b7457b52ff63c79393"
+    },
+    {
+      "byteLength": 3114,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/renderer/experiments/classic-compact/thought.renderer.v2.classic-compact.experiment.json",
+      "sha256": "d480004484e3d62e7098629078f4e7e4e92e812fed55793e40a47ce249292832"
+    },
+    {
+      "byteLength": 2514,
+      "mediaType": "application/octet-stream",
+      "path": "protocol/current/v2/renderer/experiments/classic-line/classic-line.im76.bin",
+      "sha256": "d06f7403b4963d8f46e6e8559c7ab0e4a21a65aa3681b210bfe433d74ea56b42"
+    },
+    {
+      "byteLength": 3094,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/renderer/experiments/classic-line/thought.renderer.v2.classic-line.experiment.json",
+      "sha256": "279537baabdac99fe073139dc5ae407076346f7d1d5522275e7e1eca3c2e607e"
+    },
+    {
+      "byteLength": 2696,
+      "mediaType": "application/octet-stream",
+      "path": "protocol/current/v2/renderer/experiments/classic-round/classic-round.im76.bin",
+      "sha256": "72ea88523caf278828b833368c4a3a289f7b80866ac464325d04f031c48e3a01"
+    },
+    {
+      "byteLength": 3101,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/renderer/experiments/classic-round/thought.renderer.v2.classic-round.experiment.json",
+      "sha256": "084a3e8b2b085975e3807911ec1bf8a2ace3e50026c53cbf61c2abed1d8e4b22"
+    },
+    {
+      "byteLength": 15557,
+      "mediaType": "application/octet-stream",
+      "path": "protocol/current/v2/renderer/humanist-smooth-defs-1.svgfrag",
+      "sha256": "e344b7b8af8b9b11094594cf1e8d7efb05572e6d81b99d60c9afd313cc7a42bd"
+    },
+    {
+      "byteLength": 12779,
+      "mediaType": "application/octet-stream",
+      "path": "protocol/current/v2/renderer/humanist-smooth-defs-2.svgfrag",
+      "sha256": "95e5e25a99f3cc176e80d3aebe42be3230b50d489d1788aa1d22e58350030962"
+    },
+    {
+      "byteLength": 375,
+      "mediaType": "application/octet-stream",
+      "path": "protocol/current/v2/renderer/humanist-smooth-index.bin",
+      "sha256": "daa5c1b21eba07ab39712bc560faaf4156d137ee3575c5323cf98539c9ca8102"
+    },
+    {
+      "byteLength": 4473,
+      "mediaType": "text/markdown; charset=utf-8",
+      "path": "protocol/current/v2/renderer/LICENSE-HUMANIST-SMOOTH-OFL-1.1.md",
+      "sha256": "6234e3f17f21084f690e3adae017a32f866d5880ed2b5daaae59d8d78f021968"
+    },
+    {
+      "byteLength": 4600,
+      "mediaType": "application/octet-stream",
+      "path": "protocol/current/v2/renderer/mono-76.im76.bin",
+      "sha256": "3acc0a9cf60c00aa2d512356386d1e2a999499896e25661e8e631d53d5e10926"
+    },
+    {
+      "byteLength": 782,
+      "mediaType": "text/markdown; charset=utf-8",
+      "path": "protocol/current/v2/renderer/NOTICE-HUMANIST-SMOOTH.md",
+      "sha256": "aa70cd4ab472ebaaddbc870e0affd7826b018c1b22d6fb2a423681d24949a0a2"
+    },
+    {
+      "byteLength": 3544,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/renderer/thought.renderer.v2.profile.json",
+      "sha256": "3ce86a2db35a969aea2d3286688adddbf5fa2daf1fd71ccefd37171e91fad3c5"
+    },
+    {
+      "byteLength": 4627,
+      "mediaType": "text/markdown; charset=utf-8",
+      "path": "protocol/current/v2/THOUGHT.v2.md",
+      "sha256": "90df786a3ffb5ec38bffd09ff356ec560d0b7dddcdf57170891149a92a399e9b"
+    },
+    {
+      "byteLength": 5952,
+      "mediaType": "text/markdown; charset=utf-8",
+      "path": "protocol/current/v2/work/thought.work.v2.md",
+      "sha256": "5e051b981978df13266e292796a92fe0e8d87d874bf8183ba6947a914c0216e4"
+    },
+    {
+      "byteLength": 2254,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/work/thought.work.v2.profile.json",
+      "sha256": "f7b2981d1bdf15923a1b73cc91dea0bbf6483f469583a3f66cb71c414f4382bf"
+    },
+    {
+      "byteLength": 815,
+      "mediaType": "application/json",
+      "path": "protocol/current/v2/work/thought.work.v2.schema.json",
+      "sha256": "47571f007fc4325ceab960be2d41bc286fa0ca71d303d57c3487d7673823e066"
+    },
+    {
+      "byteLength": 331,
+      "mediaType": "application/json",
+      "path": "README.json",
+      "sha256": "e1b5747494155993bddd0771ce1f506b50b3d191cae8611713a481fc0cb15e6e"
+    },
+    {
+      "byteLength": 994,
+      "mediaType": "text/typescript; charset=utf-8",
+      "path": "reference/thought-v2-canonical-json.ts",
+      "sha256": "1392290634e9e6ce93f3fdbc58cf1f3d672f9696fc9e8656e761e8ce2c4f74db"
+    },
+    {
+      "byteLength": 3255,
+      "mediaType": "text/typescript; charset=utf-8",
+      "path": "reference/thought-v2-context-profile.ts",
+      "sha256": "be4c3223491ef5b09c560bbbb1b23dd143e6855f6d1d72707e0e51d286cc6a8d"
+    },
+    {
+      "byteLength": 5286,
+      "mediaType": "text/typescript; charset=utf-8",
+      "path": "reference/thought-v2-current-creation-attestation.ts",
+      "sha256": "8a8e42bd0c456e4b56b97ee9b5d76ebb79d6398ada988f8e807eebd88474876a"
+    },
+    {
+      "byteLength": 21092,
+      "mediaType": "text/typescript; charset=utf-8",
+      "path": "reference/thought-v2-terminal-provenance.ts",
+      "sha256": "e78145a72c0b07b641d716ac1cca3111bccb64d67795ce88eec6fde966b01ad2"
+    },
+    {
+      "byteLength": 4872,
+      "mediaType": "text/typescript; charset=utf-8",
+      "path": "reference/thought-v2-terminal-work-profile.ts",
+      "sha256": "345bb3783bb859995b0d109a55f1553c7ac42662c665c58dd57147d033284b22"
+    },
+    {
+      "byteLength": 557,
+      "mediaType": "application/json",
+      "path": "validation/renderer-parity.json",
+      "sha256": "d98f37680bc9f259f7d656dca995fb338668ffbe66b2a0ce6fc1ba3ce049ec5b"
+    }
+  ],
+  "flags": {
+    "candidateOrStable": false,
+    "deploymentAuthorized": false,
+    "productionConsumable": false,
+    "registrationAuthorized": false
+  },
+  "schema": "inshell.thought.immutable-artifact-manifest.v1",
+  "source": {
+    "baseCommit": "e1321a9a5a25cbfda71a85ee886d8c3a8f02ae38",
+    "branch": "codex/thought-v2-chat-svg-experiment",
+    "changedPaths": [],
+    "dirty": false,
+    "remote": "https://github.com/inshell-art/THOUGHT.git",
+    "tag": "thought-v2-noncanonical-integration-preview-20260801-r9"
+  }
+}
