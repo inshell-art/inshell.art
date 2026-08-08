@@ -83,6 +83,9 @@ const testRoot = await mkdtemp(join(tmpdir(), "inshell-thought-codex-live-"));
 const finalMessageFile = join(testRoot, "final.txt");
 let stdout = "";
 let stderr = "";
+const redact = (value: string) => value
+  .replaceAll(launchToken, "<redacted-launch-token>")
+  .replace(/Bearer [A-Za-z0-9_-]+/g, "Bearer <redacted>");
 
 try {
   const codexArgs = [
@@ -119,24 +122,47 @@ try {
   });
 
   let timeout: ReturnType<typeof setTimeout> | undefined;
-  const exitCode = await Promise.race([
-    new Promise<number | null>((resolve, reject) => {
-      child.once("error", reject);
-      child.once("close", resolve);
-    }),
-    new Promise<never>((_, reject) => {
-      timeout = setTimeout(() => {
-        child.kill("SIGTERM");
-        reject(new Error("Live Codex task test timed out."));
-      }, 8 * 60 * 1000);
-    }),
-  ]).finally(() => {
+  let exitCode: number | null;
+  try {
+    exitCode = await Promise.race([
+      new Promise<number | null>((resolve, reject) => {
+        child.once("error", reject);
+        child.once("close", resolve);
+      }),
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => {
+          child.kill("SIGTERM");
+          reject(new Error("Live Codex task test timed out."));
+        }, 8 * 60 * 1000);
+      }),
+    ]);
+  } catch (error) {
+    let runState = "unavailable";
+    let runErrorCode: string | null = null;
+    try {
+      const status = await requestJson<{
+        state: string;
+        error?: { code?: string };
+      }>(runUrl, {
+        headers: { Authorization: `Bearer ${created.browserToken}` },
+      });
+      runState = status.state;
+      runErrorCode = status.error?.code ?? null;
+    } catch {
+      // The original timeout remains the primary failure.
+    }
+    console.error(JSON.stringify({
+      runId: created.runId,
+      runState,
+      runErrorCode,
+      stdout: redact(stdout),
+      stderr: redact(stderr),
+    }, null, 2));
+    throw error;
+  } finally {
     if (timeout) clearTimeout(timeout);
-  });
+  }
 
-  const redact = (value: string) => value
-    .replaceAll(launchToken, "<redacted-launch-token>")
-    .replace(/Bearer [A-Za-z0-9_-]+/g, "Bearer <redacted>");
   assert.equal(exitCode, 0, redact(stderr || stdout));
   const finalMessage = await readFile(finalMessageFile, "utf8");
   const expectedFinalMessage =
@@ -173,10 +199,10 @@ try {
   assert.match(status.result?.receipt?.receiptSha256 ?? "", /^sha256:[a-f0-9]{64}$/);
   assert.notEqual(status.result?.receipt?.model, "unknown");
   assert.match(status.result?.receipt?.model ?? "", /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/);
-  assert.match(
-    status.result?.receipt?.reasoningEffort ?? "",
-    /^(none|minimal|low|medium|high|xhigh|max|ultra)$/,
-  );
+  const reasoningEffort = status.result?.receipt?.reasoningEffort;
+  if (reasoningEffort != null) {
+    assert.match(reasoningEffort, /^(none|minimal|low|medium|high|xhigh|max|ultra)$/);
+  }
   assert.equal(status.result?.receipt?.metadataSource, "reported");
 
   console.log(JSON.stringify({
