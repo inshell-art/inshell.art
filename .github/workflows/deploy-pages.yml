@@ -117,6 +117,8 @@ jobs:
       VITE_THOUGHT_RPC_URL: ${{ github.event.inputs.branch == 'staging' && '/api/thought-rpc' || vars.VITE_THOUGHT_RPC_URL || '/api/thought-rpc' }}
       VITE_THOUGHT_PREVIEW_ENDPOINT_ENABLED: ${{ vars.VITE_THOUGHT_PREVIEW_ENDPOINT_ENABLED || 'true' }}
       VITE_THOUGHT_PREVIEW_ENDPOINT_URL: ${{ github.event.inputs.branch == 'staging' && '/api/thought-preview' || vars.VITE_THOUGHT_PREVIEW_ENDPOINT_URL || '/api/thought-preview' }}
+      VITE_THOUGHT_AGENT_API_BASE: ${{ github.event.inputs.branch == 'staging' && 'https://staging.thought-inshell-art.pages.dev/api/thought-agent/v2' || vars.VITE_THOUGHT_AGENT_API_BASE || '/api/thought-agent/v2' }}
+      VITE_THOUGHT_AGENT_PUBLIC_API_BASE: ${{ github.event.inputs.branch == 'staging' && 'https://staging.thought-inshell-art.pages.dev/api/thought-agent/v2' || vars.VITE_THOUGHT_AGENT_PUBLIC_API_BASE || '/api/thought-agent/v2' }}
       VITE_WALLET_CHAIN_RPC_URL: ${{ vars.VITE_WALLET_CHAIN_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com' }}
       VITE_PATH_MINT_URL: ${{ github.event.inputs.branch == 'staging' && 'https://preview.inshell.art/path' || vars.VITE_PATH_MINT_URL || 'https://inshell.art/path' }}
       VITE_THOUGHT_DETAIL_BASE_URL: ${{ github.event.inputs.branch == 'staging' && 'https://preview.inshell.art/thought' || vars.VITE_THOUGHT_DETAIL_BASE_URL || 'https://inshell.art/thought' }}
@@ -156,6 +158,8 @@ jobs:
           test -n "$VITE_THOUGHT_RPC_URL"
           test -n "$VITE_THOUGHT_PREVIEW_ENDPOINT_ENABLED"
           test -n "$VITE_THOUGHT_PREVIEW_ENDPOINT_URL"
+          test -n "$VITE_THOUGHT_AGENT_API_BASE"
+          test -n "$VITE_THOUGHT_AGENT_PUBLIC_API_BASE"
           test -n "$VITE_WALLET_CHAIN_RPC_URL"
           test -n "$VITE_PATH_MINT_URL"
           test -n "$VITE_THOUGHT_DETAIL_BASE_URL"

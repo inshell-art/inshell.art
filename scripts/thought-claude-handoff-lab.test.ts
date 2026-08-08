@@ -68,6 +68,20 @@ test("the public Agent API grants CORS only to approved THOUGHT origins", () => 
   const production = onRequestOptions(buildContext("https://inshell.art"));
   assert.equal(production.headers.get("access-control-allow-origin"), "https://inshell.art");
 
+  const previewContext: ThoughtAgentRouteContext = {
+    request: new Request("https://staging.thought-inshell-art.pages.dev/api/thought-agent/v2/runs", {
+      method: "OPTIONS",
+      headers: { origin: "https://preview.inshell.art" },
+    }),
+    env: { CF_PAGES_BRANCH: "staging" },
+  };
+  const preview = onRequestOptions(previewContext);
+  assert.equal(
+    preview.headers.get("access-control-allow-origin"),
+    "https://preview.inshell.art",
+  );
+  assert.equal(preview.headers.get("vary"), "Origin");
+
   const unknown = onRequestOptions(buildContext("https://untrusted.example"));
   assert.equal(unknown.headers.get("access-control-allow-origin"), null);
 });
