@@ -743,8 +743,8 @@ const staticHandoffAssertions = (
   pushAssertion(
     assertions,
     "automatic-continuation",
-    task.includes("If the preflight passes, continue directly into one creative turn") &&
-      /do not ask the creator to confirm (?:a|the) successful preflight/i.test(task),
+    /If (?:the preflight|it) passes, continue directly into (?:exactly )?one creative turn/i.test(task) &&
+      /(?:do not|never) ask the creator to confirm (?:a|the)? ?(?:successful preflight|readiness)/i.test(task),
     "Successful preflight must continue in the same Agent turn.",
   );
   pushAssertion(
@@ -773,7 +773,10 @@ const staticHandoffAssertions = (
       (
         (
           task.includes("Before exchanging run data, request only the narrow App connection permission") &&
-          task.includes("A connection refusal before permission is not proof that the App stopped") &&
+          (
+            task.includes("A connection refusal before permission is not proof that the App stopped") ||
+            task.includes("A refusal before permission does not prove the App stopped")
+          ) &&
           task.includes("On an exact RETRY, reacquire the same narrow App permission")
         ) ||
         (
@@ -853,14 +856,15 @@ const staticHandoffAssertions = (
       ) &&
       (
         task.includes("Keep launch and bridge credentials private") ||
+        task.includes("Keep both credentials private") ||
         /bearer values are one-run authorization values/i.test(task) ||
         task.includes("The bearer values protect this one run")
       ) &&
       (
         profile.id === "codex"
-          ? task.includes("Prove readiness at <ready_endpoint> with POST, <bridge_credential>") &&
-            task.includes("Open the creative phase at <start_endpoint> with POST, <bridge_credential>") &&
-            task.includes("Return at <result_endpoint> with PUT, <bridge_credential>") &&
+          ? task.includes("POST to <ready_endpoint> with <bridge_credential>") &&
+            task.includes("POST to <start_endpoint> with <bridge_credential>") &&
+            task.includes("PUT to <result_endpoint> with <bridge_credential>") &&
             task.includes("report AGENT_START_FAILED at <fail_endpoint> with POST, <bridge_credential>")
           : task.includes("At <ready_endpoint>, submit one POST using <bridge_credential>") &&
             task.includes("At <start_endpoint>, submit one POST using <bridge_credential>") &&
@@ -877,8 +881,11 @@ const staticHandoffAssertions = (
       task.includes(`<adapter_id> = ${profile.id}`) &&
       task.includes(`<adapter_version> = ${profile.adapterVersion}`) &&
       (profile.id === "codex" || task.includes(`<agent_surface> = ${profile.surface}`)) &&
-      task.includes("control evidence under <control_schema>") &&
-      task.includes("Supply lowercase sha256: hashes of both candidate bytes and agentLine bytes") &&
+      task.includes("<claim_fields> = protocolVersion") &&
+      task.includes("<ready_fields> = protocolVersion") &&
+      task.includes("<start_fields> = protocolVersion") &&
+      task.includes("<result_fields> = protocolVersion") &&
+      task.includes("Supply lowercase sha256") &&
       !task.includes("bridge = id "),
     "Declarative request bodies preserve exact nested field names without raw JSON.",
   );

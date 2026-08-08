@@ -139,9 +139,19 @@ try {
     .replace(/Bearer [A-Za-z0-9_-]+/g, "Bearer <redacted>");
   assert.equal(exitCode, 0, redact(stderr || stdout));
   const finalMessage = await readFile(finalMessageFile, "utf8");
+  const expectedFinalMessage =
+    /^Return to the THOUGHT browser tab\. It is polling this run and will show the preview automatically\.\nReceipt: sha256:[a-f0-9]{64}\s*$/;
+  if (!expectedFinalMessage.test(finalMessage)) {
+    console.error(JSON.stringify({
+      runId: created.runId,
+      finalMessage,
+      stdout: redact(stdout),
+      stderr: redact(stderr),
+    }, null, 2));
+  }
   assert.match(
     finalMessage,
-    /^Return to the THOUGHT browser tab\. It is polling this run and will show the preview automatically\.\nReceipt: sha256:[a-f0-9]{64}\s*$/,
+    expectedFinalMessage,
   );
 
   const status = await requestJson<{

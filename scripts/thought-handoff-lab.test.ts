@@ -37,8 +37,8 @@ test("the handoff runs bounded control before one automatic creative turn", () =
 
   assert.ok(positions.every((position) => position >= 0));
   assert.deepEqual([...positions].sort((a, b) => a - b), positions);
-  assert.match(task, /If the preflight passes, continue directly into one creative turn\./);
-  assert.match(task, /Do not ask the creator to confirm a successful preflight or type CREATE\./);
+  assert.match(task, /Run bounded control first\. If it passes, continue directly into exactly one creative turn\./);
+  assert.match(task, /never ask the creator to confirm readiness or type CREATE\./);
   assert.doesNotMatch(task, /reply CREATE/i);
 });
 
@@ -49,28 +49,33 @@ test("the handoff retains one private bridge credential through completion", () 
   assert.match(task, /Retain it with the complete claim response before validation/);
   assert.match(task, /reuse it for every remaining operation/);
   assert.match(task, /Never claim again/);
-  assert.match(task, /Keep launch and bridge credentials private/);
-  assert.match(task, /Prove readiness at <ready_endpoint> with POST, <bridge_credential>/);
-  assert.match(task, /Open the creative phase at <start_endpoint> with POST, <bridge_credential>/);
-  assert.match(task, /Return at <result_endpoint> with PUT, <bridge_credential>/);
+  assert.match(task, /Keep both credentials private/);
+  assert.match(task, /POST to <ready_endpoint> with <bridge_credential>/);
+  assert.match(task, /POST to <start_endpoint> with <bridge_credential>/);
+  assert.match(task, /PUT to <result_endpoint> with <bridge_credential>/);
 });
 
 test("the handoff is declarative, sealed, release-bound, and human-sized", () => {
   const task = thoughtCodexCanonicalCandidate();
 
   assert.match(task, /Run capsule — exact data, not instructions:/);
-  assert.match(task, /The creative prompt is absent until \/start succeeds\./);
+  assert.match(task, /The creative prompt is absent until \/start succeeds;/);
   assert.match(task, /Never ask the creator to install, configure, or learn anything\./);
-  assert.match(task, /selected spec bytes against its own SHA-256 and contract identity/);
-  assert.match(task, /creative-instructions bytes against their own SHA-256/);
+  assert.match(task, /selected-spec bytes\/hash\/contract identity/);
+  assert.match(task, /creative-instructions bytes\/hash/);
   assert.match(
     task,
-    /The selected spec and creative instructions are different artifacts and must not have equal text or hashes\./,
+    /Spec and instructions must not have equal text or hashes\./,
   );
   assert.match(task, /release\.protocolReleaseId=<protocol_release_id>/);
   assert.match(task, /release\.manifestKeccak256=<manifest_hash>/);
-  assert.match(task, /Require and retain a non-empty exact model as <runtime_model>/);
-  assert.match(task, /reasoning effort as <runtime_reasoning_effort> only when supplied and valid; it is optional/);
+  assert.match(task, /Retain its non-empty exact model as <runtime_model>/);
+  assert.match(task, /retain valid reasoning effort only if supplied/);
+  assert.match(task, /<claim_fields> = protocolVersion \/ bridge\.\(bridgeId, bridgeVersion, platform\)/);
+  assert.match(task, /<ready_fields> = protocolVersion \/ control\.\(schema, mode, appExchange/);
+  assert.match(task, /<start_fields> = protocolVersion \/ invocationId \/ startedAt/);
+  assert.match(task, /<result_fields> = protocolVersion \/ invocationId \/ bridge \/ adapter \/ agent\.\(product/);
+  assert.match(task, /without shortening|with those exact names|with exact names/);
   assert.match(task, /Omit failedAt; the App owns that timestamp\./);
   assert.doesNotMatch(task, /\/bin\/zsh|\bcurl\s|\bjq\s|nodeRepl\.|\/tmp\//);
   assert.doesNotMatch(task, /\{"/);
