@@ -7,7 +7,6 @@ import ColorFontPage from "@/components/ColorFontPage";
 import PathPage from "@/components/PathPage";
 import VerifyPage from "@/components/VerifyPage";
 import ThoughtDetailPage from "@/components/ThoughtDetailPage";
-import ThoughtGalleryPage from "@/components/ThoughtGalleryPage";
 import FloatingReportBug from "@/components/FloatingReportBug";
 import PreviewWatermark from "@/components/PreviewWatermark";
 import { InshellTopBar, type InshellSurface } from "@inshell/inshell-shell";
@@ -40,7 +39,6 @@ function getPrimitiveRoute(locationKey: string) {
   if (pathname === "/pulse") return "pulse";
   if (pathname === "/color-font") return "color-font";
   if (pathname === "/path" || parseTokenRouteId(pathname, "path")) return "path";
-  if (pathname === "/gallery") return "gallery";
   if (pathname === "/verify") return "verify";
   if (parseTokenRouteId(pathname, "thought")) return "thought";
   return null;
@@ -58,7 +56,7 @@ function isPathAppHost() {
 
 function activeSurfaceForRoute(route: string | null): InshellSurface {
   if (route === "path-app" || route === "path" || route === "pulse") return "path";
-  if (route === "gallery" || route === "thought") return "works";
+  if (route === "thought") return "works";
   return "home";
 }
 
@@ -113,11 +111,17 @@ export default function App() {
 
   useEffect(() => {
     const pathname = pathnameFromLocationKey(locationKey);
-    if (pathname !== "/path-app") return;
-    const [, suffix = ""] = locationKey.split("/path-app");
-    const nextPath = `/path${suffix}`;
-    window.history.replaceState({}, "", nextPath);
-    setLocationKey(getLocationKey());
+    if (pathname === "/path-app") {
+      const [, suffix = ""] = locationKey.split("/path-app");
+      const nextPath = `/path${suffix}`;
+      window.history.replaceState({}, "", nextPath);
+      setLocationKey(getLocationKey());
+      return;
+    }
+    if (pathname === "/gallery") {
+      window.history.replaceState({}, "", "/");
+      setLocationKey(getLocationKey());
+    }
   }, [locationKey]);
 
   useEffect(() => {
@@ -138,11 +142,6 @@ export default function App() {
     }
     if (primitiveRoute === "path") {
       document.title = pathTokenId ? `$PATH #${pathTokenId}` : "$PATH";
-      setFavicon("/inshell.svg");
-      return;
-    }
-    if (primitiveRoute === "gallery") {
-      document.title = "THOUGHT Gallery";
       setFavicon("/inshell.svg");
       return;
     }
@@ -213,8 +212,6 @@ export default function App() {
             <ColorFontPage />
           ) : primitiveRoute === "path" ? (
             <PathPage tokenId={pathTokenId} />
-          ) : primitiveRoute === "gallery" ? (
-            <ThoughtGalleryPage />
           ) : primitiveRoute === "verify" ? (
             <VerifyPage />
           ) : primitiveRoute === "thought" && thoughtTokenId ? (

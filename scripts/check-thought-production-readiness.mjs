@@ -20,6 +20,8 @@ const deploymentModule = read("apps/thought/src/thought-v2-production-deployment
 const galleryRelease = read("functions/api/thought-gallery-release.ts");
 const galleryApi = read("functions/api/thought-gallery.ts");
 const galleryHome = read("apps/home/src/services/thoughtGallery.ts");
+const ecosystemHome = read("apps/home/src/components/EcosystemHome.tsx");
+const homeApp = read("apps/home/src/App.tsx");
 
 if (
   lock.schema !== "inshell.thought.production-deployment-lock.v1" ||
@@ -95,6 +97,24 @@ for (const snippet of [
   "Current THOUGHT collection is not deployed.",
   "payload.artifactId !== THOUGHT_GALLERY_DEPLOYMENT.artifactId",
 ]) if (!galleryHome.includes(snippet)) fail(`home gallery deployment gate is missing ${snippet}`);
+
+for (const snippet of [
+  "isThoughtGalleryDeploymentActive",
+  "loadThoughtGallery",
+  'aria-label="THOUGHT works"',
+  "Current THOUGHT collection is not deployed.",
+]) if (!ecosystemHome.includes(snippet)) fail(`canonical home gallery is missing ${snippet}`);
+
+for (const forbidden of [
+  "THOUGHT_V2_ARTIFACT_SAMPLES",
+  "thoughtV2ArtifactSampleUrl",
+  "fixtureWorks",
+]) if (ecosystemHome.includes(forbidden)) fail(`canonical home gallery still renders ${forbidden}`);
+
+for (const snippet of [
+  'pathname === "/gallery"',
+  'window.history.replaceState({}, "", "/")',
+]) if (!homeApp.includes(snippet)) fail(`deprecated /gallery route is missing redirect ${snippet}`);
 
 const sensitivePattern = /(?:PRIVATE_KEY|MNEMONIC|SECRET_KEY|SIGNER_KEY)/;
 for (const relative of [

@@ -1,10 +1,11 @@
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 import {
-  THOUGHT_V2_ARTIFACT_SAMPLES,
-  THOUGHT_V2_PINNED_ARTIFACT,
-  thoughtV2ArtifactSampleUrl,
-  type ThoughtV2ArtifactSample,
-} from "@inshell/shared";
+  isThoughtGalleryDeploymentActive,
+  loadThoughtGallery,
+  readCachedThoughtGallery,
+  type ThoughtGalleryItem,
+} from "@/services/thoughtGallery";
+import { PUBLIC_NETWORK_CONFIG } from "@inshell/shared";
 
 type Movement = {
   key: "thought" | "will" | "awa";
@@ -13,110 +14,72 @@ type Movement = {
   href?: string;
 };
 
+type GalleryState =
+  | { status: "loading"; items: ThoughtGalleryItem[]; error: null }
+  | { status: "ready"; items: ThoughtGalleryItem[]; error: null }
+  | { status: "error"; items: ThoughtGalleryItem[]; error: string };
+
+const thoughtDeploymentActive = isThoughtGalleryDeploymentActive();
+
 const MOVEMENTS: Movement[] = [
   {
     key: "thought",
     title: "THOUGHT",
-    note: "on Sepolia now",
+    note: thoughtDeploymentActive
+      ? `on ${PUBLIC_NETWORK_CONFIG.chainLabel} now`
+      : "not deployed",
     href: "thought",
   },
-  {
-    key: "will",
-    title: "WILL",
-    note: "launch in 2027",
-  },
-  {
-    key: "awa",
-    title: "AWA!",
-    note: "launch in 2028",
-  },
+  { key: "will", title: "WILL", note: "launch in 2027" },
+  { key: "awa", title: "AWA!", note: "launch in 2028" },
 ];
 
-type StableJsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | StableJsonValue[]
-  | { [key: string]: StableJsonValue };
+function thoughtImageUrl(tokenId: number): string {
+  return `/api/thought-image?id=${encodeURIComponent(String(tokenId))}`;
+}
 
-type FixtureWork = {
-  agent: string;
-  index: number;
-  provenanceBits: number;
-  provenanceHref: string;
-  sample: ThoughtV2ArtifactSample;
-  svgUrl: string;
-};
+function thoughtDetailUrl(tokenId: number): string {
+  return `/thought/${encodeURIComponent(String(tokenId))}`;
+}
 
-const textEncoder = new TextEncoder();
-
-const stableStringify = (value: StableJsonValue): string => {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
-    return JSON.stringify(value);
-  }
-
-  if (Array.isArray(value)) {
-    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
-  }
-
-  return `{${Object.keys(value)
-    .sort()
-    .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
-    .join(",")}}`;
-};
-
-const fixtureAgentLabel = (index: number) => (index % 2 === 0 ? "Codex" : "Claude");
-
-const fixtureProvenanceJson = (sample: ThoughtV2ArtifactSample, agent: string) =>
-  stableStringify({
-    agent,
-    app: "THOUGHT",
-    fixture: {
-      corpusId: sample.corpusId,
-      corpusName: sample.corpusName,
-      id: sample.fixtureId,
-      name: sample.fixtureName,
-    },
-    output: {
-      agentLine: sample.agentLine,
-      format: "thought-v2-line-pair",
-      promptLine: sample.promptLine,
-    },
-    renderer: {
-      artifactId: THOUGHT_V2_PINNED_ARTIFACT.artifactId,
-      channel: THOUGHT_V2_PINNED_ARTIFACT.channel,
-      manifestSha256: THOUGHT_V2_PINNED_ARTIFACT.manifestSha256,
-    },
-    route: agent.toLowerCase(),
-    schema: "thought.provenance.lab.v1",
-  });
-
-const provenanceHref = (provenanceJson: string) =>
-  `data:application/json;charset=utf-8,${encodeURIComponent(provenanceJson)}`;
-
-const fixtureWorks = (): FixtureWork[] =>
-  THOUGHT_V2_ARTIFACT_SAMPLES.map((sample, index) => {
-    const agent = fixtureAgentLabel(index);
-    const provenanceJson = fixtureProvenanceJson(sample, agent);
-
+function initialGalleryState(): GalleryState {
+  const cached = readCachedThoughtGallery();
+  if (!thoughtDeploymentActive) {
     return {
-      agent,
-      index,
-      provenanceBits: textEncoder.encode(provenanceJson).length * 8,
-      provenanceHref: provenanceHref(provenanceJson),
-      sample,
-      svgUrl: thoughtV2ArtifactSampleUrl(sample),
+      status: "error",
+      items: [],
+      error: "Current THOUGHT collection is not deployed.",
     };
-  });
+  }
+  return cached
+    ? { status: "ready", items: cached, error: null }
+    : { status: "loading", items: [], error: null };
+}
 
 export default function EcosystemHome() {
-  const works = useMemo(() => fixtureWorks(), []);
+  const [gallery, setGallery] = useState<GalleryState>(initialGalleryState);
+
+  useEffect(() => {
+    if (!thoughtDeploymentActive) return undefined;
+    let cancelled = false;
+
+    void loadThoughtGallery()
+      .then((items) => {
+        if (!cancelled) setGallery({ status: "ready", items, error: null });
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        const message =
+          error instanceof Error && error.message.trim()
+            ? error.message
+            : "THOUGHT gallery unavailable.";
+        setGallery({ status: "error", items: [], error: message });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <main className="ecosystem-home" aria-labelledby="ecosystem-home-slogan">
@@ -149,46 +112,48 @@ export default function EcosystemHome() {
           3 fully onchain movements for Agent Art.
         </h1>
       </section>
-      <div
-        className="ecosystem-home__fixture-works"
-        aria-label="THOUGHT V2 fixture works"
-        data-artifact-id={THOUGHT_V2_PINNED_ARTIFACT.artifactId}
-        data-manifest-sha256={THOUGHT_V2_PINNED_ARTIFACT.manifestSha256}
-      >
-        {works.map((work) => (
-          <article
-            className="ecosystem-home__fixture-work-card"
-            data-fixture-id={work.sample.fixtureId}
-            key={work.sample.fixtureId}
-            aria-label={`${work.sample.fixtureName} fixture work`}
-          >
-            <div
-              className="ecosystem-home__fixture-work-canvas"
+
+      <section className="ecosystem-home__works" aria-label="THOUGHT works">
+        <p className="ecosystem-home__works-status" aria-live="polite">
+          {gallery.status === "loading"
+            ? "reading THOUGHT works..."
+            : gallery.status === "error"
+              ? gallery.error
+              : gallery.items.length === 0
+                ? "no minted THOUGHTs yet."
+                : `${gallery.items.length} minted THOUGHT${gallery.items.length === 1 ? "" : "s"}.`}
+        </p>
+
+        <div className="ecosystem-home__works-grid">
+          {gallery.items.map((work) => (
+            <article
+              className="ecosystem-home__work-card"
+              data-token-id={work.tokenId}
+              key={work.tokenId}
+              aria-label={`THOUGHT #${work.tokenId}`}
             >
-              <img
-                src={work.svgUrl}
-                alt={`${work.sample.fixtureName} fixture preview`}
-                loading="lazy"
-                decoding="async"
-              />
-            </div>
-            <div className="ecosystem-home__fixture-work-meta">
-              <p className="ecosystem-home__fixture-work-meta-line">THOUGHT #{work.index + 1}</p>
-              <p className="ecosystem-home__fixture-work-meta-line">Agent: {work.agent}</p>
-              <p className="ecosystem-home__fixture-work-meta-line">
-                <a
-                  className="ecosystem-home__fixture-work-provenance"
-                  href={work.provenanceHref}
-                  target="_blank"
-                  rel="noopener"
-                >
-                  Provenance {work.provenanceBits} bit
-                </a>
-              </p>
-            </div>
-          </article>
-        ))}
-      </div>
+              <a
+                className="ecosystem-home__work-canvas"
+                href={thoughtDetailUrl(work.tokenId)}
+                aria-label={`Open THOUGHT #${work.tokenId}`}
+              >
+                <img
+                  src={thoughtImageUrl(work.tokenId)}
+                  alt={`THOUGHT #${work.tokenId}`}
+                  loading="lazy"
+                  decoding="async"
+                />
+              </a>
+              <div className="ecosystem-home__work-meta">
+                <p className="ecosystem-home__work-meta-line">THOUGHT #{work.tokenId}</p>
+                <p className="ecosystem-home__work-meta-line">
+                  Agent: {work.provider.trim() || "-"}
+                </p>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
     </main>
   );
 }

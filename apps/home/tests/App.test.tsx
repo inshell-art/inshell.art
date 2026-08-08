@@ -69,23 +69,13 @@ import {
   hashUtf8String,
 } from "@inshell/ethereum";
 import {
-  THOUGHT_V2_ARTIFACT_SAMPLES,
-  THOUGHT_V2_PINNED_ARTIFACT,
   shouldShowPreviewWatermark,
 } from "@inshell/shared";
 
-const expectPinnedThoughtFixtureWorks = () => {
-  expect(THOUGHT_V2_ARTIFACT_SAMPLES.length).toBeGreaterThan(0);
-  for (const [index, sample] of THOUGHT_V2_ARTIFACT_SAMPLES.entries()) {
-    expect(screen.getByLabelText(`${sample.fixtureName} fixture work`)).toBeInTheDocument();
-    expect(screen.getByText(`THOUGHT #${index + 1}`)).toBeInTheDocument();
-  }
-  expect(document.querySelectorAll(".ecosystem-home__fixture-work-card")).toHaveLength(
-    THOUGHT_V2_ARTIFACT_SAMPLES.length,
-  );
-  expect(
-    screen.getByAltText(`${THOUGHT_V2_ARTIFACT_SAMPLES[0].fixtureName} fixture preview`),
-  ).toHaveAttribute("src", expect.stringContaining(THOUGHT_V2_PINNED_ARTIFACT.artifactId));
+const expectCurrentThoughtGalleryInactive = () => {
+  expect(screen.getByLabelText("THOUGHT works")).toBeInTheDocument();
+  expect(screen.getByText("Current THOUGHT collection is not deployed.")).toBeInTheDocument();
+  expect(document.querySelectorAll(".ecosystem-home__work-card")).toHaveLength(0);
 };
 
 const mockedGetChainId = getChainId as jest.MockedFunction<typeof getChainId>;
@@ -300,10 +290,10 @@ describe("App Component", () => {
     );
     expect(screen.getByText("WILL")).toBeInTheDocument();
     expect(screen.getByText("AWA!")).toBeInTheDocument();
-    expect(screen.getByText("on Sepolia now")).toBeInTheDocument();
+    expect(screen.getByText("not deployed")).toBeInTheDocument();
     expect(screen.getByText("launch in 2027")).toBeInTheDocument();
     expect(screen.getByText("launch in 2028")).toBeInTheDocument();
-    expectPinnedThoughtFixtureWorks();
+    expectCurrentThoughtGalleryInactive();
     expect(screen.queryByText("movement roadmap")).toBeNull();
     expect(screen.queryByText("recent works")).toBeNull();
     expect(screen.queryByRole("link", { name: /THOUGHT #1/i })).toBeNull();
@@ -1122,7 +1112,7 @@ describe("App Component", () => {
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
   });
 
-  test("fails the THOUGHT gallery closed while the production deployment lock is disabled", async () => {
+  test("redirects the deprecated gallery route to the release-locked home gallery", async () => {
     mockThoughtGalleryApi([
       thoughtGalleryItem({
         tokenId: 1,
@@ -1139,15 +1129,16 @@ describe("App Component", () => {
     render(<App />);
     await flushAsyncEffects();
 
-    expect(document.title).toBe("THOUGHT Gallery");
+    expect(window.location.pathname).toBe("/");
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
-    expect(screen.getByRole("heading", { level: 1, name: "Gallery" })).toBeInTheDocument();
-    expect(screen.getByText("Current THOUGHT collection is not deployed.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "create your THOUGHT" })).toHaveAttribute(
-      "href",
-      expectedDefaultThoughtUrl(),
-    );
-    expect(screen.getByRole("link", { name: "[ home ]" })).toHaveAttribute("href", "/");
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "3 fully onchain movements for Agent Art.",
+      }),
+    ).toBeInTheDocument();
+    expectCurrentThoughtGalleryInactive();
+    expect(screen.queryByRole("heading", { level: 1, name: "Gallery" })).toBeNull();
     expect(screen.queryByLabelText("Open THOUGHT #1")).toBeNull();
     expect(screen.queryByLabelText("Open THOUGHT #2")).toBeNull();
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
@@ -1183,8 +1174,9 @@ describe("App Component", () => {
     expect(css).toMatch(/\.thought-detail\s*{[^}]*-moz-osx-font-smoothing:\s*auto;/s);
   });
 
-  test("home body keeps the slogan, movements, and fixture works", () => {
+  test("home body keeps the slogan, movements, and release-locked work gallery", async () => {
     render(<App />);
+    await flushAsyncEffects();
 
     expect(
       screen.getByRole("heading", {
@@ -1198,10 +1190,10 @@ describe("App Component", () => {
     );
     expect(screen.getByText("WILL")).toBeInTheDocument();
     expect(screen.getByText("AWA!")).toBeInTheDocument();
-    expect(screen.getByText("on Sepolia now")).toBeInTheDocument();
+    expect(screen.getByText("not deployed")).toBeInTheDocument();
     expect(screen.getByText("launch in 2027")).toBeInTheDocument();
     expect(screen.getByText("launch in 2028")).toBeInTheDocument();
-    expectPinnedThoughtFixtureWorks();
+    expectCurrentThoughtGalleryInactive();
     expect(screen.queryByLabelText("Project links")).toBeNull();
     expect(screen.queryByText("movement roadmap")).toBeNull();
     expect(screen.queryByText("recent works")).toBeNull();
