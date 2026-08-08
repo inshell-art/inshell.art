@@ -1446,7 +1446,7 @@ const IS_LOCAL_CONTRACT_INTEGRATION =
 const INSHELL_LINKS = resolveInshellLinks();
 
 const readConfiguredUrl = (name: string) => {
-  const value = (import.meta.env as Record<string, unknown>)[name];
+  const value = runtimeEnv[name];
   return typeof value === "string" && value.trim() ? value.trim() : "";
 };
 

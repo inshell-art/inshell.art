@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -17,6 +18,11 @@ import {
   onRequestOptions,
   type ThoughtAgentRouteContext,
 } from "../functions/api/thought-agent/v1/shared";
+
+const thoughtMainSource = readFileSync(
+  new URL("../apps/thought/src/main.ts", import.meta.url),
+  "utf8",
+);
 
 test("the Claude handoff uses the complete shared ten-case matrix", () => {
   assert.equal(THOUGHT_CODEX_HANDOFF_CASES.length, 10);
@@ -84,6 +90,21 @@ test("the public Agent API grants CORS only to approved THOUGHT origins", () => 
 
   const unknown = onRequestOptions(buildContext("https://untrusted.example"));
   assert.equal(unknown.headers.get("access-control-allow-origin"), null);
+});
+
+test("the App resolves Agent API URLs from the complete build-injected environment", () => {
+  assert.match(
+    thoughtMainSource,
+    /const runtimeEnv: Record<string, unknown> = \{[\s\S]*?globalThis\.__INSHELL_VITE_ENV__[\s\S]*?\.\.\.import\.meta\.env/,
+  );
+  assert.match(
+    thoughtMainSource,
+    /const readConfiguredUrl = \(name: string\) => \{\s*const value = runtimeEnv\[name\]/,
+  );
+  assert.doesNotMatch(
+    thoughtMainSource,
+    /const readConfiguredUrl = \(name: string\) => \{\s*const value = \(import\.meta\.env as Record<string, unknown>\)\[name\]/,
+  );
 });
 
 test("Cowork accepts only public HTTPS managed runs", () => {
