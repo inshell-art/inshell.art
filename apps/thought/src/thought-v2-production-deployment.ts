@@ -13,6 +13,9 @@ export type ThoughtV2ProductionDeployment = {
     protocolRegistry: `0x${string}`;
     creationAttestationVerifier: `0x${string}`;
   };
+  deployBlocks: {
+    thoughtNft: number;
+  };
   release: {
     protocolReleaseId: `0x${string}`;
     manifestKeccak256: `0x${string}`;
@@ -32,6 +35,7 @@ type DeploymentLock = {
   manifestSha256?: unknown;
   chainId?: unknown;
   contracts?: unknown;
+  deployBlocks?: unknown;
   release?: unknown;
   attestation?: unknown;
   serverBindings?: unknown;
@@ -73,6 +77,7 @@ export const readThoughtV2ProductionDeployment = (): ThoughtV2ProductionDeployme
       lock.manifestSha256 !== null ||
       lock.chainId !== null ||
       lock.contracts !== null ||
+      lock.deployBlocks !== null ||
       lock.release !== null ||
       lock.attestation !== null
     ) {
@@ -106,10 +111,15 @@ export const readThoughtV2ProductionDeployment = (): ThoughtV2ProductionDeployme
   }
 
   const contracts = lock.contracts as Record<string, unknown> | null;
+  const deployBlocks = lock.deployBlocks as Record<string, unknown> | null;
   const release = lock.release as Record<string, unknown> | null;
   const attestation = lock.attestation as Record<string, unknown> | null;
-  if (!contracts || !release || !attestation) {
+  if (!contracts || !deployBlocks || !release || !attestation) {
     throw new Error("Production deployment lock is incomplete.");
+  }
+  const thoughtNftDeployBlock = deployBlocks.thoughtNft;
+  if (!Number.isSafeInteger(thoughtNftDeployBlock) || Number(thoughtNftDeployBlock) < 1) {
+    throw new Error("Production deployment lock has invalid thoughtNft deploy block.");
   }
   const authorityEpoch = attestation.authorityEpoch;
   if (!Number.isSafeInteger(authorityEpoch) || Number(authorityEpoch) < 1) {
@@ -129,6 +139,9 @@ export const readThoughtV2ProductionDeployment = (): ThoughtV2ProductionDeployme
         contracts.creationAttestationVerifier,
         "creationAttestationVerifier",
       ),
+    },
+    deployBlocks: {
+      thoughtNft: Number(thoughtNftDeployBlock),
     },
     release: {
       protocolReleaseId: requireBytes32(release.protocolReleaseId, "protocolReleaseId"),

@@ -17,6 +17,9 @@ const main = read("apps/thought/src/main.ts");
 const statusApi = read("functions/api/thought-agent/v1/shared.ts");
 const attestationApi = read("functions/api/thought-contract/v2/attestation.ts");
 const deploymentModule = read("apps/thought/src/thought-v2-production-deployment.ts");
+const galleryRelease = read("functions/api/thought-gallery-release.ts");
+const galleryApi = read("functions/api/thought-gallery.ts");
+const galleryHome = read("apps/home/src/services/thoughtGallery.ts");
 
 if (
   lock.schema !== "inshell.thought.production-deployment-lock.v1" ||
@@ -27,6 +30,7 @@ if (
   lock.manifestSha256 !== null ||
   lock.chainId !== null ||
   lock.contracts !== null ||
+  lock.deployBlocks !== null ||
   lock.release !== null ||
   lock.attestation !== null ||
   lock.authorization?.deploymentApproved !== false ||
@@ -70,6 +74,27 @@ for (const snippet of [
   "authorization?.frontendActivationApproved !== true",
   "authorization?.signerActivationApproved !== true",
 ]) if (!deploymentModule.includes(snippet)) fail(`deployment-lock validator is missing ${snippet}`);
+
+for (const snippet of [
+  "THOUGHT_V2_PRODUCTION_DEPLOYMENT",
+  "thoughtGallerySnapshotKey",
+  "deployment.artifactId",
+  "deployment.manifestSha256",
+]) if (!galleryRelease.includes(snippet)) fail(`gallery release identity is missing ${snippet}`);
+
+for (const snippet of [
+  "THOUGHT_GALLERY_DEPLOYMENT_INACTIVE",
+  "inactiveThoughtGalleryResponse",
+  "deployment.contractAddress",
+  "deployment.deployBlock",
+]) if (!galleryApi.includes(snippet)) fail(`gallery API deployment gate is missing ${snippet}`);
+
+for (const snippet of [
+  "THOUGHT_V2_PRODUCTION_DEPLOYMENT",
+  "clearThoughtGalleryCaches",
+  "Current THOUGHT collection is not deployed.",
+  "payload.artifactId !== THOUGHT_GALLERY_DEPLOYMENT.artifactId",
+]) if (!galleryHome.includes(snippet)) fail(`home gallery deployment gate is missing ${snippet}`);
 
 const sensitivePattern = /(?:PRIVATE_KEY|MNEMONIC|SECRET_KEY|SIGNER_KEY)/;
 for (const relative of [

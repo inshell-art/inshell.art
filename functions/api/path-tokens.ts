@@ -4,7 +4,6 @@ import {
   PATH_NFT_ADDRESS,
   PATH_NFT_DEPLOY_BLOCK,
   PATH_THOUGHT_CONSUMED_TOPIC,
-  THOUGHT_NFT_ADDRESS,
   TRANSFER_TOPIC,
   boundedRefreshRange,
   chainFailure,
@@ -358,7 +357,8 @@ async function readPathTokenEventLog(
   event: TargetedPathTokenEvent,
 ) {
   const address = event.contractAddress;
-  const topic0 = event.topic0 === TRANSFER_TOPIC && address === THOUGHT_NFT_ADDRESS.toLowerCase()
+  const thoughtContractEvent = address !== PATH_NFT_ADDRESS.toLowerCase();
+  const topic0 = event.topic0 === TRANSFER_TOPIC && thoughtContractEvent
     ? PATH_THOUGHT_CONSUMED_TOPIC
     : event.topic0;
   try {
@@ -371,7 +371,7 @@ async function readPathTokenEventLog(
     });
     const log = logs.find((candidate) =>
       candidate.transactionHash?.toLowerCase() === event.txHash.toLowerCase() &&
-      (event.topic0 === TRANSFER_TOPIC && address === THOUGHT_NFT_ADDRESS.toLowerCase()
+      (event.topic0 === TRANSFER_TOPIC && thoughtContractEvent
         ? true
         : hexToNumber(candidate.logIndex) === event.logIndex)
     );
@@ -395,7 +395,7 @@ function tokenIdFromPathEvent(event: TargetedPathTokenEvent, log: ChainLog) {
     if (event.topic0 === PATH_METADATA_UPDATE_TOPIC) return tokenIdFromEventData(log.data);
     if (event.topic0 === PATH_MOVEMENT_CONSUMED_TOPIC) return topicToBigInt(log.topics[1])?.toString() ?? "";
   }
-  if (event.contractAddress === THOUGHT_NFT_ADDRESS.toLowerCase()) {
+  if (event.contractAddress !== PATH_NFT_ADDRESS.toLowerCase()) {
     if (event.topic0 === PATH_THOUGHT_CONSUMED_TOPIC) return topicToBigInt(log.topics[1])?.toString() ?? "";
     if (event.topic0 === TRANSFER_TOPIC) return topicToBigInt(log.topics[1])?.toString() ?? "";
   }

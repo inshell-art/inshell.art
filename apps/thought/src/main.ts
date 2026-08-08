@@ -1863,6 +1863,8 @@ const THOUGHT_V2_MINT_ENABLED =
     THOUGHT_V2_PROTOCOL_RELEASE.deployment.v2MintEnabled &&
     THOUGHT_V2_PRODUCTION_DEPLOYMENT !== null
   );
+const IS_THOUGHT_GALLERY_ACTIVE =
+  IS_LOCAL_THOUGHT_V2 || THOUGHT_V2_PRODUCTION_DEPLOYMENT !== null;
 const thoughtInstructions = IS_LOCAL_THOUGHT_V2
   ? latestThoughtCreativeSpec
   : THOUGHT_V2_PROTOCOL_RELEASE.spec.text;
@@ -15047,14 +15049,25 @@ const isGalleryThought = (value: GalleryThought | null): value is GalleryThought
 let galleryThoughtCache: GalleryThoughtCachePayload | null = null;
 
 const thoughtGalleryCacheKey = () =>
-  [
-    "thought-gallery",
-    "v1",
-    THOUGHT_CHAIN_ID,
-    THOUGHT_NFT_ADDRESS.toLowerCase(),
-    THOUGHT_NFT_DEPLOY_BLOCK,
-    THOUGHT_LOG_CHUNK_SIZE,
-  ].join(":");
+  IS_LOCAL_THOUGHT_V2
+    ? [
+      "thought-gallery",
+      "local-v2",
+      THOUGHT_CHAIN_ID,
+      THOUGHT_NFT_ADDRESS.toLowerCase(),
+      THOUGHT_NFT_DEPLOY_BLOCK,
+      THOUGHT_LOG_CHUNK_SIZE,
+    ].join(":")
+    : THOUGHT_V2_PRODUCTION_DEPLOYMENT
+      ? [
+        "thought-gallery",
+        "production-v2",
+        THOUGHT_V2_PRODUCTION_DEPLOYMENT.chainId,
+        THOUGHT_V2_PRODUCTION_DEPLOYMENT.contracts.thoughtNft.toLowerCase(),
+        THOUGHT_V2_PRODUCTION_DEPLOYMENT.artifactId,
+        THOUGHT_V2_PRODUCTION_DEPLOYMENT.manifestSha256,
+      ].join(":")
+      : "thought-gallery:inactive";
 
 const isGalleryThoughtRecord = (value: unknown): value is GalleryThought => {
   if (!value || typeof value !== "object") {
@@ -15102,6 +15115,10 @@ const validGalleryThoughtCache = (payload: GalleryThoughtCachePayload | null) =>
 };
 
 const readThoughtGalleryCache = () => {
+  if (!IS_THOUGHT_GALLERY_ACTIVE) {
+    clearThoughtGalleryCache();
+    return null;
+  }
   const memory = validGalleryThoughtCache(galleryThoughtCache);
   if (memory) {
     return memory;
@@ -15132,6 +15149,7 @@ const readThoughtGalleryCache = () => {
 };
 
 const writeThoughtGalleryCache = (thoughts: GalleryThought[]) => {
+  if (!IS_THOUGHT_GALLERY_ACTIVE) return;
   const payload: GalleryThoughtCachePayload = {
     cachedAt: Date.now(),
     thoughts,
@@ -15179,7 +15197,14 @@ const readGalleryThoughtsFromApi = async (): Promise<GalleryThought[] | null> =>
 const clearThoughtGalleryCache = () => {
   galleryThoughtCache = null;
   try {
-    getSessionStorage()?.removeItem(thoughtGalleryCacheKey());
+    const storage = getSessionStorage();
+    if (!storage) return;
+    const keys: string[] = [];
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index);
+      if (key?.startsWith("thought-gallery:")) keys.push(key);
+    }
+    for (const key of keys) storage.removeItem(key);
   } catch {
     // Ignore unavailable browser storage.
   }
@@ -15206,6 +15231,10 @@ const getThoughtMintedLogs = async (provider: JsonRpcProvider) => {
 };
 
 const readGalleryThoughts = async (options?: { bypassCache?: boolean }): Promise<GalleryThought[] | null> => {
+  if (!IS_THOUGHT_GALLERY_ACTIVE) {
+    clearThoughtGalleryCache();
+    throw new Error("Current THOUGHT collection is not deployed.");
+  }
   if (!options?.bypassCache) {
     const cached = readThoughtGalleryCache();
     if (cached) {
@@ -15436,6 +15465,14 @@ const renderThoughtGallery = (thoughts: GalleryThought[]) => {
 };
 
 const loadThoughtGallery = async () => {
+  if (!IS_THOUGHT_GALLERY_ACTIVE) {
+    stopGalleryLoadingStatus();
+    clearThoughtGalleryCache();
+    galleryGrid.replaceChildren();
+    galleryStatus.textContent = "Current THOUGHT collection is not deployed.";
+    settleGalleryCreateLink();
+    return;
+  }
   const cached = readThoughtGalleryCache();
   if (cached) {
     stopGalleryLoadingStatus();
@@ -15475,6 +15512,11 @@ const loadThoughtGallery = async () => {
 const loadThoughtDetail = async () => {
   if (ROUTE_THOUGHT_NFT_ID === null) {
     thoughtDetailStatus.textContent = "THOUGHT unavailable.";
+    return;
+  }
+  if (!IS_THOUGHT_GALLERY_ACTIVE) {
+    clearThoughtGalleryCache();
+    thoughtDetailStatus.textContent = "Current THOUGHT collection is not deployed.";
     return;
   }
 

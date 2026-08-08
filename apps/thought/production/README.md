@@ -10,6 +10,8 @@ Activation requires one reviewed lock update that binds all of the following:
 - canonical r2 artifact ID and manifest SHA-256;
 - target chain and exact PATH, THOUGHT, renderer, registry, and verifier
   addresses;
+- the exact THOUGHT deployment block used to initialize the release-bound
+  gallery read model;
 - protocol release ID and manifest Keccak-256 read from the deployed THOUGHT;
 - verifier authority public address and authority epoch;
 - separate deployment, frontend, and signer approvals.
@@ -17,6 +19,12 @@ Activation requires one reviewed lock update that binds all of the following:
 The App must then verify the lock against deployed bytecode and immutable
 Contract getters before offering mint. The browser must never receive an
 attestation private key or construct an official signature.
+
+The same lock is also the only activation input for the canonical gallery.
+While it is disabled, gallery APIs and persistent-chain gallery/detail
+surfaces fail closed and must not fall back to an older THOUGHT deployment.
+Gallery caches are namespaced by chain ID, THOUGHT address, artifact ID, and
+manifest SHA-256 so a later deployment cannot inherit an earlier corpus.
 
 ## Signer boundary still requiring explicit approval
 

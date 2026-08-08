@@ -6,7 +6,6 @@ import {
   PULSE_AUCTION_ADDRESS,
   PULSE_SALE_TOPIC,
   THOUGHT_MINTED_TOPIC,
-  THOUGHT_NFT_ADDRESS,
   TRANSFER_TOPIC,
   createChainCacheDiagnostics,
   createStats,
@@ -23,6 +22,10 @@ import {
 import { refreshPathTokensForEvent } from "../path-tokens";
 import { refreshPulseAuction, refreshPulseAuctionForTx } from "../pulse-auction";
 import { refreshThoughtGalleryForEvent } from "../thought-gallery";
+import {
+  getThoughtGalleryDeployment,
+  thoughtGallerySnapshotKey,
+} from "../thought-gallery-release";
 import { isIndexerAuthorized } from "./auth";
 import { writeIndexerEventStatus } from "./event-status";
 
@@ -54,7 +57,7 @@ const EVENT_SOURCE = "ops-chain-event-ingress";
 const PULSE_LAUNCH_CONFIGURED_TOPIC =
   "0xb50a0ea9bb6d2c2a03f4e905919179629acdfa89f0d32153740080caf002ddea";
 
-const EVENT_TARGETS: Record<
+type EventTargetConfig = Record<
   EventTarget,
   {
     snapshotKey: string;
@@ -69,7 +72,12 @@ const EVENT_TARGETS: Record<
       event: ValidEvent,
     ) => Promise<IndexedSnapshot<unknown>>;
   }
-> = {
+>;
+
+const eventTargets = (): EventTargetConfig => {
+  const thoughtDeployment = getThoughtGalleryDeployment();
+  const thoughtAddress = thoughtDeployment?.contractAddress.toLowerCase();
+  return {
   "pulse-auction": {
     snapshotKey: "pulse-auction:v1:sepolia",
     service: "path",
@@ -87,7 +95,7 @@ const EVENT_TARGETS: Record<
     snapshotKey: "path-tokens:v1:sepolia",
     service: "path",
     statsRoute: "indexer-event:path-tokens",
-    contractAddresses: [PATH_NFT_ADDRESS.toLowerCase(), THOUGHT_NFT_ADDRESS.toLowerCase()],
+    contractAddresses: [PATH_NFT_ADDRESS.toLowerCase(), ...(thoughtAddress ? [thoughtAddress] : [])],
     topic0s: new Set([
       TRANSFER_TOPIC,
       PATH_METADATA_UPDATE_TOPIC,
@@ -98,14 +106,15 @@ const EVENT_TARGETS: Record<
       refreshPathTokensForEvent(ctx, stats, diagnostics, event),
   },
   "thought-gallery": {
-    snapshotKey: "thought-gallery:v1:sepolia",
+    snapshotKey: thoughtGallerySnapshotKey(thoughtDeployment) ?? "thought-gallery:inactive",
     service: "thought",
     statsRoute: "indexer-event:thought-gallery",
-    contractAddresses: [THOUGHT_NFT_ADDRESS.toLowerCase()],
+    contractAddresses: thoughtAddress ? [thoughtAddress] : [],
     topic0s: new Set([THOUGHT_MINTED_TOPIC]),
     refresh: async (ctx, stats, diagnostics, event) =>
       refreshThoughtGalleryForEvent(ctx, stats, diagnostics, event),
   },
+  };
 };
 
 export const onRequestOptions = onOptions;
@@ -116,11 +125,17 @@ export async function onRequestPost(ctx: PagesContextLike): Promise<Response> {
   }
 
   const body = await readJsonBody(ctx.request);
+  if (readString(body.target) === "thought-gallery" && !getThoughtGalleryDeployment()) {
+    return json(503, {
+      error: "Current THOUGHT collection is not deployed.",
+      code: "THOUGHT_GALLERY_DEPLOYMENT_INACTIVE",
+    });
+  }
   const parsed = validateEvent(body);
   if (!parsed.ok) return json(400, { error: parsed.error });
 
   const event = parsed.event;
-  const config = EVENT_TARGETS[event.target];
+  const config = eventTargets()[event.target];
   const diagnostics = createChainCacheDiagnostics(config.snapshotKey);
   const stats = createStats(config.service, config.statsRoute, ctx.env);
   try {
@@ -196,7 +211,7 @@ function validateEvent(body: IndexerEventEnvelope):
 
   const contractAddress = readString(body.contractAddress).toLowerCase();
   const topic0 = readString(body.topic0).toLowerCase();
-  const config = EVENT_TARGETS[target];
+  const config = eventTargets()[target];
   if (!config.contractAddresses.includes(contractAddress)) {
     return { ok: false, error: "invalid event contract" };
   }

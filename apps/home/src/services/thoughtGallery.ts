@@ -1,6 +1,21 @@
+import { THOUGHT_V2_PRODUCTION_DEPLOYMENT } from "../../../thought/src/thought-v2-production-deployment";
+
 const DEFAULT_THOUGHT_GALLERY_API_URL = "/api/thought-gallery";
 const THOUGHT_GALLERY_CACHE_TTL_MS = 60_000;
-const THOUGHT_GALLERY_CACHE_KEY = "inshell:thought-gallery:v1";
+const THOUGHT_GALLERY_CACHE_NAMESPACE = "inshell:thought-gallery";
+const THOUGHT_GALLERY_CACHE_PREFIX = `${THOUGHT_GALLERY_CACHE_NAMESPACE}:`;
+const LEGACY_THOUGHT_GALLERY_CACHE_KEY = "inshell:thought-gallery:v1";
+const THOUGHT_GALLERY_DEPLOYMENT = THOUGHT_V2_PRODUCTION_DEPLOYMENT;
+const THOUGHT_GALLERY_CACHE_KEY = THOUGHT_GALLERY_DEPLOYMENT
+  ? [
+    THOUGHT_GALLERY_CACHE_NAMESPACE,
+    "v2",
+    THOUGHT_GALLERY_DEPLOYMENT.chainId,
+    THOUGHT_GALLERY_DEPLOYMENT.contracts.thoughtNft.toLowerCase(),
+    THOUGHT_GALLERY_DEPLOYMENT.artifactId,
+    THOUGHT_GALLERY_DEPLOYMENT.manifestSha256,
+  ].join(":")
+  : null;
 
 export type ThoughtGalleryItem = {
   tokenId: number;
@@ -32,6 +47,8 @@ type ThoughtGalleryCachePayload = {
 };
 
 type ThoughtGalleryApiPayload = {
+  artifactId?: unknown;
+  manifestSha256?: unknown;
   thoughts?: unknown;
 };
 
@@ -62,6 +79,23 @@ function storage() {
   } catch {
     return null;
   }
+}
+
+function clearThoughtGalleryCaches() {
+  thoughtGalleryMemoryCache = null;
+  const browserStorage = storage();
+  if (!browserStorage) return;
+  const keys: string[] = [];
+  for (let index = 0; index < browserStorage.length; index += 1) {
+    const key = browserStorage.key(index);
+    if (key?.startsWith(THOUGHT_GALLERY_CACHE_PREFIX)) keys.push(key);
+  }
+  keys.push(LEGACY_THOUGHT_GALLERY_CACHE_KEY);
+  for (const key of new Set(keys)) browserStorage.removeItem(key);
+}
+
+export function isThoughtGalleryDeploymentActive() {
+  return THOUGHT_GALLERY_DEPLOYMENT !== null;
 }
 
 function isThoughtGalleryItem(value: unknown): value is ThoughtGalleryItem {
@@ -110,6 +144,10 @@ function validPayload(payload: ThoughtGalleryCachePayload | null) {
 }
 
 export function readCachedThoughtGallery(): ThoughtGalleryItem[] | null {
+  if (!THOUGHT_GALLERY_DEPLOYMENT || !THOUGHT_GALLERY_CACHE_KEY) {
+    clearThoughtGalleryCaches();
+    return null;
+  }
   const memory = validPayload(thoughtGalleryMemoryCache);
   if (memory) return memory;
 
@@ -137,6 +175,7 @@ export function readCachedThoughtGallery(): ThoughtGalleryItem[] | null {
 }
 
 function writeThoughtGalleryCache(thoughts: ThoughtGalleryItem[]) {
+  if (!THOUGHT_GALLERY_DEPLOYMENT || !THOUGHT_GALLERY_CACHE_KEY) return;
   const payload = {
     cachedAt: Date.now(),
     thoughts: sortThoughts(thoughts),
@@ -152,6 +191,10 @@ function writeThoughtGalleryCache(thoughts: ThoughtGalleryItem[]) {
 export async function loadThoughtGallery(options?: {
   cacheMode?: "default" | "bypass";
 }): Promise<ThoughtGalleryItem[]> {
+  if (!THOUGHT_GALLERY_DEPLOYMENT) {
+    clearThoughtGalleryCaches();
+    throw new Error("Current THOUGHT collection is not deployed.");
+  }
   if (typeof globalThis.fetch !== "function") {
     throw new Error("Gallery API unavailable.");
   }
@@ -173,7 +216,11 @@ export async function loadThoughtGallery(options?: {
   }
 
   const payload = (await response.json()) as ThoughtGalleryApiPayload;
-  if (!Array.isArray(payload.thoughts)) {
+  if (
+    payload.artifactId !== THOUGHT_GALLERY_DEPLOYMENT.artifactId ||
+    payload.manifestSha256 !== THOUGHT_GALLERY_DEPLOYMENT.manifestSha256 ||
+    !Array.isArray(payload.thoughts)
+  ) {
     throw new Error("Gallery API returned invalid payload.");
   }
 

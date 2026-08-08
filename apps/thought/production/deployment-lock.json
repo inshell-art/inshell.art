@@ -7,6 +7,7 @@
   "manifestSha256": null,
   "chainId": null,
   "contracts": null,
+  "deployBlocks": null,
   "release": null,
   "attestation": null,
   "serverBindings": {
