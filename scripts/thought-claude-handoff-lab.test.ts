@@ -23,6 +23,10 @@ const thoughtMainSource = readFileSync(
   new URL("../apps/thought/src/main.ts", import.meta.url),
   "utf8",
 );
+const deployWorkflowSource = readFileSync(
+  new URL("../.github/workflows/deploy-pages.yml", import.meta.url),
+  "utf8",
+);
 
 test("the Claude handoff uses the complete shared ten-case matrix", () => {
   assert.equal(THOUGHT_CODEX_HANDOFF_CASES.length, 10);
@@ -104,6 +108,25 @@ test("the App resolves Agent API URLs from the complete build-injected environme
   assert.doesNotMatch(
     thoughtMainSource,
     /const readConfiguredUrl = \(name: string\) => \{\s*const value = \(import\.meta\.env as Record<string, unknown>\)\[name\]/,
+  );
+});
+
+test("both canonical and standalone preview builds pin the public Agent API", () => {
+  assert.equal(
+    deployWorkflowSource.match(/^\s+VITE_THOUGHT_AGENT_API_BASE:/gm)?.length,
+    2,
+  );
+  assert.equal(
+    deployWorkflowSource.match(/^\s+VITE_THOUGHT_AGENT_PUBLIC_API_BASE:/gm)?.length,
+    2,
+  );
+  assert.equal(
+    deployWorkflowSource.match(/test -n "\$VITE_THOUGHT_AGENT_API_BASE"/g)?.length,
+    2,
+  );
+  assert.equal(
+    deployWorkflowSource.match(/test -n "\$VITE_THOUGHT_AGENT_PUBLIC_API_BASE"/g)?.length,
+    2,
   );
 });
 
