@@ -3,6 +3,7 @@ import path from "node:path";
 import process from "node:process";
 
 const DEV_RUN_STORE_SCHEMA = "inshell.thought.agent-dev-returned-runs.v1";
+const LIVE_RUN_STORE_GLOBAL = "__INSHELL_THOUGHT_AGENT_DEV_LIVE_RUN_STORE__";
 
 type StoredRun = {
   runId: string;
@@ -15,6 +16,35 @@ type StoredRunEnvelope = {
   updatedAt: string;
   runs: unknown[];
 };
+
+type LiveRunStore = {
+  runtimeKey: string;
+  runs: Map<string, unknown>;
+};
+
+type LiveRunStoreGlobal = typeof globalThis & {
+  [LIVE_RUN_STORE_GLOBAL]?: LiveRunStore;
+};
+
+export function retainLiveDevRuns<T>(
+  runtimeKey: string,
+  seed: ReadonlyMap<string, T>,
+): Map<string, T> {
+  if (!runtimeKey) {
+    throw new Error("THOUGHT Agent dev live-run runtime key is required.");
+  }
+  const scope = globalThis as LiveRunStoreGlobal;
+  const existing = scope[LIVE_RUN_STORE_GLOBAL];
+  if (existing?.runtimeKey === runtimeKey) {
+    return existing.runs as Map<string, T>;
+  }
+  const runs = new Map(seed);
+  scope[LIVE_RUN_STORE_GLOBAL] = {
+    runtimeKey,
+    runs: runs as Map<string, unknown>,
+  };
+  return runs;
+}
 
 export function loadReturnedDevRuns<T extends StoredRun>(
   storePath: string,

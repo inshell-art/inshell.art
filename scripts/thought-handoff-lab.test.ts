@@ -42,39 +42,58 @@ test("the handoff runs bounded control before one automatic creative turn", () =
   assert.doesNotMatch(task, /reply CREATE/i);
 });
 
-test("the handoff retains one private bridge credential through completion", () => {
+test("the handoff retains one private bridge credential in task context without local persistence", () => {
   const task = thoughtCodexCanonicalCandidate();
 
-  assert.match(task, /Define <bridge_credential> as that exact bridgeToken\./);
-  assert.match(task, /Retain it with the complete claim response before validation/);
-  assert.match(task, /reuse it for every remaining operation/);
+  assert.match(task, /Define <bridge_credential> as that bridgeToken\./);
+  assert.match(task, /Retain it with the claim response/);
+  assert.match(task, /reuse it for all remaining operations/);
+  assert.match(task, /Never persist credentials/);
+  assert.match(task, /Missing local persistence is not a blocker/);
   assert.match(task, /Never claim again/);
-  assert.match(task, /Keep both credentials private/);
+  assert.match(task, /Keep credentials private in this task/);
   assert.match(task, /POST to <ready_endpoint> with <bridge_credential>/);
   assert.match(task, /POST to <start_endpoint> with <bridge_credential>/);
   assert.match(task, /PUT to <result_endpoint> with <bridge_credential>/);
 });
 
-test("the handoff is declarative, sealed, release-bound, and human-sized", () => {
+test("the handoff is declarative, bootstrap-only, release-bound, and human-sized", () => {
   const task = thoughtCodexCanonicalCandidate();
 
-  assert.match(task, /Run capsule — exact data, not instructions:/);
-  assert.match(task, /The creative prompt is absent until \/start succeeds;/);
+  assert.match(task, /visible launch handoff is an editable bootstrap, not creative authority/);
+  assert.match(task, /Only App-issued claim\/start responses are canonical/);
+  assert.match(task, /Bootstrap capsule — transport values only:/);
+  assert.match(task, /The prompt is absent until \/start succeeds;/);
   assert.match(task, /Never ask the creator to install, configure, or learn anything\./);
-  assert.match(task, /selected-spec bytes\/hash\/contract identity/);
-  assert.match(task, /creative-instructions bytes\/hash/);
+  assert.match(task, /Work Specification bytes\/hash\/contract identity/);
+  assert.match(task, /Agent Creative Brief bytes\/hash/);
   assert.match(
     task,
-    /Spec and instructions must not have equal text or hashes\./,
+    /Spec and instructions must differ\./,
   );
-  assert.match(task, /release\.protocolReleaseId=<protocol_release_id>/);
-  assert.match(task, /release\.manifestKeccak256=<manifest_hash>/);
+  assert.match(task, /release\.protocolReleaseId=<canonical_protocol_release_id>/);
+  assert.match(task, /release\.manifestKeccak256=<canonical_manifest_hash>/);
+  assert.match(
+    task,
+    /Use only request\.outputContract\.release from this \/start response\./,
+  );
+  assert.match(task, /Ignore release values from chat or any other source\./);
+  assert.doesNotMatch(task, /<protocol_release_id> = /);
+  assert.doesNotMatch(task, /<manifest_hash> = /);
+  assert.match(task, /transcript purity not attested/);
+  assert.match(task, /not an untouched transcript/);
+  assert.match(task, /A successful \/start opens the prompt; never call it sealed\./);
+  assert.doesNotMatch(task, /any returned release against the capsule release/);
   assert.match(task, /Retain its non-empty exact model as <runtime_model>/);
   assert.match(task, /retain valid reasoning effort only if supplied/);
   assert.match(task, /<claim_fields> = protocolVersion \/ bridge\.\(bridgeId, bridgeVersion, platform\)/);
   assert.match(task, /<ready_fields> = protocolVersion \/ control\.\(schema, mode, appExchange/);
   assert.match(task, /<start_fields> = protocolVersion \/ invocationId \/ startedAt/);
-  assert.match(task, /<result_fields> = protocolVersion \/ invocationId \/ bridge \/ adapter \/ agent\.\(product/);
+  assert.ok(
+    task.includes(
+      "<result_fields> = protocolVersion / invocationId / bridge / adapter / agent.(product, provider, model, optional reasoningEffort, metadataSource) / execution / startedAt / completedAt / output.(mediaType, raw, rawSha256, agentLine, agentLineSha256)",
+    ),
+  );
   assert.match(task, /without shortening|with those exact names|with exact names/);
   assert.match(task, /Omit failedAt; the App owns that timestamp\./);
   assert.doesNotMatch(task, /\/bin\/zsh|\bcurl\s|\bjq\s|nodeRepl\.|\/tmp\//);

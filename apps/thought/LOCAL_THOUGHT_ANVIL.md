@@ -77,15 +77,21 @@ pnpm dev:thought
 When starting the frontend separately, pass the generated runtime:
 
 ```sh
-INSHELL_THOUGHT_CONTRACT_RUNTIME_FILE=apps/thought/contract-integration/local-runtime.thought-anvil.json \
+INSHELL_THOUGHT_CONTRACT_RUNTIME_FILE="$PWD/apps/thought/contract-integration/local-runtime.thought-anvil.json" \
 VITE_WALLET_CHAIN_RPC_URL=http://127.0.0.1:8547 \
   pnpm dev:thought
 ```
 
+The generated dedicated-lane runtime is also the frontend's default local
+descriptor. If it is absent, the frontend fails closed instead of falling back
+to the historical `evm/addresses.anvil.json` deployment. That historical
+deployment predates PATH v0.5.0 permission epochs and cannot produce a current
+PATH consume authorization.
+
 The standalone frontend command still uses its shared default port. The full
 THOUGHT stack command uses port `5176` so it can run beside the shared App lane.
 
-To test Codex and Claude Cowork through the production-shaped public HTTPS run
+To test Codex and Claude Code through the production-shaped public HTTPS run
 service while keeping artwork and minting on local Anvil, run:
 
 ```sh
@@ -96,6 +102,10 @@ The browser remains local and uses a same-origin Vite proxy. Agent handoffs use
 the public run URL directly. The public service keeps each run private behind
 separate short-lived browser and Agent credentials; this mode does not expose
 Anvil, the local filesystem, or the LAN to either Agent.
+
+The App opens Claude Code with `claude://code/new`. The older Cowork route is
+retained only for explicit compatibility testing and is never selected by the
+App for a new run.
 
 ## Reset
 
@@ -114,7 +124,7 @@ recreates the eight PATH fixtures for Anvil account #1.
 With the lane running:
 
 ```sh
-INSHELL_THOUGHT_CONTRACT_RUNTIME_FILE=apps/thought/contract-integration/local-runtime.thought-anvil.json \
+INSHELL_THOUGHT_CONTRACT_RUNTIME_FILE="$PWD/apps/thought/contract-integration/local-runtime.thought-anvil.json" \
   pnpm test:thought-app-contract
 ```
 

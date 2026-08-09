@@ -95,6 +95,7 @@ import {
   buildThoughtV2LocalAgentResult,
   buildThoughtV2LocalAgentTaskBinding,
   parseThoughtV2LocalAgentResult,
+  thoughtV2AgentLabelForAdapter,
 } from "../apps/thought/src/thought-v2-local-agent";
 import { describeThoughtTextPolicyIssue } from "../apps/thought/src/thought-text-policy";
 import {
@@ -130,6 +131,13 @@ const thoughtSpec: ThoughtRunSpec = {
 };
 
 const localRelease = THOUGHT_V2_LOCAL_RELEASE;
+assert.equal(thoughtV2AgentLabelForAdapter("codex"), "Codex");
+assert.equal(thoughtV2AgentLabelForAdapter("claude"), "Claude");
+assert.throws(
+  () => thoughtV2AgentLabelForAdapter("unknown"),
+  /not supported/,
+  "attestation must fail closed for an unsupported Agent adapter",
+);
 assert.equal(
   THOUGHT_V2_CURRENT_MINTED_TOPIC,
   id("ThoughtMinted(uint256,address,bytes32,bytes32,bytes32,bytes32,uint256,uint256,bytes32,bytes32)"),

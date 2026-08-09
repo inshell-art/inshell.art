@@ -57,6 +57,10 @@ const measureReleasedThoughtLine = (
 export { THOUGHT_V2_PROTOCOL_RELEASE } from "./release.generated";
 export { THOUGHT_AGENT_CREATIVE_BRIEF } from "./creative-brief.generated";
 export {
+  THOUGHT_AGENT_RUN_AUTHORITY,
+  THOUGHT_AGENT_RUN_AUTHORITY_VERSION,
+} from "./run-authority";
+export {
   THOUGHT_CODEX_CLIENT_ROUTE,
   buildThoughtCodexClientScript,
   buildThoughtCodexOperationContract,

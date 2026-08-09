@@ -7,6 +7,7 @@ import test from "node:test";
 import {
   loadReturnedDevRuns,
   persistReturnedDevRuns,
+  retainLiveDevRuns,
 } from "./thought-agent-dev-run-store";
 
 type FixtureRun = {
@@ -57,4 +58,35 @@ test("an invalid dev run store fails closed", () => {
   fs.writeFileSync(storePath, "{not-json");
 
   assert.equal(loadReturnedDevRuns(storePath, validateFixtureRun).size, 0);
+});
+
+test("active Agent runs survive a same-runtime dev server reload without disk persistence", () => {
+  const runtimeKey = `thought-runtime-${Date.now()}-${Math.random()}`;
+  const initial = new Map<string, FixtureRun>();
+  const retained = retainLiveDevRuns(runtimeKey, initial);
+  retained.set("tar_active", {
+    runId: "tar_active",
+    state: "ready",
+    updatedAt: "2026-08-08T14:00:00.000Z",
+    agentLine: "",
+  });
+
+  const reloaded = retainLiveDevRuns(runtimeKey, new Map());
+  assert.equal(reloaded, retained);
+  assert.equal(reloaded.get("tar_active")?.state, "ready");
+});
+
+test("active Agent runs are discarded when the contract runtime changes", () => {
+  const prefix = `thought-runtime-change-${Date.now()}-${Math.random()}`;
+  const previous = retainLiveDevRuns(`${prefix}:before`, new Map<string, FixtureRun>());
+  previous.set("tar_stale", {
+    runId: "tar_stale",
+    state: "ready",
+    updatedAt: "2026-08-08T14:00:00.000Z",
+    agentLine: "",
+  });
+
+  const current = retainLiveDevRuns(`${prefix}:after`, new Map());
+  assert.notEqual(current, previous);
+  assert.equal(current.has("tar_stale"), false);
 });

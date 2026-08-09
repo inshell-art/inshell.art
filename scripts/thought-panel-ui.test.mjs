@@ -49,6 +49,172 @@ const thoughtViteConfig = await readFile(
   new URL("../apps/thought/vite.config.ts", import.meta.url),
   "utf8",
 );
+const homeViteConfig = await readFile(
+  new URL("../apps/home/vite.config.ts", import.meta.url),
+  "utf8",
+);
+const homeThoughtGallery = await readFile(
+  new URL("../apps/home/src/services/thoughtGallery.ts", import.meta.url),
+  "utf8",
+);
+const thoughtBrowserReleaseCanary = await readFile(
+  new URL("./test-thought-agent-browser-release-canary.ts", import.meta.url),
+  "utf8",
+);
+const rootPackageJson = JSON.parse(
+  await readFile(new URL("../package.json", import.meta.url), "utf8"),
+);
+
+test("plain THOUGHT dev defaults to the generated current-contract lane", () => {
+  const runtimeReaderStart = thoughtViteConfig.indexOf(
+    "function readCurrentThoughtContractRuntime",
+  );
+  const runtimeReaderEnd = thoughtViteConfig.indexOf(
+    "function serializeForInlineScript",
+    runtimeReaderStart,
+  );
+  const runtimeReader = thoughtViteConfig.slice(runtimeReaderStart, runtimeReaderEnd);
+  assert.match(
+    runtimeReader,
+    /apps\/thought\/contract-integration\/local-runtime\.thought-anvil\.json/,
+  );
+  assert.doesNotMatch(runtimeReader, /apps\/thought\/evm\/addresses\.anvil\.json/);
+});
+
+test("canonical home proxies THOUGHT through the configured stack origin", () => {
+  assert.match(
+    homeViteConfig,
+    /process\.env\.INSHELL_THOUGHT_APP_ORIGIN\?\.trim\(\)/,
+  );
+  for (const route of [
+    "/api/thought-contract",
+    "/api/thought-agent",
+    "/thought",
+    "/gallery",
+  ]) {
+    const routeStart = homeViteConfig.indexOf(`"${route}":`);
+    assert.ok(routeStart >= 0, `missing home proxy route ${route}`);
+    assert.match(
+      homeViteConfig.slice(routeStart, routeStart + 180),
+      /target: thoughtAppOrigin/,
+    );
+  }
+  assert.match(
+    homeViteConfig,
+    /command !== "serve" \|\| mode !== "devnet"/,
+  );
+  assert.match(
+    homeViteConfig,
+    /globalThis\.__INSHELL_THOUGHT_CONTRACT_RUNTIME__/,
+  );
+  assert.match(
+    homeThoughtGallery,
+    /THOUGHT_V2_PRODUCTION_DEPLOYMENT \?\? LOCAL_THOUGHT_GALLERY_DEPLOYMENT/,
+  );
+  assert.match(
+    homeThoughtGallery,
+    /client\.getLogs\([\s\S]*?event: LOCAL_THOUGHT_ABI\[0\][\s\S]*?fromBlock: 0n/,
+  );
+  assert.match(
+    homeThoughtGallery,
+    /if \(LOCAL_THOUGHT_GALLERY_DEPLOYMENT\)[\s\S]*?loadLocalThoughtGallery\(\)/,
+  );
+});
+
+test("THOUGHT detail uses the canonical record layout", () => {
+  const detailStart = indexHtml.indexOf('id="thought-page"');
+  const detailEnd = indexHtml.indexOf('id="thought-report-bug-link"', detailStart);
+  const detailMarkup = indexHtml.slice(detailStart, detailEnd);
+
+  assert.ok(detailStart >= 0 && detailEnd > detailStart);
+  assert.match(detailMarkup, /<h2>work<\/h2>/);
+  assert.match(detailMarkup, /<h2>creation provenance<\/h2>/);
+  assert.match(detailMarkup, /<h2>canonical traits<\/h2>/);
+  assert.match(detailMarkup, /<h2>on-chain record<\/h2>/);
+  assert.match(detailMarkup, /<summary>verify \/ raw data<\/summary>/);
+  assert.match(detailMarkup, /canonical artwork · ThoughtNFT\.svgOf/);
+  assert.doesNotMatch(detailMarkup, /<h2>color font<\/h2>/i);
+  assert.doesNotMatch(detailMarkup, /<h2>model return<\/h2>/i);
+  assert.match(thoughtCss, /\.thought-detail__body\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) var\(--thought-detail-rail-width\)/);
+  assert.match(thoughtCss, /\.thought-detail__support\s*\{[\s\S]*?grid-column:\s*1 \/ -1/);
+  assert.match(thoughtCss, /\.thought-detail\s*\{[\s\S]*?--thought-detail-font-weight:\s*var\(--weight-mid\)/);
+  assert.match(thoughtCss, /\.thought-detail__section h2\s*\{[\s\S]*?font-weight:\s*var\(--weight-semibold\)/);
+  assert.match(thoughtCss, /\.thought-detail__text\s*\{[\s\S]*?font-weight:\s*var\(--thought-detail-font-weight\)/);
+  assert.match(thoughtCss, /\.thought-detail__fields dt\s*\{[\s\S]*?font-weight:\s*var\(--thought-detail-font-weight\)/);
+  assert.match(thoughtCss, /\.thought-detail__fields dd\s*\{[\s\S]*?font-weight:\s*var\(--thought-detail-font-weight\)/);
+});
+
+test("THOUGHT detail is pinned to the current release and bypasses stale gallery data", () => {
+  assert.match(thoughtMain, /const THOUGHT_GALLERY_CACHE_SCHEMA = "v3"/);
+  assert.match(
+    thoughtMain,
+    /const localThoughtRuntimeGeneration = \(\(\) => \{[\s\S]*?THOUGHT_V2_LOCAL_RELEASE\.artifact\.id[\s\S]*?THOUGHT_V2_LOCAL_RELEASE\.artifact\.manifestSha256[\s\S]*?generatedAt/,
+  );
+  assert.match(
+    thoughtMain,
+    /const thoughtGalleryCacheKey = \(\) =>[\s\S]*?THOUGHT_GALLERY_CACHE_SCHEMA[\s\S]*?localThoughtRuntimeGeneration/,
+  );
+
+  const detailLoaderStart = thoughtMain.indexOf("const loadThoughtDetail = async");
+  const detailLoaderEnd = thoughtMain.indexOf(
+    "const prepareThoughtDetailSpecJsonLink = async",
+    detailLoaderStart,
+  );
+  const detailLoader = thoughtMain.slice(detailLoaderStart, detailLoaderEnd);
+  assert.ok(detailLoaderStart >= 0 && detailLoaderEnd > detailLoaderStart);
+  assert.match(detailLoader, /readGalleryThoughts\(\{ bypassCache: true \}\)/);
+  assert.match(detailLoader, /EVM_ADDRESSES\.protocolRelease\?\.id/);
+  assert.match(detailLoader, /EVM_ADDRESSES\.protocolRelease\?\.manifestHash/);
+});
+
+test("local Agent runs keep one release snapshot from creation through return", () => {
+  assert.match(
+    thoughtViteConfig,
+    /const release = run\.release;[\s\S]*?outputContract:[\s\S]*?protocolReleaseId: release\.protocol\.protocolReleaseId/,
+  );
+  assert.match(
+    thoughtViteConfig,
+    /release: activeRelease,[\s\S]*?buildThoughtV2LocalAgentTaskBinding\(run\.release\)/,
+  );
+  assert.match(
+    thoughtViteConfig,
+    /parseDevAgentOutput\(body\.output\.raw, run\.release\)/,
+  );
+  assert.match(
+    thoughtMain,
+    /release: createPayload\.release,[\s\S]*?resultContract: createPayload\.resultContract/,
+  );
+  assert.match(
+    thoughtMain,
+    /thoughtAgentCreateSupportsBoundedControl[\s\S]*?claimCreativeInput === "sealed-absent"[\s\S]*?creativeInputEndpoint === "start"/,
+  );
+  assert.match(
+    thoughtMain,
+    /release: run\.release![\s\S]*?resultContract: run\.resultContract!/,
+  );
+});
+
+test("the browser canary verifies release parity through the actual Agent deep links", () => {
+  assert.match(thoughtBrowserReleaseCanary, /deep link and stored browser handoff differ/);
+  assert.match(thoughtBrowserReleaseCanary, /editable bootstrap, not creative authority/);
+  assert.match(thoughtBrowserReleaseCanary, /!handoff\.includes\(created\.release\.protocolReleaseId\)/);
+  assert.match(thoughtBrowserReleaseCanary, /!handoff\.includes\(created\.release\.manifestKeccak256\)/);
+  assert.match(thoughtBrowserReleaseCanary, /operation\.release, created\.release/);
+  assert.match(thoughtBrowserReleaseCanary, /created run and exact \/start outputContract\.release differ/);
+  assert.match(thoughtBrowserReleaseCanary, /THOUGHT_AGENT_RUN_AUTHORITY/);
+  assert.match(thoughtBrowserReleaseCanary, /Creative byte or hash parity|started\.request\?\.spec\?\.sha256/);
+  assert.match(thoughtBrowserReleaseCanary, /a \/start protocolReleaseId field drifted/);
+  assert.match(thoughtBrowserReleaseCanary, /a \/start manifestKeccak256 field drifted/);
+  assert.match(thoughtBrowserReleaseCanary, /creativeBindings: true/);
+  assert.match(thoughtBrowserReleaseCanary, /boundedControlClaim: true/);
+  assert.match(thoughtBrowserReleaseCanary, /everyReleaseField: true/);
+  assert.match(thoughtBrowserReleaseCanary, /startToResult: true/);
+  assert.match(thoughtBrowserReleaseCanary, /statusStates\.includes\("returned"\)/);
+  assert.match(
+    rootPackageJson.scripts["canary:thought-agent-browser-release"],
+    /browser-release:codex.*browser-release:claude/,
+  );
+});
 
 const ruleBody = (selector) => {
   const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -750,11 +916,11 @@ test("Work lifecycle messages move into Console history", () => {
   );
   assert.match(
     thoughtMain,
-    /The App asked Claude to open this THOUGHT task\./,
+    /The App asked Claude Cowork to open this THOUGHT task on your computer\./,
   );
   assert.match(
     thoughtMain,
-    /open this THOUGHT task in Claude/,
+    /The App asked Claude Code to open this THOUGHT task\./,
   );
 });
 
@@ -1332,27 +1498,35 @@ test("Agent launch uses direct data-only protocol calls without a client binding
   assert.match(thoughtMain, /const thoughtDockLaunchUrl = \(run: AgentDemoRun\) =>\s*run\.surface === "codex" \? run\.codexUrl : run\.claudeUrl/);
 });
 
-test("Claude gates Cowork on public HTTPS and keeps Code explicit", () => {
+test("Agent CTAs use product names and Claude launches Code while retaining Cowork only for legacy runs", () => {
   assert.match(thoughtMain, /const CLAUDE_COWORK_AGENT_ROUTE = "claude:\/\/cowork\/new"/);
   assert.match(thoughtMain, /const CLAUDE_CODE_AGENT_ROUTE = "claude:\/\/code\/new"/);
   assert.match(
     thoughtMain,
-    /id: "claude",[\s\S]*?label: "Claude",[\s\S]*?defaultSurface: "claude-cowork"/,
+    /id: "codex",[\s\S]*?label: "Codex",[\s\S]*?ctaLabel: "chatgpt",[\s\S]*?defaultSurface: "codex"/,
   );
   assert.match(
     thoughtMain,
-    /const claudeCoworkQualifiedForCurrentOrigin = \(\) =>[\s\S]*?isThoughtClaudeCoworkPublicHttpsOrigin\(thoughtDockAgentPublicApiOrigin\(\)\)[\s\S]*?IS_DEV_MODE[\s\S]*?IS_PREVIEW_DEPLOYMENT[\s\S]*?THOUGHT_CLAUDE_COWORK_QUALIFICATION\.qualified === true/,
+    /id: "claude",[\s\S]*?label: "Claude",[\s\S]*?ctaLabel: "claude",[\s\S]*?defaultSurface: "claude-code"/,
   );
   assert.match(
     thoughtMain,
-    /if \(adapterId === "claude"\) \{[\s\S]*?claudeCoworkQualifiedForCurrentOrigin\(\)[\s\S]*?"claude-cowork"[\s\S]*?: "claude-code"/,
+    /const normalizeThoughtDockAgentSurface = [\s\S]*?value === "claude-cowork" \|\| value === "claude-cowork-direct-http"[\s\S]*?\? "claude-cowork"[\s\S]*?: "claude-code"/,
   );
   assert.match(thoughtClaudeCoworkQualification, /qualified: false/);
   assert.match(
     thoughtClaudeCoworkQualification,
-    /Awaiting a successful public-HTTPS Claude Cowork canary/,
+    /Legacy Cowork compatibility only; not eligible for active App routing/,
   );
-  assert.doesNotMatch(thoughtMain, /shouldRecoverClaudeInCode|recoverInClaudeCode/);
+  assert.doesNotMatch(thoughtMain, /claudeCoworkQualifiedForCurrentOrigin|showClaudeLocalExecutionNotice/);
+  assert.doesNotMatch(thoughtMain, /THOUGHT_CLAUDE_COWORK_QUALIFICATION/);
+  assert.match(thoughtMain, /surface: ThoughtDockAgentSurface = "claude-code"/);
+  assert.match(thoughtMain, /surface === "claude-code"[\s\S]*?CLAUDE_CODE_AGENT_ROUTE[\s\S]*?: CLAUDE_COWORK_AGENT_ROUTE/);
+  assert.match(thoughtMain, /dockRailAction\("codex", thoughtAgentCtaLabel\("codex"\)/);
+  assert.match(thoughtMain, /dockRailAction\("claude", thoughtAgentCtaLabel\("claude"\)/);
+  assert.match(indexHtml, /<h2>ChatGPT<\/h2>[\s\S]*?choose ChatGPT/);
+  assert.match(indexHtml, /<h2>Claude<\/h2>[\s\S]*?Claude Code/);
+  assert.doesNotMatch(indexHtml, /Run this task.+On your computer/);
   assert.match(
     thoughtMain,
     /const createThoughtDockRun = async[\s\S]*?surface: ThoughtDockAgentSurface[\s\S]*?requestedAgent: \{\s*adapterId,[\s\S]*?client: \{\s*surface: surface === "codex" \? "thought-dock" : `thought-dock:\$\{surface\}`/,
@@ -1676,8 +1850,18 @@ test("mint submission and recovery keep one durable hash", () => {
 test("local App attestation binds selected Agent and runtime-reported Model records", () => {
   assert.match(
     thoughtViteConfig,
-    /const selectedAgent =[\s\S]*?authoritativeRun\.requestedAdapterId[\s\S]*?const reportedModel = authoritativeRun\.agent\.model\?\.trim\(\) \|\| "";[\s\S]*?const authoritativeModel = formatThoughtAgentModelLabel\(/,
-    "the backend must derive Agent from the selected adapter and Model from returned runtime metadata",
+    /selectedAgent = thoughtV2AgentLabelForAdapter\([\s\S]*?authoritativeRun\.requestedAdapterId/,
+    "the backend must derive Agent from the selected adapter",
+  );
+  assert.match(
+    thoughtViteConfig,
+    /const reportedModel = authoritativeRun\.agent\.model\?\.trim\(\) \|\| ""/,
+    "the backend must read Model from returned runtime metadata",
+  );
+  assert.match(
+    thoughtViteConfig,
+    /const authoritativeModel = formatThoughtAgentModelLabel\([\s\S]*?reportedModel,[\s\S]*?authoritativeRun\.agent\.reasoningEffort/,
+    "the backend must normalize only the runtime-reported Model record",
   );
   assert.match(
     thoughtViteConfig,

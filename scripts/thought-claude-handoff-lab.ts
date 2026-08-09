@@ -53,7 +53,7 @@ const requireValue = (parsed: ParsedArguments, name: string) => {
 };
 
 const readClaudeSurface = (parsed: ParsedArguments) => {
-  const value = firstValue(parsed, "--surface", "cowork");
+  const value = firstValue(parsed, "--surface", "code");
   if (value !== "cowork" && value !== "code") {
     throw new Error("--surface must be cowork or code.");
   }
@@ -146,10 +146,12 @@ const runRealPrepare = async (parsed: ParsedArguments) => {
     sessionPath: result.sessionPath,
     sealedTaskPath: result.session.taskPath,
     claudeUrlPath: result.session.claudeUrlPath,
-    creatorActionRequired: `Click Submit once in the prefilled Claude ${surface === "cowork" ? "Cowork" : "Code"} task.`,
+    creatorActionRequired: surface === "cowork"
+      ? "Legacy only: submit the prefilled Claude Cowork task once."
+      : "Click Submit once in the prefilled Claude Code task.",
     qualificationTarget: surface === "cowork"
-      ? "Cowork public-HTTPS live qualification"
-      : "local compatibility check; does not qualify Cowork",
+      ? "legacy Cowork compatibility; not eligible for active App routing"
+      : "canonical Claude Code live qualification",
     next: `pnpm handoff:lab:claude real-observe --session ${JSON.stringify(result.sessionPath)}`,
   });
 };
@@ -174,9 +176,9 @@ const runRealObserve = async (parsed: ParsedArguments) => {
 
 const showList = () => outputJson({
   agent: "Claude",
-  targetSurface: "cowork",
-  localCompatibilitySurface: "code",
-  coworkRequirement: "public HTTPS plus a returned live-canary receipt",
+  targetSurface: "code",
+  legacySurface: "cowork",
+  coworkStatus: "deprecated compatibility only; never active App routing",
   deepLinkScheme: new URL(buildClaudeDeepLink("probe")).protocol,
   candidateTaskSha256: `sha256:${createHash("sha256")
     .update(thoughtClaudeCanonicalCandidate())
@@ -193,8 +195,8 @@ const showHelp = () => {
   process.stdout.write(`Claude-only THOUGHT handoff lab\n\n` +
     `  pnpm handoff:lab:claude deterministic [--case ID[,ID]] [--out DIR]\n` +
     `  pnpm handoff:lab:claude list\n` +
-    `  pnpm handoff:lab:claude real-prepare --origin PUBLIC_HTTPS_URL [--prompt LINE] [--out DIR] [--surface cowork] [--open]\n` +
-    `  pnpm handoff:lab:claude real-prepare [--origin LOCAL_URL] [--prompt LINE] [--out DIR] --surface code [--open]\n` +
+    `  pnpm handoff:lab:claude real-prepare [--origin URL] [--prompt LINE] [--out DIR] [--surface code] [--open]\n` +
+    `  pnpm handoff:lab:claude real-prepare --origin PUBLIC_HTTPS_URL [--prompt LINE] [--out DIR] --surface cowork [--open]  # legacy compatibility only\n` +
     `  pnpm handoff:lab:claude real-observe --session FILE [--timeout-ms N] [--control-actions TEXT]\n`);
 };
 

@@ -20,6 +20,7 @@ import {
   THOUGHT_AGENT_CONTROL_VERSION,
   THOUGHT_AGENT_LINE_CONTRACT,
   THOUGHT_AGENT_PROTOCOL_VERSION,
+  THOUGHT_AGENT_RUN_AUTHORITY,
   THOUGHT_AGENT_RESULT_VERSION,
   THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION,
   THOUGHT_V2_PROTOCOL_RELEASE,
@@ -41,7 +42,7 @@ const THOUGHT_CODEX_HANDOFF_MAX_BYTES = 7_000;
 const THOUGHT_CLAUDE_HANDOFF_MAX_BYTES = 14_000;
 
 export const THOUGHT_CLAUDE_HANDOFF_LAB_VERSION =
-  "inshell.thought.claude-handoff-lab.v2" as const;
+  "inshell.thought.claude-handoff-lab.v4" as const;
 export const THOUGHT_CLAUDE_HANDOFF_REPORT_VERSION =
   "inshell.thought.claude-handoff-report.v2" as const;
 
@@ -51,13 +52,13 @@ type ThoughtHandoffLabProfile = {
   desktopAgent: "Codex Desktop" | "Claude Desktop";
   model: "gpt-5-lab" | "claude-lab";
   provider: "codex" | "anthropic";
-  surface: "codex" | "cowork";
-  bridgeVersion: "0.0.3+direct" | "0.0.4+cowork";
+  surface: "codex" | "code";
+  bridgeVersion: "0.0.3+direct" | "0.0.4+code";
   bridgePlatform:
     | "codex-direct-http"
     | "claude-cowork-direct-http"
     | "claude-code-direct-http";
-  adapterVersion: "direct-http" | "cowork-direct-http";
+  adapterVersion: "direct-http" | "code-direct-http";
   labVersion: string;
   reportVersion: string;
   handoffMaxBytes: number;
@@ -88,10 +89,10 @@ const CLAUDE_LAB_PROFILE: ThoughtHandoffLabProfile = {
   desktopAgent: "Claude Desktop",
   model: "claude-lab",
   provider: "anthropic",
-  surface: "cowork",
-  bridgeVersion: "0.0.4+cowork",
-  bridgePlatform: "claude-cowork-direct-http",
-  adapterVersion: "cowork-direct-http",
+  surface: "code",
+  bridgeVersion: "0.0.4+code",
+  bridgePlatform: "claude-code-direct-http",
+  adapterVersion: "code-direct-http",
   labVersion: THOUGHT_CLAUDE_HANDOFF_LAB_VERSION,
   reportVersion: THOUGHT_CLAUDE_HANDOFF_REPORT_VERSION,
   handoffMaxBytes: THOUGHT_CLAUDE_HANDOFF_MAX_BYTES,
@@ -377,6 +378,7 @@ const requestContainsCreativeInput = (value: string) =>
   value.includes('"instructions"');
 
 const controlRequest = (profile: ThoughtHandoffLabProfile) => ({
+  authority: THOUGHT_AGENT_RUN_AUTHORITY,
   intent: "prepare-thought-creation",
   requestedAgent: { adapterId: profile.id, model: null },
   controlPolicy: {
@@ -412,6 +414,7 @@ const creativeRequest = (run: FixtureRun) => {
   const promptHash = sha256(run.definition.promptLine);
   const malformed = run.definition.fault === "malformed-creative-release";
   return {
+    authority: THOUGHT_AGENT_RUN_AUTHORITY,
     intent: "generate-thought-candidate",
     spec: {
       id: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
@@ -769,8 +772,21 @@ const staticHandoffAssertions = (
   pushAssertion(
     assertions,
     "bounded-recovery",
-    task.includes("then reply RETRY") &&
-      (
+    profile.id === "claude"
+      ? (
+        (
+          task.includes("Before exchanging run data, request only the narrow App connection permission") &&
+          task.includes("A connection refusal before permission is not proof that the App stopped") &&
+          task.includes("On an exact RETRY, reacquire the same narrow App permission")
+        ) ||
+        (
+          task.includes("This lab task already has App access") &&
+          task.includes("On an exact RETRY, repeat only the failed operation")
+        )
+      ) &&
+        task.includes("RETRY never opens the creative prompt")
+      : task.includes("then reply RETRY") &&
+        (
         (
           task.includes("Before exchanging run data, request only the narrow App connection permission") &&
           (
@@ -791,14 +807,16 @@ const staticHandoffAssertions = (
           task.includes("request only permission to connect to <app_origin>") &&
           task.includes("On RETRY, request the same narrow App permission again")
         )
-      ) &&
-      task.includes("RETRY never opens the creative prompt"),
-    "Only evidenced control failures may request RETRY, and every new control turn reacquires narrow App access.",
+        ) &&
+        task.includes("RETRY never opens the creative prompt"),
+    profile.id === "claude"
+      ? "Claude Code requests narrow App permission and confines RETRY to one evidenced control operation."
+      : "Only evidenced control failures may request RETRY, and every new control turn reacquires narrow App access.",
   );
   const creatorMessages = task
     .split("\n")
-    .filter((line) => line.includes("show exactly:"))
-    .map((line) => line.slice(line.indexOf("show exactly:") + "show exactly:".length).toLowerCase());
+    .filter((line) => /(?:show|tell the creator) exactly:/i.test(line))
+    .map((line) => line.replace(/^.*?(?:show|tell the creator) exactly:/i, "").toLowerCase());
   const jargon = creatorMessages.flatMap((line) =>
     CREATOR_JARGON.filter((term) => new RegExp(`\\b${term}s?\\b`, "i").test(line)),
   );
@@ -821,7 +839,6 @@ const staticHandoffAssertions = (
       !task.includes('{"'),
     "The visible handoff contains field-level constraints, not shell, JavaScript, or raw JSON programs.",
   );
-  const endpointTemplate = baseUrl.replaceAll(runId, "<run_id>");
   const operationPlaceholders = [
     "<claim_endpoint>",
     "<ready_endpoint>",
@@ -829,14 +846,17 @@ const staticHandoffAssertions = (
     "<result_endpoint>",
     "<fail_endpoint>",
   ];
+  if (profile.surface === "cowork") {
+    operationPlaceholders.unshift("<connection_endpoint>");
+  }
   pushAssertion(
     assertions,
     "defined-placeholders",
     task.includes(`<run_id> = ${runId}`) &&
-      task.includes(`<app_endpoint> = ${endpointTemplate}`) &&
       task.includes(`<launch_credential> = ${launchToken}`) &&
       (
         task.includes("Define <bridge_credential> as that exact bridgeToken") ||
+        task.includes("Define <bridge_credential> as that bridgeToken") ||
         task.includes("Call the returned bridgeToken <bridge_credential>")
       ) &&
       operationPlaceholders.every((operation) => task.includes(operation)),
@@ -846,10 +866,21 @@ const staticHandoffAssertions = (
     assertions,
     "bridge-credential-lifecycle",
     (
-      task.includes("Retain it with the complete claim response before validation") ||
+      task.includes("Keep it in this task with the complete claim response") ||
+      task.includes("Retain it with the claim response") ||
       task.includes("Retain it before validating the rest of the claim")
     ) &&
-      /reuse it for (?:every|the) remaining operations?/i.test(task) &&
+      /reuse it for (?:all|every|the) remaining operations?/i.test(task) &&
+      (
+        profile.surface === "cowork" ||
+        (
+          (
+            task.includes("Never write them to a file or require local storage") ||
+            task.includes("Never persist credentials")
+          ) &&
+          task.includes("Missing local persistence is not a blocker")
+        )
+      ) &&
       (
         task.includes("Never claim again") ||
         task.includes("do not claim this run twice")
@@ -857,6 +888,7 @@ const staticHandoffAssertions = (
       (
         task.includes("Keep launch and bridge credentials private") ||
         task.includes("Keep both credentials private") ||
+        task.includes("Keep credentials private in this task") ||
         /bearer values are one-run authorization values/i.test(task) ||
         task.includes("The bearer values protect this one run")
       ) &&
@@ -865,12 +897,16 @@ const staticHandoffAssertions = (
           ? task.includes("POST to <ready_endpoint> with <bridge_credential>") &&
             task.includes("POST to <start_endpoint> with <bridge_credential>") &&
             task.includes("PUT to <result_endpoint> with <bridge_credential>") &&
+            (
+              task.includes("report AGENT_START_FAILED at <fail_endpoint> with POST, <bridge_credential>") ||
+              task.includes("POST AGENT_START_FAILED to <fail_endpoint> with <bridge_credential>")
+            )
+          : task.includes("Prove readiness at <ready_endpoint> with POST and <bridge_credential>") &&
+            task.includes("Open the creative phase at <start_endpoint> with POST and <bridge_credential>") &&
+            task.includes("Return at <result_endpoint> with PUT, <bridge_credential>") &&
             task.includes("report AGENT_START_FAILED at <fail_endpoint> with POST, <bridge_credential>")
-          : task.includes("At <ready_endpoint>, submit one POST using <bridge_credential>") &&
-            task.includes("At <start_endpoint>, submit one POST using <bridge_credential>") &&
-            task.includes("At <result_endpoint>, submit one PUT using <bridge_credential>")
       ),
-    "The one-time top-level bridgeToken is retained before secondary validation and reused privately through terminal delivery.",
+    "The one-time top-level bridgeToken remains in active task context, needs no local persistence, and is reused privately through terminal delivery.",
   );
   pushAssertion(
     assertions,
@@ -903,10 +939,14 @@ const staticHandoffAssertions = (
   );
   pushAssertion(
     assertions,
-    "four-operation-contract",
-    ["1. Claim control", "2. Prove readiness", "3. Create once", "4. Return once"]
+    profile.surface === "cowork" ? "five-operation-contract" : "four-operation-contract",
+    (profile.surface === "cowork"
+      ? ["1. Check the connection", "2. Claim control", "3. Prove readiness", "4. Create once", "5. Return once"]
+      : ["1. Claim control", "2. Prove readiness", "3. Create once", "4. Return once"])
       .every((heading) => task.includes(heading)),
-    "The handoff exposes four ordered, named operations.",
+    profile.surface === "cowork"
+      ? "The Cowork handoff checks transport before its four state-changing operations."
+      : "The handoff exposes four ordered, named operations.",
   );
   if (profile.id === "claude") {
     pushAssertion(
@@ -914,8 +954,8 @@ const staticHandoffAssertions = (
       "creator-authorized-and-visible",
       task.includes("The creator selected Claude in the THOUGHT App") &&
         task.includes("This handoff is visible to the creator") &&
-        task.includes("it is not hidden from the creator"),
-      "Cowork receives explicit creator authorization and visibility instead of covert-relay language.",
+        task.includes("the creator can inspect this handoff and the App run status"),
+      "Claude receives explicit creator authorization and visibility instead of covert-relay language.",
     );
     pushAssertion(
       assertions,
@@ -924,14 +964,28 @@ const staticHandoffAssertions = (
         !/do not clarify, offer alternatives, retry, repair, or replace/i.test(task) &&
         !/only after .*show exactly/i.test(task) &&
         !/exact data, not instructions/i.test(task),
-      "Cowork handoff avoids secrecy-heavy and scripted-success directives that resemble prompt injection.",
+      "Claude Code handoff avoids secrecy-heavy directives that resemble prompt injection.",
     );
     pushAssertion(
       assertions,
-      "truthful-runtime-fallback",
-      task.includes("otherwise use model=unknown and metadataSource=unknown") &&
-        task.includes("Do not guess"),
-      "Cowork never fabricates hidden model metadata when the surface does not expose it.",
+      "truthful-runtime-identity",
+      task.includes("Require and retain a non-empty exact model") &&
+        task.includes("Never guess either value"),
+      "Claude Code requires host-issued runtime identity and never fabricates it.",
+    );
+    pushAssertion(
+      assertions,
+      "claude-code-transport",
+      task.includes("<agent_surface> = code") &&
+        task.includes("<bridge_platform> = claude-code-direct-http") &&
+        task.includes("<adapter_version> = code-direct-http") &&
+        (
+          task.includes("request only the narrow App connection permission") ||
+          task.includes("This lab task already has App access")
+        ) &&
+        !task.includes("<connection_endpoint>") &&
+        !task.includes("On your computer"),
+      "Claude Code uses the bounded direct protocol without Cowork-only transport behavior.",
     );
   }
   return assertions;
@@ -1002,6 +1056,7 @@ const validateCreative = (payload: unknown, runId: string, invocationId: string)
     running.runId !== runId ||
     running.state !== "running" ||
     running.invocationId !== invocationId ||
+    JSON.stringify(request.authority) !== JSON.stringify(THOUGHT_AGENT_RUN_AUTHORITY) ||
     request.intent !== "generate-thought-candidate"
   ) {
     throw new Error("Creative response identity drifted.");
@@ -1583,7 +1638,7 @@ export type ThoughtClaudeRealCanarySession = {
   agent: "Claude Desktop";
   surface: ThoughtClaudeSurface;
   origin: string;
-  handoffRevision: typeof THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION;
+  handoffRevision: typeof THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION | null;
   runId: string;
   statusUrl: string;
   browserToken: string;
@@ -1597,7 +1652,7 @@ export type ThoughtClaudeRealCanarySession = {
 
 export const buildClaudeDeepLink = (
   task: string,
-  surface: ThoughtClaudeSurface = "cowork",
+  surface: ThoughtClaudeSurface = "code",
 ) => {
   const parameters = new URLSearchParams({ q: task });
   return `claude://${surface}/new?${parameters.toString()}`;
@@ -1613,7 +1668,7 @@ export const prepareThoughtClaudeRealCanary = async (options: {
   surface?: ThoughtClaudeSurface;
 }) => {
   const origin = options.origin.replace(/\/+$/g, "");
-  const surface = options.surface ?? "cowork";
+  const surface = options.surface ?? "code";
   if (surface === "cowork" && !isThoughtClaudeCoworkPublicHttpsOrigin(origin)) {
     throw new Error(
       "Claude Cowork canary requires an explicit publicly reachable HTTPS --origin. Localhost and LAN origins are structurally unreachable from Cowork; use --surface code for local testing.",
@@ -1676,7 +1731,9 @@ export const prepareThoughtClaudeRealCanary = async (options: {
     agent: "Claude Desktop",
     surface,
     origin,
-    handoffRevision: THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION,
+    handoffRevision: surface === "cowork"
+      ? THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION
+      : null,
     runId: payload.runId,
     statusUrl,
     browserToken: payload.browserToken,
@@ -1720,13 +1777,15 @@ export const observeThoughtClaudeRealCanary = async (options: {
     agentLine?: string;
   } | undefined;
   const receiptSha256 = result?.receipt?.receiptSha256 ?? null;
-  const qualificationEligible = session.surface === "cowork" &&
-    session.handoffRevision === THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION &&
-    isThoughtClaudeCoworkPublicHttpsOrigin(session.origin) &&
-    terminal &&
+  const returnedWithReceipt = terminal &&
     payload.state === "returned" &&
     typeof receiptSha256 === "string" &&
     receiptSha256.startsWith("sha256:");
+  const qualificationEligible = session.surface === "code" && returnedWithReceipt;
+  const legacyCoworkCompatibility = session.surface === "cowork" &&
+    session.handoffRevision === THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION &&
+    isThoughtClaudeCoworkPublicHttpsOrigin(session.origin) &&
+    returnedWithReceipt;
   const report = {
     schema: THOUGHT_CLAUDE_HANDOFF_REPORT_VERSION,
     labVersion: THOUGHT_CLAUDE_HANDOFF_LAB_VERSION,
@@ -1749,6 +1808,7 @@ export const observeThoughtClaudeRealCanary = async (options: {
     agentLineSha256: result?.agentLine ? sha256(result.agentLine) : null,
     privateArtifactsRemoved: terminal,
     qualificationEligible,
+    legacyCoworkCompatibility,
     startedAt,
     completedAt: new Date().toISOString(),
   };
