@@ -7,6 +7,6 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "viem": "^2.55.10"
+    "viem": "^2.55.11"
   }
 }
