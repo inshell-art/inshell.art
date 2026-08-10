@@ -1,17 +1,17 @@
 {
   "schema": "inshell.thought.app-contract-integration-lock.v2",
-  "id": "thought-v2-canonical-portable-release-20260801-r1",
+  "id": "thought-v2-canonical-portable-release-20260807-r2",
   "status": "canonical-portable-local-acceptance",
   "productionConsumable": true,
   "deploymentAuthorized": false,
   "artifact": {
-    "artifactId": "thought-v2-canonical-portable-release-20260801-r1",
+    "artifactId": "thought-v2-canonical-portable-release-20260807-r2",
     "classification": "canonical-portable-contract-release",
-    "manifestSha256": "4d60feba36165c19a3cf3680078cc6baa7ba066c147ca607e5c82d0306f65b1a",
-    "sourceTag": "thought-v2-canonical-portable-release-20260801-r1",
+    "manifestSha256": "7cf7965edb3de6421c79d9c08f0781cabb78ea675bad354847b56ec8f19306cc",
+    "sourceTag": "thought-v2-canonical-portable-release-20260807-r2",
     "sourceTagPublished": true,
-    "sourceCommit": "a48191f5c0d5b51fab0de26707eaed86f2f1da5b",
-    "sourcePublicationCommit": "9617892bda9d7f7e880b614f84f1b6360ad8a652",
+    "sourceCommit": "a5935d67073d6d6e28a8135b3e0ae0caddf7da4b",
+    "sourcePublicationCommit": "d29ddbfe76ff94c726b0786e43e61519c4087aab",
     "productionConsumable": true,
     "deploymentAuthorized": false,
     "registrationApplicable": false,
@@ -21,9 +21,9 @@
     "schema": "inshell.thought.closed-artifact-graph.v1",
     "closed": true,
     "release": {
-      "manifestSha256": "4d60feba36165c19a3cf3680078cc6baa7ba066c147ca607e5c82d0306f65b1a",
-      "fileCount": 71,
-      "filesSha256": "481ba569a83bf1759e73790c03fb4a42b60426fd2f908e6aafa470a6217eab25",
+      "manifestSha256": "7cf7965edb3de6421c79d9c08f0781cabb78ea675bad354847b56ec8f19306cc",
+      "fileCount": 73,
+      "filesSha256": "0ba596b212c3b06a6dac583fab4c865b60117e8d7b1449514c1efe8ddaee5ecc",
       "files": [
         {
           "byteLength": 36126,
@@ -166,9 +166,9 @@
           "sha256": "5c3ec9289d9c04926d20c4307e58be3f00c29dd9ebb0a1c640d1ff0c72385d5c"
         },
         {
-          "byteLength": 4616,
+          "byteLength": 1673,
           "path": "handoff.md",
-          "sha256": "4e60be1280ec7260335dbd917628805cc2028d81fd39f06ac79e0f49a5c49a9b"
+          "sha256": "6c27efdf170ed9914b8ac02e7801cd5e931f4806905a2d7adf57f486c55fae93"
         },
         {
           "byteLength": 548,
@@ -206,14 +206,19 @@
           "sha256": "716054091c607f748aa083049a4bd6dcbe009bb207a1526f5cd2855a1a441654"
         },
         {
-          "byteLength": 6306,
-          "path": "protocol/current/v2/integration/thought.app-contract-boundary.v1.json",
-          "sha256": "7df6d3ec3c91c3dbad3da032c7967c8c21bd72f99ff9777c1567bd926a888bc1"
+          "byteLength": 1233,
+          "path": "protocol/current/v2/integration/path-nft.v0.5.0.json",
+          "sha256": "494b9c1c07b894be10a2e344128a2323ec193b7ccb011df234daf7e72d781c7b"
         },
         {
-          "byteLength": 7989,
+          "byteLength": 6826,
+          "path": "protocol/current/v2/integration/thought.app-contract-boundary.v1.json",
+          "sha256": "fa96f72ae2a2c2e6b84cc373eacb9e5381a4a43efcb7148c0f0a8b7b639a2b36"
+        },
+        {
+          "byteLength": 8599,
           "path": "protocol/current/v2/integration/thought.app-contract-boundary.v1.md",
-          "sha256": "03a1e2de26a5ebf2dbe5299215f6e967535a5df0d9cc7cd8f7849bd68e711e4d"
+          "sha256": "f8e9924521d9c2ee20b53ac7bb8b41910c319c3fd480f4226d5bb175cffa4e94"
         },
         {
           "byteLength": 1662,
@@ -231,14 +236,14 @@
           "sha256": "0a353167ea460f7fb24c52d0cce106c9bedaa348e561bab1c683beb43fa59398"
         },
         {
-          "byteLength": 4030,
+          "byteLength": 4420,
           "path": "protocol/current/v2/README.md",
-          "sha256": "d5547e7fea681461817ee59000912745d712f5236cb8391caa7a759a55f530a9"
+          "sha256": "e9312231149d132f94febe880832542f99c42e0d2f7fe0f95e27ed64c69d79ab"
         },
         {
-          "byteLength": 3367,
+          "byteLength": 3681,
           "path": "protocol/current/v2/release-input.json",
-          "sha256": "c2849df2b025360e7b5108a884b7fbacf0168685f2c55c9218712f53fd6f456e"
+          "sha256": "acdf1893fbc3cbb37c5f789bcdfcab2ac8d0ef159fcf4876bfff5a0ebb038658"
         },
         {
           "byteLength": 2540,
@@ -316,6 +321,11 @@
           "sha256": "3ce86a2db35a969aea2d3286688adddbf5fa2daf1fd71ccefd37171e91fad3c5"
         },
         {
+          "byteLength": 5532,
+          "path": "protocol/current/v2/SPECIFICATION_ARCHITECTURE.md",
+          "sha256": "4bb2e1e3948042778317338a64b8fe6a83643665964e11e3a66f81646a563532"
+        },
+        {
           "byteLength": 4627,
           "path": "protocol/current/v2/THOUGHT.v2.md",
           "sha256": "90df786a3ffb5ec38bffd09ff356ec560d0b7dddcdf57170891149a92a399e9b"
@@ -338,7 +348,7 @@
         {
           "byteLength": 357,
           "path": "README.json",
-          "sha256": "a696f54d5bbc427f5d9a9d494db20b4c1aeb193e7600b2a4187e9f0ddacffe2e"
+          "sha256": "ebfed29683ef40849ab9ee7b03e789878e431cba4264ae3731c7fc786b5cb729"
         },
         {
           "byteLength": 994,
@@ -368,12 +378,12 @@
         {
           "byteLength": 295,
           "path": "validation/producer-tests.json",
-          "sha256": "a8d5ed79cfa279c141aed4a4b6f8c7c44a6f7179220800344c19b549b63770e7"
+          "sha256": "fa476c6571d8465f3240c8c455d0dfbf97b7125857a72062026e177de4b58271"
         },
         {
-          "byteLength": 7613,
-          "path": "validation/r11-to-canonical-portable-release.json",
-          "sha256": "522c9a9c1784156cc9d91c0f50eb5a44e589bb8d0503ab0452c361c6d118b7f0"
+          "byteLength": 7568,
+          "path": "validation/r1-to-r2-path-v0.5.json",
+          "sha256": "8f7c815fc32e074f72a9595ec31c0262d0ff29a5016370964f63d4979f85448b"
         },
         {
           "byteLength": 2700,
@@ -407,15 +417,15 @@
   },
   "source": {
     "repository": "THOUGHT",
-    "tag": "thought-v2-canonical-portable-release-20260801-r1",
-    "commit": "a48191f5c0d5b51fab0de26707eaed86f2f1da5b",
+    "tag": "thought-v2-canonical-portable-release-20260807-r2",
+    "commit": "a5935d67073d6d6e28a8135b3e0ae0caddf7da4b",
     "dirtySnapshot": false,
     "immutableConsumerRelease": true,
     "artifactIntegrityVerified": true
   },
   "boundary": {
     "id": "inshell.thought.app-contract-boundary.v1",
-    "sha256": "7df6d3ec3c91c3dbad3da032c7967c8c21bd72f99ff9777c1567bd926a888bc1",
+    "sha256": "fa96f72ae2a2c2e6b84cc373eacb9e5381a4a43efcb7148c0f0a8b7b639a2b36",
     "authoritative": false
   },
   "chain": {
@@ -442,7 +452,7 @@
       "name": "THOUGHT.v2.md",
       "id": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410",
       "hash": "0xb2b0a167678816a7ae9dc9098b0d6a6852c0dc95feb59f9581de75bd2cc2231f",
-      "ref": "dev://thought/contract-release/thought-v2-canonical-portable-release-20260801-r1/THOUGHT.v2.md",
+      "ref": "dev://thought/contract-release/thought-v2-canonical-portable-release-20260807-r2/THOUGHT.v2.md",
       "byteLength": 4627,
       "sha256": "90df786a3ffb5ec38bffd09ff356ec560d0b7dddcdf57170891149a92a399e9b",
       "file": "thought.selected-spec.md"

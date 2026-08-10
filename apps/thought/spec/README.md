@@ -71,7 +71,7 @@ unpublished until the complete portability sequence passes local validation
 and the operator approves the staging and production gates.
 
 Conventional ERC-721 fields such as `external_url` remain outside the custom
-namespace. `thought-v2-canonical-portable-release-20260801-r1` emits the
+namespace. `thought-v2-canonical-portable-release-20260807-r2` emits the
 canonical value and the exact portable five-trait marketplace profile. The
 custom namespace schema is checked separately against all decoded attested and
 unattested token metadata examples from that immutable package.

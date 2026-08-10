@@ -55,6 +55,12 @@ The dedicated chain ID is intentional. The PATH developer lane uses chain
 the two local RPC endpoints as the same network and submitting to the wrong
 Anvil process.
 
+Local Agent runs are checkpointed after every control transition. A restarted
+dev backend can therefore accept the same idempotent Agent result while its run
+window remains open. Raw browser, launch, and bridge credentials are never
+written to the checkpoint; only their SHA-256 digests are stored. Active runs
+fail closed when the pinned contract runtime changes.
+
 This fixture set is disposable local state only. It is not a production
 allocation, deployment artifact, or substitute for the separate auction
 integration test. Reset the lane to restore all eight unconsumed fixtures.

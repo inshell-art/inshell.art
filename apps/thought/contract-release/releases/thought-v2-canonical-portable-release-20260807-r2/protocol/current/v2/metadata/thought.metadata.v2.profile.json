@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "attributeOrder": [
+    "Agent",
+    "Model",
+    "Creation Attestation",
+    "Prompt Bytes",
+    "Agent Bytes"
+  ],
+  "description": "THOUGHT V2 preserves a narrow terminal channel between human intention and Agent response, transforming their dialogue into an on-chain artwork.",
+  "id": "inshell.thought.metadata.v2.terminal-chat",
+  "marketplaceRequired": ["name", "description", "image", "external_url", "background_color", "attributes"],
+  "records": {
+    "attestationBindsExactHashes": true,
+    "contextProfileId": "inshell.thought.context.v2.visible-utf8-64",
+    "metadataPaths": ["thought.records.agent", "thought.records.model"],
+    "traitTypes": ["Agent", "Model"],
+    "typedStateAuthoritative": true,
+    "workIdentityInput": false
+  },
+  "traitExclusions": {
+    "agentLength": "redundant-with-agent-bytes",
+    "conversationForm": "fixture-only",
+    "pairBytes": "derived-sum-of-prompt-and-agent-bytes",
+    "promptLength": "redundant-with-prompt-bytes",
+    "workProfileId": "technical-property"
+  },
+  "technicalRequired": [
+    "promptLine",
+    "agentLine",
+    "records.agent.label",
+    "records.agent.keccak256",
+    "records.model.label",
+    "records.model.keccak256",
+    "records.workIdentityInput",
+    "promptLineKeccak256",
+    "agentLineKeccak256",
+    "conversationIdentityHash",
+    "workHash",
+    "rendererId",
+    "workProfileId",
+    "provenanceHash",
+    "protocolReleaseId",
+    "manifestKeccak256",
+    "thoughtSpecId",
+    "thoughtSpecHash",
+    "pathId",
+    "pathSerial",
+    "minter",
+    "mintedAt",
+    "creationAttestation"
+  ],
+  "version": 2
+}

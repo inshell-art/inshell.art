@@ -256,6 +256,16 @@ export const createMintSubmissionContext = (input: {
   nonce: normalizeNonce(input.nonce),
 });
 
+export const thoughtMintGasLimit = (estimatedGas: bigint) => {
+  if (estimatedGas <= 0n) {
+    throw new Error("invalid THOUGHT mint gas estimate");
+  }
+  // Estimate against the App's canonical RPC before opening the wallet. The
+  // percentage margin covers execution variance while the fixed reserve covers
+  // the nested PATH consume boundary. Unused gas is not charged.
+  return (estimatedGas * 125n + 99n) / 100n + 50_000n;
+};
+
 export const createPendingMintTransaction = (
   context: MintSubmissionContext,
   transactionHash: string,

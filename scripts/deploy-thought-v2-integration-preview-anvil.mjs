@@ -31,7 +31,7 @@ import {
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const rpcUrl = process.env.RPC_URL?.trim() || THOUGHT_ANVIL_RPC_URL;
 const treasury = process.env.PATH_TREASURY ?? "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC";
-const artifactId = "thought-v2-canonical-portable-release-20260801-r1";
+const artifactId = "thought-v2-canonical-portable-release-20260807-r2";
 const previewRoot = path.join(
   root,
   "apps/thought/contract-release/releases",

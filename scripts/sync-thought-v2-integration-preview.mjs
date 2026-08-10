@@ -7,14 +7,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const artifactId = "thought-v2-canonical-portable-release-20260801-r1";
+const artifactId = "thought-v2-canonical-portable-release-20260807-r2";
 const sourceTag = artifactId;
-const sourceCommit = "a48191f5c0d5b51fab0de26707eaed86f2f1da5b";
-const sourcePublicationCommit = "9617892bda9d7f7e880b614f84f1b6360ad8a652";
-const sourceTagObject = "bfba44f93a8562989361174c769ffd95264b36ee";
-const stableReceiptCommit = "a19d1cc3c0e9ff81b2e31f89a4b327784d897854";
+const sourceCommit = "a5935d67073d6d6e28a8135b3e0ae0caddf7da4b";
+const sourcePublicationCommit = "d29ddbfe76ff94c726b0786e43e61519c4087aab";
+const sourceTagObject = "3dace6a9d7f1bb8f2bbc98c7b7ee6f8df1f7cbd0";
+const stableReceiptCommit = "4fbbd708dce7b35fe6c219cb130be794162980d4";
 const stableReceiptPath = "artifacts/thought-v2-contract-release/stable.json";
-const manifestSha256 = "4d60feba36165c19a3cf3680078cc6baa7ba066c147ca607e5c82d0306f65b1a";
+const manifestSha256 = "7cf7965edb3de6421c79d9c08f0781cabb78ea675bad354847b56ec8f19306cc";
 const destination = path.join(
   root,
   "apps",
@@ -32,12 +32,12 @@ const generatedFile = path.join(
   "thought-v2-contract-release.generated.ts",
 );
 const localSpecFile = path.join(root, "apps", "thought", "spec", "THOUGHT.v2.local.md");
-const baselineArtifactId = "thought-v2-noncanonical-integration-preview-20260801-r11";
+const baselineArtifactId = "thought-v2-canonical-portable-release-20260801-r1";
 const baselineManifestSha256 =
-  "64acf59f8305f362d720fd418f0401ad16fcfcb0cfdc290fdc298dc83054e3dd";
+  "4d60feba36165c19a3cf3680078cc6baa7ba066c147ca607e5c82d0306f65b1a";
 const migrationEvidencePath = path.join(
   "validation",
-  "r11-to-canonical-portable-release.json",
+  "r1-to-r2-path-v0.5.json",
 );
 const portableAttributeOrder = [
   "Agent",
@@ -92,7 +92,7 @@ async function verifyRelease(directory) {
   const migration = await readJson(path.join(directory, migrationEvidencePath));
   if (
     migration.schema !==
-      "inshell.thought.r11-to-canonical-portable-release.v1" ||
+      "inshell.thought.r1-to-r2-path-v0.5.canonical-portable-release.v1" ||
     migration.baseline?.artifactId !== baselineArtifactId ||
     migration.baseline?.manifestSha256 !== baselineManifestSha256 ||
     migration.current?.artifactId !== artifactId ||
@@ -106,7 +106,7 @@ async function verifyRelease(directory) {
         runtimeBytecodeEqual === true,
     )
   ) {
-    throw new Error("r11-to-canonical release migration evidence mismatch");
+    throw new Error("r1-to-r2 canonical release migration evidence mismatch");
   }
   if (
     JSON.stringify(manifest.compatibility?.metadataProfile?.attributeOrder) !==

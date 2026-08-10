@@ -5,8 +5,8 @@ import path from "node:path";
 import test from "node:test";
 
 import {
-  loadReturnedDevRuns,
-  persistReturnedDevRuns,
+  loadDevRuns,
+  persistDevRuns,
   retainLiveDevRuns,
 } from "./thought-agent-dev-run-store";
 
@@ -28,28 +28,51 @@ const validateFixtureRun = (candidate: unknown): FixtureRun | null => {
     : null;
 };
 
-test("returned Agent runs survive a dev backend restart", () => {
+test("active and returned Agent runs survive a same-runtime dev backend restart", () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "thought-agent-runs-"));
   const storePath = path.join(directory, "runs.json");
+  const runtimeKey = "runtime-a";
   const returned: FixtureRun = {
     runId: "tar_returned",
     state: "returned",
     updatedAt: "2026-07-26T00:00:00.000Z",
     agentLine: "still here",
   };
-  const failed: FixtureRun = {
-    runId: "tar_failed",
-    state: "failed",
+  const running: FixtureRun = {
+    runId: "tar_running",
+    state: "running",
     updatedAt: "2026-07-26T00:00:01.000Z",
     agentLine: "",
   };
 
-  persistReturnedDevRuns(storePath, [returned, failed]);
+  persistDevRuns(storePath, runtimeKey, [returned, running]);
 
-  const restored = loadReturnedDevRuns(storePath, validateFixtureRun);
-  assert.deepEqual(Array.from(restored.keys()), ["tar_returned"]);
+  const restored = loadDevRuns(storePath, runtimeKey, validateFixtureRun);
+  assert.deepEqual(Array.from(restored.keys()), ["tar_returned", "tar_running"]);
   assert.equal(restored.get("tar_returned")?.agentLine, "still here");
   assert.equal(fs.statSync(storePath).mode & 0o777, 0o600);
+});
+
+test("a changed runtime restores returned history but rejects active runs", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "thought-agent-runs-"));
+  const storePath = path.join(directory, "runs.json");
+  persistDevRuns(storePath, "runtime-before", [
+    {
+      runId: "tar_returned",
+      state: "returned",
+      updatedAt: "2026-07-26T00:00:00.000Z",
+      agentLine: "still here",
+    },
+    {
+      runId: "tar_running",
+      state: "running",
+      updatedAt: "2026-07-26T00:00:01.000Z",
+      agentLine: "",
+    },
+  ]);
+
+  const restored = loadDevRuns(storePath, "runtime-after", validateFixtureRun);
+  assert.deepEqual(Array.from(restored.keys()), ["tar_returned"]);
 });
 
 test("an invalid dev run store fails closed", () => {
@@ -57,10 +80,10 @@ test("an invalid dev run store fails closed", () => {
   const storePath = path.join(directory, "runs.json");
   fs.writeFileSync(storePath, "{not-json");
 
-  assert.equal(loadReturnedDevRuns(storePath, validateFixtureRun).size, 0);
+  assert.equal(loadDevRuns(storePath, "runtime-a", validateFixtureRun).size, 0);
 });
 
-test("active Agent runs survive a same-runtime dev server reload without disk persistence", () => {
+test("the live Agent map is reused across a same-runtime hot reload", () => {
   const runtimeKey = `thought-runtime-${Date.now()}-${Math.random()}`;
   const initial = new Map<string, FixtureRun>();
   const retained = retainLiveDevRuns(runtimeKey, initial);

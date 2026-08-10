@@ -21,6 +21,6 @@
   "contractIntegration": {
     "status": "accepted-by-canonical-portable-release-local",
     "registered": false,
-    "note": "The exact r10 selected-spec bytes are pinned unchanged by thought-v2-canonical-portable-release-20260801-r1. Local disposable acceptance passed; persistent deployment and production registration remain unauthorized."
+    "note": "The exact r10 selected-spec bytes are pinned unchanged by thought-v2-canonical-portable-release-20260807-r2. Local disposable acceptance passed; persistent deployment and production registration remain unauthorized."
   }
 }

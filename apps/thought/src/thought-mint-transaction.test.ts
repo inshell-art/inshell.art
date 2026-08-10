@@ -12,6 +12,7 @@ import {
   planPendingMintRestore,
   replacePendingMintTransactionHash,
   serializeConflictingMintTransactions,
+  thoughtMintGasLimit,
 } from "./thought-mint-transaction";
 
 const txHash = `0x${"AB".repeat(32)}`;
@@ -110,6 +111,8 @@ export const runThoughtMintTransactionTests = () => {
     pathId: "2",
     nonce: 17,
   });
+  assert.equal(thoughtMintGasLimit(1_300_000n), 1_675_000n);
+  assert.throws(() => thoughtMintGasLimit(0n), /invalid THOUGHT mint gas estimate/);
 
   mutableInput.attemptId = "different-attempt";
   mutableInput.account = `0x${"11".repeat(20)}`;

@@ -41,7 +41,7 @@ if (
 ) fail("disabled deployment lock is incomplete, enabled, or contains deployment material");
 
 if (
-  consumer.artifactId !== "thought-v2-canonical-portable-release-20260801-r1" ||
+  consumer.artifactId !== "thought-v2-canonical-portable-release-20260807-r2" ||
   consumer.productionConsumable !== true ||
   consumer.deploymentAuthorized !== false
 ) fail("current canonical consumer lock drifted");
@@ -131,7 +131,7 @@ if (requireActivationReady) {
 console.log(JSON.stringify({
   activationReady: false,
   browserSigning: false,
-  contractArtifactSynchronized: false,
+  contractArtifactSynchronized: true,
   currentConsumerArtifactId: consumer.artifactId,
   deploymentLockEnabled: false,
   expectedNextArtifactId: lock.requiredArtifactId,

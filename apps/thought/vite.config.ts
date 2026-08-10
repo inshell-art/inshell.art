@@ -62,8 +62,8 @@ import { buildThoughtV2PathAcquisitionBrowserAddresses } from "./src/thought-v2-
 import type { ThoughtV2ProcessEvidence } from "./src/thought-v2-provenance";
 import { buildBackendOnlyMockThoughtV2Mint } from "./scripts/mock-thought-v2-anvil-signer";
 import {
-  loadReturnedDevRuns,
-  persistReturnedDevRuns,
+  loadDevRuns,
+  persistDevRuns,
   retainLiveDevRuns,
 } from "./scripts/thought-agent-dev-run-store";
 
@@ -253,10 +253,13 @@ type DevThoughtAgentRun = {
   promptSha256: ThoughtSha256;
   agentInputText: string;
   agentInputSha256: ThoughtSha256;
-  browserToken: string;
+  browserToken: string | null;
+  browserTokenSha256: ThoughtSha256;
   launchToken: string | null;
+  launchTokenSha256: ThoughtSha256 | null;
   claimAuthorization: DevThoughtClaimAuthorization | null;
   bridgeToken: string | null;
+  bridgeTokenSha256: ThoughtSha256 | null;
   bridge: ThoughtAgentBridgeInfo | null;
   adapter: ThoughtAgentAdapterInfo | null;
   agent: ThoughtAgentInfo | null;
@@ -318,7 +321,8 @@ const DEV_AGENT_BRIDGE_VERSION = "0.1.0-dev";
 const DEV_AGENT_ADAPTER_VERSION = "codex-cli";
 const DEV_AGENT_CODEX_BIN = process.env.THOUGHT_BRIDGE_CODEX_BIN || "codex";
 const DEV_AGENT_CODEX_TIMEOUT_MS = Number(process.env.THOUGHT_BRIDGE_CODEX_TIMEOUT_MS || 180000);
-const DEV_AGENT_RETURNED_RUN_STORE_PATH = fileURLToPath(
+// Keep the legacy filename so existing returned-run history migrates in place.
+const DEV_AGENT_RUN_STORE_PATH = fileURLToPath(
   new URL("../../.local/thought-agent-dev-returned-runs.json", import.meta.url),
 );
 const DEV_AGENT_CODEX_AUTORUN = process.env.INSHELL_THOUGHT_DEV_CODEX_AUTORUN === "1";
@@ -348,18 +352,25 @@ const parseDevAgentOutput = async (raw: string, release: ThoughtV2LocalRelease) 
 };
 
 function expireDevAgentRun(run: DevThoughtAgentRun) {
-  if (["returned", "failed", "cancelled", "expired"].includes(run.state)) return;
+  if (["returned", "failed", "cancelled", "expired"].includes(run.state)) return false;
   const expiresAt = run.state === "created" ? run.claimExpiresAt : run.runExpiresAt;
   const deadline = Date.parse(expiresAt);
   if (Number.isFinite(deadline) && Date.now() >= deadline) {
     run.state = "expired";
     run.launchToken = null;
+    run.launchTokenSha256 = null;
     run.updatedAt = new Date().toISOString();
+    return true;
   }
+  return false;
 }
 
 function randomToken(byteLength = 24) {
   return crypto.randomBytes(byteLength).toString("base64url");
+}
+
+function tokenSha256(token: string): ThoughtSha256 {
+  return `sha256:${crypto.createHash("sha256").update(token, "utf8").digest("hex")}`;
 }
 
 function runId() {
@@ -402,8 +413,15 @@ function bearerToken(req: IncomingMessage) {
   return /^Bearer\s+(.+)$/i.exec(value.trim())?.[1] ?? null;
 }
 
-function verifyBearer(req: IncomingMessage, token: string | null) {
-  return Boolean(token && bearerToken(req) === token);
+function verifyBearer(
+  req: IncomingMessage,
+  token: string | null,
+  tokenDigest: ThoughtSha256 | null,
+) {
+  const provided = bearerToken(req);
+  if (!provided) return false;
+  if (token && provided === token) return true;
+  return Boolean(tokenDigest && tokenSha256(provided) === tokenDigest);
 }
 
 function readBody(req: IncomingMessage, maxBytes = DEV_AGENT_MAX_REQUEST_BYTES) {
@@ -795,6 +813,7 @@ async function runDevCodex(
 
 async function autoRunDevCodex(
   run: DevThoughtAgentRun,
+  persistRun: () => void,
 ) {
   if (run.state !== "created") {
     return;
@@ -803,6 +822,9 @@ async function autoRunDevCodex(
   run.bridge = devBridgeInfo();
   run.adapter = devAdapterInfo();
   run.bridgeToken = randomToken(32);
+  run.bridgeTokenSha256 = tokenSha256(run.bridgeToken);
+  run.launchToken = null;
+  run.launchTokenSha256 = null;
   run.claimAuthorization = null;
   run.state = "claimed";
   run.updatedAt = new Date().toISOString();
@@ -823,6 +845,7 @@ async function autoRunDevCodex(
   run.startedAt = new Date().toISOString();
   run.state = "running";
   run.updatedAt = run.startedAt;
+  persistRun();
 
   try {
     const parsedOutput = await runDevCodex(
@@ -882,41 +905,6 @@ function createThoughtAgentDevApiPlugin(
   activeRelease: ThoughtV2LocalRelease,
   useRemoteAgentApi = false,
 ) {
-  const validateStoredReturnedRun = (candidate: unknown): DevThoughtAgentRun | null => {
-    if (!candidate || typeof candidate !== "object") return null;
-    const run = candidate as Partial<DevThoughtAgentRun>;
-    if (
-      run.state !== "returned" ||
-      typeof run.runId !== "string" ||
-      typeof run.updatedAt !== "string" ||
-      typeof run.rawResult !== "string" ||
-      typeof run.agentLine !== "string" ||
-      typeof run.browserToken !== "string" ||
-      !run.adapter ||
-      !run.agent
-    ) {
-      return null;
-    }
-    try {
-      const boundRelease = run.release ?? activeRelease;
-      const result = parseThoughtV2LocalAgentResult(run.rawResult, boundRelease);
-      if (
-        result.agentLine !== run.agentLine ||
-        run.specId !== DEV_AGENT_SPEC_ID ||
-        run.contractSpecHash?.toLowerCase() !== DEV_AGENT_SPEC_HASH.toLowerCase()
-      ) {
-        return null;
-      }
-      run.release = boundRelease;
-    } catch {
-      return null;
-    }
-    return run as DevThoughtAgentRun;
-  };
-  const returnedRuns = loadReturnedDevRuns(
-    DEV_AGENT_RETURNED_RUN_STORE_PATH,
-    validateStoredReturnedRun,
-  );
   const liveRunRuntimeKey = contractRuntime
     ? [
         contractRuntime.chainId,
@@ -926,9 +914,96 @@ function createThoughtAgentDevApiPlugin(
         contractRuntime.selectedSpec.hash.toLowerCase(),
       ].join(":")
     : `unavailable:${activeRelease.artifact.id}`;
-  const runs = retainLiveDevRuns(liveRunRuntimeKey, returnedRuns);
+  const validateStoredRun = (candidate: unknown): DevThoughtAgentRun | null => {
+    if (!candidate || typeof candidate !== "object") return null;
+    const run = candidate as Partial<DevThoughtAgentRun>;
+    const validState = [
+      "created",
+      "claimed",
+      "ready",
+      "running",
+      "returned",
+      "failed",
+      "cancelled",
+      "expired",
+    ].includes(String(run.state));
+    const legacyBrowserToken = typeof run.browserToken === "string"
+      ? run.browserToken
+      : null;
+    const browserTokenSha256 = isThoughtSha256(run.browserTokenSha256)
+      ? run.browserTokenSha256
+      : legacyBrowserToken
+        ? tokenSha256(legacyBrowserToken)
+        : null;
+    if (
+      !validState ||
+      typeof run.runId !== "string" ||
+      typeof run.updatedAt !== "string" ||
+      typeof run.promptText !== "string" ||
+      typeof run.promptSha256 !== "string" ||
+      !browserTokenSha256 ||
+      run.specId !== DEV_AGENT_SPEC_ID ||
+      run.contractSpecHash?.toLowerCase() !== DEV_AGENT_SPEC_HASH.toLowerCase()
+    ) {
+      return null;
+    }
+    try {
+      const boundRelease = run.release ?? activeRelease;
+      if (run.state === "returned") {
+        if (
+          typeof run.rawResult !== "string" ||
+          typeof run.agentLine !== "string" ||
+          !run.adapter ||
+          !run.agent
+        ) {
+          return null;
+        }
+        const result = parseThoughtV2LocalAgentResult(run.rawResult, boundRelease);
+        if (result.agentLine !== run.agentLine) return null;
+      }
+      run.release = boundRelease;
+      run.browserToken = legacyBrowserToken;
+      run.browserTokenSha256 = browserTokenSha256;
+      run.launchToken = typeof run.launchToken === "string" ? run.launchToken : null;
+      run.launchTokenSha256 = isThoughtSha256(run.launchTokenSha256)
+        ? run.launchTokenSha256
+        : run.launchToken
+          ? tokenSha256(run.launchToken)
+          : null;
+      run.bridgeToken = typeof run.bridgeToken === "string" ? run.bridgeToken : null;
+      run.bridgeTokenSha256 = isThoughtSha256(run.bridgeTokenSha256)
+        ? run.bridgeTokenSha256
+        : run.bridgeToken
+          ? tokenSha256(run.bridgeToken)
+          : null;
+      if (run.state === "created" && !run.launchTokenSha256) return null;
+      if (["claimed", "ready", "running"].includes(run.state) && !run.bridgeTokenSha256) {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+    return run as DevThoughtAgentRun;
+  };
+  const storedRuns = loadDevRuns(
+    DEV_AGENT_RUN_STORE_PATH,
+    liveRunRuntimeKey,
+    validateStoredRun,
+  );
+  const runs = retainLiveDevRuns(liveRunRuntimeKey, storedRuns);
   const persistRuns = () => {
-    persistReturnedDevRuns(DEV_AGENT_RETURNED_RUN_STORE_PATH, runs.values());
+    persistDevRuns(
+      DEV_AGENT_RUN_STORE_PATH,
+      liveRunRuntimeKey,
+      runs.values(),
+      (run) => ({
+        ...run,
+        browserToken: null,
+        launchToken: null,
+        bridgeToken: null,
+        claimAuthorization: null,
+      }),
+    );
   };
   const specText = DEV_AGENT_SPEC_TEXT;
   return {
@@ -1236,9 +1311,12 @@ function createThoughtAgentDevApiPlugin(
               agentInputText: agentInput.text,
               agentInputSha256: agentInput.sha256,
               browserToken,
+              browserTokenSha256: tokenSha256(browserToken),
               launchToken,
+              launchTokenSha256: tokenSha256(launchToken),
               claimAuthorization: null,
               bridgeToken: null,
+              bridgeTokenSha256: null,
               bridge: null,
               adapter: null,
               agent: null,
@@ -1262,6 +1340,7 @@ function createThoughtAgentDevApiPlugin(
               release: activeRelease,
             };
             runs.set(id, run);
+            persistRuns();
 
             protocolJson(res, 201, {
               runId: id,
@@ -1271,7 +1350,7 @@ function createThoughtAgentDevApiPlugin(
               statusUrl: `${apiPrefix}/runs/${id}`,
               createdAt,
               claimExpiresAt,
-              devRuntime: "vite-local-returned-run-store",
+              devRuntime: "vite-local-durable-run-store",
               devAutoRun,
               ...(apiPrefix.endsWith("/v2")
                 ? {
@@ -1286,9 +1365,7 @@ function createThoughtAgentDevApiPlugin(
               ...buildThoughtV2LocalAgentTaskBinding(run.release),
             });
             if (devAutoRun) {
-              void autoRunDevCodex(run).finally(() => {
-                if (run.state === "returned") persistRuns();
-              });
+              void autoRunDevCodex(run, persistRuns).finally(persistRuns);
             }
             return;
           }
@@ -1304,10 +1381,10 @@ function createThoughtAgentDevApiPlugin(
             protocolError(res, 404, "RUN_NOT_FOUND", "THOUGHT Agent run not found.");
             return;
           }
-          expireDevAgentRun(run);
+          if (expireDevAgentRun(run)) persistRuns();
 
           if (!action && req.method === "GET") {
-            if (!verifyBearer(req, run.browserToken)) {
+            if (!verifyBearer(req, run.browserToken, run.browserTokenSha256)) {
               protocolError(res, 401, "TOKEN_INVALID", "Invalid token.");
               return;
             }
@@ -1333,24 +1410,28 @@ function createThoughtAgentDevApiPlugin(
               protocolError(res, 409, "ADAPTER_MISMATCH", "Bridge adapter does not match requested adapter.");
               return;
             }
-            if (!verifyBearer(req, run.launchToken)) {
+            if (!verifyBearer(req, run.launchToken, run.launchTokenSha256)) {
               protocolError(res, 401, "TOKEN_INVALID", "Invalid launch token.");
               return;
             }
             run.bridge = bridge;
             run.adapter = adapter;
-            run.bridgeToken = randomToken(32);
+            const bridgeToken = randomToken(32);
+            run.bridgeToken = bridgeToken;
+            run.bridgeTokenSha256 = tokenSha256(bridgeToken);
             run.launchToken = null;
+            run.launchTokenSha256 = null;
             run.state = "claimed";
             const claimedAt = new Date();
             run.updatedAt = claimedAt.toISOString();
             run.runExpiresAt = new Date(
               claimedAt.getTime() + THOUGHT_AGENT_RUN_TTL_MS,
             ).toISOString();
+            persistRuns();
             protocolJson(res, 200, {
               runId: run.runId,
               state: run.state,
-              bridgeToken: run.bridgeToken,
+              bridgeToken,
               runExpiresAt: run.runExpiresAt,
               request: apiPrefix.endsWith("/v2")
                 ? controlRequestPayload(run)
@@ -1360,7 +1441,10 @@ function createThoughtAgentDevApiPlugin(
           }
 
           if (action === "claim-authorization" && req.method === "POST") {
-            if (run.state !== "created" || !verifyBearer(req, run.browserToken)) {
+            if (
+              run.state !== "created" ||
+              !verifyBearer(req, run.browserToken, run.browserTokenSha256)
+            ) {
               protocolError(res, run.state === "created" ? 401 : 409, run.state === "created" ? "TOKEN_INVALID" : "RUN_STATE_CONFLICT", run.state === "created" ? "Invalid token." : "THOUGHT Agent run is not in the required state.");
               return;
             }
@@ -1383,6 +1467,7 @@ function createThoughtAgentDevApiPlugin(
             authorization.state = "authorized";
             authorization.authorizedAt ??= new Date().toISOString();
             run.updatedAt = authorization.authorizedAt;
+            persistRuns();
             protocolJson(res, 200, {
               runId: run.runId,
               state: "authorized",
@@ -1396,7 +1481,7 @@ function createThoughtAgentDevApiPlugin(
               protocolError(res, 404, "RUN_NOT_FOUND", "THOUGHT Agent route not found.");
               return;
             }
-            if (!verifyBearer(req, run.bridgeToken)) {
+            if (!verifyBearer(req, run.bridgeToken, run.bridgeTokenSha256)) {
               protocolError(res, 401, "TOKEN_INVALID", "Invalid token.");
               return;
             }
@@ -1423,6 +1508,7 @@ function createThoughtAgentDevApiPlugin(
             run.control = parseThoughtAgentControlEvidence(body.control);
             run.state = "ready";
             run.updatedAt = new Date().toISOString();
+            persistRuns();
             protocolJson(res, 200, {
               runId: run.runId,
               state: run.state,
@@ -1437,7 +1523,7 @@ function createThoughtAgentDevApiPlugin(
             const boundedControl = apiPrefix.endsWith("/v2");
             if (
               run.state !== (boundedControl ? "ready" : "claimed") ||
-              !verifyBearer(req, run.bridgeToken)
+              !verifyBearer(req, run.bridgeToken, run.bridgeTokenSha256)
             ) {
               protocolError(res, 409, "RUN_STATE_CONFLICT", "THOUGHT Agent run is not in the required state.");
               return;
@@ -1453,6 +1539,7 @@ function createThoughtAgentDevApiPlugin(
             run.startedAt = startedAt;
             run.state = "running";
             run.updatedAt = new Date().toISOString();
+            persistRuns();
             protocolJson(res, 200, {
               runId: run.runId,
               state: run.state,
@@ -1466,7 +1553,10 @@ function createThoughtAgentDevApiPlugin(
           }
 
           if (action === "result" && req.method === "PUT") {
-            if ((run.state !== "running" && run.state !== "returned") || !verifyBearer(req, run.bridgeToken)) {
+            if (
+              (run.state !== "running" && run.state !== "returned") ||
+              !verifyBearer(req, run.bridgeToken, run.bridgeTokenSha256)
+            ) {
               protocolError(res, 409, "RUN_STATE_CONFLICT", "THOUGHT Agent run is not in the required state.");
               return;
             }
@@ -1559,7 +1649,7 @@ function createThoughtAgentDevApiPlugin(
           }
 
           if (action === "fail" && req.method === "POST") {
-            if (!verifyBearer(req, run.bridgeToken)) {
+            if (!verifyBearer(req, run.bridgeToken, run.bridgeTokenSha256)) {
               protocolError(res, 401, "TOKEN_INVALID", "Invalid token.");
               return;
             }
@@ -1594,12 +1684,13 @@ function createThoughtAgentDevApiPlugin(
             run.errorMessage = normalizeDevAgentFailureMessage(String(error?.message ?? "The agent run failed."));
             run.state = "failed";
             run.updatedAt = new Date().toISOString();
+            persistRuns();
             protocolJson(res, 200, statusPayload(run));
             return;
           }
 
           if (action === "cancel" && req.method === "POST") {
-            if (!verifyBearer(req, run.browserToken)) {
+            if (!verifyBearer(req, run.browserToken, run.browserTokenSha256)) {
               protocolError(res, 401, "TOKEN_INVALID", "Invalid token.");
               return;
             }
@@ -1609,6 +1700,7 @@ function createThoughtAgentDevApiPlugin(
             }
             run.state = "cancelled";
             run.updatedAt = new Date().toISOString();
+            persistRuns();
             protocolJson(res, 200, statusPayload(run));
             return;
           }

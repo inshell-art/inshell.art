@@ -17,11 +17,11 @@ import {
 } from "./lib/thought-metadata-portability.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const artifactId = "thought-v2-canonical-portable-release-20260801-r1";
+const artifactId = "thought-v2-canonical-portable-release-20260807-r2";
 const sourceTag = artifactId;
-const sourceCommit = "a48191f5c0d5b51fab0de26707eaed86f2f1da5b";
-const sourcePublicationCommit = "9617892bda9d7f7e880b614f84f1b6360ad8a652";
-const manifestSha256 = "4d60feba36165c19a3cf3680078cc6baa7ba066c147ca607e5c82d0306f65b1a";
+const sourceCommit = "a5935d67073d6d6e28a8135b3e0ae0caddf7da4b";
+const sourcePublicationCommit = "d29ddbfe76ff94c726b0786e43e61519c4087aab";
+const manifestSha256 = "7cf7965edb3de6421c79d9c08f0781cabb78ea675bad354847b56ec8f19306cc";
 const previewRoot = path.join(
   root,
   "apps",

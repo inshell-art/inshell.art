@@ -138,7 +138,7 @@ export default function EcosystemHome() {
                 aria-label={`Open THOUGHT #${work.tokenId}`}
               >
                 <img
-                  src={thoughtImageUrl(work.tokenId)}
+                  src={work.image || thoughtImageUrl(work.tokenId)}
                   alt={`THOUGHT #${work.tokenId}`}
                   loading="lazy"
                   decoding="async"
@@ -148,6 +148,9 @@ export default function EcosystemHome() {
                 <p className="ecosystem-home__work-meta-line">THOUGHT #{work.tokenId}</p>
                 <p className="ecosystem-home__work-meta-line">
                   Agent: {work.provider.trim() || "-"}
+                </p>
+                <p className="ecosystem-home__work-meta-line">
+                  Model: {work.model.trim() || "-"}
                 </p>
               </div>
             </article>

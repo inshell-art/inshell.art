@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react-swc";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { RollupLog, RollupLogHandler } from "rollup";
@@ -18,7 +19,55 @@ function readDevApiOrigin() {
   return process.env.INSHELL_DEV_API_ORIGIN?.trim() || "https://inshell.art";
 }
 
-export default defineConfig(({ mode }) => {
+function readThoughtAppOrigin() {
+  return (
+    process.env.INSHELL_THOUGHT_APP_ORIGIN?.trim() ||
+    "http://127.0.0.1:5174"
+  );
+}
+
+function readLocalThoughtRuntime(
+  workspaceRoot: string,
+  command: string,
+  mode: string,
+) {
+  if (command !== "serve" || mode !== "devnet") return null;
+  const runtimeFile = path.resolve(
+    process.env.INSHELL_THOUGHT_CONTRACT_RUNTIME_FILE?.trim() ||
+      path.join(
+        workspaceRoot,
+        "apps",
+        "thought",
+        "contract-integration",
+        "local-runtime.thought-anvil.json",
+      ),
+  );
+  try {
+    const runtime = JSON.parse(fs.readFileSync(runtimeFile, "utf8")) as {
+      schema?: unknown;
+      status?: unknown;
+      localLane?: { id?: unknown; isolation?: unknown };
+    };
+    if (
+      runtime.schema !== "inshell.thought.v2.anvil-gallery-runtime.v1" ||
+      runtime.status !== "ready" ||
+      runtime.localLane?.id !== "thought" ||
+      runtime.localLane?.isolation !== "dedicated-anvil"
+    ) {
+      throw new Error("local THOUGHT runtime is not a ready dedicated lane");
+    }
+    return runtime;
+  } catch (error) {
+    console.warn(
+      `Local THOUGHT gallery runtime unavailable: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    return null;
+  }
+}
+
+export default defineConfig(({ command, mode }) => {
   const rootDir =
     typeof __dirname === "string"
       ? __dirname
@@ -31,6 +80,12 @@ export default defineConfig(({ mode }) => {
       Object.entries(process.env).filter(([key]) => key.startsWith("VITE_"))
     ),
   };
+  const thoughtAppOrigin = readThoughtAppOrigin();
+  const localThoughtRuntime = readLocalThoughtRuntime(
+    workspaceRoot,
+    command,
+    mode,
+  );
 
   return {
     root: rootDir,
@@ -48,20 +103,25 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       strictPort: true,
       proxy: {
+        "/api/thought-contract": {
+          target: thoughtAppOrigin,
+          changeOrigin: true,
+          secure: false,
+        },
         "/api/thought-agent": {
-          target: "http://127.0.0.1:5174",
+          target: thoughtAppOrigin,
           changeOrigin: true,
           secure: false,
         },
         "/thought": {
-          target: "http://127.0.0.1:5174",
+          target: thoughtAppOrigin,
           changeOrigin: true,
           secure: false,
           rewrite: (requestPath) =>
             requestPath.replace(/^\/thought(?=$|\?)/, "/thought/"),
         },
         "/gallery": {
-          target: "http://127.0.0.1:5174",
+          target: thoughtAppOrigin,
           changeOrigin: true,
           secure: false,
           rewrite: (requestPath) =>
@@ -80,6 +140,9 @@ export default defineConfig(({ mode }) => {
     envDir: rootDir,
     define: {
       "globalThis.__INSHELL_VITE_ENV__": JSON.stringify(publicEnv),
+      "globalThis.__INSHELL_THOUGHT_CONTRACT_RUNTIME__": JSON.stringify(
+        localThoughtRuntime,
+      ),
       "import.meta.env.MODE": JSON.stringify(mode),
     },
     resolve: {

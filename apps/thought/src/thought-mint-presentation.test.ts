@@ -340,6 +340,26 @@ export const runThoughtMintPresentationTests = () => {
   assert.equal(confirmMint.detail, "Open your wallet and confirm the transaction.");
   assert.equal(confirmMint.stageCopy, "Transaction not submitted yet · gas applies");
 
+  const preparingMint = presentThoughtMint({
+    ...baseFacts(),
+    state: "minting",
+    pathId: "2",
+    authorization: {
+      signed: true,
+      deadline: null,
+    },
+    transaction: {
+      state: "idle",
+      hash: "",
+    },
+  });
+  assert.equal(preparingMint.title, "preparing THOUGHT mint");
+  assert.equal(
+    preparingMint.detail,
+    "Checking the work and wallet before opening the transaction request.",
+  );
+  assert.equal(preparingMint.stageCopy, "Nothing submitted yet.");
+
   const textTaken = presentThoughtMint({
     ...baseFacts(),
     state: "text_taken",
@@ -429,6 +449,32 @@ export const runThoughtMintPresentationTests = () => {
     "Select “reset”, then send the prompt to your Agent again.",
   );
   assert.deepEqual(missingAgentRun.actions, [{ id: "none", label: "" }]);
+
+  const staleWalletRuntime = presentThoughtMint({
+    ...baseFacts(),
+    state: "error",
+    pathId: "2",
+    authorization: {
+      signed: true,
+      deadline: 4_102_444_800n,
+    },
+    error: {
+      kind: "mint",
+      message: "Wallet RPC is not using the active THOUGHT Anvil deployment at http://127.0.0.1:8547.",
+    },
+  });
+  assert.equal(staleWalletRuntime.title, "refresh wallet network");
+  assert.equal(
+    staleWalletRuntime.detail,
+    "The wallet is not connected to the active THOUGHT Anvil session. Nothing was submitted.",
+  );
+  assert.deepEqual(
+    staleWalletRuntime.actions.map((item) => [item.id, item.label]),
+    [
+      ["confirm_mint", "Try again"],
+      ["choose_another", "Pick another $PATH"],
+    ],
+  );
 
   const failedOnchain = presentThoughtMint({
     ...baseFacts(),

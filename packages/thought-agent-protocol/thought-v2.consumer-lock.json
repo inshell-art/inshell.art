@@ -1,16 +1,16 @@
 {
   "schema": "inshell.thought.current-v2-consumer-lock.v2",
-  "artifactId": "thought-v2-canonical-portable-release-20260801-r1",
+  "artifactId": "thought-v2-canonical-portable-release-20260807-r2",
   "protocolId": "inshell.thought.protocol.v2",
   "source": {
     "repository": "https://github.com/inshell-art/THOUGHT.git",
     "channel": "stable",
-    "tag": "thought-v2-canonical-portable-release-20260801-r1",
-    "commit": "9617892bda9d7f7e880b614f84f1b6360ad8a652",
+    "tag": "thought-v2-canonical-portable-release-20260807-r2",
+    "commit": "d29ddbfe76ff94c726b0786e43e61519c4087aab",
     "dirty": false,
     "eligibleForProduction": true
   },
-  "contractManifestSha256": "4d60feba36165c19a3cf3680078cc6baa7ba066c147ca607e5c82d0306f65b1a",
+  "contractManifestSha256": "7cf7965edb3de6421c79d9c08f0781cabb78ea675bad354847b56ec8f19306cc",
   "runtimeRelease": {
     "protocolReleaseId": "0x556973fd1ded2e8aa704d9e7e90c5eef2e4792bd1a7660e7a434964dac75cc5e",
     "manifestKeccak256": "0x08ad7d098ffee99bb05eef41d4a270bbeca35f9cdba2830b8754b3d4413996ef"
@@ -19,7 +19,7 @@
     "artifactId": "thought-v2-selected-spec-20260801-r10",
     "name": "THOUGHT.v2.md",
     "version": 2,
-    "ref": "dev://thought/contract-release/thought-v2-canonical-portable-release-20260801-r1/THOUGHT.v2.md",
+    "ref": "dev://thought/contract-release/thought-v2-canonical-portable-release-20260807-r2/THOUGHT.v2.md",
     "byteLength": 4627,
     "sha256": "90df786a3ffb5ec38bffd09ff356ec560d0b7dddcdf57170891149a92a399e9b",
     "evmSpecId": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410",

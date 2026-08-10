@@ -65,6 +65,36 @@ const rootPackageJson = JSON.parse(
   await readFile(new URL("../package.json", import.meta.url), "utf8"),
 );
 
+test("THOUGHT route keeps its canonical stylesheet in the document head", () => {
+  const head = indexHtml.slice(indexHtml.indexOf("<head>"), indexHtml.indexOf("</head>"));
+  const body = indexHtml.slice(indexHtml.indexOf("<body"));
+  assert.match(
+    head,
+    /<link id="thought-app-stylesheet" rel="stylesheet" href="\/src\/style\.css" \/>/,
+  );
+  assert.doesNotMatch(body, /<link rel="stylesheet" href="\/src\/style\.css"/);
+  assert.match(thoughtCss, /--thought-stylesheet-ready: 1;/);
+  assert.match(
+    thoughtMain,
+    /window\.addEventListener\("pageshow",[\s\S]*?requestAnimationFrame\(restoreThoughtStylesheetAfterHistory\)/,
+  );
+});
+
+test("THOUGHT detail and home gallery retain their presentation order", () => {
+  const detailStart = thoughtCss.indexOf(".thought-detail {");
+  const detailEnd = thoughtCss.indexOf(".thought-detail.is-hidden", detailStart);
+  assert.match(
+    thoughtCss.slice(detailStart, detailEnd),
+    /margin-inline: auto;/,
+    "the fixed-width THOUGHT detail composition stays centered",
+  );
+  assert.match(
+    homeThoughtGallery,
+    /function sortThoughts[\s\S]*?right\.tokenId - left\.tokenId/,
+    "the canonical home gallery lists newest THOUGHTs first",
+  );
+});
+
 test("plain THOUGHT dev defaults to the generated current-contract lane", () => {
   const runtimeReaderStart = thoughtViteConfig.indexOf(
     "function readCurrentThoughtContractRuntime",
@@ -2008,6 +2038,22 @@ test("current work verifies THOUGHT uniqueness before PICK and before submission
       confirmBody.indexOf('getTransactionCount(signerAddress, "pending")'),
     "the race guard rechecks uniqueness before opening the transaction request",
   );
+  assert.ok(
+    confirmBody.indexOf("await refreshWalletChainRpc()") <
+      confirmBody.indexOf("new BrowserProvider(ethereum)"),
+    "local THOUGHT mint refreshes the wallet RPC before creating its wallet provider",
+  );
+  assert.ok(
+    confirmBody.indexOf("await verifyWalletThoughtDeployment(browserProvider)") <
+      confirmBody.indexOf("estimateToken.mint.estimateGas"),
+    "wallet contract parity is verified before canonical mint gas estimation",
+  );
+  assert.ok(
+    confirmBody.indexOf("estimateToken.mint.estimateGas") <
+      confirmBody.indexOf('walletState.txState = "awaiting_signature"'),
+    "the App does not announce a wallet transaction until canonical gas preflight passes",
+  );
+  assert.match(confirmBody, /\{ nonce, gasLimit \}/);
 });
 
 test("post-mint View THOUGHT opens the canonical token detail directly", () => {

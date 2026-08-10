@@ -451,6 +451,22 @@ const presentError = (facts: ThoughtMintFacts): ThoughtMintPresentation => {
     });
   }
 
+  const walletRuntimeNeedsRefresh =
+    /Wallet RPC (?:cannot reach|is not using) the active THOUGHT Anvil/i.test(message);
+  if (kind === "mint" && walletRuntimeNeedsRefresh) {
+    return withDefaults({
+      title: "refresh wallet network",
+      detail: "The wallet is not connected to the active THOUGHT Anvil session. Nothing was submitted.",
+      stageCopy: "Select “Try again”. Approve the network update if your wallet asks.",
+      consoleNextStep: "select “Try again” and approve the network update if asked",
+      tone: "warning",
+      panelMode: "minting",
+      activeStep: "mint",
+      completedSteps: ["path", "sign"],
+      actions: [action("confirm_mint", "Try again"), action("choose_another", "Pick another $PATH")],
+    });
+  }
+
   if (kind === "mint" && facts.authorization.signed) {
     const recoveryCleared = /recovery check complete|waiter is detached/i.test(message);
     const returnedWithoutHash = /wallet returned.*not submitted/i.test(message);
@@ -713,6 +729,19 @@ export const presentThoughtMint = (facts: ThoughtMintFacts): ThoughtMintPresenta
                 : []),
             ]
           : [noAction()],
+      });
+    }
+
+    if (facts.transaction.state === "idle") {
+      return withDefaults({
+        title: "preparing THOUGHT mint",
+        detail: "Checking the work and wallet before opening the transaction request.",
+        stageCopy: "Nothing submitted yet.",
+        tone: "running",
+        panelMode: "minting",
+        activeStep: "mint",
+        completedSteps: ["path", "sign"],
+        actions: [noAction()],
       });
     }
 

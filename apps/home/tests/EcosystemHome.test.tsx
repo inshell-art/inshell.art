@@ -59,9 +59,10 @@ describe("EcosystemHome THOUGHT gallery", () => {
     );
     expect(screen.getByAltText("THOUGHT #7")).toHaveAttribute(
       "src",
-      "/api/thought-image?id=7",
+      "data:image/svg+xml,%3Csvg/%3E",
     );
     expect(screen.getByText("Agent: Codex")).toBeInTheDocument();
+    expect(screen.getByText("Model: gpt-5")).toBeInTheDocument();
     expect(screen.queryByLabelText("THOUGHT V2 fixture works")).toBeNull();
   });
 });

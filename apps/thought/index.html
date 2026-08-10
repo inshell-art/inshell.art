@@ -17,6 +17,7 @@
   <meta name="twitter:image" content="https://inshell.art/og.png" />
   <meta name="theme-color" content="#008080" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <link id="thought-app-stylesheet" rel="stylesheet" href="/src/style.css" />
   <script>
     (() => {
       const params = new URLSearchParams(window.location.search);
@@ -104,8 +105,6 @@
 </head>
 
 <body class="frontpage">
-  <link rel="stylesheet" href="/src/style.css">
-
   <main class="frontpage-shell">
     <div id="thought-shell-root"></div>
     <section class="frontpage-stage" aria-labelledby="frontpage-title">
@@ -487,10 +486,10 @@
       </header>
       <div class="thought-plugin-page__grid">
         <article id="plugin-codex-card" class="thought-plugin-card">
-          <h2>Codex</h2>
+          <h2>ChatGPT</h2>
           <p>Open one sealed THOUGHT task in Codex within the ChatGPT desktop app.</p>
           <ol>
-            <li>Start a THOUGHT and choose Codex.</li>
+            <li>Start a THOUGHT and choose ChatGPT.</li>
             <li>Open the prefilled Codex task and select Submit once.</li>
             <li>Return here to review and mint the verified result.</li>
           </ol>
@@ -498,13 +497,12 @@
         </article>
         <article id="plugin-claude-card" class="thought-plugin-card">
           <h2>Claude</h2>
-          <p>Open one sealed THOUGHT task in Claude. THOUGHT uses Cowork first.</p>
+          <p>Open one sealed THOUGHT task in Claude Code.</p>
           <ol>
             <li>Start a THOUGHT and choose Claude.</li>
-            <li>Open the prefilled Claude task and select Submit once.</li>
+            <li>Open the prefilled Claude Code task and submit it once.</li>
             <li>Return here to review and mint the verified result.</li>
           </ol>
-          <p>Claude Code appears only as recovery after Cowork cannot finish a run.</p>
           <a href="/">Create from website</a>
         </article>
       </div>
@@ -872,91 +870,116 @@
       </header>
       <p id="thought-detail-status" class="thought-detail__status" aria-live="polite">loading THOUGHT...</p>
       <div id="thought-detail-body" class="thought-detail__body is-hidden">
-        <div class="thought-detail__canvas-frame">
+        <div class="thought-detail__canvas-column">
           <img id="thought-detail-image" class="thought-detail__image" alt="Selected THOUGHT canvas" />
+          <p class="thought-detail__artwork-source">canonical artwork · ThoughtNFT.svgOf(<span id="thought-detail-artwork-token-id">-</span>)</p>
         </div>
         <aside class="thought-detail__rail" aria-label="THOUGHT record">
           <section class="thought-detail__section">
-            <h2>prompt</h2>
-            <p id="thought-detail-prompt" class="thought-detail__text">-</p>
-          </section>
-
-          <section class="thought-detail__section">
-            <h2>spec</h2>
-            <a id="thought-detail-spec-ref" class="thought-detail__value thought-detail__value-link" href="#">THOUGHT.v1.md ↗</a>
-          </section>
-
-          <section class="thought-detail__section">
-            <h2>model</h2>
-            <p id="thought-detail-model" class="thought-detail__value">-</p>
-          </section>
-
-          <section class="thought-detail__section">
-            <h2>model return</h2>
-            <p id="thought-detail-model-return" class="thought-detail__text">-</p>
-          </section>
-
-          <section class="thought-detail__section">
-            <h2>text</h2>
-            <p id="thought-detail-canonical-title" class="thought-detail__text">-</p>
-          </section>
-
-          <section class="thought-detail__section">
-            <h2>$PATH</h2>
-            <a id="thought-detail-path" class="thought-detail__value thought-detail__path-link" href="#">-</a>
-          </section>
-
-          <section class="thought-detail__section">
-            <h2>mint</h2>
-            <dl class="thought-detail__fields">
+            <h2>work</h2>
+            <div class="thought-detail__dialogue">
               <div>
-                <dt>minter</dt>
-                <dd id="thought-detail-minter">-</dd>
+                <p class="thought-detail__dialogue-role">prompt</p>
+                <p id="thought-detail-prompt" class="thought-detail__text">-</p>
               </div>
               <div>
-                <dt>network</dt>
-                <dd id="thought-detail-network">not loaded</dd>
+                <p class="thought-detail__dialogue-role">Agent</p>
+                <p id="thought-detail-model-return" class="thought-detail__text">-</p>
               </div>
-              <div>
-                <dt>chain</dt>
-                <dd id="thought-detail-chain">not loaded</dd>
-              </div>
-              <div>
-                <dt>chain id</dt>
-                <dd id="thought-detail-chain-id">not loaded</dd>
-              </div>
-              <div>
-                <dt>currency</dt>
-                <dd id="thought-detail-currency">not loaded</dd>
-              </div>
-              <div>
-                <dt>minted</dt>
-                <dd id="thought-detail-minted">-</dd>
-              </div>
-              <div>
-                <dt>tx</dt>
-                <dd><a id="thought-detail-view-tx" class="thought-detail__value-link" href="#">-</a></dd>
-              </div>
-            </dl>
-          </section>
-
-          <section class="thought-detail__section">
-            <h2>provenance</h2>
-            <a id="thought-detail-provenance-bytes" class="thought-detail__value thought-detail__value-link" href="#">-</a>
-            <div id="thought-detail-json-panel" class="thought-detail__viewer is-hidden">
-              <p id="thought-detail-provenance-viewer-title" class="thought-detail__viewer-title">provenance json</p>
-              <pre id="thought-detail-provenance-json" class="thought-detail__json"></pre>
             </div>
           </section>
 
           <section class="thought-detail__section">
-            <h2>color font</h2>
-            <a id="thought-detail-color-font" class="thought-detail__value thought-detail__value-link" href="#">Color Font v1 ↗</a>
-            <p id="thought-detail-color-font-status" class="thought-detail__status" aria-live="polite"></p>
+            <h2>creation provenance</h2>
+            <p class="thought-detail__attestation-summary">
+              <span id="thought-detail-attestation" class="thought-detail__attestation">-</span>
+              <span id="thought-detail-attestation-copy">Reading the creation record.</span>
+            </p>
+            <dl class="thought-detail__fields">
+              <div>
+                <dt>process</dt>
+                <dd id="thought-detail-process">-</dd>
+              </div>
+              <div>
+                <dt>Agent</dt>
+                <dd id="thought-detail-agent">-</dd>
+              </div>
+              <div>
+                <dt>Model</dt>
+                <dd id="thought-detail-model">-</dd>
+              </div>
+              <div>
+                <dt>$PATH</dt>
+                <dd><a id="thought-detail-path" class="thought-detail__value-link" href="#">-</a></dd>
+              </div>
+              <div>
+                <dt>spec</dt>
+                <dd><a id="thought-detail-spec-ref" class="thought-detail__value-link" href="#">THOUGHT.v2.md ↗</a></dd>
+              </div>
+            </dl>
+          </section>
+        </aside>
+
+        <div class="thought-detail__support">
+          <section class="thought-detail__section">
+            <h2>canonical traits</h2>
+            <dl id="thought-detail-traits" class="thought-detail__fields">
+              <div><dt>status</dt><dd>reading token metadata</dd></div>
+            </dl>
           </section>
 
-          <p id="thought-detail-copy-status" class="thought-detail__status" aria-live="polite"></p>
-        </aside>
+          <section class="thought-detail__section">
+            <h2>on-chain record</h2>
+            <dl class="thought-detail__fields">
+              <div><dt>token</dt><dd id="thought-detail-token">-</dd></div>
+              <div><dt>author</dt><dd id="thought-detail-minter">-</dd></div>
+              <div><dt>network</dt><dd id="thought-detail-network">not loaded</dd></div>
+              <div><dt>chain</dt><dd><span id="thought-detail-chain">not loaded</span> · <span id="thought-detail-chain-id">-</span></dd></div>
+              <div><dt>currency</dt><dd id="thought-detail-currency">not loaded</dd></div>
+              <div><dt>contract</dt><dd id="thought-detail-contract">-</dd></div>
+              <div><dt>minted</dt><dd id="thought-detail-minted">-</dd></div>
+              <div><dt>block</dt><dd id="thought-detail-block">-</dd></div>
+              <div><dt>tx</dt><dd><a id="thought-detail-view-tx" class="thought-detail__value-link" href="#">-</a></dd></div>
+            </dl>
+          </section>
+        </div>
+
+        <details class="thought-detail__record thought-detail__verification">
+          <summary>verify / raw data</summary>
+          <div class="thought-detail__record-body">
+            <div class="thought-detail__verification-grid">
+              <div>
+                <h3>contract commitments</h3>
+                <dl class="thought-detail__fields">
+                  <div><dt>provenance hash</dt><dd id="thought-detail-provenance-hash">-</dd></div>
+                  <div><dt>prompt hash</dt><dd id="thought-detail-prompt-hash">-</dd></div>
+                  <div><dt>Agent line hash</dt><dd id="thought-detail-agent-line-hash">-</dd></div>
+                </dl>
+              </div>
+              <div>
+                <h3>release binding</h3>
+                <dl class="thought-detail__fields">
+                  <div><dt>spec ID</dt><dd id="thought-detail-spec-id">-</dd></div>
+                  <div><dt>spec hash</dt><dd id="thought-detail-spec-hash">-</dd></div>
+                  <div><dt>release</dt><dd id="thought-detail-release-id">-</dd></div>
+                  <div><dt>manifest</dt><dd id="thought-detail-manifest-hash">-</dd></div>
+                </dl>
+              </div>
+            </div>
+            <div id="thought-detail-json-panel" class="thought-detail__raw-heading">
+              <h3><a id="thought-detail-provenance-bytes" class="thought-detail__value-link" href="#">provenance unavailable.</a></h3>
+              <p id="thought-detail-provenance-viewer-title" class="thought-detail__viewer-title">provenance json</p>
+              <pre id="thought-detail-provenance-json" class="thought-detail__json"></pre>
+            </div>
+          </div>
+        </details>
+
+        <div class="thought-detail__legacy-hooks" hidden aria-hidden="true">
+          <p id="thought-detail-canonical-title">-</p>
+          <a id="thought-detail-color-font" href="#">archived Color Font v1</a>
+          <p id="thought-detail-color-font-status"></p>
+        </div>
+        <p id="thought-detail-copy-status" class="thought-detail__status" aria-live="polite"></p>
       </div>
     </section>
   </main>
