@@ -212,6 +212,7 @@ function createThoughtDevRuntimeBootstrapPlugin({
   publicEnv: Record<string, string>;
 }): Plugin {
   const bootstrap = [
+    `globalThis.__INSHELL_THOUGHT_DEV_DEFAULT_SURFACE__ = "agent";`,
     `globalThis.__INSHELL_VITE_ENV__ = ${serializeForInlineScript(publicEnv)};`,
     `globalThis.__INSHELL_THOUGHT_CONTRACT_RUNTIME__ = ${serializeForInlineScript(contractRuntime)};`,
     `globalThis.__INSHELL_THOUGHT_EVM_ADDRESSES__ = ${serializeForInlineScript(evmAddresses)};`,

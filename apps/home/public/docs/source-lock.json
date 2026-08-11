@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "8d33862cf54ce11081c64d056d534987ee88715e39c512d4c7bf826ad5d4ba7f",
+  "sourceTreeSha256": "062bc0a2469597ade97f5ac87e6da57f8efc3090bd9bd174e0199b77a66461ab",
   "groups": [
     {
       "id": "public-docs",
@@ -934,12 +934,12 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "0f75a73f8b841a0a7099b544df89706406823e92e8b5c5f5ac61f9a207bfca42",
+      "groupSha256": "aad83b838e9cb6341cbe70d458b32428a680f3596327bdcae324dde3830a5357",
       "files": [
         {
           "path": "apps/thought/index.html",
-          "byteLength": 47174,
-          "sha256": "e80f050b668bb04e079f624c021376d53ac09ba81cdcffef0b56448abb6bae24"
+          "byteLength": 47456,
+          "sha256": "f77976b0ce731a9713d5800eb67ce3e7d94af6e8d952316ddfb987963ff524e8"
         },
         {
           "path": "apps/thought/package.json",
@@ -1198,8 +1198,8 @@
         },
         {
           "path": "apps/thought/vite.config.ts",
-          "byteLength": 66520,
-          "sha256": "87808a0e5cc51f6e411af6c238545b4b7d1a1723782e85157c213ce8014598a9"
+          "byteLength": 66589,
+          "sha256": "33bf244338d29c8d603ba49a6c85763a32ddf5b2485eaf02c8ecefdfb984e689"
         }
       ]
     },

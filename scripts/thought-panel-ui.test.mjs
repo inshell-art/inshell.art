@@ -334,7 +334,7 @@ test("THOUGHT creation page presents its canonical slogan below the title", () =
   );
 });
 
-test("THOUGHT creation keeps the production CLI surface visible by default", () => {
+test("THOUGHT creation keeps the production CLI default and uses Agent in Vite dev", () => {
   assert.match(
     indexHtml,
     /id="thought-cli-panel" class="frontpage-side thought-cli-panel"[\s\S]*?aria-label="THOUGHT operator panel"[\s\S]*?id="thought-cli-transcript"[\s\S]*?id="thought-cli-suggestions"[\s\S]*?id="thought-cli-form"[\s\S]*?thought&gt;/,
@@ -357,11 +357,27 @@ test("THOUGHT creation keeps the production CLI surface visible by default", () 
     /display:\s*none/,
     "the Agent panel must not cover the default CLI canvas",
   );
-  assert.match(indexHtml, /params\.get\("surface"\) !== "agent"/);
+  assert.match(
+    thoughtViteConfig,
+    /globalThis\.__INSHELL_THOUGHT_DEV_DEFAULT_SURFACE__ = "agent";/,
+    "the serve-only Vite bootstrap selects the current Agent surface in local development",
+  );
+  assert.match(
+    thoughtViteConfig,
+    /name: "inshell-thought-dev-runtime-bootstrap",\s*apply: "serve"/,
+    "the local Agent default must never be injected into built production artifacts",
+  );
+  assert.match(
+    indexHtml,
+    /requestedSurface === null &&\s*globalThis\.__INSHELL_THOUGHT_DEV_DEFAULT_SURFACE__ === "agent"/,
+  );
+  assert.match(indexHtml, /requestedSurface === "cli"/);
+  assert.match(indexHtml, /requestedSurface !== "agent" && !useDevAgentDefault/);
   assert.match(
     indexHtml,
     /classList\.add\(isCliSurface \? "cli-surface" : "agent-surface"\)/,
   );
+  assert.match(indexHtml, /href="\/thought\?surface=cli">\[ cli \]<\/a>/);
   assert.match(indexHtml, /href="\/thought\?surface=agent">\[ Agent \]<\/a>/);
   assert.match(
     thoughtCss,
