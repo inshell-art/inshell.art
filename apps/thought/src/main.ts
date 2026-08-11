@@ -2147,6 +2147,7 @@ const thoughtShellRoot = document.getElementById("thought-shell-root") as HTMLEl
 const frontpageStage = document.querySelector(".frontpage-stage") as HTMLElement | null;
 const frontpageMain = document.querySelector(".frontpage-main") as HTMLElement | null;
 const frontpageHeader = document.querySelector(".thought-create__header") as HTMLElement | null;
+const thoughtCliTitle = document.querySelector(".thought-cli-title") as HTMLElement | null;
 const modeConnectButton = document.getElementById("mode-connect") as HTMLButtonElement | null;
 const modeDirectButton = document.getElementById("mode-direct") as HTMLButtonElement | null;
 const modeLocalButton = document.getElementById("mode-local") as HTMLButtonElement | null;
@@ -16070,20 +16071,21 @@ const getThoughtDockViewportReserve = () => {
 };
 
 const isStackedOperatorLayout = () =>
-  window.matchMedia("(max-width: 1023px)").matches &&
+  window.matchMedia(IS_CLI_SURFACE ? "(max-width: 900px)" : "(max-width: 1023px)").matches &&
   !frontpageStage.classList.contains("is-hidden");
 
 const getStackedOperatorAvailableHeight = () => {
   const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
   const shellStyles = window.getComputedStyle(frontpageShell);
   const mainStyles = window.getComputedStyle(frontpageMain);
+  const creationHeading = IS_CLI_SURFACE ? thoughtCliTitle : frontpageHeader;
   const columnStyles = window.getComputedStyle(
     thoughtCanvasPanel.parentElement ?? frontpageMain,
   );
   const frameStyles = window.getComputedStyle(thoughtCanvasFrame);
   const footer = document.querySelector(".frontpage-side .color-font-footer") as HTMLElement | null;
   const shellInset = readPx(shellStyles.paddingTop) + readPx(shellStyles.paddingBottom);
-  const headerHeight = visibleBlockOuterHeight(frontpageHeader);
+  const headerHeight = visibleBlockOuterHeight(creationHeading);
   const canvasColumnGap = readPx(columnStyles.rowGap);
   const frameInset = readPx(frameStyles.paddingTop) + readPx(frameStyles.paddingBottom);
   const mainGap = readPx(mainStyles.rowGap);
@@ -16102,6 +16104,29 @@ const getStackedOperatorAvailableHeight = () => {
 };
 
 const getViewportWidthCap = () => {
+  if (IS_CLI_SURFACE) {
+    if (isStackedOperatorLayout()) {
+      return Math.max(
+        MIN_CANVAS_SIZE,
+        getStackedOperatorAvailableHeight() - STACKED_MIN_CLI_HEIGHT,
+      );
+    }
+
+    const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+    const shellStyles = window.getComputedStyle(frontpageShell);
+    const mainStyles = window.getComputedStyle(frontpageMain);
+    const frameStyles = window.getComputedStyle(thoughtCanvasFrame);
+    const shellInset = readPx(shellStyles.paddingTop) + readPx(shellStyles.paddingBottom);
+    const frameInset = readPx(frameStyles.paddingTop) + readPx(frameStyles.paddingBottom);
+    const titleHeight = visibleBlockOuterHeight(thoughtCliTitle);
+    const rowGap = readPx(mainStyles.rowGap);
+    const availableHeight = Math.floor(
+      viewportHeight - shellInset - titleHeight - rowGap - frameInset,
+    );
+
+    return Math.max(MIN_CANVAS_SIZE, availableHeight);
+  }
+
   if (isStackedOperatorLayout()) {
     const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
     return Math.max(
@@ -16297,14 +16322,20 @@ const getEmptyFrameStyle = (): ThoughtV2EmptyFrameStyle =>
 
 const renderCanvas = (rawText: string) => {
   const { displayWidth, height } = resizeWorkSurface();
+
+  context.clearRect(0, 0, displayWidth, height);
+  if (IS_CLI_SURFACE && !currentWorkSvg && !currentWorkImage) {
+    context.fillStyle = readThoughtCssToken("--thought-cli-idle-canvas-bg");
+    context.fillRect(0, 0, displayWidth, height);
+    return;
+  }
+
   const emptyFrameStyle = getEmptyFrameStyle();
   const canvasRect = thoughtV2EmptyFrameCanvasRect(
     displayWidth,
     height,
     emptyFrameStyle,
   );
-
-  context.clearRect(0, 0, displayWidth, height);
   context.fillStyle = emptyFrameStyle.color;
   context.fillRect(0, 0, displayWidth, height);
   context.fillStyle = readThoughtCssToken("--thought-art-canvas-bg");

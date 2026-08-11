@@ -218,6 +218,15 @@ body {
     "Noto Sans Mono", "Noto Sans Mono CJK SC", "Noto Sans Mono CJK JP",
     "Noto Sans Mono CJK KR", "Noto Sans", monospace, sans-serif;
   --thought-short-workspace-min-height: 520px;
+  --thought-cli-canvas-column-gap: 18px;
+  --thought-cli-canvas-row-gap: clamp(12px, 1.5vw, 20px);
+  --thought-cli-canvas-frame-padding: 16px;
+  --thought-cli-canvas-column-mobile-gap: 12px;
+  --thought-cli-shell-padding-block-start: clamp(16px, 2.2vh, 28px);
+  --thought-cli-shell-padding-inline: clamp(18px, 2.8vw, 52px);
+  --thought-cli-shell-padding-block-end: clamp(14px, 2vh, 28px);
+  --thought-cli-title-letter-spacing: 0.08em;
+  --thought-cli-idle-canvas-bg: #050505;
 }
 
 body.frontpage {
@@ -4327,5 +4336,145 @@ html.agent-demo-route .thought-agent-demo.is-hidden {
   .thought-mint-step__button,
   .thought-panel__links a {
     min-height: var(--shell-touch-target-size);
+  }
+}
+
+/* The canonical CLI creation surface preserves the exact June 10 production canvas. */
+.thought-cli-title {
+  display: none;
+}
+
+html.cli-surface body.frontpage:has(.frontpage-stage:not(.is-hidden)) .inshell-topbar,
+html.cli-surface body.frontpage:has(.frontpage-stage:not(.is-hidden)) .thought-create__header {
+  display: none;
+}
+
+html.cli-surface body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-shell {
+  align-items: stretch;
+  justify-content: flex-start;
+  min-height: 100vh;
+  height: 100dvh;
+  padding: var(--thought-cli-shell-padding-block-start)
+    var(--thought-cli-shell-padding-inline)
+    var(--thought-cli-shell-padding-block-end);
+}
+
+html.cli-surface body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-stage {
+  height: auto;
+  min-height: 0;
+  padding-block-start: 0;
+}
+
+html.cli-surface body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-main {
+  display: grid;
+  width: 100%;
+  max-width: var(--main-area-width);
+  flex: 0 0 auto;
+  min-height: 0;
+  container-type: normal;
+  grid-template-columns: minmax(0, 1fr) var(--thought-panel-width);
+  grid-template-rows: auto auto;
+  grid-template-areas:
+    "title ."
+    "canvas side";
+  column-gap: var(--thought-cli-canvas-column-gap);
+  row-gap: var(--thought-cli-canvas-row-gap);
+  align-items: start;
+}
+
+html.cli-surface .thought-cli-title {
+  display: block;
+  grid-area: title;
+  margin: 0;
+  color: var(--accent);
+  font-size: clamp(var(--font-size-34), 5.5vw, var(--font-size-60));
+  font-weight: var(--weight-thin);
+  line-height: var(--shell-route-title-line-height);
+  letter-spacing: var(--thought-cli-title-letter-spacing);
+  text-align: center;
+}
+
+html.cli-surface .thought-canvas-column {
+  display: contents;
+}
+
+html.cli-surface .thought-canvas-panel {
+  grid-area: canvas;
+  height: auto;
+  min-height: 0;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+html.cli-surface .frontpage-side,
+html.cli-surface body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-side {
+  position: relative;
+  grid-area: side;
+  align-self: stretch;
+  width: var(--thought-panel-width);
+  max-width: var(--thought-panel-width);
+  min-width: var(--thought-panel-width);
+}
+
+html.cli-surface .thought-canvas-frame {
+  --thought-canvas-frame-padding: var(--thought-cli-canvas-frame-padding);
+  width: auto;
+  height: auto;
+  aspect-ratio: auto;
+  max-width: 100%;
+  background: var(--panel);
+}
+
+html.cli-surface .thought-grid,
+html.cli-surface .thought-svg-preview {
+  background: var(--thought-cli-idle-canvas-bg);
+}
+
+@media (max-width: 900px) {
+  html.cli-surface body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    column-gap: var(--thought-cli-canvas-column-gap);
+    row-gap: var(--thought-cli-canvas-row-gap);
+  }
+
+  html.cli-surface .thought-canvas-column {
+    display: flex;
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--thought-cli-canvas-column-mobile-gap);
+  }
+
+  html.cli-surface .thought-cli-title {
+    grid-area: auto;
+  }
+
+  html.cli-surface .thought-canvas-panel {
+    grid-area: auto;
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  html.cli-surface .frontpage-side,
+  html.cli-surface body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-side {
+    position: relative;
+    grid-area: auto;
+    flex: 0 0 auto;
+    align-self: center;
+    width: min(
+      100%,
+      calc(
+        var(--thought-canvas-outer-height) + var(--thought-cli-canvas-frame-padding) +
+          var(--thought-cli-canvas-frame-padding)
+      )
+    );
+    max-width: none;
+    min-width: 0;
   }
 }

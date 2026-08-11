@@ -322,11 +322,7 @@ test("THOUGHT creation page presents its canonical slogan below the title", () =
   );
   assert.match(
     thoughtMain.slice(stackedHeightStart, stackedHeightEnd),
-    /const headerHeight = visibleBlockOuterHeight\(frontpageHeader\)/,
-  );
-  assert.doesNotMatch(
-    thoughtMain.slice(stackedHeightStart, stackedHeightEnd),
-    /frontpageTitle|titleHeight/,
+    /const creationHeading = IS_CLI_SURFACE \? thoughtCliTitle : frontpageHeader;[\s\S]*?const headerHeight = visibleBlockOuterHeight\(creationHeading\)/,
   );
   assert.match(
     thoughtMain,
@@ -386,6 +382,54 @@ test("THOUGHT creation keeps the production CLI surface visible by default", () 
   );
 });
 
+test("canonical CLI canvas preserves the immutable June 10 snapshot", () => {
+  assert.match(
+    indexHtml,
+    /<div class="thought-canvas-column">\s*<h1 class="frontpage-title thought-cli-title">THOUGHT<\/h1>\s*<div class="thought-canvas-panel">/,
+  );
+  assert.match(thoughtCss, /--thought-cli-canvas-column-gap:\s*18px/);
+  assert.match(thoughtCss, /--thought-cli-canvas-row-gap:\s*clamp\(12px, 1\.5vw, 20px\)/);
+  assert.match(thoughtCss, /--thought-cli-canvas-frame-padding:\s*16px/);
+  assert.match(thoughtCss, /--thought-cli-idle-canvas-bg:\s*#050505/);
+  assert.match(
+    thoughtCss,
+    /html\.cli-surface body\.frontpage:has\(\.frontpage-stage:not\(\.is-hidden\)\) \.inshell-topbar,[\s\S]*?\.thought-create__header\s*\{\s*display:\s*none;/,
+  );
+  assert.match(
+    thoughtCss,
+    /html\.cli-surface \.thought-canvas-column\s*\{\s*display:\s*contents;/,
+  );
+  assert.match(
+    thoughtCss,
+    /html\.cli-surface body\.frontpage:has\(\.frontpage-stage:not\(\.is-hidden\)\) \.frontpage-main\s*\{[\s\S]*?grid-template-areas:\s*\n\s*"title \."\s*\n\s*"canvas side";[\s\S]*?column-gap:\s*var\(--thought-cli-canvas-column-gap\);[\s\S]*?row-gap:\s*var\(--thought-cli-canvas-row-gap\)/,
+  );
+  assert.match(
+    thoughtCss,
+    /html\.cli-surface \.thought-canvas-panel\s*\{\s*grid-area:\s*canvas;[\s\S]*?html\.cli-surface \.frontpage-side,[\s\S]*?grid-area:\s*side;[\s\S]*?width:\s*var\(--thought-panel-width\)/,
+  );
+  assert.match(
+    thoughtCss,
+    /html\.cli-surface \.thought-canvas-frame\s*\{[\s\S]*?--thought-canvas-frame-padding:\s*var\(--thought-cli-canvas-frame-padding\);[\s\S]*?background:\s*var\(--panel\)/,
+  );
+  assert.match(
+    thoughtCss,
+    /@media \(max-width: 900px\)[\s\S]*?html\.cli-surface \.thought-canvas-column\s*\{[\s\S]*?width:\s*100%[\s\S]*?html\.cli-surface \.thought-canvas-panel\s*\{[\s\S]*?width:\s*100%/,
+  );
+
+  const renderStart = thoughtMain.indexOf("const renderCanvas =");
+  const renderEnd = thoughtMain.indexOf("const syncOutputToCanvas =", renderStart);
+  const renderBody = thoughtMain.slice(renderStart, renderEnd);
+  assert.match(
+    renderBody,
+    /if \(IS_CLI_SURFACE && !currentWorkSvg && !currentWorkImage\) \{\s*context\.fillStyle = readThoughtCssToken\("--thought-cli-idle-canvas-bg"\);\s*context\.fillRect\(0, 0, displayWidth, height\);\s*return;/,
+  );
+  assert.ok(
+    renderBody.indexOf("if (IS_CLI_SURFACE && !currentWorkSvg && !currentWorkImage)") <
+      renderBody.indexOf("const emptyFrameStyle = getEmptyFrameStyle()"),
+    "the CLI must return with the neutral snapshot canvas before the Agent empty-frame renderer",
+  );
+});
+
 test("Work owns prompt and CTAs before sibling Mint and Save/Load panels", () => {
   const workIndex = indexHtml.indexOf('id="thought-dock"');
   const promptIndex = indexHtml.indexOf('id="thought-dock-prompt"');
@@ -438,7 +482,7 @@ test("desktop panel stack shares the canvas top and bottom edges", () => {
   );
 });
 
-test("empty creation canvas follows the active contract work frame", () => {
+test("Agent empty canvas and generated work preserve the active contract frame", () => {
   assert.match(thoughtCss, /--thought-work-frame-color:\s*#006100/);
   assert.match(thoughtCss, /--thought-work-frame-inset:\s*32/);
   assert.match(thoughtCss, /--thought-work-canvas-size:\s*960/);
