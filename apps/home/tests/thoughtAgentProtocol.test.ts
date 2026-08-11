@@ -16,6 +16,16 @@ import {
 } from "../../../packages/thought-agent-protocol/src/index";
 import { hasThoughtPollDeadlineExpired } from "../../thought/src/thought-poll-wake";
 
+const releasedAgentResult = (
+  agentLine: string,
+  declaration?: Record<string, unknown>,
+) => ({
+  schema: THOUGHT_AGENT_RESULT_VERSION,
+  release: THOUGHT_V2_PROTOCOL_RELEASE.release,
+  agentLine,
+  ...(declaration ? { declaration } : {}),
+});
+
 describe("THOUGHT Agent V2 protocol helpers", () => {
   const originalCrypto = globalThis.crypto;
 
@@ -36,7 +46,9 @@ describe("THOUGHT Agent V2 protocol helpers", () => {
   test("keeps the run-state transition matrix narrow", () => {
     expect(canTransitionThoughtAgentState("created", "claimed")).toBe(true);
     expect(canTransitionThoughtAgentState("created", "running")).toBe(false);
-    expect(canTransitionThoughtAgentState("claimed", "running")).toBe(true);
+    expect(canTransitionThoughtAgentState("claimed", "ready")).toBe(true);
+    expect(canTransitionThoughtAgentState("claimed", "running")).toBe(false);
+    expect(canTransitionThoughtAgentState("ready", "running")).toBe(true);
     expect(canTransitionThoughtAgentState("running", "returned")).toBe(true);
     expect(canTransitionThoughtAgentState("returned", "running")).toBe(false);
   });
@@ -49,7 +61,7 @@ describe("THOUGHT Agent V2 protocol helpers", () => {
   });
 
   test("sends the exact prompt line to the Agent without framing or repair", async () => {
-    const promptLine = "quiet signal 你好";
+    const promptLine = "quiet signal";
     const input = await buildThoughtAgentInput({ promptLine });
     const again = await buildThoughtAgentInput({ promptLine });
 
@@ -74,11 +86,8 @@ describe("THOUGHT Agent V2 protocol helpers", () => {
   });
 
   test("strictly parses the V2 result without trimming or extraction", async () => {
-    const agentLine = "quiet signal 你好";
-    const raw = JSON.stringify({
-      schema: THOUGHT_AGENT_RESULT_VERSION,
-      agentLine,
-    });
+    const agentLine = "quiet signal";
+    const raw = JSON.stringify(releasedAgentResult(agentLine));
     const parsed = await parseAgentOutput(raw);
 
     expect(parsed.raw).toBe(raw);
@@ -89,45 +98,38 @@ describe("THOUGHT Agent V2 protocol helpers", () => {
 
     await expect(
       parseAgentOutput(
-        JSON.stringify({
-          schema: THOUGHT_AGENT_RESULT_VERSION,
-          agentLine,
-          extra: true,
-        }),
+        JSON.stringify({ ...releasedAgentResult(agentLine), extra: true }),
       ),
     ).rejects.toThrow(/required schema/);
     await expect(
-      parseAgentOutput(JSON.stringify({ schema: THOUGHT_AGENT_RESULT_VERSION, agentLine: " quiet" })),
-    ).rejects.toThrow(/invalid spacing/);
+      parseAgentOutput(JSON.stringify(releasedAgentResult(" quiet"))),
+    ).rejects.toThrow(/outer space/);
     await expect(
-      parseAgentOutput(JSON.stringify({ schema: THOUGHT_AGENT_RESULT_VERSION, agentLine: "quiet  signal" })),
-    ).resolves.toBeDefined();
+      parseAgentOutput(JSON.stringify(releasedAgentResult("quiet  signal"))),
+    ).rejects.toThrow(/repeated internal spaces/);
     await expect(
-      parseAgentOutput(JSON.stringify({ schema: THOUGHT_AGENT_RESULT_VERSION, agentLine: "quiet\nsignal" })),
-    ).rejects.toThrow(/control character/);
+      parseAgentOutput(JSON.stringify(releasedAgentResult("quiet\nsignal"))),
+    ).rejects.toThrow(/unsupported U\+000A/);
   });
 
   test("accepts the optional declaration only in its exact schema", async () => {
     const declaration = {
       schema: THOUGHT_AGENT_DECLARATION_VERSION,
-      agentLabel: "Codex",
-      specId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
-      specHash: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecHash,
+      status: "declared-unverified",
+      label: "Codex",
       declaredOneCreativeResult: true,
     } as const;
-    const raw = JSON.stringify({
-      schema: THOUGHT_AGENT_RESULT_VERSION,
-      agentLine: "quiet signal",
-      declaration,
-    });
+    const raw = JSON.stringify(releasedAgentResult("quiet signal", declaration));
 
     await expect(parseAgentOutput(raw)).resolves.toMatchObject({ declaration });
     await expect(
       parseAgentOutput(
         JSON.stringify({
-          schema: THOUGHT_AGENT_RESULT_VERSION,
-          agentLine: "quiet signal",
-          declaration: { ...declaration, declaredOneCreativeResult: false },
+          ...releasedAgentResult("quiet signal"),
+          declaration: {
+            ...declaration,
+            declaredOneCreativeResult: false,
+          },
         }),
       ),
     ).rejects.toThrow(/declaration/);
@@ -143,17 +145,17 @@ describe("THOUGHT Agent V2 protocol helpers", () => {
     ).rejects.toThrow(/bytes/);
     await expect(
       parseAgentOutput(
-        JSON.stringify({ schema: THOUGHT_AGENT_RESULT_VERSION, agentLine: agentAtLimit }),
+        JSON.stringify(releasedAgentResult(agentAtLimit)),
       ),
     ).resolves.toBeDefined();
     await expect(
       parseAgentOutput(
-        JSON.stringify({ schema: THOUGHT_AGENT_RESULT_VERSION, agentLine: `${agentAtLimit}A` }),
+        JSON.stringify(releasedAgentResult(`${agentAtLimit}A`)),
       ),
     ).rejects.toThrow(/bytes/);
     await expect(
       parseAgentOutput(
-        JSON.stringify({ schema: THOUGHT_AGENT_RESULT_VERSION, agentLine: "A".repeat(27) }),
+        JSON.stringify(releasedAgentResult("A".repeat(27))),
       ),
     ).resolves.toBeDefined();
   });
@@ -162,14 +164,14 @@ describe("THOUGHT Agent V2 protocol helpers", () => {
     const task = buildThoughtCodexTask({
       product: "Codex",
       runId: "tar_protocol_test",
-      promptLine: "hello world",
       runUrl: "http://127.0.0.1:5173/api/thought-agent/v2/runs/tar_protocol_test",
-      clientUrl: "http://127.0.0.1:5173/api/thought-agent/v2/client",
       launchToken: "launch-token",
     });
 
-    expect(task).toContain("1-64 UTF-8 bytes");
-    expect(task).toContain("Display units are renderer measurements only, not an acceptance limit.");
+    expect(task).toContain("1-64-byte Terminal English agentLine");
+    expect(task).toContain(
+      `<work_profile> = ${THOUGHT_V2_PROTOCOL_RELEASE.identifiers.workProfile}`,
+    );
     expect(task).not.toContain("162 display units");
     expect(task).not.toContain("approval code");
   });
@@ -207,7 +209,7 @@ describe("THOUGHT Agent V2 protocol helpers", () => {
       },
       output: {
         rawSha256: await sha256Hex(
-          JSON.stringify({ schema: THOUGHT_AGENT_RESULT_VERSION, agentLine: "A" }),
+          JSON.stringify(releasedAgentResult("A")),
         ),
         agentLineSha256: await sha256Hex("A"),
       },
