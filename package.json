@@ -25,7 +25,7 @@
     "build:thought:same-origin": "VITE_THOUGHT_ROUTE_BASE=/thought VITE_PATH_MINT_URL=/path VITE_THOUGHT_URL=/thought VITE_GALLERY_URL=/gallery VITE_THOUGHT_DETAIL_BASE_URL=/thought INSHELL_THOUGHT_OUT_DIR=../../dist/home/thought corepack pnpm --filter @inshell/thought build",
     "test": "pnpm --filter @inshell/home test && pnpm run test:thought-runtime",
     "test:fast": "pnpm --filter @inshell/home test:fast",
-    "test:presepolia": "pnpm --filter @inshell/home test:presepolia",
+    "test:presepolia": "pnpm --filter @inshell/home test:presepolia && pnpm run test:upstream-release-check",
     "check:upstream-releases": "node scripts/check-upstream-releases.mjs",
     "check:path-upstream": "node scripts/check-upstream-releases.mjs --only path",
     "check:thought-upstream": "node scripts/check-upstream-releases.mjs --only thought",
@@ -95,6 +95,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "husky": "^9.1.7",
+    "js-yaml": "4.3.0",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3"
   },

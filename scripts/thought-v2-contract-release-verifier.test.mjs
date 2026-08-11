@@ -177,6 +177,9 @@ test("ties every runtime-relevant PATH dependency field to the local lane pin", 
     ["manifest", (value) => {
       value.manifestSha256 = "0".repeat(64);
     }],
+    ["PathNFT ABI", (value) => {
+      value.pathNft.abiSha256 = "0".repeat(64);
+    }],
     ["PathNFT artifact", (value) => {
       value.pathNft.hardhatArtifactSha256 = "0".repeat(64);
     }],
@@ -186,11 +189,29 @@ test("ties every runtime-relevant PATH dependency field to the local lane pin", 
     ["authorization schema", (value) => {
       value.consumeAuthorization.schema = "stale";
     }],
+    ["authorization digest", (value) => {
+      value.consumeAuthorization.digest = "stale";
+    }],
+    ["authorization type", (value) => {
+      value.consumeAuthorization.type = "ConsumeAuthorization(stale)";
+    }],
+    ["permission epoch read", (value) => {
+      value.consumeAuthorization.permissionEpochRead = "stale()";
+    }],
+    ["nonce read", (value) => {
+      value.consumeAuthorization.nonceRead = "stale()";
+    }],
     ["consume method", (value) => {
       value.consumeAuthorization.requiredMethod = "consumeUnit()";
     }],
     ["consume return type", (value) => {
       value.consumeAuthorization.requiredReturnType = "uint256";
+    }],
+    ["deployment address inclusion", (value) => {
+      value.deployment.addressesIncluded = true;
+    }],
+    ["deployment address source", (value) => {
+      value.deployment.addressSource = "unverified";
     }],
   ];
 

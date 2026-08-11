@@ -62,10 +62,18 @@ export const PATH_RELEASE_PIN = Object.freeze({
   releasePublicationCommit: "085cfc084b0e568740e0da639e968eb535f7e5c8",
   contractSourceCommit: "5a1ab1f137e76c80dc69045dc520454f6e07cbb1",
   manifestSha256: "a81355b459b40faea894cf1dfb7f484765a7ec62672039dd62d58a3a52849921",
+  pathNftAbiSha256: "c66d840e88064753923668e6107ab9de8ce62130fa798de6f159540a14e899fe",
+  consumeAuthorizationDigest: "eip191-personal-sign-struct-hash",
   consumeAuthorizationSchema: "permission-epoch-v1",
+  consumeAuthorizationType:
+    "ConsumeAuthorization(address pathNft,uint256 chainId,uint256 pathId,bytes32 movement,address claimer,address executor,uint256 permissionEpoch,uint256 nonce,uint256 deadline)",
+  consumeAuthorizationPermissionEpochRead: "getPermissionEpoch(uint256)",
+  consumeAuthorizationNonceRead: "getConsumeNonce(address)",
   consumeAuthorizationRequiredMethod:
     "consumeUnit(uint256,bytes32,address,uint256,bytes)",
   consumeAuthorizationRequiredReturnType: "uint32",
+  deploymentAddressesIncluded: false,
+  deploymentAddressSource: "separately-verified-target-chain-deployment-release",
   pathNftRedeploymentRequired: true,
   artifacts: Object.freeze({
     PathNFT: "c7e136539f94d6b5a4e3068c6afc1eaed26dea6c465d5716e83e2fc101d5583e",

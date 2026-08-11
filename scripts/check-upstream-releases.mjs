@@ -83,6 +83,18 @@ export function latestThoughtTag(tags) {
   return candidates.at(-1)?.tag ?? null;
 }
 
+export function assertPathPublication(lock, tag, publication) {
+  if (
+    publication.object !== lock.releaseTagObject ||
+    publication.target !== lock.releasePublicationCommit
+  ) {
+    throw new Error(
+      `PATH ${tag} resolves to ${publication.object} -> ${publication.target}, ` +
+        `but the consumer lock pins ${lock.releaseTagObject} -> ${lock.releasePublicationCommit}.`,
+    );
+  }
+}
+
 function checkPath() {
   const lock = readJson("packages/contracts/src/path-release/consumer-lock.json");
   const tags = remoteTags(PATH_REMOTE);
@@ -94,11 +106,7 @@ function checkPath() {
     );
   }
   const publication = tagTarget(tags, latest);
-  if (publication.target !== lock.releasePublicationCommit) {
-    throw new Error(
-      `PATH ${latest} resolves to ${publication.target}, but the consumer lock pins ${lock.releasePublicationCommit}.`,
-    );
-  }
+  assertPathPublication(lock, latest, publication);
   const manifestPath = `packages/contracts/src/path-release/releases/${latest}/manifest.json`;
   const manifestSha256 = sha256File(manifestPath);
   if (manifestSha256 !== lock.manifestSha256) {
@@ -106,7 +114,13 @@ function checkPath() {
       `PATH copied manifest digest is ${manifestSha256}; the consumer lock pins ${lock.manifestSha256}.`,
     );
   }
-  return { project: "PATH", latest, target: publication.target, manifestSha256 };
+  return {
+    project: "PATH",
+    latest,
+    tagObject: publication.object,
+    target: publication.target,
+    manifestSha256,
+  };
 }
 
 function checkThought() {

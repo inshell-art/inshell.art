@@ -8,9 +8,12 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const releaseTag = "v0.5.0";
+const releaseTagObject = "931be2df9445de5031274e34cd092de4c41e3462";
 const releasePublicationCommit = "085cfc084b0e568740e0da639e968eb535f7e5c8";
 const contractSourceCommit = "5a1ab1f137e76c80dc69045dc520454f6e07cbb1";
 const manifestSha256 = "a81355b459b40faea894cf1dfb7f484765a7ec62672039dd62d58a3a52849921";
+const checksumListSha256 = "aeef6cd17d4f987e89f3824f9518ee9015698166ce40c3c08e32f9f73ed9dcaa";
+const checksumManifestSha256 = "760cd3a12912518e61d5f590861c303b5fd676daccb4d2b746028ab4b215ed6c";
 const canonicalContracts = ["PathNFT", "PathPulseAdapter", "PulseAuction"];
 const checksums = {
   "DOWNSTREAM_HANDOFF.md": "da97dc3399b9c212ff7cbabc16b5b7c9a3601416765d33d846bd75874c7593de",
@@ -53,9 +56,12 @@ function expectedLock(manifest) {
   return {
     schema: "inshell.path.contract-release-consumer-lock.v1",
     releaseTag,
+    releaseTagObject,
     releasePublicationCommit,
     contractSourceCommit,
     manifestSha256,
+    checksumListSha256,
+    checksumManifestSha256,
     compiler: manifest.compiler,
     canonicalContracts,
     deploymentAddressesIncluded: false,
@@ -69,17 +75,17 @@ function expectedLock(manifest) {
   };
 }
 
-function parseSha256Sums(text) {
-  return Object.fromEntries(
-    text
-      .trim()
-      .split("\n")
-      .map((line) => {
-        const match = line.match(/^([a-f0-9]{64})  (.+)$/);
-        if (!match) throw new Error(`invalid PATH SHA256SUMS entry: ${line}`);
-        return [match[2], match[1]];
-      }),
-  );
+export function parseSha256Sums(text) {
+  const parsed = {};
+  for (const line of text.trim().split("\n")) {
+    const match = line.match(/^([a-f0-9]{64})  (.+)$/);
+    if (!match) throw new Error(`invalid PATH SHA256SUMS entry: ${line}`);
+    if (Object.hasOwn(parsed, match[2])) {
+      throw new Error(`duplicate PATH SHA256SUMS path: ${match[2]}`);
+    }
+    parsed[match[2]] = match[1];
+  }
+  return parsed;
 }
 
 function findFunction(abi, name) {
@@ -101,18 +107,28 @@ async function listFiles(directory, relativeDirectory = "") {
       files.push(...await listFiles(directory, relativePath));
     } else if (entry.isFile()) {
       files.push(relativePath);
+    } else {
+      throw new Error(`PATH ${releaseTag} release contains unsupported entry: ${relativePath}`);
     }
   }
   return files.sort();
 }
 
-async function verifyRelease(directory) {
+export async function verifyRelease(directory) {
   const actualFiles = await listFiles(directory);
   if (JSON.stringify(actualFiles) !== JSON.stringify(releaseFiles)) {
     throw new Error(`PATH ${releaseTag} release file inventory mismatch`);
   }
-  const checksumJson = await readJson(path.join(directory, "checksums.json"));
-  const checksumText = await fs.readFile(path.join(directory, "SHA256SUMS.txt"), "utf8");
+  const checksumJsonBytes = await fs.readFile(path.join(directory, "checksums.json"));
+  const checksumTextBytes = await fs.readFile(path.join(directory, "SHA256SUMS.txt"));
+  if (sha256(checksumJsonBytes) !== checksumManifestSha256) {
+    throw new Error(`PATH ${releaseTag} checksums.json digest mismatch`);
+  }
+  if (sha256(checksumTextBytes) !== checksumListSha256) {
+    throw new Error(`PATH ${releaseTag} SHA256SUMS.txt digest mismatch`);
+  }
+  const checksumJson = JSON.parse(checksumJsonBytes.toString("utf8"));
+  const checksumText = checksumTextBytes.toString("utf8");
   if (
     JSON.stringify(checksumJson) !== JSON.stringify(checksums) ||
     JSON.stringify(parseSha256Sums(checksumText)) !== JSON.stringify(checksums)
@@ -187,16 +203,56 @@ async function verifyRelease(directory) {
   return manifest;
 }
 
-async function main() {
+export function assertSourceIdentity({
+  checkedOutCommit,
+  tagObject,
+  tagTarget,
+  releaseStatus,
+}) {
+  if (
+    checkedOutCommit !== releasePublicationCommit ||
+    tagObject !== releaseTagObject ||
+    tagTarget !== releasePublicationCommit ||
+    releaseStatus !== ""
+  ) {
+    throw new Error(
+      `PATH ${releaseTag} publication mismatch: HEAD ${checkedOutCommit}, ` +
+        `tag ${tagObject} -> ${tagTarget}, release status ${JSON.stringify(releaseStatus)}`,
+    );
+  }
+}
+
+export async function main() {
   if (!checkOnly) {
+    const checkedOutCommit = execFileSync(
+      "git",
+      ["-C", sourceRepo, "rev-parse", "HEAD"],
+      { encoding: "utf8" },
+    ).trim();
+    const tagObject = execFileSync(
+      "git",
+      ["-C", sourceRepo, "rev-parse", releaseTag],
+      { encoding: "utf8" },
+    ).trim();
     const tagTarget = execFileSync(
       "git",
       ["-C", sourceRepo, "rev-parse", `${releaseTag}^{}`],
       { encoding: "utf8" },
     ).trim();
-    if (tagTarget !== releasePublicationCommit) {
-      throw new Error(`PATH ${releaseTag} tag target mismatch: ${tagTarget}`);
-    }
+    const releaseStatus = execFileSync(
+      "git",
+      [
+        "-C",
+        sourceRepo,
+        "status",
+        "--porcelain=v1",
+        "--untracked-files=all",
+        "--",
+        `releases/${releaseTag}`,
+      ],
+      { encoding: "utf8" },
+    ).trim();
+    assertSourceIdentity({ checkedOutCommit, tagObject, tagTarget, releaseStatus });
     const manifest = await verifyRelease(source);
     await fs.rm(destination, { force: true, recursive: true });
     await fs.mkdir(path.dirname(destination), { recursive: true });
@@ -225,7 +281,9 @@ async function main() {
   }));
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}

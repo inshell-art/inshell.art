@@ -1,9 +1,12 @@
 {
   "schema": "inshell.path.contract-release-consumer-lock.v1",
   "releaseTag": "v0.5.0",
+  "releaseTagObject": "931be2df9445de5031274e34cd092de4c41e3462",
   "releasePublicationCommit": "085cfc084b0e568740e0da639e968eb535f7e5c8",
   "contractSourceCommit": "5a1ab1f137e76c80dc69045dc520454f6e07cbb1",
   "manifestSha256": "a81355b459b40faea894cf1dfb7f484765a7ec62672039dd62d58a3a52849921",
+  "checksumListSha256": "aeef6cd17d4f987e89f3824f9518ee9015698166ce40c3c08e32f9f73ed9dcaa",
+  "checksumManifestSha256": "760cd3a12912518e61d5f590861c303b5fd676daccb4d2b746028ab4b215ed6c",
   "compiler": {
     "solidity": "0.8.24",
     "optimizer": {

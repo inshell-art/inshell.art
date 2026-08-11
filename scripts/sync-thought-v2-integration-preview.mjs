@@ -143,13 +143,22 @@ export function verifyPathDependencyEnvelope(dependency, pathReleasePin = PATH_R
     dependency.releasePublicationCommit !== pathReleasePin.releasePublicationCommit ||
     dependency.contractSourceCommit !== pathReleasePin.contractSourceCommit ||
     dependency.manifestSha256 !== pathReleasePin.manifestSha256 ||
+    dependency.pathNft?.abiSha256 !== pathReleasePin.pathNftAbiSha256 ||
     dependency.pathNft?.hardhatArtifactSha256 !== pathReleasePin.artifacts.PathNFT ||
     dependency.pathNft?.redeploymentRequired !== pathReleasePin.pathNftRedeploymentRequired ||
+    dependency.consumeAuthorization?.digest !== pathReleasePin.consumeAuthorizationDigest ||
     dependency.consumeAuthorization?.schema !== pathReleasePin.consumeAuthorizationSchema ||
+    dependency.consumeAuthorization?.type !== pathReleasePin.consumeAuthorizationType ||
+    dependency.consumeAuthorization?.permissionEpochRead !==
+      pathReleasePin.consumeAuthorizationPermissionEpochRead ||
+    dependency.consumeAuthorization?.nonceRead !==
+      pathReleasePin.consumeAuthorizationNonceRead ||
     dependency.consumeAuthorization?.requiredMethod !==
       pathReleasePin.consumeAuthorizationRequiredMethod ||
     dependency.consumeAuthorization?.requiredReturnType !==
-      pathReleasePin.consumeAuthorizationRequiredReturnType
+      pathReleasePin.consumeAuthorizationRequiredReturnType ||
+    dependency.deployment?.addressesIncluded !== pathReleasePin.deploymentAddressesIncluded ||
+    dependency.deployment?.addressSource !== pathReleasePin.deploymentAddressSource
   ) {
     throw new Error("canonical Contract release PATH dependency does not match the local lane pin");
   }
