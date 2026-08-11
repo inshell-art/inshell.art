@@ -67,6 +67,12 @@ import {
   persistDevRuns,
   retainLiveDevRuns,
 } from "./scripts/thought-agent-dev-run-store";
+import {
+  loadThoughtDevSnapshotModule,
+  restoreThoughtDevIndexSnapshot,
+  shouldRestoreThoughtDevIndexSnapshot,
+  THOUGHT_DEV_INDEX_SNAPSHOT,
+} from "./scripts/dev-index-snapshot.mjs";
 
 function ignoreKnownRollupWarnings(warning: RollupLog, warn: RollupLogHandler) {
   if (
@@ -206,13 +212,15 @@ function createThoughtDevRuntimeBootstrapPlugin({
   contractRuntime,
   evmAddresses,
   publicEnv,
+  workspaceRoot,
 }: {
   contractRuntime: Record<string, unknown> | null;
   evmAddresses: Record<string, unknown> | null;
   publicEnv: Record<string, string>;
+  workspaceRoot: string;
 }): Plugin {
   const bootstrap = [
-    `globalThis.__INSHELL_THOUGHT_DEV_DEFAULT_SURFACE__ = "agent";`,
+    `globalThis.__INSHELL_THOUGHT_DEV_INDEX_SNAPSHOT__ = ${serializeForInlineScript(THOUGHT_DEV_INDEX_SNAPSHOT)};`,
     `globalThis.__INSHELL_VITE_ENV__ = ${serializeForInlineScript(publicEnv)};`,
     `globalThis.__INSHELL_THOUGHT_CONTRACT_RUNTIME__ = ${serializeForInlineScript(contractRuntime)};`,
     `globalThis.__INSHELL_THOUGHT_EVM_ADDRESSES__ = ${serializeForInlineScript(evmAddresses)};`,
@@ -221,12 +229,28 @@ function createThoughtDevRuntimeBootstrapPlugin({
   return {
     name: "inshell-thought-dev-runtime-bootstrap",
     apply: "serve",
-    transformIndexHtml() {
-      return [{
-        tag: "script",
-        children: bootstrap,
-        injectTo: "head-prepend",
-      }];
+    enforce: "pre",
+    load(id) {
+      return loadThoughtDevSnapshotModule(workspaceRoot, id);
+    },
+    transformIndexHtml: {
+      order: "pre",
+      handler(html, context) {
+        const restoredHtml = shouldRestoreThoughtDevIndexSnapshot(
+          context.originalUrl,
+          context.path,
+        )
+          ? restoreThoughtDevIndexSnapshot(html)
+          : html;
+        return {
+          html: restoredHtml,
+          tags: [{
+            tag: "script",
+            children: bootstrap,
+            injectTo: "head-prepend",
+          }],
+        };
+      },
     },
   };
 }
@@ -1759,6 +1783,7 @@ export default defineConfig(({ command, mode }) => {
         contractRuntime: currentContractRuntime?.raw ?? null,
         evmAddresses: currentContractRuntime?.evmAddresses ?? null,
         publicEnv,
+        workspaceRoot,
       }),
       createThoughtAgentDevApiPlugin(
         currentContractRuntime?.raw

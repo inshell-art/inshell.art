@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
+import {
+  loadThoughtDevSnapshotFile,
+  restoreThoughtDevIndexSnapshot,
+  shouldRestoreThoughtDevIndexSnapshot,
+  THOUGHT_DEV_INDEX_SNAPSHOT,
+} from "../apps/thought/scripts/dev-index-snapshot.mjs";
 
 const indexHtml = await readFile(new URL("../apps/thought/index.html", import.meta.url), "utf8");
 const thoughtCss = await readFile(new URL("../apps/thought/src/style.css", import.meta.url), "utf8");
@@ -49,6 +56,7 @@ const thoughtViteConfig = await readFile(
   new URL("../apps/thought/vite.config.ts", import.meta.url),
   "utf8",
 );
+const repoRoot = fileURLToPath(new URL("../", import.meta.url));
 const homeViteConfig = await readFile(
   new URL("../apps/home/vite.config.ts", import.meta.url),
   "utf8",
@@ -334,7 +342,7 @@ test("THOUGHT creation page presents its canonical slogan below the title", () =
   );
 });
 
-test("THOUGHT creation keeps the production CLI default and uses Agent in Vite dev", () => {
+test("THOUGHT creation keeps the production CLI default and the tagged Agent snapshot in Vite dev", () => {
   assert.match(
     indexHtml,
     /id="thought-cli-panel" class="frontpage-side thought-cli-panel"[\s\S]*?aria-label="THOUGHT operator panel"[\s\S]*?id="thought-cli-transcript"[\s\S]*?id="thought-cli-suggestions"[\s\S]*?id="thought-cli-form"[\s\S]*?thought&gt;/,
@@ -359,8 +367,8 @@ test("THOUGHT creation keeps the production CLI default and uses Agent in Vite d
   );
   assert.match(
     thoughtViteConfig,
-    /globalThis\.__INSHELL_THOUGHT_DEV_DEFAULT_SURFACE__ = "agent";/,
-    "the serve-only Vite bootstrap selects the current Agent surface in local development",
+    /loadThoughtDevSnapshotModule\(workspaceRoot, id\)/,
+    "the serve-only Vite bootstrap loads the tagged Agent modules in local development",
   );
   assert.match(
     thoughtViteConfig,
@@ -395,6 +403,59 @@ test("THOUGHT creation keeps the production CLI default and uses Agent in Vite d
   assert.match(
     thoughtMain,
     /const getThoughtDockViewportReserve = \(\) => \{\s*if \(IS_CLI_SURFACE \|\| frontpageStage\.classList\.contains\("is-hidden"\)\) \{\s*return 0;/,
+  );
+});
+
+test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => {
+  const restoredIndexHtml = restoreThoughtDevIndexSnapshot(indexHtml);
+  const restoredMain = loadThoughtDevSnapshotFile(repoRoot, "main");
+  const restoredStyle = loadThoughtDevSnapshotFile(repoRoot, "style");
+
+  assert.deepEqual(THOUGHT_DEV_INDEX_SNAPSHOT, {
+    tag: "thought-app-e2e-integration-20260810-r1",
+    tagCommit: "da998e1145d20b4a7301aaa61748c68fbc91a2e1",
+    immutableDeployment: "https://9f8ac359.inshell-art.pages.dev/thought/",
+    securityHardenedPreviewCommit: "bdd9640f7a2969b3b7a27a1c81c11a0b94df4b4f",
+    indexBlob: "ac5a07c18176a6e8e05984e30840c1925e3149b9",
+    indexSha256: "e991fe996e1732aca3ec6d9f77a9cac73609505ba29128c7892afabaa9908164",
+    mainBlob: "0366396bcfaac34b1ad770b37a6cb8e117ff4406",
+    mainSha256: "ffbfd1f2a7818c68aec6e07096c4be80c9df4dfdda0df23f2d4fd01563c7e939",
+    styleBlob: "5d5448e8766bf4f32d1867e1534ce73797465de5",
+    styleSha256: "950156fb82ff9d4449dfb03e914445eeeace10de0796361108e29e5637a48cf1",
+  });
+  assert.doesNotMatch(restoredIndexHtml, /THOUGHT creation surfaces/);
+  assert.doesNotMatch(restoredIndexHtml, /thought-cli-title/);
+  assert.doesNotMatch(restoredIndexHtml, /requestedSurface/);
+  assert.match(restoredIndexHtml, /style\.css\?inshell-thought-dev-snapshot=da998e1/);
+  assert.match(restoredIndexHtml, /main\.ts\?inshell-thought-dev-snapshot=da998e1/);
+  assert.match(
+    restoredMain,
+    /const IS_CLI_DEBUG = ROUTE_SEARCH_PARAMS\.get\("debug"\) === "cli"/,
+  );
+  assert.doesNotMatch(restoredMain, /const IS_CLI_SURFACE/);
+  assert.match(restoredStyle, /\.frontpage-side\s*\{[\s\S]*?display:\s*none;/);
+  assert.match(restoredStyle, /\.thought-panel\s*\{[\s\S]*?display:\s*flex;/);
+  assert.equal(shouldRestoreThoughtDevIndexSnapshot("/thought/", "/thought/"), true);
+  assert.equal(
+    shouldRestoreThoughtDevIndexSnapshot("/thought/?surface=agent", "/thought/"),
+    true,
+  );
+  assert.equal(
+    shouldRestoreThoughtDevIndexSnapshot("/thought/?surface=cli", "/thought/"),
+    false,
+  );
+  assert.equal(
+    shouldRestoreThoughtDevIndexSnapshot("/thought/?debug=cli", "/thought/"),
+    false,
+  );
+  assert.match(
+    thoughtViteConfig,
+    /order: "pre",[\s\S]*?shouldRestoreThoughtDevIndexSnapshot\([\s\S]*?restoreThoughtDevIndexSnapshot\(html\)/,
+  );
+  assert.match(
+    thoughtViteConfig,
+    /globalThis\.__INSHELL_THOUGHT_DEV_INDEX_SNAPSHOT__/,
+    "served dev HTML exposes the verified immutable snapshot provenance",
   );
 });
 
