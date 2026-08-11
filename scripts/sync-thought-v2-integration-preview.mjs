@@ -6,6 +6,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { PATH_RELEASE_PIN } from "./thought-local-lane.mjs";
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const artifactId = "thought-v2-canonical-portable-release-20260807-r2";
 const sourceTag = artifactId;
@@ -15,6 +17,9 @@ const sourceTagObject = "3dace6a9d7f1bb8f2bbc98c7b7ee6f8df1f7cbd0";
 const stableReceiptCommit = "4fbbd708dce7b35fe6c219cb130be794162980d4";
 const stableReceiptPath = "artifacts/thought-v2-contract-release/stable.json";
 const manifestSha256 = "7cf7965edb3de6421c79d9c08f0781cabb78ea675bad354847b56ec8f19306cc";
+const checksumsSha256 = "df3faa82f3c0e9ed18b194014fd0efc96149d80b999883bbe205318b28cb71b3";
+const checksumsFileName = "SHA256SUMS.txt";
+const manifestFileName = "manifest.json";
 const destination = path.join(
   root,
   "apps",
@@ -39,6 +44,13 @@ const migrationEvidencePath = path.join(
   "validation",
   "r1-to-r2-path-v0.5.json",
 );
+const pathDependencyLockPath = path.posix.join(
+  "protocol",
+  "current",
+  "v2",
+  "integration",
+  "path-nft.v0.5.0.json",
+);
 const portableAttributeOrder = [
   "Agent",
   "Model",
@@ -62,10 +74,96 @@ const source = path.join(
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const readJson = async (file) => JSON.parse(await fs.readFile(file, "utf8"));
 
-async function verifyRelease(directory) {
-  const manifestBytes = await fs.readFile(path.join(directory, "manifest.json"));
+export function assertSafeArtifactPath(artifactPath, sourceName) {
+  if (
+    typeof artifactPath !== "string" ||
+    artifactPath.length === 0 ||
+    artifactPath.includes("\\") ||
+    /[\0\r\n]/u.test(artifactPath) ||
+    path.posix.isAbsolute(artifactPath) ||
+    path.posix.normalize(artifactPath) !== artifactPath ||
+    artifactPath.split("/").some(
+      (segment) => segment === "" || segment === "." || segment === "..",
+    )
+  ) {
+    throw new Error(`${sourceName} contains unsafe artifact path: ${JSON.stringify(artifactPath)}`);
+  }
+  return artifactPath;
+}
+
+export function parseSha256Sums(checksumsBytes) {
+  const lines = checksumsBytes.toString("utf8").split(/\r?\n/u);
+  if (lines.at(-1) === "") lines.pop();
+
+  const checksums = new Map();
+  for (const line of lines) {
+    const match = line.match(/^([a-f0-9]{64})[ \t]+\*?(.+)$/u);
+    if (!match) {
+      throw new Error(`invalid ${checksumsFileName} line: ${JSON.stringify(line)}`);
+    }
+    const artifactPath = assertSafeArtifactPath(match[2], checksumsFileName);
+    if (checksums.has(artifactPath)) {
+      throw new Error(`${checksumsFileName} contains duplicate path: ${artifactPath}`);
+    }
+    checksums.set(artifactPath, match[1]);
+  }
+  return checksums;
+}
+
+async function listReleaseFiles(directory, relativeDirectory = "") {
+  const currentDirectory = relativeDirectory
+    ? path.join(directory, ...relativeDirectory.split("/"))
+    : directory;
+  const entries = await fs.readdir(currentDirectory, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+    const relativePath = relativeDirectory
+      ? path.posix.join(relativeDirectory, entry.name)
+      : entry.name;
+    assertSafeArtifactPath(relativePath, "release directory");
+    if (entry.isDirectory()) {
+      files.push(...(await listReleaseFiles(directory, relativePath)));
+    } else if (entry.isFile()) {
+      files.push(relativePath);
+    } else {
+      throw new Error(`release directory contains unsupported entry: ${relativePath}`);
+    }
+  }
+  return files;
+}
+
+const releaseFile = (directory, artifactPath) =>
+  path.join(directory, ...assertSafeArtifactPath(artifactPath, "release").split("/"));
+
+export function verifyPathDependencyEnvelope(dependency, pathReleasePin = PATH_RELEASE_PIN) {
+  if (
+    dependency.schema !== "inshell.thought.path-dependency-lock.v1" ||
+    dependency.ownerRepository !== "PATH" ||
+    dependency.releaseTag !== pathReleasePin.releaseTag ||
+    dependency.releasePublicationCommit !== pathReleasePin.releasePublicationCommit ||
+    dependency.contractSourceCommit !== pathReleasePin.contractSourceCommit ||
+    dependency.manifestSha256 !== pathReleasePin.manifestSha256 ||
+    dependency.pathNft?.hardhatArtifactSha256 !== pathReleasePin.artifacts.PathNFT ||
+    dependency.pathNft?.redeploymentRequired !== pathReleasePin.pathNftRedeploymentRequired ||
+    dependency.consumeAuthorization?.schema !== pathReleasePin.consumeAuthorizationSchema ||
+    dependency.consumeAuthorization?.requiredMethod !==
+      pathReleasePin.consumeAuthorizationRequiredMethod ||
+    dependency.consumeAuthorization?.requiredReturnType !==
+      pathReleasePin.consumeAuthorizationRequiredReturnType
+  ) {
+    throw new Error("canonical Contract release PATH dependency does not match the local lane pin");
+  }
+  return dependency;
+}
+
+export async function verifyRelease(
+  directory,
+  expectedIntegrity = { manifestSha256, checksumsSha256 },
+) {
+  const actualFiles = await listReleaseFiles(directory);
+  const manifestBytes = await fs.readFile(path.join(directory, manifestFileName));
   const actualManifestSha256 = sha256(manifestBytes);
-  if (actualManifestSha256 !== manifestSha256) {
+  if (actualManifestSha256 !== expectedIntegrity.manifestSha256) {
     throw new Error(`canonical Contract release manifest mismatch: ${actualManifestSha256}`);
   }
 
@@ -82,14 +180,81 @@ async function verifyRelease(directory) {
     throw new Error("canonical Contract release classification or safety flags mismatch");
   }
 
-  for (const entry of manifest.files ?? []) {
-    const bytes = await fs.readFile(path.join(directory, entry.path));
-    if (bytes.length !== entry.byteLength || sha256(bytes) !== entry.sha256) {
-      throw new Error(`canonical Contract release file mismatch: ${entry.path}`);
+  if (!Array.isArray(manifest.files)) {
+    throw new Error("canonical Contract release manifest files must be an array");
+  }
+
+  const manifestEntries = new Map();
+  for (const entry of manifest.files) {
+    const artifactPath = assertSafeArtifactPath(entry?.path, manifestFileName);
+    if (artifactPath === manifestFileName || artifactPath === checksumsFileName) {
+      throw new Error(`${manifestFileName} contains reserved path: ${artifactPath}`);
+    }
+    if (manifestEntries.has(artifactPath)) {
+      throw new Error(`${manifestFileName} contains duplicate path: ${artifactPath}`);
+    }
+    if (
+      !Number.isSafeInteger(entry.byteLength) ||
+      entry.byteLength < 0 ||
+      !/^[a-f0-9]{64}$/u.test(entry.sha256)
+    ) {
+      throw new Error(`${manifestFileName} contains invalid integrity metadata: ${artifactPath}`);
+    }
+    manifestEntries.set(artifactPath, entry);
+  }
+
+  const checksumsBytes = await fs.readFile(path.join(directory, checksumsFileName));
+  const actualChecksumsSha256 = sha256(checksumsBytes);
+  if (actualChecksumsSha256 !== expectedIntegrity.checksumsSha256) {
+    throw new Error(`canonical Contract release checksum list mismatch: ${actualChecksumsSha256}`);
+  }
+  const checksums = parseSha256Sums(checksumsBytes);
+  const expectedChecksums = new Map([
+    ...[...manifestEntries.entries()].map(([artifactPath, entry]) => [artifactPath, entry.sha256]),
+    [manifestFileName, actualManifestSha256],
+  ]);
+  const missingChecksums = [...expectedChecksums.keys()].filter(
+    (artifactPath) => !checksums.has(artifactPath),
+  );
+  const unexpectedChecksums = [...checksums.keys()].filter(
+    (artifactPath) => !expectedChecksums.has(artifactPath),
+  );
+  if (missingChecksums.length > 0 || unexpectedChecksums.length > 0) {
+    throw new Error(
+      `${checksumsFileName} file-list mismatch: missing ${JSON.stringify(missingChecksums)}, ` +
+        `unexpected ${JSON.stringify(unexpectedChecksums)}`,
+    );
+  }
+  for (const [artifactPath, expectedChecksum] of expectedChecksums) {
+    if (checksums.get(artifactPath) !== expectedChecksum) {
+      throw new Error(`${checksumsFileName} checksum mismatch: ${artifactPath}`);
     }
   }
 
-  const migration = await readJson(path.join(directory, migrationEvidencePath));
+  const expectedFiles = [
+    ...manifestEntries.keys(),
+    manifestFileName,
+    checksumsFileName,
+  ].sort();
+  const actualFileSet = new Set(actualFiles);
+  const expectedFileSet = new Set(expectedFiles);
+  const missingFiles = expectedFiles.filter((artifactPath) => !actualFileSet.has(artifactPath));
+  const unexpectedFiles = actualFiles.filter((artifactPath) => !expectedFileSet.has(artifactPath));
+  if (missingFiles.length > 0 || unexpectedFiles.length > 0) {
+    throw new Error(
+      `canonical Contract release file-list mismatch: missing ${JSON.stringify(missingFiles)}, ` +
+        `unexpected ${JSON.stringify(unexpectedFiles)}`,
+    );
+  }
+
+  for (const [artifactPath, entry] of manifestEntries) {
+    const bytes = await fs.readFile(releaseFile(directory, artifactPath));
+    if (bytes.length !== entry.byteLength || sha256(bytes) !== entry.sha256) {
+      throw new Error(`canonical Contract release file mismatch: ${artifactPath}`);
+    }
+  }
+
+  const migration = await readJson(releaseFile(directory, migrationEvidencePath));
   if (
     migration.schema !==
       "inshell.thought.r1-to-r2-path-v0.5.canonical-portable-release.v1" ||
@@ -114,6 +279,9 @@ async function verifyRelease(directory) {
   ) {
     throw new Error("canonical portable marketplace trait order mismatch");
   }
+  verifyPathDependencyEnvelope(
+    await readJson(releaseFile(directory, pathDependencyLockPath)),
+  );
 
   return manifest;
 }
@@ -148,7 +316,7 @@ function generatedSource(lock, specText) {
     `export const THOUGHT_V2_CONTRACT_RELEASE_SPEC_TEXT = ${JSON.stringify(specText)};\n`;
 }
 
-async function main() {
+export async function main() {
   if (!checkOnly) {
     const checkedOutCommit = execFileSync(
       "git",
@@ -230,7 +398,15 @@ async function main() {
   console.log(JSON.stringify({ artifactId, fileCount: manifest.files.length, manifestSha256, verified: true }));
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+export async function run() {
+  try {
+    await main();
+  } catch (error) {
+    console.error(error);
+    process.exitCode = 1;
+  }
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  await run();
+}

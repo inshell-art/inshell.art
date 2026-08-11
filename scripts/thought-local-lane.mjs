@@ -63,6 +63,9 @@ export const PATH_RELEASE_PIN = Object.freeze({
   contractSourceCommit: "5a1ab1f137e76c80dc69045dc520454f6e07cbb1",
   manifestSha256: "a81355b459b40faea894cf1dfb7f484765a7ec62672039dd62d58a3a52849921",
   consumeAuthorizationSchema: "permission-epoch-v1",
+  consumeAuthorizationRequiredMethod:
+    "consumeUnit(uint256,bytes32,address,uint256,bytes)",
+  consumeAuthorizationRequiredReturnType: "uint32",
   pathNftRedeploymentRequired: true,
   artifacts: Object.freeze({
     PathNFT: "c7e136539f94d6b5a4e3068c6afc1eaed26dea6c465d5716e83e2fc101d5583e",

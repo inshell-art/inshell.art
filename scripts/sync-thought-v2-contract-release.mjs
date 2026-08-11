@@ -1,3 +1,5 @@
 #!/usr/bin/env node
 
-import "./sync-thought-v2-integration-preview.mjs";
+import { run } from "./sync-thought-v2-integration-preview.mjs";
+
+await run();
