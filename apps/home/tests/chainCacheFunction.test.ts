@@ -17,6 +17,11 @@ import { onRequestPost as onIndexerRefreshPost } from "../../../functions/api/in
 import { onRequestGet as onOpsStatusGet } from "../../../functions/api/ops/status";
 import { onRequestGet as onPathTokensGet } from "../../../functions/api/path-tokens";
 import { onRequestGet as onPulseAuctionGet } from "../../../functions/api/pulse-auction";
+import { onRequestGet as onThoughtGalleryGet } from "../../../functions/api/thought-gallery";
+import {
+  setThoughtGalleryDeploymentForTest,
+  thoughtGallerySnapshotKey,
+} from "../../../functions/api/thought-gallery-release";
 import { onRequestGet as onThoughtImageGet } from "../../../functions/api/thought-image";
 import { onRequestGet as onThoughtProvenanceGet } from "../../../functions/api/thought-provenance";
 import { onRequestGet as onThoughtSpecGet } from "../../../functions/api/thought-spec";
@@ -36,6 +41,16 @@ const PULSE_AUCTION = "0x1071e99928Bdf020794a5E3e5B9c920450Ac9b39";
 const THOUGHT_NFT = "0x413efb5C95Bf3158F0E563FB9E19CB650Fc3760a";
 const THOUGHT_MINTED_TOPIC =
   "0xf83a962c31fcc481a4796d3bd1f81a4b58d1b05ec5cb34e434b2d40962596860";
+const TEST_THOUGHT_GALLERY_DEPLOYMENT = {
+  artifactId: "thought-v2-test-release",
+  manifestSha256: "ab".repeat(32),
+  chainId: 11155111,
+  contractAddress: THOUGHT_NFT as `0x${string}`,
+  deployBlock: 10872879,
+};
+const TEST_THOUGHT_GALLERY_SNAPSHOT_KEY = thoughtGallerySnapshotKey(
+  TEST_THOUGHT_GALLERY_DEPLOYMENT,
+) as string;
 const ZERO_TOPIC =
   "0x0000000000000000000000000000000000000000000000000000000000000000";
 
@@ -205,6 +220,7 @@ class TestRequest {
 
 describe("chain cache Pages functions", () => {
   afterEach(() => {
+    setThoughtGalleryDeploymentForTest(undefined);
     clearChainCacheForTest();
     globalThis.fetch = originalFetch;
     globalThis.Request = originalRequest;
@@ -212,6 +228,40 @@ describe("chain cache Pages functions", () => {
     globalThis.Headers = originalHeaders;
     (globalThis as any).caches = originalCaches;
     jest.restoreAllMocks();
+  });
+
+  test("current THOUGHT gallery fails closed without reading a stale snapshot", async () => {
+    globalThis.Request = TestRequest as unknown as typeof Request;
+    globalThis.Response = TestResponse as unknown as typeof Response;
+    globalThis.Headers = TestHeaders as unknown as typeof Headers;
+    (globalThis as any).caches = undefined;
+    const d1 = createD1Mock({
+      "thought-gallery:v1:sepolia": {
+        version: 1,
+        cachedAt: Date.now(),
+        chainId: 11155111,
+        contract: THOUGHT_NFT,
+        fromBlock: 10872879,
+        lastScannedBlock: 10874000,
+        items: [{ tokenId: 1 }],
+      },
+    });
+    const fetchMock = jest.fn();
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const response = await onThoughtGalleryGet({
+      request: new Request("https://preview.inshell.art/api/thought-gallery"),
+      env: { INSHELL_CHAIN_DATA_DB: d1.db },
+    });
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: "Current THOUGHT collection is not deployed.",
+      code: "THOUGHT_GALLERY_DEPLOYMENT_INACTIVE",
+      status: "not-deployed",
+    });
+    expect(d1.db.prepare).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   test("indexes PATH transfer logs behind the same-origin JSON API", async () => {
@@ -833,13 +883,14 @@ describe("chain cache Pages functions", () => {
   });
 
   test("authenticated thought gallery refresh advances a bounded partial window", async () => {
+    setThoughtGalleryDeploymentForTest(TEST_THOUGHT_GALLERY_DEPLOYMENT);
     globalThis.Request = TestRequest as unknown as typeof Request;
     globalThis.Response = TestResponse as unknown as typeof Response;
     globalThis.Headers = TestHeaders as unknown as typeof Headers;
     (globalThis as any).caches = undefined;
     const latestBlock = 10874050;
     const d1 = createD1Mock({
-      "thought-gallery:v1:sepolia": {
+      [TEST_THOUGHT_GALLERY_SNAPSHOT_KEY]: {
         version: 1,
         cachedAt: Date.now() - 120_000,
         chainId: 11155111,
@@ -924,7 +975,7 @@ describe("chain cache Pages functions", () => {
       ok?: boolean;
       results?: Array<{ partial?: boolean; scannedToBlock?: number; items?: number }>;
     };
-    const stored = JSON.parse(d1.rows.get("thought-gallery:v1:sepolia") ?? "{}") as {
+    const stored = JSON.parse(d1.rows.get(TEST_THOUGHT_GALLERY_SNAPSHOT_KEY) ?? "{}") as {
       lastScannedBlock?: number;
       items?: Array<{ tokenId?: number; rawText?: string }>;
     };
@@ -1180,6 +1231,7 @@ describe("chain cache Pages functions", () => {
   });
 
   test("protected indexer event updates thought gallery read model", async () => {
+    setThoughtGalleryDeploymentForTest(TEST_THOUGHT_GALLERY_DEPLOYMENT);
     globalThis.Request = TestRequest as unknown as typeof Request;
     globalThis.Response = TestResponse as unknown as typeof Response;
     globalThis.Headers = TestHeaders as unknown as typeof Headers;
@@ -1201,7 +1253,7 @@ describe("chain cache Pages functions", () => {
       },
     });
     const d1 = createD1Mock({
-      "thought-gallery:v1:sepolia": {
+      [TEST_THOUGHT_GALLERY_SNAPSHOT_KEY]: {
         version: 1,
         cachedAt: Date.now() - 120_000,
         chainId: 11155111,
@@ -1300,7 +1352,7 @@ describe("chain cache Pages functions", () => {
       applied?: boolean;
       eventStatus?: { persisted?: boolean; statusSource?: string; acceptedCount?: number };
     };
-    const thoughtStored = JSON.parse(d1.rows.get("thought-gallery:v1:sepolia") ?? "{}") as {
+    const thoughtStored = JSON.parse(d1.rows.get(TEST_THOUGHT_GALLERY_SNAPSHOT_KEY) ?? "{}") as {
       contract?: string;
       lastScannedBlock?: number;
       items?: Array<{ tokenId?: number; pathId?: string; rawText?: string; txHash?: string }>;
@@ -1919,6 +1971,7 @@ describe("chain cache Pages functions", () => {
   });
 
   test("serves THOUGHT detail JSON and image through same-origin APIs", async () => {
+    setThoughtGalleryDeploymentForTest(TEST_THOUGHT_GALLERY_DEPLOYMENT);
     globalThis.Request = TestRequest as unknown as typeof Request;
     globalThis.Response = TestResponse as unknown as typeof Response;
     globalThis.Headers = TestHeaders as unknown as typeof Headers;
@@ -1978,7 +2031,7 @@ describe("chain cache Pages functions", () => {
     });
     expect(spec.status).toBe(200);
     expect(await spec.json()).toEqual({
-      ref: "THOUGHT.v1.md",
+      ref: "THOUGHT.v2.md",
       specId: "0xspec",
       specHash: "0xhash",
     });
@@ -1986,6 +2039,6 @@ describe("chain cache Pages functions", () => {
     expect(image.headers.get("content-type")).toBe("image/svg+xml; charset=utf-8");
     expect(image.headers.get("content-disposition")).toBe('inline; filename="thought-9.svg"');
     expect(image.body).toBe('<svg xmlns="http://www.w3.org/2000/svg" width="960" height="960"/>');
-    expect(kvGet).toHaveBeenCalledWith("thought-gallery:v1:sepolia", "json");
+    expect(kvGet).toHaveBeenCalledWith(TEST_THOUGHT_GALLERY_SNAPSHOT_KEY, "json");
   });
 });

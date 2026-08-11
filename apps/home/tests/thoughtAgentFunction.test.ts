@@ -370,6 +370,7 @@ async function submitResult(
 ) {
   const raw = JSON.stringify({
     schema: THOUGHT_AGENT_RESULT_VERSION,
+    release: THOUGHT_V2_PROTOCOL_RELEASE.release,
     agentLine,
   });
   const response = await onSubmitResult({
@@ -591,20 +592,20 @@ describe("THOUGHT Agent Pages API", () => {
     });
   });
 
-  test("serves the maintained Codex protocol client", async () => {
+  test("retires the compatibility Codex protocol client", async () => {
     const response = onGetCodexClient() as unknown as TestResponse;
-    const script = await response.text();
+    const payload = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    expect(response.status).toBe(410);
+    expect(response.headers.get("content-type")).toBe("application/json; charset=utf-8");
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
-    expect(script).toContain("THOUGHT_LAUNCH_TOKEN");
-    expect(script).toContain("THOUGHT_INPUT_READY");
-    expect(script).toContain("THOUGHT_RESULT_OK");
-    expect(script).toContain("Idempotency-Key");
-    expect(script).not.toContain("test-claim-token");
-    expect(script).not.toContain("test-bridge-token");
+    expect(payload).toEqual({
+      error: {
+        code: "PROTOCOL_UNSUPPORTED",
+        message: "This compatibility client is retired. Open the Agent task from THOUGHT.",
+      },
+    });
   });
 
   test("keeps result submission idempotent and rejects conflicting bytes", async () => {

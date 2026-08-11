@@ -4,14 +4,16 @@ import {
   PULSE_AUCTION_ADDRESS,
   PULSE_AUCTION_DEPLOY_BLOCK,
   SEPOLIA_CHAIN_ID,
-  THOUGHT_NFT_ADDRESS,
-  THOUGHT_NFT_DEPLOY_BLOCK,
   json,
   onOptions,
   readModelEnabled,
   type ChainCacheEnv,
   type PagesContextLike,
 } from "../chain-cache";
+import {
+  getThoughtGalleryDeployment,
+  thoughtGallerySnapshotKey,
+} from "../thought-gallery-release";
 import { analyticsHostScopeForHostname, readAnalyticsStatus } from "../analytics/store";
 import { readIndexerEventStatus } from "../indexer/event-status";
 import { THOUGHT_AGENT_STATUS } from "../thought-agent/v1/shared";
@@ -22,6 +24,8 @@ const CONTRACT_VERSION = 1;
 const CHAIN = "sepolia";
 const NETWORK = "Sepolia rehearsal";
 const CURRENCY = "testnet ETH";
+const THOUGHT_GALLERY_DEPLOYMENT = getThoughtGalleryDeployment();
+const THOUGHT_GALLERY_SNAPSHOT_KEY = thoughtGallerySnapshotKey(THOUGHT_GALLERY_DEPLOYMENT);
 
 const ROUTES = {
   rpc: [
@@ -32,7 +36,12 @@ const ROUTES = {
   readModel: [
     { route: "/api/pulse-auction", snapshotKey: "pulse-auction:v1:sepolia", owner: "home" },
     { route: "/api/path-tokens", snapshotKey: "path-tokens:v1:sepolia", owner: "home" },
-    { route: "/api/thought-gallery", snapshotKey: "thought-gallery:v1:sepolia", owner: "thought" },
+    {
+      route: "/api/thought-gallery",
+      snapshotKey: THOUGHT_GALLERY_SNAPSHOT_KEY,
+      owner: "thought",
+      status: THOUGHT_GALLERY_DEPLOYMENT ? "active" : "not-deployed",
+    },
   ],
   refresh: {
     route: "/api/indexer/refresh",
@@ -145,8 +154,11 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
         deployBlock: PULSE_AUCTION_DEPLOY_BLOCK,
       },
       thoughtNft: {
-        address: THOUGHT_NFT_ADDRESS,
-        deployBlock: THOUGHT_NFT_DEPLOY_BLOCK,
+        address: THOUGHT_GALLERY_DEPLOYMENT?.contractAddress ?? null,
+        deployBlock: THOUGHT_GALLERY_DEPLOYMENT?.deployBlock ?? null,
+        artifactId: THOUGHT_GALLERY_DEPLOYMENT?.artifactId ?? null,
+        manifestSha256: THOUGHT_GALLERY_DEPLOYMENT?.manifestSha256 ?? null,
+        status: THOUGHT_GALLERY_DEPLOYMENT ? "active" : "not-deployed",
       },
     },
     routes: ROUTES,

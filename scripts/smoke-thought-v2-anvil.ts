@@ -4,54 +4,126 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
-import {
-  THOUGHT_V2_LOCAL_NFT_ABI,
-  buildThoughtV2LocalProvenance,
-} from "../apps/thought/src/thought-v2-local-mint";
-import { THOUGHT_V2_LOCAL_RELEASE } from "../apps/thought/src/thought-v2-local-release";
-
 const require = createRequire(import.meta.url);
 const ethersEntry = require.resolve("ethers", {
   paths: [fileURLToPath(new URL("../apps/thought", import.meta.url))],
 });
 const {
-  AbiCoder,
   Contract,
   JsonRpcProvider,
   getBytes,
-  id,
-  keccak256,
 } = await import(ethersEntry);
 
-const release = THOUGHT_V2_LOCAL_RELEASE;
-const rpcUrl = process.env.RPC_URL?.trim() || "http://127.0.0.1:8545";
+const localAddresses = JSON.parse(await readFile(
+  process.env.INSHELL_THOUGHT_CONTRACT_RUNTIME_FILE?.trim() ||
+    fileURLToPath(new URL(
+      "../apps/thought/contract-integration/local-runtime.thought-anvil.json",
+      import.meta.url,
+    )),
+  "utf8",
+)) as {
+  artifact: {
+    acceptanceOnly: true;
+    artifactId: string;
+    deploymentAuthorized: false;
+    productionConsumable: true;
+  };
+  chainId: number;
+  pathNft: { address: string };
+  thoughtNft: { address: string };
+  thoughtSpecRegistry: { address: string };
+  thoughtRenderer: { address: string };
+  protocolRegistry: { address: string };
+  creationAttestationVerifier: { address: string };
+  protocolRelease: {
+    id: string;
+    manifestHash: string;
+    rendererIdHash: string;
+    workProfileIdHash: string;
+    contextProfileIdHash: string;
+    metadataProfileIdHash: string;
+    creationAttestationProfileIdHash: string;
+  };
+  thoughtSpecs: Array<{
+    specName: string;
+    specId: string;
+    specHash: string;
+    ref: string;
+    byteLength: number;
+  }>;
+  pathFixtures?: {
+    ownerSignerIndex?: number;
+    tokens?: Array<{
+      tokenId?: string;
+    }>;
+  };
+  pulseAuction: { address: string };
+  pathAuction: { openTime: number };
+  rpcUrl?: string;
+};
+const rpcUrl =
+  process.env.RPC_URL?.trim() ||
+  localAddresses.rpcUrl?.trim() ||
+  "http://127.0.0.1:8546";
 const rpc = new URL(rpcUrl);
 assert(
   rpc.hostname === "127.0.0.1" || rpc.hostname === "localhost" || rpc.hostname === "[::1]",
   "Anvil smoke test refuses a non-loopback RPC",
 );
+const selectedSpecText = await readFile(
+  new URL("../apps/thought/spec/THOUGHT.v2.md", import.meta.url),
+  "utf8",
+);
 
+(globalThis as typeof globalThis & {
+  __INSHELL_THOUGHT_EVM_ADDRESSES__?: Record<string, unknown>;
+}).__INSHELL_THOUGHT_EVM_ADDRESSES__ = {
+  ...localAddresses,
+  localContractIntegration: {
+    acceptanceOnly: localAddresses.artifact.acceptanceOnly,
+    deploymentAuthorized: localAddresses.artifact.deploymentAuthorized,
+    id: localAddresses.artifact.artifactId,
+    productionConsumable: localAddresses.artifact.productionConsumable,
+  },
+};
+
+const {
+  THOUGHT_V2_LOCAL_NFT_ABI,
+  buildThoughtV2LocalProvenance,
+} = await import("../apps/thought/src/thought-v2-local-mint");
+const { THOUGHT_V2_LOCAL_RELEASE } = await import(
+  "../apps/thought/src/thought-v2-local-release"
+);
+const { hashPathV050ConsumeAuthorization } = await import(
+  "../apps/thought/src/thought-path-consume-authorization"
+);
+const release = THOUGHT_V2_LOCAL_RELEASE;
 const provider = new JsonRpcProvider(rpcUrl, release.chainId, {
   staticNetwork: true,
   batchMaxCount: 1,
 });
 const network = await provider.getNetwork();
 assert.equal(Number(network.chainId), release.chainId, "Anvil chain ID mismatch");
-const localAddresses = JSON.parse(await readFile(
-  new URL("../apps/thought/evm/addresses.anvil.json", import.meta.url),
-  "utf8",
-)) as {
-  devPathTokens: { firstId: number; lastId: number };
-};
 const pathAbi = [
   "function ownerOf(uint256 tokenId) view returns (address)",
   "function getConsumeNonce(address claimer) view returns (uint256)",
+  "function getPermissionEpoch(uint256 pathId) view returns (uint256)",
   "function getStage(uint256 tokenId) view returns (uint8)",
   "function getAuthorizedMinter(bytes32 movement) view returns (address)",
 ] as const;
+const auctionAbi = [
+  "function getCurrentPrice() view returns (uint256)",
+  "function bid(uint256 maxPrice) payable returns (uint256)",
+] as const;
 
 const runSmoke = async () => {
-  const signer = await provider.getSigner(0);
+  const signerIndex = Number.parseInt(
+    process.env.SIGNER_INDEX?.trim() ||
+      String(localAddresses.pathFixtures?.ownerSignerIndex ?? 0),
+    10,
+  );
+  assert(Number.isSafeInteger(signerIndex) && signerIndex >= 0, "SIGNER_INDEX must be a non-negative integer");
+  const signer = await provider.getSigner(signerIndex);
   const minter = await signer.getAddress();
   const pathMovement = `0x${Buffer.from("THOUGHT").toString("hex").padEnd(64, "0")}`;
   const pathNft = new Contract(release.contracts.pathNft, pathAbi, signer);
@@ -59,19 +131,47 @@ const runSmoke = async () => {
   const requestedPathId = process.env.PATH_ID?.trim();
   let pathId = requestedPathId ? BigInt(requestedPathId) : null;
   if (pathId === null) {
-    for (let tokenId = localAddresses.devPathTokens.firstId; tokenId <= localAddresses.devPathTokens.lastId; tokenId += 1) {
-      const candidate = BigInt(tokenId);
-      const [owner, stage] = await Promise.all([
-        pathNft.ownerOf(candidate) as Promise<string>,
-        pathNft.getStage(candidate) as Promise<bigint>,
-      ]);
-      if (owner.toLowerCase() === minter.toLowerCase() && Number(stage) === 0) {
-        pathId = candidate;
-        break;
+    for (const fixture of localAddresses.pathFixtures?.tokens ?? []) {
+      if (!fixture.tokenId) continue;
+      const candidate = BigInt(fixture.tokenId);
+      try {
+        const [owner, stage] = await Promise.all([
+          pathNft.ownerOf(candidate) as Promise<string>,
+          pathNft.getStage(candidate) as Promise<bigint>,
+        ]);
+        if (owner.toLowerCase() === minter.toLowerCase() && stage === 0n) {
+          pathId = candidate;
+          break;
+        }
+      } catch {
+        // Ignore stale fixture descriptors and continue to the auction fallback.
       }
     }
   }
-  assert(pathId !== null, "no unused seeded PATH is available for the Anvil signer");
+  if (pathId === null) {
+    const latest = await provider.getBlock("latest");
+    assert(latest, "latest Anvil block unavailable before $PATH acquisition");
+    if (latest.timestamp < localAddresses.pathAuction.openTime) {
+      try {
+        await provider.send("evm_setNextBlockTimestamp", [localAddresses.pathAuction.openTime]);
+        await provider.send("evm_mine", []);
+      } catch (error) {
+        // The persistent dev chain can be advanced by the running App between
+        // the latest-block read and this timestamp update. Treat that race as
+        // success only when a fresh uncached RPC read proves the auction is open.
+        const currentBlock = await provider.send("eth_getBlockByNumber", ["latest", false]) as {
+          timestamp?: string;
+        };
+        const currentTimestamp = Number.parseInt(currentBlock.timestamp ?? "0x0", 16);
+        if (currentTimestamp < localAddresses.pathAuction.openTime) throw error;
+      }
+    }
+    const auction = new Contract(localAddresses.pulseAuction.address, auctionAbi, signer);
+    const price = await auction.getCurrentPrice() as bigint;
+    const acquiredPathId = await auction.bid.staticCall(price, { value: price }) as bigint;
+    await (await auction.bid(price, { value: price })).wait();
+    pathId = acquiredPathId;
+  }
 
   assert.equal((await pathNft.ownerOf(pathId)).toLowerCase(), minter.toLowerCase());
   assert.equal(Number(await pathNft.getStage(pathId)), 0, `PATH #${pathId} is already consumed`);
@@ -88,8 +188,10 @@ const runSmoke = async () => {
   assert.equal((await thought.protocolRegistry()).toLowerCase(), release.contracts.protocolRegistry.toLowerCase());
   assert.equal((await thought.protocolReleaseId()).toLowerCase(), release.protocol.protocolReleaseId);
   assert.equal((await thought.protocolManifestHash()).toLowerCase(), release.protocol.manifestKeccak256);
-  assert.equal((await thought.RENDERER_PROFILE_KECCAK256()).toLowerCase(), release.protocol.rendererProfile.keccak256);
-  assert.equal((await thought.WORK_PROFILE_KECCAK256()).toLowerCase(), release.protocol.workProfile.keccak256);
+  assert.equal((await thought.RENDERER_ID_HASH()).toLowerCase(), release.protocol.rendererProfile.keccak256);
+  assert.equal((await thought.WORK_PROFILE_ID_HASH()).toLowerCase(), release.protocol.workProfile.keccak256);
+  assert.equal((await thought.CONTEXT_PROFILE_ID_HASH()).toLowerCase(), release.protocol.contextProfile.keccak256);
+  assert.equal((await thought.METADATA_PROFILE_ID_HASH()).toLowerCase(), release.protocol.metadataProfile.keccak256);
 
   const latestBlock = await provider.getBlock("latest");
   assert(latestBlock, "latest Anvil block unavailable");
@@ -102,49 +204,47 @@ const runSmoke = async () => {
     ? BigInt(latestBlock.timestamp)
     : wallClockTimestamp;
   const deadline = authorizationBaseTimestamp + 3600n;
-  const nonce = await pathNft.getConsumeNonce(minter);
-  const consumeTypehash = id(
-    "ConsumeAuthorization(address pathNft,uint256 chainId,uint256 pathId,bytes32 movement,address claimer,address executor,uint256 nonce,uint256 deadline)",
-  );
-  const structHash = keccak256(AbiCoder.defaultAbiCoder().encode(
-    [
-      "bytes32",
-      "address",
-      "uint256",
-      "uint256",
-      "bytes32",
-      "address",
-      "address",
-      "uint256",
-      "uint256",
-    ],
-    [
-      consumeTypehash,
-      release.contracts.pathNft,
-      BigInt(release.chainId),
-      pathId,
-      pathMovement,
-      minter,
-      release.contracts.thoughtNft,
-      nonce,
-      deadline,
-    ],
-  ));
+  const [permissionEpoch, nonce] = await Promise.all([
+    pathNft.getPermissionEpoch(pathId) as Promise<bigint>,
+    pathNft.getConsumeNonce(minter) as Promise<bigint>,
+  ]);
+  const structHash = hashPathV050ConsumeAuthorization({
+    pathNft: release.contracts.pathNft,
+    chainId: BigInt(release.chainId),
+    pathId,
+    movement: pathMovement,
+    claimer: minter,
+    executor: release.contracts.thoughtNft,
+    permissionEpoch,
+    nonce,
+    deadline,
+  });
   const pathSignature = await signer.signMessage(getBytes(structHash));
   const uniqueSuffix = `${latestBlock.number}-${Date.now().toString(36)}`;
-  const promptLine = `local V2 mint ${uniqueSuffix}`;
-  const agentLine = `Anvil preserves ${uniqueSuffix}`;
+  const promptLine = `local v mint ${uniqueSuffix}`;
+  const agentLine = `anvil preserves ${uniqueSuffix}`;
   const provenanceJson = buildThoughtV2LocalProvenance({
     promptLine,
     agentLine,
-    process: { kind: "manual" },
+    process: {
+      kind: "manual",
+      agent: {
+        label: "Inshell THOUGHT App",
+        source: "minter-supplied",
+      },
+      model: {
+        label: "Local smoke",
+        source: "minter-supplied",
+      },
+    },
     mintContext: {
       chainId: String(release.chainId),
       thoughtNft: release.contracts.thoughtNft,
-      pathNft: release.contracts.pathNft,
-      minter,
-      movement: "THOUGHT",
-      pathId: pathId.toString(),
+      intendedMinter: minter,
+    },
+    selectedSpec: {
+      name: release.spec.name,
+      text: selectedSpecText,
     },
   });
 
@@ -152,12 +252,20 @@ const runSmoke = async () => {
   const tx = await thought.mint({
     promptLine,
     agentLine,
+    agent: "Inshell THOUGHT App",
+    model: "Local smoke",
     pathId,
     thoughtSpecId: release.spec.evmSpecId,
     thoughtSpecHash: release.spec.evmSpecHash,
     provenanceJson,
     deadline,
     pathSignature,
+    creationAttestation: {
+      runIdHash: `0x${"00".repeat(32)}`,
+      deadline: 0,
+      authorityEpoch: 0,
+      signature: "0x",
+    },
   });
   const receipt = await tx.wait();
   assert(receipt, "mint receipt unavailable");

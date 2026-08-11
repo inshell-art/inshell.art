@@ -1,4 +1,5 @@
 export type ThoughtConsoleTone = "neutral" | "success" | "warning" | "error";
+export type ThoughtConsoleVisualRole = "standard" | "guidance";
 
 export type ThoughtConsoleContext = {
   attemptId: string;
@@ -23,10 +24,14 @@ export type ThoughtConsoleInput = {
 export type ThoughtConsoleEventInput = ThoughtConsoleInput & {
   /** A call-site supplied idempotency key, such as a request or transaction id. */
   eventId?: string;
+  transactionHash?: string;
   kind: string;
   context: ThoughtConsoleContext;
   tone?: ThoughtConsoleTone;
-  /** Short-lived projections such as `checking` never belong in retained history. */
+  /**
+   * Short-lived projections such as live prices, open controls, and `checking`
+   * states belong in the live panel rather than retained history.
+   */
   transient?: boolean;
 };
 
@@ -48,6 +53,7 @@ export type ThoughtConsoleEntry = {
   title: string;
   detail?: string;
   nextStep?: string;
+  transactionHash?: string;
   context: ThoughtConsoleContext;
   tone: ThoughtConsoleTone;
   boundary: boolean;
@@ -58,10 +64,95 @@ export type ThoughtConsoleHistory = {
   entries: ThoughtConsoleEntry[];
 };
 
+const THOUGHT_CONSOLE_GUIDANCE_KINDS = new Set([
+  "work_agent_selection_ready",
+  "work_waiting_for_agent",
+  "work_claim_authorization_needed",
+  "work_ready",
+  "mint_flow_opened",
+  "path_selected",
+  "authorization_signed",
+  "wallet_connection_requested",
+  "authorization_requested",
+  "transaction_requested",
+  "transaction_confirmed",
+  "path_acquisition_wallet",
+  "pending_mint_preserved",
+  "wallet_mint_request_preserved",
+  "wallet_changed_after_submission",
+  "mint_activity_checked",
+]);
+
+export const thoughtConsoleVisualRole = (
+  entry: Pick<ThoughtConsoleEntry, "kind" | "tone">,
+): ThoughtConsoleVisualRole =>
+  entry.tone === "warning" ||
+  entry.tone === "error" ||
+  THOUGHT_CONSOLE_GUIDANCE_KINDS.has(entry.kind)
+    ? "guidance"
+    : "standard";
+
+export const newestFirstThoughtConsoleEntries = (
+  entries: ThoughtConsoleEntry[],
+): ThoughtConsoleEntry[] => {
+  const timeGroups: ThoughtConsoleEntry[][] = [];
+  entries.forEach((entry) => {
+    const currentGroup = timeGroups.at(-1);
+    if (currentGroup?.at(-1)?.time === entry.time) {
+      currentGroup.push(entry);
+      return;
+    }
+    timeGroups.push([entry]);
+  });
+
+  return timeGroups.reverse().flatMap((group) => {
+    const guidance: ThoughtConsoleEntry[] = [];
+    const standard: ThoughtConsoleEntry[] = [];
+    group.forEach((entry) => {
+      (thoughtConsoleVisualRole(entry) === "guidance"
+        ? guidance
+        : standard
+      ).push(entry);
+    });
+    return [...guidance.reverse(), ...standard.reverse()];
+  });
+};
+
 export const THOUGHT_CONSOLE_HISTORY_VERSION = 1 as const;
-export const THOUGHT_CONSOLE_HISTORY_LIMIT = 80;
 export const THOUGHT_CONSOLE_HISTORY_STORAGE_KEY =
   "inshell:thought:console-history:v1";
+export const THOUGHT_CONSOLE_EMPTY_TITLE = "start with a prompt";
+export const THOUGHT_CONSOLE_EMPTY_DETAIL =
+  "Write one line above, then send it to your Agent.";
+export const THOUGHT_EXISTS_CONSOLE_NEXT_STEP =
+  "view the existing THOUGHT, or reset and create a new one";
+export const THOUGHT_PATH_SELECTION_DETAIL =
+  "Choose an available $PATH above, or mint a new $PATH";
+export const THOUGHT_PATH_REQUIRED_DETAIL =
+  "No available $PATH can mint this THOUGHT; mint a new $PATH";
+export const THOUGHT_PATH_LINK_LABEL = "mint a new $PATH ↗";
+
+const THOUGHT_PATH_LINK_SUFFIXES = [
+  "mint a new $PATH",
+  // Preserve a clean link when restoring console history written by the
+  // previous copy, which ended the linked phrase with `here.`.
+  "mint a new $PATH here.",
+] as const;
+
+export const thoughtConsolePathLinkParts = (
+  entry: Pick<ThoughtConsoleEntry, "kind">,
+  line: string,
+) => {
+  if (entry.kind !== "mint_requirement") return null;
+  const suffix = THOUGHT_PATH_LINK_SUFFIXES.find((candidate) =>
+    line.endsWith(candidate),
+  );
+  if (!suffix) return null;
+  return {
+    leadingText: line.slice(0, -suffix.length),
+    label: THOUGHT_PATH_LINK_LABEL,
+  };
+};
 
 const normalizeConsoleText = (value: string) => value.trim();
 
@@ -73,6 +164,16 @@ const normalizeOptionalConsoleText = (value: unknown) => {
 
 const normalizeAccount = (account: unknown) =>
   normalizeOptionalConsoleText(account)?.toLowerCase();
+
+const normalizeTransactionHash = (transactionHash: unknown) => {
+  if (
+    typeof transactionHash !== "string" ||
+    !/^0x[0-9a-fA-F]{64}$/.test(transactionHash)
+  ) {
+    return undefined;
+  }
+  return transactionHash.toLowerCase();
+};
 
 const normalizeChainId = (chainId: unknown) => {
   if (typeof chainId === "number" && Number.isSafeInteger(chainId) && chainId >= 0) {
@@ -120,11 +221,6 @@ const sameThoughtConsoleContext = (
 const sameThoughtConsoleDetail = (title: string, detail?: string) =>
   detail?.toLowerCase() === title.toLowerCase();
 
-const compactAccount = (account?: string) => {
-  if (!account || account.length <= 13) return account ?? "none";
-  return `${account.slice(0, 6)}…${account.slice(-4)}`;
-};
-
 const hashConsoleKey = (value: string) => {
   let hash = 2166136261;
   for (let index = 0; index < value.length; index += 1) {
@@ -133,11 +229,6 @@ const hashConsoleKey = (value: string) => {
   }
   return (hash >>> 0).toString(36);
 };
-
-const trimThoughtConsoleEntries = (
-  entries: ThoughtConsoleEntry[],
-  limit: number,
-) => entries.slice(-Math.max(1, limit));
 
 export const createThoughtConsoleHistory = (): ThoughtConsoleHistory => ({
   version: THOUGHT_CONSOLE_HISTORY_VERSION,
@@ -151,16 +242,19 @@ export const buildThoughtConsoleLines = ({
   nextStep = "",
 }: ThoughtConsoleInput) => {
   const normalizedTitle = normalizeConsoleText(title);
-  const normalizedDetail = normalizeConsoleText(detail);
+  const normalizedDetailLines = detail
+    .replace(/([.!?])\s+(?=Allowed:)/g, "$1\n")
+    .split(/\r?\n/)
+    .map(normalizeConsoleText)
+    .filter(Boolean);
   const normalizedNextStep = normalizeConsoleText(nextStep);
   const lines = [`[${normalizeConsoleText(time)}] ${normalizedTitle}`];
 
-  if (
-    normalizedDetail &&
-    !sameThoughtConsoleDetail(normalizedTitle, normalizedDetail)
-  ) {
-    lines.push(normalizedDetail);
-  }
+  normalizedDetailLines.forEach((line) => {
+    if (!sameThoughtConsoleDetail(normalizedTitle, line)) {
+      lines.push(line);
+    }
+  });
 
   if (normalizedNextStep) {
     lines.push(`next: ${normalizedNextStep}`);
@@ -182,7 +276,11 @@ const normalizeThoughtConsoleEvent = (
 ): NormalizedThoughtConsoleEvent => {
   const title = normalizeConsoleText(event.title);
   const detail = normalizeOptionalConsoleText(event.detail);
-  const nextStep = normalizeOptionalConsoleText(event.nextStep);
+  const actionNeeded = event.tone === "warning" || event.tone === "error";
+  const nextStep = actionNeeded
+    ? normalizeOptionalConsoleText(event.nextStep)
+    : undefined;
+  const transactionHash = normalizeTransactionHash(event.transactionHash);
   return {
     time: normalizeConsoleText(event.time),
     title,
@@ -191,6 +289,7 @@ const normalizeThoughtConsoleEvent = (
     ...(normalizeOptionalConsoleText(event.eventId)
       ? { eventId: normalizeOptionalConsoleText(event.eventId) }
       : {}),
+    ...(transactionHash ? { transactionHash } : {}),
     kind: normalizeConsoleText(event.kind) || "activity",
     context: normalizeThoughtConsoleContext(event.context),
     tone: event.tone ?? "neutral",
@@ -201,7 +300,7 @@ const normalizeThoughtConsoleEvent = (
 const appendNormalizedThoughtConsoleEvent = (
   history: ThoughtConsoleHistory,
   event: NormalizedThoughtConsoleEvent,
-  options: { boundary?: boolean; limit?: number } = {},
+  options: { boundary?: boolean } = {},
 ) => {
   if (event.transient) return history;
 
@@ -212,10 +311,11 @@ const appendNormalizedThoughtConsoleEvent = (
     event.title.toLowerCase(),
     event.detail?.toLowerCase() ?? "",
     event.nextStep?.toLowerCase() ?? "",
+    event.transactionHash ?? "",
     event.tone,
   ].join("|");
   const dedupeKey = event.eventId
-    ? `event|${contextKey}|${event.eventId}`
+    ? `event|${event.eventId}`
     : `content|${contentKey}`;
   const isDuplicate = event.eventId
     ? history.entries.some((entry) => entry.dedupeKey === dedupeKey)
@@ -236,6 +336,7 @@ const appendNormalizedThoughtConsoleEvent = (
     title: event.title,
     ...(event.detail ? { detail: event.detail } : {}),
     ...(event.nextStep ? { nextStep: event.nextStep } : {}),
+    ...(event.transactionHash ? { transactionHash: event.transactionHash } : {}),
     context: event.context,
     tone: event.tone,
     boundary: options.boundary ?? false,
@@ -243,70 +344,13 @@ const appendNormalizedThoughtConsoleEvent = (
 
   return {
     version: THOUGHT_CONSOLE_HISTORY_VERSION,
-    entries: trimThoughtConsoleEntries(
-      [...history.entries, entry],
-      options.limit ?? THOUGHT_CONSOLE_HISTORY_LIMIT,
-    ),
+    entries: [...history.entries, entry],
   } satisfies ThoughtConsoleHistory;
-};
-
-const boundaryPresentation = (
-  previous: ThoughtConsoleContext,
-  next: ThoughtConsoleContext,
-) => {
-  if (previous.account !== next.account) {
-    if (!previous.account) {
-      return {
-        kind: "wallet_connected",
-        title: "wallet connected",
-        detail: compactAccount(next.account),
-      };
-    }
-    if (!next.account) {
-      return {
-        kind: "wallet_disconnected",
-        title: "wallet disconnected",
-        detail: `${compactAccount(previous.account)}; $PATH pick and permission cleared`,
-      };
-    }
-    return {
-      kind: "wallet_changed",
-      title: "wallet changed",
-        detail: `${compactAccount(previous.account)} → ${compactAccount(next.account)}; $PATH pick and permission cleared`,
-    };
-  }
-  if (previous.chainId !== next.chainId) {
-    return {
-      kind: "network_changed",
-      title: "network changed",
-      detail: `${previous.chainId ?? "none"} → ${next.chainId ?? "none"}; $PATH pick and permission cleared`,
-    };
-  }
-  if (previous.workHash !== next.workHash) {
-    return {
-      kind: "work_changed",
-      title: "work changed",
-      detail: "previous $PATH pick and permission cleared",
-    };
-  }
-  if (previous.deploymentFingerprint !== next.deploymentFingerprint) {
-    return {
-      kind: "deployment_changed",
-      title: "deployment changed",
-      detail: "$PATH inventory and permission cleared",
-    };
-  }
-  return {
-    kind: "attempt_started",
-    title: "mint attempt started",
-    detail: compactAccount(next.account),
-  };
 };
 
 export const appendThoughtConsoleContextBoundary = (
   history: ThoughtConsoleHistory,
   input: ThoughtConsoleBoundaryInput,
-  options: { limit?: number } = {},
 ): ThoughtConsoleHistory => {
   const context = normalizeThoughtConsoleContext(input.context);
   const previousContext = history.entries.at(-1)?.context;
@@ -314,14 +358,18 @@ export const appendThoughtConsoleContextBoundary = (
     return history;
   }
 
-  const presentation = boundaryPresentation(previousContext, context);
+  // Context is metadata for an event, not evidence that an action happened.
+  // Callers must provide the semantic boundary they actually observed.
+  if (!input.kind || !input.title) {
+    return history;
+  }
   return appendNormalizedThoughtConsoleEvent(
     history,
     {
       time: normalizeConsoleText(input.time),
-      kind: normalizeOptionalConsoleText(input.kind) ?? presentation.kind,
-      title: normalizeOptionalConsoleText(input.title) ?? presentation.title,
-      detail: normalizeOptionalConsoleText(input.detail) ?? presentation.detail,
+      kind: normalizeConsoleText(input.kind),
+      title: normalizeConsoleText(input.title),
+      detail: normalizeOptionalConsoleText(input.detail),
       ...(normalizeOptionalConsoleText(input.nextStep)
         ? { nextStep: normalizeOptionalConsoleText(input.nextStep) }
         : {}),
@@ -329,32 +377,59 @@ export const appendThoughtConsoleContextBoundary = (
       tone: input.tone ?? "neutral",
       transient: false,
     },
-    { boundary: true, limit: options.limit },
+    { boundary: true },
   );
 };
 
 export const appendThoughtConsoleEvent = (
   history: ThoughtConsoleHistory,
   input: ThoughtConsoleEventInput,
-  options: { limit?: number } = {},
 ): ThoughtConsoleHistory => {
   const event = normalizeThoughtConsoleEvent(input);
   if (event.transient) return history;
+  return appendNormalizedThoughtConsoleEvent(history, event);
+};
 
-  const previousContext = history.entries.at(-1)?.context;
-  let nextHistory = history;
-  if (previousContext && !sameThoughtConsoleContext(previousContext, event.context)) {
-    nextHistory = appendThoughtConsoleContextBoundary(
-      history,
-      {
-        time: event.time,
-        context: event.context,
-      },
-      options,
-    );
+export type PendingMintWalletChangeInput = {
+  previousAddress: string;
+  previousChainId: number | null;
+  nextAddress: string;
+  nextChainId: number | null;
+  trackedAddress: string;
+  trackedChainId: number;
+};
+
+export const pendingMintWalletChangeTitle = ({
+  previousAddress,
+  previousChainId,
+  nextAddress,
+  nextChainId,
+  trackedAddress,
+  trackedChainId,
+}: PendingMintWalletChangeInput) => {
+  const previous = normalizeAccount(previousAddress) ?? "";
+  const next = normalizeAccount(nextAddress) ?? "";
+  const tracked = normalizeAccount(trackedAddress) ?? "";
+
+  if (previous === next && previousChainId === nextChainId) {
+    return null;
   }
-
-  return appendNormalizedThoughtConsoleEvent(nextHistory, event, options);
+  // Returning to the wallet and network that own the tracked transaction is
+  // not a safety event. This also absorbs the shared wallet's empty-then-ready
+  // hydration sequence.
+  if (
+    next === tracked &&
+    nextChainId === trackedChainId
+  ) {
+    return null;
+  }
+  if (!next) {
+    return "active wallet disconnected";
+  }
+  if (next !== tracked) {
+    return "active wallet changed";
+  }
+  return "wallet network changed";
 };
 
 export const serializeThoughtConsoleHistory = (
@@ -401,16 +476,26 @@ const parseThoughtConsoleEntry = (value: unknown): ThoughtConsoleEntry | null =>
   });
   const title = normalizeConsoleText(value.title);
   const detail = normalizeOptionalConsoleText(value.detail);
-  const nextStep = normalizeOptionalConsoleText(value.nextStep);
+  const actionNeeded = value.tone === "warning" || value.tone === "error";
+  const nextStep = actionNeeded
+    ? normalizeOptionalConsoleText(value.nextStep)
+    : undefined;
+  const transactionHash = normalizeTransactionHash(value.transactionHash);
+  const kind = normalizeConsoleText(value.kind);
 
   return {
     id: normalizeConsoleText(value.id),
     dedupeKey: normalizeConsoleText(value.dedupeKey),
-    kind: normalizeConsoleText(value.kind),
+    kind,
     time: normalizeConsoleText(value.time),
     title,
     ...(detail && !sameThoughtConsoleDetail(title, detail) ? { detail } : {}),
-    ...(nextStep ? { nextStep } : {}),
+    ...(kind === "thought_exists"
+      ? { nextStep: THOUGHT_EXISTS_CONSOLE_NEXT_STEP }
+      : nextStep
+        ? { nextStep }
+        : {}),
+    ...(transactionHash ? { transactionHash } : {}),
     context: normalizedContext,
     tone: value.tone,
     boundary: value.boundary,
@@ -419,9 +504,8 @@ const parseThoughtConsoleEntry = (value: unknown): ThoughtConsoleEntry | null =>
 
 export const parseThoughtConsoleHistory = (
   serialized: unknown,
-  options: { limit?: number } = {},
 ): ThoughtConsoleHistory => {
-  if (typeof serialized !== "string" || serialized.length > 200_000) {
+  if (typeof serialized !== "string") {
     return createThoughtConsoleHistory();
   }
 
@@ -434,14 +518,12 @@ export const parseThoughtConsoleHistory = (
     ) {
       return createThoughtConsoleHistory();
     }
+    const entries = value.entries
+      .map(parseThoughtConsoleEntry)
+      .filter((entry): entry is ThoughtConsoleEntry => entry !== null);
     return {
       version: THOUGHT_CONSOLE_HISTORY_VERSION,
-      entries: trimThoughtConsoleEntries(
-        value.entries
-          .map(parseThoughtConsoleEntry)
-          .filter((entry): entry is ThoughtConsoleEntry => entry !== null),
-        options.limit ?? THOUGHT_CONSOLE_HISTORY_LIMIT,
-      ),
+      entries,
     };
   } catch {
     return createThoughtConsoleHistory();

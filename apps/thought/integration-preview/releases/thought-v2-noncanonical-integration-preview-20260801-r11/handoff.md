@@ -1,0 +1,175 @@
+# THOUGHT V2 r11 — portable marketplace traits integration-preview handoff
+
+Date: 2026-08-01
+
+From: THOUGHT Contract owner
+
+To: `inshell.art` / Inshell THOUGHT App owner
+
+Target artifact:
+`thought-v2-noncanonical-integration-preview-20260801-r11`
+
+Status: downstream integration preview only; noncanonical, non-production,
+non-registrable, and not deployment-authorized
+
+## Decision implemented
+
+r11 replaces the eight-trait r10 marketplace list with exactly five portable
+attributes in this order:
+
+1. `Agent`
+2. `Model`
+3. `Creation Attestation`
+4. `Prompt Bytes`
+5. `Agent Bytes`
+
+`Prompt Bytes` and `Agent Bytes` remain numeric traits with
+`display_type: "number"` and `max_value: 64`.
+
+The following redundant attributes are removed:
+
+- `Pair Bytes`, which was exactly the sum of the retained byte traits;
+- `Prompt Length`, which categorized the exact ASCII prompt byte count;
+- `Agent Length`, which categorized the exact ASCII Agent byte count.
+
+The complete trait-name array is closed. Consumers must not infer, restore,
+rename, append, or reorder marketplace traits.
+
+## Immutable r10 baseline
+
+- Artifact ID:
+  `thought-v2-noncanonical-integration-preview-20260801-r10`
+- Publication commit:
+  `0cea80f10d6b5477d029560466628b315f48bf39`
+- Source-base commit:
+  `3f48361b78d8062fbe9e2eca9774d82d40524fb4`
+- Manifest SHA-256:
+  `eefce7c7ea8c1422c9ab3e631ebe15bed7935fbaf79588158ed8fb28eb746e94`
+- r10 metadata-profile SHA-256:
+  `856935f5e13fd4f62eb7c0945744e4af13011417a2f91cdb0636cc2c5f81a560`
+
+r10 remains immutable. r11 is a new package and tag; it does not patch r10 in
+place.
+
+## Exact scope
+
+The following implementation artifacts change:
+
+- `ThoughtRendererV2` creation and runtime bytecode;
+- `ThoughtRendererV2Split` creation and runtime bytecode;
+- `protocol/current/v2/metadata/thought.metadata.v2.profile.json`;
+- decoded `tokenURI()` fixture bytes and snapshots;
+- lab sort/filter presentation that previously depended on `Pair Bytes`.
+
+The renderer ABIs remain unchanged. The metadata-profile ID remains
+`inshell.thought.metadata.v2.terminal-chat`; its exact artifact bytes and
+SHA-256 change to bind the portable trait list. r11's profile SHA-256 is
+`a08842ac2bf8432a054f182f0a93fe8e73c3d0bdf9c73239018c4c78e6363af7`
+and is also recorded in the artifact manifest and migration evidence.
+
+## Contract and protocol boundaries unchanged
+
+The following compiled artifacts retain exact ABI, creation-bytecode, and
+runtime-bytecode parity with r10:
+
+- `ThoughtNFTV2`;
+- `CreationAttestationVerifierV2`;
+- `IThoughtRendererV2`;
+- `IThoughtSvgRendererV2`;
+- `ICreationAttestationVerifierV2`;
+- `ThoughtSpecRegistry`;
+- `ThoughtSpecRegistryV2`;
+- `ThoughtSvgRendererV2`.
+
+Consequently, r11 does not change:
+
+- the public `ThoughtNFTV2` ABI or mint calldata;
+- Agent and Model typed state or getters;
+- Creation Attestation claim, verification, digest, or `Unattested` path;
+- Terminal English validation or ordered-pair uniqueness;
+- work identity, work hash, or renderer identity;
+- provenance schema, opaque-byte storage boundary, or commitment mechanism;
+- PATH consumption, serial widening, rollback, or atomicity;
+- registry interfaces or selected-spec validation;
+- the exact registered `THOUGHT.v2.md` bytes, ID, or hash.
+
+The r10 selected-spec pair remains:
+
+- `thoughtSpecId`:
+  `0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410`;
+- `thoughtSpecHash`:
+  `0xb2b0a167678816a7ae9dc9098b0d6a6852c0dc95feb59f9581de75bd2cc2231f`;
+- SHA-256:
+  `90df786a3ffb5ec38bffd09ff356ec560d0b7dddcdf57170891149a92a399e9b`;
+- byte length: 4,627.
+
+## Artwork and URL invariants
+
+The renderer metadata bytecode changes, but the standalone SVG renderer and
+artwork do not. For identical prompt/Agent lines:
+
+- embedded `metadata.image` bytes remain exact;
+- decoded SVG bytes remain exact;
+- Inshell Mono 76 glyphs, wrapping, frame, colors, and field geometry remain
+  exact;
+- renderer IDs remain exact.
+
+The canonical top-level URL also remains exactly:
+
+`https://inshell.art/thought/<canonical-decimal-tokenId>`
+
+It remains presentation metadata only and does not enter identity,
+attestation, provenance, selected-spec, or PATH logic.
+
+## Fixture requirements
+
+r11 includes decoded on-chain `tokenURI()` examples for both:
+
+- `Creation Attestation = Inshell THOUGHT App`;
+- `Creation Attestation = Unattested`.
+
+For every fixture, the package checker independently requires:
+
+- exact five-name trait order;
+- no duplicate trait names;
+- exact UTF-8 prompt/Agent byte values;
+- numeric byte traits with `display_type: "number"` and `max_value: 64`;
+- Agent and Model equality with typed Contract state;
+- Creation Attestation equality with typed Contract state;
+- absence of `Pair Bytes`, `Prompt Length`, and `Agent Length`;
+- one exact canonical top-level `external_url`;
+- exact r10/r11 artwork-byte equality for shared works;
+- a structured `metadata.thought` namespace generated by the unchanged
+  contract state/provenance model.
+
+Machine-readable delta evidence is bundled at:
+
+`validation/r10-to-r11-portable-marketplace-traits.json`
+
+## Required downstream rollout
+
+1. Fetch and pin the exact r11 tag, artifact ID, publication commit, and
+   manifest SHA-256 supplied by the Contract owner.
+2. Verify `manifest.json`, `SHA256SUMS.txt`, and every declared file before
+   import.
+3. Verify the r10 baseline identity and
+   `validation/r10-to-r11-portable-marketplace-traits.json` independently.
+4. Require exact bytecode parity for every artifact declared unchanged.
+5. Require ABI parity but creation/runtime-bytecode change for
+   `ThoughtRendererV2` and `ThoughtRendererV2Split`.
+6. Import the r11 renderer artifacts, metadata profile, fixtures, and reference
+   material as one coherent immutable pin.
+7. Deploy a fresh disposable Anvil runtime; do not reuse r10 renderer or NFT
+   addresses as acceptance evidence.
+8. Mint and read back both attested and unattested tokens from chain.
+9. Require the exact five-trait order and typed-state parity for every token.
+10. Require exact artwork, selected-spec, external-URL, provenance-boundary,
+    attestation, and PATH behavior invariants.
+11. Advance the App consumer lock only after the chain-first verifier accepts
+    the new immutable r11 artifact.
+
+## Safety label
+
+r11 remains an explicitly noncanonical integration preview. It does not
+authorize Sepolia/mainnet deployment, protocol registration, production
+signer custody, a stable release claim, or a production consumer lock.

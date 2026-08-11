@@ -1,0 +1,25 @@
+{
+  "schema": "inshell.thought.agent-creative-brief-lock.v1",
+  "artifactId": "thought-v2-agent-creative-brief-20260807-r1",
+  "artifact": {
+    "name": "THOUGHT.agent-creative.v2.md",
+    "path": "apps/thought/spec/THOUGHT.agent-creative.v2.md",
+    "identifier": "inshell.thought.agent-creative-brief.v2",
+    "byteLength": 1088,
+    "sha256": "8f89266863caa47599c3f162e703fb2197f7b33343c3ea249151d471c706b244",
+    "keccak256": "0x723b332f82d095e9aeaf29e1659b51a4cd09c8fe27ce518689c96aa612bd5f46",
+    "encoding": "utf-8",
+    "lineEndings": "lf"
+  },
+  "selectedSpec": {
+    "artifactId": "thought-v2-selected-spec-20260801-r10",
+    "name": "THOUGHT.v2.md",
+    "sha256": "90df786a3ffb5ec38bffd09ff356ec560d0b7dddcdf57170891149a92a399e9b",
+    "thoughtSpecId": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410",
+    "thoughtSpecHash": "0xb2b0a167678816a7ae9dc9098b0d6a6852c0dc95feb59f9581de75bd2cc2231f"
+  },
+  "authority": {
+    "owner": "THOUGHT App",
+    "changePolicy": "Any byte change requires a new artifact ID and new hashes. Previously locked bytes are never replaced."
+  }
+}

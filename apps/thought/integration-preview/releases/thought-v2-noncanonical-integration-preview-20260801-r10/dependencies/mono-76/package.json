@@ -1,0 +1,43 @@
+{
+  "description": "Sealed Inshell-owned 76-character monospaced centerline SVG font",
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": "./index.mjs",
+    "./glyphs": "./glyphs.json",
+    "./handoff": "./HANDOFF.md",
+    "./manifest": "./manifest.json",
+    "./notice": "./NOTICE.md",
+    "./onchain/decoder": "./onchain/decoder.mjs",
+    "./onchain/metadata": "./onchain/metadata.json",
+    "./onchain/packed": "./onchain/packed.bin",
+    "./onchain/packed.hex": "./onchain/packed.hex",
+    "./package.json": "./package.json",
+    "./provenance": "./PROVENANCE.md"
+  },
+  "files": [
+    "onchain",
+    "glyphs.json",
+    "HANDOFF.md",
+    "LICENSES.md",
+    "manifest.json",
+    "NOTICE.md",
+    "PROVENANCE.md",
+    "README.md",
+    "SHA256SUMS",
+    "UNLICENSED.md",
+    "index.mjs",
+    "verify.mjs"
+  ],
+  "license": "UNLICENSED",
+  "name": "@inshell/mono-76",
+  "private": true,
+  "scripts": {
+    "prepack": "npm run verify",
+    "verify": "node ./verify.mjs"
+  },
+  "sideEffects": false,
+  "type": "module",
+  "version": "1.0.0"
+}

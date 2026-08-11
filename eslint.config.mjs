@@ -119,7 +119,15 @@ const reactRefresh = require("eslint-plugin-react-refresh");
 
 export default [
   {
-    ignores: ["**/coverage/**", "**/dist/**", "node_modules/**", ".eslintrc.cjs"],
+    ignores: [
+      "**/coverage/**",
+      "**/dist/**",
+      "node_modules/**",
+      ".eslintrc.cjs",
+      "apps/thought/contract-integration/**/reference/**",
+      "apps/thought/contract-release/**/reference/**",
+      "apps/thought/integration-preview/**/reference/**",
+    ],
   },
   {
     files: ["**/*.{js,jsx,ts,tsx}"],

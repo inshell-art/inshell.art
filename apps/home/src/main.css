@@ -21,15 +21,15 @@
     var(--font-size-30)
   );
   --ecosystem-slogan-line-height: 1.32;
-  --ecosystem-fixture-grid-columns: repeat(3, minmax(0, 1fr));
-  --ecosystem-fixture-grid-gap: clamp(18px, 2vw, 26px);
-  --ecosystem-fixture-grid-margin-top: clamp(16px, 2.7vh, 35px);
-  --ecosystem-fixture-canvas-bg: var(--bg-body);
-  --ecosystem-fixture-meta-gap: 10px;
-  --ecosystem-fixture-meta-font-size: var(--font-size-12);
-  --ecosystem-fixture-meta-line-height: 1.5;
-  --ecosystem-fixture-meta-color: var(--muted);
-  --ecosystem-fixture-meta-weight: var(--weight-thin);
+  --ecosystem-works-grid-columns: repeat(3, minmax(0, 1fr));
+  --ecosystem-works-grid-gap: clamp(18px, 2vw, 26px);
+  --ecosystem-works-grid-margin-top: clamp(16px, 2.7vh, 35px);
+  --ecosystem-work-canvas-bg: var(--bg-body);
+  --ecosystem-work-meta-gap: 10px;
+  --ecosystem-work-meta-font-size: var(--font-size-12);
+  --ecosystem-work-meta-line-height: 1.5;
+  --ecosystem-work-meta-color: var(--muted);
+  --ecosystem-work-meta-weight: var(--weight-thin);
   --path-app-shell-padding-block-start: var(--shell-route-padding-block-start);
   --path-app-shell-padding-block-end: var(--shell-route-padding-block-end);
   --path-app-content-gap: clamp(10px, 2vh, 28px);
@@ -229,62 +229,69 @@ button,
   white-space: nowrap;
 }
 
-.ecosystem-home__fixture-works {
+.ecosystem-home__works {
   width: 100%;
-  display: grid;
-  grid-template-columns: var(--ecosystem-fixture-grid-columns);
-  gap: var(--ecosystem-fixture-grid-gap);
-  align-items: start;
-  margin-top: var(--ecosystem-fixture-grid-margin-top);
+  margin-top: var(--ecosystem-works-grid-margin-top);
 }
 
-.ecosystem-home__fixture-work-card {
+.ecosystem-home__works-status {
+  margin: 0 0 var(--ecosystem-works-grid-gap);
+  color: var(--ecosystem-work-meta-color);
+  font-size: var(--ecosystem-work-meta-font-size);
+  font-weight: var(--ecosystem-work-meta-weight);
+  line-height: var(--ecosystem-work-meta-line-height);
+}
+
+.ecosystem-home__works-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: var(--ecosystem-works-grid-columns);
+  gap: var(--ecosystem-works-grid-gap);
+  align-items: start;
+}
+
+.ecosystem-home__work-card {
   min-width: 0;
   display: block;
 }
 
-.ecosystem-home__fixture-work-canvas {
+.ecosystem-home__work-canvas {
   width: 100%;
   aspect-ratio: 1;
   overflow: hidden;
   display: grid;
   place-items: stretch;
-  background: var(--ecosystem-fixture-canvas-bg);
+  background: var(--ecosystem-work-canvas-bg);
 }
 
-.ecosystem-home__fixture-work-canvas svg,
-.ecosystem-home__fixture-work-canvas img {
+.ecosystem-home__work-canvas svg,
+.ecosystem-home__work-canvas img {
   display: block;
   width: 100%;
   height: 100%;
 }
 
-.ecosystem-home__fixture-work-meta {
-  margin-top: var(--ecosystem-fixture-meta-gap);
-  color: var(--ecosystem-fixture-meta-color);
-  font-size: var(--ecosystem-fixture-meta-font-size);
-  font-weight: var(--ecosystem-fixture-meta-weight);
-  line-height: var(--ecosystem-fixture-meta-line-height);
+.ecosystem-home__work-meta {
+  margin-top: var(--ecosystem-work-meta-gap);
+  color: var(--ecosystem-work-meta-color);
+  font-size: var(--ecosystem-work-meta-font-size);
+  font-weight: var(--ecosystem-work-meta-weight);
+  line-height: var(--ecosystem-work-meta-line-height);
 }
 
-.ecosystem-home__fixture-work-meta-line {
+.ecosystem-home__work-meta-line {
   margin: 0;
-}
-
-.ecosystem-home__fixture-work-provenance {
-  color: inherit;
-  text-decoration: none;
 }
 
 @media (max-width: 900px) {
   :root {
-    --ecosystem-fixture-grid-columns: repeat(2, minmax(0, 1fr));
+    --ecosystem-works-grid-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 560px) {
   :root {
-    --ecosystem-fixture-grid-columns: minmax(0, 1fr);
+    --ecosystem-works-grid-columns: minmax(0, 1fr);
   }
 }
 
@@ -2471,20 +2478,40 @@ button,
 }
 
 .thought-detail {
+  --thought-detail-font-weight: var(--weight-mid);
   --thought-detail-width: var(--main-area-width);
+  --thought-detail-rail-width: 420px;
+  --thought-detail-layout-gap: 32px;
+  --thought-detail-page-height-offset: 126px;
+  --thought-detail-page-min-height-offset: 56px;
+  --thought-detail-viewport-width-offset: 104px;
+  --thought-detail-section-gap: 20px;
+  --thought-detail-section-padding: 18px;
+  --thought-detail-section-title-gap: 8px;
+  --thought-detail-field-label-width: 84px;
+  --thought-detail-field-column-gap: 12px;
+  --thought-detail-border-width: 1px;
   --thought-detail-panel-size: min(
-    calc(100vh - 126px),
-    calc(var(--thought-detail-width) - 392px),
-    calc(100vw - 104px - 392px)
+    calc(100vh - var(--thought-detail-page-height-offset)),
+    calc(
+      var(--thought-detail-width) - var(--thought-detail-rail-width) -
+        var(--thought-detail-layout-gap)
+    ),
+    calc(
+      100vw - var(--thought-detail-viewport-width-offset) -
+        var(--thought-detail-rail-width) -
+        var(--thought-detail-layout-gap)
+    )
   );
   --detail-scrollbar-track: #050505;
   --detail-scrollbar-thumb: rgba(178, 184, 198, 0.5);
   width: min(var(--thought-detail-width), 100%);
-  min-height: calc(100vh - 56px);
+  min-height: calc(100vh - var(--thought-detail-page-min-height-offset));
   box-sizing: border-box;
   padding: 0;
   background: transparent;
   color: var(--text);
+  font-weight: var(--thought-detail-font-weight);
   display: flex;
   flex-direction: column;
   text-rendering: auto;
@@ -2510,10 +2537,10 @@ button,
 .thought-detail__title {
   margin: 0;
   color: var(--accent);
-  font-size: clamp(var(--font-size-30), 4.8vw, var(--font-size-56));
+  font-size: var(--shell-route-title-font-size);
   font-weight: var(--weight-thin);
-  line-height: 0.9;
-  letter-spacing: 0.08em;
+  line-height: var(--shell-route-title-line-height);
+  letter-spacing: var(--shell-route-title-letter-spacing);
 }
 
 .thought-detail__links {
@@ -2528,10 +2555,14 @@ button,
 .thought-detail__status {
   margin: 0;
   color: var(--muted);
-  font-size: var(--font-size-12);
-  font-weight: var(--weight-light);
+  font-size: var(--font-size-14);
+  font-weight: var(--thought-detail-font-weight);
   line-height: 1.55;
   text-decoration: none;
+}
+
+.thought-detail__link {
+  font-size: var(--font-size-16);
 }
 
 .thought-detail__status--error {
@@ -2580,8 +2611,8 @@ button,
   display: grid;
   flex: 1 1 auto;
   min-height: 0;
-  grid-template-columns: minmax(0, 1fr) 360px;
-  gap: 32px;
+  grid-template-columns: minmax(0, 1fr) var(--thought-detail-rail-width);
+  gap: var(--thought-detail-layout-gap);
   align-items: start;
   width: 100%;
 }
@@ -2590,9 +2621,7 @@ button,
   width: min(100%, var(--thought-detail-panel-size));
   max-width: 100%;
   justify-self: center;
-  padding: 16px;
   box-sizing: border-box;
-  background: var(--panel);
 }
 
 .thought-detail__image {
@@ -2617,37 +2646,37 @@ button,
 .thought-detail__rail {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: var(--thought-detail-section-gap);
   min-width: 0;
-  max-height: var(--thought-detail-panel-size);
   overflow: visible;
   box-sizing: border-box;
 }
 
 .thought-detail__section {
   min-width: 0;
+  padding-bottom: var(--thought-detail-section-padding);
+  border-bottom: var(--thought-detail-border-width) solid var(--panel-border);
 }
 
 .thought-detail__section h2 {
-  margin: 0 0 8px;
-  color: var(--accent);
-  font-size: var(--font-size-12);
-  font-weight: var(--weight-mid);
+  margin: 0 0 var(--thought-detail-section-title-gap);
+  color: var(--text);
+  font-size: var(--font-size-14);
+  font-weight: var(--weight-semibold);
   letter-spacing: 0.08em;
 }
 
 .thought-detail__text {
-  max-height: 3.1em;
-  overflow: hidden;
+  overflow: visible;
   white-space: pre-wrap;
 }
 
 .thought-detail__text,
 .thought-detail__value {
   margin: 0;
-  color: var(--muted);
-  font-size: var(--font-size-12);
-  font-weight: var(--weight-light);
+  color: var(--text);
+  font-size: var(--font-size-14);
+  font-weight: var(--thought-detail-font-weight);
   line-height: 1.55;
   overflow-wrap: anywhere;
 }
@@ -2673,24 +2702,26 @@ button,
 
 .thought-detail__fields div {
   display: grid;
-  grid-template-columns: minmax(70px, max-content) minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns:
+    minmax(var(--thought-detail-field-label-width), max-content)
+    minmax(0, 1fr);
+  gap: var(--thought-detail-field-column-gap);
   min-width: 0;
 }
 
 .thought-detail__fields dt {
   margin: 0;
   color: var(--muted-dim, var(--text));
-  font-size: var(--font-size-12);
-  font-weight: var(--weight-light);
+  font-size: var(--font-size-14);
+  font-weight: var(--thought-detail-font-weight);
   letter-spacing: 0.08em;
 }
 
 .thought-detail__fields dd {
   margin: 0;
-  color: var(--muted);
-  font-size: var(--font-size-12);
-  font-weight: var(--weight-light);
+  color: var(--text);
+  font-size: var(--font-size-14);
+  font-weight: var(--thought-detail-font-weight);
   line-height: 1.55;
   overflow-wrap: anywhere;
 }
@@ -2705,7 +2736,7 @@ button,
 #thought-detail-path,
 .thought-detail__value-link {
   display: inline-block;
-  color: var(--muted);
+  color: var(--text);
   text-decoration: none;
   text-decoration-thickness: 1px;
   text-underline-offset: 5px;
@@ -3297,7 +3328,7 @@ button {
     --ecosystem-hero-min-height: clamp(500px, 72svh, 680px);
     --ecosystem-hero-padding-block-start: clamp(24px, 5.3vh, 48px);
     --ecosystem-hero-padding-block-end: clamp(35px, 6.7vh, 64px);
-    --ecosystem-fixture-grid-margin-top: clamp(12px, 2.7vh, 28px);
+    --ecosystem-works-grid-margin-top: clamp(12px, 2.7vh, 28px);
   }
 
   .ecosystem-home__movements {

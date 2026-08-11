@@ -1,0 +1,13 @@
+{
+  "deploymentAuthorized": false,
+  "limitations": [
+    "no persistent-chain deployment addresses or deployment transactions are bundled",
+    "Sepolia and mainnet deployment each require explicit operator approval",
+    "no production attestation key or signer custody material is bundled",
+    "the stable byte package does not itself authorize frontend rollout"
+  ],
+  "productionConsumable": true,
+  "registrationApplicable": false,
+  "registrationAuthorized": false,
+  "schema": "inshell.thought.canonical-portable-release-limitations.v1"
+}

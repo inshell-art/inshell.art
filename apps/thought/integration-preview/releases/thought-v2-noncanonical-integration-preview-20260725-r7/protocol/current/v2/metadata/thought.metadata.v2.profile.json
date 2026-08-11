@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "attributeOrder": {
+    "attested": [
+      "Attested Agent",
+      "Attested Model",
+      "Creation Attestation",
+      "Prompt Bytes",
+      "Agent Bytes",
+      "Pair Bytes",
+      "Prompt Length",
+      "Agent Length"
+    ],
+    "unattested": [
+      "Creation Attestation",
+      "Prompt Bytes",
+      "Agent Bytes",
+      "Pair Bytes",
+      "Prompt Length",
+      "Agent Length"
+    ]
+  },
+  "declarations": {
+    "assurance": "declared-unverified",
+    "attestationBindsExactHashes": true,
+    "attestedTraitTypes": ["Attested Agent", "Attested Model"],
+    "contextProfileId": "inshell.thought.context.v2.visible-utf8-64",
+    "marketplaceTraitGate": "nonzero-creation-attestation-digest",
+    "metadataPaths": ["thought.declarations.agent", "thought.declarations.model"],
+    "typedStateAuthoritative": true,
+    "unattestedTraitTypes": [],
+    "workIdentityInput": false
+  },
+  "id": "inshell.thought.metadata.v2.terminal-chat",
+  "marketplaceRequired": ["name", "description", "image", "background_color", "attributes"],
+  "traitExclusions": {
+    "conversationForm": "fixture-only",
+    "workProfileId": "technical-property"
+  },
+  "technicalRequired": [
+    "promptLine",
+    "agentLine",
+    "declarations.agent.label",
+    "declarations.agent.status",
+    "declarations.agent.keccak256",
+    "declarations.model.label",
+    "declarations.model.status",
+    "declarations.model.keccak256",
+    "declarations.workIdentityInput",
+    "promptLineKeccak256",
+    "agentLineKeccak256",
+    "conversationIdentityHash",
+    "workHash",
+    "rendererId",
+    "workProfileId",
+    "provenanceHash",
+    "protocolReleaseId",
+    "manifestKeccak256",
+    "thoughtSpecId",
+    "thoughtSpecHash",
+    "pathId",
+    "pathSerial",
+    "minter",
+    "mintedAt",
+    "creationAttestation"
+  ],
+  "version": 2
+}

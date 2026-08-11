@@ -1,0 +1,139 @@
+# Isolated THOUGHT Anvil lane
+
+Use this lane while PATH and THOUGHT are being developed in parallel. It does
+not share chain state with the PATH developer lane.
+
+## Defaults
+
+- Canonical Inshell home/gallery: `http://127.0.0.1:5177/`
+- Same-origin THOUGHT App route: `http://127.0.0.1:5177/thought`
+- THOUGHT App backing dev server: `http://127.0.0.1:5176/thought/`
+- THOUGHT Anvil RPC: `http://127.0.0.1:8547`
+- Chain ID: `31338`
+- State: `.local/anvil/thought/state.json`
+- Generated runtime: `apps/thought/contract-integration/local-runtime.thought-anvil.json`
+- PATH dependency: published `v0.5.0` artifacts, verified by release and artifact hashes
+
+The generated runtime and Anvil state are local-only and ignored by Git.
+Anvil restores that state when it starts and writes it once on graceful
+shutdown. Periodic full-state dumping is intentionally disabled: rewriting the
+complete JSON snapshot every few seconds creates unbounded local disk traffic
+as chain history grows. Stop the stack normally before rebooting when its
+latest state needs to be retained.
+
+## Run the full THOUGHT stack
+
+```sh
+pnpm dev:thought:stack
+```
+
+The command:
+
+1. starts or reuses the dedicated THOUGHT Anvil node;
+2. verifies the pinned PATH release input;
+3. deploys the PATH dependency and current THOUGHT contracts when the lane is fresh;
+4. seeds eight canonical, name-bound Spark PATH tokens to deterministic Anvil
+   account #1 through PATH's real `allowSparker` / `mintSparker` flow;
+5. verifies or reuses the exact generated runtime when the lane was restored; and
+6. starts the THOUGHT App against that runtime; and
+7. starts a dedicated Inshell home on port `5177`, configured to read the same
+   THOUGHT runtime and proxy `/thought` to the App backing server on `5176`.
+
+The Inshell home is the canonical gallery. It lists minted THOUGHT works beside
+the other Inshell work types as they launch. The old THOUGHT-only `/gallery`
+surface is retired: `/gallery` resolves back to the home, and post-mint
+`View THOUGHT` opens `/#thought-<tokenId>` before the user chooses a work detail.
+
+The seeded PATH tokens remove the PATH auction from the routine THOUGHT App
+development loop. They are not mocks: they are ERC-721 tokens minted by the
+pinned PATH v0.5.0 contract and each carries one real `THOUGHT` movement unit.
+The App discovers them from canonical `Transfer` logs and contract reads. The
+runtime records their IDs and origin under `pathFixtures`.
+
+The dedicated chain ID is intentional. The PATH developer lane uses chain
+`31337`; giving THOUGHT chain `31338` prevents an injected wallet from treating
+the two local RPC endpoints as the same network and submitting to the wrong
+Anvil process.
+
+Local Agent runs are checkpointed after every control transition. A restarted
+dev backend can therefore accept the same idempotent Agent result while its run
+window remains open. Raw browser, launch, and bridge credentials are never
+written to the checkpoint; only their SHA-256 digests are stored. Active runs
+fail closed when the pinned contract runtime changes.
+
+This fixture set is disposable local state only. It is not a production
+allocation, deployment artifact, or substitute for the separate auction
+integration test. Reset the lane to restore all eight unconsumed fixtures.
+
+In a nonstandard checkout, point to the published PATH release explicitly:
+
+```sh
+INSHELL_THOUGHT_PATH_RELEASE_DIR=/absolute/path/to/path/releases/v0.5.0 \
+  pnpm dev:thought:stack
+```
+
+## Run the pieces separately
+
+```sh
+pnpm dev:thought:node
+pnpm dev:thought:node:prepare
+pnpm dev:thought
+```
+
+When starting the frontend separately, pass the generated runtime:
+
+```sh
+INSHELL_THOUGHT_CONTRACT_RUNTIME_FILE="$PWD/apps/thought/contract-integration/local-runtime.thought-anvil.json" \
+VITE_WALLET_CHAIN_RPC_URL=http://127.0.0.1:8547 \
+  pnpm dev:thought
+```
+
+The generated dedicated-lane runtime is also the frontend's default local
+descriptor. If it is absent, the frontend fails closed instead of falling back
+to the historical `evm/addresses.anvil.json` deployment. That historical
+deployment predates PATH v0.5.0 permission epochs and cannot produce a current
+PATH consume authorization.
+
+The standalone frontend command still uses its shared default port. The full
+THOUGHT stack command uses port `5176` so it can run beside the shared App lane.
+
+To test Codex and Claude Code through the production-shaped public HTTPS run
+service while keeping artwork and minting on local Anvil, run:
+
+```sh
+pnpm dev:thought:stack:public-agent
+```
+
+The browser remains local and uses a same-origin Vite proxy. Agent handoffs use
+the public run URL directly. The public service keeps each run private behind
+separate short-lived browser and Agent credentials; this mode does not expose
+Anvil, the local filesystem, or the LAN to either Agent.
+
+The App opens Claude Code with `claude://code/new`. The older Cowork route is
+retained only for explicit compatibility testing and is never selected by the
+App for a new run.
+
+## Reset
+
+Stop the THOUGHT stack first, then run:
+
+```sh
+pnpm dev:thought:node:reset
+```
+
+Reset removes only the THOUGHT lane state, checkpoint, and generated runtime.
+It does not touch the PATH developer lane. Starting or preparing the reset lane
+recreates the eight PATH fixtures for Anvil account #1.
+
+## Validate
+
+With the lane running:
+
+```sh
+INSHELL_THOUGHT_CONTRACT_RUNTIME_FILE="$PWD/apps/thought/contract-integration/local-runtime.thought-anvil.json" \
+  pnpm test:thought-app-contract
+```
+
+Use a shared integration node only when testing a specific PATH candidate with
+a specific THOUGHT candidate. The isolated THOUGHT lane intentionally consumes
+the pinned PATH release instead of the PATH agent's live working tree.

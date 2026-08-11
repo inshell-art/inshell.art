@@ -1,0 +1,23 @@
+{
+  "schema": "inshell.thought.provenance-release-manifest.v1",
+  "artifactId": "thought-provenance-v2-20260731-r1",
+  "provenanceSchema": "inshell.thought.provenance.v2",
+  "releasePath": "/protocol/releases/thought-provenance-v2-20260731-r1/",
+  "status": "immutable",
+  "files": [
+    {
+      "path": "thought.provenance.v2.md",
+      "mediaType": "text/markdown; charset=utf-8",
+      "bytes": 3372,
+      "sha256": "55b7f699f85d340f8273c17c04bd6c2431fac50c1d6472ce2bc3e5f1323da2bb",
+      "keccak256": "0xe0c23936deb880a92d44e19224e449ae5cf8ecfdbc316af4fe11d1b7b1b5aa8b"
+    },
+    {
+      "path": "thought.provenance.v2.schema.json",
+      "mediaType": "application/schema+json; charset=utf-8",
+      "bytes": 5606,
+      "sha256": "210abc0735cf7fb480491ec94f04495deb153560838c514c8f2ef19541821ff8",
+      "keccak256": "0x283afe4c96527dd33c17b99444a5ef27300b01af474e2daca1d5c017a50dafa4"
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "assurance": "declared-unverified",
+  "attestationCommitment": "keccak256-exact-utf8",
+  "encoding": "rfc3629-shortest-form-unicode-scalars",
+  "forbidden": {
+    "controls": ["U+0000-U+001F", "U+007F-U+009F"],
+    "defaultIgnorableRanges": [
+      "U+00AD",
+      "U+034F",
+      "U+061C",
+      "U+115F-U+1160",
+      "U+17B4-U+17B5",
+      "U+180B-U+180F",
+      "U+200B-U+200F",
+      "U+202A-U+202E",
+      "U+2060-U+206F",
+      "U+3164",
+      "U+FE00-U+FE0F",
+      "U+FEFF",
+      "U+FFA0",
+      "U+FFF0-U+FFF8",
+      "U+1BCA0-U+1BCA3",
+      "U+1D173-U+1D17A",
+      "U+E0000-U+E0FFF"
+    ],
+    "noncharacters": ["U+FDD0-U+FDEF", "U+nFFFE", "U+nFFFF"],
+    "whitespaceExceptU0020": [
+      "U+0085",
+      "U+00A0",
+      "U+1680",
+      "U+2000-U+200A",
+      "U+2028-U+2029",
+      "U+202F",
+      "U+205F",
+      "U+3000"
+    ]
+  },
+  "id": "inshell.thought.context.v2.visible-utf8-64",
+  "labels": ["declaredAgent", "declaredModel"],
+  "maxUtf8Bytes": 64,
+  "minUtf8Bytes": 1,
+  "normalization": "none",
+  "outerU0020": "reject",
+  "repeatedInternalU0020": "preserve",
+  "terminalEnglishApplies": false,
+  "version": 2,
+  "workIdentityInput": false
+}

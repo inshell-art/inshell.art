@@ -8,7 +8,7 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
   if (thought instanceof Response) return thought;
 
   return thoughtJsonResponse({
-    ref: "THOUGHT.v1.md",
+    ref: "THOUGHT.v2.md",
     specId: thought.thoughtSpecId,
     specHash: thought.thoughtSpecHash,
   });

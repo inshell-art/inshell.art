@@ -1,0 +1,97 @@
+{
+  "contracts": [
+    {
+      "contractName": "ThoughtNFTV2",
+      "creationBytes": 19422,
+      "eip170Limit": 24576,
+      "eip170RuntimePass": true,
+      "eip3860InitcodeLimit": 49152,
+      "eip3860InitcodePass": true,
+      "runtimeBytes": 17252
+    },
+    {
+      "contractName": "ThoughtRendererV2",
+      "creationBytes": 20315,
+      "eip170Limit": 24576,
+      "eip170RuntimePass": true,
+      "eip3860InitcodeLimit": 49152,
+      "eip3860InitcodePass": true,
+      "runtimeBytes": 19329
+    },
+    {
+      "contractName": "ThoughtSvgRendererV2",
+      "creationBytes": 10885,
+      "eip170Limit": 24576,
+      "eip170RuntimePass": true,
+      "eip3860InitcodeLimit": 49152,
+      "eip3860InitcodePass": true,
+      "runtimeBytes": 9899
+    },
+    {
+      "contractName": "ThoughtRendererV2Split",
+      "creationBytes": 11674,
+      "eip170Limit": 24576,
+      "eip170RuntimePass": true,
+      "eip3860InitcodeLimit": 49152,
+      "eip3860InitcodePass": true,
+      "runtimeBytes": 10760
+    },
+    {
+      "contractName": "CreationAttestationVerifierV2",
+      "creationBytes": 5214,
+      "eip170Limit": 24576,
+      "eip170RuntimePass": true,
+      "eip3860InitcodeLimit": 49152,
+      "eip3860InitcodePass": true,
+      "runtimeBytes": 3864
+    },
+    {
+      "contractName": "ThoughtSpecRegistry",
+      "creationBytes": 4524,
+      "eip170Limit": 24576,
+      "eip170RuntimePass": true,
+      "eip3860InitcodeLimit": 49152,
+      "eip3860InitcodePass": true,
+      "runtimeBytes": 4370
+    },
+    {
+      "contractName": "ThoughtSpecRegistryV2",
+      "creationBytes": 2021,
+      "eip170Limit": 24576,
+      "eip170RuntimePass": true,
+      "eip3860InitcodeLimit": 49152,
+      "eip3860InitcodePass": true,
+      "runtimeBytes": 1868
+    }
+  ],
+  "eip170RuntimeLimit": 24576,
+  "eip3860InitcodeLimit": 49152,
+  "persistentDeploymentAddressesBundled": false,
+  "schema": "inshell.thought.runtime-size-and-target-chains.v1",
+  "targetChains": [
+    {
+      "chainId": 31337,
+      "deploymentAuthorized": false,
+      "name": "Disposable Anvil",
+      "persistent": false,
+      "purpose": "downstream chain-first acceptance only",
+      "runtimeSizeCompatible": true
+    },
+    {
+      "chainId": 11155111,
+      "deploymentAuthorized": false,
+      "name": "Sepolia",
+      "persistent": true,
+      "prerequisite": "explicit operator approval and reviewed network configuration",
+      "runtimeSizeCompatible": true
+    },
+    {
+      "chainId": 1,
+      "deploymentAuthorized": false,
+      "name": "Ethereum mainnet",
+      "persistent": true,
+      "prerequisite": "separate operator approval after accepted Sepolia evidence",
+      "runtimeSizeCompatible": true
+    }
+  ]
+}

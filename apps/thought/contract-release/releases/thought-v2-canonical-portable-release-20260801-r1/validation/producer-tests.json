@@ -1,0 +1,13 @@
+{
+  "commands": [
+    "npm run renderer:v2:check",
+    "npm run build",
+    "npm run build:evm",
+    "npm test",
+    "npm run test:evm"
+  ],
+  "evmTestsPassed": 198,
+  "focusedRendererEvmTestsPassed": 17,
+  "schema": "inshell.thought.producer-test-evidence.v1",
+  "typescriptTestsPassed": 180
+}

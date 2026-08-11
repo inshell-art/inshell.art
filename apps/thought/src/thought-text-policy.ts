@@ -1,15 +1,20 @@
-import type { ThoughtV2LineKind, ThoughtV2Measure } from "./thought-v2-renderer";
+import type { ThoughtV2LineKind } from "./thought-v2-renderer";
+
+type ThoughtTextMeasure = {
+  byteLength: number;
+  errors: string[];
+};
 
 export type ThoughtTextPolicyLine = ThoughtV2LineKind | "agent output";
 
 export type ThoughtTextPolicyIssue = {
   title: string;
   detail: string;
-  nextStep: string;
+  nextStep?: string;
 };
 
-const codePointLabel = (codePoint: number) =>
-  `U+${codePoint.toString(16).toUpperCase().padStart(4, "0")}`;
+const THOUGHT_TEXT_REPERTOIRE =
+  `[space] A-Z a-z 0-9 . , ? ! : ; ' " - ( ) / &`;
 
 const codePointPosition = (value: string, target: number) => {
   const index = Array.from(value).findIndex(
@@ -34,11 +39,18 @@ const invalidSurrogatePosition = (value: string) => {
 
 const isAgentOutput = (line: ThoughtTextPolicyLine) => line === "agent output";
 const displayLine = (line: ThoughtTextPolicyLine) => isAgentOutput(line) ? "Agent output" : line;
+const sentenceLine = (line: ThoughtTextPolicyLine) =>
+  line === "prompt" ? "The prompt" : "The Agent output";
 
 const editNextStep = (line: ThoughtTextPolicyLine, promptStep: string) =>
   isAgentOutput(line)
     ? "reset and run the Agent again; output is never auto-corrected"
     : promptStep;
+
+const repeatedSpacePosition = (value: string) => {
+  const match = / {2,}/.exec(value);
+  return match?.index === undefined ? undefined : match.index + 2;
+};
 
 const describedCodePoint = (codePoint: number) => {
   if (codePoint === 0x0009) return "tab";
@@ -81,6 +93,13 @@ const isInvisibleCodePoint = (codePoint: number) =>
   (codePoint >= 0x1d173 && codePoint <= 0x1d17a) ||
   (codePoint >= 0xe0000 && codePoint <= 0xe0fff);
 
+const visibleCodePoint = (codePoint: number) => {
+  const character = String.fromCodePoint(codePoint);
+  return /[\p{C}\p{Z}]/u.test(character)
+    ? null
+    : JSON.stringify(character);
+};
+
 const issueForCodePoint = (
   value: string,
   line: ThoughtTextPolicyLine,
@@ -89,17 +108,16 @@ const issueForCodePoint = (
   const match = error.match(/U\+([0-9A-F]+)/i);
   if (!match) return null;
   const codePoint = Number.parseInt(match[1]!, 16);
-  const label = codePointLabel(codePoint);
   const position = codePointPosition(value, codePoint);
   const location = position ? ` at character ${position}` : "";
   const described = describedCodePoint(codePoint);
-  const detail = `${displayLine(line)} contains ${described} ${label}${location}`;
+  const subject = sentenceLine(line);
 
   if (codePoint === 0x0009) {
     return {
       title: "tab not allowed",
-      detail,
-      nextStep: editNextStep(line, `replace ${label}${location} with a regular space`),
+      detail: `${subject} contains a tab${location}.`,
+      nextStep: editNextStep(line, `replace the tab${location} with one regular space`),
     };
   }
   if (
@@ -110,38 +128,54 @@ const issueForCodePoint = (
   ) {
     return {
       title: "line break not allowed",
-      detail,
+      detail: `${subject} contains a line break${location}.`,
       nextStep: editNextStep(line, `delete the line break${location}`),
     };
   }
   if (isWhitespaceCodePoint(codePoint)) {
     return {
-      title: "unsupported whitespace",
-      detail,
+      title: "unsupported space",
+      detail: `${subject} contains ${described === "character" ? "an unsupported space" : `a ${described}`}${location}.`,
       nextStep: editNextStep(
         line,
-        `replace ${label}${location} with a regular space or delete it`,
+        `replace the unsupported space${location} with one regular space or delete it`,
       ),
     };
   }
   if (isInvisibleCodePoint(codePoint)) {
     return {
       title: "invisible character",
-      detail,
-      nextStep: editNextStep(line, `delete ${label}${location}`),
+      detail: `${subject} contains an invisible character${location}.`,
+      nextStep: editNextStep(line, `delete the invisible character${location}`),
     };
   }
   if (/control character/i.test(error)) {
     return {
       title: "control character",
+      detail: `${subject} contains a control character${location}.`,
+      nextStep: editNextStep(line, `delete the control character${location}`),
+    };
+  }
+  const character = visibleCodePoint(codePoint);
+  if (character) {
+    const detail =
+      `The ${character}${location} isn't supported in THOUGHT text`;
+    if (!isAgentOutput(line)) {
+      return {
+        title: `${character} can't be used`,
+        detail: `${detail}.\nAllowed: ${THOUGHT_TEXT_REPERTOIRE}`,
+      };
+    }
+    return {
+      title: `${character} can't be used`,
       detail,
-      nextStep: editNextStep(line, `delete ${label}${location}`),
+      nextStep: editNextStep(line, ""),
     };
   }
   return {
     title: "unsupported character",
-    detail,
-    nextStep: editNextStep(line, `delete or replace ${label}${location}`),
+    detail: `${subject} contains an unsupported character${location}.`,
+    nextStep: editNextStep(line, `delete or replace the character${location}`),
   };
 };
 
@@ -153,7 +187,7 @@ export const describeThoughtTextPolicyIssue = ({
 }: {
   value: string;
   line: ThoughtTextPolicyLine;
-  measure: ThoughtV2Measure;
+  measure: ThoughtTextMeasure;
   maxBytes: number;
 }): ThoughtTextPolicyIssue | null => {
   if (measure.errors.length === 0) return null;
@@ -170,8 +204,8 @@ export const describeThoughtTextPolicyIssue = ({
 
   if (measure.errors.some((error) => /line is empty/.test(error))) {
     return {
-      title: "text empty",
-      detail: `${label} contains 0 UTF-8 bytes`,
+      title: line === "prompt" ? "prompt empty" : "Agent output empty",
+      detail: `${sentenceLine(line)} is empty.`,
       nextStep: editNextStep(line, `enter a ${line}`),
     };
   }
@@ -185,10 +219,10 @@ export const describeThoughtTextPolicyIssue = ({
         ? "leading space"
         : "trailing space";
     const detail = startsWithSpace && endsWithSpace
-      ? `${label} starts and ends with U+0020`
+      ? `${sentenceLine(line)} starts and ends with a space.`
       : startsWithSpace
-        ? `${label} starts with U+0020`
-        : `${label} ends with U+0020`;
+        ? `${sentenceLine(line)} starts with a space.`
+        : `${sentenceLine(line)} ends with a space.`;
     const promptStep = startsWithSpace && endsWithSpace
       ? "delete the outer spaces"
       : startsWithSpace
@@ -201,13 +235,23 @@ export const describeThoughtTextPolicyIssue = ({
     };
   }
 
+  if (measure.errors.some((error) => /repeated internal spaces/i.test(error))) {
+    const position = repeatedSpacePosition(value);
+    const location = position ? ` at character ${position}` : "";
+    return {
+      title: "extra spaces",
+      detail: `${sentenceLine(line)} has more than one space together${location}.`,
+      nextStep: editNextStep(line, `delete the extra space${location}`),
+    };
+  }
+
   if (measure.errors.some((error) => /invalid surrogate/.test(error))) {
     const position = invalidSurrogatePosition(value);
     const location = position ? ` at character ${position}` : "";
     return {
-      title: "invalid character",
-      detail: `${label} contains an unpaired UTF-16 surrogate${location}`,
-      nextStep: editNextStep(line, `delete or replace the invalid character${location}`),
+      title: "broken character",
+      detail: `${sentenceLine(line)} contains a broken character${location}.`,
+      nextStep: editNextStep(line, `delete or replace the broken character${location}`),
     };
   }
 
@@ -217,8 +261,8 @@ export const describeThoughtTextPolicyIssue = ({
   }
 
   return {
-    title: "text invalid",
-    detail: `${label}: ${measure.errors.join("; ")}`,
-    nextStep: editNextStep(line, `edit the ${line} to match THOUGHT V2 text rules`),
+    title: line === "prompt" ? "prompt not accepted" : "Agent output not accepted",
+    detail: `${sentenceLine(line)} does not match THOUGHT text rules.`,
+    nextStep: editNextStep(line, `check the ${line} for extra spaces or unsupported characters`),
   };
 };

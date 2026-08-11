@@ -1,0 +1,213 @@
+{
+  "abi": [
+    {
+      "type": "function",
+      "name": "hashClaim",
+      "inputs": [
+        {
+          "name": "claim",
+          "type": "tuple",
+          "internalType": "struct ICreationAttestationVerifierV2.Claim",
+          "components": [
+            {
+              "name": "profileId",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "thoughtNft",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "protocolReleaseId",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "thoughtSpecId",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "thoughtSpecHash",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "workHash",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "provenanceHash",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "agentHash",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "modelHash",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "runIdHash",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "intendedMinter",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "deadline",
+              "type": "uint64",
+              "internalType": "uint64"
+            },
+            {
+              "name": "authorityEpoch",
+              "type": "uint32",
+              "internalType": "uint32"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "profileId",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "stateMutability": "pure"
+    },
+    {
+      "type": "function",
+      "name": "verify",
+      "inputs": [
+        {
+          "name": "claim",
+          "type": "tuple",
+          "internalType": "struct ICreationAttestationVerifierV2.Claim",
+          "components": [
+            {
+              "name": "profileId",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "thoughtNft",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "protocolReleaseId",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "thoughtSpecId",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "thoughtSpecHash",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "workHash",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "provenanceHash",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "agentHash",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "modelHash",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "runIdHash",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "intendedMinter",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "deadline",
+              "type": "uint64",
+              "internalType": "uint64"
+            },
+            {
+              "name": "authorityEpoch",
+              "type": "uint32",
+              "internalType": "uint32"
+            }
+          ]
+        },
+        {
+          "name": "signature",
+          "type": "bytes",
+          "internalType": "bytes"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "digest",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "attestor",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    }
+  ],
+  "bytecode": "0x",
+  "classification": "current-attestation-interface",
+  "compiler": {
+    "version": "0.8.28+commit.7893614a"
+  },
+  "contractName": "ICreationAttestationVerifierV2",
+  "deployedBytecode": "0x",
+  "methodIdentifiers": {
+    "hashClaim((bytes32,address,bytes32,bytes32,bytes32,bytes32,bytes32,bytes32,bytes32,bytes32,address,uint64,uint32))": "58921527",
+    "profileId()": "08386eba",
+    "verify((bytes32,address,bytes32,bytes32,bytes32,bytes32,bytes32,bytes32,bytes32,bytes32,address,uint64,uint32),bytes)": "2b276549"
+  },
+  "schema": "inshell.thought.compiled-contract.integration-preview.v1",
+  "sourceName": "src/v2/ICreationAttestationVerifierV2.sol"
+}

@@ -427,9 +427,9 @@ export default function ThoughtDetailPage({ tokenId }: { tokenId: string }) {
         <ThoughtDetail item={item} />
       ) : state.status === "ready" ? (
         <p className="thought-detail__status">THOUGHT #{tokenId} not found.</p>
-      ) : (
+      ) : state.status === "loading" ? (
         <p className="thought-detail__status">loading THOUGHT #{tokenId}...</p>
-      )}
+      ) : null}
     </main>
   );
 }

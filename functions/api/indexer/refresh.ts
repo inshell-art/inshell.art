@@ -15,6 +15,10 @@ import {
 import { refreshPathTokensBounded } from "../path-tokens";
 import { refreshPulseAuctionBounded, refreshPulseAuctionForTx } from "../pulse-auction";
 import { refreshThoughtGalleryBounded } from "../thought-gallery";
+import {
+  getThoughtGalleryDeployment,
+  thoughtGallerySnapshotKey,
+} from "../thought-gallery-release";
 import { isIndexerAuthorized } from "./auth";
 
 type RefreshTarget = "pulse-auction" | "path-tokens" | "thought-gallery" | "all";
@@ -46,6 +50,14 @@ export async function onRequestPost(ctx: PagesContextLike): Promise<Response> {
   const normalizedTarget = normalizeTarget(target);
   if (!normalizedTarget) {
     return json(400, { error: "invalid refresh target" });
+  }
+  const thoughtDeployment = getThoughtGalleryDeployment();
+  const thoughtSnapshotKey = thoughtGallerySnapshotKey(thoughtDeployment);
+  if (normalizedTarget === "thought-gallery" && (!thoughtDeployment || !thoughtSnapshotKey)) {
+    return json(503, {
+      error: "Current THOUGHT collection is not deployed.",
+      code: "THOUGHT_GALLERY_DEPLOYMENT_INACTIVE",
+    });
   }
 
   const targetedPublicRefresh =
@@ -96,9 +108,13 @@ export async function onRequestPost(ctx: PagesContextLike): Promise<Response> {
       results.push(resultFor("path-tokens", outcome.snapshot, currentDiagnostics, outcome.progress));
     }
 
-    if (normalizedTarget === "thought-gallery" || normalizedTarget === "all") {
+    if (
+      (normalizedTarget === "thought-gallery" || normalizedTarget === "all") &&
+      thoughtDeployment &&
+      thoughtSnapshotKey
+    ) {
       activeTarget = "thought-gallery";
-      const currentDiagnostics = createChainCacheDiagnostics("thought-gallery:v1:sepolia");
+      const currentDiagnostics = createChainCacheDiagnostics(thoughtSnapshotKey);
       const stats = createStats("thought", "indexer-refresh:thought-gallery", ctx.env);
       activeStats = stats;
       const outcome = await refreshThoughtGalleryBounded(ctx, stats, currentDiagnostics, boundedOptions);

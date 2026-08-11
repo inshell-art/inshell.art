@@ -1,0 +1,19 @@
+{
+  "exactTokenUriByteParity": true,
+  "externalUrl": {
+    "base": "https://inshell.art/thought/",
+    "testedTokenIds": [
+      "1",
+      "42",
+      "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+    ]
+  },
+  "implementations": [
+    "ThoughtRendererV2",
+    "ThoughtRendererV2Split+ThoughtSvgRendererV2"
+  ],
+  "schema": "inshell.thought.renderer-parity.integration-preview.v1",
+  "testContract": "ThoughtRendererV2Test",
+  "testSource": "evm/test/v2/ThoughtRendererV2.t.sol",
+  "verifiedAt": "2026-08-01T09:28:55Z"
+}

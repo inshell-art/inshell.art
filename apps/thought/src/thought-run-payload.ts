@@ -1,3 +1,5 @@
+import { THOUGHT_AGENT_CREATIVE_BRIEF } from "@inshell/thought-agent-protocol";
+
 export type ThoughtRunRoute = "connect" | "direct" | "local" | "my-brain" | "codex";
 
 export type ThoughtRunProvider = "openrouter" | "openai" | "anthropic" | "ollama" | "me" | "codex";
@@ -34,6 +36,12 @@ export type ThoughtRunPayload = {
   };
   input: {
     thoughtSpec: ThoughtRunSpec;
+    creativeInstructions: {
+      id: typeof THOUGHT_AGENT_CREATIVE_BRIEF.id;
+      artifactId: typeof THOUGHT_AGENT_CREATIVE_BRIEF.artifactId;
+      sha256: string;
+      text: string;
+    };
     promptLine: string;
   };
   outputContract: {
@@ -96,6 +104,12 @@ export const buildThoughtRunPayload = (input: {
     },
     input: {
       thoughtSpec: input.thoughtSpec,
+      creativeInstructions: {
+        id: THOUGHT_AGENT_CREATIVE_BRIEF.id,
+        artifactId: THOUGHT_AGENT_CREATIVE_BRIEF.artifactId,
+        sha256: `sha256:${THOUGHT_AGENT_CREATIVE_BRIEF.sha256}`,
+        text: THOUGHT_AGENT_CREATIVE_BRIEF.text,
+      },
       promptLine: input.promptLine,
     },
     outputContract: {
@@ -132,7 +146,7 @@ export const buildThoughtRuntimePrompt = (promptLine: string) => promptLine;
 export const toOpenRouterChatPayload = (payload: ThoughtRunPayload) => ({
   model: payload.config.model,
   messages: [
-    { role: "system", content: payload.input.thoughtSpec.text },
+    { role: "system", content: payload.input.creativeInstructions.text },
     { role: "user", content: payload.input.promptLine },
   ],
   ...(payload.config.request.maxOutputTokens === null
@@ -148,7 +162,7 @@ export const toOpenRouterChatPayload = (payload: ThoughtRunPayload) => ({
 
 export const toOpenAIResponsesPayload = (payload: ThoughtRunPayload) => ({
   model: payload.config.model,
-  instructions: payload.input.thoughtSpec.text,
+  instructions: payload.input.creativeInstructions.text,
   input: [
     {
       role: "user",
@@ -172,7 +186,7 @@ export const toOpenAIResponsesPayload = (payload: ThoughtRunPayload) => ({
 
 export const toAnthropicMessagesPayload = (payload: ThoughtRunPayload) => ({
   model: payload.config.model,
-  system: payload.input.thoughtSpec.text,
+  system: payload.input.creativeInstructions.text,
   ...(payload.config.request.maxOutputTokens === null
     ? {}
     : { max_tokens: payload.config.request.maxOutputTokens }),
@@ -194,7 +208,7 @@ export const toAnthropicMessagesPayload = (payload: ThoughtRunPayload) => ({
 
 export const toOllamaGeneratePayload = (payload: ThoughtRunPayload) => ({
   model: payload.config.model.replace(/^ollama:/, "").trim(),
-  system: payload.input.thoughtSpec.text,
+  system: payload.input.creativeInstructions.text,
   prompt: payload.input.promptLine,
   stream: false,
   options: {

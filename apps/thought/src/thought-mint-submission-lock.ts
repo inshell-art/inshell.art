@@ -17,13 +17,14 @@ type CryptoLike = {
 
 export type MintSubmissionLockHandle = Readonly<{
   ownerId: string;
-  kind: "web-lock";
+  kind: "web-lock" | "same-page";
   ownsExclusion: () => boolean;
 }>;
 
 export type MintSubmissionLockEnvironment = {
   locks?: LocksLike | null;
   crypto: CryptoLike;
+  allowSamePageFallback?: boolean;
 };
 
 export type MintSubmissionLockResult<T> =
@@ -61,12 +62,41 @@ export const createMintAttemptId = (
   return `${normalizedPrefix}-${Math.max(0, now).toString(36)}-${entropy}`.slice(0, 96);
 };
 
+let fallbackMintSubmissionLockOwnerId: string | null = null;
+
+const withFallbackMintSubmissionLock = async <T>(
+  environment: MintSubmissionLockEnvironment,
+  task: (handle: MintSubmissionLockHandle) => Promise<T>,
+): Promise<MintSubmissionLockResult<T>> => {
+  if (fallbackMintSubmissionLockOwnerId !== null) {
+    return Object.freeze({ acquired: false as const, reason: "busy" as const });
+  }
+
+  const ownerId = createMintAttemptId("mint-lock", environment.crypto);
+  fallbackMintSubmissionLockOwnerId = ownerId;
+  try {
+    const value = await task(Object.freeze({
+      ownerId,
+      kind: "same-page" as const,
+      ownsExclusion: () => fallbackMintSubmissionLockOwnerId === ownerId,
+    }));
+    return Object.freeze({ acquired: true as const, value });
+  } finally {
+    if (fallbackMintSubmissionLockOwnerId === ownerId) {
+      fallbackMintSubmissionLockOwnerId = null;
+    }
+  }
+};
+
 export const withMintSubmissionLock = async <T>(
   environment: MintSubmissionLockEnvironment,
   task: (handle: MintSubmissionLockHandle) => Promise<T>,
 ): Promise<MintSubmissionLockResult<T>> => {
   const locks = environment.locks;
   if (!locks || typeof locks.request !== "function") {
+    if (environment.allowSamePageFallback) {
+      return withFallbackMintSubmissionLock(environment, task);
+    }
     return Object.freeze({ acquired: false as const, reason: "unavailable" as const });
   }
 
@@ -94,6 +124,9 @@ export const withMintSubmissionLock = async <T>(
     // restricted context). Fail closed before the wallet request. Errors from
     // inside the protected task still belong to the normal mint error flow.
     if (!callbackStarted) {
+      if (environment.allowSamePageFallback) {
+        return withFallbackMintSubmissionLock(environment, task);
+      }
       return Object.freeze({ acquired: false as const, reason: "unavailable" as const });
     }
     throw error;
