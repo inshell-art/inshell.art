@@ -269,7 +269,7 @@ test("the browser canary passes dynamic page values through CDP arguments", () =
   );
   assert.doesNotMatch(
     thoughtBrowserReleaseCanary,
-    /JSON\.stringify\((?:promptLine|agentActionLabel)/,
+    /JSON\.stringify\((?:promptLine|agentActionLabel|product)/,
   );
 });
 
