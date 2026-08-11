@@ -26,6 +26,58 @@ const screenshotPath = process.env.THOUGHT_BROWSER_CANARY_SCREENSHOT ||
   path.join(os.tmpdir(), `thought-${adapterId}-browser-release-canary.png`);
 const promptLine = "Can one release remain one release?";
 
+const installBrowserReleaseCanaryFunction = `function (promptLine) {
+  window.__thoughtBrowserReleaseCanary = { create: null, launchUrl: "", statusStates: [] };
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = async (...args) => {
+    const response = await originalFetch(...args);
+    try {
+      const input = args[0];
+      const init = args[1] || {};
+      const url = typeof input === "string" || input instanceof URL ? String(input) : input.url;
+      const method = String(init.method || (input instanceof Request ? input.method : "GET")).toUpperCase();
+      if (method === "POST" && /\\/api\\/thought-agent\\/v2\\/runs$/.test(new URL(url, location.href).pathname)) {
+        window.__thoughtBrowserReleaseCanary.create = await response.clone().json();
+      }
+      if (method === "GET" && /\\/api\\/thought-agent\\/v2\\/runs\\/tar_[^/]+$/.test(new URL(url, location.href).pathname)) {
+        const status = await response.clone().json();
+        window.__thoughtBrowserReleaseCanary.statusStates.push(status.state || "unknown");
+      }
+    } catch (error) {
+      window.__thoughtBrowserReleaseCanary.captureError = String(error);
+    }
+    return response;
+  };
+  const originalAnchorClick = HTMLAnchorElement.prototype.click;
+  HTMLAnchorElement.prototype.click = function () {
+    if (/^(?:claude|codex):/.test(this.href)) {
+      window.__thoughtBrowserReleaseCanary.launchUrl = this.href;
+      return;
+    }
+    return originalAnchorClick.call(this);
+  };
+  const prompt = document.querySelector("#thought-dock-prompt");
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+  setter.call(prompt, promptLine);
+  prompt.dispatchEvent(new Event("input", { bubbles: true }));
+  return true;
+}`;
+
+const hasAgentActionFunction = `function (agentActionLabel) {
+  return [...document.querySelectorAll("button")].some((node) =>
+    node.getAttribute("aria-label") === agentActionLabel
+  );
+}`;
+
+const clickAgentActionFunction = `function (agentActionLabel, product) {
+  const button = [...document.querySelectorAll("button")].find((node) =>
+    node.getAttribute("aria-label") === agentActionLabel
+  );
+  if (!button) throw new Error(String(product) + " action not found.");
+  button.click();
+  return true;
+}`;
+
 const chromePath = [
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   "/Applications/Chromium.app/Contents/MacOS/Chromium",
@@ -105,20 +157,61 @@ const evaluate = async <T>(client: CdpClient, expression: string): Promise<T> =>
   return response.result.value as T;
 };
 
-const waitFor = async <T>(
+const getBrowserGlobalObjectId = async (client: CdpClient): Promise<string> => {
+  const response = await client.send("Runtime.evaluate", {
+    expression: "globalThis",
+    objectGroup: "thought-browser-release-canary",
+    returnByValue: false,
+  });
+  if (response.exceptionDetails) {
+    throw new Error(response.exceptionDetails.exception?.description || "Browser evaluation failed.");
+  }
+  const objectId = response.result?.objectId;
+  if (typeof objectId !== "string" || objectId.length === 0) {
+    throw new Error("Browser global object is unavailable.");
+  }
+  return objectId;
+};
+
+const callFunctionOn = async <T>(
   client: CdpClient,
-  expression: string,
+  objectId: string,
+  functionDeclaration: string,
+  argumentValues: unknown[] = [],
+): Promise<T> => {
+  const response = await client.send("Runtime.callFunctionOn", {
+    objectId,
+    functionDeclaration,
+    arguments: argumentValues.map((value) => ({ value })),
+    awaitPromise: true,
+    returnByValue: true,
+  });
+  if (response.exceptionDetails) {
+    throw new Error(response.exceptionDetails.exception?.description || "Browser function call failed.");
+  }
+  return response.result.value as T;
+};
+
+const waitForValue = async <T>(
+  load: () => Promise<T>,
   accept: (value: T) => boolean,
   label: string,
 ): Promise<T> => {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const value = await evaluate<T>(client, expression);
+    const value = await load();
     if (accept(value)) return value;
     await sleep(100);
   }
   throw new Error(`Timed out waiting for ${label}.`);
 };
+
+const waitFor = async <T>(
+  client: CdpClient,
+  expression: string,
+  accept: (value: T) => boolean,
+  label: string,
+): Promise<T> => waitForValue(() => evaluate<T>(client, expression), accept, label);
 
 type ProtocolError = { error?: { code?: string; message?: string } };
 
@@ -243,42 +336,13 @@ try {
     "THOUGHT creation UI",
   );
 
-  await evaluate(client, `(() => {
-    window.__thoughtBrowserReleaseCanary = { create: null, launchUrl: "", statusStates: [] };
-    const originalFetch = window.fetch.bind(window);
-    window.fetch = async (...args) => {
-      const response = await originalFetch(...args);
-      try {
-        const input = args[0];
-        const init = args[1] || {};
-        const url = typeof input === "string" || input instanceof URL ? String(input) : input.url;
-        const method = String(init.method || (input instanceof Request ? input.method : "GET")).toUpperCase();
-        if (method === "POST" && /\\/api\\/thought-agent\\/v2\\/runs$/.test(new URL(url, location.href).pathname)) {
-          window.__thoughtBrowserReleaseCanary.create = await response.clone().json();
-        }
-        if (method === "GET" && /\\/api\\/thought-agent\\/v2\\/runs\\/tar_[^/]+$/.test(new URL(url, location.href).pathname)) {
-          const status = await response.clone().json();
-          window.__thoughtBrowserReleaseCanary.statusStates.push(status.state || "unknown");
-        }
-      } catch (error) {
-        window.__thoughtBrowserReleaseCanary.captureError = String(error);
-      }
-      return response;
-    };
-    const originalAnchorClick = HTMLAnchorElement.prototype.click;
-    HTMLAnchorElement.prototype.click = function () {
-      if (/^(?:claude|codex):/.test(this.href)) {
-        window.__thoughtBrowserReleaseCanary.launchUrl = this.href;
-        return;
-      }
-      return originalAnchorClick.call(this);
-    };
-    const prompt = document.querySelector("#thought-dock-prompt");
-    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
-    setter.call(prompt, ${JSON.stringify(promptLine)});
-    prompt.dispatchEvent(new Event("input", { bubbles: true }));
-    return true;
-  })()`);
+  const browserGlobalObjectId = await getBrowserGlobalObjectId(client);
+  await callFunctionOn<boolean>(
+    client,
+    browserGlobalObjectId,
+    installBrowserReleaseCanaryFunction,
+    [promptLine],
+  );
 
   await evaluate(client, `(() => {
     const button = [...document.querySelectorAll("button")].find((node) =>
@@ -288,20 +352,22 @@ try {
     button.click();
     return true;
   })()`);
-  await waitFor(
-    client,
-    `[...document.querySelectorAll("button")].some((node) => node.getAttribute("aria-label") === ${JSON.stringify(agentActionLabel)})`,
+  await waitForValue(
+    () => callFunctionOn<boolean>(
+      client!,
+      browserGlobalObjectId,
+      hasAgentActionFunction,
+      [agentActionLabel],
+    ),
     Boolean,
     `${product} action`,
   );
-  await evaluate(client, `(() => {
-    const button = [...document.querySelectorAll("button")].find((node) =>
-      node.getAttribute("aria-label") === ${JSON.stringify(agentActionLabel)}
-    );
-    if (!button) throw new Error(${JSON.stringify(`${product} action not found.`)});
-    button.click();
-    return true;
-  })()`);
+  await callFunctionOn<boolean>(
+    client,
+    browserGlobalObjectId,
+    clickAgentActionFunction,
+    [agentActionLabel, product],
+  );
 
   const browserCapture = await waitFor<{
     create: typeof created;

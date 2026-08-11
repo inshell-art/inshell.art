@@ -246,6 +246,33 @@ test("the browser canary verifies release parity through the actual Agent deep l
   );
 });
 
+test("the browser canary passes dynamic page values through CDP arguments", () => {
+  assert.match(
+    thoughtBrowserReleaseCanary,
+    /client\.send\("Runtime\.callFunctionOn", \{[\s\S]*?arguments: argumentValues\.map\(\(value\) => \(\{ value \}\)\)/,
+  );
+  assert.match(
+    thoughtBrowserReleaseCanary,
+    /expression: "globalThis",[\s\S]*?const browserGlobalObjectId = await getBrowserGlobalObjectId\(client\)/,
+  );
+  assert.match(
+    thoughtBrowserReleaseCanary,
+    /installBrowserReleaseCanaryFunction,[\s\S]*?\[promptLine\]/,
+  );
+  assert.match(
+    thoughtBrowserReleaseCanary,
+    /hasAgentActionFunction,[\s\S]*?\[agentActionLabel\]/,
+  );
+  assert.match(
+    thoughtBrowserReleaseCanary,
+    /clickAgentActionFunction,[\s\S]*?\[agentActionLabel, product\]/,
+  );
+  assert.doesNotMatch(
+    thoughtBrowserReleaseCanary,
+    /JSON\.stringify\((?:promptLine|agentActionLabel)/,
+  );
+});
+
 const ruleBody = (selector) => {
   const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const match = thoughtCss.match(new RegExp(`(?:^|\\n)${escapedSelector}\\s*\\{([^}]+)\\}`));
