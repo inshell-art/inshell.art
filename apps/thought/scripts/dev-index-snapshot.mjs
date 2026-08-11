@@ -1,5 +1,5 @@
-import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 
 export const THOUGHT_DEV_SNAPSHOT_QUERY_PARAM = "inshell-thought-dev-snapshot";
@@ -90,6 +90,260 @@ function verifySnapshotBytes(label, source, expectedSha256) {
   return source;
 }
 
+function replaceExactCount(source, label, from, to, expectedCount = 1) {
+  const parts = source.split(from);
+  const actualCount = parts.length - 1;
+  if (actualCount !== expectedCount) {
+    throw new Error(
+      `Cannot restore ${THOUGHT_DEV_INDEX_SNAPSHOT.tag}: expected ${expectedCount} ${label} delta(s), received ${actualCount}`,
+    );
+  }
+  return parts.join(to);
+}
+
+function restoreMainSnapshot(source) {
+  let restored = replaceExactCount(
+    source,
+    "CLI surface symbol",
+    "IS_CLI_SURFACE",
+    "IS_CLI_DEBUG",
+    12,
+  );
+  const replacements = [
+    [
+      "CLI debug definition",
+      'const IS_CLI_DEBUG = document.documentElement.classList.contains("cli-surface");',
+      'const IS_CLI_DEBUG = ROUTE_SEARCH_PARAMS.get("debug") === "cli";',
+    ],
+    [
+      "CLI title lookup",
+      'const thoughtCliTitle = document.querySelector(".thought-cli-title") as HTMLElement | null;\n',
+      "",
+    ],
+    [
+      "CLI dock reserve",
+      'if (IS_CLI_DEBUG || frontpageStage.classList.contains("is-hidden")) {',
+      'if (frontpageStage.classList.contains("is-hidden")) {',
+    ],
+    [
+      "CLI stacked breakpoint",
+      'window.matchMedia(IS_CLI_DEBUG ? "(max-width: 900px)" : "(max-width: 1023px)").matches',
+      'window.matchMedia("(max-width: 1023px)").matches',
+    ],
+    [
+      "CLI heading lookup",
+      "  const creationHeading = IS_CLI_DEBUG ? thoughtCliTitle : frontpageHeader;\n",
+      "",
+    ],
+    [
+      "CLI heading measurement",
+      "  const headerHeight = visibleBlockOuterHeight(creationHeading);",
+      "  const headerHeight = visibleBlockOuterHeight(frontpageHeader);",
+    ],
+    [
+      "CLI viewport cap",
+      `  if (IS_CLI_DEBUG) {
+    if (isStackedOperatorLayout()) {
+      return Math.max(
+        MIN_CANVAS_SIZE,
+        getStackedOperatorAvailableHeight() - STACKED_MIN_CLI_HEIGHT,
+      );
+    }
+
+    const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+    const shellStyles = window.getComputedStyle(frontpageShell);
+    const mainStyles = window.getComputedStyle(frontpageMain);
+    const frameStyles = window.getComputedStyle(thoughtCanvasFrame);
+    const shellInset = readPx(shellStyles.paddingTop) + readPx(shellStyles.paddingBottom);
+    const frameInset = readPx(frameStyles.paddingTop) + readPx(frameStyles.paddingBottom);
+    const titleHeight = visibleBlockOuterHeight(thoughtCliTitle);
+    const rowGap = readPx(mainStyles.rowGap);
+    const availableHeight = Math.floor(
+      viewportHeight - shellInset - titleHeight - rowGap - frameInset,
+    );
+
+    return Math.max(MIN_CANVAS_SIZE, availableHeight);
+  }
+
+`,
+      "",
+    ],
+    [
+      "CLI idle canvas",
+      `
+  context.clearRect(0, 0, displayWidth, height);
+  if (IS_CLI_DEBUG && !currentWorkSvg && !currentWorkImage) {
+    context.fillStyle = readThoughtCssToken("--thought-cli-idle-canvas-bg");
+    context.fillRect(0, 0, displayWidth, height);
+    return;
+  }
+
+`,
+      "",
+    ],
+    [
+      "tagged canvas clear",
+      `  );
+  context.fillStyle = emptyFrameStyle.color;`,
+      `  );
+
+  context.clearRect(0, 0, displayWidth, height);
+  context.fillStyle = emptyFrameStyle.color;`,
+    ],
+    [
+      "CLI initial focus",
+      `  if (!IS_RUN_PAGE && IS_CLI_DEBUG) {
+    focusCliInput();
+  } else if (!IS_RUN_PAGE) {
+    focusThoughtDockPrompt({ preventScroll: true });
+  }`,
+      `  if (!IS_RUN_PAGE) {
+    focusThoughtDockPrompt({ preventScroll: true });
+  }`,
+    ],
+  ];
+  for (const [label, from, to] of replacements) {
+    restored = replaceExactCount(restored, label, from, to);
+  }
+  return restored;
+}
+
+function restoreStyleSnapshot(source) {
+  let restored = source;
+  const replacements = [
+    [
+      "CLI visual tokens",
+      `  --thought-cli-canvas-column-gap: 18px;
+  --thought-cli-canvas-row-gap: clamp(12px, 1.5vw, 20px);
+  --thought-cli-canvas-frame-padding: 16px;
+  --thought-cli-canvas-column-mobile-gap: 12px;
+  --thought-cli-shell-padding-block-start: clamp(16px, 2.2vh, 28px);
+  --thought-cli-shell-padding-inline: clamp(18px, 2.8vw, 52px);
+  --thought-cli-shell-padding-block-end: clamp(14px, 2vh, 28px);
+  --thought-cli-title-letter-spacing: 0.08em;
+  --thought-cli-idle-canvas-bg: #050505;
+`,
+      "",
+    ],
+    [
+      "creation grid",
+      `  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "canvas side"
+    "panel side";`,
+      `  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas:
+    "canvas panel";`,
+    ],
+    [
+      "Agent panel default",
+      `  align-self: var(--thought-panel-row-alignment);
+  justify-self: center;
+  box-sizing: border-box;
+  display: none;`,
+      `  align-self: var(--thought-panel-row-alignment);
+  box-sizing: border-box;
+  display: flex;`,
+    ],
+    [
+      "CLI panel default",
+      `  position: relative;
+  display: flex;
+  flex-direction: column;`,
+      `  position: relative;
+  display: none;
+  flex-direction: column;`,
+    ],
+    [
+      "Agent surface overrides",
+      `html.agent-surface .frontpage-side {
+  display: none;
+}
+
+html.agent-surface .thought-panel {
+  display: flex;
+}
+
+html.agent-surface body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-main {
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas:
+    "canvas panel";
+}
+
+`,
+      "",
+    ],
+    [
+      "desktop creation grid",
+      `  body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-main {
+    grid-template-columns: minmax(0, 1fr) var(--thought-panel-width);
+    grid-template-areas:
+      "canvas side"
+      "panel side";
+    column-gap: var(--thought-create-column-gap);`,
+      `  body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-main {
+    grid-template-columns: minmax(0, 1fr) var(--thought-panel-width);
+    grid-template-areas:
+      "canvas panel";
+    column-gap: var(--thought-create-column-gap);`,
+    ],
+    [
+      "desktop debug and Agent grids",
+      `  html.debug-cli body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-main {
+    max-width: var(--main-area-width);
+    grid-template-columns: minmax(0, 1fr) var(--thought-panel-width);
+    grid-template-areas:
+      "canvas side"
+      "panel side";
+    column-gap: var(--thought-create-column-gap);
+  }
+
+  html.agent-surface body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-main {
+    grid-template-columns: minmax(0, 1fr) var(--thought-panel-width);
+    grid-template-areas:
+      "canvas panel";
+    column-gap: var(--thought-create-column-gap);
+  }`,
+      `  html.debug-cli body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-main {
+    max-width: min(1440px, 100%);
+    grid-template-columns: minmax(0, 1fr) var(--thought-panel-width) 360px;
+    grid-template-areas:
+      "canvas panel side";
+    column-gap: 24px;
+  }`,
+    ],
+  ];
+  for (const [label, from, to] of replacements) {
+    restored = replaceExactCount(restored, label, from, to);
+  }
+
+  const cliBlockMarker =
+    "\n/* The canonical CLI creation surface preserves the exact June 10 production canvas. */\n";
+  const markerIndex = restored.indexOf(cliBlockMarker);
+  if (markerIndex === -1 || markerIndex !== restored.lastIndexOf(cliBlockMarker)) {
+    throw new Error(
+      `Cannot restore ${THOUGHT_DEV_INDEX_SNAPSHOT.tag}: expected one terminal CLI block`,
+    );
+  }
+  if (!restored.slice(markerIndex).endsWith("}\n")) {
+    throw new Error(
+      `Cannot restore ${THOUGHT_DEV_INDEX_SNAPSHOT.tag}: CLI block is not terminal`,
+    );
+  }
+  return restored.slice(0, markerIndex);
+}
+
+export function restoreThoughtDevSnapshotSource(source, fileKey) {
+  const snapshotFile = SNAPSHOT_FILES[fileKey];
+  if (!snapshotFile) {
+    throw new Error(`Unknown THOUGHT dev snapshot file: ${fileKey}`);
+  }
+  const restored = fileKey === "main"
+    ? restoreMainSnapshot(source)
+    : restoreStyleSnapshot(source);
+  return verifySnapshotBytes(fileKey, restored, snapshotFile.sha256);
+}
+
 /**
  * Reverses only the three known post-tag index deltas. The resulting bytes must
  * match the immutable tagged index before Vite may serve them as the dev UI.
@@ -116,21 +370,8 @@ export function loadThoughtDevSnapshotFile(workspaceRoot, fileKey) {
   if (!snapshotFile) {
     throw new Error(`Unknown THOUGHT dev snapshot file: ${fileKey}`);
   }
-  let source;
-  try {
-    source = execFileSync("git", ["cat-file", "blob", snapshotFile.blob], {
-      cwd: workspaceRoot,
-      encoding: "utf8",
-      maxBuffer: 2 * 1024 * 1024,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      `Cannot load immutable THOUGHT ${fileKey} blob ${snapshotFile.blob}: ${detail}`,
-    );
-  }
-  return verifySnapshotBytes(fileKey, source, snapshotFile.sha256);
+  const currentSource = readFileSync(path.resolve(workspaceRoot, snapshotFile.path), "utf8");
+  return restoreThoughtDevSnapshotSource(currentSource, fileKey);
 }
 
 export function loadThoughtDevSnapshotModule(workspaceRoot, id) {

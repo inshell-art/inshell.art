@@ -56,6 +56,10 @@ const thoughtViteConfig = await readFile(
   new URL("../apps/thought/vite.config.ts", import.meta.url),
   "utf8",
 );
+const thoughtDevSnapshot = await readFile(
+  new URL("../apps/thought/scripts/dev-index-snapshot.mjs", import.meta.url),
+  "utf8",
+);
 const repoRoot = fileURLToPath(new URL("../", import.meta.url));
 const homeViteConfig = await readFile(
   new URL("../apps/home/vite.config.ts", import.meta.url),
@@ -456,6 +460,11 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
     thoughtViteConfig,
     /globalThis\.__INSHELL_THOUGHT_DEV_INDEX_SNAPSHOT__/,
     "served dev HTML exposes the verified immutable snapshot provenance",
+  );
+  assert.doesNotMatch(
+    thoughtDevSnapshot,
+    /node:child_process|execFileSync|git\s+cat-file/,
+    "snapshot restoration must work in a shallow CI checkout",
   );
 });
 
