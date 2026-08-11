@@ -40,6 +40,7 @@ import {
   type ThoughtSha256,
 } from "../../packages/thought-agent-protocol/src/index";
 import type { RollupLog, RollupLogHandler } from "rollup";
+import { resolvePagesBuildDeploymentEnv } from "../../packages/shared/src/pagesBuildEnv";
 import {
   buildThoughtV2LocalAgentTaskBinding,
   buildThoughtV2LocalAgentOutputSchema,
@@ -1731,12 +1732,20 @@ export default defineConfig(({ command, mode }) => {
     ? buildThoughtV2LocalRelease(currentContractRuntime.evmAddresses)
     : THOUGHT_V2_LOCAL_RELEASE;
   const routeBase = normalizeViteBase(process.env.VITE_THOUGHT_ROUTE_BASE);
+  const loadedEnv = loadEnv(mode, rootDir, "VITE_");
+  const processPublicEnv = Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => key.startsWith("VITE_")),
+  );
+  const deployEnv = resolvePagesBuildDeploymentEnv({
+    configuredDeployEnv:
+      processPublicEnv.VITE_DEPLOY_ENV ?? loadedEnv.VITE_DEPLOY_ENV,
+    pagesBranch: process.env.CF_PAGES_BRANCH,
+  });
   const publicEnv = {
-    ...loadEnv(mode, rootDir, "VITE_"),
+    ...loadedEnv,
     ...(mode === "sepolia" ? { VITE_NETWORK: "sepolia" } : {}),
-    ...Object.fromEntries(
-      Object.entries(process.env).filter(([key]) => key.startsWith("VITE_"))
-    ),
+    ...processPublicEnv,
+    ...(deployEnv ? { VITE_DEPLOY_ENV: deployEnv } : {}),
   };
   const useRemoteAgentApi =
     process.env.INSHELL_THOUGHT_USE_REMOTE_AGENT_API === "1";
@@ -1798,6 +1807,9 @@ export default defineConfig(({ command, mode }) => {
       "globalThis.__INSHELL_THOUGHT_EVM_ADDRESSES__": JSON.stringify(
         currentContractRuntime?.evmAddresses ?? null,
       ),
+      ...(deployEnv
+        ? { "import.meta.env.VITE_DEPLOY_ENV": JSON.stringify(deployEnv) }
+        : {}),
       "import.meta.env.MODE": JSON.stringify(mode),
     },
     resolve: {

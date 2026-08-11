@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { RollupLog, RollupLogHandler } from "rollup";
+import { resolvePagesBuildDeploymentEnv } from "../../packages/shared/src/pagesBuildEnv";
 
 function ignoreKnownRollupWarnings(warning: RollupLog, warn: RollupLogHandler) {
   if (
@@ -74,11 +75,19 @@ export default defineConfig(({ command, mode }) => {
       : path.dirname(fileURLToPath(import.meta.url));
   const workspaceRoot = path.resolve(rootDir, "../..");
   const srcDir = path.resolve(rootDir, "src");
+  const loadedEnv = loadEnv(mode, rootDir, "VITE_");
+  const processPublicEnv = Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => key.startsWith("VITE_")),
+  );
+  const deployEnv = resolvePagesBuildDeploymentEnv({
+    configuredDeployEnv:
+      processPublicEnv.VITE_DEPLOY_ENV ?? loadedEnv.VITE_DEPLOY_ENV,
+    pagesBranch: process.env.CF_PAGES_BRANCH,
+  });
   const publicEnv = {
-    ...loadEnv(mode, rootDir, "VITE_"),
-    ...Object.fromEntries(
-      Object.entries(process.env).filter(([key]) => key.startsWith("VITE_"))
-    ),
+    ...loadedEnv,
+    ...processPublicEnv,
+    ...(deployEnv ? { VITE_DEPLOY_ENV: deployEnv } : {}),
   };
   const thoughtAppOrigin = readThoughtAppOrigin();
   const localThoughtRuntime = readLocalThoughtRuntime(
@@ -143,6 +152,9 @@ export default defineConfig(({ command, mode }) => {
       "globalThis.__INSHELL_THOUGHT_CONTRACT_RUNTIME__": JSON.stringify(
         localThoughtRuntime,
       ),
+      ...(deployEnv
+        ? { "import.meta.env.VITE_DEPLOY_ENV": JSON.stringify(deployEnv) }
+        : {}),
       "import.meta.env.MODE": JSON.stringify(mode),
     },
     resolve: {
