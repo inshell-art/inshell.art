@@ -81,6 +81,10 @@ jobs:
           if [ "${{ github.event.inputs.branch }}" = "main" ]; then
             test -n "$VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN"
           fi
+      - name: Check upstream release freshness
+        run: pnpm run check:upstream-releases
+      - name: Verify PATH contract release
+        run: pnpm run check:path-contract-release
       - name: Validate deployment gates
         run: pnpm run check:deployment
       - name: Check PUB path boundary
@@ -171,6 +175,10 @@ jobs:
           if [ "${{ github.event.inputs.branch }}" = "main" ]; then
             test -n "$VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN"
           fi
+      - name: Check upstream release freshness
+        run: pnpm run check:upstream-releases
+      - name: Verify PATH contract release
+        run: pnpm run check:path-contract-release
       - name: Validate deployment gates
         run: pnpm run check:deployment
       - name: Check PUB path boundary
