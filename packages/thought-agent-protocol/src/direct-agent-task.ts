@@ -1,5 +1,6 @@
 import { THOUGHT_V2_PROTOCOL_RELEASE } from "./release.generated";
 import { THOUGHT_AGENT_RUN_AUTHORITY } from "./run-authority";
+import { removeTrailingSlashes } from "./run-url";
 
 const THOUGHT_AGENT_PROTOCOL_VERSION = THOUGHT_V2_PROTOCOL_RELEASE.agentRunId;
 const THOUGHT_AGENT_RESULT_VERSION =
@@ -134,7 +135,7 @@ export function buildThoughtDirectAgentOperationContract(
     userConfigPolicy: "agent-owned",
   } as const;
   const invocationId = `tai_${input.runId.slice(4)}`;
-  const baseUrl = input.runUrl.replace(/\/+$/g, "");
+  const baseUrl = removeTrailingSlashes(input.runUrl);
   return {
     schema: profile.operationSchema,
     runId: input.runId,
