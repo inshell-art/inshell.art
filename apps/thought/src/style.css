@@ -523,9 +523,10 @@ body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-main {
   container-type: size;
   justify-content: center;
   grid-template-columns: minmax(0, 1fr) var(--thought-panel-width);
-  grid-template-rows: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
   grid-template-areas:
-    "canvas panel";
+    "canvas side"
+    "panel side";
   column-gap: var(--thought-create-column-gap);
   row-gap: 0;
 }
@@ -635,8 +636,9 @@ html.debug-cli body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-m
   height: min(var(--thought-cli-height), var(--thought-create-available-height));
   max-height: min(var(--thought-cli-height), var(--thought-create-available-height));
   align-self: var(--thought-panel-row-alignment);
+  justify-self: center;
   box-sizing: border-box;
-  display: flex;
+  display: none;
   flex-direction: column;
   overflow: hidden;
   color: var(--text);
@@ -716,13 +718,27 @@ html.debug-cli body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-m
   max-width: 360px;
   min-width: 300px;
   position: relative;
-  display: none;
+  display: flex;
   flex-direction: column;
   min-height: 0;
 }
 
 html.debug-cli .frontpage-side {
   display: flex;
+}
+
+html.agent-surface .frontpage-side {
+  display: none;
+}
+
+html.agent-surface .thought-panel {
+  display: flex;
+}
+
+html.agent-surface body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-main {
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas:
+    "canvas panel";
 }
 
 html.thought-route .frontpage-side {
@@ -741,18 +757,27 @@ body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-side {
   body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-main {
     grid-template-columns: minmax(0, 1fr) var(--thought-panel-width);
     grid-template-areas:
-      "canvas panel";
+      "canvas side"
+      "panel side";
     column-gap: var(--thought-create-column-gap);
     row-gap: 0;
     align-items: start;
   }
 
   html.debug-cli body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-main {
-    max-width: min(1440px, 100%);
-    grid-template-columns: minmax(0, 1fr) var(--thought-panel-width) 360px;
+    max-width: var(--main-area-width);
+    grid-template-columns: minmax(0, 1fr) var(--thought-panel-width);
     grid-template-areas:
-      "canvas panel side";
-    column-gap: 24px;
+      "canvas side"
+      "panel side";
+    column-gap: var(--thought-create-column-gap);
+  }
+
+  html.agent-surface body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-main {
+    grid-template-columns: minmax(0, 1fr) var(--thought-panel-width);
+    grid-template-areas:
+      "canvas panel";
+    column-gap: var(--thought-create-column-gap);
   }
 
   .thought-panel {

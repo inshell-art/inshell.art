@@ -271,6 +271,9 @@ test("the browser canary passes dynamic page values through CDP arguments", () =
     thoughtBrowserReleaseCanary,
     /JSON\.stringify\((?:promptLine|agentActionLabel|product)/,
   );
+  assert.match(thoughtBrowserReleaseCanary, /url\.searchParams\.set\("surface", "agent"\)/);
+  assert.match(thoughtBrowserReleaseCanary, /document\.documentElement\.classList\.contains\("agent-surface"\)/);
+  assert.match(thoughtBrowserReleaseCanary, /node\.getBoundingClientRect\(\)\.width > 0/);
 });
 
 const ruleBody = (selector) => {
@@ -332,6 +335,54 @@ test("THOUGHT creation page presents its canonical slogan below the title", () =
   assert.match(
     thoughtMain,
     /thoughtCanvasPanel\.style\.setProperty\(\s*"--thought-canvas-frame-width",/,
+  );
+});
+
+test("THOUGHT creation keeps the production CLI surface visible by default", () => {
+  assert.match(
+    indexHtml,
+    /id="thought-cli-panel" class="frontpage-side thought-cli-panel"[\s\S]*?aria-label="THOUGHT operator panel"[\s\S]*?id="thought-cli-transcript"[\s\S]*?id="thought-cli-suggestions"[\s\S]*?id="thought-cli-form"[\s\S]*?thought&gt;/,
+  );
+
+  const sideBody = ruleBody(".frontpage-side");
+  assert.match(sideBody, /display:\s*flex/);
+  assert.doesNotMatch(sideBody, /display:\s*none/);
+  assert.match(
+    thoughtCss,
+    /body\.frontpage:has\(\.frontpage-stage:not\(\.is-hidden\)\) \.frontpage-main[\s\S]*?grid-template-areas:\s*\n\s*"canvas side"\s*\n\s*"panel side"/,
+  );
+  assert.doesNotMatch(
+    thoughtCss,
+    /grid-template-areas:\s*\n\s*"canvas panel side"/,
+    "the default CLI must not be squeezed into a third desktop column",
+  );
+  assert.match(
+    ruleBody(".thought-panel"),
+    /display:\s*none/,
+    "the Agent panel must not cover the default CLI canvas",
+  );
+  assert.match(indexHtml, /params\.get\("surface"\) !== "agent"/);
+  assert.match(
+    indexHtml,
+    /classList\.add\(isCliSurface \? "cli-surface" : "agent-surface"\)/,
+  );
+  assert.match(indexHtml, /href="\/thought\?surface=agent">\[ Agent \]<\/a>/);
+  assert.match(
+    thoughtCss,
+    /html\.agent-surface \.thought-panel\s*\{\s*display:\s*flex;/,
+  );
+  assert.match(
+    thoughtCss,
+    /html\.agent-surface \.frontpage-side\s*\{\s*display:\s*none;/,
+  );
+  assert.match(thoughtMain, /const IS_CLI_SURFACE = document\.documentElement\.classList\.contains\("cli-surface"\)/);
+  assert.match(
+    thoughtMain,
+    /if \(!IS_RUN_PAGE && IS_CLI_SURFACE\) \{\s*focusCliInput\(\);\s*\} else if \(!IS_RUN_PAGE\) \{\s*focusThoughtDockPrompt/,
+  );
+  assert.match(
+    thoughtMain,
+    /const getThoughtDockViewportReserve = \(\) => \{\s*if \(IS_CLI_SURFACE \|\| frontpageStage\.classList\.contains\("is-hidden"\)\) \{\s*return 0;/,
   );
 });
 

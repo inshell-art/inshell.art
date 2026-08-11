@@ -1977,7 +1977,7 @@ const IS_RUN_PAGE = Boolean(ROUTE_RUN_ID);
 const ROUTE_PLUGIN_MATCH = /^\/plugin(?:\/(codex|claude))?$/.exec(ROUTE_PATHNAME);
 const ROUTE_PLUGIN_AGENT = (ROUTE_PLUGIN_MATCH?.[1] ?? "") as "" | ThoughtDockAgentAdapterId;
 const IS_PLUGIN_PAGE = Boolean(ROUTE_PLUGIN_MATCH);
-const IS_CLI_DEBUG = ROUTE_SEARCH_PARAMS.get("debug") === "cli";
+const IS_CLI_SURFACE = document.documentElement.classList.contains("cli-surface");
 if (IS_VERIFY_PAGE && !LOCAL_BROWSER_HOSTS.has(window.location.hostname)) {
   window.location.replace(PATH_VERIFY_CONTRACTS_URL);
 }
@@ -3869,7 +3869,7 @@ const focusThoughtDockPrompt = (options?: { preventScroll?: boolean }) => {
 
 const shouldRefocusThoughtDockFromClick = (target: EventTarget | null) => {
   if (
-    IS_CLI_DEBUG ||
+    IS_CLI_SURFACE ||
     frontpageStage.classList.contains("is-hidden") ||
     thoughtDockPrompt.disabled ||
     !(target instanceof HTMLElement) ||
@@ -16040,11 +16040,11 @@ const visibleBlockOuterHeight = (element: HTMLElement | null) => {
 
 const isThoughtPanelSideLayout = () =>
   window.matchMedia("(min-width: 1024px)").matches &&
-  !IS_CLI_DEBUG &&
+  !IS_CLI_SURFACE &&
   !frontpageStage.classList.contains("is-hidden");
 
 const getThoughtDockViewportReserve = () => {
-  if (frontpageStage.classList.contains("is-hidden")) {
+  if (IS_CLI_SURFACE || frontpageStage.classList.contains("is-hidden")) {
     return 0;
   }
   if (isThoughtPanelSideLayout()) {
@@ -22740,7 +22740,7 @@ thoughtCliTranscript.addEventListener("scroll", () => {
 });
 
 frontpageShell.addEventListener("click", (event) => {
-  if (IS_CLI_DEBUG && shouldRefocusCliFromClick(event.target)) {
+  if (IS_CLI_SURFACE && shouldRefocusCliFromClick(event.target)) {
     focusCliInput();
   }
 });
@@ -22752,7 +22752,7 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (IS_CLI_DEBUG && shouldRefocusCliFromKeyboard(event)) {
+  if (IS_CLI_SURFACE && shouldRefocusCliFromKeyboard(event)) {
     focusCliInputFromKeyboard(event);
   }
 });
@@ -23297,7 +23297,7 @@ const initFrontpage = async () => {
   const hydratedRunLink = await hydrateThoughtRunLink();
   const resumedPendingThoughtDockRun = hydratedRunLink ? false : resumeThoughtDockPendingRun();
   const resumedPendingThoughtAgentRun = hydratedRunLink || resumedPendingThoughtDockRun ? false : resumePendingThoughtAgentRun();
-  if (!hydratedRunLink && !resumedPendingThoughtDockRun && !resumedPendingThoughtAgentRun && IS_CLI_DEBUG) {
+  if (!hydratedRunLink && !resumedPendingThoughtDockRun && !resumedPendingThoughtAgentRun && IS_CLI_SURFACE) {
     markInterruptedCliRun();
   }
   loadCliCommandHistory();
@@ -23380,7 +23380,9 @@ const initFrontpage = async () => {
   void document.fonts.load(`100 12px ${CANVAS_TEXT_FAMILY}`).then(() => {
     syncCurrentWorkVisual({ suppressWarning: true });
   });
-  if (!IS_RUN_PAGE) {
+  if (!IS_RUN_PAGE && IS_CLI_SURFACE) {
+    focusCliInput();
+  } else if (!IS_RUN_PAGE) {
     focusThoughtDockPrompt({ preventScroll: true });
   }
 };

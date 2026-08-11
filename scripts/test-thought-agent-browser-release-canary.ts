@@ -14,7 +14,15 @@ import {
   sha256Hex,
 } from "../packages/thought-agent-protocol/src/index";
 
-const pageUrl = process.env.THOUGHT_BROWSER_CANARY_URL || "http://127.0.0.1:5185/thought/";
+const pageUrl = (() => {
+  const url = new URL(
+    process.env.THOUGHT_BROWSER_CANARY_URL || "http://127.0.0.1:5185/thought/",
+  );
+  if (!url.searchParams.has("surface")) {
+    url.searchParams.set("surface", "agent");
+  }
+  return url.toString();
+})();
 const timeoutMs = Number(process.env.THOUGHT_BROWSER_CANARY_TIMEOUT_MS || 45_000);
 const adapterId = process.env.THOUGHT_BROWSER_CANARY_AGENT === "codex" ? "codex" : "claude";
 const product = adapterId === "codex" ? "Codex" : "Claude";
@@ -65,13 +73,21 @@ const installBrowserReleaseCanaryFunction = `function (promptLine) {
 
 const hasAgentActionFunction = `function (agentActionLabel) {
   return [...document.querySelectorAll("button")].some((node) =>
-    node.getAttribute("aria-label") === agentActionLabel
+    node.getAttribute("aria-label") === agentActionLabel &&
+    node.getBoundingClientRect().width > 0 &&
+    node.getBoundingClientRect().height > 0 &&
+    getComputedStyle(node).display !== "none" &&
+    getComputedStyle(node).visibility !== "hidden"
   );
 }`;
 
 const clickAgentActionFunction = `function (agentActionLabel, product) {
   const button = [...document.querySelectorAll("button")].find((node) =>
-    node.getAttribute("aria-label") === agentActionLabel
+    node.getAttribute("aria-label") === agentActionLabel &&
+    node.getBoundingClientRect().width > 0 &&
+    node.getBoundingClientRect().height > 0 &&
+    getComputedStyle(node).display !== "none" &&
+    getComputedStyle(node).visibility !== "hidden"
   );
   if (!button) throw new Error(String(product) + " action not found.");
   button.click();
@@ -331,7 +347,7 @@ try {
   await client.send("Page.navigate", { url: pageUrl });
   await waitFor(
     client,
-    `document.readyState === "complete" && Boolean(document.querySelector("#thought-dock-prompt"))`,
+    `document.readyState === "complete" && document.documentElement.classList.contains("agent-surface") && document.querySelector("#thought-dock-prompt")?.getBoundingClientRect().width > 0`,
     Boolean,
     "THOUGHT creation UI",
   );
@@ -346,7 +362,11 @@ try {
 
   await evaluate(client, `(() => {
     const button = [...document.querySelectorAll("button")].find((node) =>
-      node.getAttribute("aria-label") === "run this THOUGHT with your Agent"
+      node.getAttribute("aria-label") === "run this THOUGHT with your Agent" &&
+      node.getBoundingClientRect().width > 0 &&
+      node.getBoundingClientRect().height > 0 &&
+      getComputedStyle(node).display !== "none" &&
+      getComputedStyle(node).visibility !== "hidden"
     );
     if (!button) throw new Error("Send to your Agent action not found.");
     button.click();

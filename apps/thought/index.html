@@ -79,6 +79,8 @@
       } else if (thoughtPathMatch || thoughtQueryId) {
         document.documentElement.classList.add("thought-route");
       }
+      const isCliSurface = params.get("debug") === "cli" || params.get("surface") !== "agent";
+      document.documentElement.classList.add(isCliSurface ? "cli-surface" : "agent-surface");
       if (params.get("debug") === "cli") {
         document.documentElement.classList.add("debug-cli");
       }
@@ -113,6 +115,11 @@
           <h1 id="frontpage-title" class="thought-create__title">THOUGHT</h1>
           <p class="thought-create__slogan">one person. one Agent. one thought.</p>
         </div>
+        <nav class="thought-create__links" aria-label="THOUGHT creation surfaces">
+          <a href="/thought">[ cli ]</a>
+          <a href="/thought?surface=agent">[ Agent ]</a>
+          <a href="/thought/verify">[ verify ]</a>
+        </nav>
       </header>
       <div class="frontpage-main">
         <div class="thought-canvas-column">
