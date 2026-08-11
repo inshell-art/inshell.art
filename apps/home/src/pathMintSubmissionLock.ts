@@ -25,7 +25,9 @@ export async function withPathMintSubmissionLock(
   if (typeof lockManager?.request !== "function") return "unsupported";
 
   let result: PathMintSubmissionLockResult = "busy";
-  let taskFailure: { error: unknown } | null = null;
+  const taskState: { failure: { error: unknown } | null } = {
+    failure: null,
+  };
   try {
     await lockManager.request(
       `inshell:path-mint-submit:${handoffId}`,
@@ -36,7 +38,7 @@ export async function withPathMintSubmissionLock(
         try {
           await task();
         } catch (error) {
-          taskFailure = { error };
+          taskState.failure = { error };
         }
       },
     );
@@ -45,6 +47,6 @@ export async function withPathMintSubmissionLock(
     return "unsupported";
   }
 
-  if (taskFailure) throw taskFailure.error;
+  if (taskState.failure) throw taskState.failure.error;
   return result;
 }

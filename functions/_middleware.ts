@@ -1,3 +1,16 @@
+import docsRouteMetadataJson from "../packages/shared/generated/docs-route-metadata.json";
+
+type DocsRouteMetadata = {
+  description: string;
+  title: string;
+};
+
+const DOCS_ROUTE_METADATA = docsRouteMetadataJson.topics as Record<
+  string,
+  DocsRouteMetadata
+>;
+const DOCS_ARTICLE_SLUGS = new Set(Object.keys(DOCS_ROUTE_METADATA));
+
 const PUBLIC_FEED_RSS_URL = "https://inshell-public-feed.pages.dev/rss.xml";
 const PUBLIC_FEED_ALIAS_URL = "https://inshell-public-feed.pages.dev/feed.xml";
 const PUBLIC_FEED_SEPOLIA_RSS_URL = "https://inshell-public-feed.pages.dev/rss.sepolia.xml";
@@ -51,6 +64,9 @@ export async function onRequest(ctx: MiddlewareContext): Promise<Response> {
   }
 
   const pathname = normalizePathname(url.pathname);
+  if (isImmutableProtocolReleasePathname(pathname)) {
+    return serveImmutableProtocolRelease(ctx, pathname);
+  }
   const galleryRedirect = canonicalGalleryHostRedirect(ctx.request, url, pathname);
   const sepoliaRedirect = temporarySepoliaHostRedirect(url);
   const thoughtRedirect = canonicalThoughtRedirect(ctx.request, url, pathname);
@@ -498,10 +514,17 @@ function normalizePathname(pathname: string) {
   return pathname.replace(/\/+$/, "");
 }
 
+function parseDocsArticleSlug(pathname: string) {
+  const match = /^\/docs\/([a-z0-9]+(?:-[a-z0-9]+)*)$/.exec(pathname);
+  return match?.[1] ?? null;
+}
+
 function isAppShellRoute(pathname: string) {
   return (
     pathname === "/" ||
     pathname === "/pulse" ||
+    pathname === "/docs" ||
+    parseDocsArticleSlug(pathname) !== null ||
     pathname === "/color-font" ||
     pathname === "/verify" ||
     pathname === "/path-app" ||
@@ -509,6 +532,68 @@ function isAppShellRoute(pathname: string) {
     pathname === "/gallery" ||
     isTokenRoute(pathname, "path")
   );
+}
+
+function isImmutableProtocolReleasePathname(pathname: string) {
+  return pathname === "/protocol/releases" || pathname.startsWith("/protocol/releases/");
+}
+
+async function serveImmutableProtocolRelease(
+  ctx: MiddlewareContext,
+  pathname: string,
+): Promise<Response> {
+  if (ctx.request.method !== "GET" && ctx.request.method !== "HEAD") {
+    return new Response("Immutable protocol artifacts are read-only.", {
+      status: 405,
+      headers: {
+        allow: "GET, HEAD",
+        "cache-control": "no-store",
+        "content-type": "text/plain; charset=utf-8",
+        "x-content-type-options": "nosniff",
+      },
+    });
+  }
+
+  const response = ctx.env.ASSETS
+    ? await ctx.env.ASSETS.fetch(ctx.request)
+    : await ctx.next(ctx.request);
+  const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+  if (!response.ok || contentType.includes("text/html")) {
+    return new Response("Immutable protocol artifact not found.", {
+      status: 404,
+      headers: {
+        "cache-control": "no-store",
+        "content-type": "text/plain; charset=utf-8",
+        "x-content-type-options": "nosniff",
+      },
+    });
+  }
+
+  const headers = new Headers(response.headers);
+  headers.set("cache-control", "public, max-age=31536000, immutable");
+  headers.set("content-type", immutableProtocolContentType(pathname));
+  headers.set("x-content-type-options", "nosniff");
+  return new Response(ctx.request.method === "HEAD" ? null : response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+function immutableProtocolContentType(pathname: string) {
+  if (pathname.endsWith(".schema.json")) {
+    return "application/schema+json; charset=utf-8";
+  }
+  if (pathname.endsWith(".json")) {
+    return "application/json; charset=utf-8";
+  }
+  if (pathname.endsWith(".md")) {
+    return "text/markdown; charset=utf-8";
+  }
+  if (pathname.endsWith(".txt")) {
+    return "text/plain; charset=utf-8";
+  }
+  return "application/octet-stream";
 }
 
 function isThoughtAppShellRoute(pathname: string) {
@@ -692,7 +777,7 @@ async function serveAppShell(ctx: MiddlewareContext): Promise<Response> {
   } else {
     response = await ctx.next(request);
   }
-  return withAppShellHeaders(response);
+  return withAppShellHeaders(response, ctx.request);
 }
 
 async function serveThoughtAppShell(ctx: MiddlewareContext): Promise<Response> {
@@ -706,18 +791,210 @@ async function serveThoughtAppShell(ctx: MiddlewareContext): Promise<Response> {
   } else {
     response = await ctx.next(request);
   }
-  return withAppShellHeaders(response);
+  return withAppShellHeaders(response, ctx.request);
 }
 
-function withAppShellHeaders(response: Response) {
+async function withAppShellHeaders(response: Response, request: Request) {
   const headers = new Headers(response.headers);
   headers.delete("clear-site-data");
   headers.set("cache-control", APP_SHELL_CACHE_CONTROL);
-  return new Response(response.body, {
+  const url = new globalThis.URL(request.url);
+  headers.set("link", appShellDiscoveryLink(url.pathname));
+  const contentType = headers.get("content-type")?.toLowerCase() ?? "";
+  if (request.method === "HEAD" || !contentType.includes("text/html")) {
+    return new Response(request.method === "HEAD" ? null : response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  }
+
+  const metadata = appShellMetadata(url.pathname);
+  const canonicalUrl = `https://inshell.art${metadata.canonicalPath}`;
+  let html = await response.text();
+  html = upsertHeadTag(
+    html,
+    /<link\s+rel=["']canonical["'][^>]*>/i,
+    `<link rel="canonical" href="${escapeHtmlAttribute(canonicalUrl)}" />`,
+  );
+  html = upsertHeadTag(
+    html,
+    /<title>[\s\S]*?<\/title>/i,
+    `<title>${escapeHtmlText(metadata.title)}</title>`,
+  );
+  html = upsertMetaContent(html, "name", "description", metadata.description);
+  html = upsertMetaContent(html, "property", "og:title", metadata.title);
+  html = upsertMetaContent(html, "property", "og:description", metadata.description);
+  html = upsertMetaContent(html, "property", "og:url", canonicalUrl);
+  html = upsertMetaContent(html, "name", "twitter:title", metadata.title);
+  html = upsertMetaContent(html, "name", "twitter:description", metadata.description);
+  headers.delete("content-length");
+  headers.delete("content-encoding");
+  headers.delete("etag");
+  headers.delete("last-modified");
+  return new Response(html, {
     status: response.status,
     statusText: response.statusText,
     headers,
   });
+}
+
+function appShellCanonicalPath(rawPathname: string) {
+  const pathname = normalizePathname(rawPathname);
+  const docsArticleSlug = parseDocsArticleSlug(pathname);
+  if (docsArticleSlug && !DOCS_ARTICLE_SLUGS.has(docsArticleSlug)) return "/docs";
+  if (isAppShellRoute(pathname) || isThoughtAppShellRoute(pathname)) return pathname;
+  return "/";
+}
+
+type AppShellMetadata = {
+  canonicalPath: string;
+  description: string;
+  title: string;
+};
+
+function appShellMetadata(rawPathname: string): AppShellMetadata {
+  const pathname = normalizePathname(rawPathname);
+  const docsArticleSlug = parseDocsArticleSlug(pathname);
+  if (pathname === "/docs" || docsArticleSlug) {
+    const articleMetadata = docsArticleSlug
+      ? DOCS_ROUTE_METADATA[docsArticleSlug]
+      : undefined;
+    return {
+      canonicalPath: articleMetadata ? pathname : "/docs",
+      title: articleMetadata
+        ? `${articleMetadata.title} — docs — Inshell`
+        : "docs — Inshell",
+      description: articleMetadata
+        ? articleMetadata.description
+        : "Inshell documentation for the artist, works, contracts, provenance, and verification boundaries.",
+    };
+  }
+
+  const pathId = parseTokenRouteId(pathname, "path");
+  if (pathId) {
+    return {
+      canonicalPath: pathname,
+      title: `$PATH #${pathId}`,
+      description: `$PATH #${pathId} artwork, mint capacity, issuance, and public chain record.`,
+    };
+  }
+  const thoughtId = parseTokenRouteId(pathname, "thought");
+  if (thoughtId) {
+    return {
+      canonicalPath: pathname,
+      title: `THOUGHT #${thoughtId}`,
+      description: `THOUGHT #${thoughtId} canonical artwork, work, creation provenance, and verification record.`,
+    };
+  }
+  if (pathname === "/thought" || pathname.startsWith("/thought/")) {
+    return {
+      canonicalPath: appShellCanonicalPath(pathname),
+      title: "THOUGHT",
+      description: "THOUGHT is a narrow terminal channel between one human intention and one Agent response.",
+    };
+  }
+
+  const known = new Map<string, Omit<AppShellMetadata, "canonicalPath">>([
+    ["/", {
+      title: "Inshell",
+      description: "Inshell is an artist working with human intention, Agents, code, and public blockchains.",
+    }],
+    ["/path", {
+      title: "$PATH",
+      description: "$PATH is the Inshell permission token issued through Pulse and an evolving record of movement progress.",
+    }],
+    ["/pulse", {
+      title: "Pulse",
+      description: "Pulse is the decentralized automatic auction that issues public $PATH tokens.",
+    }],
+    ["/thought", {
+      title: "THOUGHT",
+      description: "THOUGHT is a narrow terminal channel between one human intention and one Agent response.",
+    }],
+    ["/gallery", {
+      title: "THOUGHT gallery",
+      description: "Canonical THOUGHT gallery route; the current R2 collection is not deployed.",
+    }],
+    ["/verify", {
+      title: "verify — Inshell",
+      description: "Official origins, contracts, releases, locks, and verification boundaries for Inshell.",
+    }],
+    ["/color-font", {
+      title: "color-font — Inshell",
+      description: "Inshell color and typography primitives.",
+    }],
+  ]);
+  const metadata = known.get(pathname) ?? known.get("/")!;
+  return {
+    canonicalPath: appShellCanonicalPath(pathname),
+    ...metadata,
+  };
+}
+
+function upsertMetaContent(
+  html: string,
+  attribute: "name" | "property",
+  key: string,
+  content: string,
+) {
+  const pattern = new RegExp(`<meta\\s+${attribute}=["']${key}["'][^>]*>`, "i");
+  return upsertHeadTag(
+    html,
+    pattern,
+    `<meta ${attribute}="${key}" content="${escapeHtmlAttribute(content)}" />`,
+  );
+}
+
+function upsertHeadTag(html: string, pattern: RegExp, tag: string) {
+  if (pattern.test(html)) return html.replace(pattern, tag);
+  if (/<\/head>/i.test(html)) return html.replace(/<\/head>/i, `${tag}\n</head>`);
+  return `${tag}\n${html}`;
+}
+
+function escapeHtmlAttribute(value: string) {
+  return escapeHtmlText(value).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+function escapeHtmlText(value: string) {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function appShellDiscoveryLink(rawPathname: string) {
+  const pathname = normalizePathname(rawPathname);
+  const docsArticleSlug = parseDocsArticleSlug(pathname);
+  const links = [
+    '</docs/agent-index.json>; rel="alternate"; type="application/json"; title="Inshell Agent documentation index"',
+  ];
+  if (pathname === "/docs") {
+    links.unshift(
+      '</docs/index.md>; rel="alternate"; type="text/markdown"; title="Inshell documentation"',
+      '</docs/content.json>; rel="alternate"; type="application/json"; title="Inshell structured documentation"',
+    );
+  } else if (docsArticleSlug && DOCS_ARTICLE_SLUGS.has(docsArticleSlug)) {
+    links.unshift(
+      `</docs/${docsArticleSlug}.md>; rel="alternate"; type="text/markdown"; title="Inshell documentation article"`,
+      `</docs/${docsArticleSlug}.json>; rel="alternate"; type="application/json"; title="Inshell structured documentation article"`,
+    );
+  } else if (docsArticleSlug) {
+    links.unshift(
+      '</docs/content.json>; rel="alternate"; type="application/json"; title="Inshell structured documentation"',
+    );
+  }
+  const pathId = parseTokenRouteId(pathname, "path");
+  if (pathId) {
+    links.unshift(
+      `</api/path-record?id=${pathId}>; rel="alternate"; type="application/json"; title="$PATH #${pathId} public record"`,
+    );
+  }
+  const thoughtId = parseTokenRouteId(pathname, "thought");
+  if (thoughtId) {
+    links.unshift(
+      `</api/thought-record?id=${thoughtId}>; rel="alternate"; type="application/json"; title="THOUGHT #${thoughtId} public record"`,
+      `</api/thought-provenance?id=${thoughtId}>; rel="alternate"; type="application/json"; title="THOUGHT #${thoughtId} provenance"`,
+    );
+  }
+  return links.join(", ");
 }
 
 async function proxyFeed(url: string, request: Request): Promise<Response> {

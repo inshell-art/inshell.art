@@ -158,6 +158,7 @@ export default defineConfig(({ command, mode }) => {
       "import.meta.env.MODE": JSON.stringify(mode),
     },
     resolve: {
+      dedupe: ["react", "react-dom"],
       alias: [
         { find: /^@\//, replacement: `${srcDir}/` },
         { find: "@", replacement: srcDir },

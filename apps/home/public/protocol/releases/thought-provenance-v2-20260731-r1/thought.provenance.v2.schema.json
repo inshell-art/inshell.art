@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inshell.art/protocol/releases/thought-provenance-v2-20260731-r1/thought.provenance.v2.schema.json",
+  "title": "THOUGHT Provenance V2",
+  "additionalProperties": false,
+  "properties": {
+    "mintContext": { "$ref": "#/$defs/mintContext" },
+    "process": {
+      "oneOf": [
+        { "$ref": "#/$defs/agentRunProcess" },
+        { "$ref": "#/$defs/manualProcess" }
+      ]
+    },
+    "protocol": { "$ref": "#/$defs/protocol" },
+    "schema": { "const": "inshell.thought.provenance.v2" },
+    "work": { "$ref": "#/$defs/work" }
+  },
+  "required": ["mintContext", "process", "protocol", "schema", "work"],
+  "type": "object",
+  "$defs": {
+    "address": {
+      "pattern": "^(?!0x0{40}$)0x[0-9a-f]{40}$",
+      "type": "string"
+    },
+    "agentRunAgent": {
+      "additionalProperties": false,
+      "properties": {
+        "identifier": { "$ref": "#/$defs/publicIdentifier" },
+        "label": { "$ref": "#/$defs/contextLabel" },
+        "source": { "const": "producer-selected" }
+      },
+      "required": ["label", "source"],
+      "type": "object"
+    },
+    "agentRunModel": {
+      "additionalProperties": false,
+      "properties": {
+        "identifier": { "$ref": "#/$defs/publicIdentifier" },
+        "label": { "$ref": "#/$defs/contextLabel" },
+        "source": { "const": "runtime-reported" }
+      },
+      "required": ["label", "source"],
+      "type": "object"
+    },
+    "agentRunProcess": {
+      "additionalProperties": false,
+      "properties": {
+        "agent": { "$ref": "#/$defs/agentRunAgent" },
+        "kind": { "const": "agent-run" },
+        "model": { "$ref": "#/$defs/agentRunModel" },
+        "run": { "$ref": "#/$defs/run" }
+      },
+      "required": ["agent", "kind", "model", "run"],
+      "type": "object"
+    },
+    "bytes32": {
+      "pattern": "^0x[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "contextLabel": {
+      "maxLength": 64,
+      "minLength": 1,
+      "type": "string",
+      "x-thought-context-profile": "inshell.thought.context.v2.visible-utf8-64",
+      "x-thought-utf8-max-bytes": 64
+    },
+    "manualAgent": {
+      "additionalProperties": false,
+      "properties": {
+        "identifier": { "$ref": "#/$defs/publicIdentifier" },
+        "label": { "$ref": "#/$defs/contextLabel" },
+        "source": { "const": "minter-supplied" }
+      },
+      "required": ["label", "source"],
+      "type": "object"
+    },
+    "manualModel": {
+      "additionalProperties": false,
+      "properties": {
+        "identifier": { "$ref": "#/$defs/publicIdentifier" },
+        "label": { "$ref": "#/$defs/contextLabel" },
+        "source": { "const": "minter-supplied" }
+      },
+      "required": ["label", "source"],
+      "type": "object"
+    },
+    "manualProcess": {
+      "additionalProperties": false,
+      "properties": {
+        "agent": { "$ref": "#/$defs/manualAgent" },
+        "kind": { "const": "manual" },
+        "model": { "$ref": "#/$defs/manualModel" }
+      },
+      "required": ["agent", "kind", "model"],
+      "type": "object"
+    },
+    "mintContext": {
+      "additionalProperties": false,
+      "properties": {
+        "chainId": { "pattern": "^[1-9][0-9]*$", "type": "string" },
+        "intendedMinter": { "$ref": "#/$defs/address" },
+        "thoughtNft": { "$ref": "#/$defs/address" }
+      },
+      "required": ["chainId", "intendedMinter", "thoughtNft"],
+      "type": "object"
+    },
+    "nonzeroBytes32": {
+      "pattern": "^(?!0x0{64}$)0x[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "protocol": {
+      "additionalProperties": false,
+      "properties": {
+        "manifestKeccak256": { "$ref": "#/$defs/nonzeroBytes32" },
+        "protocolReleaseId": { "$ref": "#/$defs/nonzeroBytes32" },
+        "thoughtSpecHash": { "$ref": "#/$defs/nonzeroBytes32" },
+        "thoughtSpecId": { "$ref": "#/$defs/nonzeroBytes32" }
+      },
+      "required": ["manifestKeccak256", "protocolReleaseId", "thoughtSpecHash", "thoughtSpecId"],
+      "type": "object"
+    },
+    "publicIdentifier": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@+\\-]*$",
+      "type": "string",
+      "x-thought-utf8-max-bytes": 128
+    },
+    "run": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter": { "$ref": "#/$defs/publicIdentifier" },
+        "referenceKeccak256": { "$ref": "#/$defs/nonzeroBytes32" },
+        "resultEnvelopeKeccak256": { "$ref": "#/$defs/nonzeroBytes32" },
+        "route": { "$ref": "#/$defs/publicIdentifier" }
+      },
+      "required": ["referenceKeccak256", "resultEnvelopeKeccak256"],
+      "type": "object"
+    },
+    "terminalLine": {
+      "maxLength": 64,
+      "minLength": 1,
+      "pattern": "^(?! )(?!.*  )(?!.* $)[ A-Za-z0-9.,?!:;'\"()/&-]{1,64}$",
+      "type": "string",
+      "x-thought-line-profile": "inshell.thought.work.v2.terminal-english-64",
+      "x-thought-utf8-max-bytes": 64
+    },
+    "work": {
+      "additionalProperties": false,
+      "properties": {
+        "agentLine": { "$ref": "#/$defs/terminalLine" },
+        "agentLineKeccak256": { "$ref": "#/$defs/bytes32" },
+        "conversationIdentityHash": { "$ref": "#/$defs/bytes32" },
+        "promptLine": { "$ref": "#/$defs/terminalLine" },
+        "promptLineKeccak256": { "$ref": "#/$defs/bytes32" },
+        "workHash": { "$ref": "#/$defs/bytes32" }
+      },
+      "required": [
+        "agentLine",
+        "agentLineKeccak256",
+        "conversationIdentityHash",
+        "promptLine",
+        "promptLineKeccak256",
+        "workHash"
+      ],
+      "type": "object"
+    }
+  }
+}

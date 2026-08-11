@@ -1,0 +1,702 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inshell.art/docs/agent-index.schema.json",
+  "title": "Inshell Agent Docs Index",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schemaUrl",
+    "canonicalSchemaUrl",
+    "version",
+    "language",
+    "charset",
+    "canonicalHtml",
+    "completeMarkdown",
+    "canonicalCompleteMarkdown",
+    "completeJson",
+    "canonicalCompleteJson",
+    "completeJsonMediaType",
+    "completeJsonSha256",
+    "purpose",
+    "sourceLock",
+    "publication",
+    "usage",
+    "answerPolicy",
+    "authorities",
+    "groups",
+    "documents",
+    "immutableReleases",
+    "machineHandoffs",
+    "liveReadOnlyResources",
+    "pageContexts"
+  ],
+  "properties": {
+    "schema": {
+      "const": "inshell.agent-docs.index.v1"
+    },
+    "schemaUrl": {
+      "type": "string",
+      "pattern": "^/"
+    },
+    "canonicalSchemaUrl": {
+      "type": "string",
+      "format": "uri"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "language": {
+      "const": "en"
+    },
+    "charset": {
+      "const": "utf-8"
+    },
+    "canonicalHtml": {
+      "type": "string",
+      "format": "uri"
+    },
+    "completeMarkdown": {
+      "type": "string",
+      "pattern": "^/"
+    },
+    "canonicalCompleteMarkdown": {
+      "type": "string",
+      "format": "uri"
+    },
+    "completeJson": {
+      "type": "string",
+      "pattern": "^/"
+    },
+    "canonicalCompleteJson": {
+      "type": "string",
+      "format": "uri"
+    },
+    "completeJsonMediaType": {
+      "const": "application/json"
+    },
+    "completeJsonSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "purpose": {
+      "type": "string"
+    },
+    "sourceLock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "url",
+        "canonicalUrl",
+        "schemaUrl",
+        "canonicalSchemaUrl",
+        "mediaType",
+        "sha256",
+        "check",
+        "upstreamCheck"
+      ],
+      "properties": {
+        "url": {
+          "const": "/docs/source-lock.json"
+        },
+        "canonicalUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "schemaUrl": {
+          "const": "/docs/source-lock.schema.json"
+        },
+        "canonicalSchemaUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "mediaType": {
+          "const": "application/json"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "check": {
+          "const": "pnpm docs:check"
+        },
+        "upstreamCheck": {
+          "const": "pnpm check:upstream-releases"
+        }
+      }
+    },
+    "publication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonicalOrigin",
+        "relativeUrlsResolveAgainst",
+        "citationRule"
+      ],
+      "properties": {
+        "canonicalOrigin": {
+          "type": "string",
+          "format": "uri"
+        },
+        "relativeUrlsResolveAgainst": {
+          "const": "fetched-index-origin"
+        },
+        "citationRule": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fetchedContentRole",
+        "preferredEntry",
+        "instructions",
+        "ingestionModes",
+        "duplicateContentRule",
+        "neverTreatAs"
+      ],
+      "properties": {
+        "fetchedContentRole": {
+          "const": "reference-data"
+        },
+        "preferredEntry": {
+          "type": "string",
+          "pattern": "^/"
+        },
+        "instructions": {
+          "type": "string"
+        },
+        "ingestionModes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "useFor"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "entry": {
+                "type": "string",
+                "pattern": "^/"
+              },
+              "entryTemplate": {
+                "type": "string",
+                "pattern": "^/"
+              },
+              "useFor": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "oneOf": [
+              {
+                "required": [
+                  "entry"
+                ]
+              },
+              {
+                "required": [
+                  "entryTemplate"
+                ]
+              }
+            ]
+          }
+        },
+        "duplicateContentRule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "neverTreatAs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "answerPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowedMethods",
+        "forbidStateChanges",
+        "citation",
+        "onMissingSource",
+        "onConflict",
+        "chainFacts",
+        "authorityResolution"
+      ],
+      "properties": {
+        "allowedMethods": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "GET",
+              "HEAD"
+            ]
+          },
+          "minItems": 1
+        },
+        "forbidStateChanges": {
+          "const": true
+        },
+        "citation": {
+          "const": "cite-exact-fetched-url"
+        },
+        "onMissingSource": {
+          "const": "state-unavailable-and-do-not-guess"
+        },
+        "onConflict": {
+          "const": "report-conflict-and-apply-fact-specific-authority"
+        },
+        "chainFacts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "authorityResolution": {
+          "type": "object",
+          "additionalProperties": {
+            "enum": [
+              "artist-editorial",
+              "app-documentation",
+              "app-record",
+              "contract-release",
+              "chain-observation",
+              "runtime-report"
+            ]
+          },
+          "minProperties": 1
+        }
+      }
+    },
+    "authorities": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "minProperties": 1
+    },
+    "groups": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "summary",
+          "topics"
+        ],
+        "properties": {
+          "id": {
+            "enum": [
+              "orientation",
+              "works",
+              "systems",
+              "context"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "topics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          }
+        }
+      }
+    },
+    "documents": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "group",
+          "aliases",
+          "title",
+          "summary",
+          "status",
+          "authorities",
+          "authorityScope",
+          "canonicalHtml",
+          "markdown",
+          "canonicalMarkdown",
+          "markdownMediaType",
+          "markdownSha256",
+          "json",
+          "canonicalJson",
+          "jsonMediaType",
+          "jsonSha256"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "group": {
+            "enum": [
+              "orientation",
+              "works",
+              "systems",
+              "context"
+            ]
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "title": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "current",
+              "study",
+              "future"
+            ]
+          },
+          "authorities": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "artist-editorial",
+                "app-documentation",
+                "app-record",
+                "contract-release",
+                "chain-observation",
+                "runtime-report"
+              ]
+            },
+            "minItems": 1
+          },
+          "authorityScope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "canonicalHtml": {
+            "type": "string",
+            "format": "uri"
+          },
+          "markdown": {
+            "type": "string",
+            "pattern": "^/"
+          },
+          "canonicalMarkdown": {
+            "type": "string",
+            "format": "uri"
+          },
+          "markdownMediaType": {
+            "const": "text/markdown"
+          },
+          "markdownSha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "json": {
+            "type": "string",
+            "pattern": "^/"
+          },
+          "canonicalJson": {
+            "type": "string",
+            "format": "uri"
+          },
+          "jsonMediaType": {
+            "const": "application/json"
+          },
+          "jsonSha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "immutableReleases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "url",
+          "canonicalUrl",
+          "mediaType",
+          "releaseStatus",
+          "sha256",
+          "authority"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "pattern": "^/"
+          },
+          "canonicalUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "mediaType": {
+            "type": "string",
+            "minLength": 1
+          },
+          "releaseStatus": {
+            "const": "immutable-release"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "authority": {
+            "enum": [
+              "artist-editorial",
+              "app-documentation",
+              "app-record",
+              "contract-release",
+              "chain-observation",
+              "runtime-report"
+            ]
+          }
+        }
+      }
+    },
+    "machineHandoffs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "status",
+          "url",
+          "canonicalUrl",
+          "schemaUrl",
+          "canonicalSchemaUrl",
+          "mediaType",
+          "sha256",
+          "authority",
+          "topics",
+          "productionAuthorized"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "const": "current-local-integration-no-production-authorization"
+          },
+          "url": {
+            "type": "string",
+            "pattern": "^/protocol/releases/"
+          },
+          "canonicalUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "schemaUrl": {
+            "const": "/protocol/thought-machine-handoff.schema.json"
+          },
+          "canonicalSchemaUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "mediaType": {
+            "const": "application/json"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "authority": {
+            "const": "app-documentation"
+          },
+          "topics": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          },
+          "productionAuthorized": {
+            "const": false
+          }
+        }
+      }
+    },
+    "liveReadOnlyResources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "url": {
+            "type": "string",
+            "pattern": "^/"
+          },
+          "canonicalUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "urlTemplate": {
+            "type": "string",
+            "pattern": "^/"
+          },
+          "canonicalUrlTemplate": {
+            "type": "string"
+          },
+          "method": {
+            "const": "GET"
+          },
+          "mediaType": {
+            "const": "application/json"
+          },
+          "stateChanging": {
+            "const": false
+          },
+          "parameters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "in",
+                "type",
+                "required"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "in": {
+                  "const": "query"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "required": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "freshness": {
+            "type": "string",
+            "minLength": 1
+          },
+          "authority": {
+            "enum": [
+              "artist-editorial",
+              "app-documentation",
+              "app-record",
+              "contract-release",
+              "chain-observation",
+              "runtime-report"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "description",
+          "method",
+          "mediaType",
+          "stateChanging",
+          "freshness",
+          "authority"
+        ],
+        "oneOf": [
+          {
+            "required": [
+              "url",
+              "canonicalUrl"
+            ]
+          },
+          {
+            "required": [
+              "urlTemplate",
+              "canonicalUrlTemplate"
+            ]
+          }
+        ],
+        "additionalProperties": false
+      }
+    },
+    "pageContexts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "route",
+          "topics"
+        ],
+        "properties": {
+          "route": {
+            "type": "string",
+            "pattern": "^/"
+          },
+          "topics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,1795 @@
+{
+  "schema": "inshell.agent-docs.source-lock.v1",
+  "schemaUrl": "/docs/source-lock.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/source-lock.schema.json",
+  "documentationVersion": "2026-08-11",
+  "sourceRegistrySchema": "inshell.agent-docs.source-registry.v1",
+  "purpose": "Exact-byte inventory of public knowledge-bearing inputs used to keep human and Agent documentation aligned across the repo.",
+  "policy": {
+    "scope": "Public knowledge-bearing sources across inshell.art, THOUGHT, PATH, wallet, route, and read-only API boundaries.",
+    "update": "When a registered source changes, update its owning source or lock, run pnpm docs:generate, review the generated docs and source lock, then run pnpm docs:check.",
+    "check": "pnpm docs:check",
+    "upstreamCheck": "pnpm check:upstream-releases"
+  },
+  "sourceTreeSha256": "8d33862cf54ce11081c64d056d534987ee88715e39c512d4c7bf826ad5d4ba7f",
+  "groups": [
+    {
+      "id": "public-docs",
+      "title": "Public documentation sources",
+      "owner": "inshell.art docs",
+      "reason": "Human articles, Agent-readable content, authority maps, and machine-handoff selection.",
+      "groupSha256": "441a26f28ef21ef3e8cea2f6067a87e761695fd03275a31adb35e6718d8abed5",
+      "files": [
+        {
+          "path": "apps/home/src/content/AGENTS.md",
+          "byteLength": 726,
+          "sha256": "3eb4bc483178829aa38ed8e85d20e65538b7867c046037062af488bda06660e3"
+        },
+        {
+          "path": "apps/home/src/content/docs-source-registry.ts",
+          "byteLength": 7302,
+          "sha256": "765ad1098916e053ffdb6c28727b808e03d2dedf3d727bd9c67f8726feb94c21"
+        },
+        {
+          "path": "apps/home/src/content/docs.ts",
+          "byteLength": 140306,
+          "sha256": "f5fbeb9fadcb38627e6074b20f07c315538678380942a0f3eb12793ab528af35"
+        },
+        {
+          "path": "apps/home/src/content/thought-machine-handoff.ts",
+          "byteLength": 13284,
+          "sha256": "18d85210af01f82b60be5d63fc4bf94469f28464ce050c39ca7098cfb90a2521"
+        },
+        {
+          "path": "docs/AGENTS.md",
+          "byteLength": 17373,
+          "sha256": "8d52170884280f32b29b5650a46df8afc745c750b6e0045533e486426f9f1c5c"
+        },
+        {
+          "path": "scripts/generate-agent-docs.ts",
+          "byteLength": 111357,
+          "sha256": "089db2f74d5bdb6d5020328f4d13a25c1af32f42cfedf9b2f193c9d9c95b4f32"
+        }
+      ]
+    },
+    {
+      "id": "home-app",
+      "title": "Home, PATH, Pulse, WILL, and shared docs runtime",
+      "owner": "inshell.art Home App",
+      "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
+      "groupSha256": "ebb6e7e4b39e79b5ba542d0a4714bb52ab7f5ba705370f3f8e50b00f338ed5d0",
+      "files": [
+        {
+          "path": "apps/home/index.html",
+          "byteLength": 2138,
+          "sha256": "e6b3a8fe97d0d977852c11b52c46a03610014ce220e4e8f47c6b89341b127d6e"
+        },
+        {
+          "path": "apps/home/package.json",
+          "byteLength": 3849,
+          "sha256": "6907dd37e20a76c14ab88316d5e62e093c2a2ed66919728fbecd5e733a5bacc5"
+        },
+        {
+          "path": "apps/home/src/App.tsx",
+          "byteLength": 15207,
+          "sha256": "14094cf373489cc01e778c5319c5710c796f0cec0fea95eaaabe925060b38ba6"
+        },
+        {
+          "path": "apps/home/src/assets/icon-github.svg",
+          "byteLength": 989,
+          "sha256": "eca10bc8ae1d8f8f5fa382c1b25e3ee033c06eef9c1fb55d23d0e85f01f91b05"
+        },
+        {
+          "path": "apps/home/src/assets/icon-x.svg",
+          "byteLength": 427,
+          "sha256": "a0d697dfd94335ce81cabe740037fc534cd34c59d66c6e18c61c69302e486d79"
+        },
+        {
+          "path": "apps/home/src/assets/react.svg",
+          "byteLength": 4126,
+          "sha256": "35ef61ed53b323ae94a16a8ec659b3d0af3880698791133f23b084085ab1c2e5"
+        },
+        {
+          "path": "apps/home/src/components/AuctionCanvas.tsx",
+          "byteLength": 270749,
+          "sha256": "cda883432c92df6182ce7a1d9eb028b210a1c63f9bc957e2f0ac93435ef5ecdf"
+        },
+        {
+          "path": "apps/home/src/components/ColorFontPage.tsx",
+          "byteLength": 22055,
+          "sha256": "ab812d43bf382393f1d2dcfd7669e075f011e5e18b4cdf028364a0ee99a3853d"
+        },
+        {
+          "path": "apps/home/src/components/DocsPage.tsx",
+          "byteLength": 10917,
+          "sha256": "c692ed244d2a837029dcee9de84b02161d8949ae80ab79391b32c38e9ee6ad66"
+        },
+        {
+          "path": "apps/home/src/components/EcosystemHome.tsx",
+          "byteLength": 5449,
+          "sha256": "0c1144cf690a877c23f59c7a217a506b8182835c8eb9e9c82d7a73f3f54ec1ba"
+        },
+        {
+          "path": "apps/home/src/components/FloatingReportBug.tsx",
+          "byteLength": 1233,
+          "sha256": "90e5902727c0f624389c6d49c3a82d304a8ac93705f494d100543d42b66223e9"
+        },
+        {
+          "path": "apps/home/src/components/Footer/Footer.module.css",
+          "byteLength": 1648,
+          "sha256": "0ed72508f7408a3ee7df8aacc4f4bc3a88d2942f57c4d0996c74b036eed397ef"
+        },
+        {
+          "path": "apps/home/src/components/Footer/Footer.tsx",
+          "byteLength": 6233,
+          "sha256": "5cda8f06d338a87e429ad8ad50545472855a996656839c8f361624befc1d32bd"
+        },
+        {
+          "path": "apps/home/src/components/HeaderWalletCTA.tsx",
+          "byteLength": 7464,
+          "sha256": "e80a0fe1d657a51e24e574d40097ed855594668e69daf09775b7976a33c49a92"
+        },
+        {
+          "path": "apps/home/src/components/Movements.css",
+          "byteLength": 1511,
+          "sha256": "40808ca146c7be0ee2a10e044a0ae50b71a4f5938ca6d85e50f1ce19b26ab981"
+        },
+        {
+          "path": "apps/home/src/components/Movements.tsx",
+          "byteLength": 3043,
+          "sha256": "fa86e44531e694076bfa1099c1c73331912f40d9cf67ecada7713fb0ab95250b"
+        },
+        {
+          "path": "apps/home/src/components/PathPage.tsx",
+          "byteLength": 26047,
+          "sha256": "c365cefad4bd9acf0bddeae7b2ba52a971e95a83691a8a156f05f844de3357fb"
+        },
+        {
+          "path": "apps/home/src/components/PreviewWatermark.tsx",
+          "byteLength": 372,
+          "sha256": "bf2949ba402274df649482459e48a69a8708a40e150405aaf870e47d15552527"
+        },
+        {
+          "path": "apps/home/src/components/PulsePage.tsx",
+          "byteLength": 20987,
+          "sha256": "8f5ed7a69ec35481c25fe8cb767c515c67d4c223b57f6083cb7f194c66f24294"
+        },
+        {
+          "path": "apps/home/src/components/ThoughtDetailPage.tsx",
+          "byteLength": 13558,
+          "sha256": "cbc07a36ae910fd88616522fb2fa551c6aa786e9811a000fccd6c22b629de2b6"
+        },
+        {
+          "path": "apps/home/src/components/ThoughtGalleryPage.tsx",
+          "byteLength": 8139,
+          "sha256": "1ca53ae2b8004199484227f0c09461edfed07dd150dcb12db05ce5dda2f7c63f"
+        },
+        {
+          "path": "apps/home/src/components/VerifyPage.tsx",
+          "byteLength": 26941,
+          "sha256": "66f2959bd4d03e45602475c62c0ec7d14995049a1faa21021f2c9f757a37a174"
+        },
+        {
+          "path": "apps/home/src/components/docs/FieldFigureVisual.tsx",
+          "byteLength": 14832,
+          "sha256": "1999f44e96f1c9287078810fa08869d62f4306eeb0a3a1dc03b5ca47a02a3777"
+        },
+        {
+          "path": "apps/home/src/components/docs/FlowFigureVisual.tsx",
+          "byteLength": 7033,
+          "sha256": "8b82d236b14afa0bb030350330c57f4027d4dc71f810ea402bf6b3d5dcf5a28a"
+        },
+        {
+          "path": "apps/home/src/components/docs/LaneFigureVisual.tsx",
+          "byteLength": 8144,
+          "sha256": "f1d9b5499c82f18a858b9f1eaff982baf1de45f2310ac17bed605a58c713640f"
+        },
+        {
+          "path": "apps/home/src/config/publicLaunch.ts",
+          "byteLength": 1975,
+          "sha256": "0662acf8c5c1aeb0bbde24f609b6382bad994f6337b7a69240870420c58bd257"
+        },
+        {
+          "path": "apps/home/src/content/colorFont.ts",
+          "byteLength": 2532,
+          "sha256": "96f03e9a16037cdb1793a35acf7ade2a4acb17a3d337d78825eec0e32c3cc972"
+        },
+        {
+          "path": "apps/home/src/content/pulse.ts",
+          "byteLength": 1232,
+          "sha256": "265b8384e2d3858a167ffa46fd1c92623b1909da924ff4a9e8fe51857b7e3924"
+        },
+        {
+          "path": "apps/home/src/hooks/useAuctionBids.ts",
+          "byteLength": 3606,
+          "sha256": "ddb8188b49d56f248b1c86984d526fbc99af6191ed36bfbb2c5c5af14631b7bd"
+        },
+        {
+          "path": "apps/home/src/hooks/useAuctionCore.ts",
+          "byteLength": 4282,
+          "sha256": "9cd40eebad53a5ef9264114f6b716614f6ab884d417ddf1db8660190c7993458"
+        },
+        {
+          "path": "apps/home/src/main.css",
+          "byteLength": 98303,
+          "sha256": "555508fc54c741da5f95edc3442d97f8451e4435c98e5ed8fb3f44493e277167"
+        },
+        {
+          "path": "apps/home/src/main.tsx",
+          "byteLength": 959,
+          "sha256": "6455851c014380385466d82a5c29f8aa268e0b7103a5baf1bdcc8e22891f6793"
+        },
+        {
+          "path": "apps/home/src/pathMintSubmissionLock.ts",
+          "byteLength": 1361,
+          "sha256": "69a8c25438990ea9ea612dc32c52dc7c3107bee981195597986175dfc2f4d530"
+        },
+        {
+          "path": "apps/home/src/services/auction/bidsService.ts",
+          "byteLength": 18070,
+          "sha256": "361426fe920326e25819906c43d947d5097ef693f5a34e17b68fb122354380b7"
+        },
+        {
+          "path": "apps/home/src/services/auction/coreService.ts",
+          "byteLength": 4992,
+          "sha256": "2d2d9d9ae25399cdb9f80ac45a87df7ec8f4bfb0874437a32fc28ba0c37b1b24"
+        },
+        {
+          "path": "apps/home/src/services/chainIndexer.ts",
+          "byteLength": 502,
+          "sha256": "0024f9e44dcaae95a8314b20f1aaa4de20aa7a66d04ce96ad3a7ce218f666b29"
+        },
+        {
+          "path": "apps/home/src/services/pathTokens.ts",
+          "byteLength": 20185,
+          "sha256": "f7bb00e2794da685b708e74bcb1fb5b0ef79f92799fc254a5864d16b13c191db"
+        },
+        {
+          "path": "apps/home/src/services/pathVerification.ts",
+          "byteLength": 9337,
+          "sha256": "bed7e8c76f7364dbcefb952d5ce561e62899c0d72d27bbd40812d3bb61db7f75"
+        },
+        {
+          "path": "apps/home/src/services/thoughtGallery.ts",
+          "byteLength": 14881,
+          "sha256": "dcfb6d8f1c2183ee7183d9890404193dc0a45965bc19335b4165c0052f7b312f"
+        },
+        {
+          "path": "apps/home/src/types/types.ts",
+          "byteLength": 590,
+          "sha256": "6697673d89120761c6694765ddb77ce5aea99141c6cbcd12dc66a8f51cd210a9"
+        },
+        {
+          "path": "apps/home/vite.config.ts",
+          "byteLength": 4796,
+          "sha256": "ed8aad5b8aafb76a3853679b4448a361ec891268deb8647b06caac2d9c532d57"
+        }
+      ]
+    },
+    {
+      "id": "public-routes-and-resources",
+      "title": "Public routes and read-only resource contracts",
+      "owner": "inshell.art shared App infrastructure",
+      "reason": "The Agent index advertises these routes and their read-only semantics.",
+      "groupSha256": "7340625e8509e6ebbb265ec5cb693ca9b32cf224ef60f096cca0f05c0afd6ea3",
+      "files": [
+        {
+          "path": "apps/home/public/_headers",
+          "byteLength": 1635,
+          "sha256": "2a63bf8ad5ea722d785cb666d0083c82a60270387350216123cbe6436cc0c9f8"
+        },
+        {
+          "path": "functions/_middleware.ts",
+          "byteLength": 38817,
+          "sha256": "52ade68157eeb6f027ea4f469391cfe9e6e2abb527e2db4ec6f50f833c6f2fcf"
+        },
+        {
+          "path": "functions/api/analytics/event.ts",
+          "byteLength": 1010,
+          "sha256": "079d66f496d80b4c864b835540c00f4d88706c21457d9c86f31dcdccf829801e"
+        },
+        {
+          "path": "functions/api/analytics/store.ts",
+          "byteLength": 48658,
+          "sha256": "07e2ff4c278e2ae247745754d957cf2fcc01e9dd7be1e9e9dfd6a7e4ab7b2a1b"
+        },
+        {
+          "path": "functions/api/analytics/summary.ts",
+          "byteLength": 1041,
+          "sha256": "ac5457f8bf36cd6f6c5576205e0649f1ac8cdc98b47f59ca591cdc1c061e29e3"
+        },
+        {
+          "path": "functions/api/analytics/visitors.ts",
+          "byteLength": 1261,
+          "sha256": "dd8267e145fdcd12930d42ca0e3a364933d8ec0aee037e18aa496440ed81ff02"
+        },
+        {
+          "path": "functions/api/chain-cache.ts",
+          "byteLength": 37310,
+          "sha256": "88aad08d6771e77295e0ad0fd6317059aeabc4cadf82e911ccd1b39e37b13d18"
+        },
+        {
+          "path": "functions/api/eth-rpc.ts",
+          "byteLength": 353,
+          "sha256": "a9dc3e832268d60df185f4ac3b17e2a6adbda7244d82a27d9232fda65eeb1708"
+        },
+        {
+          "path": "functions/api/indexer/auth.ts",
+          "byteLength": 472,
+          "sha256": "c6be8d5facf2a6a1d284eb8c31630fa89af0daf4020aa9abeb0e4f1b25166328"
+        },
+        {
+          "path": "functions/api/indexer/event-status.ts",
+          "byteLength": 8281,
+          "sha256": "2521e292db580268c90b46423b40d36142775eb179ac31e44c444617e8ed383c"
+        },
+        {
+          "path": "functions/api/indexer/event.ts",
+          "byteLength": 8557,
+          "sha256": "3e92b6a9d15e21d61ff3639bd6d491d10cc0c3e4275e2895aaf7e2da63beb2fe"
+        },
+        {
+          "path": "functions/api/indexer/refresh.ts",
+          "byteLength": 7223,
+          "sha256": "e432c1f28790b33b433d0b570cea310b49f9d214d411c1221ca30d9646d4c168"
+        },
+        {
+          "path": "functions/api/ops/status.ts",
+          "byteLength": 9332,
+          "sha256": "c39af62ebb766259589b0ae9c7bc6b950af11b8b2b4da3ec89ce06c5dd7705c3"
+        },
+        {
+          "path": "functions/api/path-record.ts",
+          "byteLength": 2142,
+          "sha256": "25e6afdddee4845b7901f77727477a7f415aeb4c483b11d7e6e37745823445fe"
+        },
+        {
+          "path": "functions/api/path-rpc.ts",
+          "byteLength": 215,
+          "sha256": "34285c15747d6b4673f67a80ca62f2782204ee1f583c9302ec5dd672a7f4a8ff"
+        },
+        {
+          "path": "functions/api/path-tokens.ts",
+          "byteLength": 14513,
+          "sha256": "79c65834c5b69a13bb6bae85430e882b69d7d64e2de4e74e38d003231cbd895c"
+        },
+        {
+          "path": "functions/api/public-record.ts",
+          "byteLength": 935,
+          "sha256": "5fa1fd48a5f8e9d1ec1ee5b9bab83d504c225d94dd2c38fd33749e47f17a4837"
+        },
+        {
+          "path": "functions/api/pulse-auction.ts",
+          "byteLength": 9838,
+          "sha256": "21df4a7d8798c7418870519afa50c4e0ccf331ad0e03c34bbcdb3c264013f813"
+        },
+        {
+          "path": "functions/api/rpc-gate.ts",
+          "byteLength": 33082,
+          "sha256": "cec9d37e2e9198312b2aea997404cb56773b39a8b26c473fbef8d07daa8a4dcb"
+        },
+        {
+          "path": "functions/api/thought-agent/v1/runs.ts",
+          "byteLength": 245,
+          "sha256": "bd70bb6681ed121cad8730ac34e3fc6f680e109cee353081dfada1f9aa9297c3"
+        },
+        {
+          "path": "functions/api/thought-agent/v1/runs/[runId].ts",
+          "byteLength": 239,
+          "sha256": "8ecaad9c1c195014a5f29aed9e8629e6b1a17d96a137564d338dfa3683be5a62"
+        },
+        {
+          "path": "functions/api/thought-agent/v1/runs/[runId]/cancel.ts",
+          "byteLength": 249,
+          "sha256": "22a8b31354154a98c82bbf0eb4a5319ceca9d3c21f798c954688cbfc375d0246"
+        },
+        {
+          "path": "functions/api/thought-agent/v1/runs/[runId]/claim-authorization.ts",
+          "byteLength": 90,
+          "sha256": "4585ccc4c043df338cf9429d5be4e288a20efeaccb6a6efcf1134867002f16ef"
+        },
+        {
+          "path": "functions/api/thought-agent/v1/runs/[runId]/claim.ts",
+          "byteLength": 247,
+          "sha256": "80add0ab94bf9d4f91cb37bab71a0f43f6d8dd1118206e008b140aa378858731"
+        },
+        {
+          "path": "functions/api/thought-agent/v1/runs/[runId]/fail.ts",
+          "byteLength": 245,
+          "sha256": "ac054155777ad71ee8b8425691062d9d70fd9f45c60ad2abe9dd9df6dac93958"
+        },
+        {
+          "path": "functions/api/thought-agent/v1/runs/[runId]/result.ts",
+          "byteLength": 254,
+          "sha256": "6f184b52ab513a22ef9017829a5b47eaac6b57bc521c3bc23de3df9e47c19279"
+        },
+        {
+          "path": "functions/api/thought-agent/v1/runs/[runId]/start.ts",
+          "byteLength": 247,
+          "sha256": "53bd460a79735914e88b8fe994393283061fb14bc586eefa3e289171456128ed"
+        },
+        {
+          "path": "functions/api/thought-agent/v1/shared.ts",
+          "byteLength": 59518,
+          "sha256": "0d3fe1779184a755959e25240c74ae533c68be1b65da95db76030bb1a4edfa09"
+        },
+        {
+          "path": "functions/api/thought-agent/v1/thought-spec-source.ts",
+          "byteLength": 1227,
+          "sha256": "ca2a1cad81bab557b5a9897f33649ffda2e0b916384895f7a4e28f8ca3c92119"
+        },
+        {
+          "path": "functions/api/thought-agent/v2/client.ts",
+          "byteLength": 718,
+          "sha256": "c157096f238c7b7a7f99a85de68b3a33366c5d88d3204a24d00a69bd05fb5127"
+        },
+        {
+          "path": "functions/api/thought-agent/v2/connectivity.ts",
+          "byteLength": 738,
+          "sha256": "43ae698c55baa2974fb5050e5ebbc987b3fd2cd2e95f0bb820cbf767b04f3f97"
+        },
+        {
+          "path": "functions/api/thought-agent/v2/runs.ts",
+          "byteLength": 82,
+          "sha256": "3d25f15e4f050b9d943bc2de36ddd3d2f2b35ae5e11b281c99a03059785da32c"
+        },
+        {
+          "path": "functions/api/thought-agent/v2/runs/[runId].ts",
+          "byteLength": 81,
+          "sha256": "62e26c856230b3c8a9a02f5224e65faf58e56a8997b955a786b68c10bbfac012"
+        },
+        {
+          "path": "functions/api/thought-agent/v2/runs/[runId]/cancel.ts",
+          "byteLength": 88,
+          "sha256": "caee0346a4539b8e9aafa2c1e7d4501564da0be53e509bfdb27747b46ac09d3f"
+        },
+        {
+          "path": "functions/api/thought-agent/v2/runs/[runId]/claim-authorization.ts",
+          "byteLength": 96,
+          "sha256": "615ab4d265365281b160f1730b61bb705411656c3cce9a620f9b512f4aff0c26"
+        },
+        {
+          "path": "functions/api/thought-agent/v2/runs/[runId]/claim.ts",
+          "byteLength": 87,
+          "sha256": "72d7414df2cb315971de744161ab95fe421fb13466dcd64fb5be36fa66a0ab4e"
+        },
+        {
+          "path": "functions/api/thought-agent/v2/runs/[runId]/fail.ts",
+          "byteLength": 86,
+          "sha256": "6c4f2b72976a1bb84daecca7a39e132f9d86182d5b08ec066b39a2e198420888"
+        },
+        {
+          "path": "functions/api/thought-agent/v2/runs/[runId]/ready.ts",
+          "byteLength": 87,
+          "sha256": "81e0794028a13b1c7393daea8648ba83ddd7246fa41ce82846d762425c1077ec"
+        },
+        {
+          "path": "functions/api/thought-agent/v2/runs/[runId]/result.ts",
+          "byteLength": 90,
+          "sha256": "d5b3fd1599833881c0134e449553e9a1e50630934904780633125e0595f9e07a"
+        },
+        {
+          "path": "functions/api/thought-agent/v2/runs/[runId]/start.ts",
+          "byteLength": 87,
+          "sha256": "01d57e648b0a4177d6efd37ff14a194ed13601797cc767a4e7e3a6ed0985422e"
+        },
+        {
+          "path": "functions/api/thought-contract/v2/attestation.ts",
+          "byteLength": 1231,
+          "sha256": "979e9a9b8c03375e98763ef6bd0543a0395ce9c64a1cb78fa20fa8c7f00357e8"
+        },
+        {
+          "path": "functions/api/thought-gallery-release.ts",
+          "byteLength": 1744,
+          "sha256": "53c81aa54c7f16bb26005966a789983a927c5044f028c3b3375ce939591f856a"
+        },
+        {
+          "path": "functions/api/thought-gallery.ts",
+          "byteLength": 15146,
+          "sha256": "94a8e8e6ddef6a2573716d05a1a85019abdbea09c83f878f59a9785b9eaee1da"
+        },
+        {
+          "path": "functions/api/thought-image.ts",
+          "byteLength": 3084,
+          "sha256": "d9eb77f6afe883ed03b8970164f633911538fae1da1caa9064aa35b4f63e5b5f"
+        },
+        {
+          "path": "functions/api/thought-preview.ts",
+          "byteLength": 13500,
+          "sha256": "ab5105bb5616ffd44f6c3b6091ad5ffc1b37f58d9f9dc82466162a3bfc970c0d"
+        },
+        {
+          "path": "functions/api/thought-provenance.ts",
+          "byteLength": 844,
+          "sha256": "889021cc18899d514a8e4ca8512353a76290bf8cc7301f246eae771983cecee6"
+        },
+        {
+          "path": "functions/api/thought-record.ts",
+          "byteLength": 2885,
+          "sha256": "f5b6db13b7e14d7f369dd13d0f4995763d3df35dc8ef1df93b9333bcd4bcc8ce"
+        },
+        {
+          "path": "functions/api/thought-rpc.ts",
+          "byteLength": 227,
+          "sha256": "5d070ed7a272ce3159c27342e497267194f152536edcbc2e01a99c529aff7055"
+        },
+        {
+          "path": "functions/api/thought-spec.ts",
+          "byteLength": 497,
+          "sha256": "47e6ca990fa24ba1972e43329930eb86bc6925a9b5462abb10cf39ffe2d98e74"
+        }
+      ]
+    },
+    {
+      "id": "documentation-gates",
+      "title": "Documentation gates",
+      "owner": "inshell.art repository automation",
+      "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
+      "groupSha256": "c5510291abf3e47b5d24ac9f8b0cd0e55ded8664d4fb9aa883cff7c937a31d7a",
+      "files": [
+        {
+          "path": ".husky/pre-commit",
+          "byteLength": 57,
+          "sha256": "874814d050b187de911874bbfa2c212ce747271746de49229ade08fce3d7dd54"
+        },
+        {
+          "path": ".husky/pre-push",
+          "byteLength": 117,
+          "sha256": "64d8283f7774f6f22490ebf7db52acab28bf2705c418f58d94f17eac611a683d"
+        },
+        {
+          "path": "package.json",
+          "byteLength": 11508,
+          "sha256": "bc173599399aaf92e4d968cadfc56ec2178266fc4caea99975581391b76b1402"
+        },
+        {
+          "path": "scripts/check-upstream-releases.mjs",
+          "byteLength": 6265,
+          "sha256": "049aa0560fd85ae91a7597e3ae8ca4054a3a8498935cbfcc8c62216febb5ecbc"
+        }
+      ]
+    },
+    {
+      "id": "wallet-boundary",
+      "title": "Wallet boundary",
+      "owner": "inshell.art shared App infrastructure",
+      "reason": "Public docs distinguish passive wallet reads from signatures and transactions.",
+      "groupSha256": "e339fe093c731e7d58d5ac5234201491111a944daf1faaa31f4850f5615469f1",
+      "files": [
+        {
+          "path": "packages/inshell-shell/src/index.tsx",
+          "byteLength": 11039,
+          "sha256": "9c100b4b90ad9901de1533d704125cea3eb61f3844284ad7cae3b647a4249aca"
+        },
+        {
+          "path": "packages/inshell-shell/src/links.ts",
+          "byteLength": 2406,
+          "sha256": "fede004bbabf38d05ab98de3f784f9193eaac50a3100faa6c6121a225346b21f"
+        },
+        {
+          "path": "packages/inshell-shell/src/tokens.css",
+          "byteLength": 5215,
+          "sha256": "412d7a9755d8c215a09109cf043dcd9153e231ee790db6506558e4415eaec765"
+        },
+        {
+          "path": "packages/inshell-shell/src/topbar.css",
+          "byteLength": 7927,
+          "sha256": "f67d5a859d3dbc5701bfca34692f3f909a5ace34617dd4a1a6aa1b40a7b7d94e"
+        },
+        {
+          "path": "packages/inshell-shell/src/wallet-events.ts",
+          "byteLength": 229,
+          "sha256": "26f47d23f1746e77649744a6fff31a81de5431c25d279a5aa4eac24b71ab111c"
+        },
+        {
+          "path": "packages/wallet/src/evm.ts",
+          "byteLength": 15246,
+          "sha256": "64b22d07e6f75783829ef0b2be0bf78f860b9444c26439ccab1baed98fe65ac7"
+        },
+        {
+          "path": "packages/wallet/src/index.tsx",
+          "byteLength": 28635,
+          "sha256": "8856338a007460f3b1739d437aac3a917bb9d22d516d354f078ca5fc3f1f8616"
+        }
+      ]
+    },
+    {
+      "id": "shared-runtime",
+      "title": "Shared product runtime",
+      "owner": "inshell.art shared App infrastructure",
+      "reason": "Shared Ethereum, surface, utility, and Agent-protocol code used by public routes.",
+      "groupSha256": "fc9d91cbc038f08507160433533688d94116e77cbb54c19281e512ca94c5045d",
+      "files": [
+        {
+          "path": "packages/ethereum/src/abi.ts",
+          "byteLength": 2698,
+          "sha256": "87f6e40a08cf9cecac5ceaa851df002801ac47cc92e826dd41977f28f371900e"
+        },
+        {
+          "path": "packages/ethereum/src/client.ts",
+          "byteLength": 19443,
+          "sha256": "dd86e5b9ae9596f4557f1dc5918b5c9f2e8539fa58973ec86739c0f58e287fca"
+        },
+        {
+          "path": "packages/ethereum/src/index.ts",
+          "byteLength": 49,
+          "sha256": "1a533b6eed3cf86d07bf10c16bfb0a59e88d8921f5d09edd994308dfb27ba52b"
+        },
+        {
+          "path": "packages/shared/src/anonymousAnalytics.ts",
+          "byteLength": 18934,
+          "sha256": "72fade81a80b89406aa111ba8b74af2e0f3346e4aa10bc55fd044a8dd5fa190c"
+        },
+        {
+          "path": "packages/shared/src/design.css",
+          "byteLength": 2319,
+          "sha256": "7a6272d9339030f57a76dee4d3a7d425dbde8b18dd2fe47ac9c137558aaae057"
+        },
+        {
+          "path": "packages/shared/src/index.ts",
+          "byteLength": 23887,
+          "sha256": "e429b83a182751aa10b59f1fd4d788382da1924bf768b91ae9975dd061175054"
+        },
+        {
+          "path": "packages/shared/src/pagesBuildEnv.ts",
+          "byteLength": 1237,
+          "sha256": "59d17ba3b798c72c5c1ed2fe864507b014c7428aeb91d3ed4ce21256025795ea"
+        },
+        {
+          "path": "packages/shared/src/pathMintReturn.ts",
+          "byteLength": 6235,
+          "sha256": "c1ab4c5f765b12927e5a3d7f065415ce27e5002b589631a2ca27f4b50e043b5f"
+        },
+        {
+          "path": "packages/shared/src/thought-v2-protocol.ts",
+          "byteLength": 12067,
+          "sha256": "ffeecf38bf19571ad25d541345d15adb5fafb7a5fcc9e6f3c626826acdf5b897"
+        },
+        {
+          "path": "packages/shared/src/thought-v2-provenance.ts",
+          "byteLength": 4789,
+          "sha256": "3773c9c31ef4e64f298aa605b0c593f22f96d7861f05054db9e92ef5c7f7bf15"
+        },
+        {
+          "path": "packages/shared/src/thought-v2-renderer.ts",
+          "byteLength": 8853,
+          "sha256": "ed8e7ac83fed65acce7fffbb08dff3fe9eb6e5c3d41261bc8e4f6287ab4b58a1"
+        },
+        {
+          "path": "packages/shared/src/thoughtV2Artifact.generated.ts",
+          "byteLength": 32512,
+          "sha256": "503a9d9288d3ba9d195744bc5b4c58e56a8ebca29746d2c4d811d5b58e7c783b"
+        },
+        {
+          "path": "packages/shared/src/thoughtV2Fixtures.ts",
+          "byteLength": 11308,
+          "sha256": "5ce95284b699db42f196e3d41e08dc70ffb1abd2a8c57bf914bcdbc5373959ee"
+        },
+        {
+          "path": "packages/shared/src/thoughtV2Renderer.ts",
+          "byteLength": 39,
+          "sha256": "61df15b47df300f87bfec02974b7e9ad9bbcf51c33c952e8eab9317ffd149585"
+        },
+        {
+          "path": "packages/surface-shell-core/src/index.ts",
+          "byteLength": 14630,
+          "sha256": "e0c0b0dc8d551b7269bd1132e75580e2ffbabb24c918f9a38f876da07072191e"
+        },
+        {
+          "path": "packages/thought-agent-protocol/src/claude-client.ts",
+          "byteLength": 14630,
+          "sha256": "2d4abed30ba2aa0483170e937a255def836a4fc9012d0fac6004b68e95016ff4"
+        },
+        {
+          "path": "packages/thought-agent-protocol/src/codex-client.ts",
+          "byteLength": 31718,
+          "sha256": "230702125a2d708a12b44586a72ee90d026dfa4378f6f241c9dc43ece54c22aa"
+        },
+        {
+          "path": "packages/thought-agent-protocol/src/creative-brief.generated.ts",
+          "byteLength": 2024,
+          "sha256": "dfc59a51259d66ae2f9b84cec39b9ab0bfc591b139a36d4951b018eef20b6775"
+        },
+        {
+          "path": "packages/thought-agent-protocol/src/direct-agent-task.ts",
+          "byteLength": 16339,
+          "sha256": "e9467bd59b415fb644044558b2d78e9cf930d2f1cf96ea6896e608b87bae8e1f"
+        },
+        {
+          "path": "packages/thought-agent-protocol/src/index.ts",
+          "byteLength": 26620,
+          "sha256": "4d6050ec86b6e35acebbc0fc04713a446b5460db23370d44f7d6356e6a7356dc"
+        },
+        {
+          "path": "packages/thought-agent-protocol/src/release.generated.ts",
+          "byteLength": 24467,
+          "sha256": "c6cb1167541ef596d5e3e6f88d26d45af0c0ff3d19dab7d4bc0c278e0270fe96"
+        },
+        {
+          "path": "packages/thought-agent-protocol/src/run-authority.ts",
+          "byteLength": 639,
+          "sha256": "c8173b3260a9b42551f30febad2e202caafbee6567bc3c6283eca815e2291b3f"
+        },
+        {
+          "path": "packages/thought-agent-protocol/src/run-url.ts",
+          "byteLength": 230,
+          "sha256": "ad0254a2c677a51bc0c643883188da60d2fe352a0bf7e2a2dc57348bbccda00a"
+        },
+        {
+          "path": "packages/thought-agent-protocol/thought-v2.consumer-lock.json",
+          "byteLength": 2857,
+          "sha256": "d61d25057da226beb1dd689d13aacf8b25e4d77f0ef4448c9d0ce3413aea9bc4"
+        },
+        {
+          "path": "packages/utils/src/device.ts",
+          "byteLength": 322,
+          "sha256": "7257c6f350911645e80b0d79b6b72014733f748568da251d157cbaa9ab0ae9ca"
+        },
+        {
+          "path": "packages/utils/src/helpers/fmtDate.ts",
+          "byteLength": 407,
+          "sha256": "91dfe0469452a932318aa178e2ddeea6c2f34e52a5f055974f5bf48ef6089c32"
+        },
+        {
+          "path": "packages/utils/src/index.ts",
+          "byteLength": 115,
+          "sha256": "8477ee88d67737658164b89a7b2e55e6766fb9b2ba3e58b30ee07edfe603e409"
+        },
+        {
+          "path": "packages/utils/src/num/256.ts",
+          "byteLength": 3324,
+          "sha256": "c1ff5869536bce4bae77dc760fa5014343451a02dd51bcdb8c23d3e68c1430d9"
+        },
+        {
+          "path": "packages/utils/src/num/decimal.ts",
+          "byteLength": 1037,
+          "sha256": "a1403748e78adc576bc7c1efed2c6a55d9a81a5b2de1331de4c418cad45958e9"
+        },
+        {
+          "path": "packages/utils/src/num/index.ts",
+          "byteLength": 82,
+          "sha256": "87d3a44066a5c934f62c9999fd45d8d1d2375826fe5d5925071cd87d5fe7878b"
+        },
+        {
+          "path": "packages/utils/src/pulse/curve.ts",
+          "byteLength": 2184,
+          "sha256": "5e301e0f71fc7ad72d2933f506e2dacc140614803875882959eeb00d8a135160"
+        }
+      ]
+    },
+    {
+      "id": "contract-consumer-runtime",
+      "title": "Contract consumer runtime",
+      "owner": "inshell.art shared App infrastructure",
+      "reason": "Address, ABI, public metadata, and release-selection logic consumed by the Apps.",
+      "groupSha256": "823c6f7bdca7958f54695628d1c02aade2c1ad103109204cee8103bf7a8d2edb",
+      "files": [
+        {
+          "path": "packages/contracts/src/abi/sepolia/ColorFontV1.json",
+          "byteLength": 2750,
+          "sha256": "76200503ad5dd882ec9752c49342e5c86259bf7da7b53e2d51fb8aa09bd96080"
+        },
+        {
+          "path": "packages/contracts/src/abi/sepolia/PathNFT.json",
+          "byteLength": 18413,
+          "sha256": "1ba1449def53d90843da5b879cf2aa366a5e03469ce4d64aa76896a1b28a82fb"
+        },
+        {
+          "path": "packages/contracts/src/abi/sepolia/PathPulseAdapter.json",
+          "byteLength": 7235,
+          "sha256": "d248fbff3b9f429f4627bcaa65ac47f1df468bd00abd7b53efca08a8ea72c031"
+        },
+        {
+          "path": "packages/contracts/src/abi/sepolia/PulseAuction.json",
+          "byteLength": 8093,
+          "sha256": "26cfa9162b98b3c6f43f943403b2697e9ded310df647377a0de6105a97ff086a"
+        },
+        {
+          "path": "packages/contracts/src/abi/sepolia/ThoughtNFT.json",
+          "byteLength": 29967,
+          "sha256": "b40328be3f188ea40ead988d6639a71eca5a939a6243b6bd2c57e15353c72a8a"
+        },
+        {
+          "path": "packages/contracts/src/abi/sepolia/ThoughtPreviewer.json",
+          "byteLength": 7203,
+          "sha256": "e566b49041695bb88004c91099e9759a7b03affe541ca21551bfc65bf37352ba"
+        },
+        {
+          "path": "packages/contracts/src/abi/sepolia/ThoughtSpecRegistry.json",
+          "byteLength": 12376,
+          "sha256": "18eb2742f549c19ed35e6243aea04b86c26107ba3df8029f4bd59f87241373d9"
+        },
+        {
+          "path": "packages/contracts/src/addressBook.ts",
+          "byteLength": 3024,
+          "sha256": "294b71a254d73d0a7366b2f83b387a6337326e478fd4ff246a9919aea735d9d7"
+        },
+        {
+          "path": "packages/contracts/src/index.ts",
+          "byteLength": 134,
+          "sha256": "193f9c4f84502a9a292b84c397eb9f4a10d0a9cb5e1194200de4635ca3c6f808"
+        },
+        {
+          "path": "packages/contracts/src/protocolRelease.ts",
+          "byteLength": 3179,
+          "sha256": "68af355825dabaaa793c70179e55aa35b15b1600884fb0a266209a23e0b7c2cc"
+        },
+        {
+          "path": "packages/contracts/src/publicMetadata.ts",
+          "byteLength": 711,
+          "sha256": "269a7613d255a4ef31e4850ccf3a5f9d3a0970aa6ed9cff4e155768eccd82a4c"
+        },
+        {
+          "path": "packages/contracts/src/thoughtRelease.ts",
+          "byteLength": 2948,
+          "sha256": "7a1fc7ab233b3c3aac542ff5b47b9f02cd4f44b90be1fcb1165f016cca168da3"
+        }
+      ]
+    },
+    {
+      "id": "path-release",
+      "title": "PATH release",
+      "owner": "PATH Contract producer and inshell.art consumer",
+      "reason": "PATH permission, capacity, renderer, ABI, and release facts are imported from this lock and release.",
+      "groupSha256": "3e1473244cdd47f1ec9ff80bd8eeed0c1fa56ed1b88d4d69c859b755d2759e1d",
+      "files": [
+        {
+          "path": "packages/contracts/src/path-release/consumer-lock.json",
+          "byteLength": 2247,
+          "sha256": "bcf6a840bf3f2426776324d89c0d3dc68fa12429ab88fa0a60b9b957baf8a758"
+        },
+        {
+          "path": "packages/contracts/src/path-release/releases/v0.5.0/DOWNSTREAM_HANDOFF.md",
+          "byteLength": 4971,
+          "sha256": "da97dc3399b9c212ff7cbabc16b5b7c9a3601416765d33d846bd75874c7593de"
+        },
+        {
+          "path": "packages/contracts/src/path-release/releases/v0.5.0/SHA256SUMS.txt",
+          "byteLength": 706,
+          "sha256": "aeef6cd17d4f987e89f3824f9518ee9015698166ce40c3c08e32f9f73ed9dcaa"
+        },
+        {
+          "path": "packages/contracts/src/path-release/releases/v0.5.0/abi/PathNFT.json",
+          "byteLength": 27631,
+          "sha256": "c66d840e88064753923668e6107ab9de8ce62130fa798de6f159540a14e899fe"
+        },
+        {
+          "path": "packages/contracts/src/path-release/releases/v0.5.0/abi/PathPulseAdapter.json",
+          "byteLength": 7235,
+          "sha256": "d248fbff3b9f429f4627bcaa65ac47f1df468bd00abd7b53efca08a8ea72c031"
+        },
+        {
+          "path": "packages/contracts/src/path-release/releases/v0.5.0/abi/PulseAuction.json",
+          "byteLength": 8093,
+          "sha256": "26cfa9162b98b3c6f43f943403b2697e9ded310df647377a0de6105a97ff086a"
+        },
+        {
+          "path": "packages/contracts/src/path-release/releases/v0.5.0/checksums.json",
+          "byteLength": 765,
+          "sha256": "760cd3a12912518e61d5f590861c303b5fd676daccb4d2b746028ab4b215ed6c"
+        },
+        {
+          "path": "packages/contracts/src/path-release/releases/v0.5.0/hardhat/PathNFT.json",
+          "byteLength": 129171,
+          "sha256": "c7e136539f94d6b5a4e3068c6afc1eaed26dea6c465d5716e83e2fc101d5583e"
+        },
+        {
+          "path": "packages/contracts/src/path-release/releases/v0.5.0/hardhat/PathPulseAdapter.json",
+          "byteLength": 18883,
+          "sha256": "ae0237c5731663e4a61fe1a676cec039665eea4d7fee26ee1a193305e58e1a31"
+        },
+        {
+          "path": "packages/contracts/src/path-release/releases/v0.5.0/hardhat/PulseAuction.json",
+          "byteLength": 26611,
+          "sha256": "d6ee3a6460fb02e6e391861ceab73b4fb8ee8cff0f1d514ca8695f717cdab796"
+        },
+        {
+          "path": "packages/contracts/src/path-release/releases/v0.5.0/manifest.json",
+          "byteLength": 3111,
+          "sha256": "a81355b459b40faea894cf1dfb7f484765a7ec62672039dd62d58a3a52849921"
+        }
+      ]
+    },
+    {
+      "id": "path-deployments",
+      "title": "PATH deployment records",
+      "owner": "inshell.art deployment tooling",
+      "reason": "Network, address, and deployment facts shown by the App derive from these records.",
+      "groupSha256": "10c3cf484dc8a254d1a2fd40cfa047756844f83009c3bac188087dd0462dd57a",
+      "files": [
+        {
+          "path": "packages/contracts/src/addresses/addresses.devnet.json",
+          "byteLength": 323,
+          "sha256": "76e03002d358e04b622130d5c99714c2eb4fe9507dad994cb8532bb47806ebb5"
+        },
+        {
+          "path": "packages/contracts/src/addresses/addresses.sepolia.json",
+          "byteLength": 738,
+          "sha256": "4ede61ba2dade951b7660198fe4047c5ca4426340dd0e630d90a1a6fba0e6f47"
+        },
+        {
+          "path": "packages/contracts/src/releases/release.devnet.json",
+          "byteLength": 2115,
+          "sha256": "bea0fc9242f922f23a0853889b65ebc711025f8095e6f978fa89e8e93896495b"
+        },
+        {
+          "path": "packages/contracts/src/releases/release.sepolia.json",
+          "byteLength": 2250,
+          "sha256": "949896f9ecc5255668d2f68d4359335f58588dfb46a4af206454e36e714541ad"
+        },
+        {
+          "path": "packages/contracts/src/releases/source-bytecode-map.sepolia.json",
+          "byteLength": 2584,
+          "sha256": "bb240aa3b042945810c68493e71ef940d3369bf1fc44f6e455c0c997b1da1ed7"
+        },
+        {
+          "path": "packages/contracts/src/releases/thought-release.sepolia.json",
+          "byteLength": 3298,
+          "sha256": "4b526c22b25a042a95ffddac5307347eceb6f88ad8516119b92fc51abcc748f3"
+        }
+      ]
+    },
+    {
+      "id": "thought-runtime",
+      "title": "THOUGHT App runtime",
+      "owner": "THOUGHT App",
+      "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
+      "groupSha256": "0f75a73f8b841a0a7099b544df89706406823e92e8b5c5f5ac61f9a207bfca42",
+      "files": [
+        {
+          "path": "apps/thought/index.html",
+          "byteLength": 47174,
+          "sha256": "e80f050b668bb04e079f624c021376d53ac09ba81cdcffef0b56448abb6bae24"
+        },
+        {
+          "path": "apps/thought/package.json",
+          "byteLength": 1286,
+          "sha256": "af43e42e2273dfc6524c44739968dd407a5e48b3de63d2f483abda6baf9fa31d"
+        },
+        {
+          "path": "apps/thought/production/deployment-lock.json",
+          "byteLength": 581,
+          "sha256": "0d6545fd73cc26211d83e37e7c0b0f246af5deba0c5d20c799059e429efa57ef"
+        },
+        {
+          "path": "apps/thought/scripts/mock-thought-v2-anvil-signer.ts",
+          "byteLength": 3165,
+          "sha256": "dcb8dc6187e607decbc2782c2ce639c18832e099396a20c3db4a71a7fd923095"
+        },
+        {
+          "path": "apps/thought/scripts/test-app-contract-integration.ts",
+          "byteLength": 15012,
+          "sha256": "b8ff4a1e85b291ef043f4123de57cc0f0c0faf6eff7331c72e768bb6b2ab0715"
+        },
+        {
+          "path": "apps/thought/scripts/thought-agent-dev-run-store.ts",
+          "byteLength": 2940,
+          "sha256": "8aca81c7090e9c739999373112dd77c9bd403906971d952ddc3eb406f20477a8"
+        },
+        {
+          "path": "apps/thought/src/color-font-doc.ts",
+          "byteLength": 991,
+          "sha256": "c9fde436a99653d0735381bddcef126f03a2f825a6a55e1adacfddaabf22015e"
+        },
+        {
+          "path": "apps/thought/src/helpers/download-svg.ts",
+          "byteLength": 448,
+          "sha256": "436e9255e944c49e21c3d907d3a2a84ae091a3fd954d170cde4751d79a73122f"
+        },
+        {
+          "path": "apps/thought/src/main.ts",
+          "byteLength": 740025,
+          "sha256": "c68458b01924eee4bca591fb4f69565a0e47ce47fb7680db2e6b7aebf508e2ad"
+        },
+        {
+          "path": "apps/thought/src/rpc-provider.ts",
+          "byteLength": 492,
+          "sha256": "20e0e76705b9e2b4a1370f13debd0b44318bb35444e102aee39f52424bddd1b9"
+        },
+        {
+          "path": "apps/thought/src/style.css",
+          "byteLength": 97552,
+          "sha256": "12df041590b3b58ea65cfadd228f713d7328758543c681036d7eabada0738786"
+        },
+        {
+          "path": "apps/thought/src/surfaceShell/thoughtCommandTree.ts",
+          "byteLength": 12714,
+          "sha256": "ac26cd10313abdf9b91e81a984e3169e7f9e5617801e4c4d268c2c74764c2e62"
+        },
+        {
+          "path": "apps/thought/src/surfaceShell/thoughtCompletions.ts",
+          "byteLength": 479,
+          "sha256": "d2c0f8d0aa7a85b2902c1a0e74a8187cf1fe631809bbbd2968e6caf02004b868"
+        },
+        {
+          "path": "apps/thought/src/surfaceShell/thoughtDispatcherAdapter.ts",
+          "byteLength": 4598,
+          "sha256": "17a766d96e54095fae24227c2e0c470af8c5b362c1da741615c20b0e208b4719"
+        },
+        {
+          "path": "apps/thought/src/surfaceShell/thoughtRedaction.ts",
+          "byteLength": 2185,
+          "sha256": "a246d42bd923fd833627e626704199a1527f389d5a10e89a41bbdaf0481447f5"
+        },
+        {
+          "path": "apps/thought/src/surfaceShell/thoughtShellReturns.ts",
+          "byteLength": 420,
+          "sha256": "5bbd2adcb0805dca4dcb00e3aae01b24c37298bff8f2850cfe7da68b10481e5c"
+        },
+        {
+          "path": "apps/thought/src/surfaceShell/thoughtShellState.ts",
+          "byteLength": 1080,
+          "sha256": "c83b4159c0c3957e5e5d339b06e1b89ac2397ff5fd7ac10e1b0b174bfcd8b19b"
+        },
+        {
+          "path": "apps/thought/src/surfaceShell/thoughtSideEffects.ts",
+          "byteLength": 1308,
+          "sha256": "e2ed84f85648fd3caa72d60db16086ddeba00d50ae8391211678b95d3b0d8c8e"
+        },
+        {
+          "path": "apps/thought/src/svg-lab.css",
+          "byteLength": 9578,
+          "sha256": "fa5415e20154c79f5cb1c38290ee1d361d03d9b48ba67b228537c388cc705b13"
+        },
+        {
+          "path": "apps/thought/src/svg-raw-renderer.ts",
+          "byteLength": 4229,
+          "sha256": "1f43aa4e64bc8e54ae075969bc76c2a15af534d543851fbf46cb8bb6bcb85164"
+        },
+        {
+          "path": "apps/thought/src/thought-claude-cowork-qualification.ts",
+          "byteLength": 983,
+          "sha256": "c87739aab8b12a721d3266ce0ad90360eaee3cdaf6cc8403d7a27c0fe82a6c51"
+        },
+        {
+          "path": "apps/thought/src/thought-console.ts",
+          "byteLength": 16136,
+          "sha256": "3e35aff5cf3ffeeb58b6f96a15bfddfc5421559d96c5163f5093dc911fc28343"
+        },
+        {
+          "path": "apps/thought/src/thought-display-text.ts",
+          "byteLength": 258,
+          "sha256": "83c75e31c308676857bb1f4f922f32ba56d0475d55b4d10a2d3920cd3935b9d3"
+        },
+        {
+          "path": "apps/thought/src/thought-mint-presentation.ts",
+          "byteLength": 28306,
+          "sha256": "8a9666bd8efa2c542573e721bb9560ea053c63f6a66f3eeaf86996741d3c342b"
+        },
+        {
+          "path": "apps/thought/src/thought-mint-submission-lock.ts",
+          "byteLength": 4596,
+          "sha256": "4351b9d5287cff56e563a9c8f948a398c510779cfaec4f23dc4fc1f139ed84be"
+        },
+        {
+          "path": "apps/thought/src/thought-mint-transaction.ts",
+          "byteLength": 13305,
+          "sha256": "c46dd30d89559a168b8818c28c17bc584ba66130b1f437599a31a7afd9db8a51"
+        },
+        {
+          "path": "apps/thought/src/thought-mint-ui.ts",
+          "byteLength": 5112,
+          "sha256": "d5a526d010bc8c76079b5dc40818ff7fadbd7ed564f93833eaca4213168288e7"
+        },
+        {
+          "path": "apps/thought/src/thought-path-acquisition.ts",
+          "byteLength": 11550,
+          "sha256": "071521cbcf77297ffbee82e6466237cb4c67ca1fb547891bf3477ff57ee52376"
+        },
+        {
+          "path": "apps/thought/src/thought-path-consume-authorization.ts",
+          "byteLength": 1345,
+          "sha256": "e064dccc332c04f848d541e4bdf6f925f27bd45f5b9ef09387ff7b74e4f4fb8b"
+        },
+        {
+          "path": "apps/thought/src/thought-poll-wake.ts",
+          "byteLength": 1145,
+          "sha256": "ccc8ca11d479d05d563480779803bba8bf29ebdc0eccd56d6865639787dc72d9"
+        },
+        {
+          "path": "apps/thought/src/thought-preview-policy.ts",
+          "byteLength": 4110,
+          "sha256": "5943a74ebab7e1a36610b13e6f6dc19f6a0eda0b7d59b854ec88158890f1c388"
+        },
+        {
+          "path": "apps/thought/src/thought-prompt-history.ts",
+          "byteLength": 2273,
+          "sha256": "42f681d152933f335c2c0392e42c7a492ddd6872c8e1898f0206634b8d8c07a3"
+        },
+        {
+          "path": "apps/thought/src/thought-pulse-auction-price.ts",
+          "byteLength": 1725,
+          "sha256": "7a74275db150e36a9c4ea9ba24e14eaa04bbf037eb94cc7492d2eae2a73f648d"
+        },
+        {
+          "path": "apps/thought/src/thought-run-payload.ts",
+          "byteLength": 6337,
+          "sha256": "83a42bcd74d3019d8ab4dea0520b4f64cd03b93b037deb2e702c4c966318da22"
+        },
+        {
+          "path": "apps/thought/src/thought-shell.tsx",
+          "byteLength": 2860,
+          "sha256": "b004641629ba9a3fb440b509f6c02617a3cb26a5586c603ab0a5100728010aeb"
+        },
+        {
+          "path": "apps/thought/src/thought-text-policy.ts",
+          "byteLength": 8923,
+          "sha256": "462d3cc2ba22ff5834b4018e7f229e43afe9d8c283ccb67f54246b3c3a0e8602"
+        },
+        {
+          "path": "apps/thought/src/thought-v2-app-mint.ts",
+          "byteLength": 6625,
+          "sha256": "f1c739c6f22b6777f7bd145ce4a93ebe741a3d0079a3796c2a6970f7441ed47f"
+        },
+        {
+          "path": "apps/thought/src/thought-v2-contract-client.ts",
+          "byteLength": 21181,
+          "sha256": "0d4b14e309cea9cde49d90fc13727facc1228ff7e2e112531c9ff301dfd8116a"
+        },
+        {
+          "path": "apps/thought/src/thought-v2-contract-release.generated.ts",
+          "byteLength": 9589,
+          "sha256": "657b4948c356f39afc353090cccfb1e60e30e83de02ff944335f7b1aace62973"
+        },
+        {
+          "path": "apps/thought/src/thought-v2-empty-frame.ts",
+          "byteLength": 1237,
+          "sha256": "7b94475d4fcc98f319f27d7d0deb429310e4616dbb1bd1745da630f6d85116b2"
+        },
+        {
+          "path": "apps/thought/src/thought-v2-fixtures.ts",
+          "byteLength": 217,
+          "sha256": "f3ce7e6277827db3e451a11f65bf445b8a327e565c27f5b92519e765cea2f237"
+        },
+        {
+          "path": "apps/thought/src/thought-v2-lab.ts",
+          "byteLength": 7739,
+          "sha256": "5bcbc132afe812ed910fc9ec7287e54a645640ce0b6c12b6876d4cc14af7b85d"
+        },
+        {
+          "path": "apps/thought/src/thought-v2-local-agent.ts",
+          "byteLength": 8093,
+          "sha256": "e56e5c06107e4ffb736333cf545f67d71a32a5945214706dc3bd5f1a4fba0c31"
+        },
+        {
+          "path": "apps/thought/src/thought-v2-local-deployment.ts",
+          "byteLength": 1682,
+          "sha256": "caf64ed9de43061a2ab8f4e5cb91eddbc9a140840553372af318071d258f0fc0"
+        },
+        {
+          "path": "apps/thought/src/thought-v2-local-mint.ts",
+          "byteLength": 2657,
+          "sha256": "1ed88eeffdf3feb43684e31adc59e8438992fffa003b576bdccdb3f81cf22e5f"
+        },
+        {
+          "path": "apps/thought/src/thought-v2-local-release.ts",
+          "byteLength": 11048,
+          "sha256": "3329d5d7d4f1c15eb9ee0bcd1f3d447730b591e12d8a1a13244088032144bcbf"
+        },
+        {
+          "path": "apps/thought/src/thought-v2-path-acquisition-runtime.ts",
+          "byteLength": 370,
+          "sha256": "66224d93df7abb253a4e6d750174a1082f558f86bda5baea279839e81005725e"
+        },
+        {
+          "path": "apps/thought/src/thought-v2-production-deployment.ts",
+          "byteLength": 5878,
+          "sha256": "d32f916b5f55b5640ebfd0381683fb720f53afcbf95e7aa68212549f23bab520"
+        },
+        {
+          "path": "apps/thought/src/thought-v2-provenance.ts",
+          "byteLength": 20954,
+          "sha256": "c8d40ac4c83c158f0f71d1bea673b5dfd1e3f2de6e8afdb6aa5c515cd5e8eec1"
+        },
+        {
+          "path": "apps/thought/src/thought-v2-renderer.ts",
+          "byteLength": 269,
+          "sha256": "091d48363beee1e7d9d7a4d81dafda8a24f20c3183df6f06826b5320577c9445"
+        },
+        {
+          "path": "apps/thought/src/thought-v2-stored-visual.ts",
+          "byteLength": 2142,
+          "sha256": "7dc6e5bd5d5dd7c665c3b66955078b0585ee766ae66ab1d793342e418a74d27f"
+        },
+        {
+          "path": "apps/thought/src/works.ts",
+          "byteLength": 9950,
+          "sha256": "7619a976367325e23b50066898af8ecfe149d69bb8077c6f7ae4501624bd53b9"
+        },
+        {
+          "path": "apps/thought/vite.config.ts",
+          "byteLength": 66520,
+          "sha256": "87808a0e5cc51f6e411af6c238545b4b7d1a1723782e85157c213ce8014598a9"
+        }
+      ]
+    },
+    {
+      "id": "thought-app",
+      "title": "THOUGHT App specifications and records",
+      "owner": "THOUGHT App",
+      "reason": "Creative specification, provenance, metadata namespace, and App integration facts.",
+      "groupSha256": "f4c2e310180e31399f3428df457b6716d31f85f710642cc5c7a32566f54ed6bb",
+      "files": [
+        {
+          "path": "apps/thought/contract-integration/current/APP_BOUNDARY_RESPONSE.md",
+          "byteLength": 4068,
+          "sha256": "033e21ac3f90c1e3ada3682bb3d58aac2ecf3d2d5872a731f2def4098ce6f123"
+        },
+        {
+          "path": "apps/thought/contract-integration/current/README.md",
+          "byteLength": 988,
+          "sha256": "f0e597aa10264337c33c41af13b55a9a3f43d4a0b1a88f4d8e16d122203bfc15"
+        },
+        {
+          "path": "apps/thought/contract-integration/current/creation-attestation-verifier-interface.abi.json",
+          "byteLength": 4604,
+          "sha256": "de22b79b31cf3f28bc97db9074045ca4a3b18b522847cdac957fdf2cb3212cb4"
+        },
+        {
+          "path": "apps/thought/contract-integration/current/creation-attestation-verifier.abi.json",
+          "byteLength": 15115,
+          "sha256": "fc97b74dc825d36e4cd414977be60fd5fce354a5320cbefc24d3d6dbeed3e9d5"
+        },
+        {
+          "path": "apps/thought/contract-integration/current/integration-lock.json",
+          "byteLength": 24114,
+          "sha256": "90836d15962c29f9198a6be0ba3196467e11f9415b4783a130e03e88163a3e00"
+        },
+        {
+          "path": "apps/thought/contract-integration/current/reference/thought-v2-canonical-json.ts",
+          "byteLength": 994,
+          "sha256": "1392290634e9e6ce93f3fdbc58cf1f3d672f9696fc9e8656e761e8ce2c4f74db"
+        },
+        {
+          "path": "apps/thought/contract-integration/current/reference/thought-v2-context-profile.ts",
+          "byteLength": 3255,
+          "sha256": "be4c3223491ef5b09c560bbbb1b23dd143e6855f6d1d72707e0e51d286cc6a8d"
+        },
+        {
+          "path": "apps/thought/contract-integration/current/reference/thought-v2-current-creation-attestation.ts",
+          "byteLength": 5286,
+          "sha256": "8a8e42bd0c456e4b56b97ee9b5d76ebb79d6398ada988f8e807eebd88474876a"
+        },
+        {
+          "path": "apps/thought/contract-integration/current/reference/thought-v2-terminal-provenance.ts",
+          "byteLength": 21092,
+          "sha256": "e78145a72c0b07b641d716ac1cca3111bccb64d67795ce88eec6fde966b01ad2"
+        },
+        {
+          "path": "apps/thought/contract-integration/current/reference/thought-v2-terminal-work-profile.ts",
+          "byteLength": 4872,
+          "sha256": "345bb3783bb859995b0d109a55f1553c7ac42662c665c58dd57147d033284b22"
+        },
+        {
+          "path": "apps/thought/contract-integration/current/runtime-manifest.json",
+          "byteLength": 4580,
+          "sha256": "fa97da156eb2ea9280050f25d9eabd4eaedcbf5ae1c8972ac1ce44d05ef12b61"
+        },
+        {
+          "path": "apps/thought/contract-integration/current/thought-nft-v2.abi.json",
+          "byteLength": 36418,
+          "sha256": "235f02cde440469ce58e3b010c3cf860b00e57722573036de098e0ea2369bfa0"
+        },
+        {
+          "path": "apps/thought/contract-integration/current/thought-renderer-v2.abi.json",
+          "byteLength": 12296,
+          "sha256": "92a4c7d698b92eb388eea2b91d48c4ce05e16eb6cc0c6b86080b76c5db269228"
+        },
+        {
+          "path": "apps/thought/contract-integration/current/thought.app-contract-boundary.v1.json",
+          "byteLength": 6826,
+          "sha256": "fa96f72ae2a2c2e6b84cc373eacb9e5381a4a43efcb7148c0f0a8b7b639a2b36"
+        },
+        {
+          "path": "apps/thought/contract-integration/current/thought.app-contract-boundary.v1.md",
+          "byteLength": 8599,
+          "sha256": "f8e9924521d9c2ee20b53ac7bb8b41910c319c3fd480f4226d5bb175cffa4e94"
+        },
+        {
+          "path": "apps/thought/contract-integration/current/thought.context.v2.profile.json",
+          "byteLength": 1179,
+          "sha256": "2d81e42a3690869f86c2dc2b753a82af33ec7ecdbe079e5a41b9e0ce8482f63f"
+        },
+        {
+          "path": "apps/thought/contract-integration/current/thought.creation-workflow-attestation.v2.md",
+          "byteLength": 3753,
+          "sha256": "7bb817b84df2537b3e9cb7bc46c7cc729c6557911abf4f58579672d2cf3aff5c"
+        },
+        {
+          "path": "apps/thought/contract-integration/current/thought.metadata.v2.profile.json",
+          "byteLength": 1662,
+          "sha256": "a08842ac2bf8432a054f182f0a93fe8e73c3d0bdf9c73239018c4c78e6363af7"
+        },
+        {
+          "path": "apps/thought/contract-integration/current/thought.mint-input.v2.schema.json",
+          "byteLength": 2347,
+          "sha256": "716054091c607f748aa083049a4bd6dcbe009bb207a1526f5cd2855a1a441654"
+        },
+        {
+          "path": "apps/thought/contract-integration/current/thought.provenance.v2.md",
+          "byteLength": 3454,
+          "sha256": "495aee4aab4d43170a16f64e431d3d507839fd5b68be277351aeaf26f1687a7a"
+        },
+        {
+          "path": "apps/thought/contract-integration/current/thought.provenance.v2.schema.json",
+          "byteLength": 6272,
+          "sha256": "0a353167ea460f7fb24c52d0cce106c9bedaa348e561bab1c683beb43fa59398"
+        },
+        {
+          "path": "apps/thought/contract-integration/current/thought.selected-spec.md",
+          "byteLength": 4627,
+          "sha256": "90df786a3ffb5ec38bffd09ff356ec560d0b7dddcdf57170891149a92a399e9b"
+        },
+        {
+          "path": "apps/thought/contract-integration/current/thought.work.v2.profile.json",
+          "byteLength": 2254,
+          "sha256": "f7b2981d1bdf15923a1b73cc91dea0bbf6483f469583a3f66cb71c414f4382bf"
+        },
+        {
+          "path": "apps/thought/metadata/v2/metadata-namespace-lock.json",
+          "byteLength": 1902,
+          "sha256": "6c450e9d2b6db8ab89b7e21e3d25c3fd67bc75ed4088d79496000cf800ed6021"
+        },
+        {
+          "path": "apps/thought/metadata/v2/thought.marketplace-traits.v2.profile.json",
+          "byteLength": 1356,
+          "sha256": "3b87206d7dd071b63bf740b0cfe7b522e91f20eb6f5a7be8b8ecc75eaf626cd3"
+        },
+        {
+          "path": "apps/thought/metadata/v2/thought.metadata-namespace.v2.md",
+          "byteLength": 8875,
+          "sha256": "0f3a9a6a7225f8a18606cf504ab2d980c30035d7078bd1158258cdb991a2b523"
+        },
+        {
+          "path": "apps/thought/metadata/v2/thought.metadata-namespace.v2.schema.json",
+          "byteLength": 7260,
+          "sha256": "f901946d37298227f6d8888f66e66d9d93976d61c4f7ab7c46b53e3d8aa451a3"
+        },
+        {
+          "path": "apps/thought/provenance/v2/provenance-lock.json",
+          "byteLength": 1225,
+          "sha256": "ea711345a709efa6a92fc0edda73ece5132c4f45931c0df7bac26958e2d720ae"
+        },
+        {
+          "path": "apps/thought/provenance/v2/thought.provenance.v2.md",
+          "byteLength": 3372,
+          "sha256": "55b7f699f85d340f8273c17c04bd6c2431fac50c1d6472ce2bc3e5f1323da2bb"
+        },
+        {
+          "path": "apps/thought/provenance/v2/thought.provenance.v2.schema.json",
+          "byteLength": 5606,
+          "sha256": "210abc0735cf7fb480491ec94f04495deb153560838c514c8f2ef19541821ff8"
+        },
+        {
+          "path": "apps/thought/spec/COLOR_FONT.v1.txt",
+          "byteLength": 510,
+          "sha256": "640800ed78bee95fa828d7219ab1711a8fc8177f0af18fa590af85602e297107"
+        },
+        {
+          "path": "apps/thought/spec/CREATION_PROVENANCE.md",
+          "byteLength": 6021,
+          "sha256": "567b09caeddca1ec501257f475b71839c0c83697e1c7a996d9ba2fe073a42f49"
+        },
+        {
+          "path": "apps/thought/spec/README.md",
+          "byteLength": 4699,
+          "sha256": "2e444606046ac5caaca46ec701075b0b2a1bb2cce99efc1d7e548b66bc1bcd0b"
+        },
+        {
+          "path": "apps/thought/spec/THOUGHT.agent-creative.v2.lock.json",
+          "byteLength": 1109,
+          "sha256": "c8bb1a9e5d9feb5a207348a54a13c76389526e016462b124f418515369df1995"
+        },
+        {
+          "path": "apps/thought/spec/THOUGHT.agent-creative.v2.md",
+          "byteLength": 1088,
+          "sha256": "8f89266863caa47599c3f162e703fb2197f7b33343c3ea249151d471c706b244"
+        },
+        {
+          "path": "apps/thought/spec/THOUGHT.v2.local.md",
+          "byteLength": 4627,
+          "sha256": "90df786a3ffb5ec38bffd09ff356ec560d0b7dddcdf57170891149a92a399e9b"
+        },
+        {
+          "path": "apps/thought/spec/THOUGHT.v2.lock.json",
+          "byteLength": 1227,
+          "sha256": "4d80814d7f0ef3956372bbdb51e665a897f1abc46459d5457106eeb9af8befb8"
+        },
+        {
+          "path": "apps/thought/spec/THOUGHT.v2.md",
+          "byteLength": 4627,
+          "sha256": "90df786a3ffb5ec38bffd09ff356ec560d0b7dddcdf57170891149a92a399e9b"
+        }
+      ]
+    },
+    {
+      "id": "thought-contract-release",
+      "title": "THOUGHT Contract release",
+      "owner": "THOUGHT Contract producer and inshell.art consumer",
+      "reason": "Canonical Contract, renderer, metadata, protocol, and conformance facts.",
+      "groupSha256": "3b09a4956a391bf342797896526d0784ae4f471ebb92296d7db23e7e2dfbb8f6",
+      "files": [
+        {
+          "path": "apps/thought/contract-release/consumer-lock.json",
+          "byteLength": 4693,
+          "sha256": "7a6da8af18e902504b7f4b2913850794ffaaf487ac66e7836d9739a90c67920a"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/README.json",
+          "byteLength": 357,
+          "sha256": "ebfed29683ef40849ab9ee7b03e789878e431cba4264ae3731c7fc786b5cb729"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/SHA256SUMS.txt",
+          "byteLength": 8570,
+          "sha256": "df3faa82f3c0e9ed18b194014fd0efc96149d80b999883bbe205318b28cb71b3"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/contract/compiled/CreationAttestationVerifierV2.json",
+          "byteLength": 36126,
+          "sha256": "207da0ebf4bb89fc4e008a6a85ece1ed46fc4d59f1686ed8e7b03d9d23150518"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/contract/compiled/ICreationAttestationVerifierV2.json",
+          "byteLength": 5687,
+          "sha256": "b342a8fe6c16f3f7053d6f4841c22ab0f3e64f3a7cb3aa17349aef29dc35eb98"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/contract/compiled/IThoughtRendererV2.json",
+          "byteLength": 4320,
+          "sha256": "568b2fd2e480e277a15a48e2a9d1ae5c341bd8e6a86927ca681128ca2263133e"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/contract/compiled/IThoughtSvgRendererV2.json",
+          "byteLength": 3391,
+          "sha256": "3ec701be7f850242e8c1e841f7d8d69f26daa89522ac88f9e41c7be2fb20af73"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/contract/compiled/ThoughtNFTV2.json",
+          "byteLength": 116966,
+          "sha256": "7413b430cbdccee597768b7c6b75d88beeccd51b3d6b6ae853264e02ded1b0fc"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/contract/compiled/ThoughtRendererV2.json",
+          "byteLength": 94760,
+          "sha256": "bd360a58fe1aa7d3a8b82a0491db31a4d4dca88e4a81880b52b27c29bd00437f"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/contract/compiled/ThoughtRendererV2Split.json",
+          "byteLength": 54684,
+          "sha256": "5b58c4b5e29cb96dfe84010cab30d2a38c57595b210fda378bfc75039c3e7679"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/contract/compiled/ThoughtSpecRegistry.json",
+          "byteLength": 31310,
+          "sha256": "461a0a54f6ab7a07c66491ea28697184b51abee2042d2b0b06837378495c532d"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/contract/compiled/ThoughtSpecRegistryV2.json",
+          "byteLength": 13916,
+          "sha256": "a4dd41ea531cfed129fdaffa9be49a5f277564571a976549521d0d0e8502cb9d"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/contract/compiled/ThoughtSvgRendererV2.json",
+          "byteLength": 48450,
+          "sha256": "e0ba236be155553f1a999872fe05c146b490c3fa0b7b4319b52ac8f51cd82f2c"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/contract/index.json",
+          "byteLength": 3723,
+          "sha256": "69c5f28cd276fcdd22974112cb437e7cbcd4563c581da392e3a71ad51535adca"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/dependencies/mono-76/HANDOFF.md",
+          "byteLength": 4240,
+          "sha256": "2938ccebf1ef4b862370c35eb6f655f95825fae178a3d6eac2c0e21ce3eed031"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/dependencies/mono-76/LICENSES.md",
+          "byteLength": 387,
+          "sha256": "9527d9bf0cf4ca91976349190f85ddc4130f9a779595b0169355ce632522213f"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/dependencies/mono-76/NOTICE.md",
+          "byteLength": 371,
+          "sha256": "b3710d851a323736371369a68281d5c27b0c7c84a8e67f457f8cacce0825d064"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/dependencies/mono-76/PROVENANCE.md",
+          "byteLength": 1564,
+          "sha256": "ee9fc87dc3e254061d59f2383cfeccb644409f0e6c2fb369af3d810d938cefaf"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/dependencies/mono-76/README.md",
+          "byteLength": 484,
+          "sha256": "9754bb3797e2c90df29e9ad1e4996a00ef450fe92ce0c60dd2a393b5b67f0755"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/dependencies/mono-76/SHA256SUMS",
+          "byteLength": 1201,
+          "sha256": "bfc2076443f5268e3505f7ff5bf3994e19d2c8d6c17a3a9394c533ffdbc0b9b0"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/dependencies/mono-76/UNLICENSED.md",
+          "byteLength": 463,
+          "sha256": "0c474524707e464dfe534342e091babfc283a1f0c39395c4e141a92353ef773f"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/dependencies/mono-76/glyphs.json",
+          "byteLength": 21389,
+          "sha256": "7ed61ed6335fce2c1e58184916f5d344b8384fc05d4c616e83c35ad4fa9ed47f"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/dependencies/mono-76/index.mjs",
+          "byteLength": 5234,
+          "sha256": "701b72023138f9ed59cf2a303489d00275f71d4983a4a857ad68950e252d6d77"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/dependencies/mono-76/manifest.json",
+          "byteLength": 1561,
+          "sha256": "3506060e6262da142b5d6cc858d03ebe875f3b9a5c52edc30d078b2f4a944c8c"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/dependencies/mono-76/onchain/decoder.mjs",
+          "byteLength": 2776,
+          "sha256": "95dba164b34f18f32025e58b738cda7c98c29206e48305a456f28928b94be71b"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/dependencies/mono-76/onchain/metadata.json",
+          "byteLength": 656,
+          "sha256": "0245728579ad2d929403935e0d0646e66f3b0a08fe73a2e16e4092ee50660480"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/dependencies/mono-76/onchain/packed.bin",
+          "byteLength": 4600,
+          "sha256": "3acc0a9cf60c00aa2d512356386d1e2a999499896e25661e8e631d53d5e10926"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/dependencies/mono-76/onchain/packed.hex",
+          "byteLength": 9203,
+          "sha256": "3a05d62ccbd82cad03d7c2521bf1396ce5bb323f36d5a4ce5c0b3f54b3971690"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/dependencies/mono-76/package.json",
+          "byteLength": 1053,
+          "sha256": "4bb311c1647f17b56420ac6a8d649f8ec2658757023225710dcc467084e43c1c"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/dependencies/mono-76/verify.mjs",
+          "byteLength": 5775,
+          "sha256": "4e7ce6acbd22053bc5ed2609990dea002e1b813f13539b3259738544fc0f723e"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/fixtures/neutral-agent-model-token-uri-examples.anvil.json",
+          "byteLength": 88889,
+          "sha256": "5c3ec9289d9c04926d20c4307e58be3f00c29dd9ebb0a1c640d1ff0c72385d5c"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/handoff.md",
+          "byteLength": 1673,
+          "sha256": "6c27efdf170ed9914b8ac02e7801cd5e931f4806905a2d7adf57f486c55fae93"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/limitations.json",
+          "byteLength": 548,
+          "sha256": "448be9a92ae5c1739ba18448eb900416019abb0b5228ffa9d9e6372f809ac22b"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/manifest.json",
+          "byteLength": 21962,
+          "sha256": "7cf7965edb3de6421c79d9c08f0781cabb78ea675bad354847b56ec8f19306cc"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/README.md",
+          "byteLength": 4420,
+          "sha256": "e9312231149d132f94febe880832542f99c42e0d2f7fe0f95e27ed64c69d79ab"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/SPECIFICATION_ARCHITECTURE.md",
+          "byteLength": 5532,
+          "sha256": "4bb2e1e3948042778317338a64b8fe6a83643665964e11e3a66f81646a563532"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/THOUGHT.v2.md",
+          "byteLength": 4627,
+          "sha256": "90df786a3ffb5ec38bffd09ff356ec560d0b7dddcdf57170891149a92a399e9b"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/agent/thought.agent-declaration.v1.schema.json",
+          "byteLength": 710,
+          "sha256": "d9564d994763e643c77d853d9200f39a31677f718c715dce3b4c3ec29f406afd"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/attestation/fixtures/creation-attestation-v2-vectors.json",
+          "byteLength": 2241,
+          "sha256": "864078414975468447cb754f665543787f2c90143de70af7f2dfb0283e05ae0d"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/attestation/thought.creation-workflow-attestation.v2.md",
+          "byteLength": 3753,
+          "sha256": "7bb817b84df2537b3e9cb7bc46c7cc729c6557911abf4f58579672d2cf3aff5c"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/conformance/work-hash-vectors.json",
+          "byteLength": 1090,
+          "sha256": "2fc13425cee5da853ac0f9b658857c5cf89c0bbdf6e6c55583ded6bf0e5ab6fb"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/context/thought.context.v2.profile.json",
+          "byteLength": 1179,
+          "sha256": "2d81e42a3690869f86c2dc2b753a82af33ec7ecdbe079e5a41b9e0ce8482f63f"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/contract/thought.mint-input.v2.schema.json",
+          "byteLength": 2347,
+          "sha256": "716054091c607f748aa083049a4bd6dcbe009bb207a1526f5cd2855a1a441654"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/integration/path-nft.v0.5.0.json",
+          "byteLength": 1233,
+          "sha256": "494b9c1c07b894be10a2e344128a2323ec193b7ccb011df234daf7e72d781c7b"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/integration/thought.app-contract-boundary.v1.json",
+          "byteLength": 6826,
+          "sha256": "fa96f72ae2a2c2e6b84cc373eacb9e5381a4a43efcb7148c0f0a8b7b639a2b36"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/integration/thought.app-contract-boundary.v1.md",
+          "byteLength": 8599,
+          "sha256": "f8e9924521d9c2ee20b53ac7bb8b41910c319c3fd480f4226d5bb175cffa4e94"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/metadata/thought.metadata.v2.profile.json",
+          "byteLength": 1662,
+          "sha256": "a08842ac2bf8432a054f182f0a93fe8e73c3d0bdf9c73239018c4c78e6363af7"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/provenance/thought.provenance.v2.md",
+          "byteLength": 3454,
+          "sha256": "495aee4aab4d43170a16f64e431d3d507839fd5b68be277351aeaf26f1687a7a"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/provenance/thought.provenance.v2.schema.json",
+          "byteLength": 6272,
+          "sha256": "0a353167ea460f7fb24c52d0cce106c9bedaa348e561bab1c683beb43fa59398"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/release-input.json",
+          "byteLength": 3681,
+          "sha256": "acdf1893fbc3cbb37c5f789bcdfcab2ac8d0ef159fcf4876bfff5a0ebb038658"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/renderer/LICENSE-HUMANIST-SMOOTH-OFL-1.1.md",
+          "byteLength": 4473,
+          "sha256": "6234e3f17f21084f690e3adae017a32f866d5880ed2b5daaae59d8d78f021968"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/renderer/NOTICE-HUMANIST-SMOOTH.md",
+          "byteLength": 782,
+          "sha256": "aa70cd4ab472ebaaddbc870e0affd7826b018c1b22d6fb2a423681d24949a0a2"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/renderer/experiments/classic-book/classic-book.im76.bin",
+          "byteLength": 2540,
+          "sha256": "3ab51d7dcdce7e358e7c76002b8f78ddaa448a99de2116a238f7e22209f2bd60"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/renderer/experiments/classic-book/thought.renderer.v2.classic-book.experiment.json",
+          "byteLength": 3094,
+          "sha256": "b7f047f381d22090cb67a7b4e461b1f29117b6df561e5b8e14dc703a816ce51b"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/renderer/experiments/classic-compact/classic-compact.im76.bin",
+          "byteLength": 2631,
+          "sha256": "204bf9e84103b57175e1dc0be06b3f42e91a4d0f8fb5b8b7457b52ff63c79393"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/renderer/experiments/classic-compact/thought.renderer.v2.classic-compact.experiment.json",
+          "byteLength": 3114,
+          "sha256": "d480004484e3d62e7098629078f4e7e4e92e812fed55793e40a47ce249292832"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/renderer/experiments/classic-line/classic-line.im76.bin",
+          "byteLength": 2514,
+          "sha256": "d06f7403b4963d8f46e6e8559c7ab0e4a21a65aa3681b210bfe433d74ea56b42"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/renderer/experiments/classic-line/thought.renderer.v2.classic-line.experiment.json",
+          "byteLength": 3094,
+          "sha256": "279537baabdac99fe073139dc5ae407076346f7d1d5522275e7e1eca3c2e607e"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/renderer/experiments/classic-round/classic-round.im76.bin",
+          "byteLength": 2696,
+          "sha256": "72ea88523caf278828b833368c4a3a289f7b80866ac464325d04f031c48e3a01"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/renderer/experiments/classic-round/thought.renderer.v2.classic-round.experiment.json",
+          "byteLength": 3101,
+          "sha256": "084a3e8b2b085975e3807911ec1bf8a2ace3e50026c53cbf61c2abed1d8e4b22"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/renderer/humanist-smooth-defs-1.svgfrag",
+          "byteLength": 15557,
+          "sha256": "e344b7b8af8b9b11094594cf1e8d7efb05572e6d81b99d60c9afd313cc7a42bd"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/renderer/humanist-smooth-defs-2.svgfrag",
+          "byteLength": 12779,
+          "sha256": "95e5e25a99f3cc176e80d3aebe42be3230b50d489d1788aa1d22e58350030962"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/renderer/humanist-smooth-index.bin",
+          "byteLength": 375,
+          "sha256": "daa5c1b21eba07ab39712bc560faaf4156d137ee3575c5323cf98539c9ca8102"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/renderer/mono-76.im76.bin",
+          "byteLength": 4600,
+          "sha256": "3acc0a9cf60c00aa2d512356386d1e2a999499896e25661e8e631d53d5e10926"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/renderer/thought.renderer.v2.profile.json",
+          "byteLength": 3544,
+          "sha256": "3ce86a2db35a969aea2d3286688adddbf5fa2daf1fd71ccefd37171e91fad3c5"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/work/thought.work.v2.md",
+          "byteLength": 5952,
+          "sha256": "5e051b981978df13266e292796a92fe0e8d87d874bf8183ba6947a914c0216e4"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/work/thought.work.v2.profile.json",
+          "byteLength": 2254,
+          "sha256": "f7b2981d1bdf15923a1b73cc91dea0bbf6483f469583a3f66cb71c414f4382bf"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/work/thought.work.v2.schema.json",
+          "byteLength": 815,
+          "sha256": "47571f007fc4325ceab960be2d41bc286fa0ca71d303d57c3487d7673823e066"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/reference/thought-v2-canonical-json.ts",
+          "byteLength": 994,
+          "sha256": "1392290634e9e6ce93f3fdbc58cf1f3d672f9696fc9e8656e761e8ce2c4f74db"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/reference/thought-v2-context-profile.ts",
+          "byteLength": 3255,
+          "sha256": "be4c3223491ef5b09c560bbbb1b23dd143e6855f6d1d72707e0e51d286cc6a8d"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/reference/thought-v2-current-creation-attestation.ts",
+          "byteLength": 5286,
+          "sha256": "8a8e42bd0c456e4b56b97ee9b5d76ebb79d6398ada988f8e807eebd88474876a"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/reference/thought-v2-terminal-provenance.ts",
+          "byteLength": 21092,
+          "sha256": "e78145a72c0b07b641d716ac1cca3111bccb64d67795ce88eec6fde966b01ad2"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/reference/thought-v2-terminal-work-profile.ts",
+          "byteLength": 4872,
+          "sha256": "345bb3783bb859995b0d109a55f1553c7ac42662c665c58dd57147d033284b22"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/validation/producer-tests.json",
+          "byteLength": 295,
+          "sha256": "fa476c6571d8465f3240c8c455d0dfbf97b7125857a72062026e177de4b58271"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/validation/r1-to-r2-path-v0.5.json",
+          "byteLength": 7568,
+          "sha256": "8f7c815fc32e074f72a9595ec31c0262d0ff29a5016370964f63d4979f85448b"
+        },
+        {
+          "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/validation/runtime-size-and-target-chains.json",
+          "byteLength": 2700,
+          "sha256": "fbbc043ca018a6e5b2a665db4acef360e0f6b5ba838c421f6f295460768bcda5"
+        }
+      ]
+    }
+  ]
+}

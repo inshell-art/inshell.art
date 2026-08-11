@@ -1,0 +1,58 @@
+{
+  "schema": "inshell.docs.gate-manifest.v1",
+  "gates": [
+    {
+      "workflow": "test",
+      "job": "build",
+      "requiredCommands": [
+        "pnpm run check:upstream-releases",
+        "pnpm run build:home"
+      ]
+    },
+    {
+      "workflow": "deploy-pages",
+      "job": "deploy-home",
+      "requiredCommands": [
+        "pnpm run check:upstream-releases",
+        "pnpm run build:home"
+      ]
+    },
+    {
+      "workflow": "local",
+      "job": "pre-commit",
+      "requiredCommands": [
+        "pnpm docs:check"
+      ]
+    },
+    {
+      "workflow": "local",
+      "job": "pre-push",
+      "requiredCommands": [
+        "pnpm docs:check",
+        "pnpm test:agent-docs-generator",
+        "pnpm check:upstream-releases"
+      ]
+    },
+    {
+      "workflow": "package",
+      "job": "docs-check",
+      "requiredCommands": [
+        "generate-agent-docs.ts --check"
+      ]
+    },
+    {
+      "workflow": "package",
+      "job": "upstream-check",
+      "requiredCommands": [
+        "check-upstream-releases.mjs"
+      ]
+    },
+    {
+      "workflow": "package",
+      "job": "home-build",
+      "requiredCommands": [
+        "docs:check"
+      ]
+    }
+  ]
+}

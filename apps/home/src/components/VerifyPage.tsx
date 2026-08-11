@@ -1,12 +1,26 @@
+import { useEffect, useMemo, useState } from "react";
 import {
   PUBLIC_SITE_METADATA,
   absolutePublicAssetUrl,
   getProtocolRelease,
-  getRecommendedThoughtSpec,
-  getThoughtRelease,
+  getRecommendedThoughtSpec as getLegacyThoughtSpec,
+  getThoughtRelease as getLegacyThoughtRelease,
   maybeResolveAddress,
 } from "@inshell/contracts";
-import { PUBLIC_NETWORK_CONFIG, SURFACE_TERMINOLOGY } from "@inshell/shared";
+import {
+  PUBLIC_NETWORK_CONFIG,
+  SURFACE_TERMINOLOGY,
+  formatChainName,
+} from "@inshell/shared";
+import { formatEther } from "viem";
+import {
+  parsePathVerificationTarget,
+  verifyPathRecord,
+  type PathVerificationResult,
+  type PathVerificationTarget,
+} from "@/services/pathVerification";
+import { THOUGHT_V2_CONTRACT_RELEASE } from "../../../thought/src/thought-v2-contract-release.generated";
+import { THOUGHT_V2_PRODUCTION_DEPLOYMENT } from "../../../thought/src/thought-v2-production-deployment";
 
 type VerifyField = {
   id: string;
@@ -30,8 +44,13 @@ function shortValue(value: string) {
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
 }
 
-function resolveExplorerAddressUrl(address: string) {
-  return `https://sepolia.etherscan.io/address/${address}`;
+function resolveExplorerUrl(
+  chainId: number,
+  kind: "address" | "block" | "tx",
+  value: string | number,
+) {
+  if (chainId !== PUBLIC_NETWORK_CONFIG.chainId) return null;
+  return `${PUBLIC_NETWORK_CONFIG.explorerBaseUrl}/${kind}/${value}`;
 }
 
 function VerifyRow(props: VerifyField) {
@@ -61,7 +80,7 @@ function VerifyFields(props: { rows: VerifyField[] }) {
   );
 }
 
-function ContractTable(props: { contracts: VerifyContractRow[] }) {
+function ContractTable(props: { chainId: number; contracts: VerifyContractRow[] }) {
   return (
     <div className="verify-page__contract-table" role="table" aria-label="Contracts">
       <div className="verify-page__contract-row verify-page__contract-row--head" role="row">
@@ -84,9 +103,10 @@ function ContractTable(props: { contracts: VerifyContractRow[] }) {
           </span>
           <span role="cell">{contract.status}</span>
           <span role="cell">
-            {contract.address !== "unavailable" ? (
+            {contract.address !== "unavailable" &&
+            resolveExplorerUrl(props.chainId, "address", contract.address) ? (
               <a
-                href={resolveExplorerAddressUrl(contract.address)}
+                href={resolveExplorerUrl(props.chainId, "address", contract.address) ?? undefined}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -102,18 +122,265 @@ function ContractTable(props: { contracts: VerifyContractRow[] }) {
   );
 }
 
+type PathRecordVerifierState =
+  | { status: "loading"; result: null; error: null }
+  | { status: "ready"; result: PathVerificationResult; error: null }
+  | { status: "error"; result: null; error: string };
+
+function readPathVerificationTarget(): {
+  target: PathVerificationTarget | null;
+  error: string | null;
+} {
+  try {
+    return {
+      target: parsePathVerificationTarget(globalThis.location?.search ?? ""),
+      error: null,
+    };
+  } catch (error) {
+    return {
+      target: null,
+      error: String((error as Error)?.message ?? error),
+    };
+  }
+}
+
+function verificationValue(matches: boolean) {
+  return matches ? "match" : "mismatch";
+}
+
+function PathRecordVerifier(props: {
+  initialError: string | null;
+  target: PathVerificationTarget | null;
+}) {
+  const [retryNonce, setRetryNonce] = useState(0);
+  const [state, setState] = useState<PathRecordVerifierState>(() =>
+    props.initialError
+      ? { status: "error", result: null, error: props.initialError }
+      : { status: "loading", result: null, error: null },
+  );
+
+  useEffect(() => {
+    if (!props.target) return;
+    let cancelled = false;
+    setState({ status: "loading", result: null, error: null });
+    verifyPathRecord(props.target)
+      .then((result) => {
+        if (!cancelled) setState({ status: "ready", result, error: null });
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setState({
+            status: "error",
+            result: null,
+            error: String((error as Error)?.message ?? error),
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [props.target, retryNonce]);
+
+  if (!props.target && !props.initialError) return null;
+  const tokenId = props.target?.tokenId ?? "—";
+  const result = state.result;
+  const ownerHref = result
+    ? resolveExplorerUrl(result.observedChainId, "address", result.owner)
+    : null;
+  const transactionHref = result?.target.transactionHash
+    ? resolveExplorerUrl(
+        result.observedChainId,
+        "tx",
+        result.target.transactionHash,
+      )
+    : null;
+  const blockHref = result
+    ? resolveExplorerUrl(result.observedChainId, "block", result.observedAtBlock)
+    : null;
+
+  return (
+    <section
+      className="verify-page__section verify-page__record"
+      aria-labelledby="verify-path-record"
+    >
+      <h2 id="verify-path-record">verify $PATH #{tokenId}</h2>
+      <p>
+        The URL locates the record. This verifier reads the active chain and
+        compares its deployed bytecode with the deployment record pinned by this
+        App build.
+      </p>
+      {state.status === "loading" ? (
+        <p className="verify-page__record-status">reading chain...</p>
+      ) : state.status === "error" ? (
+        <div className="verify-page__record-error">
+          <p title={state.error}>record verification unavailable.</p>
+          <button type="button" onClick={() => setRetryNonce((value) => value + 1)}>
+            retry
+          </button>
+        </div>
+      ) : result ? (
+        <>
+          <p className="verify-page__record-status">
+            {result.passed ? "verified" : "verification mismatch"} at block{" "}
+            {blockHref ? (
+              <a href={blockHref} target="_blank" rel="noopener noreferrer">
+                {result.observedAtBlock} ↗
+              </a>
+            ) : (
+              result.observedAtBlock
+            )}
+          </p>
+          <VerifyFields
+            rows={[
+              {
+                id: "path-record-chain",
+                label: "chain",
+                value: `${result.observedChainId} · ${verificationValue(
+                  result.observedChainId === result.configuredChainId &&
+                    result.target.chainId === result.configuredChainId,
+                )}`,
+              },
+              {
+                id: "path-record-contract",
+                label: "contract",
+                value: `${shortValue(result.target.contract)} · ${verificationValue(
+                  result.contractMatches,
+                )}`,
+                href:
+                  resolveExplorerUrl(
+                    result.observedChainId,
+                    "address",
+                    result.target.contract,
+                  ) ?? undefined,
+              },
+              {
+                id: "path-record-code-hash",
+                label: "runtime code",
+                value: verificationValue(result.codeHashMatches),
+              },
+              {
+                id: "path-record-token",
+                label: "token ID",
+                value: result.target.tokenId,
+              },
+              {
+                id: "path-record-owner",
+                label: "ownerOf()",
+                value: shortValue(result.owner),
+                href: ownerHref ?? undefined,
+              },
+              {
+                id: "path-record-token-uri",
+                label: "tokenURI()",
+                value: "returned",
+              },
+              {
+                id: "path-record-metadata-name",
+                label: "metadata name",
+                value: result.metadataName,
+              },
+              {
+                id: "path-record-attributes",
+                label: "attributes",
+                value: String(result.metadataAttributeCount),
+              },
+              ...(result.transaction
+                ? [
+                    {
+                      id: "path-record-transaction",
+                      label: "mint transaction",
+                      value: `${shortValue(result.target.transactionHash ?? "")} · ${
+                        result.transaction.status
+                      }`,
+                      href: transactionHref ?? undefined,
+                    },
+                    {
+                      id: "path-record-transfer",
+                      label: "PathNFT.Transfer",
+                      value: result.transaction.transferEvent,
+                    },
+                    {
+                      id: "path-record-minter",
+                      label: "transaction sender",
+                      value: result.transaction.from
+                        ? shortValue(result.transaction.from)
+                        : "unavailable",
+                      href: result.transaction.from
+                        ? resolveExplorerUrl(
+                            result.observedChainId,
+                            "address",
+                            result.transaction.from,
+                          ) ?? undefined
+                        : undefined,
+                    },
+                    {
+                      id: "path-record-value",
+                      label: "transaction value",
+                      value: result.transaction.valueWei
+                        ? `${formatEther(BigInt(result.transaction.valueWei))} ETH`
+                        : "unavailable",
+                    },
+                  ]
+                : []),
+            ]}
+          />
+          <details className="verify-page__raw">
+            <summary>raw evidence</summary>
+            <dl>
+              <div>
+                <dt>expected code hash</dt>
+                <dd>{result.expectedCodeHash ?? "unavailable"}</dd>
+              </div>
+              <div>
+                <dt>observed code hash</dt>
+                <dd>{result.actualCodeHash ?? "unavailable"}</dd>
+              </div>
+            </dl>
+            <pre>{result.tokenUri}</pre>
+          </details>
+        </>
+      ) : null}
+      <a
+        className="verify-page__record-back"
+        href={props.target ? `/path/${tokenId}` : "/path"}
+      >
+        {props.target ? `back to $PATH #${tokenId}` : "back to all $PATH"}
+      </a>
+    </section>
+  );
+}
+
 export default function VerifyPage() {
   const pathRelease = getProtocolRelease();
-  const thoughtRelease = getThoughtRelease();
-  const recommendedSpec = getRecommendedThoughtSpec();
-  const chainId = thoughtRelease?.chain_id ?? pathRelease?.chain_id ?? 11155111;
+  const legacyThoughtRelease = getLegacyThoughtRelease("sepolia");
+  const legacyThoughtSpec = getLegacyThoughtSpec("sepolia");
+  const currentThoughtSpec = THOUGHT_V2_CONTRACT_RELEASE.compatibility.selectedSpec;
+  const thoughtDeployment = THOUGHT_V2_PRODUCTION_DEPLOYMENT;
+  const chainId = thoughtDeployment?.chainId ?? pathRelease?.chain_id ?? 11155111;
+  const isPublicNetwork = chainId === PUBLIC_NETWORK_CONFIG.chainId;
+  const networkLabel = isPublicNetwork
+    ? PUBLIC_NETWORK_CONFIG.environmentLabel
+    : chainId === 31337 || chainId === 31338
+      ? "Local Anvil"
+      : formatChainName(chainId);
+  const chainLabel = formatChainName(chainId);
+  const currencyLabel = isPublicNetwork
+    ? PUBLIC_NETWORK_CONFIG.currencyLabel
+    : chainId === 31337 || chainId === 31338
+      ? "local ETH"
+      : "ETH";
+  const networkExplanation = isPublicNetwork
+    ? PUBLIC_NETWORK_CONFIG.verifyExplanation
+    : "This build reads its configured local chain. Local contracts, balances, and tokens are disposable test records, not public-network records.";
   const pathNft = maybeResolveAddress("path_nft") ?? "unavailable";
   const pathPulseAdapter = maybeResolveAddress("path_pulse_adapter") ?? "unavailable";
-  const thoughtNft = maybeResolveAddress("thought_nft") ?? "unavailable";
-  const thoughtSpecRegistry = maybeResolveAddress("thought_spec_registry") ?? "unavailable";
   const pulseAuction = maybeResolveAddress("pulse_auction") ?? "unavailable";
-  const colorFontV1 = maybeResolveAddress("color_font_v1") ?? "unavailable";
-  const contracts: VerifyContractRow[] = [
+  const legacyContract = (id: string) => {
+    const value = legacyThoughtRelease?.contracts?.[id];
+    return typeof value === "string" ? value : "unavailable";
+  };
+  const pathVerification = useMemo(readPathVerificationTarget, []);
+  const pathContracts: VerifyContractRow[] = [
     {
       id: "pulse-auction",
       name: "PulseAuction",
@@ -138,29 +405,60 @@ export default function VerifyPage() {
       codeHash: pathRelease?.code_hashes?.path_nft ?? "unavailable",
       status: "minter frozen",
     },
+  ];
+  const currentThoughtStatus = thoughtDeployment
+    ? "verified R2 deployment"
+    : "not deployed";
+  const currentThoughtContracts: VerifyContractRow[] = [
     {
-      id: "thought-nft",
-      name: "ThoughtNFT",
-      role: "THOUGHT movement",
-      address: thoughtNft,
-      codeHash: thoughtRelease?.code_hashes?.thought_nft ?? "unavailable",
-      status: "live",
+      id: "thought-v2-nft",
+      name: "ThoughtNFTV2",
+      role: "current R2 THOUGHT movement",
+      address: thoughtDeployment?.contracts.thoughtNft ?? "unavailable",
+      codeHash: "unavailable",
+      status: currentThoughtStatus,
     },
     {
-      id: "spec-registry",
-      name: "SpecRegistry",
-      role: "THOUGHT spec archive",
-      address: thoughtSpecRegistry,
-      codeHash: thoughtRelease?.code_hashes?.thought_spec_registry ?? "unavailable",
-      status: "live",
+      id: "thought-v2-renderer",
+      name: "ThoughtRendererV2",
+      role: "current R2 canonical renderer",
+      address: thoughtDeployment?.contracts.thoughtRenderer ?? "unavailable",
+      codeHash: "unavailable",
+      status: currentThoughtStatus,
     },
     {
-      id: "color-font",
-      name: "ColorFont",
-      role: "color-font renderer/data",
-      address: colorFontV1,
-      codeHash: thoughtRelease?.code_hashes?.color_font_v1 ?? "unavailable",
-      status: "live",
+      id: "thought-v2-spec-registry",
+      name: "ThoughtSpecRegistryV2",
+      role: "current R2 spec archive",
+      address: thoughtDeployment?.contracts.thoughtSpecRegistry ?? "unavailable",
+      codeHash: "unavailable",
+      status: currentThoughtStatus,
+    },
+  ];
+  const legacyThoughtContracts: VerifyContractRow[] = [
+    {
+      id: "legacy-thought-nft",
+      name: "ThoughtNFT (legacy V1)",
+      role: "historical Sepolia THOUGHT movement",
+      address: legacyContract("thought_nft"),
+      codeHash: legacyThoughtRelease?.code_hashes?.thought_nft ?? "unavailable",
+      status: "historical deployment",
+    },
+    {
+      id: "legacy-spec-registry",
+      name: "SpecRegistry (legacy V1)",
+      role: "historical Sepolia spec archive",
+      address: legacyContract("thought_spec_registry"),
+      codeHash: legacyThoughtRelease?.code_hashes?.thought_spec_registry ?? "unavailable",
+      status: "historical deployment",
+    },
+    {
+      id: "legacy-color-font",
+      name: "ColorFont (legacy V1)",
+      role: "historical Sepolia renderer/data",
+      address: legacyContract("color_font_v1"),
+      codeHash: legacyThoughtRelease?.code_hashes?.color_font_v1 ?? "unavailable",
+      status: "historical deployment",
     },
   ];
 
@@ -183,8 +481,15 @@ export default function VerifyPage() {
             Compare domain, chain, contracts, and locks before connecting or
             confirming a wallet action.
           </p>
-          <p>{PUBLIC_NETWORK_CONFIG.verifyExplanation}</p>
+          <p>{networkExplanation}</p>
         </div>
+
+        {pathVerification.target || pathVerification.error ? (
+          <PathRecordVerifier
+            initialError={pathVerification.error}
+            target={pathVerification.target}
+          />
+        ) : null}
 
         <section className="verify-page__section" aria-labelledby="verify-domains">
           <h2 id="verify-domains">domains</h2>
@@ -194,10 +499,10 @@ export default function VerifyPage() {
               { id: "path-route", label: "$PATH route", value: "https://inshell.art/path" },
               { id: "thought-domain", label: "THOUGHT", value: "https://inshell.art/thought" },
               { id: "gallery-domain", label: "gallery", value: "https://inshell.art/gallery" },
-              { id: "network", label: "network", value: PUBLIC_NETWORK_CONFIG.environmentLabel },
-              { id: "chain", label: "chain", value: PUBLIC_NETWORK_CONFIG.chainLabel },
+              { id: "network", label: "network", value: networkLabel },
+              { id: "chain", label: "chain", value: chainLabel },
               { id: "chain-id", label: "chain id", value: String(chainId) },
-              { id: "currency", label: "currency", value: PUBLIC_NETWORK_CONFIG.currencyLabel },
+              { id: "currency", label: "currency", value: currencyLabel },
             ]}
           />
         </section>
@@ -263,8 +568,17 @@ export default function VerifyPage() {
         </section>
 
         <section className="verify-page__section" aria-labelledby="verify-contracts">
-          <h2 id="verify-contracts">contracts</h2>
-          <ContractTable contracts={contracts} />
+          <h2 id="verify-contracts">current contracts</h2>
+          <ContractTable
+            chainId={thoughtDeployment?.chainId ?? chainId}
+            contracts={[...pathContracts, ...currentThoughtContracts]}
+          />
+          {!thoughtDeployment ? (
+            <p>
+              The qualified R2 release has no production deployment address. Its
+              deployment, registration, frontend activation, and minting remain disabled.
+            </p>
+          ) : null}
         </section>
 
         <section className="verify-page__section" aria-labelledby="verify-locks">
@@ -275,7 +589,11 @@ export default function VerifyPage() {
               { id: "pulse-admin", label: "Pulse admin", value: "none after launch" },
               { id: "adapter-wiring", label: "Adapter wiring", value: "frozen" },
               { id: "path-minter", label: "PATH public minter", value: "frozen" },
-              { id: "thought-movement", label: "THOUGHT movement", value: "configured + frozen" },
+              {
+                id: "thought-movement",
+                label: "THOUGHT R2 movement",
+                value: thoughtDeployment ? "verified deployment" : "not deployed",
+              },
               { id: "will-movement", label: "WILL movement", value: "unset" },
               { id: "awa-movement", label: "AWA movement", value: "unset" },
             ]}
@@ -283,7 +601,7 @@ export default function VerifyPage() {
         </section>
 
         <section className="verify-page__section" aria-labelledby="verify-validation">
-          <h2 id="verify-validation">validation</h2>
+          <h2 id="verify-validation">historical Sepolia validation</h2>
           <VerifyFields
             rows={[
               { id: "last-report", label: "Last report", value: "READY_WITH_WARNINGS" },
@@ -298,40 +616,91 @@ export default function VerifyPage() {
             ]}
           />
           <p>
-            Remaining warnings are release-evidence/tooling/frontend-depth items,
-            not observed contract failures.
+            This report belongs to the legacy V1 Sepolia deployment. It is not
+            evidence that the current R2 release is deployed or mint-enabled.
           </p>
         </section>
 
         <section className="verify-page__section" aria-labelledby="verify-thought-spec">
-          <h2 id="verify-thought-spec">THOUGHT spec registry</h2>
+          <h2 id="verify-thought-spec">current THOUGHT R2 release</h2>
           <VerifyFields
             rows={[
               {
+                id: "thought-release-id",
+                label: "artifact",
+                value: THOUGHT_V2_CONTRACT_RELEASE.artifactId,
+              },
+              {
+                id: "thought-release-manifest",
+                label: "manifest sha256",
+                value: THOUGHT_V2_CONTRACT_RELEASE.manifestSha256,
+              },
+              {
                 id: "thought-spec-name",
                 label: "spec",
-                value: recommendedSpec?.name ?? "THOUGHT.v1.md",
+                value: currentThoughtSpec.name,
               },
               {
                 id: "thought-spec-id",
                 label: "spec id",
-                value: recommendedSpec?.id ?? "unavailable",
+                value: currentThoughtSpec.thoughtSpecId,
               },
               {
                 id: "thought-spec-hash",
                 label: "spec hash",
-                value: recommendedSpec?.hash ?? "unavailable",
+                value: currentThoughtSpec.thoughtSpecHash,
               },
               {
                 id: "thought-spec-length",
                 label: "byte length",
-                value:
-                  typeof recommendedSpec?.byteLength === "number"
-                    ? String(recommendedSpec.byteLength)
-                    : "unavailable",
+                value: String(currentThoughtSpec.byteLength),
               },
-              { id: "thought-spec-registered", label: "registered", value: "yes" },
-              { id: "thought-spec-validated", label: "validated", value: "yes" },
+              {
+                id: "thought-deployment-status",
+                label: "production deployment",
+                value: thoughtDeployment ? "verified" : "not deployed",
+              },
+              {
+                id: "thought-spec-registered",
+                label: "production registration",
+                value: thoughtDeployment ? "deployment-bound" : "not registered",
+              },
+              {
+                id: "thought-mint-status",
+                label: "minting",
+                value: thoughtDeployment ? "enabled by deployment lock" : "disabled",
+              },
+            ]}
+          />
+        </section>
+
+        <section className="verify-page__section" aria-labelledby="verify-thought-legacy">
+          <h2 id="verify-thought-legacy">historical THOUGHT Sepolia release</h2>
+          <p>
+            These V1 addresses and specification records remain inspectable history.
+            They are not the current R2 deployment or registration state.
+          </p>
+          <ContractTable
+            chainId={legacyThoughtRelease?.chain_id ?? PUBLIC_NETWORK_CONFIG.chainId}
+            contracts={legacyThoughtContracts}
+          />
+          <VerifyFields
+            rows={[
+              {
+                id: "legacy-thought-spec-name",
+                label: "historical spec",
+                value: legacyThoughtSpec?.name ?? "THOUGHT.v1.md",
+              },
+              {
+                id: "legacy-thought-spec-id",
+                label: "historical spec id",
+                value: legacyThoughtSpec?.id ?? "unavailable",
+              },
+              {
+                id: "legacy-thought-spec-status",
+                label: "status",
+                value: "historical V1 release record",
+              },
             ]}
           />
         </section>

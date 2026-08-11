@@ -15,6 +15,7 @@ import {
 import { onRequestPost as onIndexerEventPost } from "../../../functions/api/indexer/event";
 import { onRequestPost as onIndexerRefreshPost } from "../../../functions/api/indexer/refresh";
 import { onRequestGet as onOpsStatusGet } from "../../../functions/api/ops/status";
+import { onRequestGet as onPathRecordGet } from "../../../functions/api/path-record";
 import { onRequestGet as onPathTokensGet } from "../../../functions/api/path-tokens";
 import { onRequestGet as onPulseAuctionGet } from "../../../functions/api/pulse-auction";
 import { onRequestGet as onThoughtGalleryGet } from "../../../functions/api/thought-gallery";
@@ -24,6 +25,7 @@ import {
 } from "../../../functions/api/thought-gallery-release";
 import { onRequestGet as onThoughtImageGet } from "../../../functions/api/thought-image";
 import { onRequestGet as onThoughtProvenanceGet } from "../../../functions/api/thought-provenance";
+import { onRequestGet as onThoughtRecordGet } from "../../../functions/api/thought-record";
 import { onRequestGet as onThoughtSpecGet } from "../../../functions/api/thought-spec";
 
 const originalFetch = globalThis.fetch;
@@ -311,6 +313,7 @@ describe("chain cache Pages functions", () => {
       env: {
         PATH_PRIMARY_RPC_UPSTREAM: "https://target-path-rpc.example/sepolia",
         PATH_RPC_UPSTREAM: "https://path-rpc.example/sepolia",
+        CHAIN_CACHE_DIAGNOSTICS: "1",
       },
     });
     const payload = (await response.json()) as { items?: Array<{ tokenIdLabel: string; metadata: any }> };
@@ -322,6 +325,58 @@ describe("chain cache Pages functions", () => {
       "https://target-path-rpc.example/sepolia",
       expect.objectContaining({ method: "POST" })
     );
+
+    const record = await onPathRecordGet({
+      request: {
+        url: "https://preview.inshell.art/api/path-record?id=1",
+      } as Request,
+      env: {
+        PATH_PRIMARY_RPC_UPSTREAM: "https://target-path-rpc.example/sepolia",
+        PATH_RPC_UPSTREAM: "https://path-rpc.example/sepolia",
+      },
+    });
+    const recordPayload = (await record.json()) as any;
+    expect(record.status).toBe(200);
+    expect(Object.keys(recordPayload).sort()).toEqual([
+      "cache",
+      "chainObservation",
+      "consumerRelease",
+      "schema",
+      "token",
+    ]);
+    expect(recordPayload).toMatchObject({
+      schema: "inshell.path.public-record.v1",
+      chainObservation: {
+        kind: "chain-observation",
+        chainId: 11155111,
+      },
+      cache: {
+        kind: "indexed-chain-cache",
+        cachedAt: expect.any(Number),
+      },
+      consumerRelease: {
+        kind: "contract-release-consumer",
+        deploymentRecordsCoupled: false,
+        releaseTag: "v0.5.0",
+        manifestSha256: "a81355b459b40faea894cf1dfb7f484765a7ec62672039dd62d58a3a52849921",
+      },
+    });
+    expect(recordPayload.token.tokenIdLabel).toBe("1");
+    expect(record.headers.get("x-chain-cache-source")).toBe("memory");
+    expect(record.headers.get("x-chain-cache-key")).toBe("path-tokens:v1:sepolia");
+
+    const missingRecord = await onPathRecordGet({
+      request: {
+        url: "https://preview.inshell.art/api/path-record?id=999",
+      } as Request,
+      env: {
+        PATH_PRIMARY_RPC_UPSTREAM: "https://target-path-rpc.example/sepolia",
+        PATH_RPC_UPSTREAM: "https://path-rpc.example/sepolia",
+      },
+    });
+    expect(missingRecord.status).toBe(404);
+    expect(missingRecord.headers.get("x-chain-cache-source")).toBe("memory");
+    expect(missingRecord.headers.get("x-chain-cache-key")).toBe("path-tokens:v1:sepolia");
   });
 
   test("falls back when primary PATH RPC rejects eth_getLogs block ranges", async () => {
@@ -2005,6 +2060,7 @@ describe("chain cache Pages functions", () => {
     } as IndexedSnapshot<any>;
     const kvGet = jest.fn(async () => snapshot);
     const env = {
+      CHAIN_CACHE_DIAGNOSTICS: "1",
       INSHELL_CHAIN_DATA_KV: {
         get: kvGet,
         put: jest.fn(),
@@ -2013,6 +2069,10 @@ describe("chain cache Pages functions", () => {
 
     const provenance = await onThoughtProvenanceGet({
       request: new Request("https://preview.inshell.art/api/thought-provenance?id=9"),
+      env,
+    });
+    const record = await onThoughtRecordGet({
+      request: new Request("https://preview.inshell.art/api/thought-record?id=9"),
       env,
     });
     const spec = await onThoughtSpecGet({
@@ -2029,6 +2089,40 @@ describe("chain cache Pages functions", () => {
       schema: "thought.provenance.v1",
       prompt: "test prompt",
     });
+    expect(record.status).toBe(200);
+    expect(await record.json()).toEqual({
+      schema: "inshell.thought.public-record.v1",
+      chainObservation: {
+        kind: "chain-observation",
+        chainId: 11155111,
+        contract: TEST_THOUGHT_GALLERY_DEPLOYMENT.contractAddress,
+        observedAtBlock: 123,
+        transactionHash: null,
+      },
+      cache: {
+        kind: "indexed-chain-cache",
+        cachedAt: expect.any(Number),
+      },
+      consumerRelease: {
+        kind: "contract-release-consumer",
+        deploymentRecordsCoupled: true,
+        couplingSource: "production-deployment-lock",
+        artifactId: TEST_THOUGHT_GALLERY_DEPLOYMENT.artifactId,
+        manifestSha256: TEST_THOUGHT_GALLERY_DEPLOYMENT.manifestSha256,
+      },
+      token: expect.objectContaining({ tokenId: 9 }),
+    });
+    expect(record.headers.get("x-chain-cache-source")).toBe("memory");
+    expect(record.headers.get("x-chain-cache-key")).toContain("thought-gallery:v2:");
+    const missingRecord = await onThoughtRecordGet({
+      request: {
+        url: "https://preview.inshell.art/api/thought-record?id=999",
+      } as Request,
+      env,
+    });
+    expect(missingRecord.status).toBe(404);
+    expect(missingRecord.headers.get("x-chain-cache-source")).toBe("memory");
+    expect(missingRecord.headers.get("x-chain-cache-key")).toContain("thought-gallery:v2:");
     expect(spec.status).toBe(200);
     expect(await spec.json()).toEqual({
       ref: "THOUGHT.v2.md",

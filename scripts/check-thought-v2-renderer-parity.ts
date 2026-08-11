@@ -30,13 +30,21 @@ const sha256 = (value: string) =>
   crypto.createHash("sha256").update(value).digest("hex");
 
 const fieldGroup = (svg: string, id: "prompt-line" | "agent-line") => {
-  const match = svg.match(new RegExp(`<g id="${id}"[^>]*>[\\s\\S]*?<\\/g>`));
-  assert.ok(match, `${id} group missing`);
-  return match[0];
+  const start = svg.indexOf(`<g id="${id}"`);
+  assert.notEqual(start, -1, `${id} group missing`);
+  const groupTags = /<g(?:\s[^>]*)?>|<\/g>/g;
+  groupTags.lastIndex = start;
+  let depth = 0;
+  for (const match of svg.matchAll(groupTags)) {
+    if (match.index < start) continue;
+    depth += match[0] === "</g>" ? -1 : 1;
+    if (depth === 0) return svg.slice(start, match.index + match[0].length);
+  }
+  assert.fail(`${id} group is not closed`);
 };
 
 const glyphBaselines = (group: string) =>
-  [...group.matchAll(/transform="translate\([^ ]+ ([0-9.]+)\) scale\(4\.8\)"/g)]
+  [...group.matchAll(/transform="translate\([^ ]+ ([0-9.]+)\) scale\(2\.88 -2\.88\)"/g)]
     .map((match) => Number(match[1]));
 
 const runtime = assertThoughtV2AnvilRuntime(
@@ -77,8 +85,8 @@ try {
 
     assert.match(promptGroup, new RegExp(`data-rows="${expectedRows}"`));
     assert.match(agentGroup, new RegExp(`data-rows="${expectedRows}"`));
-    assert.equal(promptY[0], 140.8, `prompt row ${expectedRows} is not top-packed`);
-    assert.equal(agentY.at(-1), 780.8, `Agent row ${expectedRows} is not bottom-packed`);
+    assert.equal(promptY[0], 171.52, `prompt row ${expectedRows} is not top-packed`);
+    assert.equal(agentY.at(-1), 811.52, `Agent row ${expectedRows} is not bottom-packed`);
     assert.doesNotMatch(svg, /<text\b|<foreignObject\b|@font-face/i);
     assert.match(svg, /<path\b/);
     assert.match(svg, /<use\b/);

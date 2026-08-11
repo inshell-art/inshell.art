@@ -324,7 +324,7 @@ function makePulseMark(): PulseMark {
   };
 }
 
-function PulseCurrentInstance({ rawOnly = false }: { rawOnly?: boolean }) {
+export function PulseCurrentInstance({ rawOnly = false }: { rawOnly?: boolean }) {
   const auctionAddress = useMemo(() => maybeResolveAddress("pulse_auction"), []);
   const deployBlock = useMemo(
     () => getProtocolReleaseDeployBlock("pulse_auction") ?? 0,

@@ -61,6 +61,7 @@ jest.mock("@/hooks/useAuctionBids", () => ({
 
 import App from "../src/App";
 import { COLOR_FONT, COLOR_FONT_RAW } from "../src/content/colorFont";
+import { DOCS_SOURCE } from "../src/content/docs";
 import { clearPathTokenInventoryCache } from "../src/services/pathTokens";
 import {
   getChainId,
@@ -341,7 +342,7 @@ describe("App Component", () => {
     window.history.pushState({}, "", "/pulse");
     render(<App />);
 
-    expect(document.title).toBe("pulse — $PATH");
+    expect(document.title).toBe("Pulse");
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
     expect(screen.getByRole("heading", { name: "pulse" })).toBeInTheDocument();
     expect(screen.getByText("Pricing sketch for the $PATH auction.")).toBeInTheDocument();
@@ -628,7 +629,15 @@ describe("App Component", () => {
     render(<App />);
     await flushAsyncEffects();
 
-    expect(document.title).toBe("color-font");
+    expect(document.title).toBe("color-font — Inshell");
+    expect(document.head.querySelector('link[rel="canonical"]')).toHaveAttribute(
+      "href",
+      "https://inshell.art/color-font",
+    );
+    expect(document.head.querySelector('meta[property="og:title"]')).toHaveAttribute(
+      "content",
+      "color-font — Inshell",
+    );
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
     expect(screen.getByRole("heading", { name: "color-font" })).toBeInTheDocument();
     expect(screen.queryByText(/THOUGHT Color Font/i)).toBeNull();
@@ -682,7 +691,7 @@ describe("App Component", () => {
     window.history.pushState({}, "", "/verify");
     render(<App />);
 
-    expect(document.title).toBe("verify — $PATH");
+    expect(document.title).toBe("verify — Inshell");
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
     expect(screen.getByRole("heading", { name: "verify" })).toBeInTheDocument();
     expect(screen.getByText("Official Inshell contracts and wallet surfaces.")).toBeInTheDocument();
@@ -702,14 +711,17 @@ describe("App Component", () => {
     expect(screen.getByText("11155111")).toBeInTheDocument();
     expect(screen.getByText("PathNFT")).toBeInTheDocument();
     expect(screen.getByText("PathPulseAdapter")).toBeInTheDocument();
-    expect(screen.getByText("ThoughtNFT")).toBeInTheDocument();
+    expect(screen.getByText("ThoughtNFTV2")).toBeInTheDocument();
     expect(screen.getByText("PulseAuction")).toBeInTheDocument();
-    expect(screen.getByText("SpecRegistry")).toBeInTheDocument();
-    expect(screen.getByText("ColorFont")).toBeInTheDocument();
+    expect(screen.getByText("ThoughtSpecRegistryV2")).toBeInTheDocument();
+    expect(screen.getByText("ThoughtNFT (legacy V1)")).toBeInTheDocument();
+    expect(screen.getByText("ColorFont (legacy V1)")).toBeInTheDocument();
     expect(screen.getByText("READY_WITH_WARNINGS")).toBeInTheDocument();
     expect(screen.getByText("Pulse economics")).toBeInTheDocument();
     expect(screen.getByText("none after launch")).toBeInTheDocument();
+    expect(screen.getByText("THOUGHT.v2.md")).toBeInTheDocument();
     expect(screen.getByText("THOUGHT.v1.md")).toBeInTheDocument();
+    expect(screen.getAllByText("not deployed").length).toBeGreaterThan(0);
     expect(screen.getByText("0xe201170ae183f114064f4492cbc4942f7d3d68b74a08d3dc4b4f61edec213d78")).toBeInTheDocument();
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
   });
@@ -1112,7 +1124,7 @@ describe("App Component", () => {
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
   });
 
-  test("redirects the deprecated gallery route to the release-locked home gallery", async () => {
+  test("preserves the canonical gallery route for the release-locked home gallery", async () => {
     mockThoughtGalleryApi([
       thoughtGalleryItem({
         tokenId: 1,
@@ -1129,7 +1141,16 @@ describe("App Component", () => {
     render(<App />);
     await flushAsyncEffects();
 
-    expect(window.location.pathname).toBe("/");
+    expect(window.location.pathname).toBe("/gallery");
+    expect(document.title).toBe("THOUGHT gallery");
+    expect(document.head.querySelector('link[rel="canonical"]')).toHaveAttribute(
+      "href",
+      "https://inshell.art/gallery",
+    );
+    expect(document.head.querySelector('meta[property="og:title"]')).toHaveAttribute(
+      "content",
+      "THOUGHT gallery",
+    );
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
     expect(
       screen.getByRole("heading", {
@@ -1288,5 +1309,103 @@ describe("App Component", () => {
     const url = new window.URL(report.getAttribute("href") ?? "");
     expect(url.searchParams.get("body")).toContain(`page: ${route}`);
     expect(url.searchParams.get("body")).toContain(`state: ${state}`);
+  });
+
+  test("renders the docs index with Agent-readable discovery metadata", () => {
+    window.history.pushState({}, "", "/docs");
+
+    render(<App />);
+
+    expect(document.title).toBe("docs — Inshell");
+    expect(document.head.querySelector('meta[property="og:title"]')).toHaveAttribute(
+      "content",
+      "docs — Inshell",
+    );
+    expect(document.head.querySelector('meta[name="twitter:title"]')).toHaveAttribute(
+      "content",
+      "docs — Inshell",
+    );
+    expect(
+      screen.getByRole("navigation", { name: "Documentation contents" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "read as Markdown ↗" }),
+    ).toHaveAttribute("href", expect.stringMatching(/^\/docs\/[a-z0-9-]+\.md$/));
+    expect(
+      document.head.querySelector(
+        'link[rel="alternate"][type="text/markdown"]',
+      ),
+    ).toHaveAttribute("href", "/docs/index.md");
+    expect(
+      document.head.querySelector(
+        'link[rel="alternate"][href="/docs/content.json"]',
+      ),
+    ).toHaveAttribute("type", "application/json");
+    expect(
+      document.head.querySelector(
+        'link[rel="alternate"][href="/docs/agent-index.json"]',
+      ),
+    ).toHaveAttribute("type", "application/json");
+  });
+
+  test("renders one canonical docs article and its focused artifacts", () => {
+    window.history.pushState({}, "", "/docs/path");
+
+    render(<App />);
+
+    expect(document.title).toBe("PATH — docs — Inshell");
+    expect(screen.getByRole("heading", { level: 2, name: "PATH" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 2, name: "Inshell" })).toBeNull();
+    expect(
+      document.head.querySelector('meta[property="og:url"]'),
+    ).toHaveAttribute("content", "https://inshell.art/docs/path");
+    expect(document.head.querySelector('meta[property="og:title"]')).toHaveAttribute(
+      "content",
+      "PATH — docs — Inshell",
+    );
+    expect(document.head.querySelector('meta[name="twitter:description"]')).toHaveAttribute(
+      "content",
+      expect.stringContaining("permission"),
+    );
+    expect(
+      document.head.querySelector(
+        'link[rel="alternate"][type="text/markdown"]',
+      ),
+    ).toHaveAttribute("href", "/docs/path.md");
+    expect(
+      document.head.querySelector(
+        'link[rel="alternate"][href="/docs/path.json"]',
+      ),
+    ).toHaveAttribute("type", "application/json");
+  });
+
+  test.each(DOCS_SOURCE.topics)(
+    "applies canonical client metadata from the shared docs source for $slug",
+    (topic) => {
+      window.history.pushState({}, "", `/docs/${topic.slug}`);
+
+      render(<App />);
+
+      expect(document.title).toBe(`${topic.title} — docs — Inshell`);
+      expect(document.head.querySelector('link[rel="canonical"]')).toHaveAttribute(
+        "href",
+        `https://inshell.art/docs/${topic.slug}`,
+      );
+      expect(document.head.querySelector('meta[name="description"]')).toHaveAttribute(
+        "content",
+        topic.summary,
+      );
+    },
+  );
+
+  test("canonicalizes legacy docs hashes to focused article routes", async () => {
+    window.history.pushState({}, "", "/docs#docs-path-capacity");
+
+    render(<App />);
+    await flushAsyncEffects();
+
+    expect(window.location.pathname).toBe("/docs/path");
+    expect(window.location.hash).toBe("#docs-path-capacity");
+    expect(screen.getByRole("heading", { level: 2, name: "PATH" })).toBeInTheDocument();
   });
 });

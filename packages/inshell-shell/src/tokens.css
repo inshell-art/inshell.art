@@ -111,6 +111,7 @@
   --muted: #b0b7c2;
   --muted-dim: #6b7280;
   --panel: rgba(18, 18, 18, 0.9);
+  --panel-raised: rgba(31, 31, 31, 0.9);
   --panel-border: rgba(255, 255, 255, 0.08);
   --panel-soft: rgba(255, 255, 255, 0.03);
 
@@ -141,6 +142,7 @@
     --muted: #424b59;
     --muted-dim: #9ca3af;
     --panel: rgba(255, 255, 255, 0.96);
+    --panel-raised: var(--panel);
     --panel-border: rgba(0, 0, 0, 0.08);
     --panel-soft: rgba(0, 0, 0, 0.03);
 

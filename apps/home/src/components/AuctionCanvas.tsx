@@ -2203,75 +2203,6 @@ function formatUtcTime(atMs: number): string {
   )}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
 }
 
-function formatAmount(
-  val: string | undefined,
-  _decimals: number,
-  symbol: string
-): string {
-  const raw = val ?? "";
-  const cleaned = String(raw).replace(/,/g, "");
-  const n = Number(cleaned);
-  if (Number.isFinite(n)) {
-    if (n !== 0 && Math.abs(n) < 0.01) {
-      const fixed = n.toFixed(18);
-      if (Number(fixed) !== 0) {
-        return `${formatTinyDecimalString(fixed)} ${symbol}`;
-      }
-      return `${n.toExponential(4)} ${symbol}`;
-    }
-    const withSep = new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(n);
-    return `${withSep} ${symbol}`;
-  }
-  return `${String(raw)} ${symbol}`;
-}
-
-function formatAmountTinyAware(
-  val: string | undefined,
-  _decimals: number,
-  symbol: string
-): string {
-  const raw = val ?? "";
-  const cleaned = String(raw).replace(/,/g, "");
-  const n = Number(cleaned);
-  if (!Number.isFinite(n)) return `${String(raw)} ${symbol}`;
-
-  const baseDigits = 2;
-  if (n === 0 || Number(n.toFixed(baseDigits)) !== 0) {
-    return formatAmount(val, _decimals, symbol);
-  }
-
-  const meaningfulFracDigits = (fixed: string): number => {
-    const parts = fixed.split(".");
-    if (parts.length < 2) return 0;
-    const frac = parts[1] ?? "";
-    const firstNonZero = frac.search(/[1-9]/);
-    if (firstNonZero < 0) return 0;
-    return frac.length - firstNonZero;
-  };
-
-  let digits = 3;
-  const maxDigits = 12;
-  while (digits < maxDigits) {
-    const fixed = n.toFixed(digits);
-    const nonZero = Number(fixed) !== 0;
-    const enoughMeaningful = meaningfulFracDigits(fixed) >= 2;
-    if (nonZero && enoughMeaningful) break;
-    digits += 1;
-  }
-  if (Number(n.toFixed(digits)) === 0) {
-    return `${n.toExponential(2)} ${symbol}`;
-  }
-
-  const withSep = new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  }).format(n);
-  return `${withSep} ${symbol}`;
-}
-
 function formatAmountDetailed(
   val: string | undefined,
   _decimals: number,
@@ -2297,42 +2228,6 @@ function formatAmountDetailed(
     maximumFractionDigits: maxFractionDigits,
   }).format(n);
   return `${withSep} ${symbol}`;
-}
-
-function formatAmountWithMinNonZeroFrac(
-  val: string | undefined,
-  _decimals: number,
-  symbol: string,
-  minNonZeroFracDigits = 2
-): string {
-  const raw = val ?? "";
-  const cleaned = String(raw).replace(/,/g, "");
-  const n = Number(cleaned);
-  if (!Number.isFinite(n)) return `${String(raw)} ${symbol}`;
-  if (n === 0) return formatAmount(val, _decimals, symbol);
-
-  const nonZeroFracCount = (fixed: string): number => {
-    const parts = fixed.split(".");
-    if (parts.length < 2) return 0;
-    const frac = parts[1] ?? "";
-    const matches = frac.match(/[1-9]/g);
-    return matches ? matches.length : 0;
-  };
-
-  const maxDigits = 12;
-  for (let digits = 2; digits <= maxDigits; digits += 1) {
-    const fixed = n.toFixed(digits);
-    if (Number(fixed) === 0) continue;
-    if (nonZeroFracCount(fixed) >= minNonZeroFracDigits) {
-      const withSep = new Intl.NumberFormat("en-US", {
-        minimumFractionDigits: digits,
-        maximumFractionDigits: digits,
-      }).format(n);
-      return `${withSep} ${symbol}`;
-    }
-  }
-
-  return `${n.toExponential(4)} ${symbol}`;
 }
 
 type AuctionStatus =
@@ -8274,22 +8169,30 @@ export default function AuctionCanvas({
                       : hover.key === "premium"
                         ? "initial premium"
                         : "ask";
+              const hoverScreenY = hover.screenY;
               const popoverOpensAbove =
-                typeof window !== "undefined" && hover.screenY > window.innerHeight / 2;
+                typeof window !== "undefined" &&
+                typeof hoverScreenY === "number" &&
+                hoverScreenY > window.innerHeight / 2;
+              const popoverStyle: CSSProperties & {
+                "--popover-anchor-x": string;
+                "--popover-anchor-bottom"?: string;
+              } = {
+                "--popover-anchor-x": `${hover.screenX}px`,
+              };
+              if (popoverOpensAbove) {
+                popoverStyle["--popover-anchor-bottom"] =
+                  `calc(100vh - ${hoverScreenY}px + var(--curve-tooltip-cursor-offset))`;
+              } else {
+                popoverStyle.top = hoverScreenY;
+              }
 
               return (
                 <div
                   className={`dotfield__popover${
                     popoverOpensAbove ? " dotfield__popover--above" : ""
                   }`}
-                  style={{
-                    "--popover-anchor-x": `${hover.screenX}px`,
-                    ...(popoverOpensAbove
-                      ? {
-                          "--popover-anchor-bottom": `calc(100vh - ${hover.screenY}px + var(--curve-tooltip-cursor-offset))`,
-                        }
-                      : { top: hover.screenY }),
-                  } as CSSProperties}
+                  style={popoverStyle}
                 >
                   <div className="muted small">{popTitle}</div>
                   <div className="dotfield__popover-meta" style={{ marginTop: 6 }}>

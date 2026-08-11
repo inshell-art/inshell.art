@@ -1,0 +1,181 @@
+{
+  "schema": "inshell.agent-docs.topic.v1",
+  "schemaUrl": "/docs/content.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.schema.json",
+  "version": "2026-08-11",
+  "language": "en",
+  "fetchedContentRole": "reference-data",
+  "id": "contracts",
+  "sourceId": "docs-contracts",
+  "group": "systems",
+  "aliases": [],
+  "title": "Contracts",
+  "summary": "Contract responsibilities remain separate across auction, issuance, permission, and artwork minting.",
+  "status": "current",
+  "authorities": [
+    "artist-editorial",
+    "app-documentation",
+    "contract-release"
+  ],
+  "authorityScope": "document union only; use each content block's authorities for a specific claim",
+  "canonicalHtml": "https://inshell.art/docs/contracts",
+  "markdown": "/docs/contracts.md",
+  "canonicalMarkdown": "https://inshell.art/docs/contracts.md",
+  "json": "/docs/contracts.json",
+  "canonicalJson": "https://inshell.art/docs/contracts.json",
+  "content": {
+    "lead": {
+      "authorities": [
+        "artist-editorial",
+        "app-documentation",
+        "contract-release"
+      ],
+      "paragraphs": [
+        "The public architecture is PulseAuction → PathPulseAdapter → PathNFT → ThoughtNFT. The arrows describe the issuance and permission path, not contract ownership or a promise that every future movement is deployed.",
+        "These contracts specify and enforce bounded actions within the practice. They can validate a permission, mint, or record, but they do not implement the truth named by Inshell or prove a participant's inward understanding.",
+        "PulseAuction calculates the live ask, accepts a successful bid, and closes an epoch. PathPulseAdapter translates that settlement into PATH issuance. PathNFT mints and owns PATH state, movement order, and capacity. ThoughtNFT validates THOUGHT mint rules, records the work, and atomically consumes an authorized THOUGHT unit from PATH.",
+        "The App orchestrates reads, previews, Agent runs, signatures, and wallet transactions. It does not replace contract validation. A wallet account submits the transaction; deployed contracts decide whether it is valid.",
+        "ABIs, bytecode, renderer payloads, schemas, and manifests belong to pinned releases. Contract addresses and deployment blocks belong to a network deployment record. Read both before identifying a live system."
+      ]
+    },
+    "figure": null,
+    "preformatted": [],
+    "sections": [
+      {
+        "authorities": [
+          "contract-release"
+        ],
+        "id": "docs-contracts-responsibilities",
+        "title": "Separated responsibilities",
+        "paragraphs": [
+          "The architecture separates pricing, issuance, permission, and artwork minting so each boundary can be inspected independently. Public PATH issuance and a later THOUGHT mint are separate phases. Contract calls and state handoffs connect them, but no contract owns all the others."
+        ],
+        "points": [
+          "PulseAuction owns the auction calculation and settlement rules.",
+          "PathPulseAdapter connects the auction to PATH issuance.",
+          "PathNFT owns PATH identity, issuance state, and movement capacity.",
+          "ThoughtNFT owns THOUGHT validation, uniqueness, rendering references, metadata, and mint records."
+        ],
+        "figure": {
+          "authorities": [
+            "contract-release"
+          ],
+          "label": "Contract handoffs across issuance and minting",
+          "mode": "lanes",
+          "figureText": "PUBLIC ISSUANCE    [01] → [02] → [03]\n\nPulseAuction      │ [01] Settle\n                  │ Calculate the live ask and settle\n                  │ one serial epoch.\n\nPathPulseAdapter  │ [02] Issue\n                  │ Translate the valid settlement\n                  │ into PATH issuance.\n\nPathNFT           │ [03] Record PATH\n                  │ Own the issued PATH, its movement\n                  │ order, and its capacity.\n\nLATER THOUGHT MINT [04] → [05] → [06]\n\nThoughtNFT        │ [04] Validate work\n                  │ Validate the THOUGHT work and\n                  │ request PATH permission use.\n\nPathNFT           │ [05] Consume permission\n                  │ Verify configured caller, current-owner\n                  │ authorization, active stage, and quota;\n                  │ advance one unit.\n\nThoughtNFT        │ [06] Mint + record\n                  │ Mint and record the work; a later revert\n                  │ also reverts PATH consumption.",
+          "items": [
+            {
+              "stage": 1,
+              "lane": "PulseAuction",
+              "phase": "Public issuance",
+              "title": "Settle",
+              "detail": "Calculate the live ask and settle one serial epoch."
+            },
+            {
+              "stage": 2,
+              "lane": "PathPulseAdapter",
+              "phase": "Public issuance",
+              "title": "Issue",
+              "detail": "Translate the valid settlement into PATH issuance."
+            },
+            {
+              "stage": 3,
+              "lane": "PathNFT",
+              "phase": "Public issuance",
+              "title": "Record PATH",
+              "detail": "Own the issued PATH, its movement order, and its capacity."
+            },
+            {
+              "stage": 4,
+              "lane": "ThoughtNFT",
+              "phase": "Later THOUGHT mint",
+              "title": "Validate work",
+              "detail": "Validate the THOUGHT work and request PATH permission use."
+            },
+            {
+              "stage": 5,
+              "lane": "PathNFT",
+              "phase": "Later THOUGHT mint",
+              "title": "Consume permission",
+              "detail": "Verify configured caller, current-owner authorization, active stage, and quota; advance one unit."
+            },
+            {
+              "stage": 6,
+              "lane": "ThoughtNFT",
+              "phase": "Later THOUGHT mint",
+              "title": "Mint + record",
+              "detail": "Mint and record the work; a later revert also reverts PATH consumption."
+            }
+          ]
+        }
+      },
+      {
+        "authorities": [
+          "app-documentation",
+          "contract-release"
+        ],
+        "id": "docs-contracts-app",
+        "title": "What the App does",
+        "paragraphs": [
+          "The App reads state, assembles previews and creation records, requests Agent runs, helps the human choose a PATH, prepares signatures, and asks the wallet to submit transactions. It can make the workflow understandable, but it cannot override deployed validation.",
+          "A successful UI message is not final authority for a mint. The transaction receipt, emitted events, typed contract reads, and tokenURI supply the contract-controlled result."
+        ]
+      },
+      {
+        "authorities": [
+          "contract-release"
+        ],
+        "id": "docs-contracts-consumption",
+        "title": "The movement-consumption boundary",
+        "paragraphs": [
+          "PathNFT does not infer movement consent from PATH selection or ERC-721 approval. It accepts consumeUnit only from the configured movement minter and verifies an EIP-191 authorization signed by the current PATH owner. The signed message binds the PathNFT address, chain ID, PATH ID, movement, owner, executor, permission epoch, owner consume nonce, and deadline.",
+          "After checking the active stage and remaining quota, PathNFT returns a zero-based movement serial and updates permission progress. The configured movement contract owns the other half of the boundary: it calls consumeUnit before minting its work inside the same transaction. PathNFT owns permission accounting; the movement contract owns work validation and minting. If either half reverts, the transaction commits neither."
+        ]
+      },
+      {
+        "authorities": [
+          "app-documentation",
+          "contract-release"
+        ],
+        "id": "docs-contracts-release",
+        "title": "Release plus deployment",
+        "paragraphs": [
+          "A release says which ABI, bytecode, renderer data, schemas, and checksums belong together. A deployment record says which addresses and deployment blocks put a release on a particular network. Both are required to identify the live system precisely."
+        ],
+        "note": "Repository HEAD is not automatically the code behind an older deployed address. Match the active network, deployment record, pinned release, and deployed bytecode."
+      }
+    ],
+    "links": [
+      {
+        "role": "navigation",
+        "label": "open contract verification",
+        "href": "/verify#verify-contracts",
+        "canonicalHref": "https://inshell.art/verify#verify-contracts"
+      },
+      {
+        "role": "navigation",
+        "label": "read PATH movement consumption",
+        "href": "/docs/path#docs-path-consumption",
+        "canonicalHref": "https://inshell.art/docs/path#docs-path-consumption"
+      },
+      {
+        "role": "navigation",
+        "label": "view PATH source",
+        "href": "https://github.com/inshell-art/path",
+        "canonicalHref": "https://github.com/inshell-art/path"
+      },
+      {
+        "role": "navigation",
+        "label": "view THOUGHT source",
+        "href": "https://github.com/inshell-art/THOUGHT",
+        "canonicalHref": "https://github.com/inshell-art/THOUGHT"
+      },
+      {
+        "role": "navigation",
+        "label": "view Pulse source",
+        "href": "https://github.com/inshell-art/pulse",
+        "canonicalHref": "https://github.com/inshell-art/pulse"
+      }
+    ]
+  }
+}

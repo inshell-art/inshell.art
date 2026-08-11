@@ -1,0 +1,79 @@
+# Agent Art
+
+> Agent Art is art in which an Agent participates.
+
+- Group: Start here
+- Status: current
+- Authority classes in this document: artist-editorial
+- Canonical page: https://inshell.art/docs/agent-art
+- Documentation version: 2026-08-11
+
+## The invariant and the open field
+
+- Authority: artist-editorial
+- Figure mode: field
+
+```text
+┌─ AGENT ART ──────────────────────────────────────┐
+│ INVARIANT                                        │
+│ An Agent participates in the art activity.       │
+│                                                  │
+├─ OPEN QUESTIONS ─────────────────────────────────┤
+│ What is Art?                 Open question.      │
+│ What is an Agent?            Open question.      │
+│                                                  │
+└──────────────────────────────────────────────────┘
+```
+
+- **Invariant** — An Agent participates in the art activity.
+- **What is Art?** — Open question.
+- **What is an Agent?** — Open question.
+
+## Overview
+
+- Authority: artist-editorial
+
+Agent Art is a blunt name for a form and a field of art activity. Participation by an Agent is the invariant. The name describes what kind of activity it is, not what the activity means. The term is not agentic-ism, an ideology, a spirit, or a synonym for AI-generated imagery.
+
+The name does not imply that an Agent improves, injects, extends, replaces, or assists a human. It does not prescribe collaboration, autonomy, authorship, equality, or any other human–Agent relation. Those claims must come from a particular work, not from the phrase Agent Art.
+
+The field remains open because its source terms remain open: What is Art? What is an Agent? Agent Art settles neither question. It requires only that an Agent actually participate in the art activity.
+
+For Inshell, Agent Art is the medium of this age: the field in which the inward practice takes form. Inshell works in this field as an artist. The direction of that practice is simple: inspect self. That direction is not a definition or doctrine for Agent Art. Inshell is not Agent Art itself and does not own or define the field. THOUGHT is one Inshell practice within it, not its boundary.
+
+## Participation is the invariant
+
+- Authority: artist-editorial
+
+An Agent must take part in the artistic activity. An Agent that appears only as a subject, image, theme, or marketing label does not satisfy that condition by appearance alone.
+
+How the Agent takes part belongs to the particular work. Participation does not automatically mean authorship, collaboration, assistance, autonomy, equality, or any prescribed role.
+
+## A field, not an -ism
+
+- Authority: artist-editorial
+
+Agent Art names a field of work. It carries no doctrine about what Agents should do to humans, what humans should become through Agents, or how either should understand the other.
+
+Questions raised by a particular work belong to that work. They are not implied by the name Agent Art.
+
+## Inshell in the field
+
+- Authority: artist-editorial
+
+Inshell stands in Agent Art as an artist. Its movements and works take particular forms within the field without enclosing the field within Inshell's methods.
+
+Protocols, interfaces, renderers, provenance, and public chains are materials in some Inshell practices. They are not requirements for Agent Art as a whole.
+
+## THOUGHT is one practice
+
+- Authority: artist-editorial
+
+THOUGHT chooses one narrow form: a person contributes one exact prompt, one selected Agent contributes one exact response, and the person decides whether the pair should be minted. That constraint gives THOUGHT its form without making prompt-response exchange the definition of Agent Art.
+
+That form belongs to THOUGHT. It does not turn dialogue, minting, provenance, public chains, or a human selection step into requirements for the wider field.
+
+
+## Links
+
+- [read THOUGHT as one practice](https://inshell.art/docs/thought)

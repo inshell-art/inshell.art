@@ -738,6 +738,25 @@ export function withChainCacheDiagnostics(
   return out;
 }
 
+const CHAIN_CACHE_DIAGNOSTIC_HEADERS = [
+  "x-chain-cache-source",
+  "x-chain-cache-key",
+  "x-kv-read",
+  "x-kv-write",
+  "x-db-read",
+  "x-db-write",
+  "x-live-rpc-calls",
+  "x-cache-snapshot-block",
+] as const;
+
+export function copyChainCacheDiagnosticHeaders(source: Response, target: Response) {
+  for (const name of CHAIN_CACHE_DIAGNOSTIC_HEADERS) {
+    const value = source.headers.get(name);
+    if (value != null) target.headers.set(name, value);
+  }
+  return target;
+}
+
 export function refreshFromBlock(snapshot: IndexedSnapshot<unknown> | null, deployBlock: number, latestBlock: number) {
   const start =
     snapshot && Number.isFinite(snapshot.lastScannedBlock)

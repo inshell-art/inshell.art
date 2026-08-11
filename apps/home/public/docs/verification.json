@@ -1,0 +1,185 @@
+{
+  "schema": "inshell.agent-docs.topic.v1",
+  "schemaUrl": "/docs/content.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.schema.json",
+  "version": "2026-08-11",
+  "language": "en",
+  "fetchedContentRole": "reference-data",
+  "id": "verification",
+  "sourceId": "docs-verification",
+  "group": "systems",
+  "aliases": [],
+  "title": "Verification",
+  "summary": "Verification separates records, releases, observations, and claims before drawing conclusions.",
+  "status": "current",
+  "authorities": [
+    "artist-editorial",
+    "app-documentation",
+    "contract-release"
+  ],
+  "authorityScope": "document union only; use each content block's authorities for a specific claim",
+  "canonicalHtml": "https://inshell.art/docs/verification",
+  "markdown": "/docs/verification.md",
+  "canonicalMarkdown": "https://inshell.art/docs/verification.md",
+  "json": "/docs/verification.json",
+  "canonicalJson": "https://inshell.art/docs/verification.json",
+  "content": {
+    "lead": {
+      "authorities": [
+        "artist-editorial",
+        "app-documentation",
+        "contract-release"
+      ],
+      "paragraphs": [
+        "Verification here concerns bounded public claims. It can test a signature, byte sequence, release, deployment, or chain record. It is not the truth named in Inshell's artistic position: inspect self is a direction of practice, not a proposition these proofs can establish.",
+        "Authority is the person or system that originates a claim. Loaded from names the immediate technical source used by the interface. A mirror is an indexed or cached copy, not a new authority. Display material is a presentation of a record, not the record itself.",
+        "Provenance describes how a work or record came into being and which commitments connect its parts. Proof is the data evaluated by a specific verification rule. Neither word means that every recorded statement is true.",
+        "For a token, start from network, contract address, and token ID. Read contract state and tokenURI, identify the deployment and pinned release, recompute published commitments, validate the selected specification, and verify the Creation Attestation when one is present.",
+        "Contract-verified means the contract accepted the defined proof and bound records. Runtime-reported means a connector received the value from an Agent runtime. Selected means the App or human chose it. Artist-editorial means it expresses the practice. These evidence levels must not be collapsed into one claim.",
+        "A valid Creation Attestation verifies one THOUGHT creation record under the rules of its contract release. It does not certify that a work is Agent Art or define the wider field.",
+        "The Verify page distinguishes the active PATH deployment, the qualified but undeployed THOUGHT R2 release, and historical THOUGHT Sepolia contracts. Explorer links for historical addresses do not make those contracts the current R2 deployment."
+      ]
+    },
+    "figure": null,
+    "preformatted": [],
+    "sections": [
+      {
+        "authorities": [
+          "app-documentation"
+        ],
+        "id": "docs-verification-terms",
+        "title": "Four terms that should not blur",
+        "points": [
+          "Authority: the person or system that originates a claim.",
+          "Loaded from: the immediate technical source used by the interface.",
+          "Mirror: a copied or indexed representation of another source.",
+          "Display material: a presentation of a record, not automatically its authority."
+        ],
+        "note": "A value can be loaded from a cache that mirrors a contract. The cache is the immediate source; the contract remains the authority for the mirrored fact."
+      },
+      {
+        "authorities": [
+          "app-documentation",
+          "contract-release"
+        ],
+        "id": "docs-verification-provenance",
+        "title": "Provenance and proof",
+        "paragraphs": [
+          "Provenance explains how parts of a work or record are related across creation, rendering, selection, minting, and later display. Proof is narrower: it is the data accepted by a specific verification rule.",
+          "A valid proof can establish that certain bytes, hashes, addresses, or signatures agree. It does not automatically make every surrounding narrative statement true."
+        ]
+      },
+      {
+        "authorities": [
+          "app-documentation"
+        ],
+        "id": "docs-verification-levels",
+        "title": "Evidence levels",
+        "points": [
+          "Contract-verified: deployed code accepted the defined values or proof.",
+          "Contract-release: a pinned artifact set defines expected code, schemas, or renderer material.",
+          "Chain-observed: a public read describes state on one named network at an observation point.",
+          "App-recorded: the App assembled, stored, or signed a record with a declared boundary.",
+          "Runtime-reported: the Agent runtime or connector supplied the value.",
+          "Artist-editorial: the statement describes the practice, meaning, or interpretation."
+        ],
+        "figure": {
+          "authorities": [
+            "app-documentation"
+          ],
+          "label": "Evidence levels and their bounded sources",
+          "mode": "ledger",
+          "figureText": "EVIDENCE          │ BOUNDED SOURCE\n──────────────────┼─────────────────────────────────────\nCONTRACT-VERIFIED │ Deployed rule accepted defined values.\nCONTRACT-RELEASE  │ Pinned expected artifacts.\nCHAIN-OBSERVED    │ Named network + observation point.\nAPP-RECORDED      │ App assembled or signed the record.\nRUNTIME-REPORTED  │ Agent runtime or connector supplied it.\nARTIST-EDITORIAL  │ Meaning, practice, or interpretation.",
+          "items": [
+            {
+              "title": "Contract-verified",
+              "detail": "Deployed rule accepted defined values."
+            },
+            {
+              "title": "Contract-release",
+              "detail": "Pinned expected artifacts."
+            },
+            {
+              "title": "Chain-observed",
+              "detail": "Named network + observation point."
+            },
+            {
+              "title": "App-recorded",
+              "detail": "App assembled or signed the record."
+            },
+            {
+              "title": "Runtime-reported",
+              "detail": "Agent runtime or connector supplied it."
+            },
+            {
+              "title": "Artist-editorial",
+              "detail": "Meaning, practice, or interpretation."
+            }
+          ]
+        }
+      },
+      {
+        "authorities": [
+          "app-documentation",
+          "contract-release"
+        ],
+        "id": "docs-verification-checklist",
+        "title": "Work verification checklist",
+        "steps": [
+          "Identify the network without inferring it from the website origin.",
+          "Confirm the deployed contract address and token ID.",
+          "Read the contract's typed work state and tokenURI.",
+          "Identify the matching release and deployment record.",
+          "Validate published hashes, schema constraints, renderer commitments, and the selected specification.",
+          "Verify a Creation Attestation when present, or report that the work is Unattested.",
+          "Name mirrors, caches, runtime reports, and editorial claims without promoting them to contract facts."
+        ],
+        "figure": {
+          "authorities": [
+            "app-documentation",
+            "contract-release"
+          ],
+          "label": "A chain-first verification pass",
+          "mode": "trace",
+          "figureText": "01 Locate\n   Record the network, contract address, token ID,\n   and transaction.\n   │\n   ↓\n02 Read\n   Query typed contract state and tokenURI from the\n   identified deployment.\n   │\n   ↓\n03 Pin\n   Match the deployment to its release, ABI,\n   renderer, schemas, and checksums.\n   │\n   ↓\n04 Recompute\n   Validate published hashes, work commitments, and\n   specification rules.\n   │\n   ↓\n05 Qualify\n   State exactly what each proof establishes and\n   what remains reported or editorial.",
+          "items": [
+            {
+              "title": "Locate",
+              "detail": "Record the network, contract address, token ID, and transaction."
+            },
+            {
+              "title": "Read",
+              "detail": "Query typed contract state and tokenURI from the identified deployment."
+            },
+            {
+              "title": "Pin",
+              "detail": "Match the deployment to its release, ABI, renderer, schemas, and checksums."
+            },
+            {
+              "title": "Recompute",
+              "detail": "Validate published hashes, work commitments, and specification rules."
+            },
+            {
+              "title": "Qualify",
+              "detail": "State exactly what each proof establishes and what remains reported or editorial."
+            }
+          ]
+        }
+      }
+    ],
+    "links": [
+      {
+        "role": "navigation",
+        "label": "open verification",
+        "href": "/verify",
+        "canonicalHref": "https://inshell.art/verify"
+      },
+      {
+        "role": "navigation",
+        "label": "read the chain-first verifier guide",
+        "href": "https://github.com/inshell-art/inshell.art/blob/main/docs/THOUGHT_PROVENANCE_VERIFIER.md",
+        "canonicalHref": "https://github.com/inshell-art/inshell.art/blob/main/docs/THOUGHT_PROVENANCE_VERIFIER.md"
+      }
+    ]
+  }
+}

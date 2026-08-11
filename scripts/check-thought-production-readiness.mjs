@@ -112,9 +112,14 @@ for (const forbidden of [
 ]) if (ecosystemHome.includes(forbidden)) fail(`canonical home gallery still renders ${forbidden}`);
 
 for (const snippet of [
-  'pathname === "/gallery"',
-  'window.history.replaceState({}, "", "/")',
-]) if (!homeApp.includes(snippet)) fail(`deprecated /gallery route is missing redirect ${snippet}`);
+  '"/gallery": "Canonical THOUGHT gallery route; the current R2 collection is not deployed."',
+  '"/gallery": "THOUGHT gallery"',
+]) if (!homeApp.includes(snippet)) fail(`canonical /gallery route is missing metadata ${snippet}`);
+
+if (
+  homeApp.includes('pathname === "/gallery"') &&
+  homeApp.includes('window.history.replaceState({}, "", "/")')
+) fail("canonical /gallery route is still rewritten to /");
 
 const sensitivePattern = /(?:PRIVATE_KEY|MNEMONIC|SECRET_KEY|SIGNER_KEY)/;
 for (const relative of [

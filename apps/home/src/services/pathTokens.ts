@@ -308,7 +308,8 @@ async function ethCall<T>(
   provider: ProviderInterface,
   address: string,
   functionName: "balanceOf" | "ownerOf" | "tokenURI",
-  args: readonly unknown[]
+  args: readonly unknown[],
+  blockTag: number | EthereumBlockTag = "latest",
 ): Promise<T> {
   if (!supportsRpcRequest(provider)) {
     throw new Error("Auction provider is missing JSON-RPC support.");
@@ -320,7 +321,7 @@ async function ethCall<T>(
   } as any);
   const result = (await provider.request?.({
     method: "eth_call",
-    params: [{ to: getAddress(address), data }, "latest"],
+    params: [{ to: getAddress(address), data }, toBlockTag(blockTag)],
   })) as Hex;
   if (!result || result === "0x") {
     throw new Error(`No PATH token data returned from ${functionName}.`);
@@ -417,18 +418,32 @@ export async function readPathTokenOwner(args: {
   provider?: ProviderInterface;
   pathNftAddress: string;
   tokenId: bigint;
+  blockTag?: number | EthereumBlockTag;
 }): Promise<Address> {
   const provider = normalizeProvider(args.provider);
-  return ethCall<Address>(provider, args.pathNftAddress, "ownerOf", [args.tokenId]);
+  return ethCall<Address>(
+    provider,
+    args.pathNftAddress,
+    "ownerOf",
+    [args.tokenId],
+    args.blockTag,
+  );
 }
 
 export async function readPathTokenUri(args: {
   provider?: ProviderInterface;
   pathNftAddress: string;
   tokenId: bigint;
+  blockTag?: number | EthereumBlockTag;
 }): Promise<string> {
   const provider = normalizeProvider(args.provider);
-  return ethCall<string>(provider, args.pathNftAddress, "tokenURI", [args.tokenId]);
+  return ethCall<string>(
+    provider,
+    args.pathNftAddress,
+    "tokenURI",
+    [args.tokenId],
+    args.blockTag,
+  );
 }
 
 export async function loadAllPathTokenIds(args: {

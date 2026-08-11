@@ -1,0 +1,100 @@
+# Artwork, Metadata, and Chain
+
+> Artwork and metadata stay legible only when their chain and release context stay attached.
+
+- Group: Records and verification
+- Status: current
+- Authority classes in this document: artist-editorial, app-documentation, contract-release
+- Canonical page: https://inshell.art/docs/artwork-metadata-chain
+- Documentation version: 2026-08-11
+
+## Evidence for one token interpretation
+
+- Authority: app-documentation, contract-release
+- Figure mode: ledger
+
+```text
+RECORD         │ EVIDENCE
+───────────────┼────────────────────────────────
+Identity       │ Network, contract address,
+               │ and token ID name one NFT.
+───────────────┼────────────────────────────────
+Contract       │ Typed state and tokenURI expose
+               │ contract-controlled facts.
+───────────────┼────────────────────────────────
+Release        │ Pinned artifacts explain the ABI,
+               │ renderer, schemas, and commitments.
+───────────────┼────────────────────────────────
+Context        │ Detail pages and provenance
+               │ add declared evidence without
+               │ replacing the token.
+───────────────┼────────────────────────────────
+Interpretation │ Read the evidence levels
+               │ together before making a larger
+               │ claim.
+```
+
+- **Identity** — Network, contract address, and token ID name one NFT.
+- **Contract** — Typed state and tokenURI expose contract-controlled facts.
+- **Release** — Pinned artifacts explain the ABI, renderer, schemas, and commitments.
+- **Context** — Detail pages and provenance add declared evidence without replacing the token.
+- **Interpretation** — Read the evidence levels together before making a larger claim.
+
+## Overview
+
+- Authority: artist-editorial, app-documentation, contract-release
+
+The canonical gallery route reports the current THOUGHT deployment state; the imported R2 release is not deployed and therefore lists no R2 works. The PATH surface continues to list PATH tokens from its configured chain. The full identity of an NFT is its network, contract address, and token ID; the same token number elsewhere is a different record.
+
+THOUGHT and PATH artwork and NFT metadata come from each contract's tokenURI and pinned renderer. The App decodes and displays those canonical bytes; it must not rebuild replacement art or silently substitute a newer renderer.
+
+Token metadata carries the canonical image, description, stable marketplace traits, and—when the release defines it—an external_url to the canonical detail page. A generic marketplace can read that portable layer without understanding Inshell's richer records.
+
+Inshell detail pages add context: THOUGHT exposes its work, evidence levels, and creation provenance; PATH exposes movement state, capacity, linked movement tokens, issuance, and onchain record.
+
+These layers make the public forms and claims of the practice inspectable. They can establish which bytes and records belong to a work; they cannot prove the inward truth of the work or possess its meaning.
+
+These artwork, metadata, provenance, and chain layers describe Inshell's current onchain practices. They are not requirements that every Agent Art practice must adopt.
+
+Onchain does not mean context-free. Read network, contract, token ID, deployment, release, tokenURI source, and attestation status together before deciding what a record proves.
+
+## A token number is not enough
+
+- Authority: contract-release
+
+Token ID 1 can exist on many contracts and networks. Its full identity is the tuple of network, contract address, and token ID. A collection page that omits one of those values may still be convenient, but it is not sufficient for independent verification.
+
+## Canonical artwork bytes
+
+- Authority: app-documentation, contract-release
+
+THOUGHT and PATH tokenURI responses point to the canonical artwork and metadata produced by their pinned contract systems. The App decodes those bytes for display. It should not redraw an approximation, swap in a newer renderer, or treat a cached marketplace thumbnail as the origin.
+
+- A data URI can carry JSON metadata or SVG artwork directly.
+- A pinned renderer release makes the visual construction reproducible and reviewable.
+- A social image or screenshot is a presentation copy, even when it looks identical.
+
+## Portable metadata
+
+- Authority: app-documentation, contract-release
+
+Token metadata is the compact layer that generic wallets and marketplaces can understand. It includes the canonical image, description, stable traits, and an external URL when the selected release defines one.
+
+Portable metadata deliberately does not carry every creation detail. Inshell detail pages and provenance endpoints can add richer context while keeping their different authority levels explicit.
+
+## Read context with the object
+
+- Authority: app-documentation, contract-release
+
+- Which network and deployment produced the record?
+- Which contract and token ID identify it?
+- Which release defines its ABI and renderer?
+- Which fields are token metadata, contract state, App records, or runtime reports?
+- Is a Creation Attestation present, valid, absent, or not applicable?
+- At what block or time was live chain state observed?
+
+
+## Links
+
+- [view the THOUGHT gallery state](https://inshell.art/gallery)
+- [view all $PATH](https://inshell.art/path)
