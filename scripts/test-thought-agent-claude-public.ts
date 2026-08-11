@@ -42,6 +42,15 @@ let created: {
   browserToken: string;
   statusUrl: string;
   launchUri: string;
+  release?: {
+    protocolReleaseId: `0x${string}`;
+    manifestKeccak256: `0x${string}`;
+  };
+  resultContract?: {
+    workProfile: string;
+    lineValidation: "terminal-english-64";
+    declarationLabelField?: "agentLabel" | "label";
+  };
 } | null = null;
 let terminal = false;
 
@@ -57,7 +66,7 @@ try {
       promptLine,
       specId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
       requestedAgent: { adapterId: "claude", model: null },
-      client: { surface: "thought-claude-public-transport-canary", appVersion: "test" },
+      client: { surface: "thought-claude-code-public-transport-canary", appVersion: "test" },
     }),
   });
 
@@ -72,14 +81,17 @@ try {
     runId: created.runId,
     runUrl,
     launchToken,
-    surface: "cowork" as const,
+    surface: "code" as const,
+    release: created.release,
+    resultContract: created.resultContract,
   };
   const operation = buildThoughtClaudeOperationContract(input);
   const handoff = buildThoughtClaudeTask(input);
-  assert.match(handoff, /public HTTPS THOUGHT service/);
-  assert.doesNotMatch(handoff, /127\.0\.0\.1|localhost|192\.168\./i);
+  assert.match(handoff, /<agent_surface> = code/);
+  assert.match(handoff, /<bridge_platform> = claude-code-direct-http/);
+  assert.doesNotMatch(handoff, /Cowork|On your computer|<connection_endpoint>/);
   assert.equal(operation.adapter.adapterId, "claude");
-  assert.equal(operation.agentSurface, "cowork");
+  assert.equal(operation.agentSurface, "code");
 
   const claim = await requestJson<{
     runId: string;
@@ -128,6 +140,12 @@ try {
       intent?: string;
       promptLine?: { text?: string };
       agentInput?: { text?: string };
+      outputContract?: {
+        release?: {
+          protocolReleaseId?: string;
+          manifestKeccak256?: string;
+        };
+      };
     };
   }>(operation.endpoints.start, {
     method: "POST",
@@ -148,11 +166,12 @@ try {
   assert.equal(started.request?.intent, "generate-thought-candidate");
   assert.equal(started.request?.promptLine?.text, promptLine);
   assert.equal(started.request?.agentInput?.text, promptLine);
+  assert.deepEqual(started.request?.outputContract?.release, operation.release);
 
   const agentLine = "A public path can still remain private.";
   const candidate = {
     schema: THOUGHT_AGENT_RESULT_VERSION,
-    release: THOUGHT_V2_PROTOCOL_RELEASE.release,
+    release: operation.release,
     agentLine,
     declaration: {
       schema: "inshell.thought.agent-declaration.v1",
@@ -182,8 +201,8 @@ try {
       agent: {
         product: "Claude",
         provider: "anthropic",
-        model: "unknown",
-        metadataSource: "unknown",
+        model: "claude-transport-canary",
+        metadataSource: "reported",
       },
       execution: operation.execution,
       startedAt,
@@ -212,7 +231,7 @@ try {
   });
   assert.equal(status.state, "returned");
   assert.equal(status.result?.agentLine, agentLine);
-  assert.equal(status.result?.receipt?.metadataSource, "unknown");
+  assert.equal(status.result?.receipt?.metadataSource, "reported");
 
   console.log(JSON.stringify({
     runId: created.runId,
@@ -220,8 +239,8 @@ try {
     adapter: operation.adapter,
     bridge: operation.bridge,
     transport: "public-https",
-    liveClaudeQualified: false,
-    note: "Transport simulation passed; a real Cowork submission is still required.",
+    liveClaudeCodeQualified: false,
+    note: "Transport simulation passed; a real Claude Code submission is still required.",
   }, null, 2));
 } finally {
   if (created && !terminal) {

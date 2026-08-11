@@ -19,7 +19,7 @@ const releaseRoot = path.join(
 const fixturePath = path.join(
   root,
   "apps/thought/contract-release/releases/",
-  "thought-v2-canonical-portable-release-20260801-r1/fixtures/",
+  "thought-v2-canonical-portable-release-20260807-r2/fixtures/",
   "neutral-agent-model-token-uri-examples.anvil.json",
 );
 const lock = JSON.parse(
@@ -166,7 +166,7 @@ assert(
 );
 assert(
   lock.validation?.contractArtifactId ===
-    "thought-v2-canonical-portable-release-20260801-r1",
+    "thought-v2-canonical-portable-release-20260807-r2",
   "metadata namespace validation artifact mismatch",
 );
 assert(lock.validation?.decodedFixture === path.relative(root, fixturePath), "decoded fixture lock mismatch");

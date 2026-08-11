@@ -16,15 +16,15 @@ The run is deliberately split into three independently checked layers:
 - a short creator-facing explanation of what will happen and when interaction is justified;
 - a constrained declarative contract naming four ordered operations, exact evidence, accepted states, and stop conditions.
 - two sealed creative inputs opened only after preflight: the complete selected
-  protocol specification and the smaller Agent creative brief. They have
+  THOUGHT Work Specification and the smaller Agent Creative Brief. They have
   separate identities and hashes and must never be treated as aliases.
 
 Concrete private values are defined once using conventional placeholders such as `<run_id>` and `<app_endpoint>`. The successful claim defines `<bridge_credential>` from the exact top-level `bridgeToken` response field. The complete claim response and credential must be retained together before secondary validation, reused through the remaining operations, and never reacquired with a second claim. Every operation refers back to placeholders instead of repeating raw identifiers, URLs, or credentials. Payload requirements use exact dotted field paths such as `bridge.bridgeId`, which preserve nesting without exposing raw JSON programs.
 
 Codex chooses the available mechanics for those operations. It may not change endpoints, reorder operations, invent runtime identity, open creative input before readiness, or claim success without a receipt. The exact host-issued model is required; host-issued reasoning effort is retained when present but is not required. Runtime metadata is resolved once before readiness and reused without inference. The handoff contains no generated shell, JavaScript, raw JSON program, or temporary-file program.
 
-The selected specification is `THOUGHT.v2.md`, pinned by the canonical portable
-Contract release. It remains the protocol-facing source for work identity,
+The selected Work Specification is `THOUGHT.v2.md`, pinned by the canonical
+portable Contract release. It remains the artwork-facing source for work identity,
 provenance/attestation boundaries, PATH consumption, metadata, and renderer
 identity. `THOUGHT.agent-creative.v2.md` contains only the rules needed to
 produce one response. This removes protocol machinery from the creative
@@ -34,11 +34,21 @@ Failure requests deliberately omit `failedAt`. The App records the canonical UTC
 
 ## Trust boundary
 
-The visible Agent handoff is editable orchestration and creator-facing UX. It is never a trust root. The App stores a SHA-256 digest beside the exact generated handoff and verifies that digest before reopening a saved launch. This detects accidental browser-storage or implementation drift, but it is not proof that a creator did not edit text after the deep link opened.
+The visible Agent handoff is editable bootstrap orchestration and
+creator-facing UX. It is never a trust root. The App stores a SHA-256 digest
+beside the exact generated handoff and verifies that digest before reopening a
+saved launch. This detects accidental browser-storage or implementation drift,
+but it is not proof that a creator did not edit text after the deep link opened.
+The claim and start responses carry the exact App-issued run-authority object.
+Only the start response supplies canonical creative input and release identity.
 
 Enforceable rules remain on the THOUGHT backend: run-state transitions, bearer authorization, prompt/spec hashes, bounded-control evidence, release binding, output schema, byte limits, declaration status, result hashes, and one accepted result. Receipts state `appAcceptedAndBound: true` and `providerAttested: false`. Agent declarations remain `declared-unverified`.
 
-Creation Attestation therefore means that the official THOUGHT App accepted the result through this run protocol and bound it into the mint facts. It does not mean that Codex or its provider cryptographically signed the output, nor does it independently prove authorship, model identity, or the truth of an Agent declaration.
+Creation Attestation therefore means that the official THOUGHT App accepted
+the result through this run protocol and bound it into the mint facts. It does
+not mean that Codex or its provider cryptographically signed the output, nor
+does it independently prove authorship, model identity, the truth of an Agent
+declaration, transcript purity, or absence of outside influence.
 
 Local App authorization is treated as Codex-turn scoped. The initial turn and every later `RETRY` turn must acquire the same narrow App permission before making an exchange. A loopback connection refusal without active permission is not accepted as evidence that the App itself stopped.
 

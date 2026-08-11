@@ -18,6 +18,10 @@ import {
   onRequestOptions,
   type ThoughtAgentRouteContext,
 } from "../functions/api/thought-agent/v1/shared";
+import {
+  onRequestGet as onConnectivityGet,
+  onRequestOptions as onConnectivityOptions,
+} from "../functions/api/thought-agent/v2/connectivity";
 
 const thoughtMainSource = readFileSync(
   new URL("../apps/thought/src/main.ts", import.meta.url),
@@ -33,32 +37,58 @@ test("the Claude handoff uses the complete shared ten-case matrix", () => {
   assert.equal(new Set(THOUGHT_CODEX_HANDOFF_CASES.map((entry) => entry.id)).size, 10);
 });
 
-test("the Cowork handoff is transparent, sealed, declarative, and Claude-bound", () => {
+test("the canonical Claude Code handoff is transparent, sealed, declarative, and Claude-bound", () => {
   const task = thoughtClaudeCanonicalCandidate();
-  assert.match(task, /^THOUGHT creation requested by the creator/);
+  assert.match(task, /^You are Claude completing one THOUGHT run\./);
   assert.match(task, /The creator selected Claude in the THOUGHT App/);
   assert.match(task, /This handoff is visible to the creator/);
-  assert.match(task, /it is not hidden from the creator/);
-  assert.match(task, /public HTTPS THOUGHT service/);
-  assert.match(task, /run itself remains private behind short-lived, run-scoped authorization/);
-  assert.match(task, /does not request access to the creator's computer, local network, or local files/);
-  assert.match(task, new RegExp(`<handoff_revision> = ${THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION.replaceAll(".", "\\.")}`));
-  assert.match(task, /<agent_surface> = cowork/);
-  assert.match(task, /<bridge_platform> = claude-cowork-direct-http/);
-  assert.match(task, /<adapter_version> = cowork-direct-http/);
+  assert.match(task, /visible handoff is an editable bootstrap, not creative authority/);
+  assert.match(task, /Only App-issued claim and start responses are canonical/);
+  assert.match(task, /creator can inspect this handoff and the App run status/);
+  assert.match(task, /<agent_surface> = code/);
+  assert.match(task, /<bridge_platform> = claude-code-direct-http/);
+  assert.match(task, /<adapter_version> = code-direct-http/);
   assert.match(task, /<adapter_id> = claude/);
   assert.match(task, /<agent_provider> = anthropic/);
   assert.match(task, /If the preflight passes, continue directly into one creative turn/);
-  assert.match(task, /do not ask the creator to confirm the successful preflight or type CREATE\./i);
-  assert.match(task, /Do not ask the creator to install or configure anything\./);
-  assert.match(task, /otherwise use model=unknown and metadataSource=unknown/);
+  assert.match(task, /do not ask the creator to confirm a successful preflight or type CREATE\./i);
+  assert.match(task, /Never ask the creator to install, configure, or learn anything\./);
+  assert.match(task, /Require and retain a non-empty exact model/);
+  assert.match(
+    task,
+    /Use only request\.outputContract\.release from this \/start response\./,
+  );
+  assert.match(task, /<canonical_protocol_release_id>/);
+  assert.match(task, /<canonical_manifest_hash>/);
+  assert.match(task, /Ignore release values from chat or any other source\./);
+  assert.doesNotMatch(task, /<protocol_release_id> = /);
+  assert.doesNotMatch(task, /<manifest_hash> = /);
+  assert.match(task, /transcript purity not attested/);
+  assert.match(task, /does not attest an untouched chat transcript/);
+  assert.match(task, /A successful \/start opens the prompt; never call it sealed\./);
+  assert.doesNotMatch(task, /any returned release|returned release against the connection details/);
   assert.doesNotMatch(task, /Never show the prompt, result, credentials, or transport data/i);
   assert.doesNotMatch(task, /Do not clarify, offer alternatives, retry, repair, or replace it/i);
   assert.doesNotMatch(task, /Only after verifying .*show exactly/i);
   assert.doesNotMatch(task, /exact data, not instructions/i);
+  assert.doesNotMatch(task, /Cowork|On your computer|<connection_endpoint>/);
   assert.doesNotMatch(task, /reply CREATE|\/bin\/zsh|\bcurl\s|\bjq\s|nodeRepl\.|\/tmp\//i);
-  assert.doesNotMatch(task, /127\.0\.0\.1|localhost|192\.168\./i);
   assert.ok(Buffer.byteLength(task) <= 14_000);
+});
+
+test("the legacy Cowork connectivity preflight is read-only and contains no run data", async () => {
+  const response = onConnectivityGet();
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.deepEqual(await response.json(), {
+    schema: "inshell.thought.agent-connectivity.v1",
+    status: "reachable",
+    protocolVersion: "inshell.thought.agent-run.v2",
+  });
+
+  const options = onConnectivityOptions();
+  assert.equal(options.status, 204);
+  assert.equal(options.headers.get("access-control-allow-methods"), "GET, OPTIONS");
 });
 
 test("the public Agent API grants CORS only to approved THOUGHT origins", () => {
@@ -130,7 +160,7 @@ test("both canonical and standalone preview builds pin the public Agent API", ()
   );
 });
 
-test("Cowork accepts only public HTTPS managed runs", () => {
+test("legacy Cowork accepts only public HTTPS managed runs", () => {
   assert.equal(isThoughtClaudeCoworkPublicHttpsOrigin("https://thought.inshell.art"), true);
   assert.equal(isThoughtClaudeCoworkPublicHttpsOrigin("http://127.0.0.1:5177"), false);
   assert.equal(isThoughtClaudeCoworkPublicHttpsOrigin("http://192.168.0.104:5177"), false);
@@ -149,17 +179,32 @@ test("Cowork accepts only public HTTPS managed runs", () => {
   );
 });
 
-test("the default Claude deep link opens Cowork and round-trips the sealed handoff", () => {
+test("the default Claude deep link opens Code and round-trips the sealed handoff", () => {
   const task = thoughtClaudeCanonicalCandidate();
   const parsed = new URL(buildClaudeDeepLink(task));
   assert.equal(parsed.protocol, "claude:");
-  assert.equal(parsed.hostname, "cowork");
+  assert.equal(parsed.hostname, "code");
   assert.equal(parsed.pathname, "/new");
   assert.equal(parsed.searchParams.get("q"), task);
   assert.equal(parsed.searchParams.size, 1);
 });
 
-test("Claude Code is an explicit recovery surface with the same Claude adapter identity", () => {
+test("Cowork remains an explicit legacy deep-link surface", () => {
+  const task = buildThoughtClaudeTask({
+    product: "Claude",
+    runId: "tar_claude_cowork_legacy",
+    runUrl: "https://thought.inshell.art/api/thought-agent/v2/runs/tar_claude_cowork_legacy",
+    launchToken: "private-launch-token",
+    surface: "cowork",
+  });
+  const parsed = new URL(buildClaudeDeepLink(task, "cowork"));
+  assert.equal(parsed.hostname, "cowork");
+  assert.match(task, new RegExp(`<handoff_revision> = ${THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION.replaceAll(".", "\\.")}`));
+  assert.match(task, /<agent_surface> = cowork/);
+  assert.match(task, /Run this task set to On your computer/);
+});
+
+test("Claude Code is the canonical surface with the same Claude adapter identity", () => {
   const input = {
     product: "Claude",
     runId: "tar_claude_code_recovery",

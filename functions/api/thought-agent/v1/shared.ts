@@ -5,6 +5,7 @@ import {
   THOUGHT_AGENT_CLAIM_TTL_MS,
   THOUGHT_AGENT_PROTOCOL_VERSION,
   THOUGHT_AGENT_RECEIPT_VERSION,
+  THOUGHT_AGENT_RUN_AUTHORITY,
   THOUGHT_AGENT_RUN_TTL_MS,
   THOUGHT_V2_PROTOCOL_RELEASE,
   ThoughtAgentProtocolError,
@@ -322,6 +323,22 @@ export async function createRun(ctx: ThoughtAgentRouteContext): Promise<Response
       statusUrl: `${thoughtAgentApiBase(ctx.request)}/runs/${runId}`,
       createdAt,
       claimExpiresAt,
+      ...(thoughtAgentApiBase(ctx.request) === "/api/thought-agent/v2"
+        ? {
+            controlContract: {
+              schema: THOUGHT_AGENT_CONTROL_VERSION,
+              mode: "bounded-preflight",
+              claimCreativeInput: "sealed-absent",
+              creativeInputEndpoint: "start",
+            },
+          }
+        : {}),
+      release: THOUGHT_V2_PROTOCOL_RELEASE.release,
+      resultContract: {
+        workProfile: THOUGHT_V2_PROTOCOL_RELEASE.identifiers.workProfile,
+        lineValidation: "terminal-english-64",
+        declarationLabelField: "label",
+      },
     });
   });
 }
@@ -1276,6 +1293,7 @@ function statusPayload(row: ThoughtAgentRow): Record<string, unknown> {
 
 function controlRequestPayload(row: ThoughtAgentRow): Record<string, unknown> {
   return {
+    authority: THOUGHT_AGENT_RUN_AUTHORITY,
     intent: "prepare-thought-creation",
     requestedAgent: {
       adapterId: row.requested_adapter_id,
@@ -1303,6 +1321,7 @@ function controlRequestPayload(row: ThoughtAgentRow): Record<string, unknown> {
 
 function creativeRequestPayload(row: ThoughtAgentRow): Record<string, unknown> {
   return {
+    authority: THOUGHT_AGENT_RUN_AUTHORITY,
     intent: "generate-thought-candidate",
     requestedAgent: {
       adapterId: row.requested_adapter_id,
@@ -1344,6 +1363,7 @@ function creativeRequestPayload(row: ThoughtAgentRow): Record<string, unknown> {
       mediaType: "application/json",
       maxRawBytes: RAW_RESULT_MAX_BYTES,
       resultSchema: THOUGHT_V2_PROTOCOL_RELEASE.identifiers.agentResult,
+      release: THOUGHT_V2_PROTOCOL_RELEASE.release,
       agentLine: THOUGHT_AGENT_LINE_CONTRACT,
       schema: THOUGHT_AGENT_OUTPUT_SCHEMA,
     },

@@ -32,6 +32,10 @@ jobs:
           sudo apt-get install --yes zsh
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Check upstream release freshness
+        run: pnpm run check:upstream-releases
+      - name: Verify PATH contract release
+        run: pnpm run check:path-contract-release
       - name: Validate deployment gates
         run: pnpm run check:deployment
       - name: Check PUB path boundary

@@ -49,6 +49,232 @@ const thoughtViteConfig = await readFile(
   new URL("../apps/thought/vite.config.ts", import.meta.url),
   "utf8",
 );
+const homeViteConfig = await readFile(
+  new URL("../apps/home/vite.config.ts", import.meta.url),
+  "utf8",
+);
+const homeThoughtGallery = await readFile(
+  new URL("../apps/home/src/services/thoughtGallery.ts", import.meta.url),
+  "utf8",
+);
+const thoughtBrowserReleaseCanary = await readFile(
+  new URL("./test-thought-agent-browser-release-canary.ts", import.meta.url),
+  "utf8",
+);
+const rootPackageJson = JSON.parse(
+  await readFile(new URL("../package.json", import.meta.url), "utf8"),
+);
+
+test("THOUGHT route keeps its canonical stylesheet in the document head", () => {
+  const head = indexHtml.slice(indexHtml.indexOf("<head>"), indexHtml.indexOf("</head>"));
+  const body = indexHtml.slice(indexHtml.indexOf("<body"));
+  assert.match(
+    head,
+    /<link id="thought-app-stylesheet" rel="stylesheet" href="\/src\/style\.css" \/>/,
+  );
+  assert.doesNotMatch(body, /<link rel="stylesheet" href="\/src\/style\.css"/);
+  assert.match(thoughtCss, /--thought-stylesheet-ready: 1;/);
+  assert.match(
+    thoughtMain,
+    /window\.addEventListener\("pageshow",[\s\S]*?requestAnimationFrame\(restoreThoughtStylesheetAfterHistory\)/,
+  );
+});
+
+test("THOUGHT detail and home gallery retain their presentation order", () => {
+  const detailStart = thoughtCss.indexOf(".thought-detail {");
+  const detailEnd = thoughtCss.indexOf(".thought-detail.is-hidden", detailStart);
+  assert.match(
+    thoughtCss.slice(detailStart, detailEnd),
+    /margin-inline: auto;/,
+    "the fixed-width THOUGHT detail composition stays centered",
+  );
+  assert.match(
+    homeThoughtGallery,
+    /function sortThoughts[\s\S]*?right\.tokenId - left\.tokenId/,
+    "the canonical home gallery lists newest THOUGHTs first",
+  );
+});
+
+test("plain THOUGHT dev defaults to the generated current-contract lane", () => {
+  const runtimeReaderStart = thoughtViteConfig.indexOf(
+    "function readCurrentThoughtContractRuntime",
+  );
+  const runtimeReaderEnd = thoughtViteConfig.indexOf(
+    "function serializeForInlineScript",
+    runtimeReaderStart,
+  );
+  const runtimeReader = thoughtViteConfig.slice(runtimeReaderStart, runtimeReaderEnd);
+  assert.match(
+    runtimeReader,
+    /apps\/thought\/contract-integration\/local-runtime\.thought-anvil\.json/,
+  );
+  assert.doesNotMatch(runtimeReader, /apps\/thought\/evm\/addresses\.anvil\.json/);
+});
+
+test("canonical home proxies THOUGHT through the configured stack origin", () => {
+  assert.match(
+    homeViteConfig,
+    /process\.env\.INSHELL_THOUGHT_APP_ORIGIN\?\.trim\(\)/,
+  );
+  for (const route of [
+    "/api/thought-contract",
+    "/api/thought-agent",
+    "/thought",
+    "/gallery",
+  ]) {
+    const routeStart = homeViteConfig.indexOf(`"${route}":`);
+    assert.ok(routeStart >= 0, `missing home proxy route ${route}`);
+    assert.match(
+      homeViteConfig.slice(routeStart, routeStart + 180),
+      /target: thoughtAppOrigin/,
+    );
+  }
+  assert.match(
+    homeViteConfig,
+    /command !== "serve" \|\| mode !== "devnet"/,
+  );
+  assert.match(
+    homeViteConfig,
+    /globalThis\.__INSHELL_THOUGHT_CONTRACT_RUNTIME__/,
+  );
+  assert.match(
+    homeThoughtGallery,
+    /THOUGHT_V2_PRODUCTION_DEPLOYMENT \?\? LOCAL_THOUGHT_GALLERY_DEPLOYMENT/,
+  );
+  assert.match(
+    homeThoughtGallery,
+    /client\.getLogs\([\s\S]*?event: LOCAL_THOUGHT_ABI\[0\][\s\S]*?fromBlock: 0n/,
+  );
+  assert.match(
+    homeThoughtGallery,
+    /if \(LOCAL_THOUGHT_GALLERY_DEPLOYMENT\)[\s\S]*?loadLocalThoughtGallery\(\)/,
+  );
+});
+
+test("THOUGHT detail uses the canonical record layout", () => {
+  const detailStart = indexHtml.indexOf('id="thought-page"');
+  const detailEnd = indexHtml.indexOf('id="thought-report-bug-link"', detailStart);
+  const detailMarkup = indexHtml.slice(detailStart, detailEnd);
+
+  assert.ok(detailStart >= 0 && detailEnd > detailStart);
+  assert.match(detailMarkup, /<h2>work<\/h2>/);
+  assert.match(detailMarkup, /<h2>creation provenance<\/h2>/);
+  assert.match(detailMarkup, /<h2>canonical traits<\/h2>/);
+  assert.match(detailMarkup, /<h2>on-chain record<\/h2>/);
+  assert.match(detailMarkup, /<summary>verify \/ raw data<\/summary>/);
+  assert.match(detailMarkup, /canonical artwork · ThoughtNFT\.svgOf/);
+  assert.doesNotMatch(detailMarkup, /<h2>color font<\/h2>/i);
+  assert.doesNotMatch(detailMarkup, /<h2>model return<\/h2>/i);
+  assert.match(thoughtCss, /\.thought-detail__body\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) var\(--thought-detail-rail-width\)/);
+  assert.match(thoughtCss, /\.thought-detail__support\s*\{[\s\S]*?grid-column:\s*1 \/ -1/);
+  assert.match(thoughtCss, /\.thought-detail\s*\{[\s\S]*?--thought-detail-font-weight:\s*var\(--weight-mid\)/);
+  assert.match(thoughtCss, /\.thought-detail__section h2\s*\{[\s\S]*?font-weight:\s*var\(--weight-semibold\)/);
+  assert.match(thoughtCss, /\.thought-detail__text\s*\{[\s\S]*?font-weight:\s*var\(--thought-detail-font-weight\)/);
+  assert.match(thoughtCss, /\.thought-detail__fields dt\s*\{[\s\S]*?font-weight:\s*var\(--thought-detail-font-weight\)/);
+  assert.match(thoughtCss, /\.thought-detail__fields dd\s*\{[\s\S]*?font-weight:\s*var\(--thought-detail-font-weight\)/);
+});
+
+test("THOUGHT detail is pinned to the current release and bypasses stale gallery data", () => {
+  assert.match(thoughtMain, /const THOUGHT_GALLERY_CACHE_SCHEMA = "v3"/);
+  assert.match(
+    thoughtMain,
+    /const localThoughtRuntimeGeneration = \(\(\) => \{[\s\S]*?THOUGHT_V2_LOCAL_RELEASE\.artifact\.id[\s\S]*?THOUGHT_V2_LOCAL_RELEASE\.artifact\.manifestSha256[\s\S]*?generatedAt/,
+  );
+  assert.match(
+    thoughtMain,
+    /const thoughtGalleryCacheKey = \(\) =>[\s\S]*?THOUGHT_GALLERY_CACHE_SCHEMA[\s\S]*?localThoughtRuntimeGeneration/,
+  );
+
+  const detailLoaderStart = thoughtMain.indexOf("const loadThoughtDetail = async");
+  const detailLoaderEnd = thoughtMain.indexOf(
+    "const prepareThoughtDetailSpecJsonLink = async",
+    detailLoaderStart,
+  );
+  const detailLoader = thoughtMain.slice(detailLoaderStart, detailLoaderEnd);
+  assert.ok(detailLoaderStart >= 0 && detailLoaderEnd > detailLoaderStart);
+  assert.match(detailLoader, /readGalleryThoughts\(\{ bypassCache: true \}\)/);
+  assert.match(detailLoader, /EVM_ADDRESSES\.protocolRelease\?\.id/);
+  assert.match(detailLoader, /EVM_ADDRESSES\.protocolRelease\?\.manifestHash/);
+});
+
+test("local Agent runs keep one release snapshot from creation through return", () => {
+  assert.match(
+    thoughtViteConfig,
+    /const release = run\.release;[\s\S]*?outputContract:[\s\S]*?protocolReleaseId: release\.protocol\.protocolReleaseId/,
+  );
+  assert.match(
+    thoughtViteConfig,
+    /release: activeRelease,[\s\S]*?buildThoughtV2LocalAgentTaskBinding\(run\.release\)/,
+  );
+  assert.match(
+    thoughtViteConfig,
+    /parseDevAgentOutput\(body\.output\.raw, run\.release\)/,
+  );
+  assert.match(
+    thoughtMain,
+    /release: createPayload\.release,[\s\S]*?resultContract: createPayload\.resultContract/,
+  );
+  assert.match(
+    thoughtMain,
+    /thoughtAgentCreateSupportsBoundedControl[\s\S]*?claimCreativeInput === "sealed-absent"[\s\S]*?creativeInputEndpoint === "start"/,
+  );
+  assert.match(
+    thoughtMain,
+    /release: run\.release![\s\S]*?resultContract: run\.resultContract!/,
+  );
+});
+
+test("the browser canary verifies release parity through the actual Agent deep links", () => {
+  assert.match(thoughtBrowserReleaseCanary, /deep link and stored browser handoff differ/);
+  assert.match(thoughtBrowserReleaseCanary, /editable bootstrap, not creative authority/);
+  assert.match(thoughtBrowserReleaseCanary, /!handoff\.includes\(created\.release\.protocolReleaseId\)/);
+  assert.match(thoughtBrowserReleaseCanary, /!handoff\.includes\(created\.release\.manifestKeccak256\)/);
+  assert.match(thoughtBrowserReleaseCanary, /operation\.release, created\.release/);
+  assert.match(thoughtBrowserReleaseCanary, /created run and exact \/start outputContract\.release differ/);
+  assert.match(thoughtBrowserReleaseCanary, /THOUGHT_AGENT_RUN_AUTHORITY/);
+  assert.match(thoughtBrowserReleaseCanary, /Creative byte or hash parity|started\.request\?\.spec\?\.sha256/);
+  assert.match(thoughtBrowserReleaseCanary, /a \/start protocolReleaseId field drifted/);
+  assert.match(thoughtBrowserReleaseCanary, /a \/start manifestKeccak256 field drifted/);
+  assert.match(thoughtBrowserReleaseCanary, /creativeBindings: true/);
+  assert.match(thoughtBrowserReleaseCanary, /boundedControlClaim: true/);
+  assert.match(thoughtBrowserReleaseCanary, /everyReleaseField: true/);
+  assert.match(thoughtBrowserReleaseCanary, /startToResult: true/);
+  assert.match(thoughtBrowserReleaseCanary, /statusStates\.includes\("returned"\)/);
+  assert.match(
+    rootPackageJson.scripts["canary:thought-agent-browser-release"],
+    /browser-release:codex.*browser-release:claude/,
+  );
+});
+
+test("the browser canary passes dynamic page values through CDP arguments", () => {
+  assert.match(
+    thoughtBrowserReleaseCanary,
+    /client\.send\("Runtime\.callFunctionOn", \{[\s\S]*?arguments: argumentValues\.map\(\(value\) => \(\{ value \}\)\)/,
+  );
+  assert.match(
+    thoughtBrowserReleaseCanary,
+    /expression: "globalThis",[\s\S]*?const browserGlobalObjectId = await getBrowserGlobalObjectId\(client\)/,
+  );
+  assert.match(
+    thoughtBrowserReleaseCanary,
+    /installBrowserReleaseCanaryFunction,[\s\S]*?\[promptLine\]/,
+  );
+  assert.match(
+    thoughtBrowserReleaseCanary,
+    /hasAgentActionFunction,[\s\S]*?\[agentActionLabel\]/,
+  );
+  assert.match(
+    thoughtBrowserReleaseCanary,
+    /clickAgentActionFunction,[\s\S]*?\[agentActionLabel, product\]/,
+  );
+  assert.doesNotMatch(
+    thoughtBrowserReleaseCanary,
+    /JSON\.stringify\((?:promptLine|agentActionLabel|product)/,
+  );
+  assert.match(thoughtBrowserReleaseCanary, /url\.searchParams\.set\("surface", "agent"\)/);
+  assert.match(thoughtBrowserReleaseCanary, /document\.documentElement\.classList\.contains\("agent-surface"\)/);
+  assert.match(thoughtBrowserReleaseCanary, /node\.getBoundingClientRect\(\)\.width > 0/);
+});
 
 const ruleBody = (selector) => {
   const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -96,11 +322,7 @@ test("THOUGHT creation page presents its canonical slogan below the title", () =
   );
   assert.match(
     thoughtMain.slice(stackedHeightStart, stackedHeightEnd),
-    /const headerHeight = visibleBlockOuterHeight\(frontpageHeader\)/,
-  );
-  assert.doesNotMatch(
-    thoughtMain.slice(stackedHeightStart, stackedHeightEnd),
-    /frontpageTitle|titleHeight/,
+    /const creationHeading = IS_CLI_SURFACE \? thoughtCliTitle : frontpageHeader;[\s\S]*?const headerHeight = visibleBlockOuterHeight\(creationHeading\)/,
   );
   assert.match(
     thoughtMain,
@@ -109,6 +331,102 @@ test("THOUGHT creation page presents its canonical slogan below the title", () =
   assert.match(
     thoughtMain,
     /thoughtCanvasPanel\.style\.setProperty\(\s*"--thought-canvas-frame-width",/,
+  );
+});
+
+test("THOUGHT creation keeps the production CLI surface visible by default", () => {
+  assert.match(
+    indexHtml,
+    /id="thought-cli-panel" class="frontpage-side thought-cli-panel"[\s\S]*?aria-label="THOUGHT operator panel"[\s\S]*?id="thought-cli-transcript"[\s\S]*?id="thought-cli-suggestions"[\s\S]*?id="thought-cli-form"[\s\S]*?thought&gt;/,
+  );
+
+  const sideBody = ruleBody(".frontpage-side");
+  assert.match(sideBody, /display:\s*flex/);
+  assert.doesNotMatch(sideBody, /display:\s*none/);
+  assert.match(
+    thoughtCss,
+    /body\.frontpage:has\(\.frontpage-stage:not\(\.is-hidden\)\) \.frontpage-main[\s\S]*?grid-template-areas:\s*\n\s*"canvas side"\s*\n\s*"panel side"/,
+  );
+  assert.doesNotMatch(
+    thoughtCss,
+    /grid-template-areas:\s*\n\s*"canvas panel side"/,
+    "the default CLI must not be squeezed into a third desktop column",
+  );
+  assert.match(
+    ruleBody(".thought-panel"),
+    /display:\s*none/,
+    "the Agent panel must not cover the default CLI canvas",
+  );
+  assert.match(indexHtml, /params\.get\("surface"\) !== "agent"/);
+  assert.match(
+    indexHtml,
+    /classList\.add\(isCliSurface \? "cli-surface" : "agent-surface"\)/,
+  );
+  assert.match(indexHtml, /href="\/thought\?surface=agent">\[ Agent \]<\/a>/);
+  assert.match(
+    thoughtCss,
+    /html\.agent-surface \.thought-panel\s*\{\s*display:\s*flex;/,
+  );
+  assert.match(
+    thoughtCss,
+    /html\.agent-surface \.frontpage-side\s*\{\s*display:\s*none;/,
+  );
+  assert.match(thoughtMain, /const IS_CLI_SURFACE = document\.documentElement\.classList\.contains\("cli-surface"\)/);
+  assert.match(
+    thoughtMain,
+    /if \(!IS_RUN_PAGE && IS_CLI_SURFACE\) \{\s*focusCliInput\(\);\s*\} else if \(!IS_RUN_PAGE\) \{\s*focusThoughtDockPrompt/,
+  );
+  assert.match(
+    thoughtMain,
+    /const getThoughtDockViewportReserve = \(\) => \{\s*if \(IS_CLI_SURFACE \|\| frontpageStage\.classList\.contains\("is-hidden"\)\) \{\s*return 0;/,
+  );
+});
+
+test("canonical CLI canvas preserves the immutable June 10 snapshot", () => {
+  assert.match(
+    indexHtml,
+    /<div class="thought-canvas-column">\s*<h1 class="frontpage-title thought-cli-title">THOUGHT<\/h1>\s*<div class="thought-canvas-panel">/,
+  );
+  assert.match(thoughtCss, /--thought-cli-canvas-column-gap:\s*18px/);
+  assert.match(thoughtCss, /--thought-cli-canvas-row-gap:\s*clamp\(12px, 1\.5vw, 20px\)/);
+  assert.match(thoughtCss, /--thought-cli-canvas-frame-padding:\s*16px/);
+  assert.match(thoughtCss, /--thought-cli-idle-canvas-bg:\s*#050505/);
+  assert.match(
+    thoughtCss,
+    /html\.cli-surface body\.frontpage:has\(\.frontpage-stage:not\(\.is-hidden\)\) \.inshell-topbar,[\s\S]*?\.thought-create__header\s*\{\s*display:\s*none;/,
+  );
+  assert.match(
+    thoughtCss,
+    /html\.cli-surface \.thought-canvas-column\s*\{\s*display:\s*contents;/,
+  );
+  assert.match(
+    thoughtCss,
+    /html\.cli-surface body\.frontpage:has\(\.frontpage-stage:not\(\.is-hidden\)\) \.frontpage-main\s*\{[\s\S]*?grid-template-areas:\s*\n\s*"title \."\s*\n\s*"canvas side";[\s\S]*?column-gap:\s*var\(--thought-cli-canvas-column-gap\);[\s\S]*?row-gap:\s*var\(--thought-cli-canvas-row-gap\)/,
+  );
+  assert.match(
+    thoughtCss,
+    /html\.cli-surface \.thought-canvas-panel\s*\{\s*grid-area:\s*canvas;[\s\S]*?html\.cli-surface \.frontpage-side,[\s\S]*?grid-area:\s*side;[\s\S]*?width:\s*var\(--thought-panel-width\)/,
+  );
+  assert.match(
+    thoughtCss,
+    /html\.cli-surface \.thought-canvas-frame\s*\{[\s\S]*?--thought-canvas-frame-padding:\s*var\(--thought-cli-canvas-frame-padding\);[\s\S]*?background:\s*var\(--panel\)/,
+  );
+  assert.match(
+    thoughtCss,
+    /@media \(max-width: 900px\)[\s\S]*?html\.cli-surface \.thought-canvas-column\s*\{[\s\S]*?width:\s*100%[\s\S]*?html\.cli-surface \.thought-canvas-panel\s*\{[\s\S]*?width:\s*100%/,
+  );
+
+  const renderStart = thoughtMain.indexOf("const renderCanvas =");
+  const renderEnd = thoughtMain.indexOf("const syncOutputToCanvas =", renderStart);
+  const renderBody = thoughtMain.slice(renderStart, renderEnd);
+  assert.match(
+    renderBody,
+    /if \(IS_CLI_SURFACE && !currentWorkSvg && !currentWorkImage\) \{\s*context\.fillStyle = readThoughtCssToken\("--thought-cli-idle-canvas-bg"\);\s*context\.fillRect\(0, 0, displayWidth, height\);\s*return;/,
+  );
+  assert.ok(
+    renderBody.indexOf("if (IS_CLI_SURFACE && !currentWorkSvg && !currentWorkImage)") <
+      renderBody.indexOf("const emptyFrameStyle = getEmptyFrameStyle()"),
+    "the CLI must return with the neutral snapshot canvas before the Agent empty-frame renderer",
   );
 });
 
@@ -164,7 +482,7 @@ test("desktop panel stack shares the canvas top and bottom edges", () => {
   );
 });
 
-test("empty creation canvas follows the active contract work frame", () => {
+test("Agent empty canvas and generated work preserve the active contract frame", () => {
   assert.match(thoughtCss, /--thought-work-frame-color:\s*#006100/);
   assert.match(thoughtCss, /--thought-work-frame-inset:\s*32/);
   assert.match(thoughtCss, /--thought-work-canvas-size:\s*960/);
@@ -750,11 +1068,11 @@ test("Work lifecycle messages move into Console history", () => {
   );
   assert.match(
     thoughtMain,
-    /The App asked Claude to open this THOUGHT task\./,
+    /The App asked Claude Cowork to open this THOUGHT task on your computer\./,
   );
   assert.match(
     thoughtMain,
-    /open this THOUGHT task in Claude/,
+    /The App asked Claude Code to open this THOUGHT task\./,
   );
 });
 
@@ -1332,27 +1650,35 @@ test("Agent launch uses direct data-only protocol calls without a client binding
   assert.match(thoughtMain, /const thoughtDockLaunchUrl = \(run: AgentDemoRun\) =>\s*run\.surface === "codex" \? run\.codexUrl : run\.claudeUrl/);
 });
 
-test("Claude gates Cowork on public HTTPS and keeps Code explicit", () => {
+test("Agent CTAs use product names and Claude launches Code while retaining Cowork only for legacy runs", () => {
   assert.match(thoughtMain, /const CLAUDE_COWORK_AGENT_ROUTE = "claude:\/\/cowork\/new"/);
   assert.match(thoughtMain, /const CLAUDE_CODE_AGENT_ROUTE = "claude:\/\/code\/new"/);
   assert.match(
     thoughtMain,
-    /id: "claude",[\s\S]*?label: "Claude",[\s\S]*?defaultSurface: "claude-cowork"/,
+    /id: "codex",[\s\S]*?label: "Codex",[\s\S]*?ctaLabel: "chatgpt",[\s\S]*?defaultSurface: "codex"/,
   );
   assert.match(
     thoughtMain,
-    /const claudeCoworkQualifiedForCurrentOrigin = \(\) =>[\s\S]*?isThoughtClaudeCoworkPublicHttpsOrigin\(thoughtDockAgentPublicApiOrigin\(\)\)[\s\S]*?IS_DEV_MODE[\s\S]*?IS_PREVIEW_DEPLOYMENT[\s\S]*?THOUGHT_CLAUDE_COWORK_QUALIFICATION\.qualified === true/,
+    /id: "claude",[\s\S]*?label: "Claude",[\s\S]*?ctaLabel: "claude",[\s\S]*?defaultSurface: "claude-code"/,
   );
   assert.match(
     thoughtMain,
-    /if \(adapterId === "claude"\) \{[\s\S]*?claudeCoworkQualifiedForCurrentOrigin\(\)[\s\S]*?"claude-cowork"[\s\S]*?: "claude-code"/,
+    /const normalizeThoughtDockAgentSurface = [\s\S]*?value === "claude-cowork" \|\| value === "claude-cowork-direct-http"[\s\S]*?\? "claude-cowork"[\s\S]*?: "claude-code"/,
   );
   assert.match(thoughtClaudeCoworkQualification, /qualified: false/);
   assert.match(
     thoughtClaudeCoworkQualification,
-    /Awaiting a successful public-HTTPS Claude Cowork canary/,
+    /Legacy Cowork compatibility only; not eligible for active App routing/,
   );
-  assert.doesNotMatch(thoughtMain, /shouldRecoverClaudeInCode|recoverInClaudeCode/);
+  assert.doesNotMatch(thoughtMain, /claudeCoworkQualifiedForCurrentOrigin|showClaudeLocalExecutionNotice/);
+  assert.doesNotMatch(thoughtMain, /THOUGHT_CLAUDE_COWORK_QUALIFICATION/);
+  assert.match(thoughtMain, /surface: ThoughtDockAgentSurface = "claude-code"/);
+  assert.match(thoughtMain, /surface === "claude-code"[\s\S]*?CLAUDE_CODE_AGENT_ROUTE[\s\S]*?: CLAUDE_COWORK_AGENT_ROUTE/);
+  assert.match(thoughtMain, /dockRailAction\("codex", thoughtAgentCtaLabel\("codex"\)/);
+  assert.match(thoughtMain, /dockRailAction\("claude", thoughtAgentCtaLabel\("claude"\)/);
+  assert.match(indexHtml, /<h2>ChatGPT<\/h2>[\s\S]*?choose ChatGPT/);
+  assert.match(indexHtml, /<h2>Claude<\/h2>[\s\S]*?Claude Code/);
+  assert.doesNotMatch(indexHtml, /Run this task.+On your computer/);
   assert.match(
     thoughtMain,
     /const createThoughtDockRun = async[\s\S]*?surface: ThoughtDockAgentSurface[\s\S]*?requestedAgent: \{\s*adapterId,[\s\S]*?client: \{\s*surface: surface === "codex" \? "thought-dock" : `thought-dock:\$\{surface\}`/,
@@ -1676,8 +2002,18 @@ test("mint submission and recovery keep one durable hash", () => {
 test("local App attestation binds selected Agent and runtime-reported Model records", () => {
   assert.match(
     thoughtViteConfig,
-    /const selectedAgent =[\s\S]*?authoritativeRun\.requestedAdapterId[\s\S]*?const reportedModel = authoritativeRun\.agent\.model\?\.trim\(\) \|\| "";[\s\S]*?const authoritativeModel = formatThoughtAgentModelLabel\(/,
-    "the backend must derive Agent from the selected adapter and Model from returned runtime metadata",
+    /selectedAgent = thoughtV2AgentLabelForAdapter\([\s\S]*?authoritativeRun\.requestedAdapterId/,
+    "the backend must derive Agent from the selected adapter",
+  );
+  assert.match(
+    thoughtViteConfig,
+    /const reportedModel = authoritativeRun\.agent\.model\?\.trim\(\) \|\| ""/,
+    "the backend must read Model from returned runtime metadata",
+  );
+  assert.match(
+    thoughtViteConfig,
+    /const authoritativeModel = formatThoughtAgentModelLabel\([\s\S]*?reportedModel,[\s\S]*?authoritativeRun\.agent\.reasoningEffort/,
+    "the backend must normalize only the runtime-reported Model record",
   );
   assert.match(
     thoughtViteConfig,
@@ -1824,6 +2160,22 @@ test("current work verifies THOUGHT uniqueness before PICK and before submission
       confirmBody.indexOf('getTransactionCount(signerAddress, "pending")'),
     "the race guard rechecks uniqueness before opening the transaction request",
   );
+  assert.ok(
+    confirmBody.indexOf("await refreshWalletChainRpc()") <
+      confirmBody.indexOf("new BrowserProvider(ethereum)"),
+    "local THOUGHT mint refreshes the wallet RPC before creating its wallet provider",
+  );
+  assert.ok(
+    confirmBody.indexOf("await verifyWalletThoughtDeployment(browserProvider)") <
+      confirmBody.indexOf("estimateToken.mint.estimateGas"),
+    "wallet contract parity is verified before canonical mint gas estimation",
+  );
+  assert.ok(
+    confirmBody.indexOf("estimateToken.mint.estimateGas") <
+      confirmBody.indexOf('walletState.txState = "awaiting_signature"'),
+    "the App does not announce a wallet transaction until canonical gas preflight passes",
+  );
+  assert.match(confirmBody, /\{ nonce, gasLimit \}/);
 });
 
 test("post-mint View THOUGHT opens the canonical token detail directly", () => {

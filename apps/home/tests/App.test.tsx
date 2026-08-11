@@ -1172,6 +1172,15 @@ describe("App Component", () => {
     expect(css).toMatch(/\.thought-detail\s*{[^}]*text-rendering:\s*auto;/s);
     expect(css).toMatch(/\.thought-detail\s*{[^}]*-webkit-font-smoothing:\s*auto;/s);
     expect(css).toMatch(/\.thought-detail\s*{[^}]*-moz-osx-font-smoothing:\s*auto;/s);
+    expect(css).toMatch(
+      /\.thought-detail\s*{[^}]*--thought-detail-font-weight:\s*var\(--weight-mid\);/s,
+    );
+    expect(css).toMatch(
+      /\.thought-detail__section h2\s*{[^}]*font-weight:\s*var\(--weight-semibold\);/s,
+    );
+    expect(css).toMatch(
+      /\.thought-detail__fields dd\s*{[^}]*font-weight:\s*var\(--thought-detail-font-weight\);/s,
+    );
   });
 
   test("home body keeps the slogan, movements, and release-locked work gallery", async () => {

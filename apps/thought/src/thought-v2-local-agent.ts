@@ -47,6 +47,12 @@ export type ThoughtV2LocalAgentTaskBinding = {
   resultContract: ThoughtCodexResultContractBinding;
 };
 
+export const thoughtV2AgentLabelForAdapter = (adapter: string): string => {
+  if (adapter === "codex") return "Codex";
+  if (adapter === "claude") return "Claude";
+  throw new Error("The selected Agent adapter is not supported.");
+};
+
 export const buildThoughtV2LocalAgentTaskBinding = (
   release: ThoughtV2LocalRelease = THOUGHT_V2_LOCAL_RELEASE,
 ): ThoughtV2LocalAgentTaskBinding => ({
@@ -184,15 +190,7 @@ export const buildThoughtV2LocalAgentProcess = (
   if (result.agentLine !== agentLine) {
     throw new Error("The validated Agent result does not match the current work.");
   }
-  const selectedAgent =
-    evidence.adapter === "codex"
-      ? "Codex"
-      : evidence.adapter === "claude"
-        ? "Claude"
-        : "";
-  if (!selectedAgent) {
-    throw new Error("The selected Agent adapter is not supported.");
-  }
+  const selectedAgent = thoughtV2AgentLabelForAdapter(evidence.adapter);
   if (result.declaration && result.declaration.label !== selectedAgent) {
     throw new Error(
       "The Agent result label does not match the Agent selected by the App.",

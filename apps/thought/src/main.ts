@@ -53,24 +53,22 @@ import {
   THOUGHT_AGENT_POLL_TIMEOUT_MS,
   THOUGHT_AGENT_RESULT_VERSION,
   THOUGHT_AGENT_PROTOCOL_VERSION,
-  THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION,
   THOUGHT_SHA256_PREFIX,
   THOUGHT_V2_PROTOCOL_RELEASE,
   buildThoughtCodexTask,
   buildThoughtClaudeTask,
-  isThoughtClaudeCoworkPublicHttpsOrigin,
   type ThoughtAgentControlEvidence,
   type ThoughtAgentMetadataSource,
   type ThoughtAgentReasoningEffort,
   type ThoughtClaudeSurface,
+  type ThoughtCodexReleaseBinding,
+  type ThoughtCodexResultContractBinding,
   type ThoughtSha256,
 } from "@inshell/thought-agent-protocol";
 import colorFontRaw from "../colorFontJSON/colorfont.byToolv2.json?raw";
 import colorFontText from "../spec/COLOR_FONT.v1.txt?raw";
 import latestThoughtCreativeSpec from "../spec/THOUGHT.v2.md?raw";
 import thoughtCreativeSpecLock from "../spec/THOUGHT.v2.lock.json";
-import { THOUGHT_CLAUDE_COWORK_QUALIFICATION } from
-  "./thought-claude-cowork-qualification";
 import {
   COLOR_FONT_DOC_FORMAT,
   buildColorFontPlainText,
@@ -187,6 +185,7 @@ import {
   replacePendingMintTransactionHash,
   serializePendingMintTransaction,
   serializeConflictingMintTransactions,
+  thoughtMintGasLimit,
   type MintSubmissionContext,
   type PendingMintTransaction,
 } from "./thought-mint-transaction";
@@ -763,6 +762,14 @@ type ThoughtAgentRunCreateResponse = {
   createdAt?: string;
   claimExpiresAt?: string;
   devAutoRun?: boolean;
+  release?: ThoughtCodexReleaseBinding;
+  resultContract?: ThoughtCodexResultContractBinding;
+  controlContract?: {
+    schema?: string;
+    mode?: string;
+    claimCreativeInput?: string;
+    creativeInputEndpoint?: string;
+  };
   error?: {
     code?: string;
     message?: string;
@@ -878,6 +885,12 @@ type ContractPreviewAttemptResult =
 type ThoughtNFTMetadata = {
   name?: string;
   image?: string;
+  creationAttestation?: string;
+  attributes?: Array<{
+    trait_type?: unknown;
+    value?: unknown;
+    display_type?: unknown;
+  }>;
   thought?: {
     text?: string;
     provenance?: string;
@@ -956,6 +969,10 @@ type ThoughtDetail = {
   thoughtSpec: ThoughtDetailSpec;
   provenanceJson: string;
   image: string;
+  tokenUri: string;
+  blockNumber: number;
+  thoughtSpecId: string;
+  thoughtSpecHash: string;
 };
 
 type ActiveThoughtSpec = {
@@ -1960,7 +1977,7 @@ const IS_RUN_PAGE = Boolean(ROUTE_RUN_ID);
 const ROUTE_PLUGIN_MATCH = /^\/plugin(?:\/(codex|claude))?$/.exec(ROUTE_PATHNAME);
 const ROUTE_PLUGIN_AGENT = (ROUTE_PLUGIN_MATCH?.[1] ?? "") as "" | ThoughtDockAgentAdapterId;
 const IS_PLUGIN_PAGE = Boolean(ROUTE_PLUGIN_MATCH);
-const IS_CLI_DEBUG = ROUTE_SEARCH_PARAMS.get("debug") === "cli";
+const IS_CLI_SURFACE = document.documentElement.classList.contains("cli-surface");
 if (IS_VERIFY_PAGE && !LOCAL_BROWSER_HOSTS.has(window.location.hostname)) {
   window.location.replace(PATH_VERIFY_CONTRACTS_URL);
 }
@@ -2130,6 +2147,7 @@ const thoughtShellRoot = document.getElementById("thought-shell-root") as HTMLEl
 const frontpageStage = document.querySelector(".frontpage-stage") as HTMLElement | null;
 const frontpageMain = document.querySelector(".frontpage-main") as HTMLElement | null;
 const frontpageHeader = document.querySelector(".thought-create__header") as HTMLElement | null;
+const thoughtCliTitle = document.querySelector(".thought-cli-title") as HTMLElement | null;
 const modeConnectButton = document.getElementById("mode-connect") as HTMLButtonElement | null;
 const modeDirectButton = document.getElementById("mode-direct") as HTMLButtonElement | null;
 const modeLocalButton = document.getElementById("mode-local") as HTMLButtonElement | null;
@@ -2264,18 +2282,34 @@ const thoughtDetailStatus = document.getElementById("thought-detail-status") as 
 const thoughtDetailBody = document.getElementById("thought-detail-body") as HTMLElement | null;
 const thoughtDetailRail = document.querySelector(".thought-detail__rail") as HTMLElement | null;
 const thoughtDetailImage = document.getElementById("thought-detail-image") as HTMLImageElement | null;
+const thoughtDetailArtworkTokenId = document.getElementById("thought-detail-artwork-token-id") as HTMLElement | null;
 const thoughtDetailCanonicalTitle = document.getElementById("thought-detail-canonical-title") as HTMLElement | null;
 const thoughtDetailPrompt = document.getElementById("thought-detail-prompt") as HTMLElement | null;
+const thoughtDetailProcess = document.getElementById("thought-detail-process") as HTMLElement | null;
+const thoughtDetailAgent = document.getElementById("thought-detail-agent") as HTMLElement | null;
 const thoughtDetailModel = document.getElementById("thought-detail-model") as HTMLElement | null;
 const thoughtDetailModelReturn = document.getElementById("thought-detail-model-return") as HTMLElement | null;
+const thoughtDetailAttestation = document.getElementById("thought-detail-attestation") as HTMLElement | null;
+const thoughtDetailAttestationCopy = document.getElementById("thought-detail-attestation-copy") as HTMLElement | null;
+const thoughtDetailTraits = document.getElementById("thought-detail-traits") as HTMLElement | null;
+const thoughtDetailToken = document.getElementById("thought-detail-token") as HTMLElement | null;
 const thoughtDetailPath = document.getElementById("thought-detail-path") as HTMLAnchorElement | null;
 const thoughtDetailMinter = document.getElementById("thought-detail-minter") as HTMLElement | null;
 const thoughtDetailNetwork = document.getElementById("thought-detail-network") as HTMLElement | null;
 const thoughtDetailChain = document.getElementById("thought-detail-chain") as HTMLElement | null;
 const thoughtDetailChainId = document.getElementById("thought-detail-chain-id") as HTMLElement | null;
 const thoughtDetailCurrency = document.getElementById("thought-detail-currency") as HTMLElement | null;
+const thoughtDetailContract = document.getElementById("thought-detail-contract") as HTMLElement | null;
 const thoughtDetailMinted = document.getElementById("thought-detail-minted") as HTMLElement | null;
+const thoughtDetailBlock = document.getElementById("thought-detail-block") as HTMLElement | null;
 const thoughtDetailSpecRef = document.getElementById("thought-detail-spec-ref") as HTMLAnchorElement | null;
+const thoughtDetailProvenanceHash = document.getElementById("thought-detail-provenance-hash") as HTMLElement | null;
+const thoughtDetailPromptHash = document.getElementById("thought-detail-prompt-hash") as HTMLElement | null;
+const thoughtDetailAgentLineHash = document.getElementById("thought-detail-agent-line-hash") as HTMLElement | null;
+const thoughtDetailSpecId = document.getElementById("thought-detail-spec-id") as HTMLElement | null;
+const thoughtDetailSpecHash = document.getElementById("thought-detail-spec-hash") as HTMLElement | null;
+const thoughtDetailReleaseId = document.getElementById("thought-detail-release-id") as HTMLElement | null;
+const thoughtDetailManifestHash = document.getElementById("thought-detail-manifest-hash") as HTMLElement | null;
 const thoughtDetailColorFont = document.getElementById("thought-detail-color-font") as HTMLAnchorElement | null;
 const thoughtDetailColorFontStatus = document.getElementById("thought-detail-color-font-status") as HTMLElement | null;
 const thoughtDetailViewTx = document.getElementById("thought-detail-view-tx") as HTMLAnchorElement | null;
@@ -2446,18 +2480,34 @@ if (
   !thoughtDetailBody ||
   !thoughtDetailRail ||
   !thoughtDetailImage ||
+  !thoughtDetailArtworkTokenId ||
   !thoughtDetailCanonicalTitle ||
   !thoughtDetailPrompt ||
+  !thoughtDetailProcess ||
+  !thoughtDetailAgent ||
   !thoughtDetailModel ||
   !thoughtDetailModelReturn ||
+  !thoughtDetailAttestation ||
+  !thoughtDetailAttestationCopy ||
+  !thoughtDetailTraits ||
+  !thoughtDetailToken ||
   !thoughtDetailPath ||
   !thoughtDetailMinter ||
   !thoughtDetailNetwork ||
   !thoughtDetailChain ||
   !thoughtDetailChainId ||
   !thoughtDetailCurrency ||
+  !thoughtDetailContract ||
   !thoughtDetailMinted ||
+  !thoughtDetailBlock ||
   !thoughtDetailSpecRef ||
+  !thoughtDetailProvenanceHash ||
+  !thoughtDetailPromptHash ||
+  !thoughtDetailAgentLineHash ||
+  !thoughtDetailSpecId ||
+  !thoughtDetailSpecHash ||
+  !thoughtDetailReleaseId ||
+  !thoughtDetailManifestHash ||
   !thoughtDetailColorFont ||
   !thoughtDetailColorFontStatus ||
   !thoughtDetailViewTx ||
@@ -2542,6 +2592,8 @@ type AgentDemoRun = {
   candidate: string | null;
   remoteState: string;
   expiresAt?: string;
+  release?: ThoughtCodexReleaseBinding;
+  resultContract?: ThoughtCodexResultContractBinding;
   agentEvidence?: ThoughtV2LocalAgentEvidence;
 };
 
@@ -2554,11 +2606,13 @@ type ThoughtDockAgentSurface = "codex" | "claude-cowork" | "claude-code";
 type ThoughtDockAgentAdapter = {
   id: ThoughtDockAgentAdapterId;
   label: string;
+  ctaLabel: string;
   defaultSurface: ThoughtDockAgentSurface;
   canDeepLink: boolean;
 };
 
 const CODEX_AGENT_ROUTE = "codex://new";
+/** @deprecated Retained only to resume launches created before Claude Code became canonical. */
 const CLAUDE_COWORK_AGENT_ROUTE = "claude://cowork/new";
 const CLAUDE_CODE_AGENT_ROUTE = "claude://code/new";
 
@@ -2649,13 +2703,15 @@ const THOUGHT_DOCK_AGENT_ADAPTERS: ThoughtDockAgentAdapter[] = [
   {
     id: "codex",
     label: "Codex",
+    ctaLabel: "chatgpt",
     defaultSurface: "codex",
     canDeepLink: true,
   },
   {
     id: "claude",
     label: "Claude",
-    defaultSurface: "claude-cowork",
+    ctaLabel: "claude",
+    defaultSurface: "claude-code",
     canDeepLink: true,
   },
 ];
@@ -2793,38 +2849,54 @@ const agentDemoResultJson = (
 const thoughtAgentProductLabel = (adapterId: ThoughtDockAgentAdapterId) =>
   THOUGHT_DOCK_AGENT_ADAPTERS.find((adapter) => adapter.id === adapterId)?.label ?? "Agent";
 
-const claudeCoworkQualifiedForCurrentOrigin = () =>
-  isThoughtClaudeCoworkPublicHttpsOrigin(thoughtDockAgentPublicApiOrigin()) &&
-  (
-    IS_DEV_MODE ||
-    IS_PREVIEW_DEPLOYMENT ||
-    (
-      THOUGHT_CLAUDE_COWORK_QUALIFICATION.qualified === true &&
-      THOUGHT_CLAUDE_COWORK_QUALIFICATION.handoffRevision ===
-        THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION
-    )
+const thoughtAgentCreateSupportsBoundedControl = (
+  payload: ThoughtAgentRunCreateResponse,
+) =>
+  payload.controlContract?.schema === THOUGHT_AGENT_CONTROL_VERSION &&
+  payload.controlContract.mode === "bounded-preflight" &&
+  payload.controlContract.claimCreativeInput === "sealed-absent" &&
+  payload.controlContract.creativeInputEndpoint === "start" &&
+  Boolean(payload.release) &&
+  Boolean(payload.resultContract);
+
+const rejectIncompatibleThoughtAgentRun = async (
+  payload: ThoughtAgentRunCreateResponse,
+  statusUrl: string,
+) => {
+  if (payload.browserToken) {
+    await fetch(agentDemoRunActionUrl(statusUrl, "cancel"), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${payload.browserToken}`,
+        "Content-Type": "application/json",
+      },
+      body: "{}",
+    }).catch(() => undefined);
+  }
+  throw new Error(
+    "THOUGHT Agent service is not ready for bounded control. No Agent task was opened.",
   );
+};
+
+const thoughtAgentCtaLabel = (adapterId: ThoughtDockAgentAdapterId) =>
+  THOUGHT_DOCK_AGENT_ADAPTERS.find((adapter) => adapter.id === adapterId)?.ctaLabel ?? "agent";
 
 const defaultThoughtDockAgentSurface = (
   adapterId: ThoughtDockAgentAdapterId,
-): ThoughtDockAgentSurface => {
-  if (adapterId === "claude") {
-    return claudeCoworkQualifiedForCurrentOrigin()
-      ? "claude-cowork"
-      : "claude-code";
-  }
-  return THOUGHT_DOCK_AGENT_ADAPTERS.find((adapter) => adapter.id === adapterId)
+): ThoughtDockAgentSurface =>
+  THOUGHT_DOCK_AGENT_ADAPTERS.find((adapter) => adapter.id === adapterId)
     ?.defaultSurface ?? "codex";
-};
 
 const normalizeThoughtDockAgentSurface = (
   adapterId: ThoughtDockAgentAdapterId,
   value: unknown,
 ): ThoughtDockAgentSurface => {
   if (adapterId === "codex") return "codex";
-  return value === "claude-code" || value === "claude-code-direct-http"
-    ? "claude-code"
-    : "claude-cowork";
+  // Preserve already-created Cowork runs so they can finish, but never infer
+  // Cowork for new or malformed state.
+  return value === "claude-cowork" || value === "claude-cowork-direct-http"
+    ? "claude-cowork"
+    : "claude-code";
 };
 
 const thoughtClaudeSurface = (
@@ -2834,12 +2906,17 @@ const thoughtClaudeSurface = (
 const thoughtAgentLaunchActionDescription = (adapterId: ThoughtDockAgentAdapterId) =>
   adapterId === "codex"
     ? "open this THOUGHT task in Codex within the ChatGPT desktop app"
-    : "open this THOUGHT task in Claude";
+    : "open this THOUGHT task in Claude Code";
 
-const thoughtAgentLaunchRequestedDetail = (adapterId: ThoughtDockAgentAdapterId) =>
+const thoughtAgentLaunchRequestedDetail = (
+  adapterId: ThoughtDockAgentAdapterId,
+  surface: ThoughtDockAgentSurface,
+) =>
   adapterId === "codex"
     ? "The App asked the ChatGPT desktop app to open this THOUGHT task in Codex."
-    : "The App asked Claude to open this THOUGHT task.";
+    : surface === "claude-cowork"
+      ? "The App asked Claude Cowork to open this THOUGHT task on your computer."
+      : "The App asked Claude Code to open this THOUGHT task.";
 
 const normalizeThoughtAgentProtocolError = (message: string, adapterId: ThoughtDockAgentAdapterId = "codex") => {
   const trimmed = message.trim();
@@ -2899,20 +2976,10 @@ const buildAgentDemoSealedTask = (
     ...(adapterId === "claude"
       ? { surface: thoughtClaudeSurface(run.surface) }
       : {}),
-    // The Vite Agent API always serves the active local contract release, even
-    // while the browser is still diagnosing whether minting is available. Keep
-    // its sealed Agent task release-bound instead of falling back to the older
-    // generic Agent-protocol profile during that diagnostic window.
-    ...(IS_DEV_MODE
-      ? buildThoughtV2LocalAgentTaskBinding()
-      : {
-          release: THOUGHT_V2_PROTOCOL_RELEASE.release,
-          resultContract: {
-            workProfile: THOUGHT_V2_PROTOCOL_RELEASE.identifiers.workProfile,
-            lineValidation: "terminal-english-64" as const,
-            declarationLabelField: "label" as const,
-          },
-        }),
+    // A V2 run must carry its exact release and result contract from creation.
+    // The create-response gate rejects older services before any Agent opens.
+    release: run.release!,
+    resultContract: run.resultContract!,
   });
 };
 
@@ -2926,7 +2993,7 @@ const buildCodexAgentUrl = (sealedTask: string) => {
 
 const buildClaudeAgentUrl = (
   sealedTask: string,
-  surface: ThoughtDockAgentSurface = "claude-cowork",
+  surface: ThoughtDockAgentSurface = "claude-code",
 ) => {
   const params = new URLSearchParams({
     q: sealedTask,
@@ -2969,6 +3036,9 @@ const buildAgentDemoRun = async (): Promise<AgentDemoRun> => {
     throw new Error("THOUGHT Agent API returned an incomplete demo run.");
   }
   const statusUrl = resolveThoughtAgentStatusUrl(createPayload.statusUrl);
+  if (!thoughtAgentCreateSupportsBoundedControl(createPayload)) {
+    await rejectIncompatibleThoughtAgentRun(createPayload, statusUrl);
+  }
   const launchUri = resolveThoughtAgentLaunchUri(createPayload.launchUri);
   const launchToken = agentDemoLaunchToken(launchUri);
   if (!launchToken) {
@@ -2991,6 +3061,8 @@ const buildAgentDemoRun = async (): Promise<AgentDemoRun> => {
     resultUrl: agentDemoRunActionUrl(statusUrl, "result"),
     remoteState: createPayload.state ?? "created",
     expiresAt: createPayload.claimExpiresAt,
+    release: createPayload.release,
+    resultContract: createPayload.resultContract,
   };
   const sealedTask = buildAgentDemoSealedTask(baseRun);
   const handoffSha256 = thoughtAgentHandoffSha256(sealedTask);
@@ -3558,7 +3630,7 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
       detail: controlVerified
         ? "Control checks passed. Creation is continuing automatically."
         : state.run.remoteState === "created"
-        ? thoughtAgentLaunchRequestedDetail(state.adapterId)
+        ? thoughtAgentLaunchRequestedDetail(state.adapterId, state.run.surface)
         : `${product} is working on this THOUGHT task.`,
       ...(controlVerified
         ? { nextStep: `keep this page open while ${product} creates` }
@@ -3798,7 +3870,7 @@ const focusThoughtDockPrompt = (options?: { preventScroll?: boolean }) => {
 
 const shouldRefocusThoughtDockFromClick = (target: EventTarget | null) => {
   if (
-    IS_CLI_DEBUG ||
+    IS_CLI_SURFACE ||
     frontpageStage.classList.contains("is-hidden") ||
     thoughtDockPrompt.disabled ||
     !(target instanceof HTMLElement) ||
@@ -4768,10 +4840,10 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         status: "Choose Agent",
         tone: "idle",
         actions: [
-          dockRailAction("codex", "codex", thoughtAgentLaunchActionDescription("codex"), () => {
+          dockRailAction("codex", thoughtAgentCtaLabel("codex"), thoughtAgentLaunchActionDescription("codex"), () => {
             void prepareThoughtDockAdapter("codex");
           }),
-          dockRailAction("claude", "claude", thoughtAgentLaunchActionDescription("claude"), () => {
+          dockRailAction("claude", thoughtAgentCtaLabel("claude"), thoughtAgentLaunchActionDescription("claude"), () => {
             void prepareThoughtDockAdapter("claude");
           }),
           cancelAgentSelectAction(state.prompt),
@@ -5137,6 +5209,9 @@ const createThoughtDockRun = async (
     throw new Error("THOUGHT Agent API returned an incomplete Dock run.");
   }
   const statusUrl = resolveThoughtDockAgentStatusUrl(createPayload.statusUrl);
+  if (!thoughtAgentCreateSupportsBoundedControl(createPayload)) {
+    await rejectIncompatibleThoughtAgentRun(createPayload, statusUrl);
+  }
   const launchUri = resolveThoughtDockAgentLaunchUri(createPayload.launchUri);
   const launchToken = agentDemoLaunchToken(launchUri);
   if (!launchToken) {
@@ -5159,6 +5234,8 @@ const createThoughtDockRun = async (
     resultUrl: agentDemoRunActionUrl(statusUrl, "result"),
     remoteState: createPayload.state ?? "created",
     expiresAt: createPayload.claimExpiresAt,
+    release: createPayload.release,
+    resultContract: createPayload.resultContract,
   };
   const sealedTask = buildAgentDemoSealedTask(baseRun, adapterId);
   const handoffSha256 = thoughtAgentHandoffSha256(sealedTask);
@@ -5246,10 +5323,11 @@ const prepareThoughtDockAdapter = (adapterId: ThoughtDockAgentAdapterId) => {
     });
     return;
   }
+  const surface = defaultThoughtDockAgentSurface(adapterId);
   return prepareThoughtDockRun(
     thoughtDockState.prompt,
     adapterId,
-    defaultThoughtDockAgentSurface(adapterId),
+    surface,
   );
 };
 
@@ -11379,6 +11457,56 @@ const refreshWalletChainRpc = async () => {
   }
 };
 
+const verifyWalletThoughtDeployment = async (browserProvider: BrowserProvider) => {
+  if (!IS_LOCAL_THOUGHT_V2) {
+    return;
+  }
+
+  const thoughtProvider = getReadProvider();
+  const pathProvider = getPathReadProvider();
+  if (!thoughtProvider || !pathProvider) {
+    throw new Error("The active THOUGHT Anvil node is unavailable.");
+  }
+
+  let targetThoughtCode = "";
+  let targetPathCode = "";
+  try {
+    [targetThoughtCode, targetPathCode] = await Promise.all([
+      thoughtProvider.getCode(THOUGHT_NFT_ADDRESS),
+      pathProvider.getCode(PATH_NFT_ADDRESS),
+    ]);
+  } catch {
+    throw new Error("The active THOUGHT Anvil node is unavailable.");
+  }
+  if (targetThoughtCode === "0x" || targetPathCode === "0x") {
+    throw new Error("The active THOUGHT Anvil deployment is unavailable.");
+  }
+
+  let walletThoughtCode = "";
+  let walletPathCode = "";
+  try {
+    [walletThoughtCode, walletPathCode] = await Promise.all([
+      browserProvider.getCode(THOUGHT_NFT_ADDRESS),
+      browserProvider.getCode(PATH_NFT_ADDRESS),
+    ]);
+  } catch {
+    throw new Error(
+      `Wallet RPC cannot reach the active THOUGHT Anvil node at ${THOUGHT_RPC_URL}.`,
+    );
+  }
+
+  if (
+    walletThoughtCode === "0x" ||
+    walletPathCode === "0x" ||
+    keccak256(walletThoughtCode) !== keccak256(targetThoughtCode) ||
+    keccak256(walletPathCode) !== keccak256(targetPathCode)
+  ) {
+    throw new Error(
+      `Wallet RPC is not using the active THOUGHT Anvil deployment at ${THOUGHT_RPC_URL}.`,
+    );
+  }
+};
+
 const extractMintedTokenId = (receipt: { logs?: readonly { topics: readonly string[]; data: string }[] }) => {
   const contract = getReadThoughtNFT();
   if (!contract) {
@@ -13234,15 +13362,12 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
   mintTransactionRequestId = requestId;
   activeMintTransactionRequestId = requestId;
   mintFlowState = "minting";
-  walletState.txState = "awaiting_signature";
+  walletState.txState = "idle";
   walletState.txError = "";
   mintFlowData.error = "";
   mintFlowData.errorKind = "none";
   recordCurrentMintConsoleState();
   syncInterface();
-  trackThoughtAnalytics("mint_started", {
-    mintStage: "wallet_signature",
-  });
 
   try {
     await rebuildFinalMintProvenance();
@@ -13276,7 +13401,13 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
       creationAttestation: mintFlowData.creationAttestation,
       workHash: mintFlowData.textHash,
     });
+    if (IS_LOCAL_THOUGHT_V2) {
+      // Re-submit the current disposable-chain RPC before minting. A wallet can
+      // retain this chain ID while its RPC still targets an earlier Anvil run.
+      await refreshWalletChainRpc();
+    }
     const browserProvider = new BrowserProvider(ethereum);
+    await verifyWalletThoughtDeployment(browserProvider);
     const signer = await browserProvider.getSigner(payload.account);
     const signerAddress = await signer.getAddress();
     if (signerAddress.toLowerCase() !== payload.account.toLowerCase()) {
@@ -13365,6 +13496,50 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
           return competingPending.hash;
         }
 
+        const estimateToken = new Contract(
+          THOUGHT_NFT_ADDRESS,
+          THOUGHT_NFT_ABI,
+          nonceProvider,
+        );
+        const estimatedGas = (IS_LOCAL_THOUGHT_V2
+          ? estimateToken.mint.estimateGas(
+              {
+                promptLine: payload.promptLine,
+                agentLine: payload.agentLine,
+                agent: payload.agent,
+                model: payload.model,
+                pathId: payload.pathId,
+                thoughtSpecId: payload.thoughtSpecId,
+                thoughtSpecHash: payload.thoughtSpecHash,
+                provenanceJson: payload.provenanceJson,
+                deadline: payload.deadline,
+                pathSignature: payload.pathSignature,
+                creationAttestation: payload.creationAttestation,
+              },
+              { from: signerAddress },
+            )
+          : estimateToken.mint.estimateGas(
+              payload.agentLine,
+              payload.pathId,
+              payload.thoughtSpecId,
+              payload.thoughtSpecHash,
+              payload.promptHash,
+              payload.provenanceJson,
+              payload.deadline,
+              payload.pathSignature,
+              { from: signerAddress },
+            )) as Promise<bigint>;
+        const gasLimit = thoughtMintGasLimit(await estimatedGas);
+
+        // Only announce a wallet transaction after all App-side preparation,
+        // deployment parity, and canonical gas estimation have succeeded.
+        walletState.txState = "awaiting_signature";
+        recordCurrentMintConsoleState();
+        syncInterface();
+        trackThoughtAnalytics("mint_started", {
+          mintStage: "wallet_signature",
+        });
+
         const txPromise = (IS_LOCAL_THOUGHT_V2
           ? writableToken.mint(
               {
@@ -13380,7 +13555,7 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
                 pathSignature: payload.pathSignature,
                 creationAttestation: payload.creationAttestation,
               },
-              { nonce },
+              { nonce, gasLimit },
             )
           : writableToken.mint(
               payload.agentLine,
@@ -13391,7 +13566,7 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
               payload.provenanceJson,
               payload.deadline,
               payload.pathSignature,
-              { nonce },
+              { nonce, gasLimit },
             )) as Promise<MintTransactionResponse>;
 
         walletMintSubmitPromiseUnresolved = true;
@@ -13521,7 +13696,11 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
       return walletState.txHash || mintFlowData.txHash || null;
     }
 
-    const errorKind: MintFlowErrorKind = message.includes("expired") ? "signature" : "mint";
+    const errorKind: MintFlowErrorKind = message.includes("expired")
+      ? "signature"
+      : /active THOUGHT Anvil (?:node|deployment) is unavailable/i.test(message)
+        ? "local_deployment"
+        : "mint";
     setMintFlowError(message, errorKind, {
       preserveAuthorization: errorKind === "mint",
     });
@@ -14641,6 +14820,67 @@ const metadataNumber = (value: unknown) => {
   return null;
 };
 
+type ThoughtMetadataAttribute = {
+  traitType: string;
+  value: string;
+  displayType: string;
+};
+
+const thoughtMetadataAttributes = (
+  metadata: ThoughtNFTMetadata,
+): ThoughtMetadataAttribute[] =>
+  Array.isArray(metadata.attributes)
+    ? metadata.attributes.flatMap((candidate) => {
+      const traitType = typeof candidate?.trait_type === "string"
+        ? candidate.trait_type.trim()
+        : "";
+      const value = typeof candidate?.value === "string" || typeof candidate?.value === "number"
+        ? String(candidate.value)
+        : "";
+      const displayType = typeof candidate?.display_type === "string"
+        ? candidate.display_type.trim()
+        : "";
+      return traitType && value ? [{ traitType, value, displayType }] : [];
+    })
+    : [];
+
+const thoughtMetadataTrait = (
+  attributes: ThoughtMetadataAttribute[],
+  traitType: string,
+) => attributes.find((attribute) => attribute.traitType === traitType)?.value ?? "";
+
+const displayThoughtTraitType = (traitType: string) =>
+  traitType === "Attested Agent"
+    ? "Agent"
+    : traitType === "Attested Model"
+      ? "Model"
+      : traitType;
+
+const renderThoughtDetailTraits = (attributes: ThoughtMetadataAttribute[]) => {
+  if (!attributes.length) {
+    const row = document.createElement("div");
+    const label = document.createElement("dt");
+    const value = document.createElement("dd");
+    label.textContent = "status";
+    value.textContent = "metadata traits unavailable";
+    row.append(label, value);
+    thoughtDetailTraits.replaceChildren(row);
+    return;
+  }
+
+  thoughtDetailTraits.replaceChildren(...attributes.map((attribute) => {
+    const row = document.createElement("div");
+    const label = document.createElement("dt");
+    const value = document.createElement("dd");
+    label.textContent = displayThoughtTraitType(attribute.traitType);
+    value.textContent = attribute.displayType
+      ? `${attribute.value} · ${attribute.displayType}`
+      : attribute.value;
+    row.append(label, value);
+    return row;
+  }));
+};
+
 const shortHex = (value: string, front = 6, back = 4) =>
   value.length > front + back + 3 ? `${value.slice(0, front)}...${value.slice(-back)}` : value;
 
@@ -14716,7 +14956,17 @@ const parseThoughtDetailSpec = (thought: GalleryThought): ThoughtDetailSpec => {
 
 const parseProvenanceMaterial = (provenanceJson: string) => {
   if (!provenanceJson) {
-    return { prompt: "", promptHash: "", returnedText: "", returnedTextHash: "", mode: "", provider: "", model: "" };
+    return {
+      prompt: "",
+      promptHash: "",
+      returnedText: "",
+      returnedTextHash: "",
+      mode: "",
+      provider: "",
+      model: "",
+      protocolReleaseId: "",
+      manifestHash: "",
+    };
   }
 
   try {
@@ -14750,6 +15000,11 @@ const parseProvenanceMaterial = (provenanceJson: string) => {
         promptHash?: unknown;
         returnedTextHash?: unknown;
       };
+      protocol?: {
+        protocolReleaseId?: unknown;
+        manifestKeccak256?: unknown;
+        manifestHash?: unknown;
+      };
     };
     if (parsed.work && typeof parsed.work === "object") {
       const prompt = typeof parsed.work.promptLine === "string" ? parsed.work.promptLine : "";
@@ -14776,6 +15031,14 @@ const parseProvenanceMaterial = (provenanceJson: string) => {
         mode: typeof parsed.process?.kind === "string" ? parsed.process.kind : "",
         provider,
         model,
+        protocolReleaseId: typeof parsed.protocol?.protocolReleaseId === "string"
+          ? parsed.protocol.protocolReleaseId
+          : "",
+        manifestHash: typeof parsed.protocol?.manifestKeccak256 === "string"
+          ? parsed.protocol.manifestKeccak256
+          : typeof parsed.protocol?.manifestHash === "string"
+            ? parsed.protocol.manifestHash
+            : "",
       };
     }
     const prompt = typeof parsed.prompt === "string" ? parsed.prompt : "";
@@ -14794,9 +15057,27 @@ const parseProvenanceMaterial = (provenanceJson: string) => {
       mode,
       provider,
       model,
+      protocolReleaseId: typeof parsed.protocol?.protocolReleaseId === "string"
+        ? parsed.protocol.protocolReleaseId
+        : "",
+      manifestHash: typeof parsed.protocol?.manifestKeccak256 === "string"
+        ? parsed.protocol.manifestKeccak256
+        : typeof parsed.protocol?.manifestHash === "string"
+          ? parsed.protocol.manifestHash
+          : "",
     };
   } catch {
-    return { prompt: "", promptHash: "", returnedText: "", returnedTextHash: "", mode: "", provider: "", model: "" };
+    return {
+      prompt: "",
+      promptHash: "",
+      returnedText: "",
+      returnedTextHash: "",
+      mode: "",
+      provider: "",
+      model: "",
+      protocolReleaseId: "",
+      manifestHash: "",
+    };
   }
 };
 
@@ -14819,6 +15100,10 @@ const normalizeThoughtDetail = (thought: GalleryThought): ThoughtDetail => ({
   thoughtSpec: parseThoughtDetailSpec(thought),
   provenanceJson: thought.provenanceJson,
   image: thought.image,
+  tokenUri: thought.tokenUri,
+  blockNumber: thought.blockNumber,
+  thoughtSpecId: thought.thoughtSpecId,
+  thoughtSpecHash: thought.thoughtSpecHash,
 });
 
 const showThoughtDetailStatus = (message: string) => {
@@ -14917,7 +15202,7 @@ const syncThoughtDetailEmbeddedHeights = () => {
       return;
     }
 
-    const canvasFrame = thoughtDetailImage.closest(".thought-detail__canvas-frame") as HTMLElement | null;
+    const canvasFrame = thoughtDetailImage.closest(".thought-detail__canvas-column") as HTMLElement | null;
     if (!canvasFrame) {
       return;
     }
@@ -15048,19 +15333,35 @@ const isGalleryThought = (value: GalleryThought | null): value is GalleryThought
 
 let galleryThoughtCache: GalleryThoughtCachePayload | null = null;
 
+const THOUGHT_GALLERY_CACHE_SCHEMA = "v3";
+const localThoughtRuntimeGeneration = (() => {
+  const runtime = globalThis.__INSHELL_THOUGHT_CONTRACT_RUNTIME__;
+  const generatedAt = typeof runtime?.generatedAt === "string"
+    ? runtime.generatedAt.trim()
+    : "runtime-generation-unavailable";
+  return [
+    THOUGHT_V2_LOCAL_RELEASE.artifact.id,
+    THOUGHT_V2_LOCAL_RELEASE.artifact.manifestSha256,
+    generatedAt,
+  ].join(":");
+})();
+
 const thoughtGalleryCacheKey = () =>
   IS_LOCAL_THOUGHT_V2
     ? [
       "thought-gallery",
+      THOUGHT_GALLERY_CACHE_SCHEMA,
       "local-v2",
       THOUGHT_CHAIN_ID,
       THOUGHT_NFT_ADDRESS.toLowerCase(),
       THOUGHT_NFT_DEPLOY_BLOCK,
       THOUGHT_LOG_CHUNK_SIZE,
+      localThoughtRuntimeGeneration,
     ].join(":")
     : THOUGHT_V2_PRODUCTION_DEPLOYMENT
       ? [
         "thought-gallery",
+        THOUGHT_GALLERY_CACHE_SCHEMA,
         "production-v2",
         THOUGHT_V2_PRODUCTION_DEPLOYMENT.chainId,
         THOUGHT_V2_PRODUCTION_DEPLOYMENT.contracts.thoughtNft.toLowerCase(),
@@ -15524,7 +15825,6 @@ const loadThoughtDetail = async () => {
   thoughtDetailBody.classList.add("is-hidden");
   thoughtDetailStatus.textContent = `loading THOUGHT #${ROUTE_THOUGHT_NFT_ID}...`;
   currentThoughtDetail = null;
-  thoughtDetailJsonPanel.classList.add("is-hidden");
   clearThoughtDetailSpecJsonLink();
   revokeThoughtDetailColorFontUrl();
   clearThoughtDetailColorFontFallback();
@@ -15533,17 +15833,13 @@ const loadThoughtDetail = async () => {
   showThoughtDetailStatus("");
 
   try {
-    let thoughts = await readGalleryThoughts();
+    const thoughts = await readGalleryThoughts({ bypassCache: true });
     if (!thoughts) {
       thoughtDetailStatus.textContent = "THOUGHT unavailable.";
       return;
     }
 
-    let thought = thoughts.find((item) => item.tokenId === ROUTE_THOUGHT_NFT_ID);
-    if (!thought) {
-      thoughts = await readGalleryThoughts({ bypassCache: true });
-      thought = thoughts?.find((item) => item.tokenId === ROUTE_THOUGHT_NFT_ID);
-    }
+    const thought = thoughts.find((item) => item.tokenId === ROUTE_THOUGHT_NFT_ID);
     if (!thought) {
       thoughtDetailStatus.textContent = `THOUGHT #${ROUTE_THOUGHT_NFT_ID} not found.`;
       return;
@@ -15555,14 +15851,44 @@ const loadThoughtDetail = async () => {
     const rawText = detail.rawText || title || "-";
     const provenanceBytes = detail.provenanceJson ? byteLength(detail.provenanceJson) : 0;
     const txUrl = thoughtTxUrl(detail.txHash);
+    const metadata = readTokenUriPayload(detail.tokenUri).metadata;
+    const attributes = thoughtMetadataAttributes(metadata);
+    const provenance = parseProvenanceMaterial(detail.provenanceJson);
+    const metadataAgent =
+      thoughtMetadataTrait(attributes, "Agent") ||
+      thoughtMetadataTrait(attributes, "Attested Agent");
+    const metadataModel =
+      thoughtMetadataTrait(attributes, "Model") ||
+      thoughtMetadataTrait(attributes, "Attested Model");
+    const attestation =
+      thoughtMetadataTrait(attributes, "Creation Attestation") ||
+      metadata.creationAttestation ||
+      "Unavailable";
+    const unattested = attestation.toLowerCase() === "unattested";
     document.title = `THOUGHT #${thought.tokenId}`;
     thoughtDetailTitleToken.textContent = detail.tokenId.toString();
+    thoughtDetailArtworkTokenId.textContent = detail.tokenId.toString();
+    thoughtDetailToken.textContent = `THOUGHT #${detail.tokenId}`;
     thoughtDetailStatus.textContent = "";
     thoughtDetailImage.src = detail.image
       ? IS_LOCAL_THOUGHT_V2 ? detail.image : thoughtImageUrl(detail.tokenId)
       : galleryThumbnailUri(title);
     thoughtDetailImage.alt = `THOUGHT #${detail.tokenId} canvas`;
-    thoughtDetailModel.textContent = detail.model || "model unavailable.";
+    thoughtDetailProcess.textContent = detail.mode === "agent-run"
+      ? "Agent run"
+      : detail.mode === "manual"
+        ? "Manual"
+        : detail.mode || "Unavailable";
+    thoughtDetailAgent.textContent = metadataAgent || detail.provider || "Unavailable";
+    thoughtDetailModel.textContent = metadataModel || detail.model || "Unavailable";
+    thoughtDetailAttestation.textContent = attestation;
+    thoughtDetailAttestation.dataset.attestation = attestation.toLowerCase().replace(/\s+/g, "-");
+    thoughtDetailAttestationCopy.textContent = unattested
+      ? "Contract-valid THOUGHT without an Inshell THOUGHT App Creation Attestation."
+      : attestation === "Unavailable"
+        ? "Creation Attestation state is unavailable from token metadata."
+        : "Creation Attestation is recorded in the canonical token metadata.";
+    renderThoughtDetailTraits(attributes);
     setThoughtDetailTextBlock(thoughtDetailCanonicalTitle, rawText);
     setThoughtDetailTextBlock(thoughtDetailPrompt, detail.prompt || "prompt unavailable.");
     setThoughtDetailTextBlock(
@@ -15578,10 +15904,37 @@ const loadThoughtDetail = async () => {
     thoughtDetailChain.textContent = THOUGHT_CHAIN_NAME;
     thoughtDetailChainId.textContent = String(THOUGHT_CHAIN_ID);
     thoughtDetailCurrency.textContent = THOUGHT_CURRENCY_LABEL;
+    thoughtDetailContract.textContent = shortDetailAddress(THOUGHT_NFT_ADDRESS);
+    thoughtDetailContract.title = THOUGHT_NFT_ADDRESS;
     thoughtDetailMinted.textContent = detailTime(detail.mintedAt);
+    thoughtDetailBlock.textContent = detail.blockNumber > 0 ? String(detail.blockNumber) : "-";
     thoughtDetailSpecRef.textContent = specLinkText(detail.thoughtSpec.ref);
-    thoughtDetailColorFont.textContent = "Color Font v1 ↗";
-    thoughtDetailColorFont.title = "Open local raw color-font mapping from ThoughtNFT color-font ABI";
+    thoughtDetailProvenanceHash.textContent = shortHex(detail.provenanceHash, 12, 10);
+    thoughtDetailProvenanceHash.title = detail.provenanceHash;
+    thoughtDetailPromptHash.textContent = shortHex(detail.promptHash, 12, 10);
+    thoughtDetailPromptHash.title = detail.promptHash;
+    thoughtDetailAgentLineHash.textContent = shortHex(detail.returnedTextHash || detail.textHash, 12, 10);
+    thoughtDetailAgentLineHash.title = detail.returnedTextHash || detail.textHash;
+    thoughtDetailSpecId.textContent = shortHex(detail.thoughtSpecId, 12, 10);
+    thoughtDetailSpecId.title = detail.thoughtSpecId;
+    thoughtDetailSpecHash.textContent = shortHex(detail.thoughtSpecHash, 12, 10);
+    thoughtDetailSpecHash.title = detail.thoughtSpecHash;
+    const protocolReleaseId =
+      provenance.protocolReleaseId ||
+      EVM_ADDRESSES.protocolRelease?.id?.trim() ||
+      "";
+    const manifestHash =
+      provenance.manifestHash ||
+      EVM_ADDRESSES.protocolRelease?.manifestHash?.trim() ||
+      "";
+    thoughtDetailReleaseId.textContent = protocolReleaseId
+      ? shortHex(protocolReleaseId, 12, 10)
+      : "-";
+    thoughtDetailReleaseId.title = protocolReleaseId;
+    thoughtDetailManifestHash.textContent = manifestHash
+      ? shortHex(manifestHash, 12, 10)
+      : "-";
+    thoughtDetailManifestHash.title = manifestHash;
     clearThoughtDetailSpecJsonLink("Loading local cached spec JSON...");
     if (detail.provenanceJson) {
       setThoughtDetailProvenanceJsonLink(detail, provenanceBytes);
@@ -15688,11 +16041,11 @@ const visibleBlockOuterHeight = (element: HTMLElement | null) => {
 
 const isThoughtPanelSideLayout = () =>
   window.matchMedia("(min-width: 1024px)").matches &&
-  !IS_CLI_DEBUG &&
+  !IS_CLI_SURFACE &&
   !frontpageStage.classList.contains("is-hidden");
 
 const getThoughtDockViewportReserve = () => {
-  if (frontpageStage.classList.contains("is-hidden")) {
+  if (IS_CLI_SURFACE || frontpageStage.classList.contains("is-hidden")) {
     return 0;
   }
   if (isThoughtPanelSideLayout()) {
@@ -15718,20 +16071,21 @@ const getThoughtDockViewportReserve = () => {
 };
 
 const isStackedOperatorLayout = () =>
-  window.matchMedia("(max-width: 1023px)").matches &&
+  window.matchMedia(IS_CLI_SURFACE ? "(max-width: 900px)" : "(max-width: 1023px)").matches &&
   !frontpageStage.classList.contains("is-hidden");
 
 const getStackedOperatorAvailableHeight = () => {
   const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
   const shellStyles = window.getComputedStyle(frontpageShell);
   const mainStyles = window.getComputedStyle(frontpageMain);
+  const creationHeading = IS_CLI_SURFACE ? thoughtCliTitle : frontpageHeader;
   const columnStyles = window.getComputedStyle(
     thoughtCanvasPanel.parentElement ?? frontpageMain,
   );
   const frameStyles = window.getComputedStyle(thoughtCanvasFrame);
   const footer = document.querySelector(".frontpage-side .color-font-footer") as HTMLElement | null;
   const shellInset = readPx(shellStyles.paddingTop) + readPx(shellStyles.paddingBottom);
-  const headerHeight = visibleBlockOuterHeight(frontpageHeader);
+  const headerHeight = visibleBlockOuterHeight(creationHeading);
   const canvasColumnGap = readPx(columnStyles.rowGap);
   const frameInset = readPx(frameStyles.paddingTop) + readPx(frameStyles.paddingBottom);
   const mainGap = readPx(mainStyles.rowGap);
@@ -15750,6 +16104,29 @@ const getStackedOperatorAvailableHeight = () => {
 };
 
 const getViewportWidthCap = () => {
+  if (IS_CLI_SURFACE) {
+    if (isStackedOperatorLayout()) {
+      return Math.max(
+        MIN_CANVAS_SIZE,
+        getStackedOperatorAvailableHeight() - STACKED_MIN_CLI_HEIGHT,
+      );
+    }
+
+    const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+    const shellStyles = window.getComputedStyle(frontpageShell);
+    const mainStyles = window.getComputedStyle(frontpageMain);
+    const frameStyles = window.getComputedStyle(thoughtCanvasFrame);
+    const shellInset = readPx(shellStyles.paddingTop) + readPx(shellStyles.paddingBottom);
+    const frameInset = readPx(frameStyles.paddingTop) + readPx(frameStyles.paddingBottom);
+    const titleHeight = visibleBlockOuterHeight(thoughtCliTitle);
+    const rowGap = readPx(mainStyles.rowGap);
+    const availableHeight = Math.floor(
+      viewportHeight - shellInset - titleHeight - rowGap - frameInset,
+    );
+
+    return Math.max(MIN_CANVAS_SIZE, availableHeight);
+  }
+
   if (isStackedOperatorLayout()) {
     const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
     return Math.max(
@@ -15945,14 +16322,20 @@ const getEmptyFrameStyle = (): ThoughtV2EmptyFrameStyle =>
 
 const renderCanvas = (rawText: string) => {
   const { displayWidth, height } = resizeWorkSurface();
+
+  context.clearRect(0, 0, displayWidth, height);
+  if (IS_CLI_SURFACE && !currentWorkSvg && !currentWorkImage) {
+    context.fillStyle = readThoughtCssToken("--thought-cli-idle-canvas-bg");
+    context.fillRect(0, 0, displayWidth, height);
+    return;
+  }
+
   const emptyFrameStyle = getEmptyFrameStyle();
   const canvasRect = thoughtV2EmptyFrameCanvasRect(
     displayWidth,
     height,
     emptyFrameStyle,
   );
-
-  context.clearRect(0, 0, displayWidth, height);
   context.fillStyle = emptyFrameStyle.color;
   context.fillRect(0, 0, displayWidth, height);
   context.fillStyle = readThoughtCssToken("--thought-art-canvas-bg");
@@ -22388,7 +22771,7 @@ thoughtCliTranscript.addEventListener("scroll", () => {
 });
 
 frontpageShell.addEventListener("click", (event) => {
-  if (IS_CLI_DEBUG && shouldRefocusCliFromClick(event.target)) {
+  if (IS_CLI_SURFACE && shouldRefocusCliFromClick(event.target)) {
     focusCliInput();
   }
 });
@@ -22400,7 +22783,7 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (IS_CLI_DEBUG && shouldRefocusCliFromKeyboard(event)) {
+  if (IS_CLI_SURFACE && shouldRefocusCliFromKeyboard(event)) {
     focusCliInputFromKeyboard(event);
   }
 });
@@ -22750,6 +23133,29 @@ const handleViewportResize = () => {
   syncThoughtDetailEmbeddedHeights();
 };
 
+const thoughtStylesheetIsApplied = () =>
+  window.getComputedStyle(document.documentElement)
+    .getPropertyValue("--thought-stylesheet-ready")
+    .trim() === "1";
+
+const restoreThoughtStylesheetAfterHistory = () => {
+  if (thoughtStylesheetIsApplied()) return;
+
+  const stylesheet = document.querySelector(
+    "#thought-app-stylesheet",
+  ) as HTMLElement | null;
+  if (!stylesheet) return;
+
+  const stylesheetHref = stylesheet.getAttribute("href");
+  if (!stylesheetHref) return;
+
+  const replacement = stylesheet.cloneNode(false) as HTMLElement;
+  const href = new URL(stylesheetHref, window.location.href);
+  href.searchParams.set("thought-history-restore", Date.now().toString());
+  replacement.setAttribute("href", href.toString());
+  stylesheet.replaceWith(replacement);
+};
+
 window.addEventListener("resize", handleViewportResize);
 window.visualViewport?.addEventListener("resize", handleViewportResize);
 window.addEventListener("beforeunload", () => {
@@ -22800,6 +23206,8 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 window.addEventListener("pageshow", () => {
+  pageUnloading = false;
+  requestAnimationFrame(restoreThoughtStylesheetAfterHistory);
   refreshThoughtDockPolling();
   resumePendingMintReceiptMonitoring();
   resumeConflictingMintReceiptMonitoring();
@@ -22920,7 +23328,7 @@ const initFrontpage = async () => {
   const hydratedRunLink = await hydrateThoughtRunLink();
   const resumedPendingThoughtDockRun = hydratedRunLink ? false : resumeThoughtDockPendingRun();
   const resumedPendingThoughtAgentRun = hydratedRunLink || resumedPendingThoughtDockRun ? false : resumePendingThoughtAgentRun();
-  if (!hydratedRunLink && !resumedPendingThoughtDockRun && !resumedPendingThoughtAgentRun && IS_CLI_DEBUG) {
+  if (!hydratedRunLink && !resumedPendingThoughtDockRun && !resumedPendingThoughtAgentRun && IS_CLI_SURFACE) {
     markInterruptedCliRun();
   }
   loadCliCommandHistory();
@@ -23003,7 +23411,9 @@ const initFrontpage = async () => {
   void document.fonts.load(`100 12px ${CANVAS_TEXT_FAMILY}`).then(() => {
     syncCurrentWorkVisual({ suppressWarning: true });
   });
-  if (!IS_RUN_PAGE) {
+  if (!IS_RUN_PAGE && IS_CLI_SURFACE) {
+    focusCliInput();
+  } else if (!IS_RUN_PAGE) {
     focusThoughtDockPrompt({ preventScroll: true });
   }
 };

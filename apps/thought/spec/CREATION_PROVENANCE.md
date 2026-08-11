@@ -6,8 +6,10 @@ An Inshell THOUGHT App Creation Attestation means the App signed one exact
 creation record and the THOUGHT Contract validated that attestation during
 minting.
 
-The attestation binds the record. It does not independently prove that an
-Agent or model label is true, and it is not a provider signature.
+The attestation binds the App-accepted canonical record. It does not
+independently prove that an Agent or model label is true, it is not a provider
+signature, and it does not attest that editable Agent-chat text was untouched
+or free from outside influence.
 
 The public product terms are therefore:
 
@@ -34,7 +36,7 @@ verification.
 | Route | Defined by the THOUGHT App protocol | Records the App route used for the run | The route record is bound |
 | Run reference | Issued by the THOUGHT App backend | Hashes the public run reference in canonical provenance | The run reference hash is bound |
 | Result envelope hash | Produced by canonical provenance building | Hashes the validated Agent result envelope | The result envelope hash is bound |
-| Creative Work Specification | App-owned locked artifact | Verifies exact bytes and selected spec ID/hash before the run and mint | The selected spec ID/hash is bound |
+| THOUGHT Work Specification | THOUGHT release artifact consumed from an immutable App pin | Verifies exact bytes and selected spec ID/hash before the run and mint | The selected Work Specification ID/hash is bound |
 | `$PATH` | Wallet selection and on-chain contract result | Records the selected token and the serial returned when its THOUGHT movement unit is consumed | The mint and consumed `$PATH` facts are enforced on-chain |
 | Creation Attestation | Issued by the Inshell THOUGHT App | Signs the exact collection, release, spec, work, provenance, minter, deadline, and authority epoch claim | The Contract verified this App-issued claim |
 
@@ -51,6 +53,10 @@ The App does not invent unavailable runtime identity data.
 - Legacy tokens may contain marketplace traits named `Attested Agent` and
   `Attested Model`. The App reads those only as compatibility fallbacks and
   presents the values neutrally as `Agent` and `Model`.
+- The visible Agent handoff is editable bootstrap text, not a signed transcript.
+  Official App runs use only App-issued claim/start objects as canonical
+  creative authority. Manual or altered flows that do not return through that
+  boundary remain unattested.
 
 ## Current Codex acquisition path
 
