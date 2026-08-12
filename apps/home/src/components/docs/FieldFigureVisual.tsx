@@ -361,30 +361,55 @@ function AgentArtField({ figure }: { figure: FieldFigure }) {
   const invariant = figureNode(figure, "invariant");
   const artQuestion = figureNode(figure, "what-is-art");
   const agentQuestion = figureNode(figure, "what-is-an-agent");
+  const questions = figureGroup(figure, "agent-art-questions");
+  if (!questions.glyph) {
+    throw new Error(
+      `Figure "${figure.id}" semantic group "${questions.id}" has no membership glyph.`,
+    );
+  }
+
+  const question = (node: DocsFigureNode) => (
+    <li data-figure-node={node.id}>
+      <Glyph
+        className="docs-figure__field-membership-glyph"
+        groupId={questions.id}
+      >
+        {questions.glyph}
+      </Glyph>
+      <strong className="docs-figure__term">
+        <FigureTitle>{node.term}</FigureTitle>
+      </strong>
+      {node.annotation ? (
+        <small className="docs-figure__annotation">{node.annotation}</small>
+      ) : null}
+    </li>
+  );
 
   return (
     <div
       className="docs-figure__field-shape docs-figure__field-open"
       data-figure-shape="open-invariant-field"
     >
-      <span className="docs-figure__shape-label docs-figure__field-governing-term">
+      <StaticTerm className="docs-figure__field-governing-term">
         AGENT ART
-      </span>
-      <div className="docs-figure__field-segment">
-        <NodeCopy node={invariant} />
+      </StaticTerm>
+      <div
+        className="docs-figure__field-segment"
+        data-figure-node={invariant.id}
+      >
+        <span className="docs-figure__shape-label">{invariant.term}</span>
+        {invariant.annotation ? (
+          <small className="docs-figure__annotation">
+            {invariant.annotation}
+          </small>
+        ) : null}
       </div>
       <span className="docs-figure__shape-label docs-figure__field-governing-term">
         OPEN QUESTIONS
       </span>
       <ul className="docs-figure__field docs-figure__field-open-questions">
-        <li>
-          <Glyph className="docs-figure__field-membership-glyph">├─</Glyph>
-          <NodeCopy node={artQuestion} />
-        </li>
-        <li>
-          <Glyph className="docs-figure__field-membership-glyph">└─</Glyph>
-          <NodeCopy node={agentQuestion} />
-        </li>
+        {question(artQuestion)}
+        {question(agentQuestion)}
       </ul>
     </div>
   );

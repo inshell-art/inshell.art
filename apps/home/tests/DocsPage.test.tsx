@@ -1708,24 +1708,31 @@ describe("DocsPage character figures", () => {
       .getByRole("figure", { name: "The invariant and the open field" })
       .querySelector("[data-figure-shape='open-invariant-field']");
     expect(openAgentArt).toHaveTextContent(/AGENT ART[\s\S]*INVARIANT/i);
-    expect(openAgentArt).toHaveTextContent(/OPEN QUESTIONS[\s\S]*├─[\s\S]*WHAT IS ART/i);
-    expect(openAgentArt).toHaveTextContent(/└─[\s\S]*WHAT IS AN AGENT/i);
-    const agentArtLabels = Array.from(
-      openAgentArt?.querySelectorAll(".docs-figure__field-governing-term") ?? [],
-    );
-    expect(agentArtLabels.map((label) => label.textContent?.trim())).toEqual([
-      "AGENT ART",
-      "OPEN QUESTIONS",
-    ]);
-    agentArtLabels.forEach((label) => {
-      expect(label).toHaveClass("docs-figure__shape-label");
-      expect(label).not.toHaveClass("docs-figure__term");
-    });
+    expect(openAgentArt).toHaveTextContent(/OPEN QUESTIONS[\s\S]*•[\s\S]*WHAT IS ART/i);
+    expect(openAgentArt).toHaveTextContent(/•[\s\S]*WHAT IS AN AGENT/i);
     expect(
       Array.from(openAgentArt?.querySelectorAll(".docs-figure__term") ?? []).map(
         (term) => term.textContent?.trim(),
       ),
-    ).toEqual(["Invariant", "What is Art?", "What is an Agent?"]);
+    ).toEqual(["AGENT ART", "What is Art?", "What is an Agent?"]);
+    expect(
+      Array.from(openAgentArt?.querySelectorAll(".docs-figure__shape-label") ?? []).map(
+        (label) => label.textContent?.trim(),
+      ),
+    ).toEqual(["Invariant", "OPEN QUESTIONS"]);
+    expect(
+      Array.from(
+        openAgentArt?.querySelectorAll(".docs-figure__field-membership-glyph") ?? [],
+      ).map((glyph) => glyph.textContent),
+    ).toEqual(["•", "•"]);
+    expect(
+      openAgentArt?.querySelector("[data-figure-node='invariant']"),
+    ).toHaveTextContent(/Invariant[\s\S]*An Agent participates in the art activity/i);
+    expect(
+      Array.from(
+        openAgentArt?.querySelectorAll("[data-figure-group-id='agent-art-questions']") ?? [],
+      ).map((glyph) => glyph.textContent),
+    ).toEqual(["•", "•"]);
     expect(openAgentArt?.querySelector(".docs-figure__character-frame")).toBeNull();
     expect(
       screen.queryByRole("figure", { name: "One practice within Agent Art" }),

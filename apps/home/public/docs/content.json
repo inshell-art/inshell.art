@@ -307,7 +307,7 @@
           "id": "agent-art.open-field",
           "label": "The invariant and the open field",
           "mode": "field",
-          "figureText": "AGENT ART\n\nINVARIANT\nAn Agent participates in the art activity.\n\nOPEN QUESTIONS\n├─ What is Art? — Open question.\n└─ What is an Agent? — Open question.",
+          "figureText": "AGENT ART\n\nINVARIANT\nAn Agent participates in the art activity.\n\nOPEN QUESTIONS\n• What is Art? — Open question.\n• What is an Agent? — Open question.",
           "items": [
             {
               "title": "Invariant",
@@ -358,9 +358,18 @@
                 "id": "agent-art-field",
                 "kind": "open-field",
                 "label": "One invariant is held while Art and Agent remain open questions.",
-                "glyph": "├─ / └─",
                 "members": [
                   "invariant",
+                  "what-is-art",
+                  "what-is-an-agent"
+                ]
+              },
+              {
+                "id": "agent-art-questions",
+                "kind": "set",
+                "label": "The source questions remain open.",
+                "glyph": "•",
+                "members": [
                   "what-is-art",
                   "what-is-an-agent"
                 ]

@@ -729,6 +729,41 @@
   line-height: var(--docs-figure-title-line-height);
 }
 
+[data-figure-shape="open-invariant-field"]
+  .docs-figure__field-open-questions
+  > li {
+  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-rows: max-content max-content;
+  column-gap: var(--docs-figure-field-branch-gap);
+  row-gap: var(--docs-figure-item-gap);
+  align-items: center;
+}
+
+[data-figure-shape="open-invariant-field"]
+  .docs-figure__field-open-questions
+  > li
+  > .docs-figure__field-membership-glyph {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: center;
+}
+
+[data-figure-shape="open-invariant-field"]
+  .docs-figure__field-open-questions
+  > li
+  > .docs-figure__term {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+[data-figure-shape="open-invariant-field"]
+  .docs-figure__field-open-questions
+  > li
+  > .docs-figure__annotation {
+  grid-column: 2;
+  grid-row: 2;
+}
+
 .docs-figure__field-prompt-pair-glyph,
 .docs-figure__field-prompt-arrow,
 .docs-figure__field-attestation-arrow,
