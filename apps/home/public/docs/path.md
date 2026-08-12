@@ -46,26 +46,18 @@ Public PATH issuance runs through Pulse. The contract can also expose a bounded 
 
 - Authority: app-documentation, contract-release
 
-### Deployment quota and one PATH's progress
+### Capacity and progress
 
 - Authority: app-documentation, contract-release
 - Figure mode: ledger
 
 ```text
-SCOPE      │ STATE
-───────────┼────────────────────────────────────────────
-DEPLOYMENT │ Quota + authorized minter per movement.
-ONE PATH   │ Current stage + in-stage minted count.
-DERIVED    │ Remaining = quota - this PATH's minted count.
-ADVANCE    │ Quota reached → next movement + count reset.
-ABSENT     │ No configured quota → not available.
+DEPLOYMENT │ ONE PATH
+───────────┼──────────
+CAPACITY   │ PROGRESS
 ```
 
-- **Deployment** — Quota + authorized minter per movement.
-- **One PATH** — Current stage + in-stage minted count.
-- **Derived** — Remaining = quota - this PATH's minted count.
-- **Advance** — Quota reached → next movement + count reset.
-- **Absent** — No configured quota → not available.
+- **Capacity** — Progress
 
 PathNFT configures one quota and one authorized minter for each movement across the deployment. Every PATH uses those movement totals, while each token stores its own current stage and in-stage minted count. Remaining entitlement is derived from the deployed movement quota and that token's progress; it is not a separate stored balance.
 
@@ -79,46 +71,6 @@ The v0.5.0 canonical deployment policy configures and freezes THOUGHT 1, WILL 10
 ## Consuming one movement unit
 
 - Authority: contract-release
-
-### How one movement unit is consumed
-
-- Authority: contract-release
-- Figure mode: trace
-
-```text
-ONE SUCCESSFUL MOVEMENT MINT CONSUMES 1 UNIT
-
-01 Read
-   Read the current owner, stage, quota, minter,
-   permission epoch, and owner nonce.
-   │
-   ↓
-02 Authorize
-   The current owner signs one short-lived EIP-191
-   authorization; signing alone consumes nothing.
-   │
-   ↓
-03 Submit
-   The movement mint transaction calls the
-   configured minter, which calls PathNFT.
-   │
-   ↓
-04 Verify + consume
-   PathNFT checks the caller and current-owner
-   authorization, then confirms the movement order
-   and that quota remains.
-   │
-   ↓
-05 Commit + refresh
-   A successful movement mint commits one unit
-   and the work together; events expose progress.
-```
-
-1. **Read** — Read the current owner, stage, quota, minter, permission epoch, and owner nonce.
-2. **Authorize** — The current owner signs one short-lived EIP-191 authorization; signing alone consumes nothing.
-3. **Submit** — The movement mint transaction calls the configured minter, which calls PathNFT.
-4. **Verify + consume** — PathNFT checks the caller and current-owner authorization, then confirms the movement order and that quota remains.
-5. **Commit + refresh** — A successful movement mint commits one unit and the work together; events expose progress.
 
 Selecting a PATH or signing its permission does not consume a unit. For one movement mint, the current owner authorizes a short-lived EIP-191 message bound to the PathNFT address, chain ID, PATH ID, movement, owner, configured movement minter, current permission epoch, the owner's current consume nonce, and a deadline. ERC-721 approval is not movement authorization, and only the configured movement minter may call consumeUnit.
 

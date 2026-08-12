@@ -11,6 +11,8 @@ export type FieldFigureVisualProps = {
 
 const HORIZONTAL_RAIL = "─".repeat(256);
 const VERTICAL_RAIL = Array.from({ length: 64 }, () => "│").join("\n");
+const PRACTICE_RELATION_ANNOTATION =
+  "Approaches without claiming possession";
 
 function FigureTitle({ children }: { children: string }) {
   return children.split(/(?<=[a-z])(?=[A-Z])/).map((part, index) => (
@@ -59,7 +61,9 @@ function ItemCopy({
       <strong className="docs-figure__term">
         <FigureTitle>{item.title}</FigureTitle>
       </strong>
-      <small className="docs-figure__annotation">{item.detail}</small>
+      {item.detail ? (
+        <small className="docs-figure__annotation">{item.detail}</small>
+      ) : null}
     </span>
   );
 }
@@ -75,7 +79,7 @@ function CharacterBox({
   junction = false,
 }: {
   heading: ReactNode;
-  children: ReactNode;
+  children?: ReactNode;
   className?: string;
   junction?: boolean;
 }) {
@@ -89,11 +93,13 @@ function CharacterBox({
         <Glyph className="docs-figure__frame-rule">{HORIZONTAL_RAIL}</Glyph>
         <Glyph className="docs-figure__frame-character">┐</Glyph>
       </div>
-      <div className="docs-figure__frame-body">
-        <Glyph className="docs-figure__frame-wall">{VERTICAL_RAIL}</Glyph>
-        <div className="docs-figure__frame-content">{children}</div>
-        <Glyph className="docs-figure__frame-wall">{VERTICAL_RAIL}</Glyph>
-      </div>
+      {children ? (
+        <div className="docs-figure__frame-body">
+          <Glyph className="docs-figure__frame-wall">{VERTICAL_RAIL}</Glyph>
+          <div className="docs-figure__frame-content">{children}</div>
+          <Glyph className="docs-figure__frame-wall">{VERTICAL_RAIL}</Glyph>
+        </div>
+      ) : null}
       <div
         className={`docs-figure__frame-foot${
           junction ? " docs-figure__frame-foot--junction" : ""
@@ -132,7 +138,7 @@ function BranchFallback({ figure }: { figure: FieldFigure }) {
       data-figure-shape="field-branches"
     >
       {figure.items.map((item, index) => (
-        <li key={`${item.title}:${item.detail}`}>
+        <li key={`${item.title}:${item.detail ?? ""}`}>
           <Glyph className="docs-figure__branch">
             {index === 0 ? "┌─" : index === figure.items.length - 1 ? "└─" : "├─"}
           </Glyph>
@@ -144,42 +150,53 @@ function BranchFallback({ figure }: { figure: FieldFigure }) {
 }
 
 function InwardDirection({ figure }: { figure: FieldFigure }) {
-  const [shell, surface, boundary, inward] = figure.items;
-  if (!shell || !surface || !boundary || !inward) {
+  const [shell, inward] = figure.items;
+  if (!shell || !inward?.detail) {
     return <BranchFallback figure={figure} />;
   }
 
-  const destinationBreak = inward.detail.lastIndexOf(" ");
-  const destinationLead = inward.detail.slice(0, destinationBreak);
-  const destination = inward.detail.slice(destinationBreak + 1);
+  const destinationWords = inward.detail
+    .trim()
+    .replace(/[.!?]+$/, "")
+    .split(/\s+/);
+  const destination = destinationWords.pop();
+  const destinationLead = destinationWords.join(" ");
+
+  if (!destination) {
+    return <BranchFallback figure={figure} />;
+  }
 
   return (
     <div className="docs-figure__field-shape" data-figure-shape="box-tail">
       <CharacterBox heading={<StaticTerm>{shell.title}</StaticTerm>} junction>
-        <small className="docs-figure__annotation">{shell.detail}</small>
-        <ItemCopy item={surface} />
-        <ItemCopy item={boundary} />
+        {shell.detail ? (
+          <small className="docs-figure__annotation">{shell.detail}</small>
+        ) : null}
       </CharacterBox>
       <div className="docs-figure__field-tail">
         <span className="docs-figure__field-relation">
-          <Glyph>{"│\n│\n│"}</Glyph>
+          <Glyph>│</Glyph>
           <strong className="docs-figure__term docs-figure__field-relation-label">
             {inward.title}
           </strong>
         </span>
-        <Glyph label="leads inward to">{"│\n↓"}</Glyph>
-        <small className="docs-figure__annotation docs-figure__field-destination-copy">
-          {destinationLead}{" "}
+        <Glyph label="leads inward to">↓</Glyph>
+        <span className="docs-figure__copy docs-figure__field-destination-copy">
+          {destinationLead ? (
+            <small className="docs-figure__annotation">
+              {destinationLead}{" "}
+            </small>
+          ) : null}
           <strong className="docs-figure__term">{destination}</strong>
-        </small>
+        </span>
       </div>
     </div>
   );
 }
 
 function PracticeChain({ figure }: { figure: FieldFigure }) {
-  const [truth, relation, practice, boundary] = figure.items;
-  if (!truth || !relation || !practice || !boundary) {
+  const [truth, practice] = figure.items;
+  if (!truth || !practice) {
     return <BranchFallback figure={figure} />;
   }
 
@@ -188,12 +205,14 @@ function PracticeChain({ figure }: { figure: FieldFigure }) {
       <CharacterBox heading={<StaticTerm>TRUTH AND PRACTICE</StaticTerm>}>
         <div className="docs-figure__field-chain docs-figure__field-chain--up">
           <ItemCopy item={truth} />
-          <FlowConnector direction="up" />
-          <ItemCopy item={relation} />
-          <FlowConnector direction="up" />
+          <span className="docs-figure__field-practice-relation">
+            <Glyph label="practice approaches truth">↑</Glyph>
+            <small className="docs-figure__annotation">
+              {PRACTICE_RELATION_ANNOTATION}
+            </small>
+          </span>
           <ItemCopy item={practice} />
         </div>
-        <ItemCopy item={boundary} className="docs-figure__field-boundary" />
       </CharacterBox>
     </div>
   );
@@ -234,42 +253,40 @@ function AgentArtField({ figure }: { figure: FieldFigure }) {
   );
 }
 
-function OrderedPair({ figure }: { figure: FieldFigure }) {
-  const [pair, response, prompt, preservation] = figure.items;
-  if (!pair || !response || !prompt || !preservation) {
+function PromptResponseField({ figure }: { figure: FieldFigure }) {
+  const [prompt, response, thought] = figure.items;
+  if (!prompt || !response || !thought) {
     return <BranchFallback figure={figure} />;
   }
 
   return (
-    <div className="docs-figure__field-shape" data-figure-shape="ordered-pair-box">
-      <CharacterBox
-        heading={
-          <strong className="docs-figure__term">
-            <FigureTitle>{pair.title}</FigureTitle>
-          </strong>
-        }
-      >
-        <small className="docs-figure__annotation">{pair.detail}</small>
-        <div className="docs-figure__field-pair-variants">
-          <ItemCopy item={response} />
-          <ItemCopy item={prompt} />
-        </div>
-        <ItemCopy item={preservation} />
-      </CharacterBox>
+    <div
+      className="docs-figure__field-shape docs-figure__field-prompt-response"
+      data-figure-shape="prompt-response"
+    >
+      <div className="docs-figure__field-prompt-pair">
+        <ItemCopy item={prompt} />
+        <Glyph label="plus">+</Glyph>
+        <ItemCopy item={response} />
+      </div>
+      <Glyph className="docs-figure__field-prompt-arrow" label="forms">
+        ↓
+      </Glyph>
+      <ItemCopy item={thought} className="docs-figure__field-prompt-result" />
     </div>
   );
 }
 
 function AttestationFlow({ figure }: { figure: FieldFigure }) {
-  const [recorded, claim, validation, attested, unattested, ceiling] = figure.items;
-  if (!recorded || !claim || !validation || !attested || !unattested || !ceiling) {
+  const [recorded, claim, validation, attested, unattested] = figure.items;
+  if (!recorded || !claim || !validation || !attested || !unattested) {
     return <BranchFallback figure={figure} />;
   }
 
   return (
     <div
       className="docs-figure__field-shape"
-      data-figure-shape="attestation-flow-fork-ceiling"
+      data-figure-shape="attestation-flow-fork"
     >
       <div className="docs-figure__field-chain">
         <ItemCopy item={recorded} />
@@ -297,7 +314,11 @@ function AttestationFlow({ figure }: { figure: FieldFigure }) {
             <strong className="docs-figure__term">
               <FigureTitle>{attested.title}</FigureTitle>
             </strong>
-            <small className="docs-figure__annotation">{attested.detail}</small>
+            {attested.detail ? (
+              <small className="docs-figure__annotation">
+                {attested.detail}
+              </small>
+            ) : null}
           </span>
         </div>
         <div className="docs-figure__field-fork-branch">
@@ -312,64 +333,126 @@ function AttestationFlow({ figure }: { figure: FieldFigure }) {
             <strong className="docs-figure__term">
               <FigureTitle>{unattested.title}</FigureTitle>
             </strong>
-            <small className="docs-figure__annotation">{unattested.detail}</small>
+            {unattested.detail ? (
+              <small className="docs-figure__annotation">
+                {unattested.detail}
+              </small>
+            ) : null}
           </span>
         </div>
       </div>
-      <CharacterBox
-        className="docs-figure__field-ceiling"
-        heading={
-          <strong className="docs-figure__term">
-            <FigureTitle>{ceiling.title}</FigureTitle>
-          </strong>
-        }
-      >
-        <small className="docs-figure__annotation">{ceiling.detail}</small>
-      </CharacterBox>
     </div>
   );
 }
 
 function WillField({ figure }: { figure: FieldFigure }) {
+  const [people, agents, will] = figure.items;
+  if (!people || !agents || !will) {
+    return <BranchFallback figure={figure} />;
+  }
+
   return (
-    <div className="docs-figure__field-shape" data-figure-shape="will-box">
+    <div
+      className="docs-figure__field-shape"
+      data-figure-shape="will-convergence-box"
+    >
       <CharacterBox heading={<StaticTerm>WILL</StaticTerm>}>
-        <div className="docs-figure__field-box-list">
-          {figure.items.map((item) => (
-            <ItemCopy item={item} key={`${item.title}:${item.detail}`} />
-          ))}
+        <div className="docs-figure__field-convergence">
+          <ItemCopy item={people} />
+          <ItemCopy item={agents} />
+          <ItemCopy item={will} className="docs-figure__field-convergence-result" />
         </div>
       </CharacterBox>
     </div>
   );
 }
-
-const AWA_ARC = [
-  { title: "THOUGHT", detail: "INDIVIDUAL" },
-  { title: "WILL", detail: "CROWD" },
-  { title: "AWA", detail: "TOWARD THE CORE" },
-] as const;
 
 function AwaField({ figure }: { figure: FieldFigure }) {
   return (
     <div className="docs-figure__field-shape" data-figure-shape="awa-arc-box">
       <CharacterBox heading={<StaticTerm>AWA</StaticTerm>}>
         <ol className="docs-figure__field-arc">
-          {AWA_ARC.map((stage, index) => (
-            <li key={stage.title}>
-              <span className="docs-figure__copy">
-                <strong className="docs-figure__term">{stage.title}</strong>
-                <small className="docs-figure__annotation">{stage.detail}</small>
-              </span>
-              {index < AWA_ARC.length - 1 ? (
+          {figure.items.map((stage, index) => (
+            <li key={`${stage.title}:${stage.detail ?? ""}`}>
+              <ItemCopy item={stage} />
+              {index < figure.items.length - 1 ? (
                 <Glyph label="then">→</Glyph>
               ) : null}
             </li>
           ))}
         </ol>
+      </CharacterBox>
+    </div>
+  );
+}
+
+function EvidenceInterpretation({ figure }: { figure: FieldFigure }) {
+  const interpretation = figure.items.at(-1);
+  const evidence = figure.items.slice(0, -1);
+  if (!interpretation || evidence.length === 0) {
+    return <BranchFallback figure={figure} />;
+  }
+
+  return (
+    <div
+      className="docs-figure__field-shape docs-figure__field-evidence"
+      data-figure-shape="evidence-interpretation"
+    >
+      <div className="docs-figure__field-evidence-tree">
+        <StaticTerm>EVIDENCE</StaticTerm>
+        <ul className="docs-figure__field-evidence-list">
+          {evidence.map((item, index) => (
+            <li key={`${item.title}:${item.detail ?? ""}`}>
+              <Glyph>{index === evidence.length - 1 ? "└─" : "├─"}</Glyph>
+              <ItemCopy item={item} />
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="docs-figure__field-evidence-tail">
+        <Glyph label="becomes">{"│\n↓"}</Glyph>
+        <ItemCopy item={interpretation} />
+      </div>
+    </div>
+  );
+}
+
+function DistinctionsField({ figure }: { figure: FieldFigure }) {
+  return (
+    <div
+      className="docs-figure__field-shape"
+      data-figure-shape="distinctions-box"
+    >
+      <CharacterBox heading={<StaticTerm>WALLET AND LOCAL DATA</StaticTerm>}>
         <div className="docs-figure__field-box-list">
           {figure.items.map((item) => (
-            <ItemCopy item={item} key={`${item.title}:${item.detail}`} />
+            <ItemCopy
+              item={item}
+              key={`${item.title}:${item.detail ?? ""}`}
+            />
+          ))}
+        </div>
+      </CharacterBox>
+    </div>
+  );
+}
+
+function DistinctRecordsField({ figure }: { figure: FieldFigure }) {
+  return (
+    <div
+      className="docs-figure__field-shape"
+      data-figure-shape="distinct-records-box"
+    >
+      <CharacterBox heading={<StaticTerm>FOUR DISTINCT RECORDS</StaticTerm>}>
+        <div className="docs-figure__field-records">
+          {figure.items.map((item, index) => (
+            <span
+              className="docs-figure__field-record"
+              key={`${item.title}:${item.detail ?? ""}`}
+            >
+              {index > 0 ? <Glyph label="is distinct from">≠</Glyph> : null}
+              <ItemCopy item={item} />
+            </span>
           ))}
         </div>
       </CharacterBox>
@@ -390,9 +473,11 @@ function PrincipleBoxes({ figure }: { figure: FieldFigure }) {
               <FigureTitle>{item.title}</FigureTitle>
             </strong>
           }
-          key={`${item.title}:${item.detail}`}
+          key={`${item.title}:${item.detail ?? ""}`}
         >
-          <small className="docs-figure__annotation">{item.detail}</small>
+          {item.detail ? (
+            <small className="docs-figure__annotation">{item.detail}</small>
+          ) : null}
         </CharacterBox>
       ))}
     </div>
@@ -400,8 +485,8 @@ function PrincipleBoxes({ figure }: { figure: FieldFigure }) {
 }
 
 function CanonicalSourceFlow({ figure }: { figure: FieldFigure }) {
-  const [origin, surfaces, relation, boundary] = figure.items;
-  if (!origin || !surfaces || !relation || !boundary) {
+  const [work, surfaces] = figure.items;
+  if (!work || !surfaces) {
     return <BranchFallback figure={figure} />;
   }
 
@@ -411,18 +496,16 @@ function CanonicalSourceFlow({ figure }: { figure: FieldFigure }) {
       data-figure-shape="canonical-source-flow"
     >
       <CharacterBox
-        heading={<StaticTerm>IDENTIFIED ONCHAIN WORK</StaticTerm>}
+        heading={<StaticTerm>{work.title}</StaticTerm>}
         junction
       >
-        <ItemCopy item={origin} />
+        {work.detail ? (
+          <small className="docs-figure__annotation">{work.detail}</small>
+        ) : null}
       </CharacterBox>
       <div className="docs-figure__field-tail">
-        <FlowConnector />
+        <Glyph label="appears through">↓</Glyph>
         <ItemCopy item={surfaces} />
-      </div>
-      <div className="docs-figure__field-source-notes">
-        <ItemCopy item={relation} />
-        <ItemCopy item={boundary} className="docs-figure__field-boundary" />
       </div>
     </div>
   );
@@ -436,14 +519,20 @@ export function FieldFigureVisual({ figure }: FieldFigureVisualProps) {
       return <PracticeChain figure={figure} />;
     case "The invariant and the open field":
       return <AgentArtField figure={figure} />;
-    case "The ordered-pair boundary":
-      return <OrderedPair figure={figure} />;
-    case "Creation Attestation bindings":
+    case "One prompt, one response":
+      return <PromptResponseField figure={figure} />;
+    case "Creation Attestation":
       return <AttestationFlow figure={figure} />;
-    case "WILL: known and forming":
+    case "Many people. Many Agents. One will.":
       return <WillField figure={figure} />;
-    case "AWA: known and forming":
+    case "Toward the core":
       return <AwaField figure={figure} />;
+    case "Evidence becomes interpretation":
+      return <EvidenceInterpretation figure={figure} />;
+    case "Two distinctions":
+      return <DistinctionsField figure={figure} />;
+    case "Four distinct records":
+      return <DistinctRecordsField figure={figure} />;
     case "Current Inshell principles across systems":
       return <PrincipleBoxes figure={figure} />;
     case "Many surfaces, one identified record":

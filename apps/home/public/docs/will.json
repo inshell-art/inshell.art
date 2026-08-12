@@ -37,29 +37,19 @@
       "authorities": [
         "artist-editorial"
       ],
-      "label": "WILL: known and forming",
+      "label": "Many people. Many Agents. One will.",
       "mode": "field",
-      "figureText": "┌─ WILL ───────────────────────────────────────────┐\n│ SCOPE: MANY PEOPLE · MANY AGENTS                 │\n│ INQUIRY: CROWD BEHAVIOR                          │\n│                                                  │\n│ DIRECTION: HOW A CROWD FORMS WHAT CAN BE CALLED  │\n│ ONE WILL.                                        │\n│ FORM: STILL IN DEVELOPMENT.                      │\n│ BOUNDARY: ONE WILL SHOULD NOT YET BE READ AS     │\n│ CONSENSUS, UNANIMITY, VOTING, OR GOVERNANCE.     │\n└──────────────────────────────────────────────────┘",
+      "figureText": "┌─ WILL ──────────────────────────────────┐\n│ MANY PEOPLE          MANY AGENTS        │\n│                                         │\n│               ONE WILL                  │\n│ Crowd behavior · how a crowd forms what │\n│          can be called one will.        │\n└─────────────────────────────────────────┘",
       "items": [
         {
-          "title": "Scope",
-          "detail": "Many people · many Agents"
+          "title": "Many people"
         },
         {
-          "title": "Inquiry",
-          "detail": "Crowd behavior"
+          "title": "Many Agents"
         },
         {
-          "title": "Direction",
-          "detail": "How a crowd forms what can be called one will."
-        },
-        {
-          "title": "Form",
-          "detail": "Still in development."
-        },
-        {
-          "title": "Boundary",
-          "detail": "One will should not yet be read as consensus, unanimity, voting, or governance."
+          "title": "One will",
+          "detail": "Crowd behavior · how a crowd forms what can be called one will."
         }
       ]
     },
@@ -93,9 +83,9 @@
           "app-documentation"
         ],
         "id": "docs-will-status",
-        "title": "Current documentation",
+        "title": "Current study",
         "paragraphs": [
-          "WILL is planned for 2027. These docs expose its slogan and current visual study. There is no standalone public preview, creation, or mint surface, and the documentation is not evidence of deployment."
+          "WILL is planned for 2027. These docs expose its slogan and current direction as a study, not a creation or mint surface and not evidence of deployment."
         ],
         "note": "The date is a plan, not deployment evidence."
       }

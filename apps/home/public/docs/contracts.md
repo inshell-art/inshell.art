@@ -32,42 +32,26 @@ ABIs, bytecode, renderer payloads, schemas, and manifests belong to pinned relea
 - Figure mode: lanes
 
 ```text
-PUBLIC ISSUANCE    [01] → [02] → [03]
-
-PulseAuction      │ [01] Settle
-                  │ Calculate the live ask and settle
-                  │ one serial epoch.
-
-PathPulseAdapter  │ [02] Issue
-                  │ Translate the valid settlement
-                  │ into PATH issuance.
-
-PathNFT           │ [03] Record PATH
-                  │ Own the issued PATH, its movement
-                  │ order, and its capacity.
-
-LATER THOUGHT MINT [04] → [05] → [06]
-
-ThoughtNFT        │ [04] Validate work
-                  │ Validate the THOUGHT work and
-                  │ request PATH permission use.
-
-PathNFT           │ [05] Consume permission
-                  │ Verify configured caller, current-owner
-                  │ authorization, active stage, and quota;
-                  │ advance one unit.
-
-ThoughtNFT        │ [06] Mint + record
-                  │ Mint and record the work; a later revert
-                  │ also reverts PATH consumption.
+PUBLIC ISSUANCE    │ PulseAuction SETTLE
+                   │ Live ask · one serial epoch
+                   │ → PathPulseAdapter ISSUE
+                   │ Valid settlement → PATH issuance
+                   │ → PathNFT RECORD PATH
+                   │ Issued PATH · order · capacity
+LATER THOUGHT MINT │ ThoughtNFT VALIDATE WORK
+                   │ THOUGHT work · PATH permission
+                   │ → PathNFT CONSUME UNIT
+                   │ Caller · owner · stage · quota
+                   │ → ThoughtNFT MINT + RECORD
+                   │ Atomic with PATH consumption
 ```
 
-1. **PulseAuction · Settle · Public issuance** — Calculate the live ask and settle one serial epoch.
-2. **PathPulseAdapter · Issue · Public issuance** — Translate the valid settlement into PATH issuance.
-3. **PathNFT · Record PATH · Public issuance** — Own the issued PATH, its movement order, and its capacity.
-4. **ThoughtNFT · Validate work · Later THOUGHT mint** — Validate the THOUGHT work and request PATH permission use.
-5. **PathNFT · Consume permission · Later THOUGHT mint** — Verify configured caller, current-owner authorization, active stage, and quota; advance one unit.
-6. **ThoughtNFT · Mint + record · Later THOUGHT mint** — Mint and record the work; a later revert also reverts PATH consumption.
+1. **PulseAuction · Settle · Public issuance** — Live ask · one serial epoch
+2. **PathPulseAdapter · Issue · Public issuance** — Valid settlement → PATH issuance
+3. **PathNFT · Record PATH · Public issuance** — Issued PATH · order · capacity
+4. **ThoughtNFT · Validate work · Later THOUGHT mint** — THOUGHT work · PATH permission
+5. **PathNFT · Consume unit · Later THOUGHT mint** — Caller · owner · stage · quota
+6. **ThoughtNFT · Mint + record · Later THOUGHT mint** — Atomic with PATH consumption
 
 The architecture separates pricing, issuance, permission, and artwork minting so each boundary can be inspected independently. Public PATH issuance and a later THOUGHT mint are separate phases. Contract calls and state handoffs connect them, but no contract owns all the others.
 

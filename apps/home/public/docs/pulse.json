@@ -68,7 +68,7 @@
           ],
           "label": "One Pulse epoch",
           "mode": "trace",
-          "figureText": "01 Ask\n   The current epoch exposes one live onchain price.\n   │\n   ↓\n02 Wait\n   The ask decays toward its floor while the epoch\n   remains open.\n   │\n   ↓\n03 Bid\n   A successful bid settles at the sampled ask and\n   issues the next PATH.\n   │\n   ↓\n04 Pump\n   Elapsed time becomes the initial premium for the\n   next epoch.\n   │\n   ↓\n05 Repeat\n   The sale joins the public history and a new\n   descent begins.\n   │\n   └──↺ 01 Ask · next epoch",
+          "figureText": "ASK\n │ decay\n ↓\nBID\n │ pump\n ↓\nNEXT ASK\n └──↺ next epoch",
           "loop": {
             "to": 1,
             "condition": "next epoch"
@@ -76,23 +76,14 @@
           "items": [
             {
               "title": "Ask",
-              "detail": "The current epoch exposes one live onchain price."
-            },
-            {
-              "title": "Wait",
-              "detail": "The ask decays toward its floor while the epoch remains open."
+              "detail": "Decay"
             },
             {
               "title": "Bid",
-              "detail": "A successful bid settles at the sampled ask and issues the next PATH."
+              "detail": "Pump"
             },
             {
-              "title": "Pump",
-              "detail": "Elapsed time becomes the initial premium for the next epoch."
-            },
-            {
-              "title": "Repeat",
-              "detail": "The sale joins the public history and a new descent begins."
+              "title": "Next ask"
             }
           ]
         }
@@ -137,34 +128,7 @@
           "Let the mint flow read the ask again immediately before submission.",
           "Confirm only if the wallet request matches the expected network, contract, and maximum value.",
           "If the ask moved beyond the approved maximum, retry with a fresh read instead of treating the earlier quote as guaranteed."
-        ],
-        "figure": {
-          "authorities": [
-            "app-documentation",
-            "contract-release"
-          ],
-          "label": "When the live ask settles",
-          "mode": "trace",
-          "figureText": "01 Read live ask\n   Read the current ask from contract-backed state.\n   │\n   ↓\n02 Set maximum\n   Review the maximum charge before the wallet opens.\n   │\n   ↓\n03 Submit\n   Submit the bid with that maximum as its ceiling.\n   │\n   ↓\n04 Settle or revert\n   Execution reads again: ask ≤ maximum → exact ask\n   settles, surplus refunds, and PATH issues;\n   ask > maximum → transaction reverts; read again.",
-          "items": [
-            {
-              "title": "Read live ask",
-              "detail": "Read the current ask from contract-backed state."
-            },
-            {
-              "title": "Set maximum",
-              "detail": "Review the maximum charge before the wallet opens."
-            },
-            {
-              "title": "Submit",
-              "detail": "Submit the bid with that maximum as its ceiling."
-            },
-            {
-              "title": "Settle or revert",
-              "detail": "Execution reads again: ask ≤ maximum → exact ask settles, surplus refunds, and PATH issues; ask > maximum → transaction reverts; read again."
-            }
-          ]
-        }
+        ]
       },
       {
         "authorities": [

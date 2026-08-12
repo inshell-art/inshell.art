@@ -37,25 +37,21 @@
       "authorities": [
         "artist-editorial"
       ],
-      "label": "AWA: known and forming",
+      "label": "Toward the core",
       "mode": "field",
-      "figureText": "┌─ AWA ────────────────────────────────────────────┐\n│ THOUGHT           WILL                AWA        │\n│ INDIVIDUAL ──→    CROWD ──→    TOWARD THE CORE   │\n│                                                  │\n│ DIRECTION: TOWARD INSHELL'S CORE.                │\n│ AGENT ART INVARIANT: AN AGENT PARTICIPATES.      │\n│ FORM: STILL FORMING.                             │\n│ BOUNDARY: AWA DOES NOT CLAIM THE CORE IS         │\n│ REACHED, DEFINED, REVEALED, OR PROVED.           │\n└──────────────────────────────────────────────────┘",
+      "figureText": "┌─ AWA ─────────────────────────────────────┐\n│ THOUGHT        WILL        AWA            │\n│ INDIVIDUAL  →  CROWD  →  TOWARD THE CORE  │\n└───────────────────────────────────────────┘",
       "items": [
         {
-          "title": "Direction",
-          "detail": "Toward Inshell's core."
+          "title": "THOUGHT",
+          "detail": "Individual"
         },
         {
-          "title": "Agent Art invariant",
-          "detail": "An Agent participates."
+          "title": "WILL",
+          "detail": "Crowd"
         },
         {
-          "title": "Form",
-          "detail": "Still forming."
-        },
-        {
-          "title": "Boundary",
-          "detail": "AWA does not claim the core is reached, defined, revealed, or proved."
+          "title": "AWA",
+          "detail": "Toward the core"
         }
       ]
     },

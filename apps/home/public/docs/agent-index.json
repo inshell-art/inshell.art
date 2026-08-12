@@ -11,7 +11,7 @@
   "completeJson": "/docs/content.json",
   "canonicalCompleteJson": "https://inshell.art/docs/content.json",
   "completeJsonMediaType": "application/json",
-  "completeJsonSha256": "a15a62bf49168cd9d723f56c3ac99bddd136042cb174ccb4840a8d1041b0a1b9",
+  "completeJsonSha256": "33ac0b9b4fd1e417061716f3b71d1fc1b5bb85e2322d0edb193118e3eec6a52c",
   "purpose": "Public, read-only discovery for visitors using their own Agents.",
   "sourceLock": {
     "url": "/docs/source-lock.json",
@@ -19,7 +19,7 @@
     "schemaUrl": "/docs/source-lock.schema.json",
     "canonicalSchemaUrl": "https://inshell.art/docs/source-lock.schema.json",
     "mediaType": "application/json",
-    "sha256": "26e0b80a9642bd73660ea15b1b0d08ab084a01e4616eba5f23c34b77c92ab207",
+    "sha256": "8ee257ae7c6bcd27134ec324b95eefdfc60a1fb6b1dd162c1c2331cc008be7d0",
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
@@ -161,11 +161,11 @@
       "markdown": "/docs/inshell.md",
       "canonicalMarkdown": "https://inshell.art/docs/inshell.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "fe4fb54bf7acb9dc935845e01299807daacf6be1e66269ea1cce511fc6e872ec",
+      "markdownSha256": "3fed499bdd910acb4c8e35cba645106bded9b44a45edec373274384dc372a2e3",
       "json": "/docs/inshell.json",
       "canonicalJson": "https://inshell.art/docs/inshell.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "ae13eef558400df1067f2bb257d27ce375c02afd0fb291ecb3ba4a582929a2c5"
+      "jsonSha256": "9a5fbeeceeb894d4feb642694304ea1ca7fd64855a9f252317c1b8042de7bcb8"
     },
     {
       "id": "agent-art",
@@ -182,11 +182,11 @@
       "markdown": "/docs/agent-art.md",
       "canonicalMarkdown": "https://inshell.art/docs/agent-art.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "b34d3be9ec09f1da36b34f1d6223ad1c2e59cd2c78cfd3086de7ea3e8494916d",
+      "markdownSha256": "7a17b8a361983edb82b97cbbc528a087b8439447c959e4dcf222d541c8006819",
       "json": "/docs/agent-art.json",
       "canonicalJson": "https://inshell.art/docs/agent-art.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "0fb2e238a3a51f6f23e0635d4ccbcb3f47544e817f6ea0fa0d0b96a4e21daf11"
+      "jsonSha256": "326fd0ce792f15b40b19efb439343fc57f21ce9d3a9c18dedff8e73f416becfc"
     },
     {
       "id": "movements",
@@ -205,11 +205,11 @@
       "markdown": "/docs/movements.md",
       "canonicalMarkdown": "https://inshell.art/docs/movements.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "26d91fa20e23bfb868afc25e2a6fc3c9249c41a4375a0488b1b0e73bf3997277",
+      "markdownSha256": "0ca475161dca131d0859d76dff575539e0405e5f2f7ef8ede38cd98de2e83347",
       "json": "/docs/movements.json",
       "canonicalJson": "https://inshell.art/docs/movements.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "be63d0f3bbc5da2eeb11c16534e3b253f615d7e03153206d6ce9135d4b684191"
+      "jsonSha256": "e47e19acccf5a68d4cbff45509eddc584fe1930ed72b99e427f4dec4dd4a6178"
     },
     {
       "id": "thought",
@@ -232,11 +232,11 @@
       "markdown": "/docs/thought.md",
       "canonicalMarkdown": "https://inshell.art/docs/thought.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "10b6d7a0afeb884af21cb6d348952f38ea7bcf650992e111ced85b1fe8fd008e",
+      "markdownSha256": "166014306437ed7bd315e71e6abea3a3e39e80ca3484fb064fcbaa3344fa0602",
       "json": "/docs/thought.json",
       "canonicalJson": "https://inshell.art/docs/thought.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "fe2f0098b91313a129e70eb49af068a5e2d99ffb21aa564dd1fd43c1c8bd8afd"
+      "jsonSha256": "f9a6530151f815c9c92d1310ab7059f60b55f121c4504dc3b6f0135687777fa2"
     },
     {
       "id": "will",
@@ -254,11 +254,11 @@
       "markdown": "/docs/will.md",
       "canonicalMarkdown": "https://inshell.art/docs/will.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "cfed61f4494c0e5fe3ab0b5b5a3b38345d6c0a2087d7e567b9cfa23efede99b9",
+      "markdownSha256": "47ffcbc96190f5d658d8be5073e462aa8434d260989ee6c37fafe397b4ce5279",
       "json": "/docs/will.json",
       "canonicalJson": "https://inshell.art/docs/will.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "e65c9b565a60cbb1e5560f3903c6b96b904edcfc4d8b65b333f7169db1fdeae1"
+      "jsonSha256": "f24887aeeeebef70d1319e99ff290cf11d0ec1e54ef341368dbd2520f59398bf"
     },
     {
       "id": "awa",
@@ -276,11 +276,11 @@
       "markdown": "/docs/awa.md",
       "canonicalMarkdown": "https://inshell.art/docs/awa.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "8b3b76ffeab3f5aa7b7f5d7c80601a97251ef578f621f17c0a5a1573bbf4b53f",
+      "markdownSha256": "3faf1b4766512fab55ec9b6de6b497e4200fde9d7818986012560596b30c6f55",
       "json": "/docs/awa.json",
       "canonicalJson": "https://inshell.art/docs/awa.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "3e1b17c0a93d43e1955279892c5b9ba41a4f45657b8faaf12766e4d83f452491"
+      "jsonSha256": "7a404044ca353bdca4ef309e3527a651846bcd3d82b202013d2cd52c67dbdcb5"
     },
     {
       "id": "path",
@@ -299,11 +299,11 @@
       "markdown": "/docs/path.md",
       "canonicalMarkdown": "https://inshell.art/docs/path.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "86183cf575ce1616a4aa0a8a3d773d724a695a2baf4158dabff75e5595c374a4",
+      "markdownSha256": "4cf9ccfe999db4579758f479793116b1d6439b5a973e94bc49f2e9a971b5e71a",
       "json": "/docs/path.json",
       "canonicalJson": "https://inshell.art/docs/path.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "f19a67d54c3b69f3eb35a2cafe874b7d0da1422f931459d3b8b07b748709cbfd"
+      "jsonSha256": "077628a1b8ae6df85e68cbf580e2374d6e87cdad1d857c4a37ff3077eb627b34"
     },
     {
       "id": "pulse",
@@ -322,11 +322,11 @@
       "markdown": "/docs/pulse.md",
       "canonicalMarkdown": "https://inshell.art/docs/pulse.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "1fc84222e35479921a46177dab6df6f43856eab4035e8ac95c9b6e8236de2a1f",
+      "markdownSha256": "847dc139a44eed6508dbda494399f5597b36a0913e2812d9fd2eee9c56c4976d",
       "json": "/docs/pulse.json",
       "canonicalJson": "https://inshell.art/docs/pulse.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "ef5700d40755a4009a5ce0d43a2d9809254862afa43e0cdf781c3bf08b737adb"
+      "jsonSha256": "052bb5cacd3a724cc3045c70177009223838297633ffa6658a67dd5eaf8b3e8a"
     },
     {
       "id": "contracts",
@@ -345,11 +345,11 @@
       "markdown": "/docs/contracts.md",
       "canonicalMarkdown": "https://inshell.art/docs/contracts.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "f838eef006096d0f59d5478cd932ca023fad6a3b897f36940e19a48db83e1399",
+      "markdownSha256": "6719311b57e336b70d9e28e80f1b6c63dabbfe27136de92dd7f552cd9442268c",
       "json": "/docs/contracts.json",
       "canonicalJson": "https://inshell.art/docs/contracts.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "ef6097ae934af96a32e48d54636f73df0a26ac31c50a9874a0a338224805fa70"
+      "jsonSha256": "836920411f94ddec56262cb9018f15b4e3beb20ba952cf4931b7351a55cb5d4b"
     },
     {
       "id": "artwork-metadata-chain",
@@ -368,11 +368,11 @@
       "markdown": "/docs/artwork-metadata-chain.md",
       "canonicalMarkdown": "https://inshell.art/docs/artwork-metadata-chain.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "7fc3fe49d635c3f05fce3934582d58775b4e25156c31f8d66189f86990ebaa41",
+      "markdownSha256": "1ae8dae8cacc709cceb06e62a4495086617e98e84ef7ebf9ad25495c6d078214",
       "json": "/docs/artwork-metadata-chain.json",
       "canonicalJson": "https://inshell.art/docs/artwork-metadata-chain.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "20519f8dea03af814acd4f075f2152fe694b72c0de86aac7d3d165149c9b42cc"
+      "jsonSha256": "d4c601414c9d6ec1e11a87577644cbbc02fba517cd11f73a3ee7f589ea207211"
     },
     {
       "id": "mono-76",
@@ -391,11 +391,11 @@
       "markdown": "/docs/mono-76.md",
       "canonicalMarkdown": "https://inshell.art/docs/mono-76.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "bd47bbc39b9e32b2553f8f6a312f6404fb109d68b3d7fa77df4be01d65a331f5",
+      "markdownSha256": "88a033e9317d5628e1dda5b7bb7a57d318cc5d26784a1ca003d5dd5cde263b0e",
       "json": "/docs/mono-76.json",
       "canonicalJson": "https://inshell.art/docs/mono-76.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "905a0adaa63950cddf9c8542962fe05b78d1c9877e9fe2a488a0c261baf79187"
+      "jsonSha256": "c706aff8d4f4c5a7e31ed37693153999a04c7d345a629ed7eee530cea6639e6c"
     },
     {
       "id": "verification",
@@ -414,11 +414,11 @@
       "markdown": "/docs/verification.md",
       "canonicalMarkdown": "https://inshell.art/docs/verification.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "15dc296683101a7cb2ecd3bee3d3ce56a79b309e62068621890f853858cfc609",
+      "markdownSha256": "143aa77f58e007eb26e3257445b47e0930f4191566024d7793356ef031d5462a",
       "json": "/docs/verification.json",
       "canonicalJson": "https://inshell.art/docs/verification.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "6b2031d8ccb19a1d93d7bd41bf3266f793bee99f61fc26257c143c790de691ba"
+      "jsonSha256": "83d1bb983d72db192de521d1393758099c5a5d11bfbeaa4f224844d6fd8eb2ac"
     },
     {
       "id": "wallet-local-data",
@@ -435,11 +435,11 @@
       "markdown": "/docs/wallet-local-data.md",
       "canonicalMarkdown": "https://inshell.art/docs/wallet-local-data.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "3a427bc2ec7d9f141526c4072055130d2a8fea338a5735aaca591542b1874eed",
+      "markdownSha256": "4a12902febf51d8507202558d195188d81040de8f6ca817ec0c718125805298c",
       "json": "/docs/wallet-local-data.json",
       "canonicalJson": "https://inshell.art/docs/wallet-local-data.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "19d655a98567466b6dcf3756b9a3a4fb47824d60ae71cbd5ab615f69e017e6c5"
+      "jsonSha256": "0371716ccd79e1f98028c2a7b2b876f8e3728e64c0899111bb78bca51db56486"
     },
     {
       "id": "source-release-boundaries",
@@ -457,11 +457,11 @@
       "markdown": "/docs/source-release-boundaries.md",
       "canonicalMarkdown": "https://inshell.art/docs/source-release-boundaries.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "f5f63fed4e00fbb6c3a12d7f098eb7f664f557c2e2c9179e204f2ac7a5937706",
+      "markdownSha256": "ed8809861c0f0e06b5438cf12b3135bffb48a6cc8186da6edca49b7c80cab341",
       "json": "/docs/source-release-boundaries.json",
       "canonicalJson": "https://inshell.art/docs/source-release-boundaries.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "137a5ad2573f83ef6c5b5d26b8965266285c5ea442911e76879fcaeacd353a46"
+      "jsonSha256": "e09780b02e605fca21508f0e49745fa858fc26b61158a76ff92fdae6dcdefe58"
     },
     {
       "id": "design-principles",
@@ -480,11 +480,11 @@
       "markdown": "/docs/design-principles.md",
       "canonicalMarkdown": "https://inshell.art/docs/design-principles.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "2b6802948ecc7eddbdec6115687bb9ae1d57e6c88d5373b8af6fdea2bc15cdd1",
+      "markdownSha256": "3e65053fa27f8dfdf7ed6c39b8390aedeb88761a26bf38cf9dddfbe2927b6840",
       "json": "/docs/design-principles.json",
       "canonicalJson": "https://inshell.art/docs/design-principles.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "1258b4a9a5cf6aa1482ff3861bc7ffb092b8d0571332310b9495ab3a12987c7a"
+      "jsonSha256": "71f01ec6b960cecc3029594057a5fa3b8298011f45677feb3f8b04ca1eed4cf2"
     }
   ],
   "immutableReleases": [

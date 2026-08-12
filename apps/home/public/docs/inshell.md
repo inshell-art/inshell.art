@@ -14,20 +14,18 @@
 - Figure mode: field
 
 ```text
-┌─ SHELL ───────────────────────────────────────────┐
-│ REAL AND OFTEN NECESSARY.                         │
-│ SURFACE: VISIBLE · OPERABLE · LEGIBLE.            │
-│ BOUNDARY: NOT THE WHOLE BEING.                    │
-└──────────────────────┬────────────────────────────┘
-                       │ IN
-                       ↓
-             INSPECT WHAT FORMS THE SELF.
+┌─ SHELL ─────────────────────────────────┐
+│ Real and often necessary · Surface:     │
+│ visible · operable · legible.           │
+└───────────────────┬─────────────────────┘
+                    │ IN
+                    ↓
+          Inspect what forms the
+                   SELF
 ```
 
-- **Shell** — Real and often necessary.
-- **Surface** — Visible · operable · legible.
-- **Boundary** — Not the whole being.
-- **In** — Inspect what forms the self.
+- **Shell** — Real and often necessary · Surface: visible · operable · legible.
+- **In** — Inspect what forms the self
 
 ## Overview
 
@@ -65,22 +63,19 @@ Simply inspect your [thought](https://inshell.art/docs/thought).
 - Figure mode: field
 
 ```text
-┌─ TRUTH AND PRACTICE ────────────────────────────┐
-│ TRUTH: INSPECT SELF                             │
-│                    ↑                            │
-│ RELATION: APPROACHES WITHOUT CLAIMING           │
-│ POSSESSION                                      │
-│                    ↑                            │
-│ PRACTICE: EXAMINE · INSPECT · SUSPECT · READ ·  │
-│ LISTEN · FEEL                                   │
-│ BOUNDARY: DOES NOT PROVE OR GUARANTEE FREEDOM   │
-└─────────────────────────────────────────────────┘
+┌─ TRUTH AND PRACTICE ───────────────────┐
+│                 TRUTH                  │
+│              Inspect self              │
+│                   ↑                    │
+│ Approaches without claiming possession │
+│                PRACTICE                │
+│ Examine · inspect · suspect · read ·   │
+│              listen · feel             │
+└────────────────────────────────────────┘
 ```
 
 - **Truth** — Inspect self
-- **Relation** — Approaches without claiming possession
 - **Practice** — Examine · inspect · suspect · read · listen · feel
-- **Boundary** — Does not prove or guarantee freedom
 
 Truth is not a specification to implement, a theory to apply, or a principle to prove. Practice approaches it. A practice can examine, inspect, suspect, read, listen, and feel. It can move closer without claiming possession.
 
@@ -92,7 +87,7 @@ Inshell forms movements, artworks, and participatory systems that call people in
 
 - Authority: artist-editorial, app-documentation
 
-- Home exposes the canonical THOUGHT gallery state. The current imported R2 release is not persistently deployed, so no R2 minted works are listed.
+- Home presents minted THOUGHT works from the active public chain.
 - THOUGHT is the active creation surface for one human intention and one Agent response.
 - PATH shows the permission records that carry movements forward.
 - Pulse exposes the live issuance mechanism and its history.

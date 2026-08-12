@@ -8,37 +8,20 @@
 - Canonical page: https://inshell.art/docs/movements
 - Documentation version: 2026-08-11
 
-## Why the movements form a PATH
+## The movement arc
 
 - Authority: artist-editorial
 - Figure mode: trace
 
 ```text
-INSHELL PRACTICE
-├─ DIRECTION: INSPECT SELF
-├─ MEDIUM: AGENT ART
-│  └─ INVARIANT: AN AGENT PARTICIPATES
-└─ PATH: INDIVIDUAL → CROWD → CORE
-   │
-   ↓
-   01 THOUGHT
-      Current: inspect how an Agent
-      responds to one person's thought.
-      │
-      ↓
-   02 WILL
-      In development: many people and
-      many Agents form one will.
-      │
-      ↓
-   03 AWA
-      Forming: toward Inshell's core;
-      its form is still taking shape.
+THOUGHT       WILL       AWA
+   │            │         │
+INDIVIDUAL → CROWD → TOWARD THE CORE
 ```
 
-1. **THOUGHT** — Current: inspect how an Agent responds to one person's thought.
-2. **WILL** — In development: many people and many Agents form one will.
-3. **AWA** — Forming: toward Inshell's core; its form is still taking shape.
+1. **THOUGHT** — Individual
+2. **WILL** — Crowd
+3. **AWA** — Toward the core
 
 ## Overview
 
@@ -55,25 +38,6 @@ This sequence belongs to Inshell. It gives the inward direction—inspect self�
 ## Agent Art across the movements
 
 - Authority: artist-editorial
-
-### Agent participation across the movements
-
-- Authority: artist-editorial
-- Figure mode: ledger
-
-```text
-MOVEMENT │ SCOPE / PARTICULAR RELATION
-─────────┼──────────────────────────────────────────────
-THOUGHT  │ Individual · one person + one Agent response.
-WILL     │ Crowd · many people and Agents; still developing.
-AWA      │ Toward the core · still forming.
-ALL      │ An Agent participates.
-```
-
-- **THOUGHT** — Individual · one person + one Agent response.
-- **WILL** — Crowd · many people and Agents; still developing.
-- **AWA** — Toward the core · still forming.
-- **ALL** — An Agent participates.
 
 Agent Art requires an Agent to participate, but it prescribes no universal relation between a human, an Agent, and a work. Inshell uses that openness differently across the movements. THOUGHT chooses one person and one Agent response. WILL intends many people and many Agents within the formation of one will. AWA remains an Agent Art movement while its particular form of participation is still being discovered.
 
@@ -124,7 +88,7 @@ Contract state records participation, not inward achievement. It does not measur
 
 - Authority: artist-editorial, app-documentation
 
-THOUGHT is current as a public creation surface. Its imported R2 Contract release is qualified but not persistently deployed, registered, or mint-enabled. WILL is planned for 2027 and is still being created and developed; these docs expose its direction and current study without implying a finished work, public preview, or live mint. AWA is planned for 2028 and remains in formation; it currently has no creation or mint surface.
+THOUGHT is current and has a live creation and mint flow. WILL is planned for 2027 and is still being created and developed; these docs expose the direction and current study without implying a finished work or live mint. AWA is planned for 2028 and remains in formation; it currently has no creation or mint surface.
 
 > Dates are plans, not evidence of deployment. The limited WILL and AWA descriptions reflect unfinished work, not concealed finished systems. Do not infer availability or capacity from the movement names alone.
 

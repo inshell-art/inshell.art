@@ -63,20 +63,18 @@ Read the design choices that give the practice form without turning its truth in
 - Figure mode: field
 
 ```text
-┌─ SHELL ───────────────────────────────────────────┐
-│ REAL AND OFTEN NECESSARY.                         │
-│ SURFACE: VISIBLE · OPERABLE · LEGIBLE.            │
-│ BOUNDARY: NOT THE WHOLE BEING.                    │
-└──────────────────────┬────────────────────────────┘
-                       │ IN
-                       ↓
-             INSPECT WHAT FORMS THE SELF.
+┌─ SHELL ─────────────────────────────────┐
+│ Real and often necessary · Surface:     │
+│ visible · operable · legible.           │
+└───────────────────┬─────────────────────┘
+                    │ IN
+                    ↓
+          Inspect what forms the
+                   SELF
 ```
 
-- **Shell** — Real and often necessary.
-- **Surface** — Visible · operable · legible.
-- **Boundary** — Not the whole being.
-- **In** — Inspect what forms the self.
+- **Shell** — Real and often necessary · Surface: visible · operable · legible.
+- **In** — Inspect what forms the self
 
 ### Overview
 
@@ -114,22 +112,19 @@ Simply inspect your [thought](https://inshell.art/docs/thought).
 - Figure mode: field
 
 ```text
-┌─ TRUTH AND PRACTICE ────────────────────────────┐
-│ TRUTH: INSPECT SELF                             │
-│                    ↑                            │
-│ RELATION: APPROACHES WITHOUT CLAIMING           │
-│ POSSESSION                                      │
-│                    ↑                            │
-│ PRACTICE: EXAMINE · INSPECT · SUSPECT · READ ·  │
-│ LISTEN · FEEL                                   │
-│ BOUNDARY: DOES NOT PROVE OR GUARANTEE FREEDOM   │
-└─────────────────────────────────────────────────┘
+┌─ TRUTH AND PRACTICE ───────────────────┐
+│                 TRUTH                  │
+│              Inspect self              │
+│                   ↑                    │
+│ Approaches without claiming possession │
+│                PRACTICE                │
+│ Examine · inspect · suspect · read ·   │
+│              listen · feel             │
+└────────────────────────────────────────┘
 ```
 
 - **Truth** — Inspect self
-- **Relation** — Approaches without claiming possession
 - **Practice** — Examine · inspect · suspect · read · listen · feel
-- **Boundary** — Does not prove or guarantee freedom
 
 Truth is not a specification to implement, a theory to apply, or a principle to prove. Practice approaches it. A practice can examine, inspect, suspect, read, listen, and feel. It can move closer without claiming possession.
 
@@ -141,7 +136,7 @@ Inshell forms movements, artworks, and participatory systems that call people in
 
 - Authority: artist-editorial, app-documentation
 
-- Home exposes the canonical THOUGHT gallery state. The current imported R2 release is not persistently deployed, so no R2 minted works are listed.
+- Home presents minted THOUGHT works from the active public chain.
 - THOUGHT is the active creation surface for one human intention and one Agent response.
 - PATH shows the permission records that carry movements forward.
 - Pulse exposes the live issuance mechanism and its history.
@@ -184,9 +179,8 @@ Inshell alone names the artist. THOUGHT, WILL, and AWA name movements. PATH is a
 │ An Agent participates in the art activity.       │
 │                                                  │
 ├─ OPEN QUESTIONS ─────────────────────────────────┤
-│ What is Art?                 Open question.      │
-│ What is an Agent?            Open question.      │
-│                                                  │
+│ What is Art?                 What is an Agent?   │
+│ Open question.                 Open question.    │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -253,37 +247,20 @@ That form belongs to THOUGHT. It does not turn dialogue, minting, provenance, pu
 - Canonical page: https://inshell.art/docs/movements
 - Documentation version: 2026-08-11
 
-### Why the movements form a PATH
+### The movement arc
 
 - Authority: artist-editorial
 - Figure mode: trace
 
 ```text
-INSHELL PRACTICE
-├─ DIRECTION: INSPECT SELF
-├─ MEDIUM: AGENT ART
-│  └─ INVARIANT: AN AGENT PARTICIPATES
-└─ PATH: INDIVIDUAL → CROWD → CORE
-   │
-   ↓
-   01 THOUGHT
-      Current: inspect how an Agent
-      responds to one person's thought.
-      │
-      ↓
-   02 WILL
-      In development: many people and
-      many Agents form one will.
-      │
-      ↓
-   03 AWA
-      Forming: toward Inshell's core;
-      its form is still taking shape.
+THOUGHT       WILL       AWA
+   │            │         │
+INDIVIDUAL → CROWD → TOWARD THE CORE
 ```
 
-1. **THOUGHT** — Current: inspect how an Agent responds to one person's thought.
-2. **WILL** — In development: many people and many Agents form one will.
-3. **AWA** — Forming: toward Inshell's core; its form is still taking shape.
+1. **THOUGHT** — Individual
+2. **WILL** — Crowd
+3. **AWA** — Toward the core
 
 ### Overview
 
@@ -300,25 +277,6 @@ This sequence belongs to Inshell. It gives the inward direction—inspect self�
 ### Agent Art across the movements
 
 - Authority: artist-editorial
-
-### Agent participation across the movements
-
-- Authority: artist-editorial
-- Figure mode: ledger
-
-```text
-MOVEMENT │ SCOPE / PARTICULAR RELATION
-─────────┼──────────────────────────────────────────────
-THOUGHT  │ Individual · one person + one Agent response.
-WILL     │ Crowd · many people and Agents; still developing.
-AWA      │ Toward the core · still forming.
-ALL      │ An Agent participates.
-```
-
-- **THOUGHT** — Individual · one person + one Agent response.
-- **WILL** — Crowd · many people and Agents; still developing.
-- **AWA** — Toward the core · still forming.
-- **ALL** — An Agent participates.
 
 Agent Art requires an Agent to participate, but it prescribes no universal relation between a human, an Agent, and a work. Inshell uses that openness differently across the movements. THOUGHT chooses one person and one Agent response. WILL intends many people and many Agents within the formation of one will. AWA remains an Agent Art movement while its particular form of participation is still being discovered.
 
@@ -369,7 +327,7 @@ Contract state records participation, not inward achievement. It does not measur
 
 - Authority: artist-editorial, app-documentation
 
-THOUGHT is current as a public creation surface. Its imported R2 Contract release is qualified but not persistently deployed, registered, or mint-enabled. WILL is planned for 2027 and is still being created and developed; these docs expose its direction and current study without implying a finished work, public preview, or live mint. AWA is planned for 2028 and remains in formation; it currently has no creation or mint surface.
+THOUGHT is current and has a live creation and mint flow. WILL is planned for 2027 and is still being created and developed; these docs expose the direction and current study without implying a finished work or live mint. AWA is planned for 2028 and remains in formation; it currently has no creation or mint surface.
 
 > Dates are plans, not evidence of deployment. The limited WILL and AWA descriptions reflect unfinished work, not concealed finished systems. Do not infer availability or capacity from the movement names alone.
 
@@ -402,8 +360,6 @@ Within the wider field of Agent Art, THOUGHT chooses a narrow terminal practice:
 
 The creation flow is: human prompt → Agent response → validation and canonical record assembly → human selection → wallet confirmation → PATH movement consumption → THOUGHT minted. The model proposes. The human decides. The wallet confirms. The contract records.
 
-The imported R2 release is production-consumable as a verified immutable artifact, but deployment and registration remain unauthorized. No persistent-chain R2 deployment is committed, and V2 minting remains disabled. The mint steps describe the bounded flow after a separately authorized deployment; they are not evidence that minting is live now.
-
 Prompt and Agent response are each 1–64 bytes of Terminal English. Allowed characters are space, A–Z, a–z, 0–9, and . , ? ! : ; ' " - ( ) / &. Leading spaces, trailing spaces, and repeated internal spaces are rejected. Validation never trims, normalizes, repairs, translates, or rewrites accepted bytes.
 
 The human reviews the returned response and preview, then decides whether to preserve, discard, or mint the work. To mint, the human picks an available PATH, signs a one-mint permission bound to the current PATH state and ThoughtNFT executor, and confirms the transaction. The signature is not a transaction and uses no gas.
@@ -424,27 +380,21 @@ Save and Load keep works in the current browser only. They are not onchain and d
 
 - Authority: artist-editorial, app-documentation, contract-release
 
-### The ordered-pair boundary
+### One prompt, one response
 
 - Authority: app-documentation, contract-release
 - Figure mode: field
 
 ```text
-┌─ ORDERED-PAIR BOUNDARY ──────────────────────────┐
-│ HUMAN PROMPT P + AGENT RESPONSE R → (P, R)       │
-│                                                  │
-│ DIFFERENT RESPONSE: (P, R′) = DIFFERENT WORK     │
-│ DIFFERENT PROMPT: (P′, R) = DIFFERENT WORK       │
-│                                                  │
-│ PRESERVATION: CANDIDATE → SUCCESSFUL MINT →      │
-│ ONCHAIN THOUGHT                                  │
-└──────────────────────────────────────────────────┘
+HUMAN PROMPT P + AGENT RESPONSE R
+                 ↓
+          ONE THOUGHT (P, R)
+Different counterpart = different work · onchain only after successful mint.
 ```
 
-- **Ordered-pair boundary** — Human prompt P + Agent response R → (P, R)
-- **Different response** — (P, R′) = different work
-- **Different prompt** — (P′, R) = different work
-- **Preservation** — Candidate → successful mint → onchain THOUGHT
+- **Human prompt P**
+- **Agent response R**
+- **One THOUGHT (P, R)** — Different counterpart = different work · onchain only after successful mint.
 
 A THOUGHT is the ordered pair of one exact human prompt and one exact Agent response. Order matters, and the pair is the uniqueness boundary. The same prompt can appear with another response; the same response can appear with another prompt.
 
@@ -479,44 +429,19 @@ The human can preserve a candidate locally, discard it, or move toward minting. 
 
 - Authority: app-documentation, app-record, contract-release, runtime-report
 
-### From intention to minted THOUGHT
+### The creative handoff
 
-- Authority: app-documentation, app-record, contract-release, runtime-report
-- Figure mode: lanes
+- Authority: app-documentation
+- Figure mode: trace
 
 ```text
-TIME       │ [01] → [02] → [03] → [04] → [05] → [06]
-
-HUMAN      │ [01] Prompt
-           │ Enter one exact Terminal English line.
-           │ ···
-           │ [04] Review + choose
-           │ Read the candidate and decide whether
-           │ to preserve it; select a PATH.
-
-AGENT      │ [02] Response
-           │ Return one exact line; no repair
-           │ dialogue.
-
-APP        │ [03] Validate + assemble
-           │ Check exact bytes; assemble the preview
-           │ and creation record.
-
-WALLET     │ [05] Authorize + submit
-           │ Sign the narrow permission, then confirm
-           │ the mint transaction.
-
-CONTRACTS  │ [06] Validate + record
-           │ Enforce rules, consume one PATH unit,
-           │ mint, and expose the record.
+HUMAN                AGENT                 HUMAN
+One exact prompt  →  One exact response  →  Review + choose
 ```
 
-1. **Human · Prompt** — Enter one exact Terminal English line.
-2. **Agent · Response** — Return one exact line; no repair dialogue.
-3. **App · Validate + assemble** — Check exact bytes; assemble the preview and creation record.
-4. **Human · Review + choose** — Read the candidate and decide whether to preserve it; select a PATH.
-5. **Wallet · Authorize + submit** — Sign the narrow permission, then confirm the mint transaction.
-6. **Contracts · Validate + record** — Enforce rules, consume one PATH unit, mint, and expose the record.
+1. **Human** — One exact prompt
+2. **Agent** — One exact response
+3. **Human** — Review + choose
 
 The prompt on the Docs page is a read-only invitation to learn about Inshell. A THOUGHT handoff is different: it is a short-lived instruction packet for one work. It looks technical because it carries the exact run endpoint, release bindings, validation steps, and return path that keep one prompt connected to one Agent result.
 
@@ -548,16 +473,15 @@ The NFT tokenURI supplies the canonical image and portable metadata. A screensho
 
 - Authority: app-record, contract-release, runtime-report
 
-### Creation Attestation bindings
+### Creation Attestation
 
-- Authority: app-record, contract-release, runtime-report
+- Authority: app-record, contract-release
 - Figure mode: field
 
 ```text
 RECORDED VALUES
-Human line · Agent line · selected Agent · runtime-reported
-model when available · specification · renderer context ·
-mint anchors
+Human line · Agent line · Agent/model records ·
+specification · renderer · mint anchors
    │
    ↓
 APP CLAIM
@@ -570,19 +494,13 @@ ThoughtNFT validates during minting.
    │  Valid proof binds the mint to recorded values.
    └─ EMPTY PROOF → UNATTESTED
       Empty proof makes the absence explicit.
-
-┌─ CLAIM CEILING ───────────────────────────────────┐
-│ Does not prove hidden reasoning · provider        │
-│ identity · sole authorship.                       │
-└───────────────────────────────────────────────────┘
 ```
 
-- **Recorded values** — Human line · Agent line · selected Agent · runtime-reported model when available · specification · renderer context · mint anchors
+- **Recorded values** — Human line · Agent line · Agent/model records · specification · renderer · mint anchors
 - **App claim** — Configured App authority signs one exact claim.
 - **Contract validation** — ThoughtNFT validates during minting.
 - **App Attested** — Valid proof binds the mint to recorded values.
 - **Unattested** — Empty proof makes the absence explicit.
-- **Claim ceiling** — Does not prove hidden reasoning · provider identity · sole authorship.
 
 Creation provenance keeps the human line, Agent line, selected Agent, runtime-reported model when available, specification, renderer context, and mint anchors connected. A Creation Attestation signs one exact claim assembled by the configured App authority, and ThoughtNFT validates that claim during minting.
 
@@ -607,7 +525,7 @@ Save and Load are browser conveniences for unfinished or remembered works. They 
 - [read AWA — the core](https://inshell.art/docs/awa)
 - [read PATH movement consumption](https://inshell.art/docs/path#docs-path-consumption)
 - [create a THOUGHT](https://inshell.art/thought)
-- [view the THOUGHT gallery state](https://inshell.art/gallery)
+- [view minted THOUGHT works](https://inshell.art/)
 - [read Mono 76](https://inshell.art/docs/mono-76)
 - [inspect the THOUGHT specification](https://inshell.art/verify#verify-thought-spec)
 - [open provenance schema](https://inshell.art/protocol/releases/thought-provenance-v2-20260731-r1/thought.provenance.v2.schema.json)
@@ -623,29 +541,24 @@ Save and Load are browser conveniences for unfinished or remembered works. They 
 - Canonical page: https://inshell.art/docs/will
 - Documentation version: 2026-08-11
 
-### WILL: known and forming
+### Many people. Many Agents. One will.
 
 - Authority: artist-editorial
 - Figure mode: field
 
 ```text
-┌─ WILL ───────────────────────────────────────────┐
-│ SCOPE: MANY PEOPLE · MANY AGENTS                 │
-│ INQUIRY: CROWD BEHAVIOR                          │
-│                                                  │
-│ DIRECTION: HOW A CROWD FORMS WHAT CAN BE CALLED  │
-│ ONE WILL.                                        │
-│ FORM: STILL IN DEVELOPMENT.                      │
-│ BOUNDARY: ONE WILL SHOULD NOT YET BE READ AS     │
-│ CONSENSUS, UNANIMITY, VOTING, OR GOVERNANCE.     │
-└──────────────────────────────────────────────────┘
+┌─ WILL ──────────────────────────────────┐
+│ MANY PEOPLE          MANY AGENTS        │
+│                                         │
+│               ONE WILL                  │
+│ Crowd behavior · how a crowd forms what │
+│          can be called one will.        │
+└─────────────────────────────────────────┘
 ```
 
-- **Scope** — Many people · many Agents
-- **Inquiry** — Crowd behavior
-- **Direction** — How a crowd forms what can be called one will.
-- **Form** — Still in development.
-- **Boundary** — One will should not yet be read as consensus, unanimity, voting, or governance.
+- **Many people**
+- **Many Agents**
+- **One will** — Crowd behavior · how a crowd forms what can be called one will.
 
 ### Overview
 
@@ -673,11 +586,11 @@ WILL is still being created and developed. Its fuller artistic form and the part
 
 The limited account reflects the current work, not intentional concealment of a completed design.
 
-### Current documentation
+### Current study
 
 - Authority: artist-editorial, app-documentation
 
-WILL is planned for 2027. These docs expose its slogan and current visual study. There is no standalone public preview, creation, or mint surface, and the documentation is not evidence of deployment.
+WILL is planned for 2027. These docs expose its slogan and current direction as a study, not a creation or mint surface and not evidence of deployment.
 
 > The date is a plan, not deployment evidence.
 
@@ -698,28 +611,21 @@ WILL is planned for 2027. These docs expose its slogan and current visual study.
 - Canonical page: https://inshell.art/docs/awa
 - Documentation version: 2026-08-11
 
-### AWA: known and forming
+### Toward the core
 
 - Authority: artist-editorial
 - Figure mode: field
 
 ```text
-┌─ AWA ────────────────────────────────────────────┐
-│ THOUGHT           WILL                AWA        │
-│ INDIVIDUAL ──→    CROWD ──→    TOWARD THE CORE   │
-│                                                  │
-│ DIRECTION: TOWARD INSHELL'S CORE.                │
-│ AGENT ART INVARIANT: AN AGENT PARTICIPATES.      │
-│ FORM: STILL FORMING.                             │
-│ BOUNDARY: AWA DOES NOT CLAIM THE CORE IS         │
-│ REACHED, DEFINED, REVEALED, OR PROVED.           │
-└──────────────────────────────────────────────────┘
+┌─ AWA ─────────────────────────────────────┐
+│ THOUGHT        WILL        AWA            │
+│ INDIVIDUAL  →  CROWD  →  TOWARD THE CORE  │
+└───────────────────────────────────────────┘
 ```
 
-- **Direction** — Toward Inshell's core.
-- **Agent Art invariant** — An Agent participates.
-- **Form** — Still forming.
-- **Boundary** — AWA does not claim the core is reached, defined, revealed, or proved.
+- **THOUGHT** — Individual
+- **WILL** — Crowd
+- **AWA** — Toward the core
 
 ### Overview
 
@@ -806,26 +712,18 @@ Public PATH issuance runs through Pulse. The contract can also expose a bounded 
 
 - Authority: app-documentation, contract-release
 
-### Deployment quota and one PATH's progress
+### Capacity and progress
 
 - Authority: app-documentation, contract-release
 - Figure mode: ledger
 
 ```text
-SCOPE      │ STATE
-───────────┼────────────────────────────────────────────
-DEPLOYMENT │ Quota + authorized minter per movement.
-ONE PATH   │ Current stage + in-stage minted count.
-DERIVED    │ Remaining = quota - this PATH's minted count.
-ADVANCE    │ Quota reached → next movement + count reset.
-ABSENT     │ No configured quota → not available.
+DEPLOYMENT │ ONE PATH
+───────────┼──────────
+CAPACITY   │ PROGRESS
 ```
 
-- **Deployment** — Quota + authorized minter per movement.
-- **One PATH** — Current stage + in-stage minted count.
-- **Derived** — Remaining = quota - this PATH's minted count.
-- **Advance** — Quota reached → next movement + count reset.
-- **Absent** — No configured quota → not available.
+- **Capacity** — Progress
 
 PathNFT configures one quota and one authorized minter for each movement across the deployment. Every PATH uses those movement totals, while each token stores its own current stage and in-stage minted count. Remaining entitlement is derived from the deployed movement quota and that token's progress; it is not a separate stored balance.
 
@@ -839,46 +737,6 @@ The v0.5.0 canonical deployment policy configures and freezes THOUGHT 1, WILL 10
 ### Consuming one movement unit
 
 - Authority: contract-release
-
-### How one movement unit is consumed
-
-- Authority: contract-release
-- Figure mode: trace
-
-```text
-ONE SUCCESSFUL MOVEMENT MINT CONSUMES 1 UNIT
-
-01 Read
-   Read the current owner, stage, quota, minter,
-   permission epoch, and owner nonce.
-   │
-   ↓
-02 Authorize
-   The current owner signs one short-lived EIP-191
-   authorization; signing alone consumes nothing.
-   │
-   ↓
-03 Submit
-   The movement mint transaction calls the
-   configured minter, which calls PathNFT.
-   │
-   ↓
-04 Verify + consume
-   PathNFT checks the caller and current-owner
-   authorization, then confirms the movement order
-   and that quota remains.
-   │
-   ↓
-05 Commit + refresh
-   A successful movement mint commits one unit
-   and the work together; events expose progress.
-```
-
-1. **Read** — Read the current owner, stage, quota, minter, permission epoch, and owner nonce.
-2. **Authorize** — The current owner signs one short-lived EIP-191 authorization; signing alone consumes nothing.
-3. **Submit** — The movement mint transaction calls the configured minter, which calls PathNFT.
-4. **Verify + consume** — PathNFT checks the caller and current-owner authorization, then confirms the movement order and that quota remains.
-5. **Commit + refresh** — A successful movement mint commits one unit and the work together; events expose progress.
 
 Selecting a PATH or signing its permission does not consume a unit. For one movement mint, the current owner authorizes a short-lived EIP-191 message bound to the PathNFT address, chain ID, PATH ID, movement, owner, configured movement minter, current permission epoch, the owner's current consume nonce, and a deadline. ERC-721 approval is not movement authorization, and only the configured movement minter may call consumeUnit.
 
@@ -999,37 +857,19 @@ a = anchor time
 - Figure mode: trace
 
 ```text
-01 Ask
-   The current epoch exposes one live onchain price.
-   │
-   ↓
-02 Wait
-   The ask decays toward its floor while the epoch
-   remains open.
-   │
-   ↓
-03 Bid
-   A successful bid settles at the sampled ask and
-   issues the next PATH.
-   │
-   ↓
-04 Pump
-   Elapsed time becomes the initial premium for the
-   next epoch.
-   │
-   ↓
-05 Repeat
-   The sale joins the public history and a new
-   descent begins.
-   │
-   └──↺ 01 Ask · next epoch
+ASK
+ │ decay
+ ↓
+BID
+ │ pump
+ ↓
+NEXT ASK
+ └──↺ next epoch
 ```
 
-1. **Ask** — The current epoch exposes one live onchain price.
-2. **Wait** — The ask decays toward its floor while the epoch remains open.
-3. **Bid** — A successful bid settles at the sampled ask and issues the next PATH.
-4. **Pump** — Elapsed time becomes the initial premium for the next epoch.
-5. **Repeat** — The sale joins the public history and a new descent begins.
+1. **Ask** — Decay
+2. **Bid** — Pump
+3. **Next ask**
 
 Pulse has one current epoch and one next public PATH at a time. Participants are not choosing among parallel lots. The successful bid closes the visible curve, issues its PATH, and establishes the starting conditions for the following curve.
 
@@ -1056,35 +896,6 @@ The chart uses half-life units to make curves with different real-time durations
 ### A quote is not a reservation
 
 - Authority: app-documentation, contract-release
-
-### When the live ask settles
-
-- Authority: app-documentation, contract-release
-- Figure mode: trace
-
-```text
-01 Read live ask
-   Read the current ask from contract-backed state.
-   │
-   ↓
-02 Set maximum
-   Review the maximum charge before the wallet opens.
-   │
-   ↓
-03 Submit
-   Submit the bid with that maximum as its ceiling.
-   │
-   ↓
-04 Settle or revert
-   Execution reads again: ask ≤ maximum → exact ask
-   settles, surplus refunds, and PATH issues;
-   ask > maximum → transaction reverts; read again.
-```
-
-1. **Read live ask** — Read the current ask from contract-backed state.
-2. **Set maximum** — Review the maximum charge before the wallet opens.
-3. **Submit** — Submit the bid with that maximum as its ceiling.
-4. **Settle or revert** — Execution reads again: ask ≤ maximum → exact ask settles, surplus refunds, and PATH issues; ask > maximum → transaction reverts; read again.
 
 1. Read the current ask and active payment asset from the contract-backed App state.
 2. Open the local review panel and inspect the maximum charge before the wallet opens.
@@ -1158,42 +969,26 @@ ABIs, bytecode, renderer payloads, schemas, and manifests belong to pinned relea
 - Figure mode: lanes
 
 ```text
-PUBLIC ISSUANCE    [01] → [02] → [03]
-
-PulseAuction      │ [01] Settle
-                  │ Calculate the live ask and settle
-                  │ one serial epoch.
-
-PathPulseAdapter  │ [02] Issue
-                  │ Translate the valid settlement
-                  │ into PATH issuance.
-
-PathNFT           │ [03] Record PATH
-                  │ Own the issued PATH, its movement
-                  │ order, and its capacity.
-
-LATER THOUGHT MINT [04] → [05] → [06]
-
-ThoughtNFT        │ [04] Validate work
-                  │ Validate the THOUGHT work and
-                  │ request PATH permission use.
-
-PathNFT           │ [05] Consume permission
-                  │ Verify configured caller, current-owner
-                  │ authorization, active stage, and quota;
-                  │ advance one unit.
-
-ThoughtNFT        │ [06] Mint + record
-                  │ Mint and record the work; a later revert
-                  │ also reverts PATH consumption.
+PUBLIC ISSUANCE    │ PulseAuction SETTLE
+                   │ Live ask · one serial epoch
+                   │ → PathPulseAdapter ISSUE
+                   │ Valid settlement → PATH issuance
+                   │ → PathNFT RECORD PATH
+                   │ Issued PATH · order · capacity
+LATER THOUGHT MINT │ ThoughtNFT VALIDATE WORK
+                   │ THOUGHT work · PATH permission
+                   │ → PathNFT CONSUME UNIT
+                   │ Caller · owner · stage · quota
+                   │ → ThoughtNFT MINT + RECORD
+                   │ Atomic with PATH consumption
 ```
 
-1. **PulseAuction · Settle · Public issuance** — Calculate the live ask and settle one serial epoch.
-2. **PathPulseAdapter · Issue · Public issuance** — Translate the valid settlement into PATH issuance.
-3. **PathNFT · Record PATH · Public issuance** — Own the issued PATH, its movement order, and its capacity.
-4. **ThoughtNFT · Validate work · Later THOUGHT mint** — Validate the THOUGHT work and request PATH permission use.
-5. **PathNFT · Consume permission · Later THOUGHT mint** — Verify configured caller, current-owner authorization, active stage, and quota; advance one unit.
-6. **ThoughtNFT · Mint + record · Later THOUGHT mint** — Mint and record the work; a later revert also reverts PATH consumption.
+1. **PulseAuction · Settle · Public issuance** — Live ask · one serial epoch
+2. **PathPulseAdapter · Issue · Public issuance** — Valid settlement → PATH issuance
+3. **PathNFT · Record PATH · Public issuance** — Issued PATH · order · capacity
+4. **ThoughtNFT · Validate work · Later THOUGHT mint** — THOUGHT work · PATH permission
+5. **PathNFT · Consume unit · Later THOUGHT mint** — Caller · owner · stage · quota
+6. **ThoughtNFT · Mint + record · Later THOUGHT mint** — Atomic with PATH consumption
 
 The architecture separates pricing, issuance, permission, and artwork minting so each boundary can be inspected independently. Public PATH issuance and a later THOUGHT mint are separate phases. Contract calls and state handoffs connect them, but no contract owns all the others.
 
@@ -1245,43 +1040,38 @@ A release says which ABI, bytecode, renderer data, schemas, and checksums belong
 - Canonical page: https://inshell.art/docs/artwork-metadata-chain
 - Documentation version: 2026-08-11
 
-### Evidence for one token interpretation
+### Evidence becomes interpretation
 
 - Authority: app-documentation, contract-release
-- Figure mode: ledger
+- Figure mode: field
 
 ```text
-RECORD         │ EVIDENCE
-───────────────┼────────────────────────────────
-Identity       │ Network, contract address,
-               │ and token ID name one NFT.
-───────────────┼────────────────────────────────
-Contract       │ Typed state and tokenURI expose
-               │ contract-controlled facts.
-───────────────┼────────────────────────────────
-Release        │ Pinned artifacts explain the ABI,
-               │ renderer, schemas, and commitments.
-───────────────┼────────────────────────────────
-Context        │ Detail pages and provenance
-               │ add declared evidence without
-               │ replacing the token.
-───────────────┼────────────────────────────────
-Interpretation │ Read the evidence levels
-               │ together before making a larger
-               │ claim.
+EVIDENCE
+├─ IDENTITY
+│  Network + contract + token
+├─ CONTRACT
+│  State + tokenURI
+├─ RELEASE
+│  ABI + renderer + schemas
+└─ CONTEXT
+   Provenance + reading surface
+      │
+      ↓
+INTERPRETATION
+Read together
 ```
 
-- **Identity** — Network, contract address, and token ID name one NFT.
-- **Contract** — Typed state and tokenURI expose contract-controlled facts.
-- **Release** — Pinned artifacts explain the ABI, renderer, schemas, and commitments.
-- **Context** — Detail pages and provenance add declared evidence without replacing the token.
-- **Interpretation** — Read the evidence levels together before making a larger claim.
+- **Identity** — Network + contract + token
+- **Contract** — State + tokenURI
+- **Release** — ABI + renderer + schemas
+- **Context** — Provenance + reading surface
+- **Interpretation** — Read together
 
 ### Overview
 
 - Authority: artist-editorial, app-documentation, contract-release
 
-The canonical gallery route reports the current THOUGHT deployment state; the imported R2 release is not deployed and therefore lists no R2 works. The PATH surface continues to list PATH tokens from its configured chain. The full identity of an NFT is its network, contract address, and token ID; the same token number elsewhere is a different record.
+Home lists minted THOUGHT works from the active chain. The PATH surface lists PATH tokens from that same chain. The full identity of an NFT is its network, contract address, and token ID; the same token number elsewhere is a different record.
 
 THOUGHT and PATH artwork and NFT metadata come from each contract's tokenURI and pinned renderer. The App decodes and displays those canonical bytes; it must not rebuild replacement art or silently substitute a newer renderer.
 
@@ -1333,7 +1123,7 @@ Portable metadata deliberately does not carry every creation detail. Inshell det
 
 ### Links
 
-- [view the THOUGHT gallery state](https://inshell.art/gallery)
+- [view minted THOUGHT works](https://inshell.art/)
 - [view all $PATH](https://inshell.art/path)
 
 ## Mono 76
@@ -1352,36 +1142,19 @@ Portable metadata deliberately does not carry every creation detail. Inshell det
 - Figure mode: trace
 
 ```text
-01 Explore
-   Compare distinct native-path systems as a visual
-   field.
-   │
-   ↓
-02 Refine
-   Tune one complete repertoire for rhythm, clarity,
-   and identity.
-   │
-   ↓
-03 Seal
-   Freeze the paths, metrics, order, package, and
-   integrity hashes.
-   │
-   ↓
-04 Pin
-   Bind a renderer release to the exact Mono 76
-   artifact it consumes.
-   │
-   ↓
-05 Render
-   Generate native SVG without browser font lookup
-   or substitution.
+GLYPH STUDY
+Explore · refine
+      ↓
+SEALED MONO 76
+Paths + metrics frozen
+      ↓
+CANONICAL ARTWORK
+Native SVG
 ```
 
-1. **Explore** — Compare distinct native-path systems as a visual field.
-2. **Refine** — Tune one complete repertoire for rhythm, clarity, and identity.
-3. **Seal** — Freeze the paths, metrics, order, package, and integrity hashes.
-4. **Pin** — Bind a renderer release to the exact Mono 76 artifact it consumes.
-5. **Render** — Generate native SVG without browser font lookup or substitution.
+1. **Glyph study** — Explore · refine
+2. **Sealed Mono 76** — Paths + metrics frozen
+3. **Canonical artwork** — Native SVG
 
 ### Overview
 
@@ -1467,7 +1240,7 @@ Contract-verified means the contract accepted the defined proof and bound record
 
 A valid Creation Attestation verifies one THOUGHT creation record under the rules of its contract release. It does not certify that a work is Agent Art or define the wider field.
 
-The Verify page distinguishes the active PATH deployment, the qualified but undeployed THOUGHT R2 release, and historical THOUGHT Sepolia contracts. Explorer links for historical addresses do not make those contracts the current R2 deployment.
+The Verify page gathers official origins, wallet boundaries, active networks, deployed contracts, release locks, and the active THOUGHT specification. In-place explorer links remain useful for inspecting addresses and transactions on the active public chain.
 
 ### Four terms that should not blur
 
@@ -1492,29 +1265,6 @@ A valid proof can establish that certain bytes, hashes, addresses, or signatures
 
 - Authority: app-documentation
 
-### Evidence levels and their bounded sources
-
-- Authority: app-documentation
-- Figure mode: ledger
-
-```text
-EVIDENCE          │ BOUNDED SOURCE
-──────────────────┼─────────────────────────────────────
-CONTRACT-VERIFIED │ Deployed rule accepted defined values.
-CONTRACT-RELEASE  │ Pinned expected artifacts.
-CHAIN-OBSERVED    │ Named network + observation point.
-APP-RECORDED      │ App assembled or signed the record.
-RUNTIME-REPORTED  │ Agent runtime or connector supplied it.
-ARTIST-EDITORIAL  │ Meaning, practice, or interpretation.
-```
-
-- **Contract-verified** — Deployed rule accepted defined values.
-- **Contract-release** — Pinned expected artifacts.
-- **Chain-observed** — Named network + observation point.
-- **App-recorded** — App assembled or signed the record.
-- **Runtime-reported** — Agent runtime or connector supplied it.
-- **Artist-editorial** — Meaning, practice, or interpretation.
-
 - Contract-verified: deployed code accepted the defined values or proof.
 - Contract-release: a pinned artifact set defines expected code, schemas, or renderer material.
 - Chain-observed: a public read describes state on one named network at an observation point.
@@ -1525,43 +1275,6 @@ ARTIST-EDITORIAL  │ Meaning, practice, or interpretation.
 ### Work verification checklist
 
 - Authority: app-documentation, contract-release
-
-### A chain-first verification pass
-
-- Authority: app-documentation, contract-release
-- Figure mode: trace
-
-```text
-01 Locate
-   Record the network, contract address, token ID,
-   and transaction.
-   │
-   ↓
-02 Read
-   Query typed contract state and tokenURI from the
-   identified deployment.
-   │
-   ↓
-03 Pin
-   Match the deployment to its release, ABI,
-   renderer, schemas, and checksums.
-   │
-   ↓
-04 Recompute
-   Validate published hashes, work commitments, and
-   specification rules.
-   │
-   ↓
-05 Qualify
-   State exactly what each proof establishes and
-   what remains reported or editorial.
-```
-
-1. **Locate** — Record the network, contract address, token ID, and transaction.
-2. **Read** — Query typed contract state and tokenURI from the identified deployment.
-3. **Pin** — Match the deployment to its release, ABI, renderer, schemas, and checksums.
-4. **Recompute** — Validate published hashes, work commitments, and specification rules.
-5. **Qualify** — State exactly what each proof establishes and what remains reported or editorial.
 
 1. Identify the network without inferring it from the website origin.
 2. Confirm the deployed contract address and token ID.
@@ -1587,41 +1300,23 @@ ARTIST-EDITORIAL  │ Meaning, practice, or interpretation.
 - Canonical page: https://inshell.art/docs/wallet-local-data
 - Documentation version: 2026-08-11
 
-### Trust boundaries for wallet and local actions
+### Two distinctions
 
 - Authority: app-documentation
-- Figure mode: ledger
+- Figure mode: field
 
 ```text
-ACTION      │ BOUNDARY / EFFECT
-────────────┼────────────────────────────────────
-Read        │ App / public state. No signature or
-            │ transaction.
-────────────┼────────────────────────────────────
-Connect     │ Wallet → App. Exposes the selected
-            │ account and network; no chain change.
-────────────┼────────────────────────────────────
-Sign        │ Wallet message. Narrow authorization;
-            │ no gas and no chain change by itself.
-────────────┼────────────────────────────────────
-Transact    │ Wallet → contract. Wallet confirms;
-            │ may transfer value or change
-            │ chain state.
-────────────┼────────────────────────────────────
-Save / Load │ Current browser. Local only; not
-            │ onchain or cross-device.
-────────────┼────────────────────────────────────
-Agent run   │ App backend. Temporary run-window
-            │ state; not onchain unless a later
-            │ public record preserves part.
+┌─ WALLET AND LOCAL DATA ─────────────────────┐
+│ READ ≠ SIGN ≠ TRANSACT                      │
+│ Public state · authorization · chain change │
+│                                             │
+│ LOCAL ≠ ONCHAIN                             │
+│ Browser record · public record              │
+└─────────────────────────────────────────────┘
 ```
 
-- **Read** — App / public state. No signature or transaction.
-- **Connect** — Wallet → App. Exposes the selected account and network; no chain change.
-- **Sign** — Wallet message. Narrow authorization; no gas and no chain change by itself.
-- **Transact** — Wallet → contract. Wallet confirms; may transfer value or change chain state.
-- **Save / Load** — Current browser. Local only; not onchain or cross-device.
-- **Agent run** — App backend. Temporary run-window state; not onchain unless a later public record preserves part.
+- **Read ≠ Sign ≠ Transact** — Public state · authorization · chain change
+- **Local ≠ Onchain** — Browser record · public record
 
 ### Overview
 
@@ -1678,31 +1373,28 @@ Local Anvil, Sepolia, and Ethereum have different chain IDs, deployments, balanc
 - Canonical page: https://inshell.art/docs/source-release-boundaries
 - Documentation version: 2026-08-11
 
-### Records that identify live behavior
+### Four distinct records
 
 - Authority: app-documentation, contract-release
-- Figure mode: ledger
+- Figure mode: field
 
 ```text
-RECORD      │ BOUNDARY
-────────────┼────────────────────────────────────
-Source      │ A repository shows authored code and
-            │ ongoing development.
-────────────┼────────────────────────────────────
-Release     │ A pinned artifact set freezes code,
-            │ schemas, renderers, and checksums.
-────────────┼────────────────────────────────────
-Deployment  │ A network record binds a release to
-            │ addresses and deployment blocks.
-────────────┼────────────────────────────────────
-Observation │ A live read reports what that
-            │ deployment exposes at a point in time.
+┌─ FOUR DISTINCT RECORDS ─────────────────────┐
+│ SOURCE                                      │
+│ Authored code                               │
+│   ≠ RELEASE                                 │
+│     Pinned artifacts                        │
+│       ≠ DEPLOYMENT                          │
+│         Addresses + blocks                  │
+│           ≠ OBSERVATION                     │
+│             Point-in-time read              │
+└─────────────────────────────────────────────┘
 ```
 
-- **Source** — A repository shows authored code and ongoing development.
-- **Release** — A pinned artifact set freezes code, schemas, renderers, and checksums.
-- **Deployment** — A network record binds a release to addresses and deployment blocks.
-- **Observation** — A live read reports what that deployment exposes at a point in time.
+- **Source** — Authored code
+- **Release** — Pinned artifacts
+- **Deployment** — Addresses + blocks
+- **Observation** — Point-in-time read
 
 ### Overview
 
@@ -1823,37 +1515,32 @@ Within THOUGHT, more options would not automatically create more expressive work
 - Figure mode: lanes
 
 ```text
-TIME    │ [01] → [02] → [03] → [04]
-
-THOUGHT │ [01] Agent return
-        │ Candidate produced.
-        │ [02] Human review
-        │ Decision to preserve.
-        │ [03] Successful mint
-        │ Contract action succeeds; before success,
-        │ no preserved public record.
-        │ [04] Public corpus
-        │ Preserved THOUGHT record.
-
-PULSE   │ [01] Visible ask
-        │ Quote is visible.
-        │ [02] Confirmed bid
-        │ Participant authorizes.
-        │ [03] Settlement
-        │ Contract action succeeds; before success,
-        │ no preserved public record.
-        │ [04] Sale record
-        │ Preserved Pulse record.
+THOUGHT │ AGENT RETURN
+        │ Candidate produced
+        │ → HUMAN REVIEW
+        │ Decision to preserve
+        │ → SUCCESSFUL MINT
+        │ Contract action succeeds
+        │ → PUBLIC CORPUS
+        │ Preserved THOUGHT
+PULSE   │ VISIBLE ASK
+        │ Quote exposed
+        │ → CONFIRMED BID
+        │ Participant authorizes
+        │ → SETTLEMENT
+        │ Contract action succeeds
+        │ → SALE RECORD
+        │ Preserved Pulse
 ```
 
-1. **THOUGHT · Agent return** — Candidate produced.
-2. **THOUGHT · Human review** — Decision to preserve.
-3. **THOUGHT · Successful mint** — Contract action succeeds; before success, no preserved public record.
-4. **THOUGHT · Public corpus** — Preserved THOUGHT record.
-1. **PULSE · Visible ask** — Quote is visible.
-2. **PULSE · Confirmed bid** — Participant authorizes.
-3. **PULSE · Settlement** — Contract action succeeds; before success, no preserved public record.
-4. **PULSE · Sale record** — Preserved Pulse record.
+1. **THOUGHT · Agent return** — Candidate produced
+2. **THOUGHT · Human review** — Decision to preserve
+3. **THOUGHT · Successful mint** — Contract action succeeds
+4. **THOUGHT · Public corpus** — Preserved THOUGHT
+1. **PULSE · Visible ask** — Quote exposed
+2. **PULSE · Confirmed bid** — Participant authorizes
+3. **PULSE · Settlement** — Contract action succeeds
+4. **PULSE · Sale record** — Preserved Pulse
 
 A system can produce a candidate without declaring it part of the public corpus. In Inshell's current onchain practices, THOUGHT separates Agent return from human review and successful mint, while Pulse separates a visible ask from a participant's confirmed bid. Their contract actions are specific preservation boundaries, not a universal rule for Agent Art.
 
@@ -1873,22 +1560,17 @@ Pulse shows the curve, floor, premium, sale points, and current ask. PATH shows 
 - Figure mode: field
 
 ```text
-┌─ IDENTIFIED ONCHAIN WORK ─────────────────────────┐
-│ ORIGIN: NETWORK + CONTRACT + TOKEN ID + TOKENURI  │
-│ + RELEASE                                         │
-└──────────────────────┬────────────────────────────┘
-                       ↓
-READING SURFACES: SITE · WALLET · MARKETPLACE · API ·
-                  MARKDOWN · AGENT ANSWER
-
-RELATION: SURFACES ADD ACCESS AND CONTEXT.
-BOUNDARY: THEY DO NOT REPLACE THE RECORD'S ORIGIN.
+┌─ IDENTIFIED ONCHAIN WORK ───────────────┐
+│ Network + contract + token ID +         │
+│ tokenURI + release                      │
+└───────────────────┬─────────────────────┘
+                    ↓
+          MANY READING SURFACES
+Site · wallet · marketplace · API · Markdown · Agent answer
 ```
 
-- **Origin** — Network + contract + token ID + tokenURI + release
-- **Reading surfaces** — Site · wallet · marketplace · API · Markdown · Agent answer
-- **Relation** — Surfaces add access and context.
-- **Boundary** — They do not replace the record's origin.
+- **Identified onchain work** — Network + contract + token ID + tokenURI + release
+- **Many reading surfaces** — Site · wallet · marketplace · API · Markdown · Agent answer
 
 An onchain Inshell work can appear on the site, in a wallet, on a marketplace, through an API, in Markdown, or inside an Agent's answer. Those surfaces can add access and context. They should still point back to the network, contract, tokenURI, pinned release, and declared record authority that make that work identifiable.
 

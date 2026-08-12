@@ -8,31 +8,28 @@
 - Canonical page: https://inshell.art/docs/source-release-boundaries
 - Documentation version: 2026-08-11
 
-## Records that identify live behavior
+## Four distinct records
 
 - Authority: app-documentation, contract-release
-- Figure mode: ledger
+- Figure mode: field
 
 ```text
-RECORD      │ BOUNDARY
-────────────┼────────────────────────────────────
-Source      │ A repository shows authored code and
-            │ ongoing development.
-────────────┼────────────────────────────────────
-Release     │ A pinned artifact set freezes code,
-            │ schemas, renderers, and checksums.
-────────────┼────────────────────────────────────
-Deployment  │ A network record binds a release to
-            │ addresses and deployment blocks.
-────────────┼────────────────────────────────────
-Observation │ A live read reports what that
-            │ deployment exposes at a point in time.
+┌─ FOUR DISTINCT RECORDS ─────────────────────┐
+│ SOURCE                                      │
+│ Authored code                               │
+│   ≠ RELEASE                                 │
+│     Pinned artifacts                        │
+│       ≠ DEPLOYMENT                          │
+│         Addresses + blocks                  │
+│           ≠ OBSERVATION                     │
+│             Point-in-time read              │
+└─────────────────────────────────────────────┘
 ```
 
-- **Source** — A repository shows authored code and ongoing development.
-- **Release** — A pinned artifact set freezes code, schemas, renderers, and checksums.
-- **Deployment** — A network record binds a release to addresses and deployment blocks.
-- **Observation** — A live read reports what that deployment exposes at a point in time.
+- **Source** — Authored code
+- **Release** — Pinned artifacts
+- **Deployment** — Addresses + blocks
+- **Observation** — Point-in-time read
 
 ## Overview
 

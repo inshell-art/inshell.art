@@ -39,23 +39,15 @@
       ],
       "label": "The inward direction",
       "mode": "field",
-      "figureText": "┌─ SHELL ───────────────────────────────────────────┐\n│ REAL AND OFTEN NECESSARY.                         │\n│ SURFACE: VISIBLE · OPERABLE · LEGIBLE.            │\n│ BOUNDARY: NOT THE WHOLE BEING.                    │\n└──────────────────────┬────────────────────────────┘\n                       │ IN\n                       ↓\n             INSPECT WHAT FORMS THE SELF.",
+      "figureText": "┌─ SHELL ─────────────────────────────────┐\n│ Real and often necessary · Surface:     │\n│ visible · operable · legible.           │\n└───────────────────┬─────────────────────┘\n                    │ IN\n                    ↓\n          Inspect what forms the\n                   SELF",
       "items": [
         {
           "title": "Shell",
-          "detail": "Real and often necessary."
-        },
-        {
-          "title": "Surface",
-          "detail": "Visible · operable · legible."
-        },
-        {
-          "title": "Boundary",
-          "detail": "Not the whole being."
+          "detail": "Real and often necessary · Surface: visible · operable · legible."
         },
         {
           "title": "In",
-          "detail": "Inspect what forms the self."
+          "detail": "Inspect what forms the self"
         }
       ]
     },
@@ -101,23 +93,15 @@
           ],
           "label": "How practice relates to truth",
           "mode": "field",
-          "figureText": "┌─ TRUTH AND PRACTICE ────────────────────────────┐\n│ TRUTH: INSPECT SELF                             │\n│                    ↑                            │\n│ RELATION: APPROACHES WITHOUT CLAIMING           │\n│ POSSESSION                                      │\n│                    ↑                            │\n│ PRACTICE: EXAMINE · INSPECT · SUSPECT · READ ·  │\n│ LISTEN · FEEL                                   │\n│ BOUNDARY: DOES NOT PROVE OR GUARANTEE FREEDOM   │\n└─────────────────────────────────────────────────┘",
+          "figureText": "┌─ TRUTH AND PRACTICE ───────────────────┐\n│                 TRUTH                  │\n│              Inspect self              │\n│                   ↑                    │\n│ Approaches without claiming possession │\n│                PRACTICE                │\n│ Examine · inspect · suspect · read ·   │\n│              listen · feel             │\n└────────────────────────────────────────┘",
           "items": [
             {
               "title": "Truth",
               "detail": "Inspect self"
             },
             {
-              "title": "Relation",
-              "detail": "Approaches without claiming possession"
-            },
-            {
               "title": "Practice",
               "detail": "Examine · inspect · suspect · read · listen · feel"
-            },
-            {
-              "title": "Boundary",
-              "detail": "Does not prove or guarantee freedom"
             }
           ]
         }
@@ -130,7 +114,7 @@
         "id": "docs-inshell-surface",
         "title": "The public surface",
         "points": [
-          "Home exposes the canonical THOUGHT gallery state. The current imported R2 release is not persistently deployed, so no R2 minted works are listed.",
+          "Home presents minted THOUGHT works from the active public chain.",
           "THOUGHT is the active creation surface for one human intention and one Agent response.",
           "PATH shows the permission records that carry movements forward.",
           "Pulse exposes the live issuance mechanism and its history.",

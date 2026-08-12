@@ -19,9 +19,8 @@
 │ An Agent participates in the art activity.       │
 │                                                  │
 ├─ OPEN QUESTIONS ─────────────────────────────────┤
-│ What is Art?                 Open question.      │
-│ What is an Agent?            Open question.      │
-│                                                  │
+│ What is Art?                 What is an Agent?   │
+│ Open question.                 Open question.    │
 └──────────────────────────────────────────────────┘
 ```
 

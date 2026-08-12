@@ -38,33 +38,17 @@
       "authorities": [
         "app-documentation"
       ],
-      "label": "Trust boundaries for wallet and local actions",
-      "mode": "ledger",
-      "figureText": "ACTION      │ BOUNDARY / EFFECT\n────────────┼────────────────────────────────────\nRead        │ App / public state. No signature or\n            │ transaction.\n────────────┼────────────────────────────────────\nConnect     │ Wallet → App. Exposes the selected\n            │ account and network; no chain change.\n────────────┼────────────────────────────────────\nSign        │ Wallet message. Narrow authorization;\n            │ no gas and no chain change by itself.\n────────────┼────────────────────────────────────\nTransact    │ Wallet → contract. Wallet confirms;\n            │ may transfer value or change\n            │ chain state.\n────────────┼────────────────────────────────────\nSave / Load │ Current browser. Local only; not\n            │ onchain or cross-device.\n────────────┼────────────────────────────────────\nAgent run   │ App backend. Temporary run-window\n            │ state; not onchain unless a later\n            │ public record preserves part.",
+      "label": "Two distinctions",
+      "mode": "field",
+      "figureText": "┌─ WALLET AND LOCAL DATA ─────────────────────┐\n│ READ ≠ SIGN ≠ TRANSACT                      │\n│ Public state · authorization · chain change │\n│                                             │\n│ LOCAL ≠ ONCHAIN                             │\n│ Browser record · public record              │\n└─────────────────────────────────────────────┘",
       "items": [
         {
-          "title": "Read",
-          "detail": "App / public state. No signature or transaction."
+          "title": "Read ≠ Sign ≠ Transact",
+          "detail": "Public state · authorization · chain change"
         },
         {
-          "title": "Connect",
-          "detail": "Wallet → App. Exposes the selected account and network; no chain change."
-        },
-        {
-          "title": "Sign",
-          "detail": "Wallet message. Narrow authorization; no gas and no chain change by itself."
-        },
-        {
-          "title": "Transact",
-          "detail": "Wallet → contract. Wallet confirms; may transfer value or change chain state."
-        },
-        {
-          "title": "Save / Load",
-          "detail": "Current browser. Local only; not onchain or cross-device."
-        },
-        {
-          "title": "Agent run",
-          "detail": "App backend. Temporary run-window state; not onchain unless a later public record preserves part."
+          "title": "Local ≠ Onchain",
+          "detail": "Browser record · public record"
         }
       ]
     },

@@ -8,28 +8,21 @@
 - Canonical page: https://inshell.art/docs/awa
 - Documentation version: 2026-08-11
 
-## AWA: known and forming
+## Toward the core
 
 - Authority: artist-editorial
 - Figure mode: field
 
 ```text
-┌─ AWA ────────────────────────────────────────────┐
-│ THOUGHT           WILL                AWA        │
-│ INDIVIDUAL ──→    CROWD ──→    TOWARD THE CORE   │
-│                                                  │
-│ DIRECTION: TOWARD INSHELL'S CORE.                │
-│ AGENT ART INVARIANT: AN AGENT PARTICIPATES.      │
-│ FORM: STILL FORMING.                             │
-│ BOUNDARY: AWA DOES NOT CLAIM THE CORE IS         │
-│ REACHED, DEFINED, REVEALED, OR PROVED.           │
-└──────────────────────────────────────────────────┘
+┌─ AWA ─────────────────────────────────────┐
+│ THOUGHT        WILL        AWA            │
+│ INDIVIDUAL  →  CROWD  →  TOWARD THE CORE  │
+└───────────────────────────────────────────┘
 ```
 
-- **Direction** — Toward Inshell's core.
-- **Agent Art invariant** — An Agent participates.
-- **Form** — Still forming.
-- **Boundary** — AWA does not claim the core is reached, defined, revealed, or proved.
+- **THOUGHT** — Individual
+- **WILL** — Crowd
+- **AWA** — Toward the core
 
 ## Overview
 

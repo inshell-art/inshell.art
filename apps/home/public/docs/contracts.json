@@ -62,49 +62,49 @@
           ],
           "label": "Contract handoffs across issuance and minting",
           "mode": "lanes",
-          "figureText": "PUBLIC ISSUANCE    [01] → [02] → [03]\n\nPulseAuction      │ [01] Settle\n                  │ Calculate the live ask and settle\n                  │ one serial epoch.\n\nPathPulseAdapter  │ [02] Issue\n                  │ Translate the valid settlement\n                  │ into PATH issuance.\n\nPathNFT           │ [03] Record PATH\n                  │ Own the issued PATH, its movement\n                  │ order, and its capacity.\n\nLATER THOUGHT MINT [04] → [05] → [06]\n\nThoughtNFT        │ [04] Validate work\n                  │ Validate the THOUGHT work and\n                  │ request PATH permission use.\n\nPathNFT           │ [05] Consume permission\n                  │ Verify configured caller, current-owner\n                  │ authorization, active stage, and quota;\n                  │ advance one unit.\n\nThoughtNFT        │ [06] Mint + record\n                  │ Mint and record the work; a later revert\n                  │ also reverts PATH consumption.",
+          "figureText": "PUBLIC ISSUANCE    │ PulseAuction SETTLE\n                   │ Live ask · one serial epoch\n                   │ → PathPulseAdapter ISSUE\n                   │ Valid settlement → PATH issuance\n                   │ → PathNFT RECORD PATH\n                   │ Issued PATH · order · capacity\nLATER THOUGHT MINT │ ThoughtNFT VALIDATE WORK\n                   │ THOUGHT work · PATH permission\n                   │ → PathNFT CONSUME UNIT\n                   │ Caller · owner · stage · quota\n                   │ → ThoughtNFT MINT + RECORD\n                   │ Atomic with PATH consumption",
           "items": [
             {
               "stage": 1,
               "lane": "PulseAuction",
               "phase": "Public issuance",
               "title": "Settle",
-              "detail": "Calculate the live ask and settle one serial epoch."
+              "detail": "Live ask · one serial epoch"
             },
             {
               "stage": 2,
               "lane": "PathPulseAdapter",
               "phase": "Public issuance",
               "title": "Issue",
-              "detail": "Translate the valid settlement into PATH issuance."
+              "detail": "Valid settlement → PATH issuance"
             },
             {
               "stage": 3,
               "lane": "PathNFT",
               "phase": "Public issuance",
               "title": "Record PATH",
-              "detail": "Own the issued PATH, its movement order, and its capacity."
+              "detail": "Issued PATH · order · capacity"
             },
             {
               "stage": 4,
               "lane": "ThoughtNFT",
               "phase": "Later THOUGHT mint",
               "title": "Validate work",
-              "detail": "Validate the THOUGHT work and request PATH permission use."
+              "detail": "THOUGHT work · PATH permission"
             },
             {
               "stage": 5,
               "lane": "PathNFT",
               "phase": "Later THOUGHT mint",
-              "title": "Consume permission",
-              "detail": "Verify configured caller, current-owner authorization, active stage, and quota; advance one unit."
+              "title": "Consume unit",
+              "detail": "Caller · owner · stage · quota"
             },
             {
               "stage": 6,
               "lane": "ThoughtNFT",
               "phase": "Later THOUGHT mint",
               "title": "Mint + record",
-              "detail": "Mint and record the work; a later revert also reverts PATH consumption."
+              "detail": "Atomic with PATH consumption"
             }
           ]
         }

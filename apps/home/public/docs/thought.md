@@ -18,8 +18,6 @@ Within the wider field of Agent Art, THOUGHT chooses a narrow terminal practice:
 
 The creation flow is: human prompt → Agent response → validation and canonical record assembly → human selection → wallet confirmation → PATH movement consumption → THOUGHT minted. The model proposes. The human decides. The wallet confirms. The contract records.
 
-The imported R2 release is production-consumable as a verified immutable artifact, but deployment and registration remain unauthorized. No persistent-chain R2 deployment is committed, and V2 minting remains disabled. The mint steps describe the bounded flow after a separately authorized deployment; they are not evidence that minting is live now.
-
 Prompt and Agent response are each 1–64 bytes of Terminal English. Allowed characters are space, A–Z, a–z, 0–9, and . , ? ! : ; ' " - ( ) / &. Leading spaces, trailing spaces, and repeated internal spaces are rejected. Validation never trims, normalizes, repairs, translates, or rewrites accepted bytes.
 
 The human reviews the returned response and preview, then decides whether to preserve, discard, or mint the work. To mint, the human picks an available PATH, signs a one-mint permission bound to the current PATH state and ThoughtNFT executor, and confirms the transaction. The signature is not a transaction and uses no gas.
@@ -40,27 +38,21 @@ Save and Load keep works in the current browser only. They are not onchain and d
 
 - Authority: artist-editorial, app-documentation, contract-release
 
-### The ordered-pair boundary
+### One prompt, one response
 
 - Authority: app-documentation, contract-release
 - Figure mode: field
 
 ```text
-┌─ ORDERED-PAIR BOUNDARY ──────────────────────────┐
-│ HUMAN PROMPT P + AGENT RESPONSE R → (P, R)       │
-│                                                  │
-│ DIFFERENT RESPONSE: (P, R′) = DIFFERENT WORK     │
-│ DIFFERENT PROMPT: (P′, R) = DIFFERENT WORK       │
-│                                                  │
-│ PRESERVATION: CANDIDATE → SUCCESSFUL MINT →      │
-│ ONCHAIN THOUGHT                                  │
-└──────────────────────────────────────────────────┘
+HUMAN PROMPT P + AGENT RESPONSE R
+                 ↓
+          ONE THOUGHT (P, R)
+Different counterpart = different work · onchain only after successful mint.
 ```
 
-- **Ordered-pair boundary** — Human prompt P + Agent response R → (P, R)
-- **Different response** — (P, R′) = different work
-- **Different prompt** — (P′, R) = different work
-- **Preservation** — Candidate → successful mint → onchain THOUGHT
+- **Human prompt P**
+- **Agent response R**
+- **One THOUGHT (P, R)** — Different counterpart = different work · onchain only after successful mint.
 
 A THOUGHT is the ordered pair of one exact human prompt and one exact Agent response. Order matters, and the pair is the uniqueness boundary. The same prompt can appear with another response; the same response can appear with another prompt.
 
@@ -95,44 +87,19 @@ The human can preserve a candidate locally, discard it, or move toward minting. 
 
 - Authority: app-documentation, app-record, contract-release, runtime-report
 
-### From intention to minted THOUGHT
+### The creative handoff
 
-- Authority: app-documentation, app-record, contract-release, runtime-report
-- Figure mode: lanes
+- Authority: app-documentation
+- Figure mode: trace
 
 ```text
-TIME       │ [01] → [02] → [03] → [04] → [05] → [06]
-
-HUMAN      │ [01] Prompt
-           │ Enter one exact Terminal English line.
-           │ ···
-           │ [04] Review + choose
-           │ Read the candidate and decide whether
-           │ to preserve it; select a PATH.
-
-AGENT      │ [02] Response
-           │ Return one exact line; no repair
-           │ dialogue.
-
-APP        │ [03] Validate + assemble
-           │ Check exact bytes; assemble the preview
-           │ and creation record.
-
-WALLET     │ [05] Authorize + submit
-           │ Sign the narrow permission, then confirm
-           │ the mint transaction.
-
-CONTRACTS  │ [06] Validate + record
-           │ Enforce rules, consume one PATH unit,
-           │ mint, and expose the record.
+HUMAN                AGENT                 HUMAN
+One exact prompt  →  One exact response  →  Review + choose
 ```
 
-1. **Human · Prompt** — Enter one exact Terminal English line.
-2. **Agent · Response** — Return one exact line; no repair dialogue.
-3. **App · Validate + assemble** — Check exact bytes; assemble the preview and creation record.
-4. **Human · Review + choose** — Read the candidate and decide whether to preserve it; select a PATH.
-5. **Wallet · Authorize + submit** — Sign the narrow permission, then confirm the mint transaction.
-6. **Contracts · Validate + record** — Enforce rules, consume one PATH unit, mint, and expose the record.
+1. **Human** — One exact prompt
+2. **Agent** — One exact response
+3. **Human** — Review + choose
 
 The prompt on the Docs page is a read-only invitation to learn about Inshell. A THOUGHT handoff is different: it is a short-lived instruction packet for one work. It looks technical because it carries the exact run endpoint, release bindings, validation steps, and return path that keep one prompt connected to one Agent result.
 
@@ -164,16 +131,15 @@ The NFT tokenURI supplies the canonical image and portable metadata. A screensho
 
 - Authority: app-record, contract-release, runtime-report
 
-### Creation Attestation bindings
+### Creation Attestation
 
-- Authority: app-record, contract-release, runtime-report
+- Authority: app-record, contract-release
 - Figure mode: field
 
 ```text
 RECORDED VALUES
-Human line · Agent line · selected Agent · runtime-reported
-model when available · specification · renderer context ·
-mint anchors
+Human line · Agent line · Agent/model records ·
+specification · renderer · mint anchors
    │
    ↓
 APP CLAIM
@@ -186,19 +152,13 @@ ThoughtNFT validates during minting.
    │  Valid proof binds the mint to recorded values.
    └─ EMPTY PROOF → UNATTESTED
       Empty proof makes the absence explicit.
-
-┌─ CLAIM CEILING ───────────────────────────────────┐
-│ Does not prove hidden reasoning · provider        │
-│ identity · sole authorship.                       │
-└───────────────────────────────────────────────────┘
 ```
 
-- **Recorded values** — Human line · Agent line · selected Agent · runtime-reported model when available · specification · renderer context · mint anchors
+- **Recorded values** — Human line · Agent line · Agent/model records · specification · renderer · mint anchors
 - **App claim** — Configured App authority signs one exact claim.
 - **Contract validation** — ThoughtNFT validates during minting.
 - **App Attested** — Valid proof binds the mint to recorded values.
 - **Unattested** — Empty proof makes the absence explicit.
-- **Claim ceiling** — Does not prove hidden reasoning · provider identity · sole authorship.
 
 Creation provenance keeps the human line, Agent line, selected Agent, runtime-reported model when available, specification, renderer context, and mint anchors connected. A Creation Attestation signs one exact claim assembled by the configured App authority, and ThoughtNFT validates that claim during minting.
 
@@ -223,7 +183,7 @@ Save and Load are browser conveniences for unfinished or remembered works. They 
 - [read AWA — the core](https://inshell.art/docs/awa)
 - [read PATH movement consumption](https://inshell.art/docs/path#docs-path-consumption)
 - [create a THOUGHT](https://inshell.art/thought)
-- [view the THOUGHT gallery state](https://inshell.art/gallery)
+- [view minted THOUGHT works](https://inshell.art/)
 - [read Mono 76](https://inshell.art/docs/mono-76)
 - [inspect the THOUGHT specification](https://inshell.art/verify#verify-thought-spec)
 - [open provenance schema](https://inshell.art/protocol/releases/thought-provenance-v2-20260731-r1/thought.provenance.v2.schema.json)

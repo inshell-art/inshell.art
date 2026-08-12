@@ -31,7 +31,7 @@
         "contract-release"
       ],
       "paragraphs": [
-        "The canonical gallery route reports the current THOUGHT deployment state; the imported R2 release is not deployed and therefore lists no R2 works. The PATH surface continues to list PATH tokens from its configured chain. The full identity of an NFT is its network, contract address, and token ID; the same token number elsewhere is a different record.",
+        "Home lists minted THOUGHT works from the active chain. The PATH surface lists PATH tokens from that same chain. The full identity of an NFT is its network, contract address, and token ID; the same token number elsewhere is a different record.",
         "THOUGHT and PATH artwork and NFT metadata come from each contract's tokenURI and pinned renderer. The App decodes and displays those canonical bytes; it must not rebuild replacement art or silently substitute a newer renderer.",
         "Token metadata carries the canonical image, description, stable marketplace traits, and—when the release defines it—an external_url to the canonical detail page. A generic marketplace can read that portable layer without understanding Inshell's richer records.",
         "Inshell detail pages add context: THOUGHT exposes its work, evidence levels, and creation provenance; PATH exposes movement state, capacity, linked movement tokens, issuance, and onchain record.",
@@ -45,29 +45,29 @@
         "app-documentation",
         "contract-release"
       ],
-      "label": "Evidence for one token interpretation",
-      "mode": "ledger",
-      "figureText": "RECORD         │ EVIDENCE\n───────────────┼────────────────────────────────\nIdentity       │ Network, contract address,\n               │ and token ID name one NFT.\n───────────────┼────────────────────────────────\nContract       │ Typed state and tokenURI expose\n               │ contract-controlled facts.\n───────────────┼────────────────────────────────\nRelease        │ Pinned artifacts explain the ABI,\n               │ renderer, schemas, and commitments.\n───────────────┼────────────────────────────────\nContext        │ Detail pages and provenance\n               │ add declared evidence without\n               │ replacing the token.\n───────────────┼────────────────────────────────\nInterpretation │ Read the evidence levels\n               │ together before making a larger\n               │ claim.",
+      "label": "Evidence becomes interpretation",
+      "mode": "field",
+      "figureText": "EVIDENCE\n├─ IDENTITY\n│  Network + contract + token\n├─ CONTRACT\n│  State + tokenURI\n├─ RELEASE\n│  ABI + renderer + schemas\n└─ CONTEXT\n   Provenance + reading surface\n      │\n      ↓\nINTERPRETATION\nRead together",
       "items": [
         {
           "title": "Identity",
-          "detail": "Network, contract address, and token ID name one NFT."
+          "detail": "Network + contract + token"
         },
         {
           "title": "Contract",
-          "detail": "Typed state and tokenURI expose contract-controlled facts."
+          "detail": "State + tokenURI"
         },
         {
           "title": "Release",
-          "detail": "Pinned artifacts explain the ABI, renderer, schemas, and commitments."
+          "detail": "ABI + renderer + schemas"
         },
         {
           "title": "Context",
-          "detail": "Detail pages and provenance add declared evidence without replacing the token."
+          "detail": "Provenance + reading surface"
         },
         {
           "title": "Interpretation",
-          "detail": "Read the evidence levels together before making a larger claim."
+          "detail": "Read together"
         }
       ]
     },
@@ -131,9 +131,9 @@
     "links": [
       {
         "role": "navigation",
-        "label": "view the THOUGHT gallery state",
-        "href": "/gallery",
-        "canonicalHref": "https://inshell.art/gallery"
+        "label": "view minted THOUGHT works",
+        "href": "/",
+        "canonicalHref": "https://inshell.art/"
       },
       {
         "role": "navigation",

@@ -39,7 +39,7 @@
       ],
       "label": "The invariant and the open field",
       "mode": "field",
-      "figureText": "┌─ AGENT ART ──────────────────────────────────────┐\n│ INVARIANT                                        │\n│ An Agent participates in the art activity.       │\n│                                                  │\n├─ OPEN QUESTIONS ─────────────────────────────────┤\n│ What is Art?                 Open question.      │\n│ What is an Agent?            Open question.      │\n│                                                  │\n└──────────────────────────────────────────────────┘",
+      "figureText": "┌─ AGENT ART ──────────────────────────────────────┐\n│ INVARIANT                                        │\n│ An Agent participates in the art activity.       │\n│                                                  │\n├─ OPEN QUESTIONS ─────────────────────────────────┤\n│ What is Art?                 What is an Agent?   │\n│ Open question.                 Open question.    │\n└──────────────────────────────────────────────────┘",
       "items": [
         {
           "title": "Invariant",

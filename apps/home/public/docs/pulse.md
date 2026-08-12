@@ -62,37 +62,19 @@ a = anchor time
 - Figure mode: trace
 
 ```text
-01 Ask
-   The current epoch exposes one live onchain price.
-   │
-   ↓
-02 Wait
-   The ask decays toward its floor while the epoch
-   remains open.
-   │
-   ↓
-03 Bid
-   A successful bid settles at the sampled ask and
-   issues the next PATH.
-   │
-   ↓
-04 Pump
-   Elapsed time becomes the initial premium for the
-   next epoch.
-   │
-   ↓
-05 Repeat
-   The sale joins the public history and a new
-   descent begins.
-   │
-   └──↺ 01 Ask · next epoch
+ASK
+ │ decay
+ ↓
+BID
+ │ pump
+ ↓
+NEXT ASK
+ └──↺ next epoch
 ```
 
-1. **Ask** — The current epoch exposes one live onchain price.
-2. **Wait** — The ask decays toward its floor while the epoch remains open.
-3. **Bid** — A successful bid settles at the sampled ask and issues the next PATH.
-4. **Pump** — Elapsed time becomes the initial premium for the next epoch.
-5. **Repeat** — The sale joins the public history and a new descent begins.
+1. **Ask** — Decay
+2. **Bid** — Pump
+3. **Next ask**
 
 Pulse has one current epoch and one next public PATH at a time. Participants are not choosing among parallel lots. The successful bid closes the visible curve, issues its PATH, and establishes the starting conditions for the following curve.
 
@@ -119,35 +101,6 @@ The chart uses half-life units to make curves with different real-time durations
 ## A quote is not a reservation
 
 - Authority: app-documentation, contract-release
-
-### When the live ask settles
-
-- Authority: app-documentation, contract-release
-- Figure mode: trace
-
-```text
-01 Read live ask
-   Read the current ask from contract-backed state.
-   │
-   ↓
-02 Set maximum
-   Review the maximum charge before the wallet opens.
-   │
-   ↓
-03 Submit
-   Submit the bid with that maximum as its ceiling.
-   │
-   ↓
-04 Settle or revert
-   Execution reads again: ask ≤ maximum → exact ask
-   settles, surplus refunds, and PATH issues;
-   ask > maximum → transaction reverts; read again.
-```
-
-1. **Read live ask** — Read the current ask from contract-backed state.
-2. **Set maximum** — Review the maximum charge before the wallet opens.
-3. **Submit** — Submit the bid with that maximum as its ceiling.
-4. **Settle or revert** — Execution reads again: ask ≤ maximum → exact ask settles, surplus refunds, and PATH issues; ask > maximum → transaction reverts; read again.
 
 1. Read the current ask and active payment asset from the contract-backed App state.
 2. Open the local review panel and inspect the maximum charge before the wallet opens.

@@ -84,7 +84,7 @@ Do not reduce Agent Art to prompting, text generation, chat, or human-plus-model
 
 ## Character figures
 
-- A figure belongs to the lead or section whose relationship it clarifies at first sight. It is not a decorative diagram, an annotated aside, or an article-level quota.
+- A figure belongs to the lead or section whose governing impression it establishes at first sight. It is not a decorative diagram, an annotated aside, or an article-level quota.
 - Place a lead figure immediately after the title and summary. Place a section figure immediately after that section's heading and before its text.
 - Multiple figures may appear in one article when distinct sections independently warrant them. No lead or section needs a figure for consistency.
 - Add no figure when the scoped text cannot be drawn without inventing facts, restating a plain inventory, or closing an intentionally open question.
@@ -96,10 +96,12 @@ Do not reduce Agent Art to prompting, text generation, chat, or human-plus-model
 - When a character figure's box, fork, lane, or directional shape carries meaning, preserve that logical shape in the human rendering. Use structured DOM and literal character rails so key terms and annotations can have distinct type scales without bending the fixed-width source.
 - Put repeated headings, terms, stages, dividers, and junctions that share an axis on one shared layout track. Do not approximate a common column independently in each row.
 - Keep every rail that represents one continuous boundary or path visually continuous: adjacent character runs must meet with no layout gap, and repeated literal `│` or `─` runs should stretch and clip to the row or column they govern. A deliberate transition may have breathing room around it, but its own stem, arrowhead, junction, or loop must remain joined.
-- For a forming work, draw only the known direction and state the open relation or form inside the figure. Never fill the open space with an invented mechanism.
+- For a forming work, draw only the known direction. Leave an unsettled relation or form out of the figure, state its openness in prose, and never fill the space with an invented mechanism.
 - Use a figure to establish a strong impression of the block's governing terms or relation; do not make it explain the block.
 - Let the surrounding prose own explanation, caveats, and details.
 - Use quiet annotations only when a few words sharpen the impression.
+- Preserve those concise annotations when simplifying a figure. Remove an explanatory node without automatically deleting the useful annotation attached to its governing term or connector.
+- Remove secondary nodes and labels whose only job is to say `relation`, `boundary`, `form`, `scope`, or another explanation already carried by the prose.
 
 ## Editorial voice
 

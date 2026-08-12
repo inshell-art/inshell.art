@@ -99,55 +99,55 @@
           ],
           "label": "Two preservation boundaries",
           "mode": "lanes",
-          "figureText": "TIME    │ [01] → [02] → [03] → [04]\n\nTHOUGHT │ [01] Agent return\n        │ Candidate produced.\n        │ [02] Human review\n        │ Decision to preserve.\n        │ [03] Successful mint\n        │ Contract action succeeds; before success,\n        │ no preserved public record.\n        │ [04] Public corpus\n        │ Preserved THOUGHT record.\n\nPULSE   │ [01] Visible ask\n        │ Quote is visible.\n        │ [02] Confirmed bid\n        │ Participant authorizes.\n        │ [03] Settlement\n        │ Contract action succeeds; before success,\n        │ no preserved public record.\n        │ [04] Sale record\n        │ Preserved Pulse record.",
+          "figureText": "THOUGHT │ AGENT RETURN\n        │ Candidate produced\n        │ → HUMAN REVIEW\n        │ Decision to preserve\n        │ → SUCCESSFUL MINT\n        │ Contract action succeeds\n        │ → PUBLIC CORPUS\n        │ Preserved THOUGHT\nPULSE   │ VISIBLE ASK\n        │ Quote exposed\n        │ → CONFIRMED BID\n        │ Participant authorizes\n        │ → SETTLEMENT\n        │ Contract action succeeds\n        │ → SALE RECORD\n        │ Preserved Pulse",
           "items": [
             {
               "stage": 1,
               "lane": "THOUGHT",
               "title": "Agent return",
-              "detail": "Candidate produced."
+              "detail": "Candidate produced"
             },
             {
               "stage": 2,
               "lane": "THOUGHT",
               "title": "Human review",
-              "detail": "Decision to preserve."
+              "detail": "Decision to preserve"
             },
             {
               "stage": 3,
               "lane": "THOUGHT",
               "title": "Successful mint",
-              "detail": "Contract action succeeds; before success, no preserved public record."
+              "detail": "Contract action succeeds"
             },
             {
               "stage": 4,
               "lane": "THOUGHT",
               "title": "Public corpus",
-              "detail": "Preserved THOUGHT record."
+              "detail": "Preserved THOUGHT"
             },
             {
               "stage": 1,
               "lane": "PULSE",
               "title": "Visible ask",
-              "detail": "Quote is visible."
+              "detail": "Quote exposed"
             },
             {
               "stage": 2,
               "lane": "PULSE",
               "title": "Confirmed bid",
-              "detail": "Participant authorizes."
+              "detail": "Participant authorizes"
             },
             {
               "stage": 3,
               "lane": "PULSE",
               "title": "Settlement",
-              "detail": "Contract action succeeds; before success, no preserved public record."
+              "detail": "Contract action succeeds"
             },
             {
               "stage": 4,
               "lane": "PULSE",
               "title": "Sale record",
-              "detail": "Preserved Pulse record."
+              "detail": "Preserved Pulse"
             }
           ]
         }
@@ -181,23 +181,15 @@
           ],
           "label": "Many surfaces, one identified record",
           "mode": "field",
-          "figureText": "┌─ IDENTIFIED ONCHAIN WORK ─────────────────────────┐\n│ ORIGIN: NETWORK + CONTRACT + TOKEN ID + TOKENURI  │\n│ + RELEASE                                         │\n└──────────────────────┬────────────────────────────┘\n                       ↓\nREADING SURFACES: SITE · WALLET · MARKETPLACE · API ·\n                  MARKDOWN · AGENT ANSWER\n\nRELATION: SURFACES ADD ACCESS AND CONTEXT.\nBOUNDARY: THEY DO NOT REPLACE THE RECORD'S ORIGIN.",
+          "figureText": "┌─ IDENTIFIED ONCHAIN WORK ───────────────┐\n│ Network + contract + token ID +         │\n│ tokenURI + release                      │\n└───────────────────┬─────────────────────┘\n                    ↓\n          MANY READING SURFACES\nSite · wallet · marketplace · API · Markdown · Agent answer",
           "items": [
             {
-              "title": "Origin",
+              "title": "Identified onchain work",
               "detail": "Network + contract + token ID + tokenURI + release"
             },
             {
-              "title": "Reading surfaces",
+              "title": "Many reading surfaces",
               "detail": "Site · wallet · marketplace · API · Markdown · Agent answer"
-            },
-            {
-              "title": "Relation",
-              "detail": "Surfaces add access and context."
-            },
-            {
-              "title": "Boundary",
-              "detail": "They do not replace the record's origin."
             }
           ]
         }

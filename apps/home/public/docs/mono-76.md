@@ -14,36 +14,19 @@
 - Figure mode: trace
 
 ```text
-01 Explore
-   Compare distinct native-path systems as a visual
-   field.
-   │
-   ↓
-02 Refine
-   Tune one complete repertoire for rhythm, clarity,
-   and identity.
-   │
-   ↓
-03 Seal
-   Freeze the paths, metrics, order, package, and
-   integrity hashes.
-   │
-   ↓
-04 Pin
-   Bind a renderer release to the exact Mono 76
-   artifact it consumes.
-   │
-   ↓
-05 Render
-   Generate native SVG without browser font lookup
-   or substitution.
+GLYPH STUDY
+Explore · refine
+      ↓
+SEALED MONO 76
+Paths + metrics frozen
+      ↓
+CANONICAL ARTWORK
+Native SVG
 ```
 
-1. **Explore** — Compare distinct native-path systems as a visual field.
-2. **Refine** — Tune one complete repertoire for rhythm, clarity, and identity.
-3. **Seal** — Freeze the paths, metrics, order, package, and integrity hashes.
-4. **Pin** — Bind a renderer release to the exact Mono 76 artifact it consumes.
-5. **Render** — Generate native SVG without browser font lookup or substitution.
+1. **Glyph study** — Explore · refine
+2. **Sealed Mono 76** — Paths + metrics frozen
+3. **Canonical artwork** — Native SVG
 
 ## Overview
 

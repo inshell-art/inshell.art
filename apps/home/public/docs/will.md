@@ -8,29 +8,24 @@
 - Canonical page: https://inshell.art/docs/will
 - Documentation version: 2026-08-11
 
-## WILL: known and forming
+## Many people. Many Agents. One will.
 
 - Authority: artist-editorial
 - Figure mode: field
 
 ```text
-┌─ WILL ───────────────────────────────────────────┐
-│ SCOPE: MANY PEOPLE · MANY AGENTS                 │
-│ INQUIRY: CROWD BEHAVIOR                          │
-│                                                  │
-│ DIRECTION: HOW A CROWD FORMS WHAT CAN BE CALLED  │
-│ ONE WILL.                                        │
-│ FORM: STILL IN DEVELOPMENT.                      │
-│ BOUNDARY: ONE WILL SHOULD NOT YET BE READ AS     │
-│ CONSENSUS, UNANIMITY, VOTING, OR GOVERNANCE.     │
-└──────────────────────────────────────────────────┘
+┌─ WILL ──────────────────────────────────┐
+│ MANY PEOPLE          MANY AGENTS        │
+│                                         │
+│               ONE WILL                  │
+│ Crowd behavior · how a crowd forms what │
+│          can be called one will.        │
+└─────────────────────────────────────────┘
 ```
 
-- **Scope** — Many people · many Agents
-- **Inquiry** — Crowd behavior
-- **Direction** — How a crowd forms what can be called one will.
-- **Form** — Still in development.
-- **Boundary** — One will should not yet be read as consensus, unanimity, voting, or governance.
+- **Many people**
+- **Many Agents**
+- **One will** — Crowd behavior · how a crowd forms what can be called one will.
 
 ## Overview
 
@@ -58,11 +53,11 @@ WILL is still being created and developed. Its fuller artistic form and the part
 
 The limited account reflects the current work, not intentional concealment of a completed design.
 
-## Current documentation
+## Current study
 
 - Authority: artist-editorial, app-documentation
 
-WILL is planned for 2027. These docs expose its slogan and current visual study. There is no standalone public preview, creation, or mint surface, and the documentation is not evidence of deployment.
+WILL is planned for 2027. These docs expose its slogan and current direction as a study, not a creation or mint surface and not evidence of deployment.
 
 > The date is a plan, not deployment evidence.
 

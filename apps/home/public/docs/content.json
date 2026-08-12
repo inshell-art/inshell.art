@@ -56,23 +56,15 @@
           ],
           "label": "The inward direction",
           "mode": "field",
-          "figureText": "┌─ SHELL ───────────────────────────────────────────┐\n│ REAL AND OFTEN NECESSARY.                         │\n│ SURFACE: VISIBLE · OPERABLE · LEGIBLE.            │\n│ BOUNDARY: NOT THE WHOLE BEING.                    │\n└──────────────────────┬────────────────────────────┘\n                       │ IN\n                       ↓\n             INSPECT WHAT FORMS THE SELF.",
+          "figureText": "┌─ SHELL ─────────────────────────────────┐\n│ Real and often necessary · Surface:     │\n│ visible · operable · legible.           │\n└───────────────────┬─────────────────────┘\n                    │ IN\n                    ↓\n          Inspect what forms the\n                   SELF",
           "items": [
             {
               "title": "Shell",
-              "detail": "Real and often necessary."
-            },
-            {
-              "title": "Surface",
-              "detail": "Visible · operable · legible."
-            },
-            {
-              "title": "Boundary",
-              "detail": "Not the whole being."
+              "detail": "Real and often necessary · Surface: visible · operable · legible."
             },
             {
               "title": "In",
-              "detail": "Inspect what forms the self."
+              "detail": "Inspect what forms the self"
             }
           ]
         },
@@ -118,23 +110,15 @@
               ],
               "label": "How practice relates to truth",
               "mode": "field",
-              "figureText": "┌─ TRUTH AND PRACTICE ────────────────────────────┐\n│ TRUTH: INSPECT SELF                             │\n│                    ↑                            │\n│ RELATION: APPROACHES WITHOUT CLAIMING           │\n│ POSSESSION                                      │\n│                    ↑                            │\n│ PRACTICE: EXAMINE · INSPECT · SUSPECT · READ ·  │\n│ LISTEN · FEEL                                   │\n│ BOUNDARY: DOES NOT PROVE OR GUARANTEE FREEDOM   │\n└─────────────────────────────────────────────────┘",
+              "figureText": "┌─ TRUTH AND PRACTICE ───────────────────┐\n│                 TRUTH                  │\n│              Inspect self              │\n│                   ↑                    │\n│ Approaches without claiming possession │\n│                PRACTICE                │\n│ Examine · inspect · suspect · read ·   │\n│              listen · feel             │\n└────────────────────────────────────────┘",
               "items": [
                 {
                   "title": "Truth",
                   "detail": "Inspect self"
                 },
                 {
-                  "title": "Relation",
-                  "detail": "Approaches without claiming possession"
-                },
-                {
                   "title": "Practice",
                   "detail": "Examine · inspect · suspect · read · listen · feel"
-                },
-                {
-                  "title": "Boundary",
-                  "detail": "Does not prove or guarantee freedom"
                 }
               ]
             }
@@ -147,7 +131,7 @@
             "id": "docs-inshell-surface",
             "title": "The public surface",
             "points": [
-              "Home exposes the canonical THOUGHT gallery state. The current imported R2 release is not persistently deployed, so no R2 minted works are listed.",
+              "Home presents minted THOUGHT works from the active public chain.",
               "THOUGHT is the active creation surface for one human intention and one Agent response.",
               "PATH shows the permission records that carry movements forward.",
               "Pulse exposes the live issuance mechanism and its history.",
@@ -236,7 +220,7 @@
           ],
           "label": "The invariant and the open field",
           "mode": "field",
-          "figureText": "┌─ AGENT ART ──────────────────────────────────────┐\n│ INVARIANT                                        │\n│ An Agent participates in the art activity.       │\n│                                                  │\n├─ OPEN QUESTIONS ─────────────────────────────────┤\n│ What is Art?                 Open question.      │\n│ What is an Agent?            Open question.      │\n│                                                  │\n└──────────────────────────────────────────────────┘",
+          "figureText": "┌─ AGENT ART ──────────────────────────────────────┐\n│ INVARIANT                                        │\n│ An Agent participates in the art activity.       │\n│                                                  │\n├─ OPEN QUESTIONS ─────────────────────────────────┤\n│ What is Art?                 What is an Agent?   │\n│ Open question.                 Open question.    │\n└──────────────────────────────────────────────────┘",
           "items": [
             {
               "title": "Invariant",
@@ -350,21 +334,21 @@
           "authorities": [
             "artist-editorial"
           ],
-          "label": "Why the movements form a PATH",
+          "label": "The movement arc",
           "mode": "trace",
-          "figureText": "INSHELL PRACTICE\n├─ DIRECTION: INSPECT SELF\n├─ MEDIUM: AGENT ART\n│  └─ INVARIANT: AN AGENT PARTICIPATES\n└─ PATH: INDIVIDUAL → CROWD → CORE\n   │\n   ↓\n   01 THOUGHT\n      Current: inspect how an Agent\n      responds to one person's thought.\n      │\n      ↓\n   02 WILL\n      In development: many people and\n      many Agents form one will.\n      │\n      ↓\n   03 AWA\n      Forming: toward Inshell's core;\n      its form is still taking shape.",
+          "figureText": "THOUGHT       WILL       AWA\n   │            │         │\nINDIVIDUAL → CROWD → TOWARD THE CORE",
           "items": [
             {
               "title": "THOUGHT",
-              "detail": "Current: inspect how an Agent responds to one person's thought."
+              "detail": "Individual"
             },
             {
               "title": "WILL",
-              "detail": "In development: many people and many Agents form one will."
+              "detail": "Crowd"
             },
             {
               "title": "AWA",
-              "detail": "Forming: toward Inshell's core; its form is still taking shape."
+              "detail": "Toward the core"
             }
           ]
         },
@@ -379,33 +363,7 @@
             "paragraphs": [
               "Agent Art requires an Agent to participate, but it prescribes no universal relation between a human, an Agent, and a work. Inshell uses that openness differently across the movements. THOUGHT chooses one person and one Agent response. WILL intends many people and many Agents within the formation of one will. AWA remains an Agent Art movement while its particular form of participation is still being discovered.",
               "Agent participation is the invariant. Repeating THOUGHT's prompt-response form is not. These are Inshell's choices of practice, not requirements for Agent Art as a field."
-            ],
-            "figure": {
-              "authorities": [
-                "artist-editorial"
-              ],
-              "label": "Agent participation across the movements",
-              "mode": "ledger",
-              "figureText": "MOVEMENT │ SCOPE / PARTICULAR RELATION\n─────────┼──────────────────────────────────────────────\nTHOUGHT  │ Individual · one person + one Agent response.\nWILL     │ Crowd · many people and Agents; still developing.\nAWA      │ Toward the core · still forming.\nALL      │ An Agent participates.",
-              "items": [
-                {
-                  "title": "THOUGHT",
-                  "detail": "Individual · one person + one Agent response."
-                },
-                {
-                  "title": "WILL",
-                  "detail": "Crowd · many people and Agents; still developing."
-                },
-                {
-                  "title": "AWA",
-                  "detail": "Toward the core · still forming."
-                },
-                {
-                  "title": "ALL",
-                  "detail": "An Agent participates."
-                }
-              ]
-            }
+            ]
           },
           {
             "authorities": [
@@ -469,7 +427,7 @@
             "id": "docs-movements-status",
             "title": "Current and forming",
             "paragraphs": [
-              "THOUGHT is current as a public creation surface. Its imported R2 Contract release is qualified but not persistently deployed, registered, or mint-enabled. WILL is planned for 2027 and is still being created and developed; these docs expose its direction and current study without implying a finished work, public preview, or live mint. AWA is planned for 2028 and remains in formation; it currently has no creation or mint surface."
+              "THOUGHT is current and has a live creation and mint flow. WILL is planned for 2027 and is still being created and developed; these docs expose the direction and current study without implying a finished work or live mint. AWA is planned for 2028 and remains in formation; it currently has no creation or mint surface."
             ],
             "note": "Dates are plans, not evidence of deployment. The limited WILL and AWA descriptions reflect unfinished work, not concealed finished systems. Do not infer availability or capacity from the movement names alone."
           }
@@ -550,7 +508,6 @@
             "THOUGHT is the first movement on Inshell's PATH and begins with the individual. It gives the inward direction—inspect self—a bounded occasion: simply inspect your thought and what becomes visible when one Agent responds. The thought's words, source, and motivation remain open to inspection, as do the knowledge it carries and the reasons that knowledge became believable. The Agent response enters that practice as another exact line to read; it does not resolve the thought or claim possession of its truth.",
             "Within the wider field of Agent Art, THOUGHT chooses a narrow terminal practice: one exact human prompt and one exact Agent response. Their ordered pair defines the globally unique work; either line may appear again with a different counterpart.",
             "The creation flow is: human prompt → Agent response → validation and canonical record assembly → human selection → wallet confirmation → PATH movement consumption → THOUGHT minted. The model proposes. The human decides. The wallet confirms. The contract records.",
-            "The imported R2 release is production-consumable as a verified immutable artifact, but deployment and registration remain unauthorized. No persistent-chain R2 deployment is committed, and V2 minting remains disabled. The mint steps describe the bounded flow after a separately authorized deployment; they are not evidence that minting is live now.",
             "Prompt and Agent response are each 1–64 bytes of Terminal English. Allowed characters are space, A–Z, a–z, 0–9, and . , ? ! : ; ' \" - ( ) / &. Leading spaces, trailing spaces, and repeated internal spaces are rejected. Validation never trims, normalizes, repairs, translates, or rewrites accepted bytes.",
             "The human reviews the returned response and preview, then decides whether to preserve, discard, or mint the work. To mint, the human picks an available PATH, signs a one-mint permission bound to the current PATH state and ThoughtNFT executor, and confirms the transaction. The signature is not a transaction and uses no gas.",
             "A successful mint atomically consumes exactly one THOUGHT unit from the selected PATH. A canceled or failed mint consumes nothing and does not reserve the prompt-response pair.",
@@ -581,25 +538,19 @@
                 "app-documentation",
                 "contract-release"
               ],
-              "label": "The ordered-pair boundary",
+              "label": "One prompt, one response",
               "mode": "field",
-              "figureText": "┌─ ORDERED-PAIR BOUNDARY ──────────────────────────┐\n│ HUMAN PROMPT P + AGENT RESPONSE R → (P, R)       │\n│                                                  │\n│ DIFFERENT RESPONSE: (P, R′) = DIFFERENT WORK     │\n│ DIFFERENT PROMPT: (P′, R) = DIFFERENT WORK       │\n│                                                  │\n│ PRESERVATION: CANDIDATE → SUCCESSFUL MINT →      │\n│ ONCHAIN THOUGHT                                  │\n└──────────────────────────────────────────────────┘",
+              "figureText": "HUMAN PROMPT P + AGENT RESPONSE R\n                 ↓\n          ONE THOUGHT (P, R)\nDifferent counterpart = different work · onchain only after successful mint.",
               "items": [
                 {
-                  "title": "Ordered-pair boundary",
-                  "detail": "Human prompt P + Agent response R → (P, R)"
+                  "title": "Human prompt P"
                 },
                 {
-                  "title": "Different response",
-                  "detail": "(P, R′) = different work"
+                  "title": "Agent response R"
                 },
                 {
-                  "title": "Different prompt",
-                  "detail": "(P′, R) = different work"
-                },
-                {
-                  "title": "Preservation",
-                  "detail": "Candidate → successful mint → onchain THOUGHT"
+                  "title": "One THOUGHT (P, R)",
+                  "detail": "Different counterpart = different work · onchain only after successful mint."
                 }
               ]
             }
@@ -666,50 +617,23 @@
             "note": "A transport receipt proves that the App accepted one protocol result. It does not give the Agent wallet authority or prove hidden model reasoning.",
             "figure": {
               "authorities": [
-                "app-documentation",
-                "app-record",
-                "contract-release",
-                "runtime-report"
+                "app-documentation"
               ],
-              "label": "From intention to minted THOUGHT",
-              "mode": "lanes",
-              "figureText": "TIME       │ [01] → [02] → [03] → [04] → [05] → [06]\n\nHUMAN      │ [01] Prompt\n           │ Enter one exact Terminal English line.\n           │ ···\n           │ [04] Review + choose\n           │ Read the candidate and decide whether\n           │ to preserve it; select a PATH.\n\nAGENT      │ [02] Response\n           │ Return one exact line; no repair\n           │ dialogue.\n\nAPP        │ [03] Validate + assemble\n           │ Check exact bytes; assemble the preview\n           │ and creation record.\n\nWALLET     │ [05] Authorize + submit\n           │ Sign the narrow permission, then confirm\n           │ the mint transaction.\n\nCONTRACTS  │ [06] Validate + record\n           │ Enforce rules, consume one PATH unit,\n           │ mint, and expose the record.",
+              "label": "The creative handoff",
+              "mode": "trace",
+              "figureText": "HUMAN                AGENT                 HUMAN\nOne exact prompt  →  One exact response  →  Review + choose",
               "items": [
                 {
-                  "stage": 1,
-                  "lane": "Human",
-                  "title": "Prompt",
-                  "detail": "Enter one exact Terminal English line."
+                  "title": "Human",
+                  "detail": "One exact prompt"
                 },
                 {
-                  "stage": 2,
-                  "lane": "Agent",
-                  "title": "Response",
-                  "detail": "Return one exact line; no repair dialogue."
+                  "title": "Agent",
+                  "detail": "One exact response"
                 },
                 {
-                  "stage": 3,
-                  "lane": "App",
-                  "title": "Validate + assemble",
-                  "detail": "Check exact bytes; assemble the preview and creation record."
-                },
-                {
-                  "stage": 4,
-                  "lane": "Human",
-                  "title": "Review + choose",
-                  "detail": "Read the candidate and decide whether to preserve it; select a PATH."
-                },
-                {
-                  "stage": 5,
-                  "lane": "Wallet",
-                  "title": "Authorize + submit",
-                  "detail": "Sign the narrow permission, then confirm the mint transaction."
-                },
-                {
-                  "stage": 6,
-                  "lane": "Contracts",
-                  "title": "Validate + record",
-                  "detail": "Enforce rules, consume one PATH unit, mint, and expose the record."
+                  "title": "Human",
+                  "detail": "Review + choose"
                 }
               ]
             }
@@ -748,16 +672,15 @@
             "figure": {
               "authorities": [
                 "app-record",
-                "contract-release",
-                "runtime-report"
+                "contract-release"
               ],
-              "label": "Creation Attestation bindings",
+              "label": "Creation Attestation",
               "mode": "field",
-              "figureText": "RECORDED VALUES\nHuman line · Agent line · selected Agent · runtime-reported\nmodel when available · specification · renderer context ·\nmint anchors\n   │\n   ↓\nAPP CLAIM\nConfigured App authority signs one exact claim.\n   │\n   ↓\nCONTRACT VALIDATION\nThoughtNFT validates during minting.\n   ├─ VALID PROOF → APP ATTESTED\n   │  Valid proof binds the mint to recorded values.\n   └─ EMPTY PROOF → UNATTESTED\n      Empty proof makes the absence explicit.\n\n┌─ CLAIM CEILING ───────────────────────────────────┐\n│ Does not prove hidden reasoning · provider        │\n│ identity · sole authorship.                       │\n└───────────────────────────────────────────────────┘",
+              "figureText": "RECORDED VALUES\nHuman line · Agent line · Agent/model records ·\nspecification · renderer · mint anchors\n   │\n   ↓\nAPP CLAIM\nConfigured App authority signs one exact claim.\n   │\n   ↓\nCONTRACT VALIDATION\nThoughtNFT validates during minting.\n   ├─ VALID PROOF → APP ATTESTED\n   │  Valid proof binds the mint to recorded values.\n   └─ EMPTY PROOF → UNATTESTED\n      Empty proof makes the absence explicit.",
               "items": [
                 {
                   "title": "Recorded values",
-                  "detail": "Human line · Agent line · selected Agent · runtime-reported model when available · specification · renderer context · mint anchors"
+                  "detail": "Human line · Agent line · Agent/model records · specification · renderer · mint anchors"
                 },
                 {
                   "title": "App claim",
@@ -774,10 +697,6 @@
                 {
                   "title": "Unattested",
                   "detail": "Empty proof makes the absence explicit."
-                },
-                {
-                  "title": "Claim ceiling",
-                  "detail": "Does not prove hidden reasoning · provider identity · sole authorship."
                 }
               ]
             }
@@ -826,9 +745,9 @@
           },
           {
             "role": "navigation",
-            "label": "view the THOUGHT gallery state",
-            "href": "/gallery",
-            "canonicalHref": "https://inshell.art/gallery"
+            "label": "view minted THOUGHT works",
+            "href": "/",
+            "canonicalHref": "https://inshell.art/"
           },
           {
             "role": "navigation",
@@ -896,29 +815,19 @@
           "authorities": [
             "artist-editorial"
           ],
-          "label": "WILL: known and forming",
+          "label": "Many people. Many Agents. One will.",
           "mode": "field",
-          "figureText": "┌─ WILL ───────────────────────────────────────────┐\n│ SCOPE: MANY PEOPLE · MANY AGENTS                 │\n│ INQUIRY: CROWD BEHAVIOR                          │\n│                                                  │\n│ DIRECTION: HOW A CROWD FORMS WHAT CAN BE CALLED  │\n│ ONE WILL.                                        │\n│ FORM: STILL IN DEVELOPMENT.                      │\n│ BOUNDARY: ONE WILL SHOULD NOT YET BE READ AS     │\n│ CONSENSUS, UNANIMITY, VOTING, OR GOVERNANCE.     │\n└──────────────────────────────────────────────────┘",
+          "figureText": "┌─ WILL ──────────────────────────────────┐\n│ MANY PEOPLE          MANY AGENTS        │\n│                                         │\n│               ONE WILL                  │\n│ Crowd behavior · how a crowd forms what │\n│          can be called one will.        │\n└─────────────────────────────────────────┘",
           "items": [
             {
-              "title": "Scope",
-              "detail": "Many people · many Agents"
+              "title": "Many people"
             },
             {
-              "title": "Inquiry",
-              "detail": "Crowd behavior"
+              "title": "Many Agents"
             },
             {
-              "title": "Direction",
-              "detail": "How a crowd forms what can be called one will."
-            },
-            {
-              "title": "Form",
-              "detail": "Still in development."
-            },
-            {
-              "title": "Boundary",
-              "detail": "One will should not yet be read as consensus, unanimity, voting, or governance."
+              "title": "One will",
+              "detail": "Crowd behavior · how a crowd forms what can be called one will."
             }
           ]
         },
@@ -952,9 +861,9 @@
               "app-documentation"
             ],
             "id": "docs-will-status",
-            "title": "Current documentation",
+            "title": "Current study",
             "paragraphs": [
-              "WILL is planned for 2027. These docs expose its slogan and current visual study. There is no standalone public preview, creation, or mint surface, and the documentation is not evidence of deployment."
+              "WILL is planned for 2027. These docs expose its slogan and current direction as a study, not a creation or mint surface and not evidence of deployment."
             ],
             "note": "The date is a plan, not deployment evidence."
           }
@@ -1020,25 +929,21 @@
           "authorities": [
             "artist-editorial"
           ],
-          "label": "AWA: known and forming",
+          "label": "Toward the core",
           "mode": "field",
-          "figureText": "┌─ AWA ────────────────────────────────────────────┐\n│ THOUGHT           WILL                AWA        │\n│ INDIVIDUAL ──→    CROWD ──→    TOWARD THE CORE   │\n│                                                  │\n│ DIRECTION: TOWARD INSHELL'S CORE.                │\n│ AGENT ART INVARIANT: AN AGENT PARTICIPATES.      │\n│ FORM: STILL FORMING.                             │\n│ BOUNDARY: AWA DOES NOT CLAIM THE CORE IS         │\n│ REACHED, DEFINED, REVEALED, OR PROVED.           │\n└──────────────────────────────────────────────────┘",
+          "figureText": "┌─ AWA ─────────────────────────────────────┐\n│ THOUGHT        WILL        AWA            │\n│ INDIVIDUAL  →  CROWD  →  TOWARD THE CORE  │\n└───────────────────────────────────────────┘",
           "items": [
             {
-              "title": "Direction",
-              "detail": "Toward Inshell's core."
+              "title": "THOUGHT",
+              "detail": "Individual"
             },
             {
-              "title": "Agent Art invariant",
-              "detail": "An Agent participates."
+              "title": "WILL",
+              "detail": "Crowd"
             },
             {
-              "title": "Form",
-              "detail": "Still forming."
-            },
-            {
-              "title": "Boundary",
-              "detail": "AWA does not claim the core is reached, defined, revealed, or proved."
+              "title": "AWA",
+              "detail": "Toward the core"
             }
           ]
         },
@@ -1193,29 +1098,13 @@
                 "app-documentation",
                 "contract-release"
               ],
-              "label": "Deployment quota and one PATH's progress",
+              "label": "Capacity and progress",
               "mode": "ledger",
-              "figureText": "SCOPE      │ STATE\n───────────┼────────────────────────────────────────────\nDEPLOYMENT │ Quota + authorized minter per movement.\nONE PATH   │ Current stage + in-stage minted count.\nDERIVED    │ Remaining = quota - this PATH's minted count.\nADVANCE    │ Quota reached → next movement + count reset.\nABSENT     │ No configured quota → not available.",
+              "figureText": "DEPLOYMENT │ ONE PATH\n───────────┼──────────\nCAPACITY   │ PROGRESS",
               "items": [
                 {
-                  "title": "Deployment",
-                  "detail": "Quota + authorized minter per movement."
-                },
-                {
-                  "title": "One PATH",
-                  "detail": "Current stage + in-stage minted count."
-                },
-                {
-                  "title": "Derived",
-                  "detail": "Remaining = quota - this PATH's minted count."
-                },
-                {
-                  "title": "Advance",
-                  "detail": "Quota reached → next movement + count reset."
-                },
-                {
-                  "title": "Absent",
-                  "detail": "No configured quota → not available."
+                  "title": "Capacity",
+                  "detail": "Progress"
                 }
               ]
             }
@@ -1230,37 +1119,7 @@
               "Selecting a PATH or signing its permission does not consume a unit. For one movement mint, the current owner authorizes a short-lived EIP-191 message bound to the PathNFT address, chain ID, PATH ID, movement, owner, configured movement minter, current permission epoch, the owner's current consume nonce, and a deadline. ERC-721 approval is not movement authorization, and only the configured movement minter may call consumeUnit.",
               "Before changing state, PathNFT checks the configured caller, the unexpired current-owner authorization, the fixed movement order, and remaining quota. On success it returns the unit's zero-based in-movement serial, advances the owner's consume nonce, and increments that PATH's current count. When the count reaches the movement quota, PATH advances to the next movement and resets its in-stage count. MetadataUpdate and MovementConsumed tell readers which PATH state to refresh.",
               "The configured movement contract is responsible for pairing consumption with the artwork mint. It calls consumeUnit before minting the movement work inside the same transaction. If a later mint step reverts, the EVM rolls back the unit, nonce, progress, events, and work together. A canceled or failed flow consumes nothing."
-            ],
-            "figure": {
-              "authorities": [
-                "contract-release"
-              ],
-              "label": "How one movement unit is consumed",
-              "mode": "trace",
-              "figureText": "ONE SUCCESSFUL MOVEMENT MINT CONSUMES 1 UNIT\n\n01 Read\n   Read the current owner, stage, quota, minter,\n   permission epoch, and owner nonce.\n   │\n   ↓\n02 Authorize\n   The current owner signs one short-lived EIP-191\n   authorization; signing alone consumes nothing.\n   │\n   ↓\n03 Submit\n   The movement mint transaction calls the\n   configured minter, which calls PathNFT.\n   │\n   ↓\n04 Verify + consume\n   PathNFT checks the caller and current-owner\n   authorization, then confirms the movement order\n   and that quota remains.\n   │\n   ↓\n05 Commit + refresh\n   A successful movement mint commits one unit\n   and the work together; events expose progress.",
-              "items": [
-                {
-                  "title": "Read",
-                  "detail": "Read the current owner, stage, quota, minter, permission epoch, and owner nonce."
-                },
-                {
-                  "title": "Authorize",
-                  "detail": "The current owner signs one short-lived EIP-191 authorization; signing alone consumes nothing."
-                },
-                {
-                  "title": "Submit",
-                  "detail": "The movement mint transaction calls the configured minter, which calls PathNFT."
-                },
-                {
-                  "title": "Verify + consume",
-                  "detail": "PathNFT checks the caller and current-owner authorization, then confirms the movement order and that quota remains."
-                },
-                {
-                  "title": "Commit + refresh",
-                  "detail": "A successful movement mint commits one unit and the work together; events expose progress."
-                }
-              ]
-            }
+            ]
           },
           {
             "authorities": [
@@ -1425,7 +1284,7 @@
               ],
               "label": "One Pulse epoch",
               "mode": "trace",
-              "figureText": "01 Ask\n   The current epoch exposes one live onchain price.\n   │\n   ↓\n02 Wait\n   The ask decays toward its floor while the epoch\n   remains open.\n   │\n   ↓\n03 Bid\n   A successful bid settles at the sampled ask and\n   issues the next PATH.\n   │\n   ↓\n04 Pump\n   Elapsed time becomes the initial premium for the\n   next epoch.\n   │\n   ↓\n05 Repeat\n   The sale joins the public history and a new\n   descent begins.\n   │\n   └──↺ 01 Ask · next epoch",
+              "figureText": "ASK\n │ decay\n ↓\nBID\n │ pump\n ↓\nNEXT ASK\n └──↺ next epoch",
               "loop": {
                 "to": 1,
                 "condition": "next epoch"
@@ -1433,23 +1292,14 @@
               "items": [
                 {
                   "title": "Ask",
-                  "detail": "The current epoch exposes one live onchain price."
-                },
-                {
-                  "title": "Wait",
-                  "detail": "The ask decays toward its floor while the epoch remains open."
+                  "detail": "Decay"
                 },
                 {
                   "title": "Bid",
-                  "detail": "A successful bid settles at the sampled ask and issues the next PATH."
+                  "detail": "Pump"
                 },
                 {
-                  "title": "Pump",
-                  "detail": "Elapsed time becomes the initial premium for the next epoch."
-                },
-                {
-                  "title": "Repeat",
-                  "detail": "The sale joins the public history and a new descent begins."
+                  "title": "Next ask"
                 }
               ]
             }
@@ -1494,34 +1344,7 @@
               "Let the mint flow read the ask again immediately before submission.",
               "Confirm only if the wallet request matches the expected network, contract, and maximum value.",
               "If the ask moved beyond the approved maximum, retry with a fresh read instead of treating the earlier quote as guaranteed."
-            ],
-            "figure": {
-              "authorities": [
-                "app-documentation",
-                "contract-release"
-              ],
-              "label": "When the live ask settles",
-              "mode": "trace",
-              "figureText": "01 Read live ask\n   Read the current ask from contract-backed state.\n   │\n   ↓\n02 Set maximum\n   Review the maximum charge before the wallet opens.\n   │\n   ↓\n03 Submit\n   Submit the bid with that maximum as its ceiling.\n   │\n   ↓\n04 Settle or revert\n   Execution reads again: ask ≤ maximum → exact ask\n   settles, surplus refunds, and PATH issues;\n   ask > maximum → transaction reverts; read again.",
-              "items": [
-                {
-                  "title": "Read live ask",
-                  "detail": "Read the current ask from contract-backed state."
-                },
-                {
-                  "title": "Set maximum",
-                  "detail": "Review the maximum charge before the wallet opens."
-                },
-                {
-                  "title": "Submit",
-                  "detail": "Submit the bid with that maximum as its ceiling."
-                },
-                {
-                  "title": "Settle or revert",
-                  "detail": "Execution reads again: ask ≤ maximum → exact ask settles, surplus refunds, and PATH issues; ask > maximum → transaction reverts; read again."
-                }
-              ]
-            }
+            ]
           },
           {
             "authorities": [
@@ -1642,49 +1465,49 @@
               ],
               "label": "Contract handoffs across issuance and minting",
               "mode": "lanes",
-              "figureText": "PUBLIC ISSUANCE    [01] → [02] → [03]\n\nPulseAuction      │ [01] Settle\n                  │ Calculate the live ask and settle\n                  │ one serial epoch.\n\nPathPulseAdapter  │ [02] Issue\n                  │ Translate the valid settlement\n                  │ into PATH issuance.\n\nPathNFT           │ [03] Record PATH\n                  │ Own the issued PATH, its movement\n                  │ order, and its capacity.\n\nLATER THOUGHT MINT [04] → [05] → [06]\n\nThoughtNFT        │ [04] Validate work\n                  │ Validate the THOUGHT work and\n                  │ request PATH permission use.\n\nPathNFT           │ [05] Consume permission\n                  │ Verify configured caller, current-owner\n                  │ authorization, active stage, and quota;\n                  │ advance one unit.\n\nThoughtNFT        │ [06] Mint + record\n                  │ Mint and record the work; a later revert\n                  │ also reverts PATH consumption.",
+              "figureText": "PUBLIC ISSUANCE    │ PulseAuction SETTLE\n                   │ Live ask · one serial epoch\n                   │ → PathPulseAdapter ISSUE\n                   │ Valid settlement → PATH issuance\n                   │ → PathNFT RECORD PATH\n                   │ Issued PATH · order · capacity\nLATER THOUGHT MINT │ ThoughtNFT VALIDATE WORK\n                   │ THOUGHT work · PATH permission\n                   │ → PathNFT CONSUME UNIT\n                   │ Caller · owner · stage · quota\n                   │ → ThoughtNFT MINT + RECORD\n                   │ Atomic with PATH consumption",
               "items": [
                 {
                   "stage": 1,
                   "lane": "PulseAuction",
                   "phase": "Public issuance",
                   "title": "Settle",
-                  "detail": "Calculate the live ask and settle one serial epoch."
+                  "detail": "Live ask · one serial epoch"
                 },
                 {
                   "stage": 2,
                   "lane": "PathPulseAdapter",
                   "phase": "Public issuance",
                   "title": "Issue",
-                  "detail": "Translate the valid settlement into PATH issuance."
+                  "detail": "Valid settlement → PATH issuance"
                 },
                 {
                   "stage": 3,
                   "lane": "PathNFT",
                   "phase": "Public issuance",
                   "title": "Record PATH",
-                  "detail": "Own the issued PATH, its movement order, and its capacity."
+                  "detail": "Issued PATH · order · capacity"
                 },
                 {
                   "stage": 4,
                   "lane": "ThoughtNFT",
                   "phase": "Later THOUGHT mint",
                   "title": "Validate work",
-                  "detail": "Validate the THOUGHT work and request PATH permission use."
+                  "detail": "THOUGHT work · PATH permission"
                 },
                 {
                   "stage": 5,
                   "lane": "PathNFT",
                   "phase": "Later THOUGHT mint",
-                  "title": "Consume permission",
-                  "detail": "Verify configured caller, current-owner authorization, active stage, and quota; advance one unit."
+                  "title": "Consume unit",
+                  "detail": "Caller · owner · stage · quota"
                 },
                 {
                   "stage": 6,
                   "lane": "ThoughtNFT",
                   "phase": "Later THOUGHT mint",
                   "title": "Mint + record",
-                  "detail": "Mint and record the work; a later revert also reverts PATH consumption."
+                  "detail": "Atomic with PATH consumption"
                 }
               ]
             }
@@ -1792,7 +1615,7 @@
             "contract-release"
           ],
           "paragraphs": [
-            "The canonical gallery route reports the current THOUGHT deployment state; the imported R2 release is not deployed and therefore lists no R2 works. The PATH surface continues to list PATH tokens from its configured chain. The full identity of an NFT is its network, contract address, and token ID; the same token number elsewhere is a different record.",
+            "Home lists minted THOUGHT works from the active chain. The PATH surface lists PATH tokens from that same chain. The full identity of an NFT is its network, contract address, and token ID; the same token number elsewhere is a different record.",
             "THOUGHT and PATH artwork and NFT metadata come from each contract's tokenURI and pinned renderer. The App decodes and displays those canonical bytes; it must not rebuild replacement art or silently substitute a newer renderer.",
             "Token metadata carries the canonical image, description, stable marketplace traits, and—when the release defines it—an external_url to the canonical detail page. A generic marketplace can read that portable layer without understanding Inshell's richer records.",
             "Inshell detail pages add context: THOUGHT exposes its work, evidence levels, and creation provenance; PATH exposes movement state, capacity, linked movement tokens, issuance, and onchain record.",
@@ -1806,29 +1629,29 @@
             "app-documentation",
             "contract-release"
           ],
-          "label": "Evidence for one token interpretation",
-          "mode": "ledger",
-          "figureText": "RECORD         │ EVIDENCE\n───────────────┼────────────────────────────────\nIdentity       │ Network, contract address,\n               │ and token ID name one NFT.\n───────────────┼────────────────────────────────\nContract       │ Typed state and tokenURI expose\n               │ contract-controlled facts.\n───────────────┼────────────────────────────────\nRelease        │ Pinned artifacts explain the ABI,\n               │ renderer, schemas, and commitments.\n───────────────┼────────────────────────────────\nContext        │ Detail pages and provenance\n               │ add declared evidence without\n               │ replacing the token.\n───────────────┼────────────────────────────────\nInterpretation │ Read the evidence levels\n               │ together before making a larger\n               │ claim.",
+          "label": "Evidence becomes interpretation",
+          "mode": "field",
+          "figureText": "EVIDENCE\n├─ IDENTITY\n│  Network + contract + token\n├─ CONTRACT\n│  State + tokenURI\n├─ RELEASE\n│  ABI + renderer + schemas\n└─ CONTEXT\n   Provenance + reading surface\n      │\n      ↓\nINTERPRETATION\nRead together",
           "items": [
             {
               "title": "Identity",
-              "detail": "Network, contract address, and token ID name one NFT."
+              "detail": "Network + contract + token"
             },
             {
               "title": "Contract",
-              "detail": "Typed state and tokenURI expose contract-controlled facts."
+              "detail": "State + tokenURI"
             },
             {
               "title": "Release",
-              "detail": "Pinned artifacts explain the ABI, renderer, schemas, and commitments."
+              "detail": "ABI + renderer + schemas"
             },
             {
               "title": "Context",
-              "detail": "Detail pages and provenance add declared evidence without replacing the token."
+              "detail": "Provenance + reading surface"
             },
             {
               "title": "Interpretation",
-              "detail": "Read the evidence levels together before making a larger claim."
+              "detail": "Read together"
             }
           ]
         },
@@ -1892,9 +1715,9 @@
         "links": [
           {
             "role": "navigation",
-            "label": "view the THOUGHT gallery state",
-            "href": "/gallery",
-            "canonicalHref": "https://inshell.art/gallery"
+            "label": "view minted THOUGHT works",
+            "href": "/",
+            "canonicalHref": "https://inshell.art/"
           },
           {
             "role": "navigation",
@@ -1952,27 +1775,19 @@
           ],
           "label": "From glyph study to canonical artwork",
           "mode": "trace",
-          "figureText": "01 Explore\n   Compare distinct native-path systems as a visual\n   field.\n   │\n   ↓\n02 Refine\n   Tune one complete repertoire for rhythm, clarity,\n   and identity.\n   │\n   ↓\n03 Seal\n   Freeze the paths, metrics, order, package, and\n   integrity hashes.\n   │\n   ↓\n04 Pin\n   Bind a renderer release to the exact Mono 76\n   artifact it consumes.\n   │\n   ↓\n05 Render\n   Generate native SVG without browser font lookup\n   or substitution.",
+          "figureText": "GLYPH STUDY\nExplore · refine\n      ↓\nSEALED MONO 76\nPaths + metrics frozen\n      ↓\nCANONICAL ARTWORK\nNative SVG",
           "items": [
             {
-              "title": "Explore",
-              "detail": "Compare distinct native-path systems as a visual field."
+              "title": "Glyph study",
+              "detail": "Explore · refine"
             },
             {
-              "title": "Refine",
-              "detail": "Tune one complete repertoire for rhythm, clarity, and identity."
+              "title": "Sealed Mono 76",
+              "detail": "Paths + metrics frozen"
             },
             {
-              "title": "Seal",
-              "detail": "Freeze the paths, metrics, order, package, and integrity hashes."
-            },
-            {
-              "title": "Pin",
-              "detail": "Bind a renderer release to the exact Mono 76 artifact it consumes."
-            },
-            {
-              "title": "Render",
-              "detail": "Generate native SVG without browser font lookup or substitution."
+              "title": "Canonical artwork",
+              "detail": "Native SVG"
             }
           ]
         },
@@ -2105,7 +1920,7 @@
             "For a token, start from network, contract address, and token ID. Read contract state and tokenURI, identify the deployment and pinned release, recompute published commitments, validate the selected specification, and verify the Creation Attestation when one is present.",
             "Contract-verified means the contract accepted the defined proof and bound records. Runtime-reported means a connector received the value from an Agent runtime. Selected means the App or human chose it. Artist-editorial means it expresses the practice. These evidence levels must not be collapsed into one claim.",
             "A valid Creation Attestation verifies one THOUGHT creation record under the rules of its contract release. It does not certify that a work is Agent Art or define the wider field.",
-            "The Verify page distinguishes the active PATH deployment, the qualified but undeployed THOUGHT R2 release, and historical THOUGHT Sepolia contracts. Explorer links for historical addresses do not make those contracts the current R2 deployment."
+            "The Verify page gathers official origins, wallet boundaries, active networks, deployed contracts, release locks, and the active THOUGHT specification. In-place explorer links remain useful for inspecting addresses and transactions on the active public chain."
           ]
         },
         "figure": null,
@@ -2150,41 +1965,7 @@
               "App-recorded: the App assembled, stored, or signed a record with a declared boundary.",
               "Runtime-reported: the Agent runtime or connector supplied the value.",
               "Artist-editorial: the statement describes the practice, meaning, or interpretation."
-            ],
-            "figure": {
-              "authorities": [
-                "app-documentation"
-              ],
-              "label": "Evidence levels and their bounded sources",
-              "mode": "ledger",
-              "figureText": "EVIDENCE          │ BOUNDED SOURCE\n──────────────────┼─────────────────────────────────────\nCONTRACT-VERIFIED │ Deployed rule accepted defined values.\nCONTRACT-RELEASE  │ Pinned expected artifacts.\nCHAIN-OBSERVED    │ Named network + observation point.\nAPP-RECORDED      │ App assembled or signed the record.\nRUNTIME-REPORTED  │ Agent runtime or connector supplied it.\nARTIST-EDITORIAL  │ Meaning, practice, or interpretation.",
-              "items": [
-                {
-                  "title": "Contract-verified",
-                  "detail": "Deployed rule accepted defined values."
-                },
-                {
-                  "title": "Contract-release",
-                  "detail": "Pinned expected artifacts."
-                },
-                {
-                  "title": "Chain-observed",
-                  "detail": "Named network + observation point."
-                },
-                {
-                  "title": "App-recorded",
-                  "detail": "App assembled or signed the record."
-                },
-                {
-                  "title": "Runtime-reported",
-                  "detail": "Agent runtime or connector supplied it."
-                },
-                {
-                  "title": "Artist-editorial",
-                  "detail": "Meaning, practice, or interpretation."
-                }
-              ]
-            }
+            ]
           },
           {
             "authorities": [
@@ -2201,38 +1982,7 @@
               "Validate published hashes, schema constraints, renderer commitments, and the selected specification.",
               "Verify a Creation Attestation when present, or report that the work is Unattested.",
               "Name mirrors, caches, runtime reports, and editorial claims without promoting them to contract facts."
-            ],
-            "figure": {
-              "authorities": [
-                "app-documentation",
-                "contract-release"
-              ],
-              "label": "A chain-first verification pass",
-              "mode": "trace",
-              "figureText": "01 Locate\n   Record the network, contract address, token ID,\n   and transaction.\n   │\n   ↓\n02 Read\n   Query typed contract state and tokenURI from the\n   identified deployment.\n   │\n   ↓\n03 Pin\n   Match the deployment to its release, ABI,\n   renderer, schemas, and checksums.\n   │\n   ↓\n04 Recompute\n   Validate published hashes, work commitments, and\n   specification rules.\n   │\n   ↓\n05 Qualify\n   State exactly what each proof establishes and\n   what remains reported or editorial.",
-              "items": [
-                {
-                  "title": "Locate",
-                  "detail": "Record the network, contract address, token ID, and transaction."
-                },
-                {
-                  "title": "Read",
-                  "detail": "Query typed contract state and tokenURI from the identified deployment."
-                },
-                {
-                  "title": "Pin",
-                  "detail": "Match the deployment to its release, ABI, renderer, schemas, and checksums."
-                },
-                {
-                  "title": "Recompute",
-                  "detail": "Validate published hashes, work commitments, and specification rules."
-                },
-                {
-                  "title": "Qualify",
-                  "detail": "State exactly what each proof establishes and what remains reported or editorial."
-                }
-              ]
-            }
+            ]
           }
         ],
         "links": [
@@ -2291,33 +2041,17 @@
           "authorities": [
             "app-documentation"
           ],
-          "label": "Trust boundaries for wallet and local actions",
-          "mode": "ledger",
-          "figureText": "ACTION      │ BOUNDARY / EFFECT\n────────────┼────────────────────────────────────\nRead        │ App / public state. No signature or\n            │ transaction.\n────────────┼────────────────────────────────────\nConnect     │ Wallet → App. Exposes the selected\n            │ account and network; no chain change.\n────────────┼────────────────────────────────────\nSign        │ Wallet message. Narrow authorization;\n            │ no gas and no chain change by itself.\n────────────┼────────────────────────────────────\nTransact    │ Wallet → contract. Wallet confirms;\n            │ may transfer value or change\n            │ chain state.\n────────────┼────────────────────────────────────\nSave / Load │ Current browser. Local only; not\n            │ onchain or cross-device.\n────────────┼────────────────────────────────────\nAgent run   │ App backend. Temporary run-window\n            │ state; not onchain unless a later\n            │ public record preserves part.",
+          "label": "Two distinctions",
+          "mode": "field",
+          "figureText": "┌─ WALLET AND LOCAL DATA ─────────────────────┐\n│ READ ≠ SIGN ≠ TRANSACT                      │\n│ Public state · authorization · chain change │\n│                                             │\n│ LOCAL ≠ ONCHAIN                             │\n│ Browser record · public record              │\n└─────────────────────────────────────────────┘",
           "items": [
             {
-              "title": "Read",
-              "detail": "App / public state. No signature or transaction."
+              "title": "Read ≠ Sign ≠ Transact",
+              "detail": "Public state · authorization · chain change"
             },
             {
-              "title": "Connect",
-              "detail": "Wallet → App. Exposes the selected account and network; no chain change."
-            },
-            {
-              "title": "Sign",
-              "detail": "Wallet message. Narrow authorization; no gas and no chain change by itself."
-            },
-            {
-              "title": "Transact",
-              "detail": "Wallet → contract. Wallet confirms; may transfer value or change chain state."
-            },
-            {
-              "title": "Save / Load",
-              "detail": "Current browser. Local only; not onchain or cross-device."
-            },
-            {
-              "title": "Agent run",
-              "detail": "App backend. Temporary run-window state; not onchain unless a later public record preserves part."
+              "title": "Local ≠ Onchain",
+              "detail": "Browser record · public record"
             }
           ]
         },
@@ -2414,25 +2148,25 @@
             "app-documentation",
             "contract-release"
           ],
-          "label": "Records that identify live behavior",
-          "mode": "ledger",
-          "figureText": "RECORD      │ BOUNDARY\n────────────┼────────────────────────────────────\nSource      │ A repository shows authored code and\n            │ ongoing development.\n────────────┼────────────────────────────────────\nRelease     │ A pinned artifact set freezes code,\n            │ schemas, renderers, and checksums.\n────────────┼────────────────────────────────────\nDeployment  │ A network record binds a release to\n            │ addresses and deployment blocks.\n────────────┼────────────────────────────────────\nObservation │ A live read reports what that\n            │ deployment exposes at a point in time.",
+          "label": "Four distinct records",
+          "mode": "field",
+          "figureText": "┌─ FOUR DISTINCT RECORDS ─────────────────────┐\n│ SOURCE                                      │\n│ Authored code                               │\n│   ≠ RELEASE                                 │\n│     Pinned artifacts                        │\n│       ≠ DEPLOYMENT                          │\n│         Addresses + blocks                  │\n│           ≠ OBSERVATION                     │\n│             Point-in-time read              │\n└─────────────────────────────────────────────┘",
           "items": [
             {
               "title": "Source",
-              "detail": "A repository shows authored code and ongoing development."
+              "detail": "Authored code"
             },
             {
               "title": "Release",
-              "detail": "A pinned artifact set freezes code, schemas, renderers, and checksums."
+              "detail": "Pinned artifacts"
             },
             {
               "title": "Deployment",
-              "detail": "A network record binds a release to addresses and deployment blocks."
+              "detail": "Addresses + blocks"
             },
             {
               "title": "Observation",
-              "detail": "A live read reports what that deployment exposes at a point in time."
+              "detail": "Point-in-time read"
             }
           ]
         },
@@ -2615,55 +2349,55 @@
               ],
               "label": "Two preservation boundaries",
               "mode": "lanes",
-              "figureText": "TIME    │ [01] → [02] → [03] → [04]\n\nTHOUGHT │ [01] Agent return\n        │ Candidate produced.\n        │ [02] Human review\n        │ Decision to preserve.\n        │ [03] Successful mint\n        │ Contract action succeeds; before success,\n        │ no preserved public record.\n        │ [04] Public corpus\n        │ Preserved THOUGHT record.\n\nPULSE   │ [01] Visible ask\n        │ Quote is visible.\n        │ [02] Confirmed bid\n        │ Participant authorizes.\n        │ [03] Settlement\n        │ Contract action succeeds; before success,\n        │ no preserved public record.\n        │ [04] Sale record\n        │ Preserved Pulse record.",
+              "figureText": "THOUGHT │ AGENT RETURN\n        │ Candidate produced\n        │ → HUMAN REVIEW\n        │ Decision to preserve\n        │ → SUCCESSFUL MINT\n        │ Contract action succeeds\n        │ → PUBLIC CORPUS\n        │ Preserved THOUGHT\nPULSE   │ VISIBLE ASK\n        │ Quote exposed\n        │ → CONFIRMED BID\n        │ Participant authorizes\n        │ → SETTLEMENT\n        │ Contract action succeeds\n        │ → SALE RECORD\n        │ Preserved Pulse",
               "items": [
                 {
                   "stage": 1,
                   "lane": "THOUGHT",
                   "title": "Agent return",
-                  "detail": "Candidate produced."
+                  "detail": "Candidate produced"
                 },
                 {
                   "stage": 2,
                   "lane": "THOUGHT",
                   "title": "Human review",
-                  "detail": "Decision to preserve."
+                  "detail": "Decision to preserve"
                 },
                 {
                   "stage": 3,
                   "lane": "THOUGHT",
                   "title": "Successful mint",
-                  "detail": "Contract action succeeds; before success, no preserved public record."
+                  "detail": "Contract action succeeds"
                 },
                 {
                   "stage": 4,
                   "lane": "THOUGHT",
                   "title": "Public corpus",
-                  "detail": "Preserved THOUGHT record."
+                  "detail": "Preserved THOUGHT"
                 },
                 {
                   "stage": 1,
                   "lane": "PULSE",
                   "title": "Visible ask",
-                  "detail": "Quote is visible."
+                  "detail": "Quote exposed"
                 },
                 {
                   "stage": 2,
                   "lane": "PULSE",
                   "title": "Confirmed bid",
-                  "detail": "Participant authorizes."
+                  "detail": "Participant authorizes"
                 },
                 {
                   "stage": 3,
                   "lane": "PULSE",
                   "title": "Settlement",
-                  "detail": "Contract action succeeds; before success, no preserved public record."
+                  "detail": "Contract action succeeds"
                 },
                 {
                   "stage": 4,
                   "lane": "PULSE",
                   "title": "Sale record",
-                  "detail": "Preserved Pulse record."
+                  "detail": "Preserved Pulse"
                 }
               ]
             }
@@ -2697,23 +2431,15 @@
               ],
               "label": "Many surfaces, one identified record",
               "mode": "field",
-              "figureText": "┌─ IDENTIFIED ONCHAIN WORK ─────────────────────────┐\n│ ORIGIN: NETWORK + CONTRACT + TOKEN ID + TOKENURI  │\n│ + RELEASE                                         │\n└──────────────────────┬────────────────────────────┘\n                       ↓\nREADING SURFACES: SITE · WALLET · MARKETPLACE · API ·\n                  MARKDOWN · AGENT ANSWER\n\nRELATION: SURFACES ADD ACCESS AND CONTEXT.\nBOUNDARY: THEY DO NOT REPLACE THE RECORD'S ORIGIN.",
+              "figureText": "┌─ IDENTIFIED ONCHAIN WORK ───────────────┐\n│ Network + contract + token ID +         │\n│ tokenURI + release                      │\n└───────────────────┬─────────────────────┘\n                    ↓\n          MANY READING SURFACES\nSite · wallet · marketplace · API · Markdown · Agent answer",
               "items": [
                 {
-                  "title": "Origin",
+                  "title": "Identified onchain work",
                   "detail": "Network + contract + token ID + tokenURI + release"
                 },
                 {
-                  "title": "Reading surfaces",
+                  "title": "Many reading surfaces",
                   "detail": "Site · wallet · marketplace · API · Markdown · Agent answer"
-                },
-                {
-                  "title": "Relation",
-                  "detail": "Surfaces add access and context."
-                },
-                {
-                  "title": "Boundary",
-                  "detail": "They do not replace the record's origin."
                 }
               ]
             }

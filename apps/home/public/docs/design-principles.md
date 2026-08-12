@@ -68,37 +68,32 @@ Within THOUGHT, more options would not automatically create more expressive work
 - Figure mode: lanes
 
 ```text
-TIME    │ [01] → [02] → [03] → [04]
-
-THOUGHT │ [01] Agent return
-        │ Candidate produced.
-        │ [02] Human review
-        │ Decision to preserve.
-        │ [03] Successful mint
-        │ Contract action succeeds; before success,
-        │ no preserved public record.
-        │ [04] Public corpus
-        │ Preserved THOUGHT record.
-
-PULSE   │ [01] Visible ask
-        │ Quote is visible.
-        │ [02] Confirmed bid
-        │ Participant authorizes.
-        │ [03] Settlement
-        │ Contract action succeeds; before success,
-        │ no preserved public record.
-        │ [04] Sale record
-        │ Preserved Pulse record.
+THOUGHT │ AGENT RETURN
+        │ Candidate produced
+        │ → HUMAN REVIEW
+        │ Decision to preserve
+        │ → SUCCESSFUL MINT
+        │ Contract action succeeds
+        │ → PUBLIC CORPUS
+        │ Preserved THOUGHT
+PULSE   │ VISIBLE ASK
+        │ Quote exposed
+        │ → CONFIRMED BID
+        │ Participant authorizes
+        │ → SETTLEMENT
+        │ Contract action succeeds
+        │ → SALE RECORD
+        │ Preserved Pulse
 ```
 
-1. **THOUGHT · Agent return** — Candidate produced.
-2. **THOUGHT · Human review** — Decision to preserve.
-3. **THOUGHT · Successful mint** — Contract action succeeds; before success, no preserved public record.
-4. **THOUGHT · Public corpus** — Preserved THOUGHT record.
-1. **PULSE · Visible ask** — Quote is visible.
-2. **PULSE · Confirmed bid** — Participant authorizes.
-3. **PULSE · Settlement** — Contract action succeeds; before success, no preserved public record.
-4. **PULSE · Sale record** — Preserved Pulse record.
+1. **THOUGHT · Agent return** — Candidate produced
+2. **THOUGHT · Human review** — Decision to preserve
+3. **THOUGHT · Successful mint** — Contract action succeeds
+4. **THOUGHT · Public corpus** — Preserved THOUGHT
+1. **PULSE · Visible ask** — Quote exposed
+2. **PULSE · Confirmed bid** — Participant authorizes
+3. **PULSE · Settlement** — Contract action succeeds
+4. **PULSE · Sale record** — Preserved Pulse
 
 A system can produce a candidate without declaring it part of the public corpus. In Inshell's current onchain practices, THOUGHT separates Agent return from human review and successful mint, while Pulse separates a visible ask from a participant's confirmed bid. Their contract actions are specific preservation boundaries, not a universal rule for Agent Art.
 
@@ -118,22 +113,17 @@ Pulse shows the curve, floor, premium, sale points, and current ask. PATH shows 
 - Figure mode: field
 
 ```text
-┌─ IDENTIFIED ONCHAIN WORK ─────────────────────────┐
-│ ORIGIN: NETWORK + CONTRACT + TOKEN ID + TOKENURI  │
-│ + RELEASE                                         │
-└──────────────────────┬────────────────────────────┘
-                       ↓
-READING SURFACES: SITE · WALLET · MARKETPLACE · API ·
-                  MARKDOWN · AGENT ANSWER
-
-RELATION: SURFACES ADD ACCESS AND CONTEXT.
-BOUNDARY: THEY DO NOT REPLACE THE RECORD'S ORIGIN.
+┌─ IDENTIFIED ONCHAIN WORK ───────────────┐
+│ Network + contract + token ID +         │
+│ tokenURI + release                      │
+└───────────────────┬─────────────────────┘
+                    ↓
+          MANY READING SURFACES
+Site · wallet · marketplace · API · Markdown · Agent answer
 ```
 
-- **Origin** — Network + contract + token ID + tokenURI + release
-- **Reading surfaces** — Site · wallet · marketplace · API · Markdown · Agent answer
-- **Relation** — Surfaces add access and context.
-- **Boundary** — They do not replace the record's origin.
+- **Identified onchain work** — Network + contract + token ID + tokenURI + release
+- **Many reading surfaces** — Site · wallet · marketplace · API · Markdown · Agent answer
 
 An onchain Inshell work can appear on the site, in a wallet, on a marketplace, through an API, in Markdown, or inside an Agent's answer. Those surfaces can add access and context. They should still point back to the network, contract, tokenURI, pinned release, and declared record authority that make that work identifiable.
 

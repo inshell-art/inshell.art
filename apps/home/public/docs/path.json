@@ -92,29 +92,13 @@
             "app-documentation",
             "contract-release"
           ],
-          "label": "Deployment quota and one PATH's progress",
+          "label": "Capacity and progress",
           "mode": "ledger",
-          "figureText": "SCOPE      │ STATE\n───────────┼────────────────────────────────────────────\nDEPLOYMENT │ Quota + authorized minter per movement.\nONE PATH   │ Current stage + in-stage minted count.\nDERIVED    │ Remaining = quota - this PATH's minted count.\nADVANCE    │ Quota reached → next movement + count reset.\nABSENT     │ No configured quota → not available.",
+          "figureText": "DEPLOYMENT │ ONE PATH\n───────────┼──────────\nCAPACITY   │ PROGRESS",
           "items": [
             {
-              "title": "Deployment",
-              "detail": "Quota + authorized minter per movement."
-            },
-            {
-              "title": "One PATH",
-              "detail": "Current stage + in-stage minted count."
-            },
-            {
-              "title": "Derived",
-              "detail": "Remaining = quota - this PATH's minted count."
-            },
-            {
-              "title": "Advance",
-              "detail": "Quota reached → next movement + count reset."
-            },
-            {
-              "title": "Absent",
-              "detail": "No configured quota → not available."
+              "title": "Capacity",
+              "detail": "Progress"
             }
           ]
         }
@@ -129,37 +113,7 @@
           "Selecting a PATH or signing its permission does not consume a unit. For one movement mint, the current owner authorizes a short-lived EIP-191 message bound to the PathNFT address, chain ID, PATH ID, movement, owner, configured movement minter, current permission epoch, the owner's current consume nonce, and a deadline. ERC-721 approval is not movement authorization, and only the configured movement minter may call consumeUnit.",
           "Before changing state, PathNFT checks the configured caller, the unexpired current-owner authorization, the fixed movement order, and remaining quota. On success it returns the unit's zero-based in-movement serial, advances the owner's consume nonce, and increments that PATH's current count. When the count reaches the movement quota, PATH advances to the next movement and resets its in-stage count. MetadataUpdate and MovementConsumed tell readers which PATH state to refresh.",
           "The configured movement contract is responsible for pairing consumption with the artwork mint. It calls consumeUnit before minting the movement work inside the same transaction. If a later mint step reverts, the EVM rolls back the unit, nonce, progress, events, and work together. A canceled or failed flow consumes nothing."
-        ],
-        "figure": {
-          "authorities": [
-            "contract-release"
-          ],
-          "label": "How one movement unit is consumed",
-          "mode": "trace",
-          "figureText": "ONE SUCCESSFUL MOVEMENT MINT CONSUMES 1 UNIT\n\n01 Read\n   Read the current owner, stage, quota, minter,\n   permission epoch, and owner nonce.\n   │\n   ↓\n02 Authorize\n   The current owner signs one short-lived EIP-191\n   authorization; signing alone consumes nothing.\n   │\n   ↓\n03 Submit\n   The movement mint transaction calls the\n   configured minter, which calls PathNFT.\n   │\n   ↓\n04 Verify + consume\n   PathNFT checks the caller and current-owner\n   authorization, then confirms the movement order\n   and that quota remains.\n   │\n   ↓\n05 Commit + refresh\n   A successful movement mint commits one unit\n   and the work together; events expose progress.",
-          "items": [
-            {
-              "title": "Read",
-              "detail": "Read the current owner, stage, quota, minter, permission epoch, and owner nonce."
-            },
-            {
-              "title": "Authorize",
-              "detail": "The current owner signs one short-lived EIP-191 authorization; signing alone consumes nothing."
-            },
-            {
-              "title": "Submit",
-              "detail": "The movement mint transaction calls the configured minter, which calls PathNFT."
-            },
-            {
-              "title": "Verify + consume",
-              "detail": "PathNFT checks the caller and current-owner authorization, then confirms the movement order and that quota remains."
-            },
-            {
-              "title": "Commit + refresh",
-              "detail": "A successful movement mint commits one unit and the work together; events expose progress."
-            }
-          ]
-        }
+        ]
       },
       {
         "authorities": [

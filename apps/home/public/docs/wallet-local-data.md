@@ -8,41 +8,23 @@
 - Canonical page: https://inshell.art/docs/wallet-local-data
 - Documentation version: 2026-08-11
 
-## Trust boundaries for wallet and local actions
+## Two distinctions
 
 - Authority: app-documentation
-- Figure mode: ledger
+- Figure mode: field
 
 ```text
-ACTION      │ BOUNDARY / EFFECT
-────────────┼────────────────────────────────────
-Read        │ App / public state. No signature or
-            │ transaction.
-────────────┼────────────────────────────────────
-Connect     │ Wallet → App. Exposes the selected
-            │ account and network; no chain change.
-────────────┼────────────────────────────────────
-Sign        │ Wallet message. Narrow authorization;
-            │ no gas and no chain change by itself.
-────────────┼────────────────────────────────────
-Transact    │ Wallet → contract. Wallet confirms;
-            │ may transfer value or change
-            │ chain state.
-────────────┼────────────────────────────────────
-Save / Load │ Current browser. Local only; not
-            │ onchain or cross-device.
-────────────┼────────────────────────────────────
-Agent run   │ App backend. Temporary run-window
-            │ state; not onchain unless a later
-            │ public record preserves part.
+┌─ WALLET AND LOCAL DATA ─────────────────────┐
+│ READ ≠ SIGN ≠ TRANSACT                      │
+│ Public state · authorization · chain change │
+│                                             │
+│ LOCAL ≠ ONCHAIN                             │
+│ Browser record · public record              │
+└─────────────────────────────────────────────┘
 ```
 
-- **Read** — App / public state. No signature or transaction.
-- **Connect** — Wallet → App. Exposes the selected account and network; no chain change.
-- **Sign** — Wallet message. Narrow authorization; no gas and no chain change by itself.
-- **Transact** — Wallet → contract. Wallet confirms; may transfer value or change chain state.
-- **Save / Load** — Current browser. Local only; not onchain or cross-device.
-- **Agent run** — App backend. Temporary run-window state; not onchain unless a later public record preserves part.
+- **Read ≠ Sign ≠ Transact** — Public state · authorization · chain change
+- **Local ≠ Onchain** — Browser record · public record
 
 ## Overview
 

@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import "@inshell/shared/design.css";
 import "./main.css";
+import "./components/docs/figures.css";
 import "@fontsource/source-code-pro/200.css";
 import "@fontsource/source-code-pro/300.css";
 import "@fontsource/source-code-pro/400.css";

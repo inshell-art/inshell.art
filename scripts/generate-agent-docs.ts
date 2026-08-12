@@ -537,6 +537,10 @@ function markdownAuthority(authorities: readonly string[]) {
   return `- Authority: ${authorities.join(", ")}`;
 }
 
+function markdownFigureItem(label: string, detail?: string) {
+  return `${label}${detail === undefined ? "" : ` — ${detail}`}`;
+}
+
 function markdownFigure(
   figure: DocsFigure | undefined,
   authorities: readonly string[],
@@ -547,15 +551,19 @@ function markdownFigure(
   if (figure.mode === "lanes") {
     itemLines = figure.items.map((item) => {
       const phase = item.phase ? ` · ${item.phase}` : "";
-      return `${item.stage}. **${item.lane} · ${item.title}${phase}** — ${item.detail}`;
+      return `${item.stage}. ${markdownFigureItem(
+        `**${item.lane} · ${item.title}${phase}**`,
+        item.detail,
+      )}`;
     });
   } else if (figure.mode === "trace") {
     itemLines = figure.items.map(
-      (item, index) => `${index + 1}. **${item.title}** — ${item.detail}`,
+      (item, index) =>
+        `${index + 1}. ${markdownFigureItem(`**${item.title}**`, item.detail)}`,
     );
   } else {
     itemLines = figure.items.map(
-      (item) => `- **${item.title}** — ${item.detail}`,
+      (item) => `- ${markdownFigureItem(`**${item.title}**`, item.detail)}`,
     );
   }
   return [
@@ -2508,7 +2516,7 @@ function agentContentSchema() {
       figureItem: {
         type: "object",
         additionalProperties: false,
-        required: ["title", "detail"],
+        required: ["title"],
         properties: {
           title: { type: "string", minLength: 1 },
           detail: { type: "string", minLength: 1 },
@@ -2517,7 +2525,7 @@ function agentContentSchema() {
       laneFigureItem: {
         type: "object",
         additionalProperties: false,
-        required: ["stage", "lane", "title", "detail"],
+        required: ["stage", "lane", "title"],
         properties: {
           stage: { type: "integer", minimum: 1 },
           lane: { type: "string", minLength: 1 },

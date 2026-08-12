@@ -45,27 +45,19 @@
       ],
       "label": "From glyph study to canonical artwork",
       "mode": "trace",
-      "figureText": "01 Explore\n   Compare distinct native-path systems as a visual\n   field.\n   │\n   ↓\n02 Refine\n   Tune one complete repertoire for rhythm, clarity,\n   and identity.\n   │\n   ↓\n03 Seal\n   Freeze the paths, metrics, order, package, and\n   integrity hashes.\n   │\n   ↓\n04 Pin\n   Bind a renderer release to the exact Mono 76\n   artifact it consumes.\n   │\n   ↓\n05 Render\n   Generate native SVG without browser font lookup\n   or substitution.",
+      "figureText": "GLYPH STUDY\nExplore · refine\n      ↓\nSEALED MONO 76\nPaths + metrics frozen\n      ↓\nCANONICAL ARTWORK\nNative SVG",
       "items": [
         {
-          "title": "Explore",
-          "detail": "Compare distinct native-path systems as a visual field."
+          "title": "Glyph study",
+          "detail": "Explore · refine"
         },
         {
-          "title": "Refine",
-          "detail": "Tune one complete repertoire for rhythm, clarity, and identity."
+          "title": "Sealed Mono 76",
+          "detail": "Paths + metrics frozen"
         },
         {
-          "title": "Seal",
-          "detail": "Freeze the paths, metrics, order, package, and integrity hashes."
-        },
-        {
-          "title": "Pin",
-          "detail": "Bind a renderer release to the exact Mono 76 artifact it consumes."
-        },
-        {
-          "title": "Render",
-          "detail": "Generate native SVG without browser font lookup or substitution."
+          "title": "Canonical artwork",
+          "detail": "Native SVG"
         }
       ]
     },

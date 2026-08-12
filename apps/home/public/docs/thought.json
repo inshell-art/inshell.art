@@ -40,7 +40,6 @@
         "THOUGHT is the first movement on Inshell's PATH and begins with the individual. It gives the inward direction—inspect self—a bounded occasion: simply inspect your thought and what becomes visible when one Agent responds. The thought's words, source, and motivation remain open to inspection, as do the knowledge it carries and the reasons that knowledge became believable. The Agent response enters that practice as another exact line to read; it does not resolve the thought or claim possession of its truth.",
         "Within the wider field of Agent Art, THOUGHT chooses a narrow terminal practice: one exact human prompt and one exact Agent response. Their ordered pair defines the globally unique work; either line may appear again with a different counterpart.",
         "The creation flow is: human prompt → Agent response → validation and canonical record assembly → human selection → wallet confirmation → PATH movement consumption → THOUGHT minted. The model proposes. The human decides. The wallet confirms. The contract records.",
-        "The imported R2 release is production-consumable as a verified immutable artifact, but deployment and registration remain unauthorized. No persistent-chain R2 deployment is committed, and V2 minting remains disabled. The mint steps describe the bounded flow after a separately authorized deployment; they are not evidence that minting is live now.",
         "Prompt and Agent response are each 1–64 bytes of Terminal English. Allowed characters are space, A–Z, a–z, 0–9, and . , ? ! : ; ' \" - ( ) / &. Leading spaces, trailing spaces, and repeated internal spaces are rejected. Validation never trims, normalizes, repairs, translates, or rewrites accepted bytes.",
         "The human reviews the returned response and preview, then decides whether to preserve, discard, or mint the work. To mint, the human picks an available PATH, signs a one-mint permission bound to the current PATH state and ThoughtNFT executor, and confirms the transaction. The signature is not a transaction and uses no gas.",
         "A successful mint atomically consumes exactly one THOUGHT unit from the selected PATH. A canceled or failed mint consumes nothing and does not reserve the prompt-response pair.",
@@ -71,25 +70,19 @@
             "app-documentation",
             "contract-release"
           ],
-          "label": "The ordered-pair boundary",
+          "label": "One prompt, one response",
           "mode": "field",
-          "figureText": "┌─ ORDERED-PAIR BOUNDARY ──────────────────────────┐\n│ HUMAN PROMPT P + AGENT RESPONSE R → (P, R)       │\n│                                                  │\n│ DIFFERENT RESPONSE: (P, R′) = DIFFERENT WORK     │\n│ DIFFERENT PROMPT: (P′, R) = DIFFERENT WORK       │\n│                                                  │\n│ PRESERVATION: CANDIDATE → SUCCESSFUL MINT →      │\n│ ONCHAIN THOUGHT                                  │\n└──────────────────────────────────────────────────┘",
+          "figureText": "HUMAN PROMPT P + AGENT RESPONSE R\n                 ↓\n          ONE THOUGHT (P, R)\nDifferent counterpart = different work · onchain only after successful mint.",
           "items": [
             {
-              "title": "Ordered-pair boundary",
-              "detail": "Human prompt P + Agent response R → (P, R)"
+              "title": "Human prompt P"
             },
             {
-              "title": "Different response",
-              "detail": "(P, R′) = different work"
+              "title": "Agent response R"
             },
             {
-              "title": "Different prompt",
-              "detail": "(P′, R) = different work"
-            },
-            {
-              "title": "Preservation",
-              "detail": "Candidate → successful mint → onchain THOUGHT"
+              "title": "One THOUGHT (P, R)",
+              "detail": "Different counterpart = different work · onchain only after successful mint."
             }
           ]
         }
@@ -156,50 +149,23 @@
         "note": "A transport receipt proves that the App accepted one protocol result. It does not give the Agent wallet authority or prove hidden model reasoning.",
         "figure": {
           "authorities": [
-            "app-documentation",
-            "app-record",
-            "contract-release",
-            "runtime-report"
+            "app-documentation"
           ],
-          "label": "From intention to minted THOUGHT",
-          "mode": "lanes",
-          "figureText": "TIME       │ [01] → [02] → [03] → [04] → [05] → [06]\n\nHUMAN      │ [01] Prompt\n           │ Enter one exact Terminal English line.\n           │ ···\n           │ [04] Review + choose\n           │ Read the candidate and decide whether\n           │ to preserve it; select a PATH.\n\nAGENT      │ [02] Response\n           │ Return one exact line; no repair\n           │ dialogue.\n\nAPP        │ [03] Validate + assemble\n           │ Check exact bytes; assemble the preview\n           │ and creation record.\n\nWALLET     │ [05] Authorize + submit\n           │ Sign the narrow permission, then confirm\n           │ the mint transaction.\n\nCONTRACTS  │ [06] Validate + record\n           │ Enforce rules, consume one PATH unit,\n           │ mint, and expose the record.",
+          "label": "The creative handoff",
+          "mode": "trace",
+          "figureText": "HUMAN                AGENT                 HUMAN\nOne exact prompt  →  One exact response  →  Review + choose",
           "items": [
             {
-              "stage": 1,
-              "lane": "Human",
-              "title": "Prompt",
-              "detail": "Enter one exact Terminal English line."
+              "title": "Human",
+              "detail": "One exact prompt"
             },
             {
-              "stage": 2,
-              "lane": "Agent",
-              "title": "Response",
-              "detail": "Return one exact line; no repair dialogue."
+              "title": "Agent",
+              "detail": "One exact response"
             },
             {
-              "stage": 3,
-              "lane": "App",
-              "title": "Validate + assemble",
-              "detail": "Check exact bytes; assemble the preview and creation record."
-            },
-            {
-              "stage": 4,
-              "lane": "Human",
-              "title": "Review + choose",
-              "detail": "Read the candidate and decide whether to preserve it; select a PATH."
-            },
-            {
-              "stage": 5,
-              "lane": "Wallet",
-              "title": "Authorize + submit",
-              "detail": "Sign the narrow permission, then confirm the mint transaction."
-            },
-            {
-              "stage": 6,
-              "lane": "Contracts",
-              "title": "Validate + record",
-              "detail": "Enforce rules, consume one PATH unit, mint, and expose the record."
+              "title": "Human",
+              "detail": "Review + choose"
             }
           ]
         }
@@ -238,16 +204,15 @@
         "figure": {
           "authorities": [
             "app-record",
-            "contract-release",
-            "runtime-report"
+            "contract-release"
           ],
-          "label": "Creation Attestation bindings",
+          "label": "Creation Attestation",
           "mode": "field",
-          "figureText": "RECORDED VALUES\nHuman line · Agent line · selected Agent · runtime-reported\nmodel when available · specification · renderer context ·\nmint anchors\n   │\n   ↓\nAPP CLAIM\nConfigured App authority signs one exact claim.\n   │\n   ↓\nCONTRACT VALIDATION\nThoughtNFT validates during minting.\n   ├─ VALID PROOF → APP ATTESTED\n   │  Valid proof binds the mint to recorded values.\n   └─ EMPTY PROOF → UNATTESTED\n      Empty proof makes the absence explicit.\n\n┌─ CLAIM CEILING ───────────────────────────────────┐\n│ Does not prove hidden reasoning · provider        │\n│ identity · sole authorship.                       │\n└───────────────────────────────────────────────────┘",
+          "figureText": "RECORDED VALUES\nHuman line · Agent line · Agent/model records ·\nspecification · renderer · mint anchors\n   │\n   ↓\nAPP CLAIM\nConfigured App authority signs one exact claim.\n   │\n   ↓\nCONTRACT VALIDATION\nThoughtNFT validates during minting.\n   ├─ VALID PROOF → APP ATTESTED\n   │  Valid proof binds the mint to recorded values.\n   └─ EMPTY PROOF → UNATTESTED\n      Empty proof makes the absence explicit.",
           "items": [
             {
               "title": "Recorded values",
-              "detail": "Human line · Agent line · selected Agent · runtime-reported model when available · specification · renderer context · mint anchors"
+              "detail": "Human line · Agent line · Agent/model records · specification · renderer · mint anchors"
             },
             {
               "title": "App claim",
@@ -264,10 +229,6 @@
             {
               "title": "Unattested",
               "detail": "Empty proof makes the absence explicit."
-            },
-            {
-              "title": "Claim ceiling",
-              "detail": "Does not prove hidden reasoning · provider identity · sole authorship."
             }
           ]
         }
@@ -316,9 +277,9 @@
       },
       {
         "role": "navigation",
-        "label": "view the THOUGHT gallery state",
-        "href": "/gallery",
-        "canonicalHref": "https://inshell.art/gallery"
+        "label": "view minted THOUGHT works",
+        "href": "/",
+        "canonicalHref": "https://inshell.art/"
       },
       {
         "role": "navigation",

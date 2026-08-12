@@ -40,25 +40,25 @@
         "app-documentation",
         "contract-release"
       ],
-      "label": "Records that identify live behavior",
-      "mode": "ledger",
-      "figureText": "RECORD      │ BOUNDARY\n────────────┼────────────────────────────────────\nSource      │ A repository shows authored code and\n            │ ongoing development.\n────────────┼────────────────────────────────────\nRelease     │ A pinned artifact set freezes code,\n            │ schemas, renderers, and checksums.\n────────────┼────────────────────────────────────\nDeployment  │ A network record binds a release to\n            │ addresses and deployment blocks.\n────────────┼────────────────────────────────────\nObservation │ A live read reports what that\n            │ deployment exposes at a point in time.",
+      "label": "Four distinct records",
+      "mode": "field",
+      "figureText": "┌─ FOUR DISTINCT RECORDS ─────────────────────┐\n│ SOURCE                                      │\n│ Authored code                               │\n│   ≠ RELEASE                                 │\n│     Pinned artifacts                        │\n│       ≠ DEPLOYMENT                          │\n│         Addresses + blocks                  │\n│           ≠ OBSERVATION                     │\n│             Point-in-time read              │\n└─────────────────────────────────────────────┘",
       "items": [
         {
           "title": "Source",
-          "detail": "A repository shows authored code and ongoing development."
+          "detail": "Authored code"
         },
         {
           "title": "Release",
-          "detail": "A pinned artifact set freezes code, schemas, renderers, and checksums."
+          "detail": "Pinned artifacts"
         },
         {
           "title": "Deployment",
-          "detail": "A network record binds a release to addresses and deployment blocks."
+          "detail": "Addresses + blocks"
         },
         {
           "title": "Observation",
-          "detail": "A live read reports what that deployment exposes at a point in time."
+          "detail": "Point-in-time read"
         }
       ]
     },
