@@ -414,6 +414,8 @@ function PromptResponseField({ figure }: { figure: FieldFigure }) {
     );
   }
 
+  const resultPair = thought.term.match(/^(.*)\s+(\([^)]*\))$/);
+
   return (
     <div
       className="docs-figure__field-shape docs-figure__field-prompt-response"
@@ -437,7 +439,26 @@ function PromptResponseField({ figure }: { figure: FieldFigure }) {
       >
         {resultEdge.glyph}
       </Glyph>
-      <NodeCopy node={thought} className="docs-figure__field-prompt-result" />
+      <span
+        className="docs-figure__copy docs-figure__field-prompt-result"
+        data-figure-node={thought.id}
+      >
+        <strong className="docs-figure__term">
+          {resultPair ? (
+            <>
+              {resultPair[1]}{" "}
+              <span className="docs-figure__field-prompt-result-pair">
+                {resultPair[2]}
+              </span>
+            </>
+          ) : (
+            <FigureTitle>{thought.term}</FigureTitle>
+          )}
+        </strong>
+        {thought.annotation ? (
+          <small className="docs-figure__annotation">{thought.annotation}</small>
+        ) : null}
+      </span>
     </div>
   );
 }

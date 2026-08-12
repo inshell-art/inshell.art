@@ -148,7 +148,7 @@ const FIGURE_LOGIC_BUILDERS = {
       "axis",
       [
         sourceNode(figure, 0, "shell", "surface"),
-        sourceNode(figure, 1, "in", "operator"),
+        sourceNode(figure, 1, "in", "structural"),
         { id: "self", term: "SELF", role: "result" },
       ],
       [
@@ -404,7 +404,7 @@ const FIGURE_LOGIC_BUILDERS = {
         sourceNode(figure, 0, "thought", "state"),
         sourceNode(figure, 1, "will", "state"),
         sourceNode(figure, 2, "awa", "state"),
-        { id: "open-horizon", term: "…", role: "structural" },
+        { id: "open-horizon", term: "…", role: "state" },
       ],
       [
         {
@@ -412,6 +412,7 @@ const FIGURE_LOGIC_BUILDERS = {
           from: "thought",
           to: "will",
           glyph: "→",
+          stackedGlyph: "↓",
           label: "The path moves from individual THOUGHT to crowd WILL.",
         },
         {
@@ -419,6 +420,7 @@ const FIGURE_LOGIC_BUILDERS = {
           from: "will",
           to: "awa",
           glyph: "→",
+          stackedGlyph: "↓",
           label: "The path points from crowd WILL toward AWA and the core; arrival is not claimed.",
         },
         {
@@ -426,6 +428,7 @@ const FIGURE_LOGIC_BUILDERS = {
           from: "awa",
           to: "open-horizon",
           glyph: "→",
+          stackedGlyph: "↓",
           label: "AWA remains open toward a core that is not claimed as reached.",
         },
       ],

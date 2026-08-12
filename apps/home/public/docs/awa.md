@@ -19,11 +19,11 @@
   - `thought [state]: THOUGHT — Individual`
   - `will [state]: WILL — Crowd`
   - `awa [state]: AWA — Toward the core`
-  - `open-horizon [structural]: …`
+  - `open-horizon [state]: …`
 - Semantic edges:
-  - `thought-to-will: thought (THOUGHT) --[→ · The path moves from individual THOUGHT to crowd WILL.]--> will (WILL)`
-  - `will-toward-awa: will (WILL) --[→ · The path points from crowd WILL toward AWA and the core; arrival is not claimed.]--> awa (AWA)`
-  - `awa-toward-open-horizon: awa (AWA) --[→ · AWA remains open toward a core that is not claimed as reached.]--> open-horizon (…)`
+  - `thought-to-will: thought (THOUGHT) --[→ / ↓ · The path moves from individual THOUGHT to crowd WILL.]--> will (WILL)`
+  - `will-toward-awa: will (WILL) --[→ / ↓ · The path points from crowd WILL toward AWA and the core; arrival is not claimed.]--> awa (AWA)`
+  - `awa-toward-open-horizon: awa (AWA) --[→ / ↓ · AWA remains open toward a core that is not claimed as reached.]--> open-horizon (…)`
 
 ```text
 THOUGHT  →  WILL  →  AWA  →  …

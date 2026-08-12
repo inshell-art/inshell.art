@@ -55,9 +55,9 @@
   --docs-figure-item-gap: 8px;
   --docs-figure-title-font-size: var(--font-size-14);
   --docs-figure-term-font-size: clamp(
-    var(--font-size-22),
-    2.6vw,
-    var(--font-size-30)
+    var(--font-size-30),
+    7vw,
+    var(--font-size-64)
   );
   --docs-figure-term-line-height: 1.05;
   --docs-figure-title-line-height: 1.2;
@@ -4217,7 +4217,6 @@ button {
 }
 
 .docs-figure__lanes {
-  --docs-figure-term-font-size: var(--font-size-22);
   display: grid;
   gap: var(--docs-figure-lane-gap);
   min-width: 0;

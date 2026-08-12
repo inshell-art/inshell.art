@@ -1,44 +1,9 @@
 .docs-figure {
   /*
-   * Character figures use one literal type system and several semantic
-   * rhythms. A figure may change the scale assigned to a tier, but it may
-   * never introduce a fourth tier: term, structure, annotation.
+   * Character figures use one literal type system: one shared governing
+   * term/operator size, one structural size, and one quiet annotation size.
+   * Semantic forms change rhythm and topology, never the governing size.
    */
-  --docs-figure-scale-monument: clamp(
-    var(--font-size-30),
-    7vw,
-    var(--font-size-64)
-  );
-  --docs-figure-scale-sequence: clamp(
-    var(--font-size-22),
-    3.2vw,
-    var(--font-size-30)
-  );
-  --docs-figure-scale-stack: clamp(
-    var(--font-size-30),
-    5.4vw,
-    var(--font-size-56)
-  );
-  --docs-figure-scale-branch: clamp(
-    var(--font-size-30),
-    4.8vw,
-    var(--font-size-40)
-  );
-  --docs-figure-scale-field: clamp(
-    var(--font-size-30),
-    5.8vw,
-    var(--font-size-56)
-  );
-  --docs-figure-scale-ledger: clamp(
-    var(--font-size-24),
-    4.2vw,
-    var(--font-size-40)
-  );
-  --docs-figure-scale-lanes: clamp(
-    var(--font-size-18),
-    2.6vw,
-    var(--font-size-24)
-  );
   --docs-figure-scale-structure: var(--font-size-14);
   --docs-figure-scale-note: var(--font-size-10);
   --docs-figure-scale-dense-note: var(--font-size-11);
@@ -52,7 +17,6 @@
   --docs-figure-fork-inline-size: 58%;
   --docs-figure-mobile-fork-inline-size: 100%;
   --docs-figure-half-container-inline-size: 50cqi;
-  --docs-figure-term-font-size: var(--docs-figure-scale-field);
   --docs-figure-title-font-size: var(--docs-figure-scale-structure);
   --docs-figure-annotation-font-size: var(--docs-figure-scale-note);
   display: grid;
@@ -70,7 +34,6 @@
  * operators, and rails stay in the DOM; these rules only establish emphasis.
  */
 .docs-figure[data-figure-form="axis"] {
-  --docs-figure-term-font-size: var(--docs-figure-scale-monument);
   --docs-figure-annotation-font-size: var(--docs-figure-scale-note);
   --docs-figure-field-gap: var(--docs-figure-space-open);
   --docs-figure-frame-content-gap: var(--docs-figure-space-sequence);
@@ -78,7 +41,6 @@
 }
 
 .docs-figure[data-figure-form="trace"] {
-  --docs-figure-term-font-size: var(--docs-figure-scale-sequence);
   --docs-figure-annotation-font-size: var(--docs-figure-scale-note);
   --docs-figure-column-gap: var(--docs-figure-space-dense);
   --docs-figure-item-gap: var(--docs-figure-space-dense);
@@ -86,14 +48,12 @@
 }
 
 .docs-figure[data-figure-form="cycle"] {
-  --docs-figure-term-font-size: var(--docs-figure-scale-sequence);
   --docs-figure-annotation-font-size: var(--docs-figure-scale-note);
   --docs-figure-field-gap: var(--docs-figure-space-sequence);
   --docs-figure-row-gap: var(--docs-figure-space-sequence);
 }
 
 .docs-figure[data-figure-form="fork"] {
-  --docs-figure-term-font-size: var(--docs-figure-scale-branch);
   --docs-figure-annotation-font-size: var(--docs-figure-scale-note);
   --docs-figure-field-gap: var(--docs-figure-space-sequence);
   --docs-figure-frame-content-gap: var(--docs-figure-space-sequence);
@@ -101,7 +61,6 @@
 }
 
 .docs-figure[data-figure-form="field"] {
-  --docs-figure-term-font-size: var(--docs-figure-scale-field);
   --docs-figure-annotation-font-size: var(--docs-figure-scale-note);
   --docs-figure-field-gap: var(--docs-figure-space-open);
   --docs-figure-frame-content-gap: var(--docs-figure-space-sequence);
@@ -109,7 +68,6 @@
 }
 
 .docs-figure[data-figure-form="ledger"] {
-  --docs-figure-term-font-size: var(--docs-figure-scale-ledger);
   --docs-figure-annotation-font-size: var(--docs-figure-scale-dense-note);
   --docs-figure-gap: var(--docs-figure-space-dense);
   --docs-figure-item-gap: var(--docs-figure-space-dense);
@@ -117,7 +75,6 @@
 }
 
 .docs-figure[data-figure-form="lanes"] {
-  --docs-figure-term-font-size: var(--docs-figure-scale-lanes);
   --docs-figure-annotation-font-size: var(--docs-figure-scale-dense-note);
   --docs-figure-column-gap: var(--docs-figure-space-dense);
   --docs-figure-item-gap: var(--docs-figure-space-dense);
@@ -533,16 +490,22 @@
 
 .docs-figure__field-prompt-pair {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) max-content minmax(0, 1fr);
-  align-items: center;
-  gap: var(--docs-figure-column-gap);
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  gap: var(--docs-figure-space-relation);
   width: 100%;
   min-width: 0;
+  text-align: center;
 }
 
 .docs-figure__field-prompt-pair .docs-figure__copy,
 .docs-figure__field-prompt-result {
   justify-items: center;
+}
+
+.docs-figure__field-prompt-result-pair {
+  display: block;
+  white-space: nowrap;
 }
 
 .docs-figure__field-prompt-arrow {
@@ -551,8 +514,8 @@
 
 .docs-figure__field-fork {
   display: grid;
-  justify-self: end;
-  width: var(--docs-figure-fork-inline-size);
+  justify-self: stretch;
+  width: var(--docs-figure-mobile-fork-inline-size);
   min-width: 0;
   gap: 0;
 }
@@ -590,10 +553,14 @@
 }
 
 .docs-figure__field-fork-proof {
-  display: flex;
-  align-items: baseline;
-  gap: var(--docs-figure-item-gap);
+  display: grid;
+  justify-items: start;
+  gap: var(--docs-figure-space-relation);
   min-width: 0;
+}
+
+.docs-figure__field-fork-branch > .docs-figure__copy {
+  gap: var(--docs-figure-space-relation);
 }
 
 .docs-figure__field-shape[data-figure-shape="attestation-flow-fork"] {
@@ -693,6 +660,12 @@
   gap: 0;
 }
 
+[data-figure-shape="canonical-source-flow"] .docs-figure__frame-cap {
+  grid-template-columns:
+    var(--docs-figure-frame-padding-inline) minmax(0, 1fr)
+    var(--docs-figure-rule-min-width) max-content;
+}
+
 .docs-figure__field-stack {
   gap: var(--docs-figure-row-gap);
 }
@@ -701,14 +674,6 @@
  * Open fields use big governing words and operators. Tree and membership
  * marks remain structural because they organize terms rather than govern them.
  */
-.docs-figure[data-figure-id="source-release.records"] {
-  --docs-figure-term-font-size: var(--font-size-26);
-}
-
-.docs-figure[data-figure-id="thought.prompt-response"] {
-  --docs-figure-term-font-size: var(--docs-figure-scale-branch);
-}
-
 .docs-figure__field-relation-glyph,
 .docs-figure__field-prompt-pair-glyph {
   color: var(--docs-content-accent-color);
@@ -722,7 +687,6 @@
 }
 
 .docs-figure__field-membership-glyph,
-.docs-figure__field-proof-term,
 .docs-figure__field-attestation-branch-glyph,
 .docs-figure__field-fork-continuation {
   font-size: var(--docs-figure-title-font-size);
@@ -732,11 +696,15 @@
 [data-figure-shape="open-invariant-field"]
   .docs-figure__field-open-questions
   > li {
-  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-columns: 1ch minmax(0, 1fr);
   grid-template-rows: max-content max-content;
-  column-gap: var(--docs-figure-field-branch-gap);
+  column-gap: var(--docs-figure-item-gap);
   row-gap: var(--docs-figure-item-gap);
   align-items: center;
+}
+
+.docs-figure[data-figure-id="agent-art.open-field"] {
+  --docs-figure-padding-inline: var(--docs-figure-space-dense);
 }
 
 [data-figure-shape="open-invariant-field"]
@@ -780,15 +748,16 @@
 .docs-figure__field-records,
 .docs-figure__field-comparison-member,
 .docs-figure__field-record {
-  display: flex;
-  align-items: start;
-  gap: var(--docs-figure-space-dense);
+  display: grid;
+  justify-items: center;
+  gap: var(--docs-figure-space-relation);
   min-width: 0;
+  text-align: center;
 }
 
 .docs-figure__field-comparison-member > .docs-figure__copy,
 .docs-figure__field-record > .docs-figure__copy {
-  flex: 1 1 auto;
+  justify-items: center;
 }
 
 .docs-figure__field-box-list {
@@ -797,11 +766,11 @@
 
 .docs-figure__field-comparison,
 .docs-figure__field-records {
-  justify-content: center;
+  gap: var(--docs-figure-space-sequence);
 }
 
 .docs-figure__field-records {
-  flex-wrap: nowrap;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .docs-figure__field-distinction-glyph,
@@ -815,15 +784,10 @@
   min-width: 0;
 }
 
-.docs-figure__shape-trace--stack,
-.docs-figure__shape-trace--cycle {
-  --docs-figure-term-font-size: var(--docs-figure-scale-stack);
-}
-
 .docs-figure__shape-trace-list {
-  display: flex;
-  align-items: start;
+  display: grid;
   justify-content: center;
+  justify-items: center;
   min-width: 0;
   margin: 0;
   padding: 0;
@@ -831,8 +795,9 @@
 }
 
 .docs-figure__shape-trace-item {
-  display: flex;
-  align-items: start;
+  display: grid;
+  justify-content: center;
+  justify-items: center;
   min-width: 0;
 }
 
@@ -852,10 +817,11 @@
 
 .docs-figure__shape-trace-connector {
   display: grid;
-  flex: 0 0 auto;
+  justify-self: center;
   justify-items: center;
   gap: var(--docs-figure-item-gap);
-  padding-inline: var(--docs-figure-space-relation);
+  padding-block: var(--docs-figure-space-relation);
+  padding-inline: var(--docs-figure-space-none);
   color: var(--docs-content-accent-color);
 }
 
@@ -867,12 +833,12 @@
 
 .docs-figure__shape-trace-connector
   > .docs-figure__shape-trace-connector-inline {
-  display: block;
+  display: none;
 }
 
 .docs-figure__shape-trace-connector
   > .docs-figure__shape-trace-connector-stacked {
-  display: none;
+  display: block;
   white-space: pre;
 }
 
@@ -880,39 +846,6 @@
   align-self: start;
   max-width: max-content;
   text-align: center;
-}
-
-.docs-figure__shape-trace--stack .docs-figure__shape-trace-list,
-.docs-figure__shape-trace--cycle .docs-figure__shape-trace-list,
-.docs-figure__shape-trace--stack .docs-figure__shape-trace-item,
-.docs-figure__shape-trace--cycle .docs-figure__shape-trace-item {
-  display: grid;
-  justify-content: center;
-  justify-items: center;
-}
-
-.docs-figure__shape-trace--stack .docs-figure__shape-trace-connector,
-.docs-figure__shape-trace--cycle .docs-figure__shape-trace-connector {
-  padding-block: var(--docs-figure-space-relation);
-  padding-inline: var(--docs-figure-space-none);
-}
-
-.docs-figure__shape-trace--stack
-  .docs-figure__shape-trace-connector
-  > .docs-figure__shape-trace-connector-inline,
-.docs-figure__shape-trace--cycle
-  .docs-figure__shape-trace-connector
-  > .docs-figure__shape-trace-connector-inline {
-  display: none;
-}
-
-.docs-figure__shape-trace--stack
-  .docs-figure__shape-trace-connector
-  > .docs-figure__shape-trace-connector-stacked,
-.docs-figure__shape-trace--cycle
-  .docs-figure__shape-trace-connector
-  > .docs-figure__shape-trace-connector-stacked {
-  display: block;
 }
 
 .docs-figure__shape-trace-return {
@@ -927,8 +860,8 @@
 /* Capacity is an open two-member comparison, not a ruled table. */
 .docs-figure__shape-ledger--comparison {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) max-content minmax(0, 1fr);
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
   gap: var(--docs-figure-space-relation);
   min-width: 0;
 }
@@ -975,8 +908,9 @@
 }
 
 .docs-figure__lane-events {
-  display: flex;
-  align-items: start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
   min-width: 0;
   margin: 0;
   padding: 0;
@@ -984,51 +918,43 @@
 }
 
 .docs-figure__lane-event {
-  display: flex;
-  flex: 1 1 0;
+  display: grid;
+  justify-items: center;
   min-width: 0;
 }
 
 .docs-figure__lane-event .docs-figure__copy {
   width: 100%;
-  grid-template-columns: minmax(0, 1fr) max-content;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
   gap: var(--docs-figure-space-dense);
   min-width: 0;
+  text-align: center;
 }
 
 .docs-figure__lane-event-label,
 .docs-figure__lane-event .docs-figure__term,
-.docs-figure__lane-event .docs-figure__annotation {
+.docs-figure__lane-event .docs-figure__annotation,
+.docs-figure__lane-event .docs-figure__lane-relation {
   grid-column: 1;
+  grid-row: auto;
 }
 
 .docs-figure__lane-event-label {
-  grid-row: 1;
   color: var(--muted);
   font-size: var(--docs-figure-annotation-font-size);
   line-height: var(--docs-figure-annotation-line-height);
 }
 
 .docs-figure__lane-event .docs-figure__term {
-  grid-row: 2;
   overflow-wrap: normal;
   word-break: normal;
 }
 
-.docs-figure__lane-event .docs-figure__annotation {
-  grid-row: 3;
-}
-
 .docs-figure__lane-event .docs-figure__lane-relation {
-  grid-column: 2;
-  grid-row: 2;
-  align-self: start;
-  padding-inline: var(--docs-figure-space-relation);
-}
-
-.docs-figure__lane-event--terminal .docs-figure__copy {
-  grid-template-columns: minmax(0, 1fr);
+  justify-self: center;
+  padding-block: var(--docs-figure-space-relation);
+  padding-inline: var(--docs-figure-space-none);
 }
 
 .docs-figure__lane-relation--governing {
@@ -1039,6 +965,10 @@
 }
 
 .docs-figure__lane-relation-stacked {
+  display: block;
+}
+
+.docs-figure__lane-relation-inline {
   display: none;
 }
 
@@ -1085,13 +1015,7 @@
   }
 
   .docs-figure {
-    --docs-figure-scale-monument: var(--font-size-30);
-    --docs-figure-scale-sequence: var(--font-size-26);
-    --docs-figure-scale-stack: var(--font-size-30);
-    --docs-figure-scale-branch: var(--font-size-24);
-    --docs-figure-scale-field: var(--font-size-26);
-    --docs-figure-scale-ledger: var(--font-size-24);
-    --docs-figure-scale-lanes: var(--font-size-18);
+    --docs-figure-term-font-size: var(--font-size-30);
     --docs-figure-fork-inline-size: var(
       --docs-figure-mobile-fork-inline-size
     );
@@ -1101,87 +1025,5 @@
 
   .docs-figure__field-questions {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .docs-figure__field-prompt-pair {
-    grid-template-columns: minmax(0, 1fr);
-    justify-items: center;
-    gap: var(--docs-figure-item-gap);
-  }
-
-  .docs-figure__field-comparison,
-  .docs-figure__field-records,
-  .docs-figure__field-comparison-member,
-  .docs-figure__field-record {
-    display: grid;
-    justify-items: center;
-  }
-
-  .docs-figure__field-comparison,
-  .docs-figure__field-records {
-    gap: var(--docs-figure-space-sequence);
-  }
-
-  .docs-figure__shape-trace--sequence .docs-figure__shape-trace-list,
-  .docs-figure__shape-trace--axis .docs-figure__shape-trace-list,
-  .docs-figure__shape-ledger--comparison,
-  .docs-figure__lane-events {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    justify-items: center;
-  }
-
-  .docs-figure__shape-trace--sequence .docs-figure__shape-trace-item,
-  .docs-figure__shape-trace--axis .docs-figure__shape-trace-item,
-  .docs-figure__lane-event {
-    display: grid;
-    justify-items: center;
-  }
-
-  .docs-figure__shape-trace--sequence .docs-figure__shape-trace-connector,
-  .docs-figure__shape-trace--axis .docs-figure__shape-trace-connector {
-    justify-self: center;
-    padding-block: var(--docs-figure-space-relation);
-    padding-inline: var(--docs-figure-space-none);
-  }
-
-  .docs-figure__shape-trace--sequence
-    .docs-figure__shape-trace-connector
-    > .docs-figure__shape-trace-connector-inline,
-  .docs-figure__shape-trace--axis
-    .docs-figure__shape-trace-connector
-    > .docs-figure__shape-trace-connector-inline,
-  .docs-figure__lane-relation-inline {
-    display: none;
-  }
-
-  .docs-figure__shape-trace--sequence
-    .docs-figure__shape-trace-connector
-    > .docs-figure__shape-trace-connector-stacked,
-  .docs-figure__shape-trace--axis
-    .docs-figure__shape-trace-connector
-    > .docs-figure__shape-trace-connector-stacked,
-  .docs-figure__lane-relation-stacked {
-    display: block;
-  }
-
-  .docs-figure__lane-event .docs-figure__copy {
-    grid-template-columns: minmax(0, 1fr);
-    justify-items: center;
-    text-align: center;
-  }
-
-  .docs-figure__lane-event .docs-figure__lane-event-label,
-  .docs-figure__lane-event .docs-figure__term,
-  .docs-figure__lane-event .docs-figure__annotation,
-  .docs-figure__lane-event .docs-figure__lane-relation {
-    grid-column: 1;
-    grid-row: auto;
-  }
-
-  .docs-figure__lane-event .docs-figure__lane-relation {
-    justify-self: center;
-    padding-block: var(--docs-figure-space-relation);
-    padding-inline: var(--docs-figure-space-none);
   }
 }

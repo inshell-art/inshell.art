@@ -70,7 +70,7 @@
             "sourcePart": "item",
             "term": "In",
             "annotation": "Inspect what forms the self",
-            "role": "operator"
+            "role": "structural"
           },
           {
             "id": "self",

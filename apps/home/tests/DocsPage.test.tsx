@@ -1636,6 +1636,9 @@ describe("DocsPage character figures", () => {
         glyph: "↓",
       }),
     ]);
+    expect(
+      inwardLogic.nodes.find(({ id }: { id: string }) => id === "in")?.role,
+    ).toBe("structural");
     expect(inward?.querySelector(".docs-figure__field-tail")).toHaveTextContent(
       /↓\s*IN[\s\S]*Inspect what forms the[\s\S]*self/i,
     );
@@ -1759,6 +1762,9 @@ describe("DocsPage character figures", () => {
     expect(
       promptResponse?.querySelector(".docs-figure__field-prompt-arrow"),
     ).toHaveClass("docs-figure__field-relation-glyph");
+    expect(
+      promptResponse?.querySelector(".docs-figure__field-prompt-result-pair"),
+    ).toHaveTextContent("(P, R)");
     const promptLogic = JSON.parse(
       screen
         .getByRole("figure", { name: "One prompt, one response" })
@@ -1831,8 +1837,22 @@ describe("DocsPage character figures", () => {
       "will-toward-awa",
       "awa-toward-open-horizon",
     ]);
+    expect(
+      [
+        ...(awa?.querySelectorAll<HTMLElement>(
+          ".docs-figure__shape-trace-connector-stacked",
+        ) ?? []),
+      ].map((connector) => connector.textContent),
+    ).toEqual(["↓", "↓", "↓"]);
     expect(awaFigure).toHaveAttribute("data-figure-mode", "trace");
     expect(awaFigure).toHaveAttribute("data-figure-form", "trace");
+    const awaLogic = JSON.parse(
+      awaFigure.getAttribute("data-figure-logic") ?? "null",
+    );
+    expect(
+      awaLogic.nodes.find(({ id }: { id: string }) => id === "open-horizon")
+        ?.role,
+    ).toBe("state");
     cleanup();
 
     render(<DocsPage topicSlug="artwork-metadata-chain" />);
@@ -1945,6 +1965,13 @@ describe("DocsPage character figures", () => {
     ];
     for (const token of tierTokens) expect(css).toContain(`${token}:`);
     for (const obsoleteToken of [
+      "--docs-figure-scale-monument",
+      "--docs-figure-scale-sequence",
+      "--docs-figure-scale-stack",
+      "--docs-figure-scale-branch",
+      "--docs-figure-scale-field",
+      "--docs-figure-scale-ledger",
+      "--docs-figure-scale-lanes",
       "--docs-figure-dense-term-font-size",
       "--docs-figure-marker-font-size",
       "--docs-figure-relation-font-size",
@@ -1955,8 +1982,17 @@ describe("DocsPage character figures", () => {
     ]) {
       expect(css).not.toContain(obsoleteToken);
     }
+    expect(
+      [...css.matchAll(/--docs-figure-term-font-size:\s*([^;]+);/g)].map(
+        ([, value]) => value.trim(),
+      ),
+    ).toEqual([
+      "clamp(\n    var(--font-size-30),\n    7vw,\n    var(--font-size-64)\n  )",
+      "var(--font-size-30)",
+    ]);
 
-    const figureRules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    const cssWithoutComments = css.replace(/\/\*[\s\S]*?\*\//g, "");
+    const figureRules = [...cssWithoutComments.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
       .map(([, selectors, body]) => ({ selectors: selectors.trim(), body }))
       .filter(({ selectors }) => selectors.includes(".docs-figure"));
     const figureFontSizes = figureRules.flatMap(({ body }) =>
@@ -1999,8 +2035,8 @@ describe("DocsPage character figures", () => {
       "--docs-figure-term-font-size",
     );
     for (const selector of [
-      ".docs-figure__field-prompt-pair-glyph",
       ".docs-figure__field-relation-glyph",
+      ".docs-figure__field-prompt-pair-glyph",
       ".docs-figure__shape-trace-edge-glyph",
       ".docs-figure__shape-trace-return-glyph",
       ".docs-figure__shape-ledger-relation--governing",

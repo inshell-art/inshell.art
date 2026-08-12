@@ -17,7 +17,7 @@
 - Semantic form: axis
 - Semantic nodes:
   - `shell [surface]: Shell — a body, face, or head; a name, honor, reputation, role...`
-  - `in [operator]: In — Inspect what forms the self`
+  - `in [structural]: In — Inspect what forms the self`
   - `self [result]: SELF`
 - Semantic edges:
   - `inspect-self: in (In) --[↓ · In directs inspection toward the self. · Inspect what forms the self]--> self (SELF)`

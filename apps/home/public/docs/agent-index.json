@@ -11,7 +11,7 @@
   "completeJson": "/docs/content.json",
   "canonicalCompleteJson": "https://inshell.art/docs/content.json",
   "completeJsonMediaType": "application/json",
-  "completeJsonSha256": "d38be65e381ee2fcfb4dc7787c6ad638b8d532ce5e1ac543a8907109371adbc5",
+  "completeJsonSha256": "b89a27308a709ffeb5647b9e45501daba20e14e95c76b9bb9c7887a5808b79dd",
   "purpose": "Public, read-only discovery for visitors using their own Agents.",
   "sourceLock": {
     "url": "/docs/source-lock.json",
@@ -19,7 +19,7 @@
     "schemaUrl": "/docs/source-lock.schema.json",
     "canonicalSchemaUrl": "https://inshell.art/docs/source-lock.schema.json",
     "mediaType": "application/json",
-    "sha256": "626308c62bf080dc48395e3ba41709b21cd79bdab3d2d3e4fbcc0f92962bd4d6",
+    "sha256": "b81b70428b9b68366cc242567fdc3530db564ff847f653968a2b78ed8013c438",
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
@@ -161,11 +161,11 @@
       "markdown": "/docs/inshell.md",
       "canonicalMarkdown": "https://inshell.art/docs/inshell.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "0a854018c0ac8c855e06a7441640d03bc727bc12589b5f0d267a2df7be4d2774",
+      "markdownSha256": "31a3ebcfe03bc6184df02e4d6f81d803f2914ce83eacaad24d33f13322f7f1c2",
       "json": "/docs/inshell.json",
       "canonicalJson": "https://inshell.art/docs/inshell.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "370a4808830d94f48ece48a239a9220aca688a7b31d8c69dd288dc1f805ecad5"
+      "jsonSha256": "9897e7e618da4f51d00dfdd0b43178ae2af43f30fb0c721cf7880d6957934c59"
     },
     {
       "id": "agent-art",
@@ -276,11 +276,11 @@
       "markdown": "/docs/awa.md",
       "canonicalMarkdown": "https://inshell.art/docs/awa.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "eed5433e3e051d6e9f2fd0600d4a01c05265f5b25342ce920fb6e6068083682b",
+      "markdownSha256": "3bfb0f33111ea405b2e0b483c86642ec1fa0b1496ced52c99f90736e03379974",
       "json": "/docs/awa.json",
       "canonicalJson": "https://inshell.art/docs/awa.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "169905362c7fc0c15c945c33e32b564c5293a935682e8daa4d1fd2004ee953a5"
+      "jsonSha256": "3a7b763949cea986190788d811fc5466282edfb8f2af2171939c5635ce905522"
     },
     {
       "id": "path",

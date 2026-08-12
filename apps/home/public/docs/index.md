@@ -67,7 +67,7 @@ Read the design choices that give the practice form without turning its truth in
 - Semantic form: axis
 - Semantic nodes:
   - `shell [surface]: Shell — a body, face, or head; a name, honor, reputation, role...`
-  - `in [operator]: In — Inspect what forms the self`
+  - `in [structural]: In — Inspect what forms the self`
   - `self [result]: SELF`
 - Semantic edges:
   - `inspect-self: in (In) --[↓ · In directs inspection toward the self. · Inspect what forms the self]--> self (SELF)`
@@ -702,11 +702,11 @@ WILL is planned for 2027. These docs expose its slogan and current direction as 
   - `thought [state]: THOUGHT — Individual`
   - `will [state]: WILL — Crowd`
   - `awa [state]: AWA — Toward the core`
-  - `open-horizon [structural]: …`
+  - `open-horizon [state]: …`
 - Semantic edges:
-  - `thought-to-will: thought (THOUGHT) --[→ · The path moves from individual THOUGHT to crowd WILL.]--> will (WILL)`
-  - `will-toward-awa: will (WILL) --[→ · The path points from crowd WILL toward AWA and the core; arrival is not claimed.]--> awa (AWA)`
-  - `awa-toward-open-horizon: awa (AWA) --[→ · AWA remains open toward a core that is not claimed as reached.]--> open-horizon (…)`
+  - `thought-to-will: thought (THOUGHT) --[→ / ↓ · The path moves from individual THOUGHT to crowd WILL.]--> will (WILL)`
+  - `will-toward-awa: will (WILL) --[→ / ↓ · The path points from crowd WILL toward AWA and the core; arrival is not claimed.]--> awa (AWA)`
+  - `awa-toward-open-horizon: awa (AWA) --[→ / ↓ · AWA remains open toward a core that is not claimed as reached.]--> open-horizon (…)`
 
 ```text
 THOUGHT  →  WILL  →  AWA  →  …

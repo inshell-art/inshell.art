@@ -87,7 +87,7 @@
                 "sourcePart": "item",
                 "term": "In",
                 "annotation": "Inspect what forms the self",
-                "role": "operator"
+                "role": "structural"
               },
               {
                 "id": "self",
@@ -1431,7 +1431,7 @@
               {
                 "id": "open-horizon",
                 "term": "…",
-                "role": "structural"
+                "role": "state"
               }
             ],
             "edges": [
@@ -1440,6 +1440,7 @@
                 "from": "thought",
                 "to": "will",
                 "glyph": "→",
+                "stackedGlyph": "↓",
                 "label": "The path moves from individual THOUGHT to crowd WILL."
               },
               {
@@ -1447,6 +1448,7 @@
                 "from": "will",
                 "to": "awa",
                 "glyph": "→",
+                "stackedGlyph": "↓",
                 "label": "The path points from crowd WILL toward AWA and the core; arrival is not claimed."
               },
               {
@@ -1454,6 +1456,7 @@
                 "from": "awa",
                 "to": "open-horizon",
                 "glyph": "→",
+                "stackedGlyph": "↓",
                 "label": "AWA remains open toward a core that is not claimed as reached."
               }
             ],
