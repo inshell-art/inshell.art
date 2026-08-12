@@ -321,6 +321,23 @@ type PathMintSubmissionContext = {
 };
 
 const PATH_MINT_RECEIPT_RETRY_MS = 3_000;
+const PATH_COMPACT_VIEWPORT_MAX_WIDTH_PX = 720;
+
+function useCompactPathViewport() {
+  const [isCompact, setIsCompact] = useState(
+    typeof window === "undefined"
+      ? false
+      : window.innerWidth <= PATH_COMPACT_VIEWPORT_MAX_WIDTH_PX,
+  );
+  useEffect(() => {
+    const onResize = () => {
+      setIsCompact(window.innerWidth <= PATH_COMPACT_VIEWPORT_MAX_WIDTH_PX);
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  return isCompact;
+}
 
 function useDesktopOnly(minWidth = 768) {
   const [isDesktop, setIsDesktop] = useState(
@@ -2495,6 +2512,7 @@ export default function AuctionCanvas({
     [fixture, decimals]
   );
   const isDesktop = useDesktopOnly();
+  const isCompactPathViewport = useCompactPathViewport();
   const bidsFromBlock = useMemo(() => resolveBidsFromBlock(), []);
   const protocolRelease = useMemo(() => getProtocolRelease(), []);
   const allowDirectAuction = useMemo(() => directAuctionOverrideAllowed(), []);
@@ -2789,6 +2807,7 @@ export default function AuctionCanvas({
   const [isPanning, setIsPanning] = useState(false);
   const initialAskTipCurveKeyRef = useRef<string | null>(null);
   const initialAskTipShownRef = useRef(false);
+  const initialAskTipActiveRef = useRef(false);
   const postMintNowTipPendingRef = useRef(false);
   const postMintNowTipBaseCurveKeyRef = useRef<string | null>(null);
   const panRef = useRef<{
@@ -5949,11 +5968,13 @@ export default function AuctionCanvas({
     if (!initialAskTipCurveKey) {
       initialAskTipCurveKeyRef.current = null;
       initialAskTipShownRef.current = false;
+      initialAskTipActiveRef.current = false;
       return;
     }
     if (initialAskTipCurveKeyRef.current === initialAskTipCurveKey) return;
     initialAskTipCurveKeyRef.current = initialAskTipCurveKey;
     initialAskTipShownRef.current = false;
+    initialAskTipActiveRef.current = false;
   }, [initialAskTipCurveKey]);
 
   const tooltipOriginRect = useCallback(() => {
@@ -6161,13 +6182,24 @@ export default function AuctionCanvas({
   }, [liveNowSec, effectiveCurrentAskQuoteDec, mimicLocalTime]);
 
   useEffect(() => {
+    if (isCompactPathViewport) {
+      initialAskTipShownRef.current = true;
+      if (!initialAskTipActiveRef.current) return;
+      initialAskTipActiveRef.current = false;
+      setHover((previous) =>
+        previous?.key === "now" && !pinnedDotRef.current ? null : previous,
+      );
+      return;
+    }
     if (selectedBidKey || selectedAskKey || selectedNow) return;
     if (hover) return;
     if (isPanning || panRef.current.active) return;
     if (initialAskTipShownRef.current) return;
     if (!showNowCurveHover()) return;
     initialAskTipShownRef.current = true;
+    initialAskTipActiveRef.current = true;
   }, [
+    isCompactPathViewport,
     selectedBidKey,
     selectedAskKey,
     selectedNow,
@@ -7953,6 +7985,7 @@ export default function AuctionCanvas({
               {showNow && nowPt && (
                 <button
                   type="button"
+                  aria-label="current ask"
                   className={`dotfield__point dotfield__point--now${
                     selectedNow ? " is-selected" : ""
                   }`}
@@ -7967,21 +8000,25 @@ export default function AuctionCanvas({
                   onMouseMove={(e) => {
                     e.stopPropagation();
                     if (pinnedDotRef.current) return;
+                    initialAskTipActiveRef.current = false;
                     showNowCurveHover(e.clientX, e.clientY);
                   }}
                   onMouseEnter={(e) => {
                     e.stopPropagation();
                     if (pinnedDotRef.current) return;
+                    initialAskTipActiveRef.current = false;
                     showNowCurveHover(e.clientX, e.clientY);
                   }}
                   onMouseLeave={(e) => {
                     e.stopPropagation();
                     if (!pinnedDotRef.current) {
+                      initialAskTipActiveRef.current = false;
                       setHover(null);
                     }
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
+                    initialAskTipActiveRef.current = false;
                     showNowCurveHover(e.clientX, e.clientY);
                     pinNowDot(e.clientX, e.clientY);
                   }}

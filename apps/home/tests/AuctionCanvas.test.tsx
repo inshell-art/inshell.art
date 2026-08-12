@@ -420,6 +420,81 @@ describe("AuctionCanvas", () => {
     expect(within(popover as HTMLElement).getByText("premium")).toBeInTheDocument();
   });
 
+  test("keeps the compact PATH title clear until current ask is selected", async () => {
+    const originalWidth = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 720,
+    });
+    const view = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
+
+    try {
+      await waitFor(() => {
+        expect(view.container.querySelector(".dotfield__popover")).toBeNull();
+      });
+
+      const now = view.container.querySelector(
+        ".dotfield__point--now"
+      ) as HTMLElement | null;
+      expect(now).toBeTruthy();
+      fireEvent.click(now as HTMLElement, { clientX: 100, clientY: 220 });
+
+      const popover = view.container.querySelector(
+        ".dotfield__popover"
+      ) as HTMLElement | null;
+      expect(popover).toBeTruthy();
+      expect(within(popover as HTMLElement).getByText("current ask")).toBeInTheDocument();
+    } finally {
+      view.unmount();
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        value: originalWidth,
+      });
+    }
+  });
+
+  test("clears the passive current ask when PATH becomes compact", async () => {
+    const originalWidth = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 721,
+    });
+    const view = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
+
+    try {
+      await waitFor(() => {
+        expect(view.container.querySelector(".dotfield__popover")).toBeTruthy();
+      });
+
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        value: 720,
+      });
+      act(() => window.dispatchEvent(new window.Event("resize")));
+      await waitFor(() => {
+        expect(view.container.querySelector(".dotfield__popover")).toBeNull();
+      });
+
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        value: 721,
+      });
+      act(() => window.dispatchEvent(new window.Event("resize")));
+      await act(async () => Promise.resolve());
+      expect(view.container.querySelector(".dotfield__popover")).toBeNull();
+    } finally {
+      view.unmount();
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        value: originalWidth,
+      });
+    }
+  });
+
   test("keeps now dot on the padded right edge after clock ticks", () => {
     jest.useFakeTimers();
     const nowMs = Date.UTC(2026, 0, 1, 0, 0, 0);
