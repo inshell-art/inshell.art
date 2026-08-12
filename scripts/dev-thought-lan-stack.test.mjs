@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import test from "node:test";
+import { isLanAgentCapsuleRequest } from "./thought-lan-agent-capsule.mjs";
 import { isAllowedLanRpcOrigin } from "./thought-lan-rpc-origin.mjs";
 
 const source = await readFile(
@@ -122,6 +123,76 @@ test("LAN UI requires a generated bearer cookie and denies private Vite paths", 
     /keccak256\(code\)\.toLowerCase\(\) === records\[index\]\.codeHash\.toLowerCase\(\)/,
   );
   assert.match(source, /same\(deployer\[0\], runtime\.pathSpark\?\.issuer\)/);
+});
+
+test("LAN proxy bypasses its UI cookie only for bearer-authenticated Agent capsules", () => {
+  const authorization = `Bearer ${"a".repeat(32)}`;
+  const allowed = [
+    ["POST", "claim"],
+    ["POST", "ready"],
+    ["POST", "start"],
+    ["PUT", "result"],
+    ["POST", "fail"],
+  ];
+  for (const [method, action] of allowed) {
+    assert.equal(
+      isLanAgentCapsuleRequest({
+        method,
+        pathname: `/api/thought-agent/v2/runs/tar_abcdefgh/${action}`,
+        authorization,
+      }),
+      true,
+    );
+  }
+
+  for (const request of [
+    {
+      method: "POST",
+      pathname: "/api/thought-agent/v2/runs/tar_abcdefgh/claim",
+      authorization: undefined,
+    },
+    {
+      method: "POST",
+      pathname: "/api/thought-agent/v2/runs/tar_abcdefgh/claim",
+      authorization: "Basic not-bearer",
+    },
+    {
+      method: "GET",
+      pathname: "/api/thought-agent/v2/runs/tar_abcdefgh/claim",
+      authorization,
+    },
+    {
+      method: "GET",
+      pathname: "/api/thought-agent/v2/runs/tar_abcdefgh",
+      authorization,
+    },
+    {
+      method: "POST",
+      pathname: "/api/thought-agent/v2/runs/tar_abcdefgh/claim-authorization",
+      authorization,
+    },
+    {
+      method: "POST",
+      pathname: "/api/thought-agent/v1/runs/tar_abcdefgh/claim",
+      authorization,
+    },
+    {
+      method: "POST",
+      pathname: "/api/thought-agent/v2/runs/not-a-run/claim",
+      authorization,
+    },
+    {
+      method: "POST",
+      pathname: "/api/thought-agent/v2/runs/tar_abcdefgh/claim",
+      search: "?access=not-allowed",
+      authorization,
+    },
+  ]) {
+    assert.equal(isLanAgentCapsuleRequest(request), false);
+  }
+
+  assert.match(source, /isLanAgentCapsuleRequest\(\{/);
+  assert.match(source, /authorization: request\.headers\.authorization/);
 });
 
 test("LAN RPC POST accepts wallet extensions and rejects foreign web origins", async () => {

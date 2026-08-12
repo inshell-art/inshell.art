@@ -13,6 +13,7 @@ import {
   Interface,
   keccak256,
 } from "../apps/thought/node_modules/ethers/lib.esm/index.js";
+import { isLanAgentCapsuleRequest } from "./thought-lan-agent-capsule.mjs";
 import { isAllowedLanRpcOrigin } from "./thought-lan-rpc-origin.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -501,6 +502,16 @@ const authorizeUiRequest = (request, response, publicHost) => {
     response.writeHead(400, { "content-type": "text/plain; charset=utf-8" });
     response.end("Invalid request URL.\n");
     return false;
+  }
+  if (
+    isLanAgentCapsuleRequest({
+      method: request.method,
+      pathname: parsedUrl.pathname,
+      search: parsedUrl.search,
+      authorization: request.headers.authorization,
+    })
+  ) {
+    return true;
   }
   const suppliedToken = parsedUrl.searchParams.get("access");
   if (suppliedToken === accessToken) {
