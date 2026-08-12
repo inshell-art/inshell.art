@@ -473,6 +473,11 @@
   line-height: var(--docs-figure-character-line-height);
 }
 
+.docs-figure__field-practice-arrow {
+  font-size: var(--docs-figure-term-font-size);
+  line-height: var(--docs-figure-term-line-height);
+}
+
 .docs-figure__field-practice-relation > .docs-figure__annotation {
   min-width: 0;
   max-width: 100%;

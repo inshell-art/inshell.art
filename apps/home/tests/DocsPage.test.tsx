@@ -1499,6 +1499,9 @@ describe("DocsPage character figures", () => {
     for (const connector of practiceConnectors) {
       expect(connector.textContent).toBe("↑");
     }
+    expect(practiceConnectors[0]).toHaveClass(
+      "docs-figure__field-practice-arrow",
+    );
     const practiceFigure = screen.getByRole("figure", {
       name: "How practice relates to truth",
     });
@@ -1683,6 +1686,10 @@ describe("DocsPage character figures", () => {
       expectSelectorTier(selector, "--docs-figure-title-font-size");
     }
     expectSelectorTier(".docs-figure__term", "--docs-figure-term-font-size");
+    expectSelectorTier(
+      ".docs-figure__field-practice-arrow",
+      "--docs-figure-term-font-size",
+    );
     for (const selector of [
       ".docs-figure__annotation",
       ".docs-figure__marker",

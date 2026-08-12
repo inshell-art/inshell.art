@@ -282,7 +282,12 @@ function PracticeRelation({ figure }: { figure: FieldFigure }) {
           <ItemCopy item={truth} />
         </CharacterBox>
         <span className="docs-figure__field-practice-relation">
-          <Glyph label={approachEdge.label}>{approachEdge.glyph}</Glyph>
+          <Glyph
+            className="docs-figure__field-practice-arrow"
+            label={approachEdge.label}
+          >
+            {approachEdge.glyph}
+          </Glyph>
           {approachEdge.annotation ? (
             <small className="docs-figure__annotation">
               {approachEdge.annotation}
