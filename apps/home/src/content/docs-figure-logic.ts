@@ -151,13 +151,6 @@ const FIGURE_LOGIC_BUILDERS = {
       ],
       [
         {
-          id: "enter-shell",
-          from: "shell",
-          to: "in",
-          glyph: "│",
-          label: "The direction enters the shell.",
-        },
-        {
           id: "inspect-self",
           from: "in",
           to: "self",

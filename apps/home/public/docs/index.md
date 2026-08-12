@@ -70,7 +70,6 @@ Read the design choices that give the practice form without turning its truth in
   - `in [operator]: In — Inspect what forms the self`
   - `self [result]: SELF`
 - Semantic edges:
-  - `enter-shell: shell (Shell) --[│ · The direction enters the shell.]--> in (In)`
   - `inspect-self: in (In) --[↓ · In directs inspection toward the self. · Inspect what forms the self]--> self (SELF)`
 - Semantic groups:
   - `shell-boundary [boundary]: The shell is real, necessary, and not the whole being. [members: shell (Shell) · in (In) · self (SELF)]`
@@ -78,8 +77,7 @@ Read the design choices that give the practice form without turning its truth in
 ```text
           a body, face, or head; a name, honor, reputation, role...
 ┌─ SHELL ─────────────────────────────┬─────────────────────────────────────┐
-│                                     │ IN                                  │
-│                                     ↓                                     │
+│                                     ↓ IN                                  │
 │                          Inspect what forms the                           │
 │                                   SELF                                    │
 └───────────────────────────────────────────────────────────────────────────┘

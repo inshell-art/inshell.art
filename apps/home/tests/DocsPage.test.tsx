@@ -1464,31 +1464,33 @@ describe("DocsPage character figures", () => {
       ).groups.find(({ id }: { id: string }) => id === "shell-boundary")
         ?.members,
     ).toEqual(["shell", "in", "self"]);
-    expect(
-      inward?.querySelector(".docs-figure__field-relation"),
-    ).toHaveTextContent(/[│\s]+IN/i);
-    const inwardStem = inward?.querySelector(
-      ".docs-figure__field-relation > .docs-figure__glyph",
-    );
-    expect(inwardStem?.textContent?.match(/│/g)?.length).toBeGreaterThan(1);
-    expect(inwardStem).toHaveAttribute(
-      "aria-label",
-      "The direction enters the shell.",
-    );
     const inwardArrow = inward?.querySelector(
-      ".docs-figure__field-tail > .docs-figure__glyph[role='img']",
+      ".docs-figure__field-inward-arrow[role='img']",
     );
     expect(inwardArrow).toHaveAttribute(
       "aria-label",
       "In directs inspection toward the self.",
     );
     expect(inwardArrow).toHaveClass("docs-figure__field-inward-arrow");
-    expect(inward?.querySelector(".docs-figure__field-tail")).toHaveTextContent(
-      /│\s*IN[\s\S]*↓[\s\S]*Inspect what forms the[\s\S]*self/i,
-    );
+    expect(inward?.querySelector(".docs-figure__field-inward-axis"))
+      .toHaveTextContent(/↓\s*IN/i);
     expect(
-      inward?.querySelector(".docs-figure__field-relation-label"),
+      inward?.querySelector(".docs-figure__field-inward-label"),
     ).toHaveClass("docs-figure__annotation");
+    const inwardLogic = JSON.parse(
+      inwardFigure.getAttribute("data-figure-logic") ?? "null",
+    );
+    expect(inwardLogic.edges).toEqual([
+      expect.objectContaining({
+        id: "inspect-self",
+        from: "in",
+        to: "self",
+        glyph: "↓",
+      }),
+    ]);
+    expect(inward?.querySelector(".docs-figure__field-tail")).toHaveTextContent(
+      /↓\s*IN[\s\S]*Inspect what forms the[\s\S]*self/i,
+    );
     const practiceRelation = practice?.querySelector(
       ".docs-figure__field-practice-relation",
     );
@@ -1687,7 +1689,7 @@ describe("DocsPage character figures", () => {
     }
     expectSelectorTier(".docs-figure__term", "--docs-figure-term-font-size");
     expectSelectorTier(
-      '[data-figure-shape="contained-axis"]\n  .docs-figure__field-tail\n  > .docs-figure__field-inward-arrow',
+      '[data-figure-shape="contained-axis"]\n  .docs-figure__field-inward-arrow',
       "--docs-figure-term-font-size",
     );
     expectSelectorTier(

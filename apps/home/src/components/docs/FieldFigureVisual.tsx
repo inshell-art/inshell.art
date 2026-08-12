@@ -222,7 +222,6 @@ function InwardDirection({ figure }: { figure: FieldFigure }) {
   if (!destination) {
     return <BranchFallback figure={figure} />;
   }
-  const enterEdge = figureEdge(figure, "enter-shell");
   const inspectEdge = figureEdge(figure, "inspect-self");
 
   return (
@@ -242,20 +241,17 @@ function InwardDirection({ figure }: { figure: FieldFigure }) {
         }
       >
         <div className="docs-figure__field-tail">
-          <span className="docs-figure__field-relation">
-            <Glyph label={enterEdge.label}>
-              {Array.from({ length: 64 }, () => enterEdge.glyph).join("\n")}
+          <span className="docs-figure__field-inward-axis">
+            <Glyph
+              className="docs-figure__field-inward-arrow"
+              label={inspectEdge.label}
+            >
+              {inspectEdge.glyph}
             </Glyph>
-            <small className="docs-figure__annotation docs-figure__field-relation-label">
+            <small className="docs-figure__annotation docs-figure__field-inward-label">
               {inward.title}
             </small>
           </span>
-          <Glyph
-            className="docs-figure__field-inward-arrow"
-            label={inspectEdge.label}
-          >
-            {inspectEdge.glyph}
-          </Glyph>
           <span className="docs-figure__copy docs-figure__field-destination-copy">
             {destinationLead ? (
               <small className="docs-figure__annotation">
