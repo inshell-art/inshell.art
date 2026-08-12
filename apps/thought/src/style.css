@@ -4339,6 +4339,147 @@ html.agent-demo-route .thought-agent-demo.is-hidden {
   }
 }
 
+/* INSHELL_CURRENT_THOUGHT_DETAIL_PATH_CANON_START */
+html.thought-route {
+  --thought-detail-mobile-frame-padding-inline: 20px;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.thought-detail {
+  --thought-detail-header-gap: 20px;
+  --thought-detail-header-margin-bottom: 18px;
+  --thought-detail-link-gap: 18px;
+  --thought-detail-text-line-height: 1.55;
+  --thought-detail-label-letter-spacing: 0.08em;
+  --thought-detail-verification-gap: 32px;
+  --thought-detail-mobile-gutter: 28px;
+  --thought-detail-mobile-layout-gap: 20px;
+  --thought-detail-mobile-header-gap: 12px;
+  --thought-detail-mobile-min-height-offset: 36px;
+}
+
+.thought-detail__header {
+  gap: var(--thought-detail-header-gap);
+  margin-bottom: var(--thought-detail-header-margin-bottom);
+}
+
+.thought-detail__links {
+  gap: var(--thought-detail-link-gap);
+}
+
+.thought-detail__link,
+.thought-detail__status,
+.thought-detail__text,
+.thought-detail__attestation-summary,
+.thought-detail__fields dd {
+  line-height: var(--thought-detail-text-line-height);
+}
+
+.thought-detail__section {
+  display: grid;
+  gap: var(--thought-detail-section-title-gap);
+}
+
+.thought-detail__section h2 {
+  margin: 0;
+  letter-spacing: var(--thought-detail-label-letter-spacing);
+}
+
+.thought-detail__dialogue-role,
+.thought-detail__fields dt {
+  letter-spacing: var(--thought-detail-label-letter-spacing);
+}
+
+.thought-detail__fields dt {
+  color: var(--muted);
+}
+
+.thought-detail__record {
+  margin-top: 0;
+}
+
+.thought-detail__verification-grid {
+  gap: var(--thought-detail-verification-gap);
+}
+
+@media (max-width: 1023px) {
+  .thought-detail {
+    height: auto;
+    min-height: calc(100vh - var(--thought-detail-page-min-height-offset));
+  }
+
+  .thought-detail__body {
+    grid-template-columns: minmax(0, 1fr) var(--thought-detail-rail-width);
+  }
+
+  .thought-detail__header {
+    flex-direction: row;
+    align-items: flex-end;
+  }
+
+  .thought-detail__canvas-column,
+  .thought-detail__rail,
+  .thought-detail__record {
+    width: min(100%, var(--thought-detail-panel-size));
+  }
+
+  .thought-detail__rail {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+    margin-right: 0;
+  }
+
+  .thought-detail__fields div {
+    grid-template-columns:
+      minmax(var(--thought-detail-field-label-width), max-content)
+      minmax(0, 1fr);
+    gap: var(--thought-detail-field-column-gap);
+  }
+}
+
+@media (max-width: 980px) {
+  .thought-detail__body {
+    grid-template-columns: 1fr;
+  }
+
+  .thought-detail__canvas-column,
+  .thought-detail__rail,
+  .thought-detail__record {
+    justify-self: center;
+  }
+
+  .thought-detail__verification-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  html.thought-route body.frontpage:has(#thought-page) .frontpage-shell {
+    padding-inline: var(--thought-detail-mobile-frame-padding-inline);
+  }
+
+  .thought-detail {
+    --thought-detail-panel-size: calc(100vw - var(--thought-detail-mobile-gutter));
+    --thought-detail-layout-gap: var(--thought-detail-mobile-layout-gap);
+    min-height: calc(100vh - var(--thought-detail-mobile-min-height-offset));
+  }
+
+  .thought-detail__header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--thought-detail-mobile-header-gap);
+  }
+
+  .thought-detail__canvas-column,
+  .thought-detail__rail,
+  .thought-detail__record {
+    width: min(100%, calc(100vw - var(--thought-detail-mobile-gutter)));
+  }
+}
+/* INSHELL_CURRENT_THOUGHT_DETAIL_PATH_CANON_END */
+
 /* The canonical CLI creation surface preserves the exact June 10 production canvas. */
 .thought-cli-title {
   display: none;

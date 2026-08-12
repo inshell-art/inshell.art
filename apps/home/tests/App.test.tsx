@@ -75,6 +75,7 @@ jest.mock("@/hooks/useAuctionBids", () => ({
 }));
 
 import App from "../src/App";
+import { ThoughtDetail } from "../src/components/ThoughtDetailPage";
 import { overlayThoughtMintProgress } from "../src/components/PathPage";
 import { COLOR_FONT, COLOR_FONT_RAW } from "../src/content/colorFont";
 import { DOCS_SOURCE } from "../src/content/docs";
@@ -1362,6 +1363,76 @@ describe("App Component", () => {
     expect(screen.queryByLabelText("THOUGHT #1 record")).toBeNull();
     expect(window.location.pathname).toBe("/thought/1");
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
+    expect(document.querySelector(".shell--thought-detail")).toBeInTheDocument();
+    expect(document.querySelector(".content--thought-detail")).toBeInTheDocument();
+  });
+
+  test("groups the THOUGHT detail record into the PATH-canonical rail hierarchy", () => {
+    render(
+      <ThoughtDetail
+        item={thoughtGalleryItem({
+          tokenId: 7,
+          pathId: "4",
+          prompt: "operator prompt",
+          returnedText: "Agent return",
+          rawText: "canonical text",
+          model: "test-agent-model",
+          provenanceJson: '{"v":1}',
+        }) as any}
+      />,
+    );
+
+    const record = within(screen.getByLabelText("THOUGHT #7 record"));
+    expect(
+      record.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent),
+    ).toEqual(["work", "creation record", "token details"]);
+    expect(document.querySelectorAll(".thought-detail__section")).toHaveLength(3);
+
+    const work = within(record.getByRole("heading", { name: "work" }).closest("section")!);
+    expect(work.getByText("prompt")).toBeInTheDocument();
+    expect(work.getByText("operator prompt")).toHaveAttribute("id", "thought-detail-prompt");
+    expect(work.getByText("model return")).toBeInTheDocument();
+    expect(work.getByText("Agent return")).toHaveAttribute(
+      "id",
+      "thought-detail-model-return",
+    );
+    expect(work.getByText("canonical text")).toHaveAttribute(
+      "id",
+      "thought-detail-canonical-title",
+    );
+
+    const creationRecord = within(
+      record.getByRole("heading", { name: "creation record" }).closest("section")!,
+    );
+    expect(creationRecord.getByText("test-agent-model")).toBeInTheDocument();
+    expect(creationRecord.getByRole("link", { name: "THOUGHT.v1.md ↗" })).toHaveAttribute(
+      "href",
+      "/api/thought-spec?id=7",
+    );
+    expect(creationRecord.getByRole("link", { name: "$PATH #4 ↗" })).toHaveAttribute(
+      "href",
+      "/path/4",
+    );
+    expect(creationRecord.getByRole("link", { name: "7 bytes ↗" })).toHaveAttribute(
+      "href",
+      "/api/thought-provenance?id=7",
+    );
+    expect(creationRecord.getByRole("link", { name: "Color Font v1 ↗" })).toHaveAttribute(
+      "href",
+      "/color-font",
+    );
+
+    const tokenDetails = within(
+      record.getByRole("heading", { name: "token details" }).closest("section")!,
+    );
+    expect(tokenDetails.getByText("minter")).toBeInTheDocument();
+    expect(tokenDetails.getByText("network")).toBeInTheDocument();
+    expect(tokenDetails.getByText("minted")).toBeInTheDocument();
+    expect(tokenDetails.getByText("tx")).toBeInTheDocument();
+    expect(document.querySelector("#thought-detail-view-tx")).toHaveAttribute(
+      "href",
+      "https://sepolia.etherscan.io/tx/0x7777777777777777777777777777777777777777777777777777777777777777",
+    );
   });
 
   test("preserves the canonical gallery route for the release-locked home gallery", async () => {
@@ -1441,6 +1512,25 @@ describe("App Component", () => {
     );
     expect(css).toMatch(
       /\.thought-detail__fields dd\s*{[^}]*font-weight:\s*var\(--thought-detail-font-weight\);/s,
+    );
+    expect(css).toMatch(
+      /\.thought-detail__links\s*{[^}]*flex-wrap:\s*wrap;[^}]*justify-content:\s*flex-end;/s,
+    );
+    expect(css).toMatch(
+      /\.thought-detail__section\s*{[^}]*display:\s*grid;[^}]*gap:\s*var\(--thought-detail-section-title-gap\);/s,
+    );
+    expect(css).toMatch(/\.thought-detail__fields dt\s*{[^}]*color:\s*var\(--muted\);/s);
+    expect(css).toMatch(
+      /\.thought-detail__value-link:hover,[^}]*color:\s*var\(--text\);/s,
+    );
+    expect(css).toMatch(
+      /@media \(max-width:\s*980px\)\s*{[\s\S]*?--thought-detail-tablet-panel-size\)[\s\S]*?--thought-detail-tablet-gutter\)[\s\S]*?\.thought-detail__body\s*{[^}]*grid-template-columns:\s*1fr;/,
+    );
+    expect(css).toMatch(
+      /@media \(max-width:\s*760px\)\s*{[\s\S]*?--thought-detail-mobile-layout-gap\)[\s\S]*?gap:\s*var\(--thought-detail-mobile-header-gap\);/,
+    );
+    expect(css).not.toMatch(
+      /\.thought-detail__fields div\s*{[^}]*grid-template-columns:\s*1fr;/s,
     );
   });
 

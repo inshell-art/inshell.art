@@ -484,6 +484,8 @@ export default function App() {
           className={`shell${
             shouldRenderPathApp
               ? " shell--path-app"
+              : primitiveRoute === "thought"
+                ? " shell--thought-detail"
               : primitiveRoute
                 ? ""
                 : " shell--home"
@@ -525,7 +527,9 @@ export default function App() {
           ) : primitiveRoute === "verify" ? (
             <VerifyPage />
           ) : primitiveRoute === "thought" && thoughtTokenId ? (
-            <ThoughtDetailPage tokenId={thoughtTokenId} />
+            <div className="content content--thought-detail">
+              <ThoughtDetailPage tokenId={thoughtTokenId} />
+            </div>
           ) : (
             <EcosystemHome />
           )}

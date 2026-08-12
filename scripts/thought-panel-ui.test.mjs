@@ -171,23 +171,58 @@ test("THOUGHT detail uses the canonical record layout", () => {
   const detailStart = indexHtml.indexOf('id="thought-page"');
   const detailEnd = indexHtml.indexOf('id="thought-report-bug-link"', detailStart);
   const detailMarkup = indexHtml.slice(detailStart, detailEnd);
+  const railStart = detailMarkup.indexOf('class="thought-detail__rail"');
+  const railEnd = detailMarkup.indexOf("</aside>", railStart);
+  const railMarkup = detailMarkup.slice(railStart, railEnd);
+  const detailStyleStart = thoughtCss.indexOf(
+    "/* INSHELL_CURRENT_THOUGHT_DETAIL_PATH_CANON_START */",
+  );
+  const detailStyleEnd = thoughtCss.indexOf(
+    "/* INSHELL_CURRENT_THOUGHT_DETAIL_PATH_CANON_END */",
+    detailStyleStart,
+  );
+  const detailStyle = thoughtCss.slice(detailStyleStart, detailStyleEnd);
 
   assert.ok(detailStart >= 0 && detailEnd > detailStart);
-  assert.match(detailMarkup, /<h2>work<\/h2>/);
-  assert.match(detailMarkup, /<h2>creation provenance<\/h2>/);
-  assert.match(detailMarkup, /<h2>canonical traits<\/h2>/);
-  assert.match(detailMarkup, /<h2>on-chain record<\/h2>/);
+  assert.ok(railStart >= 0 && railEnd > railStart);
+  assert.ok(detailStyleStart >= 0 && detailStyleEnd > detailStyleStart);
+  assert.match(railMarkup, /<h2>work<\/h2>/);
+  assert.match(railMarkup, /<h2>creation provenance<\/h2>/);
+  assert.match(railMarkup, /<h2>canonical traits<\/h2>/);
+  assert.match(railMarkup, /<h2>on-chain record<\/h2>/);
   assert.match(detailMarkup, /<summary>verify \/ raw data<\/summary>/);
+  assert.ok(
+    detailMarkup.indexOf('<summary>verify / raw data</summary>') > railEnd,
+    "raw verification stays collapsed below the canonical record rail",
+  );
+  assert.doesNotMatch(detailMarkup, /thought-detail__support/);
   assert.match(detailMarkup, /canonical artwork · ThoughtNFT\.svgOf/);
   assert.doesNotMatch(detailMarkup, /<h2>color font<\/h2>/i);
   assert.doesNotMatch(detailMarkup, /<h2>model return<\/h2>/i);
   assert.match(thoughtCss, /\.thought-detail__body\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) var\(--thought-detail-rail-width\)/);
-  assert.match(thoughtCss, /\.thought-detail__support\s*\{[\s\S]*?grid-column:\s*1 \/ -1/);
+  assert.match(thoughtCss, /\.thought-detail__record\s*\{[\s\S]*?grid-column:\s*1 \/ -1/);
+  assert.match(thoughtCss, /@media \(max-width:\s*980px\)[\s\S]*?\.thought-detail__body\s*\{[\s\S]*?grid-template-columns:\s*1fr/);
+  assert.match(detailStyle, /\.thought-detail__section\s*\{[\s\S]*?display:\s*grid;[\s\S]*?gap:\s*var\(--thought-detail-section-title-gap\)/);
+  assert.match(
+    detailStyle,
+    /html\.thought-route\s*\{[\s\S]*?--thought-detail-mobile-frame-padding-inline:\s*20px;[\s\S]*?overflow-x:\s*hidden/,
+    "the mobile shell gutter token is available on the shell ancestor",
+  );
+  assert.match(
+    detailStyle,
+    /html\.thought-route body\.frontpage:has\(#thought-page\) \.frontpage-shell\s*\{\s*padding-inline:\s*var\(--thought-detail-mobile-frame-padding-inline\)/,
+    "the canonical mobile gutter outranks the later CLI shell rule on detail routes",
+  );
   assert.match(thoughtCss, /\.thought-detail\s*\{[\s\S]*?--thought-detail-font-weight:\s*var\(--weight-mid\)/);
   assert.match(thoughtCss, /\.thought-detail__section h2\s*\{[\s\S]*?font-weight:\s*var\(--weight-semibold\)/);
   assert.match(thoughtCss, /\.thought-detail__text\s*\{[\s\S]*?font-weight:\s*var\(--thought-detail-font-weight\)/);
   assert.match(thoughtCss, /\.thought-detail__fields dt\s*\{[\s\S]*?font-weight:\s*var\(--thought-detail-font-weight\)/);
   assert.match(thoughtCss, /\.thought-detail__fields dd\s*\{[\s\S]*?font-weight:\s*var\(--thought-detail-font-weight\)/);
+  assert.doesNotMatch(
+    detailStyle,
+    /\.thought-detail__fields div\s*,?[\s\S]{0,120}?grid-template-columns:\s*1fr/,
+    "mobile THOUGHT records retain PATH's dense label/value columns",
+  );
 });
 
 test("THOUGHT detail is pinned to the current release and bypasses stale gallery data", () => {
@@ -439,6 +474,12 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
   assert.doesNotMatch(restoredIndexHtml, /THOUGHT creation surfaces/);
   assert.doesNotMatch(restoredIndexHtml, /thought-cli-title/);
   assert.doesNotMatch(restoredIndexHtml, /requestedSurface/);
+  assert.match(
+    restoredIndexHtml,
+    /<aside class="thought-detail__rail"[\s\S]*?<h2>work<\/h2>[\s\S]*?<h2>creation provenance<\/h2>[\s\S]*?<h2>canonical traits<\/h2>[\s\S]*?<h2>on-chain record<\/h2>[\s\S]*?<\/aside>\s*<details class="thought-detail__record/,
+    "the tagged Agent shell receives the current PATH-canonical detail rail only after byte verification",
+  );
+  assert.doesNotMatch(restoredIndexHtml, /thought-detail__support/);
   assert.match(restoredIndexHtml, /style\.css\?inshell-thought-dev-snapshot=da998e1/);
   assert.match(restoredIndexHtml, /main\.ts\?inshell-thought-dev-snapshot=da998e1/);
   assert.match(
@@ -468,6 +509,11 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
   assert.doesNotMatch(restoredMain, /const IS_CLI_SURFACE/);
   assert.match(restoredStyle, /\.frontpage-side\s*\{[\s\S]*?display:\s*none;/);
   assert.match(restoredStyle, /\.thought-panel\s*\{[\s\S]*?display:\s*flex;/);
+  assert.match(
+    restoredStyle,
+    /INSHELL_CURRENT_THOUGHT_DETAIL_PATH_CANON_START[\s\S]*?@media \(max-width: 980px\)[\s\S]*?\.thought-detail__body\s*\{\s*grid-template-columns:\s*1fr/,
+    "the tagged stylesheet receives the current responsive detail overlay only after byte verification",
+  );
   assert.equal(shouldRestoreThoughtDevIndexSnapshot("/thought/", "/thought/"), true);
   assert.equal(
     shouldRestoreThoughtDevIndexSnapshot("/thought/?surface=agent", "/thought/"),

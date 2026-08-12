@@ -104,6 +104,39 @@ const POST_SNAPSHOT_SURFACE_NAV = `        <nav class="thought-create__links" ar
 const POST_SNAPSHOT_CLI_TITLE =
   `          <h1 class="frontpage-title thought-cli-title">THOUGHT</h1>\n`;
 
+const TAGGED_DETAIL_TITLE = `        <div>
+          <h1 id="thought-detail-title" class="thought-detail__title">THOUGHT #<span id="thought-detail-token-id">-</span></h1>
+        </div>`;
+
+const CURRENT_DETAIL_TITLE = `        <h1 id="thought-detail-title" class="thought-detail__title">THOUGHT #<span id="thought-detail-token-id">-</span></h1>`;
+
+const TAGGED_DETAIL_RAIL_TO_TRAITS = `          </section>
+        </aside>
+
+        <div class="thought-detail__support">
+          <section class="thought-detail__section">
+            <h2>canonical traits</h2>`;
+
+const CURRENT_DETAIL_RAIL_TO_TRAITS = `          </section>
+
+          <section class="thought-detail__section">
+            <h2>canonical traits</h2>`;
+
+const TAGGED_DETAIL_ONCHAIN_TO_RECORD = `          </section>
+        </div>
+
+        <details class="thought-detail__record thought-detail__verification">`;
+
+const CURRENT_DETAIL_ONCHAIN_TO_RECORD = `          </section>
+        </aside>
+
+        <details class="thought-detail__record thought-detail__verification">`;
+
+const CURRENT_DETAIL_STYLE_START =
+  "\n/* INSHELL_CURRENT_THOUGHT_DETAIL_PATH_CANON_START */\n";
+const CURRENT_DETAIL_STYLE_END =
+  "/* INSHELL_CURRENT_THOUGHT_DETAIL_PATH_CANON_END */\n";
+
 const POST_SNAPSHOT_INDEX_FRAGMENTS = [
   ["surface router", POST_SNAPSHOT_SURFACE_ROUTER],
   ["surface navigation", POST_SNAPSHOT_SURFACE_NAV],
@@ -276,8 +309,29 @@ function restoreMainSnapshot(source) {
   return restored;
 }
 
+function splitCurrentDetailStyle(source) {
+  const startIndex = source.indexOf(CURRENT_DETAIL_STYLE_START);
+  const endIndex = source.indexOf(CURRENT_DETAIL_STYLE_END);
+  if (
+    startIndex === -1 ||
+    startIndex !== source.lastIndexOf(CURRENT_DETAIL_STYLE_START) ||
+    endIndex === -1 ||
+    endIndex !== source.lastIndexOf(CURRENT_DETAIL_STYLE_END) ||
+    endIndex <= startIndex
+  ) {
+    throw new Error(
+      `Cannot restore ${THOUGHT_DEV_INDEX_SNAPSHOT.tag}: expected one current detail style overlay`,
+    );
+  }
+  const overlayEnd = endIndex + CURRENT_DETAIL_STYLE_END.length;
+  return {
+    base: `${source.slice(0, startIndex)}${source.slice(overlayEnd)}`,
+    overlay: source.slice(startIndex, overlayEnd),
+  };
+}
+
 function restoreStyleSnapshot(source) {
-  let restored = source;
+  let restored = splitCurrentDetailStyle(source).base;
   const replacements = [
     [
       "CLI visual tokens",
@@ -417,11 +471,48 @@ export function restoreThoughtDevSnapshotSource(source, fileKey) {
  * match the immutable tagged index before Vite may serve them as the dev UI.
  */
 export function restoreThoughtDevIndexSnapshot(html) {
+  let current = replaceExactCount(
+    html,
+    "current THOUGHT detail title hierarchy",
+    CURRENT_DETAIL_TITLE,
+    TAGGED_DETAIL_TITLE,
+  );
+  current = replaceExactCount(
+    current,
+    "current THOUGHT detail rail opening",
+    CURRENT_DETAIL_RAIL_TO_TRAITS,
+    TAGGED_DETAIL_RAIL_TO_TRAITS,
+  );
+  current = replaceExactCount(
+    current,
+    "current THOUGHT detail rail closing",
+    CURRENT_DETAIL_ONCHAIN_TO_RECORD,
+    TAGGED_DETAIL_ONCHAIN_TO_RECORD,
+  );
   const restored = POST_SNAPSHOT_INDEX_FRAGMENTS.reduce(
     (current, [label, fragment]) => removeExactlyOnce(current, label, fragment),
-    html,
+    current,
   );
   verifySnapshotBytes("index", restored, THOUGHT_DEV_INDEX_SNAPSHOT.indexSha256);
+
+  let layered = replaceExactCount(
+    restored,
+    "tagged THOUGHT detail title hierarchy",
+    TAGGED_DETAIL_TITLE,
+    CURRENT_DETAIL_TITLE,
+  );
+  layered = replaceExactCount(
+    layered,
+    "tagged THOUGHT detail rail opening",
+    TAGGED_DETAIL_RAIL_TO_TRAITS,
+    CURRENT_DETAIL_RAIL_TO_TRAITS,
+  );
+  layered = replaceExactCount(
+    layered,
+    "tagged THOUGHT detail rail closing",
+    TAGGED_DETAIL_ONCHAIN_TO_RECORD,
+    CURRENT_DETAIL_ONCHAIN_TO_RECORD,
+  );
 
   const query = `${THOUGHT_DEV_SNAPSHOT_QUERY_PARAM}=${THOUGHT_DEV_SNAPSHOT_QUERY_VALUE}`;
   return [
@@ -429,7 +520,7 @@ export function restoreThoughtDevIndexSnapshot(html) {
     ["tagged main reference", 'src="/src/main.ts"', `src="/src/main.ts?${query}"`],
   ].reduce(
     (current, [label, from, to]) => replaceExactlyOnce(current, label, from, to),
-    restored,
+    layered,
   );
 }
 
@@ -440,7 +531,9 @@ export function loadThoughtDevSnapshotFile(workspaceRoot, fileKey) {
   }
   const currentSource = readFileSync(path.resolve(workspaceRoot, snapshotFile.path), "utf8");
   const verifiedSnapshot = restoreThoughtDevSnapshotSource(currentSource, fileKey);
-  if (fileKey !== "main") return verifiedSnapshot;
+  if (fileKey === "style") {
+    return `${verifiedSnapshot}${splitCurrentDetailStyle(currentSource).overlay}`;
+  }
 
   // Keep the tagged visual/runtime snapshot byte-verified, then layer only the
   // current same-origin navigation policy required by local and LAN runtimes.
