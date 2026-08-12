@@ -39,8 +39,8 @@
       ],
       "id": "awa.open-horizon",
       "label": "Toward the core",
-      "mode": "field",
-      "figureText": "THOUGHT ──→ WILL ──→ AWA\nIndividual   Crowd    Toward the core",
+      "mode": "trace",
+      "figureText": "THOUGHT  →  WILL  →  AWA  →  …\nIndividual   Crowd   Toward the core",
       "items": [
         {
           "title": "THOUGHT",
@@ -83,6 +83,11 @@
             "term": "AWA",
             "annotation": "Toward the core",
             "role": "state"
+          },
+          {
+            "id": "open-horizon",
+            "term": "…",
+            "role": "structural"
           }
         ],
         "edges": [
@@ -99,20 +104,16 @@
             "to": "awa",
             "glyph": "→",
             "label": "The path points from crowd WILL toward AWA and the core; arrival is not claimed."
+          },
+          {
+            "id": "awa-toward-open-horizon",
+            "from": "awa",
+            "to": "open-horizon",
+            "glyph": "→",
+            "label": "AWA remains open toward a core that is not claimed as reached."
           }
         ],
-        "groups": [
-          {
-            "id": "awa-open-horizon",
-            "kind": "phase",
-            "label": "AWA is the forming horizon of the path toward the core.",
-            "members": [
-              "thought",
-              "will",
-              "awa"
-            ]
-          }
-        ]
+        "groups": []
       }
     },
     "preformatted": [],

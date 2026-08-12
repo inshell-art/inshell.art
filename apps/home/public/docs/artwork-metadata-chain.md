@@ -27,9 +27,7 @@
   - `evidence-contract: evidence (EVIDENCE) --[├─ · Contract state is one evidence record.]--> contract (Contract)`
   - `evidence-release: evidence (EVIDENCE) --[├─ · The pinned release is one evidence record.]--> release (Release)`
   - `evidence-context: evidence (EVIDENCE) --[└─ · Context is one evidence record.]--> context (Context)`
-  - `evidence-to-interpretation: evidence (EVIDENCE) --[↓ / │ ↓ · The evidence records are read together as interpretation.]--> interpretation (Interpretation)`
-- Semantic groups:
-  - `evidence-set [set]: Evidence [members: evidence (EVIDENCE) · identity (Identity) · contract (Contract) · release (Release) · context (Context)]`
+  - `evidence-to-interpretation: evidence (EVIDENCE) --[↓ · The evidence records are read together as interpretation.]--> interpretation (Interpretation)`
 
 ```text
 EVIDENCE
@@ -41,7 +39,6 @@ EVIDENCE
 │  ABI + renderer + schemas
 └─ CONTEXT
    Provenance + reading surface
-      │
       ↓
 INTERPRETATION
 Read together

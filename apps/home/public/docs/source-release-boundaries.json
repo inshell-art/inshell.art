@@ -43,7 +43,7 @@
       "id": "source-release.records",
       "label": "Four distinct records",
       "mode": "field",
-      "figureText": "┌─ FOUR DISTINCT RECORDS ─────────────────────┐\n│ SOURCE                                      │\n│ Authored code                               │\n│   ≠ RELEASE                                 │\n│     Pinned artifacts                        │\n│       ≠ DEPLOYMENT                          │\n│         Addresses + blocks                  │\n│           ≠ OBSERVATION                     │\n│             Point-in-time read              │\n└─────────────────────────────────────────────┘",
+      "figureText": "SOURCE  ≠  RELEASE  ≠  DEPLOYMENT  ≠  OBSERVATION\nAuthored code   Pinned artifacts   Addresses + blocks   Point-in-time read",
       "items": [
         {
           "title": "Source",
@@ -67,11 +67,6 @@
         "label": "Four distinct records",
         "form": "axis",
         "nodes": [
-          {
-            "id": "four-records",
-            "term": "FOUR DISTINCT RECORDS",
-            "role": "structural"
-          },
           {
             "id": "source",
             "sourceItem": 0,
@@ -134,7 +129,6 @@
             "kind": "comparison",
             "label": "Four records that must not be collapsed into one.",
             "members": [
-              "four-records",
               "source",
               "release",
               "deployment",

@@ -1,28 +1,17 @@
-import { Fragment, type CSSProperties } from "react";
+import { Fragment } from "react";
 
 import type { DocsFigure } from "@/content/docs";
 import {
   docsFigureLogic,
   type DocsFigureEdge,
+  type DocsFigureGroup,
+  type DocsFigureLogic,
+  type DocsFigureNode,
 } from "@/content/docs-figure-logic";
+import { resolveEdgeByEndpoints } from "@/components/docs/figureLogicResolvers";
 
 type LaneFigure = Extract<DocsFigure, { mode: "lanes" }>;
-type LaneFigureItem = LaneFigure["items"][number];
-
-type LaneGroup = {
-  key: string;
-  label?: string;
-  items: LaneFigureItem[];
-  showItemLane: boolean;
-};
-
 type LaneLayout = "phase" | "parallel" | "handoff";
-
-type LaneFigureStyle = CSSProperties & {
-  "--docs-figure-lane-stage-count": number;
-};
-
-const LANE_VERTICAL_RAIL = Array.from({ length: 64 }, () => "│").join("\n");
 
 function renderFigureTitle(title: string) {
   return title.split(/(?<=[a-z])(?=[A-Z])/).map((part, index) => (
@@ -33,60 +22,67 @@ function renderFigureTitle(title: string) {
   ));
 }
 
-function groupLaneItems(
-  figure: LaneFigure,
-): { layout: LaneLayout; groups: LaneGroup[] } {
-  const groupByPhase = figure.items.some((item) => Boolean(item.phase));
-  const layout: LaneLayout = groupByPhase
-    ? "phase"
-    : figure.id === "design.preservation"
-      ? "parallel"
-      : "handoff";
+function laneChainGroups(logic: DocsFigureLogic): {
+  groups: DocsFigureGroup[];
+  layout: LaneLayout;
+} {
+  const phaseGroups = logic.groups.filter(({ kind }) => kind === "phase");
+  if (phaseGroups.length > 0) {
+    return { groups: phaseGroups, layout: "phase" };
+  }
 
-  if (layout === "handoff") {
+  const laneGroups = logic.groups.filter(({ kind }) => kind === "lane");
+  if (laneGroups.length > 0) {
     return {
-      layout,
-      groups: [
-        {
-          key: "handoff",
-          items: [...figure.items].sort(
-            (left, right) => left.stage - right.stage,
-          ),
-          showItemLane: true,
-        },
-      ],
+      groups: laneGroups,
+      layout: laneGroups.length > 1 ? "parallel" : "handoff",
     };
   }
 
-  const groups = new Map<string, LaneGroup>();
+  throw new Error(
+    `Figure "${logic.id}" has no semantic phase or lane groups to render.`,
+  );
+}
 
-  for (const item of figure.items) {
-    const label = groupByPhase ? item.phase ?? item.lane : item.lane;
-    const key = `${groupByPhase ? "phase" : "lane"}:${label}`;
-    const group = groups.get(key) ?? {
-      key,
-      label,
-      items: [],
-      showItemLane: groupByPhase,
-    };
-    group.items.push(item);
-    groups.set(key, group);
-  }
+function groupNodes(
+  logic: DocsFigureLogic,
+  group: DocsFigureGroup,
+): DocsFigureNode[] {
+  const nodesById = new Map(logic.nodes.map((node) => [node.id, node]));
+  return group.members.map((nodeId) => {
+    const node = nodesById.get(nodeId);
+    if (!node) {
+      throw new Error(
+        `Figure "${logic.id}" group "${group.id}" references unknown node "${nodeId}".`,
+      );
+    }
+    return node;
+  });
+}
 
-  return {
-    layout,
-    groups: [...groups.values()].map((group) => ({
-      ...group,
-      items: [...group.items].sort((left, right) => left.stage - right.stage),
-    })),
-  };
+function actorGroupForNode(
+  logic: DocsFigureLogic,
+  chainGroup: DocsFigureGroup,
+  nodeId: string,
+): DocsFigureGroup | undefined {
+  if (chainGroup.kind !== "phase") return undefined;
+
+  const matches = logic.groups.filter(
+    ({ kind, members }) => kind === "lane" && members.includes(nodeId),
+  );
+  if (matches.length === 1) return matches[0];
+
+  throw new Error(
+    `Figure "${logic.id}" node "${nodeId}" belongs to ${matches.length} semantic actor lanes; expected exactly one.`,
+  );
 }
 
 function LaneRelation({ edge }: { edge: DocsFigureEdge }) {
   return (
     <span
-      className="docs-figure__lane-relation"
+      className="docs-figure__lane-relation docs-figure__lane-relation--governing"
       aria-label={edge.label}
+      data-figure-edge-id={edge.id}
       role="img"
     >
       <span className="docs-figure__lane-relation-inline" aria-hidden="true">
@@ -100,38 +96,36 @@ function LaneRelation({ edge }: { edge: DocsFigureEdge }) {
 }
 
 function LaneEvent({
-  item,
+  actorGroup,
+  node,
   relation,
-  nextStage,
-  showLane,
-  stageColumn,
-  stageSpan,
 }: {
-  item: LaneFigureItem;
+  actorGroup?: DocsFigureGroup;
+  node: DocsFigureNode;
   relation?: DocsFigureEdge;
-  nextStage?: number;
-  showLane: boolean;
-  stageColumn: number;
-  stageSpan: number;
 }) {
   return (
     <li
       className={`docs-figure__lane-event${
-        nextStage === undefined ? " docs-figure__lane-event--terminal" : ""
-      }${showLane ? " docs-figure__lane-event--labeled" : ""}`}
-      style={{ gridColumn: `${stageColumn} / span ${stageSpan}` }}
+        relation ? "" : " docs-figure__lane-event--terminal"
+      }${actorGroup ? " docs-figure__lane-event--labeled" : ""}`}
+      data-figure-node-id={node.id}
+      data-source-item={node.sourceItem}
     >
       <span className="docs-figure__copy">
-        {showLane ? (
-          <span className="docs-figure__lane-event-label">
-            {renderFigureTitle(item.lane)}
+        {actorGroup ? (
+          <span
+            className="docs-figure__lane-event-label"
+            data-figure-group-id={actorGroup.id}
+          >
+            {renderFigureTitle(actorGroup.label)}
           </span>
         ) : null}
         <strong className="docs-figure__term">
-          {renderFigureTitle(item.title)}
+          {renderFigureTitle(node.term)}
         </strong>
-        {item.detail ? (
-          <small className="docs-figure__annotation">{item.detail}</small>
+        {node.annotation ? (
+          <small className="docs-figure__annotation">{node.annotation}</small>
         ) : null}
         {relation ? <LaneRelation edge={relation} /> : null}
       </span>
@@ -140,100 +134,54 @@ function LaneEvent({
 }
 
 /**
- * Renders a lanes-mode docs figure as literal, selectable character topology.
- * The DOM order is also the narrow-screen reading order; layout must not reorder it.
+ * Renders lanes from their semantic groups and explicit edges. DOM order is the
+ * narrow-screen reading order; no source stage or decorative rail is required.
  */
 export function LaneFigureVisual({ figure }: { figure: LaneFigure }) {
   const logic = docsFigureLogic(figure);
-  const nodesBySourceItem = new Map(
-    logic.nodes.flatMap((node) =>
-      node.sourceItem === undefined ? [] : [[node.sourceItem, node] as const],
-    ),
-  );
-  const { layout, groups } = groupLaneItems(figure);
-  const groupByPhase = layout === "phase";
-  const stages = [...new Set(figure.items.map((item) => item.stage))].sort(
-    (left, right) => left - right,
-  );
-  const stageColumns = new Map(
-    stages.map((stage, index) => [stage, index + 1]),
-  );
-  const figureStyle: LaneFigureStyle = {
-    "--docs-figure-lane-stage-count": stages.length,
-  };
+  const { groups, layout } = laneChainGroups(logic);
 
   return (
     <div
-      className="docs-figure__lanes"
-      data-lane-grouping={groupByPhase ? "phase" : "lane"}
+      className="docs-figure__lanes docs-figure__lanes--open"
+      data-lane-grouping={layout === "phase" ? "phase" : "lane"}
       data-lane-layout={layout}
-      style={figureStyle}
     >
       {groups.map((group) => {
-        const groupStages = group.items.map((item) => item.stage);
-        const activeStageColumns = groupByPhase
-          ? new Map(groupStages.map((stage, index) => [stage, index + 1]))
-          : stageColumns;
-        const groupEndColumn = groupByPhase
-          ? groupStages.length
-          : stages.length;
-        const groupStyle: LaneFigureStyle | undefined = groupByPhase
-          ? { "--docs-figure-lane-stage-count": groupStages.length }
-          : undefined;
+        const nodes = groupNodes(logic, group);
+        const headingId = `${logic.id}-${group.id}-heading`;
 
         return (
-          <div
-            className={`docs-figure__lane-row docs-figure__lane-group${
-              group.label ? "" : " docs-figure__lane-row--unlabeled"
-            }`}
-            key={group.key}
-            style={groupStyle}
+          <section
+            className="docs-figure__lane-group docs-figure__lane-chain"
+            data-figure-group-id={group.id}
+            key={group.id}
           >
-            {group.label ? (
-              <p className="docs-figure__lane-heading">{group.label}</p>
-            ) : null}
-            <span className="docs-figure__lane-separator" aria-hidden="true">
-              <span className="docs-figure__lane-rail">{LANE_VERTICAL_RAIL}</span>
-            </span>
+            <h4 className="docs-figure__lane-heading" id={headingId}>
+              {group.label}
+            </h4>
             <ol
+              aria-labelledby={headingId}
               className="docs-figure__lane-events"
-              data-count={group.items.length}
+              data-count={nodes.length}
             >
-              {group.items.map((item, index) => {
-                const sourceIndex = figure.items.indexOf(item);
-                const nextItem = group.items[index + 1];
-                const nextSourceIndex = nextItem
-                  ? figure.items.indexOf(nextItem)
-                  : -1;
-                const sourceNode = nodesBySourceItem.get(sourceIndex);
-                const targetNode = nodesBySourceItem.get(nextSourceIndex);
-                const relation =
-                  sourceNode && targetNode
-                    ? logic.edges.find(
-                        ({ from, to }) =>
-                          from === sourceNode.id && to === targetNode.id,
-                      )
-                    : undefined;
-                const nextStage = group.items[index + 1]?.stage;
-                const stageColumn = activeStageColumns.get(item.stage) ?? 1;
-                const nextColumn = nextStage === undefined
-                  ? groupEndColumn + 1
-                  : activeStageColumns.get(nextStage) ?? stageColumn + 1;
+              {nodes.map((node, index) => {
+                const nextNode = nodes[index + 1];
+                const relation = nextNode
+                  ? resolveEdgeByEndpoints(logic, node.id, nextNode.id)
+                  : undefined;
 
                 return (
                   <LaneEvent
-                    key={`${item.stage}:${item.lane}:${item.title}`}
-                    item={item}
+                    actorGroup={actorGroupForNode(logic, group, node.id)}
+                    key={node.id}
+                    node={node}
                     relation={relation}
-                    nextStage={nextStage}
-                    showLane={group.showItemLane}
-                    stageColumn={stageColumn}
-                    stageSpan={Math.max(1, nextColumn - stageColumn)}
                   />
                 );
               })}
             </ol>
-          </div>
+          </section>
         );
       })}
     </div>

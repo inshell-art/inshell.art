@@ -40,7 +40,9 @@ export type DocsFigureNode = {
 export type DocsFigureEdge = {
   /** Stable inside one figure. */
   id: string;
+  /** Stable node or semantic group id. */
   from: string;
+  /** Stable node or semantic group id. */
   to: string;
   /** The literal character operator carried by the figure. */
   glyph: string;
@@ -195,9 +197,7 @@ const FIGURE_LOGIC_BUILDERS = {
       figure,
       "field",
       [
-        { id: "agent-art", term: "AGENT ART", role: "structural" },
         sourceNode(figure, 0, "invariant", "principle"),
-        { id: "open-questions", term: "OPEN QUESTIONS", role: "structural" },
         sourceNode(figure, 1, "what-is-art", "question"),
         sourceNode(figure, 2, "what-is-an-agent", "question"),
       ],
@@ -208,13 +208,7 @@ const FIGURE_LOGIC_BUILDERS = {
           kind: "open-field",
           label: "One invariant is held while Art and Agent remain open questions.",
           glyph: "├─ / └─",
-          members: [
-            "agent-art",
-            "invariant",
-            "open-questions",
-            "what-is-art",
-            "what-is-an-agent",
-          ],
+          members: ["invariant", "what-is-art", "what-is-an-agent"],
         },
       ],
     ),
@@ -234,7 +228,7 @@ const FIGURE_LOGIC_BUILDERS = {
           from: "thought",
           to: "will",
           glyph: "→",
-          stackedGlyph: "│\n↓",
+          stackedGlyph: "↓",
           label: "The movement arc goes from individual to crowd.",
         },
         {
@@ -242,7 +236,7 @@ const FIGURE_LOGIC_BUILDERS = {
           from: "will",
           to: "awa",
           glyph: "→",
-          stackedGlyph: "│\n↓",
+          stackedGlyph: "↓",
           label: "The movement arc continues from crowd toward the core.",
         },
       ],
@@ -267,15 +261,8 @@ const FIGURE_LOGIC_BUILDERS = {
       ],
       [
         {
-          id: "prompt-in-work",
-          from: "human-prompt",
-          to: "agent-response",
-          glyph: "+",
-          label: "The exact human prompt is paired with the exact Agent response.",
-        },
-        {
-          id: "response-in-work",
-          from: "agent-response",
+          id: "pair-forms-thought",
+          from: "thought-equation",
           to: "one-thought",
           glyph: "↓",
           label: "The exact prompt-response pair forms one THOUGHT.",
@@ -286,7 +273,8 @@ const FIGURE_LOGIC_BUILDERS = {
           id: "thought-equation",
           kind: "set",
           label: "Human prompt P plus Agent response R forms one THOUGHT (P, R).",
-          members: ["human-prompt", "agent-response", "one-thought"],
+          glyph: "+",
+          members: ["human-prompt", "agent-response"],
         },
       ],
     ),
@@ -306,7 +294,7 @@ const FIGURE_LOGIC_BUILDERS = {
           from: "human-prompt",
           to: "agent-response",
           glyph: "→",
-          stackedGlyph: "│\n↓",
+          stackedGlyph: "↓",
           label: "One exact human prompt is handed to the Agent.",
         },
         {
@@ -314,18 +302,11 @@ const FIGURE_LOGIC_BUILDERS = {
           from: "agent-response",
           to: "human-review",
           glyph: "→",
-          stackedGlyph: "│\n↓",
+          stackedGlyph: "↓",
           label: "One exact Agent response returns for human review and choice.",
         },
       ],
-      [
-        {
-          id: "creative-handoff-phases",
-          kind: "phase",
-          label: "The creative handoff has three ordered actions.",
-          members: ["human-prompt", "agent-response", "human-review"],
-        },
-      ],
+      [],
     ),
 
   "thought.creation-attestation": (figure) =>
@@ -347,7 +328,6 @@ const FIGURE_LOGIC_BUILDERS = {
           from: "recorded-values",
           to: "app-claim",
           glyph: "↓",
-          stackedGlyph: "│\n↓",
           label: "Recorded values are bound into one exact App claim.",
         },
         {
@@ -355,7 +335,6 @@ const FIGURE_LOGIC_BUILDERS = {
           from: "app-claim",
           to: "contract-validation",
           glyph: "↓",
-          stackedGlyph: "│\n↓",
           label: "The contract validates the App claim during minting.",
         },
         {
@@ -387,25 +366,7 @@ const FIGURE_LOGIC_BUILDERS = {
           label: "An empty proof produces an explicit Unattested result.",
         },
       ],
-      [
-        {
-          id: "attestation-input",
-          kind: "phase",
-          label: "Values, claim, and contract validation form the ordered attestation check.",
-          members: ["recorded-values", "app-claim", "contract-validation"],
-        },
-        {
-          id: "attestation-outcomes",
-          kind: "set",
-          label: "Validation has two explicit proof outcomes.",
-          members: [
-            "valid-proof",
-            "app-attested",
-            "empty-proof",
-            "unattested",
-          ],
-        },
-      ],
+      [],
     ),
 
   "will.open-field": (figure) =>
@@ -413,7 +374,6 @@ const FIGURE_LOGIC_BUILDERS = {
       figure,
       "field",
       [
-        { id: "will", term: "WILL", role: "structural" },
         sourceNode(figure, 0, "many-people", "subject"),
         sourceNode(figure, 1, "many-agents", "subject"),
         sourceNode(figure, 2, "one-will", "question"),
@@ -425,7 +385,7 @@ const FIGURE_LOGIC_BUILDERS = {
           kind: "open-field",
           label: "Crowd behavior is the open field in which WILL is still being created.",
           glyph: "•",
-          members: ["will", "many-people", "many-agents", "one-will"],
+          members: ["many-people", "many-agents", "one-will"],
         },
       ],
     ),
@@ -438,6 +398,7 @@ const FIGURE_LOGIC_BUILDERS = {
         sourceNode(figure, 0, "thought", "state"),
         sourceNode(figure, 1, "will", "state"),
         sourceNode(figure, 2, "awa", "state"),
+        { id: "open-horizon", term: "…", role: "structural" },
       ],
       [
         {
@@ -454,15 +415,15 @@ const FIGURE_LOGIC_BUILDERS = {
           glyph: "→",
           label: "The path points from crowd WILL toward AWA and the core; arrival is not claimed.",
         },
-      ],
-      [
         {
-          id: "awa-open-horizon",
-          kind: "phase",
-          label: "AWA is the forming horizon of the path toward the core.",
-          members: ["thought", "will", "awa"],
+          id: "awa-toward-open-horizon",
+          from: "awa",
+          to: "open-horizon",
+          glyph: "→",
+          label: "AWA remains open toward a core that is not claimed as reached.",
         },
       ],
+      [],
     ),
 
   "path.capacity-progress": (figure) =>
@@ -470,39 +431,30 @@ const FIGURE_LOGIC_BUILDERS = {
       figure,
       "ledger",
       [
-        { id: "deployment", term: "DEPLOYMENT", role: "record" },
         sourcePartNode(figure, 0, "title", "capacity", "state"),
-        { id: "one-path", term: "EACH PATH", role: "record" },
         sourcePartNode(figure, 0, "detail", "progress", "state"),
       ],
       [
         {
-          id: "deployment-capacity",
-          from: "deployment",
-          to: "capacity",
-          glyph: "│",
-          label: "The deployment configures movement capacity used by every PATH.",
-        },
-        {
-          id: "path-progress",
-          from: "one-path",
+          id: "capacity-not-progress",
+          from: "capacity",
           to: "progress",
-          glyph: "│",
-          label: "One PATH records its own movement progress.",
+          glyph: "≠",
+          label: "Deployment movement capacity is distinct from one PATH's used and remaining progress.",
         },
       ],
       [
         {
           id: "capacity-column",
           kind: "lane",
-          label: "Deployment capacity",
-          members: ["deployment", "capacity"],
+          label: "Deployment",
+          members: ["capacity"],
         },
         {
           id: "progress-column",
           kind: "lane",
-          label: "One PATH progress",
-          members: ["one-path", "progress"],
+          label: "Each PATH",
+          members: ["progress"],
         },
         {
           id: "capacity-progress-distinction",
@@ -528,7 +480,6 @@ const FIGURE_LOGIC_BUILDERS = {
           from: "ask",
           to: "bid",
           glyph: "↓",
-          stackedGlyph: "│\n↓",
           label: "The current ask decays until a bid succeeds.",
           annotation: sourceItem(figure, 0).detail,
         },
@@ -537,7 +488,6 @@ const FIGURE_LOGIC_BUILDERS = {
           from: "bid",
           to: "next-ask",
           glyph: "↓",
-          stackedGlyph: "│\n↓",
           label: "The successful bid pumps the next ask.",
           annotation: sourceItem(figure, 1).detail,
         },
@@ -552,14 +502,7 @@ const FIGURE_LOGIC_BUILDERS = {
             figure.mode === "trace" ? figure.loop?.condition : undefined,
         },
       ],
-      [
-        {
-          id: "pulse-epoch",
-          kind: "phase",
-          label: "One serial Pulse epoch loops into the next.",
-          members: ["ask", "bid", "next-ask"],
-        },
-      ],
+      [],
     ),
 
   "contracts.handoffs": (figure) =>
@@ -694,18 +637,10 @@ const FIGURE_LOGIC_BUILDERS = {
           from: "evidence",
           to: "interpretation",
           glyph: "↓",
-          stackedGlyph: "│\n↓",
           label: "The evidence records are read together as interpretation.",
         },
       ],
-      [
-        {
-          id: "evidence-set",
-          kind: "set",
-          label: "Evidence",
-          members: ["evidence", "identity", "contract", "release", "context"],
-        },
-      ],
+      [],
     ),
 
   "mono-76.canonical-artwork": (figure) =>
@@ -722,27 +657,18 @@ const FIGURE_LOGIC_BUILDERS = {
           id: "study-to-seal",
           from: "glyph-study",
           to: "sealed-mono",
-          glyph: "→",
-          stackedGlyph: "↓",
+          glyph: "↓",
           label: "Glyph study is refined into the sealed Mono 76 source.",
         },
         {
           id: "seal-to-artwork",
           from: "sealed-mono",
           to: "canonical-artwork",
-          glyph: "→",
-          stackedGlyph: "↓",
+          glyph: "↓",
           label: "The sealed paths and metrics produce the canonical native SVG artwork.",
         },
       ],
-      [
-        {
-          id: "mono-phases",
-          kind: "phase",
-          label: "From study through sealed source to canonical artwork.",
-          members: ["glyph-study", "sealed-mono", "canonical-artwork"],
-        },
-      ],
+      [],
     ),
 
   "wallet.distinctions": (figure) =>
@@ -750,29 +676,11 @@ const FIGURE_LOGIC_BUILDERS = {
       figure,
       "ledger",
       [
-        { id: "wallet-local-data", term: "WALLET AND LOCAL DATA", role: "structural" },
-        sourceNode(figure, 0, "read-sign-transact", "principle"),
-        { id: "read", term: "READ", annotation: "Public state", role: "action" },
-        { id: "sign", term: "SIGN", annotation: "Authorization", role: "action" },
-        {
-          id: "transact",
-          term: "TRANSACT",
-          annotation: "Chain change",
-          role: "action",
-        },
-        sourceNode(figure, 1, "local-onchain", "principle"),
-        {
-          id: "local",
-          term: "LOCAL",
-          annotation: "Browser record",
-          role: "record",
-        },
-        {
-          id: "onchain",
-          term: "ONCHAIN",
-          annotation: "Public record",
-          role: "record",
-        },
+        sourceNode(figure, 0, "read", "action"),
+        sourceNode(figure, 1, "sign", "action"),
+        sourceNode(figure, 2, "transact", "action"),
+        sourceNode(figure, 3, "local", "record"),
+        sourceNode(figure, 4, "onchain", "record"),
       ],
       [
         {
@@ -801,14 +709,14 @@ const FIGURE_LOGIC_BUILDERS = {
         {
           id: "wallet-action-distinction",
           kind: "comparison",
-          label: sourceItem(figure, 0).title,
-          members: ["read-sign-transact", "read", "sign", "transact"],
+          label: "Read, sign, and transact are distinct wallet actions.",
+          members: ["read", "sign", "transact"],
         },
         {
           id: "record-location-distinction",
           kind: "comparison",
-          label: sourceItem(figure, 1).title,
-          members: ["local-onchain", "local", "onchain"],
+          label: "Local browser data is distinct from an onchain public record.",
+          members: ["local", "onchain"],
         },
       ],
     ),
@@ -818,7 +726,6 @@ const FIGURE_LOGIC_BUILDERS = {
       figure,
       "axis",
       [
-        { id: "four-records", term: "FOUR DISTINCT RECORDS", role: "structural" },
         sourceNode(figure, 0, "source", "record"),
         sourceNode(figure, 1, "release", "record"),
         sourceNode(figure, 2, "deployment", "record"),
@@ -852,7 +759,7 @@ const FIGURE_LOGIC_BUILDERS = {
           id: "record-distinction",
           kind: "comparison",
           label: "Four records that must not be collapsed into one.",
-          members: ["four-records", "source", "release", "deployment", "observation"],
+          members: ["source", "release", "deployment", "observation"],
         },
       ],
     ),
@@ -862,11 +769,6 @@ const FIGURE_LOGIC_BUILDERS = {
       figure,
       "field",
       [
-        {
-          id: "principles",
-          term: "CURRENT INSHELL PRINCIPLES",
-          role: "structural",
-        },
         sourceNode(figure, 0, "bound", "principle"),
         sourceNode(figure, 1, "authorize", "principle"),
         sourceNode(figure, 2, "expose", "principle"),
@@ -880,7 +782,7 @@ const FIGURE_LOGIC_BUILDERS = {
           kind: "set",
           label: "Current Inshell principles across systems",
           glyph: "•",
-          members: ["principles", "bound", "authorize", "expose", "pin", "qualify"],
+          members: ["bound", "authorize", "expose", "pin", "qualify"],
         },
       ],
     ),
@@ -992,14 +894,7 @@ const FIGURE_LOGIC_BUILDERS = {
           label: "One identified onchain work can be read through many surfaces.",
         },
       ],
-      [
-        {
-          id: "reading-surface-set",
-          kind: "set",
-          label: sourceItem(figure, 1).detail ?? "Many reading surfaces",
-          members: ["identified-work", "reading-surfaces"],
-        },
-      ],
+      [],
     ),
 } satisfies Readonly<Record<string, DocsFigureLogicBuilder>>;
 
@@ -1085,6 +980,7 @@ export function validateDocsFigureLogic(
       errors.push(`Source item ${index} detail is not represented by a node.`);
   }
 
+  const declaredGroupIds = new Set(figureLogic.groups.map(({ id }) => id));
   const edgeIds = new Set<string>();
   for (const edge of figureLogic.edges) {
     if (!edge.id.trim()) errors.push("A figure edge has an empty id.");
@@ -1092,11 +988,11 @@ export function validateDocsFigureLogic(
       errors.push(`Duplicate edge id "${edge.id}".`);
     }
     edgeIds.add(edge.id);
-    if (!nodeIds.has(edge.from)) {
-      errors.push(`Edge "${edge.id}" has unknown source node "${edge.from}".`);
+    if (!nodeIds.has(edge.from) && !declaredGroupIds.has(edge.from)) {
+      errors.push(`Edge "${edge.id}" has unknown source endpoint "${edge.from}".`);
     }
-    if (!nodeIds.has(edge.to)) {
-      errors.push(`Edge "${edge.id}" has unknown target node "${edge.to}".`);
+    if (!nodeIds.has(edge.to) && !declaredGroupIds.has(edge.to)) {
+      errors.push(`Edge "${edge.id}" has unknown target endpoint "${edge.to}".`);
     }
     if (!edge.glyph.trim()) {
       errors.push(`Edge "${edge.id}" has an empty literal glyph.`);

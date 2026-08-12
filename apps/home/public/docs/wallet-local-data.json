@@ -41,15 +41,27 @@
       "id": "wallet.distinctions",
       "label": "Two distinctions",
       "mode": "field",
-      "figureText": "┌─ WALLET AND LOCAL DATA ─────────────────────┐\n│ READ ≠ SIGN ≠ TRANSACT                      │\n│ Public state · authorization · chain change │\n│                                             │\n│ LOCAL ≠ ONCHAIN                             │\n│ Browser record · public record              │\n└─────────────────────────────────────────────┘",
+      "figureText": "READ  ≠  SIGN  ≠  TRANSACT\nPublic state   Authorization   Chain change\n\nLOCAL  ≠  ONCHAIN\nBrowser record   Public record",
       "items": [
         {
-          "title": "Read ≠ Sign ≠ Transact",
-          "detail": "Public state · authorization · chain change"
+          "title": "Read",
+          "detail": "Public state"
         },
         {
-          "title": "Local ≠ Onchain",
-          "detail": "Browser record · public record"
+          "title": "Sign",
+          "detail": "Authorization"
+        },
+        {
+          "title": "Transact",
+          "detail": "Chain change"
+        },
+        {
+          "title": "Local",
+          "detail": "Browser record"
+        },
+        {
+          "title": "Onchain",
+          "detail": "Public record"
         }
       ],
       "logic": {
@@ -58,53 +70,42 @@
         "form": "ledger",
         "nodes": [
           {
-            "id": "wallet-local-data",
-            "term": "WALLET AND LOCAL DATA",
-            "role": "structural"
-          },
-          {
-            "id": "read-sign-transact",
+            "id": "read",
             "sourceItem": 0,
             "sourcePart": "item",
-            "term": "Read ≠ Sign ≠ Transact",
-            "annotation": "Public state · authorization · chain change",
-            "role": "principle"
-          },
-          {
-            "id": "read",
-            "term": "READ",
+            "term": "Read",
             "annotation": "Public state",
             "role": "action"
           },
           {
             "id": "sign",
-            "term": "SIGN",
+            "sourceItem": 1,
+            "sourcePart": "item",
+            "term": "Sign",
             "annotation": "Authorization",
             "role": "action"
           },
           {
             "id": "transact",
-            "term": "TRANSACT",
+            "sourceItem": 2,
+            "sourcePart": "item",
+            "term": "Transact",
             "annotation": "Chain change",
             "role": "action"
           },
           {
-            "id": "local-onchain",
-            "sourceItem": 1,
-            "sourcePart": "item",
-            "term": "Local ≠ Onchain",
-            "annotation": "Browser record · public record",
-            "role": "principle"
-          },
-          {
             "id": "local",
-            "term": "LOCAL",
+            "sourceItem": 3,
+            "sourcePart": "item",
+            "term": "Local",
             "annotation": "Browser record",
             "role": "record"
           },
           {
             "id": "onchain",
-            "term": "ONCHAIN",
+            "sourceItem": 4,
+            "sourcePart": "item",
+            "term": "Onchain",
             "annotation": "Public record",
             "role": "record"
           }
@@ -136,9 +137,8 @@
           {
             "id": "wallet-action-distinction",
             "kind": "comparison",
-            "label": "Read ≠ Sign ≠ Transact",
+            "label": "Read, sign, and transact are distinct wallet actions.",
             "members": [
-              "read-sign-transact",
               "read",
               "sign",
               "transact"
@@ -147,9 +147,8 @@
           {
             "id": "record-location-distinction",
             "kind": "comparison",
-            "label": "Local ≠ Onchain",
+            "label": "Local browser data is distinct from an onchain public record.",
             "members": [
-              "local-onchain",
               "local",
               "onchain"
             ]

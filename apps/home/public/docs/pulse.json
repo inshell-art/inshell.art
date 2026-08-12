@@ -69,7 +69,7 @@
           "id": "pulse.epoch",
           "label": "One Pulse epoch",
           "mode": "trace",
-          "figureText": "ASK\n │ decay\n ↓\nBID\n │ pump\n ↓\nNEXT ASK\n └──↺ next epoch",
+          "figureText": "ASK\n↓ decay\nBID\n↓ pump\nNEXT ASK\n↺ next epoch",
           "loop": {
             "to": 1,
             "condition": "next epoch"
@@ -122,7 +122,6 @@
                 "from": "ask",
                 "to": "bid",
                 "glyph": "↓",
-                "stackedGlyph": "│\n↓",
                 "label": "The current ask decays until a bid succeeds.",
                 "annotation": "Decay"
               },
@@ -131,7 +130,6 @@
                 "from": "bid",
                 "to": "next-ask",
                 "glyph": "↓",
-                "stackedGlyph": "│\n↓",
                 "label": "The successful bid pumps the next ask.",
                 "annotation": "Pump"
               },
@@ -145,18 +143,7 @@
                 "annotation": "next epoch"
               }
             ],
-            "groups": [
-              {
-                "id": "pulse-epoch",
-                "kind": "phase",
-                "label": "One serial Pulse epoch loops into the next.",
-                "members": [
-                  "ask",
-                  "bid",
-                  "next-ask"
-                ]
-              }
-            ]
+            "groups": []
           }
         }
       },

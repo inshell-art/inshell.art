@@ -48,7 +48,7 @@
       "id": "evidence.interpretation",
       "label": "Evidence becomes interpretation",
       "mode": "field",
-      "figureText": "EVIDENCE\n├─ IDENTITY\n│  Network + contract + token\n├─ CONTRACT\n│  State + tokenURI\n├─ RELEASE\n│  ABI + renderer + schemas\n└─ CONTEXT\n   Provenance + reading surface\n      │\n      ↓\nINTERPRETATION\nRead together",
+      "figureText": "EVIDENCE\n├─ IDENTITY\n│  Network + contract + token\n├─ CONTRACT\n│  State + tokenURI\n├─ RELEASE\n│  ABI + renderer + schemas\n└─ CONTEXT\n   Provenance + reading surface\n      ↓\nINTERPRETATION\nRead together",
       "items": [
         {
           "title": "Identity",
@@ -156,24 +156,10 @@
             "from": "evidence",
             "to": "interpretation",
             "glyph": "↓",
-            "stackedGlyph": "│\n↓",
             "label": "The evidence records are read together as interpretation."
           }
         ],
-        "groups": [
-          {
-            "id": "evidence-set",
-            "kind": "set",
-            "label": "Evidence",
-            "members": [
-              "evidence",
-              "identity",
-              "contract",
-              "release",
-              "context"
-            ]
-          }
-        ]
+        "groups": []
       }
     },
     "preformatted": [],

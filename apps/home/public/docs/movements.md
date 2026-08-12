@@ -20,15 +20,14 @@
   - `will [state]: WILL — Crowd`
   - `awa [state]: AWA — Toward the core`
 - Semantic edges:
-  - `individual-to-crowd: thought (THOUGHT) --[→ / │ ↓ · The movement arc goes from individual to crowd.]--> will (WILL)`
-  - `crowd-toward-core: will (WILL) --[→ / │ ↓ · The movement arc continues from crowd toward the core.]--> awa (AWA)`
+  - `individual-to-crowd: thought (THOUGHT) --[→ / ↓ · The movement arc goes from individual to crowd.]--> will (WILL)`
+  - `crowd-toward-core: will (WILL) --[→ / ↓ · The movement arc continues from crowd toward the core.]--> awa (AWA)`
 - Semantic groups:
   - `movement-phases [phase]: The named PATH from individual to crowd toward the core. [members: thought (THOUGHT) · will (WILL) · awa (AWA)]`
 
 ```text
-THOUGHT       WILL       AWA
-   │            │         │
-INDIVIDUAL → CROWD → TOWARD THE CORE
+THOUGHT  →  WILL  →  AWA
+Individual   Crowd   Toward the core
 ```
 
 1. **THOUGHT** — Individual

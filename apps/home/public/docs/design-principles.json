@@ -71,11 +71,6 @@
         "form": "field",
         "nodes": [
           {
-            "id": "principles",
-            "term": "CURRENT INSHELL PRINCIPLES",
-            "role": "structural"
-          },
-          {
             "id": "bound",
             "sourceItem": 0,
             "sourcePart": "item",
@@ -124,7 +119,6 @@
             "label": "Current Inshell principles across systems",
             "glyph": "•",
             "members": [
-              "principles",
               "bound",
               "authorize",
               "expose",
@@ -170,7 +164,7 @@
           "id": "design.preservation",
           "label": "Two preservation boundaries",
           "mode": "lanes",
-          "figureText": "THOUGHT │ AGENT RETURN\n        │ Candidate produced\n        │ → HUMAN REVIEW\n        │ Decision to preserve\n        │ → SUCCESSFUL MINT\n        │ Contract action succeeds\n        │ → PUBLIC CORPUS\n        │ Preserved THOUGHT\nPULSE   │ VISIBLE ASK\n        │ Quote exposed\n        │ → CONFIRMED BID\n        │ Participant authorizes\n        │ → SETTLEMENT\n        │ Contract action succeeds\n        │ → SALE RECORD\n        │ Preserved Pulse",
+          "figureText": "THOUGHT\nAGENT RETURN\nCandidate produced\n→ HUMAN REVIEW\nDecision to preserve\n→ SUCCESSFUL MINT\nContract action succeeds\n→ PUBLIC CORPUS\nPreserved THOUGHT\n\nPULSE\nVISIBLE ASK\nQuote exposed\n→ CONFIRMED BID\nParticipant authorizes\n→ SETTLEMENT\nContract action succeeds\n→ SALE RECORD\nPreserved Pulse",
           "items": [
             {
               "stage": 1,
@@ -398,7 +392,7 @@
           "id": "design.reading-surfaces",
           "label": "Many surfaces, one identified record",
           "mode": "field",
-          "figureText": "┌─ IDENTIFIED ONCHAIN WORK ───────────────┐\n│ Network + contract + token ID +         │\n│ tokenURI + release                      │\n└───────────────────┬─────────────────────┘\n                    ↓\n          MANY READING SURFACES\nSite · wallet · marketplace · API · Markdown · Agent answer",
+          "figureText": "┌─ IDENTIFIED ONCHAIN WORK ───────────────┐\n│ Network + contract + token ID +         │\n│ tokenURI + release                      │\n└─────────────────────────────────────────┘\n                    ↓\n          MANY READING SURFACES\nSite · wallet · marketplace · API · Markdown · Agent answer",
           "items": [
             {
               "title": "Identified onchain work",
@@ -440,17 +434,7 @@
                 "label": "One identified onchain work can be read through many surfaces."
               }
             ],
-            "groups": [
-              {
-                "id": "reading-surface-set",
-                "kind": "set",
-                "label": "Site · wallet · marketplace · API · Markdown · Agent answer",
-                "members": [
-                  "identified-work",
-                  "reading-surfaces"
-                ]
-              }
-            ]
+            "groups": []
           }
         }
       },

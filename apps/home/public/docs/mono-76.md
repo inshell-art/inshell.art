@@ -20,10 +20,8 @@
   - `sealed-mono [state]: Sealed Mono 76 — Paths + metrics frozen`
   - `canonical-artwork [result]: Canonical artwork — Native SVG`
 - Semantic edges:
-  - `study-to-seal: glyph-study (Glyph study) --[→ / ↓ · Glyph study is refined into the sealed Mono 76 source.]--> sealed-mono (Sealed Mono 76)`
-  - `seal-to-artwork: sealed-mono (Sealed Mono 76) --[→ / ↓ · The sealed paths and metrics produce the canonical native SVG artwork.]--> canonical-artwork (Canonical artwork)`
-- Semantic groups:
-  - `mono-phases [phase]: From study through sealed source to canonical artwork. [members: glyph-study (Glyph study) · sealed-mono (Sealed Mono 76) · canonical-artwork (Canonical artwork)]`
+  - `study-to-seal: glyph-study (Glyph study) --[↓ · Glyph study is refined into the sealed Mono 76 source.]--> sealed-mono (Sealed Mono 76)`
+  - `seal-to-artwork: sealed-mono (Sealed Mono 76) --[↓ · The sealed paths and metrics produce the canonical native SVG artwork.]--> canonical-artwork (Canonical artwork)`
 
 ```text
 GLYPH STUDY

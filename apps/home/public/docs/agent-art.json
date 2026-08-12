@@ -61,22 +61,12 @@
         "form": "field",
         "nodes": [
           {
-            "id": "agent-art",
-            "term": "AGENT ART",
-            "role": "structural"
-          },
-          {
             "id": "invariant",
             "sourceItem": 0,
             "sourcePart": "item",
             "term": "Invariant",
             "annotation": "An Agent participates in the art activity.",
             "role": "principle"
-          },
-          {
-            "id": "open-questions",
-            "term": "OPEN QUESTIONS",
-            "role": "structural"
           },
           {
             "id": "what-is-art",
@@ -103,9 +93,7 @@
             "label": "One invariant is held while Art and Agent remain open questions.",
             "glyph": "├─ / └─",
             "members": [
-              "agent-art",
               "invariant",
-              "open-questions",
               "what-is-art",
               "what-is-an-agent"
             ]

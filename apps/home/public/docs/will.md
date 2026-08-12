@@ -16,12 +16,11 @@
 - Figure mode: field
 - Semantic form: field
 - Semantic nodes:
-  - `will [structural]: WILL`
   - `many-people [subject]: Many people`
   - `many-agents [subject]: Many Agents`
   - `one-will [question]: One will — Crowd behavior · how a crowd forms what can be called one will.`
 - Semantic groups:
-  - `will-open-field [open-field] · •: Crowd behavior is the open field in which WILL is still being created. [members: will (WILL) · many-people (Many people) · many-agents (Many Agents) · one-will (One will)]`
+  - `will-open-field [open-field] · •: Crowd behavior is the open field in which WILL is still being created. [members: many-people (Many people) · many-agents (Many Agents) · one-will (One will)]`
 
 ```text
 WILL

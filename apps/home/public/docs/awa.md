@@ -13,26 +13,26 @@
 
 - Authority: artist-editorial
 - Figure ID: awa.open-horizon
-- Figure mode: field
+- Figure mode: trace
 - Semantic form: trace
 - Semantic nodes:
   - `thought [state]: THOUGHT — Individual`
   - `will [state]: WILL — Crowd`
   - `awa [state]: AWA — Toward the core`
+  - `open-horizon [structural]: …`
 - Semantic edges:
   - `thought-to-will: thought (THOUGHT) --[→ · The path moves from individual THOUGHT to crowd WILL.]--> will (WILL)`
   - `will-toward-awa: will (WILL) --[→ · The path points from crowd WILL toward AWA and the core; arrival is not claimed.]--> awa (AWA)`
-- Semantic groups:
-  - `awa-open-horizon [phase]: AWA is the forming horizon of the path toward the core. [members: thought (THOUGHT) · will (WILL) · awa (AWA)]`
+  - `awa-toward-open-horizon: awa (AWA) --[→ · AWA remains open toward a core that is not claimed as reached.]--> open-horizon (…)`
 
 ```text
-THOUGHT ──→ WILL ──→ AWA
-Individual   Crowd    Toward the core
+THOUGHT  →  WILL  →  AWA  →  …
+Individual   Crowd   Toward the core
 ```
 
-- **THOUGHT** — Individual
-- **WILL** — Crowd
-- **AWA** — Toward the core
+1. **THOUGHT** — Individual
+2. **WILL** — Crowd
+3. **AWA** — Toward the core
 
 ## Overview
 

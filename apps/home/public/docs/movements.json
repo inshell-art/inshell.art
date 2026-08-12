@@ -42,7 +42,7 @@
       "id": "movements.arc",
       "label": "The movement arc",
       "mode": "trace",
-      "figureText": "THOUGHT       WILL       AWA\n   │            │         │\nINDIVIDUAL → CROWD → TOWARD THE CORE",
+      "figureText": "THOUGHT  →  WILL  →  AWA\nIndividual   Crowd   Toward the core",
       "items": [
         {
           "title": "THOUGHT",
@@ -93,7 +93,7 @@
             "from": "thought",
             "to": "will",
             "glyph": "→",
-            "stackedGlyph": "│\n↓",
+            "stackedGlyph": "↓",
             "label": "The movement arc goes from individual to crowd."
           },
           {
@@ -101,7 +101,7 @@
             "from": "will",
             "to": "awa",
             "glyph": "→",
-            "stackedGlyph": "│\n↓",
+            "stackedGlyph": "↓",
             "label": "The movement arc continues from crowd toward the core."
           }
         ],

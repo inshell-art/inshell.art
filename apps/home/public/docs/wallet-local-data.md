@@ -16,34 +16,32 @@
 - Figure mode: field
 - Semantic form: ledger
 - Semantic nodes:
-  - `wallet-local-data [structural]: WALLET AND LOCAL DATA`
-  - `read-sign-transact [principle]: Read ≠ Sign ≠ Transact — Public state · authorization · chain change`
-  - `read [action]: READ — Public state`
-  - `sign [action]: SIGN — Authorization`
-  - `transact [action]: TRANSACT — Chain change`
-  - `local-onchain [principle]: Local ≠ Onchain — Browser record · public record`
-  - `local [record]: LOCAL — Browser record`
-  - `onchain [record]: ONCHAIN — Public record`
+  - `read [action]: Read — Public state`
+  - `sign [action]: Sign — Authorization`
+  - `transact [action]: Transact — Chain change`
+  - `local [record]: Local — Browser record`
+  - `onchain [record]: Onchain — Public record`
 - Semantic edges:
-  - `read-not-sign: read (READ) --[≠ · Reading public state is not signing an authorization.]--> sign (SIGN)`
-  - `sign-not-transact: sign (SIGN) --[≠ · Signing an authorization is not a chain transaction.]--> transact (TRANSACT)`
-  - `local-not-onchain: local (LOCAL) --[≠ · A local browser record is not an onchain public record.]--> onchain (ONCHAIN)`
+  - `read-not-sign: read (Read) --[≠ · Reading public state is not signing an authorization.]--> sign (Sign)`
+  - `sign-not-transact: sign (Sign) --[≠ · Signing an authorization is not a chain transaction.]--> transact (Transact)`
+  - `local-not-onchain: local (Local) --[≠ · A local browser record is not an onchain public record.]--> onchain (Onchain)`
 - Semantic groups:
-  - `wallet-action-distinction [comparison]: Read ≠ Sign ≠ Transact [members: read-sign-transact (Read ≠ Sign ≠ Transact) · read (READ) · sign (SIGN) · transact (TRANSACT)]`
-  - `record-location-distinction [comparison]: Local ≠ Onchain [members: local-onchain (Local ≠ Onchain) · local (LOCAL) · onchain (ONCHAIN)]`
+  - `wallet-action-distinction [comparison]: Read, sign, and transact are distinct wallet actions. [members: read (Read) · sign (Sign) · transact (Transact)]`
+  - `record-location-distinction [comparison]: Local browser data is distinct from an onchain public record. [members: local (Local) · onchain (Onchain)]`
 
 ```text
-┌─ WALLET AND LOCAL DATA ─────────────────────┐
-│ READ ≠ SIGN ≠ TRANSACT                      │
-│ Public state · authorization · chain change │
-│                                             │
-│ LOCAL ≠ ONCHAIN                             │
-│ Browser record · public record              │
-└─────────────────────────────────────────────┘
+READ  ≠  SIGN  ≠  TRANSACT
+Public state   Authorization   Chain change
+
+LOCAL  ≠  ONCHAIN
+Browser record   Public record
 ```
 
-- **Read ≠ Sign ≠ Transact** — Public state · authorization · chain change
-- **Local ≠ Onchain** — Browser record · public record
+- **Read** — Public state
+- **Sign** — Authorization
+- **Transact** — Chain change
+- **Local** — Browser record
+- **Onchain** — Public record
 
 ## Overview
 

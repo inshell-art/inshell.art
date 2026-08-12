@@ -96,31 +96,18 @@
             "id": "study-to-seal",
             "from": "glyph-study",
             "to": "sealed-mono",
-            "glyph": "→",
-            "stackedGlyph": "↓",
+            "glyph": "↓",
             "label": "Glyph study is refined into the sealed Mono 76 source."
           },
           {
             "id": "seal-to-artwork",
             "from": "sealed-mono",
             "to": "canonical-artwork",
-            "glyph": "→",
-            "stackedGlyph": "↓",
+            "glyph": "↓",
             "label": "The sealed paths and metrics produce the canonical native SVG artwork."
           }
         ],
-        "groups": [
-          {
-            "id": "mono-phases",
-            "kind": "phase",
-            "label": "From study through sealed source to canonical artwork.",
-            "members": [
-              "glyph-study",
-              "sealed-mono",
-              "canonical-artwork"
-            ]
-          }
-        ]
+        "groups": []
       }
     },
     "preformatted": [],

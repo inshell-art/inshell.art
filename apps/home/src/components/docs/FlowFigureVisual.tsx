@@ -2,53 +2,209 @@ import type { DocsFigure } from "@/content/docs";
 import {
   docsFigureLogic,
   type DocsFigureEdge,
+  type DocsFigureLogic,
+  type DocsFigureNode,
 } from "@/content/docs-figure-logic";
-import {
-  resolveEdgeByEndpoints,
-  resolveSourceNode,
-} from "@/components/docs/figureLogicResolvers";
+import { resolveSourceNode } from "@/components/docs/figureLogicResolvers";
 
-type TraceFigure = Extract<DocsFigure, { mode: "trace" }>;
+type TraceFigure = Extract<
+  DocsFigure,
+  { mode: "axis" | "cycle" | "trace" }
+>;
 type LedgerFigure = Extract<DocsFigure, { mode: "ledger" }>;
 
-const HORIZONTAL_RAIL = "─".repeat(256);
-const VERTICAL_RAIL = Array.from({ length: 64 }, () => "│").join("\n");
+type TraceLayout = "axis" | "cycle" | "sequence" | "stack";
+
+type TraceTopology = {
+  nodes: DocsFigureNode[];
+  edges: DocsFigureEdge[];
+  returnEdge?: DocsFigureEdge;
+};
 
 function TraceConnector({
-  alignWithDetail = false,
   edge,
-  stacked = false,
+  layout,
 }: {
-  alignWithDetail?: boolean;
   edge: DocsFigureEdge;
-  stacked?: boolean;
+  layout: TraceLayout;
 }) {
   return (
     <span
-      className={`docs-figure__shape-trace-connector${
-        stacked ? " docs-figure__shape-trace-connector--stacked" : ""
-      }${
-        alignWithDetail
-          ? " docs-figure__shape-trace-connector--detail"
-          : ""
-      }`}
+      className={`docs-figure__shape-trace-connector docs-figure__shape-trace-edge docs-figure__shape-trace-edge--${layout}`}
+      data-figure-edge-id={edge.id}
       aria-label={edge.label}
       role="img"
     >
       <span
-        className="docs-figure__shape-character docs-figure__shape-trace-connector-inline"
+        className="docs-figure__shape-character docs-figure__shape-trace-connector-inline docs-figure__shape-trace-edge-glyph docs-figure__shape-trace-edge-glyph--inline"
         aria-hidden="true"
       >
         {edge.glyph}
       </span>
       <span
-        className="docs-figure__shape-character docs-figure__shape-trace-connector-stacked"
+        className="docs-figure__shape-character docs-figure__shape-trace-connector-stacked docs-figure__shape-trace-edge-glyph docs-figure__shape-trace-edge-glyph--stacked"
         aria-hidden="true"
       >
-        {edge.stackedGlyph ?? "│\n↓"}
+        {edge.stackedGlyph ?? edge.glyph}
       </span>
       {edge.annotation !== undefined ? (
-        <small className="docs-figure__annotation docs-figure__shape-trace-relation">
+        <small className="docs-figure__annotation docs-figure__shape-trace-relation docs-figure__shape-trace-edge-annotation">
+          {edge.annotation}
+        </small>
+      ) : null}
+    </span>
+  );
+}
+
+function figureLoop(figure: TraceFigure) {
+  return "loop" in figure ? figure.loop : undefined;
+}
+
+function resolveTraceTopology(
+  figure: TraceFigure,
+  logic: DocsFigureLogic,
+): TraceTopology {
+  const sourceNodes = figure.items.map((_, sourceItem) =>
+    resolveSourceNode(logic, sourceItem),
+  );
+  const nodeById = new Map(logic.nodes.map((node) => [node.id, node]));
+  const loop = figureLoop(figure);
+  const loopTarget = loop ? sourceNodes[loop.to - 1] : undefined;
+
+  if (logic.form === "cycle" && !loopTarget) {
+    throw new Error(
+      `Figure "${figure.id}" must identify the source node where its cycle restarts.`,
+    );
+  }
+
+  const returnCandidates = loopTarget
+    ? logic.edges.filter(({ to }) => to === loopTarget.id)
+    : [];
+  if (loopTarget && returnCandidates.length !== 1) {
+    throw new Error(
+      `Figure "${figure.id}" must have one semantic return edge to "${loopTarget.id}"; found ${returnCandidates.length}.`,
+    );
+  }
+
+  const returnEdge = returnCandidates[0];
+  const forwardEdges = returnEdge
+    ? logic.edges.filter(({ id }) => id !== returnEdge.id)
+    : [...logic.edges];
+  const participatingIds = new Set([
+    ...sourceNodes.map(({ id }) => id),
+    ...forwardEdges.flatMap(({ from, to }) => [from, to]),
+  ]);
+  const startCandidates = loopTarget
+    ? [loopTarget]
+    : [...participatingIds]
+        .filter(
+          (nodeId) => !forwardEdges.some(({ to }) => to === nodeId),
+        )
+        .map((nodeId) => nodeById.get(nodeId))
+        .filter((node): node is DocsFigureNode => node !== undefined);
+
+  if (startCandidates.length !== 1) {
+    throw new Error(
+      `Figure "${figure.id}" must have one semantic flow origin; found ${startCandidates.length}.`,
+    );
+  }
+
+  const nodes: DocsFigureNode[] = [];
+  const edges: DocsFigureEdge[] = [];
+  const visited = new Set<string>();
+  let current: DocsFigureNode | undefined = startCandidates[0];
+
+  while (current) {
+    if (visited.has(current.id)) {
+      throw new Error(
+        `Figure "${figure.id}" revisits "${current.id}" before its explicit return edge.`,
+      );
+    }
+    visited.add(current.id);
+    nodes.push(current);
+
+    const outgoing = forwardEdges.filter(({ from }) => from === current?.id);
+    if (outgoing.length > 1) {
+      throw new Error(
+        `Figure "${figure.id}" is not a single native flow at "${current.id}"; found ${outgoing.length} outgoing edges.`,
+      );
+    }
+    const nextEdge = outgoing[0];
+    if (!nextEdge) break;
+    const nextNode = nodeById.get(nextEdge.to);
+    if (!nextNode) {
+      throw new Error(
+        `Figure "${figure.id}" edge "${nextEdge.id}" targets unknown node "${nextEdge.to}".`,
+      );
+    }
+    edges.push(nextEdge);
+    current = nextNode;
+  }
+
+  const omitted = [...participatingIds].filter((nodeId) => !visited.has(nodeId));
+  if (omitted.length > 0) {
+    throw new Error(
+      `Figure "${figure.id}" native flow omits semantic nodes: ${omitted.join(", ")}.`,
+    );
+  }
+
+  if (returnEdge && returnEdge.from !== nodes.at(-1)?.id) {
+    throw new Error(
+      `Figure "${figure.id}" return edge must leave its final semantic node.`,
+    );
+  }
+
+  return { nodes, edges, ...(returnEdge ? { returnEdge } : {}) };
+}
+
+function traceLayout(
+  logic: DocsFigureLogic,
+  topology: TraceTopology,
+): TraceLayout {
+  if (logic.form === "cycle") return "cycle";
+  if (logic.form === "axis") return "axis";
+
+  const usesVerticalOperators =
+    topology.edges.length > 0 &&
+    topology.edges.every(({ glyph }) => /[↑↓]/u.test(glyph));
+  const isTransformation =
+    topology.nodes[0]?.role === "action" &&
+    topology.nodes.slice(1, -1).some(({ role }) => role === "state") &&
+    topology.nodes.at(-1)?.role === "result";
+
+  return usesVerticalOperators || isTransformation ? "stack" : "sequence";
+}
+
+function nodeAnnotation(
+  node: DocsFigureNode,
+  outgoingEdge: DocsFigureEdge | undefined,
+) {
+  if (
+    node.annotation !== undefined &&
+    outgoingEdge?.annotation === node.annotation
+  ) {
+    return undefined;
+  }
+  return node.annotation;
+}
+
+function TraceReturn({ edge }: { edge: DocsFigureEdge }) {
+  return (
+    <span
+      className="docs-figure__shape-loop-return docs-figure__shape-trace-return"
+      data-figure-edge-id={edge.id}
+      data-return-to={edge.to}
+      aria-label={edge.label}
+      role="img"
+    >
+      <span
+        className="docs-figure__shape-character docs-figure__shape-trace-return-glyph"
+        aria-hidden="true"
+      >
+        {edge.stackedGlyph ?? edge.glyph}
+      </span>
+      {edge.annotation !== undefined ? (
+        <small className="docs-figure__annotation docs-figure__shape-trace-return-annotation">
           {edge.annotation}
         </small>
       ) : null}
@@ -58,198 +214,99 @@ function TraceConnector({
 
 export function TraceFigureVisual({ figure }: { figure: TraceFigure }) {
   const logic = docsFigureLogic(figure);
-  const sourceNodes = figure.items.map((_, sourceItem) =>
-    resolveSourceNode(logic, sourceItem),
-  );
-  const isCycle = figure.loop !== undefined;
-  const isStackedTrace =
-    !isCycle &&
-    !logic.edges.some((edge) => figure.figureText.includes(edge.glyph));
-  const traceLayout = isCycle
-    ? "cycle"
-    : isStackedTrace
-      ? "stack"
-      : "sequence";
-  const loopTargetIndex = figure.loop ? figure.loop.to - 1 : undefined;
-  const loopTargetNode =
-    loopTargetIndex !== undefined
-      ? sourceNodes[loopTargetIndex]
-      : undefined;
-  if (figure.loop && !loopTargetNode) {
-    throw new Error(
-      `Figure "${figure.id}" loop target ${figure.loop.to} does not identify a source item.`,
-    );
-  }
-  const loopSourceNode = figure.loop
-    ? sourceNodes[sourceNodes.length - 1]
-    : undefined;
-  if (figure.loop && !loopSourceNode) {
-    throw new Error(
-      `Figure "${figure.id}" cannot resolve a loop edge without a final source item.`,
-    );
-  }
-  const loopEdge =
-    figure.loop && loopSourceNode && loopTargetNode
-      ? resolveEdgeByEndpoints(logic, loopSourceNode.id, loopTargetNode.id)
-      : undefined;
+  const topology = resolveTraceTopology(figure, logic);
+  const layout = traceLayout(logic, topology);
 
   return (
     <div
-      className={`docs-figure__shape-trace docs-figure__shape-trace--${traceLayout}`}
-      data-trace-layout={traceLayout}
+      className={`docs-figure__shape-trace docs-figure__shape-trace--${layout} docs-figure__shape-flow docs-figure__shape-flow--${logic.form}`}
+      data-figure-form={logic.form}
+      data-trace-layout={layout}
     >
       <ol className="docs-figure__shape-trace-list">
-        {figure.items.map((item, index) => {
-          const isLast = index === figure.items.length - 1;
-          const currentNode = sourceNodes[index];
-          const nextNode = sourceNodes[index + 1];
-          if (!isLast && (!currentNode || !nextNode)) {
-            throw new Error(
-              `Figure "${figure.id}" cannot resolve consecutive source items ${index} and ${index + 1}.`,
-            );
-          }
-          const nextEdge =
-            !isLast && currentNode && nextNode
-              ? resolveEdgeByEndpoints(logic, currentNode.id, nextNode.id)
-              : undefined;
+        {topology.nodes.map((node, index) => {
+          const nextEdge = topology.edges[index];
+          const annotation = nodeAnnotation(node, nextEdge);
 
           return (
             <li
-              className="docs-figure__shape-trace-item"
-              key={`${index}:${item.title}`}
+              className="docs-figure__shape-trace-item docs-figure__shape-trace-node"
+              data-figure-node-id={node.id}
+              data-figure-node-role={node.role}
+              key={node.id}
             >
               <span className="docs-figure__copy docs-figure__shape-trace-copy">
-                <strong className="docs-figure__term">{item.title}</strong>
-                {!isCycle && item.detail !== undefined ? (
-                  <>
-                    <span
-                      className="docs-figure__shape-character docs-figure__shape-trace-item-rail"
-                      aria-hidden="true"
-                    >
-                      │
-                    </span>
-                    <small className="docs-figure__annotation">{item.detail}</small>
-                  </>
+                <strong className="docs-figure__term docs-figure__shape-trace-term">
+                  {node.term}
+                </strong>
+                {annotation !== undefined ? (
+                  <small className="docs-figure__annotation docs-figure__shape-trace-node-annotation">
+                    {annotation}
+                  </small>
                 ) : null}
               </span>
-              {!isLast && nextEdge ? (
+              {nextEdge ? (
                 <TraceConnector
-                  alignWithDetail={!isCycle && item.detail !== undefined}
                   edge={nextEdge}
-                  stacked={isCycle || isStackedTrace}
+                  layout={layout}
                 />
-              ) : null}
-              {isLast && figure.loop && loopEdge ? (
-                <span
-                  className="docs-figure__shape-loop-return"
-                  aria-label={loopEdge.label}
-                  role="img"
-                >
-                  <span className="docs-figure__shape-character" aria-hidden="true">
-                    {loopEdge.stackedGlyph ?? loopEdge.glyph}
-                  </span>
-                  <small className="docs-figure__annotation">
-                    {loopEdge.annotation ?? figure.loop.condition}
-                  </small>
-                </span>
               ) : null}
             </li>
           );
         })}
       </ol>
-    </div>
-  );
-}
-
-function ledgerShape(figureText: string) {
-  const [headerLine = ""] = figureText.split("\n");
-  const headerDivider = headerLine.indexOf("│");
-
-  return {
-    leftHeader:
-      headerDivider === -1
-        ? headerLine.trim()
-        : headerLine.slice(0, headerDivider).trim(),
-    rightHeader:
-      headerDivider === -1 ? "" : headerLine.slice(headerDivider + 1).trim(),
-  };
-}
-
-function LedgerRail() {
-  return (
-    <span className="docs-figure__shape-ledger-divider" aria-hidden="true">
-      <span className="docs-figure__shape-character docs-figure__shape-ledger-rail">
-        {VERTICAL_RAIL}
-      </span>
-    </span>
-  );
-}
-
-function LedgerRule() {
-  return (
-    <div className="docs-figure__shape-ledger-rule" aria-hidden="true">
-      <span className="docs-figure__shape-ledger-rule-run">
-        {HORIZONTAL_RAIL}
-      </span>
-      <span className="docs-figure__shape-character">┼</span>
-      <span className="docs-figure__shape-ledger-rule-run">
-        {HORIZONTAL_RAIL}
-      </span>
+      {topology.returnEdge ? <TraceReturn edge={topology.returnEdge} /> : null}
     </div>
   );
 }
 
 export function LedgerFigureVisual({ figure }: { figure: LedgerFigure }) {
-  const { leftHeader, rightHeader } = ledgerShape(figure.figureText);
+  const logic = docsFigureLogic(figure);
+  const capacity = logic.nodes.find(({ id }) => id === "capacity");
+  const progress = logic.nodes.find(({ id }) => id === "progress");
+  const capacityGroup = logic.groups.find(({ id }) => id === "capacity-column");
+  const progressGroup = logic.groups.find(({ id }) => id === "progress-column");
+  const distinction = logic.edges.find(
+    ({ id }) => id === "capacity-not-progress",
+  );
+
+  if (
+    !capacity ||
+    !progress ||
+    !capacityGroup ||
+    !progressGroup ||
+    !distinction
+  ) {
+    throw new Error(
+      `Figure "${figure.id}" is missing its capacity/progress comparison logic.`,
+    );
+  }
 
   return (
-    <div className="docs-figure__shape-ledger" role="table">
-      <div
-        className="docs-figure__shape-ledger-row docs-figure__shape-ledger-header"
-        role="row"
-      >
-        <span
-          className="docs-figure__shape-ledger-cell docs-figure__shape-ledger-cell--left"
-          role="columnheader"
-        >
-          {leftHeader}
+    <div
+      className="docs-figure__shape-ledger docs-figure__shape-ledger--comparison"
+      data-figure-shape="capacity-comparison"
+    >
+      <div className="docs-figure__shape-ledger-member" data-figure-node-id={capacity.id}>
+        <span className="docs-figure__shape-ledger-header">
+          {capacityGroup.label}
         </span>
-        <LedgerRail />
-        {rightHeader ? (
-          <span
-            className="docs-figure__shape-ledger-cell docs-figure__shape-ledger-cell--right"
-            role="columnheader"
-          >
-            {rightHeader}
-          </span>
-        ) : null}
+        <strong className="docs-figure__term">{capacity.term}</strong>
       </div>
-      <LedgerRule />
-      {figure.items.map((item, index) => (
-        <div
-          className="docs-figure__shape-ledger-entry"
-          key={`${index}:${item.title}`}
-        >
-          <div className="docs-figure__shape-ledger-row" role="row">
-            <strong
-              className="docs-figure__term docs-figure__shape-ledger-cell docs-figure__shape-ledger-cell--left"
-              role="cell"
-            >
-              {item.title}
-            </strong>
-            <LedgerRail />
-            {item.detail !== undefined ? (
-              <strong
-                className="docs-figure__term docs-figure__shape-ledger-cell docs-figure__shape-ledger-cell--right"
-                role="cell"
-              >
-                {item.detail}
-              </strong>
-            ) : null}
-          </div>
-          {index < figure.items.length - 1 ? <LedgerRule /> : null}
-        </div>
-      ))}
+      <span
+        className="docs-figure__shape-ledger-relation docs-figure__shape-ledger-relation--governing"
+        data-figure-edge-id={distinction.id}
+        aria-label={distinction.label}
+        role="img"
+      >
+        {distinction.glyph}
+      </span>
+      <div className="docs-figure__shape-ledger-member" data-figure-node-id={progress.id}>
+        <span className="docs-figure__shape-ledger-header">
+          {progressGroup.label}
+        </span>
+        <strong className="docs-figure__term">{progress.term}</strong>
+      </div>
     </div>
   );
 }

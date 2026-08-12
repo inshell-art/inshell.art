@@ -550,6 +550,11 @@ function markdownFigureItem(label: string, detail?: string) {
 function markdownFigureLogic(figure: DocsFigure) {
   const logic = docsFigureLogic(figure);
   const terms = new Map(logic.nodes.map((node) => [node.id, node.term]));
+  const groupLabels = new Map(
+    logic.groups.map((group) => [group.id, group.label]),
+  );
+  const endpointLabel = (endpoint: string) =>
+    terms.get(endpoint) ?? groupLabels.get(endpoint) ?? endpoint;
   const nodeLines = logic.nodes.map(
     (node) =>
       `  - \`${node.id} [${node.role}]: ${node.term}${
@@ -557,8 +562,8 @@ function markdownFigureLogic(figure: DocsFigure) {
       }\``,
   );
   const relationLines = logic.edges.map((edge) => {
-    const from = terms.get(edge.from) ?? edge.from;
-    const to = terms.get(edge.to) ?? edge.to;
+    const from = endpointLabel(edge.from);
+    const to = endpointLabel(edge.to);
     const literalGlyph = edge.stackedGlyph
       ? `${edge.glyph} / ${edge.stackedGlyph.replace(/\n/g, " ")}`
       : edge.glyph;

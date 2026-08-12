@@ -195,13 +195,11 @@ Inshell alone names the artist. THOUGHT, WILL, and AWA name movements. PATH is a
 - Figure mode: field
 - Semantic form: field
 - Semantic nodes:
-  - `agent-art [structural]: AGENT ART`
   - `invariant [principle]: Invariant — An Agent participates in the art activity.`
-  - `open-questions [structural]: OPEN QUESTIONS`
   - `what-is-art [question]: What is Art? — Open question.`
   - `what-is-an-agent [question]: What is an Agent? — Open question.`
 - Semantic groups:
-  - `agent-art-field [open-field] · ├─ / └─: One invariant is held while Art and Agent remain open questions. [members: agent-art (AGENT ART) · invariant (Invariant) · open-questions (OPEN QUESTIONS) · what-is-art (What is Art?) · what-is-an-agent (What is an Agent?)]`
+  - `agent-art-field [open-field] · ├─ / └─: One invariant is held while Art and Agent remain open questions. [members: invariant (Invariant) · what-is-art (What is Art?) · what-is-an-agent (What is an Agent?)]`
 
 ```text
 AGENT ART
@@ -289,15 +287,14 @@ That form belongs to THOUGHT. It does not turn dialogue, minting, provenance, pu
   - `will [state]: WILL — Crowd`
   - `awa [state]: AWA — Toward the core`
 - Semantic edges:
-  - `individual-to-crowd: thought (THOUGHT) --[→ / │ ↓ · The movement arc goes from individual to crowd.]--> will (WILL)`
-  - `crowd-toward-core: will (WILL) --[→ / │ ↓ · The movement arc continues from crowd toward the core.]--> awa (AWA)`
+  - `individual-to-crowd: thought (THOUGHT) --[→ / ↓ · The movement arc goes from individual to crowd.]--> will (WILL)`
+  - `crowd-toward-core: will (WILL) --[→ / ↓ · The movement arc continues from crowd toward the core.]--> awa (AWA)`
 - Semantic groups:
   - `movement-phases [phase]: The named PATH from individual to crowd toward the core. [members: thought (THOUGHT) · will (WILL) · awa (AWA)]`
 
 ```text
-THOUGHT       WILL       AWA
-   │            │         │
-INDIVIDUAL → CROWD → TOWARD THE CORE
+THOUGHT  →  WILL  →  AWA
+Individual   Crowd   Toward the core
 ```
 
 1. **THOUGHT** — Individual
@@ -434,10 +431,9 @@ Save and Load keep works in the current browser only. They are not onchain and d
   - `agent-response [subject]: Agent response R`
   - `one-thought [result]: One THOUGHT (P, R) — Different counterpart = different work · onchain only after successful mint.`
 - Semantic edges:
-  - `prompt-in-work: human-prompt (Human prompt P) --[+ · The exact human prompt is paired with the exact Agent response.]--> agent-response (Agent response R)`
-  - `response-in-work: agent-response (Agent response R) --[↓ · The exact prompt-response pair forms one THOUGHT.]--> one-thought (One THOUGHT (P, R))`
+  - `pair-forms-thought: thought-equation (Human prompt P plus Agent response R forms one THOUGHT (P, R).) --[↓ · The exact prompt-response pair forms one THOUGHT.]--> one-thought (One THOUGHT (P, R))`
 - Semantic groups:
-  - `thought-equation [set]: Human prompt P plus Agent response R forms one THOUGHT (P, R). [members: human-prompt (Human prompt P) · agent-response (Agent response R) · one-thought (One THOUGHT (P, R))]`
+  - `thought-equation [set] · +: Human prompt P plus Agent response R forms one THOUGHT (P, R). [members: human-prompt (Human prompt P) · agent-response (Agent response R)]`
 
 ```text
 HUMAN PROMPT P + AGENT RESPONSE R
@@ -494,10 +490,8 @@ The human can preserve a candidate locally, discard it, or move toward minting. 
   - `agent-response [action]: Agent — One exact response`
   - `human-review [action]: Human — Review + choose`
 - Semantic edges:
-  - `prompt-to-response: human-prompt (Human) --[→ / │ ↓ · One exact human prompt is handed to the Agent.]--> agent-response (Agent)`
-  - `response-to-review: agent-response (Agent) --[→ / │ ↓ · One exact Agent response returns for human review and choice.]--> human-review (Human)`
-- Semantic groups:
-  - `creative-handoff-phases [phase]: The creative handoff has three ordered actions. [members: human-prompt (Human) · agent-response (Agent) · human-review (Human)]`
+  - `prompt-to-response: human-prompt (Human) --[→ / ↓ · One exact human prompt is handed to the Agent.]--> agent-response (Agent)`
+  - `response-to-review: agent-response (Agent) --[→ / ↓ · One exact Agent response returns for human review and choice.]--> human-review (Human)`
 
 ```text
 HUMAN                AGENT                 HUMAN
@@ -553,25 +547,20 @@ The NFT tokenURI supplies the canonical image and portable metadata. A screensho
   - `app-attested [result]: App Attested — Valid proof binds the mint to recorded values.`
   - `unattested [result]: Unattested — Empty proof makes the absence explicit.`
 - Semantic edges:
-  - `values-to-claim: recorded-values (Recorded values) --[↓ / │ ↓ · Recorded values are bound into one exact App claim.]--> app-claim (App claim)`
-  - `claim-to-validation: app-claim (App claim) --[↓ / │ ↓ · The contract validates the App claim during minting.]--> contract-validation (Contract validation)`
+  - `values-to-claim: recorded-values (Recorded values) --[↓ · Recorded values are bound into one exact App claim.]--> app-claim (App claim)`
+  - `claim-to-validation: app-claim (App claim) --[↓ · The contract validates the App claim during minting.]--> contract-validation (Contract validation)`
   - `validation-valid-branch: contract-validation (Contract validation) --[├─ · Contract validation takes the valid-proof branch.]--> valid-proof (VALID PROOF)`
   - `valid-proof-result: valid-proof (VALID PROOF) --[→ · A valid proof produces an App Attested result.]--> app-attested (App Attested)`
   - `validation-empty-branch: contract-validation (Contract validation) --[└─ · Contract validation takes the empty-proof branch.]--> empty-proof (EMPTY PROOF)`
   - `empty-proof-result: empty-proof (EMPTY PROOF) --[→ · An empty proof produces an explicit Unattested result.]--> unattested (Unattested)`
-- Semantic groups:
-  - `attestation-input [phase]: Values, claim, and contract validation form the ordered attestation check. [members: recorded-values (Recorded values) · app-claim (App claim) · contract-validation (Contract validation)]`
-  - `attestation-outcomes [set]: Validation has two explicit proof outcomes. [members: valid-proof (VALID PROOF) · app-attested (App Attested) · empty-proof (EMPTY PROOF) · unattested (Unattested)]`
 
 ```text
 RECORDED VALUES
 Human line · Agent line · Agent/model records ·
 specification · renderer · mint anchors
-   │
    ↓
 APP CLAIM
 Configured App authority signs one exact claim.
-   │
    ↓
 CONTRACT VALIDATION
 ThoughtNFT validates during minting.
@@ -634,12 +623,11 @@ Save and Load are browser conveniences for unfinished or remembered works. They 
 - Figure mode: field
 - Semantic form: field
 - Semantic nodes:
-  - `will [structural]: WILL`
   - `many-people [subject]: Many people`
   - `many-agents [subject]: Many Agents`
   - `one-will [question]: One will — Crowd behavior · how a crowd forms what can be called one will.`
 - Semantic groups:
-  - `will-open-field [open-field] · •: Crowd behavior is the open field in which WILL is still being created. [members: will (WILL) · many-people (Many people) · many-agents (Many Agents) · one-will (One will)]`
+  - `will-open-field [open-field] · •: Crowd behavior is the open field in which WILL is still being created. [members: many-people (Many people) · many-agents (Many Agents) · one-will (One will)]`
 
 ```text
 WILL
@@ -710,26 +698,26 @@ WILL is planned for 2027. These docs expose its slogan and current direction as 
 
 - Authority: artist-editorial
 - Figure ID: awa.open-horizon
-- Figure mode: field
+- Figure mode: trace
 - Semantic form: trace
 - Semantic nodes:
   - `thought [state]: THOUGHT — Individual`
   - `will [state]: WILL — Crowd`
   - `awa [state]: AWA — Toward the core`
+  - `open-horizon [structural]: …`
 - Semantic edges:
   - `thought-to-will: thought (THOUGHT) --[→ · The path moves from individual THOUGHT to crowd WILL.]--> will (WILL)`
   - `will-toward-awa: will (WILL) --[→ · The path points from crowd WILL toward AWA and the core; arrival is not claimed.]--> awa (AWA)`
-- Semantic groups:
-  - `awa-open-horizon [phase]: AWA is the forming horizon of the path toward the core. [members: thought (THOUGHT) · will (WILL) · awa (AWA)]`
+  - `awa-toward-open-horizon: awa (AWA) --[→ · AWA remains open toward a core that is not claimed as reached.]--> open-horizon (…)`
 
 ```text
-THOUGHT ──→ WILL ──→ AWA
-Individual   Crowd    Toward the core
+THOUGHT  →  WILL  →  AWA  →  …
+Individual   Crowd   Toward the core
 ```
 
-- **THOUGHT** — Individual
-- **WILL** — Crowd
-- **AWA** — Toward the core
+1. **THOUGHT** — Individual
+2. **WILL** — Crowd
+3. **AWA** — Toward the core
 
 ### Overview
 
@@ -824,22 +812,18 @@ Public PATH issuance runs through Pulse. The contract can also expose a bounded 
 - Figure mode: ledger
 - Semantic form: ledger
 - Semantic nodes:
-  - `deployment [record]: DEPLOYMENT`
   - `capacity [state]: Movement quota`
-  - `one-path [record]: EACH PATH`
   - `progress [state]: Used + remaining`
 - Semantic edges:
-  - `deployment-capacity: deployment (DEPLOYMENT) --[│ · The deployment configures movement capacity used by every PATH.]--> capacity (Movement quota)`
-  - `path-progress: one-path (EACH PATH) --[│ · One PATH records its own movement progress.]--> progress (Used + remaining)`
+  - `capacity-not-progress: capacity (Movement quota) --[≠ · Deployment movement capacity is distinct from one PATH's used and remaining progress.]--> progress (Used + remaining)`
 - Semantic groups:
-  - `capacity-column [lane]: Deployment capacity [members: deployment (DEPLOYMENT) · capacity (Movement quota)]`
-  - `progress-column [lane]: One PATH progress [members: one-path (EACH PATH) · progress (Used + remaining)]`
+  - `capacity-column [lane]: Deployment [members: capacity (Movement quota)]`
+  - `progress-column [lane]: Each PATH [members: progress (Used + remaining)]`
   - `capacity-progress-distinction [comparison]: Deployment capacity and per-PATH progress are distinct records. [members: capacity (Movement quota) · progress (Used + remaining)]`
 
 ```text
-DEPLOYMENT     │ EACH PATH
-───────────────┼─────────────────
-MOVEMENT QUOTA │ USED + REMAINING
+DEPLOYMENT             EACH PATH
+MOVEMENT QUOTA   ≠   USED + REMAINING
 ```
 
 - **Movement quota** — Used + remaining
@@ -982,21 +966,17 @@ a = anchor time
   - `bid [action]: Bid — Pump`
   - `next-ask [result]: Next ask`
 - Semantic edges:
-  - `ask-decays-to-bid: ask (Ask) --[↓ / │ ↓ · The current ask decays until a bid succeeds. · Decay]--> bid (Bid)`
-  - `bid-pumps-next-ask: bid (Bid) --[↓ / │ ↓ · The successful bid pumps the next ask. · Pump]--> next-ask (Next ask)`
+  - `ask-decays-to-bid: ask (Ask) --[↓ · The current ask decays until a bid succeeds. · Decay]--> bid (Bid)`
+  - `bid-pumps-next-ask: bid (Bid) --[↓ · The successful bid pumps the next ask. · Pump]--> next-ask (Next ask)`
   - `next-epoch-loop: next-ask (Next ask) --[↺ / └──↺ · The next ask becomes the current ask in the next epoch. · next epoch]--> ask (Ask)`
-- Semantic groups:
-  - `pulse-epoch [phase]: One serial Pulse epoch loops into the next. [members: ask (Ask) · bid (Bid) · next-ask (Next ask)]`
 
 ```text
 ASK
- │ decay
- ↓
+↓ decay
 BID
- │ pump
- ↓
+↓ pump
 NEXT ASK
- └──↺ next epoch
+↺ next epoch
 ```
 
 1. **Ask** — Decay
@@ -1123,18 +1103,21 @@ ABIs, bytecode, renderer payloads, schemas, and manifests belong to pinned relea
   - `thought-nft-lane [lane]: ThoughtNFT [members: thought-validate (Validate work) · thought-mint (Mint + record)]`
 
 ```text
-PUBLIC ISSUANCE    │ PulseAuction SETTLE
-                   │ Live ask · one serial epoch
-                   │ → PathPulseAdapter ISSUE
-                   │ Valid settlement → PATH issuance
-                   │ → PathNFT RECORD PATH
-                   │ Issued PATH · order · capacity
-LATER THOUGHT MINT │ ThoughtNFT VALIDATE WORK
-                   │ THOUGHT work · PATH permission
-                   │ → PathNFT CONSUME UNIT
-                   │ Caller · owner · stage · quota
-                   │ → ThoughtNFT MINT + RECORD
-                   │ Atomic with PATH consumption
+PUBLIC ISSUANCE
+PulseAuction / SETTLE
+Live ask · one serial epoch
+→ PathPulseAdapter / ISSUE
+Valid settlement → PATH issuance
+→ PathNFT / RECORD PATH
+Issued PATH · order · capacity
+
+LATER THOUGHT MINT
+ThoughtNFT / VALIDATE WORK
+THOUGHT work · PATH permission
+→ PathNFT / CONSUME UNIT
+Caller · owner · stage · quota
+→ ThoughtNFT / MINT + RECORD
+Atomic with PATH consumption
 ```
 
 1. **PulseAuction · Settle · Public issuance** — Live ask · one serial epoch
@@ -1213,9 +1196,7 @@ A release says which ABI, bytecode, renderer data, schemas, and checksums belong
   - `evidence-contract: evidence (EVIDENCE) --[├─ · Contract state is one evidence record.]--> contract (Contract)`
   - `evidence-release: evidence (EVIDENCE) --[├─ · The pinned release is one evidence record.]--> release (Release)`
   - `evidence-context: evidence (EVIDENCE) --[└─ · Context is one evidence record.]--> context (Context)`
-  - `evidence-to-interpretation: evidence (EVIDENCE) --[↓ / │ ↓ · The evidence records are read together as interpretation.]--> interpretation (Interpretation)`
-- Semantic groups:
-  - `evidence-set [set]: Evidence [members: evidence (EVIDENCE) · identity (Identity) · contract (Contract) · release (Release) · context (Context)]`
+  - `evidence-to-interpretation: evidence (EVIDENCE) --[↓ · The evidence records are read together as interpretation.]--> interpretation (Interpretation)`
 
 ```text
 EVIDENCE
@@ -1227,7 +1208,6 @@ EVIDENCE
 │  ABI + renderer + schemas
 └─ CONTEXT
    Provenance + reading surface
-      │
       ↓
 INTERPRETATION
 Read together
@@ -1320,10 +1300,8 @@ Portable metadata deliberately does not carry every creation detail. Inshell det
   - `sealed-mono [state]: Sealed Mono 76 — Paths + metrics frozen`
   - `canonical-artwork [result]: Canonical artwork — Native SVG`
 - Semantic edges:
-  - `study-to-seal: glyph-study (Glyph study) --[→ / ↓ · Glyph study is refined into the sealed Mono 76 source.]--> sealed-mono (Sealed Mono 76)`
-  - `seal-to-artwork: sealed-mono (Sealed Mono 76) --[→ / ↓ · The sealed paths and metrics produce the canonical native SVG artwork.]--> canonical-artwork (Canonical artwork)`
-- Semantic groups:
-  - `mono-phases [phase]: From study through sealed source to canonical artwork. [members: glyph-study (Glyph study) · sealed-mono (Sealed Mono 76) · canonical-artwork (Canonical artwork)]`
+  - `study-to-seal: glyph-study (Glyph study) --[↓ · Glyph study is refined into the sealed Mono 76 source.]--> sealed-mono (Sealed Mono 76)`
+  - `seal-to-artwork: sealed-mono (Sealed Mono 76) --[↓ · The sealed paths and metrics produce the canonical native SVG artwork.]--> canonical-artwork (Canonical artwork)`
 
 ```text
 GLYPH STUDY
@@ -1493,34 +1471,32 @@ A valid proof can establish that certain bytes, hashes, addresses, or signatures
 - Figure mode: field
 - Semantic form: ledger
 - Semantic nodes:
-  - `wallet-local-data [structural]: WALLET AND LOCAL DATA`
-  - `read-sign-transact [principle]: Read ≠ Sign ≠ Transact — Public state · authorization · chain change`
-  - `read [action]: READ — Public state`
-  - `sign [action]: SIGN — Authorization`
-  - `transact [action]: TRANSACT — Chain change`
-  - `local-onchain [principle]: Local ≠ Onchain — Browser record · public record`
-  - `local [record]: LOCAL — Browser record`
-  - `onchain [record]: ONCHAIN — Public record`
+  - `read [action]: Read — Public state`
+  - `sign [action]: Sign — Authorization`
+  - `transact [action]: Transact — Chain change`
+  - `local [record]: Local — Browser record`
+  - `onchain [record]: Onchain — Public record`
 - Semantic edges:
-  - `read-not-sign: read (READ) --[≠ · Reading public state is not signing an authorization.]--> sign (SIGN)`
-  - `sign-not-transact: sign (SIGN) --[≠ · Signing an authorization is not a chain transaction.]--> transact (TRANSACT)`
-  - `local-not-onchain: local (LOCAL) --[≠ · A local browser record is not an onchain public record.]--> onchain (ONCHAIN)`
+  - `read-not-sign: read (Read) --[≠ · Reading public state is not signing an authorization.]--> sign (Sign)`
+  - `sign-not-transact: sign (Sign) --[≠ · Signing an authorization is not a chain transaction.]--> transact (Transact)`
+  - `local-not-onchain: local (Local) --[≠ · A local browser record is not an onchain public record.]--> onchain (Onchain)`
 - Semantic groups:
-  - `wallet-action-distinction [comparison]: Read ≠ Sign ≠ Transact [members: read-sign-transact (Read ≠ Sign ≠ Transact) · read (READ) · sign (SIGN) · transact (TRANSACT)]`
-  - `record-location-distinction [comparison]: Local ≠ Onchain [members: local-onchain (Local ≠ Onchain) · local (LOCAL) · onchain (ONCHAIN)]`
+  - `wallet-action-distinction [comparison]: Read, sign, and transact are distinct wallet actions. [members: read (Read) · sign (Sign) · transact (Transact)]`
+  - `record-location-distinction [comparison]: Local browser data is distinct from an onchain public record. [members: local (Local) · onchain (Onchain)]`
 
 ```text
-┌─ WALLET AND LOCAL DATA ─────────────────────┐
-│ READ ≠ SIGN ≠ TRANSACT                      │
-│ Public state · authorization · chain change │
-│                                             │
-│ LOCAL ≠ ONCHAIN                             │
-│ Browser record · public record              │
-└─────────────────────────────────────────────┘
+READ  ≠  SIGN  ≠  TRANSACT
+Public state   Authorization   Chain change
+
+LOCAL  ≠  ONCHAIN
+Browser record   Public record
 ```
 
-- **Read ≠ Sign ≠ Transact** — Public state · authorization · chain change
-- **Local ≠ Onchain** — Browser record · public record
+- **Read** — Public state
+- **Sign** — Authorization
+- **Transact** — Chain change
+- **Local** — Browser record
+- **Onchain** — Public record
 
 ### Overview
 
@@ -1585,7 +1561,6 @@ Local Anvil, Sepolia, and Ethereum have different chain IDs, deployments, balanc
 - Figure mode: field
 - Semantic form: axis
 - Semantic nodes:
-  - `four-records [structural]: FOUR DISTINCT RECORDS`
   - `source [record]: Source — Authored code`
   - `release [record]: Release — Pinned artifacts`
   - `deployment [record]: Deployment — Addresses + blocks`
@@ -1595,19 +1570,11 @@ Local Anvil, Sepolia, and Ethereum have different chain IDs, deployments, balanc
   - `release-not-deployment: release (Release) --[≠ · A pinned release is not a deployment record.]--> deployment (Deployment)`
   - `deployment-not-observation: deployment (Deployment) --[≠ · A deployment record is not a point-in-time observation.]--> observation (Observation)`
 - Semantic groups:
-  - `record-distinction [comparison]: Four records that must not be collapsed into one. [members: four-records (FOUR DISTINCT RECORDS) · source (Source) · release (Release) · deployment (Deployment) · observation (Observation)]`
+  - `record-distinction [comparison]: Four records that must not be collapsed into one. [members: source (Source) · release (Release) · deployment (Deployment) · observation (Observation)]`
 
 ```text
-┌─ FOUR DISTINCT RECORDS ─────────────────────┐
-│ SOURCE                                      │
-│ Authored code                               │
-│   ≠ RELEASE                                 │
-│     Pinned artifacts                        │
-│       ≠ DEPLOYMENT                          │
-│         Addresses + blocks                  │
-│           ≠ OBSERVATION                     │
-│             Point-in-time read              │
-└─────────────────────────────────────────────┘
+SOURCE  ≠  RELEASE  ≠  DEPLOYMENT  ≠  OBSERVATION
+Authored code   Pinned artifacts   Addresses + blocks   Point-in-time read
 ```
 
 - **Source** — Authored code
@@ -1682,14 +1649,13 @@ Canonical pages, Markdown documents, JSON indexes, API responses, GitHub mirrors
 - Figure mode: field
 - Semantic form: field
 - Semantic nodes:
-  - `principles [structural]: CURRENT INSHELL PRINCIPLES`
   - `bound [principle]: Bound — Collaboration is bounded.`
   - `authorize [principle]: Authorize — Authority to continue or preserve is explicit.`
   - `expose [principle]: Expose — Mechanisms stay visible.`
   - `pin [principle]: Pin — Canonical sources remain identifiable.`
   - `qualify [principle]: Qualify — Claims stop where their evidence stops.`
 - Semantic groups:
-  - `current-principles [set] · •: Current Inshell principles across systems [members: principles (CURRENT INSHELL PRINCIPLES) · bound (Bound) · authorize (Authorize) · expose (Expose) · pin (Pin) · qualify (Qualify)]`
+  - `current-principles [set] · •: Current Inshell principles across systems [members: bound (Bound) · authorize (Authorize) · expose (Expose) · pin (Pin) · qualify (Qualify)]`
 
 ```text
 CURRENT INSHELL PRINCIPLES
@@ -1755,22 +1721,25 @@ Within THOUGHT, more options would not automatically create more expressive work
   - `pulse-preservation-lane [lane]: PULSE [members: pulse-visible-ask (Visible ask) · pulse-confirmed-bid (Confirmed bid) · pulse-settlement (Settlement) · pulse-sale-record (Sale record)]`
 
 ```text
-THOUGHT │ AGENT RETURN
-        │ Candidate produced
-        │ → HUMAN REVIEW
-        │ Decision to preserve
-        │ → SUCCESSFUL MINT
-        │ Contract action succeeds
-        │ → PUBLIC CORPUS
-        │ Preserved THOUGHT
-PULSE   │ VISIBLE ASK
-        │ Quote exposed
-        │ → CONFIRMED BID
-        │ Participant authorizes
-        │ → SETTLEMENT
-        │ Contract action succeeds
-        │ → SALE RECORD
-        │ Preserved Pulse
+THOUGHT
+AGENT RETURN
+Candidate produced
+→ HUMAN REVIEW
+Decision to preserve
+→ SUCCESSFUL MINT
+Contract action succeeds
+→ PUBLIC CORPUS
+Preserved THOUGHT
+
+PULSE
+VISIBLE ASK
+Quote exposed
+→ CONFIRMED BID
+Participant authorizes
+→ SETTLEMENT
+Contract action succeeds
+→ SALE RECORD
+Preserved Pulse
 ```
 
 1. **THOUGHT · Agent return** — Candidate produced
@@ -1805,14 +1774,12 @@ Pulse shows the curve, floor, premium, sale points, and current ask. PATH shows 
   - `reading-surfaces [surface]: Many reading surfaces — Site · wallet · marketplace · API · Markdown · Agent answer`
 - Semantic edges:
   - `work-to-surfaces: identified-work (Identified onchain work) --[↓ · One identified onchain work can be read through many surfaces.]--> reading-surfaces (Many reading surfaces)`
-- Semantic groups:
-  - `reading-surface-set [set]: Site · wallet · marketplace · API · Markdown · Agent answer [members: identified-work (Identified onchain work) · reading-surfaces (Many reading surfaces)]`
 
 ```text
 ┌─ IDENTIFIED ONCHAIN WORK ───────────────┐
 │ Network + contract + token ID +         │
 │ tokenURI + release                      │
-└───────────────────┬─────────────────────┘
+└─────────────────────────────────────────┘
                     ↓
           MANY READING SURFACES
 Site · wallet · marketplace · API · Markdown · Agent answer

@@ -63,7 +63,7 @@
           "id": "contracts.handoffs",
           "label": "Contract handoffs across issuance and minting",
           "mode": "lanes",
-          "figureText": "PUBLIC ISSUANCE    │ PulseAuction SETTLE\n                   │ Live ask · one serial epoch\n                   │ → PathPulseAdapter ISSUE\n                   │ Valid settlement → PATH issuance\n                   │ → PathNFT RECORD PATH\n                   │ Issued PATH · order · capacity\nLATER THOUGHT MINT │ ThoughtNFT VALIDATE WORK\n                   │ THOUGHT work · PATH permission\n                   │ → PathNFT CONSUME UNIT\n                   │ Caller · owner · stage · quota\n                   │ → ThoughtNFT MINT + RECORD\n                   │ Atomic with PATH consumption",
+          "figureText": "PUBLIC ISSUANCE\nPulseAuction / SETTLE\nLive ask · one serial epoch\n→ PathPulseAdapter / ISSUE\nValid settlement → PATH issuance\n→ PathNFT / RECORD PATH\nIssued PATH · order · capacity\n\nLATER THOUGHT MINT\nThoughtNFT / VALIDATE WORK\nTHOUGHT work · PATH permission\n→ PathNFT / CONSUME UNIT\nCaller · owner · stage · quota\n→ ThoughtNFT / MINT + RECORD\nAtomic with PATH consumption",
           "items": [
             {
               "stage": 1,

@@ -11,7 +11,7 @@ The experiment does not treat typography as knowledge. A large term and a tiny a
 
 1. Every figure has a stable ID independent of its caption.
 2. Every governing term and useful annotation remains literal.
-3. Every directed relation has explicit source and target node IDs, a literal glyph, and an accessible label.
+3. Every directed relation has explicit source and target node or semantic-group IDs, a literal glyph, and an accessible label.
 4. Meaningful containment, open fields, phases, lanes, sets, and comparisons are explicit groups.
 5. Human DOM, fixed-width `figureText`, generated Markdown, and generated JSON describe the same graph.
 6. CSS supplies hierarchy only. It may not generate, hide, reorder, or replace logic.
@@ -30,6 +30,14 @@ Because stable figure IDs and required semantic graphs change the public JSON co
 - `lanes`: actors or phases whose handoffs remain distinct.
 
 A closed frame is a semantic modifier, not a house style. It remains only when containment or a bounded record is part of the claim.
+
+## Learned visual grammar
+
+- Let the shape follow the relation. A trace, comparison, open field, fork, lane, and bounded entity should not inherit one another's decoration.
+- Let a term interrupt a literal frame rail only when that term names the framed entity or scope. The rail and corners stay structural; the named entity stays dominant.
+- Give a governing operator the same first-glance force as the terms it relates. A large `→`, `↓`, `↑`, `≠`, or `↺` can carry the figure's image without adding an explanatory node.
+- Keep annotations complete but quiet. They sharpen the governing impression without becoming extra entities or an alternate prose paragraph.
+- Remove a rail or stem when it carries no additional relation. Literal completeness means preserving the logic, not preserving decorative character count.
 
 ## Evaluation
 

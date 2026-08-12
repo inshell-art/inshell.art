@@ -68,21 +68,17 @@ a = anchor time
   - `bid [action]: Bid — Pump`
   - `next-ask [result]: Next ask`
 - Semantic edges:
-  - `ask-decays-to-bid: ask (Ask) --[↓ / │ ↓ · The current ask decays until a bid succeeds. · Decay]--> bid (Bid)`
-  - `bid-pumps-next-ask: bid (Bid) --[↓ / │ ↓ · The successful bid pumps the next ask. · Pump]--> next-ask (Next ask)`
+  - `ask-decays-to-bid: ask (Ask) --[↓ · The current ask decays until a bid succeeds. · Decay]--> bid (Bid)`
+  - `bid-pumps-next-ask: bid (Bid) --[↓ · The successful bid pumps the next ask. · Pump]--> next-ask (Next ask)`
   - `next-epoch-loop: next-ask (Next ask) --[↺ / └──↺ · The next ask becomes the current ask in the next epoch. · next epoch]--> ask (Ask)`
-- Semantic groups:
-  - `pulse-epoch [phase]: One serial Pulse epoch loops into the next. [members: ask (Ask) · bid (Bid) · next-ask (Next ask)]`
 
 ```text
 ASK
- │ decay
- ↓
+↓ decay
 BID
- │ pump
- ↓
+↓ pump
 NEXT ASK
- └──↺ next epoch
+↺ next epoch
 ```
 
 1. **Ask** — Decay

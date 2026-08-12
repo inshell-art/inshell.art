@@ -95,7 +95,7 @@
           "id": "path.capacity-progress",
           "label": "Capacity and progress",
           "mode": "ledger",
-          "figureText": "DEPLOYMENT     │ EACH PATH\n───────────────┼─────────────────\nMOVEMENT QUOTA │ USED + REMAINING",
+          "figureText": "DEPLOYMENT             EACH PATH\nMOVEMENT QUOTA   ≠   USED + REMAINING",
           "items": [
             {
               "title": "Movement quota",
@@ -108,21 +108,11 @@
             "form": "ledger",
             "nodes": [
               {
-                "id": "deployment",
-                "term": "DEPLOYMENT",
-                "role": "record"
-              },
-              {
                 "id": "capacity",
                 "sourceItem": 0,
                 "sourcePart": "title",
                 "term": "Movement quota",
                 "role": "state"
-              },
-              {
-                "id": "one-path",
-                "term": "EACH PATH",
-                "role": "record"
               },
               {
                 "id": "progress",
@@ -134,36 +124,27 @@
             ],
             "edges": [
               {
-                "id": "deployment-capacity",
-                "from": "deployment",
-                "to": "capacity",
-                "glyph": "│",
-                "label": "The deployment configures movement capacity used by every PATH."
-              },
-              {
-                "id": "path-progress",
-                "from": "one-path",
+                "id": "capacity-not-progress",
+                "from": "capacity",
                 "to": "progress",
-                "glyph": "│",
-                "label": "One PATH records its own movement progress."
+                "glyph": "≠",
+                "label": "Deployment movement capacity is distinct from one PATH's used and remaining progress."
               }
             ],
             "groups": [
               {
                 "id": "capacity-column",
                 "kind": "lane",
-                "label": "Deployment capacity",
+                "label": "Deployment",
                 "members": [
-                  "deployment",
                   "capacity"
                 ]
               },
               {
                 "id": "progress-column",
                 "kind": "lane",
-                "label": "One PATH progress",
+                "label": "Each PATH",
                 "members": [
-                  "one-path",
                   "progress"
                 ]
               },

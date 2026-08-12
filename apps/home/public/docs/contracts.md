@@ -54,18 +54,21 @@ ABIs, bytecode, renderer payloads, schemas, and manifests belong to pinned relea
   - `thought-nft-lane [lane]: ThoughtNFT [members: thought-validate (Validate work) · thought-mint (Mint + record)]`
 
 ```text
-PUBLIC ISSUANCE    │ PulseAuction SETTLE
-                   │ Live ask · one serial epoch
-                   │ → PathPulseAdapter ISSUE
-                   │ Valid settlement → PATH issuance
-                   │ → PathNFT RECORD PATH
-                   │ Issued PATH · order · capacity
-LATER THOUGHT MINT │ ThoughtNFT VALIDATE WORK
-                   │ THOUGHT work · PATH permission
-                   │ → PathNFT CONSUME UNIT
-                   │ Caller · owner · stage · quota
-                   │ → ThoughtNFT MINT + RECORD
-                   │ Atomic with PATH consumption
+PUBLIC ISSUANCE
+PulseAuction / SETTLE
+Live ask · one serial epoch
+→ PathPulseAdapter / ISSUE
+Valid settlement → PATH issuance
+→ PathNFT / RECORD PATH
+Issued PATH · order · capacity
+
+LATER THOUGHT MINT
+ThoughtNFT / VALIDATE WORK
+THOUGHT work · PATH permission
+→ PathNFT / CONSUME UNIT
+Caller · owner · stage · quota
+→ ThoughtNFT / MINT + RECORD
+Atomic with PATH consumption
 ```
 
 1. **PulseAuction · Settle · Public issuance** — Live ask · one serial epoch

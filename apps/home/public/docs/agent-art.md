@@ -16,13 +16,11 @@
 - Figure mode: field
 - Semantic form: field
 - Semantic nodes:
-  - `agent-art [structural]: AGENT ART`
   - `invariant [principle]: Invariant — An Agent participates in the art activity.`
-  - `open-questions [structural]: OPEN QUESTIONS`
   - `what-is-art [question]: What is Art? — Open question.`
   - `what-is-an-agent [question]: What is an Agent? — Open question.`
 - Semantic groups:
-  - `agent-art-field [open-field] · ├─ / └─: One invariant is held while Art and Agent remain open questions. [members: agent-art (AGENT ART) · invariant (Invariant) · open-questions (OPEN QUESTIONS) · what-is-art (What is Art?) · what-is-an-agent (What is an Agent?)]`
+  - `agent-art-field [open-field] · ├─ / └─: One invariant is held while Art and Agent remain open questions. [members: invariant (Invariant) · what-is-art (What is Art?) · what-is-an-agent (What is an Agent?)]`
 
 ```text
 AGENT ART

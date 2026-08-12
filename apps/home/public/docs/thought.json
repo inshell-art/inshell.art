@@ -116,15 +116,8 @@
             ],
             "edges": [
               {
-                "id": "prompt-in-work",
-                "from": "human-prompt",
-                "to": "agent-response",
-                "glyph": "+",
-                "label": "The exact human prompt is paired with the exact Agent response."
-              },
-              {
-                "id": "response-in-work",
-                "from": "agent-response",
+                "id": "pair-forms-thought",
+                "from": "thought-equation",
                 "to": "one-thought",
                 "glyph": "↓",
                 "label": "The exact prompt-response pair forms one THOUGHT."
@@ -135,10 +128,10 @@
                 "id": "thought-equation",
                 "kind": "set",
                 "label": "Human prompt P plus Agent response R forms one THOUGHT (P, R).",
+                "glyph": "+",
                 "members": [
                   "human-prompt",
-                  "agent-response",
-                  "one-thought"
+                  "agent-response"
                 ]
               }
             ]
@@ -263,7 +256,7 @@
                 "from": "human-prompt",
                 "to": "agent-response",
                 "glyph": "→",
-                "stackedGlyph": "│\n↓",
+                "stackedGlyph": "↓",
                 "label": "One exact human prompt is handed to the Agent."
               },
               {
@@ -271,22 +264,11 @@
                 "from": "agent-response",
                 "to": "human-review",
                 "glyph": "→",
-                "stackedGlyph": "│\n↓",
+                "stackedGlyph": "↓",
                 "label": "One exact Agent response returns for human review and choice."
               }
             ],
-            "groups": [
-              {
-                "id": "creative-handoff-phases",
-                "kind": "phase",
-                "label": "The creative handoff has three ordered actions.",
-                "members": [
-                  "human-prompt",
-                  "agent-response",
-                  "human-review"
-                ]
-              }
-            ]
+            "groups": []
           }
         }
       },
@@ -329,7 +311,7 @@
           "id": "thought.creation-attestation",
           "label": "Creation Attestation",
           "mode": "field",
-          "figureText": "RECORDED VALUES\nHuman line · Agent line · Agent/model records ·\nspecification · renderer · mint anchors\n   │\n   ↓\nAPP CLAIM\nConfigured App authority signs one exact claim.\n   │\n   ↓\nCONTRACT VALIDATION\nThoughtNFT validates during minting.\n   ├─ VALID PROOF → APP ATTESTED\n   │  Valid proof binds the mint to recorded values.\n   └─ EMPTY PROOF → UNATTESTED\n      Empty proof makes the absence explicit.",
+          "figureText": "RECORDED VALUES\nHuman line · Agent line · Agent/model records ·\nspecification · renderer · mint anchors\n   ↓\nAPP CLAIM\nConfigured App authority signs one exact claim.\n   ↓\nCONTRACT VALIDATION\nThoughtNFT validates during minting.\n   ├─ VALID PROOF → APP ATTESTED\n   │  Valid proof binds the mint to recorded values.\n   └─ EMPTY PROOF → UNATTESTED\n      Empty proof makes the absence explicit.",
           "items": [
             {
               "title": "Recorded values",
@@ -414,7 +396,6 @@
                 "from": "recorded-values",
                 "to": "app-claim",
                 "glyph": "↓",
-                "stackedGlyph": "│\n↓",
                 "label": "Recorded values are bound into one exact App claim."
               },
               {
@@ -422,7 +403,6 @@
                 "from": "app-claim",
                 "to": "contract-validation",
                 "glyph": "↓",
-                "stackedGlyph": "│\n↓",
                 "label": "The contract validates the App claim during minting."
               },
               {
@@ -454,29 +434,7 @@
                 "label": "An empty proof produces an explicit Unattested result."
               }
             ],
-            "groups": [
-              {
-                "id": "attestation-input",
-                "kind": "phase",
-                "label": "Values, claim, and contract validation form the ordered attestation check.",
-                "members": [
-                  "recorded-values",
-                  "app-claim",
-                  "contract-validation"
-                ]
-              },
-              {
-                "id": "attestation-outcomes",
-                "kind": "set",
-                "label": "Validation has two explicit proof outcomes.",
-                "members": [
-                  "valid-proof",
-                  "app-attested",
-                  "empty-proof",
-                  "unattested"
-                ]
-              }
-            ]
+            "groups": []
           }
         }
       },

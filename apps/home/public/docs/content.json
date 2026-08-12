@@ -328,22 +328,12 @@
             "form": "field",
             "nodes": [
               {
-                "id": "agent-art",
-                "term": "AGENT ART",
-                "role": "structural"
-              },
-              {
                 "id": "invariant",
                 "sourceItem": 0,
                 "sourcePart": "item",
                 "term": "Invariant",
                 "annotation": "An Agent participates in the art activity.",
                 "role": "principle"
-              },
-              {
-                "id": "open-questions",
-                "term": "OPEN QUESTIONS",
-                "role": "structural"
               },
               {
                 "id": "what-is-art",
@@ -370,9 +360,7 @@
                 "label": "One invariant is held while Art and Agent remain open questions.",
                 "glyph": "├─ / └─",
                 "members": [
-                  "agent-art",
                   "invariant",
-                  "open-questions",
                   "what-is-art",
                   "what-is-an-agent"
                 ]
@@ -481,7 +469,7 @@
           "id": "movements.arc",
           "label": "The movement arc",
           "mode": "trace",
-          "figureText": "THOUGHT       WILL       AWA\n   │            │         │\nINDIVIDUAL → CROWD → TOWARD THE CORE",
+          "figureText": "THOUGHT  →  WILL  →  AWA\nIndividual   Crowd   Toward the core",
           "items": [
             {
               "title": "THOUGHT",
@@ -532,7 +520,7 @@
                 "from": "thought",
                 "to": "will",
                 "glyph": "→",
-                "stackedGlyph": "│\n↓",
+                "stackedGlyph": "↓",
                 "label": "The movement arc goes from individual to crowd."
               },
               {
@@ -540,7 +528,7 @@
                 "from": "will",
                 "to": "awa",
                 "glyph": "→",
-                "stackedGlyph": "│\n↓",
+                "stackedGlyph": "↓",
                 "label": "The movement arc continues from crowd toward the core."
               }
             ],
@@ -790,15 +778,8 @@
                 ],
                 "edges": [
                   {
-                    "id": "prompt-in-work",
-                    "from": "human-prompt",
-                    "to": "agent-response",
-                    "glyph": "+",
-                    "label": "The exact human prompt is paired with the exact Agent response."
-                  },
-                  {
-                    "id": "response-in-work",
-                    "from": "agent-response",
+                    "id": "pair-forms-thought",
+                    "from": "thought-equation",
                     "to": "one-thought",
                     "glyph": "↓",
                     "label": "The exact prompt-response pair forms one THOUGHT."
@@ -809,10 +790,10 @@
                     "id": "thought-equation",
                     "kind": "set",
                     "label": "Human prompt P plus Agent response R forms one THOUGHT (P, R).",
+                    "glyph": "+",
                     "members": [
                       "human-prompt",
-                      "agent-response",
-                      "one-thought"
+                      "agent-response"
                     ]
                   }
                 ]
@@ -937,7 +918,7 @@
                     "from": "human-prompt",
                     "to": "agent-response",
                     "glyph": "→",
-                    "stackedGlyph": "│\n↓",
+                    "stackedGlyph": "↓",
                     "label": "One exact human prompt is handed to the Agent."
                   },
                   {
@@ -945,22 +926,11 @@
                     "from": "agent-response",
                     "to": "human-review",
                     "glyph": "→",
-                    "stackedGlyph": "│\n↓",
+                    "stackedGlyph": "↓",
                     "label": "One exact Agent response returns for human review and choice."
                   }
                 ],
-                "groups": [
-                  {
-                    "id": "creative-handoff-phases",
-                    "kind": "phase",
-                    "label": "The creative handoff has three ordered actions.",
-                    "members": [
-                      "human-prompt",
-                      "agent-response",
-                      "human-review"
-                    ]
-                  }
-                ]
+                "groups": []
               }
             }
           },
@@ -1003,7 +973,7 @@
               "id": "thought.creation-attestation",
               "label": "Creation Attestation",
               "mode": "field",
-              "figureText": "RECORDED VALUES\nHuman line · Agent line · Agent/model records ·\nspecification · renderer · mint anchors\n   │\n   ↓\nAPP CLAIM\nConfigured App authority signs one exact claim.\n   │\n   ↓\nCONTRACT VALIDATION\nThoughtNFT validates during minting.\n   ├─ VALID PROOF → APP ATTESTED\n   │  Valid proof binds the mint to recorded values.\n   └─ EMPTY PROOF → UNATTESTED\n      Empty proof makes the absence explicit.",
+              "figureText": "RECORDED VALUES\nHuman line · Agent line · Agent/model records ·\nspecification · renderer · mint anchors\n   ↓\nAPP CLAIM\nConfigured App authority signs one exact claim.\n   ↓\nCONTRACT VALIDATION\nThoughtNFT validates during minting.\n   ├─ VALID PROOF → APP ATTESTED\n   │  Valid proof binds the mint to recorded values.\n   └─ EMPTY PROOF → UNATTESTED\n      Empty proof makes the absence explicit.",
               "items": [
                 {
                   "title": "Recorded values",
@@ -1088,7 +1058,6 @@
                     "from": "recorded-values",
                     "to": "app-claim",
                     "glyph": "↓",
-                    "stackedGlyph": "│\n↓",
                     "label": "Recorded values are bound into one exact App claim."
                   },
                   {
@@ -1096,7 +1065,6 @@
                     "from": "app-claim",
                     "to": "contract-validation",
                     "glyph": "↓",
-                    "stackedGlyph": "│\n↓",
                     "label": "The contract validates the App claim during minting."
                   },
                   {
@@ -1128,29 +1096,7 @@
                     "label": "An empty proof produces an explicit Unattested result."
                   }
                 ],
-                "groups": [
-                  {
-                    "id": "attestation-input",
-                    "kind": "phase",
-                    "label": "Values, claim, and contract validation form the ordered attestation check.",
-                    "members": [
-                      "recorded-values",
-                      "app-claim",
-                      "contract-validation"
-                    ]
-                  },
-                  {
-                    "id": "attestation-outcomes",
-                    "kind": "set",
-                    "label": "Validation has two explicit proof outcomes.",
-                    "members": [
-                      "valid-proof",
-                      "app-attested",
-                      "empty-proof",
-                      "unattested"
-                    ]
-                  }
-                ]
+                "groups": []
               }
             }
           },
@@ -1290,11 +1236,6 @@
             "form": "field",
             "nodes": [
               {
-                "id": "will",
-                "term": "WILL",
-                "role": "structural"
-              },
-              {
                 "id": "many-people",
                 "sourceItem": 0,
                 "sourcePart": "item",
@@ -1325,7 +1266,6 @@
                 "label": "Crowd behavior is the open field in which WILL is still being created.",
                 "glyph": "•",
                 "members": [
-                  "will",
                   "many-people",
                   "many-agents",
                   "one-will"
@@ -1434,8 +1374,8 @@
           ],
           "id": "awa.open-horizon",
           "label": "Toward the core",
-          "mode": "field",
-          "figureText": "THOUGHT ──→ WILL ──→ AWA\nIndividual   Crowd    Toward the core",
+          "mode": "trace",
+          "figureText": "THOUGHT  →  WILL  →  AWA  →  …\nIndividual   Crowd   Toward the core",
           "items": [
             {
               "title": "THOUGHT",
@@ -1478,6 +1418,11 @@
                 "term": "AWA",
                 "annotation": "Toward the core",
                 "role": "state"
+              },
+              {
+                "id": "open-horizon",
+                "term": "…",
+                "role": "structural"
               }
             ],
             "edges": [
@@ -1494,20 +1439,16 @@
                 "to": "awa",
                 "glyph": "→",
                 "label": "The path points from crowd WILL toward AWA and the core; arrival is not claimed."
+              },
+              {
+                "id": "awa-toward-open-horizon",
+                "from": "awa",
+                "to": "open-horizon",
+                "glyph": "→",
+                "label": "AWA remains open toward a core that is not claimed as reached."
               }
             ],
-            "groups": [
-              {
-                "id": "awa-open-horizon",
-                "kind": "phase",
-                "label": "AWA is the forming horizon of the path toward the core.",
-                "members": [
-                  "thought",
-                  "will",
-                  "awa"
-                ]
-              }
-            ]
+            "groups": []
           }
         },
         "preformatted": [],
@@ -1664,7 +1605,7 @@
               "id": "path.capacity-progress",
               "label": "Capacity and progress",
               "mode": "ledger",
-              "figureText": "DEPLOYMENT     │ EACH PATH\n───────────────┼─────────────────\nMOVEMENT QUOTA │ USED + REMAINING",
+              "figureText": "DEPLOYMENT             EACH PATH\nMOVEMENT QUOTA   ≠   USED + REMAINING",
               "items": [
                 {
                   "title": "Movement quota",
@@ -1677,21 +1618,11 @@
                 "form": "ledger",
                 "nodes": [
                   {
-                    "id": "deployment",
-                    "term": "DEPLOYMENT",
-                    "role": "record"
-                  },
-                  {
                     "id": "capacity",
                     "sourceItem": 0,
                     "sourcePart": "title",
                     "term": "Movement quota",
                     "role": "state"
-                  },
-                  {
-                    "id": "one-path",
-                    "term": "EACH PATH",
-                    "role": "record"
                   },
                   {
                     "id": "progress",
@@ -1703,36 +1634,27 @@
                 ],
                 "edges": [
                   {
-                    "id": "deployment-capacity",
-                    "from": "deployment",
-                    "to": "capacity",
-                    "glyph": "│",
-                    "label": "The deployment configures movement capacity used by every PATH."
-                  },
-                  {
-                    "id": "path-progress",
-                    "from": "one-path",
+                    "id": "capacity-not-progress",
+                    "from": "capacity",
                     "to": "progress",
-                    "glyph": "│",
-                    "label": "One PATH records its own movement progress."
+                    "glyph": "≠",
+                    "label": "Deployment movement capacity is distinct from one PATH's used and remaining progress."
                   }
                 ],
                 "groups": [
                   {
                     "id": "capacity-column",
                     "kind": "lane",
-                    "label": "Deployment capacity",
+                    "label": "Deployment",
                     "members": [
-                      "deployment",
                       "capacity"
                     ]
                   },
                   {
                     "id": "progress-column",
                     "kind": "lane",
-                    "label": "One PATH progress",
+                    "label": "Each PATH",
                     "members": [
-                      "one-path",
                       "progress"
                     ]
                   },
@@ -1925,7 +1847,7 @@
               "id": "pulse.epoch",
               "label": "One Pulse epoch",
               "mode": "trace",
-              "figureText": "ASK\n │ decay\n ↓\nBID\n │ pump\n ↓\nNEXT ASK\n └──↺ next epoch",
+              "figureText": "ASK\n↓ decay\nBID\n↓ pump\nNEXT ASK\n↺ next epoch",
               "loop": {
                 "to": 1,
                 "condition": "next epoch"
@@ -1978,7 +1900,6 @@
                     "from": "ask",
                     "to": "bid",
                     "glyph": "↓",
-                    "stackedGlyph": "│\n↓",
                     "label": "The current ask decays until a bid succeeds.",
                     "annotation": "Decay"
                   },
@@ -1987,7 +1908,6 @@
                     "from": "bid",
                     "to": "next-ask",
                     "glyph": "↓",
-                    "stackedGlyph": "│\n↓",
                     "label": "The successful bid pumps the next ask.",
                     "annotation": "Pump"
                   },
@@ -2001,18 +1921,7 @@
                     "annotation": "next epoch"
                   }
                 ],
-                "groups": [
-                  {
-                    "id": "pulse-epoch",
-                    "kind": "phase",
-                    "label": "One serial Pulse epoch loops into the next.",
-                    "members": [
-                      "ask",
-                      "bid",
-                      "next-ask"
-                    ]
-                  }
-                ]
+                "groups": []
               }
             }
           },
@@ -2178,7 +2087,7 @@
               "id": "contracts.handoffs",
               "label": "Contract handoffs across issuance and minting",
               "mode": "lanes",
-              "figureText": "PUBLIC ISSUANCE    │ PulseAuction SETTLE\n                   │ Live ask · one serial epoch\n                   │ → PathPulseAdapter ISSUE\n                   │ Valid settlement → PATH issuance\n                   │ → PathNFT RECORD PATH\n                   │ Issued PATH · order · capacity\nLATER THOUGHT MINT │ ThoughtNFT VALIDATE WORK\n                   │ THOUGHT work · PATH permission\n                   │ → PathNFT CONSUME UNIT\n                   │ Caller · owner · stage · quota\n                   │ → ThoughtNFT MINT + RECORD\n                   │ Atomic with PATH consumption",
+              "figureText": "PUBLIC ISSUANCE\nPulseAuction / SETTLE\nLive ask · one serial epoch\n→ PathPulseAdapter / ISSUE\nValid settlement → PATH issuance\n→ PathNFT / RECORD PATH\nIssued PATH · order · capacity\n\nLATER THOUGHT MINT\nThoughtNFT / VALIDATE WORK\nTHOUGHT work · PATH permission\n→ PathNFT / CONSUME UNIT\nCaller · owner · stage · quota\n→ ThoughtNFT / MINT + RECORD\nAtomic with PATH consumption",
               "items": [
                 {
                   "stage": 1,
@@ -2490,7 +2399,7 @@
           "id": "evidence.interpretation",
           "label": "Evidence becomes interpretation",
           "mode": "field",
-          "figureText": "EVIDENCE\n├─ IDENTITY\n│  Network + contract + token\n├─ CONTRACT\n│  State + tokenURI\n├─ RELEASE\n│  ABI + renderer + schemas\n└─ CONTEXT\n   Provenance + reading surface\n      │\n      ↓\nINTERPRETATION\nRead together",
+          "figureText": "EVIDENCE\n├─ IDENTITY\n│  Network + contract + token\n├─ CONTRACT\n│  State + tokenURI\n├─ RELEASE\n│  ABI + renderer + schemas\n└─ CONTEXT\n   Provenance + reading surface\n      ↓\nINTERPRETATION\nRead together",
           "items": [
             {
               "title": "Identity",
@@ -2598,24 +2507,10 @@
                 "from": "evidence",
                 "to": "interpretation",
                 "glyph": "↓",
-                "stackedGlyph": "│\n↓",
                 "label": "The evidence records are read together as interpretation."
               }
             ],
-            "groups": [
-              {
-                "id": "evidence-set",
-                "kind": "set",
-                "label": "Evidence",
-                "members": [
-                  "evidence",
-                  "identity",
-                  "contract",
-                  "release",
-                  "context"
-                ]
-              }
-            ]
+            "groups": []
           }
         },
         "preformatted": [],
@@ -2789,31 +2684,18 @@
                 "id": "study-to-seal",
                 "from": "glyph-study",
                 "to": "sealed-mono",
-                "glyph": "→",
-                "stackedGlyph": "↓",
+                "glyph": "↓",
                 "label": "Glyph study is refined into the sealed Mono 76 source."
               },
               {
                 "id": "seal-to-artwork",
                 "from": "sealed-mono",
                 "to": "canonical-artwork",
-                "glyph": "→",
-                "stackedGlyph": "↓",
+                "glyph": "↓",
                 "label": "The sealed paths and metrics produce the canonical native SVG artwork."
               }
             ],
-            "groups": [
-              {
-                "id": "mono-phases",
-                "kind": "phase",
-                "label": "From study through sealed source to canonical artwork.",
-                "members": [
-                  "glyph-study",
-                  "sealed-mono",
-                  "canonical-artwork"
-                ]
-              }
-            ]
+            "groups": []
           }
         },
         "preformatted": [],
@@ -3069,15 +2951,27 @@
           "id": "wallet.distinctions",
           "label": "Two distinctions",
           "mode": "field",
-          "figureText": "┌─ WALLET AND LOCAL DATA ─────────────────────┐\n│ READ ≠ SIGN ≠ TRANSACT                      │\n│ Public state · authorization · chain change │\n│                                             │\n│ LOCAL ≠ ONCHAIN                             │\n│ Browser record · public record              │\n└─────────────────────────────────────────────┘",
+          "figureText": "READ  ≠  SIGN  ≠  TRANSACT\nPublic state   Authorization   Chain change\n\nLOCAL  ≠  ONCHAIN\nBrowser record   Public record",
           "items": [
             {
-              "title": "Read ≠ Sign ≠ Transact",
-              "detail": "Public state · authorization · chain change"
+              "title": "Read",
+              "detail": "Public state"
             },
             {
-              "title": "Local ≠ Onchain",
-              "detail": "Browser record · public record"
+              "title": "Sign",
+              "detail": "Authorization"
+            },
+            {
+              "title": "Transact",
+              "detail": "Chain change"
+            },
+            {
+              "title": "Local",
+              "detail": "Browser record"
+            },
+            {
+              "title": "Onchain",
+              "detail": "Public record"
             }
           ],
           "logic": {
@@ -3086,53 +2980,42 @@
             "form": "ledger",
             "nodes": [
               {
-                "id": "wallet-local-data",
-                "term": "WALLET AND LOCAL DATA",
-                "role": "structural"
-              },
-              {
-                "id": "read-sign-transact",
+                "id": "read",
                 "sourceItem": 0,
                 "sourcePart": "item",
-                "term": "Read ≠ Sign ≠ Transact",
-                "annotation": "Public state · authorization · chain change",
-                "role": "principle"
-              },
-              {
-                "id": "read",
-                "term": "READ",
+                "term": "Read",
                 "annotation": "Public state",
                 "role": "action"
               },
               {
                 "id": "sign",
-                "term": "SIGN",
+                "sourceItem": 1,
+                "sourcePart": "item",
+                "term": "Sign",
                 "annotation": "Authorization",
                 "role": "action"
               },
               {
                 "id": "transact",
-                "term": "TRANSACT",
+                "sourceItem": 2,
+                "sourcePart": "item",
+                "term": "Transact",
                 "annotation": "Chain change",
                 "role": "action"
               },
               {
-                "id": "local-onchain",
-                "sourceItem": 1,
-                "sourcePart": "item",
-                "term": "Local ≠ Onchain",
-                "annotation": "Browser record · public record",
-                "role": "principle"
-              },
-              {
                 "id": "local",
-                "term": "LOCAL",
+                "sourceItem": 3,
+                "sourcePart": "item",
+                "term": "Local",
                 "annotation": "Browser record",
                 "role": "record"
               },
               {
                 "id": "onchain",
-                "term": "ONCHAIN",
+                "sourceItem": 4,
+                "sourcePart": "item",
+                "term": "Onchain",
                 "annotation": "Public record",
                 "role": "record"
               }
@@ -3164,9 +3047,8 @@
               {
                 "id": "wallet-action-distinction",
                 "kind": "comparison",
-                "label": "Read ≠ Sign ≠ Transact",
+                "label": "Read, sign, and transact are distinct wallet actions.",
                 "members": [
-                  "read-sign-transact",
                   "read",
                   "sign",
                   "transact"
@@ -3175,9 +3057,8 @@
               {
                 "id": "record-location-distinction",
                 "kind": "comparison",
-                "label": "Local ≠ Onchain",
+                "label": "Local browser data is distinct from an onchain public record.",
                 "members": [
-                  "local-onchain",
                   "local",
                   "onchain"
                 ]
@@ -3281,7 +3162,7 @@
           "id": "source-release.records",
           "label": "Four distinct records",
           "mode": "field",
-          "figureText": "┌─ FOUR DISTINCT RECORDS ─────────────────────┐\n│ SOURCE                                      │\n│ Authored code                               │\n│   ≠ RELEASE                                 │\n│     Pinned artifacts                        │\n│       ≠ DEPLOYMENT                          │\n│         Addresses + blocks                  │\n│           ≠ OBSERVATION                     │\n│             Point-in-time read              │\n└─────────────────────────────────────────────┘",
+          "figureText": "SOURCE  ≠  RELEASE  ≠  DEPLOYMENT  ≠  OBSERVATION\nAuthored code   Pinned artifacts   Addresses + blocks   Point-in-time read",
           "items": [
             {
               "title": "Source",
@@ -3305,11 +3186,6 @@
             "label": "Four distinct records",
             "form": "axis",
             "nodes": [
-              {
-                "id": "four-records",
-                "term": "FOUR DISTINCT RECORDS",
-                "role": "structural"
-              },
               {
                 "id": "source",
                 "sourceItem": 0,
@@ -3372,7 +3248,6 @@
                 "kind": "comparison",
                 "label": "Four records that must not be collapsed into one.",
                 "members": [
-                  "four-records",
                   "source",
                   "release",
                   "deployment",
@@ -3533,11 +3408,6 @@
             "form": "field",
             "nodes": [
               {
-                "id": "principles",
-                "term": "CURRENT INSHELL PRINCIPLES",
-                "role": "structural"
-              },
-              {
                 "id": "bound",
                 "sourceItem": 0,
                 "sourcePart": "item",
@@ -3586,7 +3456,6 @@
                 "label": "Current Inshell principles across systems",
                 "glyph": "•",
                 "members": [
-                  "principles",
                   "bound",
                   "authorize",
                   "expose",
@@ -3632,7 +3501,7 @@
               "id": "design.preservation",
               "label": "Two preservation boundaries",
               "mode": "lanes",
-              "figureText": "THOUGHT │ AGENT RETURN\n        │ Candidate produced\n        │ → HUMAN REVIEW\n        │ Decision to preserve\n        │ → SUCCESSFUL MINT\n        │ Contract action succeeds\n        │ → PUBLIC CORPUS\n        │ Preserved THOUGHT\nPULSE   │ VISIBLE ASK\n        │ Quote exposed\n        │ → CONFIRMED BID\n        │ Participant authorizes\n        │ → SETTLEMENT\n        │ Contract action succeeds\n        │ → SALE RECORD\n        │ Preserved Pulse",
+              "figureText": "THOUGHT\nAGENT RETURN\nCandidate produced\n→ HUMAN REVIEW\nDecision to preserve\n→ SUCCESSFUL MINT\nContract action succeeds\n→ PUBLIC CORPUS\nPreserved THOUGHT\n\nPULSE\nVISIBLE ASK\nQuote exposed\n→ CONFIRMED BID\nParticipant authorizes\n→ SETTLEMENT\nContract action succeeds\n→ SALE RECORD\nPreserved Pulse",
               "items": [
                 {
                   "stage": 1,
@@ -3860,7 +3729,7 @@
               "id": "design.reading-surfaces",
               "label": "Many surfaces, one identified record",
               "mode": "field",
-              "figureText": "┌─ IDENTIFIED ONCHAIN WORK ───────────────┐\n│ Network + contract + token ID +         │\n│ tokenURI + release                      │\n└───────────────────┬─────────────────────┘\n                    ↓\n          MANY READING SURFACES\nSite · wallet · marketplace · API · Markdown · Agent answer",
+              "figureText": "┌─ IDENTIFIED ONCHAIN WORK ───────────────┐\n│ Network + contract + token ID +         │\n│ tokenURI + release                      │\n└─────────────────────────────────────────┘\n                    ↓\n          MANY READING SURFACES\nSite · wallet · marketplace · API · Markdown · Agent answer",
               "items": [
                 {
                   "title": "Identified onchain work",
@@ -3902,17 +3771,7 @@
                     "label": "One identified onchain work can be read through many surfaces."
                   }
                 ],
-                "groups": [
-                  {
-                    "id": "reading-surface-set",
-                    "kind": "set",
-                    "label": "Site · wallet · marketplace · API · Markdown · Agent answer",
-                    "members": [
-                      "identified-work",
-                      "reading-surfaces"
-                    ]
-                  }
-                ]
+                "groups": []
               }
             }
           },

@@ -59,11 +59,6 @@
         "form": "field",
         "nodes": [
           {
-            "id": "will",
-            "term": "WILL",
-            "role": "structural"
-          },
-          {
             "id": "many-people",
             "sourceItem": 0,
             "sourcePart": "item",
@@ -94,7 +89,6 @@
             "label": "Crowd behavior is the open field in which WILL is still being created.",
             "glyph": "•",
             "members": [
-              "will",
               "many-people",
               "many-agents",
               "one-will"

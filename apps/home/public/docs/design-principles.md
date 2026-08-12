@@ -16,14 +16,13 @@
 - Figure mode: field
 - Semantic form: field
 - Semantic nodes:
-  - `principles [structural]: CURRENT INSHELL PRINCIPLES`
   - `bound [principle]: Bound — Collaboration is bounded.`
   - `authorize [principle]: Authorize — Authority to continue or preserve is explicit.`
   - `expose [principle]: Expose — Mechanisms stay visible.`
   - `pin [principle]: Pin — Canonical sources remain identifiable.`
   - `qualify [principle]: Qualify — Claims stop where their evidence stops.`
 - Semantic groups:
-  - `current-principles [set] · •: Current Inshell principles across systems [members: principles (CURRENT INSHELL PRINCIPLES) · bound (Bound) · authorize (Authorize) · expose (Expose) · pin (Pin) · qualify (Qualify)]`
+  - `current-principles [set] · •: Current Inshell principles across systems [members: bound (Bound) · authorize (Authorize) · expose (Expose) · pin (Pin) · qualify (Qualify)]`
 
 ```text
 CURRENT INSHELL PRINCIPLES
@@ -89,22 +88,25 @@ Within THOUGHT, more options would not automatically create more expressive work
   - `pulse-preservation-lane [lane]: PULSE [members: pulse-visible-ask (Visible ask) · pulse-confirmed-bid (Confirmed bid) · pulse-settlement (Settlement) · pulse-sale-record (Sale record)]`
 
 ```text
-THOUGHT │ AGENT RETURN
-        │ Candidate produced
-        │ → HUMAN REVIEW
-        │ Decision to preserve
-        │ → SUCCESSFUL MINT
-        │ Contract action succeeds
-        │ → PUBLIC CORPUS
-        │ Preserved THOUGHT
-PULSE   │ VISIBLE ASK
-        │ Quote exposed
-        │ → CONFIRMED BID
-        │ Participant authorizes
-        │ → SETTLEMENT
-        │ Contract action succeeds
-        │ → SALE RECORD
-        │ Preserved Pulse
+THOUGHT
+AGENT RETURN
+Candidate produced
+→ HUMAN REVIEW
+Decision to preserve
+→ SUCCESSFUL MINT
+Contract action succeeds
+→ PUBLIC CORPUS
+Preserved THOUGHT
+
+PULSE
+VISIBLE ASK
+Quote exposed
+→ CONFIRMED BID
+Participant authorizes
+→ SETTLEMENT
+Contract action succeeds
+→ SALE RECORD
+Preserved Pulse
 ```
 
 1. **THOUGHT · Agent return** — Candidate produced
@@ -139,14 +141,12 @@ Pulse shows the curve, floor, premium, sale points, and current ask. PATH shows 
   - `reading-surfaces [surface]: Many reading surfaces — Site · wallet · marketplace · API · Markdown · Agent answer`
 - Semantic edges:
   - `work-to-surfaces: identified-work (Identified onchain work) --[↓ · One identified onchain work can be read through many surfaces.]--> reading-surfaces (Many reading surfaces)`
-- Semantic groups:
-  - `reading-surface-set [set]: Site · wallet · marketplace · API · Markdown · Agent answer [members: identified-work (Identified onchain work) · reading-surfaces (Many reading surfaces)]`
 
 ```text
 ┌─ IDENTIFIED ONCHAIN WORK ───────────────┐
 │ Network + contract + token ID +         │
 │ tokenURI + release                      │
-└───────────────────┬─────────────────────┘
+└─────────────────────────────────────────┘
                     ↓
           MANY READING SURFACES
 Site · wallet · marketplace · API · Markdown · Agent answer

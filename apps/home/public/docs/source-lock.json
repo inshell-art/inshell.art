@@ -11,14 +11,14 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "5178e934a0c0ff12120f78dd62b60cde2cfea696c08c7cadf194619520b7be04",
+  "sourceTreeSha256": "5878defecb413fcd2bd320e9f5826862d0e87640ceb2b5bb715ad8eded1e9d4d",
   "groups": [
     {
       "id": "public-docs",
       "title": "Public documentation sources",
       "owner": "inshell.art docs",
       "reason": "Human articles, Agent-readable content, authority maps, and machine-handoff selection.",
-      "groupSha256": "1aaba82aaff4d6a3b11a5404fcb3206e53fcc59b72ed29f4659fa7ef38a2e056",
+      "groupSha256": "eb2f09926a804cd08dd6a543df39bcbb03ce6fe89ed99c326fb644a5b2cb0fe1",
       "files": [
         {
           "path": "apps/home/src/content/AGENTS.md",
@@ -27,8 +27,8 @@
         },
         {
           "path": "apps/home/src/content/docs-figure-logic.ts",
-          "byteLength": 32900,
-          "sha256": "a9f1a2624bd8a97eb473ebabf75fcc3d8bccec185fe2969d4e601f84b291be70"
+          "byteLength": 29718,
+          "sha256": "f505b684c544544f2e3721da1223197c8c607658fb41b5cd05eca424653cbd84"
         },
         {
           "path": "apps/home/src/content/docs-source-registry.ts",
@@ -37,8 +37,8 @@
         },
         {
           "path": "apps/home/src/content/docs.ts",
-          "byteLength": 113283,
-          "sha256": "6cbf335cd62097833912114ae14179705d03b2ada45f555e8dcf60fab62a4df3"
+          "byteLength": 111669,
+          "sha256": "0e5a520eed2f157241fa637e8608f74d79097e8bc68269f4da88f3f684b8df56"
         },
         {
           "path": "apps/home/src/content/thought-machine-handoff.ts",
@@ -47,18 +47,18 @@
         },
         {
           "path": "docs/AGENTS.md",
-          "byteLength": 19144,
-          "sha256": "0447e74f8cabf89d94c772f367fb431aada0ca2f27ecff57096d65229ae55cc2"
+          "byteLength": 19636,
+          "sha256": "ca7c32471444419881e7089056d4d706adf23cc626d2223047ab8583865cbbeb"
         },
         {
           "path": "docs/agent-native-figure-experiment.md",
-          "byteLength": 2878,
-          "sha256": "de884ea699eff2bc1727ee405adabc2111ef777b98df4812913d389ac09d940a"
+          "byteLength": 3728,
+          "sha256": "8042f985e3615e9fddd1a16fe1169cf56b289f2ac1832be54b0e7f30c0b226f8"
         },
         {
           "path": "scripts/generate-agent-docs.ts",
-          "byteLength": 117959,
-          "sha256": "553deb9b46bbc69c2459d371f98e2d90b8fd090485c1d122db8ba6897c60017d"
+          "byteLength": 118149,
+          "sha256": "f3b1af698c3dc98cc8d4d60796939c6d174321e0baf59e9e11452a201517e88e"
         }
       ]
     },
@@ -67,7 +67,7 @@
       "title": "Home, PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "4f2ddf412eef0a33478aca054bc24e7ba1b0dcc3f793a1ac2d60991a5aec6ff4",
+      "groupSha256": "9baeacd06e29a1a8ca846502218a8fea73f340e8b6c874ab634903636240e1a5",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -181,18 +181,18 @@
         },
         {
           "path": "apps/home/src/components/docs/FieldFigureVisual.tsx",
-          "byteLength": 21942,
-          "sha256": "82333c6146cc9f96544a79ebeb7bf215932d2b460e5c210ba5d2be34795ac7d5"
+          "byteLength": 25236,
+          "sha256": "3165299c909168b9d9990f6eca98942cc4c271a50efdb0ae34d5afa66bbc8ff0"
         },
         {
           "path": "apps/home/src/components/docs/FlowFigureVisual.tsx",
-          "byteLength": 8091,
-          "sha256": "c111a00ee1d45a199bab7bd7dc4990b68a4898ac6507fea7c8f2df98b46d2b38"
+          "byteLength": 9886,
+          "sha256": "8dddb3f5e51d65ad8c9bd64b960ee06626a10145320d612c8b4638e276118f45"
         },
         {
           "path": "apps/home/src/components/docs/LaneFigureVisual.tsx",
-          "byteLength": 7361,
-          "sha256": "5ba6dfaa30e622eb1e8c375dbb7f95df6733efb7f26aef2821a0e2769c27c0b2"
+          "byteLength": 5496,
+          "sha256": "b5ff602944fb0c7031d02ff6bcd4e2ecbdb9d82626c4295518c266141ab83acd"
         },
         {
           "path": "apps/home/src/components/docs/figureLogicResolvers.ts",
@@ -201,8 +201,8 @@
         },
         {
           "path": "apps/home/src/components/docs/figures.css",
-          "byteLength": 27755,
-          "sha256": "d813375347d77ad52fd2d8eb089ebcbc74464a532ff6ca522308003682959cc3"
+          "byteLength": 29223,
+          "sha256": "d91a37ff70e7e13af3522ee5a075dd163d093d5ae1ffd62bf151d30a415fcad6"
         },
         {
           "path": "apps/home/src/config/publicLaunch.ts",

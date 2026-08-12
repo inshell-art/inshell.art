@@ -16,7 +16,6 @@
 - Figure mode: field
 - Semantic form: axis
 - Semantic nodes:
-  - `four-records [structural]: FOUR DISTINCT RECORDS`
   - `source [record]: Source — Authored code`
   - `release [record]: Release — Pinned artifacts`
   - `deployment [record]: Deployment — Addresses + blocks`
@@ -26,19 +25,11 @@
   - `release-not-deployment: release (Release) --[≠ · A pinned release is not a deployment record.]--> deployment (Deployment)`
   - `deployment-not-observation: deployment (Deployment) --[≠ · A deployment record is not a point-in-time observation.]--> observation (Observation)`
 - Semantic groups:
-  - `record-distinction [comparison]: Four records that must not be collapsed into one. [members: four-records (FOUR DISTINCT RECORDS) · source (Source) · release (Release) · deployment (Deployment) · observation (Observation)]`
+  - `record-distinction [comparison]: Four records that must not be collapsed into one. [members: source (Source) · release (Release) · deployment (Deployment) · observation (Observation)]`
 
 ```text
-┌─ FOUR DISTINCT RECORDS ─────────────────────┐
-│ SOURCE                                      │
-│ Authored code                               │
-│   ≠ RELEASE                                 │
-│     Pinned artifacts                        │
-│       ≠ DEPLOYMENT                          │
-│         Addresses + blocks                  │
-│           ≠ OBSERVATION                     │
-│             Point-in-time read              │
-└─────────────────────────────────────────────┘
+SOURCE  ≠  RELEASE  ≠  DEPLOYMENT  ≠  OBSERVATION
+Authored code   Pinned artifacts   Addresses + blocks   Point-in-time read
 ```
 
 - **Source** — Authored code
