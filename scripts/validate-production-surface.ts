@@ -506,7 +506,17 @@ function checkThoughtProductionGuards() {
     "type: \"web_search_20250305\"",
   ]);
   requireSnippets("package.json", ["test:thought-runtime"]);
-  requireSnippets("apps/home/package.json", ["tests/thoughtPreviewFunction.test.ts"]);
+  requireSnippets("apps/home/package.json", [
+    '"test:presepolia": "pnpm run test:unit"',
+    '"test:unit": "jest --runInBand"',
+  ]);
+  requireSnippets("apps/home/jest.config.cjs", [
+    'testMatch: ["<rootDir>/tests/**/*.test.{ts,tsx}"]',
+  ]);
+  requireSnippets("apps/home/tests/thoughtPreviewFunction.test.ts", [
+    "onRequestGet",
+    "onRequestPost",
+  ]);
 
   if (text.includes("VITE_THOUGHT_INDEXER_URL")) {
     fail("apps/thought/src/main.ts must not use VITE_THOUGHT_INDEXER_URL as a tx explorer URL");

@@ -19,6 +19,14 @@ module.exports = {
   ],
   coverageDirectory: "<rootDir>/coverage",
   coverageReporters: ["text-summary", "lcov"],
+  coverageThreshold: {
+    global: {
+      statements: 82,
+      branches: 70,
+      functions: 80,
+      lines: 82,
+    },
+  },
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
     "^@inshell/(.*)$": "<rootDir>/../../packages/$1/src",

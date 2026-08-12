@@ -62,8 +62,19 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+      - name: Install zsh
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes zsh
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09
+        with:
+          version: v1.5.1
+          cache: false
+      - name: Verify Anvil
+        run: anvil --version
       - name: Check deploy config
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -93,6 +104,8 @@ jobs:
         run: pnpm --filter @inshell/home lint
       - name: Test home launch surface
         run: pnpm run test:presepolia
+      - name: Test THOUGHT runtime payloads
+        run: pnpm run test:thought-runtime
       - name: Build home
         run: pnpm run build:home
       - name: Verify production analytics bundle
@@ -154,6 +167,13 @@ jobs:
           sudo apt-get install --yes zsh
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09
+        with:
+          version: v1.5.1
+          cache: false
+      - name: Verify Anvil
+        run: anvil --version
       - name: Check deploy config
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -183,6 +203,8 @@ jobs:
         run: pnpm run check:deployment
       - name: Check PUB path boundary
         run: pnpm run pub-boundary:check
+      - name: Test shared Home and Pages API surfaces
+        run: pnpm run test:unit
       - name: Test THOUGHT runtime payloads
         run: pnpm run test:thought-runtime
       - name: Check THOUGHT renderer parity

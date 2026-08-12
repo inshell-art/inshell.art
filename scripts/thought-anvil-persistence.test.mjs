@@ -25,6 +25,10 @@ const prepareSource = fs.readFileSync(
 const anvilAvailable =
   spawnSync("anvil", ["--version"], { stdio: "ignore" }).status === 0;
 
+if (process.env.CI && !anvilAvailable) {
+  throw new Error("Anvil is required in CI; install the pinned Foundry toolchain before running persistence tests.");
+}
+
 const waitFor = async (description, probe, timeoutMs = 10_000) => {
   const deadline = Date.now() + timeoutMs;
   let lastError;

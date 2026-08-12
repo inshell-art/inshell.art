@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "b73cfb34d02f3c924e949421dfa74b6706566f124d499fe81cd0dcbf83275997",
+  "sourceTreeSha256": "f8f11784441e12000be1eaf447f28b42a1e9d670f5a178481f30f9f83b52ba81",
   "groups": [
     {
       "id": "public-docs",
@@ -57,7 +57,7 @@
       "title": "Home, PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "724536183993650db9023dc4c7902b527760a1aec5d1eee4e06a4e70fb65e7f4",
+      "groupSha256": "8bb497078818a09e9c387b1a84a2412a1a3fdb19a250c386b7efc95d9e5ced14",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -66,8 +66,8 @@
         },
         {
           "path": "apps/home/package.json",
-          "byteLength": 3932,
-          "sha256": "274e78cba1a48e4d957fd501c006c15fd48f6ca519b52cb48d5b80d54b287487"
+          "byteLength": 2837,
+          "sha256": "e79cb4b08b055f9d0e54c2d17dce5dec04541f0e738a590d386691507aaac608"
         },
         {
           "path": "apps/home/src/App.tsx",
@@ -540,7 +540,7 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "c2eb8b8e5857142c61e8224baf6ba432a52bbe097385f1ef92fcf3fe45847b1b",
+      "groupSha256": "608e6075e3e1371c638c4d2388ea5b293c70bd99c57d4d6e90e53e9a3b341889",
       "files": [
         {
           "path": ".husky/pre-commit",
@@ -554,8 +554,8 @@
         },
         {
           "path": "package.json",
-          "byteLength": 11547,
-          "sha256": "933f556c0846765828b82bec39e8f7246d5d340b873e25e93999382e7cbe356c"
+          "byteLength": 11580,
+          "sha256": "cbe68e9c08867d465bb9c6b0ff1c0d8cd9a12fedc10cdc0bb11bbbb85babdb96"
         },
         {
           "path": "scripts/check-upstream-releases.mjs",

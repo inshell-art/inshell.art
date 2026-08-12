@@ -3,6 +3,11 @@ import { webcrypto, randomFillSync } from "node:crypto";
 import { onRequestPost as onCreateRun } from "../../../functions/api/thought-agent/v1/runs";
 import { onRequestGet as onGetCodexClient } from "../../../functions/api/thought-agent/v2/client";
 import { onRequestPost as onCreateRunV2 } from "../../../functions/api/thought-agent/v2/runs";
+import { onRequestGet as onGetRunV2 } from "../../../functions/api/thought-agent/v2/runs/[runId]";
+import { onRequestPost as onClaimRunV2 } from "../../../functions/api/thought-agent/v2/runs/[runId]/claim";
+import { onRequestPost as onReadyRunV2 } from "../../../functions/api/thought-agent/v2/runs/[runId]/ready";
+import { onRequestPut as onSubmitResultV2 } from "../../../functions/api/thought-agent/v2/runs/[runId]/result";
+import { onRequestPost as onStartRunV2 } from "../../../functions/api/thought-agent/v2/runs/[runId]/start";
 import { onRequestGet as onGetRun } from "../../../functions/api/thought-agent/v1/runs/[runId]";
 import { onRequestPost as onCancelRun } from "../../../functions/api/thought-agent/v1/runs/[runId]/cancel";
 import { onRequestPost as onClaimRun } from "../../../functions/api/thought-agent/v1/runs/[runId]/claim";
@@ -10,9 +15,11 @@ import { onRequestPost as onFailRun } from "../../../functions/api/thought-agent
 import { onRequestPut as onSubmitResult } from "../../../functions/api/thought-agent/v1/runs/[runId]/result";
 import { onRequestPost as onStartRun } from "../../../functions/api/thought-agent/v1/runs/[runId]/start";
 import {
+  THOUGHT_AGENT_CONTROL_VERSION,
   THOUGHT_AGENT_PROTOCOL_VERSION,
   THOUGHT_AGENT_RESULT_VERSION,
   THOUGHT_V2_PROTOCOL_RELEASE,
+  parseThoughtAgentControlEvidence,
   sha256Hex,
 } from "../../../packages/thought-agent-protocol/src/index";
 
@@ -123,7 +130,7 @@ function createD1Mock() {
           const active_count = [...rows.values()].filter(
             (row) =>
               row.visitor_hash === visitorHash &&
-              ["created", "claimed", "running"].includes(String(row.state)),
+              ["created", "claimed", "ready", "running"].includes(String(row.state)),
           ).length;
           return { active_count };
         }
@@ -187,10 +194,25 @@ function createD1Mock() {
           }
           return { meta: { changes } };
         }
-        if (/set\s+state\s*=\s*'running'/i.test(query)) {
+        if (/set\s+state\s*=\s*'ready'/i.test(query)) {
           const row = rows.get(String(bound[0]));
           const changes =
             row?.state === "claimed" &&
+            row.bridge_token_hash === bound[3] &&
+            row.invocation_id == null
+              ? 1
+              : 0;
+          if (row && changes) {
+            row.state = "ready";
+            row.execution_metadata_json = bound[1];
+            row.updated_at = bound[2];
+          }
+          return { meta: { changes } };
+        }
+        if (/set\s+state\s*=\s*'running'/i.test(query)) {
+          const row = rows.get(String(bound[0]));
+          const changes =
+            ["claimed", "ready"].includes(String(row?.state)) &&
             row.bridge_token_hash === bound[4] &&
             row.invocation_id == null
               ? 1
@@ -331,10 +353,26 @@ const claimBody = {
   },
 };
 
-async function claimRun(env: any, runId: string, launchToken: string) {
-  const response = await onClaimRun({
+const controlEvidence = parseThoughtAgentControlEvidence({
+  schema: THOUGHT_AGENT_CONTROL_VERSION,
+  mode: "bounded-preflight",
+  appExchange: "verified",
+  runtimeIdentity: "available",
+  localPreparation: "verified",
+  installationsRequired: false,
+  creativeInputOpened: false,
+});
+
+async function claimRun(
+  env: any,
+  runId: string,
+  launchToken: string,
+  version: "v1" | "v2" = "v1",
+) {
+  const handler = version === "v2" ? onClaimRunV2 : onClaimRun;
+  const response = await handler({
     request: request(
-      `https://thought.inshell.art/api/thought-agent/v1/runs/${runId}/claim`,
+      `https://thought.inshell.art/api/thought-agent/${version}/runs/${runId}/claim`,
       claimBody,
       auth(launchToken),
     ),
@@ -345,10 +383,17 @@ async function claimRun(env: any, runId: string, launchToken: string) {
   return { response, payload };
 }
 
-async function startRun(env: any, runId: string, bridgeToken: string, invocationId: string) {
-  return onStartRun({
+async function startRun(
+  env: any,
+  runId: string,
+  bridgeToken: string,
+  invocationId: string,
+  version: "v1" | "v2" = "v1",
+) {
+  const handler = version === "v2" ? onStartRunV2 : onStartRun;
+  return handler({
     request: request(
-      `https://thought.inshell.art/api/thought-agent/v1/runs/${runId}/start`,
+      `https://thought.inshell.art/api/thought-agent/${version}/runs/${runId}/start`,
       {
         protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
         invocationId,
@@ -367,15 +412,17 @@ async function submitResult(
   bridgeToken: string,
   invocationId: string,
   agentLine = "QUIET SKY",
+  version: "v1" | "v2" = "v1",
 ) {
   const raw = JSON.stringify({
     schema: THOUGHT_AGENT_RESULT_VERSION,
     release: THOUGHT_V2_PROTOCOL_RELEASE.release,
     agentLine,
   });
-  const response = await onSubmitResult({
+  const handler = version === "v2" ? onSubmitResultV2 : onSubmitResult;
+  const response = await handler({
     request: request(
-      `https://thought.inshell.art/api/thought-agent/v1/runs/${runId}/result`,
+      `https://thought.inshell.art/api/thought-agent/${version}/runs/${runId}/result`,
       {
         protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
         invocationId,
@@ -415,6 +462,27 @@ async function submitResult(
         },
       },
       auth(bridgeToken, { "idempotency-key": invocationId }),
+    ),
+    env,
+    params: { runId },
+  });
+  const payload = await response.json();
+  return { response, payload };
+}
+
+async function readyRunV2(
+  env: any,
+  runId: string,
+  bridgeToken: string,
+) {
+  const response = await onReadyRunV2({
+    request: request(
+      `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}/ready`,
+      {
+        protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+        control: controlEvidence,
+      },
+      auth(bridgeToken),
     ),
     env,
     params: { runId },
@@ -589,6 +657,183 @@ describe("THOUGHT Agent Pages API", () => {
     expect(response.status).toBe(201);
     await expect(response.json()).resolves.toMatchObject({
       statusUrl: expect.stringMatching(/^\/api\/thought-agent\/v2\/runs\/tar_/),
+    });
+  });
+
+  test("keeps V2 creative input sealed through bounded preflight and completes the run", async () => {
+    const d1 = createD1Mock();
+    const env = { INSHELL_CHAIN_DATA_DB: d1.db };
+    const createdResponse = await onCreateRunV2({
+      request: request(
+        "https://thought.inshell.art/api/thought-agent/v2/runs",
+        {
+          protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+          promptLine: "make a quiet sky",
+          specId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+          requestedAgent: {
+            adapterId: "codex",
+            model: null,
+          },
+          client: {
+            surface: "thought-web",
+            appVersion: "test",
+          },
+        },
+        {
+          origin: "https://thought.inshell.art",
+          cookie: "inshell_anon_visitor=visitor-v2-lifecycle",
+        },
+      ),
+      env,
+    });
+    const created = await createdResponse.json();
+    expect(createdResponse.status).toBe(201);
+    expect(created.controlContract).toEqual({
+      schema: THOUGHT_AGENT_CONTROL_VERSION,
+      mode: "bounded-preflight",
+      claimCreativeInput: "sealed-absent",
+      creativeInputEndpoint: "start",
+    });
+
+    const launchUrl = new globalThis.URL(created.launchUri);
+    const runId = launchUrl.searchParams.get("run_id") ?? "";
+    const launchToken = launchUrl.searchParams.get("token") ?? "";
+    const claimed = await claimRun(env, runId, launchToken, "v2");
+    expect(claimed.response.status).toBe(200);
+    expect(claimed.payload).toMatchObject({
+      runId,
+      state: "claimed",
+      bridgeToken: expect.any(String),
+      request: {
+        intent: "prepare-thought-creation",
+        controlPolicy: {
+          mode: "bounded-preflight",
+          creativeInputState: "sealed",
+        },
+        evidenceContract: {
+          schema: controlEvidence.schema,
+          appExchange: controlEvidence.appExchange,
+          runtimeIdentity: controlEvidence.runtimeIdentity,
+          localPreparation: controlEvidence.localPreparation,
+          installationsRequired: controlEvidence.installationsRequired,
+          creativeInputOpened: controlEvidence.creativeInputOpened,
+        },
+      },
+    });
+    expect(claimed.payload.request).not.toHaveProperty("promptLine");
+    expect(claimed.payload.request).not.toHaveProperty("agentInput");
+    expect(claimed.payload.request).not.toHaveProperty("spec");
+    expect(claimed.payload.request).not.toHaveProperty("instructions");
+    expect(JSON.stringify(claimed.payload.request)).not.toContain("make a quiet sky");
+
+    const prematureStart = await startRun(
+      env,
+      runId,
+      claimed.payload.bridgeToken,
+      "tai_v2_premature",
+      "v2",
+    );
+    expect(prematureStart.status).toBe(409);
+    await expect(prematureStart.json()).resolves.toMatchObject({
+      error: { code: "RUN_STATE_CONFLICT" },
+    });
+
+    const wrongTokenReady = await readyRunV2(env, runId, "wrong-bridge-token");
+    expect(wrongTokenReady.response.status).toBe(401);
+    expect(wrongTokenReady.payload.error.code).toBe("TOKEN_INVALID");
+
+    const ready = await readyRunV2(env, runId, claimed.payload.bridgeToken);
+    expect(ready.response.status).toBe(200);
+    expect(ready.payload).toMatchObject({
+      runId,
+      state: "ready",
+      stage: "control-verified",
+      control: controlEvidence,
+    });
+
+    const startedResponse = await startRun(
+      env,
+      runId,
+      claimed.payload.bridgeToken,
+      "tai_v2_lifecycle",
+      "v2",
+    );
+    const started = await startedResponse.json();
+    expect(startedResponse.status).toBe(200);
+    expect(started).toMatchObject({
+      runId,
+      state: "running",
+      invocationId: "tai_v2_lifecycle",
+      request: {
+        intent: "generate-thought-candidate",
+        promptLine: {
+          text: "make a quiet sky",
+        },
+        agentInput: {
+          mediaType: "text/plain; charset=utf-8",
+        },
+        spec: {
+          id: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+        },
+        instructions: {
+          artifactId: THOUGHT_V2_PROTOCOL_RELEASE.creativeBrief.artifactId,
+        },
+        outputContract: {
+          resultSchema: THOUGHT_AGENT_RESULT_VERSION,
+        },
+      },
+    });
+
+    const returned = await submitResult(
+      env,
+      runId,
+      claimed.payload.bridgeToken,
+      "tai_v2_lifecycle",
+      "QUIET SKY",
+      "v2",
+    );
+    expect(returned.response.status).toBe(200);
+    expect(returned.payload).toMatchObject({
+      runId,
+      state: "returned",
+      result: {
+        agentLine: "QUIET SKY",
+      },
+    });
+
+    const conflictingResult = await submitResult(
+      env,
+      runId,
+      claimed.payload.bridgeToken,
+      "tai_v2_lifecycle",
+      "LOUD SKY",
+      "v2",
+    );
+    expect(conflictingResult.response.status).toBe(409);
+    expect(conflictingResult.payload.error.code).toBe("RESULT_CONFLICT");
+
+    const polled = await onGetRunV2({
+      request: request(
+        `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}`,
+        {},
+        auth(created.browserToken),
+      ),
+      env,
+      params: { runId },
+    });
+    expect(polled.status).toBe(200);
+    await expect(polled.json()).resolves.toMatchObject({
+      runId,
+      state: "returned",
+      stage: "returned",
+      request: {
+        promptLine: {
+          text: "make a quiet sky",
+        },
+      },
+      result: {
+        agentLine: "QUIET SKY",
+      },
     });
   });
 

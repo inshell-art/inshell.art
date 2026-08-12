@@ -133,10 +133,31 @@ test("required build and deploy jobs execute the full upstream gates", async () 
     assert.ok(workflow && typeof workflow === "object", `${fileName} must parse as YAML`);
     return workflow;
   };
-  const runCommands = (workflow, jobName) => {
+  const stepsFor = (workflow, jobName) => {
     const steps = workflow.jobs?.[jobName]?.steps;
     assert.ok(Array.isArray(steps), `${jobName} must define executable steps`);
-    return steps.flatMap((step) => typeof step?.run === "string" ? [step.run.trim()] : []);
+    return steps;
+  };
+  const runCommands = (workflow, jobName) => {
+    return stepsFor(workflow, jobName)
+      .flatMap((step) => typeof step?.run === "string" ? [step.run.trim()] : []);
+  };
+  const assertRuntimeGates = (workflow, jobName, homeTestCommand) => {
+    const steps = stepsFor(workflow, jobName);
+    const commands = runCommands(workflow, jobName);
+    const foundry = steps.find((step) => step?.name === "Install Foundry");
+    assert.equal(
+      foundry?.uses,
+      "foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09",
+      `${jobName} must pin the reviewed Foundry action commit`,
+    );
+    assert.equal(foundry?.with?.version, "v1.5.1", `${jobName} must pin Foundry v1.5.1`);
+    assert.ok(commands.includes("anvil --version"), `${jobName} must verify Anvil`);
+    assert.ok(commands.includes(homeTestCommand), `${jobName} must run full Home test discovery`);
+    assert.ok(
+      commands.includes("pnpm run test:thought-runtime"),
+      `${jobName} must run THOUGHT runtime and Anvil persistence tests`,
+    );
   };
   const assertFullGates = (workflow, jobName) => {
     const commands = runCommands(workflow, jobName);
@@ -156,12 +177,20 @@ test("required build and deploy jobs execute the full upstream gates", async () 
   assertFullGates(testWorkflow, "build");
   assertFullGates(deployWorkflow, "deploy-home");
   assertFullGates(deployWorkflow, "deploy-thought");
+  assertRuntimeGates(testWorkflow, "build", "pnpm run test:presepolia");
+  assertRuntimeGates(deployWorkflow, "deploy-home", "pnpm run test:presepolia");
+  assertRuntimeGates(deployWorkflow, "deploy-thought", "pnpm run test:unit");
 
   assert.ok(
     runCommands(testWorkflow, "build").includes("pnpm run test:presepolia"),
     "the required build job must retain the independent pre-Sepolia test suite",
   );
   const packageJson = JSON.parse(await fs.readFile(path.join(root, "package.json"), "utf8"));
+  const homePackageJson = JSON.parse(
+    await fs.readFile(path.join(root, "apps/home/package.json"), "utf8"),
+  );
+  assert.equal(homePackageJson.scripts?.["test:presepolia"], "pnpm run test:unit");
+  assert.equal(homePackageJson.scripts?.["test:unit"], "jest --runInBand");
   assert.match(
     packageJson.scripts?.["test:presepolia"] ?? "",
     /pnpm run test:upstream-release-check/u,
