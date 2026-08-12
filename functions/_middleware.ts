@@ -530,6 +530,7 @@ function isAppShellRoute(pathname: string) {
     pathname === "/path-app" ||
     pathname === "/path" ||
     pathname === "/gallery" ||
+    pathname === "/will" ||
     isTokenRoute(pathname, "path")
   );
 }
@@ -915,6 +916,10 @@ function appShellMetadata(rawPathname: string): AppShellMetadata {
     ["/gallery", {
       title: "THOUGHT gallery",
       description: "Canonical THOUGHT gallery route; the current R2 collection is not deployed.",
+    }],
+    ["/will", {
+      title: "WILL",
+      description: "WILL is an Inshell Agent Art movement study: many people, many Agents, one will.",
     }],
     ["/verify", {
       title: "verify — Inshell",

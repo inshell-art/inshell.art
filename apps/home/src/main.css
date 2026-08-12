@@ -115,6 +115,14 @@
   --ecosystem-work-meta-line-height: 1.5;
   --ecosystem-work-meta-color: var(--muted);
   --ecosystem-work-meta-weight: var(--weight-thin);
+  --will-page-content-padding-block-start: var(--shell-route-content-padding-block-start);
+  --will-page-identity-gap: var(--shell-context-popover-row-gap);
+  --will-page-dot-field-margin-block-start: clamp(28px, 4vh, 44px);
+  --will-page-dot-field-min-height: min(52dvh, 540px);
+  --will-dot-color: var(--canonical-green);
+  --will-dot-radius: 1.5px;
+  --will-dot-edge-softness: 0.5px;
+  --will-dot-pitch: clamp(14px, 1.7vw, 24px);
   --path-app-shell-padding-block-start: var(--shell-route-padding-block-start);
   --path-app-shell-padding-block-end: var(--shell-route-padding-block-end);
   --path-app-content-gap: clamp(10px, 2vh, 28px);
@@ -261,6 +269,73 @@ button,
   width: min(var(--main-area-width), 100%);
 }
 
+.will-page {
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  padding-block-start: var(--will-page-content-padding-block-start);
+}
+
+.will-page__identity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--will-page-identity-gap);
+  text-align: center;
+}
+
+.will-page__title-line {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: baseline;
+}
+
+.will-page__title {
+  grid-column: 2;
+  margin: 0;
+  color: var(--accent);
+  font-size: var(--shell-route-title-font-size);
+  font-weight: var(--weight-thin);
+  line-height: var(--shell-route-title-line-height);
+  letter-spacing: var(--shell-route-title-letter-spacing);
+}
+
+.will-page__launch-note {
+  grid-column: 3;
+  justify-self: start;
+  margin-inline-start: var(--will-page-identity-gap);
+  color: var(--muted);
+  font-size: var(--font-size-10);
+  font-weight: var(--weight-mid);
+  line-height: var(--line-height-tight);
+  white-space: nowrap;
+}
+
+.will-page__slogan {
+  margin: 0;
+  color: var(--bright);
+  font-size: clamp(var(--font-size-12), 1.2vw, var(--font-size-16));
+  font-weight: var(--weight-mid);
+  line-height: var(--line-height-tight);
+}
+
+.will-page__dot-field {
+  width: 100%;
+  min-height: var(--will-page-dot-field-min-height);
+  flex: 1 1 auto;
+  margin-block-start: var(--will-page-dot-field-margin-block-start);
+  background-image: radial-gradient(
+    circle at center,
+    var(--will-dot-color) 0 var(--will-dot-radius),
+    transparent calc(var(--will-dot-radius) + var(--will-dot-edge-softness))
+  );
+  background-position: center;
+  background-size: var(--will-dot-pitch) var(--will-dot-pitch);
+}
+
 .ecosystem-home {
   width: 100%;
   min-height: 100svh;
@@ -304,6 +379,17 @@ button,
   gap: 0;
   color: var(--ecosystem-movement-color);
   text-decoration: none;
+}
+
+.ecosystem-home__movement--button {
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
 }
 
 .ecosystem-home__movement-title {

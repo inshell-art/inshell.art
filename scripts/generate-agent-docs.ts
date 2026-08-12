@@ -1845,6 +1845,7 @@ function agentIndex(
       { route: "/thought", topics: ["thought", "contracts", "wallet-local-data"] },
       { route: "/thought/{tokenId}", topics: ["thought", "contracts", "verification"] },
       { route: "/gallery", topics: ["thought", "artwork-metadata-chain", "verification"] },
+      { route: "/will", topics: ["will", "movements"] },
       { route: "/verify", topics: ["verification", "source-release-boundaries"] },
     ],
   };
@@ -2714,6 +2715,7 @@ function sitemap() {
     "/pulse",
     "/thought",
     "/gallery",
+    "/will",
     "/verify",
   ];
   return [

@@ -58,11 +58,11 @@ WILL is still being created and developed. Its fuller artistic form and the part
 
 The limited account reflects the current work, not intentional concealment of a completed design.
 
-## Current documentation
+## Current study
 
 - Authority: artist-editorial, app-documentation
 
-WILL is planned for 2027. These docs expose its slogan and current visual study. There is no standalone public preview, creation, or mint surface, and the documentation is not evidence of deployment.
+WILL is planned for 2027. The WILL surface exposes its slogan and current visual study; it is a preview, not a creation or mint surface and not evidence of deployment.
 
 > The date is a plan, not deployment evidence.
 
@@ -72,3 +72,4 @@ WILL is planned for 2027. These docs expose its slogan and current visual study.
 - [read all Movements](https://inshell.art/docs/movements)
 - [return to THOUGHT](https://inshell.art/docs/thought)
 - [continue to AWA](https://inshell.art/docs/awa)
+- [preview WILL](https://inshell.art/will)

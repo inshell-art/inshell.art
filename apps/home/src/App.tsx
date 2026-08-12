@@ -8,6 +8,7 @@ import PathPage from "@/components/PathPage";
 import DocsPage from "@/components/DocsPage";
 import VerifyPage from "@/components/VerifyPage";
 import ThoughtDetailPage from "@/components/ThoughtDetailPage";
+import WillPage from "@/components/WillPage";
 import FloatingReportBug from "@/components/FloatingReportBug";
 import PreviewWatermark from "@/components/PreviewWatermark";
 import { DOCS_SOURCE } from "@/content/docs";
@@ -107,6 +108,7 @@ function getPrimitiveRoute(locationKey: string) {
   if (pathname === "/docs" || parseDocsRouteSlug(pathname)) return "docs";
   if (pathname === "/color-font") return "color-font";
   if (pathname === "/path" || parseTokenRouteId(pathname, "path")) return "path";
+  if (pathname === "/will") return "will";
   if (pathname === "/verify") return "verify";
   if (parseTokenRouteId(pathname, "thought")) return "thought";
   return null;
@@ -282,6 +284,8 @@ function routeMetadata(pathname: string): RouteMetadata {
     "/thought":
       "THOUGHT is a narrow terminal channel between one human intention and one Agent response.",
     "/gallery": "Canonical THOUGHT gallery route; the current R2 collection is not deployed.",
+    "/will":
+      "WILL is an Inshell Agent Art movement study: many people, many Agents, one will.",
     "/verify":
       "Official origins, contracts, releases, locks, and verification boundaries for Inshell.",
     "/color-font": "Inshell color and typography primitives.",
@@ -292,6 +296,7 @@ function routeMetadata(pathname: string): RouteMetadata {
     "/pulse": "Pulse",
     "/thought": "THOUGHT",
     "/gallery": "THOUGHT gallery",
+    "/will": "WILL",
     "/verify": "verify — Inshell",
     "/color-font": "color-font — Inshell",
   };
@@ -515,6 +520,8 @@ export default function App() {
             <DocsPage topicSlug={docsTopicSlug} />
           ) : primitiveRoute === "color-font" ? (
             <ColorFontPage />
+          ) : primitiveRoute === "will" ? (
+            <WillPage />
           ) : primitiveRoute === "verify" ? (
             <VerifyPage />
           ) : primitiveRoute === "thought" && thoughtTokenId ? (

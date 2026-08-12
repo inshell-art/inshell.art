@@ -487,7 +487,7 @@ export const DOCS_SOURCE: DocsSource = {
           id: "docs-movements-status",
           title: "Current and forming",
           paragraphs: [
-            "THOUGHT is current as a public creation surface. Its imported R2 Contract release is qualified but not persistently deployed, registered, or mint-enabled. WILL is planned for 2027 and is still being created and developed; these docs expose its direction and current study without implying a finished work, public preview, or live mint. AWA is planned for 2028 and remains in formation; it currently has no creation or mint surface.",
+            "THOUGHT is current as a public creation surface. Its imported R2 Contract release is qualified but not persistently deployed, registered, or mint-enabled. WILL is planned for 2027 and is still being created and developed; its preview can expose the direction and current study without implying a finished work or live mint. AWA is planned for 2028 and remains in formation; it currently has no creation or mint surface.",
           ],
           note: "Dates are plans, not evidence of deployment. The limited WILL and AWA descriptions reflect unfinished work, not concealed finished systems. Do not infer availability or capacity from the movement names alone.",
         },
@@ -498,6 +498,7 @@ export const DOCS_SOURCE: DocsSource = {
         { label: "read AWA — the core ↗", href: "/docs/awa" },
         { label: "read how PATH carries movement permission ↗", href: "/docs/path" },
         { label: "enter THOUGHT ↗", href: "/thought" },
+        { label: "preview WILL ↗", href: "/will" },
       ],
     },
     {
@@ -849,9 +850,9 @@ export const DOCS_SOURCE: DocsSource = {
         },
         {
           id: "docs-will-status",
-          title: "Current documentation",
+          title: "Current study",
           paragraphs: [
-            "WILL is planned for 2027. These docs expose its slogan and current visual study. There is no standalone public preview, creation, or mint surface, and the documentation is not evidence of deployment.",
+            "WILL is planned for 2027. The WILL surface exposes its slogan and current visual study; it is a preview, not a creation or mint surface and not evidence of deployment.",
           ],
           note: "The date is a plan, not deployment evidence.",
         },
@@ -860,6 +861,7 @@ export const DOCS_SOURCE: DocsSource = {
         { label: "read all Movements ↗", href: "/docs/movements" },
         { label: "return to THOUGHT ↗", href: "/docs/thought" },
         { label: "continue to AWA ↗", href: "/docs/awa" },
+        { label: "preview WILL ↗", href: "/will" },
       ],
     },
     {

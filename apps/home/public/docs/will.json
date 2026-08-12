@@ -93,9 +93,9 @@
           "app-documentation"
         ],
         "id": "docs-will-status",
-        "title": "Current documentation",
+        "title": "Current study",
         "paragraphs": [
-          "WILL is planned for 2027. These docs expose its slogan and current visual study. There is no standalone public preview, creation, or mint surface, and the documentation is not evidence of deployment."
+          "WILL is planned for 2027. The WILL surface exposes its slogan and current visual study; it is a preview, not a creation or mint surface and not evidence of deployment."
         ],
         "note": "The date is a plan, not deployment evidence."
       }
@@ -118,6 +118,12 @@
         "label": "continue to AWA",
         "href": "/docs/awa",
         "canonicalHref": "https://inshell.art/docs/awa"
+      },
+      {
+        "role": "navigation",
+        "label": "preview WILL",
+        "href": "/will",
+        "canonicalHref": "https://inshell.art/will"
       }
     ]
   }

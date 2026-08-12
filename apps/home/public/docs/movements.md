@@ -124,7 +124,7 @@ Contract state records participation, not inward achievement. It does not measur
 
 - Authority: artist-editorial, app-documentation
 
-THOUGHT is current as a public creation surface. Its imported R2 Contract release is qualified but not persistently deployed, registered, or mint-enabled. WILL is planned for 2027 and is still being created and developed; these docs expose its direction and current study without implying a finished work, public preview, or live mint. AWA is planned for 2028 and remains in formation; it currently has no creation or mint surface.
+THOUGHT is current as a public creation surface. Its imported R2 Contract release is qualified but not persistently deployed, registered, or mint-enabled. WILL is planned for 2027 and is still being created and developed; its preview can expose the direction and current study without implying a finished work or live mint. AWA is planned for 2028 and remains in formation; it currently has no creation or mint surface.
 
 > Dates are plans, not evidence of deployment. The limited WILL and AWA descriptions reflect unfinished work, not concealed finished systems. Do not infer availability or capacity from the movement names alone.
 
@@ -136,3 +136,4 @@ THOUGHT is current as a public creation surface. Its imported R2 Contract releas
 - [read AWA — the core](https://inshell.art/docs/awa)
 - [read how PATH carries movement permission](https://inshell.art/docs/path)
 - [enter THOUGHT](https://inshell.art/thought)
+- [preview WILL](https://inshell.art/will)

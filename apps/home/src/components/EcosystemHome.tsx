@@ -30,7 +30,7 @@ const MOVEMENTS: Movement[] = [
       : "not deployed",
     href: "thought",
   },
-  { key: "will", title: "WILL", note: "launch in 2027" },
+  { key: "will", title: "WILL", note: "launch in 2027", href: "will" },
   { key: "awa", title: "AWA!", note: "launch in 2028" },
 ];
 
@@ -86,11 +86,11 @@ export default function EcosystemHome() {
       <section className="ecosystem-home__hero">
         <div className="ecosystem-home__movements" aria-label="Inshell movements">
           {MOVEMENTS.map((movement) => (
-            movement.href === "thought" ? (
+            movement.href ? (
               <a
                 key={movement.key}
                 className="ecosystem-home__movement"
-                href="/thought"
+                href={`/${movement.href}`}
                 aria-label={movement.title}
               >
                 <span className="ecosystem-home__movement-note" data-note={movement.note}>
@@ -99,12 +99,18 @@ export default function EcosystemHome() {
                 <span className="ecosystem-home__movement-title">{movement.title}</span>
               </a>
             ) : (
-              <span key={movement.key} className="ecosystem-home__movement">
+              <button
+                key={movement.key}
+                type="button"
+                className="ecosystem-home__movement ecosystem-home__movement--button"
+                aria-label={movement.title}
+                onClick={() => window.alert("AWA!")}
+              >
                 <span className="ecosystem-home__movement-note" data-note={movement.note}>
                   {movement.note}
                 </span>
                 <span className="ecosystem-home__movement-title">{movement.title}</span>
-              </span>
+              </button>
             )
           ))}
         </div>

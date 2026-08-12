@@ -11,7 +11,7 @@
   "completeJson": "/docs/content.json",
   "canonicalCompleteJson": "https://inshell.art/docs/content.json",
   "completeJsonMediaType": "application/json",
-  "completeJsonSha256": "a15a62bf49168cd9d723f56c3ac99bddd136042cb174ccb4840a8d1041b0a1b9",
+  "completeJsonSha256": "bed8bebaa1a45e5e1d33aef932f149ccc147a6b49be555d024ebe47579c02f1f",
   "purpose": "Public, read-only discovery for visitors using their own Agents.",
   "sourceLock": {
     "url": "/docs/source-lock.json",
@@ -19,7 +19,7 @@
     "schemaUrl": "/docs/source-lock.schema.json",
     "canonicalSchemaUrl": "https://inshell.art/docs/source-lock.schema.json",
     "mediaType": "application/json",
-    "sha256": "82e2e22cc4169c7e40d7e815474046b47ee5e3470094266feca6db0763d568e9",
+    "sha256": "1382898c52cb59d6b23de8086be2b9896b043f11f0f8b1e79d5e541daa442125",
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
@@ -205,11 +205,11 @@
       "markdown": "/docs/movements.md",
       "canonicalMarkdown": "https://inshell.art/docs/movements.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "26d91fa20e23bfb868afc25e2a6fc3c9249c41a4375a0488b1b0e73bf3997277",
+      "markdownSha256": "e6c11486406543c0da49c6419e1cbc41049a947cc356098781c53433e5243b99",
       "json": "/docs/movements.json",
       "canonicalJson": "https://inshell.art/docs/movements.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "be63d0f3bbc5da2eeb11c16534e3b253f615d7e03153206d6ce9135d4b684191"
+      "jsonSha256": "320b51f47c3c260db4a42e95e13fdc46accbee16a50a1d5501916cdba74abc5b"
     },
     {
       "id": "thought",
@@ -254,11 +254,11 @@
       "markdown": "/docs/will.md",
       "canonicalMarkdown": "https://inshell.art/docs/will.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "cfed61f4494c0e5fe3ab0b5b5a3b38345d6c0a2087d7e567b9cfa23efede99b9",
+      "markdownSha256": "ea916df456e94bad11734189147ddd84184f2ffc463d59670095d853e858934b",
       "json": "/docs/will.json",
       "canonicalJson": "https://inshell.art/docs/will.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "e65c9b565a60cbb1e5560f3903c6b96b904edcfc4d8b65b333f7169db1fdeae1"
+      "jsonSha256": "449d0844d8472cf0774afb7377f4b0288d57f32327cd0463c277a7780d0a18cc"
     },
     {
       "id": "awa",
@@ -828,6 +828,13 @@
         "thought",
         "artwork-metadata-chain",
         "verification"
+      ]
+    },
+    {
+      "route": "/will",
+      "topics": [
+        "will",
+        "movements"
       ]
     },
     {

@@ -245,6 +245,32 @@ describe("Pages middleware canonical routes", () => {
     expect(ctx.next).not.toHaveBeenCalled();
   });
 
+  test("serves canonical WILL metadata from the current root app shell", async () => {
+    const ctx = middlewareContext("https://inshell.art/will");
+    ctx.assetsFetch.mockResolvedValueOnce(
+      new Response(
+        '<!doctype html><html><head><link rel="canonical" href="https://inshell.art/" /><title>Inshell</title></head></html>',
+        { headers: { "content-type": "text/html; charset=utf-8" } },
+      ),
+    );
+
+    const response = await onRequest(ctx);
+    const html = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe(
+      "public, max-age=60, stale-while-revalidate=300",
+    );
+    expect(response.headers.get("x-inshell-frontend-recovery")).toBeNull();
+    expect(html).toContain('<link rel="canonical" href="https://inshell.art/will" />');
+    expect(html).toContain("<title>WILL</title>");
+    expect(html).toContain(
+      '<meta name="description" content="WILL is an Inshell Agent Art movement study: many people, many Agents, one will." />',
+    );
+    expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
+    expect(ctx.next).not.toHaveBeenCalled();
+  });
+
   test("serves the same-origin docs index with canonical and Agent discovery metadata", async () => {
     const ctx = middlewareContext("https://inshell.art/docs");
     ctx.assetsFetch.mockResolvedValueOnce(

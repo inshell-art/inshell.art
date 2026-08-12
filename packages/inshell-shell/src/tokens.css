@@ -73,6 +73,7 @@
   --shell-topbar-dot-off: var(--muted);
   --shell-topbar-dot-pending: #d0a200;
   --shell-topbar-dot-error: #cc4c4c;
+  --shell-context-popover-row-gap: 6px;
   --shell-wallet-modal-width: min(360px, calc(100vw - 40px));
   --shell-wallet-modal-padding: 18px 20px;
   --shell-wallet-modal-offset: 8px;

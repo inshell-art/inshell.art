@@ -49,6 +49,7 @@ const CANONICAL_DOCS_APP_ROUTES = new Set([
   "/pulse",
   "/thought",
   "/verify",
+  "/will",
   ...DOCS_SOURCE.topics.map((topic) => `/docs/${topic.slug}`),
 ]);
 
@@ -419,6 +420,12 @@ describe("Docs source editorial guardrails", () => {
     expect(topicText(will as DocsTopic)).toMatch(
       /still being created and developed[\s\S]{0,300}not intentional concealment of a completed design/i,
     );
+    expect(will.sections?.find(({ id }) => id === "docs-will-status")).toMatchObject({
+      title: "Current study",
+      paragraphs: [
+        "WILL is planned for 2027. The WILL surface exposes its slogan and current visual study; it is a preview, not a creation or mint surface and not evidence of deployment.",
+      ],
+    });
     expect(topicText(awa as DocsTopic)).toMatch(
       /third movement[\s\S]{0,180}core of Inshell/i,
     );
@@ -436,6 +443,8 @@ describe("Docs source editorial guardrails", () => {
       const topicHrefs = new Set(movementTopics.get(slug)?.links?.map(({ href }) => href));
       for (const href of hrefs) expect(topicHrefs.has(href)).toBe(true);
     }
+    expect(movements.links).toContainEqual({ label: "preview WILL ↗", href: "/will" });
+    expect(will.links).toContainEqual({ label: "preview WILL ↗", href: "/will" });
 
     expect(movements?.sections?.map(({ id }) => id)).toEqual(
       expect.arrayContaining([
@@ -661,7 +670,7 @@ describe("Docs source editorial guardrails", () => {
     }
   });
 
-  test("publishes the canonical gallery deployment context", () => {
+  test("publishes the canonical gallery and WILL page contexts", () => {
     const outputRoot = nodePath.resolve(cwd(), "public");
     const index = JSON.parse(
       readFileSync(nodePath.join(outputRoot, "docs/agent-index.json"), "utf8"),
@@ -675,6 +684,10 @@ describe("Docs source editorial guardrails", () => {
       "artwork-metadata-chain",
       "verification",
     ]);
+    expect(index.pageContexts.find(({ route }) => route === "/will")?.topics).toEqual([
+      "will",
+      "movements",
+    ]);
     expect(index.pageContexts.find(({ route }) => route === "/")?.topics).toEqual(
       expect.arrayContaining(["thought", "artwork-metadata-chain"]),
     );
@@ -684,6 +697,7 @@ describe("Docs source editorial guardrails", () => {
 
     const sitemap = readFileSync(nodePath.join(outputRoot, "sitemap.xml"), "utf8");
     expect(sitemap).toContain("https://inshell.art/gallery");
+    expect(sitemap).toContain("https://inshell.art/will");
   });
 
   test("keeps Agent Art broader than THOUGHT's prompt-response format", () => {

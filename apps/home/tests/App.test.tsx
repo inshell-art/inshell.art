@@ -308,7 +308,10 @@ describe("App Component", () => {
       "href",
       "/thought",
     );
-    expect(screen.getByText("WILL")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "WILL" })).toHaveAttribute(
+      "href",
+      "/will",
+    );
     expect(screen.getByText("AWA!")).toBeInTheDocument();
     expect(screen.getByText("not deployed")).toBeInTheDocument();
     expect(screen.getByText("launch in 2027")).toBeInTheDocument();
@@ -317,6 +320,33 @@ describe("App Component", () => {
     expect(screen.queryByText("movement roadmap")).toBeNull();
     expect(screen.queryByText("recent works")).toBeNull();
     expect(screen.queryByRole("link", { name: /THOUGHT #1/i })).toBeNull();
+    expect(screen.queryByTestId("auction-canvas")).toBeNull();
+  });
+
+  test("renders the WILL surface on the same-origin /will route", () => {
+    window.history.pushState({}, "", "/will");
+    render(<App />);
+
+    expect(document.title).toBe("WILL");
+    expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
+    expect(document.querySelector('link[rel="canonical"]')).toHaveAttribute(
+      "href",
+      "https://inshell.art/will",
+    );
+    expect(document.querySelector('meta[name="description"]')).toHaveAttribute(
+      "content",
+      "WILL is an Inshell Agent Art movement study: many people, many Agents, one will.",
+    );
+    expect(screen.getByRole("heading", { level: 1, name: "WILL" })).toBeInTheDocument();
+    expect(screen.getByText("launch in 2027", { exact: true })).toBeInTheDocument();
+    expect(
+      screen.getByText("many people. many Agents. one will.", { exact: true }),
+    ).toBeInTheDocument();
+    expect(document.querySelector(".will-page__dot-field")).toHaveAttribute(
+      "data-dot-layout",
+      "even",
+    );
+    expect(document.querySelector(".shell--home")).toBeNull();
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
   });
 
@@ -1424,7 +1454,10 @@ describe("App Component", () => {
       "href",
       "/thought",
     );
-    expect(screen.getByText("WILL")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "WILL" })).toHaveAttribute(
+      "href",
+      "/will",
+    );
     expect(screen.getByText("AWA!")).toBeInTheDocument();
     expect(screen.getByText("not deployed")).toBeInTheDocument();
     expect(screen.getByText("launch in 2027")).toBeInTheDocument();
@@ -1448,6 +1481,21 @@ describe("App Component", () => {
       "href",
       "/thought",
     );
+  });
+
+  test("home AWA movement alerts its name", () => {
+    const alertSpy = jest.spyOn(window, "alert").mockImplementation(() => undefined);
+
+    try {
+      render(<App />);
+
+      fireEvent.click(screen.getByRole("button", { name: "AWA!" }));
+
+      expect(alertSpy).toHaveBeenCalledTimes(1);
+      expect(alertSpy).toHaveBeenCalledWith("AWA!");
+    } finally {
+      alertSpy.mockRestore();
+    }
   });
 
   test("sepolia invite exposes floating report bug link", () => {
