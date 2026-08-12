@@ -250,7 +250,12 @@ function InwardDirection({ figure }: { figure: FieldFigure }) {
               {inward.title}
             </small>
           </span>
-          <Glyph label={inspectEdge.label}>{inspectEdge.glyph}</Glyph>
+          <Glyph
+            className="docs-figure__field-inward-arrow"
+            label={inspectEdge.label}
+          >
+            {inspectEdge.glyph}
+          </Glyph>
           <span className="docs-figure__copy docs-figure__field-destination-copy">
             {destinationLead ? (
               <small className="docs-figure__annotation">

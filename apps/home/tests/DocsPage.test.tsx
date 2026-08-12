@@ -1475,14 +1475,14 @@ describe("DocsPage character figures", () => {
       "aria-label",
       "The direction enters the shell.",
     );
-    expect(
-      inward?.querySelector(
-        ".docs-figure__field-tail > .docs-figure__glyph[role='img']",
-      ),
-    ).toHaveAttribute(
+    const inwardArrow = inward?.querySelector(
+      ".docs-figure__field-tail > .docs-figure__glyph[role='img']",
+    );
+    expect(inwardArrow).toHaveAttribute(
       "aria-label",
       "In directs inspection toward the self.",
     );
+    expect(inwardArrow).toHaveClass("docs-figure__field-inward-arrow");
     expect(inward?.querySelector(".docs-figure__field-tail")).toHaveTextContent(
       /│\s*IN[\s\S]*↓[\s\S]*Inspect what forms the[\s\S]*self/i,
     );
@@ -1686,6 +1686,10 @@ describe("DocsPage character figures", () => {
       expectSelectorTier(selector, "--docs-figure-title-font-size");
     }
     expectSelectorTier(".docs-figure__term", "--docs-figure-term-font-size");
+    expectSelectorTier(
+      '[data-figure-shape="contained-axis"]\n  .docs-figure__field-tail\n  > .docs-figure__field-inward-arrow',
+      "--docs-figure-term-font-size",
+    );
     expectSelectorTier(
       ".docs-figure__field-practice-arrow",
       "--docs-figure-term-font-size",

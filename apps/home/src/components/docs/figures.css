@@ -430,6 +430,13 @@
   white-space: pre;
 }
 
+[data-figure-shape="contained-axis"]
+  .docs-figure__field-tail
+  > .docs-figure__field-inward-arrow {
+  font-size: var(--docs-figure-term-font-size);
+  line-height: var(--docs-figure-character-line-height);
+}
+
 .docs-figure__field-destination-copy {
   justify-self: center;
   justify-items: center;

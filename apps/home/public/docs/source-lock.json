@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "f0c9527e3618182655fa1a58ef9fc971062e8e37812f56df545c39decc44ee0b",
+  "sourceTreeSha256": "2e71d89bbed4ffc4c343e4be9d395b3f00876156737f06f51e8e481e7a0cefa7",
   "groups": [
     {
       "id": "public-docs",
@@ -67,7 +67,7 @@
       "title": "Home, PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "53e3da9f42f21270128d70277a5a4741e050963ed0b1843e71321c70caefbb2e",
+      "groupSha256": "b1c7c281cb0e374f15c6e89327922cd24b9160e38b81defa0529774df191312a",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -181,8 +181,8 @@
         },
         {
           "path": "apps/home/src/components/docs/FieldFigureVisual.tsx",
-          "byteLength": 22023,
-          "sha256": "0b2256bf546cc5a06a3cf5c68a2f9b22dbd34d2bfeefa18d34239446b5df2a60"
+          "byteLength": 22126,
+          "sha256": "b2b560613efad26c5b89ac2ac97d84d93a8d188e99d1bb74ef992f39044f086f"
         },
         {
           "path": "apps/home/src/components/docs/FlowFigureVisual.tsx",
@@ -201,8 +201,8 @@
         },
         {
           "path": "apps/home/src/components/docs/figures.css",
-          "byteLength": 28309,
-          "sha256": "54c0ba60e6dac895dba34b9e94b0d10328f563e7c98ec18367ca882ed26ce1ed"
+          "byteLength": 28520,
+          "sha256": "62b06a735ef53169edfca67ccb71faa8f13764661739264af3538b8c3cece615"
         },
         {
           "path": "apps/home/src/config/publicLaunch.ts",
