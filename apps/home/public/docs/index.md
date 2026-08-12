@@ -131,11 +131,17 @@ Simply inspect your [thought](https://inshell.art/docs/thought).
   - `practice-approaches-truth: practice (Practice) --[↑ · Practice approaches truth without claiming to possess it. · Approaches without claiming possession]--> truth (Truth)`
 
 ```text
-TRUTH
-Inspect self
-↑ Approaches without claiming possession
-PRACTICE
-Examine · inspect · suspect · read · listen · feel
+┌──────────────────────────────────────────────┐
+│                    TRUTH                     │
+│                 Inspect self                 │
+└──────────────────────────────────────────────┘
+                       ↑
+     Approaches without claiming possession
+┌──────────────────────────────────────────────┐
+│                   PRACTICE                   │
+│     Examine · inspect · suspect · read ·     │
+│                listen · feel                 │
+└──────────────────────────────────────────────┘
 ```
 
 - **Truth** — Inspect self

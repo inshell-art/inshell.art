@@ -880,7 +880,7 @@ describe("DocsPage character figures", () => {
 
   const expectedFieldShapes = {
     "The inward direction": "contained-axis",
-    "How practice relates to truth": "directed-relation",
+    "How practice relates to truth": "framed-directed-relation",
     "The invariant and the open field": "open-invariant-field",
     "One prompt, one response": "prompt-response",
     "Creation Attestation": "attestation-flow-fork",
@@ -1111,7 +1111,7 @@ describe("DocsPage character figures", () => {
       /TRUTH[\s\S]*INSPECT SELF[\s\S]*↑[\s\S]*APPROACHES WITHOUT CLAIMING POSSESSION[\s\S]*PRACTICE/i,
     );
     expect(inshellPracticeFigure?.figureText).not.toMatch(
-      /TRUTH AND PRACTICE|[┌┐└┘]/,
+      /TRUTH AND PRACTICE/,
     );
     expect(inshellPracticeFigure?.figureText).not.toMatch(
       /RELATION|BOUNDARY|DOES NOT PROVE/,
@@ -1415,7 +1415,7 @@ describe("DocsPage character figures", () => {
     );
     const practice = screen
       .getByRole("figure", { name: "How practice relates to truth" })
-      .querySelector("[data-figure-shape='directed-relation']");
+      .querySelector("[data-figure-shape='framed-directed-relation']");
 
     expect(inward).toHaveTextContent(/SHELL[\s\S]*a body, face, or head/i);
     expect(inward).toHaveTextContent(/└─+┘/);
@@ -1506,7 +1506,30 @@ describe("DocsPage character figures", () => {
       practiceFigure.getAttribute("data-figure-logic") ?? "null",
     );
     expect(practice).toHaveTextContent(/TRUTH[\s\S]*↑[\s\S]*PRACTICE/i);
-    expect(practice?.querySelector(".docs-figure__character-frame")).toBeNull();
+    expect(
+      practice?.querySelectorAll(":scope .docs-figure__character-frame"),
+    ).toHaveLength(2);
+    const practiceFrames = [
+      ...(practice?.querySelectorAll(".docs-figure__character-frame") ?? []),
+    ];
+    const practiceChain = practice?.querySelector(
+      ":scope > .docs-figure__field-chain",
+    );
+    expect([...(practiceChain?.children ?? [])]).toEqual([
+      practiceFrames[0],
+      practiceRelation,
+      practiceFrames[1],
+    ]);
+    expect(practiceRelation?.closest(".docs-figure__character-frame"))
+      .toBeNull();
+    expect(practiceFrames[0]).toHaveTextContent(/TRUTH[\s\S]*Inspect self/i);
+    expect(practiceFrames[1]).toHaveTextContent(
+      /PRACTICE[\s\S]*Examine[\s\S]*feel/i,
+    );
+    expect(practice?.querySelectorAll(".docs-figure__frame-heading"))
+      .toHaveLength(0);
+    expect(practiceFrames[0]).toHaveTextContent(/┌─+[\s\S]*└─+┘/);
+    expect(practiceFrames[1]).toHaveTextContent(/┌─+[\s\S]*└─+┘/);
     expect(practiceLogic.nodes.map(({ id }: { id: string }) => id)).toEqual([
       "truth",
       "practice",

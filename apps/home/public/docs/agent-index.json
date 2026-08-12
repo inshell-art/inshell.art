@@ -11,7 +11,7 @@
   "completeJson": "/docs/content.json",
   "canonicalCompleteJson": "https://inshell.art/docs/content.json",
   "completeJsonMediaType": "application/json",
-  "completeJsonSha256": "74e50c6a8a603934ee007552c00e7e9fe40b3ed04e84dcc110570b6ec014d95f",
+  "completeJsonSha256": "cfac1e4260dcce083c12650e10a52e8dc5baed5f5bf71731f0d8b6468125ea59",
   "purpose": "Public, read-only discovery for visitors using their own Agents.",
   "sourceLock": {
     "url": "/docs/source-lock.json",
@@ -19,7 +19,7 @@
     "schemaUrl": "/docs/source-lock.schema.json",
     "canonicalSchemaUrl": "https://inshell.art/docs/source-lock.schema.json",
     "mediaType": "application/json",
-    "sha256": "73a9c824e3beb3337a33152a68d4da4446a5ee0ddd9e8698384ab2d052bddbdf",
+    "sha256": "adea9ac570bd976a779d5e26bd420178e4d97c5a8a6d39fd774ba02d75fd9a23",
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
@@ -161,11 +161,11 @@
       "markdown": "/docs/inshell.md",
       "canonicalMarkdown": "https://inshell.art/docs/inshell.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "c5660272eac0dff8df0d395f6e583f2ce56519eeed14c8312b39501e3dc2dbde",
+      "markdownSha256": "fb032c350140e638f409d6e6029999c046a33f53ffff442b0efe83ea95a5d199",
       "json": "/docs/inshell.json",
       "canonicalJson": "https://inshell.art/docs/inshell.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "806e405a5cfee3278125fe772d20d026363cb0b15d711e6de43f031dacbe1312"
+      "jsonSha256": "28fb295ed63c9ad53e3fa8705a16dadf1480f5a904de2f0f0028748819d7fa4e"
     },
     {
       "id": "agent-art",

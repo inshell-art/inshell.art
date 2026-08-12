@@ -103,7 +103,7 @@ function CharacterBox({
   capJunction = false,
   capAnnotation,
 }: {
-  heading: ReactNode;
+  heading?: ReactNode;
   children?: ReactNode;
   className?: string;
   junction?: boolean;
@@ -130,10 +130,16 @@ function CharacterBox({
             <Glyph className="docs-figure__frame-character">┐</Glyph>
           </span>
         </div>
-      ) : (
+      ) : heading ? (
         <div className="docs-figure__frame-cap">
           <Glyph className="docs-figure__frame-character">┌──</Glyph>
           <span className="docs-figure__frame-heading">{heading}</span>
+          <Glyph className="docs-figure__frame-rule">{HORIZONTAL_RAIL}</Glyph>
+          <Glyph className="docs-figure__frame-character">┐</Glyph>
+        </div>
+      ) : (
+        <div className="docs-figure__frame-cap docs-figure__frame-cap--plain">
+          <Glyph className="docs-figure__frame-character">┌</Glyph>
           <Glyph className="docs-figure__frame-rule">{HORIZONTAL_RAIL}</Glyph>
           <Glyph className="docs-figure__frame-character">┐</Glyph>
         </div>
@@ -269,10 +275,12 @@ function PracticeRelation({ figure }: { figure: FieldFigure }) {
   return (
     <div
       className="docs-figure__field-shape"
-      data-figure-shape="directed-relation"
+      data-figure-shape="framed-directed-relation"
     >
       <div className="docs-figure__field-chain docs-figure__field-chain--up">
-        <ItemCopy item={truth} />
+        <CharacterBox className="docs-figure__field-entity-frame">
+          <ItemCopy item={truth} />
+        </CharacterBox>
         <span className="docs-figure__field-practice-relation">
           <Glyph label={approachEdge.label}>{approachEdge.glyph}</Glyph>
           {approachEdge.annotation ? (
@@ -281,7 +289,9 @@ function PracticeRelation({ figure }: { figure: FieldFigure }) {
             </small>
           ) : null}
         </span>
-        <ItemCopy item={practice} />
+        <CharacterBox className="docs-figure__field-entity-frame">
+          <ItemCopy item={practice} />
+        </CharacterBox>
       </div>
     </div>
   );

@@ -152,7 +152,7 @@
           "id": "inshell.practice-truth",
           "label": "How practice relates to truth",
           "mode": "field",
-          "figureText": "TRUTH\nInspect self\n↑ Approaches without claiming possession\nPRACTICE\nExamine · inspect · suspect · read · listen · feel",
+          "figureText": "┌──────────────────────────────────────────────┐\n│                    TRUTH                     │\n│                 Inspect self                 │\n└──────────────────────────────────────────────┘\n                       ↑\n     Approaches without claiming possession\n┌──────────────────────────────────────────────┐\n│                   PRACTICE                   │\n│     Examine · inspect · suspect · read ·     │\n│                listen · feel                 │\n└──────────────────────────────────────────────┘",
           "items": [
             {
               "title": "Truth",
