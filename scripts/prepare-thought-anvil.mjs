@@ -6,6 +6,7 @@ import {
   Contract,
   JsonRpcProvider,
   encodeBytes32String,
+  keccak256,
 } from "../apps/thought/node_modules/ethers/lib.esm/index.js";
 
 import {
@@ -19,6 +20,7 @@ import {
   root,
   thoughtLaneEnvironment,
 } from "./thought-local-lane.mjs";
+import { requestThoughtAnvilCheckpoint } from "./thought-anvil-checkpoint.mjs";
 
 const rpc = async (method, params = []) => {
   const response = await fetch(THOUGHT_ANVIL_RPC_URL, {
@@ -41,6 +43,208 @@ const readRuntime = async () => {
   } catch {
     return null;
   }
+};
+
+const writeRuntime = async (runtime) => {
+  const temporary = `${THOUGHT_CONTRACT_RUNTIME_FILE}.tmp`;
+  await fs.writeFile(temporary, `${JSON.stringify(runtime, null, 2)}\n`, {
+    encoding: "utf8",
+    mode: 0o600,
+  });
+  await fs.rename(temporary, THOUGHT_CONTRACT_RUNTIME_FILE);
+};
+
+const checkpointPreparedRuntime = () =>
+  requestThoughtAnvilCheckpoint({
+    runtimeFile: THOUGHT_CONTRACT_RUNTIME_FILE,
+    rpcUrl: THOUGHT_ANVIL_RPC_URL,
+  });
+
+const contractDeploymentBlocks = async (contracts) => {
+  const wanted = new Map(
+    Object.entries(contracts).map(([key, address]) => [address.toLowerCase(), key]),
+  );
+  const blocks = {};
+  const latest = Number(BigInt(await rpc("eth_blockNumber")));
+  for (let blockNumber = 0; blockNumber <= latest && wanted.size > 0; blockNumber += 1) {
+    const block = await rpc("eth_getBlockByNumber", [
+      `0x${blockNumber.toString(16)}`,
+      true,
+    ]);
+    for (const transaction of block?.transactions ?? []) {
+      if (transaction?.to != null || typeof transaction?.hash !== "string") continue;
+      const receipt = await rpc("eth_getTransactionReceipt", [transaction.hash]);
+      const address = receipt?.contractAddress?.toLowerCase();
+      const key = wanted.get(address);
+      if (!key) continue;
+      blocks[key] = Number(BigInt(receipt.blockNumber));
+      wanted.delete(address);
+    }
+  }
+  if (wanted.size > 0) {
+    throw new Error(
+      `THOUGHT lane is missing PATH deployment receipts for ${[...wanted.values()].join(", ")}.`,
+    );
+  }
+  return blocks;
+};
+
+const immutableRanges = (artifact) =>
+  Object.values(artifact.immutableReferences ?? {}).flatMap((ranges) => ranges);
+
+const immutableCompatibleCode = (actualCode, artifact) => {
+  const actual = actualCode.replace(/^0x/, "").toLowerCase();
+  const expected = String(artifact.deployedBytecode ?? "")
+    .replace(/^0x/, "")
+    .toLowerCase();
+  if (!expected || actual.length !== expected.length) return false;
+  const masked = new Set();
+  for (const range of immutableRanges(artifact)) {
+    for (let byte = range.start; byte < range.start + range.length; byte += 1) {
+      masked.add(byte);
+    }
+  }
+  for (let byte = 0; byte < actual.length / 2; byte += 1) {
+    if (masked.has(byte)) continue;
+    const offset = byte * 2;
+    if (actual.slice(offset, offset + 2) !== expected.slice(offset, offset + 2)) {
+      return false;
+    }
+  }
+  return true;
+};
+
+const assertPathWiring = async (runtime, artifacts) => {
+  const provider = new JsonRpcProvider(THOUGHT_ANVIL_RPC_URL);
+  const pathNftAddress = runtime.pathNft.address;
+  const adapterAddress = runtime.pathPulseAdapter.address;
+  const auctionAddress = runtime.pulseAuction.address;
+  const pathNft = new Contract(
+    pathNftAddress,
+    JSON.parse(await fs.readFile(artifacts.PathNFT, "utf8")).abi,
+    provider,
+  );
+  const adapter = new Contract(
+    adapterAddress,
+    JSON.parse(await fs.readFile(artifacts.PathPulseAdapter, "utf8")).abi,
+    provider,
+  );
+  const auction = new Contract(
+    auctionAddress,
+    JSON.parse(await fs.readFile(artifacts.PulseAuction, "utf8")).abi,
+    provider,
+  );
+  const [
+    adapterConfig,
+    wiringFrozen,
+    tokenBase,
+    epochBase,
+    publicMinter,
+    publicMinterFrozen,
+    sparkClaimDuration,
+    reservedCap,
+    auctionConfig,
+    mintAdapter,
+    paymentToken,
+    treasury,
+    auctionDeployer,
+  ] =
+    await Promise.all([
+      adapter.getConfig(),
+      adapter.wiringFrozen(),
+      adapter.tokenBase(),
+      adapter.epochBase(),
+      pathNft.publicMinter(),
+      pathNft.publicMinterFrozen(),
+      pathNft.sparkClaimDuration(),
+      pathNft.getReservedCap(),
+      auction.getConfig(),
+      auction.mintAdapter(),
+      auction.paymentToken(),
+      auction.treasury(),
+      auction.deployer(),
+    ]);
+  const same = (left, right) => left.toLowerCase() === right.toLowerCase();
+  if (
+    !same(adapterConfig[0], auctionAddress) ||
+    !same(adapterConfig[1], pathNftAddress) ||
+    wiringFrozen !== true ||
+    tokenBase !== 1n ||
+    epochBase !== 1n ||
+    !same(publicMinter, adapterAddress) ||
+    publicMinterFrozen !== true ||
+    sparkClaimDuration !== BigInt(runtime.pathSpark.claimDurationSeconds) ||
+    reservedCap !== BigInt(runtime.pathSpark.reservedCap) ||
+    !same(mintAdapter, adapterAddress) ||
+    !same(paymentToken, runtime.paymentToken.address) ||
+    !same(treasury, runtime.pathAuction.treasury) ||
+    !same(auctionDeployer, runtime.pathSpark.issuer) ||
+    Number(auctionConfig[0]) !== runtime.pathAuction.openTime ||
+    String(auctionConfig[1]) !== runtime.pathAuction.genesisPrice ||
+    String(auctionConfig[2]) !== runtime.pathAuction.genesisFloor ||
+    String(auctionConfig[3]) !== runtime.pathAuction.k ||
+    String(auctionConfig[4]) !== runtime.pathAuction.pts
+  ) {
+    throw new Error("THOUGHT lane PATH wiring/config does not match its runtime descriptor.");
+  }
+};
+
+const enrichPathDeployment = async (runtime, pathRelease) => {
+  const contracts = {
+    pathNft: runtime?.pathNft?.address,
+    pathPulseAdapter: runtime?.pathPulseAdapter?.address,
+    pulseAuction: runtime?.pulseAuction?.address,
+  };
+  if (
+    Object.values(contracts).some(
+      (address) => typeof address !== "string" || !/^0x[a-fA-F0-9]{40}$/.test(address),
+    )
+  ) {
+    throw new Error("THOUGHT runtime is missing PATH deployment addresses.");
+  }
+  const deploymentBlocks = await contractDeploymentBlocks(contracts);
+  const records = {};
+  const artifactNames = {
+    pathNft: "PathNFT",
+    pathPulseAdapter: "PathPulseAdapter",
+    pulseAuction: "PulseAuction",
+  };
+  for (const [key, address] of Object.entries(contracts)) {
+    const code = await rpc("eth_getCode", [address, "latest"]);
+    if (typeof code !== "string" || /^0x0*$/i.test(code)) {
+      throw new Error(`THOUGHT lane has no code for PATH ${key}.`);
+    }
+    const artifact = JSON.parse(
+      await fs.readFile(pathRelease.artifacts[artifactNames[key]], "utf8"),
+    );
+    if (!immutableCompatibleCode(code, artifact)) {
+      throw new Error(`THOUGHT lane PATH ${key} bytecode is not the pinned release.`);
+    }
+    records[key] = {
+      address,
+      deployBlock: deploymentBlocks[key],
+      codeHash: keccak256(code),
+    };
+  }
+  const next = {
+    ...runtime,
+    pathDeployment: {
+      schema: "inshell.path.local-deployment.v1",
+      chainId: Number(THOUGHT_ANVIL_CHAIN_ID),
+      releaseTag: PATH_RELEASE_PIN.releaseTag,
+      releasePublicationCommit: PATH_RELEASE_PIN.releasePublicationCommit,
+      contractSourceCommit: PATH_RELEASE_PIN.contractSourceCommit,
+      manifestSha256: PATH_RELEASE_PIN.manifestSha256,
+      contracts: records,
+      paymentToken: runtime.paymentToken.address,
+      auction: runtime.pathAuction,
+    },
+  };
+  await assertPathWiring(runtime, pathRelease.artifacts);
+  if (JSON.stringify(next.pathDeployment) !== JSON.stringify(runtime.pathDeployment)) {
+    await writeRuntime(next);
+  }
+  return next;
 };
 
 const runtimeAddresses = (runtime) => [
@@ -162,7 +366,7 @@ const runDeployment = () =>
     });
   });
 
-await resolvePinnedPathRelease();
+const pathRelease = await resolvePinnedPathRelease();
 const chainId = Number(BigInt(await rpc("eth_chainId")));
 if (chainId !== Number(THOUGHT_ANVIL_CHAIN_ID)) {
   throw new Error(
@@ -172,6 +376,8 @@ if (chainId !== Number(THOUGHT_ANVIL_CHAIN_ID)) {
 
 let runtime = await readRuntime();
 if (await isReadyRuntime(runtime)) {
+  runtime = await enrichPathDeployment(runtime, pathRelease);
+  await checkpointPreparedRuntime();
   console.log(`THOUGHT lane already ready at ${THOUGHT_ANVIL_RPC_URL}`);
   console.log(`Runtime: ${THOUGHT_CONTRACT_RUNTIME_FILE}`);
   process.exit(0);
@@ -195,6 +401,8 @@ runtime = await readRuntime();
 if (!(await isReadyRuntime(runtime))) {
   throw new Error("THOUGHT deployment completed without a valid runtime descriptor.");
 }
+runtime = await enrichPathDeployment(runtime, pathRelease);
+await checkpointPreparedRuntime();
 
 console.log(`THOUGHT lane prepared at ${THOUGHT_ANVIL_RPC_URL}`);
 console.log(`Runtime: ${THOUGHT_CONTRACT_RUNTIME_FILE}`);

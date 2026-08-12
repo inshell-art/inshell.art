@@ -4,6 +4,7 @@ import {
   encodeFunctionResult,
   getAddress,
   parseAbi,
+  stringToHex,
   toEventSelector,
   type Hex,
 } from "viem";
@@ -18,7 +19,20 @@ const pathNftAbi = parseAbi([
   "function balanceOf(address owner) view returns (uint256)",
   "function ownerOf(uint256 tokenId) view returns (address)",
   "function tokenURI(uint256 tokenId) view returns (string)",
+  "function getStage(uint256 tokenId) view returns (uint8)",
+  "function getStageMinted(uint256 tokenId) view returns (uint32)",
+  "function getMovementQuota(bytes32 movement) view returns (uint32)",
+  "function getPermissionEpoch(uint256 tokenId) view returns (uint256)",
+  "function isSparker(uint256 tokenId) view returns (bool)",
+  "function locked(uint256 tokenId) view returns (bool)",
+  "function sparkName(uint256 tokenId) view returns (string)",
 ]);
+
+const PATH_MOVEMENTS = {
+  THOUGHT: stringToHex("THOUGHT", { size: 32 }),
+  WILL: stringToHex("WILL", { size: 32 }),
+  AWA: stringToHex("AWA", { size: 32 }),
+} as const;
 
 const TRANSFER_TOPIC = toEventSelector("Transfer(address,address,uint256)");
 const ZERO_TOPIC =
@@ -103,6 +117,37 @@ describe("path token inventory", () => {
     expect(cached?.[0]?.metadata.name).toBe("PATH #7");
   });
 
+  test("ignores browser PATH token cache on local Anvil", () => {
+    const cacheKey = `inshell:path-token-cache:v1:all:${PATH_NFT.toLowerCase()}:1:none:none`;
+    globalThis.localStorage.setItem(
+      cacheKey,
+      JSON.stringify({
+        cachedAt: Date.now(),
+        items: [
+          {
+            tokenId: "7",
+            tokenIdLabel: "7",
+            owner: OWNER,
+            tokenUri: metadataUri("PATH #7"),
+            metadata: { name: "PATH #7" },
+          },
+        ],
+      })
+    );
+    (globalThis as any).__VITE_ENV__ = { VITE_NETWORK: "devnet" };
+
+    try {
+      expect(
+        readCachedAllPathTokens({
+          pathNftAddress: PATH_NFT,
+          fromBlock: 1,
+        }),
+      ).toBeNull();
+    } finally {
+      delete (globalThis as any).__VITE_ENV__;
+    }
+  });
+
   test("loads owned PATH tokens from Transfer logs and tokenURI metadata", async () => {
     const logs = [
       transferLog(ZERO_TOPIC, OWNER, 1n, 2, 0),
@@ -166,12 +211,12 @@ describe("path token inventory", () => {
     });
   });
 
-  test("loads all minted PATH tokens from sequential ownerOf scan", async () => {
+  test("unions sequential PATH ids with high reserved mint ids", async () => {
     const provider = {
       request: jest.fn(async ({ method, params }: any) => {
         if (method === "eth_blockNumber") return "0x10";
         if (method === "eth_getLogs") {
-          throw new Error("eth_getLogs should not be needed for sequential PATH ids");
+          return [transferLog(ZERO_TOPIC, OWNER, 1_000_000_000_000_000n, 8, 0)];
         }
         if (method === "eth_call") {
           const call = params[0];
@@ -180,7 +225,10 @@ describe("path token inventory", () => {
             data: call.data,
           });
           if (decoded.functionName === "ownerOf") {
-            if (decoded.args[0] > 2n) {
+            if (
+              decoded.args[0] > 2n &&
+              decoded.args[0] !== 1_000_000_000_000_000n
+            ) {
               throw new Error("ERC721NonexistentToken");
             }
             return encodeFunctionResult({
@@ -196,6 +244,64 @@ describe("path token inventory", () => {
               result: metadataUri(`PATH #${decoded.args[0].toString()}`),
             });
           }
+          if (decoded.functionName === "getStage") {
+            return encodeFunctionResult({
+              abi: pathNftAbi,
+              functionName: "getStage",
+              result: 0,
+            });
+          }
+          if (decoded.functionName === "getStageMinted") {
+            return encodeFunctionResult({
+              abi: pathNftAbi,
+              functionName: "getStageMinted",
+              result: 0,
+            });
+          }
+          if (decoded.functionName === "getPermissionEpoch") {
+            return encodeFunctionResult({
+              abi: pathNftAbi,
+              functionName: "getPermissionEpoch",
+              result: decoded.args[0] === 1n ? 4n : 0n,
+            });
+          }
+          if (decoded.functionName === "isSparker") {
+            return encodeFunctionResult({
+              abi: pathNftAbi,
+              functionName: "isSparker",
+              result: decoded.args[0] === 1n,
+            });
+          }
+          if (decoded.functionName === "locked") {
+            return encodeFunctionResult({
+              abi: pathNftAbi,
+              functionName: "locked",
+              result: decoded.args[0] === 1n,
+            });
+          }
+          if (decoded.functionName === "sparkName") {
+            return encodeFunctionResult({
+              abi: pathNftAbi,
+              functionName: "sparkName",
+              result: decoded.args[0] === 1n ? "origin" : "",
+            });
+          }
+          if (decoded.functionName === "getMovementQuota") {
+            const movement = decoded.args[0].toLowerCase();
+            const quota =
+              movement === PATH_MOVEMENTS.THOUGHT.toLowerCase()
+                ? 1
+                : movement === PATH_MOVEMENTS.WILL.toLowerCase()
+                  ? 10
+                  : movement === PATH_MOVEMENTS.AWA.toLowerCase()
+                    ? 1
+                    : 0;
+            return encodeFunctionResult({
+              abi: pathNftAbi,
+              functionName: "getMovementQuota",
+              result: quota,
+            });
+          }
         }
         throw new Error(`unexpected RPC method ${method}`);
       }),
@@ -207,15 +313,39 @@ describe("path token inventory", () => {
       fromBlock: 1,
     });
 
-    expect(tokens.map((token) => token.tokenIdLabel)).toEqual(["1", "2"]);
+    expect(tokens.map((token) => token.tokenIdLabel)).toEqual([
+      "1",
+      "2",
+      "1000000000000000",
+    ]);
     expect(tokens.map((token) => token.owner?.toLowerCase())).toEqual([
       OWNER.toLowerCase(),
+      OTHER.toLowerCase(),
       OTHER.toLowerCase(),
     ]);
     expect(tokens.map((token) => token.metadata.name)).toEqual([
       "PATH #1",
       "PATH #2",
+      "PATH #1000000000000000",
     ]);
+    expect(tokens[0]?.contractState).toEqual({
+      stage: 0,
+      stageMinted: 0,
+      permissionEpoch: "4",
+      isSparker: true,
+      locked: true,
+      sparkName: "origin",
+      quotas: { THOUGHT: 1, WILL: 10, AWA: 1 },
+    });
+    expect(tokens[1]?.contractState).toEqual({
+      stage: 0,
+      stageMinted: 0,
+      permissionEpoch: "0",
+      isSparker: false,
+      locked: false,
+      sparkName: "",
+      quotas: { THOUGHT: 1, WILL: 10, AWA: 1 },
+    });
   });
 
   test("loads all PATH tokens from the same-origin cached API before direct RPC", async () => {

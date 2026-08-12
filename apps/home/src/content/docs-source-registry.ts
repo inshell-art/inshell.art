@@ -56,6 +56,7 @@ export const DOCS_SOURCE_REGISTRY = {
         "apps/home/src/main.tsx",
         "apps/home/src/pathMintSubmissionLock.ts",
         "apps/home/src/content/colorFont.ts",
+        "apps/home/src/content/path.ts",
         "apps/home/src/content/pulse.ts",
       ],
       directories: [

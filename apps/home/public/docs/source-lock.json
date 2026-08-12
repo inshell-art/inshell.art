@@ -11,14 +11,14 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "a6b247d0c27664c65051dd1736469cdf170e7f153373a6ddbf9899f8f9e79cee",
+  "sourceTreeSha256": "c79a570c41c95882aa10a95bc3b8d2bc4794f8749a973fbe8c8353b975c5d42e",
   "groups": [
     {
       "id": "public-docs",
       "title": "Public documentation sources",
       "owner": "inshell.art docs",
       "reason": "Human articles, Agent-readable content, authority maps, and machine-handoff selection.",
-      "groupSha256": "441a26f28ef21ef3e8cea2f6067a87e761695fd03275a31adb35e6718d8abed5",
+      "groupSha256": "fddd3a8ad9c1d0f1b08aa13be69ed9392e61e06e167e409c0585f9f9fbcc8f4b",
       "files": [
         {
           "path": "apps/home/src/content/AGENTS.md",
@@ -27,8 +27,8 @@
         },
         {
           "path": "apps/home/src/content/docs-source-registry.ts",
-          "byteLength": 7302,
-          "sha256": "765ad1098916e053ffdb6c28727b808e03d2dedf3d727bd9c67f8726feb94c21"
+          "byteLength": 7343,
+          "sha256": "a7a42721839131cc2ed5ac9a40c7a241392ecdeecbd00a44a000b2ed31041fc8"
         },
         {
           "path": "apps/home/src/content/docs.ts",
@@ -57,7 +57,7 @@
       "title": "Home, PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "b05337f751f3b375e0913dc94585d9e80cad77a6ba3a8439e9bb7117cee22304",
+      "groupSha256": "b5e4c8b4f5140be733e2ee28b3ce08718983d52e37e54a8dba94390738dcf8d3",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -71,8 +71,8 @@
         },
         {
           "path": "apps/home/src/App.tsx",
-          "byteLength": 15207,
-          "sha256": "14094cf373489cc01e778c5319c5710c796f0cec0fea95eaaabe925060b38ba6"
+          "byteLength": 17173,
+          "sha256": "3706746ad542a2ec7654d7691b28bfb6ddbcbfe408b64223f291be4836894cbe"
         },
         {
           "path": "apps/home/src/assets/icon-github.svg",
@@ -91,8 +91,8 @@
         },
         {
           "path": "apps/home/src/components/AuctionCanvas.tsx",
-          "byteLength": 270749,
-          "sha256": "cda883432c92df6182ce7a1d9eb028b210a1c63f9bc957e2f0ac93435ef5ecdf"
+          "byteLength": 272420,
+          "sha256": "3307c6dd90f7e83873c150e45252c39d3affc07cf420d0dee78ce0c2cedb79d3"
         },
         {
           "path": "apps/home/src/components/ColorFontPage.tsx",
@@ -126,8 +126,8 @@
         },
         {
           "path": "apps/home/src/components/HeaderWalletCTA.tsx",
-          "byteLength": 7464,
-          "sha256": "e80a0fe1d657a51e24e574d40097ed855594668e69daf09775b7976a33c49a92"
+          "byteLength": 7823,
+          "sha256": "c53b648f5e83da423c4e89bace7c1ceb777be501fa28d534adb9892c03c8985a"
         },
         {
           "path": "apps/home/src/components/Movements.css",
@@ -141,8 +141,8 @@
         },
         {
           "path": "apps/home/src/components/PathPage.tsx",
-          "byteLength": 26047,
-          "sha256": "c365cefad4bd9acf0bddeae7b2ba52a971e95a83691a8a156f05f844de3357fb"
+          "byteLength": 41400,
+          "sha256": "618825215521cdb476b98fab60440030b5107fabff56244b133cd14dd869cf91"
         },
         {
           "path": "apps/home/src/components/PreviewWatermark.tsx",
@@ -195,6 +195,11 @@
           "sha256": "96f03e9a16037cdb1793a35acf7ade2a4acb17a3d337d78825eec0e32c3cc972"
         },
         {
+          "path": "apps/home/src/content/path.ts",
+          "byteLength": 682,
+          "sha256": "f4c1149bc285243b1b804cdc7ad9cf90e95f67d75d457e622ba908852929ec50"
+        },
+        {
           "path": "apps/home/src/content/pulse.ts",
           "byteLength": 1232,
           "sha256": "265b8384e2d3858a167ffa46fd1c92623b1909da924ff4a9e8fe51857b7e3924"
@@ -211,8 +216,8 @@
         },
         {
           "path": "apps/home/src/main.css",
-          "byteLength": 98303,
-          "sha256": "555508fc54c741da5f95edc3442d97f8451e4435c98e5ed8fb3f44493e277167"
+          "byteLength": 102886,
+          "sha256": "d86cd68ae6b76fd2de9777763412ba95ed66543d276f13f1d414be9392d71811"
         },
         {
           "path": "apps/home/src/main.tsx",
@@ -226,8 +231,8 @@
         },
         {
           "path": "apps/home/src/services/auction/bidsService.ts",
-          "byteLength": 18070,
-          "sha256": "361426fe920326e25819906c43d947d5097ef693f5a34e17b68fb122354380b7"
+          "byteLength": 18705,
+          "sha256": "7a6a2281f81761e196b5fc366682b4ce8666be801e0c5dbd59a4e94de4e13fe9"
         },
         {
           "path": "apps/home/src/services/auction/coreService.ts",
@@ -240,9 +245,14 @@
           "sha256": "0024f9e44dcaae95a8314b20f1aaa4de20aa7a66d04ce96ad3a7ce218f666b29"
         },
         {
+          "path": "apps/home/src/services/pathIssuance.ts",
+          "byteLength": 2278,
+          "sha256": "0b8d90798ae6b1d73c698ebe7e1d96a877f0d9ebd2a79e4ffd80fa80994cb9ef"
+        },
+        {
           "path": "apps/home/src/services/pathTokens.ts",
-          "byteLength": 20185,
-          "sha256": "f7bb00e2794da685b708e74bcb1fb5b0ef79f92799fc254a5864d16b13c191db"
+          "byteLength": 23589,
+          "sha256": "0f6d9240d6d9fc780a81f38557343d90a40aea3ace5d7ea7cc28965d3ac50287"
         },
         {
           "path": "apps/home/src/services/pathVerification.ts",
@@ -762,7 +772,7 @@
       "title": "Contract consumer runtime",
       "owner": "inshell.art shared App infrastructure",
       "reason": "Address, ABI, public metadata, and release-selection logic consumed by the Apps.",
-      "groupSha256": "823c6f7bdca7958f54695628d1c02aade2c1ad103109204cee8103bf7a8d2edb",
+      "groupSha256": "0c2206741cfbcce2fcbdc2a294a8c01f0a0638fe2468f39277c345f59739888c",
       "files": [
         {
           "path": "packages/contracts/src/abi/sepolia/ColorFontV1.json",
@@ -811,8 +821,8 @@
         },
         {
           "path": "packages/contracts/src/protocolRelease.ts",
-          "byteLength": 3179,
-          "sha256": "68af355825dabaaa793c70179e55aa35b15b1600884fb0a266209a23e0b7c2cc"
+          "byteLength": 6802,
+          "sha256": "ce92ce12fc55b9ad69f3815ef18f8b0786af7f438e29f00d0a5fe4de3a47234a"
         },
         {
           "path": "packages/contracts/src/publicMetadata.ts",

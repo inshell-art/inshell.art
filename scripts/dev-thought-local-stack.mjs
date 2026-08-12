@@ -12,6 +12,7 @@ import {
   THOUGHT_HOME_HOST,
   THOUGHT_HOME_PORT,
   THOUGHT_HOME_URL,
+  readThoughtPathLaneEnvironment,
   root,
   thoughtLaneEnvironment,
 } from "./thought-local-lane.mjs";
@@ -86,6 +87,7 @@ try {
 
   await waitForRpc();
   await runToCompletion(process.execPath, ["scripts/prepare-thought-anvil.mjs"], env);
+  const servedEnv = thoughtLaneEnvironment(await readThoughtPathLaneEnvironment());
 
   console.log(`Starting THOUGHT App at ${THOUGHT_APP_URL}`);
   console.log(`Runtime: ${THOUGHT_CONTRACT_RUNTIME_FILE}`);
@@ -103,7 +105,7 @@ try {
     "--strictPort",
   ], {
     cwd: root,
-    env,
+    env: servedEnv,
     stdio: "inherit",
   });
   app.on("error", (error) => {
@@ -126,7 +128,7 @@ try {
     "--strictPort",
   ], {
     cwd: root,
-    env,
+    env: servedEnv,
     stdio: "inherit",
   });
   home.on("error", (error) => {

@@ -487,7 +487,7 @@ describe("AuctionCanvas", () => {
     (globalThis as any).__VITE_ENV__ = {
       ...(globalThis as any).__VITE_ENV__,
       VITE_NETWORK: "devnet",
-      VITE_EXPECTED_CHAIN_ID: "0x7a69",
+      VITE_EXPECTED_CHAIN_ID: "0x7a6a",
       VITE_PATH_RPC_URL: "http://127.0.0.1:8546",
       VITE_WALLET_CHAIN_RPC_URL: "",
     };
@@ -2543,7 +2543,7 @@ describe("AuctionCanvas", () => {
     (globalThis as any).__VITE_ENV__ = {
       ...(globalThis as any).__VITE_ENV__,
       VITE_NETWORK: "devnet",
-      VITE_EXPECTED_CHAIN_ID: "0x7a69",
+      VITE_EXPECTED_CHAIN_ID: "0x7a6a",
       VITE_PATH_RPC_URL: "http://127.0.0.1:8546",
       VITE_WALLET_CHAIN_RPC_URL: "",
       VITE_PAYTOKEN: ZERO_ADDRESS,
@@ -2552,7 +2552,7 @@ describe("AuctionCanvas", () => {
     const execute = jest.fn().mockResolvedValue({ transaction_hash: "0x1" });
     mockWalletState = createWalletState({
       chain: { name: "Anvil" },
-      chainId: 31337n,
+      chainId: 31338n,
       account: { execute },
     });
     mockGetBalance.mockResolvedValue(10n * oneEth);
@@ -2602,6 +2602,10 @@ describe("AuctionCanvas", () => {
       const currentAskRow = rows.find((row) => row.textContent?.includes("current ask"));
       const txValueRow = rows.find((row) => row.textContent?.includes("ETH sent"));
       const maxBidRow = rows.find((row) => row.textContent?.includes("max price"));
+      expect(within(review as HTMLElement).getByText("Local Anvil")).toBeTruthy();
+      expect(within(review as HTMLElement).getByText("PATH Local")).toBeTruthy();
+      expect(within(review as HTMLElement).getByText("31338")).toBeTruthy();
+      expect(within(review as HTMLElement).getByText("local ETH")).toBeTruthy();
       expect(currentAskRow?.textContent).toContain(`${visualAsk.toFixed(8)} ETH`);
       expect(txValueRow?.textContent).toContain(`${visualAsk.toFixed(8)} ETH`);
       expect(maxBidRow?.textContent).toContain(`${visualAsk.toFixed(8)} ETH`);

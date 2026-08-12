@@ -67,6 +67,7 @@ type Props = {
   refreshMs?: number;
   decimals?: number;
   maxBids?: number;
+  onPathMinted?: () => void;
 };
 
 type TxState = "idle" | "awaiting_signature" | "submitted" | "confirmed" | "failed";
@@ -630,9 +631,9 @@ function normalizeComparableAddress(value: string): string {
   }
 }
 
-function resolveExplorerAddressUrl(address: string): string {
-  const base = resolveExplorerBase().replace(/\/$/, "");
-  return `${base}/address/${address}`;
+function resolveExplorerAddressUrl(address: string): string | null {
+  const base = resolveExplorerBase();
+  return base ? `${base.replace(/\/$/, "")}/address/${address}` : null;
 }
 
 function assertPulseBidIntent(intent: PulseBidIntentCheck): Hex {
@@ -879,15 +880,20 @@ function isTestRuntime(): boolean {
   return getEnvValue("NODE_ENV") === "test";
 }
 
-function resolveExplorerBase(): string {
+function resolveExplorerBase(): string | null {
+  const network = getEnvValue("VITE_NETWORK");
+  if (network === "devnet") {
+    const local = getEnvValue("VITE_LOCAL_EXPLORER_BASE_URL");
+    return typeof local === "string" && local.trim() ? local.trim() : null;
+  }
   const base = getEnvValue("VITE_EXPLORER_BASE_URL");
   if (typeof base === "string" && base.trim()) return base.trim();
   return "https://sepolia.etherscan.io";
 }
 
-function resolveExplorerTxUrl(hash: string): string {
-  const base = resolveExplorerBase().replace(/\/$/, "");
-  return `${base}/tx/${hash}`;
+function resolveExplorerTxUrl(hash: string): string | null {
+  const base = resolveExplorerBase();
+  return base ? `${base.replace(/\/$/, "")}/tx/${hash}` : null;
 }
 
 function resolvePublicFeedSourceBaseUrl(): string {
@@ -972,8 +978,7 @@ function resolveAddChainParams(chainIdHex: string) {
         decimals: 18,
       },
       rpcUrls,
-      blockExplorerUrls:
-        typeof explorer === "string" && explorer.trim() ? [explorer.trim()] : [],
+      blockExplorerUrls: explorer?.trim() ? [explorer.trim()] : [],
     };
   }
 
@@ -1072,6 +1077,10 @@ function useProtocolReleaseGuard(params: {
   const { address, provider, enabled } = params;
   const release = useMemo(() => getProtocolRelease(), []);
   const releaseChainId = release?.chain_id;
+  const configuredChainId = parseChainId(resolveTargetChainIdHex());
+  const expectedChainId =
+    configuredChainId ??
+    (typeof releaseChainId === "number" ? BigInt(releaseChainId) : null);
   const releaseId = release?.deploy_run_id;
   const releaseCodeHash = getProtocolReleaseCodeHash("pulse_auction");
   const [state, setState] = useState<{
@@ -1096,11 +1105,11 @@ function useProtocolReleaseGuard(params: {
 
     (async () => {
       try {
-        if (typeof releaseChainId === "number") {
+        if (expectedChainId != null) {
           const actualChainId = await getChainId(prov);
-          if (actualChainId !== BigInt(releaseChainId)) {
+          if (actualChainId !== expectedChainId) {
             throw new Error(
-              `PATH release chain mismatch: expected ${releaseChainId}, RPC returned ${actualChainId.toString()}. Check VITE_PATH_RPC_URL and VITE_NETWORK.`
+              `PATH release chain mismatch: expected ${expectedChainId.toString()}, RPC returned ${actualChainId.toString()}. Check VITE_EXPECTED_CHAIN_ID, VITE_PATH_RPC_URL, and VITE_NETWORK.`
             );
           }
         }
@@ -1139,7 +1148,14 @@ function useProtocolReleaseGuard(params: {
     return () => {
       cancelled = true;
     };
-  }, [address, enabled, provider, releaseChainId, releaseCodeHash, releaseId]);
+  }, [
+    address,
+    enabled,
+    expectedChainId,
+    provider,
+    releaseCodeHash,
+    releaseId,
+  ]);
 
   return {
     loading: state.loading,
@@ -2470,6 +2486,7 @@ export default function AuctionCanvas({
   refreshMs = 12000,
   decimals = 18,
   maxBids = 800,
+  onPathMinted,
 }: Props) {
   const useFixture = useMemo(() => fixtureEnabled(), []);
   const fixture = useMemo(() => readPulseFixture(useFixture), [useFixture]);
@@ -2481,6 +2498,18 @@ export default function AuctionCanvas({
   const bidsFromBlock = useMemo(() => resolveBidsFromBlock(), []);
   const protocolRelease = useMemo(() => getProtocolRelease(), []);
   const allowDirectAuction = useMemo(() => directAuctionOverrideAllowed(), []);
+  const network = useMemo(() => {
+    const raw = getEnvValue("VITE_NETWORK");
+    return typeof raw === "string" ? raw : undefined;
+  }, []);
+  const localAnvil = network === "devnet";
+  const readDirectAuction = allowDirectAuction || localAnvil;
+  const environmentLabel = localAnvil
+    ? "Local Anvil"
+    : PUBLIC_NETWORK_CONFIG.environmentLabel;
+  const currencyLabel = localAnvil
+    ? "local ETH"
+    : PUBLIC_NETWORK_CONFIG.currencyLabel;
   const cachedAuctionConfig = useMemo(
     () => releaseConfigToAuctionConfig(protocolRelease, decimals),
     [protocolRelease, decimals]
@@ -2488,11 +2517,7 @@ export default function AuctionCanvas({
   const pathMintIntentRead = useMemo(() => readPathMintIntent(), []);
   const pathMintIntent =
     pathMintIntentRead.kind === "valid" ? pathMintIntentRead.intent : null;
-  const releaseMissing = !fixtureState && !allowDirectAuction && !protocolRelease;
-  const network = useMemo(() => {
-    const raw = getEnvValue("VITE_NETWORK");
-    return typeof raw === "string" ? raw : undefined;
-  }, []);
+  const releaseMissing = !fixtureState && !readDirectAuction && !protocolRelease;
   const missingDeployBlock = useMemo(() => {
     if (network === "devnet") return false;
     return bidsFromBlock == null;
@@ -2506,7 +2531,7 @@ export default function AuctionCanvas({
     address: auctionAddress,
     provider,
     enabled:
-      allowDirectAuction &&
+      readDirectAuction &&
       !fixtureState &&
       !releaseMissing &&
       Boolean(auctionAddress),
@@ -2514,7 +2539,7 @@ export default function AuctionCanvas({
   const liveAuctionEnabled =
     !fixtureState &&
     Boolean(auctionAddress) &&
-    (allowDirectAuction ? protocolGuard.ready : Boolean(cachedAuctionConfig));
+    (readDirectAuction ? protocolGuard.ready : Boolean(cachedAuctionConfig));
   const {
     data: coreData,
     loading: coreLoadingHook,
@@ -2524,11 +2549,11 @@ export default function AuctionCanvas({
     address: auctionAddress,
     provider,
     refreshMs,
-    enabled: allowDirectAuction && liveAuctionEnabled,
+    enabled: readDirectAuction && liveAuctionEnabled,
   });
   const bidHistoryEnabled =
     liveAuctionEnabled &&
-    (allowDirectAuction ? Boolean(coreData?.config) : Boolean(cachedAuctionConfig));
+    (readDirectAuction ? Boolean(coreData?.config) : Boolean(cachedAuctionConfig));
   const {
     bids: bidsHook,
     loading: bidsLoading,
@@ -2540,8 +2565,8 @@ export default function AuctionCanvas({
     refreshMs,
     enabled: bidHistoryEnabled,
     maxBids,
-    preferCacheApi: !allowDirectAuction,
-    allowDirectFallback: allowDirectAuction,
+    preferCacheApi: !readDirectAuction,
+    allowDirectFallback: readDirectAuction,
   });
   const bids = fixtureState?.bids ?? bidsHook;
   const paymentToken = useMemo(() => resolvePaymentToken(), []);
@@ -2554,25 +2579,25 @@ export default function AuctionCanvas({
     [paymentToken]
   );
   const cachedCoreData = useMemo<AuctionSnapshot | null>(() => {
-    if (fixtureState || allowDirectAuction || !cachedAuctionConfig) return null;
+    if (fixtureState || readDirectAuction || !cachedAuctionConfig) return null;
     return {
       active: true,
       price: cachedAuctionConfig.genesisPrice,
       config: cachedAuctionConfig,
       state: null,
     };
-  }, [allowDirectAuction, cachedAuctionConfig, fixtureState]);
+  }, [cachedAuctionConfig, fixtureState, readDirectAuction]);
   const core = useMemo(
     () =>
       fixtureState
         ? { config: fixtureState.config }
-        : allowDirectAuction
+        : readDirectAuction
         ? coreData
         : cachedCoreData,
-    [allowDirectAuction, cachedCoreData, fixtureState, coreData]
+    [cachedCoreData, fixtureState, coreData, readDirectAuction]
   );
   const coreImpliesActive = Boolean(
-    allowDirectAuction
+    readDirectAuction
       ? coreData?.active ||
           coreData?.state?.active ||
           ((coreData?.state?.epochIndex ?? 0) > 0)
@@ -2581,17 +2606,17 @@ export default function AuctionCanvas({
   const bidsLoadingVisible = fixtureState ? false : bidHistoryEnabled && bidsLoading;
   const coreLoading = fixtureState
     ? false
-    : allowDirectAuction
+    : readDirectAuction
     ? protocolGuard.loading || coreLoadingHook
     : false;
   const coreError = fixtureState
     ? null
-    : allowDirectAuction
+    : readDirectAuction
     ? protocolGuard.error ?? coreErrorHook
     : null;
   const refreshCore = useCallback(
-    () => (allowDirectAuction ? refreshCoreHook() : Promise.resolve(undefined)),
-    [allowDirectAuction, refreshCoreHook]
+    () => (readDirectAuction ? refreshCoreHook() : Promise.resolve(undefined)),
+    [readDirectAuction, refreshCoreHook]
   );
   const [coreErrorVisible, setCoreErrorVisible] = useState<unknown>(null);
   const [missingDeployBlockVisible, setMissingDeployBlockVisible] =
@@ -3655,11 +3680,14 @@ export default function AuctionCanvas({
       priceLabel: price ? formatTokenAmount(price, decimals) : "—",
       txHash: pendingMint.txHash,
       blockNumber: proofBid?.blockNumber ?? null,
-      sourceUrl: buildPathMintSourceUrl(pendingMint.txHash, network ?? "sepolia"),
-      sourceStatus: "indexing",
+      sourceUrl: localAnvil
+        ? new URL(`/path/${tokenId}`, window.location.origin).toString()
+        : buildPathMintSourceUrl(pendingMint.txHash, network ?? "sepolia"),
+      sourceStatus: localAnvil ? "ready" : "indexing",
     });
     updatePathMintReturnTokenId(pendingMint.txHash, tokenId);
     queueToast({ kind: "info", text: `$PATH #${tokenId} minted.` });
+    onPathMinted?.();
     void pullBidsOnce();
     void refreshCore();
     setPendingMint(null);
@@ -3669,9 +3697,11 @@ export default function AuctionCanvas({
     maxTokenId,
     decimals,
     network,
+    localAnvil,
     queueToast,
     pullBidsOnce,
     refreshCore,
+    onPathMinted,
     updatePathMintReturnTokenId,
   ]);
 
@@ -3711,7 +3741,7 @@ export default function AuctionCanvas({
 
   const mimicLocalTime = network === "devnet" || protocolRelease?.network === "devnet";
   const useBrowserAuctionClock =
-    mimicLocalTime || (!allowDirectAuction && !fixtureState);
+    mimicLocalTime || (!readDirectAuction && !fixtureState);
 
   // Devnet uses browser time to make local Anvil rehearsals usable even when
   // idle blocks are not mined. Public networks keep following block time.
@@ -3815,7 +3845,7 @@ export default function AuctionCanvas({
 
   // Fallback: fetch config directly if the core hook never fills it.
   useEffect(() => {
-    if (!allowDirectAuction) return;
+    if (!readDirectAuction) return;
     if (fixtureState) return;
     if (core?.config) {
       if (fallbackConfig) setFallbackConfig(null);
@@ -3867,7 +3897,7 @@ export default function AuctionCanvas({
     provider,
     fallbackConfig,
     fixtureState,
-    allowDirectAuction,
+    readDirectAuction,
   ]);
 
   const activeConfig = core?.config ?? fallbackConfig ?? null;
@@ -3961,7 +3991,7 @@ export default function AuctionCanvas({
       return toNumberSafe(decStr);
     };
 
-    const directState = !fixtureState && allowDirectAuction ? coreData?.state : null;
+    const directState = !fixtureState && readDirectAuction ? coreData?.state : null;
     const directStateEpoch = Number(directState?.epochIndex);
     const directStateImpliesActive =
       Boolean(directState?.active) ||
@@ -4149,7 +4179,7 @@ export default function AuctionCanvas({
     };
   }, [
     activeConfig,
-    allowDirectAuction,
+    readDirectAuction,
     bids,
     coreData?.state,
     coreLoading,
@@ -4960,6 +4990,7 @@ export default function AuctionCanvas({
   };
 
   const handleFixWalletRpc = async () => {
+    const chainLabel = resolveChainLabel(targetChainIdHex);
     if (isMetaMaskWallet) {
       const rpcUrl =
         resolveAddChainParams(targetChainIdHex)?.rpcUrls?.[0] ??
@@ -4974,8 +5005,8 @@ export default function AuctionCanvas({
       showToast({
         kind: "warn",
         text: copied
-          ? "Copied RPC. Select Sepolia, update RPC, retry."
-          : "Select Sepolia, update RPC, retry.",
+          ? `Copied RPC. Select ${chainLabel}, update RPC, retry.`
+          : `Select ${chainLabel}, update RPC, retry.`,
       });
       return;
     }
@@ -4983,8 +5014,8 @@ export default function AuctionCanvas({
     showToast({
       kind: ok ? "info" : "warn",
       text: ok
-        ? `${isMetaMaskWallet ? "MetaMask" : "Wallet"} Sepolia RPC refreshed. Retry.`
-        : `Open ${isMetaMaskWallet ? "MetaMask" : "wallet"} Sepolia RPC settings, then retry.`,
+        ? `${isMetaMaskWallet ? "MetaMask" : "Wallet"} ${chainLabel} RPC refreshed. Retry.`
+        : `Open ${isMetaMaskWallet ? "MetaMask" : "wallet"} ${chainLabel} RPC settings, then retry.`,
     });
   };
 
@@ -4995,7 +5026,7 @@ export default function AuctionCanvas({
         : effectiveTxHash ?? lastTxHash;
     if (!hash) return;
     const url = resolveExplorerTxUrl(hash);
-    if (typeof window !== "undefined") {
+    if (url && typeof window !== "undefined") {
       window.open(url, "_blank", "noopener,noreferrer");
     }
   };
@@ -5026,10 +5057,12 @@ export default function AuctionCanvas({
     setCurrentAskQuoteDec(null);
     postMintNowTipPendingRef.current = true;
     postMintNowTipBaseCurveKeyRef.current = initialAskTipCurveKeyRef.current;
-    void requestPulseAuctionRefresh(hash).then(() => {
-      void pullBidsOnce();
-      void refreshCore();
-    });
+    if (!localAnvil) {
+      void requestPulseAuctionRefresh(hash).then(() => {
+        void pullBidsOnce();
+        void refreshCore();
+      });
+    }
     void pullBidsOnce();
     void refreshCore();
     window.setTimeout(() => void pullBidsOnce(), 2_000);
@@ -5529,7 +5562,7 @@ export default function AuctionCanvas({
         return {
           kind: "error",
           text: isMetaMaskWallet
-            ? "MetaMask RPC busy. Select Sepolia or update RPC."
+            ? `MetaMask RPC busy. Select ${targetChainLabel} or update RPC.`
             : "Wallet RPC busy.",
           reportState: "wallet_rpc_busy",
           reportError: msg,
@@ -5663,6 +5696,7 @@ export default function AuctionCanvas({
     pathMintReturnState,
     pendingMint,
     isMetaMaskWallet,
+    targetChainLabel,
   ]);
 
   useEffect(() => {
@@ -6967,8 +7001,8 @@ export default function AuctionCanvas({
               }}
               aria-label={
                 isMetaMaskWallet
-                  ? "Fix MetaMask Sepolia RPC"
-                  : "Fix wallet Sepolia RPC"
+                  ? `Fix MetaMask ${targetChainLabel} RPC`
+                  : `Fix wallet ${targetChainLabel} RPC`
               }
             >
               {isMetaMaskWallet ? "copy rpc" : "fix rpc ↗"}
@@ -7004,7 +7038,7 @@ export default function AuctionCanvas({
           </div>
           <div className="dotfield__mint-review-row">
             <span>network</span>
-            <strong>{PUBLIC_NETWORK_CONFIG.environmentLabel}</strong>
+            <strong>{environmentLabel}</strong>
           </div>
           <div className="dotfield__mint-review-row">
             <span>chain</span>
@@ -7016,7 +7050,7 @@ export default function AuctionCanvas({
           </div>
           <div className="dotfield__mint-review-row">
             <span>currency</span>
-            <strong>{PUBLIC_NETWORK_CONFIG.currencyLabel}</strong>
+            <strong>{currencyLabel}</strong>
           </div>
           <div className="dotfield__mint-review-row">
             <span>contract</span>
@@ -7118,14 +7152,18 @@ export default function AuctionCanvas({
           <div className="dotfield__mint-review-row">
             <span>tx</span>
             <strong>
-              <a
-                className="dotfield__mint-review-link"
-                href={resolveExplorerTxUrl(mintProof.txHash)}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {shortHash(mintProof.txHash)} ↗
-              </a>
+              {resolveExplorerTxUrl(mintProof.txHash) ? (
+                <a
+                  className="dotfield__mint-review-link"
+                  href={resolveExplorerTxUrl(mintProof.txHash) ?? undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {shortHash(mintProof.txHash)} ↗
+                </a>
+              ) : (
+                shortHash(mintProof.txHash)
+              )}
             </strong>
           </div>
           <div className="dotfield__mint-review-row">
@@ -7134,7 +7172,7 @@ export default function AuctionCanvas({
           </div>
           <div className="dotfield__mint-proof-status">
             <span>confirmed</span>
-            <strong>explorer ready</strong>
+            <strong>{resolveExplorerTxUrl(mintProof.txHash) ? "explorer ready" : "local receipt ready"}</strong>
           </div>
           <div className="dotfield__mint-proof-status">
             <span>indexed</span>
@@ -7174,13 +7212,15 @@ export default function AuctionCanvas({
                   : "source indexing"}
               </button>
             )}
-            <a
-              href={resolveExplorerTxUrl(mintProof.txHash)}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              explorer ↗
-            </a>
+            {resolveExplorerTxUrl(mintProof.txHash) ? (
+              <a
+                href={resolveExplorerTxUrl(mintProof.txHash) ?? undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                explorer ↗
+              </a>
+            ) : null}
           </div>
           <details className="dotfield__mint-proof-details">
             <summary>proof details</summary>
@@ -7188,10 +7228,10 @@ export default function AuctionCanvas({
             <div className="dotfield__mint-review-row">
               <span>PulseAuction</span>
               <strong>
-                {proofContracts.PulseAuction ? (
+                {proofContracts.PulseAuction && resolveExplorerAddressUrl(proofContracts.PulseAuction) ? (
                   <a
                     className="dotfield__mint-review-link"
-                    href={resolveExplorerAddressUrl(proofContracts.PulseAuction)}
+                    href={resolveExplorerAddressUrl(proofContracts.PulseAuction) ?? undefined}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -7205,10 +7245,10 @@ export default function AuctionCanvas({
             <div className="dotfield__mint-review-row">
               <span>PathPulseAdapter</span>
               <strong>
-                {proofContracts.PathPulseAdapter ? (
+                {proofContracts.PathPulseAdapter && resolveExplorerAddressUrl(proofContracts.PathPulseAdapter) ? (
                   <a
                     className="dotfield__mint-review-link"
-                    href={resolveExplorerAddressUrl(proofContracts.PathPulseAdapter)}
+                    href={resolveExplorerAddressUrl(proofContracts.PathPulseAdapter) ?? undefined}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -7222,10 +7262,10 @@ export default function AuctionCanvas({
             <div className="dotfield__mint-review-row">
               <span>PathNFT</span>
               <strong>
-                {proofContracts.PathNFT ? (
+                {proofContracts.PathNFT && resolveExplorerAddressUrl(proofContracts.PathNFT) ? (
                   <a
                     className="dotfield__mint-review-link"
-                    href={resolveExplorerAddressUrl(proofContracts.PathNFT)}
+                    href={resolveExplorerAddressUrl(proofContracts.PathNFT) ?? undefined}
                     target="_blank"
                     rel="noopener noreferrer"
                   >

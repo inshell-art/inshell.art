@@ -8,7 +8,10 @@ import {
   shouldRestoreThoughtDevIndexSnapshot,
   THOUGHT_DEV_INDEX_SNAPSHOT,
 } from "../apps/thought/scripts/dev-index-snapshot.mjs";
-import { thoughtLaneEnvironment } from "./thought-local-lane.mjs";
+import {
+  pathLaneEnvironmentFromRuntime,
+  thoughtLaneEnvironment,
+} from "./thought-local-lane.mjs";
 
 const indexHtml = await readFile(new URL("../apps/thought/index.html", import.meta.url), "utf8");
 const thoughtCss = await readFile(new URL("../apps/thought/src/style.css", import.meta.url), "utf8");
@@ -512,6 +515,72 @@ test("the local lane keeps every product link on the shared Home origin", () => 
   assert.equal(new URL(lane.VITE_GALLERY_URL).pathname, "/gallery");
   assert.equal(new URL(lane.VITE_PATH_MINT_URL).pathname, "/path");
   assert.equal(new URL(lane.VITE_THOUGHT_DETAIL_BASE_URL).pathname, "/thought");
+});
+
+test("the local lane binds PATH dev to the same dedicated Anvil runtime", () => {
+  const lane = pathLaneEnvironmentFromRuntime({
+    schema: "inshell.thought.v2.anvil-gallery-runtime.v1",
+    status: "ready",
+    chainId: 31338,
+    localLane: {
+      id: "thought",
+      isolation: "dedicated-anvil",
+      pathRelease: {
+        releaseTag: "v0.5.0",
+        manifestSha256: "a81355b459b40faea894cf1dfb7f484765a7ec62672039dd62d58a3a52849921",
+      },
+    },
+    pathNft: { address: "0x1111111111111111111111111111111111111111" },
+    pathPulseAdapter: { address: "0x2222222222222222222222222222222222222222" },
+    pulseAuction: { address: "0x3333333333333333333333333333333333333333" },
+    paymentToken: { address: "0x0000000000000000000000000000000000000000" },
+    pathDeployment: {
+      schema: "inshell.path.local-deployment.v1",
+      chainId: 31338,
+      releaseTag: "v0.5.0",
+      releasePublicationCommit: "085cfc084b0e568740e0da639e968eb535f7e5c8",
+      contractSourceCommit: "5a1ab1f137e76c80dc69045dc520454f6e07cbb1",
+      manifestSha256: "a81355b459b40faea894cf1dfb7f484765a7ec62672039dd62d58a3a52849921",
+      paymentToken: "0x0000000000000000000000000000000000000000",
+      auction: {
+        openTime: 1_786_459_217,
+        k: "600000000000000000",
+        genesisPrice: "10000000000000000",
+        genesisFloor: "9000000000000000",
+        pts: "100000000000000",
+      },
+      contracts: {
+        pathNft: {
+          address: "0x1111111111111111111111111111111111111111",
+          deployBlock: 1,
+          codeHash: `0x${"11".repeat(32)}`,
+        },
+        pathPulseAdapter: {
+          address: "0x2222222222222222222222222222222222222222",
+          deployBlock: 2,
+          codeHash: `0x${"22".repeat(32)}`,
+        },
+        pulseAuction: {
+          address: "0x3333333333333333333333333333333333333333",
+          deployBlock: 3,
+          codeHash: `0x${"33".repeat(32)}`,
+        },
+      },
+    },
+  });
+
+  assert.deepEqual(lane, {
+    VITE_NETWORK: "devnet",
+    VITE_EVM_CHAIN_IDS: "31338",
+    VITE_EXPECTED_CHAIN_ID: "0x7a6a",
+    VITE_PATH_NFT: "0x1111111111111111111111111111111111111111",
+    VITE_PATH_PULSE_ADAPTER: "0x2222222222222222222222222222222222222222",
+    VITE_PULSE_AUCTION: "0x3333333333333333333333333333333333333333",
+    VITE_PAYMENT_TOKEN: "0x0000000000000000000000000000000000000000",
+    VITE_PATH_NFT_DEPLOY_BLOCK: "1",
+    VITE_PULSE_AUCTION_DEPLOY_BLOCK: "3",
+    VITE_PATH_ALLOW_DIRECT_AUCTION: "1",
+  });
 });
 
 test("canonical CLI canvas preserves the immutable June 10 snapshot", () => {

@@ -8,6 +8,10 @@ import {
   THOUGHT_ANVIL_STATE_FILE,
   THOUGHT_CONTRACT_RUNTIME_FILE,
 } from "./thought-local-lane.mjs";
+import {
+  THOUGHT_ANVIL_CHECKPOINT_ACK_FILE,
+  THOUGHT_ANVIL_CHECKPOINT_REQUEST_FILE,
+} from "./thought-anvil-checkpoint.mjs";
 
 if (!process.argv.includes("--confirm-reset")) {
   throw new Error("Refusing to erase the THOUGHT lane without --confirm-reset.");
@@ -32,6 +36,8 @@ try {
 await Promise.all([
   fs.rm(THOUGHT_ANVIL_STATE_FILE, { force: true }),
   fs.rm(THOUGHT_ANVIL_CHECKPOINT_FILE, { force: true }),
+  fs.rm(THOUGHT_ANVIL_CHECKPOINT_REQUEST_FILE, { force: true }),
+  fs.rm(THOUGHT_ANVIL_CHECKPOINT_ACK_FILE, { force: true }),
   fs.rm(THOUGHT_CONTRACT_RUNTIME_FILE, { force: true }),
 ]);
 

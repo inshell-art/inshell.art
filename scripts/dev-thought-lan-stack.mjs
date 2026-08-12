@@ -9,6 +9,11 @@ import { connect } from "node:net";
 import { networkInterfaces } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  Interface,
+  keccak256,
+} from "../apps/thought/node_modules/ethers/lib.esm/index.js";
+import { isAllowedLanRpcOrigin } from "./thought-lan-rpc-origin.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const runDirectory = path.join(root, ".local", "run");
@@ -214,22 +219,181 @@ const rpc = async (url, method, params = []) => {
   return payload.result;
 };
 
+const pathRuntimeReady = async (publicRpcUrl) => {
+  const runtimeFile = path.join(
+    root,
+    "apps",
+    "thought",
+    "contract-integration",
+    "local-runtime.thought-anvil.json",
+  );
+  const runtime = JSON.parse(await fsPromises.readFile(runtimeFile, "utf8"));
+  const deployment = runtime?.pathDeployment;
+  if (
+    runtime?.schema !== "inshell.thought.v2.anvil-gallery-runtime.v1" ||
+    runtime?.status !== "ready" ||
+    runtime?.chainId !== Number(expectedChainId) ||
+    deployment?.schema !== "inshell.path.local-deployment.v1" ||
+    deployment?.chainId !== Number(expectedChainId) ||
+    deployment?.releaseTag !== "v0.5.0" ||
+    deployment?.releasePublicationCommit !== "085cfc084b0e568740e0da639e968eb535f7e5c8" ||
+    deployment?.contractSourceCommit !== "5a1ab1f137e76c80dc69045dc520454f6e07cbb1" ||
+    deployment?.manifestSha256 !== "a81355b459b40faea894cf1dfb7f484765a7ec62672039dd62d58a3a52849921"
+  ) {
+    return false;
+  }
+  const records = [
+    deployment.contracts?.pathNft,
+    deployment.contracts?.pathPulseAdapter,
+    deployment.contracts?.pulseAuction,
+  ];
+  if (
+    records.some(
+      (record) =>
+        typeof record?.address !== "string" ||
+        !/^0x[a-fA-F0-9]{40}$/.test(record.address) ||
+        !Number.isSafeInteger(record?.deployBlock) ||
+        typeof record?.codeHash !== "string" ||
+        !/^0x[a-fA-F0-9]{64}$/.test(record.codeHash),
+    )
+  ) {
+    return false;
+  }
+  const [codes, currentPrice] = await Promise.all([
+    Promise.all(
+      records.map((record) =>
+        rpc(publicRpcUrl, "eth_getCode", [record.address, "latest"]),
+      ),
+    ),
+    rpc(publicRpcUrl, "eth_call", [
+      { to: deployment.contracts.pulseAuction.address, data: "0xeb91d37e" },
+      "latest",
+    ]),
+  ]);
+  if (
+    !codes.every(
+      (code, index) =>
+        typeof code === "string" &&
+        !/^0x0*$/i.test(code) &&
+        keccak256(code).toLowerCase() === records[index].codeHash.toLowerCase(),
+    ) ||
+    typeof currentPrice !== "string" ||
+    !/^0x[0-9a-f]+$/i.test(currentPrice)
+  ) {
+    return false;
+  }
+
+  const interfaces = {};
+  for (const contract of ["PathNFT", "PathPulseAdapter", "PulseAuction"]) {
+    const artifactFile = path.join(
+      root,
+      "packages",
+      "contracts",
+      "src",
+      "path-release",
+      "releases",
+      "v0.5.0",
+      "hardhat",
+      `${contract}.json`,
+    );
+    interfaces[contract] = new Interface(
+      JSON.parse(await fsPromises.readFile(artifactFile, "utf8")).abi,
+    );
+  }
+  const call = async (record, contract, method) => {
+    const iface = interfaces[contract];
+    const result = await rpc(publicRpcUrl, "eth_call", [
+      { to: record.address, data: iface.encodeFunctionData(method) },
+      "latest",
+    ]);
+    return iface.decodeFunctionResult(method, result);
+  };
+  const [
+    adapterConfig,
+    wiringFrozen,
+    tokenBase,
+    epochBase,
+    publicMinter,
+    publicMinterFrozen,
+    sparkClaimDuration,
+    reservedCap,
+    auctionConfig,
+    mintAdapter,
+    paymentToken,
+    treasury,
+    deployer,
+  ] = await Promise.all([
+    call(records[1], "PathPulseAdapter", "getConfig"),
+    call(records[1], "PathPulseAdapter", "wiringFrozen"),
+    call(records[1], "PathPulseAdapter", "tokenBase"),
+    call(records[1], "PathPulseAdapter", "epochBase"),
+    call(records[0], "PathNFT", "publicMinter"),
+    call(records[0], "PathNFT", "publicMinterFrozen"),
+    call(records[0], "PathNFT", "sparkClaimDuration"),
+    call(records[0], "PathNFT", "getReservedCap"),
+    call(records[2], "PulseAuction", "getConfig"),
+    call(records[2], "PulseAuction", "mintAdapter"),
+    call(records[2], "PulseAuction", "paymentToken"),
+    call(records[2], "PulseAuction", "treasury"),
+    call(records[2], "PulseAuction", "deployer"),
+  ]);
+  const same = (left, right) => String(left).toLowerCase() === String(right).toLowerCase();
+  return (
+    same(adapterConfig[0], records[2].address) &&
+    same(adapterConfig[1], records[0].address) &&
+    wiringFrozen[0] === true &&
+    tokenBase[0] === 1n &&
+    epochBase[0] === 1n &&
+    same(publicMinter[0], records[1].address) &&
+    publicMinterFrozen[0] === true &&
+    sparkClaimDuration[0] === BigInt(runtime.pathSpark?.claimDurationSeconds) &&
+    reservedCap[0] === BigInt(runtime.pathSpark?.reservedCap) &&
+    Number(auctionConfig[0]) === deployment.auction?.openTime &&
+    String(auctionConfig[1]) === deployment.auction?.genesisPrice &&
+    String(auctionConfig[2]) === deployment.auction?.genesisFloor &&
+    String(auctionConfig[3]) === deployment.auction?.k &&
+    String(auctionConfig[4]) === deployment.auction?.pts &&
+    same(mintAdapter[0], records[1].address) &&
+    same(paymentToken[0], deployment.paymentToken) &&
+    same(treasury[0], deployment.auction?.treasury) &&
+    same(deployer[0], runtime.pathSpark?.issuer)
+  );
+};
+
 const health = async ({ publicHost, publicRpcUrl }) => {
   const homeUrl = `http://${publicHost}:${homePort}/`;
   const appUrl = `http://${publicHost}:${homePort}/thought/`;
+  const pathUrl = `http://${publicHost}:${homePort}/path`;
   const accessHeaders = { cookie: `${accessCookieName}=${accessToken}` };
   try {
-    const [chainId, homeReady, appReady, agentApiReady] = await Promise.all([
-      rpc(publicRpcUrl, "eth_chainId"),
-      fetchOk(homeUrl, accessHeaders),
-      fetchOk(appUrl, accessHeaders),
-      fetchStatus(`${homeUrl}api/thought-agent/v2/client`, 410, accessHeaders),
-    ]);
-    return {
-      ok: chainId === expectedChainIdHex && homeReady && appReady && agentApiReady,
+    const [
       chainId,
       homeReady,
       appReady,
+      pathReady,
+      pathRuntimeIsReady,
+      agentApiReady,
+    ] = await Promise.all([
+      rpc(publicRpcUrl, "eth_chainId"),
+      fetchOk(homeUrl, accessHeaders),
+      fetchOk(appUrl, accessHeaders),
+      fetchOk(pathUrl, accessHeaders),
+      pathRuntimeReady(publicRpcUrl),
+      fetchStatus(`${homeUrl}api/thought-agent/v2/client`, 410, accessHeaders),
+    ]);
+    return {
+      ok:
+        chainId === expectedChainIdHex &&
+        homeReady &&
+        appReady &&
+        pathReady &&
+        pathRuntimeIsReady &&
+        agentApiReady,
+      chainId,
+      homeReady,
+      appReady,
+      pathReady,
+      pathRuntimeIsReady,
       agentApiReady,
     };
   } catch (error) {
@@ -437,21 +601,26 @@ const readRequestBody = async (request) => {
   return Buffer.concat(chunks);
 };
 
-const rpcCorsHeaders = (request) => ({
+const rpcHomeOrigin = (publicHost) => `http://${publicHost}:${homePort}`;
+
+const rpcCorsHeaders = (request, publicHost) => ({
   "access-control-allow-headers": "content-type",
   "access-control-allow-methods": "POST, OPTIONS",
-  "access-control-allow-origin": request.headers.origin || "*",
+  ...(request.headers.origin &&
+  isAllowedLanRpcOrigin(request.headers.origin, rpcHomeOrigin(publicHost))
+    ? { "access-control-allow-origin": request.headers.origin }
+    : {}),
   "access-control-max-age": "600",
   vary: "Origin",
 });
 
-const rpcError = (response, request, status, code, message, id = null) => {
+const rpcError = (response, request, publicHost, status, code, message, id = null) => {
   if (response.headersSent) {
     response.end();
     return;
   }
   response.writeHead(status, {
-    ...rpcCorsHeaders(request),
+    ...rpcCorsHeaders(request, publicHost),
     "content-type": "application/json",
     "cache-control": "no-store",
   });
@@ -463,20 +632,29 @@ const startRpcProxy = (publicHost) =>
     const server = createServer(async (request, response) => {
       const parsedUrl = requestUrl(request, `http://${publicHost}:${anvilPort}`);
       if (!parsedUrl) {
-        rpcError(response, request, 400, -32600, "Invalid request URL");
+        rpcError(response, request, publicHost, 400, -32600, "Invalid request URL");
         return;
       }
       if (parsedUrl.pathname !== `/${rpcAccessToken}`) {
-        rpcError(response, request, 404, -32601, "RPC endpoint not found");
+        rpcError(response, request, publicHost, 404, -32601, "RPC endpoint not found");
+        return;
+      }
+      if (
+        !isAllowedLanRpcOrigin(
+          request.headers.origin,
+          rpcHomeOrigin(publicHost),
+        )
+      ) {
+        rpcError(response, request, publicHost, 403, -32600, "RPC browser origin is not allowed");
         return;
       }
       if (request.method === "OPTIONS") {
-        response.writeHead(204, rpcCorsHeaders(request));
+        response.writeHead(204, rpcCorsHeaders(request, publicHost));
         response.end();
         return;
       }
       if (request.method !== "POST") {
-        rpcError(response, request, 405, -32600, "Only JSON-RPC POST is allowed");
+        rpcError(response, request, publicHost, 405, -32600, "Only JSON-RPC POST is allowed");
         return;
       }
       let body;
@@ -488,6 +666,7 @@ const startRpcProxy = (publicHost) =>
         rpcError(
           response,
           request,
+          publicHost,
           error instanceof Error && error.message.includes("too large") ? 413 : 400,
           -32700,
           error instanceof Error ? error.message : "Invalid JSON-RPC request",
@@ -497,7 +676,7 @@ const startRpcProxy = (publicHost) =>
       const calls = Array.isArray(payload) ? payload : [payload];
       const denied = calls.find((call) => !call || !allowedRpcMethods.has(call.method));
       if (denied) {
-        rpcError(response, request, 403, -32601, "RPC method is not available on the LAN lane", denied?.id ?? null);
+        rpcError(response, request, publicHost, 403, -32601, "RPC method is not available on the LAN lane", denied?.id ?? null);
         return;
       }
       const upstream = httpRequest({
@@ -512,13 +691,13 @@ const startRpcProxy = (publicHost) =>
       }, (upstreamResponse) => {
         response.writeHead(upstreamResponse.statusCode ?? 502, {
           ...upstreamResponse.headers,
-          ...rpcCorsHeaders(request),
+          ...rpcCorsHeaders(request, publicHost),
           "cache-control": "no-store",
         });
         upstreamResponse.pipe(response);
       });
       upstream.once("error", (error) => {
-        rpcError(response, request, 502, -32000, error.message);
+        rpcError(response, request, publicHost, 502, -32000, error.message);
       });
       upstream.end(body);
     });
@@ -553,6 +732,10 @@ const terminateChildTree = (target, signal = "SIGTERM") => {
   if (target.exitCode === null) target.kill(signal);
 };
 
+const terminateChildLeader = (target, signal = "SIGTERM") => {
+  if (target?.exitCode === null) target.kill(signal);
+};
+
 const childTreeIsAlive = (target) => {
   if (!target) return false;
   if (process.platform === "win32" || !target.pid) return target.exitCode === null;
@@ -585,7 +768,7 @@ const waitForChildTreeExit = async (target) => {
 };
 
 const stopAndWaitChildTree = async (target, exited) => {
-  terminateChildTree(target);
+  terminateChildLeader(target);
   await waitForChildTreeExit(target);
   return await exited;
 };
@@ -594,7 +777,7 @@ const stop = (signal) => {
   if (stopping) return;
   stopping = true;
   write(`Stopping LAN stack from ${signal}.`);
-  terminateChildTree(child);
+  terminateChildLeader(child);
   resolveStopRequest();
 };
 
@@ -743,9 +926,6 @@ try {
   write(error instanceof Error ? error.message : String(error), process.stderr);
   stop("error");
   await waitForChildTreeExit(child);
-  if (child && child.exitCode === null) {
-    await new Promise((resolve) => child.once("exit", resolve));
-  }
   process.exitCode = 1;
 } finally {
   await fsPromises.rm(statusFile, { force: true });

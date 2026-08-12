@@ -3,6 +3,7 @@ import {
   encodeFunctionData,
   getAddress,
   parseAbi,
+  stringToHex,
   toEventSelector,
   type Address,
   type Hex,
@@ -20,7 +21,20 @@ const pathNftAbi = parseAbi([
   "function balanceOf(address owner) view returns (uint256)",
   "function ownerOf(uint256 tokenId) view returns (address)",
   "function tokenURI(uint256 tokenId) view returns (string)",
+  "function getStage(uint256 tokenId) view returns (uint8)",
+  "function getStageMinted(uint256 tokenId) view returns (uint32)",
+  "function getMovementQuota(bytes32 movement) view returns (uint32)",
+  "function getPermissionEpoch(uint256 tokenId) view returns (uint256)",
+  "function isSparker(uint256 tokenId) view returns (bool)",
+  "function locked(uint256 tokenId) view returns (bool)",
+  "function sparkName(uint256 tokenId) view returns (string)",
 ]);
+
+const PATH_MOVEMENTS = {
+  THOUGHT: stringToHex("THOUGHT", { size: 32 }),
+  WILL: stringToHex("WILL", { size: 32 }),
+  AWA: stringToHex("AWA", { size: 32 }),
+} as const;
 
 const TRANSFER_TOPIC = toEventSelector("Transfer(address,address,uint256)");
 const ZERO_TOPIC =
@@ -50,6 +64,15 @@ export type PathTokenInventoryItem = {
   owner?: Address;
   tokenUri: string;
   metadata: PathTokenMetadata;
+  contractState?: {
+    stage: number;
+    stageMinted: number;
+    permissionEpoch: string;
+    isSparker: boolean;
+    locked: boolean;
+    sparkName: string;
+    quotas: { THOUGHT: number; WILL: number; AWA: number };
+  };
 };
 
 type PathTokenCacheMode = "default" | "bypass";
@@ -100,17 +123,37 @@ function pathTokenCacheKey(parts: Array<string | number | undefined>) {
     .join(":")}`;
 }
 
+function isLocalDevnet() {
+  const env = (globalThis as any).__VITE_ENV__ as
+    | Record<string, unknown>
+    | undefined;
+  const buildEnv = (globalThis as any).__INSHELL_VITE_ENV__ as
+    | Record<string, unknown>
+    | undefined;
+  return String(
+    env?.VITE_NETWORK ?? buildEnv?.VITE_NETWORK ?? "",
+  ).toLowerCase() === "devnet";
+}
+
 function shouldUsePathTokenCache(args: {
   provider?: ProviderInterface;
   cacheMode?: PathTokenCacheMode;
 }) {
-  return !args.provider && args.cacheMode !== "bypass";
+  return (
+    !isLocalDevnet() &&
+    !args.provider &&
+    args.cacheMode !== "bypass"
+  );
 }
 
 function shouldUsePathTokenApi(args: {
   provider?: ProviderInterface;
 }) {
-  return !args.provider && typeof globalThis.fetch === "function";
+  return (
+    !isLocalDevnet() &&
+    !args.provider &&
+    typeof globalThis.fetch === "function"
+  );
 }
 
 function readPathTokensApiUrl() {
@@ -243,6 +286,7 @@ export function readCachedAllPathTokens(args: {
   chunkSize?: number;
   maxSequentialTokenId?: number;
 }): PathTokenInventoryItem[] | null {
+  if (isLocalDevnet()) return null;
   return readPathTokenCache(
     pathTokenCacheKey([
       "all",
@@ -307,7 +351,17 @@ function isMissingTokenError(error: unknown): boolean {
 async function ethCall<T>(
   provider: ProviderInterface,
   address: string,
-  functionName: "balanceOf" | "ownerOf" | "tokenURI",
+  functionName:
+    | "balanceOf"
+    | "ownerOf"
+    | "tokenURI"
+    | "getStage"
+    | "getStageMinted"
+    | "getMovementQuota"
+    | "getPermissionEpoch"
+    | "isSparker"
+    | "locked"
+    | "sparkName",
   args: readonly unknown[],
   blockTag: number | EthereumBlockTag = "latest",
 ): Promise<T> {
@@ -446,6 +500,47 @@ export async function readPathTokenUri(args: {
   );
 }
 
+async function readPathTokenContractState(args: {
+  provider: ProviderInterface;
+  pathNftAddress: string;
+  tokenId: bigint;
+}): Promise<NonNullable<PathTokenInventoryItem["contractState"]>> {
+  const [
+    stage,
+    stageMinted,
+    permissionEpoch,
+    isSparker,
+    locked,
+    sparkName,
+    thoughtQuota,
+    willQuota,
+    awaQuota,
+  ] = await Promise.all([
+    ethCall<bigint>(args.provider, args.pathNftAddress, "getStage", [args.tokenId]),
+    ethCall<bigint>(args.provider, args.pathNftAddress, "getStageMinted", [args.tokenId]),
+    ethCall<bigint>(args.provider, args.pathNftAddress, "getPermissionEpoch", [args.tokenId]),
+    ethCall<boolean>(args.provider, args.pathNftAddress, "isSparker", [args.tokenId]),
+    ethCall<boolean>(args.provider, args.pathNftAddress, "locked", [args.tokenId]),
+    ethCall<string>(args.provider, args.pathNftAddress, "sparkName", [args.tokenId]),
+    ethCall<bigint>(args.provider, args.pathNftAddress, "getMovementQuota", [PATH_MOVEMENTS.THOUGHT]),
+    ethCall<bigint>(args.provider, args.pathNftAddress, "getMovementQuota", [PATH_MOVEMENTS.WILL]),
+    ethCall<bigint>(args.provider, args.pathNftAddress, "getMovementQuota", [PATH_MOVEMENTS.AWA]),
+  ]);
+  return {
+    stage: Number(stage),
+    stageMinted: Number(stageMinted),
+    permissionEpoch: permissionEpoch.toString(),
+    isSparker,
+    locked,
+    sparkName,
+    quotas: {
+      THOUGHT: Number(thoughtQuota),
+      WILL: Number(willQuota),
+      AWA: Number(awaQuota),
+    },
+  };
+}
+
 export async function loadAllPathTokenIds(args: {
   provider?: ProviderInterface;
   pathNftAddress: string;
@@ -467,7 +562,7 @@ export async function loadAllPathTokenIds(args: {
       throw error;
     }
   }
-  if (tokenIds.length > 0 || args.fromBlock == null) {
+  if (args.fromBlock == null) {
     return tokenIds;
   }
 
@@ -478,7 +573,7 @@ export async function loadAllPathTokenIds(args: {
     toBlock: latestBlock,
     chunkSize: args.chunkSize ?? 5_000,
   });
-  const mintTokenIds = new Set<bigint>();
+  const mintTokenIds = new Set<bigint>(tokenIds);
   for (const log of mintLogs) {
     if (log.removed) continue;
     const tokenId = topicToTokenId(log.topics[3]);
@@ -607,17 +702,25 @@ export async function loadWalletPathTokens(args: {
   const tokenIds = await loadWalletPathTokenIds({ ...args, provider });
   const items = await Promise.all(
     tokenIds.map(async (tokenId) => {
-      const tokenUri = await readPathTokenUri({
-        provider,
-        pathNftAddress: args.pathNftAddress,
-        tokenId,
-      });
+      const [tokenUri, contractState] = await Promise.all([
+        readPathTokenUri({
+          provider,
+          pathNftAddress: args.pathNftAddress,
+          tokenId,
+        }),
+        readPathTokenContractState({
+          provider,
+          pathNftAddress: args.pathNftAddress,
+          tokenId,
+        }).catch(() => undefined),
+      ]);
       return {
         tokenId,
         tokenIdLabel: tokenId.toString(),
         owner: getAddress(args.walletAddress),
         tokenUri,
         metadata: parseTokenMetadata(tokenUri),
+        contractState,
       };
     })
   );
@@ -664,7 +767,7 @@ export async function loadAllPathTokens(args: {
   const items: Array<PathTokenInventoryItem | null> = await Promise.all(
     tokenIds.map(async (tokenId) => {
       try {
-        const [owner, tokenUri] = await Promise.all([
+        const [owner, tokenUri, contractState] = await Promise.all([
           readPathTokenOwner({
             provider,
             pathNftAddress: args.pathNftAddress,
@@ -675,6 +778,11 @@ export async function loadAllPathTokens(args: {
             pathNftAddress: args.pathNftAddress,
             tokenId,
           }),
+          readPathTokenContractState({
+            provider,
+            pathNftAddress: args.pathNftAddress,
+            tokenId,
+          }).catch(() => undefined),
         ]);
         return {
           tokenId,
@@ -682,6 +790,7 @@ export async function loadAllPathTokens(args: {
           owner,
           tokenUri,
           metadata: parseTokenMetadata(tokenUri),
+          contractState,
         } satisfies PathTokenInventoryItem;
       } catch {
         return null;

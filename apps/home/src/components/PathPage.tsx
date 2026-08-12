@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import {
   getProtocolReleaseChainId,
   getProtocolReleaseDeployBlock,
+  getProtocolRelease,
   maybeResolveAddress,
 } from "@inshell/contracts";
-import { PUBLIC_NETWORK_CONFIG } from "@inshell/shared";
 import {
   loadAllPathTokens,
   readCachedAllPathTokens,
@@ -16,6 +16,21 @@ import {
   readCachedThoughtGallery,
   type ThoughtGalleryItem,
 } from "@/services/thoughtGallery";
+import { PUBLIC_NETWORK_CONFIG } from "@inshell/shared";
+import {
+  PATH_MINT_CAPACITY_LINES,
+  PATH_MINT_CAPACITY_NOTE,
+  PATH_OVERVIEW,
+  PATH_OVERVIEW_LINES,
+  PATH_SPARK_BASE,
+} from "@/content/path";
+import { useAuctionBids } from "@/hooks/useAuctionBids";
+import type { NormalizedBid } from "@/services/auction/bidsService";
+import {
+  findPathIssuance,
+  formatPathMintPrice,
+  type PathIssuance,
+} from "@/services/pathIssuance";
 
 type LoadState =
   | { status: "loading"; items: PathTokenInventoryItem[]; error: null }
@@ -24,15 +39,16 @@ type LoadState =
 
 type PathPageProps = {
   tokenId?: string | null;
+  refreshSignal?: number;
 };
 
 const FIXTURE_OWNER = "0x1111222233334444555566667777888899990000";
 const PATH_DESCRIPTION =
-  "$PATH is the permission token. It is minted by the Sepolia rehearsal Pulse auction and authorizes movement mints in order: THOUGHT, WILL, then AWA. The token image and traits show movement progress.";
+  "$PATH is the permission token. It is minted by the Pulse auction and authorizes movement mints in order: THOUGHT, WILL, then AWA. The token image and traits show movement progress.";
 const CHAIN_LOADING_DETAIL_MS = 1400;
 const PATH_LOADING_DETAILS = [
   "checking latest block",
-  "scanning PATH transfer logs",
+  "scanning $PATH transfer logs",
   "collecting token ids",
   "checking current owners",
   "reading token metadata",
@@ -66,13 +82,6 @@ function readPathFixture(): string | null {
   return fixture?.trim().toLowerCase() || null;
 }
 
-function chainLabelFromChainId(chainId: number | undefined): string {
-  if (chainId === 1) return "Ethereum";
-  if (chainId === 11155111) return "Sepolia";
-  if (chainId === 31337 || chainId === 1337) return "Local Devnet";
-  return Number.isFinite(chainId) ? `Chain ${chainId}` : "current RPC";
-}
-
 function attrValue(attribute: PathTokenAttribute): string {
   const value = attribute.value;
   if (value == null) return "—";
@@ -90,11 +99,29 @@ function findAttribute(
 }
 
 function stageValue(item: PathTokenInventoryItem): string {
+  if (item.contractState) {
+    return ["THOUGHT", "WILL", "AWA", "COMPLETE"][item.contractState.stage] ?? "UNKNOWN";
+  }
   const stage = findAttribute(item, "Stage");
   return stage ? attrValue(stage) : String(item.metadata.stage ?? "—");
 }
 
 function movementProgress(item: PathTokenInventoryItem, traitType: string): UnitProgress {
+  if (item.contractState) {
+    const movement = traitType.toUpperCase() as keyof typeof item.contractState.quotas;
+    const total = item.contractState.quotas[movement];
+    const movementStage = { THOUGHT: 0, WILL: 1, AWA: 2 }[movement];
+    if (movementStage != null) {
+      const used = item.contractState.stage > movementStage
+        ? total
+        : item.contractState.stage === movementStage
+          ? item.contractState.stageMinted
+          : 0;
+      return total === 0
+        ? { used: null, total: null, label: "- / -", available: false }
+        : { used, total, label: `${used} / ${total}`, available: true };
+    }
+  }
   const attribute = findAttribute(item, traitType);
   const raw = attribute ? attrValue(attribute) : "—";
   const match = /^Minted\((\d+)\/(\d+)\)$/i.exec(raw.trim());
@@ -166,20 +193,23 @@ function pathIdKey(value: string): string | null {
   return BigInt(trimmed).toString();
 }
 
-function thoughtMintCountsByPath(thoughts: ThoughtGalleryItem[]) {
-  const counts = new Map<string, number>();
+function thoughtMintsByPath(thoughts: ThoughtGalleryItem[]) {
+  const mints = new Map<string, ThoughtGalleryItem[]>();
   for (const thought of thoughts) {
     const key = pathIdKey(thought.pathId);
     if (!key) continue;
-    counts.set(key, (counts.get(key) ?? 0) + 1);
+    const current = mints.get(key) ?? [];
+    current.push(thought);
+    mints.set(key, current);
   }
-  return counts;
+  return mints;
 }
 
 function overlayThoughtMintProgress(
   item: PathTokenInventoryItem,
-  thoughtMintCount: number
+  thoughtMints: ThoughtGalleryItem[]
 ): PathTokenInventoryItem {
+  const thoughtMintCount = thoughtMints.length;
   if (thoughtMintCount <= 0) return item;
   const thoughtProgress = progressWithUsedFloor(
     movementProgress(item, "THOUGHT"),
@@ -193,6 +223,19 @@ function overlayThoughtMintProgress(
   const metadata = {
     ...item.metadata,
     attributes,
+    movementTokens: {
+      ...(typeof item.metadata.movementTokens === "object" &&
+      item.metadata.movementTokens !== null
+        ? item.metadata.movementTokens
+        : {}),
+      THOUGHT: thoughtMints
+        .slice()
+        .sort((a, b) => a.tokenId - b.tokenId)
+        .map((thought) => ({
+          tokenId: thought.tokenId,
+          url: `/thought/${thought.tokenId}`,
+        })),
+    },
   };
 
   if (thoughtProgress.used != null && thoughtProgress.total != null) {
@@ -219,13 +262,98 @@ function overlayThoughtMints(
   thoughts: ThoughtGalleryItem[] | null
 ) {
   if (!thoughts?.length) return items;
-  const counts = thoughtMintCountsByPath(thoughts);
-  if (counts.size === 0) return items;
+  const mints = thoughtMintsByPath(thoughts);
+  if (mints.size === 0) return items;
   return items.map((item) => {
     const key = pathIdKey(item.tokenIdLabel);
     if (!key) return item;
-    return overlayThoughtMintProgress(item, counts.get(key) ?? 0);
+    return overlayThoughtMintProgress(item, mints.get(key) ?? []);
   });
+}
+
+function comparePathTokenIdsNewestFirst(
+  left: PathTokenInventoryItem,
+  right: PathTokenInventoryItem,
+) {
+  return left.tokenId === right.tokenId ? 0 : left.tokenId > right.tokenId ? -1 : 1;
+}
+
+function sortPathTokensReverseChronologically(args: {
+  items: PathTokenInventoryItem[];
+  sales: NormalizedBid[];
+  tokenBase?: number;
+  epochBase?: number;
+}) {
+  const mintedAtByTokenId = new Map<string, number>();
+  for (const item of args.items) {
+    const issuance = findPathIssuance({
+      tokenId: item.tokenId,
+      sales: args.sales,
+      tokenBase: args.tokenBase,
+      epochBase: args.epochBase,
+    });
+    if (issuance) {
+      mintedAtByTokenId.set(item.tokenIdLabel, issuance.mintedAtMs);
+    }
+  }
+
+  return args.items.slice().sort((left, right) => {
+    const leftMintedAt = mintedAtByTokenId.get(left.tokenIdLabel);
+    const rightMintedAt = mintedAtByTokenId.get(right.tokenIdLabel);
+    if (
+      leftMintedAt !== undefined &&
+      rightMintedAt !== undefined &&
+      leftMintedAt !== rightMintedAt
+    ) {
+      return rightMintedAt - leftMintedAt;
+    }
+    return comparePathTokenIdsNewestFirst(left, right);
+  });
+}
+
+type MovementTokenLink = {
+  movement: string;
+  tokenId: string;
+  href: string;
+};
+
+function movementTokenLinks(item: PathTokenInventoryItem): MovementTokenLink[] {
+  const raw = item.metadata.movementTokens;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+
+  const links: MovementTokenLink[] = [];
+  for (const movement of MOVEMENT_TRAITS) {
+    const entries = (raw as Record<string, unknown>)[movement];
+    const candidates = Array.isArray(entries) ? entries : entries ? [entries] : [];
+    for (const candidate of candidates) {
+      if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+        continue;
+      }
+      const token = candidate as Record<string, unknown>;
+      const tokenId =
+        typeof token.tokenId === "string" || typeof token.tokenId === "number"
+          ? String(token.tokenId)
+          : null;
+      if (!tokenId) continue;
+      const href =
+        typeof token.url === "string" && token.url.trim()
+          ? token.url.trim()
+          : movement === "THOUGHT"
+            ? `/thought/${tokenId}`
+            : null;
+      if (!href) continue;
+      links.push({ movement, tokenId, href });
+    }
+  }
+
+  return links.filter(
+    (link, index) =>
+      links.findIndex(
+        (candidate) =>
+          candidate.movement === link.movement &&
+          candidate.tokenId === link.tokenId
+      ) === index
+  );
 }
 
 function metadataName(item: PathTokenInventoryItem): string {
@@ -234,6 +362,11 @@ function metadataName(item: PathTokenInventoryItem): string {
 }
 
 function displayTokenName(item: PathTokenInventoryItem): string {
+  if (item.contractState?.isSparker) {
+    const sparkNumber = item.tokenId - PATH_SPARK_BASE + 1n;
+    const suffix = item.contractState.sparkName.trim();
+    return `$PATH Spark #${sparkNumber}${suffix ? `: ${suffix}` : ""}`;
+  }
   return `$PATH #${item.tokenIdLabel}`;
 }
 
@@ -251,7 +384,7 @@ function dispatchLocationChange() {
   window.dispatchEvent(event);
 }
 
-function handlePathTokenAnchorClick(event: MouseEvent<globalThis.HTMLAnchorElement>) {
+function handlePathRouteAnchorClick(event: MouseEvent<globalThis.HTMLAnchorElement>) {
   if (
     typeof window === "undefined" ||
     event.defaultPrevented ||
@@ -268,7 +401,7 @@ function handlePathTokenAnchorClick(event: MouseEvent<globalThis.HTMLAnchorEleme
   const nextUrl = new globalThis.URL(href, window.location.href);
   if (
     nextUrl.origin !== window.location.origin ||
-    !/^\/path\/[1-9]\d*$/.test(nextUrl.pathname)
+    !/^\/path(?:\/[1-9]\d*)?$/.test(nextUrl.pathname)
   ) {
     return;
   }
@@ -296,6 +429,101 @@ function unitProgressByMovement(item: PathTokenInventoryItem) {
     movement,
     progress: movementProgress(item, movement),
   }));
+}
+
+function mintCapacityLabel(progress: UnitProgress): string {
+  if (
+    !progress.available ||
+    progress.used == null ||
+    progress.total == null
+  ) {
+    return "not available";
+  }
+  return `${progress.used} / ${progress.total} used`;
+}
+
+function pathNetworkLabel(chainId?: number): string {
+  if (chainId == null) return "—";
+  if (chainId === 31337 || chainId === 31338 || chainId === 1337) {
+    return "Local Anvil";
+  }
+  if (chainId === 11155111) return "Sepolia";
+  return `chain ${chainId}`;
+}
+
+function pathEnvValue(name: string): unknown {
+  const envCache: Record<string, unknown> | undefined =
+    (globalThis as any).__VITE_ENV__;
+  const buildEnv: Record<string, unknown> | undefined =
+    (globalThis as any).__INSHELL_VITE_ENV__;
+  const procEnv = (globalThis as any)?.process?.env;
+  return envCache?.[name] ?? buildEnv?.[name] ?? procEnv?.[name];
+}
+
+function expectedPathChainId(): number | undefined {
+  const raw = pathEnvValue("VITE_EXPECTED_CHAIN_ID");
+  if (typeof raw === "number" && Number.isSafeInteger(raw) && raw > 0) {
+    return raw;
+  }
+  if (typeof raw === "string" && raw.trim()) {
+    try {
+      const parsed = Number(BigInt(raw.trim()));
+      if (Number.isSafeInteger(parsed) && parsed > 0) return parsed;
+    } catch {
+      // Fall through to the immutable release chain.
+    }
+  }
+  return getProtocolReleaseChainId();
+}
+
+function pathExplorerBase(chainId: number | undefined): string | null {
+  if (chainId === 31337 || chainId === 31338 || chainId === 1337) {
+    const configured = pathEnvValue("VITE_LOCAL_EXPLORER_BASE_URL");
+    if (typeof configured === "string" && configured.trim()) {
+      return configured.trim().replace(/\/$/, "");
+    }
+    return null;
+  }
+  if (chainId !== PUBLIC_NETWORK_CONFIG.chainId) return null;
+  const configured = pathEnvValue("VITE_EXPLORER_BASE_URL");
+  const base =
+    typeof configured === "string" && configured.trim()
+      ? configured.trim()
+      : PUBLIC_NETWORK_CONFIG.explorerBaseUrl;
+  return base.replace(/\/$/, "");
+}
+
+function pathAddressExplorerHref(
+  chainId: number | undefined,
+  address: string | undefined,
+): string | null {
+  const base = pathExplorerBase(chainId);
+  if (!base || !address) return null;
+  return `${base}/address/${address}`;
+}
+
+function pathTransactionExplorerHref(
+  chainId: number | undefined,
+  transactionHash: string | undefined,
+): string | null {
+  const base = pathExplorerBase(chainId);
+  if (!base || !transactionHash) return null;
+  return `${base}/tx/${transactionHash}`;
+}
+
+function pathBlockExplorerHref(
+  chainId: number | undefined,
+  blockNumber: number | undefined,
+): string | null {
+  const base = pathExplorerBase(chainId);
+  if (!base || blockNumber == null) return null;
+  return `${base}/block/${blockNumber}`;
+}
+
+function pathCurrencyLabel(chainId: number | undefined): string {
+  return chainId === 31337 || chainId === 31338 || chainId === 1337
+    ? "local ETH"
+    : "ETH";
 }
 
 function makePathProgressSvg(args: {
@@ -553,26 +781,21 @@ function ChainLoadingStatus({
 
 function PathTokenCard({
   item,
-  focused,
-  registerRef,
 }: {
   item: PathTokenInventoryItem;
-  focused: boolean;
-  registerRef?: (node: HTMLElement | null) => void;
 }) {
   const image = metadataImage(item);
   const metadataLabel = metadataName(item);
   const name = displayTokenName(item);
-  const units = unitProgressByMovement(item);
+  const mintCapacity = unitProgressByMovement(item);
   const shareHref = pathTokenHref(item.tokenIdLabel);
 
   return (
     <article
       id={`path-${item.tokenIdLabel}`}
-      ref={registerRef}
-      className={`path-page-token${focused ? " path-page-token--focused" : ""}`}
+      className="path-page-token"
       data-path-token-id={item.tokenIdLabel}
-      aria-label={focused ? `${name} focused card` : `${name} card`}
+      aria-label={`${name} card`}
     >
       <div className="path-page-token__media">
         {image ? (
@@ -580,7 +803,7 @@ function PathTokenCard({
             className="path-page-token__media-link"
             href={shareHref}
             aria-label={`Open ${name}`}
-            onClick={handlePathTokenAnchorClick}
+            onClick={handlePathRouteAnchorClick}
           >
             <img
               src={image}
@@ -601,15 +824,15 @@ function PathTokenCard({
           <span>stage</span>
           <strong>{stageValue(item)}</strong>
         </div>
-        <div className="path-page-token__progress-title">units</div>
+        <div className="path-page-token__progress-title">mint capacity</div>
         <dl className="path-page-token__attrs">
-          {units.map(({ movement, progress }) => (
+          {mintCapacity.map(({ movement, progress }) => (
             <div
               className="path-page-token__attr"
               key={`${item.tokenIdLabel}-${movement}`}
             >
               <dt>{movement}</dt>
-              <dd>{progress.label}</dd>
+              <dd>{mintCapacityLabel(progress)}</dd>
             </div>
           ))}
         </dl>
@@ -618,24 +841,294 @@ function PathTokenCard({
   );
 }
 
-export default function PathPage({ tokenId = null }: PathPageProps) {
+function PathDetailCopy({
+  muted = false,
+  summary,
+  lines,
+}: {
+  muted?: boolean;
+  summary: string;
+  lines: readonly string[];
+}) {
+  return (
+    <div
+      className={`path-detail__copy${muted ? " path-detail__copy--muted" : ""}`}
+    >
+      <p className="path-detail__copy-summary">{summary}</p>
+      <p className="path-detail__copy-lines">
+        {lines.map((line) => (
+          <span key={line}>{line}</span>
+        ))}
+      </p>
+    </div>
+  );
+}
+
+function PathTokenDetail({
+  item,
+  chainId,
+  contractAddress,
+  issuance,
+}: {
+  item: PathTokenInventoryItem;
+  chainId?: number;
+  contractAddress?: string;
+  issuance: PathIssuance | null;
+}) {
+  const image = metadataImage(item);
+  const name = displayTokenName(item);
+  const mintCapacity = unitProgressByMovement(item);
+  const movementLinks = movementTokenLinks(item);
+  const ownerExplorerHref = pathAddressExplorerHref(chainId, item.owner);
+  const contractExplorerHref = pathAddressExplorerHref(chainId, contractAddress);
+  const mintTransactionExplorerHref = pathTransactionExplorerHref(
+    chainId,
+    issuance?.transactionHash,
+  );
+  const initialMinterExplorerHref = pathAddressExplorerHref(
+    chainId,
+    issuance?.initialMinter,
+  );
+  const mintBlockExplorerHref = pathBlockExplorerHref(
+    chainId,
+    issuance?.blockNumber,
+  );
+  return (
+    <div className="path-detail">
+      <div className="path-detail__canvas-column">
+        {image ? (
+          <img
+            className="path-detail__image"
+            src={image}
+            alt={`${name} movement progress`}
+            title={metadataName(item)}
+          />
+        ) : (
+          <div className="path-detail__missing">image unavailable</div>
+        )}
+      </div>
+
+      <div className="path-detail__rail" aria-label={`${name} lifecycle`}>
+        <section className="path-detail__section">
+          <h2>about</h2>
+          <PathDetailCopy
+            summary={PATH_OVERVIEW}
+            lines={PATH_OVERVIEW_LINES}
+          />
+        </section>
+
+        <section className="path-detail__section">
+          <h2>mint capacity</h2>
+          <dl className="path-detail__fields path-detail__fields--capacity">
+            <div>
+              <dt>stage</dt>
+              <dd>{stageValue(item)}</dd>
+            </div>
+            {mintCapacity.map(({ movement, progress }) => (
+              <div key={`${item.tokenIdLabel}-${movement}`}>
+                <dt>{movement}</dt>
+                <dd>{mintCapacityLabel(progress)}</dd>
+              </div>
+            ))}
+          </dl>
+          <PathDetailCopy
+            muted
+            summary={PATH_MINT_CAPACITY_NOTE}
+            lines={PATH_MINT_CAPACITY_LINES}
+          />
+        </section>
+
+        {movementLinks.length > 0 ? (
+          <section className="path-detail__section">
+            <h2>movement tokens</h2>
+            <div className="path-detail__movement-links">
+              {movementLinks.map((link) => (
+                <a
+                  className="path-detail__value-link"
+                  href={link.href}
+                  key={`${link.movement}-${link.tokenId}`}
+                >
+                  {link.movement} #{link.tokenId} ↗
+                </a>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        <section className="path-detail__section">
+          <h2>token details</h2>
+          <dl className="path-detail__fields">
+            <div>
+              <dt>kind</dt>
+              <dd>{item.contractState?.isSparker ? "Spark" : "regular"}</dd>
+            </div>
+            <div>
+              <dt>transfer</dt>
+              <dd>{item.contractState?.locked ? "locked" : "transferable"}</dd>
+            </div>
+            {item.contractState ? (
+              <div>
+                <dt>permission epoch</dt>
+                <dd>{item.contractState.permissionEpoch}</dd>
+              </div>
+            ) : null}
+            <div>
+              <dt>owner</dt>
+              <dd title={item.owner}>
+                {ownerExplorerHref ? (
+                  <a
+                    className="path-detail__value-link"
+                    href={ownerExplorerHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {shortAddress(item.owner)} ↗
+                  </a>
+                ) : (
+                  shortAddress(item.owner)
+                )}
+              </dd>
+            </div>
+            {issuance ? (
+              <>
+                <div>
+                  <dt>mint price</dt>
+                  <dd title={`${issuance.price.dec} wei`}>
+                    {formatPathMintPrice(issuance.price)} {pathCurrencyLabel(chainId)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>initial minter</dt>
+                  <dd title={issuance.initialMinter}>
+                    {initialMinterExplorerHref ? (
+                      <a
+                        className="path-detail__value-link"
+                        href={initialMinterExplorerHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {shortAddress(issuance.initialMinter)} ↗
+                      </a>
+                    ) : (
+                      shortAddress(issuance.initialMinter)
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt>mint block</dt>
+                  <dd>
+                    {mintBlockExplorerHref ? (
+                      <a
+                        className="path-detail__value-link"
+                        href={mintBlockExplorerHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {issuance.blockNumber} ↗
+                      </a>
+                    ) : (
+                      issuance.blockNumber ?? "—"
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt>mint transaction</dt>
+                  <dd title={issuance.transactionHash}>
+                    {mintTransactionExplorerHref ? (
+                      <a
+                        className="path-detail__value-link"
+                        href={mintTransactionExplorerHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {shortAddress(issuance.transactionHash)} ↗
+                      </a>
+                    ) : (
+                      shortAddress(issuance.transactionHash)
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt>minted via</dt>
+                  <dd>
+                    <a className="path-detail__value-link" href="/docs#docs-pulse">
+                      Pulse ↗
+                    </a>
+                  </dd>
+                </div>
+              </>
+            ) : null}
+            <div>
+              <dt>contract</dt>
+              <dd title={contractAddress}>
+                {contractExplorerHref ? (
+                  <a
+                    className="path-detail__value-link"
+                    href={contractExplorerHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {shortAddress(contractAddress)} ↗
+                  </a>
+                ) : (
+                  shortAddress(contractAddress)
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>token ID</dt>
+              <dd>{item.tokenIdLabel}</dd>
+            </div>
+            <div>
+              <dt>network</dt>
+              <dd>{pathNetworkLabel(chainId)}</dd>
+            </div>
+            <div>
+              <dt>chain ID</dt>
+              <dd>{chainId ?? "—"}</dd>
+            </div>
+            <div>
+              <dt>standard</dt>
+              <dd>ERC-721</dd>
+            </div>
+            <div>
+              <dt>metadata</dt>
+              <dd>tokenURI()</dd>
+            </div>
+          </dl>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+export default function PathPage({
+  tokenId = null,
+  refreshSignal = 0,
+}: PathPageProps) {
   const fixture = useMemo(() => readPathFixture(), []);
   const fixtureItems = useMemo(() => pathFixtureItems(fixture), [fixture]);
   const pathNftAddress = useMemo(() => maybeResolveAddress("path_nft"), []);
   const fromBlock = useMemo(() => getProtocolReleaseDeployBlock("path_nft"), []);
-  const chainId = useMemo(() => getProtocolReleaseChainId(), []);
-  const chainLabel = useMemo(
-    () => chainLabelFromChainId(chainId),
-    [chainId]
+  const chainId = useMemo(() => expectedPathChainId(), []);
+  const release = useMemo(() => getProtocolRelease(), []);
+  const pulseAuctionAddress = useMemo(() => maybeResolveAddress("pulse_auction"), []);
+  const pulseAuctionFromBlock = useMemo(
+    () => getProtocolReleaseDeployBlock("pulse_auction"),
+    [],
   );
-  const [refreshNonce, setRefreshNonce] = useState(0);
+  const saleHistory = useAuctionBids({
+    address: pulseAuctionAddress ?? "0x0000000000000000000000000000000000000000",
+    fromBlock: pulseAuctionFromBlock,
+    enabled: Boolean(pulseAuctionAddress && !fixtureItems),
+  });
+  const [retryNonce, setRetryNonce] = useState(0);
   const [state, setState] = useState<LoadState>({
     status: "loading",
     items: [],
     error: null,
   });
   const [loadingDetailIndex, setLoadingDetailIndex] = useState(0);
-  const tokenRefs = useRef<Record<string, HTMLElement | null>>({});
 
   useEffect(() => {
     if (state.status !== "loading") {
@@ -650,7 +1143,19 @@ export default function PathPage({ tokenId = null }: PathPageProps) {
     return () => {
       window.clearInterval(timer);
     };
-  }, [state.status, refreshNonce]);
+  }, [state.status, refreshSignal, retryNonce]);
+
+  useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") {
+        setRetryNonce((value) => value + 1);
+      }
+    };
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, []);
 
   useEffect(() => {
     if (fixtureItems) {
@@ -676,7 +1181,7 @@ export default function PathPage({ tokenId = null }: PathPageProps) {
     let cancelled = false;
     const cachedThoughts = readCachedThoughtGallery();
     const cached =
-      refreshNonce === 0
+      refreshSignal === 0 && retryNonce === 0
         ? readCachedAllPathTokens({
             pathNftAddress,
             fromBlock,
@@ -695,10 +1200,10 @@ export default function PathPage({ tokenId = null }: PathPageProps) {
       loadAllPathTokens({
         pathNftAddress,
         fromBlock,
-        cacheMode: refreshNonce > 0 ? "bypass" : "default",
+        cacheMode: refreshSignal > 0 || retryNonce > 0 ? "bypass" : "default",
       }),
       loadThoughtGallery({
-        cacheMode: refreshNonce > 0 ? "bypass" : "default",
+        cacheMode: refreshSignal > 0 || retryNonce > 0 ? "bypass" : "default",
       }).catch(() => cachedThoughts ?? []),
     ])
       .then(([items, thoughts]) => {
@@ -720,17 +1225,86 @@ export default function PathPage({ tokenId = null }: PathPageProps) {
     return () => {
       cancelled = true;
     };
-  }, [fixtureItems, fromBlock, pathNftAddress, refreshNonce]);
+  }, [fixtureItems, fromBlock, pathNftAddress, refreshSignal, retryNonce]);
 
-  const focusedItem = tokenId
+  const collectionItems = useMemo(
+    () =>
+      sortPathTokensReverseChronologically({
+        items: state.items,
+        sales: saleHistory.bids,
+        tokenBase: release?.config?.token_base,
+        epochBase: release?.config?.epoch_base,
+      }),
+    [
+      release?.config?.epoch_base,
+      release?.config?.token_base,
+      saleHistory.bids,
+      state.items,
+    ],
+  );
+  const selectedItem = tokenId
     ? state.items.find((item) => item.tokenIdLabel === tokenId)
     : null;
+  const issuance = selectedItem
+    ? findPathIssuance({
+        tokenId: selectedItem.tokenId,
+        sales: saleHistory.bids,
+        tokenBase: release?.config?.token_base,
+        epochBase: release?.config?.epoch_base,
+      })
+    : null;
+  if (tokenId) {
+    return (
+      <main
+        className="path-detail-page"
+        aria-labelledby="path-detail-title"
+      >
+        <header className="path-detail__header">
+          <h1 id="path-detail-title" className="path-detail__title">
+            {selectedItem ? displayTokenName(selectedItem) : `$PATH #${tokenId}`}
+          </h1>
+          <nav className="path-detail__links" aria-label="$PATH detail links">
+            <a
+              className="path-detail__link"
+              href="/path"
+              onClick={handlePathRouteAnchorClick}
+            >
+              [ mint a $PATH ]
+            </a>
+          </nav>
+        </header>
 
-  useEffect(() => {
-    if (!tokenId || state.status !== "ready") return;
-    const target = tokenRefs.current[tokenId];
-    target?.scrollIntoView?.({ block: "center", behavior: "smooth" });
-  }, [state.status, tokenId]);
+        {state.status === "error" ? (
+          <div className="path-detail__status path-detail__status--error">
+            <span title={state.error}>$PATH record unavailable.</span>
+            <button
+              type="button"
+              className="path-page__retry"
+              onClick={() => setRetryNonce((value) => value + 1)}
+            >
+              retry
+            </button>
+          </div>
+        ) : state.status === "loading" ? (
+          <p className="path-detail__status">
+            <ChainLoadingStatus status={PATH_LOADING_DETAILS[loadingDetailIndex]} />
+          </p>
+        ) : selectedItem ? (
+          <PathTokenDetail
+            item={selectedItem}
+            chainId={chainId}
+            contractAddress={pathNftAddress}
+            issuance={issuance}
+          />
+        ) : (
+          <div className="path-detail__status path-detail__status--not-found">
+            <span>$PATH #{tokenId} not found.</span>
+            <a href="/path" onClick={handlePathRouteAnchorClick}>view all $PATH</a>
+          </div>
+        )}
+      </main>
+    );
+  }
 
   return (
     <main className="primitive-page path-page">
@@ -738,116 +1312,40 @@ export default function PathPage({ tokenId = null }: PathPageProps) {
         className="path-page__body"
         aria-label="All $PATH tokens"
       >
-        <div className="path-page__intro">
-          <p>$PATH is minted by the Sepolia rehearsal Pulse auction.</p>
-          <p>Each $PATH authorizes movement mints in order: THOUGHT, WILL, then AWA.</p>
-          <p>A movement minted from $PATH consumes a movement unit and updates the $PATH lifecycle.</p>
-          <p>stage shows the current movement phase.</p>
-          <p>units show used / total movement units.</p>
-          <p>The token image and traits show movement progress.</p>
-        </div>
-
-        <nav
-          className="primitive-page__links path-page__links"
-          aria-label="PATH page links"
-        >
-          <a
-            href="/pulse"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="View $PATH pricing rule"
-          >
-            View $PATH pricing rule ↗
-          </a>
-        </nav>
-
         <div className="path-page__toolbar">
-          <div>
-            <div className="path-page__section-title">all tokens</div>
+          <div className="path-page__section-title">
+            all $PATH{state.status === "ready" ? ` · ${state.items.length}` : ""}
+          </div>
+          {state.status === "loading" ? (
             <div className="path-page__sub">
-              {state.status === "ready"
-                ? `${state.items.length} token${state.items.length === 1 ? "" : "s"}${focusedItem ? ` · focused $PATH #${focusedItem.tokenIdLabel}` : ""}`
-                : state.status === "loading"
-                  ? (
-                    <ChainLoadingStatus
-                      status={PATH_LOADING_DETAILS[loadingDetailIndex]}
-                    />
-                  )
-                  : "token list unavailable"}
+              <ChainLoadingStatus
+                status={PATH_LOADING_DETAILS[loadingDetailIndex]}
+              />
             </div>
-          </div>
-          <button
-            type="button"
-            className="path-page__refresh"
-            onClick={() => setRefreshNonce((value) => value + 1)}
-          >
-            refresh
-          </button>
+          ) : null}
         </div>
-
-        <dl className="primitive-page__fields path-page__fields">
-          <div>
-            <dt>mode</dt>
-            <dd>{fixtureItems ? "fixture state gallery" : "live token gallery"}</dd>
-          </div>
-          <div>
-            <dt>network</dt>
-            <dd>{fixtureItems ? "fixture" : PUBLIC_NETWORK_CONFIG.environmentLabel}</dd>
-          </div>
-          <div>
-            <dt>chain</dt>
-            <dd>{fixtureItems ? "fixture" : chainLabel}</dd>
-          </div>
-          <div>
-            <dt>chain id</dt>
-            <dd>{fixtureItems ? "fixture" : String(chainId)}</dd>
-          </div>
-          <div>
-            <dt>currency</dt>
-            <dd>{fixtureItems ? "fixture" : PUBLIC_NETWORK_CONFIG.currencyLabel}</dd>
-          </div>
-          <div>
-            <dt>source</dt>
-            <dd>{fixtureItems ? "fixture tokenURI()" : "live tokenURI()"}</dd>
-          </div>
-          <div>
-            <dt>contract</dt>
-            <dd>
-              {fixtureItems
-                ? "not connected"
-                : pathNftAddress
-                  ? `PathNFT ${shortAddress(pathNftAddress)}`
-                  : "missing"}
-            </dd>
-          </div>
-          <div>
-            <dt>from block</dt>
-            <dd>{fixtureItems ? "n/a" : fromBlock == null ? "missing" : String(fromBlock)}</dd>
-          </div>
-        </dl>
 
         {state.status === "error" && (
           <div className="path-page__notice path-page__notice--error">
-            {state.error}
+            <span title={state.error}>token gallery unavailable.</span>
+            <button
+              type="button"
+              className="path-page__retry"
+              onClick={() => setRetryNonce((value) => value + 1)}
+            >
+              retry
+            </button>
           </div>
         )}
 
-        {tokenId && state.status === "ready" && !focusedItem ? (
-          <div className="path-page__notice">$PATH #{tokenId} not found.</div>
-        ) : null}
-
         {state.status === "ready" && state.items.length === 0 ? (
-          <div className="path-page__notice">no PATH minted yet.</div>
+          <div className="path-page__notice">no $PATH minted yet.</div>
         ) : state.items.length > 0 ? (
           <div className="path-page__grid">
-            {state.items.map((item) => (
+            {collectionItems.map((item) => (
               <PathTokenCard
                 key={item.tokenIdLabel}
                 item={item}
-                focused={item.tokenIdLabel === tokenId}
-                registerRef={(node) => {
-                  tokenRefs.current[item.tokenIdLabel] = node;
-                }}
               />
             ))}
           </div>

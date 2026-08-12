@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { createServer } from "node:http";
 import test from "node:test";
+import { isAllowedLanRpcOrigin } from "./thought-lan-rpc-origin.mjs";
 
 const source = await readFile(
   new URL("./dev-thought-lan-stack.mjs", import.meta.url),
@@ -30,7 +32,14 @@ test("LAN supervisor exposes only its disposable chain and canonical Home origin
   assert.match(source, /"eth_sendRawTransaction"/);
   assert.doesNotMatch(source, /"eth_sendTransaction"|"anvil_[^"]+"|"evm_[^"]+"/);
   assert.match(source, /RPC method is not available on the LAN lane/);
+  assert.match(source, /isAllowedLanRpcOrigin\(request\.headers\.origin, rpcHomeOrigin\(publicHost\)\)/);
+  assert.doesNotMatch(source, /"access-control-allow-origin": request\.headers\.origin \|\| "\*"/);
   assert.match(source, /const appUrl = `\$\{homeUrl\}thought\/`/);
+  assert.match(source, /const pathUrl = `http:\/\/\$\{publicHost\}:\$\{homePort\}\/path`/);
+  assert.match(source, /fetchOk\(pathUrl, accessHeaders\)/);
+  assert.match(source, /pathRuntimeReady\(publicRpcUrl\)/);
+  assert.match(source, /deployment\?\.schema !== "inshell\.path\.local-deployment\.v1"/);
+  assert.match(source, /data: "0xeb91d37e"/);
   assert.match(
     source,
     /fetchStatus\(`\$\{homeUrl\}api\/thought-agent\/v2\/client`, 410, accessHeaders\)/,
@@ -45,8 +54,13 @@ test("LAN supervisor exposes only its disposable chain and canonical Home origin
   assert.match(source, /terminateChildTree\(target, "SIGKILL"\)/);
   assert.match(
     source,
-    /const stopAndWaitChildTree = async \(target, exited\) => \{\s*terminateChildTree\(target\);\s*await waitForChildTreeExit\(target\);\s*return await exited;\s*\}/,
+    /const terminateChildLeader = \(target, signal = "SIGTERM"\) => \{\s*if \(target\?\.exitCode === null\) target\.kill\(signal\);\s*\}/,
   );
+  assert.match(
+    source,
+    /const stopAndWaitChildTree = async \(target, exited\) => \{\s*terminateChildLeader\(target\);\s*await waitForChildTreeExit\(target\);\s*return await exited;\s*\}/,
+  );
+  assert.match(source, /Stopping LAN stack from \$\{signal\}[\s\S]*?terminateChildLeader\(child\)/);
   assert.match(source, /stopRequested\.then\(\(\) => \(\{ stop: true \}\)\)/);
   assert.match(source, /if \(result\.stop\) return await stopAndWaitChildTree\(child, exited\)/);
   assert.match(
@@ -93,8 +107,58 @@ test("LAN UI requires a generated bearer cookie and denies private Vite paths", 
   assert.match(source, /fsPromises\.rm\(statusFile, \{ force: true \}\)/);
   assert.match(source, /const requestUrl = \(request, base\) =>/);
   assert.match(source, /response\.end\("Invalid request URL\.\\n"\)/);
-  assert.match(source, /rpcError\(response, request, 400, -32600, "Invalid request URL"\)/);
+  assert.match(source, /rpcError\(response, request, publicHost, 400, -32600, "Invalid request URL"\)/);
+  assert.match(source, /RPC browser origin is not allowed/);
   assert.match(source, /fsPromises\.chmod\(statusFile, 0o600\)/);
   assert.match(source, /stop\("error"\)/);
-  assert.match(source, /child\.once\("exit", resolve\)/);
+  assert.match(
+    source,
+    /stop\("error"\);\s*await waitForChildTreeExit\(child\);\s*process\.exitCode = 1/,
+  );
+  assert.doesNotMatch(source, /child\.once\("exit", resolve\)/);
+  assert.match(source, /!isAllowedLanRpcOrigin\(/);
+  assert.match(
+    source,
+    /keccak256\(code\)\.toLowerCase\(\) === records\[index\]\.codeHash\.toLowerCase\(\)/,
+  );
+  assert.match(source, /same\(deployer\[0\], runtime\.pathSpark\?\.issuer\)/);
+});
+
+test("LAN RPC POST accepts wallet extensions and rejects foreign web origins", async () => {
+  const homeOrigin = "http://192.168.0.105:5177";
+  const server = createServer((request, response) => {
+    const allowed = isAllowedLanRpcOrigin(request.headers.origin, homeOrigin);
+    response.writeHead(allowed ? 204 : 403);
+    response.end();
+  });
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen({ host: "127.0.0.1", port: 0 }, resolve);
+  });
+  const address = server.address();
+  assert.equal(typeof address, "object");
+  const endpoint = `http://127.0.0.1:${address.port}/token`;
+  const post = (origin) =>
+    fetch(endpoint, {
+      method: "POST",
+      headers: origin ? { origin } : {},
+      body: "{}",
+    });
+  try {
+    assert.equal((await post(homeOrigin)).status, 204);
+    assert.equal(
+      (await post("chrome-extension://abcdefghijklmnopabcdefghijklmnop")).status,
+      204,
+    );
+    assert.equal(
+      (await post("moz-extension://123e4567-e89b-12d3-a456-426614174000")).status,
+      204,
+    );
+    assert.equal((await post(undefined)).status, 204);
+    assert.equal((await post("https://evil.example")).status, 403);
+    assert.equal((await post("null")).status, 403);
+    assert.equal((await post("chrome-extension://not-an-extension-id")).status, 403);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
 });

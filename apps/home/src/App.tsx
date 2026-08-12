@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import AuctionCanvas from "@/components/AuctionCanvas";
 import EcosystemHome from "@/components/EcosystemHome";
@@ -30,15 +30,54 @@ function getLocationKey() {
   return `${window.location.pathname}${window.location.search}${window.location.hash}`;
 }
 
+function getRuntimeEnvValue(name: string): unknown {
+  const env = (globalThis as any).__VITE_ENV__ as Record<string, unknown> | undefined;
+  const buildEnv = (globalThis as any).__INSHELL_VITE_ENV__ as
+    | Record<string, unknown>
+    | undefined;
+  const processEnv = (globalThis as any)?.process?.env as
+    | Record<string, unknown>
+    | undefined;
+  return env?.[name] ?? buildEnv?.[name] ?? processEnv?.[name];
+}
+
+function getExpectedPathChainId(): number | undefined {
+  const raw = getRuntimeEnvValue("VITE_EXPECTED_CHAIN_ID");
+  if (typeof raw === "number" && Number.isSafeInteger(raw) && raw > 0) {
+    return raw;
+  }
+  if (typeof raw !== "string" || !raw.trim()) {
+    return getProtocolReleaseChainId();
+  }
+  try {
+    const parsed = Number(BigInt(raw.trim()));
+    return Number.isSafeInteger(parsed) && parsed > 0
+      ? parsed
+      : getProtocolReleaseChainId();
+  } catch {
+    return getProtocolReleaseChainId();
+  }
+}
+
 function pathnameFromLocationKey(locationKey: string) {
   return locationKey.split(/[?#]/)[0].replace(/\/+$/, "");
 }
 
 function parseTokenRouteId(pathname: string, route: "path" | "thought") {
-  const match = new RegExp(`^/${route}/([1-9]\\d{0,8})$`).exec(pathname);
+  const match =
+    route === "path"
+      ? /^\/path\/([1-9]\d{0,77})$/.exec(pathname)
+      : /^\/thought\/([1-9]\d{0,8})$/.exec(pathname);
   if (!match) return null;
-  const id = Number(match[1]);
-  return Number.isSafeInteger(id) ? match[1] : null;
+  if (route === "thought") {
+    const id = Number(match[1]);
+    return Number.isSafeInteger(id) ? match[1] : null;
+  }
+  try {
+    return BigInt(match[1]) <= (1n << 256n) - 1n ? match[1] : null;
+  } catch {
+    return null;
+  }
 }
 
 function parseDocsRouteSlug(pathname: string) {
@@ -330,6 +369,7 @@ function applyRouteMetadata(pathname: string) {
 
 export default function App() {
   const [locationKey, setLocationKey] = useState(() => getLocationKey());
+  const [pathInventoryRefreshSignal, setPathInventoryRefreshSignal] = useState(0);
   const pulseAuction = maybeResolveAddress("pulse_auction");
   const primitiveRoute = getPrimitiveRoute(locationKey);
   const pathAppHost = isPathAppHost();
@@ -342,8 +382,17 @@ export default function App() {
     (pathAppHost && !primitiveRoute);
   const activeSurface = shouldRenderPathApp ? "path" : activeSurfaceForRoute(primitiveRoute);
   const pathExpectedChainId = shouldRenderPathApp
-    ? getProtocolReleaseChainId()
+    ? getExpectedPathChainId()
     : undefined;
+  const pathWalletNote =
+    pathExpectedChainId === 31337 ||
+    pathExpectedChainId === 31338 ||
+    pathExpectedChainId === 1337
+      ? "local ETH"
+      : "Sepolia ETH";
+  const refreshPathInventory = useCallback(() => {
+    setPathInventoryRefreshSignal((value) => value + 1);
+  }, []);
 
   useEffect(() => {
     const updateLocation = () => {
@@ -439,13 +488,26 @@ export default function App() {
             active={activeSurface}
             expectedChainId={pathExpectedChainId}
             disconnectedWalletNote={
-              shouldRenderPathApp ? "Sepolia ETH" : undefined
+              shouldRenderPathApp ? pathWalletNote : undefined
+            }
+            onWalletRefresh={
+              shouldRenderPathApp ? refreshPathInventory : undefined
             }
           />
           {shouldRenderPathApp ? (
-            <div className="content content--path-app">
-              <AuctionCanvas address={pulseAuction} />
-              <PathPage tokenId={pathTokenId} />
+            <div
+              className={`content content--path-app${pathTokenId ? " content--path-detail" : ""}`}
+            >
+              {!pathTokenId ? (
+                <AuctionCanvas
+                  address={pulseAuction}
+                  onPathMinted={refreshPathInventory}
+                />
+              ) : null}
+              <PathPage
+                tokenId={pathTokenId}
+                refreshSignal={pathInventoryRefreshSignal}
+              />
             </div>
           ) : primitiveRoute === "pulse" ? (
             <PulsePage />

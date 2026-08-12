@@ -186,6 +186,81 @@ export const resolvePinnedPathRelease = async () => {
   });
 };
 
+const requiredRuntimeAddress = (runtime, key) => {
+  const value = runtime?.[key]?.address;
+  if (typeof value !== "string" || !/^0x[a-fA-F0-9]{40}$/.test(value)) {
+    throw new Error(`THOUGHT local runtime is missing ${key}.address.`);
+  }
+  return value;
+};
+
+export const pathLaneEnvironmentFromRuntime = (runtime) => {
+  const deployment = runtime?.pathDeployment;
+  const auction = deployment?.auction;
+  if (
+    runtime?.schema !== "inshell.thought.v2.anvil-gallery-runtime.v1" ||
+    runtime?.status !== "ready" ||
+    runtime?.chainId !== Number(THOUGHT_ANVIL_CHAIN_ID) ||
+    runtime?.localLane?.id !== "thought" ||
+    runtime?.localLane?.isolation !== "dedicated-anvil" ||
+    runtime?.localLane?.pathRelease?.releaseTag !== PATH_RELEASE_PIN.releaseTag ||
+    runtime?.localLane?.pathRelease?.manifestSha256 !== PATH_RELEASE_PIN.manifestSha256 ||
+    deployment?.schema !== "inshell.path.local-deployment.v1" ||
+    deployment?.chainId !== Number(THOUGHT_ANVIL_CHAIN_ID) ||
+    deployment?.releaseTag !== PATH_RELEASE_PIN.releaseTag ||
+    deployment?.releasePublicationCommit !==
+      PATH_RELEASE_PIN.releasePublicationCommit ||
+    deployment?.contractSourceCommit !== PATH_RELEASE_PIN.contractSourceCommit ||
+    deployment?.manifestSha256 !== PATH_RELEASE_PIN.manifestSha256 ||
+    deployment?.paymentToken?.toLowerCase() !==
+      requiredRuntimeAddress(runtime, "paymentToken").toLowerCase() ||
+    !Number.isSafeInteger(auction?.openTime) ||
+    [auction?.k, auction?.genesisPrice, auction?.genesisFloor, auction?.pts].some(
+      (value) => typeof value !== "string" || !/^\d+$/.test(value),
+    )
+  ) {
+    throw new Error("THOUGHT local runtime cannot configure the PATH dev surface.");
+  }
+
+  const runtimeAddresses = {
+    pathNft: requiredRuntimeAddress(runtime, "pathNft"),
+    pathPulseAdapter: requiredRuntimeAddress(runtime, "pathPulseAdapter"),
+    pulseAuction: requiredRuntimeAddress(runtime, "pulseAuction"),
+  };
+  for (const [key, address] of Object.entries(runtimeAddresses)) {
+    const record = deployment.contracts?.[key];
+    if (
+      record?.address?.toLowerCase() !== address.toLowerCase() ||
+      !Number.isSafeInteger(record?.deployBlock) ||
+      record.deployBlock < 0 ||
+      typeof record?.codeHash !== "string" ||
+      !/^0x[a-fA-F0-9]{64}$/.test(record.codeHash)
+    ) {
+      throw new Error(`THOUGHT local runtime has an invalid PATH ${key} deployment record.`);
+    }
+  }
+
+  return Object.freeze({
+    VITE_NETWORK: "devnet",
+    VITE_EVM_CHAIN_IDS: String(runtime.chainId),
+    VITE_EXPECTED_CHAIN_ID: `0x${BigInt(runtime.chainId).toString(16)}`,
+    VITE_PATH_NFT: runtimeAddresses.pathNft,
+    VITE_PATH_PULSE_ADAPTER: runtimeAddresses.pathPulseAdapter,
+    VITE_PULSE_AUCTION: runtimeAddresses.pulseAuction,
+    VITE_PAYMENT_TOKEN: requiredRuntimeAddress(runtime, "paymentToken"),
+    VITE_PATH_NFT_DEPLOY_BLOCK: String(deployment.contracts.pathNft.deployBlock),
+    VITE_PULSE_AUCTION_DEPLOY_BLOCK: String(
+      deployment.contracts.pulseAuction.deployBlock,
+    ),
+    VITE_PATH_ALLOW_DIRECT_AUCTION: "1",
+  });
+};
+
+export const readThoughtPathLaneEnvironment = async () => {
+  const runtime = JSON.parse(await fs.readFile(THOUGHT_CONTRACT_RUNTIME_FILE, "utf8"));
+  return pathLaneEnvironmentFromRuntime(runtime);
+};
+
 export const thoughtLaneEnvironment = (extra = {}) => ({
   ...process.env,
   INSHELL_THOUGHT_ANVIL_HOST: THOUGHT_ANVIL_HOST,
