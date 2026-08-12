@@ -293,17 +293,14 @@ export const DOCS_SOURCE: DocsSource = {
         mode: "field",
         figureText: [
           "AGENT ART",
-          "",
-          "INVARIANT",
           "An Agent participates in the art activity.",
           "",
-          "OPEN QUESTIONS",
           "• What is Art? — Open question.",
           "• What is an Agent? — Open question.",
         ].join("\n"),
         items: [
           {
-            title: "Invariant",
+            title: "Agent Art",
             detail: "An Agent participates in the art activity.",
           },
           { title: "What is Art?", detail: "Open question." },

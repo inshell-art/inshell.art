@@ -1151,8 +1151,9 @@ describe("DocsPage character figures", () => {
       /RELATION|BOUNDARY|DOES NOT PROVE/,
     );
     expect(agentArtFigure).toMatch(
-      /INVARIANT[\s\S]*An Agent participates[\s\S]*OPEN QUESTIONS/,
+      /AGENT ART[\s\S]*An Agent participates[\s\S]*• What is Art\?[\s\S]*• What is an Agent\?/i,
     );
+    expect(agentArtFigure).not.toMatch(/\bINVARIANT\b|OPEN QUESTIONS/i);
     expect(agentArtFigure).not.toMatch(/NO PRESCRIBED RELATION/);
     expect(pathCapacityFigure?.figureText).toMatch(
       /DEPLOYMENT[\s\S]*EACH PATH[\s\S]*MOVEMENT QUOTA[\s\S]*USED \+ REMAINING/,
@@ -1707,19 +1708,21 @@ describe("DocsPage character figures", () => {
     const openAgentArt = screen
       .getByRole("figure", { name: "The invariant and the open field" })
       .querySelector("[data-figure-shape='open-invariant-field']");
-    expect(openAgentArt).toHaveTextContent(/AGENT ART[\s\S]*INVARIANT/i);
-    expect(openAgentArt).toHaveTextContent(/OPEN QUESTIONS[\s\S]*•[\s\S]*WHAT IS ART/i);
+    expect(openAgentArt).toHaveTextContent(
+      /AGENT ART[\s\S]*An Agent participates in the art activity[\s\S]*•[\s\S]*WHAT IS ART/i,
+    );
     expect(openAgentArt).toHaveTextContent(/•[\s\S]*WHAT IS AN AGENT/i);
+    expect(openAgentArt).not.toHaveTextContent(/\bINVARIANT\b|OPEN QUESTIONS/i);
     expect(
       Array.from(openAgentArt?.querySelectorAll(".docs-figure__term") ?? []).map(
         (term) => term.textContent?.trim(),
       ),
-    ).toEqual(["AGENT ART", "What is Art?", "What is an Agent?"]);
+    ).toEqual(["Agent Art", "What is Art?", "What is an Agent?"]);
     expect(
       Array.from(openAgentArt?.querySelectorAll(".docs-figure__shape-label") ?? []).map(
         (label) => label.textContent?.trim(),
       ),
-    ).toEqual(["Invariant", "OPEN QUESTIONS"]);
+    ).toEqual([]);
     expect(
       Array.from(
         openAgentArt?.querySelectorAll(".docs-figure__field-membership-glyph") ?? [],
@@ -1727,7 +1730,7 @@ describe("DocsPage character figures", () => {
     ).toEqual(["•", "•"]);
     expect(
       openAgentArt?.querySelector("[data-figure-node='invariant']"),
-    ).toHaveTextContent(/Invariant[\s\S]*An Agent participates in the art activity/i);
+    ).toHaveTextContent(/Agent Art[\s\S]*An Agent participates in the art activity/i);
     expect(
       Array.from(
         openAgentArt?.querySelectorAll("[data-figure-group-id='agent-art-questions']") ?? [],

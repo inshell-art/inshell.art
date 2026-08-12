@@ -40,10 +40,10 @@
       "id": "agent-art.open-field",
       "label": "The invariant and the open field",
       "mode": "field",
-      "figureText": "AGENT ART\n\nINVARIANT\nAn Agent participates in the art activity.\n\nOPEN QUESTIONS\n• What is Art? — Open question.\n• What is an Agent? — Open question.",
+      "figureText": "AGENT ART\nAn Agent participates in the art activity.\n\n• What is Art? — Open question.\n• What is an Agent? — Open question.",
       "items": [
         {
-          "title": "Invariant",
+          "title": "Agent Art",
           "detail": "An Agent participates in the art activity."
         },
         {
@@ -64,7 +64,7 @@
             "id": "invariant",
             "sourceItem": 0,
             "sourcePart": "item",
-            "term": "Invariant",
+            "term": "Agent Art",
             "annotation": "An Agent participates in the art activity.",
             "role": "principle"
           },

@@ -390,23 +390,10 @@ function AgentArtField({ figure }: { figure: FieldFigure }) {
       className="docs-figure__field-shape docs-figure__field-open"
       data-figure-shape="open-invariant-field"
     >
-      <StaticTerm className="docs-figure__field-governing-term">
-        AGENT ART
-      </StaticTerm>
-      <div
-        className="docs-figure__field-segment"
-        data-figure-node={invariant.id}
-      >
-        <span className="docs-figure__shape-label">{invariant.term}</span>
-        {invariant.annotation ? (
-          <small className="docs-figure__annotation">
-            {invariant.annotation}
-          </small>
-        ) : null}
-      </div>
-      <span className="docs-figure__shape-label docs-figure__field-governing-term">
-        OPEN QUESTIONS
-      </span>
+      <NodeCopy
+        className="docs-figure__field-governing-term"
+        node={invariant}
+      />
       <ul className="docs-figure__field docs-figure__field-open-questions">
         {question(artQuestion)}
         {question(agentQuestion)}

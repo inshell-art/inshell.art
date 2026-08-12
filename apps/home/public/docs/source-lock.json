@@ -11,14 +11,14 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "1a7f6b0a0e47803dec3a4d9d3e222021b9ee6ef9b6ac6b297cef11bde09f5d06",
+  "sourceTreeSha256": "3c4ca122d9305230f63ccb4a582b9bfe8af35c30be10ebb8db52a48added668d",
   "groups": [
     {
       "id": "public-docs",
       "title": "Public documentation sources",
       "owner": "inshell.art docs",
       "reason": "Human articles, Agent-readable content, authority maps, and machine-handoff selection.",
-      "groupSha256": "28f0dff03c657a766bec417677974ac5bc26f36be222da808d6ee39e922722e5",
+      "groupSha256": "eeb26de9c62a7846be66f44d49716699c347a1a977892931ec59a3d2f57e0110",
       "files": [
         {
           "path": "apps/home/src/content/AGENTS.md",
@@ -37,8 +37,8 @@
         },
         {
           "path": "apps/home/src/content/docs.ts",
-          "byteLength": 111663,
-          "sha256": "5ce39067a5bd1c104eb8be00d193392369b0e5dc49cab6003fb0886d6d0e8175"
+          "byteLength": 111598,
+          "sha256": "49cef9067e213727c191ef6466101e44fe650b9c11158097212e2f33e2342628"
         },
         {
           "path": "apps/home/src/content/thought-machine-handoff.ts",
@@ -67,7 +67,7 @@
       "title": "Home, PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "3ca63e3a70db51fb786c292a31f2333ccd184df95755e577d9222efdb1dad2bf",
+      "groupSha256": "210e8032dd6c89621a8a24c0f8d5574505b97ee32b368f9b9ab31a875639dd80",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -181,8 +181,8 @@
         },
         {
           "path": "apps/home/src/components/docs/FieldFigureVisual.tsx",
-          "byteLength": 25954,
-          "sha256": "96a4d7549657686d20e4d6d3433cd49abb36d782c7e011888b6fb5bd1fc1a2ed"
+          "byteLength": 25480,
+          "sha256": "82a29ca09d2e74ea2d70f6b6740b72c39e3091f17efbf87e1cceccd9d6718c5a"
         },
         {
           "path": "apps/home/src/components/docs/FlowFigureVisual.tsx",

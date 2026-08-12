@@ -195,25 +195,22 @@ Inshell alone names the artist. THOUGHT, WILL, and AWA name movements. PATH is a
 - Figure mode: field
 - Semantic form: field
 - Semantic nodes:
-  - `invariant [principle]: Invariant — An Agent participates in the art activity.`
+  - `invariant [principle]: Agent Art — An Agent participates in the art activity.`
   - `what-is-art [question]: What is Art? — Open question.`
   - `what-is-an-agent [question]: What is an Agent? — Open question.`
 - Semantic groups:
-  - `agent-art-field [open-field]: One invariant is held while Art and Agent remain open questions. [members: invariant (Invariant) · what-is-art (What is Art?) · what-is-an-agent (What is an Agent?)]`
+  - `agent-art-field [open-field]: One invariant is held while Art and Agent remain open questions. [members: invariant (Agent Art) · what-is-art (What is Art?) · what-is-an-agent (What is an Agent?)]`
   - `agent-art-questions [set] · •: The source questions remain open. [members: what-is-art (What is Art?) · what-is-an-agent (What is an Agent?)]`
 
 ```text
 AGENT ART
-
-INVARIANT
 An Agent participates in the art activity.
 
-OPEN QUESTIONS
 • What is Art? — Open question.
 • What is an Agent? — Open question.
 ```
 
-- **Invariant** — An Agent participates in the art activity.
+- **Agent Art** — An Agent participates in the art activity.
 - **What is Art?** — Open question.
 - **What is an Agent?** — Open question.
 
