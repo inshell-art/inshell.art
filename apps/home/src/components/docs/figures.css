@@ -456,11 +456,10 @@
 }
 
 .docs-figure__field-practice-relation {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  justify-items: center;
   gap: var(--docs-figure-item-gap);
+  width: 100%;
   max-width: 100%;
   min-width: 0;
 }
@@ -470,9 +469,19 @@
 }
 
 .docs-figure__field-practice-relation > .docs-figure__annotation {
-  flex: 0 1 auto;
   min-width: 0;
+  max-width: 100%;
   text-align: center;
+}
+
+[data-figure-shape="directed-relation"] .docs-figure__field-chain {
+  width: 100%;
+  min-width: 0;
+}
+
+[data-figure-shape="directed-relation"] .docs-figure__copy {
+  justify-items: center;
+  max-width: 100%;
 }
 
 .docs-figure__field-divider {

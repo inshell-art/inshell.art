@@ -259,30 +259,30 @@ function InwardDirection({ figure }: { figure: FieldFigure }) {
   );
 }
 
-function PracticeChain({ figure }: { figure: FieldFigure }) {
+function PracticeRelation({ figure }: { figure: FieldFigure }) {
   const [truth, practice] = figure.items;
   if (!truth || !practice) {
     return <BranchFallback figure={figure} />;
   }
   const approachEdge = figureEdge(figure, "practice-approaches-truth");
-  const practiceRoot = figureNode(figure, "truth-practice");
 
   return (
-    <div className="docs-figure__field-shape" data-figure-shape="boxed-chain">
-      <CharacterBox heading={<StaticTerm>{practiceRoot.term}</StaticTerm>}>
-        <div className="docs-figure__field-chain docs-figure__field-chain--up">
-          <ItemCopy item={truth} />
-          <span className="docs-figure__field-practice-relation">
-            <Glyph label={approachEdge.label}>{approachEdge.glyph}</Glyph>
-            {approachEdge.annotation ? (
-              <small className="docs-figure__annotation">
-                {approachEdge.annotation}
-              </small>
-            ) : null}
-          </span>
-          <ItemCopy item={practice} />
-        </div>
-      </CharacterBox>
+    <div
+      className="docs-figure__field-shape"
+      data-figure-shape="directed-relation"
+    >
+      <div className="docs-figure__field-chain docs-figure__field-chain--up">
+        <ItemCopy item={truth} />
+        <span className="docs-figure__field-practice-relation">
+          <Glyph label={approachEdge.label}>{approachEdge.glyph}</Glyph>
+          {approachEdge.annotation ? (
+            <small className="docs-figure__annotation">
+              {approachEdge.annotation}
+            </small>
+          ) : null}
+        </span>
+        <ItemCopy item={practice} />
+      </div>
     </div>
   );
 }
@@ -629,7 +629,7 @@ export function FieldFigureVisual({ figure }: FieldFigureVisualProps) {
     case "inshell.inward-direction":
       return <InwardDirection figure={figure} />;
     case "inshell.practice-truth":
-      return <PracticeChain figure={figure} />;
+      return <PracticeRelation figure={figure} />;
     case "agent-art.open-field":
       return <AgentArtField figure={figure} />;
     case "thought.prompt-response":

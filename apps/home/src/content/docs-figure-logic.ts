@@ -181,7 +181,6 @@ const FIGURE_LOGIC_BUILDERS = {
       figure,
       "axis",
       [
-        { id: "truth-practice", term: "TRUTH AND PRACTICE", role: "structural" },
         sourceNode(figure, 0, "truth", "result"),
         sourceNode(figure, 1, "practice", "action"),
       ],
@@ -195,14 +194,7 @@ const FIGURE_LOGIC_BUILDERS = {
           annotation: "Approaches without claiming possession",
         },
       ],
-      [
-        {
-          id: "truth-practice-axis",
-          kind: "comparison",
-          label: "Truth and practice remain distinct along one direction.",
-          members: ["truth-practice", "truth", "practice"],
-        },
-      ],
+      [],
     ),
 
   "agent-art.open-field": (figure) =>

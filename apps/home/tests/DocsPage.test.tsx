@@ -880,7 +880,7 @@ describe("DocsPage character figures", () => {
 
   const expectedFieldShapes = {
     "The inward direction": "contained-axis",
-    "How practice relates to truth": "boxed-chain",
+    "How practice relates to truth": "directed-relation",
     "The invariant and the open field": "open-invariant-field",
     "One prompt, one response": "prompt-response",
     "Creation Attestation": "attestation-flow-fork",
@@ -1059,7 +1059,7 @@ describe("DocsPage character figures", () => {
       } else if (figure.mode === "lanes") {
         expect(figure.figureText).toContain("→");
       } else {
-        expect(figure.figureText).toMatch(/[┌┐└┘├┬│↓→≠•]/);
+        expect(figure.figureText).toMatch(/[┌┐└┘├┬│↓↑→≠•]/);
       }
     }
   });
@@ -1108,7 +1108,10 @@ describe("DocsPage character figures", () => {
     );
     expect(inshellFigure).not.toMatch(/BOUNDARY/);
     expect(inshellPracticeFigure?.figureText).toMatch(
-      /TRUTH AND PRACTICE[\s\S]*TRUTH[\s\S]*INSPECT SELF[\s\S]*↑[\s\S]*APPROACHES WITHOUT CLAIMING POSSESSION[\s\S]*PRACTICE/i,
+      /TRUTH[\s\S]*INSPECT SELF[\s\S]*↑[\s\S]*APPROACHES WITHOUT CLAIMING POSSESSION[\s\S]*PRACTICE/i,
+    );
+    expect(inshellPracticeFigure?.figureText).not.toMatch(
+      /TRUTH AND PRACTICE|[┌┐└┘]/,
     );
     expect(inshellPracticeFigure?.figureText).not.toMatch(
       /RELATION|BOUNDARY|DOES NOT PROVE/,
@@ -1412,7 +1415,7 @@ describe("DocsPage character figures", () => {
     );
     const practice = screen
       .getByRole("figure", { name: "How practice relates to truth" })
-      .querySelector("[data-figure-shape='boxed-chain']");
+      .querySelector("[data-figure-shape='directed-relation']");
 
     expect(inward).toHaveTextContent(/SHELL[\s\S]*a body, face, or head/i);
     expect(inward).toHaveTextContent(/└─+┘/);
@@ -1496,7 +1499,26 @@ describe("DocsPage character figures", () => {
     for (const connector of practiceConnectors) {
       expect(connector.textContent).toBe("↑");
     }
+    const practiceFigure = screen.getByRole("figure", {
+      name: "How practice relates to truth",
+    });
+    const practiceLogic = JSON.parse(
+      practiceFigure.getAttribute("data-figure-logic") ?? "null",
+    );
     expect(practice).toHaveTextContent(/TRUTH[\s\S]*↑[\s\S]*PRACTICE/i);
+    expect(practice?.querySelector(".docs-figure__character-frame")).toBeNull();
+    expect(practiceLogic.nodes.map(({ id }: { id: string }) => id)).toEqual([
+      "truth",
+      "practice",
+    ]);
+    expect(practiceLogic.edges).toEqual([
+      expect.objectContaining({
+        from: "practice",
+        to: "truth",
+        glyph: "↑",
+      }),
+    ]);
+    expect(practiceLogic.groups).toEqual([]);
     expect(practiceRelation).toHaveTextContent(
       "Approaches without claiming possession",
     );

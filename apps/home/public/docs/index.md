@@ -125,24 +125,17 @@ Simply inspect your [thought](https://inshell.art/docs/thought).
 - Figure mode: field
 - Semantic form: axis
 - Semantic nodes:
-  - `truth-practice [structural]: TRUTH AND PRACTICE`
   - `truth [result]: Truth — Inspect self`
   - `practice [action]: Practice — Examine · inspect · suspect · read · listen · feel`
 - Semantic edges:
   - `practice-approaches-truth: practice (Practice) --[↑ · Practice approaches truth without claiming to possess it. · Approaches without claiming possession]--> truth (Truth)`
-- Semantic groups:
-  - `truth-practice-axis [comparison]: Truth and practice remain distinct along one direction. [members: truth-practice (TRUTH AND PRACTICE) · truth (Truth) · practice (Practice)]`
 
 ```text
-┌─ TRUTH AND PRACTICE ───────────────────┐
-│                 TRUTH                  │
-│              Inspect self              │
-│                   ↑                    │
-│ Approaches without claiming possession │
-│                PRACTICE                │
-│ Examine · inspect · suspect · read ·   │
-│              listen · feel             │
-└────────────────────────────────────────┘
+TRUTH
+Inspect self
+↑ Approaches without claiming possession
+PRACTICE
+Examine · inspect · suspect · read · listen · feel
 ```
 
 - **Truth** — Inspect self
