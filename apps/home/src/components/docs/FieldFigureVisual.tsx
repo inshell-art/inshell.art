@@ -196,6 +196,18 @@ function BranchFallback({ figure }: { figure: FieldFigure }) {
   );
 }
 
+function FrameJunctionDivider() {
+  return (
+    <div className="docs-figure__frame-junction-divider" aria-hidden="true">
+      <Glyph className="docs-figure__frame-character">├</Glyph>
+      <Glyph className="docs-figure__frame-rule">{HORIZONTAL_RAIL}</Glyph>
+      <Glyph className="docs-figure__frame-character">┬</Glyph>
+      <Glyph className="docs-figure__frame-rule">{HORIZONTAL_RAIL}</Glyph>
+      <Glyph className="docs-figure__frame-character">┤</Glyph>
+    </div>
+  );
+}
+
 function InwardDirection({ figure }: { figure: FieldFigure }) {
   const [shell, inward] = figure.items;
   if (!shell || !inward?.detail) {
@@ -216,35 +228,42 @@ function InwardDirection({ figure }: { figure: FieldFigure }) {
   const inspectEdge = figureEdge(figure, "inspect-self");
 
   return (
-    <div className="docs-figure__field-shape" data-figure-shape="box-tail">
+    <div
+      className="docs-figure__field-shape"
+      data-figure-shape="contained-axis"
+    >
       <CharacterBox
         heading={<StaticTerm>{shell.title}</StaticTerm>}
-        junction
         centeredHeading
       >
-        {shell.detail ? (
-          <small className="docs-figure__annotation">{shell.detail}</small>
-        ) : null}
-      </CharacterBox>
-      <div className="docs-figure__field-tail">
-        <span className="docs-figure__field-relation">
-          <Glyph label={enterEdge.label}>
-            {Array.from({ length: 64 }, () => enterEdge.glyph).join("\n")}
-          </Glyph>
-          <strong className="docs-figure__term docs-figure__field-relation-label">
-            {inward.title}
-          </strong>
-        </span>
-        <Glyph label={inspectEdge.label}>{inspectEdge.glyph}</Glyph>
-        <span className="docs-figure__copy docs-figure__field-destination-copy">
-          {destinationLead ? (
-            <small className="docs-figure__annotation">
-              {destinationLead}{" "}
-            </small>
+        <div className="docs-figure__field-inward-content">
+          {shell.detail ? (
+            <small className="docs-figure__annotation">{shell.detail}</small>
           ) : null}
-          <strong className="docs-figure__term">{destination}</strong>
-        </span>
-      </div>
+          <div className="docs-figure__field-inward-axis">
+            <FrameJunctionDivider />
+            <div className="docs-figure__field-tail">
+              <span className="docs-figure__field-relation">
+                <Glyph label={enterEdge.label}>
+                  {Array.from({ length: 64 }, () => enterEdge.glyph).join("\n")}
+                </Glyph>
+                <strong className="docs-figure__term docs-figure__field-relation-label">
+                  {inward.title}
+                </strong>
+              </span>
+              <Glyph label={inspectEdge.label}>{inspectEdge.glyph}</Glyph>
+              <span className="docs-figure__copy docs-figure__field-destination-copy">
+                {destinationLead ? (
+                  <small className="docs-figure__annotation">
+                    {destinationLead}{" "}
+                  </small>
+                ) : null}
+                <strong className="docs-figure__term">{destination}</strong>
+              </span>
+            </div>
+          </div>
+        </div>
+      </CharacterBox>
     </div>
   );
 }

@@ -353,21 +353,48 @@
   text-transform: uppercase;
 }
 
-.docs-figure__field-shape[data-figure-shape="box-tail"] {
+.docs-figure__field-shape[data-figure-shape="contained-axis"] {
   gap: 0;
 }
 
-.docs-figure__field-shape[data-figure-shape="box-tail"]
+.docs-figure__field-inward-content {
+  display: grid;
+  gap: var(--docs-figure-frame-content-gap);
+  min-width: 0;
+}
+
+.docs-figure__field-inward-axis {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+
+.docs-figure__frame-junction-divider {
+  display: grid;
+  grid-template-columns:
+    max-content minmax(var(--docs-figure-rule-min-width), 1fr) max-content
+    minmax(var(--docs-figure-rule-min-width), 1fr) max-content;
+  align-items: end;
+  min-width: 0;
+  margin-inline: calc(var(--docs-figure-frame-padding-inline) * -1);
+}
+
+.docs-figure__frame-junction-divider .docs-figure__frame-character,
+.docs-figure__frame-junction-divider .docs-figure__frame-rule {
+  line-height: var(--docs-figure-character-line-height);
+}
+
+.docs-figure__field-shape[data-figure-shape="contained-axis"]
   .docs-figure__field-tail {
   gap: 0;
 }
 
-.docs-figure__field-shape[data-figure-shape="box-tail"]
+.docs-figure__field-shape[data-figure-shape="contained-axis"]
   .docs-figure__field-relation {
   position: relative;
 }
 
-.docs-figure__field-shape[data-figure-shape="box-tail"]
+.docs-figure__field-shape[data-figure-shape="contained-axis"]
   .docs-figure__field-relation > .docs-figure__glyph {
   position: absolute;
   grid-column: 1 / -1;
@@ -378,7 +405,7 @@
   margin-inline: auto;
 }
 
-.docs-figure__field-shape[data-figure-shape="box-tail"]
+.docs-figure__field-shape[data-figure-shape="contained-axis"]
   .docs-figure__field-tail > .docs-figure__glyph {
   line-height: var(--docs-figure-character-line-height);
   white-space: pre;
@@ -390,7 +417,7 @@
   text-align: center;
 }
 
-.docs-figure__field-shape[data-figure-shape="box-tail"]
+.docs-figure__field-shape[data-figure-shape="contained-axis"]
   .docs-figure__field-destination-copy {
   margin-block-start: var(--docs-figure-tail-gap);
 }

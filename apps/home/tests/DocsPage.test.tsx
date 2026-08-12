@@ -879,7 +879,7 @@ describe("DocsPage character figures", () => {
   } as const satisfies Readonly<Record<string, DocsFigureForm>>;
 
   const expectedFieldShapes = {
-    "The inward direction": "box-tail",
+    "The inward direction": "contained-axis",
     "How practice relates to truth": "boxed-chain",
     "The invariant and the open field": "open-invariant-field",
     "One prompt, one response": "prompt-response",
@@ -1407,15 +1407,19 @@ describe("DocsPage character figures", () => {
 
   test("preserves representative box, chain, segment, fork, arc, and source-flow impressions", () => {
     render(<DocsPage topicSlug="inshell" />);
-    const inward = screen
-      .getByRole("figure", { name: "The inward direction" })
-      .querySelector("[data-figure-shape='box-tail']");
+    const inwardFigure = screen.getByRole("figure", {
+      name: "The inward direction",
+    });
+    const inward = inwardFigure.querySelector(
+      "[data-figure-shape='contained-axis']",
+    );
     const practice = screen
       .getByRole("figure", { name: "How practice relates to truth" })
       .querySelector("[data-figure-shape='boxed-chain']");
 
     expect(inward).toHaveTextContent(/┌─+\s*SHELL[─\s]*┐/i);
-    expect(inward).toHaveTextContent(/└[─\s]*┬[─\s]*┘/);
+    expect(inward).toHaveTextContent(/├[─\s]*┬[─\s]*┤/);
+    expect(inward).toHaveTextContent(/└─+┘/);
     expect(
       inward?.querySelector(".docs-figure__frame-cap--centered"),
     ).not.toBeNull();
@@ -1424,6 +1428,20 @@ describe("DocsPage character figures", () => {
         ".docs-figure__frame-cap--centered > .docs-figure__frame-rule",
       ),
     ).toHaveLength(2);
+    expect(
+      inward?.querySelectorAll(
+        ".docs-figure__frame-junction-divider > .docs-figure__frame-rule",
+      ),
+    ).toHaveLength(2);
+    expect(
+      inward?.querySelector(".docs-figure__frame-content"),
+    ).toHaveTextContent(/SELF/i);
+    expect(
+      JSON.parse(
+        inwardFigure.getAttribute("data-figure-logic") ?? "null",
+      ).groups.find(({ id }: { id: string }) => id === "shell-boundary")
+        ?.members,
+    ).toEqual(["shell", "in", "self"]);
     expect(
       inward?.querySelector(".docs-figure__field-relation"),
     ).toHaveTextContent(/[│\s]+IN/i);

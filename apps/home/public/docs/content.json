@@ -57,7 +57,7 @@
           "id": "inshell.inward-direction",
           "label": "The inward direction",
           "mode": "field",
-          "figureText": "┌─ SHELL ─────────────────────────────────┐\n│ Real and often necessary · Surface:     │\n│ visible · operable · legible.           │\n└───────────────────┬─────────────────────┘\n                    │ IN\n                    ↓\n          Inspect what forms the\n                   SELF",
+          "figureText": "┌───────────────── SHELL ─────────────────┐\n│ Real and often necessary · Surface:     │\n│ visible · operable · legible.           │\n├────────────────────┬────────────────────┤\n│                    │ IN                 │\n│                    ↓                    │\n│          Inspect what forms the         │\n│                   SELF                  │\n└─────────────────────────────────────────┘",
           "items": [
             {
               "title": "Shell",
@@ -118,7 +118,9 @@
                 "kind": "boundary",
                 "label": "The shell is real, necessary, and not the whole being.",
                 "members": [
-                  "shell"
+                  "shell",
+                  "in",
+                  "self"
                 ]
               }
             ]

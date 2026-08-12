@@ -3889,28 +3889,8 @@ button {
   text-transform: uppercase;
 }
 
-.docs-figure__field-shape[data-figure-shape="box-tail"] {
-  gap: 0;
-}
-
-.docs-figure__field-shape[data-figure-shape="box-tail"]
-  .docs-figure__field-tail {
-  gap: 0;
-}
-
-.docs-figure__field-shape[data-figure-shape="box-tail"]
-  .docs-figure__field-tail > .docs-figure__glyph {
-  line-height: var(--docs-figure-character-line-height);
-  white-space: pre;
-}
-
 .docs-figure__field-destination-copy {
   text-align: center;
-}
-
-.docs-figure__field-shape[data-figure-shape="box-tail"]
-  .docs-figure__field-destination-copy {
-  margin-block-start: var(--docs-figure-tail-gap);
 }
 
 .docs-figure__field-destination-copy .docs-figure__term {

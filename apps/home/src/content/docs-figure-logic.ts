@@ -171,7 +171,7 @@ const FIGURE_LOGIC_BUILDERS = {
           id: "shell-boundary",
           kind: "boundary",
           label: "The shell is real, necessary, and not the whole being.",
-          members: ["shell"],
+          members: ["shell", "in", "self"],
         },
       ],
     ),
