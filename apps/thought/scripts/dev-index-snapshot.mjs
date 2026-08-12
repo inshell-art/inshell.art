@@ -31,6 +31,31 @@ const SNAPSHOT_FILES = Object.freeze({
   }),
 });
 
+const TAGGED_NAVIGATION_SCOPE = `const INSHELL_HOME_URL =
+  readConfiguredUrl("VITE_INSHELL_HOME_URL") || INSHELL_LINKS.home;
+const PATH_VERIFY_CONTRACTS_URL = new URL("/verify#verify-contracts", PATH_MINT_ABSOLUTE_URL).toString();
+const GALLERY_URL = INSHELL_HOME_URL;
+const THOUGHT_APP_URL =
+  (!IS_LOCAL_RUNTIME_HOST && readConfiguredUrl("VITE_THOUGHT_URL")) ||
+  INSHELL_LINKS.thought;
+const defaultThoughtDetailBaseUrl = () => {
+  return new URL("/thought", INSHELL_HOME_URL).toString();
+};`;
+
+const CURRENT_NAVIGATION_SCOPE = `const INSHELL_HOME_URL = INSHELL_LINKS.home;
+const PATH_VERIFY_CONTRACTS_URL = new URL("/verify#verify-contracts", PATH_MINT_ABSOLUTE_URL).toString();
+const GALLERY_URL =
+  (!IS_LOCAL_RUNTIME_HOST &&
+    (readConfiguredUrl("VITE_GALLERY_URL") ||
+      readConfiguredUrl("VITE_THOUGHT_GALLERY_URL"))) ||
+  INSHELL_LINKS.works;
+const THOUGHT_APP_URL =
+  (!IS_LOCAL_RUNTIME_HOST && readConfiguredUrl("VITE_THOUGHT_URL")) ||
+  INSHELL_LINKS.thought;
+const defaultThoughtDetailBaseUrl = () => {
+  return INSHELL_LINKS.thought;
+};`;
+
 const POST_SNAPSHOT_SURFACE_ROUTER = `      const requestedSurface = params.get("surface");
       const useDevAgentDefault =
         requestedSurface === null &&
@@ -200,6 +225,11 @@ function restoreMainSnapshot(source) {
       `  if (!IS_RUN_PAGE) {
     focusThoughtDockPrompt({ preventScroll: true });
   }`,
+    ],
+    [
+      "current same-origin navigation scope",
+      CURRENT_NAVIGATION_SCOPE,
+      TAGGED_NAVIGATION_SCOPE,
     ],
   ];
   for (const [label, from, to] of replacements) {
@@ -371,7 +401,17 @@ export function loadThoughtDevSnapshotFile(workspaceRoot, fileKey) {
     throw new Error(`Unknown THOUGHT dev snapshot file: ${fileKey}`);
   }
   const currentSource = readFileSync(path.resolve(workspaceRoot, snapshotFile.path), "utf8");
-  return restoreThoughtDevSnapshotSource(currentSource, fileKey);
+  const verifiedSnapshot = restoreThoughtDevSnapshotSource(currentSource, fileKey);
+  if (fileKey !== "main") return verifiedSnapshot;
+
+  // Keep the tagged visual/runtime snapshot byte-verified, then layer only the
+  // current same-origin navigation policy required by local and LAN runtimes.
+  return replaceExactCount(
+    verifiedSnapshot,
+    "tagged same-origin navigation scope",
+    TAGGED_NAVIGATION_SCOPE,
+    CURRENT_NAVIGATION_SCOPE,
+  );
 }
 
 export function loadThoughtDevSnapshotModule(workspaceRoot, id) {

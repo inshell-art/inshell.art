@@ -1771,15 +1771,18 @@ const PATH_MINT_URL =
     ? import.meta.env.VITE_PATH_MINT_URL.trim()
     : defaultPathMintUrl();
 const PATH_MINT_ABSOLUTE_URL = new URL(PATH_MINT_URL, sameOriginAppOrigin()).toString();
-const INSHELL_HOME_URL =
-  readConfiguredUrl("VITE_INSHELL_HOME_URL") || INSHELL_LINKS.home;
+const INSHELL_HOME_URL = INSHELL_LINKS.home;
 const PATH_VERIFY_CONTRACTS_URL = new URL("/verify#verify-contracts", PATH_MINT_ABSOLUTE_URL).toString();
-const GALLERY_URL = INSHELL_HOME_URL;
+const GALLERY_URL =
+  (!IS_LOCAL_RUNTIME_HOST &&
+    (readConfiguredUrl("VITE_GALLERY_URL") ||
+      readConfiguredUrl("VITE_THOUGHT_GALLERY_URL"))) ||
+  INSHELL_LINKS.works;
 const THOUGHT_APP_URL =
   (!IS_LOCAL_RUNTIME_HOST && readConfiguredUrl("VITE_THOUGHT_URL")) ||
   INSHELL_LINKS.thought;
 const defaultThoughtDetailBaseUrl = () => {
-  return new URL("/thought", INSHELL_HOME_URL).toString();
+  return INSHELL_LINKS.thought;
 };
 const THOUGHT_DETAIL_BASE_URL = (() => {
   if (IS_LOCAL_RUNTIME_HOST) return defaultThoughtDetailBaseUrl();

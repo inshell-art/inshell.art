@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "2ac26e679b6f36ffcaebdd47221154ddc7636fa868d001defd6887f2ed3dee23",
+  "sourceTreeSha256": "bf1a4b1c0427a1225e4162c8e56f9e3f347611f21d92a894e03e48d89b636ed1",
   "groups": [
     {
       "id": "public-docs",
@@ -57,7 +57,7 @@
       "title": "Home, PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "ebb6e7e4b39e79b5ba542d0a4714bb52ab7f5ba705370f3f8e50b00f338ed5d0",
+      "groupSha256": "b05337f751f3b375e0913dc94585d9e80cad77a6ba3a8439e9bb7117cee22304",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -66,8 +66,8 @@
         },
         {
           "path": "apps/home/package.json",
-          "byteLength": 3849,
-          "sha256": "6907dd37e20a76c14ab88316d5e62e093c2a2ed66919728fbecd5e733a5bacc5"
+          "byteLength": 3878,
+          "sha256": "94bdbc4b1c085ef8fc83f826f8557ef05ac872bb47f526ce87fa1e86b2dede83"
         },
         {
           "path": "apps/home/src/App.tsx",
@@ -554,17 +554,17 @@
       "title": "Wallet boundary",
       "owner": "inshell.art shared App infrastructure",
       "reason": "Public docs distinguish passive wallet reads from signatures and transactions.",
-      "groupSha256": "e339fe093c731e7d58d5ac5234201491111a944daf1faaa31f4850f5615469f1",
+      "groupSha256": "dae6939fe07f5d6778626fb46a2630b4ba3074b77648223d0dbc076fb6c3a762",
       "files": [
         {
           "path": "packages/inshell-shell/src/index.tsx",
-          "byteLength": 11039,
-          "sha256": "9c100b4b90ad9901de1533d704125cea3eb61f3844284ad7cae3b647a4249aca"
+          "byteLength": 11059,
+          "sha256": "2227fd4311bfe8930a6feb44e36712eb6c4b2612593958bbce92f65bb052291f"
         },
         {
           "path": "packages/inshell-shell/src/links.ts",
-          "byteLength": 2406,
-          "sha256": "fede004bbabf38d05ab98de3f784f9193eaac50a3100faa6c6121a225346b21f"
+          "byteLength": 2419,
+          "sha256": "91a61f208871fc12fbbda93512953fe56c4a2f8d833137627ac64d9ea68fb784"
         },
         {
           "path": "packages/inshell-shell/src/tokens.css",
@@ -934,7 +934,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "05f4bcafe06533e30e58614d6e6394712563e9c6f1ce7c7965f2c24c4ea200bd",
+      "groupSha256": "58d7198da8ce62af86e7b4a2951f4f11a0e999b7cf4b64f6d3df138d7328cc8a",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -953,8 +953,8 @@
         },
         {
           "path": "apps/thought/scripts/dev-index-snapshot.mjs",
-          "byteLength": 13835,
-          "sha256": "eed2377421017c320d78a4f61c54c73b76bf754ee14135165d81216cde225822"
+          "byteLength": 15404,
+          "sha256": "3a2bbc307974f4082f8be5240099f35e2751a6ada2960498c49b66760a1875ba"
         },
         {
           "path": "apps/thought/scripts/mock-thought-v2-anvil-signer.ts",
@@ -983,8 +983,8 @@
         },
         {
           "path": "apps/thought/src/main.ts",
-          "byteLength": 740025,
-          "sha256": "c68458b01924eee4bca591fb4f69565a0e47ce47fb7680db2e6b7aebf508e2ad"
+          "byteLength": 740087,
+          "sha256": "091e32464044246802e596f072fce2848f5a7bcac291562f11cf4651e3cbcdbe"
         },
         {
           "path": "apps/thought/src/rpc-provider.ts",

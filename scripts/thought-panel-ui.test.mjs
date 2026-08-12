@@ -8,6 +8,7 @@ import {
   shouldRestoreThoughtDevIndexSnapshot,
   THOUGHT_DEV_INDEX_SNAPSHOT,
 } from "../apps/thought/scripts/dev-index-snapshot.mjs";
+import { thoughtLaneEnvironment } from "./thought-local-lane.mjs";
 
 const indexHtml = await readFile(new URL("../apps/thought/index.html", import.meta.url), "utf8");
 const thoughtCss = await readFile(new URL("../apps/thought/src/style.css", import.meta.url), "utf8");
@@ -441,6 +442,11 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
     restoredMain,
     /const IS_CLI_DEBUG = ROUTE_SEARCH_PARAMS\.get\("debug"\) === "cli"/,
   );
+  assert.match(
+    restoredMain,
+    /const INSHELL_HOME_URL = INSHELL_LINKS\.home;[\s\S]*?const GALLERY_URL =[\s\S]*?INSHELL_LINKS\.works;[\s\S]*?return INSHELL_LINKS\.thought;/,
+    "the verified tagged UI keeps the current same-origin navigation policy",
+  );
   assert.doesNotMatch(restoredMain, /const IS_CLI_SURFACE/);
   assert.match(restoredStyle, /\.frontpage-side\s*\{[\s\S]*?display:\s*none;/);
   assert.match(restoredStyle, /\.thought-panel\s*\{[\s\S]*?display:\s*flex;/);
@@ -471,6 +477,26 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
     /node:child_process|execFileSync|git\s+cat-file/,
     "snapshot restoration must work in a shallow CI checkout",
   );
+});
+
+test("the local lane keeps every product link on the shared Home origin", () => {
+  const lane = thoughtLaneEnvironment();
+  const home = new URL(lane.VITE_INSHELL_HOME_URL);
+  const productUrls = [
+    lane.VITE_THOUGHT_URL,
+    lane.VITE_GALLERY_URL,
+    lane.VITE_PATH_MINT_URL,
+    lane.VITE_THOUGHT_DETAIL_BASE_URL,
+  ].map((value) => new URL(value));
+
+  assert.deepEqual(
+    productUrls.map((url) => url.origin),
+    productUrls.map(() => home.origin),
+  );
+  assert.equal(new URL(lane.VITE_THOUGHT_URL).pathname, "/thought");
+  assert.equal(new URL(lane.VITE_GALLERY_URL).pathname, "/gallery");
+  assert.equal(new URL(lane.VITE_PATH_MINT_URL).pathname, "/path");
+  assert.equal(new URL(lane.VITE_THOUGHT_DETAIL_BASE_URL).pathname, "/thought");
 });
 
 test("canonical CLI canvas preserves the immutable June 10 snapshot", () => {
