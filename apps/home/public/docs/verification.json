@@ -1,8 +1,8 @@
 {
-  "schema": "inshell.agent-docs.topic.v1",
-  "schemaUrl": "/docs/content.schema.json",
-  "canonicalSchemaUrl": "https://inshell.art/docs/content.schema.json",
-  "version": "2026-08-11",
+  "schema": "inshell.agent-docs.topic.v2",
+  "schemaUrl": "/docs/content.v2.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
+  "version": "2026-08-12",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "verification",

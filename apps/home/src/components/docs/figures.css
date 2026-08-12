@@ -1,4 +1,52 @@
 .docs-figure {
+  /*
+   * Character figures use one literal type system and several semantic
+   * rhythms. A figure may change the scale assigned to a tier, but it may
+   * never introduce a fourth tier: term, structure, annotation.
+   */
+  --docs-figure-scale-monument: clamp(
+    var(--font-size-30),
+    7vw,
+    var(--font-size-64)
+  );
+  --docs-figure-scale-sequence: clamp(
+    var(--font-size-30),
+    5.4vw,
+    var(--font-size-56)
+  );
+  --docs-figure-scale-branch: clamp(
+    var(--font-size-30),
+    4.8vw,
+    var(--font-size-40)
+  );
+  --docs-figure-scale-field: clamp(
+    var(--font-size-30),
+    5.8vw,
+    var(--font-size-56)
+  );
+  --docs-figure-scale-ledger: clamp(
+    var(--font-size-22),
+    3.2vw,
+    var(--font-size-30)
+  );
+  --docs-figure-scale-lanes: clamp(
+    var(--font-size-18),
+    2.6vw,
+    var(--font-size-24)
+  );
+  --docs-figure-scale-structure: var(--font-size-14);
+  --docs-figure-scale-note: var(--font-size-10);
+  --docs-figure-scale-dense-note: var(--font-size-11);
+  --docs-figure-space-open: clamp(24px, 4vw, 38px);
+  --docs-figure-space-sequence: clamp(18px, 3vw, 30px);
+  --docs-figure-space-dense: 14px;
+  --docs-figure-axis-padding-block: clamp(8px, 2vw, 18px);
+  --docs-figure-field-padding-block: clamp(6px, 1.6vw, 14px);
+  --docs-figure-fork-inline-size: 58%;
+  --docs-figure-mobile-fork-inline-size: 100%;
+  --docs-figure-term-font-size: var(--docs-figure-scale-field);
+  --docs-figure-title-font-size: var(--docs-figure-scale-structure);
+  --docs-figure-annotation-font-size: var(--docs-figure-scale-note);
   display: grid;
   gap: var(--docs-figure-gap);
   margin-block: var(--docs-figure-margin-block-start)
@@ -7,6 +55,65 @@
   padding: var(--docs-figure-padding-block) var(--docs-figure-padding-inline);
   border-block: var(--docs-figure-border-width) solid var(--panel-border);
   background: var(--panel-raised);
+}
+
+/*
+ * Semantic forms are presentation grammars, not visual labels. The words,
+ * operators, and rails stay in the DOM; these rules only establish emphasis.
+ */
+.docs-figure[data-figure-form="axis"] {
+  --docs-figure-term-font-size: var(--docs-figure-scale-monument);
+  --docs-figure-annotation-font-size: var(--docs-figure-scale-note);
+  --docs-figure-field-gap: var(--docs-figure-space-open);
+  --docs-figure-frame-content-gap: var(--docs-figure-space-sequence);
+  --docs-figure-row-gap: var(--docs-figure-space-open);
+}
+
+.docs-figure[data-figure-form="trace"] {
+  --docs-figure-term-font-size: var(--docs-figure-scale-sequence);
+  --docs-figure-annotation-font-size: var(--docs-figure-scale-note);
+  --docs-figure-column-gap: var(--docs-figure-space-dense);
+  --docs-figure-item-gap: var(--docs-figure-space-dense);
+  --docs-figure-row-gap: var(--docs-figure-space-sequence);
+}
+
+.docs-figure[data-figure-form="cycle"] {
+  --docs-figure-term-font-size: var(--docs-figure-scale-sequence);
+  --docs-figure-annotation-font-size: var(--docs-figure-scale-note);
+  --docs-figure-field-gap: var(--docs-figure-space-sequence);
+  --docs-figure-row-gap: var(--docs-figure-space-sequence);
+}
+
+.docs-figure[data-figure-form="fork"] {
+  --docs-figure-term-font-size: var(--docs-figure-scale-branch);
+  --docs-figure-annotation-font-size: var(--docs-figure-scale-note);
+  --docs-figure-field-gap: var(--docs-figure-space-sequence);
+  --docs-figure-frame-content-gap: var(--docs-figure-space-sequence);
+  --docs-figure-row-gap: var(--docs-figure-space-open);
+}
+
+.docs-figure[data-figure-form="field"] {
+  --docs-figure-term-font-size: var(--docs-figure-scale-field);
+  --docs-figure-annotation-font-size: var(--docs-figure-scale-note);
+  --docs-figure-field-gap: var(--docs-figure-space-open);
+  --docs-figure-frame-content-gap: var(--docs-figure-space-sequence);
+  --docs-figure-row-gap: var(--docs-figure-space-open);
+}
+
+.docs-figure[data-figure-form="ledger"] {
+  --docs-figure-term-font-size: var(--docs-figure-scale-ledger);
+  --docs-figure-annotation-font-size: var(--docs-figure-scale-dense-note);
+  --docs-figure-gap: var(--docs-figure-space-dense);
+  --docs-figure-item-gap: var(--docs-figure-space-dense);
+  --docs-figure-row-gap: var(--docs-figure-space-sequence);
+}
+
+.docs-figure[data-figure-form="lanes"] {
+  --docs-figure-term-font-size: var(--docs-figure-scale-lanes);
+  --docs-figure-annotation-font-size: var(--docs-figure-scale-dense-note);
+  --docs-figure-column-gap: var(--docs-figure-space-dense);
+  --docs-figure-item-gap: var(--docs-figure-space-dense);
+  --docs-figure-lane-gap: var(--docs-figure-space-sequence);
 }
 
 .docs-figure figcaption {
@@ -53,10 +160,12 @@
 
 .docs-figure__annotation {
   display: block;
+  min-width: 0;
   color: var(--muted);
   font-size: var(--docs-figure-annotation-font-size);
   font-weight: var(--weight-mid);
   line-height: var(--docs-figure-annotation-line-height);
+  overflow-wrap: anywhere;
 }
 
 .docs-figure__glyph,
@@ -89,6 +198,14 @@
   display: grid;
   gap: var(--docs-figure-field-gap);
   min-width: 0;
+}
+
+.docs-figure[data-figure-form="axis"] .docs-figure__field-shape {
+  padding-block: var(--docs-figure-axis-padding-block);
+}
+
+.docs-figure[data-figure-form="field"] .docs-figure__field-shape {
+  padding-block: var(--docs-figure-field-padding-block);
 }
 
 .docs-figure__field-shape .docs-figure__term {
@@ -348,7 +465,7 @@
 .docs-figure__field-fork {
   display: grid;
   justify-self: end;
-  width: 50%;
+  width: var(--docs-figure-fork-inline-size);
   min-width: 0;
   gap: 0;
 }
@@ -560,7 +677,8 @@
   white-space: pre;
 }
 
-.docs-figure__shape-trace--cycle .docs-figure__shape-trace-list {
+.docs-figure__shape-trace--cycle .docs-figure__shape-trace-list,
+.docs-figure__shape-trace--stack .docs-figure__shape-trace-list {
   display: grid;
   justify-content: center;
   justify-items: center;
@@ -568,7 +686,8 @@
   min-width: 0;
 }
 
-.docs-figure__shape-trace--cycle .docs-figure__shape-trace-item {
+.docs-figure__shape-trace--cycle .docs-figure__shape-trace-item,
+.docs-figure__shape-trace--stack .docs-figure__shape-trace-item {
   display: grid;
   justify-items: center;
   gap: 0;
@@ -672,7 +791,6 @@
 }
 
 .docs-figure__lanes {
-  --docs-figure-term-font-size: var(--font-size-22);
   display: grid;
   gap: var(--docs-figure-lane-gap);
   min-width: 0;
@@ -849,6 +967,13 @@
   }
 
   .docs-figure {
+    --docs-figure-scale-monument: var(--font-size-30);
+    --docs-figure-scale-sequence: var(--font-size-26);
+    --docs-figure-scale-branch: var(--font-size-24);
+    --docs-figure-scale-field: var(--font-size-26);
+    --docs-figure-fork-inline-size: var(
+      --docs-figure-mobile-fork-inline-size
+    );
     --docs-figure-padding-inline: var(--docs-mobile-figure-padding-inline);
     --docs-figure-ledger-columns: var(--docs-mobile-figure-ledger-columns);
   }

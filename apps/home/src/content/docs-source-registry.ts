@@ -35,7 +35,9 @@ export const DOCS_SOURCE_REGISTRY = {
       reason: "Human articles, Agent-readable content, authority maps, and machine-handoff selection.",
       files: [
         "docs/AGENTS.md",
+        "docs/agent-native-figure-experiment.md",
         "apps/home/src/content/AGENTS.md",
+        "apps/home/src/content/docs-figure-logic.ts",
         "apps/home/src/content/docs.ts",
         "apps/home/src/content/docs-source-registry.ts",
         "apps/home/src/content/thought-machine-handoff.ts",

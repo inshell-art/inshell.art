@@ -1,6 +1,15 @@
 import { Fragment, type ReactNode } from "react";
 
 import type { DocsFigure } from "@/content/docs";
+import {
+  docsFigureLogic,
+  type DocsFigureEdge,
+  type DocsFigureNode,
+} from "@/content/docs-figure-logic";
+import {
+  resolveEdgeByEndpoints,
+  resolveSourceNode,
+} from "@/components/docs/figureLogicResolvers";
 
 type FieldFigure = Extract<DocsFigure, { mode: "field" }>;
 type FieldFigureItem = FieldFigure["items"][number];
@@ -11,8 +20,22 @@ export type FieldFigureVisualProps = {
 
 const HORIZONTAL_RAIL = "─".repeat(256);
 const VERTICAL_RAIL = Array.from({ length: 64 }, () => "│").join("\n");
-const PRACTICE_RELATION_ANNOTATION =
-  "Approaches without claiming possession";
+
+function figureEdge(figure: FieldFigure, edgeId: string): DocsFigureEdge {
+  const edge = docsFigureLogic(figure).edges.find(({ id }) => id === edgeId);
+  if (!edge) {
+    throw new Error(`Figure "${figure.id}" has no semantic edge "${edgeId}".`);
+  }
+  return edge;
+}
+
+function figureNode(figure: FieldFigure, nodeId: string): DocsFigureNode {
+  const node = docsFigureLogic(figure).nodes.find(({ id }) => id === nodeId);
+  if (!node) {
+    throw new Error(`Figure "${figure.id}" has no semantic node "${nodeId}".`);
+  }
+  return node;
+}
 
 function FigureTitle({ children }: { children: string }) {
   return children.split(/(?<=[a-z])(?=[A-Z])/).map((part, index) => (
@@ -119,12 +142,18 @@ function CharacterBox({
   );
 }
 
-function FlowConnector({ direction = "down" }: { direction?: "down" | "up" }) {
+function FlowConnector({
+  direction = "down",
+  label,
+}: {
+  direction?: "down" | "up";
+  label: string;
+}) {
   return (
     <span
       className="docs-figure__field-connector"
       role="img"
-      aria-label={direction === "down" ? "then" : "leads upward to"}
+      aria-label={label}
     >
       <Glyph>{direction === "down" ? "│\n↓" : "↑\n│"}</Glyph>
     </span>
@@ -165,6 +194,8 @@ function InwardDirection({ figure }: { figure: FieldFigure }) {
   if (!destination) {
     return <BranchFallback figure={figure} />;
   }
+  const enterEdge = figureEdge(figure, "enter-shell");
+  const inspectEdge = figureEdge(figure, "inspect-self");
 
   return (
     <div className="docs-figure__field-shape" data-figure-shape="box-tail">
@@ -175,12 +206,12 @@ function InwardDirection({ figure }: { figure: FieldFigure }) {
       </CharacterBox>
       <div className="docs-figure__field-tail">
         <span className="docs-figure__field-relation">
-          <Glyph>│</Glyph>
+          <Glyph label={enterEdge.label}>{enterEdge.glyph}</Glyph>
           <strong className="docs-figure__term docs-figure__field-relation-label">
             {inward.title}
           </strong>
         </span>
-        <Glyph label="leads inward to">↓</Glyph>
+        <Glyph label={inspectEdge.label}>{inspectEdge.glyph}</Glyph>
         <span className="docs-figure__copy docs-figure__field-destination-copy">
           {destinationLead ? (
             <small className="docs-figure__annotation">
@@ -199,32 +230,25 @@ function PracticeChain({ figure }: { figure: FieldFigure }) {
   if (!truth || !practice) {
     return <BranchFallback figure={figure} />;
   }
+  const approachEdge = figureEdge(figure, "practice-approaches-truth");
+  const practiceRoot = figureNode(figure, "truth-practice");
 
   return (
     <div className="docs-figure__field-shape" data-figure-shape="boxed-chain">
-      <CharacterBox heading={<StaticTerm>TRUTH AND PRACTICE</StaticTerm>}>
+      <CharacterBox heading={<StaticTerm>{practiceRoot.term}</StaticTerm>}>
         <div className="docs-figure__field-chain docs-figure__field-chain--up">
           <ItemCopy item={truth} />
           <span className="docs-figure__field-practice-relation">
-            <Glyph label="practice approaches truth">↑</Glyph>
-            <small className="docs-figure__annotation">
-              {PRACTICE_RELATION_ANNOTATION}
-            </small>
+            <Glyph label={approachEdge.label}>{approachEdge.glyph}</Glyph>
+            {approachEdge.annotation ? (
+              <small className="docs-figure__annotation">
+                {approachEdge.annotation}
+              </small>
+            ) : null}
           </span>
           <ItemCopy item={practice} />
         </div>
       </CharacterBox>
-    </div>
-  );
-}
-
-function SegmentDivider({ children }: { children: ReactNode }) {
-  return (
-    <div className="docs-figure__field-divider">
-      <Glyph className="docs-figure__frame-character">├─</Glyph>
-      {children}
-      <Glyph className="docs-figure__frame-rule">{HORIZONTAL_RAIL}</Glyph>
-      <Glyph className="docs-figure__frame-character">┤</Glyph>
     </div>
   );
 }
@@ -234,21 +258,29 @@ function AgentArtField({ figure }: { figure: FieldFigure }) {
   if (!invariant || !artQuestion || !agentQuestion) {
     return <BranchFallback figure={figure} />;
   }
+  const agentArtRoot = figureNode(figure, "agent-art");
+  const openQuestions = figureNode(figure, "open-questions");
 
   return (
-    <div className="docs-figure__field-shape" data-figure-shape="segmented-box">
-      <CharacterBox heading={<StaticTerm>AGENT ART</StaticTerm>}>
-        <div className="docs-figure__field-segment">
-          <ItemCopy item={invariant} />
-        </div>
-        <SegmentDivider>
-          <span className="docs-figure__eyebrow">OPEN QUESTIONS</span>
-        </SegmentDivider>
-        <div className="docs-figure__field-segment docs-figure__field-questions">
+    <div
+      className="docs-figure__field-shape docs-figure__field-open"
+      data-figure-shape="open-invariant-field"
+    >
+      <StaticTerm>{agentArtRoot.term}</StaticTerm>
+      <div className="docs-figure__field-segment">
+        <ItemCopy item={invariant} />
+      </div>
+      <span className="docs-figure__eyebrow">{openQuestions.term}</span>
+      <ul className="docs-figure__field docs-figure__field-open-questions">
+        <li>
+          <Glyph>├─</Glyph>
           <ItemCopy item={artQuestion} />
+        </li>
+        <li>
+          <Glyph>└─</Glyph>
           <ItemCopy item={agentQuestion} />
-        </div>
-      </CharacterBox>
+        </li>
+      </ul>
     </div>
   );
 }
@@ -258,6 +290,8 @@ function PromptResponseField({ figure }: { figure: FieldFigure }) {
   if (!prompt || !response || !thought) {
     return <BranchFallback figure={figure} />;
   }
+  const pairEdge = figureEdge(figure, "prompt-in-work");
+  const resultEdge = figureEdge(figure, "response-in-work");
 
   return (
     <div
@@ -266,11 +300,14 @@ function PromptResponseField({ figure }: { figure: FieldFigure }) {
     >
       <div className="docs-figure__field-prompt-pair">
         <ItemCopy item={prompt} />
-        <Glyph label="plus">+</Glyph>
+        <Glyph label={pairEdge.label}>{pairEdge.glyph}</Glyph>
         <ItemCopy item={response} />
       </div>
-      <Glyph className="docs-figure__field-prompt-arrow" label="forms">
-        ↓
+      <Glyph
+        className="docs-figure__field-prompt-arrow"
+        label={resultEdge.label}
+      >
+        {resultEdge.glyph}
       </Glyph>
       <ItemCopy item={thought} className="docs-figure__field-prompt-result" />
     </div>
@@ -282,6 +319,14 @@ function AttestationFlow({ figure }: { figure: FieldFigure }) {
   if (!recorded || !claim || !validation || !attested || !unattested) {
     return <BranchFallback figure={figure} />;
   }
+  const valuesEdge = figureEdge(figure, "values-to-claim");
+  const validationEdge = figureEdge(figure, "claim-to-validation");
+  const validBranchEdge = figureEdge(figure, "validation-valid-branch");
+  const validResultEdge = figureEdge(figure, "valid-proof-result");
+  const emptyBranchEdge = figureEdge(figure, "validation-empty-branch");
+  const emptyResultEdge = figureEdge(figure, "empty-proof-result");
+  const validProof = figureNode(figure, "valid-proof");
+  const emptyProof = figureNode(figure, "empty-proof");
 
   return (
     <div
@@ -290,9 +335,9 @@ function AttestationFlow({ figure }: { figure: FieldFigure }) {
     >
       <div className="docs-figure__field-chain">
         <ItemCopy item={recorded} />
-        <FlowConnector />
+        <FlowConnector label={valuesEdge.label} />
         <ItemCopy item={claim} />
-        <FlowConnector />
+        <FlowConnector label={validationEdge.label} />
         <ItemCopy item={validation} />
       </div>
       <div className="docs-figure__field-fork">
@@ -301,15 +346,15 @@ function AttestationFlow({ figure }: { figure: FieldFigure }) {
         </Glyph>
         <div className="docs-figure__field-fork-branch">
           <span className="docs-figure__field-fork-branch-rail">
-            <Glyph>├─</Glyph>
+            <Glyph label={validBranchEdge.label}>{validBranchEdge.glyph}</Glyph>
             <Glyph className="docs-figure__field-fork-continuation">
               {VERTICAL_RAIL}
             </Glyph>
           </span>
           <span className="docs-figure__copy">
             <span className="docs-figure__field-fork-proof">
-              <span className="docs-figure__eyebrow">VALID PROOF</span>
-              <Glyph label="leads to">→</Glyph>
+              <span className="docs-figure__eyebrow">{validProof.term}</span>
+              <Glyph label={validResultEdge.label}>{validResultEdge.glyph}</Glyph>
             </span>
             <strong className="docs-figure__term">
               <FigureTitle>{attested.title}</FigureTitle>
@@ -323,12 +368,12 @@ function AttestationFlow({ figure }: { figure: FieldFigure }) {
         </div>
         <div className="docs-figure__field-fork-branch">
           <span className="docs-figure__field-fork-branch-rail">
-            <Glyph>└─</Glyph>
+            <Glyph label={emptyBranchEdge.label}>{emptyBranchEdge.glyph}</Glyph>
           </span>
           <span className="docs-figure__copy">
             <span className="docs-figure__field-fork-proof">
-              <span className="docs-figure__eyebrow">EMPTY PROOF</span>
-              <Glyph label="leads to">→</Glyph>
+              <span className="docs-figure__eyebrow">{emptyProof.term}</span>
+              <Glyph label={emptyResultEdge.label}>{emptyResultEdge.glyph}</Glyph>
             </span>
             <strong className="docs-figure__term">
               <FigureTitle>{unattested.title}</FigureTitle>
@@ -350,38 +395,61 @@ function WillField({ figure }: { figure: FieldFigure }) {
   if (!people || !agents || !will) {
     return <BranchFallback figure={figure} />;
   }
+  const willRoot = figureNode(figure, "will");
 
   return (
     <div
-      className="docs-figure__field-shape"
-      data-figure-shape="will-convergence-box"
+      className="docs-figure__field-shape docs-figure__field-open"
+      data-figure-shape="open-will-field"
     >
-      <CharacterBox heading={<StaticTerm>WILL</StaticTerm>}>
-        <div className="docs-figure__field-convergence">
-          <ItemCopy item={people} />
-          <ItemCopy item={agents} />
-          <ItemCopy item={will} className="docs-figure__field-convergence-result" />
-        </div>
-      </CharacterBox>
+      <StaticTerm>{willRoot.term}</StaticTerm>
+      <ul className="docs-figure__field docs-figure__field-open-set">
+        {[people, agents, will].map((item) => (
+          <li key={`${item.title}:${item.detail ?? ""}`}>
+            <Glyph>•</Glyph>
+            <ItemCopy item={item} />
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
 
 function AwaField({ figure }: { figure: FieldFigure }) {
+  const logic = docsFigureLogic(figure);
+  const sourceNodes = figure.items.map((_, sourceItem) =>
+    resolveSourceNode(logic, sourceItem),
+  );
   return (
-    <div className="docs-figure__field-shape" data-figure-shape="awa-arc-box">
-      <CharacterBox heading={<StaticTerm>AWA</StaticTerm>}>
-        <ol className="docs-figure__field-arc">
-          {figure.items.map((stage, index) => (
+    <div
+      className="docs-figure__field-shape docs-figure__field-open"
+      data-figure-shape="open-horizon"
+    >
+      <ol className="docs-figure__field-arc">
+        {figure.items.map((stage, index) => {
+          const currentNode = sourceNodes[index];
+          const nextNode = sourceNodes[index + 1];
+          const isLast = index === figure.items.length - 1;
+          if (!isLast && (!currentNode || !nextNode)) {
+            throw new Error(
+              `Figure "${figure.id}" cannot resolve consecutive source items ${index} and ${index + 1}.`,
+            );
+          }
+          const nextEdge =
+            !isLast && currentNode && nextNode
+              ? resolveEdgeByEndpoints(logic, currentNode.id, nextNode.id)
+              : undefined;
+
+          return (
             <li key={`${stage.title}:${stage.detail ?? ""}`}>
               <ItemCopy item={stage} />
-              {index < figure.items.length - 1 ? (
-                <Glyph label="then">→</Glyph>
+              {nextEdge ? (
+                <Glyph label={nextEdge.label}>{nextEdge.glyph}</Glyph>
               ) : null}
             </li>
-          ))}
-        </ol>
-      </CharacterBox>
+          );
+        })}
+      </ol>
     </div>
   );
 }
@@ -392,6 +460,10 @@ function EvidenceInterpretation({ figure }: { figure: FieldFigure }) {
   if (!interpretation || evidence.length === 0) {
     return <BranchFallback figure={figure} />;
   }
+  const logic = docsFigureLogic(figure);
+  const evidenceRoot = figureNode(figure, "evidence");
+  const branchEdges = logic.edges.filter(({ from }) => from === "evidence").slice(0, 4);
+  const interpretationEdge = figureEdge(figure, "evidence-to-interpretation");
 
   return (
     <div
@@ -399,18 +471,21 @@ function EvidenceInterpretation({ figure }: { figure: FieldFigure }) {
       data-figure-shape="evidence-interpretation"
     >
       <div className="docs-figure__field-evidence-tree">
-        <StaticTerm>EVIDENCE</StaticTerm>
+        <StaticTerm>{evidenceRoot.term}</StaticTerm>
         <ul className="docs-figure__field-evidence-list">
           {evidence.map((item, index) => (
             <li key={`${item.title}:${item.detail ?? ""}`}>
-              <Glyph>{index === evidence.length - 1 ? "└─" : "├─"}</Glyph>
+              <Glyph label={branchEdges[index]?.label}>
+                {branchEdges[index]?.glyph ??
+                  (index === evidence.length - 1 ? "└─" : "├─")}
+              </Glyph>
               <ItemCopy item={item} />
             </li>
           ))}
         </ul>
       </div>
       <div className="docs-figure__field-evidence-tail">
-        <Glyph label="becomes">{"│\n↓"}</Glyph>
+        <Glyph label={interpretationEdge.label}>{`│\n${interpretationEdge.glyph}`}</Glyph>
         <ItemCopy item={interpretation} />
       </div>
     </div>
@@ -418,12 +493,13 @@ function EvidenceInterpretation({ figure }: { figure: FieldFigure }) {
 }
 
 function DistinctionsField({ figure }: { figure: FieldFigure }) {
+  const walletRoot = figureNode(figure, "wallet-local-data");
   return (
     <div
       className="docs-figure__field-shape"
       data-figure-shape="distinctions-box"
     >
-      <CharacterBox heading={<StaticTerm>WALLET AND LOCAL DATA</StaticTerm>}>
+      <CharacterBox heading={<StaticTerm>{walletRoot.term}</StaticTerm>}>
         <div className="docs-figure__field-box-list">
           {figure.items.map((item) => (
             <ItemCopy
@@ -438,19 +514,25 @@ function DistinctionsField({ figure }: { figure: FieldFigure }) {
 }
 
 function DistinctRecordsField({ figure }: { figure: FieldFigure }) {
+  const edges = docsFigureLogic(figure).edges;
+  const recordsRoot = figureNode(figure, "four-records");
   return (
     <div
       className="docs-figure__field-shape"
       data-figure-shape="distinct-records-box"
     >
-      <CharacterBox heading={<StaticTerm>FOUR DISTINCT RECORDS</StaticTerm>}>
+      <CharacterBox heading={<StaticTerm>{recordsRoot.term}</StaticTerm>}>
         <div className="docs-figure__field-records">
           {figure.items.map((item, index) => (
             <span
               className="docs-figure__field-record"
               key={`${item.title}:${item.detail ?? ""}`}
             >
-              {index > 0 ? <Glyph label="is distinct from">≠</Glyph> : null}
+              {index > 0 ? (
+                <Glyph label={edges[index - 1]?.label ?? "is distinct from"}>
+                  {edges[index - 1]?.glyph ?? "≠"}
+                </Glyph>
+              ) : null}
               <ItemCopy item={item} />
             </span>
           ))}
@@ -460,26 +542,22 @@ function DistinctRecordsField({ figure }: { figure: FieldFigure }) {
   );
 }
 
-function PrincipleBoxes({ figure }: { figure: FieldFigure }) {
+function PrincipleField({ figure }: { figure: FieldFigure }) {
+  const principlesRoot = figureNode(figure, "principles");
   return (
     <div
-      className="docs-figure__field-shape docs-figure__field-stack"
-      data-figure-shape="stacked-principle-boxes"
+      className="docs-figure__field-shape docs-figure__field-open"
+      data-figure-shape="open-principle-set"
     >
-      {figure.items.map((item) => (
-        <CharacterBox
-          heading={
-            <strong className="docs-figure__term">
-              <FigureTitle>{item.title}</FigureTitle>
-            </strong>
-          }
-          key={`${item.title}:${item.detail ?? ""}`}
-        >
-          {item.detail ? (
-            <small className="docs-figure__annotation">{item.detail}</small>
-          ) : null}
-        </CharacterBox>
-      ))}
+      <StaticTerm>{principlesRoot.term}</StaticTerm>
+      <ul className="docs-figure__field docs-figure__field-open-set">
+        {figure.items.map((item) => (
+          <li key={`${item.title}:${item.detail ?? ""}`}>
+            <Glyph>•</Glyph>
+            <ItemCopy item={item} />
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -489,6 +567,7 @@ function CanonicalSourceFlow({ figure }: { figure: FieldFigure }) {
   if (!work || !surfaces) {
     return <BranchFallback figure={figure} />;
   }
+  const surfaceEdge = figureEdge(figure, "work-to-surfaces");
 
   return (
     <div
@@ -504,7 +583,7 @@ function CanonicalSourceFlow({ figure }: { figure: FieldFigure }) {
         ) : null}
       </CharacterBox>
       <div className="docs-figure__field-tail">
-        <Glyph label="appears through">↓</Glyph>
+        <Glyph label={surfaceEdge.label}>{surfaceEdge.glyph}</Glyph>
         <ItemCopy item={surfaces} />
       </div>
     </div>
@@ -512,30 +591,30 @@ function CanonicalSourceFlow({ figure }: { figure: FieldFigure }) {
 }
 
 export function FieldFigureVisual({ figure }: FieldFigureVisualProps) {
-  switch (figure.label) {
-    case "The inward direction":
+  switch (figure.id) {
+    case "inshell.inward-direction":
       return <InwardDirection figure={figure} />;
-    case "How practice relates to truth":
+    case "inshell.practice-truth":
       return <PracticeChain figure={figure} />;
-    case "The invariant and the open field":
+    case "agent-art.open-field":
       return <AgentArtField figure={figure} />;
-    case "One prompt, one response":
+    case "thought.prompt-response":
       return <PromptResponseField figure={figure} />;
-    case "Creation Attestation":
+    case "thought.creation-attestation":
       return <AttestationFlow figure={figure} />;
-    case "Many people. Many Agents. One will.":
+    case "will.open-field":
       return <WillField figure={figure} />;
-    case "Toward the core":
+    case "awa.open-horizon":
       return <AwaField figure={figure} />;
-    case "Evidence becomes interpretation":
+    case "evidence.interpretation":
       return <EvidenceInterpretation figure={figure} />;
-    case "Two distinctions":
+    case "wallet.distinctions":
       return <DistinctionsField figure={figure} />;
-    case "Four distinct records":
+    case "source-release.records":
       return <DistinctRecordsField figure={figure} />;
-    case "Current Inshell principles across systems":
-      return <PrincipleBoxes figure={figure} />;
-    case "Many surfaces, one identified record":
+    case "design.principles":
+      return <PrincipleField figure={figure} />;
+    case "design.reading-surfaces":
       return <CanonicalSourceFlow figure={figure} />;
     default:
       return <BranchFallback figure={figure} />;

@@ -1,6 +1,10 @@
 import { Fragment, type CSSProperties } from "react";
 
 import type { DocsFigure } from "@/content/docs";
+import {
+  docsFigureLogic,
+  type DocsFigureEdge,
+} from "@/content/docs-figure-logic";
 
 type LaneFigure = Extract<DocsFigure, { mode: "lanes" }>;
 type LaneFigureItem = LaneFigure["items"][number];
@@ -35,7 +39,7 @@ function groupLaneItems(
   const groupByPhase = figure.items.some((item) => Boolean(item.phase));
   const layout: LaneLayout = groupByPhase
     ? "phase"
-    : figure.label === "Two preservation boundaries"
+    : figure.id === "design.preservation"
       ? "parallel"
       : "handoff";
 
@@ -78,18 +82,18 @@ function groupLaneItems(
   };
 }
 
-function LaneRelation() {
+function LaneRelation({ edge }: { edge: DocsFigureEdge }) {
   return (
     <span
       className="docs-figure__lane-relation"
-      aria-label="then"
+      aria-label={edge.label}
       role="img"
     >
       <span className="docs-figure__lane-relation-inline" aria-hidden="true">
-        →
+        {edge.glyph}
       </span>
       <span className="docs-figure__lane-relation-stacked" aria-hidden="true">
-        ↓
+        {edge.stackedGlyph ?? "↓"}
       </span>
     </span>
   );
@@ -97,12 +101,14 @@ function LaneRelation() {
 
 function LaneEvent({
   item,
+  relation,
   nextStage,
   showLane,
   stageColumn,
   stageSpan,
 }: {
   item: LaneFigureItem;
+  relation?: DocsFigureEdge;
   nextStage?: number;
   showLane: boolean;
   stageColumn: number;
@@ -127,7 +133,7 @@ function LaneEvent({
         {item.detail ? (
           <small className="docs-figure__annotation">{item.detail}</small>
         ) : null}
-        {nextStage !== undefined ? <LaneRelation /> : null}
+        {relation ? <LaneRelation edge={relation} /> : null}
       </span>
     </li>
   );
@@ -138,6 +144,12 @@ function LaneEvent({
  * The DOM order is also the narrow-screen reading order; layout must not reorder it.
  */
 export function LaneFigureVisual({ figure }: { figure: LaneFigure }) {
+  const logic = docsFigureLogic(figure);
+  const nodesBySourceItem = new Map(
+    logic.nodes.flatMap((node) =>
+      node.sourceItem === undefined ? [] : [[node.sourceItem, node] as const],
+    ),
+  );
   const { layout, groups } = groupLaneItems(figure);
   const groupByPhase = layout === "phase";
   const stages = [...new Set(figure.items.map((item) => item.stage))].sort(
@@ -188,6 +200,20 @@ export function LaneFigureVisual({ figure }: { figure: LaneFigure }) {
               data-count={group.items.length}
             >
               {group.items.map((item, index) => {
+                const sourceIndex = figure.items.indexOf(item);
+                const nextItem = group.items[index + 1];
+                const nextSourceIndex = nextItem
+                  ? figure.items.indexOf(nextItem)
+                  : -1;
+                const sourceNode = nodesBySourceItem.get(sourceIndex);
+                const targetNode = nodesBySourceItem.get(nextSourceIndex);
+                const relation =
+                  sourceNode && targetNode
+                    ? logic.edges.find(
+                        ({ from, to }) =>
+                          from === sourceNode.id && to === targetNode.id,
+                      )
+                    : undefined;
                 const nextStage = group.items[index + 1]?.stage;
                 const stageColumn = activeStageColumns.get(item.stage) ?? 1;
                 const nextColumn = nextStage === undefined
@@ -198,6 +224,7 @@ export function LaneFigureVisual({ figure }: { figure: LaneFigure }) {
                   <LaneEvent
                     key={`${item.stage}:${item.lane}:${item.title}`}
                     item={item}
+                    relation={relation}
                     nextStage={nextStage}
                     showLane={group.showItemLane}
                     stageColumn={stageColumn}

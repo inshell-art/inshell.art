@@ -1,8 +1,8 @@
 {
-  "schema": "inshell.agent-docs.topic.v1",
-  "schemaUrl": "/docs/content.schema.json",
-  "canonicalSchemaUrl": "https://inshell.art/docs/content.schema.json",
-  "version": "2026-08-11",
+  "schema": "inshell.agent-docs.topic.v2",
+  "schemaUrl": "/docs/content.v2.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
+  "version": "2026-08-12",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "thought",
@@ -70,6 +70,7 @@
             "app-documentation",
             "contract-release"
           ],
+          "id": "thought.prompt-response",
           "label": "One prompt, one response",
           "mode": "field",
           "figureText": "HUMAN PROMPT P + AGENT RESPONSE R\n                 ↓\n          ONE THOUGHT (P, R)\nDifferent counterpart = different work · onchain only after successful mint.",
@@ -84,7 +85,64 @@
               "title": "One THOUGHT (P, R)",
               "detail": "Different counterpart = different work · onchain only after successful mint."
             }
-          ]
+          ],
+          "logic": {
+            "id": "thought.prompt-response",
+            "label": "One prompt, one response",
+            "form": "axis",
+            "nodes": [
+              {
+                "id": "human-prompt",
+                "sourceItem": 0,
+                "sourcePart": "item",
+                "term": "Human prompt P",
+                "role": "subject"
+              },
+              {
+                "id": "agent-response",
+                "sourceItem": 1,
+                "sourcePart": "item",
+                "term": "Agent response R",
+                "role": "subject"
+              },
+              {
+                "id": "one-thought",
+                "sourceItem": 2,
+                "sourcePart": "item",
+                "term": "One THOUGHT (P, R)",
+                "annotation": "Different counterpart = different work · onchain only after successful mint.",
+                "role": "result"
+              }
+            ],
+            "edges": [
+              {
+                "id": "prompt-in-work",
+                "from": "human-prompt",
+                "to": "agent-response",
+                "glyph": "+",
+                "label": "The exact human prompt is paired with the exact Agent response."
+              },
+              {
+                "id": "response-in-work",
+                "from": "agent-response",
+                "to": "one-thought",
+                "glyph": "↓",
+                "label": "The exact prompt-response pair forms one THOUGHT."
+              }
+            ],
+            "groups": [
+              {
+                "id": "thought-equation",
+                "kind": "set",
+                "label": "Human prompt P plus Agent response R forms one THOUGHT (P, R).",
+                "members": [
+                  "human-prompt",
+                  "agent-response",
+                  "one-thought"
+                ]
+              }
+            ]
+          }
         }
       },
       {
@@ -151,6 +209,7 @@
           "authorities": [
             "app-documentation"
           ],
+          "id": "thought.creative-handoff",
           "label": "The creative handoff",
           "mode": "trace",
           "figureText": "HUMAN                AGENT                 HUMAN\nOne exact prompt  →  One exact response  →  Review + choose",
@@ -167,7 +226,68 @@
               "title": "Human",
               "detail": "Review + choose"
             }
-          ]
+          ],
+          "logic": {
+            "id": "thought.creative-handoff",
+            "label": "The creative handoff",
+            "form": "trace",
+            "nodes": [
+              {
+                "id": "human-prompt",
+                "sourceItem": 0,
+                "sourcePart": "item",
+                "term": "Human",
+                "annotation": "One exact prompt",
+                "role": "action"
+              },
+              {
+                "id": "agent-response",
+                "sourceItem": 1,
+                "sourcePart": "item",
+                "term": "Agent",
+                "annotation": "One exact response",
+                "role": "action"
+              },
+              {
+                "id": "human-review",
+                "sourceItem": 2,
+                "sourcePart": "item",
+                "term": "Human",
+                "annotation": "Review + choose",
+                "role": "action"
+              }
+            ],
+            "edges": [
+              {
+                "id": "prompt-to-response",
+                "from": "human-prompt",
+                "to": "agent-response",
+                "glyph": "→",
+                "stackedGlyph": "│\n↓",
+                "label": "One exact human prompt is handed to the Agent."
+              },
+              {
+                "id": "response-to-review",
+                "from": "agent-response",
+                "to": "human-review",
+                "glyph": "→",
+                "stackedGlyph": "│\n↓",
+                "label": "One exact Agent response returns for human review and choice."
+              }
+            ],
+            "groups": [
+              {
+                "id": "creative-handoff-phases",
+                "kind": "phase",
+                "label": "The creative handoff has three ordered actions.",
+                "members": [
+                  "human-prompt",
+                  "agent-response",
+                  "human-review"
+                ]
+              }
+            ]
+          }
         }
       },
       {
@@ -206,6 +326,7 @@
             "app-record",
             "contract-release"
           ],
+          "id": "thought.creation-attestation",
           "label": "Creation Attestation",
           "mode": "field",
           "figureText": "RECORDED VALUES\nHuman line · Agent line · Agent/model records ·\nspecification · renderer · mint anchors\n   │\n   ↓\nAPP CLAIM\nConfigured App authority signs one exact claim.\n   │\n   ↓\nCONTRACT VALIDATION\nThoughtNFT validates during minting.\n   ├─ VALID PROOF → APP ATTESTED\n   │  Valid proof binds the mint to recorded values.\n   └─ EMPTY PROOF → UNATTESTED\n      Empty proof makes the absence explicit.",
@@ -230,7 +351,133 @@
               "title": "Unattested",
               "detail": "Empty proof makes the absence explicit."
             }
-          ]
+          ],
+          "logic": {
+            "id": "thought.creation-attestation",
+            "label": "Creation Attestation",
+            "form": "fork",
+            "nodes": [
+              {
+                "id": "recorded-values",
+                "sourceItem": 0,
+                "sourcePart": "item",
+                "term": "Recorded values",
+                "annotation": "Human line · Agent line · Agent/model records · specification · renderer · mint anchors",
+                "role": "record"
+              },
+              {
+                "id": "app-claim",
+                "sourceItem": 1,
+                "sourcePart": "item",
+                "term": "App claim",
+                "annotation": "Configured App authority signs one exact claim.",
+                "role": "action"
+              },
+              {
+                "id": "contract-validation",
+                "sourceItem": 2,
+                "sourcePart": "item",
+                "term": "Contract validation",
+                "annotation": "ThoughtNFT validates during minting.",
+                "role": "action"
+              },
+              {
+                "id": "valid-proof",
+                "term": "VALID PROOF",
+                "role": "operator"
+              },
+              {
+                "id": "empty-proof",
+                "term": "EMPTY PROOF",
+                "role": "operator"
+              },
+              {
+                "id": "app-attested",
+                "sourceItem": 3,
+                "sourcePart": "item",
+                "term": "App Attested",
+                "annotation": "Valid proof binds the mint to recorded values.",
+                "role": "result"
+              },
+              {
+                "id": "unattested",
+                "sourceItem": 4,
+                "sourcePart": "item",
+                "term": "Unattested",
+                "annotation": "Empty proof makes the absence explicit.",
+                "role": "result"
+              }
+            ],
+            "edges": [
+              {
+                "id": "values-to-claim",
+                "from": "recorded-values",
+                "to": "app-claim",
+                "glyph": "↓",
+                "stackedGlyph": "│\n↓",
+                "label": "Recorded values are bound into one exact App claim."
+              },
+              {
+                "id": "claim-to-validation",
+                "from": "app-claim",
+                "to": "contract-validation",
+                "glyph": "↓",
+                "stackedGlyph": "│\n↓",
+                "label": "The contract validates the App claim during minting."
+              },
+              {
+                "id": "validation-valid-branch",
+                "from": "contract-validation",
+                "to": "valid-proof",
+                "glyph": "├─",
+                "label": "Contract validation takes the valid-proof branch."
+              },
+              {
+                "id": "valid-proof-result",
+                "from": "valid-proof",
+                "to": "app-attested",
+                "glyph": "→",
+                "label": "A valid proof produces an App Attested result."
+              },
+              {
+                "id": "validation-empty-branch",
+                "from": "contract-validation",
+                "to": "empty-proof",
+                "glyph": "└─",
+                "label": "Contract validation takes the empty-proof branch."
+              },
+              {
+                "id": "empty-proof-result",
+                "from": "empty-proof",
+                "to": "unattested",
+                "glyph": "→",
+                "label": "An empty proof produces an explicit Unattested result."
+              }
+            ],
+            "groups": [
+              {
+                "id": "attestation-input",
+                "kind": "phase",
+                "label": "Values, claim, and contract validation form the ordered attestation check.",
+                "members": [
+                  "recorded-values",
+                  "app-claim",
+                  "contract-validation"
+                ]
+              },
+              {
+                "id": "attestation-outcomes",
+                "kind": "set",
+                "label": "Validation has two explicit proof outcomes.",
+                "members": [
+                  "valid-proof",
+                  "app-attested",
+                  "empty-proof",
+                  "unattested"
+                ]
+              }
+            ]
+          }
         }
       },
       {

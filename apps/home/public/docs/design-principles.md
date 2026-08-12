@@ -6,34 +6,34 @@
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/design-principles
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## Current Inshell principles across systems
 
 - Authority: artist-editorial, app-documentation
+- Figure ID: design.principles
 - Figure mode: field
+- Semantic form: field
+- Semantic nodes:
+  - `principles [structural]: CURRENT INSHELL PRINCIPLES`
+  - `bound [principle]: Bound — Collaboration is bounded.`
+  - `authorize [principle]: Authorize — Authority to continue or preserve is explicit.`
+  - `expose [principle]: Expose — Mechanisms stay visible.`
+  - `pin [principle]: Pin — Canonical sources remain identifiable.`
+  - `qualify [principle]: Qualify — Claims stop where their evidence stops.`
+- Semantic groups:
+  - `current-principles [set] · •: Current Inshell principles across systems [members: principles (CURRENT INSHELL PRINCIPLES) · bound (Bound) · authorize (Authorize) · expose (Expose) · pin (Pin) · qualify (Qualify)]`
 
 ```text
-┌─ Bound ───────────────────────────────────┐
-│ Collaboration is bounded.                 │
-└───────────────────────────────────────────┘
+CURRENT INSHELL PRINCIPLES
 
-┌─ Authorize ───────────────────────────────┐
-│ Authority to continue or preserve is      │
-│ explicit.                                 │
-└───────────────────────────────────────────┘
-
-┌─ Expose ──────────────────────────────────┐
-│ Mechanisms stay visible.                  │
-└───────────────────────────────────────────┘
-
-┌─ Pin ─────────────────────────────────────┐
-│ Canonical sources remain identifiable.    │
-└───────────────────────────────────────────┘
-
-┌─ Qualify ─────────────────────────────────┐
-│ Claims stop where their evidence stops.   │
-└───────────────────────────────────────────┘
+• BOUND — Collaboration is bounded.
+• AUTHORIZE
+  Authority to continue or preserve is explicit.
+• EXPOSE — Mechanisms stay visible.
+• PIN — Canonical sources remain identifiable.
+• QUALIFY — Claims stop where their evidence stops.
 ```
 
 - **Bound** — Collaboration is bounded.
@@ -65,7 +65,28 @@ Within THOUGHT, more options would not automatically create more expressive work
 ### Two preservation boundaries
 
 - Authority: artist-editorial, app-documentation, contract-release
+- Figure ID: design.preservation
 - Figure mode: lanes
+- Semantic form: lanes
+- Semantic nodes:
+  - `thought-agent-return [action]: Agent return — Candidate produced`
+  - `thought-human-review [action]: Human review — Decision to preserve`
+  - `thought-successful-mint [action]: Successful mint — Contract action succeeds`
+  - `thought-public-corpus [result]: Public corpus — Preserved THOUGHT`
+  - `pulse-visible-ask [state]: Visible ask — Quote exposed`
+  - `pulse-confirmed-bid [action]: Confirmed bid — Participant authorizes`
+  - `pulse-settlement [action]: Settlement — Contract action succeeds`
+  - `pulse-sale-record [result]: Sale record — Preserved Pulse`
+- Semantic edges:
+  - `thought-return-to-review: thought-agent-return (Agent return) --[→ / ↓ · The Agent return becomes a candidate for human review.]--> thought-human-review (Human review)`
+  - `thought-review-to-mint: thought-human-review (Human review) --[→ / ↓ · The human decision to preserve proceeds to a mint attempt.]--> thought-successful-mint (Successful mint)`
+  - `thought-mint-to-corpus: thought-successful-mint (Successful mint) --[→ / ↓ · Only a successful contract action preserves the THOUGHT in the public corpus.]--> thought-public-corpus (Public corpus)`
+  - `pulse-ask-to-bid: pulse-visible-ask (Visible ask) --[→ / ↓ · A participant authorizes a bid against the visible ask.]--> pulse-confirmed-bid (Confirmed bid)`
+  - `pulse-bid-to-settlement: pulse-confirmed-bid (Confirmed bid) --[→ / ↓ · The confirmed bid proceeds to contract settlement.]--> pulse-settlement (Settlement)`
+  - `pulse-settlement-to-record: pulse-settlement (Settlement) --[→ / ↓ · Only a successful settlement preserves a Pulse sale record.]--> pulse-sale-record (Sale record)`
+- Semantic groups:
+  - `thought-preservation-lane [lane]: THOUGHT [members: thought-agent-return (Agent return) · thought-human-review (Human review) · thought-successful-mint (Successful mint) · thought-public-corpus (Public corpus)]`
+  - `pulse-preservation-lane [lane]: PULSE [members: pulse-visible-ask (Visible ask) · pulse-confirmed-bid (Confirmed bid) · pulse-settlement (Settlement) · pulse-sale-record (Sale record)]`
 
 ```text
 THOUGHT │ AGENT RETURN
@@ -110,7 +131,16 @@ Pulse shows the curve, floor, premium, sale points, and current ask. PATH shows 
 ### Many surfaces, one identified record
 
 - Authority: app-documentation, contract-release
+- Figure ID: design.reading-surfaces
 - Figure mode: field
+- Semantic form: fork
+- Semantic nodes:
+  - `identified-work [record]: Identified onchain work — Network + contract + token ID + tokenURI + release`
+  - `reading-surfaces [surface]: Many reading surfaces — Site · wallet · marketplace · API · Markdown · Agent answer`
+- Semantic edges:
+  - `work-to-surfaces: identified-work (Identified onchain work) --[↓ · One identified onchain work can be read through many surfaces.]--> reading-surfaces (Many reading surfaces)`
+- Semantic groups:
+  - `reading-surface-set [set]: Site · wallet · marketplace · API · Markdown · Agent answer [members: identified-work (Identified onchain work) · reading-surfaces (Many reading surfaces)]`
 
 ```text
 ┌─ IDENTIFIED ONCHAIN WORK ───────────────┐

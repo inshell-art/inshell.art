@@ -1,8 +1,8 @@
 {
-  "schema": "inshell.agent-docs.topic.v1",
-  "schemaUrl": "/docs/content.schema.json",
-  "canonicalSchemaUrl": "https://inshell.art/docs/content.schema.json",
-  "version": "2026-08-11",
+  "schema": "inshell.agent-docs.topic.v2",
+  "schemaUrl": "/docs/content.v2.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
+  "version": "2026-08-12",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "wallet-local-data",
@@ -38,6 +38,7 @@
       "authorities": [
         "app-documentation"
       ],
+      "id": "wallet.distinctions",
       "label": "Two distinctions",
       "mode": "field",
       "figureText": "┌─ WALLET AND LOCAL DATA ─────────────────────┐\n│ READ ≠ SIGN ≠ TRANSACT                      │\n│ Public state · authorization · chain change │\n│                                             │\n│ LOCAL ≠ ONCHAIN                             │\n│ Browser record · public record              │\n└─────────────────────────────────────────────┘",
@@ -50,7 +51,111 @@
           "title": "Local ≠ Onchain",
           "detail": "Browser record · public record"
         }
-      ]
+      ],
+      "logic": {
+        "id": "wallet.distinctions",
+        "label": "Two distinctions",
+        "form": "ledger",
+        "nodes": [
+          {
+            "id": "wallet-local-data",
+            "term": "WALLET AND LOCAL DATA",
+            "role": "structural"
+          },
+          {
+            "id": "read-sign-transact",
+            "sourceItem": 0,
+            "sourcePart": "item",
+            "term": "Read ≠ Sign ≠ Transact",
+            "annotation": "Public state · authorization · chain change",
+            "role": "principle"
+          },
+          {
+            "id": "read",
+            "term": "READ",
+            "annotation": "Public state",
+            "role": "action"
+          },
+          {
+            "id": "sign",
+            "term": "SIGN",
+            "annotation": "Authorization",
+            "role": "action"
+          },
+          {
+            "id": "transact",
+            "term": "TRANSACT",
+            "annotation": "Chain change",
+            "role": "action"
+          },
+          {
+            "id": "local-onchain",
+            "sourceItem": 1,
+            "sourcePart": "item",
+            "term": "Local ≠ Onchain",
+            "annotation": "Browser record · public record",
+            "role": "principle"
+          },
+          {
+            "id": "local",
+            "term": "LOCAL",
+            "annotation": "Browser record",
+            "role": "record"
+          },
+          {
+            "id": "onchain",
+            "term": "ONCHAIN",
+            "annotation": "Public record",
+            "role": "record"
+          }
+        ],
+        "edges": [
+          {
+            "id": "read-not-sign",
+            "from": "read",
+            "to": "sign",
+            "glyph": "≠",
+            "label": "Reading public state is not signing an authorization."
+          },
+          {
+            "id": "sign-not-transact",
+            "from": "sign",
+            "to": "transact",
+            "glyph": "≠",
+            "label": "Signing an authorization is not a chain transaction."
+          },
+          {
+            "id": "local-not-onchain",
+            "from": "local",
+            "to": "onchain",
+            "glyph": "≠",
+            "label": "A local browser record is not an onchain public record."
+          }
+        ],
+        "groups": [
+          {
+            "id": "wallet-action-distinction",
+            "kind": "comparison",
+            "label": "Read ≠ Sign ≠ Transact",
+            "members": [
+              "read-sign-transact",
+              "read",
+              "sign",
+              "transact"
+            ]
+          },
+          {
+            "id": "record-location-distinction",
+            "kind": "comparison",
+            "label": "Local ≠ Onchain",
+            "members": [
+              "local-onchain",
+              "local",
+              "onchain"
+            ]
+          }
+        ]
+      }
     },
     "preformatted": [],
     "sections": [

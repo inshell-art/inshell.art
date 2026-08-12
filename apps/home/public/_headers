@@ -45,6 +45,10 @@
   Content-Type: application/schema+json; charset=utf-8
   Cache-Control: public, max-age=60, stale-while-revalidate=300
 
+/docs/content.v2.schema.json
+  Content-Type: application/schema+json; charset=utf-8
+  Cache-Control: public, max-age=60, stale-while-revalidate=300
+
 /docs/source-lock.schema.json
   Content-Type: application/schema+json; charset=utf-8
   Cache-Control: public, max-age=60, stale-while-revalidate=300

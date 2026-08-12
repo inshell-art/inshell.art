@@ -6,7 +6,8 @@
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/pulse
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## Overview
 
@@ -59,7 +60,19 @@ a = anchor time
 ### One Pulse epoch
 
 - Authority: contract-release
+- Figure ID: pulse.epoch
 - Figure mode: trace
+- Semantic form: cycle
+- Semantic nodes:
+  - `ask [state]: Ask — Decay`
+  - `bid [action]: Bid — Pump`
+  - `next-ask [result]: Next ask`
+- Semantic edges:
+  - `ask-decays-to-bid: ask (Ask) --[↓ / │ ↓ · The current ask decays until a bid succeeds. · Decay]--> bid (Bid)`
+  - `bid-pumps-next-ask: bid (Bid) --[↓ / │ ↓ · The successful bid pumps the next ask. · Pump]--> next-ask (Next ask)`
+  - `next-epoch-loop: next-ask (Next ask) --[↺ / └──↺ · The next ask becomes the current ask in the next epoch. · next epoch]--> ask (Ask)`
+- Semantic groups:
+  - `pulse-epoch [phase]: One serial Pulse epoch loops into the next. [members: ask (Ask) · bid (Bid) · next-ask (Next ask)]`
 
 ```text
 ASK

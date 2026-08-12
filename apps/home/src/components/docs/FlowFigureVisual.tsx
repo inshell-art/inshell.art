@@ -1,4 +1,12 @@
 import type { DocsFigure } from "@/content/docs";
+import {
+  docsFigureLogic,
+  type DocsFigureEdge,
+} from "@/content/docs-figure-logic";
+import {
+  resolveEdgeByEndpoints,
+  resolveSourceNode,
+} from "@/components/docs/figureLogicResolvers";
 
 type TraceFigure = Extract<DocsFigure, { mode: "trace" }>;
 type LedgerFigure = Extract<DocsFigure, { mode: "ledger" }>;
@@ -8,11 +16,11 @@ const VERTICAL_RAIL = Array.from({ length: 64 }, () => "│").join("\n");
 
 function TraceConnector({
   alignWithDetail = false,
-  relation,
+  edge,
   stacked = false,
 }: {
   alignWithDetail?: boolean;
-  relation?: string;
+  edge: DocsFigureEdge;
   stacked?: boolean;
 }) {
   return (
@@ -24,24 +32,24 @@ function TraceConnector({
           ? " docs-figure__shape-trace-connector--detail"
           : ""
       }`}
-      aria-label={relation ? `${relation}, then` : "then"}
+      aria-label={edge.label}
       role="img"
     >
       <span
         className="docs-figure__shape-character docs-figure__shape-trace-connector-inline"
         aria-hidden="true"
       >
-        →
+        {edge.glyph}
       </span>
       <span
         className="docs-figure__shape-character docs-figure__shape-trace-connector-stacked"
         aria-hidden="true"
       >
-        {"│\n↓"}
+        {edge.stackedGlyph ?? "│\n↓"}
       </span>
-      {relation !== undefined ? (
+      {edge.annotation !== undefined ? (
         <small className="docs-figure__annotation docs-figure__shape-trace-relation">
-          {relation}
+          {edge.annotation}
         </small>
       ) : null}
     </span>
@@ -49,21 +57,61 @@ function TraceConnector({
 }
 
 export function TraceFigureVisual({ figure }: { figure: TraceFigure }) {
+  const logic = docsFigureLogic(figure);
+  const sourceNodes = figure.items.map((_, sourceItem) =>
+    resolveSourceNode(logic, sourceItem),
+  );
   const isCycle = figure.loop !== undefined;
-  const loopTarget = figure.loop
-    ? figure.items[figure.loop.to - 1]?.title
+  const isStackedTrace =
+    !isCycle &&
+    !logic.edges.some((edge) => figure.figureText.includes(edge.glyph));
+  const traceLayout = isCycle
+    ? "cycle"
+    : isStackedTrace
+      ? "stack"
+      : "sequence";
+  const loopTargetIndex = figure.loop ? figure.loop.to - 1 : undefined;
+  const loopTargetNode =
+    loopTargetIndex !== undefined
+      ? sourceNodes[loopTargetIndex]
+      : undefined;
+  if (figure.loop && !loopTargetNode) {
+    throw new Error(
+      `Figure "${figure.id}" loop target ${figure.loop.to} does not identify a source item.`,
+    );
+  }
+  const loopSourceNode = figure.loop
+    ? sourceNodes[sourceNodes.length - 1]
     : undefined;
+  if (figure.loop && !loopSourceNode) {
+    throw new Error(
+      `Figure "${figure.id}" cannot resolve a loop edge without a final source item.`,
+    );
+  }
+  const loopEdge =
+    figure.loop && loopSourceNode && loopTargetNode
+      ? resolveEdgeByEndpoints(logic, loopSourceNode.id, loopTargetNode.id)
+      : undefined;
 
   return (
     <div
-      className={`docs-figure__shape-trace docs-figure__shape-trace--${
-        isCycle ? "cycle" : "sequence"
-      }`}
-      data-trace-layout={isCycle ? "cycle" : "sequence"}
+      className={`docs-figure__shape-trace docs-figure__shape-trace--${traceLayout}`}
+      data-trace-layout={traceLayout}
     >
       <ol className="docs-figure__shape-trace-list">
         {figure.items.map((item, index) => {
           const isLast = index === figure.items.length - 1;
+          const currentNode = sourceNodes[index];
+          const nextNode = sourceNodes[index + 1];
+          if (!isLast && (!currentNode || !nextNode)) {
+            throw new Error(
+              `Figure "${figure.id}" cannot resolve consecutive source items ${index} and ${index + 1}.`,
+            );
+          }
+          const nextEdge =
+            !isLast && currentNode && nextNode
+              ? resolveEdgeByEndpoints(logic, currentNode.id, nextNode.id)
+              : undefined;
 
           return (
             <li
@@ -84,28 +132,24 @@ export function TraceFigureVisual({ figure }: { figure: TraceFigure }) {
                   </>
                 ) : null}
               </span>
-              {!isLast ? (
+              {!isLast && nextEdge ? (
                 <TraceConnector
                   alignWithDetail={!isCycle && item.detail !== undefined}
-                  relation={isCycle ? item.detail : undefined}
-                  stacked={isCycle}
+                  edge={nextEdge}
+                  stacked={isCycle || isStackedTrace}
                 />
               ) : null}
-              {isLast && figure.loop ? (
+              {isLast && figure.loop && loopEdge ? (
                 <span
                   className="docs-figure__shape-loop-return"
-                  aria-label={
-                    loopTarget
-                      ? `returns to ${loopTarget} for ${figure.loop.condition}`
-                      : `returns for ${figure.loop.condition}`
-                  }
+                  aria-label={loopEdge.label}
                   role="img"
                 >
                   <span className="docs-figure__shape-character" aria-hidden="true">
-                    └──↺
+                    {loopEdge.stackedGlyph ?? loopEdge.glyph}
                   </span>
                   <small className="docs-figure__annotation">
-                    {figure.loop.condition}
+                    {loopEdge.annotation ?? figure.loop.condition}
                   </small>
                 </span>
               ) : null}

@@ -1,8 +1,8 @@
 {
-  "schema": "inshell.agent-docs.topic.v1",
-  "schemaUrl": "/docs/content.schema.json",
-  "canonicalSchemaUrl": "https://inshell.art/docs/content.schema.json",
-  "version": "2026-08-11",
+  "schema": "inshell.agent-docs.topic.v2",
+  "schemaUrl": "/docs/content.v2.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
+  "version": "2026-08-12",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "artwork-metadata-chain",
@@ -45,6 +45,7 @@
         "app-documentation",
         "contract-release"
       ],
+      "id": "evidence.interpretation",
       "label": "Evidence becomes interpretation",
       "mode": "field",
       "figureText": "EVIDENCE\n├─ IDENTITY\n│  Network + contract + token\n├─ CONTRACT\n│  State + tokenURI\n├─ RELEASE\n│  ABI + renderer + schemas\n└─ CONTEXT\n   Provenance + reading surface\n      │\n      ↓\nINTERPRETATION\nRead together",
@@ -69,7 +70,111 @@
           "title": "Interpretation",
           "detail": "Read together"
         }
-      ]
+      ],
+      "logic": {
+        "id": "evidence.interpretation",
+        "label": "Evidence becomes interpretation",
+        "form": "fork",
+        "nodes": [
+          {
+            "id": "evidence",
+            "term": "EVIDENCE",
+            "role": "evidence"
+          },
+          {
+            "id": "identity",
+            "sourceItem": 0,
+            "sourcePart": "item",
+            "term": "Identity",
+            "annotation": "Network + contract + token",
+            "role": "evidence"
+          },
+          {
+            "id": "contract",
+            "sourceItem": 1,
+            "sourcePart": "item",
+            "term": "Contract",
+            "annotation": "State + tokenURI",
+            "role": "evidence"
+          },
+          {
+            "id": "release",
+            "sourceItem": 2,
+            "sourcePart": "item",
+            "term": "Release",
+            "annotation": "ABI + renderer + schemas",
+            "role": "evidence"
+          },
+          {
+            "id": "context",
+            "sourceItem": 3,
+            "sourcePart": "item",
+            "term": "Context",
+            "annotation": "Provenance + reading surface",
+            "role": "evidence"
+          },
+          {
+            "id": "interpretation",
+            "sourceItem": 4,
+            "sourcePart": "item",
+            "term": "Interpretation",
+            "annotation": "Read together",
+            "role": "result"
+          }
+        ],
+        "edges": [
+          {
+            "id": "evidence-identity",
+            "from": "evidence",
+            "to": "identity",
+            "glyph": "├─",
+            "label": "Identity is one evidence record."
+          },
+          {
+            "id": "evidence-contract",
+            "from": "evidence",
+            "to": "contract",
+            "glyph": "├─",
+            "label": "Contract state is one evidence record."
+          },
+          {
+            "id": "evidence-release",
+            "from": "evidence",
+            "to": "release",
+            "glyph": "├─",
+            "label": "The pinned release is one evidence record."
+          },
+          {
+            "id": "evidence-context",
+            "from": "evidence",
+            "to": "context",
+            "glyph": "└─",
+            "label": "Context is one evidence record."
+          },
+          {
+            "id": "evidence-to-interpretation",
+            "from": "evidence",
+            "to": "interpretation",
+            "glyph": "↓",
+            "stackedGlyph": "│\n↓",
+            "label": "The evidence records are read together as interpretation."
+          }
+        ],
+        "groups": [
+          {
+            "id": "evidence-set",
+            "kind": "set",
+            "label": "Evidence",
+            "members": [
+              "evidence",
+              "identity",
+              "contract",
+              "release",
+              "context"
+            ]
+          }
+        ]
+      }
     },
     "preformatted": [],
     "sections": [

@@ -6,12 +6,31 @@
 - Status: current
 - Authority classes in this document: app-documentation
 - Canonical page: https://inshell.art/docs/wallet-local-data
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## Two distinctions
 
 - Authority: app-documentation
+- Figure ID: wallet.distinctions
 - Figure mode: field
+- Semantic form: ledger
+- Semantic nodes:
+  - `wallet-local-data [structural]: WALLET AND LOCAL DATA`
+  - `read-sign-transact [principle]: Read ≠ Sign ≠ Transact — Public state · authorization · chain change`
+  - `read [action]: READ — Public state`
+  - `sign [action]: SIGN — Authorization`
+  - `transact [action]: TRANSACT — Chain change`
+  - `local-onchain [principle]: Local ≠ Onchain — Browser record · public record`
+  - `local [record]: LOCAL — Browser record`
+  - `onchain [record]: ONCHAIN — Public record`
+- Semantic edges:
+  - `read-not-sign: read (READ) --[≠ · Reading public state is not signing an authorization.]--> sign (SIGN)`
+  - `sign-not-transact: sign (SIGN) --[≠ · Signing an authorization is not a chain transaction.]--> transact (TRANSACT)`
+  - `local-not-onchain: local (LOCAL) --[≠ · A local browser record is not an onchain public record.]--> onchain (ONCHAIN)`
+- Semantic groups:
+  - `wallet-action-distinction [comparison]: Read ≠ Sign ≠ Transact [members: read-sign-transact (Read ≠ Sign ≠ Transact) · read (READ) · sign (SIGN) · transact (TRANSACT)]`
+  - `record-location-distinction [comparison]: Local ≠ Onchain [members: local-onchain (Local ≠ Onchain) · local (LOCAL) · onchain (ONCHAIN)]`
 
 ```text
 ┌─ WALLET AND LOCAL DATA ─────────────────────┐

@@ -6,18 +6,28 @@
 - Status: future
 - Authority classes in this document: artist-editorial, app-documentation
 - Canonical page: https://inshell.art/docs/awa
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## Toward the core
 
 - Authority: artist-editorial
+- Figure ID: awa.open-horizon
 - Figure mode: field
+- Semantic form: trace
+- Semantic nodes:
+  - `thought [state]: THOUGHT — Individual`
+  - `will [state]: WILL — Crowd`
+  - `awa [state]: AWA — Toward the core`
+- Semantic edges:
+  - `thought-to-will: thought (THOUGHT) --[→ · The path moves from individual THOUGHT to crowd WILL.]--> will (WILL)`
+  - `will-toward-awa: will (WILL) --[→ · The path points from crowd WILL toward AWA and the core; arrival is not claimed.]--> awa (AWA)`
+- Semantic groups:
+  - `awa-open-horizon [phase]: AWA is the forming horizon of the path toward the core. [members: thought (THOUGHT) · will (WILL) · awa (AWA)]`
 
 ```text
-┌─ AWA ─────────────────────────────────────┐
-│ THOUGHT        WILL        AWA            │
-│ INDIVIDUAL  →  CROWD  →  TOWARD THE CORE  │
-└───────────────────────────────────────────┘
+THOUGHT ──→ WILL ──→ AWA
+Individual   Crowd    Toward the core
 ```
 
 - **THOUGHT** — Individual

@@ -6,12 +6,24 @@
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/mono-76
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## From glyph study to canonical artwork
 
 - Authority: artist-editorial, app-documentation, contract-release
+- Figure ID: mono-76.canonical-artwork
 - Figure mode: trace
+- Semantic form: trace
+- Semantic nodes:
+  - `glyph-study [action]: Glyph study — Explore · refine`
+  - `sealed-mono [state]: Sealed Mono 76 — Paths + metrics frozen`
+  - `canonical-artwork [result]: Canonical artwork — Native SVG`
+- Semantic edges:
+  - `study-to-seal: glyph-study (Glyph study) --[→ / ↓ · Glyph study is refined into the sealed Mono 76 source.]--> sealed-mono (Sealed Mono 76)`
+  - `seal-to-artwork: sealed-mono (Sealed Mono 76) --[→ / ↓ · The sealed paths and metrics produce the canonical native SVG artwork.]--> canonical-artwork (Canonical artwork)`
+- Semantic groups:
+  - `mono-phases [phase]: From study through sealed source to canonical artwork. [members: glyph-study (Glyph study) · sealed-mono (Sealed Mono 76) · canonical-artwork (Canonical artwork)]`
 
 ```text
 GLYPH STUDY

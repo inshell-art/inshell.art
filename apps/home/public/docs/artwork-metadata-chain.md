@@ -6,12 +6,30 @@
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/artwork-metadata-chain
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## Evidence becomes interpretation
 
 - Authority: app-documentation, contract-release
+- Figure ID: evidence.interpretation
 - Figure mode: field
+- Semantic form: fork
+- Semantic nodes:
+  - `evidence [evidence]: EVIDENCE`
+  - `identity [evidence]: Identity — Network + contract + token`
+  - `contract [evidence]: Contract — State + tokenURI`
+  - `release [evidence]: Release — ABI + renderer + schemas`
+  - `context [evidence]: Context — Provenance + reading surface`
+  - `interpretation [result]: Interpretation — Read together`
+- Semantic edges:
+  - `evidence-identity: evidence (EVIDENCE) --[├─ · Identity is one evidence record.]--> identity (Identity)`
+  - `evidence-contract: evidence (EVIDENCE) --[├─ · Contract state is one evidence record.]--> contract (Contract)`
+  - `evidence-release: evidence (EVIDENCE) --[├─ · The pinned release is one evidence record.]--> release (Release)`
+  - `evidence-context: evidence (EVIDENCE) --[└─ · Context is one evidence record.]--> context (Context)`
+  - `evidence-to-interpretation: evidence (EVIDENCE) --[↓ / │ ↓ · The evidence records are read together as interpretation.]--> interpretation (Interpretation)`
+- Semantic groups:
+  - `evidence-set [set]: Evidence [members: evidence (EVIDENCE) · identity (Identity) · contract (Contract) · release (Release) · context (Context)]`
 
 ```text
 EVIDENCE

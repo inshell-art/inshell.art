@@ -1,8 +1,8 @@
 {
-  "schema": "inshell.agent-docs.topic.v1",
-  "schemaUrl": "/docs/content.schema.json",
-  "canonicalSchemaUrl": "https://inshell.art/docs/content.schema.json",
-  "version": "2026-08-11",
+  "schema": "inshell.agent-docs.topic.v2",
+  "schemaUrl": "/docs/content.v2.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
+  "version": "2026-08-12",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "agent-art",
@@ -37,9 +37,10 @@
       "authorities": [
         "artist-editorial"
       ],
+      "id": "agent-art.open-field",
       "label": "The invariant and the open field",
       "mode": "field",
-      "figureText": "┌─ AGENT ART ──────────────────────────────────────┐\n│ INVARIANT                                        │\n│ An Agent participates in the art activity.       │\n│                                                  │\n├─ OPEN QUESTIONS ─────────────────────────────────┤\n│ What is Art?                 What is an Agent?   │\n│ Open question.                 Open question.    │\n└──────────────────────────────────────────────────┘",
+      "figureText": "AGENT ART\n\nINVARIANT\nAn Agent participates in the art activity.\n\nOPEN QUESTIONS\n├─ What is Art? — Open question.\n└─ What is an Agent? — Open question.",
       "items": [
         {
           "title": "Invariant",
@@ -53,7 +54,64 @@
           "title": "What is an Agent?",
           "detail": "Open question."
         }
-      ]
+      ],
+      "logic": {
+        "id": "agent-art.open-field",
+        "label": "The invariant and the open field",
+        "form": "field",
+        "nodes": [
+          {
+            "id": "agent-art",
+            "term": "AGENT ART",
+            "role": "structural"
+          },
+          {
+            "id": "invariant",
+            "sourceItem": 0,
+            "sourcePart": "item",
+            "term": "Invariant",
+            "annotation": "An Agent participates in the art activity.",
+            "role": "principle"
+          },
+          {
+            "id": "open-questions",
+            "term": "OPEN QUESTIONS",
+            "role": "structural"
+          },
+          {
+            "id": "what-is-art",
+            "sourceItem": 1,
+            "sourcePart": "item",
+            "term": "What is Art?",
+            "annotation": "Open question.",
+            "role": "question"
+          },
+          {
+            "id": "what-is-an-agent",
+            "sourceItem": 2,
+            "sourcePart": "item",
+            "term": "What is an Agent?",
+            "annotation": "Open question.",
+            "role": "question"
+          }
+        ],
+        "edges": [],
+        "groups": [
+          {
+            "id": "agent-art-field",
+            "kind": "open-field",
+            "label": "One invariant is held while Art and Agent remain open questions.",
+            "glyph": "├─ / └─",
+            "members": [
+              "agent-art",
+              "invariant",
+              "open-questions",
+              "what-is-art",
+              "what-is-an-agent"
+            ]
+          }
+        ]
+      }
     },
     "preformatted": [],
     "sections": [

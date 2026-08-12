@@ -84,6 +84,11 @@ Do not reduce Agent Art to prompting, text generation, chat, or human-plus-model
 
 ## Character figures
 
+- Treat a character figure as one semantic object with two readings: human readers receive visual hierarchy and spatial rhythm; Agents receive the same literal nodes, annotations, operators, edges, and groups through DOM, Markdown, and JSON.
+- `Complete` means complete for the claim the figure makes. Preserve every term and relation needed to reconstruct that claim, but do not copy the surrounding paragraph into the figure.
+- Choose the figure's semantic form before styling it: use an `axis` for an equation or directional relation, a `trace` for order or transformation, a `cycle` for recurrence, a `fork` for branching or convergence, a `field` for parallel or unresolved terms, a `ledger` for comparison, and `lanes` for parallel actors or phases.
+- Give every semantic node and edge a stable source identity. Do not infer a relation only from array order, screen position, an English caption, or renderer-only copy.
+- Use a closed frame only when containment is part of the meaning. A frame is not the default decoration for a conceptual set or an open question.
 - A figure belongs to the lead or section whose governing impression it establishes at first sight. It is not a decorative diagram, an annotated aside, or an article-level quota.
 - Place a lead figure immediately after the title and summary. Place a section figure immediately after that section's heading and before its text.
 - Multiple figures may appear in one article when distinct sections independently warrant them. No lead or section needs a figure for consistency.
@@ -91,6 +96,7 @@ Do not reduce Agent Art to prompting, text generation, chat, or human-plus-model
 - Use `trace` for a real sequence, `lanes` for actor handoffs, `ledger` for coexisting records or boundaries, and `field` for parallel, convergent, or open conceptual relations.
 - Preserve the human visual hierarchy: key terms are dominant, relationship characters guide the reading, and details remain quiet annotations. Do not flatten the whole figure into one technical-looking text size.
 - Use no more than three font-size tiers in any figure: one tier for the caption, structural labels, and relationship glyphs; one larger tier for governing terms; and one smaller muted tier for annotations and markers. A figure may use fewer. A dense figure may use a smaller shared governing-term tier, but do not introduce a fourth, intermediate, or one-off size inside it.
+- Make governing terms conspicuously large when the form permits it. Quiet annotations may be much smaller because DOM- and artifact-reading Agents do not depend on their rendered size, but keep them readable and selectable for humans and screenshot-reading Agents; typography is not permission to hide information.
 - Keep every logical character and label literal in the maintained source, rendered DOM, Markdown, and JSON. Do not put figure logic only in CSS, an image, SVG, or canvas.
 - Treat the visible structured DOM as the canonical human figure. Keep the exact `figureText` in the maintained source and generated Agent Markdown and JSON; when the visible DOM preserves the complete logical structure, do not duplicate `figureText` in the human page.
 - When a character figure's box, fork, lane, or directional shape carries meaning, preserve that logical shape in the human rendering. Use structured DOM and literal character rails so key terms and annotations can have distinct type scales without bending the fixed-width source.

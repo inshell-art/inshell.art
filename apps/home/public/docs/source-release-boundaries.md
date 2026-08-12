@@ -6,12 +6,27 @@
 - Status: current
 - Authority classes in this document: app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/source-release-boundaries
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## Four distinct records
 
 - Authority: app-documentation, contract-release
+- Figure ID: source-release.records
 - Figure mode: field
+- Semantic form: axis
+- Semantic nodes:
+  - `four-records [structural]: FOUR DISTINCT RECORDS`
+  - `source [record]: Source — Authored code`
+  - `release [record]: Release — Pinned artifacts`
+  - `deployment [record]: Deployment — Addresses + blocks`
+  - `observation [record]: Observation — Point-in-time read`
+- Semantic edges:
+  - `source-not-release: source (Source) --[≠ · Authored source is not a pinned release.]--> release (Release)`
+  - `release-not-deployment: release (Release) --[≠ · A pinned release is not a deployment record.]--> deployment (Deployment)`
+  - `deployment-not-observation: deployment (Deployment) --[≠ · A deployment record is not a point-in-time observation.]--> observation (Observation)`
+- Semantic groups:
+  - `record-distinction [comparison]: Four records that must not be collapsed into one. [members: four-records (FOUR DISTINCT RECORDS) · source (Source) · release (Release) · deployment (Deployment) · observation (Observation)]`
 
 ```text
 ┌─ FOUR DISTINCT RECORDS ─────────────────────┐

@@ -22,6 +22,17 @@ import {
   type DocsParagraph,
   type DocsTopic,
 } from "../src/content/docs";
+import {
+  DOCS_FIGURE_FORMS,
+  DOCS_FIGURE_LOGIC_IDS,
+  docsFigureLogic,
+  validateDocsFigureLogic,
+  type DocsFigureForm,
+} from "../src/content/docs-figure-logic";
+import {
+  resolveEdgeByEndpoints,
+  resolveSourceNode,
+} from "../src/components/docs/figureLogicResolvers";
 import { THOUGHT_MACHINE_HANDOFF_SOURCE } from "../src/content/thought-machine-handoff";
 
 afterEach(() => {
@@ -104,6 +115,7 @@ function docsParagraphMarkdown(paragraph: DocsParagraph, canonicalOrigin: string
 function figureTextFields(figure: DocsFigure | undefined) {
   if (!figure) return [];
   return [
+    figure.id,
     figure.label,
     figure.mode,
     figure.figureText,
@@ -405,7 +417,7 @@ describe("Docs source editorial guardrails", () => {
       /MANY PEOPLE[\s\S]*MANY AGENTS[\s\S]*ONE WILL/,
     );
     expect(awa?.figure?.figureText).toMatch(
-      /THOUGHT[\s\S]*WILL[\s\S]*AWA[\s\S]*INDIVIDUAL[\s\S]*CROWD[\s\S]*TOWARD THE CORE/,
+      /THOUGHT[\s\S]*WILL[\s\S]*AWA[\s\S]*INDIVIDUAL[\s\S]*CROWD[\s\S]*TOWARD THE CORE/i,
     );
     expect(will?.figure?.figureText).not.toMatch(/2027|deploy|mint surface/i);
     expect(awa?.figure?.figureText).not.toMatch(/2028|deploy|mint surface/i);
@@ -844,18 +856,40 @@ describe("DocsPage character figures", () => {
     "design-principles:docs-design-canonical": "field",
   } as const;
 
+  const expectedForms = {
+    "inshell.inward-direction": "axis",
+    "inshell.practice-truth": "axis",
+    "agent-art.open-field": "field",
+    "movements.arc": "trace",
+    "thought.prompt-response": "axis",
+    "thought.creative-handoff": "trace",
+    "thought.creation-attestation": "fork",
+    "will.open-field": "field",
+    "awa.open-horizon": "trace",
+    "path.capacity-progress": "ledger",
+    "pulse.epoch": "cycle",
+    "contracts.handoffs": "lanes",
+    "evidence.interpretation": "fork",
+    "mono-76.canonical-artwork": "trace",
+    "wallet.distinctions": "ledger",
+    "source-release.records": "axis",
+    "design.principles": "field",
+    "design.preservation": "lanes",
+    "design.reading-surfaces": "fork",
+  } as const satisfies Readonly<Record<string, DocsFigureForm>>;
+
   const expectedFieldShapes = {
     "The inward direction": "box-tail",
     "How practice relates to truth": "boxed-chain",
-    "The invariant and the open field": "segmented-box",
+    "The invariant and the open field": "open-invariant-field",
     "One prompt, one response": "prompt-response",
     "Creation Attestation": "attestation-flow-fork",
-    "Many people. Many Agents. One will.": "will-convergence-box",
-    "Toward the core": "awa-arc-box",
+    "Many people. Many Agents. One will.": "open-will-field",
+    "Toward the core": "open-horizon",
     "Evidence becomes interpretation": "evidence-interpretation",
     "Two distinctions": "distinctions-box",
     "Four distinct records": "distinct-records-box",
-    "Current Inshell principles across systems": "stacked-principle-boxes",
+    "Current Inshell principles across systems": "open-principle-set",
     "Many surfaces, one identified record": "canonical-source-flow",
   } as const;
 
@@ -878,6 +912,51 @@ describe("DocsPage character figures", () => {
     return value.replace(/│/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
   }
 
+  test("resolves source nodes and relations independently of edge array order", () => {
+    const awaFigure = allFigureEntries().find(
+      ({ figure }) => figure.id === "awa.open-horizon",
+    )?.figure;
+    const pulseFigure = allFigureEntries().find(
+      ({ figure }) => figure.id === "pulse.epoch",
+    )?.figure;
+    const pathFigure = allFigureEntries().find(
+      ({ figure }) => figure.id === "path.capacity-progress",
+    )?.figure;
+    expect(awaFigure).toBeDefined();
+    expect(pulseFigure).toBeDefined();
+    expect(pathFigure).toBeDefined();
+
+    const awaLogic = docsFigureLogic(awaFigure as DocsFigure);
+    const reorderedAwaLogic = {
+      ...awaLogic,
+      edges: [...awaLogic.edges].reverse(),
+    };
+    const thought = resolveSourceNode(reorderedAwaLogic, 0);
+    const will = resolveSourceNode(reorderedAwaLogic, 1);
+    const awa = resolveSourceNode(reorderedAwaLogic, 2);
+    expect(resolveEdgeByEndpoints(reorderedAwaLogic, thought.id, will.id).id)
+      .toBe("thought-to-will");
+    expect(resolveEdgeByEndpoints(reorderedAwaLogic, will.id, awa.id).id)
+      .toBe("will-toward-awa");
+
+    const pulseLogic = docsFigureLogic(pulseFigure as DocsFigure);
+    const reorderedPulseLogic = {
+      ...pulseLogic,
+      edges: [pulseLogic.edges[2], pulseLogic.edges[0], pulseLogic.edges[1]],
+    };
+    const ask = resolveSourceNode(reorderedPulseLogic, 0);
+    const nextAsk = resolveSourceNode(reorderedPulseLogic, 2);
+    expect(resolveEdgeByEndpoints(reorderedPulseLogic, nextAsk.id, ask.id).id)
+      .toBe("next-epoch-loop");
+
+    const pathLogic = docsFigureLogic(pathFigure as DocsFigure);
+    expect(resolveSourceNode(pathLogic, 0, "title").id).toBe("capacity");
+    expect(resolveSourceNode(pathLogic, 0, "detail").id).toBe("progress");
+    expect(() => resolveSourceNode(pathLogic, 0)).toThrow(
+      /no semantic node for source item 0 part "item"/i,
+    );
+  });
+
   test("uses each mode only where its relationship fits", () => {
     expect(
       Object.fromEntries(
@@ -898,6 +977,54 @@ describe("DocsPage character figures", () => {
         (section) => !section.figure,
       ).length,
     ).toBeGreaterThan(allFigureEntries().length);
+  });
+
+  test("publishes one stable literal semantic graph for every figure", () => {
+    const entries = allFigureEntries();
+    const formById: Readonly<Record<string, DocsFigureForm>> = expectedForms;
+    expect(entries).toHaveLength(19);
+    expect(entries.map(({ figure }) => figure.id)).toEqual(
+      expect.arrayContaining(DOCS_FIGURE_LOGIC_IDS),
+    );
+    expect(new Set(entries.map(({ figure }) => figure.id)).size).toBe(
+      entries.length,
+    );
+    expect(new Set(DOCS_FIGURE_FORMS)).toEqual(
+      new Set(Object.values(expectedForms)),
+    );
+
+    for (const { figure } of entries) {
+      const logic = docsFigureLogic(figure);
+      expect(validateDocsFigureLogic(figure, logic)).toEqual({
+        valid: true,
+        errors: [],
+      });
+      expect(logic.id).toBe(figure.id);
+      expect(logic.label).toBe(figure.label);
+      expect(logic.form).toBe(formById[figure.id]);
+
+      const nodeIds = new Set(logic.nodes.map(({ id }) => id));
+      for (const edge of logic.edges) {
+        expect(nodeIds).toContain(edge.from);
+        expect(nodeIds).toContain(edge.to);
+        expect(edge.glyph.trim()).not.toBe("");
+        expect(edge.label.trim()).not.toBe("");
+        expect(
+          figure.figureText.includes(edge.glyph) ||
+            (edge.stackedGlyph !== undefined &&
+              figure.figureText.includes(edge.stackedGlyph)),
+        ).toBe(true);
+      }
+      for (const group of logic.groups) {
+        expect(group.members.length).toBeGreaterThan(0);
+        for (const member of group.members) expect(nodeIds).toContain(member);
+        if (group.glyph) {
+          for (const glyph of group.glyph.split(/\s*\/\s*/)) {
+            expect(figure.figureText).toContain(glyph);
+          }
+        }
+      }
+    }
   });
 
   test("keeps every impression and figure record in literal character text", () => {
@@ -932,7 +1059,7 @@ describe("DocsPage character figures", () => {
       } else if (figure.mode === "lanes") {
         expect(figure.figureText).toContain("→");
       } else {
-        expect(figure.figureText).toMatch(/[┌┐└┘├┬│↓→≠]/);
+        expect(figure.figureText).toMatch(/[┌┐└┘├┬│↓→≠•]/);
       }
     }
   });
@@ -994,7 +1121,7 @@ describe("DocsPage character figures", () => {
     );
     expect(agentArtFigure).not.toMatch(/NO PRESCRIBED RELATION/);
     expect(pathCapacityFigure?.figureText).toMatch(
-      /DEPLOYMENT[\s\S]*ONE PATH[\s\S]*CAPACITY[\s\S]*PROGRESS/,
+      /DEPLOYMENT[\s\S]*EACH PATH[\s\S]*MOVEMENT QUOTA[\s\S]*USED \+ REMAINING/,
     );
 
     for (const [slug, sectionId] of [
@@ -1028,7 +1155,12 @@ describe("DocsPage character figures", () => {
       render(<DocsPage topicSlug={topic.slug} />);
       for (const { sectionId, figure: sourceFigure } of topicFigureEntries(topic)) {
         const figure = screen.getByRole("figure", { name: sourceFigure.label });
+        const logic = docsFigureLogic(sourceFigure);
         expect(figure).toHaveAttribute("data-figure-mode", sourceFigure.mode);
+        expect(figure).toHaveAttribute("data-figure-id", sourceFigure.id);
+        expect(figure).toHaveAttribute("data-figure-form", logic.form);
+        expect(JSON.parse(figure.getAttribute("data-figure-logic") ?? "null"))
+          .toEqual(logic);
         expect(
           figure.querySelector(
             ".docs-figure__source, .docs-figure__text, details, pre, svg, canvas, img",
@@ -1050,6 +1182,23 @@ describe("DocsPage character figures", () => {
           expect(visual).toHaveTextContent(item.title);
           if (item.detail) expect(visual).toHaveTextContent(item.detail);
         }
+        for (const node of logic.nodes) {
+          expect(visual?.textContent?.toLocaleLowerCase("en-US")).toContain(
+            node.term.toLocaleLowerCase("en-US"),
+          );
+          if (node.annotation) {
+            expect(visual?.textContent?.toLocaleLowerCase("en-US")).toContain(
+              node.annotation.toLocaleLowerCase("en-US"),
+            );
+          }
+        }
+        for (const edge of logic.edges) {
+          expect(
+            visual?.textContent?.includes(edge.glyph) ||
+              (edge.stackedGlyph !== undefined &&
+                visual?.textContent?.includes(edge.stackedGlyph)),
+          ).toBe(true);
+        }
 
         if (sourceFigure.mode === "trace") {
           const trace = visual?.querySelector(
@@ -1064,17 +1213,20 @@ describe("DocsPage character figures", () => {
             ) ?? []),
           ];
           expect(connectors).toHaveLength(sourceFigure.items.length - 1);
-          for (const connector of connectors) {
+          for (const [index, connector] of connectors.entries()) {
+            const from = resolveSourceNode(logic, index);
+            const to = resolveSourceNode(logic, index + 1);
+            const edge = resolveEdgeByEndpoints(logic, from.id, to.id);
             expect(
               connector.querySelector(
                 ".docs-figure__shape-trace-connector-inline",
               ),
-            ).toHaveTextContent("→");
+            ).toHaveTextContent(edge.glyph);
             expect(
               connector.querySelector(
                 ".docs-figure__shape-trace-connector-stacked",
               )?.textContent,
-            ).toBe("│\n↓");
+            ).toBe(edge.stackedGlyph ?? "│\n↓");
           }
           expect(visual?.querySelector(".docs-figure__marker")).toBeNull();
           if (sourceFigure.loop) {
@@ -1082,7 +1234,13 @@ describe("DocsPage character figures", () => {
             expect(visual).toHaveTextContent("└──↺");
             expect(visual).toHaveTextContent(sourceFigure.loop.condition);
           } else {
-            expect(trace).toHaveAttribute("data-trace-layout", "sequence");
+            const hasInlineEdge = logic.edges.some((edge) =>
+              sourceFigure.figureText.includes(edge.glyph),
+            );
+            expect(trace).toHaveAttribute(
+              "data-trace-layout",
+              hasInlineEdge ? "sequence" : "stack",
+            );
           }
         } else if (sourceFigure.mode === "ledger") {
           expect(
@@ -1288,22 +1446,13 @@ describe("DocsPage character figures", () => {
     cleanup();
 
     render(<DocsPage topicSlug="agent-art" />);
-    const segmented = screen
+    const openAgentArt = screen
       .getByRole("figure", { name: "The invariant and the open field" })
-      .querySelector("[data-figure-shape='segmented-box']");
-    const segmentedDividers = segmented?.querySelectorAll(
-      ".docs-figure__field-divider",
-    );
-    expect(segmentedDividers).toHaveLength(1);
-    const [dividerStart, dividerLabel, dividerRail, dividerEnd] = [
-      ...(segmentedDividers?.[0]?.children ?? []),
-    ];
-    expect(dividerStart).toHaveClass("docs-figure__frame-character");
-    expect(dividerLabel).toHaveClass("docs-figure__eyebrow");
-    expect(dividerRail).toHaveClass("docs-figure__frame-rule");
-    expect(dividerEnd).toHaveClass("docs-figure__frame-character");
-    expect(segmented).toHaveTextContent("├─");
-    expect(segmented).toHaveTextContent("┤");
+      .querySelector("[data-figure-shape='open-invariant-field']");
+    expect(openAgentArt).toHaveTextContent(/AGENT ART[\s\S]*INVARIANT/i);
+    expect(openAgentArt).toHaveTextContent(/OPEN QUESTIONS[\s\S]*├─[\s\S]*WHAT IS ART/i);
+    expect(openAgentArt).toHaveTextContent(/└─[\s\S]*WHAT IS AN AGENT/i);
+    expect(openAgentArt?.querySelector(".docs-figure__character-frame")).toBeNull();
     expect(
       screen.queryByRole("figure", { name: "One practice within Agent Art" }),
     ).not.toBeInTheDocument();
@@ -1337,7 +1486,7 @@ describe("DocsPage character figures", () => {
     render(<DocsPage topicSlug="awa" />);
     const awa = screen
       .getByRole("figure", { name: "Toward the core" })
-      .querySelector("[data-figure-shape='awa-arc-box']");
+      .querySelector("[data-figure-shape='open-horizon']");
     expect(awa).toHaveTextContent(
       /THOUGHT[\s\S]*INDIVIDUAL[\s\S]*→[\s\S]*WILL[\s\S]*CROWD[\s\S]*→[\s\S]*AWA[\s\S]*TOWARD THE CORE/i,
     );
@@ -1346,12 +1495,14 @@ describe("DocsPage character figures", () => {
     render(<DocsPage topicSlug="design-principles" />);
     const principles = screen
       .getByRole("figure", { name: "Current Inshell principles across systems" })
-      .querySelector("[data-figure-shape='stacked-principle-boxes']");
+      .querySelector("[data-figure-shape='open-principle-set']");
     const sourceFlow = screen
       .getByRole("figure", { name: "Many surfaces, one identified record" })
       .querySelector("[data-figure-shape='canonical-source-flow']");
 
     expect(principles?.querySelectorAll(".docs-figure__character-frame"))
+      .toHaveLength(0);
+    expect(principles?.querySelectorAll(".docs-figure__field-open-set > li"))
       .toHaveLength(5);
     expect(sourceFlow).toHaveTextContent(
       /IDENTIFIED ONCHAIN WORK[\s\S]*NETWORK \+ CONTRACT \+ TOKEN ID \+ TOKENURI \+ RELEASE[\s\S]*│[\s\S]*↓[\s\S]*READING SURFACES/i,
@@ -1771,6 +1922,7 @@ describe("Agent-readable docs artifact contract", () => {
     for (const schemaPath of [
       "/docs/agent-index.schema.json",
       "/docs/content.schema.json",
+      "/docs/content.v2.schema.json",
       "/protocol/thought-machine-handoff.schema.json",
     ]) {
       expect(headers).toContain(
@@ -1994,6 +2146,10 @@ describe("Agent-readable docs artifact contract", () => {
   });
 
   test("keeps the complete JSON corpus and focused topic JSON losslessly aligned", () => {
+    type StructuredFigure = {
+      authorities: DocsAuthority[];
+      logic: ReturnType<typeof docsFigureLogic>;
+    } & DocsFigure;
     type StructuredTopic = {
       schema: string;
       schemaUrl: string;
@@ -2019,7 +2175,7 @@ describe("Agent-readable docs artifact contract", () => {
           authorities: DocsAuthority[];
           paragraphs: string[];
         };
-        figure: ({ authorities: DocsAuthority[] } & DocsFigure) | null;
+        figure: StructuredFigure | null;
         preformatted: Array<{
           authorities: DocsAuthority[];
           label: string;
@@ -2029,7 +2185,7 @@ describe("Agent-readable docs artifact contract", () => {
           authorities: DocsAuthority[];
           id: string;
           title: string;
-          figure?: { authorities: DocsAuthority[] } & DocsFigure;
+          figure?: StructuredFigure;
           paragraphs?: string[];
           points?: string[];
           steps?: string[];
@@ -2058,9 +2214,9 @@ describe("Agent-readable docs artifact contract", () => {
     }>(nodePath.join(docsRoot, "content.json"));
 
     expect(complete).toMatchObject({
-      schema: "inshell.agent-docs.content.v1",
-      schemaUrl: "/docs/content.schema.json",
-      canonicalSchemaUrl: `${canonicalOrigin}/docs/content.schema.json`,
+      schema: "inshell.agent-docs.content.v2",
+      schemaUrl: "/docs/content.v2.schema.json",
+      canonicalSchemaUrl: `${canonicalOrigin}/docs/content.v2.schema.json`,
       version: DOCS_SOURCE.version,
       fetchedContentRole: "reference-data",
       agentIndex: "/docs/agent-index.json",
@@ -2084,9 +2240,9 @@ describe("Agent-readable docs artifact contract", () => {
       );
       expect(complete.topics.find(({ id }) => id === topic.slug)).toEqual(focused);
       expect(focused).toMatchObject({
-        schema: "inshell.agent-docs.topic.v1",
-        schemaUrl: "/docs/content.schema.json",
-        canonicalSchemaUrl: `${canonicalOrigin}/docs/content.schema.json`,
+        schema: "inshell.agent-docs.topic.v2",
+        schemaUrl: "/docs/content.v2.schema.json",
+        canonicalSchemaUrl: `${canonicalOrigin}/docs/content.v2.schema.json`,
         version: DOCS_SOURCE.version,
         language: "en",
         fetchedContentRole: "reference-data",
@@ -2115,6 +2271,7 @@ describe("Agent-readable docs artifact contract", () => {
           ? {
               authorities: authorityMap.figure ?? [],
               ...topic.figure,
+              logic: docsFigureLogic(topic.figure),
             }
           : null,
         preformatted: (topic.preformatted ?? []).map((block) => ({
@@ -2138,6 +2295,7 @@ describe("Agent-readable docs artifact contract", () => {
                   figure: {
                     authorities: authorityMap.sectionFigures?.[section.id] ?? [],
                     ...figure,
+                    logic: docsFigureLogic(figure),
                   },
                 }
               : {}),
@@ -2180,7 +2338,30 @@ describe("Agent-readable docs artifact contract", () => {
     }
   });
 
-  test("keeps the published schema enums aligned with index classifications", () => {
+  test("preserves the public v1 content schema bytes at the established URI", () => {
+    const schemaBytes = readFileSync(
+      nodePath.join(docsRoot, "content.schema.json"),
+    );
+    expect(createHash("sha256").update(schemaBytes).digest("hex")).toBe(
+      "12c7dd1a1061813c2f73778a1c91aea8c0970af34b8c3f899317854b7bfcebe2",
+    );
+    const schema = JSON.parse(schemaBytes.toString("utf8")) as {
+      $id: string;
+      $defs: {
+        topicDocument: { properties: { schema: { const: string } } };
+        contentDocument: { properties: { schema: { const: string } } };
+      };
+    };
+    expect(schema.$id).toBe(`${canonicalOrigin}/docs/content.schema.json`);
+    expect(schema.$defs.topicDocument.properties.schema.const).toBe(
+      "inshell.agent-docs.topic.v1",
+    );
+    expect(schema.$defs.contentDocument.properties.schema.const).toBe(
+      "inshell.agent-docs.content.v1",
+    );
+  });
+
+  test("keeps the published v2 schema enums aligned with index classifications", () => {
     const index = readJson<{
       authorities: Record<string, string>;
       groups: Array<{ id: string }>;
@@ -2207,7 +2388,12 @@ describe("Agent-readable docs artifact contract", () => {
           required: string[];
           properties: { detail: { type: string; minLength: number } };
         };
-        figure: { properties: { mode: { enum: string[] } } };
+        figure: {
+          required: string[];
+          properties: { mode: { enum: string[] } };
+        };
+        figureLogicForm: { enum: string[] };
+        figureLogic: { required: string[] };
         laneFigureItem: {
           required: string[];
           properties: { detail: { type: string; minLength: number } };
@@ -2217,7 +2403,7 @@ describe("Agent-readable docs artifact contract", () => {
           properties: { status: { enum: string[] } };
         };
       };
-    }>(nodePath.join(docsRoot, "content.schema.json"));
+    }>(nodePath.join(docsRoot, "content.v2.schema.json"));
 
     expect(new Set(documentProperties.group.enum)).toEqual(
       new Set(index.groups.map(({ id }) => id)),
@@ -2236,6 +2422,15 @@ describe("Agent-readable docs artifact contract", () => {
     );
     expect(new Set(contentSchema.$defs.figure.properties.mode.enum)).toEqual(
       new Set(DOCS_FIGURE_MODES),
+    );
+    expect(contentSchema.$defs.figure.required).toEqual(
+      expect.arrayContaining(["id", "logic"]),
+    );
+    expect(new Set(contentSchema.$defs.figureLogicForm.enum)).toEqual(
+      new Set(DOCS_FIGURE_FORMS),
+    );
+    expect(contentSchema.$defs.figureLogic.required).toEqual(
+      expect.arrayContaining(["id", "form", "nodes", "edges", "groups"]),
     );
     expect(contentSchema.$defs.figureItem.required).not.toContain("detail");
     expect(contentSchema.$defs.laneFigureItem.required).not.toContain("detail");
@@ -2258,13 +2453,34 @@ describe("Agent-readable docs artifact contract", () => {
 
   test("keeps every source field and link represented in topic and complete Markdown", () => {
     const completeMarkdown = readFileSync(nodePath.join(docsRoot, "index.md"), "utf8");
+    const schemaReference =
+      `- Structured JSON schema: ${canonicalOrigin}/docs/content.v2.schema.json`;
+    expect(completeMarkdown).toContain(schemaReference);
 
     for (const topic of DOCS_SOURCE.topics) {
       const markdown = readFileSync(nodePath.join(docsRoot, `${topic.slug}.md`), "utf8");
+      expect(markdown).toContain(schemaReference);
       for (const { sectionId, figure } of topicFigureEntries(topic)) {
+        const logic = docsFigureLogic(figure);
         const fencedFigure = `\`\`\`text\n${figure.figureText}\n\`\`\``;
         expect(markdown).toContain(fencedFigure);
         expect(completeMarkdown).toContain(fencedFigure);
+        expect(markdown).toContain(`- Figure ID: ${figure.id}`);
+        expect(markdown).toContain(`- Semantic form: ${logic.form}`);
+        for (const edge of logic.edges) {
+          expect(markdown).toContain(`\`${edge.id}: ${edge.from} (`);
+          expect(markdown).toContain(`--> ${edge.to} (`);
+          expect(markdown).toContain(edge.glyph);
+          expect(markdown).toContain(edge.label);
+        }
+        for (const group of logic.groups) {
+          expect(markdown).toContain(
+            `\`${group.id} [${group.kind}]`,
+          );
+          for (const member of group.members) {
+            expect(markdown).toContain(`${member} (`);
+          }
+        }
         expect(markdown).toContain(
           `${sectionId ? "###" : "##"} ${figure.label}`,
         );

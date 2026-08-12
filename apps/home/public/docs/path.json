@@ -1,8 +1,8 @@
 {
-  "schema": "inshell.agent-docs.topic.v1",
-  "schemaUrl": "/docs/content.schema.json",
-  "canonicalSchemaUrl": "https://inshell.art/docs/content.schema.json",
-  "version": "2026-08-11",
+  "schema": "inshell.agent-docs.topic.v2",
+  "schemaUrl": "/docs/content.v2.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
+  "version": "2026-08-12",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "path",
@@ -92,15 +92,92 @@
             "app-documentation",
             "contract-release"
           ],
+          "id": "path.capacity-progress",
           "label": "Capacity and progress",
           "mode": "ledger",
-          "figureText": "DEPLOYMENT │ ONE PATH\n───────────┼──────────\nCAPACITY   │ PROGRESS",
+          "figureText": "DEPLOYMENT     │ EACH PATH\n───────────────┼─────────────────\nMOVEMENT QUOTA │ USED + REMAINING",
           "items": [
             {
-              "title": "Capacity",
-              "detail": "Progress"
+              "title": "Movement quota",
+              "detail": "Used + remaining"
             }
-          ]
+          ],
+          "logic": {
+            "id": "path.capacity-progress",
+            "label": "Capacity and progress",
+            "form": "ledger",
+            "nodes": [
+              {
+                "id": "deployment",
+                "term": "DEPLOYMENT",
+                "role": "record"
+              },
+              {
+                "id": "capacity",
+                "sourceItem": 0,
+                "sourcePart": "title",
+                "term": "Movement quota",
+                "role": "state"
+              },
+              {
+                "id": "one-path",
+                "term": "EACH PATH",
+                "role": "record"
+              },
+              {
+                "id": "progress",
+                "sourceItem": 0,
+                "sourcePart": "detail",
+                "term": "Used + remaining",
+                "role": "state"
+              }
+            ],
+            "edges": [
+              {
+                "id": "deployment-capacity",
+                "from": "deployment",
+                "to": "capacity",
+                "glyph": "│",
+                "label": "The deployment configures movement capacity used by every PATH."
+              },
+              {
+                "id": "path-progress",
+                "from": "one-path",
+                "to": "progress",
+                "glyph": "│",
+                "label": "One PATH records its own movement progress."
+              }
+            ],
+            "groups": [
+              {
+                "id": "capacity-column",
+                "kind": "lane",
+                "label": "Deployment capacity",
+                "members": [
+                  "deployment",
+                  "capacity"
+                ]
+              },
+              {
+                "id": "progress-column",
+                "kind": "lane",
+                "label": "One PATH progress",
+                "members": [
+                  "one-path",
+                  "progress"
+                ]
+              },
+              {
+                "id": "capacity-progress-distinction",
+                "kind": "comparison",
+                "label": "Deployment capacity and per-PATH progress are distinct records.",
+                "members": [
+                  "capacity",
+                  "progress"
+                ]
+              }
+            ]
+          }
         }
       },
       {

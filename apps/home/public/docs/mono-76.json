@@ -1,8 +1,8 @@
 {
-  "schema": "inshell.agent-docs.topic.v1",
-  "schemaUrl": "/docs/content.schema.json",
-  "canonicalSchemaUrl": "https://inshell.art/docs/content.schema.json",
-  "version": "2026-08-11",
+  "schema": "inshell.agent-docs.topic.v2",
+  "schemaUrl": "/docs/content.v2.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
+  "version": "2026-08-12",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "mono-76",
@@ -43,6 +43,7 @@
         "app-documentation",
         "contract-release"
       ],
+      "id": "mono-76.canonical-artwork",
       "label": "From glyph study to canonical artwork",
       "mode": "trace",
       "figureText": "GLYPH STUDY\nExplore · refine\n      ↓\nSEALED MONO 76\nPaths + metrics frozen\n      ↓\nCANONICAL ARTWORK\nNative SVG",
@@ -59,7 +60,68 @@
           "title": "Canonical artwork",
           "detail": "Native SVG"
         }
-      ]
+      ],
+      "logic": {
+        "id": "mono-76.canonical-artwork",
+        "label": "From glyph study to canonical artwork",
+        "form": "trace",
+        "nodes": [
+          {
+            "id": "glyph-study",
+            "sourceItem": 0,
+            "sourcePart": "item",
+            "term": "Glyph study",
+            "annotation": "Explore · refine",
+            "role": "action"
+          },
+          {
+            "id": "sealed-mono",
+            "sourceItem": 1,
+            "sourcePart": "item",
+            "term": "Sealed Mono 76",
+            "annotation": "Paths + metrics frozen",
+            "role": "state"
+          },
+          {
+            "id": "canonical-artwork",
+            "sourceItem": 2,
+            "sourcePart": "item",
+            "term": "Canonical artwork",
+            "annotation": "Native SVG",
+            "role": "result"
+          }
+        ],
+        "edges": [
+          {
+            "id": "study-to-seal",
+            "from": "glyph-study",
+            "to": "sealed-mono",
+            "glyph": "→",
+            "stackedGlyph": "↓",
+            "label": "Glyph study is refined into the sealed Mono 76 source."
+          },
+          {
+            "id": "seal-to-artwork",
+            "from": "sealed-mono",
+            "to": "canonical-artwork",
+            "glyph": "→",
+            "stackedGlyph": "↓",
+            "label": "The sealed paths and metrics produce the canonical native SVG artwork."
+          }
+        ],
+        "groups": [
+          {
+            "id": "mono-phases",
+            "kind": "phase",
+            "label": "From study through sealed source to canonical artwork.",
+            "members": [
+              "glyph-study",
+              "sealed-mono",
+              "canonical-artwork"
+            ]
+          }
+        ]
+      }
     },
     "preformatted": [],
     "sections": [

@@ -50,6 +50,7 @@ export type DocsLaneFigureItem = DocsFigureItem & {
 };
 
 type DocsFigureBase<Mode extends DocsFigureMode, Item extends DocsFigureItem> = {
+  id: string;
   label: string;
   mode: Mode;
   figureText: string;
@@ -87,7 +88,7 @@ export type DocsTopic = {
 };
 
 export type DocsSource = {
-  schema: "inshell.docs.source.v1";
+  schema: "inshell.docs.source.v2";
   version: string;
   title: string;
   subtitle: string;
@@ -109,8 +110,8 @@ const METADATA_SCHEMA_URL =
   "/protocol/releases/thought-metadata-namespace-v2-20260731-r1/thought.metadata-namespace.v2.schema.json";
 
 export const DOCS_SOURCE: DocsSource = {
-  schema: "inshell.docs.source.v1",
-  version: "2026-08-11",
+  schema: "inshell.docs.source.v2",
+  version: "2026-08-12",
   title: "docs",
   subtitle: "paste this prompt into your Agent",
   canonicalUrl: "https://inshell.art/docs",
@@ -166,6 +167,7 @@ export const DOCS_SOURCE: DocsSource = {
         "In names a direction: go into the shell, look beneath its surface, and examine what forms the self. Mind, spirit, memory, desire, reasoning, values, philosophy, logic, and choice are possible terms for that inquiry—not a doctrine or a closed definition of essence.",
       ],
       figure: {
+        id: "inshell.inward-direction",
         label: "The inward direction",
         mode: "field",
         figureText: [
@@ -213,6 +215,7 @@ export const DOCS_SOURCE: DocsSource = {
           id: "docs-inshell-practice",
           title: "The practice",
           figure: {
+            id: "inshell.practice-truth",
             label: "How practice relates to truth",
             mode: "field",
             figureText: [
@@ -285,17 +288,18 @@ export const DOCS_SOURCE: DocsSource = {
         "For Inshell, Agent Art is the medium of this age: the field in which the inward practice takes form. Inshell works in this field as an artist. The direction of that practice is simple: inspect self. That direction is not a definition or doctrine for Agent Art. Inshell is not Agent Art itself and does not own or define the field. THOUGHT is one Inshell practice within it, not its boundary.",
       ],
       figure: {
+        id: "agent-art.open-field",
         label: "The invariant and the open field",
         mode: "field",
         figureText: [
-          "┌─ AGENT ART ──────────────────────────────────────┐",
-          "│ INVARIANT                                        │",
-          "│ An Agent participates in the art activity.       │",
-          "│                                                  │",
-          "├─ OPEN QUESTIONS ─────────────────────────────────┤",
-          "│ What is Art?                 What is an Agent?   │",
-          "│ Open question.                 Open question.    │",
-          "└──────────────────────────────────────────────────┘",
+          "AGENT ART",
+          "",
+          "INVARIANT",
+          "An Agent participates in the art activity.",
+          "",
+          "OPEN QUESTIONS",
+          "├─ What is Art? — Open question.",
+          "└─ What is an Agent? — Open question.",
         ].join("\n"),
         items: [
           {
@@ -358,6 +362,7 @@ export const DOCS_SOURCE: DocsSource = {
         "This sequence belongs to Inshell. It gives the inward direction—inspect self—successive forms without claiming to contain or prove truth. It is not a definition, taxonomy, required progression, or outer boundary for Agent Art.",
       ],
       figure: {
+        id: "movements.arc",
         label: "The movement arc",
         mode: "trace",
         figureText: [
@@ -470,6 +475,7 @@ export const DOCS_SOURCE: DocsSource = {
           id: "docs-thought-work",
           title: "What makes one work",
           figure: {
+            id: "thought.prompt-response",
             label: "One prompt, one response",
             mode: "field",
             figureText: [
@@ -525,6 +531,7 @@ export const DOCS_SOURCE: DocsSource = {
           id: "docs-thought-agent-handoff",
           title: "The Agent handoff",
           figure: {
+            id: "thought.creative-handoff",
             label: "The creative handoff",
             mode: "trace",
             figureText: [
@@ -565,6 +572,7 @@ export const DOCS_SOURCE: DocsSource = {
           id: "docs-thought-provenance",
           title: "Provenance and attestation",
           figure: {
+            id: "thought.creation-attestation",
             label: "Creation Attestation",
             mode: "field",
             figureText: [
@@ -655,16 +663,16 @@ export const DOCS_SOURCE: DocsSource = {
         "Agent participation keeps WILL within Agent Art, but WILL does not need to repeat THOUGHT's one-prompt, one-response form. That relation remains in development.",
       ],
       figure: {
+        id: "will.open-field",
         label: "Many people. Many Agents. One will.",
         mode: "field",
         figureText: [
-          "┌─ WILL ──────────────────────────────────┐",
-          "│ MANY PEOPLE          MANY AGENTS        │",
-          "│                                         │",
-          "│               ONE WILL                  │",
-          "│ Crowd behavior · how a crowd forms what │",
-          "│          can be called one will.        │",
-          "└─────────────────────────────────────────┘",
+          "WILL",
+          "",
+          "• MANY PEOPLE",
+          "• MANY AGENTS",
+          "• ONE WILL",
+          "  Crowd behavior · how a crowd forms what can be called one will.",
         ].join("\n"),
         items: [
           { title: "Many people" },
@@ -723,13 +731,12 @@ export const DOCS_SOURCE: DocsSource = {
         "Agent participation keeps AWA within Agent Art. The particular relation among people, Agents, and the work is still being discovered rather than inherited from THOUGHT or assumed from WILL.",
       ],
       figure: {
+        id: "awa.open-horizon",
         label: "Toward the core",
         mode: "field",
         figureText: [
-          "┌─ AWA ─────────────────────────────────────┐",
-          "│ THOUGHT        WILL        AWA            │",
-          "│ INDIVIDUAL  →  CROWD  →  TOWARD THE CORE  │",
-          "└───────────────────────────────────────────┘",
+          "THOUGHT ──→ WILL ──→ AWA",
+          "Individual   Crowd    Toward the core",
         ].join("\n"),
         items: [
           { title: "THOUGHT", detail: "Individual" },
@@ -808,14 +815,17 @@ export const DOCS_SOURCE: DocsSource = {
           id: "docs-path-capacity",
           title: "Movement capacity",
           figure: {
+            id: "path.capacity-progress",
             label: "Capacity and progress",
             mode: "ledger",
             figureText: [
-              "DEPLOYMENT │ ONE PATH",
-              "───────────┼──────────",
-              "CAPACITY   │ PROGRESS",
+              "DEPLOYMENT     │ EACH PATH",
+              "───────────────┼─────────────────",
+              "MOVEMENT QUOTA │ USED + REMAINING",
             ].join("\n"),
-            items: [{ title: "Capacity", detail: "Progress" }],
+            items: [
+              { title: "Movement quota", detail: "Used + remaining" },
+            ],
           },
           paragraphs: [
             "PathNFT configures one quota and one authorized minter for each movement across the deployment. Every PATH uses those movement totals, while each token stores its own current stage and in-stage minted count. Remaining entitlement is derived from the deployed movement quota and that token's progress; it is not a separate stored balance.",
@@ -918,6 +928,7 @@ export const DOCS_SOURCE: DocsSource = {
           id: "docs-pulse-serial",
           title: "A serial auction",
           figure: {
+            id: "pulse.epoch",
             label: "One Pulse epoch",
             mode: "trace",
             figureText: [
@@ -1024,6 +1035,7 @@ export const DOCS_SOURCE: DocsSource = {
           id: "docs-contracts-responsibilities",
           title: "Separated responsibilities",
           figure: {
+            id: "contracts.handoffs",
             label: "Contract handoffs across issuance and minting",
             mode: "lanes",
             figureText: [
@@ -1146,6 +1158,7 @@ export const DOCS_SOURCE: DocsSource = {
         "Onchain does not mean context-free. Read network, contract, token ID, deployment, release, tokenURI source, and attestation status together before deciding what a record proves.",
       ],
       figure: {
+        id: "evidence.interpretation",
         label: "Evidence becomes interpretation",
         mode: "field",
         figureText: [
@@ -1232,6 +1245,7 @@ export const DOCS_SOURCE: DocsSource = {
         "A renderer consumes path geometry rather than asking a browser to locate a font. This keeps the visible form independent of installed fonts, webfont loading, marketplace font support, and platform-specific text layout.",
       ],
       figure: {
+        id: "mono-76.canonical-artwork",
         label: "From glyph study to canonical artwork",
         mode: "trace",
         figureText: [
@@ -1385,6 +1399,7 @@ export const DOCS_SOURCE: DocsSource = {
         "Local Anvil, Sepolia, and Ethereum are separate chains with separate contracts, balances, and tokens. Local tokens belong only to the local dev chain. Normal App development preserves that chain across restarts; an explicit reset or redeployment can replace it.",
       ],
       figure: {
+        id: "wallet.distinctions",
         label: "Two distinctions",
         mode: "field",
         figureText: [
@@ -1458,6 +1473,7 @@ export const DOCS_SOURCE: DocsSource = {
         "Documentation can describe current source, a pinned release, or observed chain state. It must say which. Mirrors and previews are useful distribution surfaces but do not silently become canonical origins.",
       ],
       figure: {
+        id: "source-release.records",
         label: "Four distinct records",
         mode: "field",
         figureText: [
@@ -1533,29 +1549,18 @@ export const DOCS_SOURCE: DocsSource = {
         "Five design choices recur across the current Inshell system: collaboration is bounded, the authority to continue or preserve is explicit, mechanisms stay visible, canonical sources remain identifiable, and claims stop where their evidence stops. They give the practice form as it approaches truth without claiming possession. They are choices of practice, not a doctrine, a set of propositions to prove, or a definition of Agent Art.",
       ],
       figure: {
+        id: "design.principles",
         label: "Current Inshell principles across systems",
         mode: "field",
         figureText: [
-          "┌─ Bound ───────────────────────────────────┐",
-          "│ Collaboration is bounded.                 │",
-          "└───────────────────────────────────────────┘",
+          "CURRENT INSHELL PRINCIPLES",
           "",
-          "┌─ Authorize ───────────────────────────────┐",
-          "│ Authority to continue or preserve is      │",
-          "│ explicit.                                 │",
-          "└───────────────────────────────────────────┘",
-          "",
-          "┌─ Expose ──────────────────────────────────┐",
-          "│ Mechanisms stay visible.                  │",
-          "└───────────────────────────────────────────┘",
-          "",
-          "┌─ Pin ─────────────────────────────────────┐",
-          "│ Canonical sources remain identifiable.    │",
-          "└───────────────────────────────────────────┘",
-          "",
-          "┌─ Qualify ─────────────────────────────────┐",
-          "│ Claims stop where their evidence stops.   │",
-          "└───────────────────────────────────────────┘",
+          "• BOUND — Collaboration is bounded.",
+          "• AUTHORIZE",
+          "  Authority to continue or preserve is explicit.",
+          "• EXPOSE — Mechanisms stay visible.",
+          "• PIN — Canonical sources remain identifiable.",
+          "• QUALIFY — Claims stop where their evidence stops.",
         ].join("\n"),
         items: [
           { title: "Bound", detail: "Collaboration is bounded." },
@@ -1581,6 +1586,7 @@ export const DOCS_SOURCE: DocsSource = {
           id: "docs-design-selection",
           title: "Generation is not preservation",
           figure: {
+            id: "design.preservation",
             label: "Two preservation boundaries",
             mode: "lanes",
             figureText: [
@@ -1667,6 +1673,7 @@ export const DOCS_SOURCE: DocsSource = {
           id: "docs-design-canonical",
           title: "One canonical form, many reading surfaces",
           figure: {
+            id: "design.reading-surfaces",
             label: "Many surfaces, one identified record",
             mode: "field",
             figureText: [

@@ -5,6 +5,7 @@ import {
   type DocsFigure,
   type DocsParagraph,
 } from "@/content/docs";
+import { docsFigureLogic } from "@/content/docs-figure-logic";
 import { PulseCurrentInstance } from "@/components/PulsePage";
 import { FieldFigureVisual } from "@/components/docs/FieldFigureVisual";
 import {
@@ -76,10 +77,15 @@ function DocsCharacterFigure({
   figure: DocsFigure;
   captionId: string;
 }) {
+  const logic = docsFigureLogic(figure);
+
   return (
     <figure
       className={`docs-figure docs-figure--${figure.mode}`}
       aria-labelledby={captionId}
+      data-figure-form={logic.form}
+      data-figure-id={logic.id}
+      data-figure-logic={JSON.stringify(logic)}
       data-figure-mode={figure.mode}
     >
       <figcaption id={captionId}>{figure.label}</figcaption>

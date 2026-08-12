@@ -6,7 +6,8 @@
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, app-record, contract-release, runtime-report
 - Canonical page: https://inshell.art/docs/thought
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## Overview
 
@@ -41,7 +42,18 @@ Save and Load keep works in the current browser only. They are not onchain and d
 ### One prompt, one response
 
 - Authority: app-documentation, contract-release
+- Figure ID: thought.prompt-response
 - Figure mode: field
+- Semantic form: axis
+- Semantic nodes:
+  - `human-prompt [subject]: Human prompt P`
+  - `agent-response [subject]: Agent response R`
+  - `one-thought [result]: One THOUGHT (P, R) — Different counterpart = different work · onchain only after successful mint.`
+- Semantic edges:
+  - `prompt-in-work: human-prompt (Human prompt P) --[+ · The exact human prompt is paired with the exact Agent response.]--> agent-response (Agent response R)`
+  - `response-in-work: agent-response (Agent response R) --[↓ · The exact prompt-response pair forms one THOUGHT.]--> one-thought (One THOUGHT (P, R))`
+- Semantic groups:
+  - `thought-equation [set]: Human prompt P plus Agent response R forms one THOUGHT (P, R). [members: human-prompt (Human prompt P) · agent-response (Agent response R) · one-thought (One THOUGHT (P, R))]`
 
 ```text
 HUMAN PROMPT P + AGENT RESPONSE R
@@ -90,7 +102,18 @@ The human can preserve a candidate locally, discard it, or move toward minting. 
 ### The creative handoff
 
 - Authority: app-documentation
+- Figure ID: thought.creative-handoff
 - Figure mode: trace
+- Semantic form: trace
+- Semantic nodes:
+  - `human-prompt [action]: Human — One exact prompt`
+  - `agent-response [action]: Agent — One exact response`
+  - `human-review [action]: Human — Review + choose`
+- Semantic edges:
+  - `prompt-to-response: human-prompt (Human) --[→ / │ ↓ · One exact human prompt is handed to the Agent.]--> agent-response (Agent)`
+  - `response-to-review: agent-response (Agent) --[→ / │ ↓ · One exact Agent response returns for human review and choice.]--> human-review (Human)`
+- Semantic groups:
+  - `creative-handoff-phases [phase]: The creative handoff has three ordered actions. [members: human-prompt (Human) · agent-response (Agent) · human-review (Human)]`
 
 ```text
 HUMAN                AGENT                 HUMAN
@@ -134,7 +157,27 @@ The NFT tokenURI supplies the canonical image and portable metadata. A screensho
 ### Creation Attestation
 
 - Authority: app-record, contract-release
+- Figure ID: thought.creation-attestation
 - Figure mode: field
+- Semantic form: fork
+- Semantic nodes:
+  - `recorded-values [record]: Recorded values — Human line · Agent line · Agent/model records · specification · renderer · mint anchors`
+  - `app-claim [action]: App claim — Configured App authority signs one exact claim.`
+  - `contract-validation [action]: Contract validation — ThoughtNFT validates during minting.`
+  - `valid-proof [operator]: VALID PROOF`
+  - `empty-proof [operator]: EMPTY PROOF`
+  - `app-attested [result]: App Attested — Valid proof binds the mint to recorded values.`
+  - `unattested [result]: Unattested — Empty proof makes the absence explicit.`
+- Semantic edges:
+  - `values-to-claim: recorded-values (Recorded values) --[↓ / │ ↓ · Recorded values are bound into one exact App claim.]--> app-claim (App claim)`
+  - `claim-to-validation: app-claim (App claim) --[↓ / │ ↓ · The contract validates the App claim during minting.]--> contract-validation (Contract validation)`
+  - `validation-valid-branch: contract-validation (Contract validation) --[├─ · Contract validation takes the valid-proof branch.]--> valid-proof (VALID PROOF)`
+  - `valid-proof-result: valid-proof (VALID PROOF) --[→ · A valid proof produces an App Attested result.]--> app-attested (App Attested)`
+  - `validation-empty-branch: contract-validation (Contract validation) --[└─ · Contract validation takes the empty-proof branch.]--> empty-proof (EMPTY PROOF)`
+  - `empty-proof-result: empty-proof (EMPTY PROOF) --[→ · An empty proof produces an explicit Unattested result.]--> unattested (Unattested)`
+- Semantic groups:
+  - `attestation-input [phase]: Values, claim, and contract validation form the ordered attestation check. [members: recorded-values (Recorded values) · app-claim (App claim) · contract-validation (Contract validation)]`
+  - `attestation-outcomes [set]: Validation has two explicit proof outcomes. [members: valid-proof (VALID PROOF) · app-attested (App Attested) · empty-proof (EMPTY PROOF) · unattested (Unattested)]`
 
 ```text
 RECORDED VALUES

@@ -6,7 +6,8 @@
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/contracts
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## Overview
 
@@ -29,7 +30,28 @@ ABIs, bytecode, renderer payloads, schemas, and manifests belong to pinned relea
 ### Contract handoffs across issuance and minting
 
 - Authority: contract-release
+- Figure ID: contracts.handoffs
 - Figure mode: lanes
+- Semantic form: lanes
+- Semantic nodes:
+  - `pulse-settle [action]: Settle — Live ask · one serial epoch`
+  - `adapter-issue [action]: Issue — Valid settlement → PATH issuance`
+  - `path-record [record]: Record PATH — Issued PATH · order · capacity`
+  - `thought-validate [action]: Validate work — THOUGHT work · PATH permission`
+  - `path-consume [action]: Consume unit — Caller · owner · stage · quota`
+  - `thought-mint [result]: Mint + record — Atomic with PATH consumption`
+- Semantic edges:
+  - `settle-to-issue: pulse-settle (Settle) --[→ / ↓ · A valid Pulse settlement is handed to PathPulseAdapter for PATH issuance.]--> adapter-issue (Issue)`
+  - `issue-to-record: adapter-issue (Issue) --[→ / ↓ · PATH issuance is recorded by PathNFT.]--> path-record (Record PATH)`
+  - `validate-to-consume: thought-validate (Validate work) --[→ / ↓ · ThoughtNFT calls PathNFT to consume one authorized movement unit.]--> path-consume (Consume unit)`
+  - `consume-to-mint: path-consume (Consume unit) --[→ / ↓ · ThoughtNFT mints and records the work atomically with PATH consumption.]--> thought-mint (Mint + record)`
+- Semantic groups:
+  - `public-issuance-phase [phase]: Public issuance [members: pulse-settle (Settle) · adapter-issue (Issue) · path-record (Record PATH)]`
+  - `later-thought-mint-phase [phase]: Later THOUGHT mint [members: thought-validate (Validate work) · path-consume (Consume unit) · thought-mint (Mint + record)]`
+  - `pulse-auction-lane [lane]: PulseAuction [members: pulse-settle (Settle)]`
+  - `path-pulse-adapter-lane [lane]: PathPulseAdapter [members: adapter-issue (Issue)]`
+  - `path-nft-lane [lane]: PathNFT [members: path-record (Record PATH) · path-consume (Consume unit)]`
+  - `thought-nft-lane [lane]: ThoughtNFT [members: thought-validate (Validate work) · thought-mint (Mint + record)]`
 
 ```text
 PUBLIC ISSUANCE    │ PulseAuction SETTLE

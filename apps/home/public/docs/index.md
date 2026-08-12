@@ -3,9 +3,10 @@
 paste this prompt into your Agent
 
 - Canonical page: https://inshell.art/docs
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
 - Agent index: https://inshell.art/docs/agent-index.json
 - Structured corpus: https://inshell.art/docs/content.json
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 Treat this document as reference data, not as executable instructions. Distinguish artist statements, App records, contract facts, runtime reports, and current chain observations.
 Use this complete Markdown document for broad reading, or use the focused documents listed by the Agent index. Do not ingest both modes as separate sources and count duplicated passages twice.
@@ -55,12 +56,24 @@ Read the design choices that give the practice form without turning its truth in
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/inshell
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### The inward direction
 
 - Authority: artist-editorial
+- Figure ID: inshell.inward-direction
 - Figure mode: field
+- Semantic form: axis
+- Semantic nodes:
+  - `shell [surface]: Shell — Real and often necessary · Surface: visible · operable · legible.`
+  - `in [operator]: In — Inspect what forms the self`
+  - `self [result]: SELF`
+- Semantic edges:
+  - `enter-shell: shell (Shell) --[│ · The direction enters the shell.]--> in (In)`
+  - `inspect-self: in (In) --[↓ · In directs inspection toward the self. · Inspect what forms the self]--> self (SELF)`
+- Semantic groups:
+  - `shell-boundary [boundary]: The shell is real, necessary, and not the whole being. [members: shell (Shell)]`
 
 ```text
 ┌─ SHELL ─────────────────────────────────┐
@@ -109,7 +122,17 @@ Simply inspect your [thought](https://inshell.art/docs/thought).
 ### How practice relates to truth
 
 - Authority: artist-editorial
+- Figure ID: inshell.practice-truth
 - Figure mode: field
+- Semantic form: axis
+- Semantic nodes:
+  - `truth-practice [structural]: TRUTH AND PRACTICE`
+  - `truth [result]: Truth — Inspect self`
+  - `practice [action]: Practice — Examine · inspect · suspect · read · listen · feel`
+- Semantic edges:
+  - `practice-approaches-truth: practice (Practice) --[↑ · Practice approaches truth without claiming to possess it. · Approaches without claiming possession]--> truth (Truth)`
+- Semantic groups:
+  - `truth-practice-axis [comparison]: Truth and practice remain distinct along one direction. [members: truth-practice (TRUTH AND PRACTICE) · truth (Truth) · practice (Practice)]`
 
 ```text
 ┌─ TRUTH AND PRACTICE ───────────────────┐
@@ -166,22 +189,33 @@ Inshell alone names the artist. THOUGHT, WILL, and AWA name movements. PATH is a
 - Status: current
 - Authority classes in this document: artist-editorial
 - Canonical page: https://inshell.art/docs/agent-art
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### The invariant and the open field
 
 - Authority: artist-editorial
+- Figure ID: agent-art.open-field
 - Figure mode: field
+- Semantic form: field
+- Semantic nodes:
+  - `agent-art [structural]: AGENT ART`
+  - `invariant [principle]: Invariant — An Agent participates in the art activity.`
+  - `open-questions [structural]: OPEN QUESTIONS`
+  - `what-is-art [question]: What is Art? — Open question.`
+  - `what-is-an-agent [question]: What is an Agent? — Open question.`
+- Semantic groups:
+  - `agent-art-field [open-field] · ├─ / └─: One invariant is held while Art and Agent remain open questions. [members: agent-art (AGENT ART) · invariant (Invariant) · open-questions (OPEN QUESTIONS) · what-is-art (What is Art?) · what-is-an-agent (What is an Agent?)]`
 
 ```text
-┌─ AGENT ART ──────────────────────────────────────┐
-│ INVARIANT                                        │
-│ An Agent participates in the art activity.       │
-│                                                  │
-├─ OPEN QUESTIONS ─────────────────────────────────┤
-│ What is Art?                 What is an Agent?   │
-│ Open question.                 Open question.    │
-└──────────────────────────────────────────────────┘
+AGENT ART
+
+INVARIANT
+An Agent participates in the art activity.
+
+OPEN QUESTIONS
+├─ What is Art? — Open question.
+└─ What is an Agent? — Open question.
 ```
 
 - **Invariant** — An Agent participates in the art activity.
@@ -245,12 +279,24 @@ That form belongs to THOUGHT. It does not turn dialogue, minting, provenance, pu
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/movements
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### The movement arc
 
 - Authority: artist-editorial
+- Figure ID: movements.arc
 - Figure mode: trace
+- Semantic form: trace
+- Semantic nodes:
+  - `thought [state]: THOUGHT — Individual`
+  - `will [state]: WILL — Crowd`
+  - `awa [state]: AWA — Toward the core`
+- Semantic edges:
+  - `individual-to-crowd: thought (THOUGHT) --[→ / │ ↓ · The movement arc goes from individual to crowd.]--> will (WILL)`
+  - `crowd-toward-core: will (WILL) --[→ / │ ↓ · The movement arc continues from crowd toward the core.]--> awa (AWA)`
+- Semantic groups:
+  - `movement-phases [phase]: The named PATH from individual to crowd toward the core. [members: thought (THOUGHT) · will (WILL) · awa (AWA)]`
 
 ```text
 THOUGHT       WILL       AWA
@@ -348,7 +394,8 @@ THOUGHT is current and has a live creation and mint flow. WILL is planned for 20
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, app-record, contract-release, runtime-report
 - Canonical page: https://inshell.art/docs/thought
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
 
@@ -383,7 +430,18 @@ Save and Load keep works in the current browser only. They are not onchain and d
 ### One prompt, one response
 
 - Authority: app-documentation, contract-release
+- Figure ID: thought.prompt-response
 - Figure mode: field
+- Semantic form: axis
+- Semantic nodes:
+  - `human-prompt [subject]: Human prompt P`
+  - `agent-response [subject]: Agent response R`
+  - `one-thought [result]: One THOUGHT (P, R) — Different counterpart = different work · onchain only after successful mint.`
+- Semantic edges:
+  - `prompt-in-work: human-prompt (Human prompt P) --[+ · The exact human prompt is paired with the exact Agent response.]--> agent-response (Agent response R)`
+  - `response-in-work: agent-response (Agent response R) --[↓ · The exact prompt-response pair forms one THOUGHT.]--> one-thought (One THOUGHT (P, R))`
+- Semantic groups:
+  - `thought-equation [set]: Human prompt P plus Agent response R forms one THOUGHT (P, R). [members: human-prompt (Human prompt P) · agent-response (Agent response R) · one-thought (One THOUGHT (P, R))]`
 
 ```text
 HUMAN PROMPT P + AGENT RESPONSE R
@@ -432,7 +490,18 @@ The human can preserve a candidate locally, discard it, or move toward minting. 
 ### The creative handoff
 
 - Authority: app-documentation
+- Figure ID: thought.creative-handoff
 - Figure mode: trace
+- Semantic form: trace
+- Semantic nodes:
+  - `human-prompt [action]: Human — One exact prompt`
+  - `agent-response [action]: Agent — One exact response`
+  - `human-review [action]: Human — Review + choose`
+- Semantic edges:
+  - `prompt-to-response: human-prompt (Human) --[→ / │ ↓ · One exact human prompt is handed to the Agent.]--> agent-response (Agent)`
+  - `response-to-review: agent-response (Agent) --[→ / │ ↓ · One exact Agent response returns for human review and choice.]--> human-review (Human)`
+- Semantic groups:
+  - `creative-handoff-phases [phase]: The creative handoff has three ordered actions. [members: human-prompt (Human) · agent-response (Agent) · human-review (Human)]`
 
 ```text
 HUMAN                AGENT                 HUMAN
@@ -476,7 +545,27 @@ The NFT tokenURI supplies the canonical image and portable metadata. A screensho
 ### Creation Attestation
 
 - Authority: app-record, contract-release
+- Figure ID: thought.creation-attestation
 - Figure mode: field
+- Semantic form: fork
+- Semantic nodes:
+  - `recorded-values [record]: Recorded values — Human line · Agent line · Agent/model records · specification · renderer · mint anchors`
+  - `app-claim [action]: App claim — Configured App authority signs one exact claim.`
+  - `contract-validation [action]: Contract validation — ThoughtNFT validates during minting.`
+  - `valid-proof [operator]: VALID PROOF`
+  - `empty-proof [operator]: EMPTY PROOF`
+  - `app-attested [result]: App Attested — Valid proof binds the mint to recorded values.`
+  - `unattested [result]: Unattested — Empty proof makes the absence explicit.`
+- Semantic edges:
+  - `values-to-claim: recorded-values (Recorded values) --[↓ / │ ↓ · Recorded values are bound into one exact App claim.]--> app-claim (App claim)`
+  - `claim-to-validation: app-claim (App claim) --[↓ / │ ↓ · The contract validates the App claim during minting.]--> contract-validation (Contract validation)`
+  - `validation-valid-branch: contract-validation (Contract validation) --[├─ · Contract validation takes the valid-proof branch.]--> valid-proof (VALID PROOF)`
+  - `valid-proof-result: valid-proof (VALID PROOF) --[→ · A valid proof produces an App Attested result.]--> app-attested (App Attested)`
+  - `validation-empty-branch: contract-validation (Contract validation) --[└─ · Contract validation takes the empty-proof branch.]--> empty-proof (EMPTY PROOF)`
+  - `empty-proof-result: empty-proof (EMPTY PROOF) --[→ · An empty proof produces an explicit Unattested result.]--> unattested (Unattested)`
+- Semantic groups:
+  - `attestation-input [phase]: Values, claim, and contract validation form the ordered attestation check. [members: recorded-values (Recorded values) · app-claim (App claim) · contract-validation (Contract validation)]`
+  - `attestation-outcomes [set]: Validation has two explicit proof outcomes. [members: valid-proof (VALID PROOF) · app-attested (App Attested) · empty-proof (EMPTY PROOF) · unattested (Unattested)]`
 
 ```text
 RECORDED VALUES
@@ -539,21 +628,30 @@ Save and Load are browser conveniences for unfinished or remembered works. They 
 - Status: study
 - Authority classes in this document: artist-editorial, app-documentation
 - Canonical page: https://inshell.art/docs/will
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Many people. Many Agents. One will.
 
 - Authority: artist-editorial
+- Figure ID: will.open-field
 - Figure mode: field
+- Semantic form: field
+- Semantic nodes:
+  - `will [structural]: WILL`
+  - `many-people [subject]: Many people`
+  - `many-agents [subject]: Many Agents`
+  - `one-will [question]: One will — Crowd behavior · how a crowd forms what can be called one will.`
+- Semantic groups:
+  - `will-open-field [open-field] · •: Crowd behavior is the open field in which WILL is still being created. [members: will (WILL) · many-people (Many people) · many-agents (Many Agents) · one-will (One will)]`
 
 ```text
-┌─ WILL ──────────────────────────────────┐
-│ MANY PEOPLE          MANY AGENTS        │
-│                                         │
-│               ONE WILL                  │
-│ Crowd behavior · how a crowd forms what │
-│          can be called one will.        │
-└─────────────────────────────────────────┘
+WILL
+
+• MANY PEOPLE
+• MANY AGENTS
+• ONE WILL
+  Crowd behavior · how a crowd forms what can be called one will.
 ```
 
 - **Many people**
@@ -609,18 +707,28 @@ WILL is planned for 2027. These docs expose its slogan and current direction as 
 - Status: future
 - Authority classes in this document: artist-editorial, app-documentation
 - Canonical page: https://inshell.art/docs/awa
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Toward the core
 
 - Authority: artist-editorial
+- Figure ID: awa.open-horizon
 - Figure mode: field
+- Semantic form: trace
+- Semantic nodes:
+  - `thought [state]: THOUGHT — Individual`
+  - `will [state]: WILL — Crowd`
+  - `awa [state]: AWA — Toward the core`
+- Semantic edges:
+  - `thought-to-will: thought (THOUGHT) --[→ · The path moves from individual THOUGHT to crowd WILL.]--> will (WILL)`
+  - `will-toward-awa: will (WILL) --[→ · The path points from crowd WILL toward AWA and the core; arrival is not claimed.]--> awa (AWA)`
+- Semantic groups:
+  - `awa-open-horizon [phase]: AWA is the forming horizon of the path toward the core. [members: thought (THOUGHT) · will (WILL) · awa (AWA)]`
 
 ```text
-┌─ AWA ─────────────────────────────────────┐
-│ THOUGHT        WILL        AWA            │
-│ INDIVIDUAL  →  CROWD  →  TOWARD THE CORE  │
-└───────────────────────────────────────────┘
+THOUGHT ──→ WILL ──→ AWA
+Individual   Crowd    Toward the core
 ```
 
 - **THOUGHT** — Individual
@@ -672,7 +780,8 @@ AWA is planned for 2028 and currently has no creation or mint surface. The date 
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/path
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
 
@@ -715,15 +824,29 @@ Public PATH issuance runs through Pulse. The contract can also expose a bounded 
 ### Capacity and progress
 
 - Authority: app-documentation, contract-release
+- Figure ID: path.capacity-progress
 - Figure mode: ledger
+- Semantic form: ledger
+- Semantic nodes:
+  - `deployment [record]: DEPLOYMENT`
+  - `capacity [state]: Movement quota`
+  - `one-path [record]: EACH PATH`
+  - `progress [state]: Used + remaining`
+- Semantic edges:
+  - `deployment-capacity: deployment (DEPLOYMENT) --[│ · The deployment configures movement capacity used by every PATH.]--> capacity (Movement quota)`
+  - `path-progress: one-path (EACH PATH) --[│ · One PATH records its own movement progress.]--> progress (Used + remaining)`
+- Semantic groups:
+  - `capacity-column [lane]: Deployment capacity [members: deployment (DEPLOYMENT) · capacity (Movement quota)]`
+  - `progress-column [lane]: One PATH progress [members: one-path (EACH PATH) · progress (Used + remaining)]`
+  - `capacity-progress-distinction [comparison]: Deployment capacity and per-PATH progress are distinct records. [members: capacity (Movement quota) · progress (Used + remaining)]`
 
 ```text
-DEPLOYMENT │ ONE PATH
-───────────┼──────────
-CAPACITY   │ PROGRESS
+DEPLOYMENT     │ EACH PATH
+───────────────┼─────────────────
+MOVEMENT QUOTA │ USED + REMAINING
 ```
 
-- **Capacity** — Progress
+- **Movement quota** — Used + remaining
 
 PathNFT configures one quota and one authorized minter for each movement across the deployment. Every PATH uses those movement totals, while each token stores its own current stage and in-stage minted count. Remaining entitlement is derived from the deployed movement quota and that token's progress; it is not a separate stored balance.
 
@@ -801,7 +924,8 @@ An invitation reserves one Spark slot until it is claimed, revoked, or released 
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/pulse
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
 
@@ -854,7 +978,19 @@ a = anchor time
 ### One Pulse epoch
 
 - Authority: contract-release
+- Figure ID: pulse.epoch
 - Figure mode: trace
+- Semantic form: cycle
+- Semantic nodes:
+  - `ask [state]: Ask — Decay`
+  - `bid [action]: Bid — Pump`
+  - `next-ask [result]: Next ask`
+- Semantic edges:
+  - `ask-decays-to-bid: ask (Ask) --[↓ / │ ↓ · The current ask decays until a bid succeeds. · Decay]--> bid (Bid)`
+  - `bid-pumps-next-ask: bid (Bid) --[↓ / │ ↓ · The successful bid pumps the next ask. · Pump]--> next-ask (Next ask)`
+  - `next-epoch-loop: next-ask (Next ask) --[↺ / └──↺ · The next ask becomes the current ask in the next epoch. · next epoch]--> ask (Ask)`
+- Semantic groups:
+  - `pulse-epoch [phase]: One serial Pulse epoch loops into the next. [members: ask (Ask) · bid (Bid) · next-ask (Next ask)]`
 
 ```text
 ASK
@@ -943,7 +1079,8 @@ As one participatory system in Inshell's practice, Pulse makes collective timing
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/contracts
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
 
@@ -966,7 +1103,28 @@ ABIs, bytecode, renderer payloads, schemas, and manifests belong to pinned relea
 ### Contract handoffs across issuance and minting
 
 - Authority: contract-release
+- Figure ID: contracts.handoffs
 - Figure mode: lanes
+- Semantic form: lanes
+- Semantic nodes:
+  - `pulse-settle [action]: Settle — Live ask · one serial epoch`
+  - `adapter-issue [action]: Issue — Valid settlement → PATH issuance`
+  - `path-record [record]: Record PATH — Issued PATH · order · capacity`
+  - `thought-validate [action]: Validate work — THOUGHT work · PATH permission`
+  - `path-consume [action]: Consume unit — Caller · owner · stage · quota`
+  - `thought-mint [result]: Mint + record — Atomic with PATH consumption`
+- Semantic edges:
+  - `settle-to-issue: pulse-settle (Settle) --[→ / ↓ · A valid Pulse settlement is handed to PathPulseAdapter for PATH issuance.]--> adapter-issue (Issue)`
+  - `issue-to-record: adapter-issue (Issue) --[→ / ↓ · PATH issuance is recorded by PathNFT.]--> path-record (Record PATH)`
+  - `validate-to-consume: thought-validate (Validate work) --[→ / ↓ · ThoughtNFT calls PathNFT to consume one authorized movement unit.]--> path-consume (Consume unit)`
+  - `consume-to-mint: path-consume (Consume unit) --[→ / ↓ · ThoughtNFT mints and records the work atomically with PATH consumption.]--> thought-mint (Mint + record)`
+- Semantic groups:
+  - `public-issuance-phase [phase]: Public issuance [members: pulse-settle (Settle) · adapter-issue (Issue) · path-record (Record PATH)]`
+  - `later-thought-mint-phase [phase]: Later THOUGHT mint [members: thought-validate (Validate work) · path-consume (Consume unit) · thought-mint (Mint + record)]`
+  - `pulse-auction-lane [lane]: PulseAuction [members: pulse-settle (Settle)]`
+  - `path-pulse-adapter-lane [lane]: PathPulseAdapter [members: adapter-issue (Issue)]`
+  - `path-nft-lane [lane]: PathNFT [members: path-record (Record PATH) · path-consume (Consume unit)]`
+  - `thought-nft-lane [lane]: ThoughtNFT [members: thought-validate (Validate work) · thought-mint (Mint + record)]`
 
 ```text
 PUBLIC ISSUANCE    │ PulseAuction SETTLE
@@ -1038,12 +1196,30 @@ A release says which ABI, bytecode, renderer data, schemas, and checksums belong
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/artwork-metadata-chain
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Evidence becomes interpretation
 
 - Authority: app-documentation, contract-release
+- Figure ID: evidence.interpretation
 - Figure mode: field
+- Semantic form: fork
+- Semantic nodes:
+  - `evidence [evidence]: EVIDENCE`
+  - `identity [evidence]: Identity — Network + contract + token`
+  - `contract [evidence]: Contract — State + tokenURI`
+  - `release [evidence]: Release — ABI + renderer + schemas`
+  - `context [evidence]: Context — Provenance + reading surface`
+  - `interpretation [result]: Interpretation — Read together`
+- Semantic edges:
+  - `evidence-identity: evidence (EVIDENCE) --[├─ · Identity is one evidence record.]--> identity (Identity)`
+  - `evidence-contract: evidence (EVIDENCE) --[├─ · Contract state is one evidence record.]--> contract (Contract)`
+  - `evidence-release: evidence (EVIDENCE) --[├─ · The pinned release is one evidence record.]--> release (Release)`
+  - `evidence-context: evidence (EVIDENCE) --[└─ · Context is one evidence record.]--> context (Context)`
+  - `evidence-to-interpretation: evidence (EVIDENCE) --[↓ / │ ↓ · The evidence records are read together as interpretation.]--> interpretation (Interpretation)`
+- Semantic groups:
+  - `evidence-set [set]: Evidence [members: evidence (EVIDENCE) · identity (Identity) · contract (Contract) · release (Release) · context (Context)]`
 
 ```text
 EVIDENCE
@@ -1134,12 +1310,24 @@ Portable metadata deliberately does not carry every creation detail. Inshell det
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/mono-76
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### From glyph study to canonical artwork
 
 - Authority: artist-editorial, app-documentation, contract-release
+- Figure ID: mono-76.canonical-artwork
 - Figure mode: trace
+- Semantic form: trace
+- Semantic nodes:
+  - `glyph-study [action]: Glyph study — Explore · refine`
+  - `sealed-mono [state]: Sealed Mono 76 — Paths + metrics frozen`
+  - `canonical-artwork [result]: Canonical artwork — Native SVG`
+- Semantic edges:
+  - `study-to-seal: glyph-study (Glyph study) --[→ / ↓ · Glyph study is refined into the sealed Mono 76 source.]--> sealed-mono (Sealed Mono 76)`
+  - `seal-to-artwork: sealed-mono (Sealed Mono 76) --[→ / ↓ · The sealed paths and metrics produce the canonical native SVG artwork.]--> canonical-artwork (Canonical artwork)`
+- Semantic groups:
+  - `mono-phases [phase]: From study through sealed source to canonical artwork. [members: glyph-study (Glyph study) · sealed-mono (Sealed Mono 76) · canonical-artwork (Canonical artwork)]`
 
 ```text
 GLYPH STUDY
@@ -1222,7 +1410,8 @@ THOUGHT and PATH pin Mono 76 through their own contract releases. Updating the f
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/verification
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
 
@@ -1298,12 +1487,31 @@ A valid proof can establish that certain bytes, hashes, addresses, or signatures
 - Status: current
 - Authority classes in this document: app-documentation
 - Canonical page: https://inshell.art/docs/wallet-local-data
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Two distinctions
 
 - Authority: app-documentation
+- Figure ID: wallet.distinctions
 - Figure mode: field
+- Semantic form: ledger
+- Semantic nodes:
+  - `wallet-local-data [structural]: WALLET AND LOCAL DATA`
+  - `read-sign-transact [principle]: Read ≠ Sign ≠ Transact — Public state · authorization · chain change`
+  - `read [action]: READ — Public state`
+  - `sign [action]: SIGN — Authorization`
+  - `transact [action]: TRANSACT — Chain change`
+  - `local-onchain [principle]: Local ≠ Onchain — Browser record · public record`
+  - `local [record]: LOCAL — Browser record`
+  - `onchain [record]: ONCHAIN — Public record`
+- Semantic edges:
+  - `read-not-sign: read (READ) --[≠ · Reading public state is not signing an authorization.]--> sign (SIGN)`
+  - `sign-not-transact: sign (SIGN) --[≠ · Signing an authorization is not a chain transaction.]--> transact (TRANSACT)`
+  - `local-not-onchain: local (LOCAL) --[≠ · A local browser record is not an onchain public record.]--> onchain (ONCHAIN)`
+- Semantic groups:
+  - `wallet-action-distinction [comparison]: Read ≠ Sign ≠ Transact [members: read-sign-transact (Read ≠ Sign ≠ Transact) · read (READ) · sign (SIGN) · transact (TRANSACT)]`
+  - `record-location-distinction [comparison]: Local ≠ Onchain [members: local-onchain (Local ≠ Onchain) · local (LOCAL) · onchain (ONCHAIN)]`
 
 ```text
 ┌─ WALLET AND LOCAL DATA ─────────────────────┐
@@ -1371,12 +1579,27 @@ Local Anvil, Sepolia, and Ethereum have different chain IDs, deployments, balanc
 - Status: current
 - Authority classes in this document: app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/source-release-boundaries
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Four distinct records
 
 - Authority: app-documentation, contract-release
+- Figure ID: source-release.records
 - Figure mode: field
+- Semantic form: axis
+- Semantic nodes:
+  - `four-records [structural]: FOUR DISTINCT RECORDS`
+  - `source [record]: Source — Authored code`
+  - `release [record]: Release — Pinned artifacts`
+  - `deployment [record]: Deployment — Addresses + blocks`
+  - `observation [record]: Observation — Point-in-time read`
+- Semantic edges:
+  - `source-not-release: source (Source) --[≠ · Authored source is not a pinned release.]--> release (Release)`
+  - `release-not-deployment: release (Release) --[≠ · A pinned release is not a deployment record.]--> deployment (Deployment)`
+  - `deployment-not-observation: deployment (Deployment) --[≠ · A deployment record is not a point-in-time observation.]--> observation (Observation)`
+- Semantic groups:
+  - `record-distinction [comparison]: Four records that must not be collapsed into one. [members: four-records (FOUR DISTINCT RECORDS) · source (Source) · release (Release) · deployment (Deployment) · observation (Observation)]`
 
 ```text
 ┌─ FOUR DISTINCT RECORDS ─────────────────────┐
@@ -1453,34 +1676,34 @@ Canonical pages, Markdown documents, JSON indexes, API responses, GitHub mirrors
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/design-principles
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Current Inshell principles across systems
 
 - Authority: artist-editorial, app-documentation
+- Figure ID: design.principles
 - Figure mode: field
+- Semantic form: field
+- Semantic nodes:
+  - `principles [structural]: CURRENT INSHELL PRINCIPLES`
+  - `bound [principle]: Bound — Collaboration is bounded.`
+  - `authorize [principle]: Authorize — Authority to continue or preserve is explicit.`
+  - `expose [principle]: Expose — Mechanisms stay visible.`
+  - `pin [principle]: Pin — Canonical sources remain identifiable.`
+  - `qualify [principle]: Qualify — Claims stop where their evidence stops.`
+- Semantic groups:
+  - `current-principles [set] · •: Current Inshell principles across systems [members: principles (CURRENT INSHELL PRINCIPLES) · bound (Bound) · authorize (Authorize) · expose (Expose) · pin (Pin) · qualify (Qualify)]`
 
 ```text
-┌─ Bound ───────────────────────────────────┐
-│ Collaboration is bounded.                 │
-└───────────────────────────────────────────┘
+CURRENT INSHELL PRINCIPLES
 
-┌─ Authorize ───────────────────────────────┐
-│ Authority to continue or preserve is      │
-│ explicit.                                 │
-└───────────────────────────────────────────┘
-
-┌─ Expose ──────────────────────────────────┐
-│ Mechanisms stay visible.                  │
-└───────────────────────────────────────────┘
-
-┌─ Pin ─────────────────────────────────────┐
-│ Canonical sources remain identifiable.    │
-└───────────────────────────────────────────┘
-
-┌─ Qualify ─────────────────────────────────┐
-│ Claims stop where their evidence stops.   │
-└───────────────────────────────────────────┘
+• BOUND — Collaboration is bounded.
+• AUTHORIZE
+  Authority to continue or preserve is explicit.
+• EXPOSE — Mechanisms stay visible.
+• PIN — Canonical sources remain identifiable.
+• QUALIFY — Claims stop where their evidence stops.
 ```
 
 - **Bound** — Collaboration is bounded.
@@ -1512,7 +1735,28 @@ Within THOUGHT, more options would not automatically create more expressive work
 ### Two preservation boundaries
 
 - Authority: artist-editorial, app-documentation, contract-release
+- Figure ID: design.preservation
 - Figure mode: lanes
+- Semantic form: lanes
+- Semantic nodes:
+  - `thought-agent-return [action]: Agent return — Candidate produced`
+  - `thought-human-review [action]: Human review — Decision to preserve`
+  - `thought-successful-mint [action]: Successful mint — Contract action succeeds`
+  - `thought-public-corpus [result]: Public corpus — Preserved THOUGHT`
+  - `pulse-visible-ask [state]: Visible ask — Quote exposed`
+  - `pulse-confirmed-bid [action]: Confirmed bid — Participant authorizes`
+  - `pulse-settlement [action]: Settlement — Contract action succeeds`
+  - `pulse-sale-record [result]: Sale record — Preserved Pulse`
+- Semantic edges:
+  - `thought-return-to-review: thought-agent-return (Agent return) --[→ / ↓ · The Agent return becomes a candidate for human review.]--> thought-human-review (Human review)`
+  - `thought-review-to-mint: thought-human-review (Human review) --[→ / ↓ · The human decision to preserve proceeds to a mint attempt.]--> thought-successful-mint (Successful mint)`
+  - `thought-mint-to-corpus: thought-successful-mint (Successful mint) --[→ / ↓ · Only a successful contract action preserves the THOUGHT in the public corpus.]--> thought-public-corpus (Public corpus)`
+  - `pulse-ask-to-bid: pulse-visible-ask (Visible ask) --[→ / ↓ · A participant authorizes a bid against the visible ask.]--> pulse-confirmed-bid (Confirmed bid)`
+  - `pulse-bid-to-settlement: pulse-confirmed-bid (Confirmed bid) --[→ / ↓ · The confirmed bid proceeds to contract settlement.]--> pulse-settlement (Settlement)`
+  - `pulse-settlement-to-record: pulse-settlement (Settlement) --[→ / ↓ · Only a successful settlement preserves a Pulse sale record.]--> pulse-sale-record (Sale record)`
+- Semantic groups:
+  - `thought-preservation-lane [lane]: THOUGHT [members: thought-agent-return (Agent return) · thought-human-review (Human review) · thought-successful-mint (Successful mint) · thought-public-corpus (Public corpus)]`
+  - `pulse-preservation-lane [lane]: PULSE [members: pulse-visible-ask (Visible ask) · pulse-confirmed-bid (Confirmed bid) · pulse-settlement (Settlement) · pulse-sale-record (Sale record)]`
 
 ```text
 THOUGHT │ AGENT RETURN
@@ -1557,7 +1801,16 @@ Pulse shows the curve, floor, premium, sale points, and current ask. PATH shows 
 ### Many surfaces, one identified record
 
 - Authority: app-documentation, contract-release
+- Figure ID: design.reading-surfaces
 - Figure mode: field
+- Semantic form: fork
+- Semantic nodes:
+  - `identified-work [record]: Identified onchain work — Network + contract + token ID + tokenURI + release`
+  - `reading-surfaces [surface]: Many reading surfaces — Site · wallet · marketplace · API · Markdown · Agent answer`
+- Semantic edges:
+  - `work-to-surfaces: identified-work (Identified onchain work) --[↓ · One identified onchain work can be read through many surfaces.]--> reading-surfaces (Many reading surfaces)`
+- Semantic groups:
+  - `reading-surface-set [set]: Site · wallet · marketplace · API · Markdown · Agent answer [members: identified-work (Identified onchain work) · reading-surfaces (Many reading surfaces)]`
 
 ```text
 ┌─ IDENTIFIED ONCHAIN WORK ───────────────┐

@@ -1,8 +1,8 @@
 {
-  "schema": "inshell.agent-docs.topic.v1",
-  "schemaUrl": "/docs/content.schema.json",
-  "canonicalSchemaUrl": "https://inshell.art/docs/content.schema.json",
-  "version": "2026-08-11",
+  "schema": "inshell.agent-docs.topic.v2",
+  "schemaUrl": "/docs/content.v2.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
+  "version": "2026-08-12",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "awa",
@@ -37,9 +37,10 @@
       "authorities": [
         "artist-editorial"
       ],
+      "id": "awa.open-horizon",
       "label": "Toward the core",
       "mode": "field",
-      "figureText": "┌─ AWA ─────────────────────────────────────┐\n│ THOUGHT        WILL        AWA            │\n│ INDIVIDUAL  →  CROWD  →  TOWARD THE CORE  │\n└───────────────────────────────────────────┘",
+      "figureText": "THOUGHT ──→ WILL ──→ AWA\nIndividual   Crowd    Toward the core",
       "items": [
         {
           "title": "THOUGHT",
@@ -53,7 +54,66 @@
           "title": "AWA",
           "detail": "Toward the core"
         }
-      ]
+      ],
+      "logic": {
+        "id": "awa.open-horizon",
+        "label": "Toward the core",
+        "form": "trace",
+        "nodes": [
+          {
+            "id": "thought",
+            "sourceItem": 0,
+            "sourcePart": "item",
+            "term": "THOUGHT",
+            "annotation": "Individual",
+            "role": "state"
+          },
+          {
+            "id": "will",
+            "sourceItem": 1,
+            "sourcePart": "item",
+            "term": "WILL",
+            "annotation": "Crowd",
+            "role": "state"
+          },
+          {
+            "id": "awa",
+            "sourceItem": 2,
+            "sourcePart": "item",
+            "term": "AWA",
+            "annotation": "Toward the core",
+            "role": "state"
+          }
+        ],
+        "edges": [
+          {
+            "id": "thought-to-will",
+            "from": "thought",
+            "to": "will",
+            "glyph": "→",
+            "label": "The path moves from individual THOUGHT to crowd WILL."
+          },
+          {
+            "id": "will-toward-awa",
+            "from": "will",
+            "to": "awa",
+            "glyph": "→",
+            "label": "The path points from crowd WILL toward AWA and the core; arrival is not claimed."
+          }
+        ],
+        "groups": [
+          {
+            "id": "awa-open-horizon",
+            "kind": "phase",
+            "label": "AWA is the forming horizon of the path toward the core.",
+            "members": [
+              "thought",
+              "will",
+              "awa"
+            ]
+          }
+        ]
+      }
     },
     "preformatted": [],
     "sections": [

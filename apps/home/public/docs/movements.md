@@ -6,12 +6,24 @@
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/movements
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## The movement arc
 
 - Authority: artist-editorial
+- Figure ID: movements.arc
 - Figure mode: trace
+- Semantic form: trace
+- Semantic nodes:
+  - `thought [state]: THOUGHT — Individual`
+  - `will [state]: WILL — Crowd`
+  - `awa [state]: AWA — Toward the core`
+- Semantic edges:
+  - `individual-to-crowd: thought (THOUGHT) --[→ / │ ↓ · The movement arc goes from individual to crowd.]--> will (WILL)`
+  - `crowd-toward-core: will (WILL) --[→ / │ ↓ · The movement arc continues from crowd toward the core.]--> awa (AWA)`
+- Semantic groups:
+  - `movement-phases [phase]: The named PATH from individual to crowd toward the core. [members: thought (THOUGHT) · will (WILL) · awa (AWA)]`
 
 ```text
 THOUGHT       WILL       AWA

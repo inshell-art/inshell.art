@@ -78,7 +78,7 @@
   --docs-figure-trace-marker-width: 3ch;
   --docs-figure-rule-min-width: 12px;
   --docs-mobile-figure-padding-inline: 12px;
-  --docs-mobile-figure-ledger-columns: minmax(0, 1.25fr) 1ch minmax(0, 0.75fr);
+  --docs-mobile-figure-ledger-columns: minmax(0, 1fr) 1ch minmax(0, 1fr);
   --verify-record-gap: 12px;
   --verify-record-padding: 18px;
   --verify-record-border-width: 1px;

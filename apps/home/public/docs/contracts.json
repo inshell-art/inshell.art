@@ -1,8 +1,8 @@
 {
-  "schema": "inshell.agent-docs.topic.v1",
-  "schemaUrl": "/docs/content.schema.json",
-  "canonicalSchemaUrl": "https://inshell.art/docs/content.schema.json",
-  "version": "2026-08-11",
+  "schema": "inshell.agent-docs.topic.v2",
+  "schemaUrl": "/docs/content.v2.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
+  "version": "2026-08-12",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "contracts",
@@ -60,6 +60,7 @@
           "authorities": [
             "contract-release"
           ],
+          "id": "contracts.handoffs",
           "label": "Contract handoffs across issuance and minting",
           "mode": "lanes",
           "figureText": "PUBLIC ISSUANCE    │ PulseAuction SETTLE\n                   │ Live ask · one serial epoch\n                   │ → PathPulseAdapter ISSUE\n                   │ Valid settlement → PATH issuance\n                   │ → PathNFT RECORD PATH\n                   │ Issued PATH · order · capacity\nLATER THOUGHT MINT │ ThoughtNFT VALIDATE WORK\n                   │ THOUGHT work · PATH permission\n                   │ → PathNFT CONSUME UNIT\n                   │ Caller · owner · stage · quota\n                   │ → ThoughtNFT MINT + RECORD\n                   │ Atomic with PATH consumption",
@@ -106,7 +107,152 @@
               "title": "Mint + record",
               "detail": "Atomic with PATH consumption"
             }
-          ]
+          ],
+          "logic": {
+            "id": "contracts.handoffs",
+            "label": "Contract handoffs across issuance and minting",
+            "form": "lanes",
+            "nodes": [
+              {
+                "id": "pulse-settle",
+                "sourceItem": 0,
+                "sourcePart": "item",
+                "term": "Settle",
+                "annotation": "Live ask · one serial epoch",
+                "role": "action"
+              },
+              {
+                "id": "adapter-issue",
+                "sourceItem": 1,
+                "sourcePart": "item",
+                "term": "Issue",
+                "annotation": "Valid settlement → PATH issuance",
+                "role": "action"
+              },
+              {
+                "id": "path-record",
+                "sourceItem": 2,
+                "sourcePart": "item",
+                "term": "Record PATH",
+                "annotation": "Issued PATH · order · capacity",
+                "role": "record"
+              },
+              {
+                "id": "thought-validate",
+                "sourceItem": 3,
+                "sourcePart": "item",
+                "term": "Validate work",
+                "annotation": "THOUGHT work · PATH permission",
+                "role": "action"
+              },
+              {
+                "id": "path-consume",
+                "sourceItem": 4,
+                "sourcePart": "item",
+                "term": "Consume unit",
+                "annotation": "Caller · owner · stage · quota",
+                "role": "action"
+              },
+              {
+                "id": "thought-mint",
+                "sourceItem": 5,
+                "sourcePart": "item",
+                "term": "Mint + record",
+                "annotation": "Atomic with PATH consumption",
+                "role": "result"
+              }
+            ],
+            "edges": [
+              {
+                "id": "settle-to-issue",
+                "from": "pulse-settle",
+                "to": "adapter-issue",
+                "glyph": "→",
+                "stackedGlyph": "↓",
+                "label": "A valid Pulse settlement is handed to PathPulseAdapter for PATH issuance."
+              },
+              {
+                "id": "issue-to-record",
+                "from": "adapter-issue",
+                "to": "path-record",
+                "glyph": "→",
+                "stackedGlyph": "↓",
+                "label": "PATH issuance is recorded by PathNFT."
+              },
+              {
+                "id": "validate-to-consume",
+                "from": "thought-validate",
+                "to": "path-consume",
+                "glyph": "→",
+                "stackedGlyph": "↓",
+                "label": "ThoughtNFT calls PathNFT to consume one authorized movement unit."
+              },
+              {
+                "id": "consume-to-mint",
+                "from": "path-consume",
+                "to": "thought-mint",
+                "glyph": "→",
+                "stackedGlyph": "↓",
+                "label": "ThoughtNFT mints and records the work atomically with PATH consumption."
+              }
+            ],
+            "groups": [
+              {
+                "id": "public-issuance-phase",
+                "kind": "phase",
+                "label": "Public issuance",
+                "members": [
+                  "pulse-settle",
+                  "adapter-issue",
+                  "path-record"
+                ]
+              },
+              {
+                "id": "later-thought-mint-phase",
+                "kind": "phase",
+                "label": "Later THOUGHT mint",
+                "members": [
+                  "thought-validate",
+                  "path-consume",
+                  "thought-mint"
+                ]
+              },
+              {
+                "id": "pulse-auction-lane",
+                "kind": "lane",
+                "label": "PulseAuction",
+                "members": [
+                  "pulse-settle"
+                ]
+              },
+              {
+                "id": "path-pulse-adapter-lane",
+                "kind": "lane",
+                "label": "PathPulseAdapter",
+                "members": [
+                  "adapter-issue"
+                ]
+              },
+              {
+                "id": "path-nft-lane",
+                "kind": "lane",
+                "label": "PathNFT",
+                "members": [
+                  "path-record",
+                  "path-consume"
+                ]
+              },
+              {
+                "id": "thought-nft-lane",
+                "kind": "lane",
+                "label": "ThoughtNFT",
+                "members": [
+                  "thought-validate",
+                  "thought-mint"
+                ]
+              }
+            ]
+          }
         }
       },
       {

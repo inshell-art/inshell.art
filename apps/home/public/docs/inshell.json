@@ -1,8 +1,8 @@
 {
-  "schema": "inshell.agent-docs.topic.v1",
-  "schemaUrl": "/docs/content.schema.json",
-  "canonicalSchemaUrl": "https://inshell.art/docs/content.schema.json",
-  "version": "2026-08-11",
+  "schema": "inshell.agent-docs.topic.v2",
+  "schemaUrl": "/docs/content.v2.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
+  "version": "2026-08-12",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "inshell",
@@ -37,6 +37,7 @@
       "authorities": [
         "artist-editorial"
       ],
+      "id": "inshell.inward-direction",
       "label": "The inward direction",
       "mode": "field",
       "figureText": "┌─ SHELL ─────────────────────────────────┐\n│ Real and often necessary · Surface:     │\n│ visible · operable · legible.           │\n└───────────────────┬─────────────────────┘\n                    │ IN\n                    ↓\n          Inspect what forms the\n                   SELF",
@@ -49,7 +50,62 @@
           "title": "In",
           "detail": "Inspect what forms the self"
         }
-      ]
+      ],
+      "logic": {
+        "id": "inshell.inward-direction",
+        "label": "The inward direction",
+        "form": "axis",
+        "nodes": [
+          {
+            "id": "shell",
+            "sourceItem": 0,
+            "sourcePart": "item",
+            "term": "Shell",
+            "annotation": "Real and often necessary · Surface: visible · operable · legible.",
+            "role": "surface"
+          },
+          {
+            "id": "in",
+            "sourceItem": 1,
+            "sourcePart": "item",
+            "term": "In",
+            "annotation": "Inspect what forms the self",
+            "role": "operator"
+          },
+          {
+            "id": "self",
+            "term": "SELF",
+            "role": "result"
+          }
+        ],
+        "edges": [
+          {
+            "id": "enter-shell",
+            "from": "shell",
+            "to": "in",
+            "glyph": "│",
+            "label": "The direction enters the shell."
+          },
+          {
+            "id": "inspect-self",
+            "from": "in",
+            "to": "self",
+            "glyph": "↓",
+            "label": "In directs inspection toward the self.",
+            "annotation": "Inspect what forms the self"
+          }
+        ],
+        "groups": [
+          {
+            "id": "shell-boundary",
+            "kind": "boundary",
+            "label": "The shell is real, necessary, and not the whole being.",
+            "members": [
+              "shell"
+            ]
+          }
+        ]
+      }
     },
     "preformatted": [],
     "sections": [
@@ -91,6 +147,7 @@
           "authorities": [
             "artist-editorial"
           ],
+          "id": "inshell.practice-truth",
           "label": "How practice relates to truth",
           "mode": "field",
           "figureText": "┌─ TRUTH AND PRACTICE ───────────────────┐\n│                 TRUTH                  │\n│              Inspect self              │\n│                   ↑                    │\n│ Approaches without claiming possession │\n│                PRACTICE                │\n│ Examine · inspect · suspect · read ·   │\n│              listen · feel             │\n└────────────────────────────────────────┘",
@@ -103,7 +160,57 @@
               "title": "Practice",
               "detail": "Examine · inspect · suspect · read · listen · feel"
             }
-          ]
+          ],
+          "logic": {
+            "id": "inshell.practice-truth",
+            "label": "How practice relates to truth",
+            "form": "axis",
+            "nodes": [
+              {
+                "id": "truth-practice",
+                "term": "TRUTH AND PRACTICE",
+                "role": "structural"
+              },
+              {
+                "id": "truth",
+                "sourceItem": 0,
+                "sourcePart": "item",
+                "term": "Truth",
+                "annotation": "Inspect self",
+                "role": "result"
+              },
+              {
+                "id": "practice",
+                "sourceItem": 1,
+                "sourcePart": "item",
+                "term": "Practice",
+                "annotation": "Examine · inspect · suspect · read · listen · feel",
+                "role": "action"
+              }
+            ],
+            "edges": [
+              {
+                "id": "practice-approaches-truth",
+                "from": "practice",
+                "to": "truth",
+                "glyph": "↑",
+                "label": "Practice approaches truth without claiming to possess it.",
+                "annotation": "Approaches without claiming possession"
+              }
+            ],
+            "groups": [
+              {
+                "id": "truth-practice-axis",
+                "kind": "comparison",
+                "label": "Truth and practice remain distinct along one direction.",
+                "members": [
+                  "truth-practice",
+                  "truth",
+                  "practice"
+                ]
+              }
+            ]
+          }
         }
       },
       {

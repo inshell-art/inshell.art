@@ -6,22 +6,33 @@
 - Status: current
 - Authority classes in this document: artist-editorial
 - Canonical page: https://inshell.art/docs/agent-art
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## The invariant and the open field
 
 - Authority: artist-editorial
+- Figure ID: agent-art.open-field
 - Figure mode: field
+- Semantic form: field
+- Semantic nodes:
+  - `agent-art [structural]: AGENT ART`
+  - `invariant [principle]: Invariant — An Agent participates in the art activity.`
+  - `open-questions [structural]: OPEN QUESTIONS`
+  - `what-is-art [question]: What is Art? — Open question.`
+  - `what-is-an-agent [question]: What is an Agent? — Open question.`
+- Semantic groups:
+  - `agent-art-field [open-field] · ├─ / └─: One invariant is held while Art and Agent remain open questions. [members: agent-art (AGENT ART) · invariant (Invariant) · open-questions (OPEN QUESTIONS) · what-is-art (What is Art?) · what-is-an-agent (What is an Agent?)]`
 
 ```text
-┌─ AGENT ART ──────────────────────────────────────┐
-│ INVARIANT                                        │
-│ An Agent participates in the art activity.       │
-│                                                  │
-├─ OPEN QUESTIONS ─────────────────────────────────┤
-│ What is Art?                 What is an Agent?   │
-│ Open question.                 Open question.    │
-└──────────────────────────────────────────────────┘
+AGENT ART
+
+INVARIANT
+An Agent participates in the art activity.
+
+OPEN QUESTIONS
+├─ What is Art? — Open question.
+└─ What is an Agent? — Open question.
 ```
 
 - **Invariant** — An Agent participates in the art activity.

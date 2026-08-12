@@ -1,8 +1,8 @@
 {
-  "schema": "inshell.agent-docs.topic.v1",
-  "schemaUrl": "/docs/content.schema.json",
-  "canonicalSchemaUrl": "https://inshell.art/docs/content.schema.json",
-  "version": "2026-08-11",
+  "schema": "inshell.agent-docs.topic.v2",
+  "schemaUrl": "/docs/content.v2.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
+  "version": "2026-08-12",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "source-release-boundaries",
@@ -40,6 +40,7 @@
         "app-documentation",
         "contract-release"
       ],
+      "id": "source-release.records",
       "label": "Four distinct records",
       "mode": "field",
       "figureText": "┌─ FOUR DISTINCT RECORDS ─────────────────────┐\n│ SOURCE                                      │\n│ Authored code                               │\n│   ≠ RELEASE                                 │\n│     Pinned artifacts                        │\n│       ≠ DEPLOYMENT                          │\n│         Addresses + blocks                  │\n│           ≠ OBSERVATION                     │\n│             Point-in-time read              │\n└─────────────────────────────────────────────┘",
@@ -60,7 +61,88 @@
           "title": "Observation",
           "detail": "Point-in-time read"
         }
-      ]
+      ],
+      "logic": {
+        "id": "source-release.records",
+        "label": "Four distinct records",
+        "form": "axis",
+        "nodes": [
+          {
+            "id": "four-records",
+            "term": "FOUR DISTINCT RECORDS",
+            "role": "structural"
+          },
+          {
+            "id": "source",
+            "sourceItem": 0,
+            "sourcePart": "item",
+            "term": "Source",
+            "annotation": "Authored code",
+            "role": "record"
+          },
+          {
+            "id": "release",
+            "sourceItem": 1,
+            "sourcePart": "item",
+            "term": "Release",
+            "annotation": "Pinned artifacts",
+            "role": "record"
+          },
+          {
+            "id": "deployment",
+            "sourceItem": 2,
+            "sourcePart": "item",
+            "term": "Deployment",
+            "annotation": "Addresses + blocks",
+            "role": "record"
+          },
+          {
+            "id": "observation",
+            "sourceItem": 3,
+            "sourcePart": "item",
+            "term": "Observation",
+            "annotation": "Point-in-time read",
+            "role": "record"
+          }
+        ],
+        "edges": [
+          {
+            "id": "source-not-release",
+            "from": "source",
+            "to": "release",
+            "glyph": "≠",
+            "label": "Authored source is not a pinned release."
+          },
+          {
+            "id": "release-not-deployment",
+            "from": "release",
+            "to": "deployment",
+            "glyph": "≠",
+            "label": "A pinned release is not a deployment record."
+          },
+          {
+            "id": "deployment-not-observation",
+            "from": "deployment",
+            "to": "observation",
+            "glyph": "≠",
+            "label": "A deployment record is not a point-in-time observation."
+          }
+        ],
+        "groups": [
+          {
+            "id": "record-distinction",
+            "kind": "comparison",
+            "label": "Four records that must not be collapsed into one.",
+            "members": [
+              "four-records",
+              "source",
+              "release",
+              "deployment",
+              "observation"
+            ]
+          }
+        ]
+      }
     },
     "preformatted": [],
     "sections": [

@@ -6,12 +6,24 @@
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/inshell
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## The inward direction
 
 - Authority: artist-editorial
+- Figure ID: inshell.inward-direction
 - Figure mode: field
+- Semantic form: axis
+- Semantic nodes:
+  - `shell [surface]: Shell — Real and often necessary · Surface: visible · operable · legible.`
+  - `in [operator]: In — Inspect what forms the self`
+  - `self [result]: SELF`
+- Semantic edges:
+  - `enter-shell: shell (Shell) --[│ · The direction enters the shell.]--> in (In)`
+  - `inspect-self: in (In) --[↓ · In directs inspection toward the self. · Inspect what forms the self]--> self (SELF)`
+- Semantic groups:
+  - `shell-boundary [boundary]: The shell is real, necessary, and not the whole being. [members: shell (Shell)]`
 
 ```text
 ┌─ SHELL ─────────────────────────────────┐
@@ -60,7 +72,17 @@ Simply inspect your [thought](https://inshell.art/docs/thought).
 ### How practice relates to truth
 
 - Authority: artist-editorial
+- Figure ID: inshell.practice-truth
 - Figure mode: field
+- Semantic form: axis
+- Semantic nodes:
+  - `truth-practice [structural]: TRUTH AND PRACTICE`
+  - `truth [result]: Truth — Inspect self`
+  - `practice [action]: Practice — Examine · inspect · suspect · read · listen · feel`
+- Semantic edges:
+  - `practice-approaches-truth: practice (Practice) --[↑ · Practice approaches truth without claiming to possess it. · Approaches without claiming possession]--> truth (Truth)`
+- Semantic groups:
+  - `truth-practice-axis [comparison]: Truth and practice remain distinct along one direction. [members: truth-practice (TRUTH AND PRACTICE) · truth (Truth) · practice (Practice)]`
 
 ```text
 ┌─ TRUTH AND PRACTICE ───────────────────┐

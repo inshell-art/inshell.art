@@ -6,7 +6,8 @@
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/path
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-12
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## Overview
 
@@ -49,15 +50,29 @@ Public PATH issuance runs through Pulse. The contract can also expose a bounded 
 ### Capacity and progress
 
 - Authority: app-documentation, contract-release
+- Figure ID: path.capacity-progress
 - Figure mode: ledger
+- Semantic form: ledger
+- Semantic nodes:
+  - `deployment [record]: DEPLOYMENT`
+  - `capacity [state]: Movement quota`
+  - `one-path [record]: EACH PATH`
+  - `progress [state]: Used + remaining`
+- Semantic edges:
+  - `deployment-capacity: deployment (DEPLOYMENT) --[│ · The deployment configures movement capacity used by every PATH.]--> capacity (Movement quota)`
+  - `path-progress: one-path (EACH PATH) --[│ · One PATH records its own movement progress.]--> progress (Used + remaining)`
+- Semantic groups:
+  - `capacity-column [lane]: Deployment capacity [members: deployment (DEPLOYMENT) · capacity (Movement quota)]`
+  - `progress-column [lane]: One PATH progress [members: one-path (EACH PATH) · progress (Used + remaining)]`
+  - `capacity-progress-distinction [comparison]: Deployment capacity and per-PATH progress are distinct records. [members: capacity (Movement quota) · progress (Used + remaining)]`
 
 ```text
-DEPLOYMENT │ ONE PATH
-───────────┼──────────
-CAPACITY   │ PROGRESS
+DEPLOYMENT     │ EACH PATH
+───────────────┼─────────────────
+MOVEMENT QUOTA │ USED + REMAINING
 ```
 
-- **Capacity** — Progress
+- **Movement quota** — Used + remaining
 
 PathNFT configures one quota and one authorized minter for each movement across the deployment. Every PATH uses those movement totals, while each token stores its own current stage and in-stage minted count. Remaining entitlement is derived from the deployed movement quota and that token's progress; it is not a separate stored balance.
 

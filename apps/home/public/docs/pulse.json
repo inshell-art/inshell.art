@@ -1,8 +1,8 @@
 {
-  "schema": "inshell.agent-docs.topic.v1",
-  "schemaUrl": "/docs/content.schema.json",
-  "canonicalSchemaUrl": "https://inshell.art/docs/content.schema.json",
-  "version": "2026-08-11",
+  "schema": "inshell.agent-docs.topic.v2",
+  "schemaUrl": "/docs/content.v2.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
+  "version": "2026-08-12",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "pulse",
@@ -66,6 +66,7 @@
           "authorities": [
             "contract-release"
           ],
+          "id": "pulse.epoch",
           "label": "One Pulse epoch",
           "mode": "trace",
           "figureText": "ASK\n │ decay\n ↓\nBID\n │ pump\n ↓\nNEXT ASK\n └──↺ next epoch",
@@ -85,7 +86,78 @@
             {
               "title": "Next ask"
             }
-          ]
+          ],
+          "logic": {
+            "id": "pulse.epoch",
+            "label": "One Pulse epoch",
+            "form": "cycle",
+            "nodes": [
+              {
+                "id": "ask",
+                "sourceItem": 0,
+                "sourcePart": "item",
+                "term": "Ask",
+                "annotation": "Decay",
+                "role": "state"
+              },
+              {
+                "id": "bid",
+                "sourceItem": 1,
+                "sourcePart": "item",
+                "term": "Bid",
+                "annotation": "Pump",
+                "role": "action"
+              },
+              {
+                "id": "next-ask",
+                "sourceItem": 2,
+                "sourcePart": "item",
+                "term": "Next ask",
+                "role": "result"
+              }
+            ],
+            "edges": [
+              {
+                "id": "ask-decays-to-bid",
+                "from": "ask",
+                "to": "bid",
+                "glyph": "↓",
+                "stackedGlyph": "│\n↓",
+                "label": "The current ask decays until a bid succeeds.",
+                "annotation": "Decay"
+              },
+              {
+                "id": "bid-pumps-next-ask",
+                "from": "bid",
+                "to": "next-ask",
+                "glyph": "↓",
+                "stackedGlyph": "│\n↓",
+                "label": "The successful bid pumps the next ask.",
+                "annotation": "Pump"
+              },
+              {
+                "id": "next-epoch-loop",
+                "from": "next-ask",
+                "to": "ask",
+                "glyph": "↺",
+                "stackedGlyph": "└──↺",
+                "label": "The next ask becomes the current ask in the next epoch.",
+                "annotation": "next epoch"
+              }
+            ],
+            "groups": [
+              {
+                "id": "pulse-epoch",
+                "kind": "phase",
+                "label": "One serial Pulse epoch loops into the next.",
+                "members": [
+                  "ask",
+                  "bid",
+                  "next-ask"
+                ]
+              }
+            ]
+          }
         }
       },
       {
