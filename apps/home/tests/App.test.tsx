@@ -827,6 +827,10 @@ describe("App Component", () => {
     expect(css).toMatch(
       /\.dotfield__canvas\s*{[^}]*height:\s*var\(--path-app-canvas-height\);/s,
     );
+    expect(css.match(/\.dotfield__title\s*{/g)).toHaveLength(1);
+    expect(css).toMatch(
+      /\.dotfield__title\s*{[^}]*font-weight:\s*var\(--weight-thin\);/s,
+    );
     expect(css).toMatch(
       /@media\s*\(min-width:\s*1400px\)\s*{[^}]*\.dotfield\s*{[^}]*width:\s*var\(--path-app-layout-width\);/s,
     );

@@ -1650,7 +1650,7 @@ button,
 .dotfield__title {
   margin: var(--path-app-title-margin);
   font-size: var(--shell-route-title-font-size);
-  font-weight: var(--shell-route-title-font-weight);
+  font-weight: var(--weight-thin);
   line-height: var(--shell-route-title-line-height);
   letter-spacing: var(--shell-route-title-letter-spacing);
 }
@@ -1908,14 +1908,6 @@ button,
   .dotfield__tab-sep {
     color: #9ea0a1;
   }
-}
-
-.dotfield__title {
-  margin: var(--path-app-title-margin);
-  font-size: var(--shell-route-title-font-size);
-  font-weight: var(--shell-route-title-font-weight);
-  line-height: var(--shell-route-title-line-height);
-  letter-spacing: var(--shell-route-title-letter-spacing);
 }
 
 .dotfield__canvas {
