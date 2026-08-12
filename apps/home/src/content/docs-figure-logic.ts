@@ -497,7 +497,6 @@ const FIGURE_LOGIC_BUILDERS = {
           from: "next-ask",
           to: "ask",
           glyph: "↺",
-          stackedGlyph: "└──↺",
           label: "The next ask becomes the current ask in the next epoch.",
           annotation:
             figure.mode === "trace" ? figure.loop?.condition : undefined,

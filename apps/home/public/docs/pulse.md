@@ -70,7 +70,7 @@ a = anchor time
 - Semantic edges:
   - `ask-decays-to-bid: ask (Ask) --[↓ · The current ask decays until a bid succeeds. · Decay]--> bid (Bid)`
   - `bid-pumps-next-ask: bid (Bid) --[↓ · The successful bid pumps the next ask. · Pump]--> next-ask (Next ask)`
-  - `next-epoch-loop: next-ask (Next ask) --[↺ / └──↺ · The next ask becomes the current ask in the next epoch. · next epoch]--> ask (Ask)`
+  - `next-epoch-loop: next-ask (Next ask) --[↺ · The next ask becomes the current ask in the next epoch. · next epoch]--> ask (Ask)`
 
 ```text
 ASK

@@ -1281,9 +1281,16 @@ describe("DocsPage character figures", () => {
           expect(visual?.querySelector(".docs-figure__marker")).toBeNull();
           if (sourceFigure.loop) {
             expect(trace).toHaveAttribute("data-trace-layout", "cycle");
+            const returnRelation = trace?.querySelector(
+              ".docs-figure__shape-trace-return",
+            );
+            expect(returnRelation).toHaveAttribute("data-return-to", "ask");
             expect(
-              trace?.querySelector(".docs-figure__shape-trace-return"),
-            ).toHaveAttribute("data-return-to", "ask");
+              returnRelation?.querySelector(
+                ".docs-figure__shape-trace-return-glyph",
+              ),
+            ).toHaveTextContent(/^↺$/);
+            expect(returnRelation).not.toHaveTextContent(/[└─]/);
             expect(visual).toHaveTextContent(sourceFigure.loop.condition);
           } else {
             expect(trace).toHaveAttribute(

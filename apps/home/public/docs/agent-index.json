@@ -11,7 +11,7 @@
   "completeJson": "/docs/content.json",
   "canonicalCompleteJson": "https://inshell.art/docs/content.json",
   "completeJsonMediaType": "application/json",
-  "completeJsonSha256": "ff707fed5aa8d45965bae65f656b9790156dfdf1fd8e75eaefba0a1e93f1ed81",
+  "completeJsonSha256": "b5c3ea72a082ed375e6ccef3f90123739310cf3e4db09ce436a1d3758cc76845",
   "purpose": "Public, read-only discovery for visitors using their own Agents.",
   "sourceLock": {
     "url": "/docs/source-lock.json",
@@ -19,7 +19,7 @@
     "schemaUrl": "/docs/source-lock.schema.json",
     "canonicalSchemaUrl": "https://inshell.art/docs/source-lock.schema.json",
     "mediaType": "application/json",
-    "sha256": "78da3ba1eda8e49755b6ee3f81fe19f73ac6ed5bd61a27c11a7600ea16af15b6",
+    "sha256": "1b730cd381e4ed71562cf695af6d50f48f842cf3a44eef597594b958ed9b2856",
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
@@ -322,11 +322,11 @@
       "markdown": "/docs/pulse.md",
       "canonicalMarkdown": "https://inshell.art/docs/pulse.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "6e4f6620c47f827c0278085e6701ad87dc3d115bec837d91d5a9b38f3955e062",
+      "markdownSha256": "36534848ab94e7ca2c542360526ad521c8dac9a97b462145d4009960b2a5de4e",
       "json": "/docs/pulse.json",
       "canonicalJson": "https://inshell.art/docs/pulse.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "386ea095b1953cff8b2b019d02e9053696aed5787126eecf8224de1e87790992"
+      "jsonSha256": "1b748b52413af3635effb6f1c1d5bd2accbef07f82e3cfd74be19b4d3d933e70"
     },
     {
       "id": "contracts",

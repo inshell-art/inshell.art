@@ -11,14 +11,14 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "7e529352d8a2f772304d328ad6482c43e9d36ba9c2739bd94c55d70bb3306835",
+  "sourceTreeSha256": "1a6774bea6d5401f4e6a97aba6c211101531aa676a1960ffd46c4c7656aa9575",
   "groups": [
     {
       "id": "public-docs",
       "title": "Public documentation sources",
       "owner": "inshell.art docs",
       "reason": "Human articles, Agent-readable content, authority maps, and machine-handoff selection.",
-      "groupSha256": "aebee8e8e91f871dd6d3d14b80eeb848f6fe4da73c8d8723aefa358611c442d8",
+      "groupSha256": "29328f8a51bef123bb41cfca3f8842fdc829836edd14470b5f0955a8a8cc9d14",
       "files": [
         {
           "path": "apps/home/src/content/AGENTS.md",
@@ -27,8 +27,8 @@
         },
         {
           "path": "apps/home/src/content/docs-figure-logic.ts",
-          "byteLength": 29790,
-          "sha256": "f65e4f32f80d5cf28f09c6092c2db3832a93053fe51868aa1e1ae0d7de753a49"
+          "byteLength": 29750,
+          "sha256": "24a6197b4b57931c4f694fb2580eea800f4d142ff8e98c482276a75b37c60d86"
         },
         {
           "path": "apps/home/src/content/docs-source-registry.ts",
