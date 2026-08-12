@@ -1420,18 +1420,18 @@ describe("DocsPage character figures", () => {
     expect(inward).toHaveTextContent(/SHELL[\s\S]*a body, face, or head/i);
     expect(inward).toHaveTextContent(/└─+┘/);
     expect(
-      inward?.querySelector(".docs-figure__frame-cap--junction"),
+      inward?.querySelector(".docs-figure__frame-cap--balanced"),
     ).not.toBeNull();
     expect(
       inward?.querySelectorAll(
-        ".docs-figure__frame-cap--junction .docs-figure__frame-rule",
+        ".docs-figure__frame-cap--balanced .docs-figure__frame-rule",
       ),
     ).toHaveLength(2);
     const inwardFrame = inward?.querySelector(
       ":scope > .docs-figure__character-frame",
     );
     const inwardCap = inwardFrame?.querySelector(
-      ":scope > .docs-figure__frame-cap--junction",
+      ":scope > .docs-figure__frame-cap--balanced",
     );
     const inwardLeftCap = inwardCap?.querySelector(
       ":scope > .docs-figure__frame-cap-half--left",
@@ -1450,7 +1450,8 @@ describe("DocsPage character figures", () => {
       "docs-figure__frame-rule",
     );
     expect(inwardLeftCap).toHaveTextContent(/┌─\s*SHELL[\s\S]*─/i);
-    expect(inwardCap).toHaveTextContent(/┬[\s\S]*┐/);
+    expect(inwardCap).not.toHaveTextContent(/┬/);
+    expect(inwardCap).toHaveTextContent(/─[\s\S]*┐/);
     expect(inwardNote?.parentElement).toBe(inwardLeftCap);
     expect(
       inwardFrame?.querySelector(".docs-figure__frame-content"),

@@ -172,7 +172,7 @@ export const DOCS_SOURCE: DocsSource = {
         mode: "field",
         figureText: [
           "          a body, face, or head; a name, honor, reputation, role...",
-          "┌─ SHELL ─────────────────────────────┬─────────────────────────────────────┐",
+          "┌─ SHELL ───────────────────────────────────────────────────────────────────┐",
           "│                                     ↓ IN                                  │",
           "│                          Inspect what forms the                           │",
           "│                                   SELF                                    │",

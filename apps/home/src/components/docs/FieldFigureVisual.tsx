@@ -100,22 +100,22 @@ function CharacterBox({
   children,
   className = "",
   junction = false,
-  capJunction = false,
+  balancedCap = false,
   capAnnotation,
 }: {
   heading?: ReactNode;
   children?: ReactNode;
   className?: string;
   junction?: boolean;
-  capJunction?: boolean;
+  balancedCap?: boolean;
   capAnnotation?: ReactNode;
 }) {
   return (
     <div
       className={`docs-figure__character-frame${className ? ` ${className}` : ""}`}
     >
-      {capJunction ? (
-        <div className="docs-figure__frame-cap docs-figure__frame-cap--junction">
+      {balancedCap ? (
+        <div className="docs-figure__frame-cap docs-figure__frame-cap--balanced">
           <span className="docs-figure__frame-cap-half docs-figure__frame-cap-half--left">
             <Glyph className="docs-figure__frame-character">┌─ </Glyph>
             <span className="docs-figure__frame-heading">{heading}</span>
@@ -124,7 +124,7 @@ function CharacterBox({
               {` ${HORIZONTAL_RAIL}`}
             </Glyph>
           </span>
-          <Glyph className="docs-figure__frame-character">┬</Glyph>
+          <Glyph className="docs-figure__frame-character">─</Glyph>
           <span className="docs-figure__frame-cap-half docs-figure__frame-cap-half--right">
             <Glyph className="docs-figure__frame-rule">{HORIZONTAL_RAIL}</Glyph>
             <Glyph className="docs-figure__frame-character">┐</Glyph>
@@ -231,7 +231,7 @@ function InwardDirection({ figure }: { figure: FieldFigure }) {
     >
       <CharacterBox
         heading={<StaticTerm>{shell.title}</StaticTerm>}
-        capJunction
+        balancedCap
         capAnnotation={
           shell.detail ? (
             <small className="docs-figure__annotation docs-figure__field-inward-note">

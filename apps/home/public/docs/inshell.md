@@ -26,7 +26,7 @@
 
 ```text
           a body, face, or head; a name, honor, reputation, role...
-┌─ SHELL ─────────────────────────────┬─────────────────────────────────────┐
+┌─ SHELL ───────────────────────────────────────────────────────────────────┐
 │                                     ↓ IN                                  │
 │                          Inspect what forms the                           │
 │                                   SELF                                    │

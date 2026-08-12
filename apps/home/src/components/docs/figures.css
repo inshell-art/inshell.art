@@ -253,7 +253,7 @@
   min-width: 0;
 }
 
-.docs-figure__frame-cap--junction {
+.docs-figure__frame-cap--balanced {
   container-type: inline-size;
   grid-template-columns:
     minmax(0, 1fr) max-content minmax(0, 1fr);

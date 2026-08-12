@@ -76,7 +76,7 @@ Read the design choices that give the practice form without turning its truth in
 
 ```text
           a body, face, or head; a name, honor, reputation, role...
-┌─ SHELL ─────────────────────────────┬─────────────────────────────────────┐
+┌─ SHELL ───────────────────────────────────────────────────────────────────┐
 │                                     ↓ IN                                  │
 │                          Inspect what forms the                           │
 │                                   SELF                                    │

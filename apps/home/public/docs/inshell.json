@@ -40,7 +40,7 @@
       "id": "inshell.inward-direction",
       "label": "The inward direction",
       "mode": "field",
-      "figureText": "          a body, face, or head; a name, honor, reputation, role...\n┌─ SHELL ─────────────────────────────┬─────────────────────────────────────┐\n│                                     ↓ IN                                  │\n│                          Inspect what forms the                           │\n│                                   SELF                                    │\n└───────────────────────────────────────────────────────────────────────────┘",
+      "figureText": "          a body, face, or head; a name, honor, reputation, role...\n┌─ SHELL ───────────────────────────────────────────────────────────────────┐\n│                                     ↓ IN                                  │\n│                          Inspect what forms the                           │\n│                                   SELF                                    │\n└───────────────────────────────────────────────────────────────────────────┘",
       "items": [
         {
           "title": "Shell",
