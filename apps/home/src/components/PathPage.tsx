@@ -205,7 +205,8 @@ function thoughtMintsByPath(thoughts: ThoughtGalleryItem[]) {
   return mints;
 }
 
-function overlayThoughtMintProgress(
+// eslint-disable-next-line react-refresh/only-export-components -- direct regression coverage protects canonical tokenURI artwork.
+export function overlayThoughtMintProgress(
   item: PathTokenInventoryItem,
   thoughtMints: ThoughtGalleryItem[]
 ): PathTokenInventoryItem {
@@ -218,8 +219,6 @@ function overlayThoughtMintProgress(
   if (thoughtProgress.used == null) return item;
 
   const attributes = replaceMovementAttribute(item, "THOUGHT", thoughtProgress);
-  const willProgress = movementProgress(item, "WILL");
-  const awaProgress = movementProgress(item, "AWA");
   const metadata = {
     ...item.metadata,
     attributes,
@@ -237,19 +236,6 @@ function overlayThoughtMintProgress(
         })),
     },
   };
-
-  if (thoughtProgress.used != null && thoughtProgress.total != null) {
-    const svg = makePathProgressSvg({
-      thoughtMinted: thoughtProgress.used,
-      thoughtQuota: thoughtProgress.total,
-      willMinted: willProgress.used ?? 0,
-      willQuota: willProgress.total ?? 0,
-      awaMinted: awaProgress.used ?? 0,
-      awaQuota: awaProgress.total ?? 0,
-    });
-    metadata.image = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-    metadata.image_data = svg;
-  }
 
   return {
     ...item,

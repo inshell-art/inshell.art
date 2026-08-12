@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "755a5630196fd94613ab5dd4abcc7982c5c1e20fd18475c19df0849ee6136502",
+  "sourceTreeSha256": "2ea66b970d0e447a9bf53f421b75808a9e8679c7897789a7e29228d89d514685",
   "groups": [
     {
       "id": "public-docs",
@@ -57,7 +57,7 @@
       "title": "Home, PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "fe2e7a09d82a46864e7f4a1fe5ffaf899b0a2825af48a80a45e283883db63980",
+      "groupSha256": "4dcbc9b35f11ebcce4638635a8829a251eacefefb6a3fabfc03151a8627a1360",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -141,8 +141,8 @@
         },
         {
           "path": "apps/home/src/components/PathPage.tsx",
-          "byteLength": 41400,
-          "sha256": "618825215521cdb476b98fab60440030b5107fabff56244b133cd14dd869cf91"
+          "byteLength": 40944,
+          "sha256": "2f77d092b02ed5d3d04ce7fbaf7f3c1f581090282547f956bd47d3f2be5dc522"
         },
         {
           "path": "apps/home/src/components/PreviewWatermark.tsx",

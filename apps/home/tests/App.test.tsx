@@ -75,6 +75,7 @@ jest.mock("@/hooks/useAuctionBids", () => ({
 }));
 
 import App from "../src/App";
+import { overlayThoughtMintProgress } from "../src/components/PathPage";
 import { COLOR_FONT, COLOR_FONT_RAW } from "../src/content/colorFont";
 import { DOCS_SOURCE } from "../src/content/docs";
 import { clearPathTokenInventoryCache } from "../src/services/pathTokens";
@@ -930,6 +931,37 @@ describe("App Component", () => {
     expect(lifecycle.queryByText("1 / 1 used")).toBeNull();
     expect(lifecycle.getAllByText("0 / 1 used")).toHaveLength(3);
     expect(lifecycle.queryByRole("link", { name: "THOUGHT #10 ↗" })).toBeNull();
+  });
+
+  test("keeps the canonical PATH tokenURI image byte-exact when associating THOUGHT mints", () => {
+    const canonicalSvg =
+      "<svg data-renderer='path-text-status' data-rendering='native-svg-paths'><use href='#g-T'/></svg>";
+    const canonicalImage =
+      `data:image/svg+xml;charset=utf-8,${encodeURIComponent(canonicalSvg)}`;
+    const item = pathTokenApiItem({
+      metadata: {
+        image: canonicalImage,
+        image_data: canonicalSvg,
+      },
+    });
+
+    const overlaid = overlayThoughtMintProgress(
+      { ...item, tokenId: 1n } as any,
+      [thoughtGalleryItem({ tokenId: 10, pathId: "1" })] as any,
+    );
+
+    expect(overlaid.metadata.image).toBe(canonicalImage);
+    expect(overlaid.metadata.image_data).toBe(canonicalSvg);
+    expect(overlaid.metadata.image_data).toContain("data-renderer='path-text-status'");
+    expect(overlaid.metadata.image_data).not.toContain("<circle");
+    expect(overlaid.metadata.attributes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ trait_type: "THOUGHT", value: "Minted(1/1)" }),
+      ]),
+    );
+    expect(overlaid.metadata.movementTokens).toEqual({
+      THOUGHT: [{ tokenId: 10, url: "/thought/10" }],
+    });
   });
 
   test("opens the first PATH v0.5 Spark as native detail serial one", async () => {
