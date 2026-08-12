@@ -819,6 +819,27 @@ describe("App Component", () => {
     );
   });
 
+  test("anchors the PATH mint review below its confirm CTA", () => {
+    const css = readFileSync(
+      nodePath.resolve(cwd(), "src/main.css"),
+      "utf8",
+    );
+
+    expect(css).toMatch(/--path-app-cta-notice-gap:\s*6px;/);
+    expect(css).toMatch(
+      /\.dotfield__cta-anchor\s*{[^}]*position:\s*relative;/s,
+    );
+    expect(css).toMatch(
+      /\.dotfield__mint-review\s*{[^}]*top:\s*calc\(100% \+ var\(--path-app-cta-notice-gap\)\);[^}]*right:\s*0;/s,
+    );
+    expect(css).toMatch(
+      /\.dotfield__mint-review\s*{[^}]*min-width:\s*min\(320px, calc\(100vw - 32px\)\);[^}]*max-width:\s*min\(380px, calc\(100vw - 32px\)\);/s,
+    );
+    expect(css).not.toMatch(
+      /\.dotfield__mint-review\s*{[^}]*top:\s*50px;/s,
+    );
+  });
+
   test("renders the color-font primitive page with onchain authority metadata", async () => {
     window.history.pushState({}, "", "/color-font");
     const colorFontV1Address = "0x627b9A657eac8c3463AD17009a424dFE3FDbd0b1";

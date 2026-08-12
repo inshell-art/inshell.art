@@ -6970,32 +6970,131 @@ export default function AuctionCanvas({
         </div>
         {!isWalletConnectCta ? (
           <div className="dotfield__cta-stack" ref={ctaStackRef}>
-            <HeaderWalletCTA
-              ctaLabel={displayedCta.label}
-              ctaDisabled={displayedCta.disabled}
-              onCtaClick={displayedCta.onClick}
-              showWalletDot={false}
-              dotState={dotState}
-              lastTxHash={effectiveLastTxHash}
-              onCopyNotice={() => showToast({ kind: "info", text: "Copied." })}
-              onDisconnectNotice={() => {
-                setWalletUnlockAttempted(false);
-                setTxState("idle");
-                setTxPhase(null);
-                setTxHash(null);
-                setTxError(null);
-                setLastTxHash(null);
-                setPreflight({
-                  ask: null,
-                  balance: null,
-                  allowance: null,
-                  loading: false,
-                  attempted: false,
-                  error: null,
-                });
-                showToast({ kind: "info", text: "wallet disconnected." });
-              }}
-            />
+            <div className="dotfield__cta-anchor">
+              <HeaderWalletCTA
+                ctaLabel={displayedCta.label}
+                ctaDisabled={displayedCta.disabled}
+                onCtaClick={displayedCta.onClick}
+                showWalletDot={false}
+                dotState={dotState}
+                lastTxHash={effectiveLastTxHash}
+                onCopyNotice={() => showToast({ kind: "info", text: "Copied." })}
+                onDisconnectNotice={() => {
+                  setWalletUnlockAttempted(false);
+                  setTxState("idle");
+                  setTxPhase(null);
+                  setTxHash(null);
+                  setTxError(null);
+                  setLastTxHash(null);
+                  setPreflight({
+                    ask: null,
+                    balance: null,
+                    allowance: null,
+                    loading: false,
+                    attempted: false,
+                    error: null,
+                  });
+                  showToast({ kind: "info", text: "wallet disconnected." });
+                }}
+              />
+              {mintReview && effectiveTxState === "idle" && (
+                <div
+                  className="dotfield__mint-review"
+                  ref={mintReviewRef}
+                  aria-live="polite"
+                >
+                  <div className="dotfield__mint-review-title">
+                    $PATH mint
+                  </div>
+                  <div className="dotfield__mint-review-subtitle">
+                    Review the $PATH mint before opening your wallet.
+                  </div>
+                  <div className="dotfield__mint-review-row">
+                    <span>network</span>
+                    <strong>{environmentLabel}</strong>
+                  </div>
+                  <div className="dotfield__mint-review-row">
+                    <span>chain</span>
+                    <strong>{targetChainLabel}</strong>
+                  </div>
+                  <div className="dotfield__mint-review-row">
+                    <span>chain id</span>
+                    <strong>{mintReviewChainIdLabel}</strong>
+                  </div>
+                  <div className="dotfield__mint-review-row">
+                    <span>currency</span>
+                    <strong>{currencyLabel}</strong>
+                  </div>
+                  <div className="dotfield__mint-review-row">
+                    <span>contract</span>
+                    <strong>
+                      {mintReviewContractHref ? (
+                        <a
+                          className="dotfield__mint-review-link"
+                          href={mintReviewContractHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {shortAddr(auctionAddress)} ↗
+                        </a>
+                      ) : (
+                        <>{shortAddr(auctionAddress)}</>
+                      )}
+                    </strong>
+                  </div>
+                  <div className="dotfield__mint-review-row">
+                    <span>function</span>
+                    <strong>bid(uint256 maxPrice)</strong>
+                  </div>
+                  <div className="dotfield__mint-review-row">
+                    <span>current ask</span>
+                    <strong>{mintReviewCurrentAskLabel ?? mintReview.priceLabel} {mintReview.symbol}</strong>
+                  </div>
+                  <div className="dotfield__mint-review-row">
+                    <span>ETH sent</span>
+                    <strong>{mintReviewTxValueLabel ?? mintReview.txValueLabel} {mintReview.nativePayment ? mintReview.symbol : "ETH"}</strong>
+                  </div>
+                  <div className="dotfield__mint-review-row">
+                    <span>max price</span>
+                    <strong>{mintReviewMaxPriceLabel ?? mintReview.maxPriceLabel} {mintReview.symbol}</strong>
+                  </div>
+                  <div className="dotfield__mint-review-row">
+                    <span>approval</span>
+                    <strong>{mintReview.requiresApproval ? `${mintReview.symbol} approval first` : "none"}</strong>
+                  </div>
+                  <div className="dotfield__mint-review-row">
+                    <span>network gas</span>
+                    <strong>shown in wallet</strong>
+                  </div>
+                  <div className="dotfield__mint-review-note">
+                    {mintReview.requiresApproval
+                      ? (
+                        <>
+                          wallet opens next.
+                          <br />
+                          wallet step 1 approves {mintReview.symbol}.
+                          <br />
+                          wallet step 2 mints $PATH.
+                        </>
+                      )
+                      : (
+                        <>
+                          wallet opens next.
+                        </>
+                      )}
+                    <br />
+                    <a
+                      className="dotfield__mint-review-link"
+                      href="/verify"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      verify contracts ↗
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
             {walletPickerOpen ? (
               <InshellWalletPicker
                 connectors={availableConnectors}
@@ -7056,103 +7155,6 @@ export default function AuctionCanvas({
           </>
         )}
       </div>
-      {mintReview && effectiveTxState === "idle" && (
-        <div
-          className="dotfield__mint-review"
-          ref={mintReviewRef}
-          aria-live="polite"
-        >
-          <div className="dotfield__mint-review-title">
-            $PATH mint
-          </div>
-          <div className="dotfield__mint-review-subtitle">
-            Review the $PATH mint before opening your wallet.
-          </div>
-          <div className="dotfield__mint-review-row">
-            <span>network</span>
-            <strong>{environmentLabel}</strong>
-          </div>
-          <div className="dotfield__mint-review-row">
-            <span>chain</span>
-            <strong>{targetChainLabel}</strong>
-          </div>
-          <div className="dotfield__mint-review-row">
-            <span>chain id</span>
-            <strong>{mintReviewChainIdLabel}</strong>
-          </div>
-          <div className="dotfield__mint-review-row">
-            <span>currency</span>
-            <strong>{currencyLabel}</strong>
-          </div>
-          <div className="dotfield__mint-review-row">
-            <span>contract</span>
-            <strong>
-              {mintReviewContractHref ? (
-                <a
-                  className="dotfield__mint-review-link"
-                  href={mintReviewContractHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {shortAddr(auctionAddress)} ↗
-                </a>
-              ) : (
-                <>{shortAddr(auctionAddress)}</>
-              )}
-            </strong>
-          </div>
-          <div className="dotfield__mint-review-row">
-            <span>function</span>
-            <strong>bid(uint256 maxPrice)</strong>
-          </div>
-          <div className="dotfield__mint-review-row">
-            <span>current ask</span>
-            <strong>{mintReviewCurrentAskLabel ?? mintReview.priceLabel} {mintReview.symbol}</strong>
-          </div>
-          <div className="dotfield__mint-review-row">
-            <span>ETH sent</span>
-            <strong>{mintReviewTxValueLabel ?? mintReview.txValueLabel} {mintReview.nativePayment ? mintReview.symbol : "ETH"}</strong>
-          </div>
-          <div className="dotfield__mint-review-row">
-            <span>max price</span>
-            <strong>{mintReviewMaxPriceLabel ?? mintReview.maxPriceLabel} {mintReview.symbol}</strong>
-          </div>
-          <div className="dotfield__mint-review-row">
-            <span>approval</span>
-            <strong>{mintReview.requiresApproval ? `${mintReview.symbol} approval first` : "none"}</strong>
-          </div>
-          <div className="dotfield__mint-review-row">
-            <span>network gas</span>
-            <strong>shown in wallet</strong>
-          </div>
-          <div className="dotfield__mint-review-note">
-            {mintReview.requiresApproval
-              ? (
-                <>
-                  wallet opens next.
-                  <br />
-                  wallet step 1 approves {mintReview.symbol}.
-                  <br />
-                  wallet step 2 mints $PATH.
-                </>
-              )
-              : (
-                <>
-                  wallet opens next.
-                </>
-              )}
-            <br />
-            <a
-              className="dotfield__mint-review-link"
-              href="/verify"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              verify contracts ↗
-            </a>
-          </div>
-        </div>
-      )}
       {mintProof && !mintReview && (
         <div className="dotfield__mint-proof" aria-live="polite">
           <button

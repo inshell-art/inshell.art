@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "2ea66b970d0e447a9bf53f421b75808a9e8679c7897789a7e29228d89d514685",
+  "sourceTreeSha256": "35f61ad5cd22a00083f51c7c557bcd216fd0a234c46a4b86f5335f90e046002d",
   "groups": [
     {
       "id": "public-docs",
@@ -57,7 +57,7 @@
       "title": "Home, PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "4dcbc9b35f11ebcce4638635a8829a251eacefefb6a3fabfc03151a8627a1360",
+      "groupSha256": "b3d40f0388fd3bd35524ff03369fcc8dc10ff9e247b8c0233f70979c5b373bbe",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -91,8 +91,8 @@
         },
         {
           "path": "apps/home/src/components/AuctionCanvas.tsx",
-          "byteLength": 273807,
-          "sha256": "d88a4db22e44a06c04f089972aa8a1aad37b111e418c2d71dfc25d8f4a0321be"
+          "byteLength": 274705,
+          "sha256": "bd78829ecb1a08d192669a5e898b8a66be509c5d6f6086427c91fd0ac26c5e40"
         },
         {
           "path": "apps/home/src/components/ColorFontPage.tsx",
@@ -216,8 +216,8 @@
         },
         {
           "path": "apps/home/src/main.css",
-          "byteLength": 102886,
-          "sha256": "d86cd68ae6b76fd2de9777763412ba95ed66543d276f13f1d414be9392d71811"
+          "byteLength": 103007,
+          "sha256": "7a98c414abb2d146f061aa7a429ac92a8b2209a69199d0a3bfcfd5a2f78d304d"
         },
         {
           "path": "apps/home/src/main.tsx",

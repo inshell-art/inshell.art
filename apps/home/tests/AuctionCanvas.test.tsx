@@ -284,6 +284,14 @@ async function clickMintThenSign() {
   });
 }
 
+function expectCtaAnchoredReview(review: Element | null) {
+  expect(review).toBeTruthy();
+  const anchor = review?.parentElement;
+  expect(anchor).toHaveClass("dotfield__cta-anchor");
+  expect(anchor?.querySelector(".dotfield__mint")).toBeTruthy();
+  expect(anchor?.parentElement).toHaveClass("dotfield__cta-stack");
+}
+
 describe("AuctionCanvas", () => {
   beforeEach(() => {
     clearPathMintReturnRecords(window.localStorage);
@@ -2460,7 +2468,7 @@ describe("AuctionCanvas", () => {
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     await clickMintForReview();
     const review = screen.getByText("$PATH mint", { exact: true }).closest(".dotfield__mint-review");
-    expect(review).toBeTruthy();
+    expectCtaAnchoredReview(review);
     expect(
       within(review as HTMLElement).getByText(/Review the \$PATH mint/i)
     ).toBeTruthy();
@@ -2516,7 +2524,7 @@ describe("AuctionCanvas", () => {
     await clickMintForReview();
 
     const review = screen.getByText("$PATH mint", { exact: true }).closest(".dotfield__mint-review");
-    expect(review).toBeTruthy();
+    expectCtaAnchoredReview(review);
     expect(within(review as HTMLElement).getByText(/current ask/i)).toBeTruthy();
     expect(within(review as HTMLElement).getAllByText(/ETH sent/i).length).toBeGreaterThan(0);
     expect(within(review as HTMLElement).getByText(/max price/i)).toBeTruthy();
@@ -2670,7 +2678,7 @@ describe("AuctionCanvas", () => {
       render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
       await clickMintForReview();
       const review = screen.getByText("$PATH mint", { exact: true }).closest(".dotfield__mint-review");
-      expect(review).toBeTruthy();
+      expectCtaAnchoredReview(review);
       const rows = Array.from(
         (review as HTMLElement).querySelectorAll(".dotfield__mint-review-row")
       );
