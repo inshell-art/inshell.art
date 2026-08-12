@@ -11,14 +11,14 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "05b82a2aa047da5a2636b158d15f4d04eab7de4698dfef9e80b947ff240b0058",
+  "sourceTreeSha256": "b5d015292c70dd8d48b05c86b1b72dd639891d2c06a5abaa805d9e248ceb37a7",
   "groups": [
     {
       "id": "public-docs",
       "title": "Public documentation sources",
       "owner": "inshell.art docs",
       "reason": "Human articles, Agent-readable content, authority maps, and machine-handoff selection.",
-      "groupSha256": "8ca61f79ef3f3f6767f10176bf9dcd9829688dce98708759f2eb3c26e0c81282",
+      "groupSha256": "74c78a97516dda1597814aaa7fd057444c3c926d79ce38e37485adbb4855fb46",
       "files": [
         {
           "path": "apps/home/src/content/AGENTS.md",
@@ -37,8 +37,8 @@
         },
         {
           "path": "apps/home/src/content/docs.ts",
-          "byteLength": 113036,
-          "sha256": "8ffe7f9fa6cdbe359fed991e8c14c3f4294fefee3cf439d93e0ed930643d2239"
+          "byteLength": 112975,
+          "sha256": "b7aec3219d3621589f6d9d0a982eabbc13264cac398e0a798252ab4095d147f7"
         },
         {
           "path": "apps/home/src/content/thought-machine-handoff.ts",

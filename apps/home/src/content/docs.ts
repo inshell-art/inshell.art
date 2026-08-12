@@ -171,8 +171,7 @@ export const DOCS_SOURCE: DocsSource = {
         label: "The inward direction",
         mode: "field",
         figureText: [
-          "          a body, face, or head; a name, honor, reputation, role, or",
-          "          social posture...",
+          "          a body, face, or head; a name, honor, reputation, role...",
           "┌─ SHELL ─────────────────────────────┬─────────────────────────────────────┐",
           "│                                     │ IN                                  │",
           "│                                     ↓                                     │",
@@ -184,7 +183,7 @@ export const DOCS_SOURCE: DocsSource = {
           {
             title: "Shell",
             detail:
-              "a body, face, or head; a name, honor, reputation, role, or social posture...",
+              "a body, face, or head; a name, honor, reputation, role...",
           },
           { title: "In", detail: "Inspect what forms the self" },
         ],

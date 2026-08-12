@@ -40,11 +40,11 @@
       "id": "inshell.inward-direction",
       "label": "The inward direction",
       "mode": "field",
-      "figureText": "          a body, face, or head; a name, honor, reputation, role, or\n          social posture...\n┌─ SHELL ─────────────────────────────┬─────────────────────────────────────┐\n│                                     │ IN                                  │\n│                                     ↓                                     │\n│                          Inspect what forms the                           │\n│                                   SELF                                    │\n└───────────────────────────────────────────────────────────────────────────┘",
+      "figureText": "          a body, face, or head; a name, honor, reputation, role...\n┌─ SHELL ─────────────────────────────┬─────────────────────────────────────┐\n│                                     │ IN                                  │\n│                                     ↓                                     │\n│                          Inspect what forms the                           │\n│                                   SELF                                    │\n└───────────────────────────────────────────────────────────────────────────┘",
       "items": [
         {
           "title": "Shell",
-          "detail": "a body, face, or head; a name, honor, reputation, role, or social posture..."
+          "detail": "a body, face, or head; a name, honor, reputation, role..."
         },
         {
           "title": "In",
@@ -61,7 +61,7 @@
             "sourceItem": 0,
             "sourcePart": "item",
             "term": "Shell",
-            "annotation": "a body, face, or head; a name, honor, reputation, role, or social posture...",
+            "annotation": "a body, face, or head; a name, honor, reputation, role...",
             "role": "surface"
           },
           {

@@ -1104,7 +1104,7 @@ describe("DocsPage character figures", () => {
       ?.sections?.find(({ id }) => id === "docs-path-capacity")?.figure;
 
     expect(inshellFigure).toMatch(
-      /A BODY, FACE, OR HEAD[\s\S]*SOCIAL POSTURE\.\.\.[\s\S]*SHELL[\s\S]*IN[\s\S]*SELF/i,
+      /A BODY, FACE, OR HEAD[\s\S]*REPUTATION, ROLE\.\.\.[\s\S]*SHELL[\s\S]*IN[\s\S]*SELF/i,
     );
     expect(inshellFigure).not.toMatch(/BOUNDARY/);
     expect(inshellPracticeFigure?.figureText).toMatch(
@@ -1440,7 +1440,7 @@ describe("DocsPage character figures", () => {
       ":scope > .docs-figure__field-inward-note",
     );
     expect(inwardNote).toHaveTextContent(
-      /a body, face, or head; a name, honor, reputation, role, or social posture\.\.\./i,
+      /a body, face, or head; a name, honor, reputation, role\.\.\./i,
     );
     expect(inwardHeading?.nextElementSibling).toBe(inwardNote);
     expect(inwardNote?.nextElementSibling).toHaveClass(
