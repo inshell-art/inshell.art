@@ -1104,7 +1104,7 @@ describe("DocsPage character figures", () => {
       ?.sections?.find(({ id }) => id === "docs-path-capacity")?.figure;
 
     expect(inshellFigure).toMatch(
-      /SHELL[\s\S]*SURFACE[\s\S]*IN[\s\S]*SELF/i,
+      /SURFACE[\s\S]*SHELL[\s\S]*IN[\s\S]*SELF/i,
     );
     expect(inshellFigure).toMatch(
       /REAL AND OFTEN NECESSARY[\s\S]*VISIBLE · OPERABLE · LEGIBLE/i,
@@ -1417,9 +1417,7 @@ describe("DocsPage character figures", () => {
       .getByRole("figure", { name: "How practice relates to truth" })
       .querySelector("[data-figure-shape='boxed-chain']");
 
-    expect(inward).toHaveTextContent(
-      /SHELL[\s\S]*Real and often necessary[\s\S]*┌[─\s]*┬[─\s]*┐/i,
-    );
+    expect(inward).toHaveTextContent(/SHELL[\s\S]*Real and often necessary/i);
     expect(inward).toHaveTextContent(/└─+┘/);
     expect(
       inward?.querySelector(".docs-figure__frame-cap--junction"),
@@ -1432,23 +1430,28 @@ describe("DocsPage character figures", () => {
     const inwardFrame = inward?.querySelector(
       ":scope > .docs-figure__character-frame",
     );
-    const inwardLabelRow = inwardFrame?.querySelector(
-      ":scope > .docs-figure__frame-label-row",
-    );
-    const inwardNote = inwardLabelRow?.querySelector(
-      ":scope > .docs-figure__field-inward-note",
-    );
     const inwardCap = inwardFrame?.querySelector(
       ":scope > .docs-figure__frame-cap--junction",
+    );
+    const inwardLeftCap = inwardCap?.querySelector(
+      ":scope > .docs-figure__frame-cap-half--left",
+    );
+    const inwardHeading = inwardLeftCap?.querySelector(
+      ":scope > .docs-figure__frame-heading",
+    );
+    const inwardNote = inwardLeftCap?.querySelector(
+      ":scope > .docs-figure__field-inward-note",
     );
     expect(inwardNote).toHaveTextContent(
       /Real and often necessary · Surface: visible · operable · legible\./i,
     );
-    expect(
-      inwardLabelRow?.querySelector(":scope > .docs-figure__frame-heading")
-        ?.nextElementSibling,
-    ).toBe(inwardNote);
-    expect(inwardLabelRow?.nextElementSibling).toBe(inwardCap);
+    expect(inwardHeading?.nextElementSibling).toBe(inwardNote);
+    expect(inwardNote?.nextElementSibling).toHaveClass(
+      "docs-figure__frame-rule",
+    );
+    expect(inwardLeftCap).toHaveTextContent(/┌─\s*SHELL[\s\S]*─/i);
+    expect(inwardCap).toHaveTextContent(/┬[\s\S]*┐/);
+    expect(inwardNote?.parentElement).toBe(inwardLeftCap);
     expect(
       inwardFrame?.querySelector(".docs-figure__frame-content"),
     ).not.toHaveTextContent(/Real and often necessary/i);

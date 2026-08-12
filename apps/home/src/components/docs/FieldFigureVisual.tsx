@@ -115,19 +115,21 @@ function CharacterBox({
       className={`docs-figure__character-frame${className ? ` ${className}` : ""}`}
     >
       {capJunction ? (
-        <>
-          <div className="docs-figure__frame-label-row">
+        <div className="docs-figure__frame-cap docs-figure__frame-cap--junction">
+          <span className="docs-figure__frame-cap-half docs-figure__frame-cap-half--left">
+            <Glyph className="docs-figure__frame-character">┌─ </Glyph>
             <span className="docs-figure__frame-heading">{heading}</span>
             {capAnnotation}
-          </div>
-          <div className="docs-figure__frame-cap docs-figure__frame-cap--junction">
-            <Glyph className="docs-figure__frame-character">┌</Glyph>
-            <Glyph className="docs-figure__frame-rule">{HORIZONTAL_RAIL}</Glyph>
-            <Glyph className="docs-figure__frame-character">┬</Glyph>
+            <Glyph className="docs-figure__frame-rule">
+              {` ${HORIZONTAL_RAIL}`}
+            </Glyph>
+          </span>
+          <Glyph className="docs-figure__frame-character">┬</Glyph>
+          <span className="docs-figure__frame-cap-half docs-figure__frame-cap-half--right">
             <Glyph className="docs-figure__frame-rule">{HORIZONTAL_RAIL}</Glyph>
             <Glyph className="docs-figure__frame-character">┐</Glyph>
-          </div>
-        </>
+          </span>
+        </div>
       ) : (
         <div className="docs-figure__frame-cap">
           <Glyph className="docs-figure__frame-character">┌──</Glyph>

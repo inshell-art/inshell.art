@@ -11,14 +11,14 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "33eddbb42390d7b2a2ec7303be6711f22eaec61b3d11f6a85ef4a20dd7761fec",
+  "sourceTreeSha256": "ca434b7fb668664b78cbebdb3eb0a885ca6fb95e5310f1b69bf651338ae7f496",
   "groups": [
     {
       "id": "public-docs",
       "title": "Public documentation sources",
       "owner": "inshell.art docs",
       "reason": "Human articles, Agent-readable content, authority maps, and machine-handoff selection.",
-      "groupSha256": "acd76a658a2fa1e850fe98e046cb37e93d34585c9dee3efb7b8ddd11ee429e05",
+      "groupSha256": "fdeeb05bffbd77a973c5c9f8c234e6226d27e0a4228c3ef64de033d5e81b62fd",
       "files": [
         {
           "path": "apps/home/src/content/AGENTS.md",
@@ -37,8 +37,8 @@
         },
         {
           "path": "apps/home/src/content/docs.ts",
-          "byteLength": 113011,
-          "sha256": "6e329e2ada57c2853072bf1c1f29f9cd98986e5b02aaaa40d50f4b15f6d9bb1f"
+          "byteLength": 112997,
+          "sha256": "430134d946397a7854dbeda3e78e7353f83ecd9ac266806705a394fa44376cf6"
         },
         {
           "path": "apps/home/src/content/thought-machine-handoff.ts",
@@ -67,7 +67,7 @@
       "title": "Home, PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "796d7dae58cb146798d507c9cb46065d340b1360b6c0af7f585894c44b8c8e5e",
+      "groupSha256": "65a29cf2831ed1049198693954ecb46dfa36bc720966333d79e41fd16603a7ba",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -181,8 +181,8 @@
         },
         {
           "path": "apps/home/src/components/docs/FieldFigureVisual.tsx",
-          "byteLength": 21389,
-          "sha256": "1edad1a2989de3904e6ae52f53bc0fd4aa5a021cf9a48fef2eb9ecbec2908b0f"
+          "byteLength": 21543,
+          "sha256": "c9d63955d262ab445de59ca170ab2abb4b75bce478a4b3cea7acf088773283dd"
         },
         {
           "path": "apps/home/src/components/docs/FlowFigureVisual.tsx",
@@ -201,8 +201,8 @@
         },
         {
           "path": "apps/home/src/components/docs/figures.css",
-          "byteLength": 26720,
-          "sha256": "b67835c0d9e2129ce88c86a5d5c072ea8e1bd66f2a5d0f5da60925cfd4db9714"
+          "byteLength": 27451,
+          "sha256": "5d88b7be6d3c7b17e02eb581eb323ebb4678fd62da5af0f2442aa3cdc6f25ceb"
         },
         {
           "path": "apps/home/src/config/publicLaunch.ts",

@@ -44,6 +44,7 @@
   --docs-figure-field-padding-block: clamp(6px, 1.6vw, 14px);
   --docs-figure-fork-inline-size: 58%;
   --docs-figure-mobile-fork-inline-size: 100%;
+  --docs-figure-half-container-inline-size: 50cqi;
   --docs-figure-term-font-size: var(--docs-figure-scale-field);
   --docs-figure-title-font-size: var(--docs-figure-scale-structure);
   --docs-figure-annotation-font-size: var(--docs-figure-scale-note);
@@ -253,18 +254,45 @@
 }
 
 .docs-figure__frame-cap--junction {
+  container-type: inline-size;
   grid-template-columns:
-    max-content minmax(var(--docs-figure-rule-min-width), 1fr) max-content
-    minmax(var(--docs-figure-rule-min-width), 1fr) max-content;
+    minmax(0, 1fr) max-content minmax(0, 1fr);
 }
 
-.docs-figure__frame-label-row {
+.docs-figure__frame-cap-half {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  gap: var(--docs-figure-item-gap);
   align-items: end;
   min-width: 0;
-  padding-inline: var(--docs-figure-frame-padding-inline);
+}
+
+.docs-figure__frame-cap-half--left {
+  grid-template-columns:
+    var(--docs-figure-frame-padding-inline) minmax(0, max-content)
+    minmax(var(--docs-figure-rule-min-width), 1fr);
+  grid-template-rows: minmax(0, 1fr) max-content;
+}
+
+.docs-figure__frame-cap-half--left > .docs-figure__frame-character,
+.docs-figure__frame-cap-half--left > .docs-figure__frame-heading {
+  grid-row: 1 / 3;
+  align-self: end;
+}
+
+.docs-figure__frame-cap-half--left > .docs-figure__field-inward-note {
+  grid-column: 3;
+  grid-row: 1;
+  align-self: end;
+  inline-size: calc(100% + var(--docs-figure-half-container-inline-size));
+  padding-inline-start: var(--docs-figure-item-gap);
+}
+
+.docs-figure__frame-cap-half--left > .docs-figure__frame-rule {
+  grid-column: 3;
+  grid-row: 2;
+}
+
+.docs-figure__frame-cap-half--right {
+  grid-template-columns: minmax(var(--docs-figure-rule-min-width), 1fr) max-content;
 }
 
 .docs-figure__frame-character {

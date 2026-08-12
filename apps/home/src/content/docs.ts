@@ -171,8 +171,8 @@ export const DOCS_SOURCE: DocsSource = {
         label: "The inward direction",
         mode: "field",
         figureText: [
-          "   SHELL  Real and often necessary · Surface: visible · operable · legible.",
-          "┌─────────────────────────────────────┬─────────────────────────────────────┐",
+          "          Real and often necessary · Surface: visible · operable · legible.",
+          "┌─ SHELL ─────────────────────────────┬─────────────────────────────────────┐",
           "│                                     │ IN                                  │",
           "│                                     ↓                                     │",
           "│                          Inspect what forms the                           │",
