@@ -286,6 +286,11 @@ const allowedViteFsRoots = [
   path.join(root, "node_modules"),
   path.join(root, "packages"),
 ].map((value) => value.replaceAll("\\", "/").toLowerCase());
+const allowedViteFsFiles = [
+  path.join(root, "apps", "thought", "src", "thought-v2-contract-release.generated.ts"),
+  path.join(root, "apps", "thought", "src", "thought-v2-production-deployment.ts"),
+  path.join(root, "apps", "thought", "production", "deployment-lock.json"),
+].map((value) => value.replaceAll("\\", "/").toLowerCase());
 
 const isAllowedViteFsPath = (decoded) => {
   const marker = decoded.indexOf("/@fs/");
@@ -293,6 +298,7 @@ const isAllowedViteFsPath = (decoded) => {
   const requested = path.resolve("/", decoded.slice(marker + "/@fs/".length))
     .replaceAll("\\", "/")
     .toLowerCase();
+  if (allowedViteFsFiles.includes(requested)) return true;
   return allowedViteFsRoots.some(
     (allowed) => requested === allowed || requested.startsWith(`${allowed}/`),
   );

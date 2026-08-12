@@ -73,6 +73,10 @@ test("LAN UI requires a generated bearer cookie and denies private Vite paths", 
   assert.match(source, /decoded = decoded\.replaceAll\("\\\\", "\/"\)\.toLowerCase\(\)/);
   assert.match(source, /path\.join\(root, "node_modules"\)/);
   assert.match(source, /path\.join\(root, "packages"\)/);
+  assert.match(source, /thought-v2-contract-release\.generated\.ts/);
+  assert.match(source, /thought-v2-production-deployment\.ts/);
+  assert.match(source, /"production", "deployment-lock\.json"/);
+  assert.match(source, /if \(allowedViteFsFiles\.includes\(requested\)\) return true/);
   assert.match(source, /!isAllowedViteFsPath\(decoded\)/);
   assert.match(source, /\.dev\\\.vars/);
   assert.match(source, /inbox\|memo\|local_tasks/);
