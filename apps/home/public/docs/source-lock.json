@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "6aef95bac31c5faea6ed0a473b8e4b01182e7304f931643a6aded3c6f3dd81a5",
+  "sourceTreeSha256": "b73cfb34d02f3c924e949421dfa74b6706566f124d499fe81cd0dcbf83275997",
   "groups": [
     {
       "id": "public-docs",
@@ -57,7 +57,7 @@
       "title": "Home, PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "0f6f7c730e805d20c2e3c2a7b26896a7ecade59d8077c5125270696c35be05a5",
+      "groupSha256": "724536183993650db9023dc4c7902b527760a1aec5d1eee4e06a4e70fb65e7f4",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -66,8 +66,8 @@
         },
         {
           "path": "apps/home/package.json",
-          "byteLength": 3878,
-          "sha256": "94bdbc4b1c085ef8fc83f826f8557ef05ac872bb47f526ce87fa1e86b2dede83"
+          "byteLength": 3932,
+          "sha256": "274e78cba1a48e4d957fd501c006c15fd48f6ca519b52cb48d5b80d54b287487"
         },
         {
           "path": "apps/home/src/App.tsx",
@@ -569,12 +569,12 @@
       "title": "Wallet boundary",
       "owner": "inshell.art shared App infrastructure",
       "reason": "Public docs distinguish passive wallet reads from signatures and transactions.",
-      "groupSha256": "0c7fc45ba3989a7dc0040b2474d56c8e0891174849837e55a4ad3bc9f48b50ae",
+      "groupSha256": "26a4f401fa2fac430c4023068492dc7a49cc43e0248fd381d0263f94125b099b",
       "files": [
         {
           "path": "packages/inshell-shell/src/index.tsx",
-          "byteLength": 11059,
-          "sha256": "2227fd4311bfe8930a6feb44e36712eb6c4b2612593958bbce92f65bb052291f"
+          "byteLength": 11307,
+          "sha256": "7fc366c8776699b0357149e0c05da43acbb8a4f0a6da2f96cdb46d14e56252db"
         },
         {
           "path": "packages/inshell-shell/src/links.ts",
@@ -588,8 +588,8 @@
         },
         {
           "path": "packages/inshell-shell/src/topbar.css",
-          "byteLength": 7927,
-          "sha256": "f67d5a859d3dbc5701bfca34692f3f909a5ace34617dd4a1a6aa1b40a7b7d94e"
+          "byteLength": 8089,
+          "sha256": "be2f25af62c3f3c9bc5c075e2a0dbe41f5e0763a833e0cdead83e53c2f734cf2"
         },
         {
           "path": "packages/inshell-shell/src/wallet-events.ts",
@@ -598,13 +598,13 @@
         },
         {
           "path": "packages/wallet/src/evm.ts",
-          "byteLength": 15246,
-          "sha256": "64b22d07e6f75783829ef0b2be0bf78f860b9444c26439ccab1baed98fe65ac7"
+          "byteLength": 15613,
+          "sha256": "e48d81100ae3ed3a3880d0921d3ebaff7dcfe322fcde88c9979d122ea19decaa"
         },
         {
           "path": "packages/wallet/src/index.tsx",
-          "byteLength": 28635,
-          "sha256": "8856338a007460f3b1739d437aac3a917bb9d22d516d354f078ca5fc3f1f8616"
+          "byteLength": 28920,
+          "sha256": "d6471fc980e3f2f3383259f84dfe8811ecc8e29512c93cbffa9e5f510ec6a362"
         }
       ]
     },

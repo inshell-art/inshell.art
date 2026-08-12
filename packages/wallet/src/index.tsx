@@ -125,6 +125,7 @@ type WalletContextValue = {
   disconnect: () => Promise<void>;
   disconnectAsync: () => Promise<void>;
   connectors: WalletConnector[];
+  refreshConnectors: () => Promise<void>;
   connectStatus: string;
   connectError: unknown;
   requestAccounts: () => Promise<string[] | null>;
@@ -291,6 +292,11 @@ export function WalletProvider({ children }: WalletProviderProps) {
   const [connectStatus, setConnectStatus] = useState("idle");
   const [connectError, setConnectError] = useState<unknown>(null);
   const walletConnectRestoreRef = useRef<Promise<void> | null>(null);
+
+  const refreshConnectors = useCallback(async () => {
+    const discovered = await discoverEip6963Providers();
+    setEvmProviders((prev) => mergeProviderDetails(prev, discovered));
+  }, []);
 
   useEffect(() => {
     warnMissingWalletConnectProjectId();
@@ -891,6 +897,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
       disconnect,
       disconnectAsync: disconnectEvm,
       connectors,
+      refreshConnectors,
       connectStatus,
       connectError,
       requestAccounts,
@@ -934,6 +941,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
       evmProviders,
       ensureWalletConnected,
       refreshWallet,
+      refreshConnectors,
       requestAccounts,
       watchAsset,
     ]

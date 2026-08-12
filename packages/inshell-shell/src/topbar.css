@@ -325,4 +325,9 @@
     max-width: none;
     width: auto;
   }
+
+  .inshell-topbar__wallet-surface--with-note > .inshell-wallet-modal,
+  .inshell-topbar__wallet-surface--with-note > .inshell-wallet-picker {
+    top: auto;
+  }
 }

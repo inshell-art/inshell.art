@@ -2,6 +2,9 @@ import React from "react";
 import { beforeEach, describe, expect, jest, test } from "@jest/globals";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { cwd } from "node:process";
 
 const mockUseWallet = jest.fn();
 
@@ -40,6 +43,7 @@ function walletState(overrides: Record<string, unknown> = {}) {
     evm: { provider: null },
     isConnected: true,
     isConnecting: false,
+    refreshConnectors: jest.fn().mockResolvedValue(undefined),
     refreshWallet: jest.fn(),
     ...overrides,
   };
@@ -130,6 +134,37 @@ describe("InshellTopBar", () => {
     fireEvent.click(walletControl);
 
     expect(screen.getByRole("menu", { name: "Wallet options" })).toBeTruthy();
+  });
+
+  test("refreshes injected wallets whenever the disconnected picker opens", () => {
+    const refreshConnectors = jest.fn().mockResolvedValue(undefined);
+    mockUseWallet.mockReturnValue(
+      walletState({
+        address: null,
+        chain: null,
+        chainId: null,
+        isConnected: false,
+        connectors: [{ id: "metamask", name: "MetaMask" }],
+        refreshConnectors,
+      })
+    );
+
+    render(<InshellTopBar />);
+    fireEvent.click(screen.getByRole("button", { name: "connect wallet" }));
+
+    expect(refreshConnectors).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("menu", { name: "Wallet options" })).toBeTruthy();
+  });
+
+  test("keeps the noted wallet picker inside the mobile viewport", () => {
+    const css = readFileSync(
+      resolve(cwd(), "../../packages/inshell-shell/src/topbar.css"),
+      "utf8"
+    );
+
+    expect(css).toMatch(
+      /@media \(max-width: 760px\)[\s\S]*\.inshell-topbar__wallet-surface--with-note > \.inshell-wallet-picker[\s\S]*top:\s*auto;/
+    );
   });
 
   test("opens the wallet picker when an app flow requests the global wallet", () => {

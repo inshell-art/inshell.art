@@ -224,6 +224,7 @@ export function InshellTopBar({
     connectError,
     isConnected,
     isConnecting,
+    refreshConnectors,
   } = useWallet();
   const [open, setOpen] = useState(false);
   const [notice, setNotice] = useState("");
@@ -270,12 +271,15 @@ export function InshellTopBar({
   }, [open]);
 
   useEffect(() => {
-    const openWallet = () => setOpen(true);
+    const openWallet = () => {
+      setOpen(true);
+      if (!isConnected) void refreshConnectors();
+    };
     window.addEventListener(INSHELL_OPEN_WALLET_EVENT, openWallet);
     return () => {
       window.removeEventListener(INSHELL_OPEN_WALLET_EVENT, openWallet);
     };
-  }, []);
+  }, [isConnected, refreshConnectors]);
 
   return (
     <header className={`inshell-topbar${compact ? " inshell-topbar--compact" : ""}`} ref={barRef}>
@@ -321,7 +325,11 @@ export function InshellTopBar({
           <button
             className="inshell-topbar__wallet"
             type="button"
-            onClick={() => setOpen((value) => !value)}
+            onClick={() => {
+              const nextOpen = !open;
+              setOpen(nextOpen);
+              if (nextOpen && !isConnected) void refreshConnectors();
+            }}
             aria-label={isConnected && addressLabel ? `wallet ${addressLabel}` : "connect wallet"}
             aria-expanded={open}
             aria-haspopup="dialog"
