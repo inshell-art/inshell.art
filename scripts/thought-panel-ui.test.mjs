@@ -447,6 +447,21 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
     /const INSHELL_HOME_URL = INSHELL_LINKS\.home;[\s\S]*?const GALLERY_URL =[\s\S]*?INSHELL_LINKS\.works;[\s\S]*?return INSHELL_LINKS\.thought;/,
     "the verified tagged UI keeps the current same-origin navigation policy",
   );
+  assert.match(
+    restoredMain,
+    /if \(IS_GALLERY_PAGE && \(!IS_GALLERY_PATH \|\| IS_GALLERY_HOST\)\) \{\s*window\.location\.replace\(galleryUrl\(GALLERY_TARGET_TOKEN_ID\)\)/,
+    "only same-origin canonical gallery paths bypass legacy gallery redirects",
+  );
+  assert.match(
+    restoredMain,
+    /const initFrontpage = async \(\) => \{[\s\S]*?if \(IS_GALLERY_PAGE\) \{[\s\S]*?galleryPage\.classList\.remove\("is-hidden"\);[\s\S]*?await loadThoughtGallery\(\);[\s\S]*?return;[\s\S]*?if \(IS_THOUGHT_PAGE\)/,
+    "the canonical same-origin gallery renders and loads its chain records",
+  );
+  assert.doesNotMatch(
+    restoredMain,
+    /void initFrontpage\(\);[\s\S]*?if \(IS_GALLERY_PAGE\)/,
+    "the gallery render branch must stay inside initFrontpage",
+  );
   assert.doesNotMatch(restoredMain, /const IS_CLI_SURFACE/);
   assert.match(restoredStyle, /\.frontpage-side\s*\{[\s\S]*?display:\s*none;/);
   assert.match(restoredStyle, /\.thought-panel\s*\{[\s\S]*?display:\s*flex;/);

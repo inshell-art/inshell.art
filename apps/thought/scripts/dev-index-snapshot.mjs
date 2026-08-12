@@ -56,6 +56,33 @@ const defaultThoughtDetailBaseUrl = () => {
   return INSHELL_LINKS.thought;
 };`;
 
+const TAGGED_GALLERY_REDIRECT = `  if (IS_GALLERY_PAGE) {
+    window.location.replace(galleryUrl(GALLERY_TARGET_TOKEN_ID));
+    return;
+  }`;
+
+const CURRENT_GALLERY_REDIRECT = `  if (IS_GALLERY_PAGE && (!IS_GALLERY_PATH || IS_GALLERY_HOST)) {
+    window.location.replace(galleryUrl(GALLERY_TARGET_TOKEN_ID));
+    return;
+  }`;
+
+const CURRENT_GALLERY_RENDER = `  if (IS_GALLERY_PAGE) {
+    frontpageStage.classList.add("is-hidden");
+    galleryPage.classList.remove("is-hidden");
+    thoughtPage.classList.add("is-hidden");
+    agentDemoPage.classList.add("is-hidden");
+    pluginPage.classList.add("is-hidden");
+    colorFontPage.classList.add("is-hidden");
+    verifyPage.classList.add("is-hidden");
+    await loadThoughtGallery();
+    return;
+  }
+
+`;
+
+const TAGGED_THOUGHT_RENDER_MARKER = `  if (IS_THOUGHT_PAGE) {
+    frontpageStage.classList.add("is-hidden");`;
+
 const POST_SNAPSHOT_SURFACE_ROUTER = `      const requestedSurface = params.get("surface");
       const useDevAgentDefault =
         requestedSurface === null &&
@@ -127,8 +154,14 @@ function replaceExactCount(source, label, from, to, expectedCount = 1) {
 }
 
 function restoreMainSnapshot(source) {
-  let restored = replaceExactCount(
+  let currentSource = replaceExactCount(
     source,
+    "current canonical gallery render",
+    CURRENT_GALLERY_RENDER,
+    "",
+  );
+  let restored = replaceExactCount(
+    currentSource,
     "CLI surface symbol",
     "IS_CLI_SURFACE",
     "IS_CLI_DEBUG",
@@ -230,6 +263,11 @@ function restoreMainSnapshot(source) {
       "current same-origin navigation scope",
       CURRENT_NAVIGATION_SCOPE,
       TAGGED_NAVIGATION_SCOPE,
+    ],
+    [
+      "current canonical gallery route",
+      CURRENT_GALLERY_REDIRECT,
+      TAGGED_GALLERY_REDIRECT,
     ],
   ];
   for (const [label, from, to] of replacements) {
@@ -406,11 +444,23 @@ export function loadThoughtDevSnapshotFile(workspaceRoot, fileKey) {
 
   // Keep the tagged visual/runtime snapshot byte-verified, then layer only the
   // current same-origin navigation policy required by local and LAN runtimes.
-  return replaceExactCount(
+  const currentNavigationScope = replaceExactCount(
     verifiedSnapshot,
     "tagged same-origin navigation scope",
     TAGGED_NAVIGATION_SCOPE,
     CURRENT_NAVIGATION_SCOPE,
+  );
+  const currentGalleryRedirect = replaceExactCount(
+    currentNavigationScope,
+    "tagged gallery redirect",
+    TAGGED_GALLERY_REDIRECT,
+    CURRENT_GALLERY_REDIRECT,
+  );
+  return replaceExactCount(
+    currentGalleryRedirect,
+    "tagged thought render marker",
+    TAGGED_THOUGHT_RENDER_MARKER,
+    `${CURRENT_GALLERY_RENDER}${TAGGED_THOUGHT_RENDER_MARKER}`,
   );
 }
 

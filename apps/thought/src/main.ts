@@ -23239,7 +23239,7 @@ const initFrontpage = async () => {
   configurePreviewWatermark();
   configureReportBugLink();
   configureGalleryLink();
-  if (IS_GALLERY_PAGE) {
+  if (IS_GALLERY_PAGE && (!IS_GALLERY_PATH || IS_GALLERY_HOST)) {
     window.location.replace(galleryUrl(GALLERY_TARGET_TOKEN_ID));
     return;
   }
@@ -23304,6 +23304,18 @@ const initFrontpage = async () => {
     verifyPage.classList.add("is-hidden");
     pluginPage.classList.remove("is-hidden");
     renderPluginPage();
+    return;
+  }
+
+  if (IS_GALLERY_PAGE) {
+    frontpageStage.classList.add("is-hidden");
+    galleryPage.classList.remove("is-hidden");
+    thoughtPage.classList.add("is-hidden");
+    agentDemoPage.classList.add("is-hidden");
+    pluginPage.classList.add("is-hidden");
+    colorFontPage.classList.add("is-hidden");
+    verifyPage.classList.add("is-hidden");
+    await loadThoughtGallery();
     return;
   }
 
