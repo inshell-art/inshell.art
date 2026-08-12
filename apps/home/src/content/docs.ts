@@ -576,14 +576,12 @@ export const DOCS_SOURCE: DocsSource = {
               "Human line · Agent line · Agent/model records ·",
               "specification · renderer · mint anchors",
               "   ↓",
-              "APP CLAIM",
+              "CREATION ATTESTATION",
               "Configured App authority signs one exact claim.",
-              "   ↓",
-              "CONTRACT VALIDATION",
-              "ThoughtNFT validates during minting.",
-              "   ├─ VALID PROOF → APP ATTESTED",
+              "ThoughtNFT validates that claim during minting.",
+              "   ├─ valid proof → APP ATTESTED",
               "   │  Valid proof binds the mint to recorded values.",
-              "   └─ EMPTY PROOF → UNATTESTED",
+              "   └─ empty proof → UNATTESTED",
               "      Empty proof makes the absence explicit.",
             ].join("\n"),
             items: [
@@ -593,12 +591,9 @@ export const DOCS_SOURCE: DocsSource = {
                   "Human line · Agent line · Agent/model records · specification · renderer · mint anchors",
               },
               {
-                title: "App claim",
-                detail: "Configured App authority signs one exact claim.",
-              },
-              {
-                title: "Contract validation",
-                detail: "ThoughtNFT validates during minting.",
+                title: "Creation Attestation",
+                detail:
+                  "Configured App authority signs one exact claim. ThoughtNFT validates that claim during minting.",
               },
               {
                 title: "App Attested",

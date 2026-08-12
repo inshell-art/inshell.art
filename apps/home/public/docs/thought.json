@@ -311,19 +311,15 @@
           "id": "thought.creation-attestation",
           "label": "Creation Attestation",
           "mode": "field",
-          "figureText": "RECORDED VALUES\nHuman line · Agent line · Agent/model records ·\nspecification · renderer · mint anchors\n   ↓\nAPP CLAIM\nConfigured App authority signs one exact claim.\n   ↓\nCONTRACT VALIDATION\nThoughtNFT validates during minting.\n   ├─ VALID PROOF → APP ATTESTED\n   │  Valid proof binds the mint to recorded values.\n   └─ EMPTY PROOF → UNATTESTED\n      Empty proof makes the absence explicit.",
+          "figureText": "RECORDED VALUES\nHuman line · Agent line · Agent/model records ·\nspecification · renderer · mint anchors\n   ↓\nCREATION ATTESTATION\nConfigured App authority signs one exact claim.\nThoughtNFT validates that claim during minting.\n   ├─ valid proof → APP ATTESTED\n   │  Valid proof binds the mint to recorded values.\n   └─ empty proof → UNATTESTED\n      Empty proof makes the absence explicit.",
           "items": [
             {
               "title": "Recorded values",
               "detail": "Human line · Agent line · Agent/model records · specification · renderer · mint anchors"
             },
             {
-              "title": "App claim",
-              "detail": "Configured App authority signs one exact claim."
-            },
-            {
-              "title": "Contract validation",
-              "detail": "ThoughtNFT validates during minting."
+              "title": "Creation Attestation",
+              "detail": "Configured App authority signs one exact claim. ThoughtNFT validates that claim during minting."
             },
             {
               "title": "App Attested",
@@ -348,34 +344,26 @@
                 "role": "record"
               },
               {
-                "id": "app-claim",
+                "id": "creation-attestation",
                 "sourceItem": 1,
                 "sourcePart": "item",
-                "term": "App claim",
-                "annotation": "Configured App authority signs one exact claim.",
-                "role": "action"
-              },
-              {
-                "id": "contract-validation",
-                "sourceItem": 2,
-                "sourcePart": "item",
-                "term": "Contract validation",
-                "annotation": "ThoughtNFT validates during minting.",
+                "term": "Creation Attestation",
+                "annotation": "Configured App authority signs one exact claim. ThoughtNFT validates that claim during minting.",
                 "role": "action"
               },
               {
                 "id": "valid-proof",
-                "term": "VALID PROOF",
+                "term": "valid proof",
                 "role": "operator"
               },
               {
                 "id": "empty-proof",
-                "term": "EMPTY PROOF",
+                "term": "empty proof",
                 "role": "operator"
               },
               {
                 "id": "app-attested",
-                "sourceItem": 3,
+                "sourceItem": 2,
                 "sourcePart": "item",
                 "term": "App Attested",
                 "annotation": "Valid proof binds the mint to recorded values.",
@@ -383,7 +371,7 @@
               },
               {
                 "id": "unattested",
-                "sourceItem": 4,
+                "sourceItem": 3,
                 "sourcePart": "item",
                 "term": "Unattested",
                 "annotation": "Empty proof makes the absence explicit.",
@@ -392,25 +380,18 @@
             ],
             "edges": [
               {
-                "id": "values-to-claim",
+                "id": "values-to-attestation",
                 "from": "recorded-values",
-                "to": "app-claim",
+                "to": "creation-attestation",
                 "glyph": "↓",
-                "label": "Recorded values are bound into one exact App claim."
+                "label": "Recorded values are bound into one Creation Attestation claim that the contract validates during minting."
               },
               {
-                "id": "claim-to-validation",
-                "from": "app-claim",
-                "to": "contract-validation",
-                "glyph": "↓",
-                "label": "The contract validates the App claim during minting."
-              },
-              {
-                "id": "validation-valid-branch",
-                "from": "contract-validation",
+                "id": "attestation-valid-branch",
+                "from": "creation-attestation",
                 "to": "valid-proof",
                 "glyph": "├─",
-                "label": "Contract validation takes the valid-proof branch."
+                "label": "Creation Attestation takes the valid-proof branch."
               },
               {
                 "id": "valid-proof-result",
@@ -420,11 +401,11 @@
                 "label": "A valid proof produces an App Attested result."
               },
               {
-                "id": "validation-empty-branch",
-                "from": "contract-validation",
+                "id": "attestation-empty-branch",
+                "from": "creation-attestation",
                 "to": "empty-proof",
                 "glyph": "└─",
-                "label": "Contract validation takes the empty-proof branch."
+                "label": "Creation Attestation takes the empty-proof branch."
               },
               {
                 "id": "empty-proof-result",

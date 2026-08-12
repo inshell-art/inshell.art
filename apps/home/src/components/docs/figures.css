@@ -514,10 +514,11 @@
 
 .docs-figure__field-fork {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   justify-self: stretch;
   width: var(--docs-figure-mobile-fork-inline-size);
   min-width: 0;
-  gap: 0;
+  gap: var(--docs-figure-space-open);
 }
 
 .docs-figure__field-fork-branch {
@@ -526,18 +527,6 @@
   gap: var(--docs-figure-item-gap);
   align-items: start;
   min-width: 0;
-}
-
-.docs-figure__field-fork-stem,
-.docs-figure__field-fork-continuation {
-  block-size: 100%;
-  overflow: hidden;
-  line-height: var(--docs-figure-character-line-height);
-  white-space: pre;
-}
-
-.docs-figure__field-fork-stem {
-  block-size: var(--docs-figure-field-gap);
 }
 
 .docs-figure__field-fork-branch-rail {
@@ -550,21 +539,39 @@
   flex: 1 1 0;
   min-block-size: 0;
   block-size: 0;
+  overflow: hidden;
+  line-height: var(--docs-figure-character-line-height);
+  white-space: pre;
 }
 
-.docs-figure__field-fork-proof {
+.docs-figure__field-fork-outcome {
   display: grid;
-  justify-items: start;
+  grid-template-columns: max-content max-content minmax(0, 1fr);
+  align-items: start;
   gap: var(--docs-figure-space-relation);
   min-width: 0;
 }
 
-.docs-figure__field-fork-branch > .docs-figure__copy {
-  gap: var(--docs-figure-space-relation);
+.docs-figure__field-fork-outcome > .docs-figure__copy {
+  min-width: 0;
+}
+
+.docs-figure__field-proof-term {
+  color: var(--muted);
+  font-size: var(--docs-figure-title-font-size);
+  font-weight: var(--weight-mid);
+  line-height: var(--docs-figure-title-line-height);
+  text-transform: uppercase;
 }
 
 .docs-figure__field-shape[data-figure-shape="attestation-flow-fork"] {
   gap: 0;
+}
+
+[data-figure-shape="attestation-flow-fork"]
+  .docs-figure__field-relation-glyph {
+  font-size: var(--docs-figure-title-font-size);
+  line-height: var(--docs-figure-title-line-height);
 }
 
 .docs-figure__field-convergence {
@@ -687,8 +694,7 @@
 }
 
 .docs-figure__field-membership-glyph,
-.docs-figure__field-attestation-branch-glyph,
-.docs-figure__field-fork-continuation {
+.docs-figure__field-attestation-branch-glyph {
   font-size: var(--docs-figure-title-font-size);
   line-height: var(--docs-figure-title-line-height);
 }
@@ -1026,4 +1032,11 @@
   .docs-figure__field-questions {
     grid-template-columns: minmax(0, 1fr);
   }
+
+  .docs-figure__field-fork-outcome {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    text-align: center;
+  }
+
 }

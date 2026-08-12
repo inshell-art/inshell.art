@@ -465,15 +465,13 @@ function PromptResponseField({ figure }: { figure: FieldFigure }) {
 
 function AttestationFlow({ figure }: { figure: FieldFigure }) {
   const recorded = figureNode(figure, "recorded-values");
-  const claim = figureNode(figure, "app-claim");
-  const validation = figureNode(figure, "contract-validation");
+  const attestation = figureNode(figure, "creation-attestation");
   const attested = figureNode(figure, "app-attested");
   const unattested = figureNode(figure, "unattested");
-  const valuesEdge = figureEdge(figure, "values-to-claim");
-  const validationEdge = figureEdge(figure, "claim-to-validation");
-  const validBranchEdge = figureEdge(figure, "validation-valid-branch");
+  const valuesEdge = figureEdge(figure, "values-to-attestation");
+  const validBranchEdge = figureEdge(figure, "attestation-valid-branch");
   const validResultEdge = figureEdge(figure, "valid-proof-result");
-  const emptyBranchEdge = figureEdge(figure, "validation-empty-branch");
+  const emptyBranchEdge = figureEdge(figure, "attestation-empty-branch");
   const emptyResultEdge = figureEdge(figure, "empty-proof-result");
   const validProof = figureNode(figure, "valid-proof");
   const emptyProof = figureNode(figure, "empty-proof");
@@ -489,12 +487,7 @@ function AttestationFlow({ figure }: { figure: FieldFigure }) {
           edge={valuesEdge}
           className="docs-figure__field-attestation-arrow docs-figure__field-relation-glyph"
         />
-        <NodeCopy node={claim} />
-        <FlowConnector
-          edge={validationEdge}
-          className="docs-figure__field-attestation-arrow docs-figure__field-relation-glyph"
-        />
-        <NodeCopy node={validation} />
+        <NodeCopy node={attestation} />
       </div>
       <div className="docs-figure__field-fork">
         <div className="docs-figure__field-fork-branch">
@@ -510,22 +503,20 @@ function AttestationFlow({ figure }: { figure: FieldFigure }) {
               {VERTICAL_RAIL}
             </Glyph>
           </span>
-          <span className="docs-figure__copy">
-            <span className="docs-figure__field-fork-proof">
-              <StaticTerm
-                className="docs-figure__field-proof-term"
-                nodeId={validProof.id}
-              >
-                {validProof.term}
-              </StaticTerm>
-              <Glyph
-                className="docs-figure__field-attestation-result-arrow docs-figure__field-relation-glyph"
-                edgeId={validResultEdge.id}
-                label={validResultEdge.label}
-              >
-                {validResultEdge.glyph}
-              </Glyph>
-            </span>
+          <span className="docs-figure__field-fork-outcome">
+            <strong
+              className="docs-figure__shape-label docs-figure__field-proof-term"
+              data-figure-node={validProof.id}
+            >
+              {validProof.term}
+            </strong>
+            <Glyph
+              className="docs-figure__field-attestation-result-arrow docs-figure__field-relation-glyph"
+              edgeId={validResultEdge.id}
+              label={validResultEdge.label}
+            >
+              {validResultEdge.glyph}
+            </Glyph>
             <NodeCopy node={attested} />
           </span>
         </div>
@@ -539,22 +530,20 @@ function AttestationFlow({ figure }: { figure: FieldFigure }) {
               {emptyBranchEdge.glyph}
             </Glyph>
           </span>
-          <span className="docs-figure__copy">
-            <span className="docs-figure__field-fork-proof">
-              <StaticTerm
-                className="docs-figure__field-proof-term"
-                nodeId={emptyProof.id}
-              >
-                {emptyProof.term}
-              </StaticTerm>
-              <Glyph
-                className="docs-figure__field-attestation-result-arrow docs-figure__field-relation-glyph"
-                edgeId={emptyResultEdge.id}
-                label={emptyResultEdge.label}
-              >
-                {emptyResultEdge.glyph}
-              </Glyph>
-            </span>
+          <span className="docs-figure__field-fork-outcome">
+            <strong
+              className="docs-figure__shape-label docs-figure__field-proof-term"
+              data-figure-node={emptyProof.id}
+            >
+              {emptyProof.term}
+            </strong>
+            <Glyph
+              className="docs-figure__field-attestation-result-arrow docs-figure__field-relation-glyph"
+              edgeId={emptyResultEdge.id}
+              label={emptyResultEdge.label}
+            >
+              {emptyResultEdge.glyph}
+            </Glyph>
             <NodeCopy node={unattested} />
           </span>
         </div>

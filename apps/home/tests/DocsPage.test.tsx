@@ -898,7 +898,7 @@ describe("DocsPage character figures", () => {
     "How practice relates to truth": 3,
     "The invariant and the open field": 3,
     "One prompt, one response": 1,
-    "Creation Attestation": 5,
+    "Creation Attestation": 4,
     "Many people. Many Agents. One will.": 1,
     "Evidence becomes interpretation": 5,
     "Two distinctions": 5,
@@ -1786,16 +1786,12 @@ describe("DocsPage character figures", () => {
     expect(
       attestation?.querySelector(".docs-figure__field-fork-stem"),
     ).toBeNull();
-    expect(
-      attestation?.querySelector(".docs-figure__field-fork-continuation")
-        ?.textContent,
-    ).toContain("│");
     const attestationFlowArrows = [
       ...(attestation?.querySelectorAll(
         ".docs-figure__field-attestation-arrow",
       ) ?? []),
     ];
-    expect(attestationFlowArrows).toHaveLength(2);
+    expect(attestationFlowArrows).toHaveLength(1);
     for (const arrow of attestationFlowArrows) {
       expect(arrow).toHaveTextContent("↓");
       expect(arrow).not.toHaveTextContent("│");
@@ -1809,8 +1805,67 @@ describe("DocsPage character figures", () => {
       expect(arrow).toHaveClass("docs-figure__field-relation-glyph");
       expect(arrow).toHaveTextContent("→");
     }
-    expect(attestation).toHaveTextContent(/CONTRACT VALIDATION[\s\S]*├─[\s\S]*APP ATTESTED/i);
+    expect(attestation).toHaveTextContent(/CREATION ATTESTATION[\s\S]*├─[\s\S]*APP ATTESTED/i);
     expect(attestation).toHaveTextContent(/└─[\s\S]*UNATTESTED/i);
+    expect(
+      [
+        ...(attestation?.querySelectorAll<HTMLElement>(
+          ".docs-figure__term",
+        ) ?? []),
+      ].map((term) => term.textContent),
+    ).toEqual([
+      "Recorded values",
+      "Creation Attestation",
+      "App Attested",
+      "Unattested",
+    ]);
+    expect(
+      [
+        ...(attestation?.querySelectorAll<HTMLElement>(
+          ".docs-figure__field-proof-term",
+        ) ?? []),
+      ].map((term) => term.textContent),
+    ).toEqual(["valid proof", "empty proof"]);
+    const attestationLogic = JSON.parse(
+      screen
+        .getByRole("figure", { name: "Creation Attestation" })
+        .getAttribute("data-figure-logic") ?? "null",
+    );
+    expect(attestationLogic.nodes).toEqual([
+      expect.objectContaining({ id: "recorded-values", role: "record" }),
+      expect.objectContaining({ id: "creation-attestation", role: "action" }),
+      expect.objectContaining({ id: "valid-proof", role: "operator" }),
+      expect.objectContaining({ id: "empty-proof", role: "operator" }),
+      expect.objectContaining({ id: "app-attested", role: "result" }),
+      expect.objectContaining({ id: "unattested", role: "result" }),
+    ]);
+    expect(attestationLogic.edges).toEqual([
+      expect.objectContaining({
+        id: "values-to-attestation",
+        from: "recorded-values",
+        to: "creation-attestation",
+      }),
+      expect.objectContaining({
+        id: "attestation-valid-branch",
+        from: "creation-attestation",
+        to: "valid-proof",
+      }),
+      expect.objectContaining({
+        id: "valid-proof-result",
+        from: "valid-proof",
+        to: "app-attested",
+      }),
+      expect.objectContaining({
+        id: "attestation-empty-branch",
+        from: "creation-attestation",
+        to: "empty-proof",
+      }),
+      expect.objectContaining({
+        id: "empty-proof-result",
+        from: "empty-proof",
+        to: "unattested",
+      }),
+    ]);
     expect(attestation?.querySelector(".docs-figure__field-ceiling")).toBeNull();
     expect(attestation?.querySelector(".docs-figure__character-frame")).toBeNull();
     cleanup();

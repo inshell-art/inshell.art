@@ -159,39 +159,34 @@ The NFT tokenURI supplies the canonical image and portable metadata. A screensho
 - Semantic form: fork
 - Semantic nodes:
   - `recorded-values [record]: Recorded values — Human line · Agent line · Agent/model records · specification · renderer · mint anchors`
-  - `app-claim [action]: App claim — Configured App authority signs one exact claim.`
-  - `contract-validation [action]: Contract validation — ThoughtNFT validates during minting.`
-  - `valid-proof [operator]: VALID PROOF`
-  - `empty-proof [operator]: EMPTY PROOF`
+  - `creation-attestation [action]: Creation Attestation — Configured App authority signs one exact claim. ThoughtNFT validates that claim during minting.`
+  - `valid-proof [operator]: valid proof`
+  - `empty-proof [operator]: empty proof`
   - `app-attested [result]: App Attested — Valid proof binds the mint to recorded values.`
   - `unattested [result]: Unattested — Empty proof makes the absence explicit.`
 - Semantic edges:
-  - `values-to-claim: recorded-values (Recorded values) --[↓ · Recorded values are bound into one exact App claim.]--> app-claim (App claim)`
-  - `claim-to-validation: app-claim (App claim) --[↓ · The contract validates the App claim during minting.]--> contract-validation (Contract validation)`
-  - `validation-valid-branch: contract-validation (Contract validation) --[├─ · Contract validation takes the valid-proof branch.]--> valid-proof (VALID PROOF)`
-  - `valid-proof-result: valid-proof (VALID PROOF) --[→ · A valid proof produces an App Attested result.]--> app-attested (App Attested)`
-  - `validation-empty-branch: contract-validation (Contract validation) --[└─ · Contract validation takes the empty-proof branch.]--> empty-proof (EMPTY PROOF)`
-  - `empty-proof-result: empty-proof (EMPTY PROOF) --[→ · An empty proof produces an explicit Unattested result.]--> unattested (Unattested)`
+  - `values-to-attestation: recorded-values (Recorded values) --[↓ · Recorded values are bound into one Creation Attestation claim that the contract validates during minting.]--> creation-attestation (Creation Attestation)`
+  - `attestation-valid-branch: creation-attestation (Creation Attestation) --[├─ · Creation Attestation takes the valid-proof branch.]--> valid-proof (valid proof)`
+  - `valid-proof-result: valid-proof (valid proof) --[→ · A valid proof produces an App Attested result.]--> app-attested (App Attested)`
+  - `attestation-empty-branch: creation-attestation (Creation Attestation) --[└─ · Creation Attestation takes the empty-proof branch.]--> empty-proof (empty proof)`
+  - `empty-proof-result: empty-proof (empty proof) --[→ · An empty proof produces an explicit Unattested result.]--> unattested (Unattested)`
 
 ```text
 RECORDED VALUES
 Human line · Agent line · Agent/model records ·
 specification · renderer · mint anchors
    ↓
-APP CLAIM
+CREATION ATTESTATION
 Configured App authority signs one exact claim.
-   ↓
-CONTRACT VALIDATION
-ThoughtNFT validates during minting.
-   ├─ VALID PROOF → APP ATTESTED
+ThoughtNFT validates that claim during minting.
+   ├─ valid proof → APP ATTESTED
    │  Valid proof binds the mint to recorded values.
-   └─ EMPTY PROOF → UNATTESTED
+   └─ empty proof → UNATTESTED
       Empty proof makes the absence explicit.
 ```
 
 - **Recorded values** — Human line · Agent line · Agent/model records · specification · renderer · mint anchors
-- **App claim** — Configured App authority signs one exact claim.
-- **Contract validation** — ThoughtNFT validates during minting.
+- **Creation Attestation** — Configured App authority signs one exact claim. ThoughtNFT validates that claim during minting.
 - **App Attested** — Valid proof binds the mint to recorded values.
 - **Unattested** — Empty proof makes the absence explicit.
 
