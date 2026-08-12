@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "bdcfd7ea75e9cf07fbc94136ccb34e839be5123d621c9d71e0e933c96827a4ca",
+  "sourceTreeSha256": "2ac26e679b6f36ffcaebdd47221154ddc7636fa868d001defd6887f2ed3dee23",
   "groups": [
     {
       "id": "public-docs",
@@ -525,7 +525,7 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "c5510291abf3e47b5d24ac9f8b0cd0e55ded8664d4fb9aa883cff7c937a31d7a",
+      "groupSha256": "c2eb8b8e5857142c61e8224baf6ba432a52bbe097385f1ef92fcf3fe45847b1b",
       "files": [
         {
           "path": ".husky/pre-commit",
@@ -539,8 +539,8 @@
         },
         {
           "path": "package.json",
-          "byteLength": 11508,
-          "sha256": "bc173599399aaf92e4d968cadfc56ec2178266fc4caea99975581391b76b1402"
+          "byteLength": 11547,
+          "sha256": "933f556c0846765828b82bec39e8f7246d5d340b873e25e93999382e7cbe356c"
         },
         {
           "path": "scripts/check-upstream-releases.mjs",
@@ -934,7 +934,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "a24b950a6d17f52c6272c1aec7f44268d3257efd6ba733a28b8f0f2eb469ee99",
+      "groupSha256": "05f4bcafe06533e30e58614d6e6394712563e9c6f1ce7c7965f2c24c4ea200bd",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1203,8 +1203,8 @@
         },
         {
           "path": "apps/thought/vite.config.ts",
-          "byteLength": 67328,
-          "sha256": "c8aba06f1772c21469aaf73a967a2f1f0bc2ab351e4a422ba264b110b2f3bce7"
+          "byteLength": 67751,
+          "sha256": "9233a8d29e6a8b7d34052e73bc367c39b62602bfdafa1a8264fbd058ecea1f6e"
         }
       ]
     },

@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 
 import { spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import fsPromises from "node:fs/promises";
+import { createServer, request as httpRequest } from "node:http";
+import { connect } from "node:net";
 import { networkInterfaces } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,7 +14,11 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const runDirectory = path.join(root, ".local", "run");
 const logDirectory = path.join(root, ".local", "logs");
 const statusFile = path.join(runDirectory, "thought-lan-stack.json");
+const accessUrlFile = path.join(runDirectory, "thought-lan-access-url.txt");
+const accessTokenFile = path.join(root, ".local", "lan", "access-token");
+const rpcAccessTokenFile = path.join(root, ".local", "lan", "rpc-access-token");
 const logFile = path.join(logDirectory, "thought-lan-stack.log");
+const rotatedLogFile = `${logFile}.1`;
 const appPort = process.env.INSHELL_THOUGHT_APP_PORT?.trim() || "5176";
 const homePort = process.env.INSHELL_THOUGHT_HOME_PORT?.trim() || "5177";
 const anvilPort = process.env.INSHELL_THOUGHT_ANVIL_PORT?.trim() || "8547";
@@ -20,21 +27,108 @@ const expectedChainIdHex = `0x${BigInt(expectedChainId).toString(16)}`;
 const healthIntervalMs = 15_000;
 const startupTimeoutMs = 120_000;
 const unhealthyLimit = 3;
+const loopbackHost = "127.0.0.1";
+const accessCookieName = "inshell_lan_access";
+const maxRpcBodyBytes = 1024 * 1024;
+const maxLogBytes = 10 * 1024 * 1024;
+const allowedRpcMethods = new Set([
+  "eth_blockNumber",
+  "eth_call",
+  "eth_chainId",
+  "eth_estimateGas",
+  "eth_feeHistory",
+  "eth_gasPrice",
+  "eth_getBalance",
+  "eth_getBlockByHash",
+  "eth_getBlockByNumber",
+  "eth_getBlockTransactionCountByHash",
+  "eth_getBlockTransactionCountByNumber",
+  "eth_getCode",
+  "eth_getLogs",
+  "eth_getProof",
+  "eth_getStorageAt",
+  "eth_getTransactionByBlockHashAndIndex",
+  "eth_getTransactionByBlockNumberAndIndex",
+  "eth_getTransactionByHash",
+  "eth_getTransactionCount",
+  "eth_getTransactionReceipt",
+  "eth_maxPriorityFeePerGas",
+  "eth_protocolVersion",
+  "eth_sendRawTransaction",
+  "eth_syncing",
+  "net_version",
+  "web3_clientVersion",
+]);
 
-await fsPromises.mkdir(runDirectory, { recursive: true });
-await fsPromises.mkdir(logDirectory, { recursive: true });
-const log = fs.createWriteStream(logFile, { flags: "a" });
+await fsPromises.mkdir(runDirectory, { recursive: true, mode: 0o700 });
+await fsPromises.mkdir(logDirectory, { recursive: true, mode: 0o700 });
+await fsPromises.mkdir(path.dirname(accessTokenFile), { recursive: true, mode: 0o700 });
+await Promise.all([
+  fsPromises.chmod(runDirectory, 0o700),
+  fsPromises.chmod(logDirectory, 0o700),
+  fsPromises.chmod(path.dirname(accessTokenFile), 0o700),
+]);
+await fsPromises.rm(statusFile, { force: true });
+try {
+  if ((await fsPromises.stat(logFile)).size >= maxLogBytes) {
+    await fsPromises.rm(rotatedLogFile, { force: true });
+    await fsPromises.rename(logFile, rotatedLogFile);
+    await fsPromises.chmod(rotatedLogFile, 0o600);
+  }
+} catch (error) {
+  if (error?.code !== "ENOENT") throw error;
+}
+let logBytes = await fsPromises.stat(logFile).then(({ size }) => size, () => 0);
+let logDescriptor = fs.openSync(logFile, "a", 0o600);
+fs.chmodSync(logFile, 0o600);
+
+const writeLog = (chunk) => {
+  const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk));
+  if (logBytes > 0 && logBytes + bytes.length > maxLogBytes) {
+    fs.closeSync(logDescriptor);
+    fs.rmSync(rotatedLogFile, { force: true });
+    fs.renameSync(logFile, rotatedLogFile);
+    fs.chmodSync(rotatedLogFile, 0o600);
+    logDescriptor = fs.openSync(logFile, "a", 0o600);
+    fs.chmodSync(logFile, 0o600);
+    logBytes = 0;
+  }
+  fs.writeSync(logDescriptor, bytes);
+  logBytes += bytes.length;
+};
 
 const write = (message, stream = process.stdout) => {
   const line = `[${new Date().toISOString()}] ${message}\n`;
   stream.write(line);
-  log.write(line);
+  writeLog(line);
 };
 
 const writeChildOutput = (chunk, stream) => {
   stream.write(chunk);
-  log.write(chunk);
+  writeLog(chunk);
 };
+
+const readOrCreateAccessToken = async (tokenFile) => {
+  try {
+    const token = (await fsPromises.readFile(tokenFile, "utf8")).trim();
+    if (!/^[A-Za-z0-9_-]{32,}$/.test(token)) {
+      throw new Error(`Invalid LAN access token file: ${tokenFile}`);
+    }
+    return token;
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+    const token = randomBytes(32).toString("base64url");
+    await fsPromises.writeFile(tokenFile, `${token}\n`, {
+      encoding: "utf8",
+      flag: "wx",
+      mode: 0o600,
+    });
+    return token;
+  }
+};
+
+const accessToken = await readOrCreateAccessToken(accessTokenFile);
+const rpcAccessToken = await readOrCreateAccessToken(rpcAccessTokenFile);
 
 const isPrivateIpv4 = (address) => {
   const octets = address.split(".").map(Number);
@@ -47,7 +141,6 @@ const isPrivateIpv4 = (address) => {
 
 const detectLanHost = () => {
   const configured = process.env.INSHELL_THOUGHT_PUBLIC_HOST?.trim();
-  if (configured) return configured;
   const candidates = Object.entries(networkInterfaces())
     .flatMap(([name, addresses]) =>
       (addresses ?? []).map((address) => ({ name, ...address })),
@@ -60,6 +153,14 @@ const detectLanHost = () => {
       const rightScore = right.name === "en0" ? 0 : right.name.startsWith("en") ? 1 : 2;
       return leftScore - rightScore || left.name.localeCompare(right.name);
     });
+  if (configured) {
+    if (!isPrivateIpv4(configured) || !candidates.some(({ address }) => address === configured)) {
+      throw new Error(
+        `Configured LAN host is not an assigned private IPv4 address: ${configured}`,
+      );
+    }
+    return configured;
+  }
   if (!candidates[0]?.address) {
     throw new Error(
       "No private LAN IPv4 address is available. Connect this machine to the LAN and retry.",
@@ -71,10 +172,11 @@ const detectLanHost = () => {
 const sleep = (milliseconds) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
 
-const fetchOk = async (url) => {
+const fetchOk = async (url, headers = {}) => {
   try {
     const response = await fetch(url, {
       method: "GET",
+      headers,
       signal: AbortSignal.timeout(3_000),
     });
     return response.ok;
@@ -83,10 +185,11 @@ const fetchOk = async (url) => {
   }
 };
 
-const fetchStatus = async (url, expectedStatus) => {
+const fetchStatus = async (url, expectedStatus, headers = {}) => {
   try {
     const response = await fetch(url, {
       method: "GET",
+      headers,
       signal: AbortSignal.timeout(3_000),
     });
     return response.status === expectedStatus;
@@ -112,12 +215,13 @@ const rpc = async (url, method, params = []) => {
 const health = async ({ publicHost, publicRpcUrl }) => {
   const homeUrl = `http://${publicHost}:${homePort}/`;
   const appUrl = `http://${publicHost}:${homePort}/thought/`;
+  const accessHeaders = { cookie: `${accessCookieName}=${accessToken}` };
   try {
     const [chainId, homeReady, appReady, agentApiReady] = await Promise.all([
       rpc(publicRpcUrl, "eth_chainId"),
-      fetchOk(homeUrl),
-      fetchOk(appUrl),
-      fetchStatus(`${homeUrl}api/thought-agent/v2/client`, 410),
+      fetchOk(homeUrl, accessHeaders),
+      fetchOk(appUrl, accessHeaders),
+      fetchStatus(`${homeUrl}api/thought-agent/v2/client`, 410, accessHeaders),
     ]);
     return {
       ok: chainId === expectedChainIdHex && homeReady && appReady && agentApiReady,
@@ -136,9 +240,289 @@ const health = async ({ publicHost, publicRpcUrl }) => {
 
 const writeStatus = async (status) => {
   const temporary = `${statusFile}.tmp`;
-  await fsPromises.writeFile(temporary, `${JSON.stringify(status, null, 2)}\n`);
+  await fsPromises.writeFile(temporary, `${JSON.stringify(status, null, 2)}\n`, {
+    mode: 0o600,
+  });
   await fsPromises.rename(temporary, statusFile);
+  await fsPromises.chmod(statusFile, 0o600);
 };
+
+const normalizedRemoteAddress = (request) =>
+  String(request.socket.remoteAddress ?? "").replace(/^::ffff:/, "");
+
+const requestUrl = (request, base) => {
+  try {
+    return new URL(request.url ?? "/", base);
+  } catch {
+    return null;
+  }
+};
+
+const cookieValue = (request, name) =>
+  String(request.headers.cookie ?? "")
+    .split(";")
+    .map((part) => part.trim().split("="))
+    .find(([key]) => key === name)?.[1] ?? "";
+
+const stripAccessCookie = (cookieHeader) =>
+  String(cookieHeader ?? "")
+    .split(";")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .filter((part) => part.split("=", 1)[0] !== accessCookieName)
+    .join("; ");
+
+const proxyHeaders = (headers) => {
+  const forwarded = { ...headers };
+  const cookie = stripAccessCookie(headers.cookie);
+  if (cookie) forwarded.cookie = cookie;
+  else delete forwarded.cookie;
+  return forwarded;
+};
+
+const allowedViteFsRoots = [
+  path.join(root, "node_modules"),
+  path.join(root, "packages"),
+].map((value) => value.replaceAll("\\", "/").toLowerCase());
+
+const isAllowedViteFsPath = (decoded) => {
+  const marker = decoded.indexOf("/@fs/");
+  if (marker === -1) return true;
+  const requested = path.resolve("/", decoded.slice(marker + "/@fs/".length))
+    .replaceAll("\\", "/")
+    .toLowerCase();
+  return allowedViteFsRoots.some(
+    (allowed) => requested === allowed || requested.startsWith(`${allowed}/`),
+  );
+};
+
+const isDeniedVitePath = (pathname) => {
+  let decoded = pathname;
+  try {
+    for (let pass = 0; pass < 3; pass += 1) {
+      const next = decodeURIComponent(decoded);
+      if (next === decoded) break;
+      decoded = next;
+    }
+    decoded = decoded.replaceAll("\\", "/").toLowerCase();
+  } catch {
+    return true;
+  }
+  return (
+    !isAllowedViteFsPath(decoded) ||
+    /(?:^|\/)__open-in-editor(?:\/|$)/.test(decoded) ||
+    /(?:^|\/)\.(?:git|local|agents|codex|ops|claude|inshell-secrets|ssh|wrangler)(?:\/|$)/.test(decoded) ||
+    /(?:^|\/)library\/keychains(?:\/|$)/.test(decoded) ||
+    /(?:^|\/)\.env(?:rc|\..*)?$/.test(decoded) ||
+    /(?:^|\/)\.dev\.vars(?:\..*)?$/.test(decoded) ||
+    /(?:^|\/)\.(?:npmrc|yarnrc)(?:$|\/)/.test(decoded) ||
+    /(?:^|\/)[^/]+\.(?:key|pem|p12|pfx)(?:$|\/)/.test(decoded) ||
+    /(?:^|\/)(?:inbox|memo|local_tasks)\.md(?:$|\/)/.test(decoded)
+  );
+};
+
+const authorizeUiRequest = (request, response, publicHost) => {
+  const remoteAddress = normalizedRemoteAddress(request);
+  if (remoteAddress === loopbackHost) return true;
+  const parsedUrl = requestUrl(request, `http://${publicHost}:${homePort}`);
+  if (!parsedUrl) {
+    response.writeHead(400, { "content-type": "text/plain; charset=utf-8" });
+    response.end("Invalid request URL.\n");
+    return false;
+  }
+  const suppliedToken = parsedUrl.searchParams.get("access");
+  if (suppliedToken === accessToken) {
+    parsedUrl.searchParams.delete("access");
+    response.writeHead(302, {
+      location: `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`,
+      "set-cookie": `${accessCookieName}=${accessToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=604800`,
+      "cache-control": "no-store",
+    });
+    response.end();
+    return false;
+  }
+  if (cookieValue(request, accessCookieName) === accessToken) return true;
+  response.writeHead(401, {
+    "content-type": "text/plain; charset=utf-8",
+    "cache-control": "no-store",
+  });
+  response.end("LAN access token required.\n");
+  return false;
+};
+
+const proxyRequest = (publicHost, request, response) => {
+  if (!authorizeUiRequest(request, response, publicHost)) return;
+  const parsedUrl = requestUrl(request, `http://${publicHost}:${homePort}`);
+  if (!parsedUrl || isDeniedVitePath(parsedUrl.pathname)) {
+    response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+    response.end("Not found.\n");
+    return;
+  }
+  const upstream = httpRequest({
+    hostname: loopbackHost,
+    port: Number(homePort),
+    path: request.url ?? "/",
+    method: request.method,
+    headers: proxyHeaders(request.headers),
+  }, (upstreamResponse) => {
+    response.writeHead(upstreamResponse.statusCode ?? 502, upstreamResponse.headers);
+    upstreamResponse.pipe(response);
+  });
+  upstream.on("error", (error) => {
+    if (!response.headersSent) response.writeHead(502, { "content-type": "text/plain" });
+    response.end(`LAN proxy unavailable: ${error instanceof Error ? error.message : String(error)}\n`);
+  });
+  request.pipe(upstream);
+};
+
+const proxyUpgrade = (publicHost, request, client, head) => {
+  const remoteAddress = normalizedRemoteAddress(request);
+  if (
+    remoteAddress !== loopbackHost &&
+    cookieValue(request, accessCookieName) !== accessToken
+  ) {
+    client.end("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
+    return;
+  }
+  const upstream = connect(Number(homePort), loopbackHost);
+  upstream.once("connect", () => {
+    upstream.write(`${request.method} ${request.url} HTTP/${request.httpVersion}\r\n`);
+    for (const [name, value] of Object.entries(proxyHeaders(request.headers))) {
+      if (Array.isArray(value)) {
+        for (const item of value) upstream.write(`${name}: ${item}\r\n`);
+      } else if (value !== undefined) {
+        upstream.write(`${name}: ${value}\r\n`);
+      }
+    }
+    upstream.write("\r\n");
+    if (head.length > 0) upstream.write(head);
+    client.pipe(upstream).pipe(client);
+  });
+  upstream.once("error", () => client.destroy());
+  client.once("error", () => upstream.destroy());
+};
+
+const startLanProxy = (publicHost) =>
+  new Promise((resolve, reject) => {
+    const server = createServer((request, response) =>
+      proxyRequest(publicHost, request, response));
+    server.on("upgrade", (request, client, head) =>
+      proxyUpgrade(publicHost, request, client, head));
+    server.once("error", reject);
+    server.listen({ host: publicHost, port: Number(homePort), exclusive: true }, () => {
+      server.removeListener("error", reject);
+      server.on("error", (error) => {
+        write(`LAN proxy error: ${error instanceof Error ? error.message : String(error)}`, process.stderr);
+      });
+      resolve(server);
+    });
+  });
+
+const readRequestBody = async (request) => {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of request) {
+    size += chunk.length;
+    if (size > maxRpcBodyBytes) throw new Error("RPC request is too large");
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+};
+
+const rpcCorsHeaders = (request) => ({
+  "access-control-allow-headers": "content-type",
+  "access-control-allow-methods": "POST, OPTIONS",
+  "access-control-allow-origin": request.headers.origin || "*",
+  "access-control-max-age": "600",
+  vary: "Origin",
+});
+
+const rpcError = (response, request, status, code, message, id = null) => {
+  if (response.headersSent) {
+    response.end();
+    return;
+  }
+  response.writeHead(status, {
+    ...rpcCorsHeaders(request),
+    "content-type": "application/json",
+    "cache-control": "no-store",
+  });
+  response.end(`${JSON.stringify({ jsonrpc: "2.0", id, error: { code, message } })}\n`);
+};
+
+const startRpcProxy = (publicHost) =>
+  new Promise((resolve, reject) => {
+    const server = createServer(async (request, response) => {
+      const parsedUrl = requestUrl(request, `http://${publicHost}:${anvilPort}`);
+      if (!parsedUrl) {
+        rpcError(response, request, 400, -32600, "Invalid request URL");
+        return;
+      }
+      if (parsedUrl.pathname !== `/${rpcAccessToken}`) {
+        rpcError(response, request, 404, -32601, "RPC endpoint not found");
+        return;
+      }
+      if (request.method === "OPTIONS") {
+        response.writeHead(204, rpcCorsHeaders(request));
+        response.end();
+        return;
+      }
+      if (request.method !== "POST") {
+        rpcError(response, request, 405, -32600, "Only JSON-RPC POST is allowed");
+        return;
+      }
+      let body;
+      let payload;
+      try {
+        body = await readRequestBody(request);
+        payload = JSON.parse(body.toString("utf8"));
+      } catch (error) {
+        rpcError(
+          response,
+          request,
+          error instanceof Error && error.message.includes("too large") ? 413 : 400,
+          -32700,
+          error instanceof Error ? error.message : "Invalid JSON-RPC request",
+        );
+        return;
+      }
+      const calls = Array.isArray(payload) ? payload : [payload];
+      const denied = calls.find((call) => !call || !allowedRpcMethods.has(call.method));
+      if (denied) {
+        rpcError(response, request, 403, -32601, "RPC method is not available on the LAN lane", denied?.id ?? null);
+        return;
+      }
+      const upstream = httpRequest({
+        hostname: loopbackHost,
+        port: Number(anvilPort),
+        path: "/",
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "content-length": body.length,
+        },
+      }, (upstreamResponse) => {
+        response.writeHead(upstreamResponse.statusCode ?? 502, {
+          ...upstreamResponse.headers,
+          ...rpcCorsHeaders(request),
+          "cache-control": "no-store",
+        });
+        upstreamResponse.pipe(response);
+      });
+      upstream.once("error", (error) => {
+        rpcError(response, request, 502, -32000, error.message);
+      });
+      upstream.end(body);
+    });
+    server.once("error", reject);
+    server.listen({ host: publicHost, port: Number(anvilPort), exclusive: true }, () => {
+      server.removeListener("error", reject);
+      server.on("error", (error) => {
+        write(`LAN RPC proxy error: ${error instanceof Error ? error.message : String(error)}`, process.stderr);
+      });
+      resolve(server);
+    });
+  });
 
 let child = null;
 let stopping = false;
@@ -154,18 +538,26 @@ const stop = (signal) => {
 process.on("SIGINT", () => stop("SIGINT"));
 process.on("SIGTERM", () => stop("SIGTERM"));
 
+const publicHost = detectLanHost();
+const lanProxy = await startLanProxy(publicHost);
+const rpcProxy = await startRpcProxy(publicHost);
+await fsPromises.writeFile(
+  accessUrlFile,
+  `http://${publicHost}:${homePort}/?access=${accessToken}\n`,
+  { encoding: "utf8", mode: 0o600 },
+);
+await fsPromises.chmod(accessUrlFile, 0o600);
+
 const runStack = async () => {
-  const publicHost = detectLanHost();
   const publicRpcUrl =
-    process.env.INSHELL_THOUGHT_PUBLIC_RPC_URL?.trim() ||
-    `http://${publicHost}:${anvilPort}`;
+    `http://${publicHost}:${anvilPort}/${rpcAccessToken}`;
   const homeUrl = `http://${publicHost}:${homePort}/`;
   const appUrl = `${homeUrl}thought/`;
   const env = {
     ...process.env,
-    INSHELL_THOUGHT_ANVIL_HOST: "0.0.0.0",
+    INSHELL_THOUGHT_ANVIL_HOST: loopbackHost,
     INSHELL_THOUGHT_APP_HOST: "127.0.0.1",
-    INSHELL_THOUGHT_HOME_HOST: "0.0.0.0",
+    INSHELL_THOUGHT_HOME_HOST: loopbackHost,
     INSHELL_THOUGHT_PUBLIC_HOST: publicHost,
     INSHELL_THOUGHT_PUBLIC_RPC_URL: publicRpcUrl,
   };
@@ -213,17 +605,24 @@ const runStack = async () => {
     publicHost,
     homeUrl,
     appUrl,
-    rpcUrl: publicRpcUrl,
+    rpcUrl: `http://${publicHost}:${anvilPort}/<access-token>`,
+    accessUrlFile,
     chainId: Number(expectedChainId),
     logFile,
   };
   await writeStatus(readyStatus);
   write(`LAN ready: ${homeUrl}`);
   write(`THOUGHT App: ${appUrl}`);
-  write(`Disposable THOUGHT RPC: ${publicRpcUrl}`);
+  write(`Disposable THOUGHT RPC: http://${publicHost}:${anvilPort}/<access-token>`);
 
   let consecutiveFailures = 0;
   while (!stopping) {
+    const detectedHost = detectLanHost();
+    if (detectedHost !== publicHost) {
+      throw new Error(
+        `LAN address changed from ${publicHost} to ${detectedHost}; launchd must restart the supervisor.`,
+      );
+    }
     const result = await Promise.race([
       exited.then((exit) => ({ exit })),
       sleep(healthIntervalMs).then(async () => ({
@@ -266,8 +665,14 @@ try {
   }
 } catch (error) {
   write(error instanceof Error ? error.message : String(error), process.stderr);
+  stop("error");
+  if (child && child.exitCode === null) {
+    await new Promise((resolve) => child.once("exit", resolve));
+  }
   process.exitCode = 1;
 } finally {
   await fsPromises.rm(statusFile, { force: true });
-  log.end();
+  await new Promise((resolve) => lanProxy.close(resolve));
+  await new Promise((resolve) => rpcProxy.close(resolve));
+  fs.closeSync(logDescriptor);
 }

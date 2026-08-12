@@ -380,6 +380,11 @@ test("THOUGHT creation keeps the production CLI default and the tagged Agent sna
     "the local Agent default must never be injected into built production artifacts",
   );
   assert.match(
+    thoughtViteConfig,
+    /const publicRuntimeRpcUrl = process\.env\.INSHELL_THOUGHT_PUBLIC_RPC_URL\?\.trim\(\);[\s\S]*?const browserContractRuntime[\s\S]*?rpcUrl: publicRuntimeRpcUrl[\s\S]*?const browserEvmAddresses[\s\S]*?rpcUrl: publicRuntimeRpcUrl/,
+    "the LAN bootstrap must inject its filtered public RPC instead of the loopback descriptor URL",
+  );
+  assert.match(
     indexHtml,
     /requestedSurface === null &&\s*globalThis\.__INSHELL_THOUGHT_DEV_DEFAULT_SURFACE__ === "agent"/,
   );

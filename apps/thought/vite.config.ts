@@ -1753,6 +1753,19 @@ export default defineConfig(({ command, mode }) => {
   const rootDir = process.cwd();
   const workspaceRoot = path.resolve(rootDir, "../..");
   const currentContractRuntime = readCurrentThoughtContractRuntime(workspaceRoot, command, mode);
+  const publicRuntimeRpcUrl = process.env.INSHELL_THOUGHT_PUBLIC_RPC_URL?.trim();
+  const browserContractRuntime = currentContractRuntime?.raw
+    ? {
+        ...currentContractRuntime.raw,
+        ...(publicRuntimeRpcUrl ? { rpcUrl: publicRuntimeRpcUrl } : {}),
+      }
+    : null;
+  const browserEvmAddresses = currentContractRuntime?.evmAddresses
+    ? {
+        ...currentContractRuntime.evmAddresses,
+        ...(publicRuntimeRpcUrl ? { rpcUrl: publicRuntimeRpcUrl } : {}),
+      }
+    : null;
   const activeLocalRelease = currentContractRuntime?.evmAddresses
     ? buildThoughtV2LocalRelease(currentContractRuntime.evmAddresses)
     : THOUGHT_V2_LOCAL_RELEASE;
@@ -1780,8 +1793,8 @@ export default defineConfig(({ command, mode }) => {
     base: routeBase,
     plugins: [
       createThoughtDevRuntimeBootstrapPlugin({
-        contractRuntime: currentContractRuntime?.raw ?? null,
-        evmAddresses: currentContractRuntime?.evmAddresses ?? null,
+        contractRuntime: browserContractRuntime,
+        evmAddresses: browserEvmAddresses,
         publicEnv,
         workspaceRoot,
       }),
@@ -1828,10 +1841,10 @@ export default defineConfig(({ command, mode }) => {
     define: {
       "globalThis.__INSHELL_VITE_ENV__": JSON.stringify(publicEnv),
       "globalThis.__INSHELL_THOUGHT_CONTRACT_RUNTIME__": JSON.stringify(
-        currentContractRuntime?.raw ?? null,
+        browserContractRuntime,
       ),
       "globalThis.__INSHELL_THOUGHT_EVM_ADDRESSES__": JSON.stringify(
-        currentContractRuntime?.evmAddresses ?? null,
+        browserEvmAddresses,
       ),
       ...(deployEnv
         ? { "import.meta.env.VITE_DEPLOY_ENV": JSON.stringify(deployEnv) }
