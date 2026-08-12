@@ -66,7 +66,7 @@ Read the design choices that give the practice form without turning its truth in
 - Figure mode: field
 - Semantic form: axis
 - Semantic nodes:
-  - `shell [surface]: Shell — Real and often necessary · Surface: visible · operable · legible.`
+  - `shell [surface]: Shell — a body, face, or head; a name, honor, reputation, role, or social posture...`
   - `in [operator]: In — Inspect what forms the self`
   - `self [result]: SELF`
 - Semantic edges:
@@ -76,7 +76,8 @@ Read the design choices that give the practice form without turning its truth in
   - `shell-boundary [boundary]: The shell is real, necessary, and not the whole being. [members: shell (Shell) · in (In) · self (SELF)]`
 
 ```text
-          Real and often necessary · Surface: visible · operable · legible.
+          a body, face, or head; a name, honor, reputation, role, or
+          social posture...
 ┌─ SHELL ─────────────────────────────┬─────────────────────────────────────┐
 │                                     │ IN                                  │
 │                                     ↓                                     │
@@ -85,7 +86,7 @@ Read the design choices that give the practice form without turning its truth in
 └───────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Shell** — Real and often necessary · Surface: visible · operable · legible.
+- **Shell** — a body, face, or head; a name, honor, reputation, role, or social posture...
 - **In** — Inspect what forms the self
 
 ### Overview

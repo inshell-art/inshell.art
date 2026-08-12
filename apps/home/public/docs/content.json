@@ -57,11 +57,11 @@
           "id": "inshell.inward-direction",
           "label": "The inward direction",
           "mode": "field",
-          "figureText": "          Real and often necessary · Surface: visible · operable · legible.\n┌─ SHELL ─────────────────────────────┬─────────────────────────────────────┐\n│                                     │ IN                                  │\n│                                     ↓                                     │\n│                          Inspect what forms the                           │\n│                                   SELF                                    │\n└───────────────────────────────────────────────────────────────────────────┘",
+          "figureText": "          a body, face, or head; a name, honor, reputation, role, or\n          social posture...\n┌─ SHELL ─────────────────────────────┬─────────────────────────────────────┐\n│                                     │ IN                                  │\n│                                     ↓                                     │\n│                          Inspect what forms the                           │\n│                                   SELF                                    │\n└───────────────────────────────────────────────────────────────────────────┘",
           "items": [
             {
               "title": "Shell",
-              "detail": "Real and often necessary · Surface: visible · operable · legible."
+              "detail": "a body, face, or head; a name, honor, reputation, role, or social posture..."
             },
             {
               "title": "In",
@@ -78,7 +78,7 @@
                 "sourceItem": 0,
                 "sourcePart": "item",
                 "term": "Shell",
-                "annotation": "Real and often necessary · Surface: visible · operable · legible.",
+                "annotation": "a body, face, or head; a name, honor, reputation, role, or social posture...",
                 "role": "surface"
               },
               {

@@ -171,7 +171,8 @@ export const DOCS_SOURCE: DocsSource = {
         label: "The inward direction",
         mode: "field",
         figureText: [
-          "          Real and often necessary · Surface: visible · operable · legible.",
+          "          a body, face, or head; a name, honor, reputation, role, or",
+          "          social posture...",
           "┌─ SHELL ─────────────────────────────┬─────────────────────────────────────┐",
           "│                                     │ IN                                  │",
           "│                                     ↓                                     │",
@@ -183,7 +184,7 @@ export const DOCS_SOURCE: DocsSource = {
           {
             title: "Shell",
             detail:
-              "Real and often necessary · Surface: visible · operable · legible.",
+              "a body, face, or head; a name, honor, reputation, role, or social posture...",
           },
           { title: "In", detail: "Inspect what forms the self" },
         ],

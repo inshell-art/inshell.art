@@ -1104,10 +1104,7 @@ describe("DocsPage character figures", () => {
       ?.sections?.find(({ id }) => id === "docs-path-capacity")?.figure;
 
     expect(inshellFigure).toMatch(
-      /SURFACE[\s\S]*SHELL[\s\S]*IN[\s\S]*SELF/i,
-    );
-    expect(inshellFigure).toMatch(
-      /REAL AND OFTEN NECESSARY[\s\S]*VISIBLE · OPERABLE · LEGIBLE/i,
+      /A BODY, FACE, OR HEAD[\s\S]*SOCIAL POSTURE\.\.\.[\s\S]*SHELL[\s\S]*IN[\s\S]*SELF/i,
     );
     expect(inshellFigure).not.toMatch(/BOUNDARY/);
     expect(inshellPracticeFigure?.figureText).toMatch(
@@ -1417,7 +1414,7 @@ describe("DocsPage character figures", () => {
       .getByRole("figure", { name: "How practice relates to truth" })
       .querySelector("[data-figure-shape='boxed-chain']");
 
-    expect(inward).toHaveTextContent(/SHELL[\s\S]*Real and often necessary/i);
+    expect(inward).toHaveTextContent(/SHELL[\s\S]*a body, face, or head/i);
     expect(inward).toHaveTextContent(/└─+┘/);
     expect(
       inward?.querySelector(".docs-figure__frame-cap--junction"),
@@ -1443,7 +1440,7 @@ describe("DocsPage character figures", () => {
       ":scope > .docs-figure__field-inward-note",
     );
     expect(inwardNote).toHaveTextContent(
-      /Real and often necessary · Surface: visible · operable · legible\./i,
+      /a body, face, or head; a name, honor, reputation, role, or social posture\.\.\./i,
     );
     expect(inwardHeading?.nextElementSibling).toBe(inwardNote);
     expect(inwardNote?.nextElementSibling).toHaveClass(
@@ -1454,7 +1451,7 @@ describe("DocsPage character figures", () => {
     expect(inwardNote?.parentElement).toBe(inwardLeftCap);
     expect(
       inwardFrame?.querySelector(".docs-figure__frame-content"),
-    ).not.toHaveTextContent(/Real and often necessary/i);
+    ).not.toHaveTextContent(/a body, face, or head/i);
     expect(
       inward?.querySelector(".docs-figure__frame-content"),
     ).toHaveTextContent(/SELF/i);
