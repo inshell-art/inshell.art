@@ -81,6 +81,8 @@ jobs:
           if [ "${{ github.event.inputs.branch }}" = "main" ]; then
             test -n "$VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN"
           fi
+      - name: Check public documentation
+        run: pnpm run docs:check
       - name: Check upstream release freshness
         run: pnpm run check:upstream-releases
       - name: Verify PATH contract release
@@ -175,6 +177,8 @@ jobs:
           if [ "${{ github.event.inputs.branch }}" = "main" ]; then
             test -n "$VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN"
           fi
+      - name: Check public documentation
+        run: pnpm run docs:check
       - name: Check upstream release freshness
         run: pnpm run check:upstream-releases
       - name: Verify PATH contract release
@@ -192,7 +196,7 @@ jobs:
       - name: Type-check THOUGHT
         run: pnpm --filter @inshell/thought type-check
       - name: Build THOUGHT
-        run: pnpm --filter @inshell/thought build
+        run: pnpm run build:thought
       - name: Verify production analytics bundle
         if: ${{ github.event.inputs.branch == 'main' }}
         run: |

@@ -130,6 +130,7 @@ const REQUIRED_PUBLIC_DOCS_GATES = [
     job: "build",
     sourcePath: ".github/workflows/test.yml",
     requiredCommands: [
+      "pnpm run docs:check",
       "pnpm run check:upstream-releases",
       "pnpm run build:home",
     ],
@@ -139,8 +140,19 @@ const REQUIRED_PUBLIC_DOCS_GATES = [
     job: "deploy-home",
     sourcePath: ".github/workflows/deploy-pages.yml",
     requiredCommands: [
+      "pnpm run docs:check",
       "pnpm run check:upstream-releases",
       "pnpm run build:home",
+    ],
+  },
+  {
+    workflow: "deploy-pages",
+    job: "deploy-thought",
+    sourcePath: ".github/workflows/deploy-pages.yml",
+    requiredCommands: [
+      "pnpm run docs:check",
+      "pnpm run check:upstream-releases",
+      "pnpm run build:thought",
     ],
   },
 ] as const;

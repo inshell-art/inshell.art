@@ -5,6 +5,7 @@
       "workflow": "test",
       "job": "build",
       "requiredCommands": [
+        "pnpm run docs:check",
         "pnpm run check:upstream-releases",
         "pnpm run build:home"
       ]
@@ -13,8 +14,18 @@
       "workflow": "deploy-pages",
       "job": "deploy-home",
       "requiredCommands": [
+        "pnpm run docs:check",
         "pnpm run check:upstream-releases",
         "pnpm run build:home"
+      ]
+    },
+    {
+      "workflow": "deploy-pages",
+      "job": "deploy-thought",
+      "requiredCommands": [
+        "pnpm run docs:check",
+        "pnpm run check:upstream-releases",
+        "pnpm run build:thought"
       ]
     },
     {

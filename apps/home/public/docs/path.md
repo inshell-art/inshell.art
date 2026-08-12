@@ -57,15 +57,15 @@ Public PATH issuance runs through Pulse. The contract can also expose a bounded 
   - `capacity [state]: Movement quota`
   - `progress [state]: Used + remaining`
 - Semantic edges:
-  - `capacity-not-progress: capacity (Movement quota) --[≠ · Deployment movement capacity is distinct from one PATH's used and remaining progress.]--> progress (Used + remaining)`
+  - `quota-equals-progress-total: capacity (Movement quota) --[= · For each PATH, the deployed movement quota equals used plus remaining entitlement.]--> progress (Used + remaining)`
 - Semantic groups:
   - `capacity-column [lane]: Deployment [members: capacity (Movement quota)]`
   - `progress-column [lane]: Each PATH [members: progress (Used + remaining)]`
-  - `capacity-progress-distinction [comparison]: Deployment capacity and per-PATH progress are distinct records. [members: capacity (Movement quota) · progress (Used + remaining)]`
+  - `quota-progress-equality [comparison]: For each PATH, used plus remaining entitlement equals the deployed movement quota. [members: capacity (Movement quota) · progress (Used + remaining)]`
 
 ```text
 DEPLOYMENT             EACH PATH
-MOVEMENT QUOTA   ≠   USED + REMAINING
+MOVEMENT QUOTA   =   USED + REMAINING
 ```
 
 - **Movement quota** — Used + remaining

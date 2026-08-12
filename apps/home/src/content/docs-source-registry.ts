@@ -89,6 +89,9 @@ export const DOCS_SOURCE_REGISTRY = {
       reason: "Public package commands, local hooks, and upstream freshness enforcement.",
       files: [
         "package.json",
+        ".github/workflows/test.yml",
+        ".github/workflows/deploy-pages.yml",
+        ".github/workflows/rollback-pages.yml",
         ".husky/pre-commit",
         ".husky/pre-push",
         "scripts/check-upstream-releases.mjs",

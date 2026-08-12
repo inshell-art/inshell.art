@@ -437,11 +437,11 @@ const FIGURE_LOGIC_BUILDERS = {
       ],
       [
         {
-          id: "capacity-not-progress",
+          id: "quota-equals-progress-total",
           from: "capacity",
           to: "progress",
-          glyph: "≠",
-          label: "Deployment movement capacity is distinct from one PATH's used and remaining progress.",
+          glyph: "=",
+          label: "For each PATH, the deployed movement quota equals used plus remaining entitlement.",
         },
       ],
       [
@@ -458,9 +458,9 @@ const FIGURE_LOGIC_BUILDERS = {
           members: ["progress"],
         },
         {
-          id: "capacity-progress-distinction",
+          id: "quota-progress-equality",
           kind: "comparison",
-          label: "Deployment capacity and per-PATH progress are distinct records.",
+          label: "For each PATH, used plus remaining entitlement equals the deployed movement quota.",
           members: ["capacity", "progress"],
         },
       ],

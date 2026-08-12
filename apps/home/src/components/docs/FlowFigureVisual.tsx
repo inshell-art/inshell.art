@@ -267,7 +267,7 @@ export function LedgerFigureVisual({ figure }: { figure: LedgerFigure }) {
   const capacityGroup = logic.groups.find(({ id }) => id === "capacity-column");
   const progressGroup = logic.groups.find(({ id }) => id === "progress-column");
   const distinction = logic.edges.find(
-    ({ id }) => id === "capacity-not-progress",
+    ({ id }) => id === "quota-equals-progress-total",
   );
 
   if (

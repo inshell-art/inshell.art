@@ -42,7 +42,7 @@ type InstanceGroup = InstanceRow[];
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const TOKEN_DECIMALS = 18;
 const PULSE_PARAMS_RAW_HREF = "/pulse?raw=1";
-const VERIFY_CONTRACTS_HREF = "/verify#contracts";
+const VERIFY_CONTRACTS_HREF = "/verify#verify-contracts";
 
 function getEnv(name: string): string | undefined {
   const envCache: Record<string, unknown> | undefined =

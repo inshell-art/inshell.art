@@ -1082,7 +1082,7 @@ describe("DocsPage character figures", () => {
           expect(normalized).toContain(normalizedFigureText(figure.loop.condition));
         }
       } else if (figure.mode === "ledger") {
-        expect(figure.figureText).toContain("≠");
+        expect(figure.figureText).toContain("=");
         expect(figure.figureText).not.toMatch(/[│┼]/);
       } else if (figure.mode === "lanes") {
         expect(figure.figureText).toContain("→");
@@ -1156,7 +1156,7 @@ describe("DocsPage character figures", () => {
     expect(agentArtFigure).not.toMatch(/\bINVARIANT\b|OPEN QUESTIONS/i);
     expect(agentArtFigure).not.toMatch(/NO PRESCRIBED RELATION/);
     expect(pathCapacityFigure?.figureText).toMatch(
-      /DEPLOYMENT[\s\S]*EACH PATH[\s\S]*MOVEMENT QUOTA[\s\S]*USED \+ REMAINING/,
+      /DEPLOYMENT[\s\S]*EACH PATH[\s\S]*MOVEMENT QUOTA[\s\S]*=[\s\S]*USED \+ REMAINING/,
     );
 
     for (const [slug, sectionId] of [
@@ -1316,10 +1316,10 @@ describe("DocsPage character figures", () => {
             ].map((node) => node.dataset.figureNodeId),
           ).toEqual(["capacity", "progress"]);
           const relation = comparison?.querySelector(
-            "[data-figure-edge-id='capacity-not-progress']",
+            "[data-figure-edge-id='quota-equals-progress-total']",
           );
           expect(relation).toHaveAttribute("role", "img");
-          expect(relation).toHaveTextContent("≠");
+          expect(relation).toHaveTextContent("=");
           expect(relation).toHaveClass(
             "docs-figure__shape-ledger-relation--governing",
           );
@@ -3200,6 +3200,9 @@ describe("Agent-readable docs artifact contract", () => {
     expect(allPaths).toEqual(
       expect.arrayContaining([
         "docs/AGENTS.md",
+        ".github/workflows/test.yml",
+        ".github/workflows/deploy-pages.yml",
+        ".github/workflows/rollback-pages.yml",
         "apps/home/src/content/AGENTS.md",
       ]),
     );

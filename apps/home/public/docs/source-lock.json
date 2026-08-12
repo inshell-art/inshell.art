@@ -11,14 +11,14 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "1a6774bea6d5401f4e6a97aba6c211101531aa676a1960ffd46c4c7656aa9575",
+  "sourceTreeSha256": "211e82a161adfeb2ed03a0efe3f50f0c26168135f58a276831621c93cecc06c0",
   "groups": [
     {
       "id": "public-docs",
       "title": "Public documentation sources",
       "owner": "inshell.art docs",
       "reason": "Human articles, Agent-readable content, authority maps, and machine-handoff selection.",
-      "groupSha256": "29328f8a51bef123bb41cfca3f8842fdc829836edd14470b5f0955a8a8cc9d14",
+      "groupSha256": "ef7d8cc331524b24e35a031b5a8d57153d2a38ec93f579edc2a59fc32698bf31",
       "files": [
         {
           "path": "apps/home/src/content/AGENTS.md",
@@ -27,18 +27,18 @@
         },
         {
           "path": "apps/home/src/content/docs-figure-logic.ts",
-          "byteLength": 29750,
-          "sha256": "24a6197b4b57931c4f694fb2580eea800f4d142ff8e98c482276a75b37c60d86"
+          "byteLength": 29764,
+          "sha256": "aa1d0a302ce7d28748370958aa3938794f6660c495b7a49a18f95966561063ab"
         },
         {
           "path": "apps/home/src/content/docs-source-registry.ts",
-          "byteLength": 7406,
-          "sha256": "3ead6956923e01650fe8b3123f7792f76740fe2688be48c3cbcf10bb174e3eef"
+          "byteLength": 7538,
+          "sha256": "09f1300a1449ad2f8c79ecbc415a4c00b5acabb12b99f756e3b381bff107fa67"
         },
         {
           "path": "apps/home/src/content/docs.ts",
-          "byteLength": 111493,
-          "sha256": "43e095e9a80646d08dc0cc505cd6388bcdd4f71b8bbf13396c5dae529dd3df31"
+          "byteLength": 111297,
+          "sha256": "f36d5223ccd47895ccbbcc85c0f7f897141720a9766d4bad88609bd02fd7aba3"
         },
         {
           "path": "apps/home/src/content/thought-machine-handoff.ts",
@@ -57,8 +57,8 @@
         },
         {
           "path": "scripts/generate-agent-docs.ts",
-          "byteLength": 118149,
-          "sha256": "f3b1af698c3dc98cc8d4d60796939c6d174321e0baf59e9e11452a201517e88e"
+          "byteLength": 118461,
+          "sha256": "9c8a29d35ab3dc8a39f7e72f30d19d54939b83df88040c6a34c4f8bf2da12940"
         }
       ]
     },
@@ -67,7 +67,7 @@
       "title": "Home, PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "3c54cc806df2972234494772c65f7bd56ad7c584b5d7d01e029fab05415a6baa",
+      "groupSha256": "2b6d9f300abe205134771dec61ba0fe69c222e277d1c205c720992438542ec00",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -161,8 +161,8 @@
         },
         {
           "path": "apps/home/src/components/PulsePage.tsx",
-          "byteLength": 20987,
-          "sha256": "8f5ed7a69ec35481c25fe8cb767c515c67d4c223b57f6083cb7f194c66f24294"
+          "byteLength": 20994,
+          "sha256": "54d90a8c68b6723f145bd1ec02c0b24e7287ba67ee528f383f1b6c605ac0764f"
         },
         {
           "path": "apps/home/src/components/ThoughtDetailPage.tsx",
@@ -186,8 +186,8 @@
         },
         {
           "path": "apps/home/src/components/docs/FlowFigureVisual.tsx",
-          "byteLength": 9886,
-          "sha256": "8dddb3f5e51d65ad8c9bd64b960ee06626a10145320d612c8b4638e276118f45"
+          "byteLength": 9892,
+          "sha256": "a019e3ff58ed146f01fe073638668c198087ce5e247a1c12cc8c64f6b26686ce"
         },
         {
           "path": "apps/home/src/components/docs/LaneFigureVisual.tsx",
@@ -545,8 +545,23 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "c5510291abf3e47b5d24ac9f8b0cd0e55ded8664d4fb9aa883cff7c937a31d7a",
+      "groupSha256": "91d69ad696d1d2d1c8ca0ecd7283f97c6db7b7a53912ffd4fb65f1bb65d0e5c6",
       "files": [
+        {
+          "path": ".github/workflows/deploy-pages.yml",
+          "byteLength": 12341,
+          "sha256": "9f1bfcf51d8216bff50d6689b926cab003e1c1f27cb81bc8a8431900d69c2cce"
+        },
+        {
+          "path": ".github/workflows/rollback-pages.yml",
+          "byteLength": 4946,
+          "sha256": "d438395f925b8b30a1110630341bea5f0e7406bb9c399f26fda9f534d42bdb0f"
+        },
+        {
+          "path": ".github/workflows/test.yml",
+          "byteLength": 2306,
+          "sha256": "5ee3b6dbcf1ead8355413fdcdd7eeb9f9529c6509222421c24d351367a32b963"
+        },
         {
           "path": ".husky/pre-commit",
           "byteLength": 57,

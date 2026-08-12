@@ -383,20 +383,20 @@ THOUGHT is current and has a live creation and mint flow. WILL is planned for 20
 
 - Group: Works and participation
 - Status: current
-- Authority classes in this document: artist-editorial, app-documentation, app-record, contract-release, runtime-report
+- Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/thought
 - Documentation version: 2026-08-12
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
 
-- Authority: artist-editorial, app-documentation, app-record, contract-release, runtime-report
+- Authority: artist-editorial, app-documentation, contract-release
 
 THOUGHT is the first movement on Inshell's PATH and begins with the individual. It gives the inward direction—inspect self—a bounded occasion: simply inspect your thought and what becomes visible when one Agent responds. The thought's words, source, and motivation remain open to inspection, as do the knowledge it carries and the reasons that knowledge became believable. The Agent response enters that practice as another exact line to read; it does not resolve the thought or claim possession of its truth.
 
 Within the wider field of Agent Art, THOUGHT chooses a narrow terminal practice: one exact human prompt and one exact Agent response. Their ordered pair defines the globally unique work; either line may appear again with a different counterpart.
 
-The creation flow is: human prompt → Agent response → validation and canonical record assembly → human selection → wallet confirmation → PATH movement consumption → THOUGHT minted. The model proposes. The human decides. The wallet confirms. The contract records.
+The creation flow is: human prompt → Agent response → validation and canonical record assembly → human selection → wallet confirmation → PATH movement consumption → THOUGHT minted. The Agent responds. The human decides. The wallet confirms. The contract records.
 
 Prompt and Agent response are each 1–64 bytes of Terminal English. Allowed characters are space, A–Z, a–z, 0–9, and . , ? ! : ; ' " - ( ) / &. Leading spaces, trailing spaces, and repeated internal spaces are rejected. Validation never trims, normalizes, repairs, translates, or rewrites accepted bytes.
 
@@ -475,7 +475,7 @@ The human can preserve a candidate locally, discard it, or move toward minting. 
 
 ### The Agent handoff
 
-- Authority: app-documentation, app-record, contract-release, runtime-report
+- Authority: app-documentation, contract-release
 
 ### The creative handoff
 
@@ -528,11 +528,11 @@ The NFT tokenURI supplies the canonical image and portable metadata. A screensho
 
 ### Provenance and attestation
 
-- Authority: app-record, contract-release, runtime-report
+- Authority: app-documentation, contract-release
 
 ### Creation Attestation
 
-- Authority: app-record, contract-release
+- Authority: app-documentation, contract-release
 - Figure ID: thought.creation-attestation
 - Figure mode: field
 - Semantic form: fork
@@ -808,15 +808,15 @@ Public PATH issuance runs through Pulse. The contract can also expose a bounded 
   - `capacity [state]: Movement quota`
   - `progress [state]: Used + remaining`
 - Semantic edges:
-  - `capacity-not-progress: capacity (Movement quota) --[≠ · Deployment movement capacity is distinct from one PATH's used and remaining progress.]--> progress (Used + remaining)`
+  - `quota-equals-progress-total: capacity (Movement quota) --[= · For each PATH, the deployed movement quota equals used plus remaining entitlement.]--> progress (Used + remaining)`
 - Semantic groups:
   - `capacity-column [lane]: Deployment [members: capacity (Movement quota)]`
   - `progress-column [lane]: Each PATH [members: progress (Used + remaining)]`
-  - `capacity-progress-distinction [comparison]: Deployment capacity and per-PATH progress are distinct records. [members: capacity (Movement quota) · progress (Used + remaining)]`
+  - `quota-progress-equality [comparison]: For each PATH, used plus remaining entitlement equals the deployed movement quota. [members: capacity (Movement quota) · progress (Used + remaining)]`
 
 ```text
 DEPLOYMENT             EACH PATH
-MOVEMENT QUOTA   ≠   USED + REMAINING
+MOVEMENT QUOTA   =   USED + REMAINING
 ```
 
 - **Movement quota** — Used + remaining

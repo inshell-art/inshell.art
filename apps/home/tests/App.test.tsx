@@ -493,7 +493,7 @@ describe("App Component", () => {
     );
     expect(
       scopedParams.getByRole("link", { name: "Open Inshell contracts verification page" }),
-    ).toHaveAttribute("href", "/verify#contracts");
+    ).toHaveAttribute("href", "/verify#verify-contracts");
     expect(scopedParams.queryByText("PulseAuction contract")).toBeNull();
     expect(scopedParams.getByText("k")).toBeInTheDocument();
     expect(scopedParams.getByText("100")).toBeInTheDocument();

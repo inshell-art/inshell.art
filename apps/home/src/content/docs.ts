@@ -449,14 +449,12 @@ export const DOCS_SOURCE: DocsSource = {
       authorities: [
         "artist-editorial",
         "app-documentation",
-        "app-record",
         "contract-release",
-        "runtime-report",
       ],
       paragraphs: [
         "THOUGHT is the first movement on Inshell's PATH and begins with the individual. It gives the inward direction—inspect self—a bounded occasion: simply inspect your thought and what becomes visible when one Agent responds. The thought's words, source, and motivation remain open to inspection, as do the knowledge it carries and the reasons that knowledge became believable. The Agent response enters that practice as another exact line to read; it does not resolve the thought or claim possession of its truth.",
         "Within the wider field of Agent Art, THOUGHT chooses a narrow terminal practice: one exact human prompt and one exact Agent response. Their ordered pair defines the globally unique work; either line may appear again with a different counterpart.",
-        "The creation flow is: human prompt → Agent response → validation and canonical record assembly → human selection → wallet confirmation → PATH movement consumption → THOUGHT minted. The model proposes. The human decides. The wallet confirms. The contract records.",
+        "The creation flow is: human prompt → Agent response → validation and canonical record assembly → human selection → wallet confirmation → PATH movement consumption → THOUGHT minted. The Agent responds. The human decides. The wallet confirms. The contract records.",
         "Prompt and Agent response are each 1–64 bytes of Terminal English. Allowed characters are space, A–Z, a–z, 0–9, and . , ? ! : ; ' \" - ( ) / &. Leading spaces, trailing spaces, and repeated internal spaces are rejected. Validation never trims, normalizes, repairs, translates, or rewrites accepted bytes.",
         "The human reviews the returned response and preview, then decides whether to preserve, discard, or mint the work. To mint, the human picks an available PATH, signs a one-mint permission bound to the current PATH state and ThoughtNFT executor, and confirms the transaction. The signature is not a transaction and uses no gas.",
         "A successful mint atomically consumes exactly one THOUGHT unit from the selected PATH. A canceled or failed mint consumes nothing and does not reserve the prompt-response pair.",
@@ -809,7 +807,7 @@ export const DOCS_SOURCE: DocsSource = {
             mode: "ledger",
             figureText: [
               "DEPLOYMENT             EACH PATH",
-              "MOVEMENT QUOTA   ≠   USED + REMAINING",
+              "MOVEMENT QUOTA   =   USED + REMAINING",
             ].join("\n"),
             items: [
               { title: "Movement quota", detail: "Used + remaining" },
@@ -1757,30 +1755,19 @@ export const DOCS_AUTHORITY_MAP: Record<
     },
   },
   thought: {
-    lead: [
-      "artist-editorial",
-      "app-documentation",
-      "app-record",
-      "contract-release",
-      "runtime-report",
-    ],
+    lead: ["artist-editorial", "app-documentation", "contract-release"],
     sectionFigures: {
       "docs-thought-work": ["app-documentation", "contract-release"],
       "docs-thought-agent-handoff": ["app-documentation"],
-      "docs-thought-provenance": ["app-record", "contract-release"],
+      "docs-thought-provenance": ["app-documentation", "contract-release"],
     },
     sections: {
       "docs-thought-work": ["artist-editorial", "app-documentation", "contract-release"],
       "docs-thought-language": ["app-documentation", "contract-release"],
       "docs-thought-human-choice": ["app-documentation", "contract-release"],
-      "docs-thought-agent-handoff": [
-        "app-documentation",
-        "app-record",
-        "contract-release",
-        "runtime-report",
-      ],
+      "docs-thought-agent-handoff": ["app-documentation", "contract-release"],
       "docs-thought-form": ["artist-editorial", "app-documentation", "contract-release"],
-      "docs-thought-provenance": ["app-record", "contract-release", "runtime-report"],
+      "docs-thought-provenance": ["app-documentation", "contract-release"],
       "docs-thought-local": ["app-documentation"],
     },
   },

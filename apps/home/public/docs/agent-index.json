@@ -11,7 +11,7 @@
   "completeJson": "/docs/content.json",
   "canonicalCompleteJson": "https://inshell.art/docs/content.json",
   "completeJsonMediaType": "application/json",
-  "completeJsonSha256": "b5c3ea72a082ed375e6ccef3f90123739310cf3e4db09ce436a1d3758cc76845",
+  "completeJsonSha256": "833655812c0fabc8e9ef2cd38580632003cf8da4864f48cd524540b93ddb4ba9",
   "purpose": "Public, read-only discovery for visitors using their own Agents.",
   "sourceLock": {
     "url": "/docs/source-lock.json",
@@ -19,7 +19,7 @@
     "schemaUrl": "/docs/source-lock.schema.json",
     "canonicalSchemaUrl": "https://inshell.art/docs/source-lock.schema.json",
     "mediaType": "application/json",
-    "sha256": "1b730cd381e4ed71562cf695af6d50f48f842cf3a44eef597594b958ed9b2856",
+    "sha256": "6840167a09dadd35d2277f5c6e122f75ff6b78c8db625483a9b9efe818177a28",
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
@@ -223,20 +223,18 @@
       "authorities": [
         "artist-editorial",
         "app-documentation",
-        "app-record",
-        "contract-release",
-        "runtime-report"
+        "contract-release"
       ],
       "authorityScope": "document union only; fetch the topic JSON or Markdown and use each content block's authorities for a specific claim",
       "canonicalHtml": "https://inshell.art/docs/thought",
       "markdown": "/docs/thought.md",
       "canonicalMarkdown": "https://inshell.art/docs/thought.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "8d7584459f02d8469760910d23ea4c4435a2db282734df87f2c8d2949cb5288a",
+      "markdownSha256": "3a42814658d23c837ef93a28915f28835d1728daaa51a443ff1b419aba403a3d",
       "json": "/docs/thought.json",
       "canonicalJson": "https://inshell.art/docs/thought.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "c1a1a57bbcfd0701d725b80283530b9a4d5a30c554c3bed10bf0e825a3387c86"
+      "jsonSha256": "b4cfdba6d05e74afddbe9579fa9222f50270055af7013fccfe6326349ac1b127"
     },
     {
       "id": "will",
@@ -299,11 +297,11 @@
       "markdown": "/docs/path.md",
       "canonicalMarkdown": "https://inshell.art/docs/path.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "9495fb73ca67b6f76a8f5e2116a147eed37e4b084151573b7b999b0d85ed0122",
+      "markdownSha256": "65625fa45f49d94fb86efbbdc9b3a3a0970b21493b6a4c6a6d776475284a040c",
       "json": "/docs/path.json",
       "canonicalJson": "https://inshell.art/docs/path.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "ca09a60aaaf812ee120ab76dd8a25566f536cd7a421cddb9c75eb812cdbe0f69"
+      "jsonSha256": "3c06743e75fd979ca0db0bfe5c26785fd668a98be1e3b90d26faae6f1bda7f53"
     },
     {
       "id": "pulse",
