@@ -100,21 +100,39 @@ function CharacterBox({
   children,
   className = "",
   junction = false,
+  centeredHeading = false,
 }: {
   heading: ReactNode;
   children?: ReactNode;
   className?: string;
   junction?: boolean;
+  centeredHeading?: boolean;
 }) {
   return (
     <div
       className={`docs-figure__character-frame${className ? ` ${className}` : ""}`}
     >
-      <div className="docs-figure__frame-cap">
-        <Glyph className="docs-figure__frame-character">┌──</Glyph>
-        <span className="docs-figure__frame-heading">{heading}</span>
-        <Glyph className="docs-figure__frame-rule">{HORIZONTAL_RAIL}</Glyph>
-        <Glyph className="docs-figure__frame-character">┐</Glyph>
+      <div
+        className={`docs-figure__frame-cap${
+          centeredHeading ? " docs-figure__frame-cap--centered" : ""
+        }`}
+      >
+        {centeredHeading ? (
+          <>
+            <Glyph className="docs-figure__frame-character">┌</Glyph>
+            <Glyph className="docs-figure__frame-rule">{HORIZONTAL_RAIL}</Glyph>
+            <span className="docs-figure__frame-heading">{heading}</span>
+            <Glyph className="docs-figure__frame-rule">{HORIZONTAL_RAIL}</Glyph>
+            <Glyph className="docs-figure__frame-character">┐</Glyph>
+          </>
+        ) : (
+          <>
+            <Glyph className="docs-figure__frame-character">┌──</Glyph>
+            <span className="docs-figure__frame-heading">{heading}</span>
+            <Glyph className="docs-figure__frame-rule">{HORIZONTAL_RAIL}</Glyph>
+            <Glyph className="docs-figure__frame-character">┐</Glyph>
+          </>
+        )}
       </div>
       {children ? (
         <div className="docs-figure__frame-body">
@@ -199,14 +217,20 @@ function InwardDirection({ figure }: { figure: FieldFigure }) {
 
   return (
     <div className="docs-figure__field-shape" data-figure-shape="box-tail">
-      <CharacterBox heading={<StaticTerm>{shell.title}</StaticTerm>} junction>
+      <CharacterBox
+        heading={<StaticTerm>{shell.title}</StaticTerm>}
+        junction
+        centeredHeading
+      >
         {shell.detail ? (
           <small className="docs-figure__annotation">{shell.detail}</small>
         ) : null}
       </CharacterBox>
       <div className="docs-figure__field-tail">
         <span className="docs-figure__field-relation">
-          <Glyph label={enterEdge.label}>{enterEdge.glyph}</Glyph>
+          <Glyph label={enterEdge.label}>
+            {Array.from({ length: 64 }, () => enterEdge.glyph).join("\n")}
+          </Glyph>
           <strong className="docs-figure__term docs-figure__field-relation-label">
             {inward.title}
           </strong>

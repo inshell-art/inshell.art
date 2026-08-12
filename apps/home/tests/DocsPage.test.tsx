@@ -1417,8 +1417,32 @@ describe("DocsPage character figures", () => {
     expect(inward).toHaveTextContent(/┌─+\s*SHELL[─\s]*┐/i);
     expect(inward).toHaveTextContent(/└[─\s]*┬[─\s]*┘/);
     expect(
+      inward?.querySelector(".docs-figure__frame-cap--centered"),
+    ).not.toBeNull();
+    expect(
+      inward?.querySelectorAll(
+        ".docs-figure__frame-cap--centered > .docs-figure__frame-rule",
+      ),
+    ).toHaveLength(2);
+    expect(
       inward?.querySelector(".docs-figure__field-relation"),
-    ).toHaveTextContent(/│\s*IN/i);
+    ).toHaveTextContent(/[│\s]+IN/i);
+    const inwardStem = inward?.querySelector(
+      ".docs-figure__field-relation > .docs-figure__glyph",
+    );
+    expect(inwardStem?.textContent?.match(/│/g)?.length).toBeGreaterThan(1);
+    expect(inwardStem).toHaveAttribute(
+      "aria-label",
+      "The direction enters the shell.",
+    );
+    expect(
+      inward?.querySelector(
+        ".docs-figure__field-tail > .docs-figure__glyph[role='img']",
+      ),
+    ).toHaveAttribute(
+      "aria-label",
+      "In directs inspection toward the self.",
+    );
     expect(inward?.querySelector(".docs-figure__field-tail")).toHaveTextContent(
       /│\s*IN[\s\S]*↓[\s\S]*Inspect what forms the[\s\S]*self/i,
     );
