@@ -31,6 +31,8 @@ const loopbackHost = "127.0.0.1";
 const accessCookieName = "inshell_lan_access";
 const maxRpcBodyBytes = 1024 * 1024;
 const maxLogBytes = 10 * 1024 * 1024;
+const childTreeGraceMs = 45_000;
+const childTreeKillMs = 5_000;
 const allowedRpcMethods = new Set([
   "eth_blockNumber",
   "eth_call",
@@ -527,12 +529,67 @@ const startRpcProxy = (publicHost) =>
 let child = null;
 let stopping = false;
 let restartCount = 0;
+let resolveStopRequest;
+const stopRequested = new Promise((resolve) => {
+  resolveStopRequest = resolve;
+});
+
+const terminateChildTree = (target, signal = "SIGTERM") => {
+  if (!target) return;
+  if (process.platform !== "win32" && target.pid) {
+    try {
+      process.kill(-target.pid, signal);
+      return;
+    } catch (error) {
+      if (error?.code === "ESRCH") return;
+    }
+  }
+  if (target.exitCode === null) target.kill(signal);
+};
+
+const childTreeIsAlive = (target) => {
+  if (!target) return false;
+  if (process.platform === "win32" || !target.pid) return target.exitCode === null;
+  try {
+    process.kill(-target.pid, 0);
+    return true;
+  } catch (error) {
+    if (error?.code === "ESRCH") return false;
+    if (error?.code === "EPERM") return true;
+    throw error;
+  }
+};
+
+const waitForChildTreeExit = async (target) => {
+  const waitUntil = async (deadline) => {
+    while (childTreeIsAlive(target) && Date.now() < deadline) {
+      await sleep(100);
+    }
+    return !childTreeIsAlive(target);
+  };
+  if (await waitUntil(Date.now() + childTreeGraceMs)) return;
+  write(
+    `THOUGHT LAN child group ${target?.pid ?? "unknown"} did not stop gracefully; forcing shutdown.`,
+    process.stderr,
+  );
+  terminateChildTree(target, "SIGKILL");
+  if (!(await waitUntil(Date.now() + childTreeKillMs))) {
+    throw new Error(`THOUGHT LAN child group ${target?.pid ?? "unknown"} did not exit.`);
+  }
+};
+
+const stopAndWaitChildTree = async (target, exited) => {
+  terminateChildTree(target);
+  await waitForChildTreeExit(target);
+  return await exited;
+};
 
 const stop = (signal) => {
   if (stopping) return;
   stopping = true;
   write(`Stopping LAN stack from ${signal}.`);
-  if (child && child.exitCode === null) child.kill("SIGTERM");
+  terminateChildTree(child);
+  resolveStopRequest();
 };
 
 process.on("SIGINT", () => stop("SIGINT"));
@@ -566,6 +623,7 @@ const runStack = async () => {
   child = spawn(process.execPath, ["scripts/dev-thought-local-stack.mjs"], {
     cwd: root,
     env,
+    detached: process.platform !== "win32",
     stdio: ["ignore", "pipe", "pipe"],
   });
   child.stdout.on("data", (chunk) => writeChildOutput(chunk, process.stdout));
@@ -582,17 +640,22 @@ const runStack = async () => {
     const result = await Promise.race([
       exited.then((exit) => ({ exit })),
       sleep(1_000).then(async () => ({ health: await health({ publicHost, publicRpcUrl }) })),
+      stopRequested.then(() => ({ stop: true })),
     ]);
-    if (result.exit) return result.exit;
+    if (result.stop) return await stopAndWaitChildTree(child, exited);
+    if (result.exit) {
+      terminateChildTree(child);
+      await waitForChildTreeExit(child);
+      return result.exit;
+    }
     currentHealth = result.health;
     if (currentHealth.ok) break;
   }
 
-  if (stopping) return await exited;
+  if (stopping) return await stopAndWaitChildTree(child, exited);
   if (!currentHealth?.ok) {
     write("LAN stack did not become healthy before the startup deadline.", process.stderr);
-    child.kill("SIGTERM");
-    return await exited;
+    return await stopAndWaitChildTree(child, exited);
   }
 
   const readyStatus = {
@@ -628,8 +691,14 @@ const runStack = async () => {
       sleep(healthIntervalMs).then(async () => ({
         health: await health({ publicHost, publicRpcUrl }),
       })),
+      stopRequested.then(() => ({ stop: true })),
     ]);
-    if (result.exit) return result.exit;
+    if (result.stop) return await stopAndWaitChildTree(child, exited);
+    if (result.exit) {
+      terminateChildTree(child);
+      await waitForChildTreeExit(child);
+      return result.exit;
+    }
     currentHealth = result.health;
     if (currentHealth.ok) {
       consecutiveFailures = 0;
@@ -646,17 +715,18 @@ const runStack = async () => {
     );
     if (consecutiveFailures >= unhealthyLimit) {
       write("Restarting the unhealthy THOUGHT LAN stack.", process.stderr);
-      child.kill("SIGTERM");
-      return await exited;
+      return await stopAndWaitChildTree(child, exited);
     }
   }
 
-  return await exited;
+  return await stopAndWaitChildTree(child, exited);
 };
 
 try {
   while (!stopping) {
     const exit = await runStack();
+    terminateChildTree(child);
+    await waitForChildTreeExit(child);
     child = null;
     if (stopping) break;
     restartCount += 1;
@@ -666,6 +736,7 @@ try {
 } catch (error) {
   write(error instanceof Error ? error.message : String(error), process.stderr);
   stop("error");
+  await waitForChildTreeExit(child);
   if (child && child.exitCode === null) {
     await new Promise((resolve) => child.once("exit", resolve));
   }

@@ -38,6 +38,25 @@ test("LAN supervisor exposes only its disposable chain and canonical Home origin
   assert.match(source, /if \(consecutiveFailures >= unhealthyLimit\)/);
   assert.match(source, /Restarting the unhealthy THOUGHT LAN stack/);
   assert.match(source, /LAN address changed from \$\{publicHost\} to \$\{detectedHost\}/);
+  assert.match(source, /detached: process\.platform !== "win32"/);
+  assert.match(source, /process\.kill\(-target\.pid, signal\)/);
+  assert.match(source, /process\.kill\(-target\.pid, 0\)/);
+  assert.match(source, /const childTreeGraceMs = 45_000/);
+  assert.match(source, /terminateChildTree\(target, "SIGKILL"\)/);
+  assert.match(
+    source,
+    /const stopAndWaitChildTree = async \(target, exited\) => \{\s*terminateChildTree\(target\);\s*await waitForChildTreeExit\(target\);\s*return await exited;\s*\}/,
+  );
+  assert.match(source, /stopRequested\.then\(\(\) => \(\{ stop: true \}\)\)/);
+  assert.match(source, /if \(result\.stop\) return await stopAndWaitChildTree\(child, exited\)/);
+  assert.match(
+    source,
+    /if \(result\.exit\) \{\s*terminateChildTree\(child\);\s*await waitForChildTreeExit\(child\);\s*return result\.exit;\s*\}/,
+  );
+  assert.match(
+    source,
+    /const exit = await runStack\(\);\s*terminateChildTree\(child\);\s*await waitForChildTreeExit\(child\);\s*child = null;/,
+  );
 });
 
 test("LAN UI requires a generated bearer cookie and denies private Vite paths", () => {
