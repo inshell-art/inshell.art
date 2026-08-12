@@ -40,7 +40,7 @@
       "id": "inshell.inward-direction",
       "label": "The inward direction",
       "mode": "field",
-      "figureText": "┌───────────────── SHELL ─────────────────┐\n│ Real and often necessary · Surface:     │\n│ visible · operable · legible.           │\n├────────────────────┬────────────────────┤\n│                    │ IN                 │\n│                    ↓                    │\n│          Inspect what forms the         │\n│                   SELF                  │\n└─────────────────────────────────────────┘",
+      "figureText": "Real and often necessary · Surface: visible · operable · legible.\n┌─ SHELL ────────────┬────────────────────┐\n│                    │ IN                 │\n│                    ↓                    │\n│          Inspect what forms the         │\n│                   SELF                  │\n└─────────────────────────────────────────┘",
       "items": [
         {
           "title": "Shell",

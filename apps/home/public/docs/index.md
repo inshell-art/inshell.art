@@ -76,10 +76,8 @@ Read the design choices that give the practice form without turning its truth in
   - `shell-boundary [boundary]: The shell is real, necessary, and not the whole being. [members: shell (Shell) · in (In) · self (SELF)]`
 
 ```text
-┌───────────────── SHELL ─────────────────┐
-│ Real and often necessary · Surface:     │
-│ visible · operable · legible.           │
-├────────────────────┬────────────────────┤
+Real and often necessary · Surface: visible · operable · legible.
+┌─ SHELL ────────────┬────────────────────┐
 │                    │ IN                 │
 │                    ↓                    │
 │          Inspect what forms the         │

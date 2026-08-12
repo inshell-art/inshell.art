@@ -894,7 +894,7 @@ describe("DocsPage character figures", () => {
   } as const;
 
   const expectedFieldAnnotationCounts = {
-    "The inward direction": 2,
+    "The inward direction": 3,
     "How practice relates to truth": 3,
     "The invariant and the open field": 3,
     "One prompt, one response": 1,
@@ -1104,7 +1104,7 @@ describe("DocsPage character figures", () => {
       ?.sections?.find(({ id }) => id === "docs-path-capacity")?.figure;
 
     expect(inshellFigure).toMatch(
-      /SHELL[\s\S]*SURFACE[\s\S]*IN[\s\S]*SELF/i,
+      /SURFACE[\s\S]*SHELL[\s\S]*IN[\s\S]*SELF/i,
     );
     expect(inshellFigure).toMatch(
       /REAL AND OFTEN NECESSARY[\s\S]*VISIBLE · OPERABLE · LEGIBLE/i,
@@ -1417,22 +1417,29 @@ describe("DocsPage character figures", () => {
       .getByRole("figure", { name: "How practice relates to truth" })
       .querySelector("[data-figure-shape='boxed-chain']");
 
-    expect(inward).toHaveTextContent(/┌─+\s*SHELL[─\s]*┐/i);
-    expect(inward).toHaveTextContent(/├[─\s]*┬[─\s]*┤/);
+    expect(inward).toHaveTextContent(/┌─+\s*SHELL[─\s]*┬[─\s]*┐/i);
     expect(inward).toHaveTextContent(/└─+┘/);
     expect(
-      inward?.querySelector(".docs-figure__frame-cap--centered"),
+      inward?.querySelector(".docs-figure__frame-cap--junction"),
     ).not.toBeNull();
     expect(
       inward?.querySelectorAll(
-        ".docs-figure__frame-cap--centered > .docs-figure__frame-rule",
+        ".docs-figure__frame-cap--junction .docs-figure__frame-rule",
       ),
     ).toHaveLength(2);
+    const inwardNote = inward?.querySelector(
+      ":scope > .docs-figure__field-inward-note",
+    );
+    const inwardFrame = inward?.querySelector(
+      ":scope > .docs-figure__character-frame",
+    );
+    expect(inwardNote).toHaveTextContent(
+      /Real and often necessary · Surface: visible · operable · legible\./i,
+    );
+    expect(inwardNote?.nextElementSibling).toBe(inwardFrame);
     expect(
-      inward?.querySelectorAll(
-        ".docs-figure__frame-junction-divider > .docs-figure__frame-rule",
-      ),
-    ).toHaveLength(2);
+      inwardFrame?.querySelector(".docs-figure__frame-content"),
+    ).not.toHaveTextContent(/Real and often necessary/i);
     expect(
       inward?.querySelector(".docs-figure__frame-content"),
     ).toHaveTextContent(/SELF/i);
@@ -1466,7 +1473,7 @@ describe("DocsPage character figures", () => {
     );
     expect(
       inward?.querySelector(".docs-figure__field-relation-label"),
-    ).toHaveClass("docs-figure__term");
+    ).toHaveClass("docs-figure__annotation");
     const practiceRelation = practice?.querySelector(
       ".docs-figure__field-practice-relation",
     );
