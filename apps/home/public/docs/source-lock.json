@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "5878defecb413fcd2bd320e9f5826862d0e87640ceb2b5bb715ad8eded1e9d4d",
+  "sourceTreeSha256": "ee413232964a7e3e547b5cd0a4e2790e9b351c3a9c25cf0cdedf9d71962e9c52",
   "groups": [
     {
       "id": "public-docs",
@@ -67,7 +67,7 @@
       "title": "Home, PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "9baeacd06e29a1a8ca846502218a8fea73f340e8b6c874ab634903636240e1a5",
+      "groupSha256": "a5cf7da5461eb34767805a8b20a8d9b06005fabd227e973531fa127c5a4608ba",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -181,8 +181,8 @@
         },
         {
           "path": "apps/home/src/components/docs/FieldFigureVisual.tsx",
-          "byteLength": 25236,
-          "sha256": "3165299c909168b9d9990f6eca98942cc4c271a50efdb0ae34d5afa66bbc8ff0"
+          "byteLength": 25262,
+          "sha256": "b96afb7505df44e02954923e0ae47e4201e522dd7c7f9ad333f916d2fd9db3e0"
         },
         {
           "path": "apps/home/src/components/docs/FlowFigureVisual.tsx",

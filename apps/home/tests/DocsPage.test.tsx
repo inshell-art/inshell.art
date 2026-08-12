@@ -1710,6 +1710,22 @@ describe("DocsPage character figures", () => {
     expect(openAgentArt).toHaveTextContent(/AGENT ART[\s\S]*INVARIANT/i);
     expect(openAgentArt).toHaveTextContent(/OPEN QUESTIONS[\s\S]*├─[\s\S]*WHAT IS ART/i);
     expect(openAgentArt).toHaveTextContent(/└─[\s\S]*WHAT IS AN AGENT/i);
+    const agentArtLabels = Array.from(
+      openAgentArt?.querySelectorAll(".docs-figure__field-governing-term") ?? [],
+    );
+    expect(agentArtLabels.map((label) => label.textContent?.trim())).toEqual([
+      "AGENT ART",
+      "OPEN QUESTIONS",
+    ]);
+    agentArtLabels.forEach((label) => {
+      expect(label).toHaveClass("docs-figure__shape-label");
+      expect(label).not.toHaveClass("docs-figure__term");
+    });
+    expect(
+      Array.from(openAgentArt?.querySelectorAll(".docs-figure__term") ?? []).map(
+        (term) => term.textContent?.trim(),
+      ),
+    ).toEqual(["Invariant", "What is Art?", "What is an Agent?"]);
     expect(openAgentArt?.querySelector(".docs-figure__character-frame")).toBeNull();
     expect(
       screen.queryByRole("figure", { name: "One practice within Agent Art" }),

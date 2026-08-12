@@ -367,15 +367,15 @@ function AgentArtField({ figure }: { figure: FieldFigure }) {
       className="docs-figure__field-shape docs-figure__field-open"
       data-figure-shape="open-invariant-field"
     >
-      <StaticTerm className="docs-figure__field-governing-term">
+      <span className="docs-figure__shape-label docs-figure__field-governing-term">
         AGENT ART
-      </StaticTerm>
+      </span>
       <div className="docs-figure__field-segment">
         <NodeCopy node={invariant} />
       </div>
-      <StaticTerm className="docs-figure__field-governing-term">
+      <span className="docs-figure__shape-label docs-figure__field-governing-term">
         OPEN QUESTIONS
-      </StaticTerm>
+      </span>
       <ul className="docs-figure__field docs-figure__field-open-questions">
         <li>
           <Glyph className="docs-figure__field-membership-glyph">├─</Glyph>
