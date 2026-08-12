@@ -26,13 +26,13 @@
   - `shell-boundary [boundary]: The shell is real, necessary, and not the whole being. [members: shell (Shell) · in (In) · self (SELF)]`
 
 ```text
-Real and often necessary · Surface: visible · operable · legible.
-┌─ SHELL ────────────┬────────────────────┐
-│                    │ IN                 │
-│                    ↓                    │
-│          Inspect what forms the         │
-│                   SELF                  │
-└─────────────────────────────────────────┘
+   SHELL  Real and often necessary · Surface: visible · operable · legible.
+┌─────────────────────────────────────┬─────────────────────────────────────┐
+│                                     │ IN                                  │
+│                                     ↓                                     │
+│                          Inspect what forms the                           │
+│                                   SELF                                    │
+└───────────────────────────────────────────────────────────────────────────┘
 ```
 
 - **Shell** — Real and often necessary · Surface: visible · operable · legible.

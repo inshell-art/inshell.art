@@ -171,13 +171,13 @@ export const DOCS_SOURCE: DocsSource = {
         label: "The inward direction",
         mode: "field",
         figureText: [
-          "Real and often necessary · Surface: visible · operable · legible.",
-          "┌─ SHELL ────────────┬────────────────────┐",
-          "│                    │ IN                 │",
-          "│                    ↓                    │",
-          "│          Inspect what forms the         │",
-          "│                   SELF                  │",
-          "└─────────────────────────────────────────┘",
+          "   SHELL  Real and often necessary · Surface: visible · operable · legible.",
+          "┌─────────────────────────────────────┬─────────────────────────────────────┐",
+          "│                                     │ IN                                  │",
+          "│                                     ↓                                     │",
+          "│                          Inspect what forms the                           │",
+          "│                                   SELF                                    │",
+          "└───────────────────────────────────────────────────────────────────────────┘",
         ].join("\n"),
         items: [
           {

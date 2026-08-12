@@ -254,23 +254,17 @@
 
 .docs-figure__frame-cap--junction {
   grid-template-columns:
-    minmax(0, 1fr) max-content minmax(0, 1fr);
+    max-content minmax(var(--docs-figure-rule-min-width), 1fr) max-content
+    minmax(var(--docs-figure-rule-min-width), 1fr) max-content;
 }
 
-.docs-figure__frame-cap-half {
+.docs-figure__frame-label-row {
   display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--docs-figure-item-gap);
   align-items: end;
   min-width: 0;
-}
-
-.docs-figure__frame-cap-half--left {
-  grid-template-columns:
-    var(--docs-figure-frame-padding-inline) minmax(0, max-content)
-    minmax(var(--docs-figure-rule-min-width), 1fr);
-}
-
-.docs-figure__frame-cap-half--right {
-  grid-template-columns: minmax(var(--docs-figure-rule-min-width), 1fr) max-content;
+  padding-inline: var(--docs-figure-frame-padding-inline);
 }
 
 .docs-figure__frame-character {

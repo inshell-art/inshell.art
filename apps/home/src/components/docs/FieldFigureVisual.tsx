@@ -101,46 +101,41 @@ function CharacterBox({
   className = "",
   junction = false,
   capJunction = false,
+  capAnnotation,
 }: {
   heading: ReactNode;
   children?: ReactNode;
   className?: string;
   junction?: boolean;
   capJunction?: boolean;
+  capAnnotation?: ReactNode;
 }) {
   return (
     <div
       className={`docs-figure__character-frame${className ? ` ${className}` : ""}`}
     >
-      <div
-        className={`docs-figure__frame-cap${
-          capJunction ? " docs-figure__frame-cap--junction" : ""
-        }`}
-      >
-        {capJunction ? (
-          <>
-            <span className="docs-figure__frame-cap-half docs-figure__frame-cap-half--left">
-              <Glyph className="docs-figure__frame-character">┌─ </Glyph>
-              <span className="docs-figure__frame-heading">{heading}</span>
-              <Glyph className="docs-figure__frame-rule">
-                {` ${HORIZONTAL_RAIL}`}
-              </Glyph>
-            </span>
-            <Glyph className="docs-figure__frame-character">┬</Glyph>
-            <span className="docs-figure__frame-cap-half docs-figure__frame-cap-half--right">
-              <Glyph className="docs-figure__frame-rule">{HORIZONTAL_RAIL}</Glyph>
-              <Glyph className="docs-figure__frame-character">┐</Glyph>
-            </span>
-          </>
-        ) : (
-          <>
-            <Glyph className="docs-figure__frame-character">┌──</Glyph>
+      {capJunction ? (
+        <>
+          <div className="docs-figure__frame-label-row">
             <span className="docs-figure__frame-heading">{heading}</span>
+            {capAnnotation}
+          </div>
+          <div className="docs-figure__frame-cap docs-figure__frame-cap--junction">
+            <Glyph className="docs-figure__frame-character">┌</Glyph>
+            <Glyph className="docs-figure__frame-rule">{HORIZONTAL_RAIL}</Glyph>
+            <Glyph className="docs-figure__frame-character">┬</Glyph>
             <Glyph className="docs-figure__frame-rule">{HORIZONTAL_RAIL}</Glyph>
             <Glyph className="docs-figure__frame-character">┐</Glyph>
-          </>
-        )}
-      </div>
+          </div>
+        </>
+      ) : (
+        <div className="docs-figure__frame-cap">
+          <Glyph className="docs-figure__frame-character">┌──</Glyph>
+          <span className="docs-figure__frame-heading">{heading}</span>
+          <Glyph className="docs-figure__frame-rule">{HORIZONTAL_RAIL}</Glyph>
+          <Glyph className="docs-figure__frame-character">┐</Glyph>
+        </div>
+      )}
       {children ? (
         <div className="docs-figure__frame-body">
           <Glyph className="docs-figure__frame-wall">{VERTICAL_RAIL}</Glyph>
@@ -227,14 +222,16 @@ function InwardDirection({ figure }: { figure: FieldFigure }) {
       className="docs-figure__field-shape"
       data-figure-shape="contained-axis"
     >
-      {shell.detail ? (
-        <small className="docs-figure__annotation docs-figure__field-inward-note">
-          {shell.detail}
-        </small>
-      ) : null}
       <CharacterBox
         heading={<StaticTerm>{shell.title}</StaticTerm>}
         capJunction
+        capAnnotation={
+          shell.detail ? (
+            <small className="docs-figure__annotation docs-figure__field-inward-note">
+              {shell.detail}
+            </small>
+          ) : null
+        }
       >
         <div className="docs-figure__field-tail">
           <span className="docs-figure__field-relation">
