@@ -8030,7 +8030,7 @@ export default function AuctionCanvas({
               )}
             </div>
 
-            {hover && (() => {
+            {hover && !mintReview && (() => {
               const popRows: Array<{ label: string; value: string }> = [];
               const popNotes: string[] = [];
               const isOpeningAsk =

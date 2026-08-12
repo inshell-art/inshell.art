@@ -2465,10 +2465,17 @@ describe("AuctionCanvas", () => {
       }
       return { result: [] } as any;
     });
-    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />,
+    );
+    const currentAsk = container.querySelector(".dotfield__point--now");
+    expect(currentAsk).toBeTruthy();
+    fireEvent.click(currentAsk as Element, { clientX: 200, clientY: 200 });
+    expect(container.querySelector(".dotfield__popover")).toBeTruthy();
     await clickMintForReview();
     const review = screen.getByText("$PATH mint", { exact: true }).closest(".dotfield__mint-review");
     expectCtaAnchoredReview(review);
+    expect(container.querySelector(".dotfield__popover")).toBeNull();
     expect(
       within(review as HTMLElement).getByText(/Review the \$PATH mint/i)
     ).toBeTruthy();

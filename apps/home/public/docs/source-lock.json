@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "35f61ad5cd22a00083f51c7c557bcd216fd0a234c46a4b86f5335f90e046002d",
+  "sourceTreeSha256": "f4a8fca242b61f336f35e77a48e14e9a810f08907cea90f0a3cc2649897265dc",
   "groups": [
     {
       "id": "public-docs",
@@ -57,7 +57,7 @@
       "title": "Home, PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "b3d40f0388fd3bd35524ff03369fcc8dc10ff9e247b8c0233f70979c5b373bbe",
+      "groupSha256": "a7e581cbd4634defaee708c9d4a28c06eeb8e0d57aef3dd0e5a7173f1e016e79",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -91,8 +91,8 @@
         },
         {
           "path": "apps/home/src/components/AuctionCanvas.tsx",
-          "byteLength": 274705,
-          "sha256": "bd78829ecb1a08d192669a5e898b8a66be509c5d6f6086427c91fd0ac26c5e40"
+          "byteLength": 274720,
+          "sha256": "753d4f1d6af55be14876795c21a46c6bbfb7aa3ebab3ccc5ae5946cad21813ef"
         },
         {
           "path": "apps/home/src/components/ColorFontPage.tsx",
