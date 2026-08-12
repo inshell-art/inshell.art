@@ -4556,9 +4556,23 @@ button {
   color: var(--muted);
 }
 
-.docs-page .pulse-page__instance-fields dd a:hover,
-.docs-page .pulse-page__instance-fields dd a:focus-visible {
+.docs-page .pulse-page__instance-fields dd a,
+.docs-page .pulse-page__instance-links a {
   color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: var(--docs-menu-link-decoration-thickness);
+  text-underline-offset: var(--docs-menu-link-underline-offset);
+}
+
+.docs-page .pulse-page__instance-links a {
+  color: var(--muted);
+}
+
+.docs-page .pulse-page__instance-fields dd a:hover,
+.docs-page .pulse-page__instance-fields dd a:focus-visible,
+.docs-page .pulse-page__instance-links a:hover,
+.docs-page .pulse-page__instance-links a:focus-visible {
+  text-decoration: none;
 }
 
 @media (max-width: 720px) {

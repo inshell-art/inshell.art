@@ -1587,6 +1587,23 @@ describe("DocsPage character figures", () => {
       expectSelectorTier(selector, "--docs-figure-annotation-font-size");
     }
   });
+
+  test("styles Pulse record and action links with the docs link treatment", () => {
+    const css = readFileSync(
+      nodePath.resolve(cwd(), "src/main.css"),
+      "utf8",
+    );
+
+    expect(css).toMatch(
+      /\.docs-page \.pulse-page__instance-fields dd a,\s*\.docs-page \.pulse-page__instance-links a\s*\{[^}]*color:\s*inherit;[^}]*text-decoration:\s*underline;[^}]*text-decoration-thickness:\s*var\(--docs-menu-link-decoration-thickness\);[^}]*text-underline-offset:\s*var\(--docs-menu-link-underline-offset\);[^}]*\}/,
+    );
+    expect(css).toMatch(
+      /\.docs-page \.pulse-page__instance-links a\s*\{[^}]*color:\s*var\(--muted\);[^}]*\}/,
+    );
+    expect(css).toMatch(
+      /\.docs-page \.pulse-page__instance-fields dd a:hover,\s*\.docs-page \.pulse-page__instance-fields dd a:focus-visible,\s*\.docs-page \.pulse-page__instance-links a:hover,\s*\.docs-page \.pulse-page__instance-links a:focus-visible\s*\{[^}]*text-decoration:\s*none;[^}]*\}/,
+    );
+  });
 });
 
 describe("DocsPage article metadata", () => {
