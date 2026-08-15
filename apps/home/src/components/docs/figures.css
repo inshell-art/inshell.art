@@ -699,6 +699,47 @@
   line-height: var(--docs-figure-title-line-height);
 }
 
+[data-figure-shape="delegated-will-convergence"] {
+  justify-items: stretch;
+}
+
+.docs-figure__field-will-delegation,
+.docs-figure__field-will-convergence {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content minmax(0, 1fr);
+  align-items: center;
+  gap: var(--docs-figure-space-dense);
+  min-width: 0;
+}
+
+.docs-figure__field-will-delegation > .docs-figure__copy {
+  justify-items: center;
+  text-align: center;
+}
+
+.docs-figure__field-will-delegation-edge {
+  display: grid;
+  justify-items: center;
+  gap: var(--docs-figure-space-none);
+  min-width: 0;
+  text-align: center;
+}
+
+.docs-figure__field-will-convergence > .docs-figure__glyph,
+.docs-figure__field-will-result-arrow,
+.docs-figure__field-will-result {
+  justify-self: center;
+}
+
+.docs-figure__field-will-crowd {
+  text-align: center;
+}
+
+.docs-figure__field-will-result {
+  justify-items: center;
+  text-align: center;
+}
+
 [data-figure-shape="open-invariant-field"]
   .docs-figure__field-open-questions
   > li {

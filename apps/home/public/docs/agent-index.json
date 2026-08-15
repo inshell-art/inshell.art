@@ -11,7 +11,7 @@
   "completeJson": "/docs/content.json",
   "canonicalCompleteJson": "https://inshell.art/docs/content.json",
   "completeJsonMediaType": "application/json",
-  "completeJsonSha256": "e82e5279a3423a122b8340779c597c3ff141706d0725a56b7816fb9627cb5595",
+  "completeJsonSha256": "10b21cf6b6e3c724ac1313fffb0e6e29b6ef1f03e13dd55982ec997ffa2e1e21",
   "purpose": "Public, read-only discovery for visitors using their own Agents.",
   "sourceLock": {
     "url": "/docs/source-lock.json",
@@ -19,7 +19,7 @@
     "schemaUrl": "/docs/source-lock.schema.json",
     "canonicalSchemaUrl": "https://inshell.art/docs/source-lock.schema.json",
     "mediaType": "application/json",
-    "sha256": "bca513dea8b5697935211a7b722f06f170b0db7a0218fc629d015ad7a099559a",
+    "sha256": "c36bd04392c0827ef46fece5d6f6f82f7af1e110952d9671738a7704da4d7718",
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
@@ -241,7 +241,7 @@
       "group": "works",
       "aliases": [],
       "title": "WILL",
-      "summary": "WILL is Inshell's developing crowd movement: many people, many Agents, one will.",
+      "summary": "WILL is Inshell's developing crowd movement about what human will becomes when people authorize Agents to act toward aims.",
       "status": "study",
       "authorities": [
         "artist-editorial",
@@ -252,11 +252,11 @@
       "markdown": "/docs/will.md",
       "canonicalMarkdown": "https://inshell.art/docs/will.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "2c90a772780a7693313f8d06ee6a62699c5002b8c432b6e7e84558146488b189",
+      "markdownSha256": "e424c2086271492153c35746eb365d4c8cec44ca72d02a8cc4857a41f158d04f",
       "json": "/docs/will.json",
       "canonicalJson": "https://inshell.art/docs/will.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "019bb5241482fb1a13652bef029b9b811d294f14180e60eefbbec7e59d533aa5"
+      "jsonSha256": "28cbaaaa0a730f65d6bc3056ba0d314230be19f65ac04887e38cee691da2d0df"
     },
     {
       "id": "awa",

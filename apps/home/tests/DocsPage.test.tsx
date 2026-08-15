@@ -434,7 +434,7 @@ describe("Docs source editorial guardrails", () => {
     expect(will?.status).toBe("study");
     expect(awa?.status).toBe("future");
     expect(will?.figure).toMatchObject({
-      label: "Many people. Many Agents. One will.",
+      label: "From delegated will to a result",
       mode: "field",
     });
     expect(awa?.figure).toMatchObject({
@@ -442,7 +442,7 @@ describe("Docs source editorial guardrails", () => {
       mode: "trace",
     });
     expect(will?.figure?.figureText).toMatch(
-      /MANY PEOPLE[\s\S]*MANY AGENTS[\s\S]*ONE WILL/,
+      /HUMAN\s+── WILL \+ AUTHORITY ──→\s+AGENT[\s\S]*CROWD DYNAMIC[\s\S]*↓[\s\S]*RESULT/,
     );
     expect(awa?.figure?.figureText).toMatch(
       /THOUGHT\s+→\s+WILL\s+→\s+AWA\s+→\s+…[\s\S]*INDIVIDUAL\s+CROWD\s+TOWARD THE CORE/i,
@@ -456,7 +456,13 @@ describe("Docs source editorial guardrails", () => {
       /first movement[\s\S]{0,100}begins with the individual[\s\S]{0,180}one Agent responds/i,
     );
     expect(topicText(will as DocsTopic)).toMatch(
-      /second movement[\s\S]{0,180}crowd behavior[\s\S]{0,180}crowd forms[\s\S]{0,80}one will/i,
+      /second movement[\s\S]{0,260}one person to a crowd[\s\S]{0,180}many humans[\s\S]{0,80}many Agents/i,
+    );
+    expect(topicText(will as DocsTopic)).toMatch(
+      /human will[\s\S]{0,180}authorizes an Agent[\s\S]{0,220}delegated authority[\s\S]{0,220}does not guarantee completion/i,
+    );
+    expect(topicText(will as DocsTopic)).toMatch(
+      /Crowd names the one-to-many scope[\s\S]{0,220}does not yet claim a society[\s\S]{0,180}shared mind/i,
     );
     expect(topicText(will as DocsTopic)).toMatch(
       /still being created and developed[\s\S]{0,300}not intentional concealment of a completed design/i,
@@ -1033,7 +1039,7 @@ describe("DocsPage character figures", () => {
     "thought.prompt-response": "axis",
     "thought.creative-handoff": "trace",
     "thought.creation-attestation": "fork",
-    "will.open-field": "field",
+    "will.open-field": "fork",
     "awa.open-horizon": "trace",
     "path.capacity-progress": "ledger",
     "pulse.epoch": "cycle",
@@ -1053,7 +1059,7 @@ describe("DocsPage character figures", () => {
     "The invariant and the open field": "open-invariant-field",
     "One prompt, one response": "prompt-response",
     "Creation Attestation": "attestation-flow-fork",
-    "Many people. Many Agents. One will.": "open-will-field",
+    "From delegated will to a result": "delegated-will-convergence",
     "Evidence becomes interpretation": "evidence-interpretation",
     "Two distinctions": "distinction-comparisons",
     "Four distinct records": "record-comparison",
@@ -1067,7 +1073,7 @@ describe("DocsPage character figures", () => {
     "The invariant and the open field": 3,
     "One prompt, one response": 1,
     "Creation Attestation": 4,
-    "Many people. Many Agents. One will.": 1,
+    "From delegated will to a result": 4,
     "Evidence becomes interpretation": 5,
     "Two distinctions": 5,
     "Four distinct records": 4,
@@ -1918,6 +1924,38 @@ describe("DocsPage character figures", () => {
     expect(
       screen.queryByRole("figure", { name: "One practice within Agent Art" }),
     ).not.toBeInTheDocument();
+    cleanup();
+
+    render(<DocsPage topicSlug="will" />);
+    const delegatedWillFigure = screen.getByRole("figure", {
+      name: "From delegated will to a result",
+    });
+    const delegatedWill = delegatedWillFigure.querySelector(
+      "[data-figure-shape='delegated-will-convergence']",
+    );
+    expect(
+      Array.from(delegatedWill?.querySelectorAll(".docs-figure__term") ?? []).map(
+        (term) => term.textContent?.trim(),
+      ),
+    ).toEqual(["Human", "Agent", "Result"]);
+    expect(
+      delegatedWill?.querySelector("[data-figure-node='crowd-dynamic']"),
+    ).toHaveClass("docs-figure__shape-label");
+    expect(delegatedWill).toHaveTextContent(
+      /HUMAN[\s\S]*→[\s\S]*AGENT[\s\S]*↘[\s\S]*CROWD DYNAMIC[\s\S]*↙[\s\S]*↓[\s\S]*RESULT/i,
+    );
+    expect(
+      Array.from(
+        delegatedWill?.querySelectorAll<HTMLElement>("[data-figure-edge-id]") ?? [],
+      ).map((edge) => edge.dataset.figureEdgeId),
+    ).toEqual([
+      "delegate-will",
+      "human-enters-crowd-dynamic",
+      "agent-enters-crowd-dynamic",
+      "crowd-dynamic-produces-result",
+    ]);
+    expect(delegatedWill?.querySelector(".docs-figure__character-frame"))
+      .toBeNull();
     cleanup();
 
     render(<DocsPage topicSlug="thought" />);

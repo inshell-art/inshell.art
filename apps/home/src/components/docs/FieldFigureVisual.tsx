@@ -553,26 +553,71 @@ function AttestationFlow({ figure }: { figure: FieldFigure }) {
 }
 
 function WillField({ figure }: { figure: FieldFigure }) {
-  const people = figureNode(figure, "many-people");
-  const agents = figureNode(figure, "many-agents");
-  const oneWill = figureNode(figure, "one-will");
+  const human = figureNode(figure, "human");
+  const agent = figureNode(figure, "agent");
+  const crowdDynamic = figureNode(figure, "crowd-dynamic");
+  const result = figureNode(figure, "result");
+  const delegation = figureEdge(figure, "delegate-will");
+  const humanToCrowd = figureEdge(figure, "human-enters-crowd-dynamic");
+  const agentToCrowd = figureEdge(figure, "agent-enters-crowd-dynamic");
+  const crowdToResult = figureEdge(
+    figure,
+    "crowd-dynamic-produces-result",
+  );
 
   return (
     <div
-      className="docs-figure__field-shape docs-figure__field-open"
-      data-figure-shape="open-will-field"
+      className="docs-figure__field-shape docs-figure__field-will"
+      data-figure-shape="delegated-will-convergence"
     >
-      <StaticTerm className="docs-figure__field-governing-term">
-        WILL
-      </StaticTerm>
-      <ul className="docs-figure__field docs-figure__field-open-set">
-        {[people, agents, oneWill].map((node) => (
-          <li key={node.id}>
-            <Glyph className="docs-figure__field-membership-glyph">•</Glyph>
-            <NodeCopy node={node} />
-          </li>
-        ))}
-      </ul>
+      <div className="docs-figure__field-will-delegation">
+        <NodeCopy node={human} />
+        <span className="docs-figure__field-will-delegation-edge">
+          <Glyph
+            className="docs-figure__field-relation-glyph"
+            edgeId={delegation.id}
+            label={delegation.label}
+          >
+            {delegation.glyph}
+          </Glyph>
+          {delegation.annotation ? (
+            <small className="docs-figure__annotation">
+              {delegation.annotation}
+            </small>
+          ) : null}
+        </span>
+        <NodeCopy node={agent} />
+      </div>
+      <div className="docs-figure__field-will-convergence">
+        <Glyph
+          className="docs-figure__field-relation-glyph"
+          edgeId={humanToCrowd.id}
+          label={humanToCrowd.label}
+        >
+          {humanToCrowd.glyph}
+        </Glyph>
+        <strong
+          className="docs-figure__shape-label docs-figure__field-will-crowd"
+          data-figure-node={crowdDynamic.id}
+        >
+          {crowdDynamic.term}
+        </strong>
+        <Glyph
+          className="docs-figure__field-relation-glyph"
+          edgeId={agentToCrowd.id}
+          label={agentToCrowd.label}
+        >
+          {agentToCrowd.glyph}
+        </Glyph>
+      </div>
+      <Glyph
+        className="docs-figure__field-relation-glyph docs-figure__field-will-result-arrow"
+        edgeId={crowdToResult.id}
+        label={crowdToResult.label}
+      >
+        {crowdToResult.glyph}
+      </Glyph>
+      <NodeCopy node={result} className="docs-figure__field-will-result" />
     </div>
   );
 }

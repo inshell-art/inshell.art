@@ -370,22 +370,49 @@ const FIGURE_LOGIC_BUILDERS = {
   "will.open-field": (figure) =>
     logic(
       figure,
-      "field",
+      "fork",
       [
-        sourceNode(figure, 0, "many-people", "subject"),
-        sourceNode(figure, 1, "many-agents", "subject"),
-        sourceNode(figure, 2, "one-will", "question"),
+        sourceNode(figure, 0, "human", "subject"),
+        sourceNode(figure, 1, "agent", "subject"),
+        {
+          id: "crowd-dynamic",
+          term: "Crowd dynamic",
+          role: "structural",
+        },
+        sourceNode(figure, 2, "result", "result"),
       ],
-      [],
       [
         {
-          id: "will-open-field",
-          kind: "open-field",
-          label: "Crowd behavior is the open field in which WILL is still being created.",
-          glyph: "•",
-          members: ["many-people", "many-agents", "one-will"],
+          id: "delegate-will",
+          from: "human",
+          to: "agent",
+          glyph: "→",
+          label: "A human delegates will and authority to an Agent.",
+          annotation: "Will + authority",
+        },
+        {
+          id: "human-enters-crowd-dynamic",
+          from: "human",
+          to: "crowd-dynamic",
+          glyph: "↘",
+          label: "Human participation enters the crowd dynamic.",
+        },
+        {
+          id: "agent-enters-crowd-dynamic",
+          from: "agent",
+          to: "crowd-dynamic",
+          glyph: "↙",
+          label: "Agent action enters the crowd dynamic.",
+        },
+        {
+          id: "crowd-dynamic-produces-result",
+          from: "crowd-dynamic",
+          to: "result",
+          glyph: "↓",
+          label: "The crowd dynamic can produce a result.",
         },
       ],
+      [],
     ),
 
   "awa.open-horizon": (figure) =>

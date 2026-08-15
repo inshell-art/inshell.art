@@ -1152,7 +1152,7 @@
       "group": "works",
       "aliases": [],
       "title": "WILL",
-      "summary": "WILL is Inshell's developing crowd movement: many people, many Agents, one will.",
+      "summary": "WILL is Inshell's developing crowd movement about what human will becomes when people authorize Agents to act toward aims.",
       "status": "study",
       "authorities": [
         "artist-editorial",
@@ -1170,9 +1170,10 @@
             "artist-editorial"
           ],
           "paragraphs": [
-            "WILL is the second movement on Inshell's [PATH](https://inshell.art/docs/path). Where [THOUGHT](https://inshell.art/docs/thought) begins with one individual's thought, WILL moves the inward inquiry to crowd behavior and to how a crowd forms what can be called one will.",
-            "Many people. Many Agents. One will. The slogan names the direction of the work. It does not describe a finished mechanism or settle how people, Agents, and the work relate.",
-            "Agent participation keeps WILL within [Agent Art](https://inshell.art/docs/agent-art), but WILL does not need to repeat THOUGHT's one-prompt, one-response form. That relation remains in development."
+            "WILL is the second movement on Inshell's [PATH](https://inshell.art/docs/path). Where [THOUGHT](https://inshell.art/docs/thought) begins with one individual's thought, WILL moves from one person to a crowd: many humans, many Agents, and the results formed through their interactions.",
+            "The governing question is what happens to human will when a person authorizes an Agent to act toward an aim. Here, an Agent receives a task and delegated authority to act toward that aim. Delegation does not guarantee completion or make the Agent's action identical to the human's will.",
+            "At crowd scale, many humans can delegate different aims to many Agents. WILL asks how human wills, delegated authorities, Agent actions, interactions, failures, and results form what can be called one will.",
+            "Many people. Many Agents. One will. The slogan names the direction of the work, not a finished mechanism, consensus, unanimity, governance, or shared mind. Agent participation keeps WILL within [Agent Art](https://inshell.art/docs/agent-art), but the concrete artwork and exact human–Agent relation remain in development."
           ]
         },
         "figure": {
@@ -1180,63 +1181,90 @@
             "artist-editorial"
           ],
           "id": "will.open-field",
-          "label": "Many people. Many Agents. One will.",
+          "label": "From delegated will to a result",
           "mode": "field",
-          "figureText": "WILL\n\n• MANY PEOPLE\n• MANY AGENTS\n• ONE WILL\n  Crowd behavior · how a crowd forms what can be called one will.",
+          "figureText": "HUMAN ── WILL + AUTHORITY ──→ AGENT\nForms an aim                 Acts toward the delegated aim\n   ↘                              ↙\n               CROWD DYNAMIC\n                     ↓\n                  RESULT\n       A result can emerge from the interaction.",
           "items": [
             {
-              "title": "Many people"
+              "title": "Human",
+              "detail": "Forms an aim"
             },
             {
-              "title": "Many Agents"
+              "title": "Agent",
+              "detail": "Acts toward the delegated aim"
             },
             {
-              "title": "One will",
-              "detail": "Crowd behavior · how a crowd forms what can be called one will."
+              "title": "Result",
+              "detail": "A result can emerge from the interaction."
             }
           ],
           "logic": {
             "id": "will.open-field",
-            "label": "Many people. Many Agents. One will.",
-            "form": "field",
+            "label": "From delegated will to a result",
+            "form": "fork",
             "nodes": [
               {
-                "id": "many-people",
+                "id": "human",
                 "sourceItem": 0,
                 "sourcePart": "item",
-                "term": "Many people",
+                "term": "Human",
+                "annotation": "Forms an aim",
                 "role": "subject"
               },
               {
-                "id": "many-agents",
+                "id": "agent",
                 "sourceItem": 1,
                 "sourcePart": "item",
-                "term": "Many Agents",
+                "term": "Agent",
+                "annotation": "Acts toward the delegated aim",
                 "role": "subject"
               },
               {
-                "id": "one-will",
+                "id": "crowd-dynamic",
+                "term": "Crowd dynamic",
+                "role": "structural"
+              },
+              {
+                "id": "result",
                 "sourceItem": 2,
                 "sourcePart": "item",
-                "term": "One will",
-                "annotation": "Crowd behavior · how a crowd forms what can be called one will.",
-                "role": "question"
+                "term": "Result",
+                "annotation": "A result can emerge from the interaction.",
+                "role": "result"
               }
             ],
-            "edges": [],
-            "groups": [
+            "edges": [
               {
-                "id": "will-open-field",
-                "kind": "open-field",
-                "label": "Crowd behavior is the open field in which WILL is still being created.",
-                "glyph": "•",
-                "members": [
-                  "many-people",
-                  "many-agents",
-                  "one-will"
-                ]
+                "id": "delegate-will",
+                "from": "human",
+                "to": "agent",
+                "glyph": "→",
+                "label": "A human delegates will and authority to an Agent.",
+                "annotation": "Will + authority"
+              },
+              {
+                "id": "human-enters-crowd-dynamic",
+                "from": "human",
+                "to": "crowd-dynamic",
+                "glyph": "↘",
+                "label": "Human participation enters the crowd dynamic."
+              },
+              {
+                "id": "agent-enters-crowd-dynamic",
+                "from": "agent",
+                "to": "crowd-dynamic",
+                "glyph": "↙",
+                "label": "Agent action enters the crowd dynamic."
+              },
+              {
+                "id": "crowd-dynamic-produces-result",
+                "from": "crowd-dynamic",
+                "to": "result",
+                "glyph": "↓",
+                "label": "The crowd dynamic can produce a result."
               }
-            ]
+            ],
+            "groups": []
           }
         },
         "preformatted": [],
@@ -1248,8 +1276,9 @@
             "id": "docs-will-known",
             "title": "What is known",
             "paragraphs": [
-              "The unit of attention changes from an individual to a crowd. WILL concerns the behavior through which many participants form one will, rather than merely collecting many separate individual thoughts.",
-              "One will is the movement's artistic direction. It should not yet be read as consensus, unanimity, voting, governance, majority rule, or a finished theory of collective agency."
+              "Crowd names the one-to-many scope: the move from an individual to many interacting participants. It does not yet claim a society, community, collective identity, consensus, or shared mind.",
+              "The known abstract relation begins with a human aim, delegated will and authority, an Agent acting toward that aim, and a result that can emerge from the interaction. The figure does not claim that the task succeeds or that the result is identical to the initial will.",
+              "At crowd scale, many humans and Agents can form dynamics that produce results. One will is the movement's artistic direction, not a claim of unanimity, voting, governance, majority rule, or a finished theory of collective agency."
             ]
           },
           {
@@ -1259,7 +1288,7 @@
             "id": "docs-will-forming",
             "title": "What is still forming",
             "paragraphs": [
-              "WILL is still being created and developed. Its fuller artistic form and the particular relation among people, Agents, and the resulting work have not taken a form the docs can state honestly.",
+              "WILL is still being created and developed. Its concrete artwork, participation mechanism, representation of authorization, interaction among multiple aims and Agents, and account of what constitutes a result have not taken a form the docs can state honestly.",
               "The limited account reflects the current work, not intentional concealment of a completed design."
             ]
           },
