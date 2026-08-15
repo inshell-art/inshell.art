@@ -921,7 +921,13 @@ const staticHandoffAssertions = (
       task.includes("<ready_fields> = protocolVersion") &&
       task.includes("<start_fields> = protocolVersion") &&
       task.includes("<result_fields> = protocolVersion") &&
-      task.includes("Supply lowercase sha256") &&
+      (profile.id === "codex"
+        ? task.includes("runtime metadataSource=reported") &&
+          task.includes("rawSha256/agentLineSha256 are sha256:<64 lowercase hex>") &&
+          task.includes("over exact UTF-8 raw/agentLine") &&
+          task.includes("no newline/re-serialize") &&
+          task.includes("Rehash before PUT")
+        : task.includes("Supply lowercase sha256")) &&
       !task.includes("bridge = id "),
     "Declarative request bodies preserve exact nested field names without raw JSON.",
   );
