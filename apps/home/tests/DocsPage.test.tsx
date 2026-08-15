@@ -456,16 +456,19 @@ describe("Docs source editorial guardrails", () => {
       /first movement[\s\S]{0,100}begins with the individual[\s\S]{0,180}one Agent responds/i,
     );
     expect(topicText(will as DocsTopic)).toMatch(
-      /second movement[\s\S]{0,260}one person to a crowd[\s\S]{0,180}many humans[\s\S]{0,80}many Agents/i,
+      /second movement[\s\S]{0,260}one person to a crowd/i,
     );
     expect(topicText(will as DocsTopic)).toMatch(
-      /human will[\s\S]{0,180}authorizes an Agent[\s\S]{0,220}delegated authority[\s\S]{0,220}does not guarantee completion/i,
+      /authorizes an Agent[\s\S]{0,120}act toward an aim[\s\S]{0,180}result may form/i,
     );
     expect(topicText(will as DocsTopic)).toMatch(
-      /Crowd names the one-to-many scope[\s\S]{0,220}does not yet claim a society[\s\S]{0,180}shared mind/i,
+      /Crowd names the move from one participant to many[\s\S]{0,160}does not yet mean a society[\s\S]{0,100}shared mind/i,
     );
     expect(topicText(will as DocsTopic)).toMatch(
-      /still being created and developed[\s\S]{0,300}not intentional concealment of a completed design/i,
+      /artwork's concrete form remains in development/i,
+    );
+    expect(topicText(will as DocsTopic)).not.toMatch(
+      /failures|participation mechanism|representation of authorization|what constitutes a result|majority rule|finished theory/i,
     );
     expect(topicText(awa as DocsTopic)).toMatch(
       /third movement[\s\S]{0,180}core of Inshell/i,

@@ -661,7 +661,7 @@ export const DOCS_SOURCE: DocsSource = {
       group: "works",
       title: "WILL",
       summary:
-        "WILL is Inshell's developing crowd movement about what human will becomes when people authorize Agents to act toward aims.",
+        "WILL is Inshell's developing crowd movement about delegated human will and Agent action.",
       status: "study",
       authorities: ["artist-editorial", "app-documentation"],
       paragraphs: [
@@ -670,14 +670,13 @@ export const DOCS_SOURCE: DocsSource = {
           { label: "PATH", href: "/docs/path" },
           ". Where ",
           { label: "THOUGHT", href: "/docs/thought" },
-          " begins with one individual's thought, WILL moves from one person to a crowd: many humans, many Agents, and the results formed through their interactions.",
+          " begins with one individual's thought, WILL moves from one person to a crowd.",
         ],
-        "The governing question is what happens to human will when a person authorizes an Agent to act toward an aim. Here, an Agent receives a task and delegated authority to act toward that aim. Delegation does not guarantee completion or make the Agent's action identical to the human's will.",
-        "At crowd scale, many humans can delegate different aims to many Agents. WILL asks how human wills, delegated authorities, Agent actions, interactions, failures, and results form what can be called one will.",
+        "It asks what happens when a human authorizes an Agent to act toward an aim, and what result may form when many such relations interact.",
         [
-          "Many people. Many Agents. One will. The slogan names the direction of the work, not a finished mechanism, consensus, unanimity, governance, or shared mind. Agent participation keeps WILL within ",
+          "Many people. Many Agents. One will. This names the direction, not a completed form. Agent participation keeps WILL within ",
           { label: "Agent Art", href: "/docs/agent-art" },
-          ", but the concrete artwork and exact human–Agent relation remain in development.",
+          ".",
         ],
       ],
       figure: {
@@ -710,17 +709,14 @@ export const DOCS_SOURCE: DocsSource = {
           id: "docs-will-known",
           title: "What is known",
           paragraphs: [
-            "Crowd names the one-to-many scope: the move from an individual to many interacting participants. It does not yet claim a society, community, collective identity, consensus, or shared mind.",
-            "The known abstract relation begins with a human aim, delegated will and authority, an Agent acting toward that aim, and a result that can emerge from the interaction. The figure does not claim that the task succeeds or that the result is identical to the initial will.",
-            "At crowd scale, many humans and Agents can form dynamics that produce results. One will is the movement's artistic direction, not a claim of unanimity, voting, governance, majority rule, or a finished theory of collective agency.",
+            "Crowd names the move from one participant to many. It does not yet mean a society, consensus, or shared mind.",
           ],
         },
         {
           id: "docs-will-forming",
           title: "What is still forming",
           paragraphs: [
-            "WILL is still being created and developed. Its concrete artwork, participation mechanism, representation of authorization, interaction among multiple aims and Agents, and account of what constitutes a result have not taken a form the docs can state honestly.",
-            "The limited account reflects the current work, not intentional concealment of a completed design.",
+            "The artwork's concrete form remains in development.",
           ],
         },
         {

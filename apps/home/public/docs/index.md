@@ -26,7 +26,7 @@ Begin with the inward direction—inspect self—then read Agent Art and the mov
 Read the three movements from individual to crowd to core, then the PATH and Pulse systems that carry participation.
 
 - [THOUGHT](https://inshell.art/docs/thought) — THOUGHT is one bounded Agent Art practice: an exact human–Agent exchange becomes a globally unique work.
-- [WILL](https://inshell.art/docs/will) — WILL is Inshell's developing crowd movement about what human will becomes when people authorize Agents to act toward aims.
+- [WILL](https://inshell.art/docs/will) — WILL is Inshell's developing crowd movement about delegated human will and Agent action.
 - [AWA](https://inshell.art/docs/awa) — AWA is Inshell's forming movement toward its core; its particular form still needs time.
 - [PATH](https://inshell.art/docs/path) — PATH carries permission and progress across Inshell's movements.
 - [Pulse](https://inshell.art/docs/pulse) — Pulse turns public timing into the issue price for each new PATH.
@@ -587,7 +587,7 @@ Save and Load are browser conveniences for unfinished or remembered works. They 
 
 ## WILL
 
-> WILL is Inshell's developing crowd movement about what human will becomes when people authorize Agents to act toward aims.
+> WILL is Inshell's developing crowd movement about delegated human will and Agent action.
 
 - Group: Works and participation
 - Status: study
@@ -631,31 +631,23 @@ Forms an aim                 Acts toward the delegated aim
 
 - Authority: artist-editorial
 
-WILL is the second movement on Inshell's [PATH](https://inshell.art/docs/path). Where [THOUGHT](https://inshell.art/docs/thought) begins with one individual's thought, WILL moves from one person to a crowd: many humans, many Agents, and the results formed through their interactions.
+WILL is the second movement on Inshell's [PATH](https://inshell.art/docs/path). Where [THOUGHT](https://inshell.art/docs/thought) begins with one individual's thought, WILL moves from one person to a crowd.
 
-The governing question is what happens to human will when a person authorizes an Agent to act toward an aim. Here, an Agent receives a task and delegated authority to act toward that aim. Delegation does not guarantee completion or make the Agent's action identical to the human's will.
+It asks what happens when a human authorizes an Agent to act toward an aim, and what result may form when many such relations interact.
 
-At crowd scale, many humans can delegate different aims to many Agents. WILL asks how human wills, delegated authorities, Agent actions, interactions, failures, and results form what can be called one will.
-
-Many people. Many Agents. One will. The slogan names the direction of the work, not a finished mechanism, consensus, unanimity, governance, or shared mind. Agent participation keeps WILL within [Agent Art](https://inshell.art/docs/agent-art), but the concrete artwork and exact human–Agent relation remain in development.
+Many people. Many Agents. One will. This names the direction, not a completed form. Agent participation keeps WILL within [Agent Art](https://inshell.art/docs/agent-art).
 
 ### What is known
 
 - Authority: artist-editorial
 
-Crowd names the one-to-many scope: the move from an individual to many interacting participants. It does not yet claim a society, community, collective identity, consensus, or shared mind.
-
-The known abstract relation begins with a human aim, delegated will and authority, an Agent acting toward that aim, and a result that can emerge from the interaction. The figure does not claim that the task succeeds or that the result is identical to the initial will.
-
-At crowd scale, many humans and Agents can form dynamics that produce results. One will is the movement's artistic direction, not a claim of unanimity, voting, governance, majority rule, or a finished theory of collective agency.
+Crowd names the move from one participant to many. It does not yet mean a society, consensus, or shared mind.
 
 ### What is still forming
 
 - Authority: artist-editorial
 
-WILL is still being created and developed. Its concrete artwork, participation mechanism, representation of authorization, interaction among multiple aims and Agents, and account of what constitutes a result have not taken a form the docs can state honestly.
-
-The limited account reflects the current work, not intentional concealment of a completed design.
+The artwork's concrete form remains in development.
 
 ### Current study
 
