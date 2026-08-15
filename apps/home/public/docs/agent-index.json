@@ -11,7 +11,7 @@
   "completeJson": "/docs/content.json",
   "canonicalCompleteJson": "https://inshell.art/docs/content.json",
   "completeJsonMediaType": "application/json",
-  "completeJsonSha256": "894735acef3f7d2a3e26cef4902561d7c8809820229675553c5cc200aeea6fe4",
+  "completeJsonSha256": "2e580417a98c1f50d29d44c44f3c9e10a8b4dfdf2012c1277903498d7e33f1b4",
   "purpose": "Public, read-only discovery for visitors using their own Agents.",
   "sourceLock": {
     "url": "/docs/source-lock.json",
@@ -19,7 +19,7 @@
     "schemaUrl": "/docs/source-lock.schema.json",
     "canonicalSchemaUrl": "https://inshell.art/docs/source-lock.schema.json",
     "mediaType": "application/json",
-    "sha256": "792000fc03c00697e96fb7cbe806f8ec2d9c06aaaf7d3aa441ac4fe36cb6bbab",
+    "sha256": "396c0a27a5a4afe94d26da590e426d4d3bb4b05b9d37bb40888db797b00d18b6",
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
@@ -193,7 +193,7 @@
       "group": "orientation",
       "aliases": [],
       "title": "Movements",
-      "summary": "Inshell's movements follow an artistic PATH from an individual's thought, through a crowd's will, toward Inshell's core; WILL and AWA remain in formation.",
+      "summary": "Inshell's movements follow an artistic PATH from an individual's thought, through a crowd's will, toward Inshell's core.",
       "status": "current",
       "authorities": [
         "artist-editorial",
@@ -205,11 +205,11 @@
       "markdown": "/docs/movements.md",
       "canonicalMarkdown": "https://inshell.art/docs/movements.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "8191f0336af3a6f2d0686d692711f5bf95d4fdf14335ee58b392d63597bb878a",
+      "markdownSha256": "02db310587bd92af980ffe121b27ba0e3e4f146ea509418471361810084477f4",
       "json": "/docs/movements.json",
       "canonicalJson": "https://inshell.art/docs/movements.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "b05a24a4c77d9b6b62fa885b621d987e70df1e2627b5b09080414ea31198d440"
+      "jsonSha256": "2131d8216e9dd2fbc983d4790ec64efd2df44a9ab5b303d97d29336ba432233b"
     },
     {
       "id": "thought",
@@ -241,7 +241,7 @@
       "group": "works",
       "aliases": [],
       "title": "WILL",
-      "summary": "WILL is Inshell's developing crowd movement about delegated human will and Agent action.",
+      "summary": "WILL is Inshell's crowd movement about delegated human will and Agent action.",
       "status": "study",
       "authorities": [
         "artist-editorial",
@@ -252,19 +252,19 @@
       "markdown": "/docs/will.md",
       "canonicalMarkdown": "https://inshell.art/docs/will.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "a4a256c5cfe8130be3500cbb941641aae50352acd23acb2ccabcca7d92b14cdf",
+      "markdownSha256": "7822dffe3e78c8229260bb05fb3069e21da06e0713e4e68e6b0407df080f42f7",
       "json": "/docs/will.json",
       "canonicalJson": "https://inshell.art/docs/will.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "f5d4a75a3066ff0d1c86ad0c2333b243c51b6b7340aeded4a743765d40ddcb43"
+      "jsonSha256": "d7dc189ab51556d0765df87e635d53575187f85dfa423fac61cef0134f09dbb8"
     },
     {
       "id": "awa",
       "group": "works",
       "aliases": [],
       "title": "AWA",
-      "summary": "AWA is Inshell's forming movement toward its core; its particular form still needs time.",
-      "status": "future",
+      "summary": "AWA is Inshell's movement from the crowd toward its core.",
+      "status": "study",
       "authorities": [
         "artist-editorial",
         "app-documentation"
@@ -274,11 +274,11 @@
       "markdown": "/docs/awa.md",
       "canonicalMarkdown": "https://inshell.art/docs/awa.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "5016a2947ba60955f3d5ead9336964cbf22dce9ad0c0b684589a101ac12f5c0e",
+      "markdownSha256": "fb5d6b4f578e5a64122c35a37f5aa510bdd47245af5e55e9e9d0c5a244366669",
       "json": "/docs/awa.json",
       "canonicalJson": "https://inshell.art/docs/awa.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "9b7b7110073041c221de856bdc6a50b8e2da44c0d584f9b51f088152abac8fc4"
+      "jsonSha256": "0a3ef1585985fc8ff590376de55aa51ca26523d12fea1fb0d05f3ee474e7cfbb"
     },
     {
       "id": "path",
@@ -366,11 +366,11 @@
       "markdown": "/docs/artwork-metadata-chain.md",
       "canonicalMarkdown": "https://inshell.art/docs/artwork-metadata-chain.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "03de9c8841d75934c1bb7458a04992bd1805eccdba9f996d2dfab35f83db88f6",
+      "markdownSha256": "58b28f60ab4eed7a176176dcf13f7c8ff7981fead478b4f9bc03128818f6acd4",
       "json": "/docs/artwork-metadata-chain.json",
       "canonicalJson": "https://inshell.art/docs/artwork-metadata-chain.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "a31f27673562c4996accaf618730bd297b64831ccb05cb46d2774b3d75742a0d"
+      "jsonSha256": "1cd7a4723395186aeae81690f0434378a57328356bfed50de74794805c281ee4"
     },
     {
       "id": "mono-76",
@@ -389,11 +389,11 @@
       "markdown": "/docs/mono-76.md",
       "canonicalMarkdown": "https://inshell.art/docs/mono-76.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "21eea0304e835f056150b6f639562531b6ca8473c7e02e7e7345ea86ac98bf41",
+      "markdownSha256": "b8b3b9024513de90a4e1777782fa41d3d28acf72841487cfe3287e985cc66798",
       "json": "/docs/mono-76.json",
       "canonicalJson": "https://inshell.art/docs/mono-76.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "56a83d1333f634385de4493f86ad096baafb49d64095ffcdb51a3fa39a0f1a9b"
+      "jsonSha256": "d71de88ea9206aa741785b9b9b05d5ca561cd5ddec85907934b3115c12a8a52d"
     },
     {
       "id": "verification",
@@ -455,18 +455,18 @@
       "markdown": "/docs/source-release-boundaries.md",
       "canonicalMarkdown": "https://inshell.art/docs/source-release-boundaries.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "84b2dc550ad823700fe3c47e32ff5fc4d51c79b39675a0a4a8f0fc2d1e0d4291",
+      "markdownSha256": "ac9c9f9a8cbcdc070aaa9663a16cd9d38396d3cd8f3d6575b9671382756d0405",
       "json": "/docs/source-release-boundaries.json",
       "canonicalJson": "https://inshell.art/docs/source-release-boundaries.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "6f1ab86dc6d2d7fd4044e8716da23e5bdebf63ca98662c2d770c67cdb5c5e88f"
+      "jsonSha256": "35f4e69b3edce63d243d9d72b6e3d9aa74e0e3c841c02bfd5163163f3e82d379"
     },
     {
       "id": "design-principles",
       "group": "context",
       "aliases": [],
       "title": "Design Principles",
-      "summary": "Inshell's current design rules connect participation, visible form, and the limits of evidence.",
+      "summary": "Inshell's design rules connect participation, visible form, and the limits of evidence.",
       "status": "current",
       "authorities": [
         "artist-editorial",
@@ -478,11 +478,11 @@
       "markdown": "/docs/design-principles.md",
       "canonicalMarkdown": "https://inshell.art/docs/design-principles.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "6110225eb8a2fdd7fb1a160b9d9ff4992b532ccc0641d4946f7e3445c943c685",
+      "markdownSha256": "4844b7e43e88c324f1f7bb195f3180edb0d99eea963c26dc607990d42f2149c7",
       "json": "/docs/design-principles.json",
       "canonicalJson": "https://inshell.art/docs/design-principles.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "e42fc890ab8c7eb2eb6886f4bcbc2f4cbd343d41de884206b81dfcb48e98d734"
+      "jsonSha256": "ccecdba7b02f36dd9f791e904ee06e0b7b4f33c548cb3e8292a8c946924ea885"
     }
   ],
   "immutableReleases": [

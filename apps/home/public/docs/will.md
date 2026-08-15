@@ -1,6 +1,6 @@
 # WILL
 
-> WILL is Inshell's developing crowd movement about delegated human will and Agent action.
+> WILL is Inshell's crowd movement about delegated human will and Agent action.
 
 - Group: Works and participation
 - Status: study
@@ -48,27 +48,17 @@ WILL is the second movement on Inshell's [PATH](https://inshell.art/docs/path). 
 
 It asks what happens when a human authorizes an Agent to act toward an aim, and what result may form when many such relations interact.
 
-Many people. Many Agents. One will. This names the direction, not a completed form. Agent participation keeps WILL within [Agent Art](https://inshell.art/docs/agent-art).
+Here, crowd names the move from one participant to many. It does not mean a society, consensus, or shared mind.
 
-## What is known
+Many people. Many Agents. One will. The slogan names the movement's scope without prescribing its concrete form. Agent participation keeps WILL within [Agent Art](https://inshell.art/docs/agent-art).
 
-- Authority: artist-editorial
-
-Crowd names the move from one participant to many. It does not yet mean a society, consensus, or shared mind.
-
-## What is still forming
-
-- Authority: artist-editorial
-
-The artwork's concrete form remains in development.
-
-## Current study
+## Evidence boundary
 
 - Authority: artist-editorial, app-documentation
 
-WILL is planned for 2027. These docs expose its slogan and current direction as a study, not a creation or mint surface and not evidence of deployment.
+This description defines an artistic direction. It is not a creation surface, mint surface, or record of deployment.
 
-> The date is a plan, not deployment evidence.
+> A movement description is not deployment evidence.
 
 
 ## Links

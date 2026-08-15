@@ -11,14 +11,14 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "116a092614fc2c3d7830b86dcffab80eaafce7f614056974fd0a44bf441f5921",
+  "sourceTreeSha256": "5722b0970d2a42e27a044cdff543fe1e7bee5eff31144a389329fd8f63488db5",
   "groups": [
     {
       "id": "public-docs",
       "title": "Public documentation sources",
       "owner": "inshell.art docs",
       "reason": "Human articles, Agent-readable content, authority maps, and machine-handoff selection.",
-      "groupSha256": "014fde92dd3837dcfe55f3956d363ce8ad149b3241217e77d3400d0a0e1ac37d",
+      "groupSha256": "ee5b335378f3fc2212490b2960e514bfd558917b8579f0452a9fb82a8bbf1e28",
       "files": [
         {
           "path": "apps/home/src/content/AGENTS.md",
@@ -27,8 +27,8 @@
         },
         {
           "path": "apps/home/src/content/docs-figure-logic.ts",
-          "byteLength": 30460,
-          "sha256": "e56aee04907fd9f336e33b15730b576cd453689860f5761fec5679f525f25312"
+          "byteLength": 30452,
+          "sha256": "25a602a243161ec563dfc10ed6661593f88fbcdffb4ccf9f312ca151778c996b"
         },
         {
           "path": "apps/home/src/content/docs-source-registry.ts",
@@ -37,8 +37,8 @@
         },
         {
           "path": "apps/home/src/content/docs.ts",
-          "byteLength": 113971,
-          "sha256": "9d23cdf129917c96e833c3395e3bdf0618b9c1ca425e44bb8c8261c4e562b87a"
+          "byteLength": 112024,
+          "sha256": "164fc90fb165b660f9e3df2e2c704ac66ea9bf938b23ad007812531848d5c44b"
         },
         {
           "path": "apps/home/src/content/thought-machine-handoff.ts",
@@ -47,8 +47,8 @@
         },
         {
           "path": "docs/AGENTS.md",
-          "byteLength": 20845,
-          "sha256": "9f72bd5ad289c2a0c91ca48f2195926b02e378e3d0ffdfb607904fe6fd70ed04"
+          "byteLength": 22120,
+          "sha256": "d642a50a1293c323db14f4d9888e8450be9a3ff6bffe76aac9848707cf203ddf"
         },
         {
           "path": "docs/agent-native-figure-experiment.md",
@@ -67,7 +67,7 @@
       "title": "Home, PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "a004d6733ae7c4472f4453ac4094ee483cbcc91ff86303da940b61f7579321ae",
+      "groupSha256": "0f531674c24ff95a26077926ad9e4975a88a7d738dae6392949588cfb06a6075",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -181,8 +181,8 @@
         },
         {
           "path": "apps/home/src/components/docs/FieldFigureVisual.tsx",
-          "byteLength": 27198,
-          "sha256": "7872db0af401561c5e2479d0a3348431700110b00d33869b488a9044917165c2"
+          "byteLength": 27190,
+          "sha256": "f7b8c87845fd1be4cb22fdc40cfe393a5f492516cf48f2f87b5bfe67070e6dad"
         },
         {
           "path": "apps/home/src/components/docs/FlowFigureVisual.tsx",

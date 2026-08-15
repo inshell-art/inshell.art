@@ -47,7 +47,7 @@ The App consumes pinned ABIs, bytecode, schemas, renderer data, specifications, 
 
 Contract releases contain code and integrity material; network addresses and deployment blocks come from a separately verified deployment record. A correct integration matches the App pin, release artifacts, deployed bytecode, renderer commitments, and active network.
 
-Documentation can describe current source, a pinned release, or observed chain state. It must say which. Mirrors and previews are useful distribution surfaces but do not silently become canonical origins.
+Documentation can describe repository source, a pinned release, or observed chain state. It must say which. Mirrors and previews are useful distribution surfaces but do not silently become canonical origins.
 
 ## Repository ownership
 
@@ -76,7 +76,7 @@ A release may be complete without being deployed. A deployment record adds the n
 
 Canonical pages, Markdown documents, JSON indexes, API responses, GitHub mirrors, preview deployments, and third-party explorers serve different readers. Linking or mirroring improves access; it does not silently transfer authority.
 
-> When documentation describes live chain state, name the network and observation point. When it describes a release, name the release rather than relying on the current repository branch.
+> When documentation describes live chain state, name the network and observation point. When it describes a release, name the release rather than relying on the checked-out repository branch.
 
 
 ## Links

@@ -114,7 +114,7 @@ Do not reduce Agent Art to prompting, text generation, chat, or human-plus-model
 - When a character figure's box, fork, lane, or directional shape carries meaning, preserve that logical shape in the human rendering. Use structured DOM and literal character rails so key terms and annotations can have distinct type scales without bending the fixed-width source.
 - Put repeated headings, terms, stages, dividers, and junctions that share an axis on one shared layout track. Do not approximate a common column independently in each row.
 - Keep every rail that represents one continuous boundary or path visually continuous: adjacent character runs must meet with no layout gap, and repeated literal `│` or `─` runs should stretch and clip to the row or column they govern. A deliberate transition may have breathing room around it, but its own stem, arrowhead, junction, or loop must remain joined.
-- For a forming work, draw only the known direction. Leave an unsettled relation or form out of the figure, state its openness in prose, and never fill the space with an invented mechanism.
+- When a work leaves a relation or form unsettled, draw only the defined direction. State the open boundary without narrating a development timeline, and never fill the space with an invented mechanism.
 - Use a figure to establish a strong impression of the block's governing terms or relation; do not make it explain the block.
 - Let the surrounding prose own explanation, caveats, and details.
 - Use quiet annotations only when a few words sharpen the impression.
@@ -132,6 +132,15 @@ Do not reduce Agent Art to prompting, text generation, chat, or human-plus-model
 - Do not turn interpretation into technical fact or technical fact into an artist statement.
 - Do not promise financial return, personal transformation, psychological healing, authenticity, or freedom as a guaranteed result.
 - Preserve productive openness. Explain boundaries without closing questions the work intentionally leaves open.
+
+## Time-neutral conceptual documentation
+
+- Write conceptual and artistic articles as durable accounts of terms, relations, scope, and evidence boundaries. They are documentation, not a news feed or roadmap.
+- Do not create sections such as `What is known`, `What is still forming`, `Current status`, or `Current study`. Do not publish planned years, calendar promises, or prose whose only meaning is that a work is unfinished at the moment of writing.
+- When a concrete form is unspecified, say what the concept includes, excludes, or leaves open. Do not narrate the temporary state of its development.
+- Express availability as an evidence boundary: a movement name, artistic direction, or study description does not establish a creation surface, mint surface, capacity, release, or deployment.
+- Time-sensitive technical facts are allowed only when time or mutable state is part of the fact itself, such as `current owner`, `current ask`, a named release, a deployment, or a network observation. Anchor those claims to their owning authority and observation scope.
+- Prefer durable terms such as `canonical release`, `configured state`, and `observed deployment` over relative phrases such as `latest`, `today`, or `currently` when they mean the same thing.
 
 ## Claim and authority discipline
 

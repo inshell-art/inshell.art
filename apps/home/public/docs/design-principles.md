@@ -1,6 +1,6 @@
 # Design Principles
 
-> Inshell's current design rules connect participation, visible form, and the limits of evidence.
+> Inshell's design rules connect participation, visible form, and the limits of evidence.
 
 - Group: Context
 - Status: current
@@ -9,7 +9,7 @@
 - Documentation version: 2026-08-15
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
-## Current Inshell principles across systems
+## Inshell principles across systems
 
 - Authority: artist-editorial, app-documentation
 - Figure ID: design.principles
@@ -22,10 +22,10 @@
   - `pin [principle]: Pin — Canonical sources remain identifiable.`
   - `qualify [principle]: Qualify — Claims stop where their evidence stops.`
 - Semantic groups:
-  - `current-principles [set] · •: Current Inshell principles across systems [members: bound (Bound) · authorize (Authorize) · expose (Expose) · pin (Pin) · qualify (Qualify)]`
+  - `inshell-principles [set] · •: Inshell principles across systems [members: bound (Bound) · authorize (Authorize) · expose (Expose) · pin (Pin) · qualify (Qualify)]`
 
 ```text
-CURRENT INSHELL PRINCIPLES
+INSHELL PRINCIPLES
 
 • BOUND — Collaboration is bounded.
 • AUTHORIZE
@@ -47,7 +47,7 @@ CURRENT INSHELL PRINCIPLES
 
 Inshell's works connect artistic meaning to operating rules. A response limit, a serial auction, a movement capacity, a renderer pin, or an evidence label is not merely backstage implementation. Each rule changes what participants can do and what later readers can know.
 
-Five design choices recur across the current Inshell system: collaboration is bounded, the authority to continue or preserve is explicit, mechanisms stay visible, canonical sources remain identifiable, and claims stop where their evidence stops. They give the practice form as it approaches truth without claiming possession. They are choices of practice, not a doctrine, a set of propositions to prove, or a definition of Agent Art.
+Five design choices recur across Inshell's systems: collaboration is bounded, the authority to continue or preserve is explicit, mechanisms stay visible, canonical sources remain identifiable, and claims stop where their evidence stops. They give the practice form as it approaches truth without claiming possession. They are choices of practice, not a doctrine, a set of propositions to prove, or a definition of Agent Art.
 
 ## Bounds create form
 
@@ -118,7 +118,7 @@ Preserved Pulse
 3. **PULSE · Settlement** — Contract action succeeds
 4. **PULSE · Sale record** — Preserved Pulse
 
-A system can produce a candidate without declaring it part of the public corpus. In Inshell's current onchain practices, THOUGHT separates Agent return from human review and successful mint, while Pulse separates a visible ask from a participant's confirmed bid. Their contract actions are specific preservation boundaries, not a universal rule for Agent Art.
+A system can produce a candidate without declaring it part of the public corpus. In Inshell's onchain practices, THOUGHT separates Agent return from human review and successful mint, while Pulse separates a visible ask from a participant's confirmed bid. Their contract actions are specific preservation boundaries, not a universal rule for Agent Art.
 
 ## Mechanism stays visible
 
@@ -169,9 +169,9 @@ The aim is not to make uncertainty disappear. It is to make the boundary of each
 
 - Authority: artist-editorial, app-documentation, contract-release
 
-Pulse changes with every sale and every interval between sales. A PATH accumulates movement use. The THOUGHT corpus grows one selected pair at a time. Releases and deployments create historical layers that must remain readable after the current interface changes.
+Pulse changes with every sale and every interval between sales. A PATH accumulates movement use. The THOUGHT corpus grows one selected pair at a time. Releases and deployments create historical layers that must remain readable as interfaces change.
 
-This makes documentation part of preservation. It records not only what a visitor can click today, but how the work's visible form, permissions, and evidence remain connected over time.
+This makes documentation part of preservation. It records visible interactions and keeps the work's form, permissions, and evidence connected over time.
 
 
 ## Links

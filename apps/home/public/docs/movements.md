@@ -1,6 +1,6 @@
 # Movements
 
-> Inshell's movements follow an artistic PATH from an individual's thought, through a crowd's will, toward Inshell's core; WILL and AWA remain in formation.
+> Inshell's movements follow an artistic PATH from an individual's thought, through a crowd's will, toward Inshell's core.
 
 - Group: Start here
 - Status: current
@@ -50,7 +50,7 @@ This sequence belongs to Inshell. It gives the inward direction—inspect self�
 
 - Authority: artist-editorial
 
-Agent Art requires an Agent to participate, but it prescribes no universal relation between a human, an Agent, and a work. Inshell uses that openness differently across the movements. THOUGHT chooses one person and one Agent response. WILL intends many people and many Agents within the formation of one will. AWA remains an Agent Art movement while its particular form of participation is still being discovered.
+Agent Art requires an Agent to participate, but it prescribes no universal relation between a human, an Agent, and a work. Inshell uses that openness differently across the movements. THOUGHT chooses one person and one Agent response. WILL concerns many people and many Agents within the formation of one will. AWA leaves its particular participation relation open.
 
 Agent participation is the invariant. Repeating THOUGHT's prompt-response form is not. These are Inshell's choices of practice, not requirements for Agent Art as a field.
 
@@ -66,19 +66,17 @@ The Agent response becomes another exact line available for inspection. It does 
 
 - Authority: artist-editorial
 
-WILL moves the inquiry from the individual to the crowd. Its intent is many people, many Agents, one will: to inspect crowd behavior and how a crowd forms what can be called one will. The slogan names this direction rather than describing a finished mechanism.
+WILL moves the inquiry from the individual to the crowd. Its intent is many people, many Agents, one will: to inspect crowd behavior and how a crowd forms what can be called one will. The slogan defines the movement's scope without prescribing a concrete mechanism.
 
-WILL is still being created and developed. The docs cannot yet give a fuller account because the work itself has not taken its full form—not because Inshell is intentionally withholding a completed design.
-
-One will should not yet be expanded into a claim of consensus, unanimity, governance, or a finished model of collective agency.
+One will does not mean consensus, unanimity, governance, or a finished model of collective agency.
 
 ## AWA: the core
 
 - Authority: artist-editorial
 
-AWA turns from the crowd toward the core of Inshell. That direction can be named now without pretending the movement has already arrived there or can reveal, define, or prove the core.
+AWA turns from the crowd toward the core of Inshell. That direction does not claim that the movement has arrived there or can reveal, define, or prove the core.
 
-AWA and the form through which it can approach that core are still forming. They take time. There is no finished mechanism, Agent relation, or artwork form for the docs to fill in yet.
+The docs name the direction without prescribing its participation relation, mechanism, or artwork form.
 
 ## Why PATH carries progress
 
@@ -95,13 +93,13 @@ Contract state records participation, not inward achievement. It does not measur
 - Remaining is that quota minus this PATH's derived used count, never a marketing quota.
 - Not available means the deployed contract exposes no quota for that movement.
 
-## Current and forming
+## Evidence boundary
 
 - Authority: artist-editorial, app-documentation
 
-THOUGHT is current and has a live creation and mint flow. WILL is planned for 2027 and is still being created and developed; these docs expose the direction and current study without implying a finished work or live mint. AWA is planned for 2028 and remains in formation; it currently has no creation or mint surface.
+The movement arc describes an artistic order. A deployed PATH can make a configured sequence operable, but movement names alone do not establish a creation surface, mint surface, capacity, or deployment.
 
-> Dates are plans, not evidence of deployment. The limited WILL and AWA descriptions reflect unfinished work, not concealed finished systems. Do not infer availability or capacity from the movement names alone.
+> Do not infer availability, capacity, or deployment from a movement name.
 
 
 ## Links

@@ -46,7 +46,7 @@ Mono 76 gives selected Inshell works a fixed visual alphabet. Version 1.0.0 cont
 
 The sealed face emerged from a larger native-SVG glyph study. That research compared many construction systems for legibility, identity, punctuation, marketplace-scale resilience, deterministic rendering, and practical contract size. The released face came from the C02 Classic Book study, then received manual refinement and optical alignment before its paths and metrics were frozen.
 
-Mono 76 is not the site's general interface font. Interface copy remains ordinary selectable text. Mono 76 is used where the letterform is part of the artwork or its deterministic renderer, including the current [THOUGHT](https://inshell.art/docs/thought) composition and the movement names drawn inside [PATH](https://inshell.art/docs/path) tokens.
+Mono 76 is not the site's general interface font. Interface copy remains ordinary selectable text. Mono 76 is used where the letterform is part of the artwork or its deterministic renderer, including the [THOUGHT](https://inshell.art/docs/thought) composition and the movement names drawn inside [PATH](https://inshell.art/docs/path) tokens.
 
 A renderer consumes path geometry rather than asking a browser to locate a font. This keeps the visible form independent of installed fonts, webfont loading, marketplace font support, and platform-specific text layout.
 
@@ -64,7 +64,7 @@ THOUGHT uses the same character repertoire for its Terminal English lines. Its a
 
 The released face uses open centerline paths: no fill, a fixed round stroke, round caps and joins, fixed advance, no kerning, and one declared origin shift. Reviewed optical adjustments are baked into the path bytes so a renderer does not apply a second hidden tuning table.
 
-Source Code Pro was a visible comparison reference during study. Its outlines were neither imported nor traced into Mono 76 v1.0.0. The earlier outline-reference release is a separate historical artifact with different geometry and licensing; it is not the current face.
+Source Code Pro was a visible comparison reference during study. Its outlines were neither imported nor traced into Mono 76 v1.0.0. The earlier outline-reference release is a separate historical artifact with different geometry and licensing; it is not the canonical face.
 
 ## Native SVG is the delivery form
 

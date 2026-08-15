@@ -805,9 +805,9 @@ const FIGURE_LOGIC_BUILDERS = {
       [],
       [
         {
-          id: "current-principles",
+          id: "inshell-principles",
           kind: "set",
-          label: "Current Inshell principles across systems",
+          label: "Inshell principles across systems",
           glyph: "•",
           members: ["bound", "authorize", "expose", "pin", "qualify"],
         },

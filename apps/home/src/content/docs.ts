@@ -344,7 +344,7 @@ export const DOCS_SOURCE: DocsSource = {
       group: "orientation",
       title: "Movements",
       summary:
-        "Inshell's movements follow an artistic PATH from an individual's thought, through a crowd's will, toward Inshell's core; WILL and AWA remain in formation.",
+        "Inshell's movements follow an artistic PATH from an individual's thought, through a crowd's will, toward Inshell's core.",
       status: "current",
       authorities: ["artist-editorial", "app-documentation", "contract-release"],
       paragraphs: [
@@ -385,7 +385,7 @@ export const DOCS_SOURCE: DocsSource = {
           id: "docs-movements-agent-art",
           title: "Agent Art across the movements",
           paragraphs: [
-            "Agent Art requires an Agent to participate, but it prescribes no universal relation between a human, an Agent, and a work. Inshell uses that openness differently across the movements. THOUGHT chooses one person and one Agent response. WILL intends many people and many Agents within the formation of one will. AWA remains an Agent Art movement while its particular form of participation is still being discovered.",
+            "Agent Art requires an Agent to participate, but it prescribes no universal relation between a human, an Agent, and a work. Inshell uses that openness differently across the movements. THOUGHT chooses one person and one Agent response. WILL concerns many people and many Agents within the formation of one will. AWA leaves its particular participation relation open.",
             "Agent participation is the invariant. Repeating THOUGHT's prompt-response form is not. These are Inshell's choices of practice, not requirements for Agent Art as a field.",
           ],
         },
@@ -401,17 +401,16 @@ export const DOCS_SOURCE: DocsSource = {
           id: "docs-movements-will",
           title: "WILL: the crowd",
           paragraphs: [
-            "WILL moves the inquiry from the individual to the crowd. Its intent is many people, many Agents, one will: to inspect crowd behavior and how a crowd forms what can be called one will. The slogan names this direction rather than describing a finished mechanism.",
-            "WILL is still being created and developed. The docs cannot yet give a fuller account because the work itself has not taken its full form—not because Inshell is intentionally withholding a completed design.",
-            "One will should not yet be expanded into a claim of consensus, unanimity, governance, or a finished model of collective agency.",
+            "WILL moves the inquiry from the individual to the crowd. Its intent is many people, many Agents, one will: to inspect crowd behavior and how a crowd forms what can be called one will. The slogan defines the movement's scope without prescribing a concrete mechanism.",
+            "One will does not mean consensus, unanimity, governance, or a finished model of collective agency.",
           ],
         },
         {
           id: "docs-movements-awa",
           title: "AWA: the core",
           paragraphs: [
-            "AWA turns from the crowd toward the core of Inshell. That direction can be named now without pretending the movement has already arrived there or can reveal, define, or prove the core.",
-            "AWA and the form through which it can approach that core are still forming. They take time. There is no finished mechanism, Agent relation, or artwork form for the docs to fill in yet.",
+            "AWA turns from the crowd toward the core of Inshell. That direction does not claim that the movement has arrived there or can reveal, define, or prove the core.",
+            "The docs name the direction without prescribing its participation relation, mechanism, or artwork form.",
           ],
         },
         {
@@ -430,12 +429,12 @@ export const DOCS_SOURCE: DocsSource = {
           ],
         },
         {
-          id: "docs-movements-status",
-          title: "Current and forming",
+          id: "docs-movements-evidence",
+          title: "Evidence boundary",
           paragraphs: [
-            "THOUGHT is current and has a live creation and mint flow. WILL is planned for 2027 and is still being created and developed; these docs expose the direction and current study without implying a finished work or live mint. AWA is planned for 2028 and remains in formation; it currently has no creation or mint surface.",
+            "The movement arc describes an artistic order. A deployed PATH can make a configured sequence operable, but movement names alone do not establish a creation surface, mint surface, capacity, or deployment.",
           ],
-          note: "Dates are plans, not evidence of deployment. The limited WILL and AWA descriptions reflect unfinished work, not concealed finished systems. Do not infer availability or capacity from the movement names alone.",
+          note: "Do not infer availability, capacity, or deployment from a movement name.",
         },
       ],
       links: [
@@ -661,7 +660,7 @@ export const DOCS_SOURCE: DocsSource = {
       group: "works",
       title: "WILL",
       summary:
-        "WILL is Inshell's developing crowd movement about delegated human will and Agent action.",
+        "WILL is Inshell's crowd movement about delegated human will and Agent action.",
       status: "study",
       authorities: ["artist-editorial", "app-documentation"],
       paragraphs: [
@@ -673,8 +672,9 @@ export const DOCS_SOURCE: DocsSource = {
           " begins with one individual's thought, WILL moves from one person to a crowd.",
         ],
         "It asks what happens when a human authorizes an Agent to act toward an aim, and what result may form when many such relations interact.",
+        "Here, crowd names the move from one participant to many. It does not mean a society, consensus, or shared mind.",
         [
-          "Many people. Many Agents. One will. This names the direction, not a completed form. Agent participation keeps WILL within ",
+          "Many people. Many Agents. One will. The slogan names the movement's scope without prescribing its concrete form. Agent participation keeps WILL within ",
           { label: "Agent Art", href: "/docs/agent-art" },
           ".",
         ],
@@ -706,26 +706,12 @@ export const DOCS_SOURCE: DocsSource = {
       },
       sections: [
         {
-          id: "docs-will-known",
-          title: "What is known",
+          id: "docs-will-evidence",
+          title: "Evidence boundary",
           paragraphs: [
-            "Crowd names the move from one participant to many. It does not yet mean a society, consensus, or shared mind.",
+            "This description defines an artistic direction. It is not a creation surface, mint surface, or record of deployment.",
           ],
-        },
-        {
-          id: "docs-will-forming",
-          title: "What is still forming",
-          paragraphs: [
-            "The artwork's concrete form remains in development.",
-          ],
-        },
-        {
-          id: "docs-will-status",
-          title: "Current study",
-          paragraphs: [
-            "WILL is planned for 2027. These docs expose its slogan and current direction as a study, not a creation or mint surface and not evidence of deployment.",
-          ],
-          note: "The date is a plan, not deployment evidence.",
+          note: "A movement description is not deployment evidence.",
         },
       ],
       links: [
@@ -740,8 +726,8 @@ export const DOCS_SOURCE: DocsSource = {
       group: "works",
       title: "AWA",
       summary:
-        "AWA is Inshell's forming movement toward its core; its particular form still needs time.",
-      status: "future",
+        "AWA is Inshell's movement from the crowd toward its core.",
+      status: "study",
       authorities: ["artist-editorial", "app-documentation"],
       paragraphs: [
         [
@@ -757,7 +743,7 @@ export const DOCS_SOURCE: DocsSource = {
         [
           "Agent participation keeps AWA within ",
           { label: "Agent Art", href: "/docs/agent-art" },
-          ". The particular relation among people, Agents, and the work is still being discovered rather than inherited from THOUGHT or assumed from WILL.",
+          ". AWA does not inherit THOUGHT's or WILL's particular relation among people, Agents, and the work.",
         ],
       ],
       figure: {
@@ -776,26 +762,12 @@ export const DOCS_SOURCE: DocsSource = {
       },
       sections: [
         {
-          id: "docs-awa-known",
-          title: "What is known",
+          id: "docs-awa-evidence",
+          title: "Evidence boundary",
           paragraphs: [
             "Core names the movement's artistic direction, not a disclosed doctrine, technical subsystem, or completed definition of Inshell. AWA follows the path from individual, through crowd, toward that core.",
           ],
-        },
-        {
-          id: "docs-awa-forming",
-          title: "What is still forming",
-          paragraphs: [
-            "AWA and the form through which it can approach the core are still forming. They take time.",
-            "There is no finished participation relation or artwork form for the docs to describe. Those spaces should remain open rather than be filled with invented mechanisms.",
-          ],
-        },
-        {
-          id: "docs-awa-status",
-          title: "Current status",
-          paragraphs: [
-            "AWA is planned for 2028 and currently has no creation or mint surface. The date is a plan, not evidence of deployment.",
-          ],
+          note: "A movement description is not evidence of a creation surface, mint surface, or deployment.",
         },
       ],
       links: [
@@ -1227,7 +1199,7 @@ export const DOCS_SOURCE: DocsSource = {
         "Token metadata carries the canonical image, description, stable marketplace traits, and—when the release defines it—an external_url to the canonical detail page. A generic marketplace can read that portable layer without understanding Inshell's richer records.",
         "Inshell detail pages add context: THOUGHT exposes its work, evidence levels, and creation provenance; PATH exposes movement state, capacity, linked movement tokens, issuance, and onchain record.",
         "These layers make the public forms and claims of the practice inspectable. They can establish which bytes and records belong to a work; they cannot prove the inward truth of the work or possess its meaning.",
-        "These artwork, metadata, provenance, and chain layers describe Inshell's current onchain practices. They are not requirements that every Agent Art practice must adopt.",
+        "These artwork, metadata, provenance, and chain layers describe Inshell's onchain practices. They are not requirements that every Agent Art practice must adopt.",
         [
           "Onchain does not mean context-free. Read network, contract, token ID, deployment, release, tokenURI source, and ",
           { label: "attestation status", href: "/docs/verification" },
@@ -1318,7 +1290,7 @@ export const DOCS_SOURCE: DocsSource = {
         "Mono 76 gives selected Inshell works a fixed visual alphabet. Version 1.0.0 contains 76 ordered records: 75 visible glyphs and one metrics-only SPACE. Every visible glyph is an independently authored centerline SVG path with shared monospaced metrics.",
         "The sealed face emerged from a larger native-SVG glyph study. That research compared many construction systems for legibility, identity, punctuation, marketplace-scale resilience, deterministic rendering, and practical contract size. The released face came from the C02 Classic Book study, then received manual refinement and optical alignment before its paths and metrics were frozen.",
         [
-          "Mono 76 is not the site's general interface font. Interface copy remains ordinary selectable text. Mono 76 is used where the letterform is part of the artwork or its deterministic renderer, including the current ",
+          "Mono 76 is not the site's general interface font. Interface copy remains ordinary selectable text. Mono 76 is used where the letterform is part of the artwork or its deterministic renderer, including the ",
           { label: "THOUGHT", href: "/docs/thought" },
           " composition and the movement names drawn inside ",
           { label: "PATH", href: "/docs/path" },
@@ -1360,7 +1332,7 @@ export const DOCS_SOURCE: DocsSource = {
           title: "Centerlines, not font outlines",
           paragraphs: [
             "The released face uses open centerline paths: no fill, a fixed round stroke, round caps and joins, fixed advance, no kerning, and one declared origin shift. Reviewed optical adjustments are baked into the path bytes so a renderer does not apply a second hidden tuning table.",
-            "Source Code Pro was a visible comparison reference during study. Its outlines were neither imported nor traced into Mono 76 v1.0.0. The earlier outline-reference release is a separate historical artifact with different geometry and licensing; it is not the current face.",
+            "Source Code Pro was a visible comparison reference during study. Its outlines were neither imported nor traced into Mono 76 v1.0.0. The earlier outline-reference release is a separate historical artifact with different geometry and licensing; it is not the canonical face.",
           ],
         },
         {
@@ -1585,7 +1557,7 @@ export const DOCS_SOURCE: DocsSource = {
         ],
         "The App consumes pinned ABIs, bytecode, schemas, renderer data, specifications, manifests, and checksums. A repository's latest source is not automatically the deployed release. A newer file is not authority for an older deployment.",
         "Contract releases contain code and integrity material; network addresses and deployment blocks come from a separately verified deployment record. A correct integration matches the App pin, release artifacts, deployed bytecode, renderer commitments, and active network.",
-        "Documentation can describe current source, a pinned release, or observed chain state. It must say which. Mirrors and previews are useful distribution surfaces but do not silently become canonical origins.",
+        "Documentation can describe repository source, a pinned release, or observed chain state. It must say which. Mirrors and previews are useful distribution surfaces but do not silently become canonical origins.",
       ],
       figure: {
         id: "source-release.records",
@@ -1637,7 +1609,7 @@ export const DOCS_SOURCE: DocsSource = {
           paragraphs: [
             "Canonical pages, Markdown documents, JSON indexes, API responses, GitHub mirrors, preview deployments, and third-party explorers serve different readers. Linking or mirroring improves access; it does not silently transfer authority.",
           ],
-          note: "When documentation describes live chain state, name the network and observation point. When it describes a release, name the release rather than relying on the current repository branch.",
+          note: "When documentation describes live chain state, name the network and observation point. When it describes a release, name the release rather than relying on the checked-out repository branch.",
         },
       ],
       links: [
@@ -1652,19 +1624,19 @@ export const DOCS_SOURCE: DocsSource = {
       id: "docs-design-principles",
       group: "context",
       title: "Design Principles",
-      summary: "Inshell's current design rules connect participation, visible form, and the limits of evidence.",
+      summary: "Inshell's design rules connect participation, visible form, and the limits of evidence.",
       status: "current",
       authorities: ["artist-editorial", "app-documentation", "contract-release"],
       paragraphs: [
         "Inshell's works connect artistic meaning to operating rules. A response limit, a serial auction, a movement capacity, a renderer pin, or an evidence label is not merely backstage implementation. Each rule changes what participants can do and what later readers can know.",
-        "Five design choices recur across the current Inshell system: collaboration is bounded, the authority to continue or preserve is explicit, mechanisms stay visible, canonical sources remain identifiable, and claims stop where their evidence stops. They give the practice form as it approaches truth without claiming possession. They are choices of practice, not a doctrine, a set of propositions to prove, or a definition of Agent Art.",
+        "Five design choices recur across Inshell's systems: collaboration is bounded, the authority to continue or preserve is explicit, mechanisms stay visible, canonical sources remain identifiable, and claims stop where their evidence stops. They give the practice form as it approaches truth without claiming possession. They are choices of practice, not a doctrine, a set of propositions to prove, or a definition of Agent Art.",
       ],
       figure: {
         id: "design.principles",
-        label: "Current Inshell principles across systems",
+        label: "Inshell principles across systems",
         mode: "field",
         figureText: [
-          "CURRENT INSHELL PRINCIPLES",
+          "INSHELL PRINCIPLES",
           "",
           "• BOUND — Collaboration is bounded.",
           "• AUTHORIZE",
@@ -1784,7 +1756,7 @@ export const DOCS_SOURCE: DocsSource = {
             ],
           },
           paragraphs: [
-            "A system can produce a candidate without declaring it part of the public corpus. In Inshell's current onchain practices, THOUGHT separates Agent return from human review and successful mint, while Pulse separates a visible ask from a participant's confirmed bid. Their contract actions are specific preservation boundaries, not a universal rule for Agent Art.",
+            "A system can produce a candidate without declaring it part of the public corpus. In Inshell's onchain practices, THOUGHT separates Agent return from human review and successful mint, while Pulse separates a visible ask from a participant's confirmed bid. Their contract actions are specific preservation boundaries, not a universal rule for Agent Art.",
           ],
         },
         {
@@ -1842,8 +1814,8 @@ export const DOCS_SOURCE: DocsSource = {
           id: "docs-design-time",
           title: "The work continues through time",
           paragraphs: [
-            "Pulse changes with every sale and every interval between sales. A PATH accumulates movement use. The THOUGHT corpus grows one selected pair at a time. Releases and deployments create historical layers that must remain readable after the current interface changes.",
-            "This makes documentation part of preservation. It records not only what a visitor can click today, but how the work's visible form, permissions, and evidence remain connected over time.",
+            "Pulse changes with every sale and every interval between sales. A PATH accumulates movement use. The THOUGHT corpus grows one selected pair at a time. Releases and deployments create historical layers that must remain readable as interfaces change.",
+            "This makes documentation part of preservation. It records visible interactions and keeps the work's form, permissions, and evidence connected over time.",
           ],
         },
       ],
@@ -1902,7 +1874,7 @@ export const DOCS_AUTHORITY_MAP: Record<
         "app-documentation",
         "contract-release",
       ],
-      "docs-movements-status": ["artist-editorial", "app-documentation"],
+      "docs-movements-evidence": ["artist-editorial", "app-documentation"],
     },
   },
   thought: {
@@ -1926,18 +1898,14 @@ export const DOCS_AUTHORITY_MAP: Record<
     lead: ["artist-editorial"],
     figure: ["artist-editorial"],
     sections: {
-      "docs-will-known": ["artist-editorial"],
-      "docs-will-forming": ["artist-editorial"],
-      "docs-will-status": ["artist-editorial", "app-documentation"],
+      "docs-will-evidence": ["artist-editorial", "app-documentation"],
     },
   },
   awa: {
     lead: ["artist-editorial"],
     figure: ["artist-editorial"],
     sections: {
-      "docs-awa-known": ["artist-editorial"],
-      "docs-awa-forming": ["artist-editorial"],
-      "docs-awa-status": ["artist-editorial", "app-documentation"],
+      "docs-awa-evidence": ["artist-editorial", "app-documentation"],
     },
   },
   path: {
@@ -2073,6 +2041,6 @@ export function agentDocsPrompt(origin: string) {
     "If you cannot fetch a required source, say so. Do not guess.",
     "",
     "When ready, reply:",
-    "I've read the current Inshell docs. Ask me anything about Inshell.",
+    "I've read the Inshell docs. Ask me anything about Inshell.",
   ].join("\n");
 }

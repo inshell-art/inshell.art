@@ -371,7 +371,7 @@ describe("Docs source editorial guardrails", () => {
     expect([...topicBySlug.values()].join("\n")).not.toMatch(/\bsources? of truth\b/i);
   });
 
-  test("reveals the Movements path from individual to crowd to core without filling unfinished work", () => {
+  test("reveals the Movements path from individual to crowd to core without inventing open forms", () => {
     const movements = DOCS_SOURCE.topics.find(({ slug }) => slug === "movements");
     expect(movements).toBeDefined();
     if (!movements) return;
@@ -391,10 +391,10 @@ describe("Docs source editorial guardrails", () => {
       /WILL moves the inquiry from the individual to the crowd[\s\S]{0,220}crowd forms[\s\S]{0,80}one will/i,
     );
     expect(text).toMatch(
-      /still being created and developed[\s\S]{0,260}not because Inshell is intentionally withholding a completed design/i,
+      /slogan defines the movement's scope[\s\S]{0,100}without prescribing a concrete mechanism/i,
     );
     expect(text).toMatch(
-      /AWA turns from the crowd toward the core of Inshell[\s\S]{0,320}still forming[\s\S]{0,80}take time/i,
+      /AWA turns from the crowd toward the core of Inshell[\s\S]{0,260}without prescribing its participation relation, mechanism, or artwork form/i,
     );
     expect(text).toMatch(/PATH is the route and ledger, not a fourth movement/i);
     expect(text).toMatch(/not requirements for Agent Art as a field/i);
@@ -412,7 +412,7 @@ describe("Docs source editorial guardrails", () => {
     expect(DOCS_AUTHORITY_MAP.movements.figure).toEqual(["artist-editorial"]);
   });
 
-  test("keeps focused movement pages integrated, linked, and honest about their state", () => {
+  test("keeps focused movement pages integrated, linked, and honest about their evidence boundaries", () => {
     const movementTopics = new Map(
       DOCS_SOURCE.topics
         .filter(({ slug }) => ["movements", "thought", "will", "awa"].includes(slug))
@@ -432,7 +432,7 @@ describe("Docs source editorial guardrails", () => {
     if (!movements || !thought || !will || !awa) return;
     expect(thought?.status).toBe("current");
     expect(will?.status).toBe("study");
-    expect(awa?.status).toBe("future");
+    expect(awa?.status).toBe("study");
     expect(will?.figure).toMatchObject({
       label: "From delegated will to a result",
       mode: "field",
@@ -462,10 +462,10 @@ describe("Docs source editorial guardrails", () => {
       /authorizes an Agent[\s\S]{0,120}act toward an aim[\s\S]{0,180}result may form/i,
     );
     expect(topicText(will as DocsTopic)).toMatch(
-      /Crowd names the move from one participant to many[\s\S]{0,160}does not yet mean a society[\s\S]{0,100}shared mind/i,
+      /crowd names the move from one participant to many[\s\S]{0,160}does not mean a society[\s\S]{0,100}shared mind/i,
     );
     expect(topicText(will as DocsTopic)).toMatch(
-      /artwork's concrete form remains in development/i,
+      /description defines an artistic direction[\s\S]{0,140}not a creation surface, mint surface, or record of deployment/i,
     );
     expect(topicText(will as DocsTopic)).not.toMatch(
       /failures|participation mechanism|representation of authorization|what constitutes a result|majority rule|finished theory/i,
@@ -473,7 +473,9 @@ describe("Docs source editorial guardrails", () => {
     expect(topicText(awa as DocsTopic)).toMatch(
       /third movement[\s\S]{0,180}core of Inshell/i,
     );
-    expect(topicText(awa as DocsTopic)).toMatch(/still forming[\s\S]{0,80}take time/i);
+    expect(topicText(awa as DocsTopic)).toMatch(
+      /Core names the movement's artistic direction[\s\S]{0,240}not evidence of a creation surface, mint surface, or deployment/i,
+    );
     expect(topicText(will as DocsTopic)).toMatch(/Agent participation keeps WILL within Agent Art/i);
     expect(topicText(awa as DocsTopic)).toMatch(/Agent participation keeps AWA within Agent Art/i);
 
@@ -488,11 +490,14 @@ describe("Docs source editorial guardrails", () => {
       for (const href of hrefs) expect(topicHrefs.has(href)).toBe(true);
     }
 
+    expect(will.sections?.map(({ id }) => id)).toEqual(["docs-will-evidence"]);
+    expect(awa.sections?.map(({ id }) => id)).toEqual(["docs-awa-evidence"]);
     expect(movements?.sections?.map(({ id }) => id)).toEqual(
       expect.arrayContaining([
         "docs-movements-thought",
         "docs-movements-will",
         "docs-movements-awa",
+        "docs-movements-evidence",
       ]),
     );
   });
@@ -836,6 +841,27 @@ describe("Docs source editorial guardrails", () => {
         );
       }
     }
+
+  });
+
+  test("keeps public articles time-neutral without weakening mutable-state terminology", () => {
+    const prohibitedEditorialTime =
+      /\b(?:planned for 20\d{2}|currently|still (?:being|forming)|remains in (?:development|formation)|current (?:and forming|study|status|direction|design|onchain practices)|what is (?:known|still forming)|click today)\b/i;
+
+    for (const topic of DOCS_SOURCE.topics) {
+      expect(topicText(topic)).not.toMatch(prohibitedEditorialTime);
+    }
+
+    expect(DOCS_SOURCE.topics.some(({ status }) => status === "future")).toBe(false);
+
+    const path = topicText(
+      DOCS_SOURCE.topics.find(({ slug }) => slug === "path") as DocsTopic,
+    );
+    const pulse = topicText(
+      DOCS_SOURCE.topics.find(({ slug }) => slug === "pulse") as DocsTopic,
+    );
+    expect(path).toMatch(/current PATH owner/i);
+    expect(pulse).toMatch(/current ask/i);
   });
 
   test("publishes the canonical gallery deployment context", () => {
@@ -1066,7 +1092,7 @@ describe("DocsPage character figures", () => {
     "Evidence becomes interpretation": "evidence-interpretation",
     "Two distinctions": "distinction-comparisons",
     "Four distinct records": "record-comparison",
-    "Current Inshell principles across systems": "open-principle-set",
+    "Inshell principles across systems": "open-principle-set",
     "Many surfaces, one identified record": "canonical-source-flow",
   } as const;
 
@@ -1080,7 +1106,7 @@ describe("DocsPage character figures", () => {
     "Evidence becomes interpretation": 5,
     "Two distinctions": 5,
     "Four distinct records": 4,
-    "Current Inshell principles across systems": 5,
+    "Inshell principles across systems": 5,
     "Many surfaces, one identified record": 2,
   } as const;
 
@@ -2191,7 +2217,7 @@ describe("DocsPage character figures", () => {
 
     render(<DocsPage topicSlug="design-principles" />);
     const principles = screen
-      .getByRole("figure", { name: "Current Inshell principles across systems" })
+      .getByRole("figure", { name: "Inshell principles across systems" })
       .querySelector("[data-figure-shape='open-principle-set']");
     const sourceFlow = screen
       .getByRole("figure", { name: "Many surfaces, one identified record" })

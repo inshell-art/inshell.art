@@ -804,7 +804,7 @@ function PrincipleField({ figure }: { figure: FieldFigure }) {
       data-figure-shape="open-principle-set"
     >
       <StaticTerm className="docs-figure__field-governing-term">
-        CURRENT INSHELL PRINCIPLES
+        INSHELL PRINCIPLES
       </StaticTerm>
       <ul className="docs-figure__field docs-figure__field-open-set">
         {principles.map((node) => (
