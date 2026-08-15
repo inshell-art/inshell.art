@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "847815ef88089134ea554881d9ceca730136c823c68b12a7e24efc83bf985b54",
+  "sourceTreeSha256": "4fd30ac08befd35e44581e8ae45efe050dec070653acc3a5f90f52817dfe492a",
   "groups": [
     {
       "id": "public-docs",
@@ -57,7 +57,7 @@
       "title": "Home, PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "78fcaae07f32031d5eab8fd25bd9eabca0e6b2474e47f14a0ad6f0f5a82845aa",
+      "groupSha256": "c7a2d641ed5e1ece540ddbde8c7a767d7951a1edde3cb0eb22cac52c6dfeb006",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -221,8 +221,8 @@
         },
         {
           "path": "apps/home/src/main.css",
-          "byteLength": 107961,
-          "sha256": "c6e950e42af040d78f380e7d68dcd285ace24693e69820a7a16fd6f826d74ace"
+          "byteLength": 108031,
+          "sha256": "360f4da758b1ed6bfbb311a7635b5baab4905d2c272019558d54d77cff3bf6d0"
         },
         {
           "path": "apps/home/src/main.tsx",
@@ -569,7 +569,7 @@
       "title": "Wallet boundary",
       "owner": "inshell.art shared App infrastructure",
       "reason": "Public docs distinguish passive wallet reads from signatures and transactions.",
-      "groupSha256": "26a4f401fa2fac430c4023068492dc7a49cc43e0248fd381d0263f94125b099b",
+      "groupSha256": "500306b3b1878fc47d55ae68bbf837b53f7af3e0b4796ae1fbdd0ab6ff92f69b",
       "files": [
         {
           "path": "packages/inshell-shell/src/index.tsx",
@@ -583,8 +583,8 @@
         },
         {
           "path": "packages/inshell-shell/src/tokens.css",
-          "byteLength": 5255,
-          "sha256": "eb65742ecd54d56de554213e8386d0a2edf3599daaf9197de94c53e8b286e583"
+          "byteLength": 5293,
+          "sha256": "c81f5b793c0b2ada3320d9aa74d565775f5a43b6af01fb6755794986cbf34be1"
         },
         {
           "path": "packages/inshell-shell/src/topbar.css",
@@ -949,7 +949,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "2001c3df59d935521c7b71e3316baa160d47ebeb17d4c5867b78adcb33ab0982",
+      "groupSha256": "1a97b5db532c9221caa6706c29ee9aedab8e8f8e65d3e6ed47d824193d52602f",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1008,8 +1008,8 @@
         },
         {
           "path": "apps/thought/src/style.css",
-          "byteLength": 100986,
-          "sha256": "8e6dd6d09024ee3deb9453c6d005dbdf93c0c176cea3354ba1234f35a0f44067"
+          "byteLength": 101450,
+          "sha256": "54c24c1bd95ed41120fef22ec765f4bfa5c06da03eed1a64eeac4de592618ef0"
         },
         {
           "path": "apps/thought/src/surfaceShell/thoughtCommandTree.ts",

@@ -227,7 +227,9 @@ button,
   width: 100%;
   max-width: none;
   margin: 0 auto;
-  padding: 32px 20px 32px;
+  padding: var(--shell-route-padding-block-start)
+    var(--shell-route-padding-inline)
+    var(--shell-route-padding-block-end);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -238,8 +240,8 @@ button,
 .shell--home {
   min-height: 100vh;
   min-height: 100dvh;
-  padding-top: clamp(14px, 2.2vh, 32px);
-  padding-bottom: clamp(8px, 1.6vh, 24px);
+  padding-top: var(--shell-route-padding-block-start);
+  padding-bottom: var(--shell-route-padding-block-end);
 }
 
 .shell--path-app {
@@ -3583,10 +3585,6 @@ button {
 
 @media (max-width: 720px) {
   body {
-    padding: 20px 12px;
-  }
-
-  body:has(.shell--path-app) {
     padding: 0;
   }
 

@@ -443,6 +443,21 @@ test("THOUGHT creation keeps the production CLI default and the tagged Agent sna
     thoughtCss,
     /html\.agent-surface \.frontpage-side\s*\{\s*display:\s*none;/,
   );
+  assert.match(
+    thoughtCss,
+    /html:root:has\(body\.frontpage\)\s*\{[\s\S]*?max-width:\s*100%;[\s\S]*?overflow-x:\s*hidden;/,
+    "every THOUGHT route inherits the PATH-canonical root overflow boundary",
+  );
+  assert.match(
+    thoughtCss,
+    /html:root[\s\S]*?body\.frontpage:has\(\.frontpage-shell\)[\s\S]*?\.frontpage-shell\s*\{[\s\S]*?--shell-route-frame-padding-inline:\s*var\(--shell-route-padding-inline\);[\s\S]*?padding-block-start:\s*var\(--shell-route-padding-block-start\);[\s\S]*?padding-inline:\s*var\(--shell-route-frame-padding-inline\);/,
+    "all visible THOUGHT routes use the shared PATH-canonical shell frame",
+  );
+  assert.match(
+    thoughtCss,
+    /html:root[\s\S]*?body\.frontpage:has\(\.frontpage-stage:not\(\.is-hidden\)\)[\s\S]*?\.frontpage-shell\s*\{\s*justify-content:\s*flex-start;/,
+    "the Agent creation surface keeps its topbar on the shared route baseline",
+  );
   assert.match(thoughtMain, /const IS_CLI_SURFACE = document\.documentElement\.classList\.contains\("cli-surface"\)/);
   assert.match(
     thoughtMain,

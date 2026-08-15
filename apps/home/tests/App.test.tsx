@@ -854,6 +854,30 @@ describe("App Component", () => {
     );
   });
 
+  test("keeps every Home route on the PATH-canonical shell frame", () => {
+    const appCss = readFileSync(
+      nodePath.resolve(cwd(), "src/main.css"),
+      "utf8",
+    );
+    const tokenCss = readFileSync(
+      nodePath.resolve(cwd(), "../../packages/inshell-shell/src/tokens.css"),
+      "utf8",
+    );
+
+    expect(tokenCss).toMatch(/--shell-route-padding-inline:\s*20px;/);
+    expect(appCss).toMatch(
+      /\.shell\s*{[^}]*padding:\s*var\(--shell-route-padding-block-start\)\s*var\(--shell-route-padding-inline\)\s*var\(--shell-route-padding-block-end\);/s,
+    );
+    expect(appCss).toMatch(
+      /\.shell--home\s*{[^}]*padding-top:\s*var\(--shell-route-padding-block-start\);[^}]*padding-bottom:\s*var\(--shell-route-padding-block-end\);/s,
+    );
+    expect(appCss).toMatch(
+      /@media \(max-width:\s*720px\)\s*{\s*body\s*{\s*padding:\s*0;/s,
+    );
+    expect(appCss).not.toMatch(/body:has\(\.shell--path-app\)\s*{\s*padding:\s*0;/s);
+    expect(appCss).not.toMatch(/\.shell\s*{[^}]*padding:\s*32px 20px 32px;/s);
+  });
+
   test("anchors the PATH mint review below its confirm CTA", () => {
     const css = readFileSync(
       nodePath.resolve(cwd(), "src/main.css"),
@@ -1535,6 +1559,51 @@ describe("App Component", () => {
     expect(css).not.toMatch(
       /\.thought-detail__fields div\s*{[^}]*grid-template-columns:\s*1fr;/s,
     );
+
+    const selectorBlock = (selector: string, requiredProperty: string) => {
+      const blocks = Array.from(
+        css.matchAll(new RegExp(`${selector}\\s*\\{([^}]*)\\}`, "gs")),
+        (match) => match[1],
+      );
+      const block = blocks.find((candidate) => candidate.includes(requiredProperty));
+      expect(block).toBeDefined();
+      return block ?? "";
+    };
+    const customProperty = (block: string, property: string) => {
+      const match = block.match(new RegExp(`${property}:\\s*([^;]+);`));
+      expect(match).not.toBeNull();
+      return match?.[1].trim();
+    };
+    const pathCanon = selectorBlock("\\.path-detail-page", "--path-detail-width");
+    const thoughtDetail = selectorBlock("\\.thought-detail", "--thought-detail-width");
+    const alignedTokens = [
+      ["--path-detail-width", "--thought-detail-width"],
+      ["--path-detail-rail-width", "--thought-detail-rail-width"],
+      ["--path-detail-layout-gap", "--thought-detail-layout-gap"],
+      ["--path-detail-header-gap", "--thought-detail-header-gap"],
+      ["--path-detail-header-margin-bottom", "--thought-detail-header-margin-bottom"],
+      ["--path-detail-link-gap", "--thought-detail-link-gap"],
+      ["--path-detail-section-gap", "--thought-detail-section-gap"],
+      ["--path-detail-section-padding", "--thought-detail-section-padding"],
+      ["--path-detail-section-heading-gap", "--thought-detail-section-title-gap"],
+      ["--path-detail-field-gap", "--thought-detail-field-gap"],
+      ["--path-detail-field-label-width", "--thought-detail-field-label-width"],
+      ["--path-detail-field-column-gap", "--thought-detail-field-column-gap"],
+      ["--path-detail-tablet-panel-size", "--thought-detail-tablet-panel-size"],
+      ["--path-detail-tablet-gutter", "--thought-detail-tablet-gutter"],
+      ["--path-detail-mobile-gutter", "--thought-detail-mobile-gutter"],
+      ["--path-detail-mobile-layout-gap", "--thought-detail-mobile-layout-gap"],
+      ["--path-detail-mobile-header-gap", "--thought-detail-mobile-header-gap"],
+      ["--path-detail-mobile-min-height-offset", "--thought-detail-mobile-min-height-offset"],
+      ["--path-detail-artwork-bg", "--thought-detail-artwork-bg"],
+      ["--path-detail-error-color", "--thought-detail-error-color"],
+    ] as const;
+
+    for (const [pathToken, thoughtToken] of alignedTokens) {
+      expect(customProperty(thoughtDetail, thoughtToken)).toBe(
+        customProperty(pathCanon, pathToken),
+      );
+    }
   });
 
   test("home body keeps the slogan, movements, and release-locked work gallery", async () => {

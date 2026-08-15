@@ -50,6 +50,7 @@
   --shell-topbar-cluster-gap: 28px;
   --shell-topbar-menu-gap: var(--shell-nav-gap);
   --shell-topbar-wallet-label-width: 14ch;
+  --shell-route-padding-inline: 20px;
   --shell-topbar-wallet-note-offset: calc(
     var(--font-size-11) * var(--line-height-tight)
   );

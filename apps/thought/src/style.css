@@ -4340,6 +4340,11 @@ html.agent-demo-route .thought-agent-demo.is-hidden {
 }
 
 /* INSHELL_CURRENT_THOUGHT_DETAIL_PATH_CANON_START */
+html:root:has(body.frontpage) {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 html.thought-route {
   --thought-detail-mobile-frame-padding-inline: 20px;
   max-width: 100%;
@@ -4477,6 +4482,20 @@ html.thought-route {
   .thought-detail__record {
     width: min(100%, calc(100vw - var(--thought-detail-mobile-gutter)));
   }
+}
+
+html:root
+  body.frontpage:has(.frontpage-shell)
+  .frontpage-shell {
+  --shell-route-frame-padding-inline: var(--shell-route-padding-inline);
+  padding-block-start: var(--shell-route-padding-block-start);
+  padding-inline: var(--shell-route-frame-padding-inline);
+}
+
+html:root
+  body.frontpage:has(.frontpage-stage:not(.is-hidden))
+  .frontpage-shell {
+  justify-content: flex-start;
 }
 /* INSHELL_CURRENT_THOUGHT_DETAIL_PATH_CANON_END */
 
