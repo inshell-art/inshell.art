@@ -480,6 +480,11 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
     "the tagged Agent shell receives the current PATH-canonical detail rail only after byte verification",
   );
   assert.doesNotMatch(restoredIndexHtml, /thought-detail__support/);
+  assert.match(
+    restoredIndexHtml,
+    /id="thought-detail-gallery-link"[^>]*href="https:\/\/inshell\.art\/">\[ home \]<\/a>/,
+    "the detail surface returns to the canonical Home gallery",
+  );
   assert.match(restoredIndexHtml, /style\.css\?inshell-thought-dev-snapshot=da998e1/);
   assert.match(restoredIndexHtml, /main\.ts\?inshell-thought-dev-snapshot=da998e1/);
   assert.match(
@@ -500,6 +505,11 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
     restoredMain,
     /const initFrontpage = async \(\) => \{[\s\S]*?if \(IS_GALLERY_PAGE\) \{[\s\S]*?galleryPage\.classList\.remove\("is-hidden"\);[\s\S]*?await loadThoughtGallery\(\);[\s\S]*?return;[\s\S]*?if \(IS_THOUGHT_PAGE\)/,
     "the canonical same-origin gallery renders and loads its chain records",
+  );
+  assert.match(
+    restoredMain,
+    /thoughtDetailGalleryLink\.href = inshellHomeUrl\(ROUTE_THOUGHT_NFT_ID\)/,
+    "the detail Home link targets the matching card in the canonical Home gallery",
   );
   assert.doesNotMatch(
     restoredMain,
