@@ -191,7 +191,7 @@ export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
     `Encode one compact candidate with this shape: ${candidateShape}.`,
     "",
     "4. Return once",
-    "PUT to <result_endpoint> with <bridge_credential> and Idempotency-Key=<invocation_id>. Use only <result_fields>, with exact names. Bind protocol/invocation, claim bridge/adapter, <agent_product>/codex, retained runtime metadataSource=reported, policy below, timestamps, application/json, and candidate bytes. Supply lowercase sha256 hashes for raw and agentLine.",
+    "PUT to <result_endpoint> with <bridge_credential> and Idempotency-Key=<invocation_id>. Use <result_fields>. Bind capsule/start, <agent_product>/codex, runtime metadataSource=reported, policy/timestamps, application/json, candidate bytes. Compact output.raw once. rawSha256/agentLineSha256 are sha256:<64 lowercase hex> over exact UTF-8 raw/agentLine; no newline/re-serialize. Rehash before PUT.",
     `The execution policy is visibleTurns=${contract.execution.visibleTurns}, agentInvocations=${contract.execution.agentInvocations}, workspacePolicy=${contract.execution.workspacePolicy}, sandboxPolicy=${contract.execution.sandboxPolicy}, approvalPolicy=${contract.execution.approvalPolicy}, userConfigPolicy=${contract.execution.userConfigPolicy}.`,
     "Accept only runId=<run_id>, state=returned, and receiptSha256 beginning sha256:. Retry only identical delivery; never conflict.",
     "The receipt proves App acceptance and binding, not an untouched transcript or absence of outside influence.",

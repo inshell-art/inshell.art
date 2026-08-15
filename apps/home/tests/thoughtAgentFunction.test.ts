@@ -413,6 +413,10 @@ async function submitResult(
   invocationId: string,
   agentLine = "QUIET SKY",
   version: "v1" | "v2" = "v1",
+  hashOverrides: {
+    rawSha256?: string;
+    agentLineSha256?: string;
+  } = {},
 ) {
   const raw = JSON.stringify({
     schema: THOUGHT_AGENT_RESULT_VERSION,
@@ -456,9 +460,10 @@ async function submitResult(
         output: {
           mediaType: "application/json",
           raw,
-          rawSha256: await sha256Hex(raw),
+          rawSha256: hashOverrides.rawSha256 ?? (await sha256Hex(raw)),
           agentLine,
-          agentLineSha256: await sha256Hex(agentLine),
+          agentLineSha256:
+            hashOverrides.agentLineSha256 ?? (await sha256Hex(agentLine)),
         },
       },
       auth(bridgeToken, { "idempotency-key": invocationId }),
@@ -782,6 +787,39 @@ describe("THOUGHT Agent Pages API", () => {
           resultSchema: THOUGHT_AGENT_RESULT_VERSION,
         },
       },
+    });
+
+    const rejectedHash = await submitResult(
+      env,
+      runId,
+      claimed.payload.bridgeToken,
+      "tai_v2_lifecycle",
+      "QUIET SKY",
+      "v2",
+      {
+        rawSha256: "0".repeat(64),
+      },
+    );
+    expect(rejectedHash.response.status).toBe(409);
+    expect(rejectedHash.payload.error).toEqual({
+      code: "RESULT_HASH_MISMATCH",
+      message: "Submitted result hashes do not match exact bytes.",
+    });
+
+    const stillRunning = await onGetRunV2({
+      request: request(
+        `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}`,
+        {},
+        auth(created.browserToken),
+      ),
+      env,
+      params: { runId },
+    });
+    expect(stillRunning.status).toBe(200);
+    await expect(stillRunning.json()).resolves.toMatchObject({
+      runId,
+      state: "running",
+      stage: "agent-running",
     });
 
     const returned = await submitResult(
