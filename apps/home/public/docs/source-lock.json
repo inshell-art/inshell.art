@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "deb0ed0236de20f6cc0cd96aa461b9cccc4d09b9ecfe84978ba66525b9f7de39",
+  "sourceTreeSha256": "34a562ac80676e0ad3b29cdb4fb24634209c15d7d00401c14786507b9a77e3a6",
   "groups": [
     {
       "id": "public-docs",
@@ -57,7 +57,7 @@
       "title": "Home, PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "3bc8a2e1c94a046b56bc8b249088e1837bfac2a407705448ebbc0d5f43eb57d1",
+      "groupSha256": "78fcaae07f32031d5eab8fd25bd9eabca0e6b2474e47f14a0ad6f0f5a82845aa",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -106,8 +106,8 @@
         },
         {
           "path": "apps/home/src/components/EcosystemHome.tsx",
-          "byteLength": 5671,
-          "sha256": "8b30449286d886a73451dbc628c28bb196399e4ad3077b3b6f171d33def241e1"
+          "byteLength": 7177,
+          "sha256": "dd54a981b4a4052e727e1eace17ccca01e23ef2c86affe32068e75841213e4e0"
         },
         {
           "path": "apps/home/src/components/FloatingReportBug.tsx",
@@ -156,8 +156,8 @@
         },
         {
           "path": "apps/home/src/components/ThoughtDetailPage.tsx",
-          "byteLength": 14193,
-          "sha256": "5ce3f3129ecb911c54cbefb308c61d45b10d7b357179b55bbaa02713061baf00"
+          "byteLength": 13649,
+          "sha256": "d6f86fca2c64fdbb1fd50e026282bcce3246bd85f27f33ae8773bb833a4a0a68"
         },
         {
           "path": "apps/home/src/components/ThoughtGalleryPage.tsx",
@@ -221,8 +221,8 @@
         },
         {
           "path": "apps/home/src/main.css",
-          "byteLength": 107066,
-          "sha256": "9cfce8bb153501df2e4812ab59a8d9415a94f35b34656813cbac12ddbaf1d82c"
+          "byteLength": 107961,
+          "sha256": "c6e950e42af040d78f380e7d68dcd285ace24693e69820a7a16fd6f826d74ace"
         },
         {
           "path": "apps/home/src/main.tsx",

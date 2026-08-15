@@ -1357,7 +1357,10 @@ describe("App Component", () => {
 
     expect(document.title).toBe("THOUGHT #1");
     expect(screen.getByRole("heading", { level: 1, name: /THOUGHT\s+#\s*1/ })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "[ gallery ]" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "[ home ]" })).toHaveAttribute(
+      "href",
+      "/#thought-1",
+    );
     expect(screen.getByRole("link", { name: "[ create yours ]" })).toBeInTheDocument();
     expect(screen.getByText("Current THOUGHT collection is not deployed.")).toBeInTheDocument();
     expect(screen.queryByLabelText("THOUGHT #1 record")).toBeNull();

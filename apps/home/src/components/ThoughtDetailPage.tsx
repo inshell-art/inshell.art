@@ -52,26 +52,6 @@ function configuredUrl(name: string) {
   return /^https?:\/\//i.test(trimmed) || trimmed.startsWith("/") ? trimmed : null;
 }
 
-function isLocalBrowserHost(): boolean {
-  if (typeof window === "undefined") return false;
-  const hostname = window.location.hostname.toLowerCase();
-  return hostname === "localhost" || hostname === "127.0.0.1";
-}
-
-function defaultGalleryUrl(): string {
-  if (isPreviewDeployment()) return "https://preview.inshell.art/gallery";
-  if (isLocalBrowserHost()) return "/gallery";
-  return "https://inshell.art/gallery";
-}
-
-function galleryUrl(): string {
-  return (
-    configuredUrl("VITE_GALLERY_URL") ??
-    configuredUrl("VITE_THOUGHT_GALLERY_URL") ??
-    defaultGalleryUrl()
-  );
-}
-
 function thoughtAppUrl(): string {
   return (
     configuredUrl("VITE_THOUGHT_URL") ??
@@ -422,8 +402,11 @@ export default function ThoughtDetailPage({ tokenId }: { tokenId: string }) {
           THOUGHT #<span>{tokenId}</span>
         </h1>
         <nav className="thought-detail__links" aria-label="THOUGHT detail links">
-          <a className="thought-detail__link" href={galleryUrl()}>
-            [ gallery ]
+          <a
+            className="thought-detail__link"
+            href={`/#thought-${tokenId}`}
+          >
+            [ home ]
           </a>
           <a className="thought-detail__link" href={thoughtAppUrl()}>
             [ create yours ]

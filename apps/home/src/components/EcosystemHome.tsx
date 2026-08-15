@@ -42,6 +42,15 @@ function thoughtDetailUrl(tokenId: number): string {
   return `/thought/${encodeURIComponent(String(tokenId))}`;
 }
 
+function homeThoughtTargetId(): string | null {
+  try {
+    const targetId = decodeURIComponent(window.location.hash.slice(1));
+    return /^thought-[1-9]\d*$/.test(targetId) ? targetId : null;
+  } catch {
+    return null;
+  }
+}
+
 function initialGalleryState(): GalleryState {
   const cached = readCachedThoughtGallery();
   if (!thoughtDeploymentActive) {
@@ -58,6 +67,7 @@ function initialGalleryState(): GalleryState {
 
 export default function EcosystemHome() {
   const [gallery, setGallery] = useState<GalleryState>(initialGalleryState);
+  const [focusedTargetId, setFocusedTargetId] = useState(homeThoughtTargetId);
 
   useEffect(() => {
     if (!thoughtDeploymentActive) return undefined;
@@ -80,6 +90,28 @@ export default function EcosystemHome() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (gallery.status !== "ready") return;
+    const targetId = homeThoughtTargetId();
+    if (!targetId) return;
+    const target = document.getElementById(targetId);
+    const workLink = target?.querySelector<HTMLAnchorElement>(
+      ".ecosystem-home__work-canvas",
+    );
+    if (!target || !workLink) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      workLink.focus({ preventScroll: true });
+      target.scrollIntoView({
+        block: "center",
+        behavior: "auto",
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, [gallery]);
 
   return (
     <main className="ecosystem-home" aria-labelledby="ecosystem-home-slogan">
@@ -133,7 +165,12 @@ export default function EcosystemHome() {
         <div className="ecosystem-home__works-grid">
           {gallery.items.map((work) => (
             <article
-              className="ecosystem-home__work-card"
+              id={`thought-${work.tokenId}`}
+              className={`ecosystem-home__work-card${
+                `thought-${work.tokenId}` === focusedTargetId
+                  ? " ecosystem-home__work-card--focused"
+                  : ""
+              }`}
               data-token-id={work.tokenId}
               key={work.tokenId}
               aria-label={`THOUGHT #${work.tokenId}`}
@@ -142,6 +179,15 @@ export default function EcosystemHome() {
                 className="ecosystem-home__work-canvas"
                 href={thoughtDetailUrl(work.tokenId)}
                 aria-label={`Open THOUGHT #${work.tokenId}`}
+                onAnimationEnd={
+                  `thought-${work.tokenId}` === focusedTargetId
+                    ? () => {
+                        setFocusedTargetId((current) =>
+                          current === `thought-${work.tokenId}` ? null : current,
+                        );
+                      }
+                    : undefined
+                }
               >
                 <img
                   src={work.image || thoughtImageUrl(work.tokenId)}

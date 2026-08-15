@@ -115,6 +115,12 @@
   --ecosystem-work-meta-line-height: 1.5;
   --ecosystem-work-meta-color: var(--muted);
   --ecosystem-work-meta-weight: var(--weight-thin);
+  --ecosystem-work-focus-width: 1px;
+  --ecosystem-work-focus-color: var(--ecosystem-slogan-color);
+  --ecosystem-work-focus-clear: transparent;
+  --ecosystem-work-focus-offset: 6px;
+  --ecosystem-work-focus-duration: 1600ms;
+  --ecosystem-work-focus-easing: ease-out;
   --will-page-content-padding-block-start: var(--shell-route-content-padding-block-start);
   --will-page-identity-gap: var(--shell-context-popover-row-gap);
   --will-page-dot-field-margin-block-start: clamp(28px, 4vh, 44px);
@@ -443,6 +449,32 @@ button,
 .ecosystem-home__work-card {
   min-width: 0;
   display: block;
+}
+
+.ecosystem-home__work-card--focused .ecosystem-home__work-canvas {
+  outline: var(--ecosystem-work-focus-width) solid
+    var(--ecosystem-work-focus-clear);
+  outline-offset: var(--ecosystem-work-focus-offset);
+  animation: ecosystem-work-focus-flash var(--ecosystem-work-focus-duration)
+    var(--ecosystem-work-focus-easing) 1;
+}
+
+@keyframes ecosystem-work-focus-flash {
+  0%,
+  100% {
+    outline-color: var(--ecosystem-work-focus-clear);
+  }
+
+  18%,
+  68% {
+    outline-color: var(--ecosystem-work-focus-color);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ecosystem-work-focus-duration: 300ms;
+  }
 }
 
 .ecosystem-home__work-canvas {
