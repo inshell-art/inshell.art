@@ -45,7 +45,7 @@ The name does not imply that an Agent improves, injects, extends, replaces, or a
 
 The field remains open because its source terms remain open: What is Art? What is an Agent? Agent Art settles neither question. It requires only that an Agent actually participate in the art activity.
 
-For Inshell, Agent Art is the medium of this age: the field in which the inward practice takes form. Inshell works in this field as an artist. The direction of that practice is simple: inspect self. That direction is not a definition or doctrine for Agent Art. Inshell is not Agent Art itself and does not own or define the field. THOUGHT is one Inshell practice within it, not its boundary.
+For Inshell, Agent Art is the medium of this age: the field in which the inward practice takes form. Inshell works in this field as an artist. The direction of that practice is simple: inspect self. That direction is not a definition or doctrine for Agent Art. Inshell is not Agent Art itself and does not own or define the field. Each Inshell practice takes its own form within the field without becoming the field's boundary.
 
 ## Participation is the invariant
 
@@ -70,16 +70,3 @@ Questions raised by a particular work belong to that work. They are not implied 
 Inshell stands in Agent Art as an artist. Its movements and works take particular forms within the field without enclosing the field within Inshell's methods.
 
 Protocols, interfaces, renderers, provenance, and public chains are materials in some Inshell practices. They are not requirements for Agent Art as a whole.
-
-## THOUGHT is one practice
-
-- Authority: artist-editorial
-
-THOUGHT chooses one narrow form: a person contributes one exact prompt, one selected Agent contributes one exact response, and the person decides whether the pair should be minted. That constraint gives THOUGHT its form without making prompt-response exchange the definition of Agent Art.
-
-That form belongs to THOUGHT. It does not turn dialogue, minting, provenance, public chains, or a human selection step into requirements for the wider field.
-
-
-## Links
-
-- [read THOUGHT as one practice](https://inshell.art/docs/thought)

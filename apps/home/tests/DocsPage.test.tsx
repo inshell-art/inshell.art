@@ -776,12 +776,12 @@ describe("Docs source editorial guardrails", () => {
     ).toBe(true);
   });
 
-  test("identifies THOUGHT as one practice or movement within broader Agent Art", () => {
+  test("keeps specific practice detail in practice docs rather than privileging it in Agent Art", () => {
     const relatedTopics = DOCS_SOURCE.topics.filter(({ slug }) =>
-      ["agent-art", "movements", "thought"].includes(slug),
+      ["movements", "thought"].includes(slug),
     );
     expect(new Set(relatedTopics.map(({ slug }) => slug))).toEqual(
-      new Set(["agent-art", "movements", "thought"]),
+      new Set(["movements", "thought"]),
     );
 
     const relationshipStatements = relatedTopics
@@ -793,15 +793,23 @@ describe("Docs source editorial guardrails", () => {
 
     expect(relationshipStatements.length).toBeGreaterThan(0);
 
-    const agentArt = relatedTopics.find(({ slug }) => slug === "agent-art");
+    const agentArt = DOCS_SOURCE.topics.find(({ slug }) => slug === "agent-art");
     expect(agentArt).toBeDefined();
     if (!agentArt) return;
 
     const agentArtText = topicText(agentArt);
-    expect(agentArtText).toMatch(/\bTHOUGHT\b[^.]{0,100}\bone\b[^.]{0,100}\bpractice\b/i);
-    expect(agentArtText).toMatch(
-      /\bTHOUGHT\b[^.]{0,160}\bnot\b[^.]{0,80}\b(?:definition|boundary)\b/i,
-    );
+    expect(agentArtText).not.toMatch(/\b(?:THOUGHT|WILL|AWA|PATH|Pulse)\b/);
+    expect(agentArt.sections?.map(({ id }) => id)).toEqual([
+      "docs-agent-art-participation",
+      "docs-agent-art-field",
+      "docs-agent-art-inshell",
+    ]);
+    expect(agentArt.links ?? []).toEqual([]);
+    expect(DOCS_AUTHORITY_MAP["agent-art"].sections).toEqual({
+      "docs-agent-art-participation": ["artist-editorial"],
+      "docs-agent-art-field": ["artist-editorial"],
+      "docs-agent-art-inshell": ["artist-editorial"],
+    });
   });
 });
 

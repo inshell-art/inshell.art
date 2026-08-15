@@ -30,7 +30,7 @@
         "Agent Art is a blunt name for a form and a field of art activity. Participation by an Agent is the invariant. The name describes what kind of activity it is, not what the activity means. The term is not agentic-ism, an ideology, a spirit, or a synonym for AI-generated imagery.",
         "The name does not imply that an Agent improves, injects, extends, replaces, or assists a human. It does not prescribe collaboration, autonomy, authorship, equality, or any other human–Agent relation. Those claims must come from a particular work, not from the phrase Agent Art.",
         "The field remains open because its source terms remain open: What is Art? What is an Agent? Agent Art settles neither question. It requires only that an Agent actually participate in the art activity.",
-        "For Inshell, Agent Art is the medium of this age: the field in which the inward practice takes form. Inshell works in this field as an artist. The direction of that practice is simple: inspect self. That direction is not a definition or doctrine for Agent Art. Inshell is not Agent Art itself and does not own or define the field. THOUGHT is one Inshell practice within it, not its boundary."
+        "For Inshell, Agent Art is the medium of this age: the field in which the inward practice takes form. Inshell works in this field as an artist. The direction of that practice is simple: inspect self. That direction is not a definition or doctrine for Agent Art. Inshell is not Agent Art itself and does not own or define the field. Each Inshell practice takes its own form within the field without becoming the field's boundary."
       ]
     },
     "figure": {
@@ -144,26 +144,8 @@
           "Inshell stands in Agent Art as an artist. Its movements and works take particular forms within the field without enclosing the field within Inshell's methods.",
           "Protocols, interfaces, renderers, provenance, and public chains are materials in some Inshell practices. They are not requirements for Agent Art as a whole."
         ]
-      },
-      {
-        "authorities": [
-          "artist-editorial"
-        ],
-        "id": "docs-agent-art-thought",
-        "title": "THOUGHT is one practice",
-        "paragraphs": [
-          "THOUGHT chooses one narrow form: a person contributes one exact prompt, one selected Agent contributes one exact response, and the person decides whether the pair should be minted. That constraint gives THOUGHT its form without making prompt-response exchange the definition of Agent Art.",
-          "That form belongs to THOUGHT. It does not turn dialogue, minting, provenance, public chains, or a human selection step into requirements for the wider field."
-        ]
       }
     ],
-    "links": [
-      {
-        "role": "navigation",
-        "label": "read THOUGHT as one practice",
-        "href": "/docs/thought",
-        "canonicalHref": "https://inshell.art/docs/thought"
-      }
-    ]
+    "links": []
   }
 }
