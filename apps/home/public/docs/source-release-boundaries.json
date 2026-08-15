@@ -2,7 +2,7 @@
   "schema": "inshell.agent-docs.topic.v2",
   "schemaUrl": "/docs/content.v2.schema.json",
   "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
-  "version": "2026-08-12",
+  "version": "2026-08-15",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "source-release-boundaries",
@@ -29,7 +29,7 @@
         "contract-release"
       ],
       "paragraphs": [
-        "The Inshell App, PATH contracts, THOUGHT contracts, and Pulse auction have separate repositories and ownership boundaries. The App owns creation flow, integration, and presentation. Each contract repository owns its contract behavior and release artifacts. Deployment operators own network deployment records.",
+        "The Inshell App, [PATH](https://inshell.art/docs/path) contracts, [THOUGHT](https://inshell.art/docs/thought) contracts, and [Pulse](https://inshell.art/docs/pulse) auction have separate repositories and ownership boundaries. The App owns creation flow, integration, and presentation. Each contract repository owns its contract behavior and release artifacts. Deployment operators own network deployment records.",
         "The App consumes pinned ABIs, bytecode, schemas, renderer data, specifications, manifests, and checksums. A repository's latest source is not automatically the deployed release. A newer file is not authority for an older deployment.",
         "Contract releases contain code and integrity material; network addresses and deployment blocks come from a separately verified deployment record. A correct integration matches the App pin, release artifacts, deployed bytecode, renderer commitments, and active network.",
         "Documentation can describe current source, a pinned release, or observed chain state. It must say which. Mirrors and previews are useful distribution surfaces but do not silently become canonical origins."
@@ -173,7 +173,7 @@
         "id": "docs-source-deployment",
         "title": "Release is not deployment",
         "paragraphs": [
-          "A release may be complete without being deployed. A deployment record adds the network, contract addresses, deployment blocks, and integration choices needed to find it onchain. Verification joins both records and checks deployed bytecode where possible."
+          "A release may be complete without being deployed. A deployment record adds the network, contract addresses, deployment blocks, and integration choices needed to find it onchain. [Verification](https://inshell.art/docs/verification) joins both records and checks deployed bytecode where possible."
         ]
       },
       {

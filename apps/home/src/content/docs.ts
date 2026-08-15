@@ -111,7 +111,7 @@ const METADATA_SCHEMA_URL =
 
 export const DOCS_SOURCE: DocsSource = {
   schema: "inshell.docs.source.v2",
-  version: "2026-08-12",
+  version: "2026-08-15",
   title: "docs",
   subtitle: "paste this prompt into your Agent",
   canonicalUrl: "https://inshell.art/docs",
@@ -285,7 +285,11 @@ export const DOCS_SOURCE: DocsSource = {
         "Agent Art is a blunt name for a form and a field of art activity. Participation by an Agent is the invariant. The name describes what kind of activity it is, not what the activity means. The term is not agentic-ism, an ideology, a spirit, or a synonym for AI-generated imagery.",
         "The name does not imply that an Agent improves, injects, extends, replaces, or assists a human. It does not prescribe collaboration, autonomy, authorship, equality, or any other human–Agent relation. Those claims must come from a particular work, not from the phrase Agent Art.",
         "The field remains open because its source terms remain open: What is Art? What is an Agent? Agent Art settles neither question. It requires only that an Agent actually participate in the art activity.",
-        "For Inshell, Agent Art is the medium of this age: the field in which the inward practice takes form. Inshell works in this field as an artist. The direction of that practice is simple: inspect self. That direction is not a definition or doctrine for Agent Art. Inshell is not Agent Art itself and does not own or define the field. Each Inshell practice takes its own form within the field without becoming the field's boundary.",
+        [
+          "For ",
+          { label: "Inshell", href: "/docs/inshell" },
+          ", Agent Art is the medium of this age: the field in which the inward practice takes form. Inshell works in this field as an artist. The direction of that practice is simple: inspect self. That direction is not a definition or doctrine for Agent Art. Inshell is not Agent Art itself and does not own or define the field. Each Inshell practice takes its own form within the field without becoming the field's boundary.",
+        ],
       ],
       figure: {
         id: "agent-art.open-field",
@@ -344,8 +348,21 @@ export const DOCS_SOURCE: DocsSource = {
       status: "current",
       authorities: ["artist-editorial", "app-documentation", "contract-release"],
       paragraphs: [
-        "THOUGHT, WILL, and AWA are three Inshell movements within Agent Art. Together they take a path from the individual, through the crowd, toward the core of Inshell. That arc gives PATH its name and its design: PATH carries permission and records progress across the movements without being a movement artwork itself.",
-        "Each movement gives the inward practice—inspect self—a different scope. Agent participation remains the invariant of Agent Art, while the relation among people, Agents, and the work can change from movement to movement.",
+        [
+          { label: "THOUGHT", href: "/docs/thought" },
+          ", ",
+          { label: "WILL", href: "/docs/will" },
+          ", and ",
+          { label: "AWA", href: "/docs/awa" },
+          " are three Inshell movements within Agent Art. Together they take a path from the individual, through the crowd, toward the core of Inshell. That arc gives ",
+          { label: "PATH", href: "/docs/path" },
+          " its name and its design: PATH carries permission and records progress across the movements without being a movement artwork itself.",
+        ],
+        [
+          "Each movement gives the inward practice—inspect self—a different scope. Agent participation remains the invariant of ",
+          { label: "Agent Art", href: "/docs/agent-art" },
+          ", while the relation among people, Agents, and the work can change from movement to movement.",
+        ],
         "The order is THOUGHT, then WILL, then AWA. The order is artistic before it is technical: the movements change the scope of participation, while PATH contract state makes the sequence operable as permission and legible as progress.",
         "This sequence belongs to Inshell. It gives the inward direction—inspect self—successive forms without claiming to contain or prove truth. It is not a definition, taxonomy, required progression, or outer boundary for Agent Art.",
       ],
@@ -443,11 +460,23 @@ export const DOCS_SOURCE: DocsSource = {
         "contract-release",
       ],
       paragraphs: [
-        "THOUGHT is the first movement on Inshell's PATH and begins with the individual. It gives the inward direction—inspect self—a bounded occasion: simply inspect your thought and what becomes visible when one Agent responds. The thought's words, source, and motivation remain open to inspection, as do the knowledge it carries and the reasons that knowledge became believable. The Agent response enters that practice as another exact line to read; it does not resolve the thought or claim possession of its truth.",
-        "Within the wider field of Agent Art, THOUGHT chooses a narrow terminal practice: one exact human prompt and one exact Agent response. Their ordered pair defines the globally unique work; either line may appear again with a different counterpart.",
+        [
+          "THOUGHT is the first movement on Inshell's ",
+          { label: "PATH", href: "/docs/path" },
+          " and begins with the individual. It gives the inward direction—inspect self—a bounded occasion: simply inspect your thought and what becomes visible when one Agent responds. The thought's words, source, and motivation remain open to inspection, as do the knowledge it carries and the reasons that knowledge became believable. The Agent response enters that practice as another exact line to read; it does not resolve the thought or claim possession of its truth.",
+        ],
+        [
+          "Within the wider field of ",
+          { label: "Agent Art", href: "/docs/agent-art" },
+          ", THOUGHT chooses a narrow terminal practice: one exact human prompt and one exact Agent response. Their ordered pair defines the globally unique work; either line may appear again with a different counterpart.",
+        ],
         "The creation flow is: human prompt → Agent response → validation and canonical record assembly → human selection → wallet confirmation → PATH movement consumption → THOUGHT minted. The Agent responds. The human decides. The wallet confirms. The contract records.",
         "Prompt and Agent response are each 1–64 bytes of Terminal English. Allowed characters are space, A–Z, a–z, 0–9, and . , ? ! : ; ' \" - ( ) / &. Leading spaces, trailing spaces, and repeated internal spaces are rejected. Validation never trims, normalizes, repairs, translates, or rewrites accepted bytes.",
-        "The human reviews the returned response and preview, then decides whether to preserve, discard, or mint the work. To mint, the human picks an available PATH, signs a one-mint permission bound to the current PATH state and ThoughtNFT executor, and confirms the transaction. The signature is not a transaction and uses no gas.",
+        [
+          "The human reviews the returned response and preview, then decides whether to preserve, discard, or mint the work. To mint, the human picks an available PATH, signs a one-mint permission bound to the current PATH state and ThoughtNFT executor, and confirms the transaction in the ",
+          { label: "wallet", href: "/docs/wallet-local-data" },
+          ". The signature is not a transaction and uses no gas.",
+        ],
         "A successful mint atomically consumes exactly one THOUGHT unit from the selected PATH. A canceled or failed mint consumes nothing and does not reserve the prompt-response pair.",
         "The composition uses a black field, terminal glyphs, the prompt above, and the Agent response below. ThoughtNFT returns the canonical 1024-by-1024 SVG and token metadata. The App preview must remain byte-aligned with the pinned renderer release; it is not a second artwork source.",
         "THOUGHT provenance preserves the exact lines and the creation record bound to the mint. An Inshell THOUGHT App Creation Attestation means the configured App authority signed one exact claim and ThoughtNFT validated it during minting. It binds recorded values; it does not prove how a model reasoned, independently authenticate a provider, or establish sole authorship.",
@@ -636,9 +665,19 @@ export const DOCS_SOURCE: DocsSource = {
       status: "study",
       authorities: ["artist-editorial", "app-documentation"],
       paragraphs: [
-        "WILL is the second movement on Inshell's PATH. Where THOUGHT begins with one individual's thought, WILL moves the inward inquiry to crowd behavior and to how a crowd forms what can be called one will.",
+        [
+          "WILL is the second movement on Inshell's ",
+          { label: "PATH", href: "/docs/path" },
+          ". Where ",
+          { label: "THOUGHT", href: "/docs/thought" },
+          " begins with one individual's thought, WILL moves the inward inquiry to crowd behavior and to how a crowd forms what can be called one will.",
+        ],
         "Many people. Many Agents. One will. The slogan names the direction of the work. It does not describe a finished mechanism or settle how people, Agents, and the work relate.",
-        "Agent participation keeps WILL within Agent Art, but WILL does not need to repeat THOUGHT's one-prompt, one-response form. That relation remains in development.",
+        [
+          "Agent participation keeps WILL within ",
+          { label: "Agent Art", href: "/docs/agent-art" },
+          ", but WILL does not need to repeat THOUGHT's one-prompt, one-response form. That relation remains in development.",
+        ],
       ],
       figure: {
         id: "will.open-field",
@@ -704,9 +743,21 @@ export const DOCS_SOURCE: DocsSource = {
       status: "future",
       authorities: ["artist-editorial", "app-documentation"],
       paragraphs: [
-        "AWA is the third movement on Inshell's PATH. After THOUGHT's individual and WILL's crowd, AWA turns the inward direction toward the core of Inshell.",
+        [
+          "AWA is the third movement on Inshell's ",
+          { label: "PATH", href: "/docs/path" },
+          ". After ",
+          { label: "THOUGHT", href: "/docs/thought" },
+          "'s individual and ",
+          { label: "WILL", href: "/docs/will" },
+          "'s crowd, AWA turns the inward direction toward the core of Inshell.",
+        ],
         "That direction can be named without claiming that AWA has reached the core, that the core is already defined, or that a movement can reveal or prove it.",
-        "Agent participation keeps AWA within Agent Art. The particular relation among people, Agents, and the work is still being discovered rather than inherited from THOUGHT or assumed from WILL.",
+        [
+          "Agent participation keeps AWA within ",
+          { label: "Agent Art", href: "/docs/agent-art" },
+          ". The particular relation among people, Agents, and the work is still being discovered rather than inherited from THOUGHT or assumed from WILL.",
+        ],
       ],
       figure: {
         id: "awa.open-horizon",
@@ -763,8 +814,20 @@ export const DOCS_SOURCE: DocsSource = {
       paragraphs: [
         "PATH is the canonical project and contract name. The interface may display $PATH as the token label. PATH is an ERC-721 permission token and movement ledger; it authorizes works but is not itself one of the movement artworks.",
         "Within the practice, PATH carries permission to enter successive movement forms. It records use and progress; it does not measure self-knowledge, certify an inner truth, or turn participation into a guaranteed transformation.",
-        "Public PATH tokens are issued through Pulse. The contract also supports a bounded Spark self-claim path for allowlisted recipients. Issuance route is a contract fact, not a claim that one token is more authentic than another.",
-        "PathNFT configures one quota for each movement across a deployment. Every PATH uses those movement totals, while each token records its own current stage and in-stage count. One successful movement mint consumes one unit from that token's current movement entitlement. Reaching the quota advances it through THOUGHT, WILL, and AWA in order. Not available means the movement has no deployed quota.",
+        [
+          "Public PATH tokens are issued through ",
+          { label: "Pulse", href: "/docs/pulse" },
+          ". The contract also supports a bounded Spark self-claim path for allowlisted recipients. Issuance route is a contract fact, not a claim that one token is more authentic than another.",
+        ],
+        [
+          "PathNFT configures one quota for each movement across a deployment. Every PATH uses those movement totals, while each token records its own current stage and in-stage count. One successful movement mint consumes one unit from that token's current movement entitlement. Reaching the quota advances it through ",
+          { label: "THOUGHT", href: "/docs/thought" },
+          ", ",
+          { label: "WILL", href: "/docs/will" },
+          ", and ",
+          { label: "AWA", href: "/docs/awa" },
+          " in order. Not available means the movement has no deployed quota.",
+        ],
         "The token image and the stable Stage, THOUGHT, WILL, and AWA traits show movement progress. PathNFT emits a metadata update after a unit is consumed so compatible readers can refresh the token.",
         "A PATH detail page joins the canonical token image with capacity, movement tokens already authorized, owner, mint transaction, contract, network, and token metadata source. Pulse-issued tokens also include their original Pulse mint price.",
       ],
@@ -886,12 +949,22 @@ export const DOCS_SOURCE: DocsSource = {
       status: "current",
       authorities: ["artist-editorial", "app-documentation", "contract-release"],
       paragraphs: [
-        "PATH is the permission token; Pulse is the serial mechanism that prices and issues the next public token. They are not interchangeable names.",
+        [
+          { label: "PATH", href: "/docs/path" },
+          " is the permission token; Pulse is the serial mechanism that prices and issues the next public token. They are not interchangeable names.",
+        ],
         "Pulse runs one live epoch, one current ask, and one next token at a time. A successful bid closes the epoch, records the sale, issues the corresponding PATH, and starts the next epoch.",
         PULSE.explanation.join(" "),
         "The pump uses a price-time scale to turn the elapsed time before a sale into the next epoch's initial premium. The drop follows ask(t) = floor + premium(t), with ask(t) = b + ⌊k / (t - a)⌋. Every sale becomes another point in the visible history.",
-        "Inshell frames Pulse as a mathematical canvas and a crowd instrument: each bid becomes a public point and sets the next beat. The curve and its parameters are exposed because the mechanism is part of the work, not an investment promise.",
-        "The price shown in the App is a live read, not a reservation. The wallet flow reads the ask again before submission. If the price moves outside the approved maximum, retry to read and submit the current ask.",
+        [
+          { label: "Inshell", href: "/docs/inshell" },
+          " frames Pulse as a mathematical canvas and a crowd instrument: each bid becomes a public point and sets the next beat. The curve and its parameters are exposed because the mechanism is part of the work, not an investment promise.",
+        ],
+        [
+          "The price shown in the App is a live read, not a reservation. The ",
+          { label: "wallet", href: "/docs/wallet-local-data" },
+          " flow reads the ask again before submission. If the price moves outside the approved maximum, retry to read and submit the current ask.",
+        ],
         PULSE.note.join(" "),
       ],
       preformatted: [
@@ -999,11 +1072,26 @@ export const DOCS_SOURCE: DocsSource = {
       status: "current",
       authorities: ["artist-editorial", "app-documentation", "contract-release"],
       paragraphs: [
-        "The public architecture is PulseAuction → PathPulseAdapter → PathNFT → ThoughtNFT. The arrows describe the issuance and permission path, not contract ownership or a promise that every future movement is deployed.",
+        [
+          "The public architecture is ",
+          { label: "PulseAuction", href: "/docs/pulse" },
+          " → PathPulseAdapter → ",
+          { label: "PathNFT", href: "/docs/path" },
+          " → ",
+          { label: "ThoughtNFT", href: "/docs/thought" },
+          ". The arrows describe the issuance and permission path, not contract ownership or a promise that every future movement is deployed.",
+        ],
         "These contracts specify and enforce bounded actions within the practice. They can validate a permission, mint, or record, but they do not implement the truth named by Inshell or prove a participant's inward understanding.",
         "PulseAuction calculates the live ask, accepts a successful bid, and closes an epoch. PathPulseAdapter translates that settlement into PATH issuance. PathNFT mints and owns PATH state, movement order, and capacity. ThoughtNFT validates THOUGHT mint rules, records the work, and atomically consumes an authorized THOUGHT unit from PATH.",
         "The App orchestrates reads, previews, Agent runs, signatures, and wallet transactions. It does not replace contract validation. A wallet account submits the transaction; deployed contracts decide whether it is valid.",
-        "ABIs, bytecode, renderer payloads, schemas, and manifests belong to pinned releases. Contract addresses and deployment blocks belong to a network deployment record. Read both before identifying a live system.",
+        [
+          "ABIs, bytecode, renderer payloads, schemas, and manifests belong to ",
+          {
+            label: "pinned releases",
+            href: "/docs/source-release-boundaries",
+          },
+          ". Contract addresses and deployment blocks belong to a network deployment record. Read both before identifying a live system.",
+        ],
       ],
       sections: [
         {
@@ -1127,13 +1215,23 @@ export const DOCS_SOURCE: DocsSource = {
       status: "current",
       authorities: ["artist-editorial", "app-documentation", "contract-release"],
       paragraphs: [
-        "Home lists minted THOUGHT works from the active chain. The PATH surface lists PATH tokens from that same chain. The full identity of an NFT is its network, contract address, and token ID; the same token number elsewhere is a different record.",
+        [
+          "Home lists minted ",
+          { label: "THOUGHT", href: "/docs/thought" },
+          " works from the active chain. The ",
+          { label: "PATH", href: "/docs/path" },
+          " surface lists PATH tokens from that same chain. The full identity of an NFT is its network, contract address, and token ID; the same token number elsewhere is a different record.",
+        ],
         "THOUGHT and PATH artwork and NFT metadata come from each contract's tokenURI and pinned renderer. The App decodes and displays those canonical bytes; it must not rebuild replacement art or silently substitute a newer renderer.",
         "Token metadata carries the canonical image, description, stable marketplace traits, and—when the release defines it—an external_url to the canonical detail page. A generic marketplace can read that portable layer without understanding Inshell's richer records.",
         "Inshell detail pages add context: THOUGHT exposes its work, evidence levels, and creation provenance; PATH exposes movement state, capacity, linked movement tokens, issuance, and onchain record.",
         "These layers make the public forms and claims of the practice inspectable. They can establish which bytes and records belong to a work; they cannot prove the inward truth of the work or possess its meaning.",
         "These artwork, metadata, provenance, and chain layers describe Inshell's current onchain practices. They are not requirements that every Agent Art practice must adopt.",
-        "Onchain does not mean context-free. Read network, contract, token ID, deployment, release, tokenURI source, and attestation status together before deciding what a record proves.",
+        [
+          "Onchain does not mean context-free. Read network, contract, token ID, deployment, release, tokenURI source, and ",
+          { label: "attestation status", href: "/docs/verification" },
+          " together before deciding what a record proves.",
+        ],
       ],
       figure: {
         id: "evidence.interpretation",
@@ -1218,7 +1316,13 @@ export const DOCS_SOURCE: DocsSource = {
       paragraphs: [
         "Mono 76 gives selected Inshell works a fixed visual alphabet. Version 1.0.0 contains 76 ordered records: 75 visible glyphs and one metrics-only SPACE. Every visible glyph is an independently authored centerline SVG path with shared monospaced metrics.",
         "The sealed face emerged from a larger native-SVG glyph study. That research compared many construction systems for legibility, identity, punctuation, marketplace-scale resilience, deterministic rendering, and practical contract size. The released face came from the C02 Classic Book study, then received manual refinement and optical alignment before its paths and metrics were frozen.",
-        "Mono 76 is not the site's general interface font. Interface copy remains ordinary selectable text. Mono 76 is used where the letterform is part of the artwork or its deterministic renderer, including the current THOUGHT composition and the movement names drawn inside PATH tokens.",
+        [
+          "Mono 76 is not the site's general interface font. Interface copy remains ordinary selectable text. Mono 76 is used where the letterform is part of the artwork or its deterministic renderer, including the current ",
+          { label: "THOUGHT", href: "/docs/thought" },
+          " composition and the movement names drawn inside ",
+          { label: "PATH", href: "/docs/path" },
+          " tokens.",
+        ],
         "A renderer consumes path geometry rather than asking a browser to locate a font. This keeps the visible form independent of installed fonts, webfont loading, marketplace font support, and platform-specific text layout.",
       ],
       figure: {
@@ -1277,7 +1381,14 @@ export const DOCS_SOURCE: DocsSource = {
           id: "docs-mono-76-release",
           title: "Pins prevent visual drift",
           paragraphs: [
-            "The sealed package includes the ordered face, packed onchain payload, renderer code, manifest, provenance, verification script, notices, and checksums. A downstream release must consume that complete contract and pin its hashes rather than copying one convenient glyph file.",
+            [
+              "The sealed package includes the ordered face, packed onchain payload, renderer code, manifest, provenance, verification script, notices, and checksums. A downstream ",
+              {
+                label: "release",
+                href: "/docs/source-release-boundaries",
+              },
+              " must consume that complete contract and pin its hashes rather than copying one convenient glyph file.",
+            ],
             "THOUGHT and PATH pin Mono 76 through their own contract releases. Updating the font repository does not change a pinned renderer or an already deployed contract. A new visual revision requires a new reviewed release and explicit downstream repinning; the App must continue reading canonical token artwork rather than silently redrawing it with newer paths.",
           ],
         },
@@ -1298,13 +1409,28 @@ export const DOCS_SOURCE: DocsSource = {
       status: "current",
       authorities: ["artist-editorial", "app-documentation", "contract-release"],
       paragraphs: [
-        "Verification here concerns bounded public claims. It can test a signature, byte sequence, release, deployment, or chain record. It is not the truth named in Inshell's artistic position: inspect self is a direction of practice, not a proposition these proofs can establish.",
+        [
+          "Verification here concerns bounded public claims. It can test a signature, byte sequence, release, deployment, or chain record. It is not the truth named in ",
+          { label: "Inshell", href: "/docs/inshell" },
+          "'s artistic position: inspect self is a direction of practice, not a proposition these proofs can establish.",
+        ],
         "Authority is the person or system that originates a claim. Loaded from names the immediate technical source used by the interface. A mirror is an indexed or cached copy, not a new authority. Display material is a presentation of a record, not the record itself.",
         "Provenance describes how a work or record came into being and which commitments connect its parts. Proof is the data evaluated by a specific verification rule. Neither word means that every recorded statement is true.",
-        "For a token, start from network, contract address, and token ID. Read contract state and tokenURI, identify the deployment and pinned release, recompute published commitments, validate the selected specification, and verify the Creation Attestation when one is present.",
+        [
+          "For a token, start from network, contract address, and token ID. Read contract state and tokenURI, identify the deployment and pinned release, recompute published commitments, validate the selected specification, and verify the ",
+          {
+            label: "Creation Attestation",
+            href: "/docs/thought#docs-thought-provenance",
+          },
+          " when one is present.",
+        ],
         "Contract-verified means the contract accepted the defined proof and bound records. Runtime-reported means a connector received the value from an Agent runtime. Selected means the App or human chose it. Artist-editorial means it expresses the practice. These evidence levels must not be collapsed into one claim.",
         "A valid Creation Attestation verifies one THOUGHT creation record under the rules of its contract release. It does not certify that a work is Agent Art or define the wider field.",
-        "The Verify page gathers official origins, wallet boundaries, active networks, deployed contracts, release locks, and the active THOUGHT specification. In-place explorer links remain useful for inspecting addresses and transactions on the active public chain.",
+        [
+          "The Verify page gathers official origins, ",
+          { label: "wallet boundaries", href: "/docs/wallet-local-data" },
+          ", active networks, deployed contracts, release locks, and the active THOUGHT specification. In-place explorer links remain useful for inspecting addresses and transactions on the active public chain.",
+        ],
       ],
       sections: [
         {
@@ -1369,8 +1495,16 @@ export const DOCS_SOURCE: DocsSource = {
       status: "current",
       authorities: ["app-documentation"],
       paragraphs: [
-        "The shell wallet menu reads the current account and network. Its Refresh action updates wallet and PATH inventory reads. Opening the menu itself never asks for a signature or transaction.",
-        "Product CTAs open wallet requests only when an action needs one: connect, mint PATH, sign a one-mint PATH permission, or mint THOUGHT. Canceling a wallet request submits nothing.",
+        [
+          "The shell wallet menu reads the current account and network. Its Refresh action updates wallet and ",
+          { label: "PATH", href: "/docs/path" },
+          " inventory reads. Opening the menu itself never asks for a signature or transaction.",
+        ],
+        [
+          "Product CTAs open wallet requests only when an action needs one: connect, mint PATH, sign a one-mint PATH permission, or mint ",
+          { label: "THOUGHT", href: "/docs/thought" },
+          ". Canceling a wallet request submits nothing.",
+        ],
         "A signature can authorize a narrowly defined action without sending a transaction or paying gas. A transaction can change chain state and requires wallet confirmation. The interface must name which one it is requesting.",
         "Save and Load use browser storage. Agent run state is held by the App backend for the run window. Neither is an onchain token, a portable account, or a cross-device record.",
         "Local Anvil, Sepolia, and Ethereum are separate chains with separate contracts, balances, and tokens. Local tokens belong only to the local dev chain. Normal App development preserves that chain across restarts; an explicit reset or redeployment can replace it.",
@@ -1439,7 +1573,15 @@ export const DOCS_SOURCE: DocsSource = {
       status: "current",
       authorities: ["app-documentation", "contract-release"],
       paragraphs: [
-        "The Inshell App, PATH contracts, THOUGHT contracts, and Pulse auction have separate repositories and ownership boundaries. The App owns creation flow, integration, and presentation. Each contract repository owns its contract behavior and release artifacts. Deployment operators own network deployment records.",
+        [
+          "The Inshell App, ",
+          { label: "PATH", href: "/docs/path" },
+          " contracts, ",
+          { label: "THOUGHT", href: "/docs/thought" },
+          " contracts, and ",
+          { label: "Pulse", href: "/docs/pulse" },
+          " auction have separate repositories and ownership boundaries. The App owns creation flow, integration, and presentation. Each contract repository owns its contract behavior and release artifacts. Deployment operators own network deployment records.",
+        ],
         "The App consumes pinned ABIs, bytecode, schemas, renderer data, specifications, manifests, and checksums. A repository's latest source is not automatically the deployed release. A newer file is not authority for an older deployment.",
         "Contract releases contain code and integrity material; network addresses and deployment blocks come from a separately verified deployment record. A correct integration matches the App pin, release artifacts, deployed bytecode, renderer commitments, and active network.",
         "Documentation can describe current source, a pinned release, or observed chain state. It must say which. Mirrors and previews are useful distribution surfaces but do not silently become canonical origins.",
@@ -1481,7 +1623,11 @@ export const DOCS_SOURCE: DocsSource = {
           id: "docs-source-deployment",
           title: "Release is not deployment",
           paragraphs: [
-            "A release may be complete without being deployed. A deployment record adds the network, contract addresses, deployment blocks, and integration choices needed to find it onchain. Verification joins both records and checks deployed bytecode where possible.",
+            [
+              "A release may be complete without being deployed. A deployment record adds the network, contract addresses, deployment blocks, and integration choices needed to find it onchain. ",
+              { label: "Verification", href: "/docs/verification" },
+              " joins both records and checks deployed bytecode where possible.",
+            ],
           ],
         },
         {
@@ -1542,8 +1688,19 @@ export const DOCS_SOURCE: DocsSource = {
           id: "docs-design-bounds",
           title: "Bounds create form",
           paragraphs: [
-            "THOUGHT allows one prompt, one Agent response, exact byte rules, and one human mint decision. Pulse allows one active epoch and one next public PATH. PATH exposes an ordered movement sequence with configured capacities. These constraints make the resulting differences legible.",
-            "Within THOUGHT, more options would not automatically create more expressive work. Its boundary concentrates attention on the choices that remain: which intention to write, which response to preserve, which PATH to use, and how to read the record afterward. Other Agent Art practices may choose different boundaries and forms.",
+            [
+              { label: "THOUGHT", href: "/docs/thought" },
+              " allows one prompt, one Agent response, exact byte rules, and one human mint decision. ",
+              { label: "Pulse", href: "/docs/pulse" },
+              " allows one active epoch and one next public PATH. ",
+              { label: "PATH", href: "/docs/path" },
+              " exposes an ordered movement sequence with configured capacities. These constraints make the resulting differences legible.",
+            ],
+            [
+              "Within THOUGHT, more options would not automatically create more expressive work. Its boundary concentrates attention on the choices that remain: which intention to write, which response to preserve, which PATH to use, and how to read the record afterward. Other ",
+              { label: "Agent Art", href: "/docs/agent-art" },
+              " practices may choose different boundaries and forms.",
+            ],
           ],
         },
         {
@@ -1673,7 +1830,10 @@ export const DOCS_SOURCE: DocsSource = {
           id: "docs-design-claims",
           title: "Transparency without overclaiming",
           paragraphs: [
-            "Public provenance is useful because it connects exact values and names where they came from. It becomes weaker when every field is described as verified in the same way. Inshell therefore distinguishes contract validation, release facts, live chain observations, App records, runtime reports, and artist statements.",
+            [
+              { label: "Public provenance", href: "/docs/verification" },
+              " is useful because it connects exact values and names where they came from. It becomes weaker when every field is described as verified in the same way. Inshell therefore distinguishes contract validation, release facts, live chain observations, App records, runtime reports, and artist statements.",
+            ],
             "The aim is not to make uncertainty disappear. It is to make the boundary of each claim inspectable.",
           ],
         },

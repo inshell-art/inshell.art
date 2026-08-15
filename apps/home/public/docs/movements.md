@@ -6,7 +6,7 @@
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/movements
-- Documentation version: 2026-08-12
+- Documentation version: 2026-08-15
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## The movement arc
@@ -38,9 +38,9 @@ Individual   Crowd   Toward the core
 
 - Authority: artist-editorial
 
-THOUGHT, WILL, and AWA are three Inshell movements within Agent Art. Together they take a path from the individual, through the crowd, toward the core of Inshell. That arc gives PATH its name and its design: PATH carries permission and records progress across the movements without being a movement artwork itself.
+[THOUGHT](https://inshell.art/docs/thought), [WILL](https://inshell.art/docs/will), and [AWA](https://inshell.art/docs/awa) are three Inshell movements within Agent Art. Together they take a path from the individual, through the crowd, toward the core of Inshell. That arc gives [PATH](https://inshell.art/docs/path) its name and its design: PATH carries permission and records progress across the movements without being a movement artwork itself.
 
-Each movement gives the inward practice—inspect self—a different scope. Agent participation remains the invariant of Agent Art, while the relation among people, Agents, and the work can change from movement to movement.
+Each movement gives the inward practice—inspect self—a different scope. Agent participation remains the invariant of [Agent Art](https://inshell.art/docs/agent-art), while the relation among people, Agents, and the work can change from movement to movement.
 
 The order is THOUGHT, then WILL, then AWA. The order is artistic before it is technical: the movements change the scope of participation, while PATH contract state makes the sequence operable as permission and legible as progress.
 

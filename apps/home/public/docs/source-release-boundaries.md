@@ -6,7 +6,7 @@
 - Status: current
 - Authority classes in this document: app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/source-release-boundaries
-- Documentation version: 2026-08-12
+- Documentation version: 2026-08-15
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## Four distinct records
@@ -41,7 +41,7 @@ Authored code   Pinned artifacts   Addresses + blocks   Point-in-time read
 
 - Authority: app-documentation, contract-release
 
-The Inshell App, PATH contracts, THOUGHT contracts, and Pulse auction have separate repositories and ownership boundaries. The App owns creation flow, integration, and presentation. Each contract repository owns its contract behavior and release artifacts. Deployment operators own network deployment records.
+The Inshell App, [PATH](https://inshell.art/docs/path) contracts, [THOUGHT](https://inshell.art/docs/thought) contracts, and [Pulse](https://inshell.art/docs/pulse) auction have separate repositories and ownership boundaries. The App owns creation flow, integration, and presentation. Each contract repository owns its contract behavior and release artifacts. Deployment operators own network deployment records.
 
 The App consumes pinned ABIs, bytecode, schemas, renderer data, specifications, manifests, and checksums. A repository's latest source is not automatically the deployed release. A newer file is not authority for an older deployment.
 
@@ -68,7 +68,7 @@ A repository can continue changing after a contract is deployed. The App therefo
 
 - Authority: app-documentation, contract-release
 
-A release may be complete without being deployed. A deployment record adds the network, contract addresses, deployment blocks, and integration choices needed to find it onchain. Verification joins both records and checks deployed bytecode where possible.
+A release may be complete without being deployed. A deployment record adds the network, contract addresses, deployment blocks, and integration choices needed to find it onchain. [Verification](https://inshell.art/docs/verification) joins both records and checks deployed bytecode where possible.
 
 ## Publication boundaries
 

@@ -6,7 +6,7 @@
 - Status: study
 - Authority classes in this document: artist-editorial, app-documentation
 - Canonical page: https://inshell.art/docs/will
-- Documentation version: 2026-08-12
+- Documentation version: 2026-08-15
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## Many people. Many Agents. One will.
@@ -39,11 +39,11 @@ WILL
 
 - Authority: artist-editorial
 
-WILL is the second movement on Inshell's PATH. Where THOUGHT begins with one individual's thought, WILL moves the inward inquiry to crowd behavior and to how a crowd forms what can be called one will.
+WILL is the second movement on Inshell's [PATH](https://inshell.art/docs/path). Where [THOUGHT](https://inshell.art/docs/thought) begins with one individual's thought, WILL moves the inward inquiry to crowd behavior and to how a crowd forms what can be called one will.
 
 Many people. Many Agents. One will. The slogan names the direction of the work. It does not describe a finished mechanism or settle how people, Agents, and the work relate.
 
-Agent participation keeps WILL within Agent Art, but WILL does not need to repeat THOUGHT's one-prompt, one-response form. That relation remains in development.
+Agent participation keeps WILL within [Agent Art](https://inshell.art/docs/agent-art), but WILL does not need to repeat THOUGHT's one-prompt, one-response form. That relation remains in development.
 
 ## What is known
 

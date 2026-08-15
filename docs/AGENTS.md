@@ -82,6 +82,16 @@ The field stays open through the source questions `What is art?` and `What is an
 
 Do not reduce Agent Art to prompting, text generation, chat, or human-plus-model dialogue. THOUGHT is one bounded Agent Art practice built around an exact human prompt and one exact Agent response. It is an example within a wider field, not the definition or outer boundary of Agent Art.
 
+## Inline contextual references
+
+- Add inline references by editorial intent, never by automatic keyword replacement.
+- Link the first meaningful occurrence when the destination materially helps a reader understand the current sentence. A conceptual map may link several peers once; ordinary repetition should remain plain text.
+- Use precise visible words as the link label. Do not expand a label merely to increase its clickable area, and do not link an ordinary word to a product page unless that specific reference is intended.
+- Prefer the narrowest stable documentation destination that owns the referenced idea. Use a section fragment when the reference is narrower than the article.
+- Keep conceptual references inside paragraphs. Keep actions, source repositories, tools, schemas, and other navigation in the article's closing link list unless the prose specifically discusses that resource.
+- Author every reference as a `DocsLink` in the canonical structured paragraph. Human HTML, Agent Markdown, and Agent JSON must expose the same label and destination.
+- Do not force a link into every paragraph or link every article merely for coverage. The absence of a link is valid when no destination improves the reading.
+
 ## Character figures
 
 - Treat a character figure as one semantic object with two readings: human readers receive visual hierarchy and spatial rhythm; Agents receive the same literal nodes, annotations, operators, edges, and groups through DOM, Markdown, and JSON.

@@ -6,7 +6,7 @@
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/inshell
-- Documentation version: 2026-08-12
+- Documentation version: 2026-08-15
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## The inward direction

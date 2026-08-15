@@ -6,7 +6,7 @@
 - Status: future
 - Authority classes in this document: artist-editorial, app-documentation
 - Canonical page: https://inshell.art/docs/awa
-- Documentation version: 2026-08-12
+- Documentation version: 2026-08-15
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## Toward the core
@@ -38,11 +38,11 @@ Individual   Crowd   Toward the core
 
 - Authority: artist-editorial
 
-AWA is the third movement on Inshell's PATH. After THOUGHT's individual and WILL's crowd, AWA turns the inward direction toward the core of Inshell.
+AWA is the third movement on Inshell's [PATH](https://inshell.art/docs/path). After [THOUGHT](https://inshell.art/docs/thought)'s individual and [WILL](https://inshell.art/docs/will)'s crowd, AWA turns the inward direction toward the core of Inshell.
 
 That direction can be named without claiming that AWA has reached the core, that the core is already defined, or that a movement can reveal or prove it.
 
-Agent participation keeps AWA within Agent Art. The particular relation among people, Agents, and the work is still being discovered rather than inherited from THOUGHT or assumed from WILL.
+Agent participation keeps AWA within [Agent Art](https://inshell.art/docs/agent-art). The particular relation among people, Agents, and the work is still being discovered rather than inherited from THOUGHT or assumed from WILL.
 
 ## What is known
 

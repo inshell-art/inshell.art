@@ -6,7 +6,7 @@
 - Status: current
 - Authority classes in this document: app-documentation
 - Canonical page: https://inshell.art/docs/wallet-local-data
-- Documentation version: 2026-08-12
+- Documentation version: 2026-08-15
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## Two distinctions
@@ -47,9 +47,9 @@ Browser record   Public record
 
 - Authority: app-documentation
 
-The shell wallet menu reads the current account and network. Its Refresh action updates wallet and PATH inventory reads. Opening the menu itself never asks for a signature or transaction.
+The shell wallet menu reads the current account and network. Its Refresh action updates wallet and [PATH](https://inshell.art/docs/path) inventory reads. Opening the menu itself never asks for a signature or transaction.
 
-Product CTAs open wallet requests only when an action needs one: connect, mint PATH, sign a one-mint PATH permission, or mint THOUGHT. Canceling a wallet request submits nothing.
+Product CTAs open wallet requests only when an action needs one: connect, mint PATH, sign a one-mint PATH permission, or mint [THOUGHT](https://inshell.art/docs/thought). Canceling a wallet request submits nothing.
 
 A signature can authorize a narrowly defined action without sending a transaction or paying gas. A transaction can change chain state and requires wallet confirmation. The interface must name which one it is requesting.
 

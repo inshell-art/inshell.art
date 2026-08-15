@@ -6,14 +6,14 @@
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/contracts
-- Documentation version: 2026-08-12
+- Documentation version: 2026-08-15
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## Overview
 
 - Authority: artist-editorial, app-documentation, contract-release
 
-The public architecture is PulseAuction → PathPulseAdapter → PathNFT → ThoughtNFT. The arrows describe the issuance and permission path, not contract ownership or a promise that every future movement is deployed.
+The public architecture is [PulseAuction](https://inshell.art/docs/pulse) → PathPulseAdapter → [PathNFT](https://inshell.art/docs/path) → [ThoughtNFT](https://inshell.art/docs/thought). The arrows describe the issuance and permission path, not contract ownership or a promise that every future movement is deployed.
 
 These contracts specify and enforce bounded actions within the practice. They can validate a permission, mint, or record, but they do not implement the truth named by Inshell or prove a participant's inward understanding.
 
@@ -21,7 +21,7 @@ PulseAuction calculates the live ask, accepts a successful bid, and closes an ep
 
 The App orchestrates reads, previews, Agent runs, signatures, and wallet transactions. It does not replace contract validation. A wallet account submits the transaction; deployed contracts decide whether it is valid.
 
-ABIs, bytecode, renderer payloads, schemas, and manifests belong to pinned releases. Contract addresses and deployment blocks belong to a network deployment record. Read both before identifying a live system.
+ABIs, bytecode, renderer payloads, schemas, and manifests belong to [pinned releases](https://inshell.art/docs/source-release-boundaries). Contract addresses and deployment blocks belong to a network deployment record. Read both before identifying a live system.
 
 ## Separated responsibilities
 

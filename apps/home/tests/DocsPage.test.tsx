@@ -79,6 +79,33 @@ function docsLinks() {
   );
 }
 
+function docsInlineLinks() {
+  return DOCS_SOURCE.topics.flatMap((topic) => {
+    const paragraphs = [
+      ...topic.paragraphs.map((paragraph, index) => ({
+        block: `lead:${index}`,
+        paragraph,
+      })),
+      ...(topic.sections?.flatMap((section) =>
+        (section.paragraphs ?? []).map((paragraph, index) => ({
+          block: `${section.id}:${index}`,
+          paragraph,
+        })),
+      ) ?? []),
+    ];
+
+    return paragraphs.flatMap(({ block, paragraph }) =>
+      typeof paragraph === "string"
+        ? []
+        : paragraph.flatMap((part) =>
+            typeof part === "string"
+              ? []
+              : [{ topic: topic.slug, block, ...part }],
+          ),
+    );
+  });
+}
+
 function hrefPathname(href: string) {
   return href.split(/[?#]/, 1)[0];
 }
@@ -578,6 +605,137 @@ describe("Docs source editorial guardrails", () => {
     expect(unsupportedLinks).toEqual([]);
   });
 
+  test("keeps inline references intentional, restrained, and on precise docs routes", () => {
+    const inlineLinks = docsInlineLinks();
+    const byTopic = Object.fromEntries(
+      DOCS_SOURCE.topics
+        .map((topic) => [
+          topic.slug,
+          inlineLinks
+            .filter((link) => link.topic === topic.slug)
+            .map(({ label, href }) => ({ label, href })),
+        ] as const)
+        .filter(([, links]) => links.length > 0),
+    );
+
+    expect(byTopic).toEqual({
+      inshell: [
+        { label: "thought", href: "/docs/thought" },
+        { label: "Agent Art", href: "/docs/agent-art" },
+      ],
+      "agent-art": [{ label: "Inshell", href: "/docs/inshell" }],
+      movements: [
+        { label: "THOUGHT", href: "/docs/thought" },
+        { label: "WILL", href: "/docs/will" },
+        { label: "AWA", href: "/docs/awa" },
+        { label: "PATH", href: "/docs/path" },
+        { label: "Agent Art", href: "/docs/agent-art" },
+      ],
+      thought: [
+        { label: "PATH", href: "/docs/path" },
+        { label: "Agent Art", href: "/docs/agent-art" },
+        { label: "wallet", href: "/docs/wallet-local-data" },
+      ],
+      will: [
+        { label: "PATH", href: "/docs/path" },
+        { label: "THOUGHT", href: "/docs/thought" },
+        { label: "Agent Art", href: "/docs/agent-art" },
+      ],
+      awa: [
+        { label: "PATH", href: "/docs/path" },
+        { label: "THOUGHT", href: "/docs/thought" },
+        { label: "WILL", href: "/docs/will" },
+        { label: "Agent Art", href: "/docs/agent-art" },
+      ],
+      path: [
+        { label: "Pulse", href: "/docs/pulse" },
+        { label: "THOUGHT", href: "/docs/thought" },
+        { label: "WILL", href: "/docs/will" },
+        { label: "AWA", href: "/docs/awa" },
+      ],
+      pulse: [
+        { label: "PATH", href: "/docs/path" },
+        { label: "Inshell", href: "/docs/inshell" },
+        { label: "wallet", href: "/docs/wallet-local-data" },
+      ],
+      contracts: [
+        { label: "PulseAuction", href: "/docs/pulse" },
+        { label: "PathNFT", href: "/docs/path" },
+        { label: "ThoughtNFT", href: "/docs/thought" },
+        {
+          label: "pinned releases",
+          href: "/docs/source-release-boundaries",
+        },
+      ],
+      "artwork-metadata-chain": [
+        { label: "THOUGHT", href: "/docs/thought" },
+        { label: "PATH", href: "/docs/path" },
+        { label: "attestation status", href: "/docs/verification" },
+      ],
+      "mono-76": [
+        { label: "THOUGHT", href: "/docs/thought" },
+        { label: "PATH", href: "/docs/path" },
+        { label: "release", href: "/docs/source-release-boundaries" },
+      ],
+      verification: [
+        { label: "Inshell", href: "/docs/inshell" },
+        {
+          label: "Creation Attestation",
+          href: "/docs/thought#docs-thought-provenance",
+        },
+        { label: "wallet boundaries", href: "/docs/wallet-local-data" },
+      ],
+      "wallet-local-data": [
+        { label: "PATH", href: "/docs/path" },
+        { label: "THOUGHT", href: "/docs/thought" },
+      ],
+      "source-release-boundaries": [
+        { label: "PATH", href: "/docs/path" },
+        { label: "THOUGHT", href: "/docs/thought" },
+        { label: "Pulse", href: "/docs/pulse" },
+        { label: "Verification", href: "/docs/verification" },
+      ],
+      "design-principles": [
+        { label: "THOUGHT", href: "/docs/thought" },
+        { label: "Pulse", href: "/docs/pulse" },
+        { label: "PATH", href: "/docs/path" },
+        { label: "Agent Art", href: "/docs/agent-art" },
+        { label: "Public provenance", href: "/docs/verification" },
+      ],
+    });
+
+    const invalidRoutes = inlineLinks
+      .filter(({ href }) => !href.startsWith("/docs/"))
+      .map(({ topic, block, label, href }) => `${topic}:${block}: ${label} -> ${href}`);
+    expect(invalidRoutes).toEqual([]);
+
+    const duplicateDestinations = DOCS_SOURCE.topics.flatMap((topic) => {
+      const hrefs = inlineLinks
+        .filter((link) => link.topic === topic.slug)
+        .map(({ href }) => href);
+      return hrefs.filter((href, index) => hrefs.indexOf(href) !== index)
+        .map((href) => `${topic.slug}: ${href}`);
+    });
+    expect(duplicateDestinations).toEqual([]);
+
+    const invalidFragments = inlineLinks.flatMap(({ topic, block, label, href }) => {
+      const [pathname, fragment] = href.split("#");
+      if (!fragment) return [];
+      const destination = DOCS_SOURCE.topics.find(
+        ({ slug }) => `/docs/${slug}` === pathname,
+      );
+      const ids = new Set([
+        destination?.id,
+        ...(destination?.aliases ?? []),
+        ...(destination?.sections?.map(({ id }) => id) ?? []),
+      ]);
+      return ids.has(fragment)
+        ? []
+        : [`${topic}:${block}: ${label} -> ${href}`];
+    });
+    expect(invalidFragments).toEqual([]);
+  });
+
   test("does not revive obsolete separate gallery routes or product subdomains", () => {
     const staleLinks = docsLinks()
       .filter(({ label, href }) => {
@@ -657,13 +815,15 @@ describe("Docs source editorial guardrails", () => {
           "",
           `- Authority: ${DOCS_AUTHORITY_MAP[topic.slug].lead.join(", ")}`,
           "",
-          docsParagraphText(topic.paragraphs[0]),
+          docsParagraphMarkdown(topic.paragraphs[0], "https://inshell.art"),
           "",
         ].join("\n"),
       );
       if (topic.figure) {
         expect(markdown.indexOf(`## ${topic.figure.label}`)).toBeLessThan(
-          markdown.indexOf(docsParagraphText(topic.paragraphs[0])),
+          markdown.indexOf(
+            docsParagraphMarkdown(topic.paragraphs[0], "https://inshell.art"),
+          ),
         );
       }
     }

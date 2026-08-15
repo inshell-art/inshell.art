@@ -2,7 +2,7 @@
   "schema": "inshell.agent-docs.topic.v2",
   "schemaUrl": "/docs/content.v2.schema.json",
   "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
-  "version": "2026-08-12",
+  "version": "2026-08-15",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "verification",
@@ -31,13 +31,13 @@
         "contract-release"
       ],
       "paragraphs": [
-        "Verification here concerns bounded public claims. It can test a signature, byte sequence, release, deployment, or chain record. It is not the truth named in Inshell's artistic position: inspect self is a direction of practice, not a proposition these proofs can establish.",
+        "Verification here concerns bounded public claims. It can test a signature, byte sequence, release, deployment, or chain record. It is not the truth named in [Inshell](https://inshell.art/docs/inshell)'s artistic position: inspect self is a direction of practice, not a proposition these proofs can establish.",
         "Authority is the person or system that originates a claim. Loaded from names the immediate technical source used by the interface. A mirror is an indexed or cached copy, not a new authority. Display material is a presentation of a record, not the record itself.",
         "Provenance describes how a work or record came into being and which commitments connect its parts. Proof is the data evaluated by a specific verification rule. Neither word means that every recorded statement is true.",
-        "For a token, start from network, contract address, and token ID. Read contract state and tokenURI, identify the deployment and pinned release, recompute published commitments, validate the selected specification, and verify the Creation Attestation when one is present.",
+        "For a token, start from network, contract address, and token ID. Read contract state and tokenURI, identify the deployment and pinned release, recompute published commitments, validate the selected specification, and verify the [Creation Attestation](https://inshell.art/docs/thought#docs-thought-provenance) when one is present.",
         "Contract-verified means the contract accepted the defined proof and bound records. Runtime-reported means a connector received the value from an Agent runtime. Selected means the App or human chose it. Artist-editorial means it expresses the practice. These evidence levels must not be collapsed into one claim.",
         "A valid Creation Attestation verifies one THOUGHT creation record under the rules of its contract release. It does not certify that a work is Agent Art or define the wider field.",
-        "The Verify page gathers official origins, wallet boundaries, active networks, deployed contracts, release locks, and the active THOUGHT specification. In-place explorer links remain useful for inspecting addresses and transactions on the active public chain."
+        "The Verify page gathers official origins, [wallet boundaries](https://inshell.art/docs/wallet-local-data), active networks, deployed contracts, release locks, and the active THOUGHT specification. In-place explorer links remain useful for inspecting addresses and transactions on the active public chain."
       ]
     },
     "figure": null,

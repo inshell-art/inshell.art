@@ -6,14 +6,14 @@
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/pulse
-- Documentation version: 2026-08-12
+- Documentation version: 2026-08-15
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## Overview
 
 - Authority: artist-editorial, app-documentation, contract-release
 
-PATH is the permission token; Pulse is the serial mechanism that prices and issues the next public token. They are not interchangeable names.
+[PATH](https://inshell.art/docs/path) is the permission token; Pulse is the serial mechanism that prices and issues the next public token. They are not interchangeable names.
 
 Pulse runs one live epoch, one current ask, and one next token at a time. A successful bid closes the epoch, records the sale, issues the corresponding PATH, and starts the next epoch.
 
@@ -21,9 +21,9 @@ Pulse shapes the ask over time. A successful bid closes the current epoch and st
 
 The pump uses a price-time scale to turn the elapsed time before a sale into the next epoch's initial premium. The drop follows ask(t) = floor + premium(t), with ask(t) = b + ⌊k / (t - a)⌋. Every sale becomes another point in the visible history.
 
-Inshell frames Pulse as a mathematical canvas and a crowd instrument: each bid becomes a public point and sets the next beat. The curve and its parameters are exposed because the mechanism is part of the work, not an investment promise.
+[Inshell](https://inshell.art/docs/inshell) frames Pulse as a mathematical canvas and a crowd instrument: each bid becomes a public point and sets the next beat. The curve and its parameters are exposed because the mechanism is part of the work, not an investment promise.
 
-The price shown in the App is a live read, not a reservation. The wallet flow reads the ask again before submission. If the price moves outside the approved maximum, retry to read and submit the current ask.
+The price shown in the App is a live read, not a reservation. The [wallet](https://inshell.art/docs/wallet-local-data) flow reads the ask again before submission. If the price moves outside the approved maximum, retry to read and submit the current ask.
 
 This is the Desmos sketch behind Pulse. It is not implementation code.
 

@@ -6,7 +6,7 @@
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/mono-76
-- Documentation version: 2026-08-12
+- Documentation version: 2026-08-15
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## From glyph study to canonical artwork
@@ -46,7 +46,7 @@ Mono 76 gives selected Inshell works a fixed visual alphabet. Version 1.0.0 cont
 
 The sealed face emerged from a larger native-SVG glyph study. That research compared many construction systems for legibility, identity, punctuation, marketplace-scale resilience, deterministic rendering, and practical contract size. The released face came from the C02 Classic Book study, then received manual refinement and optical alignment before its paths and metrics were frozen.
 
-Mono 76 is not the site's general interface font. Interface copy remains ordinary selectable text. Mono 76 is used where the letterform is part of the artwork or its deterministic renderer, including the current THOUGHT composition and the movement names drawn inside PATH tokens.
+Mono 76 is not the site's general interface font. Interface copy remains ordinary selectable text. Mono 76 is used where the letterform is part of the artwork or its deterministic renderer, including the current [THOUGHT](https://inshell.art/docs/thought) composition and the movement names drawn inside [PATH](https://inshell.art/docs/path) tokens.
 
 A renderer consumes path geometry rather than asking a browser to locate a font. This keeps the visible form independent of installed fonts, webfont loading, marketplace font support, and platform-specific text layout.
 
@@ -84,7 +84,7 @@ The App does not register Mono 76 with CSS or replace ordinary interface typogra
 
 - Authority: app-documentation, contract-release
 
-The sealed package includes the ordered face, packed onchain payload, renderer code, manifest, provenance, verification script, notices, and checksums. A downstream release must consume that complete contract and pin its hashes rather than copying one convenient glyph file.
+The sealed package includes the ordered face, packed onchain payload, renderer code, manifest, provenance, verification script, notices, and checksums. A downstream [release](https://inshell.art/docs/source-release-boundaries) must consume that complete contract and pin its hashes rather than copying one convenient glyph file.
 
 THOUGHT and PATH pin Mono 76 through their own contract releases. Updating the font repository does not change a pinned renderer or an already deployed contract. A new visual revision requires a new reviewed release and explicit downstream repinning; the App must continue reading canonical token artwork rather than silently redrawing it with newer paths.
 

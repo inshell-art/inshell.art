@@ -2,7 +2,7 @@
   "schema": "inshell.agent-docs.topic.v2",
   "schemaUrl": "/docs/content.v2.schema.json",
   "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
-  "version": "2026-08-12",
+  "version": "2026-08-15",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "contracts",
@@ -31,11 +31,11 @@
         "contract-release"
       ],
       "paragraphs": [
-        "The public architecture is PulseAuction → PathPulseAdapter → PathNFT → ThoughtNFT. The arrows describe the issuance and permission path, not contract ownership or a promise that every future movement is deployed.",
+        "The public architecture is [PulseAuction](https://inshell.art/docs/pulse) → PathPulseAdapter → [PathNFT](https://inshell.art/docs/path) → [ThoughtNFT](https://inshell.art/docs/thought). The arrows describe the issuance and permission path, not contract ownership or a promise that every future movement is deployed.",
         "These contracts specify and enforce bounded actions within the practice. They can validate a permission, mint, or record, but they do not implement the truth named by Inshell or prove a participant's inward understanding.",
         "PulseAuction calculates the live ask, accepts a successful bid, and closes an epoch. PathPulseAdapter translates that settlement into PATH issuance. PathNFT mints and owns PATH state, movement order, and capacity. ThoughtNFT validates THOUGHT mint rules, records the work, and atomically consumes an authorized THOUGHT unit from PATH.",
         "The App orchestrates reads, previews, Agent runs, signatures, and wallet transactions. It does not replace contract validation. A wallet account submits the transaction; deployed contracts decide whether it is valid.",
-        "ABIs, bytecode, renderer payloads, schemas, and manifests belong to pinned releases. Contract addresses and deployment blocks belong to a network deployment record. Read both before identifying a live system."
+        "ABIs, bytecode, renderer payloads, schemas, and manifests belong to [pinned releases](https://inshell.art/docs/source-release-boundaries). Contract addresses and deployment blocks belong to a network deployment record. Read both before identifying a live system."
       ]
     },
     "figure": null,

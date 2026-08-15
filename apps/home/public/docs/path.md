@@ -6,7 +6,7 @@
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/path
-- Documentation version: 2026-08-12
+- Documentation version: 2026-08-15
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## Overview
@@ -17,9 +17,9 @@ PATH is the canonical project and contract name. The interface may display $PATH
 
 Within the practice, PATH carries permission to enter successive movement forms. It records use and progress; it does not measure self-knowledge, certify an inner truth, or turn participation into a guaranteed transformation.
 
-Public PATH tokens are issued through Pulse. The contract also supports a bounded Spark self-claim path for allowlisted recipients. Issuance route is a contract fact, not a claim that one token is more authentic than another.
+Public PATH tokens are issued through [Pulse](https://inshell.art/docs/pulse). The contract also supports a bounded Spark self-claim path for allowlisted recipients. Issuance route is a contract fact, not a claim that one token is more authentic than another.
 
-PathNFT configures one quota for each movement across a deployment. Every PATH uses those movement totals, while each token records its own current stage and in-stage count. One successful movement mint consumes one unit from that token's current movement entitlement. Reaching the quota advances it through THOUGHT, WILL, and AWA in order. Not available means the movement has no deployed quota.
+PathNFT configures one quota for each movement across a deployment. Every PATH uses those movement totals, while each token records its own current stage and in-stage count. One successful movement mint consumes one unit from that token's current movement entitlement. Reaching the quota advances it through [THOUGHT](https://inshell.art/docs/thought), [WILL](https://inshell.art/docs/will), and [AWA](https://inshell.art/docs/awa) in order. Not available means the movement has no deployed quota.
 
 The token image and the stable Stage, THOUGHT, WILL, and AWA traits show movement progress. PathNFT emits a metadata update after a unit is consumed so compatible readers can refresh the token.
 

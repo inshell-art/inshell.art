@@ -6,7 +6,7 @@
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/design-principles
-- Documentation version: 2026-08-12
+- Documentation version: 2026-08-15
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## Current Inshell principles across systems
@@ -53,9 +53,9 @@ Five design choices recur across the current Inshell system: collaboration is bo
 
 - Authority: artist-editorial, app-documentation, contract-release
 
-THOUGHT allows one prompt, one Agent response, exact byte rules, and one human mint decision. Pulse allows one active epoch and one next public PATH. PATH exposes an ordered movement sequence with configured capacities. These constraints make the resulting differences legible.
+[THOUGHT](https://inshell.art/docs/thought) allows one prompt, one Agent response, exact byte rules, and one human mint decision. [Pulse](https://inshell.art/docs/pulse) allows one active epoch and one next public PATH. [PATH](https://inshell.art/docs/path) exposes an ordered movement sequence with configured capacities. These constraints make the resulting differences legible.
 
-Within THOUGHT, more options would not automatically create more expressive work. Its boundary concentrates attention on the choices that remain: which intention to write, which response to preserve, which PATH to use, and how to read the record afterward. Other Agent Art practices may choose different boundaries and forms.
+Within THOUGHT, more options would not automatically create more expressive work. Its boundary concentrates attention on the choices that remain: which intention to write, which response to preserve, which PATH to use, and how to read the record afterward. Other [Agent Art](https://inshell.art/docs/agent-art) practices may choose different boundaries and forms.
 
 ## Generation is not preservation
 
@@ -161,7 +161,7 @@ An onchain Inshell work can appear on the site, in a wallet, on a marketplace, t
 
 - Authority: artist-editorial, app-documentation
 
-Public provenance is useful because it connects exact values and names where they came from. It becomes weaker when every field is described as verified in the same way. Inshell therefore distinguishes contract validation, release facts, live chain observations, App records, runtime reports, and artist statements.
+[Public provenance](https://inshell.art/docs/verification) is useful because it connects exact values and names where they came from. It becomes weaker when every field is described as verified in the same way. Inshell therefore distinguishes contract validation, release facts, live chain observations, App records, runtime reports, and artist statements.
 
 The aim is not to make uncertainty disappear. It is to make the boundary of each claim inspectable.
 

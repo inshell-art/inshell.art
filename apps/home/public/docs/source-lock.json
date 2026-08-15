@@ -2,7 +2,7 @@
   "schema": "inshell.agent-docs.source-lock.v1",
   "schemaUrl": "/docs/source-lock.schema.json",
   "canonicalSchemaUrl": "https://inshell.art/docs/source-lock.schema.json",
-  "documentationVersion": "2026-08-12",
+  "documentationVersion": "2026-08-15",
   "sourceRegistrySchema": "inshell.agent-docs.source-registry.v1",
   "purpose": "Exact-byte inventory of public knowledge-bearing inputs used to keep human and Agent documentation aligned across the repo.",
   "policy": {
@@ -11,14 +11,14 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "fa1a4c82a1e62163d72606eb495ead0fd5cdf29923286f7ef452d9823a7d4580",
+  "sourceTreeSha256": "9961bf7aa657b4bc926966342c4fd930754812e565f37b28c0189fbcf607a910",
   "groups": [
     {
       "id": "public-docs",
       "title": "Public documentation sources",
       "owner": "inshell.art docs",
       "reason": "Human articles, Agent-readable content, authority maps, and machine-handoff selection.",
-      "groupSha256": "0287735a669f6255b4213d812a8e777447910a2140524c829fe841f37606d6ba",
+      "groupSha256": "9e9a01b8090759daf9806d98c6d179dd01ead9b11803a7d81cad7bf3cc5eb625",
       "files": [
         {
           "path": "apps/home/src/content/AGENTS.md",
@@ -37,8 +37,8 @@
         },
         {
           "path": "apps/home/src/content/docs.ts",
-          "byteLength": 110579,
-          "sha256": "ecc13e0e96c07cb8676433de90be14cd3854bda33dfa59933338798592ec3a09"
+          "byteLength": 114412,
+          "sha256": "19eecec4dddf4d52b9e2bc895e293455174801d772dad84b8f2bf6e0ffdf08a4"
         },
         {
           "path": "apps/home/src/content/thought-machine-handoff.ts",
@@ -47,8 +47,8 @@
         },
         {
           "path": "docs/AGENTS.md",
-          "byteLength": 19617,
-          "sha256": "39d7177ab91c10ad90210a1fad1d08aff743f5552818fa348172c2b1a7b5839d"
+          "byteLength": 20845,
+          "sha256": "9f72bd5ad289c2a0c91ca48f2195926b02e378e3d0ffdfb607904fe6fd70ed04"
         },
         {
           "path": "docs/agent-native-figure-experiment.md",
