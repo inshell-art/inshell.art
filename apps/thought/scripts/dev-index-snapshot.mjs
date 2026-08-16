@@ -110,15 +110,105 @@ const TAGGED_DETAIL_TITLE = `        <div>
 
 const CURRENT_DETAIL_TITLE = `        <h1 id="thought-detail-title" class="thought-detail__title">THOUGHT #<span id="thought-detail-token-id">-</span></h1>`;
 
-const TAGGED_DETAIL_GALLERY_CONFIGURATION = `const inshellHomeUrl = () => INSHELL_HOME_URL;
+const TAGGED_DETAIL_HOME_LINK = `          <a id="thought-detail-gallery-link" class="thought-detail__link" href="https://inshell.art/gallery">[ gallery ]</a>`;
+
+const CURRENT_DETAIL_HOME_LINK = `          <a id="thought-detail-gallery-link" class="thought-detail__link" href="https://inshell.art/">[ home ]</a>`;
+
+const TAGGED_DETAIL_HOME_CONFIGURATION = `const inshellHomeUrl = () => INSHELL_HOME_URL;
 const configureGalleryLink = () => {
   thoughtGalleryLink.href = galleryUrl();
   thoughtDetailGalleryLink.href = galleryUrl();`;
 
-const CURRENT_DETAIL_GALLERY_CONFIGURATION = `const inshellHomeUrl = () => INSHELL_HOME_URL;
+const CURRENT_DETAIL_HOME_CONFIGURATION = `const inshellHomeUrl = (targetTokenId?: number | null) => {
+  const url = new URL(INSHELL_HOME_URL, window.location.origin);
+  url.search = "";
+  url.hash = "";
+  if (targetTokenId !== null && targetTokenId !== undefined) {
+    url.hash = \`thought-\${targetTokenId}\`;
+  }
+  return url.toString();
+};
 const configureGalleryLink = () => {
   thoughtGalleryLink.href = galleryUrl();
-  thoughtDetailGalleryLink.href = galleryUrl(ROUTE_THOUGHT_NFT_ID);`;
+  thoughtDetailGalleryLink.href = inshellHomeUrl(ROUTE_THOUGHT_NFT_ID);`;
+
+const snapshotSource = (source) =>
+  source.replaceAll("\\`", "`").replaceAll("\\${", "${");
+
+const TAGGED_DETAIL_SPEC_LINK = snapshotSource(String.raw`const thoughtSpecCachePayload = (spec: ActiveThoughtSpec) => ({
+  chainId: THOUGHT_CHAIN_ID,
+  registry: THOUGHT_SPEC_REGISTRY_ADDRESS,
+  cacheKey: getThoughtSpecCacheKey(spec.specId, spec.specHash),
+  source: {
+    contract: "ThoughtSpecRegistry",
+    read: "thoughtSpecText(bytes32)",
+  },
+  specId: spec.specId,
+  specHash: spec.specHash,
+  ref: spec.ref,
+  pointer: spec.pointer,
+  byteLength: spec.byteLength,
+  text: spec.text,
+  fetchedAt: spec.fetchedAt,
+});
+
+const specJsonFilename = (spec: ActiveThoughtSpec) =>
+  \`\${(spec.ref || "THOUGHT.md").replace(/[^A-Za-z0-9._-]+/g, "-")}.\${shortHex(spec.specId, 8, 6)}.json\`;
+
+const specLinkText = (ref?: string) => \`\${ref || "THOUGHT.v1.md"} ↗\`;
+
+const setThoughtDetailSpecJsonLink = (spec: ActiveThoughtSpec) => {
+  revokeThoughtDetailSpecJsonUrl();
+  const json = JSON.stringify(thoughtSpecCachePayload(spec), null, 2);
+  thoughtDetailSpecJsonUrl = URL.createObjectURL(new Blob([\`\${json}\n\`], { type: "application/json" }));
+  thoughtDetailSpecRef.textContent = specLinkText(spec.ref);
+  thoughtDetailSpecRef.href = thoughtDetailSpecJsonUrl;
+  thoughtDetailSpecRef.target = "_blank";
+  thoughtDetailSpecRef.rel = "noopener noreferrer";
+  thoughtDetailSpecRef.title = \`Open local cached spec JSON: \${specJsonFilename(spec)}\`;
+};
+
+const clearThoughtDetailSpecJsonLink = (title = "Spec JSON loads after the spec is verified.") => {
+  revokeThoughtDetailSpecJsonUrl();
+  thoughtDetailSpecRef.href = "#";
+  thoughtDetailSpecRef.removeAttribute("target");
+  thoughtDetailSpecRef.removeAttribute("rel");
+  thoughtDetailSpecRef.title = title;
+};`);
+
+const CURRENT_DETAIL_SPEC_LINK = snapshotSource(String.raw`const specMarkdownFilename = (ref?: string) => {
+  const candidate = (ref || "").split(/[\\/]/).filter(Boolean).at(-1) ?? "";
+  return /^[A-Za-z0-9._-]+\.md$/i.test(candidate) ? candidate : "THOUGHT.md";
+};
+
+const specLinkText = (ref?: string) => \`\${specMarkdownFilename(ref)} ↗\`;
+
+const setThoughtDetailSpecJsonLink = (spec: ActiveThoughtSpec) => {
+  revokeThoughtDetailSpecJsonUrl();
+  thoughtDetailSpecJsonUrl = URL.createObjectURL(
+    new Blob([spec.text], { type: "text/markdown;charset=utf-8" }),
+  );
+  const filename = specMarkdownFilename(spec.ref);
+  thoughtDetailSpecRef.textContent = \`\${filename} ↗\`;
+  thoughtDetailSpecRef.href = thoughtDetailSpecJsonUrl;
+  thoughtDetailSpecRef.target = "_blank";
+  thoughtDetailSpecRef.rel = "noopener noreferrer";
+  thoughtDetailSpecRef.title = \`Open verified \${filename} Markdown from ThoughtSpecRegistry\`;
+};
+
+const clearThoughtDetailSpecJsonLink = (title = "Spec Markdown loads after the spec is verified.") => {
+  revokeThoughtDetailSpecJsonUrl();
+  thoughtDetailSpecRef.href = "#";
+  thoughtDetailSpecRef.removeAttribute("target");
+  thoughtDetailSpecRef.removeAttribute("rel");
+  thoughtDetailSpecRef.title = title;
+};`);
+
+const TAGGED_DETAIL_SPEC_STATUS = Object.freeze([
+  ["Loading local cached spec JSON...", "Loading verified spec Markdown..."],
+  ["Spec JSON unavailable.", "Spec Markdown unavailable."],
+  ["spec json unavailable.", "spec markdown unavailable."],
+]);
 
 const TAGGED_DETAIL_RAIL_TO_TRAITS = `          </section>
         </aside>
@@ -141,6 +231,48 @@ const CURRENT_DETAIL_ONCHAIN_TO_RECORD = `          </section>
         </aside>
 
         <details class="thought-detail__record thought-detail__verification">`;
+
+const PRE_TIGHT_DETAIL_CREATION_RECORD = `            <h2>creation provenance</h2>
+            <p class="thought-detail__attestation-summary">
+              <span id="thought-detail-attestation" class="thought-detail__attestation">-</span>
+              <span id="thought-detail-attestation-copy">Reading the creation record.</span>
+            </p>
+            <dl class="thought-detail__fields">`;
+
+const CURRENT_DETAIL_CREATION_RECORD = `            <h2>creation record</h2>
+            <dl class="thought-detail__fields">`;
+
+const TAGGED_DETAIL_LEGACY_HOOKS = `        <div class="thought-detail__legacy-hooks" hidden aria-hidden="true">
+          <p id="thought-detail-canonical-title">-</p>`;
+
+const CURRENT_DETAIL_LEGACY_HOOKS = `        <div class="thought-detail__legacy-hooks" hidden aria-hidden="true">
+          <p id="thought-detail-attestation">-</p>
+          <p id="thought-detail-attestation-copy">Reading the creation record.</p>
+          <p id="thought-detail-canonical-title">-</p>`;
+
+const PRE_TIGHT_DETAIL_TRAITS_SECTION = `          <section class="thought-detail__section">
+            <h2>canonical traits</h2>
+            <dl id="thought-detail-traits" class="thought-detail__fields">
+              <div><dt>status</dt><dd>reading token metadata</dd></div>
+            </dl>
+          </section>
+
+`;
+
+const CURRENT_DETAIL_TRAITS_VERIFICATION = `            <div class="thought-detail__verification-traits">
+              <h3>canonical traits</h3>
+              <dl id="thought-detail-traits" class="thought-detail__fields">
+                <div><dt>status</dt><dd>reading token metadata</dd></div>
+              </dl>
+            </div>
+`;
+
+const PRE_TIGHT_DETAIL_TOKEN_HEADING = "            <h2>on-chain record</h2>";
+const CURRENT_DETAIL_TOKEN_HEADING = "            <h2>token details</h2>";
+const PRE_TIGHT_DETAIL_TOKEN_SECTION = `          <section class="thought-detail__section">
+${PRE_TIGHT_DETAIL_TOKEN_HEADING}`;
+const CURRENT_DETAIL_RECORD_BODY = `          <div class="thought-detail__record-body">
+`;
 
 const CURRENT_DETAIL_STYLE_START =
   "\n/* INSHELL_CURRENT_THOUGHT_DETAIL_PATH_CANON_START */\n";
@@ -196,6 +328,72 @@ function replaceExactCount(source, label, from, to, expectedCount = 1) {
   return parts.join(to);
 }
 
+function restorePreTightDetailGrouping(source) {
+  let restored = replaceExactCount(
+    source,
+    "tight creation record",
+    CURRENT_DETAIL_CREATION_RECORD,
+    PRE_TIGHT_DETAIL_CREATION_RECORD,
+  );
+  restored = replaceExactCount(
+    restored,
+    "tight token details heading",
+    CURRENT_DETAIL_TOKEN_HEADING,
+    PRE_TIGHT_DETAIL_TOKEN_HEADING,
+  );
+  restored = replaceExactCount(
+    restored,
+    "tight canonical traits disclosure",
+    CURRENT_DETAIL_TRAITS_VERIFICATION,
+    "",
+  );
+  restored = replaceExactCount(
+    restored,
+    "pre-tight token details section",
+    PRE_TIGHT_DETAIL_TOKEN_SECTION,
+    `${PRE_TIGHT_DETAIL_TRAITS_SECTION}${PRE_TIGHT_DETAIL_TOKEN_SECTION}`,
+  );
+  return replaceExactCount(
+    restored,
+    "current hidden detail hooks",
+    CURRENT_DETAIL_LEGACY_HOOKS,
+    TAGGED_DETAIL_LEGACY_HOOKS,
+  );
+}
+
+function layerTightDetailGrouping(source) {
+  let layered = replaceExactCount(
+    source,
+    "pre-tight creation record",
+    PRE_TIGHT_DETAIL_CREATION_RECORD,
+    CURRENT_DETAIL_CREATION_RECORD,
+  );
+  layered = replaceExactCount(
+    layered,
+    "pre-tight canonical traits section",
+    PRE_TIGHT_DETAIL_TRAITS_SECTION,
+    "",
+  );
+  layered = replaceExactCount(
+    layered,
+    "pre-tight token details heading",
+    PRE_TIGHT_DETAIL_TOKEN_HEADING,
+    CURRENT_DETAIL_TOKEN_HEADING,
+  );
+  layered = replaceExactCount(
+    layered,
+    "current detail record body",
+    CURRENT_DETAIL_RECORD_BODY,
+    `${CURRENT_DETAIL_RECORD_BODY}${CURRENT_DETAIL_TRAITS_VERIFICATION}`,
+  );
+  return replaceExactCount(
+    layered,
+    "tagged hidden detail hooks",
+    TAGGED_DETAIL_LEGACY_HOOKS,
+    CURRENT_DETAIL_LEGACY_HOOKS,
+  );
+}
+
 function restoreMainSnapshot(source) {
   let currentSource = replaceExactCount(
     source,
@@ -203,6 +401,20 @@ function restoreMainSnapshot(source) {
     CURRENT_GALLERY_RENDER,
     "",
   );
+  currentSource = replaceExactCount(
+    currentSource,
+    "current THOUGHT detail spec Markdown link",
+    CURRENT_DETAIL_SPEC_LINK,
+    TAGGED_DETAIL_SPEC_LINK,
+  );
+  for (const [tagged, current] of TAGGED_DETAIL_SPEC_STATUS) {
+    currentSource = replaceExactCount(
+      currentSource,
+      `current THOUGHT detail spec status: ${current}`,
+      current,
+      tagged,
+    );
+  }
   let restored = replaceExactCount(
     currentSource,
     "CLI surface symbol",
@@ -313,9 +525,9 @@ function restoreMainSnapshot(source) {
       TAGGED_GALLERY_REDIRECT,
     ],
     [
-      "current detail gallery configuration",
-      CURRENT_DETAIL_GALLERY_CONFIGURATION,
-      TAGGED_DETAIL_GALLERY_CONFIGURATION,
+      "current detail home configuration",
+      CURRENT_DETAIL_HOME_CONFIGURATION,
+      TAGGED_DETAIL_HOME_CONFIGURATION,
     ],
   ];
   for (const [label, from, to] of replacements) {
@@ -488,6 +700,13 @@ export function restoreThoughtDevSnapshotSource(source, fileKey) {
 export function restoreThoughtDevIndexSnapshot(html) {
   let current = replaceExactCount(
     html,
+    "current THOUGHT detail home link",
+    CURRENT_DETAIL_HOME_LINK,
+    TAGGED_DETAIL_HOME_LINK,
+  );
+  current = restorePreTightDetailGrouping(current);
+  current = replaceExactCount(
+    current,
     "current THOUGHT detail title hierarchy",
     CURRENT_DETAIL_TITLE,
     TAGGED_DETAIL_TITLE,
@@ -528,6 +747,13 @@ export function restoreThoughtDevIndexSnapshot(html) {
     TAGGED_DETAIL_ONCHAIN_TO_RECORD,
     CURRENT_DETAIL_ONCHAIN_TO_RECORD,
   );
+  layered = layerTightDetailGrouping(layered);
+  layered = replaceExactCount(
+    layered,
+    "tagged THOUGHT detail home link",
+    TAGGED_DETAIL_HOME_LINK,
+    CURRENT_DETAIL_HOME_LINK,
+  );
   const query = `${THOUGHT_DEV_SNAPSHOT_QUERY_PARAM}=${THOUGHT_DEV_SNAPSHOT_QUERY_VALUE}`;
   return [
     ["tagged stylesheet reference", 'href="/src/style.css"', `href="/src/style.css?${query}"`],
@@ -563,14 +789,28 @@ export function loadThoughtDevSnapshotFile(workspaceRoot, fileKey) {
     TAGGED_GALLERY_REDIRECT,
     CURRENT_GALLERY_REDIRECT,
   );
-  const currentDetailGalleryConfiguration = replaceExactCount(
+  const currentDetailHomeConfiguration = replaceExactCount(
     currentGalleryRedirect,
-    "tagged detail gallery configuration",
-    TAGGED_DETAIL_GALLERY_CONFIGURATION,
-    CURRENT_DETAIL_GALLERY_CONFIGURATION,
+    "tagged detail home configuration",
+    TAGGED_DETAIL_HOME_CONFIGURATION,
+    CURRENT_DETAIL_HOME_CONFIGURATION,
   );
+  let currentSpecLink = replaceExactCount(
+    currentDetailHomeConfiguration,
+    "tagged THOUGHT detail spec JSON link",
+    TAGGED_DETAIL_SPEC_LINK,
+    CURRENT_DETAIL_SPEC_LINK,
+  );
+  for (const [tagged, current] of TAGGED_DETAIL_SPEC_STATUS) {
+    currentSpecLink = replaceExactCount(
+      currentSpecLink,
+      `tagged THOUGHT detail spec status: ${tagged}`,
+      tagged,
+      current,
+    );
+  }
   return replaceExactCount(
-    currentDetailGalleryConfiguration,
+    currentSpecLink,
     "tagged thought render marker",
     TAGGED_THOUGHT_RENDER_MARKER,
     `${CURRENT_GALLERY_RENDER}${TAGGED_THOUGHT_RENDER_MARKER}`,

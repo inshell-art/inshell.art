@@ -4355,9 +4355,6 @@ html.thought-route {
   --thought-detail-header-gap: 20px;
   --thought-detail-header-margin-bottom: 18px;
   --thought-detail-link-gap: 18px;
-  --thought-detail-assurance-gap: 3px;
-  --thought-detail-assurance-padding: 0;
-  --thought-detail-assurance-bg: transparent;
   --thought-detail-text-line-height: 1.55;
   --thought-detail-label-letter-spacing: 0.08em;
   --thought-detail-verification-gap: 32px;
@@ -4365,6 +4362,16 @@ html.thought-route {
   --thought-detail-mobile-layout-gap: 20px;
   --thought-detail-mobile-header-gap: 12px;
   --thought-detail-mobile-min-height-offset: 36px;
+  --thought-detail-body-align-content: start;
+  --thought-detail-body-auto-rows: max-content;
+  text-rendering: auto;
+  -webkit-font-smoothing: auto;
+  -moz-osx-font-smoothing: auto;
+}
+
+.thought-detail__body {
+  align-content: var(--thought-detail-body-align-content);
+  grid-auto-rows: var(--thought-detail-body-auto-rows);
 }
 
 .thought-detail__header {
@@ -4372,14 +4379,22 @@ html.thought-route {
   margin-bottom: var(--thought-detail-header-margin-bottom);
 }
 
+.thought-detail__title {
+  min-width: 0;
+}
+
 .thought-detail__links {
+  flex: 0 0 auto;
   gap: var(--thought-detail-link-gap);
+}
+
+.thought-detail__link {
+  white-space: nowrap;
 }
 
 .thought-detail__link,
 .thought-detail__status,
 .thought-detail__text,
-.thought-detail__attestation-summary,
 .thought-detail__fields dd {
   min-width: 0;
   line-height: var(--thought-detail-text-line-height);
@@ -4389,15 +4404,6 @@ html.thought-route {
 .thought-detail__value-link {
   max-width: 100%;
   overflow-wrap: anywhere;
-}
-
-.thought-detail__attestation-summary {
-  margin: 0;
-  color: var(--text);
-}
-
-.thought-detail__attestation {
-  font-weight: var(--thought-detail-font-weight);
 }
 
 .thought-detail__section {
@@ -4415,8 +4421,15 @@ html.thought-route {
   letter-spacing: var(--thought-detail-label-letter-spacing);
 }
 
+.thought-detail__dialogue-role {
+  color: var(--muted);
+  line-height: var(--thought-detail-text-line-height);
+  letter-spacing: normal;
+}
+
 .thought-detail__fields dt {
   color: var(--muted);
+  line-height: var(--thought-detail-text-line-height);
 }
 
 .thought-detail__record {

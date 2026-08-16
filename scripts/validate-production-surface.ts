@@ -508,7 +508,9 @@ function checkThoughtProductionGuards() {
   requireSnippets("package.json", ["test:thought-runtime"]);
   requireSnippets("apps/home/package.json", [
     '"test:presepolia": "pnpm run test:unit"',
-    '"test:unit": "jest --runInBand"',
+    '"test:all": "jest --runInBand --coverage=false"',
+    '"test:coverage": "jest --runInBand --runTestsByPath',
+    '"test:unit": "pnpm run test:all && pnpm run test:coverage"',
   ]);
   requireSnippets("apps/home/jest.config.cjs", [
     'testMatch: ["<rootDir>/tests/**/*.test.{ts,tsx}"]',

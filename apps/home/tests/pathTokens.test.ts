@@ -216,7 +216,11 @@ describe("path token inventory", () => {
       request: jest.fn(async ({ method, params }: any) => {
         if (method === "eth_blockNumber") return "0x10";
         if (method === "eth_getLogs") {
-          return [transferLog(ZERO_TOPIC, OWNER, 1_000_000_000_000_000n, 8, 0)];
+          return [
+            transferLog(ZERO_TOPIC, OWNER, 1n, 4, 0),
+            transferLog(ZERO_TOPIC, OTHER, 2n, 6, 1),
+            transferLog(ZERO_TOPIC, OWNER, 1_000_000_000_000_000n, 8, 2),
+          ];
         }
         if (method === "eth_call") {
           const call = params[0];
@@ -327,6 +331,16 @@ describe("path token inventory", () => {
       "PATH #1",
       "PATH #2",
       "PATH #1000000000000000",
+    ]);
+    expect(
+      tokens.map(({ mintBlockNumber, mintLogIndex }) => ({
+        mintBlockNumber,
+        mintLogIndex,
+      })),
+    ).toEqual([
+      { mintBlockNumber: 4, mintLogIndex: 0 },
+      { mintBlockNumber: 6, mintLogIndex: 1 },
+      { mintBlockNumber: 8, mintLogIndex: 2 },
     ]);
     expect(tokens[0]?.contractState).toEqual({
       stage: 0,

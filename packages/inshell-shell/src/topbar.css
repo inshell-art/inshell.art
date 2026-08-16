@@ -147,6 +147,7 @@
   color: var(--text);
   background: var(--panel);
   border: 1px solid var(--panel-border);
+  font-size: var(--shell-context-panel-font-size);
   box-shadow: var(--shell-wallet-modal-shadow);
 }
 
@@ -189,20 +190,31 @@
 .inshell-wallet-modal__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--shell-context-popover-row-gap);
   margin-top: 18px;
+  color: var(--muted);
+  font-style: italic;
 }
 
 .inshell-wallet-modal__actions button {
+  min-height: var(--shell-topbar-min-height);
   padding: var(--shell-wallet-modal-action-padding);
-  color: var(--accent);
-  border: 1px solid var(--accent);
+  color: inherit;
+  border: 0;
+  text-decoration: underline;
+  text-underline-offset: var(--shell-secondary-action-underline-offset);
   cursor: pointer;
+}
+
+.inshell-wallet-modal__actions button:not(:disabled):hover,
+.inshell-wallet-modal__actions button:not(:disabled):focus-visible {
+  color: var(--accent);
 }
 
 .inshell-wallet-modal__actions button:disabled {
   color: var(--muted);
-  border-color: var(--ghost-border);
   cursor: not-allowed;
 }
 

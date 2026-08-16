@@ -188,6 +188,9 @@ export type PathTokenApiItem = {
   owner?: string;
   tokenUri: string;
   metadata: Record<string, unknown>;
+  mintBlockNumber?: number;
+  mintLogIndex?: number;
+  mintTxHash?: string;
   blockNumber?: number;
   txHash?: string;
 };

@@ -30,6 +30,7 @@ module.exports = {
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
     "^@inshell/(.*)$": "<rootDir>/../../packages/$1/src",
+    "\\.md\\?url$": "<rootDir>/tests/fileMock.cjs",
     "\\.css$": "identity-obj-proxy",
   },
   setupFilesAfterEnv: ["<rootDir>/tests/jest.setup.js"],

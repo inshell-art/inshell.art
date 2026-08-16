@@ -76,6 +76,8 @@ jest.mock("@/hooks/useAuctionBids", () => ({
 
 import App from "../src/App";
 import { ThoughtDetail } from "../src/components/ThoughtDetailPage";
+import { resolveThoughtSpecHref } from "../src/services/thoughtSpecLink";
+import thoughtContractIntegrationLock from "../../thought/contract-integration/current/integration-lock.json";
 import { overlayThoughtMintProgress } from "../src/components/PathPage";
 import { COLOR_FONT, COLOR_FONT_RAW } from "../src/content/colorFont";
 import { DOCS_SOURCE } from "../src/content/docs";
@@ -165,6 +167,15 @@ function pathTokenApiItem(overrides: Partial<Record<string, unknown>> = {}) {
     tokenIdLabel: String(overrides.tokenIdLabel ?? tokenId),
     owner: String(overrides.owner ?? "0x170a00000000000000000000000000000000e100"),
     tokenUri: String(overrides.tokenUri ?? `api:path:${tokenId}`),
+    ...(overrides.mintBlockNumber === undefined
+      ? {}
+      : { mintBlockNumber: overrides.mintBlockNumber }),
+    ...(overrides.mintLogIndex === undefined
+      ? {}
+      : { mintLogIndex: overrides.mintLogIndex }),
+    ...(overrides.mintTxHash === undefined
+      ? {}
+      : { mintTxHash: overrides.mintTxHash }),
     ...(overrides.contractState
       ? { contractState: overrides.contractState }
       : {}),
@@ -371,6 +382,59 @@ describe("App Component", () => {
     expect(screen.getByText("all $PATH · 1")).toBeInTheDocument();
     expect(screen.getByLabelText("$PATH #1 card")).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Inshell surfaces" })).toBeNull();
+  });
+
+  test("orders Spark and regular PATH tokens together by mint chronology", async () => {
+    const sparkState = (serial: number) => ({
+      stage: 0,
+      stageMinted: 0,
+      permissionEpoch: "0",
+      isSparker: true,
+      locked: true,
+      sparkName: `fixture ${serial}`,
+      quotas: { THOUGHT: 1, WILL: 1, AWA: 1 },
+    });
+    mockPathAndThoughtApis({
+      pathItems: [
+        pathTokenApiItem({
+          tokenId: "1000000000000000",
+          mintBlockNumber: 8,
+          mintLogIndex: 1,
+          contractState: sparkState(1),
+        }),
+        pathTokenApiItem({
+          tokenId: "2",
+          mintBlockNumber: 12,
+          mintLogIndex: 0,
+        }),
+        pathTokenApiItem({
+          tokenId: "1000000000000001",
+          mintBlockNumber: 8,
+          mintLogIndex: 2,
+          contractState: sparkState(2),
+        }),
+        pathTokenApiItem({
+          tokenId: "1",
+          mintBlockNumber: 10,
+          mintLogIndex: 0,
+        }),
+      ],
+      thoughtItems: [],
+    });
+    window.history.pushState({}, "", "/path");
+    render(<App />);
+
+    expect(await screen.findByText("all $PATH · 4")).toBeInTheDocument();
+    expect(
+      [...document.querySelectorAll(".path-page-token")].map((card) =>
+        card.getAttribute("data-path-token-id"),
+      ),
+    ).toEqual([
+      "2",
+      "1",
+      "1000000000000001",
+      "1000000000000000",
+    ]);
   });
 
   test("uses the operator-configured PATH local chain and wallet label", () => {
@@ -1083,7 +1147,40 @@ describe("App Component", () => {
     expect(
       screen.getByRole("img", { name: `${name} movement progress` }),
     ).toBeInTheDocument();
+    const lifecycle = within(screen.getByLabelText(`${name} lifecycle`));
+    expect(lifecycle.queryByText("permission epoch")).toBeNull();
+    expect(lifecycle.queryByText("authorization generation")).toBeNull();
+    expect(lifecycle.queryByText("advanced contract state")).toBeNull();
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
+  });
+
+  test("keeps a regular PATH authorization generation behind advanced contract state", async () => {
+    mockPathAndThoughtApis({
+      pathItems: [
+        pathTokenApiItem({
+          contractState: {
+            stage: 0,
+            stageMinted: 0,
+            permissionEpoch: "4",
+            isSparker: false,
+            locked: false,
+            sparkName: "",
+            quotas: { THOUGHT: 1, WILL: 10, AWA: 1 },
+          },
+        }),
+      ],
+      thoughtItems: [],
+    });
+    window.history.pushState({}, "", "/path/1?fixture=live");
+    render(<App />);
+
+    const lifecycle = within(await screen.findByLabelText("$PATH #1 lifecycle"));
+    expect(lifecycle.queryByText("permission epoch")).toBeNull();
+    const disclosure = lifecycle.getByText("advanced contract state").closest("details");
+    expect(disclosure).not.toHaveAttribute("open");
+    expect(within(disclosure!).getByText("authorization generation")).toBeInTheDocument();
+    expect(within(disclosure!).getByText("4")).toBeInTheDocument();
+    expect(within(disclosure!).getByText("contract: permissionEpoch")).toBeInTheDocument();
   });
 
   test("does not add movement links from an inactive THOUGHT release", async () => {
@@ -1381,9 +1478,9 @@ describe("App Component", () => {
 
     expect(document.title).toBe("THOUGHT #1");
     expect(screen.getByRole("heading", { level: 1, name: /THOUGHT\s+#\s*1/ })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "[ gallery ]" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "[ home ]" })).toHaveAttribute(
       "href",
-      "/gallery#thought-1",
+      "/#thought-1",
     );
     expect(screen.getByRole("link", { name: "[ create yours ]" })).toBeInTheDocument();
     expect(screen.getByText("Current THOUGHT collection is not deployed.")).toBeInTheDocument();
@@ -1395,6 +1492,10 @@ describe("App Component", () => {
   });
 
   test("groups the THOUGHT detail record into the PATH-canonical rail hierarchy", () => {
+    const selectedSpec = thoughtContractIntegrationLock.runtimeBaseline.selectedSpec;
+    expect(resolveThoughtSpecHref(thoughtGalleryItem() as any)).toBe(
+      "/api/thought-spec?id=1",
+    );
     render(
       <ThoughtDetail
         item={thoughtGalleryItem({
@@ -1405,6 +1506,8 @@ describe("App Component", () => {
           rawText: "canonical text",
           model: "test-agent-model",
           provenanceJson: '{"v":1}',
+          thoughtSpecId: selectedSpec.id,
+          thoughtSpecHash: selectedSpec.hash,
         }) as any}
       />,
     );
@@ -1432,9 +1535,9 @@ describe("App Component", () => {
       record.getByRole("heading", { name: "creation record" }).closest("section")!,
     );
     expect(creationRecord.getByText("test-agent-model")).toBeInTheDocument();
-    expect(creationRecord.getByRole("link", { name: "THOUGHT.v1.md ↗" })).toHaveAttribute(
+    expect(creationRecord.getByRole("link", { name: "THOUGHT.v2.md ↗" })).toHaveAttribute(
       "href",
-      "/api/thought-spec?id=7",
+      "/__test-assets__/THOUGHT.v2.md",
     );
     expect(creationRecord.getByRole("link", { name: "$PATH #4 ↗" })).toHaveAttribute(
       "href",
@@ -1544,7 +1647,22 @@ describe("App Component", () => {
       /\.thought-detail__links\s*{[^}]*flex-wrap:\s*wrap;[^}]*justify-content:\s*flex-end;/s,
     );
     expect(css).toMatch(
+      /\.path-detail__links\s*{[^}]*flex:\s*0 0 auto;/s,
+    );
+    expect(css).toMatch(
+      /\.path-detail__link\s*{[^}]*white-space:\s*nowrap;/s,
+    );
+    expect(css).toMatch(
+      /\.thought-detail__links\s*{[^}]*flex:\s*0 0 auto;/s,
+    );
+    expect(css).toMatch(
+      /\.thought-detail__link\s*{[^}]*white-space:\s*nowrap;/s,
+    );
+    expect(css).toMatch(
       /\.thought-detail__section\s*{[^}]*display:\s*grid;[^}]*gap:\s*var\(--thought-detail-section-title-gap\);/s,
+    );
+    expect(css).toMatch(
+      /\.thought-detail__dialogue-role\s*{[^}]*color:\s*var\(--muted\);/s,
     );
     expect(css).toMatch(/\.thought-detail__fields dt\s*{[^}]*color:\s*var\(--muted\);/s);
     expect(css).toMatch(

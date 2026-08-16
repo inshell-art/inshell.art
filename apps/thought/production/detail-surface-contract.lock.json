@@ -1,0 +1,62 @@
+{
+  "schema": "inshell.detail-surface-contract-lock.v1",
+  "artifactId": "inshell-detail-surface-contract-20260816-r1",
+  "status": "operator-accepted",
+  "authority": {
+    "layoutCanon": "PATH detail",
+    "navigationRecoveryCommit": "5180f71764b33a40f9e68243ffe87a0fb57ea7fb",
+    "changePolicy": "A semantic change requires a new artifact ID, an explicit operator-reviewed lock update, and regenerated acceptance evidence. Routine layout work must not update this lock."
+  },
+  "routes": {
+    "pathDetail": "/path/<tokenId>",
+    "thoughtDetail": "/thought/<tokenId>"
+  },
+  "thoughtDetail": {
+    "homeReturn": {
+      "label": "[ home ]",
+      "hrefTemplate": "/#thought-<tokenId>",
+      "productionOrigin": "https://inshell.art"
+    },
+    "create": {
+      "label": "[ create yours ]",
+      "hrefPath": "/thought",
+      "standaloneFreshEntryQuery": "new=1"
+    },
+    "railHeadings": [
+      "work",
+      "creation record",
+      "token details"
+    ],
+    "collapsedRecordHeadings": [
+      "canonical traits",
+      "contract commitments",
+      "release binding"
+    ]
+  },
+  "pathCanonicalVisuals": {
+    "desktopRailWidth": "420px",
+    "desktopLayoutGap": "32px",
+    "headerGap": "20px",
+    "headerMarginBottom": "18px",
+    "sectionGap": "20px",
+    "sectionPadding": "18px",
+    "sectionHeadingGap": "8px",
+    "fieldGap": "7px",
+    "fieldLabelWidth": "84px",
+    "fieldColumnGap": "12px",
+    "textLineHeight": "1.55",
+    "labelLetterSpacing": "0.08em",
+    "tabletBreakpoint": "980px",
+    "tabletPanelSize": "680px",
+    "tabletGutter": "56px",
+    "mobileBreakpoint": "760px",
+    "mobileGutter": "28px",
+    "mobileLayoutGap": "20px",
+    "mobileHeaderGap": "12px",
+    "copyColor": "var(--text)",
+    "labelColor": "var(--muted)",
+    "valueColor": "var(--text)",
+    "fontWeight": "var(--weight-mid)",
+    "titleFontWeight": "var(--weight-thin)"
+  }
+}

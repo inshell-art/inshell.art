@@ -75,12 +75,14 @@
   --shell-topbar-dot-pending: #d0a200;
   --shell-topbar-dot-error: #cc4c4c;
   --shell-context-popover-row-gap: 6px;
+  --shell-context-panel-font-size: var(--font-size-14);
   --shell-wallet-modal-width: min(360px, calc(100vw - 40px));
   --shell-wallet-modal-padding: 18px 20px;
   --shell-wallet-modal-offset: 8px;
   --shell-wallet-modal-shadow: 0 16px 36px rgba(0, 0, 0, 0.24);
   --shell-wallet-modal-row-label-width: 92px;
-  --shell-wallet-modal-action-padding: 6px 8px;
+  --shell-wallet-modal-action-padding: 0;
+  --shell-secondary-action-underline-offset: 3px;
   --shell-wallet-picker-min-width: 190px;
   --shell-wallet-picker-padding: 8px 10px;
   --shell-wallet-picker-z-index: var(--shell-wallet-modal-z-index);

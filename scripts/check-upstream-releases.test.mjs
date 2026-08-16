@@ -190,7 +190,16 @@ test("required build and deploy jobs execute the full upstream gates", async () 
     await fs.readFile(path.join(root, "apps/home/package.json"), "utf8"),
   );
   assert.equal(homePackageJson.scripts?.["test:presepolia"], "pnpm run test:unit");
-  assert.equal(homePackageJson.scripts?.["test:unit"], "jest --runInBand");
+  assert.equal(
+    homePackageJson.scripts?.["test:unit"],
+    "pnpm run test:all && pnpm run test:coverage",
+  );
+  assert.equal(homePackageJson.scripts?.["test:all"], "jest --runInBand --coverage=false");
+  assert.match(
+    homePackageJson.scripts?.["test:coverage"] ?? "",
+    /^jest --runInBand --runTestsByPath /u,
+    "the focused coverage floor must remain independent from full test discovery",
+  );
   assert.match(
     packageJson.scripts?.["test:presepolia"] ?? "",
     /pnpm run test:upstream-release-check/u,

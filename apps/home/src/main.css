@@ -1395,7 +1395,7 @@ button,
   border: 1px solid var(--panel-border);
   background: var(--panel);
   color: var(--text);
-  font-size: var(--font-size-12);
+  font-size: var(--shell-context-panel-font-size);
   line-height: 1.35;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
   pointer-events: auto;
@@ -1450,7 +1450,7 @@ button,
 .dotfield__mint-review-link {
   color: inherit;
   text-decoration: underline;
-  text-underline-offset: 3px;
+  text-underline-offset: var(--shell-secondary-action-underline-offset);
 }
 
 .dotfield__mint-review-link:hover,
@@ -1478,7 +1478,7 @@ button,
   border: 1px solid var(--panel-border);
   background: var(--panel);
   color: var(--text);
-  font-size: var(--font-size-12);
+  font-size: var(--shell-context-panel-font-size);
   line-height: 1.35;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
   pointer-events: auto;
@@ -2599,6 +2599,7 @@ button,
 }
 
 .path-detail__title {
+  min-width: 0;
   margin: 0;
   color: var(--accent);
   font-size: var(--shell-route-title-font-size);
@@ -2609,6 +2610,7 @@ button,
 
 .path-detail__links {
   display: flex;
+  flex: 0 0 auto;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: flex-end;
@@ -2627,6 +2629,7 @@ button,
 
 .path-detail__link {
   font-size: var(--font-size-16);
+  white-space: nowrap;
 }
 
 .path-detail__status--error {
@@ -2717,6 +2720,25 @@ button,
   font-size: var(--font-size-14);
   font-weight: var(--weight-semibold);
   letter-spacing: var(--path-detail-label-letter-spacing);
+}
+
+.path-detail__advanced summary {
+  color: var(--text);
+  font-size: var(--font-size-14);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--path-detail-label-letter-spacing);
+}
+
+.path-detail__advanced[open] summary {
+  margin-bottom: var(--path-detail-section-heading-gap);
+}
+
+.path-detail__contract-name {
+  margin: var(--path-detail-section-heading-gap) 0 0;
+  color: var(--muted);
+  font-size: var(--font-size-12);
+  font-weight: var(--path-detail-font-weight);
+  line-height: var(--path-detail-text-line-height);
 }
 
 .path-detail__copy {
@@ -2891,6 +2913,7 @@ button,
 }
 
 .thought-detail__title {
+  min-width: 0;
   margin: 0;
   color: var(--accent);
   font-size: var(--shell-route-title-font-size);
@@ -2901,6 +2924,7 @@ button,
 
 .thought-detail__links {
   display: flex;
+  flex: 0 0 auto;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: flex-end;
@@ -2921,6 +2945,7 @@ button,
 
 .thought-detail__link {
   font-size: var(--font-size-16);
+  white-space: nowrap;
 }
 
 .thought-detail__status--error {

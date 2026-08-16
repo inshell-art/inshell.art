@@ -270,7 +270,10 @@ function sortPathTokensReverseChronologically(args: {
   tokenBase?: number;
   epochBase?: number;
 }) {
-  const mintedAtByTokenId = new Map<string, number>();
+  const mintOrderByTokenId = new Map<
+    string,
+    { blockNumber?: number; logIndex?: number; mintedAtMs?: number }
+  >();
   for (const item of args.items) {
     const issuance = findPathIssuance({
       tokenId: item.tokenId,
@@ -278,14 +281,40 @@ function sortPathTokensReverseChronologically(args: {
       tokenBase: args.tokenBase,
       epochBase: args.epochBase,
     });
-    if (issuance) {
-      mintedAtByTokenId.set(item.tokenIdLabel, issuance.mintedAtMs);
-    }
+    mintOrderByTokenId.set(item.tokenIdLabel, {
+      blockNumber: item.mintBlockNumber ?? issuance?.blockNumber,
+      logIndex: item.mintLogIndex,
+      mintedAtMs: issuance?.mintedAtMs,
+    });
   }
 
   return args.items.slice().sort((left, right) => {
-    const leftMintedAt = mintedAtByTokenId.get(left.tokenIdLabel);
-    const rightMintedAt = mintedAtByTokenId.get(right.tokenIdLabel);
+    const leftOrder = mintOrderByTokenId.get(left.tokenIdLabel);
+    const rightOrder = mintOrderByTokenId.get(right.tokenIdLabel);
+    const leftBlock = leftOrder?.blockNumber;
+    const rightBlock = rightOrder?.blockNumber;
+    if (
+      leftBlock !== undefined &&
+      rightBlock !== undefined &&
+      leftBlock !== rightBlock
+    ) {
+      return rightBlock - leftBlock;
+    }
+    if (leftBlock !== undefined && rightBlock === undefined) return -1;
+    if (leftBlock === undefined && rightBlock !== undefined) return 1;
+
+    const leftLogIndex = leftOrder?.logIndex;
+    const rightLogIndex = rightOrder?.logIndex;
+    if (
+      leftLogIndex !== undefined &&
+      rightLogIndex !== undefined &&
+      leftLogIndex !== rightLogIndex
+    ) {
+      return rightLogIndex - leftLogIndex;
+    }
+
+    const leftMintedAt = leftOrder?.mintedAtMs;
+    const rightMintedAt = rightOrder?.mintedAtMs;
     if (
       leftMintedAt !== undefined &&
       rightMintedAt !== undefined &&
@@ -952,12 +981,6 @@ function PathTokenDetail({
               <dt>transfer</dt>
               <dd>{item.contractState?.locked ? "locked" : "transferable"}</dd>
             </div>
-            {item.contractState ? (
-              <div>
-                <dt>permission epoch</dt>
-                <dd>{item.contractState.permissionEpoch}</dd>
-              </div>
-            ) : null}
             <div>
               <dt>owner</dt>
               <dd title={item.owner}>
@@ -1083,6 +1106,19 @@ function PathTokenDetail({
             </div>
           </dl>
         </section>
+
+        {item.contractState && !item.contractState.isSparker ? (
+          <details className="path-detail__section path-detail__advanced">
+            <summary>advanced contract state</summary>
+            <dl className="path-detail__fields">
+              <div>
+                <dt>authorization generation</dt>
+                <dd>{item.contractState.permissionEpoch}</dd>
+              </div>
+            </dl>
+            <p className="path-detail__contract-name">contract: permissionEpoch</p>
+          </details>
+        ) : null}
       </div>
     </div>
   );

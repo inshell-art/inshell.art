@@ -187,19 +187,36 @@ test("THOUGHT detail uses the canonical record layout", () => {
   assert.ok(railStart >= 0 && railEnd > railStart);
   assert.ok(detailStyleStart >= 0 && detailStyleEnd > detailStyleStart);
   assert.match(railMarkup, /<h2>work<\/h2>/);
-  assert.match(railMarkup, /<h2>creation provenance<\/h2>/);
-  assert.match(railMarkup, /<h2>canonical traits<\/h2>/);
-  assert.match(railMarkup, /<h2>on-chain record<\/h2>/);
+  assert.match(railMarkup, /<h2>creation record<\/h2>/);
+  assert.match(railMarkup, /<h2>token details<\/h2>/);
+  assert.doesNotMatch(railMarkup, /<h2>canonical traits<\/h2>/);
+  assert.doesNotMatch(railMarkup, /<dt>attestation<\/dt>/);
+  assert.match(detailMarkup, /thought-detail__legacy-hooks" hidden[\s\S]*?id="thought-detail-attestation"/);
   assert.match(detailMarkup, /<summary>verify \/ raw data<\/summary>/);
+  assert.match(
+    detailMarkup,
+    /<summary>verify \/ raw data<\/summary>[\s\S]*?<h3>canonical traits<\/h3>[\s\S]*?id="thought-detail-traits"/,
+    "canonical metadata remains available inside the collapsed verification record",
+  );
   assert.ok(
     detailMarkup.indexOf('<summary>verify / raw data</summary>') > railEnd,
     "raw verification stays collapsed below the canonical record rail",
   );
   assert.doesNotMatch(detailMarkup, /thought-detail__support/);
   assert.match(detailMarkup, /canonical artwork · ThoughtNFT\.svgOf/);
+  assert.match(
+    detailMarkup,
+    /id="thought-detail-spec-ref"[^>]*>THOUGHT\.v2\.md ↗<\/a>/,
+    "the creation record presents the selected spec as a Markdown document",
+  );
   assert.doesNotMatch(detailMarkup, /<h2>color font<\/h2>/i);
   assert.doesNotMatch(detailMarkup, /<h2>model return<\/h2>/i);
   assert.match(thoughtCss, /\.thought-detail__body\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) var\(--thought-detail-rail-width\)/);
+  assert.match(
+    detailStyle,
+    /\.thought-detail__body\s*\{[\s\S]*?align-content:\s*var\(--thought-detail-body-align-content\);[\s\S]*?grid-auto-rows:\s*var\(--thought-detail-body-auto-rows\)/,
+    "the verification row stays content-sized instead of stretching with the browser viewport",
+  );
   assert.match(thoughtCss, /\.thought-detail__record\s*\{[\s\S]*?grid-column:\s*1 \/ -1/);
   assert.match(thoughtCss, /@media \(max-width:\s*980px\)[\s\S]*?\.thought-detail__body\s*\{[\s\S]*?grid-template-columns:\s*1fr/);
   assert.match(detailStyle, /\.thought-detail__section\s*\{[\s\S]*?display:\s*grid;[\s\S]*?gap:\s*var\(--thought-detail-section-title-gap\)/);
@@ -213,21 +230,27 @@ test("THOUGHT detail uses the canonical record layout", () => {
     /html\.thought-route body\.frontpage:has\(#thought-page\) \.frontpage-shell\s*\{\s*padding-inline:\s*var\(--thought-detail-mobile-frame-padding-inline\)/,
     "the canonical mobile gutter outranks the later CLI shell rule on detail routes",
   );
-  assert.match(
-    detailStyle,
-    /\.thought-detail\s*\{[\s\S]*?--thought-detail-assurance-padding:\s*0;[\s\S]*?--thought-detail-assurance-bg:\s*transparent;/,
-    "the legacy attestation card is flattened into the PATH-canonical rail",
-  );
-  assert.match(
-    detailStyle,
-    /\.thought-detail__attestation-summary\s*\{\s*margin:\s*0;\s*color:\s*var\(--text\);/,
-    "the attestation copy follows the PATH detail copy treatment",
-  );
+  assert.doesNotMatch(detailMarkup, /thought-detail__attestation-summary/);
   assert.match(thoughtCss, /\.thought-detail\s*\{[\s\S]*?--thought-detail-font-weight:\s*var\(--weight-mid\)/);
   assert.match(thoughtCss, /\.thought-detail__section h2\s*\{[\s\S]*?font-weight:\s*var\(--weight-semibold\)/);
   assert.match(thoughtCss, /\.thought-detail__text\s*\{[\s\S]*?font-weight:\s*var\(--thought-detail-font-weight\)/);
   assert.match(thoughtCss, /\.thought-detail__fields dt\s*\{[\s\S]*?font-weight:\s*var\(--thought-detail-font-weight\)/);
   assert.match(thoughtCss, /\.thought-detail__fields dd\s*\{[\s\S]*?font-weight:\s*var\(--thought-detail-font-weight\)/);
+  assert.match(
+    detailStyle,
+    /\.thought-detail\s*\{[\s\S]*?text-rendering:\s*auto;[\s\S]*?-webkit-font-smoothing:\s*auto;[\s\S]*?-moz-osx-font-smoothing:\s*auto;/,
+    "THOUGHT detail uses PATH's exact text rasterization",
+  );
+  assert.match(
+    detailStyle,
+    /\.thought-detail__dialogue-role\s*\{\s*color:\s*var\(--muted\);\s*line-height:\s*var\(--thought-detail-text-line-height\);\s*letter-spacing:\s*normal;/,
+    "THOUGHT work labels use the same muted color as creation-record keys",
+  );
+  assert.match(
+    detailStyle,
+    /\.thought-detail__fields dt\s*\{\s*color:\s*var\(--muted\);\s*line-height:\s*var\(--thought-detail-text-line-height\);/,
+    "THOUGHT field labels use PATH's line height",
+  );
   assert.doesNotMatch(
     detailStyle,
     /\.thought-detail__fields div\s*,?[\s\S]{0,120}?grid-template-columns:\s*1fr/,
@@ -256,6 +279,13 @@ test("THOUGHT detail is pinned to the current release and bypasses stale gallery
   assert.match(detailLoader, /readGalleryThoughts\(\{ bypassCache: true \}\)/);
   assert.match(detailLoader, /EVM_ADDRESSES\.protocolRelease\?\.id/);
   assert.match(detailLoader, /EVM_ADDRESSES\.protocolRelease\?\.manifestHash/);
+  assert.match(thoughtMain, /const specMarkdownFilename = \(ref\?: string\) =>/);
+  assert.match(
+    thoughtMain,
+    /new Blob\(\[spec\.text\], \{ type: "text\/markdown;charset=utf-8" \}\)/,
+    "the verified registry bytes open as Markdown rather than a JSON wrapper",
+  );
+  assert.doesNotMatch(thoughtMain, /const thoughtSpecCachePayload =/);
 });
 
 test("local Agent runs keep one release snapshot from creation through return", () => {
@@ -511,14 +541,14 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
   assert.doesNotMatch(restoredIndexHtml, /requestedSurface/);
   assert.match(
     restoredIndexHtml,
-    /<aside class="thought-detail__rail"[\s\S]*?<h2>work<\/h2>[\s\S]*?<h2>creation provenance<\/h2>[\s\S]*?<h2>canonical traits<\/h2>[\s\S]*?<h2>on-chain record<\/h2>[\s\S]*?<\/aside>\s*<details class="thought-detail__record/,
-    "the tagged Agent shell receives the current PATH-canonical detail rail only after byte verification",
+    /<aside class="thought-detail__rail"[\s\S]*?<h2>work<\/h2>[\s\S]*?<h2>creation record<\/h2>[\s\S]*?<h2>token details<\/h2>[\s\S]*?<\/aside>\s*<details class="thought-detail__record[\s\S]*?<h3>canonical traits<\/h3>/,
+    "the tagged Agent shell receives the current tightened PATH-canonical detail rail only after byte verification",
   );
   assert.doesNotMatch(restoredIndexHtml, /thought-detail__support/);
   assert.match(
     restoredIndexHtml,
-    /id="thought-detail-gallery-link"[^>]*href="https:\/\/inshell\.art\/gallery">\[ gallery \]<\/a>/,
-    "the detail surface returns to the canonical gallery route",
+    /id="thought-detail-gallery-link"[^>]*href="https:\/\/inshell\.art\/">\[ home \]<\/a>/,
+    "the detail surface returns to the canonical Home gallery",
   );
   assert.match(restoredIndexHtml, /style\.css\?inshell-thought-dev-snapshot=da998e1/);
   assert.match(restoredIndexHtml, /main\.ts\?inshell-thought-dev-snapshot=da998e1/);
@@ -543,8 +573,14 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
   );
   assert.match(
     restoredMain,
-    /thoughtDetailGalleryLink\.href = galleryUrl\(ROUTE_THOUGHT_NFT_ID\)/,
-    "the detail gallery link targets the matching card on the canonical gallery route",
+    /thoughtDetailGalleryLink\.href = inshellHomeUrl\(ROUTE_THOUGHT_NFT_ID\)/,
+    "the detail Home link targets the matching card in the canonical Home gallery",
+  );
+  assert.match(restoredMain, /const specMarkdownFilename = \(ref\?: string\) =>/);
+  assert.match(
+    restoredMain,
+    /new Blob\(\[spec\.text\], \{ type: "text\/markdown;charset=utf-8" \}\)/,
+    "the byte-verified snapshot receives the current Markdown spec link after verification",
   );
   assert.doesNotMatch(
     restoredMain,
@@ -558,6 +594,11 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
     restoredStyle,
     /INSHELL_CURRENT_THOUGHT_DETAIL_PATH_CANON_START[\s\S]*?@media \(max-width: 980px\)[\s\S]*?\.thought-detail__body\s*\{\s*grid-template-columns:\s*1fr/,
     "the tagged stylesheet receives the current responsive detail overlay only after byte verification",
+  );
+  assert.match(
+    restoredStyle,
+    /INSHELL_CURRENT_THOUGHT_DETAIL_PATH_CANON_START[\s\S]*?\.thought-detail__body\s*\{[\s\S]*?align-content:\s*var\(--thought-detail-body-align-content\);[\s\S]*?grid-auto-rows:\s*var\(--thought-detail-body-auto-rows\)/,
+    "the restored snapshot keeps verification spacing independent of viewport height",
   );
   assert.equal(shouldRestoreThoughtDevIndexSnapshot("/thought/", "/thought/"), true);
   assert.equal(

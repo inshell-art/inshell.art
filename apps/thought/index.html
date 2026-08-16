@@ -877,7 +877,7 @@
       <header class="thought-detail__header">
         <h1 id="thought-detail-title" class="thought-detail__title">THOUGHT #<span id="thought-detail-token-id">-</span></h1>
         <nav class="thought-detail__links" aria-label="THOUGHT detail links">
-          <a id="thought-detail-gallery-link" class="thought-detail__link" href="https://inshell.art/gallery">[ gallery ]</a>
+          <a id="thought-detail-gallery-link" class="thought-detail__link" href="https://inshell.art/">[ home ]</a>
           <a id="thought-detail-create-link" class="thought-detail__link" href="/thought">[ create yours ]</a>
         </nav>
       </header>
@@ -903,11 +903,7 @@
           </section>
 
           <section class="thought-detail__section">
-            <h2>creation provenance</h2>
-            <p class="thought-detail__attestation-summary">
-              <span id="thought-detail-attestation" class="thought-detail__attestation">-</span>
-              <span id="thought-detail-attestation-copy">Reading the creation record.</span>
-            </p>
+            <h2>creation record</h2>
             <dl class="thought-detail__fields">
               <div>
                 <dt>process</dt>
@@ -933,14 +929,7 @@
           </section>
 
           <section class="thought-detail__section">
-            <h2>canonical traits</h2>
-            <dl id="thought-detail-traits" class="thought-detail__fields">
-              <div><dt>status</dt><dd>reading token metadata</dd></div>
-            </dl>
-          </section>
-
-          <section class="thought-detail__section">
-            <h2>on-chain record</h2>
+            <h2>token details</h2>
             <dl class="thought-detail__fields">
               <div><dt>token</dt><dd id="thought-detail-token">-</dd></div>
               <div><dt>author</dt><dd id="thought-detail-minter">-</dd></div>
@@ -958,6 +947,12 @@
         <details class="thought-detail__record thought-detail__verification">
           <summary>verify / raw data</summary>
           <div class="thought-detail__record-body">
+            <div class="thought-detail__verification-traits">
+              <h3>canonical traits</h3>
+              <dl id="thought-detail-traits" class="thought-detail__fields">
+                <div><dt>status</dt><dd>reading token metadata</dd></div>
+              </dl>
+            </div>
             <div class="thought-detail__verification-grid">
               <div>
                 <h3>contract commitments</h3>
@@ -986,6 +981,8 @@
         </details>
 
         <div class="thought-detail__legacy-hooks" hidden aria-hidden="true">
+          <p id="thought-detail-attestation">-</p>
+          <p id="thought-detail-attestation-copy">Reading the creation record.</p>
           <p id="thought-detail-canonical-title">-</p>
           <a id="thought-detail-color-font" href="#">archived Color Font v1</a>
           <p id="thought-detail-color-font-status"></p>

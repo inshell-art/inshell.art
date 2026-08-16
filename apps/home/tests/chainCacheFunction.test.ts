@@ -316,11 +316,24 @@ describe("chain cache Pages functions", () => {
         CHAIN_CACHE_DIAGNOSTICS: "1",
       },
     });
-    const payload = (await response.json()) as { items?: Array<{ tokenIdLabel: string; metadata: any }> };
+    const payload = (await response.json()) as {
+      items?: Array<{
+        tokenIdLabel: string;
+        metadata: any;
+        mintBlockNumber?: number;
+        mintLogIndex?: number;
+        mintTxHash?: string;
+      }>;
+    };
 
     expect(response.status).toBe(200);
     expect(payload.items?.map((item) => item.tokenIdLabel)).toEqual(["1"]);
     expect(payload.items?.[0]?.metadata.name).toBe("PATH #1");
+    expect(payload.items?.[0]).toMatchObject({
+      mintBlockNumber: 10856428,
+      mintLogIndex: 0,
+      mintTxHash: `0x${"1".padStart(64, "0")}`,
+    });
     expect(fetchMock).toHaveBeenCalledWith(
       "https://target-path-rpc.example/sepolia",
       expect.objectContaining({ method: "POST" })

@@ -11,6 +11,10 @@ import {
   readCachedThoughtGallery,
   type ThoughtGalleryItem,
 } from "@/services/thoughtGallery";
+import {
+  resolveThoughtSpecHref,
+  resolveThoughtSpecName,
+} from "@/services/thoughtSpecLink";
 import { PUBLIC_NETWORK_CONFIG } from "@inshell/shared";
 
 type LoadState =
@@ -200,6 +204,7 @@ export function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
   const txUrl = explorerTxUrl(item.txHash);
   const title = thoughtTitle(item);
   const provenanceBytes = item.provenanceJson ? byteLength(item.provenanceJson) : 0;
+  const thoughtSpecName = resolveThoughtSpecName();
 
   return (
     <div className="thought-detail__body">
@@ -246,12 +251,12 @@ export function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
               <a
                 id="thought-detail-spec-ref"
                 className="thought-detail__value-link"
-                href={thoughtDetailApiUrl(item.tokenId, "spec")}
-                title="Open cached spec JSON"
+                href={resolveThoughtSpecHref(item)}
+                title={`Open ${thoughtSpecName} Markdown`}
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                THOUGHT.v1.md ↗
+                {thoughtSpecName} ↗
               </a>
             </ThoughtField>
             <ThoughtField label="model">
@@ -404,9 +409,9 @@ export default function ThoughtDetailPage({ tokenId }: { tokenId: string }) {
         <nav className="thought-detail__links" aria-label="THOUGHT detail links">
           <a
             className="thought-detail__link"
-            href={`/gallery#thought-${tokenId}`}
+            href={`/#thought-${tokenId}`}
           >
-            [ gallery ]
+            [ home ]
           </a>
           <a className="thought-detail__link" href={thoughtAppUrl()}>
             [ create yours ]

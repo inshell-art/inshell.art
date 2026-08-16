@@ -64,6 +64,9 @@ export type PathTokenInventoryItem = {
   owner?: Address;
   tokenUri: string;
   metadata: PathTokenMetadata;
+  mintBlockNumber?: number;
+  mintLogIndex?: number;
+  mintTxHash?: string;
   contractState?: {
     stage: number;
     stageMinted: number;
@@ -73,6 +76,13 @@ export type PathTokenInventoryItem = {
     sparkName: string;
     quotas: { THOUGHT: number; WILL: number; AWA: number };
   };
+};
+
+type PathTokenMintRecord = {
+  tokenId: bigint;
+  mintBlockNumber?: number;
+  mintLogIndex?: number;
+  mintTxHash?: string;
 };
 
 type PathTokenCacheMode = "default" | "bypass";
@@ -548,22 +558,34 @@ export async function loadAllPathTokenIds(args: {
   chunkSize?: number;
   maxSequentialTokenId?: number;
 }): Promise<bigint[]> {
+  return (await loadAllPathMintRecords(args)).map((record) => record.tokenId);
+}
+
+async function loadAllPathMintRecords(args: {
+  provider?: ProviderInterface;
+  pathNftAddress: string;
+  fromBlock?: number;
+  chunkSize?: number;
+  maxSequentialTokenId?: number;
+}): Promise<PathTokenMintRecord[]> {
   const provider = normalizeProvider(args.provider);
   const pathNftAddress = getAddress(args.pathNftAddress);
   const maxSequentialTokenId =
     args.maxSequentialTokenId ?? DEFAULT_MAX_SEQUENTIAL_TOKEN_ID;
-  const tokenIds: bigint[] = [];
+  const records = new Map<bigint, PathTokenMintRecord>();
   for (let tokenId = 1n; tokenId <= BigInt(maxSequentialTokenId); tokenId += 1n) {
     try {
       await ethCall<Address>(provider, pathNftAddress, "ownerOf", [tokenId]);
-      tokenIds.push(tokenId);
+      records.set(tokenId, { tokenId });
     } catch (error) {
       if (isMissingTokenError(error)) break;
       throw error;
     }
   }
   if (args.fromBlock == null) {
-    return tokenIds;
+    return [...records.values()].sort((a, b) =>
+      a.tokenId < b.tokenId ? -1 : a.tokenId > b.tokenId ? 1 : 0
+    );
   }
 
   const latestBlock = await getBlockNumber(provider);
@@ -573,13 +595,24 @@ export async function loadAllPathTokenIds(args: {
     toBlock: latestBlock,
     chunkSize: args.chunkSize ?? 5_000,
   });
-  const mintTokenIds = new Set<bigint>(tokenIds);
   for (const log of mintLogs) {
     if (log.removed) continue;
     const tokenId = topicToTokenId(log.topics[3]);
-    if (tokenId != null) mintTokenIds.add(tokenId);
+    if (tokenId == null) continue;
+    records.set(tokenId, {
+      tokenId,
+      mintBlockNumber: log.blockNumber
+        ? Number.parseInt(log.blockNumber, 16)
+        : undefined,
+      mintLogIndex: log.logIndex
+        ? Number.parseInt(log.logIndex, 16)
+        : undefined,
+      mintTxHash: log.transactionHash,
+    });
   }
-  return [...mintTokenIds].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  return [...records.values()].sort((a, b) =>
+    a.tokenId < b.tokenId ? -1 : a.tokenId > b.tokenId ? 1 : 0
+  );
 }
 
 export async function loadWalletPathTokenIds(args: {
@@ -763,9 +796,14 @@ export async function loadAllPathTokens(args: {
   }
 
   const provider = normalizeProvider(args.provider);
-  const tokenIds = await loadAllPathTokenIds({ ...args, provider });
+  const mintRecords = await loadAllPathMintRecords({ ...args, provider });
   const items: Array<PathTokenInventoryItem | null> = await Promise.all(
-    tokenIds.map(async (tokenId) => {
+    mintRecords.map(async ({
+      tokenId,
+      mintBlockNumber,
+      mintLogIndex,
+      mintTxHash,
+    }) => {
       try {
         const [owner, tokenUri, contractState] = await Promise.all([
           readPathTokenOwner({
@@ -790,6 +828,9 @@ export async function loadAllPathTokens(args: {
           owner,
           tokenUri,
           metadata: parseTokenMetadata(tokenUri),
+          mintBlockNumber,
+          mintLogIndex,
+          mintTxHash,
           contractState,
         } satisfies PathTokenInventoryItem;
       } catch {

@@ -167,6 +167,49 @@ describe("InshellTopBar", () => {
     );
   });
 
+  test("uses the current underlined secondary-action treatment for wallet modal actions", () => {
+    const tokens = readFileSync(
+      resolve(cwd(), "../../packages/inshell-shell/src/tokens.css"),
+      "utf8"
+    );
+    const css = readFileSync(
+      resolve(cwd(), "../../packages/inshell-shell/src/topbar.css"),
+      "utf8"
+    );
+    const homeCss = readFileSync(resolve(cwd(), "src/main.css"), "utf8");
+
+    expect(css).toMatch(
+      /\.inshell-wallet-modal__actions\s*{[^}]*justify-content:\s*flex-start;[^}]*gap:\s*var\(--shell-context-popover-row-gap\);[^}]*color:\s*var\(--muted\);[^}]*font-style:\s*italic;/s
+    );
+    expect(css).toMatch(
+      /\.inshell-wallet-modal__actions button\s*{[^}]*min-height:\s*var\(--shell-topbar-min-height\);[^}]*padding:\s*var\(--shell-wallet-modal-action-padding\);[^}]*color:\s*inherit;[^}]*border:\s*0;[^}]*text-decoration:\s*underline;[^}]*text-underline-offset:\s*var\(--shell-secondary-action-underline-offset\);/s
+    );
+    expect(css).toMatch(
+      /\.inshell-wallet-modal__actions button:not\(:disabled\):hover,[^}]*:focus-visible\s*{[^}]*color:\s*var\(--accent\);/s
+    );
+    expect(css).not.toMatch(
+      /\.inshell-wallet-modal__actions button::(?:before|after)\s*{/s
+    );
+    expect(homeCss).toMatch(
+      /\.dotfield__mint-review-link\s*{[^}]*text-underline-offset:\s*var\(--shell-secondary-action-underline-offset\);/s
+    );
+    expect(css).not.toMatch(
+      /\.inshell-wallet-modal__actions button\s*{[^}]*border:\s*1px solid var\(--accent\);/s
+    );
+    expect(tokens).toMatch(
+      /--shell-context-panel-font-size:\s*var\(--font-size-14\);/
+    );
+    expect(css).toMatch(
+      /\.inshell-wallet-modal\s*{[^}]*font-size:\s*var\(--shell-context-panel-font-size\);/s
+    );
+    expect(homeCss).toMatch(
+      /\.dotfield__mint-review\s*{[^}]*font-size:\s*var\(--shell-context-panel-font-size\);/s
+    );
+    expect(homeCss).toMatch(
+      /\.dotfield__mint-proof\s*{[^}]*font-size:\s*var\(--shell-context-panel-font-size\);/s
+    );
+  });
+
   test("opens the wallet picker when an app flow requests the global wallet", () => {
     mockUseWallet.mockReturnValue(
       walletState({

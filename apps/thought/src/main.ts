@@ -8525,40 +8525,27 @@ const openColorFontDocument = async (options?: {
   }
 };
 
-const thoughtSpecCachePayload = (spec: ActiveThoughtSpec) => ({
-  chainId: THOUGHT_CHAIN_ID,
-  registry: THOUGHT_SPEC_REGISTRY_ADDRESS,
-  cacheKey: getThoughtSpecCacheKey(spec.specId, spec.specHash),
-  source: {
-    contract: "ThoughtSpecRegistry",
-    read: "thoughtSpecText(bytes32)",
-  },
-  specId: spec.specId,
-  specHash: spec.specHash,
-  ref: spec.ref,
-  pointer: spec.pointer,
-  byteLength: spec.byteLength,
-  text: spec.text,
-  fetchedAt: spec.fetchedAt,
-});
+const specMarkdownFilename = (ref?: string) => {
+  const candidate = (ref || "").split(/[\\/]/).filter(Boolean).at(-1) ?? "";
+  return /^[A-Za-z0-9._-]+\.md$/i.test(candidate) ? candidate : "THOUGHT.md";
+};
 
-const specJsonFilename = (spec: ActiveThoughtSpec) =>
-  `${(spec.ref || "THOUGHT.md").replace(/[^A-Za-z0-9._-]+/g, "-")}.${shortHex(spec.specId, 8, 6)}.json`;
-
-const specLinkText = (ref?: string) => `${ref || "THOUGHT.v1.md"} ↗`;
+const specLinkText = (ref?: string) => `${specMarkdownFilename(ref)} ↗`;
 
 const setThoughtDetailSpecJsonLink = (spec: ActiveThoughtSpec) => {
   revokeThoughtDetailSpecJsonUrl();
-  const json = JSON.stringify(thoughtSpecCachePayload(spec), null, 2);
-  thoughtDetailSpecJsonUrl = URL.createObjectURL(new Blob([`${json}\n`], { type: "application/json" }));
-  thoughtDetailSpecRef.textContent = specLinkText(spec.ref);
+  thoughtDetailSpecJsonUrl = URL.createObjectURL(
+    new Blob([spec.text], { type: "text/markdown;charset=utf-8" }),
+  );
+  const filename = specMarkdownFilename(spec.ref);
+  thoughtDetailSpecRef.textContent = `${filename} ↗`;
   thoughtDetailSpecRef.href = thoughtDetailSpecJsonUrl;
   thoughtDetailSpecRef.target = "_blank";
   thoughtDetailSpecRef.rel = "noopener noreferrer";
-  thoughtDetailSpecRef.title = `Open local cached spec JSON: ${specJsonFilename(spec)}`;
+  thoughtDetailSpecRef.title = `Open verified ${filename} Markdown from ThoughtSpecRegistry`;
 };
 
-const clearThoughtDetailSpecJsonLink = (title = "Spec JSON loads after the spec is verified.") => {
+const clearThoughtDetailSpecJsonLink = (title = "Spec Markdown loads after the spec is verified.") => {
   revokeThoughtDetailSpecJsonUrl();
   thoughtDetailSpecRef.href = "#";
   thoughtDetailSpecRef.removeAttribute("target");
@@ -14703,10 +14690,18 @@ const thoughtCreateUrl = () => {
   url.searchParams.set("new", "1");
   return url.toString();
 };
-const inshellHomeUrl = () => INSHELL_HOME_URL;
+const inshellHomeUrl = (targetTokenId?: number | null) => {
+  const url = new URL(INSHELL_HOME_URL, window.location.origin);
+  url.search = "";
+  url.hash = "";
+  if (targetTokenId !== null && targetTokenId !== undefined) {
+    url.hash = `thought-${targetTokenId}`;
+  }
+  return url.toString();
+};
 const configureGalleryLink = () => {
   thoughtGalleryLink.href = galleryUrl();
-  thoughtDetailGalleryLink.href = galleryUrl(ROUTE_THOUGHT_NFT_ID);
+  thoughtDetailGalleryLink.href = inshellHomeUrl(ROUTE_THOUGHT_NFT_ID);
   galleryCreateLink.href = thoughtCreateUrl();
   galleryHomeLink.href = inshellHomeUrl();
   thoughtDetailCreateLink.href = thoughtCreateUrl();
@@ -15938,7 +15933,7 @@ const loadThoughtDetail = async () => {
       ? shortHex(manifestHash, 12, 10)
       : "-";
     thoughtDetailManifestHash.title = manifestHash;
-    clearThoughtDetailSpecJsonLink("Loading local cached spec JSON...");
+    clearThoughtDetailSpecJsonLink("Loading verified spec Markdown...");
     if (detail.provenanceJson) {
       setThoughtDetailProvenanceJsonLink(detail, provenanceBytes);
     } else {
@@ -15967,7 +15962,7 @@ const prepareThoughtDetailSpecJsonLink = async (detail: ThoughtDetail) => {
     setThoughtDetailSpecJsonLink(spec);
   } catch {
     if (currentThoughtDetail?.tokenId === detail.tokenId) {
-      clearThoughtDetailSpecJsonLink("Spec JSON unavailable.");
+      clearThoughtDetailSpecJsonLink("Spec Markdown unavailable.");
     }
   }
 };
@@ -15991,7 +15986,7 @@ const openThoughtDetailSpecJson = async () => {
     if (pendingWindow) {
       pendingWindow.close();
     }
-    showThoughtDetailStatus("spec json unavailable.");
+    showThoughtDetailStatus("spec markdown unavailable.");
   }
 };
 
