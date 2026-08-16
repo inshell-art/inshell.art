@@ -63,6 +63,8 @@ jobs:
         run: pnpm run check:thought-renderer-parity
       - name: Build home
         run: pnpm run build:home
+      - name: Run production browser smoke
+        run: pnpm run test:browser:production
       - name: Build THOUGHT
         run: pnpm run build:thought
 

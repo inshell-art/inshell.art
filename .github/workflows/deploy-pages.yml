@@ -110,6 +110,8 @@ jobs:
         run: pnpm run test:thought-runtime
       - name: Build home
         run: pnpm run build:home
+      - name: Run production browser smoke
+        run: pnpm run test:browser:production
       - name: Verify production analytics bundle
         if: ${{ github.event.inputs.branch == 'main' }}
         run: |
