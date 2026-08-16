@@ -32,6 +32,10 @@ jobs:
           sudo apt-get install --yes zsh
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Install Cypress browser binary
+        run: |
+          pnpm exec cypress install
+          pnpm exec cypress verify
       - name: Check public documentation
         run: pnpm run docs:check
       - name: Install Foundry

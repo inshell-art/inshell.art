@@ -21,6 +21,14 @@ test("production gates execute the current built-browser smoke", () => {
   const deployWorkflow = read(".github/workflows/deploy-pages.yml");
   assert.match(
     testWorkflow,
+    /Install Cypress browser binary[\s\S]*cypress install[\s\S]*cypress verify/,
+  );
+  assert.match(
+    deployWorkflow,
+    /Install Cypress browser binary[\s\S]*cypress install[\s\S]*cypress verify/,
+  );
+  assert.match(
+    testWorkflow,
     /Build home[\s\S]*Run production browser smoke[\s\S]*test:browser:production/,
   );
   assert.match(
