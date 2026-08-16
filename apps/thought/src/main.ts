@@ -988,6 +988,8 @@ type ActiveThoughtSpec = {
 const CANVAS_WIDTH = 960;
 const MIN_CANVAS_SIZE = 180;
 const STACKED_MIN_CLI_HEIGHT = 160;
+const SHORT_VIEWPORT_MIN_CANVAS_SIZE = 120;
+const SHORT_VIEWPORT_STACKED_MIN_CLI_HEIGHT = 112;
 const STACKED_CANVAS_MAX_VIEWPORT_RATIO = 0.62;
 const IMAGE_SIZE = 29;
 const IMAGE_GAP = 6;
@@ -4260,6 +4262,16 @@ const emitThoughtConsoleEvent = (input: ThoughtConsoleEventDraft) => {
 
 const ensureThoughtConsoleWelcomeMessage = () => {
   if (thoughtConsoleHistory.entries.length > 0) return;
+  if (isThoughtMobileAgentSurface()) {
+    emitThoughtConsoleEvent({
+      kind: "work_agent_mobile_desktop_required",
+      title: "continue on desktop",
+      detail: "Codex and Claude Code creation are available from the desktop THOUGHT App. Mobile wallet connection and PATH minting remain available here.",
+      tone: "neutral",
+      eventId: "agent-mobile-desktop-required",
+    });
+    return;
+  }
   emitThoughtConsoleEvent({
     kind: "console_welcome",
     title: THOUGHT_CONSOLE_EMPTY_TITLE,
@@ -4810,9 +4822,15 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
     dockRailAction("new-thought", "new thought", "start a new THOUGHT", () => {
       window.location.href = "/";
     });
+  const mobileAgentGuidance = (): DockRailView => ({
+    status: "Agent creation requires desktop",
+    tone: "idle",
+    actions: [loadAction()],
+  });
 
   switch (state.kind) {
     case "empty":
+      if (isThoughtMobileAgentSurface()) return mobileAgentGuidance();
       return {
         status: "Prompt needed",
         tone: "idle",
@@ -4828,6 +4846,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         ],
       };
     case "ready":
+      if (isThoughtMobileAgentSurface()) return mobileAgentGuidance();
       return {
         status: "Prompt ready",
         tone: "idle",
@@ -4839,6 +4858,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         ],
       };
     case "agent_select":
+      if (isThoughtMobileAgentSurface()) return mobileAgentGuidance();
       return {
         status: "Choose Agent",
         tone: "idle",
@@ -5159,6 +5179,24 @@ const syncThoughtDock = () => {
   renderThoughtDock();
 };
 
+const THOUGHT_MOBILE_AGENT_QUERY =
+  "(max-width: 760px), ((max-height: 500px) and (orientation: landscape) and (pointer: coarse))";
+const thoughtMobileAgentMedia = window.matchMedia(THOUGHT_MOBILE_AGENT_QUERY);
+const isThoughtMobileAgentSurface = () => thoughtMobileAgentMedia.matches;
+
+const blockMobileThoughtAgentLaunch = (prompt: string) => {
+  if (!isThoughtMobileAgentSurface()) return false;
+  emitThoughtConsoleEvent({
+    kind: "work_agent_mobile_desktop_required",
+    title: "continue on desktop",
+    detail: "Codex and Claude Code creation are available from the desktop THOUGHT App. Mobile wallet connection and PATH minting remain available here.",
+    tone: "neutral",
+    eventId: "agent-mobile-desktop-required",
+  });
+  setThoughtDockState({ kind: "ready", prompt });
+  return true;
+};
+
 const buildThoughtDockRunPayload = async (prompt: string) => {
   sessionState.routeConfigured = true;
   sessionState.mode = CODEX_MODE;
@@ -5314,10 +5352,16 @@ const openThoughtDockAgentSelect = () => {
   if (rejectInvalidThoughtDockPrompt(prompt)) {
     return;
   }
+  if (blockMobileThoughtAgentLaunch(prompt)) {
+    return;
+  }
   setThoughtDockState({ kind: "agent_select", prompt });
 };
 
 const prepareThoughtDockAdapter = (adapterId: ThoughtDockAgentAdapterId) => {
+  if (blockMobileThoughtAgentLaunch(thoughtDockPrompt.value)) {
+    return;
+  }
   if (thoughtDockState.kind !== "agent_select") {
     setThoughtDockState({
       kind: "failed",
@@ -16072,6 +16116,17 @@ const isStackedOperatorLayout = () =>
   window.matchMedia(IS_CLI_SURFACE ? "(max-width: 900px)" : "(max-width: 1023px)").matches &&
   !frontpageStage.classList.contains("is-hidden");
 
+const isShortLandscapeViewport = () =>
+  window.matchMedia("(max-height: 500px) and (orientation: landscape)").matches;
+
+const getMinimumCanvasSize = () =>
+  isShortLandscapeViewport() ? SHORT_VIEWPORT_MIN_CANVAS_SIZE : MIN_CANVAS_SIZE;
+
+const getStackedMinimumCliHeight = () =>
+  isShortLandscapeViewport()
+    ? SHORT_VIEWPORT_STACKED_MIN_CLI_HEIGHT
+    : STACKED_MIN_CLI_HEIGHT;
+
 const getStackedOperatorAvailableHeight = () => {
   const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
   const shellStyles = window.getComputedStyle(frontpageShell);
@@ -16105,8 +16160,8 @@ const getViewportWidthCap = () => {
   if (IS_CLI_SURFACE) {
     if (isStackedOperatorLayout()) {
       return Math.max(
-        MIN_CANVAS_SIZE,
-        getStackedOperatorAvailableHeight() - STACKED_MIN_CLI_HEIGHT,
+        getMinimumCanvasSize(),
+        getStackedOperatorAvailableHeight() - getStackedMinimumCliHeight(),
       );
     }
 
@@ -16122,15 +16177,15 @@ const getViewportWidthCap = () => {
       viewportHeight - shellInset - titleHeight - rowGap - frameInset,
     );
 
-    return Math.max(MIN_CANVAS_SIZE, availableHeight);
+    return Math.max(getMinimumCanvasSize(), availableHeight);
   }
 
   if (isStackedOperatorLayout()) {
     const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
     return Math.max(
-      MIN_CANVAS_SIZE,
+      getMinimumCanvasSize(),
       Math.min(
-        getStackedOperatorAvailableHeight() - STACKED_MIN_CLI_HEIGHT,
+        getStackedOperatorAvailableHeight() - getStackedMinimumCliHeight(),
         Math.floor(viewportHeight * STACKED_CANVAS_MAX_VIEWPORT_RATIO),
       ),
     );
@@ -16142,7 +16197,7 @@ const getViewportWidthCap = () => {
     frontpageMain.getBoundingClientRect().height - frameInset,
   );
 
-  return Math.max(MIN_CANVAS_SIZE, availableHeight);
+  return Math.max(getMinimumCanvasSize(), availableHeight);
 };
 
 const getDisplayWidth = () => {
@@ -16153,10 +16208,10 @@ const getDisplayWidth = () => {
     readPx(frameStyles.paddingRight) +
     readPx(frameStyles.borderLeftWidth) +
     readPx(frameStyles.borderRightWidth);
-  const availableWidth = Math.max(MIN_CANVAS_SIZE, Math.floor(panelRect.width - horizontalInset));
+  const availableWidth = Math.max(getMinimumCanvasSize(), Math.floor(panelRect.width - horizontalInset));
 
   return Math.max(
-    MIN_CANVAS_SIZE,
+    getMinimumCanvasSize(),
     Math.min(availableWidth, getViewportWidthCap()),
   );
 };
@@ -16177,7 +16232,7 @@ const resizeCanvas = (displayWidth: number, height: number) => {
     readPx(frameStyles.borderLeftWidth) +
     readPx(frameStyles.borderRightWidth);
   const cliHeight = isStackedOperatorLayout()
-    ? Math.max(STACKED_MIN_CLI_HEIGHT, getStackedOperatorAvailableHeight() - displayWidth)
+    ? Math.max(getStackedMinimumCliHeight(), getStackedOperatorAvailableHeight() - displayWidth)
     : height + frameVerticalInset;
 
   canvas.width = Math.round(displayWidth * deviceScale);
@@ -22914,6 +22969,10 @@ thoughtDockPrompt.addEventListener("keydown", (event) => {
     event.preventDefault();
     void openThoughtDockAgentSelect();
   }
+});
+
+thoughtMobileAgentMedia.addEventListener("change", () => {
+  syncThoughtDock();
 });
 
 thoughtDockWorksSelect.addEventListener("change", () => {

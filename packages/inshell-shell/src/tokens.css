@@ -67,6 +67,9 @@
   --shell-topbar-compact-menu-gap: 12px;
   --shell-topbar-compact-gap: 12px;
   --shell-topbar-compact-margin-block-end: 18px;
+  --shell-topbar-narrow-row-gap: 8px;
+  --shell-topbar-narrow-margin-block-end: 16px;
+  --shell-touch-target-size: 44px;
   --shell-topbar-letter-spacing: 0.02em;
   --shell-topbar-wallet-gap: 10px;
   --shell-topbar-dot-size: 9px;
@@ -94,6 +97,9 @@
   --shell-wallet-picker-item-gap: 4px;
   --shell-wallet-picker-item-line-height: 1.2;
   --shell-wallet-picker-mobile-inset: var(--font-size-12);
+  --shell-mobile-panel-max-height: calc(
+    100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px
+  );
   --shell-route-padding-block-start: clamp(14px, 2.2vh, 32px);
   --shell-route-padding-block-end: clamp(8px, 1.6vh, 24px);
   --shell-route-content-padding-block-start: 20px;

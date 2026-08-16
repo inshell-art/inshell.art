@@ -1924,6 +1924,51 @@ test("Agent selection seals and launches one run without a second Open Agent act
   );
 });
 
+test("mobile keeps wallet minting but moves new Agent creation to desktop", () => {
+  assert.match(
+    thoughtMain,
+    /const THOUGHT_MOBILE_AGENT_QUERY =[\s\S]*\(max-width: 760px\)[\s\S]*\(max-height: 500px\)[\s\S]*\(orientation: landscape\)[\s\S]*\(pointer: coarse\)/,
+  );
+  assert.match(
+    thoughtMain,
+    /status: "Agent creation requires desktop",[\s\S]*?actions: \[loadAction\(\)\]/,
+  );
+  for (const state of ["empty", "ready", "agent_select"]) {
+    assert.match(
+      thoughtMain,
+      new RegExp(`case "${state}":[\\s\\S]*?isThoughtMobileAgentSurface\\(\\)[\\s\\S]*?mobileAgentGuidance\\(\\)`),
+    );
+  }
+  assert.match(
+    thoughtMain,
+    /const blockMobileThoughtAgentLaunch = \(prompt: string\)[\s\S]*?continue on desktop[\s\S]*?Mobile wallet connection and PATH minting remain available here\./,
+  );
+  assert.match(
+    thoughtMain,
+    /const ensureThoughtConsoleWelcomeMessage = \(\) => \{[\s\S]*?isThoughtMobileAgentSurface\(\)[\s\S]*?title: "continue on desktop"[\s\S]*?Mobile wallet connection and PATH minting remain available here\./,
+  );
+  assert.match(
+    thoughtMain,
+    /const openThoughtDockAgentSelect = \(\) => \{[\s\S]*?blockMobileThoughtAgentLaunch\(prompt\)[\s\S]*?setThoughtDockState\(\{ kind: "agent_select", prompt \}\)/,
+  );
+  assert.match(
+    thoughtMain,
+    /const prepareThoughtDockAdapter = \(adapterId: ThoughtDockAgentAdapterId\) => \{[\s\S]*?blockMobileThoughtAgentLaunch\(thoughtDockPrompt\.value\)/,
+  );
+  assert.match(
+    thoughtMain,
+    /thoughtMobileAgentMedia\.addEventListener\("change", \(\) => \{\s*syncThoughtDock\(\)/,
+  );
+  assert.match(
+    thoughtCss,
+    /@media \(max-width: 760px\)[\s\S]*?\.thought-dock-input,[\s\S]*?font-size:\s*var\(--font-size-16\)/,
+  );
+  assert.match(
+    thoughtCss,
+    /\.mint-sheet\s*\{[\s\S]*?max-height:\s*calc\([\s\S]*?100dvh[\s\S]*?overflow-y:\s*auto;[\s\S]*?overscroll-behavior:\s*contain/,
+  );
+});
+
 test("Agent retry is a Console-only control gated by terminal evidence", () => {
   const recordStart = thoughtMain.indexOf("const recordThoughtDockConsoleTransition =");
   const recordEnd = thoughtMain.indexOf("const thoughtDockRunFromStored", recordStart);

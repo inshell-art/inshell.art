@@ -165,6 +165,31 @@ describe("InshellTopBar", () => {
     expect(css).toMatch(
       /@media \(max-width: 760px\)[\s\S]*\.inshell-topbar__wallet-surface--with-note > \.inshell-wallet-picker[\s\S]*top:\s*auto;/
     );
+    expect(css).toMatch(
+      /@media \(max-width: 760px\)[\s\S]*\.inshell-wallet-modal,[\s\S]*\.inshell-wallet-picker,[\s\S]*\.inshell-wallet-picker__notice\s*\{[\s\S]*position:\s*fixed;[\s\S]*max-height:\s*var\(--shell-mobile-panel-max-height\);[\s\S]*overflow-y:\s*auto;/
+    );
+    expect(css).toMatch(
+      /\.inshell-topbar__wallet,[\s\S]*\.inshell-wallet-picker__item,[\s\S]*\.inshell-wallet-modal__actions button\s*\{[\s\S]*min-height:\s*var\(--shell-touch-target-size\)/
+    );
+    const tokens = readFileSync(
+      resolve(cwd(), "../../packages/inshell-shell/src/tokens.css"),
+      "utf8"
+    );
+    expect(tokens).toMatch(/--shell-touch-target-size:\s*44px/);
+  });
+
+  test("stacks the topbar before narrow phones can overlap the wallet", () => {
+    const css = readFileSync(
+      resolve(cwd(), "../../packages/inshell-shell/src/topbar.css"),
+      "utf8"
+    );
+
+    expect(css).toMatch(
+      /@media \(max-width: 380px\)[\s\S]*\.inshell-topbar\s*\{[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\);[\s\S]*row-gap:\s*var\(--shell-topbar-narrow-row-gap\)/
+    );
+    expect(css).toMatch(
+      /@media \(max-width: 380px\)[\s\S]*\.inshell-topbar__right\s*\{[\s\S]*width:\s*100%;[\s\S]*justify-content:\s*space-between/
+    );
   });
 
   test("uses the current underlined secondary-action treatment for wallet modal actions", () => {

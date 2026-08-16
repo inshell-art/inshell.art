@@ -135,6 +135,227 @@ const configureGalleryLink = () => {
 const snapshotSource = (source) =>
   source.replaceAll("\\`", "`").replaceAll("\\${", "${");
 
+const CURRENT_MOBILE_MAIN_DELTAS = Object.freeze([
+  [
+    "short viewport constants",
+    `const MIN_CANVAS_SIZE = 180;
+const STACKED_MIN_CLI_HEIGHT = 160;
+const STACKED_CANVAS_MAX_VIEWPORT_RATIO = 0.62;`,
+    `const MIN_CANVAS_SIZE = 180;
+const STACKED_MIN_CLI_HEIGHT = 160;
+const SHORT_VIEWPORT_MIN_CANVAS_SIZE = 120;
+const SHORT_VIEWPORT_STACKED_MIN_CLI_HEIGHT = 112;
+const STACKED_CANVAS_MAX_VIEWPORT_RATIO = 0.62;`,
+    1,
+  ],
+  [
+    "mobile Agent guidance",
+    `
+  switch (state.kind) {`,
+    `  const mobileAgentGuidance = (): DockRailView => ({
+    status: "Agent creation requires desktop",
+    tone: "idle",
+    actions: [loadAction()],
+  });
+
+  switch (state.kind) {`,
+    1,
+  ],
+  [
+    "mobile empty Agent gate",
+    `    case "empty":
+      return {`,
+    `    case "empty":
+      if (isThoughtMobileAgentSurface()) return mobileAgentGuidance();
+      return {`,
+    1,
+  ],
+  [
+    "mobile ready Agent gate",
+    `    case "ready":
+      return {`,
+    `    case "ready":
+      if (isThoughtMobileAgentSurface()) return mobileAgentGuidance();
+      return {`,
+    1,
+  ],
+  [
+    "mobile Agent selection gate",
+    `    case "agent_select":
+      return {`,
+    `    case "agent_select":
+      if (isThoughtMobileAgentSurface()) return mobileAgentGuidance();
+      return {`,
+    1,
+  ],
+  [
+    "mobile Agent runtime boundary",
+    `const syncThoughtDock = () => {
+  renderThoughtDock();
+};`,
+    `const syncThoughtDock = () => {
+  renderThoughtDock();
+};
+
+const THOUGHT_MOBILE_AGENT_QUERY =
+  "(max-width: 760px), ((max-height: 500px) and (orientation: landscape) and (pointer: coarse))";
+const thoughtMobileAgentMedia = window.matchMedia(THOUGHT_MOBILE_AGENT_QUERY);
+const isThoughtMobileAgentSurface = () => thoughtMobileAgentMedia.matches;
+
+const blockMobileThoughtAgentLaunch = (prompt: string) => {
+  if (!isThoughtMobileAgentSurface()) return false;
+  emitThoughtConsoleEvent({
+    kind: "work_agent_mobile_desktop_required",
+    title: "continue on desktop",
+    detail: "Codex and Claude Code creation are available from the desktop THOUGHT App. Mobile wallet connection and PATH minting remain available here.",
+    tone: "neutral",
+    eventId: "agent-mobile-desktop-required",
+  });
+  setThoughtDockState({ kind: "ready", prompt });
+  return true;
+};`,
+    1,
+  ],
+  [
+    "mobile Agent welcome guidance",
+    `const ensureThoughtConsoleWelcomeMessage = () => {
+  if (thoughtConsoleHistory.entries.length > 0) return;
+  emitThoughtConsoleEvent({`,
+    `const ensureThoughtConsoleWelcomeMessage = () => {
+  if (thoughtConsoleHistory.entries.length > 0) return;
+  if (isThoughtMobileAgentSurface()) {
+    emitThoughtConsoleEvent({
+      kind: "work_agent_mobile_desktop_required",
+      title: "continue on desktop",
+      detail: "Codex and Claude Code creation are available from the desktop THOUGHT App. Mobile wallet connection and PATH minting remain available here.",
+      tone: "neutral",
+      eventId: "agent-mobile-desktop-required",
+    });
+    return;
+  }
+  emitThoughtConsoleEvent({`,
+    1,
+  ],
+  [
+    "mobile Agent select action guard",
+    `  if (rejectInvalidThoughtDockPrompt(prompt)) {
+    return;
+  }
+  setThoughtDockState({ kind: "agent_select", prompt });`,
+    `  if (rejectInvalidThoughtDockPrompt(prompt)) {
+    return;
+  }
+  if (blockMobileThoughtAgentLaunch(prompt)) {
+    return;
+  }
+  setThoughtDockState({ kind: "agent_select", prompt });`,
+    1,
+  ],
+  [
+    "mobile Agent adapter guard",
+    `const prepareThoughtDockAdapter = (adapterId: ThoughtDockAgentAdapterId) => {
+  if (thoughtDockState.kind !== "agent_select") {`,
+    `const prepareThoughtDockAdapter = (adapterId: ThoughtDockAgentAdapterId) => {
+  if (blockMobileThoughtAgentLaunch(thoughtDockPrompt.value)) {
+    return;
+  }
+  if (thoughtDockState.kind !== "agent_select") {`,
+    1,
+  ],
+  [
+    "short landscape sizing helpers",
+    `const getStackedOperatorAvailableHeight = () => {`,
+    `const isShortLandscapeViewport = () =>
+  window.matchMedia("(max-height: 500px) and (orientation: landscape)").matches;
+
+const getMinimumCanvasSize = () =>
+  isShortLandscapeViewport() ? SHORT_VIEWPORT_MIN_CANVAS_SIZE : MIN_CANVAS_SIZE;
+
+const getStackedMinimumCliHeight = () =>
+  isShortLandscapeViewport()
+    ? SHORT_VIEWPORT_STACKED_MIN_CLI_HEIGHT
+    : STACKED_MIN_CLI_HEIGHT;
+
+const getStackedOperatorAvailableHeight = () => {`,
+    1,
+  ],
+  [
+    "short landscape CLI canvas floor",
+    `        MIN_CANVAS_SIZE,
+        getStackedOperatorAvailableHeight() - STACKED_MIN_CLI_HEIGHT,`,
+    `        getMinimumCanvasSize(),
+        getStackedOperatorAvailableHeight() - getStackedMinimumCliHeight(),`,
+    1,
+    0,
+  ],
+  [
+    "short landscape stacked canvas floor",
+    `      MIN_CANVAS_SIZE,
+      Math.min(
+        getStackedOperatorAvailableHeight() - STACKED_MIN_CLI_HEIGHT,`,
+    `      getMinimumCanvasSize(),
+      Math.min(
+        getStackedOperatorAvailableHeight() - getStackedMinimumCliHeight(),`,
+    1,
+  ],
+  [
+    "short landscape available-height floors",
+    `return Math.max(MIN_CANVAS_SIZE, availableHeight);`,
+    `return Math.max(getMinimumCanvasSize(), availableHeight);`,
+    2,
+    1,
+  ],
+  [
+    "short landscape display-width input floor",
+    `  const availableWidth = Math.max(MIN_CANVAS_SIZE, Math.floor(panelRect.width - horizontalInset));`,
+    `  const availableWidth = Math.max(getMinimumCanvasSize(), Math.floor(panelRect.width - horizontalInset));`,
+    1,
+  ],
+  [
+    "short landscape display-width output floor",
+    `  return Math.max(
+    MIN_CANVAS_SIZE,
+    Math.min(availableWidth, getViewportWidthCap()),`,
+    `  return Math.max(
+    getMinimumCanvasSize(),
+    Math.min(availableWidth, getViewportWidthCap()),`,
+    1,
+  ],
+  [
+    "short landscape CLI panel-height floor",
+    `    ? Math.max(STACKED_MIN_CLI_HEIGHT, getStackedOperatorAvailableHeight() - displayWidth)`,
+    `    ? Math.max(getStackedMinimumCliHeight(), getStackedOperatorAvailableHeight() - displayWidth)`,
+    1,
+  ],
+  [
+    "mobile Agent breakpoint listener",
+    `thoughtDockWorksSelect.addEventListener("change", () => {`,
+    `thoughtMobileAgentMedia.addEventListener("change", () => {
+  syncThoughtDock();
+});
+
+thoughtDockWorksSelect.addEventListener("change", () => {`,
+    1,
+  ],
+]);
+
+const applyCurrentMobileMainDeltas = (source, direction) => {
+  let current = source;
+  const deltas = direction === "restore"
+    ? CURRENT_MOBILE_MAIN_DELTAS
+    : [...CURRENT_MOBILE_MAIN_DELTAS].reverse();
+  for (const [label, tagged, mobile, restoreCount, layerCount] of deltas) {
+    current = replaceExactCount(
+      current,
+      label,
+      direction === "restore" ? mobile : tagged,
+      direction === "restore" ? tagged : mobile,
+      direction === "restore" ? restoreCount : layerCount ?? restoreCount,
+    );
+  }
+  return current;
+};
+
 const TAGGED_DETAIL_SPEC_LINK = snapshotSource(String.raw`const thoughtSpecCachePayload = (spec: ActiveThoughtSpec) => ({
   chainId: THOUGHT_CHAIN_ID,
   registry: THOUGHT_SPEC_REGISTRY_ADDRESS,
@@ -395,8 +616,9 @@ function layerTightDetailGrouping(source) {
 }
 
 function restoreMainSnapshot(source) {
-  let currentSource = replaceExactCount(
-    source,
+  let currentSource = applyCurrentMobileMainDeltas(source, "restore");
+  currentSource = replaceExactCount(
+    currentSource,
     "current canonical gallery render",
     CURRENT_GALLERY_RENDER,
     "",
@@ -809,12 +1031,13 @@ export function loadThoughtDevSnapshotFile(workspaceRoot, fileKey) {
       current,
     );
   }
-  return replaceExactCount(
+  const currentGalleryRender = replaceExactCount(
     currentSpecLink,
     "tagged thought render marker",
     TAGGED_THOUGHT_RENDER_MARKER,
     `${CURRENT_GALLERY_RENDER}${TAGGED_THOUGHT_RENDER_MARKER}`,
   );
+  return applyCurrentMobileMainDeltas(currentGalleryRender, "layer");
 }
 
 export function loadThoughtDevSnapshotModule(workspaceRoot, id) {

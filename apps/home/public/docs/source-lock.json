@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "7c09cc375c4e9aa6e6eb23dcd0cd2fbf5f353ccb791b194ba8bd9fa181ede07e",
+  "sourceTreeSha256": "b7b175be69e8d8b415a8d0cc4381b6eb395d3052552f61d06869aa69467b169a",
   "groups": [
     {
       "id": "public-docs",
@@ -609,7 +609,7 @@
       "title": "Wallet boundary",
       "owner": "inshell.art shared App infrastructure",
       "reason": "Public docs distinguish passive wallet reads from signatures and transactions.",
-      "groupSha256": "3786db6041bcd1e84fb4902353c143f21c390ef03878825afbe703962ed85ec9",
+      "groupSha256": "82075804dc496572fb0a059e0605afcae363d64fb51f8fc64027947db0c67735",
       "files": [
         {
           "path": "packages/inshell-shell/src/index.tsx",
@@ -623,13 +623,13 @@
         },
         {
           "path": "packages/inshell-shell/src/tokens.css",
-          "byteLength": 5393,
-          "sha256": "ce0f33e60626025d4e2571cd530a3a1ec73c785a3bf667fe58cde2ce20906035"
+          "byteLength": 5635,
+          "sha256": "291eedbdf407d9c5c2ad4abbb8166529c0cf9ba3630c4836de34771b1d3e62bf"
         },
         {
           "path": "packages/inshell-shell/src/topbar.css",
-          "byteLength": 8512,
-          "sha256": "e53abfd4099dd3a3a546ae392b7bea7de6d3ead6f7ee736a9fe4e9d2cedb27cf"
+          "byteLength": 9448,
+          "sha256": "7da20203ff6e44e63d815d948ee46fa6b45d7152ec61691416f31ca1d50d32cd"
         },
         {
           "path": "packages/inshell-shell/src/wallet-events.ts",
@@ -989,7 +989,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "27bf914de5b91e459142a1df701805e20165a50d609004f97279685c658ea4f5",
+      "groupSha256": "546c3c3e47c5d5f51da14aa0d5debdb06aa1cfc2a65b54b62461e2b383c8f2b9",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1008,8 +1008,8 @@
         },
         {
           "path": "apps/thought/scripts/dev-index-snapshot.mjs",
-          "byteLength": 29489,
-          "sha256": "2bb81957df42e961e7ab14b4b3a08f00be621626a5e90a2ad09e1700b503378e"
+          "byteLength": 36450,
+          "sha256": "247e522aa7bd82bb52461a7862f54c5b413aeae441b52943c42c6c8651702b45"
         },
         {
           "path": "apps/thought/scripts/mock-thought-v2-anvil-signer.ts",
@@ -1038,8 +1038,8 @@
         },
         {
           "path": "apps/thought/src/main.ts",
-          "byteLength": 740387,
-          "sha256": "68edb1d962268f6d8ce0a17b7771e688f3cfef69ef629521f7273d7083a7ebb4"
+          "byteLength": 742733,
+          "sha256": "b1e4156f9ce6734436fc9baa66aa9195d91a47fdb9cb4c95a490fc26c5ccf1f8"
         },
         {
           "path": "apps/thought/src/rpc-provider.ts",
@@ -1048,8 +1048,8 @@
         },
         {
           "path": "apps/thought/src/style.css",
-          "byteLength": 102166,
-          "sha256": "50d746c121165aff812859f477d4132daca3e4cd9c7d5648bba3aff8421c8c71"
+          "byteLength": 102807,
+          "sha256": "27bb4f9f1f14fc127c4db926b03c65607fac64e434db965ee8d75094a48cc610"
         },
         {
           "path": "apps/thought/src/surfaceShell/thoughtCommandTree.ts",
