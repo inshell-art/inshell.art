@@ -404,9 +404,9 @@ export default function ThoughtDetailPage({ tokenId }: { tokenId: string }) {
         <nav className="thought-detail__links" aria-label="THOUGHT detail links">
           <a
             className="thought-detail__link"
-            href={`/#thought-${tokenId}`}
+            href={`/gallery#thought-${tokenId}`}
           >
-            [ home ]
+            [ gallery ]
           </a>
           <a className="thought-detail__link" href={thoughtAppUrl()}>
             [ create yours ]

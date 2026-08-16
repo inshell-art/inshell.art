@@ -14703,18 +14703,10 @@ const thoughtCreateUrl = () => {
   url.searchParams.set("new", "1");
   return url.toString();
 };
-const inshellHomeUrl = (targetTokenId?: number | null) => {
-  const url = new URL(INSHELL_HOME_URL, window.location.origin);
-  url.search = "";
-  url.hash = "";
-  if (targetTokenId !== null && targetTokenId !== undefined) {
-    url.hash = `thought-${targetTokenId}`;
-  }
-  return url.toString();
-};
+const inshellHomeUrl = () => INSHELL_HOME_URL;
 const configureGalleryLink = () => {
   thoughtGalleryLink.href = galleryUrl();
-  thoughtDetailGalleryLink.href = inshellHomeUrl(ROUTE_THOUGHT_NFT_ID);
+  thoughtDetailGalleryLink.href = galleryUrl(ROUTE_THOUGHT_NFT_ID);
   galleryCreateLink.href = thoughtCreateUrl();
   galleryHomeLink.href = inshellHomeUrl();
   thoughtDetailCreateLink.href = thoughtCreateUrl();

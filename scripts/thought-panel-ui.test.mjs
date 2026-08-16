@@ -213,6 +213,16 @@ test("THOUGHT detail uses the canonical record layout", () => {
     /html\.thought-route body\.frontpage:has\(#thought-page\) \.frontpage-shell\s*\{\s*padding-inline:\s*var\(--thought-detail-mobile-frame-padding-inline\)/,
     "the canonical mobile gutter outranks the later CLI shell rule on detail routes",
   );
+  assert.match(
+    detailStyle,
+    /\.thought-detail\s*\{[\s\S]*?--thought-detail-assurance-padding:\s*0;[\s\S]*?--thought-detail-assurance-bg:\s*transparent;/,
+    "the legacy attestation card is flattened into the PATH-canonical rail",
+  );
+  assert.match(
+    detailStyle,
+    /\.thought-detail__attestation-summary\s*\{\s*margin:\s*0;\s*color:\s*var\(--text\);/,
+    "the attestation copy follows the PATH detail copy treatment",
+  );
   assert.match(thoughtCss, /\.thought-detail\s*\{[\s\S]*?--thought-detail-font-weight:\s*var\(--weight-mid\)/);
   assert.match(thoughtCss, /\.thought-detail__section h2\s*\{[\s\S]*?font-weight:\s*var\(--weight-semibold\)/);
   assert.match(thoughtCss, /\.thought-detail__text\s*\{[\s\S]*?font-weight:\s*var\(--thought-detail-font-weight\)/);
@@ -507,8 +517,8 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
   assert.doesNotMatch(restoredIndexHtml, /thought-detail__support/);
   assert.match(
     restoredIndexHtml,
-    /id="thought-detail-gallery-link"[^>]*href="https:\/\/inshell\.art\/">\[ home \]<\/a>/,
-    "the detail surface returns to the canonical Home gallery",
+    /id="thought-detail-gallery-link"[^>]*href="https:\/\/inshell\.art\/gallery">\[ gallery \]<\/a>/,
+    "the detail surface returns to the canonical gallery route",
   );
   assert.match(restoredIndexHtml, /style\.css\?inshell-thought-dev-snapshot=da998e1/);
   assert.match(restoredIndexHtml, /main\.ts\?inshell-thought-dev-snapshot=da998e1/);
@@ -533,8 +543,8 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
   );
   assert.match(
     restoredMain,
-    /thoughtDetailGalleryLink\.href = inshellHomeUrl\(ROUTE_THOUGHT_NFT_ID\)/,
-    "the detail Home link targets the matching card in the canonical Home gallery",
+    /thoughtDetailGalleryLink\.href = galleryUrl\(ROUTE_THOUGHT_NFT_ID\)/,
+    "the detail gallery link targets the matching card on the canonical gallery route",
   );
   assert.doesNotMatch(
     restoredMain,

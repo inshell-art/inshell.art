@@ -4355,6 +4355,9 @@ html.thought-route {
   --thought-detail-header-gap: 20px;
   --thought-detail-header-margin-bottom: 18px;
   --thought-detail-link-gap: 18px;
+  --thought-detail-assurance-gap: 3px;
+  --thought-detail-assurance-padding: 0;
+  --thought-detail-assurance-bg: transparent;
   --thought-detail-text-line-height: 1.55;
   --thought-detail-label-letter-spacing: 0.08em;
   --thought-detail-verification-gap: 32px;
@@ -4386,6 +4389,15 @@ html.thought-route {
 .thought-detail__value-link {
   max-width: 100%;
   overflow-wrap: anywhere;
+}
+
+.thought-detail__attestation-summary {
+  margin: 0;
+  color: var(--text);
+}
+
+.thought-detail__attestation {
+  font-weight: var(--thought-detail-font-weight);
 }
 
 .thought-detail__section {

@@ -110,27 +110,15 @@ const TAGGED_DETAIL_TITLE = `        <div>
 
 const CURRENT_DETAIL_TITLE = `        <h1 id="thought-detail-title" class="thought-detail__title">THOUGHT #<span id="thought-detail-token-id">-</span></h1>`;
 
-const TAGGED_DETAIL_HOME_LINK = `          <a id="thought-detail-gallery-link" class="thought-detail__link" href="https://inshell.art/gallery">[ gallery ]</a>`;
-
-const CURRENT_DETAIL_HOME_LINK = `          <a id="thought-detail-gallery-link" class="thought-detail__link" href="https://inshell.art/">[ home ]</a>`;
-
-const TAGGED_DETAIL_HOME_CONFIGURATION = `const inshellHomeUrl = () => INSHELL_HOME_URL;
+const TAGGED_DETAIL_GALLERY_CONFIGURATION = `const inshellHomeUrl = () => INSHELL_HOME_URL;
 const configureGalleryLink = () => {
   thoughtGalleryLink.href = galleryUrl();
   thoughtDetailGalleryLink.href = galleryUrl();`;
 
-const CURRENT_DETAIL_HOME_CONFIGURATION = `const inshellHomeUrl = (targetTokenId?: number | null) => {
-  const url = new URL(INSHELL_HOME_URL, window.location.origin);
-  url.search = "";
-  url.hash = "";
-  if (targetTokenId !== null && targetTokenId !== undefined) {
-    url.hash = \`thought-\${targetTokenId}\`;
-  }
-  return url.toString();
-};
+const CURRENT_DETAIL_GALLERY_CONFIGURATION = `const inshellHomeUrl = () => INSHELL_HOME_URL;
 const configureGalleryLink = () => {
   thoughtGalleryLink.href = galleryUrl();
-  thoughtDetailGalleryLink.href = inshellHomeUrl(ROUTE_THOUGHT_NFT_ID);`;
+  thoughtDetailGalleryLink.href = galleryUrl(ROUTE_THOUGHT_NFT_ID);`;
 
 const TAGGED_DETAIL_RAIL_TO_TRAITS = `          </section>
         </aside>
@@ -325,9 +313,9 @@ function restoreMainSnapshot(source) {
       TAGGED_GALLERY_REDIRECT,
     ],
     [
-      "current detail home configuration",
-      CURRENT_DETAIL_HOME_CONFIGURATION,
-      TAGGED_DETAIL_HOME_CONFIGURATION,
+      "current detail gallery configuration",
+      CURRENT_DETAIL_GALLERY_CONFIGURATION,
+      TAGGED_DETAIL_GALLERY_CONFIGURATION,
     ],
   ];
   for (const [label, from, to] of replacements) {
@@ -500,12 +488,6 @@ export function restoreThoughtDevSnapshotSource(source, fileKey) {
 export function restoreThoughtDevIndexSnapshot(html) {
   let current = replaceExactCount(
     html,
-    "current THOUGHT detail home link",
-    CURRENT_DETAIL_HOME_LINK,
-    TAGGED_DETAIL_HOME_LINK,
-  );
-  current = replaceExactCount(
-    current,
     "current THOUGHT detail title hierarchy",
     CURRENT_DETAIL_TITLE,
     TAGGED_DETAIL_TITLE,
@@ -546,13 +528,6 @@ export function restoreThoughtDevIndexSnapshot(html) {
     TAGGED_DETAIL_ONCHAIN_TO_RECORD,
     CURRENT_DETAIL_ONCHAIN_TO_RECORD,
   );
-  layered = replaceExactCount(
-    layered,
-    "tagged THOUGHT detail home link",
-    TAGGED_DETAIL_HOME_LINK,
-    CURRENT_DETAIL_HOME_LINK,
-  );
-
   const query = `${THOUGHT_DEV_SNAPSHOT_QUERY_PARAM}=${THOUGHT_DEV_SNAPSHOT_QUERY_VALUE}`;
   return [
     ["tagged stylesheet reference", 'href="/src/style.css"', `href="/src/style.css?${query}"`],
@@ -588,14 +563,14 @@ export function loadThoughtDevSnapshotFile(workspaceRoot, fileKey) {
     TAGGED_GALLERY_REDIRECT,
     CURRENT_GALLERY_REDIRECT,
   );
-  const currentDetailHomeConfiguration = replaceExactCount(
+  const currentDetailGalleryConfiguration = replaceExactCount(
     currentGalleryRedirect,
-    "tagged detail home configuration",
-    TAGGED_DETAIL_HOME_CONFIGURATION,
-    CURRENT_DETAIL_HOME_CONFIGURATION,
+    "tagged detail gallery configuration",
+    TAGGED_DETAIL_GALLERY_CONFIGURATION,
+    CURRENT_DETAIL_GALLERY_CONFIGURATION,
   );
   return replaceExactCount(
-    currentDetailHomeConfiguration,
+    currentDetailGalleryConfiguration,
     "tagged thought render marker",
     TAGGED_THOUGHT_RENDER_MARKER,
     `${CURRENT_GALLERY_RENDER}${TAGGED_THOUGHT_RENDER_MARKER}`,
