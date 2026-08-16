@@ -457,6 +457,17 @@ const allowedViteFsFiles = [
   path.join(root, "apps", "thought", "production", "deployment-lock.json"),
   path.join(root, "apps", "thought", "contract-integration", "current", "integration-lock.json"),
   path.join(root, "apps", "thought", "contract-integration", "current", "thought.selected-spec.md"),
+  path.join(
+    root,
+    "apps",
+    "thought",
+    "contract-release",
+    "releases",
+    "thought-v2-canonical-portable-release-20260807-r2",
+    "dependencies",
+    "mono-76",
+    "glyphs.json",
+  ),
 ].map((value) => value.replaceAll("\\", "/").toLowerCase());
 
 const isAllowedViteFsPath = (decoded) => {
