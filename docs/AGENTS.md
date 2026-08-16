@@ -63,7 +63,7 @@ Agent Art is the medium of this age for Inshell's practice. Keep that statement 
 Integrate these meanings throughout the public docs where they clarify a work or evidence boundary. Do not repeat the slogans mechanically. In particular:
 
 - THOUGHT gives `inspect your thought` a bounded form without resolving the thought.
-- Movements, PATH, and Pulse give the practice forms, permissions, and public participation without measuring inner truth.
+- Movements, $PATH, and Pulse give the practice forms, permissions, and public participation without measuring inner truth.
 - Contracts, metadata, wallets, releases, and verification establish bounded technical facts without implementing or proving the artistic truth.
 - Design principles are choices that shape the practice, not the truth the practice approaches.
 
@@ -73,8 +73,10 @@ Keep the artist distinct from the forms used by the practice.
 
 - Inshell is the artist.
 - THOUGHT, WILL, and AWA are movements in the practice.
-- PATH, Pulse, Apps, contracts, renderers, metadata, records, interfaces, and networks can be artistic material or infrastructure.
+- $PATH, Pulse, Apps, contracts, renderers, metadata, records, interfaces, and networks can be artistic material or infrastructure.
 - None of those forms is the artist.
+
+Use `$PATH` as the public name of the permission token and movement ledger throughout human and Agent-readable docs. Reserve `PathNFT` for the contract name and lowercase `path` for an ordinary route or artistic path.
 
 Agent Art has one invariant in these docs: it is art in which an Agent participates. Treat the name as a literal description of a form and field, not as agentic-ism, an ideology, a spirit, or a theory of what Agents should do to humans. Participation does not by itself imply assistance, augmentation, injection, collaboration, autonomy, equality, distributed authorship, or any other prescribed human-Agent relation.
 
@@ -82,24 +84,47 @@ The field stays open through the source questions `What is art?` and `What is an
 
 Do not reduce Agent Art to prompting, text generation, chat, or human-plus-model dialogue. THOUGHT is one bounded Agent Art practice built around an exact human prompt and one exact Agent response. It is an example within a wider field, not the definition or outer boundary of Agent Art.
 
+## Inline contextual references
+
+- Add inline references by editorial intent, never by automatic keyword replacement.
+- Link the first meaningful occurrence when the destination materially helps a reader understand the current sentence. A conceptual map may link several peers once; ordinary repetition should remain plain text.
+- Use precise visible words as the link label. Do not expand a label merely to increase its clickable area, and do not link an ordinary word to a product page unless that specific reference is intended.
+- Prefer the narrowest stable documentation destination that owns the referenced idea. Use a section fragment when the reference is narrower than the article.
+- Keep conceptual references inside paragraphs. Keep actions, source repositories, tools, schemas, and other navigation in the article's closing link list unless the prose specifically discusses that resource.
+- Author every reference as a `DocsLink` in the canonical structured paragraph. Human HTML, Agent Markdown, and Agent JSON must expose the same label and destination.
+- Do not force a link into every paragraph or link every article merely for coverage. The absence of a link is valid when no destination improves the reading.
+
 ## Character figures
 
-- A figure belongs to the lead or section whose relationship it clarifies at first sight. It is not a decorative diagram, an annotated aside, or an article-level quota.
+- Treat a character figure as one semantic object with two readings: human readers receive visual hierarchy and spatial rhythm; Agents receive the same literal nodes, annotations, operators, edges, and groups through DOM, Markdown, and JSON.
+- `Complete` means complete for the claim the figure makes. Preserve every term and relation needed to reconstruct that claim, but do not copy the surrounding paragraph into the figure.
+- Choose the figure's semantic form before styling it: use an `axis` for an equation or directional relation, a `trace` for order or transformation, a `cycle` for recurrence, a `fork` for branching or convergence, a `field` for parallel or unresolved terms, a `ledger` for comparison, and `lanes` for parallel actors or phases.
+- Give every semantic node and edge a stable source identity. Do not infer a relation only from array order, screen position, an English caption, or renderer-only copy.
+- Use a closed frame only when containment is part of the meaning. A frame is not the default decoration for a conceptual set or an open question.
+- When a frame names one entity or boundary, let that governing term interrupt the literal rail and keep everything inside the frame semantically inside that scope. Do not repeat the same box shape around an unrelated relation merely for family resemblance.
+- A figure belongs to the lead or section whose governing impression it establishes at first sight. It is not a decorative diagram, an annotated aside, or an article-level quota.
+- Reserve figures for abstract artistic concepts or relations whose visual impression helps a human grasp the idea before reading its explanation.
+- Do not add a figure to explain technical records, mechanisms, contract flows, storage layers, verification procedures, release boundaries, or implementation architecture. Technical truth depends on complete prose and exact machine-readable sources; an impressive visual summary cannot substitute for either.
+- When technical prose benefits from a concrete illustration, prefer a rendered result paired with its collapsed literal source over a conceptual figure. The preview and source must be the same bytes. Label typical examples and shortened excerpts honestly, keep them readable in human HTML, and preserve the same literal code in Agent Markdown and JSON.
 - Place a lead figure immediately after the title and summary. Place a section figure immediately after that section's heading and before its text.
 - Multiple figures may appear in one article when distinct sections independently warrant them. No lead or section needs a figure for consistency.
 - Add no figure when the scoped text cannot be drawn without inventing facts, restating a plain inventory, or closing an intentionally open question.
 - Use `trace` for a real sequence, `lanes` for actor handoffs, `ledger` for coexisting records or boundaries, and `field` for parallel, convergent, or open conceptual relations.
 - Preserve the human visual hierarchy: key terms are dominant, relationship characters guide the reading, and details remain quiet annotations. Do not flatten the whole figure into one technical-looking text size.
-- Use no more than three font-size tiers in any figure: one tier for the caption, structural labels, and relationship glyphs; one larger tier for governing terms; and one smaller muted tier for annotations and markers. A figure may use fewer. A dense figure may use a smaller shared governing-term tier, but do not introduce a fourth, intermediate, or one-off size inside it.
+- Give a governing operator such as `→`, `↓`, `↑`, `≠`, or `↺` the same visual force as the terms it relates. Keep membership marks, corners, and continuous rails at the structural tier; their job is topology, not emphasis.
+- Use no more than three font-size tiers in any figure: one tier for the caption, structural labels, and membership glyphs; one shared larger tier for every governing term and governing operator; and one smaller muted tier for annotations and markers. A figure may use fewer. Never introduce a form-specific, dense, intermediate, or one-off governing size.
+- Make governing terms conspicuously large when the form permits it. Quiet annotations may be much smaller because DOM- and artifact-reading Agents do not depend on their rendered size, but keep them readable and selectable for humans and screenshot-reading Agents; typography is not permission to hide information.
 - Keep every logical character and label literal in the maintained source, rendered DOM, Markdown, and JSON. Do not put figure logic only in CSS, an image, SVG, or canvas.
 - Treat the visible structured DOM as the canonical human figure. Keep the exact `figureText` in the maintained source and generated Agent Markdown and JSON; when the visible DOM preserves the complete logical structure, do not duplicate `figureText` in the human page.
 - When a character figure's box, fork, lane, or directional shape carries meaning, preserve that logical shape in the human rendering. Use structured DOM and literal character rails so key terms and annotations can have distinct type scales without bending the fixed-width source.
 - Put repeated headings, terms, stages, dividers, and junctions that share an axis on one shared layout track. Do not approximate a common column independently in each row.
 - Keep every rail that represents one continuous boundary or path visually continuous: adjacent character runs must meet with no layout gap, and repeated literal `│` or `─` runs should stretch and clip to the row or column they govern. A deliberate transition may have breathing room around it, but its own stem, arrowhead, junction, or loop must remain joined.
-- For a forming work, draw only the known direction and state the open relation or form inside the figure. Never fill the open space with an invented mechanism.
+- When a work leaves a relation or form unsettled, draw only the defined direction. State the open boundary without narrating a development timeline, and never fill the space with an invented mechanism.
 - Use a figure to establish a strong impression of the block's governing terms or relation; do not make it explain the block.
 - Let the surrounding prose own explanation, caveats, and details.
 - Use quiet annotations only when a few words sharpen the impression.
+- Preserve those concise annotations when simplifying a figure. Remove an explanatory node without automatically deleting the useful annotation attached to its governing term or connector.
+- Remove secondary nodes and labels whose only job is to say `relation`, `boundary`, `form`, `scope`, or another explanation already carried by the prose.
 
 ## Editorial voice
 
@@ -113,7 +138,29 @@ Do not reduce Agent Art to prompting, text generation, chat, or human-plus-model
 - Do not promise financial return, personal transformation, psychological healing, authenticity, or freedom as a guaranteed result.
 - Preserve productive openness. Explain boundaries without closing questions the work intentionally leaves open.
 
+## Time-neutral conceptual documentation
+
+- Write conceptual and artistic articles as durable accounts of terms, relations, scope, and evidence boundaries. They are documentation, not a news feed or roadmap.
+- Do not create sections such as `What is known`, `What is still forming`, `Current status`, or `Current study`. Do not publish planned years, calendar promises, or prose whose only meaning is that a work is unfinished at the moment of writing.
+- When a concrete form is unspecified, say what the concept includes, excludes, or leaves open. Do not narrate the temporary state of its development.
+- Express availability as an evidence boundary: a movement name, artistic direction, or study description does not establish a creation surface, mint surface, capacity, release, or deployment.
+- Time-sensitive technical facts are allowed only when time or mutable state is part of the fact itself, such as `current owner`, `current ask`, a named release, a deployment, or a network observation. Anchor those claims to their owning authority and observation scope.
+- Prefer durable terms such as `canonical release`, `configured state`, and `observed deployment` over relative phrases such as `latest`, `today`, or `currently` when they mean the same thing.
+
 ## Claim and authority discipline
+
+### Fully onchain
+
+Use `fully onchain` as a narrow chain-sufficiency claim, not as praise or a synonym for ERC-721.
+
+- Name the selected network, deployment, contract system, and token scope to which the claim applies.
+- Require the chain and bound contract dependencies to return the complete canonical metadata and media without an HTTP server, IPFS object, repository file, frontend reconstruction, or other external content object.
+- Treat RPCs, wallets, explorers, marketplaces, and Apps as access or reading surfaces when they only call and decode the contracts. They must not supply missing canonical content.
+- A data URI may carry complete onchain content. A URI or hash that only identifies external content does not put that content onchain.
+- Dynamic output may be fully onchain when every value that determines it comes from bound code, state, and data on the selected chain.
+- Keep fully onchain separate from immutable, non-upgradeable, decentralized, deployed, verified, attested, authored, or true. State those claims independently and support each with its own authority.
+- A release-qualified portable contract package proves design and package integrity, not persistent deployment. Do not describe a live fully-onchain work without deployment and chain evidence.
+- Keep repositories and releases available for audit and interpretation without presenting them as runtime content hosts.
 
 Every public statement must retain its evidence boundary.
 
@@ -174,7 +221,7 @@ Choose and record one outcome in the task handoff, commit summary, or pull reque
 
 The source registry must cover every file or directory that can change a public claim. If a meaningful code or release change passes `docs:check` without being represented in `/docs/source-lock.json`, update `apps/home/src/content/docs-source-registry.ts`; do not treat the missing coverage as permission to skip documentation review.
 
-Upstream freshness is a separate gate. `pnpm check:upstream-releases` detects a newer or moved PATH or THOUGHT release, but it does not repin, reinterpret, or publish that release automatically. Review the upstream handoff, import exact artifacts, update the relevant public and machine documentation, and rerun both gates.
+Upstream freshness is a separate gate. `pnpm check:upstream-releases` detects a newer or moved $PATH or THOUGHT release, but it does not repin, reinterpret, or publish that release automatically. Review the upstream handoff, import exact artifacts, update the relevant public and machine documentation, and rerun both gates.
 
 Local hooks, CI, and deploy workflows run these checks:
 
@@ -199,7 +246,7 @@ After editing:
 1. Run `pnpm docs:generate`.
 2. Review the human article and generated Agent-readable artifacts.
 3. Run `pnpm docs:check`.
-4. Run `pnpm check:upstream-releases` when upstream THOUGHT, PATH, Pulse, renderer, schema, protocol, or contract facts are involved.
+4. Run `pnpm check:upstream-releases` when upstream THOUGHT, $PATH, Pulse, renderer, schema, protocol, or contract facts are involved.
 5. Run the focused docs tests and type check.
 6. Render the affected pages at desktop and mobile widths when layout or figures changed.
 7. Follow the repository staging-first deployment discipline. Documentation correctness does not authorize production promotion.

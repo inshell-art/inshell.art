@@ -2,23 +2,23 @@
   "schema": "inshell.agent-docs.source-lock.v1",
   "schemaUrl": "/docs/source-lock.schema.json",
   "canonicalSchemaUrl": "https://inshell.art/docs/source-lock.schema.json",
-  "documentationVersion": "2026-08-11",
+  "documentationVersion": "2026-08-16",
   "sourceRegistrySchema": "inshell.agent-docs.source-registry.v1",
   "purpose": "Exact-byte inventory of public knowledge-bearing inputs used to keep human and Agent documentation aligned across the repo.",
   "policy": {
-    "scope": "Public knowledge-bearing sources across inshell.art, THOUGHT, PATH, wallet, route, and read-only API boundaries.",
+    "scope": "Public knowledge-bearing sources across inshell.art, THOUGHT, $PATH, wallet, route, and read-only API boundaries.",
     "update": "When a registered source changes, update its owning source or lock, run pnpm docs:generate, review the generated docs and source lock, then run pnpm docs:check.",
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "2d3967c0360589e0cf2910d53cc423a91590d1525109dc8c420faead983145da",
+  "sourceTreeSha256": "7c09cc375c4e9aa6e6eb23dcd0cd2fbf5f353ccb791b194ba8bd9fa181ede07e",
   "groups": [
     {
       "id": "public-docs",
       "title": "Public documentation sources",
       "owner": "inshell.art docs",
       "reason": "Human articles, Agent-readable content, authority maps, and machine-handoff selection.",
-      "groupSha256": "bf2ee43555a9997e841001b4aef92785caf0240af05c25cba5e7578d94294461",
+      "groupSha256": "fcc9bf6fce33c008f1b97b7ad4fb81bf2cf62a9280ae80ccceee4ccc5b83f50d",
       "files": [
         {
           "path": "apps/home/src/content/AGENTS.md",
@@ -26,14 +26,19 @@
           "sha256": "3eb4bc483178829aa38ed8e85d20e65538b7867c046037062af488bda06660e3"
         },
         {
+          "path": "apps/home/src/content/docs-figure-logic.ts",
+          "byteLength": 12507,
+          "sha256": "209d42077582f36b7f3cac88d928ed3615d5387fe87048bd586ad8f1d2c6e399"
+        },
+        {
           "path": "apps/home/src/content/docs-source-registry.ts",
-          "byteLength": 7343,
-          "sha256": "a7a42721839131cc2ed5ac9a40c7a241392ecdeecbd00a44a000b2ed31041fc8"
+          "byteLength": 7585,
+          "sha256": "cd13814ce06b32190a0caefdc13f85025699dcef1473bd38ec4e68e959283d21"
         },
         {
           "path": "apps/home/src/content/docs.ts",
-          "byteLength": 140362,
-          "sha256": "14364a7207fd0b505b86e7457fdaaf6eaa178901cc03109ede39b71749cd52b0"
+          "byteLength": 118431,
+          "sha256": "b88438916b70bd652d97b79ffdcd2383f826d565d0f6bf58c249f1fc1e719299"
         },
         {
           "path": "apps/home/src/content/thought-machine-handoff.ts",
@@ -42,22 +47,27 @@
         },
         {
           "path": "docs/AGENTS.md",
-          "byteLength": 17373,
-          "sha256": "8d52170884280f32b29b5650a46df8afc745c750b6e0045533e486426f9f1c5c"
+          "byteLength": 24560,
+          "sha256": "e39823694da767ff4e6c42846e80a6501b9033174735a0559530d6808559cf83"
+        },
+        {
+          "path": "docs/agent-native-figure-experiment.md",
+          "byteLength": 3728,
+          "sha256": "8042f985e3615e9fddd1a16fe1169cf56b289f2ac1832be54b0e7f30c0b226f8"
         },
         {
           "path": "scripts/generate-agent-docs.ts",
-          "byteLength": 111427,
-          "sha256": "9b70b504c5a3ea42d8bcfdb3987c4ab478388d50c038cdd0acbfa0a5c948b569"
+          "byteLength": 119827,
+          "sha256": "4a9148017dd5baee9fb7c4d90f97ad95da2844a6edde5af1e42168c25ff5c4bc"
         }
       ]
     },
     {
       "id": "home-app",
-      "title": "Home, PATH, Pulse, WILL, and shared docs runtime",
+      "title": "Home, $PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "05e635dac1d1d0e038b867593335b78309cdc0c7ed3515c760ac12e5744f6abd",
+      "groupSha256": "a16f3addc1d3f6973d2b025248770764f3be8168748001ff5691b174168c93d4",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -71,8 +81,8 @@
         },
         {
           "path": "apps/home/src/App.tsx",
-          "byteLength": 17626,
-          "sha256": "426ad63296c67b5c6f5cc693cab209e567c867a086f0a33d030e7b95f832482c"
+          "byteLength": 17634,
+          "sha256": "2230e33ead7dd96a2c79f58d9cb32301f7e8350b43a0829c646f9469f28f2fe7"
         },
         {
           "path": "apps/home/src/assets/icon-github.svg",
@@ -101,8 +111,8 @@
         },
         {
           "path": "apps/home/src/components/DocsPage.tsx",
-          "byteLength": 10917,
-          "sha256": "c692ed244d2a837029dcee9de84b02161d8949ae80ab79391b32c38e9ee6ad66"
+          "byteLength": 12990,
+          "sha256": "fca909c90ebe26ef8e71b1a55295478ccd2e510aac8622a6bd4b034d6969dc6f"
         },
         {
           "path": "apps/home/src/components/EcosystemHome.tsx",
@@ -151,8 +161,8 @@
         },
         {
           "path": "apps/home/src/components/PulsePage.tsx",
-          "byteLength": 20987,
-          "sha256": "8f5ed7a69ec35481c25fe8cb767c515c67d4c223b57f6083cb7f194c66f24294"
+          "byteLength": 20994,
+          "sha256": "54d90a8c68b6723f145bd1ec02c0b24e7287ba67ee528f383f1b6c605ac0764f"
         },
         {
           "path": "apps/home/src/components/ThoughtDetailPage.tsx",
@@ -176,18 +186,28 @@
         },
         {
           "path": "apps/home/src/components/docs/FieldFigureVisual.tsx",
-          "byteLength": 14832,
-          "sha256": "1999f44e96f1c9287078810fa08869d62f4306eeb0a3a1dc03b5ca47a02a3777"
+          "byteLength": 13924,
+          "sha256": "cc04bd7d9ad87ad889cdaf8d9dfc3c8f64195bfe79d7b8bac1e5a2924aa6ecdd"
         },
         {
           "path": "apps/home/src/components/docs/FlowFigureVisual.tsx",
-          "byteLength": 7033,
-          "sha256": "8b82d236b14afa0bb030350330c57f4027d4dc71f810ea402bf6b3d5dcf5a28a"
+          "byteLength": 9892,
+          "sha256": "a019e3ff58ed146f01fe073638668c198087ce5e247a1c12cc8c64f6b26686ce"
         },
         {
           "path": "apps/home/src/components/docs/LaneFigureVisual.tsx",
-          "byteLength": 8144,
-          "sha256": "f1d9b5499c82f18a858b9f1eaff982baf1de45f2310ac17bed605a58c713640f"
+          "byteLength": 5496,
+          "sha256": "b5ff602944fb0c7031d02ff6bcd4e2ecbdb9d82626c4295518c266141ab83acd"
+        },
+        {
+          "path": "apps/home/src/components/docs/figureLogicResolvers.ts",
+          "byteLength": 1918,
+          "sha256": "4535299571f95569ba0945367270d71d02c37a3abbe874231e1ef26a09d02806"
+        },
+        {
+          "path": "apps/home/src/components/docs/figures.css",
+          "byteLength": 20855,
+          "sha256": "5460e57ff6ade48f3330bb629e47c04d8380c7471257e89c119d279395ac38ed"
         },
         {
           "path": "apps/home/src/config/publicLaunch.ts",
@@ -221,13 +241,13 @@
         },
         {
           "path": "apps/home/src/main.css",
-          "byteLength": 108770,
-          "sha256": "ac7f294f4deb64d18b1a08cb5e85bba09fa0a5497e059295654ba985b76e3be2"
+          "byteLength": 109722,
+          "sha256": "bd6f8db4df2042b35cfcf426a2f91cd3d7e5a0e5d74e9e0289f414f1fd5bafa4"
         },
         {
           "path": "apps/home/src/main.tsx",
-          "byteLength": 959,
-          "sha256": "6455851c014380385466d82a5c29f8aa268e0b7103a5baf1bdcc8e22891f6793"
+          "byteLength": 999,
+          "sha256": "bc3a1b5569ecacaa5d4b30b4ff37f7844291667827911c2972d6863771a3729d"
         },
         {
           "path": "apps/home/src/pathMintSubmissionLock.ts",
@@ -291,12 +311,12 @@
       "title": "Public routes and read-only resource contracts",
       "owner": "inshell.art shared App infrastructure",
       "reason": "The Agent index advertises these routes and their read-only semantics.",
-      "groupSha256": "738827ffb5248aadfff4c4842313a92edc5082020f23e5751e48f9307755c8ad",
+      "groupSha256": "9d18891a53eaa1a27e69294c8f10382e096079574622a12814a0df93cdae382d",
       "files": [
         {
           "path": "apps/home/public/_headers",
-          "byteLength": 1635,
-          "sha256": "2a63bf8ad5ea722d785cb666d0083c82a60270387350216123cbe6436cc0c9f8"
+          "byteLength": 1784,
+          "sha256": "91545ef9ee2b514eedc0cd31d7cd768523164f8c8041fe4f4c85edc85f5abe52"
         },
         {
           "path": "functions/_middleware.ts",
@@ -545,8 +565,23 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "984cce2fbdbf4c578b72c5837ba3eee30c9b53eba83bbf286268cff7679cb164",
+      "groupSha256": "e075196bd1ac6a1bacddc4fd698c032d063720fc2d47210979f4964b6e967679",
       "files": [
+        {
+          "path": ".github/workflows/deploy-pages.yml",
+          "byteLength": 13092,
+          "sha256": "6975804ab0e069b422570bdeb2423aee485182d0679c25e38d959df1eba92b34"
+        },
+        {
+          "path": ".github/workflows/rollback-pages.yml",
+          "byteLength": 4946,
+          "sha256": "d438395f925b8b30a1110630341bea5f0e7406bb9c399f26fda9f534d42bdb0f"
+        },
+        {
+          "path": ".github/workflows/test.yml",
+          "byteLength": 2539,
+          "sha256": "14109949a7cff7fec635c7d0ef3d7874c2f265647a68f928c61b128ac825cffd"
+        },
         {
           "path": ".husky/pre-commit",
           "byteLength": 57,
@@ -848,9 +883,9 @@
     },
     {
       "id": "path-release",
-      "title": "PATH release",
-      "owner": "PATH Contract producer and inshell.art consumer",
-      "reason": "PATH permission, capacity, renderer, ABI, and release facts are imported from this lock and release.",
+      "title": "$PATH release",
+      "owner": "$PATH Contract producer and inshell.art consumer",
+      "reason": "$PATH permission, capacity, renderer, ABI, and release facts are imported from this lock and release.",
       "groupSha256": "3e1473244cdd47f1ec9ff80bd8eeed0c1fa56ed1b88d4d69c859b755d2759e1d",
       "files": [
         {
@@ -912,7 +947,7 @@
     },
     {
       "id": "path-deployments",
-      "title": "PATH deployment records",
+      "title": "$PATH deployment records",
       "owner": "inshell.art deployment tooling",
       "reason": "Network, address, and deployment facts shown by the App derive from these records.",
       "groupSha256": "10c3cf484dc8a254d1a2fd40cfa047756844f83009c3bac188087dd0462dd57a",

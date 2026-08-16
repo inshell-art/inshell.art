@@ -1,8 +1,8 @@
 {
-  "schema": "inshell.agent-docs.topic.v1",
-  "schemaUrl": "/docs/content.schema.json",
-  "canonicalSchemaUrl": "https://inshell.art/docs/content.schema.json",
-  "version": "2026-08-11",
+  "schema": "inshell.agent-docs.topic.v2",
+  "schemaUrl": "/docs/content.v2.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
+  "version": "2026-08-16",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "wallet-local-data",
@@ -27,47 +27,14 @@
         "app-documentation"
       ],
       "paragraphs": [
-        "The shell wallet menu reads the current account and network. Its Refresh action updates wallet and PATH inventory reads. Opening the menu itself never asks for a signature or transaction.",
-        "Product CTAs open wallet requests only when an action needs one: connect, mint PATH, sign a one-mint PATH permission, or mint THOUGHT. Canceling a wallet request submits nothing.",
+        "The shell wallet menu reads the current account and network. Its Refresh action updates wallet and [$PATH](https://inshell.art/docs/path) inventory reads. Opening the menu itself never asks for a signature or transaction.",
+        "Product CTAs open wallet requests only when an action needs one: connect, mint $PATH, sign a one-mint $PATH permission, or mint [THOUGHT](https://inshell.art/docs/thought). Canceling a wallet request submits nothing.",
         "A signature can authorize a narrowly defined action without sending a transaction or paying gas. A transaction can change chain state and requires wallet confirmation. The interface must name which one it is requesting.",
         "Save and Load use browser storage. Agent run state is held by the App backend for the run window. Neither is an onchain token, a portable account, or a cross-device record.",
         "Local Anvil, Sepolia, and Ethereum are separate chains with separate contracts, balances, and tokens. Local tokens belong only to the local dev chain. Normal App development preserves that chain across restarts; an explicit reset or redeployment can replace it."
       ]
     },
-    "figure": {
-      "authorities": [
-        "app-documentation"
-      ],
-      "label": "Trust boundaries for wallet and local actions",
-      "mode": "ledger",
-      "figureText": "ACTION      │ BOUNDARY / EFFECT\n────────────┼────────────────────────────────────\nRead        │ App / public state. No signature or\n            │ transaction.\n────────────┼────────────────────────────────────\nConnect     │ Wallet → App. Exposes the selected\n            │ account and network; no chain change.\n────────────┼────────────────────────────────────\nSign        │ Wallet message. Narrow authorization;\n            │ no gas and no chain change by itself.\n────────────┼────────────────────────────────────\nTransact    │ Wallet → contract. Wallet confirms;\n            │ may transfer value or change\n            │ chain state.\n────────────┼────────────────────────────────────\nSave / Load │ Current browser. Local only; not\n            │ onchain or cross-device.\n────────────┼────────────────────────────────────\nAgent run   │ App backend. Temporary run-window\n            │ state; not onchain unless a later\n            │ public record preserves part.",
-      "items": [
-        {
-          "title": "Read",
-          "detail": "App / public state. No signature or transaction."
-        },
-        {
-          "title": "Connect",
-          "detail": "Wallet → App. Exposes the selected account and network; no chain change."
-        },
-        {
-          "title": "Sign",
-          "detail": "Wallet message. Narrow authorization; no gas and no chain change by itself."
-        },
-        {
-          "title": "Transact",
-          "detail": "Wallet → contract. Wallet confirms; may transfer value or change chain state."
-        },
-        {
-          "title": "Save / Load",
-          "detail": "Current browser. Local only; not onchain or cross-device."
-        },
-        {
-          "title": "Agent run",
-          "detail": "App backend. Temporary run-window state; not onchain unless a later public record preserves part."
-        }
-      ]
-    },
+    "figure": null,
     "preformatted": [],
     "sections": [
       {
@@ -77,7 +44,7 @@
         "id": "docs-wallet-passive",
         "title": "Reading is not signing",
         "paragraphs": [
-          "Opening the wallet menu, refreshing account state, loading PATH inventory, or reading public token records should not request a signature or transaction. These are passive reads.",
+          "Opening the wallet menu, refreshing account state, loading $PATH inventory, or reading public token records should not request a signature or transaction. These are passive reads.",
           "A product action can open a wallet only when it needs account access, a signature, a network switch, or a transaction. The interface should name that boundary before the request appears."
         ]
       },

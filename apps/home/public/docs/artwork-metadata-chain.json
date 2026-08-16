@@ -1,8 +1,8 @@
 {
-  "schema": "inshell.agent-docs.topic.v1",
-  "schemaUrl": "/docs/content.schema.json",
-  "canonicalSchemaUrl": "https://inshell.art/docs/content.schema.json",
-  "version": "2026-08-11",
+  "schema": "inshell.agent-docs.topic.v2",
+  "schemaUrl": "/docs/content.v2.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
+  "version": "2026-08-16",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "artwork-metadata-chain",
@@ -31,46 +31,16 @@
         "contract-release"
       ],
       "paragraphs": [
-        "The canonical gallery route reports the current THOUGHT deployment state; the imported R2 release is not deployed and therefore lists no R2 works. The PATH surface continues to list PATH tokens from its configured chain. The full identity of an NFT is its network, contract address, and token ID; the same token number elsewhere is a different record.",
-        "THOUGHT and PATH artwork and NFT metadata come from each contract's tokenURI and pinned renderer. The App decodes and displays those canonical bytes; it must not rebuild replacement art or silently substitute a newer renderer.",
+        "Home lists minted [THOUGHT](https://inshell.art/docs/thought) works from the active chain. The [$PATH](https://inshell.art/docs/path) surface lists $PATH tokens from that same chain. The full identity of an NFT is its network, contract address, and token ID; the same token number elsewhere is a different record.",
+        "THOUGHT and $PATH artwork and NFT metadata come from each contract's tokenURI and pinned renderer. The App decodes and displays those canonical bytes; it must not rebuild replacement art or silently substitute a newer renderer.",
         "Token metadata carries the canonical image, description, stable marketplace traits, and—when the release defines it—an external_url to the canonical detail page. A generic marketplace can read that portable layer without understanding Inshell's richer records.",
-        "Inshell detail pages add context: THOUGHT exposes its work, evidence levels, and creation provenance; PATH exposes movement state, capacity, linked movement tokens, issuance, and onchain record.",
+        "Inshell detail pages add context: THOUGHT exposes its work, evidence levels, and creation provenance; $PATH exposes movement state, capacity, linked movement tokens, issuance, and onchain record.",
         "These layers make the public forms and claims of the practice inspectable. They can establish which bytes and records belong to a work; they cannot prove the inward truth of the work or possess its meaning.",
-        "These artwork, metadata, provenance, and chain layers describe Inshell's current onchain practices. They are not requirements that every Agent Art practice must adopt.",
-        "Onchain does not mean context-free. Read network, contract, token ID, deployment, release, tokenURI source, and attestation status together before deciding what a record proves."
+        "These artwork, metadata, provenance, and chain layers describe Inshell's onchain practices. They are not requirements that every Agent Art practice must adopt.",
+        "Onchain does not mean context-free. Read network, contract, token ID, deployment, release, tokenURI source, and [attestation status](https://inshell.art/docs/verification) together before deciding what a record proves."
       ]
     },
-    "figure": {
-      "authorities": [
-        "app-documentation",
-        "contract-release"
-      ],
-      "label": "Evidence for one token interpretation",
-      "mode": "ledger",
-      "figureText": "RECORD         │ EVIDENCE\n───────────────┼────────────────────────────────\nIdentity       │ Network, contract address,\n               │ and token ID name one NFT.\n───────────────┼────────────────────────────────\nContract       │ Typed state and tokenURI expose\n               │ contract-controlled facts.\n───────────────┼────────────────────────────────\nRelease        │ Pinned artifacts explain the ABI,\n               │ renderer, schemas, and commitments.\n───────────────┼────────────────────────────────\nContext        │ Detail pages and provenance\n               │ add declared evidence without\n               │ replacing the token.\n───────────────┼────────────────────────────────\nInterpretation │ Read the evidence levels\n               │ together before making a larger\n               │ claim.",
-      "items": [
-        {
-          "title": "Identity",
-          "detail": "Network, contract address, and token ID name one NFT."
-        },
-        {
-          "title": "Contract",
-          "detail": "Typed state and tokenURI expose contract-controlled facts."
-        },
-        {
-          "title": "Release",
-          "detail": "Pinned artifacts explain the ABI, renderer, schemas, and commitments."
-        },
-        {
-          "title": "Context",
-          "detail": "Detail pages and provenance add declared evidence without replacing the token."
-        },
-        {
-          "title": "Interpretation",
-          "detail": "Read the evidence levels together before making a larger claim."
-        }
-      ]
-    },
+    "figure": null,
     "preformatted": [],
     "sections": [
       {
@@ -91,7 +61,7 @@
         "id": "docs-reading-artwork",
         "title": "Canonical artwork bytes",
         "paragraphs": [
-          "THOUGHT and PATH tokenURI responses point to the canonical artwork and metadata produced by their pinned contract systems. The App decodes those bytes for display. It should not redraw an approximation, swap in a newer renderer, or treat a cached marketplace thumbnail as the origin."
+          "THOUGHT and $PATH tokenURI responses point to the canonical artwork and metadata produced by their pinned contract systems. The App decodes those bytes for display. It should not redraw an approximation, swap in a newer renderer, or treat a cached marketplace thumbnail as the origin."
         ],
         "points": [
           "A data URI can carry JSON metadata or SVG artwork directly.",
@@ -131,15 +101,21 @@
     "links": [
       {
         "role": "navigation",
-        "label": "view the THOUGHT gallery state",
-        "href": "/gallery",
-        "canonicalHref": "https://inshell.art/gallery"
+        "label": "view minted THOUGHT works",
+        "href": "/",
+        "canonicalHref": "https://inshell.art/"
       },
       {
         "role": "navigation",
         "label": "view all $PATH",
         "href": "/path",
         "canonicalHref": "https://inshell.art/path"
+      },
+      {
+        "role": "navigation",
+        "label": "read fully onchain",
+        "href": "/docs/fully-onchain",
+        "canonicalHref": "https://inshell.art/docs/fully-onchain"
       }
     ]
   }

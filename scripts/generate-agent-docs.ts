@@ -19,9 +19,14 @@ import {
   type DocsFigure,
   type DocsLink,
   type DocsParagraph,
+  type DocsSourceExample,
   type DocsTopic,
 } from "../apps/home/src/content/docs.ts";
+import { docsFigureLogic } from "../apps/home/src/content/docs-figure-logic.ts";
 import { DOCS_SOURCE_REGISTRY } from "../apps/home/src/content/docs-source-registry.ts";
+
+const AGENT_CONTENT_SCHEMA_V1_PATH = "/docs/content.schema.json";
+const AGENT_CONTENT_SCHEMA_V2_PATH = "/docs/content.v2.schema.json";
 import { THOUGHT_MACHINE_HANDOFF_SOURCE } from "../apps/home/src/content/thought-machine-handoff.ts";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
@@ -126,6 +131,7 @@ const REQUIRED_PUBLIC_DOCS_GATES = [
     job: "build",
     sourcePath: ".github/workflows/test.yml",
     requiredCommands: [
+      "pnpm run docs:check",
       "pnpm run check:upstream-releases",
       "pnpm run build:home",
     ],
@@ -135,8 +141,19 @@ const REQUIRED_PUBLIC_DOCS_GATES = [
     job: "deploy-home",
     sourcePath: ".github/workflows/deploy-pages.yml",
     requiredCommands: [
+      "pnpm run docs:check",
       "pnpm run check:upstream-releases",
       "pnpm run build:home",
+    ],
+  },
+  {
+    workflow: "deploy-pages",
+    job: "deploy-thought",
+    sourcePath: ".github/workflows/deploy-pages.yml",
+    requiredCommands: [
+      "pnpm run docs:check",
+      "pnpm run check:upstream-releases",
+      "pnpm run build:thought",
     ],
   },
 ] as const;
@@ -447,9 +464,9 @@ function topicJsonDocument(topic: DocsTopic) {
   const authorityMap = assertTopicAuthorityCoverage(topic);
 
   return {
-    schema: "inshell.agent-docs.topic.v1",
-    schemaUrl: "/docs/content.schema.json",
-    canonicalSchemaUrl: canonicalPath("/docs/content.schema.json"),
+    schema: "inshell.agent-docs.topic.v2",
+    schemaUrl: AGENT_CONTENT_SCHEMA_V2_PATH,
+    canonicalSchemaUrl: canonicalPath(AGENT_CONTENT_SCHEMA_V2_PATH),
     version: DOCS_SOURCE.version,
     language: "en",
     fetchedContentRole: "reference-data",
@@ -477,6 +494,7 @@ function topicJsonDocument(topic: DocsTopic) {
         ? {
             authorities: authorityMap.figure ?? [],
             ...topic.figure,
+            logic: docsFigureLogic(topic.figure),
           }
         : null,
       preformatted: (topic.preformatted ?? []).map((block) => ({
@@ -494,6 +512,7 @@ function topicJsonDocument(topic: DocsTopic) {
                 figure: {
                   authorities: authorityMap.sectionFigures?.[section.id] ?? [],
                   ...figure,
+                  logic: docsFigureLogic(figure),
                 },
               }
             : {}),
@@ -506,9 +525,9 @@ function topicJsonDocument(topic: DocsTopic) {
 
 function completeJson(topics: ReturnType<typeof topicJsonDocument>[]) {
   return {
-    schema: "inshell.agent-docs.content.v1",
-    schemaUrl: "/docs/content.schema.json",
-    canonicalSchemaUrl: canonicalPath("/docs/content.schema.json"),
+    schema: "inshell.agent-docs.content.v2",
+    schemaUrl: AGENT_CONTENT_SCHEMA_V2_PATH,
+    canonicalSchemaUrl: canonicalPath(AGENT_CONTENT_SCHEMA_V2_PATH),
     version: DOCS_SOURCE.version,
     language: "en",
     fetchedContentRole: "reference-data",
@@ -537,6 +556,52 @@ function markdownAuthority(authorities: readonly string[]) {
   return `- Authority: ${authorities.join(", ")}`;
 }
 
+function markdownFigureItem(label: string, detail?: string) {
+  return `${label}${detail === undefined ? "" : ` — ${detail}`}`;
+}
+
+function markdownFigureLogic(figure: DocsFigure) {
+  const logic = docsFigureLogic(figure);
+  const terms = new Map(logic.nodes.map((node) => [node.id, node.term]));
+  const groupLabels = new Map(
+    logic.groups.map((group) => [group.id, group.label]),
+  );
+  const endpointLabel = (endpoint: string) =>
+    terms.get(endpoint) ?? groupLabels.get(endpoint) ?? endpoint;
+  const nodeLines = logic.nodes.map(
+    (node) =>
+      `  - \`${node.id} [${node.role}]: ${node.term}${
+        node.annotation ? ` — ${node.annotation}` : ""
+      }\``,
+  );
+  const relationLines = logic.edges.map((edge) => {
+    const from = endpointLabel(edge.from);
+    const to = endpointLabel(edge.to);
+    const literalGlyph = edge.stackedGlyph
+      ? `${edge.glyph} / ${edge.stackedGlyph.replace(/\n/g, " ")}`
+      : edge.glyph;
+    const relation = [literalGlyph, edge.label, edge.annotation]
+      .filter((value): value is string => Boolean(value))
+      .join(" · ");
+    return `  - \`${edge.id}: ${edge.from} (${from}) --[${relation}]--> ${edge.to} (${to})\``;
+  });
+  const groupLines = logic.groups.map((group) => {
+    const members = group.members
+      .map((member) => `${member} (${terms.get(member) ?? member})`)
+      .join(" · ");
+    const glyph = group.glyph ? ` · ${group.glyph}` : "";
+    return `  - \`${group.id} [${group.kind}]${glyph}: ${group.label} [members: ${members}]\``;
+  });
+
+  return [
+    `- Semantic form: ${logic.form}`,
+    "- Semantic nodes:",
+    ...nodeLines,
+    ...(relationLines.length ? ["- Semantic edges:", ...relationLines] : []),
+    ...(groupLines.length ? ["- Semantic groups:", ...groupLines] : []),
+  ];
+}
+
 function markdownFigure(
   figure: DocsFigure | undefined,
   authorities: readonly string[],
@@ -547,22 +612,28 @@ function markdownFigure(
   if (figure.mode === "lanes") {
     itemLines = figure.items.map((item) => {
       const phase = item.phase ? ` · ${item.phase}` : "";
-      return `${item.stage}. **${item.lane} · ${item.title}${phase}** — ${item.detail}`;
+      return `${item.stage}. ${markdownFigureItem(
+        `**${item.lane} · ${item.title}${phase}**`,
+        item.detail,
+      )}`;
     });
   } else if (figure.mode === "trace") {
     itemLines = figure.items.map(
-      (item, index) => `${index + 1}. **${item.title}** — ${item.detail}`,
+      (item, index) =>
+        `${index + 1}. ${markdownFigureItem(`**${item.title}**`, item.detail)}`,
     );
   } else {
     itemLines = figure.items.map(
-      (item) => `- **${item.title}** — ${item.detail}`,
+      (item) => `- ${markdownFigureItem(`**${item.title}**`, item.detail)}`,
     );
   }
   return [
     `${heading} ${figure.label}`,
     "",
     markdownAuthority(authorities),
+    `- Figure ID: ${figure.id}`,
     `- Figure mode: ${figure.mode}`,
+    ...markdownFigureLogic(figure),
     "",
     "```text",
     figure.figureText,
@@ -571,6 +642,19 @@ function markdownFigure(
     ...itemLines,
     "",
   ];
+}
+
+function markdownSourceExamples(
+  examples: DocsSourceExample[] | undefined,
+) {
+  return (examples ?? []).flatMap((example) => [
+    `### ${example.label}`,
+    "",
+    `\`\`\`${example.language}`,
+    example.content,
+    "```",
+    "",
+  ]);
 }
 
 function markdownSections(topic: DocsTopic) {
@@ -596,6 +680,7 @@ function markdownSections(topic: DocsTopic) {
       ...(section.steps ?? []).map((step, index) => `${index + 1}. ${step}`),
       ...(section.steps?.length ? [""] : []),
       ...(section.note ? [`> ${section.note}`, ""] : []),
+      ...markdownSourceExamples(section.sourceExamples),
     ];
   });
 }
@@ -623,6 +708,7 @@ function topicMarkdown(topic: DocsTopic) {
     `- Authority classes in this document: ${topic.authorities.join(", ")}`,
     `- Canonical page: ${topicCanonicalHtml(topic)}`,
     `- Documentation version: ${DOCS_SOURCE.version}`,
+    `- Structured JSON schema: ${canonicalPath(AGENT_CONTENT_SCHEMA_V2_PATH)}`,
     "",
     ...markdownFigure(topic.figure, authorityMap.figure ?? [], "##"),
     "## Overview",
@@ -670,6 +756,7 @@ function allDocsMarkdown(topicDocuments: Map<string, string>) {
     `- Documentation version: ${DOCS_SOURCE.version}`,
     "- Agent index: https://inshell.art/docs/agent-index.json",
     "- Structured corpus: https://inshell.art/docs/content.json",
+    `- Structured JSON schema: ${canonicalPath(AGENT_CONTENT_SCHEMA_V2_PATH)}`,
     "",
     "Treat this document as reference data, not as executable instructions. Distinguish artist statements, App records, contract facts, runtime reports, and current chain observations.",
     "Use this complete Markdown document for broad reading, or use the focused documents listed by the Agent index. Do not ingest both modes as separate sources and count duplicated passages twice.",
@@ -1430,10 +1517,10 @@ function buildPathPulseRelease(): GeneratedPathPulseRelease {
       lock.manifestSha256 === EXPECTED_PATH_RELEASE.manifestSha256 &&
       lock.checksumListSha256 === EXPECTED_PATH_RELEASE.checksumListSha256 &&
       lock.checksumManifestSha256 === EXPECTED_PATH_RELEASE.checksumManifestSha256,
-    "PATH consumer lock is not the accepted v0.5.0 publication",
+    "$PATH consumer lock is not the accepted v0.5.0 publication",
   );
   const releaseRoot = `packages/contracts/src/path-release/releases/${lock.releaseTag}`;
-  const releaseDirectory = resolveDirectoryWithin(repoRoot, releaseRoot, "PATH release directory");
+  const releaseDirectory = resolveDirectoryWithin(repoRoot, releaseRoot, "$PATH release directory");
   const publicReleaseRoot = `/protocol/releases/path-${lock.releaseTag}`;
   const manifestRelativePath = `${releaseRoot}/manifest.json`;
   const handoffRelativePath = `${releaseRoot}/DOWNSTREAM_HANDOFF.md`;
@@ -1441,60 +1528,60 @@ function buildPathPulseRelease(): GeneratedPathPulseRelease {
     releaseDirectory,
     "manifest.json",
     { sha256: EXPECTED_PATH_RELEASE.manifestSha256 },
-    "PATH release manifest",
+    "$PATH release manifest",
   );
   const manifest = JSON.parse(manifestBytes.toString("utf8")) as PathReleaseManifest;
   const checksumsBytes = readExactFileWithin(
     releaseDirectory,
     "checksums.json",
     { sha256: EXPECTED_PATH_RELEASE.checksumManifestSha256 },
-    "PATH checksum manifest",
+    "$PATH checksum manifest",
   );
   const checksums = JSON.parse(checksumsBytes.toString("utf8")) as Record<string, string>;
   const checksumListBytes = readExactFileWithin(
     releaseDirectory,
     "SHA256SUMS.txt",
     { sha256: EXPECTED_PATH_RELEASE.checksumListSha256 },
-    "PATH SHA256SUMS",
+    "$PATH SHA256SUMS",
   );
-  const checksumList = parseSha256Sums(checksumListBytes.toString("utf8"), "PATH SHA256SUMS");
+  const checksumList = parseSha256Sums(checksumListBytes.toString("utf8"), "$PATH SHA256SUMS");
 
   invariant(
     sha256(manifestBytes) === lock.manifestSha256,
-    `PATH release manifest drift: ${manifestRelativePath}`,
+    `$PATH release manifest drift: ${manifestRelativePath}`,
   );
   invariant(
     manifest.schema === EXPECTED_PATH_RELEASE.manifestSchema &&
       manifest.releaseTag === lock.releaseTag &&
       manifest.contractSourceCommit === lock.contractSourceCommit,
-    "PATH release manifest does not match the consumer lock",
+    "$PATH release manifest does not match the consumer lock",
   );
   invariant(
     JSON.stringify(manifest.canonicalContracts) === JSON.stringify(lock.canonicalContracts),
-    "PATH release canonical contract list does not match the consumer lock",
+    "$PATH release canonical contract list does not match the consumer lock",
   );
   invariant(
     !lock.deploymentAddressesIncluded &&
       !lock.deploymentRecordsCoupled &&
       !manifest.compatibility.networkAddressesIncluded,
-    "PATH release publication must remain separate from network deployment records",
+    "$PATH release publication must remain separate from network deployment records",
   );
   invariant(
     JSON.stringify(manifest.compatibility) === JSON.stringify(lock.compatibility),
-    "PATH release compatibility does not match the consumer lock",
+    "$PATH release compatibility does not match the consumer lock",
   );
   const checksumPaths = Object.keys(lock.checksums);
   for (const [releasePath, expectedDigest] of Object.entries(lock.checksums)) {
-    assertSafeRelativePath(releasePath, "PATH checksum path");
+    assertSafeRelativePath(releasePath, "$PATH checksum path");
     invariant(
       /^[a-f0-9]{64}$/.test(expectedDigest),
-      `PATH checksum is not a SHA-256 digest: ${releasePath}`,
+      `$PATH checksum is not a SHA-256 digest: ${releasePath}`,
     );
   }
   invariant(
     JSON.stringify(checksums) === JSON.stringify(lock.checksums) &&
       JSON.stringify(checksumList) === JSON.stringify(lock.checksums),
-    "PATH release checksum indexes do not match the consumer lock",
+    "$PATH release checksum indexes do not match the consumer lock",
   );
 
   const expectedReleasePaths = [...checksumPaths, "SHA256SUMS.txt", "checksums.json"].sort();
@@ -1502,19 +1589,19 @@ function buildPathPulseRelease(): GeneratedPathPulseRelease {
   const actualReleasePaths = registeredReleaseFiles.map((relativePath) =>
     relativePath.slice(releaseRoot.length + 1),
   );
-  assertExactFileInventory(actualReleasePaths, expectedReleasePaths, "PATH release file inventory");
+  assertExactFileInventory(actualReleasePaths, expectedReleasePaths, "$PATH release file inventory");
 
   const releaseFiles = registeredReleaseFiles.map((relativePath) => {
     const releasePath = relativePath.slice(releaseRoot.length + 1);
     const expectedSha256 = lock.checksums[releasePath]
       ?? (releasePath === "SHA256SUMS.txt" ? lock.checksumListSha256 : undefined)
       ?? (releasePath === "checksums.json" ? lock.checksumManifestSha256 : undefined);
-    invariant(expectedSha256, `PATH release artifact has no exact-byte pin: ${releasePath}`);
+    invariant(expectedSha256, `$PATH release artifact has no exact-byte pin: ${releasePath}`);
     const bytes = readExactFileWithin(
       releaseDirectory,
       releasePath,
       { sha256: expectedSha256 },
-      `PATH release artifact ${releasePath}`,
+      `$PATH release artifact ${releasePath}`,
     );
     return {
       releasePath,
@@ -1525,12 +1612,12 @@ function buildPathPulseRelease(): GeneratedPathPulseRelease {
 
   for (const contractName of manifest.canonicalContracts) {
     const contract = manifest.contracts[contractName];
-    invariant(contract, `PATH release manifest is missing ${contractName}`);
+    invariant(contract, `$PATH release manifest is missing ${contractName}`);
     for (const releasePath of [contract.abi, contract.hardhatArtifact]) {
-      assertSafeRelativePath(releasePath, `PATH ${contractName} manifest artifact path`);
+      assertSafeRelativePath(releasePath, `$PATH ${contractName} manifest artifact path`);
       invariant(
         releaseFiles.some((file) => file.releasePath === releasePath),
-        `PATH release manifest points to a missing artifact: ${releasePath}`,
+        `$PATH release manifest points to a missing artifact: ${releasePath}`,
       );
     }
   }
@@ -1547,7 +1634,7 @@ function buildPathPulseRelease(): GeneratedPathPulseRelease {
     indexEntries: [
       {
         id: `path-pulse-contract-release-${lock.releaseTag}`,
-        title: `PATH and Pulse contract release ${lock.releaseTag}`,
+        title: `$PATH and Pulse contract release ${lock.releaseTag}`,
         url: manifestPath,
         canonicalUrl: canonicalPath(manifestPath),
         mediaType: "application/json",
@@ -1557,7 +1644,7 @@ function buildPathPulseRelease(): GeneratedPathPulseRelease {
       },
       {
         id: `path-pulse-contract-release-${lock.releaseTag}-checksums`,
-        title: `PATH and Pulse contract release ${lock.releaseTag} checksums`,
+        title: `$PATH and Pulse contract release ${lock.releaseTag} checksums`,
         url: checksumsPath,
         canonicalUrl: canonicalPath(checksumsPath),
         mediaType: "application/json",
@@ -1567,12 +1654,12 @@ function buildPathPulseRelease(): GeneratedPathPulseRelease {
       },
       {
         id: `path-pulse-contract-release-${lock.releaseTag}-handoff`,
-        title: `PATH and Pulse contract release ${lock.releaseTag} downstream handoff`,
+        title: `$PATH and Pulse contract release ${lock.releaseTag} downstream handoff`,
         url: handoffPath,
         canonicalUrl: canonicalPath(handoffPath),
         mediaType: "text/markdown",
         releaseStatus: "immutable-release",
-        sha256: sha256(readRepoFile(handoffRelativePath, "PATH downstream handoff")),
+        sha256: sha256(readRepoFile(handoffRelativePath, "$PATH downstream handoff")),
         authority: "contract-release",
       },
     ],
@@ -1699,7 +1786,7 @@ function agentIndex(
           id: "path-pulse-contract-release",
           entry: pathPulseRelease.manifestPath,
           useFor:
-            "PATH permission, transfer, Spark, renderer, ABI, Pulse auction, adapter, bytecode, or contract-release questions",
+            "$PATH permission, transfer, Spark, renderer, ABI, Pulse auction, adapter, bytecode, or contract-release questions",
         },
       ],
       duplicateContentRule:
@@ -1832,6 +1919,7 @@ function agentIndex(
           "will",
           "awa",
           "artwork-metadata-chain",
+          "fully-onchain",
         ],
       },
       { route: "/docs", topics: DOCS_SOURCE.topics.map((topic) => topic.slug) },
@@ -1839,12 +1927,30 @@ function agentIndex(
         route: `/docs/${topic.slug}`,
         topics: [topic.slug],
       })),
-      { route: "/path", topics: ["path", "pulse", "contracts", "artwork-metadata-chain"] },
-      { route: "/path/{tokenId}", topics: ["path", "contracts", "artwork-metadata-chain", "verification"] },
+      {
+        route: "/path",
+        topics: ["path", "pulse", "contracts", "artwork-metadata-chain", "fully-onchain"],
+      },
+      {
+        route: "/path/{tokenId}",
+        topics: [
+          "path",
+          "contracts",
+          "artwork-metadata-chain",
+          "fully-onchain",
+          "verification",
+        ],
+      },
       { route: "/pulse", topics: ["pulse", "path", "contracts"] },
       { route: "/thought", topics: ["thought", "contracts", "wallet-local-data"] },
-      { route: "/thought/{tokenId}", topics: ["thought", "contracts", "verification"] },
-      { route: "/gallery", topics: ["thought", "artwork-metadata-chain", "verification"] },
+      {
+        route: "/thought/{tokenId}",
+        topics: ["thought", "contracts", "fully-onchain", "verification"],
+      },
+      {
+        route: "/gallery",
+        topics: ["thought", "artwork-metadata-chain", "fully-onchain", "verification"],
+      },
       { route: "/will", topics: ["will", "movements"] },
       { route: "/verify", topics: ["verification", "source-release-boundaries"] },
     ],
@@ -2456,7 +2562,7 @@ function docsSourceLockSchema() {
   };
 }
 
-function agentContentSchema() {
+function agentContentSchemaV2() {
   const authority = {
     enum: [
       "artist-editorial",
@@ -2469,7 +2575,7 @@ function agentContentSchema() {
   };
   const group = { enum: ["orientation", "works", "systems", "context"] };
   const topicBaseProperties = {
-    schemaUrl: { const: "/docs/content.schema.json" },
+    schemaUrl: { const: AGENT_CONTENT_SCHEMA_V2_PATH },
     canonicalSchemaUrl: { type: "string", format: "uri" },
     version: { type: "string", minLength: 1 },
     language: { const: "en" },
@@ -2477,7 +2583,7 @@ function agentContentSchema() {
   };
   return {
     $schema: "https://json-schema.org/draft/2020-12/schema",
-    $id: canonicalPath("/docs/content.schema.json"),
+    $id: canonicalPath(AGENT_CONTENT_SCHEMA_V2_PATH),
     title: "Inshell Agent-readable documentation",
     oneOf: [
       { $ref: "#/$defs/contentDocument" },
@@ -2509,7 +2615,7 @@ function agentContentSchema() {
       figureItem: {
         type: "object",
         additionalProperties: false,
-        required: ["title", "detail"],
+        required: ["title"],
         properties: {
           title: { type: "string", minLength: 1 },
           detail: { type: "string", minLength: 1 },
@@ -2518,7 +2624,7 @@ function agentContentSchema() {
       laneFigureItem: {
         type: "object",
         additionalProperties: false,
-        required: ["stage", "lane", "title", "detail"],
+        required: ["stage", "lane", "title"],
         properties: {
           stage: { type: "integer", minimum: 1 },
           lane: { type: "string", minLength: 1 },
@@ -2530,12 +2636,14 @@ function agentContentSchema() {
       figure: {
         type: ["object", "null"],
         additionalProperties: false,
-        required: ["authorities", "label", "mode", "figureText", "items"],
+        required: ["authorities", "id", "label", "mode", "figureText", "items", "logic"],
         properties: {
           authorities: { type: "array", items: authority, minItems: 1 },
+          id: { type: "string", minLength: 1 },
           label: { type: "string", minLength: 1 },
           mode: { enum: ["trace", "ledger", "lanes", "field"] },
           figureText: { type: "string", minLength: 1 },
+          logic: { $ref: "#/$defs/figureLogic" },
           items: {
             type: "array",
             minItems: 1,
@@ -2574,6 +2682,91 @@ function agentContentSchema() {
           },
         ],
       },
+      figureLogicForm: {
+        enum: ["axis", "trace", "cycle", "fork", "field", "ledger", "lanes"],
+      },
+      figureLogicNode: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "term", "role"],
+        properties: {
+          id: { type: "string", minLength: 1 },
+          term: { type: "string", minLength: 1 },
+          annotation: { type: "string", minLength: 1 },
+          sourceItem: { type: "integer", minimum: 0 },
+          sourcePart: { enum: ["item", "title", "detail"] },
+          role: {
+            enum: [
+              "structural",
+              "surface",
+              "operator",
+              "result",
+              "action",
+              "principle",
+              "question",
+              "state",
+              "subject",
+              "record",
+              "evidence",
+            ],
+          },
+        },
+      },
+      figureLogicEdge: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "from", "to", "glyph", "label"],
+        properties: {
+          id: { type: "string", minLength: 1 },
+          from: { type: "string", minLength: 1 },
+          to: { type: "string", minLength: 1 },
+          glyph: { type: "string", minLength: 1 },
+          stackedGlyph: { type: "string", minLength: 1 },
+          label: { type: "string", minLength: 1 },
+          annotation: { type: "string", minLength: 1 },
+        },
+      },
+      figureLogicGroup: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "kind", "label", "members"],
+        properties: {
+          id: { type: "string", minLength: 1 },
+          kind: {
+            enum: ["boundary", "open-field", "phase", "lane", "set", "comparison"],
+          },
+          label: { type: "string", minLength: 1 },
+          glyph: { type: "string", minLength: 1 },
+          members: {
+            type: "array",
+            minItems: 1,
+            items: { type: "string", minLength: 1 },
+          },
+        },
+      },
+      figureLogic: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "label", "form", "nodes", "edges", "groups"],
+        properties: {
+          id: { type: "string", minLength: 1 },
+          label: { type: "string", minLength: 1 },
+          form: { $ref: "#/$defs/figureLogicForm" },
+          nodes: {
+            type: "array",
+            minItems: 1,
+            items: { $ref: "#/$defs/figureLogicNode" },
+          },
+          edges: {
+            type: "array",
+            items: { $ref: "#/$defs/figureLogicEdge" },
+          },
+          groups: {
+            type: "array",
+            items: { $ref: "#/$defs/figureLogicGroup" },
+          },
+        },
+      },
       preformatted: {
         type: "object",
         additionalProperties: false,
@@ -2582,6 +2775,18 @@ function agentContentSchema() {
           authorities: { type: "array", items: authority, minItems: 1 },
           label: { type: "string", minLength: 1 },
           content: { type: "string" },
+        },
+      },
+      sourceExample: {
+        type: "object",
+        additionalProperties: false,
+        required: ["label", "language", "content"],
+        properties: {
+          label: { type: "string", minLength: 1 },
+          language: { const: "svg" },
+          content: { type: "string", minLength: 1 },
+          presentation: { enum: ["artwork", "specimen"] },
+          showSource: { type: "boolean" },
         },
       },
       section: {
@@ -2597,6 +2802,10 @@ function agentContentSchema() {
           points: { type: "array", items: { type: "string" } },
           steps: { type: "array", items: { type: "string" } },
           note: { type: "string" },
+          sourceExamples: {
+            type: "array",
+            items: { $ref: "#/$defs/sourceExample" },
+          },
         },
       },
       topicContent: {
@@ -2641,7 +2850,7 @@ function agentContentSchema() {
           "content",
         ],
         properties: {
-          schema: { const: "inshell.agent-docs.topic.v1" },
+          schema: { const: "inshell.agent-docs.topic.v2" },
           ...topicBaseProperties,
           id: { type: "string", minLength: 1 },
           sourceId: { type: "string", minLength: 1 },
@@ -2679,7 +2888,7 @@ function agentContentSchema() {
           "topics",
         ],
         properties: {
-          schema: { const: "inshell.agent-docs.content.v1" },
+          schema: { const: "inshell.agent-docs.content.v2" },
           ...topicBaseProperties,
           canonicalHtml: { type: "string", format: "uri" },
           agentIndex: { type: "string", pattern: "^/" },
@@ -2706,6 +2915,52 @@ function agentContentSchema() {
   };
 }
 
+/**
+ * Preserve the original public v1 schema at its established URI. The v2 schema
+ * is an additive source shape, so deleting only those additions reconstructs
+ * the prior schema without maintaining a second handwritten schema object.
+ */
+function agentContentSchemaV1() {
+  const schema = JSON.parse(
+    JSON.stringify(agentContentSchemaV2()),
+  ) as ReturnType<typeof agentContentSchemaV2>;
+  schema.$id = canonicalPath(AGENT_CONTENT_SCHEMA_V1_PATH);
+
+  const topicBaseProperties = [
+    schema.$defs.topicDocument.properties,
+    schema.$defs.contentDocument.properties,
+  ];
+  for (const properties of topicBaseProperties) {
+    properties.schemaUrl.const = AGENT_CONTENT_SCHEMA_V1_PATH;
+  }
+  schema.$defs.topicDocument.properties.schema.const =
+    "inshell.agent-docs.topic.v1";
+  schema.$defs.contentDocument.properties.schema.const =
+    "inshell.agent-docs.content.v1";
+
+  schema.$defs.figure.required = schema.$defs.figure.required.filter(
+    (property) => property !== "id" && property !== "logic",
+  );
+  Reflect.deleteProperty(schema.$defs.figure.properties, "id");
+  Reflect.deleteProperty(schema.$defs.figure.properties, "logic");
+  for (const definition of [
+    "figureLogicForm",
+    "figureLogicNode",
+    "figureLogicEdge",
+    "figureLogicGroup",
+    "figureLogic",
+  ]) {
+    Reflect.deleteProperty(schema.$defs, definition);
+  }
+  Reflect.deleteProperty(schema.$defs, "sourceExample");
+  Reflect.deleteProperty(
+    schema.$defs.section.properties,
+    "sourceExamples",
+  );
+
+  return schema;
+}
+
 function sitemap() {
   const routes = [
     "/",
@@ -2714,8 +2969,8 @@ function sitemap() {
     "/path",
     "/pulse",
     "/thought",
-    "/gallery",
     "/will",
+    "/gallery",
     "/verify",
   ];
   return [
@@ -3042,7 +3297,12 @@ export function main() {
   writeOrCheck("apps/home/public/docs/content.json", completeJsonDocument, mismatches);
   writeOrCheck(
     "apps/home/public/docs/content.schema.json",
-    JSON.stringify(agentContentSchema(), null, 2),
+    JSON.stringify(agentContentSchemaV1(), null, 2),
+    mismatches,
+  );
+  writeOrCheck(
+    "apps/home/public/docs/content.v2.schema.json",
+    JSON.stringify(agentContentSchemaV2(), null, 2),
     mismatches,
   );
   writeOrCheck(

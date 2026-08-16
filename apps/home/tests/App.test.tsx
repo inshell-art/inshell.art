@@ -347,7 +347,7 @@ describe("App Component", () => {
     );
     expect(document.querySelector('meta[name="description"]')).toHaveAttribute(
       "content",
-      "WILL is an Inshell Agent Art movement study: many people, many Agents, one will.",
+      "WILL is Inshell's movement about delegated human will, Agent action, and crowd dynamics.",
     );
     expect(screen.getByRole("heading", { level: 1, name: "WILL" })).toBeInTheDocument();
     expect(screen.getByText("launch in 2027", { exact: true })).toBeInTheDocument();
@@ -629,7 +629,7 @@ describe("App Component", () => {
     );
     expect(
       scopedParams.getByRole("link", { name: "Open Inshell contracts verification page" }),
-    ).toHaveAttribute("href", "/verify#contracts");
+    ).toHaveAttribute("href", "/verify#verify-contracts");
     expect(scopedParams.queryByText("PulseAuction contract")).toBeNull();
     expect(scopedParams.getByText("k")).toBeInTheDocument();
     expect(scopedParams.getByText("100")).toBeInTheDocument();
@@ -1897,15 +1897,15 @@ describe("App Component", () => {
 
     render(<App />);
 
-    expect(document.title).toBe("PATH — docs — Inshell");
-    expect(screen.getByRole("heading", { level: 2, name: "PATH" })).toBeInTheDocument();
+    expect(document.title).toBe("$PATH — docs — Inshell");
+    expect(screen.getByRole("heading", { level: 2, name: "$PATH" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { level: 2, name: "Inshell" })).toBeNull();
     expect(
       document.head.querySelector('meta[property="og:url"]'),
     ).toHaveAttribute("content", "https://inshell.art/docs/path");
     expect(document.head.querySelector('meta[property="og:title"]')).toHaveAttribute(
       "content",
-      "PATH — docs — Inshell",
+      "$PATH — docs — Inshell",
     );
     expect(document.head.querySelector('meta[name="twitter:description"]')).toHaveAttribute(
       "content",
@@ -1950,6 +1950,6 @@ describe("App Component", () => {
 
     expect(window.location.pathname).toBe("/docs/path");
     expect(window.location.hash).toBe("#docs-path-capacity");
-    expect(screen.getByRole("heading", { level: 2, name: "PATH" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "$PATH" })).toBeInTheDocument();
   });
 });

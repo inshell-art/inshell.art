@@ -6,44 +6,8 @@
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/mono-76
-- Documentation version: 2026-08-11
-
-## From glyph study to canonical artwork
-
-- Authority: artist-editorial, app-documentation, contract-release
-- Figure mode: trace
-
-```text
-01 Explore
-   Compare distinct native-path systems as a visual
-   field.
-   │
-   ↓
-02 Refine
-   Tune one complete repertoire for rhythm, clarity,
-   and identity.
-   │
-   ↓
-03 Seal
-   Freeze the paths, metrics, order, package, and
-   integrity hashes.
-   │
-   ↓
-04 Pin
-   Bind a renderer release to the exact Mono 76
-   artifact it consumes.
-   │
-   ↓
-05 Render
-   Generate native SVG without browser font lookup
-   or substitution.
-```
-
-1. **Explore** — Compare distinct native-path systems as a visual field.
-2. **Refine** — Tune one complete repertoire for rhythm, clarity, and identity.
-3. **Seal** — Freeze the paths, metrics, order, package, and integrity hashes.
-4. **Pin** — Bind a renderer release to the exact Mono 76 artifact it consumes.
-5. **Render** — Generate native SVG without browser font lookup or substitution.
+- Documentation version: 2026-08-16
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## Overview
 
@@ -53,7 +17,7 @@ Mono 76 gives selected Inshell works a fixed visual alphabet. Version 1.0.0 cont
 
 The sealed face emerged from a larger native-SVG glyph study. That research compared many construction systems for legibility, identity, punctuation, marketplace-scale resilience, deterministic rendering, and practical contract size. The released face came from the C02 Classic Book study, then received manual refinement and optical alignment before its paths and metrics were frozen.
 
-Mono 76 is not the site's general interface font. Interface copy remains ordinary selectable text. Mono 76 is used where the letterform is part of the artwork or its deterministic renderer, including the current THOUGHT composition and the movement names drawn inside PATH tokens.
+Mono 76 is not the site's general interface font. Interface copy remains ordinary selectable text. Mono 76 is used where the letterform is part of the artwork or its deterministic renderer, including the [THOUGHT](https://inshell.art/docs/thought) composition and the movement names drawn inside [$PATH](https://inshell.art/docs/path) tokens.
 
 A renderer consumes path geometry rather than asking a browser to locate a font. This keeps the visible form independent of installed fonts, webfont loading, marketplace font support, and platform-specific text layout.
 
@@ -65,13 +29,103 @@ The ordered repertoire is SPACE, A-Z, a-z, 0-9, and . , ? ! : ; ' " - ( ) / &. S
 
 THOUGHT uses the same character repertoire for its Terminal English lines. Its additional byte and spacing rules belong to the THOUGHT specification; Mono 76 defines glyph support and geometry, not the whole creation protocol.
 
+The demo below renders the sealed records in repertoire order from the canonical path data. Its first advance is intentionally empty: that record is SPACE.
+
+### Mono 76 full set demo
+
+```svg
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 274 76" role="img" aria-label="Mono 76 full set: SPACE, uppercase A through Z, lowercase a through z, digits 0 through 9, and punctuation" data-font="Inshell Mono 76" data-version="1.0.0" data-record-count="76" data-visible-glyph-count="75">
+<title>Mono 76 full set demo</title>
+<desc>The first record is SPACE and intentionally draws no path. The remaining 75 records are shown in sealed repertoire order.</desc>
+<rect width="274" height="76" fill="#000000"/>
+<g fill="none" stroke="#00ff35" stroke-width="1.23" stroke-linecap="round" stroke-linejoin="round">
+<g class="mono-76-record" data-record-index="0" data-character="SPACE" data-draws-path="false"></g>
+<g class="mono-76-record" data-record-index="1" data-character="A" data-draws-path="true"><path d="M.35 .6L4 9.9L7.65 .6M2.7 3.75L5.3 3.75" transform="translate(13 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="2" data-character="B" data-draws-path="true"><path d="M1.35 .6L1.35 9.9L3.65 9.9Q6.6 9.9 6.6 7.75Q6.6 5.35 3.65 5.35L1.35 5.35M3.65 5.35Q7.2 5.35 7.2 3.1Q7.2 .6 3.85 .6L1.35 .6" transform="translate(23 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="3" data-character="C" data-draws-path="true"><path d="M7.1 8.95Q6.1 10.1 4 10.1Q.75 10.1 .75 5.25Q.85 .7 4.15 .45Q6.15 .4 7.35 1.75" transform="translate(33 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="4" data-character="D" data-draws-path="true"><path d="M1.25 .6L1.25 9.9L4.25 9.9Q7.25 9.9 7.25 5.25Q7.25 .6 4.25 .6Z" transform="translate(43 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="5" data-character="E" data-draws-path="true"><path d="M6.95 9.9L1.45 9.9L1.45 .6L7.15 .6M1.45 5.15L6.25 5.15" transform="translate(53 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="6" data-character="F" data-draws-path="true"><path d="M7.4 9.9L1.7 9.9L1.7 .6M1.7 5.15L6.5 5.15" transform="translate(63 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="7" data-character="G" data-draws-path="true"><path d="M6.95 9Q5.95 10.1 3.85 10.1Q.6 10.1 .6 5.25Q.6 .4 3.9 .5Q6.85 .45 7.1 1.65L7.05 4.9L4.05 4.9" transform="translate(73 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="8" data-character="H" data-draws-path="true"><path d="M1 .6L1 9.9M7 .6L7 9.9M1 5.5L7 5.5" transform="translate(83 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="9" data-character="I" data-draws-path="true"><path d="M1.4 9.9L6.6 9.9M4 9.9L4 .6M1.4 .6L6.6 .6" transform="translate(93 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="10" data-character="J" data-draws-path="true"><path d="M1.9 9.9L7.4 9.9M6.4 9.9L6.4 2.2Q6.3 .5 4.05 .5Q2.25 .65 1.3 2" transform="translate(103 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="11" data-character="K" data-draws-path="true"><path d="M1.25 .6L1.25 9.9M7.3 9.9L1.85 4.3M4.05 5.9L7.55 .6" transform="translate(113 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="12" data-character="L" data-draws-path="true"><path d="M1.75 9.9L1.75 .6L7.45 .6" transform="translate(123 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="13" data-character="M" data-draws-path="true"><path d="M1 .6L1 9.9L4 3L7 9.9L7 .6" transform="translate(133 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="14" data-character="N" data-draws-path="true"><path d="M1.15 .6L1.15 9.9L6.85 .6L6.85 9.9" transform="translate(143 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="15" data-character="O" data-draws-path="true"><path d="M3.9 10Q.8 9.7 .65 5.25Q.85 .35 4.15 .5Q7.15 .55 7.35 5.25Q7.35 9.8 4.25 10Z" transform="translate(153 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="16" data-character="P" data-draws-path="true"><path d="M1.3 .6L1.3 9.9L4.4 9.9Q7.3 9.9 7.3 7.35Q7.3 4.8 4.4 4.8L1.3 4.8" transform="translate(163 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="17" data-character="Q" data-draws-path="true"><path d="M3.8 9.9Q.85 9.6 .65 5.25Q.7 .6 3.9 .5Q7.25 .55 7.35 5.25Q7.15 9.5 4.4 9.9ZM4.8 1.1L6.9 -1.25" transform="translate(173 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="18" data-character="R" data-draws-path="true"><path d="M1.4 .6L1.4 9.9L3.8 9.9Q7.05 9.9 7.05 7.55Q7.05 4.95 3.85 4.95L1.4 4.95M4.05 4.95L7.35 .6" transform="translate(183 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="19" data-character="S" data-draws-path="true"><path d="M7.1 8.95Q5.7 9.75 4.05 9.95Q1.75 9.85 1.5 7.9Q1.5 6.5 4.3 5.4Q7.1 4.3 7.1 2.7Q7.15 .55 3.95 .5Q2.15 .6 .75 1.8" transform="translate(193 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="20" data-character="T" data-draws-path="true"><path d="M.5 9.9L7.5 9.9M4 9.9L4 .6" transform="translate(203 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="21" data-character="U" data-draws-path="true"><path d="M1 9.9L1 3Q1.1 .5 3.9 .5Q6.8 .45 7 3L7 9.9" transform="translate(213 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="22" data-character="V" data-draws-path="true"><path d="M1 9.9L4 .6L7 9.9" transform="translate(223 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="23" data-character="W" data-draws-path="true"><path d="M0 9.9L2 .6L4 7.2L6 .6L8 9.9" transform="translate(233 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="24" data-character="X" data-draws-path="true"><path d="M1 9.9L7 .6M7 9.9L1 .6" transform="translate(243 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="25" data-character="Y" data-draws-path="true"><path d="M1 9.9L4 3.9L7 9.9M4 3.9L4 .6" transform="translate(253 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="26" data-character="Z" data-draws-path="true"><path d="M1.1 9.9L7.1 9.9L1.1 .6L7.1 .6" transform="translate(263 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="27" data-character="a" data-draws-path="true"><path d="M1.4 6.5Q2.9 7.5 4.45 7.6Q6.75 7.65 7 5.35L7 .3M6.95 4.65L3 4Q1.55 3.65 1.3 2.4Q1.3 .3 3.95 .45Q6 .5 6.95 2.2" transform="translate(8 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="28" data-character="b" data-draws-path="true"><path d="M1.3 .6L1.3 10.8M1.3 5.3Q2.3 7.35 4.4 7.4Q7.1 7.4 7.2 4Q7.2 .4 4.15 .4Q2.3 .4 1.3 2.1" transform="translate(18 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="29" data-character="c" data-draws-path="true"><path d="M6.9 6.3Q5.9 7.4 4 7.4Q1.2 7.4 1.1 3.9Q1.25 .45 4 .4Q5.8 .6 6.9 1.2" transform="translate(28 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="30" data-character="d" data-draws-path="true"><path d="M6.7 .6L6.7 10.8M6.7 5.3Q5.8 7.35 3.7 7.4Q.9 7.4 .8 3.9Q.9 .4 3.8 .4Q5.8 .4 6.7 2.1" transform="translate(38 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="31" data-character="e" data-draws-path="true"><path d="M1.2 4L6.9 4Q6.8 7.4 4.1 7.4Q1.2 7.4 1.1 3.9Q1.2 .4 4 .4Q5.75 .45 6.9 1.2" transform="translate(48 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="32" data-character="f" data-draws-path="true"><path d="M3.6 .3L3.65 8.45Q3.65 10.95 5.85 10.95Q6.8 10.95 7.8 10.6M1.4 7.25L7.05 7.25" transform="translate(58 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="33" data-character="g" data-draws-path="true"><path d="M6.7 7.4L6.7 0Q6.7 -3.1 3.7 -3.1Q1.5 -3.1 .4 -1.9M6.7 5.2Q5.8 7.35 3.8 7.4Q.9 7.4 .9 4Q.9 1.1 3.8 1.1Q5.8 1.1 6.7 3.1" transform="translate(68 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="34" data-character="h" data-draws-path="true"><path d="M1.25 .4L1.3 10.8M1.3 5.3Q2.3 7.35 4.3 7.4Q7.1 7.4 7.2 4L7.15 .35" transform="translate(78 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="35" data-character="i" data-draws-path="true"><path d="M1.3 7.25L5 7.25M5 7.25L5 .35M5 10.35L5.4 10.75L5 11.15L4.6 10.75Z" transform="translate(88 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="36" data-character="j" data-draws-path="true"><path d="M1.5 7.25L5.2 7.25M5.2 7.25L5.2 -1Q5.2 -2.85 2.7 -2.85Q.9 -2.85 .2 -1.6M5.2 10.35L5.6 10.75L5.2 11.15L4.8 10.75Z" transform="translate(98 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="37" data-character="k" data-draws-path="true"><path d="M1.25 .35L1.25 10.8M7 7.7L1.85 3M4.05 4.35L7.25 .4" transform="translate(108 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="38" data-character="l" data-draws-path="true"><path d="M1.1 10.8L3.5 10.8L3.5 2Q3.5 .4 5.5 .4Q6.7 .4 7.5 1.2" transform="translate(118 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="39" data-character="m" data-draws-path="true"><path d="M.8 .35L.75 7.4M.75 5.2Q1.85 7.35 3.15 7.4Q4.35 7.4 4.35 5.2L4.3 .25M4.35 5.2Q5.2 7.35 6.25 7.4Q7.55 7.4 7.55 5.1L7.6 .2" transform="translate(128 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="40" data-character="n" data-draws-path="true"><path d="M1.25 .35L1.3 7.4M1.3 5.2Q2.4 7.35 4.4 7.4Q7.3 7.4 7.3 4L7.3 .35" transform="translate(138 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="41" data-character="o" data-draws-path="true"><path d="M4 7.4Q1.2 7.4 1.1 3.9Q1.2 .4 4 .4Q7 .4 7 3.9Q7 7.4 4 7.4Z" transform="translate(148 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="42" data-character="p" data-draws-path="true"><path d="M1.3 -2.7L1.3 7.4M1.3 5.3Q2.4 7.35 4.5 7.4Q7.2 7.4 7.3 4Q7.3 .4 4.4 .4Q2.4 .4 1.3 2.1" transform="translate(158 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="43" data-character="q" data-draws-path="true"><path d="M6.65 -2.7L6.65 7.4M6.65 5.3Q5.75 7.35 3.65 7.4Q.85 7.4 .75 3.9Q.85 .4 3.75 .4Q5.75 .4 6.65 2.1" transform="translate(168 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="44" data-character="r" data-draws-path="true"><path d="M2.05 .25L2.1 7.4M2.1 4.7Q3.7 7.1 5.4 7.35Q6.45 7.5 7.1 7.15" transform="translate(178 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="45" data-character="s" data-draws-path="true"><path d="M7 6.3Q5.9 7.4 4 7.4Q1.3 7.4 1.3 5.7Q1.3 4.4 4 3.9Q7 3.4 7 2Q7 .4 4.1 .4Q2.2 .4 1.1 1.4" transform="translate(188 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="46" data-character="t" data-draws-path="true"><path d="M3.25 9.65L3.25 2Q3.25 .4 5.25 .4Q6.45 .4 7.25 1.2M.65 7.25L6.75 7.25" transform="translate(198 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="47" data-character="u" data-draws-path="true"><path d="M.75 7.2L.75 3Q.75 .4 3.75 .4Q6.75 .4 6.75 3L6.75 7.2M6.75 .6L6.75 2.2" transform="translate(208 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="48" data-character="v" data-draws-path="true"><path d="M1 7.2L3.9 .15L7 7.2" transform="translate(218 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="49" data-character="w" data-draws-path="true"><path d="M0 7.2L2 .2L4 6.6L5.95 .15L8 7.2" transform="translate(228 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="50" data-character="x" data-draws-path="true"><path d="M1 7.2L6.8 .1M7 7.2L1 .05" transform="translate(238 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="51" data-character="y" data-draws-path="true"><path d="M.8 7.2L3.8 .4M6.8 7.2L2.8 -2.7" transform="translate(248 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="52" data-character="z" data-draws-path="true"><path d="M1 7.2L7 7.2L1 .4L7 .4" transform="translate(258 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="53" data-character="0" data-draws-path="true"><path d="M4 9.8Q1.1 9.8 1.1 4.9Q1.1 .4 4 .4Q6.9 .4 6.9 4.9Q6.9 9.8 4 9.8ZM3.65 4.85L4.35 5.55" transform="translate(88 50) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="54" data-character="1" data-draws-path="true"><path d="M1.75 8.5L4.45 9.6L4.45 .6M1.45 .6L7.05 .6" transform="translate(98 50) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="55" data-character="2" data-draws-path="true"><path d="M1 8.4Q2 9.8 3.9 9.8Q6.7 9.8 6.7 7.2Q6.7 5.8 4.9 4.2L1 .6L6.9 .6" transform="translate(108 50) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="56" data-character="3" data-draws-path="true"><path d="M1.25 8.65Q2.25 9.8 4 9.8Q6.7 9.8 6.7 7.3Q6.7 5.3 3.2 5.2M3.2 5.2Q6.95 5.1 6.95 2.7Q6.95 .4 4 .4Q2 .4 1.15 1.55" transform="translate(118 50) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="57" data-character="4" data-draws-path="true"><path d="M5.55 .35L5.5 9.6L.8 3.4L7.5 3.4" transform="translate(128 50) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="58" data-character="5" data-draws-path="true"><path d="M6.9 9.6L1.45 9.6L1.05 5.8L3.9 5.8Q7.05 5.8 7.05 3.2Q7.05 .4 4 .4Q2 .4 1.05 1.6" transform="translate(138 50) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="59" data-character="6" data-draws-path="true"><path d="M6.8 9Q5.65 10 4.1 9.9Q1.15 9.75 1.15 5.55L1.15 3Q1.15 .45 4.2 .3Q6.9 .45 7.1 2.95Q7.4 6 3.9 5.3L1.25 4.5" transform="translate(148 50) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="60" data-character="7" data-draws-path="true"><path d="M.7 9.6L6.7 9.6L3.1 .25" transform="translate(158 50) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="61" data-character="8" data-draws-path="true"><path d="M4 9.8Q1.2 9.8 1.2 7.3Q1.2 5.2 4 5.2Q6.8 5.2 6.8 7.3Q6.8 9.8 4 9.8ZM4 5.2Q1.1 5.2 1.1 2.7Q1.1 .4 4 .4Q6.9 .4 6.9 2.7Q6.9 5.2 4 5.2Z" transform="translate(168 50) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="62" data-character="9" data-draws-path="true"><path d="M1.25 1.4Q2.05 .4 3.85 .4Q6.75 .4 6.75 5L6.75 7Q6.75 9.8 3.85 9.8Q.95 9.8 .95 7Q.95 4.7 3.85 4.7L6.75 4.7" transform="translate(178 50) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="63" data-character="." data-draws-path="true"><path d="M4 .15L4 1.9" transform="translate(73 68) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="64" data-character="," data-draws-path="true"><path d="M4.9 1.9L3.4 -2.8" transform="translate(83 68) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="65" data-character="?" data-draws-path="true"><path d="M1.7 8.8Q2.5 10.3 4 10.3Q6.2 10.3 6.2 8.2Q6.2 6.8 4.1 5.5L4.1 4.3M3.95 .15L4 1.9" transform="translate(93 68) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="66" data-character="!" data-draws-path="true"><path d="M4 10.1L4 4.3M4 .2L4 1.9" transform="translate(103 68) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="67" data-character=":" data-draws-path="true"><path d="M4 7.65L4 6.15M4 1.9L4 .2" transform="translate(113 68) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="68" data-character=";" data-draws-path="true"><path d="M4.4 7.65L4.4 6.15M4.7 1.9L3.2 -2.8" transform="translate(123 68) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="69" data-character="'" data-draws-path="true"><path d="M4 10.4L4 5.9" transform="translate(133 68) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="70" data-character="&quot;" data-draws-path="true"><path d="M2.2 10.4L2.2 5.9M5.8 10.4L5.8 5.9" transform="translate(143 68) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="71" data-character="-" data-draws-path="true"><path d="M1.2 5.3L6.8 5.3" transform="translate(153 68) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="72" data-character="(" data-draws-path="true"><path d="M6.15 11.1Q3.05 8.8 3.05 4.45Q3.05 .1 6.15 -2.2" transform="translate(163 68) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="73" data-character=")" data-draws-path="true"><path d="M1.85 11.1Q4.95 8.8 4.95 4.45Q4.95 .1 1.85 -2.2" transform="translate(173 68) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="74" data-character="/" data-draws-path="true"><path d="M1.4 -1.9L6.6 10.7" transform="translate(183 68) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="75" data-character="&amp;" data-draws-path="true"><path d="M7.3 .25L2.2 5.65Q.6 10.2 2.9 10.3Q6.55 10.05 4.7 7.85Q3.8 6.75 1.45 4.8Q-.8 2.1 1.8 .5Q4 -.25 5.65 1.55L7.8 5.9" transform="translate(193 68) scale(1 -1)"/></g>
+</g>
+</svg>
+```
+
 ## Centerlines, not font outlines
 
 - Authority: artist-editorial, contract-release
 
 The released face uses open centerline paths: no fill, a fixed round stroke, round caps and joins, fixed advance, no kerning, and one declared origin shift. Reviewed optical adjustments are baked into the path bytes so a renderer does not apply a second hidden tuning table.
 
-Source Code Pro was a visible comparison reference during study. Its outlines were neither imported nor traced into Mono 76 v1.0.0. The earlier outline-reference release is a separate historical artifact with different geometry and licensing; it is not the current face.
+Source Code Pro was a visible comparison reference during study. Its outlines were neither imported nor traced into Mono 76 v1.0.0. The earlier outline-reference release is a separate historical artifact with different geometry and licensing; it is not the canonical face.
 
 ## Native SVG is the delivery form
 
@@ -79,7 +133,7 @@ Source Code Pro was a visible comparison reference during study. Its outlines we
 
 Mono 76 is packaged as path data and a deterministic renderer, not as a WOFF or TTF webfont. Artwork renderers place the paths directly into SVG and must preserve the sealed metrics and stroke contract.
 
-THOUGHT consumes the packed IM76 repertoire for its terminal composition. PATH embeds only the nine Mono 76 glyph paths needed to draw THOUGHT, WILL, and AWA. Each token image is therefore self-contained; viewing it does not require a font installation or an offchain text renderer.
+THOUGHT consumes the packed IM76 repertoire for its terminal composition. $PATH embeds only the nine Mono 76 glyph paths needed to draw THOUGHT, WILL, and AWA. Each token image is therefore self-contained; viewing it does not require a font installation or an offchain text renderer.
 
 ## Artwork and interface stay distinct
 
@@ -91,14 +145,14 @@ The App does not register Mono 76 with CSS or replace ordinary interface typogra
 
 - Authority: app-documentation, contract-release
 
-The sealed package includes the ordered face, packed onchain payload, renderer code, manifest, provenance, verification script, notices, and checksums. A downstream release must consume that complete contract and pin its hashes rather than copying one convenient glyph file.
+The sealed package includes the ordered face, packed onchain payload, renderer code, manifest, provenance, verification script, notices, and checksums. A downstream [release](https://inshell.art/docs/source-release-boundaries) must consume that complete contract and pin its hashes rather than copying one convenient glyph file.
 
-THOUGHT and PATH pin Mono 76 through their own contract releases. Updating the font repository does not change a pinned renderer or an already deployed contract. A new visual revision requires a new reviewed release and explicit downstream repinning; the App must continue reading canonical token artwork rather than silently redrawing it with newer paths.
+THOUGHT and $PATH pin Mono 76 through their own contract releases. Updating the font repository does not change a pinned renderer or an already deployed contract. A new visual revision requires a new reviewed release and explicit downstream repinning; the App must continue reading canonical token artwork rather than silently redrawing it with newer paths.
 
 
 ## Links
 
 - [read THOUGHT](https://inshell.art/docs/thought)
-- [read PATH](https://inshell.art/docs/path)
+- [read $PATH](https://inshell.art/docs/path)
 - [read artwork, metadata, and chain](https://inshell.art/docs/artwork-metadata-chain)
 - [read source and release boundaries](https://inshell.art/docs/source-release-boundaries)

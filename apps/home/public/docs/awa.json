@@ -1,8 +1,8 @@
 {
-  "schema": "inshell.agent-docs.topic.v1",
-  "schemaUrl": "/docs/content.schema.json",
-  "canonicalSchemaUrl": "https://inshell.art/docs/content.schema.json",
-  "version": "2026-08-11",
+  "schema": "inshell.agent-docs.topic.v2",
+  "schemaUrl": "/docs/content.v2.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
+  "version": "2026-08-16",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "awa",
@@ -10,8 +10,8 @@
   "group": "works",
   "aliases": [],
   "title": "AWA",
-  "summary": "AWA is Inshell's forming movement toward its core; its particular form still needs time.",
-  "status": "future",
+  "summary": "AWA is Inshell's movement from the crowd toward its core.",
+  "status": "study",
   "authorities": [
     "artist-editorial",
     "app-documentation"
@@ -28,70 +28,25 @@
         "artist-editorial"
       ],
       "paragraphs": [
-        "AWA is the third movement on Inshell's PATH. After THOUGHT's individual and WILL's crowd, AWA turns the inward direction toward the core of Inshell.",
+        "AWA is the third movement on Inshell's [$PATH](https://inshell.art/docs/path). After [THOUGHT](https://inshell.art/docs/thought)'s individual and [WILL](https://inshell.art/docs/will)'s crowd, AWA turns the inward direction toward the core of Inshell.",
         "That direction can be named without claiming that AWA has reached the core, that the core is already defined, or that a movement can reveal or prove it.",
-        "Agent participation keeps AWA within Agent Art. The particular relation among people, Agents, and the work is still being discovered rather than inherited from THOUGHT or assumed from WILL."
+        "Agent participation keeps AWA within [Agent Art](https://inshell.art/docs/agent-art). AWA does not inherit THOUGHT's or WILL's particular relation among people, Agents, and the work."
       ]
     },
-    "figure": {
-      "authorities": [
-        "artist-editorial"
-      ],
-      "label": "AWA: known and forming",
-      "mode": "field",
-      "figureText": "┌─ AWA ────────────────────────────────────────────┐\n│ THOUGHT           WILL                AWA        │\n│ INDIVIDUAL ──→    CROWD ──→    TOWARD THE CORE   │\n│                                                  │\n│ DIRECTION: TOWARD INSHELL'S CORE.                │\n│ AGENT ART INVARIANT: AN AGENT PARTICIPATES.      │\n│ FORM: STILL FORMING.                             │\n│ BOUNDARY: AWA DOES NOT CLAIM THE CORE IS         │\n│ REACHED, DEFINED, REVEALED, OR PROVED.           │\n└──────────────────────────────────────────────────┘",
-      "items": [
-        {
-          "title": "Direction",
-          "detail": "Toward Inshell's core."
-        },
-        {
-          "title": "Agent Art invariant",
-          "detail": "An Agent participates."
-        },
-        {
-          "title": "Form",
-          "detail": "Still forming."
-        },
-        {
-          "title": "Boundary",
-          "detail": "AWA does not claim the core is reached, defined, revealed, or proved."
-        }
-      ]
-    },
+    "figure": null,
     "preformatted": [],
     "sections": [
-      {
-        "authorities": [
-          "artist-editorial"
-        ],
-        "id": "docs-awa-known",
-        "title": "What is known",
-        "paragraphs": [
-          "Core names the movement's artistic direction, not a disclosed doctrine, technical subsystem, or completed definition of Inshell. AWA follows the path from individual, through crowd, toward that core."
-        ]
-      },
-      {
-        "authorities": [
-          "artist-editorial"
-        ],
-        "id": "docs-awa-forming",
-        "title": "What is still forming",
-        "paragraphs": [
-          "AWA and the form through which it can approach the core are still forming. They take time.",
-          "There is no finished participation relation or artwork form for the docs to describe. Those spaces should remain open rather than be filled with invented mechanisms."
-        ]
-      },
       {
         "authorities": [
           "artist-editorial",
           "app-documentation"
         ],
-        "id": "docs-awa-status",
-        "title": "Current status",
+        "id": "docs-awa-evidence",
+        "title": "Evidence boundary",
         "paragraphs": [
-          "AWA is planned for 2028 and currently has no creation or mint surface. The date is a plan, not evidence of deployment."
-        ]
+          "Core names the movement's artistic direction, not a disclosed doctrine, technical subsystem, or completed definition of Inshell. AWA follows the path from individual, through crowd, toward that core."
+        ],
+        "note": "A movement description is not evidence of a creation surface, mint surface, or deployment."
       }
     ],
     "links": [

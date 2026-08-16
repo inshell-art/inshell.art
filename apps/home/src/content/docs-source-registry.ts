@@ -21,7 +21,7 @@ export const DOCS_SOURCE_REGISTRY = {
   schema: "inshell.agent-docs.source-registry.v1",
   policy: {
     scope:
-      "Public knowledge-bearing sources across inshell.art, THOUGHT, PATH, wallet, route, and read-only API boundaries.",
+      "Public knowledge-bearing sources across inshell.art, THOUGHT, $PATH, wallet, route, and read-only API boundaries.",
     update:
       "When a registered source changes, update its owning source or lock, run pnpm docs:generate, review the generated docs and source lock, then run pnpm docs:check.",
     check: "pnpm docs:check",
@@ -35,7 +35,9 @@ export const DOCS_SOURCE_REGISTRY = {
       reason: "Human articles, Agent-readable content, authority maps, and machine-handoff selection.",
       files: [
         "docs/AGENTS.md",
+        "docs/agent-native-figure-experiment.md",
         "apps/home/src/content/AGENTS.md",
+        "apps/home/src/content/docs-figure-logic.ts",
         "apps/home/src/content/docs.ts",
         "apps/home/src/content/docs-source-registry.ts",
         "apps/home/src/content/thought-machine-handoff.ts",
@@ -44,7 +46,7 @@ export const DOCS_SOURCE_REGISTRY = {
     },
     {
       id: "home-app",
-      title: "Home, PATH, Pulse, WILL, and shared docs runtime",
+      title: "Home, $PATH, Pulse, WILL, and shared docs runtime",
       owner: "inshell.art Home App",
       reason: "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
       files: [
@@ -88,6 +90,9 @@ export const DOCS_SOURCE_REGISTRY = {
       reason: "Public package commands, local hooks, and upstream freshness enforcement.",
       files: [
         "package.json",
+        ".github/workflows/test.yml",
+        ".github/workflows/deploy-pages.yml",
+        ".github/workflows/rollback-pages.yml",
         ".husky/pre-commit",
         ".husky/pre-push",
         "scripts/check-upstream-releases.mjs",
@@ -136,15 +141,15 @@ export const DOCS_SOURCE_REGISTRY = {
     },
     {
       id: "path-release",
-      title: "PATH release",
-      owner: "PATH Contract producer and inshell.art consumer",
-      reason: "PATH permission, capacity, renderer, ABI, and release facts are imported from this lock and release.",
+      title: "$PATH release",
+      owner: "$PATH Contract producer and inshell.art consumer",
+      reason: "$PATH permission, capacity, renderer, ABI, and release facts are imported from this lock and release.",
       files: ["packages/contracts/src/path-release/consumer-lock.json"],
       directories: ["packages/contracts/src/path-release/releases/v0.5.0"],
     },
     {
       id: "path-deployments",
-      title: "PATH deployment records",
+      title: "$PATH deployment records",
       owner: "inshell.art deployment tooling",
       reason: "Network, address, and deployment facts shown by the App derive from these records.",
       directories: [

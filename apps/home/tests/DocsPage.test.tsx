@@ -17,11 +17,23 @@ import {
   DOCS_AUTHORITY_MAP,
   DOCS_FIGURE_MODES,
   DOCS_SOURCE,
+  agentDocsPrompt,
   type DocsAuthority,
   type DocsFigure,
   type DocsParagraph,
   type DocsTopic,
 } from "../src/content/docs";
+import {
+  DOCS_FIGURE_FORMS,
+  DOCS_FIGURE_LOGIC_IDS,
+  docsFigureLogic,
+  validateDocsFigureLogic,
+  type DocsFigureForm,
+} from "../src/content/docs-figure-logic";
+import {
+  resolveEdgeByEndpoints,
+  resolveSourceNode,
+} from "../src/components/docs/figureLogicResolvers";
 import { THOUGHT_MACHINE_HANDOFF_SOURCE } from "../src/content/thought-machine-handoff";
 
 afterEach(() => {
@@ -44,10 +56,10 @@ const CANONICAL_DOCS_APP_ROUTES = new Set([
   "/",
   "/color-font",
   "/docs",
-  "/gallery",
   "/path",
   "/pulse",
   "/thought",
+  "/will",
   "/verify",
   "/will",
   ...DOCS_SOURCE.topics.map((topic) => `/docs/${topic.slug}`),
@@ -68,6 +80,33 @@ function docsLinks() {
       href: link.href,
     })),
   );
+}
+
+function docsInlineLinks() {
+  return DOCS_SOURCE.topics.flatMap((topic) => {
+    const paragraphs = [
+      ...topic.paragraphs.map((paragraph, index) => ({
+        block: `lead:${index}`,
+        paragraph,
+      })),
+      ...(topic.sections?.flatMap((section) =>
+        (section.paragraphs ?? []).map((paragraph, index) => ({
+          block: `${section.id}:${index}`,
+          paragraph,
+        })),
+      ) ?? []),
+    ];
+
+    return paragraphs.flatMap(({ block, paragraph }) =>
+      typeof paragraph === "string"
+        ? []
+        : paragraph.flatMap((part) =>
+            typeof part === "string"
+              ? []
+              : [{ topic: topic.slug, block, ...part }],
+          ),
+    );
+  });
 }
 
 function hrefPathname(href: string) {
@@ -106,10 +145,14 @@ function docsParagraphMarkdown(paragraph: DocsParagraph, canonicalOrigin: string
 function figureTextFields(figure: DocsFigure | undefined) {
   if (!figure) return [];
   return [
+    figure.id,
     figure.label,
     figure.mode,
     figure.figureText,
-    ...figure.items.flatMap(({ title, detail }) => [title, detail]),
+    ...figure.items.flatMap(({ title, detail }) => [
+      title,
+      ...(detail ? [detail] : []),
+    ]),
   ];
 }
 
@@ -203,6 +246,18 @@ function highestContiguousWordSimilarity(summary: string, paragraph: string) {
 }
 
 describe("Docs source editorial guardrails", () => {
+  test("uses the Agent index as a restrained public-site discovery map", () => {
+    const prompt = agentDocsPrompt("https://inshell.art/");
+
+    expect(prompt).toContain("Inshell's public knowledge index");
+    expect(prompt).toContain("https://inshell.art/docs/agent-index.json");
+    expect(prompt).toContain(
+      "relevant indexed documentation, product context, release, handoff, or live read-only source",
+    );
+    expect(prompt).toContain("fetch only");
+    expect(prompt).toContain("Do not guess");
+    expect(prompt).not.toMatch(/crawl|fetch (?:the )?whole site/i);
+  });
   test("keeps Inshell's anonymous artist identity and in-shell direction bounded", () => {
     const inshell = DOCS_SOURCE.topics.find(({ slug }) => slug === "inshell");
     expect(inshell).toBeDefined();
@@ -331,7 +386,7 @@ describe("Docs source editorial guardrails", () => {
     expect([...topicBySlug.values()].join("\n")).not.toMatch(/\bsources? of truth\b/i);
   });
 
-  test("reveals the Movements path from individual to crowd to core without filling unfinished work", () => {
+  test("reveals the Movements path from individual to crowd to core without inventing open forms", () => {
     const movements = DOCS_SOURCE.topics.find(({ slug }) => slug === "movements");
     expect(movements).toBeDefined();
     if (!movements) return;
@@ -340,7 +395,7 @@ describe("Docs source editorial guardrails", () => {
     expect(text).toMatch(
       /path from the individual[\s\S]{0,100}through the crowd[\s\S]{0,100}toward the core of Inshell/i,
     );
-    expect(text).toMatch(/arc gives PATH its name and its design/i);
+    expect(text).toMatch(/arc gives \$PATH its name and its design/i);
     expect(text).toMatch(
       /Agent participation remains the invariant[\s\S]{0,180}relation[\s\S]{0,120}change from movement to movement/i,
     );
@@ -351,12 +406,28 @@ describe("Docs source editorial guardrails", () => {
       /WILL moves the inquiry from the individual to the crowd[\s\S]{0,220}crowd forms[\s\S]{0,80}one will/i,
     );
     expect(text).toMatch(
-      /still being created and developed[\s\S]{0,260}not because Inshell is intentionally withholding a completed design/i,
+      /slogan defines the movement's scope[\s\S]{0,100}without prescribing a concrete mechanism/i,
     );
     expect(text).toMatch(
-      /AWA turns from the crowd toward the core of Inshell[\s\S]{0,320}still forming[\s\S]{0,80}take time/i,
+      /AWA turns from the crowd toward the core of Inshell[\s\S]{0,260}without prescribing its participation relation, mechanism, or artwork form/i,
     );
-    expect(text).toMatch(/PATH is the route and ledger, not a fourth movement/i);
+    expect(text).toMatch(
+      /\$PATH is the permission token that connects a participant to the movement sequence/i,
+    );
+    expect(text).toMatch(
+      /movement remains the artwork; \$PATH remains permission and public memory/i,
+    );
+    const permissionSection = movements.sections?.find(
+      ({ id }) => id === "docs-movements-progress",
+    );
+    expect(permissionSection?.title).toBe("How $PATH permits movement");
+    expect(permissionSection?.paragraphs[0]).toEqual([
+      "$PATH",
+      expect.stringMatching(/^ is the permission token/),
+    ]);
+    expect(
+      (permissionSection?.paragraphs ?? []).map(docsParagraphText).join("\n"),
+    ).not.toMatch(/PathNFT|quota|nonce|EIP-191|configured minter/i);
     expect(text).toMatch(/not requirements for Agent Art as a field/i);
 
     expect(movements.figure?.mode).toBe("trace");
@@ -365,13 +436,14 @@ describe("Docs source editorial guardrails", () => {
       "WILL",
       "AWA",
     ]);
-    expect(movements.figure?.figureText).toContain(
-      "PATH: INDIVIDUAL → CROWD → CORE",
+    expect(movements.figure?.figureText).toMatch(
+      /THOUGHT\s+→\s+WILL\s+→\s+AWA[\s\S]*INDIVIDUAL\s+CROWD\s+TOWARD THE CORE/i,
     );
+    expect(movements.figure?.figureText).not.toContain("│");
     expect(DOCS_AUTHORITY_MAP.movements.figure).toEqual(["artist-editorial"]);
   });
 
-  test("keeps focused movement pages integrated, linked, and honest about their state", () => {
+  test("keeps focused movement pages integrated, linked, and honest about their evidence boundaries", () => {
     const movementTopics = new Map(
       DOCS_SOURCE.topics
         .filter(({ slug }) => ["movements", "thought", "will", "awa"].includes(slug))
@@ -391,45 +463,36 @@ describe("Docs source editorial guardrails", () => {
     if (!movements || !thought || !will || !awa) return;
     expect(thought?.status).toBe("current");
     expect(will?.status).toBe("study");
-    expect(awa?.status).toBe("future");
-    expect(will?.figure).toMatchObject({
-      label: "WILL: known and forming",
-      mode: "field",
-    });
-    expect(awa?.figure).toMatchObject({
-      label: "AWA: known and forming",
-      mode: "field",
-    });
-    expect(will?.figure?.figureText).toMatch(
-      /DIRECTION:[\s\S]*FORM: STILL IN DEVELOPMENT[\s\S]*BOUNDARY:/,
-    );
-    expect(awa?.figure?.figureText).toMatch(
-      /DIRECTION:[\s\S]*AGENT ART INVARIANT:[\s\S]*FORM: STILL FORMING[\s\S]*BOUNDARY:/,
-    );
-    expect(will?.figure?.figureText).not.toMatch(/2027|deploy|mint surface/i);
-    expect(awa?.figure?.figureText).not.toMatch(/2028|deploy|mint surface/i);
-    expect(DOCS_AUTHORITY_MAP.will.figure).toEqual(["artist-editorial"]);
-    expect(DOCS_AUTHORITY_MAP.awa.figure).toEqual(["artist-editorial"]);
+    expect(awa?.status).toBe("study");
+    expect(will?.figure).toBeUndefined();
+    expect(awa?.figure).toBeUndefined();
+    expect(DOCS_AUTHORITY_MAP.will.figure).toBeUndefined();
+    expect(DOCS_AUTHORITY_MAP.awa.figure).toBeUndefined();
 
     expect(topicText(thought as DocsTopic)).toMatch(
       /first movement[\s\S]{0,100}begins with the individual[\s\S]{0,180}one Agent responds/i,
     );
     expect(topicText(will as DocsTopic)).toMatch(
-      /second movement[\s\S]{0,180}crowd behavior[\s\S]{0,180}crowd forms[\s\S]{0,80}one will/i,
+      /second movement[\s\S]{0,260}one person to a crowd/i,
     );
     expect(topicText(will as DocsTopic)).toMatch(
-      /still being created and developed[\s\S]{0,300}not intentional concealment of a completed design/i,
+      /delegates will and authority to an Agent[\s\S]{0,120}acting toward an aim[\s\S]{0,180}result may emerge[\s\S]{0,120}human-Agent relations form a crowd/i,
     );
-    expect(will.sections?.find(({ id }) => id === "docs-will-status")).toMatchObject({
-      title: "Current study",
-      paragraphs: [
-        "WILL is planned for 2027. The WILL surface exposes its slogan and current visual study; it is a preview, not a creation or mint surface and not evidence of deployment.",
-      ],
-    });
+    expect(topicText(will as DocsTopic)).toMatch(
+      /crowd names the move from one participant to many[\s\S]{0,160}does not mean a society[\s\S]{0,100}shared mind/i,
+    );
+    expect(topicText(will as DocsTopic)).toMatch(
+      /description defines an artistic direction[\s\S]{0,140}not a creation surface, mint surface, or record of deployment/i,
+    );
+    expect(topicText(will as DocsTopic)).not.toMatch(
+      /failures|participation mechanism|representation of authorization|what constitutes a result|majority rule|finished theory/i,
+    );
     expect(topicText(awa as DocsTopic)).toMatch(
       /third movement[\s\S]{0,180}core of Inshell/i,
     );
-    expect(topicText(awa as DocsTopic)).toMatch(/still forming[\s\S]{0,80}take time/i);
+    expect(topicText(awa as DocsTopic)).toMatch(
+      /Core names the movement's artistic direction[\s\S]{0,240}not evidence of a creation surface, mint surface, or deployment/i,
+    );
     expect(topicText(will as DocsTopic)).toMatch(/Agent participation keeps WILL within Agent Art/i);
     expect(topicText(awa as DocsTopic)).toMatch(/Agent participation keeps AWA within Agent Art/i);
 
@@ -443,14 +506,16 @@ describe("Docs source editorial guardrails", () => {
       const topicHrefs = new Set(movementTopics.get(slug)?.links?.map(({ href }) => href));
       for (const href of hrefs) expect(topicHrefs.has(href)).toBe(true);
     }
-    expect(movements.links).toContainEqual({ label: "preview WILL ↗", href: "/will" });
-    expect(will.links).toContainEqual({ label: "preview WILL ↗", href: "/will" });
+    expect(will.links).toContainEqual({ label: "open WILL ↗", href: "/will" });
 
+    expect(will.sections?.map(({ id }) => id)).toEqual(["docs-will-evidence"]);
+    expect(awa.sections?.map(({ id }) => id)).toEqual(["docs-awa-evidence"]);
     expect(movements?.sections?.map(({ id }) => id)).toEqual(
       expect.arrayContaining([
         "docs-movements-thought",
         "docs-movements-will",
         "docs-movements-awa",
+        "docs-movements-evidence",
       ]),
     );
   });
@@ -467,19 +532,191 @@ describe("Docs source editorial guardrails", () => {
     );
 
     expect(thought).toMatch(/sealed task/i);
-    expect(thought).toMatch(/does not choose a PATH/i);
+    expect(thought).toMatch(/does not choose a \$PATH/i);
     expect(thought).toMatch(/direct mint/i);
     expect(thought).toMatch(/Unattested/i);
 
     expect(path).toMatch(/remaining entitlement/i);
     expect(path).toMatch(/permission epoch/i);
     expect(path).toMatch(/ERC-5192/i);
-    expect(path).toMatch(/Spark PATH/i);
+    expect(path).toMatch(/Spark \$PATH/i);
 
     expect(pulse).toMatch(/maximum acceptable price/i);
     expect(pulse).toMatch(/exact ask to the treasury/i);
     expect(pulse).toMatch(/refunds surplus value/i);
     expect(pulse).toMatch(/PathPulseAdapter/i);
+  });
+
+  test("explains why Inshell uses fully onchain SVG artwork", () => {
+    const topic = DOCS_SOURCE.topics.find(({ slug }) => slug === "fully-onchain");
+    expect(topic).toBeDefined();
+    if (!topic) return;
+
+    const text = topicText(topic);
+    expect(topic.group).toBe("systems");
+    expect(topic.status).toBe("current");
+    expect(topic.figure).toBeUndefined();
+    expect(text).toMatch(
+      /token should not outlive the artwork it names[\s\S]{0,180}public form disappears or changes/i,
+    );
+    expect(text).toMatch(
+      /visible form is part of the work[\s\S]{0,180}reading surface, not its origin/i,
+    );
+    expect(text).toMatch(/ERC-721 alone does not guarantee this/i);
+    expect(text).toMatch(
+      /SVG is both an image and a description of an image[\s\S]{0,100}raw source is human-readable[\s\S]{0,180}instead of hiding the form inside opaque machine code/i,
+    );
+    expect(text).toMatch(
+      /natural layer between human intention and machine action[\s\S]{0,120}an area of interest for Inshell/i,
+    );
+    expect(text).toMatch(
+      /vector-based[\s\S]{0,160}assembled deterministically from onchain state[\s\S]{0,180}no image server[\s\S]{0,100}no webfont/i,
+    );
+    const svgSection = topic.sections?.find(
+      ({ id }) => id === "docs-fully-onchain-svg",
+    );
+    expect(svgSection).toBeDefined();
+    expect(svgSection?.paragraphs?.map(docsParagraphText).join("\n")).not.toMatch(
+      /Mono 76/i,
+    );
+    expect(text).toMatch(
+      /\$PATH[\s\S]{0,140}v0\.5\.0[\s\S]{0,180}nine required Mono 76 glyph paths[\s\S]{0,160}self-contained JSON/i,
+    );
+    expect(text).toMatch(
+      /THOUGHT[\s\S]{0,220}constructs its SVG from glyph data held in onchain code storage/i,
+    );
+    const implementationSection = topic.sections?.find(
+      ({ id }) => id === "docs-fully-onchain-inshell",
+    );
+    expect(implementationSection?.sourceExamples).toHaveLength(2);
+    expect(
+      implementationSection?.sourceExamples?.map(({ label, language }) => ({
+        label,
+        language,
+      })),
+    ).toEqual([
+      { label: "$PATH SVG example", language: "svg" },
+      { label: "THOUGHT SVG example", language: "svg" },
+    ]);
+    for (const example of implementationSection?.sourceExamples ?? []) {
+      expect(example.content).toMatch(/^<svg[\s\S]*<\/svg>$/);
+      expect(example.content).toMatch(/<(?:rect|g|defs|clipPath)\b/);
+      expect(example.content).not.toMatch(/<script\b/i);
+    }
+    expect(implementationSection?.sourceExamples?.[0]?.content).toMatch(
+      /data-renderer='path-text-status'[\s\S]*path-progress[\s\S]*remaining[\s\S]*consumed/i,
+    );
+    expect(implementationSection?.sourceExamples?.[1]?.content).toMatch(
+      /work-frame[\s\S]*work-canvas[\s\S]*prompt-line[\s\S]*agent-line/i,
+    );
+    expect(text).toMatch(/qualified release proves the design and package, not a live deployment/i);
+    expect(text).not.toMatch(/THOUGHT (?:is|has) (?:live|deployed)/i);
+    expect(text).toMatch(
+      /does not by itself mean immutable, non-upgradeable, decentralized, verified, attested, or true/i,
+    );
+    expect(DOCS_AUTHORITY_MAP["fully-onchain"]).toEqual({
+      lead: ["app-documentation", "contract-release"],
+      sections: {
+        "docs-fully-onchain-why": ["app-documentation", "contract-release"],
+        "docs-fully-onchain-svg": ["app-documentation", "contract-release"],
+        "docs-fully-onchain-inshell": ["app-documentation", "contract-release"],
+        "docs-fully-onchain-boundary": [
+          "app-documentation",
+          "contract-release",
+        ],
+      },
+    });
+    expect(topic.links).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ href: "https://eips.ethereum.org/EIPS/eip-721" }),
+        expect.objectContaining({ href: "/docs/source-release-boundaries" }),
+      ]),
+    );
+  });
+
+  test("shows one concrete THOUGHT work without duplicating the source disclosure", () => {
+    const topic = DOCS_SOURCE.topics.find(({ slug }) => slug === "thought");
+    const workSection = topic?.sections?.find(
+      ({ id }) => id === "docs-thought-work",
+    );
+
+    expect(workSection?.sourceExamples).toHaveLength(1);
+    expect(workSection?.sourceExamples?.[0]).toEqual(
+      expect.objectContaining({
+        label: "THOUGHT work example",
+        language: "svg",
+        showSource: false,
+      }),
+    );
+    expect(workSection?.sourceExamples?.[0]?.content).toMatch(
+      /work-frame[\s\S]*work-canvas[\s\S]*prompt-line[\s\S]*agent-line/i,
+    );
+    expect(workSection?.paragraphs).toEqual(
+      expect.arrayContaining([
+        expect.arrayContaining([
+          expect.objectContaining({
+            label: "Fully Onchain",
+            href: "/docs/fully-onchain#docs-fully-onchain-inshell",
+          }),
+        ]),
+      ]),
+    );
+  });
+
+  test("renders the complete sealed Mono 76 repertoire from canonical path data", () => {
+    const topic = DOCS_SOURCE.topics.find(({ slug }) => slug === "mono-76");
+    const repertoireSection = topic?.sections?.find(
+      ({ id }) => id === "docs-mono-76-repertoire",
+    );
+    const example = repertoireSection?.sourceExamples?.[0];
+
+    expect(example).toEqual(
+      expect.objectContaining({
+        label: "Mono 76 full set demo",
+        language: "svg",
+        presentation: "specimen",
+      }),
+    );
+    expect(example?.content).toMatch(/data-record-count="76"/);
+    expect(example?.content).toMatch(/data-visible-glyph-count="75"/);
+    expect(example?.content.match(/class="mono-76-record"/g)).toHaveLength(76);
+    expect(example?.content.match(/<path\b/g)).toHaveLength(75);
+    expect(example?.content).toContain(
+      'data-record-index="0" data-character="SPACE" data-draws-path="false"',
+    );
+
+    render(<DocsPage topicSlug="mono-76" />);
+    const section = screen
+      .getByRole("heading", { level: 3, name: "A closed repertoire" })
+      .closest("section");
+    const renderedExample = section?.querySelector(
+      "article.docs-topic__source-example--specimen",
+    );
+    const image = renderedExample?.querySelector("img");
+    const code = renderedExample?.querySelector("code");
+
+    expect(renderedExample).not.toBeNull();
+    expect(renderedExample?.querySelector("figcaption")).toHaveTextContent(
+      "Mono 76 full set demo",
+    );
+    expect(renderedExample?.querySelector("details")).not.toHaveAttribute(
+      "open",
+    );
+    expect(
+      decodeURIComponent(
+        (image?.getAttribute("src") ?? "").split(",", 2)[1] ?? "",
+      ),
+    ).toBe(code?.textContent);
+  });
+
+  test("uses $PATH as the public documentation term", () => {
+    for (const topic of DOCS_SOURCE.topics) {
+      expect(topicText(topic)).not.toMatch(/(?<!\$)\bPATH\b/);
+    }
+
+    expect(DOCS_SOURCE.topics.find(({ slug }) => slug === "path")?.title).toBe(
+      "$PATH",
+    );
   });
 
   test("documents the v0.5.0 movement-unit consume boundary without inventing per-token quotas", () => {
@@ -492,9 +729,9 @@ describe("Docs source editorial guardrails", () => {
     if (!path || !contracts || !movements) return;
 
     const pathText = topicText(path);
-    expect(pathText).not.toMatch(/configured per movement and per PATH/i);
+    expect(pathText).not.toMatch(/configured per movement and per \$PATH/i);
     expect(pathText).toMatch(
-      /one quota and one authorized minter for each movement across the deployment[\s\S]{0,180}Every PATH uses those movement totals[\s\S]{0,180}each token stores its own current stage and in-stage minted count/i,
+      /one quota and one authorized minter for each movement across the deployment[\s\S]{0,180}Every \$PATH uses those movement totals[\s\S]{0,180}each token stores its own current stage and in-stage minted count/i,
     );
     expect(pathText).toMatch(
       /v0\.5\.0 canonical deployment policy[\s\S]{0,100}THOUGHT 1[\s\S]{0,40}WILL 10[\s\S]{0,40}AWA 1/i,
@@ -510,7 +747,7 @@ describe("Docs source editorial guardrails", () => {
       .map(docsParagraphText)
       .join("\n");
     expect(consumptionText).toMatch(
-      /EIP-191[\s\S]{0,300}PathNFT address[\s\S]{0,80}chain ID[\s\S]{0,80}PATH ID[\s\S]{0,80}movement[\s\S]{0,80}owner[\s\S]{0,80}configured movement minter[\s\S]{0,100}permission epoch[\s\S]{0,100}consume nonce[\s\S]{0,80}deadline/i,
+      /EIP-191[\s\S]{0,300}PathNFT address[\s\S]{0,80}chain ID[\s\S]{0,80}\$PATH ID[\s\S]{0,80}movement[\s\S]{0,80}owner[\s\S]{0,80}configured movement minter[\s\S]{0,100}permission epoch[\s\S]{0,100}consume nonce[\s\S]{0,80}deadline/i,
     );
     expect(consumptionText).toMatch(
       /only the configured movement minter may call consumeUnit/i,
@@ -519,7 +756,7 @@ describe("Docs source editorial guardrails", () => {
       /checks the configured caller[\s\S]{0,160}current-owner authorization[\s\S]{0,120}fixed movement order[\s\S]{0,80}remaining quota/i,
     );
     expect(consumptionText).toMatch(
-      /zero-based in-movement serial[\s\S]{0,140}consume nonce[\s\S]{0,120}increments that PATH's current count/i,
+      /zero-based in-movement serial[\s\S]{0,140}consume nonce[\s\S]{0,120}increments that \$PATH's current count/i,
     );
     expect(consumptionText).toMatch(
       /count reaches the movement quota[\s\S]{0,120}advances to the next movement[\s\S]{0,100}resets its in-stage count/i,
@@ -532,19 +769,10 @@ describe("Docs source editorial guardrails", () => {
       "contract-release",
     ]);
 
-    expect(consumption?.figure).toMatchObject({
-      label: "How one movement unit is consumed",
-      mode: "trace",
-    });
-    expect(consumption?.figure?.items.map(({ title }) => title)).toEqual([
-      "Read",
-      "Authorize",
-      "Submit",
-      "Verify + consume",
-      "Commit + refresh",
-    ]);
-    expect(DOCS_AUTHORITY_MAP.path.sectionFigures?.["docs-path-consumption"])
-      .toEqual(["contract-release"]);
+    expect(consumption?.figure).toBeUndefined();
+    expect(
+      DOCS_AUTHORITY_MAP.path.sectionFigures?.["docs-path-consumption"],
+    ).toBeUndefined();
     expect(path.links).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -581,11 +809,160 @@ describe("Docs source editorial guardrails", () => {
     expect(unsupportedLinks).toEqual([]);
   });
 
-  test("does not revive the obsolete works alias or separate product subdomains", () => {
+  test("keeps inline references intentional, restrained, and on precise docs routes", () => {
+    const inlineLinks = docsInlineLinks();
+    const byTopic = Object.fromEntries(
+      DOCS_SOURCE.topics
+        .map((topic) => [
+          topic.slug,
+          inlineLinks
+            .filter((link) => link.topic === topic.slug)
+            .map(({ label, href }) => ({ label, href })),
+        ] as const)
+        .filter(([, links]) => links.length > 0),
+    );
+
+    expect(byTopic).toEqual({
+      inshell: [
+        { label: "thought", href: "/docs/thought" },
+        { label: "Agent Art", href: "/docs/agent-art" },
+      ],
+      "agent-art": [{ label: "Inshell", href: "/docs/inshell" }],
+      movements: [
+        { label: "THOUGHT", href: "/docs/thought" },
+        { label: "WILL", href: "/docs/will" },
+        { label: "AWA", href: "/docs/awa" },
+        { label: "$PATH", href: "/docs/path" },
+        { label: "Agent Art", href: "/docs/agent-art" },
+      ],
+      thought: [
+        { label: "$PATH", href: "/docs/path" },
+        { label: "Agent Art", href: "/docs/agent-art" },
+        { label: "wallet", href: "/docs/wallet-local-data" },
+        {
+          label: "Fully Onchain",
+          href: "/docs/fully-onchain#docs-fully-onchain-inshell",
+        },
+      ],
+      will: [
+        { label: "$PATH", href: "/docs/path" },
+        { label: "THOUGHT", href: "/docs/thought" },
+        { label: "Agent Art", href: "/docs/agent-art" },
+      ],
+      awa: [
+        { label: "$PATH", href: "/docs/path" },
+        { label: "THOUGHT", href: "/docs/thought" },
+        { label: "WILL", href: "/docs/will" },
+        { label: "Agent Art", href: "/docs/agent-art" },
+      ],
+      path: [
+        { label: "Pulse", href: "/docs/pulse" },
+        { label: "THOUGHT", href: "/docs/thought" },
+        { label: "WILL", href: "/docs/will" },
+        { label: "AWA", href: "/docs/awa" },
+      ],
+      pulse: [
+        { label: "$PATH", href: "/docs/path" },
+        { label: "Inshell", href: "/docs/inshell" },
+        { label: "wallet", href: "/docs/wallet-local-data" },
+      ],
+      contracts: [
+        { label: "PulseAuction", href: "/docs/pulse" },
+        { label: "PathNFT", href: "/docs/path" },
+        { label: "ThoughtNFT", href: "/docs/thought" },
+        {
+          label: "pinned releases",
+          href: "/docs/source-release-boundaries",
+        },
+      ],
+      "artwork-metadata-chain": [
+        { label: "THOUGHT", href: "/docs/thought" },
+        { label: "$PATH", href: "/docs/path" },
+        { label: "attestation status", href: "/docs/verification" },
+      ],
+      "fully-onchain": [
+        { label: "$PATH", href: "/docs/path" },
+        { label: "THOUGHT", href: "/docs/thought" },
+        {
+          label: "release and deployment boundary",
+          href: "/docs/source-release-boundaries",
+        },
+        {
+          label: "artwork, metadata, and chain",
+          href: "/docs/artwork-metadata-chain",
+        },
+      ],
+      "mono-76": [
+        { label: "THOUGHT", href: "/docs/thought" },
+        { label: "$PATH", href: "/docs/path" },
+        { label: "release", href: "/docs/source-release-boundaries" },
+      ],
+      verification: [
+        { label: "Inshell", href: "/docs/inshell" },
+        {
+          label: "Creation Attestation",
+          href: "/docs/thought#docs-thought-provenance",
+        },
+        { label: "wallet boundaries", href: "/docs/wallet-local-data" },
+      ],
+      "wallet-local-data": [
+        { label: "$PATH", href: "/docs/path" },
+        { label: "THOUGHT", href: "/docs/thought" },
+      ],
+      "source-release-boundaries": [
+        { label: "$PATH", href: "/docs/path" },
+        { label: "THOUGHT", href: "/docs/thought" },
+        { label: "Pulse", href: "/docs/pulse" },
+        { label: "Verification", href: "/docs/verification" },
+      ],
+      "design-principles": [
+        { label: "THOUGHT", href: "/docs/thought" },
+        { label: "Pulse", href: "/docs/pulse" },
+        { label: "$PATH", href: "/docs/path" },
+        { label: "Agent Art", href: "/docs/agent-art" },
+        { label: "Public provenance", href: "/docs/verification" },
+      ],
+    });
+
+    const invalidRoutes = inlineLinks
+      .filter(({ href }) => !href.startsWith("/docs/"))
+      .map(({ topic, block, label, href }) => `${topic}:${block}: ${label} -> ${href}`);
+    expect(invalidRoutes).toEqual([]);
+
+    const duplicateDestinations = DOCS_SOURCE.topics.flatMap((topic) => {
+      const hrefs = inlineLinks
+        .filter((link) => link.topic === topic.slug)
+        .map(({ href }) => href);
+      return hrefs.filter((href, index) => hrefs.indexOf(href) !== index)
+        .map((href) => `${topic.slug}: ${href}`);
+    });
+    expect(duplicateDestinations).toEqual([]);
+
+    const invalidFragments = inlineLinks.flatMap(({ topic, block, label, href }) => {
+      const [pathname, fragment] = href.split("#");
+      if (!fragment) return [];
+      const destination = DOCS_SOURCE.topics.find(
+        ({ slug }) => `/docs/${slug}` === pathname,
+      );
+      const ids = new Set([
+        destination?.id,
+        ...(destination?.aliases ?? []),
+        ...(destination?.sections?.map(({ id }) => id) ?? []),
+      ]);
+      return ids.has(fragment)
+        ? []
+        : [`${topic}:${block}: ${label} -> ${href}`];
+    });
+    expect(invalidFragments).toEqual([]);
+  });
+
+  test("does not revive obsolete separate gallery routes or product subdomains", () => {
     const staleLinks = docsLinks()
-      .filter(({ href }) => {
+      .filter(({ label, href }) => {
+        if (/\bTHOUGHT gallery\b/i.test(label)) return true;
+
         const pathname = href.startsWith("/") ? hrefPathname(href) : null;
-        if (pathname === "/works") return true;
+        if (pathname === "/gallery" || pathname === "/works") return true;
 
         try {
           const hostname = new URL(href).hostname.toLowerCase();
@@ -658,16 +1035,39 @@ describe("Docs source editorial guardrails", () => {
           "",
           `- Authority: ${DOCS_AUTHORITY_MAP[topic.slug].lead.join(", ")}`,
           "",
-          docsParagraphText(topic.paragraphs[0]),
+          docsParagraphMarkdown(topic.paragraphs[0], "https://inshell.art"),
           "",
         ].join("\n"),
       );
       if (topic.figure) {
         expect(markdown.indexOf(`## ${topic.figure.label}`)).toBeLessThan(
-          markdown.indexOf(docsParagraphText(topic.paragraphs[0])),
+          markdown.indexOf(
+            docsParagraphMarkdown(topic.paragraphs[0], "https://inshell.art"),
+          ),
         );
       }
     }
+
+  });
+
+  test("keeps public articles time-neutral without weakening mutable-state terminology", () => {
+    const prohibitedEditorialTime =
+      /\b(?:planned for 20\d{2}|currently|still (?:being|forming)|remains in (?:development|formation)|current (?:and forming|study|status|direction|design|onchain practices)|what is (?:known|still forming)|click today)\b/i;
+
+    for (const topic of DOCS_SOURCE.topics) {
+      expect(topicText(topic)).not.toMatch(prohibitedEditorialTime);
+    }
+
+    expect(DOCS_SOURCE.topics.some(({ status }) => status === "future")).toBe(false);
+
+    const path = topicText(
+      DOCS_SOURCE.topics.find(({ slug }) => slug === "path") as DocsTopic,
+    );
+    const pulse = topicText(
+      DOCS_SOURCE.topics.find(({ slug }) => slug === "pulse") as DocsTopic,
+    );
+    expect(path).toMatch(/current \$PATH owner/i);
+    expect(pulse).toMatch(/current ask/i);
   });
 
   test("publishes the canonical gallery and WILL page contexts", () => {
@@ -682,6 +1082,7 @@ describe("Docs source editorial guardrails", () => {
     expect(index.pageContexts.find(({ route }) => route === "/gallery")?.topics).toEqual([
       "thought",
       "artwork-metadata-chain",
+      "fully-onchain",
       "verification",
     ]);
     expect(index.pageContexts.find(({ route }) => route === "/will")?.topics).toEqual([
@@ -782,12 +1183,12 @@ describe("Docs source editorial guardrails", () => {
     ).toBe(true);
   });
 
-  test("identifies THOUGHT as one practice or movement within broader Agent Art", () => {
+  test("keeps specific practice detail in practice docs rather than privileging it in Agent Art", () => {
     const relatedTopics = DOCS_SOURCE.topics.filter(({ slug }) =>
-      ["agent-art", "movements", "thought"].includes(slug),
+      ["movements", "thought"].includes(slug),
     );
     expect(new Set(relatedTopics.map(({ slug }) => slug))).toEqual(
-      new Set(["agent-art", "movements", "thought"]),
+      new Set(["movements", "thought"]),
     );
 
     const relationshipStatements = relatedTopics
@@ -799,19 +1200,122 @@ describe("Docs source editorial guardrails", () => {
 
     expect(relationshipStatements.length).toBeGreaterThan(0);
 
-    const agentArt = relatedTopics.find(({ slug }) => slug === "agent-art");
+    const agentArt = DOCS_SOURCE.topics.find(({ slug }) => slug === "agent-art");
     expect(agentArt).toBeDefined();
     if (!agentArt) return;
 
     const agentArtText = topicText(agentArt);
-    expect(agentArtText).toMatch(/\bTHOUGHT\b[^.]{0,100}\bone\b[^.]{0,100}\bpractice\b/i);
-    expect(agentArtText).toMatch(
-      /\bTHOUGHT\b[^.]{0,160}\bnot\b[^.]{0,80}\b(?:definition|boundary)\b/i,
-    );
+    expect(agentArtText).not.toMatch(/\b(?:THOUGHT|WILL|AWA|PATH|Pulse)\b/);
+    expect(agentArt.sections?.map(({ id }) => id)).toEqual([
+      "docs-agent-art-participation",
+      "docs-agent-art-field",
+      "docs-agent-art-inshell",
+    ]);
+    expect(agentArt.links ?? []).toEqual([]);
+    expect(DOCS_AUTHORITY_MAP["agent-art"].sections).toEqual({
+      "docs-agent-art-participation": ["artist-editorial"],
+      "docs-agent-art-field": ["artist-editorial"],
+      "docs-agent-art-inshell": ["artist-editorial"],
+    });
   });
 });
 
 describe("DocsPage navigation", () => {
+  test("bridges ordinary article reading to wider Agent exploration", () => {
+    render(<DocsPage />);
+
+    const scopeNote = document.querySelector(".docs-agent__scope-note");
+    expect(scopeNote).toHaveTextContent(
+      /or read the articles below as usual\.\s*Your Agent can also explore Inshell’s wider public sources\./,
+    );
+    expect(scopeNote).toContainHTML("<br>");
+    expect(
+      screen.getByText(
+        "Your Agent can also explore Inshell’s wider public sources.",
+      ),
+    ).toHaveClass("docs-agent__scope-detail");
+    expect(
+      screen.queryByText(/read technical sources beyond the articles below/i),
+    ).not.toBeInTheDocument();
+  });
+
+  test("renders the fully onchain SVG excerpts as collapsed source disclosures", () => {
+    render(<DocsPage topicSlug="fully-onchain" />);
+    const sectionHeading = screen.getByRole("heading", {
+      level: 3,
+      name: "How Inshell does it",
+    });
+    const section = sectionHeading.closest("section");
+    expect(section).not.toBeNull();
+    const disclosures = [
+      ...(section?.querySelectorAll(
+        "article.docs-topic__source-example",
+      ) ?? []),
+    ];
+    expect(disclosures).toHaveLength(2);
+    expect(
+      disclosures.map(
+        (example) => example.querySelector("figcaption")?.textContent,
+      ),
+    ).toEqual(["$PATH SVG example", "THOUGHT SVG example"]);
+    const codeDisclosures = disclosures.map((example) =>
+      example.querySelector("details.docs-topic__source-example-code"),
+    );
+    expect(codeDisclosures.every((details) => details && !details.open)).toBe(
+      true,
+    );
+    expect(
+      codeDisclosures.map(
+        (details) => details?.querySelector("summary")?.textContent,
+      ),
+    ).toEqual(["view raw SVG code", "view raw SVG code"]);
+    expect(disclosures.map((example) => example.querySelector("code")?.className)).toEqual(
+      ["language-svg", "language-svg"],
+    );
+    expect(disclosures[0]).toHaveTextContent("path-progress");
+    expect(disclosures[1]).toHaveTextContent("work-frame");
+    for (const example of disclosures) {
+      const image = example.querySelector("img");
+      const code = example.querySelector("code");
+      const source = image?.getAttribute("src") ?? "";
+      expect(source).toMatch(/^data:image\/svg\+xml;charset=utf-8,/);
+      expect(decodeURIComponent(source.split(",", 2)[1] ?? "")).toBe(
+        code?.textContent,
+      );
+    }
+  });
+
+  test("renders the THOUGHT work example without a duplicate source disclosure", () => {
+    render(<DocsPage topicSlug="thought" />);
+    const section = screen
+      .getByRole("heading", { level: 3, name: "What makes one work" })
+      .closest("section");
+    const example = section?.querySelector(
+      "article.docs-topic__source-example",
+    );
+
+    expect(example).not.toBeNull();
+    expect(example?.querySelector("figcaption")).toHaveTextContent(
+      "THOUGHT work example",
+    );
+    expect(
+      example?.querySelector("details.docs-topic__source-example-code"),
+    ).not.toBeInTheDocument();
+    const imageSource = example?.querySelector("img")?.getAttribute("src") ?? "";
+    expect(imageSource).toMatch(/^data:image\/svg\+xml;charset=utf-8,/);
+    expect(decodeURIComponent(imageSource.split(",", 2)[1] ?? "")).toMatch(
+      /work-frame[\s\S]*prompt-line[\s\S]*agent-line/i,
+    );
+    expect(
+      within(section as HTMLElement).getByRole("link", {
+        name: "Fully Onchain",
+      }),
+    ).toHaveAttribute(
+      "href",
+      "/docs/fully-onchain#docs-fully-onchain-inshell",
+    );
+  });
+
   test("renders THOUGHT, WILL, and AWA as top-level siblings without a Movements submenu", () => {
     const { rerender } = render(<DocsPage topicSlug="movements" />);
     const documentationMenu = screen.getByRole("navigation", {
@@ -846,43 +1350,78 @@ describe("DocsPage character figures", () => {
     "inshell:docs-inshell-practice": "field",
     "agent-art:lead": "field",
     "movements:lead": "trace",
-    "movements:docs-movements-agent-art": "ledger",
     "thought:docs-thought-work": "field",
-    "thought:docs-thought-agent-handoff": "lanes",
-    "thought:docs-thought-provenance": "field",
-    "will:lead": "field",
-    "awa:lead": "field",
-    "path:docs-path-capacity": "ledger",
-    "path:docs-path-consumption": "trace",
-    "pulse:docs-pulse-serial": "trace",
-    "pulse:docs-pulse-live-price": "trace",
-    "contracts:docs-contracts-responsibilities": "lanes",
-    "artwork-metadata-chain:lead": "ledger",
-    "mono-76:lead": "trace",
-    "verification:docs-verification-levels": "ledger",
-    "verification:docs-verification-checklist": "trace",
-    "wallet-local-data:lead": "ledger",
-    "source-release-boundaries:lead": "ledger",
-    "design-principles:lead": "field",
-    "design-principles:docs-design-selection": "lanes",
-    "design-principles:docs-design-canonical": "field",
+    "thought:docs-thought-agent-handoff": "trace",
   } as const;
 
+  const expectedForms = {
+    "inshell.inward-direction": "axis",
+    "inshell.practice-truth": "axis",
+    "agent-art.open-field": "field",
+    "movements.arc": "trace",
+    "thought.prompt-response": "axis",
+    "thought.creative-handoff": "trace",
+  } as const satisfies Readonly<Record<string, DocsFigureForm>>;
+
   const expectedFieldShapes = {
-    "The inward direction": "box-tail",
-    "How practice relates to truth": "boxed-chain",
-    "The invariant and the open field": "segmented-box",
-    "The ordered-pair boundary": "ordered-pair-box",
-    "Creation Attestation bindings": "attestation-flow-fork-ceiling",
-    "WILL: known and forming": "will-box",
-    "AWA: known and forming": "awa-arc-box",
-    "Current Inshell principles across systems": "stacked-principle-boxes",
-    "Many surfaces, one identified record": "canonical-source-flow",
+    "The inward direction": "contained-axis",
+    "How practice relates to truth": "framed-directed-relation",
+    "The invariant and the open field": "open-invariant-field",
+    "One prompt, one response": "prompt-response",
   } as const;
+
+  const expectedFieldAnnotationCounts = {
+    "The inward direction": 3,
+    "How practice relates to truth": 3,
+    "The invariant and the open field": 3,
+    "One prompt, one response": 1,
+  } as const;
+
+  const expectedFrameCounts: Readonly<Record<string, number>> = {
+    "inshell.inward-direction": 1,
+    "inshell.practice-truth": 2,
+  };
+
+  const removedFigureIds = [
+    "thought.creation-attestation",
+    "evidence.interpretation",
+    "path.capacity-progress",
+    "pulse.epoch",
+    "contracts.handoffs",
+    "mono-76.canonical-artwork",
+    "wallet.distinctions",
+    "source-release.records",
+    "design.principles",
+    "design.preservation",
+    "design.reading-surfaces",
+  ] as const;
 
   function normalizedFigureText(value: string) {
     return value.replace(/│/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
   }
+
+  test("resolves source nodes and relations independently of edge array order", () => {
+    const movementsFigure = allFigureEntries().find(
+      ({ figure }) => figure.id === "movements.arc",
+    )?.figure;
+    expect(movementsFigure).toBeDefined();
+
+    const movementsLogic = docsFigureLogic(movementsFigure as DocsFigure);
+    const reorderedMovementsLogic = {
+      ...movementsLogic,
+      edges: [...movementsLogic.edges].reverse(),
+    };
+    const thought = resolveSourceNode(reorderedMovementsLogic, 0);
+    const will = resolveSourceNode(reorderedMovementsLogic, 1);
+    const awa = resolveSourceNode(reorderedMovementsLogic, 2);
+    expect(
+      resolveEdgeByEndpoints(reorderedMovementsLogic, thought.id, will.id).id,
+    ).toBe("individual-to-crowd");
+    expect(
+      resolveEdgeByEndpoints(reorderedMovementsLogic, will.id, awa.id).id,
+    ).toBe("crowd-toward-core");
+
+  });
 
   test("uses each mode only where its relationship fits", () => {
     expect(
@@ -890,15 +1429,29 @@ describe("DocsPage character figures", () => {
         allFigureEntries().map(({ key, figure }) => [key, figure.mode]),
       ),
     ).toEqual(expectedModes);
-    expect(
-      new Set(allFigureEntries().map(({ figure }) => figure.mode)),
-    ).toEqual(new Set(DOCS_FIGURE_MODES));
+    expect(new Set(allFigureEntries().map(({ figure }) => figure.mode))).toEqual(
+      new Set(["field", "trace"]),
+    );
 
     expect(
       DOCS_SOURCE.topics
         .filter((topic) => !topic.figure)
         .map(({ slug }) => slug),
-    ).toEqual(["thought", "path", "pulse", "contracts", "verification"]);
+    ).toEqual([
+      "thought",
+      "will",
+      "awa",
+      "path",
+      "pulse",
+      "contracts",
+      "artwork-metadata-chain",
+      "fully-onchain",
+      "mono-76",
+      "verification",
+      "wallet-local-data",
+      "source-release-boundaries",
+      "design-principles",
+    ]);
     expect(
       DOCS_SOURCE.topics.flatMap((topic) => topic.sections ?? []).filter(
         (section) => !section.figure,
@@ -906,20 +1459,146 @@ describe("DocsPage character figures", () => {
     ).toBeGreaterThan(allFigureEntries().length);
   });
 
-  test("keeps every relationship and figure record in literal character text", () => {
-    for (const { figure } of allFigureEntries()) {
+  test("reserves figures for abstract impressions and keeps technical explanation in prose", () => {
+    const figureIds = new Set(
+      allFigureEntries().map(({ figure }) => figure.id),
+    );
+    for (const id of removedFigureIds) {
+      expect(figureIds).not.toContain(id);
+    }
 
+    const topic = (slug: string) =>
+      DOCS_SOURCE.topics.find((candidate) => candidate.slug === slug);
+    const section = (slug: string, id: string) =>
+      topic(slug)?.sections?.find((candidate) => candidate.id === id);
+
+    expect(section("thought", "docs-thought-provenance")?.figure).toBeUndefined();
+    expect(section("path", "docs-path-capacity")?.figure).toBeUndefined();
+    expect(section("pulse", "docs-pulse-serial")?.figure).toBeUndefined();
+    expect(
+      section("contracts", "docs-contracts-responsibilities")?.figure,
+    ).toBeUndefined();
+    expect(section("design-principles", "docs-design-selection")?.figure)
+      .toBeUndefined();
+    expect(section("design-principles", "docs-design-canonical")?.figure)
+      .toBeUndefined();
+    for (const slug of [
+      "mono-76",
+      "will",
+      "awa",
+      "artwork-metadata-chain",
+      "wallet-local-data",
+      "source-release-boundaries",
+      "design-principles",
+    ]) {
+      expect(topic(slug)?.figure).toBeUndefined();
+    }
+
+    expect(JSON.stringify(topic("thought"))).toMatch(/Creation Attestation/i);
+    expect(JSON.stringify(topic("path"))).toMatch(/quota|remaining/i);
+    expect(JSON.stringify(topic("pulse"))).toMatch(/next ask|epoch/i);
+    expect(JSON.stringify(topic("contracts"))).toMatch(/responsibilit|handoff/i);
+    expect(JSON.stringify(topic("mono-76"))).toMatch(/glyph|path geometry/i);
+    expect(JSON.stringify(topic("awa"))).toMatch(
+      /individual|crowd|toward the core/i,
+    );
+    expect(JSON.stringify(topic("artwork-metadata-chain"))).toMatch(
+      /network|contract|tokenURI|release|context/i,
+    );
+    expect(JSON.stringify(topic("wallet-local-data"))).toMatch(/read|sign|transact/i);
+    expect(JSON.stringify(topic("source-release-boundaries"))).toMatch(
+      /source|release|deployment|observation/i,
+    );
+    expect(JSON.stringify(topic("design-principles"))).toMatch(
+      /preserv|reading surface/i,
+    );
+  });
+
+  test("publishes one stable literal semantic graph for every figure", () => {
+    const entries = allFigureEntries();
+    const formById: Readonly<Record<string, DocsFigureForm>> = expectedForms;
+    expect(entries).toHaveLength(6);
+    expect(new Set(entries.map(({ figure }) => figure.id))).toEqual(
+      new Set(DOCS_FIGURE_LOGIC_IDS),
+    );
+    expect(new Set(entries.map(({ figure }) => figure.id)).size).toBe(
+      entries.length,
+    );
+    expect(new Set(Object.values(expectedForms))).toEqual(
+      new Set(["axis", "field", "trace"]),
+    );
+
+    for (const { figure } of entries) {
+      const logic = docsFigureLogic(figure);
+      expect(validateDocsFigureLogic(figure, logic)).toEqual({
+        valid: true,
+        errors: [],
+      });
+      expect(logic.id).toBe(figure.id);
+      expect(logic.label).toBe(figure.label);
+      expect(logic.form).toBe(formById[figure.id]);
+
+      const nodeIds = new Set(logic.nodes.map(({ id }) => id));
+      const groupIds = new Set(logic.groups.map(({ id }) => id));
+      const endpointIds = new Set([...nodeIds, ...groupIds]);
+      expect([...nodeIds].filter((id) => groupIds.has(id))).toEqual([]);
+      for (const edge of logic.edges) {
+        expect(endpointIds).toContain(edge.from);
+        expect(endpointIds).toContain(edge.to);
+        expect(edge.glyph.trim()).not.toBe("");
+        expect(edge.label.trim()).not.toBe("");
+        expect(
+          figure.figureText.includes(edge.glyph) ||
+            (edge.stackedGlyph !== undefined &&
+              figure.figureText.includes(edge.stackedGlyph)),
+        ).toBe(true);
+      }
+      for (const group of logic.groups) {
+        expect(group.members.length).toBeGreaterThan(0);
+        for (const member of group.members) expect(nodeIds).toContain(member);
+        if (group.glyph) {
+          for (const glyph of group.glyph.split(/\s*\/\s*/)) {
+            expect(figure.figureText).toContain(glyph);
+          }
+        }
+      }
+    }
+
+    const prompt = docsFigureLogic(
+      entries.find(({ figure }) => figure.id === "thought.prompt-response")
+        ?.figure as DocsFigure,
+    );
+    expect(prompt.groups).toContainEqual(
+      expect.objectContaining({
+        id: "thought-equation",
+        glyph: "+",
+        members: ["human-prompt", "agent-response"],
+      }),
+    );
+    expect(prompt.edges).toEqual([
+      expect.objectContaining({
+        id: "pair-forms-thought",
+        from: "thought-equation",
+        to: "one-thought",
+        glyph: "↓",
+      }),
+    ]);
+  });
+
+  test("keeps every impression and figure record in literal character text", () => {
+    for (const { figure } of allFigureEntries()) {
       expect(figure.figureText).not.toMatch(/\t| +$/m);
       expect(Math.max(...figure.figureText.split("\n").map((line) => line.length)))
-        .toBeLessThanOrEqual(64);
+        .toBeLessThanOrEqual(80);
 
       const normalized = normalizedFigureText(figure.figureText);
       for (const item of figure.items) {
         expect(normalized).toContain(normalizedFigureText(item.title));
-        expect(normalized).toContain(normalizedFigureText(item.detail));
+        if (item.detail) {
+          expect(normalized).toContain(normalizedFigureText(item.detail));
+        }
         if (figure.mode === "lanes" && "lane" in item) {
           expect(normalized).toContain(normalizedFigureText(item.lane));
-          expect(figure.figureText).toContain(`[${String(item.stage).padStart(2, "0")}]`);
           if (item.phase) {
             expect(normalized).toContain(normalizedFigureText(item.phase));
           }
@@ -927,20 +1606,21 @@ describe("DocsPage character figures", () => {
       }
 
       if (figure.mode === "trace") {
-        expect(figure.figureText).toContain("↓");
+        expect(figure.figureText).toMatch(/[→↓]/);
         if (figure.loop) {
           expect(figure.figureText).toContain("↺");
           expect(normalized).toContain(normalizedFigureText(figure.loop.condition));
         }
       } else if (figure.mode === "ledger") {
-        expect(figure.figureText).toContain("│");
-        expect(figure.figureText).toContain("┼");
+        expect(figure.figureText).toContain("=");
+        expect(figure.figureText).not.toMatch(/[│┼]/);
       } else if (figure.mode === "lanes") {
         expect(figure.figureText).toContain("→");
-        expect(figure.figureText).toContain("│");
+        expect(figure.figureText).not.toContain("│");
       } else {
-        expect(figure.figureText).toMatch(/[┌┐└┘├]/);
+        expect(figure.figureText).toMatch(/[┌┐└┘├┬│↓↑→≠•]/);
       }
+
     }
   });
 
@@ -979,29 +1659,41 @@ describe("DocsPage character figures", () => {
     const inshellPracticeFigure = topics
       .get("inshell")
       ?.sections?.find(({ id }) => id === "docs-inshell-practice")?.figure;
-    const pathCapacityFigure = topics
-      .get("path")
-      ?.sections?.find(({ id }) => id === "docs-path-capacity")?.figure;
-    const pathConsumptionFigure = topics
-      .get("path")
-      ?.sections?.find(({ id }) => id === "docs-path-consumption")?.figure;
 
     expect(inshellFigure).toMatch(
-      /SHELL[\s\S]*REAL AND OFTEN NECESSARY[\s\S]*NOT THE WHOLE BEING[\s\S]*INSPECT WHAT FORMS THE SELF/,
+      /A BODY, FACE, OR HEAD[\s\S]*REPUTATION, ROLE\.\.\.[\s\S]*SHELL[\s\S]*IN[\s\S]*SELF/i,
     );
+    expect(inshellFigure).not.toMatch(/BOUNDARY/);
     expect(inshellPracticeFigure?.figureText).toMatch(
-      /TRUTH: INSPECT SELF[\s\S]*APPROACHES WITHOUT CLAIMING[\s\S]*PRACTICE:[\s\S]*DOES NOT PROVE OR GUARANTEE FREEDOM/,
+      /TRUTH[\s\S]*INSPECT SELF[\s\S]*↑[\s\S]*APPROACHES WITHOUT CLAIMING POSSESSION[\s\S]*PRACTICE/i,
+    );
+    expect(inshellPracticeFigure?.figureText).not.toMatch(
+      /TRUTH AND PRACTICE/,
+    );
+    expect(inshellPracticeFigure?.figureText).not.toMatch(
+      /RELATION|BOUNDARY|DOES NOT PROVE/,
     );
     expect(agentArtFigure).toMatch(
-      /INVARIANT[\s\S]*An Agent participates in the art activity[\s\S]*OPEN QUESTIONS/,
+      /AGENT ART[\s\S]*An Agent participates[\s\S]*• What is Art\?[\s\S]*• What is an Agent\?/i,
     );
+    expect(agentArtFigure).not.toMatch(/\bINVARIANT\b|OPEN QUESTIONS/i);
     expect(agentArtFigure).not.toMatch(/NO PRESCRIBED RELATION/);
-    expect(pathCapacityFigure?.figureText).toMatch(
-      /DEPLOYMENT[\s\S]*Quota \+ authorized minter per movement[\s\S]*ONE PATH[\s\S]*Remaining = quota - this PATH's minted count/,
-    );
-    expect(pathConsumptionFigure?.figureText).toMatch(
-      /^ONE SUCCESSFUL MOVEMENT MINT CONSUMES 1 UNIT/,
-    );
+    for (const [slug, sectionId] of [
+      ["movements", "docs-movements-agent-art"],
+      ["path", "docs-path-consumption"],
+      ["pulse", "docs-pulse-live-price"],
+      ["verification", "docs-verification-levels"],
+      ["verification", "docs-verification-checklist"],
+    ] as const) {
+      expect(
+        topics
+          .get(slug)
+          ?.sections?.find(({ id }) => id === sectionId)?.figure,
+      ).toBeUndefined();
+      expect(
+        DOCS_AUTHORITY_MAP[slug].sectionFigures?.[sectionId],
+      ).toBeUndefined();
+    }
     expect(allFigureEntries().map(({ figure }) => figure.label).join("\n")).not.toMatch(
       /at a glance/i,
     );
@@ -1017,7 +1709,12 @@ describe("DocsPage character figures", () => {
       render(<DocsPage topicSlug={topic.slug} />);
       for (const { sectionId, figure: sourceFigure } of topicFigureEntries(topic)) {
         const figure = screen.getByRole("figure", { name: sourceFigure.label });
+        const logic = docsFigureLogic(sourceFigure);
         expect(figure).toHaveAttribute("data-figure-mode", sourceFigure.mode);
+        expect(figure).toHaveAttribute("data-figure-id", sourceFigure.id);
+        expect(figure).toHaveAttribute("data-figure-form", logic.form);
+        expect(JSON.parse(figure.getAttribute("data-figure-logic") ?? "null"))
+          .toEqual(logic);
         expect(
           figure.querySelector(
             ".docs-figure__source, .docs-figure__text, details, pre, svg, canvas, img",
@@ -1028,55 +1725,169 @@ describe("DocsPage character figures", () => {
         const visual = figure.querySelector(".docs-figure__visual");
         expect(visual).not.toBeNull();
         expect(
-          visual?.querySelectorAll(".docs-figure__term").length,
-        ).toBeGreaterThanOrEqual(sourceFigure.items.length);
-        expect(
-          visual?.querySelectorAll(".docs-figure__annotation").length,
-        ).toBeGreaterThanOrEqual(sourceFigure.items.length);
+          visual?.querySelectorAll(".docs-figure__character-frame"),
+        ).toHaveLength(expectedFrameCounts[sourceFigure.id] ?? 0);
+        for (const annotation of [
+          ...(visual?.querySelectorAll(".docs-figure__annotation") ?? []),
+        ]) {
+          expect(annotation.textContent?.trim()).not.toBe("");
+        }
         for (const item of sourceFigure.items) {
           expect(visual).toHaveTextContent(item.title);
-          expect(visual).toHaveTextContent(item.detail);
+          if (item.detail) expect(visual).toHaveTextContent(item.detail);
+        }
+        for (const node of logic.nodes) {
+          expect(visual?.textContent?.toLocaleLowerCase("en-US")).toContain(
+            node.term.toLocaleLowerCase("en-US"),
+          );
+          if (node.annotation) {
+            expect(visual?.textContent?.toLocaleLowerCase("en-US")).toContain(
+              node.annotation.toLocaleLowerCase("en-US"),
+            );
+          }
+        }
+        for (const edge of logic.edges) {
+          expect(
+            visual?.textContent?.includes(edge.glyph) ||
+              (edge.stackedGlyph !== undefined &&
+                visual?.textContent?.includes(edge.stackedGlyph)),
+          ).toBe(true);
+        }
+        for (const group of logic.groups) {
+          if (!group.glyph) continue;
+          for (const glyph of group.glyph.split(/\s*\/\s*/)) {
+            expect(visual).toHaveTextContent(glyph);
+          }
         }
 
         if (sourceFigure.mode === "trace") {
+          const trace = visual?.querySelector(".docs-figure__shape-trace");
           expect(
             visual?.querySelector("ol.docs-figure__shape-trace-list"),
           ).not.toBeNull();
-          const connectors = [
-            ...(visual?.querySelectorAll(
-              ".docs-figure__shape-trace-connector > .docs-figure__shape-character",
+          expect(
+            [
+              ...(trace?.querySelectorAll<HTMLElement>(
+                ".docs-figure__shape-trace-node[data-figure-node-id]",
+              ) ?? []),
+            ].map((node) => node.dataset.figureNodeId),
+          ).toEqual(logic.nodes.map(({ id }) => id));
+          const renderedEdges = [
+            ...(trace?.querySelectorAll<HTMLElement>(
+              "[data-figure-edge-id]",
             ) ?? []),
           ];
-          expect(connectors.length).toBeGreaterThanOrEqual(
-            sourceFigure.items.length - 1,
+          expect(renderedEdges.map((edge) => edge.dataset.figureEdgeId)).toEqual(
+            logic.edges.map(({ id }) => id),
           );
-          for (const connector of connectors) {
-            expect(connector.textContent).toBe("│\n↓");
+          for (const edge of logic.edges) {
+            const renderedEdge = renderedEdges.find(
+              (candidate) => candidate.dataset.figureEdgeId === edge.id,
+            );
+            expect(renderedEdge).toHaveAttribute("aria-label", edge.label);
+            expect(
+              renderedEdge?.textContent?.includes(edge.glyph) ||
+                (edge.stackedGlyph !== undefined &&
+                  renderedEdge?.textContent?.includes(edge.stackedGlyph)),
+            ).toBe(true);
           }
-          if (sourceFigure.loop) expect(visual).toHaveTextContent("↺");
+          expect(
+            trace?.querySelector(".docs-figure__shape-trace-item-rail"),
+          ).toBeNull();
+          expect(visual?.querySelector(".docs-figure__marker")).toBeNull();
+          if (sourceFigure.loop) {
+            expect(trace).toHaveAttribute("data-trace-layout", "cycle");
+            const returnRelation = trace?.querySelector(
+              ".docs-figure__shape-trace-return",
+            );
+            expect(returnRelation).toHaveAttribute("data-return-to", "ask");
+            expect(
+              returnRelation?.querySelector(
+                ".docs-figure__shape-trace-return-glyph",
+              ),
+            ).toHaveTextContent(/^↺$/);
+            expect(returnRelation).not.toHaveTextContent(/[└─]/);
+            expect(visual).toHaveTextContent(sourceFigure.loop.condition);
+          } else {
+            expect(trace).toHaveAttribute(
+              "data-trace-layout",
+              {
+                "movements.arc": "sequence",
+                "thought.creative-handoff": "sequence",
+              }[sourceFigure.id],
+            );
+          }
         } else if (sourceFigure.mode === "ledger") {
+          const comparison = visual?.querySelector(
+            ".docs-figure__shape-ledger[data-figure-shape='capacity-comparison']",
+          );
+          expect(comparison).not.toBeNull();
           expect(
-            visual?.querySelector(".docs-figure__shape-ledger[role='table']"),
-          ).not.toBeNull();
-          const rails = [
-            ...(visual?.querySelectorAll(
-              ".docs-figure__shape-ledger-rail",
-            ) ?? []),
-          ];
-          expect(rails).toHaveLength(sourceFigure.items.length + 1);
-          for (const rail of rails) {
-            expect(rail.textContent?.split("\n")).toHaveLength(64);
-          }
+            [
+              ...(comparison?.querySelectorAll<HTMLElement>(
+                "[data-figure-node-id]",
+              ) ?? []),
+            ].map((node) => node.dataset.figureNodeId),
+          ).toEqual(["capacity", "progress"]);
+          const relation = comparison?.querySelector(
+            "[data-figure-edge-id='quota-equals-progress-total']",
+          );
+          expect(relation).toHaveAttribute("role", "img");
+          expect(relation).toHaveTextContent("=");
+          expect(relation).toHaveClass(
+            "docs-figure__shape-ledger-relation--governing",
+          );
+          expect(comparison).toHaveTextContent(/Deployment[\s\S]*Each \$PATH/);
+          expect(comparison?.textContent).not.toMatch(/[│┼]/);
           expect(
-            visual?.querySelectorAll(".docs-figure__shape-ledger-rule"),
-          ).toHaveLength(sourceFigure.items.length);
-          expect(visual).toHaveTextContent("┼");
+            comparison?.querySelector(
+              ".docs-figure__shape-ledger-rail, .docs-figure__shape-ledger-rule, [role='table']",
+            ),
+          ).toBeNull();
         } else if (sourceFigure.mode === "lanes") {
-          expect(
-            visual?.querySelector(".docs-figure__lanes .docs-figure__lane-events"),
-          ).not.toBeNull();
+          const lanes = visual?.querySelector(".docs-figure__lanes");
+          expect(lanes).toHaveClass("docs-figure__lanes--open");
           expect(visual).toHaveTextContent("→");
-          expect(visual).toHaveTextContent("│");
+          expect(visual?.textContent).not.toContain("│");
+          expect(visual?.querySelector(".docs-figure__lane-axis")).toBeNull();
+          expect(visual?.querySelector(".docs-figure__marker")).toBeNull();
+          expect(
+            visual?.querySelector(
+              ".docs-figure__lane-rail, .docs-figure__lane-separator, [style]",
+            ),
+          ).toBeNull();
+          expect(
+            [
+              ...(lanes?.querySelectorAll<HTMLElement>(
+                ".docs-figure__lane-event[data-figure-node-id]",
+              ) ?? []),
+            ].map((node) => node.dataset.figureNodeId),
+          ).toEqual(logic.nodes.map(({ id }) => id));
+          expect(
+            [
+              ...(lanes?.querySelectorAll<HTMLElement>(
+                ".docs-figure__lane-relation[data-figure-edge-id]",
+              ) ?? []),
+            ].map((edge) => edge.dataset.figureEdgeId),
+          ).toEqual(logic.edges.map(({ id }) => id));
+          expect(
+            new Set(
+              [
+                ...(lanes?.querySelectorAll<HTMLElement>(
+                  "[data-figure-group-id]",
+                ) ?? []),
+              ].map((group) => group.dataset.figureGroupId),
+            ),
+          ).toEqual(new Set(logic.groups.map(({ id }) => id)));
+          expect(
+            [...(lanes?.querySelectorAll(".docs-figure__annotation") ?? [])].map(
+              (annotation) => annotation.textContent,
+            ),
+          ).toEqual(
+            logic.nodes.flatMap(({ annotation }) =>
+              annotation === undefined ? [] : [annotation],
+            ),
+          );
         } else {
           const shape = visual?.querySelector<HTMLElement>("[data-figure-shape]");
           expect(shape).not.toBeNull();
@@ -1085,6 +1896,13 @@ describe("DocsPage character figures", () => {
             "data-figure-shape",
             expectedFieldShapes[
               sourceFigure.label as keyof typeof expectedFieldShapes
+            ],
+          );
+          expect(
+            visual?.querySelectorAll(".docs-figure__annotation"),
+          ).toHaveLength(
+            expectedFieldAnnotationCounts[
+              sourceFigure.label as keyof typeof expectedFieldAnnotationCounts
             ],
           );
         }
@@ -1097,82 +1915,6 @@ describe("DocsPage character figures", () => {
         }
       }
       cleanup();
-    }
-  });
-
-  test("keeps every lane event on its governing stage track", () => {
-    function laneEventGridColumn(figure: HTMLElement, title: string) {
-      const term = [...figure.querySelectorAll<HTMLElement>(".docs-figure__term")]
-        .find((candidate) => candidate.textContent === title);
-      return term?.closest<HTMLElement>(".docs-figure__lane-event")?.style.gridColumn;
-    }
-
-    render(<DocsPage topicSlug="thought" />);
-    const thought = screen.getByRole("figure", {
-      name: "From intention to minted THOUGHT",
-    });
-    const thoughtLanes = thought.querySelector<HTMLElement>(".docs-figure__lanes");
-    expect(
-      thoughtLanes?.style.getPropertyValue("--docs-figure-lane-stage-count"),
-    ).toBe("6");
-    expect(laneEventGridColumn(thought, "Prompt")).toBe("1 / span 3");
-    expect(laneEventGridColumn(thought, "Review + choose")).toBe("4 / span 3");
-    expect(laneEventGridColumn(thought, "Response")).toBe("2 / span 5");
-    expect(laneEventGridColumn(thought, "Validate + assemble")).toBe("3 / span 4");
-    expect(laneEventGridColumn(thought, "Authorize + submit")).toBe("5 / span 2");
-    expect(laneEventGridColumn(thought, "Validate + record")).toBe("5 / span 2");
-    expect(
-      within(thought).getByRole("img", { name: "continues at stage 4" }),
-    ).toHaveTextContent("···");
-    expect(
-      thought.querySelector(".docs-figure__lane-separator")?.textContent?.split("\n"),
-    ).toHaveLength(64);
-    cleanup();
-
-    render(<DocsPage topicSlug="contracts" />);
-    const contracts = screen.getByRole("figure", {
-      name: "Contract handoffs across issuance and minting",
-    });
-    expect(contracts.querySelector(".docs-figure__lane-axis")).toBeNull();
-    const contractGroups = [
-      ...contracts.querySelectorAll<HTMLElement>(".docs-figure__lane-group"),
-    ];
-    expect(contractGroups).toHaveLength(2);
-    for (const group of contractGroups) {
-      expect(
-        group.style.getPropertyValue("--docs-figure-lane-stage-count"),
-      ).toBe("3");
-    }
-    for (const [title, column] of [
-      ["Settle", 1],
-      ["Issue", 2],
-      ["Record PATH", 3],
-      ["Validate work", 1],
-      ["Consume permission", 2],
-      ["Mint + record", 3],
-    ] as const) {
-      expect(laneEventGridColumn(contracts, title)).toBe(`${column} / span 1`);
-    }
-    cleanup();
-
-    render(<DocsPage topicSlug="design-principles" />);
-    const preservation = screen.getByRole("figure", {
-      name: "Two preservation boundaries",
-    });
-    expect(
-      preservation.querySelectorAll(".docs-figure__lane-group"),
-    ).toHaveLength(2);
-    for (const [title, column] of [
-      ["Agent return", 1],
-      ["Human review", 2],
-      ["Successful mint", 3],
-      ["Public corpus", 4],
-      ["Visible ask", 1],
-      ["Confirmed bid", 2],
-      ["Settlement", 3],
-      ["Sale record", 4],
-    ] as const) {
-      expect(laneEventGridColumn(preservation, title)).toBe(`${column} / span 1`);
     }
   });
 
@@ -1189,110 +1931,289 @@ describe("DocsPage character figures", () => {
     );
   });
 
-  test("preserves representative box, chain, segment, fork, arc, and source-flow relations", () => {
+  test("preserves representative abstract box, chain, field, and arc impressions", () => {
     render(<DocsPage topicSlug="inshell" />);
-    const inward = screen
-      .getByRole("figure", { name: "The inward direction" })
-      .querySelector("[data-figure-shape='box-tail']");
+    const inwardFigure = screen.getByRole("figure", {
+      name: "The inward direction",
+    });
+    const inward = inwardFigure.querySelector(
+      "[data-figure-shape='contained-axis']",
+    );
     const practice = screen
       .getByRole("figure", { name: "How practice relates to truth" })
-      .querySelector("[data-figure-shape='boxed-chain']");
+      .querySelector("[data-figure-shape='framed-directed-relation']");
 
-    expect(inward).toHaveTextContent(/┌─+\s*SHELL[─\s]*┐/i);
-    expect(inward).toHaveTextContent(/└[─\s]*┬[─\s]*┘/);
+    expect(inward).toHaveTextContent(/SHELL[\s\S]*a body, face, or head/i);
+    expect(inward).toHaveTextContent(/└─+┘/);
     expect(
-      inward?.querySelector(".docs-figure__field-relation"),
-    ).toHaveTextContent(/│\s*│\s*│\s*IN/i);
-    expect(inward?.querySelector(".docs-figure__field-tail"))
-      .toHaveTextContent(/IN\s*│\s*↓/i);
+      inward?.querySelector(".docs-figure__frame-cap--balanced"),
+    ).not.toBeNull();
     expect(
-      inward?.querySelector(".docs-figure__field-relation-label"),
-    ).toHaveClass("docs-figure__term");
+      inward?.querySelectorAll(
+        ".docs-figure__frame-cap--balanced .docs-figure__frame-rule",
+      ),
+    ).toHaveLength(2);
+    const inwardFrame = inward?.querySelector(
+      ":scope > .docs-figure__character-frame",
+    );
+    const inwardCap = inwardFrame?.querySelector(
+      ":scope > .docs-figure__frame-cap--balanced",
+    );
+    const inwardLeftCap = inwardCap?.querySelector(
+      ":scope > .docs-figure__frame-cap-half--left",
+    );
+    const inwardHeading = inwardLeftCap?.querySelector(
+      ":scope > .docs-figure__frame-heading",
+    );
+    const inwardNote = inwardLeftCap?.querySelector(
+      ":scope > .docs-figure__field-inward-note",
+    );
+    expect(inwardNote).toHaveTextContent(
+      /a body, face, or head; a name, honor, reputation, role\.\.\./i,
+    );
+    expect(inwardHeading?.nextElementSibling).toBe(inwardNote);
+    expect(inwardNote?.nextElementSibling).toHaveClass(
+      "docs-figure__frame-rule",
+    );
+    expect(inwardLeftCap).toHaveTextContent(/┌─\s*SHELL[\s\S]*─/i);
+    expect(inwardCap).not.toHaveTextContent(/┬/);
+    expect(inwardCap).toHaveTextContent(/─[\s\S]*┐/);
+    expect(inwardNote?.parentElement).toBe(inwardLeftCap);
+    expect(
+      inwardFrame?.querySelector(".docs-figure__frame-content"),
+    ).not.toHaveTextContent(/a body, face, or head/i);
+    expect(
+      inward?.querySelector(".docs-figure__frame-content"),
+    ).toHaveTextContent(/SELF/i);
+    expect(
+      JSON.parse(
+        inwardFigure.getAttribute("data-figure-logic") ?? "null",
+      ).groups.find(({ id }: { id: string }) => id === "shell-boundary")
+        ?.members,
+    ).toEqual(["shell", "in", "self"]);
+    const inwardArrow = inward?.querySelector(
+      ".docs-figure__field-inward-arrow[role='img']",
+    );
+    expect(inwardArrow).toHaveAttribute(
+      "aria-label",
+      "In directs inspection toward the self.",
+    );
+    expect(inwardArrow).toHaveClass("docs-figure__field-inward-arrow");
+    expect(inward?.querySelector(".docs-figure__field-inward-axis"))
+      .toHaveTextContent(/↓\s*IN/i);
+    expect(
+      inward?.querySelector(".docs-figure__field-inward-label"),
+    ).toHaveClass("docs-figure__annotation");
+    const inwardLogic = JSON.parse(
+      inwardFigure.getAttribute("data-figure-logic") ?? "null",
+    );
+    expect(inwardLogic.edges).toEqual([
+      expect.objectContaining({
+        id: "inspect-self",
+        from: "in",
+        to: "self",
+        glyph: "↓",
+      }),
+    ]);
+    expect(
+      inwardLogic.nodes.find(({ id }: { id: string }) => id === "in")?.role,
+    ).toBe("structural");
+    expect(inward?.querySelector(".docs-figure__field-tail")).toHaveTextContent(
+      /↓\s*IN[\s\S]*Inspect what forms the[\s\S]*self/i,
+    );
+    const practiceRelation = practice?.querySelector(
+      ".docs-figure__field-practice-relation",
+    );
     const practiceConnectors = [
-      ...(practice?.querySelectorAll(".docs-figure__field-connector") ?? []),
+      ...(practiceRelation?.querySelectorAll(".docs-figure__glyph") ?? []),
     ];
-    expect(practiceConnectors).toHaveLength(2);
+    expect(practiceConnectors).toHaveLength(1);
     for (const connector of practiceConnectors) {
-      expect(connector.querySelectorAll(".docs-figure__glyph")).toHaveLength(1);
-      expect(connector.querySelector(".docs-figure__glyph")?.textContent).toBe(
-        "↑\n│",
-      );
+      expect(connector.textContent).toBe("↑");
     }
-    expect(practice).toHaveTextContent(/TRUTH[\s\S]*↑[\s\S]*RELATION[\s\S]*↑[\s\S]*PRACTICE/i);
+    expect(practiceConnectors[0]).toHaveClass(
+      "docs-figure__field-practice-arrow",
+    );
+    const practiceFigure = screen.getByRole("figure", {
+      name: "How practice relates to truth",
+    });
+    const practiceLogic = JSON.parse(
+      practiceFigure.getAttribute("data-figure-logic") ?? "null",
+    );
+    expect(practice).toHaveTextContent(/TRUTH[\s\S]*↑[\s\S]*PRACTICE/i);
+    expect(
+      practice?.querySelectorAll(":scope .docs-figure__character-frame"),
+    ).toHaveLength(2);
+    const practiceFrames = [
+      ...(practice?.querySelectorAll(".docs-figure__character-frame") ?? []),
+    ];
+    const practiceChain = practice?.querySelector(
+      ":scope > .docs-figure__field-chain",
+    );
+    expect([...(practiceChain?.children ?? [])]).toEqual([
+      practiceFrames[0],
+      practiceRelation,
+      practiceFrames[1],
+    ]);
+    expect(practiceRelation?.closest(".docs-figure__character-frame"))
+      .toBeNull();
+    expect(practiceFrames[0]).toHaveTextContent(/TRUTH[\s\S]*Inspect self/i);
+    expect(practiceFrames[1]).toHaveTextContent(
+      /PRACTICE[\s\S]*Examine[\s\S]*feel/i,
+    );
+    expect(practice?.querySelectorAll(".docs-figure__frame-heading"))
+      .toHaveLength(0);
+    expect(practiceFrames[0]).toHaveTextContent(/┌─+[\s\S]*└─+┘/);
+    expect(practiceFrames[1]).toHaveTextContent(/┌─+[\s\S]*└─+┘/);
+    expect(practiceLogic.nodes.map(({ id }: { id: string }) => id)).toEqual([
+      "truth",
+      "practice",
+    ]);
+    expect(practiceLogic.edges).toEqual([
+      expect.objectContaining({
+        from: "practice",
+        to: "truth",
+        glyph: "↑",
+      }),
+    ]);
+    expect(practiceLogic.groups).toEqual([]);
+    expect(practiceRelation).toHaveTextContent(
+      "Approaches without claiming possession",
+    );
+    expect(practice).toHaveTextContent(
+      "Examine · inspect · suspect · read · listen · feel",
+    );
+    expect(practice).not.toHaveTextContent(/RELATION|BOUNDARY/i);
     cleanup();
 
     render(<DocsPage topicSlug="agent-art" />);
-    const segmented = screen
+    const openAgentArt = screen
       .getByRole("figure", { name: "The invariant and the open field" })
-      .querySelector("[data-figure-shape='segmented-box']");
-    const segmentedDividers = segmented?.querySelectorAll(
-      ".docs-figure__field-divider",
+      .querySelector("[data-figure-shape='open-invariant-field']");
+    expect(openAgentArt).toHaveTextContent(
+      /AGENT ART[\s\S]*An Agent participates in the art activity[\s\S]*•[\s\S]*WHAT IS ART/i,
     );
-    expect(segmentedDividers).toHaveLength(1);
-    const [dividerStart, dividerLabel, dividerRail, dividerEnd] = [
-      ...(segmentedDividers?.[0]?.children ?? []),
-    ];
-    expect(dividerStart).toHaveClass("docs-figure__frame-character");
-    expect(dividerLabel).toHaveClass("docs-figure__eyebrow");
-    expect(dividerRail).toHaveClass("docs-figure__frame-rule");
-    expect(dividerEnd).toHaveClass("docs-figure__frame-character");
-    expect(segmented).toHaveTextContent("├─");
-    expect(segmented).toHaveTextContent("┤");
+    expect(openAgentArt).toHaveTextContent(/•[\s\S]*WHAT IS AN AGENT/i);
+    expect(openAgentArt).not.toHaveTextContent(/\bINVARIANT\b|OPEN QUESTIONS/i);
+    expect(
+      Array.from(openAgentArt?.querySelectorAll(".docs-figure__term") ?? []).map(
+        (term) => term.textContent?.trim(),
+      ),
+    ).toEqual(["Agent Art", "What is Art?", "What is an Agent?"]);
+    expect(
+      Array.from(openAgentArt?.querySelectorAll(".docs-figure__shape-label") ?? []).map(
+        (label) => label.textContent?.trim(),
+      ),
+    ).toEqual([]);
+    expect(
+      Array.from(
+        openAgentArt?.querySelectorAll(".docs-figure__field-membership-glyph") ?? [],
+      ).map((glyph) => glyph.textContent),
+    ).toEqual(["•", "•"]);
+    expect(
+      openAgentArt?.querySelector("[data-figure-node='invariant']"),
+    ).toHaveTextContent(/Agent Art[\s\S]*An Agent participates in the art activity/i);
+    expect(
+      Array.from(
+        openAgentArt?.querySelectorAll("[data-figure-group-id='agent-art-questions']") ?? [],
+      ).map((glyph) => glyph.textContent),
+    ).toEqual(["•", "•"]);
+    expect(openAgentArt?.querySelector(".docs-figure__character-frame")).toBeNull();
     expect(
       screen.queryByRole("figure", { name: "One practice within Agent Art" }),
     ).not.toBeInTheDocument();
     cleanup();
 
-    render(<DocsPage topicSlug="thought" />);
-    const attestation = screen
-      .getByRole("figure", { name: "Creation Attestation bindings" })
-      .querySelector("[data-figure-shape='attestation-flow-fork-ceiling']");
+    render(<DocsPage topicSlug="will" />);
+    expect(screen.queryByRole("figure")).not.toBeInTheDocument();
+    expect(screen.getByText(/delegates will and authority to an Agent/i))
+      .toBeInTheDocument();
+    cleanup();
 
-    expect(attestation?.querySelectorAll(".docs-figure__field-fork-branch"))
-      .toHaveLength(2);
+    render(<DocsPage topicSlug="thought" />);
+    const promptResponse = screen
+      .getByRole("figure", { name: "One prompt, one response" })
+      .querySelector("[data-figure-shape='prompt-response']");
+
+    expect(promptResponse).toHaveTextContent(
+      /HUMAN PROMPT P[\s\S]*\+[\s\S]*AGENT RESPONSE R[\s\S]*↓[\s\S]*ONE THOUGHT \(P, R\)/i,
+    );
     expect(
-      attestation?.querySelector(".docs-figure__field-fork-stem")?.textContent,
-    ).toContain("│");
+      promptResponse?.querySelector(".docs-figure__field-prompt-pair-glyph"),
+    ).toHaveTextContent("+");
     expect(
-      attestation?.querySelector(".docs-figure__field-fork-continuation")
-        ?.textContent,
-    ).toContain("│");
-    expect(attestation).toHaveTextContent(/CONTRACT VALIDATION[\s\S]*├─[\s\S]*APP ATTESTED/i);
-    expect(attestation).toHaveTextContent(/└─[\s\S]*UNATTESTED/i);
+      promptResponse?.querySelector(".docs-figure__field-prompt-arrow"),
+    ).toHaveClass("docs-figure__field-relation-glyph");
     expect(
-      attestation?.querySelector(".docs-figure__field-ceiling"),
-    ).toHaveTextContent(/CLAIM CEILING/i);
+      promptResponse?.querySelector(".docs-figure__field-prompt-result-pair"),
+    ).toHaveTextContent("(P, R)");
+    const promptLogic = JSON.parse(
+      screen
+        .getByRole("figure", { name: "One prompt, one response" })
+        .getAttribute("data-figure-logic") ?? "null",
+    );
+    expect(promptLogic.groups).toContainEqual(
+      expect.objectContaining({ id: "thought-equation", glyph: "+" }),
+    );
+    expect(promptLogic.edges).toEqual([
+      expect.objectContaining({
+        id: "pair-forms-thought",
+        from: "thought-equation",
+        to: "one-thought",
+        glyph: "↓",
+      }),
+    ]);
     cleanup();
 
     render(<DocsPage topicSlug="awa" />);
-    const awa = screen
-      .getByRole("figure", { name: "AWA: known and forming" })
-      .querySelector("[data-figure-shape='awa-arc-box']");
-    expect(awa).toHaveTextContent(
-      /THOUGHT[\s\S]*INDIVIDUAL[\s\S]*→[\s\S]*WILL[\s\S]*CROWD[\s\S]*→[\s\S]*AWA[\s\S]*TOWARD THE CORE/i,
+    expect(screen.queryByRole("figure")).not.toBeInTheDocument();
+    const awaArticle = screen.getByRole("article", {
+      name: "Documentation content",
+    });
+    expect(awaArticle).toHaveTextContent(
+      /After THOUGHT's individual and WILL's crowd/i,
+    );
+    expect(awaArticle).toHaveTextContent(
+      /without claiming that AWA has reached the core/i,
+    );
+    cleanup();
+
+    render(<DocsPage topicSlug="artwork-metadata-chain" />);
+    expect(screen.queryByRole("figure")).not.toBeInTheDocument();
+    const readingArticle = screen.getByRole("article", {
+      name: "Documentation content",
+    });
+    expect(readingArticle).toHaveTextContent(
+      /network, contract, token ID, deployment, release, tokenURI source, and attestation status together/i,
     );
     cleanup();
 
     render(<DocsPage topicSlug="design-principles" />);
-    const principles = screen
-      .getByRole("figure", { name: "Current Inshell principles across systems" })
-      .querySelector("[data-figure-shape='stacked-principle-boxes']");
-    const sourceFlow = screen
-      .getByRole("figure", { name: "Many surfaces, one identified record" })
-      .querySelector("[data-figure-shape='canonical-source-flow']");
-
-    expect(principles?.querySelectorAll(".docs-figure__character-frame"))
-      .toHaveLength(5);
-    expect(sourceFlow).toHaveTextContent(
-      /IDENTIFIED ONCHAIN WORK[\s\S]*ORIGIN[\s\S]*│[\s\S]*↓[\s\S]*READING SURFACES/i,
+    expect(screen.queryByRole("figure")).not.toBeInTheDocument();
+    const principlesArticle = screen.getByRole("article", {
+      name: "Documentation content",
+    });
+    expect(principlesArticle).toHaveTextContent(/collaboration is bounded/i);
+    expect(principlesArticle).toHaveTextContent(
+      /authority to continue or preserve is explicit/i,
     );
-    expect(
-      sourceFlow?.querySelector(".docs-figure__field-connector")?.textContent,
-    ).toBe("│\n↓");
+    expect(principlesArticle).toHaveTextContent(/mechanisms stay visible/i);
+    expect(principlesArticle).toHaveTextContent(
+      /canonical sources remain identifiable/i,
+    );
+    expect(principlesArticle).toHaveTextContent(
+      /claims stop where their evidence stops/i,
+    );
   });
 
-  test("uses literal DOM logic and exactly three figure typography tiers", () => {
-    const css = readFileSync(nodePath.resolve(cwd(), "src/main.css"), "utf8");
+  test("uses literal DOM logic and no more than three figure typography tiers", () => {
+    const css = [
+      readFileSync(nodePath.resolve(cwd(), "src/main.css"), "utf8"),
+      readFileSync(
+        nodePath.resolve(cwd(), "src/components/docs/figures.css"),
+        "utf8",
+      ),
+    ].join("\n");
     expect(css).not.toMatch(/\.docs-figure[^{}]*(?:::before|::after)/);
     expect(css).not.toContain("--docs-sequence");
 
@@ -1303,6 +2224,13 @@ describe("DocsPage character figures", () => {
     ];
     for (const token of tierTokens) expect(css).toContain(`${token}:`);
     for (const obsoleteToken of [
+      "--docs-figure-scale-monument",
+      "--docs-figure-scale-sequence",
+      "--docs-figure-scale-stack",
+      "--docs-figure-scale-branch",
+      "--docs-figure-scale-field",
+      "--docs-figure-scale-ledger",
+      "--docs-figure-scale-lanes",
       "--docs-figure-dense-term-font-size",
       "--docs-figure-marker-font-size",
       "--docs-figure-relation-font-size",
@@ -1313,8 +2241,17 @@ describe("DocsPage character figures", () => {
     ]) {
       expect(css).not.toContain(obsoleteToken);
     }
+    expect(
+      [...css.matchAll(/--docs-figure-term-font-size:\s*([^;]+);/g)].map(
+        ([, value]) => value.trim(),
+      ),
+    ).toEqual([
+      "clamp(\n    var(--font-size-30),\n    7vw,\n    var(--font-size-64)\n  )",
+      "var(--font-size-30)",
+    ]);
 
-    const figureRules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    const cssWithoutComments = css.replace(/\/\*[\s\S]*?\*\//g, "");
+    const figureRules = [...cssWithoutComments.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
       .map(([, selectors, body]) => ({ selectors: selectors.trim(), body }))
       .filter(({ selectors }) => selectors.includes(".docs-figure"));
     const figureFontSizes = figureRules.flatMap(({ body }) =>
@@ -1343,20 +2280,55 @@ describe("DocsPage character figures", () => {
       ".docs-figure__shape-heading",
       ".docs-figure__shape-label",
       ".docs-figure__frame-heading",
-      ".docs-figure__lane-heading",
       ".docs-figure__shape-ledger-header",
-      ".docs-figure__lane-event-label",
     ]) {
       expectSelectorTier(selector, "--docs-figure-title-font-size");
     }
     expectSelectorTier(".docs-figure__term", "--docs-figure-term-font-size");
+    expectSelectorTier(
+      '[data-figure-shape="contained-axis"]\n  .docs-figure__field-inward-arrow',
+      "--docs-figure-term-font-size",
+    );
+    expectSelectorTier(
+      ".docs-figure__field-practice-arrow",
+      "--docs-figure-term-font-size",
+    );
+    for (const selector of [
+      ".docs-figure__field-relation-glyph",
+      ".docs-figure__field-prompt-pair-glyph",
+      ".docs-figure__shape-trace-edge-glyph",
+      ".docs-figure__shape-trace-return-glyph",
+      ".docs-figure__shape-ledger-relation--governing",
+      ".docs-figure__lane-relation--governing",
+    ]) {
+      expectSelectorTier(selector, "--docs-figure-term-font-size");
+    }
     for (const selector of [
       ".docs-figure__annotation",
       ".docs-figure__marker",
       ".docs-figure__eyebrow",
+      ".docs-figure__lane-heading",
+      ".docs-figure__lane-event-label",
     ]) {
       expectSelectorTier(selector, "--docs-figure-annotation-font-size");
     }
+  });
+
+  test("styles Pulse record and action links with the docs link treatment", () => {
+    const css = readFileSync(
+      nodePath.resolve(cwd(), "src/main.css"),
+      "utf8",
+    );
+
+    expect(css).toMatch(
+      /\.docs-page \.pulse-page__instance-fields dd a,\s*\.docs-page \.pulse-page__instance-links a\s*\{[^}]*color:\s*inherit;[^}]*text-decoration:\s*underline;[^}]*text-decoration-thickness:\s*var\(--docs-menu-link-decoration-thickness\);[^}]*text-underline-offset:\s*var\(--docs-menu-link-underline-offset\);[^}]*\}/,
+    );
+    expect(css).toMatch(
+      /\.docs-page \.pulse-page__instance-links a\s*\{[^}]*color:\s*var\(--muted\);[^}]*\}/,
+    );
+    expect(css).toMatch(
+      /\.docs-page \.pulse-page__instance-fields dd a:hover,\s*\.docs-page \.pulse-page__instance-fields dd a:focus-visible,\s*\.docs-page \.pulse-page__instance-links a:hover,\s*\.docs-page \.pulse-page__instance-links a:focus-visible\s*\{[^}]*text-decoration:\s*none;[^}]*\}/,
+    );
   });
 });
 
@@ -1693,6 +2665,7 @@ describe("Agent-readable docs artifact contract", () => {
     for (const schemaPath of [
       "/docs/agent-index.schema.json",
       "/docs/content.schema.json",
+      "/docs/content.v2.schema.json",
       "/protocol/thought-machine-handoff.schema.json",
     ]) {
       expect(headers).toContain(
@@ -1853,7 +2826,6 @@ describe("Agent-readable docs artifact contract", () => {
         metadataNamespace: { id: string; schemaSha256: string; specSha256: string };
         contractRelease: { id: string; manifestSha256: string };
         appIntegration: { id: string; sha256: string };
-        agentTransport: { id: string; sha256: string };
       };
     }>(publicArtifactPath(index.machineHandoffs[0].url));
     const creative = readJson<{
@@ -1917,6 +2889,10 @@ describe("Agent-readable docs artifact contract", () => {
   });
 
   test("keeps the complete JSON corpus and focused topic JSON losslessly aligned", () => {
+    type StructuredFigure = {
+      authorities: DocsAuthority[];
+      logic: ReturnType<typeof docsFigureLogic>;
+    } & DocsFigure;
     type StructuredTopic = {
       schema: string;
       schemaUrl: string;
@@ -1942,7 +2918,7 @@ describe("Agent-readable docs artifact contract", () => {
           authorities: DocsAuthority[];
           paragraphs: string[];
         };
-        figure: ({ authorities: DocsAuthority[] } & DocsFigure) | null;
+        figure: StructuredFigure | null;
         preformatted: Array<{
           authorities: DocsAuthority[];
           label: string;
@@ -1952,7 +2928,7 @@ describe("Agent-readable docs artifact contract", () => {
           authorities: DocsAuthority[];
           id: string;
           title: string;
-          figure?: { authorities: DocsAuthority[] } & DocsFigure;
+          figure?: StructuredFigure;
           paragraphs?: string[];
           points?: string[];
           steps?: string[];
@@ -1981,9 +2957,9 @@ describe("Agent-readable docs artifact contract", () => {
     }>(nodePath.join(docsRoot, "content.json"));
 
     expect(complete).toMatchObject({
-      schema: "inshell.agent-docs.content.v1",
-      schemaUrl: "/docs/content.schema.json",
-      canonicalSchemaUrl: `${canonicalOrigin}/docs/content.schema.json`,
+      schema: "inshell.agent-docs.content.v2",
+      schemaUrl: "/docs/content.v2.schema.json",
+      canonicalSchemaUrl: `${canonicalOrigin}/docs/content.v2.schema.json`,
       version: DOCS_SOURCE.version,
       fetchedContentRole: "reference-data",
       agentIndex: "/docs/agent-index.json",
@@ -2007,9 +2983,9 @@ describe("Agent-readable docs artifact contract", () => {
       );
       expect(complete.topics.find(({ id }) => id === topic.slug)).toEqual(focused);
       expect(focused).toMatchObject({
-        schema: "inshell.agent-docs.topic.v1",
-        schemaUrl: "/docs/content.schema.json",
-        canonicalSchemaUrl: `${canonicalOrigin}/docs/content.schema.json`,
+        schema: "inshell.agent-docs.topic.v2",
+        schemaUrl: "/docs/content.v2.schema.json",
+        canonicalSchemaUrl: `${canonicalOrigin}/docs/content.v2.schema.json`,
         version: DOCS_SOURCE.version,
         language: "en",
         fetchedContentRole: "reference-data",
@@ -2038,6 +3014,7 @@ describe("Agent-readable docs artifact contract", () => {
           ? {
               authorities: authorityMap.figure ?? [],
               ...topic.figure,
+              logic: docsFigureLogic(topic.figure),
             }
           : null,
         preformatted: (topic.preformatted ?? []).map((block) => ({
@@ -2061,6 +3038,7 @@ describe("Agent-readable docs artifact contract", () => {
                   figure: {
                     authorities: authorityMap.sectionFigures?.[section.id] ?? [],
                     ...figure,
+                    logic: docsFigureLogic(figure),
                   },
                 }
               : {}),
@@ -2103,7 +3081,30 @@ describe("Agent-readable docs artifact contract", () => {
     }
   });
 
-  test("keeps the published schema enums aligned with index classifications", () => {
+  test("preserves the public v1 content schema bytes at the established URI", () => {
+    const schemaBytes = readFileSync(
+      nodePath.join(docsRoot, "content.schema.json"),
+    );
+    expect(createHash("sha256").update(schemaBytes).digest("hex")).toBe(
+      "12c7dd1a1061813c2f73778a1c91aea8c0970af34b8c3f899317854b7bfcebe2",
+    );
+    const schema = JSON.parse(schemaBytes.toString("utf8")) as {
+      $id: string;
+      $defs: {
+        topicDocument: { properties: { schema: { const: string } } };
+        contentDocument: { properties: { schema: { const: string } } };
+      };
+    };
+    expect(schema.$id).toBe(`${canonicalOrigin}/docs/content.schema.json`);
+    expect(schema.$defs.topicDocument.properties.schema.const).toBe(
+      "inshell.agent-docs.topic.v1",
+    );
+    expect(schema.$defs.contentDocument.properties.schema.const).toBe(
+      "inshell.agent-docs.content.v1",
+    );
+  });
+
+  test("keeps the published v2 schema enums aligned with index classifications", () => {
     const index = readJson<{
       authorities: Record<string, string>;
       groups: Array<{ id: string }>;
@@ -2126,13 +3127,33 @@ describe("Agent-readable docs artifact contract", () => {
       $defs: {
         authority: { enum: string[] };
         group: { enum: string[] };
-        figure: { properties: { mode: { enum: string[] } } };
+        figureItem: {
+          required: string[];
+          properties: { detail: { type: string; minLength: number } };
+        };
+        figure: {
+          required: string[];
+          properties: { mode: { enum: string[] } };
+        };
+        figureLogicForm: { enum: string[] };
+        figureLogic: { required: string[] };
+        laneFigureItem: {
+          required: string[];
+          properties: { detail: { type: string; minLength: number } };
+        };
         section: { properties: { figure: { $ref: string } } };
+        sourceExample: {
+          required: string[];
+          properties: {
+            language: { const: string };
+            presentation: { enum: string[] };
+          };
+        };
         topicDocument: {
           properties: { status: { enum: string[] } };
         };
       };
-    }>(nodePath.join(docsRoot, "content.schema.json"));
+    }>(nodePath.join(docsRoot, "content.v2.schema.json"));
 
     expect(new Set(documentProperties.group.enum)).toEqual(
       new Set(index.groups.map(({ id }) => id)),
@@ -2152,9 +3173,41 @@ describe("Agent-readable docs artifact contract", () => {
     expect(new Set(contentSchema.$defs.figure.properties.mode.enum)).toEqual(
       new Set(DOCS_FIGURE_MODES),
     );
+    expect(contentSchema.$defs.figure.required).toEqual(
+      expect.arrayContaining(["id", "logic"]),
+    );
+    expect(new Set(contentSchema.$defs.figureLogicForm.enum)).toEqual(
+      new Set(DOCS_FIGURE_FORMS),
+    );
+    expect(contentSchema.$defs.figureLogic.required).toEqual(
+      expect.arrayContaining(["id", "form", "nodes", "edges", "groups"]),
+    );
+    expect(contentSchema.$defs.figureItem.required).not.toContain("detail");
+    expect(contentSchema.$defs.laneFigureItem.required).not.toContain("detail");
+    for (const itemSchema of [
+      contentSchema.$defs.figureItem,
+      contentSchema.$defs.laneFigureItem,
+    ]) {
+      expect(itemSchema.properties.detail).toEqual({
+        type: "string",
+        minLength: 1,
+      });
+    }
     expect(contentSchema.$defs.section.properties.figure.$ref).toBe(
       "#/$defs/figure",
     );
+    expect(contentSchema.$defs.sourceExample.required).toEqual([
+      "label",
+      "language",
+      "content",
+    ]);
+    expect(contentSchema.$defs.sourceExample.properties.language.const).toBe(
+      "svg",
+    );
+    expect(contentSchema.$defs.sourceExample.properties.presentation.enum).toEqual([
+      "artwork",
+      "specimen",
+    ]);
     expect(new Set(contentSchema.$defs.topicDocument.properties.status.enum)).toEqual(
       new Set(["current", "study", "future"]),
     );
@@ -2162,13 +3215,34 @@ describe("Agent-readable docs artifact contract", () => {
 
   test("keeps every source field and link represented in topic and complete Markdown", () => {
     const completeMarkdown = readFileSync(nodePath.join(docsRoot, "index.md"), "utf8");
+    const schemaReference =
+      `- Structured JSON schema: ${canonicalOrigin}/docs/content.v2.schema.json`;
+    expect(completeMarkdown).toContain(schemaReference);
 
     for (const topic of DOCS_SOURCE.topics) {
       const markdown = readFileSync(nodePath.join(docsRoot, `${topic.slug}.md`), "utf8");
+      expect(markdown).toContain(schemaReference);
       for (const { sectionId, figure } of topicFigureEntries(topic)) {
+        const logic = docsFigureLogic(figure);
         const fencedFigure = `\`\`\`text\n${figure.figureText}\n\`\`\``;
         expect(markdown).toContain(fencedFigure);
         expect(completeMarkdown).toContain(fencedFigure);
+        expect(markdown).toContain(`- Figure ID: ${figure.id}`);
+        expect(markdown).toContain(`- Semantic form: ${logic.form}`);
+        for (const edge of logic.edges) {
+          expect(markdown).toContain(`\`${edge.id}: ${edge.from} (`);
+          expect(markdown).toContain(`--> ${edge.to} (`);
+          expect(markdown).toContain(edge.glyph);
+          expect(markdown).toContain(edge.label);
+        }
+        for (const group of logic.groups) {
+          expect(markdown).toContain(
+            `\`${group.id} [${group.kind}]`,
+          );
+          for (const member of group.members) {
+            expect(markdown).toContain(`${member} (`);
+          }
+        }
         expect(markdown).toContain(
           `${sectionId ? "###" : "##"} ${figure.label}`,
         );
@@ -2203,6 +3277,10 @@ describe("Agent-readable docs artifact contract", () => {
           ...(section.points ?? []),
           ...(section.steps ?? []),
           section.note,
+          ...(section.sourceExamples?.flatMap(({ label, content }) => [
+            label,
+            content,
+          ]) ?? []),
         ]) ?? []),
       ].filter((value): value is string => Boolean(value));
 
@@ -2342,6 +3420,9 @@ describe("Agent-readable docs artifact contract", () => {
     expect(allPaths).toEqual(
       expect.arrayContaining([
         "docs/AGENTS.md",
+        ".github/workflows/test.yml",
+        ".github/workflows/deploy-pages.yml",
+        ".github/workflows/rollback-pages.yml",
         "apps/home/src/content/AGENTS.md",
       ]),
     );

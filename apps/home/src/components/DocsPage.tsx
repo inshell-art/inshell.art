@@ -5,6 +5,7 @@ import {
   type DocsFigure,
   type DocsParagraph,
 } from "@/content/docs";
+import { docsFigureLogic } from "@/content/docs-figure-logic";
 import { PulseCurrentInstance } from "@/components/PulsePage";
 import { FieldFigureVisual } from "@/components/docs/FieldFigureVisual";
 import {
@@ -76,10 +77,15 @@ function DocsCharacterFigure({
   figure: DocsFigure;
   captionId: string;
 }) {
+  const logic = docsFigureLogic(figure);
+
   return (
     <figure
       className={`docs-figure docs-figure--${figure.mode}`}
       aria-labelledby={captionId}
+      data-figure-form={logic.form}
+      data-figure-id={logic.id}
+      data-figure-logic={JSON.stringify(logic)}
       data-figure-mode={figure.mode}
     >
       <figcaption id={captionId}>{figure.label}</figcaption>
@@ -168,7 +174,11 @@ export default function DocsPage({ topicSlug = null }: DocsPageProps) {
             </button>
           </nav>
           <p className="docs-agent__scope-note">
-            Your Agent can also read technical sources beyond the articles below.
+            or read the articles below as usual.
+            <br />
+            <span className="docs-agent__scope-detail">
+              Your Agent can also explore Inshell’s wider public sources.
+            </span>
           </p>
         </section>
       </header>
@@ -284,6 +294,38 @@ export default function DocsPage({ topicSlug = null }: DocsPageProps) {
                     </ol>
                   ) : null}
                   {section.note ? <blockquote>{section.note}</blockquote> : null}
+                  {section.sourceExamples?.length ? (
+                    <div className="docs-topic__source-examples">
+                      {section.sourceExamples.map((example) => (
+                        <article
+                          key={example.label}
+                          className={`docs-topic__source-example docs-topic__source-example--${example.presentation ?? "artwork"}`}
+                        >
+                          <figure className="docs-topic__source-example-preview">
+                            <figcaption>{example.label}</figcaption>
+                            <img
+                              alt={`${example.label} rendered from the raw SVG code below`}
+                              src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(
+                                example.content,
+                              )}`}
+                            />
+                          </figure>
+                          {example.showSource !== false ? (
+                            <details className="docs-topic__source-example-code">
+                              <summary>view raw SVG code</summary>
+                              <div className="docs-topic__source-example-body">
+                                <pre>
+                                  <code className={`language-${example.language}`}>
+                                    {example.content}
+                                  </code>
+                                </pre>
+                              </div>
+                            </details>
+                          ) : null}
+                        </article>
+                      ))}
+                    </div>
+                  ) : null}
                 </section>
               ))}
 

@@ -6,28 +6,35 @@
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/inshell
-- Documentation version: 2026-08-11
+- Documentation version: 2026-08-16
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## The inward direction
 
 - Authority: artist-editorial
+- Figure ID: inshell.inward-direction
 - Figure mode: field
+- Semantic form: axis
+- Semantic nodes:
+  - `shell [surface]: Shell — a body, face, or head; a name, honor, reputation, role...`
+  - `in [structural]: In — Inspect what forms the self`
+  - `self [result]: SELF`
+- Semantic edges:
+  - `inspect-self: in (In) --[↓ · In directs inspection toward the self. · Inspect what forms the self]--> self (SELF)`
+- Semantic groups:
+  - `shell-boundary [boundary]: The shell is real, necessary, and not the whole being. [members: shell (Shell) · in (In) · self (SELF)]`
 
 ```text
-┌─ SHELL ───────────────────────────────────────────┐
-│ REAL AND OFTEN NECESSARY.                         │
-│ SURFACE: VISIBLE · OPERABLE · LEGIBLE.            │
-│ BOUNDARY: NOT THE WHOLE BEING.                    │
-└──────────────────────┬────────────────────────────┘
-                       │ IN
-                       ↓
-             INSPECT WHAT FORMS THE SELF.
+          a body, face, or head; a name, honor, reputation, role...
+┌─ SHELL ───────────────────────────────────────────────────────────────────┐
+│                                     ↓ IN                                  │
+│                          Inspect what forms the                           │
+│                                   SELF                                    │
+└───────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Shell** — Real and often necessary.
-- **Surface** — Visible · operable · legible.
-- **Boundary** — Not the whole being.
-- **In** — Inspect what forms the self.
+- **Shell** — a body, face, or head; a name, honor, reputation, role...
+- **In** — Inspect what forms the self
 
 ## Overview
 
@@ -62,25 +69,31 @@ Simply inspect your [thought](https://inshell.art/docs/thought).
 ### How practice relates to truth
 
 - Authority: artist-editorial
+- Figure ID: inshell.practice-truth
 - Figure mode: field
+- Semantic form: axis
+- Semantic nodes:
+  - `truth [result]: Truth — Inspect self`
+  - `practice [action]: Practice — Examine · inspect · suspect · read · listen · feel`
+- Semantic edges:
+  - `practice-approaches-truth: practice (Practice) --[↑ · Practice approaches truth without claiming to possess it. · Approaches without claiming possession]--> truth (Truth)`
 
 ```text
-┌─ TRUTH AND PRACTICE ────────────────────────────┐
-│ TRUTH: INSPECT SELF                             │
-│                    ↑                            │
-│ RELATION: APPROACHES WITHOUT CLAIMING           │
-│ POSSESSION                                      │
-│                    ↑                            │
-│ PRACTICE: EXAMINE · INSPECT · SUSPECT · READ ·  │
-│ LISTEN · FEEL                                   │
-│ BOUNDARY: DOES NOT PROVE OR GUARANTEE FREEDOM   │
-└─────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│                    TRUTH                     │
+│                 Inspect self                 │
+└──────────────────────────────────────────────┘
+                       ↑
+     Approaches without claiming possession
+┌──────────────────────────────────────────────┐
+│                   PRACTICE                   │
+│     Examine · inspect · suspect · read ·     │
+│                listen · feel                 │
+└──────────────────────────────────────────────┘
 ```
 
 - **Truth** — Inspect self
-- **Relation** — Approaches without claiming possession
 - **Practice** — Examine · inspect · suspect · read · listen · feel
-- **Boundary** — Does not prove or guarantee freedom
 
 Truth is not a specification to implement, a theory to apply, or a principle to prove. Practice approaches it. A practice can examine, inspect, suspect, read, listen, and feel. It can move closer without claiming possession.
 
@@ -92,9 +105,9 @@ Inshell forms movements, artworks, and participatory systems that call people in
 
 - Authority: artist-editorial, app-documentation
 
-- Home exposes the canonical THOUGHT gallery state. The current imported R2 release is not persistently deployed, so no R2 minted works are listed.
+- Home presents minted THOUGHT works from the active public chain.
 - THOUGHT is the active creation surface for one human intention and one Agent response.
-- PATH shows the permission records that carry movements forward.
+- $PATH shows the permission records that carry movements forward.
 - Pulse exposes the live issuance mechanism and its history.
 - Verify and the Agent-readable documents expose sources, releases, and evidence boundaries.
 
@@ -104,7 +117,7 @@ Inshell forms movements, artworks, and participatory systems that call people in
 
 - Authority: artist-editorial, contract-release
 
-Inshell alone names the artist. THOUGHT, WILL, and AWA name movements. PATH is a permission token and movement ledger. Pulse is the serial auction that issues public PATH tokens. Their roles connect, but they should not be collapsed into one product, one authorship claim, or a complete definition of Agent Art.
+Inshell alone names the artist. THOUGHT, WILL, and AWA name movements. $PATH is a permission token and movement ledger. Pulse is the serial auction that issues public $PATH tokens. Their roles connect, but they should not be collapsed into one product, one authorship claim, or a complete definition of Agent Art.
 
 
 ## Links

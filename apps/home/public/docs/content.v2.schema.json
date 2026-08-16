@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://inshell.art/docs/content.schema.json",
+  "$id": "https://inshell.art/docs/content.v2.schema.json",
   "title": "Inshell Agent-readable documentation",
   "oneOf": [
     {
@@ -143,10 +143,12 @@
       "additionalProperties": false,
       "required": [
         "authorities",
+        "id",
         "label",
         "mode",
         "figureText",
-        "items"
+        "items",
+        "logic"
       ],
       "properties": {
         "authorities": {
@@ -163,6 +165,10 @@
           },
           "minItems": 1
         },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
         "label": {
           "type": "string",
           "minLength": 1
@@ -178,6 +184,9 @@
         "figureText": {
           "type": "string",
           "minLength": 1
+        },
+        "logic": {
+          "$ref": "#/$defs/figureLogic"
         },
         "items": {
           "type": "array",
@@ -251,6 +260,193 @@
         }
       ]
     },
+    "figureLogicForm": {
+      "enum": [
+        "axis",
+        "trace",
+        "cycle",
+        "fork",
+        "field",
+        "ledger",
+        "lanes"
+      ]
+    },
+    "figureLogicNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "term",
+        "role"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "term": {
+          "type": "string",
+          "minLength": 1
+        },
+        "annotation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceItem": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sourcePart": {
+          "enum": [
+            "item",
+            "title",
+            "detail"
+          ]
+        },
+        "role": {
+          "enum": [
+            "structural",
+            "surface",
+            "operator",
+            "result",
+            "action",
+            "principle",
+            "question",
+            "state",
+            "subject",
+            "record",
+            "evidence"
+          ]
+        }
+      }
+    },
+    "figureLogicEdge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "from",
+        "to",
+        "glyph",
+        "label"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "from": {
+          "type": "string",
+          "minLength": 1
+        },
+        "to": {
+          "type": "string",
+          "minLength": 1
+        },
+        "glyph": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stackedGlyph": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "annotation": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "figureLogicGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "label",
+        "members"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "boundary",
+            "open-field",
+            "phase",
+            "lane",
+            "set",
+            "comparison"
+          ]
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "glyph": {
+          "type": "string",
+          "minLength": 1
+        },
+        "members": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "figureLogic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "form",
+        "nodes",
+        "edges",
+        "groups"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "form": {
+          "$ref": "#/$defs/figureLogicForm"
+        },
+        "nodes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/figureLogicNode"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/figureLogicEdge"
+          }
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/figureLogicGroup"
+          }
+        }
+      }
+    },
     "preformatted": {
       "type": "object",
       "additionalProperties": false,
@@ -280,6 +476,37 @@
         },
         "content": {
           "type": "string"
+        }
+      }
+    },
+    "sourceExample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "language",
+        "content"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "language": {
+          "const": "svg"
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1
+        },
+        "presentation": {
+          "enum": [
+            "artwork",
+            "specimen"
+          ]
+        },
+        "showSource": {
+          "type": "boolean"
         }
       }
     },
@@ -337,6 +564,12 @@
         },
         "note": {
           "type": "string"
+        },
+        "sourceExamples": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceExample"
+          }
         }
       }
     },
@@ -405,10 +638,10 @@
       ],
       "properties": {
         "schema": {
-          "const": "inshell.agent-docs.topic.v1"
+          "const": "inshell.agent-docs.topic.v2"
         },
         "schemaUrl": {
-          "const": "/docs/content.schema.json"
+          "const": "/docs/content.v2.schema.json"
         },
         "canonicalSchemaUrl": {
           "type": "string",
@@ -524,10 +757,10 @@
       ],
       "properties": {
         "schema": {
-          "const": "inshell.agent-docs.content.v1"
+          "const": "inshell.agent-docs.content.v2"
         },
         "schemaUrl": {
-          "const": "/docs/content.schema.json"
+          "const": "/docs/content.v2.schema.json"
         },
         "canonicalSchemaUrl": {
           "type": "string",

@@ -1,8 +1,8 @@
 {
-  "schema": "inshell.agent-docs.topic.v1",
-  "schemaUrl": "/docs/content.schema.json",
-  "canonicalSchemaUrl": "https://inshell.art/docs/content.schema.json",
-  "version": "2026-08-11",
+  "schema": "inshell.agent-docs.topic.v2",
+  "schemaUrl": "/docs/content.v2.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
+  "version": "2026-08-16",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "movements",
@@ -10,7 +10,7 @@
   "group": "orientation",
   "aliases": [],
   "title": "Movements",
-  "summary": "Inshell's movements follow an artistic PATH from an individual's thought, through a crowd's will, toward Inshell's core; WILL and AWA remain in formation.",
+  "summary": "Inshell's movements follow an artistic path from an individual's thought, through a crowd's will, toward Inshell's core.",
   "status": "current",
   "authorities": [
     "artist-editorial",
@@ -29,9 +29,9 @@
         "artist-editorial"
       ],
       "paragraphs": [
-        "THOUGHT, WILL, and AWA are three Inshell movements within Agent Art. Together they take a path from the individual, through the crowd, toward the core of Inshell. That arc gives PATH its name and its design: PATH carries permission and records progress across the movements without being a movement artwork itself.",
-        "Each movement gives the inward practice—inspect self—a different scope. Agent participation remains the invariant of Agent Art, while the relation among people, Agents, and the work can change from movement to movement.",
-        "The order is THOUGHT, then WILL, then AWA. The order is artistic before it is technical: the movements change the scope of participation, while PATH contract state makes the sequence operable as permission and legible as progress.",
+        "[THOUGHT](https://inshell.art/docs/thought), [WILL](https://inshell.art/docs/will), and [AWA](https://inshell.art/docs/awa) are three Inshell movements within Agent Art. Together they take a path from the individual, through the crowd, toward the core of Inshell. That arc gives [$PATH](https://inshell.art/docs/path) its name and its design: $PATH carries permission and records progress across the movements without being a movement artwork itself.",
+        "Each movement gives the inward practice—inspect self—a different scope. Agent participation remains the invariant of [Agent Art](https://inshell.art/docs/agent-art), while the relation among people, Agents, and the work can change from movement to movement.",
+        "The order is THOUGHT, then WILL, then AWA. The order is artistic before it is technical: the movements change the scope of participation, while $PATH makes the sequence usable as bounded permission and records participation across it.",
         "This sequence belongs to Inshell. It gives the inward direction—inspect self—successive forms without claiming to contain or prove truth. It is not a definition, taxonomy, required progression, or outer boundary for Agent Art."
       ]
     },
@@ -39,23 +39,85 @@
       "authorities": [
         "artist-editorial"
       ],
-      "label": "Why the movements form a PATH",
+      "id": "movements.arc",
+      "label": "The movement arc",
       "mode": "trace",
-      "figureText": "INSHELL PRACTICE\n├─ DIRECTION: INSPECT SELF\n├─ MEDIUM: AGENT ART\n│  └─ INVARIANT: AN AGENT PARTICIPATES\n└─ PATH: INDIVIDUAL → CROWD → CORE\n   │\n   ↓\n   01 THOUGHT\n      Current: inspect how an Agent\n      responds to one person's thought.\n      │\n      ↓\n   02 WILL\n      In development: many people and\n      many Agents form one will.\n      │\n      ↓\n   03 AWA\n      Forming: toward Inshell's core;\n      its form is still taking shape.",
+      "figureText": "THOUGHT  →  WILL  →  AWA\nIndividual   Crowd   Toward the core",
       "items": [
         {
           "title": "THOUGHT",
-          "detail": "Current: inspect how an Agent responds to one person's thought."
+          "detail": "Individual"
         },
         {
           "title": "WILL",
-          "detail": "In development: many people and many Agents form one will."
+          "detail": "Crowd"
         },
         {
           "title": "AWA",
-          "detail": "Forming: toward Inshell's core; its form is still taking shape."
+          "detail": "Toward the core"
         }
-      ]
+      ],
+      "logic": {
+        "id": "movements.arc",
+        "label": "The movement arc",
+        "form": "trace",
+        "nodes": [
+          {
+            "id": "thought",
+            "sourceItem": 0,
+            "sourcePart": "item",
+            "term": "THOUGHT",
+            "annotation": "Individual",
+            "role": "state"
+          },
+          {
+            "id": "will",
+            "sourceItem": 1,
+            "sourcePart": "item",
+            "term": "WILL",
+            "annotation": "Crowd",
+            "role": "state"
+          },
+          {
+            "id": "awa",
+            "sourceItem": 2,
+            "sourcePart": "item",
+            "term": "AWA",
+            "annotation": "Toward the core",
+            "role": "state"
+          }
+        ],
+        "edges": [
+          {
+            "id": "individual-to-crowd",
+            "from": "thought",
+            "to": "will",
+            "glyph": "→",
+            "stackedGlyph": "↓",
+            "label": "The movement arc goes from individual to crowd."
+          },
+          {
+            "id": "crowd-toward-core",
+            "from": "will",
+            "to": "awa",
+            "glyph": "→",
+            "stackedGlyph": "↓",
+            "label": "The movement arc continues from crowd toward the core."
+          }
+        ],
+        "groups": [
+          {
+            "id": "movement-phases",
+            "kind": "phase",
+            "label": "The named $PATH from individual to crowd toward the core.",
+            "members": [
+              "thought",
+              "will",
+              "awa"
+            ]
+          }
+        ]
+      }
     },
     "preformatted": [],
     "sections": [
@@ -66,35 +128,9 @@
         "id": "docs-movements-agent-art",
         "title": "Agent Art across the movements",
         "paragraphs": [
-          "Agent Art requires an Agent to participate, but it prescribes no universal relation between a human, an Agent, and a work. Inshell uses that openness differently across the movements. THOUGHT chooses one person and one Agent response. WILL intends many people and many Agents within the formation of one will. AWA remains an Agent Art movement while its particular form of participation is still being discovered.",
+          "Agent Art requires an Agent to participate, but it prescribes no universal relation between a human, an Agent, and a work. Inshell uses that openness differently across the movements. THOUGHT chooses one person and one Agent response. WILL concerns many people and many Agents within the formation of one will. AWA leaves its particular participation relation open.",
           "Agent participation is the invariant. Repeating THOUGHT's prompt-response form is not. These are Inshell's choices of practice, not requirements for Agent Art as a field."
-        ],
-        "figure": {
-          "authorities": [
-            "artist-editorial"
-          ],
-          "label": "Agent participation across the movements",
-          "mode": "ledger",
-          "figureText": "MOVEMENT │ SCOPE / PARTICULAR RELATION\n─────────┼──────────────────────────────────────────────\nTHOUGHT  │ Individual · one person + one Agent response.\nWILL     │ Crowd · many people and Agents; still developing.\nAWA      │ Toward the core · still forming.\nALL      │ An Agent participates.",
-          "items": [
-            {
-              "title": "THOUGHT",
-              "detail": "Individual · one person + one Agent response."
-            },
-            {
-              "title": "WILL",
-              "detail": "Crowd · many people and Agents; still developing."
-            },
-            {
-              "title": "AWA",
-              "detail": "Toward the core · still forming."
-            },
-            {
-              "title": "ALL",
-              "detail": "An Agent participates."
-            }
-          ]
-        }
+        ]
       },
       {
         "authorities": [
@@ -114,9 +150,8 @@
         "id": "docs-movements-will",
         "title": "WILL: the crowd",
         "paragraphs": [
-          "WILL moves the inquiry from the individual to the crowd. Its intent is many people, many Agents, one will: to inspect crowd behavior and how a crowd forms what can be called one will. The slogan names this direction rather than describing a finished mechanism.",
-          "WILL is still being created and developed. The docs cannot yet give a fuller account because the work itself has not taken its full form—not because Inshell is intentionally withholding a completed design.",
-          "One will should not yet be expanded into a claim of consensus, unanimity, governance, or a finished model of collective agency."
+          "WILL moves the inquiry from the individual to the crowd. Its intent is many people, many Agents, one will: to inspect crowd behavior and how a crowd forms what can be called one will. The slogan defines the movement's scope without prescribing a concrete mechanism.",
+          "One will does not mean consensus, unanimity, governance, or a finished model of collective agency."
         ]
       },
       {
@@ -126,8 +161,8 @@
         "id": "docs-movements-awa",
         "title": "AWA: the core",
         "paragraphs": [
-          "AWA turns from the crowd toward the core of Inshell. That direction can be named now without pretending the movement has already arrived there or can reveal, define, or prove the core.",
-          "AWA and the form through which it can approach that core are still forming. They take time. There is no finished mechanism, Agent relation, or artwork form for the docs to fill in yet."
+          "AWA turns from the crowd toward the core of Inshell. That direction does not claim that the movement has arrived there or can reveal, define, or prove the core.",
+          "The docs name the direction without prescribing its participation relation, mechanism, or artwork form."
         ]
       },
       {
@@ -137,17 +172,10 @@
           "contract-release"
         ],
         "id": "docs-movements-progress",
-        "title": "Why PATH carries progress",
+        "title": "How $PATH permits movement",
         "paragraphs": [
-          "PATH is named for the artistic path from individual to crowd to core. Its design makes that path operable as permission and legible as progress: one PATH record carries configured capacity across THOUGHT, WILL, and AWA. PATH is the route and ledger, not a fourth movement or one of its artworks.",
-          "A PATH does not advance because a page says that it has. PathNFT configures one quota per movement across a deployment, while each PATH keeps its own stage and progress against those movement totals. A successful movement work mint consumes one unit from that PATH. The next configured movement can open only when the active movement's quota has been used.",
-          "Contract state records participation, not inward achievement. It does not measure self-knowledge, establish a crowd's will, or prove access to Inshell's core."
-        ],
-        "points": [
-          "Used is the number of units successful work mints have consumed from this PATH.",
-          "Total is the deployed quota for that movement, applied to every PATH in the deployment.",
-          "Remaining is that quota minus this PATH's derived used count, never a marketing quota.",
-          "Not available means the deployed contract exposes no quota for that movement."
+          "$PATH is the permission token that connects a participant to the movement sequence. It does not define a movement or create its artwork. It lets the holder authorize an eligible work in the movement $PATH has reached.",
+          "When the work is successfully minted, one unit of permission is used and $PATH records the progress. The movement remains the artwork; $PATH remains permission and public memory."
         ]
       },
       {
@@ -155,12 +183,12 @@
           "artist-editorial",
           "app-documentation"
         ],
-        "id": "docs-movements-status",
-        "title": "Current and forming",
+        "id": "docs-movements-evidence",
+        "title": "Evidence boundary",
         "paragraphs": [
-          "THOUGHT is current as a public creation surface. Its imported R2 Contract release is qualified but not persistently deployed, registered, or mint-enabled. WILL is planned for 2027 and is still being created and developed; its preview can expose the direction and current study without implying a finished work or live mint. AWA is planned for 2028 and remains in formation; it currently has no creation or mint surface."
+          "The movement arc describes an artistic order. A movement name alone does not establish $PATH permission, capacity, a creation surface, a mint surface, or a deployment."
         ],
-        "note": "Dates are plans, not evidence of deployment. The limited WILL and AWA descriptions reflect unfinished work, not concealed finished systems. Do not infer availability or capacity from the movement names alone."
+        "note": "Do not infer availability, capacity, or deployment from a movement name."
       }
     ],
     "links": [
@@ -184,7 +212,7 @@
       },
       {
         "role": "navigation",
-        "label": "read how PATH carries movement permission",
+        "label": "read how $PATH carries movement permission",
         "href": "/docs/path",
         "canonicalHref": "https://inshell.art/docs/path"
       },
@@ -193,12 +221,6 @@
         "label": "enter THOUGHT",
         "href": "/thought",
         "canonicalHref": "https://inshell.art/thought"
-      },
-      {
-        "role": "navigation",
-        "label": "preview WILL",
-        "href": "/will",
-        "canonicalHref": "https://inshell.art/will"
       }
     ]
   }
