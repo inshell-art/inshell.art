@@ -425,7 +425,7 @@ test("THOUGHT creation page presents its canonical slogan below the title", () =
   );
 });
 
-test("THOUGHT creation keeps the production CLI default and the tagged Agent snapshot in Vite dev", () => {
+test("THOUGHT creation keeps the explicit CLI source and locks the Agent snapshot into same-origin builds", () => {
   assert.match(
     indexHtml,
     /id="thought-cli-panel" class="frontpage-side thought-cli-panel"[\s\S]*?aria-label="THOUGHT operator panel"[\s\S]*?id="thought-cli-transcript"[\s\S]*?id="thought-cli-suggestions"[\s\S]*?id="thought-cli-form"[\s\S]*?thought&gt;/,
@@ -451,12 +451,17 @@ test("THOUGHT creation keeps the production CLI default and the tagged Agent sna
   assert.match(
     thoughtViteConfig,
     /loadThoughtDevSnapshotModule\(workspaceRoot, id\)/,
-    "the serve-only Vite bootstrap loads the tagged Agent modules in local development",
+    "the Vite bootstrap loads the tagged Agent modules from byte-verified sources",
   );
   assert.match(
     thoughtViteConfig,
-    /name: "inshell-thought-dev-runtime-bootstrap",\s*apply: "serve"/,
-    "the local Agent default must never be injected into built production artifacts",
+    /name: "inshell-thought-locked-runtime-bootstrap",\s*apply: useLockedSurface \? undefined : "serve"/,
+    "the Agent default must run in dev and in explicitly opted-in same-origin builds",
+  );
+  assert.match(
+    rootPackageJson.scripts["build:thought:same-origin"],
+    /INSHELL_THOUGHT_USE_LOCKED_SURFACE=1/,
+    "the canonical same-origin build must fail closed onto the locked Agent surface",
   );
   assert.match(
     thoughtViteConfig,
@@ -615,7 +620,7 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
   );
   assert.match(
     thoughtViteConfig,
-    /order: "pre",[\s\S]*?shouldRestoreThoughtDevIndexSnapshot\([\s\S]*?restoreThoughtDevIndexSnapshot\(html\)/,
+    /order: "pre",[\s\S]*?useLockedSurface \|\| shouldRestoreThoughtDevIndexSnapshot\([\s\S]*?restoreThoughtDevIndexSnapshot\(html\)/,
   );
   assert.match(
     thoughtViteConfig,

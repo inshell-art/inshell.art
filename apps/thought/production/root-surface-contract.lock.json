@@ -1,0 +1,42 @@
+{
+  "schema": "inshell.thought-root-surface-contract-lock.v1",
+  "artifactId": "inshell-thought-root-surface-20260817-r1",
+  "status": "operator-accepted",
+  "route": "/thought",
+  "defaultSurface": "agent",
+  "snapshot": {
+    "tag": "thought-app-e2e-integration-20260810-r1",
+    "tagCommit": "da998e1145d20b4a7301aaa61748c68fbc91a2e1",
+    "immutableDeployment": "https://9f8ac359.inshell-art.pages.dev/thought/",
+    "securityHardenedPreviewCommit": "bdd9640f7a2969b3b7a27a1c81c11a0b94df4b4f",
+    "indexBlob": "ac5a07c18176a6e8e05984e30840c1925e3149b9",
+    "indexSha256": "e991fe996e1732aca3ec6d9f77a9cac73609505ba29128c7892afabaa9908164",
+    "mainBlob": "0366396bcfaac34b1ad770b37a6cb8e117ff4406",
+    "mainSha256": "ffbfd1f2a7818c68aec6e07096c4be80c9df4dfdda0df23f2d4fd01563c7e939",
+    "styleBlob": "5d5448e8766bf4f32d1867e1534ce73797465de5",
+    "styleSha256": "950156fb82ff9d4449dfb03e914445eeeace10de0796361108e29e5637a48cf1"
+  },
+  "requiredSurface": {
+    "titleId": "frontpage-title",
+    "titleClass": "thought-create__title",
+    "agentPanelId": "thought-panel",
+    "promptId": "thought-dock-prompt",
+    "visibleByDefault": ".thought-panel",
+    "hiddenByDefault": ".frontpage-side"
+  },
+  "sameOriginNavigation": {
+    "pagesProjectHost": "inshell-art.pages.dev",
+    "paths": {
+      "home": "/",
+      "path": "/path",
+      "thought": "/thought",
+      "gallery": "/gallery",
+      "docs": "/docs"
+    }
+  },
+  "build": {
+    "script": "build:thought:same-origin",
+    "requiredEnvironment": "INSHELL_THOUGHT_USE_LOCKED_SURFACE=1"
+  },
+  "changePolicy": "A root-surface or product-navigation change requires a new artifact ID, explicit operator review, an independently accepted lock digest, built-browser evidence, and regenerated documentation locks. Routine changes must not update this file."
+}

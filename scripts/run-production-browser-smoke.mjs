@@ -5,6 +5,7 @@ import { extname, relative, resolve } from "node:path";
 
 const previewUrl = "http://127.0.0.1:4173";
 const root = resolve("dist/home");
+const serveOnly = process.argv.includes("--serve-only");
 const mimeTypes = new Map([
   [".css", "text/css; charset=utf-8"],
   [".html", "text/html; charset=utf-8"],
@@ -82,22 +83,30 @@ if (!existsSync(resolve(root, "index.html"))) {
 
 await listen();
 try {
-  await run(
-    "corepack",
-    [
-      "pnpm",
-      "exec",
-      "cypress",
-      "run",
-      "--config-file",
-      "cypress/cypress.config.ts",
-      "--spec",
-      "cypress/e2e/app.cy.ts",
-      "--browser",
-      "electron",
-    ],
-    { env: { ...process.env, BASE_URL: previewUrl } },
-  );
+  if (serveOnly) {
+    console.log(`[production-browser-smoke] serving ${root} at ${previewUrl}`);
+    await new Promise((resolveStop) => {
+      process.once("SIGINT", resolveStop);
+      process.once("SIGTERM", resolveStop);
+    });
+  } else {
+    await run(
+      "corepack",
+      [
+        "pnpm",
+        "exec",
+        "cypress",
+        "run",
+        "--config-file",
+        "cypress/cypress.config.ts",
+        "--spec",
+        "cypress/e2e/app.cy.ts",
+        "--browser",
+        "electron",
+      ],
+      { env: { ...process.env, BASE_URL: previewUrl } },
+    );
+  }
 } finally {
   await close();
 }

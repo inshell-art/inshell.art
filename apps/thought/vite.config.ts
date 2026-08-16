@@ -212,11 +212,13 @@ function createThoughtDevRuntimeBootstrapPlugin({
   contractRuntime,
   evmAddresses,
   publicEnv,
+  useLockedSurface,
   workspaceRoot,
 }: {
   contractRuntime: Record<string, unknown> | null;
   evmAddresses: Record<string, unknown> | null;
   publicEnv: Record<string, string>;
+  useLockedSurface: boolean;
   workspaceRoot: string;
 }): Plugin {
   const bootstrap = [
@@ -227,8 +229,8 @@ function createThoughtDevRuntimeBootstrapPlugin({
   ].join("\n");
 
   return {
-    name: "inshell-thought-dev-runtime-bootstrap",
-    apply: "serve",
+    name: "inshell-thought-locked-runtime-bootstrap",
+    apply: useLockedSurface ? undefined : "serve",
     enforce: "pre",
     load(id) {
       return loadThoughtDevSnapshotModule(workspaceRoot, id);
@@ -236,7 +238,7 @@ function createThoughtDevRuntimeBootstrapPlugin({
     transformIndexHtml: {
       order: "pre",
       handler(html, context) {
-        const restoredHtml = shouldRestoreThoughtDevIndexSnapshot(
+        const restoredHtml = useLockedSurface || shouldRestoreThoughtDevIndexSnapshot(
           context.originalUrl,
           context.path,
         )
@@ -1787,6 +1789,8 @@ export default defineConfig(({ command, mode }) => {
   };
   const useRemoteAgentApi =
     process.env.INSHELL_THOUGHT_USE_REMOTE_AGENT_API === "1";
+  const useLockedSurface =
+    process.env.INSHELL_THOUGHT_USE_LOCKED_SURFACE === "1";
 
   return {
     root: rootDir,
@@ -1796,6 +1800,7 @@ export default defineConfig(({ command, mode }) => {
         contractRuntime: browserContractRuntime,
         evmAddresses: browserEvmAddresses,
         publicEnv,
+        useLockedSurface,
         workspaceRoot,
       }),
       createThoughtAgentDevApiPlugin(

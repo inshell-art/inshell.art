@@ -71,7 +71,7 @@ describe("production build surface", () => {
       ["/", ".inshell-topbar"],
       ["/path", ".dotfield"],
       ["/path/1", ".path-detail-page"],
-      ["/thought/", ".frontpage-stage"],
+      ["/thought/", ".thought-create__title"],
       ["/thought/1", ".thought-detail"],
       ["/gallery", ".shell--home"],
       ["/will", ".will-page"],
@@ -81,6 +81,29 @@ describe("production build surface", () => {
       cy.get(surface).should("be.visible");
       cy.get(".inshell-preview-watermark").should("not.exist");
       expectNoHorizontalOverflow();
+    }
+  });
+
+  it("ships the locked Agent root and keeps preview product links same-origin", () => {
+    cy.visit("/thought/", { failOnStatusCode: true });
+
+    cy.get(".thought-create__title").should("be.visible").and("have.text", "THOUGHT");
+    cy.get(".thought-panel").should("be.visible");
+    cy.get(".frontpage-side").should("not.be.visible");
+    cy.get("#thought-dock-prompt").should("be.visible");
+
+    for (const [label, pathname] of [
+      ["INSHELL", "/"],
+      ["$PATH", "/path"],
+      ["docs", "/docs"],
+    ] as const) {
+      cy.contains(".inshell-topbar a", label)
+        .should("have.attr", "href")
+        .then((href) => {
+          const resolved = new URL(String(href), window.location.origin);
+          expect(resolved.origin).to.equal(Cypress.config("baseUrl"));
+          expect(resolved.pathname).to.equal(pathname);
+        });
     }
   });
 

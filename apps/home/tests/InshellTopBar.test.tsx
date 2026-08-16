@@ -15,8 +15,10 @@ jest.mock("@inshell/wallet", () => ({
 
 import {
   InshellTopBar,
+  isInshellPagesPreviewHost,
   isLocalRuntimeHost,
   openInshellWallet,
+  resolveInshellLinksForLocation,
 } from "@inshell/inshell-shell";
 
 const ADDRESS = "0x170af4d923de5e3155067e10413c3b11d82e100";
@@ -89,6 +91,35 @@ describe("InshellTopBar", () => {
     expect(isLocalRuntimeHost("studio-mac.local")).toBe(true);
     expect(isLocalRuntimeHost("inshell.art")).toBe(false);
     expect(isLocalRuntimeHost("preview.inshell.art")).toBe(false);
+  });
+
+  test("keeps immutable and branch Pages previews on the inspected artifact origin", () => {
+    for (const hostname of [
+      "c4af5ca4.inshell-art.pages.dev",
+      "codex-mobile-prod-test-coverage.inshell-art.pages.dev",
+      "staging.inshell-art.pages.dev",
+      "inshell-art.pages.dev",
+    ]) {
+      expect(isInshellPagesPreviewHost(hostname)).toBe(true);
+      const origin = `https://${hostname}`;
+      expect(resolveInshellLinksForLocation({ hostname, origin })).toEqual({
+        home: origin,
+        path: `${origin}/path`,
+        thought: `${origin}/thought`,
+        works: `${origin}/gallery`,
+        docs: `${origin}/docs`,
+        x: "https://twitter.com/inshell_art",
+      });
+    }
+  });
+
+  test("does not classify unrelated Pages projects as Inshell previews", () => {
+    const hostname = "unrelated.pages.dev";
+    expect(isInshellPagesPreviewHost(hostname)).toBe(false);
+    expect(resolveInshellLinksForLocation({
+      hostname,
+      origin: `https://${hostname}`,
+    }).docs).toBe("https://inshell.art/docs");
   });
 
   test("uses the PATH wallet-options picker while disconnected", async () => {
