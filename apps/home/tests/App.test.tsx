@@ -1559,6 +1559,12 @@ describe("App Component", () => {
     expect(css).not.toMatch(
       /\.thought-detail__fields div\s*{[^}]*grid-template-columns:\s*1fr;/s,
     );
+    expect(css).toMatch(
+      /\.thought-detail__fields dd\s*{[^}]*min-width:\s*0;[^}]*overflow-wrap:\s*anywhere;/s,
+    );
+    expect(css).toMatch(
+      /\.thought-detail__value-link\s*{[^}]*max-width:\s*100%;[^}]*overflow-wrap:\s*anywhere;/s,
+    );
 
     const selectorBlock = (selector: string, requiredProperty: string) => {
       const blocks = Array.from(

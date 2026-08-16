@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "4fd30ac08befd35e44581e8ae45efe050dec070653acc3a5f90f52817dfe492a",
+  "sourceTreeSha256": "0733af85f749b95e2ceb0111ec6c4174f6c9190c1f605337f15957a31426c68b",
   "groups": [
     {
       "id": "public-docs",
@@ -57,7 +57,7 @@
       "title": "Home, PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "c7a2d641ed5e1ece540ddbde8c7a767d7951a1edde3cb0eb22cac52c6dfeb006",
+      "groupSha256": "d462b313de87746c2fce3e91d28546a0126cf5e3ef154dfd9f219b50ea9040ff",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -221,8 +221,8 @@
         },
         {
           "path": "apps/home/src/main.css",
-          "byteLength": 108031,
-          "sha256": "360f4da758b1ed6bfbb311a7635b5baab4905d2c272019558d54d77cff3bf6d0"
+          "byteLength": 108047,
+          "sha256": "cf3d099c4d3c6deb0b848de90603a178a1988e4c85658db709fdb08691043253"
         },
         {
           "path": "apps/home/src/main.tsx",
@@ -949,7 +949,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "1a97b5db532c9221caa6706c29ee9aedab8e8f8e65d3e6ed47d824193d52602f",
+      "groupSha256": "9f062e5fcbb49dd2638b9a491bcc91ba91428113f895b57babef01ec272ec4b6",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1008,8 +1008,8 @@
         },
         {
           "path": "apps/thought/src/style.css",
-          "byteLength": 101450,
-          "sha256": "54c24c1bd95ed41120fef22ec765f4bfa5c06da03eed1a64eeac4de592618ef0"
+          "byteLength": 101572,
+          "sha256": "7510cc6af065b3fef1d4f1184cbb2f71998bb6817b0b1c3f44896fe6bb7214fc"
         },
         {
           "path": "apps/thought/src/surfaceShell/thoughtCommandTree.ts",

@@ -4378,7 +4378,14 @@ html.thought-route {
 .thought-detail__text,
 .thought-detail__attestation-summary,
 .thought-detail__fields dd {
+  min-width: 0;
   line-height: var(--thought-detail-text-line-height);
+  overflow-wrap: anywhere;
+}
+
+.thought-detail__value-link {
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .thought-detail__section {

@@ -3100,6 +3100,7 @@ button,
   font-size: var(--font-size-14);
   font-weight: var(--thought-detail-font-weight);
   line-height: var(--thought-detail-text-line-height);
+  min-width: 0;
   overflow-wrap: anywhere;
 }
 

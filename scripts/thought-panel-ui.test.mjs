@@ -458,6 +458,16 @@ test("THOUGHT creation keeps the production CLI default and the tagged Agent sna
     /html:root[\s\S]*?body\.frontpage:has\(\.frontpage-stage:not\(\.is-hidden\)\)[\s\S]*?\.frontpage-shell\s*\{\s*justify-content:\s*flex-start;/,
     "the Agent creation surface keeps its topbar on the shared route baseline",
   );
+  assert.match(
+    thoughtCss,
+    /\.thought-detail__fields dd\s*\{[\s\S]*?min-width:\s*0;[\s\S]*?overflow-wrap:\s*anywhere;/,
+    "THOUGHT detail values preserve the PATH-canonical mobile containment",
+  );
+  assert.match(
+    thoughtCss,
+    /\.thought-detail__value-link\s*\{[\s\S]*?max-width:\s*100%;[\s\S]*?overflow-wrap:\s*anywhere;/,
+    "THOUGHT detail links wrap inside the canonical PATH value column",
+  );
   assert.match(thoughtMain, /const IS_CLI_SURFACE = document\.documentElement\.classList\.contains\("cli-surface"\)/);
   assert.match(
     thoughtMain,
