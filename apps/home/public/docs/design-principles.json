@@ -2,7 +2,7 @@
   "schema": "inshell.agent-docs.topic.v2",
   "schemaUrl": "/docs/content.v2.schema.json",
   "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
-  "version": "2026-08-15",
+  "version": "2026-08-16",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "design-principles",
@@ -34,101 +34,7 @@
         "Five design choices recur across Inshell's systems: collaboration is bounded, the authority to continue or preserve is explicit, mechanisms stay visible, canonical sources remain identifiable, and claims stop where their evidence stops. They give the practice form as it approaches truth without claiming possession. They are choices of practice, not a doctrine, a set of propositions to prove, or a definition of Agent Art."
       ]
     },
-    "figure": {
-      "authorities": [
-        "artist-editorial",
-        "app-documentation"
-      ],
-      "id": "design.principles",
-      "label": "Inshell principles across systems",
-      "mode": "field",
-      "figureText": "INSHELL PRINCIPLES\n\n• BOUND — Collaboration is bounded.\n• AUTHORIZE\n  Authority to continue or preserve is explicit.\n• EXPOSE — Mechanisms stay visible.\n• PIN — Canonical sources remain identifiable.\n• QUALIFY — Claims stop where their evidence stops.",
-      "items": [
-        {
-          "title": "Bound",
-          "detail": "Collaboration is bounded."
-        },
-        {
-          "title": "Authorize",
-          "detail": "Authority to continue or preserve is explicit."
-        },
-        {
-          "title": "Expose",
-          "detail": "Mechanisms stay visible."
-        },
-        {
-          "title": "Pin",
-          "detail": "Canonical sources remain identifiable."
-        },
-        {
-          "title": "Qualify",
-          "detail": "Claims stop where their evidence stops."
-        }
-      ],
-      "logic": {
-        "id": "design.principles",
-        "label": "Inshell principles across systems",
-        "form": "field",
-        "nodes": [
-          {
-            "id": "bound",
-            "sourceItem": 0,
-            "sourcePart": "item",
-            "term": "Bound",
-            "annotation": "Collaboration is bounded.",
-            "role": "principle"
-          },
-          {
-            "id": "authorize",
-            "sourceItem": 1,
-            "sourcePart": "item",
-            "term": "Authorize",
-            "annotation": "Authority to continue or preserve is explicit.",
-            "role": "principle"
-          },
-          {
-            "id": "expose",
-            "sourceItem": 2,
-            "sourcePart": "item",
-            "term": "Expose",
-            "annotation": "Mechanisms stay visible.",
-            "role": "principle"
-          },
-          {
-            "id": "pin",
-            "sourceItem": 3,
-            "sourcePart": "item",
-            "term": "Pin",
-            "annotation": "Canonical sources remain identifiable.",
-            "role": "principle"
-          },
-          {
-            "id": "qualify",
-            "sourceItem": 4,
-            "sourcePart": "item",
-            "term": "Qualify",
-            "annotation": "Claims stop where their evidence stops.",
-            "role": "principle"
-          }
-        ],
-        "edges": [],
-        "groups": [
-          {
-            "id": "inshell-principles",
-            "kind": "set",
-            "label": "Inshell principles across systems",
-            "glyph": "•",
-            "members": [
-              "bound",
-              "authorize",
-              "expose",
-              "pin",
-              "qualify"
-            ]
-          }
-        ]
-      }
-    },
+    "figure": null,
     "preformatted": [],
     "sections": [
       {
@@ -140,8 +46,8 @@
         "id": "docs-design-bounds",
         "title": "Bounds create form",
         "paragraphs": [
-          "[THOUGHT](https://inshell.art/docs/thought) allows one prompt, one Agent response, exact byte rules, and one human mint decision. [Pulse](https://inshell.art/docs/pulse) allows one active epoch and one next public PATH. [PATH](https://inshell.art/docs/path) exposes an ordered movement sequence with configured capacities. These constraints make the resulting differences legible.",
-          "Within THOUGHT, more options would not automatically create more expressive work. Its boundary concentrates attention on the choices that remain: which intention to write, which response to preserve, which PATH to use, and how to read the record afterward. Other [Agent Art](https://inshell.art/docs/agent-art) practices may choose different boundaries and forms."
+          "[THOUGHT](https://inshell.art/docs/thought) allows one prompt, one Agent response, exact byte rules, and one human mint decision. [Pulse](https://inshell.art/docs/pulse) allows one active epoch and one next public $PATH. [$PATH](https://inshell.art/docs/path) exposes an ordered movement sequence with configured capacities. These constraints make the resulting differences legible.",
+          "Within THOUGHT, more options would not automatically create more expressive work. Its boundary concentrates attention on the choices that remain: which intention to write, which response to preserve, which $PATH to use, and how to read the record afterward. Other [Agent Art](https://inshell.art/docs/agent-art) practices may choose different boundaries and forms."
         ]
       },
       {
@@ -154,213 +60,7 @@
         "title": "Generation is not preservation",
         "paragraphs": [
           "A system can produce a candidate without declaring it part of the public corpus. In Inshell's onchain practices, THOUGHT separates Agent return from human review and successful mint, while Pulse separates a visible ask from a participant's confirmed bid. Their contract actions are specific preservation boundaries, not a universal rule for Agent Art."
-        ],
-        "figure": {
-          "authorities": [
-            "artist-editorial",
-            "app-documentation",
-            "contract-release"
-          ],
-          "id": "design.preservation",
-          "label": "Two preservation boundaries",
-          "mode": "lanes",
-          "figureText": "THOUGHT\nAGENT RETURN\nCandidate produced\n→ HUMAN REVIEW\nDecision to preserve\n→ SUCCESSFUL MINT\nContract action succeeds\n→ PUBLIC CORPUS\nPreserved THOUGHT\n\nPULSE\nVISIBLE ASK\nQuote exposed\n→ CONFIRMED BID\nParticipant authorizes\n→ SETTLEMENT\nContract action succeeds\n→ SALE RECORD\nPreserved Pulse",
-          "items": [
-            {
-              "stage": 1,
-              "lane": "THOUGHT",
-              "title": "Agent return",
-              "detail": "Candidate produced"
-            },
-            {
-              "stage": 2,
-              "lane": "THOUGHT",
-              "title": "Human review",
-              "detail": "Decision to preserve"
-            },
-            {
-              "stage": 3,
-              "lane": "THOUGHT",
-              "title": "Successful mint",
-              "detail": "Contract action succeeds"
-            },
-            {
-              "stage": 4,
-              "lane": "THOUGHT",
-              "title": "Public corpus",
-              "detail": "Preserved THOUGHT"
-            },
-            {
-              "stage": 1,
-              "lane": "PULSE",
-              "title": "Visible ask",
-              "detail": "Quote exposed"
-            },
-            {
-              "stage": 2,
-              "lane": "PULSE",
-              "title": "Confirmed bid",
-              "detail": "Participant authorizes"
-            },
-            {
-              "stage": 3,
-              "lane": "PULSE",
-              "title": "Settlement",
-              "detail": "Contract action succeeds"
-            },
-            {
-              "stage": 4,
-              "lane": "PULSE",
-              "title": "Sale record",
-              "detail": "Preserved Pulse"
-            }
-          ],
-          "logic": {
-            "id": "design.preservation",
-            "label": "Two preservation boundaries",
-            "form": "lanes",
-            "nodes": [
-              {
-                "id": "thought-agent-return",
-                "sourceItem": 0,
-                "sourcePart": "item",
-                "term": "Agent return",
-                "annotation": "Candidate produced",
-                "role": "action"
-              },
-              {
-                "id": "thought-human-review",
-                "sourceItem": 1,
-                "sourcePart": "item",
-                "term": "Human review",
-                "annotation": "Decision to preserve",
-                "role": "action"
-              },
-              {
-                "id": "thought-successful-mint",
-                "sourceItem": 2,
-                "sourcePart": "item",
-                "term": "Successful mint",
-                "annotation": "Contract action succeeds",
-                "role": "action"
-              },
-              {
-                "id": "thought-public-corpus",
-                "sourceItem": 3,
-                "sourcePart": "item",
-                "term": "Public corpus",
-                "annotation": "Preserved THOUGHT",
-                "role": "result"
-              },
-              {
-                "id": "pulse-visible-ask",
-                "sourceItem": 4,
-                "sourcePart": "item",
-                "term": "Visible ask",
-                "annotation": "Quote exposed",
-                "role": "state"
-              },
-              {
-                "id": "pulse-confirmed-bid",
-                "sourceItem": 5,
-                "sourcePart": "item",
-                "term": "Confirmed bid",
-                "annotation": "Participant authorizes",
-                "role": "action"
-              },
-              {
-                "id": "pulse-settlement",
-                "sourceItem": 6,
-                "sourcePart": "item",
-                "term": "Settlement",
-                "annotation": "Contract action succeeds",
-                "role": "action"
-              },
-              {
-                "id": "pulse-sale-record",
-                "sourceItem": 7,
-                "sourcePart": "item",
-                "term": "Sale record",
-                "annotation": "Preserved Pulse",
-                "role": "result"
-              }
-            ],
-            "edges": [
-              {
-                "id": "thought-return-to-review",
-                "from": "thought-agent-return",
-                "to": "thought-human-review",
-                "glyph": "→",
-                "stackedGlyph": "↓",
-                "label": "The Agent return becomes a candidate for human review."
-              },
-              {
-                "id": "thought-review-to-mint",
-                "from": "thought-human-review",
-                "to": "thought-successful-mint",
-                "glyph": "→",
-                "stackedGlyph": "↓",
-                "label": "The human decision to preserve proceeds to a mint attempt."
-              },
-              {
-                "id": "thought-mint-to-corpus",
-                "from": "thought-successful-mint",
-                "to": "thought-public-corpus",
-                "glyph": "→",
-                "stackedGlyph": "↓",
-                "label": "Only a successful contract action preserves the THOUGHT in the public corpus."
-              },
-              {
-                "id": "pulse-ask-to-bid",
-                "from": "pulse-visible-ask",
-                "to": "pulse-confirmed-bid",
-                "glyph": "→",
-                "stackedGlyph": "↓",
-                "label": "A participant authorizes a bid against the visible ask."
-              },
-              {
-                "id": "pulse-bid-to-settlement",
-                "from": "pulse-confirmed-bid",
-                "to": "pulse-settlement",
-                "glyph": "→",
-                "stackedGlyph": "↓",
-                "label": "The confirmed bid proceeds to contract settlement."
-              },
-              {
-                "id": "pulse-settlement-to-record",
-                "from": "pulse-settlement",
-                "to": "pulse-sale-record",
-                "glyph": "→",
-                "stackedGlyph": "↓",
-                "label": "Only a successful settlement preserves a Pulse sale record."
-              }
-            ],
-            "groups": [
-              {
-                "id": "thought-preservation-lane",
-                "kind": "lane",
-                "label": "THOUGHT",
-                "members": [
-                  "thought-agent-return",
-                  "thought-human-review",
-                  "thought-successful-mint",
-                  "thought-public-corpus"
-                ]
-              },
-              {
-                "id": "pulse-preservation-lane",
-                "kind": "lane",
-                "label": "PULSE",
-                "members": [
-                  "pulse-visible-ask",
-                  "pulse-confirmed-bid",
-                  "pulse-settlement",
-                  "pulse-sale-record"
-                ]
-              }
-            ]
-          }
-        }
+        ]
       },
       {
         "authorities": [
@@ -371,7 +71,7 @@
         "id": "docs-design-visible-mechanism",
         "title": "Mechanism stays visible",
         "paragraphs": [
-          "Pulse shows the curve, floor, premium, sale points, and current ask. PATH shows movement totals and use. THOUGHT publishes its language boundary, renderer, metadata, and attestation model. The mechanism is not hidden after it produces an output because understanding the mechanism changes how the output can be experienced."
+          "Pulse shows the curve, floor, premium, sale points, and current ask. $PATH shows movement totals and use. THOUGHT publishes its language boundary, renderer, metadata, and attestation model. The mechanism is not hidden after it produces an output because understanding the mechanism changes how the output can be experienced."
         ]
       },
       {
@@ -383,60 +83,7 @@
         "title": "One canonical form, many reading surfaces",
         "paragraphs": [
           "An onchain Inshell work can appear on the site, in a wallet, on a marketplace, through an API, in Markdown, or inside an Agent's answer. Those surfaces can add access and context. They should still point back to the network, contract, tokenURI, pinned release, and declared record authority that make that work identifiable."
-        ],
-        "figure": {
-          "authorities": [
-            "app-documentation",
-            "contract-release"
-          ],
-          "id": "design.reading-surfaces",
-          "label": "Many surfaces, one identified record",
-          "mode": "field",
-          "figureText": "┌─ IDENTIFIED ONCHAIN WORK ───────────────┐\n│ Network + contract + token ID +         │\n│ tokenURI + release                      │\n└─────────────────────────────────────────┘\n                    ↓\n          MANY READING SURFACES\nSite · wallet · marketplace · API · Markdown · Agent answer",
-          "items": [
-            {
-              "title": "Identified onchain work",
-              "detail": "Network + contract + token ID + tokenURI + release"
-            },
-            {
-              "title": "Many reading surfaces",
-              "detail": "Site · wallet · marketplace · API · Markdown · Agent answer"
-            }
-          ],
-          "logic": {
-            "id": "design.reading-surfaces",
-            "label": "Many surfaces, one identified record",
-            "form": "fork",
-            "nodes": [
-              {
-                "id": "identified-work",
-                "sourceItem": 0,
-                "sourcePart": "item",
-                "term": "Identified onchain work",
-                "annotation": "Network + contract + token ID + tokenURI + release",
-                "role": "record"
-              },
-              {
-                "id": "reading-surfaces",
-                "sourceItem": 1,
-                "sourcePart": "item",
-                "term": "Many reading surfaces",
-                "annotation": "Site · wallet · marketplace · API · Markdown · Agent answer",
-                "role": "surface"
-              }
-            ],
-            "edges": [
-              {
-                "id": "work-to-surfaces",
-                "from": "identified-work",
-                "to": "reading-surfaces",
-                "glyph": "↓",
-                "label": "One identified onchain work can be read through many surfaces."
-              }
-            ],
-            "groups": []
-          }
-        }
+        ]
       },
       {
         "authorities": [
@@ -459,7 +106,7 @@
         "id": "docs-design-time",
         "title": "The work continues through time",
         "paragraphs": [
-          "Pulse changes with every sale and every interval between sales. A PATH accumulates movement use. The THOUGHT corpus grows one selected pair at a time. Releases and deployments create historical layers that must remain readable as interfaces change.",
+          "Pulse changes with every sale and every interval between sales. A $PATH accumulates movement use. The THOUGHT corpus grows one selected pair at a time. Releases and deployments create historical layers that must remain readable as interfaces change.",
           "This makes documentation part of preservation. It records visible interactions and keeps the work's form, permissions, and evidence connected over time."
         ]
       }

@@ -2,7 +2,7 @@
   "schema": "inshell.agent-docs.topic.v2",
   "schemaUrl": "/docs/content.v2.schema.json",
   "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
-  "version": "2026-08-15",
+  "version": "2026-08-16",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "source-release-boundaries",
@@ -29,115 +29,13 @@
         "contract-release"
       ],
       "paragraphs": [
-        "The Inshell App, [PATH](https://inshell.art/docs/path) contracts, [THOUGHT](https://inshell.art/docs/thought) contracts, and [Pulse](https://inshell.art/docs/pulse) auction have separate repositories and ownership boundaries. The App owns creation flow, integration, and presentation. Each contract repository owns its contract behavior and release artifacts. Deployment operators own network deployment records.",
+        "The Inshell App, [$PATH](https://inshell.art/docs/path) contracts, [THOUGHT](https://inshell.art/docs/thought) contracts, and [Pulse](https://inshell.art/docs/pulse) auction have separate repositories and ownership boundaries. The App owns creation flow, integration, and presentation. Each contract repository owns its contract behavior and release artifacts. Deployment operators own network deployment records.",
         "The App consumes pinned ABIs, bytecode, schemas, renderer data, specifications, manifests, and checksums. A repository's latest source is not automatically the deployed release. A newer file is not authority for an older deployment.",
         "Contract releases contain code and integrity material; network addresses and deployment blocks come from a separately verified deployment record. A correct integration matches the App pin, release artifacts, deployed bytecode, renderer commitments, and active network.",
         "Documentation can describe repository source, a pinned release, or observed chain state. It must say which. Mirrors and previews are useful distribution surfaces but do not silently become canonical origins."
       ]
     },
-    "figure": {
-      "authorities": [
-        "app-documentation",
-        "contract-release"
-      ],
-      "id": "source-release.records",
-      "label": "Four distinct records",
-      "mode": "field",
-      "figureText": "SOURCE  ≠  RELEASE  ≠  DEPLOYMENT  ≠  OBSERVATION\nAuthored code   Pinned artifacts   Addresses + blocks   Point-in-time read",
-      "items": [
-        {
-          "title": "Source",
-          "detail": "Authored code"
-        },
-        {
-          "title": "Release",
-          "detail": "Pinned artifacts"
-        },
-        {
-          "title": "Deployment",
-          "detail": "Addresses + blocks"
-        },
-        {
-          "title": "Observation",
-          "detail": "Point-in-time read"
-        }
-      ],
-      "logic": {
-        "id": "source-release.records",
-        "label": "Four distinct records",
-        "form": "axis",
-        "nodes": [
-          {
-            "id": "source",
-            "sourceItem": 0,
-            "sourcePart": "item",
-            "term": "Source",
-            "annotation": "Authored code",
-            "role": "record"
-          },
-          {
-            "id": "release",
-            "sourceItem": 1,
-            "sourcePart": "item",
-            "term": "Release",
-            "annotation": "Pinned artifacts",
-            "role": "record"
-          },
-          {
-            "id": "deployment",
-            "sourceItem": 2,
-            "sourcePart": "item",
-            "term": "Deployment",
-            "annotation": "Addresses + blocks",
-            "role": "record"
-          },
-          {
-            "id": "observation",
-            "sourceItem": 3,
-            "sourcePart": "item",
-            "term": "Observation",
-            "annotation": "Point-in-time read",
-            "role": "record"
-          }
-        ],
-        "edges": [
-          {
-            "id": "source-not-release",
-            "from": "source",
-            "to": "release",
-            "glyph": "≠",
-            "label": "Authored source is not a pinned release."
-          },
-          {
-            "id": "release-not-deployment",
-            "from": "release",
-            "to": "deployment",
-            "glyph": "≠",
-            "label": "A pinned release is not a deployment record."
-          },
-          {
-            "id": "deployment-not-observation",
-            "from": "deployment",
-            "to": "observation",
-            "glyph": "≠",
-            "label": "A deployment record is not a point-in-time observation."
-          }
-        ],
-        "groups": [
-          {
-            "id": "record-distinction",
-            "kind": "comparison",
-            "label": "Four records that must not be collapsed into one.",
-            "members": [
-              "source",
-              "release",
-              "deployment",
-              "observation"
-            ]
-          }
-        ]
-      }
-    },
+    "figure": null,
     "preformatted": [],
     "sections": [
       {
@@ -149,7 +47,7 @@
         "title": "Repository ownership",
         "points": [
           "The Inshell App repository owns same-origin presentation, orchestration, API behavior, and integration pins.",
-          "The PATH repository owns PATH contracts and their release artifacts.",
+          "The $PATH repository owns $PATH contracts and their release artifacts.",
           "The THOUGHT repository owns THOUGHT contracts, specifications, renderer releases, and their integrity material.",
           "The Pulse repository owns the auction contract and pricing mechanism release."
         ]
@@ -197,7 +95,7 @@
       },
       {
         "role": "navigation",
-        "label": "PATH source",
+        "label": "$PATH source",
         "href": "https://github.com/inshell-art/path",
         "canonicalHref": "https://github.com/inshell-art/path"
       },

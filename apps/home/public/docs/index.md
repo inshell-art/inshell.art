@@ -3,7 +3,7 @@
 paste this prompt into your Agent
 
 - Canonical page: https://inshell.art/docs
-- Documentation version: 2026-08-15
+- Documentation version: 2026-08-16
 - Agent index: https://inshell.art/docs/agent-index.json
 - Structured corpus: https://inshell.art/docs/content.json
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
@@ -19,17 +19,17 @@ Begin with the inward direction—inspect self—then read Agent Art and the mov
 
 - [Inshell](https://inshell.art/docs/inshell) — Inshell is an anonymous artist. The practice asks people to inspect the self beneath its shells.
 - [Agent Art](https://inshell.art/docs/agent-art) — Agent Art is art in which an Agent participates.
-- [Movements](https://inshell.art/docs/movements) — Inshell's movements follow an artistic PATH from an individual's thought, through a crowd's will, toward Inshell's core.
+- [Movements](https://inshell.art/docs/movements) — Inshell's movements follow an artistic path from an individual's thought, through a crowd's will, toward Inshell's core.
 
 ### Works and participation
 
-Read the three movements from individual to crowd to core, then the PATH and Pulse systems that carry participation.
+Read the three movements from individual to crowd to core, then the $PATH and Pulse systems that carry participation.
 
 - [THOUGHT](https://inshell.art/docs/thought) — THOUGHT is one bounded Agent Art practice: an exact human–Agent exchange becomes a globally unique work.
 - [WILL](https://inshell.art/docs/will) — WILL is Inshell's crowd movement about delegated human will and Agent action.
 - [AWA](https://inshell.art/docs/awa) — AWA is Inshell's movement from the crowd toward its core.
-- [PATH](https://inshell.art/docs/path) — PATH carries permission and progress across Inshell's movements.
-- [Pulse](https://inshell.art/docs/pulse) — Pulse turns public timing into the issue price for each new PATH.
+- [$PATH](https://inshell.art/docs/path) — $PATH carries permission and progress across Inshell's movements.
+- [Pulse](https://inshell.art/docs/pulse) — Pulse turns public timing into the issue price for each new $PATH.
 
 ### Records and verification
 
@@ -37,6 +37,7 @@ Inspect how artwork, metadata, contracts, wallets, releases, and evidence remain
 
 - [Contracts](https://inshell.art/docs/contracts) — Contract responsibilities remain separate across auction, issuance, permission, and artwork minting.
 - [Artwork, Metadata, and Chain](https://inshell.art/docs/artwork-metadata-chain) — Artwork and metadata stay legible only when their chain and release context stay attached.
+- [Fully Onchain](https://inshell.art/docs/fully-onchain) — Inshell keeps a work's canonical image and metadata with its onchain record so the work does not depend on a website or media host.
 - [Mono 76](https://inshell.art/docs/mono-76) — Mono 76 is Inshell's sealed native-SVG type system for deterministic artwork text.
 - [Verification](https://inshell.art/docs/verification) — Verification separates records, releases, observations, and claims before drawing conclusions.
 - [Wallet and Local Data](https://inshell.art/docs/wallet-local-data) — Wallet actions, browser storage, Agent runs, and chain records cross different trust boundaries.
@@ -56,7 +57,7 @@ Read the design choices that give the practice form without turning its truth in
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/inshell
-- Documentation version: 2026-08-15
+- Documentation version: 2026-08-16
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### The inward direction
@@ -157,7 +158,7 @@ Inshell forms movements, artworks, and participatory systems that call people in
 
 - Home presents minted THOUGHT works from the active public chain.
 - THOUGHT is the active creation surface for one human intention and one Agent response.
-- PATH shows the permission records that carry movements forward.
+- $PATH shows the permission records that carry movements forward.
 - Pulse exposes the live issuance mechanism and its history.
 - Verify and the Agent-readable documents expose sources, releases, and evidence boundaries.
 
@@ -167,7 +168,7 @@ Inshell forms movements, artworks, and participatory systems that call people in
 
 - Authority: artist-editorial, contract-release
 
-Inshell alone names the artist. THOUGHT, WILL, and AWA name movements. PATH is a permission token and movement ledger. Pulse is the serial auction that issues public PATH tokens. Their roles connect, but they should not be collapsed into one product, one authorship claim, or a complete definition of Agent Art.
+Inshell alone names the artist. THOUGHT, WILL, and AWA name movements. $PATH is a permission token and movement ledger. Pulse is the serial auction that issues public $PATH tokens. Their roles connect, but they should not be collapsed into one product, one authorship claim, or a complete definition of Agent Art.
 
 
 ### Links
@@ -185,7 +186,7 @@ Inshell alone names the artist. THOUGHT, WILL, and AWA name movements. PATH is a
 - Status: current
 - Authority classes in this document: artist-editorial
 - Canonical page: https://inshell.art/docs/agent-art
-- Documentation version: 2026-08-15
+- Documentation version: 2026-08-16
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### The invariant and the open field
@@ -252,13 +253,13 @@ Protocols, interfaces, renderers, provenance, and public chains are materials in
 
 ## Movements
 
-> Inshell's movements follow an artistic PATH from an individual's thought, through a crowd's will, toward Inshell's core.
+> Inshell's movements follow an artistic path from an individual's thought, through a crowd's will, toward Inshell's core.
 
 - Group: Start here
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/movements
-- Documentation version: 2026-08-15
+- Documentation version: 2026-08-16
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### The movement arc
@@ -275,7 +276,7 @@ Protocols, interfaces, renderers, provenance, and public chains are materials in
   - `individual-to-crowd: thought (THOUGHT) --[→ / ↓ · The movement arc goes from individual to crowd.]--> will (WILL)`
   - `crowd-toward-core: will (WILL) --[→ / ↓ · The movement arc continues from crowd toward the core.]--> awa (AWA)`
 - Semantic groups:
-  - `movement-phases [phase]: The named PATH from individual to crowd toward the core. [members: thought (THOUGHT) · will (WILL) · awa (AWA)]`
+  - `movement-phases [phase]: The named $PATH from individual to crowd toward the core. [members: thought (THOUGHT) · will (WILL) · awa (AWA)]`
 
 ```text
 THOUGHT  →  WILL  →  AWA
@@ -290,11 +291,11 @@ Individual   Crowd   Toward the core
 
 - Authority: artist-editorial
 
-[THOUGHT](https://inshell.art/docs/thought), [WILL](https://inshell.art/docs/will), and [AWA](https://inshell.art/docs/awa) are three Inshell movements within Agent Art. Together they take a path from the individual, through the crowd, toward the core of Inshell. That arc gives [PATH](https://inshell.art/docs/path) its name and its design: PATH carries permission and records progress across the movements without being a movement artwork itself.
+[THOUGHT](https://inshell.art/docs/thought), [WILL](https://inshell.art/docs/will), and [AWA](https://inshell.art/docs/awa) are three Inshell movements within Agent Art. Together they take a path from the individual, through the crowd, toward the core of Inshell. That arc gives [$PATH](https://inshell.art/docs/path) its name and its design: $PATH carries permission and records progress across the movements without being a movement artwork itself.
 
 Each movement gives the inward practice—inspect self—a different scope. Agent participation remains the invariant of [Agent Art](https://inshell.art/docs/agent-art), while the relation among people, Agents, and the work can change from movement to movement.
 
-The order is THOUGHT, then WILL, then AWA. The order is artistic before it is technical: the movements change the scope of participation, while PATH contract state makes the sequence operable as permission and legible as progress.
+The order is THOUGHT, then WILL, then AWA. The order is artistic before it is technical: the movements change the scope of participation, while $PATH makes the sequence usable as bounded permission and records participation across it.
 
 This sequence belongs to Inshell. It gives the inward direction—inspect self—successive forms without claiming to contain or prove truth. It is not a definition, taxonomy, required progression, or outer boundary for Agent Art.
 
@@ -330,26 +331,19 @@ AWA turns from the crowd toward the core of Inshell. That direction does not cla
 
 The docs name the direction without prescribing its participation relation, mechanism, or artwork form.
 
-### Why PATH carries progress
+### How $PATH permits movement
 
 - Authority: artist-editorial, app-documentation, contract-release
 
-PATH is named for the artistic path from individual to crowd to core. Its design makes that path operable as permission and legible as progress: one PATH record carries configured capacity across THOUGHT, WILL, and AWA. PATH is the route and ledger, not a fourth movement or one of its artworks.
+$PATH is the permission token that connects a participant to the movement sequence. It does not define a movement or create its artwork. It lets the holder authorize an eligible work in the movement $PATH has reached.
 
-A PATH does not advance because a page says that it has. PathNFT configures one quota per movement across a deployment, while each PATH keeps its own stage and progress against those movement totals. A successful movement work mint consumes one unit from that PATH. The next configured movement can open only when the active movement's quota has been used.
-
-Contract state records participation, not inward achievement. It does not measure self-knowledge, establish a crowd's will, or prove access to Inshell's core.
-
-- Used is the number of units successful work mints have consumed from this PATH.
-- Total is the deployed quota for that movement, applied to every PATH in the deployment.
-- Remaining is that quota minus this PATH's derived used count, never a marketing quota.
-- Not available means the deployed contract exposes no quota for that movement.
+When the work is successfully minted, one unit of permission is used and $PATH records the progress. The movement remains the artwork; $PATH remains permission and public memory.
 
 ### Evidence boundary
 
 - Authority: artist-editorial, app-documentation
 
-The movement arc describes an artistic order. A deployed PATH can make a configured sequence operable, but movement names alone do not establish a creation surface, mint surface, capacity, or deployment.
+The movement arc describes an artistic order. A movement name alone does not establish $PATH permission, capacity, a creation surface, a mint surface, or a deployment.
 
 > Do not infer availability, capacity, or deployment from a movement name.
 
@@ -359,7 +353,7 @@ The movement arc describes an artistic order. A deployed PATH can make a configu
 - [read THOUGHT — the individual](https://inshell.art/docs/thought)
 - [read WILL — the crowd](https://inshell.art/docs/will)
 - [read AWA — the core](https://inshell.art/docs/awa)
-- [read how PATH carries movement permission](https://inshell.art/docs/path)
+- [read how $PATH carries movement permission](https://inshell.art/docs/path)
 - [enter THOUGHT](https://inshell.art/thought)
 
 ## THOUGHT
@@ -370,24 +364,24 @@ The movement arc describes an artistic order. A deployed PATH can make a configu
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/thought
-- Documentation version: 2026-08-15
+- Documentation version: 2026-08-16
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
 
 - Authority: artist-editorial, app-documentation, contract-release
 
-THOUGHT is the first movement on Inshell's [PATH](https://inshell.art/docs/path) and begins with the individual. It gives the inward direction—inspect self—a bounded occasion: simply inspect your thought and what becomes visible when one Agent responds. The thought's words, source, and motivation remain open to inspection, as do the knowledge it carries and the reasons that knowledge became believable. The Agent response enters that practice as another exact line to read; it does not resolve the thought or claim possession of its truth.
+THOUGHT is the first movement on Inshell's [$PATH](https://inshell.art/docs/path) and begins with the individual. It gives the inward direction—inspect self—a bounded occasion: simply inspect your thought and what becomes visible when one Agent responds. The thought's words, source, and motivation remain open to inspection, as do the knowledge it carries and the reasons that knowledge became believable. The Agent response enters that practice as another exact line to read; it does not resolve the thought or claim possession of its truth.
 
 Within the wider field of [Agent Art](https://inshell.art/docs/agent-art), THOUGHT chooses a narrow terminal practice: one exact human prompt and one exact Agent response. Their ordered pair defines the globally unique work; either line may appear again with a different counterpart.
 
-The creation flow is: human prompt → Agent response → validation and canonical record assembly → human selection → wallet confirmation → PATH movement consumption → THOUGHT minted. The Agent responds. The human decides. The wallet confirms. The contract records.
+The creation flow is: human prompt → Agent response → validation and canonical record assembly → human selection → wallet confirmation → $PATH movement consumption → THOUGHT minted. The Agent responds. The human decides. The wallet confirms. The contract records.
 
 Prompt and Agent response are each 1–64 bytes of Terminal English. Allowed characters are space, A–Z, a–z, 0–9, and . , ? ! : ; ' " - ( ) / &. Leading spaces, trailing spaces, and repeated internal spaces are rejected. Validation never trims, normalizes, repairs, translates, or rewrites accepted bytes.
 
-The human reviews the returned response and preview, then decides whether to preserve, discard, or mint the work. To mint, the human picks an available PATH, signs a one-mint permission bound to the current PATH state and ThoughtNFT executor, and confirms the transaction in the [wallet](https://inshell.art/docs/wallet-local-data). The signature is not a transaction and uses no gas.
+The human reviews the returned response and preview, then decides whether to preserve, discard, or mint the work. To mint, the human picks an available $PATH, signs a one-mint permission bound to the current $PATH state and ThoughtNFT executor, and confirms the transaction in the [wallet](https://inshell.art/docs/wallet-local-data). The signature is not a transaction and uses no gas.
 
-A successful mint atomically consumes exactly one THOUGHT unit from the selected PATH. A canceled or failed mint consumes nothing and does not reserve the prompt-response pair.
+A successful mint atomically consumes exactly one THOUGHT unit from the selected $PATH. A canceled or failed mint consumes nothing and does not reserve the prompt-response pair.
 
 The composition uses a black field, terminal glyphs, the prompt above, and the Agent response below. ThoughtNFT returns the canonical 1024-by-1024 SVG and token metadata. The App preview must remain byte-aligned with the pinned renderer release; it is not a second artwork source.
 
@@ -433,6 +427,117 @@ A THOUGHT is the ordered pair of one exact human prompt and one exact Agent resp
 
 The Agent return is a candidate until the human accepts it and a valid mint succeeds. Closing the page, saving locally, or generating a preview does not create an onchain THOUGHT token.
 
+This rendered example shows one work. Its readable SVG source is presented in [Fully Onchain](https://inshell.art/docs/fully-onchain#docs-fully-onchain-inshell).
+
+### THOUGHT work example
+
+```svg
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" data-renderer="inshell.thought.renderer.v2.mono-76-v1-im76-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom" data-glyph-library-member="inshell.mono-76" data-glyph-format="IM76-v1" data-glyph-release="v1.0.0" data-glyph-svg-baseline="12" data-glyph-scale="2.88" data-glyph-origin-shift-x="1" data-wrap="greedy-space-then-fixed-cell-overlong-word" data-prompt-vertical-align="top" data-agent-vertical-align="bottom" aria-label="Prompt and Agent response in a terminal chat layout">
+<rect id="work-frame" width="1024" height="1024" fill="#006100"/>
+<g id="work-canvas" transform="translate(32 32)">
+<rect id="canvas-bg" width="960" height="960" fill="#000000"/>
+<defs>
+<path id="g54" d="M.5 9.9L7.5 9.9M4 9.9L4 .6"/>
+<path id="g57" d="M0 9.9L2 .6L4 7.2L6 .6L8 9.9"/>
+<path id="g61" d="M1.4 6.5Q2.9 7.5 4.45 7.6Q6.75 7.65 7 5.35L7 .3M6.95 4.65L3 4Q1.55 3.65 1.3 2.4Q1.3 .3 3.95 .45Q6 .5 6.95 2.2"/>
+<path id="g62" d="M1.3 .6L1.3 10.8M1.3 5.3Q2.3 7.35 4.4 7.4Q7.1 7.4 7.2 4Q7.2 .4 4.15 .4Q2.3 .4 1.3 2.1"/>
+<path id="g63" d="M6.9 6.3Q5.9 7.4 4 7.4Q1.2 7.4 1.1 3.9Q1.25 .45 4 .4Q5.8 .6 6.9 1.2"/>
+<path id="g64" d="M6.7 .6L6.7 10.8M6.7 5.3Q5.8 7.35 3.7 7.4Q.9 7.4 .8 3.9Q.9 .4 3.8 .4Q5.8 .4 6.7 2.1"/>
+<path id="g65" d="M1.2 4L6.9 4Q6.8 7.4 4.1 7.4Q1.2 7.4 1.1 3.9Q1.2 .4 4 .4Q5.75 .45 6.9 1.2"/>
+<path id="g66" d="M3.6 .3L3.65 8.45Q3.65 10.95 5.85 10.95Q6.8 10.95 7.8 10.6M1.4 7.25L7.05 7.25"/>
+<path id="g68" d="M1.25 .4L1.3 10.8M1.3 5.3Q2.3 7.35 4.3 7.4Q7.1 7.4 7.2 4L7.15 .35"/>
+<path id="g69" d="M1.3 7.25L5 7.25M5 7.25L5 .35M5 10.35L5.4 10.75L5 11.15L4.6 10.75Z"/>
+<path id="g6b" d="M1.25 .35L1.25 10.8M7 7.7L1.85 3M4.05 4.35L7.25 .4"/>
+<path id="g6c" d="M1.1 10.8L3.5 10.8L3.5 2Q3.5 .4 5.5 .4Q6.7 .4 7.5 1.2"/>
+<path id="g6e" d="M1.25 .35L1.3 7.4M1.3 5.2Q2.4 7.35 4.4 7.4Q7.3 7.4 7.3 4L7.3 .35"/>
+<path id="g6f" d="M4 7.4Q1.2 7.4 1.1 3.9Q1.2 .4 4 .4Q7 .4 7 3.9Q7 7.4 4 7.4Z"/>
+<path id="g72" d="M2.05 .25L2.1 7.4M2.1 4.7Q3.7 7.1 5.4 7.35Q6.45 7.5 7.1 7.15"/>
+<path id="g73" d="M7 6.3Q5.9 7.4 4 7.4Q1.3 7.4 1.3 5.7Q1.3 4.4 4 3.9Q7 3.4 7 2Q7 .4 4.1 .4Q2.2 .4 1.1 1.4"/>
+<path id="g74" d="M3.25 9.65L3.25 2Q3.25 .4 5.25 .4Q6.45 .4 7.25 1.2M.65 7.25L6.75 7.25"/>
+<path id="g75" d="M.75 7.2L.75 3Q.75 .4 3.75 .4Q6.75 .4 6.75 3L6.75 7.2M6.75 .6L6.75 2.2"/>
+<path id="g76" d="M1 7.2L3.9 .15L7 7.2"/>
+<path id="g78" d="M1 7.2L6.8 .1M7 7.2L1 .05"/>
+<path id="g79" d="M.8 7.2L3.8 .4M6.8 7.2L2.8 -2.7"/>
+<path id="g2e" d="M4 .15L4 1.9"/>
+<path id="g3f" d="M1.7 8.8Q2.5 10.3 4 10.3Q6.2 10.3 6.2 8.2Q6.2 6.8 4.1 5.5L4.1 4.3M3.95 .15L4 1.9"/>
+</defs>
+<g id="prompt-line" fill="none" stroke="#00ff00" stroke-width="1.23" stroke-linecap="round" stroke-linejoin="round" data-source="What if the future stays unclear?" data-rows="2" data-field-x="57.6" data-field-y="128" data-field-width="844.8" data-field-height="256" data-field-bottom="384" data-horizontal-align="right" data-vertical-align="top">
+<g transform="translate(214.08 171.52) scale(2.88 -2.88)">
+<use href="#g57"/>
+<use href="#g68" x="10"/>
+<use href="#g61" x="20"/>
+<use href="#g74" x="30"/>
+<use href="#g69" x="50"/>
+<use href="#g66" x="60"/>
+<use href="#g74" x="80"/>
+<use href="#g68" x="90"/>
+<use href="#g65" x="100"/>
+<use href="#g66" x="120"/>
+<use href="#g75" x="130"/>
+<use href="#g74" x="140"/>
+<use href="#g75" x="150"/>
+<use href="#g72" x="160"/>
+<use href="#g65" x="170"/>
+<use href="#g73" x="190"/>
+<use href="#g74" x="200"/>
+<use href="#g61" x="210"/>
+<use href="#g79" x="220"/>
+<use href="#g73" x="230"/>
+</g>
+<g transform="translate(674.88 235.52) scale(2.88 -2.88)">
+<use href="#g75"/>
+<use href="#g6e" x="10"/>
+<use href="#g63" x="20"/>
+<use href="#g6c" x="30"/>
+<use href="#g65" x="40"/>
+<use href="#g61" x="50"/>
+<use href="#g72" x="60"/>
+<use href="#g3f" x="70"/>
+</g>
+</g>
+<g id="agent-line" fill="none" stroke="#00ff00" stroke-width="1.23" stroke-linecap="round" stroke-linejoin="round" data-source="Then choose the next visible kindness." data-rows="2" data-field-x="57.6" data-field-y="576" data-field-width="844.8" data-field-height="256" data-field-bottom="832" data-horizontal-align="left" data-vertical-align="bottom">
+<g transform="translate(60.48 747.52) scale(2.88 -2.88)">
+<use href="#g54"/>
+<use href="#g68" x="10"/>
+<use href="#g65" x="20"/>
+<use href="#g6e" x="30"/>
+<use href="#g63" x="50"/>
+<use href="#g68" x="60"/>
+<use href="#g6f" x="70"/>
+<use href="#g6f" x="80"/>
+<use href="#g73" x="90"/>
+<use href="#g65" x="100"/>
+<use href="#g74" x="120"/>
+<use href="#g68" x="130"/>
+<use href="#g65" x="140"/>
+<use href="#g6e" x="160"/>
+<use href="#g65" x="170"/>
+<use href="#g78" x="180"/>
+<use href="#g74" x="190"/>
+<use href="#g76" x="210"/>
+<use href="#g69" x="220"/>
+<use href="#g73" x="230"/>
+<use href="#g69" x="240"/>
+<use href="#g62" x="250"/>
+<use href="#g6c" x="260"/>
+<use href="#g65" x="270"/>
+</g>
+<g transform="translate(60.48 811.52) scale(2.88 -2.88)">
+<use href="#g6b"/>
+<use href="#g69" x="10"/>
+<use href="#g6e" x="20"/>
+<use href="#g64" x="30"/>
+<use href="#g6e" x="40"/>
+<use href="#g65" x="50"/>
+<use href="#g73" x="60"/>
+<use href="#g73" x="70"/>
+<use href="#g2e" x="80"/>
+</g>
+</g>
+</g>
+</svg>
+```
+
 ### Terminal English
 
 - Authority: app-documentation, contract-release
@@ -450,13 +555,13 @@ Both lines are intentionally narrow: 1–64 bytes, a published character set, no
 
 - Authority: app-documentation, contract-release
 
-The human can preserve a candidate locally, discard it, or move toward minting. Minting adds two explicit consent boundaries: a signature that authorizes one defined PATH use, then a wallet transaction that can change chain state.
+The human can preserve a candidate locally, discard it, or move toward minting. Minting adds two explicit consent boundaries: a signature that authorizes one defined $PATH use, then a wallet transaction that can change chain state.
 
 1. Read the prompt, response, Agent record, model record when available, and visual preview.
-2. Choose a PATH with available THOUGHT capacity.
+2. Choose a $PATH with available THOUGHT capacity.
 3. Sign the one-mint permission. This signature is not a transaction and uses no gas.
 4. Review and confirm the mint transaction in the wallet.
-5. Wait for the contract result before treating the pair or PATH capacity as consumed.
+5. Wait for the contract result before treating the pair or $PATH capacity as consumed.
 
 ### The Agent handoff
 
@@ -489,15 +594,15 @@ The prompt on the Docs page is a read-only invitation to learn about Inshell. A 
 
 The copied handoff is complete as written. It installs nothing, downloads no executable, and uses explicit JSON requests rather than hidden code. An Agent environment may ask permission to contact the App endpoint. That is narrow network permission for the handoff, not wallet access, a signature, or a transaction. The handoff never asks for a private key or seed phrase.
 
-The THOUGHT App gives the selected Agent a sealed task containing the exact prompt, the active protocol release, and the output boundary. The Agent returns one exact candidate line. It does not choose a PATH, select an account, approve a signature, or submit the mint transaction.
+The THOUGHT App gives the selected Agent a sealed task containing the exact prompt, the active protocol release, and the output boundary. The Agent returns one exact candidate line. It does not choose a $PATH, select an account, approve a signature, or submit the mint transaction.
 
-After the return, the App checks the exact bytes and assembles the creation record. The human reviews the candidate and canonical preview, decides whether to keep it, chooses the PATH, and asks the wallet to sign and mint. This keeps creative participation, App orchestration, human selection, wallet consent, and contract validation as separate boundaries.
+After the return, the App checks the exact bytes and assembles the creation record. The human reviews the candidate and canonical preview, decides whether to keep it, chooses the $PATH, and asks the wallet to sign and mint. This keeps creative participation, App orchestration, human selection, wallet consent, and contract validation as separate boundaries.
 
 The ordinary App flow can bind its record through a Creation Attestation. ThoughtNFT also permits a direct mint that satisfies its public contract checks without an App proof; that result is recorded as Unattested rather than being presented as an App-attested run.
 
 - Agent: receives a bounded task and returns one candidate line.
 - App: validates bytes, builds the preview, and assembles the creation record.
-- Human: accepts or discards the candidate and selects the PATH.
+- Human: accepts or discards the candidate and selects the $PATH.
 - Wallet: signs the narrow permission and confirms the transaction.
 - Contracts: enforce uniqueness, permission, movement use, and mint validity.
 
@@ -515,45 +620,6 @@ The NFT tokenURI supplies the canonical image and portable metadata. A screensho
 
 - Authority: app-documentation, contract-release
 
-### Creation Attestation
-
-- Authority: app-documentation, contract-release
-- Figure ID: thought.creation-attestation
-- Figure mode: field
-- Semantic form: fork
-- Semantic nodes:
-  - `recorded-values [record]: Recorded values — Human line · Agent line · Agent/model records · specification · renderer · mint anchors`
-  - `creation-attestation [action]: Creation Attestation — Configured App authority signs one exact claim. ThoughtNFT validates that claim during minting.`
-  - `valid-proof [operator]: valid proof`
-  - `empty-proof [operator]: empty proof`
-  - `app-attested [result]: App Attested — Valid proof binds the mint to recorded values.`
-  - `unattested [result]: Unattested — Empty proof makes the absence explicit.`
-- Semantic edges:
-  - `values-to-attestation: recorded-values (Recorded values) --[↓ · Recorded values are bound into one Creation Attestation claim that the contract validates during minting.]--> creation-attestation (Creation Attestation)`
-  - `attestation-valid-branch: creation-attestation (Creation Attestation) --[├─ · Creation Attestation takes the valid-proof branch.]--> valid-proof (valid proof)`
-  - `valid-proof-result: valid-proof (valid proof) --[→ · A valid proof produces an App Attested result.]--> app-attested (App Attested)`
-  - `attestation-empty-branch: creation-attestation (Creation Attestation) --[└─ · Creation Attestation takes the empty-proof branch.]--> empty-proof (empty proof)`
-  - `empty-proof-result: empty-proof (empty proof) --[→ · An empty proof produces an explicit Unattested result.]--> unattested (Unattested)`
-
-```text
-RECORDED VALUES
-Human line · Agent line · Agent/model records ·
-specification · renderer · mint anchors
-   ↓
-CREATION ATTESTATION
-Configured App authority signs one exact claim.
-ThoughtNFT validates that claim during minting.
-   ├─ valid proof → APP ATTESTED
-   │  Valid proof binds the mint to recorded values.
-   └─ empty proof → UNATTESTED
-      Empty proof makes the absence explicit.
-```
-
-- **Recorded values** — Human line · Agent line · Agent/model records · specification · renderer · mint anchors
-- **Creation Attestation** — Configured App authority signs one exact claim. ThoughtNFT validates that claim during minting.
-- **App Attested** — Valid proof binds the mint to recorded values.
-- **Unattested** — Empty proof makes the absence explicit.
-
 Creation provenance keeps the human line, Agent line, selected Agent, runtime-reported model when available, specification, renderer context, and mint anchors connected. A Creation Attestation signs one exact claim assembled by the configured App authority, and ThoughtNFT validates that claim during minting.
 
 This is strong evidence that the accepted mint was bound to those exact recorded values. It is not proof of hidden model reasoning, a universal provider identity guarantee, or a declaration that one participant owns all authorship.
@@ -567,7 +633,7 @@ This is strong evidence that the accepted mint was bound to those exact recorded
 
 - Authority: app-documentation
 
-Save and Load are browser conveniences for unfinished or remembered works. They do not mint, reserve uniqueness, consume PATH capacity, create a portable account, or synchronize to another browser. Agent run state is likewise temporary unless a later public record explicitly preserves part of it.
+Save and Load are browser conveniences for unfinished or remembered works. They do not mint, reserve uniqueness, consume $PATH capacity, create a portable account, or synchronize to another browser. Agent run state is likewise temporary unless a later public record explicitly preserves part of it.
 
 
 ### Links
@@ -575,7 +641,7 @@ Save and Load are browser conveniences for unfinished or remembered works. They 
 - [read all Movements](https://inshell.art/docs/movements)
 - [continue to WILL](https://inshell.art/docs/will)
 - [read AWA — the core](https://inshell.art/docs/awa)
-- [read PATH movement consumption](https://inshell.art/docs/path#docs-path-consumption)
+- [read $PATH movement consumption](https://inshell.art/docs/path#docs-path-consumption)
 - [create a THOUGHT](https://inshell.art/thought)
 - [view minted THOUGHT works](https://inshell.art/)
 - [read Mono 76](https://inshell.art/docs/mono-76)
@@ -591,47 +657,16 @@ Save and Load are browser conveniences for unfinished or remembered works. They 
 - Status: study
 - Authority classes in this document: artist-editorial, app-documentation
 - Canonical page: https://inshell.art/docs/will
-- Documentation version: 2026-08-15
+- Documentation version: 2026-08-16
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
-
-### From delegated will to a result
-
-- Authority: artist-editorial
-- Figure ID: will.open-field
-- Figure mode: field
-- Semantic form: fork
-- Semantic nodes:
-  - `human [subject]: Human — Forms an aim`
-  - `agent [subject]: Agent — Acts toward the delegated aim`
-  - `crowd-dynamic [structural]: Crowd dynamic`
-  - `result [result]: Result — A result can emerge from the interaction.`
-- Semantic edges:
-  - `delegate-will: human (Human) --[→ · A human delegates will and authority to an Agent. · Will + authority]--> agent (Agent)`
-  - `human-enters-crowd-dynamic: human (Human) --[↘ · Human participation enters the crowd dynamic.]--> crowd-dynamic (Crowd dynamic)`
-  - `agent-enters-crowd-dynamic: agent (Agent) --[↙ · Agent action enters the crowd dynamic.]--> crowd-dynamic (Crowd dynamic)`
-  - `crowd-dynamic-produces-result: crowd-dynamic (Crowd dynamic) --[↓ · The crowd dynamic can produce a result.]--> result (Result)`
-
-```text
-HUMAN ── WILL + AUTHORITY ──→ AGENT
-Forms an aim                 Acts toward the delegated aim
-   ↘                              ↙
-               CROWD DYNAMIC
-                     ↓
-                  RESULT
-       A result can emerge from the interaction.
-```
-
-- **Human** — Forms an aim
-- **Agent** — Acts toward the delegated aim
-- **Result** — A result can emerge from the interaction.
 
 ### Overview
 
 - Authority: artist-editorial
 
-WILL is the second movement on Inshell's [PATH](https://inshell.art/docs/path). Where [THOUGHT](https://inshell.art/docs/thought) begins with one individual's thought, WILL moves from one person to a crowd.
+WILL is the second movement on Inshell's [$PATH](https://inshell.art/docs/path). Where [THOUGHT](https://inshell.art/docs/thought) begins with one individual's thought, WILL moves from one person to a crowd.
 
-It asks what happens when a human authorizes an Agent to act toward an aim, and what result may form when many such relations interact.
+WILL asks what happens when a human delegates will and authority to an Agent acting toward an aim, and what result may emerge as many human-Agent relations form a crowd.
 
 Here, crowd names the move from one participant to many. It does not mean a society, consensus, or shared mind.
 
@@ -648,6 +683,7 @@ This description defines an artistic direction. It is not a creation surface, mi
 
 ### Links
 
+- [open WILL](https://inshell.art/will)
 - [read all Movements](https://inshell.art/docs/movements)
 - [return to THOUGHT](https://inshell.art/docs/thought)
 - [continue to AWA](https://inshell.art/docs/awa)
@@ -660,39 +696,14 @@ This description defines an artistic direction. It is not a creation surface, mi
 - Status: study
 - Authority classes in this document: artist-editorial, app-documentation
 - Canonical page: https://inshell.art/docs/awa
-- Documentation version: 2026-08-15
+- Documentation version: 2026-08-16
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
-
-### Toward the core
-
-- Authority: artist-editorial
-- Figure ID: awa.open-horizon
-- Figure mode: trace
-- Semantic form: trace
-- Semantic nodes:
-  - `thought [state]: THOUGHT — Individual`
-  - `will [state]: WILL — Crowd`
-  - `awa [state]: AWA — Toward the core`
-  - `open-horizon [state]: …`
-- Semantic edges:
-  - `thought-to-will: thought (THOUGHT) --[→ / ↓ · The path moves from individual THOUGHT to crowd WILL.]--> will (WILL)`
-  - `will-toward-awa: will (WILL) --[→ / ↓ · The path points from crowd WILL toward AWA and the core; arrival is not claimed.]--> awa (AWA)`
-  - `awa-toward-open-horizon: awa (AWA) --[→ / ↓ · AWA remains open toward a core that is not claimed as reached.]--> open-horizon (…)`
-
-```text
-THOUGHT  →  WILL  →  AWA  →  …
-Individual   Crowd   Toward the core
-```
-
-1. **THOUGHT** — Individual
-2. **WILL** — Crowd
-3. **AWA** — Toward the core
 
 ### Overview
 
 - Authority: artist-editorial
 
-AWA is the third movement on Inshell's [PATH](https://inshell.art/docs/path). After [THOUGHT](https://inshell.art/docs/thought)'s individual and [WILL](https://inshell.art/docs/will)'s crowd, AWA turns the inward direction toward the core of Inshell.
+AWA is the third movement on Inshell's [$PATH](https://inshell.art/docs/path). After [THOUGHT](https://inshell.art/docs/thought)'s individual and [WILL](https://inshell.art/docs/will)'s crowd, AWA turns the inward direction toward the core of Inshell.
 
 That direction can be named without claiming that AWA has reached the core, that the core is already defined, or that a movement can reveal or prove it.
 
@@ -713,38 +724,38 @@ Core names the movement's artistic direction, not a disclosed doctrine, technica
 - [return to THOUGHT](https://inshell.art/docs/thought)
 - [return to WILL](https://inshell.art/docs/will)
 
-## PATH
+## $PATH
 
-> PATH carries permission and progress across Inshell's movements.
+> $PATH carries permission and progress across Inshell's movements.
 
 - Group: Works and participation
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/path
-- Documentation version: 2026-08-15
+- Documentation version: 2026-08-16
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
 
 - Authority: artist-editorial, app-documentation, contract-release
 
-PATH is the canonical project and contract name. The interface may display $PATH as the token label. PATH is an ERC-721 permission token and movement ledger; it authorizes works but is not itself one of the movement artworks.
+$PATH is an ERC-721 permission token and movement ledger. It authorizes works but is not itself one of the movement artworks. PathNFT is the contract that owns its identity and state.
 
-Within the practice, PATH carries permission to enter successive movement forms. It records use and progress; it does not measure self-knowledge, certify an inner truth, or turn participation into a guaranteed transformation.
+Within the practice, $PATH carries permission to enter successive movement forms. It records use and progress; it does not measure self-knowledge, certify an inner truth, or turn participation into a guaranteed transformation.
 
-Public PATH tokens are issued through [Pulse](https://inshell.art/docs/pulse). The contract also supports a bounded Spark self-claim path for allowlisted recipients. Issuance route is a contract fact, not a claim that one token is more authentic than another.
+Public $PATH tokens are issued through [Pulse](https://inshell.art/docs/pulse). The contract also supports a bounded Spark self-claim path for allowlisted recipients. Issuance route is a contract fact, not a claim that one token is more authentic than another.
 
-PathNFT configures one quota for each movement across a deployment. Every PATH uses those movement totals, while each token records its own current stage and in-stage count. One successful movement mint consumes one unit from that token's current movement entitlement. Reaching the quota advances it through [THOUGHT](https://inshell.art/docs/thought), [WILL](https://inshell.art/docs/will), and [AWA](https://inshell.art/docs/awa) in order. Not available means the movement has no deployed quota.
+PathNFT configures one quota for each movement across a deployment. Every $PATH uses those movement totals, while each token records its own current stage and in-stage count. One successful movement mint consumes one unit from that token's current movement entitlement. Reaching the quota advances it through [THOUGHT](https://inshell.art/docs/thought), [WILL](https://inshell.art/docs/will), and [AWA](https://inshell.art/docs/awa) in order. Not available means the movement has no deployed quota.
 
 The token image and the stable Stage, THOUGHT, WILL, and AWA traits show movement progress. PathNFT emits a metadata update after a unit is consumed so compatible readers can refresh the token.
 
-A PATH detail page joins the canonical token image with capacity, movement tokens already authorized, owner, mint transaction, contract, network, and token metadata source. Pulse-issued tokens also include their original Pulse mint price.
+A $PATH detail page joins the canonical token image with capacity, movement tokens already authorized, owner, mint transaction, contract, network, and token metadata source. Pulse-issued tokens also include their original Pulse mint price.
 
 ### Permission, not the movement artwork
 
 - Authority: artist-editorial, contract-release
 
-PATH is an ERC-721 whose state authorizes participation across movements. It can point to THOUGHT, WILL, or AWA progress, but it is not a THOUGHT, WILL, or AWA artwork itself.
+$PATH is an ERC-721 whose state authorizes participation across movements. It can point to THOUGHT, WILL, or AWA progress, but it is not a THOUGHT, WILL, or AWA artwork itself.
 
 The token is also a ledger. Its movement totals and used counts let later readers see how much configured permission has been exercised without relying on a private account database.
 
@@ -752,7 +763,7 @@ The token is also a ledger. Its movement totals and used counts let later reader
 
 - Authority: artist-editorial, contract-release
 
-Public PATH issuance runs through Pulse. The contract can also expose a bounded Spark self-claim route for allowlisted recipients. The issuance route belongs to the token's history and can be shown as a fact, but it does not create a separate class of authenticity.
+Public $PATH issuance runs through Pulse. The contract can also expose a bounded Spark self-claim route for allowlisted recipients. The issuance route belongs to the token's history and can be shown as a fact, but it does not create a separate class of authenticity.
 
 - Pulse issuance includes the auction settlement and original price context.
 - Spark issuance depends on the contract's allowlist and claim rules.
@@ -762,45 +773,22 @@ Public PATH issuance runs through Pulse. The contract can also expose a bounded 
 
 - Authority: app-documentation, contract-release
 
-### Capacity and progress
-
-- Authority: app-documentation, contract-release
-- Figure ID: path.capacity-progress
-- Figure mode: ledger
-- Semantic form: ledger
-- Semantic nodes:
-  - `capacity [state]: Movement quota`
-  - `progress [state]: Used + remaining`
-- Semantic edges:
-  - `quota-equals-progress-total: capacity (Movement quota) --[= · For each PATH, the deployed movement quota equals used plus remaining entitlement.]--> progress (Used + remaining)`
-- Semantic groups:
-  - `capacity-column [lane]: Deployment [members: capacity (Movement quota)]`
-  - `progress-column [lane]: Each PATH [members: progress (Used + remaining)]`
-  - `quota-progress-equality [comparison]: For each PATH, used plus remaining entitlement equals the deployed movement quota. [members: capacity (Movement quota) · progress (Used + remaining)]`
-
-```text
-DEPLOYMENT             EACH PATH
-MOVEMENT QUOTA   =   USED + REMAINING
-```
-
-- **Movement quota** — Used + remaining
-
-PathNFT configures one quota and one authorized minter for each movement across the deployment. Every PATH uses those movement totals, while each token stores its own current stage and in-stage minted count. Remaining entitlement is derived from the deployed movement quota and that token's progress; it is not a separate stored balance.
+PathNFT configures one quota and one authorized minter for each movement across the deployment. Every $PATH uses those movement totals, while each token stores its own current stage and in-stage minted count. Remaining entitlement is derived from the deployed movement quota and that token's progress; it is not a separate stored balance.
 
 The v0.5.0 canonical deployment policy configures and freezes THOUGHT 1, WILL 10, and AWA 1. That release policy is not a live chain observation. Clients must read getMovementQuota on the named deployment instead of hard-coding those numbers.
 
-- Total: the deployed quota for the movement, applied to every PATH in that deployment.
-- Used: how many units successful mints have consumed from this PATH for that movement.
-- Remaining: total minus this PATH's derived used count.
+- Total: the deployed quota for the movement, applied to every $PATH in that deployment.
+- Used: how many units successful mints have consumed from this $PATH for that movement.
+- Remaining: total minus this $PATH's derived used count.
 - Not available: no capacity is configured; the App must not display a fictional zero-to-something progress bar.
 
 ### Consuming one movement unit
 
 - Authority: contract-release
 
-Selecting a PATH or signing its permission does not consume a unit. For one movement mint, the current owner authorizes a short-lived EIP-191 message bound to the PathNFT address, chain ID, PATH ID, movement, owner, configured movement minter, current permission epoch, the owner's current consume nonce, and a deadline. ERC-721 approval is not movement authorization, and only the configured movement minter may call consumeUnit.
+Selecting a $PATH or signing its permission does not consume a unit. For one movement mint, the current owner authorizes a short-lived EIP-191 message bound to the PathNFT address, chain ID, $PATH ID, movement, owner, configured movement minter, current permission epoch, the owner's current consume nonce, and a deadline. ERC-721 approval is not movement authorization, and only the configured movement minter may call consumeUnit.
 
-Before changing state, PathNFT checks the configured caller, the unexpired current-owner authorization, the fixed movement order, and remaining quota. On success it returns the unit's zero-based in-movement serial, advances the owner's consume nonce, and increments that PATH's current count. When the count reaches the movement quota, PATH advances to the next movement and resets its in-stage count. MetadataUpdate and MovementConsumed tell readers which PATH state to refresh.
+Before changing state, PathNFT checks the configured caller, the unexpired current-owner authorization, the fixed movement order, and remaining quota. On success it returns the unit's zero-based in-movement serial, advances the owner's consume nonce, and increments that $PATH's current count. When the count reaches the movement quota, $PATH advances to the next movement and resets its in-stage count. MetadataUpdate and MovementConsumed tell readers which $PATH state to refresh.
 
 The configured movement contract is responsible for pairing consumption with the artwork mint. It calls consumeUnit before minting the movement work inside the same transaction. If a later mint step reverts, the EVM rolls back the unit, nonce, progress, events, and work together. A canceled or failed flow consumes nothing.
 
@@ -808,11 +796,11 @@ The configured movement contract is responsible for pairing consumption with the
 
 - Authority: app-documentation, contract-release
 
-A regular PATH can be transferred. Its movement progress and remaining entitlement travel with the token; transfer never resets, duplicates, or replenishes them. Movement works minted before the transfer remain with their existing owners and are not included with the PATH.
+A regular $PATH can be transferred. Its movement progress and remaining entitlement travel with the token; transfer never resets, duplicates, or replenishes them. Movement works minted before the transfer remain with their existing owners and are not included with the $PATH.
 
-Only the current PATH owner can authorize movement use. ERC-721 approvals can authorize transfer of a regular PATH, but they do not authorize THOUGHT, WILL, or AWA consumption. Every successful regular transfer advances the PATH permission epoch, so a signature from an earlier owner or epoch becomes invalid. Every successful consume also advances the signing owner's consume nonce, invalidating other pending consume authorizations made with the old nonce.
+Only the current $PATH owner can authorize movement use. ERC-721 approvals can authorize transfer of a regular $PATH, but they do not authorize THOUGHT, WILL, or AWA consumption. Every successful regular transfer advances the $PATH permission epoch, so a signature from an earlier owner or epoch becomes invalid. Every successful consume also advances the signing owner's consume nonce, invalidating other pending consume authorizations made with the old nonce.
 
-Remaining entitlement is plain language for each movement's configured quota minus its minted count. It is derived from contract state, not a second counter or marketplace trait. A completed regular PATH may still transfer, but it carries zero remaining entitlement.
+Remaining entitlement is plain language for each movement's configured quota minus its minted count. It is derived from contract state, not a second counter or marketplace trait. A completed regular $PATH may still transfer, but it carries zero remaining entitlement.
 
 - Read owner, stage, minted count, quota, and permission epoch from one consistent block.
 - Re-read that snapshot before purchase or movement authorization.
@@ -822,21 +810,21 @@ Remaining entitlement is plain language for each movement's configured quota min
 
 - Authority: app-documentation, contract-release
 
-A Spark PATH is a bounded, named award issued through a contract invitation and self-claim flow. It carries the same movement progression and owner-only consume rights as a regular PATH, but it is permanently locked under ERC-5192 and cannot be transferred or listed.
+A Spark $PATH is a bounded, named award issued through a contract invitation and self-claim flow. It carries the same movement progression and owner-only consume rights as a regular $PATH, but it is permanently locked under ERC-5192 and cannot be transferred or listed.
 
 An invitation reserves one Spark slot until it is claimed, revoked, or released after expiry. The recipient reviews the exact issuer-supplied name and expiry, then claims from the invited wallet. After claim, the name is immutable. The invitation, reserved capacity, claim, and lock are contract facts; they are not a second authenticity tier for the artwork.
 
-- Regular PATH: transferable, subject to its current progress and permission epoch.
-- Spark PATH: permanently locked, named, and still usable by its owner for eligible movement mints.
+- Regular $PATH: transferable, subject to its current progress and permission epoch.
+- Spark $PATH: permanently locked, named, and still usable by its owner for eligible movement mints.
 - Available reserved capacity and pending invitations are different issuer states and must not be merged.
 
-### Reading a PATH detail page
+### Reading a $PATH detail page
 
 - Authority: app-documentation, contract-release
 
 1. Confirm the active network and PathNFT contract address.
 2. Read the token ID, owner, issuance route, and mint transaction.
-3. Read each movement's deployed quota and this PATH's derived used and remaining capacity.
+3. Read each movement's deployed quota and this $PATH's derived used and remaining capacity.
 4. Before authorizing a movement mint, read the current owner, stage, configured minter, permission epoch, and owner consume nonce from current state.
 5. Follow linked movement token IDs to the contracts that minted those works.
 6. Compare the displayed artwork and traits with the tokenURI source.
@@ -848,29 +836,29 @@ An invitation reserves one Spark slot until it is claimed, revoked, or released 
 
 - [view $PATH tokens](https://inshell.art/path)
 - [read the contract consume boundary](https://inshell.art/docs/contracts#docs-contracts-consumption)
-- [inspect the PATH v0.5.0 handoff](https://inshell.art/protocol/releases/path-v0.5.0/DOWNSTREAM_HANDOFF.md)
+- [inspect the $PATH v0.5.0 handoff](https://inshell.art/protocol/releases/path-v0.5.0/DOWNSTREAM_HANDOFF.md)
 - [read about Pulse](https://inshell.art/docs/pulse)
 - [read Mono 76](https://inshell.art/docs/mono-76)
 - [verify $PATH contracts](https://inshell.art/verify#verify-contracts)
 
 ## Pulse
 
-> Pulse turns public timing into the issue price for each new PATH.
+> Pulse turns public timing into the issue price for each new $PATH.
 
 - Group: Works and participation
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/pulse
-- Documentation version: 2026-08-15
+- Documentation version: 2026-08-16
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
 
 - Authority: artist-editorial, app-documentation, contract-release
 
-[PATH](https://inshell.art/docs/path) is the permission token; Pulse is the serial mechanism that prices and issues the next public token. They are not interchangeable names.
+[$PATH](https://inshell.art/docs/path) is the permission token; Pulse is the serial mechanism that prices and issues the next public token. They are not interchangeable names.
 
-Pulse runs one live epoch, one current ask, and one next token at a time. A successful bid closes the epoch, records the sale, issues the corresponding PATH, and starts the next epoch.
+Pulse runs one live epoch, one current ask, and one next token at a time. A successful bid closes the epoch, records the sale, issues the corresponding $PATH, and starts the next epoch.
 
 Pulse shapes the ask over time. A successful bid closes the current epoch and starts the next one. The next ask is raised by an initial premium. Between sales, the ask decays toward the floor. Equivalently, premium decays toward zero. Settlement samples the ask at sale time.
 
@@ -912,35 +900,7 @@ a = anchor time
 
 - Authority: artist-editorial, contract-release
 
-### One Pulse epoch
-
-- Authority: contract-release
-- Figure ID: pulse.epoch
-- Figure mode: trace
-- Semantic form: cycle
-- Semantic nodes:
-  - `ask [state]: Ask — Decay`
-  - `bid [action]: Bid — Pump`
-  - `next-ask [result]: Next ask`
-- Semantic edges:
-  - `ask-decays-to-bid: ask (Ask) --[↓ · The current ask decays until a bid succeeds. · Decay]--> bid (Bid)`
-  - `bid-pumps-next-ask: bid (Bid) --[↓ · The successful bid pumps the next ask. · Pump]--> next-ask (Next ask)`
-  - `next-epoch-loop: next-ask (Next ask) --[↺ · The next ask becomes the current ask in the next epoch. · next epoch]--> ask (Ask)`
-
-```text
-ASK
-↓ decay
-BID
-↓ pump
-NEXT ASK
-↺ next epoch
-```
-
-1. **Ask** — Decay
-2. **Bid** — Pump
-3. **Next ask**
-
-Pulse has one current epoch and one next public PATH at a time. Participants are not choosing among parallel lots. The successful bid closes the visible curve, issues its PATH, and establishes the starting conditions for the following curve.
+Pulse has one current epoch and one next public $PATH at a time. Participants are not choosing among parallel lots. The successful bid closes the visible curve, issues its $PATH, and establishes the starting conditions for the following curve.
 
 This serial structure makes the history legible: every sale is both an ending and the input to what comes next.
 
@@ -978,14 +938,14 @@ The chart uses half-life units to make curves with different real-time durations
 
 The wallet transaction supplies a maximum acceptable price, not a promise to pay that entire amount. Pulse samples the live ask when the transaction executes. The bid succeeds only when that ask is within the submitted ceiling.
 
-On a successful ETH bid, the auction sends the exact ask to the treasury and refunds surplus value to the bidder. The sale closes the current epoch, records its settlement, and begins the next epoch. The adapter then translates that settlement into PATH delivery; Pulse itself remains independent of the NFT it prices.
+On a successful ETH bid, the auction sends the exact ask to the treasury and refunds surplus value to the bidder. The sale closes the current epoch, records its settlement, and begins the next epoch. The adapter then translates that settlement into $PATH delivery; Pulse itself remains independent of the NFT it prices.
 
 - Maximum price: the bidder's slippage ceiling.
 - Settlement price: the live ask accepted by the contract.
 - Value supplied: must cover the ask; unused value is refunded.
-- Delivery: PathPulseAdapter turns the settled auction result into PATH issuance.
+- Delivery: PathPulseAdapter turns the settled auction result into $PATH issuance.
 
-> A submitted transaction is not a completed sale. Read the receipt, events, and resulting contract state before presenting PATH as issued.
+> A submitted transaction is not a completed sale. Read the receipt, events, and resulting contract state before presenting $PATH as issued.
 
 ### Mechanism as artwork
 
@@ -1012,7 +972,7 @@ As one participatory system in Inshell's practice, Pulse makes collective timing
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/contracts
-- Documentation version: 2026-08-15
+- Documentation version: 2026-08-16
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
@@ -1023,7 +983,7 @@ The public architecture is [PulseAuction](https://inshell.art/docs/pulse) → Pa
 
 These contracts specify and enforce bounded actions within the practice. They can validate a permission, mint, or record, but they do not implement the truth named by Inshell or prove a participant's inward understanding.
 
-PulseAuction calculates the live ask, accepts a successful bid, and closes an epoch. PathPulseAdapter translates that settlement into PATH issuance. PathNFT mints and owns PATH state, movement order, and capacity. ThoughtNFT validates THOUGHT mint rules, records the work, and atomically consumes an authorized THOUGHT unit from PATH.
+PulseAuction calculates the live ask, accepts a successful bid, and closes an epoch. PathPulseAdapter translates that settlement into $PATH issuance. PathNFT mints and owns $PATH state, movement order, and capacity. ThoughtNFT validates THOUGHT mint rules, records the work, and atomically consumes an authorized THOUGHT unit from $PATH.
 
 The App orchestrates reads, previews, Agent runs, signatures, and wallet transactions. It does not replace contract validation. A wallet account submits the transaction; deployed contracts decide whether it is valid.
 
@@ -1033,69 +993,18 @@ ABIs, bytecode, renderer payloads, schemas, and manifests belong to [pinned rele
 
 - Authority: contract-release
 
-### Contract handoffs across issuance and minting
-
-- Authority: contract-release
-- Figure ID: contracts.handoffs
-- Figure mode: lanes
-- Semantic form: lanes
-- Semantic nodes:
-  - `pulse-settle [action]: Settle — Live ask · one serial epoch`
-  - `adapter-issue [action]: Issue — Valid settlement → PATH issuance`
-  - `path-record [record]: Record PATH — Issued PATH · order · capacity`
-  - `thought-validate [action]: Validate work — THOUGHT work · PATH permission`
-  - `path-consume [action]: Consume unit — Caller · owner · stage · quota`
-  - `thought-mint [result]: Mint + record — Atomic with PATH consumption`
-- Semantic edges:
-  - `settle-to-issue: pulse-settle (Settle) --[→ / ↓ · A valid Pulse settlement is handed to PathPulseAdapter for PATH issuance.]--> adapter-issue (Issue)`
-  - `issue-to-record: adapter-issue (Issue) --[→ / ↓ · PATH issuance is recorded by PathNFT.]--> path-record (Record PATH)`
-  - `validate-to-consume: thought-validate (Validate work) --[→ / ↓ · ThoughtNFT calls PathNFT to consume one authorized movement unit.]--> path-consume (Consume unit)`
-  - `consume-to-mint: path-consume (Consume unit) --[→ / ↓ · ThoughtNFT mints and records the work atomically with PATH consumption.]--> thought-mint (Mint + record)`
-- Semantic groups:
-  - `public-issuance-phase [phase]: Public issuance [members: pulse-settle (Settle) · adapter-issue (Issue) · path-record (Record PATH)]`
-  - `later-thought-mint-phase [phase]: Later THOUGHT mint [members: thought-validate (Validate work) · path-consume (Consume unit) · thought-mint (Mint + record)]`
-  - `pulse-auction-lane [lane]: PulseAuction [members: pulse-settle (Settle)]`
-  - `path-pulse-adapter-lane [lane]: PathPulseAdapter [members: adapter-issue (Issue)]`
-  - `path-nft-lane [lane]: PathNFT [members: path-record (Record PATH) · path-consume (Consume unit)]`
-  - `thought-nft-lane [lane]: ThoughtNFT [members: thought-validate (Validate work) · thought-mint (Mint + record)]`
-
-```text
-PUBLIC ISSUANCE
-PulseAuction / SETTLE
-Live ask · one serial epoch
-→ PathPulseAdapter / ISSUE
-Valid settlement → PATH issuance
-→ PathNFT / RECORD PATH
-Issued PATH · order · capacity
-
-LATER THOUGHT MINT
-ThoughtNFT / VALIDATE WORK
-THOUGHT work · PATH permission
-→ PathNFT / CONSUME UNIT
-Caller · owner · stage · quota
-→ ThoughtNFT / MINT + RECORD
-Atomic with PATH consumption
-```
-
-1. **PulseAuction · Settle · Public issuance** — Live ask · one serial epoch
-2. **PathPulseAdapter · Issue · Public issuance** — Valid settlement → PATH issuance
-3. **PathNFT · Record PATH · Public issuance** — Issued PATH · order · capacity
-4. **ThoughtNFT · Validate work · Later THOUGHT mint** — THOUGHT work · PATH permission
-5. **PathNFT · Consume unit · Later THOUGHT mint** — Caller · owner · stage · quota
-6. **ThoughtNFT · Mint + record · Later THOUGHT mint** — Atomic with PATH consumption
-
-The architecture separates pricing, issuance, permission, and artwork minting so each boundary can be inspected independently. Public PATH issuance and a later THOUGHT mint are separate phases. Contract calls and state handoffs connect them, but no contract owns all the others.
+The architecture separates pricing, issuance, permission, and artwork minting so each boundary can be inspected independently. Public $PATH issuance and a later THOUGHT mint are separate phases. Contract calls and state handoffs connect them, but no contract owns all the others.
 
 - PulseAuction owns the auction calculation and settlement rules.
-- PathPulseAdapter connects the auction to PATH issuance.
-- PathNFT owns PATH identity, issuance state, and movement capacity.
+- PathPulseAdapter connects the auction to $PATH issuance.
+- PathNFT owns $PATH identity, issuance state, and movement capacity.
 - ThoughtNFT owns THOUGHT validation, uniqueness, rendering references, metadata, and mint records.
 
 ### What the App does
 
 - Authority: app-documentation, contract-release
 
-The App reads state, assembles previews and creation records, requests Agent runs, helps the human choose a PATH, prepares signatures, and asks the wallet to submit transactions. It can make the workflow understandable, but it cannot override deployed validation.
+The App reads state, assembles previews and creation records, requests Agent runs, helps the human choose a $PATH, prepares signatures, and asks the wallet to submit transactions. It can make the workflow understandable, but it cannot override deployed validation.
 
 A successful UI message is not final authority for a mint. The transaction receipt, emitted events, typed contract reads, and tokenURI supply the contract-controlled result.
 
@@ -1103,7 +1012,7 @@ A successful UI message is not final authority for a mint. The transaction recei
 
 - Authority: contract-release
 
-PathNFT does not infer movement consent from PATH selection or ERC-721 approval. It accepts consumeUnit only from the configured movement minter and verifies an EIP-191 authorization signed by the current PATH owner. The signed message binds the PathNFT address, chain ID, PATH ID, movement, owner, executor, permission epoch, owner consume nonce, and deadline.
+PathNFT does not infer movement consent from $PATH selection or ERC-721 approval. It accepts consumeUnit only from the configured movement minter and verifies an EIP-191 authorization signed by the current $PATH owner. The signed message binds the PathNFT address, chain ID, $PATH ID, movement, owner, executor, permission epoch, owner consume nonce, and deadline.
 
 After checking the active stage and remaining quota, PathNFT returns a zero-based movement serial and updates permission progress. The configured movement contract owns the other half of the boundary: it calls consumeUnit before minting its work inside the same transaction. PathNFT owns permission accounting; the movement contract owns work validation and minting. If either half reverts, the transaction commits neither.
 
@@ -1119,8 +1028,8 @@ A release says which ABI, bytecode, renderer data, schemas, and checksums belong
 ### Links
 
 - [open contract verification](https://inshell.art/verify#verify-contracts)
-- [read PATH movement consumption](https://inshell.art/docs/path#docs-path-consumption)
-- [view PATH source](https://github.com/inshell-art/path)
+- [read $PATH movement consumption](https://inshell.art/docs/path#docs-path-consumption)
+- [view $PATH source](https://github.com/inshell-art/path)
 - [view THOUGHT source](https://github.com/inshell-art/THOUGHT)
 - [view Pulse source](https://github.com/inshell-art/pulse)
 
@@ -1132,61 +1041,20 @@ A release says which ABI, bytecode, renderer data, schemas, and checksums belong
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/artwork-metadata-chain
-- Documentation version: 2026-08-15
+- Documentation version: 2026-08-16
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
-
-### Evidence becomes interpretation
-
-- Authority: app-documentation, contract-release
-- Figure ID: evidence.interpretation
-- Figure mode: field
-- Semantic form: fork
-- Semantic nodes:
-  - `evidence [evidence]: EVIDENCE`
-  - `identity [evidence]: Identity — Network + contract + token`
-  - `contract [evidence]: Contract — State + tokenURI`
-  - `release [evidence]: Release — ABI + renderer + schemas`
-  - `context [evidence]: Context — Provenance + reading surface`
-  - `interpretation [result]: Interpretation — Read together`
-- Semantic edges:
-  - `evidence-identity: evidence (EVIDENCE) --[├─ · Identity is one evidence record.]--> identity (Identity)`
-  - `evidence-contract: evidence (EVIDENCE) --[├─ · Contract state is one evidence record.]--> contract (Contract)`
-  - `evidence-release: evidence (EVIDENCE) --[├─ · The pinned release is one evidence record.]--> release (Release)`
-  - `evidence-context: evidence (EVIDENCE) --[└─ · Context is one evidence record.]--> context (Context)`
-  - `evidence-to-interpretation: evidence (EVIDENCE) --[↓ · The evidence records are read together as interpretation.]--> interpretation (Interpretation)`
-
-```text
-EVIDENCE
-├─ IDENTITY
-│  Network + contract + token
-├─ CONTRACT
-│  State + tokenURI
-├─ RELEASE
-│  ABI + renderer + schemas
-└─ CONTEXT
-   Provenance + reading surface
-      ↓
-INTERPRETATION
-Read together
-```
-
-- **Identity** — Network + contract + token
-- **Contract** — State + tokenURI
-- **Release** — ABI + renderer + schemas
-- **Context** — Provenance + reading surface
-- **Interpretation** — Read together
 
 ### Overview
 
 - Authority: artist-editorial, app-documentation, contract-release
 
-Home lists minted [THOUGHT](https://inshell.art/docs/thought) works from the active chain. The [PATH](https://inshell.art/docs/path) surface lists PATH tokens from that same chain. The full identity of an NFT is its network, contract address, and token ID; the same token number elsewhere is a different record.
+Home lists minted [THOUGHT](https://inshell.art/docs/thought) works from the active chain. The [$PATH](https://inshell.art/docs/path) surface lists $PATH tokens from that same chain. The full identity of an NFT is its network, contract address, and token ID; the same token number elsewhere is a different record.
 
-THOUGHT and PATH artwork and NFT metadata come from each contract's tokenURI and pinned renderer. The App decodes and displays those canonical bytes; it must not rebuild replacement art or silently substitute a newer renderer.
+THOUGHT and $PATH artwork and NFT metadata come from each contract's tokenURI and pinned renderer. The App decodes and displays those canonical bytes; it must not rebuild replacement art or silently substitute a newer renderer.
 
 Token metadata carries the canonical image, description, stable marketplace traits, and—when the release defines it—an external_url to the canonical detail page. A generic marketplace can read that portable layer without understanding Inshell's richer records.
 
-Inshell detail pages add context: THOUGHT exposes its work, evidence levels, and creation provenance; PATH exposes movement state, capacity, linked movement tokens, issuance, and onchain record.
+Inshell detail pages add context: THOUGHT exposes its work, evidence levels, and creation provenance; $PATH exposes movement state, capacity, linked movement tokens, issuance, and onchain record.
 
 These layers make the public forms and claims of the practice inspectable. They can establish which bytes and records belong to a work; they cannot prove the inward truth of the work or possess its meaning.
 
@@ -1204,7 +1072,7 @@ Token ID 1 can exist on many contracts and networks. Its full identity is the tu
 
 - Authority: app-documentation, contract-release
 
-THOUGHT and PATH tokenURI responses point to the canonical artwork and metadata produced by their pinned contract systems. The App decodes those bytes for display. It should not redraw an approximation, swap in a newer renderer, or treat a cached marketplace thumbnail as the origin.
+THOUGHT and $PATH tokenURI responses point to the canonical artwork and metadata produced by their pinned contract systems. The App decodes those bytes for display. It should not redraw an approximation, swap in a newer renderer, or treat a cached marketplace thumbnail as the origin.
 
 - A data URI can carry JSON metadata or SVG artwork directly.
 - A pinned renderer release makes the visual construction reproducible and reviewable.
@@ -1234,6 +1102,245 @@ Portable metadata deliberately does not carry every creation detail. Inshell det
 
 - [view minted THOUGHT works](https://inshell.art/)
 - [view all $PATH](https://inshell.art/path)
+- [read fully onchain](https://inshell.art/docs/fully-onchain)
+
+## Fully Onchain
+
+> Inshell keeps a work's canonical image and metadata with its onchain record so the work does not depend on a website or media host.
+
+- Group: Records and verification
+- Status: current
+- Authority classes in this document: app-documentation, contract-release
+- Canonical page: https://inshell.art/docs/fully-onchain
+- Documentation version: 2026-08-16
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
+
+### Overview
+
+- Authority: app-documentation, contract-release
+
+A token should not outlive the artwork it names. If the image lives only on a website, marketplace, or media host, the token can remain while its public form disappears or changes.
+
+For Inshell, the visible form is part of the work. Fully onchain keeps the token record, metadata, and canonical artwork together. A site, wallet, explorer, or marketplace may show the work, but it is a reading surface, not its origin.
+
+Technically, the contract system can return the complete metadata and artwork from code, state, and data on the selected chain without fetching an external content object. ERC-721 alone does not guarantee this: tokenURI may still point elsewhere.
+
+### Why Inshell uses it
+
+- Authority: app-documentation, contract-release
+
+The aim is continuity, not a storage badge. The exact public form should remain available wherever the chain can be read, even when Inshell changes its site or a marketplace changes how it presents the work.
+
+This also lets an onchain work respond to onchain state without replacing its image through a separate media service. Different reading surfaces can render the same canonical result from the same public record.
+
+- The canonical image stays with the record that identifies it.
+- No single website or marketplace has custody of the work's continued visibility.
+- A changing work can derive its form from public onchain state rather than swapped offchain images.
+
+### Why SVG
+
+- Authority: app-documentation, contract-release
+
+SVG is both an image and a description of an image. Its raw source is human-readable: it names shapes, paths, positions, and fills as text instead of hiding the form inside opaque machine code. A person can inspect the description; a machine can render the same description.
+
+That makes SVG a natural layer between human intention and machine action, an area of interest for Inshell. The human can author and read a structure while the renderer can carry it out without translating the work into a separate, inaccessible format.
+
+SVG is also vector-based: it stays clear at different scales, remains compact, and can be assembled deterministically from onchain state. A contract can embed the completed SVG inside token metadata, so the canonical image needs no image server. When letterforms are included as paths, it needs no webfont either.
+
+### How Inshell does it
+
+- Authority: app-documentation, contract-release
+
+The pinned [$PATH](https://inshell.art/docs/path) v0.5.0 renderer reads movement progress from contract state and draws the nine required Mono 76 glyph paths held in contract code. Its tokenURI returns self-contained JSON with the SVG embedded inside it.
+
+The portable [THOUGHT](https://inshell.art/docs/thought) V2 design stores the work record, binds its renderer and specification, and constructs its SVG from glyph data held in onchain code storage. Its qualified release proves the design and package, not a live deployment. The [release and deployment boundary](https://inshell.art/docs/source-release-boundaries) keeps those claims separate.
+
+### $PATH SVG example
+
+```svg
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 600' width='600' height='600' role='img' aria-label='PATH movement progress' data-renderer='path-text-status' data-rendering='native-svg-paths' data-progress-model='text' data-family='Inshell Mono 76' data-face='Inshell Mono 76 Regular' data-weight='400' data-release-commit='6fefbfaf762dce0148fe275baafb8e7dd2077beb' data-manifest-sha256='14d734495a8bdc99a98fecbc4f9d76d315c9e2b9fc9b032d5a1fda567258ce11' data-glyph-json-sha256='2cf76834f82050853bdcc9d25bc4f040bd7cc2a6a310206e166f6d162e4f0c2e' data-glyph-slice-sha256='8f484b8c50307139630fab8c0289c0a6a642fa1aee5fb31ebd8966f574b02060' data-center-x='300' data-center-y='300'>
+<rect width='600' height='600' fill='#000000'/>
+<defs>
+<path id='g-T' d='M258 0L258 586L42 586L42 656L558 656L558 586L342 586L342 0Z'/>
+<path id='g-H' d='M79 0L79 656L163 656L163 381L437 381L437 656L521 656L521 0L437 0L437 309L163 309L163 0Z'/>
+<path id='g-O' d='M300 -12Q226 -12 169 29Q112 70 80 146.5Q48 223 48 331Q48 437 80 512.5Q112 588 169 628Q226 668 300 668Q374 668 431 628Q488 588 520 512.5Q552 437 552 331Q552 223 520 146.5Q488 70 431 29Q374 -12 300 -12ZM300 61Q375 61 420.5 133Q466 205 466 331Q466 455 420.5 525Q375 595 300 595Q225 595 179.5 525Q134 455 134 331Q134 205 179.5 133Q225 61 300 61Z'/>
+<path id='g-U' d='M301 -12Q237 -12 186.5 14Q136 40 107.5 97Q79 154 79 248L79 656L163 656L163 246Q163 178 181 137.5Q199 97 230.5 79Q262 61 301 61Q341 61 372 79Q403 97 421.5 137.5Q440 178 440 246L440 656L521 656L521 248Q521 154 492.5 97Q464 40 414.5 14Q365 -12 301 -12Z'/>
+<path id='g-G' d='M337 -12Q255 -12 190.5 28.5Q126 69 89.5 145Q53 221 53 328Q53 434 90.5 510Q128 586 193.5 627Q259 668 344 668Q409 668 453 642.5Q497 617 525 588L478 535Q454 561 422.5 578Q391 595 344 595Q283 595 237 562.5Q191 530 165.5 471Q140 412 140 330Q140 206 192.5 133.5Q245 61 342 61Q415 61 456 100L456 271L325 271L325 340L533 340L533 64Q502 33 451.5 10.5Q401 -12 337 -12Z'/>
+<path id='g-W' d='M110 0L10 657L104 657L152 245Q155 218 157.5 195.5Q160 173 162 149.5Q164 126 165 93L168 93Q174 126 179 149.5Q184 173 189 195Q194 217 200 244L264 488L344 488L406 244Q413 217 418 195Q423 173 427.5 149.5Q432 126 438 93L442 93Q444 126 445.5 149.5Q447 173 449 195Q451 217 454 244L500 657L590 657L494 0L390 0L326 264Q319 294 313 323Q307 352 302 382L299 382Q294 352 289 323Q284 294 276 264L212 0Z'/>
+<path id='g-I' d='M95 0L95 71L258 71L258 586L95 586L95 656L505 656L505 586L342 586L342 71L505 71L505 0Z'/>
+<path id='g-L' d='M134 0L134 656L216 656L216 71L541 71L541 0Z'/>
+<path id='g-A' d='M232 367L201 267L397 267L366 367Q349 422 332.5 476.5Q316 531 301 588L297 588Q281 531 265 476.5Q249 422 232 367ZM32 0L253 656L347 656L568 0L480 0L418 200L180 200L117 0Z'/>
+<clipPath id='path-progress' clipPathUnits='userSpaceOnUse'>
+<rect id='thought-progress' x='0' y='-240' width='4200' height='1000'/>
+<rect id='will-progress' x='4800' y='-240' width='1200' height='1000'/>
+<rect id='awa-progress' x='7800' y='-240' width='0' height='1000'/>
+</clipPath>
+</defs>
+<g id='path-title' data-text-layout='centered-group' fill-rule='nonzero' transform='translate(92.64 311.232) scale(0.0432 -0.0432)'>
+<g id='remaining' data-status-layer='remaining' fill='#ffffff'>
+<use href='#g-T'/>
+<use href='#g-H' x='600'/>
+<use href='#g-O' x='1200'/>
+<use href='#g-U' x='1800'/>
+<use href='#g-G' x='2400'/>
+<use href='#g-H' x='3000'/>
+<use href='#g-T' x='3600'/>
+<use href='#g-W' x='4800'/>
+<use href='#g-I' x='5400'/>
+<use href='#g-L' x='6000'/>
+<use href='#g-L' x='6600'/>
+<use href='#g-A' x='7800'/>
+<use href='#g-W' x='8400'/>
+<use href='#g-A' x='9000'/>
+</g>
+<g id='consumed' data-status-layer='consumed' fill='#006100' clip-path='url(#path-progress)'>
+<use href='#g-T'/>
+<use href='#g-H' x='600'/>
+<use href='#g-O' x='1200'/>
+<use href='#g-U' x='1800'/>
+<use href='#g-G' x='2400'/>
+<use href='#g-H' x='3000'/>
+<use href='#g-T' x='3600'/>
+<use href='#g-W' x='4800'/>
+<use href='#g-I' x='5400'/>
+<use href='#g-L' x='6000'/>
+<use href='#g-L' x='6600'/>
+<use href='#g-A' x='7800'/>
+<use href='#g-W' x='8400'/>
+<use href='#g-A' x='9000'/>
+</g>
+</g>
+</svg>
+```
+
+### THOUGHT SVG example
+
+```svg
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" data-renderer="inshell.thought.renderer.v2.mono-76-v1-im76-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom" data-glyph-library-member="inshell.mono-76" data-glyph-format="IM76-v1" data-glyph-release="v1.0.0" data-glyph-svg-baseline="12" data-glyph-scale="2.88" data-glyph-origin-shift-x="1" data-wrap="greedy-space-then-fixed-cell-overlong-word" data-prompt-vertical-align="top" data-agent-vertical-align="bottom" aria-label="Prompt and Agent response in a terminal chat layout">
+<rect id="work-frame" width="1024" height="1024" fill="#006100"/>
+<g id="work-canvas" transform="translate(32 32)">
+<rect id="canvas-bg" width="960" height="960" fill="#000000"/>
+<defs>
+<path id="g54" d="M.5 9.9L7.5 9.9M4 9.9L4 .6"/>
+<path id="g57" d="M0 9.9L2 .6L4 7.2L6 .6L8 9.9"/>
+<path id="g61" d="M1.4 6.5Q2.9 7.5 4.45 7.6Q6.75 7.65 7 5.35L7 .3M6.95 4.65L3 4Q1.55 3.65 1.3 2.4Q1.3 .3 3.95 .45Q6 .5 6.95 2.2"/>
+<path id="g62" d="M1.3 .6L1.3 10.8M1.3 5.3Q2.3 7.35 4.4 7.4Q7.1 7.4 7.2 4Q7.2 .4 4.15 .4Q2.3 .4 1.3 2.1"/>
+<path id="g63" d="M6.9 6.3Q5.9 7.4 4 7.4Q1.2 7.4 1.1 3.9Q1.25 .45 4 .4Q5.8 .6 6.9 1.2"/>
+<path id="g64" d="M6.7 .6L6.7 10.8M6.7 5.3Q5.8 7.35 3.7 7.4Q.9 7.4 .8 3.9Q.9 .4 3.8 .4Q5.8 .4 6.7 2.1"/>
+<path id="g65" d="M1.2 4L6.9 4Q6.8 7.4 4.1 7.4Q1.2 7.4 1.1 3.9Q1.2 .4 4 .4Q5.75 .45 6.9 1.2"/>
+<path id="g66" d="M3.6 .3L3.65 8.45Q3.65 10.95 5.85 10.95Q6.8 10.95 7.8 10.6M1.4 7.25L7.05 7.25"/>
+<path id="g68" d="M1.25 .4L1.3 10.8M1.3 5.3Q2.3 7.35 4.3 7.4Q7.1 7.4 7.2 4L7.15 .35"/>
+<path id="g69" d="M1.3 7.25L5 7.25M5 7.25L5 .35M5 10.35L5.4 10.75L5 11.15L4.6 10.75Z"/>
+<path id="g6b" d="M1.25 .35L1.25 10.8M7 7.7L1.85 3M4.05 4.35L7.25 .4"/>
+<path id="g6c" d="M1.1 10.8L3.5 10.8L3.5 2Q3.5 .4 5.5 .4Q6.7 .4 7.5 1.2"/>
+<path id="g6e" d="M1.25 .35L1.3 7.4M1.3 5.2Q2.4 7.35 4.4 7.4Q7.3 7.4 7.3 4L7.3 .35"/>
+<path id="g6f" d="M4 7.4Q1.2 7.4 1.1 3.9Q1.2 .4 4 .4Q7 .4 7 3.9Q7 7.4 4 7.4Z"/>
+<path id="g72" d="M2.05 .25L2.1 7.4M2.1 4.7Q3.7 7.1 5.4 7.35Q6.45 7.5 7.1 7.15"/>
+<path id="g73" d="M7 6.3Q5.9 7.4 4 7.4Q1.3 7.4 1.3 5.7Q1.3 4.4 4 3.9Q7 3.4 7 2Q7 .4 4.1 .4Q2.2 .4 1.1 1.4"/>
+<path id="g74" d="M3.25 9.65L3.25 2Q3.25 .4 5.25 .4Q6.45 .4 7.25 1.2M.65 7.25L6.75 7.25"/>
+<path id="g75" d="M.75 7.2L.75 3Q.75 .4 3.75 .4Q6.75 .4 6.75 3L6.75 7.2M6.75 .6L6.75 2.2"/>
+<path id="g76" d="M1 7.2L3.9 .15L7 7.2"/>
+<path id="g78" d="M1 7.2L6.8 .1M7 7.2L1 .05"/>
+<path id="g79" d="M.8 7.2L3.8 .4M6.8 7.2L2.8 -2.7"/>
+<path id="g2e" d="M4 .15L4 1.9"/>
+<path id="g3f" d="M1.7 8.8Q2.5 10.3 4 10.3Q6.2 10.3 6.2 8.2Q6.2 6.8 4.1 5.5L4.1 4.3M3.95 .15L4 1.9"/>
+</defs>
+<g id="prompt-line" fill="none" stroke="#00ff00" stroke-width="1.23" stroke-linecap="round" stroke-linejoin="round" data-source="What if the future stays unclear?" data-rows="2" data-field-x="57.6" data-field-y="128" data-field-width="844.8" data-field-height="256" data-field-bottom="384" data-horizontal-align="right" data-vertical-align="top">
+<g transform="translate(214.08 171.52) scale(2.88 -2.88)">
+<use href="#g57"/>
+<use href="#g68" x="10"/>
+<use href="#g61" x="20"/>
+<use href="#g74" x="30"/>
+<use href="#g69" x="50"/>
+<use href="#g66" x="60"/>
+<use href="#g74" x="80"/>
+<use href="#g68" x="90"/>
+<use href="#g65" x="100"/>
+<use href="#g66" x="120"/>
+<use href="#g75" x="130"/>
+<use href="#g74" x="140"/>
+<use href="#g75" x="150"/>
+<use href="#g72" x="160"/>
+<use href="#g65" x="170"/>
+<use href="#g73" x="190"/>
+<use href="#g74" x="200"/>
+<use href="#g61" x="210"/>
+<use href="#g79" x="220"/>
+<use href="#g73" x="230"/>
+</g>
+<g transform="translate(674.88 235.52) scale(2.88 -2.88)">
+<use href="#g75"/>
+<use href="#g6e" x="10"/>
+<use href="#g63" x="20"/>
+<use href="#g6c" x="30"/>
+<use href="#g65" x="40"/>
+<use href="#g61" x="50"/>
+<use href="#g72" x="60"/>
+<use href="#g3f" x="70"/>
+</g>
+</g>
+<g id="agent-line" fill="none" stroke="#00ff00" stroke-width="1.23" stroke-linecap="round" stroke-linejoin="round" data-source="Then choose the next visible kindness." data-rows="2" data-field-x="57.6" data-field-y="576" data-field-width="844.8" data-field-height="256" data-field-bottom="832" data-horizontal-align="left" data-vertical-align="bottom">
+<g transform="translate(60.48 747.52) scale(2.88 -2.88)">
+<use href="#g54"/>
+<use href="#g68" x="10"/>
+<use href="#g65" x="20"/>
+<use href="#g6e" x="30"/>
+<use href="#g63" x="50"/>
+<use href="#g68" x="60"/>
+<use href="#g6f" x="70"/>
+<use href="#g6f" x="80"/>
+<use href="#g73" x="90"/>
+<use href="#g65" x="100"/>
+<use href="#g74" x="120"/>
+<use href="#g68" x="130"/>
+<use href="#g65" x="140"/>
+<use href="#g6e" x="160"/>
+<use href="#g65" x="170"/>
+<use href="#g78" x="180"/>
+<use href="#g74" x="190"/>
+<use href="#g76" x="210"/>
+<use href="#g69" x="220"/>
+<use href="#g73" x="230"/>
+<use href="#g69" x="240"/>
+<use href="#g62" x="250"/>
+<use href="#g6c" x="260"/>
+<use href="#g65" x="270"/>
+</g>
+<g transform="translate(60.48 811.52) scale(2.88 -2.88)">
+<use href="#g6b"/>
+<use href="#g69" x="10"/>
+<use href="#g6e" x="20"/>
+<use href="#g64" x="30"/>
+<use href="#g6e" x="40"/>
+<use href="#g65" x="50"/>
+<use href="#g73" x="60"/>
+<use href="#g73" x="70"/>
+<use href="#g2e" x="80"/>
+</g>
+</g>
+</g>
+</svg>
+```
+
+### What the claim covers
+
+- Authority: app-documentation, contract-release
+
+Fully onchain says where the canonical metadata and artwork come from. It does not replace the identity, provenance, attestation, release, or observation boundaries described in [artwork, metadata, and chain](https://inshell.art/docs/artwork-metadata-chain).
+
+- It does not by itself mean immutable, non-upgradeable, decentralized, verified, attested, or true.
+- A repository and release make construction auditable; they are not runtime content hosts.
+- No storage method proves authorship, Agent reasoning, artistic meaning, or the inward truth of a work.
+
+
+### Links
+
+- [read ERC-721 metadata](https://eips.ethereum.org/EIPS/eip-721)
+- [read $PATH](https://inshell.art/docs/path)
+- [read THOUGHT](https://inshell.art/docs/thought)
+- [read source and release boundaries](https://inshell.art/docs/source-release-boundaries)
+- [view $PATH source](https://github.com/inshell-art/path)
+- [view THOUGHT source](https://github.com/inshell-art/THOUGHT)
 
 ## Mono 76
 
@@ -1243,37 +1350,8 @@ Portable metadata deliberately does not carry every creation detail. Inshell det
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/mono-76
-- Documentation version: 2026-08-15
+- Documentation version: 2026-08-16
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
-
-### From glyph study to canonical artwork
-
-- Authority: artist-editorial, app-documentation, contract-release
-- Figure ID: mono-76.canonical-artwork
-- Figure mode: trace
-- Semantic form: trace
-- Semantic nodes:
-  - `glyph-study [action]: Glyph study — Explore · refine`
-  - `sealed-mono [state]: Sealed Mono 76 — Paths + metrics frozen`
-  - `canonical-artwork [result]: Canonical artwork — Native SVG`
-- Semantic edges:
-  - `study-to-seal: glyph-study (Glyph study) --[↓ · Glyph study is refined into the sealed Mono 76 source.]--> sealed-mono (Sealed Mono 76)`
-  - `seal-to-artwork: sealed-mono (Sealed Mono 76) --[↓ · The sealed paths and metrics produce the canonical native SVG artwork.]--> canonical-artwork (Canonical artwork)`
-
-```text
-GLYPH STUDY
-Explore · refine
-      ↓
-SEALED MONO 76
-Paths + metrics frozen
-      ↓
-CANONICAL ARTWORK
-Native SVG
-```
-
-1. **Glyph study** — Explore · refine
-2. **Sealed Mono 76** — Paths + metrics frozen
-3. **Canonical artwork** — Native SVG
 
 ### Overview
 
@@ -1283,7 +1361,7 @@ Mono 76 gives selected Inshell works a fixed visual alphabet. Version 1.0.0 cont
 
 The sealed face emerged from a larger native-SVG glyph study. That research compared many construction systems for legibility, identity, punctuation, marketplace-scale resilience, deterministic rendering, and practical contract size. The released face came from the C02 Classic Book study, then received manual refinement and optical alignment before its paths and metrics were frozen.
 
-Mono 76 is not the site's general interface font. Interface copy remains ordinary selectable text. Mono 76 is used where the letterform is part of the artwork or its deterministic renderer, including the [THOUGHT](https://inshell.art/docs/thought) composition and the movement names drawn inside [PATH](https://inshell.art/docs/path) tokens.
+Mono 76 is not the site's general interface font. Interface copy remains ordinary selectable text. Mono 76 is used where the letterform is part of the artwork or its deterministic renderer, including the [THOUGHT](https://inshell.art/docs/thought) composition and the movement names drawn inside [$PATH](https://inshell.art/docs/path) tokens.
 
 A renderer consumes path geometry rather than asking a browser to locate a font. This keeps the visible form independent of installed fonts, webfont loading, marketplace font support, and platform-specific text layout.
 
@@ -1294,6 +1372,96 @@ A renderer consumes path geometry rather than asking a browser to locate a font.
 The ordered repertoire is SPACE, A-Z, a-z, 0-9, and . , ? ! : ; ' " - ( ) / &. SPACE advances by the same fixed width as every other record but draws no path. Unsupported characters fail validation instead of being replaced by a fallback glyph.
 
 THOUGHT uses the same character repertoire for its Terminal English lines. Its additional byte and spacing rules belong to the THOUGHT specification; Mono 76 defines glyph support and geometry, not the whole creation protocol.
+
+The demo below renders the sealed records in repertoire order from the canonical path data. Its first advance is intentionally empty: that record is SPACE.
+
+### Mono 76 full set demo
+
+```svg
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 274 76" role="img" aria-label="Mono 76 full set: SPACE, uppercase A through Z, lowercase a through z, digits 0 through 9, and punctuation" data-font="Inshell Mono 76" data-version="1.0.0" data-record-count="76" data-visible-glyph-count="75">
+<title>Mono 76 full set demo</title>
+<desc>The first record is SPACE and intentionally draws no path. The remaining 75 records are shown in sealed repertoire order.</desc>
+<rect width="274" height="76" fill="#000000"/>
+<g fill="none" stroke="#00ff35" stroke-width="1.23" stroke-linecap="round" stroke-linejoin="round">
+<g class="mono-76-record" data-record-index="0" data-character="SPACE" data-draws-path="false"></g>
+<g class="mono-76-record" data-record-index="1" data-character="A" data-draws-path="true"><path d="M.35 .6L4 9.9L7.65 .6M2.7 3.75L5.3 3.75" transform="translate(13 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="2" data-character="B" data-draws-path="true"><path d="M1.35 .6L1.35 9.9L3.65 9.9Q6.6 9.9 6.6 7.75Q6.6 5.35 3.65 5.35L1.35 5.35M3.65 5.35Q7.2 5.35 7.2 3.1Q7.2 .6 3.85 .6L1.35 .6" transform="translate(23 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="3" data-character="C" data-draws-path="true"><path d="M7.1 8.95Q6.1 10.1 4 10.1Q.75 10.1 .75 5.25Q.85 .7 4.15 .45Q6.15 .4 7.35 1.75" transform="translate(33 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="4" data-character="D" data-draws-path="true"><path d="M1.25 .6L1.25 9.9L4.25 9.9Q7.25 9.9 7.25 5.25Q7.25 .6 4.25 .6Z" transform="translate(43 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="5" data-character="E" data-draws-path="true"><path d="M6.95 9.9L1.45 9.9L1.45 .6L7.15 .6M1.45 5.15L6.25 5.15" transform="translate(53 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="6" data-character="F" data-draws-path="true"><path d="M7.4 9.9L1.7 9.9L1.7 .6M1.7 5.15L6.5 5.15" transform="translate(63 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="7" data-character="G" data-draws-path="true"><path d="M6.95 9Q5.95 10.1 3.85 10.1Q.6 10.1 .6 5.25Q.6 .4 3.9 .5Q6.85 .45 7.1 1.65L7.05 4.9L4.05 4.9" transform="translate(73 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="8" data-character="H" data-draws-path="true"><path d="M1 .6L1 9.9M7 .6L7 9.9M1 5.5L7 5.5" transform="translate(83 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="9" data-character="I" data-draws-path="true"><path d="M1.4 9.9L6.6 9.9M4 9.9L4 .6M1.4 .6L6.6 .6" transform="translate(93 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="10" data-character="J" data-draws-path="true"><path d="M1.9 9.9L7.4 9.9M6.4 9.9L6.4 2.2Q6.3 .5 4.05 .5Q2.25 .65 1.3 2" transform="translate(103 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="11" data-character="K" data-draws-path="true"><path d="M1.25 .6L1.25 9.9M7.3 9.9L1.85 4.3M4.05 5.9L7.55 .6" transform="translate(113 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="12" data-character="L" data-draws-path="true"><path d="M1.75 9.9L1.75 .6L7.45 .6" transform="translate(123 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="13" data-character="M" data-draws-path="true"><path d="M1 .6L1 9.9L4 3L7 9.9L7 .6" transform="translate(133 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="14" data-character="N" data-draws-path="true"><path d="M1.15 .6L1.15 9.9L6.85 .6L6.85 9.9" transform="translate(143 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="15" data-character="O" data-draws-path="true"><path d="M3.9 10Q.8 9.7 .65 5.25Q.85 .35 4.15 .5Q7.15 .55 7.35 5.25Q7.35 9.8 4.25 10Z" transform="translate(153 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="16" data-character="P" data-draws-path="true"><path d="M1.3 .6L1.3 9.9L4.4 9.9Q7.3 9.9 7.3 7.35Q7.3 4.8 4.4 4.8L1.3 4.8" transform="translate(163 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="17" data-character="Q" data-draws-path="true"><path d="M3.8 9.9Q.85 9.6 .65 5.25Q.7 .6 3.9 .5Q7.25 .55 7.35 5.25Q7.15 9.5 4.4 9.9ZM4.8 1.1L6.9 -1.25" transform="translate(173 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="18" data-character="R" data-draws-path="true"><path d="M1.4 .6L1.4 9.9L3.8 9.9Q7.05 9.9 7.05 7.55Q7.05 4.95 3.85 4.95L1.4 4.95M4.05 4.95L7.35 .6" transform="translate(183 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="19" data-character="S" data-draws-path="true"><path d="M7.1 8.95Q5.7 9.75 4.05 9.95Q1.75 9.85 1.5 7.9Q1.5 6.5 4.3 5.4Q7.1 4.3 7.1 2.7Q7.15 .55 3.95 .5Q2.15 .6 .75 1.8" transform="translate(193 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="20" data-character="T" data-draws-path="true"><path d="M.5 9.9L7.5 9.9M4 9.9L4 .6" transform="translate(203 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="21" data-character="U" data-draws-path="true"><path d="M1 9.9L1 3Q1.1 .5 3.9 .5Q6.8 .45 7 3L7 9.9" transform="translate(213 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="22" data-character="V" data-draws-path="true"><path d="M1 9.9L4 .6L7 9.9" transform="translate(223 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="23" data-character="W" data-draws-path="true"><path d="M0 9.9L2 .6L4 7.2L6 .6L8 9.9" transform="translate(233 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="24" data-character="X" data-draws-path="true"><path d="M1 9.9L7 .6M7 9.9L1 .6" transform="translate(243 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="25" data-character="Y" data-draws-path="true"><path d="M1 9.9L4 3.9L7 9.9M4 3.9L4 .6" transform="translate(253 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="26" data-character="Z" data-draws-path="true"><path d="M1.1 9.9L7.1 9.9L1.1 .6L7.1 .6" transform="translate(263 14) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="27" data-character="a" data-draws-path="true"><path d="M1.4 6.5Q2.9 7.5 4.45 7.6Q6.75 7.65 7 5.35L7 .3M6.95 4.65L3 4Q1.55 3.65 1.3 2.4Q1.3 .3 3.95 .45Q6 .5 6.95 2.2" transform="translate(8 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="28" data-character="b" data-draws-path="true"><path d="M1.3 .6L1.3 10.8M1.3 5.3Q2.3 7.35 4.4 7.4Q7.1 7.4 7.2 4Q7.2 .4 4.15 .4Q2.3 .4 1.3 2.1" transform="translate(18 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="29" data-character="c" data-draws-path="true"><path d="M6.9 6.3Q5.9 7.4 4 7.4Q1.2 7.4 1.1 3.9Q1.25 .45 4 .4Q5.8 .6 6.9 1.2" transform="translate(28 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="30" data-character="d" data-draws-path="true"><path d="M6.7 .6L6.7 10.8M6.7 5.3Q5.8 7.35 3.7 7.4Q.9 7.4 .8 3.9Q.9 .4 3.8 .4Q5.8 .4 6.7 2.1" transform="translate(38 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="31" data-character="e" data-draws-path="true"><path d="M1.2 4L6.9 4Q6.8 7.4 4.1 7.4Q1.2 7.4 1.1 3.9Q1.2 .4 4 .4Q5.75 .45 6.9 1.2" transform="translate(48 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="32" data-character="f" data-draws-path="true"><path d="M3.6 .3L3.65 8.45Q3.65 10.95 5.85 10.95Q6.8 10.95 7.8 10.6M1.4 7.25L7.05 7.25" transform="translate(58 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="33" data-character="g" data-draws-path="true"><path d="M6.7 7.4L6.7 0Q6.7 -3.1 3.7 -3.1Q1.5 -3.1 .4 -1.9M6.7 5.2Q5.8 7.35 3.8 7.4Q.9 7.4 .9 4Q.9 1.1 3.8 1.1Q5.8 1.1 6.7 3.1" transform="translate(68 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="34" data-character="h" data-draws-path="true"><path d="M1.25 .4L1.3 10.8M1.3 5.3Q2.3 7.35 4.3 7.4Q7.1 7.4 7.2 4L7.15 .35" transform="translate(78 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="35" data-character="i" data-draws-path="true"><path d="M1.3 7.25L5 7.25M5 7.25L5 .35M5 10.35L5.4 10.75L5 11.15L4.6 10.75Z" transform="translate(88 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="36" data-character="j" data-draws-path="true"><path d="M1.5 7.25L5.2 7.25M5.2 7.25L5.2 -1Q5.2 -2.85 2.7 -2.85Q.9 -2.85 .2 -1.6M5.2 10.35L5.6 10.75L5.2 11.15L4.8 10.75Z" transform="translate(98 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="37" data-character="k" data-draws-path="true"><path d="M1.25 .35L1.25 10.8M7 7.7L1.85 3M4.05 4.35L7.25 .4" transform="translate(108 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="38" data-character="l" data-draws-path="true"><path d="M1.1 10.8L3.5 10.8L3.5 2Q3.5 .4 5.5 .4Q6.7 .4 7.5 1.2" transform="translate(118 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="39" data-character="m" data-draws-path="true"><path d="M.8 .35L.75 7.4M.75 5.2Q1.85 7.35 3.15 7.4Q4.35 7.4 4.35 5.2L4.3 .25M4.35 5.2Q5.2 7.35 6.25 7.4Q7.55 7.4 7.55 5.1L7.6 .2" transform="translate(128 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="40" data-character="n" data-draws-path="true"><path d="M1.25 .35L1.3 7.4M1.3 5.2Q2.4 7.35 4.4 7.4Q7.3 7.4 7.3 4L7.3 .35" transform="translate(138 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="41" data-character="o" data-draws-path="true"><path d="M4 7.4Q1.2 7.4 1.1 3.9Q1.2 .4 4 .4Q7 .4 7 3.9Q7 7.4 4 7.4Z" transform="translate(148 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="42" data-character="p" data-draws-path="true"><path d="M1.3 -2.7L1.3 7.4M1.3 5.3Q2.4 7.35 4.5 7.4Q7.2 7.4 7.3 4Q7.3 .4 4.4 .4Q2.4 .4 1.3 2.1" transform="translate(158 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="43" data-character="q" data-draws-path="true"><path d="M6.65 -2.7L6.65 7.4M6.65 5.3Q5.75 7.35 3.65 7.4Q.85 7.4 .75 3.9Q.85 .4 3.75 .4Q5.75 .4 6.65 2.1" transform="translate(168 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="44" data-character="r" data-draws-path="true"><path d="M2.05 .25L2.1 7.4M2.1 4.7Q3.7 7.1 5.4 7.35Q6.45 7.5 7.1 7.15" transform="translate(178 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="45" data-character="s" data-draws-path="true"><path d="M7 6.3Q5.9 7.4 4 7.4Q1.3 7.4 1.3 5.7Q1.3 4.4 4 3.9Q7 3.4 7 2Q7 .4 4.1 .4Q2.2 .4 1.1 1.4" transform="translate(188 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="46" data-character="t" data-draws-path="true"><path d="M3.25 9.65L3.25 2Q3.25 .4 5.25 .4Q6.45 .4 7.25 1.2M.65 7.25L6.75 7.25" transform="translate(198 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="47" data-character="u" data-draws-path="true"><path d="M.75 7.2L.75 3Q.75 .4 3.75 .4Q6.75 .4 6.75 3L6.75 7.2M6.75 .6L6.75 2.2" transform="translate(208 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="48" data-character="v" data-draws-path="true"><path d="M1 7.2L3.9 .15L7 7.2" transform="translate(218 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="49" data-character="w" data-draws-path="true"><path d="M0 7.2L2 .2L4 6.6L5.95 .15L8 7.2" transform="translate(228 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="50" data-character="x" data-draws-path="true"><path d="M1 7.2L6.8 .1M7 7.2L1 .05" transform="translate(238 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="51" data-character="y" data-draws-path="true"><path d="M.8 7.2L3.8 .4M6.8 7.2L2.8 -2.7" transform="translate(248 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="52" data-character="z" data-draws-path="true"><path d="M1 7.2L7 7.2L1 .4L7 .4" transform="translate(258 32) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="53" data-character="0" data-draws-path="true"><path d="M4 9.8Q1.1 9.8 1.1 4.9Q1.1 .4 4 .4Q6.9 .4 6.9 4.9Q6.9 9.8 4 9.8ZM3.65 4.85L4.35 5.55" transform="translate(88 50) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="54" data-character="1" data-draws-path="true"><path d="M1.75 8.5L4.45 9.6L4.45 .6M1.45 .6L7.05 .6" transform="translate(98 50) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="55" data-character="2" data-draws-path="true"><path d="M1 8.4Q2 9.8 3.9 9.8Q6.7 9.8 6.7 7.2Q6.7 5.8 4.9 4.2L1 .6L6.9 .6" transform="translate(108 50) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="56" data-character="3" data-draws-path="true"><path d="M1.25 8.65Q2.25 9.8 4 9.8Q6.7 9.8 6.7 7.3Q6.7 5.3 3.2 5.2M3.2 5.2Q6.95 5.1 6.95 2.7Q6.95 .4 4 .4Q2 .4 1.15 1.55" transform="translate(118 50) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="57" data-character="4" data-draws-path="true"><path d="M5.55 .35L5.5 9.6L.8 3.4L7.5 3.4" transform="translate(128 50) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="58" data-character="5" data-draws-path="true"><path d="M6.9 9.6L1.45 9.6L1.05 5.8L3.9 5.8Q7.05 5.8 7.05 3.2Q7.05 .4 4 .4Q2 .4 1.05 1.6" transform="translate(138 50) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="59" data-character="6" data-draws-path="true"><path d="M6.8 9Q5.65 10 4.1 9.9Q1.15 9.75 1.15 5.55L1.15 3Q1.15 .45 4.2 .3Q6.9 .45 7.1 2.95Q7.4 6 3.9 5.3L1.25 4.5" transform="translate(148 50) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="60" data-character="7" data-draws-path="true"><path d="M.7 9.6L6.7 9.6L3.1 .25" transform="translate(158 50) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="61" data-character="8" data-draws-path="true"><path d="M4 9.8Q1.2 9.8 1.2 7.3Q1.2 5.2 4 5.2Q6.8 5.2 6.8 7.3Q6.8 9.8 4 9.8ZM4 5.2Q1.1 5.2 1.1 2.7Q1.1 .4 4 .4Q6.9 .4 6.9 2.7Q6.9 5.2 4 5.2Z" transform="translate(168 50) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="62" data-character="9" data-draws-path="true"><path d="M1.25 1.4Q2.05 .4 3.85 .4Q6.75 .4 6.75 5L6.75 7Q6.75 9.8 3.85 9.8Q.95 9.8 .95 7Q.95 4.7 3.85 4.7L6.75 4.7" transform="translate(178 50) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="63" data-character="." data-draws-path="true"><path d="M4 .15L4 1.9" transform="translate(73 68) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="64" data-character="," data-draws-path="true"><path d="M4.9 1.9L3.4 -2.8" transform="translate(83 68) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="65" data-character="?" data-draws-path="true"><path d="M1.7 8.8Q2.5 10.3 4 10.3Q6.2 10.3 6.2 8.2Q6.2 6.8 4.1 5.5L4.1 4.3M3.95 .15L4 1.9" transform="translate(93 68) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="66" data-character="!" data-draws-path="true"><path d="M4 10.1L4 4.3M4 .2L4 1.9" transform="translate(103 68) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="67" data-character=":" data-draws-path="true"><path d="M4 7.65L4 6.15M4 1.9L4 .2" transform="translate(113 68) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="68" data-character=";" data-draws-path="true"><path d="M4.4 7.65L4.4 6.15M4.7 1.9L3.2 -2.8" transform="translate(123 68) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="69" data-character="'" data-draws-path="true"><path d="M4 10.4L4 5.9" transform="translate(133 68) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="70" data-character="&quot;" data-draws-path="true"><path d="M2.2 10.4L2.2 5.9M5.8 10.4L5.8 5.9" transform="translate(143 68) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="71" data-character="-" data-draws-path="true"><path d="M1.2 5.3L6.8 5.3" transform="translate(153 68) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="72" data-character="(" data-draws-path="true"><path d="M6.15 11.1Q3.05 8.8 3.05 4.45Q3.05 .1 6.15 -2.2" transform="translate(163 68) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="73" data-character=")" data-draws-path="true"><path d="M1.85 11.1Q4.95 8.8 4.95 4.45Q4.95 .1 1.85 -2.2" transform="translate(173 68) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="74" data-character="/" data-draws-path="true"><path d="M1.4 -1.9L6.6 10.7" transform="translate(183 68) scale(1 -1)"/></g>
+<g class="mono-76-record" data-record-index="75" data-character="&amp;" data-draws-path="true"><path d="M7.3 .25L2.2 5.65Q.6 10.2 2.9 10.3Q6.55 10.05 4.7 7.85Q3.8 6.75 1.45 4.8Q-.8 2.1 1.8 .5Q4 -.25 5.65 1.55L7.8 5.9" transform="translate(193 68) scale(1 -1)"/></g>
+</g>
+</svg>
+```
 
 ### Centerlines, not font outlines
 
@@ -1309,7 +1477,7 @@ Source Code Pro was a visible comparison reference during study. Its outlines we
 
 Mono 76 is packaged as path data and a deterministic renderer, not as a WOFF or TTF webfont. Artwork renderers place the paths directly into SVG and must preserve the sealed metrics and stroke contract.
 
-THOUGHT consumes the packed IM76 repertoire for its terminal composition. PATH embeds only the nine Mono 76 glyph paths needed to draw THOUGHT, WILL, and AWA. Each token image is therefore self-contained; viewing it does not require a font installation or an offchain text renderer.
+THOUGHT consumes the packed IM76 repertoire for its terminal composition. $PATH embeds only the nine Mono 76 glyph paths needed to draw THOUGHT, WILL, and AWA. Each token image is therefore self-contained; viewing it does not require a font installation or an offchain text renderer.
 
 ### Artwork and interface stay distinct
 
@@ -1323,13 +1491,13 @@ The App does not register Mono 76 with CSS or replace ordinary interface typogra
 
 The sealed package includes the ordered face, packed onchain payload, renderer code, manifest, provenance, verification script, notices, and checksums. A downstream [release](https://inshell.art/docs/source-release-boundaries) must consume that complete contract and pin its hashes rather than copying one convenient glyph file.
 
-THOUGHT and PATH pin Mono 76 through their own contract releases. Updating the font repository does not change a pinned renderer or an already deployed contract. A new visual revision requires a new reviewed release and explicit downstream repinning; the App must continue reading canonical token artwork rather than silently redrawing it with newer paths.
+THOUGHT and $PATH pin Mono 76 through their own contract releases. Updating the font repository does not change a pinned renderer or an already deployed contract. A new visual revision requires a new reviewed release and explicit downstream repinning; the App must continue reading canonical token artwork rather than silently redrawing it with newer paths.
 
 
 ### Links
 
 - [read THOUGHT](https://inshell.art/docs/thought)
-- [read PATH](https://inshell.art/docs/path)
+- [read $PATH](https://inshell.art/docs/path)
 - [read artwork, metadata, and chain](https://inshell.art/docs/artwork-metadata-chain)
 - [read source and release boundaries](https://inshell.art/docs/source-release-boundaries)
 
@@ -1341,7 +1509,7 @@ THOUGHT and PATH pin Mono 76 through their own contract releases. Updating the f
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/verification
-- Documentation version: 2026-08-15
+- Documentation version: 2026-08-16
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
@@ -1418,50 +1586,16 @@ A valid proof can establish that certain bytes, hashes, addresses, or signatures
 - Status: current
 - Authority classes in this document: app-documentation
 - Canonical page: https://inshell.art/docs/wallet-local-data
-- Documentation version: 2026-08-15
+- Documentation version: 2026-08-16
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
-
-### Two distinctions
-
-- Authority: app-documentation
-- Figure ID: wallet.distinctions
-- Figure mode: field
-- Semantic form: ledger
-- Semantic nodes:
-  - `read [action]: Read — Public state`
-  - `sign [action]: Sign — Authorization`
-  - `transact [action]: Transact — Chain change`
-  - `local [record]: Local — Browser record`
-  - `onchain [record]: Onchain — Public record`
-- Semantic edges:
-  - `read-not-sign: read (Read) --[≠ · Reading public state is not signing an authorization.]--> sign (Sign)`
-  - `sign-not-transact: sign (Sign) --[≠ · Signing an authorization is not a chain transaction.]--> transact (Transact)`
-  - `local-not-onchain: local (Local) --[≠ · A local browser record is not an onchain public record.]--> onchain (Onchain)`
-- Semantic groups:
-  - `wallet-action-distinction [comparison]: Read, sign, and transact are distinct wallet actions. [members: read (Read) · sign (Sign) · transact (Transact)]`
-  - `record-location-distinction [comparison]: Local browser data is distinct from an onchain public record. [members: local (Local) · onchain (Onchain)]`
-
-```text
-READ  ≠  SIGN  ≠  TRANSACT
-Public state   Authorization   Chain change
-
-LOCAL  ≠  ONCHAIN
-Browser record   Public record
-```
-
-- **Read** — Public state
-- **Sign** — Authorization
-- **Transact** — Chain change
-- **Local** — Browser record
-- **Onchain** — Public record
 
 ### Overview
 
 - Authority: app-documentation
 
-The shell wallet menu reads the current account and network. Its Refresh action updates wallet and [PATH](https://inshell.art/docs/path) inventory reads. Opening the menu itself never asks for a signature or transaction.
+The shell wallet menu reads the current account and network. Its Refresh action updates wallet and [$PATH](https://inshell.art/docs/path) inventory reads. Opening the menu itself never asks for a signature or transaction.
 
-Product CTAs open wallet requests only when an action needs one: connect, mint PATH, sign a one-mint PATH permission, or mint [THOUGHT](https://inshell.art/docs/thought). Canceling a wallet request submits nothing.
+Product CTAs open wallet requests only when an action needs one: connect, mint $PATH, sign a one-mint $PATH permission, or mint [THOUGHT](https://inshell.art/docs/thought). Canceling a wallet request submits nothing.
 
 A signature can authorize a narrowly defined action without sending a transaction or paying gas. A transaction can change chain state and requires wallet confirmation. The interface must name which one it is requesting.
 
@@ -1473,7 +1607,7 @@ Local Anvil, Sepolia, and Ethereum are separate chains with separate contracts, 
 
 - Authority: app-documentation
 
-Opening the wallet menu, refreshing account state, loading PATH inventory, or reading public token records should not request a signature or transaction. These are passive reads.
+Opening the wallet menu, refreshing account state, loading $PATH inventory, or reading public token records should not request a signature or transaction. These are passive reads.
 
 A product action can open a wallet only when it needs account access, a signature, a network switch, or a transaction. The interface should name that boundary before the request appears.
 
@@ -1508,42 +1642,14 @@ Local Anvil, Sepolia, and Ethereum have different chain IDs, deployments, balanc
 - Status: current
 - Authority classes in this document: app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/source-release-boundaries
-- Documentation version: 2026-08-15
+- Documentation version: 2026-08-16
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
-
-### Four distinct records
-
-- Authority: app-documentation, contract-release
-- Figure ID: source-release.records
-- Figure mode: field
-- Semantic form: axis
-- Semantic nodes:
-  - `source [record]: Source — Authored code`
-  - `release [record]: Release — Pinned artifacts`
-  - `deployment [record]: Deployment — Addresses + blocks`
-  - `observation [record]: Observation — Point-in-time read`
-- Semantic edges:
-  - `source-not-release: source (Source) --[≠ · Authored source is not a pinned release.]--> release (Release)`
-  - `release-not-deployment: release (Release) --[≠ · A pinned release is not a deployment record.]--> deployment (Deployment)`
-  - `deployment-not-observation: deployment (Deployment) --[≠ · A deployment record is not a point-in-time observation.]--> observation (Observation)`
-- Semantic groups:
-  - `record-distinction [comparison]: Four records that must not be collapsed into one. [members: source (Source) · release (Release) · deployment (Deployment) · observation (Observation)]`
-
-```text
-SOURCE  ≠  RELEASE  ≠  DEPLOYMENT  ≠  OBSERVATION
-Authored code   Pinned artifacts   Addresses + blocks   Point-in-time read
-```
-
-- **Source** — Authored code
-- **Release** — Pinned artifacts
-- **Deployment** — Addresses + blocks
-- **Observation** — Point-in-time read
 
 ### Overview
 
 - Authority: app-documentation, contract-release
 
-The Inshell App, [PATH](https://inshell.art/docs/path) contracts, [THOUGHT](https://inshell.art/docs/thought) contracts, and [Pulse](https://inshell.art/docs/pulse) auction have separate repositories and ownership boundaries. The App owns creation flow, integration, and presentation. Each contract repository owns its contract behavior and release artifacts. Deployment operators own network deployment records.
+The Inshell App, [$PATH](https://inshell.art/docs/path) contracts, [THOUGHT](https://inshell.art/docs/thought) contracts, and [Pulse](https://inshell.art/docs/pulse) auction have separate repositories and ownership boundaries. The App owns creation flow, integration, and presentation. Each contract repository owns its contract behavior and release artifacts. Deployment operators own network deployment records.
 
 The App consumes pinned ABIs, bytecode, schemas, renderer data, specifications, manifests, and checksums. A repository's latest source is not automatically the deployed release. A newer file is not authority for an older deployment.
 
@@ -1556,7 +1662,7 @@ Documentation can describe repository source, a pinned release, or observed chai
 - Authority: app-documentation, contract-release
 
 - The Inshell App repository owns same-origin presentation, orchestration, API behavior, and integration pins.
-- The PATH repository owns PATH contracts and their release artifacts.
+- The $PATH repository owns $PATH contracts and their release artifacts.
 - The THOUGHT repository owns THOUGHT contracts, specifications, renderer releases, and their integrity material.
 - The Pulse repository owns the auction contract and pricing mechanism release.
 
@@ -1584,7 +1690,7 @@ Canonical pages, Markdown documents, JSON indexes, API responses, GitHub mirrors
 ### Links
 
 - [Inshell App source](https://github.com/inshell-art/inshell.art)
-- [PATH source](https://github.com/inshell-art/path)
+- [$PATH source](https://github.com/inshell-art/path)
 - [THOUGHT source](https://github.com/inshell-art/THOUGHT)
 - [Pulse source](https://github.com/inshell-art/pulse)
 
@@ -1596,40 +1702,8 @@ Canonical pages, Markdown documents, JSON indexes, API responses, GitHub mirrors
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/design-principles
-- Documentation version: 2026-08-15
+- Documentation version: 2026-08-16
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
-
-### Inshell principles across systems
-
-- Authority: artist-editorial, app-documentation
-- Figure ID: design.principles
-- Figure mode: field
-- Semantic form: field
-- Semantic nodes:
-  - `bound [principle]: Bound — Collaboration is bounded.`
-  - `authorize [principle]: Authorize — Authority to continue or preserve is explicit.`
-  - `expose [principle]: Expose — Mechanisms stay visible.`
-  - `pin [principle]: Pin — Canonical sources remain identifiable.`
-  - `qualify [principle]: Qualify — Claims stop where their evidence stops.`
-- Semantic groups:
-  - `inshell-principles [set] · •: Inshell principles across systems [members: bound (Bound) · authorize (Authorize) · expose (Expose) · pin (Pin) · qualify (Qualify)]`
-
-```text
-INSHELL PRINCIPLES
-
-• BOUND — Collaboration is bounded.
-• AUTHORIZE
-  Authority to continue or preserve is explicit.
-• EXPOSE — Mechanisms stay visible.
-• PIN — Canonical sources remain identifiable.
-• QUALIFY — Claims stop where their evidence stops.
-```
-
-- **Bound** — Collaboration is bounded.
-- **Authorize** — Authority to continue or preserve is explicit.
-- **Expose** — Mechanisms stay visible.
-- **Pin** — Canonical sources remain identifiable.
-- **Qualify** — Claims stop where their evidence stops.
 
 ### Overview
 
@@ -1643,70 +1717,13 @@ Five design choices recur across Inshell's systems: collaboration is bounded, th
 
 - Authority: artist-editorial, app-documentation, contract-release
 
-[THOUGHT](https://inshell.art/docs/thought) allows one prompt, one Agent response, exact byte rules, and one human mint decision. [Pulse](https://inshell.art/docs/pulse) allows one active epoch and one next public PATH. [PATH](https://inshell.art/docs/path) exposes an ordered movement sequence with configured capacities. These constraints make the resulting differences legible.
+[THOUGHT](https://inshell.art/docs/thought) allows one prompt, one Agent response, exact byte rules, and one human mint decision. [Pulse](https://inshell.art/docs/pulse) allows one active epoch and one next public $PATH. [$PATH](https://inshell.art/docs/path) exposes an ordered movement sequence with configured capacities. These constraints make the resulting differences legible.
 
-Within THOUGHT, more options would not automatically create more expressive work. Its boundary concentrates attention on the choices that remain: which intention to write, which response to preserve, which PATH to use, and how to read the record afterward. Other [Agent Art](https://inshell.art/docs/agent-art) practices may choose different boundaries and forms.
+Within THOUGHT, more options would not automatically create more expressive work. Its boundary concentrates attention on the choices that remain: which intention to write, which response to preserve, which $PATH to use, and how to read the record afterward. Other [Agent Art](https://inshell.art/docs/agent-art) practices may choose different boundaries and forms.
 
 ### Generation is not preservation
 
 - Authority: artist-editorial, app-documentation, contract-release
-
-### Two preservation boundaries
-
-- Authority: artist-editorial, app-documentation, contract-release
-- Figure ID: design.preservation
-- Figure mode: lanes
-- Semantic form: lanes
-- Semantic nodes:
-  - `thought-agent-return [action]: Agent return — Candidate produced`
-  - `thought-human-review [action]: Human review — Decision to preserve`
-  - `thought-successful-mint [action]: Successful mint — Contract action succeeds`
-  - `thought-public-corpus [result]: Public corpus — Preserved THOUGHT`
-  - `pulse-visible-ask [state]: Visible ask — Quote exposed`
-  - `pulse-confirmed-bid [action]: Confirmed bid — Participant authorizes`
-  - `pulse-settlement [action]: Settlement — Contract action succeeds`
-  - `pulse-sale-record [result]: Sale record — Preserved Pulse`
-- Semantic edges:
-  - `thought-return-to-review: thought-agent-return (Agent return) --[→ / ↓ · The Agent return becomes a candidate for human review.]--> thought-human-review (Human review)`
-  - `thought-review-to-mint: thought-human-review (Human review) --[→ / ↓ · The human decision to preserve proceeds to a mint attempt.]--> thought-successful-mint (Successful mint)`
-  - `thought-mint-to-corpus: thought-successful-mint (Successful mint) --[→ / ↓ · Only a successful contract action preserves the THOUGHT in the public corpus.]--> thought-public-corpus (Public corpus)`
-  - `pulse-ask-to-bid: pulse-visible-ask (Visible ask) --[→ / ↓ · A participant authorizes a bid against the visible ask.]--> pulse-confirmed-bid (Confirmed bid)`
-  - `pulse-bid-to-settlement: pulse-confirmed-bid (Confirmed bid) --[→ / ↓ · The confirmed bid proceeds to contract settlement.]--> pulse-settlement (Settlement)`
-  - `pulse-settlement-to-record: pulse-settlement (Settlement) --[→ / ↓ · Only a successful settlement preserves a Pulse sale record.]--> pulse-sale-record (Sale record)`
-- Semantic groups:
-  - `thought-preservation-lane [lane]: THOUGHT [members: thought-agent-return (Agent return) · thought-human-review (Human review) · thought-successful-mint (Successful mint) · thought-public-corpus (Public corpus)]`
-  - `pulse-preservation-lane [lane]: PULSE [members: pulse-visible-ask (Visible ask) · pulse-confirmed-bid (Confirmed bid) · pulse-settlement (Settlement) · pulse-sale-record (Sale record)]`
-
-```text
-THOUGHT
-AGENT RETURN
-Candidate produced
-→ HUMAN REVIEW
-Decision to preserve
-→ SUCCESSFUL MINT
-Contract action succeeds
-→ PUBLIC CORPUS
-Preserved THOUGHT
-
-PULSE
-VISIBLE ASK
-Quote exposed
-→ CONFIRMED BID
-Participant authorizes
-→ SETTLEMENT
-Contract action succeeds
-→ SALE RECORD
-Preserved Pulse
-```
-
-1. **THOUGHT · Agent return** — Candidate produced
-2. **THOUGHT · Human review** — Decision to preserve
-3. **THOUGHT · Successful mint** — Contract action succeeds
-4. **THOUGHT · Public corpus** — Preserved THOUGHT
-1. **PULSE · Visible ask** — Quote exposed
-2. **PULSE · Confirmed bid** — Participant authorizes
-3. **PULSE · Settlement** — Contract action succeeds
-4. **PULSE · Sale record** — Preserved Pulse
 
 A system can produce a candidate without declaring it part of the public corpus. In Inshell's onchain practices, THOUGHT separates Agent return from human review and successful mint, while Pulse separates a visible ask from a participant's confirmed bid. Their contract actions are specific preservation boundaries, not a universal rule for Agent Art.
 
@@ -1714,36 +1731,11 @@ A system can produce a candidate without declaring it part of the public corpus.
 
 - Authority: artist-editorial, app-documentation, contract-release
 
-Pulse shows the curve, floor, premium, sale points, and current ask. PATH shows movement totals and use. THOUGHT publishes its language boundary, renderer, metadata, and attestation model. The mechanism is not hidden after it produces an output because understanding the mechanism changes how the output can be experienced.
+Pulse shows the curve, floor, premium, sale points, and current ask. $PATH shows movement totals and use. THOUGHT publishes its language boundary, renderer, metadata, and attestation model. The mechanism is not hidden after it produces an output because understanding the mechanism changes how the output can be experienced.
 
 ### One canonical form, many reading surfaces
 
 - Authority: app-documentation, contract-release
-
-### Many surfaces, one identified record
-
-- Authority: app-documentation, contract-release
-- Figure ID: design.reading-surfaces
-- Figure mode: field
-- Semantic form: fork
-- Semantic nodes:
-  - `identified-work [record]: Identified onchain work — Network + contract + token ID + tokenURI + release`
-  - `reading-surfaces [surface]: Many reading surfaces — Site · wallet · marketplace · API · Markdown · Agent answer`
-- Semantic edges:
-  - `work-to-surfaces: identified-work (Identified onchain work) --[↓ · One identified onchain work can be read through many surfaces.]--> reading-surfaces (Many reading surfaces)`
-
-```text
-┌─ IDENTIFIED ONCHAIN WORK ───────────────┐
-│ Network + contract + token ID +         │
-│ tokenURI + release                      │
-└─────────────────────────────────────────┘
-                    ↓
-          MANY READING SURFACES
-Site · wallet · marketplace · API · Markdown · Agent answer
-```
-
-- **Identified onchain work** — Network + contract + token ID + tokenURI + release
-- **Many reading surfaces** — Site · wallet · marketplace · API · Markdown · Agent answer
 
 An onchain Inshell work can appear on the site, in a wallet, on a marketplace, through an API, in Markdown, or inside an Agent's answer. Those surfaces can add access and context. They should still point back to the network, contract, tokenURI, pinned release, and declared record authority that make that work identifiable.
 
@@ -1759,7 +1751,7 @@ The aim is not to make uncertainty disappear. It is to make the boundary of each
 
 - Authority: artist-editorial, app-documentation, contract-release
 
-Pulse changes with every sale and every interval between sales. A PATH accumulates movement use. The THOUGHT corpus grows one selected pair at a time. Releases and deployments create historical layers that must remain readable as interfaces change.
+Pulse changes with every sale and every interval between sales. A $PATH accumulates movement use. The THOUGHT corpus grows one selected pair at a time. Releases and deployments create historical layers that must remain readable as interfaces change.
 
 This makes documentation part of preservation. It records visible interactions and keeps the work's form, permissions, and evidence connected over time.
 

@@ -2,7 +2,7 @@
   "schema": "inshell.agent-docs.topic.v2",
   "schemaUrl": "/docs/content.v2.schema.json",
   "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
-  "version": "2026-08-15",
+  "version": "2026-08-16",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "wallet-local-data",
@@ -27,135 +27,14 @@
         "app-documentation"
       ],
       "paragraphs": [
-        "The shell wallet menu reads the current account and network. Its Refresh action updates wallet and [PATH](https://inshell.art/docs/path) inventory reads. Opening the menu itself never asks for a signature or transaction.",
-        "Product CTAs open wallet requests only when an action needs one: connect, mint PATH, sign a one-mint PATH permission, or mint [THOUGHT](https://inshell.art/docs/thought). Canceling a wallet request submits nothing.",
+        "The shell wallet menu reads the current account and network. Its Refresh action updates wallet and [$PATH](https://inshell.art/docs/path) inventory reads. Opening the menu itself never asks for a signature or transaction.",
+        "Product CTAs open wallet requests only when an action needs one: connect, mint $PATH, sign a one-mint $PATH permission, or mint [THOUGHT](https://inshell.art/docs/thought). Canceling a wallet request submits nothing.",
         "A signature can authorize a narrowly defined action without sending a transaction or paying gas. A transaction can change chain state and requires wallet confirmation. The interface must name which one it is requesting.",
         "Save and Load use browser storage. Agent run state is held by the App backend for the run window. Neither is an onchain token, a portable account, or a cross-device record.",
         "Local Anvil, Sepolia, and Ethereum are separate chains with separate contracts, balances, and tokens. Local tokens belong only to the local dev chain. Normal App development preserves that chain across restarts; an explicit reset or redeployment can replace it."
       ]
     },
-    "figure": {
-      "authorities": [
-        "app-documentation"
-      ],
-      "id": "wallet.distinctions",
-      "label": "Two distinctions",
-      "mode": "field",
-      "figureText": "READ  ≠  SIGN  ≠  TRANSACT\nPublic state   Authorization   Chain change\n\nLOCAL  ≠  ONCHAIN\nBrowser record   Public record",
-      "items": [
-        {
-          "title": "Read",
-          "detail": "Public state"
-        },
-        {
-          "title": "Sign",
-          "detail": "Authorization"
-        },
-        {
-          "title": "Transact",
-          "detail": "Chain change"
-        },
-        {
-          "title": "Local",
-          "detail": "Browser record"
-        },
-        {
-          "title": "Onchain",
-          "detail": "Public record"
-        }
-      ],
-      "logic": {
-        "id": "wallet.distinctions",
-        "label": "Two distinctions",
-        "form": "ledger",
-        "nodes": [
-          {
-            "id": "read",
-            "sourceItem": 0,
-            "sourcePart": "item",
-            "term": "Read",
-            "annotation": "Public state",
-            "role": "action"
-          },
-          {
-            "id": "sign",
-            "sourceItem": 1,
-            "sourcePart": "item",
-            "term": "Sign",
-            "annotation": "Authorization",
-            "role": "action"
-          },
-          {
-            "id": "transact",
-            "sourceItem": 2,
-            "sourcePart": "item",
-            "term": "Transact",
-            "annotation": "Chain change",
-            "role": "action"
-          },
-          {
-            "id": "local",
-            "sourceItem": 3,
-            "sourcePart": "item",
-            "term": "Local",
-            "annotation": "Browser record",
-            "role": "record"
-          },
-          {
-            "id": "onchain",
-            "sourceItem": 4,
-            "sourcePart": "item",
-            "term": "Onchain",
-            "annotation": "Public record",
-            "role": "record"
-          }
-        ],
-        "edges": [
-          {
-            "id": "read-not-sign",
-            "from": "read",
-            "to": "sign",
-            "glyph": "≠",
-            "label": "Reading public state is not signing an authorization."
-          },
-          {
-            "id": "sign-not-transact",
-            "from": "sign",
-            "to": "transact",
-            "glyph": "≠",
-            "label": "Signing an authorization is not a chain transaction."
-          },
-          {
-            "id": "local-not-onchain",
-            "from": "local",
-            "to": "onchain",
-            "glyph": "≠",
-            "label": "A local browser record is not an onchain public record."
-          }
-        ],
-        "groups": [
-          {
-            "id": "wallet-action-distinction",
-            "kind": "comparison",
-            "label": "Read, sign, and transact are distinct wallet actions.",
-            "members": [
-              "read",
-              "sign",
-              "transact"
-            ]
-          },
-          {
-            "id": "record-location-distinction",
-            "kind": "comparison",
-            "label": "Local browser data is distinct from an onchain public record.",
-            "members": [
-              "local",
-              "onchain"
-            ]
-          }
-        ]
-      }
-    },
+    "figure": null,
     "preformatted": [],
     "sections": [
       {
@@ -165,7 +44,7 @@
         "id": "docs-wallet-passive",
         "title": "Reading is not signing",
         "paragraphs": [
-          "Opening the wallet menu, refreshing account state, loading PATH inventory, or reading public token records should not request a signature or transaction. These are passive reads.",
+          "Opening the wallet menu, refreshing account state, loading $PATH inventory, or reading public token records should not request a signature or transaction. These are passive reads.",
           "A product action can open a wallet only when it needs account access, a signature, a network switch, or a transaction. The interface should name that boundary before the request appears."
         ]
       },

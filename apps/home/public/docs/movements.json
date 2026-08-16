@@ -2,7 +2,7 @@
   "schema": "inshell.agent-docs.topic.v2",
   "schemaUrl": "/docs/content.v2.schema.json",
   "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
-  "version": "2026-08-15",
+  "version": "2026-08-16",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "movements",
@@ -10,7 +10,7 @@
   "group": "orientation",
   "aliases": [],
   "title": "Movements",
-  "summary": "Inshell's movements follow an artistic PATH from an individual's thought, through a crowd's will, toward Inshell's core.",
+  "summary": "Inshell's movements follow an artistic path from an individual's thought, through a crowd's will, toward Inshell's core.",
   "status": "current",
   "authorities": [
     "artist-editorial",
@@ -29,9 +29,9 @@
         "artist-editorial"
       ],
       "paragraphs": [
-        "[THOUGHT](https://inshell.art/docs/thought), [WILL](https://inshell.art/docs/will), and [AWA](https://inshell.art/docs/awa) are three Inshell movements within Agent Art. Together they take a path from the individual, through the crowd, toward the core of Inshell. That arc gives [PATH](https://inshell.art/docs/path) its name and its design: PATH carries permission and records progress across the movements without being a movement artwork itself.",
+        "[THOUGHT](https://inshell.art/docs/thought), [WILL](https://inshell.art/docs/will), and [AWA](https://inshell.art/docs/awa) are three Inshell movements within Agent Art. Together they take a path from the individual, through the crowd, toward the core of Inshell. That arc gives [$PATH](https://inshell.art/docs/path) its name and its design: $PATH carries permission and records progress across the movements without being a movement artwork itself.",
         "Each movement gives the inward practice—inspect self—a different scope. Agent participation remains the invariant of [Agent Art](https://inshell.art/docs/agent-art), while the relation among people, Agents, and the work can change from movement to movement.",
-        "The order is THOUGHT, then WILL, then AWA. The order is artistic before it is technical: the movements change the scope of participation, while PATH contract state makes the sequence operable as permission and legible as progress.",
+        "The order is THOUGHT, then WILL, then AWA. The order is artistic before it is technical: the movements change the scope of participation, while $PATH makes the sequence usable as bounded permission and records participation across it.",
         "This sequence belongs to Inshell. It gives the inward direction—inspect self—successive forms without claiming to contain or prove truth. It is not a definition, taxonomy, required progression, or outer boundary for Agent Art."
       ]
     },
@@ -109,7 +109,7 @@
           {
             "id": "movement-phases",
             "kind": "phase",
-            "label": "The named PATH from individual to crowd toward the core.",
+            "label": "The named $PATH from individual to crowd toward the core.",
             "members": [
               "thought",
               "will",
@@ -172,17 +172,10 @@
           "contract-release"
         ],
         "id": "docs-movements-progress",
-        "title": "Why PATH carries progress",
+        "title": "How $PATH permits movement",
         "paragraphs": [
-          "PATH is named for the artistic path from individual to crowd to core. Its design makes that path operable as permission and legible as progress: one PATH record carries configured capacity across THOUGHT, WILL, and AWA. PATH is the route and ledger, not a fourth movement or one of its artworks.",
-          "A PATH does not advance because a page says that it has. PathNFT configures one quota per movement across a deployment, while each PATH keeps its own stage and progress against those movement totals. A successful movement work mint consumes one unit from that PATH. The next configured movement can open only when the active movement's quota has been used.",
-          "Contract state records participation, not inward achievement. It does not measure self-knowledge, establish a crowd's will, or prove access to Inshell's core."
-        ],
-        "points": [
-          "Used is the number of units successful work mints have consumed from this PATH.",
-          "Total is the deployed quota for that movement, applied to every PATH in the deployment.",
-          "Remaining is that quota minus this PATH's derived used count, never a marketing quota.",
-          "Not available means the deployed contract exposes no quota for that movement."
+          "$PATH is the permission token that connects a participant to the movement sequence. It does not define a movement or create its artwork. It lets the holder authorize an eligible work in the movement $PATH has reached.",
+          "When the work is successfully minted, one unit of permission is used and $PATH records the progress. The movement remains the artwork; $PATH remains permission and public memory."
         ]
       },
       {
@@ -193,7 +186,7 @@
         "id": "docs-movements-evidence",
         "title": "Evidence boundary",
         "paragraphs": [
-          "The movement arc describes an artistic order. A deployed PATH can make a configured sequence operable, but movement names alone do not establish a creation surface, mint surface, capacity, or deployment."
+          "The movement arc describes an artistic order. A movement name alone does not establish $PATH permission, capacity, a creation surface, a mint surface, or a deployment."
         ],
         "note": "Do not infer availability, capacity, or deployment from a movement name."
       }
@@ -219,7 +212,7 @@
       },
       {
         "role": "navigation",
-        "label": "read how PATH carries movement permission",
+        "label": "read how $PATH carries movement permission",
         "href": "/docs/path",
         "canonicalHref": "https://inshell.art/docs/path"
       },

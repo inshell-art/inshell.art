@@ -17,6 +17,7 @@ import {
   DOCS_AUTHORITY_MAP,
   DOCS_FIGURE_MODES,
   DOCS_SOURCE,
+  agentDocsPrompt,
   type DocsAuthority,
   type DocsFigure,
   type DocsParagraph,
@@ -58,6 +59,7 @@ const CANONICAL_DOCS_APP_ROUTES = new Set([
   "/path",
   "/pulse",
   "/thought",
+  "/will",
   "/verify",
   ...DOCS_SOURCE.topics.map((topic) => `/docs/${topic.slug}`),
 ]);
@@ -243,6 +245,18 @@ function highestContiguousWordSimilarity(summary: string, paragraph: string) {
 }
 
 describe("Docs source editorial guardrails", () => {
+  test("uses the Agent index as a restrained public-site discovery map", () => {
+    const prompt = agentDocsPrompt("https://inshell.art/");
+
+    expect(prompt).toContain("Inshell's public knowledge index");
+    expect(prompt).toContain("https://inshell.art/docs/agent-index.json");
+    expect(prompt).toContain(
+      "relevant indexed documentation, product context, release, handoff, or live read-only source",
+    );
+    expect(prompt).toContain("fetch only");
+    expect(prompt).toContain("Do not guess");
+    expect(prompt).not.toMatch(/crawl|fetch (?:the )?whole site/i);
+  });
   test("keeps Inshell's anonymous artist identity and in-shell direction bounded", () => {
     const inshell = DOCS_SOURCE.topics.find(({ slug }) => slug === "inshell");
     expect(inshell).toBeDefined();
@@ -380,7 +394,7 @@ describe("Docs source editorial guardrails", () => {
     expect(text).toMatch(
       /path from the individual[\s\S]{0,100}through the crowd[\s\S]{0,100}toward the core of Inshell/i,
     );
-    expect(text).toMatch(/arc gives PATH its name and its design/i);
+    expect(text).toMatch(/arc gives \$PATH its name and its design/i);
     expect(text).toMatch(
       /Agent participation remains the invariant[\s\S]{0,180}relation[\s\S]{0,120}change from movement to movement/i,
     );
@@ -396,7 +410,23 @@ describe("Docs source editorial guardrails", () => {
     expect(text).toMatch(
       /AWA turns from the crowd toward the core of Inshell[\s\S]{0,260}without prescribing its participation relation, mechanism, or artwork form/i,
     );
-    expect(text).toMatch(/PATH is the route and ledger, not a fourth movement/i);
+    expect(text).toMatch(
+      /\$PATH is the permission token that connects a participant to the movement sequence/i,
+    );
+    expect(text).toMatch(
+      /movement remains the artwork; \$PATH remains permission and public memory/i,
+    );
+    const permissionSection = movements.sections?.find(
+      ({ id }) => id === "docs-movements-progress",
+    );
+    expect(permissionSection?.title).toBe("How $PATH permits movement");
+    expect(permissionSection?.paragraphs[0]).toEqual([
+      "$PATH",
+      expect.stringMatching(/^ is the permission token/),
+    ]);
+    expect(
+      (permissionSection?.paragraphs ?? []).map(docsParagraphText).join("\n"),
+    ).not.toMatch(/PathNFT|quota|nonce|EIP-191|configured minter/i);
     expect(text).toMatch(/not requirements for Agent Art as a field/i);
 
     expect(movements.figure?.mode).toBe("trace");
@@ -433,24 +463,10 @@ describe("Docs source editorial guardrails", () => {
     expect(thought?.status).toBe("current");
     expect(will?.status).toBe("study");
     expect(awa?.status).toBe("study");
-    expect(will?.figure).toMatchObject({
-      label: "From delegated will to a result",
-      mode: "field",
-    });
-    expect(awa?.figure).toMatchObject({
-      label: "Toward the core",
-      mode: "trace",
-    });
-    expect(will?.figure?.figureText).toMatch(
-      /HUMAN\s+── WILL \+ AUTHORITY ──→\s+AGENT[\s\S]*CROWD DYNAMIC[\s\S]*↓[\s\S]*RESULT/,
-    );
-    expect(awa?.figure?.figureText).toMatch(
-      /THOUGHT\s+→\s+WILL\s+→\s+AWA\s+→\s+…[\s\S]*INDIVIDUAL\s+CROWD\s+TOWARD THE CORE/i,
-    );
-    expect(will?.figure?.figureText).not.toMatch(/2027|deploy|mint surface/i);
-    expect(awa?.figure?.figureText).not.toMatch(/2028|deploy|mint surface/i);
-    expect(DOCS_AUTHORITY_MAP.will.figure).toEqual(["artist-editorial"]);
-    expect(DOCS_AUTHORITY_MAP.awa.figure).toEqual(["artist-editorial"]);
+    expect(will?.figure).toBeUndefined();
+    expect(awa?.figure).toBeUndefined();
+    expect(DOCS_AUTHORITY_MAP.will.figure).toBeUndefined();
+    expect(DOCS_AUTHORITY_MAP.awa.figure).toBeUndefined();
 
     expect(topicText(thought as DocsTopic)).toMatch(
       /first movement[\s\S]{0,100}begins with the individual[\s\S]{0,180}one Agent responds/i,
@@ -459,7 +475,7 @@ describe("Docs source editorial guardrails", () => {
       /second movement[\s\S]{0,260}one person to a crowd/i,
     );
     expect(topicText(will as DocsTopic)).toMatch(
-      /authorizes an Agent[\s\S]{0,120}act toward an aim[\s\S]{0,180}result may form/i,
+      /delegates will and authority to an Agent[\s\S]{0,120}acting toward an aim[\s\S]{0,180}result may emerge[\s\S]{0,120}human-Agent relations form a crowd/i,
     );
     expect(topicText(will as DocsTopic)).toMatch(
       /crowd names the move from one participant to many[\s\S]{0,160}does not mean a society[\s\S]{0,100}shared mind/i,
@@ -514,19 +530,191 @@ describe("Docs source editorial guardrails", () => {
     );
 
     expect(thought).toMatch(/sealed task/i);
-    expect(thought).toMatch(/does not choose a PATH/i);
+    expect(thought).toMatch(/does not choose a \$PATH/i);
     expect(thought).toMatch(/direct mint/i);
     expect(thought).toMatch(/Unattested/i);
 
     expect(path).toMatch(/remaining entitlement/i);
     expect(path).toMatch(/permission epoch/i);
     expect(path).toMatch(/ERC-5192/i);
-    expect(path).toMatch(/Spark PATH/i);
+    expect(path).toMatch(/Spark \$PATH/i);
 
     expect(pulse).toMatch(/maximum acceptable price/i);
     expect(pulse).toMatch(/exact ask to the treasury/i);
     expect(pulse).toMatch(/refunds surplus value/i);
     expect(pulse).toMatch(/PathPulseAdapter/i);
+  });
+
+  test("explains why Inshell uses fully onchain SVG artwork", () => {
+    const topic = DOCS_SOURCE.topics.find(({ slug }) => slug === "fully-onchain");
+    expect(topic).toBeDefined();
+    if (!topic) return;
+
+    const text = topicText(topic);
+    expect(topic.group).toBe("systems");
+    expect(topic.status).toBe("current");
+    expect(topic.figure).toBeUndefined();
+    expect(text).toMatch(
+      /token should not outlive the artwork it names[\s\S]{0,180}public form disappears or changes/i,
+    );
+    expect(text).toMatch(
+      /visible form is part of the work[\s\S]{0,180}reading surface, not its origin/i,
+    );
+    expect(text).toMatch(/ERC-721 alone does not guarantee this/i);
+    expect(text).toMatch(
+      /SVG is both an image and a description of an image[\s\S]{0,100}raw source is human-readable[\s\S]{0,180}instead of hiding the form inside opaque machine code/i,
+    );
+    expect(text).toMatch(
+      /natural layer between human intention and machine action[\s\S]{0,120}an area of interest for Inshell/i,
+    );
+    expect(text).toMatch(
+      /vector-based[\s\S]{0,160}assembled deterministically from onchain state[\s\S]{0,180}no image server[\s\S]{0,100}no webfont/i,
+    );
+    const svgSection = topic.sections?.find(
+      ({ id }) => id === "docs-fully-onchain-svg",
+    );
+    expect(svgSection).toBeDefined();
+    expect(svgSection?.paragraphs?.map(docsParagraphText).join("\n")).not.toMatch(
+      /Mono 76/i,
+    );
+    expect(text).toMatch(
+      /\$PATH[\s\S]{0,140}v0\.5\.0[\s\S]{0,180}nine required Mono 76 glyph paths[\s\S]{0,160}self-contained JSON/i,
+    );
+    expect(text).toMatch(
+      /THOUGHT[\s\S]{0,220}constructs its SVG from glyph data held in onchain code storage/i,
+    );
+    const implementationSection = topic.sections?.find(
+      ({ id }) => id === "docs-fully-onchain-inshell",
+    );
+    expect(implementationSection?.sourceExamples).toHaveLength(2);
+    expect(
+      implementationSection?.sourceExamples?.map(({ label, language }) => ({
+        label,
+        language,
+      })),
+    ).toEqual([
+      { label: "$PATH SVG example", language: "svg" },
+      { label: "THOUGHT SVG example", language: "svg" },
+    ]);
+    for (const example of implementationSection?.sourceExamples ?? []) {
+      expect(example.content).toMatch(/^<svg[\s\S]*<\/svg>$/);
+      expect(example.content).toMatch(/<(?:rect|g|defs|clipPath)\b/);
+      expect(example.content).not.toMatch(/<script\b/i);
+    }
+    expect(implementationSection?.sourceExamples?.[0]?.content).toMatch(
+      /data-renderer='path-text-status'[\s\S]*path-progress[\s\S]*remaining[\s\S]*consumed/i,
+    );
+    expect(implementationSection?.sourceExamples?.[1]?.content).toMatch(
+      /work-frame[\s\S]*work-canvas[\s\S]*prompt-line[\s\S]*agent-line/i,
+    );
+    expect(text).toMatch(/qualified release proves the design and package, not a live deployment/i);
+    expect(text).not.toMatch(/THOUGHT (?:is|has) (?:live|deployed)/i);
+    expect(text).toMatch(
+      /does not by itself mean immutable, non-upgradeable, decentralized, verified, attested, or true/i,
+    );
+    expect(DOCS_AUTHORITY_MAP["fully-onchain"]).toEqual({
+      lead: ["app-documentation", "contract-release"],
+      sections: {
+        "docs-fully-onchain-why": ["app-documentation", "contract-release"],
+        "docs-fully-onchain-svg": ["app-documentation", "contract-release"],
+        "docs-fully-onchain-inshell": ["app-documentation", "contract-release"],
+        "docs-fully-onchain-boundary": [
+          "app-documentation",
+          "contract-release",
+        ],
+      },
+    });
+    expect(topic.links).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ href: "https://eips.ethereum.org/EIPS/eip-721" }),
+        expect.objectContaining({ href: "/docs/source-release-boundaries" }),
+      ]),
+    );
+  });
+
+  test("shows one concrete THOUGHT work without duplicating the source disclosure", () => {
+    const topic = DOCS_SOURCE.topics.find(({ slug }) => slug === "thought");
+    const workSection = topic?.sections?.find(
+      ({ id }) => id === "docs-thought-work",
+    );
+
+    expect(workSection?.sourceExamples).toHaveLength(1);
+    expect(workSection?.sourceExamples?.[0]).toEqual(
+      expect.objectContaining({
+        label: "THOUGHT work example",
+        language: "svg",
+        showSource: false,
+      }),
+    );
+    expect(workSection?.sourceExamples?.[0]?.content).toMatch(
+      /work-frame[\s\S]*work-canvas[\s\S]*prompt-line[\s\S]*agent-line/i,
+    );
+    expect(workSection?.paragraphs).toEqual(
+      expect.arrayContaining([
+        expect.arrayContaining([
+          expect.objectContaining({
+            label: "Fully Onchain",
+            href: "/docs/fully-onchain#docs-fully-onchain-inshell",
+          }),
+        ]),
+      ]),
+    );
+  });
+
+  test("renders the complete sealed Mono 76 repertoire from canonical path data", () => {
+    const topic = DOCS_SOURCE.topics.find(({ slug }) => slug === "mono-76");
+    const repertoireSection = topic?.sections?.find(
+      ({ id }) => id === "docs-mono-76-repertoire",
+    );
+    const example = repertoireSection?.sourceExamples?.[0];
+
+    expect(example).toEqual(
+      expect.objectContaining({
+        label: "Mono 76 full set demo",
+        language: "svg",
+        presentation: "specimen",
+      }),
+    );
+    expect(example?.content).toMatch(/data-record-count="76"/);
+    expect(example?.content).toMatch(/data-visible-glyph-count="75"/);
+    expect(example?.content.match(/class="mono-76-record"/g)).toHaveLength(76);
+    expect(example?.content.match(/<path\b/g)).toHaveLength(75);
+    expect(example?.content).toContain(
+      'data-record-index="0" data-character="SPACE" data-draws-path="false"',
+    );
+
+    render(<DocsPage topicSlug="mono-76" />);
+    const section = screen
+      .getByRole("heading", { level: 3, name: "A closed repertoire" })
+      .closest("section");
+    const renderedExample = section?.querySelector(
+      "article.docs-topic__source-example--specimen",
+    );
+    const image = renderedExample?.querySelector("img");
+    const code = renderedExample?.querySelector("code");
+
+    expect(renderedExample).not.toBeNull();
+    expect(renderedExample?.querySelector("figcaption")).toHaveTextContent(
+      "Mono 76 full set demo",
+    );
+    expect(renderedExample?.querySelector("details")).not.toHaveAttribute(
+      "open",
+    );
+    expect(
+      decodeURIComponent(
+        (image?.getAttribute("src") ?? "").split(",", 2)[1] ?? "",
+      ),
+    ).toBe(code?.textContent);
+  });
+
+  test("uses $PATH as the public documentation term", () => {
+    for (const topic of DOCS_SOURCE.topics) {
+      expect(topicText(topic)).not.toMatch(/(?<!\$)\bPATH\b/);
+    }
+
+    expect(DOCS_SOURCE.topics.find(({ slug }) => slug === "path")?.title).toBe(
+      "$PATH",
+    );
   });
 
   test("documents the v0.5.0 movement-unit consume boundary without inventing per-token quotas", () => {
@@ -539,9 +727,9 @@ describe("Docs source editorial guardrails", () => {
     if (!path || !contracts || !movements) return;
 
     const pathText = topicText(path);
-    expect(pathText).not.toMatch(/configured per movement and per PATH/i);
+    expect(pathText).not.toMatch(/configured per movement and per \$PATH/i);
     expect(pathText).toMatch(
-      /one quota and one authorized minter for each movement across the deployment[\s\S]{0,180}Every PATH uses those movement totals[\s\S]{0,180}each token stores its own current stage and in-stage minted count/i,
+      /one quota and one authorized minter for each movement across the deployment[\s\S]{0,180}Every \$PATH uses those movement totals[\s\S]{0,180}each token stores its own current stage and in-stage minted count/i,
     );
     expect(pathText).toMatch(
       /v0\.5\.0 canonical deployment policy[\s\S]{0,100}THOUGHT 1[\s\S]{0,40}WILL 10[\s\S]{0,40}AWA 1/i,
@@ -557,7 +745,7 @@ describe("Docs source editorial guardrails", () => {
       .map(docsParagraphText)
       .join("\n");
     expect(consumptionText).toMatch(
-      /EIP-191[\s\S]{0,300}PathNFT address[\s\S]{0,80}chain ID[\s\S]{0,80}PATH ID[\s\S]{0,80}movement[\s\S]{0,80}owner[\s\S]{0,80}configured movement minter[\s\S]{0,100}permission epoch[\s\S]{0,100}consume nonce[\s\S]{0,80}deadline/i,
+      /EIP-191[\s\S]{0,300}PathNFT address[\s\S]{0,80}chain ID[\s\S]{0,80}\$PATH ID[\s\S]{0,80}movement[\s\S]{0,80}owner[\s\S]{0,80}configured movement minter[\s\S]{0,100}permission epoch[\s\S]{0,100}consume nonce[\s\S]{0,80}deadline/i,
     );
     expect(consumptionText).toMatch(
       /only the configured movement minter may call consumeUnit/i,
@@ -566,7 +754,7 @@ describe("Docs source editorial guardrails", () => {
       /checks the configured caller[\s\S]{0,160}current-owner authorization[\s\S]{0,120}fixed movement order[\s\S]{0,80}remaining quota/i,
     );
     expect(consumptionText).toMatch(
-      /zero-based in-movement serial[\s\S]{0,140}consume nonce[\s\S]{0,120}increments that PATH's current count/i,
+      /zero-based in-movement serial[\s\S]{0,140}consume nonce[\s\S]{0,120}increments that \$PATH's current count/i,
     );
     expect(consumptionText).toMatch(
       /count reaches the movement quota[\s\S]{0,120}advances to the next movement[\s\S]{0,100}resets its in-stage count/i,
@@ -580,9 +768,9 @@ describe("Docs source editorial guardrails", () => {
     ]);
 
     expect(consumption?.figure).toBeUndefined();
-    expect(DOCS_AUTHORITY_MAP.path.sectionFigures).not.toHaveProperty(
-      "docs-path-consumption",
-    );
+    expect(
+      DOCS_AUTHORITY_MAP.path.sectionFigures?.["docs-path-consumption"],
+    ).toBeUndefined();
     expect(path.links).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -642,21 +830,25 @@ describe("Docs source editorial guardrails", () => {
         { label: "THOUGHT", href: "/docs/thought" },
         { label: "WILL", href: "/docs/will" },
         { label: "AWA", href: "/docs/awa" },
-        { label: "PATH", href: "/docs/path" },
+        { label: "$PATH", href: "/docs/path" },
         { label: "Agent Art", href: "/docs/agent-art" },
       ],
       thought: [
-        { label: "PATH", href: "/docs/path" },
+        { label: "$PATH", href: "/docs/path" },
         { label: "Agent Art", href: "/docs/agent-art" },
         { label: "wallet", href: "/docs/wallet-local-data" },
+        {
+          label: "Fully Onchain",
+          href: "/docs/fully-onchain#docs-fully-onchain-inshell",
+        },
       ],
       will: [
-        { label: "PATH", href: "/docs/path" },
+        { label: "$PATH", href: "/docs/path" },
         { label: "THOUGHT", href: "/docs/thought" },
         { label: "Agent Art", href: "/docs/agent-art" },
       ],
       awa: [
-        { label: "PATH", href: "/docs/path" },
+        { label: "$PATH", href: "/docs/path" },
         { label: "THOUGHT", href: "/docs/thought" },
         { label: "WILL", href: "/docs/will" },
         { label: "Agent Art", href: "/docs/agent-art" },
@@ -668,7 +860,7 @@ describe("Docs source editorial guardrails", () => {
         { label: "AWA", href: "/docs/awa" },
       ],
       pulse: [
-        { label: "PATH", href: "/docs/path" },
+        { label: "$PATH", href: "/docs/path" },
         { label: "Inshell", href: "/docs/inshell" },
         { label: "wallet", href: "/docs/wallet-local-data" },
       ],
@@ -683,12 +875,24 @@ describe("Docs source editorial guardrails", () => {
       ],
       "artwork-metadata-chain": [
         { label: "THOUGHT", href: "/docs/thought" },
-        { label: "PATH", href: "/docs/path" },
+        { label: "$PATH", href: "/docs/path" },
         { label: "attestation status", href: "/docs/verification" },
+      ],
+      "fully-onchain": [
+        { label: "$PATH", href: "/docs/path" },
+        { label: "THOUGHT", href: "/docs/thought" },
+        {
+          label: "release and deployment boundary",
+          href: "/docs/source-release-boundaries",
+        },
+        {
+          label: "artwork, metadata, and chain",
+          href: "/docs/artwork-metadata-chain",
+        },
       ],
       "mono-76": [
         { label: "THOUGHT", href: "/docs/thought" },
-        { label: "PATH", href: "/docs/path" },
+        { label: "$PATH", href: "/docs/path" },
         { label: "release", href: "/docs/source-release-boundaries" },
       ],
       verification: [
@@ -700,11 +904,11 @@ describe("Docs source editorial guardrails", () => {
         { label: "wallet boundaries", href: "/docs/wallet-local-data" },
       ],
       "wallet-local-data": [
-        { label: "PATH", href: "/docs/path" },
+        { label: "$PATH", href: "/docs/path" },
         { label: "THOUGHT", href: "/docs/thought" },
       ],
       "source-release-boundaries": [
-        { label: "PATH", href: "/docs/path" },
+        { label: "$PATH", href: "/docs/path" },
         { label: "THOUGHT", href: "/docs/thought" },
         { label: "Pulse", href: "/docs/pulse" },
         { label: "Verification", href: "/docs/verification" },
@@ -712,7 +916,7 @@ describe("Docs source editorial guardrails", () => {
       "design-principles": [
         { label: "THOUGHT", href: "/docs/thought" },
         { label: "Pulse", href: "/docs/pulse" },
-        { label: "PATH", href: "/docs/path" },
+        { label: "$PATH", href: "/docs/path" },
         { label: "Agent Art", href: "/docs/agent-art" },
         { label: "Public provenance", href: "/docs/verification" },
       ],
@@ -860,7 +1064,7 @@ describe("Docs source editorial guardrails", () => {
     const pulse = topicText(
       DOCS_SOURCE.topics.find(({ slug }) => slug === "pulse") as DocsTopic,
     );
-    expect(path).toMatch(/current PATH owner/i);
+    expect(path).toMatch(/current \$PATH owner/i);
     expect(pulse).toMatch(/current ask/i);
   });
 
@@ -876,6 +1080,7 @@ describe("Docs source editorial guardrails", () => {
     expect(index.pageContexts.find(({ route }) => route === "/gallery")?.topics).toEqual([
       "thought",
       "artwork-metadata-chain",
+      "fully-onchain",
       "verification",
     ]);
     expect(index.pageContexts.find(({ route }) => route === "/")?.topics).toEqual(
@@ -1009,6 +1214,101 @@ describe("Docs source editorial guardrails", () => {
 });
 
 describe("DocsPage navigation", () => {
+  test("bridges ordinary article reading to wider Agent exploration", () => {
+    render(<DocsPage />);
+
+    const scopeNote = document.querySelector(".docs-agent__scope-note");
+    expect(scopeNote).toHaveTextContent(
+      /or read the articles below as usual\.\s*Your Agent can also explore Inshell’s wider public sources\./,
+    );
+    expect(scopeNote).toContainHTML("<br>");
+    expect(
+      screen.getByText(
+        "Your Agent can also explore Inshell’s wider public sources.",
+      ),
+    ).toHaveClass("docs-agent__scope-detail");
+    expect(
+      screen.queryByText(/read technical sources beyond the articles below/i),
+    ).not.toBeInTheDocument();
+  });
+
+  test("renders the fully onchain SVG excerpts as collapsed source disclosures", () => {
+    render(<DocsPage topicSlug="fully-onchain" />);
+    const sectionHeading = screen.getByRole("heading", {
+      level: 3,
+      name: "How Inshell does it",
+    });
+    const section = sectionHeading.closest("section");
+    expect(section).not.toBeNull();
+    const disclosures = [
+      ...(section?.querySelectorAll(
+        "article.docs-topic__source-example",
+      ) ?? []),
+    ];
+    expect(disclosures).toHaveLength(2);
+    expect(
+      disclosures.map(
+        (example) => example.querySelector("figcaption")?.textContent,
+      ),
+    ).toEqual(["$PATH SVG example", "THOUGHT SVG example"]);
+    const codeDisclosures = disclosures.map((example) =>
+      example.querySelector("details.docs-topic__source-example-code"),
+    );
+    expect(codeDisclosures.every((details) => details && !details.open)).toBe(
+      true,
+    );
+    expect(
+      codeDisclosures.map(
+        (details) => details?.querySelector("summary")?.textContent,
+      ),
+    ).toEqual(["view raw SVG code", "view raw SVG code"]);
+    expect(disclosures.map((example) => example.querySelector("code")?.className)).toEqual(
+      ["language-svg", "language-svg"],
+    );
+    expect(disclosures[0]).toHaveTextContent("path-progress");
+    expect(disclosures[1]).toHaveTextContent("work-frame");
+    for (const example of disclosures) {
+      const image = example.querySelector("img");
+      const code = example.querySelector("code");
+      const source = image?.getAttribute("src") ?? "";
+      expect(source).toMatch(/^data:image\/svg\+xml;charset=utf-8,/);
+      expect(decodeURIComponent(source.split(",", 2)[1] ?? "")).toBe(
+        code?.textContent,
+      );
+    }
+  });
+
+  test("renders the THOUGHT work example without a duplicate source disclosure", () => {
+    render(<DocsPage topicSlug="thought" />);
+    const section = screen
+      .getByRole("heading", { level: 3, name: "What makes one work" })
+      .closest("section");
+    const example = section?.querySelector(
+      "article.docs-topic__source-example",
+    );
+
+    expect(example).not.toBeNull();
+    expect(example?.querySelector("figcaption")).toHaveTextContent(
+      "THOUGHT work example",
+    );
+    expect(
+      example?.querySelector("details.docs-topic__source-example-code"),
+    ).not.toBeInTheDocument();
+    const imageSource = example?.querySelector("img")?.getAttribute("src") ?? "";
+    expect(imageSource).toMatch(/^data:image\/svg\+xml;charset=utf-8,/);
+    expect(decodeURIComponent(imageSource.split(",", 2)[1] ?? "")).toMatch(
+      /work-frame[\s\S]*prompt-line[\s\S]*agent-line/i,
+    );
+    expect(
+      within(section as HTMLElement).getByRole("link", {
+        name: "Fully Onchain",
+      }),
+    ).toHaveAttribute(
+      "href",
+      "/docs/fully-onchain#docs-fully-onchain-inshell",
+    );
+  });
+
   test("renders THOUGHT, WILL, and AWA as top-level siblings without a Movements submenu", () => {
     const { rerender } = render(<DocsPage topicSlug="movements" />);
     const documentationMenu = screen.getByRole("navigation", {
@@ -1045,19 +1345,6 @@ describe("DocsPage character figures", () => {
     "movements:lead": "trace",
     "thought:docs-thought-work": "field",
     "thought:docs-thought-agent-handoff": "trace",
-    "thought:docs-thought-provenance": "field",
-    "will:lead": "field",
-    "awa:lead": "trace",
-    "path:docs-path-capacity": "ledger",
-    "pulse:docs-pulse-serial": "trace",
-    "contracts:docs-contracts-responsibilities": "lanes",
-    "artwork-metadata-chain:lead": "field",
-    "mono-76:lead": "trace",
-    "wallet-local-data:lead": "field",
-    "source-release-boundaries:lead": "field",
-    "design-principles:lead": "field",
-    "design-principles:docs-design-selection": "lanes",
-    "design-principles:docs-design-canonical": "field",
   } as const;
 
   const expectedForms = {
@@ -1067,19 +1354,6 @@ describe("DocsPage character figures", () => {
     "movements.arc": "trace",
     "thought.prompt-response": "axis",
     "thought.creative-handoff": "trace",
-    "thought.creation-attestation": "fork",
-    "will.open-field": "fork",
-    "awa.open-horizon": "trace",
-    "path.capacity-progress": "ledger",
-    "pulse.epoch": "cycle",
-    "contracts.handoffs": "lanes",
-    "evidence.interpretation": "fork",
-    "mono-76.canonical-artwork": "trace",
-    "wallet.distinctions": "ledger",
-    "source-release.records": "axis",
-    "design.principles": "field",
-    "design.preservation": "lanes",
-    "design.reading-surfaces": "fork",
   } as const satisfies Readonly<Record<string, DocsFigureForm>>;
 
   const expectedFieldShapes = {
@@ -1087,13 +1361,6 @@ describe("DocsPage character figures", () => {
     "How practice relates to truth": "framed-directed-relation",
     "The invariant and the open field": "open-invariant-field",
     "One prompt, one response": "prompt-response",
-    "Creation Attestation": "attestation-flow-fork",
-    "From delegated will to a result": "delegated-will-convergence",
-    "Evidence becomes interpretation": "evidence-interpretation",
-    "Two distinctions": "distinction-comparisons",
-    "Four distinct records": "record-comparison",
-    "Inshell principles across systems": "open-principle-set",
-    "Many surfaces, one identified record": "canonical-source-flow",
   } as const;
 
   const expectedFieldAnnotationCounts = {
@@ -1101,68 +1368,52 @@ describe("DocsPage character figures", () => {
     "How practice relates to truth": 3,
     "The invariant and the open field": 3,
     "One prompt, one response": 1,
-    "Creation Attestation": 4,
-    "From delegated will to a result": 4,
-    "Evidence becomes interpretation": 5,
-    "Two distinctions": 5,
-    "Four distinct records": 4,
-    "Inshell principles across systems": 5,
-    "Many surfaces, one identified record": 2,
   } as const;
 
   const expectedFrameCounts: Readonly<Record<string, number>> = {
     "inshell.inward-direction": 1,
     "inshell.practice-truth": 2,
-    "design.reading-surfaces": 1,
   };
+
+  const removedFigureIds = [
+    "thought.creation-attestation",
+    "evidence.interpretation",
+    "path.capacity-progress",
+    "pulse.epoch",
+    "contracts.handoffs",
+    "mono-76.canonical-artwork",
+    "wallet.distinctions",
+    "source-release.records",
+    "design.principles",
+    "design.preservation",
+    "design.reading-surfaces",
+  ] as const;
 
   function normalizedFigureText(value: string) {
     return value.replace(/│/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
   }
 
   test("resolves source nodes and relations independently of edge array order", () => {
-    const awaFigure = allFigureEntries().find(
-      ({ figure }) => figure.id === "awa.open-horizon",
+    const movementsFigure = allFigureEntries().find(
+      ({ figure }) => figure.id === "movements.arc",
     )?.figure;
-    const pulseFigure = allFigureEntries().find(
-      ({ figure }) => figure.id === "pulse.epoch",
-    )?.figure;
-    const pathFigure = allFigureEntries().find(
-      ({ figure }) => figure.id === "path.capacity-progress",
-    )?.figure;
-    expect(awaFigure).toBeDefined();
-    expect(pulseFigure).toBeDefined();
-    expect(pathFigure).toBeDefined();
+    expect(movementsFigure).toBeDefined();
 
-    const awaLogic = docsFigureLogic(awaFigure as DocsFigure);
-    const reorderedAwaLogic = {
-      ...awaLogic,
-      edges: [...awaLogic.edges].reverse(),
+    const movementsLogic = docsFigureLogic(movementsFigure as DocsFigure);
+    const reorderedMovementsLogic = {
+      ...movementsLogic,
+      edges: [...movementsLogic.edges].reverse(),
     };
-    const thought = resolveSourceNode(reorderedAwaLogic, 0);
-    const will = resolveSourceNode(reorderedAwaLogic, 1);
-    const awa = resolveSourceNode(reorderedAwaLogic, 2);
-    expect(resolveEdgeByEndpoints(reorderedAwaLogic, thought.id, will.id).id)
-      .toBe("thought-to-will");
-    expect(resolveEdgeByEndpoints(reorderedAwaLogic, will.id, awa.id).id)
-      .toBe("will-toward-awa");
+    const thought = resolveSourceNode(reorderedMovementsLogic, 0);
+    const will = resolveSourceNode(reorderedMovementsLogic, 1);
+    const awa = resolveSourceNode(reorderedMovementsLogic, 2);
+    expect(
+      resolveEdgeByEndpoints(reorderedMovementsLogic, thought.id, will.id).id,
+    ).toBe("individual-to-crowd");
+    expect(
+      resolveEdgeByEndpoints(reorderedMovementsLogic, will.id, awa.id).id,
+    ).toBe("crowd-toward-core");
 
-    const pulseLogic = docsFigureLogic(pulseFigure as DocsFigure);
-    const reorderedPulseLogic = {
-      ...pulseLogic,
-      edges: [pulseLogic.edges[2], pulseLogic.edges[0], pulseLogic.edges[1]],
-    };
-    const ask = resolveSourceNode(reorderedPulseLogic, 0);
-    const nextAsk = resolveSourceNode(reorderedPulseLogic, 2);
-    expect(resolveEdgeByEndpoints(reorderedPulseLogic, nextAsk.id, ask.id).id)
-      .toBe("next-epoch-loop");
-
-    const pathLogic = docsFigureLogic(pathFigure as DocsFigure);
-    expect(resolveSourceNode(pathLogic, 0, "title").id).toBe("capacity");
-    expect(resolveSourceNode(pathLogic, 0, "detail").id).toBe("progress");
-    expect(() => resolveSourceNode(pathLogic, 0)).toThrow(
-      /no semantic node for source item 0 part "item"/i,
-    );
   });
 
   test("uses each mode only where its relationship fits", () => {
@@ -1171,15 +1422,29 @@ describe("DocsPage character figures", () => {
         allFigureEntries().map(({ key, figure }) => [key, figure.mode]),
       ),
     ).toEqual(expectedModes);
-    expect(
-      new Set(allFigureEntries().map(({ figure }) => figure.mode)),
-    ).toEqual(new Set(DOCS_FIGURE_MODES));
+    expect(new Set(allFigureEntries().map(({ figure }) => figure.mode))).toEqual(
+      new Set(["field", "trace"]),
+    );
 
     expect(
       DOCS_SOURCE.topics
         .filter((topic) => !topic.figure)
         .map(({ slug }) => slug),
-    ).toEqual(["thought", "path", "pulse", "contracts", "verification"]);
+    ).toEqual([
+      "thought",
+      "will",
+      "awa",
+      "path",
+      "pulse",
+      "contracts",
+      "artwork-metadata-chain",
+      "fully-onchain",
+      "mono-76",
+      "verification",
+      "wallet-local-data",
+      "source-release-boundaries",
+      "design-principles",
+    ]);
     expect(
       DOCS_SOURCE.topics.flatMap((topic) => topic.sections ?? []).filter(
         (section) => !section.figure,
@@ -1187,18 +1452,73 @@ describe("DocsPage character figures", () => {
     ).toBeGreaterThan(allFigureEntries().length);
   });
 
+  test("reserves figures for abstract impressions and keeps technical explanation in prose", () => {
+    const figureIds = new Set(
+      allFigureEntries().map(({ figure }) => figure.id),
+    );
+    for (const id of removedFigureIds) {
+      expect(figureIds).not.toContain(id);
+    }
+
+    const topic = (slug: string) =>
+      DOCS_SOURCE.topics.find((candidate) => candidate.slug === slug);
+    const section = (slug: string, id: string) =>
+      topic(slug)?.sections?.find((candidate) => candidate.id === id);
+
+    expect(section("thought", "docs-thought-provenance")?.figure).toBeUndefined();
+    expect(section("path", "docs-path-capacity")?.figure).toBeUndefined();
+    expect(section("pulse", "docs-pulse-serial")?.figure).toBeUndefined();
+    expect(
+      section("contracts", "docs-contracts-responsibilities")?.figure,
+    ).toBeUndefined();
+    expect(section("design-principles", "docs-design-selection")?.figure)
+      .toBeUndefined();
+    expect(section("design-principles", "docs-design-canonical")?.figure)
+      .toBeUndefined();
+    for (const slug of [
+      "mono-76",
+      "will",
+      "awa",
+      "artwork-metadata-chain",
+      "wallet-local-data",
+      "source-release-boundaries",
+      "design-principles",
+    ]) {
+      expect(topic(slug)?.figure).toBeUndefined();
+    }
+
+    expect(JSON.stringify(topic("thought"))).toMatch(/Creation Attestation/i);
+    expect(JSON.stringify(topic("path"))).toMatch(/quota|remaining/i);
+    expect(JSON.stringify(topic("pulse"))).toMatch(/next ask|epoch/i);
+    expect(JSON.stringify(topic("contracts"))).toMatch(/responsibilit|handoff/i);
+    expect(JSON.stringify(topic("mono-76"))).toMatch(/glyph|path geometry/i);
+    expect(JSON.stringify(topic("awa"))).toMatch(
+      /individual|crowd|toward the core/i,
+    );
+    expect(JSON.stringify(topic("artwork-metadata-chain"))).toMatch(
+      /network|contract|tokenURI|release|context/i,
+    );
+    expect(JSON.stringify(topic("wallet-local-data"))).toMatch(/read|sign|transact/i);
+    expect(JSON.stringify(topic("source-release-boundaries"))).toMatch(
+      /source|release|deployment|observation/i,
+    );
+    expect(JSON.stringify(topic("design-principles"))).toMatch(
+      /preserv|reading surface/i,
+    );
+  });
+
   test("publishes one stable literal semantic graph for every figure", () => {
     const entries = allFigureEntries();
     const formById: Readonly<Record<string, DocsFigureForm>> = expectedForms;
-    expect(entries).toHaveLength(19);
-    expect(entries.map(({ figure }) => figure.id)).toEqual(
-      expect.arrayContaining(DOCS_FIGURE_LOGIC_IDS),
+    expect(entries).toHaveLength(6);
+    expect(new Set(entries.map(({ figure }) => figure.id))).toEqual(
+      new Set(DOCS_FIGURE_LOGIC_IDS),
     );
     expect(new Set(entries.map(({ figure }) => figure.id)).size).toBe(
       entries.length,
     );
-    expect(new Set(DOCS_FIGURE_FORMS)).toEqual(
-      new Set(Object.values(expectedForms)),
+    expect(new Set(Object.values(expectedForms))).toEqual(
+      new Set(["axis", "field", "trace"]),
     );
 
     for (const { figure } of entries) {
@@ -1294,10 +1614,6 @@ describe("DocsPage character figures", () => {
         expect(figure.figureText).toMatch(/[┌┐└┘├┬│↓↑→≠•]/);
       }
 
-      if (["wallet.distinctions", "source-release.records"].includes(figure.id)) {
-        expect(figure.figureText).toContain("≠");
-        expect(figure.figureText).not.toMatch(/[┌┐└┘│]/);
-      }
     }
   });
 
@@ -1336,9 +1652,6 @@ describe("DocsPage character figures", () => {
     const inshellPracticeFigure = topics
       .get("inshell")
       ?.sections?.find(({ id }) => id === "docs-inshell-practice")?.figure;
-    const pathCapacityFigure = topics
-      .get("path")
-      ?.sections?.find(({ id }) => id === "docs-path-capacity")?.figure;
 
     expect(inshellFigure).toMatch(
       /A BODY, FACE, OR HEAD[\s\S]*REPUTATION, ROLE\.\.\.[\s\S]*SHELL[\s\S]*IN[\s\S]*SELF/i,
@@ -1358,10 +1671,6 @@ describe("DocsPage character figures", () => {
     );
     expect(agentArtFigure).not.toMatch(/\bINVARIANT\b|OPEN QUESTIONS/i);
     expect(agentArtFigure).not.toMatch(/NO PRESCRIBED RELATION/);
-    expect(pathCapacityFigure?.figureText).toMatch(
-      /DEPLOYMENT[\s\S]*EACH PATH[\s\S]*MOVEMENT QUOTA[\s\S]*=[\s\S]*USED \+ REMAINING/,
-    );
-
     for (const [slug, sectionId] of [
       ["movements", "docs-movements-agent-art"],
       ["path", "docs-path-consumption"],
@@ -1411,9 +1720,6 @@ describe("DocsPage character figures", () => {
         expect(
           visual?.querySelectorAll(".docs-figure__character-frame"),
         ).toHaveLength(expectedFrameCounts[sourceFigure.id] ?? 0);
-        expect(
-          visual?.querySelectorAll(".docs-figure__term").length,
-        ).toBeGreaterThanOrEqual(sourceFigure.items.length);
         for (const annotation of [
           ...(visual?.querySelectorAll(".docs-figure__annotation") ?? []),
         ]) {
@@ -1501,8 +1807,6 @@ describe("DocsPage character figures", () => {
               {
                 "movements.arc": "sequence",
                 "thought.creative-handoff": "sequence",
-                "awa.open-horizon": "sequence",
-                "mono-76.canonical-artwork": "stack",
               }[sourceFigure.id],
             );
           }
@@ -1526,7 +1830,7 @@ describe("DocsPage character figures", () => {
           expect(relation).toHaveClass(
             "docs-figure__shape-ledger-relation--governing",
           );
-          expect(comparison).toHaveTextContent(/Deployment[\s\S]*Each PATH/);
+          expect(comparison).toHaveTextContent(/Deployment[\s\S]*Each \$PATH/);
           expect(comparison?.textContent).not.toMatch(/[│┼]/);
           expect(
             comparison?.querySelector(
@@ -1607,148 +1911,6 @@ describe("DocsPage character figures", () => {
     }
   });
 
-  test("renders semantic lane groups as open chains without stage scaffolding", () => {
-    const cases = [
-      {
-        slug: "contracts",
-        id: "contracts.handoffs",
-        label: "Contract handoffs across issuance and minting",
-        layout: "phase",
-        chainGroups: [
-          {
-            id: "public-issuance-phase",
-            nodes: ["pulse-settle", "adapter-issue", "path-record"],
-            edges: ["settle-to-issue", "issue-to-record"],
-          },
-          {
-            id: "later-thought-mint-phase",
-            nodes: ["thought-validate", "path-consume", "thought-mint"],
-            edges: ["validate-to-consume", "consume-to-mint"],
-          },
-        ],
-      },
-      {
-        slug: "design-principles",
-        id: "design.preservation",
-        label: "Two preservation boundaries",
-        layout: "parallel",
-        chainGroups: [
-          {
-            id: "thought-preservation-lane",
-            nodes: [
-              "thought-agent-return",
-              "thought-human-review",
-              "thought-successful-mint",
-              "thought-public-corpus",
-            ],
-            edges: [
-              "thought-return-to-review",
-              "thought-review-to-mint",
-              "thought-mint-to-corpus",
-            ],
-          },
-          {
-            id: "pulse-preservation-lane",
-            nodes: [
-              "pulse-visible-ask",
-              "pulse-confirmed-bid",
-              "pulse-settlement",
-              "pulse-sale-record",
-            ],
-            edges: [
-              "pulse-ask-to-bid",
-              "pulse-bid-to-settlement",
-              "pulse-settlement-to-record",
-            ],
-          },
-        ],
-      },
-    ] as const;
-
-    for (const laneCase of cases) {
-      const sourceFigure = allFigureEntries().find(
-        ({ figure }) => figure.id === laneCase.id,
-      )?.figure;
-      expect(sourceFigure).toBeDefined();
-      const logic = docsFigureLogic(sourceFigure as DocsFigure);
-
-      render(<DocsPage topicSlug={laneCase.slug} />);
-      const renderedFigure = screen.getByRole("figure", {
-        name: laneCase.label,
-      });
-      const lanes = renderedFigure.querySelector<HTMLElement>(
-        ".docs-figure__lanes",
-      );
-      expect(lanes).toHaveClass("docs-figure__lanes--open");
-      expect(lanes).toHaveAttribute("data-lane-layout", laneCase.layout);
-      expect(lanes).not.toHaveAttribute("style");
-      expect(
-        lanes?.querySelector(
-          ".docs-figure__lane-axis, .docs-figure__lane-rail, .docs-figure__lane-separator, [style]",
-        ),
-      ).toBeNull();
-      expect(lanes?.textContent).not.toContain("│");
-
-      const chainSections = [
-        ...(lanes?.querySelectorAll<HTMLElement>(
-          ":scope > .docs-figure__lane-chain[data-figure-group-id]",
-        ) ?? []),
-      ];
-      expect(
-        chainSections.map((section) => section.dataset.figureGroupId),
-      ).toEqual(laneCase.chainGroups.map(({ id }) => id));
-
-      for (const expectedGroup of laneCase.chainGroups) {
-        const chain = chainSections.find(
-          (section) => section.dataset.figureGroupId === expectedGroup.id,
-        );
-        expect(chain).toBeDefined();
-        expect(
-          [
-            ...(chain?.querySelectorAll<HTMLElement>(
-              ".docs-figure__lane-event[data-figure-node-id]",
-            ) ?? []),
-          ].map((event) => event.dataset.figureNodeId),
-        ).toEqual([...expectedGroup.nodes]);
-        expect(
-          [
-            ...(chain?.querySelectorAll<HTMLElement>(
-              ".docs-figure__lane-relation[data-figure-edge-id]",
-            ) ?? []),
-          ].map((relation) => relation.dataset.figureEdgeId),
-        ).toEqual([...expectedGroup.edges]);
-      }
-
-      expect(
-        new Set(
-          [
-            ...(lanes?.querySelectorAll<HTMLElement>(
-              "[data-figure-group-id]",
-            ) ?? []),
-          ].map((group) => group.dataset.figureGroupId),
-        ),
-      ).toEqual(new Set(logic.groups.map(({ id }) => id)));
-      expect(
-        [...(lanes?.querySelectorAll(".docs-figure__annotation") ?? [])].map(
-          (annotation) => annotation.textContent,
-        ),
-      ).toEqual(
-        logic.nodes.flatMap(({ annotation }) =>
-          annotation === undefined ? [] : [annotation],
-        ),
-      );
-      expect(
-        [...(lanes?.querySelectorAll(".docs-figure__lane-relation") ?? [])]
-          .every((relation) =>
-            relation.classList.contains(
-              "docs-figure__lane-relation--governing",
-            ),
-          ),
-      ).toBe(true);
-      cleanup();
-    }
-  });
-
   test("dispatches all current field figures to a distinct shape-preserving renderer", () => {
     const fieldLabels = allFigureEntries()
       .filter(({ figure }) => figure.mode === "field")
@@ -1762,7 +1924,7 @@ describe("DocsPage character figures", () => {
     );
   });
 
-  test("preserves representative box, chain, segment, fork, arc, and source-flow impressions", () => {
+  test("preserves representative abstract box, chain, field, and arc impressions", () => {
     render(<DocsPage topicSlug="inshell" />);
     const inwardFigure = screen.getByRole("figure", {
       name: "The inward direction",
@@ -1956,44 +2118,15 @@ describe("DocsPage character figures", () => {
     cleanup();
 
     render(<DocsPage topicSlug="will" />);
-    const delegatedWillFigure = screen.getByRole("figure", {
-      name: "From delegated will to a result",
-    });
-    const delegatedWill = delegatedWillFigure.querySelector(
-      "[data-figure-shape='delegated-will-convergence']",
-    );
-    expect(
-      Array.from(delegatedWill?.querySelectorAll(".docs-figure__term") ?? []).map(
-        (term) => term.textContent?.trim(),
-      ),
-    ).toEqual(["Human", "Agent", "Result"]);
-    expect(
-      delegatedWill?.querySelector("[data-figure-node='crowd-dynamic']"),
-    ).toHaveClass("docs-figure__shape-label");
-    expect(delegatedWill).toHaveTextContent(
-      /HUMAN[\s\S]*→[\s\S]*AGENT[\s\S]*↘[\s\S]*CROWD DYNAMIC[\s\S]*↙[\s\S]*↓[\s\S]*RESULT/i,
-    );
-    expect(
-      Array.from(
-        delegatedWill?.querySelectorAll<HTMLElement>("[data-figure-edge-id]") ?? [],
-      ).map((edge) => edge.dataset.figureEdgeId),
-    ).toEqual([
-      "delegate-will",
-      "human-enters-crowd-dynamic",
-      "agent-enters-crowd-dynamic",
-      "crowd-dynamic-produces-result",
-    ]);
-    expect(delegatedWill?.querySelector(".docs-figure__character-frame"))
-      .toBeNull();
+    expect(screen.queryByRole("figure")).not.toBeInTheDocument();
+    expect(screen.getByText(/delegates will and authority to an Agent/i))
+      .toBeInTheDocument();
     cleanup();
 
     render(<DocsPage topicSlug="thought" />);
     const promptResponse = screen
       .getByRole("figure", { name: "One prompt, one response" })
       .querySelector("[data-figure-shape='prompt-response']");
-    const attestation = screen
-      .getByRole("figure", { name: "Creation Attestation" })
-      .querySelector("[data-figure-shape='attestation-flow-fork']");
 
     expect(promptResponse).toHaveTextContent(
       /HUMAN PROMPT P[\s\S]*\+[\s\S]*AGENT RESPONSE R[\s\S]*↓[\s\S]*ONE THOUGHT \(P, R\)/i,
@@ -2023,225 +2156,47 @@ describe("DocsPage character figures", () => {
         glyph: "↓",
       }),
     ]);
-    expect(attestation?.querySelectorAll(".docs-figure__field-fork-branch"))
-      .toHaveLength(2);
-    expect(
-      attestation?.querySelector(".docs-figure__field-fork-stem"),
-    ).toBeNull();
-    const attestationFlowArrows = [
-      ...(attestation?.querySelectorAll(
-        ".docs-figure__field-attestation-arrow",
-      ) ?? []),
-    ];
-    expect(attestationFlowArrows).toHaveLength(1);
-    for (const arrow of attestationFlowArrows) {
-      expect(arrow).toHaveTextContent("↓");
-      expect(arrow).not.toHaveTextContent("│");
-      expect(arrow).toHaveClass("docs-figure__field-relation-glyph");
-    }
-    for (const arrow of [
-      ...(attestation?.querySelectorAll(
-        ".docs-figure__field-attestation-result-arrow",
-      ) ?? []),
-    ]) {
-      expect(arrow).toHaveClass("docs-figure__field-relation-glyph");
-      expect(arrow).toHaveTextContent("→");
-    }
-    expect(attestation).toHaveTextContent(/CREATION ATTESTATION[\s\S]*├─[\s\S]*APP ATTESTED/i);
-    expect(attestation).toHaveTextContent(/└─[\s\S]*UNATTESTED/i);
-    expect(
-      [
-        ...(attestation?.querySelectorAll<HTMLElement>(
-          ".docs-figure__term",
-        ) ?? []),
-      ].map((term) => term.textContent),
-    ).toEqual([
-      "Recorded values",
-      "Creation Attestation",
-      "App Attested",
-      "Unattested",
-    ]);
-    expect(
-      [
-        ...(attestation?.querySelectorAll<HTMLElement>(
-          ".docs-figure__field-proof-term",
-        ) ?? []),
-      ].map((term) => term.textContent),
-    ).toEqual(["valid proof", "empty proof"]);
-    const attestationLogic = JSON.parse(
-      screen
-        .getByRole("figure", { name: "Creation Attestation" })
-        .getAttribute("data-figure-logic") ?? "null",
-    );
-    expect(attestationLogic.nodes).toEqual([
-      expect.objectContaining({ id: "recorded-values", role: "record" }),
-      expect.objectContaining({ id: "creation-attestation", role: "action" }),
-      expect.objectContaining({ id: "valid-proof", role: "operator" }),
-      expect.objectContaining({ id: "empty-proof", role: "operator" }),
-      expect.objectContaining({ id: "app-attested", role: "result" }),
-      expect.objectContaining({ id: "unattested", role: "result" }),
-    ]);
-    expect(attestationLogic.edges).toEqual([
-      expect.objectContaining({
-        id: "values-to-attestation",
-        from: "recorded-values",
-        to: "creation-attestation",
-      }),
-      expect.objectContaining({
-        id: "attestation-valid-branch",
-        from: "creation-attestation",
-        to: "valid-proof",
-      }),
-      expect.objectContaining({
-        id: "valid-proof-result",
-        from: "valid-proof",
-        to: "app-attested",
-      }),
-      expect.objectContaining({
-        id: "attestation-empty-branch",
-        from: "creation-attestation",
-        to: "empty-proof",
-      }),
-      expect.objectContaining({
-        id: "empty-proof-result",
-        from: "empty-proof",
-        to: "unattested",
-      }),
-    ]);
-    expect(attestation?.querySelector(".docs-figure__field-ceiling")).toBeNull();
-    expect(attestation?.querySelector(".docs-figure__character-frame")).toBeNull();
     cleanup();
 
     render(<DocsPage topicSlug="awa" />);
-    const awaFigure = screen.getByRole("figure", { name: "Toward the core" });
-    const awa = awaFigure.querySelector(
-      ".docs-figure__shape-trace[data-trace-layout='sequence']",
+    expect(screen.queryByRole("figure")).not.toBeInTheDocument();
+    const awaArticle = screen.getByRole("article", {
+      name: "Documentation content",
+    });
+    expect(awaArticle).toHaveTextContent(
+      /After THOUGHT's individual and WILL's crowd/i,
     );
-    expect(awa).toHaveTextContent(
-      /THOUGHT[\s\S]*INDIVIDUAL[\s\S]*→[\s\S]*WILL[\s\S]*CROWD[\s\S]*→[\s\S]*AWA[\s\S]*TOWARD THE CORE[\s\S]*→[\s\S]*…/i,
+    expect(awaArticle).toHaveTextContent(
+      /without claiming that AWA has reached the core/i,
     );
-    expect(
-      [
-        ...(awa?.querySelectorAll<HTMLElement>("[data-figure-node-id]") ?? []),
-      ].map((node) => node.dataset.figureNodeId),
-    ).toEqual(["thought", "will", "awa", "open-horizon"]);
-    expect(
-      [
-        ...(awa?.querySelectorAll<HTMLElement>("[data-figure-edge-id]") ?? []),
-      ].map((edge) => edge.dataset.figureEdgeId),
-    ).toEqual([
-      "thought-to-will",
-      "will-toward-awa",
-      "awa-toward-open-horizon",
-    ]);
-    expect(
-      [
-        ...(awa?.querySelectorAll<HTMLElement>(
-          ".docs-figure__shape-trace-connector-stacked",
-        ) ?? []),
-      ].map((connector) => connector.textContent),
-    ).toEqual(["↓", "↓", "↓"]);
-    expect(awaFigure).toHaveAttribute("data-figure-mode", "trace");
-    expect(awaFigure).toHaveAttribute("data-figure-form", "trace");
-    const awaLogic = JSON.parse(
-      awaFigure.getAttribute("data-figure-logic") ?? "null",
-    );
-    expect(
-      awaLogic.nodes.find(({ id }: { id: string }) => id === "open-horizon")
-        ?.role,
-    ).toBe("state");
     cleanup();
 
     render(<DocsPage topicSlug="artwork-metadata-chain" />);
-    const evidence = screen
-      .getByRole("figure", { name: "Evidence becomes interpretation" })
-      .querySelector("[data-figure-shape='evidence-interpretation']");
-    expect(evidence).toHaveTextContent(
-      /EVIDENCE[\s\S]*├─[\s\S]*IDENTITY[\s\S]*├─[\s\S]*CONTRACT[\s\S]*├─[\s\S]*RELEASE[\s\S]*└─[\s\S]*CONTEXT[\s\S]*↓[\s\S]*INTERPRETATION/i,
-    );
-    const evidenceArrow = evidence?.querySelector(
-      ".docs-figure__field-evidence-arrow",
-    );
-    expect(evidenceArrow).toHaveTextContent("↓");
-    expect(evidenceArrow).not.toHaveTextContent("│");
-    expect(evidenceArrow).toHaveClass("docs-figure__field-relation-glyph");
-    expect(
-      evidence?.querySelector(
-        ".docs-figure__field-fork-stem, .docs-figure__field-connector, .docs-figure__character-frame",
-      ),
-    ).toBeNull();
-    expect(evidence?.querySelectorAll(".docs-figure__annotation"))
-      .toHaveLength(5);
-    cleanup();
-
-    render(<DocsPage topicSlug="wallet-local-data" />);
-    const distinctions = screen
-      .getByRole("figure", { name: "Two distinctions" })
-      .querySelector("[data-figure-shape='distinction-comparisons']");
-    expect(distinctions?.querySelector(".docs-figure__character-frame"))
-      .toBeNull();
-    expect(
-      [
-        ...(distinctions?.querySelectorAll<HTMLElement>(
-          "[data-figure-node]",
-        ) ?? []),
-      ].map((node) => node.dataset.figureNode),
-    ).toEqual(["read", "sign", "transact", "local", "onchain"]);
-    expect(
-      distinctions?.querySelectorAll(".docs-figure__field-distinction-glyph"),
-    ).toHaveLength(3);
-    expect(distinctions).toHaveTextContent(
-      /READ[\s\S]*≠[\s\S]*SIGN[\s\S]*≠[\s\S]*TRANSACT[\s\S]*LOCAL[\s\S]*≠[\s\S]*ONCHAIN/i,
-    );
-    cleanup();
-
-    render(<DocsPage topicSlug="source-release-boundaries" />);
-    const records = screen
-      .getByRole("figure", { name: "Four distinct records" })
-      .querySelector("[data-figure-shape='record-comparison']");
-    expect(records?.querySelector(".docs-figure__character-frame")).toBeNull();
-    expect(
-      [
-        ...(records?.querySelectorAll<HTMLElement>("[data-figure-node]") ?? []),
-      ].map((node) => node.dataset.figureNode),
-    ).toEqual(["source", "release", "deployment", "observation"]);
-    expect(
-      records?.querySelectorAll(
-        ".docs-figure__field-record-distinction-glyph",
-      ),
-    ).toHaveLength(3);
-    expect(records).toHaveTextContent(
-      /SOURCE[\s\S]*≠[\s\S]*RELEASE[\s\S]*≠[\s\S]*DEPLOYMENT[\s\S]*≠[\s\S]*OBSERVATION/i,
+    expect(screen.queryByRole("figure")).not.toBeInTheDocument();
+    const readingArticle = screen.getByRole("article", {
+      name: "Documentation content",
+    });
+    expect(readingArticle).toHaveTextContent(
+      /network, contract, token ID, deployment, release, tokenURI source, and attestation status together/i,
     );
     cleanup();
 
     render(<DocsPage topicSlug="design-principles" />);
-    const principles = screen
-      .getByRole("figure", { name: "Inshell principles across systems" })
-      .querySelector("[data-figure-shape='open-principle-set']");
-    const sourceFlow = screen
-      .getByRole("figure", { name: "Many surfaces, one identified record" })
-      .querySelector("[data-figure-shape='canonical-source-flow']");
-
-    expect(principles?.querySelectorAll(".docs-figure__character-frame"))
-      .toHaveLength(0);
-    expect(principles?.querySelectorAll(".docs-figure__field-open-set > li"))
-      .toHaveLength(5);
-    expect(sourceFlow).toHaveTextContent(
-      /IDENTIFIED ONCHAIN WORK[\s\S]*NETWORK \+ CONTRACT \+ TOKEN ID \+ TOKENURI \+ RELEASE[\s\S]*│[\s\S]*↓[\s\S]*READING SURFACES/i,
+    expect(screen.queryByRole("figure")).not.toBeInTheDocument();
+    const principlesArticle = screen.getByRole("article", {
+      name: "Documentation content",
+    });
+    expect(principlesArticle).toHaveTextContent(/collaboration is bounded/i);
+    expect(principlesArticle).toHaveTextContent(
+      /authority to continue or preserve is explicit/i,
     );
-    expect(
-      sourceFlow?.querySelector(
-        ".docs-figure__field-tail > .docs-figure__glyph",
-      )?.textContent,
-    ).toBe("↓");
-    expect(sourceFlow?.querySelectorAll(".docs-figure__character-frame"))
-      .toHaveLength(1);
-    expect(sourceFlow?.querySelector(".docs-figure__frame-foot"))
-      .not.toHaveTextContent("┬");
-    expect(
-      sourceFlow?.querySelector(".docs-figure__field-reading-arrow"),
-    ).toHaveClass("docs-figure__field-relation-glyph");
+    expect(principlesArticle).toHaveTextContent(/mechanisms stay visible/i);
+    expect(principlesArticle).toHaveTextContent(
+      /canonical sources remain identifiable/i,
+    );
+    expect(principlesArticle).toHaveTextContent(
+      /claims stop where their evidence stops/i,
+    );
   });
 
   test("uses literal DOM logic and no more than three figure typography tiers", () => {
@@ -3180,6 +3135,13 @@ describe("Agent-readable docs artifact contract", () => {
           properties: { detail: { type: string; minLength: number } };
         };
         section: { properties: { figure: { $ref: string } } };
+        sourceExample: {
+          required: string[];
+          properties: {
+            language: { const: string };
+            presentation: { enum: string[] };
+          };
+        };
         topicDocument: {
           properties: { status: { enum: string[] } };
         };
@@ -3227,6 +3189,18 @@ describe("Agent-readable docs artifact contract", () => {
     expect(contentSchema.$defs.section.properties.figure.$ref).toBe(
       "#/$defs/figure",
     );
+    expect(contentSchema.$defs.sourceExample.required).toEqual([
+      "label",
+      "language",
+      "content",
+    ]);
+    expect(contentSchema.$defs.sourceExample.properties.language.const).toBe(
+      "svg",
+    );
+    expect(contentSchema.$defs.sourceExample.properties.presentation.enum).toEqual([
+      "artwork",
+      "specimen",
+    ]);
     expect(new Set(contentSchema.$defs.topicDocument.properties.status.enum)).toEqual(
       new Set(["current", "study", "future"]),
     );
@@ -3296,6 +3270,10 @@ describe("Agent-readable docs artifact contract", () => {
           ...(section.points ?? []),
           ...(section.steps ?? []),
           section.note,
+          ...(section.sourceExamples?.flatMap(({ label, content }) => [
+            label,
+            content,
+          ]) ?? []),
         ]) ?? []),
       ].filter((value): value is string => Boolean(value));
 

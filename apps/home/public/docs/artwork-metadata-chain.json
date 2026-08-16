@@ -2,7 +2,7 @@
   "schema": "inshell.agent-docs.topic.v2",
   "schemaUrl": "/docs/content.v2.schema.json",
   "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
-  "version": "2026-08-15",
+  "version": "2026-08-16",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "artwork-metadata-chain",
@@ -31,137 +31,16 @@
         "contract-release"
       ],
       "paragraphs": [
-        "Home lists minted [THOUGHT](https://inshell.art/docs/thought) works from the active chain. The [PATH](https://inshell.art/docs/path) surface lists PATH tokens from that same chain. The full identity of an NFT is its network, contract address, and token ID; the same token number elsewhere is a different record.",
-        "THOUGHT and PATH artwork and NFT metadata come from each contract's tokenURI and pinned renderer. The App decodes and displays those canonical bytes; it must not rebuild replacement art or silently substitute a newer renderer.",
+        "Home lists minted [THOUGHT](https://inshell.art/docs/thought) works from the active chain. The [$PATH](https://inshell.art/docs/path) surface lists $PATH tokens from that same chain. The full identity of an NFT is its network, contract address, and token ID; the same token number elsewhere is a different record.",
+        "THOUGHT and $PATH artwork and NFT metadata come from each contract's tokenURI and pinned renderer. The App decodes and displays those canonical bytes; it must not rebuild replacement art or silently substitute a newer renderer.",
         "Token metadata carries the canonical image, description, stable marketplace traits, and—when the release defines it—an external_url to the canonical detail page. A generic marketplace can read that portable layer without understanding Inshell's richer records.",
-        "Inshell detail pages add context: THOUGHT exposes its work, evidence levels, and creation provenance; PATH exposes movement state, capacity, linked movement tokens, issuance, and onchain record.",
+        "Inshell detail pages add context: THOUGHT exposes its work, evidence levels, and creation provenance; $PATH exposes movement state, capacity, linked movement tokens, issuance, and onchain record.",
         "These layers make the public forms and claims of the practice inspectable. They can establish which bytes and records belong to a work; they cannot prove the inward truth of the work or possess its meaning.",
         "These artwork, metadata, provenance, and chain layers describe Inshell's onchain practices. They are not requirements that every Agent Art practice must adopt.",
         "Onchain does not mean context-free. Read network, contract, token ID, deployment, release, tokenURI source, and [attestation status](https://inshell.art/docs/verification) together before deciding what a record proves."
       ]
     },
-    "figure": {
-      "authorities": [
-        "app-documentation",
-        "contract-release"
-      ],
-      "id": "evidence.interpretation",
-      "label": "Evidence becomes interpretation",
-      "mode": "field",
-      "figureText": "EVIDENCE\n├─ IDENTITY\n│  Network + contract + token\n├─ CONTRACT\n│  State + tokenURI\n├─ RELEASE\n│  ABI + renderer + schemas\n└─ CONTEXT\n   Provenance + reading surface\n      ↓\nINTERPRETATION\nRead together",
-      "items": [
-        {
-          "title": "Identity",
-          "detail": "Network + contract + token"
-        },
-        {
-          "title": "Contract",
-          "detail": "State + tokenURI"
-        },
-        {
-          "title": "Release",
-          "detail": "ABI + renderer + schemas"
-        },
-        {
-          "title": "Context",
-          "detail": "Provenance + reading surface"
-        },
-        {
-          "title": "Interpretation",
-          "detail": "Read together"
-        }
-      ],
-      "logic": {
-        "id": "evidence.interpretation",
-        "label": "Evidence becomes interpretation",
-        "form": "fork",
-        "nodes": [
-          {
-            "id": "evidence",
-            "term": "EVIDENCE",
-            "role": "evidence"
-          },
-          {
-            "id": "identity",
-            "sourceItem": 0,
-            "sourcePart": "item",
-            "term": "Identity",
-            "annotation": "Network + contract + token",
-            "role": "evidence"
-          },
-          {
-            "id": "contract",
-            "sourceItem": 1,
-            "sourcePart": "item",
-            "term": "Contract",
-            "annotation": "State + tokenURI",
-            "role": "evidence"
-          },
-          {
-            "id": "release",
-            "sourceItem": 2,
-            "sourcePart": "item",
-            "term": "Release",
-            "annotation": "ABI + renderer + schemas",
-            "role": "evidence"
-          },
-          {
-            "id": "context",
-            "sourceItem": 3,
-            "sourcePart": "item",
-            "term": "Context",
-            "annotation": "Provenance + reading surface",
-            "role": "evidence"
-          },
-          {
-            "id": "interpretation",
-            "sourceItem": 4,
-            "sourcePart": "item",
-            "term": "Interpretation",
-            "annotation": "Read together",
-            "role": "result"
-          }
-        ],
-        "edges": [
-          {
-            "id": "evidence-identity",
-            "from": "evidence",
-            "to": "identity",
-            "glyph": "├─",
-            "label": "Identity is one evidence record."
-          },
-          {
-            "id": "evidence-contract",
-            "from": "evidence",
-            "to": "contract",
-            "glyph": "├─",
-            "label": "Contract state is one evidence record."
-          },
-          {
-            "id": "evidence-release",
-            "from": "evidence",
-            "to": "release",
-            "glyph": "├─",
-            "label": "The pinned release is one evidence record."
-          },
-          {
-            "id": "evidence-context",
-            "from": "evidence",
-            "to": "context",
-            "glyph": "└─",
-            "label": "Context is one evidence record."
-          },
-          {
-            "id": "evidence-to-interpretation",
-            "from": "evidence",
-            "to": "interpretation",
-            "glyph": "↓",
-            "label": "The evidence records are read together as interpretation."
-          }
-        ],
-        "groups": []
-      }
-    },
+    "figure": null,
     "preformatted": [],
     "sections": [
       {
@@ -182,7 +61,7 @@
         "id": "docs-reading-artwork",
         "title": "Canonical artwork bytes",
         "paragraphs": [
-          "THOUGHT and PATH tokenURI responses point to the canonical artwork and metadata produced by their pinned contract systems. The App decodes those bytes for display. It should not redraw an approximation, swap in a newer renderer, or treat a cached marketplace thumbnail as the origin."
+          "THOUGHT and $PATH tokenURI responses point to the canonical artwork and metadata produced by their pinned contract systems. The App decodes those bytes for display. It should not redraw an approximation, swap in a newer renderer, or treat a cached marketplace thumbnail as the origin."
         ],
         "points": [
           "A data URI can carry JSON metadata or SVG artwork directly.",
@@ -231,6 +110,12 @@
         "label": "view all $PATH",
         "href": "/path",
         "canonicalHref": "https://inshell.art/path"
+      },
+      {
+        "role": "navigation",
+        "label": "read fully onchain",
+        "href": "/docs/fully-onchain",
+        "canonicalHref": "https://inshell.art/docs/fully-onchain"
       }
     ]
   }

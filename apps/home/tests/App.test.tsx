@@ -1353,15 +1353,15 @@ describe("App Component", () => {
 
     render(<App />);
 
-    expect(document.title).toBe("PATH — docs — Inshell");
-    expect(screen.getByRole("heading", { level: 2, name: "PATH" })).toBeInTheDocument();
+    expect(document.title).toBe("$PATH — docs — Inshell");
+    expect(screen.getByRole("heading", { level: 2, name: "$PATH" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { level: 2, name: "Inshell" })).toBeNull();
     expect(
       document.head.querySelector('meta[property="og:url"]'),
     ).toHaveAttribute("content", "https://inshell.art/docs/path");
     expect(document.head.querySelector('meta[property="og:title"]')).toHaveAttribute(
       "content",
-      "PATH — docs — Inshell",
+      "$PATH — docs — Inshell",
     );
     expect(document.head.querySelector('meta[name="twitter:description"]')).toHaveAttribute(
       "content",
@@ -1406,6 +1406,6 @@ describe("App Component", () => {
 
     expect(window.location.pathname).toBe("/docs/path");
     expect(window.location.hash).toBe("#docs-path-capacity");
-    expect(screen.getByRole("heading", { level: 2, name: "PATH" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "$PATH" })).toBeInTheDocument();
   });
 });

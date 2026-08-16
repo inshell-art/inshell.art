@@ -6,42 +6,14 @@
 - Status: current
 - Authority classes in this document: app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/source-release-boundaries
-- Documentation version: 2026-08-15
+- Documentation version: 2026-08-16
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
-
-## Four distinct records
-
-- Authority: app-documentation, contract-release
-- Figure ID: source-release.records
-- Figure mode: field
-- Semantic form: axis
-- Semantic nodes:
-  - `source [record]: Source — Authored code`
-  - `release [record]: Release — Pinned artifacts`
-  - `deployment [record]: Deployment — Addresses + blocks`
-  - `observation [record]: Observation — Point-in-time read`
-- Semantic edges:
-  - `source-not-release: source (Source) --[≠ · Authored source is not a pinned release.]--> release (Release)`
-  - `release-not-deployment: release (Release) --[≠ · A pinned release is not a deployment record.]--> deployment (Deployment)`
-  - `deployment-not-observation: deployment (Deployment) --[≠ · A deployment record is not a point-in-time observation.]--> observation (Observation)`
-- Semantic groups:
-  - `record-distinction [comparison]: Four records that must not be collapsed into one. [members: source (Source) · release (Release) · deployment (Deployment) · observation (Observation)]`
-
-```text
-SOURCE  ≠  RELEASE  ≠  DEPLOYMENT  ≠  OBSERVATION
-Authored code   Pinned artifacts   Addresses + blocks   Point-in-time read
-```
-
-- **Source** — Authored code
-- **Release** — Pinned artifacts
-- **Deployment** — Addresses + blocks
-- **Observation** — Point-in-time read
 
 ## Overview
 
 - Authority: app-documentation, contract-release
 
-The Inshell App, [PATH](https://inshell.art/docs/path) contracts, [THOUGHT](https://inshell.art/docs/thought) contracts, and [Pulse](https://inshell.art/docs/pulse) auction have separate repositories and ownership boundaries. The App owns creation flow, integration, and presentation. Each contract repository owns its contract behavior and release artifacts. Deployment operators own network deployment records.
+The Inshell App, [$PATH](https://inshell.art/docs/path) contracts, [THOUGHT](https://inshell.art/docs/thought) contracts, and [Pulse](https://inshell.art/docs/pulse) auction have separate repositories and ownership boundaries. The App owns creation flow, integration, and presentation. Each contract repository owns its contract behavior and release artifacts. Deployment operators own network deployment records.
 
 The App consumes pinned ABIs, bytecode, schemas, renderer data, specifications, manifests, and checksums. A repository's latest source is not automatically the deployed release. A newer file is not authority for an older deployment.
 
@@ -54,7 +26,7 @@ Documentation can describe repository source, a pinned release, or observed chai
 - Authority: app-documentation, contract-release
 
 - The Inshell App repository owns same-origin presentation, orchestration, API behavior, and integration pins.
-- The PATH repository owns PATH contracts and their release artifacts.
+- The $PATH repository owns $PATH contracts and their release artifacts.
 - The THOUGHT repository owns THOUGHT contracts, specifications, renderer releases, and their integrity material.
 - The Pulse repository owns the auction contract and pricing mechanism release.
 
@@ -82,6 +54,6 @@ Canonical pages, Markdown documents, JSON indexes, API responses, GitHub mirrors
 ## Links
 
 - [Inshell App source](https://github.com/inshell-art/inshell.art)
-- [PATH source](https://github.com/inshell-art/path)
+- [$PATH source](https://github.com/inshell-art/path)
 - [THOUGHT source](https://github.com/inshell-art/THOUGHT)
 - [Pulse source](https://github.com/inshell-art/pulse)

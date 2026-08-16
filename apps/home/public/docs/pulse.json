@@ -2,7 +2,7 @@
   "schema": "inshell.agent-docs.topic.v2",
   "schemaUrl": "/docs/content.v2.schema.json",
   "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
-  "version": "2026-08-15",
+  "version": "2026-08-16",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "pulse",
@@ -10,7 +10,7 @@
   "group": "works",
   "aliases": [],
   "title": "Pulse",
-  "summary": "Pulse turns public timing into the issue price for each new PATH.",
+  "summary": "Pulse turns public timing into the issue price for each new $PATH.",
   "status": "current",
   "authorities": [
     "artist-editorial",
@@ -31,8 +31,8 @@
         "contract-release"
       ],
       "paragraphs": [
-        "[PATH](https://inshell.art/docs/path) is the permission token; Pulse is the serial mechanism that prices and issues the next public token. They are not interchangeable names.",
-        "Pulse runs one live epoch, one current ask, and one next token at a time. A successful bid closes the epoch, records the sale, issues the corresponding PATH, and starts the next epoch.",
+        "[$PATH](https://inshell.art/docs/path) is the permission token; Pulse is the serial mechanism that prices and issues the next public token. They are not interchangeable names.",
+        "Pulse runs one live epoch, one current ask, and one next token at a time. A successful bid closes the epoch, records the sale, issues the corresponding $PATH, and starts the next epoch.",
         "Pulse shapes the ask over time. A successful bid closes the current epoch and starts the next one. The next ask is raised by an initial premium. Between sales, the ask decays toward the floor. Equivalently, premium decays toward zero. Settlement samples the ask at sale time.",
         "The pump uses a price-time scale to turn the elapsed time before a sale into the next epoch's initial premium. The drop follows ask(t) = floor + premium(t), with ask(t) = b + ⌊k / (t - a)⌋. Every sale becomes another point in the visible history.",
         "[Inshell](https://inshell.art/docs/inshell) frames Pulse as a mathematical canvas and a crowd instrument: each bid becomes a public point and sets the next beat. The curve and its parameters are exposed because the mechanism is part of the work, not an investment promise.",
@@ -59,92 +59,9 @@
         "id": "docs-pulse-serial",
         "title": "A serial auction",
         "paragraphs": [
-          "Pulse has one current epoch and one next public PATH at a time. Participants are not choosing among parallel lots. The successful bid closes the visible curve, issues its PATH, and establishes the starting conditions for the following curve.",
+          "Pulse has one current epoch and one next public $PATH at a time. Participants are not choosing among parallel lots. The successful bid closes the visible curve, issues its $PATH, and establishes the starting conditions for the following curve.",
           "This serial structure makes the history legible: every sale is both an ending and the input to what comes next."
-        ],
-        "figure": {
-          "authorities": [
-            "contract-release"
-          ],
-          "id": "pulse.epoch",
-          "label": "One Pulse epoch",
-          "mode": "trace",
-          "figureText": "ASK\n↓ decay\nBID\n↓ pump\nNEXT ASK\n↺ next epoch",
-          "loop": {
-            "to": 1,
-            "condition": "next epoch"
-          },
-          "items": [
-            {
-              "title": "Ask",
-              "detail": "Decay"
-            },
-            {
-              "title": "Bid",
-              "detail": "Pump"
-            },
-            {
-              "title": "Next ask"
-            }
-          ],
-          "logic": {
-            "id": "pulse.epoch",
-            "label": "One Pulse epoch",
-            "form": "cycle",
-            "nodes": [
-              {
-                "id": "ask",
-                "sourceItem": 0,
-                "sourcePart": "item",
-                "term": "Ask",
-                "annotation": "Decay",
-                "role": "state"
-              },
-              {
-                "id": "bid",
-                "sourceItem": 1,
-                "sourcePart": "item",
-                "term": "Bid",
-                "annotation": "Pump",
-                "role": "action"
-              },
-              {
-                "id": "next-ask",
-                "sourceItem": 2,
-                "sourcePart": "item",
-                "term": "Next ask",
-                "role": "result"
-              }
-            ],
-            "edges": [
-              {
-                "id": "ask-decays-to-bid",
-                "from": "ask",
-                "to": "bid",
-                "glyph": "↓",
-                "label": "The current ask decays until a bid succeeds.",
-                "annotation": "Decay"
-              },
-              {
-                "id": "bid-pumps-next-ask",
-                "from": "bid",
-                "to": "next-ask",
-                "glyph": "↓",
-                "label": "The successful bid pumps the next ask.",
-                "annotation": "Pump"
-              },
-              {
-                "id": "next-epoch-loop",
-                "from": "next-ask",
-                "to": "ask",
-                "glyph": "↺",
-                "label": "The next ask becomes the current ask in the next epoch.",
-                "annotation": "next epoch"
-              }
-            ],
-            "groups": []
-          }
-        }
+        ]
       },
       {
         "authorities": [
@@ -197,15 +114,15 @@
         "title": "Price ceiling and settlement",
         "paragraphs": [
           "The wallet transaction supplies a maximum acceptable price, not a promise to pay that entire amount. Pulse samples the live ask when the transaction executes. The bid succeeds only when that ask is within the submitted ceiling.",
-          "On a successful ETH bid, the auction sends the exact ask to the treasury and refunds surplus value to the bidder. The sale closes the current epoch, records its settlement, and begins the next epoch. The adapter then translates that settlement into PATH delivery; Pulse itself remains independent of the NFT it prices."
+          "On a successful ETH bid, the auction sends the exact ask to the treasury and refunds surplus value to the bidder. The sale closes the current epoch, records its settlement, and begins the next epoch. The adapter then translates that settlement into $PATH delivery; Pulse itself remains independent of the NFT it prices."
         ],
         "points": [
           "Maximum price: the bidder's slippage ceiling.",
           "Settlement price: the live ask accepted by the contract.",
           "Value supplied: must cover the ask; unused value is refunded.",
-          "Delivery: PathPulseAdapter turns the settled auction result into PATH issuance."
+          "Delivery: PathPulseAdapter turns the settled auction result into $PATH issuance."
         ],
-        "note": "A submitted transaction is not a completed sale. Read the receipt, events, and resulting contract state before presenting PATH as issued."
+        "note": "A submitted transaction is not a completed sale. Read the receipt, events, and resulting contract state before presenting $PATH as issued."
       },
       {
         "authorities": [

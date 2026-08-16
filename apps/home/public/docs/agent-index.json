@@ -2,7 +2,7 @@
   "schema": "inshell.agent-docs.index.v1",
   "schemaUrl": "/docs/agent-index.schema.json",
   "canonicalSchemaUrl": "https://inshell.art/docs/agent-index.schema.json",
-  "version": "2026-08-15",
+  "version": "2026-08-16",
   "language": "en",
   "charset": "utf-8",
   "canonicalHtml": "https://inshell.art/docs",
@@ -11,7 +11,7 @@
   "completeJson": "/docs/content.json",
   "canonicalCompleteJson": "https://inshell.art/docs/content.json",
   "completeJsonMediaType": "application/json",
-  "completeJsonSha256": "2e580417a98c1f50d29d44c44f3c9e10a8b4dfdf2012c1277903498d7e33f1b4",
+  "completeJsonSha256": "030810cf6cf87b7315ddd1694d909a3ff5e7cdd8421b1d90a313d9ebca974be3",
   "purpose": "Public, read-only discovery for visitors using their own Agents.",
   "sourceLock": {
     "url": "/docs/source-lock.json",
@@ -19,7 +19,7 @@
     "schemaUrl": "/docs/source-lock.schema.json",
     "canonicalSchemaUrl": "https://inshell.art/docs/source-lock.schema.json",
     "mediaType": "application/json",
-    "sha256": "396c0a27a5a4afe94d26da590e426d4d3bb4b05b9d37bb40888db797b00d18b6",
+    "sha256": "67922231862815923934175e0d5671ed08ca8aef299db557abbb869217eba58e",
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
@@ -56,7 +56,7 @@
       {
         "id": "path-pulse-contract-release",
         "entry": "/protocol/releases/path-v0.5.0/manifest.json",
-        "useFor": "PATH permission, transfer, Spark, renderer, ABI, Pulse auction, adapter, bytecode, or contract-release questions"
+        "useFor": "$PATH permission, transfer, Spark, renderer, ABI, Pulse auction, adapter, bytecode, or contract-release questions"
       }
     ],
     "duplicateContentRule": "Choose one complete-corpus mode or focused documents. Do not count repeated passages from both as independent evidence.",
@@ -112,7 +112,7 @@
     {
       "id": "works",
       "title": "Works and participation",
-      "summary": "Read the three movements from individual to crowd to core, then the PATH and Pulse systems that carry participation.",
+      "summary": "Read the three movements from individual to crowd to core, then the $PATH and Pulse systems that carry participation.",
       "topics": [
         "thought",
         "will",
@@ -128,6 +128,7 @@
       "topics": [
         "contracts",
         "artwork-metadata-chain",
+        "fully-onchain",
         "mono-76",
         "verification",
         "wallet-local-data",
@@ -161,11 +162,11 @@
       "markdown": "/docs/inshell.md",
       "canonicalMarkdown": "https://inshell.art/docs/inshell.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "a784f6e1b1e3cb049dd233fa80734da17a76347450d352d99066a0669bacb609",
+      "markdownSha256": "b4aa2b1e9b506c26cf56d057bfbf5a90f2d5f8656b61593232966069d367ca2f",
       "json": "/docs/inshell.json",
       "canonicalJson": "https://inshell.art/docs/inshell.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "1599c1af82bdf4500cec8002537ba8f3762945a0f47b3aa21ad46b6dc62f11e5"
+      "jsonSha256": "a784114ed0280537d26faff46c50d70f5d7ea8023d1614efad10f61639682d31"
     },
     {
       "id": "agent-art",
@@ -182,18 +183,18 @@
       "markdown": "/docs/agent-art.md",
       "canonicalMarkdown": "https://inshell.art/docs/agent-art.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "6637c18e16f352c1ed7e5286f777a69d42e7e8c067f4caef9bfb02c2887dd3a8",
+      "markdownSha256": "608f71f8615e3a700f14d89ffb25226b5e44373e62a5964a961fd3b5f0ab6542",
       "json": "/docs/agent-art.json",
       "canonicalJson": "https://inshell.art/docs/agent-art.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "eabaf202487c7ef282f29107b8fe195f7a55c2ae4a849823032720ad23ef6dea"
+      "jsonSha256": "7377cc3c924dd848ba8c39272c6d6f9204f04e2544be2bc76e441ae2ef2707bd"
     },
     {
       "id": "movements",
       "group": "orientation",
       "aliases": [],
       "title": "Movements",
-      "summary": "Inshell's movements follow an artistic PATH from an individual's thought, through a crowd's will, toward Inshell's core.",
+      "summary": "Inshell's movements follow an artistic path from an individual's thought, through a crowd's will, toward Inshell's core.",
       "status": "current",
       "authorities": [
         "artist-editorial",
@@ -205,11 +206,11 @@
       "markdown": "/docs/movements.md",
       "canonicalMarkdown": "https://inshell.art/docs/movements.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "02db310587bd92af980ffe121b27ba0e3e4f146ea509418471361810084477f4",
+      "markdownSha256": "8cdf07f4483751269be9a8f6e9240056f392405cd8785d51d40578bdad530700",
       "json": "/docs/movements.json",
       "canonicalJson": "https://inshell.art/docs/movements.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "2131d8216e9dd2fbc983d4790ec64efd2df44a9ab5b303d97d29336ba432233b"
+      "jsonSha256": "63425b4fbfc64dbbcd480f0a4df879952fe96a3ad374e112cce2615cf8347b7a"
     },
     {
       "id": "thought",
@@ -230,11 +231,11 @@
       "markdown": "/docs/thought.md",
       "canonicalMarkdown": "https://inshell.art/docs/thought.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "2a749577aa9145a8e309b616e46d8fa12165673f86dba0bc9f26436bac497f26",
+      "markdownSha256": "0a3072bcce33a72d8d4810b21201c8040cdfe4bbca5dea8a53d58f893d5653f6",
       "json": "/docs/thought.json",
       "canonicalJson": "https://inshell.art/docs/thought.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "4d243c72f031bbfc3afc35c71e00c88b502f2a4eea4e230ee2caef74c1e61f87"
+      "jsonSha256": "b71a69b152f8577a47bc7de6ecbb2fddd8248cf390941bdba414ea6e8d7dc5c8"
     },
     {
       "id": "will",
@@ -252,11 +253,11 @@
       "markdown": "/docs/will.md",
       "canonicalMarkdown": "https://inshell.art/docs/will.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "7822dffe3e78c8229260bb05fb3069e21da06e0713e4e68e6b0407df080f42f7",
+      "markdownSha256": "a2a7707cf1fd543c877a238fb1a30e51278803d917b7cf875667f841aa20c5dc",
       "json": "/docs/will.json",
       "canonicalJson": "https://inshell.art/docs/will.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "d7dc189ab51556d0765df87e635d53575187f85dfa423fac61cef0134f09dbb8"
+      "jsonSha256": "690d9892c21bcadeb683aae6725ce536cddc76a1d299934c80d2ef6b5f92b264"
     },
     {
       "id": "awa",
@@ -274,18 +275,18 @@
       "markdown": "/docs/awa.md",
       "canonicalMarkdown": "https://inshell.art/docs/awa.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "fb5d6b4f578e5a64122c35a37f5aa510bdd47245af5e55e9e9d0c5a244366669",
+      "markdownSha256": "49e2085367b42f22deb3478055cc23faf73131c6cf000e066cd7fa0c6f77d958",
       "json": "/docs/awa.json",
       "canonicalJson": "https://inshell.art/docs/awa.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "0a3ef1585985fc8ff590376de55aa51ca26523d12fea1fb0d05f3ee474e7cfbb"
+      "jsonSha256": "0e2f60fae8819f11b8172104cc9b9a6d2b1365514736561efa0f0125a53a79a8"
     },
     {
       "id": "path",
       "group": "works",
       "aliases": [],
-      "title": "PATH",
-      "summary": "PATH carries permission and progress across Inshell's movements.",
+      "title": "$PATH",
+      "summary": "$PATH carries permission and progress across Inshell's movements.",
       "status": "current",
       "authorities": [
         "artist-editorial",
@@ -297,18 +298,18 @@
       "markdown": "/docs/path.md",
       "canonicalMarkdown": "https://inshell.art/docs/path.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "9977c9af541a270516a1f09317fff508fc92646b809b3dfd46980550a2e842f5",
+      "markdownSha256": "72ae46d0aaa0befdd55abda3b9ae63896ab21bd86419d424cec01b4a9f3555a4",
       "json": "/docs/path.json",
       "canonicalJson": "https://inshell.art/docs/path.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "a4d6dc0e85d7706f474a34711aa81d451d800b876cc48f249074ae9095606b3e"
+      "jsonSha256": "2d9cee6fdec83db8cf544b0626f94d1a62eba0c55f53bce16a059ca44df3a95b"
     },
     {
       "id": "pulse",
       "group": "works",
       "aliases": [],
       "title": "Pulse",
-      "summary": "Pulse turns public timing into the issue price for each new PATH.",
+      "summary": "Pulse turns public timing into the issue price for each new $PATH.",
       "status": "current",
       "authorities": [
         "artist-editorial",
@@ -320,11 +321,11 @@
       "markdown": "/docs/pulse.md",
       "canonicalMarkdown": "https://inshell.art/docs/pulse.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "b0f841eeb3e279b4ea80d0aabed28e69744c4ca33ab19a478d86368e6db4f321",
+      "markdownSha256": "8cb79fa27ede9e2f312a6606ebe15d2662994b536d36ddd30c7f1854fe8c0d7a",
       "json": "/docs/pulse.json",
       "canonicalJson": "https://inshell.art/docs/pulse.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "549437894c9b40d3c9d8797e85ccc9c8e3600eb72167a080ac874c120fff5a94"
+      "jsonSha256": "3b2896f3a3c68a86303d13edd4bf10ae307336bff4d58622caa3dc52578338cd"
     },
     {
       "id": "contracts",
@@ -343,11 +344,11 @@
       "markdown": "/docs/contracts.md",
       "canonicalMarkdown": "https://inshell.art/docs/contracts.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "a94c3c5ada9cbf60f3529ecceafbfc07156d28257f252f1bf83f7eae14193d89",
+      "markdownSha256": "f3798c9a330163e09db17de16b8f30594a35330697bf1dcc7d00f0df57871b73",
       "json": "/docs/contracts.json",
       "canonicalJson": "https://inshell.art/docs/contracts.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "bd184bf90505597462250533e93b1944bc0b203f392de7255bc563091f39b34c"
+      "jsonSha256": "cd5952f4905da2520d84ff896b8b0ac85c9bde6761292a1673e0c5e433df20a7"
     },
     {
       "id": "artwork-metadata-chain",
@@ -366,11 +367,33 @@
       "markdown": "/docs/artwork-metadata-chain.md",
       "canonicalMarkdown": "https://inshell.art/docs/artwork-metadata-chain.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "58b28f60ab4eed7a176176dcf13f7c8ff7981fead478b4f9bc03128818f6acd4",
+      "markdownSha256": "bea4f915f82bbff95f67a7e70c710e5ad715ff7f19ecf888dc194489dd7fb0f2",
       "json": "/docs/artwork-metadata-chain.json",
       "canonicalJson": "https://inshell.art/docs/artwork-metadata-chain.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "1cd7a4723395186aeae81690f0434378a57328356bfed50de74794805c281ee4"
+      "jsonSha256": "a12b8b5f5ab59fd0e9f00f0026de0c87fad012ffd92f9ca6e05ae15df5f3a1a3"
+    },
+    {
+      "id": "fully-onchain",
+      "group": "systems",
+      "aliases": [],
+      "title": "Fully Onchain",
+      "summary": "Inshell keeps a work's canonical image and metadata with its onchain record so the work does not depend on a website or media host.",
+      "status": "current",
+      "authorities": [
+        "app-documentation",
+        "contract-release"
+      ],
+      "authorityScope": "document union only; fetch the topic JSON or Markdown and use each content block's authorities for a specific claim",
+      "canonicalHtml": "https://inshell.art/docs/fully-onchain",
+      "markdown": "/docs/fully-onchain.md",
+      "canonicalMarkdown": "https://inshell.art/docs/fully-onchain.md",
+      "markdownMediaType": "text/markdown",
+      "markdownSha256": "d61684e4c2d88aedde441b4e0250b8d7b11ec5c32e2a42f31c8e1dd5954ca554",
+      "json": "/docs/fully-onchain.json",
+      "canonicalJson": "https://inshell.art/docs/fully-onchain.json",
+      "jsonMediaType": "application/json",
+      "jsonSha256": "7a6cea17a1a272828893d608394e1d918dcdbcf64e8de2e52ae4ff0be16f4268"
     },
     {
       "id": "mono-76",
@@ -389,11 +412,11 @@
       "markdown": "/docs/mono-76.md",
       "canonicalMarkdown": "https://inshell.art/docs/mono-76.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "b8b3b9024513de90a4e1777782fa41d3d28acf72841487cfe3287e985cc66798",
+      "markdownSha256": "57c63f1165148116cc2e3e702842d62c7bf1e44f94928ced5e5cdf4bcef62b70",
       "json": "/docs/mono-76.json",
       "canonicalJson": "https://inshell.art/docs/mono-76.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "d71de88ea9206aa741785b9b9b05d5ca561cd5ddec85907934b3115c12a8a52d"
+      "jsonSha256": "c864761378e6bb2665f6ddc5a7e4572a21195fe2e30b3d0905f254e420945e07"
     },
     {
       "id": "verification",
@@ -412,11 +435,11 @@
       "markdown": "/docs/verification.md",
       "canonicalMarkdown": "https://inshell.art/docs/verification.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "515d8fe1d106679e3973889d257b00687d2b685ef5afa4aa8080031bff156b08",
+      "markdownSha256": "d4213a83f8902f4f13a44be79f31f0bb1b7b168d131dabebb197e8cdf77c6ae1",
       "json": "/docs/verification.json",
       "canonicalJson": "https://inshell.art/docs/verification.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "e075a5320a4c880dedca15fcbce769b7949759ded30393b718a550a537a3adf2"
+      "jsonSha256": "3ea0bc10129a5b8a09f8998bce9c24b9e34ca0a7120be1f7f696bdbf2e71f0ac"
     },
     {
       "id": "wallet-local-data",
@@ -433,11 +456,11 @@
       "markdown": "/docs/wallet-local-data.md",
       "canonicalMarkdown": "https://inshell.art/docs/wallet-local-data.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "48614adc88519d13a08d18b560c23dfec3a20b86af4ac525b5b992c98e736172",
+      "markdownSha256": "17e31c7fe537d1eab70f2f79b1b6f5bc567a860bc8d7660c04d6ac405986ec30",
       "json": "/docs/wallet-local-data.json",
       "canonicalJson": "https://inshell.art/docs/wallet-local-data.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "6044cfcda46120872bc91a01b57ef2a14e99d849d89df3ed1c52fbd065acb916"
+      "jsonSha256": "e1d49abaa1e3ca556c95fa2f130ed392b6fac14c2c656a2a85f4d9b8f3f61bad"
     },
     {
       "id": "source-release-boundaries",
@@ -455,11 +478,11 @@
       "markdown": "/docs/source-release-boundaries.md",
       "canonicalMarkdown": "https://inshell.art/docs/source-release-boundaries.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "ac9c9f9a8cbcdc070aaa9663a16cd9d38396d3cd8f3d6575b9671382756d0405",
+      "markdownSha256": "651476984e3c98831fc5cba0ba14febdb2e3773551a6906f6f8f53900c7feb64",
       "json": "/docs/source-release-boundaries.json",
       "canonicalJson": "https://inshell.art/docs/source-release-boundaries.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "35f4e69b3edce63d243d9d72b6e3d9aa74e0e3c841c02bfd5163163f3e82d379"
+      "jsonSha256": "b48054a795b37e7a3e363470cd431851beeb63bd6d40b63dcd1cea548b0f2df8"
     },
     {
       "id": "design-principles",
@@ -478,11 +501,11 @@
       "markdown": "/docs/design-principles.md",
       "canonicalMarkdown": "https://inshell.art/docs/design-principles.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "4844b7e43e88c324f1f7bb195f3180edb0d99eea963c26dc607990d42f2149c7",
+      "markdownSha256": "d984badc29730c8938d88c2e8783de73926ee627c50b093e5e5bba98d4b1e87b",
       "json": "/docs/design-principles.json",
       "canonicalJson": "https://inshell.art/docs/design-principles.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "ccecdba7b02f36dd9f791e904ee06e0b7b4f33c548cb3e8292a8c946924ea885"
+      "jsonSha256": "8d05a61722a33e88e2451bccc21bc884c2a08772191f3215d2d3e1e1468646e5"
     }
   ],
   "immutableReleases": [
@@ -508,7 +531,7 @@
     },
     {
       "id": "path-pulse-contract-release-v0.5.0",
-      "title": "PATH and Pulse contract release v0.5.0",
+      "title": "$PATH and Pulse contract release v0.5.0",
       "url": "/protocol/releases/path-v0.5.0/manifest.json",
       "canonicalUrl": "https://inshell.art/protocol/releases/path-v0.5.0/manifest.json",
       "mediaType": "application/json",
@@ -518,7 +541,7 @@
     },
     {
       "id": "path-pulse-contract-release-v0.5.0-checksums",
-      "title": "PATH and Pulse contract release v0.5.0 checksums",
+      "title": "$PATH and Pulse contract release v0.5.0 checksums",
       "url": "/protocol/releases/path-v0.5.0/checksums.json",
       "canonicalUrl": "https://inshell.art/protocol/releases/path-v0.5.0/checksums.json",
       "mediaType": "application/json",
@@ -528,7 +551,7 @@
     },
     {
       "id": "path-pulse-contract-release-v0.5.0-handoff",
-      "title": "PATH and Pulse contract release v0.5.0 downstream handoff",
+      "title": "$PATH and Pulse contract release v0.5.0 downstream handoff",
       "url": "/protocol/releases/path-v0.5.0/DOWNSTREAM_HANDOFF.md",
       "canonicalUrl": "https://inshell.art/protocol/releases/path-v0.5.0/DOWNSTREAM_HANDOFF.md",
       "mediaType": "text/markdown",
@@ -665,7 +688,8 @@
         "thought",
         "will",
         "awa",
-        "artwork-metadata-chain"
+        "artwork-metadata-chain",
+        "fully-onchain"
       ]
     },
     {
@@ -681,6 +705,7 @@
         "pulse",
         "contracts",
         "artwork-metadata-chain",
+        "fully-onchain",
         "mono-76",
         "verification",
         "wallet-local-data",
@@ -749,6 +774,12 @@
       ]
     },
     {
+      "route": "/docs/fully-onchain",
+      "topics": [
+        "fully-onchain"
+      ]
+    },
+    {
       "route": "/docs/mono-76",
       "topics": [
         "mono-76"
@@ -784,7 +815,8 @@
         "path",
         "pulse",
         "contracts",
-        "artwork-metadata-chain"
+        "artwork-metadata-chain",
+        "fully-onchain"
       ]
     },
     {
@@ -793,6 +825,7 @@
         "path",
         "contracts",
         "artwork-metadata-chain",
+        "fully-onchain",
         "verification"
       ]
     },
@@ -817,6 +850,7 @@
       "topics": [
         "thought",
         "contracts",
+        "fully-onchain",
         "verification"
       ]
     },
@@ -825,6 +859,7 @@
       "topics": [
         "thought",
         "artwork-metadata-chain",
+        "fully-onchain",
         "verification"
       ]
     },

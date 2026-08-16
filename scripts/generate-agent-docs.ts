@@ -19,6 +19,7 @@ import {
   type DocsFigure,
   type DocsLink,
   type DocsParagraph,
+  type DocsSourceExample,
   type DocsTopic,
 } from "../apps/home/src/content/docs.ts";
 import { docsFigureLogic } from "../apps/home/src/content/docs-figure-logic.ts";
@@ -643,6 +644,19 @@ function markdownFigure(
   ];
 }
 
+function markdownSourceExamples(
+  examples: DocsSourceExample[] | undefined,
+) {
+  return (examples ?? []).flatMap((example) => [
+    `### ${example.label}`,
+    "",
+    `\`\`\`${example.language}`,
+    example.content,
+    "```",
+    "",
+  ]);
+}
+
 function markdownSections(topic: DocsTopic) {
   const authorityMap = DOCS_AUTHORITY_MAP[topic.slug];
   return (topic.sections ?? []).flatMap((section) => {
@@ -666,6 +680,7 @@ function markdownSections(topic: DocsTopic) {
       ...(section.steps ?? []).map((step, index) => `${index + 1}. ${step}`),
       ...(section.steps?.length ? [""] : []),
       ...(section.note ? [`> ${section.note}`, ""] : []),
+      ...markdownSourceExamples(section.sourceExamples),
     ];
   });
 }
@@ -1502,10 +1517,10 @@ function buildPathPulseRelease(): GeneratedPathPulseRelease {
       lock.manifestSha256 === EXPECTED_PATH_RELEASE.manifestSha256 &&
       lock.checksumListSha256 === EXPECTED_PATH_RELEASE.checksumListSha256 &&
       lock.checksumManifestSha256 === EXPECTED_PATH_RELEASE.checksumManifestSha256,
-    "PATH consumer lock is not the accepted v0.5.0 publication",
+    "$PATH consumer lock is not the accepted v0.5.0 publication",
   );
   const releaseRoot = `packages/contracts/src/path-release/releases/${lock.releaseTag}`;
-  const releaseDirectory = resolveDirectoryWithin(repoRoot, releaseRoot, "PATH release directory");
+  const releaseDirectory = resolveDirectoryWithin(repoRoot, releaseRoot, "$PATH release directory");
   const publicReleaseRoot = `/protocol/releases/path-${lock.releaseTag}`;
   const manifestRelativePath = `${releaseRoot}/manifest.json`;
   const handoffRelativePath = `${releaseRoot}/DOWNSTREAM_HANDOFF.md`;
@@ -1513,60 +1528,60 @@ function buildPathPulseRelease(): GeneratedPathPulseRelease {
     releaseDirectory,
     "manifest.json",
     { sha256: EXPECTED_PATH_RELEASE.manifestSha256 },
-    "PATH release manifest",
+    "$PATH release manifest",
   );
   const manifest = JSON.parse(manifestBytes.toString("utf8")) as PathReleaseManifest;
   const checksumsBytes = readExactFileWithin(
     releaseDirectory,
     "checksums.json",
     { sha256: EXPECTED_PATH_RELEASE.checksumManifestSha256 },
-    "PATH checksum manifest",
+    "$PATH checksum manifest",
   );
   const checksums = JSON.parse(checksumsBytes.toString("utf8")) as Record<string, string>;
   const checksumListBytes = readExactFileWithin(
     releaseDirectory,
     "SHA256SUMS.txt",
     { sha256: EXPECTED_PATH_RELEASE.checksumListSha256 },
-    "PATH SHA256SUMS",
+    "$PATH SHA256SUMS",
   );
-  const checksumList = parseSha256Sums(checksumListBytes.toString("utf8"), "PATH SHA256SUMS");
+  const checksumList = parseSha256Sums(checksumListBytes.toString("utf8"), "$PATH SHA256SUMS");
 
   invariant(
     sha256(manifestBytes) === lock.manifestSha256,
-    `PATH release manifest drift: ${manifestRelativePath}`,
+    `$PATH release manifest drift: ${manifestRelativePath}`,
   );
   invariant(
     manifest.schema === EXPECTED_PATH_RELEASE.manifestSchema &&
       manifest.releaseTag === lock.releaseTag &&
       manifest.contractSourceCommit === lock.contractSourceCommit,
-    "PATH release manifest does not match the consumer lock",
+    "$PATH release manifest does not match the consumer lock",
   );
   invariant(
     JSON.stringify(manifest.canonicalContracts) === JSON.stringify(lock.canonicalContracts),
-    "PATH release canonical contract list does not match the consumer lock",
+    "$PATH release canonical contract list does not match the consumer lock",
   );
   invariant(
     !lock.deploymentAddressesIncluded &&
       !lock.deploymentRecordsCoupled &&
       !manifest.compatibility.networkAddressesIncluded,
-    "PATH release publication must remain separate from network deployment records",
+    "$PATH release publication must remain separate from network deployment records",
   );
   invariant(
     JSON.stringify(manifest.compatibility) === JSON.stringify(lock.compatibility),
-    "PATH release compatibility does not match the consumer lock",
+    "$PATH release compatibility does not match the consumer lock",
   );
   const checksumPaths = Object.keys(lock.checksums);
   for (const [releasePath, expectedDigest] of Object.entries(lock.checksums)) {
-    assertSafeRelativePath(releasePath, "PATH checksum path");
+    assertSafeRelativePath(releasePath, "$PATH checksum path");
     invariant(
       /^[a-f0-9]{64}$/.test(expectedDigest),
-      `PATH checksum is not a SHA-256 digest: ${releasePath}`,
+      `$PATH checksum is not a SHA-256 digest: ${releasePath}`,
     );
   }
   invariant(
     JSON.stringify(checksums) === JSON.stringify(lock.checksums) &&
       JSON.stringify(checksumList) === JSON.stringify(lock.checksums),
-    "PATH release checksum indexes do not match the consumer lock",
+    "$PATH release checksum indexes do not match the consumer lock",
   );
 
   const expectedReleasePaths = [...checksumPaths, "SHA256SUMS.txt", "checksums.json"].sort();
@@ -1574,19 +1589,19 @@ function buildPathPulseRelease(): GeneratedPathPulseRelease {
   const actualReleasePaths = registeredReleaseFiles.map((relativePath) =>
     relativePath.slice(releaseRoot.length + 1),
   );
-  assertExactFileInventory(actualReleasePaths, expectedReleasePaths, "PATH release file inventory");
+  assertExactFileInventory(actualReleasePaths, expectedReleasePaths, "$PATH release file inventory");
 
   const releaseFiles = registeredReleaseFiles.map((relativePath) => {
     const releasePath = relativePath.slice(releaseRoot.length + 1);
     const expectedSha256 = lock.checksums[releasePath]
       ?? (releasePath === "SHA256SUMS.txt" ? lock.checksumListSha256 : undefined)
       ?? (releasePath === "checksums.json" ? lock.checksumManifestSha256 : undefined);
-    invariant(expectedSha256, `PATH release artifact has no exact-byte pin: ${releasePath}`);
+    invariant(expectedSha256, `$PATH release artifact has no exact-byte pin: ${releasePath}`);
     const bytes = readExactFileWithin(
       releaseDirectory,
       releasePath,
       { sha256: expectedSha256 },
-      `PATH release artifact ${releasePath}`,
+      `$PATH release artifact ${releasePath}`,
     );
     return {
       releasePath,
@@ -1597,12 +1612,12 @@ function buildPathPulseRelease(): GeneratedPathPulseRelease {
 
   for (const contractName of manifest.canonicalContracts) {
     const contract = manifest.contracts[contractName];
-    invariant(contract, `PATH release manifest is missing ${contractName}`);
+    invariant(contract, `$PATH release manifest is missing ${contractName}`);
     for (const releasePath of [contract.abi, contract.hardhatArtifact]) {
-      assertSafeRelativePath(releasePath, `PATH ${contractName} manifest artifact path`);
+      assertSafeRelativePath(releasePath, `$PATH ${contractName} manifest artifact path`);
       invariant(
         releaseFiles.some((file) => file.releasePath === releasePath),
-        `PATH release manifest points to a missing artifact: ${releasePath}`,
+        `$PATH release manifest points to a missing artifact: ${releasePath}`,
       );
     }
   }
@@ -1619,7 +1634,7 @@ function buildPathPulseRelease(): GeneratedPathPulseRelease {
     indexEntries: [
       {
         id: `path-pulse-contract-release-${lock.releaseTag}`,
-        title: `PATH and Pulse contract release ${lock.releaseTag}`,
+        title: `$PATH and Pulse contract release ${lock.releaseTag}`,
         url: manifestPath,
         canonicalUrl: canonicalPath(manifestPath),
         mediaType: "application/json",
@@ -1629,7 +1644,7 @@ function buildPathPulseRelease(): GeneratedPathPulseRelease {
       },
       {
         id: `path-pulse-contract-release-${lock.releaseTag}-checksums`,
-        title: `PATH and Pulse contract release ${lock.releaseTag} checksums`,
+        title: `$PATH and Pulse contract release ${lock.releaseTag} checksums`,
         url: checksumsPath,
         canonicalUrl: canonicalPath(checksumsPath),
         mediaType: "application/json",
@@ -1639,12 +1654,12 @@ function buildPathPulseRelease(): GeneratedPathPulseRelease {
       },
       {
         id: `path-pulse-contract-release-${lock.releaseTag}-handoff`,
-        title: `PATH and Pulse contract release ${lock.releaseTag} downstream handoff`,
+        title: `$PATH and Pulse contract release ${lock.releaseTag} downstream handoff`,
         url: handoffPath,
         canonicalUrl: canonicalPath(handoffPath),
         mediaType: "text/markdown",
         releaseStatus: "immutable-release",
-        sha256: sha256(readRepoFile(handoffRelativePath, "PATH downstream handoff")),
+        sha256: sha256(readRepoFile(handoffRelativePath, "$PATH downstream handoff")),
         authority: "contract-release",
       },
     ],
@@ -1771,7 +1786,7 @@ function agentIndex(
           id: "path-pulse-contract-release",
           entry: pathPulseRelease.manifestPath,
           useFor:
-            "PATH permission, transfer, Spark, renderer, ABI, Pulse auction, adapter, bytecode, or contract-release questions",
+            "$PATH permission, transfer, Spark, renderer, ABI, Pulse auction, adapter, bytecode, or contract-release questions",
         },
       ],
       duplicateContentRule:
@@ -1904,6 +1919,7 @@ function agentIndex(
           "will",
           "awa",
           "artwork-metadata-chain",
+          "fully-onchain",
         ],
       },
       { route: "/docs", topics: DOCS_SOURCE.topics.map((topic) => topic.slug) },
@@ -1911,12 +1927,30 @@ function agentIndex(
         route: `/docs/${topic.slug}`,
         topics: [topic.slug],
       })),
-      { route: "/path", topics: ["path", "pulse", "contracts", "artwork-metadata-chain"] },
-      { route: "/path/{tokenId}", topics: ["path", "contracts", "artwork-metadata-chain", "verification"] },
+      {
+        route: "/path",
+        topics: ["path", "pulse", "contracts", "artwork-metadata-chain", "fully-onchain"],
+      },
+      {
+        route: "/path/{tokenId}",
+        topics: [
+          "path",
+          "contracts",
+          "artwork-metadata-chain",
+          "fully-onchain",
+          "verification",
+        ],
+      },
       { route: "/pulse", topics: ["pulse", "path", "contracts"] },
       { route: "/thought", topics: ["thought", "contracts", "wallet-local-data"] },
-      { route: "/thought/{tokenId}", topics: ["thought", "contracts", "verification"] },
-      { route: "/gallery", topics: ["thought", "artwork-metadata-chain", "verification"] },
+      {
+        route: "/thought/{tokenId}",
+        topics: ["thought", "contracts", "fully-onchain", "verification"],
+      },
+      {
+        route: "/gallery",
+        topics: ["thought", "artwork-metadata-chain", "fully-onchain", "verification"],
+      },
       { route: "/verify", topics: ["verification", "source-release-boundaries"] },
     ],
   };
@@ -2742,6 +2776,18 @@ function agentContentSchemaV2() {
           content: { type: "string" },
         },
       },
+      sourceExample: {
+        type: "object",
+        additionalProperties: false,
+        required: ["label", "language", "content"],
+        properties: {
+          label: { type: "string", minLength: 1 },
+          language: { const: "svg" },
+          content: { type: "string", minLength: 1 },
+          presentation: { enum: ["artwork", "specimen"] },
+          showSource: { type: "boolean" },
+        },
+      },
       section: {
         type: "object",
         additionalProperties: false,
@@ -2755,6 +2801,10 @@ function agentContentSchemaV2() {
           points: { type: "array", items: { type: "string" } },
           steps: { type: "array", items: { type: "string" } },
           note: { type: "string" },
+          sourceExamples: {
+            type: "array",
+            items: { $ref: "#/$defs/sourceExample" },
+          },
         },
       },
       topicContent: {
@@ -2901,6 +2951,11 @@ function agentContentSchemaV1() {
   ]) {
     Reflect.deleteProperty(schema.$defs, definition);
   }
+  Reflect.deleteProperty(schema.$defs, "sourceExample");
+  Reflect.deleteProperty(
+    schema.$defs.section.properties,
+    "sourceExamples",
+  );
 
   return schema;
 }
@@ -2913,6 +2968,7 @@ function sitemap() {
     "/path",
     "/pulse",
     "/thought",
+    "/will",
     "/gallery",
     "/verify",
   ];

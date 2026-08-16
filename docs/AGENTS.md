@@ -63,7 +63,7 @@ Agent Art is the medium of this age for Inshell's practice. Keep that statement 
 Integrate these meanings throughout the public docs where they clarify a work or evidence boundary. Do not repeat the slogans mechanically. In particular:
 
 - THOUGHT gives `inspect your thought` a bounded form without resolving the thought.
-- Movements, PATH, and Pulse give the practice forms, permissions, and public participation without measuring inner truth.
+- Movements, $PATH, and Pulse give the practice forms, permissions, and public participation without measuring inner truth.
 - Contracts, metadata, wallets, releases, and verification establish bounded technical facts without implementing or proving the artistic truth.
 - Design principles are choices that shape the practice, not the truth the practice approaches.
 
@@ -73,8 +73,10 @@ Keep the artist distinct from the forms used by the practice.
 
 - Inshell is the artist.
 - THOUGHT, WILL, and AWA are movements in the practice.
-- PATH, Pulse, Apps, contracts, renderers, metadata, records, interfaces, and networks can be artistic material or infrastructure.
+- $PATH, Pulse, Apps, contracts, renderers, metadata, records, interfaces, and networks can be artistic material or infrastructure.
 - None of those forms is the artist.
+
+Use `$PATH` as the public name of the permission token and movement ledger throughout human and Agent-readable docs. Reserve `PathNFT` for the contract name and lowercase `path` for an ordinary route or artistic path.
 
 Agent Art has one invariant in these docs: it is art in which an Agent participates. Treat the name as a literal description of a form and field, not as agentic-ism, an ideology, a spirit, or a theory of what Agents should do to humans. Participation does not by itself imply assistance, augmentation, injection, collaboration, autonomy, equality, distributed authorship, or any other prescribed human-Agent relation.
 
@@ -101,6 +103,9 @@ Do not reduce Agent Art to prompting, text generation, chat, or human-plus-model
 - Use a closed frame only when containment is part of the meaning. A frame is not the default decoration for a conceptual set or an open question.
 - When a frame names one entity or boundary, let that governing term interrupt the literal rail and keep everything inside the frame semantically inside that scope. Do not repeat the same box shape around an unrelated relation merely for family resemblance.
 - A figure belongs to the lead or section whose governing impression it establishes at first sight. It is not a decorative diagram, an annotated aside, or an article-level quota.
+- Reserve figures for abstract artistic concepts or relations whose visual impression helps a human grasp the idea before reading its explanation.
+- Do not add a figure to explain technical records, mechanisms, contract flows, storage layers, verification procedures, release boundaries, or implementation architecture. Technical truth depends on complete prose and exact machine-readable sources; an impressive visual summary cannot substitute for either.
+- When technical prose benefits from a concrete illustration, prefer a rendered result paired with its collapsed literal source over a conceptual figure. The preview and source must be the same bytes. Label typical examples and shortened excerpts honestly, keep them readable in human HTML, and preserve the same literal code in Agent Markdown and JSON.
 - Place a lead figure immediately after the title and summary. Place a section figure immediately after that section's heading and before its text.
 - Multiple figures may appear in one article when distinct sections independently warrant them. No lead or section needs a figure for consistency.
 - Add no figure when the scoped text cannot be drawn without inventing facts, restating a plain inventory, or closing an intentionally open question.
@@ -143,6 +148,19 @@ Do not reduce Agent Art to prompting, text generation, chat, or human-plus-model
 - Prefer durable terms such as `canonical release`, `configured state`, and `observed deployment` over relative phrases such as `latest`, `today`, or `currently` when they mean the same thing.
 
 ## Claim and authority discipline
+
+### Fully onchain
+
+Use `fully onchain` as a narrow chain-sufficiency claim, not as praise or a synonym for ERC-721.
+
+- Name the selected network, deployment, contract system, and token scope to which the claim applies.
+- Require the chain and bound contract dependencies to return the complete canonical metadata and media without an HTTP server, IPFS object, repository file, frontend reconstruction, or other external content object.
+- Treat RPCs, wallets, explorers, marketplaces, and Apps as access or reading surfaces when they only call and decode the contracts. They must not supply missing canonical content.
+- A data URI may carry complete onchain content. A URI or hash that only identifies external content does not put that content onchain.
+- Dynamic output may be fully onchain when every value that determines it comes from bound code, state, and data on the selected chain.
+- Keep fully onchain separate from immutable, non-upgradeable, decentralized, deployed, verified, attested, authored, or true. State those claims independently and support each with its own authority.
+- A release-qualified portable contract package proves design and package integrity, not persistent deployment. Do not describe a live fully-onchain work without deployment and chain evidence.
+- Keep repositories and releases available for audit and interpretation without presenting them as runtime content hosts.
 
 Every public statement must retain its evidence boundary.
 
@@ -203,7 +221,7 @@ Choose and record one outcome in the task handoff, commit summary, or pull reque
 
 The source registry must cover every file or directory that can change a public claim. If a meaningful code or release change passes `docs:check` without being represented in `/docs/source-lock.json`, update `apps/home/src/content/docs-source-registry.ts`; do not treat the missing coverage as permission to skip documentation review.
 
-Upstream freshness is a separate gate. `pnpm check:upstream-releases` detects a newer or moved PATH or THOUGHT release, but it does not repin, reinterpret, or publish that release automatically. Review the upstream handoff, import exact artifacts, update the relevant public and machine documentation, and rerun both gates.
+Upstream freshness is a separate gate. `pnpm check:upstream-releases` detects a newer or moved $PATH or THOUGHT release, but it does not repin, reinterpret, or publish that release automatically. Review the upstream handoff, import exact artifacts, update the relevant public and machine documentation, and rerun both gates.
 
 Local hooks, CI, and deploy workflows run these checks:
 
@@ -228,7 +246,7 @@ After editing:
 1. Run `pnpm docs:generate`.
 2. Review the human article and generated Agent-readable artifacts.
 3. Run `pnpm docs:check`.
-4. Run `pnpm check:upstream-releases` when upstream THOUGHT, PATH, Pulse, renderer, schema, protocol, or contract facts are involved.
+4. Run `pnpm check:upstream-releases` when upstream THOUGHT, $PATH, Pulse, renderer, schema, protocol, or contract facts are involved.
 5. Run the focused docs tests and type check.
 6. Render the affected pages at desktop and mobile widths when layout or figures changed.
 7. Follow the repository staging-first deployment discipline. Documentation correctness does not authorize production promotion.

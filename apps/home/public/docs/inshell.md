@@ -6,7 +6,7 @@
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/inshell
-- Documentation version: 2026-08-15
+- Documentation version: 2026-08-16
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## The inward direction
@@ -107,7 +107,7 @@ Inshell forms movements, artworks, and participatory systems that call people in
 
 - Home presents minted THOUGHT works from the active public chain.
 - THOUGHT is the active creation surface for one human intention and one Agent response.
-- PATH shows the permission records that carry movements forward.
+- $PATH shows the permission records that carry movements forward.
 - Pulse exposes the live issuance mechanism and its history.
 - Verify and the Agent-readable documents expose sources, releases, and evidence boundaries.
 
@@ -117,7 +117,7 @@ Inshell forms movements, artworks, and participatory systems that call people in
 
 - Authority: artist-editorial, contract-release
 
-Inshell alone names the artist. THOUGHT, WILL, and AWA name movements. PATH is a permission token and movement ledger. Pulse is the serial auction that issues public PATH tokens. Their roles connect, but they should not be collapsed into one product, one authorship claim, or a complete definition of Agent Art.
+Inshell alone names the artist. THOUGHT, WILL, and AWA name movements. $PATH is a permission token and movement ledger. Pulse is the serial auction that issues public $PATH tokens. Their roles connect, but they should not be collapsed into one product, one authorship claim, or a complete definition of Agent Art.
 
 
 ## Links

@@ -6,50 +6,16 @@
 - Status: current
 - Authority classes in this document: app-documentation
 - Canonical page: https://inshell.art/docs/wallet-local-data
-- Documentation version: 2026-08-15
+- Documentation version: 2026-08-16
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
-
-## Two distinctions
-
-- Authority: app-documentation
-- Figure ID: wallet.distinctions
-- Figure mode: field
-- Semantic form: ledger
-- Semantic nodes:
-  - `read [action]: Read — Public state`
-  - `sign [action]: Sign — Authorization`
-  - `transact [action]: Transact — Chain change`
-  - `local [record]: Local — Browser record`
-  - `onchain [record]: Onchain — Public record`
-- Semantic edges:
-  - `read-not-sign: read (Read) --[≠ · Reading public state is not signing an authorization.]--> sign (Sign)`
-  - `sign-not-transact: sign (Sign) --[≠ · Signing an authorization is not a chain transaction.]--> transact (Transact)`
-  - `local-not-onchain: local (Local) --[≠ · A local browser record is not an onchain public record.]--> onchain (Onchain)`
-- Semantic groups:
-  - `wallet-action-distinction [comparison]: Read, sign, and transact are distinct wallet actions. [members: read (Read) · sign (Sign) · transact (Transact)]`
-  - `record-location-distinction [comparison]: Local browser data is distinct from an onchain public record. [members: local (Local) · onchain (Onchain)]`
-
-```text
-READ  ≠  SIGN  ≠  TRANSACT
-Public state   Authorization   Chain change
-
-LOCAL  ≠  ONCHAIN
-Browser record   Public record
-```
-
-- **Read** — Public state
-- **Sign** — Authorization
-- **Transact** — Chain change
-- **Local** — Browser record
-- **Onchain** — Public record
 
 ## Overview
 
 - Authority: app-documentation
 
-The shell wallet menu reads the current account and network. Its Refresh action updates wallet and [PATH](https://inshell.art/docs/path) inventory reads. Opening the menu itself never asks for a signature or transaction.
+The shell wallet menu reads the current account and network. Its Refresh action updates wallet and [$PATH](https://inshell.art/docs/path) inventory reads. Opening the menu itself never asks for a signature or transaction.
 
-Product CTAs open wallet requests only when an action needs one: connect, mint PATH, sign a one-mint PATH permission, or mint [THOUGHT](https://inshell.art/docs/thought). Canceling a wallet request submits nothing.
+Product CTAs open wallet requests only when an action needs one: connect, mint $PATH, sign a one-mint $PATH permission, or mint [THOUGHT](https://inshell.art/docs/thought). Canceling a wallet request submits nothing.
 
 A signature can authorize a narrowly defined action without sending a transaction or paying gas. A transaction can change chain state and requires wallet confirmation. The interface must name which one it is requesting.
 
@@ -61,7 +27,7 @@ Local Anvil, Sepolia, and Ethereum are separate chains with separate contracts, 
 
 - Authority: app-documentation
 
-Opening the wallet menu, refreshing account state, loading PATH inventory, or reading public token records should not request a signature or transaction. These are passive reads.
+Opening the wallet menu, refreshing account state, loading $PATH inventory, or reading public token records should not request a signature or transaction. These are passive reads.
 
 A product action can open a wallet only when it needs account access, a signature, a network switch, or a transaction. The interface should name that boundary before the request appears.
 

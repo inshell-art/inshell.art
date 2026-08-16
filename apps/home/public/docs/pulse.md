@@ -1,21 +1,21 @@
 # Pulse
 
-> Pulse turns public timing into the issue price for each new PATH.
+> Pulse turns public timing into the issue price for each new $PATH.
 
 - Group: Works and participation
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/pulse
-- Documentation version: 2026-08-15
+- Documentation version: 2026-08-16
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## Overview
 
 - Authority: artist-editorial, app-documentation, contract-release
 
-[PATH](https://inshell.art/docs/path) is the permission token; Pulse is the serial mechanism that prices and issues the next public token. They are not interchangeable names.
+[$PATH](https://inshell.art/docs/path) is the permission token; Pulse is the serial mechanism that prices and issues the next public token. They are not interchangeable names.
 
-Pulse runs one live epoch, one current ask, and one next token at a time. A successful bid closes the epoch, records the sale, issues the corresponding PATH, and starts the next epoch.
+Pulse runs one live epoch, one current ask, and one next token at a time. A successful bid closes the epoch, records the sale, issues the corresponding $PATH, and starts the next epoch.
 
 Pulse shapes the ask over time. A successful bid closes the current epoch and starts the next one. The next ask is raised by an initial premium. Between sales, the ask decays toward the floor. Equivalently, premium decays toward zero. Settlement samples the ask at sale time.
 
@@ -57,35 +57,7 @@ a = anchor time
 
 - Authority: artist-editorial, contract-release
 
-### One Pulse epoch
-
-- Authority: contract-release
-- Figure ID: pulse.epoch
-- Figure mode: trace
-- Semantic form: cycle
-- Semantic nodes:
-  - `ask [state]: Ask — Decay`
-  - `bid [action]: Bid — Pump`
-  - `next-ask [result]: Next ask`
-- Semantic edges:
-  - `ask-decays-to-bid: ask (Ask) --[↓ · The current ask decays until a bid succeeds. · Decay]--> bid (Bid)`
-  - `bid-pumps-next-ask: bid (Bid) --[↓ · The successful bid pumps the next ask. · Pump]--> next-ask (Next ask)`
-  - `next-epoch-loop: next-ask (Next ask) --[↺ · The next ask becomes the current ask in the next epoch. · next epoch]--> ask (Ask)`
-
-```text
-ASK
-↓ decay
-BID
-↓ pump
-NEXT ASK
-↺ next epoch
-```
-
-1. **Ask** — Decay
-2. **Bid** — Pump
-3. **Next ask**
-
-Pulse has one current epoch and one next public PATH at a time. Participants are not choosing among parallel lots. The successful bid closes the visible curve, issues its PATH, and establishes the starting conditions for the following curve.
+Pulse has one current epoch and one next public $PATH at a time. Participants are not choosing among parallel lots. The successful bid closes the visible curve, issues its $PATH, and establishes the starting conditions for the following curve.
 
 This serial structure makes the history legible: every sale is both an ending and the input to what comes next.
 
@@ -123,14 +95,14 @@ The chart uses half-life units to make curves with different real-time durations
 
 The wallet transaction supplies a maximum acceptable price, not a promise to pay that entire amount. Pulse samples the live ask when the transaction executes. The bid succeeds only when that ask is within the submitted ceiling.
 
-On a successful ETH bid, the auction sends the exact ask to the treasury and refunds surplus value to the bidder. The sale closes the current epoch, records its settlement, and begins the next epoch. The adapter then translates that settlement into PATH delivery; Pulse itself remains independent of the NFT it prices.
+On a successful ETH bid, the auction sends the exact ask to the treasury and refunds surplus value to the bidder. The sale closes the current epoch, records its settlement, and begins the next epoch. The adapter then translates that settlement into $PATH delivery; Pulse itself remains independent of the NFT it prices.
 
 - Maximum price: the bidder's slippage ceiling.
 - Settlement price: the live ask accepted by the contract.
 - Value supplied: must cover the ask; unused value is refunded.
-- Delivery: PathPulseAdapter turns the settled auction result into PATH issuance.
+- Delivery: PathPulseAdapter turns the settled auction result into $PATH issuance.
 
-> A submitted transaction is not a completed sale. Read the receipt, events, and resulting contract state before presenting PATH as issued.
+> A submitted transaction is not a completed sale. Read the receipt, events, and resulting contract state before presenting $PATH as issued.
 
 ## Mechanism as artwork
 

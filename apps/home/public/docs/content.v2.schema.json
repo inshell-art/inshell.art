@@ -479,6 +479,37 @@
         }
       }
     },
+    "sourceExample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "language",
+        "content"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "language": {
+          "const": "svg"
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1
+        },
+        "presentation": {
+          "enum": [
+            "artwork",
+            "specimen"
+          ]
+        },
+        "showSource": {
+          "type": "boolean"
+        }
+      }
+    },
     "section": {
       "type": "object",
       "additionalProperties": false,
@@ -533,6 +564,12 @@
         },
         "note": {
           "type": "string"
+        },
+        "sourceExamples": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceExample"
+          }
         }
       }
     },

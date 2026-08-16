@@ -2,7 +2,7 @@
   "schema": "inshell.agent-docs.topic.v2",
   "schemaUrl": "/docs/content.v2.schema.json",
   "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
-  "version": "2026-08-15",
+  "version": "2026-08-16",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "will",
@@ -28,103 +28,13 @@
         "artist-editorial"
       ],
       "paragraphs": [
-        "WILL is the second movement on Inshell's [PATH](https://inshell.art/docs/path). Where [THOUGHT](https://inshell.art/docs/thought) begins with one individual's thought, WILL moves from one person to a crowd.",
-        "It asks what happens when a human authorizes an Agent to act toward an aim, and what result may form when many such relations interact.",
+        "WILL is the second movement on Inshell's [$PATH](https://inshell.art/docs/path). Where [THOUGHT](https://inshell.art/docs/thought) begins with one individual's thought, WILL moves from one person to a crowd.",
+        "WILL asks what happens when a human delegates will and authority to an Agent acting toward an aim, and what result may emerge as many human-Agent relations form a crowd.",
         "Here, crowd names the move from one participant to many. It does not mean a society, consensus, or shared mind.",
         "Many people. Many Agents. One will. The slogan names the movement's scope without prescribing its concrete form. Agent participation keeps WILL within [Agent Art](https://inshell.art/docs/agent-art)."
       ]
     },
-    "figure": {
-      "authorities": [
-        "artist-editorial"
-      ],
-      "id": "will.open-field",
-      "label": "From delegated will to a result",
-      "mode": "field",
-      "figureText": "HUMAN ── WILL + AUTHORITY ──→ AGENT\nForms an aim                 Acts toward the delegated aim\n   ↘                              ↙\n               CROWD DYNAMIC\n                     ↓\n                  RESULT\n       A result can emerge from the interaction.",
-      "items": [
-        {
-          "title": "Human",
-          "detail": "Forms an aim"
-        },
-        {
-          "title": "Agent",
-          "detail": "Acts toward the delegated aim"
-        },
-        {
-          "title": "Result",
-          "detail": "A result can emerge from the interaction."
-        }
-      ],
-      "logic": {
-        "id": "will.open-field",
-        "label": "From delegated will to a result",
-        "form": "fork",
-        "nodes": [
-          {
-            "id": "human",
-            "sourceItem": 0,
-            "sourcePart": "item",
-            "term": "Human",
-            "annotation": "Forms an aim",
-            "role": "subject"
-          },
-          {
-            "id": "agent",
-            "sourceItem": 1,
-            "sourcePart": "item",
-            "term": "Agent",
-            "annotation": "Acts toward the delegated aim",
-            "role": "subject"
-          },
-          {
-            "id": "crowd-dynamic",
-            "term": "Crowd dynamic",
-            "role": "structural"
-          },
-          {
-            "id": "result",
-            "sourceItem": 2,
-            "sourcePart": "item",
-            "term": "Result",
-            "annotation": "A result can emerge from the interaction.",
-            "role": "result"
-          }
-        ],
-        "edges": [
-          {
-            "id": "delegate-will",
-            "from": "human",
-            "to": "agent",
-            "glyph": "→",
-            "label": "A human delegates will and authority to an Agent.",
-            "annotation": "Will + authority"
-          },
-          {
-            "id": "human-enters-crowd-dynamic",
-            "from": "human",
-            "to": "crowd-dynamic",
-            "glyph": "↘",
-            "label": "Human participation enters the crowd dynamic."
-          },
-          {
-            "id": "agent-enters-crowd-dynamic",
-            "from": "agent",
-            "to": "crowd-dynamic",
-            "glyph": "↙",
-            "label": "Agent action enters the crowd dynamic."
-          },
-          {
-            "id": "crowd-dynamic-produces-result",
-            "from": "crowd-dynamic",
-            "to": "result",
-            "glyph": "↓",
-            "label": "The crowd dynamic can produce a result."
-          }
-        ],
-        "groups": []
-      }
-    },
+    "figure": null,
     "preformatted": [],
     "sections": [
       {
@@ -141,6 +51,12 @@
       }
     ],
     "links": [
+      {
+        "role": "navigation",
+        "label": "open WILL",
+        "href": "/will",
+        "canonicalHref": "https://inshell.art/will"
+      },
       {
         "role": "navigation",
         "label": "read all Movements",

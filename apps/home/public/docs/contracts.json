@@ -2,7 +2,7 @@
   "schema": "inshell.agent-docs.topic.v2",
   "schemaUrl": "/docs/content.v2.schema.json",
   "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
-  "version": "2026-08-15",
+  "version": "2026-08-16",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "contracts",
@@ -33,7 +33,7 @@
       "paragraphs": [
         "The public architecture is [PulseAuction](https://inshell.art/docs/pulse) → PathPulseAdapter → [PathNFT](https://inshell.art/docs/path) → [ThoughtNFT](https://inshell.art/docs/thought). The arrows describe the issuance and permission path, not contract ownership or a promise that every future movement is deployed.",
         "These contracts specify and enforce bounded actions within the practice. They can validate a permission, mint, or record, but they do not implement the truth named by Inshell or prove a participant's inward understanding.",
-        "PulseAuction calculates the live ask, accepts a successful bid, and closes an epoch. PathPulseAdapter translates that settlement into PATH issuance. PathNFT mints and owns PATH state, movement order, and capacity. ThoughtNFT validates THOUGHT mint rules, records the work, and atomically consumes an authorized THOUGHT unit from PATH.",
+        "PulseAuction calculates the live ask, accepts a successful bid, and closes an epoch. PathPulseAdapter translates that settlement into $PATH issuance. PathNFT mints and owns $PATH state, movement order, and capacity. ThoughtNFT validates THOUGHT mint rules, records the work, and atomically consumes an authorized THOUGHT unit from $PATH.",
         "The App orchestrates reads, previews, Agent runs, signatures, and wallet transactions. It does not replace contract validation. A wallet account submits the transaction; deployed contracts decide whether it is valid.",
         "ABIs, bytecode, renderer payloads, schemas, and manifests belong to [pinned releases](https://inshell.art/docs/source-release-boundaries). Contract addresses and deployment blocks belong to a network deployment record. Read both before identifying a live system."
       ]
@@ -48,212 +48,14 @@
         "id": "docs-contracts-responsibilities",
         "title": "Separated responsibilities",
         "paragraphs": [
-          "The architecture separates pricing, issuance, permission, and artwork minting so each boundary can be inspected independently. Public PATH issuance and a later THOUGHT mint are separate phases. Contract calls and state handoffs connect them, but no contract owns all the others."
+          "The architecture separates pricing, issuance, permission, and artwork minting so each boundary can be inspected independently. Public $PATH issuance and a later THOUGHT mint are separate phases. Contract calls and state handoffs connect them, but no contract owns all the others."
         ],
         "points": [
           "PulseAuction owns the auction calculation and settlement rules.",
-          "PathPulseAdapter connects the auction to PATH issuance.",
-          "PathNFT owns PATH identity, issuance state, and movement capacity.",
+          "PathPulseAdapter connects the auction to $PATH issuance.",
+          "PathNFT owns $PATH identity, issuance state, and movement capacity.",
           "ThoughtNFT owns THOUGHT validation, uniqueness, rendering references, metadata, and mint records."
-        ],
-        "figure": {
-          "authorities": [
-            "contract-release"
-          ],
-          "id": "contracts.handoffs",
-          "label": "Contract handoffs across issuance and minting",
-          "mode": "lanes",
-          "figureText": "PUBLIC ISSUANCE\nPulseAuction / SETTLE\nLive ask · one serial epoch\n→ PathPulseAdapter / ISSUE\nValid settlement → PATH issuance\n→ PathNFT / RECORD PATH\nIssued PATH · order · capacity\n\nLATER THOUGHT MINT\nThoughtNFT / VALIDATE WORK\nTHOUGHT work · PATH permission\n→ PathNFT / CONSUME UNIT\nCaller · owner · stage · quota\n→ ThoughtNFT / MINT + RECORD\nAtomic with PATH consumption",
-          "items": [
-            {
-              "stage": 1,
-              "lane": "PulseAuction",
-              "phase": "Public issuance",
-              "title": "Settle",
-              "detail": "Live ask · one serial epoch"
-            },
-            {
-              "stage": 2,
-              "lane": "PathPulseAdapter",
-              "phase": "Public issuance",
-              "title": "Issue",
-              "detail": "Valid settlement → PATH issuance"
-            },
-            {
-              "stage": 3,
-              "lane": "PathNFT",
-              "phase": "Public issuance",
-              "title": "Record PATH",
-              "detail": "Issued PATH · order · capacity"
-            },
-            {
-              "stage": 4,
-              "lane": "ThoughtNFT",
-              "phase": "Later THOUGHT mint",
-              "title": "Validate work",
-              "detail": "THOUGHT work · PATH permission"
-            },
-            {
-              "stage": 5,
-              "lane": "PathNFT",
-              "phase": "Later THOUGHT mint",
-              "title": "Consume unit",
-              "detail": "Caller · owner · stage · quota"
-            },
-            {
-              "stage": 6,
-              "lane": "ThoughtNFT",
-              "phase": "Later THOUGHT mint",
-              "title": "Mint + record",
-              "detail": "Atomic with PATH consumption"
-            }
-          ],
-          "logic": {
-            "id": "contracts.handoffs",
-            "label": "Contract handoffs across issuance and minting",
-            "form": "lanes",
-            "nodes": [
-              {
-                "id": "pulse-settle",
-                "sourceItem": 0,
-                "sourcePart": "item",
-                "term": "Settle",
-                "annotation": "Live ask · one serial epoch",
-                "role": "action"
-              },
-              {
-                "id": "adapter-issue",
-                "sourceItem": 1,
-                "sourcePart": "item",
-                "term": "Issue",
-                "annotation": "Valid settlement → PATH issuance",
-                "role": "action"
-              },
-              {
-                "id": "path-record",
-                "sourceItem": 2,
-                "sourcePart": "item",
-                "term": "Record PATH",
-                "annotation": "Issued PATH · order · capacity",
-                "role": "record"
-              },
-              {
-                "id": "thought-validate",
-                "sourceItem": 3,
-                "sourcePart": "item",
-                "term": "Validate work",
-                "annotation": "THOUGHT work · PATH permission",
-                "role": "action"
-              },
-              {
-                "id": "path-consume",
-                "sourceItem": 4,
-                "sourcePart": "item",
-                "term": "Consume unit",
-                "annotation": "Caller · owner · stage · quota",
-                "role": "action"
-              },
-              {
-                "id": "thought-mint",
-                "sourceItem": 5,
-                "sourcePart": "item",
-                "term": "Mint + record",
-                "annotation": "Atomic with PATH consumption",
-                "role": "result"
-              }
-            ],
-            "edges": [
-              {
-                "id": "settle-to-issue",
-                "from": "pulse-settle",
-                "to": "adapter-issue",
-                "glyph": "→",
-                "stackedGlyph": "↓",
-                "label": "A valid Pulse settlement is handed to PathPulseAdapter for PATH issuance."
-              },
-              {
-                "id": "issue-to-record",
-                "from": "adapter-issue",
-                "to": "path-record",
-                "glyph": "→",
-                "stackedGlyph": "↓",
-                "label": "PATH issuance is recorded by PathNFT."
-              },
-              {
-                "id": "validate-to-consume",
-                "from": "thought-validate",
-                "to": "path-consume",
-                "glyph": "→",
-                "stackedGlyph": "↓",
-                "label": "ThoughtNFT calls PathNFT to consume one authorized movement unit."
-              },
-              {
-                "id": "consume-to-mint",
-                "from": "path-consume",
-                "to": "thought-mint",
-                "glyph": "→",
-                "stackedGlyph": "↓",
-                "label": "ThoughtNFT mints and records the work atomically with PATH consumption."
-              }
-            ],
-            "groups": [
-              {
-                "id": "public-issuance-phase",
-                "kind": "phase",
-                "label": "Public issuance",
-                "members": [
-                  "pulse-settle",
-                  "adapter-issue",
-                  "path-record"
-                ]
-              },
-              {
-                "id": "later-thought-mint-phase",
-                "kind": "phase",
-                "label": "Later THOUGHT mint",
-                "members": [
-                  "thought-validate",
-                  "path-consume",
-                  "thought-mint"
-                ]
-              },
-              {
-                "id": "pulse-auction-lane",
-                "kind": "lane",
-                "label": "PulseAuction",
-                "members": [
-                  "pulse-settle"
-                ]
-              },
-              {
-                "id": "path-pulse-adapter-lane",
-                "kind": "lane",
-                "label": "PathPulseAdapter",
-                "members": [
-                  "adapter-issue"
-                ]
-              },
-              {
-                "id": "path-nft-lane",
-                "kind": "lane",
-                "label": "PathNFT",
-                "members": [
-                  "path-record",
-                  "path-consume"
-                ]
-              },
-              {
-                "id": "thought-nft-lane",
-                "kind": "lane",
-                "label": "ThoughtNFT",
-                "members": [
-                  "thought-validate",
-                  "thought-mint"
-                ]
-              }
-            ]
-          }
-        }
+        ]
       },
       {
         "authorities": [
@@ -263,7 +65,7 @@
         "id": "docs-contracts-app",
         "title": "What the App does",
         "paragraphs": [
-          "The App reads state, assembles previews and creation records, requests Agent runs, helps the human choose a PATH, prepares signatures, and asks the wallet to submit transactions. It can make the workflow understandable, but it cannot override deployed validation.",
+          "The App reads state, assembles previews and creation records, requests Agent runs, helps the human choose a $PATH, prepares signatures, and asks the wallet to submit transactions. It can make the workflow understandable, but it cannot override deployed validation.",
           "A successful UI message is not final authority for a mint. The transaction receipt, emitted events, typed contract reads, and tokenURI supply the contract-controlled result."
         ]
       },
@@ -274,7 +76,7 @@
         "id": "docs-contracts-consumption",
         "title": "The movement-consumption boundary",
         "paragraphs": [
-          "PathNFT does not infer movement consent from PATH selection or ERC-721 approval. It accepts consumeUnit only from the configured movement minter and verifies an EIP-191 authorization signed by the current PATH owner. The signed message binds the PathNFT address, chain ID, PATH ID, movement, owner, executor, permission epoch, owner consume nonce, and deadline.",
+          "PathNFT does not infer movement consent from $PATH selection or ERC-721 approval. It accepts consumeUnit only from the configured movement minter and verifies an EIP-191 authorization signed by the current $PATH owner. The signed message binds the PathNFT address, chain ID, $PATH ID, movement, owner, executor, permission epoch, owner consume nonce, and deadline.",
           "After checking the active stage and remaining quota, PathNFT returns a zero-based movement serial and updates permission progress. The configured movement contract owns the other half of the boundary: it calls consumeUnit before minting its work inside the same transaction. PathNFT owns permission accounting; the movement contract owns work validation and minting. If either half reverts, the transaction commits neither."
         ]
       },
@@ -300,13 +102,13 @@
       },
       {
         "role": "navigation",
-        "label": "read PATH movement consumption",
+        "label": "read $PATH movement consumption",
         "href": "/docs/path#docs-path-consumption",
         "canonicalHref": "https://inshell.art/docs/path#docs-path-consumption"
       },
       {
         "role": "navigation",
-        "label": "view PATH source",
+        "label": "view $PATH source",
         "href": "https://github.com/inshell-art/path",
         "canonicalHref": "https://github.com/inshell-art/path"
       },

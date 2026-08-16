@@ -242,6 +242,8 @@ function routeMetadata(pathname: string): RouteMetadata {
       "Pulse is the decentralized automatic auction that issues public $PATH tokens.",
     "/thought":
       "THOUGHT is a narrow terminal channel between one human intention and one Agent response.",
+    "/will":
+      "WILL is Inshell's movement about delegated human will, Agent action, and crowd dynamics.",
     "/gallery": "Canonical THOUGHT gallery route; the current R2 collection is not deployed.",
     "/verify":
       "Official origins, contracts, releases, locks, and verification boundaries for Inshell.",
@@ -252,6 +254,7 @@ function routeMetadata(pathname: string): RouteMetadata {
     "/path": "$PATH",
     "/pulse": "Pulse",
     "/thought": "THOUGHT",
+    "/will": "WILL",
     "/gallery": "THOUGHT gallery",
     "/verify": "verify — Inshell",
     "/color-font": "color-font — Inshell",

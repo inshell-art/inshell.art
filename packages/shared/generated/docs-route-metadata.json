@@ -11,7 +11,7 @@
     },
     "movements": {
       "title": "Movements",
-      "description": "Inshell's movements follow an artistic PATH from an individual's thought, through a crowd's will, toward Inshell's core."
+      "description": "Inshell's movements follow an artistic path from an individual's thought, through a crowd's will, toward Inshell's core."
     },
     "thought": {
       "title": "THOUGHT",
@@ -26,12 +26,12 @@
       "description": "AWA is Inshell's movement from the crowd toward its core."
     },
     "path": {
-      "title": "PATH",
-      "description": "PATH carries permission and progress across Inshell's movements."
+      "title": "$PATH",
+      "description": "$PATH carries permission and progress across Inshell's movements."
     },
     "pulse": {
       "title": "Pulse",
-      "description": "Pulse turns public timing into the issue price for each new PATH."
+      "description": "Pulse turns public timing into the issue price for each new $PATH."
     },
     "contracts": {
       "title": "Contracts",
@@ -40,6 +40,10 @@
     "artwork-metadata-chain": {
       "title": "Artwork, Metadata, and Chain",
       "description": "Artwork and metadata stay legible only when their chain and release context stay attached."
+    },
+    "fully-onchain": {
+      "title": "Fully Onchain",
+      "description": "Inshell keeps a work's canonical image and metadata with its onchain record so the work does not depend on a website or media host."
     },
     "mono-76": {
       "title": "Mono 76",

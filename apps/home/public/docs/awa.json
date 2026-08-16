@@ -2,7 +2,7 @@
   "schema": "inshell.agent-docs.topic.v2",
   "schemaUrl": "/docs/content.v2.schema.json",
   "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
-  "version": "2026-08-15",
+  "version": "2026-08-16",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "awa",
@@ -28,97 +28,12 @@
         "artist-editorial"
       ],
       "paragraphs": [
-        "AWA is the third movement on Inshell's [PATH](https://inshell.art/docs/path). After [THOUGHT](https://inshell.art/docs/thought)'s individual and [WILL](https://inshell.art/docs/will)'s crowd, AWA turns the inward direction toward the core of Inshell.",
+        "AWA is the third movement on Inshell's [$PATH](https://inshell.art/docs/path). After [THOUGHT](https://inshell.art/docs/thought)'s individual and [WILL](https://inshell.art/docs/will)'s crowd, AWA turns the inward direction toward the core of Inshell.",
         "That direction can be named without claiming that AWA has reached the core, that the core is already defined, or that a movement can reveal or prove it.",
         "Agent participation keeps AWA within [Agent Art](https://inshell.art/docs/agent-art). AWA does not inherit THOUGHT's or WILL's particular relation among people, Agents, and the work."
       ]
     },
-    "figure": {
-      "authorities": [
-        "artist-editorial"
-      ],
-      "id": "awa.open-horizon",
-      "label": "Toward the core",
-      "mode": "trace",
-      "figureText": "THOUGHT  →  WILL  →  AWA  →  …\nIndividual   Crowd   Toward the core",
-      "items": [
-        {
-          "title": "THOUGHT",
-          "detail": "Individual"
-        },
-        {
-          "title": "WILL",
-          "detail": "Crowd"
-        },
-        {
-          "title": "AWA",
-          "detail": "Toward the core"
-        }
-      ],
-      "logic": {
-        "id": "awa.open-horizon",
-        "label": "Toward the core",
-        "form": "trace",
-        "nodes": [
-          {
-            "id": "thought",
-            "sourceItem": 0,
-            "sourcePart": "item",
-            "term": "THOUGHT",
-            "annotation": "Individual",
-            "role": "state"
-          },
-          {
-            "id": "will",
-            "sourceItem": 1,
-            "sourcePart": "item",
-            "term": "WILL",
-            "annotation": "Crowd",
-            "role": "state"
-          },
-          {
-            "id": "awa",
-            "sourceItem": 2,
-            "sourcePart": "item",
-            "term": "AWA",
-            "annotation": "Toward the core",
-            "role": "state"
-          },
-          {
-            "id": "open-horizon",
-            "term": "…",
-            "role": "state"
-          }
-        ],
-        "edges": [
-          {
-            "id": "thought-to-will",
-            "from": "thought",
-            "to": "will",
-            "glyph": "→",
-            "stackedGlyph": "↓",
-            "label": "The path moves from individual THOUGHT to crowd WILL."
-          },
-          {
-            "id": "will-toward-awa",
-            "from": "will",
-            "to": "awa",
-            "glyph": "→",
-            "stackedGlyph": "↓",
-            "label": "The path points from crowd WILL toward AWA and the core; arrival is not claimed."
-          },
-          {
-            "id": "awa-toward-open-horizon",
-            "from": "awa",
-            "to": "open-horizon",
-            "glyph": "→",
-            "stackedGlyph": "↓",
-            "label": "AWA remains open toward a core that is not claimed as reached."
-          }
-        ],
-        "groups": []
-      }
-    },
+    "figure": null,
     "preformatted": [],
     "sections": [
       {
