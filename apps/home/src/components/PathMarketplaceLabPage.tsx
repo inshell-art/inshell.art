@@ -9,7 +9,7 @@ import {
   type PathTokenInventoryItem,
 } from "@/services/pathTokens";
 import {
-  PATH_MOVEMENT_QUOTA_NOTE,
+  PATH_MINT_CAPACITY_NOTE,
   PATH_OVERVIEW,
 } from "@/content/path";
 
@@ -97,9 +97,6 @@ function PathMarketplaceDetail({
   const nextProgress = nextMovement
     ? movementProgress(item, nextMovement)
     : null;
-  const remainingUnits = nextProgress
-    ? Math.max(0, nextProgress.total - nextProgress.used)
-    : 0;
   return (
     <main
       className="path-marketplace path-marketplace-detail"
@@ -134,13 +131,13 @@ function PathMarketplaceDetail({
             <p>next movement</p>
             <strong>
               {nextMovement
-                ? `${nextMovement} · ${remainingUnits} unit${remainingUnits === 1 ? "" : "s"} remaining`
-                : "all units used"}
+                ? `${nextMovement} · ${nextProgress?.used ?? 0} / ${nextProgress?.total ?? 0} used`
+                : "all mint capacity used"}
             </strong>
             <span>
               {nextMovement
-                ? `Each unit can authorize one ${nextMovement} work mint.`
-                : "This $PATH has no movement mint remaining."}
+                ? "Each successful work mint uses one."
+                : "This $PATH has no mint capacity remaining."}
             </span>
             {nextMovement === "THOUGHT" ? (
               <a
@@ -210,7 +207,7 @@ function PathMarketplaceDetail({
             })}
           </dl>
           <p className="path-marketplace-detail__properties-note">
-            {PATH_MOVEMENT_QUOTA_NOTE}
+            {PATH_MINT_CAPACITY_NOTE}
           </p>
         </article>
 
@@ -240,7 +237,7 @@ function PathMarketplaceDetail({
             <div>
               <dt>issued through</dt>
               <dd>
-                <a href="/pulse">Pulse ↗</a>
+                <a href="/docs#docs-pulse">Pulse ↗</a>
               </dd>
             </div>
           </dl>

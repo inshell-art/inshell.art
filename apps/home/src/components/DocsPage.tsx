@@ -1,87 +1,422 @@
-export default function DocsPage() {
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentRef,
+} from "react";
+import {
+  DOCS_SOURCE,
+  agentDocsPrompt,
+  type DocsFigure,
+  type DocsParagraph,
+} from "@/content/docs";
+import { PulseCurrentInstance } from "@/components/PulsePage";
+import { FieldFigureVisual } from "@/components/docs/FieldFigureVisual";
+import {
+  LedgerFigureVisual,
+  TraceFigureVisual,
+} from "@/components/docs/FlowFigureVisual";
+import { LaneFigureVisual } from "@/components/docs/LaneFigureVisual";
+
+async function copyText(value: string) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch {
+      // Continue to the browser fallback.
+    }
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } catch {
+    copied = false;
+  }
+  document.body.removeChild(textarea);
+  return copied;
+}
+
+function currentOrigin() {
+  if (typeof window === "undefined") return "https://inshell.art";
+  return window.location.origin;
+}
+
+function renderDocsParagraph(paragraph: DocsParagraph) {
+  if (typeof paragraph === "string") return paragraph;
+
+  return paragraph.map((part, index) =>
+    typeof part === "string" ? (
+      <Fragment key={`text:${index}`}>{part}</Fragment>
+    ) : (
+      <a
+        key={`${part.href}:${part.label}:${index}`}
+        className="docs-page__inline-link"
+        href={part.href}
+      >
+        {part.label}
+      </a>
+    ),
+  );
+}
+
+function FigureVisual({ figure }: { figure: DocsFigure }) {
+  if (figure.mode === "trace") return <TraceFigureVisual figure={figure} />;
+  if (figure.mode === "ledger") return <LedgerFigureVisual figure={figure} />;
+  if (figure.mode === "lanes") return <LaneFigureVisual figure={figure} />;
+  return <FieldFigureVisual figure={figure} />;
+}
+
+function DocsCharacterFigure({
+  figure,
+  captionId,
+}: {
+  figure: DocsFigure;
+  captionId: string;
+}) {
+  return (
+    <figure
+      className={`docs-figure docs-figure--${figure.mode}`}
+      aria-labelledby={captionId}
+      data-figure-mode={figure.mode}
+    >
+      <figcaption id={captionId}>{figure.label}</figcaption>
+      <div className="docs-figure__visual">
+        <FigureVisual figure={figure} />
+      </div>
+    </figure>
+  );
+}
+
+type DocsPageProps = {
+  topicSlug?: string | null;
+};
+
+const DOCS_MOBILE_MENU_QUERY = "(max-width: 720px)";
+
+function usesCompactDocsMenu() {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia(DOCS_MOBILE_MENU_QUERY).matches
+  );
+}
+
+export default function DocsPage({ topicSlug = null }: DocsPageProps) {
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const [isCompactMenu, setIsCompactMenu] = useState(usesCompactDocsMenu);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const copyStatusTimer = useRef<number | null>(null);
+  const menuToggle = useRef<ComponentRef<"button"> | null>(null);
+  const prompt = useMemo(() => agentDocsPrompt(currentOrigin()), []);
+  const topicsBySlug = useMemo(
+    () => new Map(DOCS_SOURCE.topics.map((topic) => [topic.slug, topic])),
+    [],
+  );
+  const groups = useMemo(
+    () =>
+      DOCS_SOURCE.groups.map((group) => ({
+        ...group,
+        topics: group.topicSlugs
+          .map((slug) => topicsBySlug.get(slug))
+          .filter((topic) => topic !== undefined),
+      })),
+    [topicsBySlug],
+  );
+  const selectedTopic = topicSlug
+    ? topicsBySlug.get(topicSlug)
+    : DOCS_SOURCE.topics[0];
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+
+    const mediaQuery = window.matchMedia(DOCS_MOBILE_MENU_QUERY);
+    const updateCompactMenu = (matches: boolean) => {
+      setIsCompactMenu(matches);
+      if (!matches) setIsMenuOpen(false);
+    };
+    const handleChange = (event: { matches: boolean }) => {
+      updateCompactMenu(event.matches);
+    };
+
+    updateCompactMenu(mediaQuery.matches);
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
+    }
+
+    mediaQuery.addListener(handleChange);
+    return () => mediaQuery.removeListener(handleChange);
+  }, []);
+
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [selectedTopic?.id]);
+
+  useEffect(() => {
+    if (!isCompactMenu || !isMenuOpen) return;
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setIsMenuOpen(false);
+      menuToggle.current?.focus();
+    };
+
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [isCompactMenu, isMenuOpen]);
+
+  useEffect(
+    () => () => {
+      if (copyStatusTimer.current !== null) {
+        window.clearTimeout(copyStatusTimer.current);
+      }
+    },
+    [],
+  );
+
+  const flashCopyStatus = (status: "copied" | "failed") => {
+    if (copyStatusTimer.current !== null) {
+      window.clearTimeout(copyStatusTimer.current);
+    }
+    setCopyStatus(status);
+    copyStatusTimer.current = window.setTimeout(() => {
+      setCopyStatus("idle");
+      copyStatusTimer.current = null;
+    }, 1200);
+  };
+
+  const copyAgentPrompt = async () => {
+    const copied = await copyText(prompt);
+    flashCopyStatus(copied ? "copied" : "failed");
+  };
+
+  const toggleContentsMenu = () => {
+    const willOpen = !isMenuOpen;
+    setIsMenuOpen(willOpen);
+    if (!willOpen || !isCompactMenu) return;
+
+    window.requestAnimationFrame(() => {
+      menuToggle.current?.scrollIntoView({ block: "start" });
+    });
+  };
+
+  const copyLabel =
+    copyStatus === "copied"
+      ? "[ copied. ]"
+      : copyStatus === "failed"
+        ? "[ try again ]"
+        : "[ copy prompt ]";
+
   return (
     <main className="primitive-page docs-page" aria-labelledby="docs-title">
-      <header className="primitive-page__header">
+      <header className="primitive-page__header docs-page__header">
         <div>
           <h1 id="docs-title" className="primitive-page__title">
-            docs
+            {DOCS_SOURCE.title}
           </h1>
-          <p className="primitive-page__subtitle">
-            Inshell protocol and product notes.
-          </p>
+          <p className="primitive-page__subtitle">{DOCS_SOURCE.subtitle}</p>
         </div>
+
+        <section className="docs-agent" aria-label="Agent documentation prompt">
+          <pre className="docs-agent__prompt">{prompt}</pre>
+          <nav
+            className="primitive-page__links docs-agent__links"
+            aria-label="Agent documentation actions"
+          >
+            <button type="button" aria-live="polite" onClick={() => void copyAgentPrompt()}>
+              {copyLabel}
+            </button>
+          </nav>
+          <p className="docs-agent__scope-note">
+            Your Agent can also read technical sources beyond the articles below.
+          </p>
+        </section>
       </header>
 
-      <section className="primitive-page__body verify-page__body">
-        <section
-          className="verify-page__section"
-          aria-labelledby="thought-creation-provenance"
-        >
-          <h2 id="thought-creation-provenance">THOUGHT creation provenance</h2>
-          <div className="primitive-page__copy">
-            <p>
-              An Inshell THOUGHT App Creation Attestation means the App signed
-              one exact creation record and the THOUGHT Contract validated it
-              during minting.
-            </p>
-            <p>
-              Agent is the Agent selected in the App. Model is the model and
-              reasoning effort reported by the Agent runtime. The attestation
-              binds these records; it does not independently verify them or
-              turn them into provider claims.
-            </p>
-            <p>
-              Prompt and Agent response bytes, the selected Agent, the
-              runtime-reported model, the run reference, the locked Creative
-              Work Specification, and the consumed $PATH are bound into the
-              creation record.
-            </p>
-          </div>
-          <nav
-            className="primitive-page__links"
-            aria-label="THOUGHT creation provenance links"
+      <section className="docs-page__layout">
+        <aside className="docs-page__sidebar" aria-label="Documentation menu">
+          <button
+            ref={menuToggle}
+            className="docs-page__menu-toggle"
+            type="button"
+            aria-expanded={isMenuOpen}
+            aria-controls="docs-contents-menu"
+            aria-label={`${isMenuOpen ? "Close" : "Open"} documentation contents`}
+            onClick={toggleContentsMenu}
           >
-            <a href="/verify#verify-thought">verify THOUGHT records ↗</a>
+            <span>contents</span>
+            <span className="docs-page__menu-toggle-current">
+              {selectedTopic?.title ?? DOCS_SOURCE.title}
+            </span>
+            <span aria-hidden="true">{isMenuOpen ? "−" : "+"}</span>
+          </button>
+          <nav
+            id="docs-contents-menu"
+            className="docs-page__menu"
+            aria-label="Documentation contents"
+            hidden={isCompactMenu && !isMenuOpen}
+          >
+            {groups.map((group) => (
+              <section
+                key={group.id}
+                className="docs-page__menu-group"
+                aria-label={group.title}
+              >
+                <div>
+                  {group.topics.map((topic) => (
+                    <a
+                      key={topic.id}
+                      href={`/docs/${topic.slug}`}
+                      aria-current={selectedTopic?.id === topic.id ? "page" : undefined}
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      {topic.title}
+                    </a>
+                  ))}
+                </div>
+              </section>
+            ))}
           </nav>
-        </section>
+        </aside>
 
-        <section className="verify-page__section" aria-labelledby="docs-path">
-          <h2 id="docs-path">$PATH</h2>
-          <div className="primitive-page__copy">
-            <p>$PATH is the permission token for movement mints.</p>
-            <p>$PATH is minted by the Pulse auction on the active network.</p>
-            <p>
-              Each $PATH authorizes movement mints in order: THOUGHT, WILL,
-              then AWA.
-            </p>
-            <p>
-              A movement minted from $PATH consumes a movement unit and updates
-              the $PATH lifecycle.
-            </p>
-            <p>
-              The stage trait shows the current movement phase. Movement units
-              show used / total capacity for THOUGHT, WILL, and AWA.
-            </p>
-            <p>The token image and traits show movement progress.</p>
-          </div>
-          <nav className="primitive-page__links" aria-label="$PATH documentation links">
-            <a href="/pulse">view $PATH pricing rule ↗</a>
-            <a href="/verify#verify-contracts">verify $PATH contracts ↗</a>
-          </nav>
-        </section>
+        <article className="docs-page__content" aria-label="Documentation content">
+          {selectedTopic ? [selectedTopic].map((topic) => (
+            <section
+              key={topic.id}
+              className="verify-page__section docs-topic"
+              aria-labelledby={topic.id}
+            >
+              {topic.aliases?.map((alias) => (
+                <span
+                  key={alias}
+                  id={alias}
+                  className="docs-page__anchor-alias"
+                  aria-hidden="true"
+                />
+              ))}
+              <header className="docs-topic__header">
+                <div className="docs-topic__title-line">
+                  <h2 id={topic.id}>{topic.title}</h2>
+                  {topic.status === "current" ? null : (
+                    <span className="docs-topic__status">{topic.status}</span>
+                  )}
+                </div>
+                <p className="docs-topic__summary">{topic.summary}</p>
+              </header>
 
-        <section className="verify-page__section" aria-labelledby="docs-verification">
-          <h2 id="docs-verification">verification</h2>
-          <div className="primitive-page__copy">
-            <p>
-              Review official origins, wallet guidance, deployed contracts,
-              system locks, and the active THOUGHT specification.
-            </p>
-          </div>
-          <nav className="primitive-page__links" aria-label="Verification documentation links">
-            <a href="/verify">open verification ↗</a>
-          </nav>
-        </section>
+              {topic.figure ? (
+                <DocsCharacterFigure
+                  figure={topic.figure}
+                  captionId={`${topic.id}-figure-caption`}
+                />
+              ) : null}
+
+              <div className="primitive-page__copy">
+                {topic.paragraphs.map((paragraph, index) => (
+                  <p key={`${topic.id}:lead:${index}`}>{renderDocsParagraph(paragraph)}</p>
+                ))}
+              </div>
+
+              {topic.preformatted?.map((block) => (
+                <pre
+                  key={block.label}
+                  className="primitive-page__formula pulse-page__math"
+                  aria-label={block.label}
+                >
+                  {block.content}
+                </pre>
+              ))}
+              {topic.id === "docs-pulse" ? <PulseCurrentInstance /> : null}
+
+              {topic.sections?.map((section) => (
+                <section
+                  key={section.id}
+                  className="docs-topic__section"
+                  aria-labelledby={section.id}
+                >
+                  <h3 id={section.id}>{section.title}</h3>
+                  {section.figure ? (
+                    <DocsCharacterFigure
+                      figure={section.figure}
+                      captionId={`${section.id}-figure-caption`}
+                    />
+                  ) : null}
+                  {section.paragraphs?.length ? (
+                    <div className="primitive-page__copy">
+                      {section.paragraphs.map((paragraph, index) => (
+                        <p key={`${section.id}:paragraph:${index}`}>
+                          {renderDocsParagraph(paragraph)}
+                        </p>
+                      ))}
+                    </div>
+                  ) : null}
+                  {section.points?.length ? (
+                    <ul>
+                      {section.points.map((point) => (
+                        <li key={point}>{point}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {section.steps?.length ? (
+                    <ol>
+                      {section.steps.map((step) => (
+                        <li key={step}>{step}</li>
+                      ))}
+                    </ol>
+                  ) : null}
+                  {section.note ? <blockquote>{section.note}</blockquote> : null}
+                </section>
+              ))}
+
+              {topic.links?.length ? (
+                <nav
+                  className="primitive-page__links docs-topic__links"
+                  aria-label={`${topic.title} documentation links`}
+                >
+                  {topic.links.map((link) => (
+                    <a key={`${link.href}:${link.label}`} href={link.href}>
+                      {link.label}
+                    </a>
+                  ))}
+                  <a href={`/docs/${topic.slug}.md`}>read as Markdown ↗</a>
+                </nav>
+              ) : (
+                <nav
+                  className="primitive-page__links docs-topic__links"
+                  aria-label={`${topic.title} machine-readable links`}
+                >
+                  <a href={`/docs/${topic.slug}.md`}>read as Markdown ↗</a>
+                </nav>
+              )}
+            </section>
+          )) : (
+            <section className="verify-page__section docs-topic docs-topic--not-found">
+              <header className="docs-topic__header">
+                <h2>Article not found.</h2>
+                <p className="docs-topic__summary">
+                  This docs article does not exist.
+                </p>
+              </header>
+              <nav
+                className="primitive-page__links docs-topic__links"
+                aria-label="Documentation recovery"
+              >
+                <a href="/docs">open docs ↗</a>
+              </nav>
+            </section>
+          )}
+        </article>
+
       </section>
     </main>
   );

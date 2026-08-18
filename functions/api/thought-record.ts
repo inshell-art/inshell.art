@@ -7,6 +7,21 @@ type ThoughtGalleryPayload = {
 
 export const onRequestOptions = onOptions;
 
+export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
+  const thought = await findThoughtRecord(ctx);
+  if (thought instanceof Response) return thought;
+
+  return thoughtJsonResponse({
+    schema: "inshell.thought.public-record.v1",
+    authority: {
+      kind: "chain-observation",
+      observedAtBlock: thought.blockNumber,
+      transactionHash: thought.txHash,
+    },
+    token: thought,
+  });
+}
+
 export async function findThoughtRecord(ctx: PagesContextLike): Promise<ThoughtGalleryApiItem | Response> {
   const id = new globalThis.URL(ctx.request.url).searchParams.get("id")?.trim() ?? "";
   if (!/^[1-9]\d*$/.test(id)) {

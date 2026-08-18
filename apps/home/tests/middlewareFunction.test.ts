@@ -70,6 +70,10 @@ class TestResponse {
     return this.status >= 200 && this.status < 300;
   }
 
+  async text() {
+    return typeof this.body === "string" ? this.body : "";
+  }
+
   static redirect(url: string, status = 302) {
     return new TestResponse(null, {
       status,
@@ -250,10 +254,79 @@ describe("Pages middleware canonical routes", () => {
 
   test("serves the same-origin docs route through the root app shell", async () => {
     const ctx = middlewareContext("https://inshell.art/docs");
+    ctx.assetsFetch.mockResolvedValueOnce(
+      new Response(
+        '<!doctype html><link rel="canonical" href="https://inshell.art/" /><meta property="og:url" content="https://inshell.art/" />',
+        { headers: { "content-type": "text/html; charset=utf-8" } },
+      ),
+    );
     const response = await onRequest(ctx);
 
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("public, max-age=60, stale-while-revalidate=300");
+    expect(response.headers.get("link")).toContain('</docs/index.md>; rel="alternate"; type="text/markdown"');
+    expect(response.headers.get("link")).toContain(
+      '</docs/content.json>; rel="alternate"; type="application/json"',
+    );
+    expect(response.headers.get("link")).toContain('</docs/agent-index.json>; rel="alternate"; type="application/json"');
+    expect(await response.text()).toContain('<link rel="canonical" href="https://inshell.art/docs" />');
+    expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
+    expect(ctx.next).not.toHaveBeenCalled();
+  });
+
+  test("serves a docs article through the root app shell with its own canonical and Markdown alternate", async () => {
+    const ctx = middlewareContext("https://inshell.art/docs/pulse");
+    ctx.assetsFetch.mockResolvedValueOnce(
+      new Response(
+        '<!doctype html><link rel="canonical" href="https://inshell.art/" /><meta property="og:url" content="https://inshell.art/" />',
+        { headers: { "content-type": "text/html; charset=utf-8" } },
+      ),
+    );
+
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("link")).toContain(
+      '</docs/pulse.md>; rel="alternate"; type="text/markdown"',
+    );
+    expect(response.headers.get("link")).toContain(
+      '</docs/pulse.json>; rel="alternate"; type="application/json"',
+    );
+    expect(response.headers.get("link")).toContain(
+      '</docs/agent-index.json>; rel="alternate"; type="application/json"',
+    );
+    const html = await response.text();
+    expect(html).toContain('<link rel="canonical" href="https://inshell.art/docs/pulse" />');
+    expect(html).toContain('<meta property="og:url" content="https://inshell.art/docs/pulse" />');
+    expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
+    expect(ctx.assetsFetch.mock.calls[0]?.[0].url).toBe("https://inshell.art/");
+    expect(ctx.next).not.toHaveBeenCalled();
+  });
+
+  test.each(["/docs/pulse.md", "/docs/pulse.json", "/docs/content.json"])(
+    "leaves generated docs artifact %s outside the docs article app-shell route",
+    async (pathname) => {
+      const ctx = middlewareContext(`https://inshell.art${pathname}`);
+
+      const response = await onRequest(ctx);
+
+      expect(response.status).toBe(200);
+      expect(await response.text()).toBe("next");
+      expect(ctx.next).toHaveBeenCalledTimes(1);
+      expect(ctx.assetsFetch).not.toHaveBeenCalled();
+    },
+  );
+
+  test("serves a safe unknown docs slug to the app so it can render a docs-specific not-found state", async () => {
+    const ctx = middlewareContext("https://inshell.art/docs/not-a-real-article");
+
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("link")).toContain(
+      '</docs/content.json>; rel="alternate"; type="application/json"',
+    );
+    expect(response.headers.get("link")).not.toContain("/docs/not-a-real-article.");
     expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
     expect(ctx.next).not.toHaveBeenCalled();
   });
@@ -556,8 +629,21 @@ describe("Pages middleware canonical routes", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("public, max-age=60, stale-while-revalidate=300");
     expect(response.headers.get("clear-site-data")).toBeNull();
+    expect(response.headers.get("link")).toContain('</api/thought-record?id=9>');
+    expect(response.headers.get("link")).toContain('</api/thought-provenance?id=9>');
     expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
     expect(ctx.assetsFetch.mock.calls[0]?.[0].url).toBe("https://inshell.art/thought/");
+    expect(ctx.next).not.toHaveBeenCalled();
+  });
+
+  test("advertises the focused $PATH record from a $PATH detail route", async () => {
+    const ctx = middlewareContext("https://inshell.art/path/15");
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("link")).toContain('</api/path-record?id=15>');
+    expect(response.headers.get("link")).toContain('</docs/agent-index.json>');
+    expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
     expect(ctx.next).not.toHaveBeenCalled();
   });
 

@@ -171,6 +171,7 @@ type WalletContextValue = {
   disconnect: () => Promise<void>;
   disconnectAsync: () => Promise<void>;
   connectors: WalletConnector[];
+  refreshConnectors: () => Promise<void>;
   connectStatus: string;
   connectError: unknown;
   requestAccounts: () => Promise<string[] | null>;
@@ -336,7 +337,15 @@ export function WalletProvider({ children }: WalletProviderProps) {
   const [evmProviderLabel, setEvmProviderLabel] = useState<string | null>(null);
   const [connectStatus, setConnectStatus] = useState("idle");
   const [connectError, setConnectError] = useState<unknown>(null);
+  const connectAttemptRef = useRef<
+    Promise<{ address: string | null; chainId: number | null }> | null
+  >(null);
   const walletConnectRestoreRef = useRef<Promise<void> | null>(null);
+
+  const refreshConnectors = useCallback(async () => {
+    const discovered = await discoverEip6963Providers();
+    setEvmProviders((prev) => mergeProviderDetails(prev, discovered));
+  }, []);
 
   useEffect(() => {
     warnMissingWalletConnectProjectId();
@@ -710,49 +719,63 @@ export function WalletProvider({ children }: WalletProviderProps) {
   }, [evmProviders]);
 
   const connectAsync = useCallback(
-    async (args?: { connector?: WalletConnector }) => {
+    (args?: { connector?: WalletConnector }) => {
+      if (connectAttemptRef.current) return connectAttemptRef.current;
       setWalletSoftDisconnected(false);
-      const connector = args?.connector;
-      if (connector?.kind === "walletconnect") {
-        return connectWalletConnectV2();
-      }
-      if (connector?.detail) {
-        setConnectStatus("connecting");
-        trackWalletAnalytics("wallet_connect_started", {
-          walletKind: "injected",
-          walletStage: "request_accounts",
-        });
-        try {
-          const connected = await connectEip1193Provider(connector.detail);
-          writeWalletConnectorPreference({
-            kind: "injected",
-            providerKey: providerDetailKey(connector.detail),
-          });
-          setConnectedState(
-            connector.detail.provider,
-            connected,
-            connector.detail.info.name || "Injected"
-          );
-          trackWalletAnalytics("wallet_connect_succeeded", {
-            walletKind: "injected",
-            walletStage: "connected",
-          });
-          return connected;
-        } catch (error) {
-          setConnectError(error);
-          setConnectStatus("error");
-          trackWalletAnalytics("wallet_connect_failed", {
+      setConnectError(null);
+      const attempt = (async () => {
+        const connector = args?.connector;
+        if (connector?.kind === "walletconnect") {
+          return connectWalletConnectV2();
+        }
+        if (connector?.detail) {
+          setConnectStatus("connecting");
+          trackWalletAnalytics("wallet_connect_started", {
             walletKind: "injected",
             walletStage: "request_accounts",
-            errorCategory: walletAnalyticsErrorCategory(error),
           });
-          throw error;
+          try {
+            const connected = await connectEip1193Provider(connector.detail);
+            writeWalletConnectorPreference({
+              kind: "injected",
+              providerKey: providerDetailKey(connector.detail),
+            });
+            setConnectedState(
+              connector.detail.provider,
+              connected,
+              connector.detail.info.name || "Injected"
+            );
+            trackWalletAnalytics("wallet_connect_succeeded", {
+              walletKind: "injected",
+              walletStage: "connected",
+            });
+            return connected;
+          } catch (error) {
+            setConnectError(error);
+            setConnectStatus("error");
+            trackWalletAnalytics("wallet_connect_failed", {
+              walletKind: "injected",
+              walletStage: "request_accounts",
+              errorCategory: walletAnalyticsErrorCategory(error),
+            });
+            throw error;
+          }
         }
-      }
-      if (evmProviders.length > 0 || fallbackWindowEthereumProviders().length > 0) {
-        return connectEip1193();
-      }
-      return connectWalletConnectV2();
+        if (
+          evmProviders.length > 0 ||
+          fallbackWindowEthereumProviders().length > 0
+        ) {
+          return connectEip1193();
+        }
+        return connectWalletConnectV2();
+      })();
+      const trackedAttempt = attempt.finally(() => {
+        if (connectAttemptRef.current === trackedAttempt) {
+          connectAttemptRef.current = null;
+        }
+      });
+      connectAttemptRef.current = trackedAttempt;
+      return trackedAttempt;
     },
     [connectEip1193, connectWalletConnectV2, evmProviders, setConnectedState]
   );
@@ -965,6 +988,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
       disconnect,
       disconnectAsync: disconnectEvm,
       connectors,
+      refreshConnectors,
       connectStatus,
       connectError,
       requestAccounts,
@@ -1008,6 +1032,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
       evmProviders,
       ensureWalletConnected,
       refreshWallet,
+      refreshConnectors,
       requestAccounts,
       watchAsset,
     ]

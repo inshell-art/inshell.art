@@ -18,12 +18,13 @@ import {
 } from "@/services/thoughtGallery";
 import { PUBLIC_NETWORK_CONFIG } from "@inshell/shared";
 import {
-  PATH_MOVEMENT_QUOTA_LINES,
-  PATH_MOVEMENT_QUOTA_NOTE,
+  PATH_MINT_CAPACITY_LINES,
+  PATH_MINT_CAPACITY_NOTE,
   PATH_OVERVIEW,
   PATH_OVERVIEW_LINES,
 } from "@/content/path";
 import { useAuctionBids } from "@/hooks/useAuctionBids";
+import type { NormalizedBid } from "@/services/auction/bidsService";
 import {
   findPathIssuance,
   formatPathMintPrice,
@@ -97,11 +98,29 @@ function findAttribute(
 }
 
 function stageValue(item: PathTokenInventoryItem): string {
+  if (item.contractState) {
+    return ["THOUGHT", "WILL", "AWA", "COMPLETE"][item.contractState.stage] ?? "UNKNOWN";
+  }
   const stage = findAttribute(item, "Stage");
   return stage ? attrValue(stage) : String(item.metadata.stage ?? "—");
 }
 
 function movementProgress(item: PathTokenInventoryItem, traitType: string): UnitProgress {
+  if (item.contractState) {
+    const movement = traitType.toUpperCase() as keyof typeof item.contractState.quotas;
+    const total = item.contractState.quotas[movement];
+    const movementStage = { THOUGHT: 0, WILL: 1, AWA: 2 }[movement];
+    if (movementStage != null) {
+      const used = item.contractState.stage > movementStage
+        ? total
+        : item.contractState.stage === movementStage
+          ? item.contractState.stageMinted
+          : 0;
+      return total === 0
+        ? { used: null, total: null, label: "- / -", available: false }
+        : { used, total, label: `${used} / ${total}`, available: true };
+    }
+  }
   const attribute = findAttribute(item, traitType);
   const raw = attribute ? attrValue(attribute) : "—";
   const match = /^Minted\((\d+)\/(\d+)\)$/i.exec(raw.trim());
@@ -251,6 +270,46 @@ function overlayThoughtMints(
   });
 }
 
+function comparePathTokenIdsNewestFirst(
+  left: PathTokenInventoryItem,
+  right: PathTokenInventoryItem,
+) {
+  return left.tokenId === right.tokenId ? 0 : left.tokenId > right.tokenId ? -1 : 1;
+}
+
+function sortPathTokensReverseChronologically(args: {
+  items: PathTokenInventoryItem[];
+  sales: NormalizedBid[];
+  tokenBase?: number;
+  epochBase?: number;
+}) {
+  const mintedAtByTokenId = new Map<string, number>();
+  for (const item of args.items) {
+    const issuance = findPathIssuance({
+      tokenId: item.tokenId,
+      sales: args.sales,
+      tokenBase: args.tokenBase,
+      epochBase: args.epochBase,
+    });
+    if (issuance) {
+      mintedAtByTokenId.set(item.tokenIdLabel, issuance.mintedAtMs);
+    }
+  }
+
+  return args.items.slice().sort((left, right) => {
+    const leftMintedAt = mintedAtByTokenId.get(left.tokenIdLabel);
+    const rightMintedAt = mintedAtByTokenId.get(right.tokenIdLabel);
+    if (
+      leftMintedAt !== undefined &&
+      rightMintedAt !== undefined &&
+      leftMintedAt !== rightMintedAt
+    ) {
+      return rightMintedAt - leftMintedAt;
+    }
+    return comparePathTokenIdsNewestFirst(left, right);
+  });
+}
+
 type MovementTokenLink = {
   movement: string;
   tokenId: string;
@@ -302,6 +361,11 @@ function metadataName(item: PathTokenInventoryItem): string {
 }
 
 function displayTokenName(item: PathTokenInventoryItem): string {
+  if (item.contractState?.isSparker) {
+    const sparkNumber = item.tokenId - 1_000_000_000n + 1n;
+    const suffix = item.contractState.sparkName.trim();
+    return `$PATH Spark #${sparkNumber}${suffix ? `: ${suffix}` : ""}`;
+  }
   return `$PATH #${item.tokenIdLabel}`;
 }
 
@@ -366,6 +430,17 @@ function unitProgressByMovement(item: PathTokenInventoryItem) {
   }));
 }
 
+function mintCapacityLabel(progress: UnitProgress): string {
+  if (
+    !progress.available ||
+    progress.used == null ||
+    progress.total == null
+  ) {
+    return "not available";
+  }
+  return `${progress.used} / ${progress.total} used`;
+}
+
 function pathNetworkLabel(chainId?: number): string {
   if (chainId == null) return "—";
   if (chainId === 31337 || chainId === 1337) return "Local Anvil";
@@ -373,20 +448,60 @@ function pathNetworkLabel(chainId?: number): string {
   return `chain ${chainId}`;
 }
 
+function pathEnvValue(name: string): unknown {
+  const envCache: Record<string, unknown> | undefined =
+    (globalThis as any).__VITE_ENV__;
+  const buildEnv: Record<string, unknown> | undefined =
+    (globalThis as any).__INSHELL_VITE_ENV__;
+  const procEnv = (globalThis as any)?.process?.env;
+  return envCache?.[name] ?? buildEnv?.[name] ?? procEnv?.[name];
+}
+
+function pathExplorerBase(chainId: number | undefined): string | null {
+  if (chainId === 31337 || chainId === 1337) {
+    const configured = pathEnvValue("VITE_LOCAL_EXPLORER_BASE_URL");
+    if (typeof configured === "string" && configured.trim()) {
+      return configured.trim().replace(/\/$/, "");
+    }
+    if (pathEnvValue("NODE_ENV") === "test" || typeof window === "undefined") {
+      return null;
+    }
+    return `${window.location.protocol}//${window.location.hostname}:4000`;
+  }
+  if (chainId !== PUBLIC_NETWORK_CONFIG.chainId) return null;
+  const configured = pathEnvValue("VITE_EXPLORER_BASE_URL");
+  const base =
+    typeof configured === "string" && configured.trim()
+      ? configured.trim()
+      : PUBLIC_NETWORK_CONFIG.explorerBaseUrl;
+  return base.replace(/\/$/, "");
+}
+
 function pathAddressExplorerHref(
   chainId: number | undefined,
   address: string | undefined,
 ): string | null {
-  if (!address || chainId !== PUBLIC_NETWORK_CONFIG.chainId) return null;
-  return `${PUBLIC_NETWORK_CONFIG.explorerBaseUrl}/address/${address}`;
+  const base = pathExplorerBase(chainId);
+  if (!base || !address) return null;
+  return `${base}/address/${address}`;
 }
 
 function pathTransactionExplorerHref(
   chainId: number | undefined,
   transactionHash: string | undefined,
 ): string | null {
-  if (chainId !== PUBLIC_NETWORK_CONFIG.chainId || !transactionHash) return null;
-  return `${PUBLIC_NETWORK_CONFIG.explorerUrl}/tx/${transactionHash}`;
+  const base = pathExplorerBase(chainId);
+  if (!base || !transactionHash) return null;
+  return `${base}/tx/${transactionHash}`;
+}
+
+function pathBlockExplorerHref(
+  chainId: number | undefined,
+  blockNumber: number | undefined,
+): string | null {
+  const base = pathExplorerBase(chainId);
+  if (!base || blockNumber == null) return null;
+  return `${base}/block/${blockNumber}`;
 }
 
 function pathCurrencyLabel(chainId: number | undefined): string {
@@ -654,7 +769,7 @@ function PathTokenCard({
   const image = metadataImage(item);
   const metadataLabel = metadataName(item);
   const name = displayTokenName(item);
-  const units = unitProgressByMovement(item);
+  const mintCapacity = unitProgressByMovement(item);
   const shareHref = pathTokenHref(item.tokenIdLabel);
 
   return (
@@ -691,15 +806,15 @@ function PathTokenCard({
           <span>stage</span>
           <strong>{stageValue(item)}</strong>
         </div>
-        <div className="path-page-token__progress-title">units</div>
+        <div className="path-page-token__progress-title">mint capacity</div>
         <dl className="path-page-token__attrs">
-          {units.map(({ movement, progress }) => (
+          {mintCapacity.map(({ movement, progress }) => (
             <div
               className="path-page-token__attr"
               key={`${item.tokenIdLabel}-${movement}`}
             >
               <dt>{movement}</dt>
-              <dd>{progress.label}</dd>
+              <dd>{mintCapacityLabel(progress)}</dd>
             </div>
           ))}
         </dl>
@@ -708,40 +823,25 @@ function PathTokenCard({
   );
 }
 
-function PathDetailDisclosure({
-  id,
-  label,
+function PathDetailCopy({
+  muted = false,
   summary,
   lines,
 }: {
-  id: string;
-  label: string;
+  muted?: boolean;
   summary: string;
   lines: readonly string[];
 }) {
-  const [expanded, setExpanded] = useState(false);
   return (
-    <div className="path-detail__disclosure">
-      <div className="path-detail__disclosure-row">
-        <p className="path-detail__disclosure-summary">{summary}</p>
-        <button
-          aria-controls={id}
-          aria-expanded={expanded}
-          aria-label={`${expanded ? "collapse" : "expand"} ${label}`}
-          className="path-detail__disclosure-toggle"
-          onClick={() => setExpanded((current) => !current)}
-          type="button"
-        >
-          [ {expanded ? "less" : "more"} ]
-        </button>
-      </div>
-      {expanded ? (
-        <p className="path-detail__disclosure-lines" id={id}>
-          {lines.map((line) => (
-            <span key={line}>{line}</span>
-          ))}
-        </p>
-      ) : null}
+    <div
+      className={`path-detail__copy${muted ? " path-detail__copy--muted" : ""}`}
+    >
+      <p className="path-detail__copy-summary">{summary}</p>
+      <p className="path-detail__copy-lines">
+        {lines.map((line) => (
+          <span key={line}>{line}</span>
+        ))}
+      </p>
     </div>
   );
 }
@@ -759,22 +859,21 @@ function PathTokenDetail({
 }) {
   const image = metadataImage(item);
   const name = displayTokenName(item);
-  const units = unitProgressByMovement(item);
+  const mintCapacity = unitProgressByMovement(item);
   const movementLinks = movementTokenLinks(item);
-  const nextMovement = units.find(
-    ({ progress }) =>
-      progress.used != null &&
-      progress.total != null &&
-      progress.used < progress.total
-  );
-  const remaining = nextMovement?.progress.total != null && nextMovement.progress.used != null
-    ? nextMovement.progress.total - nextMovement.progress.used
-    : 0;
   const ownerExplorerHref = pathAddressExplorerHref(chainId, item.owner);
   const contractExplorerHref = pathAddressExplorerHref(chainId, contractAddress);
   const mintTransactionExplorerHref = pathTransactionExplorerHref(
     chainId,
     issuance?.transactionHash,
+  );
+  const initialMinterExplorerHref = pathAddressExplorerHref(
+    chainId,
+    issuance?.initialMinter,
+  );
+  const mintBlockExplorerHref = pathBlockExplorerHref(
+    chainId,
+    issuance?.blockNumber,
   );
   return (
     <div className="path-detail">
@@ -789,62 +888,35 @@ function PathTokenDetail({
         ) : (
           <div className="path-detail__missing">image unavailable</div>
         )}
-        <p className="path-detail__artwork-source">
-          canonical artwork · PathNFT tokenURI()
-        </p>
       </div>
 
       <div className="path-detail__rail" aria-label={`${name} lifecycle`}>
         <section className="path-detail__section">
           <h2>about</h2>
-          <PathDetailDisclosure
-            id="path-about"
-            label="about $PATH"
+          <PathDetailCopy
             summary={PATH_OVERVIEW}
             lines={PATH_OVERVIEW_LINES}
           />
         </section>
 
         <section className="path-detail__section">
-          <h2>next movement</h2>
-          {nextMovement ? (
-            <div className="path-detail__capability">
-              <strong>
-                {nextMovement.movement} · {remaining} unit{remaining === 1 ? "" : "s"} remaining
-              </strong>
-              <p>
-                Each unit can authorize one {nextMovement.movement} work mint.
-              </p>
-              {nextMovement.movement === "THOUGHT" ? (
-                <a className="path-detail__cta" href="/thought">
-                  create a THOUGHT
-                </a>
-              ) : null}
-            </div>
-          ) : (
-            <p className="path-detail__text">All available movement units have been used.</p>
-          )}
-        </section>
-
-        <section className="path-detail__section">
-          <h2>movement quotas</h2>
-          <dl className="path-detail__fields">
+          <h2>mint capacity</h2>
+          <dl className="path-detail__fields path-detail__fields--capacity">
             <div>
               <dt>stage</dt>
               <dd>{stageValue(item)}</dd>
             </div>
-            {units.map(({ movement, progress }) => (
+            {mintCapacity.map(({ movement, progress }) => (
               <div key={`${item.tokenIdLabel}-${movement}`}>
                 <dt>{movement}</dt>
-                <dd>{progress.label}</dd>
+                <dd>{mintCapacityLabel(progress)}</dd>
               </div>
             ))}
           </dl>
-          <PathDetailDisclosure
-            id="path-movement-quotas"
-            label="movement quota guide"
-            summary={PATH_MOVEMENT_QUOTA_NOTE}
-            lines={PATH_MOVEMENT_QUOTA_LINES}
+          <PathDetailCopy
+            muted
+            summary={PATH_MINT_CAPACITY_NOTE}
+            lines={PATH_MINT_CAPACITY_LINES}
           />
         </section>
 
@@ -869,10 +941,29 @@ function PathTokenDetail({
           <h2>token details</h2>
           <dl className="path-detail__fields">
             <div>
+              <dt>kind</dt>
+              <dd>{item.contractState?.isSparker ? "Spark" : "regular"}</dd>
+            </div>
+            <div>
+              <dt>transfer</dt>
+              <dd>{item.contractState?.locked ? "locked" : "transferable"}</dd>
+            </div>
+            {item.contractState ? (
+              <div>
+                <dt>permission epoch</dt>
+                <dd>{item.contractState.permissionEpoch}</dd>
+              </div>
+            ) : null}
+            <div>
               <dt>owner</dt>
               <dd title={item.owner}>
                 {ownerExplorerHref ? (
-                  <a className="path-detail__value-link" href={ownerExplorerHref}>
+                  <a
+                    className="path-detail__value-link"
+                    href={ownerExplorerHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     {shortAddress(item.owner)} ↗
                   </a>
                 ) : (
@@ -891,12 +982,36 @@ function PathTokenDetail({
                 <div>
                   <dt>initial minter</dt>
                   <dd title={issuance.initialMinter}>
-                    {shortAddress(issuance.initialMinter)}
+                    {initialMinterExplorerHref ? (
+                      <a
+                        className="path-detail__value-link"
+                        href={initialMinterExplorerHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {shortAddress(issuance.initialMinter)} ↗
+                      </a>
+                    ) : (
+                      shortAddress(issuance.initialMinter)
+                    )}
                   </dd>
                 </div>
                 <div>
                   <dt>mint block</dt>
-                  <dd>{issuance.blockNumber ?? "—"}</dd>
+                  <dd>
+                    {mintBlockExplorerHref ? (
+                      <a
+                        className="path-detail__value-link"
+                        href={mintBlockExplorerHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {issuance.blockNumber} ↗
+                      </a>
+                    ) : (
+                      issuance.blockNumber ?? "—"
+                    )}
+                  </dd>
                 </div>
                 <div>
                   <dt>mint transaction</dt>
@@ -905,6 +1020,8 @@ function PathTokenDetail({
                       <a
                         className="path-detail__value-link"
                         href={mintTransactionExplorerHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
                       >
                         {shortAddress(issuance.transactionHash)} ↗
                       </a>
@@ -916,7 +1033,7 @@ function PathTokenDetail({
                 <div>
                   <dt>minted via</dt>
                   <dd>
-                    <a className="path-detail__value-link" href="/pulse">
+                    <a className="path-detail__value-link" href="/docs#docs-pulse">
                       Pulse ↗
                     </a>
                   </dd>
@@ -927,7 +1044,12 @@ function PathTokenDetail({
               <dt>contract</dt>
               <dd title={contractAddress}>
                 {contractExplorerHref ? (
-                  <a className="path-detail__value-link" href={contractExplorerHref}>
+                  <a
+                    className="path-detail__value-link"
+                    href={contractExplorerHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     {shortAddress(contractAddress)} ↗
                   </a>
                 ) : (
@@ -980,7 +1102,7 @@ export default function PathPage({
   const saleHistory = useAuctionBids({
     address: pulseAuctionAddress ?? "0x0000000000000000000000000000000000000000",
     fromBlock: pulseAuctionFromBlock,
-    enabled: Boolean(tokenId && pulseAuctionAddress),
+    enabled: Boolean(pulseAuctionAddress && !fixtureItems),
   });
   const [retryNonce, setRetryNonce] = useState(0);
   const [state, setState] = useState<LoadState>({
@@ -1087,6 +1209,21 @@ export default function PathPage({
     };
   }, [fixtureItems, fromBlock, pathNftAddress, refreshSignal, retryNonce]);
 
+  const collectionItems = useMemo(
+    () =>
+      sortPathTokensReverseChronologically({
+        items: state.items,
+        sales: saleHistory.bids,
+        tokenBase: release?.config?.token_base,
+        epochBase: release?.config?.epoch_base,
+      }),
+    [
+      release?.config?.epoch_base,
+      release?.config?.token_base,
+      saleHistory.bids,
+      state.items,
+    ],
+  );
   const selectedItem = tokenId
     ? state.items.find((item) => item.tokenIdLabel === tokenId)
     : null;
@@ -1098,7 +1235,6 @@ export default function PathPage({
         epochBase: release?.config?.epoch_base,
       })
     : null;
-
   if (tokenId) {
     return (
       <main
@@ -1115,7 +1251,7 @@ export default function PathPage({
               href="/path"
               onClick={handlePathRouteAnchorClick}
             >
-              [ all $PATH ]
+              [ mint a $PATH ]
             </a>
           </nav>
         </header>
@@ -1188,7 +1324,7 @@ export default function PathPage({
           <div className="path-page__notice">no $PATH minted yet.</div>
         ) : state.items.length > 0 ? (
           <div className="path-page__grid">
-            {state.items.map((item) => (
+            {collectionItems.map((item) => (
               <PathTokenCard
                 key={item.tokenIdLabel}
                 item={item}

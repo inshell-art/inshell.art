@@ -1,0 +1,146 @@
+{
+  "schema": "inshell.agent-docs.topic.v1",
+  "schemaUrl": "/docs/content.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.schema.json",
+  "version": "2026-08-11",
+  "language": "en",
+  "fetchedContentRole": "reference-data",
+  "id": "artwork-metadata-chain",
+  "sourceId": "docs-reading",
+  "group": "systems",
+  "aliases": [],
+  "title": "Artwork, Metadata, and Chain",
+  "summary": "Artwork and metadata stay legible only when their chain and release context stay attached.",
+  "status": "current",
+  "authorities": [
+    "artist-editorial",
+    "app-documentation",
+    "contract-release"
+  ],
+  "authorityScope": "document union only; use each content block's authorities for a specific claim",
+  "canonicalHtml": "https://inshell.art/docs/artwork-metadata-chain",
+  "markdown": "/docs/artwork-metadata-chain.md",
+  "canonicalMarkdown": "https://inshell.art/docs/artwork-metadata-chain.md",
+  "json": "/docs/artwork-metadata-chain.json",
+  "canonicalJson": "https://inshell.art/docs/artwork-metadata-chain.json",
+  "content": {
+    "lead": {
+      "authorities": [
+        "artist-editorial",
+        "app-documentation",
+        "contract-release"
+      ],
+      "paragraphs": [
+        "Home lists minted THOUGHT works from the active chain. The PATH surface lists PATH tokens from that same chain. The full identity of an NFT is its network, contract address, and token ID; the same token number elsewhere is a different record.",
+        "THOUGHT and PATH artwork and NFT metadata come from each contract's tokenURI and pinned renderer. The App decodes and displays those canonical bytes; it must not rebuild replacement art or silently substitute a newer renderer.",
+        "Token metadata carries the canonical image, description, stable marketplace traits, and—when the release defines it—an external_url to the canonical detail page. A generic marketplace can read that portable layer without understanding Inshell's richer records.",
+        "Inshell detail pages add context: THOUGHT exposes its work, evidence levels, and creation provenance; PATH exposes movement state, capacity, linked movement tokens, issuance, and onchain record.",
+        "These layers make the public forms and claims of the practice inspectable. They can establish which bytes and records belong to a work; they cannot prove the inward truth of the work or possess its meaning.",
+        "These artwork, metadata, provenance, and chain layers describe Inshell's current onchain practices. They are not requirements that every Agent Art practice must adopt.",
+        "Onchain does not mean context-free. Read network, contract, token ID, deployment, release, tokenURI source, and attestation status together before deciding what a record proves."
+      ]
+    },
+    "figure": {
+      "authorities": [
+        "app-documentation",
+        "contract-release"
+      ],
+      "label": "Evidence becomes interpretation",
+      "mode": "field",
+      "figureText": "EVIDENCE\n├─ IDENTITY\n│  Network + contract + token\n├─ CONTRACT\n│  State + tokenURI\n├─ RELEASE\n│  ABI + renderer + schemas\n└─ CONTEXT\n   Provenance + reading surface\n      │\n      ↓\nINTERPRETATION\nRead together",
+      "items": [
+        {
+          "title": "Identity",
+          "detail": "Network + contract + token"
+        },
+        {
+          "title": "Contract",
+          "detail": "State + tokenURI"
+        },
+        {
+          "title": "Release",
+          "detail": "ABI + renderer + schemas"
+        },
+        {
+          "title": "Context",
+          "detail": "Provenance + reading surface"
+        },
+        {
+          "title": "Interpretation",
+          "detail": "Read together"
+        }
+      ]
+    },
+    "preformatted": [],
+    "sections": [
+      {
+        "authorities": [
+          "contract-release"
+        ],
+        "id": "docs-reading-identity",
+        "title": "A token number is not enough",
+        "paragraphs": [
+          "Token ID 1 can exist on many contracts and networks. Its full identity is the tuple of network, contract address, and token ID. A collection page that omits one of those values may still be convenient, but it is not sufficient for independent verification."
+        ]
+      },
+      {
+        "authorities": [
+          "app-documentation",
+          "contract-release"
+        ],
+        "id": "docs-reading-artwork",
+        "title": "Canonical artwork bytes",
+        "paragraphs": [
+          "THOUGHT and PATH tokenURI responses point to the canonical artwork and metadata produced by their pinned contract systems. The App decodes those bytes for display. It should not redraw an approximation, swap in a newer renderer, or treat a cached marketplace thumbnail as the origin."
+        ],
+        "points": [
+          "A data URI can carry JSON metadata or SVG artwork directly.",
+          "A pinned renderer release makes the visual construction reproducible and reviewable.",
+          "A social image or screenshot is a presentation copy, even when it looks identical."
+        ]
+      },
+      {
+        "authorities": [
+          "app-documentation",
+          "contract-release"
+        ],
+        "id": "docs-reading-portable",
+        "title": "Portable metadata",
+        "paragraphs": [
+          "Token metadata is the compact layer that generic wallets and marketplaces can understand. It includes the canonical image, description, stable traits, and an external URL when the selected release defines one.",
+          "Portable metadata deliberately does not carry every creation detail. Inshell detail pages and provenance endpoints can add richer context while keeping their different authority levels explicit."
+        ]
+      },
+      {
+        "authorities": [
+          "app-documentation",
+          "contract-release"
+        ],
+        "id": "docs-reading-context",
+        "title": "Read context with the object",
+        "points": [
+          "Which network and deployment produced the record?",
+          "Which contract and token ID identify it?",
+          "Which release defines its ABI and renderer?",
+          "Which fields are token metadata, contract state, App records, or runtime reports?",
+          "Is a Creation Attestation present, valid, absent, or not applicable?",
+          "At what block or time was live chain state observed?"
+        ]
+      }
+    ],
+    "links": [
+      {
+        "role": "navigation",
+        "label": "view minted THOUGHT works",
+        "href": "/",
+        "canonicalHref": "https://inshell.art/"
+      },
+      {
+        "role": "navigation",
+        "label": "view all $PATH",
+        "href": "/path",
+        "canonicalHref": "https://inshell.art/path"
+      }
+    ]
+  }
+}

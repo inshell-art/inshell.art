@@ -23,8 +23,8 @@ import {
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const rpcUrl = process.env.RPC_URL ?? "http://127.0.0.1:8546";
 const treasury = process.env.PATH_TREASURY ?? "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC";
-const pathReleaseTag = "v0.4.2";
-const pathReleaseManifestSha256 = "41cd0bc56398fe6823a3bd40a7497851b8ec132a8002a4f0a15bc5b284a29393";
+const pathReleaseTag = "v0.5.0";
+const pathReleaseManifestSha256 = "a81355b459b40faea894cf1dfb7f484765a7ec62672039dd62d58a3a52849921";
 const pathArtifactRoot = path.join(
   root,
   "packages/contracts/src/path-release/releases",
@@ -66,6 +66,8 @@ const appIntegrationRoot = path.join(
 const appIntegrationLockFile = path.join(appIntegrationRoot, "integration-lock.json");
 const appRuntimeManifestFile = path.join(appIntegrationRoot, "runtime-manifest.json");
 const movement = encodeBytes32String("THOUGHT");
+const movementWill = encodeBytes32String("WILL");
+const movementAwa = encodeBytes32String("AWA");
 const auctionOpenDelaySeconds = Number.parseInt(
   process.env.PATH_AUCTION_OPEN_DELAY_SECONDS ?? "30",
   10,
@@ -234,13 +236,6 @@ async function main() {
   const provenanceSchemaRef =
     `app://thought/provenance/${provenanceLock.artifactId}/thought.provenance.v2.schema.json`;
 
-  const latest = await provider.getBlock("latest");
-  if (!latest) throw new Error("latest Anvil block unavailable");
-  const currentWallClock = Math.floor(Date.now() / 1000);
-  const openTime = BigInt(
-    Math.max(latest.timestamp, currentWallClock) + auctionOpenDelaySeconds,
-  );
-
   const pathNft = await deploy(signer, pathArtifact("PathNFT"), [
     deployerAddress,
     "PATH",
@@ -250,29 +245,6 @@ async function main() {
     604_800n,
   ]);
   const pathNftAddress = await pathNft.getAddress();
-  const adapter = await deploy(signer, pathArtifact("PathPulseAdapter"), [
-    deployerAddress,
-    ZeroAddress,
-    pathNftAddress,
-    1n,
-    1n,
-  ]);
-  const adapterAddress = await adapter.getAddress();
-  const auction = await deploy(signer, pathArtifact("PulseAuction"), [
-    openTime,
-    600_000_000_000_000_000n,
-    10_000_000_000_000_000n,
-    9_000_000_000_000_000n,
-    100_000_000_000_000n,
-    ZeroAddress,
-    treasury,
-    adapterAddress,
-  ]);
-  const auctionAddress = await auction.getAddress();
-  await (await adapter.setAuction(auctionAddress)).wait();
-  await (await adapter.freezeWiring()).wait();
-  await (await pathNft.grantRole(id("MINTER_ROLE"), adapterAddress)).wait();
-  await (await pathNft.freezePublicMinter(adapterAddress)).wait();
 
   const specBytes = await fs.readFile(creativeSpecFile);
   const specSha256 = createHash("sha256").update(specBytes).digest("hex");
@@ -443,6 +415,72 @@ async function main() {
   const thoughtNftAddress = await thoughtNft.getAddress();
   await (await pathNft.setMovementConfig(movement, thoughtNftAddress, 1)).wait();
   await (await pathNft.freezeMovementConfig(movement)).wait();
+  // WILL and AWA contracts are not deployed in this local App surface yet.
+  // Pin their canonical capacities now and bind the disposable dev admin as
+  // the explicit placeholder minter so the immutable PATH lifecycle is fully
+  // configured without pretending those movement Apps are live.
+  await (await pathNft.setMovementConfig(movementWill, deployerAddress, 10)).wait();
+  await (await pathNft.freezeMovementConfig(movementWill)).wait();
+  await (await pathNft.setMovementConfig(movementAwa, deployerAddress, 1)).wait();
+  await (await pathNft.freezeMovementConfig(movementAwa)).wait();
+
+  for (const [label, movementKey, expectedMinter, expectedQuota] of [
+    ["THOUGHT", movement, thoughtNftAddress, 1n],
+    ["WILL", movementWill, deployerAddress, 10n],
+    ["AWA", movementAwa, deployerAddress, 1n],
+  ]) {
+    const [actualMinter, actualQuota, frozen] = await Promise.all([
+      pathNft.getAuthorizedMinter(movementKey),
+      pathNft.getMovementQuota(movementKey),
+      pathNft.isMovementFrozen(movementKey),
+    ]);
+    if (
+      actualMinter.toLowerCase() !== expectedMinter.toLowerCase() ||
+      actualQuota !== expectedQuota ||
+      frozen !== true
+    ) {
+      throw new Error(`${label} movement configuration postcondition failed`);
+    }
+  }
+
+  // PATH v0.5.0 requires every movement capacity to be configured and frozen
+  // before public issuance begins. Compute the opening time only after that
+  // closed lifecycle is on-chain, then wire the auction as the public minter.
+  const latest = await provider.getBlock("latest");
+  if (!latest) throw new Error("latest Anvil block unavailable");
+  const currentWallClock = Math.floor(Date.now() / 1000);
+  const openTime = BigInt(
+    Math.max(latest.timestamp, currentWallClock) + auctionOpenDelaySeconds,
+  );
+  const adapter = await deploy(signer, pathArtifact("PathPulseAdapter"), [
+    deployerAddress,
+    ZeroAddress,
+    pathNftAddress,
+    1n,
+    1n,
+  ]);
+  const adapterAddress = await adapter.getAddress();
+  const auction = await deploy(signer, pathArtifact("PulseAuction"), [
+    openTime,
+    600_000_000_000_000_000n,
+    10_000_000_000_000_000n,
+    9_000_000_000_000_000n,
+    100_000_000_000_000n,
+    ZeroAddress,
+    treasury,
+    adapterAddress,
+  ]);
+  const auctionAddress = await auction.getAddress();
+  await (await adapter.setAuction(auctionAddress)).wait();
+  await (await adapter.freezeWiring()).wait();
+  await (await pathNft.grantRole(id("MINTER_ROLE"), adapterAddress)).wait();
+  await (await pathNft.freezePublicMinter(adapterAddress)).wait();
+  if (
+    (await pathNft.publicMinter()).toLowerCase() !== adapterAddress.toLowerCase() ||
+    (await pathNft.publicMinterFrozen()) !== true
+  ) {
+    throw new Error("PATH public minter postcondition failed");
+  }
 
   const [pathNftDeployment, adapterDeployment, auctionDeployment] =
     await Promise.all([
@@ -510,6 +548,11 @@ async function main() {
       epoch_base: 1,
       reserved_cap: "99",
       spark_claim_duration_sec: "604800",
+      movement_config: {
+        THOUGHT: { minter: thoughtNftAddress, quota: 1, frozen: true },
+        WILL: { minter: deployerAddress, quota: 10, frozen: true },
+        AWA: { minter: deployerAddress, quota: 1, frozen: true },
+      },
     },
     status: {
       postconditions: "pass",
@@ -571,7 +614,16 @@ async function main() {
     pathPulseAdapter: { address: adapterAddress },
     pulseAuction: { address: auctionAddress },
     paymentToken: { address: ZeroAddress },
-    pathMovement: { name: "THOUGHT", quota: 1, frozen: true },
+    pathMovement: {
+      name: "THOUGHT",
+      quota: 1,
+      frozen: true,
+      movements: {
+        THOUGHT: { minter: thoughtNftAddress, quota: 1, frozen: true },
+        WILL: { minter: deployerAddress, quota: 10, frozen: true },
+        AWA: { minter: deployerAddress, quota: 1, frozen: true },
+      },
+    },
     pathSpark: {
       claimMode: "issuer-allowlist-recipient-self-claim",
       issuer: deployerAddress,

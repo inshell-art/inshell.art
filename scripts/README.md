@@ -13,7 +13,9 @@ Task scripts for syncing **addresses**, writing **env**, and validating imported
 | `check-deployment.mjs` | Run the integrated deployment validation gates in offline-by-default mode. |
 | `dev-github-quality-loop.mjs` | Inspect DEV-owned GitHub Actions/security quality surfaces and write OPS-readable status artifacts. |
 | `validate-path-artifacts.ts` | Reject issuer-direct Spark minting and incomplete PATH self-claim ABI/release config. |
-| `sync-path-contract-release.mjs` | Pin and verify the address-free PATH v0.4.2 ABI/bytecode bundle used by local deployment tooling. |
+| `sync-path-contract-release.mjs` | Pin and verify the address-free PATH v0.5.0 ABI/bytecode bundle used by local deployment tooling. |
+| `generate-agent-docs.ts` | Generate human/Agent docs plus the current digest-bound THOUGHT App↔Contract machine handoff. |
+| `check-upstream-releases.mjs` | Compare pinned PATH and THOUGHT consumer locks with the latest canonical upstream tags. |
 | `validate-inshell-contracts.mjs` | Generate the Sepolia PATH/THOUGHT validation report from release manifests, bytecode hashes, sibling repo evidence, and optional live RPC reads. |
 | `abi-json-to-ts.ts` | Convert ABI JSON into a typed TS export for runtime/typing. |
 | `loadEnv.ts` | Load the best matching `.env.*` file for scripts/builds. |
@@ -31,7 +33,46 @@ Task scripts for syncing **addresses**, writing **env**, and validating imported
 - `dev-github-quality-loop.mjs` — writes `.ops/dev-quality/status.json` and a run note for OPS. It checks default-branch Actions, Dependabot, code scanning, and secret scanning through `gh api`; use `pnpm run quality:github`.
 - `validate-path-artifacts.ts` — accepts Spark-free releases or the complete self-claim surface, and rejects issuer-direct or partial Spark artifacts.
 - `sync-path-contract-release.mjs` — keeps immutable PATH contract artifacts separate from network deployment addresses; `--check` verifies all release checksums and the canonical movement/self-claim ABI.
+- `generate-agent-docs.ts` — emits the Agent index, structured docs, a repo-wide public-source lock, and a derived THOUGHT machine-handoff package. It verifies the selected Creative Work Specification, App provenance/metadata locks, Contract consumer lock, complete Contract release manifest, App integration graph, and every copied artifact byte before writing anything. `pnpm docs:check` fails when a registered knowledge source, generated file, manifest digest, or the Agent index drifts.
+- `check-upstream-releases.mjs` — queries the public Git remotes and fails when the latest PATH semantic release or canonical THOUGHT portable release is newer than the consumer lock in this repo, or when a published tag no longer resolves to the pinned commit.
 - `validate-inshell-contracts.mjs` — writes contract validation reports to `tmp/validation/` by default. Set `INSHELL_VALIDATION_SKIP_LIVE=1` to avoid live RPC reads. Set `INSHELL_VALIDATION_ENV_FILE=<path>` when you want it to read an operator-managed env file outside the repo.
+
+## Agent docs and THOUGHT handoff
+
+Edit the structured documentation source in `apps/home/src/content/docs.ts`. Edit the curated
+THOUGHT handoff surface in `apps/home/src/content/thought-machine-handoff.ts`; do not hand-edit
+generated files under `apps/home/public/docs/` or the derived THOUGHT release directory.
+
+```bash
+pnpm docs:generate
+pnpm docs:check
+```
+
+The generated Agent index exposes the current handoff under `machineHandoffs` and points to a
+manifest containing exact public URLs, byte lengths, SHA-256 digests, ownership boundaries, and
+release relations. Any meaningful handoff-source change derives a new handoff ID. A stale or
+modified locked artifact stops generation instead of silently updating the index. The currently
+stale Agent-transport consumer snapshot is intentionally excluded until its owner publishes an
+aligned lock.
+
+The same index exposes `/docs/source-lock.json`. Its source registry is
+`apps/home/src/content/docs-source-registry.ts`. Register every source that can change a public
+claim: docs copy, public routes/resources, wallet boundaries, imported contract releases,
+deployment records, and THOUGHT App specifications. Presentation source is included because it
+defines the public surface; tests and compiler-only
+declarations are excluded. When a registered source changes, `pnpm docs:check` stays red until the
+docs are regenerated and reviewed.
+
+Upstream freshness is a separate network gate:
+
+```bash
+pnpm check:upstream-releases
+```
+
+It checks both PATH and THOUGHT. Use `pnpm check:path-upstream` or
+`pnpm check:thought-upstream` for one producer. CI, deploy workflows, and the pre-push hook run the
+combined check, so a newly published canonical upstream release cannot be ignored by an otherwise
+clean local docs build.
 
 ## PATH artifact policy
 

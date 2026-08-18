@@ -29,6 +29,16 @@ function linkHref(name: string) {
   return link.href;
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, reject, resolve };
+}
+
 function walletState(overrides: Record<string, unknown> = {}) {
   return {
     address: ADDRESS,
@@ -41,6 +51,7 @@ function walletState(overrides: Record<string, unknown> = {}) {
     evm: { provider: null },
     isConnected: true,
     isConnecting: false,
+    refreshConnectors: jest.fn().mockResolvedValue(undefined),
     refreshWallet: jest.fn(),
     ...overrides,
   };
@@ -48,6 +59,7 @@ function walletState(overrides: Record<string, unknown> = {}) {
 
 describe("InshellTopBar", () => {
   beforeEach(() => {
+    jest.useRealTimers();
     window.history.pushState({}, "", "/");
     mockUseWallet.mockReset();
     Object.defineProperty(navigator, "clipboard", {
@@ -114,6 +126,139 @@ describe("InshellTopBar", () => {
     expect(connectAsync).toHaveBeenCalledWith({
       connector: { id: "metamask", name: "MetaMask" },
     });
+  });
+
+  test("refreshes injected connectors whenever the disconnected picker opens", async () => {
+    const refreshConnectors = jest.fn().mockResolvedValue(undefined);
+    mockUseWallet.mockReturnValue(
+      walletState({
+        address: null,
+        chain: null,
+        chainId: null,
+        connectors: [{ id: "metamask", name: "MetaMask" }],
+        isConnected: false,
+        refreshConnectors,
+      })
+    );
+
+    render(<InshellTopBar />);
+    fireEvent.click(screen.getByRole("button", { name: "connect wallet" }));
+
+    expect(refreshConnectors).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("menu", { name: "Wallet options" })).toBeTruthy();
+  });
+
+  test("shows immediate connector feedback and suppresses duplicate clicks", async () => {
+    const connection = deferred<{ address: string; chainId: number }>();
+    const connectAsync = jest.fn(() => connection.promise);
+    mockUseWallet.mockReturnValue(
+      walletState({
+        address: null,
+        chain: null,
+        chainId: null,
+        isConnected: false,
+        connectAsync,
+        connectors: [
+          { id: "metamask", name: "MetaMask" },
+          { id: "walletconnect", name: "WalletConnect" },
+        ],
+      })
+    );
+
+    render(<InshellTopBar />);
+    fireEvent.click(screen.getByRole("button", { name: "connect wallet" }));
+    const picker = screen.getByRole("menu", { name: "Wallet options" });
+    const metamask = screen.getByRole("menuitem", { name: "MetaMask" });
+    const walletConnect = screen.getByRole("menuitem", {
+      name: "WalletConnect",
+    });
+
+    fireEvent.click(metamask);
+
+    expect(picker).toHaveAttribute("aria-busy", "true");
+    expect(metamask).toHaveAttribute("aria-busy", "true");
+    expect(metamask).toBeDisabled();
+    expect(walletConnect).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "opening MetaMask..."
+    );
+    fireEvent.click(metamask);
+    fireEvent.click(walletConnect);
+    expect(connectAsync).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      connection.resolve({ address: ADDRESS, chainId: 11155111 });
+      await connection.promise;
+    });
+
+    expect(picker).toHaveAttribute("aria-busy", "false");
+    expect(metamask).not.toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("wallet connected.");
+  });
+
+  test("turns an unresolved MetaMask request into actionable guidance", () => {
+    jest.useFakeTimers();
+    const connection = deferred<{ address: string; chainId: number }>();
+    const connectAsync = jest.fn(() => connection.promise);
+    mockUseWallet.mockReturnValue(
+      walletState({
+        address: null,
+        chain: null,
+        chainId: null,
+        isConnected: false,
+        connectAsync,
+        connectors: [
+          { id: "metamask", name: "MetaMask" },
+          { id: "rabby", name: "Rabby" },
+        ],
+      })
+    );
+
+    render(<InshellTopBar />);
+    fireEvent.click(screen.getByRole("button", { name: "connect wallet" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "MetaMask" }));
+
+    act(() => jest.advanceTimersByTime(5_000));
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "open MetaMask from your browser toolbar, then approve or cancel the connection."
+    );
+    expect(connectAsync).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("menuitem", { name: "MetaMask" })).toBeDisabled();
+    expect(screen.getByRole("menuitem", { name: "Rabby" })).toBeDisabled();
+
+    act(() => jest.advanceTimersByTime(25_000));
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "still waiting for MetaMask. approve or cancel the request there. if no request appears, restart MetaMask and reload this page."
+    );
+    expect(connectAsync).toHaveBeenCalledTimes(1);
+  });
+
+  test("explains when MetaMask already has a request open", async () => {
+    const connectAsync = jest.fn().mockRejectedValue({
+      code: -32002,
+      message: "Already processing eth_requestAccounts. Please wait.",
+    });
+    mockUseWallet.mockReturnValue(
+      walletState({
+        address: null,
+        chain: null,
+        chainId: null,
+        isConnected: false,
+        connectAsync,
+        connectors: [{ id: "metamask", name: "MetaMask" }],
+      })
+    );
+
+    render(<InshellTopBar />);
+    fireEvent.click(screen.getByRole("button", { name: "connect wallet" }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("menuitem", { name: "MetaMask" }));
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "a wallet request is already open. open your wallet and approve or cancel it."
+    );
+    expect(screen.getByRole("menuitem", { name: "MetaMask" })).not.toBeDisabled();
   });
 
   test("uses the PATH network label without changing wallet-picker behavior", async () => {

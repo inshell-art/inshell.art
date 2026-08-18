@@ -1,6 +1,6 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
-const SHELL_ROUTES = ["/path", "/thought", "/will", "/docs", "/verify"];
+const SHELL_ROUTES = ["/path", "/thought", "/will", "/docs", "/docs/path", "/verify"];
 
 async function shellBarBox(page: Page, route: string) {
   await page.goto(route);
@@ -113,6 +113,37 @@ test("WILL shares the route identity height and renders an even canonical-green 
       titleTops.push(box!.y);
     }
     expect(Math.max(...titleTops) - Math.min(...titleTops)).toBeLessThanOrEqual(1);
+
+    await page.goto("/will");
+    const launchNote = page.getByText("launch in 2027", { exact: true });
+    await expect(launchNote).toBeVisible();
+
+    const identityGeometry = await page.evaluate(() => {
+      const title = document.querySelector(".will-page__title")?.getBoundingClientRect();
+      const note = document
+        .querySelector(".will-page__launch-note")
+        ?.getBoundingClientRect();
+      return {
+        titleCenter: title ? title.left + title.width / 2 : 0,
+        titleRight: title?.right ?? 0,
+        noteLeft: note?.left ?? 0,
+        noteRight: note?.right ?? 0,
+        innerWidth: window.innerWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+      };
+    });
+
+    expect(identityGeometry.titleCenter).toBeCloseTo(
+      identityGeometry.innerWidth / 2,
+      1,
+    );
+    expect(identityGeometry.noteLeft).toBeGreaterThan(identityGeometry.titleRight);
+    expect(identityGeometry.noteRight).toBeLessThanOrEqual(
+      identityGeometry.innerWidth,
+    );
+    expect(identityGeometry.scrollWidth).toBeLessThanOrEqual(
+      identityGeometry.innerWidth + 1,
+    );
   }
 
   await page.setViewportSize({ width: 1440, height: 900 });

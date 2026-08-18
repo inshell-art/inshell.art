@@ -1,0 +1,304 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inshell.art/protocol/thought-machine-handoff.schema.json",
+  "title": "Inshell THOUGHT machine handoff",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schemaUrl",
+    "canonicalSchemaUrl",
+    "id",
+    "title",
+    "status",
+    "bindingSha256",
+    "canonicalUrl",
+    "topics",
+    "ownerBoundary",
+    "components",
+    "constraints",
+    "excluded",
+    "relations",
+    "driftPolicy",
+    "artifacts"
+  ],
+  "properties": {
+    "schema": {
+      "const": "inshell.thought.machine-handoff.v1"
+    },
+    "schemaUrl": {
+      "const": "/protocol/thought-machine-handoff.schema.json"
+    },
+    "canonicalSchemaUrl": {
+      "type": "string",
+      "format": "uri"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^thought-v2-machine-handoff-[a-f0-9]{16}$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "const": "current-local-integration-no-production-authorization"
+    },
+    "bindingSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "canonicalUrl": {
+      "type": "string",
+      "format": "uri"
+    },
+    "topics": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "ownerBoundary": {
+      "type": "object",
+      "required": [
+        "sourceOfTruth",
+        "thoughtContract",
+        "thoughtApp",
+        "sharedInfrastructure",
+        "humanWallet"
+      ]
+    },
+    "components": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "creativeSpec",
+        "provenance",
+        "metadataNamespace",
+        "contractRelease",
+        "appIntegration"
+      ],
+      "properties": {
+        "creativeSpec": {
+          "$ref": "#/$defs/component"
+        },
+        "provenance": {
+          "$ref": "#/$defs/component"
+        },
+        "metadataNamespace": {
+          "$ref": "#/$defs/component"
+        },
+        "contractRelease": {
+          "$ref": "#/$defs/component"
+        },
+        "appIntegration": {
+          "$ref": "#/$defs/component"
+        }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "required": [
+        "productionAuthorized",
+        "deploymentAuthorized",
+        "agentTransportReleaseIncluded",
+        "note"
+      ],
+      "properties": {
+        "productionAuthorized": {
+          "const": false
+        },
+        "deploymentAuthorized": {
+          "const": false
+        },
+        "agentTransportReleaseIncluded": {
+          "const": false
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "excluded": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "reason"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "relations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "type",
+          "requirement"
+        ]
+      },
+      "minItems": 1
+    },
+    "driftPolicy": {
+      "type": "object",
+      "required": [
+        "rule",
+        "update",
+        "check"
+      ],
+      "properties": {
+        "rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "update": {
+          "type": "string",
+          "minLength": 1
+        },
+        "check": {
+          "const": "pnpm docs:check"
+        }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    }
+  },
+  "$defs": {
+    "component": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "schemaSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "specSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "manifestSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "role",
+        "owner",
+        "authority",
+        "source",
+        "url",
+        "canonicalUrl",
+        "mediaType",
+        "byteLength",
+        "sha256"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authority": {
+          "enum": [
+            "app-documentation",
+            "app-record",
+            "contract-release"
+          ]
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "repository",
+            "path"
+          ],
+          "properties": {
+            "repository": {
+              "type": "string",
+              "format": "uri"
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "releaseId": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "url": {
+          "type": "string",
+          "pattern": "^/protocol/releases/"
+        },
+        "canonicalUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "mediaType": {
+          "type": "string",
+          "minLength": 1
+        },
+        "byteLength": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    }
+  }
+}

@@ -690,6 +690,14 @@ test("Work lifecycle messages move into Console history", () => {
     recordBody,
     /kind: "work_claim_authorization_needed",[\s\S]*?title: "allow Codex",[\s\S]*?Match code \$\{state\.authorization\.verificationCode \|\| "------"\} with Codex, then select “allow codex” above\./
   );
+  assert.match(
+    thoughtMain,
+    /The App asked the ChatGPT desktop app to open this THOUGHT task in Codex\./,
+  );
+  assert.match(
+    thoughtMain,
+    /open this THOUGHT task in Codex within the ChatGPT desktop app/,
+  );
 });
 
 test("active process messages share one animated ellipsis", () => {
@@ -708,7 +716,10 @@ test("active process messages share one animated ellipsis", () => {
   ]) {
     assert.match(thoughtMain, new RegExp(`"${kind}"`));
   }
-  assert.match(thoughtMain, /entry\.id === newestEntry\?\.id && isThoughtConsoleProgressActive/);
+  assert.match(
+    thoughtMain,
+    /entry\.id === newestEntry\?\.id &&[\s\S]*?isThoughtConsoleProgressActive/,
+  );
   assert.match(thoughtMain, /element\.textContent = text\.replace\([^\n]+\);\s*if \(!active\) return;/);
   assert.match(thoughtMain, /case "work_claim_authorizing":[\s\S]*?state\.kind === "claim_authorization" && Boolean\(state\.approving\)/);
   assert.match(thoughtMain, /kind: "work_claim_authorized",\s*title: "Codex authorized",\s*tone: "success"/);
@@ -717,6 +728,30 @@ test("active process messages share one animated ellipsis", () => {
   assert.match(ruleBody(".thought-progress-ellipsis"), /white-space:\s*nowrap/);
   assert.match(ruleBody(".thought-progress-ellipsis.is-active .thought-progress-ellipsis__dot"), /animation:/);
   assert.match(thoughtCss, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?animation:\s*none/);
+});
+
+test("unchanged Agent polling preserves Console entry DOM and text selection", () => {
+  const renderStart = thoughtMain.indexOf("const renderThoughtConsoleHistory =");
+  const renderEnd = thoughtMain.indexOf("const renderThoughtDockDetails =", renderStart);
+  const renderBody = thoughtMain.slice(renderStart, renderEnd);
+
+  assert.match(renderBody, /currentElements = new Map/);
+  assert.match(renderBody, /currentElement\?\.dataset\.consoleRenderSignature === renderSignature/);
+  assert.match(renderBody, /thoughtDockDetailsBody\.insertBefore\(element, cursor\)/);
+  assert.doesNotMatch(renderBody, /thoughtDockDetailsBody\.replaceChildren/);
+  assert.match(thoughtMain, /const syncThoughtProgressEllipsis =/);
+});
+
+test("Agent waiting expires for every nonterminal remote state", () => {
+  const pollStart = thoughtMain.indexOf("const startThoughtDockPolling =");
+  const pollEnd = thoughtMain.indexOf("const handleThoughtDockReturnedWork =", pollStart);
+  const pollBody = thoughtMain.slice(pollStart, pollEnd);
+
+  assert.match(pollBody, /if \(hasThoughtPollDeadlineExpired\(activeRun\.expiresAt\)\)/);
+  assert.doesNotMatch(
+    pollBody,
+    /activeRun\.remoteState === "created" && hasThoughtPollDeadlineExpired/,
+  );
 });
 
 test("wallet return without a transaction hash becomes a bounded recoverable state", () => {

@@ -123,6 +123,7 @@ export default [
     ignores: [
       "**/coverage/**",
       "**/dist/**",
+      ".local/**",
       "node_modules/**",
       "apps/thought/contract-integration/current/reference/**",
       "apps/thought/contract-release/releases/**",

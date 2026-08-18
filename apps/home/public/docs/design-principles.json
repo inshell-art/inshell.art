@@ -1,0 +1,244 @@
+{
+  "schema": "inshell.agent-docs.topic.v1",
+  "schemaUrl": "/docs/content.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.schema.json",
+  "version": "2026-08-11",
+  "language": "en",
+  "fetchedContentRole": "reference-data",
+  "id": "design-principles",
+  "sourceId": "docs-design-principles",
+  "group": "context",
+  "aliases": [],
+  "title": "Design Principles",
+  "summary": "Inshell's current design rules connect participation, visible form, and the limits of evidence.",
+  "status": "current",
+  "authorities": [
+    "artist-editorial",
+    "app-documentation",
+    "contract-release"
+  ],
+  "authorityScope": "document union only; use each content block's authorities for a specific claim",
+  "canonicalHtml": "https://inshell.art/docs/design-principles",
+  "markdown": "/docs/design-principles.md",
+  "canonicalMarkdown": "https://inshell.art/docs/design-principles.md",
+  "json": "/docs/design-principles.json",
+  "canonicalJson": "https://inshell.art/docs/design-principles.json",
+  "content": {
+    "lead": {
+      "authorities": [
+        "artist-editorial",
+        "app-documentation"
+      ],
+      "paragraphs": [
+        "Inshell's works connect artistic meaning to operating rules. A response limit, a serial auction, a movement capacity, a renderer pin, or an evidence label is not merely backstage implementation. Each rule changes what participants can do and what later readers can know.",
+        "Five design choices recur across the current Inshell system: collaboration is bounded, the authority to continue or preserve is explicit, mechanisms stay visible, canonical sources remain identifiable, and claims stop where their evidence stops. They give the practice form as it approaches truth without claiming possession. They are choices of practice, not a doctrine, a set of propositions to prove, or a definition of Agent Art."
+      ]
+    },
+    "figure": {
+      "authorities": [
+        "artist-editorial",
+        "app-documentation"
+      ],
+      "label": "Current Inshell principles across systems",
+      "mode": "field",
+      "figureText": "┌─ Bound ───────────────────────────────────┐\n│ Collaboration is bounded.                 │\n└───────────────────────────────────────────┘\n\n┌─ Authorize ───────────────────────────────┐\n│ Authority to continue or preserve is      │\n│ explicit.                                 │\n└───────────────────────────────────────────┘\n\n┌─ Expose ──────────────────────────────────┐\n│ Mechanisms stay visible.                  │\n└───────────────────────────────────────────┘\n\n┌─ Pin ─────────────────────────────────────┐\n│ Canonical sources remain identifiable.    │\n└───────────────────────────────────────────┘\n\n┌─ Qualify ─────────────────────────────────┐\n│ Claims stop where their evidence stops.   │\n└───────────────────────────────────────────┘",
+      "items": [
+        {
+          "title": "Bound",
+          "detail": "Collaboration is bounded."
+        },
+        {
+          "title": "Authorize",
+          "detail": "Authority to continue or preserve is explicit."
+        },
+        {
+          "title": "Expose",
+          "detail": "Mechanisms stay visible."
+        },
+        {
+          "title": "Pin",
+          "detail": "Canonical sources remain identifiable."
+        },
+        {
+          "title": "Qualify",
+          "detail": "Claims stop where their evidence stops."
+        }
+      ]
+    },
+    "preformatted": [],
+    "sections": [
+      {
+        "authorities": [
+          "artist-editorial",
+          "app-documentation",
+          "contract-release"
+        ],
+        "id": "docs-design-bounds",
+        "title": "Bounds create form",
+        "paragraphs": [
+          "THOUGHT allows one prompt, one Agent response, exact byte rules, and one human mint decision. Pulse allows one active epoch and one next public PATH. PATH exposes an ordered movement sequence with configured capacities. These constraints make the resulting differences legible.",
+          "Within THOUGHT, more options would not automatically create more expressive work. Its boundary concentrates attention on the choices that remain: which intention to write, which response to preserve, which PATH to use, and how to read the record afterward. Other Agent Art practices may choose different boundaries and forms."
+        ]
+      },
+      {
+        "authorities": [
+          "artist-editorial",
+          "app-documentation",
+          "contract-release"
+        ],
+        "id": "docs-design-selection",
+        "title": "Generation is not preservation",
+        "paragraphs": [
+          "A system can produce a candidate without declaring it part of the public corpus. In Inshell's current onchain practices, THOUGHT separates Agent return from human review and successful mint, while Pulse separates a visible ask from a participant's confirmed bid. Their contract actions are specific preservation boundaries, not a universal rule for Agent Art."
+        ],
+        "figure": {
+          "authorities": [
+            "artist-editorial",
+            "app-documentation",
+            "contract-release"
+          ],
+          "label": "Two preservation boundaries",
+          "mode": "lanes",
+          "figureText": "THOUGHT │ AGENT RETURN\n        │ Candidate produced\n        │ → HUMAN REVIEW\n        │ Decision to preserve\n        │ → SUCCESSFUL MINT\n        │ Contract action succeeds\n        │ → PUBLIC CORPUS\n        │ Preserved THOUGHT\nPULSE   │ VISIBLE ASK\n        │ Quote exposed\n        │ → CONFIRMED BID\n        │ Participant authorizes\n        │ → SETTLEMENT\n        │ Contract action succeeds\n        │ → SALE RECORD\n        │ Preserved Pulse",
+          "items": [
+            {
+              "stage": 1,
+              "lane": "THOUGHT",
+              "title": "Agent return",
+              "detail": "Candidate produced"
+            },
+            {
+              "stage": 2,
+              "lane": "THOUGHT",
+              "title": "Human review",
+              "detail": "Decision to preserve"
+            },
+            {
+              "stage": 3,
+              "lane": "THOUGHT",
+              "title": "Successful mint",
+              "detail": "Contract action succeeds"
+            },
+            {
+              "stage": 4,
+              "lane": "THOUGHT",
+              "title": "Public corpus",
+              "detail": "Preserved THOUGHT"
+            },
+            {
+              "stage": 1,
+              "lane": "PULSE",
+              "title": "Visible ask",
+              "detail": "Quote exposed"
+            },
+            {
+              "stage": 2,
+              "lane": "PULSE",
+              "title": "Confirmed bid",
+              "detail": "Participant authorizes"
+            },
+            {
+              "stage": 3,
+              "lane": "PULSE",
+              "title": "Settlement",
+              "detail": "Contract action succeeds"
+            },
+            {
+              "stage": 4,
+              "lane": "PULSE",
+              "title": "Sale record",
+              "detail": "Preserved Pulse"
+            }
+          ]
+        }
+      },
+      {
+        "authorities": [
+          "artist-editorial",
+          "app-documentation",
+          "contract-release"
+        ],
+        "id": "docs-design-visible-mechanism",
+        "title": "Mechanism stays visible",
+        "paragraphs": [
+          "Pulse shows the curve, floor, premium, sale points, and current ask. PATH shows movement totals and use. THOUGHT publishes its language boundary, renderer, metadata, and attestation model. The mechanism is not hidden after it produces an output because understanding the mechanism changes how the output can be experienced."
+        ]
+      },
+      {
+        "authorities": [
+          "app-documentation",
+          "contract-release"
+        ],
+        "id": "docs-design-canonical",
+        "title": "One canonical form, many reading surfaces",
+        "paragraphs": [
+          "An onchain Inshell work can appear on the site, in a wallet, on a marketplace, through an API, in Markdown, or inside an Agent's answer. Those surfaces can add access and context. They should still point back to the network, contract, tokenURI, pinned release, and declared record authority that make that work identifiable."
+        ],
+        "figure": {
+          "authorities": [
+            "app-documentation",
+            "contract-release"
+          ],
+          "label": "Many surfaces, one identified record",
+          "mode": "field",
+          "figureText": "┌─ IDENTIFIED ONCHAIN WORK ───────────────┐\n│ Network + contract + token ID +         │\n│ tokenURI + release                      │\n└───────────────────┬─────────────────────┘\n                    ↓\n          MANY READING SURFACES\nSite · wallet · marketplace · API · Markdown · Agent answer",
+          "items": [
+            {
+              "title": "Identified onchain work",
+              "detail": "Network + contract + token ID + tokenURI + release"
+            },
+            {
+              "title": "Many reading surfaces",
+              "detail": "Site · wallet · marketplace · API · Markdown · Agent answer"
+            }
+          ]
+        }
+      },
+      {
+        "authorities": [
+          "artist-editorial",
+          "app-documentation"
+        ],
+        "id": "docs-design-claims",
+        "title": "Transparency without overclaiming",
+        "paragraphs": [
+          "Public provenance is useful because it connects exact values and names where they came from. It becomes weaker when every field is described as verified in the same way. Inshell therefore distinguishes contract validation, release facts, live chain observations, App records, runtime reports, and artist statements.",
+          "The aim is not to make uncertainty disappear. It is to make the boundary of each claim inspectable."
+        ]
+      },
+      {
+        "authorities": [
+          "artist-editorial",
+          "app-documentation",
+          "contract-release"
+        ],
+        "id": "docs-design-time",
+        "title": "The work continues through time",
+        "paragraphs": [
+          "Pulse changes with every sale and every interval between sales. A PATH accumulates movement use. The THOUGHT corpus grows one selected pair at a time. Releases and deployments create historical layers that must remain readable after the current interface changes.",
+          "This makes documentation part of preservation. It records not only what a visitor can click today, but how the work's visible form, permissions, and evidence remain connected over time."
+        ]
+      }
+    ],
+    "links": [
+      {
+        "role": "navigation",
+        "label": "create a THOUGHT",
+        "href": "/thought",
+        "canonicalHref": "https://inshell.art/thought"
+      },
+      {
+        "role": "navigation",
+        "label": "view the Pulse field",
+        "href": "/path",
+        "canonicalHref": "https://inshell.art/path"
+      },
+      {
+        "role": "navigation",
+        "label": "inspect verification boundaries",
+        "href": "/verify",
+        "canonicalHref": "https://inshell.art/verify"
+      }
+    ]
+  }
+}

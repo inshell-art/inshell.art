@@ -205,12 +205,18 @@ export default function EcosystemHome() {
                 <span className="ecosystem-home__movement-title">{movement.title}</span>
               </a>
             ) : (
-              <span key={movement.key} className="ecosystem-home__movement">
+              <button
+                key={movement.key}
+                type="button"
+                className="ecosystem-home__movement ecosystem-home__movement--button"
+                aria-label={movement.title}
+                onClick={() => window.alert("AWA!")}
+              >
                 <span className="ecosystem-home__movement-note" data-note={note}>
                   {note}
                 </span>
                 <span className="ecosystem-home__movement-title">{movement.title}</span>
-              </span>
+              </button>
             )
             );
           })}

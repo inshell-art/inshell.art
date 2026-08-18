@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inshell.art/protocol/releases/thought-metadata-namespace-v2-20260731-r1/thought.metadata-namespace.v2.schema.json",
+  "title": "THOUGHT Metadata Namespace V2",
+  "description": "Structural conformance schema for the metadata.thought object emitted by THOUGHT V2 tokenURI().",
+  "additionalProperties": false,
+  "properties": {
+    "agentLine": { "$ref": "#/$defs/terminalLine" },
+    "agentLineKeccak256": { "$ref": "#/$defs/nonzeroBytes32" },
+    "conversationIdentityHash": { "$ref": "#/$defs/nonzeroBytes32" },
+    "creationAttestation": { "$ref": "#/$defs/creationAttestation" },
+    "metadataProfileId": { "const": "inshell.thought.metadata.v2.terminal-chat" },
+    "metadataProfileIdHash": { "$ref": "#/$defs/nonzeroBytes32" },
+    "mint": { "$ref": "#/$defs/mint" },
+    "promptLine": { "$ref": "#/$defs/terminalLine" },
+    "promptLineKeccak256": { "$ref": "#/$defs/nonzeroBytes32" },
+    "protocol": { "$ref": "#/$defs/protocol" },
+    "provenanceCommitmentCheck": { "$ref": "#/$defs/nonzeroBytes32" },
+    "provenanceHash": { "$ref": "#/$defs/nonzeroBytes32" },
+    "provenanceJson": {
+      "contentMediaType": "application/json",
+      "minLength": 2,
+      "type": "string",
+      "x-thought-canonicalization": "RFC 8785 JCS",
+      "x-thought-content-schema": "https://inshell.art/protocol/releases/thought-provenance-v2-20260731-r1/thought.provenance.v2.schema.json"
+    },
+    "provenanceProfileId": { "const": "inshell.thought.provenance.v2" },
+    "records": { "$ref": "#/$defs/records" },
+    "rendererId": { "$ref": "#/$defs/publicIdentifier" },
+    "rendererIdHash": { "$ref": "#/$defs/nonzeroBytes32" },
+    "rendererImplementationId": { "$ref": "#/$defs/publicIdentifier" },
+    "rendererReleaseReady": { "type": "boolean" },
+    "status": { "const": "minted" },
+    "workHash": { "$ref": "#/$defs/nonzeroBytes32" },
+    "workHashPrecheck": { "$ref": "#/$defs/nonzeroBytes32" },
+    "workProfileId": { "const": "inshell.thought.work.v2.terminal-english-64" }
+  },
+  "required": [
+    "agentLine",
+    "agentLineKeccak256",
+    "conversationIdentityHash",
+    "creationAttestation",
+    "metadataProfileId",
+    "metadataProfileIdHash",
+    "mint",
+    "promptLine",
+    "promptLineKeccak256",
+    "protocol",
+    "provenanceCommitmentCheck",
+    "provenanceHash",
+    "provenanceJson",
+    "provenanceProfileId",
+    "records",
+    "rendererId",
+    "rendererIdHash",
+    "rendererImplementationId",
+    "rendererReleaseReady",
+    "status",
+    "workHash",
+    "workHashPrecheck",
+    "workProfileId"
+  ],
+  "type": "object",
+  "$defs": {
+    "address": {
+      "pattern": "^(?!0x0{40}$)0x[0-9a-f]{40}$",
+      "type": "string"
+    },
+    "bytes32": {
+      "pattern": "^0x[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "contextLabel": {
+      "maxLength": 64,
+      "minLength": 1,
+      "type": "string",
+      "x-thought-context-profile": "inshell.thought.context.v2.visible-utf8-64",
+      "x-thought-utf8-max-bytes": 64
+    },
+    "creationAttestation": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": { "status": { "const": "Unattested" } },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": { "digest": { "$ref": "#/$defs/zeroBytes32" } }
+          }
+        },
+        {
+          "if": {
+            "properties": { "status": { "const": "Inshell THOUGHT App" } },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": { "digest": { "$ref": "#/$defs/nonzeroBytes32" } }
+          }
+        }
+      ],
+      "properties": {
+        "digest": { "$ref": "#/$defs/bytes32" },
+        "profileId": { "$ref": "#/$defs/nonzeroBytes32" },
+        "status": { "enum": ["Inshell THOUGHT App", "Unattested"] },
+        "verifier": { "$ref": "#/$defs/address" }
+      },
+      "required": ["digest", "profileId", "status", "verifier"],
+      "type": "object"
+    },
+    "decimalString": {
+      "pattern": "^(0|[1-9][0-9]*)$",
+      "type": "string"
+    },
+    "mint": {
+      "additionalProperties": false,
+      "properties": {
+        "chainId": { "$ref": "#/$defs/positiveDecimalString" },
+        "contract": { "$ref": "#/$defs/address" },
+        "mintedAt": { "$ref": "#/$defs/positiveDecimalString" },
+        "minter": { "$ref": "#/$defs/address" },
+        "pathId": { "$ref": "#/$defs/positiveDecimalString" },
+        "pathSerial": { "$ref": "#/$defs/decimalString" },
+        "status": { "const": "minted" },
+        "tokenId": { "$ref": "#/$defs/positiveDecimalString" }
+      },
+      "required": [
+        "chainId",
+        "contract",
+        "mintedAt",
+        "minter",
+        "pathId",
+        "pathSerial",
+        "status",
+        "tokenId"
+      ],
+      "type": "object"
+    },
+    "nonzeroBytes32": {
+      "pattern": "^(?!0x0{64}$)0x[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "positiveDecimalString": {
+      "pattern": "^[1-9][0-9]*$",
+      "type": "string"
+    },
+    "protocol": {
+      "additionalProperties": false,
+      "properties": {
+        "manifestKeccak256": { "$ref": "#/$defs/nonzeroBytes32" },
+        "protocolReleaseId": { "$ref": "#/$defs/nonzeroBytes32" },
+        "releaseStatus": { "minLength": 1, "type": "string" },
+        "thoughtSpecHash": { "$ref": "#/$defs/nonzeroBytes32" },
+        "thoughtSpecId": { "$ref": "#/$defs/nonzeroBytes32" }
+      },
+      "required": [
+        "manifestKeccak256",
+        "protocolReleaseId",
+        "releaseStatus",
+        "thoughtSpecHash",
+        "thoughtSpecId"
+      ],
+      "type": "object"
+    },
+    "publicIdentifier": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@+\\-]*$",
+      "type": "string",
+      "x-thought-utf8-max-bytes": 256
+    },
+    "record": {
+      "additionalProperties": false,
+      "properties": {
+        "keccak256": { "$ref": "#/$defs/nonzeroBytes32" },
+        "label": { "$ref": "#/$defs/contextLabel" }
+      },
+      "required": ["keccak256", "label"],
+      "type": "object"
+    },
+    "records": {
+      "additionalProperties": false,
+      "properties": {
+        "agent": { "$ref": "#/$defs/record" },
+        "model": { "$ref": "#/$defs/record" },
+        "workIdentityInput": { "const": false }
+      },
+      "required": ["agent", "model", "workIdentityInput"],
+      "type": "object"
+    },
+    "terminalLine": {
+      "maxLength": 64,
+      "minLength": 1,
+      "pattern": "^(?! )(?!.*  )(?!.* $)[ A-Za-z0-9.,?!:;'\"()/&-]{1,64}$",
+      "type": "string",
+      "x-thought-line-profile": "inshell.thought.work.v2.terminal-english-64",
+      "x-thought-utf8-max-bytes": 64
+    },
+    "zeroBytes32": {
+      "const": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  "x-thought-relational-checks": [
+    "keccak256(promptLine) == promptLineKeccak256",
+    "keccak256(agentLine) == agentLineKeccak256",
+    "workHash == workHashPrecheck",
+    "provenanceHash == provenanceCommitmentCheck",
+    "keccak256(records.agent.label) == records.agent.keccak256",
+    "keccak256(records.model.label) == records.model.keccak256",
+    "mint and protocol fields match typed Contract state"
+  ]
+}

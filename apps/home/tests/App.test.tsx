@@ -63,6 +63,7 @@ jest.mock("@/hooks/useAuctionBids", () => ({
 
 import App from "../src/App";
 import { COLOR_FONT, COLOR_FONT_RAW } from "../src/content/colorFont";
+import { DOCS_SOURCE } from "../src/content/docs";
 import { clearPathTokenInventoryCache } from "../src/services/pathTokens";
 import type { ThoughtGalleryItem } from "../src/services/thoughtGallery";
 import { resolveThoughtSpecHref } from "../src/services/thoughtSpecLink";
@@ -475,10 +476,9 @@ describe("App Component", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "$PATH #2" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("THOUGHT · 1 unit remaining")).toBeInTheDocument();
-    expect(
-      screen.getByText("Each unit can authorize one THOUGHT work mint."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("THOUGHT · 0 / 1 used")).toBeInTheDocument();
+    expect(screen.getByText("Each successful work mint uses one.")).toBeInTheDocument();
+    expect(screen.getByText("Each movement has its own capacity.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "create a THOUGHT" })).toHaveAttribute(
       "href",
       "/thought",
@@ -486,15 +486,16 @@ describe("App Component", () => {
     expect(
       screen.getByRole("heading", { name: "about" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("THOUGHT. WILL. AWA. One after another.")).toBeInTheDocument();
+    expect(
+      screen.getByText("$PATH is the permission token for movements:"),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "description" })).toBeNull();
     expect(
       screen.queryByText("$PATH authorizes movement mints in sequence."),
     ).toBeNull();
-    expect(screen.getByText("One quota. Many units. One unit per work mint.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Pulse ↗" })).toHaveAttribute(
       "href",
-      "/pulse",
+      "/docs#docs-pulse",
     );
     expect(screen.getByText("not listed")).toBeInTheDocument();
     expect(screen.getByText("No marketplace activity is indexed in this local study.")).toBeInTheDocument();
@@ -508,7 +509,7 @@ describe("App Component", () => {
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
   });
 
-  test("renders the WILL surface on the same-origin /will route", () => {
+  test("renders one WILL dot view, then repeats it as downward scrolling reaches the end", async () => {
     window.history.pushState({}, "", "/will");
     render(<App />);
 
@@ -521,12 +522,51 @@ describe("App Component", () => {
       screen.getByRole("heading", { level: 1, name: "WILL" }),
     ).toBeInTheDocument();
     expect(
+      screen.getByText("launch in 2027", { exact: true }),
+    ).toBeInTheDocument();
+    expect(
       screen.getByText("many people. many Agents. one will.", { exact: true }),
     ).toBeInTheDocument();
-    expect(document.querySelector(".will-page__dot-field")).toHaveAttribute(
+    const dotField = document.querySelector(".will-page__dot-field");
+    const firstDotPage = document.querySelector(".will-page__dot-page");
+    expect(dotField).toHaveAttribute("data-dot-layout", "even");
+    expect(dotField).toHaveAttribute("data-loaded-pages", "1");
+    expect(document.querySelectorAll(".will-page__dot-page")).toHaveLength(1);
+    expect(firstDotPage).toHaveAttribute("data-dot-layout", "even");
+    expect(firstDotPage).toHaveAttribute("data-dot-page", "1");
+
+    jest
+      .spyOn(firstDotPage as HTMLElement, "getBoundingClientRect")
+      .mockReturnValue({
+        bottom: 540,
+        height: 540,
+        left: 0,
+        right: 1120,
+        top: 0,
+        width: 1120,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      });
+
+    act(() => {
+      window.dispatchEvent(new globalThis.WheelEvent("wheel", { deltaY: -120 }));
+    });
+    expect(dotField).toHaveAttribute("data-loaded-pages", "1");
+
+    act(() => {
+      window.dispatchEvent(new globalThis.WheelEvent("wheel", { deltaY: 120 }));
+    });
+    await flushAsyncEffects();
+
+    expect(dotField).toHaveAttribute("data-loaded-pages", "2");
+    expect(dotField).toHaveAttribute("data-measured", "true");
+    expect(document.querySelectorAll(".will-page__dot-page")).toHaveLength(2);
+    expect(document.querySelector('[data-dot-page="2"]')).toHaveAttribute(
       "data-dot-layout",
       "even",
     );
+    expect(dotField).toHaveStyle("--will-page-loaded-height: 540px");
     expect(document.querySelector(".shell--home")).toBeNull();
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
   });
@@ -1054,7 +1094,7 @@ describe("App Component", () => {
     );
   });
 
-  test("renders the PATH fixture for one WILL mint out of quota ten", () => {
+  test("renders the PATH fixture for one WILL mint out of capacity ten", () => {
     window.history.pushState({}, "", "/path?fixture=will");
     render(<App />);
 
@@ -1066,9 +1106,9 @@ describe("App Component", () => {
     expect(screen.getByText("all $PATH · 1")).toBeInTheDocument();
     expect(screen.getByText("$PATH #1")).toBeInTheDocument();
     expect(screen.getAllByText("WILL")).toHaveLength(2);
-    expect(screen.getByText("units")).toBeInTheDocument();
-    expect(screen.getByText("1 / 10")).toBeInTheDocument();
-    expect(screen.getByText("- / -")).toBeInTheDocument();
+    expect(screen.getByText("mint capacity")).toBeInTheDocument();
+    expect(screen.getByText("1 / 10 used")).toBeInTheDocument();
+    expect(screen.getByText("not available")).toBeInTheDocument();
     expect(screen.queryByText("Minted(1/10)")).toBeNull();
     expect(screen.queryByText("0 / 0")).toBeNull();
     const image = screen.getByRole("img", { name: "$PATH #1 movement progress" });
@@ -1109,8 +1149,8 @@ describe("App Component", () => {
 
     expect(await screen.findByText("all $PATH · 1")).toBeInTheDocument();
     const lifecycle = within(screen.getByLabelText("$PATH #1 lifecycle"));
-    expect(lifecycle.getAllByText("1 / 1")).toHaveLength(1);
-    expect(lifecycle.getAllByText("0 / 1")).toHaveLength(2);
+    expect(lifecycle.getAllByText("1 / 1 used")).toHaveLength(1);
+    expect(lifecycle.getAllByText("0 / 1 used")).toHaveLength(2);
     expect(screen.getByRole("img", { name: "$PATH #1 movement progress" })).toHaveAttribute(
       "src",
       expect.stringContaining("thought-fill"),
@@ -1151,10 +1191,15 @@ describe("App Component", () => {
     for (let tokenId = 1; tokenId <= 8; tokenId += 1) {
       expect(screen.getByText(`$PATH #${tokenId}`)).toBeInTheDocument();
     }
-    expect(screen.getByText("2 / 3")).toBeInTheDocument();
-    expect(screen.getByText("5 / 10")).toBeInTheDocument();
-    expect(screen.getByText("1 / 2")).toBeInTheDocument();
-    expect(screen.getByText("2 / 2")).toBeInTheDocument();
+    expect(
+      [...document.querySelectorAll(".path-page-token")].map((card) =>
+        card.getAttribute("data-path-token-id"),
+      ),
+    ).toEqual(["8", "7", "6", "5", "4", "3", "2", "1"]);
+    expect(screen.getByText("2 / 3 used")).toBeInTheDocument();
+    expect(screen.getByText("5 / 10 used")).toBeInTheDocument();
+    expect(screen.getByText("1 / 2 used")).toBeInTheDocument();
+    expect(screen.getByText("2 / 2 used")).toBeInTheDocument();
     expect(screen.getByText("COMPLETE")).toBeInTheDocument();
     expect(screen.queryByText("Minted(2/3)")).toBeNull();
 
@@ -1181,6 +1226,9 @@ describe("App Component", () => {
   });
 
   test("renders a native PATH detail route", () => {
+    (globalThis as any).__VITE_ENV__ = {
+      VITE_LOCAL_EXPLORER_BASE_URL: "http://127.0.0.1:4000",
+    };
     mockUseAuctionBids.mockReturnValue({
       bids: [
         {
@@ -1207,7 +1255,11 @@ describe("App Component", () => {
     expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
     expect(screen.getByRole("heading", { level: 1, name: "$PATH #4" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "[ all $PATH ]" })).toHaveAttribute("href", "/path");
+    expect(screen.getByRole("link", { name: "[ mint a $PATH ]" })).toHaveAttribute(
+      "href",
+      "/path",
+    );
+    expect(screen.queryByRole("link", { name: "[ verify this $PATH ]" })).toBeNull();
     expect(screen.queryByText("$PATH #1")).toBeNull();
     expect(screen.queryByText("$PATH #8")).toBeNull();
     expect(document.querySelector(".path-page-token--focused")).toBeNull();
@@ -1216,29 +1268,23 @@ describe("App Component", () => {
       expect.stringContaining("will-fill"),
     );
     const lifecycle = within(screen.getByLabelText("$PATH #4 lifecycle"));
+    expect(lifecycle.getByRole("heading", { name: "about" })).toBeInTheDocument();
     expect(
-      lifecycle.getByRole("heading", { name: "about" }),
+      lifecycle.getByText("$PATH is the permission token for movements:"),
     ).toBeInTheDocument();
-    expect(lifecycle.getByText("THOUGHT. WILL. AWA. One after another.")).toBeInTheDocument();
-    expect(lifecycle.queryByText("Three movements.")).toBeNull();
-    fireEvent.click(lifecycle.getByRole("button", { name: "expand about $PATH" }));
-    expect(lifecycle.getByText("Three movements.")).toBeInTheDocument();
+    expect(lifecycle.getByText("THOUGHT WILL AWA")).toBeInTheDocument();
     expect(lifecycle.getByText("Each work mint moves $PATH forward.")).toBeInTheDocument();
-    expect(lifecycle.getByRole("heading", { name: "next movement" })).toBeInTheDocument();
-    expect(lifecycle.getByText("WILL · 9 units remaining")).toBeInTheDocument();
-    expect(lifecycle.getByText("Each unit can authorize one WILL work mint.")).toBeInTheDocument();
-    expect(lifecycle.getByRole("heading", { name: "movement quotas" })).toBeInTheDocument();
-    expect(lifecycle.getByText("One quota. Many units. One unit per work mint.")).toBeInTheDocument();
-    expect(lifecycle.queryByText("One movement holds one quota.")).toBeNull();
-    fireEvent.click(
-      lifecycle.getByRole("button", { name: "expand movement quota guide" }),
-    );
-    expect(lifecycle.getByText("One movement holds one quota.")).toBeInTheDocument();
-    expect(lifecycle.getByText("The final unit opens the next movement.")).toBeInTheDocument();
+    expect(lifecycle.queryByRole("button", { name: /about \$PATH/i })).toBeNull();
+    expect(lifecycle.queryByRole("heading", { name: "next movement" })).toBeNull();
+    expect(lifecycle.getByRole("heading", { name: "mint capacity" })).toBeInTheDocument();
+    expect(lifecycle.getByText("Each movement has its own capacity.")).toBeInTheDocument();
+    expect(lifecycle.getByText("One successful work mint uses one.")).toBeInTheDocument();
+    expect(lifecycle.getByText("Using the full capacity opens the next movement.")).toBeInTheDocument();
+    expect(lifecycle.queryByRole("button", { name: /mint capacity guide/i })).toBeNull();
     expect(lifecycle.getByText("stage")).toBeInTheDocument();
     expect(lifecycle.getAllByText("WILL").length).toBeGreaterThanOrEqual(2);
-    expect(lifecycle.getByText("3 / 3")).toBeInTheDocument();
-    expect(lifecycle.getByText("1 / 10")).toBeInTheDocument();
+    expect(lifecycle.getByText("3 / 3 used")).toBeInTheDocument();
+    expect(lifecycle.getByText("1 / 10 used")).toBeInTheDocument();
     expect(lifecycle.getByRole("heading", { name: "movement tokens" })).toBeInTheDocument();
     expect(lifecycle.getByRole("link", { name: "THOUGHT #4 ↗" })).toHaveAttribute(
       "href",
@@ -1249,27 +1295,47 @@ describe("App Component", () => {
       "title",
       "9041000000000000 wei",
     );
-    expect(lifecycle.getByText("0x2222...1111")).toHaveAttribute(
+    const initialMinterLink = lifecycle.getByRole("link", { name: "0x2222...1111 ↗" });
+    expect(initialMinterLink.closest("dd")).toHaveAttribute(
       "title",
       "0x2222333344445555666677778888999900001111",
     );
-    expect(lifecycle.getByText("412")).toBeInTheDocument();
-    expect(lifecycle.getByText("0x4444...4444")).toHaveAttribute(
+    expect(initialMinterLink).toHaveAttribute(
+      "href",
+      "http://127.0.0.1:4000/address/0x2222333344445555666677778888999900001111",
+    );
+    expect(lifecycle.getByRole("link", { name: "412 ↗" })).toHaveAttribute(
+      "href",
+      "http://127.0.0.1:4000/block/412",
+    );
+    const mintTransactionLink = lifecycle.getByRole("link", { name: "0x4444...4444 ↗" });
+    expect(mintTransactionLink.closest("dd")).toHaveAttribute(
       "title",
       "0x4444444444444444444444444444444444444444444444444444444444444444",
     );
+    expect(mintTransactionLink).toHaveAttribute(
+      "href",
+      "http://127.0.0.1:4000/tx/0x4444444444444444444444444444444444444444444444444444444444444444",
+    );
     expect(lifecycle.getByRole("link", { name: "Pulse ↗" })).toHaveAttribute(
       "href",
-      "/pulse",
+      "/docs#docs-pulse",
     );
     expect(lifecycle.queryByRole("heading", { name: "issuance" })).toBeNull();
     expect(lifecycle.queryByRole("heading", { name: "on-chain record" })).toBeNull();
-    expect(lifecycle.getByText("0x1111...0000")).toHaveAttribute(
+    const ownerLink = lifecycle.getByRole("link", { name: "0x1111...0000 ↗" });
+    expect(ownerLink.closest("dd")).toHaveAttribute(
       "title",
       "0x1111222233334444555566667777888899990000",
     );
+    expect(ownerLink).toHaveAttribute(
+      "href",
+      "http://127.0.0.1:4000/address/0x1111222233334444555566667777888899990000",
+    );
     expect(lifecycle.getByText("ERC-721")).toBeInTheDocument();
-    expect(screen.getByText("canonical artwork · PathNFT tokenURI()")).toBeInTheDocument();
+    expect(lifecycle.getByText("tokenURI()")).toBeInTheDocument();
+    expect(lifecycle.queryByRole("link", { name: "tokenURI() ↗" })).toBeNull();
+    expect(screen.queryByText("canonical artwork · PathNFT tokenURI()")).toBeNull();
   });
 
   test("renders only a not-found state for a missing PATH detail", () => {
@@ -1284,31 +1350,223 @@ describe("App Component", () => {
     expect(screen.queryByLabelText("$PATH #1 card")).toBeNull();
   });
 
-  test("renders PATH documentation on the same-origin docs route", () => {
-    window.history.pushState({}, "", "/docs#docs-path");
+  test("renders the docs shell with the Inshell article by default", async () => {
+    window.history.pushState({}, "", "/docs");
+    const originalExecCommand = document.execCommand;
+    Object.defineProperty(document, "execCommand", {
+      configurable: true,
+      value: jest.fn(() => true),
+    });
+    try {
+      render(<App />);
+
+      expect(document.title).toBe("docs — Inshell");
+      expect(screen.getByRole("heading", { level: 1, name: "docs" })).toBeInTheDocument();
+      expect(screen.getByText(DOCS_SOURCE.subtitle)).toHaveClass(
+        "primitive-page__subtitle",
+      );
+      expect(document.querySelector(".docs-agent__label")).toBeNull();
+      const agentPrompt = screen.getByText(
+        /Read Inshell's public docs index and follow its answer policy/,
+      );
+      expect(agentPrompt).toBeVisible();
+      expect(agentPrompt).toHaveTextContent(
+        `${window.location.origin}/docs/agent-index.json`,
+      );
+      expect(agentPrompt).toHaveTextContent(
+        "If you cannot fetch a required source, say so. Do not guess.",
+      );
+      expect(agentPrompt).toHaveTextContent(
+        "I've read the current Inshell docs. Ask me anything about Inshell.",
+      );
+      fireEvent.click(screen.getByRole("button", { name: "[ copy prompt ]" }));
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(screen.getByRole("button", { name: "[ copied. ]" })).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "Your Agent can also read technical sources beyond the articles below.",
+        ),
+      ).toBeInTheDocument();
+
+      const documentationMenu = screen.getByRole("navigation", {
+        name: "Documentation contents",
+      });
+      expect(document.querySelectorAll(".docs-page__menu-group")).toHaveLength(4);
+      expect(document.querySelectorAll(".docs-page__menu-group > h2")).toHaveLength(0);
+      const articles = DOCS_SOURCE.topics.map((topic) => topic.title);
+      for (const article of articles) {
+        expect(within(documentationMenu).getByRole("link", { name: article })).toBeInTheDocument();
+      }
+      for (const topic of DOCS_SOURCE.topics) {
+        expect(within(documentationMenu).getByRole("link", { name: topic.title })).toHaveAttribute(
+          "href",
+          `/docs/${topic.slug}`,
+        );
+      }
+      expect(within(documentationMenu).getByRole("link", { name: "Inshell" })).toHaveAttribute(
+        "aria-current",
+        "page",
+      );
+      expect(screen.getByRole("heading", { level: 2, name: "Inshell" })).toBeInTheDocument();
+      const topicHeader = document.querySelector(".docs-topic__header");
+      expect(topicHeader).not.toHaveTextContent("current");
+      expect(topicHeader).not.toHaveTextContent("artist-editorial");
+      expect(document.querySelector(".docs-topic__meta")).toBeNull();
+      expect(document.querySelector(".docs-topic__status")).toBeNull();
+      expect(screen.queryByRole("heading", { level: 2, name: "Agent Art" })).toBeNull();
+      expect(screen.queryByRole("heading", { level: 2, name: "PATH" })).toBeNull();
+      const docsContent = screen.getByRole("article", {
+        name: "Documentation content",
+      });
+      const thoughtLink = within(docsContent).getByRole("link", { name: "thought" });
+      expect(thoughtLink).toHaveAttribute("href", "/docs/thought");
+      expect(thoughtLink).toHaveClass("docs-page__inline-link");
+      const agentArtLink = within(docsContent).getByRole("link", { name: "Agent Art" });
+      expect(agentArtLink).toHaveAttribute("href", "/docs/agent-art");
+      expect(agentArtLink).toHaveClass("docs-page__inline-link");
+      expect(screen.getAllByRole("link", { name: "read as Markdown ↗" })).toHaveLength(1);
+      expect(
+        document.head.querySelector('link[rel="alternate"][type="text/markdown"]'),
+      ).toHaveAttribute("href", "/docs/index.md");
+      expect(
+        document.head.querySelector(
+          'link[rel="alternate"][type="application/json"][href="/docs/content.json"]',
+        ),
+      ).toHaveAttribute("title", "Inshell structured documentation");
+      expect(
+        document.head.querySelector(
+          'link[rel="alternate"][type="application/json"][href="/docs/agent-index.json"]',
+        ),
+      ).toHaveAttribute("title", "Inshell Agent documentation index");
+      expect(screen.queryByTestId("auction-canvas")).toBeNull();
+    } finally {
+      Object.defineProperty(document, "execCommand", {
+        configurable: true,
+        value: originalExecCommand,
+      });
+    }
+  });
+
+  test("shows only non-current documentation status beside the article title", () => {
+    const topic = DOCS_SOURCE.topics[0];
+    const originalStatus = topic.status;
+    topic.status = "study";
+
+    try {
+      window.history.pushState({}, "", `/docs/${topic.slug}`);
+      render(<App />);
+
+      expect(document.querySelector(".docs-topic__status")).toHaveTextContent("study");
+      expect(document.querySelector(".docs-topic__meta")).toBeNull();
+      expect(document.querySelector(".docs-topic__header")).not.toHaveTextContent(
+        "artist-editorial",
+      );
+    } finally {
+      topic.status = originalStatus;
+    }
+  });
+
+  test("keeps documentation status and authority taxonomy in the Agent index", () => {
+    const index = JSON.parse(
+      readFileSync(nodePath.resolve(cwd(), "public/docs/agent-index.json"), "utf8"),
+    ) as {
+      documents: Array<{ id: string; status: string; authorities: string[] }>;
+    };
+    const thought = index.documents.find((topic) => topic.id === "thought");
+
+    expect(thought).toMatchObject({
+      status: "current",
+      authorities: [
+        "artist-editorial",
+        "app-documentation",
+        "app-record",
+        "contract-release",
+        "runtime-report",
+      ],
+    });
+  });
+
+  test("keeps Inshell's inline article links in generated Markdown", () => {
+    const markdown = readFileSync(
+      nodePath.resolve(cwd(), "public/docs/inshell.md"),
+      "utf8",
+    );
+
+    expect(markdown).toContain(
+      "Simply inspect your [thought](https://inshell.art/docs/thought).",
+    );
+    expect(markdown).toContain(
+      "[Agent Art](https://inshell.art/docs/agent-art) is the medium of this age.",
+    );
+  });
+
+  test("renders one documentation article with article-specific navigation and metadata", () => {
+    window.history.pushState({}, "", "/docs/path");
     render(<App />);
 
-    expect(document.title).toBe("docs — Inshell");
-    expect(screen.getByRole("heading", { level: 1, name: "docs" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "$PATH" })).toBeInTheDocument();
-    expect(screen.getByText("$PATH is minted by the Pulse auction on the active network.")).toBeInTheDocument();
+    expect(document.title).toBe("PATH — docs — Inshell");
+    const documentationMenu = screen.getByRole("navigation", {
+      name: "Documentation contents",
+    });
+    expect(within(documentationMenu).getByRole("link", { name: "PATH" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("heading", { level: 2, name: "PATH" })).toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: "In this article" })).toBeNull();
+    expect(screen.queryByRole("heading", { level: 2, name: "Inshell" })).toBeNull();
+    expect(screen.queryByRole("heading", { level: 2, name: "Pulse" })).toBeNull();
+    expect(screen.getByText(/Every successful work mint uses one/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "read about Pulse ↗" })).toHaveAttribute(
+      "href",
+      "/docs/pulse",
+    );
+    expect(screen.getByRole("link", { name: "read as Markdown ↗" })).toHaveAttribute(
+      "href",
+      "/docs/path.md",
+    );
     expect(
-      screen.getByText("Each $PATH authorizes movement mints in order: THOUGHT, WILL, then AWA."),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "view $PATH pricing rule ↗" })).toHaveAttribute(
+      document.head.querySelector('meta[property="og:url"]'),
+    ).toHaveAttribute("content", "https://inshell.art/docs/path");
+    expect(
+      document.head.querySelector('link[rel="alternate"][type="text/markdown"]'),
+    ).toHaveAttribute("href", "/docs/path.md");
+    expect(
+      document.head.querySelector(
+        'link[rel="alternate"][type="application/json"][href="/docs/path.json"]',
+      ),
+    ).toHaveAttribute("title", "PATH structured documentation");
+    expect(
+      document.head.querySelector(
+        'link[rel="alternate"][type="application/json"][href="/docs/agent-index.json"]',
+      ),
+    ).toHaveAttribute("title", "Inshell Agent documentation index");
+  });
+
+  test("canonicalizes legacy docs hashes to article routes", async () => {
+    window.history.pushState({}, "", "/docs#docs-path-capacity");
+    render(<App />);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(window.location.pathname).toBe("/docs/path");
+    expect(window.location.hash).toBe("#docs-path-capacity");
+    expect(screen.getByRole("heading", { level: 2, name: "PATH" })).toBeInTheDocument();
+  });
+
+  test("renders a docs-specific not-found state for an unknown article", () => {
+    window.history.pushState({}, "", "/docs/not-a-real-article");
+    render(<App />);
+
+    expect(screen.getByRole("heading", { level: 2, name: "Article not found." })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "open docs ↗" })).toHaveAttribute(
       "href",
-      "/pulse",
+      "/docs",
     );
-    expect(screen.getByRole("link", { name: "verify $PATH contracts ↗" })).toHaveAttribute(
-      "href",
-      "/verify#verify-contracts",
-    );
-    expect(screen.getByRole("heading", { level: 2, name: "verification" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "open verification ↗" })).toHaveAttribute(
-      "href",
-      "/verify",
-    );
-    expect(screen.queryByTestId("auction-canvas")).toBeNull();
   });
 
   test("opens PATH detail routes from collection cards", async () => {
@@ -1392,18 +1650,14 @@ describe("App Component", () => {
 
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
     const lifecycle = within(screen.getByLabelText("$PATH #1 lifecycle"));
-    expect(lifecycle.getByText("THOUGHT · 3 units remaining")).toBeInTheDocument();
-    expect(lifecycle.getByText("Each unit can authorize one THOUGHT work mint.")).toBeInTheDocument();
-    expect(lifecycle.getByRole("link", { name: "create a THOUGHT" })).toHaveAttribute(
-      "href",
-      "/thought",
-    );
-    expect(lifecycle.getByText("One quota. Many units. One unit per work mint.")).toBeInTheDocument();
+    expect(lifecycle.queryByRole("heading", { name: "next movement" })).toBeNull();
+    expect(lifecycle.getByText("Each movement has its own capacity.")).toBeInTheDocument();
+    expect(lifecycle.queryByRole("link", { name: "create a THOUGHT" })).toBeNull();
     expect(lifecycle.getByText("0x1111...0000")).toBeInTheDocument();
     expect(lifecycle.getByText("stage")).toBeInTheDocument();
-    expect(lifecycle.getByText("0 / 3")).toBeInTheDocument();
-    expect(lifecycle.getByText("0 / 10")).toBeInTheDocument();
-    expect(lifecycle.getByText("0 / 2")).toBeInTheDocument();
+    expect(lifecycle.getByText("0 / 3 used")).toBeInTheDocument();
+    expect(lifecycle.getByText("0 / 10 used")).toBeInTheDocument();
+    expect(lifecycle.getByText("0 / 2 used")).toBeInTheDocument();
     expect(lifecycle.queryByRole("link", { name: /THOUGHT #/ })).toBeNull();
   });
 
@@ -1441,7 +1695,7 @@ describe("App Component", () => {
     expect(screen.getByText("runtime source unavailable")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "how this record is made ↗" }),
-    ).toHaveAttribute("href", "/docs#thought-creation-provenance");
+    ).toHaveAttribute("href", "/docs#docs-thought");
     expect(screen.getByText("PATH serial 1")).toBeInTheDocument();
     const txLink = screen.getByRole("link", {
       name: "0x777777777777...7777777777 ↗",
@@ -1800,6 +2054,21 @@ describe("App Component", () => {
       "href",
       "/thought",
     );
+  });
+
+  test("home AWA movement alerts its name", () => {
+    const alertSpy = jest.spyOn(window, "alert").mockImplementation(() => undefined);
+
+    try {
+      render(<App />);
+
+      fireEvent.click(screen.getByRole("button", { name: "AWA!" }));
+
+      expect(alertSpy).toHaveBeenCalledTimes(1);
+      expect(alertSpy).toHaveBeenCalledWith("AWA!");
+    } finally {
+      alertSpy.mockRestore();
+    }
   });
 
   test("sepolia invite exposes floating report bug link", () => {

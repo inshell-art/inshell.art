@@ -623,6 +623,7 @@ type MintFlowData = {
   existingTokenId: number | null;
   pathIdInput: string;
   pathId: bigint | null;
+  permissionEpoch: bigint | null;
   deadline: bigint | null;
   signature: string;
   txHash: string;
@@ -976,7 +977,8 @@ const CODEX_MODE = "codex";
 const CODEX_MODEL_SOURCE_ID = "codex";
 const CODEX_MODEL = "codex";
 const CODEX_PROVIDER = "codex";
-const CODEX_DESCRIPTION = "local Bridge route. opens Codex for one THOUGHT run.";
+const CODEX_DESCRIPTION =
+  "local Bridge route. opens Codex in the ChatGPT desktop app for one THOUGHT run.";
 const getStorageOrNull = (storage: () => Storage | null | undefined) => {
   try {
     const resolved = storage();
@@ -1871,7 +1873,7 @@ const MINT_PREP_LOADING_DETAILS = [
 ] as const;
 const ERC721_TRANSFER_TOPIC = id("Transfer(address,address,uint256)");
 const CONSUME_AUTHORIZATION_TYPEHASH = id(
-  "ConsumeAuthorization(address pathNft,uint256 chainId,uint256 pathId,bytes32 movement,address claimer,address executor,uint256 nonce,uint256 deadline)",
+  "ConsumeAuthorization(address pathNft,uint256 chainId,uint256 pathId,bytes32 movement,address claimer,address executor,uint256 permissionEpoch,uint256 nonce,uint256 deadline)",
 );
 const PATH_CONSUME_AUTH_TTL_SECONDS = 3600n;
 const ROUTE_SEARCH_PARAMS = new URLSearchParams(window.location.search);
@@ -1976,7 +1978,14 @@ const COLOR_FONT_V1_ABI = [
   "function glyphOf(bytes1 letter) pure returns (uint8 ordinal, string aliasTerm, string hexColor)",
 ] as const;
 const PATH_NFT_ABI = [
+  "error BadConsumeAuthorization()",
+  "error BadMovementOrder()",
+  "error ConsumeAuthorizationExpired()",
+  "error NotOwner()",
+  "error QuotaExhausted()",
+  "error SparkSoulbound()",
   "function getConsumeNonce(address claimer) view returns (uint256)",
+  "function getPermissionEpoch(uint256 pathId) view returns (uint256)",
   "function getAuthorizedMinter(bytes32 movement) view returns (address)",
   "function getMovementQuota(bytes32 movement) view returns (uint32)",
   "function isMovementFrozen(bytes32 movement) view returns (bool)",
@@ -2691,6 +2700,16 @@ const agentDemoResultJson = (
 const thoughtAgentProductLabel = (adapterId: ThoughtDockAgentAdapterId) =>
   THOUGHT_DOCK_AGENT_ADAPTERS.find((adapter) => adapter.id === adapterId)?.label ?? "Agent";
 
+const thoughtAgentLaunchActionDescription = (adapterId: ThoughtDockAgentAdapterId) =>
+  adapterId === "codex"
+    ? "open this THOUGHT task in Codex within the ChatGPT desktop app"
+    : `open this THOUGHT task in ${thoughtAgentProductLabel(adapterId)}`;
+
+const thoughtAgentLaunchRequestedDetail = (adapterId: ThoughtDockAgentAdapterId) =>
+  adapterId === "codex"
+    ? "The App asked the ChatGPT desktop app to open this THOUGHT task in Codex."
+    : `The App asked ${thoughtAgentProductLabel(adapterId)} to open this THOUGHT task.`;
+
 const normalizeThoughtAgentProtocolError = (message: string, adapterId: ThoughtDockAgentAdapterId = "codex") => {
   const trimmed = message.trim();
   if (/failed to fetch|network|connection refused|could not connect|econnrefused/i.test(trimmed)) {
@@ -3339,7 +3358,7 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
         ? `${product} launch requested`
         : thoughtDockAgentLifecycleTitle(state.adapterId, state.run.remoteState),
       detail: state.run.remoteState === "created"
-        ? `The App asked ${product} to open this THOUGHT task.`
+        ? thoughtAgentLaunchRequestedDetail(state.adapterId)
         : `${product} is working on this THOUGHT task.`,
       ...(canReopen
         ? { nextStep: `if ${product} did not open, select “open ${product}” above` }
@@ -3709,6 +3728,21 @@ const appendThoughtProgressEllipsis = (
     ellipsis.append(dot);
   }
   element.append(ellipsis);
+};
+
+const syncThoughtProgressEllipsis = (
+  element: HTMLElement,
+  active: boolean,
+) => {
+  const ellipsis = element.querySelector<HTMLElement>(".thought-progress-ellipsis");
+  if (ellipsis) {
+    if (!active) {
+      ellipsis.remove();
+    }
+    return;
+  }
+  if (!active) return;
+  appendThoughtProgressEllipsis(element, element.textContent ?? "", true);
 };
 
 const statusScreenEntry = (lines: HTMLElement[]) => {
@@ -4084,6 +4118,13 @@ const renderThoughtConsoleHistory = (state: ThoughtDockState) => {
   const previousNewestEntryId = thoughtDockDetailsBody.dataset.newestEntryId || undefined;
   const previousScrollTop = thoughtDockDetails.scrollTop;
   const wasPinnedToLatest = previousScrollTop <= THOUGHT_CONSOLE_TOP_EPSILON_PX;
+  const currentElements = new Map(
+    Array.from(thoughtDockDetailsBody.children).flatMap((child) => {
+      if (!(child instanceof HTMLElement)) return [];
+      const id = child.dataset.consoleEntryId;
+      return id ? [[id, child] as const] : [];
+    }),
+  );
   const entries = newestFirstThoughtConsoleEntries(thoughtConsoleHistory.entries).map((entry) => {
     const tone: DockRailTone = entry.tone === "neutral" ? "idle" : entry.tone;
     const guidance = thoughtConsoleVisualRole(entry) === "guidance";
@@ -4091,6 +4132,27 @@ const renderThoughtConsoleHistory = (state: ThoughtDockState) => {
     const nextStep = actionNeeded
       ? entry.nextStep ?? suggestedThoughtConsoleNextStep(entry)
       : entry.nextStep;
+    const progressEntry = isThoughtConsoleProgressEntry(entry);
+    const progressActive = progressEntry &&
+      entry.id === newestEntry?.id &&
+      isThoughtConsoleProgressActive(entry, state);
+    const renderSignature = hashText(JSON.stringify({
+      entry,
+      nextStep: nextStep ?? null,
+      guidance,
+      tone,
+    }));
+    const currentElement = currentElements.get(entry.id);
+    if (currentElement?.dataset.consoleRenderSignature === renderSignature) {
+      if (progressEntry) {
+        const heading = currentElement.querySelector<HTMLElement>(
+          ".thought-dock-status-screen__line--heading",
+        );
+        if (heading) syncThoughtProgressEllipsis(heading, progressActive);
+      }
+      return currentElement;
+    }
+
     const lines = buildThoughtConsoleLines({
       ...entry,
       ...(nextStep ? { nextStep } : {}),
@@ -4099,22 +4161,32 @@ const renderThoughtConsoleHistory = (state: ThoughtDockState) => {
       heading: index === 0,
       tone,
     }));
-    if (lines[0] && isThoughtConsoleProgressEntry(entry)) {
-      appendThoughtProgressEllipsis(
-        lines[0],
-        lines[0].textContent ?? "",
-        entry.id === newestEntry?.id && isThoughtConsoleProgressActive(entry, state),
-      );
+    if (lines[0] && progressEntry) {
+      appendThoughtProgressEllipsis(lines[0], lines[0].textContent ?? "", progressActive);
     }
     const element = statusScreenEntry(lines);
     element.dataset.consoleEntryId = entry.id;
     element.dataset.consoleKind = entry.kind;
     element.dataset.attemptId = entry.context.attemptId;
+    element.dataset.consoleRenderSignature = renderSignature;
     element.classList.toggle("is-boundary", entry.boundary);
     element.classList.toggle("is-current-attempt", entry.context.attemptId === mintAttemptId);
     return element;
   });
-  thoughtDockDetailsBody.replaceChildren(...entries);
+  let cursor = thoughtDockDetailsBody.firstElementChild;
+  for (const element of entries) {
+    if (cursor === element) {
+      cursor = cursor.nextElementSibling;
+    } else {
+      thoughtDockDetailsBody.insertBefore(element, cursor);
+    }
+  }
+  const retainedElements = new Set(entries);
+  for (const element of Array.from(thoughtDockDetailsBody.children)) {
+    if (!retainedElements.has(element as HTMLElement)) {
+      element.remove();
+    }
+  }
   thoughtDockDetailsBody.dataset.newestEntryId = newestEntry?.id ?? "";
   thoughtDockDetails.hidden = false;
   const hasNewLatestEntry = newestEntry?.id !== previousNewestEntryId;
@@ -4337,7 +4409,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         status: "Choose Agent",
         tone: "idle",
         actions: [
-          dockRailAction("codex", "codex", "run this THOUGHT with Codex", () => {
+          dockRailAction("codex", "codex", thoughtAgentLaunchActionDescription("codex"), () => {
             runThoughtDockAdapter("codex");
           }),
           dockRailAction("claude", "claude", "open this THOUGHT in Claude Code", () => {
@@ -4358,7 +4430,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         status: "Choose Agent",
         tone: "idle",
         actions: [
-          dockRailAction("codex", "codex", "open this THOUGHT task in Codex", () => {
+          dockRailAction("codex", "codex", thoughtAgentLaunchActionDescription("codex"), () => {
             runThoughtDockAdapter("codex");
           }),
           dockRailAction("claude", "claude", "open this THOUGHT task in Claude Code", () => {
@@ -5020,7 +5092,7 @@ const startThoughtDockPolling = (
       return true;
     }
 
-    if (activeRun.remoteState === "created" && hasThoughtPollDeadlineExpired(activeRun.expiresAt)) {
+    if (hasThoughtPollDeadlineExpired(activeRun.expiresAt)) {
       terminalHandled = true;
       clearStoredThoughtDockRun(activeRun.runId);
       runState = "run_failed";
@@ -5945,6 +6017,7 @@ const mintFlowData: MintFlowData = {
   existingTokenId: null,
   pathIdInput: "",
   pathId: null,
+  permissionEpoch: null,
   deadline: null,
   signature: "",
   txHash: "",
@@ -8576,6 +8649,7 @@ const verifyThoughtSpecAnchor = async () => {
 
 const clearMintAuthorization = () => {
   mintAuthorizationRequestId += 1;
+  mintFlowData.permissionEpoch = null;
   mintFlowData.deadline = null;
   mintFlowData.signature = "";
   mintFlowData.agent = "";
@@ -8794,8 +8868,11 @@ const signPathConsumeAuthorization = async (
     throw new Error("$PATH signature unavailable.");
   }
   onStage("nonce");
-  const nonce = await withTimeout(
-    pathNft.getConsumeNonce(claimer) as Promise<bigint>,
+  const [permissionEpoch, nonce] = await withTimeout(
+    Promise.all([
+      pathNft.getPermissionEpoch(pathId) as Promise<bigint>,
+      pathNft.getConsumeNonce(claimer) as Promise<bigint>,
+    ]),
     PATH_AUTHORIZATION_REQUEST_TIMEOUT_MS,
     "$PATH signature request timed out.",
   );
@@ -8813,6 +8890,7 @@ const signPathConsumeAuthorization = async (
         "address",
         "uint256",
         "uint256",
+        "uint256",
       ],
       [
         CONSUME_AUTHORIZATION_TYPEHASH,
@@ -8822,6 +8900,7 @@ const signPathConsumeAuthorization = async (
         PATH_MOVEMENT_THOUGHT,
         claimer,
         THOUGHT_NFT_ADDRESS,
+        permissionEpoch,
         nonce,
         deadline,
       ],
@@ -8829,7 +8908,7 @@ const signPathConsumeAuthorization = async (
   );
   onStage("signature");
   const signature = await signer.signMessage(getBytes(structHash));
-  return { deadline, signature };
+  return { permissionEpoch, deadline, signature };
 };
 
 const copyToClipboard = async (value: string) => {
@@ -11427,6 +11506,7 @@ const authorizeMint = async () => {
       },
     );
     if (requestId !== mintAuthorizationRequestId) return;
+    mintFlowData.permissionEpoch = consumeAuth.permissionEpoch;
     mintFlowData.deadline = consumeAuth.deadline;
     mintFlowData.signature = consumeAuth.signature;
     mintFlowState = "authorized";
@@ -12742,6 +12822,7 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
     !mintFlowData.provenanceJson ||
     !mintFlowData.thoughtSpecId ||
     !mintFlowData.thoughtSpecHash ||
+    mintFlowData.permissionEpoch === null ||
     !mintFlowData.deadline ||
     !mintFlowData.signature ||
     !activeMintWork
@@ -12768,6 +12849,7 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
     account: walletState.address,
     pathId: mintFlowData.pathId,
     rawText: mintFlowData.rawText,
+    permissionEpoch: mintFlowData.permissionEpoch,
     deadline: mintFlowData.deadline,
     signature: mintFlowData.signature,
   });
@@ -12792,6 +12874,7 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
       walletState.address.toLowerCase() !== capturedAuthorization.account.toLowerCase() ||
       mintFlowData.pathId !== capturedAuthorization.pathId ||
       mintFlowData.rawText !== capturedAuthorization.rawText ||
+      mintFlowData.permissionEpoch !== capturedAuthorization.permissionEpoch ||
       mintFlowData.deadline !== capturedAuthorization.deadline ||
       mintFlowData.signature !== capturedAuthorization.signature
     ) {
@@ -12827,6 +12910,16 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
     const eligibility = await readPathEligibility(payload.pathId, signerAddress);
     if (!eligibility.ok) {
       setMintFlowError(eligibility.message, eligibility.kind);
+      syncInterface();
+      return null;
+    }
+    const livePathNft = getReadPathNft();
+    const livePermissionEpoch = livePathNft
+      ? await livePathNft.getPermissionEpoch(payload.pathId) as bigint
+      : null;
+    if (livePermissionEpoch !== capturedAuthorization.permissionEpoch) {
+      clearMintAuthorization();
+      setMintFlowError("$PATH changed after it was signed.", "signature");
       syncInterface();
       return null;
     }

@@ -1,0 +1,552 @@
+{
+  "schema": "inshell.thought.app-contract-integration-lock.v2",
+  "id": "thought-v2-canonical-portable-release-20260801-r1",
+  "status": "canonical-portable-local-acceptance",
+  "productionConsumable": true,
+  "deploymentAuthorized": false,
+  "artifact": {
+    "artifactId": "thought-v2-canonical-portable-release-20260801-r1",
+    "classification": "canonical-portable-contract-release",
+    "manifestSha256": "4d60feba36165c19a3cf3680078cc6baa7ba066c147ca607e5c82d0306f65b1a",
+    "sourceTag": "thought-v2-canonical-portable-release-20260801-r1",
+    "sourceTagPublished": true,
+    "sourceCommit": "a48191f5c0d5b51fab0de26707eaed86f2f1da5b",
+    "sourcePublicationCommit": "9617892bda9d7f7e880b614f84f1b6360ad8a652",
+    "productionConsumable": true,
+    "deploymentAuthorized": false,
+    "registrationApplicable": false,
+    "registrationAuthorized": false
+  },
+  "artifactGraph": {
+    "schema": "inshell.thought.closed-artifact-graph.v1",
+    "closed": true,
+    "release": {
+      "manifestSha256": "4d60feba36165c19a3cf3680078cc6baa7ba066c147ca607e5c82d0306f65b1a",
+      "fileCount": 71,
+      "filesSha256": "481ba569a83bf1759e73790c03fb4a42b60426fd2f908e6aafa470a6217eab25",
+      "files": [
+        {
+          "byteLength": 36126,
+          "path": "contract/compiled/CreationAttestationVerifierV2.json",
+          "sha256": "207da0ebf4bb89fc4e008a6a85ece1ed46fc4d59f1686ed8e7b03d9d23150518"
+        },
+        {
+          "byteLength": 5687,
+          "path": "contract/compiled/ICreationAttestationVerifierV2.json",
+          "sha256": "b342a8fe6c16f3f7053d6f4841c22ab0f3e64f3a7cb3aa17349aef29dc35eb98"
+        },
+        {
+          "byteLength": 4320,
+          "path": "contract/compiled/IThoughtRendererV2.json",
+          "sha256": "568b2fd2e480e277a15a48e2a9d1ae5c341bd8e6a86927ca681128ca2263133e"
+        },
+        {
+          "byteLength": 3391,
+          "path": "contract/compiled/IThoughtSvgRendererV2.json",
+          "sha256": "3ec701be7f850242e8c1e841f7d8d69f26daa89522ac88f9e41c7be2fb20af73"
+        },
+        {
+          "byteLength": 116966,
+          "path": "contract/compiled/ThoughtNFTV2.json",
+          "sha256": "7413b430cbdccee597768b7c6b75d88beeccd51b3d6b6ae853264e02ded1b0fc"
+        },
+        {
+          "byteLength": 94760,
+          "path": "contract/compiled/ThoughtRendererV2.json",
+          "sha256": "bd360a58fe1aa7d3a8b82a0491db31a4d4dca88e4a81880b52b27c29bd00437f"
+        },
+        {
+          "byteLength": 54684,
+          "path": "contract/compiled/ThoughtRendererV2Split.json",
+          "sha256": "5b58c4b5e29cb96dfe84010cab30d2a38c57595b210fda378bfc75039c3e7679"
+        },
+        {
+          "byteLength": 31310,
+          "path": "contract/compiled/ThoughtSpecRegistry.json",
+          "sha256": "461a0a54f6ab7a07c66491ea28697184b51abee2042d2b0b06837378495c532d"
+        },
+        {
+          "byteLength": 13916,
+          "path": "contract/compiled/ThoughtSpecRegistryV2.json",
+          "sha256": "a4dd41ea531cfed129fdaffa9be49a5f277564571a976549521d0d0e8502cb9d"
+        },
+        {
+          "byteLength": 48450,
+          "path": "contract/compiled/ThoughtSvgRendererV2.json",
+          "sha256": "e0ba236be155553f1a999872fe05c146b490c3fa0b7b4319b52ac8f51cd82f2c"
+        },
+        {
+          "byteLength": 3723,
+          "path": "contract/index.json",
+          "sha256": "69c5f28cd276fcdd22974112cb437e7cbcd4563c581da392e3a71ad51535adca"
+        },
+        {
+          "byteLength": 21389,
+          "path": "dependencies/mono-76/glyphs.json",
+          "sha256": "7ed61ed6335fce2c1e58184916f5d344b8384fc05d4c616e83c35ad4fa9ed47f"
+        },
+        {
+          "byteLength": 4240,
+          "path": "dependencies/mono-76/HANDOFF.md",
+          "sha256": "2938ccebf1ef4b862370c35eb6f655f95825fae178a3d6eac2c0e21ce3eed031"
+        },
+        {
+          "byteLength": 5234,
+          "path": "dependencies/mono-76/index.mjs",
+          "sha256": "701b72023138f9ed59cf2a303489d00275f71d4983a4a857ad68950e252d6d77"
+        },
+        {
+          "byteLength": 387,
+          "path": "dependencies/mono-76/LICENSES.md",
+          "sha256": "9527d9bf0cf4ca91976349190f85ddc4130f9a779595b0169355ce632522213f"
+        },
+        {
+          "byteLength": 1561,
+          "path": "dependencies/mono-76/manifest.json",
+          "sha256": "3506060e6262da142b5d6cc858d03ebe875f3b9a5c52edc30d078b2f4a944c8c"
+        },
+        {
+          "byteLength": 371,
+          "path": "dependencies/mono-76/NOTICE.md",
+          "sha256": "b3710d851a323736371369a68281d5c27b0c7c84a8e67f457f8cacce0825d064"
+        },
+        {
+          "byteLength": 2776,
+          "path": "dependencies/mono-76/onchain/decoder.mjs",
+          "sha256": "95dba164b34f18f32025e58b738cda7c98c29206e48305a456f28928b94be71b"
+        },
+        {
+          "byteLength": 656,
+          "path": "dependencies/mono-76/onchain/metadata.json",
+          "sha256": "0245728579ad2d929403935e0d0646e66f3b0a08fe73a2e16e4092ee50660480"
+        },
+        {
+          "byteLength": 4600,
+          "path": "dependencies/mono-76/onchain/packed.bin",
+          "sha256": "3acc0a9cf60c00aa2d512356386d1e2a999499896e25661e8e631d53d5e10926"
+        },
+        {
+          "byteLength": 9203,
+          "path": "dependencies/mono-76/onchain/packed.hex",
+          "sha256": "3a05d62ccbd82cad03d7c2521bf1396ce5bb323f36d5a4ce5c0b3f54b3971690"
+        },
+        {
+          "byteLength": 1053,
+          "path": "dependencies/mono-76/package.json",
+          "sha256": "4bb311c1647f17b56420ac6a8d649f8ec2658757023225710dcc467084e43c1c"
+        },
+        {
+          "byteLength": 1564,
+          "path": "dependencies/mono-76/PROVENANCE.md",
+          "sha256": "ee9fc87dc3e254061d59f2383cfeccb644409f0e6c2fb369af3d810d938cefaf"
+        },
+        {
+          "byteLength": 484,
+          "path": "dependencies/mono-76/README.md",
+          "sha256": "9754bb3797e2c90df29e9ad1e4996a00ef450fe92ce0c60dd2a393b5b67f0755"
+        },
+        {
+          "byteLength": 1201,
+          "path": "dependencies/mono-76/SHA256SUMS",
+          "sha256": "bfc2076443f5268e3505f7ff5bf3994e19d2c8d6c17a3a9394c533ffdbc0b9b0"
+        },
+        {
+          "byteLength": 463,
+          "path": "dependencies/mono-76/UNLICENSED.md",
+          "sha256": "0c474524707e464dfe534342e091babfc283a1f0c39395c4e141a92353ef773f"
+        },
+        {
+          "byteLength": 5775,
+          "path": "dependencies/mono-76/verify.mjs",
+          "sha256": "4e7ce6acbd22053bc5ed2609990dea002e1b813f13539b3259738544fc0f723e"
+        },
+        {
+          "byteLength": 88889,
+          "path": "fixtures/neutral-agent-model-token-uri-examples.anvil.json",
+          "sha256": "5c3ec9289d9c04926d20c4307e58be3f00c29dd9ebb0a1c640d1ff0c72385d5c"
+        },
+        {
+          "byteLength": 4616,
+          "path": "handoff.md",
+          "sha256": "4e60be1280ec7260335dbd917628805cc2028d81fd39f06ac79e0f49a5c49a9b"
+        },
+        {
+          "byteLength": 548,
+          "path": "limitations.json",
+          "sha256": "448be9a92ae5c1739ba18448eb900416019abb0b5228ffa9d9e6372f809ac22b"
+        },
+        {
+          "byteLength": 710,
+          "path": "protocol/current/v2/agent/thought.agent-declaration.v1.schema.json",
+          "sha256": "d9564d994763e643c77d853d9200f39a31677f718c715dce3b4c3ec29f406afd"
+        },
+        {
+          "byteLength": 2241,
+          "path": "protocol/current/v2/attestation/fixtures/creation-attestation-v2-vectors.json",
+          "sha256": "864078414975468447cb754f665543787f2c90143de70af7f2dfb0283e05ae0d"
+        },
+        {
+          "byteLength": 3753,
+          "path": "protocol/current/v2/attestation/thought.creation-workflow-attestation.v2.md",
+          "sha256": "7bb817b84df2537b3e9cb7bc46c7cc729c6557911abf4f58579672d2cf3aff5c"
+        },
+        {
+          "byteLength": 1090,
+          "path": "protocol/current/v2/conformance/work-hash-vectors.json",
+          "sha256": "2fc13425cee5da853ac0f9b658857c5cf89c0bbdf6e6c55583ded6bf0e5ab6fb"
+        },
+        {
+          "byteLength": 1179,
+          "path": "protocol/current/v2/context/thought.context.v2.profile.json",
+          "sha256": "2d81e42a3690869f86c2dc2b753a82af33ec7ecdbe079e5a41b9e0ce8482f63f"
+        },
+        {
+          "byteLength": 2347,
+          "path": "protocol/current/v2/contract/thought.mint-input.v2.schema.json",
+          "sha256": "716054091c607f748aa083049a4bd6dcbe009bb207a1526f5cd2855a1a441654"
+        },
+        {
+          "byteLength": 6306,
+          "path": "protocol/current/v2/integration/thought.app-contract-boundary.v1.json",
+          "sha256": "7df6d3ec3c91c3dbad3da032c7967c8c21bd72f99ff9777c1567bd926a888bc1"
+        },
+        {
+          "byteLength": 7989,
+          "path": "protocol/current/v2/integration/thought.app-contract-boundary.v1.md",
+          "sha256": "03a1e2de26a5ebf2dbe5299215f6e967535a5df0d9cc7cd8f7849bd68e711e4d"
+        },
+        {
+          "byteLength": 1662,
+          "path": "protocol/current/v2/metadata/thought.metadata.v2.profile.json",
+          "sha256": "a08842ac2bf8432a054f182f0a93fe8e73c3d0bdf9c73239018c4c78e6363af7"
+        },
+        {
+          "byteLength": 3454,
+          "path": "protocol/current/v2/provenance/thought.provenance.v2.md",
+          "sha256": "495aee4aab4d43170a16f64e431d3d507839fd5b68be277351aeaf26f1687a7a"
+        },
+        {
+          "byteLength": 6272,
+          "path": "protocol/current/v2/provenance/thought.provenance.v2.schema.json",
+          "sha256": "0a353167ea460f7fb24c52d0cce106c9bedaa348e561bab1c683beb43fa59398"
+        },
+        {
+          "byteLength": 4030,
+          "path": "protocol/current/v2/README.md",
+          "sha256": "d5547e7fea681461817ee59000912745d712f5236cb8391caa7a759a55f530a9"
+        },
+        {
+          "byteLength": 3367,
+          "path": "protocol/current/v2/release-input.json",
+          "sha256": "c2849df2b025360e7b5108a884b7fbacf0168685f2c55c9218712f53fd6f456e"
+        },
+        {
+          "byteLength": 2540,
+          "path": "protocol/current/v2/renderer/experiments/classic-book/classic-book.im76.bin",
+          "sha256": "3ab51d7dcdce7e358e7c76002b8f78ddaa448a99de2116a238f7e22209f2bd60"
+        },
+        {
+          "byteLength": 3094,
+          "path": "protocol/current/v2/renderer/experiments/classic-book/thought.renderer.v2.classic-book.experiment.json",
+          "sha256": "b7f047f381d22090cb67a7b4e461b1f29117b6df561e5b8e14dc703a816ce51b"
+        },
+        {
+          "byteLength": 2631,
+          "path": "protocol/current/v2/renderer/experiments/classic-compact/classic-compact.im76.bin",
+          "sha256": "204bf9e84103b57175e1dc0be06b3f42e91a4d0f8fb5b8b7457b52ff63c79393"
+        },
+        {
+          "byteLength": 3114,
+          "path": "protocol/current/v2/renderer/experiments/classic-compact/thought.renderer.v2.classic-compact.experiment.json",
+          "sha256": "d480004484e3d62e7098629078f4e7e4e92e812fed55793e40a47ce249292832"
+        },
+        {
+          "byteLength": 2514,
+          "path": "protocol/current/v2/renderer/experiments/classic-line/classic-line.im76.bin",
+          "sha256": "d06f7403b4963d8f46e6e8559c7ab0e4a21a65aa3681b210bfe433d74ea56b42"
+        },
+        {
+          "byteLength": 3094,
+          "path": "protocol/current/v2/renderer/experiments/classic-line/thought.renderer.v2.classic-line.experiment.json",
+          "sha256": "279537baabdac99fe073139dc5ae407076346f7d1d5522275e7e1eca3c2e607e"
+        },
+        {
+          "byteLength": 2696,
+          "path": "protocol/current/v2/renderer/experiments/classic-round/classic-round.im76.bin",
+          "sha256": "72ea88523caf278828b833368c4a3a289f7b80866ac464325d04f031c48e3a01"
+        },
+        {
+          "byteLength": 3101,
+          "path": "protocol/current/v2/renderer/experiments/classic-round/thought.renderer.v2.classic-round.experiment.json",
+          "sha256": "084a3e8b2b085975e3807911ec1bf8a2ace3e50026c53cbf61c2abed1d8e4b22"
+        },
+        {
+          "byteLength": 15557,
+          "path": "protocol/current/v2/renderer/humanist-smooth-defs-1.svgfrag",
+          "sha256": "e344b7b8af8b9b11094594cf1e8d7efb05572e6d81b99d60c9afd313cc7a42bd"
+        },
+        {
+          "byteLength": 12779,
+          "path": "protocol/current/v2/renderer/humanist-smooth-defs-2.svgfrag",
+          "sha256": "95e5e25a99f3cc176e80d3aebe42be3230b50d489d1788aa1d22e58350030962"
+        },
+        {
+          "byteLength": 375,
+          "path": "protocol/current/v2/renderer/humanist-smooth-index.bin",
+          "sha256": "daa5c1b21eba07ab39712bc560faaf4156d137ee3575c5323cf98539c9ca8102"
+        },
+        {
+          "byteLength": 4473,
+          "path": "protocol/current/v2/renderer/LICENSE-HUMANIST-SMOOTH-OFL-1.1.md",
+          "sha256": "6234e3f17f21084f690e3adae017a32f866d5880ed2b5daaae59d8d78f021968"
+        },
+        {
+          "byteLength": 4600,
+          "path": "protocol/current/v2/renderer/mono-76.im76.bin",
+          "sha256": "3acc0a9cf60c00aa2d512356386d1e2a999499896e25661e8e631d53d5e10926"
+        },
+        {
+          "byteLength": 782,
+          "path": "protocol/current/v2/renderer/NOTICE-HUMANIST-SMOOTH.md",
+          "sha256": "aa70cd4ab472ebaaddbc870e0affd7826b018c1b22d6fb2a423681d24949a0a2"
+        },
+        {
+          "byteLength": 3544,
+          "path": "protocol/current/v2/renderer/thought.renderer.v2.profile.json",
+          "sha256": "3ce86a2db35a969aea2d3286688adddbf5fa2daf1fd71ccefd37171e91fad3c5"
+        },
+        {
+          "byteLength": 4627,
+          "path": "protocol/current/v2/THOUGHT.v2.md",
+          "sha256": "90df786a3ffb5ec38bffd09ff356ec560d0b7dddcdf57170891149a92a399e9b"
+        },
+        {
+          "byteLength": 5952,
+          "path": "protocol/current/v2/work/thought.work.v2.md",
+          "sha256": "5e051b981978df13266e292796a92fe0e8d87d874bf8183ba6947a914c0216e4"
+        },
+        {
+          "byteLength": 2254,
+          "path": "protocol/current/v2/work/thought.work.v2.profile.json",
+          "sha256": "f7b2981d1bdf15923a1b73cc91dea0bbf6483f469583a3f66cb71c414f4382bf"
+        },
+        {
+          "byteLength": 815,
+          "path": "protocol/current/v2/work/thought.work.v2.schema.json",
+          "sha256": "47571f007fc4325ceab960be2d41bc286fa0ca71d303d57c3487d7673823e066"
+        },
+        {
+          "byteLength": 357,
+          "path": "README.json",
+          "sha256": "a696f54d5bbc427f5d9a9d494db20b4c1aeb193e7600b2a4187e9f0ddacffe2e"
+        },
+        {
+          "byteLength": 994,
+          "path": "reference/thought-v2-canonical-json.ts",
+          "sha256": "1392290634e9e6ce93f3fdbc58cf1f3d672f9696fc9e8656e761e8ce2c4f74db"
+        },
+        {
+          "byteLength": 3255,
+          "path": "reference/thought-v2-context-profile.ts",
+          "sha256": "be4c3223491ef5b09c560bbbb1b23dd143e6855f6d1d72707e0e51d286cc6a8d"
+        },
+        {
+          "byteLength": 5286,
+          "path": "reference/thought-v2-current-creation-attestation.ts",
+          "sha256": "8a8e42bd0c456e4b56b97ee9b5d76ebb79d6398ada988f8e807eebd88474876a"
+        },
+        {
+          "byteLength": 21092,
+          "path": "reference/thought-v2-terminal-provenance.ts",
+          "sha256": "e78145a72c0b07b641d716ac1cca3111bccb64d67795ce88eec6fde966b01ad2"
+        },
+        {
+          "byteLength": 4872,
+          "path": "reference/thought-v2-terminal-work-profile.ts",
+          "sha256": "345bb3783bb859995b0d109a55f1553c7ac42662c665c58dd57147d033284b22"
+        },
+        {
+          "byteLength": 295,
+          "path": "validation/producer-tests.json",
+          "sha256": "a8d5ed79cfa279c141aed4a4b6f8c7c44a6f7179220800344c19b549b63770e7"
+        },
+        {
+          "byteLength": 7613,
+          "path": "validation/r11-to-canonical-portable-release.json",
+          "sha256": "522c9a9c1784156cc9d91c0f50eb5a44e589bb8d0503ab0452c361c6d118b7f0"
+        },
+        {
+          "byteLength": 2700,
+          "path": "validation/runtime-size-and-target-chains.json",
+          "sha256": "fbbc043ca018a6e5b2a665db4acef360e0f6b5ba838c421f6f295460768bcda5"
+        }
+      ]
+    },
+    "appOwned": {
+      "creativeSpec": {
+        "path": "apps/thought/spec/THOUGHT.v2.md",
+        "ref": "app://thought/creative-spec/thought-v2-selected-spec-20260801-r10/THOUGHT.v2.md",
+        "byteLength": 4627,
+        "sha256": "90df786a3ffb5ec38bffd09ff356ec560d0b7dddcdf57170891149a92a399e9b",
+        "keccak256": "0xb2b0a167678816a7ae9dc9098b0d6a6852c0dc95feb59f9581de75bd2cc2231f"
+      },
+      "provenanceSchema": {
+        "path": "apps/thought/provenance/v2/thought.provenance.v2.schema.json",
+        "ref": "app://thought/provenance/thought-provenance-v2-20260731-r1/thought.provenance.v2.schema.json",
+        "byteLength": 5606,
+        "sha256": "210abc0735cf7fb480491ec94f04495deb153560838c514c8f2ef19541821ff8",
+        "keccak256": "0x283afe4c96527dd33c17b99444a5ef27300b01af474e2daca1d5c017a50dafa4"
+      }
+    },
+    "consumer": {
+      "previewRenderer": "pinned-contract-only",
+      "legacyFrontendRendererAllowed": false,
+      "requiredRendererId": "inshell.thought.svg.v2.terminal-chat-path-glyphs",
+      "requiredRendererImplementationId": "inshell.thought.renderer.v2.mono-76-v1-im76-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom"
+    }
+  },
+  "source": {
+    "repository": "THOUGHT",
+    "tag": "thought-v2-canonical-portable-release-20260801-r1",
+    "commit": "a48191f5c0d5b51fab0de26707eaed86f2f1da5b",
+    "dirtySnapshot": false,
+    "immutableConsumerRelease": true,
+    "artifactIntegrityVerified": true
+  },
+  "boundary": {
+    "id": "inshell.thought.app-contract-boundary.v1",
+    "sha256": "7df6d3ec3c91c3dbad3da032c7967c8c21bd72f99ff9777c1567bd926a888bc1",
+    "authoritative": false
+  },
+  "chain": {
+    "chainId": 31337,
+    "runtimeDescriptorSchema": "inshell.thought.v2.anvil-gallery-runtime.v1",
+    "runtimeAddressSource": "external-local-generated-descriptor",
+    "committedAddresses": false
+  },
+  "runtimeBaseline": {
+    "protocolRelease": {
+      "id": "0x556973fd1ded2e8aa704d9e7e90c5eef2e4792bd1a7660e7a434964dac75cc5e",
+      "manifestHash": "0x08ad7d098ffee99bb05eef41d4a270bbeca35f9cdba2830b8754b3d4413996ef",
+      "manifestFile": "runtime-manifest.json",
+      "manifestSha256": "fa97da156eb2ea9280050f25d9eabd4eaedcbf5ae1c8972ac1ce44d05ef12b61",
+      "status": "registered-disposable-anvil",
+      "rendererProfileHash": "0x01982604c90acf1ca63020e0c3761b25d8dc8fc3c267d27ace14cb0d2c813d73",
+      "workProfileHash": "0x2bf311e6034eb35e6d1f7bd92894012ee7e528609830cb3b28df1ce5dd82f85a",
+      "contextProfileHash": "0x9894359f9294f4b3a871442b19d851203138fad4a648c16f62fc04f55dff02b8",
+      "metadataProfileHash": "0x4cefae9cf44cc61bc8ec16e266ecb31f53e634834fe5975cc564ae9dfc51858b",
+      "creationAttestationProfileHash": "0x5759a606b1b0b1ba997b2d7b851c7e2022ed8ff4e0238e55e29ad8b36ce9194a",
+      "rendererImplementationId": "inshell.thought.renderer.v2.mono-76-v1-im76-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom"
+    },
+    "selectedSpec": {
+      "name": "THOUGHT.v2.md",
+      "id": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410",
+      "hash": "0xb2b0a167678816a7ae9dc9098b0d6a6852c0dc95feb59f9581de75bd2cc2231f",
+      "ref": "dev://thought/contract-release/thought-v2-canonical-portable-release-20260801-r1/THOUGHT.v2.md",
+      "byteLength": 4627,
+      "sha256": "90df786a3ffb5ec38bffd09ff356ec560d0b7dddcdf57170891149a92a399e9b",
+      "file": "thought.selected-spec.md"
+    }
+  },
+  "contract": {
+    "name": "ThoughtNFTV2",
+    "sourceArtifactSha256": "7413b430cbdccee597768b7c6b75d88beeccd51b3d6b6ae853264e02ded1b0fc",
+    "abi": {
+      "entryCount": 106,
+      "canonicalJsonSha256": "fe5b520f8c918d08cdfec067cb66034c8f0f470febc8bdf83c352f58c4aabf1e",
+      "file": "thought-nft-v2.abi.json"
+    },
+    "deployedBytecodeSha256": "7d818453e4cd26ed6a23a3052142d36888aaa84f58d08e690b2504d0976462c5"
+  },
+  "renderer": {
+    "name": "ThoughtRendererV2",
+    "sourceArtifactSha256": "bd360a58fe1aa7d3a8b82a0491db31a4d4dca88e4a81880b52b27c29bd00437f",
+    "abi": {
+      "entryCount": 42,
+      "canonicalJsonSha256": "dd0a4f6b0d1757188ba29f6bc729d528ea117f360da373994e5676f9d7999e02",
+      "file": "thought-renderer-v2.abi.json"
+    },
+    "deployedBytecodeSha256": "5e4157f51487a0a83fb0ba9cfff635dbdd2a84dc734512811907937c8de0da6d",
+    "profile": {
+      "id": "inshell.thought.svg.v2.terminal-chat-path-glyphs",
+      "implementationId": "inshell.thought.renderer.v2.mono-76-v1-im76-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom",
+      "glyphLibraryMemberId": "inshell.mono-76",
+      "glyphPackedBytes": 4600,
+      "glyphPackedKeccak256": "0xba37d00bb395b84f0487791300a29cdd2b1712b078fa218c6ed74fa11d74a081",
+      "glyphPackedSha256": "3acc0a9cf60c00aa2d512356386d1e2a999499896e25661e8e631d53d5e10926",
+      "externalUrlBase": "https://inshell.art/thought/",
+      "rendererReleaseReady": true,
+      "usesForeignObject": false,
+      "usesNativeSvgPaths": true
+    }
+  },
+  "verifier": {
+    "name": "CreationAttestationVerifierV2",
+    "sourceArtifactSha256": "207da0ebf4bb89fc4e008a6a85ece1ed46fc4d59f1686ed8e7b03d9d23150518",
+    "abi": {
+      "entryCount": 39,
+      "canonicalJsonSha256": "722e698a4ec0ad137085f1c3775e8d6d3b7dafdb59573fde9785f208cc941af9",
+      "file": "creation-attestation-verifier.abi.json"
+    },
+    "interfaceAbi": {
+      "entryCount": 3,
+      "canonicalJsonSha256": "7bc4edc7b5dddce55b5cb6502258f936f273398947a0448f4ef9086bae3e0ef1",
+      "file": "creation-attestation-verifier-interface.abi.json"
+    },
+    "signerPolicy": "backend-only-disposable-anvil-mock"
+  },
+  "profiles": {
+    "work": {
+      "id": "inshell.thought.work.v2.terminal-english-64",
+      "sha256": "f7b2981d1bdf15923a1b73cc91dea0bbf6483f469583a3f66cb71c414f4382bf"
+    },
+    "context": {
+      "id": "inshell.thought.context.v2.visible-utf8-64",
+      "sha256": "2d81e42a3690869f86c2dc2b753a82af33ec7ecdbe079e5a41b9e0ce8482f63f"
+    },
+    "metadata": {
+      "id": "inshell.thought.metadata.v2.terminal-chat",
+      "sha256": "a08842ac2bf8432a054f182f0a93fe8e73c3d0bdf9c73239018c4c78e6363af7"
+    },
+    "provenance": {
+      "id": "inshell.thought.provenance.v2",
+      "sha256": "0a353167ea460f7fb24c52d0cce106c9bedaa348e561bab1c683beb43fa59398"
+    },
+    "creationAttestation": {
+      "id": "inshell.thought.creation-workflow-attestation.v2",
+      "sha256": "7bb817b84df2537b3e9cb7bc46c7cc729c6557911abf4f58579672d2cf3aff5c"
+    }
+  },
+  "schemas": {
+    "mintInputSha256": "716054091c607f748aa083049a4bd6dcbe009bb207a1526f5cd2855a1a441654",
+    "provenanceSha256": "0a353167ea460f7fb24c52d0cce106c9bedaa348e561bab1c683beb43fa59398"
+  },
+  "references": {
+    "thought-v2-canonical-json.ts": {
+      "byteLength": 994,
+      "sha256": "1392290634e9e6ce93f3fdbc58cf1f3d672f9696fc9e8656e761e8ce2c4f74db"
+    },
+    "thought-v2-context-profile.ts": {
+      "byteLength": 3255,
+      "sha256": "be4c3223491ef5b09c560bbbb1b23dd143e6855f6d1d72707e0e51d286cc6a8d"
+    },
+    "thought-v2-current-creation-attestation.ts": {
+      "byteLength": 5286,
+      "sha256": "8a8e42bd0c456e4b56b97ee9b5d76ebb79d6398ada988f8e807eebd88474876a"
+    },
+    "thought-v2-terminal-provenance.ts": {
+      "byteLength": 21092,
+      "sha256": "e78145a72c0b07b641d716ac1cca3111bccb64d67795ce88eec6fde966b01ad2"
+    },
+    "thought-v2-terminal-work-profile.ts": {
+      "byteLength": 4872,
+      "sha256": "345bb3783bb859995b0d109a55f1553c7ac42662c665c58dd57147d033284b22"
+    }
+  },
+  "security": {
+    "containsPrivateKey": false,
+    "containsRuntimeAddresses": false,
+    "productionSignerDefined": false,
+    "rendererReleaseReady": true
+  }
+}

@@ -17,9 +17,11 @@ import { onRequestPost as onIndexerEventPost } from "../../../functions/api/inde
 import { onRequestPost as onIndexerRefreshPost } from "../../../functions/api/indexer/refresh";
 import { onRequestGet as onOpsStatusGet } from "../../../functions/api/ops/status";
 import { onRequestGet as onPathTokensGet } from "../../../functions/api/path-tokens";
+import { onRequestGet as onPathRecordGet } from "../../../functions/api/path-record";
 import { onRequestGet as onPulseAuctionGet } from "../../../functions/api/pulse-auction";
 import { onRequestGet as onThoughtImageGet } from "../../../functions/api/thought-image";
 import { onRequestGet as onThoughtProvenanceGet } from "../../../functions/api/thought-provenance";
+import { onRequestGet as onThoughtRecordGet } from "../../../functions/api/thought-record";
 import { onRequestGet as onThoughtSpecGet } from "../../../functions/api/thought-spec";
 
 const originalFetch = globalThis.fetch;
@@ -246,6 +248,7 @@ describe("chain cache Pages functions", () => {
   });
 
   test("indexes PATH transfer logs behind the same-origin JSON API", async () => {
+    globalThis.Request = TestRequest as unknown as typeof Request;
     globalThis.Response = TestResponse as unknown as typeof Response;
     globalThis.Headers = TestHeaders as unknown as typeof Headers;
     const fetchMock = jest.fn(async (_url: unknown, init?: any) => {
@@ -303,6 +306,21 @@ describe("chain cache Pages functions", () => {
       "https://target-path-rpc.example/sepolia",
       expect.objectContaining({ method: "POST" })
     );
+
+    const record = await onPathRecordGet({
+      request: new Request("https://preview.inshell.art/api/path-record?id=1"),
+      env: {
+        PATH_PRIMARY_RPC_UPSTREAM: "https://target-path-rpc.example/sepolia",
+        PATH_RPC_UPSTREAM: "https://path-rpc.example/sepolia",
+      },
+    });
+    const recordPayload = (await record.json()) as any;
+    expect(record.status).toBe(200);
+    expect(recordPayload.schema).toBe("inshell.path.public-record.v1");
+    expect(recordPayload.authority).toEqual(
+      expect.objectContaining({ kind: "chain-observation", chainId: 11155111 }),
+    );
+    expect(recordPayload.token.tokenIdLabel).toBe("1");
   });
 
   test("falls back when primary PATH RPC rejects eth_getLogs block ranges", async () => {
@@ -1993,6 +2011,10 @@ describe("chain cache Pages functions", () => {
       request: new Request("https://preview.inshell.art/api/thought-provenance?id=9"),
       env,
     });
+    const record = await onThoughtRecordGet({
+      request: new Request("https://preview.inshell.art/api/thought-record?id=9"),
+      env,
+    });
     const spec = await onThoughtSpecGet({
       request: new Request("https://preview.inshell.art/api/thought-spec?id=9"),
       env,
@@ -2006,6 +2028,16 @@ describe("chain cache Pages functions", () => {
     expect(await provenance.json()).toEqual({
       schema: "thought.provenance.v1",
       prompt: "test prompt",
+    });
+    expect(record.status).toBe(200);
+    expect(await record.json()).toEqual({
+      schema: "inshell.thought.public-record.v1",
+      authority: {
+        kind: "chain-observation",
+        observedAtBlock: null,
+        transactionHash: null,
+      },
+      token: expect.objectContaining({ tokenId: 9 }),
     });
     expect(spec.status).toBe(200);
     expect(await spec.json()).toEqual({

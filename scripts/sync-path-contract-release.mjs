@@ -7,19 +7,19 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const releaseTag = "v0.4.2";
-const releasePublicationCommit = "8a8e4fe91857fdff8c54e9d4cc918b1e1f08cd76";
-const contractSourceCommit = "1c846e1cfcd761a8e7b7e908edfa655204b62036";
-const manifestSha256 = "41cd0bc56398fe6823a3bd40a7497851b8ec132a8002a4f0a15bc5b284a29393";
+const releaseTag = "v0.5.0";
+const releasePublicationCommit = "085cfc084b0e568740e0da639e968eb535f7e5c8";
+const contractSourceCommit = "5a1ab1f137e76c80dc69045dc520454f6e07cbb1";
+const manifestSha256 = "a81355b459b40faea894cf1dfb7f484765a7ec62672039dd62d58a3a52849921";
 const canonicalContracts = ["PathNFT", "PathPulseAdapter", "PulseAuction"];
 const checksums = {
-  "DOWNSTREAM_HANDOFF.md": "257da7a4f547f3fb01698cd440ca9606101af38ef4ff0c4ccaa4455c68527670",
-  "abi/PathNFT.json": "cf91b546154e6c69a6ea664ce3fcdc01bebb2c9f930d994fa9711068f701ea3c",
+  "DOWNSTREAM_HANDOFF.md": "da97dc3399b9c212ff7cbabc16b5b7c9a3601416765d33d846bd75874c7593de",
+  "abi/PathNFT.json": "c66d840e88064753923668e6107ab9de8ce62130fa798de6f159540a14e899fe",
   "abi/PathPulseAdapter.json": "d248fbff3b9f429f4627bcaa65ac47f1df468bd00abd7b53efca08a8ea72c031",
   "abi/PulseAuction.json": "26cfa9162b98b3c6f43f943403b2697e9ded310df647377a0de6105a97ff086a",
-  "hardhat/PathNFT.json": "d22d1f41f4621b36cabc4768f9139a5a9ed11b935537523b31baee28e61e9d1f",
-  "hardhat/PathPulseAdapter.json": "91d344bb7f38c2e49d457090429a5c1a4c8aa80e147652ad53f082070a179671",
-  "hardhat/PulseAuction.json": "b7ec12760ffbb0c9baa1d6e80d37d26bee599a9d5589cd21be31826366709081",
+  "hardhat/PathNFT.json": "c7e136539f94d6b5a4e3068c6afc1eaed26dea6c465d5716e83e2fc101d5583e",
+  "hardhat/PathPulseAdapter.json": "ae0237c5731663e4a61fe1a676cec039665eea4d7fee26ee1a193305e58e1a31",
+  "hardhat/PulseAuction.json": "d6ee3a6460fb02e6e391861ceab73b4fb8ee8cff0f1d514ca8695f717cdab796",
   "manifest.json": manifestSha256,
 };
 const releaseFiles = [
@@ -86,6 +86,10 @@ function findFunction(abi, name) {
   return abi.find((entry) => entry?.type === "function" && entry.name === name);
 }
 
+function findEntry(abi, type, name) {
+  return abi.find((entry) => entry?.type === type && entry.name === name);
+}
+
 async function listFiles(directory, relativeDirectory = "") {
   const entries = await fs.readdir(path.join(directory, relativeDirectory), {
     withFileTypes: true,
@@ -105,7 +109,7 @@ async function listFiles(directory, relativeDirectory = "") {
 async function verifyRelease(directory) {
   const actualFiles = await listFiles(directory);
   if (JSON.stringify(actualFiles) !== JSON.stringify(releaseFiles)) {
-    throw new Error("PATH v0.4.2 release file inventory mismatch");
+    throw new Error(`PATH ${releaseTag} release file inventory mismatch`);
   }
   const checksumJson = await readJson(path.join(directory, "checksums.json"));
   const checksumText = await fs.readFile(path.join(directory, "SHA256SUMS.txt"), "utf8");
@@ -113,14 +117,14 @@ async function verifyRelease(directory) {
     JSON.stringify(checksumJson) !== JSON.stringify(checksums) ||
     JSON.stringify(parseSha256Sums(checksumText)) !== JSON.stringify(checksums)
   ) {
-    throw new Error("PATH v0.4.2 checksum inventory mismatch");
+    throw new Error(`PATH ${releaseTag} checksum inventory mismatch`);
   }
 
   for (const [relativePath, expectedSha256] of Object.entries(checksums)) {
     const bytes = await fs.readFile(path.join(directory, relativePath));
     const actualSha256 = sha256(bytes);
     if (actualSha256 !== expectedSha256) {
-      throw new Error(`PATH v0.4.2 file mismatch: ${relativePath} (${actualSha256})`);
+      throw new Error(`PATH ${releaseTag} file mismatch: ${relativePath} (${actualSha256})`);
     }
   }
 
@@ -133,7 +137,7 @@ async function verifyRelease(directory) {
     manifest.compatibility?.networkAddressesIncluded !== false ||
     manifest.compatibility?.legacyMintContractsIncluded !== false
   ) {
-    throw new Error("PATH v0.4.2 manifest identity or safety policy mismatch");
+    throw new Error(`PATH ${releaseTag} manifest identity or safety policy mismatch`);
   }
 
   for (const contract of canonicalContracts) {
@@ -155,7 +159,7 @@ async function verifyRelease(directory) {
       (bytecode.length - 2) / 2 !== contractManifest.creationBytecodeBytes ||
       (deployedBytecode.length - 2) / 2 !== contractManifest.runtimeBytecodeBytes
     ) {
-      throw new Error(`PATH v0.4.2 ABI/bytecode manifest mismatch: ${contract}`);
+      throw new Error(`PATH ${releaseTag} ABI/bytecode manifest mismatch: ${contract}`);
     }
   }
 
@@ -163,12 +167,21 @@ async function verifyRelease(directory) {
   const consumeUnit = findFunction(pathAbi, "consumeUnit");
   if (
     !findFunction(pathAbi, "getMovementQuota") ||
+    !findFunction(pathAbi, "getPermissionEpoch") ||
     !findFunction(pathAbi, "isSparker") ||
+    !findFunction(pathAbi, "locked") ||
+    !findFunction(pathAbi, "sparkName") ||
+    !findFunction(pathAbi, "getSparkInvitation") ||
     !findFunction(pathAbi, "allowSparker") ||
     !findFunction(pathAbi, "mintSparker") ||
+    !findEntry(pathAbi, "event", "PermissionEpochAdvanced") ||
+    !findEntry(pathAbi, "event", "Locked") ||
+    !findEntry(pathAbi, "event", "Unlocked") ||
+    !findEntry(pathAbi, "error", "BadConsumeAuthorization") ||
+    !findEntry(pathAbi, "error", "SparkSoulbound") ||
     consumeUnit?.outputs?.[0]?.type !== "uint32"
   ) {
-    throw new Error("PATH v0.4.2 canonical movement/self-claim ABI is incomplete");
+    throw new Error(`PATH ${releaseTag} canonical permission/Spark ABI is incomplete`);
   }
 
   return manifest;
@@ -199,7 +212,7 @@ async function main() {
   const manifest = await verifyRelease(destination);
   const actualLock = await readJson(lockFile);
   if (JSON.stringify(actualLock) !== JSON.stringify(expectedLock(manifest))) {
-    throw new Error("PATH v0.4.2 consumer lock mismatch");
+    throw new Error(`PATH ${releaseTag} consumer lock mismatch`);
   }
 
   console.log(JSON.stringify({

@@ -94,6 +94,7 @@ assert.equal(Number(network.chainId), release.chainId, "Anvil chain ID mismatch"
 const pathAbi = [
   "function ownerOf(uint256 tokenId) view returns (address)",
   "function getConsumeNonce(address claimer) view returns (uint256)",
+  "function getPermissionEpoch(uint256 pathId) view returns (uint256)",
   "function getStage(uint256 tokenId) view returns (uint8)",
   "function getAuthorizedMinter(bytes32 movement) view returns (address)",
 ] as const;
@@ -168,8 +169,9 @@ const runSmoke = async () => {
     : wallClockTimestamp;
   const deadline = authorizationBaseTimestamp + 3600n;
   const nonce = await pathNft.getConsumeNonce(minter);
+  const permissionEpoch = await pathNft.getPermissionEpoch(pathId);
   const consumeTypehash = id(
-    "ConsumeAuthorization(address pathNft,uint256 chainId,uint256 pathId,bytes32 movement,address claimer,address executor,uint256 nonce,uint256 deadline)",
+    "ConsumeAuthorization(address pathNft,uint256 chainId,uint256 pathId,bytes32 movement,address claimer,address executor,uint256 permissionEpoch,uint256 nonce,uint256 deadline)",
   );
   const structHash = keccak256(AbiCoder.defaultAbiCoder().encode(
     [
@@ -182,6 +184,7 @@ const runSmoke = async () => {
       "address",
       "uint256",
       "uint256",
+      "uint256",
     ],
     [
       consumeTypehash,
@@ -191,6 +194,7 @@ const runSmoke = async () => {
       pathMovement,
       minter,
       release.contracts.thoughtNft,
+      permissionEpoch,
       nonce,
       deadline,
     ],

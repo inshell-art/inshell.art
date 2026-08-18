@@ -105,4 +105,82 @@ describe("HeaderWalletCTA", () => {
     fireEvent.click(copyButton);
     expect(onCopyNotice).not.toHaveBeenCalled();
   });
+
+  test("honors disabled and dot visibility states", () => {
+    const onCtaClick = jest.fn();
+    const { container } = render(
+      <HeaderWalletCTA
+        ctaLabel="mint"
+        ctaDisabled
+        onCtaClick={onCtaClick}
+        showWalletDot={false}
+      />,
+    );
+    const cta = screen.getByRole("button", { name: /mint/i });
+    expect(cta).toBeDisabled();
+    fireEvent.click(cta);
+    expect(onCtaClick).not.toHaveBeenCalled();
+    expect(container.querySelector(".dotfield__cta-address")).toBeNull();
+  });
+
+  test("closes its menu on Escape and an outside pointer", () => {
+    const { container } = render(
+      <div>
+        <HeaderWalletCTA ctaLabel="mint" onCtaClick={() => {}} />
+        <button type="button">outside</button>
+      </div>,
+    );
+    const dotButton = container.querySelector(
+      ".dotfield__cta-address",
+    ) as HTMLElement;
+
+    fireEvent.click(dotButton);
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+
+    fireEvent.click(dotButton);
+    fireEvent.mouseDown(screen.getByRole("button", { name: "outside" }));
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  test("uses the configured explorer and does not claim a failed copy", async () => {
+    (globalThis as any).__VITE_ENV__ = {
+      VITE_EXPLORER_BASE_URL: "https://explorer.example/",
+    };
+    mockWalletState = createWalletState({
+      chain: { name: "Local Devnet Testnet", network: "devnet" },
+    });
+    (navigator.clipboard.writeText as jest.Mock).mockRejectedValueOnce(
+      new Error("clipboard denied") as never,
+    );
+    const onCopyNotice = jest.fn();
+    const { container } = render(
+      <HeaderWalletCTA
+        ctaLabel="mint"
+        onCtaClick={() => {}}
+        onCopyNotice={onCopyNotice}
+        lastTxHash="0xabc123"
+        dotState="amber"
+      />,
+    );
+    const dotButton = container.querySelector(
+      ".dotfield__cta-address",
+    ) as HTMLElement;
+    expect(dotButton).toHaveAttribute("title", expect.stringContaining("Local Devnet"));
+    expect(container.querySelector(".dotfield__cta-dot")).toHaveClass("is-pending");
+    fireEvent.click(dotButton);
+
+    expect(screen.getByRole("link", { name: "open in explorer" })).toHaveAttribute(
+      "href",
+      `https://explorer.example/address/${mockWalletState.address}`,
+    );
+    expect(screen.getByRole("link", { name: "last tx" })).toHaveAttribute(
+      "href",
+      "https://explorer.example/tx/0xabc123",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "copy address" }));
+    await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalled());
+    expect(onCopyNotice).not.toHaveBeenCalled();
+  });
 });

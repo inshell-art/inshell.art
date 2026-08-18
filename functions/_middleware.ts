@@ -370,11 +370,32 @@ function normalizePathname(pathname: string) {
   return pathname.replace(/\/+$/, "");
 }
 
+function parseDocsArticleSlug(pathname: string) {
+  const match = /^\/docs\/([a-z0-9]+(?:-[a-z0-9]+)*)$/.exec(pathname);
+  return match?.[1] ?? null;
+}
+
+const DOCS_ARTICLE_SLUGS = new Set([
+  "inshell",
+  "agent-art",
+  "movements",
+  "thought",
+  "path",
+  "pulse",
+  "contracts",
+  "artwork-metadata-chain",
+  "verification",
+  "wallet-local-data",
+  "source-release-boundaries",
+  "design-principles",
+]);
+
 function isAppShellRoute(pathname: string) {
   return (
     pathname === "/" ||
     pathname === "/pulse" ||
     pathname === "/docs" ||
+    parseDocsArticleSlug(pathname) !== null ||
     pathname === "/color-font" ||
     pathname === "/verify" ||
     pathname === "/path-app" ||
@@ -566,7 +587,7 @@ async function serveAppShell(ctx: MiddlewareContext): Promise<Response> {
   } else {
     response = await ctx.next(request);
   }
-  return withAppShellHeaders(response);
+  return withAppShellHeaders(response, ctx.request);
 }
 
 async function serveThoughtAppShell(ctx: MiddlewareContext): Promise<Response> {
@@ -580,18 +601,83 @@ async function serveThoughtAppShell(ctx: MiddlewareContext): Promise<Response> {
   } else {
     response = await ctx.next(request);
   }
-  return withAppShellHeaders(response);
+  return withAppShellHeaders(response, ctx.request);
 }
 
-function withAppShellHeaders(response: Response) {
+async function withAppShellHeaders(response: Response, request: Request) {
   const headers = new Headers(response.headers);
   headers.delete("clear-site-data");
   headers.set("cache-control", APP_SHELL_CACHE_CONTROL);
-  return new Response(response.body, {
+  const url = new globalThis.URL(request.url);
+  headers.set("link", appShellDiscoveryLink(url.pathname));
+  const contentType = headers.get("content-type")?.toLowerCase() ?? "";
+  if (request.method === "HEAD" || !contentType.includes("text/html")) {
+    return new Response(request.method === "HEAD" ? null : response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  }
+
+  const canonicalPath = appShellCanonicalPath(url.pathname);
+  const canonicalUrl = `https://inshell.art${canonicalPath}`;
+  const html = (await response.text())
+    .replace(
+      /<link rel="canonical" href="[^"]*"\s*\/>/i,
+      `<link rel="canonical" href="${canonicalUrl}" />`,
+    )
+    .replace(
+      /<meta property="og:url" content="[^"]*"\s*\/>/i,
+      `<meta property="og:url" content="${canonicalUrl}" />`,
+    );
+  return new Response(html, {
     status: response.status,
     statusText: response.statusText,
     headers,
   });
+}
+
+function appShellCanonicalPath(rawPathname: string) {
+  const pathname = normalizePathname(rawPathname);
+  if (isAppShellRoute(pathname) || isThoughtAppShellRoute(pathname)) return pathname;
+  return "/";
+}
+
+function appShellDiscoveryLink(rawPathname: string) {
+  const pathname = normalizePathname(rawPathname);
+  const docsArticleSlug = parseDocsArticleSlug(pathname);
+  const links = [
+    '</docs/agent-index.json>; rel="alternate"; type="application/json"; title="Inshell Agent documentation index"',
+  ];
+  if (pathname === "/docs") {
+    links.unshift(
+      '</docs/index.md>; rel="alternate"; type="text/markdown"; title="Inshell documentation"',
+      '</docs/content.json>; rel="alternate"; type="application/json"; title="Inshell structured documentation"',
+    );
+  } else if (docsArticleSlug && DOCS_ARTICLE_SLUGS.has(docsArticleSlug)) {
+    links.unshift(
+      `</docs/${docsArticleSlug}.md>; rel="alternate"; type="text/markdown"; title="Inshell documentation article"`,
+      `</docs/${docsArticleSlug}.json>; rel="alternate"; type="application/json"; title="Inshell structured documentation article"`,
+    );
+  } else if (docsArticleSlug) {
+    links.unshift(
+      '</docs/content.json>; rel="alternate"; type="application/json"; title="Inshell structured documentation"',
+    );
+  }
+  const pathId = parseTokenRouteId(pathname, "path");
+  if (pathId) {
+    links.unshift(
+      `</api/path-record?id=${pathId}>; rel="alternate"; type="application/json"; title="$PATH #${pathId} public record"`,
+    );
+  }
+  const thoughtId = parseTokenRouteId(pathname, "thought");
+  if (thoughtId) {
+    links.unshift(
+      `</api/thought-record?id=${thoughtId}>; rel="alternate"; type="application/json"; title="THOUGHT #${thoughtId} public record"`,
+      `</api/thought-provenance?id=${thoughtId}>; rel="alternate"; type="application/json"; title="THOUGHT #${thoughtId} provenance"`,
+    );
+  }
+  return links.join(", ");
 }
 
 async function proxyFeed(url: string, request: Request): Promise<Response> {

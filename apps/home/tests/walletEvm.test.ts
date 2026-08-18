@@ -62,7 +62,7 @@ describe("wallet EVM transport helpers", () => {
   test("window.ethereum.providers fallback keeps MetaMask and Rabby separate", () => {
     (window as any).ethereum = {
       providers: [
-        mockProvider({ isRabby: true }),
+        mockProvider({ isRabby: true, isMetaMask: true }),
         mockProvider({ isMetaMask: true }),
       ],
     };
@@ -73,6 +73,77 @@ describe("wallet EVM transport helpers", () => {
       "MetaMask",
       "Rabby",
     ]);
+  });
+
+  test("keeps top-level Rabby when nested providers list only MetaMask", () => {
+    const metamask = mockProvider({ isMetaMask: true });
+    const rabby = mockProvider({
+      isRabby: true,
+      isMetaMask: true,
+      providers: [metamask],
+    });
+    (window as any).ethereum = rabby;
+
+    const providers = fallbackWindowEthereumProviders();
+
+    expect(providers.map((provider) => provider.info.name)).toEqual([
+      "MetaMask",
+      "Rabby",
+    ]);
+    expect(providers.find((provider) => provider.info.name === "Rabby")?.provider)
+      .toBe(rabby);
+  });
+
+  test("EIP-6963 discovery keeps fallback MetaMask when another wallet announces", async () => {
+    const metamask = mockProvider({ isMetaMask: true });
+    const rabby = mockProvider({ isRabby: true });
+    (window as any).ethereum = {
+      providers: [metamask, rabby],
+    };
+    const onRequest = () => {
+      window.dispatchEvent(
+        new globalThis.CustomEvent(EIP6963_ANNOUNCE_EVENT, {
+          detail: {
+            info: { uuid: "rabby", name: "Rabby", rdns: "io.rabby" },
+            provider: rabby,
+          },
+        }),
+      );
+    };
+    window.addEventListener(EIP6963_REQUEST_EVENT, onRequest);
+
+    const providers = await discoverEip6963Providers(0);
+
+    window.removeEventListener(EIP6963_REQUEST_EVENT, onRequest);
+    expect(providers.map((provider) => provider.info.name)).toEqual([
+      "MetaMask",
+      "Rabby",
+    ]);
+  });
+
+  test("EIP-6963 announcement wins over a legacy fallback for the same wallet", async () => {
+    const announcedMetaMask = mockProvider({ isMetaMask: true });
+    const legacyMetaMask = mockProvider({ isMetaMask: true });
+    (window as any).ethereum = {
+      providers: [legacyMetaMask],
+    };
+    const onRequest = () => {
+      window.dispatchEvent(
+        new globalThis.CustomEvent(EIP6963_ANNOUNCE_EVENT, {
+          detail: {
+            info: { uuid: "mm", name: "MetaMask", rdns: "io.metamask" },
+            provider: announcedMetaMask,
+          },
+        }),
+      );
+    };
+    window.addEventListener(EIP6963_REQUEST_EVENT, onRequest);
+
+    const providers = await discoverEip6963Providers(0);
+
+    window.removeEventListener(EIP6963_REQUEST_EVENT, onRequest);
+    expect(providers).toHaveLength(1);
+    expect(providers[0]?.provider).toBe(announcedMetaMask);
   });
 
   test("reconnects only the explicitly selected injected wallet", () => {

@@ -62,6 +62,10 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Check Agent docs source lock
+        run: pnpm run docs:check
+      - name: Check upstream release freshness
+        run: pnpm run check:upstream-releases
       - name: Check deploy config
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -144,6 +148,10 @@ jobs:
           sudo apt-get install --yes zsh
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Check Agent docs source lock
+        run: pnpm run docs:check
+      - name: Check upstream release freshness
+        run: pnpm run check:upstream-releases
       - name: Check deploy config
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

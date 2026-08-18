@@ -247,6 +247,12 @@
   line-height: inherit;
 }
 
+.inshell-wallet-picker__status {
+  margin: var(--shell-wallet-picker-note-margin);
+  color: var(--muted);
+  font: inherit;
+}
+
 .inshell-wallet-picker__note a {
   color: inherit;
   text-decoration: underline;
@@ -281,9 +287,14 @@
   margin-block-start: var(--shell-wallet-picker-item-gap);
 }
 
-.inshell-wallet-picker__item:hover,
-.inshell-wallet-picker__item:focus-visible {
+.inshell-wallet-picker__item:not(:disabled):hover,
+.inshell-wallet-picker__item:not(:disabled):focus-visible {
   color: var(--accent);
+}
+
+.inshell-wallet-picker__item:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
 }
 
 .inshell-wallet-picker__notice {

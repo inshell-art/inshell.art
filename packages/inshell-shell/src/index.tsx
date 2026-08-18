@@ -32,8 +32,22 @@ export type InshellWalletModalProps = {
 
 export type InshellWalletPickerProps = {
   connectors: WalletConnector[];
-  onConnect: (connector: WalletConnector) => void;
+  onConnect: (connector: WalletConnector) => void | Promise<void>;
+  pendingConnectorId?: string | null;
+  status?: string;
 };
+
+type WalletConnectResult = {
+  address: string | null;
+  chainId: number | null;
+};
+
+type WalletConnectAsync = (args?: {
+  connector?: WalletConnector;
+}) => Promise<WalletConnectResult>;
+
+const WALLET_ATTENTION_DELAY_MS = 5_000;
+const WALLET_STALLED_DELAY_MS = 30_000;
 
 function shortAddress(address?: string | null) {
   if (!address) return "";
@@ -49,6 +63,105 @@ function networkLabel(chain?: { id?: number; name?: string; network?: string }) 
   return raw.replace(/\btestnet\b/gi, "").replace(/\s+/g, " ").trim() || "unknown";
 }
 
+function walletConnectionNotice(error: unknown) {
+  const code = Number((error as any)?.code);
+  const message = String((error as any)?.message ?? "").trim();
+  if (
+    code === -32002 ||
+    /already pending|already processing|previous (?:request|transaction)/i.test(
+      message
+    )
+  ) {
+    return "a wallet request is already open. open your wallet and approve or cancel it.";
+  }
+  if (code === 4001 || /user rejected|user denied|request rejected/i.test(message)) {
+    return "wallet connection canceled. choose a wallet to try again.";
+  }
+  return message || "wallet connection failed.";
+}
+
+function walletPendingNotice(
+  connector: WalletConnector | undefined,
+  stalled: boolean
+) {
+  const connectorName = connector?.name ?? "wallet";
+  const isWalletConnect =
+    connector?.kind === "walletconnect" ||
+    connectorName.toLowerCase().includes("walletconnect");
+  if (isWalletConnect) {
+    return stalled
+      ? "still waiting for WalletConnect. finish or cancel the connection there. if no request appears, reload this page."
+      : "finish or cancel the connection in WalletConnect.";
+  }
+  return stalled
+    ? `still waiting for ${connectorName}. approve or cancel the request there. if no request appears, restart ${connectorName} and reload this page.`
+    : `open ${connectorName} from your browser toolbar, then approve or cancel the connection.`;
+}
+
+function useWalletConnectionAttempt(connectAsync: WalletConnectAsync) {
+  const [notice, setNotice] = useState("");
+  const [pendingConnectorId, setPendingConnectorId] = useState<string | null>(
+    null
+  );
+  const connectAttemptRef = useRef<Promise<void> | null>(null);
+  const attemptNumberRef = useRef(0);
+  const timersRef = useRef<number[]>([]);
+
+  const clearGuidanceTimers = () => {
+    for (const timer of timersRef.current) window.clearTimeout(timer);
+    timersRef.current = [];
+  };
+
+  useEffect(() => clearGuidanceTimers, []);
+
+  const connectWith = (connector?: WalletConnector) => {
+    if (connectAttemptRef.current) return connectAttemptRef.current;
+    clearGuidanceTimers();
+    const attemptNumber = ++attemptNumberRef.current;
+    const connectorId = connector?.id ?? "wallet";
+    const connectorName = connector?.name ?? "wallet";
+    setPendingConnectorId(connectorId);
+    setNotice(`opening ${connectorName}...`);
+    timersRef.current = [
+      window.setTimeout(() => {
+        if (attemptNumberRef.current !== attemptNumber) return;
+        setNotice(walletPendingNotice(connector, false));
+      }, WALLET_ATTENTION_DELAY_MS),
+      window.setTimeout(() => {
+        if (attemptNumberRef.current !== attemptNumber) return;
+        setNotice(walletPendingNotice(connector, true));
+      }, WALLET_STALLED_DELAY_MS),
+    ];
+    const attempt = (async () => {
+      try {
+        await connectAsync(connector ? { connector } : undefined);
+        if (attemptNumberRef.current === attemptNumber) {
+          setNotice("wallet connected.");
+        }
+      } catch (error) {
+        if (attemptNumberRef.current === attemptNumber) {
+          setNotice(walletConnectionNotice(error));
+        }
+      } finally {
+        if (attemptNumberRef.current === attemptNumber) {
+          clearGuidanceTimers();
+          setPendingConnectorId(null);
+          connectAttemptRef.current = null;
+        }
+      }
+    })();
+    connectAttemptRef.current = attempt;
+    return attempt;
+  };
+
+  return {
+    connectWith,
+    notice,
+    pendingConnectorId,
+    setNotice,
+  };
+}
+
 async function copyText(value: string) {
   if (!value) return false;
   try {
@@ -62,9 +175,17 @@ async function copyText(value: string) {
 export function InshellWalletPicker({
   connectors,
   onConnect,
+  pendingConnectorId,
+  status,
 }: InshellWalletPickerProps) {
+  const isPending = Boolean(pendingConnectorId);
   return (
-    <div className="inshell-wallet-picker" role="menu" aria-label="Wallet options">
+    <div
+      className="inshell-wallet-picker"
+      role="menu"
+      aria-label="Wallet options"
+      aria-busy={isPending}
+    >
       <div className="inshell-wallet-picker__title">wallet options</div>
       <p className="inshell-wallet-picker__note">
         Connecting shares your address only. No signature or transaction. {" "}
@@ -72,12 +193,23 @@ export function InshellWalletPicker({
           verify ↗
         </a>
       </p>
+      {status ? (
+        <p
+          className="inshell-wallet-picker__status"
+          role="status"
+          aria-live="polite"
+        >
+          {status}
+        </p>
+      ) : null}
       {connectors.map((connector) => (
         <button
           key={connector.id}
           type="button"
           className="inshell-wallet-picker__item"
           role="menuitem"
+          disabled={isPending}
+          aria-busy={pendingConnectorId === connector.id}
           onClick={() => onConnect(connector)}
         >
           {connector.name}
@@ -99,20 +231,11 @@ export function InshellWalletModal({ expectedChainId, onRefresh }: InshellWallet
     isConnected,
     refreshWallet,
   } = useWallet();
-  const [notice, setNotice] = useState("");
+  const { connectWith, notice, pendingConnectorId, setNotice } =
+    useWalletConnectionAttempt(connectAsync);
   const expectedMismatch = Boolean(
     expectedChainId && chainId && chainId !== expectedChainId
   );
-
-  const connectWith = async (connector?: WalletConnector) => {
-    setNotice("");
-    try {
-      await connectAsync(connector ? { connector } : undefined);
-      setNotice("wallet connected.");
-    } catch (error) {
-      setNotice(String((error as any)?.message ?? "wallet connection failed."));
-    }
-  };
 
   const handleRefresh = async () => {
     setNotice("");
@@ -173,13 +296,20 @@ export function InshellWalletModal({ expectedChainId, onRefresh }: InshellWallet
               <button
                 key={connector.id}
                 type="button"
+                disabled={Boolean(pendingConnectorId)}
+                aria-busy={pendingConnectorId === connector.id}
                 onClick={() => void connectWith(connector)}
               >
                 {connector.name}
               </button>
             ))
           ) : (
-            <button type="button" onClick={() => void connectWith()}>
+            <button
+              type="button"
+              disabled={Boolean(pendingConnectorId)}
+              aria-busy={pendingConnectorId === "wallet"}
+              onClick={() => void connectWith()}
+            >
               connect wallet
             </button>
           )
@@ -215,32 +345,24 @@ export function InshellTopBar({
     connectError,
     isConnected,
     isConnecting,
+    refreshConnectors,
   } = useWallet();
   const [open, setOpen] = useState(false);
-  const [notice, setNotice] = useState("");
+  const { connectWith, notice, pendingConnectorId } =
+    useWalletConnectionAttempt(connectAsync);
   const barRef = useRef<HTMLDivElement | null>(null);
   const links = useMemo(() => resolveInshellLinks(), []);
   const expectedMismatch = Boolean(
     expectedChainId && chainId && chainId !== expectedChainId
   );
-  const dotState = connectError
-    ? "error"
-    : isConnecting || expectedMismatch
+  const dotState = isConnecting || pendingConnectorId || expectedMismatch
     ? "pending"
+    : connectError
+    ? "error"
     : isConnected
     ? "on"
     : "off";
   const addressLabel = shortAddress(address);
-
-  const connectWith = async (connector: WalletConnector) => {
-    setNotice("");
-    try {
-      await connectAsync({ connector });
-      setNotice("wallet connected.");
-    } catch (error) {
-      setNotice(String((error as any)?.message ?? "wallet connection failed."));
-    }
-  };
 
   useEffect(() => {
     if (!open) return;
@@ -261,12 +383,15 @@ export function InshellTopBar({
   }, [open]);
 
   useEffect(() => {
-    const openWallet = () => setOpen(true);
+    const openWallet = () => {
+      setOpen(true);
+      if (!isConnected) void refreshConnectors();
+    };
     window.addEventListener(INSHELL_OPEN_WALLET_EVENT, openWallet);
     return () => {
       window.removeEventListener(INSHELL_OPEN_WALLET_EVENT, openWallet);
     };
-  }, []);
+  }, [isConnected, refreshConnectors]);
 
   useEffect(() => {
     announceInshellWalletVisibility(open);
@@ -319,7 +444,11 @@ export function InshellTopBar({
           <button
             className="inshell-topbar__wallet"
             type="button"
-            onClick={() => setOpen((value) => !value)}
+            onClick={() => {
+              const nextOpen = !open;
+              setOpen(nextOpen);
+              if (nextOpen && !isConnected) void refreshConnectors();
+            }}
             aria-label={isConnected && addressLabel ? `wallet ${addressLabel}` : "connect wallet"}
             aria-expanded={open}
             aria-haspopup="dialog"
@@ -351,9 +480,10 @@ export function InshellTopBar({
               <>
                 <InshellWalletPicker
                   connectors={connectors}
+                  pendingConnectorId={pendingConnectorId}
+                  status={notice}
                   onConnect={(connector) => void connectWith(connector)}
                 />
-                {notice ? <p className="inshell-wallet-picker__notice">{notice}</p> : null}
               </>
             ) : (
               <InshellWalletModal expectedChainId={expectedChainId} onRefresh={onWalletRefresh} />

@@ -44,6 +44,7 @@ const renderer = createThoughtRendererV2Contract(
 );
 const pathNft = new Contract(runtime.contracts.pathNft, [
   "function getConsumeNonce(address claimer) view returns (uint256)",
+  "function getPermissionEpoch(uint256 pathId) view returns (uint256)",
 ], signer);
 const localAuction = runtime as typeof runtime & {
   pathAuction: { openTime: number };
@@ -60,13 +61,16 @@ const registry = new Contract(runtime.contracts.thoughtSpecRegistry, [
 const abiCoder = AbiCoder.defaultAbiCoder();
 const movement = encodeBytes32String("THOUGHT");
 const consumeAuthorizationTypehash = id(
-  "ConsumeAuthorization(address pathNft,uint256 chainId,uint256 pathId,bytes32 movement,address claimer,address executor,uint256 nonce,uint256 deadline)",
+  "ConsumeAuthorization(address pathNft,uint256 chainId,uint256 pathId,bytes32 movement,address claimer,address executor,uint256 permissionEpoch,uint256 nonce,uint256 deadline)",
 );
 
 const pathSignature = async (pathId: bigint, deadline: bigint) => {
-  const nonce = await pathNft.getConsumeNonce(minter) as bigint;
+  const [permissionEpoch, nonce] = await Promise.all([
+    pathNft.getPermissionEpoch(pathId) as Promise<bigint>,
+    pathNft.getConsumeNonce(minter) as Promise<bigint>,
+  ]);
   const structHash = keccak256(abiCoder.encode(
-    ["bytes32", "address", "uint256", "uint256", "bytes32", "address", "address", "uint256", "uint256"],
+    ["bytes32", "address", "uint256", "uint256", "bytes32", "address", "address", "uint256", "uint256", "uint256"],
     [
       consumeAuthorizationTypehash,
       runtime.contracts.pathNft,
@@ -75,6 +79,7 @@ const pathSignature = async (pathId: bigint, deadline: bigint) => {
       movement,
       minter,
       runtime.contracts.thoughtNft,
+      permissionEpoch,
       nonce,
       deadline,
     ],

@@ -156,13 +156,6 @@ export function inferFallbackProviderInfo(
   index: number
 ): Eip6963ProviderInfo {
   const p = provider as any;
-  if (p?.isMetaMask) {
-    return {
-      uuid: `fallback:metamask:${index}`,
-      name: "MetaMask",
-      rdns: "io.metamask",
-    };
-  }
   if (p?.isRabby) {
     return {
       uuid: `fallback:rabby:${index}`,
@@ -177,6 +170,13 @@ export function inferFallbackProviderInfo(
       rdns: "com.coinbase.wallet",
     };
   }
+  if (p?.isMetaMask) {
+    return {
+      uuid: `fallback:metamask:${index}`,
+      name: "MetaMask",
+      rdns: "io.metamask",
+    };
+  }
   return {
     uuid: `fallback:window-ethereum:${index}`,
     name: "Injected",
@@ -188,10 +188,13 @@ export function fallbackWindowEthereumProviders(): Eip6963ProviderDetail[] {
   if (typeof window === "undefined") return [];
   const injected = (window as any).ethereum as Eip1193Provider | undefined;
   if (!injected) return [];
-  const rawProviders =
-    Array.isArray(injected.providers) && injected.providers.length > 0
-      ? injected.providers
-      : [injected];
+  const nestedProviders = Array.isArray(injected.providers)
+    ? injected.providers
+    : [];
+  // Multi-wallet browsers may expose Rabby as the top-level provider while
+  // listing only MetaMask in `providers`. Inspect both surfaces, then dedupe
+  // provider objects and wallet identities below.
+  const rawProviders = [injected, ...nestedProviders];
   const seen = new Set<Eip1193Provider>();
   const details: Eip6963ProviderDetail[] = [];
   rawProviders.forEach((provider, index) => {
@@ -231,10 +234,7 @@ export async function discoverEip6963Providers(
     );
   }
   const fallbacks = fallbackWindowEthereumProviders();
-  if (fallbacks.length > 0 && discovered.length === 0) {
-    return mergeProviderDetails(discovered, fallbacks);
-  }
-  return discovered;
+  return mergeProviderDetails(fallbacks, discovered);
 }
 
 export function parseChainId(value: unknown): number | null {

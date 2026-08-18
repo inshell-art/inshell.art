@@ -2267,75 +2267,6 @@ function formatUtcTime(atMs: number): string {
   )}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
 }
 
-function formatAmount(
-  val: string | undefined,
-  _decimals: number,
-  symbol: string
-): string {
-  const raw = val ?? "";
-  const cleaned = String(raw).replace(/,/g, "");
-  const n = Number(cleaned);
-  if (Number.isFinite(n)) {
-    if (n !== 0 && Math.abs(n) < 0.01) {
-      const fixed = n.toFixed(18);
-      if (Number(fixed) !== 0) {
-        return `${formatTinyDecimalString(fixed)} ${symbol}`;
-      }
-      return `${n.toExponential(4)} ${symbol}`;
-    }
-    const withSep = new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(n);
-    return `${withSep} ${symbol}`;
-  }
-  return `${String(raw)} ${symbol}`;
-}
-
-function formatAmountTinyAware(
-  val: string | undefined,
-  _decimals: number,
-  symbol: string
-): string {
-  const raw = val ?? "";
-  const cleaned = String(raw).replace(/,/g, "");
-  const n = Number(cleaned);
-  if (!Number.isFinite(n)) return `${String(raw)} ${symbol}`;
-
-  const baseDigits = 2;
-  if (n === 0 || Number(n.toFixed(baseDigits)) !== 0) {
-    return formatAmount(val, _decimals, symbol);
-  }
-
-  const meaningfulFracDigits = (fixed: string): number => {
-    const parts = fixed.split(".");
-    if (parts.length < 2) return 0;
-    const frac = parts[1] ?? "";
-    const firstNonZero = frac.search(/[1-9]/);
-    if (firstNonZero < 0) return 0;
-    return frac.length - firstNonZero;
-  };
-
-  let digits = 3;
-  const maxDigits = 12;
-  while (digits < maxDigits) {
-    const fixed = n.toFixed(digits);
-    const nonZero = Number(fixed) !== 0;
-    const enoughMeaningful = meaningfulFracDigits(fixed) >= 2;
-    if (nonZero && enoughMeaningful) break;
-    digits += 1;
-  }
-  if (Number(n.toFixed(digits)) === 0) {
-    return `${n.toExponential(2)} ${symbol}`;
-  }
-
-  const withSep = new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  }).format(n);
-  return `${withSep} ${symbol}`;
-}
-
 function formatAmountDetailed(
   val: string | undefined,
   _decimals: number,
@@ -2361,42 +2292,6 @@ function formatAmountDetailed(
     maximumFractionDigits: maxFractionDigits,
   }).format(n);
   return `${withSep} ${symbol}`;
-}
-
-function formatAmountWithMinNonZeroFrac(
-  val: string | undefined,
-  _decimals: number,
-  symbol: string,
-  minNonZeroFracDigits = 2
-): string {
-  const raw = val ?? "";
-  const cleaned = String(raw).replace(/,/g, "");
-  const n = Number(cleaned);
-  if (!Number.isFinite(n)) return `${String(raw)} ${symbol}`;
-  if (n === 0) return formatAmount(val, _decimals, symbol);
-
-  const nonZeroFracCount = (fixed: string): number => {
-    const parts = fixed.split(".");
-    if (parts.length < 2) return 0;
-    const frac = parts[1] ?? "";
-    const matches = frac.match(/[1-9]/g);
-    return matches ? matches.length : 0;
-  };
-
-  const maxDigits = 12;
-  for (let digits = 2; digits <= maxDigits; digits += 1) {
-    const fixed = n.toFixed(digits);
-    if (Number(fixed) === 0) continue;
-    if (nonZeroFracCount(fixed) >= minNonZeroFracDigits) {
-      const withSep = new Intl.NumberFormat("en-US", {
-        minimumFractionDigits: digits,
-        maximumFractionDigits: digits,
-      }).format(n);
-      return `${withSep} ${symbol}`;
-    }
-  }
-
-  return `${n.toExponential(4)} ${symbol}`;
 }
 
 type AuctionStatus =
@@ -2572,7 +2467,10 @@ function useAuctionStatus(params: {
       setStatus("history_loading");
       return;
     }
-    if (bidsLength > 0 || coreActive) {
+    // The genesis curve exists before the first sale. Pulse pins it to the
+    // opening ask before openTime, then lets it decay after openTime. A zero
+    // epoch therefore means "no completed sale", not "no curve".
+    if (bidsLength > 0 || coreActive || hasRenderableCurve) {
       setStatus("active");
       return;
     }
@@ -7243,7 +7141,12 @@ export default function AuctionCanvas({
                 <div className="dotfield__mint-proof-token">
                   PATH #{mintProof.tokenId}
                   <br />
-                  <span>minted via Pulse</span>
+                  <span>
+                    minted via{" "}
+                    <a className="dotfield__mint-review-link" href="/docs#docs-pulse">
+                      Pulse ↗
+                    </a>
+                  </span>
                 </div>
                 <div className="dotfield__mint-review-row">
                   <span>owner</span>
@@ -8163,6 +8066,9 @@ export default function AuctionCanvas({
             </div>
 
             {hover && !shellWalletPopoverOpen && !mintReview && (() => {
+              if (hover.screenX == null || hover.screenY == null) return null;
+              const hoverScreenX = hover.screenX;
+              const hoverScreenY = hover.screenY;
               const popRows: Array<{ label: string; value: string }> = [];
               const popNotes: string[] = [];
               const isOpeningAsk =
@@ -8382,7 +8288,7 @@ export default function AuctionCanvas({
                         : "ask";
               const tooltipOrigin = tooltipOriginRect();
               const popoverViewportY =
-                hover.screenY +
+                hoverScreenY +
                 (tooltipOrigin?.top ?? 0) -
                 CURVE_TOOLTIP_CURSOR_OFFSET_PX;
               const popoverOpensAbove =
@@ -8395,9 +8301,9 @@ export default function AuctionCanvas({
                     popoverOpensAbove ? " dotfield__popover--above" : ""
                   }`}
                   style={{
-                    "--popover-anchor-x": `${hover.screenX}px`,
-                    "--popover-anchor-y": `${hover.screenY}px`,
-                    top: hover.screenY,
+                    "--popover-anchor-x": `${hoverScreenX}px`,
+                    "--popover-anchor-y": `${hoverScreenY}px`,
+                    top: hoverScreenY,
                   } as CSSProperties}
                 >
                   <div className="muted small">{popTitle}</div>

@@ -1774,16 +1774,16 @@ describe("AuctionCanvas", () => {
     jest.useRealTimers();
   });
 
-  test("shows open waiting message when there are no bids", () => {
+  test("renders the genesis curve before the first bid", () => {
     mockUseAuctionCore.mockReturnValue({
       data: {
         active: false,
         config: {
           openTimeSec: Math.floor(Date.now() / 1000) - 60,
-          genesisPrice: { dec: "1" },
-          genesisFloor: { dec: "1" },
-          k: { dec: "10" },
-          pts: "1",
+          genesisPrice: { dec: "1000000000000000000" },
+          genesisFloor: { dec: "100000000000000000" },
+          k: { dec: "10000000000000000000" },
+          pts: "1000000000000000000",
         },
       },
       ready: true,
@@ -1797,8 +1797,11 @@ describe("AuctionCanvas", () => {
       loading: false,
       error: null,
     });
-    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    expect(screen.getByText(/Waiting for first bid/i)).toBeTruthy();
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
+    expect(screen.queryByText(/Waiting for first bid/i)).toBeNull();
+    expect(container.querySelectorAll(".dotfield__curve")).toHaveLength(1);
   });
 
   test("does not block active curve while bid history backfill is pending", () => {
@@ -1946,7 +1949,7 @@ describe("AuctionCanvas", () => {
     expect(container.querySelector(".dotfield__curve")).toBeTruthy();
   });
 
-  test("shows open waiting message even if inactive bid backfill is pending", () => {
+  test("renders the genesis curve while first-bid history is empty", () => {
     mockUseAuctionCore.mockReturnValue({
       data: {
         active: false,
@@ -1972,8 +1975,8 @@ describe("AuctionCanvas", () => {
     });
     const { container } = render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
     expect(screen.queryByText(/loading pricing/i)).toBeNull();
-    expect(screen.getByText(/Waiting for first bid/i)).toBeTruthy();
-    expect(container.textContent).toMatch(/Current ask:\s*[0-9.]+\s*ETH/i);
+    expect(screen.queryByText(/Waiting for first bid/i)).toBeNull();
+    expect(container.querySelectorAll(".dotfield__curve")).toHaveLength(1);
   });
 
   test("opening ask label scales by token decimals", () => {
@@ -2027,9 +2030,19 @@ describe("AuctionCanvas", () => {
       loading: false,
       error: null,
     });
-    render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    expect(screen.getByText(/Opening ask: 0\.000000000000001 ETH/i)).toBeTruthy();
-    expect(screen.getByText(/Current ask: 0\.0000000000000009 ETH/i)).toBeTruthy();
+    const { container } = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+    );
+    const openingAsk = container.querySelector('[data-kind="ask"]');
+    const currentAsk = container.querySelector('[data-kind="now"]');
+    expect(openingAsk).toBeTruthy();
+    expect(currentAsk).toBeTruthy();
+
+    fireEvent.mouseEnter(openingAsk as Element);
+    expect(screen.getByText(/0\.000000000000001 ETH/i)).toBeTruthy();
+    fireEvent.mouseLeave(openingAsk as Element);
+    fireEvent.mouseEnter(currentAsk as Element);
+    expect(screen.getByText(/0\.0000000000000009 ETH/i)).toBeTruthy();
   });
 
   test("auction status override wins over live state", () => {
@@ -4563,7 +4576,9 @@ describe("AuctionCanvas", () => {
     const proofScope = within(proof as HTMLElement);
     expect(proofScope.getByText("$PATH minted")).toBeTruthy();
     expect(proofScope.getAllByText(/PATH #5/).length).toBeGreaterThan(0);
-    expect(proofScope.getByText("minted via Pulse")).toBeTruthy();
+    const pulseLink = proofScope.getByRole("link", { name: "Pulse ↗" });
+    expect(pulseLink).toHaveAttribute("href", "/docs#docs-pulse");
+    expect(pulseLink.closest("span")).toHaveTextContent("minted via Pulse");
     expect(proofScope.getByText("owner")).toBeTruthy();
     expect(proofScope.getAllByText("price").length).toBeGreaterThan(0);
     expect(proofScope.getByText("epoch")).toBeTruthy();

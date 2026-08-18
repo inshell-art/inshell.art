@@ -13,6 +13,7 @@ import ThoughtGalleryPage from "@/components/ThoughtGalleryPage";
 import WillPage from "@/components/WillPage";
 import FloatingReportBug from "@/components/FloatingReportBug";
 import PreviewWatermark from "@/components/PreviewWatermark";
+import { DOCS_SOURCE } from "@/content/docs";
 import { InshellTopBar, type InshellSurface } from "@inshell/inshell-shell";
 import { getProtocolReleaseChainId, maybeResolveAddress } from "@inshell/contracts";
 import { SURFACE_TERMINOLOGY } from "@inshell/shared";
@@ -33,6 +34,27 @@ function parseTokenRouteId(pathname: string, route: "path" | "thought") {
   return Number.isSafeInteger(id) ? match[1] : null;
 }
 
+function parseDocsRouteSlug(pathname: string) {
+  const match = /^\/docs\/([a-z0-9]+(?:-[a-z0-9]+)*)$/.exec(pathname);
+  return match?.[1] ?? null;
+}
+
+function docsTopicForSlug(slug: string | null) {
+  if (!slug) return null;
+  return DOCS_SOURCE.topics.find((topic) => topic.slug === slug) ?? null;
+}
+
+function docsTopicForLegacyAnchor(anchor: string) {
+  for (const topic of DOCS_SOURCE.topics) {
+    if (topic.id === anchor || topic.aliases?.includes(anchor)) {
+      return { topic, sectionAnchor: null };
+    }
+    const section = topic.sections?.find((candidate) => candidate.id === anchor);
+    if (section) return { topic, sectionAnchor: section.id };
+  }
+  return null;
+}
+
 function getPrimitiveRoute(locationKey: string) {
   const pathname = pathnameFromLocationKey(locationKey);
   if (pathname === "/path-app") return "path-app";
@@ -41,7 +63,7 @@ function getPrimitiveRoute(locationKey: string) {
     return "path-app";
   }
   if (pathname === "/pulse") return "pulse";
-  if (pathname === "/docs") return "docs";
+  if (pathname === "/docs" || parseDocsRouteSlug(pathname)) return "docs";
   if (pathname === "/color-font") return "color-font";
   if (
     pathname === "/lab/path-marketplace" ||
@@ -86,6 +108,10 @@ function getThoughtRouteTokenId(locationKey: string) {
   return parseTokenRouteId(pathname, "thought");
 }
 
+function getDocsRouteSlug(locationKey: string) {
+  return parseDocsRouteSlug(pathnameFromLocationKey(locationKey));
+}
+
 function getPathMarketplaceRouteTokenId(locationKey: string) {
   const pathname = pathnameFromLocationKey(locationKey);
   const match = /^\/lab\/path-marketplace\/([1-9]\d{0,8})$/.exec(pathname);
@@ -107,6 +133,154 @@ function setFavicon(href: string) {
   icon.setAttribute("href", href);
 }
 
+type RouteMetadata = {
+  canonicalPath: string;
+  description: string;
+  alternates: Array<{ type: string; title: string; href: string }>;
+};
+
+function routeMetadata(pathname: string): RouteMetadata {
+  const pathId = parseTokenRouteId(pathname, "path");
+  const thoughtId = parseTokenRouteId(pathname, "thought");
+  const docsSlug = parseDocsRouteSlug(pathname);
+  const docsTopic = docsTopicForSlug(docsSlug);
+  const agentIndex = {
+    type: "application/json",
+    title: "Inshell Agent documentation index",
+    href: "/docs/agent-index.json",
+  };
+  const agentContent = {
+    type: "application/json",
+    title: "Inshell structured documentation",
+    href: "/docs/content.json",
+  };
+  if (pathname === "/docs") {
+    return {
+      canonicalPath: "/docs",
+      description: "Inshell documentation for the artist, works, contracts, provenance, and verification boundaries.",
+      alternates: [
+        { type: "text/markdown", title: "Inshell documentation", href: "/docs/index.md" },
+        agentContent,
+        agentIndex,
+      ],
+    };
+  }
+  if (docsTopic) {
+    return {
+      canonicalPath: `/docs/${docsTopic.slug}`,
+      description: docsTopic.summary,
+      alternates: [
+        {
+          type: "text/markdown",
+          title: `${docsTopic.title} documentation`,
+          href: `/docs/${docsTopic.slug}.md`,
+        },
+        {
+          type: "application/json",
+          title: `${docsTopic.title} structured documentation`,
+          href: `/docs/${docsTopic.slug}.json`,
+        },
+        agentIndex,
+      ],
+    };
+  }
+  if (docsSlug) {
+    return {
+      canonicalPath: "/docs",
+      description: "Inshell documentation for the artist, works, contracts, provenance, and verification boundaries.",
+      alternates: [
+        { type: "text/markdown", title: "Inshell documentation", href: "/docs/index.md" },
+        agentContent,
+        agentIndex,
+      ],
+    };
+  }
+  if (pathId) {
+    return {
+      canonicalPath: `/path/${pathId}`,
+      description: `$PATH #${pathId} artwork, mint capacity, issuance, and public chain record.`,
+      alternates: [
+        {
+          type: "application/json",
+          title: `$PATH #${pathId} public record`,
+          href: `/api/path-record?id=${pathId}`,
+        },
+        agentIndex,
+      ],
+    };
+  }
+  if (thoughtId) {
+    return {
+      canonicalPath: `/thought/${thoughtId}`,
+      description: `THOUGHT #${thoughtId} canonical artwork, work, creation provenance, and verification record.`,
+      alternates: [
+        {
+          type: "application/json",
+          title: `THOUGHT #${thoughtId} public record`,
+          href: `/api/thought-record?id=${thoughtId}`,
+        },
+        {
+          type: "application/json",
+          title: `THOUGHT #${thoughtId} provenance`,
+          href: `/api/thought-provenance?id=${thoughtId}`,
+        },
+        agentIndex,
+      ],
+    };
+  }
+  const descriptions: Record<string, string> = {
+    "/": "Inshell is an artist working with human intention, Agents, code, and public blockchains.",
+    "/path": "$PATH is the Inshell permission token issued through Pulse and an evolving record of movement progress.",
+    "/pulse": "Pulse is the decentralized automatic auction that issues public $PATH tokens.",
+    "/thought": "THOUGHT is a narrow terminal channel between one human intention and one Agent response.",
+    "/gallery": "Minted THOUGHT works from the active public chain.",
+    "/will": "WILL is an Inshell Agent Art movement study: many people, many Agents, one will.",
+    "/verify": "Official origins, contracts, releases, locks, and verification boundaries for Inshell.",
+  };
+  const canonicalPath = descriptions[pathname] ? pathname : "/";
+  return {
+    canonicalPath,
+    description: descriptions[canonicalPath],
+    alternates: [agentIndex],
+  };
+}
+
+function ensureMeta(selector: string, attributes: Record<string, string>) {
+  let element = document.head.querySelector(selector);
+  if (!(element instanceof globalThis.HTMLMetaElement)) {
+    element = document.createElement("meta");
+    document.head.appendChild(element);
+  }
+  for (const [name, value] of Object.entries(attributes)) {
+    element.setAttribute(name, value);
+  }
+}
+
+function applyRouteMetadata(pathname: string) {
+  const metadata = routeMetadata(pathname);
+  const canonicalHref = `https://inshell.art${metadata.canonicalPath}`;
+  const canonical = document.head.querySelector('link[rel="canonical"]');
+  if (canonical instanceof globalThis.HTMLLinkElement) {
+    canonical.href = canonicalHref;
+  }
+  ensureMeta('meta[name="description"]', { name: "description", content: metadata.description });
+  ensureMeta('meta[property="og:description"]', { property: "og:description", content: metadata.description });
+  ensureMeta('meta[property="og:url"]', { property: "og:url", content: canonicalHref });
+
+  document.head.querySelectorAll('[data-inshell-route-alternate="true"]').forEach((element) => {
+    element.remove();
+  });
+  for (const alternate of metadata.alternates) {
+    const link = document.createElement("link");
+    link.rel = "alternate";
+    link.type = alternate.type;
+    link.title = alternate.title;
+    link.href = alternate.href;
+    link.dataset.inshellRouteAlternate = "true";
+    document.head.appendChild(link);
+  }
+}
+
 export default function App() {
   const [locationKey, setLocationKey] = useState(() => getLocationKey());
   const [pathInventoryRefreshSignal, setPathInventoryRefreshSignal] = useState(0);
@@ -115,6 +289,8 @@ export default function App() {
   const pathAppHost = isPathAppHost();
   const pathTokenId = getPathRouteTokenId(locationKey);
   const thoughtTokenId = getThoughtRouteTokenId(locationKey);
+  const docsTopicSlug = getDocsRouteSlug(locationKey);
+  const docsTopic = docsTopicForSlug(docsTopicSlug);
   const pathMarketplaceTokenId = getPathMarketplaceRouteTokenId(locationKey);
   const shouldRenderPathApp =
     primitiveRoute === "path-app" ||
@@ -154,6 +330,26 @@ export default function App() {
   }, [locationKey]);
 
   useEffect(() => {
+    const pathname = pathnameFromLocationKey(locationKey);
+    if (pathname !== "/docs") return;
+    const rawHash = window.location.hash.slice(1);
+    if (!rawHash) return;
+    let anchor: string;
+    try {
+      anchor = decodeURIComponent(rawHash);
+    } catch {
+      return;
+    }
+    const legacyTarget = docsTopicForLegacyAnchor(anchor);
+    if (!legacyTarget) return;
+    const nextPath = `/docs/${legacyTarget.topic.slug}${
+      legacyTarget.sectionAnchor ? `#${legacyTarget.sectionAnchor}` : ""
+    }`;
+    window.history.replaceState({}, "", nextPath);
+    setLocationKey(getLocationKey());
+  }, [locationKey]);
+
+  useEffect(() => {
     if (shouldRenderPathApp) {
       document.title = pathTokenId ? `$PATH #${pathTokenId}` : "$PATH";
       setFavicon("/inshell.svg");
@@ -165,7 +361,9 @@ export default function App() {
       return;
     }
     if (primitiveRoute === "docs") {
-      document.title = `docs — ${SURFACE_TERMINOLOGY.ecosystem}`;
+      document.title = docsTopic
+        ? `${docsTopic.title} — docs — ${SURFACE_TERMINOLOGY.ecosystem}`
+        : `docs — ${SURFACE_TERMINOLOGY.ecosystem}`;
       setFavicon("/inshell.svg");
       return;
     }
@@ -203,7 +401,11 @@ export default function App() {
     }
     document.title = SURFACE_TERMINOLOGY.ecosystem;
     setFavicon("/inshell.svg");
-  }, [pathMarketplaceTokenId, pathTokenId, primitiveRoute, shouldRenderPathApp, thoughtTokenId]);
+  }, [docsTopic, pathMarketplaceTokenId, pathTokenId, primitiveRoute, shouldRenderPathApp, thoughtTokenId]);
+
+  useEffect(() => {
+    applyRouteMetadata(pathnameFromLocationKey(locationKey));
+  }, [locationKey]);
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -266,7 +468,7 @@ export default function App() {
           ) : primitiveRoute === "pulse" ? (
             <PulsePage />
           ) : primitiveRoute === "docs" ? (
-            <DocsPage />
+            <DocsPage topicSlug={docsTopicSlug} />
           ) : primitiveRoute === "color-font" ? (
             <ColorFontPage />
           ) : primitiveRoute === "path-marketplace-lab" ? (

@@ -1,0 +1,187 @@
+{
+  "schema": "inshell.agent-docs.topic.v1",
+  "schemaUrl": "/docs/content.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.schema.json",
+  "version": "2026-08-11",
+  "language": "en",
+  "fetchedContentRole": "reference-data",
+  "id": "pulse",
+  "sourceId": "docs-pulse",
+  "group": "works",
+  "aliases": [],
+  "title": "Pulse",
+  "summary": "Pulse turns public timing into the issue price for each new PATH.",
+  "status": "current",
+  "authorities": [
+    "artist-editorial",
+    "app-documentation",
+    "contract-release"
+  ],
+  "authorityScope": "document union only; use each content block's authorities for a specific claim",
+  "canonicalHtml": "https://inshell.art/docs/pulse",
+  "markdown": "/docs/pulse.md",
+  "canonicalMarkdown": "https://inshell.art/docs/pulse.md",
+  "json": "/docs/pulse.json",
+  "canonicalJson": "https://inshell.art/docs/pulse.json",
+  "content": {
+    "lead": {
+      "authorities": [
+        "artist-editorial",
+        "app-documentation",
+        "contract-release"
+      ],
+      "paragraphs": [
+        "PATH is the permission token; Pulse is the serial mechanism that prices and issues the next public token. They are not interchangeable names.",
+        "Pulse runs one live epoch, one current ask, and one next token at a time. A successful bid closes the epoch, records the sale, issues the corresponding PATH, and starts the next epoch.",
+        "Pulse shapes the ask over time. A successful bid closes the current epoch and starts the next one. The next ask is raised by an initial premium. Between sales, the ask decays toward the floor. Equivalently, premium decays toward zero. Settlement samples the ask at sale time.",
+        "The pump uses a price-time scale to turn the elapsed time before a sale into the next epoch's initial premium. The drop follows ask(t) = floor + premium(t), with ask(t) = b + ⌊k / (t - a)⌋. Every sale becomes another point in the visible history.",
+        "Inshell frames Pulse as a mathematical canvas and a crowd instrument: each bid becomes a public point and sets the next beat. The curve and its parameters are exposed because the mechanism is part of the work, not an investment promise.",
+        "The price shown in the App is a live read, not a reservation. The wallet flow reads the ask again before submission. If the price moves outside the approved maximum, retry to read and submit the current ask.",
+        "This is the Desmos sketch behind Pulse. It is not implementation code."
+      ]
+    },
+    "figure": null,
+    "preformatted": [
+      {
+        "authorities": [
+          "artist-editorial"
+        ],
+        "label": "Pulse pump and drop equations",
+        "content": "pump\n\nPTS = price-time scale\nelapsed time = sale time - previous curve start\ninitial premium = elapsed time × PTS\nnext floor = last price\nnext ask = next floor + initial premium\n\n\ndrop\n\npremium(t) = ask(t) - floor\nask(t) = floor + premium(t)\nask(t) = b + ⌊k / (t - a)⌋\n(t - a) × (ask(t) - b) ≈ k\n\nb = floor\nk = curve constant\na = anchor time"
+      }
+    ],
+    "sections": [
+      {
+        "authorities": [
+          "artist-editorial",
+          "contract-release"
+        ],
+        "id": "docs-pulse-serial",
+        "title": "A serial auction",
+        "paragraphs": [
+          "Pulse has one current epoch and one next public PATH at a time. Participants are not choosing among parallel lots. The successful bid closes the visible curve, issues its PATH, and establishes the starting conditions for the following curve.",
+          "This serial structure makes the history legible: every sale is both an ending and the input to what comes next."
+        ],
+        "figure": {
+          "authorities": [
+            "contract-release"
+          ],
+          "label": "One Pulse epoch",
+          "mode": "trace",
+          "figureText": "ASK\n │ decay\n ↓\nBID\n │ pump\n ↓\nNEXT ASK\n └──↺ next epoch",
+          "loop": {
+            "to": 1,
+            "condition": "next epoch"
+          },
+          "items": [
+            {
+              "title": "Ask",
+              "detail": "Decay"
+            },
+            {
+              "title": "Bid",
+              "detail": "Pump"
+            },
+            {
+              "title": "Next ask"
+            }
+          ]
+        }
+      },
+      {
+        "authorities": [
+          "contract-release"
+        ],
+        "id": "docs-pulse-pump",
+        "title": "The pump",
+        "paragraphs": [
+          "The time between the previous curve start and the successful sale is multiplied by the price-time scale. That result becomes the next epoch's initial premium. The next floor is the last sale price, so waiting before a sale affects the height from which the following ask begins."
+        ],
+        "points": [
+          "A longer elapsed interval produces a larger initial premium when the price-time scale is fixed.",
+          "The premium is added to the new floor; it is not the full next ask by itself.",
+          "The sale price becomes public history and the next floor at the same transition."
+        ]
+      },
+      {
+        "authorities": [
+          "app-documentation",
+          "contract-release"
+        ],
+        "id": "docs-pulse-drop",
+        "title": "The drop",
+        "paragraphs": [
+          "During an open epoch, the premium follows the published inverse curve and approaches zero. The ask therefore approaches the floor without silently changing the floor. The App draws that same relationship as a time-price field.",
+          "The chart uses half-life units to make curves with different real-time durations visually comparable. Tooltips convert those units back into elapsed or ago time for the current epoch."
+        ]
+      },
+      {
+        "authorities": [
+          "app-documentation",
+          "contract-release"
+        ],
+        "id": "docs-pulse-live-price",
+        "title": "A quote is not a reservation",
+        "steps": [
+          "Read the current ask and active payment asset from the contract-backed App state.",
+          "Open the local review panel and inspect the maximum charge before the wallet opens.",
+          "Let the mint flow read the ask again immediately before submission.",
+          "Confirm only if the wallet request matches the expected network, contract, and maximum value.",
+          "If the ask moved beyond the approved maximum, retry with a fresh read instead of treating the earlier quote as guaranteed."
+        ]
+      },
+      {
+        "authorities": [
+          "app-documentation",
+          "contract-release"
+        ],
+        "id": "docs-pulse-settlement",
+        "title": "Price ceiling and settlement",
+        "paragraphs": [
+          "The wallet transaction supplies a maximum acceptable price, not a promise to pay that entire amount. Pulse samples the live ask when the transaction executes. The bid succeeds only when that ask is within the submitted ceiling.",
+          "On a successful ETH bid, the auction sends the exact ask to the treasury and refunds surplus value to the bidder. The sale closes the current epoch, records its settlement, and begins the next epoch. The adapter then translates that settlement into PATH delivery; Pulse itself remains independent of the NFT it prices."
+        ],
+        "points": [
+          "Maximum price: the bidder's slippage ceiling.",
+          "Settlement price: the live ask accepted by the contract.",
+          "Value supplied: must cover the ask; unused value is refunded.",
+          "Delivery: PathPulseAdapter turns the settled auction result into PATH issuance."
+        ],
+        "note": "A submitted transaction is not a completed sale. Read the receipt, events, and resulting contract state before presenting PATH as issued."
+      },
+      {
+        "authorities": [
+          "artist-editorial",
+          "app-documentation"
+        ],
+        "id": "docs-pulse-artwork",
+        "title": "Mechanism as artwork",
+        "paragraphs": [
+          "Pulse exposes its curve, parameters, sale dots, and current point because the mechanism is part of the artistic surface. Each bid becomes a beat in a public rhythm: acting, waiting, and the crowd's changing tempo remain visible rather than being reduced to a private checkout flow.",
+          "As one participatory system in Inshell's practice, Pulse makes collective timing and choice available for inspection. The curve records action; neither price nor timing measures inward progress or establishes possession of truth."
+        ],
+        "note": "This framing describes the work. It is not an investment promise, a price forecast, or a claim that participation will produce financial return."
+      }
+    ],
+    "links": [
+      {
+        "role": "navigation",
+        "label": "open live Pulse parameters",
+        "href": "/pulse?raw=1",
+        "canonicalHref": "https://inshell.art/pulse?raw=1"
+      },
+      {
+        "role": "navigation",
+        "label": "open original Desmos sketch",
+        "href": "https://www.desmos.com/calculator/1d89f93d21",
+        "canonicalHref": "https://www.desmos.com/calculator/1d89f93d21"
+      },
+      {
+        "role": "navigation",
+        "label": "view Pulse source",
+        "href": "https://github.com/inshell-art/pulse",
+        "canonicalHref": "https://github.com/inshell-art/pulse"
+      }
+    ]
+  }
+}

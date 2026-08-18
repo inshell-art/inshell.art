@@ -1,3 +1,5 @@
+pnpm docs:check
+pnpm check:upstream-releases
 pnpm lint
 pnpm type-check
 pnpm test:unit

@@ -1,76 +1,1557 @@
-import { jsx as _jsx } from "react/jsx-runtime";
-import { fireEvent, render, screen, act } from "@testing-library/react";
+import { Fragment as _Fragment, jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { readFileSync } from "node:fs";
+import nodePath from "node:path";
+import { cwd, env } from "node:process";
+import { TextEncoder } from "node:util";
+import { afterEach, beforeEach, describe, test, expect, jest } from "@jest/globals";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
+jest.mock("react-error-boundary", () => ({
+    __esModule: true,
+    ErrorBoundary: ({ children }) => (_jsx(_Fragment, { children: children })),
+}));
+jest.mock("../src/components/AuctionCanvas", () => ({
+    __esModule: true,
+    default: () => _jsx("div", { "data-testid": "auction-canvas" }),
+}));
+jest.mock("@inshell/inshell-shell", () => ({
+    __esModule: true,
+    InshellTopBar: () => (_jsxs("header", { "data-testid": "inshell-topbar", children: [_jsx("a", { href: "/", children: "INSHELL" }), _jsx("button", { type: "button", "aria-label": "wallet disconnected", children: "\u25CF" })] })),
+    resolveInshellLinks: () => ({
+        home: "/",
+        path: "/path",
+        thought: "/thought",
+        works: "/gallery",
+    }),
+    isLocalRuntimeHost: (hostname) => hostname === "localhost" || hostname === "127.0.0.1",
+}));
+jest.mock("@inshell/ethereum", () => ({
+    __esModule: true,
+    getChainId: jest.fn(),
+    getCode: jest.fn(async () => "0x"),
+    getBlockNumber: jest.fn(async () => 0),
+    getDefaultProvider: jest.fn(() => ({ request: jest.fn() })),
+    hashUtf8String: jest.fn(),
+    supportsRpcRequest: jest.fn(() => true),
+}));
+const mockUseAuctionCore = jest.fn();
+const mockUseAuctionBids = jest.fn();
+const originalFetch = globalThis.fetch;
+jest.mock("@/hooks/useAuctionCore", () => ({
+    __esModule: true,
+    useAuctionCore: (...args) => mockUseAuctionCore(...args),
+}));
+jest.mock("@/hooks/useAuctionBids", () => ({
+    __esModule: true,
+    useAuctionBids: (...args) => mockUseAuctionBids(...args),
+}));
 import App from "../src/App";
+import { COLOR_FONT, COLOR_FONT_RAW } from "../src/content/colorFont";
+import { DOCS_SOURCE } from "../src/content/docs";
+import { clearPathTokenInventoryCache } from "../src/services/pathTokens";
+import { resolveThoughtSpecHref } from "../src/services/thoughtSpecLink";
+import thoughtContractIntegrationLock from "../../thought/contract-integration/current/integration-lock.json";
+import { getChainId, getCode, getDefaultProvider, hashUtf8String, } from "@inshell/ethereum";
+import { shouldShowPreviewWatermark, } from "@inshell/shared";
+const expectHomeThoughtWorks = (tokenIds) => {
+    for (const tokenId of tokenIds) {
+        expect(screen.getByLabelText(`THOUGHT #${tokenId} minted work`)).toBeInTheDocument();
+        expect(screen.getByText(`THOUGHT #${tokenId}`)).toBeInTheDocument();
+        expect(screen.getByLabelText(`Open THOUGHT #${tokenId}`)).toHaveAttribute("href", `/thought/${tokenId}`);
+    }
+    expect(document.querySelectorAll(".ecosystem-home__work-card")).toHaveLength(tokenIds.length);
+};
+const mockedGetChainId = getChainId;
+const mockedGetCode = getCode;
+const mockedGetDefaultProvider = getDefaultProvider;
+const mockedHashUtf8String = hashUtf8String;
+function bytesToHex(value) {
+    return Array.from(value, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+function wordHex(value) {
+    return value.toString(16).padStart(64, "0");
+}
+function encodeAbiString(value) {
+    const data = bytesToHex(new TextEncoder().encode(value));
+    const paddedData = data.padEnd(Math.ceil(data.length / 64) * 64, "0");
+    return `0x${wordHex(32n)}${wordHex(BigInt(data.length / 2))}${paddedData}`;
+}
+function u256(value) {
+    return {
+        raw: { low: value.toString(), high: "0" },
+        value,
+        dec: value.toString(),
+    };
+}
+function defaultRpcProvider() {
+    return { request: jest.fn(async () => "0x") };
+}
+function thoughtGalleryItem(overrides = {}) {
+    return {
+        tokenId: 1,
+        pathId: "1",
+        minter: "0x170a00000000000000000000000000000000e100",
+        textHash: "0x1111111111111111111111111111111111111111111111111111111111111111",
+        promptHash: "0x2222222222222222222222222222222222222222222222222222222222222222",
+        provenanceHash: "0x3333333333333333333333333333333333333333333333333333333333333333",
+        thoughtSpecId: "0x4444444444444444444444444444444444444444444444444444444444444444",
+        thoughtSpecHash: "0x5555555555555555555555555555555555555555555555555555555555555555",
+        thoughtSpecName: "THOUGHT.v2.md",
+        thoughtSpecRef: "https://inshell.art/docs/thought-v2",
+        mintedAt: 1_780_000_000,
+        rawText: "THOUGHT WILL AWA",
+        prompt: "make a thought",
+        mode: "connect",
+        provider: "openrouter",
+        agent: "Codex",
+        model: "gpt-test",
+        agentHash: "0x8888888888888888888888888888888888888888888888888888888888888888",
+        modelHash: "0x9999999999999999999999999999999999999999999999999999999999999999",
+        attestedAgent: "Codex",
+        attestedModel: "gpt-test",
+        returnedText: "THOUGHT WILL AWA",
+        returnedTextHash: "0x6666666666666666666666666666666666666666666666666666666666666666",
+        conversationIdentityHash: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        workHash: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        pathSerial: "1",
+        currentOwner: "0x170a00000000000000000000000000000000e100",
+        creationAttestationDigest: "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        provenanceJson: "{}",
+        image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E",
+        tokenUri: "data:application/json,{}",
+        txHash: "0x7777777777777777777777777777777777777777777777777777777777777777",
+        blockNumber: 1_234_567,
+        ...overrides,
+    };
+}
+function pathTokenApiItem(overrides = {}) {
+    const tokenId = String(overrides.tokenId ?? "1");
+    return {
+        tokenId,
+        tokenIdLabel: String(overrides.tokenIdLabel ?? tokenId),
+        owner: String(overrides.owner ?? "0x170a00000000000000000000000000000000e100"),
+        tokenUri: String(overrides.tokenUri ?? `api:path:${tokenId}`),
+        metadata: {
+            name: `$PATH #${tokenId}`,
+            attributes: [
+                { trait_type: "Stage", value: "THOUGHT" },
+                { trait_type: "THOUGHT", value: "Minted(0/1)" },
+                { trait_type: "WILL", value: "Minted(0/1)" },
+                { trait_type: "AWA", value: "Minted(0/1)" },
+            ],
+            ...(overrides.metadata ?? {}),
+        },
+    };
+}
+function mockThoughtGalleryApi(items = [thoughtGalleryItem()]) {
+    const fetchMock = jest.fn(async () => ({
+        ok: true,
+        json: async () => ({ thoughts: items }),
+    }));
+    globalThis.fetch = fetchMock;
+    return fetchMock;
+}
+function mockPathAndThoughtApis(args) {
+    const fetchMock = jest.fn(async (input) => {
+        const raw = typeof input === "string" || input instanceof globalThis.URL
+            ? input.toString()
+            : String(input.url ?? "");
+        const url = new globalThis.URL(raw, "https://inshell.art");
+        if (url.pathname === "/api/path-tokens") {
+            return {
+                ok: true,
+                json: async () => ({ items: args.pathItems }),
+            };
+        }
+        if (url.pathname === "/api/thought-gallery") {
+            return {
+                ok: true,
+                json: async () => ({ thoughts: args.thoughtItems }),
+            };
+        }
+        return {
+            ok: false,
+            status: 404,
+            json: async () => ({}),
+        };
+    });
+    globalThis.fetch = fetchMock;
+    return fetchMock;
+}
+async function flushAsyncEffects(cycles = 6) {
+    await act(async () => {
+        for (let index = 0; index < cycles; index += 1) {
+            await Promise.resolve();
+        }
+    });
+}
+function expectedEnvChainLabel() {
+    return String(env.VITE_NETWORK ?? "").toLowerCase() === "sepolia"
+        ? "Sepolia"
+        : "Local Devnet";
+}
+function expectedColorFontFallbackChainLabel() {
+    return String(env.VITE_NETWORK ?? "").toLowerCase() === "sepolia"
+        ? "Sepolia (11155111)"
+        : "Local Devnet";
+}
+function expectedDefaultThoughtUrl() {
+    return "/thought";
+}
 describe("App Component", () => {
-    test("initial opacity values", () => {
-        render(_jsx(App, {}));
-        const projectElements = screen.getAllByText(/THOUGHT|WILL|AWA!/i);
-        projectElements.forEach((element) => {
-            expect(parseFloat(element.style.opacity)).toBeCloseTo(0.2, 1);
+    beforeEach(() => {
+        window.history.pushState({}, "", "/");
+        clearPathTokenInventoryCache();
+        delete globalThis.__VITE_ENV__;
+        delete globalThis.__INSHELL_VITE_ENV__;
+        mockedGetChainId.mockResolvedValue(31337n);
+        mockedGetCode.mockResolvedValue("0x");
+        mockedGetDefaultProvider.mockReturnValue(defaultRpcProvider());
+        mockedHashUtf8String.mockReturnValue(COLOR_FONT.hash);
+        mockUseAuctionCore.mockReturnValue({
+            data: null,
+            loading: false,
+            error: null,
+            ready: true,
+            refresh: jest.fn(),
         });
-        const yearElements = screen.getAllByText(/2027|2028/i);
-        yearElements.forEach((element) => {
-            expect(parseFloat(element.style.opacity)).toBeCloseTo(0, 1);
-        });
-    });
-    test("opacity increases on click", () => {
-        render(_jsx(App, {}));
-        act(() => {
-            fireEvent.click(document);
-        });
-        const projectElements = screen.getAllByText(/THOUGHT|WILL|AWA!/i);
-        projectElements.forEach((element) => {
-            expect(parseFloat(element.style.opacity)).toBeGreaterThanOrEqual(0.4);
-        });
-    });
-    test("opacity does not exceed maximum limit on multiple clicks", () => {
-        render(_jsx(App, {}));
-        act(() => {
-            for (let i = 0; i < 10; i++) {
-                fireEvent.click(document);
-            }
-        });
-        const projectElements = screen.getAllByText(/THOUGHT|WILL|AWA!/i);
-        projectElements.forEach((element) => {
-            expect(parseFloat(element.style.opacity)).toBeCloseTo(1, 1);
+        mockUseAuctionBids.mockReturnValue({
+            bids: [],
+            loading: false,
+            error: null,
+            ready: true,
+            pullOnce: jest.fn(),
         });
     });
-    test("opacity decreases over time", () => {
-        jest.useFakeTimers();
-        render(_jsx(App, {}));
-        act(() => {
-            fireEvent.click(document); // Increase opacity first
-        });
-        act(() => {
-            jest.advanceTimersByTime(1000); // Advance time by 1 second
-        });
-        const projectElements = screen.getAllByText(/THOUGHT|WILL|AWA!/i);
-        projectElements.forEach((element) => {
-            expect(parseFloat(element.style.opacity)).toBeCloseTo(0.3, 1);
-        });
+    afterEach(() => {
         jest.useRealTimers();
+        window.history.pushState({}, "", "/");
+        globalThis.fetch = originalFetch;
+        clearPathTokenInventoryCache();
+        localStorage.clear();
     });
-    test("opacity increases with mouse movement", () => {
+    test("renders the ecosystem shell on the root route", async () => {
+        mockThoughtGalleryApi([
+            thoughtGalleryItem({
+                tokenId: 1,
+                rawText: "first work",
+            }),
+        ]);
         render(_jsx(App, {}));
-        act(() => {
-            fireEvent.mouseMove(document, { clientX: 100, clientY: 100 });
-        });
-        const projectElements = screen.getAllByText(/THOUGHT|WILL|AWA!/i);
-        projectElements.forEach((element) => {
-            expect(parseFloat(element.style.opacity)).toBeGreaterThan(0.2);
-        });
+        await flushAsyncEffects();
+        expect(screen.getByRole("banner")).toHaveTextContent("INSHELL");
+        expect(screen.queryByRole("navigation", { name: "Inshell surfaces" })).toBeNull();
+        expect(screen.getByRole("heading", {
+            level: 1,
+            name: "3 fully onchain movements for Agent Art.",
+        })).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "THOUGHT" })).toHaveAttribute("href", "/thought");
+        expect(screen.getByRole("link", { name: "WILL" })).toHaveAttribute("href", "/will");
+        expect(screen.getByText("AWA!")).toBeInTheDocument();
+        expect(screen.getByText("on Sepolia now")).toBeInTheDocument();
+        expect(screen.getByText("launch in 2027")).toBeInTheDocument();
+        expect(screen.getByText("launch in 2028")).toBeInTheDocument();
+        expectHomeThoughtWorks([1]);
+        expect(screen.queryByText("movement roadmap")).toBeNull();
+        expect(screen.queryByText("recent works")).toBeNull();
+        expect(screen.queryByTestId("auction-canvas")).toBeNull();
     });
-    test("year opacity updates correctly based on project opacity", () => {
+    test("labels the THOUGHT movement as local on the devnet runtime", async () => {
+        globalThis.__VITE_ENV__ = { VITE_NETWORK: "devnet" };
+        mockThoughtGalleryApi([]);
         render(_jsx(App, {}));
-        act(() => {
-            for (let i = 0; i < 5; i++) {
-                fireEvent.click(document);
+        await flushAsyncEffects();
+        expect(screen.getByText("local Anvil")).toBeInTheDocument();
+        expect(screen.queryByText("on Sepolia now")).toBeNull();
+    });
+    test("refreshes home THOUGHTs from chain when the tab becomes visible", async () => {
+        let items = [
+            thoughtGalleryItem({
+                tokenId: 1,
+                rawText: "first work",
+            }),
+        ];
+        const fetchMock = jest.fn(async () => ({
+            ok: true,
+            json: async () => ({ thoughts: items }),
+        }));
+        globalThis.fetch = fetchMock;
+        const visibility = jest
+            .spyOn(document, "visibilityState", "get")
+            .mockReturnValue("visible");
+        try {
+            render(_jsx(App, {}));
+            await flushAsyncEffects();
+            expectHomeThoughtWorks([1]);
+            items = [
+                thoughtGalleryItem({
+                    tokenId: 2,
+                    rawText: "new onchain work",
+                }),
+            ];
+            fireEvent(document, new globalThis.Event("visibilitychange"));
+            await flushAsyncEffects();
+            expectHomeThoughtWorks([2]);
+            expect(screen.queryByLabelText("THOUGHT #1 minted work")).toBeNull();
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+        }
+        finally {
+            visibility.mockRestore();
+        }
+    });
+    test("renders the PATH auction app and token page on /path", async () => {
+        mockPathAndThoughtApis({
+            pathItems: [pathTokenApiItem()],
+            thoughtItems: [],
+        });
+        window.history.pushState({}, "", "/path");
+        render(_jsx(App, {}));
+        await flushAsyncEffects();
+        expect(document.title).toBe("$PATH");
+        expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
+        expect(screen.getByTestId("auction-canvas")).toBeInTheDocument();
+        expect(document.querySelector(".path-page__header")).toBeNull();
+        expect(screen.getByText("all $PATH · 1")).toBeInTheDocument();
+        expect(screen.getByLabelText("$PATH #1 card")).toBeInTheDocument();
+        expect(screen.queryByRole("navigation", { name: "Inshell surfaces" })).toBeNull();
+    });
+    test("renders the isolated live $PATH marketplace collection lab", async () => {
+        mockPathAndThoughtApis({
+            pathItems: [
+                pathTokenApiItem({
+                    tokenId: "1",
+                    owner: "0x170a00000000000000000000000000000000e100",
+                    metadata: {
+                        name: "$PATH #1",
+                        image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E",
+                        attributes: [
+                            { trait_type: "Stage", value: "THOUGHT" },
+                            { trait_type: "THOUGHT", value: "Minted(0/1)" },
+                            { trait_type: "WILL", value: "Minted(0/1)" },
+                            { trait_type: "AWA", value: "Minted(0/1)" },
+                        ],
+                    },
+                }),
+                pathTokenApiItem({
+                    tokenId: "2",
+                    owner: "0x170a00000000000000000000000000000000e100",
+                    metadata: {
+                        name: "$PATH #2",
+                        image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E",
+                        attributes: [
+                            { trait_type: "Stage", value: "WILL" },
+                            { trait_type: "THOUGHT", value: "Minted(1/1)" },
+                            { trait_type: "WILL", value: "Minted(0/1)" },
+                            { trait_type: "AWA", value: "Minted(0/1)" },
+                        ],
+                    },
+                }),
+            ],
+            thoughtItems: [],
+        });
+        window.history.pushState({}, "", "/lab/path-marketplace");
+        render(_jsx(App, {}));
+        await flushAsyncEffects();
+        expect(document.title).toBe("$PATH marketplace lab");
+        expect(screen.getByRole("heading", { level: 1, name: "$PATH" })).toBeInTheDocument();
+        expect(screen.getByText("marketplace collection study · Local Anvil")).toBeInTheDocument();
+        expect(screen.getByLabelText("$PATH #1 marketplace card")).toBeInTheDocument();
+        expect(screen.getByLabelText("$PATH #2 marketplace card")).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "View $PATH #2" })).toHaveAttribute("href", "/lab/path-marketplace/2");
+        expect(screen.getByText("2 items")).toBeInTheDocument();
+        expect(screen.getByText("1 / 6")).toBeInTheDocument();
+        expect(screen.queryByTestId("auction-canvas")).toBeNull();
+        fireEvent.change(screen.getByLabelText("Search $PATH tokens"), {
+            target: { value: "#2" },
+        });
+        expect(screen.queryByLabelText("$PATH #1 marketplace card")).toBeNull();
+        expect(screen.getByLabelText("$PATH #2 marketplace card")).toBeInTheDocument();
+        expect(screen.getByText("1 item")).toBeInTheDocument();
+    });
+    test("renders a truthful live $PATH marketplace detail study", async () => {
+        mockPathAndThoughtApis({
+            pathItems: [
+                pathTokenApiItem({
+                    tokenId: "2",
+                    owner: "0x170a00000000000000000000000000000000e100",
+                    metadata: {
+                        name: "$PATH #2",
+                        description: "$PATH authorizes movement mints in sequence.",
+                        image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E",
+                        attributes: [
+                            { trait_type: "Stage", value: "THOUGHT" },
+                            { trait_type: "THOUGHT", value: "Minted(0/1)" },
+                            { trait_type: "WILL", value: "Minted(0/1)" },
+                            { trait_type: "AWA", value: "Minted(0/1)" },
+                        ],
+                    },
+                }),
+            ],
+            thoughtItems: [],
+        });
+        window.history.pushState({}, "", "/lab/path-marketplace/2");
+        render(_jsx(App, {}));
+        await flushAsyncEffects();
+        expect(document.title).toBe("$PATH #2 marketplace lab");
+        expect(screen.getByRole("heading", { level: 1, name: "$PATH #2" })).toBeInTheDocument();
+        expect(screen.getByText("THOUGHT · 0 / 1 used")).toBeInTheDocument();
+        expect(screen.getByText("Each successful work mint uses one.")).toBeInTheDocument();
+        expect(screen.getByText("Each movement has its own capacity.")).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "create a THOUGHT" })).toHaveAttribute("href", "/thought");
+        expect(screen.getByRole("heading", { name: "about" })).toBeInTheDocument();
+        expect(screen.getByText("$PATH is the permission token for movements:")).toBeInTheDocument();
+        expect(screen.queryByRole("heading", { name: "description" })).toBeNull();
+        expect(screen.queryByText("$PATH authorizes movement mints in sequence.")).toBeNull();
+        expect(screen.getByRole("link", { name: "Pulse ↗" })).toHaveAttribute("href", "/docs#docs-pulse");
+        expect(screen.getByText("not listed")).toBeInTheDocument();
+        expect(screen.getByText("No marketplace activity is indexed in this local study.")).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "view canonical $PATH ↗" })).toHaveAttribute("href", "/path/2");
+        expect(screen.getByRole("link", { name: "← $PATH collection" })).toHaveAttribute("href", "/lab/path-marketplace");
+        expect(screen.queryByTestId("auction-canvas")).toBeNull();
+    });
+    test("renders the WILL surface on the same-origin /will route", () => {
+        window.history.pushState({}, "", "/will");
+        render(_jsx(App, {}));
+        expect(document.title).toBe("WILL");
+        expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
+        expect(screen.getByRole("heading", { level: 1, name: "WILL" })).toBeInTheDocument();
+        expect(screen.getByText("launch in 2027", { exact: true })).toBeInTheDocument();
+        expect(screen.getByText("many people. many Agents. one will.", { exact: true })).toBeInTheDocument();
+        expect(document.querySelector(".will-page__dot-field")).toHaveAttribute("data-dot-layout", "even");
+        expect(document.querySelector(".shell--home")).toBeNull();
+        expect(screen.queryByTestId("auction-canvas")).toBeNull();
+    });
+    test("canonicalizes the legacy PATH app route to /path", async () => {
+        window.history.pushState({}, "", "/path-app?intent=mint-path");
+        render(_jsx(App, {}));
+        await flushAsyncEffects();
+        expect(window.location.pathname).toBe("/path");
+        expect(window.location.search).toBe("?intent=mint-path");
+        expect(screen.getByTestId("auction-canvas")).toBeInTheDocument();
+    });
+    test("renders the home browser title and favicon as Inshell", () => {
+        render(_jsx(App, {}));
+        expect(document.title).toBe("Inshell");
+        expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
+        expect(document.querySelector(".shell--home")).toBeInTheDocument();
+        expect(screen.queryByLabelText("Public update terms")).toBeNull();
+    });
+    test("renders the Pulse primitive page on /pulse", () => {
+        window.history.pushState({}, "", "/pulse");
+        render(_jsx(App, {}));
+        expect(document.title).toBe("pulse — $PATH");
+        expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
+        expect(screen.getByRole("heading", { name: "pulse" })).toBeInTheDocument();
+        expect(screen.getByText("Pricing sketch for the $PATH auction.")).toBeInTheDocument();
+        expect(screen.getByText("Pulse shapes the ask over time.")).toBeInTheDocument();
+        expect(screen.getByText(/A successful bid closes the current epoch/)).toBeInTheDocument();
+        expect(screen.getByText(/The next ask is raised by an initial premium\./)).toBeInTheDocument();
+        expect(screen.getByText(/Between sales, the ask decays toward the floor\./)).toBeInTheDocument();
+        expect(screen.getByText(/Equivalently, premium decays toward zero\./)).toBeInTheDocument();
+        expect(screen.getByText(/Settlement samples the ask at sale time\./)).toBeInTheDocument();
+        expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(/PTS = price-time scale/);
+        expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(/elapsed time = sale time - previous curve start/);
+        expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(/initial premium = elapsed time × PTS/);
+        expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(/next ask = next floor \+ initial premium/);
+        expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(/premium\(t\) = ask\(t\) - floor/);
+        expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(/ask\(t\) = floor \+ premium\(t\)/);
+        expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(/ask\(t\) = b \+ ⌊k \/ \(t - a\)⌋/);
+        expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(/b = floor/);
+        expect(screen.getByLabelText("Pulse pump and drop equations")).toHaveTextContent(/a = anchor time/);
+        for (const forbiddenTerm of [
+            `time ${"premium"}`,
+            `premium ${"per second"}`,
+            `duration ${"×"} PTS`,
+        ]) {
+            expect(screen.getByLabelText("Pulse pump and drop equations")).not.toHaveTextContent(new RegExp(forbiddenTerm));
+        }
+        expect(screen.queryByLabelText("Pulse lift and decay equations")).toBeNull();
+        expect(screen.getByLabelText("Linked Pulse auction curves")).toBeInTheDocument();
+        expect(screen.getByLabelText("Pulse current instance")).toBeInTheDocument();
+        expect(screen.getByText("current instance")).toBeInTheDocument();
+        expect(screen.getByText("$PATH is the current public auction using Pulse.")).toBeInTheDocument();
+        expect(screen.getByText(/This is the Desmos sketch behind Pulse\./)).toBeInTheDocument();
+        expect(screen.getByText(/It is not implementation code\./)).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "Open original Desmos sketch ↗" })).toHaveAttribute("href", "https://www.desmos.com/calculator/1d89f93d21");
+        expect(screen.getByRole("link", { name: "View source ↗" })).toHaveAttribute("href", "https://github.com/inshell-art/pulse");
+        expect(screen.queryByTestId("auction-canvas")).toBeNull();
+        expect(screen.queryByLabelText("Open Pulse")).toBeNull();
+    });
+    test("renders Pulse current instance live params with units", () => {
+        window.history.pushState({}, "", "/pulse");
+        const oneEth = 10n ** 18n;
+        mockUseAuctionCore.mockReturnValue({
+            data: {
+                active: true,
+                price: u256(420000000000000000n),
+                config: {
+                    openTimeSec: 1_778_240_550,
+                    genesisPrice: u256(oneEth),
+                    genesisFloor: u256(oneEth / 10n),
+                    k: u256(100n * oneEth),
+                    pts: "100000000000000",
+                },
+                blockNumber: 42,
+            },
+            loading: false,
+            error: null,
+            ready: true,
+            refresh: jest.fn(),
+        });
+        mockUseAuctionBids.mockReturnValue({
+            bids: [
+                {
+                    key: "sale-2",
+                    atMs: 1_778_241_000_000,
+                    amount: u256(250000000000000000n),
+                    amountDec: "0.25",
+                    bidder: "0x1111111111111111111111111111111111111111",
+                    blockNumber: 42,
+                    epochIndex: 2,
+                    anchorASec: 1_778_240_900,
+                },
+            ],
+            loading: false,
+            error: null,
+            ready: true,
+            pullOnce: jest.fn(),
+        });
+        render(_jsx(App, {}));
+        const params = screen.getByLabelText("Pulse current instance contract params");
+        const scopedParams = within(params);
+        expect(scopedParams.queryByText("authority")).toBeNull();
+        const contractLinks = scopedParams.getAllByRole("link", {
+            name: /Open PulseAuction contract on Sepolia explorer/,
+        });
+        expect(contractLinks[0]).toHaveTextContent(/^PulseAuction 0x[a-fA-F0-9]{4}\.\.\.[a-fA-F0-9]{4} ↗$/);
+        expect(contractLinks[0]).toHaveAttribute("href", expect.stringMatching(/^https:\/\/sepolia\.etherscan\.io\/address\/0x[a-fA-F0-9]{40}$/));
+        expect(contractLinks[0]).toHaveAttribute("target", "_blank");
+        expect(contractLinks[0]).toHaveAttribute("rel", expect.stringContaining("noreferrer"));
+        expect(scopedParams.getByText("chain")).toBeInTheDocument();
+        expect(scopedParams.getByText(expectedEnvChainLabel())).toBeInTheDocument();
+        expect(scopedParams.getByText("payment")).toBeInTheDocument();
+        expect(scopedParams.getByText("ETH")).toBeInTheDocument();
+        expect(scopedParams.getByText("loaded from")).toBeInTheDocument();
+        const blockLink = scopedParams.getByRole("link", {
+            name: "Open Sepolia block 42 on explorer",
+        });
+        expect(scopedParams.getByText("block")).toBeInTheDocument();
+        expect(blockLink).toHaveTextContent("42 ↗");
+        expect(blockLink).toHaveAttribute("href", "https://sepolia.etherscan.io/block/42");
+        expect(scopedParams.getByText("verify")).toBeInTheDocument();
+        expect(scopedParams.getByText("explorer ↗")).toHaveAttribute("href", expect.stringMatching(/^https:\/\/sepolia\.etherscan\.io\/address\/0x[a-fA-F0-9]{40}$/));
+        expect(scopedParams.getByRole("link", { name: "Open Inshell contracts verification page" })).toHaveAttribute("href", "/verify#contracts");
+        expect(scopedParams.queryByText("PulseAuction contract")).toBeNull();
+        expect(scopedParams.getByText("k")).toBeInTheDocument();
+        expect(scopedParams.getByText("100")).toBeInTheDocument();
+        expect(scopedParams.getByText("PTS")).toBeInTheDocument();
+        expect(scopedParams.getByText("0.0001 ETH/s")).toBeInTheDocument();
+        expect(scopedParams.getByText("opening ask")).toBeInTheDocument();
+        expect(scopedParams.getByText("1 ETH")).toBeInTheDocument();
+        expect(scopedParams.getByText("opening floor")).toBeInTheDocument();
+        expect(scopedParams.getByText("0.1 ETH")).toBeInTheDocument();
+        expect(scopedParams.getByText("current ask")).toBeInTheDocument();
+        expect(scopedParams.getByText("0.42 ETH")).toBeInTheDocument();
+        expect(scopedParams.getByText("floor")).toBeInTheDocument();
+        expect(scopedParams.getByText("0.25 ETH")).toBeInTheDocument();
+        expect(scopedParams.getByText("epoch")).toBeInTheDocument();
+        expect(scopedParams.getByText("3")).toBeInTheDocument();
+        expect(scopedParams.getAllByRole("link")).toHaveLength(4);
+        expect(params.textContent).not.toMatch(/\b(safe|trusted|certified|audited|indexer)\b/i);
+        expect(screen.getByRole("link", { name: "Open live params" })).toHaveAttribute("href", "/pulse?raw=1");
+        expect(screen.getByRole("link", { name: "View $PATH tokens" })).toHaveAttribute("href", "/path");
+    });
+    test("omits Pulse block fallback when the read block is unavailable", () => {
+        window.history.pushState({}, "", "/pulse");
+        const oneEth = 10n ** 18n;
+        mockUseAuctionCore.mockReturnValue({
+            data: {
+                active: true,
+                price: u256(420000000000000000n),
+                config: {
+                    openTimeSec: 1_778_240_550,
+                    genesisPrice: u256(oneEth),
+                    genesisFloor: u256(oneEth / 10n),
+                    k: u256(100n * oneEth),
+                    pts: "100000000000000",
+                },
+            },
+            loading: false,
+            error: null,
+            ready: true,
+            refresh: jest.fn(),
+        });
+        mockUseAuctionBids.mockReturnValue({
+            bids: [],
+            loading: false,
+            error: null,
+            ready: true,
+            pullOnce: jest.fn(),
+        });
+        render(_jsx(App, {}));
+        const params = screen.getByLabelText("Pulse current instance contract params");
+        const scopedParams = within(params);
+        expect(scopedParams.queryByText("block")).toBeNull();
+        expect(scopedParams.queryByText(/block unavailable/i)).toBeNull();
+        expect(scopedParams.getByText("verify")).toBeInTheDocument();
+    });
+    test("renders Pulse live params on a normal raw route", () => {
+        window.history.pushState({}, "", "/pulse?raw=1");
+        const oneEth = 10n ** 18n;
+        mockUseAuctionCore.mockReturnValue({
+            data: {
+                active: true,
+                price: u256(420000000000000000n),
+                config: {
+                    openTimeSec: 1_778_240_550,
+                    genesisPrice: u256(oneEth),
+                    genesisFloor: u256(oneEth / 10n),
+                    k: u256(100n * oneEth),
+                    pts: "100000000000000",
+                },
+            },
+            loading: false,
+            error: null,
+            ready: true,
+            refresh: jest.fn(),
+        });
+        mockUseAuctionBids.mockReturnValue({
+            bids: [],
+            loading: false,
+            error: null,
+            ready: true,
+            pullOnce: jest.fn(),
+        });
+        render(_jsx(App, {}));
+        expect(screen.getByRole("heading", { name: "pulse" })).toBeInTheDocument();
+        const rawParams = screen.getByLabelText("Pulse live params document");
+        expect(rawParams).toHaveTextContent("pulse params");
+        expect(rawParams).toHaveTextContent(/current ask\s+0\.42 ETH/);
+        expect(screen.queryByLabelText("Pulse lift and decay equations")).toBeNull();
+        expect(screen.queryByRole("link", { name: "Open live params" })).toBeNull();
+    });
+    test("does not show stale Pulse params when live params fail", () => {
+        window.history.pushState({}, "", "/pulse");
+        mockUseAuctionCore.mockReturnValue({
+            data: null,
+            loading: false,
+            error: new Error("RPC read failed"),
+            ready: true,
+            refresh: jest.fn(),
+        });
+        mockUseAuctionBids.mockReturnValue({
+            bids: [],
+            loading: false,
+            error: new Error("RPC read failed"),
+            ready: false,
+            pullOnce: jest.fn(),
+        });
+        render(_jsx(App, {}));
+        expect(screen.getByText("live params unavailable.")).toBeInTheDocument();
+        expect(screen.queryByLabelText("Pulse current instance contract params")).toBeNull();
+        expect(screen.queryByRole("link", { name: "Open live params" })).toBeNull();
+        expect(screen.queryByText("opening ask")).toBeNull();
+        expect(screen.queryByText("current ask")).toBeNull();
+    });
+    test("renders the color-font primitive page on /color-font", async () => {
+        window.history.pushState({}, "", "/color-font");
+        render(_jsx(App, {}));
+        await flushAsyncEffects();
+        expect(document.title).toBe("color-font");
+        expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
+        expect(screen.getByRole("heading", { name: "color-font" })).toBeInTheDocument();
+        expect(screen.queryByText(/THOUGHT Color Font/i)).toBeNull();
+        expect(screen.getByText("Contract-defined A-Z color glyph system.")).toBeInTheDocument();
+        expect(await screen.findByText("inshell.colorfont.v1")).toBeInTheDocument();
+        const glyphs = within(await screen.findByLabelText("A-Z color glyph preview"));
+        expect(glyphs.getAllByRole("img")).toHaveLength(26);
+        expect(glyphs.getByLabelText("A, aqua, #00ffff")).toHaveAttribute("data-label", "A:Aqua:#00ffff");
+        expect(glyphs.getByLabelText("A, aqua, #00ffff")).not.toHaveAttribute("title");
+        expect(glyphs.getByLabelText("Z, zombie gray, #778877")).toHaveAttribute("data-label", "Z:Zombie gray:#778877");
+        expect(screen.getByText("warning: onchain color font could not be loaded.")).toBeInTheDocument();
+        expect(screen.getByText("showing bundled mirror copy.")).toBeInTheDocument();
+        expect(screen.getByText("authority")).toBeInTheDocument();
+        expect(screen.getByText("onchain color font ABI unavailable")).toBeInTheDocument();
+        expect(screen.getByText("chain")).toBeInTheDocument();
+        expect(screen.getByText(expectedColorFontFallbackChainLabel())).toBeInTheDocument();
+        expect(screen.getByText("loaded from")).toBeInTheDocument();
+        expect(screen.getByText("frontend mirror fallback")).toBeInTheDocument();
+        expect(screen.getByText("mirror")).toBeInTheDocument();
+        expect(screen.getByText("GitHub COLOR_FONT.v1.json")).toBeInTheDocument();
+        expect(screen.getByText(/A:1:aqua:#00ffff/)).toBeInTheDocument();
+        expect(screen.queryByRole("link", { name: "Open raw onchain data ↗" })).toBeNull();
+        expect(screen.getByRole("button", { name: "Retry onchain load" })).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "View GitHub mirror ↗" })).toHaveAttribute("href", "https://github.com/inshell-art/inshell.art/blob/main/spec/COLOR_FONT.v1.json");
+        expect(screen.getByRole("link", { name: "View GitHub mirror ↗" })).not.toHaveAttribute("href", expect.stringContaining("github.com/inshell-art/thought"));
+        expect(screen.getByText(/authority: onchain color font ABI unavailable/)).toBeInTheDocument();
+        expect(screen.getByText(/loaded from: frontend mirror fallback/)).toBeInTheDocument();
+        expect(screen.getByText(/mirror: GitHub COLOR_FONT\.v1\.json/)).toBeInTheDocument();
+        expect(screen.queryByTestId("auction-canvas")).toBeNull();
+        expect(screen.queryByLabelText("Open color-font primitive page")).toBeNull();
+    });
+    test("renders the verify page with official wallet facts", () => {
+        globalThis.__VITE_ENV__ = {
+            VITE_NETWORK: "sepolia",
+        };
+        window.history.pushState({}, "", "/verify");
+        render(_jsx(App, {}));
+        expect(document.title).toBe("verify — $PATH");
+        expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
+        expect(screen.getByRole("heading", { name: "verify" })).toBeInTheDocument();
+        expect(screen.getByText("Official Inshell contracts and wallet surfaces.")).toBeInTheDocument();
+        expect(screen.getByText("https://inshell.art")).toBeInTheDocument();
+        expect(screen.getByText("https://inshell.art/path")).toBeInTheDocument();
+        expect(screen.getByText("https://inshell.art/thought")).toBeInTheDocument();
+        expect(screen.getByText("https://inshell.art/gallery")).toBeInTheDocument();
+        expect(screen.getByText("official origins")).toBeInTheDocument();
+        expect(screen.getByText("inshell.art/verify")).toBeInTheDocument();
+        expect(screen.getByText("preview / staging surface")).toBeInTheDocument();
+        expect(screen.getByText("verification notes")).toBeInTheDocument();
+        expect(screen.getByText(/Why can a wallet show low popularity/i)).toBeInTheDocument();
+        expect(screen.getByText(/Does connecting wallet sign anything/i)).toBeInTheDocument();
+        expect(screen.getByText(/It does not send ETH, sign a message, mint PATH, or approve tokens/i)).toBeInTheDocument();
+        expect(screen.getByText(/Does PATH mint require token approval/i)).toBeInTheDocument();
+        expect(screen.getByText("Sepolia")).toBeInTheDocument();
+        expect(screen.getByText("11155111")).toBeInTheDocument();
+        expect(screen.getByText("PathNFT")).toBeInTheDocument();
+        expect(screen.getByText("PathPulseAdapter")).toBeInTheDocument();
+        expect(screen.getByText("ThoughtNFT")).toBeInTheDocument();
+        expect(screen.getByText("PulseAuction")).toBeInTheDocument();
+        expect(screen.getByText("SpecRegistry")).toBeInTheDocument();
+        expect(screen.getByText("ColorFont")).toBeInTheDocument();
+        expect(screen.getByText("READY_WITH_WARNINGS")).toBeInTheDocument();
+        expect(screen.getByText("Pulse economics")).toBeInTheDocument();
+        expect(screen.getByText("none after launch")).toBeInTheDocument();
+        expect(screen.getByText("THOUGHT.v1.md")).toBeInTheDocument();
+        expect(screen.getByText("0xe201170ae183f114064f4492cbc4942f7d3d68b74a08d3dc4b4f61edec213d78")).toBeInTheDocument();
+        expect(screen.queryByTestId("auction-canvas")).toBeNull();
+    });
+    test("keeps the PATH app canvas frame visually cleared", () => {
+        const appCss = readFileSync(nodePath.resolve(cwd(), "src/main.css"), "utf8");
+        const tokenCss = readFileSync(nodePath.resolve(cwd(), "../../packages/inshell-shell/src/tokens.css"), "utf8");
+        const css = `${tokenCss}\n${appCss}`;
+        expect(css).toMatch(/--canvas-frame-bg:\s*var\(--panel\);/);
+        expect(css).toMatch(/--canvas-frame-bg:\s*#fff;/);
+        expect(css).toMatch(/--path-app-dotfield-bg:\s*var\(--bg-body\);/);
+        expect(css).toMatch(/\.dotfield\s*{[^}]*background:\s*var\(--path-app-dotfield-bg\);/s);
+        expect(css).toMatch(/--path-app-dotfield-width:\s*100%;/);
+        expect(css).toMatch(/--path-app-layout-width:\s*var\(--path-app-dotfield-width\);/);
+        expect(css).toMatch(/\.dotfield\s*{[^}]*width:\s*var\(--path-app-layout-width\);/s);
+        expect(css).toMatch(/\.dotfield\s*{[^}]*max-width:\s*var\(--path-app-dotfield-max-width\);/s);
+        expect(css).toMatch(/\.dotfield__canvas\s*{[^}]*height:\s*var\(--path-app-canvas-height\);/s);
+        expect(css).toMatch(/@media\s*\(min-width:\s*1400px\)\s*{[^}]*\.dotfield\s*{[^}]*width:\s*var\(--path-app-layout-width\);/s);
+        expect(css).toMatch(/@media\s*\(min-width:\s*1400px\)\s*{[\s\S]*?\.dotfield__canvas\s*{[^}]*height:\s*var\(--path-app-canvas-height-wide\);/s);
+        expect(css).toMatch(/@media\s*\(min-width:\s*1800px\)\s*{[^}]*\.dotfield\s*{[^}]*width:\s*var\(--path-app-layout-width\);/s);
+        expect(css).toMatch(/@media\s*\(min-width:\s*1800px\)\s*{[\s\S]*?\.dotfield__canvas\s*{[^}]*height:\s*var\(--path-app-canvas-height-ultra\);/s);
+        expect(css).toMatch(/\.shell--home\s*{[^}]*min-height:\s*100dvh;/s);
+        expect(css).not.toMatch(/\.shell--home\s+\.dotfield__canvas/);
+        expect(css).toMatch(/\.path-page-token\s*{[^}]*background:\s*var\(--canvas-frame-bg\);/s);
+        expect(css).toMatch(/\.path-page-token__media\s*{[^}]*background:\s*#050505;/s);
+    });
+    test("keeps PATH CTA warnings and anchored popovers on one 6px gap contract", () => {
+        const css = readFileSync(nodePath.resolve(cwd(), "src/main.css"), "utf8");
+        expect(css).toMatch(/--path-app-cta-notice-gap:\s*6px;/);
+        expect(css).toMatch(/\.dotfield__mint-notice\s*{[^}]*margin:\s*var\(--path-app-cta-notice-gap\) 0 0;/s);
+        expect(css).toMatch(/\.dotfield__cta-anchor\s*{[^}]*position:\s*relative;/s);
+        expect(css).toMatch(/\.dotfield__mint-review\s*{[^}]*top:\s*calc\(100% \+ var\(--path-app-cta-notice-gap\)\);/s);
+        expect(css).toMatch(/\.dotfield__mint-proof\s*{[^}]*top:\s*calc\(100% \+ var\(--path-app-cta-notice-gap\)\);/s);
+    });
+    test("renders the color-font primitive page with onchain authority metadata", async () => {
+        window.history.pushState({}, "", "/color-font");
+        const colorFontV1Address = "0x627b9A657eac8c3463AD17009a424dFE3FDbd0b1";
+        globalThis.__VITE_ENV__ = {
+            VITE_NETWORK: "sepolia",
+            VITE_COLOR_FONT_V1: colorFontV1Address,
+        };
+        const request = jest.fn(async ({ method, params }) => {
+            if (method === "eth_call") {
+                const data = params[0].data;
+                if (data === "0xaf640d0f")
+                    return encodeAbiString(COLOR_FONT.id);
+                if (data === "0x54fd4d50")
+                    return encodeAbiString(COLOR_FONT.version);
+                if (data === "0x09bd5a60")
+                    return COLOR_FONT.hash;
+                if (data === "0x73d4a13a")
+                    return encodeAbiString(COLOR_FONT_RAW);
             }
+            throw new Error(`unexpected RPC request: ${method}`);
         });
-        const yearElements = screen.getAllByText(/2027|2028/i);
-        yearElements.forEach((element) => {
-            expect(parseFloat(element.style.opacity)).toBeGreaterThanOrEqual(0.5);
+        mockedGetCode.mockResolvedValue("0x1234");
+        mockedGetChainId.mockResolvedValue(11155111n);
+        mockedGetDefaultProvider.mockReturnValue({ request });
+        render(_jsx(App, {}));
+        await flushAsyncEffects();
+        expect(await screen.findByText("inshell.colorfont.v1")).toBeInTheDocument();
+        const authority = screen.getByText("ColorFontV1 0x627b...d0b1");
+        expect(authority).toHaveAttribute("href", `https://sepolia.etherscan.io/address/${colorFontV1Address}`);
+        expect(authority).toHaveAttribute("title", `ColorFontV1 ${colorFontV1Address}`);
+        expect(screen.getByText("Sepolia (11155111)")).toBeInTheDocument();
+        expect(screen.getByText("ColorFontV1.data()")).toBeInTheDocument();
+        expect(screen.getByText("GitHub COLOR_FONT.v1.json")).toBeInTheDocument();
+        expect(screen.queryByText("frontend mirror fallback")).toBeNull();
+        expect(screen.queryByText("warning: onchain color font could not be loaded.")).toBeNull();
+        expect(screen.getByRole("link", { name: "Open raw onchain data ↗" })).toHaveAttribute("href", "/color-font?raw=1");
+        expect(screen.queryByRole("button", { name: "Retry onchain load" })).toBeNull();
+        expect(screen.getByText(/authority: ColorFontV1 0x627b\.\.\.d0b1/)).toBeInTheDocument();
+        expect(screen.getByText(/loaded from: ColorFontV1\.data\(\)/)).toBeInTheDocument();
+        expect(screen.getByText(/mirror: GitHub COLOR_FONT\.v1\.json/)).toBeInTheDocument();
+        expect(request).toHaveBeenCalledWith(expect.objectContaining({
+            method: "eth_call",
+            params: [expect.objectContaining({ to: colorFontV1Address, data: "0x73d4a13a" }), "latest"],
+        }));
+    });
+    test("renders the PATH fixture for one WILL mint out of capacity ten", () => {
+        window.history.pushState({}, "", "/path?fixture=will");
+        render(_jsx(App, {}));
+        expect(document.title).toBe("$PATH");
+        expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
+        expect(document.querySelector(".path-page__header")).toBeNull();
+        expect(screen.queryByText("$PATH is minted by the Pulse auction on the active network.")).toBeNull();
+        expect(screen.queryByRole("link", { name: "View $PATH pricing rule" })).toBeNull();
+        expect(screen.getByText("all $PATH · 1")).toBeInTheDocument();
+        expect(screen.getByText("$PATH #1")).toBeInTheDocument();
+        expect(screen.getAllByText("WILL")).toHaveLength(2);
+        expect(screen.getByText("mint capacity")).toBeInTheDocument();
+        expect(screen.getByText("1 / 10 used")).toBeInTheDocument();
+        expect(screen.getByText("not available")).toBeInTheDocument();
+        expect(screen.queryByText("Minted(1/10)")).toBeNull();
+        expect(screen.queryByText("0 / 0")).toBeNull();
+        const image = screen.getByRole("img", { name: "$PATH #1 movement progress" });
+        expect(image).toHaveAttribute("src", expect.stringContaining("will-fill"));
+        expect(image).toHaveAttribute("src", expect.stringContaining("r%3D'3'"));
+        expect(screen.getByLabelText("Open $PATH #1")).toHaveAttribute("href", "/path/1?fixture=will");
+        expect(screen.getByTestId("auction-canvas")).toBeInTheDocument();
+    });
+    test("renders the live PATH page with an explicit chain loading message", async () => {
+        window.history.pushState({}, "", "/path?fixture=live");
+        render(_jsx(App, {}));
+        expect(screen.getByLabelText("reading from chain: checking latest block...")).toBeInTheDocument();
+        expect(screen.getByText(/reading from chain: checking latest block/)).toBeInTheDocument();
+        await flushAsyncEffects();
+        expect(screen.getByText("token gallery unavailable.")).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "retry" })).toBeInTheDocument();
+    });
+    test("overlays confirmed THOUGHT mints onto live PATH unit progress", async () => {
+        mockPathAndThoughtApis({
+            pathItems: [pathTokenApiItem()],
+            thoughtItems: [
+                thoughtGalleryItem({
+                    tokenId: 10,
+                    pathId: "1",
+                }),
+            ],
         });
+        window.history.pushState({}, "", "/path?fixture=live");
+        render(_jsx(App, {}));
+        expect(await screen.findByText("all $PATH · 1")).toBeInTheDocument();
+        const lifecycle = within(screen.getByLabelText("$PATH #1 lifecycle"));
+        expect(lifecycle.getAllByText("1 / 1 used")).toHaveLength(1);
+        expect(lifecycle.getAllByText("0 / 1 used")).toHaveLength(2);
+        expect(screen.getByRole("img", { name: "$PATH #1 movement progress" })).toHaveAttribute("src", expect.stringContaining("thought-fill"));
+        expect(lifecycle.queryByRole("link", { name: "THOUGHT #10 ↗" })).toBeNull();
+    });
+    test("links confirmed movement tokens from a PATH detail page", async () => {
+        mockPathAndThoughtApis({
+            pathItems: [pathTokenApiItem()],
+            thoughtItems: [
+                thoughtGalleryItem({
+                    tokenId: 10,
+                    pathId: "1",
+                }),
+            ],
+        });
+        window.history.pushState({}, "", "/path/1?fixture=live");
+        render(_jsx(App, {}));
+        const lifecycle = within(await screen.findByLabelText("$PATH #1 lifecycle"));
+        expect(lifecycle.getByRole("heading", { name: "movement tokens" })).toBeInTheDocument();
+        expect(lifecycle.getByRole("link", { name: "THOUGHT #10 ↗" })).toHaveAttribute("href", "/thought/10");
+    });
+    test("renders the PATH state gallery fixture", () => {
+        window.history.pushState({}, "", "/path?fixture=states");
+        render(_jsx(App, {}));
+        expect(document.title).toBe("$PATH");
+        expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
+        expect(screen.getByText("all $PATH · 8")).toBeInTheDocument();
+        expect(screen.queryByText("fixture state gallery")).toBeNull();
+        expect(screen.queryByText("fixture tokenURI()")).toBeNull();
+        for (let tokenId = 1; tokenId <= 8; tokenId += 1) {
+            expect(screen.getByText(`$PATH #${tokenId}`)).toBeInTheDocument();
+        }
+        expect([...document.querySelectorAll(".path-page-token")].map((card) => card.getAttribute("data-path-token-id"))).toEqual(["8", "7", "6", "5", "4", "3", "2", "1"]);
+        expect(screen.getByText("2 / 3 used")).toBeInTheDocument();
+        expect(screen.getByText("5 / 10 used")).toBeInTheDocument();
+        expect(screen.getByText("1 / 2 used")).toBeInTheDocument();
+        expect(screen.getByText("2 / 2 used")).toBeInTheDocument();
+        expect(screen.getByText("COMPLETE")).toBeInTheDocument();
+        expect(screen.queryByText("Minted(2/3)")).toBeNull();
+        const thoughtProgressImage = screen.getByRole("img", { name: "$PATH #2 movement progress" });
+        expect(thoughtProgressImage).toHaveAttribute("src", expect.stringContaining("circle%20id%3D'thought-box'"));
+        expect(thoughtProgressImage).toHaveAttribute("src", expect.stringContaining("thought-fill"));
+        expect(thoughtProgressImage).toHaveAttribute("src", expect.stringContaining("r%3D'20'"));
+        expect(thoughtProgressImage).not.toHaveAttribute("src", expect.stringContaining("clip-path"));
+        const oneWillImage = screen.getByRole("img", { name: "$PATH #4 movement progress" });
+        expect(oneWillImage).toHaveAttribute("src", expect.stringContaining("r%3D'3'"));
+        const midWillImage = screen.getByRole("img", { name: "$PATH #5 movement progress" });
+        expect(midWillImage).toHaveAttribute("src", expect.stringContaining("r%3D'15'"));
+        const awaProgressImage = screen.getByRole("img", { name: "$PATH #7 movement progress" });
+        expect(awaProgressImage).toHaveAttribute("src", expect.stringContaining("awa-fill"));
+        expect(awaProgressImage).toHaveAttribute("src", expect.stringContaining("r%3D'15'"));
+        expect(screen.queryByText("authorized")).toBeNull();
+        expect(screen.getByTestId("auction-canvas")).toBeInTheDocument();
+    });
+    test("renders a native PATH detail route", () => {
+        globalThis.__VITE_ENV__ = {
+            VITE_LOCAL_EXPLORER_BASE_URL: "http://127.0.0.1:4000",
+        };
+        mockUseAuctionBids.mockReturnValue({
+            bids: [
+                {
+                    key: "tx:path-4",
+                    atMs: 1_778_888_000_000,
+                    bidder: "0x2222333344445555666677778888999900001111",
+                    amount: u256(9041000000000000n),
+                    txHash: "0x4444444444444444444444444444444444444444444444444444444444444444",
+                    blockNumber: 412,
+                    epochIndex: 4,
+                    tokenId: 4,
+                },
+            ],
+            loading: false,
+            error: null,
+            ready: true,
+            pullOnce: jest.fn(),
+        });
+        window.history.pushState({}, "", "/path/4?fixture=states");
+        render(_jsx(App, {}));
+        expect(document.title).toBe("$PATH #4");
+        expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
+        expect(screen.queryByTestId("auction-canvas")).toBeNull();
+        expect(screen.getByRole("heading", { level: 1, name: "$PATH #4" })).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "[ mint a $PATH ]" })).toHaveAttribute("href", "/path");
+        expect(screen.queryByRole("link", { name: "[ verify this $PATH ]" })).toBeNull();
+        expect(screen.queryByText("$PATH #1")).toBeNull();
+        expect(screen.queryByText("$PATH #8")).toBeNull();
+        expect(document.querySelector(".path-page-token--focused")).toBeNull();
+        expect(screen.getByRole("img", { name: "$PATH #4 movement progress" })).toHaveAttribute("src", expect.stringContaining("will-fill"));
+        const lifecycle = within(screen.getByLabelText("$PATH #4 lifecycle"));
+        expect(lifecycle.getByRole("heading", { name: "about" })).toBeInTheDocument();
+        expect(lifecycle.getByText("$PATH is the permission token for movements:")).toBeInTheDocument();
+        expect(lifecycle.getByText("THOUGHT WILL AWA")).toBeInTheDocument();
+        expect(lifecycle.getByText("Each work mint moves $PATH forward.")).toBeInTheDocument();
+        expect(lifecycle.queryByRole("button", { name: /about \$PATH/i })).toBeNull();
+        expect(lifecycle.queryByRole("heading", { name: "next movement" })).toBeNull();
+        expect(lifecycle.getByRole("heading", { name: "mint capacity" })).toBeInTheDocument();
+        expect(lifecycle.getByText("Each movement has its own capacity.")).toBeInTheDocument();
+        expect(lifecycle.getByText("One successful work mint uses one.")).toBeInTheDocument();
+        expect(lifecycle.getByText("Using the full capacity opens the next movement.")).toBeInTheDocument();
+        expect(lifecycle.queryByRole("button", { name: /mint capacity guide/i })).toBeNull();
+        expect(lifecycle.getByText("stage")).toBeInTheDocument();
+        expect(lifecycle.getAllByText("WILL").length).toBeGreaterThanOrEqual(2);
+        expect(lifecycle.getByText("3 / 3 used")).toBeInTheDocument();
+        expect(lifecycle.getByText("1 / 10 used")).toBeInTheDocument();
+        expect(lifecycle.getByRole("heading", { name: "movement tokens" })).toBeInTheDocument();
+        expect(lifecycle.getByRole("link", { name: "THOUGHT #4 ↗" })).toHaveAttribute("href", "/thought/4");
+        expect(lifecycle.getByRole("heading", { name: "token details" })).toBeInTheDocument();
+        expect(lifecycle.getByText("0.009041 local ETH")).toHaveAttribute("title", "9041000000000000 wei");
+        const initialMinterLink = lifecycle.getByRole("link", { name: "0x2222...1111 ↗" });
+        expect(initialMinterLink.closest("dd")).toHaveAttribute("title", "0x2222333344445555666677778888999900001111");
+        expect(initialMinterLink).toHaveAttribute("href", "http://127.0.0.1:4000/address/0x2222333344445555666677778888999900001111");
+        expect(lifecycle.getByRole("link", { name: "412 ↗" })).toHaveAttribute("href", "http://127.0.0.1:4000/block/412");
+        const mintTransactionLink = lifecycle.getByRole("link", { name: "0x4444...4444 ↗" });
+        expect(mintTransactionLink.closest("dd")).toHaveAttribute("title", "0x4444444444444444444444444444444444444444444444444444444444444444");
+        expect(mintTransactionLink).toHaveAttribute("href", "http://127.0.0.1:4000/tx/0x4444444444444444444444444444444444444444444444444444444444444444");
+        expect(lifecycle.getByRole("link", { name: "Pulse ↗" })).toHaveAttribute("href", "/docs#docs-pulse");
+        expect(lifecycle.queryByRole("heading", { name: "issuance" })).toBeNull();
+        expect(lifecycle.queryByRole("heading", { name: "on-chain record" })).toBeNull();
+        const ownerLink = lifecycle.getByRole("link", { name: "0x1111...0000 ↗" });
+        expect(ownerLink.closest("dd")).toHaveAttribute("title", "0x1111222233334444555566667777888899990000");
+        expect(ownerLink).toHaveAttribute("href", "http://127.0.0.1:4000/address/0x1111222233334444555566667777888899990000");
+        expect(lifecycle.getByText("ERC-721")).toBeInTheDocument();
+        expect(lifecycle.getByText("tokenURI()")).toBeInTheDocument();
+        expect(lifecycle.queryByRole("link", { name: "tokenURI() ↗" })).toBeNull();
+        expect(screen.queryByText("canonical artwork · PathNFT tokenURI()")).toBeNull();
+    });
+    test("renders only a not-found state for a missing PATH detail", () => {
+        window.history.pushState({}, "", "/path/9?fixture=will");
+        render(_jsx(App, {}));
+        expect(screen.getByText("$PATH #9 not found.")).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "view all $PATH" })).toHaveAttribute("href", "/path");
+        expect(screen.queryByLabelText("$PATH #1 card")).toBeNull();
+    });
+    test("renders the docs shell with the Inshell article by default", async () => {
+        window.history.pushState({}, "", "/docs");
+        const originalExecCommand = document.execCommand;
+        Object.defineProperty(document, "execCommand", {
+            configurable: true,
+            value: jest.fn(() => true),
+        });
+        try {
+            render(_jsx(App, {}));
+            expect(document.title).toBe("docs — Inshell");
+            expect(screen.getByRole("heading", { level: 1, name: "docs" })).toBeInTheDocument();
+            expect(screen.getByText(DOCS_SOURCE.subtitle)).toHaveClass("primitive-page__subtitle");
+            expect(document.querySelector(".docs-agent__label")).toBeNull();
+            const agentPrompt = screen.getByText(/Learn about Inshell from its current public docs/);
+            expect(agentPrompt).toBeVisible();
+            expect(agentPrompt).toHaveTextContent("I've read the current Inshell docs. Ask me anything about Inshell.");
+            fireEvent.click(screen.getByRole("button", { name: "[ copy prompt ]" }));
+            await act(async () => {
+                await Promise.resolve();
+            });
+            expect(screen.getByRole("button", { name: "[ copied. ]" })).toBeInTheDocument();
+            expect(screen.getByText("or read the docs below.")).toBeInTheDocument();
+            const documentationMenu = screen.getByRole("navigation", {
+                name: "Documentation contents",
+            });
+            expect(document.querySelectorAll(".docs-page__menu-group")).toHaveLength(4);
+            expect(document.querySelectorAll(".docs-page__menu-group > h2")).toHaveLength(0);
+            const articles = DOCS_SOURCE.topics.map((topic) => topic.title);
+            for (const article of articles) {
+                expect(within(documentationMenu).getByRole("link", { name: article })).toBeInTheDocument();
+            }
+            for (const topic of DOCS_SOURCE.topics) {
+                expect(within(documentationMenu).getByRole("link", { name: topic.title })).toHaveAttribute("href", `/docs/${topic.slug}`);
+            }
+            expect(within(documentationMenu).getByRole("link", { name: "Inshell" })).toHaveAttribute("aria-current", "page");
+            expect(screen.getByRole("heading", { level: 2, name: "Inshell" })).toBeInTheDocument();
+            const topicHeader = document.querySelector(".docs-topic__header");
+            expect(topicHeader).not.toHaveTextContent("current");
+            expect(topicHeader).not.toHaveTextContent("artist-editorial");
+            expect(document.querySelector(".docs-topic__meta")).toBeNull();
+            expect(document.querySelector(".docs-topic__status")).toBeNull();
+            expect(screen.queryByRole("heading", { level: 2, name: "Agent Art" })).toBeNull();
+            expect(screen.queryByRole("heading", { level: 2, name: "PATH" })).toBeNull();
+            expect(screen.getAllByRole("link", { name: "read as Markdown ↗" })).toHaveLength(1);
+            expect(document.head.querySelector('link[rel="alternate"][type="text/markdown"]')).toHaveAttribute("href", "/docs/index.md");
+            expect(screen.queryByTestId("auction-canvas")).toBeNull();
+        }
+        finally {
+            Object.defineProperty(document, "execCommand", {
+                configurable: true,
+                value: originalExecCommand,
+            });
+        }
+    });
+    test("shows only non-current documentation status beside the article title", () => {
+        const topic = DOCS_SOURCE.topics[0];
+        const originalStatus = topic.status;
+        topic.status = "study";
+        try {
+            window.history.pushState({}, "", `/docs/${topic.slug}`);
+            render(_jsx(App, {}));
+            expect(document.querySelector(".docs-topic__status")).toHaveTextContent("study");
+            expect(document.querySelector(".docs-topic__meta")).toBeNull();
+            expect(document.querySelector(".docs-topic__header")).not.toHaveTextContent("artist-editorial");
+        }
+        finally {
+            topic.status = originalStatus;
+        }
+    });
+    test("keeps documentation status and authority taxonomy in the Agent index", () => {
+        const index = JSON.parse(readFileSync(nodePath.resolve(cwd(), "public/docs/agent-index.json"), "utf8"));
+        const thought = index.documents.find((topic) => topic.id === "thought");
+        expect(thought).toMatchObject({
+            status: "current",
+            authorities: [
+                "artist-editorial",
+                "app-documentation",
+                "app-record",
+                "contract-release",
+                "runtime-report",
+            ],
+        });
+    });
+    test("renders one documentation article with article-specific navigation and metadata", () => {
+        window.history.pushState({}, "", "/docs/path");
+        render(_jsx(App, {}));
+        expect(document.title).toBe("PATH — docs — Inshell");
+        const documentationMenu = screen.getByRole("navigation", {
+            name: "Documentation contents",
+        });
+        expect(within(documentationMenu).getByRole("link", { name: "PATH" })).toHaveAttribute("aria-current", "page");
+        expect(screen.getByRole("heading", { level: 2, name: "PATH" })).toBeInTheDocument();
+        expect(screen.queryByRole("complementary", { name: "In this article" })).toBeNull();
+        expect(screen.queryByRole("heading", { level: 2, name: "Inshell" })).toBeNull();
+        expect(screen.queryByRole("heading", { level: 2, name: "Pulse" })).toBeNull();
+        expect(screen.getByText(/Every successful work mint uses one/)).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "read about Pulse ↗" })).toHaveAttribute("href", "/docs/pulse");
+        expect(screen.getByRole("link", { name: "read as Markdown ↗" })).toHaveAttribute("href", "/docs/path.md");
+        expect(document.head.querySelector('meta[property="og:url"]')).toHaveAttribute("content", "https://inshell.art/docs/path");
+        expect(document.head.querySelector('link[rel="alternate"][type="text/markdown"]')).toHaveAttribute("href", "/docs/path.md");
+    });
+    test("canonicalizes legacy docs hashes to article routes", async () => {
+        window.history.pushState({}, "", "/docs#docs-path-capacity");
+        render(_jsx(App, {}));
+        await act(async () => {
+            await Promise.resolve();
+        });
+        expect(window.location.pathname).toBe("/docs/path");
+        expect(window.location.hash).toBe("#docs-path-capacity");
+        expect(screen.getByRole("heading", { level: 2, name: "PATH" })).toBeInTheDocument();
+    });
+    test("renders a docs-specific not-found state for an unknown article", () => {
+        window.history.pushState({}, "", "/docs/not-a-real-article");
+        render(_jsx(App, {}));
+        expect(screen.getByRole("heading", { level: 2, name: "Article not found." })).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "open docs ↗" })).toHaveAttribute("href", "/docs");
+    });
+    test("opens PATH detail routes from collection cards", async () => {
+        window.history.pushState({}, "", "/path?fixture=states");
+        const pushStateSpy = jest.spyOn(window.history, "pushState");
+        try {
+            render(_jsx(App, {}));
+            const path4Link = screen.getByRole("link", { name: "Open $PATH #4" });
+            expect(fireEvent.click(path4Link, { button: 0 })).toBe(false);
+            await flushAsyncEffects();
+            expect(pushStateSpy).toHaveBeenCalledWith({}, "", "/path/4?fixture=states");
+            expect(window.location.pathname).toBe("/path/4");
+            expect(document.title).toBe("$PATH #4");
+            expect(screen.getByRole("heading", { level: 1, name: "$PATH #4" })).toBeInTheDocument();
+            expect(screen.queryByTestId("auction-canvas")).toBeNull();
+            expect(document.querySelector(".path-page-token--focused")).toBeNull();
+        }
+        finally {
+            pushStateSpy.mockRestore();
+        }
+    });
+    test("scrolls verify hash anchors after route render", async () => {
+        window.history.pushState({}, "", "/verify#wallet-notes");
+        const originalRequestAnimationFrame = window.requestAnimationFrame;
+        const originalCancelAnimationFrame = window.cancelAnimationFrame;
+        const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+        const scrollIntoView = jest.fn();
+        Object.defineProperty(window, "requestAnimationFrame", {
+            configurable: true,
+            value: (callback) => {
+                callback(0);
+                return 1;
+            },
+        });
+        Object.defineProperty(window, "cancelAnimationFrame", {
+            configurable: true,
+            value: jest.fn(),
+        });
+        Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+            configurable: true,
+            value: scrollIntoView,
+        });
+        try {
+            render(_jsx(App, {}));
+            expect(screen.getByRole("heading", { name: "verification notes" })).toHaveAttribute("id", "wallet-notes");
+            expect(scrollIntoView).toHaveBeenCalledWith({
+                block: "start",
+                behavior: "auto",
+            });
+        }
+        finally {
+            Object.defineProperty(window, "requestAnimationFrame", {
+                configurable: true,
+                value: originalRequestAnimationFrame,
+            });
+            Object.defineProperty(window, "cancelAnimationFrame", {
+                configurable: true,
+                value: originalCancelAnimationFrame,
+            });
+            if (originalScrollIntoView) {
+                Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+                    configurable: true,
+                    value: originalScrollIntoView,
+                });
+            }
+            else {
+                delete HTMLElement.prototype.scrollIntoView;
+            }
+        }
+    });
+    test("renders a fresh PATH detail without movement token links", () => {
+        window.history.pushState({}, "", "/path/1?fixture=states");
+        render(_jsx(App, {}));
+        expect(screen.queryByTestId("auction-canvas")).toBeNull();
+        const lifecycle = within(screen.getByLabelText("$PATH #1 lifecycle"));
+        expect(lifecycle.queryByRole("heading", { name: "next movement" })).toBeNull();
+        expect(lifecycle.getByText("Each movement has its own capacity.")).toBeInTheDocument();
+        expect(lifecycle.queryByRole("link", { name: "create a THOUGHT" })).toBeNull();
+        expect(lifecycle.getByText("0x1111...0000")).toBeInTheDocument();
+        expect(lifecycle.getByText("stage")).toBeInTheDocument();
+        expect(lifecycle.getByText("0 / 3 used")).toBeInTheDocument();
+        expect(lifecycle.getByText("0 / 10 used")).toBeInTheDocument();
+        expect(lifecycle.getByText("0 / 2 used")).toBeInTheDocument();
+        expect(lifecycle.queryByRole("link", { name: /THOUGHT #/ })).toBeNull();
+    });
+    test("renders THOUGHT detail routes at the Inshell root", async () => {
+        mockThoughtGalleryApi([
+            thoughtGalleryItem({
+                tokenId: 1,
+                pathId: "4",
+                rawText: "one thought",
+                returnedText: "one thought",
+            }),
+        ]);
+        window.history.pushState({}, "", "/thought/1");
+        render(_jsx(App, {}));
+        await flushAsyncEffects();
+        expect(document.title).toBe("THOUGHT #1");
+        expect(screen.getByRole("heading", { level: 1, name: /THOUGHT\s+#\s*1/ })).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "[ home ]" })).toHaveAttribute("href", "/#thought-1");
+        expect(screen.getByRole("link", { name: "[ create yours ]" })).toBeInTheDocument();
+        expect(screen.getByLabelText("THOUGHT #1 record")).toBeInTheDocument();
+        expect(screen.getByRole("img", { name: "THOUGHT #1 canvas" })).toBeInTheDocument();
+        expect(screen.getByText("one thought")).toBeInTheDocument();
+        const specLink = screen.getByRole("link", { name: "THOUGHT.v2.md ↗" });
+        expect(specLink).toHaveAttribute("href", "https://inshell.art/docs/thought-v2");
+        expect(specLink).not.toHaveAttribute("href", expect.stringContaining("github.com"));
+        expect(screen.getByRole("link", { name: "$PATH #4 ↗" })).toHaveAttribute("href", "/path/4");
+        expect(screen.getByText("Inshell THOUGHT App")).toBeInTheDocument();
+        expect(screen.getAllByText("Agent")).toHaveLength(2);
+        expect(screen.getByText("Model")).toBeInTheDocument();
+        expect(screen.getByText("selected in the THOUGHT App")).toBeInTheDocument();
+        expect(screen.getByText("runtime source unavailable")).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "how this record is made ↗" })).toHaveAttribute("href", "/docs#docs-thought");
+        expect(screen.getByText("PATH serial 1")).toBeInTheDocument();
+        const txLink = screen.getByRole("link", {
+            name: "0x777777777777...7777777777 ↗",
+        });
+        expect(txLink).toHaveAttribute("id", "thought-detail-view-tx");
+        const provenanceLink = screen.getByRole("link", { name: "open raw provenance ↗" });
+        expect(provenanceLink).toBeInTheDocument();
+        expect(provenanceLink).toHaveAttribute("href", "/api/thought-provenance?id=1");
+        expect(provenanceLink).not.toHaveAttribute("download");
+        expect(screen.getByText("provenance · 2 bytes")).toBeInTheDocument();
+        expect(screen.getByText("canonical artwork · ThoughtNFT.svgOf(1)")).toBeInTheDocument();
+        expect(window.location.pathname).toBe("/thought/1");
+        expect(screen.queryByTestId("auction-canvas")).toBeNull();
+    });
+    test("links the exact local Contract-integrated THOUGHT spec", () => {
+        globalThis.__VITE_ENV__ = {
+            VITE_NETWORK: "devnet",
+        };
+        const selectedSpec = thoughtContractIntegrationLock.runtimeBaseline.selectedSpec;
+        expect(resolveThoughtSpecHref(thoughtGalleryItem({
+            tokenId: 17,
+            thoughtSpecId: selectedSpec.id,
+            thoughtSpecHash: selectedSpec.hash,
+            thoughtSpecRef: selectedSpec.ref,
+        }))).toBe("/__test-assets__/THOUGHT.v2.md");
+    });
+    test("labels permissionless THOUGHT records as unattested", async () => {
+        mockThoughtGalleryApi([
+            thoughtGalleryItem({
+                tokenId: 2,
+                creationAttestationDigest: "0x0000000000000000000000000000000000000000000000000000000000000000",
+            }),
+        ]);
+        window.history.pushState({}, "", "/thought/2");
+        render(_jsx(App, {}));
+        await flushAsyncEffects();
+        expect(screen.getByText("Unattested")).toHaveAttribute("data-attestation", "unattested");
+        expect(screen.queryByText("Inshell THOUGHT App")).toBeNull();
+        expect(screen.getAllByText("Agent")).toHaveLength(2);
+        expect(screen.getByText("Model")).toBeInTheDocument();
+        expect(screen.getByText("selected in the THOUGHT App")).toBeInTheDocument();
+        expect(screen.getByText("runtime source unavailable")).toBeInTheDocument();
+    });
+    test("leads THOUGHT detail with creation provenance and canonical metadata traits", async () => {
+        const provenanceJson = JSON.stringify({
+            schema: "inshell.thought.provenance.v2",
+            process: {
+                kind: "agent-run",
+                agent: {
+                    label: "Codex",
+                    source: "producer-selected",
+                },
+                model: {
+                    identifier: "openai/gpt-test",
+                    label: "gpt-test",
+                    source: "runtime-reported",
+                },
+                run: {
+                    adapter: "codex",
+                    route: "app",
+                    resultEnvelopeKeccak256: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    referenceKeccak256: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                },
+            },
+            protocol: {
+                manifestKeccak256: "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                protocolReleaseId: "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            },
+        });
+        const tokenUri = `data:application/json,${encodeURIComponent(JSON.stringify({
+            attributes: [
+                {
+                    trait_type: "Creation Attestation",
+                    value: "Inshell THOUGHT App",
+                },
+                { trait_type: "Agent", value: "Codex" },
+                { trait_type: "Model", value: "gpt-test" },
+                {
+                    trait_type: "Prompt Bytes",
+                    value: 12,
+                    display_type: "number",
+                },
+            ],
+        }))}`;
+        mockThoughtGalleryApi([
+            thoughtGalleryItem({ tokenId: 3, provenanceJson, tokenUri }),
+        ]);
+        window.history.pushState({}, "", "/thought/3");
+        render(_jsx(App, {}));
+        await flushAsyncEffects();
+        expect(screen.getByRole("heading", { level: 2, name: "creation provenance" })).toBeInTheDocument();
+        expect(screen.getByText("Agent run")).toBeInTheDocument();
+        expect(screen.getByText("codex")).toBeInTheDocument();
+        expect(screen.getByText("selected by the producer")).toBeInTheDocument();
+        expect(screen.getByText("reported by the Agent runtime")).toBeInTheDocument();
+        expect(screen.getByText("The THOUGHT Contract verified this Inshell THOUGHT App Creation Attestation and its bound creation record.")).toBeInTheDocument();
+        const provenanceSection = screen
+            .getByRole("heading", { level: 2, name: "creation provenance" })
+            .closest("section");
+        expect(provenanceSection).not.toBeNull();
+        expect(Array.from(provenanceSection?.querySelectorAll("dt") ?? []).map((element) => element.textContent)).toEqual([
+            "process",
+            "Agent",
+            "Model",
+            "model identifier",
+            "adapter",
+            "route",
+            "run reference",
+            "$PATH",
+            "spec",
+        ]);
+        const canonicalSection = screen
+            .getByRole("heading", { level: 2, name: "canonical traits" })
+            .closest("section");
+        expect(canonicalSection).not.toBeNull();
+        expect(Array.from(canonicalSection?.querySelectorAll("dt") ?? []).map((element) => element.textContent)).toEqual([
+            "Creation Attestation",
+            "Agent",
+            "Model",
+            "Prompt Bytes",
+        ]);
+        expect(within(canonicalSection).getByText("12 · number")).toBeInTheDocument();
+        expect(screen.getByRole("heading", { level: 2, name: "on-chain record" })).toBeInTheDocument();
+        expect(screen.getByText("verify / raw data")).toBeInTheDocument();
+    });
+    test("renders the canonical THOUGHT gallery route at the Inshell root", async () => {
+        mockThoughtGalleryApi([
+            thoughtGalleryItem({
+                tokenId: 1,
+                pathId: "4",
+                rawText: "one thought",
+            }),
+            thoughtGalleryItem({
+                tokenId: 2,
+                pathId: "5",
+                rawText: "second thought",
+            }),
+        ]);
+        window.history.pushState({}, "", "/gallery");
+        render(_jsx(App, {}));
+        await flushAsyncEffects();
+        expect(document.title).toBe("THOUGHT Gallery");
+        expect(document.querySelector('link[rel="icon"]')).toHaveAttribute("href", "/inshell.svg");
+        expect(screen.getByRole("heading", { level: 1, name: "Gallery" })).toBeInTheDocument();
+        expect(screen.getByText("2 minted THOUGHTs.")).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "create your THOUGHT" })).toHaveAttribute("href", expectedDefaultThoughtUrl());
+        expect(screen.getByRole("link", { name: "[ home ]" })).toHaveAttribute("href", "/");
+        expect(screen.getByLabelText("Open THOUGHT #1")).toHaveAttribute("href", "/thought/1");
+        expect(screen.getByLabelText("Open THOUGHT #2")).toHaveAttribute("href", "/thought/2");
+        expect(screen.getByRole("img", { name: "THOUGHT #1" })).toHaveAttribute("src", "/api/thought-image?id=1");
+        expect(screen.getByText("$PATH #4 THOUGHT unit consumed")).toBeInTheDocument();
+        expect(screen.queryByTestId("auction-canvas")).toBeNull();
+    });
+    test("does not treat oversized numeric THOUGHT paths as detail routes", () => {
+        window.history.pushState({}, "", "/thought/54364138588649095656199127666862160886190085583430894705241839978667380631264");
+        render(_jsx(App, {}));
+        expect(screen.getByRole("heading", {
+            level: 1,
+            name: "3 fully onchain movements for Agent Art.",
+        })).toBeInTheDocument();
+        expect(screen.queryByTestId("auction-canvas")).toBeNull();
+        expect(screen.queryByRole("heading", { name: /THOUGHT\s+#/ })).toBeNull();
+        expect(screen.queryByText(/not found/i)).toBeNull();
+    });
+    test("keeps THOUGHT detail text rendering aligned with canonical THOUGHT", () => {
+        const css = readFileSync(nodePath.resolve(cwd(), "src/main.css"), "utf8");
+        expect(css).toMatch(/\.thought-detail\s*{[^}]*text-rendering:\s*auto;/s);
+        expect(css).toMatch(/\.thought-detail\s*{[^}]*-webkit-font-smoothing:\s*auto;/s);
+        expect(css).toMatch(/\.thought-detail\s*{[^}]*-moz-osx-font-smoothing:\s*auto;/s);
+    });
+    test("home body keeps the slogan, movements, and minted works", async () => {
+        mockThoughtGalleryApi([
+            thoughtGalleryItem({
+                tokenId: 3,
+                rawText: "anvil work",
+                provider: "Codex",
+            }),
+        ]);
+        render(_jsx(App, {}));
+        await flushAsyncEffects();
+        expect(screen.getByRole("heading", {
+            level: 1,
+            name: "3 fully onchain movements for Agent Art.",
+        })).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "THOUGHT" })).toHaveAttribute("href", "/thought");
+        expect(screen.getByText("WILL")).toBeInTheDocument();
+        expect(screen.getByText("AWA!")).toBeInTheDocument();
+        expect(screen.getByText("on Sepolia now")).toBeInTheDocument();
+        expect(screen.getByText("launch in 2027")).toBeInTheDocument();
+        expect(screen.getByText("launch in 2028")).toBeInTheDocument();
+        expectHomeThoughtWorks([3]);
+        expect(screen.getByText("Agent: Codex")).toBeInTheDocument();
+        expect(screen.getByText("Model: gpt-test")).toBeInTheDocument();
+        expect(document.querySelector("[data-fixture-id]")).toBeNull();
+        expect(screen.queryByLabelText("Project links")).toBeNull();
+        expect(screen.queryByText("movement roadmap")).toBeNull();
+        expect(screen.queryByText("recent works")).toBeNull();
+        expect(screen.queryByRole("link", { name: "path" })).toBeNull();
+        expect(screen.queryByRole("link", { name: "works" })).toBeNull();
+    });
+    test("orders home works by mint time descending", async () => {
+        mockThoughtGalleryApi([
+            thoughtGalleryItem({ tokenId: 1, mintedAt: 100 }),
+            thoughtGalleryItem({ tokenId: 4, mintedAt: null }),
+            thoughtGalleryItem({ tokenId: 2, mintedAt: 300 }),
+            thoughtGalleryItem({ tokenId: 5, mintedAt: null }),
+            thoughtGalleryItem({ tokenId: 3, mintedAt: 200 }),
+        ]);
+        render(_jsx(App, {}));
+        await flushAsyncEffects();
+        expect(Array.from(document.querySelectorAll(".ecosystem-home__work-card")).map((card) => card.getAttribute("data-token-id"))).toEqual(["2", "3", "1", "5", "4"]);
+    });
+    test("focuses the linked THOUGHT after the home gallery loads", async () => {
+        const originalRequestAnimationFrame = window.requestAnimationFrame;
+        const originalCancelAnimationFrame = window.cancelAnimationFrame;
+        const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+        const scrollIntoView = jest.fn();
+        Object.defineProperty(window, "requestAnimationFrame", {
+            configurable: true,
+            value: (callback) => {
+                callback(0);
+                return 1;
+            },
+        });
+        Object.defineProperty(window, "cancelAnimationFrame", {
+            configurable: true,
+            value: jest.fn(),
+        });
+        Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+            configurable: true,
+            value: scrollIntoView,
+        });
+        try {
+            mockThoughtGalleryApi([
+                thoughtGalleryItem({ tokenId: 1 }),
+                thoughtGalleryItem({ tokenId: 2 }),
+            ]);
+            window.history.pushState({}, "", "/#thought-2");
+            render(_jsx(App, {}));
+            await flushAsyncEffects();
+            const card = screen.getByLabelText("THOUGHT #2 minted work");
+            const workLink = screen.getByLabelText("Open THOUGHT #2");
+            expect(card).toHaveAttribute("id", "thought-2");
+            expect(card).toHaveClass("ecosystem-home__work-card--focused");
+            expect(document.activeElement).toBe(workLink);
+            expect(scrollIntoView).toHaveBeenCalledWith({
+                block: "center",
+                behavior: "auto",
+            });
+            fireEvent.animationEnd(workLink);
+            expect(card).not.toHaveClass("ecosystem-home__work-card--focused");
+        }
+        finally {
+            Object.defineProperty(window, "requestAnimationFrame", {
+                configurable: true,
+                value: originalRequestAnimationFrame,
+            });
+            Object.defineProperty(window, "cancelAnimationFrame", {
+                configurable: true,
+                value: originalCancelAnimationFrame,
+            });
+            if (originalScrollIntoView) {
+                Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+                    configurable: true,
+                    value: originalScrollIntoView,
+                });
+            }
+            else {
+                delete HTMLElement.prototype.scrollIntoView;
+            }
+        }
+    });
+    test("home THOUGHT movement routes to the same-origin creation route", () => {
+        globalThis.__INSHELL_VITE_ENV__ = {
+            VITE_THOUGHT_URL: "/thought",
+        };
+        render(_jsx(App, {}));
+        expect(screen.getByRole("link", { name: "THOUGHT" })).toHaveAttribute("href", "/thought");
+    });
+    test("home AWA movement alerts its name", () => {
+        const alertSpy = jest.spyOn(window, "alert").mockImplementation(() => undefined);
+        try {
+            render(_jsx(App, {}));
+            fireEvent.click(screen.getByRole("button", { name: "AWA!" }));
+            expect(alertSpy).toHaveBeenCalledTimes(1);
+            expect(alertSpy).toHaveBeenCalledWith("AWA!");
+        }
+        finally {
+            alertSpy.mockRestore();
+        }
+    });
+    test("sepolia invite exposes floating report bug link", () => {
+        globalThis.__VITE_ENV__ = {
+            VITE_PUBLIC_LAUNCH_MODE: "sepolia_invite",
+            VITE_REPORT_BUG_URL: "https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md",
+            VITE_GITHUB_URL: "https://github.com/inshell-art/inshell.art",
+            VITE_DEBUG_PANEL: "off",
+        };
+        render(_jsx(App, {}));
+        const report = screen.getByRole("link", { name: "Report a Sepolia bug" });
+        expect(report).toHaveTextContent("report bug ↗");
+        expect(report).toHaveAttribute("href", expect.stringContaining("template=sepolia-bug.md"));
+        expect(report.className).toContain("inshell-report-bug-link--floating");
+        expect(report.closest("footer")).toBeNull();
+    });
+    test("shows the preview watermark only for preview deployments", () => {
+        globalThis.__VITE_ENV__ = {
+            VITE_DEPLOY_ENV: "preview",
+        };
+        const { unmount } = render(_jsx(App, {}));
+        expect(screen.getByText("preview")).toHaveClass("inshell-preview-watermark");
+        unmount();
+        globalThis.__VITE_ENV__ = {
+            VITE_DEPLOY_ENV: "production",
+        };
+        render(_jsx(App, {}));
+        expect(screen.queryByText("preview")).toBeNull();
+    });
+    test.each([
+        "staging.inshell-art.pages.dev",
+        "staging.thought-inshell-art.pages.dev",
+    ])("treats %s as a preview deployment host", (hostname) => {
+        expect(shouldShowPreviewWatermark({ hostname })).toBe(true);
+    });
+    test.each([
+        ["/pulse", "pulse"],
+        ["/color-font", "color_font"],
+        ["/path", "path_app"],
+        ["/verify", "verify"],
+    ])("sepolia invite exposes floating report bug link on %s", async (route, state) => {
+        window.history.pushState({}, "", route);
+        globalThis.__VITE_ENV__ = {
+            VITE_PUBLIC_LAUNCH_MODE: "sepolia_invite",
+            VITE_REPORT_BUG_URL: "https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md",
+            VITE_DEBUG_PANEL: "off",
+        };
+        render(_jsx(App, {}));
+        if (route === "/color-font" || route === "/path") {
+            await flushAsyncEffects();
+        }
+        const report = screen.getByRole("link", { name: "Report a Sepolia bug" });
+        expect(report.className).toContain("inshell-report-bug-link--floating");
+        const url = new window.URL(report.getAttribute("href") ?? "");
+        expect(url.searchParams.get("body")).toContain(`page: ${route}`);
+        expect(url.searchParams.get("body")).toContain(`state: ${state}`);
     });
 });

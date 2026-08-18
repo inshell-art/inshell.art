@@ -432,7 +432,7 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
               </span>
               <a
                 className="thought-detail__value-link"
-                href="/docs#thought-creation-provenance"
+                href="/docs#docs-thought"
               >
                 how this record is made ↗
               </a>

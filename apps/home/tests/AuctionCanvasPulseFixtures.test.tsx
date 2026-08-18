@@ -466,7 +466,7 @@ describe("AuctionCanvas with pulse fixtures", () => {
     window.history.pushState({}, "", "/");
   });
 
-  test("open_not_active fixture renders after-open before-mint state", async () => {
+  test("open_not_active fixture renders the after-open genesis curve", async () => {
     window.history.pushState({}, "", "/?fixture=open_not_active");
     mockUseAuctionCore.mockReturnValue({
       data: null,
@@ -484,11 +484,11 @@ describe("AuctionCanvas with pulse fixtures", () => {
     const { container } = render(
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />
     );
-    expect(await screen.findByText(/Auction is open/i)).toBeTruthy();
-    expect(screen.getByText(/Waiting for first bid/i)).toBeTruthy();
-    expect(screen.getByText(/Opening ask:/i)).toBeTruthy();
-    expect(screen.getByText(/Current ask:/i)).toBeTruthy();
-    expect(container.querySelector(".dotfield__curve")).toBeNull();
+    expect(await screen.findByLabelText(/Pulse auction curve/i)).toBeTruthy();
+    expect(screen.queryByText(/Waiting for first bid/i)).toBeNull();
+    expect(container.querySelectorAll(".dotfield__curve")).toHaveLength(1);
+    expect(container.querySelectorAll(".dotfield__pump")).toHaveLength(1);
+    expect(container.querySelectorAll('[data-kind="sale"]')).toHaveLength(0);
     window.history.pushState({}, "", "/");
   });
 

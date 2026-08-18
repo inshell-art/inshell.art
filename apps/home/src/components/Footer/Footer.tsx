@@ -129,7 +129,7 @@ const Footer: React.FC = () => {
     {
       key: "pulse",
       label: "pulse",
-      href: "/pulse",
+      href: "/docs#docs-pulse",
       ariaLabel: "Open Pulse",
       external: true,
     },

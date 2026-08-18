@@ -45,6 +45,7 @@ export async function withPathMintSubmissionLock(
     return "unsupported";
   }
 
-  if (taskFailure) throw taskFailure.error;
+  const capturedFailure = taskFailure as { error: unknown } | null;
+  if (capturedFailure) throw capturedFailure.error;
   return result;
 }

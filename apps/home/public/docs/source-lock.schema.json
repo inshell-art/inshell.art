@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inshell.art/docs/source-lock.schema.json",
+  "title": "Inshell Agent Docs Source Lock",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schemaUrl",
+    "canonicalSchemaUrl",
+    "documentationVersion",
+    "sourceRegistrySchema",
+    "purpose",
+    "policy",
+    "sourceTreeSha256",
+    "groups"
+  ],
+  "properties": {
+    "schema": {
+      "const": "inshell.agent-docs.source-lock.v1"
+    },
+    "schemaUrl": {
+      "const": "/docs/source-lock.schema.json"
+    },
+    "canonicalSchemaUrl": {
+      "type": "string",
+      "format": "uri"
+    },
+    "documentationVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sourceRegistrySchema": {
+      "const": "inshell.agent-docs.source-registry.v1"
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "update",
+        "check",
+        "upstreamCheck"
+      ],
+      "properties": {
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "update": {
+          "type": "string",
+          "minLength": 1
+        },
+        "check": {
+          "const": "pnpm docs:check"
+        },
+        "upstreamCheck": {
+          "const": "pnpm check:upstream-releases"
+        }
+      }
+    },
+    "sourceTreeSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "groups": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "owner",
+          "reason",
+          "groupSha256",
+          "files"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "owner": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "groupSha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "files": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "byteLength",
+                "sha256"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "byteLength": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

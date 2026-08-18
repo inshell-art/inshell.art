@@ -11,14 +11,29 @@ module.exports = {
   coverageProvider: "v8",
   collectCoverage: true,
   collectCoverageFrom: [
-    "<rootDir>/src/App.tsx",
-    "<rootDir>/src/components/AuctionCanvas.tsx",
-    "<rootDir>/src/components/Movements.tsx",
-    "<rootDir>/../../packages/utils/src/pulse/**/*.{ts,tsx}",
-    "<rootDir>/../../packages/utils/src/num/**/*.{ts,tsx}",
+    "<rootDir>/src/**/*.{ts,tsx}",
+    "!<rootDir>/src/**/*.d.ts",
+    "!<rootDir>/src/main.tsx",
+    "!<rootDir>/src/vite-env.d.ts",
+    "!<rootDir>/src/types/**",
+    "!<rootDir>/src/components/Footer/**",
+    "!<rootDir>/src/components/PathMarketplaceLabPage.tsx",
+    "!<rootDir>/src/components/Thought*.tsx",
+    "!<rootDir>/src/services/thought*.ts",
   ],
   coverageDirectory: "<rootDir>/coverage",
-  coverageReporters: ["text-summary", "lcov"],
+  coverageReporters: ["text-summary", "lcov", "json-summary"],
+  coverageThreshold:
+    process.env.INSHELL_COVERAGE_GATE === "1"
+      ? {
+          global: {
+            statements: 85,
+            branches: 71,
+            functions: 86,
+            lines: 85,
+          },
+        }
+      : undefined,
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
     "^@inshell/(.*)$": "<rootDir>/../../packages/$1/src",

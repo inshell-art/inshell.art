@@ -3,39 +3,39 @@
   "protocol": "path",
   "network": "devnet",
   "chain_id": 31337,
-  "repo_commit": "1c846e1cfcd761a8e7b7e908edfa655204b62036",
-  "deploy_run_id": "anvil-v0.4.2-20260802T113706932Z",
+  "repo_commit": "5a1ab1f137e76c80dc69045dc520454f6e07cbb1",
+  "deploy_run_id": "anvil-v0.5.0-20260807T104621207Z",
   "release_tier": "temporary",
   "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
   "admin": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
   "treasury": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
   "payment_token": "0x0000000000000000000000000000000000000000",
   "contracts": {
-    "path_nft": "0x38A70c040CA5F5439ad52d0e821063b0EC0B52b6",
-    "path_pulse_adapter": "0x54B8d8E2455946f2A5B8982283f2359812e815ce",
-    "pulse_auction": "0xf090f16dEc8b6D24082Edd25B1C8D26f2bC86128"
+    "path_nft": "0x359570B3a0437805D0a71457D61AD26a28cAC9A2",
+    "path_pulse_adapter": "0xcC4c41415fc68B2fBf70102742A83cDe435e0Ca7",
+    "pulse_auction": "0xa722bdA6968F50778B973Ae2701e90200C564B49"
   },
   "deploy_txs": {
-    "path_nft": "0xfc5bd4904c7a58f2319918d75249cf1caaec4aa0a2de94ef629b861a6dc73275",
-    "path_pulse_adapter": "0x24f60aa903a871d8c2445226199fbfd64da1c7bf163d53c06cef1c5deda1cb84",
-    "pulse_auction": "0x6c4d7d17ecabdf120f536f3e9aaae144fcc73f6b5df9e9d43ebc2d1a7f2664da"
+    "path_nft": "0xd4c0de36c41dd0cf800990e8127bddc0294a1e36fc0b49ae27be0ea48bf21a3c",
+    "path_pulse_adapter": "0x3a5249acbc98ec4f43237627338e3b81c18836bf4669bb025594ff7d1947aa22",
+    "pulse_auction": "0x68f99a406aaa650309ae7f8421ce831a738fd109f51de8ab2bdf3721e1469702"
   },
   "deploy_blocks": {
-    "path_nft": 197,
-    "path_pulse_adapter": 198,
-    "pulse_auction": 199
+    "path_nft": 446,
+    "path_pulse_adapter": 461,
+    "pulse_auction": 462
   },
   "code_hashes": {
-    "path_nft": "0xf547ec0b9305d626df2c6afd3dd876623bceb5baf6bd6d35102da23495ad4dd6",
-    "path_pulse_adapter": "0x9443eb6e8f635bcac03afd201de549a13c9f7358cb967e6240f557426cbf1777",
-    "pulse_auction": "0xe84c54495632b1e16fb8e3996f538c11d73d4e2238468952ff29963f36d156e1"
+    "path_nft": "0xda8c51b2265357715412e50016f2574ee6e3f4434e110ae3da5dac2ac84d1018",
+    "path_pulse_adapter": "0xc76d105008d4ec41a42eb1d03d32a8db2bcd4b115e76351937bae01ab47054f0",
+    "pulse_auction": "0x83f8b11f7d90d883a738f49c360ab591a2d49a5efb7bf6c50197dd58d80a9031"
   },
   "config": {
     "name": "PATH",
     "symbol": "PATH",
     "base_uri": "",
-    "open_time": 1785670655,
-    "open_time_iso": "2026-08-02T11:37:35.000Z",
+    "open_time": 1786099610,
+    "open_time_iso": "2026-08-07T10:46:50.000Z",
     "start_delay_sec": 30,
     "k": "600000000000000000",
     "genesis_price": "10000000000000000",
@@ -44,19 +44,36 @@
     "token_base": 1,
     "epoch_base": 1,
     "reserved_cap": "99",
-    "spark_claim_duration_sec": "604800"
+    "spark_claim_duration_sec": "604800",
+    "movement_config": {
+      "THOUGHT": {
+        "minter": "0x67aD6EA566BA6B0fC52e97Bc25CE46120fdAc04c",
+        "quota": 1,
+        "frozen": true
+      },
+      "WILL": {
+        "minter": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+        "quota": 10,
+        "frozen": true
+      },
+      "AWA": {
+        "minter": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+        "quota": 1,
+        "frozen": true
+      }
+    }
   },
   "status": {
     "postconditions": "pass",
     "audit": "none",
     "audit_id": null,
     "ready_for_fe": true,
-    "notes": "persistent Anvil deployment from pinned PATH v0.4.2 artifacts"
+    "notes": "persistent Anvil deployment from pinned PATH v0.5.0 artifacts"
   },
   "source_artifacts": {
-    "release_tag": "v0.4.2",
-    "manifest_sha256": "41cd0bc56398fe6823a3bd40a7497851b8ec132a8002a4f0a15bc5b284a29393",
-    "bundle_relpath": "packages/contracts/src/path-release/releases/v0.4.2"
+    "release_tag": "v0.5.0",
+    "manifest_sha256": "a81355b459b40faea894cf1dfb7f484765a7ec62672039dd62d58a3a52849921",
+    "bundle_relpath": "packages/contracts/src/path-release/releases/v0.5.0"
   },
-  "generated_at": "2026-08-02T11:37:06.932Z"
+  "generated_at": "2026-08-07T10:46:21.207Z"
 }

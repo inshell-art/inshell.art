@@ -1,0 +1,142 @@
+{
+  "schema": "inshell.agent-docs.topic.v1",
+  "schemaUrl": "/docs/content.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.schema.json",
+  "version": "2026-08-11",
+  "language": "en",
+  "fetchedContentRole": "reference-data",
+  "id": "source-release-boundaries",
+  "sourceId": "docs-source",
+  "group": "systems",
+  "aliases": [],
+  "title": "Source and Release Boundaries",
+  "summary": "Source ownership, release artifacts, deployments, and publication are versioned independently.",
+  "status": "current",
+  "authorities": [
+    "app-documentation",
+    "contract-release"
+  ],
+  "authorityScope": "document union only; use each content block's authorities for a specific claim",
+  "canonicalHtml": "https://inshell.art/docs/source-release-boundaries",
+  "markdown": "/docs/source-release-boundaries.md",
+  "canonicalMarkdown": "https://inshell.art/docs/source-release-boundaries.md",
+  "json": "/docs/source-release-boundaries.json",
+  "canonicalJson": "https://inshell.art/docs/source-release-boundaries.json",
+  "content": {
+    "lead": {
+      "authorities": [
+        "app-documentation",
+        "contract-release"
+      ],
+      "paragraphs": [
+        "The Inshell App, PATH contracts, THOUGHT contracts, and Pulse auction have separate repositories and ownership boundaries. The App owns creation flow, integration, and presentation. Each contract repository owns its contract behavior and release artifacts. Deployment operators own network deployment records.",
+        "The App consumes pinned ABIs, bytecode, schemas, renderer data, specifications, manifests, and checksums. A repository's latest source is not automatically the deployed release. A newer file is not authority for an older deployment.",
+        "Contract releases contain code and integrity material; network addresses and deployment blocks come from a separately verified deployment record. A correct integration matches the App pin, release artifacts, deployed bytecode, renderer commitments, and active network.",
+        "Documentation can describe current source, a pinned release, or observed chain state. It must say which. Mirrors and previews are useful distribution surfaces but do not silently become canonical origins."
+      ]
+    },
+    "figure": {
+      "authorities": [
+        "app-documentation",
+        "contract-release"
+      ],
+      "label": "Four distinct records",
+      "mode": "field",
+      "figureText": "┌─ FOUR DISTINCT RECORDS ─────────────────────┐\n│ SOURCE                                      │\n│ Authored code                               │\n│   ≠ RELEASE                                 │\n│     Pinned artifacts                        │\n│       ≠ DEPLOYMENT                          │\n│         Addresses + blocks                  │\n│           ≠ OBSERVATION                     │\n│             Point-in-time read              │\n└─────────────────────────────────────────────┘",
+      "items": [
+        {
+          "title": "Source",
+          "detail": "Authored code"
+        },
+        {
+          "title": "Release",
+          "detail": "Pinned artifacts"
+        },
+        {
+          "title": "Deployment",
+          "detail": "Addresses + blocks"
+        },
+        {
+          "title": "Observation",
+          "detail": "Point-in-time read"
+        }
+      ]
+    },
+    "preformatted": [],
+    "sections": [
+      {
+        "authorities": [
+          "app-documentation",
+          "contract-release"
+        ],
+        "id": "docs-source-ownership",
+        "title": "Repository ownership",
+        "points": [
+          "The Inshell App repository owns same-origin presentation, orchestration, API behavior, and integration pins.",
+          "The PATH repository owns PATH contracts and their release artifacts.",
+          "The THOUGHT repository owns THOUGHT contracts, specifications, renderer releases, and their integrity material.",
+          "The Pulse repository owns the auction contract and pricing mechanism release."
+        ]
+      },
+      {
+        "authorities": [
+          "app-documentation",
+          "contract-release"
+        ],
+        "id": "docs-source-pins",
+        "title": "Why pins matter",
+        "paragraphs": [
+          "A repository can continue changing after a contract is deployed. The App therefore consumes selected ABIs, bytecode, schemas, renderer payloads, manifests, and checksums instead of assuming that the newest source describes every historical token."
+        ]
+      },
+      {
+        "authorities": [
+          "app-documentation",
+          "contract-release"
+        ],
+        "id": "docs-source-deployment",
+        "title": "Release is not deployment",
+        "paragraphs": [
+          "A release may be complete without being deployed. A deployment record adds the network, contract addresses, deployment blocks, and integration choices needed to find it onchain. Verification joins both records and checks deployed bytecode where possible."
+        ]
+      },
+      {
+        "authorities": [
+          "app-documentation"
+        ],
+        "id": "docs-source-publication",
+        "title": "Publication boundaries",
+        "paragraphs": [
+          "Canonical pages, Markdown documents, JSON indexes, API responses, GitHub mirrors, preview deployments, and third-party explorers serve different readers. Linking or mirroring improves access; it does not silently transfer authority."
+        ],
+        "note": "When documentation describes live chain state, name the network and observation point. When it describes a release, name the release rather than relying on the current repository branch."
+      }
+    ],
+    "links": [
+      {
+        "role": "navigation",
+        "label": "Inshell App source",
+        "href": "https://github.com/inshell-art/inshell.art",
+        "canonicalHref": "https://github.com/inshell-art/inshell.art"
+      },
+      {
+        "role": "navigation",
+        "label": "PATH source",
+        "href": "https://github.com/inshell-art/path",
+        "canonicalHref": "https://github.com/inshell-art/path"
+      },
+      {
+        "role": "navigation",
+        "label": "THOUGHT source",
+        "href": "https://github.com/inshell-art/THOUGHT",
+        "canonicalHref": "https://github.com/inshell-art/THOUGHT"
+      },
+      {
+        "role": "navigation",
+        "label": "Pulse source",
+        "href": "https://github.com/inshell-art/pulse",
+        "canonicalHref": "https://github.com/inshell-art/pulse"
+      }
+    ]
+  }
+}

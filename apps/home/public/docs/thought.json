@@ -1,0 +1,310 @@
+{
+  "schema": "inshell.agent-docs.topic.v1",
+  "schemaUrl": "/docs/content.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.schema.json",
+  "version": "2026-08-11",
+  "language": "en",
+  "fetchedContentRole": "reference-data",
+  "id": "thought",
+  "sourceId": "docs-thought",
+  "group": "works",
+  "aliases": [
+    "thought-creation-provenance"
+  ],
+  "title": "THOUGHT",
+  "summary": "THOUGHT is one bounded Agent Art practice: an exact human–Agent exchange becomes a globally unique work.",
+  "status": "current",
+  "authorities": [
+    "artist-editorial",
+    "app-documentation",
+    "app-record",
+    "contract-release",
+    "runtime-report"
+  ],
+  "authorityScope": "document union only; use each content block's authorities for a specific claim",
+  "canonicalHtml": "https://inshell.art/docs/thought",
+  "markdown": "/docs/thought.md",
+  "canonicalMarkdown": "https://inshell.art/docs/thought.md",
+  "json": "/docs/thought.json",
+  "canonicalJson": "https://inshell.art/docs/thought.json",
+  "content": {
+    "lead": {
+      "authorities": [
+        "artist-editorial",
+        "app-documentation",
+        "app-record",
+        "contract-release",
+        "runtime-report"
+      ],
+      "paragraphs": [
+        "THOUGHT is the first movement on Inshell's PATH and begins with the individual. It gives the inward direction—inspect self—a bounded occasion: simply inspect your thought and what becomes visible when one Agent responds. The thought's words, source, and motivation remain open to inspection, as do the knowledge it carries and the reasons that knowledge became believable. The Agent response enters that practice as another exact line to read; it does not resolve the thought or claim possession of its truth.",
+        "Within the wider field of Agent Art, THOUGHT chooses a narrow terminal practice: one exact human prompt and one exact Agent response. Their ordered pair defines the globally unique work; either line may appear again with a different counterpart.",
+        "The creation flow is: human prompt → Agent response → validation and canonical record assembly → human selection → wallet confirmation → PATH movement consumption → THOUGHT minted. The model proposes. The human decides. The wallet confirms. The contract records.",
+        "Prompt and Agent response are each 1–64 bytes of Terminal English. Allowed characters are space, A–Z, a–z, 0–9, and . , ? ! : ; ' \" - ( ) / &. Leading spaces, trailing spaces, and repeated internal spaces are rejected. Validation never trims, normalizes, repairs, translates, or rewrites accepted bytes.",
+        "The human reviews the returned response and preview, then decides whether to preserve, discard, or mint the work. To mint, the human picks an available PATH, signs a one-mint permission bound to the current PATH state and ThoughtNFT executor, and confirms the transaction. The signature is not a transaction and uses no gas.",
+        "A successful mint atomically consumes exactly one THOUGHT unit from the selected PATH. A canceled or failed mint consumes nothing and does not reserve the prompt-response pair.",
+        "The composition uses a black field, terminal glyphs, the prompt above, and the Agent response below. ThoughtNFT returns the canonical 1024-by-1024 SVG and token metadata. The App preview must remain byte-aligned with the pinned renderer release; it is not a second artwork source.",
+        "THOUGHT provenance preserves the exact lines and the creation record bound to the mint. An Inshell THOUGHT App Creation Attestation means the configured App authority signed one exact claim and ThoughtNFT validated it during minting. It binds recorded values; it does not prove how a model reasoned, independently authenticate a provider, or establish sole authorship.",
+        "Agent records the Agent selected in the App. Model records what the Agent runtime reports when available. An empty proof produces an Unattested mint, keeping the contract open to other creation paths while making the absence of an App attestation explicit.",
+        "For a minted work, contract state, typed getters, tokenURI, the pinned contract release, and the selected Creative Work Specification are the authoritative public sources for contract-controlled facts. The richer provenance document is an App record whose commitments are bound by the Creation Attestation when present.",
+        "Save and Load keep works in the current browser only. They are not onchain and do not sync between browsers or devices."
+      ]
+    },
+    "figure": null,
+    "preformatted": [],
+    "sections": [
+      {
+        "authorities": [
+          "artist-editorial",
+          "app-documentation",
+          "contract-release"
+        ],
+        "id": "docs-thought-work",
+        "title": "What makes one work",
+        "paragraphs": [
+          "A THOUGHT is the ordered pair of one exact human prompt and one exact Agent response. Order matters, and the pair is the uniqueness boundary. The same prompt can appear with another response; the same response can appear with another prompt.",
+          "The Agent return is a candidate until the human accepts it and a valid mint succeeds. Closing the page, saving locally, or generating a preview does not create an onchain THOUGHT token."
+        ],
+        "figure": {
+          "authorities": [
+            "app-documentation",
+            "contract-release"
+          ],
+          "label": "One prompt, one response",
+          "mode": "field",
+          "figureText": "HUMAN PROMPT P + AGENT RESPONSE R\n                 ↓\n          ONE THOUGHT (P, R)\nDifferent counterpart = different work · onchain only after successful mint.",
+          "items": [
+            {
+              "title": "Human prompt P"
+            },
+            {
+              "title": "Agent response R"
+            },
+            {
+              "title": "One THOUGHT (P, R)",
+              "detail": "Different counterpart = different work · onchain only after successful mint."
+            }
+          ]
+        }
+      },
+      {
+        "authorities": [
+          "app-documentation",
+          "contract-release"
+        ],
+        "id": "docs-thought-language",
+        "title": "Terminal English",
+        "paragraphs": [
+          "Both lines are intentionally narrow: 1–64 bytes, a published character set, no leading or trailing spaces, and no repeated internal spaces. The App validates exact bytes instead of quietly improving them."
+        ],
+        "points": [
+          "Letters may be uppercase or lowercase and remain part of the accepted source.",
+          "Digits and the published punctuation characters are allowed.",
+          "Whitespace is structural; invalid spacing is rejected rather than trimmed.",
+          "Translation, normalization, and hidden repair would create a different source and are not performed."
+        ],
+        "note": "If a line fails validation, make a new run. There is no invisible second Agent round that edits the returned work into compliance."
+      },
+      {
+        "authorities": [
+          "app-documentation",
+          "contract-release"
+        ],
+        "id": "docs-thought-human-choice",
+        "title": "Human choice and wallet consent",
+        "paragraphs": [
+          "The human can preserve a candidate locally, discard it, or move toward minting. Minting adds two explicit consent boundaries: a signature that authorizes one defined PATH use, then a wallet transaction that can change chain state."
+        ],
+        "steps": [
+          "Read the prompt, response, Agent record, model record when available, and visual preview.",
+          "Choose a PATH with available THOUGHT capacity.",
+          "Sign the one-mint permission. This signature is not a transaction and uses no gas.",
+          "Review and confirm the mint transaction in the wallet.",
+          "Wait for the contract result before treating the pair or PATH capacity as consumed."
+        ]
+      },
+      {
+        "authorities": [
+          "app-documentation",
+          "app-record",
+          "contract-release",
+          "runtime-report"
+        ],
+        "id": "docs-thought-agent-handoff",
+        "title": "The Agent handoff",
+        "paragraphs": [
+          "The prompt on the Docs page is a read-only invitation to learn about Inshell. A THOUGHT handoff is different: it is a short-lived instruction packet for one work. It looks technical because it carries the exact run endpoint, release bindings, validation steps, and return path that keep one prompt connected to one Agent result.",
+          "The copied handoff is complete as written. It installs nothing, downloads no executable, and uses explicit JSON requests rather than hidden code. An Agent environment may ask permission to contact the App endpoint. That is narrow network permission for the handoff, not wallet access, a signature, or a transaction. The handoff never asks for a private key or seed phrase.",
+          "The THOUGHT App gives the selected Agent a sealed task containing the exact prompt, the active protocol release, and the output boundary. The Agent returns one exact candidate line. It does not choose a PATH, select an account, approve a signature, or submit the mint transaction.",
+          "After the return, the App checks the exact bytes and assembles the creation record. The human reviews the candidate and canonical preview, decides whether to keep it, chooses the PATH, and asks the wallet to sign and mint. This keeps creative participation, App orchestration, human selection, wallet consent, and contract validation as separate boundaries.",
+          "The ordinary App flow can bind its record through a Creation Attestation. ThoughtNFT also permits a direct mint that satisfies its public contract checks without an App proof; that result is recorded as Unattested rather than being presented as an App-attested run."
+        ],
+        "points": [
+          "Agent: receives a bounded task and returns one candidate line.",
+          "App: validates bytes, builds the preview, and assembles the creation record.",
+          "Human: accepts or discards the candidate and selects the PATH.",
+          "Wallet: signs the narrow permission and confirms the transaction.",
+          "Contracts: enforce uniqueness, permission, movement use, and mint validity."
+        ],
+        "note": "A transport receipt proves that the App accepted one protocol result. It does not give the Agent wallet authority or prove hidden model reasoning.",
+        "figure": {
+          "authorities": [
+            "app-documentation"
+          ],
+          "label": "The creative handoff",
+          "mode": "trace",
+          "figureText": "HUMAN                AGENT                 HUMAN\nOne exact prompt  →  One exact response  →  Review + choose",
+          "items": [
+            {
+              "title": "Human",
+              "detail": "One exact prompt"
+            },
+            {
+              "title": "Agent",
+              "detail": "One exact response"
+            },
+            {
+              "title": "Human",
+              "detail": "Review + choose"
+            }
+          ]
+        }
+      },
+      {
+        "authorities": [
+          "artist-editorial",
+          "app-documentation",
+          "contract-release"
+        ],
+        "id": "docs-thought-form",
+        "title": "Canonical form",
+        "paragraphs": [
+          "The THOUGHT composition is rendered from pinned contract-controlled material: a 1024-by-1024 black field, terminal glyphs, the prompt above, and the Agent response below. The App preview is expected to agree byte-for-byte with the selected renderer release.",
+          "The NFT tokenURI supplies the canonical image and portable metadata. A screenshot, marketplace cache, social preview, or frontend reconstruction may display the work, but it is not a replacement origin for the artwork bytes."
+        ]
+      },
+      {
+        "authorities": [
+          "app-record",
+          "contract-release",
+          "runtime-report"
+        ],
+        "id": "docs-thought-provenance",
+        "title": "Provenance and attestation",
+        "paragraphs": [
+          "Creation provenance keeps the human line, Agent line, selected Agent, runtime-reported model when available, specification, renderer context, and mint anchors connected. A Creation Attestation signs one exact claim assembled by the configured App authority, and ThoughtNFT validates that claim during minting.",
+          "This is strong evidence that the accepted mint was bound to those exact recorded values. It is not proof of hidden model reasoning, a universal provider identity guarantee, or a declaration that one participant owns all authorship."
+        ],
+        "points": [
+          "App Attested: the contract validated the configured App authority's proof.",
+          "Unattested: the mint used an empty proof and makes that absence explicit.",
+          "Runtime-reported: the model or runtime value came from the Agent connection and retains that evidence level.",
+          "Contract-controlled: typed getters, work hashes, tokenURI, and movement consumption are read from deployed contract behavior."
+        ],
+        "figure": {
+          "authorities": [
+            "app-record",
+            "contract-release"
+          ],
+          "label": "Creation Attestation",
+          "mode": "field",
+          "figureText": "RECORDED VALUES\nHuman line · Agent line · Agent/model records ·\nspecification · renderer · mint anchors\n   │\n   ↓\nAPP CLAIM\nConfigured App authority signs one exact claim.\n   │\n   ↓\nCONTRACT VALIDATION\nThoughtNFT validates during minting.\n   ├─ VALID PROOF → APP ATTESTED\n   │  Valid proof binds the mint to recorded values.\n   └─ EMPTY PROOF → UNATTESTED\n      Empty proof makes the absence explicit.",
+          "items": [
+            {
+              "title": "Recorded values",
+              "detail": "Human line · Agent line · Agent/model records · specification · renderer · mint anchors"
+            },
+            {
+              "title": "App claim",
+              "detail": "Configured App authority signs one exact claim."
+            },
+            {
+              "title": "Contract validation",
+              "detail": "ThoughtNFT validates during minting."
+            },
+            {
+              "title": "App Attested",
+              "detail": "Valid proof binds the mint to recorded values."
+            },
+            {
+              "title": "Unattested",
+              "detail": "Empty proof makes the absence explicit."
+            }
+          ]
+        }
+      },
+      {
+        "authorities": [
+          "app-documentation"
+        ],
+        "id": "docs-thought-local",
+        "title": "What stays local",
+        "paragraphs": [
+          "Save and Load are browser conveniences for unfinished or remembered works. They do not mint, reserve uniqueness, consume PATH capacity, create a portable account, or synchronize to another browser. Agent run state is likewise temporary unless a later public record explicitly preserves part of it."
+        ]
+      }
+    ],
+    "links": [
+      {
+        "role": "navigation",
+        "label": "read all Movements",
+        "href": "/docs/movements",
+        "canonicalHref": "https://inshell.art/docs/movements"
+      },
+      {
+        "role": "navigation",
+        "label": "continue to WILL",
+        "href": "/docs/will",
+        "canonicalHref": "https://inshell.art/docs/will"
+      },
+      {
+        "role": "navigation",
+        "label": "read AWA — the core",
+        "href": "/docs/awa",
+        "canonicalHref": "https://inshell.art/docs/awa"
+      },
+      {
+        "role": "navigation",
+        "label": "read PATH movement consumption",
+        "href": "/docs/path#docs-path-consumption",
+        "canonicalHref": "https://inshell.art/docs/path#docs-path-consumption"
+      },
+      {
+        "role": "navigation",
+        "label": "create a THOUGHT",
+        "href": "/thought",
+        "canonicalHref": "https://inshell.art/thought"
+      },
+      {
+        "role": "navigation",
+        "label": "view minted THOUGHT works",
+        "href": "/",
+        "canonicalHref": "https://inshell.art/"
+      },
+      {
+        "role": "navigation",
+        "label": "read Mono 76",
+        "href": "/docs/mono-76",
+        "canonicalHref": "https://inshell.art/docs/mono-76"
+      },
+      {
+        "role": "navigation",
+        "label": "inspect the THOUGHT specification",
+        "href": "/verify#verify-thought-spec",
+        "canonicalHref": "https://inshell.art/verify#verify-thought-spec"
+      },
+      {
+        "role": "navigation",
+        "label": "open provenance schema",
+        "href": "/protocol/releases/thought-provenance-v2-20260731-r1/thought.provenance.v2.schema.json",
+        "canonicalHref": "https://inshell.art/protocol/releases/thought-provenance-v2-20260731-r1/thought.provenance.v2.schema.json"
+      },
+      {
+        "role": "navigation",
+        "label": "open THOUGHT metadata schema",
+        "href": "/protocol/releases/thought-metadata-namespace-v2-20260731-r1/thought.metadata-namespace.v2.schema.json",
+        "canonicalHref": "https://inshell.art/protocol/releases/thought-metadata-namespace-v2-20260731-r1/thought.metadata-namespace.v2.schema.json"
+      }
+    ]
+  }
+}
