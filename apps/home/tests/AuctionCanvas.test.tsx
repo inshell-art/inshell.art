@@ -21,6 +21,7 @@ import { encodeFunctionData, getAbiItem } from "viem";
 import React from "react";
 import AuctionCanvas from "../src/components/AuctionCanvas";
 import { clampLockedExplorationXWindow } from "../src/utils/auctionViewport";
+import { canControlDevnetTimeFromHostname } from "../src/utils/browserHost";
 import { withPathMintSubmissionLock } from "../src/pathMintSubmissionLock";
 import { mockAuctionCore } from "./testUtils";
 import {
@@ -57,6 +58,25 @@ type PathMintLockRequest = (
   options: { mode: "exclusive"; ifAvailable: true },
   callback: (lock: unknown | null) => Promise<void>,
 ) => Promise<void>;
+
+describe("devnet browser clock control boundary", () => {
+  test.each(["localhost", "127.0.0.1", "::1", "[::1]"])(
+    "allows an explicit loopback host: %s",
+    (hostname) => {
+      expect(canControlDevnetTimeFromHostname(hostname)).toBe(true);
+    },
+  );
+
+  test.each([
+    "192.168.0.103",
+    "10.0.0.2",
+    "preview.inshell.art",
+    "inshell.art",
+    "",
+  ])("rejects a non-loopback browser host: %s", (hostname) => {
+    expect(canControlDevnetTimeFromHostname(hostname)).toBe(false);
+  });
+});
 
 function setPathMintLockRequest(request: PathMintLockRequest | null) {
   Object.defineProperty(navigator, "locks", {
@@ -3377,8 +3397,13 @@ describe("AuctionCanvas", () => {
       expect(
         screen.getByText(/Submitted\. Confirmation check delayed\./i)
       ).toBeTruthy();
+      expect(screen.queryByText(/Settlement confirmed/i)).toBeNull();
       expect(screen.queryByText(/RPC read failed/i)).toBeNull();
       expect(screen.queryByText(/\[\s*retry\s*\]/i)).toBeNull();
+      act(() => {
+        jest.advanceTimersByTime(15_000);
+      });
+      expect(screen.queryByText(/Settlement confirmed/i)).toBeNull();
     } finally {
       act(() => {
         jest.runOnlyPendingTimers();
@@ -4518,7 +4543,7 @@ describe("AuctionCanvas", () => {
   test("shows PATH mint proof after confirmation when bid appears", async () => {
     jest.useFakeTimers();
     const execute = jest.fn().mockResolvedValue({ transaction_hash: "0xmint" });
-    const waitForTransaction = jest.fn().mockResolvedValue({});
+    const waitForTransaction = jest.fn().mockResolvedValue({ status: 1 });
     mockWalletState = createWalletState({
       account: { execute, waitForTransaction },
     });

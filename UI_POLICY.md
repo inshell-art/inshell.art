@@ -19,11 +19,11 @@ Mobile policies are enforced against the 20 portrait browser profiles in
 
 ## UI-001 — Home first-work scroll cue
 
-The first work on Home must visibly peek into the initial viewport as a scroll cue.
+The first work on Home must visibly peek into the initial viewport as a scroll cue on both desktop and mobile. The cue must remain visible without requiring a resize or scroll gesture.
 
-- Scope: supported viewport sizes, including mobile.
+- Scope: supported viewport sizes, including desktop and mobile.
 - Intent: make the continuation of the page discoverable without adding instructional copy, arrows, or other synthetic prompts.
 - Acceptance: on initial load at the top of Home, at least 16 CSS pixels of the first THOUGHT work enter the viewport while the movement identity and slogan remain legible.
 - Regression rule: changes to Home hero height, movement spacing, browser-safe viewport units, typography, or work-grid placement must preserve this cue and be verified in a rendered browser at affected viewport sizes.
-- Automated gate: `tests/e2e/home-mobile-policy.spec.ts` verifies the cue, movement identity, slogan, and horizontal containment across the canonical mobile target matrix.
+- Automated gate: `tests/e2e/home-mobile-policy.spec.ts` verifies the cue, movement identity, slogan, and horizontal containment across the canonical mobile target matrix plus 1568×944, 1440×900, and 1280×720 desktop targets.
 - Evidence gate: the work card must be real rendered THOUGHT artwork; synthetic DOM cards and loading placeholders cannot satisfy this policy.

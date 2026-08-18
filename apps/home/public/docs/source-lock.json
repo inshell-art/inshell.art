@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "20c9d0058afe301a3e709cda0216a065a4aff7ef82b8c6708ba015925af80dba",
+  "sourceTreeSha256": "ed6776c705231c1f5b4898882eb03451f3aa127e2b9d73b80cd4b3c926961ef8",
   "groups": [
     {
       "id": "public-docs",
@@ -52,7 +52,7 @@
       "title": "Home, PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "280c87e6b85643bb6fd64032a1906a5c3d7e497d120f092b5b1c99cf1b175088",
+      "groupSha256": "d6f14fb6b63b9eb6bee19981dab98478ecb708d786326a2bb8cb2956aeecd617",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -86,8 +86,8 @@
         },
         {
           "path": "apps/home/src/components/AuctionCanvas.tsx",
-          "byteLength": 276464,
-          "sha256": "4b41782d1021906f757f3562598a675ca7f236a3268bc17f8fdb93b6e6533685"
+          "byteLength": 277274,
+          "sha256": "85bab3bcc3d9e0d318cbf2e5cb16f689e3291c77c1d9c2758b393288274820a8"
         },
         {
           "path": "apps/home/src/components/ColorFontPage.tsx",
@@ -221,8 +221,8 @@
         },
         {
           "path": "apps/home/src/main.css",
-          "byteLength": 136991,
-          "sha256": "63f6f0593a19113f40e4c977d5b5fdb1041925ce4d89c7df9e058685558b256a"
+          "byteLength": 137085,
+          "sha256": "b9c3153661305645607425e33641328f452a6bb33e1b5e2eed1160e5df38397c"
         },
         {
           "path": "apps/home/src/main.tsx",
@@ -283,6 +283,11 @@
           "path": "apps/home/src/utils/auctionViewport.ts",
           "byteLength": 847,
           "sha256": "326260edad7dabc46eab4df9a3c9bd3a345e6ea618e428936c88cd7bb61c7804"
+        },
+        {
+          "path": "apps/home/src/utils/browserHost.ts",
+          "byteLength": 271,
+          "sha256": "2d8f116aa85343c4ee07a1d723e76e12fba1183e1a45d4272f104c79cfc37f69"
         },
         {
           "path": "apps/home/vite.config.ts",

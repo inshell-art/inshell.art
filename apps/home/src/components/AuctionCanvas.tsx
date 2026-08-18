@@ -25,6 +25,7 @@ import {
 } from "@inshell/utils";
 import type { AuctionSnapshot } from "@/types/types";
 import type { NormalizedBid } from "@/services/auction/bidsService";
+import { canControlDevnetTimeFromHostname } from "@/utils/browserHost";
 import { requestPulseAuctionRefresh } from "@/services/chainIndexer";
 import { clearPathTokenInventoryCache } from "@/services/pathTokens";
 import { useAuctionCore } from "@/hooks/useAuctionCore";
@@ -894,7 +895,13 @@ async function syncDevnetTimeToBrowser(
   provider: ProviderInterface,
   targetTimeSec: number
 ): Promise<boolean> {
-  if (!supportsRpcRequest(provider)) return false;
+  if (
+    typeof window === "undefined" ||
+    !canControlDevnetTimeFromHostname(window.location.hostname) ||
+    !supportsRpcRequest(provider)
+  ) {
+    return false;
+  }
   const target = Math.max(0, Math.floor(targetTimeSec));
   const chainNow = await readLatestChainTimeSec(provider);
   if (chainNow != null && target <= Math.floor(chainNow) + 1) return false;
@@ -2705,6 +2712,7 @@ export default function AuctionCanvas({
     txHash: string;
     address: string;
     baselineTokenId: number | null;
+    receiptStatus: "submitted" | "confirmed";
   } | null>(null);
   const [mintProof, setMintProof] = useState<MintProofReceipt | null>(null);
   const mintProofHydrationKeyRef = useRef<string | null>(null);
@@ -3793,12 +3801,19 @@ export default function AuctionCanvas({
   useEffect(() => {
     if (!pendingMint) return;
     const id = window.setTimeout(() => {
-      queueToast({
-        kind: "warn",
-        text: "Mint confirmed. Sale event is still indexing.",
-        reportState: "event_detection_failed",
-        reportError: pendingMint.txHash,
-      });
+      queueToast(
+        pendingMint.receiptStatus === "confirmed"
+          ? {
+              kind: "warn",
+              text: "Settlement confirmed. Sale event is still indexing.",
+              reportState: "event_detection_failed",
+              reportError: pendingMint.txHash,
+            }
+          : {
+              kind: "warn",
+              text: "Transaction submitted. Waiting for confirmation or sale event.",
+            },
+      );
     }, 15_000);
     return () => window.clearTimeout(id);
   }, [pendingMint, queueToast]);
@@ -4833,7 +4848,7 @@ export default function AuctionCanvas({
       const readPreflightData = async (
         candidateProvider: ProviderInterface
       ): Promise<PreflightResult> => {
-        if (mimicLocalTime) {
+        if (mimicLocalTime && candidateProvider === readProvider) {
           await syncDevnetTimeToBrowser(candidateProvider, liveNowSecRef.current);
         }
         const ask = await readCurrentAskFromContract(candidateProvider, auctionAddress);
@@ -5135,7 +5150,11 @@ export default function AuctionCanvas({
     await handleMint();
   };
 
-  const trackSubmittedBid = (hash: string, submittedAccount = walletAddress) => {
+  const trackSubmittedBid = (
+    hash: string,
+    submittedAccount = walletAddress,
+    receiptStatus: "submitted" | "confirmed" = "confirmed",
+  ) => {
     if (!submittedAccount) return;
     clearPathTokenInventoryCache();
     setCurrentAskQuoteDec(null);
@@ -5154,6 +5173,7 @@ export default function AuctionCanvas({
       txHash: hash,
       address: submittedAccount,
       baselineTokenId: maxTokenId ?? null,
+      receiptStatus,
     });
   };
 
@@ -5183,7 +5203,7 @@ export default function AuctionCanvas({
     submission?: PathMintSubmissionContext,
     noticeText = "Submitted. Confirmation check delayed.",
   ) => {
-    trackSubmittedBid(hash, submission?.account);
+    trackSubmittedBid(hash, submission?.account, "submitted");
     showToast({
       kind: "warn",
       text: noticeText,
@@ -5260,10 +5280,10 @@ export default function AuctionCanvas({
         let replacementConfirmed = false;
         try {
           const receipt = await waiter.call(waiterOwner, hash);
-          if (phase === "bid" && pathMintIntent) {
+          if (phase === "bid") {
             const outcome = transactionReceiptOutcome(receipt);
             if (outcome === "reverted") {
-              clearPathMintReturnState();
+              if (pathMintIntent) clearPathMintReturnState();
               throw new Error("PATH mint transaction reverted.");
             }
             if (outcome !== "success") {
@@ -5340,7 +5360,7 @@ export default function AuctionCanvas({
             throw waitErr;
           }
         }
-      } else if (phase === "bid" && pathMintIntent) {
+      } else if (phase === "bid") {
         keepPathMintSubmitted(hash, pathSubmission);
         return true;
       }
@@ -5511,7 +5531,7 @@ export default function AuctionCanvas({
         const readExecutionAsk = async (
           candidateProvider: ProviderInterface,
         ): Promise<U256Num> => {
-          if (mimicLocalTime) {
+          if (mimicLocalTime && candidateProvider === readProvider) {
             await syncDevnetTimeToBrowser(
               candidateProvider,
               liveNowSecRef.current,
@@ -5710,7 +5730,13 @@ export default function AuctionCanvas({
       };
     }
     if (pendingMint) {
-      return { kind: "info", text: "Settlement confirmed. Loading sale event." };
+      return {
+        kind: "info",
+        text:
+          pendingMint.receiptStatus === "confirmed"
+            ? "Settlement confirmed. Loading sale event."
+            : "Transaction submitted. Waiting for confirmation.",
+      };
     }
     if (!effectiveWalletDetected) {
       return {

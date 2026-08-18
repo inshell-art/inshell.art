@@ -29,7 +29,9 @@ async function ensureFirstWorkGeometry(page: Page) {
 }
 
 async function launchTargetBrowser(engine: "webkit" | "chromium"): Promise<Browser> {
-  return engine === "webkit" ? webkit.launch() : chromium.launch({ channel: "chrome" });
+  return engine === "webkit"
+    ? webkit.launch({ channel: undefined })
+    : chromium.launch({ channel: "chrome" });
 }
 
 test.describe("canonical mobile policy matrix", () => {
@@ -137,6 +139,91 @@ test.describe("canonical mobile policy matrix", () => {
             contentType: "image/png",
           });
         }
+      } finally {
+        await context.close();
+        await targetBrowser.close();
+      }
+    });
+  }
+});
+
+test.describe("canonical desktop policy matrix", () => {
+  for (const target of [
+    { model: "Desktop 1568x944", viewport: { width: 1568, height: 944 } },
+    { model: "Desktop 1440x900", viewport: { width: 1440, height: 900 } },
+    { model: "Desktop 1280x720", viewport: { width: 1280, height: 720 } },
+  ]) {
+    // Playwright requires the first callback argument to use object destructuring.
+    // eslint-disable-next-line no-empty-pattern
+    test(`${target.model}: first work peeks into Home`, async ({}, testInfo) => {
+      const targetBrowser = await launchTargetBrowser("chromium");
+      const context = await targetBrowser.newContext({ viewport: target.viewport, colorScheme: "dark" });
+      const page = await context.newPage();
+      const criticalAssetFailures: string[] = [];
+      const isCriticalAsset = (resourceType: string) =>
+        ["document", "script", "stylesheet", "font"].includes(resourceType);
+      page.on("requestfailed", (request) => {
+        if (isCriticalAsset(request.resourceType())) {
+          criticalAssetFailures.push(`${request.resourceType()} ${request.failure()?.errorText ?? "failed"}`);
+        }
+      });
+      page.on("response", (response) => {
+        if (response.status() >= 400 && isCriticalAsset(response.request().resourceType())) {
+          criticalAssetFailures.push(`${response.request().resourceType()} HTTP ${response.status()}`);
+        }
+      });
+
+      try {
+        await ensureFirstWorkGeometry(page);
+        const geometry = await page.evaluate(() => {
+          const firstWork = document.querySelector<HTMLElement>(".ecosystem-home__work-card");
+          const movements = document.querySelector<HTMLElement>(".ecosystem-home__movements");
+          const slogan = document.querySelector<HTMLElement>(".ecosystem-home__slogan");
+          const image = firstWork?.querySelector("img") as {
+            currentSrc: string;
+            naturalWidth: number;
+            naturalHeight: number;
+          } | null;
+          if (!firstWork || !movements || !slogan || !image) throw new Error("Home policy nodes missing");
+          const workRect = firstWork.getBoundingClientRect();
+          const movementsRect = movements.getBoundingClientRect();
+          const sloganRect = slogan.getBoundingClientRect();
+          const imageSource = image.currentSrc || image.src;
+          return {
+            innerWidth: window.innerWidth,
+            innerHeight: window.innerHeight,
+            scrollWidth: document.documentElement.scrollWidth,
+            firstWorkTop: workRect.top,
+            visibleWorkPixels: Math.max(0, window.innerHeight - workRect.top),
+            movementsTop: movementsRect.top,
+            movementsBottom: movementsRect.bottom,
+            sloganTop: sloganRect.top,
+            sloganBottom: sloganRect.bottom,
+            imageSourceKind: imageSource.startsWith("data:image/svg+xml")
+              ? "embedded-svg"
+              : imageSource.includes("/thought/")
+                ? "thought-route"
+                : "other",
+            imageNaturalWidth: image.naturalWidth,
+            imageNaturalHeight: image.naturalHeight,
+          };
+        });
+        expect(geometry.innerWidth).toBe(target.viewport.width);
+        expect(geometry.innerHeight).toBe(target.viewport.height);
+        expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.innerWidth + 1);
+        expect(geometry.movementsTop).toBeGreaterThanOrEqual(0);
+        expect(geometry.movementsBottom).toBeLessThanOrEqual(geometry.innerHeight);
+        expect(geometry.sloganTop).toBeGreaterThanOrEqual(0);
+        expect(geometry.sloganBottom).toBeLessThanOrEqual(geometry.innerHeight);
+        expect(geometry.visibleWorkPixels).toBeGreaterThanOrEqual(MINIMUM_WORK_PEEK_PX);
+        expect(["embedded-svg", "thought-route"]).toContain(geometry.imageSourceKind);
+        expect(geometry.imageNaturalWidth).toBeGreaterThan(0);
+        expect(geometry.imageNaturalHeight).toBeGreaterThan(0);
+        expect(criticalAssetFailures).toEqual([]);
+        await testInfo.attach(`${target.model}-geometry`, {
+          body: Buffer.from(JSON.stringify(geometry, null, 2)),
+          contentType: "application/json",
+        });
       } finally {
         await context.close();
         await targetBrowser.close();

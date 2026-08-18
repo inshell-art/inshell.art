@@ -1929,6 +1929,20 @@ describe("App Component", () => {
     expect(css).toMatch(/\.thought-detail\s*{[^}]*-moz-osx-font-smoothing:\s*auto;/s);
   });
 
+  test("keeps Home THOUGHT captions at PATH caption contrast and type", () => {
+    const css = readFileSync(
+      nodePath.resolve(cwd(), "src/main.css"),
+      "utf8",
+    );
+
+    expect(css).toMatch(/--ecosystem-work-meta-font-size:\s*var\(--font-size-14\);/);
+    expect(css).toMatch(/--ecosystem-work-meta-color:\s*var\(--text\);/);
+    expect(css).toMatch(/--ecosystem-work-meta-weight:\s*var\(--weight-mid\);/);
+    expect(css).toMatch(
+      /\.ecosystem-home__work-meta\s*{[^}]*color:\s*var\(--ecosystem-work-meta-color\);[^}]*font-size:\s*var\(--ecosystem-work-meta-font-size\);[^}]*font-weight:\s*var\(--ecosystem-work-meta-weight\);/s,
+    );
+  });
+
   test("home body keeps the slogan, movements, and minted works", async () => {
     mockThoughtGalleryApi([
       thoughtGalleryItem({

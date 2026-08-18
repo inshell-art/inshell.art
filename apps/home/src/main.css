@@ -95,7 +95,12 @@
   --verify-record-raw-line-height: 1.5;
   --ecosystem-primary-color: var(--accent);
   --ecosystem-supporting-color: var(--muted);
-  --ecosystem-hero-min-height: clamp(720px, 66svh, 860px);
+  --ecosystem-first-work-peek-reserve: 180px;
+  --ecosystem-hero-min-height: clamp(
+    540px,
+    calc(100svh - var(--ecosystem-first-work-peek-reserve)),
+    860px
+  );
   --ecosystem-hero-padding-block-start: clamp(37px, 5.3vh, 75px);
   --ecosystem-hero-padding-block-end: clamp(53px, 8vh, 100px);
   --ecosystem-movement-color: var(--ecosystem-primary-color);
@@ -116,7 +121,7 @@
   --ecosystem-work-meta-gap: 10px;
   --ecosystem-work-meta-font-size: var(--font-size-14);
   --ecosystem-work-meta-line-height: 1.5;
-  --ecosystem-work-meta-color: var(--ecosystem-slogan-color);
+  --ecosystem-work-meta-color: var(--text);
   --ecosystem-work-meta-weight: var(--weight-mid);
   --ecosystem-work-focus-width: 1px;
   --ecosystem-work-focus-color: var(--ecosystem-slogan-color);
@@ -6041,6 +6046,6 @@ button {
 
 @media (max-width: 560px) and (max-height: 590px) {
   :root {
-    --ecosystem-hero-min-height: 373px;
+    --ecosystem-hero-min-height: 370px;
   }
 }
