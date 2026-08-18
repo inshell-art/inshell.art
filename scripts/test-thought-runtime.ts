@@ -148,7 +148,7 @@ assert.equal(
 );
 assert.equal(
   localRelease.artifact.id,
-  "thought-v2-canonical-portable-release-20260801-r1",
+  "thought-v2-canonical-portable-release-20260807-r2",
   "local development must bind the immutable canonical portable Contract release",
 );
 assert.equal(localRelease.artifact.productionConsumable, true);
@@ -156,7 +156,7 @@ assert.equal(localRelease.artifact.deploymentAuthorized, false);
 const neutralRecordFixtures = JSON.parse(
   await readFile(
     new URL(
-      "../apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260801-r1/fixtures/neutral-agent-model-token-uri-examples.anvil.json",
+      "../apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/fixtures/neutral-agent-model-token-uri-examples.anvil.json",
       import.meta.url,
     ),
     "utf8",
@@ -211,7 +211,7 @@ for (const { metadata, tokenId } of neutralRecordFixtures.examples) {
 const attestationVectors = JSON.parse(
   await readFile(
     new URL(
-      "../apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260801-r1/protocol/current/v2/attestation/fixtures/creation-attestation-v2-vectors.json",
+      "../apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/attestation/fixtures/creation-attestation-v2-vectors.json",
       import.meta.url,
     ),
     "utf8",

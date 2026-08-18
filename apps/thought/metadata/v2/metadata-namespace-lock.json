@@ -25,8 +25,8 @@
     "externalUrlInsideNamespace": false
   },
   "validation": {
-    "contractArtifactId": "thought-v2-canonical-portable-release-20260801-r1",
-    "decodedFixture": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260801-r1/fixtures/neutral-agent-model-token-uri-examples.anvil.json",
+    "contractArtifactId": "thought-v2-canonical-portable-release-20260807-r2",
+    "decodedFixture": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/fixtures/neutral-agent-model-token-uri-examples.anvil.json",
     "decodedExamples": 3,
     "creationAttestationStatuses": [
       "Inshell THOUGHT App",

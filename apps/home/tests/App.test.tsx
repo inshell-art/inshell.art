@@ -1518,7 +1518,9 @@ describe("App Component", () => {
     expect(screen.queryByRole("complementary", { name: "In this article" })).toBeNull();
     expect(screen.queryByRole("heading", { level: 2, name: "Inshell" })).toBeNull();
     expect(screen.queryByRole("heading", { level: 2, name: "Pulse" })).toBeNull();
-    expect(screen.getByText(/Every successful work mint uses one/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/One successful movement mint consumes one unit/),
+    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "read about Pulse ↗" })).toHaveAttribute(
       "href",
       "/docs/pulse",

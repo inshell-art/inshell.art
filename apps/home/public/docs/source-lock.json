@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "9c31d293d2bd8fcd0a6093a920e3570c2ce62bb6e2f1e5684329e0d327ebbef4",
+  "sourceTreeSha256": "20c9d0058afe301a3e709cda0216a065a4aff7ef82b8c6708ba015925af80dba",
   "groups": [
     {
       "id": "public-docs",
@@ -52,7 +52,7 @@
       "title": "Home, PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "a6f94ed28e0ad38156972b3923a03b80161c2d4866c714799fdac034af9fd9c7",
+      "groupSha256": "280c87e6b85643bb6fd64032a1906a5c3d7e497d120f092b5b1c99cf1b175088",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -61,8 +61,8 @@
         },
         {
           "path": "apps/home/package.json",
-          "byteLength": 3915,
-          "sha256": "6b6622a861a9372ec3734b48519a9ce84cf432da7982bf25255ad025e853b7d6"
+          "byteLength": 2876,
+          "sha256": "9f290fe44e894316c109f71513cc1e2f53afd47ed5db8404bb130af0cd0e8a79"
         },
         {
           "path": "apps/home/src/App.tsx",
@@ -286,8 +286,8 @@
         },
         {
           "path": "apps/home/vite.config.ts",
-          "byteLength": 8393,
-          "sha256": "43fe204824278b4c5b808bc49026f5937afa4e2cc67aa88f707ff98b13f3d9f3"
+          "byteLength": 8341,
+          "sha256": "69b0be6f387607ffd24774b7d7ed13fab6912d512eaf66fa40ce0568f44519ac"
         }
       ]
     },
@@ -890,7 +890,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "b8f7ffb1703b9a6aed3e6e60ad2450c7985b198af09be0d9e88da0fa22c3b502",
+      "groupSha256": "d3ec7f584f2718e7f5860bc7889075fe583c0522a3d0da477449c28ba9b61f31",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1065,7 +1065,7 @@
         {
           "path": "apps/thought/src/thought-v2-contract-release.generated.ts",
           "byteLength": 9589,
-          "sha256": "4403eeb47eba87514acd4ef77f971fd3ac43cb243c8fb315985f5c8505bc7fc4"
+          "sha256": "657b4948c356f39afc353090cccfb1e60e30e83de02ff944335f7b1aace62973"
         },
         {
           "path": "apps/thought/src/thought-v2-empty-frame.ts",
@@ -1139,7 +1139,7 @@
       "title": "THOUGHT App specifications and records",
       "owner": "THOUGHT App",
       "reason": "Creative specification, provenance, metadata namespace, and App integration facts.",
-      "groupSha256": "63c8cd235799414cb2e2ea89d903e027ca7a75f130069a110daaea586f3f5920",
+      "groupSha256": "79b010dfdd750d899e7f70d74a30c4c5114f725dda4bd501b0abbd682b39fb4a",
       "files": [
         {
           "path": "apps/thought/contract-integration/current/APP_BOUNDARY_RESPONSE.md",
@@ -1163,8 +1163,8 @@
         },
         {
           "path": "apps/thought/contract-integration/current/integration-lock.json",
-          "byteLength": 23708,
-          "sha256": "bfa37cfba239ff1a72fdcdba0d76f79e1cb332d44f7e8c0fdd23c403dc80b142"
+          "byteLength": 24114,
+          "sha256": "90836d15962c29f9198a6be0ba3196467e11f9415b4783a130e03e88163a3e00"
         },
         {
           "path": "apps/thought/contract-integration/current/reference/thought-v2-canonical-json.ts",
@@ -1208,13 +1208,13 @@
         },
         {
           "path": "apps/thought/contract-integration/current/thought.app-contract-boundary.v1.json",
-          "byteLength": 6306,
-          "sha256": "7df6d3ec3c91c3dbad3da032c7967c8c21bd72f99ff9777c1567bd926a888bc1"
+          "byteLength": 6826,
+          "sha256": "fa96f72ae2a2c2e6b84cc373eacb9e5381a4a43efcb7148c0f0a8b7b639a2b36"
         },
         {
           "path": "apps/thought/contract-integration/current/thought.app-contract-boundary.v1.md",
-          "byteLength": 7989,
-          "sha256": "03a1e2de26a5ebf2dbe5299215f6e967535a5df0d9cc7cd8f7849bd68e711e4d"
+          "byteLength": 8599,
+          "sha256": "f8e9924521d9c2ee20b53ac7bb8b41910c319c3fd480f4226d5bb175cffa4e94"
         },
         {
           "path": "apps/thought/contract-integration/current/thought.context.v2.profile.json",
@@ -1259,7 +1259,7 @@
         {
           "path": "apps/thought/metadata/v2/metadata-namespace-lock.json",
           "byteLength": 1902,
-          "sha256": "8e87f61610f374fc3f30b364cf8ed47c32a0330691d0ec733ce103148f2a10a6"
+          "sha256": "6c450e9d2b6db8ab89b7e21e3d25c3fd67bc75ed4088d79496000cf800ed6021"
         },
         {
           "path": "apps/thought/metadata/v2/thought.marketplace-traits.v2.profile.json",
@@ -1328,12 +1328,12 @@
       "title": "THOUGHT Contract release",
       "owner": "THOUGHT Contract producer and inshell.art consumer",
       "reason": "Canonical Contract, renderer, metadata, protocol, and conformance facts.",
-      "groupSha256": "819814a36214b36ddf76cf98962045791bc8ecaaaef66a99552b06b5649e1275",
+      "groupSha256": "e4734efc73e39265cba53b16cff1fc33a646f5681e2a5145b1a6f4333caa2e32",
       "files": [
         {
           "path": "apps/thought/contract-release/consumer-lock.json",
           "byteLength": 4693,
-          "sha256": "2183b8fa000052a3cceb033a1bddd0d1367f9bfdf0eb713c770ba16d02d9f603"
+          "sha256": "7a6da8af18e902504b7f4b2913850794ffaaf487ac66e7836d9739a90c67920a"
         },
         {
           "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260801-r1/README.json",

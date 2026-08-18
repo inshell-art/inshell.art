@@ -19,7 +19,7 @@
     "schemaUrl": "/docs/source-lock.schema.json",
     "canonicalSchemaUrl": "https://inshell.art/docs/source-lock.schema.json",
     "mediaType": "application/json",
-    "sha256": "a132b0f30929d29ee7606bb46cff922a4e13deb4961cc05cbfad9cd7216e243e",
+    "sha256": "2ccea28bb6c8a3f91889efdad099c444ab13cea2e762f0359bd159a1aa6e39aa",
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
@@ -50,7 +50,7 @@
       },
       {
         "id": "thought-machine-handoff",
-        "entry": "/protocol/releases/thought-v2-machine-handoff-3298b3338b426299/manifest.json",
+        "entry": "/protocol/releases/thought-v2-machine-handoff-7413c058389dce92/manifest.json",
         "useFor": "THOUGHT implementation, protocol, Creative Work Specification, provenance, metadata, attestation, renderer, Contract, or cross-repository boundary questions"
       },
       {
@@ -541,15 +541,15 @@
   ],
   "machineHandoffs": [
     {
-      "id": "thought-v2-machine-handoff-3298b3338b426299",
+      "id": "thought-v2-machine-handoff-7413c058389dce92",
       "title": "THOUGHT App and Contract machine handoff",
       "status": "current-local-integration-no-production-authorization",
-      "url": "/protocol/releases/thought-v2-machine-handoff-3298b3338b426299/manifest.json",
-      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-3298b3338b426299/manifest.json",
+      "url": "/protocol/releases/thought-v2-machine-handoff-7413c058389dce92/manifest.json",
+      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-7413c058389dce92/manifest.json",
       "schemaUrl": "/protocol/thought-machine-handoff.schema.json",
       "canonicalSchemaUrl": "https://inshell.art/protocol/thought-machine-handoff.schema.json",
       "mediaType": "application/json",
-      "sha256": "41c47c44b0828c783ccbf1aa10d25b984379db7d550012526deb391488de2ff7",
+      "sha256": "6a2d864741200ef4d4635ff7539f7aa3934f58f53f55166d714d0ce547d0c790",
       "authority": "app-documentation",
       "topics": [
         "thought",

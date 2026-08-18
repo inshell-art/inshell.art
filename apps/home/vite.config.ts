@@ -214,6 +214,11 @@ export default defineConfig(({ mode }) => {
         onwarn: ignoreKnownRollupWarnings,
       },
     },
+    preview: {
+      // Artifact QA must exercise the built same-origin route tree, not reuse
+      // development proxies for standalone compatibility surfaces.
+      proxy: {},
+    },
     server: {
       host: "127.0.0.1",
       port: 5173,
@@ -241,13 +246,6 @@ export default defineConfig(({ mode }) => {
           },
           rewrite: (requestPath) =>
             requestPath.replace(/^\/thought(?=$|\?)/, "/thought/"),
-        },
-        "/gallery": {
-          target: "http://127.0.0.1:5174",
-          changeOrigin: true,
-          secure: false,
-          rewrite: (requestPath) =>
-            requestPath.replace(/^\/gallery\/?(?=$|\?)/, "/thought/"),
         },
         "/api": {
           target: readDevApiOrigin(),

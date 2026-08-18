@@ -151,6 +151,16 @@ function checkPackageScripts() {
     }
   }
 
+  const homeUnit = String(homePkg?.scripts?.["test:unit"] ?? "");
+  if (!homeUnit.includes("jest --runInBand")) {
+    fail("apps/home/package.json test:unit must use Jest discovery");
+  }
+  const homePresepolia = String(homePkg?.scripts?.["test:presepolia"] ?? "");
+  if (!homePresepolia.includes("pnpm test:unit")) {
+    fail("apps/home/package.json test:presepolia must run the full test:unit discovery suite");
+  }
+  read("apps/home/tests/thoughtPreviewFunction.test.ts");
+
   const thoughtDevScripts = [thoughtPkg?.scripts?.dev].filter(Boolean);
   for (const script of thoughtDevScripts) {
     for (const snippet of THOUGHT_DEV_SCRIPT_SNIPPETS) {
@@ -256,6 +266,17 @@ function checkViteConfig(path: string, expectedPort: number) {
     if (!text.includes(snippet)) {
       fail(`${rel(path)} is missing Vite production/dev invariant: ${snippet}`);
     }
+  }
+}
+
+function checkHomeViteRouteOwnership() {
+  const path = "apps/home/vite.config.ts";
+  const text = read(path);
+  if (/"\/gallery"\s*:/.test(text)) {
+    fail(`${path} must not proxy the canonical same-origin /gallery route`);
+  }
+  if (!/preview:\s*\{\s*\/\/[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*proxy:\s*\{\s*\},\s*\}/s.test(text)) {
+    fail(`${path} must isolate built-artifact preview from development proxies`);
   }
 }
 
@@ -444,7 +465,8 @@ function checkThoughtProductionGuards() {
     "const OPENROUTER_DEFAULT_MODEL = \"openrouter/free\";",
     "const token = getReadThoughtNFT();",
     "previewWorkViaAllowedProvider",
-    "createFrontendPreviewProvider",
+    "createThoughtPreviewProvider",
+    "pinned THOUGHT renderer release mismatch; preview stopped.",
     "VITE_THOUGHT_PREVIEW_ENDPOINT_ENABLED",
     "THOUGHT_PREVIEW_TIMEOUT_MS",
     "current candidate is not previewed.",
@@ -498,7 +520,6 @@ function checkThoughtProductionGuards() {
     "type: \"web_search_20250305\"",
   ]);
   requireSnippets("package.json", ["test:thought-runtime"]);
-  requireSnippets("apps/home/package.json", ["tests/thoughtPreviewFunction.test.ts"]);
 
   if (text.includes("VITE_THOUGHT_INDEXER_URL")) {
     fail("apps/thought/src/main.ts must not use VITE_THOUGHT_INDEXER_URL as a tx explorer URL");
@@ -632,6 +653,7 @@ function checkThoughtPreviewEndpoint() {
 
 checkPackageScripts();
 checkViteConfig("apps/home/vite.config.ts", 5173);
+checkHomeViteRouteOwnership();
 checkViteConfig("apps/thought/vite.config.ts", 5174);
 checkStaticHostingFiles("home");
 checkStaticHostingFiles("thought");
