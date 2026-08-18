@@ -1,0 +1,250 @@
+name: THOUGHT Agent compatibility canaries
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Exact 40-character staging commit deployed to qualified preview
+        required: true
+        type: string
+      preview_origin:
+        description: Qualified staging Agent machine endpoint
+        required: true
+        default: https://staging.thought-inshell-art.pages.dev
+        type: string
+      claude_max_budget_usd:
+        description: Maximum Claude Code spend per Mac
+        required: true
+        default: "5.00"
+        type: string
+      confirm_paid_agent_calls:
+        description: Confirm four paid live Agent calls on two trusted Macs
+        required: true
+        default: "no"
+        type: choice
+        options:
+          - "no"
+          - "yes"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: thought-agent-canaries-${{ inputs.candidate_sha }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Require explicit paid-run confirmation
+        run: test "${{ inputs.confirm_paid_agent_calls }}" = "yes"
+      - name: Validate candidate input
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          PREVIEW_ORIGIN: ${{ inputs.preview_origin }}
+          CLAUDE_MAX_BUDGET_USD: ${{ inputs.claude_max_budget_usd }}
+        run: |
+          [[ "$CANDIDATE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$PREVIEW_ORIGIN" == "https://preview.inshell.art" || "$PREVIEW_ORIGIN" =~ ^https://[a-z0-9-]+\.inshell-art\.pages\.dev$ ]]
+          [[ "$CLAUDE_MAX_BUDGET_USD" =~ ^[0-9]+([.][0-9]{1,2})?$ ]]
+          node -e 'const value = Number(process.env.CLAUDE_MAX_BUDGET_USD); if (!(value > 0 && value <= 20)) process.exit(1)'
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          fetch-depth: 0
+      - name: Require exact staging ancestry
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          git fetch --no-tags origin staging:refs/remotes/origin/staging
+          git merge-base --is-ancestor "$CANDIDATE_SHA" origin/staging
+      - name: Enable pnpm
+        run: corepack enable
+      - name: Use Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify qualified preview commit
+        env:
+          THOUGHT_LIVE_ORIGIN: ${{ inputs.preview_origin }}
+          THOUGHT_LIVE_COMMIT_SHA: ${{ inputs.candidate_sha }}
+          THOUGHT_CANARY_RUNNER_ID: workflow-preflight
+        run: node --import tsx scripts/check-thought-agent-live-target.ts
+
+  mac-a:
+    needs: preflight
+    runs-on: [self-hosted, macOS, inshell-agent-canary, mac-a]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          clean: true
+      - name: Enable pnpm
+        run: corepack enable
+      - name: Use Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify qualified preview commit
+        env:
+          THOUGHT_LIVE_ORIGIN: ${{ inputs.preview_origin }}
+          THOUGHT_LIVE_COMMIT_SHA: ${{ inputs.candidate_sha }}
+          THOUGHT_CANARY_RUNNER_ID: mac-a
+        run: node --import tsx scripts/check-thought-agent-live-target.ts
+      - name: Prepare report directory
+        run: mkdir -p compatibility-reports/mac-a
+      - name: Run Codex live canary
+        id: codex
+        continue-on-error: true
+        env:
+          THOUGHT_LIVE_ORIGIN: ${{ inputs.preview_origin }}
+          THOUGHT_LIVE_COMMIT_SHA: ${{ inputs.candidate_sha }}
+          THOUGHT_CANARY_RUNNER_ID: mac-a
+          THOUGHT_COMPATIBILITY_REPORT_FILE: compatibility-reports/mac-a/codex.json
+        run: pnpm run test:thought-agent-codex:live
+      - name: Run Claude Code live canary
+        id: claude
+        continue-on-error: true
+        env:
+          THOUGHT_LIVE_ORIGIN: ${{ inputs.preview_origin }}
+          THOUGHT_LIVE_COMMIT_SHA: ${{ inputs.candidate_sha }}
+          THOUGHT_CANARY_RUNNER_ID: mac-a
+          THOUGHT_CLAUDE_MAX_BUDGET_USD: ${{ inputs.claude_max_budget_usd }}
+          THOUGHT_COMPATIBILITY_REPORT_FILE: compatibility-reports/mac-a/claude.json
+        run: pnpm run test:thought-agent-claude:live
+      - name: Upload Mac A reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: thought-agent-canary-mac-a
+          path: compatibility-reports/mac-a/*.json
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Enforce Mac A results
+        if: always()
+        run: |
+          test "${{ steps.codex.outcome }}" = "success"
+          test "${{ steps.claude.outcome }}" = "success"
+
+  mac-b:
+    needs: preflight
+    runs-on: [self-hosted, macOS, inshell-agent-canary, mac-b]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          clean: true
+      - name: Enable pnpm
+        run: corepack enable
+      - name: Use Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify qualified preview commit
+        env:
+          THOUGHT_LIVE_ORIGIN: ${{ inputs.preview_origin }}
+          THOUGHT_LIVE_COMMIT_SHA: ${{ inputs.candidate_sha }}
+          THOUGHT_CANARY_RUNNER_ID: mac-b
+        run: node --import tsx scripts/check-thought-agent-live-target.ts
+      - name: Prepare report directory
+        run: mkdir -p compatibility-reports/mac-b
+      - name: Run Codex live canary
+        id: codex
+        continue-on-error: true
+        env:
+          THOUGHT_LIVE_ORIGIN: ${{ inputs.preview_origin }}
+          THOUGHT_LIVE_COMMIT_SHA: ${{ inputs.candidate_sha }}
+          THOUGHT_CANARY_RUNNER_ID: mac-b
+          THOUGHT_COMPATIBILITY_REPORT_FILE: compatibility-reports/mac-b/codex.json
+        run: pnpm run test:thought-agent-codex:live
+      - name: Run Claude Code live canary
+        id: claude
+        continue-on-error: true
+        env:
+          THOUGHT_LIVE_ORIGIN: ${{ inputs.preview_origin }}
+          THOUGHT_LIVE_COMMIT_SHA: ${{ inputs.candidate_sha }}
+          THOUGHT_CANARY_RUNNER_ID: mac-b
+          THOUGHT_CLAUDE_MAX_BUDGET_USD: ${{ inputs.claude_max_budget_usd }}
+          THOUGHT_COMPATIBILITY_REPORT_FILE: compatibility-reports/mac-b/claude.json
+        run: pnpm run test:thought-agent-claude:live
+      - name: Upload Mac B reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: thought-agent-canary-mac-b
+          path: compatibility-reports/mac-b/*.json
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Enforce Mac B results
+        if: always()
+        run: |
+          test "${{ steps.codex.outcome }}" = "success"
+          test "${{ steps.claude.outcome }}" = "success"
+
+  matrix:
+    if: always() && needs.preflight.result == 'success'
+    needs: [preflight, mac-a, mac-b]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha }}
+      - name: Enable pnpm
+        run: corepack enable
+      - name: Use Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Download host reports
+        uses: actions/download-artifact@v8
+        with:
+          pattern: thought-agent-canary-mac-*
+          path: compatibility-artifacts/reports
+      - name: Validate four-cell compatibility matrix
+        id: matrix
+        continue-on-error: true
+        run: |
+          mkdir -p compatibility-artifacts/result
+          node --import tsx scripts/collect-thought-agent-canary-matrix.ts \
+            --reports compatibility-artifacts/reports \
+            --commit "${{ inputs.candidate_sha }}" \
+            --runners mac-a,mac-b \
+            --output compatibility-artifacts/result/matrix.json \
+            --summary compatibility-artifacts/result/summary.md
+      - name: Publish matrix summary
+        if: always()
+        run: |
+          if [ -f compatibility-artifacts/result/summary.md ]; then
+            cat compatibility-artifacts/result/summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            printf '%s\n' '# THOUGHT Agent compatibility matrix' '' 'Status: **failed before a complete matrix was produced**' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload matrix evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: thought-agent-canary-matrix-${{ inputs.candidate_sha }}
+          path: compatibility-artifacts
+          if-no-files-found: error
+          retention-days: 30
+      - name: Enforce matrix result
+        if: always()
+        run: test "${{ steps.matrix.outcome }}" = "success"

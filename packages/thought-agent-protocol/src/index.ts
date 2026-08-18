@@ -14,6 +14,29 @@ export {
   type ThoughtCodexResultContractBinding,
   type ThoughtCodexTaskInput,
 } from "./codex-client";
+export {
+  THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION,
+  buildThoughtClaudeOperationContract,
+  buildThoughtClaudeTask,
+  isThoughtClaudeCoworkPublicHttpsOrigin,
+  type ThoughtClaudeReleaseBinding,
+  type ThoughtClaudeResultContractBinding,
+  type ThoughtClaudeSurface,
+  type ThoughtClaudeTaskInput,
+} from "./claude-client";
+export {
+  THOUGHT_AGENT_RUN_AUTHORITY,
+  THOUGHT_AGENT_RUN_AUTHORITY_VERSION,
+} from "./run-authority";
+export {
+  THOUGHT_CODEX_DIRECT_PROFILE,
+  buildThoughtDirectAgentOperationContract,
+  buildThoughtDirectAgentTask,
+  type ThoughtDirectAgentProfile,
+  type ThoughtDirectAgentReleaseBinding,
+  type ThoughtDirectAgentResultContractBinding,
+  type ThoughtDirectAgentTaskInput,
+} from "./direct-agent-task";
 
 export const THOUGHT_AGENT_PROTOCOL_VERSION =
   THOUGHT_V2_PROTOCOL_RELEASE.agentRunId;

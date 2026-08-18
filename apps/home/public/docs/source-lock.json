@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "ed6776c705231c1f5b4898882eb03451f3aa127e2b9d73b80cd4b3c926961ef8",
+  "sourceTreeSha256": "017b5f6cd43d1b85adb10ba671763992b0a19667ea090c2554db969f1577aab3",
   "groups": [
     {
       "id": "public-docs",
@@ -559,7 +559,7 @@
       "title": "Shared product runtime",
       "owner": "inshell.art shared App infrastructure",
       "reason": "Shared Ethereum, surface, utility, and Agent-protocol code used by public routes.",
-      "groupSha256": "a49394c4ccdf60da910f212e59907086e77821f9dc59d3af6a58f869775967b7",
+      "groupSha256": "d25e61a4fd82270d812332d37aefc460e41c5c84846488a72d7afa9c628052c7",
       "files": [
         {
           "path": "packages/ethereum/src/abi.ts",
@@ -642,19 +642,39 @@
           "sha256": "e0c0b0dc8d551b7269bd1132e75580e2ffbabb24c918f9a38f876da07072191e"
         },
         {
+          "path": "packages/thought-agent-protocol/src/claude-client.ts",
+          "byteLength": 14630,
+          "sha256": "2d4abed30ba2aa0483170e937a255def836a4fc9012d0fac6004b68e95016ff4"
+        },
+        {
           "path": "packages/thought-agent-protocol/src/codex-client.ts",
           "byteLength": 38333,
           "sha256": "d1d4611d79ff79e7a6b339aba5486706fb1090dd0da4fbc4835aeecae5d8c997"
         },
         {
+          "path": "packages/thought-agent-protocol/src/direct-agent-task.ts",
+          "byteLength": 16339,
+          "sha256": "e9467bd59b415fb644044558b2d78e9cf930d2f1cf96ea6896e608b87bae8e1f"
+        },
+        {
           "path": "packages/thought-agent-protocol/src/index.ts",
-          "byteLength": 22390,
-          "sha256": "d1758a05fe1dd61d3b4c381dae4efea35f8b590ee9a9ad87a62b5e9c548ac03a"
+          "byteLength": 23123,
+          "sha256": "58904659c727ab8e0fa07b30681eba02679157f0d4579a5564d7b99a4d635b67"
         },
         {
           "path": "packages/thought-agent-protocol/src/release.generated.ts",
           "byteLength": 9342,
           "sha256": "c3c9f1c501ef1aecdbb259375e0c3e91d112ac676577cd37a6d909971881e492"
+        },
+        {
+          "path": "packages/thought-agent-protocol/src/run-authority.ts",
+          "byteLength": 639,
+          "sha256": "c8173b3260a9b42551f30febad2e202caafbee6567bc3c6283eca815e2291b3f"
+        },
+        {
+          "path": "packages/thought-agent-protocol/src/run-url.ts",
+          "byteLength": 230,
+          "sha256": "ad0254a2c677a51bc0c643883188da60d2fe352a0bf7e2a2dc57348bbccda00a"
         },
         {
           "path": "packages/utils/src/device.ts",

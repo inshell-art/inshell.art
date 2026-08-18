@@ -1,20 +1,24 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { arch, platform, tmpdir } from "node:os";
+import { mkdtemp, rm } from "node:fs/promises";
+import { arch, homedir, platform, tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
   THOUGHT_AGENT_PROTOCOL_VERSION,
-  THOUGHT_CODEX_DIRECT_PROFILE,
   THOUGHT_V2_PROTOCOL_RELEASE,
-  buildThoughtDirectAgentTask,
+  buildThoughtClaudeTask,
 } from "../packages/thought-agent-protocol/src/index";
 import {
   THOUGHT_AGENT_COMPATIBILITY_REPORT_VERSION,
   emitThoughtAgentCompatibilityReport,
   type ThoughtAgentCompatibilityReport,
 } from "./lib/thought-agent-compatibility-report";
+import {
+  isClaudeCodeAuthenticated,
+  resolveClaudeCodeBinary,
+} from "./lib/claude-code-binary";
+import { classifyClaudeCodeFailure } from "./lib/claude-code-failure";
 import {
   ThoughtAgentCanaryError,
   requiredThoughtAgentLiveTarget,
@@ -27,7 +31,13 @@ type CanaryStage = ThoughtAgentCompatibilityReport["result"]["stage"];
 const liveTarget = requiredThoughtAgentLiveTarget();
 const origin = liveTarget.origin;
 const apiBase = `${origin}/api/thought-agent/v2`;
-const promptLine = "Who are you when the signal returns?";
+const claudeBin = await resolveClaudeCodeBinary({
+  explicitPath: process.env.THOUGHT_CLAUDE_BIN,
+  pathValue: process.env.PATH,
+  homeDirectory: homedir(),
+});
+const maxBudgetUsd = process.env.THOUGHT_CLAUDE_MAX_BUDGET_USD?.trim() || "5.00";
+const promptLine = "What remains after a signal returns?";
 const startedClock = Date.now();
 let stage: CanaryStage = "preflight";
 let toolVersion = "unknown";
@@ -37,11 +47,9 @@ let runUrl = "";
 let receiptSha256: string | undefined;
 let model: string | undefined;
 let reasoningEffort: string | undefined;
-let terminal = false;
-let testRoot = "";
 
 const agentEnvironment = Object.fromEntries(
-  ["CODEX_HOME", "HOME", "PATH", "SHELL", "TMPDIR", "USER", "LANG", "LC_ALL"]
+  ["CLAUDE_CONFIG_DIR", "HOME", "PATH", "SHELL", "TMPDIR", "USER", "LANG", "LC_ALL"]
     .flatMap((key) => process.env[key] ? [[key, process.env[key]]] : []),
 ) as typeof process.env;
 
@@ -79,10 +87,7 @@ const runProcess = async (
       new Promise<never>((_, reject) => {
         timeout = setTimeout(() => {
           child.kill("SIGTERM");
-          reject(new ThoughtAgentCanaryError(
-            "AGENT_TIMEOUT",
-            "Codex canary timed out.",
-          ));
+          reject(new ThoughtAgentCanaryError("AGENT_TIMEOUT", "Claude Code canary timed out."));
         }, options?.timeoutMs ?? 30_000);
       }),
     ]);
@@ -99,10 +104,7 @@ const requestJson = async <T>(url: string, init?: RequestInit): Promise<T> => {
   try {
     payload = JSON.parse(text) as T & { error?: { code?: string } };
   } catch {
-    throw new ThoughtAgentCanaryError(
-      "NON_JSON_RESPONSE",
-      "THOUGHT returned a non-JSON response.",
-    );
+    throw new ThoughtAgentCanaryError("NON_JSON_RESPONSE", "THOUGHT returned a non-JSON response.");
   }
   if (!response.ok) {
     throw new ThoughtAgentCanaryError(
@@ -120,8 +122,8 @@ const report = (
   schema: THOUGHT_AGENT_COMPATIBILITY_REPORT_VERSION,
   recordedAt: new Date().toISOString(),
   agent: {
-    adapter: "codex" as const,
-    surface: "codex-cli" as const,
+    adapter: "claude",
+    surface: "claude-code-cli",
     toolVersion,
     ...(model ? { model } : {}),
     ...(reasoningEffort ? { reasoningEffort } : {}),
@@ -133,13 +135,13 @@ const report = (
     nodeVersion: process.version,
   },
   target: {
-    environment: "preview" as const,
+    environment: "preview",
     commitSha: liveTarget.expectedCommitSha,
     protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
   },
   result: {
     status,
-    stage: status === "passed" ? "complete" as const : stage,
+    stage: status === "passed" ? "complete" : stage,
     runState,
     durationMs: Date.now() - startedClock,
     ...(receiptSha256 ? { receiptSha256 } : {}),
@@ -147,27 +149,49 @@ const report = (
   },
 });
 
+let terminal = false;
+let testRoot = "";
+
 try {
   await validateCurrentThoughtAgentCandidateCheckout(liveTarget);
   await validateThoughtAgentLiveTarget(liveTarget);
-  const versionResult = await runProcess("codex", ["--version"], {
-    env: agentEnvironment,
-  });
-  if (versionResult.exitCode !== 0) {
+  if (!claudeBin) {
     throw new ThoughtAgentCanaryError(
-      "CODEX_NOT_AVAILABLE",
-      "Codex CLI is not available.",
+      "CLAUDE_NOT_AVAILABLE",
+      "Claude Code was not found on PATH or in Claude Desktop's managed native installation.",
     );
   }
+  let versionResult: Awaited<ReturnType<typeof runProcess>>;
+  try {
+    versionResult = await runProcess(claudeBin, ["--version"], {
+      env: agentEnvironment,
+    });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      error.code === "ENOENT"
+    ) {
+      throw new ThoughtAgentCanaryError(
+        "CLAUDE_NOT_AVAILABLE",
+        "Claude Code is not installed on this host.",
+      );
+    }
+    throw error;
+  }
+  if (versionResult.exitCode !== 0) {
+    throw new ThoughtAgentCanaryError("CLAUDE_NOT_AVAILABLE", "Claude Code is not available.");
+  }
   toolVersion = versionResult.stdout.match(/\d+\.\d+\.\d+/)?.[0] || "unknown";
-  const authResult = await runProcess("codex", ["login", "status"], {
+
+  const authResult = await runProcess(claudeBin, ["auth", "status"], {
     env: agentEnvironment,
   });
-  if (authResult.exitCode !== 0) {
-    throw new ThoughtAgentCanaryError(
-      "CODEX_AUTH_REQUIRED",
-      "Codex CLI is not authenticated.",
-    );
+  if (
+    authResult.exitCode !== 0 ||
+    !isClaudeCodeAuthenticated(authResult.stdout)
+  ) {
+    throw new ThoughtAgentCanaryError("CLAUDE_AUTH_REQUIRED", "Claude Code is not authenticated.");
   }
 
   stage = "create";
@@ -186,6 +210,7 @@ try {
       declarationLabelField?: "agentLabel" | "label";
     };
     controlContract?: {
+      schema?: string;
       mode?: string;
       claimCreativeInput?: string;
       creativeInputEndpoint?: string;
@@ -199,10 +224,11 @@ try {
     body: JSON.stringify({
       protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
       promptLine,
-      specId: process.env.THOUGHT_LIVE_SPEC_ID ||
+      specId:
+        process.env.THOUGHT_LIVE_SPEC_ID ||
         THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
-      requestedAgent: { adapterId: "codex", model: null },
-      client: { surface: "thought-codex-live-canary", appVersion: "1" },
+      requestedAgent: { adapterId: "claude", model: null },
+      client: { surface: "thought-claude-code-live-canary", appVersion: "1" },
     }),
   });
   assert.match(created.runId, /^tar_[A-Za-z0-9_-]+$/);
@@ -222,51 +248,70 @@ try {
   runUrl = new URL(created.statusUrl, origin).toString().replace(/\/+$/g, "");
   const launchToken = new URL(created.launchUri).searchParams.get("token") || "";
   if (!launchToken) {
-    throw new ThoughtAgentCanaryError(
-      "LAUNCH_TOKEN_MISSING",
-      "THOUGHT omitted the launch credential.",
-    );
+    throw new ThoughtAgentCanaryError("LAUNCH_TOKEN_MISSING", "THOUGHT omitted the launch credential.");
   }
   runState = "created";
 
-  const directTask = buildThoughtDirectAgentTask({
-    product: "Codex",
-    runId: created.runId,
-    runUrl,
-    launchToken,
-    networkAuthorization: "preauthorized",
-    release: created.release,
-    resultContract: created.resultContract,
-  }, THOUGHT_CODEX_DIRECT_PROFILE);
   const task = [
-    directTask,
+    buildThoughtClaudeTask({
+      product: "Claude",
+      surface: "code",
+      runId: created.runId,
+      runUrl,
+      launchToken,
+      networkAuthorization: "preauthorized",
+      release: created.release,
+      resultContract: created.resultContract,
+    }),
     "",
-    "Codex CLI runtime identity",
-    "- Before readiness, run `codex doctor --json` once. This is the host-issued runtime identity source for this CLI canary.",
-    "- Accept the model only from `checks.config.load` when its status is `ok`, its `details.model provider` is `openai`, and its non-empty `details.model` is the model used by this turn.",
-    "- The doctor report's overall status and unrelated checks do not change that scoped runtime identity evidence. Reasoning effort remains optional when the host does not report it.",
+    "Live canary authority:",
+    "- The operator manually started this paid compatibility canary and explicitly approved its exact staging App exchange for this run.",
+    "- That approval is current and satisfies the connection confirmation. Proceed without asking for another approval.",
   ].join("\n");
 
   stage = "agent";
-  testRoot = await mkdtemp(join(tmpdir(), "inshell-thought-codex-live-"));
-  const finalMessageFile = join(testRoot, "final.txt");
-  const codexResult = await runProcess(
-    "codex",
+  testRoot = await mkdtemp(join(tmpdir(), "inshell-thought-claude-live-"));
+  const claudeSettings = JSON.stringify({
+    permissions: {
+      allow: ["Bash"],
+    },
+    sandbox: {
+      enabled: true,
+      failIfUnavailable: true,
+      autoAllowBashIfSandboxed: true,
+      allowUnsandboxedCommands: false,
+      filesystem: {
+        denyRead: ["~/"],
+        allowRead: [testRoot],
+      },
+      network: {
+        allowedDomains: [new URL(origin).hostname],
+        strictAllowlist: true,
+      },
+    },
+  });
+  const claudeResult = await runProcess(
+    claudeBin,
     [
-      "exec",
-      "--ephemeral",
-      "--skip-git-repo-check",
-      "--color",
-      "never",
-      "--sandbox",
-      "workspace-write",
-      "-c",
-      "sandbox_workspace_write.network_access=true",
-      "-C",
-      testRoot,
-      "--output-last-message",
-      finalMessageFile,
-      "-",
+      "-p",
+      "--safe-mode",
+      "--no-session-persistence",
+      "--input-format",
+      "text",
+      "--output-format",
+      "json",
+      "--max-turns",
+      "12",
+      "--max-budget-usd",
+      maxBudgetUsd,
+      "--tools",
+      "Bash",
+      "--allowedTools",
+      "Bash",
+      "--permission-mode",
+      "auto",
+      "--settings",
+      claudeSettings,
     ],
     {
       input: task,
@@ -275,10 +320,10 @@ try {
       env: agentEnvironment,
     },
   );
-  if (codexResult.exitCode !== 0) {
+  if (claudeResult.exitCode !== 0) {
     throw new ThoughtAgentCanaryError(
-      "CODEX_EXIT_NONZERO",
-      "Codex did not finish the run.",
+      classifyClaudeCodeFailure(claudeResult.stdout, claudeResult.stderr),
+      "Claude Code did not finish the run.",
     );
   }
 
@@ -300,20 +345,15 @@ try {
   if (status.state !== "returned") {
     throw new ThoughtAgentCanaryError(
       status.error?.code || "RUN_NOT_RETURNED",
-      "Codex did not return a THOUGHT result.",
+      "Claude Code did not return a THOUGHT result.",
     );
   }
   receiptSha256 = status.result?.receipt?.receiptSha256;
   if (!receiptSha256) {
-    throw new ThoughtAgentCanaryError(
-      "RECEIPT_MISSING",
-      "THOUGHT omitted the returned receipt.",
-    );
+    throw new ThoughtAgentCanaryError("RECEIPT_MISSING", "THOUGHT omitted the returned receipt.");
   }
   model = status.result?.receipt?.model || undefined;
   reasoningEffort = status.result?.receipt?.reasoningEffort || undefined;
-  const finalMessage = await readFile(finalMessageFile, "utf8");
-  assert.ok(finalMessage.includes(receiptSha256));
   terminal = true;
   await emitThoughtAgentCompatibilityReport(report("passed"));
 } catch (error) {
@@ -327,9 +367,7 @@ try {
       body: JSON.stringify({ protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION }),
     }).catch(() => undefined);
   }
-  const errorCode = error instanceof ThoughtAgentCanaryError
-    ? error.code
-    : "CANARY_FAILED";
+  const errorCode = error instanceof ThoughtAgentCanaryError ? error.code : "CANARY_FAILED";
   await emitThoughtAgentCompatibilityReport(report("failed", errorCode));
   process.exitCode = 1;
 } finally {
