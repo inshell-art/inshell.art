@@ -66,6 +66,35 @@ jobs:
       - name: Build THOUGHT
         run: pnpm run build:thought
 
+  # Fast feedback runs alongside the full build. It is deliberately additive:
+  # the release/runtime job above remains required for every PR and branch.
+  fast-feedback:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+      - name: Enable pnpm
+        run: corepack enable
+      - name: Use Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: "pnpm"
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check public documentation
+        run: pnpm run docs:check
+      - name: Run linter
+        run: pnpm run lint
+      - name: Run type-check
+        run: pnpm run type-check
+      - name: Run fast test suite
+        run: pnpm run test:presepolia
+      - name: Build home
+        run: pnpm run build:home
+      - name: Build THOUGHT
+        run: pnpm run build:thought
+
   gitleaks:
     runs-on: ubuntu-latest
     steps:

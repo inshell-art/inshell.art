@@ -185,6 +185,24 @@ test("required build and deploy jobs execute the full upstream gates", async () 
     runCommands(testWorkflow, "build").includes("pnpm run test:presepolia"),
     "the required build job must retain the independent pre-Sepolia test suite",
   );
+  const fastFeedbackCommands = runCommands(testWorkflow, "fast-feedback");
+  for (const command of [
+    "pnpm run docs:check",
+    "pnpm run lint",
+    "pnpm run type-check",
+    "pnpm run test:presepolia",
+    "pnpm run build:home",
+    "pnpm run build:thought",
+  ]) {
+    assert.ok(
+      fastFeedbackCommands.includes(command),
+      `fast-feedback must run ${command}`,
+    );
+  }
+  assert.ok(
+    !fastFeedbackCommands.includes("pnpm run test:thought-runtime"),
+    "fast-feedback must stay additive and leave the full runtime gate to the required build job",
+  );
   const packageJson = JSON.parse(await fs.readFile(path.join(root, "package.json"), "utf8"));
   const homePackageJson = JSON.parse(
     await fs.readFile(path.join(root, "apps/home/package.json"), "utf8"),

@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "bf82668307ab2c1c03bc20df8f89fb779716ea00f93edc06822c6ff3e4bb7441",
+  "sourceTreeSha256": "df70229221587b67a1ffdeeaa6ad2b1aebd4555cdbb3b2e3e8c6b4b2bb880c74",
   "groups": [
     {
       "id": "public-docs",
@@ -565,7 +565,7 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "1e3682a793575c505e8a379779a1c39b40507beb859051351bf8ca721f154c0d",
+      "groupSha256": "9338b4d875eaa08d34a6134d3dd0ffb88e17579edb16878c3579782e841989a9",
       "files": [
         {
           "path": ".github/workflows/deploy-pages.yml",
@@ -579,8 +579,8 @@
         },
         {
           "path": ".github/workflows/test.yml",
-          "byteLength": 2539,
-          "sha256": "14109949a7cff7fec635c7d0ef3d7874c2f265647a68f928c61b128ac825cffd"
+          "byteLength": 3436,
+          "sha256": "e40f8b7ee37300875ca252336208960b64646f5a96835dadb5b9138bc21668f8"
         },
         {
           "path": ".husky/pre-commit",
