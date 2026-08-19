@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "a037f3ef4e62927dec63274b422830df9dac464c06a336922a85bfc3f9fb3a05",
+  "sourceTreeSha256": "ff04fde852632032aefc9f62b237965b8c27d17ed327f8df858e4d2b85ec8997",
   "groups": [
     {
       "id": "public-docs",
@@ -565,7 +565,7 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "4c884ecb0e6d015c31f1c53a592bcf50024c8cd9c3f6b06fe56d4b3c066826cc",
+      "groupSha256": "d8cc11d45eb57dab1b47b81bfb694408bab751c9ed79e6f5598d6f5d6101b2ff",
       "files": [
         {
           "path": ".github/workflows/deploy-pages.yml",
@@ -605,7 +605,7 @@
         {
           "path": "scripts/check-thought-root-surface-contract.mjs",
           "byteLength": 3500,
-          "sha256": "70586cc8fa872af0c63e4b20a3375545c7abef2090bcee189725ed14457c34fb"
+          "sha256": "93eb018dba6bd9bbfa8cea287cde38f600945e3c78fc5f7e4a8b0707c4ca6200"
         },
         {
           "path": "scripts/check-upstream-releases.mjs",
@@ -999,7 +999,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "c9e2d3bce1484d174e66f5b1b3172ea84a8155ba5fc158723629425e6eead171",
+      "groupSha256": "ff09572b49891d3143ad3e73c056989db662ea31a36359e9ee93c1cd1489b055",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1024,7 +1024,7 @@
         {
           "path": "apps/thought/production/root-surface-contract.lock.json",
           "byteLength": 1823,
-          "sha256": "cfce8f5d6b8275b293dcd66d1815adcfb0528525432853c2560e64e267335061"
+          "sha256": "8dc97923a8ee309dd8cf0dc3e32cc107a0f180ad3b5f89572b9ec62bbe9451bf"
         },
         {
           "path": "apps/thought/scripts/dev-index-snapshot.mjs",

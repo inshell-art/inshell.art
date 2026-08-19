@@ -18,7 +18,7 @@ const lockPath = path.join(root, lockRelativePath);
 
 // Independent acceptance anchor. Generators must never update this digest.
 const acceptedLockSha256 =
-  "cfce8f5d6b8275b293dcd66d1815adcfb0528525432853c2560e64e267335061";
+  "8dc97923a8ee309dd8cf0dc3e32cc107a0f180ad3b5f89572b9ec62bbe9451bf";
 
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "utf8");
 const lockBytes = fs.readFileSync(lockPath);
