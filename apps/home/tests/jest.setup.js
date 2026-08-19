@@ -3,6 +3,13 @@
 /* eslint-disable @typescript-eslint/no-require-imports, no-undef */
 const { TextDecoder, TextEncoder } = require("node:util");
 
+// Deployment workflows export public Vite build values at the job level. Tests
+// inject their own values through __VITE_ENV__, so inherited build settings must
+// not silently change fixture behavior or assertions.
+for (const name of Object.keys(process.env)) {
+  if (name.startsWith("VITE_")) delete process.env[name];
+}
+
 Object.defineProperty(window.navigator, "userAgent", {
   value:
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
