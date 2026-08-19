@@ -18,6 +18,7 @@ function parseArgs(argv) {
     scope: "all",
     homeBase: DEFAULT_HOME_BASE,
     thoughtBase: DEFAULT_THOUGHT_BASE,
+    allowUnavailableContracts: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -39,6 +40,10 @@ function parseArgs(argv) {
     if (arg === "--thought-base" && next) {
       args.thoughtBase = next;
       index += 1;
+      continue;
+    }
+    if (arg === "--allow-unavailable-contracts") {
+      args.allowUnavailableContracts = true;
       continue;
     }
     throw new Error(`Unknown or incomplete argument: ${arg}`);
@@ -152,6 +157,35 @@ async function checkGetArrayField(base, path, field, label) {
   });
 }
 
+async function checkContractArrayField(base, path, field, label, unavailable, allowUnavailable) {
+  if (!allowUnavailable) {
+    await checkGetArrayField(base, path, field, label);
+    return;
+  }
+  await retry(label, async () => {
+    const { response, text } = await fetchTextWithTimeout(urlFor(base, path), { method: "GET" });
+    let payload = null;
+    try {
+      payload = text ? JSON.parse(text) : null;
+    } catch {
+      throw new Error(`${urlFor(base, path)} returned non-JSON response with status ${response.status}`);
+    }
+    if (response.ok) {
+      if (!Array.isArray(payload?.[field])) {
+        throw new Error(`expected JSON array field "${field}"`);
+      }
+      return;
+    }
+    const unavailableMatches = unavailable.code
+      ? payload?.code === unavailable.code
+      : payload?.error === unavailable.error;
+    if (!unavailableMatches) {
+      throw new Error(`${urlFor(base, path)} returned unexpected HTTP ${response.status}: ${JSON.stringify(payload).slice(0, 240)}`);
+    }
+    console.log(`[smoke] expected staging contract absence ${label}: ${unavailable.code ?? unavailable.error}`);
+  });
+}
+
 async function checkOpsStatus(base, label) {
   await retry(label, async () => {
     const payload = await fetchJsonWithTimeout(urlFor(base, "/api/ops/status"), { method: "GET" });
@@ -252,30 +286,51 @@ async function checkThoughtPreview(base) {
   });
 }
 
-async function checkHome(base) {
+async function checkHome(base, allowUnavailableContracts) {
   await checkOpsStatus(base, "home /api/ops/status");
   await checkPubBoundarySmoke(base);
   await checkRpcChainId(base, "/api/path-rpc", "home /api/path-rpc");
   await checkGetArrayField(base, "/api/pulse-auction", "bids", "home /api/pulse-auction");
-  await checkGetArrayField(base, "/api/path-tokens", "items", "home /api/path-tokens");
+  await checkContractArrayField(
+    base,
+    "/api/path-tokens",
+    "items",
+    "home /api/path-tokens",
+    { error: "PATH tokens unavailable" },
+    allowUnavailableContracts,
+  );
 }
 
-async function checkThought(base) {
+async function checkThought(base, allowUnavailableContracts) {
   await checkOpsStatus(base, "thought /api/ops/status");
   await checkRpcChainId(base, "/api/path-rpc", "thought /api/path-rpc");
   await checkRpcChainId(base, "/api/thought-rpc", "thought /api/thought-rpc");
   await checkThoughtPreview(base);
-  await checkGetArrayField(base, "/api/thought-gallery", "thoughts", "thought /api/thought-gallery");
-  await checkGetArrayField(base, "/api/path-tokens", "items", "thought /api/path-tokens");
+  await checkContractArrayField(
+    base,
+    "/api/thought-gallery",
+    "thoughts",
+    "thought /api/thought-gallery",
+    { code: "THOUGHT_GALLERY_DEPLOYMENT_INACTIVE" },
+    allowUnavailableContracts,
+  );
+  await checkContractArrayField(
+    base,
+    "/api/path-tokens",
+    "items",
+    "thought /api/path-tokens",
+    { error: "PATH tokens unavailable" },
+    allowUnavailableContracts,
+  );
 }
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.scope === "home" || args.scope === "all") {
-    await checkHome(args.homeBase);
+    await checkHome(args.homeBase, args.allowUnavailableContracts);
   }
   if (args.scope === "thought" || args.scope === "all") {
-    await checkThought(args.thoughtBase);
+    await checkThought(args.thoughtBase, args.allowUnavailableContracts);
   }
 }
 

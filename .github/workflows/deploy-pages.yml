@@ -130,7 +130,7 @@ jobs:
           if [ "${{ github.event.inputs.branch }}" = "main" ]; then
             pnpm run smoke:api-routes -- --scope home --home-base https://inshell.art
           else
-            pnpm run smoke:api-routes -- --scope home --home-base https://staging.inshell-art.pages.dev
+            pnpm run smoke:api-routes -- --scope home --home-base https://staging.inshell-art.pages.dev --allow-unavailable-contracts
           fi
 
   deploy-thought:
@@ -243,5 +243,5 @@ jobs:
           if [ "${{ github.event.inputs.branch }}" = "main" ]; then
             pnpm run smoke:api-routes -- --scope thought --thought-base https://thought.inshell.art
           else
-            pnpm run smoke:api-routes -- --scope thought --thought-base https://staging.thought-inshell-art.pages.dev
+            pnpm run smoke:api-routes -- --scope thought --thought-base https://staging.thought-inshell-art.pages.dev --allow-unavailable-contracts
           fi
