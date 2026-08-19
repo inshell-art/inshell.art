@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "6b01556cf67906d251116bbc66681da1ae46d001ab758cf583b81db02b6cc15c",
+  "sourceTreeSha256": "a037f3ef4e62927dec63274b422830df9dac464c06a336922a85bfc3f9fb3a05",
   "groups": [
     {
       "id": "public-docs",
@@ -999,7 +999,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "a7ab7bd0998f9aa1f9f535a9a58e28396dba8524d64597b908b1503d4628336c",
+      "groupSha256": "c9e2d3bce1484d174e66f5b1b3172ea84a8155ba5fc158723629425e6eead171",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1028,8 +1028,8 @@
         },
         {
           "path": "apps/thought/scripts/dev-index-snapshot.mjs",
-          "byteLength": 46430,
-          "sha256": "add916c6c43d7306b94ba8588885df6cf1a773dca7a0078cedf495066e6a2da4"
+          "byteLength": 46592,
+          "sha256": "9cb55dc20b9a64e1b5f10894ec6571605780d3b2b3723713cc4b3b5c4abca5e2"
         },
         {
           "path": "apps/thought/scripts/mock-thought-v2-anvil-signer.ts",
@@ -1058,8 +1058,8 @@
         },
         {
           "path": "apps/thought/src/main.ts",
-          "byteLength": 746085,
-          "sha256": "eeb87b94c0f7d1c15cc2cfa9fc011b8f110b27f4d5476c65fd59b8ed6dedcb8a"
+          "byteLength": 744705,
+          "sha256": "c82f5064dd131bca942f46ae1e3aa7018016406d3c9cb68a23a4f81917e057bb"
         },
         {
           "path": "apps/thought/src/rpc-provider.ts",
@@ -1263,8 +1263,8 @@
         },
         {
           "path": "apps/thought/src/thought-v2-renderer.ts",
-          "byteLength": 269,
-          "sha256": "091d48363beee1e7d9d7a4d81dafda8a24f20c3183df6f06826b5320577c9445"
+          "byteLength": 3293,
+          "sha256": "b23b7fbb0cd984107cf61f04ad2312297c7eeffd8b553a6dc7a849edd9ef9f70"
         },
         {
           "path": "apps/thought/src/thought-v2-stored-visual.ts",

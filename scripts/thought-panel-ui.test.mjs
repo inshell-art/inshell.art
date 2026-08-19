@@ -16,6 +16,7 @@ import {
 const indexHtml = await readFile(new URL("../apps/thought/index.html", import.meta.url), "utf8");
 const thoughtCss = await readFile(new URL("../apps/thought/src/style.css", import.meta.url), "utf8");
 const thoughtMain = await readFile(new URL("../apps/thought/src/main.ts", import.meta.url), "utf8");
+const thoughtRenderer = await readFile(new URL("../apps/thought/src/thought-v2-renderer.ts", import.meta.url), "utf8");
 const thoughtClaudeCoworkQualification = await readFile(
   new URL(
     "../apps/thought/src/thought-claude-cowork-qualification.ts",
@@ -537,7 +538,7 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
     indexBlob: "ac5a07c18176a6e8e05984e30840c1925e3149b9",
     indexSha256: "e991fe996e1732aca3ec6d9f77a9cac73609505ba29128c7892afabaa9908164",
     mainBlob: "0366396bcfaac34b1ad770b37a6cb8e117ff4406",
-    mainSha256: "ffbfd1f2a7818c68aec6e07096c4be80c9df4dfdda0df23f2d4fd01563c7e939",
+    mainSha256: "bb698694af1f7c2894209f79897d4e707597dd8938d6cf418d2f0394cffc1dec",
     styleBlob: "5d5448e8766bf4f32d1867e1534ce73797465de5",
     styleSha256: "950156fb82ff9d4449dfb03e914445eeeace10de0796361108e29e5637a48cf1",
   });
@@ -563,8 +564,8 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
   );
   assert.match(
     restoredMain,
-    /const reserveThoughtDockAgentLaunch = \(\): ThoughtDockLaunchReservation \| null => \{[\s\S]*?window\.open\("about:blank", "_blank"\)/,
-    "the locked Agent surface layers its one-click launch reservation after snapshot verification",
+    /const launchThoughtDockAgentLink = \(url: string\) => \{[\s\S]*?const anchor = document\.createElement\("a"\)[\s\S]*?anchor\.click\(\)/,
+    "the locked Agent surface launches from the current THOUGHT tab without reserving a blank tab",
   );
   assert.match(
     restoredMain,
@@ -579,8 +580,8 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
   assert.doesNotMatch(restoredMain, /The App could not prepare the artwork preview\./);
   assert.match(
     restoredMain,
-    /const run = await createThoughtDockRun[\s\S]*?launchPreparedThoughtDockAdapter\([\s\S]*?launchReservation/,
-    "asynchronous run sealing must navigate the one reserved external-App window",
+    /const run = await createThoughtDockRun[\s\S]*?launchPreparedThoughtDockAdapter\([\s\S]*?runSessionId/,
+    "asynchronous run sealing must launch the external app from the current tab",
   );
   assert.doesNotMatch(restoredMain, /case "agent_task_ready"/);
   assert.match(
@@ -903,6 +904,9 @@ test("Agent empty canvas and generated work preserve the active contract frame",
     /const hasCurrentContractWorkSvg = \(\) =>[\s\S]*?currentRunContext\?\.previewProvider\?\.method !== "frontendRender"/,
     "a browser preview must never satisfy the mint-readiness contract check",
   );
+  assert.match(thoughtRenderer, /mono-76.*glyphs\.json/);
+  assert.match(thoughtRenderer, /data-renderer=.*mono-76-v1-im76-native-paths/);
+  assert.doesNotMatch(thoughtRenderer, /<circle|binary-weave/);
   const rpcStart = thoughtMain.indexOf("const resolveThoughtRpcUrl =");
   const rpcEnd = thoughtMain.indexOf("const THOUGHT_RPC_URL =", rpcStart);
   const rpcBody = thoughtMain.slice(rpcStart, rpcEnd);
@@ -1906,7 +1910,7 @@ test("Agent selection reserves one trusted launch and seals one adapter-bound ru
   );
   assert.match(
     prepareBody,
-    /launchPreparedThoughtDockAdapter\(\{[\s\S]*?run,[\s\S]*?adapterId,[\s\S]*?payload,[\s\S]*?runSessionId,[\s\S]*?launchReservation/,
+    /launchPreparedThoughtDockAdapter\(\{[\s\S]*?run,[\s\S]*?adapterId,[\s\S]*?payload,[\s\S]*?runSessionId/,
     "the selected Agent must launch automatically after the run is sealed",
   );
   assert.match(
@@ -1916,7 +1920,7 @@ test("Agent selection reserves one trusted launch and seals one adapter-bound ru
   );
   assert.match(
     runBody,
-    /launchThoughtDockAgentLink\(thoughtDockLaunchUrl\(run\), launchReservation\)/,
+    /launchThoughtDockAgentLink\(thoughtDockLaunchUrl\(run\)\)/,
   );
   assert.match(runBody, /launchedThoughtDockRunIds\.has\(run\.runId\)/);
   assert.match(runBody, /launchedThoughtDockRunIds\.add\(run\.runId\)/);
@@ -1929,13 +1933,8 @@ test("Agent selection reserves one trusted launch and seals one adapter-bound ru
   const adapterStart = thoughtMain.indexOf("const prepareThoughtDockAdapter =");
   const adapterEnd = thoughtMain.indexOf("const prepareThoughtDockRun = async", adapterStart);
   const adapterBody = thoughtMain.slice(adapterStart, adapterEnd);
-  assert.match(adapterBody, /const launchReservation = reserveThoughtDockAgentLaunch\(\)/);
-  assert.match(adapterBody, /if \(!launchReservation\)[\s\S]*?allow Agent launch/);
-  assert.match(adapterBody, /void prepareThoughtDockRun\([\s\S]*?launchReservation/);
-  assert.ok(
-    adapterBody.indexOf("reserveThoughtDockAgentLaunch") < adapterBody.indexOf("prepareThoughtDockRun"),
-    "the browser-owned launch window must be reserved during the direct Agent-choice click",
-  );
+  assert.doesNotMatch(adapterBody, /reserveThoughtDockAgentLaunch|about:blank/);
+  assert.match(adapterBody, /void prepareThoughtDockRun\([\s\S]*?surface/);
   const railStart = thoughtMain.indexOf("const getThoughtDockRailView =");
   const waitingRailStart = thoughtMain.indexOf('case "waiting_for_agent":', railStart);
   const waitingRailEnd = thoughtMain.indexOf('case "agent_returned":', waitingRailStart);
@@ -1962,14 +1961,13 @@ test("Agent selection reserves one trusted launch and seals one adapter-bound ru
   );
   assert.match(
     thoughtMain,
-    /const reserveThoughtDockAgentLaunch = \(\): ThoughtDockLaunchReservation \| null => \{[\s\S]*?window\.open\("about:blank", "_blank"\)/,
+    /const launchThoughtDockAgentLink = \([\s\S]*?anchor\.click\(\)[\s\S]*?return true/,
+    "the current THOUGHT tab must invoke the selected Agent app directly",
   );
-  assert.match(
-    thoughtMain,
-    /const launchThoughtDockAgentLink = \([\s\S]*?reservation\.location\.replace\(url\)[\s\S]*?return true/,
-    "the one reserved window must receive the custom protocol exactly once",
+  assert.doesNotMatch(
+    thoughtMain.slice(thoughtMain.indexOf("const launchThoughtDockAgentLink"), thoughtMain.indexOf("const rejectInvalidThoughtDockPrompt")),
+    /window\.open\("about:blank", "_blank"\)|ThoughtDockLaunchReservation|reservation\.location/,
   );
-  assert.doesNotMatch(thoughtMain, /anchor\.click\(\)/);
   assert.doesNotMatch(thoughtMain, /THOUGHT_AGENT_FIXTURE_MODE|runThoughtDockFixtureAdapter|local dev Agent bypass/);
   assert.match(
     thoughtMain,

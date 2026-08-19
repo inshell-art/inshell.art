@@ -5308,39 +5308,21 @@ const requestThoughtDockRunCancellation = async (run: AgentDemoRun) => {
 const thoughtDockLaunchUrl = (run: AgentDemoRun) =>
   run.surface === "codex" ? run.codexUrl : run.claudeUrl;
 
-type ThoughtDockLaunchReservation = Window;
-
-// Reserve a browser-owned window in the Agent-choice click itself. The sealed
-// run is necessarily created asynchronously, but navigating this reservation
-// later preserves the one intentional external-app handoff without showing a
-// second Open control or issuing a second protocol navigation.
-const reserveThoughtDockAgentLaunch = (): ThoughtDockLaunchReservation | null => {
-  const reservation = window.open("about:blank", "_blank");
-  if (reservation) {
-    reservation.opener = null;
-  }
-  return reservation;
-};
-
-const closeThoughtDockAgentLaunchReservation = (reservation: ThoughtDockLaunchReservation | null) => {
-  if (reservation && !reservation.closed) {
-    reservation.close();
-  }
-};
-
-const launchThoughtDockAgentLink = (
-  url: string,
-  reservation: ThoughtDockLaunchReservation,
-) => {
+const launchThoughtDockAgentLink = (url: string) => {
   suppressBridgeLaunchUnloadUntil = Date.now() + 3000;
-  if (reservation.closed) {
-    return false;
-  }
   try {
-    reservation.location.replace(url);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.rel = "noopener noreferrer";
+    if (/^https?:\/\//i.test(url)) {
+      anchor.target = "_blank";
+    }
+    anchor.style.display = "none";
+    document.body.appendChild(anchor);
+    anchor.click();
+    window.setTimeout(() => anchor.remove(), 1000);
     return true;
   } catch {
-    closeThoughtDockAgentLaunchReservation(reservation);
     return false;
   }
 };
@@ -5396,30 +5378,13 @@ const prepareThoughtDockAdapter = (adapterId: ThoughtDockAgentAdapterId) => {
     return;
   }
   const surface = defaultThoughtDockAgentSurface(adapterId);
-  const launchReservation = reserveThoughtDockAgentLaunch();
-  if (!launchReservation) {
-    emitThoughtConsoleEvent({
-      kind: "work_agent_launch_blocked",
-      title: "allow Agent launch",
-      detail: "Allow popups for this page, then choose your Agent again.",
-      tone: "warning",
-      eventId: `work-agent-launch-blocked:${adapterId}`,
-    });
-    return;
-  }
-  void prepareThoughtDockRun(
-    thoughtDockState.prompt,
-    adapterId,
-    surface,
-    launchReservation,
-  );
+  void prepareThoughtDockRun(thoughtDockState.prompt, adapterId, surface);
 };
 
 const prepareThoughtDockRun = async (
   prompt: string,
   adapterId: ThoughtDockAgentAdapterId,
   surface: ThoughtDockAgentSurface,
-  launchReservation: ThoughtDockLaunchReservation,
 ) => {
   if (blockPendingMintMutation()) {
     return;
@@ -5469,10 +5434,8 @@ const prepareThoughtDockRun = async (
       adapterId,
       payload,
       runSessionId,
-      launchReservation,
     });
   } catch (error) {
-    closeThoughtDockAgentLaunchReservation(launchReservation);
     if (!isCurrentRunSession(runSessionId)) {
       return;
     }
@@ -5492,29 +5455,25 @@ const launchPreparedThoughtDockAdapter = ({
   adapterId,
   payload,
   runSessionId,
-  launchReservation,
 }: {
   run: AgentDemoRun;
   adapterId: ThoughtDockAgentAdapterId;
   payload: ThoughtRunPayload;
   runSessionId: number;
-  launchReservation: ThoughtDockLaunchReservation;
 }) => {
   if (!isCurrentRunSession(runSessionId)) {
-    closeThoughtDockAgentLaunchReservation(launchReservation);
     return;
   }
   if (launchedThoughtDockRunIds.has(run.runId)) {
-    closeThoughtDockAgentLaunchReservation(launchReservation);
     return;
   }
-  if (!launchThoughtDockAgentLink(thoughtDockLaunchUrl(run), launchReservation)) {
+  if (!launchThoughtDockAgentLink(thoughtDockLaunchUrl(run))) {
     runState = "run_failed";
     runInFlight = false;
     setThoughtDockState({
       kind: "failed",
-      message: "The browser closed the Agent launch window.",
-      details: "Choose your Agent again and keep the new launch window open.",
+      message: "The browser could not open the Agent app.",
+      details: "Choose your Agent again and allow this page to open its app link.",
     });
     syncInterface();
     return;
