@@ -356,6 +356,101 @@ const applyCurrentMobileMainDeltas = (source, direction) => {
   return current;
 };
 
+const CURRENT_AGENT_LAUNCH_DELTAS = Object.freeze([
+  [
+    "trusted Agent launch state",
+    `  | { kind: "creating_run"; prompt: string; adapterId: ThoughtDockAgentAdapterId }
+  | { kind: "claim_authorization";`,
+    `  | { kind: "creating_run"; prompt: string; adapterId: ThoughtDockAgentAdapterId }
+  | {
+      kind: "agent_task_ready";
+      run: AgentDemoRun;
+      adapterId: ThoughtDockAgentAdapterId;
+      payload: ThoughtRunPayload;
+      runSessionId: number;
+    }
+  | { kind: "claim_authorization";`,
+  ],
+  [
+    "trusted Agent launch running state",
+    `  state.kind === "creating_run" ||
+  state.kind === "claim_authorization" ||`,
+    `  state.kind === "creating_run" ||
+  state.kind === "agent_task_ready" ||
+  state.kind === "claim_authorization" ||`,
+  ],
+  [
+    "trusted Agent Open action",
+    `    case "creating_run":
+      return {
+        status: "Preparing Agent task...",
+        tone: "running",
+        actions: [],
+      };
+    case "claim_authorization": {`,
+    `    case "creating_run":
+      return {
+        status: "Preparing Agent task...",
+        tone: "running",
+        actions: [],
+      };
+    case "agent_task_ready": {
+      const product = thoughtAgentProductLabel(state.adapterId);
+      return {
+        status: \`${"${product}"} ready\`,
+        tone: "idle",
+        actions: [
+          dockRailAction(
+            \`open-${"${state.adapterId}"}\`,
+            \`open ${"${thoughtAgentCtaLabel(state.adapterId)}"}\`,
+            \`open ${"${product}"} for this THOUGHT run\`,
+            () => {
+              launchPreparedThoughtDockAdapter(state);
+            },
+            { handlerKey: \`open:${"${state.adapterId}"}:${"${state.run.runId}"}\` },
+          ),
+          resetAction(state.run),
+        ],
+      };
+    }
+    case "claim_authorization": {`,
+  ],
+  [
+    "trusted Agent prepared state",
+    `    recordThoughtDockPromptHistory(prompt);
+    launchPreparedThoughtDockAdapter({
+      run,`,
+    `    recordThoughtDockPromptHistory(prompt);
+    thoughtDockRun = run;
+    setThoughtDockState({
+      kind: "agent_task_ready",
+      run,`,
+  ],
+  [
+    "trusted Agent activation comment",
+    `  launchThoughtDockAgentLink(thoughtDockLaunchUrl(run));`,
+    `  // Keep custom-protocol navigation in the direct Open button click. Browsers
+  // may discard trusted activation while the App asynchronously seals a run.
+  launchThoughtDockAgentLink(thoughtDockLaunchUrl(run));`,
+  ],
+]);
+
+const applyCurrentAgentLaunchDeltas = (source, direction) => {
+  let current = source;
+  const deltas = direction === "restore"
+    ? CURRENT_AGENT_LAUNCH_DELTAS
+    : [...CURRENT_AGENT_LAUNCH_DELTAS].reverse();
+  for (const [label, tagged, trusted] of deltas) {
+    current = replaceExactCount(
+      current,
+      label,
+      direction === "restore" ? trusted : tagged,
+      direction === "restore" ? tagged : trusted,
+    );
+  }
+  return current;
+};
+
 const TAGGED_DETAIL_SPEC_LINK = snapshotSource(String.raw`const thoughtSpecCachePayload = (spec: ActiveThoughtSpec) => ({
   chainId: THOUGHT_CHAIN_ID,
   registry: THOUGHT_SPEC_REGISTRY_ADDRESS,
@@ -616,7 +711,8 @@ function layerTightDetailGrouping(source) {
 }
 
 function restoreMainSnapshot(source) {
-  let currentSource = applyCurrentMobileMainDeltas(source, "restore");
+  let currentSource = applyCurrentAgentLaunchDeltas(source, "restore");
+  currentSource = applyCurrentMobileMainDeltas(currentSource, "restore");
   currentSource = replaceExactCount(
     currentSource,
     "current canonical gallery render",
@@ -1050,7 +1146,8 @@ export function loadThoughtDevSnapshotFile(workspaceRoot, fileKey) {
     TAGGED_THOUGHT_RENDER_MARKER,
     `${CURRENT_GALLERY_RENDER}${TAGGED_THOUGHT_RENDER_MARKER}`,
   );
-  return applyCurrentMobileMainDeltas(currentGalleryRender, "layer");
+  const currentMobile = applyCurrentMobileMainDeltas(currentGalleryRender, "layer");
+  return applyCurrentAgentLaunchDeltas(currentMobile, "layer");
 }
 
 export function loadThoughtDevSnapshotModule(workspaceRoot, id) {
