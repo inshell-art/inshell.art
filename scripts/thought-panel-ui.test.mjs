@@ -538,7 +538,7 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
     indexBlob: "ac5a07c18176a6e8e05984e30840c1925e3149b9",
     indexSha256: "e991fe996e1732aca3ec6d9f77a9cac73609505ba29128c7892afabaa9908164",
     mainBlob: "0366396bcfaac34b1ad770b37a6cb8e117ff4406",
-    mainSha256: "bb698694af1f7c2894209f79897d4e707597dd8938d6cf418d2f0394cffc1dec",
+    mainSha256: "bb8424109fb12bd980014e942114a507d8629ff027d8b271a5e73d4168a8972f",
     styleBlob: "5d5448e8766bf4f32d1867e1534ce73797465de5",
     styleSha256: "950156fb82ff9d4449dfb03e914445eeeace10de0796361108e29e5637a48cf1",
   });
@@ -564,8 +564,8 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
   );
   assert.match(
     restoredMain,
-    /const launchThoughtDockAgentLink = \(url: string\) => \{[\s\S]*?const anchor = document\.createElement\("a"\)[\s\S]*?anchor\.click\(\)/,
-    "the locked Agent surface launches from the current THOUGHT tab without reserving a blank tab",
+    /const reserveThoughtDockAgentLaunch = \(\): ThoughtDockLaunchReservation \| null =>[\s\S]*?window\.open\("about:blank", "_blank"\)/,
+    "the locked Agent surface reserves trusted browser activation before async run sealing",
   );
   assert.match(
     restoredMain,
@@ -1918,10 +1918,7 @@ test("Agent selection reserves one trusted launch and seals one adapter-bound ru
     /requestedAgent:\s*\{\s*adapterId,\s*model: null,/,
     "the backend run is bound to the selected adapter before launch",
   );
-  assert.match(
-    runBody,
-    /launchThoughtDockAgentLink\(thoughtDockLaunchUrl\(run\)\)/,
-  );
+  assert.match(runBody, /launchThoughtDockAgentLink\(thoughtDockLaunchUrl\(run\), launchReservation\)/);
   assert.match(runBody, /launchedThoughtDockRunIds\.has\(run\.runId\)/);
   assert.match(runBody, /launchedThoughtDockRunIds\.add\(run\.runId\)/);
   assert.ok(
@@ -1933,8 +1930,8 @@ test("Agent selection reserves one trusted launch and seals one adapter-bound ru
   const adapterStart = thoughtMain.indexOf("const prepareThoughtDockAdapter =");
   const adapterEnd = thoughtMain.indexOf("const prepareThoughtDockRun = async", adapterStart);
   const adapterBody = thoughtMain.slice(adapterStart, adapterEnd);
-  assert.doesNotMatch(adapterBody, /reserveThoughtDockAgentLaunch|about:blank/);
-  assert.match(adapterBody, /void prepareThoughtDockRun\([\s\S]*?surface/);
+  assert.match(adapterBody, /reserveThoughtDockAgentLaunch\(\)/);
+  assert.match(adapterBody, /void prepareThoughtDockRun\([\s\S]*?surface[\s\S]*?launchReservation/);
   const railStart = thoughtMain.indexOf("const getThoughtDockRailView =");
   const waitingRailStart = thoughtMain.indexOf('case "waiting_for_agent":', railStart);
   const waitingRailEnd = thoughtMain.indexOf('case "agent_returned":', waitingRailStart);
@@ -1961,12 +1958,8 @@ test("Agent selection reserves one trusted launch and seals one adapter-bound ru
   );
   assert.match(
     thoughtMain,
-    /const launchThoughtDockAgentLink = \([\s\S]*?anchor\.click\(\)[\s\S]*?return true/,
-    "the current THOUGHT tab must invoke the selected Agent app directly",
-  );
-  assert.doesNotMatch(
-    thoughtMain.slice(thoughtMain.indexOf("const launchThoughtDockAgentLink"), thoughtMain.indexOf("const rejectInvalidThoughtDockPrompt")),
-    /window\.open\("about:blank", "_blank"\)|ThoughtDockLaunchReservation|reservation\.location/,
+    /const launchThoughtDockAgentLink = \([\s\S]*?reservation\.location\.replace\(url\)[\s\S]*?return true/,
+    "the current THOUGHT surface navigates the activation reservation to the selected Agent app",
   );
   assert.doesNotMatch(thoughtMain, /THOUGHT_AGENT_FIXTURE_MODE|runThoughtDockFixtureAdapter|local dev Agent bypass/);
   assert.match(

@@ -13,7 +13,7 @@ export const THOUGHT_DEV_INDEX_SNAPSHOT = Object.freeze({
   indexBlob: "ac5a07c18176a6e8e05984e30840c1925e3149b9",
   indexSha256: "e991fe996e1732aca3ec6d9f77a9cac73609505ba29128c7892afabaa9908164",
   mainBlob: "0366396bcfaac34b1ad770b37a6cb8e117ff4406",
-  mainSha256: "bb698694af1f7c2894209f79897d4e707597dd8938d6cf418d2f0394cffc1dec",
+  mainSha256: "bb8424109fb12bd980014e942114a507d8629ff027d8b271a5e73d4168a8972f",
   styleBlob: "5d5448e8766bf4f32d1867e1534ce73797465de5",
   styleSha256: "950156fb82ff9d4449dfb03e914445eeeace10de0796361108e29e5637a48cf1",
 });
@@ -356,9 +356,171 @@ const applyCurrentMobileMainDeltas = (source, direction) => {
   return current;
 };
 
-// The canonical launch path is the historical same-tab anchor handoff. Keep
-// snapshot restoration from reintroducing the newer blank-tab reservation.
-const CURRENT_AGENT_LAUNCH_DELTAS = Object.freeze([]);
+// The custom-scheme launch must retain the browser activation captured by the
+// Agent-choice click. Restore the immutable tagged bytes, then layer this
+// reservation-backed launch into both the standalone and embedded surfaces.
+const CURRENT_AGENT_LAUNCH_DELTAS = Object.freeze([
+  [
+    "Agent launch link",
+    `const launchThoughtDockAgentLink = (url: string) => {
+  suppressBridgeLaunchUnloadUntil = Date.now() + 3000;
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.rel = "noopener noreferrer";
+  if (/^https?:\\/\\//i.test(url)) {
+    anchor.target = "_blank";
+  }
+  anchor.style.display = "none";
+  document.body.appendChild(anchor);
+  anchor.click();
+  window.setTimeout(() => anchor.remove(), 1000);
+};`,
+    `type ThoughtDockLaunchReservation = Window;
+
+const reserveThoughtDockAgentLaunch = (): ThoughtDockLaunchReservation | null => {
+  const reservation = window.open("about:blank", "_blank");
+  if (reservation) {
+    reservation.opener = null;
+  }
+  return reservation;
+};
+
+const closeThoughtDockAgentLaunchReservation = (
+  reservation: ThoughtDockLaunchReservation | null,
+) => {
+  if (reservation && !reservation.closed) {
+    reservation.close();
+  }
+};
+
+const launchThoughtDockAgentLink = (
+  url: string,
+  reservation: ThoughtDockLaunchReservation,
+) => {
+  suppressBridgeLaunchUnloadUntil = Date.now() + 3000;
+  if (reservation.closed) {
+    return false;
+  }
+  try {
+    reservation.location.replace(url);
+    return true;
+  } catch {
+    closeThoughtDockAgentLaunchReservation(reservation);
+    return false;
+  }
+};`,
+  ],
+  [
+    "Agent selection launch reservation",
+    `  const surface = defaultThoughtDockAgentSurface(adapterId);
+  return prepareThoughtDockRun(
+    thoughtDockState.prompt,
+    adapterId,
+    surface,
+  );`,
+    `  const surface = defaultThoughtDockAgentSurface(adapterId);
+  const launchReservation = reserveThoughtDockAgentLaunch();
+  if (!launchReservation) {
+    emitThoughtConsoleEvent({
+      kind: "work_agent_launch_blocked",
+      title: "allow Agent launch",
+      detail: "Allow popups for this page, then choose your Agent again.",
+      tone: "warning",
+      eventId: \`work-agent-launch-blocked:\${adapterId}\`,
+    });
+    return;
+  }
+  void prepareThoughtDockRun(
+    thoughtDockState.prompt,
+    adapterId,
+    surface,
+    launchReservation,
+  );`,
+  ],
+  [
+    "Agent preparation reservation parameter",
+    `const prepareThoughtDockRun = async (
+  prompt: string,
+  adapterId: ThoughtDockAgentAdapterId,
+  surface: ThoughtDockAgentSurface,
+) => {`,
+    `const prepareThoughtDockRun = async (
+  prompt: string,
+  adapterId: ThoughtDockAgentAdapterId,
+  surface: ThoughtDockAgentSurface,
+  launchReservation: ThoughtDockLaunchReservation,
+) => {`,
+  ],
+  [
+    "Agent preparation launch reservation",
+    `    launchPreparedThoughtDockAdapter({
+      run,
+      adapterId,
+      payload,
+      runSessionId,
+    });`,
+    `    launchPreparedThoughtDockAdapter({
+      run,
+      adapterId,
+      payload,
+      runSessionId,
+      launchReservation,
+    });`,
+  ],
+  [
+    "Agent launch implementation reservation",
+    `const launchPreparedThoughtDockAdapter = ({
+  run,
+  adapterId,
+  payload,
+  runSessionId,
+}: {
+  run: AgentDemoRun;
+  adapterId: ThoughtDockAgentAdapterId;
+  payload: ThoughtRunPayload;
+  runSessionId: number;
+}) => {
+  if (!isCurrentRunSession(runSessionId)) {
+    return;
+  }
+  if (launchedThoughtDockRunIds.has(run.runId)) {
+    return;
+  }
+  launchThoughtDockAgentLink(thoughtDockLaunchUrl(run));`,
+    `const launchPreparedThoughtDockAdapter = ({
+  run,
+  adapterId,
+  payload,
+  runSessionId,
+  launchReservation,
+}: {
+  run: AgentDemoRun;
+  adapterId: ThoughtDockAgentAdapterId;
+  payload: ThoughtRunPayload;
+  runSessionId: number;
+  launchReservation: ThoughtDockLaunchReservation;
+}) => {
+  if (!isCurrentRunSession(runSessionId)) {
+    closeThoughtDockAgentLaunchReservation(launchReservation);
+    return;
+  }
+  if (launchedThoughtDockRunIds.has(run.runId)) {
+    closeThoughtDockAgentLaunchReservation(launchReservation);
+    return;
+  }
+  if (!launchThoughtDockAgentLink(thoughtDockLaunchUrl(run), launchReservation)) {
+    runState = "run_failed";
+    runInFlight = false;
+    setThoughtDockState({
+      kind: "failed",
+      message: "The browser could not open the Agent app.",
+      details: "Allow the launch window, then choose your Agent again.",
+    });
+    syncInterface();
+    return;
+  }`,
+  ],
+]);
 /*
   [
     "one-click Agent launch reservation",

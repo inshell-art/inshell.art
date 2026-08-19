@@ -5308,21 +5308,37 @@ const requestThoughtDockRunCancellation = async (run: AgentDemoRun) => {
 const thoughtDockLaunchUrl = (run: AgentDemoRun) =>
   run.surface === "codex" ? run.codexUrl : run.claudeUrl;
 
-const launchThoughtDockAgentLink = (url: string) => {
+type ThoughtDockLaunchReservation = Window;
+
+const reserveThoughtDockAgentLaunch = (): ThoughtDockLaunchReservation | null => {
+  const reservation = window.open("about:blank", "_blank");
+  if (reservation) {
+    reservation.opener = null;
+  }
+  return reservation;
+};
+
+const closeThoughtDockAgentLaunchReservation = (
+  reservation: ThoughtDockLaunchReservation | null,
+) => {
+  if (reservation && !reservation.closed) {
+    reservation.close();
+  }
+};
+
+const launchThoughtDockAgentLink = (
+  url: string,
+  reservation: ThoughtDockLaunchReservation,
+) => {
   suppressBridgeLaunchUnloadUntil = Date.now() + 3000;
+  if (reservation.closed) {
+    return false;
+  }
   try {
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.rel = "noopener noreferrer";
-    if (/^https?:\/\//i.test(url)) {
-      anchor.target = "_blank";
-    }
-    anchor.style.display = "none";
-    document.body.appendChild(anchor);
-    anchor.click();
-    window.setTimeout(() => anchor.remove(), 1000);
+    reservation.location.replace(url);
     return true;
   } catch {
+    closeThoughtDockAgentLaunchReservation(reservation);
     return false;
   }
 };
@@ -5378,21 +5394,40 @@ const prepareThoughtDockAdapter = (adapterId: ThoughtDockAgentAdapterId) => {
     return;
   }
   const surface = defaultThoughtDockAgentSurface(adapterId);
-  void prepareThoughtDockRun(thoughtDockState.prompt, adapterId, surface);
+  const launchReservation = reserveThoughtDockAgentLaunch();
+  if (!launchReservation) {
+    emitThoughtConsoleEvent({
+      kind: "work_agent_launch_blocked",
+      title: "allow Agent launch",
+      detail: "Allow popups for this page, then choose your Agent again.",
+      tone: "warning",
+      eventId: `work-agent-launch-blocked:${adapterId}`,
+    });
+    return;
+  }
+  void prepareThoughtDockRun(
+    thoughtDockState.prompt,
+    adapterId,
+    surface,
+    launchReservation,
+  );
 };
 
 const prepareThoughtDockRun = async (
   prompt: string,
   adapterId: ThoughtDockAgentAdapterId,
   surface: ThoughtDockAgentSurface,
+  launchReservation: ThoughtDockLaunchReservation,
 ) => {
   if (blockPendingMintMutation()) {
+    closeThoughtDockAgentLaunchReservation(launchReservation);
     return;
   }
   if (
     (adapterId === "codex" && surface !== "codex") ||
     (adapterId === "claude" && surface !== "claude-cowork" && surface !== "claude-code")
   ) {
+    closeThoughtDockAgentLaunchReservation(launchReservation);
     setThoughtDockState({
       kind: "failed",
       message: "Agent launch surface does not match its adapter.",
@@ -5401,6 +5436,7 @@ const prepareThoughtDockRun = async (
   }
   const adapter = THOUGHT_DOCK_AGENT_ADAPTERS.find((candidate) => candidate.id === adapterId);
   if (!adapter || !adapter.canDeepLink) {
+    closeThoughtDockAgentLaunchReservation(launchReservation);
     emitThoughtConsoleEvent({
       kind: "work_agent_adapter_unavailable",
       title: `${thoughtAgentProductLabel(adapterId)} unavailable`,
@@ -5422,10 +5458,12 @@ const prepareThoughtDockRun = async (
   try {
     const payload = await buildThoughtDockRunPayload(prompt);
     if (!isCurrentRunSession(runSessionId)) {
+      closeThoughtDockAgentLaunchReservation(launchReservation);
       return;
     }
     const run = await createThoughtDockRun(prompt, payload, adapterId, surface);
     if (!isCurrentRunSession(runSessionId)) {
+      closeThoughtDockAgentLaunchReservation(launchReservation);
       return;
     }
     recordThoughtDockPromptHistory(prompt);
@@ -5434,9 +5472,11 @@ const prepareThoughtDockRun = async (
       adapterId,
       payload,
       runSessionId,
+      launchReservation,
     });
   } catch (error) {
     if (!isCurrentRunSession(runSessionId)) {
+      closeThoughtDockAgentLaunchReservation(launchReservation);
       return;
     }
     const rawMessage = error instanceof Error ? error.message : "";
@@ -5446,6 +5486,7 @@ const prepareThoughtDockRun = async (
     runState = "run_failed";
     runInFlight = false;
     setThoughtDockState({ kind: "failed", message });
+    closeThoughtDockAgentLaunchReservation(launchReservation);
     syncInterface();
   }
 };
@@ -5455,25 +5496,29 @@ const launchPreparedThoughtDockAdapter = ({
   adapterId,
   payload,
   runSessionId,
+  launchReservation,
 }: {
   run: AgentDemoRun;
   adapterId: ThoughtDockAgentAdapterId;
   payload: ThoughtRunPayload;
   runSessionId: number;
+  launchReservation: ThoughtDockLaunchReservation;
 }) => {
   if (!isCurrentRunSession(runSessionId)) {
+    closeThoughtDockAgentLaunchReservation(launchReservation);
     return;
   }
   if (launchedThoughtDockRunIds.has(run.runId)) {
+    closeThoughtDockAgentLaunchReservation(launchReservation);
     return;
   }
-  if (!launchThoughtDockAgentLink(thoughtDockLaunchUrl(run))) {
+  if (!launchThoughtDockAgentLink(thoughtDockLaunchUrl(run), launchReservation)) {
     runState = "run_failed";
     runInFlight = false;
     setThoughtDockState({
       kind: "failed",
       message: "The browser could not open the Agent app.",
-      details: "Choose your Agent again and allow this page to open its app link.",
+      details: "Allow the launch window, then choose your Agent again.",
     });
     syncInterface();
     return;
