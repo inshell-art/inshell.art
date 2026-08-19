@@ -64,8 +64,13 @@ jobs:
           cache: pnpm
       - name: Install zsh
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes zsh
+          if command -v zsh >/dev/null 2>&1; then
+            zsh --version
+          else
+            sudo apt-get update
+            sudo apt-get install --yes zsh
+            zsh --version
+          fi
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Install Foundry
@@ -165,8 +170,13 @@ jobs:
           cache: pnpm
       - name: Install zsh
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes zsh
+          if command -v zsh >/dev/null 2>&1; then
+            zsh --version
+          else
+            sudo apt-get update
+            sudo apt-get install --yes zsh
+            zsh --version
+          fi
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Install Foundry
