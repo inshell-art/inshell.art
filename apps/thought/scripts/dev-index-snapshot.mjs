@@ -358,80 +358,171 @@ const applyCurrentMobileMainDeltas = (source, direction) => {
 
 const CURRENT_AGENT_LAUNCH_DELTAS = Object.freeze([
   [
-    "trusted Agent launch state",
-    `  | { kind: "creating_run"; prompt: string; adapterId: ThoughtDockAgentAdapterId }
-  | { kind: "claim_authorization";`,
-    `  | { kind: "creating_run"; prompt: string; adapterId: ThoughtDockAgentAdapterId }
-  | {
-      kind: "agent_task_ready";
-      run: AgentDemoRun;
-      adapterId: ThoughtDockAgentAdapterId;
-      payload: ThoughtRunPayload;
-      runSessionId: number;
-    }
-  | { kind: "claim_authorization";`,
+    "one-click Agent launch reservation",
+    `const launchThoughtDockAgentLink = (url: string) => {
+  suppressBridgeLaunchUnloadUntil = Date.now() + 3000;
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.rel = "noopener noreferrer";
+  if (/^https?:\\/\\//i.test(url)) {
+    anchor.target = "_blank";
+  }
+  anchor.style.display = "none";
+  document.body.appendChild(anchor);
+  anchor.click();
+  window.setTimeout(() => anchor.remove(), 1000);
+};`,
+    `type ThoughtDockLaunchReservation = Window;
+
+// Reserve a browser-owned window in the Agent-choice click itself. The sealed
+// run is necessarily created asynchronously, but navigating this reservation
+// later preserves the one intentional external-app handoff without showing a
+// second Open control or issuing a second protocol navigation.
+const reserveThoughtDockAgentLaunch = (): ThoughtDockLaunchReservation | null => {
+  const reservation = window.open("about:blank", "_blank");
+  if (reservation) {
+    reservation.opener = null;
+  }
+  return reservation;
+};
+
+const closeThoughtDockAgentLaunchReservation = (reservation: ThoughtDockLaunchReservation | null) => {
+  if (reservation && !reservation.closed) {
+    reservation.close();
+  }
+};
+
+const launchThoughtDockAgentLink = (
+  url: string,
+  reservation: ThoughtDockLaunchReservation,
+) => {
+  suppressBridgeLaunchUnloadUntil = Date.now() + 3000;
+  if (reservation.closed) {
+    return false;
+  }
+  try {
+    reservation.location.replace(url);
+    return true;
+  } catch {
+    closeThoughtDockAgentLaunchReservation(reservation);
+    return false;
+  }
+};`,
   ],
   [
-    "trusted Agent launch running state",
-    `  state.kind === "creating_run" ||
-  state.kind === "claim_authorization" ||`,
-    `  state.kind === "creating_run" ||
-  state.kind === "agent_task_ready" ||
-  state.kind === "claim_authorization" ||`,
+    "one-click Agent selection reservation",
+    `  const surface = defaultThoughtDockAgentSurface(adapterId);
+  return prepareThoughtDockRun(
+    thoughtDockState.prompt,
+    adapterId,
+    surface,
+  );`,
+    `  const surface = defaultThoughtDockAgentSurface(adapterId);
+  const launchReservation = reserveThoughtDockAgentLaunch();
+  if (!launchReservation) {
+    emitThoughtConsoleEvent({
+      kind: "work_agent_launch_blocked",
+      title: "allow Agent launch",
+      detail: "Allow popups for this page, then choose your Agent again.",
+      tone: "warning",
+      eventId: \`work-agent-launch-blocked:${"${adapterId}"}\`,
+    });
+    return;
+  }
+  void prepareThoughtDockRun(
+    thoughtDockState.prompt,
+    adapterId,
+    surface,
+    launchReservation,
+  );`,
   ],
   [
-    "trusted Agent Open action",
-    `    case "creating_run":
-      return {
-        status: "Preparing Agent task...",
-        tone: "running",
-        actions: [],
-      };
-    case "claim_authorization": {`,
-    `    case "creating_run":
-      return {
-        status: "Preparing Agent task...",
-        tone: "running",
-        actions: [],
-      };
-    case "agent_task_ready": {
-      const product = thoughtAgentProductLabel(state.adapterId);
-      return {
-        status: \`${"${product}"} ready\`,
-        tone: "idle",
-        actions: [
-          dockRailAction(
-            \`open-${"${state.adapterId}"}\`,
-            \`open ${"${thoughtAgentCtaLabel(state.adapterId)}"}\`,
-            \`open ${"${product}"} for this THOUGHT run\`,
-            () => {
-              launchPreparedThoughtDockAdapter(state);
-            },
-            { handlerKey: \`open:${"${state.adapterId}"}:${"${state.run.runId}"}\` },
-          ),
-          resetAction(state.run),
-        ],
-      };
-    }
-    case "claim_authorization": {`,
+    "one-click Agent preparation signature",
+    `const prepareThoughtDockRun = async (
+  prompt: string,
+  adapterId: ThoughtDockAgentAdapterId,
+  surface: ThoughtDockAgentSurface,
+) => {`,
+    `const prepareThoughtDockRun = async (
+  prompt: string,
+  adapterId: ThoughtDockAgentAdapterId,
+  surface: ThoughtDockAgentSurface,
+  launchReservation: ThoughtDockLaunchReservation,
+) => {`,
   ],
   [
-    "trusted Agent prepared state",
+    "one-click Agent launch after sealing",
     `    recordThoughtDockPromptHistory(prompt);
     launchPreparedThoughtDockAdapter({
-      run,`,
+      run,
+      adapterId,
+      payload,
+      runSessionId,
+    });
+  } catch (error) {`,
     `    recordThoughtDockPromptHistory(prompt);
-    thoughtDockRun = run;
-    setThoughtDockState({
-      kind: "agent_task_ready",
-      run,`,
+    launchPreparedThoughtDockAdapter({
+      run,
+      adapterId,
+      payload,
+      runSessionId,
+      launchReservation,
+    });
+  } catch (error) {
+    closeThoughtDockAgentLaunchReservation(launchReservation);`,
   ],
   [
-    "trusted Agent activation comment",
-    `  launchThoughtDockAgentLink(thoughtDockLaunchUrl(run));`,
-    `  // Keep custom-protocol navigation in the direct Open button click. Browsers
-  // may discard trusted activation while the App asynchronously seals a run.
+    "one-click Agent launch implementation",
+    `const launchPreparedThoughtDockAdapter = ({
+  run,
+  adapterId,
+  payload,
+  runSessionId,
+}: {
+  run: AgentDemoRun;
+  adapterId: ThoughtDockAgentAdapterId;
+  payload: ThoughtRunPayload;
+  runSessionId: number;
+}) => {
+  if (!isCurrentRunSession(runSessionId)) {
+    return;
+  }
+  if (launchedThoughtDockRunIds.has(run.runId)) {
+    return;
+  }
   launchThoughtDockAgentLink(thoughtDockLaunchUrl(run));`,
+    `const launchPreparedThoughtDockAdapter = ({
+  run,
+  adapterId,
+  payload,
+  runSessionId,
+  launchReservation,
+}: {
+  run: AgentDemoRun;
+  adapterId: ThoughtDockAgentAdapterId;
+  payload: ThoughtRunPayload;
+  runSessionId: number;
+  launchReservation: ThoughtDockLaunchReservation;
+}) => {
+  if (!isCurrentRunSession(runSessionId)) {
+    closeThoughtDockAgentLaunchReservation(launchReservation);
+    return;
+  }
+  if (launchedThoughtDockRunIds.has(run.runId)) {
+    closeThoughtDockAgentLaunchReservation(launchReservation);
+    return;
+  }
+  if (!launchThoughtDockAgentLink(thoughtDockLaunchUrl(run), launchReservation)) {
+    runState = "run_failed";
+    runInFlight = false;
+    setThoughtDockState({
+      kind: "failed",
+      message: "The browser closed the Agent launch window.",
+      details: "Choose your Agent again and keep the new launch window open.",
+    });
+    syncInterface();
+    return;
+  }`,
   ],
 ]);
 

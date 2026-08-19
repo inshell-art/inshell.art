@@ -563,14 +563,15 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
   );
   assert.match(
     restoredMain,
-    /case "agent_task_ready":[\s\S]*?`open-\$\{state\.adapterId\}`[\s\S]*?launchPreparedThoughtDockAdapter\(state\)/,
-    "the locked Agent surface layers the trusted Open action after snapshot verification",
+    /const reserveThoughtDockAgentLaunch = \(\): ThoughtDockLaunchReservation \| null => \{[\s\S]*?window\.open\("about:blank", "_blank"\)/,
+    "the locked Agent surface layers its one-click launch reservation after snapshot verification",
   );
   assert.match(
     restoredMain,
-    /const run = await createThoughtDockRun[\s\S]*?kind: "agent_task_ready"/,
-    "asynchronous run sealing must finish before the external-App action is exposed",
+    /const run = await createThoughtDockRun[\s\S]*?launchPreparedThoughtDockAdapter\([\s\S]*?launchReservation/,
+    "asynchronous run sealing must navigate the one reserved external-App window",
   );
+  assert.doesNotMatch(restoredMain, /case "agent_task_ready"/);
   assert.match(
     restoredMain,
     /const INSHELL_HOME_URL = INSHELL_LINKS\.home;[\s\S]*?const GALLERY_URL =[\s\S]*?INSHELL_LINKS\.works;[\s\S]*?return INSHELL_LINKS\.thought;/,
@@ -1871,7 +1872,7 @@ test("Agent launch errors keep their actionable message in Console", () => {
   assert.doesNotMatch(prepareBody, /details:\s*"Try again\."/);
 });
 
-test("Agent selection seals one run and a trusted Open action launches it", () => {
+test("Agent selection reserves one trusted launch and seals one adapter-bound run", () => {
   const selectStart = thoughtMain.indexOf("const openThoughtDockAgentSelect = () =>");
   const prepareStart = thoughtMain.indexOf("const prepareThoughtDockRun = async", selectStart);
   const prepareEnd = thoughtMain.indexOf("const launchPreparedThoughtDockAdapter =", prepareStart);
@@ -1889,22 +1890,17 @@ test("Agent selection seals one run and a trusted Open action launches it", () =
   );
   assert.match(
     prepareBody,
-    /setThoughtDockState\(\{[\s\S]*?kind: "agent_task_ready",[\s\S]*?run,[\s\S]*?adapterId,[\s\S]*?payload,[\s\S]*?runSessionId/,
-    "the selected Agent must become explicitly ready after the run is sealed",
+    /launchPreparedThoughtDockAdapter\(\{[\s\S]*?run,[\s\S]*?adapterId,[\s\S]*?payload,[\s\S]*?runSessionId,[\s\S]*?launchReservation/,
+    "the selected Agent must launch automatically after the run is sealed",
   );
   assert.match(
     thoughtMain,
     /requestedAgent:\s*\{\s*adapterId,\s*model: null,/,
     "the backend run is bound to the selected adapter before launch",
   );
-  assert.doesNotMatch(
-    runBody,
-    /\bawait\b/,
-    "the direct Agent-button handler must not lose browser activation to asynchronous work",
-  );
   assert.match(
     runBody,
-    /launchThoughtDockAgentLink\(thoughtDockLaunchUrl\(run\)\)/,
+    /launchThoughtDockAgentLink\(thoughtDockLaunchUrl\(run\), launchReservation\)/,
   );
   assert.match(runBody, /launchedThoughtDockRunIds\.has\(run\.runId\)/);
   assert.match(runBody, /launchedThoughtDockRunIds\.add\(run\.runId\)/);
@@ -1914,13 +1910,17 @@ test("Agent selection seals one run and a trusted Open action launches it", () =
   );
   assert.match(runBody, /storeThoughtDockRun\(run, adapterId\)/);
   assert.match(runBody, /startThoughtDockPolling\(run, payload, adapterId, runSessionId\)/);
+  const adapterStart = thoughtMain.indexOf("const prepareThoughtDockAdapter =");
+  const adapterEnd = thoughtMain.indexOf("const prepareThoughtDockRun = async", adapterStart);
+  const adapterBody = thoughtMain.slice(adapterStart, adapterEnd);
+  assert.match(adapterBody, /const launchReservation = reserveThoughtDockAgentLaunch\(\)/);
+  assert.match(adapterBody, /if \(!launchReservation\)[\s\S]*?allow Agent launch/);
+  assert.match(adapterBody, /void prepareThoughtDockRun\([\s\S]*?launchReservation/);
+  assert.ok(
+    adapterBody.indexOf("reserveThoughtDockAgentLaunch") < adapterBody.indexOf("prepareThoughtDockRun"),
+    "the browser-owned launch window must be reserved during the direct Agent-choice click",
+  );
   const railStart = thoughtMain.indexOf("const getThoughtDockRailView =");
-  const readyRailStart = thoughtMain.indexOf('case "agent_task_ready":', railStart);
-  const readyRailEnd = thoughtMain.indexOf('case "claim_authorization":', readyRailStart);
-  const readyRailBody = thoughtMain.slice(readyRailStart, readyRailEnd);
-  assert.match(readyRailBody, /`open-\$\{state\.adapterId\}`/);
-  assert.match(readyRailBody, /launchPreparedThoughtDockAdapter\(state\)/);
-  assert.doesNotMatch(readyRailBody, /\basync\b|\bawait\b/);
   const waitingRailStart = thoughtMain.indexOf('case "waiting_for_agent":', railStart);
   const waitingRailEnd = thoughtMain.indexOf('case "agent_returned":', waitingRailStart);
   const waitingRailBody = thoughtMain.slice(waitingRailStart, waitingRailEnd);
@@ -1930,7 +1930,8 @@ test("Agent selection seals one run and a trusted Open action launches it", () =
     /thoughtDockLaunchUrl|launchThoughtDockAgentLink|open-\$\{state\.adapterId\}/,
     "an active run must not expose a speculative Agent relaunch control",
   );
-  assert.match(thoughtMain, /case "agent_task_ready":/);
+  assert.doesNotMatch(thoughtMain, /case "agent_task_ready":/);
+  assert.doesNotMatch(thoughtMain, /open \$\{thoughtAgentCtaLabel\(state\.adapterId\)\}/);
   assert.match(thoughtMain, /const THOUGHT_DOCK_PENDING_LAUNCH_KEY = "thought:dock:pending-agent-launch:v1"/);
   assert.match(thoughtMain, /const writeStoredThoughtDockLaunch = \(run: AgentDemoRun\)[\s\S]*?sealedTask: run\.sealedTask/);
   assert.match(
@@ -1943,8 +1944,16 @@ test("Agent selection seals one run and a trusted Open action launches it", () =
     /const sealedTask = response\.request\?\.agentInput\?\.text/,
     "the raw prompt returned as Agent input must never be mistaken for the sealed Agent task",
   );
-  assert.doesNotMatch(thoughtMain, /reserveThoughtDockAgentLaunch/);
-  assert.doesNotMatch(`${prepareBody}\n${runBody}`, /about:blank/);
+  assert.match(
+    thoughtMain,
+    /const reserveThoughtDockAgentLaunch = \(\): ThoughtDockLaunchReservation \| null => \{[\s\S]*?window\.open\("about:blank", "_blank"\)/,
+  );
+  assert.match(
+    thoughtMain,
+    /const launchThoughtDockAgentLink = \([\s\S]*?reservation\.location\.replace\(url\)[\s\S]*?return true/,
+    "the one reserved window must receive the custom protocol exactly once",
+  );
+  assert.doesNotMatch(thoughtMain, /anchor\.click\(\)/);
   assert.doesNotMatch(thoughtMain, /THOUGHT_AGENT_FIXTURE_MODE|runThoughtDockFixtureAdapter|local dev Agent bypass/);
   assert.match(
     thoughtMain,

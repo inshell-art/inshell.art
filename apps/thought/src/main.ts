@@ -2638,13 +2638,6 @@ type ThoughtDockState =
   | { kind: "ready"; prompt: string }
   | { kind: "agent_select"; prompt: string }
   | { kind: "creating_run"; prompt: string; adapterId: ThoughtDockAgentAdapterId }
-  | {
-      kind: "agent_task_ready";
-      run: AgentDemoRun;
-      adapterId: ThoughtDockAgentAdapterId;
-      payload: ThoughtRunPayload;
-      runSessionId: number;
-    }
   | { kind: "claim_authorization"; run: AgentDemoRun; adapterId: ThoughtDockAgentAdapterId; authorization: ThoughtClaimAuthorization; approving?: boolean }
   | { kind: "waiting_for_agent"; run: AgentDemoRun; adapterId: ThoughtDockAgentAdapterId; message?: string }
   | { kind: "agent_returned"; run: AgentDemoRun; rawCandidate: string }
@@ -3446,7 +3439,6 @@ const isThoughtDockActiveState = (state: ThoughtDockState) =>
 const isThoughtDockRunningState = (state: ThoughtDockState) =>
   state.kind === "agent_select" ||
   state.kind === "creating_run" ||
-  state.kind === "agent_task_ready" ||
   state.kind === "claim_authorization" ||
   state.kind === "waiting_for_agent" ||
   state.kind === "agent_returned" ||
@@ -4888,25 +4880,6 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         tone: "running",
         actions: [],
       };
-    case "agent_task_ready": {
-      const product = thoughtAgentProductLabel(state.adapterId);
-      return {
-        status: `${product} ready`,
-        tone: "idle",
-        actions: [
-          dockRailAction(
-            `open-${state.adapterId}`,
-            `open ${thoughtAgentCtaLabel(state.adapterId)}`,
-            `open ${product} for this THOUGHT run`,
-            () => {
-              launchPreparedThoughtDockAdapter(state);
-            },
-            { handlerKey: `open:${state.adapterId}:${state.run.runId}` },
-          ),
-          resetAction(state.run),
-        ],
-      };
-    }
     case "claim_authorization": {
       const code = state.authorization.verificationCode || "------";
       const product = thoughtAgentProductLabel(state.adapterId);
@@ -5334,18 +5307,41 @@ const requestThoughtDockRunCancellation = async (run: AgentDemoRun) => {
 const thoughtDockLaunchUrl = (run: AgentDemoRun) =>
   run.surface === "codex" ? run.codexUrl : run.claudeUrl;
 
-const launchThoughtDockAgentLink = (url: string) => {
-  suppressBridgeLaunchUnloadUntil = Date.now() + 3000;
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.rel = "noopener noreferrer";
-  if (/^https?:\/\//i.test(url)) {
-    anchor.target = "_blank";
+type ThoughtDockLaunchReservation = Window;
+
+// Reserve a browser-owned window in the Agent-choice click itself. The sealed
+// run is necessarily created asynchronously, but navigating this reservation
+// later preserves the one intentional external-app handoff without showing a
+// second Open control or issuing a second protocol navigation.
+const reserveThoughtDockAgentLaunch = (): ThoughtDockLaunchReservation | null => {
+  const reservation = window.open("about:blank", "_blank");
+  if (reservation) {
+    reservation.opener = null;
   }
-  anchor.style.display = "none";
-  document.body.appendChild(anchor);
-  anchor.click();
-  window.setTimeout(() => anchor.remove(), 1000);
+  return reservation;
+};
+
+const closeThoughtDockAgentLaunchReservation = (reservation: ThoughtDockLaunchReservation | null) => {
+  if (reservation && !reservation.closed) {
+    reservation.close();
+  }
+};
+
+const launchThoughtDockAgentLink = (
+  url: string,
+  reservation: ThoughtDockLaunchReservation,
+) => {
+  suppressBridgeLaunchUnloadUntil = Date.now() + 3000;
+  if (reservation.closed) {
+    return false;
+  }
+  try {
+    reservation.location.replace(url);
+    return true;
+  } catch {
+    closeThoughtDockAgentLaunchReservation(reservation);
+    return false;
+  }
 };
 
 const rejectInvalidThoughtDockPrompt = (prompt: string) => {
@@ -5399,10 +5395,22 @@ const prepareThoughtDockAdapter = (adapterId: ThoughtDockAgentAdapterId) => {
     return;
   }
   const surface = defaultThoughtDockAgentSurface(adapterId);
-  return prepareThoughtDockRun(
+  const launchReservation = reserveThoughtDockAgentLaunch();
+  if (!launchReservation) {
+    emitThoughtConsoleEvent({
+      kind: "work_agent_launch_blocked",
+      title: "allow Agent launch",
+      detail: "Allow popups for this page, then choose your Agent again.",
+      tone: "warning",
+      eventId: `work-agent-launch-blocked:${adapterId}`,
+    });
+    return;
+  }
+  void prepareThoughtDockRun(
     thoughtDockState.prompt,
     adapterId,
     surface,
+    launchReservation,
   );
 };
 
@@ -5410,6 +5418,7 @@ const prepareThoughtDockRun = async (
   prompt: string,
   adapterId: ThoughtDockAgentAdapterId,
   surface: ThoughtDockAgentSurface,
+  launchReservation: ThoughtDockLaunchReservation,
 ) => {
   if (blockPendingMintMutation()) {
     return;
@@ -5454,15 +5463,15 @@ const prepareThoughtDockRun = async (
       return;
     }
     recordThoughtDockPromptHistory(prompt);
-    thoughtDockRun = run;
-    setThoughtDockState({
-      kind: "agent_task_ready",
+    launchPreparedThoughtDockAdapter({
       run,
       adapterId,
       payload,
       runSessionId,
+      launchReservation,
     });
   } catch (error) {
+    closeThoughtDockAgentLaunchReservation(launchReservation);
     if (!isCurrentRunSession(runSessionId)) {
       return;
     }
@@ -5482,21 +5491,33 @@ const launchPreparedThoughtDockAdapter = ({
   adapterId,
   payload,
   runSessionId,
+  launchReservation,
 }: {
   run: AgentDemoRun;
   adapterId: ThoughtDockAgentAdapterId;
   payload: ThoughtRunPayload;
   runSessionId: number;
+  launchReservation: ThoughtDockLaunchReservation;
 }) => {
   if (!isCurrentRunSession(runSessionId)) {
+    closeThoughtDockAgentLaunchReservation(launchReservation);
     return;
   }
   if (launchedThoughtDockRunIds.has(run.runId)) {
+    closeThoughtDockAgentLaunchReservation(launchReservation);
     return;
   }
-  // Keep custom-protocol navigation in the direct Open button click. Browsers
-  // may discard trusted activation while the App asynchronously seals a run.
-  launchThoughtDockAgentLink(thoughtDockLaunchUrl(run));
+  if (!launchThoughtDockAgentLink(thoughtDockLaunchUrl(run), launchReservation)) {
+    runState = "run_failed";
+    runInFlight = false;
+    setThoughtDockState({
+      kind: "failed",
+      message: "The browser closed the Agent launch window.",
+      details: "Choose your Agent again and keep the new launch window open.",
+    });
+    syncInterface();
+    return;
+  }
   launchedThoughtDockRunIds.add(run.runId);
   thoughtDockRun = run;
   storeThoughtDockRun(run, adapterId);
