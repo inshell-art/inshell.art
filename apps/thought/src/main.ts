@@ -5513,6 +5513,11 @@ const launchPreparedThoughtDockAdapter = ({
     return;
   }
   if (!launchThoughtDockAgentLink(thoughtDockLaunchUrl(run), launchReservation)) {
+    // A browser-level deep-link refusal can happen after the API run was
+    // created. Release that run immediately instead of leaving it counted as
+    // active until the 30-minute claim TTL expires and making the next retry
+    // look like a server rate-limit failure.
+    void requestThoughtDockRunCancellation(run);
     runState = "run_failed";
     runInFlight = false;
     setThoughtDockState({

@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "175c8bc66e3dc2c01cf76a3907c4abc92e44377d3593962b74c01784ec5b9536",
+  "sourceTreeSha256": "303897e326828560f92ea750d80c44e061717e4dd8bc7af9ee16a4d43d529390",
   "groups": [
     {
       "id": "public-docs",
@@ -311,7 +311,7 @@
       "title": "Public routes and read-only resource contracts",
       "owner": "inshell.art shared App infrastructure",
       "reason": "The Agent index advertises these routes and their read-only semantics.",
-      "groupSha256": "9d18891a53eaa1a27e69294c8f10382e096079574622a12814a0df93cdae382d",
+      "groupSha256": "bee08f6f0584aa47ea36db5096ea89ed12e66bd7b2b9fe6d7095da0313f67d7b",
       "files": [
         {
           "path": "apps/home/public/_headers",
@@ -450,8 +450,8 @@
         },
         {
           "path": "functions/api/thought-agent/v1/shared.ts",
-          "byteLength": 59518,
-          "sha256": "0d3fe1779184a755959e25240c74ae533c68be1b65da95db76030bb1a4edfa09"
+          "byteLength": 59629,
+          "sha256": "5543619e1cf306c3f69bda5f78c328129e4c021b90287580f330f7d69722f5fc"
         },
         {
           "path": "functions/api/thought-agent/v1/thought-spec-source.ts",
@@ -999,7 +999,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "05fd7655866d87557fd29ef707ec07821e7541427f5bf81c17ba611991abc12f",
+      "groupSha256": "6178e36bee86ab26e4bc462f5fca852f0e959239eceaf4564b4ddcf553bb38e2",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1058,8 +1058,8 @@
         },
         {
           "path": "apps/thought/src/main.ts",
-          "byteLength": 746167,
-          "sha256": "73dc63f549081b2ea13ae39d0f6c6b28e525ca53f00c082c73b80dc0d2f744f9"
+          "byteLength": 746492,
+          "sha256": "e5924d6c007a756ea45674a43921f13dcbc5ccda03743ca626734a007029fefc"
         },
         {
           "path": "apps/thought/src/rpc-provider.ts",

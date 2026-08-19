@@ -127,10 +127,13 @@ function createD1Mock() {
         }
         if (/select\s+count\(\*\)\s+as\s+active_count/i.test(query)) {
           const visitorHash = String(bound[0]);
+          const nowIso = String(bound[1] ?? "9999-12-31T23:59:59.999Z");
           const active_count = [...rows.values()].filter(
             (row) =>
               row.visitor_hash === visitorHash &&
-              ["created", "claimed", "ready", "running"].includes(String(row.state)),
+              ((row.state === "created" && String(row.claim_expires_at) > nowIso) ||
+                (["claimed", "ready", "running"].includes(String(row.state)) &&
+                  String(row.run_expires_at) > nowIso)),
           ).length;
           return { active_count };
         }

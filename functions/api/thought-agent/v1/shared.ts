@@ -240,9 +240,10 @@ export async function createRun(ctx: ThoughtAgentRouteContext): Promise<Response
       );
     }
 
+    const now = new Date();
     const visitorHash = await readAnonymousVisitorHash(ctx.request);
     if (visitorHash) {
-      const activeCount = await activeRunCount(db, visitorHash);
+      const activeCount = await activeRunCount(db, visitorHash, now.toISOString());
       if (activeCount >= ACTIVE_RUN_LIMIT) {
         throw new HttpProtocolError(
           429,
@@ -252,7 +253,6 @@ export async function createRun(ctx: ThoughtAgentRouteContext): Promise<Response
       }
     }
 
-    const now = new Date();
     const promptSha256 = await sha256Hex(prompt);
     const agentInput = await buildThoughtAgentInput({ promptLine: prompt });
     const runId = `tar_${randomToken(18)}`;
@@ -1192,12 +1192,13 @@ async function updateExpired(
 async function activeRunCount(
   db: D1Database,
   visitorHash: ThoughtSha256,
+  nowIso: string,
 ): Promise<number> {
   const row = await db
     .prepare(
-      "SELECT COUNT(*) AS active_count FROM thought_agent_runs WHERE visitor_hash = ?1 AND state IN ('created', 'claimed', 'ready', 'running')",
+      "SELECT COUNT(*) AS active_count FROM thought_agent_runs WHERE visitor_hash = ?1 AND ((state = 'created' AND claim_expires_at > ?2) OR (state IN ('claimed', 'ready', 'running') AND run_expires_at > ?2))",
     )
-    .bind(visitorHash)
+    .bind(visitorHash, nowIso)
     .first<{ active_count?: number }>();
   const value = Number(row?.active_count ?? 0);
   return Number.isFinite(value) ? value : 0;
