@@ -568,6 +568,17 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
   );
   assert.match(
     restoredMain,
+    /const createPinnedBrowserPreviewProvider = \(\): ThoughtPreviewProvider => \(\{[\s\S]*?THOUGHT_V2_ARTIFACT\.manifestSha256[\s\S]*?buildThoughtV2Svg[\s\S]*?method: "frontendRender"/,
+    "the locked same-origin artifact layers the pinned browser preview after immutable byte verification",
+  );
+  assert.match(
+    restoredMain,
+    /title: "Agent line received",[\s\S]*?nextStep: "canonical artwork preview is unavailable in this environment"/,
+    "the locked artifact must not restore the obsolete preview-unavailable console copy",
+  );
+  assert.doesNotMatch(restoredMain, /The App could not prepare the artwork preview\./);
+  assert.match(
+    restoredMain,
     /const run = await createThoughtDockRun[\s\S]*?launchPreparedThoughtDockAdapter\([\s\S]*?launchReservation/,
     "asynchronous run sealing must navigate the one reserved external-App window",
   );
@@ -874,10 +885,10 @@ test("Agent empty canvas and generated work preserve the active contract frame",
     /buildThoughtV2Svg/,
     "the active V2 contract preview must not be reconstructed by the frontend",
   );
-  assert.doesNotMatch(
+  assert.match(
     thoughtMain,
-    /const createFrontendPreviewProvider =/,
-    "the current App must not expose an unpinned frontend renderer fallback",
+    /const createPinnedBrowserPreviewProvider = \(\): ThoughtPreviewProvider => \(\{[\s\S]*?THOUGHT_V2_ARTIFACT\.manifestSha256[\s\S]*?buildThoughtV2Svg[\s\S]*?method: "frontendRender"/,
+    "the no-RPC preview must be bound to the generated renderer artifact",
   );
   const providerSelectionStart = thoughtMain.indexOf("const selectThoughtPreviewProvider =");
   const providerSelectionEnd = thoughtMain.indexOf(
@@ -885,8 +896,13 @@ test("Agent empty canvas and generated work preserve the active contract frame",
     providerSelectionStart,
   );
   const providerSelectionBody = thoughtMain.slice(providerSelectionStart, providerSelectionEnd);
-  assert.match(providerSelectionBody, /pinned THOUGHT renderer release mismatch; preview stopped\./);
-  assert.doesNotMatch(providerSelectionBody, /frontend-renderer|createFrontendPreviewProvider/);
+  assert.match(providerSelectionBody, /return \{ provider: createPinnedBrowserPreviewProvider\(\), reason: "" \};/);
+  assert.doesNotMatch(providerSelectionBody, /pinned THOUGHT renderer release mismatch; preview stopped\./);
+  assert.match(
+    thoughtMain,
+    /const hasCurrentContractWorkSvg = \(\) =>[\s\S]*?currentRunContext\?\.previewProvider\?\.method !== "frontendRender"/,
+    "a browser preview must never satisfy the mint-readiness contract check",
+  );
   const rpcStart = thoughtMain.indexOf("const resolveThoughtRpcUrl =");
   const rpcEnd = thoughtMain.indexOf("const THOUGHT_RPC_URL =", rpcStart);
   const rpcBody = thoughtMain.slice(rpcStart, rpcEnd);

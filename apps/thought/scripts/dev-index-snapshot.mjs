@@ -542,6 +542,116 @@ const applyCurrentAgentLaunchDeltas = (source, direction) => {
   return current;
 };
 
+const CURRENT_PINNED_BROWSER_PREVIEW_DELTAS = Object.freeze([
+  [
+    "pinned browser preview import",
+    'import { THOUGHT_V2_CURRENT_MINTED_TOPIC } from "./thought-v2-contract-client";',
+    `import { THOUGHT_V2_CURRENT_MINTED_TOPIC } from "./thought-v2-contract-client";
+import { buildThoughtV2Svg, THOUGHT_V2_ARTIFACT } from "./thought-v2-renderer";`,
+  ],
+  [
+    "pinned browser preview provider",
+    "const createWalletPreviewProvider = (): ThoughtPreviewProvider | null => {",
+    `// This renderer is pinned through the generated THOUGHT V2 artifact and is
+// useful before a network has a matching contract deployment. It is strictly a
+// visual preview: only a contract-rendered result can make a work mint-ready.
+const createPinnedBrowserPreviewProvider = (): ThoughtPreviewProvider => ({
+  kind: "frontend-renderer",
+  chainId: THOUGHT_CHAIN_ID,
+  endpointLabel: \`pinned:\${THOUGHT_V2_ARTIFACT.manifestSha256}\`,
+  preview: async (rawReturn: string, context?: { prompt?: string }) => {
+    const validation = prevalidateThoughtV2Preview({
+      rawPrompt: context?.prompt ?? sessionState.prompt,
+      rawReturn,
+    });
+    if (!validation.ok) {
+      return {
+        ok: false,
+        text: validation.agentLine,
+        svg: "",
+        reasonCode: validation.reasonCode,
+        ...(validation.byteLimit ? { byteLimit: validation.byteLimit } : {}),
+        ...(validation.issue ? { issue: validation.issue } : {}),
+      };
+    }
+    return {
+      ok: true,
+      text: validation.agentLine,
+      svg: buildThoughtV2Svg({
+        agentLine: validation.agentLine,
+        promptLine: validation.promptLine,
+      }),
+      reasonCode: 0,
+    };
+  },
+  trace: () => ({
+    kind: "frontend-renderer",
+    chainId: THOUGHT_CHAIN_ID,
+    endpointLabel: \`pinned:\${THOUGHT_V2_ARTIFACT.manifestSha256}\`,
+    method: "frontendRender",
+    fetchedAt: new Date().toISOString(),
+  }),
+});
+
+const createWalletPreviewProvider = (): ThoughtPreviewProvider | null => {`,
+  ],
+  [
+    "pinned browser preview selection",
+    `  return {
+    provider: null,
+    reason: "pinned THOUGHT renderer release mismatch; preview stopped.",
+  };`,
+    '  return { provider: createPinnedBrowserPreviewProvider(), reason: "" };',
+  ],
+  [
+    "pinned browser preview capability",
+    "  const frontendPreview = true;",
+    '  const frontendPreview = selection.provider.kind === "frontend-renderer";',
+  ],
+  [
+    "contract-only mint readiness",
+    'const hasCurrentContractWorkSvg = () => currentWorkSvg.trim().startsWith("<svg");',
+    `const hasCurrentContractWorkSvg = () =>
+  currentWorkSvg.trim().startsWith("<svg") &&
+  currentRunContext?.previewProvider?.method !== "frontendRender";`,
+  ],
+]);
+
+const applyCurrentPinnedBrowserPreviewDeltas = (source, direction) => {
+  let current = source;
+  const deltas = direction === "restore"
+    ? CURRENT_PINNED_BROWSER_PREVIEW_DELTAS
+    : [...CURRENT_PINNED_BROWSER_PREVIEW_DELTAS].reverse();
+  for (const [label, tagged, browserPreview] of deltas) {
+    current = replaceExactCount(
+      current,
+      label,
+      direction === "restore" ? browserPreview : tagged,
+      direction === "restore" ? tagged : browserPreview,
+    );
+  }
+  return current;
+};
+
+const layerCurrentAgentLinePreviewUnavailableCopy = (source) => {
+  let layered = replaceExactCount(
+    source,
+    "tagged preview-unavailable console copy",
+    `      title: "preview unavailable",
+      detail: "The App could not prepare the artwork preview.",`,
+    `      title: "Agent line received",
+      detail: state.rawCandidate,
+      nextStep: "canonical artwork preview is unavailable in this environment",`,
+  );
+  layered = replaceExactCount(
+    layered,
+    "tagged preview-unavailable rail status",
+    `        status: "Preview unavailable",`,
+    `        status: "Agent line received",`,
+  );
+  return layered;
+};
+
 const TAGGED_DETAIL_SPEC_LINK = snapshotSource(String.raw`const thoughtSpecCachePayload = (spec: ActiveThoughtSpec) => ({
   chainId: THOUGHT_CHAIN_ID,
   registry: THOUGHT_SPEC_REGISTRY_ADDRESS,
@@ -803,6 +913,7 @@ function layerTightDetailGrouping(source) {
 
 function restoreMainSnapshot(source) {
   let currentSource = applyCurrentAgentLaunchDeltas(source, "restore");
+  currentSource = applyCurrentPinnedBrowserPreviewDeltas(currentSource, "restore");
   currentSource = applyCurrentMobileMainDeltas(currentSource, "restore");
   currentSource = replaceExactCount(
     currentSource,
@@ -1238,7 +1349,9 @@ export function loadThoughtDevSnapshotFile(workspaceRoot, fileKey) {
     `${CURRENT_GALLERY_RENDER}${TAGGED_THOUGHT_RENDER_MARKER}`,
   );
   const currentMobile = applyCurrentMobileMainDeltas(currentGalleryRender, "layer");
-  return applyCurrentAgentLaunchDeltas(currentMobile, "layer");
+  const currentBrowserPreview = applyCurrentPinnedBrowserPreviewDeltas(currentMobile, "layer");
+  const currentAgentLaunch = applyCurrentAgentLaunchDeltas(currentBrowserPreview, "layer");
+  return layerCurrentAgentLinePreviewUnavailableCopy(currentAgentLaunch);
 }
 
 export function loadThoughtDevSnapshotModule(workspaceRoot, id) {

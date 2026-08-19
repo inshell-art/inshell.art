@@ -218,6 +218,7 @@ import {
   type ThoughtV2MintInput,
 } from "./thought-v2-app-mint";
 import { THOUGHT_V2_CURRENT_MINTED_TOPIC } from "./thought-v2-contract-client";
+import { buildThoughtV2Svg, THOUGHT_V2_ARTIFACT } from "./thought-v2-renderer";
 import {
   THOUGHT_V2_LOCAL_RELEASE,
   alignThoughtV2LocalRpcHost,
@@ -7799,6 +7800,47 @@ const createThoughtPreviewProvider = (
   };
 };
 
+// This renderer is pinned through the generated THOUGHT V2 artifact and is
+// useful before a network has a matching contract deployment. It is strictly a
+// visual preview: only a contract-rendered result can make a work mint-ready.
+const createPinnedBrowserPreviewProvider = (): ThoughtPreviewProvider => ({
+  kind: "frontend-renderer",
+  chainId: THOUGHT_CHAIN_ID,
+  endpointLabel: `pinned:${THOUGHT_V2_ARTIFACT.manifestSha256}`,
+  preview: async (rawReturn: string, context?: { prompt?: string }) => {
+    const validation = prevalidateThoughtV2Preview({
+      rawPrompt: context?.prompt ?? sessionState.prompt,
+      rawReturn,
+    });
+    if (!validation.ok) {
+      return {
+        ok: false,
+        text: validation.agentLine,
+        svg: "",
+        reasonCode: validation.reasonCode,
+        ...(validation.byteLimit ? { byteLimit: validation.byteLimit } : {}),
+        ...(validation.issue ? { issue: validation.issue } : {}),
+      };
+    }
+    return {
+      ok: true,
+      text: validation.agentLine,
+      svg: buildThoughtV2Svg({
+        agentLine: validation.agentLine,
+        promptLine: validation.promptLine,
+      }),
+      reasonCode: 0,
+    };
+  },
+  trace: () => ({
+    kind: "frontend-renderer",
+    chainId: THOUGHT_CHAIN_ID,
+    endpointLabel: `pinned:${THOUGHT_V2_ARTIFACT.manifestSha256}`,
+    method: "frontendRender",
+    fetchedAt: new Date().toISOString(),
+  }),
+});
+
 const createWalletPreviewProvider = (): ThoughtPreviewProvider | null => {
   if (!THOUGHT_NFT_ADDRESS || !walletState.address || walletState.chainId !== THOUGHT_CHAIN_ID) {
     return null;
@@ -7847,10 +7889,7 @@ const selectThoughtPreviewProvider = async () => {
         }
       : { provider: null, reason: "local THOUGHT V2 unavailable." };
   }
-  return {
-    provider: null,
-    reason: "pinned THOUGHT renderer release mismatch; preview stopped.",
-  };
+  return { provider: createPinnedBrowserPreviewProvider(), reason: "" };
 };
 
 const prunePreviewRateEvents = (events: number[], now: number) => {
@@ -8053,7 +8092,7 @@ const attemptContractPreviewForCandidate = async (
     return { kind: "unavailable", lines: previewUnavailableLines(selection.reason) };
   }
 
-  const frontendPreview = true;
+  const frontendPreview = selection.provider.kind === "frontend-renderer";
   const validation = prevalidateThoughtV2Preview({
     rawPrompt: candidate.prompt,
     rawReturn: candidate.rawModelReturn,
@@ -16509,7 +16548,9 @@ const setAgentOutput = (text: string, _rawOutput: string, svg: string) => {
   return true;
 };
 
-const hasCurrentContractWorkSvg = () => currentWorkSvg.trim().startsWith("<svg");
+const hasCurrentContractWorkSvg = () =>
+  currentWorkSvg.trim().startsWith("<svg") &&
+  currentRunContext?.previewProvider?.method !== "frontendRender";
 
 const workRunContextToThoughtRunContext = (work: ThoughtWorkRecord) =>
   isThoughtRunContext(work.runContext)
