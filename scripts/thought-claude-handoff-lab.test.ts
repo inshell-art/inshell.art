@@ -158,6 +158,14 @@ test("both canonical and standalone preview builds pin the public Agent API", ()
     deployWorkflowSource.match(/test -n "\$VITE_THOUGHT_AGENT_PUBLIC_API_BASE"/g)?.length,
     2,
   );
+  assert.equal(
+    deployWorkflowSource.match(/github\.event\.inputs\.branch == 'staging' && '\/api\/thought-agent\/v2'/g)?.length,
+    4,
+  );
+  assert.doesNotMatch(
+    deployWorkflowSource,
+    /github\.event\.inputs\.branch == 'staging' && 'https:\/\/staging\.thought-inshell-art\.pages\.dev\/api\/thought-agent\/v2'/,
+  );
 });
 
 test("legacy Cowork accepts only public HTTPS managed runs", () => {
