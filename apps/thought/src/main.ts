@@ -2638,6 +2638,13 @@ type ThoughtDockState =
   | { kind: "ready"; prompt: string }
   | { kind: "agent_select"; prompt: string }
   | { kind: "creating_run"; prompt: string; adapterId: ThoughtDockAgentAdapterId }
+  | {
+      kind: "agent_task_ready";
+      run: AgentDemoRun;
+      adapterId: ThoughtDockAgentAdapterId;
+      payload: ThoughtRunPayload;
+      runSessionId: number;
+    }
   | { kind: "claim_authorization"; run: AgentDemoRun; adapterId: ThoughtDockAgentAdapterId; authorization: ThoughtClaimAuthorization; approving?: boolean }
   | { kind: "waiting_for_agent"; run: AgentDemoRun; adapterId: ThoughtDockAgentAdapterId; message?: string }
   | { kind: "agent_returned"; run: AgentDemoRun; rawCandidate: string }
@@ -3439,6 +3446,7 @@ const isThoughtDockActiveState = (state: ThoughtDockState) =>
 const isThoughtDockRunningState = (state: ThoughtDockState) =>
   state.kind === "agent_select" ||
   state.kind === "creating_run" ||
+  state.kind === "agent_task_ready" ||
   state.kind === "claim_authorization" ||
   state.kind === "waiting_for_agent" ||
   state.kind === "agent_returned" ||
@@ -4880,6 +4888,25 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         tone: "running",
         actions: [],
       };
+    case "agent_task_ready": {
+      const product = thoughtAgentProductLabel(state.adapterId);
+      return {
+        status: `${product} ready`,
+        tone: "idle",
+        actions: [
+          dockRailAction(
+            `open-${state.adapterId}`,
+            `open ${thoughtAgentCtaLabel(state.adapterId)}`,
+            `open ${product} for this THOUGHT run`,
+            () => {
+              launchPreparedThoughtDockAdapter(state);
+            },
+            { handlerKey: `open:${state.adapterId}:${state.run.runId}` },
+          ),
+          resetAction(state.run),
+        ],
+      };
+    }
     case "claim_authorization": {
       const code = state.authorization.verificationCode || "------";
       const product = thoughtAgentProductLabel(state.adapterId);
@@ -5427,7 +5454,9 @@ const prepareThoughtDockRun = async (
       return;
     }
     recordThoughtDockPromptHistory(prompt);
-    launchPreparedThoughtDockAdapter({
+    thoughtDockRun = run;
+    setThoughtDockState({
+      kind: "agent_task_ready",
       run,
       adapterId,
       payload,
@@ -5465,6 +5494,8 @@ const launchPreparedThoughtDockAdapter = ({
   if (launchedThoughtDockRunIds.has(run.runId)) {
     return;
   }
+  // Keep custom-protocol navigation in the direct Open button click. Browsers
+  // may discard trusted activation while the App asynchronously seals a run.
   launchThoughtDockAgentLink(thoughtDockLaunchUrl(run));
   launchedThoughtDockRunIds.add(run.runId);
   thoughtDockRun = run;

@@ -563,6 +563,16 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
   );
   assert.match(
     restoredMain,
+    /case "agent_task_ready":[\s\S]*?`open-\$\{state\.adapterId\}`[\s\S]*?launchPreparedThoughtDockAdapter\(state\)/,
+    "the locked Agent surface layers the trusted Open action after snapshot verification",
+  );
+  assert.match(
+    restoredMain,
+    /const run = await createThoughtDockRun[\s\S]*?kind: "agent_task_ready"/,
+    "asynchronous run sealing must finish before the external-App action is exposed",
+  );
+  assert.match(
+    restoredMain,
     /const INSHELL_HOME_URL = INSHELL_LINKS\.home;[\s\S]*?const GALLERY_URL =[\s\S]*?INSHELL_LINKS\.works;[\s\S]*?return INSHELL_LINKS\.thought;/,
     "the verified tagged UI keeps the current same-origin navigation policy",
   );
@@ -1861,7 +1871,7 @@ test("Agent launch errors keep their actionable message in Console", () => {
   assert.doesNotMatch(prepareBody, /details:\s*"Try again\."/);
 });
 
-test("Agent selection seals and launches one run without a second Open Agent action", () => {
+test("Agent selection seals one run and a trusted Open action launches it", () => {
   const selectStart = thoughtMain.indexOf("const openThoughtDockAgentSelect = () =>");
   const prepareStart = thoughtMain.indexOf("const prepareThoughtDockRun = async", selectStart);
   const prepareEnd = thoughtMain.indexOf("const launchPreparedThoughtDockAdapter =", prepareStart);
@@ -1879,10 +1889,9 @@ test("Agent selection seals and launches one run without a second Open Agent act
   );
   assert.match(
     prepareBody,
-    /launchPreparedThoughtDockAdapter\(\{[\s\S]*?run,[\s\S]*?adapterId,[\s\S]*?payload,[\s\S]*?runSessionId/,
-    "the selected Agent must launch automatically after the run is sealed",
+    /setThoughtDockState\(\{[\s\S]*?kind: "agent_task_ready",[\s\S]*?run,[\s\S]*?adapterId,[\s\S]*?payload,[\s\S]*?runSessionId/,
+    "the selected Agent must become explicitly ready after the run is sealed",
   );
-  assert.doesNotMatch(prepareBody, /kind: "agent_task_ready"/);
   assert.match(
     thoughtMain,
     /requestedAgent:\s*\{\s*adapterId,\s*model: null,/,
@@ -1906,6 +1915,12 @@ test("Agent selection seals and launches one run without a second Open Agent act
   assert.match(runBody, /storeThoughtDockRun\(run, adapterId\)/);
   assert.match(runBody, /startThoughtDockPolling\(run, payload, adapterId, runSessionId\)/);
   const railStart = thoughtMain.indexOf("const getThoughtDockRailView =");
+  const readyRailStart = thoughtMain.indexOf('case "agent_task_ready":', railStart);
+  const readyRailEnd = thoughtMain.indexOf('case "claim_authorization":', readyRailStart);
+  const readyRailBody = thoughtMain.slice(readyRailStart, readyRailEnd);
+  assert.match(readyRailBody, /`open-\$\{state\.adapterId\}`/);
+  assert.match(readyRailBody, /launchPreparedThoughtDockAdapter\(state\)/);
+  assert.doesNotMatch(readyRailBody, /\basync\b|\bawait\b/);
   const waitingRailStart = thoughtMain.indexOf('case "waiting_for_agent":', railStart);
   const waitingRailEnd = thoughtMain.indexOf('case "agent_returned":', waitingRailStart);
   const waitingRailBody = thoughtMain.slice(waitingRailStart, waitingRailEnd);
@@ -1915,8 +1930,7 @@ test("Agent selection seals and launches one run without a second Open Agent act
     /thoughtDockLaunchUrl|launchThoughtDockAgentLink|open-\$\{state\.adapterId\}/,
     "an active run must not expose a speculative Agent relaunch control",
   );
-  assert.doesNotMatch(thoughtMain, /case "agent_task_ready":/);
-  assert.doesNotMatch(thoughtMain, /`open \$\{state\.adapterId\}`/);
+  assert.match(thoughtMain, /case "agent_task_ready":/);
   assert.match(thoughtMain, /const THOUGHT_DOCK_PENDING_LAUNCH_KEY = "thought:dock:pending-agent-launch:v1"/);
   assert.match(thoughtMain, /const writeStoredThoughtDockLaunch = \(run: AgentDemoRun\)[\s\S]*?sealedTask: run\.sealedTask/);
   assert.match(
