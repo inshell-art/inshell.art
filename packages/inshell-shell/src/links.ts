@@ -1,11 +1,51 @@
-function isPreviewHost(hostname: string): boolean {
+export function isInshellPagesPreviewHost(hostname: string): boolean {
+  const normalized = hostname.toLowerCase();
   return (
-    hostname === "preview.inshell.art" ||
-    hostname.endsWith(".preview.inshell.art") ||
-    hostname === "staging.inshell-art.pages.dev" ||
-    hostname === "staging.thought-inshell-art.pages.dev" ||
-    (hostname.startsWith("staging.") && hostname.endsWith(".pages.dev"))
+    normalized === "inshell-art.pages.dev" ||
+    normalized.endsWith(".inshell-art.pages.dev")
   );
+}
+
+function isPreviewHost(hostname: string): boolean {
+  const normalized = hostname.toLowerCase();
+  return (
+    normalized === "preview.inshell.art" ||
+    normalized.endsWith(".preview.inshell.art") ||
+    isInshellPagesPreviewHost(normalized) ||
+    normalized === "thought-inshell-art.pages.dev" ||
+    normalized.endsWith(".thought-inshell-art.pages.dev")
+  );
+}
+
+function sameOriginLinks(origin: string) {
+  return {
+    home: origin,
+    path: `${origin}/path`,
+    thought: `${origin}/thought`,
+    works: `${origin}/gallery`,
+    docs: `${origin}/docs`,
+    x: "https://twitter.com/inshell_art",
+  };
+}
+
+export function resolveInshellLinksForLocation({
+  hostname,
+  origin,
+}: {
+  hostname: string;
+  origin: string;
+}) {
+  if (
+    isLocalRuntimeHost(hostname) ||
+    hostname === "preview.inshell.art" ||
+    isInshellPagesPreviewHost(hostname)
+  ) {
+    return sameOriginLinks(origin);
+  }
+  if (isPreviewHost(hostname)) {
+    return sameOriginLinks("https://preview.inshell.art");
+  }
+  return sameOriginLinks("https://inshell.art");
 }
 
 export function isLocalRuntimeHost(hostname: string): boolean {
@@ -46,33 +86,5 @@ export function resolveInshellLinks() {
       x: "https://twitter.com/inshell_art",
     };
   }
-  const { hostname, origin } = window.location;
-  if (isLocalRuntimeHost(hostname)) {
-    return {
-      home: origin,
-      path: `${origin}/path`,
-      thought: `${origin}/thought`,
-      works: `${origin}/gallery`,
-      docs: `${origin}/docs`,
-      x: "https://twitter.com/inshell_art",
-    };
-  }
-  if (isPreviewHost(hostname)) {
-    return {
-      home: "https://preview.inshell.art/",
-      path: "https://preview.inshell.art/path",
-      thought: "https://preview.inshell.art/thought",
-      works: "https://preview.inshell.art/gallery",
-      docs: "https://preview.inshell.art/docs",
-      x: "https://twitter.com/inshell_art",
-    };
-  }
-  return {
-    home: "https://inshell.art/",
-    path: "https://inshell.art/path",
-    thought: "https://inshell.art/thought",
-    works: "https://inshell.art/gallery",
-    docs: "https://inshell.art/docs",
-    x: "https://twitter.com/inshell_art",
-  };
+  return resolveInshellLinksForLocation(window.location);
 }

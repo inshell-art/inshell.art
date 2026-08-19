@@ -68,6 +68,10 @@ jobs:
           sudo apt-get install --yes zsh
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Install Cypress browser binary
+        run: |
+          pnpm exec cypress install
+          pnpm exec cypress verify
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09
         with:
@@ -110,6 +114,8 @@ jobs:
         run: pnpm run test:thought-runtime
       - name: Build home
         run: pnpm run build:home
+      - name: Run production browser smoke
+        run: pnpm run test:browser:production
       - name: Verify production analytics bundle
         if: ${{ github.event.inputs.branch == 'main' }}
         run: |
