@@ -471,13 +471,19 @@ function checkThoughtProductionGuards() {
       fail(`apps/thought/src/main.ts is missing THOUGHT production guard: ${snippet}`);
     }
   }
-  if (!text.includes("pinned THOUGHT renderer release mismatch; preview stopped.")) {
-    fail("apps/thought/src/main.ts must fail closed when the current renderer release is unavailable");
+  for (const snippet of [
+    "const createPinnedBrowserPreviewProvider = (): ThoughtPreviewProvider => ({",
+    "THOUGHT_V2_ARTIFACT.manifestSha256",
+    'method: "frontendRender"',
+    "buildThoughtV2Svg({",
+    'return { provider: createPinnedBrowserPreviewProvider(), reason: "" };',
+    "currentRunContext?.previewProvider?.method !== \"frontendRender\"",
+  ]) {
+    if (!text.includes(snippet)) {
+      fail(`apps/thought/src/main.ts is missing pinned browser-preview guard: ${snippet}`);
+    }
   }
-  if (
-    text.includes("const createFrontendPreviewProvider =") ||
-    text.includes("buildThoughtV2Svg")
-  ) {
+  if (text.includes("const createFrontendPreviewProvider =")) {
     fail("apps/thought/src/main.ts must not expose an unpinned frontend renderer fallback");
   }
   if (text.includes("sessionStorage.setItem(THOUGHT_SESSION_STORAGE_KEY")) {
