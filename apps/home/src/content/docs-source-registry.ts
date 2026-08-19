@@ -96,6 +96,8 @@ export const DOCS_SOURCE_REGISTRY = {
         ".husky/pre-commit",
         ".husky/pre-push",
         "scripts/check-upstream-releases.mjs",
+        "scripts/check-detail-surface-contract.mjs",
+        "scripts/check-thought-root-surface-contract.mjs",
       ],
     },
     {
@@ -165,7 +167,9 @@ export const DOCS_SOURCE_REGISTRY = {
       files: [
         "apps/thought/index.html",
         "apps/thought/package.json",
+        "apps/thought/production/detail-surface-contract.lock.json",
         "apps/thought/production/deployment-lock.json",
+        "apps/thought/production/root-surface-contract.lock.json",
         "apps/thought/vite.config.ts",
       ],
       directories: ["apps/thought/src", "apps/thought/scripts"],

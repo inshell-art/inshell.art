@@ -4,7 +4,12 @@ import { useWallet, type WalletConnector } from "@inshell/wallet";
 import { resolveInshellLinks } from "./links";
 import { INSHELL_OPEN_WALLET_EVENT } from "./wallet-events";
 
-export { isLocalRuntimeHost, resolveInshellLinks } from "./links";
+export {
+  isInshellPagesPreviewHost,
+  isLocalRuntimeHost,
+  resolveInshellLinks,
+  resolveInshellLinksForLocation,
+} from "./links";
 export { INSHELL_OPEN_WALLET_EVENT, openInshellWallet } from "./wallet-events";
 
 export type InshellSurface = "home" | "path" | "thought" | "works";

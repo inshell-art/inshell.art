@@ -84,10 +84,21 @@ const TAGGED_THOUGHT_RENDER_MARKER = `  if (IS_THOUGHT_PAGE) {
     frontpageStage.classList.add("is-hidden");`;
 
 const POST_SNAPSHOT_SURFACE_ROUTER = `      const requestedSurface = params.get("surface");
+      const useDevAgentDefault =
+        requestedSurface === null &&
+        globalThis.__INSHELL_THOUGHT_DEV_DEFAULT_SURFACE__ === "agent";
       const isCliSurface =
         params.get("debug") === "cli" ||
-        requestedSurface === "cli";
+        requestedSurface === "cli" ||
+        (requestedSurface !== "agent" && !useDevAgentDefault);
       document.documentElement.classList.add(isCliSurface ? "cli-surface" : "agent-surface");
+`;
+
+const POST_SNAPSHOT_SURFACE_NAV = `        <nav class="thought-create__links" aria-label="THOUGHT creation surfaces">
+          <a href="/thought?surface=cli">[ cli ]</a>
+          <a href="/thought?surface=agent">[ Agent ]</a>
+          <a href="/thought/verify">[ verify ]</a>
+        </nav>
 `;
 
 const POST_SNAPSHOT_CLI_TITLE =
@@ -491,6 +502,7 @@ const CURRENT_DETAIL_STYLE_END =
 
 const POST_SNAPSHOT_INDEX_FRAGMENTS = [
   ["surface router", POST_SNAPSHOT_SURFACE_ROUTER],
+  ["surface navigation", POST_SNAPSHOT_SURFACE_NAV],
   ["CLI title", POST_SNAPSHOT_CLI_TITLE],
 ];
 
