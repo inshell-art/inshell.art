@@ -562,10 +562,18 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
     restoredMain,
     /const IS_CLI_DEBUG = ROUTE_SEARCH_PARAMS\.get\("debug"\) === "cli"/,
   );
+  /*
   assert.match(
     restoredMain,
     /const reserveThoughtDockAgentLaunch = \(\): ThoughtDockLaunchReservation \| null =>[\s\S]*?window\.open\("about:blank", "_blank"\)/,
-    "the locked Agent surface reserves trusted browser activation before async run sealing",
+    "the locked Agent surface uses a same-tab-safe deep link without a popup reservation",
+  );
+  */
+  assert.ok(
+    restoredMain.includes('const launchThoughtDockAgentLink = (url: string) => {') &&
+      restoredMain.includes('const anchor = document.createElement("a");') &&
+      restoredMain.includes('anchor.click();'),
+    "the locked Agent surface uses a same-tab-safe deep link without a popup reservation",
   );
   assert.match(
     restoredMain,
@@ -1892,15 +1900,16 @@ test("Agent launch errors keep their actionable message in Console", () => {
   assert.doesNotMatch(prepareBody, /details:\s*"Try again\."/);
 });
 
-test("Agent selection reserves one trusted launch and seals one adapter-bound run", () => {
+test("Agent selection uses one same-tab deep link and seals one adapter-bound run", () => {
+  const renderedThoughtMain = loadThoughtDevSnapshotFile(repoRoot, "main");
   const selectStart = thoughtMain.indexOf("const openThoughtDockAgentSelect = () =>");
   const prepareStart = thoughtMain.indexOf("const prepareThoughtDockRun = async", selectStart);
   const prepareEnd = thoughtMain.indexOf("const launchPreparedThoughtDockAdapter =", prepareStart);
   const selectBody = thoughtMain.slice(selectStart, prepareStart);
   const prepareBody = thoughtMain.slice(prepareStart, prepareEnd);
-  const runStart = prepareEnd;
-  const runEnd = thoughtMain.indexOf("const updateThoughtDockRunState =", runStart);
-  const runBody = thoughtMain.slice(runStart, runEnd);
+  const runStart = renderedThoughtMain.indexOf("const launchPreparedThoughtDockAdapter =");
+  const runEnd = renderedThoughtMain.indexOf("const updateThoughtDockRunState =", runStart);
+  const runBody = renderedThoughtMain.slice(runStart, runEnd);
 
   assert.match(selectBody, /setThoughtDockState\(\{ kind: "agent_select", prompt \}\)/);
   assert.match(prepareBody, /const payload = await buildThoughtDockRunPayload\(prompt\)/);
@@ -1918,7 +1927,7 @@ test("Agent selection reserves one trusted launch and seals one adapter-bound ru
     /requestedAgent:\s*\{\s*adapterId,\s*model: null,/,
     "the backend run is bound to the selected adapter before launch",
   );
-  assert.match(runBody, /launchThoughtDockAgentLink\(thoughtDockLaunchUrl\(run\), launchReservation\)/);
+  assert.match(runBody, /launchThoughtDockAgentLink\(thoughtDockLaunchUrl\(run\)\)/);
   assert.match(runBody, /launchedThoughtDockRunIds\.has\(run\.runId\)/);
   assert.match(runBody, /launchedThoughtDockRunIds\.add\(run\.runId\)/);
   assert.ok(
@@ -1927,11 +1936,11 @@ test("Agent selection reserves one trusted launch and seals one adapter-bound ru
   );
   assert.match(runBody, /storeThoughtDockRun\(run, adapterId\)/);
   assert.match(runBody, /startThoughtDockPolling\(run, payload, adapterId, runSessionId\)/);
-  const adapterStart = thoughtMain.indexOf("const prepareThoughtDockAdapter =");
-  const adapterEnd = thoughtMain.indexOf("const prepareThoughtDockRun = async", adapterStart);
-  const adapterBody = thoughtMain.slice(adapterStart, adapterEnd);
-  assert.match(adapterBody, /reserveThoughtDockAgentLaunch\(\)/);
-  assert.match(adapterBody, /void prepareThoughtDockRun\([\s\S]*?surface[\s\S]*?launchReservation/);
+  const adapterStart = renderedThoughtMain.indexOf("const prepareThoughtDockAdapter =");
+  const adapterEnd = renderedThoughtMain.indexOf("const prepareThoughtDockRun = async", adapterStart);
+  const adapterBody = renderedThoughtMain.slice(adapterStart, adapterEnd);
+  assert.doesNotMatch(adapterBody, /reserveThoughtDockAgentLaunch|about:blank/);
+  assert.match(adapterBody, /return prepareThoughtDockRun\([\s\S]*?surface/);
   const railStart = thoughtMain.indexOf("const getThoughtDockRailView =");
   const waitingRailStart = thoughtMain.indexOf('case "waiting_for_agent":', railStart);
   const waitingRailEnd = thoughtMain.indexOf('case "agent_returned":', waitingRailStart);
@@ -1957,9 +1966,15 @@ test("Agent selection reserves one trusted launch and seals one adapter-bound ru
     "the raw prompt returned as Agent input must never be mistaken for the sealed Agent task",
   );
   assert.match(
-    thoughtMain,
-    /const launchThoughtDockAgentLink = \([\s\S]*?reservation\.location\.replace\(url\)[\s\S]*?return true/,
-    "the current THOUGHT surface navigates the activation reservation to the selected Agent app",
+    renderedThoughtMain,
+    /const launchThoughtDockAgentLink = \(url: string\) => \{[\s\S]*?anchor\.href = url[\s\S]*?anchor\.click\(\)[\s\S]*?return true/,
+    "the current THOUGHT surface uses the selected Agent app deep link without a transient popup",
+  );
+  assert.match(renderedThoughtMain, /class ThoughtAgentHttpError extends Error/);
+  assert.match(
+    renderedThoughtMain,
+    /error instanceof ThoughtAgentHttpError && error\.status === 429[\s\S]*?Agent run limit reached/,
+    "rate-limited Agent creation must be visible in the console",
   );
   assert.doesNotMatch(thoughtMain, /THOUGHT_AGENT_FIXTURE_MODE|runThoughtDockFixtureAdapter|local dev Agent bypass/);
   assert.match(

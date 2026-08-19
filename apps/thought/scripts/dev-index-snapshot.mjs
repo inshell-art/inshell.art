@@ -713,6 +713,57 @@ const applyCurrentAgentLaunchDeltas = (source, direction) => {
   return current;
 };
 
+const layerCurrentAgentRateLimitHandling = (source) => {
+  let current = source;
+  current = replaceExactCount(
+    current,
+    "Agent HTTP status error class",
+    "const fetchThoughtAgentJson = async <T>(url: string, init: RequestInit) => {",
+    `class ThoughtAgentHttpError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ThoughtAgentHttpError";
+    this.status = status;
+  }
+}
+
+const fetchThoughtAgentJson = async <T>(url: string, init: RequestInit) => {`,
+  );
+  current = replaceExactCount(
+    current,
+    "Agent HTTP status throw",
+    "throw new Error(readErrorMessage(payload, `THOUGHT Agent API failed (\${response.status}).`));",
+    "throw new ThoughtAgentHttpError(\n      response.status,\n      readErrorMessage(payload, `THOUGHT Agent API failed (\${response.status}).`),\n    );",
+  );
+  current = replaceExactCount(
+    current,
+    "Agent rate-limit console event",
+    `    runState = "run_failed";
+    runInFlight = false;
+    setThoughtDockState({ kind: "failed", message });
+    closeThoughtDockAgentLaunchReservation(launchReservation);
+    syncInterface();`,
+    `    runState = "run_failed";
+    runInFlight = false;
+    setThoughtDockState({ kind: "failed", message });
+    if (error instanceof ThoughtAgentHttpError && error.status === 429) {
+      emitThoughtConsoleEvent({
+        kind: "work_agent_rate_limited",
+        title: "Agent run limit reached",
+        detail: "Previous Agent launches are still active. No new Agent task was opened.",
+        nextStep: "wait for the earlier run to finish, or reset it before trying again",
+        tone: "warning",
+        eventId: \`work-agent-rate-limited:\${adapterId}\`,
+      });
+    }
+    closeThoughtDockAgentLaunchReservation(launchReservation);
+    syncInterface();`,
+  );
+  return current;
+};
+
 const CURRENT_PINNED_BROWSER_PREVIEW_DELTAS = Object.freeze([
   [
     "pinned browser preview import",
@@ -1522,7 +1573,9 @@ export function loadThoughtDevSnapshotFile(workspaceRoot, fileKey) {
   const currentMobile = applyCurrentMobileMainDeltas(currentGalleryRender, "layer");
   const currentBrowserPreview = applyCurrentPinnedBrowserPreviewDeltas(currentMobile, "layer");
   const currentAgentLaunch = applyCurrentAgentLaunchDeltas(currentBrowserPreview, "layer");
-  return layerCurrentAgentLinePreviewUnavailableCopy(currentAgentLaunch);
+  const browserSafeAgentLaunch = applyCurrentAgentLaunchDeltas(currentAgentLaunch, "restore");
+  const currentAgentRateLimitHandling = layerCurrentAgentRateLimitHandling(browserSafeAgentLaunch);
+  return layerCurrentAgentLinePreviewUnavailableCopy(currentAgentRateLimitHandling);
 }
 
 export function loadThoughtDevSnapshotModule(workspaceRoot, id) {
