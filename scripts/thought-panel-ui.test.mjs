@@ -1940,6 +1940,11 @@ test("Agent selection uses one same-tab deep link and seals one adapter-bound ru
   const adapterEnd = renderedThoughtMain.indexOf("const prepareThoughtDockRun = async", adapterStart);
   const adapterBody = renderedThoughtMain.slice(adapterStart, adapterEnd);
   assert.doesNotMatch(adapterBody, /reserveThoughtDockAgentLaunch|about:blank/);
+  assert.doesNotMatch(
+    renderedThoughtMain,
+    /closeThoughtDockAgentLaunchReservation/,
+    "the browser-safe layer must not retain cleanup calls for the removed popup reservation",
+  );
   assert.match(adapterBody, /return prepareThoughtDockRun\([\s\S]*?surface/);
   const railStart = thoughtMain.indexOf("const getThoughtDockRailView =");
   const waitingRailStart = thoughtMain.indexOf('case "waiting_for_agent":', railStart);

@@ -713,6 +713,17 @@ const applyCurrentAgentLaunchDeltas = (source, direction) => {
   return current;
 };
 
+// The tagged snapshot contains a partial reservation cleanup in the failed
+// preparation branch.  The inverse launch transform restores the normal
+// hidden-anchor handoff, but that orphaned cleanup call has no corresponding
+// reservation declaration in the browser-safe output.  Remove it explicitly:
+// it is only meaningful for the transient about:blank reservation flow.
+const stripCurrentAgentLaunchReservationResidue = (source) =>
+  source.replaceAll(
+    "    closeThoughtDockAgentLaunchReservation(launchReservation);\n",
+    "",
+  );
+
 const layerCurrentAgentRateLimitHandling = (source) => {
   let current = source;
   current = replaceExactCount(
@@ -743,7 +754,6 @@ const fetchThoughtAgentJson = async <T>(url: string, init: RequestInit) => {`,
     `    runState = "run_failed";
     runInFlight = false;
     setThoughtDockState({ kind: "failed", message });
-    closeThoughtDockAgentLaunchReservation(launchReservation);
     syncInterface();`,
     `    runState = "run_failed";
     runInFlight = false;
@@ -758,7 +768,6 @@ const fetchThoughtAgentJson = async <T>(url: string, init: RequestInit) => {`,
         eventId: \`work-agent-rate-limited:\${adapterId}\`,
       });
     }
-    closeThoughtDockAgentLaunchReservation(launchReservation);
     syncInterface();`,
   );
   return current;
@@ -1574,7 +1583,11 @@ export function loadThoughtDevSnapshotFile(workspaceRoot, fileKey) {
   const currentBrowserPreview = applyCurrentPinnedBrowserPreviewDeltas(currentMobile, "layer");
   const currentAgentLaunch = applyCurrentAgentLaunchDeltas(currentBrowserPreview, "layer");
   const browserSafeAgentLaunch = applyCurrentAgentLaunchDeltas(currentAgentLaunch, "restore");
-  const currentAgentRateLimitHandling = layerCurrentAgentRateLimitHandling(browserSafeAgentLaunch);
+  const browserSafeAgentLaunchWithoutReservationResidue =
+    stripCurrentAgentLaunchReservationResidue(browserSafeAgentLaunch);
+  const currentAgentRateLimitHandling = layerCurrentAgentRateLimitHandling(
+    browserSafeAgentLaunchWithoutReservationResidue,
+  );
   return layerCurrentAgentLinePreviewUnavailableCopy(currentAgentRateLimitHandling);
 }
 
