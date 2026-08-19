@@ -3665,8 +3665,9 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
   if (state.kind === "preview_unavailable") {
     emitThoughtConsoleEvent({
       kind: "work_preview_unavailable",
-      title: "preview unavailable",
-      detail: "The App could not prepare the artwork preview.",
+      title: "Agent line received",
+      detail: state.rawCandidate,
+      nextStep: "canonical artwork preview is unavailable in this environment",
       tone: "warning",
       eventId: `work-preview-unavailable:${hashText(state.rawCandidate)}:${state.reason}`,
     });
@@ -4918,7 +4919,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
       return { status: "Previewing...", tone: "running", actions: [] };
     case "preview_unavailable":
       return {
-        status: "Preview unavailable",
+        status: "Agent line received",
         tone: "warning",
         actions: [
           dockRailAction("retry", "retry", "retry preview", () => {

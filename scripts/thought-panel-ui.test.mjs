@@ -425,7 +425,7 @@ test("THOUGHT creation page presents its canonical slogan below the title", () =
   );
 });
 
-test("THOUGHT creation keeps the production CLI default and the tagged Agent snapshot in Vite dev", () => {
+test("THOUGHT creation keeps the current Agent default and the tagged Agent snapshot in Vite dev", () => {
   assert.match(
     indexHtml,
     /id="thought-cli-panel" class="frontpage-side thought-cli-panel"[\s\S]*?aria-label="THOUGHT operator panel"[\s\S]*?id="thought-cli-transcript"[\s\S]*?id="thought-cli-suggestions"[\s\S]*?id="thought-cli-form"[\s\S]*?thought&gt;/,
@@ -463,18 +463,16 @@ test("THOUGHT creation keeps the production CLI default and the tagged Agent sna
     /const publicRuntimeRpcUrl = process\.env\.INSHELL_THOUGHT_PUBLIC_RPC_URL\?\.trim\(\);[\s\S]*?const browserContractRuntime[\s\S]*?rpcUrl: publicRuntimeRpcUrl[\s\S]*?const browserEvmAddresses[\s\S]*?rpcUrl: publicRuntimeRpcUrl/,
     "the LAN bootstrap must inject its filtered public RPC instead of the loopback descriptor URL",
   );
-  assert.match(
-    indexHtml,
-    /requestedSurface === null &&\s*globalThis\.__INSHELL_THOUGHT_DEV_DEFAULT_SURFACE__ === "agent"/,
-  );
   assert.match(indexHtml, /requestedSurface === "cli"/);
-  assert.match(indexHtml, /requestedSurface !== "agent" && !useDevAgentDefault/);
+  assert.doesNotMatch(indexHtml, /useDevAgentDefault|__INSHELL_THOUGHT_DEV_DEFAULT_SURFACE__/);
   assert.match(
     indexHtml,
     /classList\.add\(isCliSurface \? "cli-surface" : "agent-surface"\)/,
   );
-  assert.match(indexHtml, /href="\/thought\?surface=cli">\[ cli \]<\/a>/);
-  assert.match(indexHtml, /href="\/thought\?surface=agent">\[ Agent \]<\/a>/);
+  assert.doesNotMatch(indexHtml, /aria-label="THOUGHT creation surfaces"/);
+  assert.doesNotMatch(indexHtml, />\[ cli \]</);
+  assert.doesNotMatch(indexHtml, />\[ Agent \]</);
+  assert.doesNotMatch(indexHtml, />\[ verify \]</);
   assert.match(
     thoughtCss,
     /html\.agent-surface \.thought-panel\s*\{\s*display:\s*flex;/,
@@ -1406,6 +1404,21 @@ test("Work lifecycle messages move into Console history", () => {
   assert.match(
     thoughtMain,
     /The App asked Claude Code to open this THOUGHT task\./,
+  );
+});
+
+test("a returned Agent line remains visible when canonical artwork preview is unavailable", () => {
+  assert.match(
+    thoughtMain,
+    /state\.kind === "preview_unavailable"[\s\S]*?title: "Agent line received"[\s\S]*?detail: state\.rawCandidate[\s\S]*?nextStep: "canonical artwork preview is unavailable in this environment"/,
+  );
+  assert.match(
+    thoughtMain,
+    /case "preview_unavailable":[\s\S]*?status: "Agent line received"/,
+  );
+  assert.doesNotMatch(
+    thoughtMain,
+    /state\.kind === "preview_unavailable"[\s\S]{0,300}?The App could not prepare the artwork preview/,
   );
 });
 
