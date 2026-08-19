@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "dd9d2ab0c49d8f4c74edb4e6fac1c2c6bdc69a127146611bdb95c216b706a766",
+  "sourceTreeSha256": "bf8605b77dacde529071195461fd9acf36e5250fabd2e701d251de0bc2c7db1b",
   "groups": [
     {
       "id": "public-docs",
@@ -565,12 +565,12 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "59a66c1c5a774d55c37dc94ce401f389ce1acefeb6584f4fa63aa5d0e066fefa",
+      "groupSha256": "1bd2def3051a22ea55d465bea20904332aaab4c0f8ff83de36eb6aac7eed794b",
       "files": [
         {
           "path": ".github/workflows/deploy-pages.yml",
-          "byteLength": 13360,
-          "sha256": "e3714f56bbe9da3f4b5b29c0367310b9c395ed74affd8efd3bcaafc3917e6473"
+          "byteLength": 13296,
+          "sha256": "2906ffa04650f8f9853bd6473dcf8d30bd73a67456b6e76ec5579d027322a03d"
         },
         {
           "path": ".github/workflows/rollback-pages.yml",
@@ -579,8 +579,8 @@
         },
         {
           "path": ".github/workflows/test.yml",
-          "byteLength": 3570,
-          "sha256": "9e30ce0ca7d2aa47d739bda1ed6b055a49281bcb2f485a047af013006ef86b19"
+          "byteLength": 3538,
+          "sha256": "da3dea8ac1b8e39e2b5f866f09aff8515b3c2eda25dcc8b8b2b934ba559aa135"
         },
         {
           "path": ".husky/pre-commit",

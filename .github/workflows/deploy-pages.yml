@@ -67,7 +67,6 @@ jobs:
           if command -v zsh >/dev/null 2>&1; then
             zsh --version
           else
-            sudo apt-get update
             sudo apt-get install --yes zsh
             zsh --version
           fi
@@ -173,7 +172,6 @@ jobs:
           if command -v zsh >/dev/null 2>&1; then
             zsh --version
           else
-            sudo apt-get update
             sudo apt-get install --yes zsh
             zsh --version
           fi
