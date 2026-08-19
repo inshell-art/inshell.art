@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "3ae292fea862ab61ea866f9adefecb75e8c27c560c5620a0fe529a378b0f0d44",
+  "sourceTreeSha256": "bf82668307ab2c1c03bc20df8f89fb779716ea00f93edc06822c6ff3e4bb7441",
   "groups": [
     {
       "id": "public-docs",
@@ -999,7 +999,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "3e9ac3ef7d3877461151769a93847fd41f8bac3f345ec2e5b60cec7107721a4c",
+      "groupSha256": "a065c8f333558091bafcd3d334253df15c566b1446e2d6a12f4660aa05091884",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1028,8 +1028,8 @@
         },
         {
           "path": "apps/thought/scripts/dev-index-snapshot.mjs",
-          "byteLength": 40024,
-          "sha256": "378f8ceeadd18bd681bd7db5d044a3642ac61b36132b6f2257875795158fffab"
+          "byteLength": 42300,
+          "sha256": "bb08dc7c5988dab6cbe97c598e26f15c61ad73bfe9db5c2da2ed0b22b483e7cf"
         },
         {
           "path": "apps/thought/scripts/mock-thought-v2-anvil-signer.ts",
@@ -1058,8 +1058,8 @@
         },
         {
           "path": "apps/thought/src/main.ts",
-          "byteLength": 743802,
-          "sha256": "34d45fec0f2e1c1f27cbd2925ff17b1dd48d94c2d8b628bbf2606d89c23d2c8f"
+          "byteLength": 744521,
+          "sha256": "398f2454d152a4764e51684367acc80bdee01b10de8e813df7eb38d565e60394"
         },
         {
           "path": "apps/thought/src/rpc-provider.ts",
