@@ -2609,17 +2609,11 @@ const thoughtAgentHandoffSha256 = (sealedTask: string): ThoughtSha256 =>
 type ThoughtDockAgentAdapterId = "codex" | "claude";
 type ThoughtDockAgentSurface = "codex" | "claude-cowork" | "claude-code";
 
-type PreparedThoughtDockAgentChoice = {
-  run: AgentDemoRun;
-  adapterId: ThoughtDockAgentAdapterId;
+type PreparedThoughtDockAgentSelection = {
+  prompt: string;
   payload: ThoughtRunPayload;
   runSessionId: number;
 };
-
-type PreparedThoughtDockAgentChoices = Record<
-  ThoughtDockAgentAdapterId,
-  PreparedThoughtDockAgentChoice
->;
 
 type ThoughtDockAgentAdapter = {
   id: ThoughtDockAgentAdapterId;
@@ -2742,7 +2736,7 @@ let agentDemoPollGeneration = 0;
 let thoughtDockState: ThoughtDockState = { kind: "empty" };
 let thoughtDockRun: AgentDemoRun | null = null;
 let thoughtDockAdapterId: ThoughtDockAgentAdapterId = "codex";
-let preparedThoughtDockAgentChoices: PreparedThoughtDockAgentChoices | null = null;
+let preparedThoughtDockAgentSelection: PreparedThoughtDockAgentSelection | null = null;
 const launchedThoughtDockRunIds = new Set<string>();
 let thoughtDockPromptHistory = parseThoughtPromptHistory(
   readSharedBrowserItem(THOUGHT_DOCK_PROMPT_HISTORY_KEY),
@@ -4802,14 +4796,9 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
       }
       resetThoughtDock({ clearPrompt: true, focusPrompt: true });
     }, { handlerKey: run ? `reset:${run.runId}` : "reset" });
-  const cancelPreparedAgentChoices = (prompt: string) =>
+  const cancelPreparedAgentSelection = (prompt: string) =>
     dockRailAction("cancel", "cancel", "cancel Agent selection", () => {
-      for (const choice of Object.values(preparedThoughtDockAgentChoices ?? {})) {
-        void requestThoughtDockRunCancellation(choice.run).catch(() => {
-          // Local cancellation must not depend on the remote run still being active.
-        });
-      }
-      preparedThoughtDockAgentChoices = null;
+      preparedThoughtDockAgentSelection = null;
       invalidateRunSession();
       runState = "idle";
       runInFlight = false;
@@ -4893,7 +4882,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
           dockRailAction("claude", thoughtAgentCtaLabel("claude"), thoughtAgentLaunchActionDescription("claude"), () => {
             prepareThoughtDockAdapter("claude");
           }),
-          cancelPreparedAgentChoices(state.prompt),
+          cancelPreparedAgentSelection(state.prompt),
         ],
         maxActions: 3,
       };
@@ -5381,7 +5370,7 @@ const openThoughtDockAgentSelect = () => {
   if (blockMobileThoughtAgentLaunch(prompt)) {
     return;
   }
-  void prepareThoughtDockAgentChoices(prompt);
+  void prepareThoughtDockAgentSelection(prompt);
 };
 
 const prepareThoughtDockAdapter = (adapterId: ThoughtDockAgentAdapterId) => {
@@ -5396,21 +5385,19 @@ const prepareThoughtDockAdapter = (adapterId: ThoughtDockAgentAdapterId) => {
     });
     return;
   }
-  const selected = preparedThoughtDockAgentChoices?.[adapterId];
-  const unusedAdapterId: ThoughtDockAgentAdapterId = adapterId === "codex" ? "claude" : "codex";
-  const unused = preparedThoughtDockAgentChoices?.[unusedAdapterId];
-  if (!selected || !unused) {
+  const selection = preparedThoughtDockAgentSelection;
+  if (!selection || selection.prompt !== thoughtDockState.prompt) {
     setThoughtDockState({
       kind: "failed",
-      message: "Agent choices are not ready.",
+      message: "Agent selection is not ready.",
       details: "Reset and send the prompt to your Agent again.",
     });
     return;
   }
-  launchPreparedThoughtDockAdapter(selected, unused);
+  void prepareThoughtDockRun(selection, adapterId);
 };
 
-const prepareThoughtDockAgentChoices = async (prompt: string) => {
+const prepareThoughtDockAgentSelection = async (prompt: string) => {
   if (blockPendingMintMutation()) {
     return;
   }
@@ -5421,7 +5408,7 @@ const prepareThoughtDockAgentChoices = async (prompt: string) => {
   runInFlight = true;
   setWarning("");
   setStatus("");
-  preparedThoughtDockAgentChoices = null;
+  preparedThoughtDockAgentSelection = null;
   setThoughtDockState({ kind: "creating_run", prompt, adapterId: "codex" });
 
   try {
@@ -5429,40 +5416,7 @@ const prepareThoughtDockAgentChoices = async (prompt: string) => {
     if (!isCurrentRunSession(runSessionId)) {
       return;
     }
-    const adapterIds: ThoughtDockAgentAdapterId[] = ["codex", "claude"];
-    const results = await Promise.allSettled(
-      adapterIds.map(async (adapterId): Promise<PreparedThoughtDockAgentChoice> => {
-        const adapter = THOUGHT_DOCK_AGENT_ADAPTERS.find((candidate) => candidate.id === adapterId);
-        if (!adapter || !adapter.canDeepLink) {
-          throw new Error(`${thoughtAgentProductLabel(adapterId)} does not expose a supported App link yet.`);
-        }
-        const surface = defaultThoughtDockAgentSurface(adapterId);
-        const run = await createThoughtDockRun(prompt, payload, adapterId, surface);
-        return { run, adapterId, payload, runSessionId };
-      }),
-    );
-    const prepared = results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
-    const failure = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
-    if (failure) {
-      for (const choice of prepared) {
-        void requestThoughtDockRunCancellation(choice.run).catch(() => {
-          // Best-effort release of the other pre-created choice.
-        });
-      }
-      throw failure.reason;
-    }
-    if (!isCurrentRunSession(runSessionId)) {
-      for (const choice of prepared) {
-        void requestThoughtDockRunCancellation(choice.run).catch(() => {
-          // A reset won the race; release both unused choices.
-        });
-      }
-      return;
-    }
-    preparedThoughtDockAgentChoices = Object.fromEntries(
-      prepared.map((choice) => [choice.adapterId, choice]),
-    ) as PreparedThoughtDockAgentChoices;
-    recordThoughtDockPromptHistory(prompt);
+    preparedThoughtDockAgentSelection = { prompt, payload, runSessionId };
     setThoughtDockState({ kind: "agent_select", prompt });
   } catch (error) {
     if (!isCurrentRunSession(runSessionId)) {
@@ -5479,15 +5433,72 @@ const prepareThoughtDockAgentChoices = async (prompt: string) => {
   }
 };
 
-const launchPreparedThoughtDockAdapter = ({
-  run,
-  adapterId,
+const prepareThoughtDockRun = async ({
+  prompt,
   payload,
   runSessionId,
-}: PreparedThoughtDockAgentChoice, unused: PreparedThoughtDockAgentChoice) => {
+}: PreparedThoughtDockAgentSelection, adapterId: ThoughtDockAgentAdapterId) => {
   if (!isCurrentRunSession(runSessionId)) {
     return;
   }
+  const adapter = THOUGHT_DOCK_AGENT_ADAPTERS.find((candidate) => candidate.id === adapterId);
+  if (!adapter || !adapter.canDeepLink) {
+    emitThoughtConsoleEvent({
+      kind: "work_agent_adapter_unavailable",
+      title: `${thoughtAgentProductLabel(adapterId)} unavailable`,
+      detail: `${thoughtAgentProductLabel(adapterId)} does not expose a supported App link yet.`,
+      tone: "warning",
+      eventId: `work-agent-adapter-unavailable:${adapterId}`,
+    });
+    return;
+  }
+  const surface = defaultThoughtDockAgentSurface(adapterId);
+  runState = "running";
+  runInFlight = true;
+  setThoughtDockState({ kind: "creating_run", prompt, adapterId });
+
+  let run: AgentDemoRun;
+  try {
+    run = await createThoughtDockRun(prompt, payload, adapterId, surface);
+  } catch (error) {
+    if (!isCurrentRunSession(runSessionId)) {
+      return;
+    }
+    runInFlight = false;
+    if (
+      error instanceof Error &&
+      error.name === "ThoughtAgentHttpError" &&
+      (error as Error & { status?: number }).status === 429
+    ) {
+      runState = "idle";
+      setThoughtDockState({ kind: "agent_select", prompt });
+      emitThoughtConsoleEvent({
+        kind: "work_agent_rate_limited",
+        title: "Agent run limit reached",
+        detail: "Previous Agent launches are still active. No new Agent task was opened.",
+        nextStep: "wait for an earlier run to finish, then choose an Agent again",
+        tone: "warning",
+        eventId: "work-agent-rate-limited:choice",
+      });
+      syncInterface();
+      return;
+    }
+    const rawMessage = error instanceof Error ? error.message : "";
+    const message = rawMessage.includes("spec") || /failed to fetch|network|connection refused|could not connect|econnrefused/i.test(rawMessage)
+      ? formatThoughtSpecError(error)
+      : rawMessage.replace(/\bTHOUGHT Bridge\b/g, "Agent link") || "Could not create Agent run.";
+    runState = "run_failed";
+    setThoughtDockState({ kind: "failed", message });
+    syncInterface();
+    return;
+  }
+  if (!isCurrentRunSession(runSessionId)) {
+    void requestThoughtDockRunCancellation(run).catch(() => {
+      // A reset won the race after creation; release the unused run.
+    });
+    return;
+  }
+  recordThoughtDockPromptHistory(prompt);
   if (launchedThoughtDockRunIds.has(run.runId)) {
     return;
   }
@@ -5508,10 +5519,7 @@ const launchPreparedThoughtDockAdapter = ({
     return;
   }
   launchedThoughtDockRunIds.add(run.runId);
-  preparedThoughtDockAgentChoices = null;
-  void requestThoughtDockRunCancellation(unused.run).catch(() => {
-    // The selected run is already launching; an unused-run cleanup failure must not stop it.
-  });
+  preparedThoughtDockAgentSelection = null;
   thoughtDockRun = run;
   storeThoughtDockRun(run, adapterId);
   setThoughtDockState({
@@ -6142,7 +6150,7 @@ const resetThoughtDock = (options?: { clearPrompt?: boolean; focusPrompt?: boole
   clearStoredThoughtDockRun();
   thoughtDockRun = null;
   thoughtDockAdapterId = "codex";
-  preparedThoughtDockAgentChoices = null;
+  preparedThoughtDockAgentSelection = null;
   runInFlight = false;
   if (options?.clearPrompt) {
     sessionState.prompt = "";
@@ -17164,6 +17172,16 @@ const fetchAgentRequest = async (url: string, init: RequestInit) => {
   }
 };
 
+class ThoughtAgentHttpError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ThoughtAgentHttpError";
+    this.status = status;
+  }
+}
+
 const fetchThoughtAgentJson = async <T>(url: string, init: RequestInit) => {
   const headers = new Headers(init.headers);
   headers.set("Content-Type", "application/json");
@@ -17186,7 +17204,10 @@ const fetchThoughtAgentJson = async <T>(url: string, init: RequestInit) => {
 
   const payload = (await response.json().catch(() => null)) as T | null;
   if (!response.ok) {
-    throw new Error(readErrorMessage(payload, `THOUGHT Agent API failed (${response.status}).`));
+    throw new ThoughtAgentHttpError(
+      response.status,
+      readErrorMessage(payload, `THOUGHT Agent API failed (${response.status}).`),
+    );
   }
   if (!payload || typeof payload !== "object") {
     throw new Error("THOUGHT Agent API returned an invalid response.");

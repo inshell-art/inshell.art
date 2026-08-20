@@ -35,7 +35,7 @@ const screenshotPath = process.env.THOUGHT_BROWSER_CANARY_SCREENSHOT ||
 const promptLine = "Can one release remain one release?";
 
 const installBrowserReleaseCanaryFunction = `function (promptLine) {
-  window.__thoughtBrowserReleaseCanary = { create: null, launchUrl: "", statusStates: [] };
+  window.__thoughtBrowserReleaseCanary = { create: null, createCount: 0, launchUrl: "", statusStates: [] };
   const originalFetch = window.fetch.bind(window);
   window.fetch = async (...args) => {
     const response = await originalFetch(...args);
@@ -45,6 +45,7 @@ const installBrowserReleaseCanaryFunction = `function (promptLine) {
       const url = typeof input === "string" || input instanceof URL ? String(input) : input.url;
       const method = String(init.method || (input instanceof Request ? input.method : "GET")).toUpperCase();
       if (method === "POST" && /\\/api\\/thought-agent\\/v2\\/runs$/.test(new URL(url, location.href).pathname)) {
+        window.__thoughtBrowserReleaseCanary.createCount += 1;
         window.__thoughtBrowserReleaseCanary.create = await response.clone().json();
       }
       if (method === "GET" && /\\/api\\/thought-agent\\/v2\\/runs\\/tar_[^/]+$/.test(new URL(url, location.href).pathname)) {
@@ -382,6 +383,23 @@ try {
     Boolean,
     `${product} action`,
   );
+  assert.equal(
+    await evaluate<number>(client, "window.__thoughtBrowserReleaseCanary.createCount"),
+    0,
+    "opening the Agent chooser must not create any remote runs",
+  );
+  assert.equal(
+    await callFunctionOn<boolean>(
+      client,
+      browserGlobalObjectId,
+      hasAgentActionFunction,
+      [adapterId === "codex"
+        ? "open this THOUGHT task in Claude Code"
+        : "open this THOUGHT task in Codex within the ChatGPT desktop app"],
+    ),
+    true,
+    "the chooser must expose both supported Agent apps before creating a run",
+  );
   await callFunctionOn<boolean>(
     client,
     browserGlobalObjectId,
@@ -391,6 +409,7 @@ try {
 
   const browserCapture = await waitFor<{
     create: typeof created;
+    createCount: number;
     launchUrl: string;
     storedLaunch: string | null;
     captureError?: string;
@@ -404,6 +423,7 @@ try {
     "browser-generated Agent handoff",
   );
   assert.equal(browserCapture.captureError, undefined);
+  assert.equal(browserCapture.createCount, 1, "one Agent selection must create exactly one remote run");
   created = browserCapture.create;
   assert.ok(created);
   assert.deepEqual(created.controlContract, {

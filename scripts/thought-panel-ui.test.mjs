@@ -588,14 +588,15 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
   assert.doesNotMatch(restoredMain, /The App could not prepare the artwork preview\./);
   assert.match(
     restoredMain,
-    /const results = await Promise\.allSettled\([\s\S]*?createThoughtDockRun\(prompt, payload, adapterId, surface\)[\s\S]*?setThoughtDockState\(\{ kind: "agent_select", prompt \}\)/,
-    "both adapter-bound runs must be sealed before the Agent controls become clickable",
+    /const prepareThoughtDockAgentSelection = async \(prompt: string\) => \{[\s\S]*?const payload = await buildThoughtDockRunPayload\(prompt\)[\s\S]*?preparedThoughtDockAgentSelection = \{ prompt, payload, runSessionId \};[\s\S]*?setThoughtDockState\(\{ kind: "agent_select", prompt \}\)/,
+    "the chooser must prepare only the sealed payload before Agent controls become clickable",
   );
   assert.match(
     restoredMain,
-    /const prepareThoughtDockAdapter =[\s\S]*?launchPreparedThoughtDockAdapter\(selected, unused\)/,
-    "the final Agent-choice click must launch its already-prepared deep link synchronously",
+    /const prepareThoughtDockAdapter =[\s\S]*?void prepareThoughtDockRun\(selection, adapterId\)/,
+    "the final Agent-choice click must create only the selected adapter-bound run",
   );
+  assert.doesNotMatch(restoredMain, /Promise\.allSettled/);
   assert.doesNotMatch(restoredMain, /case "agent_task_ready"/);
   assert.match(
     restoredMain,
@@ -1897,35 +1898,36 @@ test("console rendering is read-only and mint attempts survive navigation", () =
 });
 
 test("Agent launch errors keep their actionable message in Console", () => {
-  const prepareStart = thoughtMain.indexOf("const prepareThoughtDockAgentChoices = async");
-  const prepareEnd = thoughtMain.indexOf("const launchPreparedThoughtDockAdapter =", prepareStart);
+  const prepareStart = thoughtMain.indexOf("const prepareThoughtDockRun = async");
+  const prepareEnd = thoughtMain.indexOf("const updateThoughtDockRunState =", prepareStart);
   const prepareBody = thoughtMain.slice(prepareStart, prepareEnd);
 
   assert.match(prepareBody, /setThoughtDockState\(\{ kind: "failed", message \}\)/);
   assert.doesNotMatch(prepareBody, /details:\s*"Try again\."/);
 });
 
-test("Agent selection pre-seals both choices and launches one same-tab deep link synchronously", () => {
+test("Agent selection prepares one payload, creates one selected run, and retains the chooser on 429", () => {
   const renderedThoughtMain = loadThoughtDevSnapshotFile(repoRoot, "main");
   const selectStart = thoughtMain.indexOf("const openThoughtDockAgentSelect = () =>");
-  const prepareStart = thoughtMain.indexOf("const prepareThoughtDockAgentChoices = async", selectStart);
-  const prepareEnd = thoughtMain.indexOf("const launchPreparedThoughtDockAdapter =", prepareStart);
+  const prepareStart = thoughtMain.indexOf("const prepareThoughtDockAgentSelection = async", selectStart);
+  const prepareEnd = thoughtMain.indexOf("const prepareThoughtDockRun = async", prepareStart);
   const selectBody = thoughtMain.slice(selectStart, prepareStart);
   const prepareBody = thoughtMain.slice(prepareStart, prepareEnd);
-  const runStart = renderedThoughtMain.indexOf("const launchPreparedThoughtDockAdapter =");
+  const runStart = renderedThoughtMain.indexOf("const prepareThoughtDockRun = async");
   const runEnd = renderedThoughtMain.indexOf("const updateThoughtDockRunState =", runStart);
   const runBody = renderedThoughtMain.slice(runStart, runEnd);
 
-  assert.match(selectBody, /void prepareThoughtDockAgentChoices\(prompt\)/);
+  assert.match(selectBody, /void prepareThoughtDockAgentSelection\(prompt\)/);
   assert.match(prepareBody, /const payload = await buildThoughtDockRunPayload\(prompt\)/);
   assert.match(
     prepareBody,
-    /const adapterIds: ThoughtDockAgentAdapterId\[\] = \["codex", "claude"\];[\s\S]*?Promise\.allSettled\([\s\S]*?createThoughtDockRun\(prompt, payload, adapterId, surface\)/,
+    /preparedThoughtDockAgentSelection = \{ prompt, payload, runSessionId \};[\s\S]*?setThoughtDockState\(\{ kind: "agent_select", prompt \}\)/,
   );
-  assert.match(
-    prepareBody,
-    /preparedThoughtDockAgentChoices = Object\.fromEntries\([\s\S]*?recordThoughtDockPromptHistory\(prompt\);[\s\S]*?setThoughtDockState\(\{ kind: "agent_select", prompt \}\)/,
-    "Agent controls must render only after both adapter-bound runs are sealed",
+  assert.doesNotMatch(prepareBody, /createThoughtDockRun|Promise\.allSettled/);
+  assert.equal(
+    [...runBody.matchAll(/createThoughtDockRun\(prompt, payload, adapterId, surface\)/g)].length,
+    1,
+    "choosing one Agent must create exactly one adapter-bound run",
   );
   assert.match(
     thoughtMain,
@@ -1935,11 +1937,7 @@ test("Agent selection pre-seals both choices and launches one same-tab deep link
   assert.match(runBody, /launchThoughtDockAgentLink\(thoughtDockLaunchUrl\(run\)\)/);
   assert.match(runBody, /launchedThoughtDockRunIds\.has\(run\.runId\)/);
   assert.match(runBody, /launchedThoughtDockRunIds\.add\(run\.runId\)/);
-  assert.match(
-    runBody,
-    /launchThoughtDockAgentLink\(thoughtDockLaunchUrl\(run\)\)[\s\S]*?requestThoughtDockRunCancellation\(unused\.run\)/,
-    "the unused pre-created run is released only after the selected deep link is invoked",
-  );
+  assert.doesNotMatch(runBody, /unused\.run|preparedThoughtDockAgentChoices|Promise\.allSettled/);
   assert.ok(
     runBody.indexOf("launchThoughtDockAgentLink") < runBody.indexOf("storeThoughtDockRun"),
     "the custom-protocol navigation must be the first launch side effect",
@@ -1947,7 +1945,7 @@ test("Agent selection pre-seals both choices and launches one same-tab deep link
   assert.match(runBody, /storeThoughtDockRun\(run, adapterId\)/);
   assert.match(runBody, /startThoughtDockPolling\(run, payload, adapterId, runSessionId\)/);
   const adapterStart = renderedThoughtMain.indexOf("const prepareThoughtDockAdapter =");
-  const adapterEnd = renderedThoughtMain.indexOf("const prepareThoughtDockAgentChoices = async", adapterStart);
+  const adapterEnd = renderedThoughtMain.indexOf("const prepareThoughtDockAgentSelection = async", adapterStart);
   const adapterBody = renderedThoughtMain.slice(adapterStart, adapterEnd);
   assert.doesNotMatch(adapterBody, /reserveThoughtDockAgentLaunch|about:blank/);
   assert.doesNotMatch(
@@ -1955,8 +1953,13 @@ test("Agent selection pre-seals both choices and launches one same-tab deep link
     /closeThoughtDockAgentLaunchReservation/,
     "the browser-safe layer must not retain cleanup calls for the removed popup reservation",
   );
-  assert.match(adapterBody, /const selected = preparedThoughtDockAgentChoices\?\.\[adapterId\][\s\S]*?launchPreparedThoughtDockAdapter\(selected, unused\)/);
-  assert.doesNotMatch(adapterBody, /\bawait\b|Promise|createThoughtDockRun/);
+  assert.match(adapterBody, /const selection = preparedThoughtDockAgentSelection;[\s\S]*?void prepareThoughtDockRun\(selection, adapterId\)/);
+  assert.doesNotMatch(adapterBody, /\bawait\b|Promise\.allSettled|createThoughtDockRun/);
+  assert.match(
+    runBody,
+    /error\.name === "ThoughtAgentHttpError"[\s\S]*?status === 429[\s\S]*?setThoughtDockState\(\{ kind: "agent_select", prompt \}\)[\s\S]*?title: "Agent run limit reached"/,
+    "a rate-limited create must preserve the chooser instead of collapsing to reset",
+  );
   const railStart = thoughtMain.indexOf("const getThoughtDockRailView =");
   const waitingRailStart = thoughtMain.indexOf('case "waiting_for_agent":', railStart);
   const waitingRailEnd = thoughtMain.indexOf('case "agent_returned":', waitingRailStart);
@@ -1986,10 +1989,16 @@ test("Agent selection pre-seals both choices and launches one same-tab deep link
     /const launchThoughtDockAgentLink = \(url: string\) => \{[\s\S]*?anchor\.href = url[\s\S]*?anchor\.click\(\)[\s\S]*?return true/,
     "the current THOUGHT surface uses the selected Agent app deep link without a transient popup",
   );
+  assert.match(thoughtMain, /class ThoughtAgentHttpError extends Error/);
+  assert.match(
+    thoughtMain,
+    /throw new ThoughtAgentHttpError\([\s\S]*?response\.status[\s\S]*?readErrorMessage/,
+    "the production source must retain the HTTP status needed to recover from a 429",
+  );
   assert.match(renderedThoughtMain, /class ThoughtAgentHttpError extends Error/);
   assert.match(
     renderedThoughtMain,
-    /error instanceof ThoughtAgentHttpError && error\.status === 429[\s\S]*?Agent run limit reached/,
+    /error\.name === "ThoughtAgentHttpError"[\s\S]*?status === 429[\s\S]*?Agent run limit reached/,
     "rate-limited Agent creation must be visible in the console",
   );
   assert.doesNotMatch(thoughtMain, /THOUGHT_AGENT_FIXTURE_MODE|runThoughtDockFixtureAdapter|local dev Agent bypass/);
@@ -2190,8 +2199,8 @@ test("Work prompt exposes persistent terminal-style history navigation", () => {
   assert.match(thoughtMain, /THOUGHT_DOCK_PROMPT_HISTORY_LIMIT = 50/);
   assert.match(
     thoughtMain,
-    /const prepareThoughtDockAgentChoices = async[\s\S]*?Promise\.allSettled\([\s\S]*?createThoughtDockRun\(prompt, payload, adapterId, surface\)[\s\S]*?preparedThoughtDockAgentChoices = Object\.fromEntries[\s\S]*?recordThoughtDockPromptHistory\(prompt\)/,
-    "only two accepted adapter-bound Agent runs should record their exact prompt",
+    /const prepareThoughtDockRun = async[\s\S]*?createThoughtDockRun\(prompt, payload, adapterId, surface\)[\s\S]*?recordThoughtDockPromptHistory\(prompt\)/,
+    "only the accepted selected Agent run should record its exact prompt",
   );
   assert.match(
     thoughtMain,
