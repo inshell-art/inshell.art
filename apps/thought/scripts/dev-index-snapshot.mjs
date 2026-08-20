@@ -356,9 +356,9 @@ const applyCurrentMobileMainDeltas = (source, direction) => {
   return current;
 };
 
-// The custom-scheme launch must retain the browser activation captured by the
-// Agent-choice click. Restore the immutable tagged bytes, then layer this
-// reservation-backed launch into both the standalone and embedded surfaces.
+// Restore the immutable tagged bytes through the superseded reservation layer
+// before applying the current prepared-choice flow below. This intermediate
+// transform keeps the historic snapshot verifiable; it is not shipped output.
 const CURRENT_AGENT_LAUNCH_DELTAS = Object.freeze([
   [
     "Agent launch link",
@@ -526,176 +526,64 @@ const launchThoughtDockAgentLink = (
   }`,
   ],
 ]);
-/*
+const CURRENT_PREPARED_AGENT_CHOICE_DELTAS = Object.freeze([
   [
-    "one-click Agent launch reservation",
-    `const launchThoughtDockAgentLink = (url: string) => {
-  suppressBridgeLaunchUnloadUntil = Date.now() + 3000;
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.rel = "noopener noreferrer";
-  if (/^https?:\\/\\//i.test(url)) {
-    anchor.target = "_blank";
-  }
-  anchor.style.display = "none";
-  document.body.appendChild(anchor);
-  anchor.click();
-  window.setTimeout(() => anchor.remove(), 1000);
-};`,
-    `type ThoughtDockLaunchReservation = Window;
-
-// Reserve a browser-owned window in the Agent-choice click itself. The sealed
-// run is necessarily created asynchronously, but navigating this reservation
-// later preserves the one intentional external-app handoff without showing a
-// second Open control or issuing a second protocol navigation.
-const reserveThoughtDockAgentLaunch = (): ThoughtDockLaunchReservation | null => {
-  const reservation = window.open("about:blank", "_blank");
-  if (reservation) {
-    reservation.opener = null;
-  }
-  return reservation;
-};
-
-const closeThoughtDockAgentLaunchReservation = (reservation: ThoughtDockLaunchReservation | null) => {
-  if (reservation && !reservation.closed) {
-    reservation.close();
-  }
-};
-
-const launchThoughtDockAgentLink = (
-  url: string,
-  reservation: ThoughtDockLaunchReservation,
-) => {
-  suppressBridgeLaunchUnloadUntil = Date.now() + 3000;
-  if (reservation.closed) {
-    return false;
-  }
-  try {
-    reservation.location.replace(url);
-    return true;
-  } catch {
-    closeThoughtDockAgentLaunchReservation(reservation);
-    return false;
-  }
-};`,
+    "prepared Agent choice types",
+    "type ThoughtDockAgentSurface = \"codex\" | \"claude-cowork\" | \"claude-code\";\n\n",
+    "type ThoughtDockAgentSurface = \"codex\" | \"claude-cowork\" | \"claude-code\";\n\ntype PreparedThoughtDockAgentChoice = {\n  run: AgentDemoRun;\n  adapterId: ThoughtDockAgentAdapterId;\n  payload: ThoughtRunPayload;\n  runSessionId: number;\n};\n\ntype PreparedThoughtDockAgentChoices = Record<\n  ThoughtDockAgentAdapterId,\n  PreparedThoughtDockAgentChoice\n>;\n\n"
   ],
   [
-    "one-click Agent selection reservation",
-    `  const surface = defaultThoughtDockAgentSurface(adapterId);
-  return prepareThoughtDockRun(
-    thoughtDockState.prompt,
-    adapterId,
-    surface,
-  );`,
-    `  const surface = defaultThoughtDockAgentSurface(adapterId);
-  const launchReservation = reserveThoughtDockAgentLaunch();
-  if (!launchReservation) {
-    emitThoughtConsoleEvent({
-      kind: "work_agent_launch_blocked",
-      title: "allow Agent launch",
-      detail: "Allow popups for this page, then choose your Agent again.",
-      tone: "warning",
-      eventId: \`work-agent-launch-blocked:${"${adapterId}"}\`,
-    });
-    return;
-  }
-  void prepareThoughtDockRun(
-    thoughtDockState.prompt,
-    adapterId,
-    surface,
-    launchReservation,
-  );`,
+    "prepared Agent choices state",
+    "let thoughtDockAdapterId: ThoughtDockAgentAdapterId = \"codex\";\n",
+    "let thoughtDockAdapterId: ThoughtDockAgentAdapterId = \"codex\";\nlet preparedThoughtDockAgentChoices: PreparedThoughtDockAgentChoices | null = null;\n"
   ],
   [
-    "one-click Agent preparation signature",
-    `const prepareThoughtDockRun = async (
-  prompt: string,
-  adapterId: ThoughtDockAgentAdapterId,
-  surface: ThoughtDockAgentSurface,
-) => {`,
-    `const prepareThoughtDockRun = async (
-  prompt: string,
-  adapterId: ThoughtDockAgentAdapterId,
-  surface: ThoughtDockAgentSurface,
-  launchReservation: ThoughtDockLaunchReservation,
-) => {`,
+    "prepared Agent choice cancellation",
+    "  const cancelAgentSelectAction = (prompt: string) =>\n    dockRailAction(\"cancel\", \"cancel\", \"cancel Agent selection\", () => {\n      setThoughtDockState({ kind: \"ready\", prompt });\n      focusThoughtDockPrompt({ preventScroll: true });\n    }, { handlerKey: `cancel:${hashText(prompt)}` });\n",
+    "  const cancelPreparedAgentChoices = (prompt: string) =>\n    dockRailAction(\"cancel\", \"cancel\", \"cancel Agent selection\", () => {\n      for (const choice of Object.values(preparedThoughtDockAgentChoices ?? {})) {\n        void requestThoughtDockRunCancellation(choice.run).catch(() => {\n          // Local cancellation must not depend on the remote run still being active.\n        });\n      }\n      preparedThoughtDockAgentChoices = null;\n      invalidateRunSession();\n      runState = \"idle\";\n      runInFlight = false;\n      setThoughtDockState({ kind: \"ready\", prompt });\n      focusThoughtDockPrompt({ preventScroll: true });\n    }, { handlerKey: `cancel:${hashText(prompt)}` });\n"
   ],
   [
-    "one-click Agent launch after sealing",
-    `    recordThoughtDockPromptHistory(prompt);
-    launchPreparedThoughtDockAdapter({
-      run,
-      adapterId,
-      payload,
-      runSessionId,
-    });
-  } catch (error) {`,
-    `    recordThoughtDockPromptHistory(prompt);
-    launchPreparedThoughtDockAdapter({
-      run,
-      adapterId,
-      payload,
-      runSessionId,
-      launchReservation,
-    });
-  } catch (error) {
-    closeThoughtDockAgentLaunchReservation(launchReservation);`,
+    "prepared Agent choice rail",
+    "    case \"agent_select\":\n      if (isThoughtMobileAgentSurface()) return mobileAgentGuidance();\n      return {\n        status: \"Choose Agent\",\n        tone: \"idle\",\n        actions: [\n          dockRailAction(\"codex\", thoughtAgentCtaLabel(\"codex\"), thoughtAgentLaunchActionDescription(\"codex\"), () => {\n            void prepareThoughtDockAdapter(\"codex\");\n          }),\n          dockRailAction(\"claude\", thoughtAgentCtaLabel(\"claude\"), thoughtAgentLaunchActionDescription(\"claude\"), () => {\n            void prepareThoughtDockAdapter(\"claude\");\n          }),\n          cancelAgentSelectAction(state.prompt),\n        ],\n        maxActions: 3,\n      };\n",
+    "    case \"agent_select\":\n      if (isThoughtMobileAgentSurface()) return mobileAgentGuidance();\n      return {\n        status: \"Choose Agent\",\n        tone: \"idle\",\n        actions: [\n          dockRailAction(\"codex\", thoughtAgentCtaLabel(\"codex\"), thoughtAgentLaunchActionDescription(\"codex\"), () => {\n            prepareThoughtDockAdapter(\"codex\");\n          }),\n          dockRailAction(\"claude\", thoughtAgentCtaLabel(\"claude\"), thoughtAgentLaunchActionDescription(\"claude\"), () => {\n            prepareThoughtDockAdapter(\"claude\");\n          }),\n          cancelPreparedAgentChoices(state.prompt),\n        ],\n        maxActions: 3,\n      };\n"
   ],
   [
-    "one-click Agent launch implementation",
-    `const launchPreparedThoughtDockAdapter = ({
-  run,
-  adapterId,
-  payload,
-  runSessionId,
-}: {
-  run: AgentDemoRun;
-  adapterId: ThoughtDockAgentAdapterId;
-  payload: ThoughtRunPayload;
-  runSessionId: number;
-}) => {
-  if (!isCurrentRunSession(runSessionId)) {
-    return;
-  }
-  if (launchedThoughtDockRunIds.has(run.runId)) {
-    return;
-  }
-  launchThoughtDockAgentLink(thoughtDockLaunchUrl(run));`,
-    `const launchPreparedThoughtDockAdapter = ({
-  run,
-  adapterId,
-  payload,
-  runSessionId,
-  launchReservation,
-}: {
-  run: AgentDemoRun;
-  adapterId: ThoughtDockAgentAdapterId;
-  payload: ThoughtRunPayload;
-  runSessionId: number;
-  launchReservation: ThoughtDockLaunchReservation;
-}) => {
-  if (!isCurrentRunSession(runSessionId)) {
-    closeThoughtDockAgentLaunchReservation(launchReservation);
-    return;
-  }
-  if (launchedThoughtDockRunIds.has(run.runId)) {
-    closeThoughtDockAgentLaunchReservation(launchReservation);
-    return;
-  }
-  if (!launchThoughtDockAgentLink(thoughtDockLaunchUrl(run), launchReservation)) {
-    runState = "run_failed";
-    runInFlight = false;
-    setThoughtDockState({
-      kind: "failed",
-      message: "The browser closed the Agent launch window.",
-      details: "Choose your Agent again and keep the new launch window open.",
-    });
-    syncInterface();
-    return;
-  }`,
+    "synchronous Agent deep link",
+    "type ThoughtDockLaunchReservation = Window;\n\nconst reserveThoughtDockAgentLaunch = (): ThoughtDockLaunchReservation | null => {\n  const reservation = window.open(\"about:blank\", \"_blank\");\n  if (reservation) {\n    reservation.opener = null;\n  }\n  return reservation;\n};\n\nconst closeThoughtDockAgentLaunchReservation = (\n  reservation: ThoughtDockLaunchReservation | null,\n) => {\n  if (reservation && !reservation.closed) {\n    reservation.close();\n  }\n};\n\nconst launchThoughtDockAgentLink = (\n  url: string,\n  reservation: ThoughtDockLaunchReservation,\n) => {\n  suppressBridgeLaunchUnloadUntil = Date.now() + 3000;\n  if (reservation.closed) {\n    return false;\n  }\n  try {\n    reservation.location.replace(url);\n    return true;\n  } catch {\n    closeThoughtDockAgentLaunchReservation(reservation);\n    return false;\n  }\n};\n\n",
+    "const launchThoughtDockAgentLink = (url: string) => {\n  suppressBridgeLaunchUnloadUntil = Date.now() + 3000;\n  try {\n    const anchor = document.createElement(\"a\");\n    anchor.href = url;\n    anchor.rel = \"noopener noreferrer\";\n    anchor.style.display = \"none\";\n    document.body.appendChild(anchor);\n    anchor.click();\n    window.setTimeout(() => anchor.remove(), 1000);\n    return true;\n  } catch {\n    return false;\n  }\n};\n\n"
   ],
+  [
+    "preparing Agent choices",
+    "const openThoughtDockAgentSelect = () => {\n  if (blockPendingMintMutation()) {\n    return;\n  }\n  const prompt = thoughtDockPrompt.value;\n  if (rejectInvalidThoughtDockPrompt(prompt)) {\n    return;\n  }\n  if (blockMobileThoughtAgentLaunch(prompt)) {\n    return;\n  }\n  setThoughtDockState({ kind: \"agent_select\", prompt });\n};\n\n",
+    "const openThoughtDockAgentSelect = () => {\n  if (blockPendingMintMutation()) {\n    return;\n  }\n  const prompt = thoughtDockPrompt.value;\n  if (rejectInvalidThoughtDockPrompt(prompt)) {\n    return;\n  }\n  if (blockMobileThoughtAgentLaunch(prompt)) {\n    return;\n  }\n  void prepareThoughtDockAgentChoices(prompt);\n};\n\n"
+  ],
+  [
+    "prepared Agent choice lifecycle",
+    "const prepareThoughtDockAdapter = (adapterId: ThoughtDockAgentAdapterId) => {\n  if (blockMobileThoughtAgentLaunch(thoughtDockPrompt.value)) {\n    return;\n  }\n  if (thoughtDockState.kind !== \"agent_select\") {\n    setThoughtDockState({\n      kind: \"failed\",\n      message: \"Agent selection is not ready.\",\n      details: \"Reset and send the prompt to your Agent again.\",\n    });\n    return;\n  }\n  const surface = defaultThoughtDockAgentSurface(adapterId);\n  const launchReservation = reserveThoughtDockAgentLaunch();\n  if (!launchReservation) {\n    emitThoughtConsoleEvent({\n      kind: \"work_agent_launch_blocked\",\n      title: \"allow Agent launch\",\n      detail: \"Allow popups for this page, then choose your Agent again.\",\n      tone: \"warning\",\n      eventId: `work-agent-launch-blocked:${adapterId}`,\n    });\n    return;\n  }\n  void prepareThoughtDockRun(\n    thoughtDockState.prompt,\n    adapterId,\n    surface,\n    launchReservation,\n  );\n};\n\nconst prepareThoughtDockRun = async (\n  prompt: string,\n  adapterId: ThoughtDockAgentAdapterId,\n  surface: ThoughtDockAgentSurface,\n  launchReservation: ThoughtDockLaunchReservation,\n) => {\n  if (blockPendingMintMutation()) {\n    closeThoughtDockAgentLaunchReservation(launchReservation);\n    return;\n  }\n  if (\n    (adapterId === \"codex\" && surface !== \"codex\") ||\n    (adapterId === \"claude\" && surface !== \"claude-cowork\" && surface !== \"claude-code\")\n  ) {\n    closeThoughtDockAgentLaunchReservation(launchReservation);\n    setThoughtDockState({\n      kind: \"failed\",\n      message: \"Agent launch surface does not match its adapter.\",\n    });\n    return;\n  }\n  const adapter = THOUGHT_DOCK_AGENT_ADAPTERS.find((candidate) => candidate.id === adapterId);\n  if (!adapter || !adapter.canDeepLink) {\n    closeThoughtDockAgentLaunchReservation(launchReservation);\n    emitThoughtConsoleEvent({\n      kind: \"work_agent_adapter_unavailable\",\n      title: `${thoughtAgentProductLabel(adapterId)} unavailable`,\n      detail: `${thoughtAgentProductLabel(adapterId)} does not expose a supported App link yet.`,\n      tone: \"warning\",\n      eventId: `work-agent-adapter-unavailable:${adapterId}`,\n    });\n    return;\n  }\n  const runSessionId = startRunSession();\n  lastRunErrorCliLines = [];\n  lastPreviewRetryContext = null;\n  runState = \"running\";\n  runInFlight = true;\n  setWarning(\"\");\n  setStatus(\"\");\n  setThoughtDockState({ kind: \"creating_run\", prompt, adapterId });\n\n  try {\n    const payload = await buildThoughtDockRunPayload(prompt);\n    if (!isCurrentRunSession(runSessionId)) {\n      closeThoughtDockAgentLaunchReservation(launchReservation);\n      return;\n    }\n    const run = await createThoughtDockRun(prompt, payload, adapterId, surface);\n    if (!isCurrentRunSession(runSessionId)) {\n      closeThoughtDockAgentLaunchReservation(launchReservation);\n      return;\n    }\n    recordThoughtDockPromptHistory(prompt);\n    launchPreparedThoughtDockAdapter({\n      run,\n      adapterId,\n      payload,\n      runSessionId,\n      launchReservation,\n    });\n  } catch (error) {\n    if (!isCurrentRunSession(runSessionId)) {\n      closeThoughtDockAgentLaunchReservation(launchReservation);\n      return;\n    }\n    const rawMessage = error instanceof Error ? error.message : \"\";\n    const message = rawMessage.includes(\"spec\") || /failed to fetch|network|connection refused|could not connect|econnrefused/i.test(rawMessage)\n      ? formatThoughtSpecError(error)\n      : rawMessage.replace(/\\bTHOUGHT Bridge\\b/g, \"Agent link\") || \"Could not create Agent run.\";\n    runState = \"run_failed\";\n    runInFlight = false;\n    setThoughtDockState({ kind: \"failed\", message });\n    closeThoughtDockAgentLaunchReservation(launchReservation);\n    syncInterface();\n  }\n};\n\nconst launchPreparedThoughtDockAdapter = ({\n  run,\n  adapterId,\n  payload,\n  runSessionId,\n  launchReservation,\n}: {\n  run: AgentDemoRun;\n  adapterId: ThoughtDockAgentAdapterId;\n  payload: ThoughtRunPayload;\n  runSessionId: number;\n  launchReservation: ThoughtDockLaunchReservation;\n}) => {\n  if (!isCurrentRunSession(runSessionId)) {\n    closeThoughtDockAgentLaunchReservation(launchReservation);\n    return;\n  }\n  if (launchedThoughtDockRunIds.has(run.runId)) {\n    closeThoughtDockAgentLaunchReservation(launchReservation);\n    return;\n  }\n  if (!launchThoughtDockAgentLink(thoughtDockLaunchUrl(run), launchReservation)) {\n    // A browser-level deep-link refusal can happen after the API run was\n    // created. Release that run immediately instead of leaving it counted as\n    // active until the 30-minute claim TTL expires and making the next retry\n    // look like a server rate-limit failure.\n    void requestThoughtDockRunCancellation(run);\n    runState = \"run_failed\";\n    runInFlight = false;\n    setThoughtDockState({\n      kind: \"failed\",\n      message: \"The browser could not open the Agent app.\",\n      details: \"Allow the launch window, then choose your Agent again.\",\n    });\n    syncInterface();\n    return;\n  }\n  launchedThoughtDockRunIds.add(run.runId);\n  thoughtDockRun = run;\n  storeThoughtDockRun(run, adapterId);\n  setThoughtDockState({\n    kind: \"waiting_for_agent\",\n    run,\n    adapterId,\n    message: `${thoughtAgentProductLabel(adapterId)} launch requested.`,\n  });\n  startThoughtDockPolling(run, payload, adapterId, runSessionId);\n};\n\n",
+    "const prepareThoughtDockAdapter = (adapterId: ThoughtDockAgentAdapterId) => {\n  if (blockMobileThoughtAgentLaunch(thoughtDockPrompt.value)) {\n    return;\n  }\n  if (thoughtDockState.kind !== \"agent_select\") {\n    setThoughtDockState({\n      kind: \"failed\",\n      message: \"Agent selection is not ready.\",\n      details: \"Reset and send the prompt to your Agent again.\",\n    });\n    return;\n  }\n  const selected = preparedThoughtDockAgentChoices?.[adapterId];\n  const unusedAdapterId: ThoughtDockAgentAdapterId = adapterId === \"codex\" ? \"claude\" : \"codex\";\n  const unused = preparedThoughtDockAgentChoices?.[unusedAdapterId];\n  if (!selected || !unused) {\n    setThoughtDockState({\n      kind: \"failed\",\n      message: \"Agent choices are not ready.\",\n      details: \"Reset and send the prompt to your Agent again.\",\n    });\n    return;\n  }\n  launchPreparedThoughtDockAdapter(selected, unused);\n};\n\nconst prepareThoughtDockAgentChoices = async (prompt: string) => {\n  if (blockPendingMintMutation()) {\n    return;\n  }\n  const runSessionId = startRunSession();\n  lastRunErrorCliLines = [];\n  lastPreviewRetryContext = null;\n  runState = \"running\";\n  runInFlight = true;\n  setWarning(\"\");\n  setStatus(\"\");\n  preparedThoughtDockAgentChoices = null;\n  setThoughtDockState({ kind: \"creating_run\", prompt, adapterId: \"codex\" });\n\n  try {\n    const payload = await buildThoughtDockRunPayload(prompt);\n    if (!isCurrentRunSession(runSessionId)) {\n      return;\n    }\n    const adapterIds: ThoughtDockAgentAdapterId[] = [\"codex\", \"claude\"];\n    const results = await Promise.allSettled(\n      adapterIds.map(async (adapterId): Promise<PreparedThoughtDockAgentChoice> => {\n        const adapter = THOUGHT_DOCK_AGENT_ADAPTERS.find((candidate) => candidate.id === adapterId);\n        if (!adapter || !adapter.canDeepLink) {\n          throw new Error(`${thoughtAgentProductLabel(adapterId)} does not expose a supported App link yet.`);\n        }\n        const surface = defaultThoughtDockAgentSurface(adapterId);\n        const run = await createThoughtDockRun(prompt, payload, adapterId, surface);\n        return { run, adapterId, payload, runSessionId };\n      }),\n    );\n    const prepared = results.flatMap((result) => result.status === \"fulfilled\" ? [result.value] : []);\n    const failure = results.find((result): result is PromiseRejectedResult => result.status === \"rejected\");\n    if (failure) {\n      for (const choice of prepared) {\n        void requestThoughtDockRunCancellation(choice.run).catch(() => {\n          // Best-effort release of the other pre-created choice.\n        });\n      }\n      throw failure.reason;\n    }\n    if (!isCurrentRunSession(runSessionId)) {\n      for (const choice of prepared) {\n        void requestThoughtDockRunCancellation(choice.run).catch(() => {\n          // A reset won the race; release both unused choices.\n        });\n      }\n      return;\n    }\n    preparedThoughtDockAgentChoices = Object.fromEntries(\n      prepared.map((choice) => [choice.adapterId, choice]),\n    ) as PreparedThoughtDockAgentChoices;\n    recordThoughtDockPromptHistory(prompt);\n    setThoughtDockState({ kind: \"agent_select\", prompt });\n  } catch (error) {\n    if (!isCurrentRunSession(runSessionId)) {\n      return;\n    }\n    const rawMessage = error instanceof Error ? error.message : \"\";\n    const message = rawMessage.includes(\"spec\") || /failed to fetch|network|connection refused|could not connect|econnrefused/i.test(rawMessage)\n      ? formatThoughtSpecError(error)\n      : rawMessage.replace(/\\bTHOUGHT Bridge\\b/g, \"Agent link\") || \"Could not create Agent run.\";\n    runState = \"run_failed\";\n    runInFlight = false;\n    setThoughtDockState({ kind: \"failed\", message });\n    syncInterface();\n  }\n};\n\nconst launchPreparedThoughtDockAdapter = ({\n  run,\n  adapterId,\n  payload,\n  runSessionId,\n}: PreparedThoughtDockAgentChoice, unused: PreparedThoughtDockAgentChoice) => {\n  if (!isCurrentRunSession(runSessionId)) {\n    return;\n  }\n  if (launchedThoughtDockRunIds.has(run.runId)) {\n    return;\n  }\n  if (!launchThoughtDockAgentLink(thoughtDockLaunchUrl(run))) {\n    // A browser-level deep-link refusal can happen after the API run was\n    // created. Release that run immediately instead of leaving it counted as\n    // active until the 30-minute claim TTL expires and making the next retry\n    // look like a server rate-limit failure.\n    void requestThoughtDockRunCancellation(run);\n    runState = \"run_failed\";\n    runInFlight = false;\n    setThoughtDockState({\n      kind: \"failed\",\n      message: \"The browser could not open the Agent app.\",\n      details: \"Allow this site to open the Agent app, then choose your Agent again.\",\n    });\n    syncInterface();\n    return;\n  }\n  launchedThoughtDockRunIds.add(run.runId);\n  preparedThoughtDockAgentChoices = null;\n  void requestThoughtDockRunCancellation(unused.run).catch(() => {\n    // The selected run is already launching; an unused-run cleanup failure must not stop it.\n  });\n  thoughtDockRun = run;\n  storeThoughtDockRun(run, adapterId);\n  setThoughtDockState({\n    kind: \"waiting_for_agent\",\n    run,\n    adapterId,\n    message: `${thoughtAgentProductLabel(adapterId)} launch requested.`,\n  });\n  startThoughtDockPolling(run, payload, adapterId, runSessionId);\n};\n\n"
+  ],
+  [
+    "prepared Agent choice reset",
+    "const resetThoughtDock = (options?: { clearPrompt?: boolean; focusPrompt?: boolean }) => {\n  if (!resetThought()) {\n    return false;\n  }\n  thoughtDockPollGeneration += 1;\n  thoughtDockPollWakeScheduler.clearImmediatePoll();\n  thoughtDockPollWakeScheduler.wake();\n  clearStoredThoughtDockRun();\n  thoughtDockRun = null;\n  thoughtDockAdapterId = \"codex\";\n  runInFlight = false;\n",
+    "const resetThoughtDock = (options?: { clearPrompt?: boolean; focusPrompt?: boolean }) => {\n  if (!resetThought()) {\n    return false;\n  }\n  invalidateRunSession();\n  thoughtDockPollGeneration += 1;\n  thoughtDockPollWakeScheduler.clearImmediatePoll();\n  thoughtDockPollWakeScheduler.wake();\n  clearStoredThoughtDockRun();\n  thoughtDockRun = null;\n  thoughtDockAdapterId = \"codex\";\n  preparedThoughtDockAgentChoices = null;\n  runInFlight = false;\n"
+  ]
 ]);
-*/
+
+const applyCurrentPreparedAgentChoiceDeltas = (source, direction) => {
+  let current = source;
+  const deltas = direction === "restore"
+    ? CURRENT_PREPARED_AGENT_CHOICE_DELTAS
+    : [...CURRENT_PREPARED_AGENT_CHOICE_DELTAS].reverse();
+  for (const [label, previous, prepared] of deltas) {
+    current = replaceExactCount(
+      current,
+      label,
+      direction === "restore" ? prepared : previous,
+      direction === "restore" ? previous : prepared,
+    );
+  }
+  return current;
+};
 
 const applyCurrentAgentLaunchDeltas = (source, direction) => {
   let current = source;
@@ -712,17 +600,6 @@ const applyCurrentAgentLaunchDeltas = (source, direction) => {
   }
   return current;
 };
-
-// The tagged snapshot contains a partial reservation cleanup in the failed
-// preparation branch.  The inverse launch transform restores the normal
-// hidden-anchor handoff, but that orphaned cleanup call has no corresponding
-// reservation declaration in the browser-safe output.  Remove it explicitly:
-// it is only meaningful for the transient about:blank reservation flow.
-const stripCurrentAgentLaunchReservationResidue = (source) =>
-  source.replaceAll(
-    "    closeThoughtDockAgentLaunchReservation(launchReservation);\n",
-    "",
-  );
 
 const layerCurrentAgentRateLimitHandling = (source) => {
   let current = source;
@@ -765,7 +642,7 @@ const fetchThoughtAgentJson = async <T>(url: string, init: RequestInit) => {`,
         detail: "Previous Agent launches are still active. No new Agent task was opened.",
         nextStep: "wait for the earlier run to finish, or reset it before trying again",
         tone: "warning",
-        eventId: \`work-agent-rate-limited:\${adapterId}\`,
+        eventId: "work-agent-rate-limited:choices",
       });
     }
     syncInterface();`,
@@ -1143,7 +1020,8 @@ function layerTightDetailGrouping(source) {
 }
 
 function restoreMainSnapshot(source) {
-  let currentSource = applyCurrentAgentLaunchDeltas(source, "restore");
+  let currentSource = applyCurrentPreparedAgentChoiceDeltas(source, "restore");
+  currentSource = applyCurrentAgentLaunchDeltas(currentSource, "restore");
   currentSource = applyCurrentPinnedBrowserPreviewDeltas(currentSource, "restore");
   currentSource = applyCurrentMobileMainDeltas(currentSource, "restore");
   currentSource = replaceExactCount(
@@ -1582,11 +1460,12 @@ export function loadThoughtDevSnapshotFile(workspaceRoot, fileKey) {
   const currentMobile = applyCurrentMobileMainDeltas(currentGalleryRender, "layer");
   const currentBrowserPreview = applyCurrentPinnedBrowserPreviewDeltas(currentMobile, "layer");
   const currentAgentLaunch = applyCurrentAgentLaunchDeltas(currentBrowserPreview, "layer");
-  const browserSafeAgentLaunch = applyCurrentAgentLaunchDeltas(currentAgentLaunch, "restore");
-  const browserSafeAgentLaunchWithoutReservationResidue =
-    stripCurrentAgentLaunchReservationResidue(browserSafeAgentLaunch);
+  const currentPreparedAgentChoices = applyCurrentPreparedAgentChoiceDeltas(
+    currentAgentLaunch,
+    "layer",
+  );
   const currentAgentRateLimitHandling = layerCurrentAgentRateLimitHandling(
-    browserSafeAgentLaunchWithoutReservationResidue,
+    currentPreparedAgentChoices,
   );
   return layerCurrentAgentLinePreviewUnavailableCopy(currentAgentRateLimitHandling);
 }

@@ -2609,6 +2609,18 @@ const thoughtAgentHandoffSha256 = (sealedTask: string): ThoughtSha256 =>
 type ThoughtDockAgentAdapterId = "codex" | "claude";
 type ThoughtDockAgentSurface = "codex" | "claude-cowork" | "claude-code";
 
+type PreparedThoughtDockAgentChoice = {
+  run: AgentDemoRun;
+  adapterId: ThoughtDockAgentAdapterId;
+  payload: ThoughtRunPayload;
+  runSessionId: number;
+};
+
+type PreparedThoughtDockAgentChoices = Record<
+  ThoughtDockAgentAdapterId,
+  PreparedThoughtDockAgentChoice
+>;
+
 type ThoughtDockAgentAdapter = {
   id: ThoughtDockAgentAdapterId;
   label: string;
@@ -2730,6 +2742,7 @@ let agentDemoPollGeneration = 0;
 let thoughtDockState: ThoughtDockState = { kind: "empty" };
 let thoughtDockRun: AgentDemoRun | null = null;
 let thoughtDockAdapterId: ThoughtDockAgentAdapterId = "codex";
+let preparedThoughtDockAgentChoices: PreparedThoughtDockAgentChoices | null = null;
 const launchedThoughtDockRunIds = new Set<string>();
 let thoughtDockPromptHistory = parseThoughtPromptHistory(
   readSharedBrowserItem(THOUGHT_DOCK_PROMPT_HISTORY_KEY),
@@ -4789,8 +4802,17 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
       }
       resetThoughtDock({ clearPrompt: true, focusPrompt: true });
     }, { handlerKey: run ? `reset:${run.runId}` : "reset" });
-  const cancelAgentSelectAction = (prompt: string) =>
+  const cancelPreparedAgentChoices = (prompt: string) =>
     dockRailAction("cancel", "cancel", "cancel Agent selection", () => {
+      for (const choice of Object.values(preparedThoughtDockAgentChoices ?? {})) {
+        void requestThoughtDockRunCancellation(choice.run).catch(() => {
+          // Local cancellation must not depend on the remote run still being active.
+        });
+      }
+      preparedThoughtDockAgentChoices = null;
+      invalidateRunSession();
+      runState = "idle";
+      runInFlight = false;
       setThoughtDockState({ kind: "ready", prompt });
       focusThoughtDockPrompt({ preventScroll: true });
     }, { handlerKey: `cancel:${hashText(prompt)}` });
@@ -4866,12 +4888,12 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         tone: "idle",
         actions: [
           dockRailAction("codex", thoughtAgentCtaLabel("codex"), thoughtAgentLaunchActionDescription("codex"), () => {
-            void prepareThoughtDockAdapter("codex");
+            prepareThoughtDockAdapter("codex");
           }),
           dockRailAction("claude", thoughtAgentCtaLabel("claude"), thoughtAgentLaunchActionDescription("claude"), () => {
-            void prepareThoughtDockAdapter("claude");
+            prepareThoughtDockAdapter("claude");
           }),
-          cancelAgentSelectAction(state.prompt),
+          cancelPreparedAgentChoices(state.prompt),
         ],
         maxActions: 3,
       };
@@ -5308,37 +5330,18 @@ const requestThoughtDockRunCancellation = async (run: AgentDemoRun) => {
 const thoughtDockLaunchUrl = (run: AgentDemoRun) =>
   run.surface === "codex" ? run.codexUrl : run.claudeUrl;
 
-type ThoughtDockLaunchReservation = Window;
-
-const reserveThoughtDockAgentLaunch = (): ThoughtDockLaunchReservation | null => {
-  const reservation = window.open("about:blank", "_blank");
-  if (reservation) {
-    reservation.opener = null;
-  }
-  return reservation;
-};
-
-const closeThoughtDockAgentLaunchReservation = (
-  reservation: ThoughtDockLaunchReservation | null,
-) => {
-  if (reservation && !reservation.closed) {
-    reservation.close();
-  }
-};
-
-const launchThoughtDockAgentLink = (
-  url: string,
-  reservation: ThoughtDockLaunchReservation,
-) => {
+const launchThoughtDockAgentLink = (url: string) => {
   suppressBridgeLaunchUnloadUntil = Date.now() + 3000;
-  if (reservation.closed) {
-    return false;
-  }
   try {
-    reservation.location.replace(url);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.rel = "noopener noreferrer";
+    anchor.style.display = "none";
+    document.body.appendChild(anchor);
+    anchor.click();
+    window.setTimeout(() => anchor.remove(), 1000);
     return true;
   } catch {
-    closeThoughtDockAgentLaunchReservation(reservation);
     return false;
   }
 };
@@ -5378,7 +5381,7 @@ const openThoughtDockAgentSelect = () => {
   if (blockMobileThoughtAgentLaunch(prompt)) {
     return;
   }
-  setThoughtDockState({ kind: "agent_select", prompt });
+  void prepareThoughtDockAgentChoices(prompt);
 };
 
 const prepareThoughtDockAdapter = (adapterId: ThoughtDockAgentAdapterId) => {
@@ -5393,57 +5396,22 @@ const prepareThoughtDockAdapter = (adapterId: ThoughtDockAgentAdapterId) => {
     });
     return;
   }
-  const surface = defaultThoughtDockAgentSurface(adapterId);
-  const launchReservation = reserveThoughtDockAgentLaunch();
-  if (!launchReservation) {
-    emitThoughtConsoleEvent({
-      kind: "work_agent_launch_blocked",
-      title: "allow Agent launch",
-      detail: "Allow popups for this page, then choose your Agent again.",
-      tone: "warning",
-      eventId: `work-agent-launch-blocked:${adapterId}`,
-    });
-    return;
-  }
-  void prepareThoughtDockRun(
-    thoughtDockState.prompt,
-    adapterId,
-    surface,
-    launchReservation,
-  );
-};
-
-const prepareThoughtDockRun = async (
-  prompt: string,
-  adapterId: ThoughtDockAgentAdapterId,
-  surface: ThoughtDockAgentSurface,
-  launchReservation: ThoughtDockLaunchReservation,
-) => {
-  if (blockPendingMintMutation()) {
-    closeThoughtDockAgentLaunchReservation(launchReservation);
-    return;
-  }
-  if (
-    (adapterId === "codex" && surface !== "codex") ||
-    (adapterId === "claude" && surface !== "claude-cowork" && surface !== "claude-code")
-  ) {
-    closeThoughtDockAgentLaunchReservation(launchReservation);
+  const selected = preparedThoughtDockAgentChoices?.[adapterId];
+  const unusedAdapterId: ThoughtDockAgentAdapterId = adapterId === "codex" ? "claude" : "codex";
+  const unused = preparedThoughtDockAgentChoices?.[unusedAdapterId];
+  if (!selected || !unused) {
     setThoughtDockState({
       kind: "failed",
-      message: "Agent launch surface does not match its adapter.",
+      message: "Agent choices are not ready.",
+      details: "Reset and send the prompt to your Agent again.",
     });
     return;
   }
-  const adapter = THOUGHT_DOCK_AGENT_ADAPTERS.find((candidate) => candidate.id === adapterId);
-  if (!adapter || !adapter.canDeepLink) {
-    closeThoughtDockAgentLaunchReservation(launchReservation);
-    emitThoughtConsoleEvent({
-      kind: "work_agent_adapter_unavailable",
-      title: `${thoughtAgentProductLabel(adapterId)} unavailable`,
-      detail: `${thoughtAgentProductLabel(adapterId)} does not expose a supported App link yet.`,
-      tone: "warning",
-      eventId: `work-agent-adapter-unavailable:${adapterId}`,
-    });
+  launchPreparedThoughtDockAdapter(selected, unused);
+};
+
+const prepareThoughtDockAgentChoices = async (prompt: string) => {
+  if (blockPendingMintMutation()) {
     return;
   }
   const runSessionId = startRunSession();
@@ -5453,30 +5421,51 @@ const prepareThoughtDockRun = async (
   runInFlight = true;
   setWarning("");
   setStatus("");
-  setThoughtDockState({ kind: "creating_run", prompt, adapterId });
+  preparedThoughtDockAgentChoices = null;
+  setThoughtDockState({ kind: "creating_run", prompt, adapterId: "codex" });
 
   try {
     const payload = await buildThoughtDockRunPayload(prompt);
     if (!isCurrentRunSession(runSessionId)) {
-      closeThoughtDockAgentLaunchReservation(launchReservation);
       return;
     }
-    const run = await createThoughtDockRun(prompt, payload, adapterId, surface);
+    const adapterIds: ThoughtDockAgentAdapterId[] = ["codex", "claude"];
+    const results = await Promise.allSettled(
+      adapterIds.map(async (adapterId): Promise<PreparedThoughtDockAgentChoice> => {
+        const adapter = THOUGHT_DOCK_AGENT_ADAPTERS.find((candidate) => candidate.id === adapterId);
+        if (!adapter || !adapter.canDeepLink) {
+          throw new Error(`${thoughtAgentProductLabel(adapterId)} does not expose a supported App link yet.`);
+        }
+        const surface = defaultThoughtDockAgentSurface(adapterId);
+        const run = await createThoughtDockRun(prompt, payload, adapterId, surface);
+        return { run, adapterId, payload, runSessionId };
+      }),
+    );
+    const prepared = results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
+    const failure = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
+    if (failure) {
+      for (const choice of prepared) {
+        void requestThoughtDockRunCancellation(choice.run).catch(() => {
+          // Best-effort release of the other pre-created choice.
+        });
+      }
+      throw failure.reason;
+    }
     if (!isCurrentRunSession(runSessionId)) {
-      closeThoughtDockAgentLaunchReservation(launchReservation);
+      for (const choice of prepared) {
+        void requestThoughtDockRunCancellation(choice.run).catch(() => {
+          // A reset won the race; release both unused choices.
+        });
+      }
       return;
     }
+    preparedThoughtDockAgentChoices = Object.fromEntries(
+      prepared.map((choice) => [choice.adapterId, choice]),
+    ) as PreparedThoughtDockAgentChoices;
     recordThoughtDockPromptHistory(prompt);
-    launchPreparedThoughtDockAdapter({
-      run,
-      adapterId,
-      payload,
-      runSessionId,
-      launchReservation,
-    });
+    setThoughtDockState({ kind: "agent_select", prompt });
   } catch (error) {
     if (!isCurrentRunSession(runSessionId)) {
-      closeThoughtDockAgentLaunchReservation(launchReservation);
       return;
     }
     const rawMessage = error instanceof Error ? error.message : "";
@@ -5486,7 +5475,6 @@ const prepareThoughtDockRun = async (
     runState = "run_failed";
     runInFlight = false;
     setThoughtDockState({ kind: "failed", message });
-    closeThoughtDockAgentLaunchReservation(launchReservation);
     syncInterface();
   }
 };
@@ -5496,23 +5484,14 @@ const launchPreparedThoughtDockAdapter = ({
   adapterId,
   payload,
   runSessionId,
-  launchReservation,
-}: {
-  run: AgentDemoRun;
-  adapterId: ThoughtDockAgentAdapterId;
-  payload: ThoughtRunPayload;
-  runSessionId: number;
-  launchReservation: ThoughtDockLaunchReservation;
-}) => {
+}: PreparedThoughtDockAgentChoice, unused: PreparedThoughtDockAgentChoice) => {
   if (!isCurrentRunSession(runSessionId)) {
-    closeThoughtDockAgentLaunchReservation(launchReservation);
     return;
   }
   if (launchedThoughtDockRunIds.has(run.runId)) {
-    closeThoughtDockAgentLaunchReservation(launchReservation);
     return;
   }
-  if (!launchThoughtDockAgentLink(thoughtDockLaunchUrl(run), launchReservation)) {
+  if (!launchThoughtDockAgentLink(thoughtDockLaunchUrl(run))) {
     // A browser-level deep-link refusal can happen after the API run was
     // created. Release that run immediately instead of leaving it counted as
     // active until the 30-minute claim TTL expires and making the next retry
@@ -5523,12 +5502,16 @@ const launchPreparedThoughtDockAdapter = ({
     setThoughtDockState({
       kind: "failed",
       message: "The browser could not open the Agent app.",
-      details: "Allow the launch window, then choose your Agent again.",
+      details: "Allow this site to open the Agent app, then choose your Agent again.",
     });
     syncInterface();
     return;
   }
   launchedThoughtDockRunIds.add(run.runId);
+  preparedThoughtDockAgentChoices = null;
+  void requestThoughtDockRunCancellation(unused.run).catch(() => {
+    // The selected run is already launching; an unused-run cleanup failure must not stop it.
+  });
   thoughtDockRun = run;
   storeThoughtDockRun(run, adapterId);
   setThoughtDockState({
@@ -6152,12 +6135,14 @@ const resetThoughtDock = (options?: { clearPrompt?: boolean; focusPrompt?: boole
   if (!resetThought()) {
     return false;
   }
+  invalidateRunSession();
   thoughtDockPollGeneration += 1;
   thoughtDockPollWakeScheduler.clearImmediatePoll();
   thoughtDockPollWakeScheduler.wake();
   clearStoredThoughtDockRun();
   thoughtDockRun = null;
   thoughtDockAdapterId = "codex";
+  preparedThoughtDockAgentChoices = null;
   runInFlight = false;
   if (options?.clearPrompt) {
     sessionState.prompt = "";
