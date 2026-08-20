@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "b90a21722979dec7196d7f0485b4b747d6b563e1d7b93612b354bebf845fd321",
+  "sourceTreeSha256": "eb5cf55d893314609b9916a7faafccabe483841f34ae07a04b6853d664e23f64",
   "groups": [
     {
       "id": "public-docs",
@@ -311,7 +311,7 @@
       "title": "Public routes and read-only resource contracts",
       "owner": "inshell.art shared App infrastructure",
       "reason": "The Agent index advertises these routes and their read-only semantics.",
-      "groupSha256": "bee08f6f0584aa47ea36db5096ea89ed12e66bd7b2b9fe6d7095da0313f67d7b",
+      "groupSha256": "a566e905d3622778b0d17cd2d53be655751175c10c5ad727629bc6708d94aa6e",
       "files": [
         {
           "path": "apps/home/public/_headers",
@@ -450,8 +450,8 @@
         },
         {
           "path": "functions/api/thought-agent/v1/shared.ts",
-          "byteLength": 59629,
-          "sha256": "5543619e1cf306c3f69bda5f78c328129e4c021b90287580f330f7d69722f5fc"
+          "byteLength": 60340,
+          "sha256": "baa3e90898db33d0fd34035ca9acc4847b6d13c3400f727cdab57ac951900b10"
         },
         {
           "path": "functions/api/thought-agent/v1/thought-spec-source.ts",
@@ -663,7 +663,7 @@
       "title": "Shared product runtime",
       "owner": "inshell.art shared App infrastructure",
       "reason": "Shared Ethereum, surface, utility, and Agent-protocol code used by public routes.",
-      "groupSha256": "65162479797fe9812fe1b89c2f7469371ce371cd7cd3fddc9e281af46fde6948",
+      "groupSha256": "93d7f884ed966f72150efceb5f559c52943f73415de5a0a987eb41571fbcb510",
       "files": [
         {
           "path": "packages/ethereum/src/abi.ts",
@@ -762,8 +762,8 @@
         },
         {
           "path": "packages/thought-agent-protocol/src/index.ts",
-          "byteLength": 26620,
-          "sha256": "4d6050ec86b6e35acebbc0fc04713a446b5460db23370d44f7d6356e6a7356dc"
+          "byteLength": 26688,
+          "sha256": "3d7907f13409d52b19af278e9518ce289775905d5c21c5a9b4534890ace34a36"
         },
         {
           "path": "packages/thought-agent-protocol/src/release.generated.ts",
@@ -999,7 +999,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "66e84d9f9635457e24e57b74617ce548f705ddd1808264455c8f66474c437705",
+      "groupSha256": "3984eeff029128e4ed0d8e1c8379e6e435580fbaaffd4e2264ad3faac67ff551",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1028,8 +1028,8 @@
         },
         {
           "path": "apps/thought/scripts/dev-index-snapshot.mjs",
-          "byteLength": 66594,
-          "sha256": "126ac02f50d7002095ee8f0cc34d2a311d2e3c9956efea8a8754769d934851d3"
+          "byteLength": 81421,
+          "sha256": "22b2c72a332255a40424e44d54edbe2c33e8412c2555b49e9555b8942e315bc8"
         },
         {
           "path": "apps/thought/scripts/mock-thought-v2-anvil-signer.ts",
@@ -1058,8 +1058,8 @@
         },
         {
           "path": "apps/thought/src/main.ts",
-          "byteLength": 747118,
-          "sha256": "b61a5e0beb9126e4c3c5eeea10923fdd34f41239de468d823f45e6d8287410c7"
+          "byteLength": 747365,
+          "sha256": "fbadd3a2dc8f5c4528e62a8c5e6be8c2d137e7423d1b365146e3329ce0d98d09"
         },
         {
           "path": "apps/thought/src/rpc-provider.ts",

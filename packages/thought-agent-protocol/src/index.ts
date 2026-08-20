@@ -82,6 +82,7 @@ export {
 
 export const THOUGHT_AGENT_PROTOCOL_VERSION =
   THOUGHT_V2_PROTOCOL_RELEASE.agentRunId;
+export const THOUGHT_AGENT_UNBOUND_ADAPTER_ID = "unbound" as const;
 export const THOUGHT_AGENT_INPUT_VERSION =
   "inshell.thought.agent-input.v2" as const;
 export const THOUGHT_AGENT_RECEIPT_VERSION =

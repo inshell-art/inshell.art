@@ -35,7 +35,15 @@ const screenshotPath = process.env.THOUGHT_BROWSER_CANARY_SCREENSHOT ||
 const promptLine = "Can one release remain one release?";
 
 const installBrowserReleaseCanaryFunction = `function (promptLine) {
-  window.__thoughtBrowserReleaseCanary = { create: null, createCount: 0, launchUrl: "", statusStates: [] };
+  window.__thoughtBrowserReleaseCanary = {
+    create: null,
+    createCount: 0,
+    createRequest: null,
+    launchUrl: "",
+    launchUserActivation: false,
+    statusStates: [],
+    windowOpenCount: 0
+  };
   const originalFetch = window.fetch.bind(window);
   window.fetch = async (...args) => {
     const response = await originalFetch(...args);
@@ -46,6 +54,7 @@ const installBrowserReleaseCanaryFunction = `function (promptLine) {
       const method = String(init.method || (input instanceof Request ? input.method : "GET")).toUpperCase();
       if (method === "POST" && /\\/api\\/thought-agent\\/v2\\/runs$/.test(new URL(url, location.href).pathname)) {
         window.__thoughtBrowserReleaseCanary.createCount += 1;
+        window.__thoughtBrowserReleaseCanary.createRequest = JSON.parse(String(init.body || "null"));
         window.__thoughtBrowserReleaseCanary.create = await response.clone().json();
       }
       if (method === "GET" && /\\/api\\/thought-agent\\/v2\\/runs\\/tar_[^/]+$/.test(new URL(url, location.href).pathname)) {
@@ -57,10 +66,16 @@ const installBrowserReleaseCanaryFunction = `function (promptLine) {
     }
     return response;
   };
+  const originalWindowOpen = window.open.bind(window);
+  window.open = (...args) => {
+    window.__thoughtBrowserReleaseCanary.windowOpenCount += 1;
+    return originalWindowOpen(...args);
+  };
   const originalAnchorClick = HTMLAnchorElement.prototype.click;
   HTMLAnchorElement.prototype.click = function () {
     if (/^(?:claude|codex):/.test(this.href)) {
       window.__thoughtBrowserReleaseCanary.launchUrl = this.href;
+      window.__thoughtBrowserReleaseCanary.launchUserActivation = Boolean(navigator.userActivation?.isActive);
       return;
     }
     return originalAnchorClick.call(this);
@@ -195,6 +210,7 @@ const callFunctionOn = async <T>(
   objectId: string,
   functionDeclaration: string,
   argumentValues: unknown[] = [],
+  userGesture = false,
 ): Promise<T> => {
   const response = await client.send("Runtime.callFunctionOn", {
     objectId,
@@ -202,6 +218,7 @@ const callFunctionOn = async <T>(
     arguments: argumentValues.map((value) => ({ value })),
     awaitPromise: true,
     returnByValue: true,
+    userGesture,
   });
   if (response.exceptionDetails) {
     throw new Error(response.exceptionDetails.exception?.description || "Browser function call failed.");
@@ -385,8 +402,13 @@ try {
   );
   assert.equal(
     await evaluate<number>(client, "window.__thoughtBrowserReleaseCanary.createCount"),
-    0,
-    "opening the Agent chooser must not create any remote runs",
+    1,
+    "opening the Agent chooser must create exactly one adapter-neutral run",
+  );
+  assert.equal(
+    await evaluate<string>(client, "window.__thoughtBrowserReleaseCanary.createRequest.requestedAgent.adapterId"),
+    "unbound",
+    "the chooser run must remain adapter-neutral until an Agent claims it",
   );
   assert.equal(
     await callFunctionOn<boolean>(
@@ -405,13 +427,17 @@ try {
     browserGlobalObjectId,
     clickAgentActionFunction,
     [agentActionLabel, product],
+    true,
   );
 
   const browserCapture = await waitFor<{
     create: typeof created;
     createCount: number;
+    createRequest: { requestedAgent?: { adapterId?: string } } | null;
     launchUrl: string;
+    launchUserActivation: boolean;
     storedLaunch: string | null;
+    windowOpenCount: number;
     captureError?: string;
   }>(
     client,
@@ -423,7 +449,10 @@ try {
     "browser-generated Agent handoff",
   );
   assert.equal(browserCapture.captureError, undefined);
-  assert.equal(browserCapture.createCount, 1, "one Agent selection must create exactly one remote run");
+  assert.equal(browserCapture.createCount, 1, "choosing an Agent must not create a second remote run");
+  assert.equal(browserCapture.createRequest?.requestedAgent?.adapterId, "unbound");
+  assert.equal(browserCapture.windowOpenCount, 0, "Agent launch must not reserve or flash a blank browser tab");
+  assert.equal(browserCapture.launchUserActivation, true, "Agent launch must retain the final chooser click's user activation");
   created = browserCapture.create;
   assert.ok(created);
   assert.deepEqual(created.controlContract, {
@@ -512,6 +541,7 @@ try {
     state: string;
     request?: {
       intent?: string;
+      authority?: unknown;
       spec?: {
         id?: string;
         contractSpecId?: string;

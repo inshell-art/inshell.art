@@ -4,6 +4,7 @@ import {
   THOUGHT_AGENT_OUTPUT_SCHEMA,
   THOUGHT_AGENT_CLAIM_TTL_MS,
   THOUGHT_AGENT_PROTOCOL_VERSION,
+  THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
   THOUGHT_AGENT_RECEIPT_VERSION,
   THOUGHT_AGENT_RUN_AUTHORITY,
   THOUGHT_AGENT_RUN_TTL_MS,
@@ -209,9 +210,13 @@ export async function createRun(ctx: ThoughtAgentRouteContext): Promise<Response
     if (body.specId !== THOUGHT_AGENT_REGISTERED_SPEC_ID) {
       throw new HttpProtocolError(404, "SPEC_NOT_FOUND", "THOUGHT spec not found.");
     }
+    const unboundV2Chooser =
+      body.requestedAgent.adapterId === THOUGHT_AGENT_UNBOUND_ADAPTER_ID &&
+      thoughtAgentApiBase(ctx.request) === "/api/thought-agent/v2";
     if (
       body.requestedAgent.adapterId !== "codex" &&
-      body.requestedAgent.adapterId !== "claude"
+      body.requestedAgent.adapterId !== "claude" &&
+      !unboundV2Chooser
     ) {
       throw new HttpProtocolError(
         400,
@@ -375,7 +380,11 @@ export async function claimRun(ctx: ThoughtAgentRouteContext): Promise<Response>
     assertProtocolVersion(body.protocolVersion);
     const bridge = parseBridgeInfo(body.bridge);
     const adapter = parseAdapterInfo(body.adapter);
-    if (adapter.adapterId !== current.requested_adapter_id) {
+    const adapterCanBindRun =
+      thoughtAgentApiBase(ctx.request) === "/api/thought-agent/v2" &&
+      current.requested_adapter_id === THOUGHT_AGENT_UNBOUND_ADAPTER_ID &&
+      (adapter.adapterId === "codex" || adapter.adapterId === "claude");
+    if (!adapterCanBindRun && adapter.adapterId !== current.requested_adapter_id) {
       throw new HttpProtocolError(
         409,
         "ADAPTER_MISMATCH",
@@ -397,6 +406,7 @@ export async function claimRun(ctx: ThoughtAgentRouteContext): Promise<Response>
       bridgeTokenHash,
       JSON.stringify(bridge),
       JSON.stringify(adapter),
+      adapter.adapterId,
       updatedAt,
       runExpiresAt,
     );
@@ -407,6 +417,10 @@ export async function claimRun(ctx: ThoughtAgentRouteContext): Promise<Response>
         "THOUGHT Agent run is already claimed.",
       );
     }
+    const boundRun = {
+      ...current,
+      requested_adapter_id: adapter.adapterId,
+    };
     return protocolJson(ctx, 200, {
       runId: current.run_id,
       state: "claimed",
@@ -414,8 +428,8 @@ export async function claimRun(ctx: ThoughtAgentRouteContext): Promise<Response>
       runExpiresAt,
       request:
         thoughtAgentApiBase(ctx.request) === "/api/thought-agent/v2"
-          ? controlRequestPayload(current)
-          : creativeRequestPayload(current),
+          ? controlRequestPayload(boundRun)
+          : creativeRequestPayload(boundRun),
     });
   });
 }
@@ -1032,12 +1046,13 @@ async function updateClaimed(
   bridgeTokenHash: ThoughtSha256,
   bridgeMetadataJson: string,
   adapterMetadataJson: string,
+  requestedAdapterId: string,
   updatedAt: string,
   runExpiresAt: string,
 ): Promise<boolean> {
   const result = await db
     .prepare(
-      "UPDATE thought_agent_runs SET state = 'claimed', launch_token_hash = NULL, bridge_token_hash = ?3, bridge_metadata_json = ?4, adapter_metadata_json = ?5, updated_at = ?6, run_expires_at = ?7 WHERE run_id = ?1 AND state = 'created' AND launch_token_hash = ?2 AND bridge_token_hash IS NULL",
+      "UPDATE thought_agent_runs SET state = 'claimed', launch_token_hash = NULL, bridge_token_hash = ?3, bridge_metadata_json = ?4, adapter_metadata_json = ?5, requested_adapter_id = ?6, updated_at = ?7, run_expires_at = ?8 WHERE run_id = ?1 AND state = 'created' AND launch_token_hash = ?2 AND bridge_token_hash IS NULL",
     )
     .bind(
       runId,
@@ -1045,6 +1060,7 @@ async function updateClaimed(
       bridgeTokenHash,
       bridgeMetadataJson,
       adapterMetadataJson,
+      requestedAdapterId,
       updatedAt,
       runExpiresAt,
     )

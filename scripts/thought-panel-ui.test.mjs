@@ -588,13 +588,13 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
   assert.doesNotMatch(restoredMain, /The App could not prepare the artwork preview\./);
   assert.match(
     restoredMain,
-    /const prepareThoughtDockAgentSelection = async \(prompt: string\) => \{[\s\S]*?const payload = await buildThoughtDockRunPayload\(prompt\)[\s\S]*?preparedThoughtDockAgentSelection = \{ prompt, payload, runSessionId \};[\s\S]*?setThoughtDockState\(\{ kind: "agent_select", prompt \}\)/,
-    "the chooser must prepare only the sealed payload before Agent controls become clickable",
+    /const prepareThoughtDockAgentSelection = async \(prompt: string\) => \{[\s\S]*?const payload = await buildThoughtDockRunPayload\(prompt\)[\s\S]*?const run = await createThoughtDockRun\(prompt, payload\)[\s\S]*?preparedThoughtDockAgentSelection = \{ prompt, payload, run, runSessionId \};[\s\S]*?setThoughtDockState\(\{ kind: "agent_select", prompt \}\)/,
+    "the chooser must prepare exactly one neutral run before Agent controls become clickable",
   );
   assert.match(
     restoredMain,
-    /const prepareThoughtDockAdapter =[\s\S]*?void prepareThoughtDockRun\(selection, adapterId\)/,
-    "the final Agent-choice click must create only the selected adapter-bound run",
+    /const prepareThoughtDockAdapter =[\s\S]*?prepareThoughtDockRun\(selection, adapterId\)/,
+    "the final Agent-choice click must synchronously launch the selected adapter",
   );
   assert.doesNotMatch(restoredMain, /Promise\.allSettled/);
   assert.doesNotMatch(restoredMain, /case "agent_task_ready"/);
@@ -1898,7 +1898,7 @@ test("console rendering is read-only and mint attempts survive navigation", () =
 });
 
 test("Agent launch errors keep their actionable message in Console", () => {
-  const prepareStart = thoughtMain.indexOf("const prepareThoughtDockRun = async");
+  const prepareStart = thoughtMain.indexOf("const prepareThoughtDockAgentSelection = async");
   const prepareEnd = thoughtMain.indexOf("const updateThoughtDockRunState =", prepareStart);
   const prepareBody = thoughtMain.slice(prepareStart, prepareEnd);
 
@@ -1906,14 +1906,14 @@ test("Agent launch errors keep their actionable message in Console", () => {
   assert.doesNotMatch(prepareBody, /details:\s*"Try again\."/);
 });
 
-test("Agent selection prepares one payload, creates one selected run, and retains the chooser on 429", () => {
+test("Agent selection prepares one neutral run and launches the selected Agent synchronously", () => {
   const renderedThoughtMain = loadThoughtDevSnapshotFile(repoRoot, "main");
   const selectStart = thoughtMain.indexOf("const openThoughtDockAgentSelect = () =>");
   const prepareStart = thoughtMain.indexOf("const prepareThoughtDockAgentSelection = async", selectStart);
-  const prepareEnd = thoughtMain.indexOf("const prepareThoughtDockRun = async", prepareStart);
+  const prepareEnd = thoughtMain.indexOf("const prepareThoughtDockRun = (", prepareStart);
   const selectBody = thoughtMain.slice(selectStart, prepareStart);
   const prepareBody = thoughtMain.slice(prepareStart, prepareEnd);
-  const runStart = renderedThoughtMain.indexOf("const prepareThoughtDockRun = async");
+  const runStart = renderedThoughtMain.indexOf("const prepareThoughtDockRun = (");
   const runEnd = renderedThoughtMain.indexOf("const updateThoughtDockRunState =", runStart);
   const runBody = renderedThoughtMain.slice(runStart, runEnd);
 
@@ -1921,19 +1921,20 @@ test("Agent selection prepares one payload, creates one selected run, and retain
   assert.match(prepareBody, /const payload = await buildThoughtDockRunPayload\(prompt\)/);
   assert.match(
     prepareBody,
-    /preparedThoughtDockAgentSelection = \{ prompt, payload, runSessionId \};[\s\S]*?setThoughtDockState\(\{ kind: "agent_select", prompt \}\)/,
+    /const run = await createThoughtDockRun\(prompt, payload\)[\s\S]*?preparedThoughtDockAgentSelection = \{ prompt, payload, run, runSessionId \};[\s\S]*?setThoughtDockState\(\{ kind: "agent_select", prompt \}\)/,
   );
-  assert.doesNotMatch(prepareBody, /createThoughtDockRun|Promise\.allSettled/);
   assert.equal(
-    [...runBody.matchAll(/createThoughtDockRun\(prompt, payload, adapterId, surface\)/g)].length,
+    [...prepareBody.matchAll(/createThoughtDockRun\(prompt, payload\)/g)].length,
     1,
-    "choosing one Agent must create exactly one adapter-bound run",
+    "opening the chooser must create exactly one neutral run",
   );
   assert.match(
     thoughtMain,
-    /requestedAgent:\s*\{\s*adapterId,\s*model: null,/,
-    "the backend run is bound to the selected adapter before launch",
+    /requestedAgent:\s*\{\s*adapterId: THOUGHT_AGENT_UNBOUND_ADAPTER_ID,\s*model: null,[\s\S]*?surface: "thought-dock:chooser"/,
+    "the prepared backend run remains neutral until the selected Agent claims it",
   );
+  assert.doesNotMatch(runBody, /\bawait\b|createThoughtDockRun|Promise\.allSettled/);
+  assert.match(runBody, /const run = bindPreparedThoughtDockRun\(preparedRun, adapterId\)/);
   assert.match(runBody, /launchThoughtDockAgentLink\(thoughtDockLaunchUrl\(run\)\)/);
   assert.match(runBody, /launchedThoughtDockRunIds\.has\(run\.runId\)/);
   assert.match(runBody, /launchedThoughtDockRunIds\.add\(run\.runId\)/);
@@ -1953,12 +1954,12 @@ test("Agent selection prepares one payload, creates one selected run, and retain
     /closeThoughtDockAgentLaunchReservation/,
     "the browser-safe layer must not retain cleanup calls for the removed popup reservation",
   );
-  assert.match(adapterBody, /const selection = preparedThoughtDockAgentSelection;[\s\S]*?void prepareThoughtDockRun\(selection, adapterId\)/);
-  assert.doesNotMatch(adapterBody, /\bawait\b|Promise\.allSettled|createThoughtDockRun/);
+  assert.match(adapterBody, /const selection = preparedThoughtDockAgentSelection;[\s\S]*?prepareThoughtDockRun\(selection, adapterId\)/);
+  assert.doesNotMatch(adapterBody, /\bawait\b|\bvoid prepareThoughtDockRun|Promise\.allSettled|createThoughtDockRun/);
   assert.match(
-    runBody,
-    /error\.name === "ThoughtAgentHttpError"[\s\S]*?status === 429[\s\S]*?setThoughtDockState\(\{ kind: "agent_select", prompt \}\)[\s\S]*?title: "Agent run limit reached"/,
-    "a rate-limited create must preserve the chooser instead of collapsing to reset",
+    prepareBody,
+    /error\.name === "ThoughtAgentHttpError"[\s\S]*?status === 429[\s\S]*?setThoughtDockState\(\{ kind: "ready", prompt \}\)[\s\S]*?title: "Agent run limit reached"/,
+    "a rate-limited neutral create must return to the send action instead of exposing a dead chooser",
   );
   const railStart = thoughtMain.indexOf("const getThoughtDockRailView =");
   const waitingRailStart = thoughtMain.indexOf('case "waiting_for_agent":', railStart);
@@ -2149,7 +2150,11 @@ test("Agent CTAs use product names and Claude launches Code while retaining Cowo
   assert.doesNotMatch(indexHtml, /Run this task.+On your computer/);
   assert.match(
     thoughtMain,
-    /const createThoughtDockRun = async[\s\S]*?surface: ThoughtDockAgentSurface[\s\S]*?requestedAgent: \{\s*adapterId,[\s\S]*?client: \{\s*surface: surface === "codex" \? "thought-dock" : `thought-dock:\$\{surface\}`/,
+    /const createThoughtDockRun = async[\s\S]*?Promise<PreparedThoughtDockRun>[\s\S]*?requestedAgent: \{\s*adapterId: THOUGHT_AGENT_UNBOUND_ADAPTER_ID,[\s\S]*?client: \{\s*surface: "thought-dock:chooser"/,
+  );
+  assert.match(
+    thoughtMain,
+    /const bindPreparedThoughtDockRun =[\s\S]*?const surface = defaultThoughtDockAgentSurface\(adapterId\)[\s\S]*?buildAgentDemoSealedTask\(run, adapterId\)/,
   );
 });
 
@@ -2199,8 +2204,8 @@ test("Work prompt exposes persistent terminal-style history navigation", () => {
   assert.match(thoughtMain, /THOUGHT_DOCK_PROMPT_HISTORY_LIMIT = 50/);
   assert.match(
     thoughtMain,
-    /const prepareThoughtDockRun = async[\s\S]*?createThoughtDockRun\(prompt, payload, adapterId, surface\)[\s\S]*?recordThoughtDockPromptHistory\(prompt\)/,
-    "only the accepted selected Agent run should record its exact prompt",
+    /const prepareThoughtDockRun = \([\s\S]*?const run = bindPreparedThoughtDockRun\(preparedRun, adapterId\)[\s\S]*?recordThoughtDockPromptHistory\(prompt\)/,
+    "only a synchronously launched selected Agent should record its exact prompt",
   );
   assert.match(
     thoughtMain,

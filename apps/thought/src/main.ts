@@ -53,6 +53,7 @@ import {
   THOUGHT_AGENT_POLL_TIMEOUT_MS,
   THOUGHT_AGENT_RESULT_VERSION,
   THOUGHT_AGENT_PROTOCOL_VERSION,
+  THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
   THOUGHT_SHA256_PREFIX,
   THOUGHT_V2_PROTOCOL_RELEASE,
   buildThoughtCodexTask,
@@ -2609,9 +2610,15 @@ const thoughtAgentHandoffSha256 = (sealedTask: string): ThoughtSha256 =>
 type ThoughtDockAgentAdapterId = "codex" | "claude";
 type ThoughtDockAgentSurface = "codex" | "claude-cowork" | "claude-code";
 
+type PreparedThoughtDockRun = Omit<
+  AgentDemoRun,
+  "surface" | "codexUrl" | "claudeUrl" | "sealedTask" | "handoffSha256"
+>;
+
 type PreparedThoughtDockAgentSelection = {
   prompt: string;
   payload: ThoughtRunPayload;
+  run: PreparedThoughtDockRun;
   runSessionId: number;
 };
 
@@ -4798,7 +4805,13 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
     }, { handlerKey: run ? `reset:${run.runId}` : "reset" });
   const cancelPreparedAgentSelection = (prompt: string) =>
     dockRailAction("cancel", "cancel", "cancel Agent selection", () => {
+      const prepared = preparedThoughtDockAgentSelection;
       preparedThoughtDockAgentSelection = null;
+      if (prepared) {
+        void requestThoughtDockRunCancellation(prepared.run).catch(() => {
+          // The local chooser can still close if the unused run is already terminal.
+        });
+      }
       invalidateRunSession();
       runState = "idle";
       runInFlight = false;
@@ -5227,9 +5240,7 @@ const buildThoughtDockRunPayload = async (prompt: string) => {
 const createThoughtDockRun = async (
   prompt: string,
   payload: ThoughtRunPayload,
-  adapterId: ThoughtDockAgentAdapterId,
-  surface: ThoughtDockAgentSurface,
-): Promise<AgentDemoRun> => {
+): Promise<PreparedThoughtDockRun> => {
   assertActiveThoughtLine(prompt, "prompt");
   if (payload.input.promptLine !== prompt) {
     throw new Error("sealed promptLine does not match the run payload.");
@@ -5243,11 +5254,11 @@ const createThoughtDockRun = async (
         promptLine: prompt,
         specId: THOUGHT_AGENT_REGISTERED_SPEC_ID,
         requestedAgent: {
-          adapterId,
+          adapterId: THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
           model: null,
         },
         client: {
-          surface: surface === "codex" ? "thought-dock" : `thought-dock:${surface}`,
+          surface: "thought-dock:chooser",
           appVersion: `${APP_VERSION}+${APP_BUILD}`,
         },
         devAutoRun: false,
@@ -5274,7 +5285,6 @@ const createThoughtDockRun = async (
   const promptHash = await agentDemoSha256(prompt);
   const baseRun = {
     runId: createPayload.runId,
-    surface,
     prompt,
     promptHash,
     launchUri,
@@ -5291,19 +5301,29 @@ const createThoughtDockRun = async (
     release: createPayload.release,
     resultContract: createPayload.resultContract,
   };
-  const sealedTask = buildAgentDemoSealedTask(baseRun, adapterId);
+  return { ...baseRun, candidate: null };
+};
+
+const bindPreparedThoughtDockRun = (
+  prepared: PreparedThoughtDockRun,
+  adapterId: ThoughtDockAgentAdapterId,
+): AgentDemoRun => {
+  const surface = defaultThoughtDockAgentSurface(adapterId);
+  const run = { ...prepared, surface } as AgentDemoRun;
+  const sealedTask = buildAgentDemoSealedTask(run, adapterId);
   const handoffSha256 = thoughtAgentHandoffSha256(sealedTask);
   return {
-    ...baseRun,
+    ...run,
     sealedTask,
     handoffSha256,
     codexUrl: buildCodexAgentUrl(sealedTask),
     claudeUrl: buildClaudeAgentUrl(sealedTask, surface),
-    candidate: null,
   };
 };
 
-const requestThoughtDockRunCancellation = async (run: AgentDemoRun) => {
+const requestThoughtDockRunCancellation = async (
+  run: Pick<AgentDemoRun, "statusUrl" | "browserToken">,
+) => {
   await fetchThoughtAgentJson<ThoughtAgentRunStatusResponse>(
     agentDemoRunActionUrl(run.statusUrl, "cancel"),
     {
@@ -5394,7 +5414,7 @@ const prepareThoughtDockAdapter = (adapterId: ThoughtDockAgentAdapterId) => {
     });
     return;
   }
-  void prepareThoughtDockRun(selection, adapterId);
+  prepareThoughtDockRun(selection, adapterId);
 };
 
 const prepareThoughtDockAgentSelection = async (prompt: string) => {
@@ -5416,10 +5436,36 @@ const prepareThoughtDockAgentSelection = async (prompt: string) => {
     if (!isCurrentRunSession(runSessionId)) {
       return;
     }
-    preparedThoughtDockAgentSelection = { prompt, payload, runSessionId };
+    const run = await createThoughtDockRun(prompt, payload);
+    if (!isCurrentRunSession(runSessionId)) {
+      void requestThoughtDockRunCancellation(run).catch(() => {
+        // A reset won the race after creation; release the unused run.
+      });
+      return;
+    }
+    preparedThoughtDockAgentSelection = { prompt, payload, run, runSessionId };
     setThoughtDockState({ kind: "agent_select", prompt });
   } catch (error) {
     if (!isCurrentRunSession(runSessionId)) {
+      return;
+    }
+    runInFlight = false;
+    if (
+      error instanceof Error &&
+      error.name === "ThoughtAgentHttpError" &&
+      (error as Error & { status?: number }).status === 429
+    ) {
+      runState = "idle";
+      setThoughtDockState({ kind: "ready", prompt });
+      emitThoughtConsoleEvent({
+        kind: "work_agent_rate_limited",
+        title: "Agent run limit reached",
+        detail: "Previous Agent launches are still active. No new Agent task was opened.",
+        nextStep: "wait for an earlier run to finish, then send the prompt again",
+        tone: "warning",
+        eventId: "work-agent-rate-limited:prepare",
+      });
+      syncInterface();
       return;
     }
     const rawMessage = error instanceof Error ? error.message : "";
@@ -5427,15 +5473,15 @@ const prepareThoughtDockAgentSelection = async (prompt: string) => {
       ? formatThoughtSpecError(error)
       : rawMessage.replace(/\bTHOUGHT Bridge\b/g, "Agent link") || "Could not create Agent run.";
     runState = "run_failed";
-    runInFlight = false;
     setThoughtDockState({ kind: "failed", message });
     syncInterface();
   }
 };
 
-const prepareThoughtDockRun = async ({
+const prepareThoughtDockRun = ({
   prompt,
   payload,
+  run: preparedRun,
   runSessionId,
 }: PreparedThoughtDockAgentSelection, adapterId: ThoughtDockAgentAdapterId) => {
   if (!isCurrentRunSession(runSessionId)) {
@@ -5452,52 +5498,9 @@ const prepareThoughtDockRun = async ({
     });
     return;
   }
-  const surface = defaultThoughtDockAgentSurface(adapterId);
+  const run = bindPreparedThoughtDockRun(preparedRun, adapterId);
   runState = "running";
   runInFlight = true;
-  setThoughtDockState({ kind: "creating_run", prompt, adapterId });
-
-  let run: AgentDemoRun;
-  try {
-    run = await createThoughtDockRun(prompt, payload, adapterId, surface);
-  } catch (error) {
-    if (!isCurrentRunSession(runSessionId)) {
-      return;
-    }
-    runInFlight = false;
-    if (
-      error instanceof Error &&
-      error.name === "ThoughtAgentHttpError" &&
-      (error as Error & { status?: number }).status === 429
-    ) {
-      runState = "idle";
-      setThoughtDockState({ kind: "agent_select", prompt });
-      emitThoughtConsoleEvent({
-        kind: "work_agent_rate_limited",
-        title: "Agent run limit reached",
-        detail: "Previous Agent launches are still active. No new Agent task was opened.",
-        nextStep: "wait for an earlier run to finish, then choose an Agent again",
-        tone: "warning",
-        eventId: "work-agent-rate-limited:choice",
-      });
-      syncInterface();
-      return;
-    }
-    const rawMessage = error instanceof Error ? error.message : "";
-    const message = rawMessage.includes("spec") || /failed to fetch|network|connection refused|could not connect|econnrefused/i.test(rawMessage)
-      ? formatThoughtSpecError(error)
-      : rawMessage.replace(/\bTHOUGHT Bridge\b/g, "Agent link") || "Could not create Agent run.";
-    runState = "run_failed";
-    setThoughtDockState({ kind: "failed", message });
-    syncInterface();
-    return;
-  }
-  if (!isCurrentRunSession(runSessionId)) {
-    void requestThoughtDockRunCancellation(run).catch(() => {
-      // A reset won the race after creation; release the unused run.
-    });
-    return;
-  }
   recordThoughtDockPromptHistory(prompt);
   if (launchedThoughtDockRunIds.has(run.runId)) {
     return;
@@ -6150,7 +6153,13 @@ const resetThoughtDock = (options?: { clearPrompt?: boolean; focusPrompt?: boole
   clearStoredThoughtDockRun();
   thoughtDockRun = null;
   thoughtDockAdapterId = "codex";
+  const prepared = preparedThoughtDockAgentSelection;
   preparedThoughtDockAgentSelection = null;
+  if (prepared) {
+    void requestThoughtDockRunCancellation(prepared.run).catch(() => {
+      // Reset still completes if the unused run is already terminal or unreachable.
+    });
+  }
   runInFlight = false;
   if (options?.clearPrompt) {
     sessionState.prompt = "";

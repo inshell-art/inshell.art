@@ -18,6 +18,7 @@ import {
   THOUGHT_AGENT_CONTROL_VERSION,
   THOUGHT_AGENT_PROTOCOL_VERSION,
   THOUGHT_AGENT_RESULT_VERSION,
+  THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
   THOUGHT_V2_PROTOCOL_RELEASE,
   parseThoughtAgentControlEvidence,
   sha256Hex,
@@ -192,8 +193,9 @@ function createD1Mock() {
             row.bridge_token_hash = bound[2];
             row.bridge_metadata_json = bound[3];
             row.adapter_metadata_json = bound[4];
-            row.updated_at = bound[5];
-            row.run_expires_at = bound[6];
+            row.requested_adapter_id = bound[5];
+            row.updated_at = bound[6];
+            row.run_expires_at = bound[7];
           }
           return { meta: { changes } };
         }
@@ -666,6 +668,176 @@ describe("THOUGHT Agent Pages API", () => {
     await expect(response.json()).resolves.toMatchObject({
       statusUrl: expect.stringMatching(/^\/api\/thought-agent\/v2\/runs\/tar_/),
     });
+  });
+
+  test.each(["codex", "claude"] as const)(
+    "binds one unbound v2 chooser run to %s on its first authenticated claim",
+    async (adapterId) => {
+      const d1 = createD1Mock();
+      const env = { INSHELL_CHAIN_DATA_DB: d1.db };
+      const createdResponse = await onCreateRunV2({
+        request: request(
+          "https://thought.inshell.art/api/thought-agent/v2/runs",
+          {
+            protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+            promptLine: `bind this run to ${adapterId}`,
+            specId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+            requestedAgent: {
+              adapterId: THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
+              model: null,
+            },
+            client: {
+              surface: "thought-dock:chooser",
+              appVersion: "test",
+            },
+          },
+          {
+            origin: "https://thought.inshell.art",
+            cookie: `inshell_anon_visitor=visitor-unbound-${adapterId}`,
+          },
+        ),
+        env,
+      });
+      const created = await createdResponse.json();
+      expect(createdResponse.status).toBe(201);
+      const launchUrl = new globalThis.URL(created.launchUri);
+      const runId = launchUrl.searchParams.get("run_id") ?? "";
+      const launchToken = launchUrl.searchParams.get("token") ?? "";
+
+      const claimResponse = await onClaimRunV2({
+        request: request(
+          `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}/claim`,
+          {
+            ...claimBody,
+            adapter: {
+              ...claimBody.adapter,
+              adapterId,
+            },
+          },
+          auth(launchToken),
+        ),
+        env,
+        params: { runId },
+      });
+      const claimed = await claimResponse.json();
+      expect(claimResponse.status).toBe(200);
+      expect(claimed.request.requestedAgent.adapterId).toBe(adapterId);
+      expect(d1.rows.get(runId)?.requested_adapter_id).toBe(adapterId);
+
+      const polled = await onGetRunV2({
+        request: request(
+          `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}`,
+          {},
+          auth(created.browserToken),
+        ),
+        env,
+        params: { runId },
+      });
+      await expect(polled.json()).resolves.toMatchObject({
+        state: "claimed",
+        request: {
+          requestedAgent: { adapterId },
+        },
+      });
+    },
+  );
+
+  test("does not allow an unbound chooser run to bind an unsupported adapter", async () => {
+    const d1 = createD1Mock();
+    const env = { INSHELL_CHAIN_DATA_DB: d1.db };
+    const createdResponse = await onCreateRunV2({
+      request: request(
+        "https://thought.inshell.art/api/thought-agent/v2/runs",
+        {
+          protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+          promptLine: "reject an unsupported adapter",
+          specId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+          requestedAgent: {
+            adapterId: THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
+            model: null,
+          },
+        },
+        {
+          origin: "https://thought.inshell.art",
+          cookie: "inshell_anon_visitor=visitor-unbound-unsupported",
+        },
+      ),
+      env,
+    });
+    const created = await createdResponse.json();
+    const launchUrl = new globalThis.URL(created.launchUri);
+    const runId = launchUrl.searchParams.get("run_id") ?? "";
+    const launchToken = launchUrl.searchParams.get("token") ?? "";
+
+    const response = await onClaimRunV2({
+      request: request(
+        `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}/claim`,
+        {
+          ...claimBody,
+          adapter: {
+            ...claimBody.adapter,
+            adapterId: "unknown-agent",
+          },
+        },
+        auth(launchToken),
+      ),
+      env,
+      params: { runId },
+    });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "ADAPTER_MISMATCH" },
+    });
+    expect(d1.rows.get(runId)?.requested_adapter_id).toBe(
+      THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
+    );
+  });
+
+  test("does not allow the V1 claim route to bind an unbound V2 chooser run", async () => {
+    const d1 = createD1Mock();
+    const env = { INSHELL_CHAIN_DATA_DB: d1.db };
+    const createdResponse = await onCreateRunV2({
+      request: request(
+        "https://thought.inshell.art/api/thought-agent/v2/runs",
+        {
+          protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+          promptLine: "keep the neutral run on protocol v2",
+          specId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+          requestedAgent: {
+            adapterId: THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
+            model: null,
+          },
+        },
+        {
+          origin: "https://thought.inshell.art",
+          cookie: "inshell_anon_visitor=visitor-unbound-v1-claim",
+        },
+      ),
+      env,
+    });
+    const created = await createdResponse.json();
+    const launchUrl = new globalThis.URL(created.launchUri);
+    const runId = launchUrl.searchParams.get("run_id") ?? "";
+    const launchToken = launchUrl.searchParams.get("token") ?? "";
+
+    const response = await onClaimRun({
+      request: request(
+        `https://thought.inshell.art/api/thought-agent/v1/runs/${runId}/claim`,
+        claimBody,
+        auth(launchToken),
+      ),
+      env,
+      params: { runId },
+    });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "ADAPTER_MISMATCH" },
+    });
+    expect(d1.rows.get(runId)?.requested_adapter_id).toBe(
+      THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
+    );
   });
 
   test("keeps V2 creative input sealed through bounded preflight and completes the run", async () => {
