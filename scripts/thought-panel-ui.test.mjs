@@ -1989,6 +1989,16 @@ test("Agent selection prepares one neutral run and gives the selected Agent a tr
     /const thoughtDockLink = \([\s\S]*?document\.createElement\("a"\)[\s\S]*?link\.href = "#"[\s\S]*?link\.href = href\(\)[\s\S]*?onClick\(\)/,
     "the current THOUGHT surface uses a trusted selected-Agent link without a transient popup",
   );
+  assert.match(
+    renderedThoughtMain,
+    /const THOUGHT_DOCK_AGENT_PUBLIC_API_BASE = resolveBrowserRpcUrl\([\s\S]*?VITE_THOUGHT_AGENT_PUBLIC_API_BASE[\s\S]*?THOUGHT_DOCK_AGENT_API_BASE,[\s\S]*?\)\.replace/,
+    "a relative staging public API base must become an absolute same-origin URL before run links are built",
+  );
+  assert.doesNotMatch(
+    renderedThoughtMain,
+    /const THOUGHT_DOCK_AGENT_PUBLIC_API_BASE = \(\s*readConfiguredUrl/,
+    "the locked artifact must not restore the relative-base URL constructor crash",
+  );
   assert.doesNotMatch(renderedThoughtMain, /const launchThoughtDockAgentLink|anchor\.click\(\)/);
   assert.match(thoughtMain, /class ThoughtAgentHttpError extends Error/);
   assert.match(

@@ -1532,9 +1532,9 @@ const thoughtAgentApiUrl = (path: string) => {
 };
 
 const THOUGHT_DOCK_AGENT_API_BASE = THOUGHT_AGENT_API_BASE;
-const THOUGHT_DOCK_AGENT_PUBLIC_API_BASE = (
+const THOUGHT_DOCK_AGENT_PUBLIC_API_BASE = resolveBrowserRpcUrl(
   readConfiguredUrl("VITE_THOUGHT_AGENT_PUBLIC_API_BASE") ||
-  THOUGHT_DOCK_AGENT_API_BASE
+  THOUGHT_DOCK_AGENT_API_BASE,
 ).replace(/\/+$/g, "");
 
 const thoughtDockAgentApiUrl = (path: string) => {

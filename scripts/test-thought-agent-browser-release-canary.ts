@@ -24,6 +24,7 @@ const pageUrl = (() => {
   return url.toString();
 })();
 const timeoutMs = Number(process.env.THOUGHT_BROWSER_CANARY_TIMEOUT_MS || 45_000);
+const traceCaughtExceptions = process.env.THOUGHT_BROWSER_CANARY_TRACE_CAUGHT === "1";
 const adapterId = process.env.THOUGHT_BROWSER_CANARY_AGENT === "codex" ? "codex" : "claude";
 const product = adapterId === "codex" ? "Codex" : "Claude";
 const provider = adapterId === "codex" ? "codex" : "anthropic";
@@ -321,6 +322,15 @@ let created: {
 } | null = null;
 let terminal = false;
 const requests: Array<{ url: string; method: string; status: number | null }> = [];
+const browserErrors: Array<{
+  className: string;
+  scriptName: string;
+  line: number;
+}> = [];
+const browserCaughtExceptionSites: Array<{
+  className: string;
+  frames: Array<{ functionName: string; scriptName: string; line: number }>;
+}> = [];
 const requestIndex = new Map<string, number>();
 
 try {
@@ -353,10 +363,42 @@ try {
     const index = requestIndex.get(event.requestId);
     if (index !== undefined) requests[index].status = event.response.status;
   });
+  client.on("Runtime.exceptionThrown", (event) => {
+    const frame = event.exceptionDetails?.stackTrace?.callFrames?.[0];
+    browserErrors.push({
+      className: String(event.exceptionDetails?.exception?.className || "Error"),
+      scriptName: (() => {
+        try { return new URL(frame?.url || event.exceptionDetails?.url || "").pathname.split("/").at(-1) || "script"; }
+        catch { return "script"; }
+      })(),
+      line: (frame?.lineNumber ?? event.exceptionDetails?.lineNumber ?? -1) + 1,
+    });
+  });
+  client.on("Debugger.paused", (event) => {
+    if (event.reason === "exception") {
+      browserCaughtExceptionSites.push({
+        className: String(event.data?.className || "Error"),
+        frames: event.callFrames.slice(0, 4).map((frame) => ({
+          functionName: frame.functionName || "anonymous",
+          scriptName: (() => {
+            try { return new URL(frame.url).pathname.split("/").at(-1) || "script"; }
+            catch { return "script"; }
+          })(),
+          line: frame.location.lineNumber + 1,
+        })),
+      });
+    }
+    void client?.send("Debugger.resume");
+  });
 
   await client.send("Network.enable");
   await client.send("Network.setCacheDisabled", { cacheDisabled: true });
   await client.send("Page.enable");
+  await client.send("Runtime.enable");
+  if (traceCaughtExceptions) {
+    await client.send("Debugger.enable");
+    await client.send("Debugger.setPauseOnExceptions", { state: "all" });
+  }
   await client.send("Emulation.setDeviceMetricsOverride", {
     width: 1440,
     height: 1000,
@@ -391,6 +433,13 @@ try {
     button.click();
     return true;
   })()`);
+  const createCapture = await waitFor<typeof created>(
+    client,
+    "window.__thoughtBrowserReleaseCanary.create",
+    (value) => Boolean(value?.runId && value?.browserToken && value?.statusUrl),
+    "Agent run creation",
+  );
+  created = createCapture;
   await waitForValue(
     () => callFunctionOn<boolean>(
       client!,
@@ -739,13 +788,48 @@ try {
     const diagnostics = await evaluate<{
       bodyText: string;
       href: string;
+      capture: unknown;
     }>(client, `({
       bodyText: document.body?.innerText?.slice(0, 6000) || "",
-      href: location.href
-    })`).catch(() => ({ bodyText: "", href: pageUrl }));
+      href: location.href,
+      preparationDiagnostic: document.documentElement.dataset.thoughtAgentPreparationDiagnostic || null,
+      capture: window.__thoughtBrowserReleaseCanary ? {
+        createCount: window.__thoughtBrowserReleaseCanary.createCount,
+        captureError: window.__thoughtBrowserReleaseCanary.captureError || null,
+        createKeys: Object.keys(window.__thoughtBrowserReleaseCanary.create || {}).sort(),
+        state: window.__thoughtBrowserReleaseCanary.create?.state || null,
+        release: window.__thoughtBrowserReleaseCanary.create?.release || null,
+        controlContract: window.__thoughtBrowserReleaseCanary.create?.controlContract || null,
+        resultContract: window.__thoughtBrowserReleaseCanary.create?.resultContract || null,
+        statusUrlPresent: Boolean(window.__thoughtBrowserReleaseCanary.create?.statusUrl),
+        launchUriPresent: Boolean(window.__thoughtBrowserReleaseCanary.create?.launchUri),
+        browserTokenPresent: Boolean(window.__thoughtBrowserReleaseCanary.create?.browserToken),
+        launchUriScheme: (() => {
+          try { return new URL(window.__thoughtBrowserReleaseCanary.create?.launchUri || "").protocol; }
+          catch { return "invalid"; }
+        })(),
+        launchUriParamNames: (() => {
+          try {
+            return [...new URL(window.__thoughtBrowserReleaseCanary.create?.launchUri || "").searchParams.keys()].sort();
+          } catch { return []; }
+        })(),
+        statusUrlShape: (() => {
+          try {
+            const url = new URL(window.__thoughtBrowserReleaseCanary.create?.statusUrl || "", location.href);
+            return { origin: url.origin, pathname: url.pathname };
+          } catch { return null; }
+        })()
+      } : null
+    })`).catch(() => ({ bodyText: "", href: pageUrl, capture: null }));
     console.error(JSON.stringify({
       browserCanaryFailure: error instanceof Error ? error.message : String(error),
       diagnostics,
+      browserErrors,
+      browserCaughtExceptionSites,
+      recentNetworkRequests: requests.slice(-24).map((request) => ({
+        ...request,
+        url: request.url.replace(/([?&](?:token|access|credential)=)[^&]+/gi, "$1REDACTED"),
+      })),
       failedNetworkRequests: requests.filter((request) =>
         request.status === null || request.status >= 400
       ).map((request) => ({
