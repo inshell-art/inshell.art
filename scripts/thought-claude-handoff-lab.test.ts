@@ -141,7 +141,7 @@ test("the App resolves Agent API URLs from the complete build-injected environme
   );
 });
 
-test("both canonical and standalone preview builds pin the public Agent API", () => {
+test("preview builds keep browser control private while Agents use token-authenticated public aliases", () => {
   assert.equal(
     deployWorkflowSource.match(/^\s+VITE_THOUGHT_AGENT_API_BASE:/gm)?.length,
     2,
@@ -160,11 +160,19 @@ test("both canonical and standalone preview builds pin the public Agent API", ()
   );
   assert.equal(
     deployWorkflowSource.match(/github\.event\.inputs\.branch == 'staging' && '\/api\/thought-agent\/v2'/g)?.length,
-    4,
+    2,
+  );
+  assert.match(
+    deployWorkflowSource,
+    /VITE_THOUGHT_AGENT_PUBLIC_API_BASE: \$\{\{ github\.event\.inputs\.branch == 'staging' && 'https:\/\/staging\.inshell-art\.pages\.dev\/api\/thought-agent\/v2'/,
+  );
+  assert.match(
+    deployWorkflowSource,
+    /github\.event\.inputs\.branch == 'staging' && 'https:\/\/staging\.thought-inshell-art\.pages\.dev\/api\/thought-agent\/v2'/,
   );
   assert.doesNotMatch(
     deployWorkflowSource,
-    /github\.event\.inputs\.branch == 'staging' && 'https:\/\/staging\.thought-inshell-art\.pages\.dev\/api\/thought-agent\/v2'/,
+    /VITE_THOUGHT_AGENT_PUBLIC_API_BASE:.*preview\.inshell\.art/,
   );
 });
 
