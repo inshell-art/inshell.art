@@ -40,6 +40,7 @@ const installBrowserReleaseCanaryFunction = `function (promptLine) {
     createCount: 0,
     createRequest: null,
     launchUrl: "",
+    launchEventTrusted: false,
     launchUserActivation: false,
     statusStates: [],
     windowOpenCount: 0
@@ -71,15 +72,15 @@ const installBrowserReleaseCanaryFunction = `function (promptLine) {
     window.__thoughtBrowserReleaseCanary.windowOpenCount += 1;
     return originalWindowOpen(...args);
   };
-  const originalAnchorClick = HTMLAnchorElement.prototype.click;
-  HTMLAnchorElement.prototype.click = function () {
-    if (/^(?:claude|codex):/.test(this.href)) {
-      window.__thoughtBrowserReleaseCanary.launchUrl = this.href;
+  document.addEventListener("click", (event) => {
+    const anchor = event.target instanceof Element ? event.target.closest("a") : null;
+    if (anchor && /^(?:claude|codex):/.test(anchor.href)) {
+      window.__thoughtBrowserReleaseCanary.launchUrl = anchor.href;
+      window.__thoughtBrowserReleaseCanary.launchEventTrusted = event.isTrusted;
       window.__thoughtBrowserReleaseCanary.launchUserActivation = Boolean(navigator.userActivation?.isActive);
-      return;
+      event.preventDefault();
     }
-    return originalAnchorClick.call(this);
-  };
+  });
   const prompt = document.querySelector("#thought-dock-prompt");
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
   setter.call(prompt, promptLine);
@@ -88,7 +89,7 @@ const installBrowserReleaseCanaryFunction = `function (promptLine) {
 }`;
 
 const hasAgentActionFunction = `function (agentActionLabel) {
-  return [...document.querySelectorAll("button")].some((node) =>
+  return [...document.querySelectorAll("button, a")].some((node) =>
     node.getAttribute("aria-label") === agentActionLabel &&
     node.getBoundingClientRect().width > 0 &&
     node.getBoundingClientRect().height > 0 &&
@@ -97,17 +98,17 @@ const hasAgentActionFunction = `function (agentActionLabel) {
   );
 }`;
 
-const clickAgentActionFunction = `function (agentActionLabel, product) {
-  const button = [...document.querySelectorAll("button")].find((node) =>
+const getAgentActionCenterFunction = `function (agentActionLabel, product) {
+  const action = [...document.querySelectorAll("button, a")].find((node) =>
     node.getAttribute("aria-label") === agentActionLabel &&
     node.getBoundingClientRect().width > 0 &&
     node.getBoundingClientRect().height > 0 &&
     getComputedStyle(node).display !== "none" &&
     getComputedStyle(node).visibility !== "hidden"
   );
-  if (!button) throw new Error(String(product) + " action not found.");
-  button.click();
-  return true;
+  if (!action) throw new Error(String(product) + " action not found.");
+  const rect = action.getBoundingClientRect();
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
 }`;
 
 const chromePath = [
@@ -319,6 +320,8 @@ let created: {
   };
 } | null = null;
 let terminal = false;
+const requests: Array<{ url: string; method: string; status: number | null }> = [];
+const requestIndex = new Map<string, number>();
 
 try {
   const devtoolsDeadline = Date.now() + 10_000;
@@ -338,8 +341,6 @@ try {
     webSocketDebuggerUrl: string;
   };
   client = await makeClient(target.webSocketDebuggerUrl);
-  const requests: Array<{ url: string; method: string; status: number | null }> = [];
-  const requestIndex = new Map<string, number>();
   client.on("Network.requestWillBeSent", (event) => {
     requestIndex.set(event.requestId, requests.length);
     requests.push({
@@ -365,7 +366,7 @@ try {
   await client.send("Page.navigate", { url: pageUrl });
   await waitFor(
     client,
-    `document.readyState === "complete" && document.documentElement.classList.contains("agent-surface") && document.querySelector("#thought-dock-prompt")?.getBoundingClientRect().width > 0`,
+    `document.readyState === "complete" && document.querySelector("#thought-dock-prompt")?.getBoundingClientRect().width > 0`,
     Boolean,
     "THOUGHT creation UI",
   );
@@ -422,19 +423,35 @@ try {
     true,
     "the chooser must expose both supported Agent apps before creating a run",
   );
-  await callFunctionOn<boolean>(
+  const agentActionCenter = await callFunctionOn<{ x: number; y: number }>(
     client,
     browserGlobalObjectId,
-    clickAgentActionFunction,
+    getAgentActionCenterFunction,
     [agentActionLabel, product],
-    true,
   );
+  await client.send("Input.dispatchMouseEvent", {
+    type: "mousePressed",
+    x: agentActionCenter.x,
+    y: agentActionCenter.y,
+    button: "left",
+    buttons: 1,
+    clickCount: 1,
+  });
+  await client.send("Input.dispatchMouseEvent", {
+    type: "mouseReleased",
+    x: agentActionCenter.x,
+    y: agentActionCenter.y,
+    button: "left",
+    buttons: 0,
+    clickCount: 1,
+  });
 
   const browserCapture = await waitFor<{
     create: typeof created;
     createCount: number;
     createRequest: { requestedAgent?: { adapterId?: string } } | null;
     launchUrl: string;
+    launchEventTrusted: boolean;
     launchUserActivation: boolean;
     storedLaunch: string | null;
     windowOpenCount: number;
@@ -452,6 +469,7 @@ try {
   assert.equal(browserCapture.createCount, 1, "choosing an Agent must not create a second remote run");
   assert.equal(browserCapture.createRequest?.requestedAgent?.adapterId, "unbound");
   assert.equal(browserCapture.windowOpenCount, 0, "Agent launch must not reserve or flash a blank browser tab");
+  assert.equal(browserCapture.launchEventTrusted, true, "Agent launch must originate from a trusted pointer event");
   assert.equal(browserCapture.launchUserActivation, true, "Agent launch must retain the final chooser click's user activation");
   created = browserCapture.create;
   assert.ok(created);
@@ -716,6 +734,27 @@ try {
     ),
     screenshotPath,
   }, null, 2));
+} catch (error) {
+  if (client) {
+    const diagnostics = await evaluate<{
+      bodyText: string;
+      href: string;
+    }>(client, `({
+      bodyText: document.body?.innerText?.slice(0, 6000) || "",
+      href: location.href
+    })`).catch(() => ({ bodyText: "", href: pageUrl }));
+    console.error(JSON.stringify({
+      browserCanaryFailure: error instanceof Error ? error.message : String(error),
+      diagnostics,
+      failedNetworkRequests: requests.filter((request) =>
+        request.status === null || request.status >= 400
+      ).map((request) => ({
+        ...request,
+        url: request.url.replace(/([?&](?:token|access|credential)=)[^&]+/gi, "$1REDACTED"),
+      })),
+    }, null, 2));
+  }
+  throw error;
 } finally {
   if (created && !terminal) {
     const runUrl = new URL(created.statusUrl, pageUrl).toString().replace(/\/+$/g, "");

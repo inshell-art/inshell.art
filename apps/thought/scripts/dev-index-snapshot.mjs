@@ -753,6 +753,194 @@ const applyCurrentSingleRunAgentChooserDeltas = (source, direction) => {
   return current;
 };
 
+const CURRENT_TRUSTED_AGENT_LINK_DELTAS = Object.freeze([
+  [
+    "trusted Agent link action shape",
+    `  handlerKey?: string;
+  disabled?: boolean;`,
+    `  handlerKey?: string;
+  href?: () => string;
+  disabled?: boolean;`,
+  ],
+  [
+    "trusted Agent link element",
+    `const assertDockRailView = (view: DockRailView) => {`,
+    `const thoughtDockLink = (
+  label: string,
+  href: () => string,
+  onClick: () => void,
+  options?: { ariaLabel?: string },
+) => {
+  const link = document.createElement("a");
+  link.className = "thought-dock-button thought-work-cta";
+  link.textContent = label;
+  link.href = "#";
+  if (options?.ariaLabel) {
+    link.setAttribute("aria-label", options.ariaLabel);
+  }
+  link.addEventListener("click", () => {
+    // Let the browser own the trusted custom-protocol navigation. Setting the
+    // href during the real link click keeps the launch token out of the idle
+    // DOM while preserving the click's user activation.
+    link.href = href();
+    onClick();
+  });
+  return link;
+};
+
+const assertDockRailView = (view: DockRailView) => {`,
+  ],
+  [
+    "trusted Agent link rail action",
+    `  options?: { disabled?: boolean; expanded?: boolean; handlerKey?: string },
+): DockRailAction => ({
+  id,
+  label,
+  ariaLabel,
+  onClick,
+  handlerKey: options?.handlerKey,
+  disabled: options?.disabled,
+  expanded: options?.expanded,
+});
+
+const renderDockRailAction = (action: DockRailAction) =>
+  thoughtDockButton(action.label, action.onClick, {
+    disabled: action.disabled,
+    ariaLabel: action.ariaLabel,
+    expanded: action.expanded,
+  });`,
+    `  options?: {
+    disabled?: boolean;
+    expanded?: boolean;
+    handlerKey?: string;
+    href?: () => string;
+  },
+): DockRailAction => ({
+  id,
+  label,
+  ariaLabel,
+  onClick,
+  handlerKey: options?.handlerKey,
+  href: options?.href,
+  disabled: options?.disabled,
+  expanded: options?.expanded,
+});
+
+const renderDockRailAction = (action: DockRailAction) =>
+  action.href
+    ? thoughtDockLink(action.label, action.href, action.onClick, {
+        ariaLabel: action.ariaLabel,
+      })
+    : thoughtDockButton(action.label, action.onClick, {
+        disabled: action.disabled,
+        ariaLabel: action.ariaLabel,
+        expanded: action.expanded,
+      });`,
+  ],
+  [
+    "trusted Agent link render identity",
+    `      handlerKey: action.handlerKey ?? action.id,
+      disabled: !!action.disabled,`,
+    `      handlerKey: action.handlerKey ?? action.id,
+      linked: !!action.href,
+      disabled: !!action.disabled,`,
+  ],
+  [
+    "trusted Agent chooser links",
+    `          dockRailAction("codex", thoughtAgentCtaLabel("codex"), thoughtAgentLaunchActionDescription("codex"), () => {
+            prepareThoughtDockAdapter("codex");
+          }),
+          dockRailAction("claude", thoughtAgentCtaLabel("claude"), thoughtAgentLaunchActionDescription("claude"), () => {
+            prepareThoughtDockAdapter("claude");
+          }),`,
+    `          dockRailAction("codex", thoughtAgentCtaLabel("codex"), thoughtAgentLaunchActionDescription("codex"), () => {
+            prepareThoughtDockAdapter("codex");
+          }, {
+            href: () => preparedThoughtDockLaunchUrl("codex"),
+            handlerKey: "launch:codex",
+          }),
+          dockRailAction("claude", thoughtAgentCtaLabel("claude"), thoughtAgentLaunchActionDescription("claude"), () => {
+            prepareThoughtDockAdapter("claude");
+          }, {
+            href: () => preparedThoughtDockLaunchUrl("claude"),
+            handlerKey: "launch:claude",
+          }),`,
+  ],
+  [
+    "trusted Agent launch URL",
+    `const launchThoughtDockAgentLink = (url: string) => {
+  suppressBridgeLaunchUnloadUntil = Date.now() + 3000;
+  try {
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.rel = "noopener noreferrer";
+    anchor.style.display = "none";
+    document.body.appendChild(anchor);
+    anchor.click();
+    window.setTimeout(() => anchor.remove(), 1000);
+    return true;
+  } catch {
+    return false;
+  }
+};`,
+    `const preparedThoughtDockLaunchUrl = (adapterId: ThoughtDockAgentAdapterId) => {
+  const selection = preparedThoughtDockAgentSelection;
+  if (!selection || thoughtDockState.kind !== "agent_select") {
+    return "#";
+  }
+  suppressBridgeLaunchUnloadUntil = Date.now() + 3000;
+  return thoughtDockLaunchUrl(bindPreparedThoughtDockRun(selection.run, adapterId));
+};`,
+  ],
+  [
+    "trusted Agent launch transition",
+    `  prepareThoughtDockRun(selection, adapterId);`,
+    `  // Keep the chooser link in the DOM until its trusted default navigation has
+  // fired. The run state transition begins on the next task; no synthetic
+  // click, popup reservation, or second Agent launch is involved.
+  preparedThoughtDockAgentSelection = null;
+  window.setTimeout(() => prepareThoughtDockRun(selection, adapterId), 0);`,
+  ],
+  [
+    "trusted Agent launch side effect",
+    `  if (!launchThoughtDockAgentLink(thoughtDockLaunchUrl(run))) {
+    // A browser-level deep-link refusal can happen after the API run was
+    // created. Release that run immediately instead of leaving it counted as
+    // active until the 30-minute claim TTL expires and making the next retry
+    // look like a server rate-limit failure.
+    void requestThoughtDockRunCancellation(run);
+    runState = "run_failed";
+    runInFlight = false;
+    setThoughtDockState({
+      kind: "failed",
+      message: "The browser could not open the Agent app.",
+      details: "Allow this site to open the Agent app, then choose your Agent again.",
+    });
+    syncInterface();
+    return;
+  }
+  launchedThoughtDockRunIds.add(run.runId);
+  preparedThoughtDockAgentSelection = null;`,
+    `  launchedThoughtDockRunIds.add(run.runId);`,
+  ],
+]);
+
+const applyCurrentTrustedAgentLinkDeltas = (source, direction) => {
+  let current = source;
+  const deltas = direction === "restore"
+    ? [...CURRENT_TRUSTED_AGENT_LINK_DELTAS].reverse()
+    : CURRENT_TRUSTED_AGENT_LINK_DELTAS;
+  for (const [label, previous, currentValue] of deltas) {
+    current = replaceExactCount(
+      current,
+      label,
+      direction === "restore" ? currentValue : previous,
+      direction === "restore" ? previous : currentValue,
+    );
+  }
+  return current;
+};
+
 const applyCurrentAgentLaunchDeltas = (source, direction) => {
   let current = source;
   const deltas = direction === "restore"
@@ -1193,7 +1381,8 @@ function layerTightDetailGrouping(source) {
 }
 
 function restoreMainSnapshot(source) {
-  let currentSource = applyCurrentSingleRunAgentChooserDeltas(source, "restore");
+  let currentSource = applyCurrentTrustedAgentLinkDeltas(source, "restore");
+  currentSource = applyCurrentSingleRunAgentChooserDeltas(currentSource, "restore");
   currentSource = restoreCurrentAgentRateLimitHandling(currentSource);
   currentSource = applyCurrentPreparedAgentChoiceDeltas(currentSource, "restore");
   currentSource = applyCurrentAgentLaunchDeltas(currentSource, "restore");
@@ -1646,7 +1835,11 @@ export function loadThoughtDevSnapshotFile(workspaceRoot, fileKey) {
     currentAgentRateLimitHandling,
     "layer",
   );
-  return layerCurrentAgentLinePreviewUnavailableCopy(currentSingleRunAgentChooser);
+  const currentTrustedAgentLinks = applyCurrentTrustedAgentLinkDeltas(
+    currentSingleRunAgentChooser,
+    "layer",
+  );
+  return layerCurrentAgentLinePreviewUnavailableCopy(currentTrustedAgentLinks);
 }
 
 export function loadThoughtDevSnapshotModule(workspaceRoot, id) {

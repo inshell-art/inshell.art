@@ -2689,6 +2689,7 @@ type DockRailAction = {
   label: string;
   ariaLabel: string;
   handlerKey?: string;
+  href?: () => string;
   disabled?: boolean;
   expanded?: boolean;
   onClick: () => void;
@@ -3937,6 +3938,29 @@ const thoughtDockButton = (
   return button;
 };
 
+const thoughtDockLink = (
+  label: string,
+  href: () => string,
+  onClick: () => void,
+  options?: { ariaLabel?: string },
+) => {
+  const link = document.createElement("a");
+  link.className = "thought-dock-button thought-work-cta";
+  link.textContent = label;
+  link.href = "#";
+  if (options?.ariaLabel) {
+    link.setAttribute("aria-label", options.ariaLabel);
+  }
+  link.addEventListener("click", () => {
+    // Let the browser own the trusted custom-protocol navigation. Setting the
+    // href during the real link click keeps the launch token out of the idle
+    // DOM while preserving the click's user activation.
+    link.href = href();
+    onClick();
+  });
+  return link;
+};
+
 const assertDockRailView = (view: DockRailView) => {
   const maxActions = view.maxActions ?? 2;
   if (view.actions.length > maxActions) {
@@ -3952,23 +3976,33 @@ const dockRailAction = (
   label: string,
   ariaLabel: string,
   onClick: () => void,
-  options?: { disabled?: boolean; expanded?: boolean; handlerKey?: string },
+  options?: {
+    disabled?: boolean;
+    expanded?: boolean;
+    handlerKey?: string;
+    href?: () => string;
+  },
 ): DockRailAction => ({
   id,
   label,
   ariaLabel,
   onClick,
   handlerKey: options?.handlerKey,
+  href: options?.href,
   disabled: options?.disabled,
   expanded: options?.expanded,
 });
 
 const renderDockRailAction = (action: DockRailAction) =>
-  thoughtDockButton(action.label, action.onClick, {
-    disabled: action.disabled,
-    ariaLabel: action.ariaLabel,
-    expanded: action.expanded,
-  });
+  action.href
+    ? thoughtDockLink(action.label, action.href, action.onClick, {
+        ariaLabel: action.ariaLabel,
+      })
+    : thoughtDockButton(action.label, action.onClick, {
+        disabled: action.disabled,
+        ariaLabel: action.ariaLabel,
+        expanded: action.expanded,
+      });
 
 const thoughtDockActions = (...buttons: HTMLElement[]) => {
   const element = document.createElement("div");
@@ -3983,6 +4017,7 @@ const thoughtDockRailRenderSignature = (rail: DockRailView) =>
       id: action.id,
       label: action.label,
       handlerKey: action.handlerKey ?? action.id,
+      linked: !!action.href,
       disabled: !!action.disabled,
       expanded: action.expanded,
     })),
@@ -4891,9 +4926,15 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         actions: [
           dockRailAction("codex", thoughtAgentCtaLabel("codex"), thoughtAgentLaunchActionDescription("codex"), () => {
             prepareThoughtDockAdapter("codex");
+          }, {
+            href: () => preparedThoughtDockLaunchUrl("codex"),
+            handlerKey: "launch:codex",
           }),
           dockRailAction("claude", thoughtAgentCtaLabel("claude"), thoughtAgentLaunchActionDescription("claude"), () => {
             prepareThoughtDockAdapter("claude");
+          }, {
+            href: () => preparedThoughtDockLaunchUrl("claude"),
+            handlerKey: "launch:claude",
           }),
           cancelPreparedAgentSelection(state.prompt),
         ],
@@ -5339,20 +5380,13 @@ const requestThoughtDockRunCancellation = async (
 const thoughtDockLaunchUrl = (run: AgentDemoRun) =>
   run.surface === "codex" ? run.codexUrl : run.claudeUrl;
 
-const launchThoughtDockAgentLink = (url: string) => {
-  suppressBridgeLaunchUnloadUntil = Date.now() + 3000;
-  try {
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.rel = "noopener noreferrer";
-    anchor.style.display = "none";
-    document.body.appendChild(anchor);
-    anchor.click();
-    window.setTimeout(() => anchor.remove(), 1000);
-    return true;
-  } catch {
-    return false;
+const preparedThoughtDockLaunchUrl = (adapterId: ThoughtDockAgentAdapterId) => {
+  const selection = preparedThoughtDockAgentSelection;
+  if (!selection || thoughtDockState.kind !== "agent_select") {
+    return "#";
   }
+  suppressBridgeLaunchUnloadUntil = Date.now() + 3000;
+  return thoughtDockLaunchUrl(bindPreparedThoughtDockRun(selection.run, adapterId));
 };
 
 const rejectInvalidThoughtDockPrompt = (prompt: string) => {
@@ -5414,7 +5448,11 @@ const prepareThoughtDockAdapter = (adapterId: ThoughtDockAgentAdapterId) => {
     });
     return;
   }
-  prepareThoughtDockRun(selection, adapterId);
+  // Keep the chooser link in the DOM until its trusted default navigation has
+  // fired. The run state transition begins on the next task; no synthetic
+  // click, popup reservation, or second Agent launch is involved.
+  preparedThoughtDockAgentSelection = null;
+  window.setTimeout(() => prepareThoughtDockRun(selection, adapterId), 0);
 };
 
 const prepareThoughtDockAgentSelection = async (prompt: string) => {
@@ -5505,24 +5543,7 @@ const prepareThoughtDockRun = ({
   if (launchedThoughtDockRunIds.has(run.runId)) {
     return;
   }
-  if (!launchThoughtDockAgentLink(thoughtDockLaunchUrl(run))) {
-    // A browser-level deep-link refusal can happen after the API run was
-    // created. Release that run immediately instead of leaving it counted as
-    // active until the 30-minute claim TTL expires and making the next retry
-    // look like a server rate-limit failure.
-    void requestThoughtDockRunCancellation(run);
-    runState = "run_failed";
-    runInFlight = false;
-    setThoughtDockState({
-      kind: "failed",
-      message: "The browser could not open the Agent app.",
-      details: "Allow this site to open the Agent app, then choose your Agent again.",
-    });
-    syncInterface();
-    return;
-  }
   launchedThoughtDockRunIds.add(run.runId);
-  preparedThoughtDockAgentSelection = null;
   thoughtDockRun = run;
   storeThoughtDockRun(run, adapterId);
   setThoughtDockState({

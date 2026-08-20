@@ -1168,4 +1168,55 @@ describe("THOUGHT Agent Pages API", () => {
     });
     expect(d1.rows.size).toBe(0);
   });
+
+  test("accepts the canonical home staging alias only on a preview branch", async () => {
+    const d1 = createD1Mock();
+    const env = {
+      INSHELL_CHAIN_DATA_DB: d1.db,
+      CF_PAGES_BRANCH: "staging",
+    };
+    const response = await onCreateRunV2({
+      request: request(
+        "https://staging.inshell-art.pages.dev/api/thought-agent/v2/runs",
+        {
+          protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+          promptLine: "staging chooser",
+          specId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+          requestedAgent: {
+            adapterId: THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
+            model: null,
+          },
+        },
+        { origin: "https://staging.inshell-art.pages.dev" },
+      ),
+      env,
+    });
+
+    expect(response.status).toBe(201);
+    expect(d1.rows.size).toBe(1);
+
+    const productionD1 = createD1Mock();
+    const productionResponse = await onCreateRunV2({
+      request: request(
+        "https://staging.inshell-art.pages.dev/api/thought-agent/v2/runs",
+        {
+          protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+          promptLine: "production rejection",
+          specId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+          requestedAgent: {
+            adapterId: THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
+            model: null,
+          },
+        },
+        { origin: "https://staging.inshell-art.pages.dev" },
+      ),
+      env: {
+        INSHELL_CHAIN_DATA_DB: productionD1.db,
+        CF_PAGES_BRANCH: "main",
+      },
+    });
+
+    expect(productionResponse.status).toBe(403);
+    expect(productionD1.rows.size).toBe(0);
+  });
 });

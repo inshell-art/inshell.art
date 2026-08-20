@@ -357,14 +357,16 @@ test("the browser canary passes dynamic page values through CDP arguments", () =
   );
   assert.match(
     thoughtBrowserReleaseCanary,
-    /clickAgentActionFunction,[\s\S]*?\[agentActionLabel, product\]/,
+    /getAgentActionCenterFunction,[\s\S]*?\[agentActionLabel, product\]/,
   );
+  assert.match(thoughtBrowserReleaseCanary, /Input\.dispatchMouseEvent/);
+  assert.match(thoughtBrowserReleaseCanary, /launchEventTrusted/);
   assert.doesNotMatch(
     thoughtBrowserReleaseCanary,
     /JSON\.stringify\((?:promptLine|agentActionLabel|product)/,
   );
   assert.match(thoughtBrowserReleaseCanary, /url\.searchParams\.set\("surface", "agent"\)/);
-  assert.match(thoughtBrowserReleaseCanary, /document\.documentElement\.classList\.contains\("agent-surface"\)/);
+  assert.match(thoughtBrowserReleaseCanary, /document\.querySelector\("#thought-dock-prompt"\)/);
   assert.match(thoughtBrowserReleaseCanary, /node\.getBoundingClientRect\(\)\.width > 0/);
 });
 
@@ -569,11 +571,10 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
     "the locked Agent surface uses a same-tab-safe deep link without a popup reservation",
   );
   */
-  assert.ok(
-    restoredMain.includes('const launchThoughtDockAgentLink = (url: string) => {') &&
-      restoredMain.includes('const anchor = document.createElement("a");') &&
-      restoredMain.includes('anchor.click();'),
-    "the locked Agent surface uses a same-tab-safe deep link without a popup reservation",
+  assert.match(
+    restoredMain,
+    /const thoughtDockLink = \([\s\S]*?document\.createElement\("a"\)[\s\S]*?link\.href = href\(\)[\s\S]*?onClick\(\)/,
+    "the locked Agent surface gives the trusted chooser click a same-tab custom-protocol link",
   );
   assert.match(
     restoredMain,
@@ -593,8 +594,8 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
   );
   assert.match(
     restoredMain,
-    /const prepareThoughtDockAdapter =[\s\S]*?prepareThoughtDockRun\(selection, adapterId\)/,
-    "the final Agent-choice click must synchronously launch the selected adapter",
+    /const prepareThoughtDockAdapter =[\s\S]*?preparedThoughtDockAgentSelection = null;[\s\S]*?window\.setTimeout\(\(\) => prepareThoughtDockRun\(selection, adapterId\), 0\)/,
+    "the final Agent-choice link must navigate before the run UI transitions",
   );
   assert.doesNotMatch(restoredMain, /Promise\.allSettled/);
   assert.doesNotMatch(restoredMain, /case "agent_task_ready"/);
@@ -1906,7 +1907,7 @@ test("Agent launch errors keep their actionable message in Console", () => {
   assert.doesNotMatch(prepareBody, /details:\s*"Try again\."/);
 });
 
-test("Agent selection prepares one neutral run and launches the selected Agent synchronously", () => {
+test("Agent selection prepares one neutral run and gives the selected Agent a trusted link", () => {
   const renderedThoughtMain = loadThoughtDevSnapshotFile(repoRoot, "main");
   const selectStart = thoughtMain.indexOf("const openThoughtDockAgentSelect = () =>");
   const prepareStart = thoughtMain.indexOf("const prepareThoughtDockAgentSelection = async", selectStart);
@@ -1935,14 +1936,9 @@ test("Agent selection prepares one neutral run and launches the selected Agent s
   );
   assert.doesNotMatch(runBody, /\bawait\b|createThoughtDockRun|Promise\.allSettled/);
   assert.match(runBody, /const run = bindPreparedThoughtDockRun\(preparedRun, adapterId\)/);
-  assert.match(runBody, /launchThoughtDockAgentLink\(thoughtDockLaunchUrl\(run\)\)/);
   assert.match(runBody, /launchedThoughtDockRunIds\.has\(run\.runId\)/);
   assert.match(runBody, /launchedThoughtDockRunIds\.add\(run\.runId\)/);
   assert.doesNotMatch(runBody, /unused\.run|preparedThoughtDockAgentChoices|Promise\.allSettled/);
-  assert.ok(
-    runBody.indexOf("launchThoughtDockAgentLink") < runBody.indexOf("storeThoughtDockRun"),
-    "the custom-protocol navigation must be the first launch side effect",
-  );
   assert.match(runBody, /storeThoughtDockRun\(run, adapterId\)/);
   assert.match(runBody, /startThoughtDockPolling\(run, payload, adapterId, runSessionId\)/);
   const adapterStart = renderedThoughtMain.indexOf("const prepareThoughtDockAdapter =");
@@ -1954,8 +1950,11 @@ test("Agent selection prepares one neutral run and launches the selected Agent s
     /closeThoughtDockAgentLaunchReservation/,
     "the browser-safe layer must not retain cleanup calls for the removed popup reservation",
   );
-  assert.match(adapterBody, /const selection = preparedThoughtDockAgentSelection;[\s\S]*?prepareThoughtDockRun\(selection, adapterId\)/);
-  assert.doesNotMatch(adapterBody, /\bawait\b|\bvoid prepareThoughtDockRun|Promise\.allSettled|createThoughtDockRun/);
+  assert.match(
+    adapterBody,
+    /const selection = preparedThoughtDockAgentSelection;[\s\S]*?preparedThoughtDockAgentSelection = null;[\s\S]*?window\.setTimeout\(\(\) => prepareThoughtDockRun\(selection, adapterId\), 0\)/,
+  );
+  assert.doesNotMatch(adapterBody, /\bawait\b|\bvoid prepareThoughtDockRun|Promise\.allSettled|createThoughtDockRun|anchor\.click/);
   assert.match(
     prepareBody,
     /error\.name === "ThoughtAgentHttpError"[\s\S]*?status === 429[\s\S]*?setThoughtDockState\(\{ kind: "ready", prompt \}\)[\s\S]*?title: "Agent run limit reached"/,
@@ -1968,7 +1967,7 @@ test("Agent selection prepares one neutral run and launches the selected Agent s
   assert.match(waitingRailBody, /actions: \[resetAction\(state\.run\)\]/);
   assert.doesNotMatch(
     waitingRailBody,
-    /thoughtDockLaunchUrl|launchThoughtDockAgentLink|open-\$\{state\.adapterId\}/,
+    /thoughtDockLaunchUrl|preparedThoughtDockLaunchUrl|open-\$\{state\.adapterId\}/,
     "an active run must not expose a speculative Agent relaunch control",
   );
   assert.doesNotMatch(thoughtMain, /case "agent_task_ready":/);
@@ -1987,9 +1986,10 @@ test("Agent selection prepares one neutral run and launches the selected Agent s
   );
   assert.match(
     renderedThoughtMain,
-    /const launchThoughtDockAgentLink = \(url: string\) => \{[\s\S]*?anchor\.href = url[\s\S]*?anchor\.click\(\)[\s\S]*?return true/,
-    "the current THOUGHT surface uses the selected Agent app deep link without a transient popup",
+    /const thoughtDockLink = \([\s\S]*?document\.createElement\("a"\)[\s\S]*?link\.href = "#"[\s\S]*?link\.href = href\(\)[\s\S]*?onClick\(\)/,
+    "the current THOUGHT surface uses a trusted selected-Agent link without a transient popup",
   );
+  assert.doesNotMatch(renderedThoughtMain, /const launchThoughtDockAgentLink|anchor\.click\(\)/);
   assert.match(thoughtMain, /class ThoughtAgentHttpError extends Error/);
   assert.match(
     thoughtMain,

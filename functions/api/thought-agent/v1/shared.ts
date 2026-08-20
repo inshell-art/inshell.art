@@ -1528,6 +1528,7 @@ function isAllowedOrigin(origin: string, env: ThoughtAgentEnv): boolean {
     env.CF_PAGES_BRANCH &&
     env.CF_PAGES_BRANCH !== "main" &&
     (origin === "https://preview.inshell.art" ||
+      origin === "https://staging.inshell-art.pages.dev" ||
       origin === "https://thought.preview.inshell.art" ||
       origin === "https://staging.thought-inshell-art.pages.dev")
   ) {
