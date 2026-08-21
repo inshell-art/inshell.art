@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   deriveThoughtLaunchState,
-  getThoughtLaunchGuidance,
+  getThoughtMintClosedNotice,
   parseThoughtLaunchReadModel,
   shouldFetchThoughtLaunchReadModel,
   thoughtSavedWorkMatchesRelease,
@@ -89,50 +89,7 @@ test("browser clock never opens a countdown-only read model", () => {
   assert.equal(state.mintEnabled, false);
 });
 
-test("create-only guidance is plain, wallet-free, and does not mention PATH before work", () => {
-  const guidance = getThoughtLaunchGuidance({
-    state: deriveThoughtLaunchState({ deployment: null, readModel: null }),
-    workExists: false,
-    workCompatible: false,
-    nowMs: Date.now(),
-  });
-  assert.equal(guidance.eyebrow, "CREATE");
-  assert.equal(guidance.title, "Create a THOUGHT");
-  assert.match(guidance.meta, /no wallet needed/);
-  assert.doesNotMatch(
-    `${guidance.eyebrow} ${guidance.title} ${guidance.detail} ${guidance.meta}`,
-    /PATH|Studio|Onchain/i,
-  );
-});
 
-test("countdown introduces one-PATH guidance only after work exists", () => {
-  const state = deriveThoughtLaunchState({
-    deployment,
-    readModel: readModel({ status: "countdown" }),
-    nowMs: Date.parse("2026-08-21T09:59:00.000Z"),
-  });
-  const beforeWork = getThoughtLaunchGuidance({
-    state,
-    workExists: false,
-    workCompatible: false,
-    nowMs: Date.parse("2026-08-21T09:59:00.000Z"),
-  });
-  const afterWork = getThoughtLaunchGuidance({
-    state,
-    workExists: true,
-    workCompatible: true,
-    nowMs: Date.parse("2026-08-21T09:59:00.000Z"),
-  });
-  assert.doesNotMatch(beforeWork.detail, /PATH/i);
-  assert.doesNotMatch(
-    `${beforeWork.eyebrow} ${beforeWork.title} ${beforeWork.detail}`,
-    /Studio|Onchain/i,
-  );
-  assert.match(
-    afterWork.detail,
-    /one available THOUGHT mint from a \$PATH token/,
-  );
-});
 
 test("saved frontend work stays mint-compatible only with its exact release", () => {
   const release = {
@@ -155,4 +112,63 @@ test("saved frontend work stays mint-compatible only with its exact release", ()
     ...evidence,
     previewMethod: "previewWork",
   }, release), false);
+});
+
+test("mint-closed notice answers the click instead of describing the surface", () => {
+  const notice = getThoughtMintClosedNotice({
+    state: deriveThoughtLaunchState({ deployment: null, readModel: null }),
+    workCompatible: true,
+  });
+  assert.equal(notice.title, "minting is not open yet");
+  assert.equal(
+    notice.detail,
+    "Save this work in your browser and it will be here when minting opens.",
+  );
+  assert.equal(notice.nextStep, "save this work in your browser");
+  // The banner copy told visitors to create; the click notice must not, since
+  // the visitor has already made something and just reached for mint.
+  assert.doesNotMatch(
+    `${notice.title} ${notice.detail}`,
+    /Create a THOUGHT|Write a prompt|Studio|Onchain/i,
+  );
+});
+
+test("mint-closed notice names the opening when the read model carries one", () => {
+  const state = deriveThoughtLaunchState({
+    deployment,
+    readModel: readModel({
+      status: "countdown",
+      openTime: "2026-09-01T12:00:00.000Z",
+      observedAt: "2026-08-21T10:00:00.000Z",
+    }),
+    nowMs: Date.parse("2026-08-21T10:00:30.000Z"),
+  });
+  const notice = getThoughtMintClosedNotice({
+    state,
+    workCompatible: true,
+  });
+  // The state stays in the title; the opening time leads the body, ahead of
+  // the action the visitor can take.
+  assert.equal(notice.title, "minting is not open yet");
+  assert.match(notice.detail, /^Minting opens .+\. Save this work in your browser/);
+  assert.equal(notice.nextStep, "save this work in your browser");
+});
+
+test("mint-closed notice explains stale work when minting is open", () => {
+  const state = deriveThoughtLaunchState({
+    deployment,
+    readModel: readModel({
+      status: "open",
+      openTime: "2026-08-21T09:00:00.000Z",
+      observedAt: "2026-08-21T10:00:00.000Z",
+    }),
+    nowMs: Date.parse("2026-08-21T10:00:30.000Z"),
+  });
+  assert.equal(state.mintEnabled, true);
+  const notice = getThoughtMintClosedNotice({
+    state,
+    workCompatible: false,
+  });
+  assert.equal(notice.title, "run this work again first");
+  assert.equal(notice.nextStep, "run this work again with your Agent");
 });

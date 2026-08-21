@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "66f2e5ffa67c54bb3533e62290a29dcc7df20b899f65f08bc72f60335fe01bc8",
+  "sourceTreeSha256": "4c07f4cd57e3743dc174fcdb38da9d324c1fdcc40e070e96f39e882992d94fa8",
   "groups": [
     {
       "id": "public-docs",
@@ -999,7 +999,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "fe6c6dc994a6f86991457ad8cf4023a6c06e926a45e971c50a7238f5eb6d8fb8",
+      "groupSha256": "a66421ae5a1747fe07203f3eeb8ab71b563e9f0f32ed102a882d2181d38a1ff4",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1048,8 +1048,8 @@
         },
         {
           "path": "apps/thought/scripts/thought-launch-main-deltas.generated.mjs",
-          "byteLength": 37971,
-          "sha256": "6a1123df096c40f5505252b2fc8c38eb28d06e2099b4b194b059fc64802cc5a4"
+          "byteLength": 48012,
+          "sha256": "63f27638b84a9176ee7735a99ac91187e277de92b8a160ab63eed947757f84e2"
         },
         {
           "path": "apps/thought/src/color-font-doc.ts",
@@ -1063,8 +1063,8 @@
         },
         {
           "path": "apps/thought/src/main.ts",
-          "byteLength": 754080,
-          "sha256": "09d45df807d0ffcdb0c79c5ab0ea0f9586d9cd419e84c32df67cd88937b8147a"
+          "byteLength": 753622,
+          "sha256": "11831bf665b6f05ca7210788b75407e7a032b0e89b104f8d3a684d695865ab42"
         },
         {
           "path": "apps/thought/src/rpc-provider.ts",
@@ -1073,8 +1073,8 @@
         },
         {
           "path": "apps/thought/src/style.css",
-          "byteLength": 103185,
-          "sha256": "1090c281a891ee0d9149c006dedd0fbf7a928ffb86724509d7d0576370939ac1"
+          "byteLength": 102881,
+          "sha256": "cc840bb165889618d6fb6862dfbc33de03d025811cf5f097d36549d0af2863bb"
         },
         {
           "path": "apps/thought/src/surfaceShell/thoughtCommandTree.ts",
@@ -1138,8 +1138,8 @@
         },
         {
           "path": "apps/thought/src/thought-launch-state.ts",
-          "byteLength": 9977,
-          "sha256": "ee0d0130037f60d2668f4bb80a3e91d8cee8584823bc8c8a35da7c16120d546c"
+          "byteLength": 8097,
+          "sha256": "d5f44be5aa3e42a2ad9ded13fe1c2b6278c9c65ff228e469786e8d9c532f8123"
         },
         {
           "path": "apps/thought/src/thought-mint-presentation.ts",

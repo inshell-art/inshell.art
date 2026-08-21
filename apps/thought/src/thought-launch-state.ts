@@ -47,14 +47,6 @@ export const shouldFetchThoughtLaunchReadModel = ({
   simulatedPhase: string | null;
 }) => Boolean(deployment && !localRuntime && !simulatedPhase);
 
-export type ThoughtLaunchGuidance = {
-  eyebrow: string;
-  title: string;
-  detail: string;
-  meta: string;
-  tone: "studio" | "countdown" | "open" | "attention";
-};
-
 export type ThoughtSavedWorkLaunchEvidence = {
   thoughtSpecId?: string;
   thoughtSpecHash?: string;
@@ -203,14 +195,6 @@ export const deriveThoughtLaunchState = ({
   };
 };
 
-export const thoughtLaunchNetworkLabel = (
-  environment: ThoughtLaunchEnvironment,
-) => {
-  if (environment === "mainnet") return "Ethereum Mainnet";
-  if (environment === "public-beta-sepolia") return "Sepolia Public Beta";
-  return "Local development";
-};
-
 const formatLaunchTime = (openTime: string) => new Intl.DateTimeFormat(
   undefined,
   {
@@ -221,24 +205,6 @@ const formatLaunchTime = (openTime: string) => new Intl.DateTimeFormat(
     timeZoneName: "short",
   },
 ).format(new Date(openTime));
-
-export const formatThoughtLaunchCountdown = (
-  openTime: string,
-  nowMs: number,
-) => {
-  const remainingSeconds = Math.max(
-    0,
-    Math.ceil((Date.parse(openTime) - nowMs) / 1000),
-  );
-  if (remainingSeconds === 0) return "waiting for public confirmation";
-  const days = Math.floor(remainingSeconds / 86_400);
-  const hours = Math.floor((remainingSeconds % 86_400) / 3_600);
-  const minutes = Math.floor((remainingSeconds % 3_600) / 60);
-  const seconds = remainingSeconds % 60;
-  if (days > 0) return `${days}d ${hours}h ${minutes}m`;
-  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
-  return `${minutes}m ${seconds}s`;
-};
 
 export const thoughtSavedWorkMatchesRelease = (
   evidence: ThoughtSavedWorkLaunchEvidence,
@@ -256,67 +222,45 @@ export const thoughtSavedWorkMatchesRelease = (
   );
 };
 
-export const getThoughtLaunchGuidance = ({
+export type ThoughtMintClosedNotice = {
+  title: string;
+  detail: string;
+  nextStep: string;
+};
+
+// Copy for the moment a visitor reaches for the mint CTA while minting is
+// closed. It answers the action they just took, so it opens with what is true
+// of minting rather than describing the surface they are already looking at.
+export const getThoughtMintClosedNotice = ({
   state,
-  workExists,
   workCompatible,
-  nowMs,
 }: {
   state: ThoughtLaunchState;
-  workExists: boolean;
   workCompatible: boolean;
-  nowMs: number;
-}): ThoughtLaunchGuidance => {
-  const network = thoughtLaunchNetworkLabel(state.environment);
-  if (state.phase === "studio-preview") {
+}): ThoughtMintClosedNotice => {
+  if (!state.mintEnabled) {
+    const opening = state.openTime ? formatLaunchTime(state.openTime) : null;
     return {
-      eyebrow: "CREATE",
-      title: workExists ? "Your work is ready" : "Create a THOUGHT",
-      detail: workExists
-        ? "Save this work in your browser so you can return to it later. Minting is not available yet."
-        : "Write a prompt and choose an Agent. Save the finished work in this browser if you want to keep it.",
-      meta: "saved on this device · no wallet needed",
-      tone: "studio",
+      // The title carries the state. The opening time is a fact about that
+      // state, so it leads the body instead, ahead of what the visitor can do.
+      title: "minting is not open yet",
+      detail: opening
+        ? `Minting opens ${opening}. Save this work in your browser and it will be here then.`
+        : "Save this work in your browser and it will be here when minting opens.",
+      nextStep: "save this work in your browser",
     };
   }
-
-  if (state.phase === "onchain-countdown") {
-    const opening = state.openTime
-      ? `opens ${formatLaunchTime(state.openTime)}`
-      : "public launch clock is syncing";
-    const countdown = state.openTime
-      ? formatThoughtLaunchCountdown(state.openTime, nowMs)
-      : "mint stays locked";
+  if (!workCompatible) {
     return {
-      eyebrow: "CREATE NOW · MINT LATER",
-      title: state.openTime ? `Minting ${opening}` : "Minting date is being confirmed",
-      detail: workExists
-        ? "Save this work in your browser. When minting opens, you can mint it using one available THOUGHT mint from a $PATH token."
-        : "Create a THOUGHT now and save it in your browser. The mint option will appear after minting opens and your work is ready.",
-      meta: `${network} · ${countdown}`,
-      tone: "countdown",
+      title: "run this work again first",
+      detail:
+        "This work was created with an older approved version. Run it again with your Agent and the new result can be minted. Your saved prompt stays unchanged.",
+      nextStep: "run this work again with your Agent",
     };
   }
-
-  if (workExists && !workCompatible) {
-    return {
-      eyebrow: "BEFORE MINTING",
-      title: "Run this work again",
-      detail: "This preview was created with an older approved version. Your saved prompt stays unchanged.",
-      meta: `${network} · mint locked for this work`,
-      tone: "attention",
-    };
-  }
-
   return {
-    eyebrow: workExists ? "READY TO MINT" : "CREATE · THEN MINT",
-    title: workExists
-      ? "Your work is ready to mint"
-      : "Create a THOUGHT",
-    detail: workExists
-      ? "Minting uses one available THOUGHT mint from a $PATH token. Continue when you are ready."
-      : "Write a prompt and choose an Agent. The mint option appears after your Agent returns the finished work.",
-    meta: `${network} · minting open`,
-    tone: "open",
+    title: "this work cannot be minted yet",
+    detail: "Check the Work panel for what this work still needs.",
+    nextStep: "review the Work panel",
   };
 };

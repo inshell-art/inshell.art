@@ -1044,13 +1044,12 @@ test("THOUGHT panel copy uses canonical product terms", () => {
   assert.doesNotMatch(productCopy, /load a work/);
   assert.doesNotMatch(productCopy, /\$PATHs/);
   assert.doesNotMatch(productCopy, /THOUGHT (?:mint )?unit/);
-  assert.match(
-    thoughtLaunchState,
-    /title:\s*workExists[\s\S]*?\? "Your work is ready to mint"/,
-  );
+  // One copy source now serves every "you cannot mint yet" moment, and it
+  // never reaches for network or phase vocabulary.
+  assert.doesNotMatch(thoughtLaunchState, /getThoughtLaunchGuidance/);
   assert.doesNotMatch(
     thoughtLaunchState,
-    /(?:eyebrow|title):\s*"[^"]*(?:Studio|Onchain)[^"]*"/,
+    /"[^"]*(?:Studio|Onchain|Sepolia|Mainnet)[^"]*"/,
   );
   assert.match(productCopy, /load a saved work/);
   assert.match(productCopy, /THOUGHT mint available/);
@@ -1071,32 +1070,56 @@ test("THOUGHT panel copy uses canonical product terms", () => {
   );
 });
 
-test("THOUGHT launch guidance removes wallet distraction until minting is open", () => {
-  assert.match(
-    thoughtCss,
-    /frontpage-stage:not\(\.is-hidden\)\[data-thought-launch-phase="studio-preview"\][\s\S]*?frontpage-stage:not\(\.is-hidden\)\[data-thought-launch-phase="onchain-countdown"\][\s\S]*?\.inshell-topbar__wallet-surface\s*\{\s*display:\s*none;/,
-  );
+test("THOUGHT never hides a control to express a launch phase", () => {
+  // Controls stay put across every phase, matching the PATH surface, so a
+  // visitor never has to notice an absence to understand the state.
   assert.doesNotMatch(
     thoughtCss,
-    /data-thought-launch-phase="onchain-open"\][\s\S]{0,240}\.inshell-topbar__wallet-surface/,
+    /data-thought-launch-phase[\s\S]{0,240}\.inshell-topbar__wallet-surface\s*\{\s*display:\s*none;/,
+    "the wallet surface is no longer hidden by launch phase",
+  );
+  assert.doesNotMatch(
+    thoughtMain,
+    /\.\.\.\(canOpenMint\s*\n?\s*\?\s*\[dockRailAction\(/,
+    "the mint CTA is no longer conditionally spread out of the rail",
   );
   assert.match(
     thoughtLaunchState,
-    /meta:\s*"saved on this device · no wallet needed"/,
+    /title: "minting is not open yet"/,
   );
 });
 
-test("THOUGHT launch phase is Console guidance and still fails closed before wallet minting", () => {
+test("THOUGHT launch phase explains itself at the mint CTA and still fails closed", () => {
   const workActionsIndex = indexHtml.indexOf('id="thought-dock-action-area"');
   const mintPanelIndex = indexHtml.indexOf('id="thought-dock-path"');
   assert.ok(workActionsIndex >= 0);
   assert.ok(mintPanelIndex > workActionsIndex);
   assert.doesNotMatch(indexHtml, /thought-launch-status/);
   assert.doesNotMatch(thoughtCss, /\.thought-launch-status/);
+
+  // The persistent phase banner is gone: nothing narrates the launch phase
+  // until the visitor reaches for the control it applies to.
+  assert.doesNotMatch(thoughtMain, /kind: "thought_launch_guidance"/);
+  assert.doesNotMatch(thoughtMain, /thought-launch-guidance:plain-v1:/);
+
+  // Reaching for mint while it is closed explains why, and never enters the
+  // mint flow.
   assert.match(
     thoughtMain,
-    /const syncThoughtLaunchGuidance = \(\) => \{[\s\S]*?kind: "thought_launch_guidance"[\s\S]*?tone: "warning"[\s\S]*?eventId: `thought-launch-guidance:plain-v1:\$\{thoughtLaunchState\.phase\}:\$\{workState\}`/,
+    /const noticeThoughtMintUnavailable = \(\) => \{[\s\S]*?kind: "thought_launch_mint_closed"[\s\S]*?tone: "warning"/,
   );
+  assert.match(
+    thoughtMain,
+    /if \(!canOpenMint\) \{\s*noticeThoughtMintUnavailable\(\);\s*syncThoughtDock\(\);\s*return;\s*\}/,
+    "a closed mint CTA reports and returns before revealing the mint dock",
+  );
+
+  // Saved work built on an older release stays a message, but it reuses the
+  // existing work_blocked entry rather than adding a second channel for the
+  // same fact.
+  assert.doesNotMatch(thoughtMain, /thought_launch_stale_work/);
+  assert.match(thoughtMain, /kind: "work_blocked"/);
+
   assert.match(
     thoughtMain,
     /frontpageStage\.dataset\.thoughtLaunchPhase = thoughtLaunchState\.phase/,
@@ -1739,7 +1762,7 @@ test("Console guidance states the next visible action without protocol jargon", 
     recordBody,
     /detail: `Select “\$\{signAction\}” above to authorize minting this THOUGHT work\.`/,
   );
-  assert.match(recordBody, /Approve the signature request\. No transaction or gas\./);
+  assert.match(recordBody, /A signature request for \$\{path\} is open in your wallet\. Approve it to continue\. No transaction or gas\./);
   assert.match(
     recordBody,
     /const mintAction = thoughtMintActionLabel\(presentation, "confirm_mint", "Mint THOUGHT"\)/,
@@ -1750,7 +1773,7 @@ test("Console guidance states the next visible action without protocol jargon", 
   );
   assert.doesNotMatch(recordBody, /submit this THOUGHT work to the network/);
   assert.doesNotMatch(recordBody, /above to continue/);
-  assert.match(recordBody, /Open your wallet and confirm the transaction\. Gas applies\./);
+  assert.match(recordBody, /A THOUGHT mint transaction is open in your wallet\. Confirm it to continue\. Gas applies\./);
   assert.match(
     recordBody,
     /const viewAction = thoughtMintActionLabel\([\s\S]*?"view_thought",[\s\S]*?"View THOUGHT"/,
@@ -1764,11 +1787,16 @@ test("Console guidance states the next visible action without protocol jargon", 
 
   assert.match(
     thoughtMain,
-    /kind: "wallet_connection_requested",[\s\S]*?title: "approve wallet connection",[\s\S]*?Open your wallet and approve the connection\. No signature or transaction\./,
+    /kind: "wallet_connection_requested",[\s\S]*?title: "waiting for your wallet",[\s\S]*?A connection request is open in your wallet\. Approve it to continue\. No signature or transaction\./,
   );
   assert.match(
     thoughtMain,
-    /kind: "path_acquisition_wallet",[\s\S]*?title: "confirm \$PATH mint in wallet",[\s\S]*?Open your wallet and confirm the transaction\. Gas applies\./,
+    /kind: "path_acquisition_wallet",[\s\S]*?title: "waiting for your confirmation",[\s\S]*?A \$PATH mint transaction is open in your wallet\. Confirm it to continue\. Gas applies\./,
+  );
+  assert.doesNotMatch(
+    thoughtMain,
+    /title: (?:`|")(?:sign|confirm|approve|close) [^`"]*(?:in wallet|wallet request)(?:`|")/,
+    "Console titles name the state the visitor is in, not an instruction",
   );
   assert.match(
     thoughtMain,

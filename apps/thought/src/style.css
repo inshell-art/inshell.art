@@ -4561,17 +4561,6 @@ html:root
 .thought-dock-actions a.thought-dock-button {
   text-decoration: none;
 }
-
-body.frontpage:has(
-    .frontpage-stage:not(.is-hidden)[data-thought-launch-phase="studio-preview"]
-  )
-  .inshell-topbar__wallet-surface,
-body.frontpage:has(
-    .frontpage-stage:not(.is-hidden)[data-thought-launch-phase="onchain-countdown"]
-  )
-  .inshell-topbar__wallet-surface {
-  display: none;
-}
 /* INSHELL_CURRENT_THOUGHT_DETAIL_PATH_CANON_END */
 
 /* The canonical CLI creation surface preserves the exact June 10 production canvas. */

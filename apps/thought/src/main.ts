@@ -233,7 +233,7 @@ import {
 import { THOUGHT_V2_PRODUCTION_DEPLOYMENT } from "./thought-v2-production-deployment";
 import {
   deriveThoughtLaunchState,
-  getThoughtLaunchGuidance,
+  getThoughtMintClosedNotice,
   localThoughtLaunchState,
   parseThoughtLaunchReadModel,
   shouldFetchThoughtLaunchReadModel,
@@ -4538,8 +4538,8 @@ const recordMintConsoleState = (
     const path = mintFlowData.pathId ? `$PATH #${mintFlowData.pathId.toString()}` : "$PATH";
     emitThoughtConsoleEvent({
       kind: "authorization_requested",
-      title: `sign ${path} in wallet`,
-      detail: "Approve the signature request. No transaction or gas.",
+      title: "waiting for your signature",
+      detail: `A signature request for ${path} is open in your wallet. Approve it to continue. No transaction or gas.`,
       eventId: mintAttemptConsoleEventId(
         "authorization-requested",
         mintAuthorizationRequestId,
@@ -4568,10 +4568,10 @@ const recordMintConsoleState = (
     const txHash = walletState.txHash || mintFlowData.txHash;
     emitThoughtConsoleEvent({
       kind: txHash ? "transaction_submitted" : "transaction_requested",
-      title: txHash ? "THOUGHT mint submitted" : "confirm THOUGHT mint in wallet",
+      title: txHash ? "THOUGHT mint submitted" : "waiting for your confirmation",
       detail: txHash
         ? shortHex(txHash, 10, 8)
-        : "Open your wallet and confirm the transaction. Gas applies.",
+        : "A THOUGHT mint transaction is open in your wallet. Confirm it to continue. Gas applies.",
       eventId: txHash
         ? `transaction:${txHash.toLowerCase()}`
         : mintAttemptConsoleEventId(
@@ -4853,15 +4853,13 @@ function isCurrentWorkLaunchCompatible() {
 
 const getCurrentWorkMintReadiness = (): ThoughtWorkMintReadiness => {
   if (!isThoughtMintEnabled()) {
-    const guidance = getThoughtLaunchGuidance({
+    const notice = getThoughtMintClosedNotice({
       state: thoughtLaunchState,
-      workExists: Boolean(currentOutputText && currentWorkSvg),
       workCompatible: isCurrentWorkLaunchCompatible(),
-      nowMs: Date.now(),
     });
     return {
       ready: false,
-      reason: guidance.detail,
+      reason: notice.detail,
       blockedTitle: "mint unavailable",
     };
   }
@@ -4947,6 +4945,23 @@ const captureCurrentMintWork = (): ThoughtMintWorkSnapshot | null => {
     svg: currentWorkSvg,
     workId: currentWorkId,
     runContext,
+  });
+};
+
+// The mint CTA is always on screen, so it is also where the launch phase
+// explains itself. A visitor learns that minting is not open yet by reaching
+// for it, not from a banner they have to read before they have made anything.
+const noticeThoughtMintUnavailable = () => {
+  const notice = getThoughtMintClosedNotice({
+    state: thoughtLaunchState,
+    workCompatible: isCurrentWorkLaunchCompatible(),
+  });
+  emitThoughtConsoleEvent({
+    kind: "thought_launch_mint_closed",
+    title: notice.title,
+    detail: notice.detail,
+    nextStep: notice.nextStep,
+    tone: "warning",
   });
 };
 
@@ -5144,25 +5159,28 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
             ? "success"
             : "warning",
           actions: [
-            ...(canOpenMint
-              ? [dockRailAction(
-                  "mint",
-                  mintPanelOpen ? "mint ↓" : "mint",
-                  mintPanelOpen ? "collapse Mint panel" : "mint this accepted THOUGHT work",
-                  () => {
-                    if (mintPanelOpen) {
-                      mintDockRevealed = false;
-                      writeCurrentOutputSession();
-                      syncThoughtDock();
-                      return;
-                    }
-                    revealMintDock();
-                    syncThoughtDock();
-                    void mintThoughtDockWork();
-                  },
-                  { expanded: mintPanelOpen },
-                )]
-              : []),
+            dockRailAction(
+              "mint",
+              mintPanelOpen ? "mint ↓" : "mint",
+              mintPanelOpen ? "collapse Mint panel" : "mint this accepted THOUGHT work",
+              () => {
+                if (!canOpenMint) {
+                  noticeThoughtMintUnavailable();
+                  syncThoughtDock();
+                  return;
+                }
+                if (mintPanelOpen) {
+                  mintDockRevealed = false;
+                  writeCurrentOutputSession();
+                  syncThoughtDock();
+                  return;
+                }
+                revealMintDock();
+                syncThoughtDock();
+                void mintThoughtDockWork();
+              },
+              { expanded: mintPanelOpen },
+            ),
             dockRailAction(
               "save",
               currentWorkSaved ? "saved" : "save",
@@ -5336,38 +5354,9 @@ const visibleMintErrorCopy = () => {
   return "mint failed.";
 };
 
-const syncThoughtLaunchGuidance = () => {
-  const workExists = Boolean(currentOutputText && currentWorkSvg);
-  const workCompatible = isCurrentWorkLaunchCompatible();
-  const guidance = getThoughtLaunchGuidance({
-    state: thoughtLaunchState,
-    workExists,
-    workCompatible,
-    nowMs: Date.now(),
-  });
-  const workState = !workExists
-    ? "empty"
-    : workCompatible
-      ? "compatible"
-      : "incompatible";
+const syncThoughtLaunchPhaseState = () => {
   frontpageStage.dataset.thoughtLaunchPhase = thoughtLaunchState.phase;
   frontpageStage.dataset.thoughtLaunchEnvironment = thoughtLaunchState.environment;
-  emitThoughtConsoleEvent({
-    kind: "thought_launch_guidance",
-    title: `${guidance.eyebrow}: ${guidance.title}`,
-    detail: `${guidance.detail} ${guidance.meta}.`,
-    nextStep: thoughtLaunchState.phase === "studio-preview"
-      ? "save this work in your browser"
-      : thoughtLaunchState.phase === "onchain-countdown"
-        ? "save this work and return when minting opens"
-        : workExists && !workCompatible
-          ? "run this work again with your Agent"
-          : workExists
-            ? "continue to mint when ready"
-            : "send a prompt to your Agent",
-    tone: "warning",
-    eventId: `thought-launch-guidance:plain-v1:${thoughtLaunchState.phase}:${workState}`,
-  });
 };
 
 const renderThoughtDock = () => {
@@ -5398,7 +5387,7 @@ const renderThoughtDock = () => {
       thoughtDockActions(...rail.actions.map(renderDockRailAction)),
     );
   }
-  syncThoughtLaunchGuidance();
+  syncThoughtLaunchPhaseState();
   syncMintDockPathPanel();
   syncWorkLibraryPanel();
   renderThoughtDockDetails(state, mintPresentation);
@@ -11461,8 +11450,8 @@ const requestWalletConnect = async () => {
     if (mintFlowState !== "closed") {
       emitThoughtConsoleEvent({
         kind: "wallet_connection_requested",
-        title: "approve wallet connection",
-        detail: "Open your wallet and approve the connection. No signature or transaction.",
+        title: "waiting for your wallet",
+        detail: "A connection request is open in your wallet. Approve it to continue. No signature or transaction.",
       });
     }
     syncInterface();
@@ -11529,8 +11518,8 @@ const requestWalletConnect = async () => {
   if (mintFlowState !== "closed") {
     emitThoughtConsoleEvent({
       kind: "wallet_connection_requested",
-      title: "approve wallet connection",
-      detail: "Open your wallet and approve the connection. No signature or transaction.",
+      title: "waiting for your wallet",
+      detail: "A connection request is open in your wallet. Approve it to continue. No signature or transaction.",
     });
   }
   syncInterface();
@@ -11955,13 +11944,11 @@ const openMintFlow = async (
   });
 
   if (!isThoughtMintEnabled()) {
-    const guidance = getThoughtLaunchGuidance({
+    const notice = getThoughtMintClosedNotice({
       state: thoughtLaunchState,
-      workExists: Boolean(currentOutputText && currentWorkSvg),
       workCompatible: isCurrentWorkLaunchCompatible(),
-      nowMs: Date.now(),
     });
-    setMintFlowError(guidance.detail, "thought");
+    setMintFlowError(notice.detail, "thought");
     syncInterface();
     return;
   }
@@ -14157,8 +14144,8 @@ const recoverUnresolvedMintSubmission = async () => {
     );
     emitThoughtConsoleEvent({
       kind: "mint_activity_checked",
-      title: "close the previous wallet request",
-      detail: "No transaction was found. Cancel or reject the previous request in your wallet before retrying.",
+      title: "a previous wallet request is still open",
+      detail: "No transaction was found. Cancel or reject the earlier request in your wallet before retrying.",
       nextStep: "cancel the previous wallet request, then select “I closed it”",
       eventId: `mint-activity-checked:${unresolved.requestId}:close-wallet`,
       tone: "warning",
@@ -14597,8 +14584,8 @@ const confirmPathAcquisition = async () => {
   pathAcquisitionError = "";
   emitThoughtConsoleEvent({
     kind: "path_acquisition_wallet",
-    title: "confirm $PATH mint in wallet",
-    detail: "Open your wallet and confirm the transaction. Gas applies.",
+    title: "waiting for your confirmation",
+    detail: "A $PATH mint transaction is open in your wallet. Confirm it to continue. Gas applies.",
     eventId: `path-acquisition-wallet:${mintAttemptId}`,
   });
   syncInterface();
