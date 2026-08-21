@@ -932,6 +932,41 @@ describe("Docs source editorial guardrails", () => {
         { label: "Pulse", href: "/docs/pulse" },
         { label: "Verification", href: "/docs/verification" },
       ],
+      lineage: [
+        { label: "Agent Art", href: "/docs/agent-art" },
+        { label: "THOUGHT", href: "/docs/thought" },
+      ],
+      "generative-art": [{ label: "THOUGHT", href: "/docs/thought" }],
+      "agents-and-ai": [
+        { label: "Agent Art", href: "/docs/agent-art" },
+        { label: "Inshell", href: "/docs/inshell" },
+        { label: "THOUGHT", href: "/docs/thought" },
+        { label: "Verification", href: "/docs/verification" },
+      ],
+      svg: [
+        {
+          label: "Fully Onchain",
+          href: "/docs/fully-onchain#docs-fully-onchain-agent-art",
+        },
+        { label: "Ethereum", href: "/docs/ethereum" },
+        { label: "Mono 76", href: "/docs/mono-76" },
+      ],
+      ethereum: [
+        { label: "Design Principles", href: "/docs/design-principles" },
+        { label: "Fully Onchain", href: "/docs/fully-onchain" },
+        { label: "Tokens and NFTs", href: "/docs/tokens-and-nfts" },
+        { label: "Contracts", href: "/docs/contracts" },
+        { label: "Verification", href: "/docs/verification" },
+      ],
+      "tokens-and-nfts": [
+        { label: "Fully Onchain", href: "/docs/fully-onchain" },
+        {
+          label: "Artwork, Metadata, and Chain",
+          href: "/docs/artwork-metadata-chain",
+        },
+        { label: "Verification", href: "/docs/verification" },
+      ],
+      "onchain-art": [{ label: "Fully Onchain", href: "/docs/fully-onchain" }],
       "design-principles": [
         { label: "THOUGHT", href: "/docs/thought" },
         { label: "Pulse", href: "/docs/pulse" },
@@ -1467,6 +1502,13 @@ describe("DocsPage character figures", () => {
       "verification",
       "wallet-local-data",
       "source-release-boundaries",
+      "lineage",
+      "generative-art",
+      "agents-and-ai",
+      "svg",
+      "ethereum",
+      "tokens-and-nfts",
+      "onchain-art",
       "design-principles",
     ]);
     expect(

@@ -345,7 +345,7 @@ const THOUGHT_RAW_SVG_EXAMPLE = [
 
 export const DOCS_SOURCE: DocsSource = {
   schema: "inshell.docs.source.v2",
-  version: "2026-08-21",
+  version: "2026-08-21-r2",
   title: "docs",
   subtitle: "paste this prompt into your Agent",
   canonicalUrl: "https://inshell.art/docs",
@@ -381,10 +381,19 @@ export const DOCS_SOURCE: DocsSource = {
     },
     {
       id: "context",
-      title: "Context",
+      title: "Lineage and context",
       summary:
-        "Read the design choices that give the practice form without turning its truth into a doctrine.",
-      topicSlugs: ["design-principles"],
+        "Place the practice in the histories it works inside—instruction art, generative systems, machines that make images, and the chain as material—then read the design choices that give it form.",
+      topicSlugs: [
+        "lineage",
+        "generative-art",
+        "agents-and-ai",
+        "svg",
+        "ethereum",
+        "tokens-and-nfts",
+        "onchain-art",
+        "design-principles",
+      ],
     },
   ],
   topics: [
@@ -1742,6 +1751,508 @@ export const DOCS_SOURCE: DocsSource = {
       ],
     },
     {
+      slug: "lineage",
+      id: "docs-lineage",
+      group: "context",
+      title: "Lineage",
+      summary:
+        "Separating the person who specifies a work from whatever carries it out is an old move in art; Agent Art inherits the question, not the authority.",
+      status: "current",
+      authorities: ["artist-editorial"],
+      paragraphs: [
+        "Agent Art is new as a name. The questions underneath it are not. Art has repeatedly split the person who specifies a work from the person or process that executes it, and has repeatedly asked what remains of authorship after the split.",
+        "Inshell reads that history as context, not as permission. Naming a precedent does not inherit its authority and does not make this practice a continuation of anyone else's.",
+      ],
+      sections: [
+        {
+          id: "docs-lineage-instruction",
+          title: "Instruction and execution",
+          paragraphs: [
+            "Sol LeWitt's wall drawings exist as written instructions together with a signed certificate. Other people execute them on a wall, and two executions of the same instruction can differ while remaining the same work. LeWitt's stated position was that the concept is the primary part of the work rather than the surface that results from it.",
+            "That arrangement makes a specific claim: a work can be a rule plus a record of authorization, and the visible object can be downstream of both. An artwork built that way survives the loss of any particular execution.",
+          ],
+        },
+        {
+          id: "docs-lineage-scores",
+          title: "Scores realized by others",
+          paragraphs: [
+            "Fluxus developed the same idea as a score. George Brecht's event scores of the early 1960s are short directives that someone performs, publicly or privately. Yoko Ono's Grapefruit, published in 1964, collects instructions whose realization is often left to the reader's mind rather than to any material.",
+            "A score is written to be realized by someone other than its author, and it stays open to variation without becoming a different work. The score and its realizations are two different things, and both can be preserved.",
+          ],
+        },
+        {
+          id: "docs-lineage-reader",
+          title: "Who completes the work",
+          paragraphs: [
+            "Marcel Duchamp argued that the creative act is not finished by the artist alone, and that the viewer completes it by interpreting the work into the world. Roland Barthes made a parallel argument for text in 1967: meaning is produced where a work is read, not sealed by the author's intention.",
+            "Inshell's practice depends on this. A preserved exchange is not self-explaining. The person who later reads it is doing part of the work, which is why the practice asks for inspection rather than agreement.",
+          ],
+        },
+        {
+          id: "docs-lineage-difference",
+          title: "Where Agent Art differs",
+          paragraphs: [
+            "In instruction art the executor is a person following a score, or a machine following a rule the artist wrote. In either case the specification and the execution are separated, but the executor does not interpret in the sense that matters here.",
+            [
+              "An Agent interprets. The instruction does not fully determine the result, and the result is not random either. That is the gap ",
+              { label: "Agent Art", href: "/docs/agent-art" },
+              " names, and it is why participation rather than automation is the invariant.",
+            ],
+            [
+              "Inshell's response is to preserve both sides. ",
+              { label: "THOUGHT", href: "/docs/thought" },
+              " keeps one exact human prompt beside one exact Agent response, so the score and its realization stay in a single record and can be read against each other. That is one Inshell choice, not a requirement of the field.",
+            ],
+          ],
+        },
+        {
+          id: "docs-lineage-boundary",
+          title: "Evidence boundary",
+          paragraphs: [
+            "The artists, works, and dates named here are public references to other people's practices. Inshell does not verify them onchain, claim affiliation or endorsement, or present this reading as art-historical consensus.",
+          ],
+          note: "A named precedent locates a question. It does not transfer authority to the practice that cites it.",
+        },
+      ],
+      links: [
+        { label: "read Agent Art", href: "/docs/agent-art" },
+        { label: "read THOUGHT", href: "/docs/thought" },
+        { label: "read Generative Art", href: "/docs/generative-art" },
+        {
+          label: "Sol LeWitt ↗",
+          href: "https://en.wikipedia.org/wiki/Sol_LeWitt",
+        },
+        { label: "Fluxus ↗", href: "https://en.wikipedia.org/wiki/Fluxus" },
+      ],
+    },
+    {
+      slug: "generative-art",
+      id: "docs-generative-art",
+      group: "context",
+      title: "Generative Art",
+      summary:
+        "Rule-based art has a sixty-year public record, and its onchain form derives variation from a seed; Inshell derives variation from intention instead.",
+      status: "current",
+      authorities: ["artist-editorial"],
+      paragraphs: [
+        "Generative art makes the rule part of the work. The artist writes a procedure, the procedure produces the artifact, and attention moves from the individual mark to the system that produced it.",
+        "Inshell works with rules and with a public machine, but its variation does not come from a seed. Stating that difference keeps both practices legible instead of collapsing them into one category.",
+      ],
+      sections: [
+        {
+          id: "docs-generative-origins",
+          title: "1965 and generative aesthetics",
+          paragraphs: [
+            "Three 1965 exhibitions are generally treated as the first public showings of computer-generated graphics: Georg Nees in Stuttgart in February, A. Michael Noll and Bela Julesz at the Howard Wise Gallery in New York in April, and Frieder Nake with Nees in Stuttgart in November. The philosopher Max Bense, who encouraged the Stuttgart work, coined the term generative aesthetics around the February showing.",
+            "Vera Molnár and Manfred Mohr began working with computers toward the end of that decade. Molnár is notable in the group for arriving from a lifelong painting practice rather than from science, which is part of why her work reads as art using a machine rather than a machine demonstrating art.",
+          ],
+        },
+        {
+          id: "docs-generative-onchain",
+          title: "The onchain turn",
+          paragraphs: [
+            "Art Blocks launched in November 2020 with Erick Calderon's Chromie Squiggle. A project's generating script is stored in a contract. When a collector mints, the transaction yields a 32-byte hash, and that hash is injected into the script as its seed. The same hash and the same script always produce the same output.",
+            "This established a pattern that much later onchain work follows: store the rule, take the variation from the chain, and derive the image on demand rather than storing it. The artwork becomes reproducible from public state.",
+          ],
+        },
+        {
+          id: "docs-generative-difference",
+          title: "Seed is not intention",
+          paragraphs: [
+            "In seeded generative art the source of variation is a number that nobody chose for its meaning. Its role is to be unpredictable and fairly distributed, and any meaning it carries is assigned afterward.",
+            [
+              "In ",
+              { label: "THOUGHT", href: "/docs/thought" },
+              " the source of variation is a written human intention and an Agent's response to it. Both are authored text, and neither is random. What varies between two works is what somebody meant and how an Agent read it.",
+            ],
+            "This changes what preservation has to hold. A seeded work can be regenerated from its seed, so storing the rule and the seed is enough. An exchange cannot be regenerated from a seed, because the exchange is the content. Inshell therefore preserves the exchange itself rather than a procedure for recreating it.",
+            "This is a description of two methods, not a ranking of them.",
+          ],
+        },
+        {
+          id: "docs-generative-boundary",
+          title: "Evidence boundary",
+          paragraphs: [
+            "Exhibitions, dates, platforms, and mechanisms named here are public references. Inshell has not audited the contracts or archives behind them, claims no affiliation, and does not present this account as a complete history of the field.",
+          ],
+        },
+      ],
+      links: [
+        { label: "read Agent Art", href: "/docs/agent-art" },
+        { label: "read THOUGHT", href: "/docs/thought" },
+        { label: "read Onchain Art", href: "/docs/onchain-art" },
+        {
+          label: "Frieder Nake ↗",
+          href: "https://en.wikipedia.org/wiki/Frieder_Nake",
+        },
+        { label: "Art Blocks ↗", href: "https://www.artblocks.io/" },
+      ],
+    },
+    {
+      slug: "agents-and-ai",
+      id: "docs-agents-and-ai",
+      group: "context",
+      title: "Agents and AI",
+      summary:
+        "A program, a model, and an Agent are different participants, and Agent Art names the third rather than the technology behind it.",
+      status: "current",
+      authorities: ["artist-editorial"],
+      paragraphs: [
+        "The machine's role in making images has changed at least three times: a program that executes rules an artist wrote, a model that learns a distribution and samples from it, and an Agent that plans, calls tools, and acts across several steps.",
+        "Agent Art names participation, not a model class. Keeping the three eras distinct is what makes that claim precise rather than fashionable.",
+      ],
+      sections: [
+        {
+          id: "docs-agents-program",
+          title: "The program era",
+          paragraphs: [
+            "Harold Cohen named AARON in 1973 and developed it during a residency at Stanford's Artificial Intelligence Laboratory in the mid-1970s. AARON combined explicit compositional rules with random events to produce drawings, and Cohen maintained and rewrote it for roughly four decades.",
+            "The rules were authored by a person and executed by a program. Where the work came from was never in question, because the artist had written the procedure that made it.",
+          ],
+        },
+        {
+          id: "docs-agents-model",
+          title: "The model era",
+          paragraphs: [
+            "Generative adversarial networks moved image-making from written rules to learned distributions. A GAN portrait sold at Christie's in October 2018 for $432,500; the collective that submitted it had built on open-source code published by another researcher, and the credit question was never settled.",
+            "That dispute is the characteristic problem of the era. When the rules are learned rather than written, it becomes genuinely unclear where authorship sits: in the training data, the architecture, the code, the weights, or the person who pressed the button.",
+            "Text-to-image diffusion systems made this ordinary. DALL·E 2 appeared in April 2022 and Stable Diffusion in August 2022. A prompt selects a region of a learned space, and that space carries broad aesthetic conventions the prompt never specified.",
+          ],
+        },
+        {
+          id: "docs-agents-agent",
+          title: "The Agent era",
+          paragraphs: [
+            "An Agent is normally distinguished from a model by what it does rather than what it is. It plans, selects and calls tools, acts over multiple steps, checks results, and adapts. The model is a component inside that behaviour; the Agent is the behaviour.",
+            [
+              "This is why ",
+              { label: "Agent Art", href: "/docs/agent-art" },
+              " asks whether an Agent takes part in the art activity rather than which architecture produced a pixel. A model invoked once to return a picture may or may not satisfy the invariant. Appearing in the subject matter or the marketing certainly does not.",
+            ],
+          ],
+        },
+        {
+          id: "docs-agents-word",
+          title: "Why Inshell says Agent",
+          paragraphs: [
+            "AI names a research field and a marketing category, and its meaning shifts with each cycle of attention. Agent names a participant in an activity, which is the thing the field is actually about.",
+            [
+              "The narrower word also fits the practice's origin. A model label, a terminal, a command line, and a technical wrapper are among the shells ",
+              { label: "Inshell", href: "/docs/inshell" },
+              " names. Calling the participant an Agent keeps attention on what it does rather than on the shell it arrives in.",
+            ],
+          ],
+        },
+        {
+          id: "docs-agents-boundary",
+          title: "Evidence boundary",
+          paragraphs: [
+            "Systems, dates, and sale figures here are public references. Inshell does not verify them, endorse them, or claim any relation to the parties named.",
+            [
+              "Nothing in this topic describes the Agent behaviour of a particular Inshell work. Agent runs vary by provider, model version, and runtime, and are reported at a lower evidence level than contract or chain facts. Read ",
+              { label: "THOUGHT", href: "/docs/thought" },
+              " and ",
+              { label: "Verification", href: "/docs/verification" },
+              " for what is actually claimed about a work.",
+            ],
+          ],
+        },
+      ],
+      links: [
+        { label: "read Agent Art", href: "/docs/agent-art" },
+        { label: "read Inshell", href: "/docs/inshell" },
+        { label: "read Verification", href: "/docs/verification" },
+        {
+          label: "Harold Cohen and AARON ↗",
+          href: "https://computerhistory.org/blog/harold-cohen-and-aaron-a-40-year-collaboration/",
+        },
+      ],
+    },
+    {
+      slug: "svg",
+      id: "docs-svg",
+      group: "context",
+      title: "SVG",
+      summary:
+        "SVG is a text document that describes shapes, which is why a person, a browser, a contract, and an Agent can all read the same artwork.",
+      status: "current",
+      authorities: ["artist-editorial"],
+      paragraphs: [
+        "Most image formats are containers of pixels. SVG is a document that describes shapes. Inshell treats that difference as the reason to use it as a material rather than as an export format.",
+      ],
+      sections: [
+        {
+          id: "docs-svg-standard",
+          title: "A public document format",
+          paragraphs: [
+            "The W3C began work on SVG in 1998. SVG 1.0 became a Recommendation on 4 September 2001 and SVG 1.1 on 14 January 2003; SVG 2 has remained at Candidate Recommendation. The format is XML, which means an SVG file is text and the text is the picture.",
+            "Because it is a public standard with several independent implementations, an SVG stays readable without any one vendor's software remaining in business. That property matters more for a work meant to last than any particular rendering feature does.",
+          ],
+        },
+        {
+          id: "docs-svg-readers",
+          title: "Four kinds of reader",
+          paragraphs: [
+            "A person can read an SVG and follow what it draws. A browser can render it. A contract can assemble it from strings and return it. An Agent can inspect it, locate a specific element, and change that element without disturbing the rest.",
+            [
+              "Few materials are legible to all four. That overlap is what lets one file carry human intention, aesthetic architecture, machine action, and public preservation at once, which is the argument made in full under ",
+              { label: "Fully Onchain", href: "/docs/fully-onchain#docs-fully-onchain-agent-art" },
+              ".",
+            ],
+          ],
+        },
+        {
+          id: "docs-svg-cost",
+          title: "Bytes are the constraint",
+          paragraphs: [
+            [
+              "Onchain, size is not a preference but a price. A vector description of a detailed image can occupy a few kilobytes where a raster of the same image would be far larger, and on ",
+              { label: "Ethereum", href: "/docs/ethereum" },
+              " that difference is paid in gas at mint and stored forever.",
+            ],
+            "SVG is unusual in making the compact option and the readable option the same option. Compression that produced smaller but unreadable bytes would lose the property the material was chosen for.",
+          ],
+        },
+        {
+          id: "docs-svg-inshell",
+          title: "How Inshell narrows it",
+          paragraphs: [
+            [
+              "Inshell uses raw, plain, descriptive SVG and carries letterforms as path geometry rather than as webfont references, so a work depends on nothing outside its own bytes. ",
+              { label: "Mono 76", href: "/docs/mono-76" },
+              " is the sealed type system that makes text in artwork behave that way.",
+            ],
+            "This is a material choice inside one practice. SVG is not required for fully onchain work, and it is not required for Agent Art as a field.",
+          ],
+        },
+        {
+          id: "docs-svg-boundary",
+          title: "Evidence boundary",
+          paragraphs: [
+            "Specification names and dates are public W3C facts and are cited as orientation. How Inshell actually builds and pins its SVG is described under Fully Onchain and Mono 76, which carry contract-release authority; this topic carries none.",
+          ],
+        },
+      ],
+      links: [
+        { label: "read Fully Onchain", href: "/docs/fully-onchain" },
+        { label: "read Mono 76", href: "/docs/mono-76" },
+        { label: "read Ethereum", href: "/docs/ethereum" },
+        {
+          label: "SVG 1.1 specification ↗",
+          href: "https://www.w3.org/TR/SVG11/",
+        },
+      ],
+    },
+    {
+      slug: "ethereum",
+      id: "docs-ethereum",
+      group: "context",
+      title: "Ethereum",
+      summary:
+        "The chain is a deterministic public machine with a price on every byte, and that price is a formal constraint rather than an inconvenience.",
+      status: "current",
+      authorities: ["artist-editorial"],
+      paragraphs: [
+        "Ethereum gives an artwork three unusual properties: a public machine that anyone can re-run and get the same answer, a record no single party can quietly revise, and a price on every byte stored.",
+        "The third property is the one that shapes form.",
+      ],
+      sections: [
+        {
+          id: "docs-ethereum-machine",
+          title: "A deterministic public machine",
+          paragraphs: [
+            "The Ethereum Virtual Machine executes contract code identically on every node that runs it. A function that assembles an image returns the same bytes to everyone who calls it against the same state, without a server deciding what to send.",
+            "That determinism is what allows a contract to act as a renderer rather than only as a ledger. The artwork is not a file the contract points at; it can be a value the contract computes.",
+          ],
+        },
+        {
+          id: "docs-ethereum-cost",
+          title: "Every byte has a price",
+          paragraphs: [
+            "Contract storage is charged per 32-byte word, and writing a fresh word costs on the order of twenty thousand gas, which puts a kilobyte of stored data on the order of hundreds of thousands of gas. Practitioners reduce this with techniques such as packing, contract-bytecode storage, and libraries in the SSTORE2 family, but the cost never becomes negligible.",
+            "Onchain artwork is therefore written under a budget. Compactness is not a stylistic preference; it is the condition of existing onchain at all.",
+          ],
+        },
+        {
+          id: "docs-ethereum-bounds",
+          title: "The budget is a bound",
+          paragraphs: [
+            [
+              "Inshell already holds that bounds create form, and the price of a byte is one of those bounds. It rules out casual accumulation and rewards descriptions that are exact, which is the same discipline described under ",
+              { label: "Design Principles", href: "/docs/design-principles" },
+              " arriving from the direction of cost rather than from the direction of intent.",
+            ],
+            "A constraint that comes from the material is harder to abandon than one the artist merely declared. This one is enforced by the network on every mint.",
+          ],
+        },
+        {
+          id: "docs-ethereum-datauri",
+          title: "The token can carry the work",
+          paragraphs: [
+            [
+              "A contract can return a data URI from its metadata function, embedding the metadata document and the image itself instead of an address where they might be found. Reading the token then is reading the work, with no host involved. That arrangement is what ",
+              { label: "Fully Onchain", href: "/docs/fully-onchain" },
+              " describes for Inshell, and what ",
+              { label: "Tokens and NFTs", href: "/docs/tokens-and-nfts" },
+              " contrasts with ordinary pointer practice.",
+            ],
+          ],
+        },
+        {
+          id: "docs-ethereum-boundary",
+          title: "Evidence boundary",
+          paragraphs: [
+            [
+              "Gas figures here describe published EVM pricing at order-of-magnitude precision and change with network upgrades. They are not quoted as current values for any chain, and they are not measurements of any Inshell deployment. Networks, addresses, and deployment facts for Inshell's own contracts belong to ",
+              { label: "Contracts", href: "/docs/contracts" },
+              " and ",
+              { label: "Verification", href: "/docs/verification" },
+              ".",
+            ],
+          ],
+        },
+      ],
+      links: [
+        { label: "read Fully Onchain", href: "/docs/fully-onchain" },
+        { label: "read Contracts", href: "/docs/contracts" },
+        { label: "read Tokens and NFTs", href: "/docs/tokens-and-nfts" },
+        {
+          label: "ERC-721 standard ↗",
+          href: "https://eips.ethereum.org/EIPS/eip-721",
+        },
+      ],
+    },
+    {
+      slug: "tokens-and-nfts",
+      id: "docs-tokens-and-nfts",
+      group: "context",
+      title: "Tokens and NFTs",
+      summary:
+        "A token is a record that names a work; most tokens only point at one, and pointers decay.",
+      status: "current",
+      authorities: ["artist-editorial"],
+      paragraphs: [
+        "ERC-721 gave Ethereum a standard way to say that a particular token is one of a kind and belongs to a particular address. It was proposed by William Entriken, Dieter Shirley, Jacob Evans, and Nastassia Sachs in January 2018, and it is why a token can be transferred, sold, and read consistently across wallets, explorers, and marketplaces.",
+        "What the standard does not do is hold the artwork.",
+      ],
+      sections: [
+        {
+          id: "docs-tokens-pointer",
+          title: "The metadata function is a pointer",
+          paragraphs: [
+            "The standard's metadata extension returns a URI for each token. In common practice that URI addresses a JSON document on a web server or through an IPFS gateway, and the JSON in turn addresses an image somewhere else again.",
+            "Ownership is onchain. The picture usually is not. A token can be perfectly valid, perfectly transferable, and show nothing at all.",
+          ],
+        },
+        {
+          id: "docs-tokens-decay",
+          title: "Pointers decay",
+          paragraphs: [
+            "Published surveys of large NFT samples have repeatedly found substantial fractions with token URIs that no longer resolve, image paths that are broken, or IPFS content unreachable through the gateway named in the record. Reported figures have run to roughly a fifth of the sampled tokens.",
+            "Collections have also lost their images when a company changed access rules on the servers holding them, leaving holders with valid tokens and no picture. In most cases this is not fraud. It is ordinary infrastructure entropy applied to a record that was supposed to outlast infrastructure.",
+          ],
+        },
+        {
+          id: "docs-tokens-inshell",
+          title: "What Inshell takes and refuses",
+          paragraphs: [
+            "Inshell uses the token standard for what it does well: a public, transferable, consistently readable record of which work is which and which address holds it.",
+            [
+              "Inshell refuses the pointer. The canonical image and metadata are returned by the contract itself, so no host stands between the record and the work. ",
+              { label: "Fully Onchain", href: "/docs/fully-onchain" },
+              " states that arrangement and its limits precisely.",
+            ],
+            "This is a choice about where a work lives. It is not a claim that pointer-based tokens are not art, and not a claim that Inshell's arrangement is safe from every failure.",
+          ],
+        },
+        {
+          id: "docs-tokens-boundary",
+          title: "Evidence boundary",
+          paragraphs: [
+            [
+              "Survey percentages come from third-party studies of particular samples at particular times and are cited as orders of magnitude, not current measurements. Inshell has not reproduced them and does not name the collections involved. Claims about Inshell's own tokens belong to ",
+              { label: "Artwork, Metadata, and Chain", href: "/docs/artwork-metadata-chain" },
+              " and ",
+              { label: "Verification", href: "/docs/verification" },
+              ".",
+            ],
+          ],
+        },
+      ],
+      links: [
+        { label: "read Fully Onchain", href: "/docs/fully-onchain" },
+        {
+          label: "read Artwork, Metadata, and Chain",
+          href: "/docs/artwork-metadata-chain",
+        },
+        { label: "read Onchain Art", href: "/docs/onchain-art" },
+        {
+          label: "ERC-721 standard ↗",
+          href: "https://eips.ethereum.org/EIPS/eip-721",
+        },
+      ],
+    },
+    {
+      slug: "onchain-art",
+      id: "docs-onchain-art",
+      group: "context",
+      title: "Onchain Art",
+      summary:
+        "Onchain is a spectrum, and the useful question is which part of a work the chain actually holds.",
+      status: "current",
+      authorities: ["artist-editorial"],
+      paragraphs: [
+        "Calling a work onchain says little on its own. A chain can hold the ownership record, the generating rule, the finished image, or only a hash of something kept elsewhere. These are different claims with different consequences.",
+      ],
+      sections: [
+        {
+          id: "docs-onchain-degrees",
+          title: "Degrees of onchain",
+          paragraphs: [
+            "Four arrangements are common. The record is onchain and the artwork sits at a web address. The record is onchain and the artwork is content-addressed offchain. The rule is onchain and the image is derived by re-running it. Or the image bytes are assembled onchain and returned directly.",
+            "Only the last two survive the disappearance of every host. The first two describe where a work is filed rather than where it lives.",
+          ],
+        },
+        {
+          id: "docs-onchain-precedents",
+          title: "Public precedents",
+          paragraphs: [
+            "Autoglyphs, released by Larva Labs in 2019 as a set of 512, embedded its generator in the contract so the network itself ran the code that produced each work, and the generator stopped once the supply was reached.",
+            "Art Blocks, from late 2020, keeps the generating script in a contract and takes each token's seed from its mint transaction. Projects including Blitmap, Nouns, and Chain Runners store vector or pixel assets in contract storage and assemble the image when metadata is requested; several released their work under CC0, treating the onchain asset as something others are free to extend.",
+          ],
+        },
+        {
+          id: "docs-onchain-inshell",
+          title: "Where Inshell sits",
+          paragraphs: [
+            [
+              "Inshell assembles the completed SVG inside the contract and returns it in token metadata, so the canonical image needs no image server and no webfont. The full account, including what the arrangement does not cover, is under ",
+              { label: "Fully Onchain", href: "/docs/fully-onchain" },
+              ".",
+            ],
+            "Inshell also keeps the claim narrow. Fully onchain is a statement about chain sufficiency for specific content. It is not a synonym for immutable, non-upgradeable, decentralized, deployed, verified, or good, and each of those would need its own evidence.",
+          ],
+        },
+        {
+          id: "docs-onchain-boundary",
+          title: "Evidence boundary",
+          paragraphs: [
+            "Other projects are named as public reference points. Inshell has not audited their contracts, does not verify their present behaviour, and claims no affiliation with them. Descriptions refer to publicly documented designs, and designs change after they are documented.",
+          ],
+          note: "Do not read a project's presence in this list as endorsement, comparison of quality, or a claim about its current state.",
+        },
+      ],
+      links: [
+        { label: "read Fully Onchain", href: "/docs/fully-onchain" },
+        { label: "read Generative Art", href: "/docs/generative-art" },
+        { label: "read Tokens and NFTs", href: "/docs/tokens-and-nfts" },
+        {
+          label: "Autoglyphs ↗",
+          href: "https://www.larvalabs.com/autoglyphs",
+        },
+      ],
+    },
+    {
       slug: "design-principles",
       id: "docs-design-principles",
       group: "context",
@@ -1995,6 +2506,73 @@ export const DOCS_AUTHORITY_MAP: Record<
       "docs-source-pins": ["app-documentation", "contract-release"],
       "docs-source-deployment": ["app-documentation", "contract-release"],
       "docs-source-publication": ["app-documentation"],
+    },
+  },
+  lineage: {
+    lead: ["artist-editorial"],
+    sections: {
+      "docs-lineage-instruction": ["artist-editorial"],
+      "docs-lineage-scores": ["artist-editorial"],
+      "docs-lineage-reader": ["artist-editorial"],
+      "docs-lineage-difference": ["artist-editorial"],
+      "docs-lineage-boundary": ["artist-editorial"],
+    },
+  },
+  "generative-art": {
+    lead: ["artist-editorial"],
+    sections: {
+      "docs-generative-origins": ["artist-editorial"],
+      "docs-generative-onchain": ["artist-editorial"],
+      "docs-generative-difference": ["artist-editorial"],
+      "docs-generative-boundary": ["artist-editorial"],
+    },
+  },
+  "agents-and-ai": {
+    lead: ["artist-editorial"],
+    sections: {
+      "docs-agents-program": ["artist-editorial"],
+      "docs-agents-model": ["artist-editorial"],
+      "docs-agents-agent": ["artist-editorial"],
+      "docs-agents-word": ["artist-editorial"],
+      "docs-agents-boundary": ["artist-editorial"],
+    },
+  },
+  svg: {
+    lead: ["artist-editorial"],
+    sections: {
+      "docs-svg-standard": ["artist-editorial"],
+      "docs-svg-readers": ["artist-editorial"],
+      "docs-svg-cost": ["artist-editorial"],
+      "docs-svg-inshell": ["artist-editorial"],
+      "docs-svg-boundary": ["artist-editorial"],
+    },
+  },
+  ethereum: {
+    lead: ["artist-editorial"],
+    sections: {
+      "docs-ethereum-machine": ["artist-editorial"],
+      "docs-ethereum-cost": ["artist-editorial"],
+      "docs-ethereum-bounds": ["artist-editorial"],
+      "docs-ethereum-datauri": ["artist-editorial"],
+      "docs-ethereum-boundary": ["artist-editorial"],
+    },
+  },
+  "tokens-and-nfts": {
+    lead: ["artist-editorial"],
+    sections: {
+      "docs-tokens-pointer": ["artist-editorial"],
+      "docs-tokens-decay": ["artist-editorial"],
+      "docs-tokens-inshell": ["artist-editorial"],
+      "docs-tokens-boundary": ["artist-editorial"],
+    },
+  },
+  "onchain-art": {
+    lead: ["artist-editorial"],
+    sections: {
+      "docs-onchain-degrees": ["artist-editorial"],
+      "docs-onchain-precedents": ["artist-editorial"],
+      "docs-onchain-inshell": ["artist-editorial"],
+      "docs-onchain-boundary": ["artist-editorial"],
     },
   },
   "design-principles": {

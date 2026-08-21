@@ -6,7 +6,7 @@
 - Status: study
 - Authority classes in this document: artist-editorial, app-documentation
 - Canonical page: https://inshell.art/docs/will
-- Documentation version: 2026-08-21
+- Documentation version: 2026-08-21-r2
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## Overview

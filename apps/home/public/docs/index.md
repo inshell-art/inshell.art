@@ -3,7 +3,7 @@
 paste this prompt into your Agent
 
 - Canonical page: https://inshell.art/docs
-- Documentation version: 2026-08-21
+- Documentation version: 2026-08-21-r2
 - Agent index: https://inshell.art/docs/agent-index.json
 - Structured corpus: https://inshell.art/docs/content.json
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
@@ -43,10 +43,17 @@ Inspect how artwork, metadata, contracts, wallets, releases, and evidence remain
 - [Wallet and Local Data](https://inshell.art/docs/wallet-local-data) — Wallet actions, browser storage, Agent runs, and chain records cross different trust boundaries.
 - [Source and Release Boundaries](https://inshell.art/docs/source-release-boundaries) — Source ownership, release artifacts, deployments, and publication are versioned independently.
 
-### Context
+### Lineage and context
 
-Read the design choices that give the practice form without turning its truth into a doctrine.
+Place the practice in the histories it works inside—instruction art, generative systems, machines that make images, and the chain as material—then read the design choices that give it form.
 
+- [Lineage](https://inshell.art/docs/lineage) — Separating the person who specifies a work from whatever carries it out is an old move in art; Agent Art inherits the question, not the authority.
+- [Generative Art](https://inshell.art/docs/generative-art) — Rule-based art has a sixty-year public record, and its onchain form derives variation from a seed; Inshell derives variation from intention instead.
+- [Agents and AI](https://inshell.art/docs/agents-and-ai) — A program, a model, and an Agent are different participants, and Agent Art names the third rather than the technology behind it.
+- [SVG](https://inshell.art/docs/svg) — SVG is a text document that describes shapes, which is why a person, a browser, a contract, and an Agent can all read the same artwork.
+- [Ethereum](https://inshell.art/docs/ethereum) — The chain is a deterministic public machine with a price on every byte, and that price is a formal constraint rather than an inconvenience.
+- [Tokens and NFTs](https://inshell.art/docs/tokens-and-nfts) — A token is a record that names a work; most tokens only point at one, and pointers decay.
+- [Onchain Art](https://inshell.art/docs/onchain-art) — Onchain is a spectrum, and the useful question is which part of a work the chain actually holds.
 - [Design Principles](https://inshell.art/docs/design-principles) — Inshell's design rules connect participation, visible form, and the limits of evidence.
 
 ## Inshell
@@ -57,7 +64,7 @@ Read the design choices that give the practice form without turning its truth in
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/inshell
-- Documentation version: 2026-08-21
+- Documentation version: 2026-08-21-r2
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### The inward direction
@@ -186,7 +193,7 @@ Inshell alone names the artist. THOUGHT, WILL, and AWA name movements. $PATH is 
 - Status: current
 - Authority classes in this document: artist-editorial
 - Canonical page: https://inshell.art/docs/agent-art
-- Documentation version: 2026-08-21
+- Documentation version: 2026-08-21-r2
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### The invariant and the open field
@@ -259,7 +266,7 @@ Protocols, interfaces, renderers, provenance, and public chains are materials in
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/movements
-- Documentation version: 2026-08-21
+- Documentation version: 2026-08-21-r2
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### The movement arc
@@ -364,7 +371,7 @@ The movement arc describes an artistic order. A movement name alone does not est
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/thought
-- Documentation version: 2026-08-21
+- Documentation version: 2026-08-21-r2
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
@@ -657,7 +664,7 @@ Save and Load are browser conveniences for unfinished or remembered works. They 
 - Status: study
 - Authority classes in this document: artist-editorial, app-documentation
 - Canonical page: https://inshell.art/docs/will
-- Documentation version: 2026-08-21
+- Documentation version: 2026-08-21-r2
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
@@ -696,7 +703,7 @@ This description defines an artistic direction. It is not a creation surface, mi
 - Status: study
 - Authority classes in this document: artist-editorial, app-documentation
 - Canonical page: https://inshell.art/docs/awa
-- Documentation version: 2026-08-21
+- Documentation version: 2026-08-21-r2
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
@@ -732,7 +739,7 @@ Core names the movement's artistic direction, not a disclosed doctrine, technica
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/path
-- Documentation version: 2026-08-21
+- Documentation version: 2026-08-21-r2
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
@@ -849,7 +856,7 @@ An invitation reserves one Spark slot until it is claimed, revoked, or released 
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/pulse
-- Documentation version: 2026-08-21
+- Documentation version: 2026-08-21-r2
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
@@ -972,7 +979,7 @@ As one participatory system in Inshell's practice, Pulse makes collective timing
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/contracts
-- Documentation version: 2026-08-21
+- Documentation version: 2026-08-21-r2
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
@@ -1041,7 +1048,7 @@ A release says which ABI, bytecode, renderer data, schemas, and checksums belong
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/artwork-metadata-chain
-- Documentation version: 2026-08-21
+- Documentation version: 2026-08-21-r2
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
@@ -1112,7 +1119,7 @@ Portable metadata deliberately does not carry every creation detail. Inshell det
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/fully-onchain
-- Documentation version: 2026-08-21
+- Documentation version: 2026-08-21-r2
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
@@ -1360,7 +1367,7 @@ Fully onchain says where the canonical metadata and artwork come from. It does n
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/mono-76
-- Documentation version: 2026-08-21
+- Documentation version: 2026-08-21-r2
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
@@ -1519,7 +1526,7 @@ THOUGHT and $PATH pin Mono 76 through their own contract releases. Updating the 
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/verification
-- Documentation version: 2026-08-21
+- Documentation version: 2026-08-21-r2
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
@@ -1596,7 +1603,7 @@ A valid proof can establish that certain bytes, hashes, addresses, or signatures
 - Status: current
 - Authority classes in this document: app-documentation
 - Canonical page: https://inshell.art/docs/wallet-local-data
-- Documentation version: 2026-08-21
+- Documentation version: 2026-08-21-r2
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
@@ -1652,7 +1659,7 @@ Local Anvil, Sepolia, and Ethereum have different chain IDs, deployments, balanc
 - Status: current
 - Authority classes in this document: app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/source-release-boundaries
-- Documentation version: 2026-08-21
+- Documentation version: 2026-08-21-r2
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
@@ -1704,15 +1711,458 @@ Canonical pages, Markdown documents, JSON indexes, API responses, GitHub mirrors
 - [THOUGHT source](https://github.com/inshell-art/THOUGHT)
 - [Pulse source](https://github.com/inshell-art/pulse)
 
+## Lineage
+
+> Separating the person who specifies a work from whatever carries it out is an old move in art; Agent Art inherits the question, not the authority.
+
+- Group: Lineage and context
+- Status: current
+- Authority classes in this document: artist-editorial
+- Canonical page: https://inshell.art/docs/lineage
+- Documentation version: 2026-08-21-r2
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
+
+### Overview
+
+- Authority: artist-editorial
+
+Agent Art is new as a name. The questions underneath it are not. Art has repeatedly split the person who specifies a work from the person or process that executes it, and has repeatedly asked what remains of authorship after the split.
+
+Inshell reads that history as context, not as permission. Naming a precedent does not inherit its authority and does not make this practice a continuation of anyone else's.
+
+### Instruction and execution
+
+- Authority: artist-editorial
+
+Sol LeWitt's wall drawings exist as written instructions together with a signed certificate. Other people execute them on a wall, and two executions of the same instruction can differ while remaining the same work. LeWitt's stated position was that the concept is the primary part of the work rather than the surface that results from it.
+
+That arrangement makes a specific claim: a work can be a rule plus a record of authorization, and the visible object can be downstream of both. An artwork built that way survives the loss of any particular execution.
+
+### Scores realized by others
+
+- Authority: artist-editorial
+
+Fluxus developed the same idea as a score. George Brecht's event scores of the early 1960s are short directives that someone performs, publicly or privately. Yoko Ono's Grapefruit, published in 1964, collects instructions whose realization is often left to the reader's mind rather than to any material.
+
+A score is written to be realized by someone other than its author, and it stays open to variation without becoming a different work. The score and its realizations are two different things, and both can be preserved.
+
+### Who completes the work
+
+- Authority: artist-editorial
+
+Marcel Duchamp argued that the creative act is not finished by the artist alone, and that the viewer completes it by interpreting the work into the world. Roland Barthes made a parallel argument for text in 1967: meaning is produced where a work is read, not sealed by the author's intention.
+
+Inshell's practice depends on this. A preserved exchange is not self-explaining. The person who later reads it is doing part of the work, which is why the practice asks for inspection rather than agreement.
+
+### Where Agent Art differs
+
+- Authority: artist-editorial
+
+In instruction art the executor is a person following a score, or a machine following a rule the artist wrote. In either case the specification and the execution are separated, but the executor does not interpret in the sense that matters here.
+
+An Agent interprets. The instruction does not fully determine the result, and the result is not random either. That is the gap [Agent Art](https://inshell.art/docs/agent-art) names, and it is why participation rather than automation is the invariant.
+
+Inshell's response is to preserve both sides. [THOUGHT](https://inshell.art/docs/thought) keeps one exact human prompt beside one exact Agent response, so the score and its realization stay in a single record and can be read against each other. That is one Inshell choice, not a requirement of the field.
+
+### Evidence boundary
+
+- Authority: artist-editorial
+
+The artists, works, and dates named here are public references to other people's practices. Inshell does not verify them onchain, claim affiliation or endorsement, or present this reading as art-historical consensus.
+
+> A named precedent locates a question. It does not transfer authority to the practice that cites it.
+
+
+### Links
+
+- [read Agent Art](https://inshell.art/docs/agent-art)
+- [read THOUGHT](https://inshell.art/docs/thought)
+- [read Generative Art](https://inshell.art/docs/generative-art)
+- [Sol LeWitt](https://en.wikipedia.org/wiki/Sol_LeWitt)
+- [Fluxus](https://en.wikipedia.org/wiki/Fluxus)
+
+## Generative Art
+
+> Rule-based art has a sixty-year public record, and its onchain form derives variation from a seed; Inshell derives variation from intention instead.
+
+- Group: Lineage and context
+- Status: current
+- Authority classes in this document: artist-editorial
+- Canonical page: https://inshell.art/docs/generative-art
+- Documentation version: 2026-08-21-r2
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
+
+### Overview
+
+- Authority: artist-editorial
+
+Generative art makes the rule part of the work. The artist writes a procedure, the procedure produces the artifact, and attention moves from the individual mark to the system that produced it.
+
+Inshell works with rules and with a public machine, but its variation does not come from a seed. Stating that difference keeps both practices legible instead of collapsing them into one category.
+
+### 1965 and generative aesthetics
+
+- Authority: artist-editorial
+
+Three 1965 exhibitions are generally treated as the first public showings of computer-generated graphics: Georg Nees in Stuttgart in February, A. Michael Noll and Bela Julesz at the Howard Wise Gallery in New York in April, and Frieder Nake with Nees in Stuttgart in November. The philosopher Max Bense, who encouraged the Stuttgart work, coined the term generative aesthetics around the February showing.
+
+Vera Molnár and Manfred Mohr began working with computers toward the end of that decade. Molnár is notable in the group for arriving from a lifelong painting practice rather than from science, which is part of why her work reads as art using a machine rather than a machine demonstrating art.
+
+### The onchain turn
+
+- Authority: artist-editorial
+
+Art Blocks launched in November 2020 with Erick Calderon's Chromie Squiggle. A project's generating script is stored in a contract. When a collector mints, the transaction yields a 32-byte hash, and that hash is injected into the script as its seed. The same hash and the same script always produce the same output.
+
+This established a pattern that much later onchain work follows: store the rule, take the variation from the chain, and derive the image on demand rather than storing it. The artwork becomes reproducible from public state.
+
+### Seed is not intention
+
+- Authority: artist-editorial
+
+In seeded generative art the source of variation is a number that nobody chose for its meaning. Its role is to be unpredictable and fairly distributed, and any meaning it carries is assigned afterward.
+
+In [THOUGHT](https://inshell.art/docs/thought) the source of variation is a written human intention and an Agent's response to it. Both are authored text, and neither is random. What varies between two works is what somebody meant and how an Agent read it.
+
+This changes what preservation has to hold. A seeded work can be regenerated from its seed, so storing the rule and the seed is enough. An exchange cannot be regenerated from a seed, because the exchange is the content. Inshell therefore preserves the exchange itself rather than a procedure for recreating it.
+
+This is a description of two methods, not a ranking of them.
+
+### Evidence boundary
+
+- Authority: artist-editorial
+
+Exhibitions, dates, platforms, and mechanisms named here are public references. Inshell has not audited the contracts or archives behind them, claims no affiliation, and does not present this account as a complete history of the field.
+
+
+### Links
+
+- [read Agent Art](https://inshell.art/docs/agent-art)
+- [read THOUGHT](https://inshell.art/docs/thought)
+- [read Onchain Art](https://inshell.art/docs/onchain-art)
+- [Frieder Nake](https://en.wikipedia.org/wiki/Frieder_Nake)
+- [Art Blocks](https://www.artblocks.io/)
+
+## Agents and AI
+
+> A program, a model, and an Agent are different participants, and Agent Art names the third rather than the technology behind it.
+
+- Group: Lineage and context
+- Status: current
+- Authority classes in this document: artist-editorial
+- Canonical page: https://inshell.art/docs/agents-and-ai
+- Documentation version: 2026-08-21-r2
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
+
+### Overview
+
+- Authority: artist-editorial
+
+The machine's role in making images has changed at least three times: a program that executes rules an artist wrote, a model that learns a distribution and samples from it, and an Agent that plans, calls tools, and acts across several steps.
+
+Agent Art names participation, not a model class. Keeping the three eras distinct is what makes that claim precise rather than fashionable.
+
+### The program era
+
+- Authority: artist-editorial
+
+Harold Cohen named AARON in 1973 and developed it during a residency at Stanford's Artificial Intelligence Laboratory in the mid-1970s. AARON combined explicit compositional rules with random events to produce drawings, and Cohen maintained and rewrote it for roughly four decades.
+
+The rules were authored by a person and executed by a program. Where the work came from was never in question, because the artist had written the procedure that made it.
+
+### The model era
+
+- Authority: artist-editorial
+
+Generative adversarial networks moved image-making from written rules to learned distributions. A GAN portrait sold at Christie's in October 2018 for $432,500; the collective that submitted it had built on open-source code published by another researcher, and the credit question was never settled.
+
+That dispute is the characteristic problem of the era. When the rules are learned rather than written, it becomes genuinely unclear where authorship sits: in the training data, the architecture, the code, the weights, or the person who pressed the button.
+
+Text-to-image diffusion systems made this ordinary. DALL·E 2 appeared in April 2022 and Stable Diffusion in August 2022. A prompt selects a region of a learned space, and that space carries broad aesthetic conventions the prompt never specified.
+
+### The Agent era
+
+- Authority: artist-editorial
+
+An Agent is normally distinguished from a model by what it does rather than what it is. It plans, selects and calls tools, acts over multiple steps, checks results, and adapts. The model is a component inside that behaviour; the Agent is the behaviour.
+
+This is why [Agent Art](https://inshell.art/docs/agent-art) asks whether an Agent takes part in the art activity rather than which architecture produced a pixel. A model invoked once to return a picture may or may not satisfy the invariant. Appearing in the subject matter or the marketing certainly does not.
+
+### Why Inshell says Agent
+
+- Authority: artist-editorial
+
+AI names a research field and a marketing category, and its meaning shifts with each cycle of attention. Agent names a participant in an activity, which is the thing the field is actually about.
+
+The narrower word also fits the practice's origin. A model label, a terminal, a command line, and a technical wrapper are among the shells [Inshell](https://inshell.art/docs/inshell) names. Calling the participant an Agent keeps attention on what it does rather than on the shell it arrives in.
+
+### Evidence boundary
+
+- Authority: artist-editorial
+
+Systems, dates, and sale figures here are public references. Inshell does not verify them, endorse them, or claim any relation to the parties named.
+
+Nothing in this topic describes the Agent behaviour of a particular Inshell work. Agent runs vary by provider, model version, and runtime, and are reported at a lower evidence level than contract or chain facts. Read [THOUGHT](https://inshell.art/docs/thought) and [Verification](https://inshell.art/docs/verification) for what is actually claimed about a work.
+
+
+### Links
+
+- [read Agent Art](https://inshell.art/docs/agent-art)
+- [read Inshell](https://inshell.art/docs/inshell)
+- [read Verification](https://inshell.art/docs/verification)
+- [Harold Cohen and AARON](https://computerhistory.org/blog/harold-cohen-and-aaron-a-40-year-collaboration/)
+
+## SVG
+
+> SVG is a text document that describes shapes, which is why a person, a browser, a contract, and an Agent can all read the same artwork.
+
+- Group: Lineage and context
+- Status: current
+- Authority classes in this document: artist-editorial
+- Canonical page: https://inshell.art/docs/svg
+- Documentation version: 2026-08-21-r2
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
+
+### Overview
+
+- Authority: artist-editorial
+
+Most image formats are containers of pixels. SVG is a document that describes shapes. Inshell treats that difference as the reason to use it as a material rather than as an export format.
+
+### A public document format
+
+- Authority: artist-editorial
+
+The W3C began work on SVG in 1998. SVG 1.0 became a Recommendation on 4 September 2001 and SVG 1.1 on 14 January 2003; SVG 2 has remained at Candidate Recommendation. The format is XML, which means an SVG file is text and the text is the picture.
+
+Because it is a public standard with several independent implementations, an SVG stays readable without any one vendor's software remaining in business. That property matters more for a work meant to last than any particular rendering feature does.
+
+### Four kinds of reader
+
+- Authority: artist-editorial
+
+A person can read an SVG and follow what it draws. A browser can render it. A contract can assemble it from strings and return it. An Agent can inspect it, locate a specific element, and change that element without disturbing the rest.
+
+Few materials are legible to all four. That overlap is what lets one file carry human intention, aesthetic architecture, machine action, and public preservation at once, which is the argument made in full under [Fully Onchain](https://inshell.art/docs/fully-onchain#docs-fully-onchain-agent-art).
+
+### Bytes are the constraint
+
+- Authority: artist-editorial
+
+Onchain, size is not a preference but a price. A vector description of a detailed image can occupy a few kilobytes where a raster of the same image would be far larger, and on [Ethereum](https://inshell.art/docs/ethereum) that difference is paid in gas at mint and stored forever.
+
+SVG is unusual in making the compact option and the readable option the same option. Compression that produced smaller but unreadable bytes would lose the property the material was chosen for.
+
+### How Inshell narrows it
+
+- Authority: artist-editorial
+
+Inshell uses raw, plain, descriptive SVG and carries letterforms as path geometry rather than as webfont references, so a work depends on nothing outside its own bytes. [Mono 76](https://inshell.art/docs/mono-76) is the sealed type system that makes text in artwork behave that way.
+
+This is a material choice inside one practice. SVG is not required for fully onchain work, and it is not required for Agent Art as a field.
+
+### Evidence boundary
+
+- Authority: artist-editorial
+
+Specification names and dates are public W3C facts and are cited as orientation. How Inshell actually builds and pins its SVG is described under Fully Onchain and Mono 76, which carry contract-release authority; this topic carries none.
+
+
+### Links
+
+- [read Fully Onchain](https://inshell.art/docs/fully-onchain)
+- [read Mono 76](https://inshell.art/docs/mono-76)
+- [read Ethereum](https://inshell.art/docs/ethereum)
+- [SVG 1.1 specification](https://www.w3.org/TR/SVG11/)
+
+## Ethereum
+
+> The chain is a deterministic public machine with a price on every byte, and that price is a formal constraint rather than an inconvenience.
+
+- Group: Lineage and context
+- Status: current
+- Authority classes in this document: artist-editorial
+- Canonical page: https://inshell.art/docs/ethereum
+- Documentation version: 2026-08-21-r2
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
+
+### Overview
+
+- Authority: artist-editorial
+
+Ethereum gives an artwork three unusual properties: a public machine that anyone can re-run and get the same answer, a record no single party can quietly revise, and a price on every byte stored.
+
+The third property is the one that shapes form.
+
+### A deterministic public machine
+
+- Authority: artist-editorial
+
+The Ethereum Virtual Machine executes contract code identically on every node that runs it. A function that assembles an image returns the same bytes to everyone who calls it against the same state, without a server deciding what to send.
+
+That determinism is what allows a contract to act as a renderer rather than only as a ledger. The artwork is not a file the contract points at; it can be a value the contract computes.
+
+### Every byte has a price
+
+- Authority: artist-editorial
+
+Contract storage is charged per 32-byte word, and writing a fresh word costs on the order of twenty thousand gas, which puts a kilobyte of stored data on the order of hundreds of thousands of gas. Practitioners reduce this with techniques such as packing, contract-bytecode storage, and libraries in the SSTORE2 family, but the cost never becomes negligible.
+
+Onchain artwork is therefore written under a budget. Compactness is not a stylistic preference; it is the condition of existing onchain at all.
+
+### The budget is a bound
+
+- Authority: artist-editorial
+
+Inshell already holds that bounds create form, and the price of a byte is one of those bounds. It rules out casual accumulation and rewards descriptions that are exact, which is the same discipline described under [Design Principles](https://inshell.art/docs/design-principles) arriving from the direction of cost rather than from the direction of intent.
+
+A constraint that comes from the material is harder to abandon than one the artist merely declared. This one is enforced by the network on every mint.
+
+### The token can carry the work
+
+- Authority: artist-editorial
+
+A contract can return a data URI from its metadata function, embedding the metadata document and the image itself instead of an address where they might be found. Reading the token then is reading the work, with no host involved. That arrangement is what [Fully Onchain](https://inshell.art/docs/fully-onchain) describes for Inshell, and what [Tokens and NFTs](https://inshell.art/docs/tokens-and-nfts) contrasts with ordinary pointer practice.
+
+### Evidence boundary
+
+- Authority: artist-editorial
+
+Gas figures here describe published EVM pricing at order-of-magnitude precision and change with network upgrades. They are not quoted as current values for any chain, and they are not measurements of any Inshell deployment. Networks, addresses, and deployment facts for Inshell's own contracts belong to [Contracts](https://inshell.art/docs/contracts) and [Verification](https://inshell.art/docs/verification).
+
+
+### Links
+
+- [read Fully Onchain](https://inshell.art/docs/fully-onchain)
+- [read Contracts](https://inshell.art/docs/contracts)
+- [read Tokens and NFTs](https://inshell.art/docs/tokens-and-nfts)
+- [ERC-721 standard](https://eips.ethereum.org/EIPS/eip-721)
+
+## Tokens and NFTs
+
+> A token is a record that names a work; most tokens only point at one, and pointers decay.
+
+- Group: Lineage and context
+- Status: current
+- Authority classes in this document: artist-editorial
+- Canonical page: https://inshell.art/docs/tokens-and-nfts
+- Documentation version: 2026-08-21-r2
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
+
+### Overview
+
+- Authority: artist-editorial
+
+ERC-721 gave Ethereum a standard way to say that a particular token is one of a kind and belongs to a particular address. It was proposed by William Entriken, Dieter Shirley, Jacob Evans, and Nastassia Sachs in January 2018, and it is why a token can be transferred, sold, and read consistently across wallets, explorers, and marketplaces.
+
+What the standard does not do is hold the artwork.
+
+### The metadata function is a pointer
+
+- Authority: artist-editorial
+
+The standard's metadata extension returns a URI for each token. In common practice that URI addresses a JSON document on a web server or through an IPFS gateway, and the JSON in turn addresses an image somewhere else again.
+
+Ownership is onchain. The picture usually is not. A token can be perfectly valid, perfectly transferable, and show nothing at all.
+
+### Pointers decay
+
+- Authority: artist-editorial
+
+Published surveys of large NFT samples have repeatedly found substantial fractions with token URIs that no longer resolve, image paths that are broken, or IPFS content unreachable through the gateway named in the record. Reported figures have run to roughly a fifth of the sampled tokens.
+
+Collections have also lost their images when a company changed access rules on the servers holding them, leaving holders with valid tokens and no picture. In most cases this is not fraud. It is ordinary infrastructure entropy applied to a record that was supposed to outlast infrastructure.
+
+### What Inshell takes and refuses
+
+- Authority: artist-editorial
+
+Inshell uses the token standard for what it does well: a public, transferable, consistently readable record of which work is which and which address holds it.
+
+Inshell refuses the pointer. The canonical image and metadata are returned by the contract itself, so no host stands between the record and the work. [Fully Onchain](https://inshell.art/docs/fully-onchain) states that arrangement and its limits precisely.
+
+This is a choice about where a work lives. It is not a claim that pointer-based tokens are not art, and not a claim that Inshell's arrangement is safe from every failure.
+
+### Evidence boundary
+
+- Authority: artist-editorial
+
+Survey percentages come from third-party studies of particular samples at particular times and are cited as orders of magnitude, not current measurements. Inshell has not reproduced them and does not name the collections involved. Claims about Inshell's own tokens belong to [Artwork, Metadata, and Chain](https://inshell.art/docs/artwork-metadata-chain) and [Verification](https://inshell.art/docs/verification).
+
+
+### Links
+
+- [read Fully Onchain](https://inshell.art/docs/fully-onchain)
+- [read Artwork, Metadata, and Chain](https://inshell.art/docs/artwork-metadata-chain)
+- [read Onchain Art](https://inshell.art/docs/onchain-art)
+- [ERC-721 standard](https://eips.ethereum.org/EIPS/eip-721)
+
+## Onchain Art
+
+> Onchain is a spectrum, and the useful question is which part of a work the chain actually holds.
+
+- Group: Lineage and context
+- Status: current
+- Authority classes in this document: artist-editorial
+- Canonical page: https://inshell.art/docs/onchain-art
+- Documentation version: 2026-08-21-r2
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
+
+### Overview
+
+- Authority: artist-editorial
+
+Calling a work onchain says little on its own. A chain can hold the ownership record, the generating rule, the finished image, or only a hash of something kept elsewhere. These are different claims with different consequences.
+
+### Degrees of onchain
+
+- Authority: artist-editorial
+
+Four arrangements are common. The record is onchain and the artwork sits at a web address. The record is onchain and the artwork is content-addressed offchain. The rule is onchain and the image is derived by re-running it. Or the image bytes are assembled onchain and returned directly.
+
+Only the last two survive the disappearance of every host. The first two describe where a work is filed rather than where it lives.
+
+### Public precedents
+
+- Authority: artist-editorial
+
+Autoglyphs, released by Larva Labs in 2019 as a set of 512, embedded its generator in the contract so the network itself ran the code that produced each work, and the generator stopped once the supply was reached.
+
+Art Blocks, from late 2020, keeps the generating script in a contract and takes each token's seed from its mint transaction. Projects including Blitmap, Nouns, and Chain Runners store vector or pixel assets in contract storage and assemble the image when metadata is requested; several released their work under CC0, treating the onchain asset as something others are free to extend.
+
+### Where Inshell sits
+
+- Authority: artist-editorial
+
+Inshell assembles the completed SVG inside the contract and returns it in token metadata, so the canonical image needs no image server and no webfont. The full account, including what the arrangement does not cover, is under [Fully Onchain](https://inshell.art/docs/fully-onchain).
+
+Inshell also keeps the claim narrow. Fully onchain is a statement about chain sufficiency for specific content. It is not a synonym for immutable, non-upgradeable, decentralized, deployed, verified, or good, and each of those would need its own evidence.
+
+### Evidence boundary
+
+- Authority: artist-editorial
+
+Other projects are named as public reference points. Inshell has not audited their contracts, does not verify their present behaviour, and claims no affiliation with them. Descriptions refer to publicly documented designs, and designs change after they are documented.
+
+> Do not read a project's presence in this list as endorsement, comparison of quality, or a claim about its current state.
+
+
+### Links
+
+- [read Fully Onchain](https://inshell.art/docs/fully-onchain)
+- [read Generative Art](https://inshell.art/docs/generative-art)
+- [read Tokens and NFTs](https://inshell.art/docs/tokens-and-nfts)
+- [Autoglyphs](https://www.larvalabs.com/autoglyphs)
+
 ## Design Principles
 
 > Inshell's design rules connect participation, visible form, and the limits of evidence.
 
-- Group: Context
+- Group: Lineage and context
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/design-principles
-- Documentation version: 2026-08-21
+- Documentation version: 2026-08-21-r2
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview

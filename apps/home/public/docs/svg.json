@@ -1,0 +1,118 @@
+{
+  "schema": "inshell.agent-docs.topic.v2",
+  "schemaUrl": "/docs/content.v2.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
+  "version": "2026-08-21-r2",
+  "language": "en",
+  "fetchedContentRole": "reference-data",
+  "id": "svg",
+  "sourceId": "docs-svg",
+  "group": "context",
+  "aliases": [],
+  "title": "SVG",
+  "summary": "SVG is a text document that describes shapes, which is why a person, a browser, a contract, and an Agent can all read the same artwork.",
+  "status": "current",
+  "authorities": [
+    "artist-editorial"
+  ],
+  "authorityScope": "document union only; use each content block's authorities for a specific claim",
+  "canonicalHtml": "https://inshell.art/docs/svg",
+  "markdown": "/docs/svg.md",
+  "canonicalMarkdown": "https://inshell.art/docs/svg.md",
+  "json": "/docs/svg.json",
+  "canonicalJson": "https://inshell.art/docs/svg.json",
+  "content": {
+    "lead": {
+      "authorities": [
+        "artist-editorial"
+      ],
+      "paragraphs": [
+        "Most image formats are containers of pixels. SVG is a document that describes shapes. Inshell treats that difference as the reason to use it as a material rather than as an export format."
+      ]
+    },
+    "figure": null,
+    "preformatted": [],
+    "sections": [
+      {
+        "authorities": [
+          "artist-editorial"
+        ],
+        "id": "docs-svg-standard",
+        "title": "A public document format",
+        "paragraphs": [
+          "The W3C began work on SVG in 1998. SVG 1.0 became a Recommendation on 4 September 2001 and SVG 1.1 on 14 January 2003; SVG 2 has remained at Candidate Recommendation. The format is XML, which means an SVG file is text and the text is the picture.",
+          "Because it is a public standard with several independent implementations, an SVG stays readable without any one vendor's software remaining in business. That property matters more for a work meant to last than any particular rendering feature does."
+        ]
+      },
+      {
+        "authorities": [
+          "artist-editorial"
+        ],
+        "id": "docs-svg-readers",
+        "title": "Four kinds of reader",
+        "paragraphs": [
+          "A person can read an SVG and follow what it draws. A browser can render it. A contract can assemble it from strings and return it. An Agent can inspect it, locate a specific element, and change that element without disturbing the rest.",
+          "Few materials are legible to all four. That overlap is what lets one file carry human intention, aesthetic architecture, machine action, and public preservation at once, which is the argument made in full under [Fully Onchain](https://inshell.art/docs/fully-onchain#docs-fully-onchain-agent-art)."
+        ]
+      },
+      {
+        "authorities": [
+          "artist-editorial"
+        ],
+        "id": "docs-svg-cost",
+        "title": "Bytes are the constraint",
+        "paragraphs": [
+          "Onchain, size is not a preference but a price. A vector description of a detailed image can occupy a few kilobytes where a raster of the same image would be far larger, and on [Ethereum](https://inshell.art/docs/ethereum) that difference is paid in gas at mint and stored forever.",
+          "SVG is unusual in making the compact option and the readable option the same option. Compression that produced smaller but unreadable bytes would lose the property the material was chosen for."
+        ]
+      },
+      {
+        "authorities": [
+          "artist-editorial"
+        ],
+        "id": "docs-svg-inshell",
+        "title": "How Inshell narrows it",
+        "paragraphs": [
+          "Inshell uses raw, plain, descriptive SVG and carries letterforms as path geometry rather than as webfont references, so a work depends on nothing outside its own bytes. [Mono 76](https://inshell.art/docs/mono-76) is the sealed type system that makes text in artwork behave that way.",
+          "This is a material choice inside one practice. SVG is not required for fully onchain work, and it is not required for Agent Art as a field."
+        ]
+      },
+      {
+        "authorities": [
+          "artist-editorial"
+        ],
+        "id": "docs-svg-boundary",
+        "title": "Evidence boundary",
+        "paragraphs": [
+          "Specification names and dates are public W3C facts and are cited as orientation. How Inshell actually builds and pins its SVG is described under Fully Onchain and Mono 76, which carry contract-release authority; this topic carries none."
+        ]
+      }
+    ],
+    "links": [
+      {
+        "role": "navigation",
+        "label": "read Fully Onchain",
+        "href": "/docs/fully-onchain",
+        "canonicalHref": "https://inshell.art/docs/fully-onchain"
+      },
+      {
+        "role": "navigation",
+        "label": "read Mono 76",
+        "href": "/docs/mono-76",
+        "canonicalHref": "https://inshell.art/docs/mono-76"
+      },
+      {
+        "role": "navigation",
+        "label": "read Ethereum",
+        "href": "/docs/ethereum",
+        "canonicalHref": "https://inshell.art/docs/ethereum"
+      },
+      {
+        "role": "navigation",
+        "label": "SVG 1.1 specification",
+        "href": "https://www.w3.org/TR/SVG11/",
+        "canonicalHref": "https://www.w3.org/TR/SVG11/"
+      }
+    ]
+  }
+}

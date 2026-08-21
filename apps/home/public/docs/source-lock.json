@@ -2,7 +2,7 @@
   "schema": "inshell.agent-docs.source-lock.v1",
   "schemaUrl": "/docs/source-lock.schema.json",
   "canonicalSchemaUrl": "https://inshell.art/docs/source-lock.schema.json",
-  "documentationVersion": "2026-08-21",
+  "documentationVersion": "2026-08-21-r2",
   "sourceRegistrySchema": "inshell.agent-docs.source-registry.v1",
   "purpose": "Exact-byte inventory of public knowledge-bearing inputs used to keep human and Agent documentation aligned across the repo.",
   "policy": {
@@ -11,14 +11,14 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "8b21e59dff272ed3159e44208e5465f4307489e1ab7980bd0e736f7d53129f5e",
+  "sourceTreeSha256": "f26bcc28864c0db328e36f4f73aa9499a05985247121ae4b57149ccd281b51f7",
   "groups": [
     {
       "id": "public-docs",
       "title": "Public documentation sources",
       "owner": "inshell.art docs",
       "reason": "Human articles, Agent-readable content, authority maps, and machine-handoff selection.",
-      "groupSha256": "8a6ec7baf92fb8699471e2db2e51ea9de958c0775148f97c3044902a087811c1",
+      "groupSha256": "42b9780f8a2193748fac1458f41e464941b0ed095d068a6d7fee87c85c3f8c47",
       "files": [
         {
           "path": "apps/home/src/content/AGENTS.md",
@@ -37,8 +37,8 @@
         },
         {
           "path": "apps/home/src/content/docs.ts",
-          "byteLength": 119950,
-          "sha256": "b6f1a5ff8db70547393ffb5a493526cd34fc0f78d67b094f129894dd4187677d"
+          "byteLength": 152812,
+          "sha256": "f7e61f097a4e844b0835c64c10ee97b6040c95206029bab2ed50278b22ada0c7"
         },
         {
           "path": "apps/home/src/content/thought-machine-handoff.ts",

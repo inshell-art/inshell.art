@@ -61,6 +61,34 @@
       "title": "Source and Release Boundaries",
       "description": "Source ownership, release artifacts, deployments, and publication are versioned independently."
     },
+    "lineage": {
+      "title": "Lineage",
+      "description": "Separating the person who specifies a work from whatever carries it out is an old move in art; Agent Art inherits the question, not the authority."
+    },
+    "generative-art": {
+      "title": "Generative Art",
+      "description": "Rule-based art has a sixty-year public record, and its onchain form derives variation from a seed; Inshell derives variation from intention instead."
+    },
+    "agents-and-ai": {
+      "title": "Agents and AI",
+      "description": "A program, a model, and an Agent are different participants, and Agent Art names the third rather than the technology behind it."
+    },
+    "svg": {
+      "title": "SVG",
+      "description": "SVG is a text document that describes shapes, which is why a person, a browser, a contract, and an Agent can all read the same artwork."
+    },
+    "ethereum": {
+      "title": "Ethereum",
+      "description": "The chain is a deterministic public machine with a price on every byte, and that price is a formal constraint rather than an inconvenience."
+    },
+    "tokens-and-nfts": {
+      "title": "Tokens and NFTs",
+      "description": "A token is a record that names a work; most tokens only point at one, and pointers decay."
+    },
+    "onchain-art": {
+      "title": "Onchain Art",
+      "description": "Onchain is a spectrum, and the useful question is which part of a work the chain actually holds."
+    },
     "design-principles": {
       "title": "Design Principles",
       "description": "Inshell's design rules connect participation, visible form, and the limits of evidence."

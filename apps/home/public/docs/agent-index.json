@@ -2,7 +2,7 @@
   "schema": "inshell.agent-docs.index.v1",
   "schemaUrl": "/docs/agent-index.schema.json",
   "canonicalSchemaUrl": "https://inshell.art/docs/agent-index.schema.json",
-  "version": "2026-08-21",
+  "version": "2026-08-21-r2",
   "language": "en",
   "charset": "utf-8",
   "canonicalHtml": "https://inshell.art/docs",
@@ -11,7 +11,7 @@
   "completeJson": "/docs/content.json",
   "canonicalCompleteJson": "https://inshell.art/docs/content.json",
   "completeJsonMediaType": "application/json",
-  "completeJsonSha256": "1b094a008f11101aca77b966408639560c5a7129ac9b38fba31cc38d8c6a6fd1",
+  "completeJsonSha256": "dca1c611362682930795a5fda356ff17eec3991c134ee30787e4b45a2ba8cef2",
   "purpose": "Public, read-only discovery for visitors using their own Agents.",
   "sourceLock": {
     "url": "/docs/source-lock.json",
@@ -19,7 +19,7 @@
     "schemaUrl": "/docs/source-lock.schema.json",
     "canonicalSchemaUrl": "https://inshell.art/docs/source-lock.schema.json",
     "mediaType": "application/json",
-    "sha256": "832a365c81c1b6b848226f24dc9f35d5237ddf1c34eba410097bb8ec328dde6e",
+    "sha256": "7108bfe56eee303fcab1585c781a021aa8ddd4f76b8201ee5d00fb31a217a63c",
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
@@ -137,9 +137,16 @@
     },
     {
       "id": "context",
-      "title": "Context",
-      "summary": "Read the design choices that give the practice form without turning its truth into a doctrine.",
+      "title": "Lineage and context",
+      "summary": "Place the practice in the histories it works inside—instruction art, generative systems, machines that make images, and the chain as material—then read the design choices that give it form.",
       "topics": [
+        "lineage",
+        "generative-art",
+        "agents-and-ai",
+        "svg",
+        "ethereum",
+        "tokens-and-nfts",
+        "onchain-art",
         "design-principles"
       ]
     }
@@ -162,11 +169,11 @@
       "markdown": "/docs/inshell.md",
       "canonicalMarkdown": "https://inshell.art/docs/inshell.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "309cc8c8be2fd71a070b568416b9de018ff3c97d52bc49838f20346854a54b79",
+      "markdownSha256": "18fc08db5117a7552f66f14906e99a15af03c0230d97d7f518ae5db709c68270",
       "json": "/docs/inshell.json",
       "canonicalJson": "https://inshell.art/docs/inshell.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "23837fed2e3ae412ab55613b3da1914ed2d1101ed05f5af9a488027911801e2c"
+      "jsonSha256": "a470820759e522124cff27e46b56e46ea088a2aa80f2d1804114018dc7947605"
     },
     {
       "id": "agent-art",
@@ -183,11 +190,11 @@
       "markdown": "/docs/agent-art.md",
       "canonicalMarkdown": "https://inshell.art/docs/agent-art.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "e44ae8b8a49deb9ae8ae8d6811644caca2a9e57223896e08490925d1bce6a27e",
+      "markdownSha256": "7ce5f463f21ac7df34b03f341bd1e7c530773b3ac1a87e5a38d1a9b8462d3608",
       "json": "/docs/agent-art.json",
       "canonicalJson": "https://inshell.art/docs/agent-art.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "8f7a7878980c4bbda1cdc409ed4579d516bbd8044204e6bf4da1b113f8d6ff58"
+      "jsonSha256": "0e3531ca10415dcd306b76b14f1336e56519a65b3b1974d7a03a70a8213d9660"
     },
     {
       "id": "movements",
@@ -206,11 +213,11 @@
       "markdown": "/docs/movements.md",
       "canonicalMarkdown": "https://inshell.art/docs/movements.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "153fc9f0916abf8661e54d1aa267fe08c866d77c5ed8481608aaf2497d7d853d",
+      "markdownSha256": "fedb4d6f03085bcd83ed7eb335c703445f512008249254045e40b7c92144035d",
       "json": "/docs/movements.json",
       "canonicalJson": "https://inshell.art/docs/movements.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "67c2fd58d89febbcbc7df47835c182dfec07d8621a8dd2c7aa7c37f9a2aca6d9"
+      "jsonSha256": "598d48a95f6f5e6abaa8a1c0024b731f99cf4b376b08e653e2d4180b835d637e"
     },
     {
       "id": "thought",
@@ -231,11 +238,11 @@
       "markdown": "/docs/thought.md",
       "canonicalMarkdown": "https://inshell.art/docs/thought.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "b2d6128bdff78f92b4d74bec13e7d26a33211f9945b25f10981314c461cc1f68",
+      "markdownSha256": "80c802f21bd759af6e6d2fd0295ba830f3df1d254296ec19fc7f389271e5a938",
       "json": "/docs/thought.json",
       "canonicalJson": "https://inshell.art/docs/thought.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "347d80f2374341a7b49efbc35568aea3860eb302ff49a298ed10dae809f2d34c"
+      "jsonSha256": "cbe943c9504368070368329b5148d3557eaf98a130d5d6f2d86a69660e998d42"
     },
     {
       "id": "will",
@@ -253,11 +260,11 @@
       "markdown": "/docs/will.md",
       "canonicalMarkdown": "https://inshell.art/docs/will.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "017813fa013c5d01363021d3447b8be7897ec9ffca81fbf4215caf21396cdd7b",
+      "markdownSha256": "dd74695bca74b1a164d57ec8599dfd7f85a733344d8c62e44fb0fcbf0ba35f33",
       "json": "/docs/will.json",
       "canonicalJson": "https://inshell.art/docs/will.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "76a6795122fb090096f04bb262b79ba6db57274475f30c421842557291bc0070"
+      "jsonSha256": "85f1e41c79fda1cdc7359e5cad7d97bbad65582e3dd4aa13a8172c4aabfcbc43"
     },
     {
       "id": "awa",
@@ -275,11 +282,11 @@
       "markdown": "/docs/awa.md",
       "canonicalMarkdown": "https://inshell.art/docs/awa.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "768f018bcbe4be2c5992f5d9f50d14477c04917f761431e411e2e8204b66808c",
+      "markdownSha256": "5f8b43e6b3c1f475ccef58f74288bdac12b33973c93a9c14f43525ca65ad1ae3",
       "json": "/docs/awa.json",
       "canonicalJson": "https://inshell.art/docs/awa.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "6ee482397e2af7f6f9b1f7fa317601ae484db82df23bacc812dfab1ab9b92187"
+      "jsonSha256": "f242ab0731975c55ca060bed46e6bda386783e04abacd876ad56bccd82508369"
     },
     {
       "id": "path",
@@ -298,11 +305,11 @@
       "markdown": "/docs/path.md",
       "canonicalMarkdown": "https://inshell.art/docs/path.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "f656fadf8cd8908cbea9e96f08e8daa8f926ab211a7be90dfd4e8afc742ffb35",
+      "markdownSha256": "8607bb68990a66e7ecc8b14d4c9fb775272836ad5144b0595c004134df77673f",
       "json": "/docs/path.json",
       "canonicalJson": "https://inshell.art/docs/path.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "94c14840054b41e11db24471c38b57c1b9485b3c5a7fe20d7df6787b9b6d47d9"
+      "jsonSha256": "ac2c07cc300c8bfcd67756755fb8a74d77a19f077703dd1e585a2d9f2aba9b52"
     },
     {
       "id": "pulse",
@@ -321,11 +328,11 @@
       "markdown": "/docs/pulse.md",
       "canonicalMarkdown": "https://inshell.art/docs/pulse.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "a542214000b779821b046959a10ac112cf7d4140aa1ace6d705cd6cd920ee7df",
+      "markdownSha256": "baf2f084a12df4ae250cedf157f16051527516c345ef0720fcedc04ae9776c00",
       "json": "/docs/pulse.json",
       "canonicalJson": "https://inshell.art/docs/pulse.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "45532c39d493f82dfbce7fac4a49c6c248758455082653223fd610c363cb1d84"
+      "jsonSha256": "e17333beee12c20afafa508bd927da27ba111140f9e3f26a7000e5b9965d5bff"
     },
     {
       "id": "contracts",
@@ -344,11 +351,11 @@
       "markdown": "/docs/contracts.md",
       "canonicalMarkdown": "https://inshell.art/docs/contracts.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "2e36de90b39fc2ca4c87a53f33eb3a9614a92b5665619170d1a7a70c53ff7cbc",
+      "markdownSha256": "4d22f9b928f400a56f8fe699726d007ba33ff2fcb8ce35dbae428fd2d7d6320f",
       "json": "/docs/contracts.json",
       "canonicalJson": "https://inshell.art/docs/contracts.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "31f57f3ee90671c6781010fc9200bde3f4c1bc26bd3b2388d9fb5d4d09a01cd8"
+      "jsonSha256": "77233b6c81c7e2a7114e98d755106d70d444b43f2eca259a73445a0b85dd9ccd"
     },
     {
       "id": "artwork-metadata-chain",
@@ -367,11 +374,11 @@
       "markdown": "/docs/artwork-metadata-chain.md",
       "canonicalMarkdown": "https://inshell.art/docs/artwork-metadata-chain.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "211ff4abbeaa7e242f23dab4a703769322b337b9cb87f72cffba6c73c0e72f75",
+      "markdownSha256": "b2f635fbaf86208851e45457de20ecae251d89428bf57c01fc455ea7d70a2e4b",
       "json": "/docs/artwork-metadata-chain.json",
       "canonicalJson": "https://inshell.art/docs/artwork-metadata-chain.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "0e8bfca24b601c261ecd4d241ff5cfd065b3121dd17be41cd4c0e0dfed3b6e48"
+      "jsonSha256": "6fae95db5db3458eb73374add6bb8f7c3b0db7673ae0d8c4efe2c281360c11b8"
     },
     {
       "id": "fully-onchain",
@@ -390,11 +397,11 @@
       "markdown": "/docs/fully-onchain.md",
       "canonicalMarkdown": "https://inshell.art/docs/fully-onchain.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "a7f416a7c30f16dd9b3c0de148fc1887c1bbe055f6f2c0bb29a3193088f8965f",
+      "markdownSha256": "e0e8a1145e4707c1660e987e0175334130d84281638f836aa9b3870d8e15da56",
       "json": "/docs/fully-onchain.json",
       "canonicalJson": "https://inshell.art/docs/fully-onchain.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "e56525559edff83d24c07c7e0c3594ab599e8c0b8bb098cc45c07361b526c0a4"
+      "jsonSha256": "680d88c040f2743dcdbe6df0a4ad9c7d706066053ab90dcad0dc6d76d093f94e"
     },
     {
       "id": "mono-76",
@@ -413,11 +420,11 @@
       "markdown": "/docs/mono-76.md",
       "canonicalMarkdown": "https://inshell.art/docs/mono-76.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "843c698cc5c7757caf170c3367832c097f01a58e06dafa48351ce663e8d58018",
+      "markdownSha256": "8417283a3a26557aebf1d24f2f40b9863ec414ef4b7dcf4ceffbc0e44b666dff",
       "json": "/docs/mono-76.json",
       "canonicalJson": "https://inshell.art/docs/mono-76.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "c04c4b0f2dff9ecf1ed19f435f62581a9c5b750eb674ba765385b5777a978772"
+      "jsonSha256": "5d1d01c6ba66a792643f985ff949b8bdfc60901406160098c58f2ca481a542f5"
     },
     {
       "id": "verification",
@@ -436,11 +443,11 @@
       "markdown": "/docs/verification.md",
       "canonicalMarkdown": "https://inshell.art/docs/verification.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "ea40b3e93b53bf605832ef98f56c6f745b27c47cee1cc5b1b32d24ddf1250791",
+      "markdownSha256": "50e1a2c2a5d4ba317f3bf560ebffb86834c867ceb6181cf921f289f60687901d",
       "json": "/docs/verification.json",
       "canonicalJson": "https://inshell.art/docs/verification.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "937cc1ab601b1ade1f5ad2163c46dfa4dcd34595f51eadb3ce9eac1553d41a8e"
+      "jsonSha256": "5715b0c5e0df5ea5739f812c4dbc0dd8dc6a10569f1b6532bf5e2309cb59ed89"
     },
     {
       "id": "wallet-local-data",
@@ -457,11 +464,11 @@
       "markdown": "/docs/wallet-local-data.md",
       "canonicalMarkdown": "https://inshell.art/docs/wallet-local-data.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "466d64eabbd65a99a39147ff7d96f41b07d3131a2a1a3673516668b5ac4e15ea",
+      "markdownSha256": "2bf031663626acd523f48fa547fb02d764feaeaea79832081628bcb803622c29",
       "json": "/docs/wallet-local-data.json",
       "canonicalJson": "https://inshell.art/docs/wallet-local-data.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "2b7eb5782ea0b9db29412e43d9080b2deb66482e444697346d0a50a19b2b23a6"
+      "jsonSha256": "9af6b60b5bb24a05b898f67f39f123ec0677f63446a9f8cd8c60b0b60ff38dbb"
     },
     {
       "id": "source-release-boundaries",
@@ -479,11 +486,158 @@
       "markdown": "/docs/source-release-boundaries.md",
       "canonicalMarkdown": "https://inshell.art/docs/source-release-boundaries.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "79280c1e0d25b62640d95fae8884964acc1470f6738ea79d83597035c70a5855",
+      "markdownSha256": "700bc9cc4ea508491dc73ba88ee5f7b5f7c280d7d8a32abaf0f16ec54647f466",
       "json": "/docs/source-release-boundaries.json",
       "canonicalJson": "https://inshell.art/docs/source-release-boundaries.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "5eaadf595bfe95ec987f2c5362b9be1b338351764612895577b83680dc9a59a8"
+      "jsonSha256": "6ff7aacec6e5e0826c00b4e7520b97ea514ae8a8667a950b97a789fca529675d"
+    },
+    {
+      "id": "lineage",
+      "group": "context",
+      "aliases": [],
+      "title": "Lineage",
+      "summary": "Separating the person who specifies a work from whatever carries it out is an old move in art; Agent Art inherits the question, not the authority.",
+      "status": "current",
+      "authorities": [
+        "artist-editorial"
+      ],
+      "authorityScope": "document union only; fetch the topic JSON or Markdown and use each content block's authorities for a specific claim",
+      "canonicalHtml": "https://inshell.art/docs/lineage",
+      "markdown": "/docs/lineage.md",
+      "canonicalMarkdown": "https://inshell.art/docs/lineage.md",
+      "markdownMediaType": "text/markdown",
+      "markdownSha256": "b882fba33e71af367a6ca28fed8c726e381d7edac32ea40097966e7076d405cc",
+      "json": "/docs/lineage.json",
+      "canonicalJson": "https://inshell.art/docs/lineage.json",
+      "jsonMediaType": "application/json",
+      "jsonSha256": "df93c3da57f5b63e93959dbae7923da5d7cdc3ebec15e09e09be9d940cc60cd3"
+    },
+    {
+      "id": "generative-art",
+      "group": "context",
+      "aliases": [],
+      "title": "Generative Art",
+      "summary": "Rule-based art has a sixty-year public record, and its onchain form derives variation from a seed; Inshell derives variation from intention instead.",
+      "status": "current",
+      "authorities": [
+        "artist-editorial"
+      ],
+      "authorityScope": "document union only; fetch the topic JSON or Markdown and use each content block's authorities for a specific claim",
+      "canonicalHtml": "https://inshell.art/docs/generative-art",
+      "markdown": "/docs/generative-art.md",
+      "canonicalMarkdown": "https://inshell.art/docs/generative-art.md",
+      "markdownMediaType": "text/markdown",
+      "markdownSha256": "77afc97e3c2777bc86e9740eca7e9efcc307b388a7723b3b707844856a46bf9a",
+      "json": "/docs/generative-art.json",
+      "canonicalJson": "https://inshell.art/docs/generative-art.json",
+      "jsonMediaType": "application/json",
+      "jsonSha256": "bb2203bdc1bc78421e46d0d8ffda7c7744d4bd703c869cab91fbf6491e6217b2"
+    },
+    {
+      "id": "agents-and-ai",
+      "group": "context",
+      "aliases": [],
+      "title": "Agents and AI",
+      "summary": "A program, a model, and an Agent are different participants, and Agent Art names the third rather than the technology behind it.",
+      "status": "current",
+      "authorities": [
+        "artist-editorial"
+      ],
+      "authorityScope": "document union only; fetch the topic JSON or Markdown and use each content block's authorities for a specific claim",
+      "canonicalHtml": "https://inshell.art/docs/agents-and-ai",
+      "markdown": "/docs/agents-and-ai.md",
+      "canonicalMarkdown": "https://inshell.art/docs/agents-and-ai.md",
+      "markdownMediaType": "text/markdown",
+      "markdownSha256": "ca8bba4a71aa18e6eb9d5112c5d50503a565b8c99e8454fe2279e2e966ad085b",
+      "json": "/docs/agents-and-ai.json",
+      "canonicalJson": "https://inshell.art/docs/agents-and-ai.json",
+      "jsonMediaType": "application/json",
+      "jsonSha256": "7307d1e220bb75e68b9a7899b887d894f011eb8d5d1505e2ee514f1c3a40c914"
+    },
+    {
+      "id": "svg",
+      "group": "context",
+      "aliases": [],
+      "title": "SVG",
+      "summary": "SVG is a text document that describes shapes, which is why a person, a browser, a contract, and an Agent can all read the same artwork.",
+      "status": "current",
+      "authorities": [
+        "artist-editorial"
+      ],
+      "authorityScope": "document union only; fetch the topic JSON or Markdown and use each content block's authorities for a specific claim",
+      "canonicalHtml": "https://inshell.art/docs/svg",
+      "markdown": "/docs/svg.md",
+      "canonicalMarkdown": "https://inshell.art/docs/svg.md",
+      "markdownMediaType": "text/markdown",
+      "markdownSha256": "faa1a303f6c47ba7c12ef82f9758b31341ffbc4cbfeb8bb93e62c3264735581d",
+      "json": "/docs/svg.json",
+      "canonicalJson": "https://inshell.art/docs/svg.json",
+      "jsonMediaType": "application/json",
+      "jsonSha256": "aeb4babf45c0987d8eb8e28808a6c7413afd6dee3386b9a4e394aa38150f658e"
+    },
+    {
+      "id": "ethereum",
+      "group": "context",
+      "aliases": [],
+      "title": "Ethereum",
+      "summary": "The chain is a deterministic public machine with a price on every byte, and that price is a formal constraint rather than an inconvenience.",
+      "status": "current",
+      "authorities": [
+        "artist-editorial"
+      ],
+      "authorityScope": "document union only; fetch the topic JSON or Markdown and use each content block's authorities for a specific claim",
+      "canonicalHtml": "https://inshell.art/docs/ethereum",
+      "markdown": "/docs/ethereum.md",
+      "canonicalMarkdown": "https://inshell.art/docs/ethereum.md",
+      "markdownMediaType": "text/markdown",
+      "markdownSha256": "f29add7a587841ebb33b1c5879add5839d57d29b79c020f141c181098b2e4dba",
+      "json": "/docs/ethereum.json",
+      "canonicalJson": "https://inshell.art/docs/ethereum.json",
+      "jsonMediaType": "application/json",
+      "jsonSha256": "e35018b3009c7fc6c5a7a133fdc824400cb5fb8237bb7cb920e4f21a10888f20"
+    },
+    {
+      "id": "tokens-and-nfts",
+      "group": "context",
+      "aliases": [],
+      "title": "Tokens and NFTs",
+      "summary": "A token is a record that names a work; most tokens only point at one, and pointers decay.",
+      "status": "current",
+      "authorities": [
+        "artist-editorial"
+      ],
+      "authorityScope": "document union only; fetch the topic JSON or Markdown and use each content block's authorities for a specific claim",
+      "canonicalHtml": "https://inshell.art/docs/tokens-and-nfts",
+      "markdown": "/docs/tokens-and-nfts.md",
+      "canonicalMarkdown": "https://inshell.art/docs/tokens-and-nfts.md",
+      "markdownMediaType": "text/markdown",
+      "markdownSha256": "af159e91930388d4d4f43515d0b919d0de8ca1cfb54af00bad2c3a4157347add",
+      "json": "/docs/tokens-and-nfts.json",
+      "canonicalJson": "https://inshell.art/docs/tokens-and-nfts.json",
+      "jsonMediaType": "application/json",
+      "jsonSha256": "0e02e89e5e63afb9d622a0dd75339b16845f2d9d7143e1b0dac6c49a38756cd8"
+    },
+    {
+      "id": "onchain-art",
+      "group": "context",
+      "aliases": [],
+      "title": "Onchain Art",
+      "summary": "Onchain is a spectrum, and the useful question is which part of a work the chain actually holds.",
+      "status": "current",
+      "authorities": [
+        "artist-editorial"
+      ],
+      "authorityScope": "document union only; fetch the topic JSON or Markdown and use each content block's authorities for a specific claim",
+      "canonicalHtml": "https://inshell.art/docs/onchain-art",
+      "markdown": "/docs/onchain-art.md",
+      "canonicalMarkdown": "https://inshell.art/docs/onchain-art.md",
+      "markdownMediaType": "text/markdown",
+      "markdownSha256": "4eac1c74ab5eb6a8e698deb56a60c077a36c3c0408fbab262c9c58a71f4e82a3",
+      "json": "/docs/onchain-art.json",
+      "canonicalJson": "https://inshell.art/docs/onchain-art.json",
+      "jsonMediaType": "application/json",
+      "jsonSha256": "31c16f49100cda9e54c47fcd5aed70de302c7f49a3331e50030a04e1956c1a22"
     },
     {
       "id": "design-principles",
@@ -502,11 +656,11 @@
       "markdown": "/docs/design-principles.md",
       "canonicalMarkdown": "https://inshell.art/docs/design-principles.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "738863e120b1c98b4a40a899c4ef6b144ae076fb34be68654dbbd1088fb995c5",
+      "markdownSha256": "13e10e8ed4f5ee59ae9d6d916ee3ff672770e7a53b920b9be2947d0d28b40ab0",
       "json": "/docs/design-principles.json",
       "canonicalJson": "https://inshell.art/docs/design-principles.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "6606e1090692aa8ed8ceab31ab5de61263ec0949d874832f178e92b48fbc92b9"
+      "jsonSha256": "731f246bb082d662d3b41e8e37fe2676e4faa271d94ab4ff5591459bb5e9d4e5"
     }
   ],
   "immutableReleases": [
@@ -711,6 +865,13 @@
         "verification",
         "wallet-local-data",
         "source-release-boundaries",
+        "lineage",
+        "generative-art",
+        "agents-and-ai",
+        "svg",
+        "ethereum",
+        "tokens-and-nfts",
+        "onchain-art",
         "design-principles"
       ]
     },
@@ -802,6 +963,48 @@
       "route": "/docs/source-release-boundaries",
       "topics": [
         "source-release-boundaries"
+      ]
+    },
+    {
+      "route": "/docs/lineage",
+      "topics": [
+        "lineage"
+      ]
+    },
+    {
+      "route": "/docs/generative-art",
+      "topics": [
+        "generative-art"
+      ]
+    },
+    {
+      "route": "/docs/agents-and-ai",
+      "topics": [
+        "agents-and-ai"
+      ]
+    },
+    {
+      "route": "/docs/svg",
+      "topics": [
+        "svg"
+      ]
+    },
+    {
+      "route": "/docs/ethereum",
+      "topics": [
+        "ethereum"
+      ]
+    },
+    {
+      "route": "/docs/tokens-and-nfts",
+      "topics": [
+        "tokens-and-nfts"
+      ]
+    },
+    {
+      "route": "/docs/onchain-art",
+      "topics": [
+        "onchain-art"
       ]
     },
     {

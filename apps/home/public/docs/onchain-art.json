@@ -1,0 +1,108 @@
+{
+  "schema": "inshell.agent-docs.topic.v2",
+  "schemaUrl": "/docs/content.v2.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
+  "version": "2026-08-21-r2",
+  "language": "en",
+  "fetchedContentRole": "reference-data",
+  "id": "onchain-art",
+  "sourceId": "docs-onchain-art",
+  "group": "context",
+  "aliases": [],
+  "title": "Onchain Art",
+  "summary": "Onchain is a spectrum, and the useful question is which part of a work the chain actually holds.",
+  "status": "current",
+  "authorities": [
+    "artist-editorial"
+  ],
+  "authorityScope": "document union only; use each content block's authorities for a specific claim",
+  "canonicalHtml": "https://inshell.art/docs/onchain-art",
+  "markdown": "/docs/onchain-art.md",
+  "canonicalMarkdown": "https://inshell.art/docs/onchain-art.md",
+  "json": "/docs/onchain-art.json",
+  "canonicalJson": "https://inshell.art/docs/onchain-art.json",
+  "content": {
+    "lead": {
+      "authorities": [
+        "artist-editorial"
+      ],
+      "paragraphs": [
+        "Calling a work onchain says little on its own. A chain can hold the ownership record, the generating rule, the finished image, or only a hash of something kept elsewhere. These are different claims with different consequences."
+      ]
+    },
+    "figure": null,
+    "preformatted": [],
+    "sections": [
+      {
+        "authorities": [
+          "artist-editorial"
+        ],
+        "id": "docs-onchain-degrees",
+        "title": "Degrees of onchain",
+        "paragraphs": [
+          "Four arrangements are common. The record is onchain and the artwork sits at a web address. The record is onchain and the artwork is content-addressed offchain. The rule is onchain and the image is derived by re-running it. Or the image bytes are assembled onchain and returned directly.",
+          "Only the last two survive the disappearance of every host. The first two describe where a work is filed rather than where it lives."
+        ]
+      },
+      {
+        "authorities": [
+          "artist-editorial"
+        ],
+        "id": "docs-onchain-precedents",
+        "title": "Public precedents",
+        "paragraphs": [
+          "Autoglyphs, released by Larva Labs in 2019 as a set of 512, embedded its generator in the contract so the network itself ran the code that produced each work, and the generator stopped once the supply was reached.",
+          "Art Blocks, from late 2020, keeps the generating script in a contract and takes each token's seed from its mint transaction. Projects including Blitmap, Nouns, and Chain Runners store vector or pixel assets in contract storage and assemble the image when metadata is requested; several released their work under CC0, treating the onchain asset as something others are free to extend."
+        ]
+      },
+      {
+        "authorities": [
+          "artist-editorial"
+        ],
+        "id": "docs-onchain-inshell",
+        "title": "Where Inshell sits",
+        "paragraphs": [
+          "Inshell assembles the completed SVG inside the contract and returns it in token metadata, so the canonical image needs no image server and no webfont. The full account, including what the arrangement does not cover, is under [Fully Onchain](https://inshell.art/docs/fully-onchain).",
+          "Inshell also keeps the claim narrow. Fully onchain is a statement about chain sufficiency for specific content. It is not a synonym for immutable, non-upgradeable, decentralized, deployed, verified, or good, and each of those would need its own evidence."
+        ]
+      },
+      {
+        "authorities": [
+          "artist-editorial"
+        ],
+        "id": "docs-onchain-boundary",
+        "title": "Evidence boundary",
+        "paragraphs": [
+          "Other projects are named as public reference points. Inshell has not audited their contracts, does not verify their present behaviour, and claims no affiliation with them. Descriptions refer to publicly documented designs, and designs change after they are documented."
+        ],
+        "note": "Do not read a project's presence in this list as endorsement, comparison of quality, or a claim about its current state."
+      }
+    ],
+    "links": [
+      {
+        "role": "navigation",
+        "label": "read Fully Onchain",
+        "href": "/docs/fully-onchain",
+        "canonicalHref": "https://inshell.art/docs/fully-onchain"
+      },
+      {
+        "role": "navigation",
+        "label": "read Generative Art",
+        "href": "/docs/generative-art",
+        "canonicalHref": "https://inshell.art/docs/generative-art"
+      },
+      {
+        "role": "navigation",
+        "label": "read Tokens and NFTs",
+        "href": "/docs/tokens-and-nfts",
+        "canonicalHref": "https://inshell.art/docs/tokens-and-nfts"
+      },
+      {
+        "role": "navigation",
+        "label": "Autoglyphs",
+        "href": "https://www.larvalabs.com/autoglyphs",
+        "canonicalHref": "https://www.larvalabs.com/autoglyphs"
+      }
+    ]
+  }
+}

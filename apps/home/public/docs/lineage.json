@@ -1,0 +1,127 @@
+{
+  "schema": "inshell.agent-docs.topic.v2",
+  "schemaUrl": "/docs/content.v2.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
+  "version": "2026-08-21-r2",
+  "language": "en",
+  "fetchedContentRole": "reference-data",
+  "id": "lineage",
+  "sourceId": "docs-lineage",
+  "group": "context",
+  "aliases": [],
+  "title": "Lineage",
+  "summary": "Separating the person who specifies a work from whatever carries it out is an old move in art; Agent Art inherits the question, not the authority.",
+  "status": "current",
+  "authorities": [
+    "artist-editorial"
+  ],
+  "authorityScope": "document union only; use each content block's authorities for a specific claim",
+  "canonicalHtml": "https://inshell.art/docs/lineage",
+  "markdown": "/docs/lineage.md",
+  "canonicalMarkdown": "https://inshell.art/docs/lineage.md",
+  "json": "/docs/lineage.json",
+  "canonicalJson": "https://inshell.art/docs/lineage.json",
+  "content": {
+    "lead": {
+      "authorities": [
+        "artist-editorial"
+      ],
+      "paragraphs": [
+        "Agent Art is new as a name. The questions underneath it are not. Art has repeatedly split the person who specifies a work from the person or process that executes it, and has repeatedly asked what remains of authorship after the split.",
+        "Inshell reads that history as context, not as permission. Naming a precedent does not inherit its authority and does not make this practice a continuation of anyone else's."
+      ]
+    },
+    "figure": null,
+    "preformatted": [],
+    "sections": [
+      {
+        "authorities": [
+          "artist-editorial"
+        ],
+        "id": "docs-lineage-instruction",
+        "title": "Instruction and execution",
+        "paragraphs": [
+          "Sol LeWitt's wall drawings exist as written instructions together with a signed certificate. Other people execute them on a wall, and two executions of the same instruction can differ while remaining the same work. LeWitt's stated position was that the concept is the primary part of the work rather than the surface that results from it.",
+          "That arrangement makes a specific claim: a work can be a rule plus a record of authorization, and the visible object can be downstream of both. An artwork built that way survives the loss of any particular execution."
+        ]
+      },
+      {
+        "authorities": [
+          "artist-editorial"
+        ],
+        "id": "docs-lineage-scores",
+        "title": "Scores realized by others",
+        "paragraphs": [
+          "Fluxus developed the same idea as a score. George Brecht's event scores of the early 1960s are short directives that someone performs, publicly or privately. Yoko Ono's Grapefruit, published in 1964, collects instructions whose realization is often left to the reader's mind rather than to any material.",
+          "A score is written to be realized by someone other than its author, and it stays open to variation without becoming a different work. The score and its realizations are two different things, and both can be preserved."
+        ]
+      },
+      {
+        "authorities": [
+          "artist-editorial"
+        ],
+        "id": "docs-lineage-reader",
+        "title": "Who completes the work",
+        "paragraphs": [
+          "Marcel Duchamp argued that the creative act is not finished by the artist alone, and that the viewer completes it by interpreting the work into the world. Roland Barthes made a parallel argument for text in 1967: meaning is produced where a work is read, not sealed by the author's intention.",
+          "Inshell's practice depends on this. A preserved exchange is not self-explaining. The person who later reads it is doing part of the work, which is why the practice asks for inspection rather than agreement."
+        ]
+      },
+      {
+        "authorities": [
+          "artist-editorial"
+        ],
+        "id": "docs-lineage-difference",
+        "title": "Where Agent Art differs",
+        "paragraphs": [
+          "In instruction art the executor is a person following a score, or a machine following a rule the artist wrote. In either case the specification and the execution are separated, but the executor does not interpret in the sense that matters here.",
+          "An Agent interprets. The instruction does not fully determine the result, and the result is not random either. That is the gap [Agent Art](https://inshell.art/docs/agent-art) names, and it is why participation rather than automation is the invariant.",
+          "Inshell's response is to preserve both sides. [THOUGHT](https://inshell.art/docs/thought) keeps one exact human prompt beside one exact Agent response, so the score and its realization stay in a single record and can be read against each other. That is one Inshell choice, not a requirement of the field."
+        ]
+      },
+      {
+        "authorities": [
+          "artist-editorial"
+        ],
+        "id": "docs-lineage-boundary",
+        "title": "Evidence boundary",
+        "paragraphs": [
+          "The artists, works, and dates named here are public references to other people's practices. Inshell does not verify them onchain, claim affiliation or endorsement, or present this reading as art-historical consensus."
+        ],
+        "note": "A named precedent locates a question. It does not transfer authority to the practice that cites it."
+      }
+    ],
+    "links": [
+      {
+        "role": "navigation",
+        "label": "read Agent Art",
+        "href": "/docs/agent-art",
+        "canonicalHref": "https://inshell.art/docs/agent-art"
+      },
+      {
+        "role": "navigation",
+        "label": "read THOUGHT",
+        "href": "/docs/thought",
+        "canonicalHref": "https://inshell.art/docs/thought"
+      },
+      {
+        "role": "navigation",
+        "label": "read Generative Art",
+        "href": "/docs/generative-art",
+        "canonicalHref": "https://inshell.art/docs/generative-art"
+      },
+      {
+        "role": "navigation",
+        "label": "Sol LeWitt",
+        "href": "https://en.wikipedia.org/wiki/Sol_LeWitt",
+        "canonicalHref": "https://en.wikipedia.org/wiki/Sol_LeWitt"
+      },
+      {
+        "role": "navigation",
+        "label": "Fluxus",
+        "href": "https://en.wikipedia.org/wiki/Fluxus",
+        "canonicalHref": "https://en.wikipedia.org/wiki/Fluxus"
+      }
+    ]
+  }
+}
