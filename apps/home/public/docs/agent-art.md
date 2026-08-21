@@ -6,7 +6,7 @@
 - Status: current
 - Authority classes in this document: artist-editorial
 - Canonical page: https://inshell.art/docs/agent-art
-- Documentation version: 2026-08-16
+- Documentation version: 2026-08-21
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## The invariant and the open field

@@ -345,7 +345,7 @@ const THOUGHT_RAW_SVG_EXAMPLE = [
 
 export const DOCS_SOURCE: DocsSource = {
   schema: "inshell.docs.source.v2",
-  version: "2026-08-16",
+  version: "2026-08-21",
   title: "docs",
   subtitle: "paste this prompt into your Agent",
   canonicalUrl: "https://inshell.art/docs",
@@ -1335,7 +1335,7 @@ export const DOCS_SOURCE: DocsSource = {
       summary:
         "Inshell keeps a work's canonical image and metadata with its onchain record so the work does not depend on a website or media host.",
       status: "current",
-      authorities: ["app-documentation", "contract-release"],
+      authorities: ["artist-editorial", "app-documentation", "contract-release"],
       paragraphs: [
         "A token should not outlive the artwork it names. If the image lives only on a website, marketplace, or media host, the token can remain while its public form disappears or changes.",
         "For Inshell, the visible form is part of the work. Fully onchain keeps the token record, metadata, and canonical artwork together. A site, wallet, explorer, or marketplace may show the work, but it is a reading surface, not its origin.",
@@ -1362,6 +1362,19 @@ export const DOCS_SOURCE: DocsSource = {
             "SVG is both an image and a description of an image. Its raw source is human-readable: it names shapes, paths, positions, and fills as text instead of hiding the form inside opaque machine code. A person can inspect the description; a machine can render the same description.",
             "That makes SVG a natural layer between human intention and machine action, an area of interest for Inshell. The human can author and read a structure while the renderer can carry it out without translating the work into a separate, inaccessible format.",
             "SVG is also vector-based: it stays clear at different scales, remains compact, and can be assembled deterministically from onchain state. A contract can embed the completed SVG inside token metadata, so the canonical image needs no image server. When letterforms are included as paths, it needs no webfont either.",
+          ],
+        },
+        {
+          id: "docs-fully-onchain-agent-art",
+          title: "SVG and Agent Art",
+          paragraphs: [
+            "Generic text-to-image generation can turn a semantic prompt into a finished picture while leaving the picture's visual architecture implicit inside a model's broad aesthetic conventions. The prompt may vary the result, but the artist and participant do not necessarily share a literal structure they can inspect or hold.",
+            "Inshell uses SVG to make that structure explicit. The artist can hold the aesthetic architecture as paths, shapes, positions, relations, and rules; a human participant can bring an intention; and an Agent can interpret that intention within the same readable structure. The Agent participates in varying the work without replacing its architecture with an unspecified image-making process.",
+            [
+              "The same qualities serve fully onchain construction. Raw, plain, descriptive SVG is compact enough to store, deterministic enough to render, and legible to people, Agents, contracts, and ordinary computing systems. One material can relay intention, architecture, machine action, and public preservation. This is an Inshell method within ",
+              { label: "Agent Art", href: "/docs/agent-art" },
+              ", not a requirement for Agent Art as a field.",
+            ],
           ],
         },
         {
@@ -1936,6 +1949,10 @@ export const DOCS_AUTHORITY_MAP: Record<
     sections: {
       "docs-fully-onchain-why": ["app-documentation", "contract-release"],
       "docs-fully-onchain-svg": ["app-documentation", "contract-release"],
+      "docs-fully-onchain-agent-art": [
+        "artist-editorial",
+        "app-documentation",
+      ],
       "docs-fully-onchain-inshell": ["app-documentation", "contract-release"],
       "docs-fully-onchain-boundary": [
         "app-documentation",

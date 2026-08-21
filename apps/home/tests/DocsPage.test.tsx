@@ -570,6 +570,18 @@ describe("Docs source editorial guardrails", () => {
       /natural layer between human intention and machine action[\s\S]{0,120}an area of interest for Inshell/i,
     );
     expect(text).toMatch(
+      /text-to-image generation[\s\S]{0,180}visual architecture implicit[\s\S]{0,180}broad aesthetic conventions/i,
+    );
+    expect(text).toMatch(
+      /artist can hold the aesthetic architecture[\s\S]{0,180}human participant can bring an intention[\s\S]{0,180}Agent can interpret that intention within the same readable structure/i,
+    );
+    expect(text).toMatch(
+      /raw, plain, descriptive SVG[\s\S]{0,180}relay intention, architecture, machine action, and public preservation/i,
+    );
+    expect(text).toMatch(
+      /Inshell method within Agent Art, not a requirement for Agent Art as a field/i,
+    );
+    expect(text).toMatch(
       /vector-based[\s\S]{0,160}assembled deterministically from onchain state[\s\S]{0,180}no image server[\s\S]{0,100}no webfont/i,
     );
     const svgSection = topic.sections?.find(
@@ -619,6 +631,10 @@ describe("Docs source editorial guardrails", () => {
       sections: {
         "docs-fully-onchain-why": ["app-documentation", "contract-release"],
         "docs-fully-onchain-svg": ["app-documentation", "contract-release"],
+        "docs-fully-onchain-agent-art": [
+          "artist-editorial",
+          "app-documentation",
+        ],
         "docs-fully-onchain-inshell": ["app-documentation", "contract-release"],
         "docs-fully-onchain-boundary": [
           "app-documentation",
@@ -881,6 +897,7 @@ describe("Docs source editorial guardrails", () => {
         { label: "attestation status", href: "/docs/verification" },
       ],
       "fully-onchain": [
+        { label: "Agent Art", href: "/docs/agent-art" },
         { label: "$PATH", href: "/docs/path" },
         { label: "THOUGHT", href: "/docs/thought" },
         {

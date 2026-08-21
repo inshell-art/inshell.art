@@ -2,7 +2,7 @@
   "schema": "inshell.agent-docs.source-lock.v1",
   "schemaUrl": "/docs/source-lock.schema.json",
   "canonicalSchemaUrl": "https://inshell.art/docs/source-lock.schema.json",
-  "documentationVersion": "2026-08-16",
+  "documentationVersion": "2026-08-21",
   "sourceRegistrySchema": "inshell.agent-docs.source-registry.v1",
   "purpose": "Exact-byte inventory of public knowledge-bearing inputs used to keep human and Agent documentation aligned across the repo.",
   "policy": {
@@ -11,14 +11,14 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "1dff9d449f9deadee3259fac3fb6f6f1188f5db00d2047c2df223aeaca815da6",
+  "sourceTreeSha256": "8b21e59dff272ed3159e44208e5465f4307489e1ab7980bd0e736f7d53129f5e",
   "groups": [
     {
       "id": "public-docs",
       "title": "Public documentation sources",
       "owner": "inshell.art docs",
       "reason": "Human articles, Agent-readable content, authority maps, and machine-handoff selection.",
-      "groupSha256": "e36552d31988793c90b38ac1822e6640d77359b19b012e44b7b0d678f36c573f",
+      "groupSha256": "8a6ec7baf92fb8699471e2db2e51ea9de958c0775148f97c3044902a087811c1",
       "files": [
         {
           "path": "apps/home/src/content/AGENTS.md",
@@ -37,8 +37,8 @@
         },
         {
           "path": "apps/home/src/content/docs.ts",
-          "byteLength": 118431,
-          "sha256": "b88438916b70bd652d97b79ffdcd2383f826d565d0f6bf58c249f1fc1e719299"
+          "byteLength": 119950,
+          "sha256": "b6f1a5ff8db70547393ffb5a493526cd34fc0f78d67b094f129894dd4187677d"
         },
         {
           "path": "apps/home/src/content/thought-machine-handoff.ts",
@@ -47,8 +47,8 @@
         },
         {
           "path": "docs/AGENTS.md",
-          "byteLength": 24560,
-          "sha256": "e39823694da767ff4e6c42846e80a6501b9033174735a0559530d6808559cf83"
+          "byteLength": 24857,
+          "sha256": "f267d9b2423ceb8087aacae1840f40905586a58d74bfad51cefcc1a72e52304c"
         },
         {
           "path": "docs/agent-native-figure-experiment.md",
@@ -827,8 +827,33 @@
       "title": "Contract consumer runtime",
       "owner": "inshell.art shared App infrastructure",
       "reason": "Address, ABI, public metadata, and release-selection logic consumed by the Apps.",
-      "groupSha256": "0c2206741cfbcce2fcbdc2a294a8c01f0a0638fe2468f39277c345f59739888c",
+      "groupSha256": "fda64da1d48795bf9517a5b90c057fd83ba00b9b1d3c2201291ef1bc05d07c9d",
       "files": [
+        {
+          "path": "packages/contracts/src/abi/devnet/PathMinter.json",
+          "byteLength": 6956,
+          "sha256": "55911a284bcaafe1a3aec07a90d40eb4e91f082d89f816944459728c1205e57b"
+        },
+        {
+          "path": "packages/contracts/src/abi/devnet/PathMinterAdapter.json",
+          "byteLength": 7468,
+          "sha256": "f3586c99a05d09caf9f194327cf62256f33a684a52973a0c684451549a0e874c"
+        },
+        {
+          "path": "packages/contracts/src/abi/devnet/PathNFT.json",
+          "byteLength": 21904,
+          "sha256": "cf91b546154e6c69a6ea664ce3fcdc01bebb2c9f930d994fa9711068f701ea3c"
+        },
+        {
+          "path": "packages/contracts/src/abi/devnet/PathPulseAdapter.json",
+          "byteLength": 7235,
+          "sha256": "d248fbff3b9f429f4627bcaa65ac47f1df468bd00abd7b53efca08a8ea72c031"
+        },
+        {
+          "path": "packages/contracts/src/abi/devnet/PulseAuction.json",
+          "byteLength": 8093,
+          "sha256": "26cfa9162b98b3c6f43f943403b2697e9ded310df647377a0de6105a97ff086a"
+        },
         {
           "path": "packages/contracts/src/abi/sepolia/ColorFontV1.json",
           "byteLength": 2750,

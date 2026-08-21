@@ -2,7 +2,7 @@
   "schema": "inshell.agent-docs.topic.v2",
   "schemaUrl": "/docs/content.v2.schema.json",
   "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
-  "version": "2026-08-16",
+  "version": "2026-08-21",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "verification",

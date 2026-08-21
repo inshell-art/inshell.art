@@ -3,7 +3,7 @@
 paste this prompt into your Agent
 
 - Canonical page: https://inshell.art/docs
-- Documentation version: 2026-08-16
+- Documentation version: 2026-08-21
 - Agent index: https://inshell.art/docs/agent-index.json
 - Structured corpus: https://inshell.art/docs/content.json
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
@@ -57,7 +57,7 @@ Read the design choices that give the practice form without turning its truth in
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/inshell
-- Documentation version: 2026-08-16
+- Documentation version: 2026-08-21
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### The inward direction
@@ -186,7 +186,7 @@ Inshell alone names the artist. THOUGHT, WILL, and AWA name movements. $PATH is 
 - Status: current
 - Authority classes in this document: artist-editorial
 - Canonical page: https://inshell.art/docs/agent-art
-- Documentation version: 2026-08-16
+- Documentation version: 2026-08-21
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### The invariant and the open field
@@ -259,7 +259,7 @@ Protocols, interfaces, renderers, provenance, and public chains are materials in
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/movements
-- Documentation version: 2026-08-16
+- Documentation version: 2026-08-21
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### The movement arc
@@ -364,7 +364,7 @@ The movement arc describes an artistic order. A movement name alone does not est
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/thought
-- Documentation version: 2026-08-16
+- Documentation version: 2026-08-21
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
@@ -657,7 +657,7 @@ Save and Load are browser conveniences for unfinished or remembered works. They 
 - Status: study
 - Authority classes in this document: artist-editorial, app-documentation
 - Canonical page: https://inshell.art/docs/will
-- Documentation version: 2026-08-16
+- Documentation version: 2026-08-21
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
@@ -696,7 +696,7 @@ This description defines an artistic direction. It is not a creation surface, mi
 - Status: study
 - Authority classes in this document: artist-editorial, app-documentation
 - Canonical page: https://inshell.art/docs/awa
-- Documentation version: 2026-08-16
+- Documentation version: 2026-08-21
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
@@ -732,7 +732,7 @@ Core names the movement's artistic direction, not a disclosed doctrine, technica
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/path
-- Documentation version: 2026-08-16
+- Documentation version: 2026-08-21
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
@@ -849,7 +849,7 @@ An invitation reserves one Spark slot until it is claimed, revoked, or released 
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/pulse
-- Documentation version: 2026-08-16
+- Documentation version: 2026-08-21
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
@@ -972,7 +972,7 @@ As one participatory system in Inshell's practice, Pulse makes collective timing
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/contracts
-- Documentation version: 2026-08-16
+- Documentation version: 2026-08-21
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
@@ -1041,7 +1041,7 @@ A release says which ABI, bytecode, renderer data, schemas, and checksums belong
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/artwork-metadata-chain
-- Documentation version: 2026-08-16
+- Documentation version: 2026-08-21
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
@@ -1110,9 +1110,9 @@ Portable metadata deliberately does not carry every creation detail. Inshell det
 
 - Group: Records and verification
 - Status: current
-- Authority classes in this document: app-documentation, contract-release
+- Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/fully-onchain
-- Documentation version: 2026-08-16
+- Documentation version: 2026-08-21
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
@@ -1146,6 +1146,16 @@ SVG is both an image and a description of an image. Its raw source is human-read
 That makes SVG a natural layer between human intention and machine action, an area of interest for Inshell. The human can author and read a structure while the renderer can carry it out without translating the work into a separate, inaccessible format.
 
 SVG is also vector-based: it stays clear at different scales, remains compact, and can be assembled deterministically from onchain state. A contract can embed the completed SVG inside token metadata, so the canonical image needs no image server. When letterforms are included as paths, it needs no webfont either.
+
+### SVG and Agent Art
+
+- Authority: artist-editorial, app-documentation
+
+Generic text-to-image generation can turn a semantic prompt into a finished picture while leaving the picture's visual architecture implicit inside a model's broad aesthetic conventions. The prompt may vary the result, but the artist and participant do not necessarily share a literal structure they can inspect or hold.
+
+Inshell uses SVG to make that structure explicit. The artist can hold the aesthetic architecture as paths, shapes, positions, relations, and rules; a human participant can bring an intention; and an Agent can interpret that intention within the same readable structure. The Agent participates in varying the work without replacing its architecture with an unspecified image-making process.
+
+The same qualities serve fully onchain construction. Raw, plain, descriptive SVG is compact enough to store, deterministic enough to render, and legible to people, Agents, contracts, and ordinary computing systems. One material can relay intention, architecture, machine action, and public preservation. This is an Inshell method within [Agent Art](https://inshell.art/docs/agent-art), not a requirement for Agent Art as a field.
 
 ### How Inshell does it
 
@@ -1350,7 +1360,7 @@ Fully onchain says where the canonical metadata and artwork come from. It does n
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/mono-76
-- Documentation version: 2026-08-16
+- Documentation version: 2026-08-21
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
@@ -1509,7 +1519,7 @@ THOUGHT and $PATH pin Mono 76 through their own contract releases. Updating the 
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/verification
-- Documentation version: 2026-08-16
+- Documentation version: 2026-08-21
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
@@ -1586,7 +1596,7 @@ A valid proof can establish that certain bytes, hashes, addresses, or signatures
 - Status: current
 - Authority classes in this document: app-documentation
 - Canonical page: https://inshell.art/docs/wallet-local-data
-- Documentation version: 2026-08-16
+- Documentation version: 2026-08-21
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
@@ -1642,7 +1652,7 @@ Local Anvil, Sepolia, and Ethereum have different chain IDs, deployments, balanc
 - Status: current
 - Authority classes in this document: app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/source-release-boundaries
-- Documentation version: 2026-08-16
+- Documentation version: 2026-08-21
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
@@ -1702,7 +1712,7 @@ Canonical pages, Markdown documents, JSON indexes, API responses, GitHub mirrors
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/design-principles
-- Documentation version: 2026-08-16
+- Documentation version: 2026-08-21
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ### Overview
