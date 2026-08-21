@@ -16,6 +16,10 @@ import {
 const indexHtml = await readFile(new URL("../apps/thought/index.html", import.meta.url), "utf8");
 const thoughtCss = await readFile(new URL("../apps/thought/src/style.css", import.meta.url), "utf8");
 const thoughtMain = await readFile(new URL("../apps/thought/src/main.ts", import.meta.url), "utf8");
+const thoughtLaunchState = await readFile(
+  new URL("../apps/thought/src/thought-launch-state.ts", import.meta.url),
+  "utf8",
+);
 const thoughtRenderer = await readFile(new URL("../apps/thought/src/thought-v2-renderer.ts", import.meta.url), "utf8");
 const thoughtClaudeCoworkQualification = await readFile(
   new URL(
@@ -1009,7 +1013,14 @@ test("THOUGHT panel copy uses canonical product terms", () => {
   assert.doesNotMatch(productCopy, /load a work/);
   assert.doesNotMatch(productCopy, /\$PATHs/);
   assert.doesNotMatch(productCopy, /THOUGHT (?:mint )?unit/);
-  assert.doesNotMatch(productCopy, /["'`][^"'`\n]*\bonchain\b[^"'`\n]*["'`]/);
+  assert.match(
+    thoughtLaunchState,
+    /title:\s*workExists\s*\? "This work can move Onchain"/,
+  );
+  assert.doesNotMatch(
+    thoughtLaunchState,
+    /title:\s*workExists\s*\? "This work can move onchain"/,
+  );
   assert.match(productCopy, /load a saved work/);
   assert.match(productCopy, /THOUGHT mint available/);
   assert.match(productCopy, /on-chain/);
@@ -1026,6 +1037,50 @@ test("THOUGHT panel copy uses canonical product terms", () => {
   assert.match(
     thoughtMintPresentation,
     /action\("confirm_mint", "Try again"\), action\("choose_another", "Pick another \$PATH"\)/,
+  );
+});
+
+test("THOUGHT launch guidance removes wallet distraction until Onchain is open", () => {
+  assert.match(
+    thoughtCss,
+    /thought-launch-status\[data-phase="studio-preview"\][\s\S]*?thought-launch-status\[data-phase="onchain-countdown"\][\s\S]*?\.inshell-topbar__wallet-surface\s*\{\s*display:\s*none;/,
+  );
+  assert.doesNotMatch(
+    thoughtCss,
+    /thought-launch-status\[data-phase="onchain-open"\][\s\S]{0,240}\.inshell-topbar__wallet-surface/,
+  );
+  assert.match(
+    thoughtLaunchState,
+    /meta:\s*"browser-local · no wallet needed"/,
+  );
+});
+
+test("THOUGHT launch phase stays locked beside Work and fails closed before wallet minting", () => {
+  const workActionsIndex = indexHtml.indexOf('id="thought-dock-action-area"');
+  const launchStatusIndex = indexHtml.indexOf('id="thought-launch-status"');
+  const mintPanelIndex = indexHtml.indexOf('id="thought-dock-path"');
+  assert.ok(workActionsIndex >= 0);
+  assert.ok(launchStatusIndex > workActionsIndex);
+  assert.ok(mintPanelIndex > launchStatusIndex);
+  assert.match(
+    indexHtml,
+    /id="thought-launch-status"[\s\S]*?aria-live="polite"[\s\S]*?id="thought-launch-status-title"/,
+  );
+  assert.match(
+    thoughtMain,
+    /fetch\(THOUGHT_LAUNCH_READ_MODEL_URL,[\s\S]*?credentials:\s*"same-origin"[\s\S]*?cache:\s*"no-store"/,
+  );
+  assert.match(
+    thoughtMain,
+    /if \(isThoughtMintEnabled\(\)\) \{\s*await refreshWalletState\(\);/,
+  );
+  assert.match(
+    thoughtDevSnapshot,
+    /\["Studio \/ Onchain launch status", CURRENT_THOUGHT_LAUNCH_STATUS\]/,
+  );
+  assert.match(
+    thoughtDevSnapshot,
+    /applyCurrentThoughtLaunchMainDeltas\([\s\S]*?"restore"[\s\S]*?applyCurrentThoughtLaunchMainDeltas\([\s\S]*?"layer"/,
   );
 });
 

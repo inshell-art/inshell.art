@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { applyCurrentThoughtLaunchMainDeltas } from "./thought-launch-main-deltas.generated.mjs";
 
 export const THOUGHT_DEV_SNAPSHOT_QUERY_PARAM = "inshell-thought-dev-snapshot";
 export const THOUGHT_DEV_SNAPSHOT_QUERY_VALUE = "da998e1";
@@ -103,6 +104,22 @@ const POST_SNAPSHOT_SURFACE_NAV = `        <nav class="thought-create__links" ar
 
 const POST_SNAPSHOT_CLI_TITLE =
   `          <h1 class="frontpage-title thought-cli-title">THOUGHT</h1>\n`;
+
+const CURRENT_THOUGHT_LAUNCH_STATUS = `              <section
+                id="thought-launch-status"
+                class="thought-launch-status"
+                aria-labelledby="thought-launch-status-title"
+                aria-live="polite"
+              >
+                <p id="thought-launch-status-eyebrow" class="thought-launch-status__eyebrow"></p>
+                <p id="thought-launch-status-title" class="thought-launch-status__title"></p>
+                <p id="thought-launch-status-detail" class="thought-launch-status__detail"></p>
+                <p id="thought-launch-status-meta" class="thought-launch-status__meta"></p>
+              </section>
+`;
+
+const TAGGED_THOUGHT_MINT_PANEL = `              <section
+                id="thought-dock-path"`;
 
 const TAGGED_DETAIL_TITLE = `        <div>
           <h1 id="thought-detail-title" class="thought-detail__title">THOUGHT #<span id="thought-detail-token-id">-</span></h1>
@@ -1280,6 +1297,7 @@ const POST_SNAPSHOT_INDEX_FRAGMENTS = [
   ["surface router", POST_SNAPSHOT_SURFACE_ROUTER],
   ["surface navigation", POST_SNAPSHOT_SURFACE_NAV],
   ["CLI title", POST_SNAPSHOT_CLI_TITLE],
+  ["Studio / Onchain launch status", CURRENT_THOUGHT_LAUNCH_STATUS],
 ];
 
 function removeExactlyOnce(html, label, fragment) {
@@ -1392,7 +1410,12 @@ function layerTightDetailGrouping(source) {
 }
 
 function restoreMainSnapshot(source) {
-  let currentSource = applyCurrentTrustedAgentLinkDeltas(source, "restore");
+  let currentSource = applyCurrentThoughtLaunchMainDeltas(
+    source,
+    "restore",
+    replaceExactCount,
+  );
+  currentSource = applyCurrentTrustedAgentLinkDeltas(currentSource, "restore");
   currentSource = applyCurrentSingleRunAgentChooserDeltas(currentSource, "restore");
   currentSource = restoreCurrentAgentRateLimitHandling(currentSource);
   currentSource = applyCurrentPreparedAgentChoiceDeltas(currentSource, "restore");
@@ -1771,6 +1794,12 @@ export function restoreThoughtDevIndexSnapshot(html) {
     TAGGED_DETAIL_HOME_LINK,
     CURRENT_DETAIL_HOME_LINK,
   );
+  layered = replaceExactCount(
+    layered,
+    "tagged THOUGHT mint panel",
+    TAGGED_THOUGHT_MINT_PANEL,
+    `${CURRENT_THOUGHT_LAUNCH_STATUS}${TAGGED_THOUGHT_MINT_PANEL}`,
+  );
   const query = `${THOUGHT_DEV_SNAPSHOT_QUERY_PARAM}=${THOUGHT_DEV_SNAPSHOT_QUERY_VALUE}`;
   return [
     ["tagged stylesheet reference", 'href="/src/style.css"', `href="/src/style.css?${query}"`],
@@ -1850,7 +1879,14 @@ export function loadThoughtDevSnapshotFile(workspaceRoot, fileKey) {
     currentSingleRunAgentChooser,
     "layer",
   );
-  return layerCurrentAgentLinePreviewUnavailableCopy(currentTrustedAgentLinks);
+  const currentAgentLinePreview = layerCurrentAgentLinePreviewUnavailableCopy(
+    currentTrustedAgentLinks,
+  );
+  return applyCurrentThoughtLaunchMainDeltas(
+    currentAgentLinePreview,
+    "layer",
+    replaceExactCount,
+  );
 }
 
 export function loadThoughtDevSnapshotModule(workspaceRoot, id) {

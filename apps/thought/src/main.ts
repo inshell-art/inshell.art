@@ -131,7 +131,6 @@ import {
   formatThoughtAuthorizationError,
   getThoughtWorkReadyPresentation,
   THOUGHT_PANEL_MINT_UI_MODE,
-  THOUGHT_V2_MINT_UNAVAILABLE_COPY,
   type MintFlowUiMode,
   type ThoughtAuthorizationStage,
 } from "./thought-mint-ui";
@@ -232,6 +231,18 @@ import {
   pulseAuctionPriceAtTimestamp,
 } from "./thought-pulse-auction-price";
 import { THOUGHT_V2_PRODUCTION_DEPLOYMENT } from "./thought-v2-production-deployment";
+import {
+  deriveThoughtLaunchState,
+  getThoughtLaunchGuidance,
+  localThoughtLaunchState,
+  parseThoughtLaunchReadModel,
+  shouldFetchThoughtLaunchReadModel,
+  studioPreviewLaunchState,
+  thoughtSavedWorkMatchesRelease,
+  type ThoughtActiveRelease,
+  type ThoughtLaunchDeployment,
+  type ThoughtLaunchState,
+} from "./thought-launch-state";
 import {
   THOUGHT_V2_LOCAL_DEPLOYMENT_UNAVAILABLE_COPY,
   isThoughtV2LocalDeploymentError,
@@ -1882,11 +1893,93 @@ const THOUGHT_AGENT_REGISTERED_SPEC_ID = IS_LOCAL_THOUGHT_V2
     ? LATEST_LOCAL_GENERATION_SPEC.id
     : THOUGHT_V2_LOCAL_RELEASE.spec.evmSpecId
   : THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId;
-const THOUGHT_V2_MINT_ENABLED =
-  IS_LOCAL_THOUGHT_V2 || (
-    THOUGHT_V2_PROTOCOL_RELEASE.deployment.v2MintEnabled &&
-    THOUGHT_V2_PRODUCTION_DEPLOYMENT !== null
-  );
+const THOUGHT_LAUNCH_READ_MODEL_URL =
+  readConfiguredUrl("VITE_THOUGHT_LAUNCH_READ_MODEL_URL") || "/api/pulse-auction";
+const THOUGHT_LAUNCH_DEPLOYMENT: ThoughtLaunchDeployment | null =
+  THOUGHT_V2_PROTOCOL_RELEASE.deployment.v2MintEnabled &&
+  THOUGHT_V2_PRODUCTION_DEPLOYMENT &&
+  PATH_AUCTION_ADDRESS
+    ? {
+        artifactId: THOUGHT_V2_PRODUCTION_DEPLOYMENT.artifactId,
+        manifestSha256: THOUGHT_V2_PRODUCTION_DEPLOYMENT.manifestSha256,
+        chainId: THOUGHT_V2_PRODUCTION_DEPLOYMENT.chainId,
+        pulseAuction: PATH_AUCTION_ADDRESS,
+      }
+    : null;
+const THOUGHT_LAUNCH_FIXTURE = IS_DEV_MODE
+  ? new URLSearchParams(window.location.search).get("launch")
+  : null;
+const simulatedThoughtLaunchState = (): ThoughtLaunchState | null => {
+  if (THOUGHT_LAUNCH_FIXTURE === "studio-preview") {
+    return studioPreviewLaunchState();
+  }
+  if (THOUGHT_LAUNCH_FIXTURE === "onchain-countdown") {
+    return {
+      environment: "public-beta-sepolia",
+      phase: "onchain-countdown",
+      chainId: 11155111,
+      openTime: "2026-09-01T12:00:00.000Z",
+      deploymentVerified: true,
+      mintEnabled: false,
+    };
+  }
+  if (THOUGHT_LAUNCH_FIXTURE === "onchain-open") {
+    return {
+      environment: "public-beta-sepolia",
+      phase: "onchain-open",
+      chainId: 11155111,
+      openTime: "2026-01-01T00:00:00.000Z",
+      deploymentVerified: true,
+      mintEnabled: true,
+    };
+  }
+  return null;
+};
+let thoughtLaunchState: ThoughtLaunchState =
+  simulatedThoughtLaunchState() ??
+  (IS_LOCAL_THOUGHT_V2
+    ? localThoughtLaunchState(THOUGHT_CHAIN_ID)
+    : deriveThoughtLaunchState({
+        deployment: THOUGHT_LAUNCH_DEPLOYMENT,
+        readModel: null,
+      }));
+const isThoughtMintEnabled = () => thoughtLaunchState.mintEnabled;
+const THOUGHT_ACTIVE_RELEASE: ThoughtActiveRelease | null =
+  THOUGHT_LAUNCH_DEPLOYMENT
+    ? {
+        manifestSha256: THOUGHT_V2_ARTIFACT.manifestSha256,
+        thoughtSpecId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+        thoughtSpecHash: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecHash,
+      }
+    : null;
+const refreshThoughtLaunchState = async () => {
+  if (!shouldFetchThoughtLaunchReadModel({
+    deployment: THOUGHT_LAUNCH_DEPLOYMENT,
+    localRuntime: IS_LOCAL_THOUGHT_V2,
+    simulatedPhase: THOUGHT_LAUNCH_FIXTURE,
+  })) {
+    return thoughtLaunchState;
+  }
+  let readModel = null;
+  try {
+    const response = await fetch(THOUGHT_LAUNCH_READ_MODEL_URL, {
+      method: "GET",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    });
+    if (response.ok) {
+      readModel = parseThoughtLaunchReadModel(await response.json());
+    }
+  } catch {
+    // Missing or unreachable public evidence keeps minting closed.
+  }
+  thoughtLaunchState = deriveThoughtLaunchState({
+    deployment: THOUGHT_LAUNCH_DEPLOYMENT,
+    readModel,
+  });
+  return thoughtLaunchState;
+};
 const IS_THOUGHT_GALLERY_ACTIVE =
   IS_LOCAL_THOUGHT_V2 || THOUGHT_V2_PRODUCTION_DEPLOYMENT !== null;
 const thoughtInstructions = IS_LOCAL_THOUGHT_V2
@@ -2183,6 +2276,19 @@ const thoughtCanvasFrame = document.querySelector(".thought-canvas-frame") as HT
 const thoughtPanel = document.getElementById("thought-panel") as HTMLElement | null;
 const thoughtDock = document.getElementById("thought-dock") as HTMLElement | null;
 const thoughtDockPrompt = document.getElementById("thought-dock-prompt") as HTMLInputElement | null;
+const thoughtLaunchStatus = document.getElementById("thought-launch-status") as HTMLElement | null;
+const thoughtLaunchStatusEyebrow = document.getElementById(
+  "thought-launch-status-eyebrow",
+) as HTMLElement | null;
+const thoughtLaunchStatusTitle = document.getElementById(
+  "thought-launch-status-title",
+) as HTMLElement | null;
+const thoughtLaunchStatusDetail = document.getElementById(
+  "thought-launch-status-detail",
+) as HTMLElement | null;
+const thoughtLaunchStatusMeta = document.getElementById(
+  "thought-launch-status-meta",
+) as HTMLElement | null;
 const thoughtDockPath = document.getElementById("thought-dock-path") as HTMLElement | null;
 const thoughtDockPathInventory = document.getElementById("thought-dock-path-inventory") as HTMLElement | null;
 const thoughtDockPathInventoryLabel = document.getElementById("thought-dock-path-inventory-label") as HTMLElement | null;
@@ -2381,6 +2487,11 @@ if (
   !thoughtPanel ||
   !thoughtDock ||
   !thoughtDockPrompt ||
+  !thoughtLaunchStatus ||
+  !thoughtLaunchStatusEyebrow ||
+  !thoughtLaunchStatusTitle ||
+  !thoughtLaunchStatusDetail ||
+  !thoughtLaunchStatusMeta ||
   !thoughtDockPath ||
   !thoughtDockPathInventory ||
   !thoughtDockPathInventoryLabel ||
@@ -4740,9 +4851,37 @@ type ThoughtWorkMintReadiness =
   | { ready: true }
   | { ready: false; reason: string; blockedTitle: "mint unavailable" | "work needs rerun" };
 
+function isCurrentWorkLaunchCompatible() {
+  if (!currentOutputText || !currentRunContext || !currentWorkSvg.trim().startsWith("<svg")) {
+    return false;
+  }
+  if (IS_LOCAL_THOUGHT_V2) {
+    return hasCurrentContractWorkSvg();
+  }
+  return thoughtSavedWorkMatchesRelease(
+    {
+      thoughtSpecId: currentRunContext.thoughtSpec?.id,
+      thoughtSpecHash: currentRunContext.thoughtSpec?.hash,
+      previewMethod: currentRunContext.previewProvider?.method,
+      previewEndpointLabel: currentRunContext.previewProvider?.endpointLabel,
+    },
+    THOUGHT_ACTIVE_RELEASE,
+  );
+}
+
 const getCurrentWorkMintReadiness = (): ThoughtWorkMintReadiness => {
-  if (!THOUGHT_V2_MINT_ENABLED) {
-    return { ready: false, reason: THOUGHT_V2_MINT_UNAVAILABLE_COPY, blockedTitle: "mint unavailable" };
+  if (!isThoughtMintEnabled()) {
+    const guidance = getThoughtLaunchGuidance({
+      state: thoughtLaunchState,
+      workExists: Boolean(currentOutputText && currentWorkSvg),
+      workCompatible: isCurrentWorkLaunchCompatible(),
+      nowMs: Date.now(),
+    });
+    return {
+      ready: false,
+      reason: guidance.detail,
+      blockedTitle: "mint unavailable",
+    };
   }
   if (!currentOutputText || !currentRunContext) {
     return {
@@ -4751,10 +4890,10 @@ const getCurrentWorkMintReadiness = (): ThoughtWorkMintReadiness => {
       blockedTitle: "work needs rerun",
     };
   }
-  if (!hasCurrentContractWorkSvg()) {
+  if (!isCurrentWorkLaunchCompatible()) {
     return {
       ready: false,
-      reason: "This work has no verified contract preview. Run it again before minting.",
+      reason: "This work does not match the approved Onchain release. Run it again before minting.",
       blockedTitle: "work needs rerun",
     };
   }
@@ -5003,7 +5142,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
     case "work_ready":
       {
         const workReady = getThoughtWorkReadyPresentation({
-          mintEnabled: THOUGHT_V2_MINT_ENABLED,
+          mintEnabled: isThoughtMintEnabled(),
         });
         const workMintReadiness = getCurrentWorkMintReadiness();
         const mintPanelOpen = mintDockRevealed;
@@ -5012,12 +5151,16 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
           getWorkById(readStoredThoughtWorks(), currentWorkId),
         );
         return {
-          status: workMintReadiness.ready
-            ? "Work ready"
-            : workMintReadiness.blockedTitle === "work needs rerun"
-              ? "Work needs rerun"
-              : "Mint unavailable",
-          tone: canOpenMint ? "success" : "warning",
+          status: thoughtLaunchState.phase !== "onchain-open"
+            ? "Work ready in Studio"
+            : workMintReadiness.ready
+              ? "Work ready"
+              : workMintReadiness.blockedTitle === "work needs rerun"
+                ? "Work needs rerun"
+                : "Mint unavailable",
+          tone: canOpenMint || thoughtLaunchState.phase !== "onchain-open"
+            ? "success"
+            : "warning",
           actions: [
             ...(canOpenMint
               ? [dockRailAction(
@@ -5111,7 +5254,7 @@ const formatPathAcquisitionPrice = (price: bigint) => {
 
 const getCurrentMintPresentation = () => presentThoughtMint({
   state: mintFlowState,
-  mintEnabled: THOUGHT_V2_MINT_ENABLED,
+  mintEnabled: isThoughtMintEnabled(),
   work: (() => {
     const readiness = getCurrentWorkMintReadiness();
     return readiness.ready
@@ -5164,6 +5307,9 @@ const getCurrentMintPresentation = () => presentThoughtMint({
 });
 
 const recordCurrentMintConsoleState = () => {
+  if (thoughtLaunchState.phase !== "onchain-open") {
+    return;
+  }
   recordMintConsoleState(
     getResolvedThoughtDockState(),
     getCurrentMintPresentation(),
@@ -5208,6 +5354,22 @@ const visibleMintErrorCopy = () => {
   return "mint failed.";
 };
 
+const syncThoughtLaunchStatus = () => {
+  const guidance = getThoughtLaunchGuidance({
+    state: thoughtLaunchState,
+    workExists: Boolean(currentOutputText && currentWorkSvg),
+    workCompatible: isCurrentWorkLaunchCompatible(),
+    nowMs: Date.now(),
+  });
+  thoughtLaunchStatus.dataset.phase = thoughtLaunchState.phase;
+  thoughtLaunchStatus.dataset.environment = thoughtLaunchState.environment;
+  thoughtLaunchStatus.dataset.tone = guidance.tone;
+  thoughtLaunchStatusEyebrow.textContent = guidance.eyebrow;
+  thoughtLaunchStatusTitle.textContent = guidance.title;
+  thoughtLaunchStatusDetail.textContent = guidance.detail;
+  thoughtLaunchStatusMeta.textContent = guidance.meta;
+};
+
 const renderThoughtDock = () => {
   const state = getResolvedThoughtDockState();
   const locked = isThoughtDockInputLockedState(state);
@@ -5236,6 +5398,7 @@ const renderThoughtDock = () => {
       thoughtDockActions(...rail.actions.map(renderDockRailAction)),
     );
   }
+  syncThoughtLaunchStatus();
   syncMintDockPathPanel();
   syncWorkLibraryPanel();
   renderThoughtDockDetails(state, mintPresentation);
@@ -11791,8 +11954,14 @@ const openMintFlow = async (
     eventId: mintAttemptConsoleEventId("mint-flow-opened"),
   });
 
-  if (!THOUGHT_V2_MINT_ENABLED) {
-    setMintFlowError(THOUGHT_V2_MINT_UNAVAILABLE_COPY, "thought");
+  if (!isThoughtMintEnabled()) {
+    const guidance = getThoughtLaunchGuidance({
+      state: thoughtLaunchState,
+      workExists: Boolean(currentOutputText && currentWorkSvg),
+      workCompatible: isCurrentWorkLaunchCompatible(),
+      nowMs: Date.now(),
+    });
+    setMintFlowError(guidance.detail, "thought");
     syncInterface();
     return;
   }
@@ -17273,13 +17442,16 @@ const readThoughtAgentReturn = async (
     return { agentLine: "" };
   }
   assertActiveThoughtLine(agentLine, "agent");
-  if (!THOUGHT_V2_MINT_ENABLED) {
-    return { agentLine };
-  }
-
   const payloadResult = payload.result;
   const raw = payloadResult?.raw;
   const rawSha256 = payloadResult?.rawSha256;
+  if (
+    !isThoughtMintEnabled() &&
+    (typeof raw !== "string" || typeof rawSha256 !== "string")
+  ) {
+    return { agentLine };
+  }
+
   if (typeof raw !== "string" || typeof rawSha256 !== "string") {
     throw new Error("Agent result evidence is incomplete.");
   }
@@ -19921,8 +20093,8 @@ const buildCliCurrentLines = () => {
     `preview: ${
       currentCandidate && runState === "candidate_ready"
         ? currentCandidate.previewStatus
-        : hasCurrentContractWorkSvg()
-          ? "accepted contract SVG"
+        : isCurrentWorkLaunchCompatible()
+          ? "accepted release preview"
           : currentCandidate
             ? currentCandidate.previewStatus
             : "missing"
@@ -19930,7 +20102,7 @@ const buildCliCurrentLines = () => {
     `mintable: ${
       currentCandidate && runState === "candidate_ready"
         ? "no"
-        : hasCurrentContractWorkSvg()
+        : isCurrentWorkLaunchCompatible()
           ? "yes, after picking a $PATH and wallet confirmation"
           : "no"
     }`,
@@ -21637,7 +21809,7 @@ const startCliMint = async () => {
     return;
   }
 
-  if (!hasCurrentContractWorkSvg()) {
+  if (!isCurrentWorkLaunchCompatible()) {
     appendCliError([
       "current candidate is not previewed.",
       "use: preview retry",
@@ -21681,7 +21853,7 @@ const ensureCliMintFlow = async () => {
     return false;
   }
 
-  if (!hasCurrentContractWorkSvg()) {
+  if (!isCurrentWorkLaunchCompatible()) {
     appendCliError([
       "current candidate is not previewed.",
       "use: preview retry",
@@ -23369,6 +23541,9 @@ window.addEventListener("beforeunload", () => {
   revokeColorFontPageRawUrl();
 });
 window.addEventListener("focus", () => {
+  void refreshThoughtLaunchState().then(() => {
+    syncInterface();
+  });
   refreshThoughtDockPolling();
   resumePendingMintReceiptMonitoring();
   resumeConflictingMintReceiptMonitoring();
@@ -23414,10 +23589,21 @@ document.addEventListener("resume", () => {
   resumeConflictingMintReceiptMonitoring();
 });
 window.addEventListener("online", () => {
+  void refreshThoughtLaunchState().then(() => {
+    syncInterface();
+  });
   refreshThoughtDockPolling();
   resumePendingMintReceiptMonitoring();
   resumeConflictingMintReceiptMonitoring();
 });
+window.setInterval(() => {
+  if (
+    thoughtLaunchState.phase === "onchain-countdown" &&
+    !frontpageStage.classList.contains("is-hidden")
+  ) {
+    syncThoughtLaunchStatus();
+  }
+}, 1000);
 document.addEventListener("keydown", (event) => {
     if (
       event.key === "Escape" &&
@@ -23524,6 +23710,7 @@ const initFrontpage = async () => {
     return;
   }
 
+  await refreshThoughtLaunchState();
   frontpageStage.classList.remove("is-hidden");
   galleryPage.classList.add("is-hidden");
   thoughtPage.classList.add("is-hidden");
@@ -23577,33 +23764,35 @@ const initFrontpage = async () => {
   bindThoughtShellWallet();
   bindWalletProviderEvents();
   bindPendingMintStorageEvents();
-  await refreshWalletState();
-  const resumedPendingMint = await resumePendingMintTransaction();
-  resumeConflictingMintReceiptMonitoring();
-  let resumedPathMint = false;
-  if (!resumedPendingMint) {
-    resumedPathMint = await resumePathMintHandoff();
-  }
-  if (!resumedPendingMint && !resumedPathMint) {
-    if (mintDockRevealed) {
-      await mintThoughtDockWork();
-    } else {
-      recordCurrentMintConsoleState();
+  if (isThoughtMintEnabled()) {
+    await refreshWalletState();
+    const resumedPendingMint = await resumePendingMintTransaction();
+    resumeConflictingMintReceiptMonitoring();
+    let resumedPathMint = false;
+    if (!resumedPendingMint) {
+      resumedPathMint = await resumePathMintHandoff();
     }
-    if (
-      restoredDanglingMintRequest &&
-      !pendingMintTransaction &&
-      mintFlowState !== "minted" &&
-      mintFlowState !== "text_taken"
-    ) {
-      emitThoughtConsoleEvent({
-        kind: "mint_request_interrupted",
-        title: "mint status needs checking",
-        detail: "The page reloaded before the wallet returned a transaction hash.",
-        nextStep: "check wallet activity before trying again",
-        tone: "warning",
-        eventId: `mint-request-interrupted:${restoredDanglingMintRequest.id}`,
-      });
+    if (!resumedPendingMint && !resumedPathMint) {
+      if (mintDockRevealed) {
+        await mintThoughtDockWork();
+      } else {
+        recordCurrentMintConsoleState();
+      }
+      if (
+        restoredDanglingMintRequest &&
+        !pendingMintTransaction &&
+        mintFlowState !== "minted" &&
+        mintFlowState !== "text_taken"
+      ) {
+        emitThoughtConsoleEvent({
+          kind: "mint_request_interrupted",
+          title: "mint status needs checking",
+          detail: "The page reloaded before the wallet returned a transaction hash.",
+          nextStep: "check wallet activity before trying again",
+          tone: "warning",
+          eventId: `mint-request-interrupted:${restoredDanglingMintRequest.id}`,
+        });
+      }
     }
   }
   syncInterface();
