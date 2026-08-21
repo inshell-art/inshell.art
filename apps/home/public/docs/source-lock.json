@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "1dff9d449f9deadee3259fac3fb6f6f1188f5db00d2047c2df223aeaca815da6",
+  "sourceTreeSha256": "d942d22af98a7593bda73e3521a45b69bbc9bf10f1166b54cee6e0e32c2f982e",
   "groups": [
     {
       "id": "public-docs",
@@ -67,7 +67,7 @@
       "title": "Home, $PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "a16f3addc1d3f6973d2b025248770764f3be8168748001ff5691b174168c93d4",
+      "groupSha256": "fce2cac7b2308e4498bae43e6d40bb2bc290bfc85d589ee09bce11093d125d4e",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -101,8 +101,8 @@
         },
         {
           "path": "apps/home/src/components/AuctionCanvas.tsx",
-          "byteLength": 274720,
-          "sha256": "753d4f1d6af55be14876795c21a46c6bbfb7aa3ebab3ccc5ae5946cad21813ef"
+          "byteLength": 272773,
+          "sha256": "95b3cf8fb0ff9fc16f3992020e305b5238d48d3aba1f1be776e24e00ba9cf578"
         },
         {
           "path": "apps/home/src/components/ColorFontPage.tsx",
@@ -151,8 +151,8 @@
         },
         {
           "path": "apps/home/src/components/PathPage.tsx",
-          "byteLength": 42214,
-          "sha256": "42f46da29db41079ca10468274b7a23488980bdeaa33ec7e800538b4866f18ee"
+          "byteLength": 42415,
+          "sha256": "1b4be5cfecc9e7378fef8eef93ad94a2c784112b5e4ac7e6ab470c98a1808bfa"
         },
         {
           "path": "apps/home/src/components/PreviewWatermark.tsx",
@@ -263,6 +263,11 @@
           "path": "apps/home/src/services/auction/coreService.ts",
           "byteLength": 4992,
           "sha256": "2d2d9d9ae25399cdb9f80ac45a87df7ec8f4bfb0874437a32fc28ba0c37b1b24"
+        },
+        {
+          "path": "apps/home/src/services/auctionStatusOverride.ts",
+          "byteLength": 2541,
+          "sha256": "d778b7bc8caf56d305ab81eb0b03e3d48f3fa88385521bc0a93373584e2df904"
         },
         {
           "path": "apps/home/src/services/chainIndexer.ts",

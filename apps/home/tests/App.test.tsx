@@ -1053,7 +1053,9 @@ describe("App Component", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/reading from chain: checking latest block/)).toBeInTheDocument();
     await flushAsyncEffects();
-    expect(screen.getByText("token gallery unavailable.")).toBeInTheDocument();
+    expect(
+      screen.getByText("$PATH tokens could not be loaded right now. Try again in a moment."),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "retry" })).toBeInTheDocument();
   });
 
