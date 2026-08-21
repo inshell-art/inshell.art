@@ -132,6 +132,32 @@ test("plain THOUGHT dev defaults to the generated current-contract lane", () => 
   assert.doesNotMatch(runtimeReader, /apps\/thought\/evm\/addresses\.anvil\.json/);
 });
 
+test("THOUGHT dev normalizes the route base before Vite handles launch fixtures", () => {
+  const redirectStart = thoughtViteConfig.indexOf(
+    "export function resolveThoughtRouteBaseRedirect",
+  );
+  const redirectEnd = thoughtViteConfig.indexOf(
+    "function readOutDir",
+    redirectStart,
+  );
+  const redirectSource = thoughtViteConfig.slice(redirectStart, redirectEnd);
+  assert.match(
+    redirectSource,
+    /request\.pathname !== routeWithoutTrailingSlash/,
+    "only the exact no-slash route base is redirected",
+  );
+  assert.match(
+    redirectSource,
+    /return `\$\{routeBase\}\$\{request\.search\}`/,
+    "the redirect preserves launch fixture query parameters",
+  );
+  assert.match(
+    thoughtViteConfig,
+    /plugins:\s*\[\s*createThoughtRouteBaseRedirectPlugin\(routeBase\)/,
+    "the redirect runs before Vite's base-path middleware",
+  );
+});
+
 test("canonical home proxies THOUGHT through the configured stack origin", () => {
   assert.match(
     homeViteConfig,
@@ -639,6 +665,11 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
   assert.match(restoredStyle, /\.thought-panel\s*\{[\s\S]*?display:\s*flex;/);
   assert.match(
     restoredStyle,
+    /\.thought-dock-actions a\.thought-dock-button\s*\{\s*text-decoration:\s*none;/,
+    "the byte-verified dev surface removes redundant underlines from framed Agent links",
+  );
+  assert.match(
+    restoredStyle,
     /INSHELL_CURRENT_THOUGHT_DETAIL_PATH_CANON_START[\s\S]*?@media \(max-width: 980px\)[\s\S]*?\.thought-detail__body\s*\{\s*grid-template-columns:\s*1fr/,
     "the tagged stylesheet receives the current responsive detail overlay only after byte verification",
   );
@@ -1015,11 +1046,11 @@ test("THOUGHT panel copy uses canonical product terms", () => {
   assert.doesNotMatch(productCopy, /THOUGHT (?:mint )?unit/);
   assert.match(
     thoughtLaunchState,
-    /title:\s*workExists\s*\? "This work can move Onchain"/,
+    /title:\s*workExists[\s\S]*?\? "Your work is ready to mint"/,
   );
   assert.doesNotMatch(
     thoughtLaunchState,
-    /title:\s*workExists\s*\? "This work can move onchain"/,
+    /(?:eyebrow|title):\s*"[^"]*(?:Studio|Onchain)[^"]*"/,
   );
   assert.match(productCopy, /load a saved work/);
   assert.match(productCopy, /THOUGHT mint available/);
@@ -1040,31 +1071,35 @@ test("THOUGHT panel copy uses canonical product terms", () => {
   );
 });
 
-test("THOUGHT launch guidance removes wallet distraction until Onchain is open", () => {
+test("THOUGHT launch guidance removes wallet distraction until minting is open", () => {
   assert.match(
     thoughtCss,
-    /thought-launch-status\[data-phase="studio-preview"\][\s\S]*?thought-launch-status\[data-phase="onchain-countdown"\][\s\S]*?\.inshell-topbar__wallet-surface\s*\{\s*display:\s*none;/,
+    /frontpage-stage:not\(\.is-hidden\)\[data-thought-launch-phase="studio-preview"\][\s\S]*?frontpage-stage:not\(\.is-hidden\)\[data-thought-launch-phase="onchain-countdown"\][\s\S]*?\.inshell-topbar__wallet-surface\s*\{\s*display:\s*none;/,
   );
   assert.doesNotMatch(
     thoughtCss,
-    /thought-launch-status\[data-phase="onchain-open"\][\s\S]{0,240}\.inshell-topbar__wallet-surface/,
+    /data-thought-launch-phase="onchain-open"\][\s\S]{0,240}\.inshell-topbar__wallet-surface/,
   );
   assert.match(
     thoughtLaunchState,
-    /meta:\s*"browser-local · no wallet needed"/,
+    /meta:\s*"saved on this device · no wallet needed"/,
   );
 });
 
-test("THOUGHT launch phase stays locked beside Work and fails closed before wallet minting", () => {
+test("THOUGHT launch phase is Console guidance and still fails closed before wallet minting", () => {
   const workActionsIndex = indexHtml.indexOf('id="thought-dock-action-area"');
-  const launchStatusIndex = indexHtml.indexOf('id="thought-launch-status"');
   const mintPanelIndex = indexHtml.indexOf('id="thought-dock-path"');
   assert.ok(workActionsIndex >= 0);
-  assert.ok(launchStatusIndex > workActionsIndex);
-  assert.ok(mintPanelIndex > launchStatusIndex);
+  assert.ok(mintPanelIndex > workActionsIndex);
+  assert.doesNotMatch(indexHtml, /thought-launch-status/);
+  assert.doesNotMatch(thoughtCss, /\.thought-launch-status/);
   assert.match(
-    indexHtml,
-    /id="thought-launch-status"[\s\S]*?aria-live="polite"[\s\S]*?id="thought-launch-status-title"/,
+    thoughtMain,
+    /const syncThoughtLaunchGuidance = \(\) => \{[\s\S]*?kind: "thought_launch_guidance"[\s\S]*?tone: "warning"[\s\S]*?eventId: `thought-launch-guidance:plain-v1:\$\{thoughtLaunchState\.phase\}:\$\{workState\}`/,
+  );
+  assert.match(
+    thoughtMain,
+    /frontpageStage\.dataset\.thoughtLaunchPhase = thoughtLaunchState\.phase/,
   );
   assert.match(
     thoughtMain,
@@ -1074,10 +1109,7 @@ test("THOUGHT launch phase stays locked beside Work and fails closed before wall
     thoughtMain,
     /if \(isThoughtMintEnabled\(\)\) \{\s*await refreshWalletState\(\);/,
   );
-  assert.match(
-    thoughtDevSnapshot,
-    /\["Studio \/ Onchain launch status", CURRENT_THOUGHT_LAUNCH_STATUS\]/,
-  );
+  assert.doesNotMatch(thoughtDevSnapshot, /CURRENT_THOUGHT_LAUNCH_STATUS|Studio \/ Onchain launch status/);
   assert.match(
     thoughtDevSnapshot,
     /applyCurrentThoughtLaunchMainDeltas\([\s\S]*?"restore"[\s\S]*?applyCurrentThoughtLaunchMainDeltas\([\s\S]*?"layer"/,
@@ -1431,6 +1463,10 @@ test("Work uses monochrome interactive and disabled CTAs", () => {
   assert.match(buttonBody, /button\.className = "thought-dock-button thought-work-cta"/);
   assert.doesNotMatch(buttonBody, /thought-work-cta--secondary/);
   assert.doesNotMatch(thoughtMain, /variant:\s*"secondary"/);
+  assert.match(
+    thoughtCss,
+    /\.thought-dock-actions a\.thought-dock-button\s*\{\s*text-decoration:\s*none;/,
+  );
   assert.match(
     ruleBody(".thought-panel"),
     /--accent:\s*var\(--thought-panel-interactive\)/,
@@ -2080,6 +2116,24 @@ test("Agent selection prepares one neutral run and gives the selected Agent a tr
   );
 });
 
+test("local V2 Agent API accepts and binds the neutral chooser run", () => {
+  assert.match(
+    thoughtViteConfig,
+    /const unboundV2Chooser =\s*apiPrefix\.endsWith\("\/v2"\)\s*&&\s*requestedAgent\?\.adapterId === THOUGHT_AGENT_UNBOUND_ADAPTER_ID;/,
+    "local run creation must accept the same neutral V2 chooser request as Pages",
+  );
+  assert.match(
+    thoughtViteConfig,
+    /const adapterCanBindRun =\s*apiPrefix\.endsWith\("\/v2"\)\s*&&\s*run\.requestedAdapterId === THOUGHT_AGENT_UNBOUND_ADAPTER_ID\s*&&\s*\(adapter\.adapterId === "codex" \|\| adapter\.adapterId === "claude"\);/,
+    "the selected local Agent must be allowed to claim the neutral run",
+  );
+  assert.match(
+    thoughtViteConfig,
+    /run\.adapter = adapter;\s*run\.requestedAdapterId = adapter\.adapterId;/,
+    "the bound adapter must become authoritative for result validation",
+  );
+});
+
 test("mobile keeps wallet minting but moves new Agent creation to desktop", () => {
   assert.match(
     thoughtMain,
@@ -2189,12 +2243,15 @@ test("Agent CTAs use product names and Claude launches Code while retaining Cowo
   assert.match(thoughtMain, /const CLAUDE_CODE_AGENT_ROUTE = "claude:\/\/code\/new"/);
   assert.match(
     thoughtMain,
-    /id: "codex",[\s\S]*?label: "Codex",[\s\S]*?ctaLabel: "chatgpt",[\s\S]*?defaultSurface: "codex"/,
+    /id: "codex",[\s\S]*?label: "Codex",[\s\S]*?ctaLabel: "ChatGPT",[\s\S]*?defaultSurface: "codex"/,
   );
   assert.match(
     thoughtMain,
-    /id: "claude",[\s\S]*?label: "Claude",[\s\S]*?ctaLabel: "claude",[\s\S]*?defaultSurface: "claude-code"/,
+    /id: "claude",[\s\S]*?label: "Claude",[\s\S]*?ctaLabel: "Claude",[\s\S]*?defaultSurface: "claude-code"/,
   );
+  assert.doesNotMatch(thoughtMain, /ctaLabel: "(?:chatgpt|claude)"/);
+  assert.match(thoughtMain, /"send to your Agent"/);
+  assert.doesNotMatch(thoughtMain, /"send to your agent"/);
   assert.match(
     thoughtMain,
     /const normalizeThoughtDockAgentSurface = [\s\S]*?value === "claude-cowork" \|\| value === "claude-cowork-direct-http"[\s\S]*?\? "claude-cowork"[\s\S]*?: "claude-code"/,

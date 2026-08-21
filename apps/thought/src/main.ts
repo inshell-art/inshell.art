@@ -2276,19 +2276,6 @@ const thoughtCanvasFrame = document.querySelector(".thought-canvas-frame") as HT
 const thoughtPanel = document.getElementById("thought-panel") as HTMLElement | null;
 const thoughtDock = document.getElementById("thought-dock") as HTMLElement | null;
 const thoughtDockPrompt = document.getElementById("thought-dock-prompt") as HTMLInputElement | null;
-const thoughtLaunchStatus = document.getElementById("thought-launch-status") as HTMLElement | null;
-const thoughtLaunchStatusEyebrow = document.getElementById(
-  "thought-launch-status-eyebrow",
-) as HTMLElement | null;
-const thoughtLaunchStatusTitle = document.getElementById(
-  "thought-launch-status-title",
-) as HTMLElement | null;
-const thoughtLaunchStatusDetail = document.getElementById(
-  "thought-launch-status-detail",
-) as HTMLElement | null;
-const thoughtLaunchStatusMeta = document.getElementById(
-  "thought-launch-status-meta",
-) as HTMLElement | null;
 const thoughtDockPath = document.getElementById("thought-dock-path") as HTMLElement | null;
 const thoughtDockPathInventory = document.getElementById("thought-dock-path-inventory") as HTMLElement | null;
 const thoughtDockPathInventoryLabel = document.getElementById("thought-dock-path-inventory-label") as HTMLElement | null;
@@ -2487,11 +2474,6 @@ if (
   !thoughtPanel ||
   !thoughtDock ||
   !thoughtDockPrompt ||
-  !thoughtLaunchStatus ||
-  !thoughtLaunchStatusEyebrow ||
-  !thoughtLaunchStatusTitle ||
-  !thoughtLaunchStatusDetail ||
-  !thoughtLaunchStatusMeta ||
   !thoughtDockPath ||
   !thoughtDockPathInventory ||
   !thoughtDockPathInventoryLabel ||
@@ -2834,14 +2816,14 @@ const THOUGHT_DOCK_AGENT_ADAPTERS: ThoughtDockAgentAdapter[] = [
   {
     id: "codex",
     label: "Codex",
-    ctaLabel: "chatgpt",
+    ctaLabel: "ChatGPT",
     defaultSurface: "codex",
     canDeepLink: true,
   },
   {
     id: "claude",
     label: "Claude",
-    ctaLabel: "claude",
+    ctaLabel: "Claude",
     defaultSurface: "claude-code",
     canDeepLink: true,
   },
@@ -3011,7 +2993,7 @@ const rejectIncompatibleThoughtAgentRun = async (
 };
 
 const thoughtAgentCtaLabel = (adapterId: ThoughtDockAgentAdapterId) =>
-  THOUGHT_DOCK_AGENT_ADAPTERS.find((adapter) => adapter.id === adapterId)?.ctaLabel ?? "agent";
+  THOUGHT_DOCK_AGENT_ADAPTERS.find((adapter) => adapter.id === adapterId)?.ctaLabel ?? "Agent";
 
 const defaultThoughtDockAgentSurface = (
   adapterId: ThoughtDockAgentAdapterId,
@@ -4893,7 +4875,7 @@ const getCurrentWorkMintReadiness = (): ThoughtWorkMintReadiness => {
   if (!isCurrentWorkLaunchCompatible()) {
     return {
       ready: false,
-      reason: "This work does not match the approved Onchain release. Run it again before minting.",
+      reason: "This work was created with an older approved version. Run it again before minting.",
       blockedTitle: "work needs rerun",
     };
   }
@@ -5037,7 +5019,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         actions: [
           dockRailAction(
             "send-agent",
-            "send to your agent",
+            "send to your Agent",
             "Enter a THOUGHT before running with your Agent",
             () => {},
             { disabled: true },
@@ -5051,7 +5033,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         status: "Prompt ready",
         tone: "idle",
         actions: [
-          dockRailAction("send-agent", "send to your agent", "run this THOUGHT with your Agent", () => {
+          dockRailAction("send-agent", "send to your Agent", "run this THOUGHT with your Agent", () => {
             void openThoughtDockAgentSelect();
           }),
           loadAction(),
@@ -5152,7 +5134,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         );
         return {
           status: thoughtLaunchState.phase !== "onchain-open"
-            ? "Work ready in Studio"
+            ? "Work ready"
             : workMintReadiness.ready
               ? "Work ready"
               : workMintReadiness.blockedTitle === "work needs rerun"
@@ -5354,20 +5336,38 @@ const visibleMintErrorCopy = () => {
   return "mint failed.";
 };
 
-const syncThoughtLaunchStatus = () => {
+const syncThoughtLaunchGuidance = () => {
+  const workExists = Boolean(currentOutputText && currentWorkSvg);
+  const workCompatible = isCurrentWorkLaunchCompatible();
   const guidance = getThoughtLaunchGuidance({
     state: thoughtLaunchState,
-    workExists: Boolean(currentOutputText && currentWorkSvg),
-    workCompatible: isCurrentWorkLaunchCompatible(),
+    workExists,
+    workCompatible,
     nowMs: Date.now(),
   });
-  thoughtLaunchStatus.dataset.phase = thoughtLaunchState.phase;
-  thoughtLaunchStatus.dataset.environment = thoughtLaunchState.environment;
-  thoughtLaunchStatus.dataset.tone = guidance.tone;
-  thoughtLaunchStatusEyebrow.textContent = guidance.eyebrow;
-  thoughtLaunchStatusTitle.textContent = guidance.title;
-  thoughtLaunchStatusDetail.textContent = guidance.detail;
-  thoughtLaunchStatusMeta.textContent = guidance.meta;
+  const workState = !workExists
+    ? "empty"
+    : workCompatible
+      ? "compatible"
+      : "incompatible";
+  frontpageStage.dataset.thoughtLaunchPhase = thoughtLaunchState.phase;
+  frontpageStage.dataset.thoughtLaunchEnvironment = thoughtLaunchState.environment;
+  emitThoughtConsoleEvent({
+    kind: "thought_launch_guidance",
+    title: `${guidance.eyebrow}: ${guidance.title}`,
+    detail: `${guidance.detail} ${guidance.meta}.`,
+    nextStep: thoughtLaunchState.phase === "studio-preview"
+      ? "save this work in your browser"
+      : thoughtLaunchState.phase === "onchain-countdown"
+        ? "save this work and return when minting opens"
+        : workExists && !workCompatible
+          ? "run this work again with your Agent"
+          : workExists
+            ? "continue to mint when ready"
+            : "send a prompt to your Agent",
+    tone: "warning",
+    eventId: `thought-launch-guidance:plain-v1:${thoughtLaunchState.phase}:${workState}`,
+  });
 };
 
 const renderThoughtDock = () => {
@@ -5398,7 +5398,7 @@ const renderThoughtDock = () => {
       thoughtDockActions(...rail.actions.map(renderDockRailAction)),
     );
   }
-  syncThoughtLaunchStatus();
+  syncThoughtLaunchGuidance();
   syncMintDockPathPanel();
   syncWorkLibraryPanel();
   renderThoughtDockDetails(state, mintPresentation);
@@ -23596,14 +23596,6 @@ window.addEventListener("online", () => {
   resumePendingMintReceiptMonitoring();
   resumeConflictingMintReceiptMonitoring();
 });
-window.setInterval(() => {
-  if (
-    thoughtLaunchState.phase === "onchain-countdown" &&
-    !frontpageStage.classList.contains("is-hidden")
-  ) {
-    syncThoughtLaunchStatus();
-  }
-}, 1000);
 document.addEventListener("keydown", (event) => {
     if (
       event.key === "Escape" &&

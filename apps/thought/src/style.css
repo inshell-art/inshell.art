@@ -4558,88 +4558,19 @@ html:root
   justify-content: flex-start;
 }
 
-.thought-launch-status {
-  --thought-launch-status-gap: 5px;
-  --thought-launch-status-accent-width: 2px;
-  --thought-launch-status-eyebrow-letter-spacing: 0.14em;
-  --thought-launch-status-studio: var(--thought-panel-subtle-text);
-  --thought-launch-status-countdown: #f0c75e;
-  --thought-launch-status-open: var(--accent);
-  --thought-launch-status-attention: var(--thought-panel-error-text);
-  --thought-launch-status-tone: var(--thought-launch-status-studio);
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-  display: grid;
-  gap: var(--thought-launch-status-gap);
-  padding: var(--thought-panel-section-padding);
-  border-inline-start: var(--thought-launch-status-accent-width) solid
-    var(--thought-launch-status-tone);
-  background: var(--panel);
-  color: var(--thought-console-text);
-}
-
-.thought-launch-status[data-tone="countdown"] {
-  --thought-launch-status-tone: var(--thought-launch-status-countdown);
-}
-
-.thought-launch-status[data-tone="open"] {
-  --thought-launch-status-tone: var(--thought-launch-status-open);
-}
-
-.thought-launch-status[data-tone="attention"] {
-  --thought-launch-status-tone: var(--thought-launch-status-attention);
+.thought-dock-actions a.thought-dock-button {
+  text-decoration: none;
 }
 
 body.frontpage:has(
-    .frontpage-stage:not(.is-hidden)
-      .thought-launch-status[data-phase="studio-preview"]
+    .frontpage-stage:not(.is-hidden)[data-thought-launch-phase="studio-preview"]
   )
   .inshell-topbar__wallet-surface,
 body.frontpage:has(
-    .frontpage-stage:not(.is-hidden)
-      .thought-launch-status[data-phase="onchain-countdown"]
+    .frontpage-stage:not(.is-hidden)[data-thought-launch-phase="onchain-countdown"]
   )
   .inshell-topbar__wallet-surface {
   display: none;
-}
-
-.thought-launch-status__eyebrow,
-.thought-launch-status__title,
-.thought-launch-status__detail,
-.thought-launch-status__meta {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.thought-launch-status__eyebrow {
-  color: var(--thought-launch-status-tone);
-  font-size: var(--font-size-10);
-  font-weight: var(--weight-semibold);
-  line-height: 1.2;
-  letter-spacing: var(--thought-launch-status-eyebrow-letter-spacing);
-}
-
-.thought-launch-status__title {
-  color: var(--thought-panel-accent-text);
-  font-size: var(--font-size-14);
-  font-weight: var(--weight-mid);
-  line-height: 1.35;
-}
-
-.thought-launch-status__detail {
-  color: var(--thought-console-text);
-  font-size: var(--font-size-12);
-  font-weight: var(--weight-light);
-  line-height: 1.55;
-}
-
-.thought-launch-status__meta {
-  color: var(--thought-panel-subtle-text);
-  font-size: var(--font-size-10);
-  font-weight: var(--weight-light);
-  line-height: 1.4;
 }
 /* INSHELL_CURRENT_THOUGHT_DETAIL_PATH_CANON_END */
 

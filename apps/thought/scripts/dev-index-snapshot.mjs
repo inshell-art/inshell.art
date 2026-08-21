@@ -105,22 +105,6 @@ const POST_SNAPSHOT_SURFACE_NAV = `        <nav class="thought-create__links" ar
 const POST_SNAPSHOT_CLI_TITLE =
   `          <h1 class="frontpage-title thought-cli-title">THOUGHT</h1>\n`;
 
-const CURRENT_THOUGHT_LAUNCH_STATUS = `              <section
-                id="thought-launch-status"
-                class="thought-launch-status"
-                aria-labelledby="thought-launch-status-title"
-                aria-live="polite"
-              >
-                <p id="thought-launch-status-eyebrow" class="thought-launch-status__eyebrow"></p>
-                <p id="thought-launch-status-title" class="thought-launch-status__title"></p>
-                <p id="thought-launch-status-detail" class="thought-launch-status__detail"></p>
-                <p id="thought-launch-status-meta" class="thought-launch-status__meta"></p>
-              </section>
-`;
-
-const TAGGED_THOUGHT_MINT_PANEL = `              <section
-                id="thought-dock-path"`;
-
 const TAGGED_DETAIL_TITLE = `        <div>
           <h1 id="thought-detail-title" class="thought-detail__title">THOUGHT #<span id="thought-detail-token-id">-</span></h1>
         </div>`;
@@ -1297,7 +1281,6 @@ const POST_SNAPSHOT_INDEX_FRAGMENTS = [
   ["surface router", POST_SNAPSHOT_SURFACE_ROUTER],
   ["surface navigation", POST_SNAPSHOT_SURFACE_NAV],
   ["CLI title", POST_SNAPSHOT_CLI_TITLE],
-  ["Studio / Onchain launch status", CURRENT_THOUGHT_LAUNCH_STATUS],
 ];
 
 function removeExactlyOnce(html, label, fragment) {
@@ -1793,12 +1776,6 @@ export function restoreThoughtDevIndexSnapshot(html) {
     "tagged THOUGHT detail home link",
     TAGGED_DETAIL_HOME_LINK,
     CURRENT_DETAIL_HOME_LINK,
-  );
-  layered = replaceExactCount(
-    layered,
-    "tagged THOUGHT mint panel",
-    TAGGED_THOUGHT_MINT_PANEL,
-    `${CURRENT_THOUGHT_LAUNCH_STATUS}${TAGGED_THOUGHT_MINT_PANEL}`,
   );
   const query = `${THOUGHT_DEV_SNAPSHOT_QUERY_PARAM}=${THOUGHT_DEV_SNAPSHOT_QUERY_VALUE}`;
   return [

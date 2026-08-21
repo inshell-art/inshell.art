@@ -270,12 +270,12 @@ export const getThoughtLaunchGuidance = ({
   const network = thoughtLaunchNetworkLabel(state.environment);
   if (state.phase === "studio-preview") {
     return {
-      eyebrow: "STUDIO",
-      title: workExists ? "Work ready in Studio" : "Studio is open",
+      eyebrow: "CREATE",
+      title: workExists ? "Your work is ready" : "Create a THOUGHT",
       detail: workExists
-        ? "Save it in this browser. Onchain minting is coming."
-        : "Create with your Agent. Save any work you want to keep in this browser.",
-      meta: "browser-local · no wallet needed",
+        ? "Save this work in your browser so you can return to it later. Minting is not available yet."
+        : "Write a prompt and choose an Agent. Save the finished work in this browser if you want to keep it.",
+      meta: "saved on this device · no wallet needed",
       tone: "studio",
     };
   }
@@ -288,11 +288,11 @@ export const getThoughtLaunchGuidance = ({
       ? formatThoughtLaunchCountdown(state.openTime, nowMs)
       : "mint stays locked";
     return {
-      eyebrow: "STUDIO · ONCHAIN NEXT",
-      title: state.openTime ? `Onchain ${opening}` : "Onchain activation pending",
+      eyebrow: "CREATE NOW · MINT LATER",
+      title: state.openTime ? `Minting ${opening}` : "Minting date is being confirmed",
       detail: workExists
-        ? "Keep this work here. When Onchain opens, minting one THOUGHT consumes one available THOUGHT mint unit on a $PATH."
-        : "Create and save in Studio now. Onchain steps appear after your work is ready.",
+        ? "Save this work in your browser. When minting opens, you can mint it using one available THOUGHT mint from a $PATH token."
+        : "Create a THOUGHT now and save it in your browser. The mint option will appear after minting opens and your work is ready.",
       meta: `${network} · ${countdown}`,
       tone: "countdown",
     };
@@ -300,22 +300,22 @@ export const getThoughtLaunchGuidance = ({
 
   if (workExists && !workCompatible) {
     return {
-      eyebrow: "ONCHAIN OPEN",
-      title: "This work needs one fresh Agent run",
-      detail: "The approved release differs from this saved preview. Your saved words stay unchanged.",
+      eyebrow: "BEFORE MINTING",
+      title: "Run this work again",
+      detail: "This preview was created with an older approved version. Your saved prompt stays unchanged.",
       meta: `${network} · mint locked for this work`,
       tone: "attention",
     };
   }
 
   return {
-    eyebrow: "ONCHAIN OPEN",
+    eyebrow: workExists ? "READY TO MINT" : "CREATE · THEN MINT",
     title: workExists
-      ? "This work can move Onchain"
-      : "Studio and Onchain are open",
+      ? "Your work is ready to mint"
+      : "Create a THOUGHT",
     detail: workExists
-      ? "Minting one THOUGHT consumes one available THOUGHT mint unit on a $PATH. Continue when you are ready."
-      : "Create with your Agent first. Onchain steps appear after the work is ready.",
+      ? "Minting uses one available THOUGHT mint from a $PATH token. Continue when you are ready."
+      : "Write a prompt and choose an Agent. The mint option appears after your Agent returns the finished work.",
     meta: `${network} · minting open`,
     tone: "open",
   };

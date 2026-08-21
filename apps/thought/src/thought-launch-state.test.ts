@@ -89,16 +89,20 @@ test("browser clock never opens a countdown-only read model", () => {
   assert.equal(state.mintEnabled, false);
 });
 
-test("Studio guidance is wallet-free and does not mention PATH before work", () => {
+test("create-only guidance is plain, wallet-free, and does not mention PATH before work", () => {
   const guidance = getThoughtLaunchGuidance({
     state: deriveThoughtLaunchState({ deployment: null, readModel: null }),
     workExists: false,
     workCompatible: false,
     nowMs: Date.now(),
   });
-  assert.equal(guidance.title, "Studio is open");
+  assert.equal(guidance.eyebrow, "CREATE");
+  assert.equal(guidance.title, "Create a THOUGHT");
   assert.match(guidance.meta, /no wallet needed/);
-  assert.doesNotMatch(`${guidance.title} ${guidance.detail} ${guidance.meta}`, /PATH/i);
+  assert.doesNotMatch(
+    `${guidance.eyebrow} ${guidance.title} ${guidance.detail} ${guidance.meta}`,
+    /PATH|Studio|Onchain/i,
+  );
 });
 
 test("countdown introduces one-PATH guidance only after work exists", () => {
@@ -120,9 +124,13 @@ test("countdown introduces one-PATH guidance only after work exists", () => {
     nowMs: Date.parse("2026-08-21T09:59:00.000Z"),
   });
   assert.doesNotMatch(beforeWork.detail, /PATH/i);
+  assert.doesNotMatch(
+    `${beforeWork.eyebrow} ${beforeWork.title} ${beforeWork.detail}`,
+    /Studio|Onchain/i,
+  );
   assert.match(
     afterWork.detail,
-    /one THOUGHT consumes one available THOUGHT mint unit on a \$PATH/,
+    /one available THOUGHT mint from a \$PATH token/,
   );
 });
 
