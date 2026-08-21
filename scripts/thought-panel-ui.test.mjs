@@ -1550,11 +1550,11 @@ test("Work lifecycle messages move into Console history", () => {
   assert.match(recordBody, /emitThoughtConsoleEvent\(/);
   assert.match(
     recordBody,
-    /kind: "work_agent_selection_ready",[\s\S]*?title: "choose an Agent",[\s\S]*?detail: "Choose an Agent available on this machine to receive the prompt\."/
+    /kind: "work_agent_selection_ready",[\s\S]*?title: "choose an Agent",[\s\S]*?detail: "Only Agents installed on this machine can receive the prompt\."/
   );
   assert.match(
     recordBody,
-    /kind: "work_claim_authorization_needed",[\s\S]*?title: `allow \$\{product\}`,[\s\S]*?Match code \$\{state\.authorization\.verificationCode \|\| "------"\} with \$\{product\}, then select “allow \$\{product\.toLowerCase\(\)\}” above\./
+    /kind: "work_claim_authorization_needed",[\s\S]*?title: `allow \$\{product\}`,[\s\S]*?Match code \$\{state\.authorization\.verificationCode \|\| "------"\} with \$\{product\}\./
   );
   assert.match(
     thoughtMain,
@@ -1742,6 +1742,64 @@ test("Console key guidance uses full-opacity theme-aware text", () => {
     thoughtMain,
     /if \(title\.includes\("path"\)\) \{[\s\S]*?return "pick another \$PATH or select refresh in the wallet menu";[\s\S]*?return undefined;/,
     "warnings without a concrete recovery action must not invent a next step",
+  );
+});
+
+test("no Console detail repeats its own title", () => {
+  // A detail that restates its title makes the reader cover the same words
+  // twice. Every detail must earn its line by adding something new.
+  const STOP = new Set([
+    "a", "an", "the", "to", "of", "is", "are", "in", "on", "this", "that",
+    "your", "you", "it", "and", "or", "for", "with", "no", "not", "be", "can",
+    "will",
+  ]);
+  const words = (value) =>
+    (value.toLowerCase().match(/[a-z$#]+/g) ?? []).filter(
+      (word) => word.length > 2 && !STOP.has(word),
+    );
+
+  // Pair each title with the detail from the SAME event. A lazy regex spanning
+  // the file pairs a title with a later event's detail and silently under-reports.
+  const blocks = thoughtMain.split("emitThoughtConsoleEvent({").slice(1);
+  const field = (block, name) => {
+    const match = block.match(
+      new RegExp(`${name}:\\s*("(?:[^"\\\\]|\\\\.)*"|\`(?:[^\`\\\\]|\\\\.)*\`)`),
+    );
+    return match ? match[1].slice(1, -1) : null;
+  };
+  const offenders = [];
+  const detailOwners = new Map();
+  for (const raw of blocks) {
+    const block = raw.slice(0, raw.indexOf("\n  })") + 1 || undefined);
+    const title = field(block, "title");
+    const detail = field(block, "detail");
+    if (!title || !detail) continue;
+    const titleWords = [...new Set(words(title))];
+    const detailWords = words(detail);
+    if (titleWords.length === 0) continue;
+
+    const opensWithTitle = titleWords.every((word) =>
+      detailWords.slice(0, titleWords.length + 1).includes(word),
+    );
+    const shared = titleWords.filter((word) => detailWords.includes(word));
+    if (opensWithTitle || shared.length / titleWords.length >= 0.6) {
+      offenders.push(`${title} -> ${detail}`);
+    }
+
+    const owners = detailOwners.get(detail) ?? new Set();
+    owners.add(title);
+    detailOwners.set(detail, owners);
+  }
+
+  assert.deepEqual(offenders, [], `Console detail repeats its title:\n${offenders.join("\n")}`);
+
+  const shared = [...detailOwners.entries()].filter(([, owners]) => owners.size > 1);
+  assert.equal(
+    shared.length,
+    0,
+    `one detail is shared by several titles:\n${shared
+      .map(([detail, owners]) => `${[...owners].join(" / ")} -> ${detail}`)
+      .join("\n")}`,
   );
 });
 

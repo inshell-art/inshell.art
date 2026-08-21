@@ -3059,6 +3059,24 @@ const thoughtDockAgentLifecycleStatus = (adapterId: ThoughtDockAgentAdapterId, r
 const thoughtDockAgentLifecycleTitle = (adapterId: ThoughtDockAgentAdapterId, remoteState?: string | null) =>
   thoughtDockAgentLifecycleStatus(adapterId, remoteState).replace(/\.\.\.$/, "");
 
+// Each lifecycle state needs its own detail. A shared line made distinct states
+// read as one repeated event, and restating the product name added nothing the
+// title had not already said.
+const thoughtDockAgentLifecycleDetail = (remoteState?: string | null) => {
+  switch (remoteState) {
+    case "claimed":
+      return "It has the prompt and is starting.";
+    case "ready":
+      return "It is preparing the work.";
+    case "running":
+      return "It is writing the work now.";
+    case "returned":
+      return "The returned work is being checked.";
+    default:
+      return "The task has been sent and is not accepted yet.";
+  }
+};
+
 const buildAgentDemoSealedTask = (
   run: Omit<
     AgentDemoRun,
@@ -3694,7 +3712,7 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
     emitThoughtConsoleEvent({
       kind: "work_agent_selection_ready",
       title: "choose an Agent",
-      detail: "Choose an Agent available on this machine to receive the prompt.",
+      detail: "Only Agents installed on this machine can receive the prompt.",
       tone: "neutral",
       eventId: `work-agent-selection:${hashText(state.prompt)}`,
     });
@@ -3715,7 +3733,8 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
       emitThoughtConsoleEvent({
         kind: "work_claim_authorization_needed",
         title: `allow ${product}`,
-        detail: `Match code ${state.authorization.verificationCode || "------"} with ${product}, then select “allow ${product.toLowerCase()}” above.`,
+        detail: `Match code ${state.authorization.verificationCode || "------"} with ${product}.`,
+        nextStep: `allow ${product.toLowerCase()} above`,
         tone: "neutral",
         eventId: `work-claim-authorization:${state.run.runId}:${state.authorization.claimRequestId ?? "pending"}`,
       });
@@ -3745,7 +3764,7 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
         ? "Control checks passed. Creation is continuing automatically."
         : state.run.remoteState === "created"
         ? thoughtAgentLaunchRequestedDetail(state.adapterId, state.run.surface)
-        : `${product} is working on this THOUGHT task.`,
+        : thoughtDockAgentLifecycleDetail(state.run.remoteState),
       ...(controlVerified
         ? { nextStep: `keep this page open while ${product} creates` }
         : state.run.remoteState === "created"
@@ -3798,7 +3817,7 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
     emitThoughtConsoleEvent({
       kind: "work_run_access_needed",
       title: "Agent request unavailable",
-      detail: "This Agent request cannot continue.",
+      detail: "The App could not reach it on this machine.",
       tone: "warning",
       eventId: `work-run-access:${state.details}`,
     });
@@ -3808,7 +3827,7 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
     emitThoughtConsoleEvent({
       kind: "work_run_expired",
       title: "Agent request expired",
-      detail: "This Agent request cannot continue.",
+      detail: "It was not accepted in time.",
       nextStep: "start a new Agent run",
       tone: "error",
       eventId: `work-run-expired:${state.run?.runId ?? mintAttemptId}`,
@@ -5682,7 +5701,7 @@ const prepareThoughtDockRun = ({
     emitThoughtConsoleEvent({
       kind: "work_agent_adapter_unavailable",
       title: `${thoughtAgentProductLabel(adapterId)} unavailable`,
-      detail: `${thoughtAgentProductLabel(adapterId)} does not expose a supported App link yet.`,
+      detail: "It does not expose a supported App link yet.",
       tone: "warning",
       eventId: `work-agent-adapter-unavailable:${adapterId}`,
     });
