@@ -119,12 +119,12 @@ test("mint-closed notice answers the click instead of describing the surface", (
     state: deriveThoughtLaunchState({ deployment: null, readModel: null }),
     workCompatible: true,
   });
-  assert.equal(notice.title, "minting is not open yet");
+  assert.equal(notice.title, "Minting is not open yet");
   assert.equal(
     notice.detail,
     "Save this work in your browser and it will be here when minting opens.",
   );
-  assert.equal(notice.nextStep, "save this work in your browser");
+  assert.equal(notice.nextStep, "Save this work in your browser");
   // The banner copy told visitors to create; the click notice must not, since
   // the visitor has already made something and just reached for mint.
   assert.doesNotMatch(
@@ -149,9 +149,9 @@ test("mint-closed notice names the opening when the read model carries one", () 
   });
   // The state stays in the title; the opening time leads the body, ahead of
   // the action the visitor can take.
-  assert.equal(notice.title, "minting is not open yet");
+  assert.equal(notice.title, "Minting is not open yet");
   assert.match(notice.detail, /^Minting opens .+\. Save this work in your browser/);
-  assert.equal(notice.nextStep, "save this work in your browser");
+  assert.equal(notice.nextStep, "Save this work in your browser");
 });
 
 test("mint-closed notice explains stale work when minting is open", () => {
@@ -169,6 +169,6 @@ test("mint-closed notice explains stale work when minting is open", () => {
     state,
     workCompatible: false,
   });
-  assert.equal(notice.title, "run this work again first");
-  assert.equal(notice.nextStep, "run this work again with your Agent");
+  assert.equal(notice.title, "Run this work again first");
+  assert.equal(notice.nextStep, "Run this work again with your Agent");
 });

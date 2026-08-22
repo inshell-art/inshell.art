@@ -243,24 +243,24 @@ export const getThoughtMintClosedNotice = ({
     return {
       // The title carries the state. The opening time is a fact about that
       // state, so it leads the body instead, ahead of what the visitor can do.
-      title: "minting is not open yet",
+      title: "Minting is not open yet",
       detail: opening
         ? `Minting opens ${opening}. Save this work in your browser and it will be here then.`
         : "Save this work in your browser and it will be here when minting opens.",
-      nextStep: "save this work in your browser",
+      nextStep: "Save this work in your browser",
     };
   }
   if (!workCompatible) {
     return {
-      title: "run this work again first",
+      title: "Run this work again first",
       detail:
         "This work was created with an older approved version. Run it again with your Agent and the new result can be minted. Your saved prompt stays unchanged.",
-      nextStep: "run this work again with your Agent",
+      nextStep: "Run this work again with your Agent",
     };
   }
   return {
-    title: "this work cannot be minted yet",
+    title: "This work cannot be minted yet",
     detail: "Check the Work panel for what this work still needs.",
-    nextStep: "review the Work panel",
+    nextStep: "Review the Work panel",
   };
 };

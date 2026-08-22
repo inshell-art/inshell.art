@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "d7d929560abe9e101ebb7e63c547fcdd846fc319b787d932405735e363ce5cd6",
+  "sourceTreeSha256": "0f22b912d30e2180e704ad830a1ac8c7678c8306cd3c3197a9a1cdad605ba581",
   "groups": [
     {
       "id": "public-docs",
@@ -999,12 +999,12 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "92fb10bfba851929dffe2dcdea277588e4512c5641bcf04ccdfb1903a92b88a6",
+      "groupSha256": "501d44869d4070987a61056fe7a0ee48683c00e3b50d66d9507462ae0370363f",
       "files": [
         {
           "path": "apps/thought/index.html",
           "byteLength": 47230,
-          "sha256": "1443307721072ba80538c76aa22e894b22af54436080f532ba4136fbdd168cca"
+          "sha256": "66d7f3b2b9ea03a646327d3743d71c32b568d8ca65a266b117a50d06147082d6"
         },
         {
           "path": "apps/thought/package.json",
@@ -1028,8 +1028,8 @@
         },
         {
           "path": "apps/thought/scripts/dev-index-snapshot.mjs",
-          "byteLength": 88625,
-          "sha256": "cb14af6a158fe363fb565ea72f1a73f21d8c139ffe39aeca6f3542b3122a9138"
+          "byteLength": 90484,
+          "sha256": "f30feca3f529ce689b763a750a88348b310eece65f554e23d57c8c63d077b01a"
         },
         {
           "path": "apps/thought/scripts/mock-thought-v2-anvil-signer.ts",
@@ -1048,8 +1048,8 @@
         },
         {
           "path": "apps/thought/scripts/thought-launch-main-deltas.generated.mjs",
-          "byteLength": 68370,
-          "sha256": "b17fe25248fbc716040d7ce9192b8607c2c5f7e868f3587e8cd285c4efec5d08"
+          "byteLength": 69245,
+          "sha256": "ae61aeb22d8435365515ccf3a1129c6b922fad6da6b92c624df4c43009453226"
         },
         {
           "path": "apps/thought/src/color-font-doc.ts",
@@ -1063,8 +1063,8 @@
         },
         {
           "path": "apps/thought/src/main.ts",
-          "byteLength": 754240,
-          "sha256": "5ff947ebecf5607b9cf4587d7ab17325233a098ce72b1055ea2fa97a1e89a594"
+          "byteLength": 754269,
+          "sha256": "3f5b0a0e4d04361a89255e0d91079b3d824342034f446e28316bd82a1328d319"
         },
         {
           "path": "apps/thought/src/rpc-provider.ts",
@@ -1139,7 +1139,7 @@
         {
           "path": "apps/thought/src/thought-launch-state.ts",
           "byteLength": 8097,
-          "sha256": "d5f44be5aa3e42a2ad9ded13fe1c2b6278c9c65ff228e469786e8d9c532f8123"
+          "sha256": "79d7fbe18fcf4e24116832b9b9a43c07b99b95650c8f41fdea2ef2b3fcf85950"
         },
         {
           "path": "apps/thought/src/thought-mint-presentation.ts",
@@ -1179,7 +1179,7 @@
         {
           "path": "apps/thought/src/thought-preview-policy.ts",
           "byteLength": 4110,
-          "sha256": "5943a74ebab7e1a36610b13e6f6dc19f6a0eda0b7d59b854ec88158890f1c388"
+          "sha256": "622b2b07c5dd7d563693430c7aaec82326b8a6fc72f77be11d7b2e1c8185d155"
         },
         {
           "path": "apps/thought/src/thought-prompt-history.ts",
@@ -1203,8 +1203,8 @@
         },
         {
           "path": "apps/thought/src/thought-text-policy.ts",
-          "byteLength": 8923,
-          "sha256": "462d3cc2ba22ff5834b4018e7f229e43afe9d8c283ccb67f54246b3c3a0e8602"
+          "byteLength": 9167,
+          "sha256": "516605e90d30ca2beef16616900c735eb36b4bd23bb415429637628672a5c499"
         },
         {
           "path": "apps/thought/src/thought-v2-app-mint.ts",

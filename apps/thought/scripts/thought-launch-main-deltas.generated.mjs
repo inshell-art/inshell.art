@@ -147,6 +147,10 @@ export const CURRENT_THOUGHT_LAUNCH_MAIN_DELTAS = Object.freeze([
   Object.freeze(["launch state delta 146", "    title: \"work loaded\",", "    title: \"Work loaded\","]),
   Object.freeze(["launch state delta 147", "          title: \"mint status needs checking\",", "          title: \"Mint status needs checking\","]),
   Object.freeze(["launch state delta 148", "          nextStep: \"check wallet activity before trying again\",", "          nextStep: \"Check wallet activity before trying again\","]),
+  Object.freeze(["launch state delta 149", "    const textTooLong = state.issue?.title === \"text too long\" || state.reasonCode === 3;", "    const textTooLong = state.issue?.title?.toLowerCase() === \"text too long\" || state.reasonCode === 3;"]),
+  Object.freeze(["launch state delta 150", "    kind: issue.title === \"text too long\" ? \"work_prompt_too_long\" : \"work_prompt_invalid\",", "    kind: issue.title.toLowerCase() === \"text too long\" ? \"work_prompt_too_long\" : \"work_prompt_invalid\","]),
+  Object.freeze(["launch state delta 151", "    return { provider: null, reason: \"preview is off.\" };", "    return { provider: null, reason: \"Preview is off.\" };"]),
+  Object.freeze(["launch state delta 152", "      : { provider: null, reason: \"local THOUGHT V2 unavailable.\" };", "      : { provider: null, reason: \"Local THOUGHT V2 unavailable.\" };"]),
 ]);
 
 export const applyCurrentThoughtLaunchMainDeltas = (source, direction, replaceExactCount) => {

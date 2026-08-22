@@ -1085,7 +1085,7 @@ test("THOUGHT never hides a control to express a launch phase", () => {
   );
   assert.match(
     thoughtLaunchState,
-    /title: "minting is not open yet"/,
+    /title: "Minting is not open yet"/,
   );
 });
 
@@ -1982,11 +1982,11 @@ test("text-too-long rejection is a byte-usage warning", () => {
     /const rejectInvalidThoughtDockPrompt = \(prompt: string\)[\s\S]*?measureThoughtV2TerminalLine\(prompt, "prompt"\)/,
   );
   assert.match(thoughtMain, /describeThoughtTextPolicyIssue\(\{[\s\S]*?value: prompt,[\s\S]*?line: "prompt"/);
-  assert.match(thoughtTextPolicy, /\? "leading space"[\s\S]*?: "trailing space"/);
+  assert.match(thoughtTextPolicy, /\? "Leading space"[\s\S]*?: "Trailing space"/);
   assert.match(thoughtTextPolicy, /ends with a space/);
   assert.match(
     thoughtTextPolicy,
-    /title: "extra spaces",[\s\S]*?has more than one space together[\s\S]*?delete the extra space/,
+    /title: "Extra spaces",[\s\S]*?has more than one space together[\s\S]*?delete the extra space/,
   );
   assert.doesNotMatch(thoughtTextPolicy, /title: "text invalid"/);
   assert.match(thoughtTextPolicy, /output is never auto-corrected/);

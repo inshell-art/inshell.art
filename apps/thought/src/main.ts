@@ -3802,7 +3802,7 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
     return;
   }
   if (state.kind === "preview_rejected") {
-    const textTooLong = state.issue?.title === "text too long" || state.reasonCode === 3;
+    const textTooLong = state.issue?.title?.toLowerCase() === "text too long" || state.reasonCode === 3;
     emitThoughtConsoleEvent({
       kind: "work_preview_rejected",
       title: state.issue?.title ?? (textTooLong ? "Text too long" : "Work rejected"),
@@ -5572,7 +5572,7 @@ const rejectInvalidThoughtDockPrompt = (prompt: string) => {
     return false;
   }
   emitThoughtConsoleEvent({
-    kind: issue.title === "text too long" ? "work_prompt_too_long" : "work_prompt_invalid",
+    kind: issue.title.toLowerCase() === "text too long" ? "work_prompt_too_long" : "work_prompt_invalid",
     title: issue.title,
     detail: issue.detail,
     nextStep: issue.nextStep,
@@ -8076,7 +8076,7 @@ const walletPreviewUnavailableReason = () => {
 const selectThoughtPreviewProvider = async () => {
   const mode = readPreviewMode();
   if (mode === "off") {
-    return { provider: null, reason: "preview is off." };
+    return { provider: null, reason: "Preview is off." };
   }
   if (IS_LOCAL_THOUGHT_V2) {
     const provider = getReadProvider();
@@ -8090,7 +8090,7 @@ const selectThoughtPreviewProvider = async () => {
           ),
           reason: "",
         }
-      : { provider: null, reason: "local THOUGHT V2 unavailable." };
+      : { provider: null, reason: "Local THOUGHT V2 unavailable." };
   }
   return { provider: createPinnedBrowserPreviewProvider(), reason: "" };
 };
