@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "f4a84b9c6bbaded26449c00a82112da757d3b36bc865b5ed264002e9c7718be7",
+  "sourceTreeSha256": "d7d929560abe9e101ebb7e63c547fcdd846fc319b787d932405735e363ce5cd6",
   "groups": [
     {
       "id": "public-docs",
@@ -999,7 +999,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "60be3e5191f875bc3e81e0db9169f352230a1823bd607d22b886563c8fb4e120",
+      "groupSha256": "92fb10bfba851929dffe2dcdea277588e4512c5641bcf04ccdfb1903a92b88a6",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1048,8 +1048,8 @@
         },
         {
           "path": "apps/thought/scripts/thought-launch-main-deltas.generated.mjs",
-          "byteLength": 50947,
-          "sha256": "09e6c942fb0aad20186f8915b56bfffe6467de7100f2aca284a25aebf096a045"
+          "byteLength": 68370,
+          "sha256": "b17fe25248fbc716040d7ce9192b8607c2c5f7e868f3587e8cd285c4efec5d08"
         },
         {
           "path": "apps/thought/src/color-font-doc.ts",
@@ -1064,7 +1064,7 @@
         {
           "path": "apps/thought/src/main.ts",
           "byteLength": 754240,
-          "sha256": "c96cc6da03335ed5da1f1fc62e1dce1077467511d847b4d2648a30677c7cb1d0"
+          "sha256": "5ff947ebecf5607b9cf4587d7ab17325233a098ce72b1055ea2fa97a1e89a594"
         },
         {
           "path": "apps/thought/src/rpc-provider.ts",
@@ -1129,7 +1129,7 @@
         {
           "path": "apps/thought/src/thought-console.ts",
           "byteLength": 16136,
-          "sha256": "3e35aff5cf3ffeeb58b6f96a15bfddfc5421559d96c5163f5093dc911fc28343"
+          "sha256": "91d7aec8497d5f4f2d820d68c2c1a9aff75d9ce1cd4ae1dc7219adff98ccc638"
         },
         {
           "path": "apps/thought/src/thought-display-text.ts",
@@ -1144,7 +1144,7 @@
         {
           "path": "apps/thought/src/thought-mint-presentation.ts",
           "byteLength": 28306,
-          "sha256": "8a9666bd8efa2c542573e721bb9560ea053c63f6a66f3eeaf86996741d3c342b"
+          "sha256": "bc1ba9fbc149489bfcb77ddc676b327094466e9abcf9b79171fc6a63e54cc7d1"
         },
         {
           "path": "apps/thought/src/thought-mint-submission-lock.ts",

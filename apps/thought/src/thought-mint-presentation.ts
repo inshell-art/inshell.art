@@ -166,7 +166,7 @@ const presentPathAcquisition = (facts: ThoughtMintFacts): ThoughtMintPresentatio
 
   if (facts.pathAcquisition.state === "quoting") {
     return withDefaults({
-      title: "reading $PATH price",
+      title: "Reading $PATH price",
       detail: "Checking the current auction price.",
       stageCopy: "Please wait.",
       tone: "running",
@@ -178,10 +178,10 @@ const presentPathAcquisition = (facts: ThoughtMintFacts): ThoughtMintPresentatio
   if (facts.pathAcquisition.state === "review") {
     const mintLabel = `Mint $PATH for ${facts.pathAcquisition.priceLabel}`;
     return withDefaults({
-      title: "you need a $PATH",
+      title: "You need a $PATH",
       detail: `Select “${mintLabel}” above to mint the $PATH required for this THOUGHT work.`,
       stageCopy: "Your wallet will ask you to confirm a transaction. Gas applies.",
-      consoleNextStep: "mint here, or explore $PATH at /path",
+      consoleNextStep: "Mint here, or explore $PATH at /path",
       tone: "idle",
       panelMode: "path_needed",
       actions: [action("confirm_path_mint", mintLabel)],
@@ -190,7 +190,7 @@ const presentPathAcquisition = (facts: ThoughtMintFacts): ThoughtMintPresentatio
 
   if (facts.pathAcquisition.state === "awaiting_signature") {
     return withDefaults({
-      title: "confirm $PATH mint in wallet",
+      title: "Confirm $PATH mint in wallet",
       detail: "Open your wallet and confirm the transaction.",
       stageCopy: "Transaction not submitted yet · gas applies",
       tone: "running",
@@ -219,7 +219,7 @@ const presentPathAcquisition = (facts: ThoughtMintFacts): ThoughtMintPresentatio
       title: "$PATH minted; wallet updating",
       detail: "The transaction is confirmed, but the new $PATH is not listed yet.",
       stageCopy: "Do not mint another. Open the wallet menu and select “refresh”.",
-      consoleNextStep: "open the wallet menu and select refresh",
+      consoleNextStep: "Open the wallet menu and select refresh",
       tone: "warning",
       panelMode: "path_needed",
       actions: [noAction()],
@@ -230,7 +230,7 @@ const presentPathAcquisition = (facts: ThoughtMintFacts): ThoughtMintPresentatio
     title: "$PATH mint unavailable",
     detail: "The $PATH transaction could not be prepared. Nothing was submitted.",
     stageCopy: "Select “Try again”, or open /path.",
-    consoleNextStep: "try again here, or explore $PATH at /path",
+    consoleNextStep: "Try again here, or explore $PATH at /path",
     tone: "warning",
     panelMode: "path_needed",
     actions: [
@@ -247,7 +247,7 @@ const presentPathInventory = (facts: ThoughtMintFacts): ThoughtMintPresentation 
 
   if (!inventory.matchesWallet || inventory.status === "idle" || inventory.status === "loading") {
     return withDefaults({
-      title: "finding your $PATH tokens",
+      title: "Finding your $PATH tokens",
       detail: `Reading ${walletContext}.`,
       stageCopy: "Please wait.",
       tone: "running",
@@ -261,7 +261,7 @@ const presentPathInventory = (facts: ThoughtMintFacts): ThoughtMintPresentation 
       title: "$PATH list unavailable",
       detail: "The App could not load this wallet’s $PATH tokens. Your wallet may still hold them.",
       stageCopy: "Open the wallet menu and select “refresh”.",
-      consoleNextStep: "open the wallet menu and select refresh",
+      consoleNextStep: "Open the wallet menu and select refresh",
       tone: "warning",
       panelMode: "path_needed",
       actions: [action("enter_path_manually", "Enter token ID")],
@@ -275,10 +275,10 @@ const presentPathInventory = (facts: ThoughtMintFacts): ThoughtMintPresentation 
 
   if (inventory.held === 0) {
     return withDefaults({
-      title: "you need a $PATH",
+      title: "You need a $PATH",
       detail: `No $PATH found in ${walletContext}.`,
       stageCopy: "Reading the current auction price.",
-      consoleNextStep: "mint here, or explore $PATH at /path",
+      consoleNextStep: "Mint here, or explore $PATH at /path",
       tone: "running",
       panelMode: "path_needed",
       actions: [noAction()],
@@ -288,10 +288,10 @@ const presentPathInventory = (facts: ThoughtMintFacts): ThoughtMintPresentation 
   if (inventory.available === 0) {
     const noun = inventory.held === 1 ? "$PATH was" : "$PATH tokens were";
     return withDefaults({
-      title: "no $PATH can mint a THOUGHT",
+      title: "No $PATH can mint a THOUGHT",
       detail: `${inventory.held} ${noun} found; all THOUGHT mints are used or unavailable.`,
       stageCopy: "Reading the current auction price for a new $PATH.",
-      consoleNextStep: "mint here, or explore $PATH at /path",
+      consoleNextStep: "Mint here, or explore $PATH at /path",
       tone: "running",
       panelMode: "path_needed",
       actions: [noAction()],
@@ -299,7 +299,7 @@ const presentPathInventory = (facts: ThoughtMintFacts): ThoughtMintPresentation 
   }
 
   return withDefaults({
-    title: inventory.available === 1 ? "one $PATH is ready" : "pick a $PATH",
+    title: inventory.available === 1 ? "One $PATH is ready" : "Pick a $PATH",
     detail: inventory.available === 1
       ? "1 $PATH has a THOUGHT mint available."
       : `${inventory.available} $PATH tokens have a THOUGHT mint available.`,
@@ -318,11 +318,11 @@ const presentError = (facts: ThoughtMintFacts): ThoughtMintPresentation => {
 
   if (kind === "local_deployment") {
     return withDefaults({
-      title: "local mint unavailable",
+      title: "Local mint unavailable",
       detail:
         "Local Anvil is not serving the THOUGHT contracts configured for this App. Nothing was submitted.",
       stageCopy: "Start or restore the local dev chain, then select “Try again”.",
-      consoleNextStep: "start or restore the local dev chain, then select “Try again”",
+      consoleNextStep: "Start or restore the local dev chain, then select “Try again”",
       tone: "error",
       panelMode: "failed",
       actions: [action("continue", "Try again")],
@@ -334,7 +334,7 @@ const presentError = (facts: ThoughtMintFacts): ThoughtMintPresentation => {
       title: "$PATH mint confirming",
       detail: "The $PATH transaction is still confirming.",
       stageCopy: "Wait for confirmation. Do not submit another mint.",
-      consoleNextStep: "wait for confirmation, then open the wallet menu and select refresh",
+      consoleNextStep: "Wait for confirmation, then open the wallet menu and select refresh",
       tone: "running",
       panelMode: "path_needed",
       actions: [noAction()],
@@ -346,7 +346,7 @@ const presentError = (facts: ThoughtMintFacts): ThoughtMintPresentation => {
       title: "$PATH minted on another network",
       detail: `This THOUGHT needs a $PATH on ${facts.chainName}.`,
       stageCopy: "Switch networks, then select “Mint another $PATH”.",
-      consoleNextStep: `switch to ${facts.chainName}, then mint another $PATH`,
+      consoleNextStep: `Switch to ${facts.chainName}, then mint another $PATH`,
       tone: "warning",
       panelMode: "path_needed",
       actions: [action("mint_path", "Mint another $PATH")],
@@ -355,10 +355,10 @@ const presentError = (facts: ThoughtMintFacts): ThoughtMintPresentation => {
 
   if (kind === "wallet_account_mismatch") {
     return withDefaults({
-      title: "switch wallet account",
+      title: "Switch wallet account",
       detail: "This $PATH belongs to another wallet account.",
       stageCopy: "Use the account that owns this $PATH, then open the wallet menu and select “refresh”.",
-      consoleNextStep: "switch to the $PATH owner account, then open the wallet menu and select refresh",
+      consoleNextStep: "Switch to the $PATH owner account, then open the wallet menu and select refresh",
       tone: "warning",
       panelMode: "wallet_needed",
       actions: facts.address
@@ -369,7 +369,7 @@ const presentError = (facts: ThoughtMintFacts): ThoughtMintPresentation => {
 
   if (kind === "wrong_network") {
     return withDefaults({
-      title: "switch network",
+      title: "Switch network",
       detail: `Select “Switch to ${facts.chainName}” above to use the required network for this THOUGHT work.`,
       stageCopy: "Approve the network change in your wallet.",
       tone: "warning",
@@ -387,7 +387,7 @@ const presentError = (facts: ThoughtMintFacts): ThoughtMintPresentation => {
         ? `${path} cannot mint this THOUGHT.`
         : `The App could not check ${path}.`,
       stageCopy: "Select “Pick another $PATH”, or open the wallet menu and select “refresh”.",
-      consoleNextStep: "pick another $PATH, or open the wallet menu and select refresh",
+      consoleNextStep: "Pick another $PATH, or open the wallet menu and select refresh",
       tone: "warning",
       panelMode: "path_needed",
       actions: [action("choose_another", "Pick another $PATH")],
@@ -395,14 +395,14 @@ const presentError = (facts: ThoughtMintFacts): ThoughtMintPresentation => {
   }
 
   if (kind === "signature") {
-    const signaturePath = facts.pathId ? `$PATH #${facts.pathId}` : "the picked $PATH";
+    const signaturePath = facts.pathId ? `$PATH #${facts.pathId}` : "The picked $PATH";
     const pending = /already pending|request.*open/i.test(message);
     const rejected = /reject|denied|cancel/i.test(message);
     const expired = /expired/i.test(message);
 
     if (pending) {
       return withDefaults({
-        title: "wallet request already open",
+        title: "Wallet request already open",
         detail: "Open your wallet and approve or reject the existing signature request.",
         stageCopy: "Signature only · no transaction · no gas",
         tone: "warning",
@@ -422,7 +422,7 @@ const presentError = (facts: ThoughtMintFacts): ThoughtMintPresentation => {
           : `Select “Sign ${signaturePath}” above to try again.`,
       stageCopy: "Signature only · no transaction · no gas",
       consoleNextStep: rejected
-        ? "select “Try again”, or pick another $PATH"
+        ? "Select “Try again”, or pick another $PATH"
         : undefined,
       tone: "warning",
       panelMode: "path_needed",
@@ -439,10 +439,10 @@ const presentError = (facts: ThoughtMintFacts): ThoughtMintPresentation => {
     /attestation requires a returned Agent run|Agent run held by this dev backend/i.test(message);
   if (kind === "mint" && missingAuthoritativeAgentRun) {
     return withDefaults({
-      title: "run this work again",
+      title: "Run this work again",
       detail: "This work is no longer ready to mint. Nothing was submitted.",
       stageCopy: "Select “reset”, then send the prompt to your Agent again.",
-      consoleNextStep: "reset and send the prompt to your Agent again",
+      consoleNextStep: "Reset and send the prompt to your Agent again",
       tone: "warning",
       panelMode: "failed",
       activeStep: "mint",
@@ -455,10 +455,10 @@ const presentError = (facts: ThoughtMintFacts): ThoughtMintPresentation => {
     /Wallet RPC (?:cannot reach|is not using) the active THOUGHT Anvil/i.test(message);
   if (kind === "mint" && walletRuntimeNeedsRefresh) {
     return withDefaults({
-      title: "refresh wallet network",
+      title: "Refresh wallet network",
       detail: "The wallet is not connected to the active THOUGHT Anvil session. Nothing was submitted.",
       stageCopy: "Select “Try again”. Approve the network update if your wallet asks.",
-      consoleNextStep: "select “Try again” and approve the network update if asked",
+      consoleNextStep: "Select “Try again” and approve the network update if asked",
       tone: "warning",
       panelMode: "minting",
       activeStep: "mint",
@@ -477,10 +477,10 @@ const presentError = (facts: ThoughtMintFacts): ThoughtMintPresentation => {
     const canceledAfterSubmission = rejected && Boolean(facts.transaction.hash);
     if (facts.transaction.hash && !rejected && !delayed) {
       return withDefaults({
-        title: "mint failed on-chain",
+        title: "Mint failed on-chain",
         detail: "The transaction failed. No THOUGHT was created.",
         stageCopy: `${shortHash(facts.transaction.hash)} · transaction failed`,
-        consoleNextStep: "view the transaction, then refresh wallet from the shell bar",
+        consoleNextStep: "View the transaction, then refresh wallet from the shell bar",
         tone: "error",
         panelMode: "failed",
         activeStep: "mint",
@@ -490,18 +490,18 @@ const presentError = (facts: ThoughtMintFacts): ThoughtMintPresentation => {
     }
     return withDefaults({
       title: recoveryCleared
-        ? "ready to retry"
+        ? "Ready to retry"
         : walletRequestOpen
-          ? "wallet request already open"
+          ? "Wallet request already open"
         : returnedWithoutHash
-          ? "mint not submitted"
+          ? "Mint not submitted"
         : delayed
-          ? "wallet response delayed"
+          ? "Wallet response delayed"
           : canceledAfterSubmission
-            ? "mint canceled"
+            ? "Mint canceled"
             : rejected
-              ? "mint not submitted"
-              : "mint transaction failed",
+              ? "Mint not submitted"
+              : "Mint transaction failed",
       detail: recoveryCleared
         ? "The previous wallet request was not submitted. Confirm that your wallet has no open request, then retry."
         : walletRequestOpen
@@ -523,11 +523,11 @@ const presentError = (facts: ThoughtMintFacts): ThoughtMintPresentation => {
           ? "No transaction hash received"
           : `${mintRequest} · transaction · gas applies`,
       consoleNextStep: walletRequestOpen
-        ? "finish or cancel the previous wallet request, then select “I closed it”"
+        ? "Finish or cancel the previous wallet request, then select “I closed it”"
         : returnedWithoutHash
-          ? "select “Check wallet activity” before retrying"
+          ? "Select “Check wallet activity” before retrying"
         : rejected
-          ? "select “Try again”, or pick another $PATH"
+          ? "Select “Try again”, or pick another $PATH"
           : undefined,
       tone: "warning",
       panelMode: "minting",
@@ -544,12 +544,12 @@ const presentError = (facts: ThoughtMintFacts): ThoughtMintPresentation => {
   }
 
   return withDefaults({
-    title: kind === "thought" || kind === "spec" ? "mint unavailable" : "mint failed",
+    title: kind === "thought" || kind === "spec" ? "Mint unavailable" : "Mint failed",
     detail: kind === "thought" || kind === "spec"
       ? "This THOUGHT cannot be minted right now. Nothing was submitted."
       : "The mint could not be prepared. Nothing was submitted.",
     stageCopy: "Select “Try again”.",
-    consoleNextStep: "select “Try again”",
+    consoleNextStep: "Select “Try again”",
     tone: "error",
     panelMode: "failed",
     actions: [action("continue", "Try again")],
@@ -557,22 +557,22 @@ const presentError = (facts: ThoughtMintFacts): ThoughtMintPresentation => {
 };
 
 export const presentThoughtMint = (facts: ThoughtMintFacts): ThoughtMintPresentation => {
-  const path = facts.pathId ? `$PATH #${facts.pathId}` : "the picked $PATH";
+  const path = facts.pathId ? `$PATH #${facts.pathId}` : "The picked $PATH";
 
   if (facts.state === "closed") {
     if (!facts.work.ready) {
       return withDefaults({
-        title: "run this work again",
+        title: "Run this work again",
         detail: "This work is no longer ready to mint.",
         stageCopy: "Select “reset”, then send the prompt to your Agent again.",
-        consoleNextStep: "reset and send the prompt to your Agent again",
+        consoleNextStep: "Reset and send the prompt to your Agent again",
         tone: "warning",
         panelMode: "failed",
         actions: [],
       });
     }
     return withDefaults({
-      title: "work ready",
+      title: "Work ready",
       detail: !facts.mintEnabled
         ? "THOUGHT minting is unavailable right now."
         : facts.address
@@ -587,7 +587,7 @@ export const presentThoughtMint = (facts: ThoughtMintFacts): ThoughtMintPresenta
 
   if (facts.state === "thought_checking") {
     return withDefaults({
-      title: "checking THOUGHT",
+      title: "Checking THOUGHT",
       detail: "Checking whether this THOUGHT is new and ready to mint.",
       stageCopy: "Please wait.",
       tone: "running",
@@ -613,7 +613,7 @@ export const presentThoughtMint = (facts: ThoughtMintFacts): ThoughtMintPresenta
   if (facts.state === "wallet_required") {
     const noProvider = !facts.providerDetected;
     return withDefaults({
-      title: noProvider ? "wallet unavailable" : "connect wallet",
+      title: noProvider ? "Wallet unavailable" : "Connect wallet",
       detail: noProvider
         ? "Install or enable a wallet to mint this THOUGHT work."
         : facts.walletRequestPending
@@ -632,16 +632,16 @@ export const presentThoughtMint = (facts: ThoughtMintFacts): ThoughtMintPresenta
     if (facts.address && facts.chainId !== facts.requiredChainId) {
       return presentError({
         ...facts,
-        error: { kind: "wrong_network", message: "wrong network" },
+        error: { kind: "wrong_network", message: "Wrong network" },
       });
     }
     return presentPathInventory(facts);
   }
 
   if (facts.state === "path_checking") {
-    const checkingPath = facts.pathId ? `$PATH #${facts.pathId}` : "the picked $PATH";
+    const checkingPath = facts.pathId ? `$PATH #${facts.pathId}` : "The picked $PATH";
     return withDefaults({
-      title: facts.pathId ? `checking $PATH #${facts.pathId}` : "checking $PATH",
+      title: facts.pathId ? `Checking $PATH #${facts.pathId}` : "Checking $PATH",
       detail: `Checking that ${checkingPath} belongs to this wallet and can mint a THOUGHT.`,
       stageCopy: "Please wait.",
       tone: "running",
@@ -653,7 +653,7 @@ export const presentThoughtMint = (facts: ThoughtMintFacts): ThoughtMintPresenta
   if (facts.state === "path_ready") {
     const signLabel = `Sign ${path}`;
     return withDefaults({
-      title: `sign ${path}`,
+      title: `Sign ${path}`,
       detail: `Select “${signLabel}” above, then approve the signature in your wallet.`,
       stageCopy: "Signature only · no transaction · no gas",
       tone: "idle",
@@ -666,7 +666,7 @@ export const presentThoughtMint = (facts: ThoughtMintFacts): ThoughtMintPresenta
 
   if (facts.state === "authorizing") {
     return withDefaults({
-      title: `sign ${path} in wallet`,
+      title: `Sign ${path} in wallet`,
       detail: "Open your wallet and approve the signature.",
       stageCopy: "Signature only · no transaction · no gas",
       tone: "running",
@@ -701,10 +701,10 @@ export const presentThoughtMint = (facts: ThoughtMintFacts): ThoughtMintPresenta
       const legacyLocalMismatch = facts.transaction.canArchiveLegacyLocalMint === true;
       return withDefaults({
         title: legacyLocalMismatch
-          ? "old local mint cannot confirm here"
+          ? "Old local mint cannot confirm here"
           : trackingWarning
-            ? "mint tracking delayed"
-            : "mint submitted",
+            ? "Mint tracking delayed"
+            : "Mint submitted",
         detail: legacyLocalMismatch
           ? "This hash was sent to the retired shared local node, not the current THOUGHT node."
           : trackingWarning
@@ -734,7 +734,7 @@ export const presentThoughtMint = (facts: ThoughtMintFacts): ThoughtMintPresenta
 
     if (facts.transaction.state === "idle") {
       return withDefaults({
-        title: "preparing THOUGHT mint",
+        title: "Preparing THOUGHT mint",
         detail: "Checking the work and wallet before opening the transaction request.",
         stageCopy: "Nothing submitted yet.",
         tone: "running",
@@ -746,7 +746,7 @@ export const presentThoughtMint = (facts: ThoughtMintFacts): ThoughtMintPresenta
     }
 
     return withDefaults({
-      title: "confirm THOUGHT mint in wallet",
+      title: "Confirm THOUGHT mint in wallet",
       detail: "Open your wallet and confirm the transaction.",
       stageCopy: "Transaction not submitted yet · gas applies",
       tone: "running",
@@ -779,7 +779,7 @@ export const presentThoughtMint = (facts: ThoughtMintFacts): ThoughtMintPresenta
   }
 
   return withDefaults({
-    title: "preparing mint",
+    title: "Preparing mint",
     detail: "Checking mint state.",
     stageCopy: "Your work is preserved.",
     tone: "running",

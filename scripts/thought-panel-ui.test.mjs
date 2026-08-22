@@ -613,7 +613,7 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
   );
   assert.match(
     restoredMain,
-    /title: "Agent line received",[\s\S]*?nextStep: "canonical artwork preview is unavailable in this environment"/,
+    /title: "Agent line received",[\s\S]*?nextStep: "Canonical artwork preview is unavailable in this environment"/,
     "the locked artifact must not restore the obsolete preview-unavailable console copy",
   );
   assert.doesNotMatch(restoredMain, /The App could not prepare the artwork preview\./);
@@ -994,13 +994,13 @@ test("local runtime bootstrap preserves provenance eligibility facts", () => {
 
 test("Save/Load uses prompt-labelled one-line options and loads the selected canvas work", () => {
   assert.match(indexHtml, /aria-label="THOUGHT load a saved work"/);
-  assert.match(thoughtMain, /thoughtDockWorksLabel\.textContent = "load a saved work"/);
-  assert.match(thoughtMain, /placeholder\.textContent = works\.length \? "load a saved work" : "no saved works"/);
-  assert.doesNotMatch(thoughtMain, /"select a saved work"/);
-  assert.doesNotMatch(thoughtMain, /thoughtDockWorksLabel\.textContent = `saved works/);
+  assert.match(thoughtMain, /thoughtDockWorksLabel\.textContent = "Load a saved work"/);
+  assert.match(thoughtMain, /placeholder\.textContent = works\.length \? "Load a saved work" : "No saved works"/);
+  assert.doesNotMatch(thoughtMain, /"select a Saved work"/);
+  assert.doesNotMatch(thoughtMain, /thoughtDockWorksLabel\.textContent = `Saved works/);
   assert.match(
     thoughtMain,
-    /kind: "work_library_opened",\s*title: "load a saved work",\s*detail: "Saved in this browser only—not on-chain or synced\."/,
+    /kind: "work_library_opened",\s*title: "Load a saved work",\s*detail: "Saved in this browser only—not on-chain or synced\."/,
   );
   const loadActionStart = thoughtMain.indexOf("const loadAction = () =>");
   const loadActionEnd = thoughtMain.indexOf("const newThoughtAction =", loadActionStart);
@@ -1051,11 +1051,11 @@ test("THOUGHT panel copy uses canonical product terms", () => {
     thoughtLaunchState,
     /"[^"]*(?:Studio|Onchain|Sepolia|Mainnet)[^"]*"/,
   );
-  assert.match(productCopy, /load a saved work/);
+  assert.match(productCopy, /Load a saved work/);
   assert.match(productCopy, /THOUGHT mint available/);
   assert.match(productCopy, /on-chain/);
   assert.doesNotMatch(productCopy, /choose an agent\.|agent result schema invalid\.|agent request (?:timed out|failed)\./);
-  assert.match(productCopy, /choose an Agent\.|Agent result schema invalid\.|Agent request (?:timed out|failed)\./);
+  assert.match(productCopy, /Choose an Agent\.|Agent result schema invalid\.|Agent request (?:timed out|failed)\./);
   assert.doesNotMatch(productCopy, /agent output:/);
   assert.match(productCopy, /Agent output:/);
   assert.match(thoughtMintPresentation, /action\("confirm_mint", "Try again"\)/);
@@ -1150,13 +1150,13 @@ test("dock and compatibility sheet share the PICK SIGN MINT spine", () => {
 
   assert.ok(dockFlowIndex < inventoryIndex, "dock progress precedes its active PATH stage");
   assert.ok(sheetFlowIndex < sheetFieldIndex, "sheet progress precedes its active PATH stage");
-  assert.match(thoughtMintPresentation, /title: inventory\.available === 1 \? "one \$PATH is ready" : "pick a \$PATH"/);
+  assert.match(thoughtMintPresentation, /title: inventory\.available === 1 \? "One \$PATH is ready" : "Pick a \$PATH"/);
   assert.match(
     thoughtMintPresentation,
     /stageCopy: "Select “Pick another \$PATH”, or open the wallet menu and select “refresh”\."/,
   );
-  assert.match(thoughtMain, /placeholder\.textContent = "pick a \$PATH"/);
-  assert.match(thoughtMain, /return "pick another \$PATH or select refresh in the wallet menu"/);
+  assert.match(thoughtMain, /placeholder\.textContent = "Pick a \$PATH"/);
+  assert.match(thoughtMain, /return "Pick another \$PATH or select refresh in the wallet menu"/);
   assert.doesNotMatch(thoughtConsole, /\$PATH selection cleared/);
   assert.doesNotMatch(thoughtMintPresentation, /(?<!\$)\bPATHs?\b/);
   assert.doesNotMatch(thoughtMain, /(?:select|choose) \$PATH \/ authorize \/ confirm\./i);
@@ -1182,11 +1182,11 @@ test("Console preserves shell-refresh notices after mint-panel Recheck removal",
   );
   assert.match(
     thoughtMintPresentation,
-    /title: "\$PATH list unavailable"[\s\S]*?consoleNextStep: "open the wallet menu and select refresh"/,
+    /title: "\$PATH list unavailable"[\s\S]*?consoleNextStep: "Open the wallet menu and select refresh"/,
   );
   assert.match(
     thoughtMintPresentation,
-    /title: "\$PATH mint confirming"[\s\S]*?consoleNextStep: "wait for confirmation, then open the wallet menu and select refresh"/,
+    /title: "\$PATH mint confirming"[\s\S]*?consoleNextStep: "Wait for confirmation, then open the wallet menu and select refresh"/,
   );
   assert.match(
     thoughtMain,
@@ -1197,7 +1197,7 @@ test("Console preserves shell-refresh notices after mint-panel Recheck removal",
 test("Console retains its timestamped first-visit guidance as normal history", () => {
   assert.match(
     thoughtConsole,
-    /THOUGHT_CONSOLE_EMPTY_TITLE = "start with a prompt"/,
+    /THOUGHT_CONSOLE_EMPTY_TITLE = "Start with a prompt"/,
   );
   assert.match(
     thoughtConsole,
@@ -1217,7 +1217,7 @@ test("Console retains its timestamped first-visit guidance as normal history", (
 test("local deployment failures never prescribe wallet refresh", () => {
   assert.match(
     thoughtMintPresentation,
-    /kind === "local_deployment"[\s\S]*?title: "local mint unavailable"[\s\S]*?Local Anvil is not serving the THOUGHT contracts configured for this App\.[\s\S]*?start or restore the local dev chain, then select “Try again”[\s\S]*?action\("continue", "Try again"\)/,
+    /kind === "local_deployment"[\s\S]*?title: "Local mint unavailable"[\s\S]*?Local Anvil is not serving the THOUGHT contracts configured for this App\.[\s\S]*?Start or restore the local dev chain, then select “Try again”[\s\S]*?action\("continue", "Try again"\)/,
   );
   assert.match(
     thoughtMain,
@@ -1275,7 +1275,7 @@ test("THOUGHT mint guidance follows the resolved wallet and $PATH state", () => 
     thoughtConsole,
     /THOUGHT_PATH_REQUIRED_DETAIL\s*=\s*\n?\s*"No available \$PATH can mint this THOUGHT; mint a new \$PATH"/,
   );
-  assert.match(thoughtConsole, /THOUGHT_PATH_LINK_LABEL = "mint a new \$PATH ↗"/);
+  assert.match(thoughtConsole, /THOUGHT_PATH_LINK_LABEL = "Mint a new \$PATH ↗"/);
   assert.match(
     thoughtMain,
     /if \(mintFlowState === "wallet_required"\) \{[\s\S]*?kind: "wallet_required"[\s\S]*?presentation\.title/,
@@ -1393,7 +1393,7 @@ test("$PATH inventory select has no default and advances on selection", () => {
     indexHtml,
     /id="thought-dock-path-inventory"[\s\S]*?class="thought-dock-select-wrap"[\s\S]*?id="thought-dock-path-inventory-select"[\s\S]*?class="thought-dock-select"[\s\S]*?class="thought-dock-select-arrow"/,
   );
-  assert.match(thoughtMain, /placeholder\.textContent = "pick a \$PATH"/);
+  assert.match(thoughtMain, /placeholder\.textContent = "Pick a \$PATH"/);
   assert.match(thoughtMain, /placeholder\.disabled = true/);
   assert.match(thoughtMain, /select\.value = available\.some\([\s\S]*?\? selectedValue\s*:\s*""/);
   assert.match(
@@ -1550,11 +1550,11 @@ test("Work lifecycle messages move into Console history", () => {
   assert.match(recordBody, /emitThoughtConsoleEvent\(/);
   assert.match(
     recordBody,
-    /kind: "work_agent_selection_ready",[\s\S]*?title: "choose an Agent",[\s\S]*?detail: "Only Agents installed on this machine can receive the prompt\."/
+    /kind: "work_agent_selection_ready",[\s\S]*?title: "Choose an Agent",[\s\S]*?detail: "Only Agents installed on this machine can receive the prompt\."/
   );
   assert.match(
     recordBody,
-    /kind: "work_claim_authorization_needed",[\s\S]*?title: `allow \$\{product\}`,[\s\S]*?Match code \$\{state\.authorization\.verificationCode \|\| "------"\} with \$\{product\}\./
+    /kind: "work_claim_authorization_needed",[\s\S]*?title: `Allow \$\{product\}`,[\s\S]*?Match code \$\{state\.authorization\.verificationCode \|\| "------"\} with \$\{product\}\./
   );
   assert.match(
     thoughtMain,
@@ -1577,7 +1577,7 @@ test("Work lifecycle messages move into Console history", () => {
 test("a returned Agent line remains visible when canonical artwork preview is unavailable", () => {
   assert.match(
     thoughtMain,
-    /state\.kind === "preview_unavailable"[\s\S]*?title: "Agent line received"[\s\S]*?detail: state\.rawCandidate[\s\S]*?nextStep: "canonical artwork preview is unavailable in this environment"/,
+    /state\.kind === "preview_unavailable"[\s\S]*?title: "Agent line received"[\s\S]*?detail: state\.rawCandidate[\s\S]*?nextStep: "Canonical artwork preview is unavailable in this environment"/,
   );
   assert.match(
     thoughtMain,
@@ -1652,7 +1652,7 @@ test("wallet return without a transaction hash becomes a bounded recoverable sta
   assert.match(thoughtMain, /Promise\.race\(\[txPromise, walletReturnGuard\.promise\]\)/);
   assert.match(thoughtMain, /walletReturnGuard\.dispose\(\)/);
   assert.match(thoughtMain, /const restoredDanglingMintRequest = thoughtConsoleHistory\.entries\.at\(-1\)\?\.kind === "transaction_requested"/);
-  assert.match(thoughtMain, /kind: "mint_request_interrupted",\s*title: "mint status needs checking"/);
+  assert.match(thoughtMain, /kind: "mint_request_interrupted",\s*title: "Mint status needs checking"/);
   assert.match(thoughtMain, /The page reloaded before the wallet returned a transaction hash\./);
 });
 
@@ -1733,14 +1733,14 @@ test("Console key guidance uses full-opacity theme-aware text", () => {
   assert.match(
     thoughtMain,
     /kind: readiness\.ready \? "work_ready" : "work_blocked"[\s\S]*?tone: readiness\.ready \? "success" : "warning"/,
-    "work ready remains semantically successful while its visual role supplies guidance emphasis",
+    "Work ready remains semantically successful while its visual role supplies guidance emphasis",
   );
   assert.doesNotMatch(thoughtCss, /thought-console-warning-flash|is-warning-flash/);
   assert.doesNotMatch(thoughtMain, /activeThoughtConsoleWarningFlashes|is-warning-flash/);
   assert.doesNotMatch(thoughtMain, /review this warning, then retry/);
   assert.match(
     thoughtMain,
-    /if \(title\.includes\("path"\)\) \{[\s\S]*?return "pick another \$PATH or select refresh in the wallet menu";[\s\S]*?return undefined;/,
+    /if \(title\.includes\("path"\)\) \{[\s\S]*?return "Pick another \$PATH or select refresh in the wallet menu";[\s\S]*?return undefined;/,
     "warnings without a concrete recovery action must not invent a next step",
   );
 });
@@ -1809,7 +1809,7 @@ test("Console guidance states the next visible action without protocol jargon", 
   const recordBody = thoughtMain.slice(recordStart, recordEnd);
   assert.ok(recordStart >= 0 && recordEnd > recordStart);
 
-  assert.match(recordBody, /title: readiness\.ready \? "ready to mint" : "run this work again"/);
+  assert.match(recordBody, /title: readiness\.ready \? "Ready to mint" : "Run this work again"/);
   assert.match(recordBody, /Select “mint” above to start minting this THOUGHT work\./);
   assert.match(
     recordBody,
@@ -1845,11 +1845,11 @@ test("Console guidance states the next visible action without protocol jargon", 
 
   assert.match(
     thoughtMain,
-    /kind: "wallet_connection_requested",[\s\S]*?title: "waiting for your wallet",[\s\S]*?A connection request is open in your wallet\. Approve it to continue\. No signature or transaction\./,
+    /kind: "wallet_connection_requested",[\s\S]*?title: "Waiting for your wallet",[\s\S]*?A connection request is open in your wallet\. Approve it to continue\. No signature or transaction\./,
   );
   assert.match(
     thoughtMain,
-    /kind: "path_acquisition_wallet",[\s\S]*?title: "waiting for your confirmation",[\s\S]*?A \$PATH mint transaction is open in your wallet\. Confirm it to continue\. Gas applies\./,
+    /kind: "path_acquisition_wallet",[\s\S]*?title: "Waiting for your confirmation",[\s\S]*?A \$PATH mint transaction is open in your wallet\. Confirm it to continue\. Gas applies\./,
   );
   assert.doesNotMatch(
     thoughtMain,
@@ -1858,7 +1858,7 @@ test("Console guidance states the next visible action without protocol jargon", 
   );
   assert.match(
     thoughtMain,
-    /kind: "path_acquisition_inventory_pending",[\s\S]*?title: "new \$PATH not visible yet",[\s\S]*?open the wallet menu and select refresh/,
+    /kind: "path_acquisition_inventory_pending",[\s\S]*?title: "New \$PATH not visible yet",[\s\S]*?Open the wallet menu and select refresh/,
   );
 });
 
@@ -1915,23 +1915,23 @@ test("every canceled THOUGHT wallet request records its terminal outcome", () =>
   assert.match(errorBody, /kind: "authorization_canceled"/);
   assert.match(errorBody, /title: `\$\{path\} signature canceled`/);
   assert.match(errorBody, /No signature was created\. No transaction or gas\./);
-  assert.match(errorBody, /nextStep: "select “Try again”, or pick another \$PATH"/);
+  assert.match(errorBody, /nextStep: "Select “Try again”, or pick another \$PATH"/);
   assert.match(errorBody, /kind === "mint"[\s\S]*?walletRequestCanceled/);
   assert.match(errorBody, /Boolean\(walletState\.txHash \|\| mintFlowData\.txHash\)/);
   assert.match(errorBody, /kind: "transaction_canceled"/);
   assert.match(errorBody, /title: "THOUGHT mint canceled"/);
   assert.match(errorBody, /No transaction was submitted, and \$\{path\} was not used\./);
   assert.match(errorBody, /The submitted mint was canceled\. No THOUGHT was created, and \$\{path\} was not used\./);
-  assert.match(errorBody, /nextStep: "select “Try again”, or pick another \$PATH"/);
+  assert.match(errorBody, /nextStep: "Select “Try again”, or pick another \$PATH"/);
   assert.match(errorBody, /tone: "warning"/);
 
   const connectStart = thoughtMain.indexOf("const walletConnectionConsoleFailure =");
   const connectEnd = thoughtMain.indexOf("const requestWalletConnect =", connectStart);
   const connectBody = thoughtMain.slice(connectStart, connectEnd);
   assert.match(connectBody, /kind: "wallet_connection_canceled"/);
-  assert.match(connectBody, /title: "wallet connection canceled"/);
+  assert.match(connectBody, /title: "Wallet connection canceled"/);
   assert.match(connectBody, /detail: "No account access was granted\."/);
-  assert.match(connectBody, /nextStep: "select “Connect wallet” when ready"/);
+  assert.match(connectBody, /nextStep: "Select “Connect wallet” when ready"/);
 
   const switchStart = thoughtMain.indexOf("const recordWalletNetworkSwitchFailure =");
   const switchEnd = thoughtMain.indexOf("const disconnectThoughtDockWallet =", switchStart);
@@ -1939,7 +1939,7 @@ test("every canceled THOUGHT wallet request records its terminal outcome", () =>
   assert.match(switchBody, /kind: canceled \? "network_switch_canceled" : "network_switch_failed"/);
   assert.match(switchBody, /title: canceled \? "network switch canceled" : "network switch failed"/);
   assert.match(switchBody, /The wallet network did not change\./);
-  assert.match(switchBody, /nextStep: "select “Switch network” when ready"/);
+  assert.match(switchBody, /nextStep: "Select “Switch network” when ready"/);
   assert.match(
     switchBody,
     /const shouldRegisterOrRepair =[\s\S]*?errorCode === 4902[\s\S]*?IS_LOCAL_CONTRACT_INTEGRATION[\s\S]*?errorCategory !== "wallet_rejected"[\s\S]*?errorCategory !== "wallet_busy"/,
@@ -1964,7 +1964,7 @@ test("every canceled THOUGHT wallet request records its terminal outcome", () =>
 });
 
 test("text-too-long rejection is a byte-usage warning", () => {
-  assert.match(thoughtMain, /title:\s*state\.issue\?\.title \?\? \(textTooLong \? "text too long" : "work rejected"\)/);
+  assert.match(thoughtMain, /title:\s*state\.issue\?\.title \?\? \(textTooLong \? "Text too long" : "Work rejected"\)/);
   assert.match(thoughtMain, /tone:\s*state\.issue \|\| textTooLong \? "warning" : "error"/);
   assert.match(thoughtMain, /error\.previewReasonCode === 3 && error\.byteLimit/);
   assert.match(thoughtMain, /formatThoughtByteLimitUsage\(error\.byteLimit\)/);
@@ -2237,11 +2237,11 @@ test("mobile keeps wallet minting but moves new Agent creation to desktop", () =
   }
   assert.match(
     thoughtMain,
-    /const blockMobileThoughtAgentLaunch = \(prompt: string\)[\s\S]*?continue on desktop[\s\S]*?Mobile wallet connection and PATH minting remain available here\./,
+    /const blockMobileThoughtAgentLaunch = \(prompt: string\)[\s\S]*?Continue on desktop[\s\S]*?Mobile wallet connection and PATH minting remain available here\./,
   );
   assert.match(
     thoughtMain,
-    /const ensureThoughtConsoleWelcomeMessage = \(\) => \{[\s\S]*?isThoughtMobileAgentSurface\(\)[\s\S]*?title: "continue on desktop"[\s\S]*?Mobile wallet connection and PATH minting remain available here\./,
+    /const ensureThoughtConsoleWelcomeMessage = \(\) => \{[\s\S]*?isThoughtMobileAgentSurface\(\)[\s\S]*?title: "Continue on desktop"[\s\S]*?Mobile wallet connection and PATH minting remain available here\./,
   );
   assert.match(
     thoughtMain,
@@ -2276,7 +2276,7 @@ test("Agent retry is a Console-only control gated by terminal evidence", () => {
   assert.doesNotMatch(waitingBody, /canReopen|open \$\{product\}|thoughtDockLaunchUrl/);
   assert.match(
     waitingBody,
-    /state\.run\.remoteState === "created"[\s\S]*?keep this page open while \$\{product\} connects/,
+    /state\.run\.remoteState === "created"[\s\S]*?Keep this page open while \$\{product\} connects/,
   );
   assert.match(
     recordBody,
@@ -2303,7 +2303,7 @@ test("Agent retry is a Console-only control gated by terminal evidence", () => {
   );
   assert.match(
     thoughtMain,
-    /action\.className =[\s\S]*?thought-dock-status-screen__action[\s\S]*?action\.textContent = "\[ try again \]";[\s\S]*?action\.setAttribute\("aria-label", "start a new Agent run"\)/,
+    /action\.className =[\s\S]*?thought-dock-status-screen__action[\s\S]*?action\.textContent = "\[ Try again \]";[\s\S]*?action\.setAttribute\("aria-label", "Start a new Agent run"\)/,
   );
   assert.match(ruleBody(".thought-dock-status-screen__action"), /background:\s*transparent/);
   assert.match(ruleBody(".thought-dock-status-screen__action"), /font:\s*inherit/);
@@ -2336,7 +2336,7 @@ test("Agent CTAs use product names and Claude launches Code while retaining Cowo
     /id: "claude",[\s\S]*?label: "Claude",[\s\S]*?ctaLabel: "Claude",[\s\S]*?defaultSurface: "claude-code"/,
   );
   assert.doesNotMatch(thoughtMain, /ctaLabel: "(?:chatgpt|claude)"/);
-  assert.match(thoughtMain, /"send to your Agent"/);
+  assert.match(thoughtMain, /"Send to your Agent"/);
   assert.doesNotMatch(thoughtMain, /"send to your agent"/);
   assert.match(
     thoughtMain,
@@ -2366,7 +2366,7 @@ test("Agent CTAs use product names and Claude launches Code while retaining Cowo
   );
 });
 
-test("saved Agent handoffs carry and verify an integrity digest without becoming a trust root", () => {
+test("Saved Agent handoffs carry and verify an integrity digest without becoming a trust root", () => {
   assert.match(
     thoughtMain,
     /const thoughtAgentHandoffSha256 = \(sealedTask: string\): ThoughtSha256 =>[\s\S]*?sha256\(toUtf8Bytes\(sealedTask\)\)/,
@@ -2393,7 +2393,7 @@ test("Agent readiness is an internal checkpoint that continues automatically", (
   );
   assert.match(
     thoughtMain,
-    /const controlVerified = state\.run\.remoteState === "ready";[\s\S]*?detail: controlVerified[\s\S]*?"Control checks passed\. Creation is continuing automatically\."[\s\S]*?nextStep: `keep this page open while \$\{product\} creates`/,
+    /const controlVerified = state\.run\.remoteState === "ready";[\s\S]*?detail: controlVerified[\s\S]*?"Control checks passed\. Creation is continuing automatically\."[\s\S]*?nextStep: `Keep this page open while \$\{product\} creates`/,
   );
   assert.match(
     thoughtMain,
@@ -2445,7 +2445,7 @@ test("Work owns mutually exclusive Mint and Load disclosures", () => {
   );
   assert.match(
     thoughtMain,
-    /mintPanelOpen \? "mint ↓" : "mint"[\s\S]*?mintPanelOpen \? "collapse Mint panel"[\s\S]*?mintDockRevealed = false;[\s\S]*?\{ expanded: mintPanelOpen \}/,
+    /mintPanelOpen \? "Mint ↓" : "Mint"[\s\S]*?mintPanelOpen \? "Collapse Mint panel"[\s\S]*?mintDockRevealed = false;[\s\S]*?\{ expanded: mintPanelOpen \}/,
     "the Work Mint CTA becomes a clickable expanded disclosure that can collapse Mint",
   );
   assert.match(
@@ -2455,17 +2455,17 @@ test("Work owns mutually exclusive Mint and Load disclosures", () => {
   );
   assert.match(
     thoughtMain,
-    /loadPanelOpen \? "load ↓" : "load"[\s\S]*?workLibraryRevealed = !loadPanelOpen;[\s\S]*?mintDockRevealed = false;[\s\S]*?\{ expanded: loadPanelOpen \}/,
+    /loadPanelOpen \? "Load ↓" : "Load"[\s\S]*?workLibraryRevealed = !loadPanelOpen;[\s\S]*?mintDockRevealed = false;[\s\S]*?\{ expanded: loadPanelOpen \}/,
     "Load is a clickable disclosure and opening it closes Mint",
   );
   assert.match(
     thoughtMain,
-    /currentWorkSaved \? "saved" : "save"[\s\S]*?currentWorkSaved \? "current work is saved" : "save current work"/,
-    "saved Work uses an explicit saved state label",
+    /currentWorkSaved \? "Saved" : "Save"[\s\S]*?currentWorkSaved \? "Current work is saved" : "Save current work"/,
+    "Saved Work uses an explicit Saved state label",
   );
   assert.match(
     thoughtMain,
-    /kind: "work_saved",\s*title: "work saved",\s*detail: "Stored in this browser\. You can load it later\."/,
+    /kind: "work_saved",\s*title: "Work saved",\s*detail: "Stored in this browser\. You can load it later\."/,
     "saving a Work tells the creator it can be loaded later",
   );
   const mintedCase = thoughtMain.slice(
@@ -2539,7 +2539,7 @@ test("Work owns mutually exclusive Mint and Load disclosures", () => {
   );
   assert.match(
     resetDockBody,
-    /kind: "work_reset",\s*title: "work reset",[\s\S]*?Prompt, current work, and open panels cleared\./,
+    /kind: "work_reset",\s*title: "Work reset",[\s\S]*?Prompt, current work, and open panels cleared\./,
     "a successful explicit Reset replaces stale panel guidance with a truthful event",
   );
   assert.match(
@@ -2574,7 +2574,7 @@ test("opening Mint gives one concise overview before state-specific guidance", (
   assert.ok(attemptOffset >= 0 && overviewOffset > attemptOffset);
   assert.match(
     openBody,
-    /kind: "mint_flow_opened",\s*title: "to mint this THOUGHT",\s*detail: "Pick a \$PATH, sign for this work, then mint\.",\s*tone: "neutral",\s*eventId: mintAttemptConsoleEventId\("mint-flow-opened"\)/,
+    /kind: "mint_flow_opened",\s*title: "To mint this THOUGHT",\s*detail: "Pick a \$PATH, sign for this work, then mint\.",\s*tone: "neutral",\s*eventId: mintAttemptConsoleEventId\("mint-flow-opened"\)/,
   );
   assert.match(
     thoughtConsole,
@@ -2585,7 +2585,7 @@ test("opening Mint gives one concise overview before state-specific guidance", (
 test("a verified preview explains temporary Work storage before mint readiness", () => {
   assert.match(
     thoughtMain,
-    /const recordTemporaryThoughtWork = \(work: ThoughtDockWorkView\) => \{[\s\S]*?kind: "work_created_temporarily",\s*title: "the work is created by you",\s*detail: "Stored temporarily\. A new work replaces it; select “save” above to keep it in this browser\.",\s*tone: "neutral"/,
+    /const recordTemporaryThoughtWork = \(work: ThoughtDockWorkView\) => \{[\s\S]*?kind: "work_created_temporarily",\s*title: "The work is created by you",\s*detail: "Stored temporarily\. A new work replaces it; select “save” above to keep it in this browser\.",\s*tone: "neutral"/,
   );
 
   for (const [startMarker, endMarker] of [
@@ -2754,7 +2754,7 @@ test("console outcomes require the action or async result they describe", () => 
   assert.doesNotMatch(
     pathReceiptBody,
     /setPathAcquisitionError\(\s*available\.length/,
-    "a confirmed $PATH must not be relabeled mint unavailable",
+    "a confirmed $PATH must not be relabeled Mint unavailable",
   );
 
   const revertRecoveryStart = thoughtMain.indexOf("const recoverMintStateAfterRevert =");
@@ -2815,7 +2815,7 @@ test("current work verifies THOUGHT uniqueness before PICK and before submission
   const mintedRailStart = railBody.indexOf('case "minted"');
   const mintedRailEnd = railBody.indexOf('case "run_access_needed"', mintedRailStart);
   const mintedRailBody = railBody.slice(mintedRailStart, mintedRailEnd);
-  assert.match(mintedRailBody, /dockRailAction\("view", "view"/);
+  assert.match(mintedRailBody, /dockRailAction\("view", "View"/);
   assert.match(mintedRailBody, /dockRailAction\(\s*"save"/);
   assert.match(mintedRailBody, /loadAction\(\)/);
   assert.match(mintedRailBody, /resetAction\(\)/);
@@ -2972,7 +2972,7 @@ test("unminted creation state stays in its originating tab session", () => {
   assert.match(
     thoughtMain,
     /const thoughtBrowserStorage: WorkStorage = \{\s*getItem: readSharedBrowserItem,\s*setItem: writeSharedBrowserItem,\s*removeItem: removeSharedBrowserItem,\s*\}/,
-    "explicitly saved works remain browser-persistent",
+    "explicitly Saved works remain browser-persistent",
   );
   assert.match(
     thoughtMain,
@@ -3052,7 +3052,7 @@ test("PICK can acquire the exact V2 $PATH without leaving THOUGHT", () => {
     thoughtMintPresentation,
     /state === "review"[\s\S]*?const mintLabel = `Mint \$PATH for[\s\S]*?Select “\$\{mintLabel\}” above to mint the \$PATH required for this THOUGHT work\.[\s\S]*?confirm_path_mint/,
   );
-  assert.match(thoughtMintPresentation, /consoleNextStep: "mint here, or explore \$PATH at \/path"/);
+  assert.match(thoughtMintPresentation, /consoleNextStep: "Mint here, or explore \$PATH at \/path"/);
   assert.doesNotMatch(thoughtMintPresentation, /action\("explore_path"/);
   assert.match(thoughtMain, /availableItems\.length === 0[\s\S]*?pathAcquisitionState === "idle"[\s\S]*?handleMintPath\(\)/);
   assert.match(thoughtMain, /action === "mint_path"[\s\S]*?handleMintPath\(\{ submit: true \}\)/);

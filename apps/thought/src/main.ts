@@ -3711,7 +3711,7 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
   if (state.kind === "agent_select") {
     emitThoughtConsoleEvent({
       kind: "work_agent_selection_ready",
-      title: "choose an Agent",
+      title: "Choose an Agent",
       detail: "Only Agents installed on this machine can receive the prompt.",
       tone: "neutral",
       eventId: `work-agent-selection:${hashText(state.prompt)}`,
@@ -3732,9 +3732,9 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
     if (!state.approving) {
       emitThoughtConsoleEvent({
         kind: "work_claim_authorization_needed",
-        title: `allow ${product}`,
+        title: `Allow ${product}`,
         detail: `Match code ${state.authorization.verificationCode || "------"} with ${product}.`,
-        nextStep: `allow ${product.toLowerCase()} above`,
+        nextStep: `Allow ${product.toLowerCase()} above`,
         tone: "neutral",
         eventId: `work-claim-authorization:${state.run.runId}:${state.authorization.claimRequestId ?? "pending"}`,
       });
@@ -3742,7 +3742,7 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
     if (state.approving) {
       emitThoughtConsoleEvent({
         kind: "work_claim_authorizing",
-        title: `authorizing ${product}`,
+        title: `Authorizing ${product}`,
         tone: "neutral",
         eventId: `work-claim-authorizing:${state.run.runId}:${state.authorization.claimRequestId ?? "pending"}`,
       });
@@ -3766,10 +3766,10 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
         ? thoughtAgentLaunchRequestedDetail(state.adapterId, state.run.surface)
         : thoughtDockAgentLifecycleDetail(state.run.remoteState),
       ...(controlVerified
-        ? { nextStep: `keep this page open while ${product} creates` }
+        ? { nextStep: `Keep this page open while ${product} creates` }
         : state.run.remoteState === "created"
-        ? { nextStep: `keep this page open while ${product} connects` }
-        : { nextStep: `keep this page open while ${product} finishes` }),
+        ? { nextStep: `Keep this page open while ${product} connects` }
+        : { nextStep: `Keep this page open while ${product} finishes` }),
       tone: "neutral",
       eventId: `work-waiting:${state.run.runId}:${state.run.remoteState ?? "created"}`,
     });
@@ -3795,7 +3795,7 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
       kind: "work_preview_unavailable",
       title: "Agent line received",
       detail: state.rawCandidate,
-      nextStep: "canonical artwork preview is unavailable in this environment",
+      nextStep: "Canonical artwork preview is unavailable in this environment",
       tone: "warning",
       eventId: `work-preview-unavailable:${hashText(state.rawCandidate)}:${state.reason}`,
     });
@@ -3805,7 +3805,7 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
     const textTooLong = state.issue?.title === "text too long" || state.reasonCode === 3;
     emitThoughtConsoleEvent({
       kind: "work_preview_rejected",
-      title: state.issue?.title ?? (textTooLong ? "text too long" : "work rejected"),
+      title: state.issue?.title ?? (textTooLong ? "Text too long" : "Work rejected"),
       detail: state.issue?.detail ?? "The App could not accept the Agent response.",
       ...(state.issue?.nextStep ? { nextStep: state.issue.nextStep } : {}),
       tone: state.issue || textTooLong ? "warning" : "error",
@@ -3828,7 +3828,7 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
       kind: "work_run_expired",
       title: "Agent request expired",
       detail: "It was not accepted in time.",
-      nextStep: "start a new Agent run",
+      nextStep: "Start a new Agent run",
       tone: "error",
       eventId: `work-run-expired:${state.run?.runId ?? mintAttemptId}`,
     });
@@ -3843,7 +3843,7 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
         : "The App could not finish this work.",
       ...(state.confirmedRunFailure
         ? {
-            nextStep: "start a new Agent run",
+            nextStep: "Start a new Agent run",
           }
         : {}),
       tone: "error",
@@ -4282,8 +4282,8 @@ const addThoughtConsoleRunRecoveryAction = (
   action.type = "button";
   action.className =
     "thought-dock-status-screen__link thought-dock-status-screen__action";
-  action.textContent = "[ try again ]";
-  action.setAttribute("aria-label", "start a new Agent run");
+  action.textContent = "[ Try again ]";
+  action.setAttribute("aria-label", "Start a new Agent run");
   action.addEventListener("click", retryThoughtDockAgentRunFromConsole);
   line.append(action);
   element.append(line);
@@ -4354,53 +4354,53 @@ const suggestedThoughtConsoleNextStep = (
   }
   switch (input.kind) {
     case "work_preview_unavailable":
-      return "try preview again";
+      return "Try preview again";
     case "work_preview_rejected":
-      return "reset, then send the prompt to your Agent again";
+      return "Reset, then send the prompt to your Agent again";
     case "work_run_access_needed":
     case "work_failed":
-      return "reset and send the prompt to your Agent again";
+      return "Reset and send the prompt to your Agent again";
     case "work_run_expired":
     case "work_run_failed":
-      return "start a new Agent run";
+      return "Start a new Agent run";
     case "work_blocked":
-      return "reset and send the prompt to your Agent again";
+      return "Reset and send the prompt to your Agent again";
     case "wallet_connection_failed":
-      return "try the wallet connection again";
+      return "Try the wallet connection again";
     case "conflicting_mint_reverted":
-      return "wait for the original transaction; do not mint again";
+      return "Wait for the original transaction; do not mint again";
     case "multiple_mint_hashes_returned":
-      return "wait while both transactions are checked; do not mint again";
+      return "Wait while both transactions are checked; do not mint again";
     case "pending_mint_deployment_mismatch":
-      return "open the browser tab where you submitted the mint; do not mint again here";
+      return "Open the browser tab where you submitted the mint; do not mint again here";
     case "mint_submission_detached":
     case "mint_activity_checked":
-      return "check your wallet before trying again";
+      return "Check your wallet before trying again";
     case "work_save_failed":
-      return "create or load a completed work, then select save";
+      return "Create or load a completed work, then select save";
     default:
       break;
   }
   if (title.includes("wallet request already open")) {
-    return "resolve the open wallet request";
+    return "Resolve the open wallet request";
   }
   if (title.includes("wallet unavailable")) {
-    return "install or enable a wallet";
+    return "Install or enable a wallet";
   }
   if (title.includes("switch wallet account")) {
-    return "switch to the $PATH owner account, then refresh wallet from the shell bar";
+    return "Switch to the $PATH owner account, then refresh wallet from the shell bar";
   }
   if (title.includes("switch network")) {
-    return "switch to the THOUGHT network, then refresh wallet from the shell bar";
+    return "Switch to the THOUGHT network, then refresh wallet from the shell bar";
   }
   if (title.includes("list unavailable") || title.includes("inventory unavailable")) {
-    return "open the wallet menu and select refresh";
+    return "Open the wallet menu and select refresh";
   }
   if (title.includes("need a path") || title.includes("no path can mint")) {
-    return "mint a $PATH, then select refresh in the wallet menu";
+    return "Mint a $PATH, then select refresh in the wallet menu";
   }
   if (title.includes("path")) {
-    return "pick another $PATH or select refresh in the wallet menu";
+    return "Pick another $PATH or select refresh in the wallet menu";
   }
   return undefined;
 };
@@ -4428,7 +4428,7 @@ const ensureThoughtConsoleWelcomeMessage = () => {
   if (isThoughtMobileAgentSurface()) {
     emitThoughtConsoleEvent({
       kind: "work_agent_mobile_desktop_required",
-      title: "continue on desktop",
+      title: "Continue on desktop",
       detail: "Codex and Claude Code creation are available from the desktop THOUGHT App. Mobile wallet connection and PATH minting remain available here.",
       tone: "neutral",
       eventId: "agent-mobile-desktop-required",
@@ -4472,7 +4472,7 @@ const recordMintConsoleState = (
     const readiness = getCurrentWorkMintReadiness();
     emitThoughtConsoleEvent({
       kind: readiness.ready ? "work_ready" : "work_blocked",
-      title: readiness.ready ? "ready to mint" : "run this work again",
+      title: readiness.ready ? "Ready to mint" : "Run this work again",
       detail: readiness.ready
         ? "Select “mint” above to start minting this THOUGHT work."
         : "This work is no longer ready to mint.",
@@ -4557,7 +4557,7 @@ const recordMintConsoleState = (
     const path = mintFlowData.pathId ? `$PATH #${mintFlowData.pathId.toString()}` : "$PATH";
     emitThoughtConsoleEvent({
       kind: "authorization_requested",
-      title: "waiting for your signature",
+      title: "Waiting for your signature",
       detail: `A signature request for ${path} is open in your wallet. Approve it to continue. No transaction or gas.`,
       eventId: mintAttemptConsoleEventId(
         "authorization-requested",
@@ -4587,7 +4587,7 @@ const recordMintConsoleState = (
     const txHash = walletState.txHash || mintFlowData.txHash;
     emitThoughtConsoleEvent({
       kind: txHash ? "transaction_submitted" : "transaction_requested",
-      title: txHash ? "THOUGHT mint submitted" : "waiting for your confirmation",
+      title: txHash ? "THOUGHT mint submitted" : "Waiting for your confirmation",
       detail: txHash
         ? shortHex(txHash, 10, 8)
         : "A THOUGHT mint transaction is open in your wallet. Confirm it to continue. Gas applies.",
@@ -4986,7 +4986,7 @@ const noticeThoughtMintUnavailable = () => {
 
 const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
   const resetAction = (run?: AgentDemoRun | null) =>
-    dockRailAction("reset", "reset", "reset THOUGHT Dock and clear input", () => {
+    dockRailAction("reset", "Reset", "Reset THOUGHT Dock and clear input", () => {
       if (run) {
         void cancelThoughtDockRun(run, { clearPrompt: true, focusPrompt: true });
         return;
@@ -4994,7 +4994,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
       resetThoughtDock({ clearPrompt: true, focusPrompt: true });
     }, { handlerKey: run ? `reset:${run.runId}` : "reset" });
   const cancelPreparedAgentSelection = (prompt: string) =>
-    dockRailAction("cancel", "cancel", "cancel Agent selection", () => {
+    dockRailAction("cancel", "Cancel", "Cancel Agent selection", () => {
       const prepared = preparedThoughtDockAgentSelection;
       preparedThoughtDockAgentSelection = null;
       if (prepared) {
@@ -5012,8 +5012,8 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
     const loadPanelOpen = workLibraryRevealed;
     return dockRailAction(
       "load",
-      loadPanelOpen ? "load ↓" : "load",
-      loadPanelOpen ? "collapse saved works" : "open saved works",
+      loadPanelOpen ? "Load ↓" : "Load",
+      loadPanelOpen ? "Collapse saved works" : "Open saved works",
       () => {
         workLibraryRevealed = !loadPanelOpen;
         if (workLibraryRevealed) {
@@ -5021,7 +5021,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
           writeCurrentOutputSession();
           emitThoughtConsoleEvent({
             kind: "work_library_opened",
-            title: "load a saved work",
+            title: "Load a saved work",
             detail: "Saved in this browser only—not on-chain or synced.",
             tone: "neutral",
           });
@@ -5035,7 +5035,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
     );
   };
   const newThoughtAction = () =>
-    dockRailAction("new-thought", "new thought", "start a new THOUGHT", () => {
+    dockRailAction("new-thought", "New thought", "Start a new THOUGHT", () => {
       window.location.href = "/";
     });
   const mobileAgentGuidance = (): DockRailView => ({
@@ -5053,7 +5053,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         actions: [
           dockRailAction(
             "send-agent",
-            "send to your Agent",
+            "Send to your Agent",
             "Enter a THOUGHT before running with your Agent",
             () => {},
             { disabled: true },
@@ -5067,7 +5067,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         status: "Prompt ready",
         tone: "idle",
         actions: [
-          dockRailAction("send-agent", "send to your Agent", "run this THOUGHT with your Agent", () => {
+          dockRailAction("send-agent", "Send to your Agent", "Run this THOUGHT with your Agent", () => {
             void openThoughtDockAgentSelect();
           }),
           loadAction(),
@@ -5118,8 +5118,8 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
           : [
               dockRailAction(
                 `allow-${state.adapterId}`,
-                `allow ${state.adapterId}`,
-                `allow ${product} claim ${code}`,
+                `Allow ${state.adapterId}`,
+                `Allow ${product} claim ${code}`,
                 () => {
                   void approveThoughtDockClaim(state.run, state.adapterId, state.authorization);
                 },
@@ -5143,7 +5143,7 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         status: "Agent line received",
         tone: "warning",
         actions: [
-          dockRailAction("retry", "retry", "retry preview", () => {
+          dockRailAction("retry", "Retry", "Retry preview", () => {
             void retryThoughtDockPreview();
           }),
           resetAction(),
@@ -5180,8 +5180,8 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
           actions: [
             dockRailAction(
               "mint",
-              mintPanelOpen ? "mint ↓" : "mint",
-              mintPanelOpen ? "collapse Mint panel" : "mint this accepted THOUGHT work",
+              mintPanelOpen ? "Mint ↓" : "Mint",
+              mintPanelOpen ? "Collapse Mint panel" : "Mint this accepted THOUGHT work",
               () => {
                 if (!canOpenMint) {
                   noticeThoughtMintUnavailable();
@@ -5202,8 +5202,8 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
             ),
             dockRailAction(
               "save",
-              currentWorkSaved ? "saved" : "save",
-              currentWorkSaved ? "current work is saved" : "save current work",
+              currentWorkSaved ? "Saved" : "Save",
+              currentWorkSaved ? "Current work is saved" : "Save current work",
               () => {
                 saveCurrentWorkFromDock();
               },
@@ -5223,13 +5223,13 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
         status: state.existing ? "Already exists" : "Minted",
         tone: "success",
         actions: [
-          dockRailAction("view", "view", "view minted THOUGHT", () => {
+          dockRailAction("view", "View", "View minted THOUGHT", () => {
             void handleViewThought(state.tokenId ? Number(state.tokenId) : walletState.mintedTokenId);
           }, { handlerKey: `view:${state.tokenId ?? walletState.mintedTokenId ?? "unknown"}` }),
           dockRailAction(
             "save",
-            currentWorkSaved ? "saved" : "save",
-            currentWorkSaved ? "current work is saved" : "save current work",
+            currentWorkSaved ? "Saved" : "Save",
+            currentWorkSaved ? "Current work is saved" : "Save current work",
             () => {
               saveCurrentWorkFromDock();
             },
@@ -5338,7 +5338,7 @@ const recordCurrentMintConsoleState = () => {
 const recordTemporaryThoughtWork = (work: ThoughtDockWorkView) => {
   emitThoughtConsoleEvent({
     kind: "work_created_temporarily",
-    title: "the work is created by you",
+    title: "The work is created by you",
     detail: "Stored temporarily. A new work replaces it; select “save” above to keep it in this browser.",
     tone: "neutral",
     eventId: `work-created:${currentRunContext?.clientGeneratedAt ?? hashText(work.text)}`,
@@ -5426,7 +5426,7 @@ const blockMobileThoughtAgentLaunch = (prompt: string) => {
   if (!isThoughtMobileAgentSurface()) return false;
   emitThoughtConsoleEvent({
     kind: "work_agent_mobile_desktop_required",
-    title: "continue on desktop",
+    title: "Continue on desktop",
     detail: "Codex and Claude Code creation are available from the desktop THOUGHT App. Mobile wallet connection and PATH minting remain available here.",
     tone: "neutral",
     eventId: "agent-mobile-desktop-required",
@@ -5670,7 +5670,7 @@ const prepareThoughtDockAgentSelection = async (prompt: string) => {
         kind: "work_agent_rate_limited",
         title: "Agent run limit reached",
         detail: "Previous Agent launches are still active. No new Agent task was opened.",
-        nextStep: "wait for an earlier run to finish, then send the prompt again",
+        nextStep: "Wait for an earlier run to finish, then send the prompt again",
         tone: "warning",
         eventId: "work-agent-rate-limited:prepare",
       });
@@ -6149,7 +6149,7 @@ const mintThoughtDockWork = async (options?: { attemptId?: string; pathId?: stri
     setThoughtDockState({ kind: "work_ready", work });
     emitThoughtConsoleEvent({
       kind: "work_blocked",
-      title: "run this work again",
+      title: "Run this work again",
       detail: "This work is no longer ready to mint.",
       tone: "warning",
       eventId: `work-blocked:${currentRunContext?.clientGeneratedAt ?? currentOutputText}`,
@@ -6363,7 +6363,7 @@ const resetThoughtDock = (options?: { clearPrompt?: boolean; focusPrompt?: boole
   setThoughtDockState(prompt ? { kind: "ready", prompt } : { kind: "empty" });
   emitThoughtConsoleEvent({
     kind: "work_reset",
-    title: "work reset",
+    title: "Work reset",
     detail: options?.clearPrompt
       ? "Prompt, current work, and open panels cleared."
       : "Current work and open panels cleared.",
@@ -9540,7 +9540,7 @@ const blockPendingMintMutation = (options?: { cli?: boolean }) => {
   runInFlight = false;
   emitThoughtConsoleEvent({
     kind: pending ? "pending_mint_preserved" : "wallet_mint_request_preserved",
-    title: pending ? "THOUGHT mint pending" : "wallet request still open",
+    title: pending ? "THOUGHT mint pending" : "Wallet request still open",
     detail: pending
       ? `Wait for ${shortHex(pending.hash, 10, 8)} to finish. Do not mint again.`
       : "Finish or cancel the wallet request before changing this work.",
@@ -10065,7 +10065,7 @@ const setMintFlowError = (
       kind: "authorization_canceled",
       title: `${path} signature canceled`,
       detail: "No signature was created. No transaction or gas.",
-      nextStep: "select “Try again”, or pick another $PATH",
+      nextStep: "Select “Try again”, or pick another $PATH",
       tone: "warning",
       eventId: mintAttemptConsoleEventId(
         "authorization-canceled",
@@ -10087,7 +10087,7 @@ const setMintFlowError = (
       detail: submitted
         ? `The submitted mint was canceled. No THOUGHT was created, and ${path} was not used.`
         : `No transaction was submitted, and ${path} was not used.`,
-      nextStep: "select “Try again”, or pick another $PATH",
+      nextStep: "Select “Try again”, or pick another $PATH",
       tone: "warning",
       eventId: mintAttemptConsoleEventId("mint-canceled", mintErrorSequence),
     });
@@ -10888,7 +10888,7 @@ const syncPathInventorySelect = (select: HTMLSelectElement) => {
   const placeholder = document.createElement("option");
   placeholder.value = "";
   placeholder.disabled = true;
-  placeholder.textContent = "pick a $PATH";
+  placeholder.textContent = "Pick a $PATH";
   select.appendChild(placeholder);
 
   for (const item of available) {
@@ -10949,8 +10949,8 @@ const renderPathInventoryContext = () => {
 
   const inventoryMatchesWallet = pathInventoryMatchesCurrentWallet();
   if (!inventoryMatchesWallet || pathInventoryState.status === "loading" || pathInventoryState.status === "idle") {
-    title.textContent = "checking $PATH";
-    detail.textContent = "reading wallet $PATH tokens.";
+    title.textContent = "Checking $PATH";
+    detail.textContent = "Reading wallet $PATH tokens.";
     inventory.append(title, detail);
     return inventory;
   }
@@ -11039,7 +11039,7 @@ const syncMintSheet = () => {
     return;
   }
 
-  mintSheetTitle.textContent = "mint THOUGHT";
+  mintSheetTitle.textContent = "Mint THOUGHT";
   mintSheetCopy.textContent = getMintSheetCopy();
   syncMintSheetFlow();
 
@@ -11113,11 +11113,11 @@ const syncWorkLibraryPanel = () => {
   }
 
   const works = [...readStoredThoughtWorks()].reverse();
-  thoughtDockWorksLabel.textContent = "load a saved work";
+  thoughtDockWorksLabel.textContent = "Load a saved work";
   const placeholder = document.createElement("option");
   placeholder.value = "";
   placeholder.disabled = true;
-  placeholder.textContent = works.length ? "load a saved work" : "no saved works";
+  placeholder.textContent = works.length ? "Load a saved work" : "No saved works";
   const options = works.map((work) => {
     const option = document.createElement("option");
     option.value = String(work.id);
@@ -11437,21 +11437,21 @@ const walletConnectionConsoleFailure = (error: unknown) => {
   if (code === "4001" || /reject|denied|cancel/i.test(message)) {
     return {
       kind: "wallet_connection_canceled",
-      title: "wallet connection canceled",
+      title: "Wallet connection canceled",
       detail: "No account access was granted.",
-      nextStep: "select “Connect wallet” when ready",
+      nextStep: "Select “Connect wallet” when ready",
     };
   }
   if (code === "-32002" || /already.*(?:pending|open)|request.*pending/i.test(message)) {
     return {
       kind: "wallet_connection_failed",
-      title: "wallet request already open",
+      title: "Wallet request already open",
       detail: "Finish or cancel the request in your wallet.",
     };
   }
   return {
     kind: "wallet_connection_failed",
-    title: "wallet did not connect",
+    title: "Wallet did not connect",
     detail: "The App could not confirm the wallet connection.",
   };
 };
@@ -11469,7 +11469,7 @@ const requestWalletConnect = async () => {
     if (mintFlowState !== "closed") {
       emitThoughtConsoleEvent({
         kind: "wallet_connection_requested",
-        title: "waiting for your wallet",
+        title: "Waiting for your wallet",
         detail: "A connection request is open in your wallet. Approve it to continue. No signature or transaction.",
       });
     }
@@ -11537,7 +11537,7 @@ const requestWalletConnect = async () => {
   if (mintFlowState !== "closed") {
     emitThoughtConsoleEvent({
       kind: "wallet_connection_requested",
-      title: "waiting for your wallet",
+      title: "Waiting for your wallet",
       detail: "A connection request is open in your wallet. Approve it to continue. No signature or transaction.",
     });
   }
@@ -11617,7 +11617,7 @@ const recordWalletNetworkSwitchFailure = (error: unknown, requestId: number) => 
     detail: canceled
       ? "The wallet network did not change."
       : `The wallet did not switch to ${THOUGHT_CHAIN_NAME}.`,
-    nextStep: "select “Switch network” when ready",
+    nextStep: "Select “Switch network” when ready",
     tone: "warning",
     eventId: mintAttemptConsoleEventId(
       "network-switch",
@@ -11762,7 +11762,7 @@ const disconnectThoughtDockWallet = (options?: { appendCli?: boolean }) => {
     });
     emitThoughtConsoleEvent({
       kind: "wallet_changed_after_submission",
-      title: "wallet disconnected",
+      title: "Wallet disconnected",
       detail: `Reconnect ${shortHex(trackedMint.account)} on chain ${trackedMint.chainId} to continue checking the submitted mint. Do not mint again.`,
     });
   } else {
@@ -11956,7 +11956,7 @@ const openMintFlow = async (
   mintFlowUiMode = uiMode;
   emitThoughtConsoleEvent({
     kind: "mint_flow_opened",
-    title: "to mint this THOUGHT",
+    title: "To mint this THOUGHT",
     detail: "Pick a $PATH, sign for this work, then mint.",
     tone: "neutral",
     eventId: mintAttemptConsoleEventId("mint-flow-opened"),
@@ -13018,7 +13018,7 @@ const reconcileKnownMintReceipt = async (
   }
   emitThoughtConsoleEvent({
     kind: "conflicting_mint_reverted",
-    title: "one mint transaction failed",
+    title: "One mint transaction failed",
     detail: "The other mint transaction is still being checked.",
     eventId: `conflicting-mint-reverted:${transaction.hash}`,
     tone: "warning",
@@ -13126,7 +13126,7 @@ const registerSubmittedMintTx = async (
       appendConflictingMintTransaction(returnedTransaction);
       emitThoughtConsoleEvent({
         kind: "multiple_mint_hashes_returned",
-        title: "more than one mint transaction found",
+        title: "More than one mint transaction found",
         detail: "The App is checking both transactions. Do not mint again.",
         eventId: `multiple-mint-hashes:${existing.hash}:${returnedTransaction.hash}`,
         tone: "warning",
@@ -13252,7 +13252,7 @@ const resumePendingMintTransaction = async () => {
     projectPendingMintTransaction(pending, { deploymentWarning: true });
     emitThoughtConsoleEvent({
       kind: "pending_mint_deployment_mismatch",
-      title: "check the earlier mint",
+      title: "Check the earlier mint",
       detail: `Open the browser tab where you submitted ${shortHex(pending.hash, 10, 8)} on chain ${pending.chainId}. Do not mint again here.`,
       eventId: `pending-deployment:${pending.hash.toLowerCase()}`,
       tone: "warning",
@@ -13454,7 +13454,7 @@ const resumePathMintHandoff = async () => {
 
   emitThoughtConsoleEvent({
     kind: "path_mint_returned",
-    title: "returned from $PATH mint",
+    title: "Returned from $PATH mint",
     detail: "Refreshing wallet $PATH inventory and resuming this THOUGHT mint.",
     eventId: `path-return:${handoff.attemptId}`,
   });
@@ -13976,7 +13976,7 @@ const confirmMint = async (options?: { appendCliResult?: boolean }) => {
               (lateError) => {
                 emitThoughtConsoleEvent({
                   kind: "detached_mint_request_settled",
-                  title: "detached wallet request closed",
+                  title: "Detached wallet request closed",
                   detail: mintErrorMessage(lateError),
                   eventId: `detached-mint-settled:${requestId}`,
                 });
@@ -14163,9 +14163,9 @@ const recoverUnresolvedMintSubmission = async () => {
     );
     emitThoughtConsoleEvent({
       kind: "mint_activity_checked",
-      title: "a previous wallet request is still open",
+      title: "A previous wallet request is still open",
       detail: "No transaction was found. Cancel or reject the earlier request in your wallet before retrying.",
-      nextStep: "cancel the previous wallet request, then select “I closed it”",
+      nextStep: "Cancel the previous wallet request, then select “I closed it”",
       eventId: `mint-activity-checked:${unresolved.requestId}:close-wallet`,
       tone: "warning",
     });
@@ -14182,7 +14182,7 @@ const recoverUnresolvedMintSubmission = async () => {
   );
   emitThoughtConsoleEvent({
     kind: "mint_activity_checked",
-    title: "previous mint may still be open",
+    title: "Previous mint may still be open",
     detail: "Check your wallet. Do not mint again until the previous request is confirmed or canceled.",
     eventId: `mint-activity-checked:${unresolved.requestId}:${nonceAdvanced ? "advanced" : "waiting"}`,
     tone: "warning",
@@ -14218,9 +14218,9 @@ const confirmPreviousWalletRequestClosed = async () => {
   );
   emitThoughtConsoleEvent({
     kind: "mint_submission_detached",
-    title: "ready to retry",
+    title: "Ready to retry",
     detail: "The previous wallet request is closed. No transaction was submitted.",
-    nextStep: "select “Try again”",
+    nextStep: "Select “Try again”",
     eventId: `mint-submission-detached:${unresolved?.requestId ?? mintAttemptId}:confirmed-closed`,
     tone: "warning",
   });
@@ -14496,9 +14496,9 @@ const finishPathAcquisitionReceipt = async (
     : "The transaction confirmed, but the new $PATH is not visible yet.";
   emitThoughtConsoleEvent({
     kind: "path_acquisition_inventory_pending",
-    title: "new $PATH not visible yet",
+    title: "New $PATH not visible yet",
     detail: "The mint succeeded, but the wallet list has not updated.",
-    nextStep: "open the wallet menu and select refresh",
+    nextStep: "Open the wallet menu and select refresh",
     tone: "warning",
     eventId: `path-acquisition-inventory-pending:${pending.txHash}`,
   });
@@ -14544,7 +14544,7 @@ const resumePendingPathAcquisition = async () => {
       kind: "path_acquisition_context_mismatch",
       title: "$PATH mint belongs to another work",
       detail: "This pending $PATH cannot be used for the current THOUGHT.",
-      nextStep: "restore the original wallet and work",
+      nextStep: "Restore the original wallet and work",
       tone: "warning",
       eventId: `path-acquisition-mismatch:${pending.txHash}`,
     });
@@ -14603,7 +14603,7 @@ const confirmPathAcquisition = async () => {
   pathAcquisitionError = "";
   emitThoughtConsoleEvent({
     kind: "path_acquisition_wallet",
-    title: "waiting for your confirmation",
+    title: "Waiting for your confirmation",
     detail: "A $PATH mint transaction is open in your wallet. Confirm it to continue. Gas applies.",
     eventId: `path-acquisition-wallet:${mintAttemptId}`,
   });
@@ -14785,9 +14785,9 @@ const archiveLegacyLocalPendingMint = () => {
   resetMintFlow();
   emitThoughtConsoleEvent({
     kind: "legacy_local_mint_archived",
-    title: "old local mint archived",
+    title: "Old local mint archived",
     detail: `${shortHex(pending!.hash, 10, 8)} on retired local chain ${pending!.chainId} is no longer blocking THOUGHT Anvil chain ${THOUGHT_CHAIN_ID}.`,
-    nextStep: "select mint and use THOUGHT Anvil",
+    nextStep: "Select mint and use THOUGHT Anvil",
     eventId: `legacy-local-mint-archived:${pending!.hash.toLowerCase()}`,
     tone: "warning",
   });
@@ -16822,7 +16822,7 @@ const saveCurrentWorkFromDock = () => {
   if (savedId === null) {
     emitThoughtConsoleEvent({
       kind: "work_save_failed",
-      title: "nothing to save",
+      title: "Nothing to save",
       detail: "Create or load a completed work first.",
       tone: "warning",
     });
@@ -16833,7 +16833,7 @@ const saveCurrentWorkFromDock = () => {
   writeCurrentOutputSession();
   emitThoughtConsoleEvent({
     kind: "work_saved",
-    title: "work saved",
+    title: "Work saved",
     detail: "Stored in this browser. You can load it later.",
     tone: "success",
     eventId: `work-saved:${savedId}`,
@@ -19613,7 +19613,7 @@ const getCliSuggestions = (): CliSuggestion[] => {
 const renderCliSuggestions = () => {
   const label = document.createElement("span");
   label.className = "thought-cli__suggestion-label";
-  label.textContent = "next:";
+  label.textContent = "Next:";
 
   const buttons = getCliSuggestions().map((suggestion) => {
     const button = document.createElement("button");
@@ -23300,7 +23300,7 @@ thoughtDockWorksSelect.addEventListener("change", () => {
   }
   emitThoughtConsoleEvent({
     kind: "work_loaded",
-    title: "work loaded",
+    title: "Work loaded",
     detail: "Loaded from this browser.",
     tone: "success",
     eventId: `work-loaded:${work.id}:${Date.now()}`,
@@ -23784,9 +23784,9 @@ const initFrontpage = async () => {
       ) {
         emitThoughtConsoleEvent({
           kind: "mint_request_interrupted",
-          title: "mint status needs checking",
+          title: "Mint status needs checking",
           detail: "The page reloaded before the wallet returned a transaction hash.",
-          nextStep: "check wallet activity before trying again",
+          nextStep: "Check wallet activity before trying again",
           tone: "warning",
           eventId: `mint-request-interrupted:${restoredDanglingMintRequest.id}`,
         });

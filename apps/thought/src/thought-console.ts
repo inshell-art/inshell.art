@@ -121,16 +121,16 @@ export const newestFirstThoughtConsoleEntries = (
 export const THOUGHT_CONSOLE_HISTORY_VERSION = 1 as const;
 export const THOUGHT_CONSOLE_HISTORY_STORAGE_KEY =
   "inshell:thought:console-history:v1";
-export const THOUGHT_CONSOLE_EMPTY_TITLE = "start with a prompt";
+export const THOUGHT_CONSOLE_EMPTY_TITLE = "Start with a prompt";
 export const THOUGHT_CONSOLE_EMPTY_DETAIL =
   "Write one line above, then send it to your Agent.";
 export const THOUGHT_EXISTS_CONSOLE_NEXT_STEP =
-  "view the existing THOUGHT, or reset and create a new one";
+  "View the existing THOUGHT, or reset and create a new one";
 export const THOUGHT_PATH_SELECTION_DETAIL =
   "Choose an available $PATH above, or mint a new $PATH";
 export const THOUGHT_PATH_REQUIRED_DETAIL =
   "No available $PATH can mint this THOUGHT; mint a new $PATH";
-export const THOUGHT_PATH_LINK_LABEL = "mint a new $PATH ↗";
+export const THOUGHT_PATH_LINK_LABEL = "Mint a new $PATH ↗";
 
 const THOUGHT_PATH_LINK_SUFFIXES = [
   "mint a new $PATH",
