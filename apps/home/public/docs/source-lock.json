@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "d942d22af98a7593bda73e3521a45b69bbc9bf10f1166b54cee6e0e32c2f982e",
+  "sourceTreeSha256": "14250c01c3753736fa260b2f8d878be5b0fde29802165cfd7cb69a40d227f7d0",
   "groups": [
     {
       "id": "public-docs",
@@ -67,7 +67,7 @@
       "title": "Home, $PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "fce2cac7b2308e4498bae43e6d40bb2bc290bfc85d589ee09bce11093d125d4e",
+      "groupSha256": "5399ff5face530e1958a714ffcc0078ebce929b5a0a4964a69f6f137b8e85a44",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -101,8 +101,8 @@
         },
         {
           "path": "apps/home/src/components/AuctionCanvas.tsx",
-          "byteLength": 272773,
-          "sha256": "95b3cf8fb0ff9fc16f3992020e305b5238d48d3aba1f1be776e24e00ba9cf578"
+          "byteLength": 272884,
+          "sha256": "40544b646687d01a30329ff0806a5162136155c20dfb4837542fbf6234990626"
         },
         {
           "path": "apps/home/src/components/ColorFontPage.tsx",
@@ -151,8 +151,8 @@
         },
         {
           "path": "apps/home/src/components/PathPage.tsx",
-          "byteLength": 42415,
-          "sha256": "1b4be5cfecc9e7378fef8eef93ad94a2c784112b5e4ac7e6ab470c98a1808bfa"
+          "byteLength": 42571,
+          "sha256": "c6ba1b2522e7c61c4c125453eac26dd49d71c635457fc475e55b88552a91398b"
         },
         {
           "path": "apps/home/src/components/PreviewWatermark.tsx",
@@ -273,6 +273,11 @@
           "path": "apps/home/src/services/chainIndexer.ts",
           "byteLength": 502,
           "sha256": "0024f9e44dcaae95a8314b20f1aaa4de20aa7a66d04ce96ad3a7ce218f666b29"
+        },
+        {
+          "path": "apps/home/src/services/pathDeployment.ts",
+          "byteLength": 2396,
+          "sha256": "7474d4b002a1a8e08ec1195ea46ac5b67d1aaf91ad7640f9299630e8679125ea"
         },
         {
           "path": "apps/home/src/services/pathIssuance.ts",

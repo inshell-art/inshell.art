@@ -233,6 +233,11 @@ const createWalletState = (overrides: Partial<any> = {}) => {
 };
 let mockWalletState = createWalletState();
 
+jest.mock("@/services/pathDeployment", () => ({
+  ...jest.requireActual("@/services/pathDeployment"),
+  isPathDeploymentActive: jest.fn(() => true),
+}));
+
 jest.mock("../src/hooks/useAuctionBids", () => ({
   useAuctionBids: (...args: any[]) => mockUseAuctionBids(...args),
 }));

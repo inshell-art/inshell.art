@@ -17,6 +17,7 @@ import {
   type ThoughtGalleryItem,
 } from "@/services/thoughtGallery";
 import { readAuctionStatusOverride } from "@/services/auctionStatusOverride";
+import { isPathDeploymentActive } from "@/services/pathDeployment";
 import { PUBLIC_NETWORK_CONFIG } from "@inshell/shared";
 import {
   PATH_MINT_CAPACITY_LINES,
@@ -1185,7 +1186,12 @@ export default function PathPage({
       setState({ status: "ready", items: fixtureItems, error: null });
       return;
     }
-    if (readAuctionStatusOverride() === "no_release" || !pathNftAddress || fromBlock == null) {
+    if (
+      readAuctionStatusOverride() === "no_release" ||
+      !isPathDeploymentActive() ||
+      !pathNftAddress ||
+      fromBlock == null
+    ) {
       setState({
         status: "error",
         items: [],
@@ -1345,7 +1351,7 @@ export default function PathPage({
         {state.status === "error" && (
           <div className="path-page__notice path-page__notice--error">
             <span>{state.error}</span>
-            {readAuctionStatusOverride() === "no_release" ? null : (
+            {readAuctionStatusOverride() === "no_release" || !isPathDeploymentActive() ? null : (
               <button
                 type="button"
                 className="path-page__retry"

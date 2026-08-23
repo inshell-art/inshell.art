@@ -27,6 +27,7 @@ import type { AuctionSnapshot } from "@/types/types";
 import type { NormalizedBid } from "@/services/auction/bidsService";
 import { requestPulseAuctionRefresh } from "@/services/chainIndexer";
 import { clearPathTokenInventoryCache } from "@/services/pathTokens";
+import { isPathDeploymentActive } from "@/services/pathDeployment";
 import {
   readAuctionStatusOverride,
   type AuctionStatus,
@@ -2477,7 +2478,10 @@ export default function AuctionCanvas({
   const pathMintIntentRead = useMemo(() => readPathMintIntent(), []);
   const pathMintIntent =
     pathMintIntentRead.kind === "valid" ? pathMintIntentRead.intent : null;
-  const releaseMissing = !fixtureState && !readDirectAuction && !protocolRelease;
+  const releaseMissing =
+    !fixtureState &&
+    !readDirectAuction &&
+    (!protocolRelease || !isPathDeploymentActive());
   const missingDeployBlock = useMemo(() => {
     if (network === "devnet") return false;
     return bidsFromBlock == null;
