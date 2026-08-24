@@ -233,6 +233,11 @@ const createWalletState = (overrides: Partial<any> = {}) => {
 };
 let mockWalletState = createWalletState();
 
+jest.mock("@/services/pathDeployment", () => ({
+  ...jest.requireActual("@/services/pathDeployment"),
+  isPathDeploymentActive: jest.fn(() => true),
+}));
+
 jest.mock("../src/hooks/useAuctionBids", () => ({
   useAuctionBids: (...args: any[]) => mockUseAuctionBids(...args),
 }));
@@ -1597,8 +1602,12 @@ describe("AuctionCanvas", () => {
       refresh: jest.fn(),
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    expect(screen.getByText(/No PATH deployment loaded/i)).toBeTruthy();
-    expect(screen.getByText(/PATH auction not loaded/i)).toBeTruthy();
+    expect(screen.getByText(/Minting is not open yet/i)).toBeTruthy();
+    expect(
+      screen.getByText(/The \$PATH contract is not deployed yet/i)
+    ).toBeTruthy();
+    // Deploy steps are ours to run, so they never reach a visitor.
+    expect(screen.queryByText(/Deploy PATH/i)).toBeNull();
     expect(mockUseAuctionCore).toHaveBeenLastCalledWith(
       expect.objectContaining({ enabled: false })
     );
@@ -1626,8 +1635,9 @@ describe("AuctionCanvas", () => {
     act(() => {
       jest.advanceTimersByTime(800);
     });
-    expect(screen.getByText(/curve error/i)).toBeTruthy();
-    expect(screen.getByText(/boom/i)).toBeTruthy();
+    expect(screen.getByText(/Pricing is not available right now/i)).toBeTruthy();
+    // Raw error text is for our logs, not for the visitor's screen.
+    expect(screen.queryByText(/boom/i)).toBeNull();
     jest.useRealTimers();
   });
 
@@ -1873,7 +1883,7 @@ describe("AuctionCanvas", () => {
       error: null,
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    expect(screen.getByText(/Auction opens at/i)).toBeTruthy();
+    expect(screen.getByText(/Minting is not open yet/i)).toBeTruthy();
   });
 
   test("shows pre-open message when open time is in the future", () => {
@@ -1900,7 +1910,7 @@ describe("AuctionCanvas", () => {
       error: null,
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    expect(screen.getByText(/Auction opens at/i)).toBeTruthy();
+    expect(screen.getByText(/Minting is not open yet/i)).toBeTruthy();
   });
 
   test("disables mint before open time", async () => {
@@ -1951,7 +1961,8 @@ describe("AuctionCanvas", () => {
     await waitFor(() => {
       expect(mintButton).toBeDisabled();
     });
-    expect(screen.getByText(/Auction opens at/i)).toBeTruthy();
+    expect(screen.getByText(/The auction opens /i)).toBeTruthy();
+    expect(screen.getByText(/Minting opens /i)).toBeTruthy();
 
     await act(async () => {
       fireEvent.click(mintButton);
