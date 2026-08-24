@@ -442,6 +442,17 @@ button,
   line-height: var(--ecosystem-work-meta-line-height);
 }
 
+.ecosystem-home__works-invite {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.ecosystem-home__works-invite:hover,
+.ecosystem-home__works-invite:focus-visible {
+  color: var(--accent);
+}
+
 .ecosystem-home__works-grid {
   width: 100%;
   display: grid;

@@ -103,7 +103,7 @@ import {
 
 const expectCurrentThoughtGalleryInactive = () => {
   expect(screen.getByLabelText("THOUGHT works")).toBeInTheDocument();
-  expect(screen.getByText("Current THOUGHT collection is not deployed.")).toBeInTheDocument();
+  expect(screen.getByText("Create the first THOUGHT.")).toHaveAttribute("href", "/thought");
   expect(document.querySelectorAll(".ecosystem-home__work-card")).toHaveLength(0);
 };
 
@@ -334,7 +334,7 @@ describe("App Component", () => {
       "/will",
     );
     expect(screen.getByText("AWA!")).toBeInTheDocument();
-    expect(screen.getByText("not deployed")).toBeInTheDocument();
+    expect(screen.getByText("try it now")).toBeInTheDocument();
     expect(screen.getByText("launch in 2027")).toBeInTheDocument();
     expect(screen.getByText("launch in 2028")).toBeInTheDocument();
     expectCurrentThoughtGalleryInactive();
@@ -1786,7 +1786,7 @@ describe("App Component", () => {
       "/will",
     );
     expect(screen.getByText("AWA!")).toBeInTheDocument();
-    expect(screen.getByText("not deployed")).toBeInTheDocument();
+    expect(screen.getByText("try it now")).toBeInTheDocument();
     expect(screen.getByText("launch in 2027")).toBeInTheDocument();
     expect(screen.getByText("launch in 2028")).toBeInTheDocument();
     expectCurrentThoughtGalleryInactive();

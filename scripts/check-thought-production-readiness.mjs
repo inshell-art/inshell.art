@@ -114,8 +114,15 @@ for (const snippet of [
   "isThoughtGalleryDeploymentActive",
   "loadThoughtGallery",
   'aria-label="THOUGHT works"',
-  "Current THOUGHT collection is not deployed.",
+  'status: "prelaunch"',
+  "Create the first THOUGHT.",
 ]) if (!ecosystemHome.includes(snippet)) fail(`canonical home gallery is missing ${snippet}`);
+
+// studio-preview keeps the frontend usable, so the home surface must not
+// describe a movement as undeployed.
+for (const forbidden of [
+  "not deployed",
+]) if (ecosystemHome.includes(forbidden)) fail(`canonical home gallery still says ${forbidden}`);
 
 for (const forbidden of [
   "THOUGHT_V2_ARTIFACT_SAMPLES",

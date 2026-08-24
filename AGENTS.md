@@ -2,6 +2,9 @@
 
 ## Response Style
 - Speak bluntly and answer the direct question first.
+- Report what needs the operator's decision, not what you did. Completed work, the steps taken, and the problems you hit and fixed are yours, not theirs.
+- Surface open decisions, blockers, unresolved failures, and risks they should weigh. Omit process narration. If they want the process, they will ask.
+- Keep replies short.
 - If work needs an external value, secret, account action, deployment setting, product decision, or operator confirmation, ask for it directly and early.
 - Do not hide required follow-up actions in docs, caveats, or final summaries. State the blocker as a concrete ask.
 - Do not wait for the operator to discover a missing requirement from a failed deploy or runtime error when the need is already known.
