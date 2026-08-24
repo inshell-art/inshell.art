@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { applyCurrentThoughtLaunchMainDeltas } from "./thought-launch-main-deltas.generated.mjs";
 
 export const THOUGHT_DEV_SNAPSHOT_QUERY_PARAM = "inshell-thought-dev-snapshot";
 export const THOUGHT_DEV_SNAPSHOT_QUERY_VALUE = "da998e1";
@@ -1392,7 +1393,12 @@ function layerTightDetailGrouping(source) {
 }
 
 function restoreMainSnapshot(source) {
-  let currentSource = applyCurrentTrustedAgentLinkDeltas(source, "restore");
+  let currentSource = applyCurrentThoughtLaunchMainDeltas(
+    source,
+    "restore",
+    replaceExactCount,
+  );
+  currentSource = applyCurrentTrustedAgentLinkDeltas(currentSource, "restore");
   currentSource = applyCurrentSingleRunAgentChooserDeltas(currentSource, "restore");
   currentSource = restoreCurrentAgentRateLimitHandling(currentSource);
   currentSource = applyCurrentPreparedAgentChoiceDeltas(currentSource, "restore");
@@ -1740,6 +1746,30 @@ export function restoreThoughtDevIndexSnapshot(html) {
     CURRENT_DETAIL_ONCHAIN_TO_RECORD,
     TAGGED_DETAIL_ONCHAIN_TO_RECORD,
   );
+  current = replaceExactCount(
+    current,
+    "current THOUGHT dock prompt label",
+    ">\n                    Prompt\n                  </label>",
+    ">\n                    prompt\n                  </label>",
+  );
+  current = replaceExactCount(
+    current,
+    "current THOUGHT dock prompt placeholder",
+    'placeholder="Give a thought here"',
+    'placeholder="give a thought here"',
+  );
+  current = replaceExactCount(
+    current,
+    "current THOUGHT dock works label",
+    ">\n                  Load a saved work\n                </label>",
+    ">\n                  load a saved work\n                </label>",
+  );
+  current = replaceExactCount(
+    current,
+    "current THOUGHT dock $PATH label",
+    ">\n                    Available $PATH\n                  </p>",
+    ">\n                    available $PATH\n                  </p>",
+  );
   const restored = POST_SNAPSHOT_INDEX_FRAGMENTS.reduce(
     (current, [label, fragment]) => removeExactlyOnce(current, label, fragment),
     current,
@@ -1763,6 +1793,32 @@ export function restoreThoughtDevIndexSnapshot(html) {
     "tagged THOUGHT detail rail closing",
     TAGGED_DETAIL_ONCHAIN_TO_RECORD,
     CURRENT_DETAIL_ONCHAIN_TO_RECORD,
+  );
+  // The creation panel uses sentence case now; layer it back over the tagged
+  // snapshot so the dev Agent surface shows the current labels.
+  layered = replaceExactCount(
+    layered,
+    "tagged THOUGHT dock prompt label",
+    ">\n                    prompt\n                  </label>",
+    ">\n                    Prompt\n                  </label>",
+  );
+  layered = replaceExactCount(
+    layered,
+    "tagged THOUGHT dock prompt placeholder",
+    'placeholder="give a thought here"',
+    'placeholder="Give a thought here"',
+  );
+  layered = replaceExactCount(
+    layered,
+    "tagged THOUGHT dock works label",
+    ">\n                  load a saved work\n                </label>",
+    ">\n                  Load a saved work\n                </label>",
+  );
+  layered = replaceExactCount(
+    layered,
+    "tagged THOUGHT dock $PATH label",
+    ">\n                    available $PATH\n                  </p>",
+    ">\n                    Available $PATH\n                  </p>",
   );
   layered = layerTightDetailGrouping(layered);
   layered = replaceExactCount(
@@ -1850,7 +1906,14 @@ export function loadThoughtDevSnapshotFile(workspaceRoot, fileKey) {
     currentSingleRunAgentChooser,
     "layer",
   );
-  return layerCurrentAgentLinePreviewUnavailableCopy(currentTrustedAgentLinks);
+  const currentAgentLinePreview = layerCurrentAgentLinePreviewUnavailableCopy(
+    currentTrustedAgentLinks,
+  );
+  return applyCurrentThoughtLaunchMainDeltas(
+    currentAgentLinePreview,
+    "layer",
+    replaceExactCount,
+  );
 }
 
 export function loadThoughtDevSnapshotModule(workspaceRoot, id) {

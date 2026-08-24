@@ -1465,9 +1465,9 @@ assert.deepEqual(
     maxBytes: 64,
   }),
   {
-    title: "trailing space",
+    title: "Trailing space",
     detail: "The prompt ends with a space.",
-    nextStep: "delete the final space",
+    nextStep: "Delete the final space",
   },
 );
 assert.deepEqual(
@@ -1478,9 +1478,9 @@ assert.deepEqual(
     maxBytes: 64,
   }),
   {
-    title: "invisible character",
+    title: "Invisible character",
     detail: "The prompt contains an invisible character at character 5.",
-    nextStep: "delete the invisible character at character 5",
+    nextStep: "Delete the invisible character at character 5",
   },
 );
 assert.deepEqual(
@@ -1491,9 +1491,9 @@ assert.deepEqual(
     maxBytes: 64,
   }),
   {
-    title: "trailing space",
+    title: "Trailing space",
     detail: "The Agent output ends with a space.",
-    nextStep: "reset and run the Agent again; output is never auto-corrected",
+    nextStep: "Reset and run the Agent again; output is never auto-corrected",
   },
 );
 assert.deepEqual(
@@ -1504,9 +1504,9 @@ assert.deepEqual(
     maxBytes: 64,
   }),
   {
-    title: "extra spaces",
+    title: "Extra spaces",
     detail: "The prompt has more than one space together at character 8.",
-    nextStep: "delete the extra space at character 8",
+    nextStep: "Delete the extra space at character 8",
   },
 );
 assert.deepEqual(
@@ -1519,7 +1519,7 @@ assert.deepEqual(
   {
     title: "prompt empty",
     detail: "The prompt is empty.",
-    nextStep: "enter a prompt",
+    nextStep: "Enter a prompt",
   },
 );
 assert.deepEqual(
@@ -1530,9 +1530,9 @@ assert.deepEqual(
     maxBytes: 64,
   }),
   {
-    title: "tab not allowed",
+    title: "Tab not allowed",
     detail: "The prompt contains a tab at character 4.",
-    nextStep: "replace the tab at character 4 with one regular space",
+    nextStep: "Replace the tab at character 4 with one regular space",
   },
 );
 assert.deepEqual(
@@ -1548,7 +1548,7 @@ assert.deepEqual(
   {
     title: "prompt not accepted",
     detail: "The prompt does not match THOUGHT text rules.",
-    nextStep: "check the prompt for extra spaces or unsupported characters",
+    nextStep: "Check the prompt for extra spaces or unsupported characters",
   },
 );
 console.log("[test-thought-runtime] OK");

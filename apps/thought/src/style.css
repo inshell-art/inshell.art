@@ -4557,6 +4557,10 @@ html:root
   .frontpage-shell {
   justify-content: flex-start;
 }
+
+.thought-dock-actions a.thought-dock-button {
+  text-decoration: none;
+}
 /* INSHELL_CURRENT_THOUGHT_DETAIL_PATH_CANON_END */
 
 /* The canonical CLI creation surface preserves the exact June 10 production canvas. */

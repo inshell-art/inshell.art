@@ -19,6 +19,7 @@ import {
   THOUGHT_AGENT_RUN_AUTHORITY,
   THOUGHT_AGENT_RESULT_VERSION,
   THOUGHT_AGENT_ERROR_CODES,
+  THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
   THOUGHT_AGENT_CREATIVE_BRIEF,
   ThoughtAgentProtocolError,
   assertProtocolVersion,
@@ -93,6 +94,40 @@ function normalizeViteBase(value: string | undefined) {
   if (!raw || raw === "/") return "/";
   const withLeadingSlash = raw.startsWith("/") ? raw : `/${raw}`;
   return withLeadingSlash.endsWith("/") ? withLeadingSlash : `${withLeadingSlash}/`;
+}
+
+export function resolveThoughtRouteBaseRedirect(
+  requestUrl: string | undefined,
+  routeBase: string,
+) {
+  if (routeBase === "/") return null;
+  const request = new URL(requestUrl ?? "/", "http://127.0.0.1");
+  const routeWithoutTrailingSlash = routeBase.slice(0, -1);
+  if (request.pathname !== routeWithoutTrailingSlash) return null;
+  return `${routeBase}${request.search}`;
+}
+
+function createThoughtRouteBaseRedirectPlugin(routeBase: string): Plugin {
+  return {
+    name: "thought-route-base-redirect",
+    enforce: "pre",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.method !== "GET" && req.method !== "HEAD") {
+          next();
+          return;
+        }
+        const location = resolveThoughtRouteBaseRedirect(req.url, routeBase);
+        if (!location) {
+          next();
+          return;
+        }
+        res.statusCode = 307;
+        res.setHeader("Location", location);
+        res.end();
+      });
+    },
+  };
 }
 
 function readOutDir(rootDir: string) {
@@ -1282,9 +1317,13 @@ function createThoughtAgentDevApiPlugin(
               protocolError(res, 404, "SPEC_NOT_FOUND", "THOUGHT spec not found.");
               return;
             }
+            const unboundV2Chooser =
+              apiPrefix.endsWith("/v2") &&
+              requestedAgent?.adapterId === THOUGHT_AGENT_UNBOUND_ADAPTER_ID;
             if (
               requestedAgent?.adapterId !== "codex" &&
-              requestedAgent?.adapterId !== "claude"
+              requestedAgent?.adapterId !== "claude" &&
+              !unboundV2Chooser
             ) {
               protocolError(res, 400, "ADAPTER_NOT_INSTALLED", "Requested adapter is not supported.");
               return;
@@ -1434,7 +1473,11 @@ function createThoughtAgentDevApiPlugin(
             assertProtocolVersion(body.protocolVersion);
             const bridge = parseBridgeInfo(body.bridge);
             const adapter = parseAdapterInfo(body.adapter);
-            if (adapter?.adapterId !== run.requestedAdapterId) {
+            const adapterCanBindRun =
+              apiPrefix.endsWith("/v2") &&
+              run.requestedAdapterId === THOUGHT_AGENT_UNBOUND_ADAPTER_ID &&
+              (adapter.adapterId === "codex" || adapter.adapterId === "claude");
+            if (!adapterCanBindRun && adapter.adapterId !== run.requestedAdapterId) {
               protocolError(res, 409, "ADAPTER_MISMATCH", "Bridge adapter does not match requested adapter.");
               return;
             }
@@ -1444,6 +1487,7 @@ function createThoughtAgentDevApiPlugin(
             }
             run.bridge = bridge;
             run.adapter = adapter;
+            run.requestedAdapterId = adapter.adapterId;
             const bridgeToken = randomToken(32);
             run.bridgeToken = bridgeToken;
             run.bridgeTokenSha256 = tokenSha256(bridgeToken);
@@ -1796,6 +1840,7 @@ export default defineConfig(({ command, mode }) => {
     root: rootDir,
     base: routeBase,
     plugins: [
+      createThoughtRouteBaseRedirectPlugin(routeBase),
       createThoughtDevRuntimeBootstrapPlugin({
         contractRuntime: browserContractRuntime,
         evmAddresses: browserEvmAddresses,

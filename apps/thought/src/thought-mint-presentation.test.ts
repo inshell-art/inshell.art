@@ -59,10 +59,10 @@ export const runThoughtMintPresentationTests = () => {
       reason: "Agent result release mismatch.",
     },
   });
-  assert.equal(staleWork.title, "run this work again");
+  assert.equal(staleWork.title, "Run this work again");
   assert.equal(staleWork.detail, "This work is no longer ready to mint.");
   assert.equal(staleWork.stageCopy, "Select “reset”, then send the prompt to your Agent again.");
-  assert.equal(staleWork.consoleNextStep, "reset and send the prompt to your Agent again");
+  assert.equal(staleWork.consoleNextStep, "Reset and send the prompt to your Agent again");
   assert.equal(staleWork.tone, "warning");
   assert.deepEqual(staleWork.actions, []);
 
@@ -70,7 +70,7 @@ export const runThoughtMintPresentationTests = () => {
     ...baseFacts(),
     state: "closed",
   });
-  assert.equal(currentWork.title, "work ready");
+  assert.equal(currentWork.title, "Work ready");
   assert.equal(currentWork.detail, "Select “mint” above to start minting this THOUGHT work.");
   assert.equal(currentWork.stageCopy, "1 THOUGHT requires 1 available $PATH.");
 
@@ -87,7 +87,7 @@ export const runThoughtMintPresentationTests = () => {
       message: "Automatic confirmation monitoring is unavailable.",
     },
   });
-  assert.equal(legacyLocalMint.title, "old local mint cannot confirm here");
+  assert.equal(legacyLocalMint.title, "Old local mint cannot confirm here");
   assert.equal(
     legacyLocalMint.detail,
     "This hash was sent to the retired shared local node, not the current THOUGHT node.",
@@ -106,7 +106,7 @@ export const runThoughtMintPresentationTests = () => {
     address: "",
     chainId: null,
   });
-  assert.equal(connectWallet.title, "connect wallet");
+  assert.equal(connectWallet.title, "Connect wallet");
   assert.equal(
     connectWallet.detail,
     "Select “Connect wallet” above to use that wallet for this THOUGHT mint.",
@@ -128,7 +128,7 @@ export const runThoughtMintPresentationTests = () => {
     "The App could not load this wallet’s $PATH tokens. Your wallet may still hold them.",
   );
   assert.equal(unavailable.stageCopy, "Open the wallet menu and select “refresh”.");
-  assert.equal(unavailable.consoleNextStep, "open the wallet menu and select refresh");
+  assert.equal(unavailable.consoleNextStep, "Open the wallet menu and select refresh");
   assert.deepEqual(unavailable.actions.map((item) => item.label), ["Enter token ID"]);
 
   const empty = presentThoughtMint({
@@ -140,8 +140,8 @@ export const runThoughtMintPresentationTests = () => {
       available: 0,
     },
   });
-  assert.equal(empty.title, "you need a $PATH");
-  assert.equal(empty.consoleNextStep, "mint here, or explore $PATH at /path");
+  assert.equal(empty.title, "You need a $PATH");
+  assert.equal(empty.consoleNextStep, "Mint here, or explore $PATH at /path");
   assert.equal(empty.tone, "running");
   assert.deepEqual(empty.actions.map((item) => item.id), ["none"]);
 
@@ -161,7 +161,7 @@ export const runThoughtMintPresentationTests = () => {
       error: "",
     },
   });
-  assert.equal(pathQuote.title, "you need a $PATH");
+  assert.equal(pathQuote.title, "You need a $PATH");
   assert.equal(
     pathQuote.detail,
     "Select “Mint $PATH for 0.1 local ETH” above to mint the $PATH required for this THOUGHT work.",
@@ -170,7 +170,7 @@ export const runThoughtMintPresentationTests = () => {
     pathQuote.stageCopy,
     "Your wallet will ask you to confirm a transaction. Gas applies.",
   );
-  assert.equal(pathQuote.consoleNextStep, "mint here, or explore $PATH at /path");
+  assert.equal(pathQuote.consoleNextStep, "Mint here, or explore $PATH at /path");
   assert.deepEqual(pathQuote.actions.map((item) => item.id), ["confirm_path_mint"]);
   assert.equal(pathQuote.actions[0]?.label, "Mint $PATH for 0.1 local ETH");
 
@@ -218,11 +218,11 @@ export const runThoughtMintPresentationTests = () => {
     pathInventoryPending.stageCopy,
     "Do not mint another. Open the wallet menu and select “refresh”.",
   );
-  assert.equal(pathInventoryPending.consoleNextStep, "open the wallet menu and select refresh");
+  assert.equal(pathInventoryPending.consoleNextStep, "Open the wallet menu and select refresh");
   assert.deepEqual(pathInventoryPending.actions.map((item) => item.id), ["none"]);
 
   const pickPath = presentThoughtMint(baseFacts());
-  assert.equal(pickPath.title, "pick a $PATH");
+  assert.equal(pickPath.title, "Pick a $PATH");
   assert.equal(pickPath.stageCopy, "Pick a $PATH above for this THOUGHT work.");
   assert.equal(pickPath.consoleNextStep, undefined);
   assert.equal(pickPath.actions[0]?.label, "Pick $PATH");
@@ -249,7 +249,7 @@ export const runThoughtMintPresentationTests = () => {
   );
   assert.equal(
     pickAnotherPath.consoleNextStep,
-    "pick another $PATH, or open the wallet menu and select refresh",
+    "Pick another $PATH, or open the wallet menu and select refresh",
   );
   assert.equal(pickAnotherPath.actions[0]?.label, "Pick another $PATH");
 
@@ -260,7 +260,7 @@ export const runThoughtMintPresentationTests = () => {
   });
   assert.equal(pathReady.activeStep, "sign");
   assert.deepEqual(pathReady.completedSteps, ["path"]);
-  assert.equal(pathReady.title, "sign $PATH #2");
+  assert.equal(pathReady.title, "Sign $PATH #2");
   assert.equal(
     pathReady.detail,
     "Select “Sign $PATH #2” above, then approve the signature in your wallet.",
@@ -274,7 +274,7 @@ export const runThoughtMintPresentationTests = () => {
     state: "authorizing",
     pathId: "2",
   });
-  assert.equal(authorizing.title, "sign $PATH #2 in wallet");
+  assert.equal(authorizing.title, "Sign $PATH #2 in wallet");
   assert.equal(authorizing.detail, "Open your wallet and approve the signature.");
   assert.equal(authorizing.stageCopy, "Signature only · no transaction · no gas");
 
@@ -295,7 +295,7 @@ export const runThoughtMintPresentationTests = () => {
   assert.equal(rejectedSignature.tone, "warning");
   assert.equal(
     rejectedSignature.consoleNextStep,
-    "select “Try again”, or pick another $PATH",
+    "Select “Try again”, or pick another $PATH",
   );
   assert.deepEqual(
     rejectedSignature.actions.map((item) => item.label),
@@ -336,7 +336,7 @@ export const runThoughtMintPresentationTests = () => {
       hash: "",
     },
   });
-  assert.equal(confirmMint.title, "confirm THOUGHT mint in wallet");
+  assert.equal(confirmMint.title, "Confirm THOUGHT mint in wallet");
   assert.equal(confirmMint.detail, "Open your wallet and confirm the transaction.");
   assert.equal(confirmMint.stageCopy, "Transaction not submitted yet · gas applies");
 
@@ -353,7 +353,7 @@ export const runThoughtMintPresentationTests = () => {
       hash: "",
     },
   });
-  assert.equal(preparingMint.title, "preparing THOUGHT mint");
+  assert.equal(preparingMint.title, "Preparing THOUGHT mint");
   assert.equal(
     preparingMint.detail,
     "Checking the work and wallet before opening the transaction request.",
@@ -372,7 +372,7 @@ export const runThoughtMintPresentationTests = () => {
   assert.equal(textTaken.stageCopy, "THOUGHT #7 is already on-chain.");
   assert.equal(
     textTaken.consoleNextStep,
-    "view the existing THOUGHT, or reset and create a new one",
+    "View the existing THOUGHT, or reset and create a new one",
   );
 
   const rejected = presentThoughtMint({
@@ -388,12 +388,12 @@ export const runThoughtMintPresentationTests = () => {
       message: "transaction rejected.",
     },
   });
-  assert.equal(rejected.title, "mint not submitted");
+  assert.equal(rejected.title, "Mint not submitted");
   assert.equal(rejected.detail, "Nothing was sent. Your $PATH signature is still valid.");
   assert.equal(rejected.tone, "warning");
   assert.equal(
     rejected.consoleNextStep,
-    "select “Try again”, or pick another $PATH",
+    "Select “Try again”, or pick another $PATH",
   );
   assert.equal(rejected.actions[0]?.label, "Try again");
 
@@ -414,7 +414,7 @@ export const runThoughtMintPresentationTests = () => {
       message: "transaction canceled.",
     },
   });
-  assert.equal(canceledAfterSubmission.title, "mint canceled");
+  assert.equal(canceledAfterSubmission.title, "Mint canceled");
   assert.equal(
     canceledAfterSubmission.detail,
     "The submitted mint was canceled. No THOUGHT was created.",
@@ -435,14 +435,14 @@ export const runThoughtMintPresentationTests = () => {
       message: "App attestation requires a returned Agent run held by this dev backend.",
     },
   });
-  assert.equal(missingAgentRun.title, "run this work again");
+  assert.equal(missingAgentRun.title, "Run this work again");
   assert.equal(
     missingAgentRun.detail,
     "This work is no longer ready to mint. Nothing was submitted.",
   );
   assert.equal(
     missingAgentRun.consoleNextStep,
-    "reset and send the prompt to your Agent again",
+    "Reset and send the prompt to your Agent again",
   );
   assert.equal(
     missingAgentRun.stageCopy,
@@ -463,7 +463,7 @@ export const runThoughtMintPresentationTests = () => {
       message: "Wallet RPC is not using the active THOUGHT Anvil deployment at http://127.0.0.1:8547.",
     },
   });
-  assert.equal(staleWalletRuntime.title, "refresh wallet network");
+  assert.equal(staleWalletRuntime.title, "Refresh wallet network");
   assert.equal(
     staleWalletRuntime.detail,
     "The wallet is not connected to the active THOUGHT Anvil session. Nothing was submitted.",
@@ -496,7 +496,7 @@ export const runThoughtMintPresentationTests = () => {
   assert.equal(failedOnchain.detail, "The transaction failed. No THOUGHT was created.");
   assert.equal(
     failedOnchain.consoleNextStep,
-    "view the transaction, then refresh wallet from the shell bar",
+    "View the transaction, then refresh wallet from the shell bar",
   );
 
   const genericMintError = presentThoughtMint({
@@ -509,7 +509,7 @@ export const runThoughtMintPresentationTests = () => {
   });
   assert.equal(
     genericMintError.consoleNextStep,
-    "select “Try again”",
+    "Select “Try again”",
   );
   assert.deepEqual(genericMintError.actions, [{ id: "continue", label: "Try again" }]);
 
@@ -521,14 +521,14 @@ export const runThoughtMintPresentationTests = () => {
       message: "local THOUGHT V2 deployment unavailable.",
     },
   });
-  assert.equal(localDeploymentUnavailable.title, "local mint unavailable");
+  assert.equal(localDeploymentUnavailable.title, "Local mint unavailable");
   assert.equal(
     localDeploymentUnavailable.detail,
     "Local Anvil is not serving the THOUGHT contracts configured for this App. Nothing was submitted.",
   );
   assert.equal(
     localDeploymentUnavailable.consoleNextStep,
-    "start or restore the local dev chain, then select “Try again”",
+    "Start or restore the local dev chain, then select “Try again”",
   );
   assert.deepEqual(localDeploymentUnavailable.actions, [
     { id: "continue", label: "Try again" },
@@ -545,7 +545,7 @@ export const runThoughtMintPresentationTests = () => {
       hash: `0x${"ab".repeat(32)}`,
     },
   });
-  assert.equal(submitted.title, "mint submitted");
+  assert.equal(submitted.title, "Mint submitted");
   assert.equal(submitted.actions[0]?.label, "View transaction");
 
   const trackingDelayed = presentThoughtMint({
@@ -565,7 +565,7 @@ export const runThoughtMintPresentationTests = () => {
       message: "Automatic confirmation monitoring is unavailable. Hash retained; do not submit a duplicate.",
     },
   });
-  assert.equal(trackingDelayed.title, "mint tracking delayed");
+  assert.equal(trackingDelayed.title, "Mint tracking delayed");
   assert.equal(
     trackingDelayed.stageCopy,
     "View the transaction to check its status. Do not submit another mint.",
@@ -585,7 +585,7 @@ export const runThoughtMintPresentationTests = () => {
       message: "The original wallet submission is unresolved; do not submit a duplicate.",
     },
   });
-  assert.equal(unresolvedSubmission.title, "wallet response delayed");
+  assert.equal(unresolvedSubmission.title, "Wallet response delayed");
   assert.equal(unresolvedSubmission.actions[0]?.id, "recover_submission");
 
   const walletReturnedWithoutHash = presentThoughtMint({
@@ -601,7 +601,7 @@ export const runThoughtMintPresentationTests = () => {
       message: "wallet returned but the transaction was not submitted.",
     },
   });
-  assert.equal(walletReturnedWithoutHash.title, "mint not submitted");
+  assert.equal(walletReturnedWithoutHash.title, "Mint not submitted");
   assert.equal(
     walletReturnedWithoutHash.detail,
     "The wallet closed without returning a transaction hash. Check wallet activity before trying again.",
@@ -609,7 +609,7 @@ export const runThoughtMintPresentationTests = () => {
   assert.equal(walletReturnedWithoutHash.stageCopy, "No transaction hash received");
   assert.equal(
     walletReturnedWithoutHash.consoleNextStep,
-    "select “Check wallet activity” before retrying",
+    "Select “Check wallet activity” before retrying",
   );
   assert.deepEqual(
     walletReturnedWithoutHash.actions.map((item) => [item.id, item.label]),
@@ -629,7 +629,7 @@ export const runThoughtMintPresentationTests = () => {
       message: "Recovery check complete: the old wallet waiter is detached.",
     },
   });
-  assert.equal(recoveredSubmission.title, "ready to retry");
+  assert.equal(recoveredSubmission.title, "Ready to retry");
   assert.equal(
     recoveredSubmission.detail,
     "The previous wallet request was not submitted. Confirm that your wallet has no open request, then retry.",
@@ -656,7 +656,7 @@ export const runThoughtMintPresentationTests = () => {
       message: "A previous transaction is still being signed or submitted.",
     },
   });
-  assert.equal(walletRequestOpen.title, "wallet request already open");
+  assert.equal(walletRequestOpen.title, "Wallet request already open");
   assert.equal(
     walletRequestOpen.detail,
     "Finish or cancel the previous transaction request in your wallet. This mint was not submitted.",
@@ -675,11 +675,11 @@ export const runThoughtMintPresentationTests = () => {
       message: "$PATH was minted to 0x1234…abcd; select that account in your wallet to continue.",
     },
   });
-  assert.equal(accountMismatch.title, "switch wallet account");
+  assert.equal(accountMismatch.title, "Switch wallet account");
   assert.equal(accountMismatch.detail, "This $PATH belongs to another wallet account.");
   assert.equal(
     accountMismatch.consoleNextStep,
-    "switch to the $PATH owner account, then open the wallet menu and select refresh",
+    "Switch to the $PATH owner account, then open the wallet menu and select refresh",
   );
   assert.deepEqual(accountMismatch.actions.map((item) => item.label), ["Disconnect wallet"]);
 
@@ -706,7 +706,7 @@ export const runThoughtMintPresentationTests = () => {
   assert.equal(pathMintPending.title, "$PATH mint confirming");
   assert.equal(
     pathMintPending.consoleNextStep,
-    "wait for confirmation, then open the wallet menu and select refresh",
+    "Wait for confirmation, then open the wallet menu and select refresh",
   );
   assert.equal(pathMintPending.actions[0]?.id, "none");
 
@@ -721,7 +721,7 @@ export const runThoughtMintPresentationTests = () => {
   assert.equal(pathMintChainMismatch.title, "$PATH minted on another network");
   assert.equal(
     pathMintChainMismatch.consoleNextStep,
-    "switch to Anvil Local, then mint another $PATH",
+    "Switch to Anvil Local, then mint another $PATH",
   );
   assert.equal(pathMintChainMismatch.actions[0]?.label, "Mint another $PATH");
 

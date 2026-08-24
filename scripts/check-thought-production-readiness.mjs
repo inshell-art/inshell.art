@@ -14,6 +14,7 @@ const lock = readJson("apps/thought/production/deployment-lock.json");
 const consumer = readJson("apps/thought/contract-release/consumer-lock.json");
 const generated = read("packages/thought-agent-protocol/src/release.generated.ts");
 const main = read("apps/thought/src/main.ts");
+const launchState = read("apps/thought/src/thought-launch-state.ts");
 const statusApi = read("functions/api/thought-agent/v1/shared.ts");
 const attestationApi = read("functions/api/thought-contract/v2/attestation.ts");
 const deploymentModule = read("apps/thought/src/thought-v2-production-deployment.ts");
@@ -53,9 +54,20 @@ for (const snippet of [
 
 for (const snippet of [
   "THOUGHT_V2_PROTOCOL_RELEASE.deployment.v2MintEnabled &&",
-  "THOUGHT_V2_PRODUCTION_DEPLOYMENT !== null",
-  "IS_LOCAL_THOUGHT_V2 || (",
+  "THOUGHT_V2_PRODUCTION_DEPLOYMENT &&",
+  "PATH_AUCTION_ADDRESS",
+  "const isThoughtMintEnabled = () => thoughtLaunchState.mintEnabled",
+  "await refreshThoughtLaunchState();",
+  "if (isThoughtMintEnabled()) {",
 ]) if (!main.includes(snippet)) fail(`browser mint gate is missing ${snippet}`);
+
+for (const snippet of [
+  'schema: "inshell.thought.launch-state.v1"',
+  "readModelMatchesDeployment",
+  "nowMs - observedAtMs <= maxReadModelAgeMs",
+  'readModel.status === "open"',
+  "observedAtMs >= openTimeMs",
+]) if (!launchState.includes(snippet)) fail(`authoritative launch-state gate is missing ${snippet}`);
 
 for (const snippet of [
   "THOUGHT_V2_PROTOCOL_RELEASE.deployment.v2MintEnabled &&",

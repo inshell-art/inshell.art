@@ -52,12 +52,12 @@ export const normalizePreviewMode = (value: unknown): PreviewMode =>
     : "auto";
 
 export const previewRejectionReasonLabel = (reasonCode: number) => {
-  if (reasonCode === 1) return "empty after normalization";
-  if (reasonCode === 2) return "raw return too large";
-  if (reasonCode === 3) return "text too long";
-  if (reasonCode === 4) return "unsupported characters";
-  if (reasonCode === 5) return "not canonical";
-  if (reasonCode === 6) return "multi-line output";
+  if (reasonCode === 1) return "Empty after normalization";
+  if (reasonCode === 2) return "Raw return too large";
+  if (reasonCode === 3) return "Text too long";
+  if (reasonCode === 4) return "Unsupported characters";
+  if (reasonCode === 5) return "Not canonical";
+  if (reasonCode === 6) return "Multi-line output";
   return "unknown preview error";
 };
 
