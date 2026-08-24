@@ -108,6 +108,19 @@ const FIXTURE_RESULT_CONTRACT: ThoughtCodexResultContractBinding = {
   lineValidation: "terminal-english-64",
 };
 const TERMINAL_STATES = new Set(["returned", "failed", "cancelled", "expired"]);
+const cancelUnqualifiedRealCanary = async (
+  statusUrl: string,
+  browserToken: string,
+) => {
+  await fetch(`${statusUrl.replace(/\/+$/g, "")}/cancel`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${browserToken}`,
+      "content-type": "application/json",
+    },
+    body: "{}",
+  }).catch(() => {});
+};
 const CREATOR_JARGON = [
   "api",
   "json",
@@ -1544,6 +1557,7 @@ export const prepareThoughtCodexRealCanary = async (options: {
     resultContract: options.resultContract,
   });
   if (byteLength(task) > THOUGHT_CODEX_HANDOFF_MAX_BYTES) {
+    await cancelUnqualifiedRealCanary(statusUrl, payload.browserToken);
     throw new Error(
       `Codex canary handoff is ${byteLength(task)} bytes; limit is ${THOUGHT_CODEX_HANDOFF_MAX_BYTES}.`,
     );
@@ -1718,6 +1732,7 @@ export const prepareThoughtClaudeRealCanary = async (options: {
     resultContract: options.resultContract,
   });
   if (byteLength(task) > THOUGHT_CLAUDE_HANDOFF_MAX_BYTES) {
+    await cancelUnqualifiedRealCanary(statusUrl, payload.browserToken);
     throw new Error(
       `Claude canary handoff is ${byteLength(task)} bytes; limit is ${THOUGHT_CLAUDE_HANDOFF_MAX_BYTES}.`,
     );

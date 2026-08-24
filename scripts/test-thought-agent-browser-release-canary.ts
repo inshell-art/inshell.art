@@ -423,7 +423,7 @@ try {
 
   await evaluate(client, `(() => {
     const button = [...document.querySelectorAll("button")].find((node) =>
-      node.getAttribute("aria-label") === "run this THOUGHT with your Agent" &&
+      node.getAttribute("aria-label") === "Run this THOUGHT with your Agent" &&
       node.getBoundingClientRect().width > 0 &&
       node.getBoundingClientRect().height > 0 &&
       getComputedStyle(node).display !== "none" &&

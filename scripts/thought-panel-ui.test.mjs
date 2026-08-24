@@ -371,6 +371,11 @@ test("the browser canary verifies release parity through the actual Agent deep l
 test("the browser canary passes dynamic page values through CDP arguments", () => {
   assert.match(
     thoughtBrowserReleaseCanary,
+    /node\.getAttribute\("aria-label"\) === "Run this THOUGHT with your Agent"/,
+    "the browser canary follows the current product-cased Agent action label",
+  );
+  assert.match(
+    thoughtBrowserReleaseCanary,
     /client\.send\("Runtime\.callFunctionOn", \{[\s\S]*?arguments: argumentValues\.map\(\(value\) => \(\{ value \}\)\)/,
   );
   assert.match(

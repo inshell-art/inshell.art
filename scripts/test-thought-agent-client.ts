@@ -320,6 +320,8 @@ assert(task.includes("Allow this THOUGHT run to receive its sealed prompt and re
 assert(task.includes("A refusal before permission does not prove the App stopped."));
 assert(task.includes("On an exact RETRY, reacquire the same narrow App permission"));
 assert(task.includes("<claim_endpoint>"));
+assert(task.includes("<app_endpoint>"));
+assert(task.includes("<claim_endpoint> = <app_endpoint>/claim"));
 assert(task.includes("<ready_endpoint>"));
 assert(task.includes("<start_endpoint>"));
 assert(task.includes("<result_endpoint>"));

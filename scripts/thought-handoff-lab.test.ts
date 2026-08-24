@@ -5,8 +5,13 @@ import test from "node:test";
 import {
   THOUGHT_CODEX_HANDOFF_CASES,
   buildCodexDeepLink,
+  prepareThoughtCodexRealCanary,
   thoughtCodexCanonicalCandidate,
 } from "./lib/thought-handoff-lab";
+import {
+  THOUGHT_AGENT_LINE_CONTRACT,
+  THOUGHT_V2_PROTOCOL_RELEASE,
+} from "../packages/thought-agent-protocol/src/index";
 
 test("the Codex handoff matrix has stable unique case IDs", () => {
   const ids = THOUGHT_CODEX_HANDOFF_CASES.map((entry) => entry.id);
@@ -63,6 +68,8 @@ test("the handoff is declarative, bootstrap-only, release-bound, and human-sized
   assert.match(task, /visible launch handoff is an editable bootstrap, not creative authority/);
   assert.match(task, /Only App-issued claim\/start responses are canonical/);
   assert.match(task, /Bootstrap capsule — transport values only:/);
+  assert.match(task, /<app_endpoint> = .*<run_id>/);
+  assert.match(task, /<claim_endpoint> = <app_endpoint>\/claim/);
   assert.match(task, /The prompt is absent until \/start succeeds;/);
   assert.match(task, /Never ask the creator to install, configure, or learn anything\./);
   assert.match(task, /Work Specification bytes\/hash\/contract identity/);
@@ -112,5 +119,50 @@ test("the Codex deep link round-trips the sealed handoff", () => {
   assert.equal(
     parsed.searchParams.get("originUrl"),
     "http://127.0.0.1:5177/thought/",
+  );
+});
+
+test("an oversized real canary is cancelled before the qualification error escapes", async () => {
+  const originalFetch = globalThis.fetch;
+  const requests: Array<{ url: string; init?: RequestInit }> = [];
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    requests.push({ url, init });
+    if (requests.length === 1) {
+      return Response.json({
+        runId: "tar_oversized_canary",
+        statusUrl: `https://staging.example/${"x".repeat(2_000)}`,
+        browserToken: "browser-token",
+        launchUri: "codex://run?token=launch-token",
+      });
+    }
+    return Response.json({ state: "cancelled" });
+  };
+
+  try {
+    await assert.rejects(
+      prepareThoughtCodexRealCanary({
+        origin: "https://staging.example",
+        outputDir: "/private/tmp/thought-oversized-canary-test",
+        promptLine: "Can one run clean itself up?",
+        specId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+        release: THOUGHT_V2_PROTOCOL_RELEASE.release,
+        resultContract: {
+          workProfile: THOUGHT_AGENT_LINE_CONTRACT.workProfile,
+          lineValidation: "terminal-english-64",
+        },
+      }),
+      /handoff is .* bytes; limit is 7000/,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(requests.length, 2);
+  assert.match(requests[1].url, /\/cancel$/);
+  assert.equal(requests[1].init?.method, "POST");
+  assert.equal(
+    new Headers(requests[1].init?.headers).get("authorization"),
+    "Bearer browser-token",
   );
 });
