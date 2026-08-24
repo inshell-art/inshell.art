@@ -16,6 +16,7 @@ type Movement = {
 
 type GalleryState =
   | { status: "loading"; items: ThoughtGalleryItem[]; error: null }
+  | { status: "prelaunch"; items: ThoughtGalleryItem[]; error: null }
   | { status: "ready"; items: ThoughtGalleryItem[]; error: null }
   | { status: "error"; items: ThoughtGalleryItem[]; error: string };
 
@@ -27,7 +28,7 @@ const MOVEMENTS: Movement[] = [
     title: "THOUGHT",
     note: thoughtDeploymentActive
       ? `on ${PUBLIC_NETWORK_CONFIG.chainLabel} now`
-      : "not deployed",
+      : "try it now",
     href: "thought",
   },
   { key: "will", title: "WILL", note: "launch in 2027", href: "will" },
@@ -54,11 +55,7 @@ function homeThoughtTargetId(): string | null {
 function initialGalleryState(): GalleryState {
   const cached = readCachedThoughtGallery();
   if (!thoughtDeploymentActive) {
-    return {
-      status: "error",
-      items: [],
-      error: "Current THOUGHT collection is not deployed.",
-    };
+    return { status: "prelaunch", items: [], error: null };
   }
   return cached
     ? { status: "ready", items: cached, error: null }
@@ -155,11 +152,17 @@ export default function EcosystemHome() {
         <p className="ecosystem-home__works-status" aria-live="polite">
           {gallery.status === "loading"
             ? "reading THOUGHT works..."
-            : gallery.status === "error"
-              ? gallery.error
-              : gallery.items.length === 0
-                ? "no minted THOUGHTs yet."
-                : `${gallery.items.length} minted THOUGHT${gallery.items.length === 1 ? "" : "s"}.`}
+            : gallery.status === "prelaunch"
+              ? (
+                <a className="ecosystem-home__works-invite" href="/thought">
+                  Create the first THOUGHT.
+                </a>
+              )
+              : gallery.status === "error"
+                ? gallery.error
+                : gallery.items.length === 0
+                  ? "no minted THOUGHTs yet."
+                  : `${gallery.items.length} minted THOUGHT${gallery.items.length === 1 ? "" : "s"}.`}
         </p>
 
         <div className="ecosystem-home__works-grid">

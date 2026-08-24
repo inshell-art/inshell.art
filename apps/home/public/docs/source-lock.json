@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "b25ce6d6188425b904154cd6dc0c3e006fe59b25900a5b6e20ce582ccd8e485a",
+  "sourceTreeSha256": "385a103b4c524f4693351b39a6ccfbda72b2d20e0341474dc95bff05fce68b87",
   "groups": [
     {
       "id": "public-docs",
@@ -67,7 +67,7 @@
       "title": "Home, $PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "5399ff5face530e1958a714ffcc0078ebce929b5a0a4964a69f6f137b8e85a44",
+      "groupSha256": "efcaa1adaa28c30005fce0187bbcadaba12dad062b43679f45b354d22a964abc",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -116,8 +116,8 @@
         },
         {
           "path": "apps/home/src/components/EcosystemHome.tsx",
-          "byteLength": 7177,
-          "sha256": "dd54a981b4a4052e727e1eace17ccca01e23ef2c86affe32068e75841213e4e0"
+          "byteLength": 7416,
+          "sha256": "c1f81adb6cdf7ad12dc0e6d90cc152565ef43d9510e77aaf1a74d550d565ee92"
         },
         {
           "path": "apps/home/src/components/FloatingReportBug.tsx",
@@ -241,8 +241,8 @@
         },
         {
           "path": "apps/home/src/main.css",
-          "byteLength": 109722,
-          "sha256": "bd6f8db4df2042b35cfcf426a2f91cd3d7e5a0e5d74e9e0289f414f1fd5bafa4"
+          "byteLength": 109947,
+          "sha256": "ec43976e8e0177b926e823d710c118ed968ed88c94dcc9e178101c68d4765e2b"
         },
         {
           "path": "apps/home/src/main.tsx",
