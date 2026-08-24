@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "385a103b4c524f4693351b39a6ccfbda72b2d20e0341474dc95bff05fce68b87",
+  "sourceTreeSha256": "6c1641d256e39192175e7353ac9fa9b8cfe0fc08a720ec79bc76a80a41427eea",
   "groups": [
     {
       "id": "public-docs",
@@ -67,7 +67,7 @@
       "title": "Home, $PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "efcaa1adaa28c30005fce0187bbcadaba12dad062b43679f45b354d22a964abc",
+      "groupSha256": "9a001e718752b9a8ff3c4c1f88ae122686da831e8300d2dccc471874d69e45eb",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -76,8 +76,8 @@
         },
         {
           "path": "apps/home/package.json",
-          "byteLength": 3215,
-          "sha256": "5097a70cbd8fc64a8786bb557ff9737109c99e8d8f51caf7cbfbdc21c4ee57b6"
+          "byteLength": 3214,
+          "sha256": "4d9133f2c88e6bcbb723ebbcbf30ee4c0e65d0fe7755f6a9e9a416ba86a3e619"
         },
         {
           "path": "apps/home/src/App.tsx",
@@ -1009,7 +1009,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "501d44869d4070987a61056fe7a0ee48683c00e3b50d66d9507462ae0370363f",
+      "groupSha256": "a7e10b27a8ad53ab72eb258979e4d2d8deb96027eae913ead859da4a5a95a424",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1019,7 +1019,7 @@
         {
           "path": "apps/thought/package.json",
           "byteLength": 1286,
-          "sha256": "af43e42e2273dfc6524c44739968dd407a5e48b3de63d2f483abda6baf9fa31d"
+          "sha256": "a86e0efd5942c0e3e236719f3c6b3159b07de86d2daf5d82845cc5afa33c85d6"
         },
         {
           "path": "apps/thought/production/deployment-lock.json",
