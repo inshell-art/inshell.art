@@ -51,6 +51,28 @@
 - If reconciling back to `staging` conflicts or would pull unrelated production changes, stop and ask the operator directly before continuing.
 - State plainly in the final response which branch was hotfixed, whether `main` was updated, and whether `staging` was reconciled.
 
+## Guidance and Copy Principles
+- Assume the visitor knows very little. They know something, or they would not have come, but only a little.
+- Give **one piece of information at a time**. One idea per moment, not one sentence per idea. If two things would apply at once, integrate them into one or drop one.
+- Guide only by what is on screen now. When the visitor can see nothing but a prompt field, the guidance is to write a prompt; nothing about Agents, wallets, minting, or launch phases.
+- On the creation surface the aim is to **encourage participation**. Spend the one available slot on what the visitor can do, never on what is absent. In `studio-preview` the frontend is deployed and fully usable; only the contract is not. Do not label a movement "not deployed" or "not minted".
+- Explain mechanism at the moment the visitor asks for it by acting, not before. "The contract is not deployed, so minting is unavailable" belongs in the Console when they reach for the mint CTA, not in ambient copy.
+- Never hide a control to express a state. Show the control and let it explain itself on use. Reserve `disabled` for "an action is already in flight".
+
+### Message shape
+- The **title names the state**, never an instruction. "Waiting for your wallet", not "Approve wallet connection".
+- The **body leads with the governing fact**, then the visitor's move. "Minting opens Sep 1, 08:00 PM GMT+8. Save this work in your browser and it will be here then."
+- A **detail never repeats its title**, and two states never share one detail. If the title were removed, the detail must still be worth printing.
+- Cut reassurance nobody asked for.
+
+### Wording rules
+- **Normal sentence case** for every message and CTA: first letter capitalised, the rest lower case apart from names that carry their own casing — `THOUGHT`, `$PATH`, `Agent`, `Codex`, `Claude`, `ChatGPT`, `App`.
+- Never show operator or infrastructure vocabulary to visitors: environment variable names, deploy or sync instructions, raw error strings, chain and testnet names, or internal phase names such as `studio-preview` and `onchain-open`.
+- Identifiers are not copy. Console event kinds, action ids, state tokens, storage keys, and RPC method names keep their exact casing. Where a string is both compared and displayed, compare case-insensitively.
+
+### Enforcement
+- `scripts/thought-panel-ui.test.mjs` holds these as guard tests: no Console detail may restate or share its title, and no Console title may be phrased as an instruction. Extend the guards when a rule is added rather than relying on review.
+
 ## CSS Variable Discipline
 - Use CSS custom properties as shared visual tokens for integrity across page elements.
 - Do not put raw visual values directly on element selectors when the value affects page identity, shared layout, color, typography, spacing, borders, shadows, animation timing, or component state.
