@@ -27,6 +27,11 @@ import type { AuctionSnapshot } from "@/types/types";
 import type { NormalizedBid } from "@/services/auction/bidsService";
 import { requestPulseAuctionRefresh } from "@/services/chainIndexer";
 import { clearPathTokenInventoryCache } from "@/services/pathTokens";
+import { isPathDeploymentActive } from "@/services/pathDeployment";
+import {
+  readAuctionStatusOverride,
+  type AuctionStatus,
+} from "@/services/auctionStatusOverride";
 import { useAuctionCore } from "@/hooks/useAuctionCore";
 import {
   getProtocolRelease,
@@ -2236,6 +2241,16 @@ function formatUtcTime(atMs: number): string {
   )}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
 }
 
+function formatLocalOpenTime(atMs: number): string {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(new Date(atMs));
+}
+
 function formatAmountDetailed(
   val: string | undefined,
   _decimals: number,
@@ -2263,99 +2278,8 @@ function formatAmountDetailed(
   return `${withSep} ${symbol}`;
 }
 
-type AuctionStatus =
-  | "no_release"
-  | "loading"
-  | "history_loading"
-  | "before_open"
-  | "open_not_active"
-  | "active"
-  | "error";
 
-const CURVE_REASON_COPY: Record<string, string> = {
-  "invalid k/pts": "invalid curve constants",
-  "k/pts nan": "curve constants not finite",
-  "non-positive k/pts": "curve constants must be positive",
-  "invalid open time": "invalid open time",
-  "invalid opening curve": "invalid opening curve",
-  "invalid bid time": "invalid bid time",
-  "invalid premium": "invalid initial premium",
-  "invalid half-life": "invalid half-life",
-  "sale price nan": "sale price not finite",
-  "no bids": "no bids",
-};
 
-function formatCurveReason(reason: string): string {
-  return CURVE_REASON_COPY[reason] ?? reason;
-}
-
-function normalizeAuctionStatus(value: unknown): AuctionStatus | null {
-  if (typeof value !== "string") return null;
-  const raw = value.trim().toLowerCase();
-  if (!raw || raw === "0" || raw === "false" || raw === "auto") return null;
-  if (
-    raw === "no_release" ||
-    raw === "no-release" ||
-    raw === "norelease" ||
-    raw === "not_deployed" ||
-    raw === "not-deployed" ||
-    raw === "no_deployment" ||
-    raw === "no-deployment"
-  ) {
-    return "no_release";
-  }
-  if (
-    raw === "before_open" ||
-    raw === "before-open" ||
-    raw === "beforeopen" ||
-    raw === "pre_open" ||
-    raw === "pre-open" ||
-    raw === "preopen"
-  ) {
-    return "before_open";
-  }
-  if (
-    raw === "open_not_active" ||
-    raw === "open-not-active" ||
-    raw === "opennotactive" ||
-    raw === "open_not_actived" ||
-    raw === "open-not-actived" ||
-    raw === "inactive" ||
-    raw === "not_active" ||
-    raw === "not-active" ||
-    raw === "genesis_waiting" ||
-    raw === "genesis-waiting" ||
-    raw === "genesis" ||
-    raw === "waiting"
-  ) {
-    return "open_not_active";
-  }
-  if (raw === "active") return "active";
-  if (raw === "loading") return "loading";
-  if (raw === "error") return "error";
-  return null;
-}
-
-function readAuctionStatusOverride(): AuctionStatus | null {
-  if (typeof window === "undefined") return null;
-  const query = window.location.search ?? "";
-  const match = /(?:[?&])auction_status=([^&]+)/i.exec(query);
-  if (match) {
-    return normalizeAuctionStatus(decodeURIComponent(match[1]));
-  }
-  const env = getEnvValue("VITE_PULSE_STATUS");
-  const envOverride = normalizeAuctionStatus(typeof env === "string" ? env : "");
-  if (envOverride) return envOverride;
-  const fromGlobal = (window as any).__PULSE_STATUS__;
-  if (fromGlobal != null) return normalizeAuctionStatus(String(fromGlobal));
-  try {
-    const stored = window.localStorage.getItem("__PULSE_STATUS__");
-    if (stored) return normalizeAuctionStatus(JSON.parse(stored));
-  } catch {
-    /* ignore */
-  }
-  return null;
-}
 
 function truthyEnv(value: unknown): boolean {
   if (typeof value === "boolean") return value;
@@ -2402,6 +2326,12 @@ function useAuctionStatus(params: {
     }
     return formatUtcTime(openTimeSec * 1000);
   }, [openTimeSec]);
+  const openAtLocalLabel = useMemo(() => {
+    if (typeof openTimeSec !== "number" || !Number.isFinite(openTimeSec)) {
+      return null;
+    }
+    return formatLocalOpenTime(openTimeSec * 1000);
+  }, [openTimeSec]);
   const opensInLabel = useMemo(() => {
     if (typeof openTimeSec !== "number" || !Number.isFinite(openTimeSec)) {
       return null;
@@ -2409,6 +2339,13 @@ function useAuctionStatus(params: {
     const remaining = openTimeSec - nowSec;
     if (remaining <= 0) return null;
     return formatDuration(remaining);
+  }, [nowSec, openTimeSec]);
+  const opensWithinTheHour = useMemo(() => {
+    if (typeof openTimeSec !== "number" || !Number.isFinite(openTimeSec)) {
+      return false;
+    }
+    const remaining = openTimeSec - nowSec;
+    return remaining > 0 && remaining <= 3600;
   }, [nowSec, openTimeSec]);
 
   useEffect(() => {
@@ -2458,7 +2395,13 @@ function useAuctionStatus(params: {
     hasRenderableCurve,
   ]);
 
-  return { status, openAtUtcLabel, opensInLabel };
+  return {
+    status,
+    openAtUtcLabel,
+    openAtLocalLabel,
+    opensInLabel,
+    opensWithinTheHour,
+  };
 }
 
 function toSafeNumber(val: string | number | bigint | undefined): number {
@@ -2535,7 +2478,10 @@ export default function AuctionCanvas({
   const pathMintIntentRead = useMemo(() => readPathMintIntent(), []);
   const pathMintIntent =
     pathMintIntentRead.kind === "valid" ? pathMintIntentRead.intent : null;
-  const releaseMissing = !fixtureState && !readDirectAuction && !protocolRelease;
+  const releaseMissing =
+    !fixtureState &&
+    !readDirectAuction &&
+    (!protocolRelease || !isPathDeploymentActive());
   const missingDeployBlock = useMemo(() => {
     if (network === "devnet") return false;
     return bidsFromBlock == null;
@@ -4310,7 +4256,12 @@ export default function AuctionCanvas({
   useEffect(() => {
     currentAskEstimateRef.current = currentAskEstimate;
   }, [currentAskEstimate]);
-  const { status: auctionStatus, openAtUtcLabel, opensInLabel } = useAuctionStatus({
+  const {
+    status: auctionStatus,
+    openAtLocalLabel,
+    opensInLabel,
+    opensWithinTheHour,
+  } = useAuctionStatus({
     releaseMissing,
     nowSec,
     openTimeSec: activeConfig?.openTimeSec,
@@ -4335,11 +4286,17 @@ export default function AuctionCanvas({
     !debugActive &&
     !walletActionRequired &&
     (showNoReleaseNotice || showBeforeOpenNotice || showCurveLoading);
+  const auctionOpeningLabel =
+    opensWithinTheHour && opensInLabel
+      ? `in ${opensInLabel}`
+      : openAtLocalLabel;
   const auctionBlockedMintNotice = showBeforeOpenNotice
-    ? `Auction opens ${opensInLabel ? `in ${opensInLabel}` : "soon"}.`
+    ? auctionOpeningLabel
+      ? `Minting opens ${auctionOpeningLabel}.`
+      : "Minting has not opened yet."
     : showNoReleaseNotice
-    ? "PATH auction not loaded."
-    : "Loading auction state.";
+    ? "The $PATH contract is not deployed yet."
+    : "Checking whether minting is open.";
   const showMissingDeployBlock =
     auctionStatus === "loading" &&
     missingDeployBlock &&
@@ -7492,11 +7449,9 @@ export default function AuctionCanvas({
           return (
             <div className="dotfield__canvas dotfield__look">
               <div className="muted dotfield__status-copy">
-                No PATH deployment loaded.
+                Minting is not open yet.
                 <br />
-                PATH auction not loaded.
-                <br />
-                Deploy PATH, export the FE release, then sync inshell.art.
+                The $PATH contract is not deployed yet. Come back when it goes live.
               </div>
             </div>
           );
@@ -7505,11 +7460,11 @@ export default function AuctionCanvas({
           return (
             <div className="dotfield__canvas dotfield__look">
               <div className="muted dotfield__status-copy">
-                Auction opens at {openAtUtcLabel ?? "—"} UTC.
+                Minting is not open yet.
                 <br />
-                {opensInLabel ? `Opens in ${opensInLabel}.` : "Waiting for first eligible block."}
-                <br />
-                First bid can land at or after open time.
+                {auctionOpeningLabel
+                  ? `The auction opens ${auctionOpeningLabel}. Come back then to mint a $PATH.`
+                  : "The opening time is being confirmed. Check back shortly."}
               </div>
             </div>
           );
@@ -7546,9 +7501,7 @@ export default function AuctionCanvas({
           return (
             <div className="dotfield__canvas dotfield__look">
               <div className="muted dotfield__status-copy">
-                No bids loaded.
-                <br />
-                Set VITE_PULSE_AUCTION_DEPLOY_BLOCK to backfill history.
+                Sale history is not available right now.
               </div>
             </div>
           );
@@ -7557,9 +7510,7 @@ export default function AuctionCanvas({
           return (
             <div className="dotfield__canvas dotfield__look">
               <div className="muted dotfield__status-copy">
-                No bids loaded.
-                <br />
-                Check deploy block and RPC.
+                Sale history is not available right now.
               </div>
             </div>
           );
@@ -7567,25 +7518,21 @@ export default function AuctionCanvas({
         if (showCurveLoading && !missingDeployBlockVisible && !noBidsVisible) {
           return (
             <div className="dotfield__canvas dotfield__look">
-              <div className="muted">loading pricing...</div>
+              <div className="muted">Loading pricing.</div>
             </div>
           );
         }
         if (coreErrorVisible && !showCurvePlot) {
           return (
             <div className="dotfield__canvas dotfield__look">
-              <div className="muted">curve error: {String(coreErrorVisible)}</div>
+              <div className="muted">Pricing is not available right now.</div>
             </div>
           );
         }
         if (!showCurvePlot || !effectiveViewport) {
           return (
             <div className="dotfield__canvas dotfield__look">
-              <div className="muted">
-                {linked.reason
-                  ? `curve unavailable: ${formatCurveReason(linked.reason)}`
-                  : "curve not ready"}
-              </div>
+              <div className="muted">Pricing is not available right now.</div>
             </div>
           );
         }

@@ -64,6 +64,15 @@ const mockUseAuctionCore = jest.fn();
 const mockUseAuctionBids = jest.fn();
 const originalFetch = globalThis.fetch;
 
+jest.mock("@/services/pathDeployment", () => ({
+  ...jest.requireActual("@/services/pathDeployment"),
+  isPathDeploymentActive: jest.fn(() => true),
+  PATH_DEPLOYMENT: {
+    chainId: 11155111,
+    pathNft: "0x84915746a1f06850cf41a3e90c60c2dca3fa116d",
+  },
+}));
+
 jest.mock("@/hooks/useAuctionCore", () => ({
   __esModule: true,
   useAuctionCore: (...args: unknown[]) => mockUseAuctionCore(...args),
@@ -382,6 +391,32 @@ describe("App Component", () => {
     expect(screen.getByText("all $PATH · 1")).toBeInTheDocument();
     expect(screen.getByLabelText("$PATH #1 card")).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Inshell surfaces" })).toBeNull();
+  });
+
+  test("an undeployed $PATH contract reads no chain data and says so", async () => {
+    const { isPathDeploymentActive } = jest.requireMock("@/services/pathDeployment");
+    (isPathDeploymentActive as jest.Mock).mockReturnValue(false);
+    try {
+      mockPathAndThoughtApis({
+        pathItems: [pathTokenApiItem()],
+        thoughtItems: [],
+      });
+      window.history.pushState({}, "", "/path");
+      render(<App />);
+      await flushAsyncEffects();
+
+      // The lock is the canonical layer. While it says nothing is deployed the
+      // page must not list tokens from the raw address book.
+      expect(screen.queryByText("all $PATH · 1")).toBeNull();
+      expect(screen.queryByLabelText("$PATH #1 card")).toBeNull();
+      expect(
+        screen.getByText(/The \$PATH contract is not deployed yet/i),
+      ).toBeInTheDocument();
+      // Nothing to retry while the contract does not exist.
+      expect(screen.queryByRole("button", { name: "retry" })).toBeNull();
+    } finally {
+      (isPathDeploymentActive as jest.Mock).mockReturnValue(true);
+    }
   });
 
   test("orders Spark and regular PATH tokens together by mint chronology", async () => {
@@ -1053,7 +1088,9 @@ describe("App Component", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/reading from chain: checking latest block/)).toBeInTheDocument();
     await flushAsyncEffects();
-    expect(screen.getByText("token gallery unavailable.")).toBeInTheDocument();
+    expect(
+      screen.getByText("$PATH tokens could not be loaded right now. Try again in a moment."),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "retry" })).toBeInTheDocument();
   });
 

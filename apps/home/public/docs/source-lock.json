@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "0f22b912d30e2180e704ad830a1ac8c7678c8306cd3c3197a9a1cdad605ba581",
+  "sourceTreeSha256": "b25ce6d6188425b904154cd6dc0c3e006fe59b25900a5b6e20ce582ccd8e485a",
   "groups": [
     {
       "id": "public-docs",
@@ -67,7 +67,7 @@
       "title": "Home, $PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "a16f3addc1d3f6973d2b025248770764f3be8168748001ff5691b174168c93d4",
+      "groupSha256": "5399ff5face530e1958a714ffcc0078ebce929b5a0a4964a69f6f137b8e85a44",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -101,8 +101,8 @@
         },
         {
           "path": "apps/home/src/components/AuctionCanvas.tsx",
-          "byteLength": 274720,
-          "sha256": "753d4f1d6af55be14876795c21a46c6bbfb7aa3ebab3ccc5ae5946cad21813ef"
+          "byteLength": 272884,
+          "sha256": "40544b646687d01a30329ff0806a5162136155c20dfb4837542fbf6234990626"
         },
         {
           "path": "apps/home/src/components/ColorFontPage.tsx",
@@ -151,8 +151,8 @@
         },
         {
           "path": "apps/home/src/components/PathPage.tsx",
-          "byteLength": 42214,
-          "sha256": "42f46da29db41079ca10468274b7a23488980bdeaa33ec7e800538b4866f18ee"
+          "byteLength": 42571,
+          "sha256": "c6ba1b2522e7c61c4c125453eac26dd49d71c635457fc475e55b88552a91398b"
         },
         {
           "path": "apps/home/src/components/PreviewWatermark.tsx",
@@ -265,9 +265,19 @@
           "sha256": "2d2d9d9ae25399cdb9f80ac45a87df7ec8f4bfb0874437a32fc28ba0c37b1b24"
         },
         {
+          "path": "apps/home/src/services/auctionStatusOverride.ts",
+          "byteLength": 2541,
+          "sha256": "d778b7bc8caf56d305ab81eb0b03e3d48f3fa88385521bc0a93373584e2df904"
+        },
+        {
           "path": "apps/home/src/services/chainIndexer.ts",
           "byteLength": 502,
           "sha256": "0024f9e44dcaae95a8314b20f1aaa4de20aa7a66d04ce96ad3a7ce218f666b29"
+        },
+        {
+          "path": "apps/home/src/services/pathDeployment.ts",
+          "byteLength": 2396,
+          "sha256": "7474d4b002a1a8e08ec1195ea46ac5b67d1aaf91ad7640f9299630e8679125ea"
         },
         {
           "path": "apps/home/src/services/pathIssuance.ts",

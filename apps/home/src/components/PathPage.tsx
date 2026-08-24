@@ -16,6 +16,8 @@ import {
   readCachedThoughtGallery,
   type ThoughtGalleryItem,
 } from "@/services/thoughtGallery";
+import { readAuctionStatusOverride } from "@/services/auctionStatusOverride";
+import { isPathDeploymentActive } from "@/services/pathDeployment";
 import { PUBLIC_NETWORK_CONFIG } from "@inshell/shared";
 import {
   PATH_MINT_CAPACITY_LINES,
@@ -1184,19 +1186,16 @@ export default function PathPage({
       setState({ status: "ready", items: fixtureItems, error: null });
       return;
     }
-    if (!pathNftAddress) {
+    if (
+      readAuctionStatusOverride() === "no_release" ||
+      !isPathDeploymentActive() ||
+      !pathNftAddress ||
+      fromBlock == null
+    ) {
       setState({
         status: "error",
         items: [],
-        error: "PATH NFT address is missing. Sync the PATH FE release first.",
-      });
-      return;
-    }
-    if (fromBlock == null) {
-      setState({
-        status: "error",
-        items: [],
-        error: "PATH deploy block is missing. Sync the PATH FE release first.",
+        error: "The $PATH contract is not deployed yet. Tokens appear here once it goes live.",
       });
       return;
     }
@@ -1238,10 +1237,12 @@ export default function PathPage({
       })
       .catch((err) => {
         if (cancelled) return;
+        // The failure detail belongs in our logs, not on the visitor's screen.
+        console.error("PATH token gallery load failed", err);
         setState({
           status: "error",
           items: [],
-          error: String((err as Error)?.message ?? err),
+          error: "$PATH tokens could not be loaded right now. Try again in a moment.",
         });
       });
     return () => {
@@ -1349,14 +1350,16 @@ export default function PathPage({
 
         {state.status === "error" && (
           <div className="path-page__notice path-page__notice--error">
-            <span title={state.error}>token gallery unavailable.</span>
-            <button
-              type="button"
-              className="path-page__retry"
-              onClick={() => setRetryNonce((value) => value + 1)}
-            >
-              retry
-            </button>
+            <span>{state.error}</span>
+            {readAuctionStatusOverride() === "no_release" || !isPathDeploymentActive() ? null : (
+              <button
+                type="button"
+                className="path-page__retry"
+                onClick={() => setRetryNonce((value) => value + 1)}
+              >
+                retry
+              </button>
+            )}
           </div>
         )}
 

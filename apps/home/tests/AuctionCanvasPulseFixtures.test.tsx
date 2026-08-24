@@ -457,10 +457,10 @@ describe("AuctionCanvas with pulse fixtures", () => {
     const { container } = render(
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />
     );
-    expect(await screen.findByText(/Auction opens at/i)).toBeTruthy();
-    expect(screen.getByText(/Opens in 10m0s/i)).toBeTruthy();
+    expect(await screen.findByText(/Minting is not open yet/i)).toBeTruthy();
+    expect(screen.getByText(/The auction opens in 10m0s/i)).toBeTruthy();
     expect(
-      screen.getByText(/First bid can land at or after open time/i)
+      screen.getByText(/Come back then to mint a \$PATH/i)
     ).toBeTruthy();
     expect(container.querySelector(".dotfield__curve")).toBeNull();
     window.history.pushState({}, "", "/");
