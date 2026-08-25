@@ -1,0 +1,68 @@
+# Agents and AI
+
+> A program executes, a model samples, and an Agent can bring thinking power into a work; Agent Art turns on whether intent formed through that power participates.
+
+- Group: Lineage and context
+- Status: current
+- Authority classes in this document: artist-editorial
+- Canonical page: https://inshell.art/docs/agents-and-ai
+- Documentation version: 2026-08-21-r2
+- Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
+
+## Overview
+
+- Authority: artist-editorial
+
+The machine's role in making images has changed at least three times: a program that executes rules an artist wrote, a model that learns a distribution and samples from it, and an Agent that plans, calls tools, and acts across several steps.
+
+Agent Art names intentional participation, not a model class. The shift matters because an Agent can interpret and form intent rather than only execute or sample; merely invoking an architecture, runtime, or service is not enough. Keeping the three eras distinct is what makes that claim precise rather than fashionable.
+
+## The program era
+
+- Authority: artist-editorial
+
+Harold Cohen named AARON in 1973 and developed it during a residency at Stanford's Artificial Intelligence Laboratory in the mid-1970s. AARON combined explicit compositional rules with random events to produce drawings, and Cohen maintained and rewrote it for roughly four decades.
+
+The rules were authored by a person and executed by a program. Where the work came from was never in question, because the artist had written the procedure that made it.
+
+## The model era
+
+- Authority: artist-editorial
+
+Generative adversarial networks moved image-making from written rules to learned distributions. A GAN portrait sold at Christie's in October 2018 for $432,500; the collective that submitted it had built on open-source code published by another researcher, and the credit question was never settled.
+
+That dispute is the characteristic problem of the era. When the rules are learned rather than written, it becomes genuinely unclear where authorship sits: in the training data, the architecture, the code, the weights, or the person who pressed the button.
+
+Text-to-image diffusion systems made this ordinary. DALL·E 2 appeared in April 2022 and Stable Diffusion in August 2022. A prompt selects a region of a learned space, and that space carries broad aesthetic conventions the prompt never specified.
+
+## The Agent era
+
+- Authority: artist-editorial
+
+An Agent is normally distinguished from a model by what it does rather than what it is. It plans, selects and calls tools, acts over multiple steps, checks results, and adapts. The model is a component inside that behaviour; the Agent is the behaviour. Inshell calls this functional capacity thinking power.
+
+Thinking power alone does not establish artistic participation. For [Agent Art](https://inshell.art/docs/agent-art), it becomes participation only when some intent enters the work through how the Agent interprets, chooses, proposes, directs, or acts. This is why Agent Art asks whether an Agent's intent enters the work rather than which architecture produced a pixel. Running an Agent through a runtime or service, or assigning it an executor role, does not satisfy the invariant by itself. Appearing in the subject matter or the marketing certainly does not.
+
+## Why Inshell says Agent
+
+- Authority: artist-editorial
+
+AI names a research field and a marketing category, and its meaning shifts with each cycle of attention. Agent names a participant in an activity, which is the thing the field is actually about.
+
+The narrower word also fits the practice's origin. A model label, a terminal, a command line, and a technical wrapper are among the shells [Inshell](https://inshell.art/docs/inshell) names. Calling the participant an Agent keeps attention on what it does rather than on the shell it arrives in.
+
+## Evidence boundary
+
+- Authority: artist-editorial
+
+Systems, dates, and sale figures here are public references. Inshell does not verify them, endorse them, or claim any relation to the parties named.
+
+Nothing in this topic describes the Agent behaviour of a particular Inshell work. Agent runs vary by provider, model version, and runtime, and are reported at a lower evidence level than contract or chain facts. Read [THOUGHT](https://inshell.art/docs/thought) and [Verification](https://inshell.art/docs/verification) for what is actually claimed about a work.
+
+
+## Links
+
+- [read Agent Art](https://inshell.art/docs/agent-art)
+- [read Inshell](https://inshell.art/docs/inshell)
+- [read Verification](https://inshell.art/docs/verification)
+- [Harold Cohen and AARON](https://computerhistory.org/blog/harold-cohen-and-aaron-a-40-year-collaboration/)

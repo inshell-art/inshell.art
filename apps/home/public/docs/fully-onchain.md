@@ -4,9 +4,9 @@
 
 - Group: Records and verification
 - Status: current
-- Authority classes in this document: app-documentation, contract-release
+- Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/fully-onchain
-- Documentation version: 2026-08-16
+- Documentation version: 2026-08-21-r2
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## Overview
@@ -40,6 +40,16 @@ SVG is both an image and a description of an image. Its raw source is human-read
 That makes SVG a natural layer between human intention and machine action, an area of interest for Inshell. The human can author and read a structure while the renderer can carry it out without translating the work into a separate, inaccessible format.
 
 SVG is also vector-based: it stays clear at different scales, remains compact, and can be assembled deterministically from onchain state. A contract can embed the completed SVG inside token metadata, so the canonical image needs no image server. When letterforms are included as paths, it needs no webfont either.
+
+## SVG and Agent Art
+
+- Authority: artist-editorial, app-documentation
+
+Generic text-to-image generation can turn a semantic prompt into a finished picture while leaving the picture's visual architecture implicit inside a model's broad aesthetic conventions. The prompt may vary the result, but the artist and participant do not necessarily share a literal structure they can inspect or hold.
+
+Inshell uses SVG to make that structure explicit. The artist can hold the aesthetic architecture as paths, shapes, positions, relations, and rules; a human participant can bring an intention; and an Agent's thinking power can enter as it interprets and varies that intention within the same readable structure. SVG does not supply the thinking power; it gives that power a literal architecture to act through without replacing the architecture with an unspecified image-making process.
+
+The same qualities serve fully onchain construction. Raw, plain, descriptive SVG is compact enough to store, deterministic enough to render, and legible to people, Agents, contracts, and ordinary computing systems. One material can relay human intention, aesthetic architecture, Agent interpretation, machine action, and public preservation. This is an Inshell method within [Agent Art](https://inshell.art/docs/agent-art), not a requirement for Agent Art as a field.
 
 ## How Inshell does it
 

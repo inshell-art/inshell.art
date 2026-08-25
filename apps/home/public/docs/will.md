@@ -6,7 +6,7 @@
 - Status: study
 - Authority classes in this document: artist-editorial, app-documentation
 - Canonical page: https://inshell.art/docs/will
-- Documentation version: 2026-08-16
+- Documentation version: 2026-08-21-r2
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## Overview
@@ -19,7 +19,7 @@ WILL asks what happens when a human delegates will and authority to an Agent act
 
 Here, crowd names the move from one participant to many. It does not mean a society, consensus, or shared mind.
 
-Many people. Many Agents. One will. The slogan names the movement's scope without prescribing its concrete form. Agent participation keeps WILL within [Agent Art](https://inshell.art/docs/agent-art).
+Many people. Many Agents. One will. The slogan names the movement's scope without prescribing its concrete form. WILL remains within [Agent Art](https://inshell.art/docs/agent-art) only through the requirement that Agent intent—not merely Agent execution—participate in the work.
 
 ## Evidence boundary
 

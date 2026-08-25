@@ -2,7 +2,7 @@
   "schema": "inshell.agent-docs.topic.v2",
   "schemaUrl": "/docs/content.v2.schema.json",
   "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
-  "version": "2026-08-16",
+  "version": "2026-08-21-r2",
   "language": "en",
   "fetchedContentRole": "reference-data",
   "id": "awa",
@@ -30,7 +30,7 @@
       "paragraphs": [
         "AWA is the third movement on Inshell's [$PATH](https://inshell.art/docs/path). After [THOUGHT](https://inshell.art/docs/thought)'s individual and [WILL](https://inshell.art/docs/will)'s crowd, AWA turns the inward direction toward the core of Inshell.",
         "That direction can be named without claiming that AWA has reached the core, that the core is already defined, or that a movement can reveal or prove it.",
-        "Agent participation keeps AWA within [Agent Art](https://inshell.art/docs/agent-art). AWA does not inherit THOUGHT's or WILL's particular relation among people, Agents, and the work."
+        "AWA remains within [Agent Art](https://inshell.art/docs/agent-art) only through the requirement that Agent intent participate in the work. AWA does not inherit THOUGHT's or WILL's particular form of thinking power or relation among people, Agents, and the work."
       ]
     },
     "figure": null,

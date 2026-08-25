@@ -7,7 +7,7 @@
     },
     "agent-art": {
       "title": "Agent Art",
-      "description": "Agent Art is art in which an Agent participates."
+      "description": "Agent Art is art in which an Agent participates at the level of intention."
     },
     "movements": {
       "title": "Movements",
@@ -60,6 +60,34 @@
     "source-release-boundaries": {
       "title": "Source and Release Boundaries",
       "description": "Source ownership, release artifacts, deployments, and publication are versioned independently."
+    },
+    "lineage": {
+      "title": "Lineage",
+      "description": "Separating the person who specifies a work from whatever carries it out is an old move in art; Agent Art inherits the question, not the authority."
+    },
+    "generative-art": {
+      "title": "Generative Art",
+      "description": "Inshell's pivot from generative art toward Agent Art began when a fixed procedure no longer exhausted what a machine could contribute to a work."
+    },
+    "agents-and-ai": {
+      "title": "Agents and AI",
+      "description": "A program executes, a model samples, and an Agent can bring thinking power into a work; Agent Art turns on whether intent formed through that power participates."
+    },
+    "svg": {
+      "title": "SVG",
+      "description": "SVG is a text document that describes shapes, which is why a person, a browser, a contract, and an Agent can all read the same artwork."
+    },
+    "ethereum": {
+      "title": "Ethereum",
+      "description": "The chain is a deterministic public machine with a price on every byte, and that price is a formal constraint rather than an inconvenience."
+    },
+    "tokens-and-nfts": {
+      "title": "Tokens and NFTs",
+      "description": "A token is a record that names a work; most tokens only point at one, and pointers decay."
+    },
+    "onchain-art": {
+      "title": "Onchain Art",
+      "description": "Onchain is a spectrum, and the useful question is which part of a work the chain actually holds."
     },
     "design-principles": {
       "title": "Design Principles",

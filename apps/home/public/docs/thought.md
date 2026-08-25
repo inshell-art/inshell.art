@@ -6,7 +6,7 @@
 - Status: current
 - Authority classes in this document: artist-editorial, app-documentation, contract-release
 - Canonical page: https://inshell.art/docs/thought
-- Documentation version: 2026-08-16
+- Documentation version: 2026-08-21-r2
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## Overview
@@ -16,6 +16,8 @@
 THOUGHT is the first movement on Inshell's [$PATH](https://inshell.art/docs/path) and begins with the individual. It gives the inward direction—inspect self—a bounded occasion: simply inspect your thought and what becomes visible when one Agent responds. The thought's words, source, and motivation remain open to inspection, as do the knowledge it carries and the reasons that knowledge became believable. The Agent response enters that practice as another exact line to read; it does not resolve the thought or claim possession of its truth.
 
 Within the wider field of [Agent Art](https://inshell.art/docs/agent-art), THOUGHT chooses a narrow terminal practice: one exact human prompt and one exact Agent response. Their ordered pair defines the globally unique work; either line may appear again with a different counterpart.
+
+The artistic distinction is not that a text service returned bytes. THOUGHT makes a narrow opening for thinking power: an Agent interprets one human intention and forms one exact response. The work preserves that result without claiming access to hidden reasoning or equating machine and human thought.
 
 The creation flow is: human prompt → Agent response → validation and canonical record assembly → human selection → wallet confirmation → $PATH movement consumption → THOUGHT minted. The Agent responds. The human decides. The wallet confirms. The contract records.
 

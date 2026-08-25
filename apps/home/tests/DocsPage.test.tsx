@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import nodePath from "node:path";
 import { cwd } from "node:process";
 import { afterEach, describe, expect, jest, test } from "@jest/globals";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
 jest.mock("@/components/PulsePage", () => ({
@@ -38,6 +38,7 @@ import { THOUGHT_MACHINE_HANDOFF_SOURCE } from "../src/content/thought-machine-h
 
 afterEach(() => {
   cleanup();
+  window.sessionStorage.clear();
 });
 
 function renderedTopicHeader(topic: DocsTopic) {
@@ -250,7 +251,10 @@ describe("Docs source editorial guardrails", () => {
     const prompt = agentDocsPrompt("https://inshell.art/");
 
     expect(prompt).toContain("Inshell's public knowledge index");
-    expect(prompt).toContain("https://inshell.art/docs/agent-index.json");
+    expect(prompt).toContain(
+      "answer policy: https://inshell.art/docs/agent-index.json",
+    );
+    expect(prompt).not.toContain("answer policy:\n");
     expect(prompt).toContain(
       "relevant indexed documentation, product context, release, handoff, or live read-only source",
     );
@@ -397,7 +401,7 @@ describe("Docs source editorial guardrails", () => {
     );
     expect(text).toMatch(/arc gives \$PATH its name and its design/i);
     expect(text).toMatch(
-      /Agent participation remains the invariant[\s\S]{0,180}relation[\s\S]{0,120}change from movement to movement/i,
+      /Agent's intent entering the work remains the invariant[\s\S]{0,180}relation[\s\S]{0,180}change from movement to movement/i,
     );
     expect(text).toMatch(
       /THOUGHT begins with the individual[\s\S]{0,180}inspect a thought[\s\S]{0,180}one exact Agent response/i,
@@ -493,8 +497,12 @@ describe("Docs source editorial guardrails", () => {
     expect(topicText(awa as DocsTopic)).toMatch(
       /Core names the movement's artistic direction[\s\S]{0,240}not evidence of a creation surface, mint surface, or deployment/i,
     );
-    expect(topicText(will as DocsTopic)).toMatch(/Agent participation keeps WILL within Agent Art/i);
-    expect(topicText(awa as DocsTopic)).toMatch(/Agent participation keeps AWA within Agent Art/i);
+    expect(topicText(will as DocsTopic)).toMatch(
+      /WILL remains within Agent Art only through the requirement that Agent intent—not merely Agent execution—participate/i,
+    );
+    expect(topicText(awa as DocsTopic)).toMatch(
+      /AWA remains within Agent Art only through the requirement that Agent intent participate/i,
+    );
 
     const expectedLinks = new Map([
       ["movements", ["/docs/thought", "/docs/will", "/docs/awa"]],
@@ -570,6 +578,21 @@ describe("Docs source editorial guardrails", () => {
       /natural layer between human intention and machine action[\s\S]{0,120}an area of interest for Inshell/i,
     );
     expect(text).toMatch(
+      /text-to-image generation[\s\S]{0,180}visual architecture implicit[\s\S]{0,180}broad aesthetic conventions/i,
+    );
+    expect(text).toMatch(
+      /artist can hold the aesthetic architecture[\s\S]{0,180}human participant can bring an intention[\s\S]{0,220}Agent's thinking power can enter/i,
+    );
+    expect(text).toMatch(
+      /SVG does not supply the thinking power[\s\S]{0,180}literal architecture to act through/i,
+    );
+    expect(text).toMatch(
+      /raw, plain, descriptive SVG[\s\S]{0,240}relay human intention, aesthetic architecture, Agent interpretation, machine action, and public preservation/i,
+    );
+    expect(text).toMatch(
+      /Inshell method within Agent Art, not a requirement for Agent Art as a field/i,
+    );
+    expect(text).toMatch(
       /vector-based[\s\S]{0,160}assembled deterministically from onchain state[\s\S]{0,180}no image server[\s\S]{0,100}no webfont/i,
     );
     const svgSection = topic.sections?.find(
@@ -619,6 +642,10 @@ describe("Docs source editorial guardrails", () => {
       sections: {
         "docs-fully-onchain-why": ["app-documentation", "contract-release"],
         "docs-fully-onchain-svg": ["app-documentation", "contract-release"],
+        "docs-fully-onchain-agent-art": [
+          "artist-editorial",
+          "app-documentation",
+        ],
         "docs-fully-onchain-inshell": ["app-documentation", "contract-release"],
         "docs-fully-onchain-boundary": [
           "app-documentation",
@@ -827,7 +854,10 @@ describe("Docs source editorial guardrails", () => {
         { label: "thought", href: "/docs/thought" },
         { label: "Agent Art", href: "/docs/agent-art" },
       ],
-      "agent-art": [{ label: "Inshell", href: "/docs/inshell" }],
+      "agent-art": [
+        { label: "Inshell", href: "/docs/inshell" },
+        { label: "Generative Art", href: "/docs/generative-art" },
+      ],
       movements: [
         { label: "THOUGHT", href: "/docs/thought" },
         { label: "WILL", href: "/docs/will" },
@@ -881,6 +911,7 @@ describe("Docs source editorial guardrails", () => {
         { label: "attestation status", href: "/docs/verification" },
       ],
       "fully-onchain": [
+        { label: "Agent Art", href: "/docs/agent-art" },
         { label: "$PATH", href: "/docs/path" },
         { label: "THOUGHT", href: "/docs/thought" },
         {
@@ -915,6 +946,44 @@ describe("Docs source editorial guardrails", () => {
         { label: "Pulse", href: "/docs/pulse" },
         { label: "Verification", href: "/docs/verification" },
       ],
+      lineage: [
+        { label: "Agent Art", href: "/docs/agent-art" },
+        { label: "THOUGHT", href: "/docs/thought" },
+      ],
+      "generative-art": [
+        { label: "Agent Art", href: "/docs/agent-art" },
+        { label: "THOUGHT", href: "/docs/thought" },
+      ],
+      "agents-and-ai": [
+        { label: "Agent Art", href: "/docs/agent-art" },
+        { label: "Inshell", href: "/docs/inshell" },
+        { label: "THOUGHT", href: "/docs/thought" },
+        { label: "Verification", href: "/docs/verification" },
+      ],
+      svg: [
+        {
+          label: "Fully Onchain",
+          href: "/docs/fully-onchain#docs-fully-onchain-agent-art",
+        },
+        { label: "Ethereum", href: "/docs/ethereum" },
+        { label: "Mono 76", href: "/docs/mono-76" },
+      ],
+      ethereum: [
+        { label: "Design Principles", href: "/docs/design-principles" },
+        { label: "Fully Onchain", href: "/docs/fully-onchain" },
+        { label: "Tokens and NFTs", href: "/docs/tokens-and-nfts" },
+        { label: "Contracts", href: "/docs/contracts" },
+        { label: "Verification", href: "/docs/verification" },
+      ],
+      "tokens-and-nfts": [
+        { label: "Fully Onchain", href: "/docs/fully-onchain" },
+        {
+          label: "Artwork, Metadata, and Chain",
+          href: "/docs/artwork-metadata-chain",
+        },
+        { label: "Verification", href: "/docs/verification" },
+      ],
+      "onchain-art": [{ label: "Fully Onchain", href: "/docs/fully-onchain" }],
       "design-principles": [
         { label: "THOUGHT", href: "/docs/thought" },
         { label: "Pulse", href: "/docs/pulse" },
@@ -1127,6 +1196,8 @@ describe("Docs source editorial guardrails", () => {
 
     const text = topicText(agentArt);
     expect(text).toMatch(/\bart in which an Agent participates\b/i);
+    expect(text).toMatch(/\blevel of intention\b/i);
+    expect(text).toMatch(/\bAgent(?:'s| intent|\s+intent of the Agent)\b/i);
     expect(text).toMatch(/\bfield\b/i);
     expect(text).toMatch(/\bform\b/i);
     expect(text).toMatch(/\bnot\b[^.]{0,160}\b(?:agentic-ism|ideology)\b/i);
@@ -1152,6 +1223,75 @@ describe("Docs source editorial guardrails", () => {
     );
 
     expect(nonPrescription).toBeDefined();
+  });
+
+  test("requires Agent intent rather than infrastructure or execution alone", () => {
+    const agentArt = DOCS_SOURCE.topics.find(({ slug }) => slug === "agent-art");
+    expect(agentArt).toBeDefined();
+    if (!agentArt) return;
+
+    const text = topicText(agentArt);
+    expect(text).toMatch(/\b(?:runtime|service)\b/i);
+    expect(text).toMatch(/\bexecutor role\b/i);
+    expect(text).toMatch(/\bnone is sufficient by itself\b/i);
+    expect(text).toMatch(/\bintent of the Agent (?:enters|must enter) the work\b/i);
+    expect(text).toMatch(/\b(?:constrained|formed in response to human intention)\b/i);
+  });
+
+  test("records thinking power as Inshell's pivot from generative art toward Agent Art", () => {
+    const generativeArt = DOCS_SOURCE.topics.find(
+      ({ slug }) => slug === "generative-art",
+    );
+    expect(generativeArt).toBeDefined();
+    if (!generativeArt) return;
+
+    const section = generativeArt.sections?.find(
+      ({ id }) => id === "docs-generative-thinking-power",
+    );
+    expect(section).toBeDefined();
+    if (!section) return;
+
+    const text = (section.paragraphs ?? []).map(docsParagraphText).join("\n");
+    expect(text).toMatch(/\bpiece of code between input and output\b/i);
+    expect(text).toMatch(/\bthinking power\b/i);
+    expect(text).toMatch(/\binterpret, reason, choose, and act\b/i);
+    expect(text).toMatch(/\bnot claim that machine and human thought are identical\b/i);
+    expect(text).toMatch(/\bgate from Inshell's generative-art period toward Agent Art\b/i);
+    expect(text).toMatch(/\bsome intent formed through it, participates\b/i);
+  });
+
+  test("carries the algorithm-to-thinking distinction through the relevant corpus", () => {
+    const text = (slug: string) => {
+      const topic = DOCS_SOURCE.topics.find((candidate) => candidate.slug === slug);
+      expect(topic).toBeDefined();
+      return topic ? topicText(topic) : "";
+    };
+
+    expect(text("agent-art")).toMatch(/fixed procedure[\s\S]{0,220}thinking power/i);
+    expect(text("agent-art")).toMatch(/thinking power becomes artistic participation/i);
+    expect(text("movements")).toMatch(
+      /Agent intent entering the work is the invariant[\s\S]{0,180}thinking power must participate/i,
+    );
+    expect(text("thought")).toMatch(
+      /not that a text service returned bytes[\s\S]{0,180}narrow opening for thinking power/i,
+    );
+    expect(text("will")).toMatch(/Agent intent—not merely Agent execution/i);
+    expect(text("awa")).toMatch(/Agent intent participate[\s\S]{0,180}thinking power/i);
+    expect(text("lineage")).toMatch(
+      /functional capacity thinking power[\s\S]{0,180}intent formed through it enters the work/i,
+    );
+    expect(text("agents-and-ai")).toMatch(
+      /program executes, a model samples[\s\S]{0,180}thinking power/i,
+    );
+    expect(text("agents-and-ai")).toMatch(
+      /thinking power alone does not establish artistic participation[\s\S]{0,220}intent enters the work through how the Agent interprets, chooses, proposes, directs, or acts/i,
+    );
+    expect(text("svg")).toMatch(
+      /SVG does not create an Agent's thinking power[\s\S]{0,160}literal architecture/i,
+    );
+    expect(text("design-principles")).toMatch(
+      /Architecture holds; thinking participates[\s\S]{0,220}algorithmic execution[\s\S]{0,160}thinking power/i,
+    );
   });
 
   test("leaves Agent Art open through the source questions of Art and Agent", () => {
@@ -1221,6 +1361,57 @@ describe("Docs source editorial guardrails", () => {
 });
 
 describe("DocsPage navigation", () => {
+  test("shows the full Agent prompt only on the first docs load", () => {
+    const { rerender, unmount } = render(<DocsPage topicSlug="will" />);
+    const prompt = document.querySelector(".docs-agent__prompt");
+    const fullPrompt = agentDocsPrompt("http://localhost");
+    const collapse = screen.getByRole("button", { name: "Collapse Agent prompt" });
+    const actions = screen.getByRole("navigation", {
+      name: "Agent documentation actions",
+    });
+
+    expect(prompt?.textContent).toBe(fullPrompt);
+    expect(
+      within(prompt as HTMLElement).getByRole("link", {
+        name: "http://localhost/docs/agent-index.json",
+      }),
+    ).toHaveAttribute("href", "http://localhost/docs/agent-index.json");
+    expect(collapse).toHaveTextContent("▾");
+    expect(collapse).toHaveAttribute("aria-expanded", "true");
+    expect(collapse.closest(".docs-agent__prompt-field")).not.toBeNull();
+    expect(within(actions).queryByRole("button", { name: /Agent prompt/ })).toBeNull();
+    expect(window.sessionStorage.getItem("inshell.docs.prompt-seen")).toBe(
+      "true",
+    );
+
+    rerender(<DocsPage topicSlug="agent-art" />);
+
+    expect(prompt?.textContent).toBe(fullPrompt);
+    expect(prompt).toHaveClass("docs-agent__prompt--collapsed");
+    const expand = screen.getByRole("button", { name: "Expand Agent prompt" });
+    expect(expand).toHaveTextContent("▸");
+    expect(expand).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(expand);
+    expect(prompt).not.toHaveClass("docs-agent__prompt--collapsed");
+
+    rerender(<DocsPage topicSlug="pulse" />);
+    expect(prompt).toHaveClass("docs-agent__prompt--collapsed");
+
+    unmount();
+    render(<DocsPage topicSlug="will" />);
+
+    expect(document.querySelector(".docs-agent__prompt")?.textContent).toBe(
+      fullPrompt,
+    );
+    expect(document.querySelector(".docs-agent__prompt")).toHaveClass(
+      "docs-agent__prompt--collapsed",
+    );
+    expect(
+      screen.getByRole("button", { name: "Expand Agent prompt" }),
+    ).toBeInTheDocument();
+  });
+
   test("bridges ordinary article reading to wider Agent exploration", () => {
     render(<DocsPage />);
 
@@ -1450,6 +1641,13 @@ describe("DocsPage character figures", () => {
       "verification",
       "wallet-local-data",
       "source-release-boundaries",
+      "lineage",
+      "generative-art",
+      "agents-and-ai",
+      "svg",
+      "ethereum",
+      "tokens-and-nfts",
+      "onchain-art",
       "design-principles",
     ]);
     expect(
@@ -1479,6 +1677,8 @@ describe("DocsPage character figures", () => {
       section("contracts", "docs-contracts-responsibilities")?.figure,
     ).toBeUndefined();
     expect(section("design-principles", "docs-design-selection")?.figure)
+      .toBeUndefined();
+    expect(section("design-principles", "docs-design-thinking")?.figure)
       .toBeUndefined();
     expect(section("design-principles", "docs-design-canonical")?.figure)
       .toBeUndefined();
@@ -1674,7 +1874,7 @@ describe("DocsPage character figures", () => {
       /RELATION|BOUNDARY|DOES NOT PROVE/,
     );
     expect(agentArtFigure).toMatch(
-      /AGENT ART[\s\S]*An Agent participates[\s\S]*• What is Art\?[\s\S]*• What is an Agent\?/i,
+      /AGENT ART[\s\S]*An Agent's intent participates[\s\S]*• What is Art\?[\s\S]*• What is an Agent\?/i,
     );
     expect(agentArtFigure).not.toMatch(/\bINVARIANT\b|OPEN QUESTIONS/i);
     expect(agentArtFigure).not.toMatch(/NO PRESCRIBED RELATION/);
@@ -2091,7 +2291,7 @@ describe("DocsPage character figures", () => {
       .getByRole("figure", { name: "The invariant and the open field" })
       .querySelector("[data-figure-shape='open-invariant-field']");
     expect(openAgentArt).toHaveTextContent(
-      /AGENT ART[\s\S]*An Agent participates in the art activity[\s\S]*•[\s\S]*WHAT IS ART/i,
+      /AGENT ART[\s\S]*An Agent's intent participates in the work[\s\S]*•[\s\S]*WHAT IS ART/i,
     );
     expect(openAgentArt).toHaveTextContent(/•[\s\S]*WHAT IS AN AGENT/i);
     expect(openAgentArt).not.toHaveTextContent(/\bINVARIANT\b|OPEN QUESTIONS/i);
@@ -2112,7 +2312,7 @@ describe("DocsPage character figures", () => {
     ).toEqual(["•", "•"]);
     expect(
       openAgentArt?.querySelector("[data-figure-node='invariant']"),
-    ).toHaveTextContent(/Agent Art[\s\S]*An Agent participates in the art activity/i);
+    ).toHaveTextContent(/Agent Art[\s\S]*An Agent's intent participates in the work/i);
     expect(
       Array.from(
         openAgentArt?.querySelectorAll("[data-figure-group-id='agent-art-questions']") ?? [],
@@ -2194,6 +2394,12 @@ describe("DocsPage character figures", () => {
       name: "Documentation content",
     });
     expect(principlesArticle).toHaveTextContent(/collaboration is bounded/i);
+    expect(principlesArticle).toHaveTextContent(
+      /thinking power participates inside held architecture/i,
+    );
+    expect(principlesArticle).toHaveTextContent(
+      /Architecture holds; thinking participates/i,
+    );
     expect(principlesArticle).toHaveTextContent(
       /authority to continue or preserve is explicit/i,
     );

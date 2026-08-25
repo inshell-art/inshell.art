@@ -158,6 +158,7 @@ Use `fully onchain` as a narrow chain-sufficiency claim, not as praise or a syno
 - Treat RPCs, wallets, explorers, marketplaces, and Apps as access or reading surfaces when they only call and decode the contracts. They must not supply missing canonical content.
 - A data URI may carry complete onchain content. A URI or hash that only identifies external content does not put that content onchain.
 - Dynamic output may be fully onchain when every value that determines it comes from bound code, state, and data on the selected chain.
+- When Inshell connects SVG to Agent Art, distinguish a material method from a field definition. SVG can let the artist hold a literal aesthetic architecture, let human intentions vary it, and let an Agent act within the same readable structure. Do not present SVG as a requirement for Agent Art.
 - Keep fully onchain separate from immutable, non-upgradeable, decentralized, deployed, verified, attested, authored, or true. State those claims independently and support each with its own authority.
 - A release-qualified portable contract package proves design and package integrity, not persistent deployment. Do not describe a live fully-onchain work without deployment and chain evidence.
 - Keep repositories and releases available for audit and interpretation without presenting them as runtime content hosts.
