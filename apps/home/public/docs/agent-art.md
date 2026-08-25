@@ -51,9 +51,9 @@ For [Inshell](https://inshell.art/docs/inshell), Agent Art is the medium of this
 
 - Authority: artist-editorial
 
-An Agent may participate through a runtime, service, interface, tool use, or executor role. Those are possible carriers of participation, but none is sufficient by itself. If the Agent only supplies infrastructure or carries out a fully determined instruction, the work uses an Agent without including its intent.
+An Agent may participate through a runtime, service, interface, tool use, or executor role. Those are possible carriers of participation, but none is sufficient by itself. A program that only applies a fixed procedure, or an Agent that only supplies infrastructure or carries out a fully determined instruction, can be used without its thinking power or intent entering the work.
 
-For Agent Art, some intent of the Agent must enter the work through how the Agent interprets, chooses, proposes, directs, or acts. That intent may be constrained or formed in response to human intention; it does not automatically mean authorship, collaboration, assistance, autonomy, equality, or any prescribed role.
+For Agent Art, some intent of the Agent must enter the work through how the Agent interprets, chooses, proposes, directs, or acts. This is the level at which thinking power becomes artistic participation. That intent may be constrained or formed in response to human intention; it does not automatically mean authorship, collaboration, assistance, autonomy, equality, or any prescribed role.
 
 An Agent that appears only as a subject, image, theme, or marketing label does not satisfy the invariant by appearance alone.
 
@@ -70,5 +70,7 @@ Questions raised by a particular work belong to that work. They are not implied 
 - Authority: artist-editorial
 
 Inshell stands in Agent Art as an artist. Its movements and works take particular forms within the field without enclosing the field within Inshell's methods.
+
+Inshell's route into the field began in its [Generative Art](https://inshell.art/docs/generative-art) period. Once AI could be approached as a thinking machine, using it only as another fixed algorithm left its distinguishing capacity outside the work. The question became how a work could be composed so that thinking power, and intent formed through it, participates.
 
 Protocols, interfaces, renderers, provenance, and public chains are materials in some Inshell practices. They are not requirements for Agent Art as a whole.

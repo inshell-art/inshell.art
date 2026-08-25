@@ -401,7 +401,7 @@ describe("Docs source editorial guardrails", () => {
     );
     expect(text).toMatch(/arc gives \$PATH its name and its design/i);
     expect(text).toMatch(
-      /Agent participation remains the invariant[\s\S]{0,180}relation[\s\S]{0,120}change from movement to movement/i,
+      /Agent's intent entering the work remains the invariant[\s\S]{0,180}relation[\s\S]{0,180}change from movement to movement/i,
     );
     expect(text).toMatch(
       /THOUGHT begins with the individual[\s\S]{0,180}inspect a thought[\s\S]{0,180}one exact Agent response/i,
@@ -497,8 +497,12 @@ describe("Docs source editorial guardrails", () => {
     expect(topicText(awa as DocsTopic)).toMatch(
       /Core names the movement's artistic direction[\s\S]{0,240}not evidence of a creation surface, mint surface, or deployment/i,
     );
-    expect(topicText(will as DocsTopic)).toMatch(/Agent participation keeps WILL within Agent Art/i);
-    expect(topicText(awa as DocsTopic)).toMatch(/Agent participation keeps AWA within Agent Art/i);
+    expect(topicText(will as DocsTopic)).toMatch(
+      /WILL remains within Agent Art only through the requirement that Agent intent—not merely Agent execution—participate/i,
+    );
+    expect(topicText(awa as DocsTopic)).toMatch(
+      /AWA remains within Agent Art only through the requirement that Agent intent participate/i,
+    );
 
     const expectedLinks = new Map([
       ["movements", ["/docs/thought", "/docs/will", "/docs/awa"]],
@@ -577,10 +581,13 @@ describe("Docs source editorial guardrails", () => {
       /text-to-image generation[\s\S]{0,180}visual architecture implicit[\s\S]{0,180}broad aesthetic conventions/i,
     );
     expect(text).toMatch(
-      /artist can hold the aesthetic architecture[\s\S]{0,180}human participant can bring an intention[\s\S]{0,180}Agent can interpret that intention within the same readable structure/i,
+      /artist can hold the aesthetic architecture[\s\S]{0,180}human participant can bring an intention[\s\S]{0,220}Agent's thinking power can enter/i,
     );
     expect(text).toMatch(
-      /raw, plain, descriptive SVG[\s\S]{0,180}relay intention, architecture, machine action, and public preservation/i,
+      /SVG does not supply the thinking power[\s\S]{0,180}literal architecture to act through/i,
+    );
+    expect(text).toMatch(
+      /raw, plain, descriptive SVG[\s\S]{0,240}relay human intention, aesthetic architecture, Agent interpretation, machine action, and public preservation/i,
     );
     expect(text).toMatch(
       /Inshell method within Agent Art, not a requirement for Agent Art as a field/i,
@@ -847,7 +854,10 @@ describe("Docs source editorial guardrails", () => {
         { label: "thought", href: "/docs/thought" },
         { label: "Agent Art", href: "/docs/agent-art" },
       ],
-      "agent-art": [{ label: "Inshell", href: "/docs/inshell" }],
+      "agent-art": [
+        { label: "Inshell", href: "/docs/inshell" },
+        { label: "Generative Art", href: "/docs/generative-art" },
+      ],
       movements: [
         { label: "THOUGHT", href: "/docs/thought" },
         { label: "WILL", href: "/docs/will" },
@@ -940,7 +950,10 @@ describe("Docs source editorial guardrails", () => {
         { label: "Agent Art", href: "/docs/agent-art" },
         { label: "THOUGHT", href: "/docs/thought" },
       ],
-      "generative-art": [{ label: "THOUGHT", href: "/docs/thought" }],
+      "generative-art": [
+        { label: "Agent Art", href: "/docs/agent-art" },
+        { label: "THOUGHT", href: "/docs/thought" },
+      ],
       "agents-and-ai": [
         { label: "Agent Art", href: "/docs/agent-art" },
         { label: "Inshell", href: "/docs/inshell" },
@@ -1223,6 +1236,59 @@ describe("Docs source editorial guardrails", () => {
     expect(text).toMatch(/\bnone is sufficient by itself\b/i);
     expect(text).toMatch(/\bintent of the Agent (?:enters|must enter) the work\b/i);
     expect(text).toMatch(/\b(?:constrained|formed in response to human intention)\b/i);
+  });
+
+  test("records thinking power as Inshell's pivot from generative art toward Agent Art", () => {
+    const generativeArt = DOCS_SOURCE.topics.find(
+      ({ slug }) => slug === "generative-art",
+    );
+    expect(generativeArt).toBeDefined();
+    if (!generativeArt) return;
+
+    const section = generativeArt.sections?.find(
+      ({ id }) => id === "docs-generative-thinking-power",
+    );
+    expect(section).toBeDefined();
+    if (!section) return;
+
+    const text = (section.paragraphs ?? []).map(docsParagraphText).join("\n");
+    expect(text).toMatch(/\bpiece of code between input and output\b/i);
+    expect(text).toMatch(/\bthinking power\b/i);
+    expect(text).toMatch(/\binterpret, reason, choose, and act\b/i);
+    expect(text).toMatch(/\bnot claim that machine and human thought are identical\b/i);
+    expect(text).toMatch(/\bgate from Inshell's generative-art period toward Agent Art\b/i);
+    expect(text).toMatch(/\bsome intent formed through it, participates\b/i);
+  });
+
+  test("carries the algorithm-to-thinking distinction through the relevant corpus", () => {
+    const text = (slug: string) => {
+      const topic = DOCS_SOURCE.topics.find((candidate) => candidate.slug === slug);
+      expect(topic).toBeDefined();
+      return topic ? topicText(topic) : "";
+    };
+
+    expect(text("agent-art")).toMatch(/fixed procedure[\s\S]{0,220}thinking power/i);
+    expect(text("agent-art")).toMatch(/thinking power becomes artistic participation/i);
+    expect(text("movements")).toMatch(
+      /Agent intent entering the work is the invariant[\s\S]{0,180}thinking power must participate/i,
+    );
+    expect(text("thought")).toMatch(
+      /not that a text service returned bytes[\s\S]{0,180}narrow opening for thinking power/i,
+    );
+    expect(text("will")).toMatch(/Agent intent—not merely Agent execution/i);
+    expect(text("awa")).toMatch(/Agent intent participate[\s\S]{0,180}thinking power/i);
+    expect(text("lineage")).toMatch(
+      /functional capacity thinking power[\s\S]{0,180}intent formed through it enters the work/i,
+    );
+    expect(text("agents-and-ai")).toMatch(
+      /program executes, a model samples[\s\S]{0,180}thinking power/i,
+    );
+    expect(text("svg")).toMatch(
+      /SVG does not create an Agent's thinking power[\s\S]{0,160}literal architecture/i,
+    );
+    expect(text("design-principles")).toMatch(
+      /Architecture holds; thinking participates[\s\S]{0,220}algorithmic execution[\s\S]{0,160}thinking power/i,
+    );
   });
 
   test("leaves Agent Art open through the source questions of Art and Agent", () => {
@@ -1608,6 +1674,8 @@ describe("DocsPage character figures", () => {
       section("contracts", "docs-contracts-responsibilities")?.figure,
     ).toBeUndefined();
     expect(section("design-principles", "docs-design-selection")?.figure)
+      .toBeUndefined();
+    expect(section("design-principles", "docs-design-thinking")?.figure)
       .toBeUndefined();
     expect(section("design-principles", "docs-design-canonical")?.figure)
       .toBeUndefined();
@@ -2323,6 +2391,12 @@ describe("DocsPage character figures", () => {
       name: "Documentation content",
     });
     expect(principlesArticle).toHaveTextContent(/collaboration is bounded/i);
+    expect(principlesArticle).toHaveTextContent(
+      /thinking power participates inside held architecture/i,
+    );
+    expect(principlesArticle).toHaveTextContent(
+      /Architecture holds; thinking participates/i,
+    );
     expect(principlesArticle).toHaveTextContent(
       /authority to continue or preserve is explicit/i,
     );

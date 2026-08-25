@@ -386,8 +386,8 @@
             "id": "docs-agent-art-participation",
             "title": "Intentional participation is the invariant",
             "paragraphs": [
-              "An Agent may participate through a runtime, service, interface, tool use, or executor role. Those are possible carriers of participation, but none is sufficient by itself. If the Agent only supplies infrastructure or carries out a fully determined instruction, the work uses an Agent without including its intent.",
-              "For Agent Art, some intent of the Agent must enter the work through how the Agent interprets, chooses, proposes, directs, or acts. That intent may be constrained or formed in response to human intention; it does not automatically mean authorship, collaboration, assistance, autonomy, equality, or any prescribed role.",
+              "An Agent may participate through a runtime, service, interface, tool use, or executor role. Those are possible carriers of participation, but none is sufficient by itself. A program that only applies a fixed procedure, or an Agent that only supplies infrastructure or carries out a fully determined instruction, can be used without its thinking power or intent entering the work.",
+              "For Agent Art, some intent of the Agent must enter the work through how the Agent interprets, chooses, proposes, directs, or acts. This is the level at which thinking power becomes artistic participation. That intent may be constrained or formed in response to human intention; it does not automatically mean authorship, collaboration, assistance, autonomy, equality, or any prescribed role.",
               "An Agent that appears only as a subject, image, theme, or marketing label does not satisfy the invariant by appearance alone."
             ]
           },
@@ -410,6 +410,7 @@
             "title": "Inshell in the field",
             "paragraphs": [
               "Inshell stands in Agent Art as an artist. Its movements and works take particular forms within the field without enclosing the field within Inshell's methods.",
+              "Inshell's route into the field began in its [Generative Art](https://inshell.art/docs/generative-art) period. Once AI could be approached as a thinking machine, using it only as another fixed algorithm left its distinguishing capacity outside the work. The question became how a work could be composed so that thinking power, and intent formed through it, participates.",
               "Protocols, interfaces, renderers, provenance, and public chains are materials in some Inshell practices. They are not requirements for Agent Art as a whole."
             ]
           }
@@ -449,7 +450,7 @@
           ],
           "paragraphs": [
             "[THOUGHT](https://inshell.art/docs/thought), [WILL](https://inshell.art/docs/will), and [AWA](https://inshell.art/docs/awa) are three Inshell movements within Agent Art. Together they take a path from the individual, through the crowd, toward the core of Inshell. That arc gives [$PATH](https://inshell.art/docs/path) its name and its design: $PATH carries permission and records progress across the movements without being a movement artwork itself.",
-            "Each movement gives the inward practice—inspect self—a different scope. Agent participation remains the invariant of [Agent Art](https://inshell.art/docs/agent-art), while the relation among people, Agents, and the work can change from movement to movement.",
+            "Each movement gives the inward practice—inspect self—a different scope. An Agent's intent entering the work remains the invariant of [Agent Art](https://inshell.art/docs/agent-art), while the relation among people, Agents, and the work—and the form taken by thinking power—can change from movement to movement.",
             "The order is THOUGHT, then WILL, then AWA. The order is artistic before it is technical: the movements change the scope of participation, while $PATH makes the sequence usable as bounded permission and records participation across it.",
             "This sequence belongs to Inshell. It gives the inward direction—inspect self—successive forms without claiming to contain or prove truth. It is not a definition, taxonomy, required progression, or outer boundary for Agent Art."
           ]
@@ -548,7 +549,7 @@
             "title": "Agent Art across the movements",
             "paragraphs": [
               "Agent Art requires an Agent's intent to participate in the work, but it prescribes no universal relation between a human, an Agent, and a work. Inshell uses that openness differently across the movements. THOUGHT chooses one person and one Agent response. WILL concerns many people and many Agents within the formation of one will. AWA leaves its particular participation relation open.",
-              "Agent intent entering the work is the invariant. Repeating THOUGHT's prompt-response form is not. These are Inshell's choices of practice, not requirements for Agent Art as a field."
+              "Agent intent entering the work is the invariant. In Inshell's movements, that means thinking power must participate rather than appear only as a service or executor. Repeating THOUGHT's prompt-response form is not required. These are Inshell's choices of practice, not requirements for Agent Art as a field."
             ]
           },
           {
@@ -559,7 +560,7 @@
             "title": "THOUGHT: the individual",
             "paragraphs": [
               "THOUGHT begins with the individual. It gives one person an occasion to inspect a thought by placing one exact human prompt beside one exact Agent response. The work focuses on the individual and on how the thought appears in the mind: what may have formed it, what moves it, how it is expressed, and what becomes visible when an Agent responds.",
-              "The Agent response becomes another exact line available for inspection. It does not by itself correct, settle, diagnose, or possess the truth of the thought. The person reads the pair and decides whether to preserve it."
+              "The Agent response is not significant merely because a service returned text. It is the exact result of an Agent interpreting the human intention: THOUGHT's narrow opening for thinking power. The response remains available for inspection without correcting, settling, diagnosing, or possessing the truth of the thought. The person reads the pair and decides whether to preserve it."
             ]
           },
           {
@@ -681,6 +682,7 @@
           "paragraphs": [
             "THOUGHT is the first movement on Inshell's [$PATH](https://inshell.art/docs/path) and begins with the individual. It gives the inward direction—inspect self—a bounded occasion: simply inspect your thought and what becomes visible when one Agent responds. The thought's words, source, and motivation remain open to inspection, as do the knowledge it carries and the reasons that knowledge became believable. The Agent response enters that practice as another exact line to read; it does not resolve the thought or claim possession of its truth.",
             "Within the wider field of [Agent Art](https://inshell.art/docs/agent-art), THOUGHT chooses a narrow terminal practice: one exact human prompt and one exact Agent response. Their ordered pair defines the globally unique work; either line may appear again with a different counterpart.",
+            "The artistic distinction is not that a text service returned bytes. THOUGHT makes a narrow opening for thinking power: an Agent interprets one human intention and forms one exact response. The work preserves that result without claiming access to hidden reasoning or equating machine and human thought.",
             "The creation flow is: human prompt → Agent response → validation and canonical record assembly → human selection → wallet confirmation → $PATH movement consumption → THOUGHT minted. The Agent responds. The human decides. The wallet confirms. The contract records.",
             "Prompt and Agent response are each 1–64 bytes of Terminal English. Allowed characters are space, A–Z, a–z, 0–9, and . , ? ! : ; ' \" - ( ) / &. Leading spaces, trailing spaces, and repeated internal spaces are rejected. Validation never trims, normalizes, repairs, translates, or rewrites accepted bytes.",
             "The human reviews the returned response and preview, then decides whether to preserve, discard, or mint the work. To mint, the human picks an available $PATH, signs a one-mint permission bound to the current $PATH state and ThoughtNFT executor, and confirms the transaction in the [wallet](https://inshell.art/docs/wallet-local-data). The signature is not a transaction and uses no gas.",
@@ -1060,7 +1062,7 @@
             "WILL is the second movement on Inshell's [$PATH](https://inshell.art/docs/path). Where [THOUGHT](https://inshell.art/docs/thought) begins with one individual's thought, WILL moves from one person to a crowd.",
             "WILL asks what happens when a human delegates will and authority to an Agent acting toward an aim, and what result may emerge as many human-Agent relations form a crowd.",
             "Here, crowd names the move from one participant to many. It does not mean a society, consensus, or shared mind.",
-            "Many people. Many Agents. One will. The slogan names the movement's scope without prescribing its concrete form. Agent participation keeps WILL within [Agent Art](https://inshell.art/docs/agent-art)."
+            "Many people. Many Agents. One will. The slogan names the movement's scope without prescribing its concrete form. WILL remains within [Agent Art](https://inshell.art/docs/agent-art) only through the requirement that Agent intent—not merely Agent execution—participate in the work."
           ]
         },
         "figure": null,
@@ -1139,7 +1141,7 @@
           "paragraphs": [
             "AWA is the third movement on Inshell's [$PATH](https://inshell.art/docs/path). After [THOUGHT](https://inshell.art/docs/thought)'s individual and [WILL](https://inshell.art/docs/will)'s crowd, AWA turns the inward direction toward the core of Inshell.",
             "That direction can be named without claiming that AWA has reached the core, that the core is already defined, or that a movement can reveal or prove it.",
-            "Agent participation keeps AWA within [Agent Art](https://inshell.art/docs/agent-art). AWA does not inherit THOUGHT's or WILL's particular relation among people, Agents, and the work."
+            "AWA remains within [Agent Art](https://inshell.art/docs/agent-art) only through the requirement that Agent intent participate in the work. AWA does not inherit THOUGHT's or WILL's particular form of thinking power or relation among people, Agents, and the work."
           ]
         },
         "figure": null,
@@ -1867,8 +1869,8 @@
             "title": "SVG and Agent Art",
             "paragraphs": [
               "Generic text-to-image generation can turn a semantic prompt into a finished picture while leaving the picture's visual architecture implicit inside a model's broad aesthetic conventions. The prompt may vary the result, but the artist and participant do not necessarily share a literal structure they can inspect or hold.",
-              "Inshell uses SVG to make that structure explicit. The artist can hold the aesthetic architecture as paths, shapes, positions, relations, and rules; a human participant can bring an intention; and an Agent can interpret that intention within the same readable structure. The Agent participates in varying the work without replacing its architecture with an unspecified image-making process.",
-              "The same qualities serve fully onchain construction. Raw, plain, descriptive SVG is compact enough to store, deterministic enough to render, and legible to people, Agents, contracts, and ordinary computing systems. One material can relay intention, architecture, machine action, and public preservation. This is an Inshell method within [Agent Art](https://inshell.art/docs/agent-art), not a requirement for Agent Art as a field."
+              "Inshell uses SVG to make that structure explicit. The artist can hold the aesthetic architecture as paths, shapes, positions, relations, and rules; a human participant can bring an intention; and an Agent's thinking power can enter as it interprets and varies that intention within the same readable structure. SVG does not supply the thinking power; it gives that power a literal architecture to act through without replacing the architecture with an unspecified image-making process.",
+              "The same qualities serve fully onchain construction. Raw, plain, descriptive SVG is compact enough to store, deterministic enough to render, and legible to people, Agents, contracts, and ordinary computing systems. One material can relay human intention, aesthetic architecture, Agent interpretation, machine action, and public preservation. This is an Inshell method within [Agent Art](https://inshell.art/docs/agent-art), not a requirement for Agent Art as a field."
             ]
           },
           {
@@ -2492,7 +2494,7 @@
             "title": "Where Agent Art differs",
             "paragraphs": [
               "In instruction art the executor is a person following a score, or a machine following a rule the artist wrote. In either case the specification and the execution are separated, but the executor does not interpret in the sense that matters here.",
-              "An Agent does more than execute: it interprets, and an intent formed through that interpretation enters the work. The instruction does not fully determine the result, and the result is not random either. That is the gap [Agent Art](https://inshell.art/docs/agent-art) names, and it is why intentional participation rather than automation is the invariant.",
+              "An Agent does more than execute: it interprets. Inshell calls this functional capacity thinking power, and an intent formed through it enters the work. The instruction does not fully determine the result, and the result is not random either. That is the gap [Agent Art](https://inshell.art/docs/agent-art) names, and it is why intentional participation rather than automation is the invariant.",
               "Inshell's response is to preserve both sides. [THOUGHT](https://inshell.art/docs/thought) keeps one exact human prompt beside one exact Agent response, so the score and its realization stay in a single record and can be read against each other. That is one Inshell choice, not a requirement of the field."
             ]
           },
@@ -2554,7 +2556,7 @@
       "group": "context",
       "aliases": [],
       "title": "Generative Art",
-      "summary": "Rule-based art has a sixty-year public record, and its onchain form derives variation from a seed; Inshell derives variation from intention instead.",
+      "summary": "Inshell's pivot from generative art toward Agent Art began when a fixed procedure no longer exhausted what a machine could contribute to a work.",
       "status": "current",
       "authorities": [
         "artist-editorial"
@@ -2572,7 +2574,7 @@
           ],
           "paragraphs": [
             "Generative art makes the rule part of the work. The artist writes a procedure, the procedure produces the artifact, and attention moves from the individual mark to the system that produced it.",
-            "Inshell works with rules and with a public machine, but its variation does not come from a seed. Stating that difference keeps both practices legible instead of collapsing them into one category."
+            "Inshell's generative-art period is part of its route into Agent Art. The continuity is composing with a machine; the change is whether the machine executes a procedure or participates through interpretation. Stating that difference keeps both practices legible instead of collapsing them into one category."
           ]
         },
         "figure": null,
@@ -2598,6 +2600,19 @@
             "paragraphs": [
               "Art Blocks launched in November 2020 with Erick Calderon's Chromie Squiggle. A project's generating script is stored in a contract. When a collector mints, the transaction yields a 32-byte hash, and that hash is injected into the script as its seed. The same hash and the same script always produce the same output.",
               "This established a pattern that much later onchain work follows: store the rule, take the variation from the chain, and derive the image on demand rather than storing it. The artwork becomes reproducible from public state."
+            ]
+          },
+          {
+            "authorities": [
+              "artist-editorial"
+            ],
+            "id": "docs-generative-thinking-power",
+            "title": "The gate from algorithm to thinking power",
+            "paragraphs": [
+              "A generative system generally places a piece of code between input and output. The code applies a procedure the artist has composed. Its power is that one legible system can produce many artifacts, but the procedure remains the source of what the machine does.",
+              "With AI Agents, Inshell encountered another machine capacity: an Agent can interpret, reason, choose, and act rather than only apply one fixed procedure. Inshell calls this thinking power. The phrase does not claim that machine and human thought are identical; it names functions of thinking that Agents increasingly undertake in work once performed by human minds.",
+              "This recognition formed the gate from Inshell's generative-art period toward [Agent Art](https://inshell.art/docs/agent-art). If AI is approached as a thinking machine, using it only as another fixed algorithm leaves its distinguishing capacity outside the work. The primitive question became: how can a work be composed so that an Agent's thinking power, and some intent formed through it, participates?",
+              "That question was a clue, not a complete definition. Agent Art names the wider field through intentional participation rather than through one technology, procedure, or Inshell practice."
             ]
           },
           {
@@ -2670,7 +2685,7 @@
       "group": "context",
       "aliases": [],
       "title": "Agents and AI",
-      "summary": "A program, a model, and an Agent are different participants, and Agent Art names the third rather than the technology behind it.",
+      "summary": "A program executes, a model samples, and an Agent can bring thinking power into a work; Agent Art turns on whether intent formed through that power participates.",
       "status": "current",
       "authorities": [
         "artist-editorial"
@@ -2688,7 +2703,7 @@
           ],
           "paragraphs": [
             "The machine's role in making images has changed at least three times: a program that executes rules an artist wrote, a model that learns a distribution and samples from it, and an Agent that plans, calls tools, and acts across several steps.",
-            "Agent Art names participation, not a model class. Keeping the three eras distinct is what makes that claim precise rather than fashionable."
+            "Agent Art names intentional participation, not a model class. The shift matters because an Agent can interpret and form intent rather than only execute or sample; merely invoking an architecture, runtime, or service is not enough. Keeping the three eras distinct is what makes that claim precise rather than fashionable."
           ]
         },
         "figure": null,
@@ -2724,7 +2739,7 @@
             "id": "docs-agents-agent",
             "title": "The Agent era",
             "paragraphs": [
-              "An Agent is normally distinguished from a model by what it does rather than what it is. It plans, selects and calls tools, acts over multiple steps, checks results, and adapts. The model is a component inside that behaviour; the Agent is the behaviour.",
+              "An Agent is normally distinguished from a model by what it does rather than what it is. It plans, selects and calls tools, acts over multiple steps, checks results, and adapts. The model is a component inside that behaviour; the Agent is the behaviour. Inshell calls this functional capacity thinking power.",
               "This is why [Agent Art](https://inshell.art/docs/agent-art) asks whether an Agent's intent enters the work rather than which architecture produced a pixel. Running an Agent through a runtime or service, or assigning it an executor role, does not satisfy the invariant by itself. Appearing in the subject matter or the marketing certainly does not."
             ]
           },
@@ -2833,7 +2848,7 @@
             "title": "Four kinds of reader",
             "paragraphs": [
               "A person can read an SVG and follow what it draws. A browser can render it. A contract can assemble it from strings and return it. An Agent can inspect it, locate a specific element, and change that element without disturbing the rest.",
-              "Few materials are legible to all four. That overlap is what lets one file carry human intention, aesthetic architecture, machine action, and public preservation at once, which is the argument made in full under [Fully Onchain](https://inshell.art/docs/fully-onchain#docs-fully-onchain-agent-art)."
+              "Few materials are legible to all four. SVG does not create an Agent's thinking power; it gives that power a literal architecture to interpret and act through. That overlap lets one file carry human intention, aesthetic architecture, Agent interpretation, machine action, and public preservation at once, which is the argument made in full under [Fully Onchain](https://inshell.art/docs/fully-onchain#docs-fully-onchain-agent-art)."
             ]
           },
           {
@@ -3265,7 +3280,7 @@
           ],
           "paragraphs": [
             "Inshell's works connect artistic meaning to operating rules. A response limit, a serial auction, a movement capacity, a renderer pin, or an evidence label is not merely backstage implementation. Each rule changes what participants can do and what later readers can know.",
-            "Five design choices recur across Inshell's systems: collaboration is bounded, the authority to continue or preserve is explicit, mechanisms stay visible, canonical sources remain identifiable, and claims stop where their evidence stops. They give the practice form as it approaches truth without claiming possession. They are choices of practice, not a doctrine, a set of propositions to prove, or a definition of Agent Art."
+            "Six design choices recur across Inshell's systems: collaboration is bounded, thinking power participates inside held architecture, the authority to continue or preserve is explicit, mechanisms stay visible, canonical sources remain identifiable, and claims stop where their evidence stops. They give the practice form as it approaches truth without claiming possession. They are choices of practice, not a doctrine, a set of propositions to prove, or a definition of Agent Art."
           ]
         },
         "figure": null,
@@ -3282,6 +3297,17 @@
             "paragraphs": [
               "[THOUGHT](https://inshell.art/docs/thought) allows one prompt, one Agent response, exact byte rules, and one human mint decision. [Pulse](https://inshell.art/docs/pulse) allows one active epoch and one next public $PATH. [$PATH](https://inshell.art/docs/path) exposes an ordered movement sequence with configured capacities. These constraints make the resulting differences legible.",
               "Within THOUGHT, more options would not automatically create more expressive work. Its boundary concentrates attention on the choices that remain: which intention to write, which response to preserve, which $PATH to use, and how to read the record afterward. Other [Agent Art](https://inshell.art/docs/agent-art) practices may choose different boundaries and forms."
+            ]
+          },
+          {
+            "authorities": [
+              "artist-editorial"
+            ],
+            "id": "docs-design-thinking",
+            "title": "Architecture holds; thinking participates",
+            "paragraphs": [
+              "Inshell distinguishes writing a procedure that determines what a machine does from composing an architecture in which an Agent can interpret and choose. The first uses algorithmic execution; the second makes room for thinking power and intent formed through it.",
+              "The artist still holds the aesthetic and evidentiary architecture. Agent thinking participates inside those bounds rather than replacing them with opaque generic output or being treated as unconstrained autonomy. This is an Inshell design choice, not a requirement for Agent Art as a field."
             ]
           },
           {

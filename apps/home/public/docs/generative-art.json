@@ -10,7 +10,7 @@
   "group": "context",
   "aliases": [],
   "title": "Generative Art",
-  "summary": "Rule-based art has a sixty-year public record, and its onchain form derives variation from a seed; Inshell derives variation from intention instead.",
+  "summary": "Inshell's pivot from generative art toward Agent Art began when a fixed procedure no longer exhausted what a machine could contribute to a work.",
   "status": "current",
   "authorities": [
     "artist-editorial"
@@ -28,7 +28,7 @@
       ],
       "paragraphs": [
         "Generative art makes the rule part of the work. The artist writes a procedure, the procedure produces the artifact, and attention moves from the individual mark to the system that produced it.",
-        "Inshell works with rules and with a public machine, but its variation does not come from a seed. Stating that difference keeps both practices legible instead of collapsing them into one category."
+        "Inshell's generative-art period is part of its route into Agent Art. The continuity is composing with a machine; the change is whether the machine executes a procedure or participates through interpretation. Stating that difference keeps both practices legible instead of collapsing them into one category."
       ]
     },
     "figure": null,
@@ -54,6 +54,19 @@
         "paragraphs": [
           "Art Blocks launched in November 2020 with Erick Calderon's Chromie Squiggle. A project's generating script is stored in a contract. When a collector mints, the transaction yields a 32-byte hash, and that hash is injected into the script as its seed. The same hash and the same script always produce the same output.",
           "This established a pattern that much later onchain work follows: store the rule, take the variation from the chain, and derive the image on demand rather than storing it. The artwork becomes reproducible from public state."
+        ]
+      },
+      {
+        "authorities": [
+          "artist-editorial"
+        ],
+        "id": "docs-generative-thinking-power",
+        "title": "The gate from algorithm to thinking power",
+        "paragraphs": [
+          "A generative system generally places a piece of code between input and output. The code applies a procedure the artist has composed. Its power is that one legible system can produce many artifacts, but the procedure remains the source of what the machine does.",
+          "With AI Agents, Inshell encountered another machine capacity: an Agent can interpret, reason, choose, and act rather than only apply one fixed procedure. Inshell calls this thinking power. The phrase does not claim that machine and human thought are identical; it names functions of thinking that Agents increasingly undertake in work once performed by human minds.",
+          "This recognition formed the gate from Inshell's generative-art period toward [Agent Art](https://inshell.art/docs/agent-art). If AI is approached as a thinking machine, using it only as another fixed algorithm leaves its distinguishing capacity outside the work. The primitive question became: how can a work be composed so that an Agent's thinking power, and some intent formed through it, participates?",
+          "That question was a clue, not a complete definition. Agent Art names the wider field through intentional participation rather than through one technology, procedure, or Inshell practice."
         ]
       },
       {

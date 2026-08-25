@@ -17,7 +17,7 @@ AWA is the third movement on Inshell's [$PATH](https://inshell.art/docs/path). A
 
 That direction can be named without claiming that AWA has reached the core, that the core is already defined, or that a movement can reveal or prove it.
 
-Agent participation keeps AWA within [Agent Art](https://inshell.art/docs/agent-art). AWA does not inherit THOUGHT's or WILL's particular relation among people, Agents, and the work.
+AWA remains within [Agent Art](https://inshell.art/docs/agent-art) only through the requirement that Agent intent participate in the work. AWA does not inherit THOUGHT's or WILL's particular form of thinking power or relation among people, Agents, and the work.
 
 ## Evidence boundary
 

@@ -1,6 +1,6 @@
 # Agents and AI
 
-> A program, a model, and an Agent are different participants, and Agent Art names the third rather than the technology behind it.
+> A program executes, a model samples, and an Agent can bring thinking power into a work; Agent Art turns on whether intent formed through that power participates.
 
 - Group: Lineage and context
 - Status: current
@@ -15,7 +15,7 @@
 
 The machine's role in making images has changed at least three times: a program that executes rules an artist wrote, a model that learns a distribution and samples from it, and an Agent that plans, calls tools, and acts across several steps.
 
-Agent Art names participation, not a model class. Keeping the three eras distinct is what makes that claim precise rather than fashionable.
+Agent Art names intentional participation, not a model class. The shift matters because an Agent can interpret and form intent rather than only execute or sample; merely invoking an architecture, runtime, or service is not enough. Keeping the three eras distinct is what makes that claim precise rather than fashionable.
 
 ## The program era
 
@@ -39,7 +39,7 @@ Text-to-image diffusion systems made this ordinary. DALL·E 2 appeared in April 
 
 - Authority: artist-editorial
 
-An Agent is normally distinguished from a model by what it does rather than what it is. It plans, selects and calls tools, acts over multiple steps, checks results, and adapts. The model is a component inside that behaviour; the Agent is the behaviour.
+An Agent is normally distinguished from a model by what it does rather than what it is. It plans, selects and calls tools, acts over multiple steps, checks results, and adapts. The model is a component inside that behaviour; the Agent is the behaviour. Inshell calls this functional capacity thinking power.
 
 This is why [Agent Art](https://inshell.art/docs/agent-art) asks whether an Agent's intent enters the work rather than which architecture produced a pixel. Running an Agent through a runtime or service, or assigning it an executor role, does not satisfy the invariant by itself. Appearing in the subject matter or the marketing certainly does not.
 

@@ -15,7 +15,7 @@
 
 Inshell's works connect artistic meaning to operating rules. A response limit, a serial auction, a movement capacity, a renderer pin, or an evidence label is not merely backstage implementation. Each rule changes what participants can do and what later readers can know.
 
-Five design choices recur across Inshell's systems: collaboration is bounded, the authority to continue or preserve is explicit, mechanisms stay visible, canonical sources remain identifiable, and claims stop where their evidence stops. They give the practice form as it approaches truth without claiming possession. They are choices of practice, not a doctrine, a set of propositions to prove, or a definition of Agent Art.
+Six design choices recur across Inshell's systems: collaboration is bounded, thinking power participates inside held architecture, the authority to continue or preserve is explicit, mechanisms stay visible, canonical sources remain identifiable, and claims stop where their evidence stops. They give the practice form as it approaches truth without claiming possession. They are choices of practice, not a doctrine, a set of propositions to prove, or a definition of Agent Art.
 
 ## Bounds create form
 
@@ -24,6 +24,14 @@ Five design choices recur across Inshell's systems: collaboration is bounded, th
 [THOUGHT](https://inshell.art/docs/thought) allows one prompt, one Agent response, exact byte rules, and one human mint decision. [Pulse](https://inshell.art/docs/pulse) allows one active epoch and one next public $PATH. [$PATH](https://inshell.art/docs/path) exposes an ordered movement sequence with configured capacities. These constraints make the resulting differences legible.
 
 Within THOUGHT, more options would not automatically create more expressive work. Its boundary concentrates attention on the choices that remain: which intention to write, which response to preserve, which $PATH to use, and how to read the record afterward. Other [Agent Art](https://inshell.art/docs/agent-art) practices may choose different boundaries and forms.
+
+## Architecture holds; thinking participates
+
+- Authority: artist-editorial
+
+Inshell distinguishes writing a procedure that determines what a machine does from composing an architecture in which an Agent can interpret and choose. The first uses algorithmic execution; the second makes room for thinking power and intent formed through it.
+
+The artist still holds the aesthetic and evidentiary architecture. Agent thinking participates inside those bounds rather than replacing them with opaque generic output or being treated as unconstrained autonomy. This is an Inshell design choice, not a requirement for Agent Art as a field.
 
 ## Generation is not preservation
 
