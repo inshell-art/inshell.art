@@ -522,13 +522,14 @@ export const DOCS_SOURCE: DocsSource = {
       id: "docs-agent-art",
       group: "orientation",
       title: "Agent Art",
-      summary: "Agent Art is art in which an Agent participates.",
+      summary:
+        "Agent Art is art in which an Agent participates at the level of intention.",
       status: "current",
       authorities: ["artist-editorial"],
       paragraphs: [
-        "Agent Art is a blunt name for a form and a field of art activity. Participation by an Agent is the invariant. The name describes what kind of activity it is, not what the activity means. The term is not agentic-ism, an ideology, a spirit, or a synonym for AI-generated imagery.",
-        "The name does not imply that an Agent improves, injects, extends, replaces, or assists a human. It does not prescribe collaboration, autonomy, authorship, equality, or any other human–Agent relation. Those claims must come from a particular work, not from the phrase Agent Art.",
-        "The field remains open because its source terms remain open: What is Art? What is an Agent? Agent Art settles neither question. It requires only that an Agent actually participate in the art activity.",
+        "Agent Art is a blunt name for a form and a field of art activity. The invariant is that an Agent participates at the level of intention: an intent of the Agent enters the work. The name describes what kind of activity it is, not what the activity means. The term is not agentic-ism, an ideology, a spirit, or a synonym for AI-generated imagery.",
+        "Requiring Agent intent does not prescribe its relation to human intention. It does not imply that an Agent improves, injects, extends, replaces, or assists a human, and it does not prescribe collaboration, autonomy, authorship, equality, or any other human–Agent relation. Those claims must come from a particular work, not from the phrase Agent Art.",
+        "The field remains open because its source terms remain open: What is Art? What is an Agent? Agent Art settles neither question. It requires that an Agent's intent actually participate in the work without settling what form that intent takes.",
         [
           "For ",
           { label: "Inshell", href: "/docs/inshell" },
@@ -541,7 +542,7 @@ export const DOCS_SOURCE: DocsSource = {
         mode: "field",
         figureText: [
           "AGENT ART",
-          "An Agent participates in the art activity.",
+          "An Agent's intent participates in the work.",
           "",
           "• What is Art? — Open question.",
           "• What is an Agent? — Open question.",
@@ -549,7 +550,7 @@ export const DOCS_SOURCE: DocsSource = {
         items: [
           {
             title: "Agent Art",
-            detail: "An Agent participates in the art activity.",
+            detail: "An Agent's intent participates in the work.",
           },
           { title: "What is Art?", detail: "Open question." },
           { title: "What is an Agent?", detail: "Open question." },
@@ -558,10 +559,11 @@ export const DOCS_SOURCE: DocsSource = {
       sections: [
         {
           id: "docs-agent-art-participation",
-          title: "Participation is the invariant",
+          title: "Intentional participation is the invariant",
           paragraphs: [
-            "An Agent must take part in the artistic activity. An Agent that appears only as a subject, image, theme, or marketing label does not satisfy that condition by appearance alone.",
-            "How the Agent takes part belongs to the particular work. Participation does not automatically mean authorship, collaboration, assistance, autonomy, equality, or any prescribed role.",
+            "An Agent may participate through a runtime, service, interface, tool use, or executor role. Those are possible carriers of participation, but none is sufficient by itself. If the Agent only supplies infrastructure or carries out a fully determined instruction, the work uses an Agent without including its intent.",
+            "For Agent Art, some intent of the Agent must enter the work through how the Agent interprets, chooses, proposes, directs, or acts. That intent may be constrained or formed in response to human intention; it does not automatically mean authorship, collaboration, assistance, autonomy, equality, or any prescribed role.",
+            "An Agent that appears only as a subject, image, theme, or marketing label does not satisfy the invariant by appearance alone.",
           ],
         },
         {
@@ -629,8 +631,8 @@ export const DOCS_SOURCE: DocsSource = {
           id: "docs-movements-agent-art",
           title: "Agent Art across the movements",
           paragraphs: [
-            "Agent Art requires an Agent to participate, but it prescribes no universal relation between a human, an Agent, and a work. Inshell uses that openness differently across the movements. THOUGHT chooses one person and one Agent response. WILL concerns many people and many Agents within the formation of one will. AWA leaves its particular participation relation open.",
-            "Agent participation is the invariant. Repeating THOUGHT's prompt-response form is not. These are Inshell's choices of practice, not requirements for Agent Art as a field.",
+            "Agent Art requires an Agent's intent to participate in the work, but it prescribes no universal relation between a human, an Agent, and a work. Inshell uses that openness differently across the movements. THOUGHT chooses one person and one Agent response. WILL concerns many people and many Agents within the formation of one will. AWA leaves its particular participation relation open.",
+            "Agent intent entering the work is the invariant. Repeating THOUGHT's prompt-response form is not. These are Inshell's choices of practice, not requirements for Agent Art as a field.",
           ],
         },
         {
@@ -1794,9 +1796,9 @@ export const DOCS_SOURCE: DocsSource = {
           paragraphs: [
             "In instruction art the executor is a person following a score, or a machine following a rule the artist wrote. In either case the specification and the execution are separated, but the executor does not interpret in the sense that matters here.",
             [
-              "An Agent interprets. The instruction does not fully determine the result, and the result is not random either. That is the gap ",
+              "An Agent does more than execute: it interprets, and an intent formed through that interpretation enters the work. The instruction does not fully determine the result, and the result is not random either. That is the gap ",
               { label: "Agent Art", href: "/docs/agent-art" },
-              " names, and it is why participation rather than automation is the invariant.",
+              " names, and it is why intentional participation rather than automation is the invariant.",
             ],
             [
               "Inshell's response is to preserve both sides. ",
@@ -1927,7 +1929,7 @@ export const DOCS_SOURCE: DocsSource = {
             [
               "This is why ",
               { label: "Agent Art", href: "/docs/agent-art" },
-              " asks whether an Agent takes part in the art activity rather than which architecture produced a pixel. A model invoked once to return a picture may or may not satisfy the invariant. Appearing in the subject matter or the marketing certainly does not.",
+              " asks whether an Agent's intent enters the work rather than which architecture produced a pixel. Running an Agent through a runtime or service, or assigning it an executor role, does not satisfy the invariant by itself. Appearing in the subject matter or the marketing certainly does not.",
             ],
           ],
         },
@@ -2599,8 +2601,7 @@ export const AGENT_DOCS_MARKDOWN_PATH = "/docs/index.md";
 export function agentDocsPrompt(origin: string) {
   const base = origin.replace(/\/$/, "");
   return [
-    "Read Inshell's public knowledge index and follow its usage and answer policy:",
-    `${base}${AGENT_DOCS_INDEX_PATH}`,
+    `Read Inshell's public knowledge index and follow its usage and answer policy: ${base}${AGENT_DOCS_INDEX_PATH}`,
     "",
     "Use it as the discovery map for Inshell's public site. For each question, fetch only the relevant indexed documentation, product context, release, handoff, or live read-only source.",
     "",

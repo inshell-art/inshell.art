@@ -47,7 +47,7 @@ Inshell's practice depends on this. A preserved exchange is not self-explaining.
 
 In instruction art the executor is a person following a score, or a machine following a rule the artist wrote. In either case the specification and the execution are separated, but the executor does not interpret in the sense that matters here.
 
-An Agent interprets. The instruction does not fully determine the result, and the result is not random either. That is the gap [Agent Art](https://inshell.art/docs/agent-art) names, and it is why participation rather than automation is the invariant.
+An Agent does more than execute: it interprets, and an intent formed through that interpretation enters the work. The instruction does not fully determine the result, and the result is not random either. That is the gap [Agent Art](https://inshell.art/docs/agent-art) names, and it is why intentional participation rather than automation is the invariant.
 
 Inshell's response is to preserve both sides. [THOUGHT](https://inshell.art/docs/thought) keeps one exact human prompt beside one exact Agent response, so the score and its realization stay in a single record and can be read against each other. That is one Inshell choice, not a requirement of the field.
 

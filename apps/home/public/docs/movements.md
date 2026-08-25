@@ -50,9 +50,9 @@ This sequence belongs to Inshell. It gives the inward directionâ€”inspect selfâ€
 
 - Authority: artist-editorial
 
-Agent Art requires an Agent to participate, but it prescribes no universal relation between a human, an Agent, and a work. Inshell uses that openness differently across the movements. THOUGHT chooses one person and one Agent response. WILL concerns many people and many Agents within the formation of one will. AWA leaves its particular participation relation open.
+Agent Art requires an Agent's intent to participate in the work, but it prescribes no universal relation between a human, an Agent, and a work. Inshell uses that openness differently across the movements. THOUGHT chooses one person and one Agent response. WILL concerns many people and many Agents within the formation of one will. AWA leaves its particular participation relation open.
 
-Agent participation is the invariant. Repeating THOUGHT's prompt-response form is not. These are Inshell's choices of practice, not requirements for Agent Art as a field.
+Agent intent entering the work is the invariant. Repeating THOUGHT's prompt-response form is not. These are Inshell's choices of practice, not requirements for Agent Art as a field.
 
 ## THOUGHT: the individual
 

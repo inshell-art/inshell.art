@@ -11,14 +11,14 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "f26bcc28864c0db328e36f4f73aa9499a05985247121ae4b57149ccd281b51f7",
+  "sourceTreeSha256": "8789976ae13864d98b1a3d7fa69181a26a103a0abb55c67f2f4b4731bf677acf",
   "groups": [
     {
       "id": "public-docs",
       "title": "Public documentation sources",
       "owner": "inshell.art docs",
       "reason": "Human articles, Agent-readable content, authority maps, and machine-handoff selection.",
-      "groupSha256": "42b9780f8a2193748fac1458f41e464941b0ed095d068a6d7fee87c85c3f8c47",
+      "groupSha256": "ab4d12d1b040d63394cab8c9494543fe09d22609a34b535bc17b0ca57986f5b7",
       "files": [
         {
           "path": "apps/home/src/content/AGENTS.md",
@@ -37,8 +37,8 @@
         },
         {
           "path": "apps/home/src/content/docs.ts",
-          "byteLength": 152812,
-          "sha256": "f7e61f097a4e844b0835c64c10ee97b6040c95206029bab2ed50278b22ada0c7"
+          "byteLength": 153623,
+          "sha256": "6a73d8ef6a1d6bdc1e91dc659d5c064cf5bde5147efd2cbb285dd4bf1a7506d5"
         },
         {
           "path": "apps/home/src/content/thought-machine-handoff.ts",
@@ -67,7 +67,7 @@
       "title": "Home, $PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "a16f3addc1d3f6973d2b025248770764f3be8168748001ff5691b174168c93d4",
+      "groupSha256": "d75b02857dbd43f20a8dc526d0976dd6432e8a16aee7e9276b3ed2d687e12df9",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -111,8 +111,8 @@
         },
         {
           "path": "apps/home/src/components/DocsPage.tsx",
-          "byteLength": 12990,
-          "sha256": "fca909c90ebe26ef8e71b1a55295478ccd2e510aac8622a6bd4b034d6969dc6f"
+          "byteLength": 15226,
+          "sha256": "18fdf7fc397b90afa7b2be04491610ba781ccb5145a960fc3d58e4dc619a7f7e"
         },
         {
           "path": "apps/home/src/components/EcosystemHome.tsx",
@@ -241,8 +241,8 @@
         },
         {
           "path": "apps/home/src/main.css",
-          "byteLength": 109722,
-          "sha256": "bd6f8db4df2042b35cfcf426a2f91cd3d7e5a0e5d74e9e0289f414f1fd5bafa4"
+          "byteLength": 110971,
+          "sha256": "75fdfc916b217bbe5e3ceb8bb0f1db4b00610017cafc7e126c7b10e6fbd212e2"
         },
         {
           "path": "apps/home/src/main.tsx",

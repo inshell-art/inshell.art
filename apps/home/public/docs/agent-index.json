@@ -11,7 +11,7 @@
   "completeJson": "/docs/content.json",
   "canonicalCompleteJson": "https://inshell.art/docs/content.json",
   "completeJsonMediaType": "application/json",
-  "completeJsonSha256": "dca1c611362682930795a5fda356ff17eec3991c134ee30787e4b45a2ba8cef2",
+  "completeJsonSha256": "30f8029ddaaa9fe35c3b3db91e09e5c9b455df7ed9cc2e73fab61f24789c25e8",
   "purpose": "Public, read-only discovery for visitors using their own Agents.",
   "sourceLock": {
     "url": "/docs/source-lock.json",
@@ -19,7 +19,7 @@
     "schemaUrl": "/docs/source-lock.schema.json",
     "canonicalSchemaUrl": "https://inshell.art/docs/source-lock.schema.json",
     "mediaType": "application/json",
-    "sha256": "7108bfe56eee303fcab1585c781a021aa8ddd4f76b8201ee5d00fb31a217a63c",
+    "sha256": "0a292731dad78b675b5a99cbb09e0de83ec143da04ec062ab25a90c8a12652bc",
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
@@ -180,7 +180,7 @@
       "group": "orientation",
       "aliases": [],
       "title": "Agent Art",
-      "summary": "Agent Art is art in which an Agent participates.",
+      "summary": "Agent Art is art in which an Agent participates at the level of intention.",
       "status": "current",
       "authorities": [
         "artist-editorial"
@@ -190,11 +190,11 @@
       "markdown": "/docs/agent-art.md",
       "canonicalMarkdown": "https://inshell.art/docs/agent-art.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "7ce5f463f21ac7df34b03f341bd1e7c530773b3ac1a87e5a38d1a9b8462d3608",
+      "markdownSha256": "9007b120914d6a2d18dfcff5a09290804aee5e9e2dbe42b75d3bef47fec5a77b",
       "json": "/docs/agent-art.json",
       "canonicalJson": "https://inshell.art/docs/agent-art.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "0e3531ca10415dcd306b76b14f1336e56519a65b3b1974d7a03a70a8213d9660"
+      "jsonSha256": "f3c432dff4d397df30a71fda7cd08a9afa26d6bacb1d23eeed29b4e7c31ec17a"
     },
     {
       "id": "movements",
@@ -213,11 +213,11 @@
       "markdown": "/docs/movements.md",
       "canonicalMarkdown": "https://inshell.art/docs/movements.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "fedb4d6f03085bcd83ed7eb335c703445f512008249254045e40b7c92144035d",
+      "markdownSha256": "2b16d99815e44b43f468b383a0ee6278c1b009914bd8d358ada4e21228fdfd42",
       "json": "/docs/movements.json",
       "canonicalJson": "https://inshell.art/docs/movements.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "598d48a95f6f5e6abaa8a1c0024b731f99cf4b376b08e653e2d4180b835d637e"
+      "jsonSha256": "1b32e8c58f7d3077fd331aeeced51161271b4cd0b9d91dccee6ddc04e0bfa81a"
     },
     {
       "id": "thought",
@@ -507,11 +507,11 @@
       "markdown": "/docs/lineage.md",
       "canonicalMarkdown": "https://inshell.art/docs/lineage.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "b882fba33e71af367a6ca28fed8c726e381d7edac32ea40097966e7076d405cc",
+      "markdownSha256": "4f6a7bd77a9adbde62dc7b04b2901911480e43a0cbc413f172bed7bcaf0d5e79",
       "json": "/docs/lineage.json",
       "canonicalJson": "https://inshell.art/docs/lineage.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "df93c3da57f5b63e93959dbae7923da5d7cdc3ebec15e09e09be9d940cc60cd3"
+      "jsonSha256": "b937a1d6897c95b453f065bd49e9a0d11004f2d69192338c3956354b546f9be0"
     },
     {
       "id": "generative-art",
@@ -549,11 +549,11 @@
       "markdown": "/docs/agents-and-ai.md",
       "canonicalMarkdown": "https://inshell.art/docs/agents-and-ai.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "ca8bba4a71aa18e6eb9d5112c5d50503a565b8c99e8454fe2279e2e966ad085b",
+      "markdownSha256": "e9764aae629b1a3163366a19d1f550982f0b2dc62730e7cdb9cc2a7593cc6096",
       "json": "/docs/agents-and-ai.json",
       "canonicalJson": "https://inshell.art/docs/agents-and-ai.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "7307d1e220bb75e68b9a7899b887d894f011eb8d5d1505e2ee514f1c3a40c914"
+      "jsonSha256": "c11af37b5d04a41ea63d783e417a46ec444e290495dcd3ec2ff4b5bed2f6ed66"
     },
     {
       "id": "svg",

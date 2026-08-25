@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import nodePath from "node:path";
 import { cwd } from "node:process";
 import { afterEach, describe, expect, jest, test } from "@jest/globals";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
 jest.mock("@/components/PulsePage", () => ({
@@ -38,6 +38,7 @@ import { THOUGHT_MACHINE_HANDOFF_SOURCE } from "../src/content/thought-machine-h
 
 afterEach(() => {
   cleanup();
+  window.sessionStorage.clear();
 });
 
 function renderedTopicHeader(topic: DocsTopic) {
@@ -250,7 +251,10 @@ describe("Docs source editorial guardrails", () => {
     const prompt = agentDocsPrompt("https://inshell.art/");
 
     expect(prompt).toContain("Inshell's public knowledge index");
-    expect(prompt).toContain("https://inshell.art/docs/agent-index.json");
+    expect(prompt).toContain(
+      "answer policy: https://inshell.art/docs/agent-index.json",
+    );
+    expect(prompt).not.toContain("answer policy:\n");
     expect(prompt).toContain(
       "relevant indexed documentation, product context, release, handoff, or live read-only source",
     );
@@ -1179,6 +1183,8 @@ describe("Docs source editorial guardrails", () => {
 
     const text = topicText(agentArt);
     expect(text).toMatch(/\bart in which an Agent participates\b/i);
+    expect(text).toMatch(/\blevel of intention\b/i);
+    expect(text).toMatch(/\bAgent(?:'s| intent|\s+intent of the Agent)\b/i);
     expect(text).toMatch(/\bfield\b/i);
     expect(text).toMatch(/\bform\b/i);
     expect(text).toMatch(/\bnot\b[^.]{0,160}\b(?:agentic-ism|ideology)\b/i);
@@ -1204,6 +1210,19 @@ describe("Docs source editorial guardrails", () => {
     );
 
     expect(nonPrescription).toBeDefined();
+  });
+
+  test("requires Agent intent rather than infrastructure or execution alone", () => {
+    const agentArt = DOCS_SOURCE.topics.find(({ slug }) => slug === "agent-art");
+    expect(agentArt).toBeDefined();
+    if (!agentArt) return;
+
+    const text = topicText(agentArt);
+    expect(text).toMatch(/\b(?:runtime|service)\b/i);
+    expect(text).toMatch(/\bexecutor role\b/i);
+    expect(text).toMatch(/\bnone is sufficient by itself\b/i);
+    expect(text).toMatch(/\bintent of the Agent (?:enters|must enter) the work\b/i);
+    expect(text).toMatch(/\b(?:constrained|formed in response to human intention)\b/i);
   });
 
   test("leaves Agent Art open through the source questions of Art and Agent", () => {
@@ -1273,6 +1292,57 @@ describe("Docs source editorial guardrails", () => {
 });
 
 describe("DocsPage navigation", () => {
+  test("shows the full Agent prompt only on the first docs load", () => {
+    const { rerender, unmount } = render(<DocsPage topicSlug="will" />);
+    const prompt = document.querySelector(".docs-agent__prompt");
+    const fullPrompt = agentDocsPrompt("http://localhost");
+    const collapse = screen.getByRole("button", { name: "Collapse Agent prompt" });
+    const actions = screen.getByRole("navigation", {
+      name: "Agent documentation actions",
+    });
+
+    expect(prompt?.textContent).toBe(fullPrompt);
+    expect(
+      within(prompt as HTMLElement).getByRole("link", {
+        name: "http://localhost/docs/agent-index.json",
+      }),
+    ).toHaveAttribute("href", "http://localhost/docs/agent-index.json");
+    expect(collapse).toHaveTextContent("▾");
+    expect(collapse).toHaveAttribute("aria-expanded", "true");
+    expect(collapse.closest(".docs-agent__prompt-field")).not.toBeNull();
+    expect(within(actions).queryByRole("button", { name: /Agent prompt/ })).toBeNull();
+    expect(window.sessionStorage.getItem("inshell.docs.prompt-seen")).toBe(
+      "true",
+    );
+
+    rerender(<DocsPage topicSlug="agent-art" />);
+
+    expect(prompt?.textContent).toBe(fullPrompt);
+    expect(prompt).toHaveClass("docs-agent__prompt--collapsed");
+    const expand = screen.getByRole("button", { name: "Expand Agent prompt" });
+    expect(expand).toHaveTextContent("▸");
+    expect(expand).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(expand);
+    expect(prompt).not.toHaveClass("docs-agent__prompt--collapsed");
+
+    rerender(<DocsPage topicSlug="pulse" />);
+    expect(prompt).toHaveClass("docs-agent__prompt--collapsed");
+
+    unmount();
+    render(<DocsPage topicSlug="will" />);
+
+    expect(document.querySelector(".docs-agent__prompt")?.textContent).toBe(
+      fullPrompt,
+    );
+    expect(document.querySelector(".docs-agent__prompt")).toHaveClass(
+      "docs-agent__prompt--collapsed",
+    );
+    expect(
+      screen.getByRole("button", { name: "Expand Agent prompt" }),
+    ).toBeInTheDocument();
+  });
+
   test("bridges ordinary article reading to wider Agent exploration", () => {
     render(<DocsPage />);
 
@@ -1733,7 +1803,7 @@ describe("DocsPage character figures", () => {
       /RELATION|BOUNDARY|DOES NOT PROVE/,
     );
     expect(agentArtFigure).toMatch(
-      /AGENT ART[\s\S]*An Agent participates[\s\S]*• What is Art\?[\s\S]*• What is an Agent\?/i,
+      /AGENT ART[\s\S]*An Agent's intent participates[\s\S]*• What is Art\?[\s\S]*• What is an Agent\?/i,
     );
     expect(agentArtFigure).not.toMatch(/\bINVARIANT\b|OPEN QUESTIONS/i);
     expect(agentArtFigure).not.toMatch(/NO PRESCRIBED RELATION/);
@@ -2150,7 +2220,7 @@ describe("DocsPage character figures", () => {
       .getByRole("figure", { name: "The invariant and the open field" })
       .querySelector("[data-figure-shape='open-invariant-field']");
     expect(openAgentArt).toHaveTextContent(
-      /AGENT ART[\s\S]*An Agent participates in the art activity[\s\S]*•[\s\S]*WHAT IS ART/i,
+      /AGENT ART[\s\S]*An Agent's intent participates in the work[\s\S]*•[\s\S]*WHAT IS ART/i,
     );
     expect(openAgentArt).toHaveTextContent(/•[\s\S]*WHAT IS AN AGENT/i);
     expect(openAgentArt).not.toHaveTextContent(/\bINVARIANT\b|OPEN QUESTIONS/i);
@@ -2171,7 +2241,7 @@ describe("DocsPage character figures", () => {
     ).toEqual(["•", "•"]);
     expect(
       openAgentArt?.querySelector("[data-figure-node='invariant']"),
-    ).toHaveTextContent(/Agent Art[\s\S]*An Agent participates in the art activity/i);
+    ).toHaveTextContent(/Agent Art[\s\S]*An Agent's intent participates in the work/i);
     expect(
       Array.from(
         openAgentArt?.querySelectorAll("[data-figure-group-id='agent-art-questions']") ?? [],
