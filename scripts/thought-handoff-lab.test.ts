@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import {
   THOUGHT_CODEX_HANDOFF_CASES,
+  THOUGHT_CODEX_HANDOFF_REPORT_VERSION,
   buildCodexDeepLink,
+  observeThoughtCodexRealCanary,
   prepareThoughtCodexRealCanary,
   thoughtCodexCanonicalCandidate,
 } from "./lib/thought-handoff-lab";
@@ -120,6 +125,64 @@ test("the Codex deep link round-trips the sealed handoff", () => {
     parsed.searchParams.get("originUrl"),
     "http://127.0.0.1:5177/thought/",
   );
+});
+
+test("a returned Codex canary report is explicitly qualification eligible", async () => {
+  const canaryDir = await mkdtemp(join(tmpdir(), "thought-codex-report-"));
+  const sessionPath = join(canaryDir, "session.json");
+  const taskPath = join(canaryDir, "sealed-task.txt");
+  const codexUrlPath = join(canaryDir, "codex-url.txt");
+  const originalFetch = globalThis.fetch;
+
+  await Promise.all([
+    writeFile(taskPath, "sealed task"),
+    writeFile(codexUrlPath, "codex://run"),
+    writeFile(sessionPath, JSON.stringify({
+      schema: THOUGHT_CODEX_HANDOFF_REPORT_VERSION,
+      labVersion: "inshell.thought.codex-handoff-lab.v1",
+      mode: "real-canary",
+      agent: "Codex Desktop",
+      runId: "tar_qualification_report",
+      statusUrl: "https://staging.example/status",
+      browserToken: "browser-token",
+      taskSha256: "sha256:task",
+      taskByteLength: 11,
+      taskPath,
+      codexUrlPath,
+      createdAt: new Date().toISOString(),
+      promptLine: "Can the evidence name its result?",
+    })),
+  ]);
+
+  globalThis.fetch = async () => Response.json({
+    state: "returned",
+    stage: "returned",
+    result: {
+      receipt: {
+        receiptSha256: "sha256:receipt",
+        model: "codex",
+      },
+      agentLine: "The evidence names its result.",
+    },
+  });
+
+  try {
+    const { report, reportPath } = await observeThoughtCodexRealCanary({
+      sessionPath,
+      timeoutMs: 1_000,
+      creatorActions: "none",
+    });
+    assert.equal(report.schema, "inshell.thought.codex-handoff-report.v2");
+    assert.equal(report.qualificationEligible, true);
+    assert.equal(report.privateArtifactsRemoved, true);
+    assert.equal(
+      JSON.parse(await readFile(reportPath, "utf8")).qualificationEligible,
+      true,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    await rm(canaryDir, { recursive: true, force: true });
+  }
 });
 
 test("an oversized real canary is cancelled before the qualification error escapes", async () => {

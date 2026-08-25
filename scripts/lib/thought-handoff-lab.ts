@@ -37,7 +37,7 @@ import {
 export const THOUGHT_CODEX_HANDOFF_LAB_VERSION =
   "inshell.thought.codex-handoff-lab.v1" as const;
 export const THOUGHT_CODEX_HANDOFF_REPORT_VERSION =
-  "inshell.thought.codex-handoff-report.v1" as const;
+  "inshell.thought.codex-handoff-report.v2" as const;
 const THOUGHT_CODEX_HANDOFF_MAX_BYTES = 7_000;
 const THOUGHT_CLAUDE_HANDOFF_MAX_BYTES = 14_000;
 
@@ -1617,6 +1617,11 @@ export const observeThoughtCodexRealCanary = async (options: {
     receipt?: { receiptSha256?: string; model?: string; reasoningEffort?: string };
     agentLine?: string;
   } | undefined;
+  const receiptSha256 = result?.receipt?.receiptSha256 ?? null;
+  const qualificationEligible = terminal &&
+    payload.state === "returned" &&
+    typeof receiptSha256 === "string" &&
+    receiptSha256.startsWith("sha256:");
   const report = {
     schema: THOUGHT_CODEX_HANDOFF_REPORT_VERSION,
     labVersion: THOUGHT_CODEX_HANDOFF_LAB_VERSION,
@@ -1628,13 +1633,14 @@ export const observeThoughtCodexRealCanary = async (options: {
     terminal,
     state: payload.state ?? "timeout",
     stage: payload.stage ?? null,
-    receiptSha256: result?.receipt?.receiptSha256 ?? null,
+    receiptSha256,
     model: result?.receipt?.model ?? null,
     reasoningEffort: result?.receipt?.reasoningEffort ?? null,
     launchSubmission: "creator-clicked-submit",
     controlActions: options.creatorActions ?? "not-recorded",
     agentLineSha256: result?.agentLine ? sha256(result.agentLine) : null,
     privateArtifactsRemoved: terminal,
+    qualificationEligible,
     startedAt,
     completedAt: new Date().toISOString(),
   };
