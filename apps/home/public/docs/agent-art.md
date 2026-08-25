@@ -1,12 +1,12 @@
 # Agent Art
 
-> Agent Art is art in which an Agent participates.
+> Agent Art is art in which an Agent participates at the level of intention.
 
 - Group: Start here
 - Status: current
 - Authority classes in this document: artist-editorial
 - Canonical page: https://inshell.art/docs/agent-art
-- Documentation version: 2026-08-16
+- Documentation version: 2026-08-21-r2
 - Structured JSON schema: https://inshell.art/docs/content.v2.schema.json
 
 ## The invariant and the open field
@@ -16,7 +16,7 @@
 - Figure mode: field
 - Semantic form: field
 - Semantic nodes:
-  - `invariant [principle]: Agent Art — An Agent participates in the art activity.`
+  - `invariant [principle]: Agent Art — An Agent's intent participates in the work.`
   - `what-is-art [question]: What is Art? — Open question.`
   - `what-is-an-agent [question]: What is an Agent? — Open question.`
 - Semantic groups:
@@ -25,13 +25,13 @@
 
 ```text
 AGENT ART
-An Agent participates in the art activity.
+An Agent's intent participates in the work.
 
 • What is Art? — Open question.
 • What is an Agent? — Open question.
 ```
 
-- **Agent Art** — An Agent participates in the art activity.
+- **Agent Art** — An Agent's intent participates in the work.
 - **What is Art?** — Open question.
 - **What is an Agent?** — Open question.
 
@@ -39,21 +39,23 @@ An Agent participates in the art activity.
 
 - Authority: artist-editorial
 
-Agent Art is a blunt name for a form and a field of art activity. Participation by an Agent is the invariant. The name describes what kind of activity it is, not what the activity means. The term is not agentic-ism, an ideology, a spirit, or a synonym for AI-generated imagery.
+Agent Art is a blunt name for a form and a field of art activity. The invariant is that an Agent participates at the level of intention: an intent of the Agent enters the work. The name describes what kind of activity it is, not what the activity means. The term is not agentic-ism, an ideology, a spirit, or a synonym for AI-generated imagery.
 
-The name does not imply that an Agent improves, injects, extends, replaces, or assists a human. It does not prescribe collaboration, autonomy, authorship, equality, or any other human–Agent relation. Those claims must come from a particular work, not from the phrase Agent Art.
+Requiring Agent intent does not prescribe its relation to human intention. It does not imply that an Agent improves, injects, extends, replaces, or assists a human, and it does not prescribe collaboration, autonomy, authorship, equality, or any other human–Agent relation. Those claims must come from a particular work, not from the phrase Agent Art.
 
-The field remains open because its source terms remain open: What is Art? What is an Agent? Agent Art settles neither question. It requires only that an Agent actually participate in the art activity.
+The field remains open because its source terms remain open: What is Art? What is an Agent? Agent Art settles neither question. It requires that an Agent's intent actually participate in the work without settling what form that intent takes.
 
 For [Inshell](https://inshell.art/docs/inshell), Agent Art is the medium of this age: the field in which the inward practice takes form. Inshell works in this field as an artist. The direction of that practice is simple: inspect self. That direction is not a definition or doctrine for Agent Art. Inshell is not Agent Art itself and does not own or define the field. Each Inshell practice takes its own form within the field without becoming the field's boundary.
 
-## Participation is the invariant
+## Intentional participation is the invariant
 
 - Authority: artist-editorial
 
-An Agent must take part in the artistic activity. An Agent that appears only as a subject, image, theme, or marketing label does not satisfy that condition by appearance alone.
+An Agent may participate through a runtime, service, interface, tool use, or executor role. Those are possible carriers of participation, but none is sufficient by itself. A program that only applies a fixed procedure, or an Agent that only supplies infrastructure or carries out a fully determined instruction, can be used without its thinking power or intent entering the work.
 
-How the Agent takes part belongs to the particular work. Participation does not automatically mean authorship, collaboration, assistance, autonomy, equality, or any prescribed role.
+For Agent Art, some intent of the Agent must enter the work through how the Agent interprets, chooses, proposes, directs, or acts. This is the level at which thinking power becomes artistic participation. That intent may be constrained or formed in response to human intention; it does not automatically mean authorship, collaboration, assistance, autonomy, equality, or any prescribed role.
+
+An Agent that appears only as a subject, image, theme, or marketing label does not satisfy the invariant by appearance alone.
 
 ## A field, not an -ism
 
@@ -68,5 +70,7 @@ Questions raised by a particular work belong to that work. They are not implied 
 - Authority: artist-editorial
 
 Inshell stands in Agent Art as an artist. Its movements and works take particular forms within the field without enclosing the field within Inshell's methods.
+
+Inshell's route into the field began in its [Generative Art](https://inshell.art/docs/generative-art) period. Once AI could be approached as a thinking machine, using it only as another fixed algorithm left its distinguishing capacity outside the work. The question became how a work could be composed so that thinking power, and intent formed through it, participates.
 
 Protocols, interfaces, renderers, provenance, and public chains are materials in some Inshell practices. They are not requirements for Agent Art as a whole.

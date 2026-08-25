@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
+  AGENT_DOCS_INDEX_PATH,
   DOCS_SOURCE,
   agentDocsPrompt,
   type DocsFigure,
@@ -43,6 +44,13 @@ async function copyText(value: string) {
 function currentOrigin() {
   if (typeof window === "undefined") return "https://inshell.art";
   return window.location.origin;
+}
+
+const DOCS_PROMPT_SEEN_KEY = "inshell.docs.prompt-seen";
+
+function initialDocsPromptCollapsed() {
+  if (typeof window === "undefined") return false;
+  return window.sessionStorage.getItem(DOCS_PROMPT_SEEN_KEY) === "true";
 }
 
 function renderDocsParagraph(paragraph: DocsParagraph) {
@@ -102,8 +110,19 @@ type DocsPageProps = {
 
 export default function DocsPage({ topicSlug = null }: DocsPageProps) {
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const [promptCollapsed, setPromptCollapsed] = useState(initialDocsPromptCollapsed);
   const copyStatusTimer = useRef<number | null>(null);
-  const prompt = useMemo(() => agentDocsPrompt(currentOrigin()), []);
+  const loadedTopicSlug = useRef(topicSlug);
+  const promptOrigin = useMemo(currentOrigin, []);
+  const prompt = useMemo(() => agentDocsPrompt(promptOrigin), [promptOrigin]);
+  const promptIndexUrl = useMemo(
+    () => `${promptOrigin.replace(/\/$/, "")}${AGENT_DOCS_INDEX_PATH}`,
+    [promptOrigin],
+  );
+  const [promptBeforeIndex, promptAfterIndex] = useMemo(
+    () => prompt.split(promptIndexUrl),
+    [prompt, promptIndexUrl],
+  );
   const topicsBySlug = useMemo(
     () => new Map(DOCS_SOURCE.topics.map((topic) => [topic.slug, topic])),
     [],
@@ -129,6 +148,14 @@ export default function DocsPage({ topicSlug = null }: DocsPageProps) {
     },
     [],
   );
+  useEffect(() => {
+    window.sessionStorage.setItem(DOCS_PROMPT_SEEN_KEY, "true");
+  }, []);
+  useEffect(() => {
+    if (loadedTopicSlug.current === topicSlug) return;
+    loadedTopicSlug.current = topicSlug;
+    setPromptCollapsed(true);
+  }, [topicSlug]);
 
   const flashCopyStatus = (status: "copied" | "failed") => {
     if (copyStatusTimer.current !== null) {
@@ -153,6 +180,10 @@ export default function DocsPage({ topicSlug = null }: DocsPageProps) {
         ? "[ try again ]"
         : "[ copy prompt ]";
 
+  const toggleAgentPrompt = () => {
+    setPromptCollapsed((collapsed) => !collapsed);
+  };
+
   return (
     <main className="primitive-page docs-page" aria-labelledby="docs-title">
       <header className="primitive-page__header docs-page__header">
@@ -164,7 +195,38 @@ export default function DocsPage({ topicSlug = null }: DocsPageProps) {
         </div>
 
         <section className="docs-agent" aria-label="Agent documentation prompt">
-          <pre className="docs-agent__prompt">{prompt}</pre>
+          <div className="docs-agent__prompt-field">
+            <pre
+              id="docs-agent-prompt"
+              className={`docs-agent__prompt${
+                promptCollapsed ? " docs-agent__prompt--collapsed" : ""
+              }`}
+            >
+              <span className="docs-agent__prompt-text">
+                {promptBeforeIndex}
+                <a
+                  className="docs-agent__prompt-link"
+                  href={promptIndexUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {promptIndexUrl}
+                </a>
+                {promptAfterIndex}
+              </span>
+            </pre>
+            <button
+              type="button"
+              className="docs-agent__disclosure"
+              aria-controls="docs-agent-prompt"
+              aria-expanded={!promptCollapsed}
+              aria-label={promptCollapsed ? "Expand Agent prompt" : "Collapse Agent prompt"}
+              title={promptCollapsed ? "Expand Agent prompt" : "Collapse Agent prompt"}
+              onClick={toggleAgentPrompt}
+            >
+              <span aria-hidden="true">{promptCollapsed ? "▸" : "▾"}</span>
+            </button>
+          </div>
           <nav
             className="primitive-page__links docs-agent__links"
             aria-label="Agent documentation actions"

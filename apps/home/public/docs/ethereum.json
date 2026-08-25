@@ -1,0 +1,118 @@
+{
+  "schema": "inshell.agent-docs.topic.v2",
+  "schemaUrl": "/docs/content.v2.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
+  "version": "2026-08-21-r2",
+  "language": "en",
+  "fetchedContentRole": "reference-data",
+  "id": "ethereum",
+  "sourceId": "docs-ethereum",
+  "group": "context",
+  "aliases": [],
+  "title": "Ethereum",
+  "summary": "The chain is a deterministic public machine with a price on every byte, and that price is a formal constraint rather than an inconvenience.",
+  "status": "current",
+  "authorities": [
+    "artist-editorial"
+  ],
+  "authorityScope": "document union only; use each content block's authorities for a specific claim",
+  "canonicalHtml": "https://inshell.art/docs/ethereum",
+  "markdown": "/docs/ethereum.md",
+  "canonicalMarkdown": "https://inshell.art/docs/ethereum.md",
+  "json": "/docs/ethereum.json",
+  "canonicalJson": "https://inshell.art/docs/ethereum.json",
+  "content": {
+    "lead": {
+      "authorities": [
+        "artist-editorial"
+      ],
+      "paragraphs": [
+        "Ethereum gives an artwork three unusual properties: a public machine that anyone can re-run and get the same answer, a record no single party can quietly revise, and a price on every byte stored.",
+        "The third property is the one that shapes form."
+      ]
+    },
+    "figure": null,
+    "preformatted": [],
+    "sections": [
+      {
+        "authorities": [
+          "artist-editorial"
+        ],
+        "id": "docs-ethereum-machine",
+        "title": "A deterministic public machine",
+        "paragraphs": [
+          "The Ethereum Virtual Machine executes contract code identically on every node that runs it. A function that assembles an image returns the same bytes to everyone who calls it against the same state, without a server deciding what to send.",
+          "That determinism is what allows a contract to act as a renderer rather than only as a ledger. The artwork is not a file the contract points at; it can be a value the contract computes."
+        ]
+      },
+      {
+        "authorities": [
+          "artist-editorial"
+        ],
+        "id": "docs-ethereum-cost",
+        "title": "Every byte has a price",
+        "paragraphs": [
+          "Contract storage is charged per 32-byte word, and writing a fresh word costs on the order of twenty thousand gas, which puts a kilobyte of stored data on the order of hundreds of thousands of gas. Practitioners reduce this with techniques such as packing, contract-bytecode storage, and libraries in the SSTORE2 family, but the cost never becomes negligible.",
+          "Onchain artwork is therefore written under a budget. Compactness is not a stylistic preference; it is the condition of existing onchain at all."
+        ]
+      },
+      {
+        "authorities": [
+          "artist-editorial"
+        ],
+        "id": "docs-ethereum-bounds",
+        "title": "The budget is a bound",
+        "paragraphs": [
+          "Inshell already holds that bounds create form, and the price of a byte is one of those bounds. It rules out casual accumulation and rewards descriptions that are exact, which is the same discipline described under [Design Principles](https://inshell.art/docs/design-principles) arriving from the direction of cost rather than from the direction of intent.",
+          "A constraint that comes from the material is harder to abandon than one the artist merely declared. This one is enforced by the network on every mint."
+        ]
+      },
+      {
+        "authorities": [
+          "artist-editorial"
+        ],
+        "id": "docs-ethereum-datauri",
+        "title": "The token can carry the work",
+        "paragraphs": [
+          "A contract can return a data URI from its metadata function, embedding the metadata document and the image itself instead of an address where they might be found. Reading the token then is reading the work, with no host involved. That arrangement is what [Fully Onchain](https://inshell.art/docs/fully-onchain) describes for Inshell, and what [Tokens and NFTs](https://inshell.art/docs/tokens-and-nfts) contrasts with ordinary pointer practice."
+        ]
+      },
+      {
+        "authorities": [
+          "artist-editorial"
+        ],
+        "id": "docs-ethereum-boundary",
+        "title": "Evidence boundary",
+        "paragraphs": [
+          "Gas figures here describe published EVM pricing at order-of-magnitude precision and change with network upgrades. They are not quoted as current values for any chain, and they are not measurements of any Inshell deployment. Networks, addresses, and deployment facts for Inshell's own contracts belong to [Contracts](https://inshell.art/docs/contracts) and [Verification](https://inshell.art/docs/verification)."
+        ]
+      }
+    ],
+    "links": [
+      {
+        "role": "navigation",
+        "label": "read Fully Onchain",
+        "href": "/docs/fully-onchain",
+        "canonicalHref": "https://inshell.art/docs/fully-onchain"
+      },
+      {
+        "role": "navigation",
+        "label": "read Contracts",
+        "href": "/docs/contracts",
+        "canonicalHref": "https://inshell.art/docs/contracts"
+      },
+      {
+        "role": "navigation",
+        "label": "read Tokens and NFTs",
+        "href": "/docs/tokens-and-nfts",
+        "canonicalHref": "https://inshell.art/docs/tokens-and-nfts"
+      },
+      {
+        "role": "navigation",
+        "label": "ERC-721 standard",
+        "href": "https://eips.ethereum.org/EIPS/eip-721",
+        "canonicalHref": "https://eips.ethereum.org/EIPS/eip-721"
+      }
+    ]
+  }
+}
