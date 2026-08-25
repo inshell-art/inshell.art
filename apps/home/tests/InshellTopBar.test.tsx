@@ -136,6 +136,36 @@ describe("InshellTopBar", () => {
     expect(screen.getByRole("menu", { name: "Wallet options" })).toBeTruthy();
   });
 
+  test("keeps read-only wallet guidance before deployment without exposing the internal phase", () => {
+    const refreshConnectors = jest.fn().mockResolvedValue(undefined);
+    const connectAsync = jest.fn().mockResolvedValue(undefined);
+    mockUseWallet.mockReturnValue(
+      walletState({
+        address: null,
+        chain: null,
+        chainId: null,
+        isConnected: false,
+        connectAsync,
+        connectors: [{ id: "metamask", name: "MetaMask" }],
+        refreshConnectors,
+      })
+    );
+
+    render(<InshellTopBar studioPreview />);
+
+    expect(screen.queryByText(/Studio Preview/i)).toBeNull();
+    const walletControl = screen.getByRole("button", { name: "connect wallet" });
+    expect(walletControl).not.toHaveTextContent(/Sepolia|Local ETH/);
+    act(() => openInshellWallet());
+    const walletMenu = screen.getByRole("menu", { name: "Wallet options" });
+    expect(walletMenu).toBeInTheDocument();
+    expect(walletMenu).toHaveTextContent(
+      /address read only\.\s*no signature\.\s*no tx or approval\./,
+    );
+    expect(refreshConnectors).toHaveBeenCalledTimes(1);
+    expect(connectAsync).not.toHaveBeenCalled();
+  });
+
   test("refreshes injected wallets whenever the disconnected picker opens", () => {
     const refreshConnectors = jest.fn().mockResolvedValue(undefined);
     mockUseWallet.mockReturnValue(

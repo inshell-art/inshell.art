@@ -350,7 +350,54 @@ function PathRecordVerifier(props: {
   );
 }
 
-export default function VerifyPage() {
+export default function VerifyPage({ beforeDeploy = false }: { beforeDeploy?: boolean }) {
+  const pathVerification = useMemo(readPathVerificationTarget, []);
+  if (beforeDeploy) {
+    return (
+      <main className="primitive-page verify-page" aria-labelledby="verify-title">
+        <header className="primitive-page__header verify-page__header">
+          <div>
+            <h1 id="verify-title" className="primitive-page__title">
+              verify
+            </h1>
+            <p className="primitive-page__subtitle">
+              Official {SURFACE_TERMINOLOGY.ecosystem} origins, release status, and verification boundaries.
+            </p>
+          </div>
+        </header>
+        <section className="primitive-page__body verify-page__body inshell-contract-status">
+          <div className="primitive-page__copy">
+            <p>
+              Onchain contracts are not active yet. Contract addresses and mint
+              records will appear here when the approved release is deployed.
+            </p>
+          </div>
+          <section className="verify-page__section" aria-labelledby="verify-domains">
+            <h2 id="verify-domains">official origins</h2>
+            <VerifyFields
+              rows={[
+                { id: "origin-home", label: "home", value: "https://inshell.art" },
+                { id: "origin-path", label: "$PATH", value: "https://inshell.art/path" },
+                { id: "origin-thought", label: "THOUGHT", value: "https://inshell.art/thought" },
+                { id: "origin-gallery", label: "gallery", value: "https://inshell.art/gallery" },
+              ]}
+            />
+          </section>
+          <section className="verify-page__section" aria-labelledby="verify-release-status">
+            <h2 id="verify-release-status">current release</h2>
+            <VerifyFields
+              rows={[
+                { id: "release-path", label: "$PATH", value: "before deployment" },
+                { id: "release-thought", label: "THOUGHT", value: "browser creation and local save available" },
+                { id: "release-wallet", label: "wallet", value: "not requested" },
+                { id: "release-mint", label: "minting", value: "not open" },
+              ]}
+            />
+          </section>
+        </section>
+      </main>
+    );
+  }
   const pathRelease = getProtocolRelease();
   const legacyThoughtRelease = getLegacyThoughtRelease("sepolia");
   const legacyThoughtSpec = getLegacyThoughtSpec("sepolia");
@@ -379,7 +426,6 @@ export default function VerifyPage() {
     const value = legacyThoughtRelease?.contracts?.[id];
     return typeof value === "string" ? value : "unavailable";
   };
-  const pathVerification = useMemo(readPathVerificationTarget, []);
   const pathContracts: VerifyContractRow[] = [
     {
       id: "pulse-auction",
@@ -408,7 +454,7 @@ export default function VerifyPage() {
   ];
   const currentThoughtStatus = thoughtDeployment
     ? "verified R2 deployment"
-    : "not deployed";
+    : "deployment pending";
   const currentThoughtContracts: VerifyContractRow[] = [
     {
       id: "thought-v2-nft",
@@ -592,7 +638,7 @@ export default function VerifyPage() {
               {
                 id: "thought-movement",
                 label: "THOUGHT R2 movement",
-                value: thoughtDeployment ? "verified deployment" : "not deployed",
+                value: thoughtDeployment ? "verified deployment" : "deployment pending",
               },
               { id: "will-movement", label: "WILL movement", value: "unset" },
               { id: "awa-movement", label: "AWA movement", value: "unset" },
@@ -658,12 +704,12 @@ export default function VerifyPage() {
               {
                 id: "thought-deployment-status",
                 label: "production deployment",
-                value: thoughtDeployment ? "verified" : "not deployed",
+                value: thoughtDeployment ? "verified" : "deployment pending",
               },
               {
                 id: "thought-spec-registered",
                 label: "production registration",
-                value: thoughtDeployment ? "deployment-bound" : "not registered",
+                value: thoughtDeployment ? "deployment-bound" : "registration pending",
               },
               {
                 id: "thought-mint-status",

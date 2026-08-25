@@ -234,7 +234,6 @@ import { THOUGHT_V2_PRODUCTION_DEPLOYMENT } from "./thought-v2-production-deploy
 import {
   deriveThoughtLaunchState,
   getThoughtMintClosedNotice,
-  localThoughtLaunchState,
   parseThoughtLaunchReadModel,
   shouldFetchThoughtLaunchReadModel,
   studioPreviewLaunchState,
@@ -1937,13 +1936,13 @@ const simulatedThoughtLaunchState = (): ThoughtLaunchState | null => {
 };
 let thoughtLaunchState: ThoughtLaunchState =
   simulatedThoughtLaunchState() ??
-  (IS_LOCAL_THOUGHT_V2
-    ? localThoughtLaunchState(THOUGHT_CHAIN_ID)
-    : deriveThoughtLaunchState({
-        deployment: THOUGHT_LAUNCH_DEPLOYMENT,
-        readModel: null,
-      }));
+  deriveThoughtLaunchState({
+    deployment: THOUGHT_LAUNCH_DEPLOYMENT,
+    readModel: null,
+  });
 const isThoughtMintEnabled = () => thoughtLaunchState.mintEnabled;
+const shouldShowThoughtMintSurface = () =>
+  thoughtLaunchState.phase !== "studio-preview";
 const THOUGHT_ACTIVE_RELEASE: ThoughtActiveRelease | null =
   THOUGHT_LAUNCH_DEPLOYMENT
     ? {
@@ -1981,7 +1980,7 @@ const refreshThoughtLaunchState = async () => {
   return thoughtLaunchState;
 };
 const IS_THOUGHT_GALLERY_ACTIVE =
-  IS_LOCAL_THOUGHT_V2 || THOUGHT_V2_PRODUCTION_DEPLOYMENT !== null;
+  THOUGHT_V2_PRODUCTION_DEPLOYMENT !== null;
 const thoughtInstructions = IS_LOCAL_THOUGHT_V2
   ? latestThoughtCreativeSpec
   : THOUGHT_V2_PROTOCOL_RELEASE.spec.text;
@@ -2638,7 +2637,12 @@ if (
   throw new Error("Front page elements are missing.");
 }
 
-mountThoughtShell(thoughtShellRoot, THOUGHT_CHAIN_ID, () => refreshThoughtWalletFromShell());
+mountThoughtShell(
+  thoughtShellRoot,
+  THOUGHT_CHAIN_ID,
+  () => refreshThoughtWalletFromShell(),
+  thoughtLaunchState.phase === "studio-preview",
+);
 
 localModelValue.textContent = LOCAL_MODEL_LABEL;
 
@@ -4429,7 +4433,9 @@ const ensureThoughtConsoleWelcomeMessage = () => {
     emitThoughtConsoleEvent({
       kind: "work_agent_mobile_desktop_required",
       title: "Continue on desktop",
-      detail: "Codex and Claude Code creation are available from the desktop THOUGHT App. Mobile wallet connection and PATH minting remain available here.",
+      detail: thoughtLaunchState.phase === "studio-preview"
+        ? "ChatGPT and Claude creation require the desktop THOUGHT App. Open this page on desktop to create and save a THOUGHT."
+        : "ChatGPT and Claude creation require the desktop THOUGHT App. Mobile wallet connection and PATH minting remain available here.",
       tone: "neutral",
       eventId: "agent-mobile-desktop-required",
     });
@@ -4706,9 +4712,19 @@ const withCurrentThoughtNetworkName = (entry: ThoughtConsoleEntry): ThoughtConso
   };
 };
 
+const isStudioPreviewOnchainConsoleEntry = (entry: ThoughtConsoleEntry) =>
+  /^(?:authorization_|conflicting_mint|detached_mint|legacy_local_mint|mint_|minted$|multiple_mint|path_|pending_mint|thought_exists$|thought_launch_mint|transaction_|wallet_)/.test(
+    entry.kind,
+  );
+
 const renderThoughtConsoleHistory = (state: ThoughtDockState) => {
-  const newestEntry = thoughtConsoleHistory.entries.at(-1);
-  const runRecoveryEntryId = [...thoughtConsoleHistory.entries]
+  const visibleHistoryEntries = shouldShowThoughtMintSurface()
+    ? thoughtConsoleHistory.entries
+    : thoughtConsoleHistory.entries.filter(
+        (entry) => !isStudioPreviewOnchainConsoleEntry(entry),
+      );
+  const newestEntry = visibleHistoryEntries.at(-1);
+  const runRecoveryEntryId = [...visibleHistoryEntries]
     .reverse()
     .find((entry) => thoughtConsoleRunRecoveryAvailable(entry, state))?.id;
   const previousNewestEntryId = thoughtDockDetailsBody.dataset.newestEntryId || undefined;
@@ -4721,7 +4737,7 @@ const renderThoughtConsoleHistory = (state: ThoughtDockState) => {
       return id ? [[id, child] as const] : [];
     }),
   );
-  const entries = newestFirstThoughtConsoleEntries(thoughtConsoleHistory.entries)
+  const entries = newestFirstThoughtConsoleEntries(visibleHistoryEntries)
     .map(withCurrentThoughtNetworkName)
     .map((entry) => {
     const tone: DockRailTone = entry.tone === "neutral" ? "idle" : entry.tone;
@@ -5161,7 +5177,8 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
           mintEnabled: isThoughtMintEnabled(),
         });
         const workMintReadiness = getCurrentWorkMintReadiness();
-        const mintPanelOpen = mintDockRevealed;
+        const showMintSurface = shouldShowThoughtMintSurface();
+        const mintPanelOpen = showMintSurface && mintDockRevealed;
         const canOpenMint = workReady.canMint && workMintReadiness.ready;
         const currentWorkSaved = currentWorkId !== null && Boolean(
           getWorkById(readStoredThoughtWorks(), currentWorkId),
@@ -5178,28 +5195,30 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
             ? "success"
             : "warning",
           actions: [
-            dockRailAction(
-              "mint",
-              mintPanelOpen ? "Mint ↓" : "Mint",
-              mintPanelOpen ? "Collapse Mint panel" : "Mint this accepted THOUGHT work",
-              () => {
-                if (!canOpenMint) {
-                  noticeThoughtMintUnavailable();
-                  syncThoughtDock();
-                  return;
-                }
-                if (mintPanelOpen) {
-                  mintDockRevealed = false;
-                  writeCurrentOutputSession();
-                  syncThoughtDock();
-                  return;
-                }
-                revealMintDock();
-                syncThoughtDock();
-                void mintThoughtDockWork();
-              },
-              { expanded: mintPanelOpen },
-            ),
+            ...(showMintSurface
+              ? [dockRailAction(
+                  "mint",
+                  mintPanelOpen ? "Mint ↓" : "Mint",
+                  mintPanelOpen ? "Collapse Mint panel" : "Mint this accepted THOUGHT work",
+                  () => {
+                    if (!canOpenMint) {
+                      noticeThoughtMintUnavailable();
+                      syncThoughtDock();
+                      return;
+                    }
+                    if (mintPanelOpen) {
+                      mintDockRevealed = false;
+                      writeCurrentOutputSession();
+                      syncThoughtDock();
+                      return;
+                    }
+                    revealMintDock();
+                    syncThoughtDock();
+                    void mintThoughtDockWork();
+                  },
+                  { expanded: mintPanelOpen },
+                )]
+              : []),
             dockRailAction(
               "save",
               currentWorkSaved ? "Saved" : "Save",
@@ -5427,7 +5446,9 @@ const blockMobileThoughtAgentLaunch = (prompt: string) => {
   emitThoughtConsoleEvent({
     kind: "work_agent_mobile_desktop_required",
     title: "Continue on desktop",
-    detail: "Codex and Claude Code creation are available from the desktop THOUGHT App. Mobile wallet connection and PATH minting remain available here.",
+    detail: thoughtLaunchState.phase === "studio-preview"
+      ? "ChatGPT and Claude creation require the desktop THOUGHT App. Open this page on desktop to create and save a THOUGHT."
+      : "ChatGPT and Claude creation require the desktop THOUGHT App. Mobile wallet connection and PATH minting remain available here.",
     tone: "neutral",
     eventId: "agent-mobile-desktop-required",
   });
@@ -7387,6 +7408,9 @@ const waitForWalletAddress = async (ethereum: EthereumProvider, timeoutMs = 1800
 };
 
 const getReadProvider = () => {
+  if (thoughtLaunchState.phase === "studio-preview") {
+    return null;
+  }
   if (!THOUGHT_RPC_URL) {
     return null;
   }
@@ -7421,6 +7445,9 @@ const getMintReceiptMonitoringProviders = () => {
 };
 
 const getPathReadProvider = () => {
+  if (thoughtLaunchState.phase === "studio-preview") {
+    return null;
+  }
   if (!PATH_RPC_URL) {
     return null;
   }
@@ -8077,6 +8104,10 @@ const selectThoughtPreviewProvider = async () => {
   const mode = readPreviewMode();
   if (mode === "off") {
     return { provider: null, reason: "Preview is off." };
+  }
+  if (thoughtLaunchState.phase === "studio-preview") {
+    const provider = createPinnedBrowserPreviewProvider();
+    return { provider, reason: "" };
   }
   if (IS_LOCAL_THOUGHT_V2) {
     const provider = getReadProvider();
@@ -9885,6 +9916,19 @@ const getActionPresentation = (): ActionPresentation => {
   }
 
   if (hasOutput) {
+    if (!shouldShowThoughtMintSurface()) {
+      action = {
+        primaryLabel: "",
+        primaryDisabled: true,
+        primaryAction: "none",
+        status: "",
+        secondaryLabel: "[ reset ]",
+        secondaryAction: "reset",
+        hidePrimary: true,
+      };
+      return applyDebugStatusOverride(action);
+    }
+
     if (!THOUGHT_RPC_URL || !THOUGHT_NFT_ADDRESS) {
       action = {
         primaryLabel: "[ mint ]",
@@ -11072,7 +11116,7 @@ const syncMintSheet = () => {
 };
 
 const syncMintDockPathPanel = () => {
-  const isVisible = mintDockRevealed;
+  const isVisible = shouldShowThoughtMintSurface() && mintDockRevealed;
 
   if (!isVisible) {
     thoughtDockPath.classList.add("is-hidden");
@@ -11862,6 +11906,9 @@ const lookupExistingThoughtToken = async (token: Contract, identityHash: string)
     : token.tokenOfThought(identityHash) as Promise<bigint>;
 
 const preflightCurrentThoughtExistence = async () => {
+  if (thoughtLaunchState.phase === "studio-preview") {
+    return;
+  }
   if (!currentOutputText || runState !== "output_ready") {
     return;
   }
@@ -16100,7 +16147,7 @@ const settleGalleryCreateLink = () => {
 };
 
 const renderThoughtGallery = (thoughts: GalleryThought[]) => {
-  galleryStatus.textContent = thoughts.length === 0 ? "no minted THOUGHTs yet." : `${thoughts.length} minted THOUGHT${thoughts.length === 1 ? "" : "s"}.`;
+  galleryStatus.textContent = thoughts.length === 0 ? "Create and save the first THOUGHT in this browser." : `${thoughts.length} minted THOUGHT${thoughts.length === 1 ? "" : "s"}.`;
   galleryGrid.replaceChildren(...thoughts.map(renderGalleryCard));
   settleGalleryCreateLink();
   highlightGalleryTarget();
@@ -16111,7 +16158,7 @@ const loadThoughtGallery = async () => {
     stopGalleryLoadingStatus();
     clearThoughtGalleryCache();
     galleryGrid.replaceChildren();
-    galleryStatus.textContent = "Current THOUGHT collection is not deployed.";
+    galleryStatus.textContent = "Create and save a THOUGHT in this browser. Onchain minting is not open yet.";
     settleGalleryCreateLink();
     return;
   }
@@ -16158,7 +16205,7 @@ const loadThoughtDetail = async () => {
   }
   if (!IS_THOUGHT_GALLERY_ACTIVE) {
     clearThoughtGalleryCache();
-    thoughtDetailStatus.textContent = "Current THOUGHT collection is not deployed.";
+    thoughtDetailStatus.textContent = "Onchain THOUGHT details will appear when minting opens.";
     return;
   }
 
@@ -16712,6 +16759,9 @@ const syncOutputToCanvas = (raw: string, options?: { suppressWarning?: boolean }
 };
 
 const syncEmptyFrameStyleFromContract = async () => {
+  if (thoughtLaunchState.phase === "studio-preview") {
+    return;
+  }
   if (!IS_LOCAL_THOUGHT_V2 || !THOUGHT_RENDERER_ADDRESS) {
     return;
   }
@@ -16957,7 +17007,7 @@ const restoreCurrentOutputSession = () => {
   currentWorkImage = stored.image;
   currentRunContext = stored.runContext;
   currentWorkId = stored.workId;
-  mintDockRevealed = stored.mintDockRevealed;
+  mintDockRevealed = shouldShowThoughtMintSurface() && stored.mintDockRevealed;
   runState = "output_ready";
   if (stored.migrated) {
     writeCurrentOutputSession();
@@ -17063,6 +17113,9 @@ const consumeFreshCreationEntryUrl = () => {
 };
 
 const currentOutputSessionIsMinted = async () => {
+  if (thoughtLaunchState.phase === "studio-preview") {
+    return false;
+  }
   const stored = readCurrentOutputSession();
   if (!stored) {
     return false;

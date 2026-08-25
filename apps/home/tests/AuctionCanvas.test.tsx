@@ -1586,7 +1586,7 @@ describe("AuctionCanvas", () => {
     expect(mockCallContract).not.toHaveBeenCalled();
   });
 
-  test("shows no deployment message when no protocol release is loaded", () => {
+  test("keeps the isolated before_deploy fallback inert", () => {
     (globalThis as any).__VITE_ENV__ = {
       VITE_NETWORK: "mainnet",
       VITE_EXPECTED_CHAIN_ID: "0xaa36a7",
@@ -1602,10 +1602,10 @@ describe("AuctionCanvas", () => {
       refresh: jest.fn(),
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    expect(screen.getByText(/Minting is not open yet/i)).toBeTruthy();
-    expect(
-      screen.getByText(/The \$PATH contract is not deployed yet/i)
-    ).toBeTruthy();
+    expect(screen.getByText(/\$PATH minting is not open yet/i)).toBeTruthy();
+    expect(screen.getByText(/The onchain release is being prepared/i)).toBeTruthy();
+    expect(screen.queryByText(/Studio Preview/i)).toBeNull();
+    expect(screen.queryByRole("button", { name: /\[\s*mint\s*\]/i })).toBeNull();
     // Deploy steps are ours to run, so they never reach a visitor.
     expect(screen.queryByText(/Deploy PATH/i)).toBeNull();
     expect(mockUseAuctionCore).toHaveBeenLastCalledWith(
@@ -3843,6 +3843,28 @@ describe("AuctionCanvas", () => {
       value: 600,
     });
     setPathMintIntentUrl();
+    mockWalletState = createWalletState({ account: {} });
+    const view = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />,
+    );
+    try {
+      expect(screen.queryByText(/This view needs more room/i)).toBeNull();
+      expect(await screen.findByText(/\[\s*mint\s*\]/i)).toBeTruthy();
+    } finally {
+      view.unmount();
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        value: originalWidth,
+      });
+    }
+  });
+
+  test("keeps the public PATH surface usable below the desktop breakpoint", async () => {
+    const originalWidth = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 390,
+    });
     mockWalletState = createWalletState({ account: {} });
     const view = render(
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />,

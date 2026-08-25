@@ -4561,6 +4561,28 @@ html:root
 .thought-dock-actions a.thought-dock-button {
   text-decoration: none;
 }
+
+@media (max-width: 760px) {
+  .thought-gallery__header {
+    align-items: flex-start;
+  }
+
+  .thought-gallery__status-row {
+    align-items: flex-start;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--thought-panel-control-gap) var(--thought-mint-action-gap);
+  }
+
+  .thought-gallery__status {
+    grid-column: 1 / -1;
+  }
+
+  .thought-gallery__home {
+    justify-self: end;
+    margin-left: 0;
+  }
+}
 /* INSHELL_CURRENT_THOUGHT_DETAIL_PATH_CANON_END */
 
 /* The canonical CLI creation surface preserves the exact June 10 production canvas. */

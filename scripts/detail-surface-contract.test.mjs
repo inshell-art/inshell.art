@@ -38,7 +38,7 @@ test("rejects the known standalone partial revert from Home back to gallery", ()
   const partiallyReverted = {
     ...accepted,
     standaloneIndex: accepted.standaloneIndex.replace(
-      'id="thought-detail-gallery-link" class="thought-detail__link" href="https://inshell.art/">[ home ]',
+      'id="thought-detail-gallery-link" class="thought-detail__link" href="https://inshell.art/">[ Home ]',
       'id="thought-detail-gallery-link" class="thought-detail__link" href="https://inshell.art/gallery">[ gallery ]',
     ),
     standaloneMain: accepted.standaloneMain.replace(

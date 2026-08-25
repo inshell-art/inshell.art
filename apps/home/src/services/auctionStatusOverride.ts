@@ -8,7 +8,7 @@ function getEnvValue(name: string): unknown {
 }
 
 export type AuctionStatus =
-  | "no_release"
+  | "before_deploy"
   | "loading"
   | "history_loading"
   | "before_open"
@@ -21,6 +21,9 @@ function normalizeAuctionStatus(value: unknown): AuctionStatus | null {
   const raw = value.trim().toLowerCase();
   if (!raw || raw === "0" || raw === "false" || raw === "auto") return null;
   if (
+    raw === "before_deploy" ||
+    raw === "before-deploy" ||
+    raw === "beforedeploy" ||
     raw === "no_release" ||
     raw === "no-release" ||
     raw === "norelease" ||
@@ -29,7 +32,7 @@ function normalizeAuctionStatus(value: unknown): AuctionStatus | null {
     raw === "no_deployment" ||
     raw === "no-deployment"
   ) {
-    return "no_release";
+    return "before_deploy";
   }
   if (
     raw === "before_open" ||

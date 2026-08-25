@@ -19,6 +19,7 @@ export type InshellTopBarProps = {
   expectedChainId?: number;
   compact?: boolean;
   disconnectedWalletNote?: string;
+  studioPreview?: boolean;
   onWalletRefresh?: () => void | Promise<void>;
 };
 
@@ -333,7 +334,9 @@ export function InshellTopBar({
             onClick={() => {
               const nextOpen = !open;
               setOpen(nextOpen);
-              if (nextOpen && !isConnected) void refreshConnectors();
+              if (nextOpen && !isConnected) {
+                void refreshConnectors();
+              }
             }}
             aria-label={isConnected && addressLabel ? `wallet ${addressLabel}` : "connect wallet"}
             aria-expanded={open}

@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import {
+  isThoughtGalleryDeploymentActive,
   loadThoughtGallery,
   readCachedThoughtGallery,
   type ThoughtGalleryItem,
@@ -19,8 +20,11 @@ import { PUBLIC_NETWORK_CONFIG } from "@inshell/shared";
 
 type LoadState =
   | { status: "loading"; items: ThoughtGalleryItem[]; error: null }
+  | { status: "prelaunch"; items: ThoughtGalleryItem[]; error: null }
   | { status: "ready"; items: ThoughtGalleryItem[]; error: null }
   | { status: "error"; items: ThoughtGalleryItem[]; error: string };
+
+const thoughtDeploymentActive = isThoughtGalleryDeploymentActive();
 
 function getEnvValue(name: string): unknown {
   const runtimeEnv: Record<string, unknown> | undefined =
@@ -359,6 +363,9 @@ export function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
 export default function ThoughtDetailPage({ tokenId }: { tokenId: string }) {
   const targetTokenId = useMemo(() => Number(tokenId), [tokenId]);
   const [state, setState] = useState<LoadState>(() => {
+    if (!thoughtDeploymentActive) {
+      return { status: "prelaunch", items: [], error: null };
+    }
     const cached = readCachedThoughtGallery();
     return cached
       ? { status: "ready", items: cached, error: null }
@@ -366,6 +373,7 @@ export default function ThoughtDetailPage({ tokenId }: { tokenId: string }) {
   });
 
   useEffect(() => {
+    if (!thoughtDeploymentActive) return undefined;
     let cancelled = false;
     const cached = readCachedThoughtGallery();
     if (cached) {
@@ -411,17 +419,21 @@ export default function ThoughtDetailPage({ tokenId }: { tokenId: string }) {
             className="thought-detail__link"
             href={`/#thought-${tokenId}`}
           >
-            [ home ]
+            [ Home ]
           </a>
           <a className="thought-detail__link" href={thoughtAppUrl()}>
-            [ create yours ]
+            [ Create yours ]
           </a>
         </nav>
       </header>
 
-      {state.status === "error" && (
+      {state.status === "prelaunch" ? (
+        <p className="thought-detail__status">
+          Onchain THOUGHT details will appear when minting opens.
+        </p>
+      ) : state.status === "error" ? (
         <p className="thought-detail__status thought-detail__status--error">{state.error}</p>
-      )}
+      ) : null}
       {item ? (
         <ThoughtDetail item={item} />
       ) : state.status === "ready" ? (

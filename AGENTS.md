@@ -59,8 +59,12 @@
 - Give **one piece of information at a time**. One idea per moment, not one sentence per idea. If two things would apply at once, integrate them into one or drop one.
 - Guide only by what is on screen now. When the visitor can see nothing but a prompt field, the guidance is to write a prompt; nothing about Agents, wallets, minting, or launch phases.
 - On the creation surface the aim is to **encourage participation**. Spend the one available slot on what the visitor can do, never on what is absent. In `studio-preview` the frontend is deployed and fully usable; only the contract is not. Do not label a movement "not deployed" or "not minted".
-- Explain mechanism at the moment the visitor asks for it by acting, not before. "The contract is not deployed, so minting is unavailable" belongs in the Console when they reach for the mint CTA, not in ambient copy.
-- Never hide a control to express a state. Show the control and let it explain itself on use. Reserve `disabled` for "an action is already in flight".
+- Explain mechanism at the moment the visitor asks for it by acting, not before. In an onchain phase, mint guidance belongs in the Console when the visitor reaches for the mint CTA, not in ambient copy.
+- Never hide a control merely to express a transient state. The internal Studio Preview phase is a capability boundary, not a transient state: omit its onchain-only mint controls, disclosures, and Console guidance entirely. Keep the global Connect wallet CTA as optional, read-only guidance; connecting there must request no signature, transaction, approval, network switch, or contract access. Reserve `disabled` for "an action is already in flight".
+- Enforce the pre-deployment boundary at the app or route boundary. Do not mount onchain children and then ask each child to fail closed. Before deployment, no wallet-to-mint bridge, contract resolver, auction hook, chain read, RPC request, mint CTA, or onchain inventory may initialize. The shell wallet picker may initialize only its connector discovery and read-only address state.
+- The operator-approved deployment lock is the sole authority for leaving the internal Studio Preview phase. Address books, cached records, fixtures, environment labels, and visitor clicks cannot promote the frontend into an onchain phase.
+- Model the public contract lifecycle as `before_deploy` → `before_open` → `open_not_active` / `active`. `before_deploy` is earlier than every auction state and contains no contract-backed behavior.
+- Preserve each page's canonical layout, title, slogan, and product explanation in `before_deploy`; change only the state-dependent copy and controls. Do not replace product pages with a generic launch-status page.
 
 ### Message shape
 - The **title names the state**, never an instruction. "Waiting for your wallet", not "Approve wallet connection".
@@ -70,11 +74,12 @@
 
 ### Wording rules
 - **Normal sentence case** for every message and CTA: first letter capitalised, the rest lower case apart from names that carry their own casing — `THOUGHT`, `$PATH`, `Agent`, `Codex`, `Claude`, `ChatGPT`, `App`.
-- Never show operator or infrastructure vocabulary to visitors: environment variable names, deploy or sync instructions, raw error strings, chain and testnet names, or internal phase names such as `studio-preview` and `onchain-open`.
+- Never show operator or infrastructure vocabulary to visitors: environment variable names, deploy or sync instructions, raw error strings, chain and testnet names, or internal phase labels such as `Studio Preview`, `studio-preview`, `before_deploy`, and `onchain-open`.
 - Identifiers are not copy. Console event kinds, action ids, state tokens, storage keys, and RPC method names keep their exact casing. Where a string is both compared and displayed, compare case-insensitively.
 
 ### Enforcement
 - `scripts/thought-panel-ui.test.mjs` holds these as guard tests: no Console detail may restate or share its title, and no Console title may be phrased as an instruction. Extend the guards when a rule is added rather than relying on review.
+- Pre-deployment route tests must assert the visitor-facing capability copy, preserved canonical layout, presence of the read-only global wallet guidance, and absence of mint, auction, RPC, network-targeting, wallet-to-mint bridging, and onchain inventory behavior.
 
 ## CSS Variable Discipline
 - Use CSS custom properties as shared visual tokens for integrity across page elements.

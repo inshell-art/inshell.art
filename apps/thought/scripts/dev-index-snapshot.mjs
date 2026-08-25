@@ -113,7 +113,19 @@ const CURRENT_DETAIL_TITLE = `        <h1 id="thought-detail-title" class="thoug
 
 const TAGGED_DETAIL_HOME_LINK = `          <a id="thought-detail-gallery-link" class="thought-detail__link" href="https://inshell.art/gallery">[ gallery ]</a>`;
 
-const CURRENT_DETAIL_HOME_LINK = `          <a id="thought-detail-gallery-link" class="thought-detail__link" href="https://inshell.art/">[ home ]</a>`;
+const CURRENT_DETAIL_HOME_LINK = `          <a id="thought-detail-gallery-link" class="thought-detail__link" href="https://inshell.art/">[ Home ]</a>`;
+
+const TAGGED_GALLERY_CREATE_LINK = `        <a id="gallery-create-link" class="thought-gallery__create" href="/thought">create your THOUGHT</a>`;
+
+const CURRENT_GALLERY_CREATE_LINK = `        <a id="gallery-create-link" class="thought-gallery__create" href="/thought">Create the first THOUGHT</a>`;
+
+const TAGGED_GALLERY_HOME_LINK = `        <a id="gallery-home-link" class="thought-gallery__home" href="https://inshell.art/">[ home ]</a>`;
+
+const CURRENT_GALLERY_HOME_LINK = `        <a id="gallery-home-link" class="thought-gallery__home" href="https://inshell.art/">[ Home ]</a>`;
+
+const TAGGED_DETAIL_CREATE_LINK = `          <a id="thought-detail-create-link" class="thought-detail__link" href="/thought">[ create yours ]</a>`;
+
+const CURRENT_DETAIL_CREATE_LINK = `          <a id="thought-detail-create-link" class="thought-detail__link" href="/thought">[ Create yours ]</a>`;
 
 const TAGGED_DETAIL_HOME_CONFIGURATION = `const inshellHomeUrl = () => INSHELL_HOME_URL;
 const configureGalleryLink = () => {
@@ -1085,6 +1097,17 @@ const createWalletPreviewProvider = (): ThoughtPreviewProvider | null => {`,
     '  return { provider: createPinnedBrowserPreviewProvider(), reason: "" };',
   ],
   [
+    "Studio Preview browser preview selection",
+    `  if (IS_LOCAL_THOUGHT_V2) {
+    const provider = getReadProvider();`,
+    `  if (thoughtLaunchState.phase === "studio-preview") {
+    const provider = createPinnedBrowserPreviewProvider();
+    return { provider, reason: "" };
+  }
+  if (IS_LOCAL_THOUGHT_V2) {
+    const provider = getReadProvider();`,
+  ],
+  [
     "pinned browser preview capability",
     "  const frontendPreview = true;",
     '  const frontendPreview = selection.provider.kind === "frontend-renderer";',
@@ -1727,6 +1750,24 @@ export function restoreThoughtDevIndexSnapshot(html) {
     CURRENT_DETAIL_HOME_LINK,
     TAGGED_DETAIL_HOME_LINK,
   );
+  current = replaceExactCount(
+    current,
+    "current THOUGHT gallery create link",
+    CURRENT_GALLERY_CREATE_LINK,
+    TAGGED_GALLERY_CREATE_LINK,
+  );
+  current = replaceExactCount(
+    current,
+    "current THOUGHT gallery home link",
+    CURRENT_GALLERY_HOME_LINK,
+    TAGGED_GALLERY_HOME_LINK,
+  );
+  current = replaceExactCount(
+    current,
+    "current THOUGHT detail create link",
+    CURRENT_DETAIL_CREATE_LINK,
+    TAGGED_DETAIL_CREATE_LINK,
+  );
   current = restorePreTightDetailGrouping(current);
   current = replaceExactCount(
     current,
@@ -1826,6 +1867,24 @@ export function restoreThoughtDevIndexSnapshot(html) {
     "tagged THOUGHT detail home link",
     TAGGED_DETAIL_HOME_LINK,
     CURRENT_DETAIL_HOME_LINK,
+  );
+  layered = replaceExactCount(
+    layered,
+    "tagged THOUGHT gallery create link",
+    TAGGED_GALLERY_CREATE_LINK,
+    CURRENT_GALLERY_CREATE_LINK,
+  );
+  layered = replaceExactCount(
+    layered,
+    "tagged THOUGHT gallery home link",
+    TAGGED_GALLERY_HOME_LINK,
+    CURRENT_GALLERY_HOME_LINK,
+  );
+  layered = replaceExactCount(
+    layered,
+    "tagged THOUGHT detail create link",
+    TAGGED_DETAIL_CREATE_LINK,
+    CURRENT_DETAIL_CREATE_LINK,
   );
   const query = `${THOUGHT_DEV_SNAPSHOT_QUERY_PARAM}=${THOUGHT_DEV_SNAPSHOT_QUERY_VALUE}`;
   return [

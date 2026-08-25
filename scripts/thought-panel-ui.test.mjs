@@ -366,9 +366,23 @@ test("the browser canary verifies release parity through the actual Agent deep l
     rootPackageJson.scripts["canary:thought-agent-browser-release"],
     /browser-release:codex.*browser-release:claude/,
   );
+  assert.match(
+    thoughtBrowserReleaseCanary,
+    /"--remote-debugging-port=0"/,
+    "Chrome chooses an available DevTools port instead of racing a random fixed port",
+  );
+  assert.match(thoughtBrowserReleaseCanary, /DevToolsActivePort/);
+  assert.match(thoughtBrowserReleaseCanary, /THOUGHT_BROWSER_CANARY_CHROME_TIMEOUT_MS/);
+  assert.match(thoughtBrowserReleaseCanary, /Chrome exited before DevTools started/);
+  assert.match(thoughtBrowserReleaseCanary, /spawnError=/);
 });
 
 test("the browser canary passes dynamic page values through CDP arguments", () => {
+  assert.match(
+    thoughtBrowserReleaseCanary,
+    /node\.getAttribute\("aria-label"\) === "Run this THOUGHT with your Agent"/,
+    "the browser canary follows the current product-cased Agent action label",
+  );
   assert.match(
     thoughtBrowserReleaseCanary,
     /client\.send\("Runtime\.callFunctionOn", \{[\s\S]*?arguments: argumentValues\.map\(\(value\) => \(\{ value \}\)\)/,
@@ -585,7 +599,7 @@ test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => 
   assert.doesNotMatch(restoredIndexHtml, /thought-detail__support/);
   assert.match(
     restoredIndexHtml,
-    /id="thought-detail-gallery-link"[^>]*href="https:\/\/inshell\.art\/">\[ home \]<\/a>/,
+    /id="thought-detail-gallery-link"[^>]*href="https:\/\/inshell\.art\/">\[ Home \]<\/a>/,
     "the detail surface returns to the canonical Home gallery",
   );
   assert.match(restoredIndexHtml, /style\.css\?inshell-thought-dev-snapshot=da998e1/);
@@ -1070,26 +1084,35 @@ test("THOUGHT panel copy uses canonical product terms", () => {
   );
 });
 
-test("THOUGHT never hides a control to express a launch phase", () => {
-  // Controls stay put across every phase, matching the PATH surface, so a
-  // visitor never has to notice an absence to understand the state.
+test("THOUGHT Studio Preview omits onchain-only controls", () => {
   assert.doesNotMatch(
     thoughtCss,
     /data-thought-launch-phase[\s\S]{0,240}\.inshell-topbar__wallet-surface\s*\{\s*display:\s*none;/,
-    "the wallet surface is no longer hidden by launch phase",
-  );
-  assert.doesNotMatch(
-    thoughtMain,
-    /\.\.\.\(canOpenMint\s*\n?\s*\?\s*\[dockRailAction\(/,
-    "the mint CTA is no longer conditionally spread out of the rail",
+    "shared shell controls are not hidden with page-specific CSS",
   );
   assert.match(
-    thoughtLaunchState,
-    /title: "Minting is not open yet"/,
+    thoughtMain,
+    /const shouldShowThoughtMintSurface = \(\) =>\s*thoughtLaunchState\.phase !== "studio-preview"/,
+    "Studio Preview owns an explicit fail-closed UI boundary",
+  );
+  assert.match(
+    thoughtMain,
+    /\.\.\.\(showMintSurface\s*\? \[dockRailAction\(/,
+    "Studio Preview omits the Work Mint action instead of opening wallet guidance",
+  );
+  assert.match(
+    thoughtMain,
+    /const isVisible = shouldShowThoughtMintSurface\(\) && mintDockRevealed/,
+    "a persisted Mint disclosure cannot reopen inside Studio Preview",
+  );
+  assert.match(
+    thoughtMain,
+    /const visibleHistoryEntries = shouldShowThoughtMintSurface\(\)[\s\S]*?isStudioPreviewOnchainConsoleEntry/,
+    "Studio Preview removes stale mint and wallet guidance from the visible Console history",
   );
 });
 
-test("THOUGHT launch phase explains itself at the mint CTA and still fails closed", () => {
+test("THOUGHT closed onchain phases explain themselves at the mint CTA and fail closed", () => {
   const workActionsIndex = indexHtml.indexOf('id="thought-dock-action-area"');
   const mintPanelIndex = indexHtml.indexOf('id="thought-dock-path"');
   assert.ok(workActionsIndex >= 0);
@@ -1097,8 +1120,8 @@ test("THOUGHT launch phase explains itself at the mint CTA and still fails close
   assert.doesNotMatch(indexHtml, /thought-launch-status/);
   assert.doesNotMatch(thoughtCss, /\.thought-launch-status/);
 
-  // The persistent phase banner is gone: nothing narrates the launch phase
-  // until the visitor reaches for the control it applies to.
+  // The persistent phase banner is gone. Studio Preview has no onchain
+  // control; later closed onchain phases explain themselves on interaction.
   assert.doesNotMatch(thoughtMain, /kind: "thought_launch_guidance"/);
   assert.doesNotMatch(thoughtMain, /thought-launch-guidance:plain-v1:/);
 
@@ -1168,7 +1191,10 @@ test("shell-bar refresh is the only manual wallet and $PATH inventory refresh co
   assert.doesNotMatch(thoughtMintPresentation, /Recheck/i);
   assert.match(inshellShell, /await refreshWallet\(\);\s*await onRefresh\?\.\(\);/);
   assert.match(thoughtShell, /onWalletRefresh=\{onWalletRefresh\}/);
-  assert.match(thoughtMain, /mountThoughtShell\(thoughtShellRoot, THOUGHT_CHAIN_ID, \(\) => refreshThoughtWalletFromShell\(\)\)/);
+  assert.match(
+    thoughtMain,
+    /mountThoughtShell\([\s\S]*?THOUGHT_CHAIN_ID,[\s\S]*?\(\) => refreshThoughtWalletFromShell\(\)/,
+  );
   assert.match(
     thoughtMain,
     /async function refreshThoughtWalletFromShell\(\)[\s\S]*?refreshPathInventoryForCurrentWallet\(\{ force: true \}\)/,
@@ -1869,7 +1895,7 @@ test("retained authorization copy resolves the configured network name without d
   );
   assert.match(
     thoughtMain,
-    /newestFirstThoughtConsoleEntries\(thoughtConsoleHistory\.entries\)\s*\.map\(withCurrentThoughtNetworkName\)\s*\.map\(\(entry\) =>/,
+    /newestFirstThoughtConsoleEntries\(visibleHistoryEntries\)\s*\.map\(withCurrentThoughtNetworkName\)\s*\.map\(\(entry\) =>/,
   );
 });
 
@@ -2031,7 +2057,7 @@ test("Console keeps the newest time group at the top and promotes guidance withi
   );
   assert.match(
     thoughtMain,
-    /const entries = newestFirstThoughtConsoleEntries\(thoughtConsoleHistory\.entries\)\s*\.map\(withCurrentThoughtNetworkName\)\s*\.map\(\(entry\) => \{/,
+    /const entries = newestFirstThoughtConsoleEntries\(visibleHistoryEntries\)\s*\.map\(withCurrentThoughtNetworkName\)\s*\.map\(\(entry\) => \{/,
   );
   assert.match(thoughtMain, /element\.dataset\.consoleEntryId = entry\.id/);
   assert.match(
@@ -2220,7 +2246,7 @@ test("local V2 Agent API accepts and binds the neutral chooser run", () => {
   );
 });
 
-test("mobile keeps wallet minting but moves new Agent creation to desktop", () => {
+test("mobile moves Agent creation to desktop and keeps Studio Preview offchain", () => {
   assert.match(
     thoughtMain,
     /const THOUGHT_MOBILE_AGENT_QUERY =[\s\S]*\(max-width: 760px\)[\s\S]*\(max-height: 500px\)[\s\S]*\(orientation: landscape\)[\s\S]*\(pointer: coarse\)/,
@@ -2237,11 +2263,11 @@ test("mobile keeps wallet minting but moves new Agent creation to desktop", () =
   }
   assert.match(
     thoughtMain,
-    /const blockMobileThoughtAgentLaunch = \(prompt: string\)[\s\S]*?Continue on desktop[\s\S]*?Mobile wallet connection and PATH minting remain available here\./,
+    /const blockMobileThoughtAgentLaunch = \(prompt: string\)[\s\S]*?Continue on desktop[\s\S]*?thoughtLaunchState\.phase === "studio-preview"[\s\S]*?Open this page on desktop to create and save a THOUGHT\.[\s\S]*?Mobile wallet connection and PATH minting remain available here\./,
   );
   assert.match(
     thoughtMain,
-    /const ensureThoughtConsoleWelcomeMessage = \(\) => \{[\s\S]*?isThoughtMobileAgentSurface\(\)[\s\S]*?title: "Continue on desktop"[\s\S]*?Mobile wallet connection and PATH minting remain available here\./,
+    /const ensureThoughtConsoleWelcomeMessage = \(\) => \{[\s\S]*?isThoughtMobileAgentSurface\(\)[\s\S]*?title: "Continue on desktop"[\s\S]*?thoughtLaunchState\.phase === "studio-preview"[\s\S]*?Open this page on desktop to create and save a THOUGHT\.[\s\S]*?Mobile wallet connection and PATH minting remain available here\./,
   );
   assert.match(
     thoughtMain,
@@ -2431,12 +2457,71 @@ test("Work prompt exposes persistent terminal-style history navigation", () => {
   );
 });
 
+test("Studio Preview is controlled by the approved deployment, not localhost", () => {
+  assert.match(
+    thoughtMain,
+    /let thoughtLaunchState: ThoughtLaunchState =\s*simulatedThoughtLaunchState\(\) \?\?\s*deriveThoughtLaunchState\(\{\s*deployment: THOUGHT_LAUNCH_DEPLOYMENT,\s*readModel: null,\s*\}\)/,
+  );
+  assert.doesNotMatch(
+    thoughtMain,
+    /IS_LOCAL_THOUGHT_V2\s*\?\s*localThoughtLaunchState/,
+  );
+  assert.match(
+    thoughtMain,
+    /const IS_THOUGHT_GALLERY_ACTIVE =\s*THOUGHT_V2_PRODUCTION_DEPLOYMENT !== null/,
+  );
+  assert.match(
+    thoughtMain,
+    /mountThoughtShell\([\s\S]*?thoughtLaunchState\.phase === "studio-preview"/,
+  );
+  assert.match(thoughtShell, /!studioPreview \? <ThoughtWalletBridge \/> : null/);
+  assert.doesNotMatch(inshellShell, /studioPreview \? null : <div/);
+  assert.match(inshellShell, /className=\{`inshell-topbar__wallet-surface/);
+  assert.match(thoughtShell, /expectedChainId=\{studioPreview \? undefined : expectedChainId\}/);
+  assert.match(
+    thoughtShell,
+    /studioPreview \? undefined : disconnectedWalletNote\(expectedChainId\)/,
+  );
+  assert.doesNotMatch(inshellShell, />\s*Studio Preview\s*</);
+  assert.match(
+    thoughtMain,
+    /const preflightCurrentThoughtExistence = async \(\) => \{[\s\S]*?thoughtLaunchState\.phase === "studio-preview"[\s\S]*?return;/,
+    "restored browser work must not probe contracts in Studio Preview",
+  );
+  assert.match(
+    thoughtMain,
+    /const syncEmptyFrameStyleFromContract = async \(\) => \{[\s\S]*?thoughtLaunchState\.phase === "studio-preview"[\s\S]*?return;/,
+    "the empty canvas must not probe the renderer contract in Studio Preview",
+  );
+  assert.match(
+    thoughtMain,
+    /const currentOutputSessionIsMinted = async \(\) => \{[\s\S]*?thoughtLaunchState\.phase === "studio-preview"[\s\S]*?return false;/,
+    "fresh creation must not probe mint state in Studio Preview",
+  );
+  assert.match(
+    thoughtMain,
+    /const getReadProvider = \(\) => \{[\s\S]*?thoughtLaunchState\.phase === "studio-preview"[\s\S]*?return null;/,
+    "Studio Preview must deny all THOUGHT contract providers at their boundary",
+  );
+  assert.match(
+    thoughtMain,
+    /const getPathReadProvider = \(\) => \{[\s\S]*?thoughtLaunchState\.phase === "studio-preview"[\s\S]*?return null;/,
+    "Studio Preview must deny all PATH contract providers at their boundary",
+  );
+  assert.match(
+    thoughtMain,
+    /const selectThoughtPreviewProvider = async \(\) => \{[\s\S]*?thoughtLaunchState\.phase === "studio-preview"[\s\S]*?const provider = createPinnedBrowserPreviewProvider\(\);[\s\S]*?if \(IS_LOCAL_THOUGHT_V2\)/,
+    "Studio Preview must render with the pinned browser artifact before any local-contract branch",
+  );
+});
+
 test("Work owns mutually exclusive Mint and Load disclosures", () => {
   assert.doesNotMatch(thoughtMain, /\{ kind: "minting"; work: ThoughtDockWorkView \}/);
   assert.doesNotMatch(thoughtMain, /setThoughtDockState\(\{ kind: "minting"/);
   assert.doesNotMatch(thoughtMain, /thoughtDock\.hidden\s*=/);
   assert.match(thoughtMain, /let mintDockRevealed = false/);
-  assert.match(thoughtMain, /const mintPanelOpen = mintDockRevealed/);
+  assert.match(thoughtMain, /const showMintSurface = shouldShowThoughtMintSurface\(\)/);
+  assert.match(thoughtMain, /const mintPanelOpen = showMintSurface && mintDockRevealed/);
   assert.match(thoughtMain, /workReady\.canMint && workMintReadiness\.ready/);
   assert.match(
     thoughtMain,
@@ -2478,7 +2563,7 @@ test("Work owns mutually exclusive Mint and Load disclosures", () => {
   assert.match(mintedCase, /resetAction\(\)/);
   assert.match(mintedCase, /maxActions: 4/);
   assert.match(thoughtMain, /mintFlowState = "thought_checking";[\s\S]*?setThoughtDockState\(\{ kind: "work_ready", work \}\)/);
-  assert.match(thoughtMain, /const isVisible = mintDockRevealed/);
+  assert.match(thoughtMain, /const isVisible = shouldShowThoughtMintSurface\(\) && mintDockRevealed/);
   assert.match(
     thoughtMain,
     /mintDockRevealed: candidate\.mintDockRevealed === true/,
@@ -2491,8 +2576,8 @@ test("Work owns mutually exclusive Mint and Load disclosures", () => {
   );
   assert.match(
     thoughtMain,
-    /currentWorkId = stored\.workId;\s*mintDockRevealed = stored\.mintDockRevealed;\s*runState = "output_ready"/,
-    "the Mint disclosure state restores before the Work UI is rendered",
+    /currentWorkId = stored\.workId;\s*mintDockRevealed = shouldShowThoughtMintSurface\(\) && stored\.mintDockRevealed;\s*runState = "output_ready"/,
+    "the Mint disclosure restores only when the current launch phase exposes minting",
   );
   assert.match(
     thoughtMain,

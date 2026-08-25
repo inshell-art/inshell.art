@@ -21,7 +21,7 @@ const lockPath = path.join(root, lockRelativePath);
 // This digest is intentionally independent from the lock file. Updating it is
 // an explicit product-contract acceptance action, never a build/generate step.
 const acceptedLockSha256 =
-  "fd5ce009fc00c32217704e8f93208817d184d91aba2fb557e459920e3a40f2a7";
+  "91ec88004d0e62df4c3d0d70ff7ac471cbeb800e43bd51a98d7bafcff8779fdf";
 
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "utf8");
 const fail = (message) => {
@@ -54,7 +54,7 @@ assert(
 );
 const lock = JSON.parse(lockBytes.toString("utf8"));
 assert(lock.schema === "inshell.detail-surface-contract-lock.v1", "lock schema mismatch");
-assert(lock.artifactId === "inshell-detail-surface-contract-20260816-r1", "artifact ID mismatch");
+assert(lock.artifactId === "inshell-detail-surface-contract-20260824-r2", "artifact ID mismatch");
 assert(lock.status === "operator-accepted", "contract is not operator accepted");
 assert(lock.authority?.layoutCanon === "PATH detail", "PATH detail is not the layout canon");
 assert(

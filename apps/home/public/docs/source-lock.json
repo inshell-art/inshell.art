@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "6c1641d256e39192175e7353ac9fa9b8cfe0fc08a720ec79bc76a80a41427eea",
+  "sourceTreeSha256": "9f4ebe102ded371fb7fe0cd26864fde5e596510ef33fa650d7d32670945e5274",
   "groups": [
     {
       "id": "public-docs",
@@ -67,7 +67,7 @@
       "title": "Home, $PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "9a001e718752b9a8ff3c4c1f88ae122686da831e8300d2dccc471874d69e45eb",
+      "groupSha256": "5a13bb70dc884bbc8a82d912f218fe2f410e3035ba69ea4031c9942a51956fc5",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -81,8 +81,8 @@
         },
         {
           "path": "apps/home/src/App.tsx",
-          "byteLength": 17634,
-          "sha256": "2230e33ead7dd96a2c79f58d9cb32301f7e8350b43a0829c646f9469f28f2fe7"
+          "byteLength": 18126,
+          "sha256": "d5722400c5126baa4a1c8e2b6b487027702bcd6f60aafa484c5aa4760f676f32"
         },
         {
           "path": "apps/home/src/assets/icon-github.svg",
@@ -101,13 +101,13 @@
         },
         {
           "path": "apps/home/src/components/AuctionCanvas.tsx",
-          "byteLength": 272884,
-          "sha256": "40544b646687d01a30329ff0806a5162136155c20dfb4837542fbf6234990626"
+          "byteLength": 272192,
+          "sha256": "42c5f29a18c2418f374d6d0a4b8bd0a26c80916479842063d7365d4bef7424e7"
         },
         {
           "path": "apps/home/src/components/ColorFontPage.tsx",
-          "byteLength": 22055,
-          "sha256": "ab812d43bf382393f1d2dcfd7669e075f011e5e18b4cdf028364a0ee99a3853d"
+          "byteLength": 22887,
+          "sha256": "a4bd8dcfb6de57e4e54cdd2d781ed02874db4f2efc027f666712a84cd82120dd"
         },
         {
           "path": "apps/home/src/components/DocsPage.tsx",
@@ -116,8 +116,8 @@
         },
         {
           "path": "apps/home/src/components/EcosystemHome.tsx",
-          "byteLength": 7416,
-          "sha256": "c1f81adb6cdf7ad12dc0e6d90cc152565ef43d9510e77aaf1a74d550d565ee92"
+          "byteLength": 7389,
+          "sha256": "2f1d9a4a8665de975bd562e3fbe0b5812111f5fe7258fc64569efc7fd428c9f1"
         },
         {
           "path": "apps/home/src/components/FloatingReportBug.tsx",
@@ -150,9 +150,14 @@
           "sha256": "fa86e44531e694076bfa1099c1c73331912f40d9cf67ecada7713fb0ab95250b"
         },
         {
+          "path": "apps/home/src/components/PathBeforeDeployCanvas.tsx",
+          "byteLength": 1230,
+          "sha256": "36195db5291b639754956f302187cec64346aba4531fa924a29167ac968081de"
+        },
+        {
           "path": "apps/home/src/components/PathPage.tsx",
-          "byteLength": 42571,
-          "sha256": "c6ba1b2522e7c61c4c125453eac26dd49d71c635457fc475e55b88552a91398b"
+          "byteLength": 43089,
+          "sha256": "ed746205eb9ae26733dcfb9704e57a9dd56ddf4eed2f18dd3ce74bed3c7ff19f"
         },
         {
           "path": "apps/home/src/components/PreviewWatermark.tsx",
@@ -161,23 +166,23 @@
         },
         {
           "path": "apps/home/src/components/PulsePage.tsx",
-          "byteLength": 20994,
-          "sha256": "54d90a8c68b6723f145bd1ec02c0b24e7287ba67ee528f383f1b6c605ac0764f"
+          "byteLength": 21962,
+          "sha256": "514ad949967c6dac8b4817bb5045984afa929b94f9fa114ec004046ab517d66d"
         },
         {
           "path": "apps/home/src/components/ThoughtDetailPage.tsx",
-          "byteLength": 13803,
-          "sha256": "b02cb545d25135b7bc00f728a8fdc95a0f35a9993fdc219e0bfe026278baf414"
+          "byteLength": 14309,
+          "sha256": "abfc646bcfbabe7dd984272db5f142fe668218da14669714f9957f9144408eb3"
         },
         {
           "path": "apps/home/src/components/ThoughtGalleryPage.tsx",
-          "byteLength": 8139,
-          "sha256": "1ca53ae2b8004199484227f0c09461edfed07dd150dcb12db05ce5dda2f7c63f"
+          "byteLength": 8639,
+          "sha256": "c7dc4ab98dc3f951ff2ca93489f864e4662b1b447bbf6654cf5d5254e9f2e637"
         },
         {
           "path": "apps/home/src/components/VerifyPage.tsx",
-          "byteLength": 26941,
-          "sha256": "66f2959bd4d03e45602475c62c0ec7d14995049a1faa21021f2c9f757a37a174"
+          "byteLength": 29169,
+          "sha256": "984ee33c56ce7c4aaa15bf301b733edf7b0ceff9fdf396ac8a6db6057522a3db"
         },
         {
           "path": "apps/home/src/components/WillPage.tsx",
@@ -241,8 +246,8 @@
         },
         {
           "path": "apps/home/src/main.css",
-          "byteLength": 109947,
-          "sha256": "ec43976e8e0177b926e823d710c118ed968ed88c94dcc9e178101c68d4765e2b"
+          "byteLength": 110335,
+          "sha256": "234828b2ed0ff77a6f13033112a7115b0ba97aa221bb5b90104a65f88e2a19fe"
         },
         {
           "path": "apps/home/src/main.tsx",
@@ -266,8 +271,8 @@
         },
         {
           "path": "apps/home/src/services/auctionStatusOverride.ts",
-          "byteLength": 2541,
-          "sha256": "d778b7bc8caf56d305ab81eb0b03e3d48f3fa88385521bc0a93373584e2df904"
+          "byteLength": 2639,
+          "sha256": "ac31a84263b3798358a3378a9797996e2f018ccbb6f515efbaddbdeeac116a6c"
         },
         {
           "path": "apps/home/src/services/chainIndexer.ts",
@@ -293,6 +298,11 @@
           "path": "apps/home/src/services/pathVerification.ts",
           "byteLength": 9337,
           "sha256": "bed7e8c76f7364dbcefb952d5ce561e62899c0d72d27bbd40812d3bb61db7f75"
+        },
+        {
+          "path": "apps/home/src/services/studioPreview.ts",
+          "byteLength": 522,
+          "sha256": "baf17f4e13a55f62d87870d62a69072e04aee004a9a6d7f769ffacb50fe99f40"
         },
         {
           "path": "apps/home/src/services/thoughtGallery.ts",
@@ -321,7 +331,7 @@
       "title": "Public routes and read-only resource contracts",
       "owner": "inshell.art shared App infrastructure",
       "reason": "The Agent index advertises these routes and their read-only semantics.",
-      "groupSha256": "66f8a61deee2e521d07fa8aab3b6fcf78cbb6f55670679c8ef9b5f793a3212d5",
+      "groupSha256": "a4473e1872df6ef8fc3251cf5ae10570251dde80366b5ae2e26b22227f960a25",
       "files": [
         {
           "path": "apps/home/public/_headers",
@@ -330,8 +340,8 @@
         },
         {
           "path": "functions/_middleware.ts",
-          "byteLength": 38993,
-          "sha256": "0f8b302bb4504fb872789a332058bea37608ba8c44af81458dfe45558f270498"
+          "byteLength": 38985,
+          "sha256": "d1f83ab98b432c38db9b2a2feacebc6710ee6768c7c4bb45b4750aceee2bc8ae"
         },
         {
           "path": "functions/api/analytics/event.ts",
@@ -575,7 +585,7 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "09e9362cf923ace5eebf606d20c6d38c15683a81abf45f044ec3ec94f01537cb",
+      "groupSha256": "5ef5b3ff1e1f81f94d5fafd4e10cc08eef6e6b1c2a4a5e186777ab9c612892f5",
       "files": [
         {
           "path": ".github/workflows/deploy-pages.yml",
@@ -610,7 +620,7 @@
         {
           "path": "scripts/check-detail-surface-contract.mjs",
           "byteLength": 7799,
-          "sha256": "924ad3279bbedf60ef1b61e1bc18f737a38768ada849052ae643f6249d7f2123"
+          "sha256": "55055ef165c47301f5bd74e198c618d3e087fce55ae6cf5f2bf6497f3cf23ad3"
         },
         {
           "path": "scripts/check-thought-root-surface-contract.mjs",
@@ -629,12 +639,12 @@
       "title": "Wallet boundary",
       "owner": "inshell.art shared App infrastructure",
       "reason": "Public docs distinguish passive wallet reads from signatures and transactions.",
-      "groupSha256": "fca8024725ec62e8aaab3ddda333ba1269585d15ae4f38311929d2b3f49b74f6",
+      "groupSha256": "de529b049c4e17db7697418a1f23b91afab36a62c721fd49e812427ac96ba843",
       "files": [
         {
           "path": "packages/inshell-shell/src/index.tsx",
-          "byteLength": 11375,
-          "sha256": "35d00d89d352a1b4627004e54e87efbecd68bc540f65d20aa2ec00cb15df24ae"
+          "byteLength": 11436,
+          "sha256": "740a7c750d47748d97e78bcd86c48c556095e39adfe03b88c3e13920c48f329a"
         },
         {
           "path": "packages/inshell-shell/src/links.ts",
@@ -673,7 +683,7 @@
       "title": "Shared product runtime",
       "owner": "inshell.art shared App infrastructure",
       "reason": "Shared Ethereum, surface, utility, and Agent-protocol code used by public routes.",
-      "groupSha256": "93d7f884ed966f72150efceb5f559c52943f73415de5a0a987eb41571fbcb510",
+      "groupSha256": "6f9a71946ab8fd4f0e4cbbc10af773a890d2ecfa3b2224cd33de8c7371190b5d",
       "files": [
         {
           "path": "packages/ethereum/src/abi.ts",
@@ -757,8 +767,8 @@
         },
         {
           "path": "packages/thought-agent-protocol/src/codex-client.ts",
-          "byteLength": 31750,
-          "sha256": "3bab854fac656ce091646823db1fe3f1256304b152405117dad1f36cc3407eec"
+          "byteLength": 31769,
+          "sha256": "9c05f79203620861c7eccd81db15339bcbddcb871c16f0f1d0a3c533e623e87e"
         },
         {
           "path": "packages/thought-agent-protocol/src/creative-brief.generated.ts",
@@ -1009,12 +1019,12 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "a7e10b27a8ad53ab72eb258979e4d2d8deb96027eae913ead859da4a5a95a424",
+      "groupSha256": "5637c1bd81ccbf8e470459a49da0b1c77206a4cd014686394a9acb7025699dd2",
       "files": [
         {
           "path": "apps/thought/index.html",
-          "byteLength": 47230,
-          "sha256": "66d7f3b2b9ea03a646327d3743d71c32b568d8ca65a266b117a50d06147082d6"
+          "byteLength": 47235,
+          "sha256": "801ffaa6f6ed1f93241c3bcf38d6bf8ec2140188a61880405cd96d660e6447c5"
         },
         {
           "path": "apps/thought/package.json",
@@ -1029,7 +1039,7 @@
         {
           "path": "apps/thought/production/detail-surface-contract.lock.json",
           "byteLength": 1885,
-          "sha256": "fd5ce009fc00c32217704e8f93208817d184d91aba2fb557e459920e3a40f2a7"
+          "sha256": "91ec88004d0e62df4c3d0d70ff7ac471cbeb800e43bd51a98d7bafcff8779fdf"
         },
         {
           "path": "apps/thought/production/root-surface-contract.lock.json",
@@ -1038,8 +1048,8 @@
         },
         {
           "path": "apps/thought/scripts/dev-index-snapshot.mjs",
-          "byteLength": 90484,
-          "sha256": "f30feca3f529ce689b763a750a88348b310eece65f554e23d57c8c63d077b01a"
+          "byteLength": 92653,
+          "sha256": "be8edbf83f2522e627029edf70746900e2c2b6d6e5c5f2554c2936ed22c3e4a9"
         },
         {
           "path": "apps/thought/scripts/mock-thought-v2-anvil-signer.ts",
@@ -1058,8 +1068,8 @@
         },
         {
           "path": "apps/thought/scripts/thought-launch-main-deltas.generated.mjs",
-          "byteLength": 69245,
-          "sha256": "ae61aeb22d8435365515ccf3a1129c6b922fad6da6b92c624df4c43009453226"
+          "byteLength": 80001,
+          "sha256": "d2fbad2252f1cb4afc6d428bd0dfc514eb9d827f9766c3687e6d53626bfe9288"
         },
         {
           "path": "apps/thought/src/color-font-doc.ts",
@@ -1073,8 +1083,8 @@
         },
         {
           "path": "apps/thought/src/main.ts",
-          "byteLength": 754269,
-          "sha256": "3f5b0a0e4d04361a89255e0d91079b3d824342034f446e28316bd82a1328d319"
+          "byteLength": 756309,
+          "sha256": "026d95253466d004b6e7b007097c31c6bfad59ddad7a528fabc1d9ecea4efe19"
         },
         {
           "path": "apps/thought/src/rpc-provider.ts",
@@ -1083,8 +1093,8 @@
         },
         {
           "path": "apps/thought/src/style.css",
-          "byteLength": 102881,
-          "sha256": "cc840bb165889618d6fb6862dfbc33de03d025811cf5f097d36549d0af2863bb"
+          "byteLength": 103316,
+          "sha256": "e1db4235ddcc3d6d630541a310f7d5c36db200fdf522d3d7cb09938d3d762c73"
         },
         {
           "path": "apps/thought/src/surfaceShell/thoughtCommandTree.ts",
@@ -1208,8 +1218,8 @@
         },
         {
           "path": "apps/thought/src/thought-shell.tsx",
-          "byteLength": 2860,
-          "sha256": "b004641629ba9a3fb440b509f6c02617a3cb26a5586c603ab0a5100728010aeb"
+          "byteLength": 3025,
+          "sha256": "b414e9de7e79142939a4c504bee8343eed51b37395cd86cf1a8f97c9d7818be7"
         },
         {
           "path": "apps/thought/src/thought-text-policy.ts",
