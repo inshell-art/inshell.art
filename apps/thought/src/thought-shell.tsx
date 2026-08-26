@@ -100,17 +100,21 @@ export const mountThoughtShell = (
   element: HTMLElement,
   expectedChainId: number,
   onWalletRefresh?: () => void | Promise<void>,
+  studioPreview = false,
 ) => {
   if (shellRoot) return;
   shellRoot = createRoot(element);
   shellRoot.render(
     <WalletProvider>
-      <ThoughtWalletBridge />
+      {!studioPreview ? <ThoughtWalletBridge /> : null}
       <InshellTopBar
         active="thought"
-        expectedChainId={expectedChainId}
-        disconnectedWalletNote={disconnectedWalletNote(expectedChainId)}
+        expectedChainId={studioPreview ? undefined : expectedChainId}
+        disconnectedWalletNote={
+          studioPreview ? undefined : disconnectedWalletNote(expectedChainId)
+        }
         onWalletRefresh={onWalletRefresh}
+        studioPreview={studioPreview}
       />
     </WalletProvider>,
   );

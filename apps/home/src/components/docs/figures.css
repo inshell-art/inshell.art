@@ -816,6 +816,10 @@
 
   .docs-page__sidebar {
     position: static;
+    max-height: none;
+    overflow-y: visible;
+    padding-left: 0;
+    margin-left: 0;
   }
 
   .docs-page__menu {

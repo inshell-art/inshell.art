@@ -11,9 +11,11 @@ import ThoughtDetailPage from "@/components/ThoughtDetailPage";
 import WillPage from "@/components/WillPage";
 import FloatingReportBug from "@/components/FloatingReportBug";
 import PreviewWatermark from "@/components/PreviewWatermark";
+import PathBeforeDeployCanvas from "@/components/PathBeforeDeployCanvas";
 import { DOCS_SOURCE } from "@/content/docs";
 import { InshellTopBar, type InshellSurface } from "@inshell/inshell-shell";
 import { getProtocolReleaseChainId, maybeResolveAddress } from "@inshell/contracts";
+import { isStudioPreviewActive } from "@/services/studioPreview";
 import docsRouteMetadataJson from "../../../packages/shared/generated/docs-route-metadata.json";
 
 type DocsRouteMetadata = {
@@ -25,6 +27,11 @@ const DOCS_ROUTE_METADATA = docsRouteMetadataJson.topics as Record<
   string,
   DocsRouteMetadata
 >;
+
+// A route change commits the destination article after this effect runs, so a
+// fragment target usually does not exist yet. Watch for it instead of assuming
+// it is already in the DOM, and stop watching after this budget.
+const HASH_SCROLL_TIMEOUT_MS = 3000;
 
 function getLocationKey() {
   if (typeof window === "undefined") return "";
@@ -285,7 +292,7 @@ function routeMetadata(pathname: string): RouteMetadata {
       "THOUGHT is a narrow terminal channel between one human intention and one Agent response.",
     "/will":
       "WILL is Inshell's movement about delegated human will, Agent action, and crowd dynamics.",
-    "/gallery": "Canonical THOUGHT gallery route; the current R2 collection is not deployed.",
+    "/gallery": "THOUGHT works created from one human prompt and one Agent response.",
     "/verify":
       "Official origins, contracts, releases, locks, and verification boundaries for Inshell.",
     "/color-font": "Inshell color and typography primitives.",
@@ -375,7 +382,6 @@ function applyRouteMetadata(pathname: string) {
 export default function App() {
   const [locationKey, setLocationKey] = useState(() => getLocationKey());
   const [pathInventoryRefreshSignal, setPathInventoryRefreshSignal] = useState(0);
-  const pulseAuction = maybeResolveAddress("pulse_auction");
   const primitiveRoute = getPrimitiveRoute(locationKey);
   const pathAppHost = isPathAppHost();
   const pathTokenId = getPathRouteTokenId(locationKey);
@@ -385,14 +391,17 @@ export default function App() {
     primitiveRoute === "path-app" ||
     primitiveRoute === "path" ||
     (pathAppHost && !primitiveRoute);
+  const studioPreview = isStudioPreviewActive();
+  const pulseAuction = studioPreview ? null : maybeResolveAddress("pulse_auction");
   const activeSurface = shouldRenderPathApp ? "path" : activeSurfaceForRoute(primitiveRoute);
-  const pathExpectedChainId = shouldRenderPathApp
+  const pathExpectedChainId = shouldRenderPathApp && !studioPreview
     ? getExpectedPathChainId()
     : undefined;
-  const pathWalletNote =
-    pathExpectedChainId === 31337 ||
-    pathExpectedChainId === 31338 ||
-    pathExpectedChainId === 1337
+  const pathWalletNote = studioPreview
+    ? undefined
+    : pathExpectedChainId === 31337 ||
+        pathExpectedChainId === 31338 ||
+        pathExpectedChainId === 1337
       ? "local ETH"
       : "Sepolia ETH";
   const refreshPathInventory = useCallback(() => {
@@ -459,14 +468,28 @@ export default function App() {
     if (!hash || hash === "#") return;
     const targetId = decodeURIComponent(hash.slice(1));
     if (!targetId) return;
-    const frame = window.requestAnimationFrame(() => {
-      document.getElementById(targetId)?.scrollIntoView({
+    const scrollToTarget = () => {
+      const target = document.getElementById(targetId);
+      if (!target) return false;
+      target.scrollIntoView({
         block: "start",
         behavior: "auto",
       });
+      return true;
+    };
+
+    if (scrollToTarget()) return;
+
+    const observer = new window.MutationObserver(() => {
+      if (scrollToTarget()) observer.disconnect();
     });
+    observer.observe(document.body, { childList: true, subtree: true });
+    const timeout = window.setTimeout(() => {
+      observer.disconnect();
+    }, HASH_SCROLL_TIMEOUT_MS);
     return () => {
-      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.clearTimeout(timeout);
     };
   }, [locationKey]);
 
@@ -497,6 +520,7 @@ export default function App() {
             disconnectedWalletNote={
               shouldRenderPathApp ? pathWalletNote : undefined
             }
+            studioPreview={studioPreview}
             onWalletRefresh={
               shouldRenderPathApp ? refreshPathInventory : undefined
             }
@@ -505,7 +529,9 @@ export default function App() {
             <div
               className={`content content--path-app${pathTokenId ? " content--path-detail" : ""}`}
             >
-              {!pathTokenId ? (
+              {studioPreview && !pathTokenId ? (
+                <PathBeforeDeployCanvas />
+              ) : !studioPreview && !pathTokenId && pulseAuction ? (
                 <AuctionCanvas
                   address={pulseAuction}
                   onPathMinted={refreshPathInventory}
@@ -521,11 +547,11 @@ export default function App() {
           ) : primitiveRoute === "docs" ? (
             <DocsPage topicSlug={docsTopicSlug} />
           ) : primitiveRoute === "color-font" ? (
-            <ColorFontPage />
+            <ColorFontPage studioPreview={studioPreview} />
           ) : primitiveRoute === "will" ? (
             <WillPage />
           ) : primitiveRoute === "verify" ? (
-            <VerifyPage />
+            <VerifyPage beforeDeploy={studioPreview} />
           ) : primitiveRoute === "thought" && thoughtTokenId ? (
             <div className="content content--thought-detail">
               <ThoughtDetailPage tokenId={thoughtTokenId} />

@@ -14,6 +14,7 @@ import {
   TraceFigureVisual,
 } from "@/components/docs/FlowFigureVisual";
 import { LaneFigureVisual } from "@/components/docs/LaneFigureVisual";
+import { attachDocsScrollHandoff } from "@/components/docs/scrollHandoff";
 
 async function copyText(value: string) {
   if (navigator.clipboard?.writeText) {
@@ -113,6 +114,8 @@ export default function DocsPage({ topicSlug = null }: DocsPageProps) {
   const [promptCollapsed, setPromptCollapsed] = useState(initialDocsPromptCollapsed);
   const copyStatusTimer = useRef<number | null>(null);
   const loadedTopicSlug = useRef(topicSlug);
+  const pageRef = useRef<HTMLElement>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
   const promptOrigin = useMemo(currentOrigin, []);
   const prompt = useMemo(() => agentDocsPrompt(promptOrigin), [promptOrigin]);
   const promptIndexUrl = useMemo(
@@ -152,6 +155,10 @@ export default function DocsPage({ topicSlug = null }: DocsPageProps) {
     window.sessionStorage.setItem(DOCS_PROMPT_SEEN_KEY, "true");
   }, []);
   useEffect(() => {
+    if (!pageRef.current || !sidebarRef.current) return;
+    return attachDocsScrollHandoff(pageRef.current, sidebarRef.current);
+  }, []);
+  useEffect(() => {
     if (loadedTopicSlug.current === topicSlug) return;
     loadedTopicSlug.current = topicSlug;
     setPromptCollapsed(true);
@@ -185,7 +192,7 @@ export default function DocsPage({ topicSlug = null }: DocsPageProps) {
   };
 
   return (
-    <main className="primitive-page docs-page" aria-labelledby="docs-title">
+    <main ref={pageRef} className="primitive-page docs-page" aria-labelledby="docs-title">
       <header className="primitive-page__header docs-page__header">
         <div>
           <h1 id="docs-title" className="primitive-page__title">
@@ -246,7 +253,7 @@ export default function DocsPage({ topicSlug = null }: DocsPageProps) {
       </header>
 
       <section className="docs-page__layout">
-        <aside className="docs-page__sidebar" aria-label="Documentation menu">
+        <aside ref={sidebarRef} className="docs-page__sidebar" aria-label="Documentation menu">
           <nav className="docs-page__menu" aria-label="Documentation contents">
             {groups.map((group) => (
               <section

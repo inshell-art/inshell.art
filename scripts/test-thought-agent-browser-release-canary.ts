@@ -285,10 +285,14 @@ const nestedValuesForKey = (value: unknown, key: string): unknown[] => {
 };
 
 const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "thought-browser-canary-"));
-const port = 14_000 + Math.floor(Math.random() * 2_000);
+const devtoolsActivePortPath = path.join(userDataDir, "DevToolsActivePort");
+const chromeStartupTimeoutMs = Number(
+  process.env.THOUGHT_BROWSER_CANARY_CHROME_TIMEOUT_MS || 30_000,
+);
 const chrome = spawn(chromePath, [
   "--headless=new",
-  `--remote-debugging-port=${port}`,
+  "--remote-debugging-address=127.0.0.1",
+  "--remote-debugging-port=0",
   `--user-data-dir=${userDataDir}`,
   "--disable-gpu",
   "--no-first-run",
@@ -300,6 +304,51 @@ let chromeStderr = "";
 chrome.stderr.on("data", (chunk) => {
   chromeStderr += chunk.toString();
 });
+let chromeSpawnError: Error | null = null;
+let chromeExit: { code: number | null; signal: string | null } | null = null;
+chrome.once("error", (error) => {
+  chromeSpawnError = error;
+});
+chrome.once("exit", (code, signal) => {
+  chromeExit = { code, signal };
+});
+
+const chromeStartupDiagnostic = () => {
+  const details = [
+    `executable=${chromePath}`,
+    chromeSpawnError ? `spawnError=${chromeSpawnError.message}` : null,
+    chromeExit ? `exitCode=${chromeExit.code ?? "null"}` : null,
+    chromeExit ? `signal=${chromeExit.signal ?? "null"}` : null,
+    chromeStderr.trim() ? `stderr=${chromeStderr.trim().slice(-2_000)}` : "stderr=(empty)",
+  ].filter(Boolean);
+  return details.join("; ");
+};
+
+const waitForChromeDevTools = async (): Promise<number> => {
+  const deadline = Date.now() + chromeStartupTimeoutMs;
+  while (Date.now() < deadline) {
+    if (chromeSpawnError) {
+      throw new Error(`Chrome DevTools could not start: ${chromeStartupDiagnostic()}`);
+    }
+    if (chromeExit) {
+      throw new Error(`Chrome exited before DevTools started: ${chromeStartupDiagnostic()}`);
+    }
+    try {
+      const [portLine] = fs.readFileSync(devtoolsActivePortPath, "utf8").trim().split(/\r?\n/);
+      const port = Number(portLine);
+      if (Number.isInteger(port) && port > 0 && port <= 65_535) {
+        await getJson(`http://127.0.0.1:${port}/json/version`);
+        return port;
+      }
+    } catch {
+      // Chrome creates DevToolsActivePort only after its debugging socket is ready.
+    }
+    await sleep(100);
+  }
+  throw new Error(
+    `Chrome DevTools did not start within ${chromeStartupTimeoutMs}ms: ${chromeStartupDiagnostic()}`,
+  );
+};
 
 let client: CdpClient | null = null;
 let created: {
@@ -334,18 +383,7 @@ const browserCaughtExceptionSites: Array<{
 const requestIndex = new Map<string, number>();
 
 try {
-  const devtoolsDeadline = Date.now() + 10_000;
-  while (Date.now() < devtoolsDeadline) {
-    try {
-      await getJson(`http://127.0.0.1:${port}/json/version`);
-      break;
-    } catch {
-      await sleep(100);
-    }
-  }
-  if (Date.now() >= devtoolsDeadline) {
-    throw new Error(`Chrome DevTools did not start. ${chromeStderr}`);
-  }
+  const port = await waitForChromeDevTools();
 
   const target = await getJson(`http://127.0.0.1:${port}/json/new`, { method: "PUT" }) as {
     webSocketDebuggerUrl: string;
@@ -423,7 +461,7 @@ try {
 
   await evaluate(client, `(() => {
     const button = [...document.querySelectorAll("button")].find((node) =>
-      node.getAttribute("aria-label") === "run this THOUGHT with your Agent" &&
+      node.getAttribute("aria-label") === "Run this THOUGHT with your Agent" &&
       node.getBoundingClientRect().width > 0 &&
       node.getBoundingClientRect().height > 0 &&
       getComputedStyle(node).display !== "none" &&

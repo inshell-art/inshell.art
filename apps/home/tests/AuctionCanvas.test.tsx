@@ -236,6 +236,7 @@ let mockWalletState = createWalletState();
 jest.mock("@/services/pathDeployment", () => ({
   ...jest.requireActual("@/services/pathDeployment"),
   isPathDeploymentActive: jest.fn(() => true),
+  isPathMintActivationApproved: jest.fn(() => true),
 }));
 
 jest.mock("../src/hooks/useAuctionBids", () => ({
@@ -299,6 +300,7 @@ function expectCtaAnchoredReview(review: Element | null) {
 
 describe("AuctionCanvas", () => {
   beforeEach(() => {
+    jest.requireMock("@/services/pathDeployment").isPathMintActivationApproved.mockReturnValue(true);
     clearPathMintReturnRecords(window.localStorage);
     clearPathMintReturnRecords(window.sessionStorage);
     setPathMintLockRequest(async (_name, _options, callback) => {
@@ -1586,7 +1588,7 @@ describe("AuctionCanvas", () => {
     expect(mockCallContract).not.toHaveBeenCalled();
   });
 
-  test("shows no deployment message when no protocol release is loaded", () => {
+  test("keeps the isolated before_deploy fallback inert", () => {
     (globalThis as any).__VITE_ENV__ = {
       VITE_NETWORK: "mainnet",
       VITE_EXPECTED_CHAIN_ID: "0xaa36a7",
@@ -1602,10 +1604,10 @@ describe("AuctionCanvas", () => {
       refresh: jest.fn(),
     });
     render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
-    expect(screen.getByText(/Minting is not open yet/i)).toBeTruthy();
-    expect(
-      screen.getByText(/The \$PATH contract is not deployed yet/i)
-    ).toBeTruthy();
+    expect(screen.getByText(/\$PATH minting is not open yet/i)).toBeTruthy();
+    expect(screen.getByText(/The onchain release is being prepared/i)).toBeTruthy();
+    expect(screen.queryByText(/Studio Preview/i)).toBeNull();
+    expect(screen.queryByRole("button", { name: /\[\s*mint\s*\]/i })).toBeNull();
     // Deploy steps are ours to run, so they never reach a visitor.
     expect(screen.queryByText(/Deploy PATH/i)).toBeNull();
     expect(mockUseAuctionCore).toHaveBeenLastCalledWith(
@@ -2454,6 +2456,19 @@ describe("AuctionCanvas", () => {
       expect(screen.getByText(/Approve ETH/i)).toBeTruthy();
     });
     expect(screen.getByText(/\[\s*mint\s*\]/i)).toBeTruthy();
+  });
+
+  test("an available deployment and direct reads do not grant mint activation", async () => {
+    jest.requireMock("@/services/pathDeployment").isPathMintActivationApproved.mockReturnValue(false);
+    const execute = jest.fn();
+    mockWalletState = createWalletState({ account: { execute } });
+    const { container } = render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    const mintButton = screen.getByText(/\[\s*mint\s*\]/i);
+    await waitFor(() => expect(mintButton).not.toBeDisabled());
+    fireEvent.click(mintButton);
+    await waitFor(() => expect(screen.getByText("Minting is not open yet.")).toBeTruthy());
+    expect(container.querySelector(".dotfield__mint-review")).toBeNull();
+    expect(execute).not.toHaveBeenCalled();
   });
 
   test("first mint click shows transaction review before wallet", async () => {
@@ -3843,6 +3858,28 @@ describe("AuctionCanvas", () => {
       value: 600,
     });
     setPathMintIntentUrl();
+    mockWalletState = createWalletState({ account: {} });
+    const view = render(
+      <AuctionCanvas address="0xabc" provider={mockProvider as any} />,
+    );
+    try {
+      expect(screen.queryByText(/This view needs more room/i)).toBeNull();
+      expect(await screen.findByText(/\[\s*mint\s*\]/i)).toBeTruthy();
+    } finally {
+      view.unmount();
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        value: originalWidth,
+      });
+    }
+  });
+
+  test("keeps the public PATH surface usable below the desktop breakpoint", async () => {
+    const originalWidth = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 390,
+    });
     mockWalletState = createWalletState({ account: {} });
     const view = render(
       <AuctionCanvas address="0xabc" provider={mockProvider as any} />,

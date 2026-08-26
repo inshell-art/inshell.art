@@ -1886,6 +1886,12 @@ describe("chain cache Pages functions", () => {
       },
     });
     const payload = (await response.json()) as {
+      ok: boolean;
+      contract: { version: number };
+      deploymentLock: { enforcement: string; state: string; integrity: string; differences: string[] };
+      network: null;
+      contracts: Record<string, { address: string | null; deployBlock: number | null }>;
+      historicalReadModel: { status: string; notApprovedForCurrentDeployment: boolean };
       routes?: { event?: { route?: string; targets?: string[] } };
       rpcUpstreams?: Record<string, { configuredKey?: string | null; label?: string }>;
       indexerEventIngest?: {
@@ -1906,6 +1912,14 @@ describe("chain cache Pages functions", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(payload.routes?.event?.route).toBe("/api/indexer/event");
+    expect(payload.ok).toBe(true);
+    expect(payload.contract.version).toBe(2);
+    expect(payload.deploymentLock).toMatchObject({
+      enforcement: "always", state: "no-approved-deployment", integrity: "valid", differences: [],
+    });
+    expect(payload.network).toBeNull();
+    expect(Object.values(payload.contracts).every((contract) => contract.address === null && contract.deployBlock === null)).toBe(true);
+    expect(payload.historicalReadModel).toMatchObject({ status: "historical-only", notApprovedForCurrentDeployment: true });
     expect(payload.routes?.event?.targets).toEqual(["pulse-auction", "path-tokens", "thought-gallery"]);
     expect(payload.indexerEventIngest?.enabled).toBe(true);
     expect(payload.indexerEventIngest?.route).toBe("/api/indexer/event");
@@ -1930,6 +1944,22 @@ describe("chain cache Pages functions", () => {
     expect(serialized).not.toContain("api_key");
     expect(serialized).not.toContain("Bearer ");
     expect(serialized).not.toContain("Bearer fallback-secret");
+  });
+
+  test("OPS reports explicit unapproved deployment configuration as drift without echoing values", async () => {
+    globalThis.Request = TestRequest as unknown as typeof Request;
+    globalThis.Response = TestResponse as unknown as typeof Response;
+    globalThis.Headers = TestHeaders as unknown as typeof Headers;
+    const overrides = { VITE_PULSE_AUCTION: "unapproved-private-configuration" };
+    const response = await onOpsStatusGet({
+      request: new Request("https://preview.inshell.art/api/ops/status"),
+      env: { ...overrides },
+    });
+    const payload = await response.json();
+    expect(payload.ok).toBe(false);
+    expect(payload.deploymentLock.integrity).toBe("drift");
+    expect(payload.deploymentLock.differences).toEqual(["VITE_PULSE_AUCTION"]);
+    expect(JSON.stringify(payload)).not.toContain(overrides.VITE_PULSE_AUCTION);
   });
 
   test("writes KV when snapshot content changes", async () => {

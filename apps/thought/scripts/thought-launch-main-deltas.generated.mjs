@@ -151,6 +151,218 @@ export const CURRENT_THOUGHT_LAUNCH_MAIN_DELTAS = Object.freeze([
   Object.freeze(["launch state delta 150", "    kind: issue.title === \"text too long\" ? \"work_prompt_too_long\" : \"work_prompt_invalid\",", "    kind: issue.title.toLowerCase() === \"text too long\" ? \"work_prompt_too_long\" : \"work_prompt_invalid\","]),
   Object.freeze(["launch state delta 151", "    return { provider: null, reason: \"preview is off.\" };", "    return { provider: null, reason: \"Preview is off.\" };"]),
   Object.freeze(["launch state delta 152", "      : { provider: null, reason: \"local THOUGHT V2 unavailable.\" };", "      : { provider: null, reason: \"Local THOUGHT V2 unavailable.\" };"]),
+  Object.freeze(["deployment integrity v2 1","import { THOUGHT_V2_PRODUCTION_DEPLOYMENT } from \"./thought-v2-production-deployment\";","import { assertDeploymentOverrides, THOUGHT_ACTIVATION_POLICY, THOUGHT_V2_PRODUCTION_DEPLOYMENT } from \"./thought-v2-production-deployment\";"]),
+  Object.freeze(["deployment integrity v2 2","const THOUGHT_LAUNCH_DEPLOYMENT: ThoughtLaunchDeployment | null =\n  THOUGHT_V2_PROTOCOL_RELEASE.deployment.v2MintEnabled &&\n  THOUGHT_V2_PRODUCTION_DEPLOYMENT &&\n  PATH_AUCTION_ADDRESS","if (!IS_DEV_MODE) assertDeploymentOverrides(import.meta.env);\nconst THOUGHT_MINT_ACTIVATION_APPROVED =\n  THOUGHT_ACTIVATION_POLICY.frontendActivationApproved &&\n  THOUGHT_ACTIVATION_POLICY.signerActivationApproved &&\n  THOUGHT_ACTIVATION_POLICY.mintActivationApproved &&\n  THOUGHT_V2_PROTOCOL_RELEASE.deployment.v2MintEnabled;\nconst THOUGHT_LAUNCH_DEPLOYMENT: ThoughtLaunchDeployment | null =\n  THOUGHT_V2_PRODUCTION_DEPLOYMENT"]),
+  Object.freeze(["deployment integrity v2 3","        pulseAuction: PATH_AUCTION_ADDRESS,\n      }\n    : null;","        pulseAuction: THOUGHT_V2_PRODUCTION_DEPLOYMENT.contracts.pulseAuction,\n      }\n    : null;"]),
+  Object.freeze(["deployment integrity v2 4","        deployment: THOUGHT_LAUNCH_DEPLOYMENT,\n        readModel: null,","        deployment: THOUGHT_LAUNCH_DEPLOYMENT,\n        activationApproved: THOUGHT_MINT_ACTIVATION_APPROVED,\n        readModel: null,"]),
+  Object.freeze(["deployment integrity v2 5","    deployment: THOUGHT_LAUNCH_DEPLOYMENT,\n    readModel,","    deployment: THOUGHT_LAUNCH_DEPLOYMENT,\n    activationApproved: THOUGHT_MINT_ACTIVATION_APPROVED,\n    readModel,"]),
+  Object.freeze(["deployment selected config v2 0","import { assertDeploymentOverrides, THOUGHT_ACTIVATION_POLICY, THOUGHT_V2_PRODUCTION_DEPLOYMENT } from \"./thought-v2-production-deployment\";","import { assertDeploymentConfiguration, assertDeploymentOverrides, THOUGHT_ACTIVATION_POLICY, THOUGHT_V2_PRODUCTION_DEPLOYMENT } from \"./thought-v2-production-deployment\";"]),
+  Object.freeze(["deployment selected config v2 1","if (!IS_DEV_MODE) assertDeploymentOverrides(import.meta.env);","if (!IS_DEV_MODE) assertDeploymentOverrides(import.meta.env);\nif (!IS_LOCAL_THOUGHT_V2 && THOUGHT_V2_PRODUCTION_DEPLOYMENT) {\n  const selected = THOUGHT_V2_PRODUCTION_DEPLOYMENT;\n  assertDeploymentConfiguration({\n    ...selected, chainId: THOUGHT_CHAIN_ID,\n    contracts: { ...selected.contracts, pathNft: PATH_NFT_ADDRESS.toLowerCase(),\n      thoughtNft: THOUGHT_NFT_ADDRESS.toLowerCase(),\n      pulseAuction: PATH_AUCTION_ADDRESS.toLowerCase(),\n      pathPulseAdapter: PATH_PULSE_ADAPTER_ADDRESS.toLowerCase() },\n  });\n}"]),
+  Object.freeze(["studio dev deployment override validation", "if (!IS_DEV_MODE) assertDeploymentOverrides(import.meta.env);", "if (!IS_LOCAL_THOUGHT_V2) assertDeploymentOverrides(import.meta.env);"]),
+  Object.freeze(["launch state delta 153", "  galleryStatus.textContent = thoughts.length === 0 ? \"no minted THOUGHTs yet.\" : `${thoughts.length} minted THOUGHT${thoughts.length === 1 ? \"\" : \"s\"}.`;", "  galleryStatus.textContent = thoughts.length === 0 ? \"The gallery is ready for its first THOUGHT.\" : `${thoughts.length} minted THOUGHT${thoughts.length === 1 ? \"\" : \"s\"}.`;"]),
+  Object.freeze(["launch state delta 154", "    galleryStatus.textContent = \"Current THOUGHT collection is not deployed.\";", "    galleryStatus.textContent = \"The gallery is ready for its first THOUGHT.\";"]),
+  Object.freeze(["launch state delta 155", "    thoughtDetailStatus.textContent = \"Current THOUGHT collection is not deployed.\";", "    thoughtDetailStatus.textContent = \"THOUGHT details begin with the first work.\";"]),
+  Object.freeze([
+    "launch state delta 156",
+    `const isThoughtMintEnabled = () => thoughtLaunchState.mintEnabled;`,
+    `const isThoughtMintEnabled = () => thoughtLaunchState.mintEnabled;
+const shouldShowThoughtMintSurface = () =>
+  thoughtLaunchState.phase !== "studio-preview";`,
+  ]),
+  Object.freeze([
+    "launch state delta 157",
+    `        const mintPanelOpen = mintDockRevealed;`,
+    `        const showMintSurface = shouldShowThoughtMintSurface();
+        const mintPanelOpen = showMintSurface && mintDockRevealed;`,
+  ]),
+  Object.freeze([
+    "launch state delta 160",
+    `  if (hasOutput) {
+    if (!THOUGHT_RPC_URL || !THOUGHT_NFT_ADDRESS) {`,
+    `  if (hasOutput) {
+    if (!shouldShowThoughtMintSurface()) {
+      action = {
+        primaryLabel: "",
+        primaryDisabled: true,
+        primaryAction: "none",
+        status: "",
+        secondaryLabel: "[ reset ]",
+        secondaryAction: "reset",
+        hidePrimary: true,
+      };
+      return applyDebugStatusOverride(action);
+    }
+
+    if (!THOUGHT_RPC_URL || !THOUGHT_NFT_ADDRESS) {`,
+  ]),
+  Object.freeze([
+    "launch state delta 161",
+    `  const isVisible = mintDockRevealed;`,
+    `  const isVisible = shouldShowThoughtMintSurface() && mintDockRevealed;`,
+  ]),
+  Object.freeze([
+    "launch state delta 162",
+    `  mintDockRevealed = stored.mintDockRevealed;`,
+    `  mintDockRevealed = shouldShowThoughtMintSurface() && stored.mintDockRevealed;`,
+  ]),
+  Object.freeze([
+    "launch state delta 163",
+    `const renderThoughtConsoleHistory = (state: ThoughtDockState) => {
+  const newestEntry = thoughtConsoleHistory.entries.at(-1);
+  const runRecoveryEntryId = [...thoughtConsoleHistory.entries]`,
+    `const isStudioPreviewOnchainConsoleEntry = (entry: ThoughtConsoleEntry) =>
+  entry.kind !== "thought_launch_mint_closed" &&
+  /^(?:authorization_|conflicting_mint|detached_mint|legacy_local_mint|mint_|minted$|multiple_mint|path_|pending_mint|thought_exists$|thought_launch_mint|transaction_|wallet_)/.test(
+    entry.kind,
+  );
+
+const renderThoughtConsoleHistory = (state: ThoughtDockState) => {
+  const visibleHistoryEntries = shouldShowThoughtMintSurface()
+    ? thoughtConsoleHistory.entries
+    : thoughtConsoleHistory.entries.filter(
+        (entry) => !isStudioPreviewOnchainConsoleEntry(entry),
+      );
+  const newestEntry = visibleHistoryEntries.at(-1);
+  const runRecoveryEntryId = [...visibleHistoryEntries]`,
+  ]),
+  Object.freeze([
+    "launch state delta 164",
+    `  const entries = newestFirstThoughtConsoleEntries(thoughtConsoleHistory.entries)`,
+    `  const entries = newestFirstThoughtConsoleEntries(visibleHistoryEntries)`,
+  ]),
+  Object.freeze([
+    "launch state delta 165",
+    `mountThoughtShell(thoughtShellRoot, THOUGHT_CHAIN_ID, () => refreshThoughtWalletFromShell());`,
+    `mountThoughtShell(
+  thoughtShellRoot,
+  THOUGHT_CHAIN_ID,
+  () => refreshThoughtWalletFromShell(),
+  thoughtLaunchState.phase === "studio-preview",
+);`,
+  ]),
+  Object.freeze([
+    "launch state delta 166",
+    `  galleryStatus.textContent = thoughts.length === 0 ? "The gallery is ready for its first THOUGHT." : \`${"${thoughts.length}"} minted THOUGHT${"${thoughts.length === 1 ? \"\" : \"s\"}"}.\`;`,
+    `  galleryStatus.textContent = thoughts.length === 0 ? "Create and save the first THOUGHT in this browser." : \`${"${thoughts.length}"} minted THOUGHT${"${thoughts.length === 1 ? \"\" : \"s\"}"}.\`;`,
+  ]),
+  Object.freeze([
+    "launch state delta 167",
+    `    galleryStatus.textContent = "The gallery is ready for its first THOUGHT.";`,
+    `    galleryStatus.textContent = "Studio Preview · Create and save a THOUGHT in this browser.";`,
+  ]),
+  Object.freeze([
+    "launch state delta 168",
+    `    thoughtDetailStatus.textContent = "THOUGHT details begin with the first work.";`,
+    `    thoughtDetailStatus.textContent = "Studio Preview · Onchain THOUGHT details will appear here after minting opens.";`,
+  ]),
+  Object.freeze([
+    "launch state delta 169",
+    `  getThoughtMintClosedNotice,
+  localThoughtLaunchState,
+  parseThoughtLaunchReadModel,`,
+    `  getThoughtMintClosedNotice,
+  parseThoughtLaunchReadModel,`,
+  ]),
+  Object.freeze([
+    "launch state delta 170",
+    `let thoughtLaunchState: ThoughtLaunchState =
+  simulatedThoughtLaunchState() ??
+  (IS_LOCAL_THOUGHT_V2
+    ? localThoughtLaunchState(THOUGHT_CHAIN_ID)
+    : deriveThoughtLaunchState({
+        deployment: THOUGHT_LAUNCH_DEPLOYMENT,
+        activationApproved: THOUGHT_MINT_ACTIVATION_APPROVED,
+        readModel: null,
+      }));`,
+    `let thoughtLaunchState: ThoughtLaunchState =
+  simulatedThoughtLaunchState() ??
+  deriveThoughtLaunchState({
+    deployment: THOUGHT_LAUNCH_DEPLOYMENT,
+    activationApproved: THOUGHT_MINT_ACTIVATION_APPROVED,
+    readModel: null,
+  });`,
+  ]),
+  Object.freeze([
+    "launch state delta 171",
+    `const IS_THOUGHT_GALLERY_ACTIVE =
+  IS_LOCAL_THOUGHT_V2 || THOUGHT_V2_PRODUCTION_DEPLOYMENT !== null;`,
+    `const IS_THOUGHT_GALLERY_ACTIVE =
+  THOUGHT_V2_PRODUCTION_DEPLOYMENT !== null;`,
+  ]),
+  Object.freeze([
+    "launch state delta 172",
+    `      detail: "Codex and Claude Code creation are available from the desktop THOUGHT App. Mobile wallet connection and PATH minting remain available here.",`,
+    `      detail: thoughtLaunchState.phase === "studio-preview"
+        ? "ChatGPT and Claude creation require the desktop THOUGHT App. Open this page on desktop to create and save a THOUGHT."
+        : "ChatGPT and Claude creation require the desktop THOUGHT App. Mobile wallet connection and PATH minting remain available here.",`,
+  ]),
+  Object.freeze([
+    "launch state delta 173",
+    `    detail: "Codex and Claude Code creation are available from the desktop THOUGHT App. Mobile wallet connection and PATH minting remain available here.",`,
+    `    detail: thoughtLaunchState.phase === "studio-preview"
+      ? "ChatGPT and Claude creation require the desktop THOUGHT App. Open this page on desktop to create and save a THOUGHT."
+      : "ChatGPT and Claude creation require the desktop THOUGHT App. Mobile wallet connection and PATH minting remain available here.",`,
+  ]),
+  Object.freeze([
+    "launch state delta 174",
+    `const preflightCurrentThoughtExistence = async () => {
+  if (!currentOutputText || runState !== "output_ready") {`,
+    `const preflightCurrentThoughtExistence = async () => {
+  if (thoughtLaunchState.phase === "studio-preview") {
+    return;
+  }
+  if (!currentOutputText || runState !== "output_ready") {`,
+  ]),
+  Object.freeze([
+    "launch state delta 175",
+    `const syncEmptyFrameStyleFromContract = async () => {
+  if (!IS_LOCAL_THOUGHT_V2 || !THOUGHT_RENDERER_ADDRESS) {`,
+    `const syncEmptyFrameStyleFromContract = async () => {
+  if (thoughtLaunchState.phase === "studio-preview") {
+    return;
+  }
+  if (!IS_LOCAL_THOUGHT_V2 || !THOUGHT_RENDERER_ADDRESS) {`,
+  ]),
+  Object.freeze([
+    "launch state delta 176",
+    `const currentOutputSessionIsMinted = async () => {
+  const stored = readCurrentOutputSession();`,
+    `const currentOutputSessionIsMinted = async () => {
+  if (thoughtLaunchState.phase === "studio-preview") {
+    return false;
+  }
+  const stored = readCurrentOutputSession();`,
+  ]),
+  Object.freeze([
+    "launch state delta 177",
+    `const getReadProvider = () => {
+  if (!THOUGHT_RPC_URL) {`,
+    `const getReadProvider = () => {
+  if (thoughtLaunchState.phase === "studio-preview") {
+    return null;
+  }
+  if (!THOUGHT_RPC_URL) {`,
+  ]),
+  Object.freeze([
+    "launch state delta 178",
+    `const getPathReadProvider = () => {
+  if (!PATH_RPC_URL) {`,
+    `const getPathReadProvider = () => {
+  if (thoughtLaunchState.phase === "studio-preview") {
+    return null;
+  }
+  if (!PATH_RPC_URL) {`,
+  ]),
+  Object.freeze([
+    "launch state delta 179",
+    `    galleryStatus.textContent = "Studio Preview · Create and save a THOUGHT in this browser.";`,
+    `    galleryStatus.textContent = "Create and save a THOUGHT in this browser. Onchain minting is not open yet.";`,
+  ]),
+  Object.freeze([
+    "launch state delta 180",
+    `    thoughtDetailStatus.textContent = "Studio Preview · Onchain THOUGHT details will appear here after minting opens.";`,
+    `    thoughtDetailStatus.textContent = "Onchain THOUGHT details will appear when minting opens.";`,
+  ]),
 ]);
 
 export const applyCurrentThoughtLaunchMainDeltas = (source, direction, replaceExactCount) => {

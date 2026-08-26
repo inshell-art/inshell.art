@@ -1,6 +1,6 @@
 {
   "schema": "inshell.detail-surface-contract-lock.v1",
-  "artifactId": "inshell-detail-surface-contract-20260816-r1",
+  "artifactId": "inshell-detail-surface-contract-20260824-r2",
   "status": "operator-accepted",
   "authority": {
     "layoutCanon": "PATH detail",
@@ -13,12 +13,12 @@
   },
   "thoughtDetail": {
     "homeReturn": {
-      "label": "[ home ]",
+      "label": "[ Home ]",
       "hrefTemplate": "/#thought-<tokenId>",
       "productionOrigin": "https://inshell.art"
     },
     "create": {
-      "label": "[ create yours ]",
+      "label": "[ Create yours ]",
       "hrefPath": "/thought",
       "standaloneFreshEntryQuery": "new=1"
     },

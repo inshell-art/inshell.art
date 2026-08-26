@@ -52,7 +52,7 @@ describe("EcosystemHome THOUGHT gallery", () => {
     await waitFor(() => {
       expect(screen.getByText("1 minted THOUGHT.")).toBeInTheDocument();
     });
-    expect(screen.getByText("on Sepolia now")).toBeInTheDocument();
+    expect(screen.getByText("try it now")).toBeInTheDocument();
     expect(screen.getByLabelText("THOUGHT #7")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open THOUGHT #7" })).toHaveAttribute(
       "href",
@@ -65,6 +65,20 @@ describe("EcosystemHome THOUGHT gallery", () => {
     expect(screen.getByText("Agent: Codex")).toBeInTheDocument();
     expect(screen.getByText("Model: gpt-5")).toBeInTheDocument();
     expect(screen.queryByLabelText("THOUGHT V2 fixture works")).toBeNull();
+  });
+
+  test("invites the first THOUGHT when the deployed gallery is empty", async () => {
+    mockLoadThoughtGallery.mockResolvedValue([]);
+
+    render(<EcosystemHome />);
+
+    const invitation = await screen.findByRole("link", {
+      name: "Create the first THOUGHT.",
+    });
+    expect(invitation).toHaveAttribute("href", "/thought");
+    expect(screen.getByText("try it now")).toBeInTheDocument();
+    expect(screen.queryByText("no minted THOUGHTs yet.")).toBeNull();
+    expect(screen.queryByText("on Sepolia now")).toBeNull();
   });
 
   test("focuses the linked THOUGHT after the home gallery loads", async () => {

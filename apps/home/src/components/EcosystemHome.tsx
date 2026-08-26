@@ -5,7 +5,6 @@ import {
   readCachedThoughtGallery,
   type ThoughtGalleryItem,
 } from "@/services/thoughtGallery";
-import { PUBLIC_NETWORK_CONFIG } from "@inshell/shared";
 
 type Movement = {
   key: "thought" | "will" | "awa";
@@ -26,9 +25,7 @@ const MOVEMENTS: Movement[] = [
   {
     key: "thought",
     title: "THOUGHT",
-    note: thoughtDeploymentActive
-      ? `on ${PUBLIC_NETWORK_CONFIG.chainLabel} now`
-      : "try it now",
+    note: "try it now",
     href: "thought",
   },
   { key: "will", title: "WILL", note: "launch in 2027", href: "will" },
@@ -63,8 +60,10 @@ function initialGalleryState(): GalleryState {
 }
 
 export default function EcosystemHome() {
+  const studioPreview = !thoughtDeploymentActive;
   const [gallery, setGallery] = useState<GalleryState>(initialGalleryState);
   const [focusedTargetId, setFocusedTargetId] = useState(homeThoughtTargetId);
+  const showPrelaunchNotice = studioPreview || gallery.status === "prelaunch";
 
   useEffect(() => {
     if (!thoughtDeploymentActive) return undefined;
@@ -149,19 +148,26 @@ export default function EcosystemHome() {
       </section>
 
       <section className="ecosystem-home__works" aria-label="THOUGHT works">
-        <p className="ecosystem-home__works-status" aria-live="polite">
-          {gallery.status === "loading"
-            ? "reading THOUGHT works..."
-            : gallery.status === "prelaunch"
-              ? (
-                <a className="ecosystem-home__works-invite" href="/thought">
-                  Create the first THOUGHT.
-                </a>
-              )
+        <p
+          className={`ecosystem-home__works-status${
+            showPrelaunchNotice
+              ? " ecosystem-home__works-status--prelaunch"
+              : ""
+          }`}
+          aria-live="polite"
+        >
+          {showPrelaunchNotice
+            ? "THOUGHT records will appear when onchain minting opens."
+            : gallery.status === "loading"
+              ? "reading THOUGHT works..."
               : gallery.status === "error"
                 ? gallery.error
                 : gallery.items.length === 0
-                  ? "no minted THOUGHTs yet."
+                  ? (
+                    <a className="ecosystem-home__works-invite" href="/thought">
+                      Create the first THOUGHT.
+                    </a>
+                  )
                   : `${gallery.items.length} minted THOUGHT${gallery.items.length === 1 ? "" : "s"}.`}
         </p>
 

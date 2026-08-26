@@ -9,6 +9,7 @@ import { PUBLIC_NETWORK_CONFIG } from "@inshell/shared";
 import { useAuctionBids } from "@/hooks/useAuctionBids";
 import { useAuctionCore } from "@/hooks/useAuctionCore";
 import { PULSE } from "@/content/pulse";
+import { isStudioPreviewActive } from "@/services/studioPreview";
 
 type PulseMarkDot = {
   x: number;
@@ -325,10 +326,15 @@ function makePulseMark(): PulseMark {
 }
 
 export function PulseCurrentInstance({ rawOnly = false }: { rawOnly?: boolean }) {
-  const auctionAddress = useMemo(() => maybeResolveAddress("pulse_auction"), []);
+  const studioPreview = isStudioPreviewActive();
+  const auctionAddress = useMemo(
+    () =>
+      studioPreview ? undefined : maybeResolveAddress("pulse_auction") ?? undefined,
+    [studioPreview]
+  );
   const deployBlock = useMemo(
-    () => getProtocolReleaseDeployBlock("pulse_auction") ?? 0,
-    []
+    () => (studioPreview ? 0 : getProtocolReleaseDeployBlock("pulse_auction") ?? 0),
+    [studioPreview]
   );
   const chainName = useMemo(() => resolveChainLabel(), []);
   const paymentSymbol = useMemo(() => resolvePaymentSymbol(), []);
@@ -348,7 +354,10 @@ export function PulseCurrentInstance({ rawOnly = false }: { rawOnly?: boolean })
   const bids = bidState.bids;
   const latestBid = bids.length ? bids[bids.length - 1] : undefined;
   const bidsReady = Boolean(auctionAddress) && !bidState.loading && !bidState.error;
-  const chainId = useMemo(() => getProtocolReleaseChainId(), []);
+  const chainId = useMemo(
+    () => (studioPreview ? null : getProtocolReleaseChainId()),
+    [studioPreview]
+  );
 
   const k = formatTokenAmount(snapshot?.config.k);
   const pts = formatTokenAmount(
@@ -381,7 +390,7 @@ export function PulseCurrentInstance({ rawOnly = false }: { rawOnly?: boolean })
   const contextRows = compactRows([
     row("network", PUBLIC_NETWORK_CONFIG.environmentLabel),
     row("chain", chainName),
-    row("chain id", String(chainId)),
+    row("chain id", chainId === null ? undefined : String(chainId)),
     row("currency", PUBLIC_NETWORK_CONFIG.currencyLabel),
     auctionAddress
       ? linkedRow(
@@ -462,6 +471,24 @@ export function PulseCurrentInstance({ rawOnly = false }: { rawOnly?: boolean })
         anchorTime,
       })
     : undefined;
+  if (studioPreview) {
+    return rawOnly ? (
+      <section className="primitive-page__body" aria-label="Pulse live params">
+        <p className="pulse-page__instance-status">
+          Pulse parameters will appear when $PATH minting opens.
+        </p>
+      </section>
+    ) : (
+      <section className="pulse-page__current" aria-label="Pulse current instance">
+        <div className="pulse-page__current-copy">
+          <div className="pulse-page__section-title">onchain status</div>
+          <p className="pulse-page__lead-line">
+            Pulse parameters will appear when $PATH minting opens.
+          </p>
+        </div>
+      </section>
+    );
+  }
   if (rawOnly) {
     return (
       <section className="primitive-page__body" aria-label="Pulse live params">

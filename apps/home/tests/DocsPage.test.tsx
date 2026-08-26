@@ -856,6 +856,10 @@ describe("Docs source editorial guardrails", () => {
       ],
       "agent-art": [
         { label: "Inshell", href: "/docs/inshell" },
+        {
+          label: "thinking power",
+          href: "/docs/glossary#docs-glossary-thinking-power",
+        },
         { label: "Generative Art", href: "/docs/generative-art" },
       ],
       movements: [
@@ -909,8 +913,13 @@ describe("Docs source editorial guardrails", () => {
         { label: "THOUGHT", href: "/docs/thought" },
         { label: "$PATH", href: "/docs/path" },
         { label: "attestation status", href: "/docs/verification" },
+        { label: "canonical", href: "/docs/glossary#docs-glossary-canonical" },
       ],
       "fully-onchain": [
+        {
+          label: "thinking power",
+          href: "/docs/glossary#docs-glossary-thinking-power",
+        },
         { label: "Agent Art", href: "/docs/agent-art" },
         { label: "$PATH", href: "/docs/path" },
         { label: "THOUGHT", href: "/docs/thought" },
@@ -962,6 +971,10 @@ describe("Docs source editorial guardrails", () => {
       ],
       svg: [
         {
+          label: "aesthetic architecture",
+          href: "/docs/glossary#docs-glossary-aesthetic-architecture",
+        },
+        {
           label: "Fully Onchain",
           href: "/docs/fully-onchain#docs-fully-onchain-agent-art",
         },
@@ -989,7 +1002,81 @@ describe("Docs source editorial guardrails", () => {
         { label: "Pulse", href: "/docs/pulse" },
         { label: "$PATH", href: "/docs/path" },
         { label: "Agent Art", href: "/docs/agent-art" },
+        {
+          label: "algorithmic execution",
+          href: "/docs/glossary#docs-glossary-algorithmic-execution",
+        },
         { label: "Public provenance", href: "/docs/verification" },
+      ],
+      glossary: [
+        {
+          label: "Fully Onchain",
+          href: "/docs/fully-onchain#docs-fully-onchain-agent-art",
+        },
+        { label: "open questions", href: "/docs/agent-art#docs-agent-art-field" },
+        { label: "Agent Art", href: "/docs/agent-art" },
+        { label: "the Agent era", href: "/docs/agents-and-ai#docs-agents-agent" },
+        {
+          label: "Design Principles",
+          href: "/docs/design-principles#docs-design-thinking",
+        },
+        { label: "what the App does", href: "/docs/contracts#docs-contracts-app" },
+        {
+          label: "intentional participation",
+          href: "/docs/agent-art#docs-agent-art-participation",
+        },
+        {
+          label: "four terms that should not blur",
+          href: "/docs/verification#docs-verification-terms",
+        },
+        {
+          label: "one canonical form, many reading surfaces",
+          href: "/docs/design-principles#docs-design-canonical",
+        },
+        {
+          label: "read context with the object",
+          href: "/docs/artwork-metadata-chain#docs-reading-context",
+        },
+        {
+          label: "why pins matter",
+          href: "/docs/source-release-boundaries#docs-source-pins",
+        },
+        {
+          label: "provenance and attestation",
+          href: "/docs/thought#docs-thought-provenance",
+        },
+        { label: "WILL: the crowd", href: "/docs/movements#docs-movements-will" },
+        {
+          label: "release is not deployment",
+          href: "/docs/source-release-boundaries#docs-source-deployment",
+        },
+        {
+          label: "evidence levels",
+          href: "/docs/verification#docs-verification-levels",
+        },
+        { label: "Fully Onchain", href: "/docs/fully-onchain" },
+        { label: "what makes one work", href: "/docs/thought#docs-thought-work" },
+        { label: "Movements", href: "/docs/movements" },
+        { label: "$PATH", href: "/docs/path" },
+        { label: "the practice", href: "/docs/inshell#docs-inshell-practice" },
+        {
+          label: "provenance and proof",
+          href: "/docs/verification#docs-verification-provenance",
+        },
+        {
+          label: "release plus deployment",
+          href: "/docs/contracts#docs-contracts-release",
+        },
+        {
+          label: "the Agent handoff",
+          href: "/docs/thought#docs-thought-agent-handoff",
+        },
+        { label: "Inshell", href: "/docs/inshell" },
+        {
+          label: "the gate from algorithm to thinking power",
+          href: "/docs/generative-art#docs-generative-thinking-power",
+        },
+        { label: "the truth", href: "/docs/inshell#docs-inshell-truth" },
       ],
     });
 
@@ -1649,6 +1736,7 @@ describe("DocsPage character figures", () => {
       "tokens-and-nfts",
       "onchain-art",
       "design-principles",
+      "glossary",
     ]);
     expect(
       DOCS_SOURCE.topics.flatMap((topic) => topic.sections ?? []).filter(

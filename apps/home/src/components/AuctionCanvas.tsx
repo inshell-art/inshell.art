@@ -27,7 +27,7 @@ import type { AuctionSnapshot } from "@/types/types";
 import type { NormalizedBid } from "@/services/auction/bidsService";
 import { requestPulseAuctionRefresh } from "@/services/chainIndexer";
 import { clearPathTokenInventoryCache } from "@/services/pathTokens";
-import { isPathDeploymentActive } from "@/services/pathDeployment";
+import { isPathDeploymentActive, isPathMintActivationApproved } from "@/services/pathDeployment";
 import {
   readAuctionStatusOverride,
   type AuctionStatus,
@@ -342,18 +342,6 @@ function useCompactPathViewport() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
   return isCompact;
-}
-
-function useDesktopOnly(minWidth = 768) {
-  const [isDesktop, setIsDesktop] = useState(
-    typeof window === "undefined" ? true : window.innerWidth >= minWidth
-  );
-  useEffect(() => {
-    const onResize = () => setIsDesktop(window.innerWidth >= minWidth);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [minWidth]);
-  return isDesktop;
 }
 
 function normalizeReturnTo(raw: string | null): string | null {
@@ -2354,7 +2342,7 @@ function useAuctionStatus(params: {
       return;
     }
     if (releaseMissing) {
-      setStatus("no_release");
+      setStatus("before_deploy");
       return;
     }
     if (coreErrorVisible) {
@@ -2454,7 +2442,6 @@ export default function AuctionCanvas({
     () => (fixture ? fixtureToState(fixture, decimals) : null),
     [fixture, decimals]
   );
-  const isDesktop = useDesktopOnly();
   const isCompactPathViewport = useCompactPathViewport();
   const bidsFromBlock = useMemo(() => resolveBidsFromBlock(), []);
   const protocolRelease = useMemo(() => getProtocolRelease(), []);
@@ -4272,7 +4259,7 @@ export default function AuctionCanvas({
     bidsLength: bids.length,
     hasRenderableCurve: linked.segments.length > 0 && linked.reason === null,
   });
-  const showNoReleaseNotice = auctionStatus === "no_release";
+  const showBeforeDeployNotice = auctionStatus === "before_deploy";
   const showBeforeOpenNotice = auctionStatus === "before_open";
   const showOpenNotActive = auctionStatus === "open_not_active";
   const showHistoryLoading = auctionStatus === "history_loading";
@@ -4285,7 +4272,7 @@ export default function AuctionCanvas({
   const auctionBlocksMint =
     !debugActive &&
     !walletActionRequired &&
-    (showNoReleaseNotice || showBeforeOpenNotice || showCurveLoading);
+    (showBeforeDeployNotice || showBeforeOpenNotice || showCurveLoading);
   const auctionOpeningLabel =
     opensWithinTheHour && opensInLabel
       ? `in ${opensInLabel}`
@@ -4294,8 +4281,8 @@ export default function AuctionCanvas({
     ? auctionOpeningLabel
       ? `Minting opens ${auctionOpeningLabel}.`
       : "Minting has not opened yet."
-    : showNoReleaseNotice
-    ? "The $PATH contract is not deployed yet."
+    : showBeforeDeployNotice
+    ? "$PATH minting is not open yet."
     : "Checking whether minting is open.";
   const showMissingDeployBlock =
     auctionStatus === "loading" &&
@@ -4340,7 +4327,7 @@ export default function AuctionCanvas({
   }, [auctionBlocksMint, txState]);
   const showCurvePlot =
     auctionStatus === "active" &&
-    !showNoReleaseNotice &&
+    !showBeforeDeployNotice &&
     !showBeforeOpenNotice &&
     !showOpenNotActive &&
     linked.segments.length > 0 &&
@@ -5309,11 +5296,15 @@ export default function AuctionCanvas({
 
   const handleMint = async () => {
     if (debugActive) return;
+    if (!isPathMintActivationApproved()) {
+      showToast({ kind: "info", text: "Minting is not open yet." });
+      return;
+    }
     if (pathMintIntentBlock) {
       showToast({ kind: "warn", text: pathMintIntentBlock });
       return;
     }
-    if (auctionBlocksMint) {
+    if (showBeforeDeployNotice || auctionBlocksMint) {
       showToast({ kind: "info", text: auctionBlockedMintNotice });
       return;
     }
@@ -6904,13 +6895,6 @@ export default function AuctionCanvas({
       style={dotfieldStyle}
       data-layout-zoomed={isPathStageLayoutZoomed ? "true" : "false"}
     >
-      {!isDesktop && !pathMintIntent && (
-        <div className="dotfield__overlay">
-          <div className="muted small">
-            This view needs more room. Please widen your window or use a larger screen.
-          </div>
-        </div>
-      )}
       <div className="dotfield__nav">
         <div className="dotfield__title-stack">
           <h1 className="headline dotfield__title thin">
@@ -7445,13 +7429,13 @@ export default function AuctionCanvas({
         </div>
       )}
       {(() => {
-        if (showNoReleaseNotice) {
+        if (showBeforeDeployNotice) {
           return (
             <div className="dotfield__canvas dotfield__look">
               <div className="muted dotfield__status-copy">
-                Minting is not open yet.
+                $PATH minting is not open yet.
                 <br />
-                The $PATH contract is not deployed yet. Come back when it goes live.
+                The onchain release is being prepared.
               </div>
             </div>
           );

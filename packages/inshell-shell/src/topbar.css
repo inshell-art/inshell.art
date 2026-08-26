@@ -187,6 +187,17 @@
   line-height: 1.5;
 }
 
+.inshell-wallet-modal__copy a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: var(--shell-secondary-action-underline-offset);
+}
+
+.inshell-wallet-modal__copy a:hover,
+.inshell-wallet-modal__copy a:focus-visible {
+  color: var(--accent);
+}
+
 .inshell-wallet-modal__actions {
   display: flex;
   flex-wrap: wrap;

@@ -154,11 +154,13 @@ const readModelMatchesDeployment = (
 export const deriveThoughtLaunchState = ({
   deployment,
   readModel,
+  activationApproved = false,
   nowMs = Date.now(),
   maxReadModelAgeMs = THOUGHT_LAUNCH_READ_MODEL_MAX_AGE_MS,
 }: {
   deployment: ThoughtLaunchDeployment | null;
   readModel: ThoughtLaunchReadModel | null;
+  activationApproved?: boolean;
   nowMs?: number;
   maxReadModelAgeMs?: number;
 }): ThoughtLaunchState => {
@@ -191,7 +193,7 @@ export const deriveThoughtLaunchState = ({
     chainId: deployment.chainId,
     openTime: readModel.openTime,
     deploymentVerified: true,
-    mintEnabled: isAuthoritativelyOpen,
+    mintEnabled: isAuthoritativelyOpen && activationApproved,
   };
 };
 

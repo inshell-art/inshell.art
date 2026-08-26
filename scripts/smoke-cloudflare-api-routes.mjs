@@ -195,8 +195,19 @@ async function checkOpsStatus(base, label) {
     if (payload?.contract?.name !== "inshell-dev-ops-chain-read-model") {
       throw new Error("expected DEV/OPS chain read-model contract name");
     }
-    if (payload?.network?.chainId !== 11155111) {
-      throw new Error(`expected Sepolia chain id 11155111, got ${JSON.stringify(payload?.network)}`);
+    const lock = payload?.deploymentLock;
+    if (payload?.contract?.version !== 2 || lock?.enforcement !== "always" ||
+        lock?.integrity !== "valid" || !Number.isSafeInteger(lock?.revision) ||
+        !Array.isArray(lock?.differences) || lock.differences.length) {
+      throw new Error("expected valid, always-enforced deployment reference without drift");
+    }
+    if (lock.state === "no-approved-deployment") {
+      if (payload.network !== null ||
+          Object.values(payload.contracts ?? {}).some((item) => item.address !== null || item.deployBlock !== null)) {
+        throw new Error("unapproved deployment material advertised as current");
+      }
+    } else if (lock.state !== "approved-deployment" || !payload?.network?.chainId) {
+      throw new Error("expected one exact approved deployment or explicit absence");
     }
     if (!payload?.routes?.refresh?.route || !Array.isArray(payload?.routes?.readModel)) {
       throw new Error("expected route contract for refresh and read model");
