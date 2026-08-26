@@ -11,14 +11,14 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "ca1cb7874f29eb97d5528f5f69a39ae52e8dda4b009eb1e12f0e87d53cd52d23",
+  "sourceTreeSha256": "8a17a75547b3aba0745257c86007f99cf65a40e6bf7a866dbfd090b3dfff8e35",
   "groups": [
     {
       "id": "public-docs",
       "title": "Public documentation sources",
       "owner": "inshell.art docs",
       "reason": "Human articles, Agent-readable content, authority maps, and machine-handoff selection.",
-      "groupSha256": "9fac18a27b2d0c1d9d586a6d6c7c93a164a55b31321b285e16bcbae00b19c0a6",
+      "groupSha256": "a492934cc9b1fac882f61eef95b502462ab091607e815cadf4b29dea363b2a5b",
       "files": [
         {
           "path": "apps/home/src/content/AGENTS.md",
@@ -37,8 +37,8 @@
         },
         {
           "path": "apps/home/src/content/docs.ts",
-          "byteLength": 158964,
-          "sha256": "3f66904b468728c1b2b2ac1f4e09bd73c4b820ffdd282dba692d31890c080a38"
+          "byteLength": 177181,
+          "sha256": "13c7ecd590aa60a4a2a0f81f4eb6ad6ec612718595aae30ea5d1254ee25de2dc"
         },
         {
           "path": "apps/home/src/content/thought-machine-handoff.ts",
@@ -67,7 +67,7 @@
       "title": "Home, $PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "678707c6621a85968179be4ad3469d5c96578b3cdbe6712ad6a326b375ea6586",
+      "groupSha256": "22d1f3aeee365c147e9a18d56ece65d90bed72fb392a593295722097a62b4a45",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -81,8 +81,8 @@
         },
         {
           "path": "apps/home/src/App.tsx",
-          "byteLength": 17634,
-          "sha256": "2230e33ead7dd96a2c79f58d9cb32301f7e8350b43a0829c646f9469f28f2fe7"
+          "byteLength": 18311,
+          "sha256": "4a89efccb3187b99f6e1b8e8ac0d66af18962bac89b527d6a5e9b90e5418ed69"
         },
         {
           "path": "apps/home/src/assets/icon-github.svg",
@@ -111,8 +111,8 @@
         },
         {
           "path": "apps/home/src/components/DocsPage.tsx",
-          "byteLength": 15226,
-          "sha256": "18fdf7fc397b90afa7b2be04491610ba781ccb5145a960fc3d58e4dc619a7f7e"
+          "byteLength": 15585,
+          "sha256": "552909987db0ab106f77888c2c54a65ecc74e4ea2112a469ef6c9ed359ee2044"
         },
         {
           "path": "apps/home/src/components/EcosystemHome.tsx",
@@ -206,8 +206,13 @@
         },
         {
           "path": "apps/home/src/components/docs/figures.css",
-          "byteLength": 20855,
-          "sha256": "5460e57ff6ade48f3330bb629e47c04d8380c7471257e89c119d279395ac38ed"
+          "byteLength": 20943,
+          "sha256": "4d3e0e22fec99ea94f737ce017634c133dfdc9c8f18213cc4b36da2dbafae890"
+        },
+        {
+          "path": "apps/home/src/components/docs/scrollHandoff.ts",
+          "byteLength": 3139,
+          "sha256": "5c859ee0c132701841139f9ba47ea05f09b1dbba19eb3a1b9291d9f938c02e0e"
         },
         {
           "path": "apps/home/src/config/publicLaunch.ts",
@@ -241,8 +246,8 @@
         },
         {
           "path": "apps/home/src/main.css",
-          "byteLength": 111196,
-          "sha256": "88c67f98a9346770c148b0a0dcf3ddb6863c25a488f41b04a23df58da04f377e"
+          "byteLength": 111745,
+          "sha256": "77348c802acb4b67bcfe09103d9df097c2ffbd09f804d20cb3dcec431a0e9a01"
         },
         {
           "path": "apps/home/src/main.tsx",

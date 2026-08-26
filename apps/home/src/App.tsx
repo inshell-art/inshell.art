@@ -26,6 +26,11 @@ const DOCS_ROUTE_METADATA = docsRouteMetadataJson.topics as Record<
   DocsRouteMetadata
 >;
 
+// A route change commits the destination article after this effect runs, so a
+// fragment target usually does not exist yet. Watch for it instead of assuming
+// it is already in the DOM, and stop watching after this budget.
+const HASH_SCROLL_TIMEOUT_MS = 3000;
+
 function getLocationKey() {
   if (typeof window === "undefined") return "";
   return `${window.location.pathname}${window.location.search}${window.location.hash}`;
@@ -459,14 +464,28 @@ export default function App() {
     if (!hash || hash === "#") return;
     const targetId = decodeURIComponent(hash.slice(1));
     if (!targetId) return;
-    const frame = window.requestAnimationFrame(() => {
-      document.getElementById(targetId)?.scrollIntoView({
+    const scrollToTarget = () => {
+      const target = document.getElementById(targetId);
+      if (!target) return false;
+      target.scrollIntoView({
         block: "start",
         behavior: "auto",
       });
+      return true;
+    };
+
+    if (scrollToTarget()) return;
+
+    const observer = new window.MutationObserver(() => {
+      if (scrollToTarget()) observer.disconnect();
     });
+    observer.observe(document.body, { childList: true, subtree: true });
+    const timeout = window.setTimeout(() => {
+      observer.disconnect();
+    }, HASH_SCROLL_TIMEOUT_MS);
     return () => {
-      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.clearTimeout(timeout);
     };
   }, [locationKey]);
 

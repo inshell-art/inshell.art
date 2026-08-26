@@ -61,7 +61,7 @@
         "id": "docs-reading-artwork",
         "title": "Canonical artwork bytes",
         "paragraphs": [
-          "THOUGHT and $PATH tokenURI responses point to the canonical artwork and metadata produced by their pinned contract systems. The App decodes those bytes for display. It should not redraw an approximation, swap in a newer renderer, or treat a cached marketplace thumbnail as the origin."
+          "THOUGHT and $PATH tokenURI responses point to the [canonical](https://inshell.art/docs/glossary#docs-glossary-canonical) artwork and metadata produced by their pinned contract systems. The App decodes those bytes for display. It should not redraw an approximation, swap in a newer renderer, or treat a cached marketplace thumbnail as the origin."
         ],
         "points": [
           "A data URI can carry JSON metadata or SVG artwork directly.",

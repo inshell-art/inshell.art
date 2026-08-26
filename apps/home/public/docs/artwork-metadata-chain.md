@@ -37,7 +37,7 @@ Token ID 1 can exist on many contracts and networks. Its full identity is the tu
 
 - Authority: app-documentation, contract-release
 
-THOUGHT and $PATH tokenURI responses point to the canonical artwork and metadata produced by their pinned contract systems. The App decodes those bytes for display. It should not redraw an approximation, swap in a newer renderer, or treat a cached marketplace thumbnail as the origin.
+THOUGHT and $PATH tokenURI responses point to the [canonical](https://inshell.art/docs/glossary#docs-glossary-canonical) artwork and metadata produced by their pinned contract systems. The App decodes those bytes for display. It should not redraw an approximation, swap in a newer renderer, or treat a cached marketplace thumbnail as the origin.
 
 - A data URI can carry JSON metadata or SVG artwork directly.
 - A pinned renderer release makes the visual construction reproducible and reviewable.

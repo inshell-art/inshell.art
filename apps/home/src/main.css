@@ -14,6 +14,7 @@
   --docs-menu-group-link-gap: 8px;
   --docs-menu-line-height: 1.45;
   --docs-menu-sticky-top: 80px;
+  --docs-menu-bottom-space: 32px;
   --docs-menu-active-offset: 8px;
   --docs-menu-active-border-width: 1px;
   --docs-menu-link-decoration-thickness: 1px;
@@ -3935,12 +3936,23 @@ button {
   grid-area: menu;
   position: sticky;
   top: var(--docs-menu-sticky-top);
+  max-height: calc(100dvh - var(--docs-menu-sticky-top) - var(--docs-menu-bottom-space));
+  overflow-y: auto;
+  scrollbar-width: none;
+  /* Keep the active link's leading rule inside the scrollable viewport. */
+  padding-left: var(--docs-menu-active-offset);
+  margin-left: calc(var(--docs-menu-active-offset) * -1);
   min-width: 0;
+}
+
+.docs-page__sidebar::-webkit-scrollbar {
+  display: none;
 }
 
 .docs-page__menu {
   display: grid;
   gap: var(--docs-menu-group-gap);
+  padding-bottom: var(--docs-menu-bottom-space);
 }
 
 .docs-page__menu-group {
@@ -4964,6 +4976,10 @@ button {
 
   .docs-page__sidebar {
     position: static;
+    max-height: none;
+    overflow-y: visible;
+    padding-left: 0;
+    margin-left: 0;
   }
 
   .docs-page__menu {

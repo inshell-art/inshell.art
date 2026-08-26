@@ -52,7 +52,7 @@
         "title": "Four kinds of reader",
         "paragraphs": [
           "A person can read an SVG and follow what it draws. A browser can render it. A contract can assemble it from strings and return it. An Agent can inspect it, locate a specific element, and change that element without disturbing the rest.",
-          "Few materials are legible to all four. SVG does not create an Agent's thinking power; it gives that power a literal architecture to interpret and act through. That overlap lets one file carry human intention, aesthetic architecture, Agent interpretation, machine action, and public preservation at once, which is the argument made in full under [Fully Onchain](https://inshell.art/docs/fully-onchain#docs-fully-onchain-agent-art)."
+          "Few materials are legible to all four. SVG does not create an Agent's thinking power; it gives that power a literal architecture to interpret and act through. That overlap lets one file carry human intention, [aesthetic architecture](https://inshell.art/docs/glossary#docs-glossary-aesthetic-architecture), Agent interpretation, machine action, and public preservation at once, which is the argument made in full under [Fully Onchain](https://inshell.art/docs/fully-onchain#docs-fully-onchain-agent-art)."
         ]
       },
       {
