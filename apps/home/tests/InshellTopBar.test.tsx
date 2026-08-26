@@ -136,6 +136,65 @@ describe("InshellTopBar", () => {
     expect(screen.getByRole("menu", { name: "Wallet options" })).toBeTruthy();
   });
 
+  test("keeps wallet guidance before deployment without opening a connector", () => {
+    const refreshConnectors = jest.fn().mockResolvedValue(undefined);
+    const connectAsync = jest.fn().mockResolvedValue(undefined);
+    mockUseWallet.mockReturnValue(
+      walletState({
+        address: null,
+        chain: null,
+        chainId: null,
+        isConnected: false,
+        connectAsync,
+        connectors: [{ id: "metamask", name: "MetaMask" }],
+        refreshConnectors,
+      })
+    );
+
+    render(<InshellTopBar studioPreview />);
+
+    expect(screen.queryByText(/Studio Preview/i)).toBeNull();
+    const walletControl = screen.getByRole("button", { name: "connect wallet" });
+    expect(walletControl).not.toHaveTextContent(/Sepolia|Local ETH/);
+    fireEvent.click(walletControl);
+    const walletGuidance = screen.getByRole("dialog", { name: "wallet" });
+    expect(walletGuidance).toHaveTextContent(
+      /Wallet connection is not needed yet\.\s*Onchain minting is not open\.\s*Create a THOUGHT now; connect a wallet when minting opens\./,
+    );
+    expect(screen.getByRole("link", { name: "Create a THOUGHT now" })).toHaveAttribute(
+      "href",
+      "/thought",
+    );
+    expect(screen.queryByRole("menu", { name: "Wallet options" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "MetaMask" })).toBeNull();
+    expect(refreshConnectors).not.toHaveBeenCalled();
+    expect(connectAsync).not.toHaveBeenCalled();
+  });
+
+  test("does not expose a remembered wallet session before deployment", () => {
+    const refreshConnectors = jest.fn().mockResolvedValue(undefined);
+    const disconnectWallet = jest.fn().mockResolvedValue(undefined);
+    mockUseWallet.mockReturnValue(
+      walletState({
+        disconnectWallet,
+        refreshConnectors,
+      })
+    );
+
+    render(<InshellTopBar studioPreview />);
+
+    const walletControl = screen.getByRole("button", { name: "connect wallet" });
+    expect(walletControl).toHaveTextContent("connect wallet");
+    expect(walletControl).not.toHaveTextContent("0x170a...e100");
+    fireEvent.click(walletControl);
+    expect(screen.getByRole("dialog", { name: "wallet" })).toHaveTextContent(
+      "Wallet connection is not needed yet.",
+    );
+    expect(screen.queryByRole("button", { name: "disconnect" })).toBeNull();
+    expect(refreshConnectors).not.toHaveBeenCalled();
+    expect(disconnectWallet).not.toHaveBeenCalled();
+  });
+
   test("refreshes injected wallets whenever the disconnected picker opens", () => {
     const refreshConnectors = jest.fn().mockResolvedValue(undefined);
     mockUseWallet.mockReturnValue(

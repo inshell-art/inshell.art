@@ -915,7 +915,7 @@ function appShellMetadata(rawPathname: string): AppShellMetadata {
     }],
     ["/gallery", {
       title: "THOUGHT gallery",
-      description: "Canonical THOUGHT gallery route; the current R2 collection is not deployed.",
+      description: "THOUGHT works created from one human prompt and one Agent response.",
     }],
     ["/will", {
       title: "WILL",

@@ -29,17 +29,20 @@ jest.mock("@inshell/inshell-shell", () => ({
   InshellTopBar: ({
     expectedChainId,
     disconnectedWalletNote,
+    studioPreview,
   }: {
     expectedChainId?: number;
     disconnectedWalletNote?: string;
+    studioPreview?: boolean;
   }) => (
     <header
       data-testid="inshell-topbar"
       data-expected-chain-id={expectedChainId}
       data-wallet-note={disconnectedWalletNote}
+      data-studio-preview={studioPreview}
     >
       <a href="/">INSHELL</a>
-      <button type="button" aria-label="wallet disconnected">●</button>
+      <button type="button" aria-label="connect wallet">●</button>
     </header>
   ),
   resolveInshellLinks: () => ({
@@ -103,7 +106,11 @@ import {
 
 const expectCurrentThoughtGalleryInactive = () => {
   expect(screen.getByLabelText("THOUGHT works")).toBeInTheDocument();
-  expect(screen.getByText("Create the first THOUGHT.")).toHaveAttribute("href", "/thought");
+  const notice = screen.getByText(
+    "THOUGHT records will appear when onchain minting opens.",
+  );
+  expect(notice).toBeInTheDocument();
+  expect(notice).toHaveClass("ecosystem-home__works-status--prelaunch");
   expect(document.querySelectorAll(".ecosystem-home__work-card")).toHaveLength(0);
 };
 
@@ -283,6 +290,8 @@ describe("App Component", () => {
     mockedGetCode.mockResolvedValue("0x");
     mockedGetDefaultProvider.mockReturnValue(defaultRpcProvider());
     mockedHashUtf8String.mockReturnValue(COLOR_FONT.hash);
+    mockUseAuctionCore.mockClear();
+    mockUseAuctionBids.mockClear();
     mockUseAuctionCore.mockReturnValue({
       data: null,
       loading: false,
@@ -393,12 +402,12 @@ describe("App Component", () => {
     expect(screen.queryByRole("navigation", { name: "Inshell surfaces" })).toBeNull();
   });
 
-  test("an undeployed $PATH contract reads no chain data and says so", async () => {
+  test("before_deploy preserves the PATH layout without wallet, mint, or chain-backed inventory", async () => {
     const { isPathDeploymentActive } = jest.requireMock("@/services/pathDeployment");
     (isPathDeploymentActive as jest.Mock).mockReturnValue(false);
     mockUseAuctionBids.mockClear();
     try {
-      mockPathAndThoughtApis({
+      const fetchMock = mockPathAndThoughtApis({
         pathItems: [pathTokenApiItem()],
         thoughtItems: [],
       });
@@ -410,9 +419,34 @@ describe("App Component", () => {
       // page must not list tokens from the raw address book.
       expect(screen.queryByText("all $PATH · 1")).toBeNull();
       expect(screen.queryByLabelText("$PATH #1 card")).toBeNull();
+      expect(screen.queryByTestId("auction-canvas")).toBeNull();
+      expect(screen.getByText("$PATH")).toBeInTheDocument();
+      expect(screen.getByText("permission token for movement mints.")).toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent("$PATH minting is not open yet.");
+      expect(screen.getByRole("status")).toHaveTextContent("The onchain release is being prepared.");
       expect(
-        screen.getByText(/The \$PATH contract is not deployed yet/i),
-      ).toBeInTheDocument();
+        screen.getByRole("link", { name: "Create a THOUGHT while you wait." }),
+      ).toHaveAttribute("href", "/thought");
+      expect(screen.getByText("all $PATH")).toBeInTheDocument();
+      expect(screen.getByText("$PATH records will appear when onchain minting opens.")).toBeInTheDocument();
+      expect(screen.queryByText(/Studio Preview/i)).toBeNull();
+      expect(screen.queryByRole("button", { name: /mint/i })).toBeNull();
+      expect(screen.getByRole("button", { name: "connect wallet" })).toBeInTheDocument();
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(mockUseAuctionCore).not.toHaveBeenCalled();
+      expect(mockUseAuctionBids).toHaveBeenCalledWith(
+        expect.objectContaining({ enabled: false }),
+      );
+      expect(screen.getByTestId("inshell-topbar")).not.toHaveAttribute(
+        "data-expected-chain-id",
+      );
+      expect(screen.getByTestId("inshell-topbar")).not.toHaveAttribute(
+        "data-wallet-note",
+      );
+      expect(screen.getByTestId("inshell-topbar")).toHaveAttribute(
+        "data-studio-preview",
+        "true",
+      );
       // Nothing to retry while the contract does not exist.
       expect(screen.queryByRole("button", { name: "retry" })).toBeNull();
       // Also prevent invisible auction-history requests to historical contracts.
@@ -584,6 +618,59 @@ describe("App Component", () => {
     );
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
     expect(screen.queryByLabelText("Open Pulse")).toBeNull();
+  });
+
+  test("before_deploy renders Pulse without initializing onchain reads", () => {
+    const { isPathDeploymentActive } = jest.requireMock("@/services/pathDeployment");
+    (isPathDeploymentActive as jest.Mock).mockReturnValue(false);
+    const fetchMock = jest.fn();
+    globalThis.fetch = fetchMock as typeof fetch;
+    try {
+      window.history.pushState({}, "", "/pulse");
+      render(<App />);
+
+      expect(
+        screen.getByText(
+          "Pulse parameters will appear when $PATH minting opens.",
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/Studio Preview/i)).toBeNull();
+      expect(screen.queryByText("$PATH is the current public auction using Pulse.")).toBeNull();
+      expect(mockUseAuctionCore).toHaveBeenCalledWith(
+        expect.objectContaining({ address: undefined, enabled: false }),
+      );
+      expect(mockUseAuctionBids).toHaveBeenCalledWith(
+        expect.objectContaining({ enabled: false }),
+      );
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      (isPathDeploymentActive as jest.Mock).mockReturnValue(true);
+    }
+  });
+
+  test("before_deploy renders the bundled color font without initializing onchain reads", async () => {
+    const { isPathDeploymentActive } = jest.requireMock("@/services/pathDeployment");
+    (isPathDeploymentActive as jest.Mock).mockReturnValue(false);
+    mockedGetCode.mockClear();
+    mockedGetChainId.mockClear();
+    mockedGetDefaultProvider.mockClear();
+    try {
+      window.history.pushState({}, "", "/color-font");
+      render(<App />);
+      await flushAsyncEffects();
+
+      expect(screen.getByText("onchain deployment not active")).toBeInTheDocument();
+      expect(
+        screen.getByText(/The bundled frontend mirror is available now\./),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/Studio Preview/i)).toBeNull();
+      expect(screen.queryByRole("button", { name: "Retry onchain load" })).toBeNull();
+      expect(mockedGetDefaultProvider).not.toHaveBeenCalled();
+      expect(mockedGetCode).not.toHaveBeenCalled();
+      expect(mockedGetChainId).not.toHaveBeenCalled();
+    } finally {
+      (isPathDeploymentActive as jest.Mock).mockReturnValue(true);
+    }
   });
 
   test("renders Pulse current instance live params with units", () => {
@@ -896,7 +983,7 @@ describe("App Component", () => {
     expect(screen.getByText("none after launch")).toBeInTheDocument();
     expect(screen.getByText("THOUGHT.v2.md")).toBeInTheDocument();
     expect(screen.getByText("THOUGHT.v1.md")).toBeInTheDocument();
-    expect(screen.getAllByText("not deployed").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("deployment pending").length).toBeGreaterThan(0);
     expect(screen.getByText("0xe201170ae183f114064f4492cbc4942f7d3d68b74a08d3dc4b4f61edec213d78")).toBeInTheDocument();
     expect(screen.queryByTestId("auction-canvas")).toBeNull();
   });
@@ -1519,12 +1606,16 @@ describe("App Component", () => {
 
     expect(document.title).toBe("THOUGHT #1");
     expect(screen.getByRole("heading", { level: 1, name: /THOUGHT\s+#\s*1/ })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "[ home ]" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "[ Home ]" })).toHaveAttribute(
       "href",
       "/#thought-1",
     );
-    expect(screen.getByRole("link", { name: "[ create yours ]" })).toBeInTheDocument();
-    expect(screen.getByText("Current THOUGHT collection is not deployed.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "[ Create yours ]" })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Onchain THOUGHT details will appear when minting opens.",
+      ),
+    ).toBeInTheDocument();
     expect(screen.queryByLabelText("THOUGHT #1 record")).toBeNull();
     expect(window.location.pathname).toBe("/thought/1");
     expect(screen.queryByTestId("auction-canvas")).toBeNull();

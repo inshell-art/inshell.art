@@ -13,9 +13,11 @@
 
 - Authority: app-documentation
 
-The shell wallet menu reads the current account and network. Its Refresh action updates wallet and [$PATH](https://inshell.art/docs/path) inventory reads. Opening the menu itself never asks for a signature or transaction.
+When an approved deployment is available, the shell wallet menu reads the current account and network. Its Refresh action updates wallet and [$PATH](https://inshell.art/docs/path) inventory reads. Opening the menu itself never asks for a signature or transaction.
 
 Product CTAs open wallet requests only when an action needs one: connect, mint $PATH, sign a one-mint $PATH permission, or mint [THOUGHT](https://inshell.art/docs/thought). Canceling a wallet request submits nothing.
+
+Without an approved deployment, Connect wallet opens guidance toward THOUGHT creation rather than a wallet connection. Mint on an accepted THOUGHT work explains that minting is not open. These controls request no account access, signature, transaction, network switch, or contract read.
 
 A signature can authorize a narrowly defined action without sending a transaction or paying gas. A transaction can change chain state and requires wallet confirmation. The interface must name which one it is requesting.
 

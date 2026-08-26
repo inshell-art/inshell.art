@@ -119,6 +119,8 @@
   --ecosystem-work-meta-line-height: 1.5;
   --ecosystem-work-meta-color: var(--muted);
   --ecosystem-work-meta-weight: var(--weight-thin);
+  --prelaunch-notice-letter-spacing: 0.04em;
+  --prelaunch-notice-line-height: normal;
   --ecosystem-work-focus-width: 1px;
   --ecosystem-work-focus-color: var(--ecosystem-slogan-color);
   --ecosystem-work-focus-clear: transparent;
@@ -445,13 +447,24 @@ button,
 }
 
 .ecosystem-home__works-invite {
+  color: var(--bright);
+  font-weight: var(--weight-mid);
+}
+
+.dotfield__status-link {
   color: inherit;
+}
+
+.ecosystem-home__works-invite,
+.dotfield__status-link {
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
 
 .ecosystem-home__works-invite:hover,
-.ecosystem-home__works-invite:focus-visible {
+.ecosystem-home__works-invite:focus-visible,
+.dotfield__status-link:hover,
+.dotfield__status-link:focus-visible {
   color: var(--accent);
 }
 
@@ -2362,10 +2375,13 @@ button,
   border-color: var(--accent-border);
 }
 
-.path-page__notice {
+.path-page__notice,
+.ecosystem-home__works-status--prelaunch {
   color: var(--muted);
   font-size: var(--font-size-14);
-  letter-spacing: 0.04em;
+  font-weight: var(--weight-mid);
+  letter-spacing: var(--prelaunch-notice-letter-spacing);
+  line-height: var(--prelaunch-notice-line-height);
 }
 
 .path-page__notice--error {
@@ -3441,12 +3457,18 @@ button,
 
   .thought-gallery__status-row {
     align-items: flex-start;
-    flex-direction: column;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--shell-context-popover-row-gap) var(--shell-nav-gap);
+  }
+
+  .thought-gallery__status {
+    grid-column: 1 / -1;
   }
 
   .thought-gallery__link {
     margin-left: 0;
+    justify-self: end;
   }
 
   .thought-gallery__grid {

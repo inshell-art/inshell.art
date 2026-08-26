@@ -37,7 +37,18 @@ const galleryRelease = read("functions/api/thought-gallery-release.ts");
 const galleryApi = read("functions/api/thought-gallery.ts");
 const galleryHome = read("apps/home/src/services/thoughtGallery.ts");
 const ecosystemHome = read("apps/home/src/components/EcosystemHome.tsx");
+const pathAuction = read("apps/home/src/components/AuctionCanvas.tsx");
+const pathGallery = read("apps/home/src/components/PathPage.tsx");
+const thoughtIndex = read("apps/thought/index.html");
+const thoughtStyle = read("apps/thought/src/style.css");
+const thoughtGalleryPage = read("apps/home/src/components/ThoughtGalleryPage.tsx");
+const thoughtDetailPage = read("apps/home/src/components/ThoughtDetailPage.tsx");
 const homeApp = read("apps/home/src/App.tsx");
+const pathBeforeDeployPage = read("apps/home/src/components/PathBeforeDeployCanvas.tsx");
+const studioPreviewService = read("apps/home/src/services/studioPreview.ts");
+const homeStyle = read("apps/home/src/main.css");
+const inshellShell = read("packages/inshell-shell/src/index.tsx");
+const thoughtShell = read("apps/thought/src/thought-shell.tsx");
 
 if (
   lock.state !== "no-approved-deployment" ||
@@ -120,14 +131,107 @@ for (const snippet of [
   "loadThoughtGallery",
   'aria-label="THOUGHT works"',
   'status: "prelaunch"',
-  "Create the first THOUGHT.",
+  "THOUGHT records will appear when onchain minting opens.",
 ]) if (!ecosystemHome.includes(snippet)) fail(`canonical home gallery is missing ${snippet}`);
 
 // studio-preview keeps the frontend usable, so the home surface must not
 // describe a movement as undeployed.
 for (const forbidden of [
   "not deployed",
+  "on ${PUBLIC_NETWORK_CONFIG.chainLabel} now",
+  "The gallery has no minted THOUGHTs yet.",
 ]) if (ecosystemHome.includes(forbidden)) fail(`canonical home gallery still says ${forbidden}`);
+
+for (const forbidden of [
+  "This view needs more room",
+  "The $PATH contract is not deployed yet. Come back when it goes live.",
+]) if (pathAuction.includes(forbidden)) fail(`canonical PATH surface still says ${forbidden}`);
+
+for (const forbidden of ["Mint the first $PATH.", "Mint a $PATH"]) {
+  if (pathAuction.includes(forbidden) || pathGallery.includes(forbidden)) {
+    fail(`Studio Preview still exposes PATH mint guidance: ${forbidden}`);
+  }
+}
+
+for (const snippet of [
+  "const studioPreview = isStudioPreviewActive();",
+  "studioPreview ? null : maybeResolveAddress",
+  "studioPreview && !pathTokenId ? (",
+  "<PathBeforeDeployCanvas />",
+  "<VerifyPage beforeDeploy={studioPreview} />",
+]) if (!homeApp.includes(snippet)) fail(`home route boundary is missing ${snippet}`);
+
+for (const snippet of [
+  "readAuctionStatusOverride",
+  "isPathDeploymentActive",
+]) if (!studioPreviewService.includes(snippet)) fail(`Studio Preview authority is missing ${snippet}`);
+
+for (const snippet of [
+  'data-auction-status="before_deploy"',
+  "permission token for movement mints.",
+  "$PATH minting is not open yet.",
+  "The onchain release is being prepared.",
+  "Create a THOUGHT while you wait.",
+  'href="/thought"',
+]) if (!pathBeforeDeployPage.includes(snippet)) fail(`before_deploy PATH copy is missing ${snippet}`);
+
+if (inshellShell.includes("studioPreview ? null : <div")) {
+  fail("before_deploy hides the guidance-only global wallet control");
+}
+for (const snippet of [
+  "inshell-topbar__wallet-surface",
+  '"connect wallet"',
+  "<InshellWalletPrelaunchNotice />",
+  "Wallet connection is not needed yet.",
+  "Onchain minting is not open.",
+  '<a href="/thought">Create a THOUGHT now</a>',
+  "!studioPreview && !isConnected",
+]) if (!inshellShell.includes(snippet)) fail(`shell wallet guidance is missing ${snippet}`);
+for (const snippet of [
+  "!studioPreview ? <ThoughtWalletBridge /> : null",
+  "expectedChainId={studioPreview ? undefined : expectedChainId}",
+  "studioPreview ? undefined : disconnectedWalletNote(expectedChainId)",
+]) if (!thoughtShell.includes(snippet)) fail(`before_deploy wallet boundary is missing ${snippet}`);
+
+for (const [source, label] of [
+  [main, "standalone THOUGHT gallery"],
+  [thoughtGalleryPage, "canonical THOUGHT gallery"],
+  [thoughtDetailPage, "canonical THOUGHT detail"],
+]) {
+  for (const forbidden of [
+    'galleryStatus.textContent = "Current THOUGHT collection is not deployed."',
+    'thoughtDetailStatus.textContent = "Current THOUGHT collection is not deployed."',
+  ]) if (source.includes(forbidden)) fail(`${label} still renders deployment absence`);
+}
+
+for (const snippet of [
+  "Create and save a THOUGHT in this browser. Onchain minting is not open yet.",
+  "Onchain THOUGHT details will appear when minting opens.",
+]) if (!main.includes(snippet)) fail(`standalone THOUGHT surface is missing ${snippet}`);
+
+for (const [source, label] of [
+  [ecosystemHome, "home"],
+  [pathBeforeDeployPage, "PATH"],
+  [thoughtGalleryPage, "gallery"],
+  [thoughtDetailPage, "THOUGHT detail"],
+  [main, "standalone THOUGHT"],
+]) if (source.includes("Studio Preview")) fail(`${label} exposes the internal Studio Preview label`);
+
+for (const snippet of [
+  "Create the first THOUGHT",
+  "[ Home ]",
+  "[ Create yours ]",
+]) if (!thoughtIndex.includes(snippet)) fail(`THOUGHT navigation is missing ${snippet}`);
+
+for (const [source, label] of [
+  [homeStyle, "canonical THOUGHT gallery"],
+  [thoughtStyle, "standalone THOUGHT gallery"],
+]) {
+  for (const snippet of [
+    "grid-template-columns: minmax(0, 1fr) auto",
+    "grid-column: 1 / -1",
+  ]) if (!source.includes(snippet)) fail(`${label} mobile actions are missing ${snippet}`);
+}
 
 for (const forbidden of [
   "THOUGHT_V2_ARTIFACT_SAMPLES",
@@ -136,7 +240,7 @@ for (const forbidden of [
 ]) if (ecosystemHome.includes(forbidden)) fail(`canonical home gallery still renders ${forbidden}`);
 
 for (const snippet of [
-  '"/gallery": "Canonical THOUGHT gallery route; the current R2 collection is not deployed."',
+  '"/gallery": "THOUGHT works created from one human prompt and one Agent response."',
   '"/gallery": "THOUGHT gallery"',
 ]) if (!homeApp.includes(snippet)) fail(`canonical /gallery route is missing metadata ${snippet}`);
 

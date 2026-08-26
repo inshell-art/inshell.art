@@ -1655,7 +1655,7 @@ export const DOCS_SOURCE: DocsSource = {
       authorities: ["app-documentation"],
       paragraphs: [
         [
-          "The shell wallet menu reads the current account and network. Its Refresh action updates wallet and ",
+          "When an approved deployment is available, the shell wallet menu reads the current account and network. Its Refresh action updates wallet and ",
           { label: "$PATH", href: "/docs/path" },
           " inventory reads. Opening the menu itself never asks for a signature or transaction.",
         ],
@@ -1664,6 +1664,7 @@ export const DOCS_SOURCE: DocsSource = {
           { label: "THOUGHT", href: "/docs/thought" },
           ". Canceling a wallet request submits nothing.",
         ],
+        "Without an approved deployment, Connect wallet opens guidance toward THOUGHT creation rather than a wallet connection. Mint on an accepted THOUGHT work explains that minting is not open. These controls request no account access, signature, transaction, network switch, or contract read.",
         "A signature can authorize a narrowly defined action without sending a transaction or paying gas. A transaction can change chain state and requires wallet confirmation. The interface must name which one it is requesting.",
         "Save and Load use browser storage. Agent run state is held by the App backend for the run window. Neither is an onchain token, a portable account, or a cross-device record.",
         "Local Anvil, Sepolia, and Ethereum are separate chains with separate contracts, balances, and tokens. Local tokens belong only to the local dev chain. Normal App development preserves that chain across restarts; an explicit reset or redeployment can replace it.",

@@ -36,6 +36,7 @@ import {
 
 type LoadState =
   | { status: "loading"; items: PathTokenInventoryItem[]; error: null }
+  | { status: "before_deploy"; items: PathTokenInventoryItem[]; error: null }
   | { status: "ready"; items: PathTokenInventoryItem[]; error: null }
   | { status: "error"; items: PathTokenInventoryItem[]; error: string };
 
@@ -1132,6 +1133,7 @@ export default function PathPage({
 }: PathPageProps) {
   const fixture = useMemo(() => readPathFixture(), []);
   const fixtureItems = useMemo(() => pathFixtureItems(fixture), [fixture]);
+  const pathDeploymentActive = useMemo(() => isPathDeploymentActive(), []);
   const pathNftAddress = useMemo(() => maybeResolveAddress("path_nft"), []);
   const fromBlock = useMemo(() => getProtocolReleaseDeployBlock("path_nft"), []);
   const chainId = useMemo(() => expectedPathChainId(), []);
@@ -1144,7 +1146,7 @@ export default function PathPage({
   const saleHistory = useAuctionBids({
     address: pulseAuctionAddress ?? "0x0000000000000000000000000000000000000000",
     fromBlock: pulseAuctionFromBlock,
-    enabled: Boolean(isPathDeploymentActive() && pulseAuctionAddress && !fixtureItems),
+    enabled: Boolean(pathDeploymentActive && pulseAuctionAddress && !fixtureItems),
   });
   const [retryNonce, setRetryNonce] = useState(0);
   const [state, setState] = useState<LoadState>({
@@ -1187,16 +1189,12 @@ export default function PathPage({
       return;
     }
     if (
-      readAuctionStatusOverride() === "no_release" ||
-      !isPathDeploymentActive() ||
+      readAuctionStatusOverride() === "before_deploy" ||
+      !pathDeploymentActive ||
       !pathNftAddress ||
       fromBlock == null
     ) {
-      setState({
-        status: "error",
-        items: [],
-        error: "The $PATH contract is not deployed yet. Tokens appear here once it goes live.",
-      });
+      setState({ status: "before_deploy", items: [], error: null });
       return;
     }
     let cancelled = false;
@@ -1248,7 +1246,7 @@ export default function PathPage({
     return () => {
       cancelled = true;
     };
-  }, [fixtureItems, fromBlock, pathNftAddress, refreshSignal, retryNonce]);
+  }, [fixtureItems, fromBlock, pathDeploymentActive, pathNftAddress, refreshSignal, retryNonce]);
 
   const collectionItems = useMemo(
     () =>
@@ -1297,7 +1295,11 @@ export default function PathPage({
           </nav>
         </header>
 
-        {state.status === "error" ? (
+        {state.status === "before_deploy" ? (
+          <div className="path-detail__status path-detail__status--not-found">
+            <span>Onchain $PATH details will appear when minting opens.</span>
+          </div>
+        ) : state.status === "error" ? (
           <div className="path-detail__status path-detail__status--error">
             <span title={state.error}>$PATH record unavailable.</span>
             <button
@@ -1348,10 +1350,16 @@ export default function PathPage({
           ) : null}
         </div>
 
+        {state.status === "before_deploy" ? (
+          <div className="path-page__notice">
+            $PATH records will appear when onchain minting opens.
+          </div>
+        ) : null}
+
         {state.status === "error" && (
           <div className="path-page__notice path-page__notice--error">
             <span>{state.error}</span>
-            {readAuctionStatusOverride() === "no_release" || !isPathDeploymentActive() ? null : (
+            {readAuctionStatusOverride() === "before_deploy" || !pathDeploymentActive ? null : (
               <button
                 type="button"
                 className="path-page__retry"
