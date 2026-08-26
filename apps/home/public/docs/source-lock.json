@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "d873df590f067b639bc31ce233ea15920ef52ba00d4f67b63f4b5f333b8c712c",
+  "sourceTreeSha256": "e675abafbbda3c44e421145079171c5bec7e43325e018dbb4a85df0c36d04770",
   "groups": [
     {
       "id": "public-docs",
@@ -67,7 +67,7 @@
       "title": "Home, $PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "7bffc7e677b646542db6849ccbe8779dc2ff035391ae3cc372b4ce6414c286c2",
+      "groupSha256": "6ea42bee0a83664addc2370b548c7ca720b7cd7026384fe1dc257dd1e7a720d4",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -111,8 +111,8 @@
         },
         {
           "path": "apps/home/src/components/DocsPage.tsx",
-          "byteLength": 15226,
-          "sha256": "18fdf7fc397b90afa7b2be04491610ba781ccb5145a960fc3d58e4dc619a7f7e"
+          "byteLength": 15585,
+          "sha256": "552909987db0ab106f77888c2c54a65ecc74e4ea2112a469ef6c9ed359ee2044"
         },
         {
           "path": "apps/home/src/components/EcosystemHome.tsx",
@@ -210,6 +210,11 @@
           "sha256": "4d3e0e22fec99ea94f737ce017634c133dfdc9c8f18213cc4b36da2dbafae890"
         },
         {
+          "path": "apps/home/src/components/docs/scrollHandoff.ts",
+          "byteLength": 3139,
+          "sha256": "5c859ee0c132701841139f9ba47ea05f09b1dbba19eb3a1b9291d9f938c02e0e"
+        },
+        {
           "path": "apps/home/src/config/publicLaunch.ts",
           "byteLength": 1975,
           "sha256": "0662acf8c5c1aeb0bbde24f609b6382bad994f6337b7a69240870420c58bd257"
@@ -241,8 +246,8 @@
         },
         {
           "path": "apps/home/src/main.css",
-          "byteLength": 111820,
-          "sha256": "e08a6e60762c8a77a26dc28abe396ae36a8a1fc4d90f50774d442a2f3cb75a12"
+          "byteLength": 111745,
+          "sha256": "77348c802acb4b67bcfe09103d9df097c2ffbd09f804d20cb3dcec431a0e9a01"
         },
         {
           "path": "apps/home/src/main.tsx",

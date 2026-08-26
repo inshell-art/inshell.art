@@ -3936,16 +3936,17 @@ button {
   grid-area: menu;
   position: sticky;
   top: var(--docs-menu-sticky-top);
-  /* The contents list can outgrow the viewport, so keep it scrollable inside
-     its own sticky column instead of running past the bottom of the screen. */
-  max-height: calc(
-    100vh - var(--docs-menu-sticky-top) - var(--docs-menu-bottom-space)
-  );
+  max-height: calc(100dvh - var(--docs-menu-sticky-top) - var(--docs-menu-bottom-space));
   overflow-y: auto;
-  /* An overflow container would clip the active item's left border. */
+  scrollbar-width: none;
+  /* Keep the active link's leading rule inside the scrollable viewport. */
   padding-left: var(--docs-menu-active-offset);
   margin-left: calc(var(--docs-menu-active-offset) * -1);
   min-width: 0;
+}
+
+.docs-page__sidebar::-webkit-scrollbar {
+  display: none;
 }
 
 .docs-page__menu {
