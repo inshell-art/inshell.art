@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "58157890939b98cd854ab572fd09651bfa6a20208cb19afbdd3483bce15e78fe",
+  "sourceTreeSha256": "d873df590f067b639bc31ce233ea15920ef52ba00d4f67b63f4b5f333b8c712c",
   "groups": [
     {
       "id": "public-docs",
@@ -67,7 +67,7 @@
       "title": "Home, $PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "68dca917ddfd4c47f37cfc280b4102af0d0bcca4856d96eef754b2a7b62fc5e8",
+      "groupSha256": "7bffc7e677b646542db6849ccbe8779dc2ff035391ae3cc372b4ce6414c286c2",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -206,8 +206,8 @@
         },
         {
           "path": "apps/home/src/components/docs/figures.css",
-          "byteLength": 20855,
-          "sha256": "5460e57ff6ade48f3330bb629e47c04d8380c7471257e89c119d279395ac38ed"
+          "byteLength": 20943,
+          "sha256": "4d3e0e22fec99ea94f737ce017634c133dfdc9c8f18213cc4b36da2dbafae890"
         },
         {
           "path": "apps/home/src/config/publicLaunch.ts",
@@ -241,8 +241,8 @@
         },
         {
           "path": "apps/home/src/main.css",
-          "byteLength": 111196,
-          "sha256": "88c67f98a9346770c148b0a0dcf3ddb6863c25a488f41b04a23df58da04f377e"
+          "byteLength": 111820,
+          "sha256": "e08a6e60762c8a77a26dc28abe396ae36a8a1fc4d90f50774d442a2f3cb75a12"
         },
         {
           "path": "apps/home/src/main.tsx",
