@@ -29,7 +29,7 @@ Within THOUGHT, more options would not automatically create more expressive work
 
 - Authority: artist-editorial
 
-Inshell distinguishes writing a procedure that determines what a machine does from composing an architecture in which an Agent can interpret and choose. The first uses algorithmic execution; the second makes room for thinking power and intent formed through it.
+Inshell distinguishes writing a procedure that determines what a machine does from composing an architecture in which an Agent can interpret and choose. The first uses [algorithmic execution](https://inshell.art/docs/glossary#docs-glossary-algorithmic-execution); the second makes room for thinking power and intent formed through it.
 
 The artist still holds the aesthetic and evidentiary architecture. Agent thinking participates inside those bounds rather than replacing them with opaque generic output or being treated as unconstrained autonomy. This is an Inshell design choice, not a requirement for Agent Art as a field.
 

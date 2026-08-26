@@ -37,3 +37,14 @@ console.info = (...args) => {
   }
   originalInfo(...args);
 };
+
+// jsdom does not implement Element.prototype.scrollIntoView. Provide an inert
+// default so components that scroll to a fragment target can run; individual
+// tests still override it with their own spy when they assert on the call.
+if (typeof HTMLElement.prototype.scrollIntoView !== "function") {
+  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+    configurable: true,
+    writable: true,
+    value: function scrollIntoView() {},
+  });
+}

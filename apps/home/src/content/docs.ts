@@ -383,7 +383,7 @@ export const DOCS_SOURCE: DocsSource = {
       id: "context",
       title: "Lineage and context",
       summary:
-        "Place the practice in the histories it works inside—instruction art, generative procedures, models that make images, and Agents whose thinking power can participate—then read the material and chain choices that give it form.",
+        "Place the practice in the histories it works inside—instruction art, generative procedures, models that make images, and Agents whose thinking power can participate—then read the material and chain choices that give it form, and the terms the documents depend on.",
       topicSlugs: [
         "lineage",
         "generative-art",
@@ -393,6 +393,7 @@ export const DOCS_SOURCE: DocsSource = {
         "tokens-and-nfts",
         "onchain-art",
         "design-principles",
+        "glossary",
       ],
     },
   ],
@@ -562,7 +563,11 @@ export const DOCS_SOURCE: DocsSource = {
           title: "Intentional participation is the invariant",
           paragraphs: [
             "An Agent may participate through a runtime, service, interface, tool use, or executor role. Those are possible carriers of participation, but none is sufficient by itself. A program that only applies a fixed procedure, or an Agent that only supplies infrastructure or carries out a fully determined instruction, can be used without its thinking power or intent entering the work.",
-            "For Agent Art, some intent of the Agent must enter the work through how the Agent interprets, chooses, proposes, directs, or acts. This is the level at which thinking power becomes artistic participation. That intent may be constrained or formed in response to human intention; it does not automatically mean authorship, collaboration, assistance, autonomy, equality, or any prescribed role.",
+            [
+              "For Agent Art, some intent of the Agent must enter the work through how the Agent interprets, chooses, proposes, directs, or acts. This is the level at which ",
+              { label: "thinking power", href: "/docs/glossary#docs-glossary-thinking-power" },
+              " becomes artistic participation. That intent may be constrained or formed in response to human intention; it does not automatically mean authorship, collaboration, assistance, autonomy, equality, or any prescribed role.",
+            ],
             "An Agent that appears only as a subject, image, theme, or marketing label does not satisfy the invariant by appearance alone.",
           ],
         },
@@ -1309,7 +1314,11 @@ export const DOCS_SOURCE: DocsSource = {
           id: "docs-reading-artwork",
           title: "Canonical artwork bytes",
           paragraphs: [
-            "THOUGHT and $PATH tokenURI responses point to the canonical artwork and metadata produced by their pinned contract systems. The App decodes those bytes for display. It should not redraw an approximation, swap in a newer renderer, or treat a cached marketplace thumbnail as the origin.",
+            [
+              "THOUGHT and $PATH tokenURI responses point to the ",
+              { label: "canonical", href: "/docs/glossary#docs-glossary-canonical" },
+              " artwork and metadata produced by their pinned contract systems. The App decodes those bytes for display. It should not redraw an approximation, swap in a newer renderer, or treat a cached marketplace thumbnail as the origin.",
+            ],
           ],
           points: [
             "A data URI can carry JSON metadata or SVG artwork directly.",
@@ -1386,7 +1395,11 @@ export const DOCS_SOURCE: DocsSource = {
           title: "SVG and Agent Art",
           paragraphs: [
             "Generic text-to-image generation can turn a semantic prompt into a finished picture while leaving the picture's visual architecture implicit inside a model's broad aesthetic conventions. The prompt may vary the result, but the artist and participant do not necessarily share a literal structure they can inspect or hold.",
-            "Inshell uses SVG to make that structure explicit. The artist can hold the aesthetic architecture as paths, shapes, positions, relations, and rules; a human participant can bring an intention; and an Agent's thinking power can enter as it interprets and varies that intention within the same readable structure. SVG does not supply the thinking power; it gives that power a literal architecture to act through without replacing the architecture with an unspecified image-making process.",
+            [
+              "Inshell uses SVG to make that structure explicit. The artist can hold the aesthetic architecture as paths, shapes, positions, relations, and rules; a human participant can bring an intention; and an Agent's ",
+              { label: "thinking power", href: "/docs/glossary#docs-glossary-thinking-power" },
+              " can enter as it interprets and varies that intention within the same readable structure. SVG does not supply the thinking power; it gives that power a literal architecture to act through without replacing the architecture with an unspecified image-making process.",
+            ],
             [
               "The same qualities serve fully onchain construction. Raw, plain, descriptive SVG is compact enough to store, deterministic enough to render, and legible to people, Agents, contracts, and ordinary computing systems. One material can relay human intention, aesthetic architecture, Agent interpretation, machine action, and public preservation. This is an Inshell method within ",
               { label: "Agent Art", href: "/docs/agent-art" },
@@ -2017,7 +2030,12 @@ export const DOCS_SOURCE: DocsSource = {
           paragraphs: [
             "A person can read an SVG and follow what it draws. A browser can render it. A contract can assemble it from strings and return it. An Agent can inspect it, locate a specific element, and change that element without disturbing the rest.",
             [
-              "Few materials are legible to all four. SVG does not create an Agent's thinking power; it gives that power a literal architecture to interpret and act through. That overlap lets one file carry human intention, aesthetic architecture, Agent interpretation, machine action, and public preservation at once, which is the argument made in full under ",
+              "Few materials are legible to all four. SVG does not create an Agent's thinking power; it gives that power a literal architecture to interpret and act through. That overlap lets one file carry human intention, ",
+              {
+                label: "aesthetic architecture",
+                href: "/docs/glossary#docs-glossary-aesthetic-architecture",
+              },
+              ", Agent interpretation, machine action, and public preservation at once, which is the argument made in full under ",
               { label: "Fully Onchain", href: "/docs/fully-onchain#docs-fully-onchain-agent-art" },
               ".",
             ],
@@ -2310,7 +2328,14 @@ export const DOCS_SOURCE: DocsSource = {
           id: "docs-design-thinking",
           title: "Architecture holds; thinking participates",
           paragraphs: [
-            "Inshell distinguishes writing a procedure that determines what a machine does from composing an architecture in which an Agent can interpret and choose. The first uses algorithmic execution; the second makes room for thinking power and intent formed through it.",
+            [
+              "Inshell distinguishes writing a procedure that determines what a machine does from composing an architecture in which an Agent can interpret and choose. The first uses ",
+              {
+                label: "algorithmic execution",
+                href: "/docs/glossary#docs-glossary-algorithmic-execution",
+              },
+              "; the second makes room for thinking power and intent formed through it.",
+            ],
             "The artist still holds the aesthetic and evidentiary architecture. Agent thinking participates inside those bounds rather than replacing them with opaque generic output or being treated as unconstrained autonomy. This is an Inshell design choice, not a requirement for Agent Art as a field.",
           ],
         },
@@ -2359,6 +2384,347 @@ export const DOCS_SOURCE: DocsSource = {
         { label: "create a THOUGHT ↗", href: "/thought" },
         { label: "view the Pulse field ↗", href: "/path" },
         { label: "inspect verification boundaries ↗", href: "/verify" },
+      ],
+    },
+    {
+      slug: "glossary",
+      id: "docs-glossary",
+      group: "context",
+      title: "Glossary",
+      summary:
+        "Working definitions of the terms these documents depend on, each pointing to the article that owns the full account.",
+      status: "current",
+      authorities: ["artist-editorial", "app-documentation"],
+      paragraphs: [
+        "This page fixes how Inshell's documentation uses a term. Where a term has a dedicated article, the entry orients the reader and links onward instead of repeating the argument, examples, or history kept there.",
+        "These are working definitions. They settle usage inside these documents, not the general meaning of a word, and several entries mark questions the practice deliberately leaves open.",
+      ],
+      sections: [
+        {
+          id: "docs-glossary-aesthetic-architecture",
+          title: "aesthetic architecture",
+          paragraphs: [
+            [
+              "The structure of a work that the artist holds and can inspect. In Inshell's SVG practice it is the paths, shapes, positions, relations, and rules that organize what is drawn. Holding it literally is what lets a human intention vary the work and an Agent act within it without replacing the structure with an unspecified image-making process. See ",
+              {
+                label: "Fully Onchain",
+                href: "/docs/fully-onchain#docs-fully-onchain-agent-art",
+              },
+              ".",
+            ],
+          ],
+        },
+        {
+          id: "docs-glossary-agent",
+          title: "Agent",
+          paragraphs: [
+            [
+              "A participant that interprets, reasons, chooses, and acts, rather than a particular model, architecture, or product. What is an Agent? is one of the ",
+              { label: "open questions", href: "/docs/agent-art#docs-agent-art-field" },
+              " the field keeps. This entry fixes usage in these documents; it does not answer the question.",
+            ],
+          ],
+        },
+        {
+          id: "docs-glossary-agent-art",
+          title: "Agent Art",
+          paragraphs: [
+            [
+              "Art in which an Agent participates at the level of intention. A runtime, service, interface, tool use, or executor role may carry that participation, but none of them establishes it alone. ",
+              { label: "Agent Art", href: "/docs/agent-art" },
+              " is a field and a form, not an ideology or a prescribed human–Agent relation.",
+            ],
+          ],
+        },
+        {
+          id: "docs-glossary-agent-intent",
+          title: "Agent intent",
+          paragraphs: [
+            [
+              "The intent of the Agent that enters a work through how it interprets, chooses, proposes, directs, or acts. It may be constrained by or formed in response to human intention, and it implies no authorship, autonomy, collaboration, or equality by itself. See ",
+              { label: "the Agent era", href: "/docs/agents-and-ai#docs-agents-agent" },
+              ".",
+            ],
+          ],
+        },
+        {
+          id: "docs-glossary-algorithmic-execution",
+          title: "algorithmic execution",
+          paragraphs: [
+            [
+              "Applying a procedure that determines what the machine produces. Inshell contrasts it with an Agent interpreting inside a composed architecture, as described under ",
+              {
+                label: "Design Principles",
+                href: "/docs/design-principles#docs-design-thinking",
+              },
+              ". The contrast marks a difference in artistic role. It is not a claim that Agents operate without algorithms.",
+            ],
+          ],
+        },
+        {
+          id: "docs-glossary-app-record",
+          title: "App record",
+          paragraphs: [
+            [
+              "A record the App assembled, stored, or signed, carrying the boundary the App declares for it. It is not a contract fact and not a chain observation. See ",
+              { label: "what the App does", href: "/docs/contracts#docs-contracts-app" },
+              ".",
+            ],
+          ],
+        },
+        {
+          id: "docs-glossary-artistic-participation",
+          title: "artistic participation",
+          paragraphs: [
+            [
+              "The threshold at which an Agent's thinking power enters a work as intent rather than as infrastructure. Agent Art's invariant is met at this threshold and not before, which is why supplying a runtime or carrying out a fully determined instruction does not satisfy it. See ",
+              {
+                label: "intentional participation",
+                href: "/docs/agent-art#docs-agent-art-participation",
+              },
+              ".",
+            ],
+          ],
+        },
+        {
+          id: "docs-glossary-authority",
+          title: "authority",
+          paragraphs: [
+            [
+              "The person or system that originates a claim, as distinct from the immediate source an interface loaded it from. A mirror or cache can supply a value without becoming its authority. See ",
+              {
+                label: "four terms that should not blur",
+                href: "/docs/verification#docs-verification-terms",
+              },
+              ".",
+            ],
+          ],
+        },
+        {
+          id: "docs-glossary-canonical",
+          title: "canonical",
+          paragraphs: [
+            [
+              "The form that owns a fact, as opposed to any surface that displays it. A wallet, marketplace, explorer, or App page can present a work while the contract, tokenURI, and pinned release remain canonical for it. See ",
+              {
+                label: "one canonical form, many reading surfaces",
+                href: "/docs/design-principles#docs-design-canonical",
+              },
+              ".",
+            ],
+          ],
+        },
+        {
+          id: "docs-glossary-chain-observation",
+          title: "chain observation",
+          paragraphs: [
+            [
+              "A read of public chain state scoped to one named network, deployment, and observation point. It describes state as observed and does not become a permanent property of the work. See ",
+              {
+                label: "read context with the object",
+                href: "/docs/artwork-metadata-chain#docs-reading-context",
+              },
+              ".",
+            ],
+          ],
+        },
+        {
+          id: "docs-glossary-contract-release",
+          title: "contract release",
+          paragraphs: [
+            [
+              "A pinned artifact set defining expected contract code, schemas, or renderer material. It establishes what a release contains, not that the release is deployed anywhere. See ",
+              { label: "why pins matter", href: "/docs/source-release-boundaries#docs-source-pins" },
+              ".",
+            ],
+          ],
+        },
+        {
+          id: "docs-glossary-creation-attestation",
+          title: "Creation Attestation",
+          paragraphs: [
+            [
+              "A signed claim binding one THOUGHT creation record to its exact recorded values, which the contract validates at mint. A valid attestation evidences that binding. It does not prove hidden model reasoning, guarantee a provider identity, or settle authorship. See ",
+              { label: "provenance and attestation", href: "/docs/thought#docs-thought-provenance" },
+              ".",
+            ],
+          ],
+        },
+        {
+          id: "docs-glossary-crowd",
+          title: "crowd",
+          paragraphs: [
+            [
+              "The scope WILL moves the inquiry into: many people and many Agents in the formation of what can be called one will. One will does not mean consensus, unanimity, or governance, and the movement's concrete form is not specified. See ",
+              { label: "WILL: the crowd", href: "/docs/movements#docs-movements-will" },
+              ".",
+            ],
+          ],
+        },
+        {
+          id: "docs-glossary-deployment",
+          title: "deployment",
+          paragraphs: [
+            [
+              "The record that places released code on a network: the network itself, contract addresses, deployment blocks, and integration choices. A complete release without a deployment is not onchain. See ",
+              {
+                label: "release is not deployment",
+                href: "/docs/source-release-boundaries#docs-source-deployment",
+              },
+              ".",
+            ],
+          ],
+        },
+        {
+          id: "docs-glossary-evidence-level",
+          title: "evidence level",
+          paragraphs: [
+            [
+              "The label naming how a particular statement is supported: contract-verified, contract-release, chain-observed, App-recorded, runtime-reported, or artist-editorial. These levels must not be collapsed into one undifferentiated claim of verification. See ",
+              { label: "evidence levels", href: "/docs/verification#docs-verification-levels" },
+              ".",
+            ],
+          ],
+        },
+        {
+          id: "docs-glossary-fully-onchain",
+          title: "fully onchain",
+          paragraphs: [
+            [
+              "A narrow claim that a selected chain and its bound contracts return the complete canonical metadata and media without an external content object. It is not a synonym for immutable, non-upgradeable, decentralized, deployed, verified, or valuable; each of those needs its own evidence. See ",
+              { label: "Fully Onchain", href: "/docs/fully-onchain" },
+              ".",
+            ],
+          ],
+        },
+        {
+          id: "docs-glossary-human-intention",
+          title: "human intention",
+          paragraphs: [
+            [
+              "What a person brings to a work as their own. In THOUGHT it is the exact prompt they write. It is the participant's contribution, distinct from the Agent intent that meets it. See ",
+              { label: "what makes one work", href: "/docs/thought#docs-thought-work" },
+              ".",
+            ],
+          ],
+        },
+        {
+          id: "docs-glossary-movement",
+          title: "movement",
+          paragraphs: [
+            [
+              "A named artistic scope in Inshell's practice through which the inward direction takes successive forms. The movement is the artwork; $PATH is the permission that carries participation across the sequence. See ",
+              { label: "Movements", href: "/docs/movements" },
+              ".",
+            ],
+          ],
+        },
+        {
+          id: "docs-glossary-permission",
+          title: "permission",
+          paragraphs: [
+            [
+              "What $PATH carries: the entitlement to authorize an eligible work in the movement it has reached. Permission is not the movement artwork, and it does not measure inward progress or certify anything about the holder. See ",
+              { label: "$PATH", href: "/docs/path" },
+              ".",
+            ],
+          ],
+        },
+        {
+          id: "docs-glossary-practice",
+          title: "practice",
+          paragraphs: [
+            [
+              "The forms Inshell makes — movements, artworks, and participatory systems — through which the inward direction is approached. A practice can examine, inspect, suspect, read, listen, and feel; it does not claim to possess the truth it approaches. See ",
+              { label: "the practice", href: "/docs/inshell#docs-inshell-practice" },
+              ".",
+            ],
+          ],
+        },
+        {
+          id: "docs-glossary-provenance",
+          title: "provenance",
+          paragraphs: [
+            [
+              "How the parts of a work or record connect across creation, rendering, selection, minting, and later display. Proof is narrower: the data a specific verification rule accepts. Provenance does not make every surrounding statement true. See ",
+              {
+                label: "provenance and proof",
+                href: "/docs/verification#docs-verification-provenance",
+              },
+              ".",
+            ],
+          ],
+        },
+        {
+          id: "docs-glossary-release",
+          title: "release",
+          paragraphs: [
+            [
+              "A versioned artifact set with its own identity and integrity, separate from any deployment of it and separate from the repository it was built from. See ",
+              { label: "release plus deployment", href: "/docs/contracts#docs-contracts-release" },
+              ".",
+            ],
+          ],
+        },
+        {
+          id: "docs-glossary-runtime-report",
+          title: "runtime report",
+          paragraphs: [
+            [
+              "A value supplied by an Agent runtime or connector, such as a reported model name. It keeps that evidence level: it is not a provider identity guarantee and not a contract fact. See ",
+              { label: "the Agent handoff", href: "/docs/thought#docs-thought-agent-handoff" },
+              ".",
+            ],
+          ],
+        },
+        {
+          id: "docs-glossary-self",
+          title: "self",
+          paragraphs: [
+            "What the inward direction examines. Mind, spirit, memory, desire, reasoning, values, philosophy, logic, and choice are possible terms for that inquiry. Inshell opens the question and does not close it with a definition of essence, so this entry names the direction rather than its answer.",
+          ],
+        },
+        {
+          id: "docs-glossary-shell",
+          title: "shell",
+          paragraphs: [
+            [
+              "Any surface that makes something visible, operable, or legible: a body, face, or head; a name, honor, reputation, role, or social posture; an account, wallet, profile, or institution; an operating shell, terminal, command line, model label, or technical wrapper. A shell is real and often necessary. The error is mistaking it for the whole being. See ",
+              { label: "Inshell", href: "/docs/inshell" },
+              ".",
+            ],
+          ],
+        },
+        {
+          id: "docs-glossary-thinking-power",
+          title: "thinking power",
+          paragraphs: [
+            [
+              "Inshell's functional term for an Agent's capacity to interpret, reason, choose, and act rather than only apply a fixed procedure. It names functions of thinking that Agents increasingly undertake in work once performed by human minds. It does not claim that machine and human thought are identical and does not assert consciousness. Thinking power alone is not artistic participation; it becomes participation when some Agent intent enters the work. See ",
+              {
+                label: "the gate from algorithm to thinking power",
+                href: "/docs/generative-art#docs-generative-thinking-power",
+              },
+              ".",
+            ],
+          ],
+        },
+        {
+          id: "docs-glossary-truth",
+          title: "truth",
+          paragraphs: [
+            [
+              "In Inshell's artistic position, the direction named by inspect self. It is a direction of practice, not a doctrine, specification, or proposition that technical verification can establish. See ",
+              { label: "the truth", href: "/docs/inshell#docs-inshell-truth" },
+              ".",
+            ],
+          ],
+        },
+      ],
+      links: [
+        { label: "read Inshell", href: "/docs/inshell" },
+        { label: "read Agent Art", href: "/docs/agent-art" },
+        { label: "read Verification", href: "/docs/verification" },
       ],
     },
   ],
@@ -2620,6 +2986,38 @@ export const DOCS_AUTHORITY_MAP: Record<
       "docs-design-canonical": ["app-documentation", "contract-release"],
       "docs-design-claims": ["artist-editorial", "app-documentation"],
       "docs-design-time": ["artist-editorial", "app-documentation", "contract-release"],
+    },
+  },
+  glossary: {
+    lead: ["artist-editorial", "app-documentation"],
+    sections: {
+      "docs-glossary-aesthetic-architecture": ["artist-editorial"],
+      "docs-glossary-agent": ["artist-editorial"],
+      "docs-glossary-agent-art": ["artist-editorial"],
+      "docs-glossary-agent-intent": ["artist-editorial"],
+      "docs-glossary-algorithmic-execution": ["artist-editorial"],
+      "docs-glossary-app-record": ["app-documentation"],
+      "docs-glossary-artistic-participation": ["artist-editorial"],
+      "docs-glossary-authority": ["app-documentation"],
+      "docs-glossary-canonical": ["app-documentation"],
+      "docs-glossary-chain-observation": ["app-documentation"],
+      "docs-glossary-contract-release": ["app-documentation"],
+      "docs-glossary-creation-attestation": ["app-documentation"],
+      "docs-glossary-crowd": ["artist-editorial"],
+      "docs-glossary-deployment": ["app-documentation"],
+      "docs-glossary-evidence-level": ["app-documentation"],
+      "docs-glossary-fully-onchain": ["app-documentation"],
+      "docs-glossary-human-intention": ["artist-editorial"],
+      "docs-glossary-movement": ["artist-editorial"],
+      "docs-glossary-permission": ["artist-editorial", "app-documentation"],
+      "docs-glossary-practice": ["artist-editorial"],
+      "docs-glossary-provenance": ["app-documentation"],
+      "docs-glossary-release": ["app-documentation"],
+      "docs-glossary-runtime-report": ["app-documentation"],
+      "docs-glossary-self": ["artist-editorial"],
+      "docs-glossary-shell": ["artist-editorial"],
+      "docs-glossary-thinking-power": ["artist-editorial"],
+      "docs-glossary-truth": ["artist-editorial"],
     },
   },
 };

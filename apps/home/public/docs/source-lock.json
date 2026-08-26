@@ -11,14 +11,14 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "155313ea585fa069f53fcf3e186796772f328dbdd0ecb4e97a094a4fa5be0fe5",
+  "sourceTreeSha256": "58157890939b98cd854ab572fd09651bfa6a20208cb19afbdd3483bce15e78fe",
   "groups": [
     {
       "id": "public-docs",
       "title": "Public documentation sources",
       "owner": "inshell.art docs",
       "reason": "Human articles, Agent-readable content, authority maps, and machine-handoff selection.",
-      "groupSha256": "af549e88fc61907df7280d72345cb920f96e0617776250f9de1a774e61cee86b",
+      "groupSha256": "28292e62a9a2dd23683399b987b77ffe45f5cbd00d2bd76abda2d9effac7ce79",
       "files": [
         {
           "path": "apps/home/src/content/AGENTS.md",
@@ -37,8 +37,8 @@
         },
         {
           "path": "apps/home/src/content/docs.ts",
-          "byteLength": 158385,
-          "sha256": "a04644423e8fa455b9850aec607c5e1d2d19156ebb7a225fdd3c010ac4b6037e"
+          "byteLength": 176602,
+          "sha256": "3109403ea5f8d72d8a02407920d1948b678e6d34b2d1113a620295c6729eec55"
         },
         {
           "path": "apps/home/src/content/thought-machine-handoff.ts",
@@ -67,7 +67,7 @@
       "title": "Home, $PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "9df94e1e90513a20970447e0f98ec3ea19214144dfea8c7c4007be4ac72f149f",
+      "groupSha256": "68dca917ddfd4c47f37cfc280b4102af0d0bcca4856d96eef754b2a7b62fc5e8",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -81,8 +81,8 @@
         },
         {
           "path": "apps/home/src/App.tsx",
-          "byteLength": 17634,
-          "sha256": "2230e33ead7dd96a2c79f58d9cb32301f7e8350b43a0829c646f9469f28f2fe7"
+          "byteLength": 18311,
+          "sha256": "4a89efccb3187b99f6e1b8e8ac0d66af18962bac89b527d6a5e9b90e5418ed69"
         },
         {
           "path": "apps/home/src/assets/icon-github.svg",
