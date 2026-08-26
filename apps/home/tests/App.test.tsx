@@ -396,6 +396,7 @@ describe("App Component", () => {
   test("an undeployed $PATH contract reads no chain data and says so", async () => {
     const { isPathDeploymentActive } = jest.requireMock("@/services/pathDeployment");
     (isPathDeploymentActive as jest.Mock).mockReturnValue(false);
+    mockUseAuctionBids.mockClear();
     try {
       mockPathAndThoughtApis({
         pathItems: [pathTokenApiItem()],
@@ -414,6 +415,9 @@ describe("App Component", () => {
       ).toBeInTheDocument();
       // Nothing to retry while the contract does not exist.
       expect(screen.queryByRole("button", { name: "retry" })).toBeNull();
+      // Also prevent invisible auction-history requests to historical contracts.
+      expect(mockUseAuctionBids).toHaveBeenCalled();
+      expect(mockUseAuctionBids.mock.calls.every(([options]) => options.enabled === false)).toBe(true);
     } finally {
       (isPathDeploymentActive as jest.Mock).mockReturnValue(true);
     }
@@ -1094,7 +1098,7 @@ describe("App Component", () => {
     expect(screen.getByRole("button", { name: "retry" })).toBeInTheDocument();
   });
 
-  test("does not overlay THOUGHT data while the production deployment lock is disabled", async () => {
+  test("does not overlay THOUGHT data when the lock records no approved deployment", async () => {
     mockPathAndThoughtApis({
       pathItems: [pathTokenApiItem()],
       thoughtItems: [
@@ -1501,7 +1505,7 @@ describe("App Component", () => {
     expect(lifecycle.queryByRole("link", { name: /THOUGHT #/ })).toBeNull();
   });
 
-  test("fails THOUGHT detail routes closed while the production deployment lock is disabled", async () => {
+  test("fails THOUGHT detail routes closed when the lock records no approved deployment", async () => {
     mockThoughtGalleryApi([
       thoughtGalleryItem({
         tokenId: 1,

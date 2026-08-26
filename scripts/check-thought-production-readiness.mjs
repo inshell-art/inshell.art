@@ -2,6 +2,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
+import { tsImport } from "tsx/esm/api";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (relative) => fs.readFileSync(path.join(root, relative), "utf8");
@@ -10,7 +12,20 @@ const fail = (message) => {
   throw new Error(`THOUGHT production-readiness check failed: ${message}`);
 };
 
-const lock = readJson("apps/thought/production/deployment-lock.json");
+const { readThoughtDeploymentLock, THOUGHT_ACTIVATION_POLICY, assertDeploymentOverrides } =
+  await tsImport("../apps/thought/src/thought-v2-production-deployment.ts", import.meta.url);
+const { verifyDeploymentLockEvidence, assertReviewedLockTransition } =
+  await tsImport("./deployment-lock-evidence.ts", import.meta.url);
+const lock = readThoughtDeploymentLock();
+verifyDeploymentLockEvidence(lock, root);
+assertDeploymentOverrides(process.env);
+// Working-tree edits compare to HEAD; CI can provide the reviewed base SHA.
+// Never write the reference, its revision, or evidence from observed configuration.
+const baseRef = process.env.DEPLOYMENT_LOCK_BASE_REF || "HEAD";
+const previousLock = JSON.parse(execFileSync("git", [
+  "show", `${baseRef}:apps/thought/production/deployment-lock.json`,
+], { cwd: root, encoding: "utf8" }));
+assertReviewedLockTransition(previousLock, lock);
 const consumer = readJson("apps/thought/contract-release/consumer-lock.json");
 const generated = read("packages/thought-agent-protocol/src/release.generated.ts");
 const main = read("apps/thought/src/main.ts");
@@ -25,21 +40,11 @@ const ecosystemHome = read("apps/home/src/components/EcosystemHome.tsx");
 const homeApp = read("apps/home/src/App.tsx");
 
 if (
-  lock.schema !== "inshell.thought.production-deployment-lock.v1" ||
-  lock.requiredArtifactId !== "thought-v2-canonical-portable-release-20260807-r2" ||
-  lock.status !== "not-deployed" ||
-  lock.enabled !== false ||
-  lock.artifactId !== null ||
-  lock.manifestSha256 !== null ||
-  lock.chainId !== null ||
-  lock.contracts !== null ||
-  lock.deployBlocks !== null ||
-  lock.release !== null ||
-  lock.attestation !== null ||
-  lock.authorization?.deploymentApproved !== false ||
-  lock.authorization?.frontendActivationApproved !== false ||
-  lock.authorization?.signerActivationApproved !== false
-) fail("disabled deployment lock is incomplete, enabled, or contains deployment material");
+  lock.state !== "no-approved-deployment" ||
+  THOUGHT_ACTIVATION_POLICY.frontendActivationApproved ||
+  THOUGHT_ACTIVATION_POLICY.signerActivationApproved ||
+  THOUGHT_ACTIVATION_POLICY.mintActivationApproved
+) fail("this release is Studio Preview; deployment/activation changes require a separately reviewed launch");
 
 if (
   consumer.artifactId !== "thought-v2-canonical-portable-release-20260807-r2" ||
@@ -53,8 +58,8 @@ for (const snippet of [
 ]) if (!generated.includes(snippet)) fail(`generated protocol release is missing ${snippet}`);
 
 for (const snippet of [
-  "THOUGHT_V2_PROTOCOL_RELEASE.deployment.v2MintEnabled &&",
-  "THOUGHT_V2_PRODUCTION_DEPLOYMENT &&",
+  "THOUGHT_MINT_ACTIVATION_APPROVED",
+  "THOUGHT_V2_PRODUCTION_DEPLOYMENT",
   "PATH_AUCTION_ADDRESS",
   "const isThoughtMintEnabled = () => thoughtLaunchState.mintEnabled",
   "await refreshThoughtLaunchState();",
@@ -70,8 +75,9 @@ for (const snippet of [
 ]) if (!launchState.includes(snippet)) fail(`authoritative launch-state gate is missing ${snippet}`);
 
 for (const snippet of [
-  "THOUGHT_V2_PROTOCOL_RELEASE.deployment.v2MintEnabled &&",
-  "THOUGHT_V2_PRODUCTION_DEPLOYMENT !== null",
+  "THOUGHT_DEPLOYMENT_LOCK_STATUS",
+  "THOUGHT_ACTIVATION_POLICY",
+  "v2MintEnabled: false",
 ]) if (!statusApi.includes(snippet)) fail(`Agent API mint status gate is missing ${snippet}`);
 
 for (const snippet of [
@@ -82,11 +88,10 @@ for (const snippet of [
 ]) if (!attestationApi.includes(snippet)) fail(`attestation fail-closed route is missing ${snippet}`);
 
 for (const snippet of [
-  "lock.artifactId !== pinnedArtifactId",
-  "lock.manifestSha256 !== pinnedManifestSha256",
-  "authorization?.deploymentApproved !== true",
-  "authorization?.frontendActivationApproved !== true",
-  "authorization?.signerActivationApproved !== true",
+  "required.artifactId !== THOUGHT_V2_CONTRACT_RELEASE.artifactId",
+  "required.manifestSha256 !== THOUGHT_V2_CONTRACT_RELEASE.manifestSha256",
+  "deploymentConfigurationDrift",
+  'enforcement: "always"',
 ]) if (!deploymentModule.includes(snippet)) fail(`deployment-lock validator is missing ${snippet}`);
 
 for (const snippet of [
@@ -149,7 +154,7 @@ for (const relative of [
 
 const requireActivationReady = process.argv.includes("--require-activation-ready");
 if (requireActivationReady) {
-  fail("activation is blocked until canonical r2 is published, a deployment lock is reviewed, and the signer boundary is explicitly authorized");
+  fail("Studio Preview is deployable, but onchain activation is not: it needs reviewed deployment evidence, separate activation approval, a verified backend signer, and fresh matching opening evidence");
 }
 
 console.log(JSON.stringify({
@@ -157,9 +162,9 @@ console.log(JSON.stringify({
   browserSigning: false,
   contractArtifactSynchronized: true,
   currentConsumerArtifactId: consumer.artifactId,
-  deploymentLockEnabled: false,
-  expectedNextArtifactId: lock.requiredArtifactId,
-  preparedForReviewedProductionActivation: true,
+  deploymentLock: { schema: lock.schema, revision: lock.revision, enforcement: "always", state: lock.state, integrity: "valid" },
+  expectedNextArtifactId: lock.requiredRelease.artifactId,
+  studioPreviewIntegrityValid: true,
   productionAttestationEnabled: false,
   signerIntegrationAuthorized: false,
 }, null, 2));

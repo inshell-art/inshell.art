@@ -13,6 +13,7 @@ import {
   maybeInstallCloudflareWebAnalytics,
 } from "@inshell/shared";
 import { WalletProvider } from "@inshell/wallet";
+import { assertDeploymentOverrides } from "../../thought/src/thought-v2-production-deployment";
 
 const runtimeEnv = {
   ...import.meta.env,
@@ -20,6 +21,11 @@ const runtimeEnv = {
 };
 
 (globalThis as any).__VITE_ENV__ = runtimeEnv;
+// Studio Preview uses the deployment reference in dev too. Preserve the
+// separately configured Anvil test harness; DEV alone is not an exemption.
+if (!import.meta.env.DEV || !globalThis.__INSHELL_PATH_CONTRACT_RUNTIME__) {
+  assertDeploymentOverrides(runtimeEnv);
+}
 maybeInstallCloudflareWebAnalytics({ env: runtimeEnv });
 installInshellAnonymousAnalytics({ env: runtimeEnv });
 

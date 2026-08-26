@@ -1740,6 +1740,8 @@ export const DOCS_SOURCE: DocsSource = {
               { label: "Verification", href: "/docs/verification" },
               " joins both records and checks deployed bytecode where possible.",
             ],
+            "The App's deployment lock is an always-enforced, versioned integrity reference. It records either no approved deployment or one exact approved deployment. Both are valid locked states; unexpected configuration differences are drift, not a reason to rewrite the reference.",
+            "Recording an approved deployment does not activate signing or open minting. Activation approvals and fresh, matching onchain opening evidence are separate requirements. Intentional reference changes require review and, for an approved deployment, verified deployment evidence.",
           ],
         },
         {

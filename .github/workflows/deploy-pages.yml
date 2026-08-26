@@ -72,6 +72,8 @@ jobs:
           fi
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Validate deployment integrity before publishing
+        run: pnpm run check:thought-production-readiness
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09
         with:
@@ -182,6 +184,9 @@ jobs:
         with:
           version: v1.5.1
           cache: false
+      # This job is independently publishable; repeat the same integrity gate.
+      - name: Validate deployment integrity before publishing
+        run: pnpm run check:thought-production-readiness
       - name: Verify Anvil
         run: anvil --version
       - name: Check deploy config

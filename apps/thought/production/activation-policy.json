@@ -1,0 +1,11 @@
+{
+  "schema": "inshell.thought.activation-policy.v1",
+  "revision": 1,
+  "deploymentRevision": 1,
+  "frontendActivationApproved": false,
+  "signerActivationApproved": false,
+  "mintActivationApproved": false,
+  "review": {
+    "reference": "docs/DEPLOYMENT_LOCK_RUNBOOK.md"
+  }
+}

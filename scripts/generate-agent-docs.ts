@@ -24,6 +24,7 @@ import {
 } from "../apps/home/src/content/docs.ts";
 import { docsFigureLogic } from "../apps/home/src/content/docs-figure-logic.ts";
 import { DOCS_SOURCE_REGISTRY } from "../apps/home/src/content/docs-source-registry.ts";
+import { readThoughtDeploymentLock, readThoughtActivationPolicy } from "../apps/thought/src/thought-v2-production-deployment.ts";
 
 const AGENT_CONTENT_SCHEMA_V1_PATH = "/docs/content.schema.json";
 const AGENT_CONTENT_SCHEMA_V2_PATH = "/docs/content.v2.schema.json";
@@ -1200,7 +1201,7 @@ function buildThoughtMachineHandoff(): GeneratedMachineHandoff {
       !agentProtocolConsumerLock.source.dirty &&
       agentProtocolConsumerLock.source.eligibleForProduction &&
       !agentProtocolConsumerLock.deployment.v2MintEnabled,
-    "THOUGHT Agent protocol consumer lock is not the clean deployment-disabled current Contract release",
+    "THOUGHT Agent protocol consumer lock does not match the current Contract release and its separate mint policy",
   );
   invariant(
     agentProtocolConsumerLock.selectedSpec.artifactId ===
@@ -3086,39 +3087,14 @@ function docsGateManifest() {
 }
 
 function assertDocumentedThoughtDeploymentStatus() {
-  const lock = readJson<{
-    schema?: string;
-    status?: string;
-    enabled?: boolean;
-    requiredArtifactId?: string;
-    artifactId?: string | null;
-    manifestSha256?: string | null;
-    chainId?: number | null;
-    contracts?: unknown;
-    deployBlocks?: unknown;
-    release?: unknown;
-    attestation?: unknown;
-    authorization?: {
-      deploymentApproved?: boolean;
-      frontendActivationApproved?: boolean;
-      signerActivationApproved?: boolean;
-    };
-  }>("apps/thought/production/deployment-lock.json");
+  const lock = readThoughtDeploymentLock(readJson("apps/thought/production/deployment-lock.json"));
+  const activation = readThoughtActivationPolicy(readJson("apps/thought/production/activation-policy.json"), lock);
   invariant(
-    lock.schema === "inshell.thought.production-deployment-lock.v1" &&
-      lock.status === "not-deployed" &&
-      lock.enabled === false &&
-      lock.requiredArtifactId === EXPECTED_THOUGHT_RELEASE.artifactId &&
-      lock.artifactId === null &&
-      lock.manifestSha256 === null &&
-      lock.chainId === null &&
-      lock.contracts === null &&
-      lock.deployBlocks === null &&
-      lock.release === null &&
-      lock.attestation === null &&
-      lock.authorization?.deploymentApproved === false &&
-      lock.authorization.frontendActivationApproved === false &&
-      lock.authorization.signerActivationApproved === false,
+    lock.state === "no-approved-deployment" &&
+      lock.requiredRelease.artifactId === EXPECTED_THOUGHT_RELEASE.artifactId &&
+      !activation.frontendActivationApproved &&
+      !activation.signerActivationApproved &&
+      !activation.mintActivationApproved,
     "THOUGHT production deployment status changed; update the public documentation before regenerating",
   );
 }

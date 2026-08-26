@@ -58,15 +58,18 @@ test("countdown requires matching fresh public evidence before opening", () => {
   assert.equal(deriveThoughtLaunchState({
     deployment,
     readModel: readModel({ manifestSha256: "b".repeat(64) }),
+    activationApproved: true,
     nowMs,
   }).mintEnabled, false);
   assert.equal(deriveThoughtLaunchState({
     deployment,
     readModel: readModel({ observedAt: "2026-08-21T09:30:00.000Z" }),
+    activationApproved: true,
     nowMs,
   }).mintEnabled, false);
   assert.deepEqual(deriveThoughtLaunchState({
     deployment,
+    activationApproved: true,
     readModel: readModel(),
     nowMs,
   }), {
@@ -82,10 +85,20 @@ test("countdown requires matching fresh public evidence before opening", () => {
 test("browser clock never opens a countdown-only read model", () => {
   const state = deriveThoughtLaunchState({
     deployment,
+    activationApproved: true,
     readModel: readModel({ status: "countdown" }),
     nowMs: Date.parse("2026-08-21T10:00:45.000Z"),
   });
   assert.equal(state.phase, "onchain-countdown");
+  assert.equal(state.mintEnabled, false);
+});
+
+test("a valid approved deployment and an open auction do not authorize activation", () => {
+  const state = deriveThoughtLaunchState({
+    deployment, readModel: readModel(), nowMs: Date.parse("2026-08-21T10:00:45.000Z"),
+  });
+  assert.equal(state.deploymentVerified, true);
+  assert.equal(state.phase, "onchain-open");
   assert.equal(state.mintEnabled, false);
 });
 
@@ -157,6 +170,7 @@ test("mint-closed notice names the opening when the read model carries one", () 
 test("mint-closed notice explains stale work when minting is open", () => {
   const state = deriveThoughtLaunchState({
     deployment,
+    activationApproved: true,
     readModel: readModel({
       status: "open",
       openTime: "2026-08-21T09:00:00.000Z",

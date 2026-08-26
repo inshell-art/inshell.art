@@ -1144,7 +1144,7 @@ export default function PathPage({
   const saleHistory = useAuctionBids({
     address: pulseAuctionAddress ?? "0x0000000000000000000000000000000000000000",
     fromBlock: pulseAuctionFromBlock,
-    enabled: Boolean(pulseAuctionAddress && !fixtureItems),
+    enabled: Boolean(isPathDeploymentActive() && pulseAuctionAddress && !fixtureItems),
   });
   const [retryNonce, setRetryNonce] = useState(0);
   const [state, setState] = useState<LoadState>({

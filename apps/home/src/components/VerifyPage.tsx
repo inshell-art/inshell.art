@@ -658,7 +658,7 @@ export default function VerifyPage() {
               {
                 id: "thought-deployment-status",
                 label: "production deployment",
-                value: thoughtDeployment ? "verified" : "not deployed",
+                value: thoughtDeployment ? "approved deployment" : "no approved deployment",
               },
               {
                 id: "thought-spec-registered",
@@ -668,7 +668,7 @@ export default function VerifyPage() {
               {
                 id: "thought-mint-status",
                 label: "minting",
-                value: thoughtDeployment ? "enabled by deployment lock" : "disabled",
+                value: "requires separate activation and verified opening",
               },
             ]}
           />

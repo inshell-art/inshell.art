@@ -42,6 +42,10 @@ A repository can continue changing after a contract is deployed. The App therefo
 
 A release may be complete without being deployed. A deployment record adds the network, contract addresses, deployment blocks, and integration choices needed to find it onchain. [Verification](https://inshell.art/docs/verification) joins both records and checks deployed bytecode where possible.
 
+The App's deployment lock is an always-enforced, versioned integrity reference. It records either no approved deployment or one exact approved deployment. Both are valid locked states; unexpected configuration differences are drift, not a reason to rewrite the reference.
+
+Recording an approved deployment does not activate signing or open minting. Activation approvals and fresh, matching onchain opening evidence are separate requirements. Intentional reference changes require review and, for an approved deployment, verified deployment evidence.
+
 ## Publication boundaries
 
 - Authority: app-documentation

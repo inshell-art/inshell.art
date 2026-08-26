@@ -1,8 +1,21 @@
-import { THOUGHT_V2_PRODUCTION_DEPLOYMENT } from "../../../thought/src/thought-v2-production-deployment";
+import { assertDeploymentConfiguration, THOUGHT_ACTIVATION_POLICY, THOUGHT_V2_PRODUCTION_DEPLOYMENT } from "../../../thought/src/thought-v2-production-deployment";
+import { maybeResolveAddress, getProtocolReleaseChainId, getProtocolReleaseDeployBlock } from "@inshell/contracts";
+
+if (THOUGHT_V2_PRODUCTION_DEPLOYMENT) {
+  const selected = THOUGHT_V2_PRODUCTION_DEPLOYMENT;
+  assertDeploymentConfiguration({
+    ...selected, chainId: getProtocolReleaseChainId(),
+    contracts: { ...selected.contracts, pathNft: maybeResolveAddress("path_nft")?.toLowerCase(),
+      pulseAuction: maybeResolveAddress("pulse_auction")?.toLowerCase() },
+    deployBlocks: { ...selected.deployBlocks, pathNft: getProtocolReleaseDeployBlock("path_nft"),
+      pulseAuction: getProtocolReleaseDeployBlock("pulse_auction") },
+  });
+}
 
 // The production deployment lock declares pathNft and thoughtNft together and
-// refuses a partial record, so $PATH and THOUGHT are deployed as one unit. That
-// makes the lock the only honest answer to "does the $PATH contract exist yet",
+// refuses a partial record. This identifies the approved deployment, not every
+// historical contract, and is not permission to mint. It is the answer to
+// "which deployment may the public frontend use",
 // and every surface must ask it rather than fall back to the raw address book.
 export type PathDeployment = {
   chainId: number;
@@ -44,6 +57,14 @@ export const PATH_DEPLOYMENT: PathDeployment | null =
 
 export function isPathDeploymentActive() {
   return PATH_DEPLOYMENT !== null;
+}
+
+export function isPathMintActivationApproved() {
+  return Boolean(LOCAL_PATH_DEPLOYMENT) || Boolean(
+    THOUGHT_V2_PRODUCTION_DEPLOYMENT &&
+    THOUGHT_ACTIVATION_POLICY.frontendActivationApproved &&
+    THOUGHT_ACTIVATION_POLICY.mintActivationApproved
+  );
 }
 
 // The same three phases the THOUGHT surface walks, once per environment: the

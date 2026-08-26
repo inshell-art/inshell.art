@@ -19,6 +19,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - name: Enable pnpm
         run: corepack enable
       - name: Use Node.js
@@ -51,6 +53,10 @@ jobs:
         run: pnpm run check:path-contract-release
       - name: Validate deployment gates
         run: pnpm run check:deployment
+      - name: Validate deployment integrity and separate activation policy
+        env:
+          DEPLOYMENT_LOCK_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD' }}
+        run: pnpm run check:thought-production-readiness
       - name: Check PUB path boundary
         run: pnpm run pub-boundary:check
       - name: Run linter

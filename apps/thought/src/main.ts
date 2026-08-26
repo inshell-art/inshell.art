@@ -230,7 +230,7 @@ import {
   formatPulseAuctionPrice,
   pulseAuctionPriceAtTimestamp,
 } from "./thought-pulse-auction-price";
-import { THOUGHT_V2_PRODUCTION_DEPLOYMENT } from "./thought-v2-production-deployment";
+import { assertDeploymentConfiguration, assertDeploymentOverrides, THOUGHT_ACTIVATION_POLICY, THOUGHT_V2_PRODUCTION_DEPLOYMENT } from "./thought-v2-production-deployment";
 import {
   deriveThoughtLaunchState,
   getThoughtMintClosedNotice,
@@ -1895,15 +1895,29 @@ const THOUGHT_AGENT_REGISTERED_SPEC_ID = IS_LOCAL_THOUGHT_V2
   : THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId;
 const THOUGHT_LAUNCH_READ_MODEL_URL =
   readConfiguredUrl("VITE_THOUGHT_LAUNCH_READ_MODEL_URL") || "/api/pulse-auction";
+if (!IS_LOCAL_THOUGHT_V2) assertDeploymentOverrides(import.meta.env);
+if (!IS_LOCAL_THOUGHT_V2 && THOUGHT_V2_PRODUCTION_DEPLOYMENT) {
+  const selected = THOUGHT_V2_PRODUCTION_DEPLOYMENT;
+  assertDeploymentConfiguration({
+    ...selected, chainId: THOUGHT_CHAIN_ID,
+    contracts: { ...selected.contracts, pathNft: PATH_NFT_ADDRESS.toLowerCase(),
+      thoughtNft: THOUGHT_NFT_ADDRESS.toLowerCase(),
+      pulseAuction: PATH_AUCTION_ADDRESS.toLowerCase(),
+      pathPulseAdapter: PATH_PULSE_ADAPTER_ADDRESS.toLowerCase() },
+  });
+}
+const THOUGHT_MINT_ACTIVATION_APPROVED =
+  THOUGHT_ACTIVATION_POLICY.frontendActivationApproved &&
+  THOUGHT_ACTIVATION_POLICY.signerActivationApproved &&
+  THOUGHT_ACTIVATION_POLICY.mintActivationApproved &&
+  THOUGHT_V2_PROTOCOL_RELEASE.deployment.v2MintEnabled;
 const THOUGHT_LAUNCH_DEPLOYMENT: ThoughtLaunchDeployment | null =
-  THOUGHT_V2_PROTOCOL_RELEASE.deployment.v2MintEnabled &&
-  THOUGHT_V2_PRODUCTION_DEPLOYMENT &&
-  PATH_AUCTION_ADDRESS
+  THOUGHT_V2_PRODUCTION_DEPLOYMENT
     ? {
         artifactId: THOUGHT_V2_PRODUCTION_DEPLOYMENT.artifactId,
         manifestSha256: THOUGHT_V2_PRODUCTION_DEPLOYMENT.manifestSha256,
         chainId: THOUGHT_V2_PRODUCTION_DEPLOYMENT.chainId,
-        pulseAuction: PATH_AUCTION_ADDRESS,
+        pulseAuction: THOUGHT_V2_PRODUCTION_DEPLOYMENT.contracts.pulseAuction,
       }
     : null;
 const THOUGHT_LAUNCH_FIXTURE = IS_DEV_MODE
@@ -1941,6 +1955,7 @@ let thoughtLaunchState: ThoughtLaunchState =
     ? localThoughtLaunchState(THOUGHT_CHAIN_ID)
     : deriveThoughtLaunchState({
         deployment: THOUGHT_LAUNCH_DEPLOYMENT,
+        activationApproved: THOUGHT_MINT_ACTIVATION_APPROVED,
         readModel: null,
       }));
 const isThoughtMintEnabled = () => thoughtLaunchState.mintEnabled;
@@ -1976,6 +1991,7 @@ const refreshThoughtLaunchState = async () => {
   }
   thoughtLaunchState = deriveThoughtLaunchState({
     deployment: THOUGHT_LAUNCH_DEPLOYMENT,
+    activationApproved: THOUGHT_MINT_ACTIVATION_APPROVED,
     readModel,
   });
   return thoughtLaunchState;

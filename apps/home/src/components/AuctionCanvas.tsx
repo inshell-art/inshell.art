@@ -27,7 +27,7 @@ import type { AuctionSnapshot } from "@/types/types";
 import type { NormalizedBid } from "@/services/auction/bidsService";
 import { requestPulseAuctionRefresh } from "@/services/chainIndexer";
 import { clearPathTokenInventoryCache } from "@/services/pathTokens";
-import { isPathDeploymentActive } from "@/services/pathDeployment";
+import { isPathDeploymentActive, isPathMintActivationApproved } from "@/services/pathDeployment";
 import {
   readAuctionStatusOverride,
   type AuctionStatus,
@@ -5309,6 +5309,10 @@ export default function AuctionCanvas({
 
   const handleMint = async () => {
     if (debugActive) return;
+    if (!isPathMintActivationApproved()) {
+      showToast({ kind: "info", text: "Minting is not open yet." });
+      return;
+    }
     if (pathMintIntentBlock) {
       showToast({ kind: "warn", text: pathMintIntentBlock });
       return;

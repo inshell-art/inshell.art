@@ -236,6 +236,7 @@ let mockWalletState = createWalletState();
 jest.mock("@/services/pathDeployment", () => ({
   ...jest.requireActual("@/services/pathDeployment"),
   isPathDeploymentActive: jest.fn(() => true),
+  isPathMintActivationApproved: jest.fn(() => true),
 }));
 
 jest.mock("../src/hooks/useAuctionBids", () => ({
@@ -299,6 +300,7 @@ function expectCtaAnchoredReview(review: Element | null) {
 
 describe("AuctionCanvas", () => {
   beforeEach(() => {
+    jest.requireMock("@/services/pathDeployment").isPathMintActivationApproved.mockReturnValue(true);
     clearPathMintReturnRecords(window.localStorage);
     clearPathMintReturnRecords(window.sessionStorage);
     setPathMintLockRequest(async (_name, _options, callback) => {
@@ -2454,6 +2456,19 @@ describe("AuctionCanvas", () => {
       expect(screen.getByText(/Approve ETH/i)).toBeTruthy();
     });
     expect(screen.getByText(/\[\s*mint\s*\]/i)).toBeTruthy();
+  });
+
+  test("an available deployment and direct reads do not grant mint activation", async () => {
+    jest.requireMock("@/services/pathDeployment").isPathMintActivationApproved.mockReturnValue(false);
+    const execute = jest.fn();
+    mockWalletState = createWalletState({ account: { execute } });
+    const { container } = render(<AuctionCanvas address="0xabc" provider={mockProvider as any} />);
+    const mintButton = screen.getByText(/\[\s*mint\s*\]/i);
+    await waitFor(() => expect(mintButton).not.toBeDisabled());
+    fireEvent.click(mintButton);
+    await waitFor(() => expect(screen.getByText("Minting is not open yet.")).toBeTruthy());
+    expect(container.querySelector(".dotfield__mint-review")).toBeNull();
+    expect(execute).not.toHaveBeenCalled();
   });
 
   test("first mint click shows transaction review before wallet", async () => {

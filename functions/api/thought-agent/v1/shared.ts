@@ -48,7 +48,7 @@ import {
   THOUGHT_AGENT_CREATIVE_BRIEF_SHA256_HEX,
   THOUGHT_AGENT_CREATIVE_BRIEF_TEXT,
 } from "./thought-spec-source";
-import { THOUGHT_V2_PRODUCTION_DEPLOYMENT } from "../../../../apps/thought/src/thought-v2-production-deployment";
+import { THOUGHT_ACTIVATION_POLICY, THOUGHT_DEPLOYMENT_LOCK_STATUS } from "../../../../apps/thought/src/thought-v2-production-deployment";
 
 type D1Statement = {
   bind: (...values: unknown[]) => D1Statement;
@@ -164,9 +164,11 @@ export const THOUGHT_AGENT_STATUS = {
   protocolReleaseKeccak256:
     THOUGHT_V2_PROTOCOL_RELEASE.protocolReleaseKeccak256,
   deploymentStatus: THOUGHT_V2_PROTOCOL_RELEASE.deployment.status,
-  v2MintEnabled:
-    THOUGHT_V2_PROTOCOL_RELEASE.deployment.v2MintEnabled &&
-    THOUGHT_V2_PRODUCTION_DEPLOYMENT !== null,
+  deploymentLock: THOUGHT_DEPLOYMENT_LOCK_STATUS,
+  activationPolicy: THOUGHT_ACTIVATION_POLICY,
+  // Static Agent status cannot attest a fresh auction opening or signer readiness.
+  v2MintEnabled: false,
+  mintOpening: "requires-fresh-matching-chain-evidence",
   enabled: true,
   runStore: "d1",
   cleanupStatus: "ok",
