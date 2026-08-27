@@ -10,7 +10,7 @@ The Claude handoff follows the same product principles as Codex:
 - bounded preflight first, then exactly one creative turn;
 - no creator confirmation after a successful preflight;
 - extra chat turns only for evidenced control recovery;
-- bootstrap transport values grouped in a compact angle-bracket capsule;
+- bootstrap transport values grouped under markup-safe plain-text identifiers;
 - no installation or configuration request to the creator;
 - sealed creative input until control succeeds;
 - App-issued authority, release, Work Specification, Creative Brief, prompt,
@@ -34,6 +34,15 @@ root. Claim and start responses carry the exact App-issued run-authority
 contract. Only the start response supplies canonical creative input and
 release identity. A receipt proves App acceptance and binding, not transcript
 purity or absence of outside influence.
+
+Codex and Claude Code share exact claim/readiness JSON data and authentication
+instructions. Root `protocolVersion` is `inshell.thought.agent-run.v2`, not
+readiness `control.schema` (`inshell.thought.agent-control.v1`). Claim uses the
+launch bearer in the Authorization header; remaining requests use the returned
+top-level `bridgeToken`. Neither credential belongs in JSON, URLs, files or logs.
+Protocol rejection stops the run rather than asking for network permission or
+retrying an identical rejected payload. Only an explicit host permission denial
+before creative start warrants the connection-approval message.
 
 ## Deterministic matrix
 
@@ -153,6 +162,13 @@ A Claude handoff revision is eligible for App rollout only when:
 4. a real Claude Code canary returns a valid App receipt;
 5. no test or report exposes credentials or creative input before `/start`;
 6. Codex regression tests continue to pass.
+
+The 2026-08-26 markup-safe handoff correction changes both active candidates.
+Rerun the four real cells (Mac A/Mac B × Codex/Claude Code), including the actual
+THOUGHT chooser and deep-link/composer path, before promotion. Older passing
+reports remain historical; they do not qualify new handoff bytes. The DOM and
+protocol regression tests prove the known failure mode, not universal host or
+model compatibility. See [Codex requalification](THOUGHT_CODEX_HANDOFF_LAB.md#requalification-after-the-2026-08-26-transport-correction).
 
 The checked-in Cowork qualification record remains `qualified: false` as a
 legacy marker and is not imported by active routing. A reviewed Code canary is

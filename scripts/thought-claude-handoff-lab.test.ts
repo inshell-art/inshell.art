@@ -45,11 +45,11 @@ test("the canonical Claude Code handoff is transparent, sealed, declarative, and
   assert.match(task, /visible handoff is an editable bootstrap, not creative authority/);
   assert.match(task, /Only App-issued claim and start responses are canonical/);
   assert.match(task, /creator can inspect this handoff and the App run status/);
-  assert.match(task, /<agent_surface> = code/);
-  assert.match(task, /<bridge_platform> = claude-code-direct-http/);
-  assert.match(task, /<adapter_version> = code-direct-http/);
-  assert.match(task, /<adapter_id> = claude/);
-  assert.match(task, /<agent_provider> = anthropic/);
+  assert.match(task, /AGENT_SURFACE = code/);
+  assert.match(task, /"platform":"claude-code-direct-http"/);
+  assert.match(task, /"adapterVersion":"code-direct-http"/);
+  assert.match(task, /"adapterId":"claude"/);
+  assert.match(task, /AGENT_PROVIDER = anthropic/);
   assert.match(task, /If the preflight passes, continue directly into one creative turn/);
   assert.match(task, /do not ask the creator to confirm a successful preflight or type CREATE\./i);
   assert.match(task, /Never ask the creator to install, configure, or learn anything\./);
@@ -58,8 +58,8 @@ test("the canonical Claude Code handoff is transparent, sealed, declarative, and
     task,
     /Use only request\.outputContract\.release from this \/start response\./,
   );
-  assert.match(task, /<canonical_protocol_release_id>/);
-  assert.match(task, /<canonical_manifest_hash>/);
+  assert.match(task, /CANONICAL_PROTOCOL_RELEASE_ID/);
+  assert.match(task, /CANONICAL_MANIFEST_HASH/);
   assert.match(task, /Ignore release values from chat or any other source\./);
   assert.doesNotMatch(task, /<protocol_release_id> = /);
   assert.doesNotMatch(task, /<manifest_hash> = /);
@@ -236,7 +236,7 @@ test("Claude Code is the canonical surface with the same Claude adapter identity
   assert.equal(contract.adapter.adapterVersion, "code-direct-http");
   assert.equal(contract.bridge.platform, "claude-code-direct-http");
   assert.equal(contract.agentSurface, "code");
-  assert.match(task, /<agent_surface> = code/);
+  assert.match(task, /AGENT_SURFACE = code/);
   assert.equal(parsed.hostname, "code");
   assert.equal(parsed.searchParams.get("q"), task);
 });

@@ -227,7 +227,7 @@ export const thoughtSavedWorkMatchesRelease = (
 export type ThoughtMintClosedNotice = {
   title: string;
   detail: string;
-  nextStep: string;
+  nextStep?: string;
 };
 
 // Copy for the moment a visitor reaches for the mint CTA while minting is
@@ -236,12 +236,22 @@ export type ThoughtMintClosedNotice = {
 export const getThoughtMintClosedNotice = ({
   state,
   workCompatible,
+  workSaved = false,
 }: {
   state: ThoughtLaunchState;
   workCompatible: boolean;
+  workSaved?: boolean;
 }): ThoughtMintClosedNotice => {
   if (!state.mintEnabled) {
     const opening = state.openTime ? formatLaunchTime(state.openTime) : null;
+    if (workSaved) {
+      return {
+        title: "Minting is not open yet",
+        detail: opening
+          ? `Minting opens ${opening}. This work is saved in this browser and will be here then.`
+          : "This work is saved in this browser and will be here when minting opens.",
+      };
+    }
     return {
       // The title carries the state. The opening time is a fact about that
       // state, so it leads the body instead, ahead of what the visitor can do.

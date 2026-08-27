@@ -131,6 +131,7 @@ test("mint-closed notice answers the click instead of describing the surface", (
   const notice = getThoughtMintClosedNotice({
     state: deriveThoughtLaunchState({ deployment: null, readModel: null }),
     workCompatible: true,
+    workSaved: false,
   });
   assert.equal(notice.title, "Minting is not open yet");
   assert.equal(
@@ -159,6 +160,7 @@ test("mint-closed notice names the opening when the read model carries one", () 
   const notice = getThoughtMintClosedNotice({
     state,
     workCompatible: true,
+    workSaved: false,
   });
   // The state stays in the title; the opening time leads the body, ahead of
   // the action the visitor can take.
@@ -182,7 +184,42 @@ test("mint-closed notice explains stale work when minting is open", () => {
   const notice = getThoughtMintClosedNotice({
     state,
     workCompatible: false,
+    workSaved: false,
   });
   assert.equal(notice.title, "Run this work again first");
   assert.equal(notice.nextStep, "Run this work again with your Agent");
+});
+
+test("mint-closed notice does not ask to save an already saved work", () => {
+  const notice = getThoughtMintClosedNotice({
+    state: deriveThoughtLaunchState({ deployment: null, readModel: null }),
+    workCompatible: true,
+    workSaved: true,
+  });
+  assert.equal(notice.title, "Minting is not open yet");
+  assert.equal(
+    notice.detail,
+    "This work is saved in this browser and will be here when minting opens.",
+  );
+  assert.equal(notice.nextStep, undefined);
+  assert.doesNotMatch(`${notice.detail} ${notice.nextStep ?? ""}`, /next:|Save this work/i);
+});
+
+test("mint-closed saved notice keeps the scheduled opening without a redundant next step", () => {
+  const state = deriveThoughtLaunchState({
+    deployment,
+    readModel: readModel({
+      status: "countdown",
+      openTime: "2026-09-01T12:00:00.000Z",
+      observedAt: "2026-08-21T10:00:00.000Z",
+    }),
+    nowMs: Date.parse("2026-08-21T10:00:30.000Z"),
+  });
+  const notice = getThoughtMintClosedNotice({
+    state,
+    workCompatible: true,
+    workSaved: true,
+  });
+  assert.match(notice.detail, /^Minting opens .+\. This work is saved in this browser/);
+  assert.equal(notice.nextStep, undefined);
 });

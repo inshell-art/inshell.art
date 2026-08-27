@@ -38,6 +38,9 @@ jobs:
           fi
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Require reviewed real-agent evidence for production
+        if: ${{ github.event.pull_request.base.ref == 'main' || github.ref == 'refs/heads/main' }}
+        run: pnpm run check:release-evidence
       - name: Check public documentation
         run: pnpm run docs:check
       - name: Install Foundry

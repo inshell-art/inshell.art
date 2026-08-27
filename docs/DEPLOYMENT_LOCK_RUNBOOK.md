@@ -160,8 +160,8 @@ home and THOUGHT artifacts/API deployments where the workflow uses both.
 - Run the agreed four real Agent cells on the same candidate:
   Mac A × Codex/Claude; Mac B × Codex/Claude. Capture model/app versions, protocol
   and release identity, accepted return, preview result, and report status.
-  Reuse evidence only after an explicit impact review shows those inputs and
-  behavior are unchanged; never label a new candidate passed by assumption.
+  Never label a new candidate passed by assumption. The production gate below
+  permits evidence-only follow-up commits, not automatic reuse after source changes.
 - Manual deep-link launch/consent is separate browser evidence; an automated CLI
   cell does not prove the OS launch prompt. The operator approves native app
   opening/submission when required.
@@ -174,9 +174,65 @@ conversation is not a running monitor. Notify once with the verified URL/SHA.
 
 ## 6. Production approval — operator
 
+### Machine-enforced real-agent evidence
+
+`pnpm check:production` checks repository correctness; it does **not** certify a
+release. `pnpm check:release-evidence` is a separate fail-closed promotion gate.
+The required `build` job runs it for PRs targeting main and main builds. Both
+production Pages publish jobs repeat it. Staging remains deployable while evidence
+is being collected. The empty committed evidence record intentionally fails.
+
+After all source changes are committed, deploy the actual staging candidate and
+record its full SHA. Run Mac A and Mac B with both Codex and Claude Code against
+`https://preview.inshell.art`. Localhost tests are useful diagnostics, but do not
+establish public-host reachability. Record actual model/app/browser/OS versions;
+four cells qualify those combinations, not every model or operating system.
+
+After reviewing the results, fill `release-evidence/thought-canaries.json`:
+
+- `schema`: `inshell.thought.release-evidence.v1`;
+- `candidateCommit`: the full tested staging SHA;
+- `reviewedBy`, `reviewedAt`: the reviewer and ISO review timestamp;
+- `cells`: exactly `mac-a/codex`, `mac-a/claude`, `mac-b/codex`, `mac-b/claude`.
+
+Each cell records `machine`, `agent`, `testedCommit`, `mode: real-canary`,
+`execution: desktop-deep-link` or `cli`, `surface` (`code` for Claude),
+`state: returned`, unique `runId`, `taskSha256`, `receiptSha256`, `agentLineSha256`,
+`osVersion`, `appVersion`, `browserVersion`, `model`, `origin`, `completedAt`,
+`launchObserved: true`, and `previewObserved: true`.
+
+Copy run IDs and hashes from the real observer report. Record visible launch and
+preview observations separately: neither an accepted API return nor the observer's
+`launchSubmission` label proves those occurred. CLI runs need independent browser
+launch/preview evidence. Do not copy private session files, bearer credentials,
+deep-link URLs, prompts, or artwork into this record. Scan the sanitized record.
+This is reviewed operational evidence, not cryptographic provider attestation.
+
+Retain the original sanitized observer reports and browser evidence in the release
+review record for OPS to inspect; the checked-in summary does not replace them.
+The evidence file is an internal release record, not a public generated-docs input.
+Commit **only this evidence file** after qualification, then run:
+
+```sh
+pnpm check:release-evidence
+```
+
+The checker requires the tested commit to be available and every other file to
+match its content. A squash promotion is allowed only when its content is identical.
+Evidence-only commits avoid a circular commit hash. A source,
+lockfile, workflow, or documentation change invalidates qualification; freeze and
+test the combined candidate again. There is no automatic reuse/override path.
+Do not rewrite a tested SHA, observation, or model just to turn this gate green.
+An exceptional reuse policy needs a separately reviewed change, not a silent edit.
+
+OPS still verifies live deployment identity, bindings, public Agent API access,
+configuration differences, and rollback readiness. The source check cannot prove
+which artifact is actually served or that production environment values match
+staging. Review configuration-only changes even if the source check passes.
+
 Open the staging → main PR. Required production checks are build and gitleaks.
 Summarize exact changes, reference/policy state, staging evidence, all four cell
-results (or explicit approved reuse), operational checks, and rollback target.
+results, operational checks, and rollback target.
 
 Send the required readiness notice, then **wait for explicit operator approval**.
 No main merge, direct push, or production deployment because tests alone passed.

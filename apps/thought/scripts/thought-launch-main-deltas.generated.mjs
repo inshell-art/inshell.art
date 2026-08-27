@@ -363,6 +363,34 @@ const renderThoughtConsoleHistory = (state: ThoughtDockState) => {
     `    thoughtDetailStatus.textContent = "Studio Preview · Onchain THOUGHT details will appear here after minting opens.";`,
     `    thoughtDetailStatus.textContent = "Onchain THOUGHT details will appear when minting opens.";`,
   ]),
+  Object.freeze([
+    "launch state delta 181",
+    `  const notice = getThoughtMintClosedNotice({
+    state: thoughtLaunchState,
+    workCompatible: isCurrentWorkLaunchCompatible(),
+  });
+  emitThoughtConsoleEvent({
+    kind: "thought_launch_mint_closed",
+    title: notice.title,
+    detail: notice.detail,
+    nextStep: notice.nextStep,
+    tone: "warning",
+  });`,
+    `  const notice = getThoughtMintClosedNotice({
+    state: thoughtLaunchState,
+    workCompatible: isCurrentWorkLaunchCompatible(),
+    workSaved: currentWorkId !== null && Boolean(
+      getWorkById(readStoredThoughtWorks(), currentWorkId),
+    ),
+  });
+  emitThoughtConsoleEvent({
+    kind: "thought_launch_mint_closed",
+    title: notice.title,
+    detail: notice.detail,
+    ...(notice.nextStep ? { nextStep: notice.nextStep } : {}),
+    tone: "warning",
+  });`,
+  ]),
 ]);
 
 export const applyCurrentThoughtLaunchMainDeltas = (source, direction, replaceExactCount) => {

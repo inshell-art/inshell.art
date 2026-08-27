@@ -5007,12 +5007,15 @@ const noticeThoughtMintUnavailable = () => {
   const notice = getThoughtMintClosedNotice({
     state: thoughtLaunchState,
     workCompatible: isCurrentWorkLaunchCompatible(),
+    workSaved: currentWorkId !== null && Boolean(
+      getWorkById(readStoredThoughtWorks(), currentWorkId),
+    ),
   });
   emitThoughtConsoleEvent({
     kind: "thought_launch_mint_closed",
     title: notice.title,
     detail: notice.detail,
-    nextStep: notice.nextStep,
+    ...(notice.nextStep ? { nextStep: notice.nextStep } : {}),
     tone: "warning",
   });
 };

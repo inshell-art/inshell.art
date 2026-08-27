@@ -539,7 +539,9 @@ describe("Docs source editorial guardrails", () => {
       DOCS_SOURCE.topics.find(({ slug }) => slug === "pulse") as DocsTopic,
     );
 
-    expect(thought).toMatch(/sealed task/i);
+    expect(thought).toMatch(/bootstrap for one run, not the creative prompt itself/i);
+    expect(thought).toMatch(/after claim and readiness checks/i);
+    expect(thought).toMatch(/rejected protocol request is not a permission prompt/i);
     expect(thought).toMatch(/does not choose a \$PATH/i);
     expect(thought).toMatch(/direct mint/i);
     expect(thought).toMatch(/Unattested/i);

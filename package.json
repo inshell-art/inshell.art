@@ -8,6 +8,9 @@
     "node": ">=22"
   },
   "scripts": {
+    "check:dependency-security": "node scripts/check-dependency-security.mjs",
+    "check:release-evidence": "node scripts/check-release-evidence.mjs",
+    "test:release-readiness": "node --test scripts/release-readiness.test.mjs",
     "dev:home": "pnpm --filter @inshell/home dev",
     "dev:home:devnet": "pnpm --filter @inshell/home dev:devnet",
     "dev:thought": "pnpm --filter @inshell/thought dev",
@@ -27,7 +30,7 @@
     "build:thought:same-origin": "VITE_THOUGHT_ROUTE_BASE=/thought VITE_PATH_MINT_URL=/path VITE_THOUGHT_URL=/thought VITE_GALLERY_URL=/gallery VITE_THOUGHT_DETAIL_BASE_URL=/thought INSHELL_THOUGHT_USE_LOCKED_SURFACE=1 INSHELL_THOUGHT_OUT_DIR=../../dist/home/thought corepack pnpm --filter @inshell/thought build",
     "test": "pnpm --filter @inshell/home test && pnpm run test:thought-runtime",
     "test:fast": "pnpm --filter @inshell/home test:fast",
-    "test:presepolia": "pnpm --filter @inshell/home test:presepolia && pnpm run test:upstream-release-check && pnpm run test:agent-docs-generator",
+    "test:presepolia": "pnpm run check:dependency-security && pnpm run test:release-readiness && pnpm --filter @inshell/home test:presepolia && pnpm run test:upstream-release-check && pnpm run test:agent-docs-generator",
     "check:upstream-releases": "node scripts/check-upstream-releases.mjs",
     "check:path-upstream": "node scripts/check-upstream-releases.mjs --only path",
     "check:thought-upstream": "node scripts/check-upstream-releases.mjs --only thought",
@@ -52,7 +55,7 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "type-check": "tsc --noEmit && pnpm --filter @inshell/home type-check:source",
     "check": "pnpm run docs:check && pnpm run test:agent-docs-generator && pnpm run check:upstream-releases && pnpm run test:upstream-release-check && pnpm run pub-boundary:check && pnpm run check:path-contract-release && pnpm run check:thought-v2-artifact && pnpm run check:thought-v2-protocol && pnpm run check:thought-v2-contract-release && pnpm run check:thought-app-contract && pnpm run lint && pnpm run type-check && pnpm run test:unit && pnpm run test:thought-runtime",
-    "check:production": "pnpm run docs:check && pnpm run test:agent-docs-generator && pnpm run check:upstream-releases && pnpm run pub-boundary:check && pnpm run check:path-contract-release && pnpm run check:thought-v2-artifact && pnpm run check:thought-v2-protocol && pnpm run check:thought-v2-contract-release && pnpm run check:thought-app-contract && pnpm run check:thought-production-readiness && pnpm run check:deployment && pnpm run lint && pnpm run type-check && pnpm run test:unit && pnpm run test:thought-runtime && pnpm run build:home && pnpm run build:thought && git diff --check",
+    "check:production": "pnpm run check:dependency-security && pnpm run test:release-readiness && pnpm run docs:check && pnpm run test:agent-docs-generator && pnpm run check:upstream-releases && pnpm run pub-boundary:check && pnpm run check:path-contract-release && pnpm run check:thought-v2-artifact && pnpm run check:thought-v2-protocol && pnpm run check:thought-v2-contract-release && pnpm run check:thought-app-contract && pnpm run check:thought-production-readiness && pnpm run check:deployment && pnpm run lint && pnpm run type-check && pnpm run test:unit && pnpm run test:thought-runtime && pnpm run build:home && pnpm run build:thought && git diff --check",
     "check:thought-production-readiness": "node scripts/check-thought-production-readiness.mjs",
     "check:detail-surface-contract": "node scripts/check-detail-surface-contract.mjs",
     "check:thought-root-surface": "node scripts/check-thought-root-surface-contract.mjs",
