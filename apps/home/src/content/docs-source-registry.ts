@@ -98,6 +98,7 @@ export const DOCS_SOURCE_REGISTRY = {
         "scripts/check-upstream-releases.mjs",
         "scripts/check-release-evidence.mjs",
         "scripts/check-dependency-security.mjs",
+        "scripts/check-workspace-dependency-isolation.mjs",
         "scripts/check-detail-surface-contract.mjs",
         "scripts/check-thought-root-surface-contract.mjs",
       ],

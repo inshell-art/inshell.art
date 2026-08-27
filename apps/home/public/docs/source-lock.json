@@ -11,14 +11,14 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "9e2989e6127248fbd9d0205e92d028848dc714bc1d8625452bd3cf16a73330de",
+  "sourceTreeSha256": "f9d36a1eeeeb42b642f97978b9514021de1af722a3641d5af75382afa1d18d89",
   "groups": [
     {
       "id": "public-docs",
       "title": "Public documentation sources",
       "owner": "inshell.art docs",
       "reason": "Human articles, Agent-readable content, authority maps, and machine-handoff selection.",
-      "groupSha256": "de51710211ece8525455f943213d2964b59fae29ee7857e4e17b200cf2b504c9",
+      "groupSha256": "b7de22d0bdb531131d2823462b6a5b9648c89fa3b2eae8e3a24d343c6cf88e3f",
       "files": [
         {
           "path": "apps/home/src/content/AGENTS.md",
@@ -32,13 +32,13 @@
         },
         {
           "path": "apps/home/src/content/docs-source-registry.ts",
-          "byteLength": 8184,
-          "sha256": "6da1324a73f41b13480e51dff34f42e45e40b03a79cbe99730f6f60b7e4aa0f6"
+          "byteLength": 8244,
+          "sha256": "a54e168d999326e98795a8adbc7668e02b92f5d7f05ef292f3e403b5efa6e8b6"
         },
         {
           "path": "apps/home/src/content/docs.ts",
-          "byteLength": 177715,
-          "sha256": "0590bdf3487e2efb632173c570e3a18b20cd8b10de6b782c1e6dfd1d34467ecc"
+          "byteLength": 178033,
+          "sha256": "1f929fe718bbea5b8d2f07033f4eb568a5725e0fe87cd5a26fc28ffb5b670dd7"
         },
         {
           "path": "apps/home/src/content/thought-machine-handoff.ts",
@@ -67,7 +67,7 @@
       "title": "Home, $PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "e359f07a45b3b89f5db90b397ee4f63ca0f97f4bad6ef5abafd36f546f1575f7",
+      "groupSha256": "f6b5b17b64d869e363b6eae1ff10a0c2d79511ccb2fdb464e06bfd40a67ef5ec",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -326,8 +326,8 @@
         },
         {
           "path": "apps/home/vite.config.ts",
-          "byteLength": 4796,
-          "sha256": "ed8aad5b8aafb76a3853679b4448a361ec891268deb8647b06caac2d9c532d57"
+          "byteLength": 4851,
+          "sha256": "ed2ef00f389c959a715f8b9636bd60e1a2d8b7b5e7ef191c1d8df4cad38503ab"
         }
       ]
     },
@@ -590,7 +590,7 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "1e2f36ec35be7dc3d875708424a156852f0e65711e7c7ab6eea3b9722601dec4",
+      "groupSha256": "f4f837304d1a9c126ebea94643d66ae7a5aa42a20a73195dd07577b17a60e9bc",
       "files": [
         {
           "path": ".github/workflows/deploy-pages.yml",
@@ -619,8 +619,8 @@
         },
         {
           "path": "package.json",
-          "byteLength": 12380,
-          "sha256": "c2ee8407c4b9cc68a2c21167cfb3f2c8fba21b206990f5613985dd55adca9f12"
+          "byteLength": 12726,
+          "sha256": "a268a85da77fe1f9efb2aa7f2a09b39d11c30d09cf63e37affe02f2668790567"
         },
         {
           "path": "scripts/check-dependency-security.mjs",
@@ -646,6 +646,11 @@
           "path": "scripts/check-upstream-releases.mjs",
           "byteLength": 6265,
           "sha256": "049aa0560fd85ae91a7597e3ae8ca4054a3a8498935cbfcc8c62216febb5ecbc"
+        },
+        {
+          "path": "scripts/check-workspace-dependency-isolation.mjs",
+          "byteLength": 2845,
+          "sha256": "54d4bff1f646c03a79fcbff4133a8b0cbe972e5417144515eaf60b8ce63c3086"
         }
       ]
     },
@@ -654,7 +659,7 @@
       "title": "Wallet boundary",
       "owner": "inshell.art shared App infrastructure",
       "reason": "Public docs distinguish passive wallet reads from signatures and transactions.",
-      "groupSha256": "3fe617ac698a19dc66f66e634b1c963b6e36b6934d38e21fcddbc1f6383b3645",
+      "groupSha256": "8ace1f3901e2076a5668530fa50d2dc4f89d5fe1febfa0cd7c2de27e7872d0b4",
       "files": [
         {
           "path": "packages/inshell-shell/src/index.tsx",
@@ -688,8 +693,8 @@
         },
         {
           "path": "packages/wallet/src/index.tsx",
-          "byteLength": 28920,
-          "sha256": "d6471fc980e3f2f3383259f84dfe8811ecc8e29512c93cbffa9e5f510ec6a362"
+          "byteLength": 23795,
+          "sha256": "b28436491ec1f04f48ed79c8a9bd186f839182aa92db8e0dd6598ab543b3861f"
         }
       ]
     },
@@ -698,7 +703,7 @@
       "title": "Shared product runtime",
       "owner": "inshell.art shared App infrastructure",
       "reason": "Shared Ethereum, surface, utility, and Agent-protocol code used by public routes.",
-      "groupSha256": "e836338efb4c054c1355bb2ce801d4054a795e700563cd88c6e209e226e50a6d",
+      "groupSha256": "dc70c259f1d95bf822dba0138056b3f931cc23936edc94495dd8d553ea9bbd3b",
       "files": [
         {
           "path": "packages/ethereum/src/abi.ts",
@@ -732,8 +737,8 @@
         },
         {
           "path": "packages/shared/src/pagesBuildEnv.ts",
-          "byteLength": 1237,
-          "sha256": "59d17ba3b798c72c5c1ed2fe864507b014c7428aeb91d3ed4ce21256025795ea"
+          "byteLength": 1489,
+          "sha256": "a08e641764471f8e56b2f6c6b9fbcbfbad629a734d0e4a7fa3b219d676c7ae12"
         },
         {
           "path": "packages/shared/src/pathMintReturn.ts",
@@ -1039,7 +1044,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "a374a9b374035d48a4f0fac2454068013a44ba18c59004b18c8de05da2739bf5",
+      "groupSha256": "7bb8987bcf1f8ac2e75b6c6b4bc1c5d81f73bb7fd753774ed633c405a86d572a",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1103,8 +1108,8 @@
         },
         {
           "path": "apps/thought/scripts/thought-launch-main-deltas.generated.mjs",
-          "byteLength": 82109,
-          "sha256": "a8faaaeb59add082b5f7d40a742c5ff67f4178a9d25d5a70257006fa9d5e541b"
+          "byteLength": 90230,
+          "sha256": "d284268b73c6a9d87d8c8ae192ec8d940fdd2543c2d2aafde994890edb963091"
         },
         {
           "path": "apps/thought/src/color-font-doc.ts",
@@ -1118,8 +1123,8 @@
         },
         {
           "path": "apps/thought/src/main.ts",
-          "byteLength": 757313,
-          "sha256": "60fd34bb2007b58c4131d6361a1bc6b972192caec0415df3e475e3930c062c7d"
+          "byteLength": 758254,
+          "sha256": "8297f22747ea944b3fcc94f86a791907fca9e28d0e35082cc60b3652edd51a05"
         },
         {
           "path": "apps/thought/src/rpc-provider.ts",
@@ -1343,8 +1348,8 @@
         },
         {
           "path": "apps/thought/vite.config.ts",
-          "byteLength": 69554,
-          "sha256": "dd45ecfe26eb229ad0d60d577b501199f3822537383ec1570e4fff6e0281419b"
+          "byteLength": 69609,
+          "sha256": "134d369227c17652e7c8e2d9a256c5603323bbb0e394a689e202fda24d5cf3f8"
         },
         {
           "path": "docs/DEPLOYMENT_LOCK_RUNBOOK.md",

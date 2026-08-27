@@ -5,7 +5,6 @@ import React, {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import {
@@ -51,29 +50,6 @@ function getEnv(name: string): any {
 }
 
 let walletConnectConfigWarningShown = false;
-const INSHELL_WALLET_SOFT_DISCONNECT_KEY = "inshell.wallet.soft-disconnected.v1";
-
-function isWalletSoftDisconnected() {
-  if (typeof window === "undefined") return false;
-  try {
-    return window.sessionStorage.getItem(INSHELL_WALLET_SOFT_DISCONNECT_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function setWalletSoftDisconnected(disconnected: boolean) {
-  if (typeof window === "undefined") return;
-  try {
-    if (disconnected) {
-      window.sessionStorage.setItem(INSHELL_WALLET_SOFT_DISCONNECT_KEY, "1");
-    } else {
-      window.sessionStorage.removeItem(INSHELL_WALLET_SOFT_DISCONNECT_KEY);
-    }
-  } catch {
-    /* Wallet state still works when browser storage is unavailable. */
-  }
-}
 
 function warnMissingWalletConnectProjectId() {
   const isProduction = getEnv("PROD") === true || getEnv("MODE") === "production";
@@ -291,7 +267,6 @@ export function WalletProvider({ children }: WalletProviderProps) {
   const [evmProviderLabel, setEvmProviderLabel] = useState<string | null>(null);
   const [connectStatus, setConnectStatus] = useState("idle");
   const [connectError, setConnectError] = useState<unknown>(null);
-  const walletConnectRestoreRef = useRef<Promise<void> | null>(null);
 
   const refreshConnectors = useCallback(async () => {
     const discovered = await discoverEip6963Providers();
@@ -407,140 +382,6 @@ export function WalletProvider({ children }: WalletProviderProps) {
     []
   );
 
-  const restoreWalletConnectV2 = useCallback(async (options?: { force?: boolean }) => {
-    if (
-      activeProvider ||
-      evmAddress ||
-      (!options?.force && connectStatus === "connecting") ||
-      !readWalletConnectProjectId(getEnv)
-    ) {
-      return;
-    }
-    if (walletConnectRestoreRef.current) {
-      await walletConnectRestoreRef.current;
-      return;
-    }
-    const task = (async () => {
-      try {
-        const wcProvider = await createConfiguredWalletConnectProvider(false);
-        if (!(wcProvider as any)?.session) return;
-        const accountsRaw = (await wcProvider.request({
-          method: "eth_accounts",
-        })) as unknown;
-        const accounts = Array.isArray(accountsRaw)
-          ? accountsRaw.map((item) => String(item))
-          : [];
-        if (!accounts[0]) return;
-        const chainIdRaw = await wcProvider.request({ method: "eth_chainId" });
-        setWalletConnectProvider(wcProvider);
-        setConnectedState(
-          wcProvider,
-          {
-            address: accounts[0],
-            chainId: parseChainId(chainIdRaw),
-          },
-          "WalletConnect"
-        );
-        trackWalletAnalytics("wallet_connect_succeeded", {
-          walletKind: "walletconnect",
-          walletStage: "restored",
-        });
-      } catch {
-        /* A missing/restoring session is non-fatal and must not block connect. */
-      }
-    })();
-    walletConnectRestoreRef.current = task;
-    try {
-      await task;
-    } finally {
-      walletConnectRestoreRef.current = null;
-    }
-  }, [
-    activeProvider,
-    connectStatus,
-    createConfiguredWalletConnectProvider,
-    evmAddress,
-    setConnectedState,
-  ]);
-
-  useEffect(() => {
-    void restoreWalletConnectV2();
-  }, [restoreWalletConnectV2]);
-
-  useEffect(() => {
-    if (
-      activeProvider ||
-      evmAddress ||
-      connectStatus === "connecting" ||
-      evmProviders.length === 0 ||
-      isWalletSoftDisconnected()
-    ) {
-      return;
-    }
-
-    let stopped = false;
-    const timer = window.setTimeout(() => {
-      void (async () => {
-        for (const detail of evmProviders) {
-          try {
-            const accountsRaw = await detail.provider.request({ method: "eth_accounts" });
-            const accounts = Array.isArray(accountsRaw)
-              ? accountsRaw.map((item) => String(item))
-              : [];
-            if (!accounts[0] || stopped) continue;
-            const chainIdRaw = await detail.provider.request({ method: "eth_chainId" });
-            if (stopped) return;
-            setConnectedState(
-              detail.provider,
-              {
-                address: accounts[0],
-                chainId: parseChainId(chainIdRaw),
-              },
-              detail.info.name || "Injected"
-            );
-            return;
-          } catch {
-            /* Try the next previously authorized injected provider. */
-          }
-        }
-      })();
-    }, 300);
-
-    return () => {
-      stopped = true;
-      window.clearTimeout(timer);
-    };
-  }, [activeProvider, connectStatus, evmAddress, evmProviders, setConnectedState]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const restoreTimers = new Set<number>();
-    const scheduleRestore = (delayMs: number) => {
-      const timer = window.setTimeout(() => {
-        restoreTimers.delete(timer);
-        if (document.visibilityState === "hidden") return;
-        void restoreWalletConnectV2({ force: true });
-      }, delayMs);
-      restoreTimers.add(timer);
-    };
-    const onFocusOrVisible = () => {
-      if (document.visibilityState === "hidden") return;
-      void restoreWalletConnectV2({ force: true });
-      scheduleRestore(500);
-      scheduleRestore(2000);
-    };
-    window.addEventListener("focus", onFocusOrVisible);
-    window.addEventListener("pageshow", onFocusOrVisible);
-    document.addEventListener("visibilitychange", onFocusOrVisible);
-    return () => {
-      for (const timer of restoreTimers) window.clearTimeout(timer);
-      restoreTimers.clear();
-      window.removeEventListener("focus", onFocusOrVisible);
-      window.removeEventListener("pageshow", onFocusOrVisible);
-      document.removeEventListener("visibilitychange", onFocusOrVisible);
-    };
-  }, [restoreWalletConnectV2]);
-
   const connectEip1193 = useCallback(async () => {
     setConnectStatus("connecting");
     trackWalletAnalytics("wallet_connect_started", {
@@ -636,7 +477,6 @@ export function WalletProvider({ children }: WalletProviderProps) {
     setEvmProviderLabel(null);
     setConnectError(null);
     setConnectStatus("idle");
-    setWalletSoftDisconnected(true);
   }, [walletConnectProvider]);
 
   const connectors = useMemo<WalletConnector[]>(() => {
@@ -660,7 +500,6 @@ export function WalletProvider({ children }: WalletProviderProps) {
 
   const connectAsync = useCallback(
     async (args?: { connector?: WalletConnector }) => {
-      setWalletSoftDisconnected(false);
       const connector = args?.connector;
       if (connector?.kind === "walletconnect") {
         return connectWalletConnectV2();

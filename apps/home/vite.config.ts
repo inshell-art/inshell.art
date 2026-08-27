@@ -4,7 +4,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { RollupLog, RollupLogHandler } from "rollup";
-import { resolvePagesBuildDeploymentEnv } from "../../packages/shared/src/pagesBuildEnv";
+import {
+  resolvePagesBuildDeploymentEnv,
+  sortPagesBuildPublicEnv,
+} from "../../packages/shared/src/pagesBuildEnv";
 
 function ignoreKnownRollupWarnings(warning: RollupLog, warn: RollupLogHandler) {
   if (
@@ -84,11 +87,11 @@ export default defineConfig(({ command, mode }) => {
       processPublicEnv.VITE_DEPLOY_ENV ?? loadedEnv.VITE_DEPLOY_ENV,
     pagesBranch: process.env.CF_PAGES_BRANCH,
   });
-  const publicEnv = {
+  const publicEnv = sortPagesBuildPublicEnv({
     ...loadedEnv,
     ...processPublicEnv,
     ...(deployEnv ? { VITE_DEPLOY_ENV: deployEnv } : {}),
-  };
+  });
   const thoughtAppOrigin = readThoughtAppOrigin();
   const localThoughtRuntime = readLocalThoughtRuntime(
     workspaceRoot,

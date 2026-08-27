@@ -391,6 +391,261 @@ const renderThoughtConsoleHistory = (state: ThoughtDockState) => {
     tone: "warning",
   });`,
   ]),
+  Object.freeze([
+    "launch state delta 182",
+    `  void refreshWalletState().then(() => {
+    syncInterface();
+  });`,
+    `  // Wallet state changes only after an explicit wallet action.`,
+  ]),
+  Object.freeze([
+    "launch state delta 183",
+    `let mintSheetTertiaryAction: MintSheetAction = "none";
+let lastMintSheetFocusRefreshAt = 0;`,
+    `let mintSheetTertiaryAction: MintSheetAction = "none";`,
+  ]),
+  Object.freeze([
+    "launch state delta 184",
+    `const refreshWalletState = async () => {`,
+    `type RefreshWalletStateOptions = Readonly<{
+  queryInjectedProvider?: boolean;
+  refreshPreflight?: boolean;
+  injectedAccounts?: unknown;
+  injectedChainId?: unknown;
+}>;
+
+const parseWalletChainId = (value: unknown) => {
+  if (typeof value !== "string" || value.length === 0) return null;
+  try {
+    return Number(BigInt(value));
+  } catch {
+    return null;
+  }
+};
+
+const refreshWalletState = async (options: RefreshWalletStateOptions = {}) => {`,
+  ]),
+  Object.freeze([
+    "launch state delta 185",
+    `  } else {
+    try {
+      const [accounts, chainHex] = await Promise.all([
+        ethereum.request({ method: "eth_accounts" }),
+        ethereum.request({ method: "eth_chainId" }),
+      ]);
+
+      walletState.address =
+        Array.isArray(accounts) && typeof accounts[0] === "string" ? accounts[0] : "";
+      walletState.chainId =
+        typeof chainHex === "string" && chainHex.length > 0 ? Number(BigInt(chainHex)) : null;
+    } catch {
+      walletState.address = "";
+      walletState.chainId = null;
+    }
+  }
+
+  const walletContextChanged =`,
+    `  } else if (options.queryInjectedProvider) {
+    try {
+      const [accounts, chainHex] = await Promise.all([
+        ethereum.request({ method: "eth_accounts" }),
+        ethereum.request({ method: "eth_chainId" }),
+      ]);
+
+      walletState.address =
+        Array.isArray(accounts) && typeof accounts[0] === "string" ? accounts[0] : "";
+      walletState.chainId = parseWalletChainId(chainHex);
+    } catch {
+      walletState.address = "";
+      walletState.chainId = null;
+    }
+  } else {
+    if (Object.prototype.hasOwnProperty.call(options, "injectedAccounts")) {
+      walletState.address = extractPrimaryAccount(options.injectedAccounts);
+    }
+    if (Object.prototype.hasOwnProperty.call(options, "injectedChainId")) {
+      walletState.chainId = parseWalletChainId(options.injectedChainId);
+    }
+  }
+
+  const walletContextChanged =`,
+  ]),
+  Object.freeze([
+    "launch state delta 186",
+    `  walletStateHydrated = true;
+  await refreshMintPreflight();
+};`,
+    `  walletStateHydrated = true;
+  if (options.refreshPreflight) {
+    await refreshMintPreflight();
+  } else {
+    if (walletContextChanged) {
+      walletState.balance = null;
+      walletState.preflightLoading = false;
+      walletState.preflightError = "";
+    }
+    syncPrimaryCtaAvailability();
+    syncWalletMenu();
+  }
+};`,
+  ]),
+  Object.freeze([
+    "launch state delta 187",
+    `  await refreshWalletState();
+  if (walletState.address && walletState.chainId === THOUGHT_CHAIN_ID) {`,
+    `  await refreshWalletState({ queryInjectedProvider: true, refreshPreflight: true });
+  if (walletState.address && walletState.chainId === THOUGHT_CHAIN_ID) {`,
+  ]),
+  Object.freeze([
+    "launch state delta 188",
+    `    (mintFlowState === "error" && isPathRecoveryError());
+
+  await refreshWalletState();
+  syncMintFlowAfterWalletCommand();`,
+    `    (mintFlowState === "error" && isPathRecoveryError());
+
+  await refreshWalletState({ queryInjectedProvider: true, refreshPreflight: true });
+  syncMintFlowAfterWalletCommand();`,
+  ]),
+  Object.freeze([
+    "launch state delta 189",
+    `  const handleWalletChange = () => {
+    void refreshWalletState().then(() => {
+      syncInterface();
+    });
+  };
+
+  providers.forEach((provider) => {
+    provider.on?.("accountsChanged", handleWalletChange);
+    provider.on?.("chainChanged", handleWalletChange);
+  });`,
+    `  providers.forEach((provider) => {
+    provider.on?.("accountsChanged", (accounts) => {
+      if (provider !== getEthereumProvider() || !walletState.address) return;
+      void refreshWalletState({ injectedAccounts: accounts }).then(() => {
+        syncInterface();
+      });
+    });
+    provider.on?.("chainChanged", (chainId) => {
+      if (provider !== getEthereumProvider() || !walletState.address) return;
+      void refreshWalletState({ injectedChainId: chainId }).then(() => {
+        syncInterface();
+      });
+    });
+  });`,
+  ]),
+  Object.freeze([
+    "launch state delta 190",
+    `      await refreshWalletState();
+      if (!walletState.address) {`,
+    `      await refreshWalletState({ queryInjectedProvider: true, refreshPreflight: true });
+      if (!walletState.address) {`,
+  ]),
+  Object.freeze([
+    "launch state delta 191",
+    `      if (!detectedAccount) {
+        const requestedAccount = await requestAccounts;
+        if (!requestedAccount && requestError) {
+          throw requestError;
+        }
+      }
+    }
+
+    await refreshWalletState();
+
+    if (!walletState.address) {`,
+    `      if (!detectedAccount) {
+        const requestedAccount = await requestAccounts;
+        if (!requestedAccount && requestError) {
+          throw requestError;
+        }
+      }
+    }
+
+    await refreshWalletState({ queryInjectedProvider: true, refreshPreflight: true });
+
+    if (!walletState.address) {`,
+  ]),
+  Object.freeze([
+    "launch state delta 192",
+    `  await refreshWalletState();
+  if (walletState.chainId !== THOUGHT_CHAIN_ID) {`,
+    `  await refreshWalletState({ queryInjectedProvider: true, refreshPreflight: true });
+  if (walletState.chainId !== THOUGHT_CHAIN_ID) {`,
+  ]),
+  Object.freeze([
+    "launch state delta 193",
+    `    mintFlowData.pathId = parsePathTokenId(mintFlowData.pathIdInput);
+    await refreshWalletState();
+    const pathSelectionReady = moveMintFlowToWalletOrPathSelection();`,
+    `    mintFlowData.pathId = parsePathTokenId(mintFlowData.pathIdInput);
+    await refreshWalletState({ queryInjectedProvider: true, refreshPreflight: true });
+    const pathSelectionReady = moveMintFlowToWalletOrPathSelection();`,
+  ]),
+  Object.freeze([
+    "launch state delta 194",
+    `  const ethereum = getEthereumProvider();
+  if (!ethereum) {
+    mintFlowState = "wallet_required";
+    recordCurrentMintConsoleState();
+    syncInterface();
+    focusMintDockStage();
+    return;
+  }
+
+  await refreshWalletState();
+  if (isTerminalMintFlowState(mintFlowState)) {`,
+    `  const ethereum = getEthereumProvider();
+  if (!ethereum) {
+    mintFlowState = "wallet_required";
+    recordCurrentMintConsoleState();
+    syncInterface();
+    focusMintDockStage();
+    return;
+  }
+
+  await refreshWalletState({ queryInjectedProvider: true, refreshPreflight: true });
+  if (isTerminalMintFlowState(mintFlowState)) {`,
+  ]),
+  Object.freeze([
+    "launch state delta 195",
+    `const listCliPaths = async () => {
+  await withCliLoading("loading...", async () => {
+    await refreshWalletState();`,
+    `const listCliPaths = async () => {
+  await withCliLoading("loading...", async () => {
+    await refreshWalletState({ queryInjectedProvider: true, refreshPreflight: true });`,
+  ]),
+  Object.freeze([
+    "launch state delta 196",
+    `  resumeConflictingMintReceiptMonitoring();
+  const canSoftRefresh =
+    mintFlowState === "path_required" ||
+    mintFlowState === "path_ready" ||
+    (mintFlowState === "error" && isPathRecoveryError());
+
+  if (
+    !canSoftRefresh ||
+    !walletState.address ||
+    Date.now() - lastMintSheetFocusRefreshAt < 8000
+  ) {
+    return;
+  }
+
+  lastMintSheetFocusRefreshAt = Date.now();
+  void refreshWalletState().then(async () => {
+    if (!walletState.address || walletState.chainId !== THOUGHT_CHAIN_ID) return;
+    await refreshPathInventoryForCurrentWallet({ force: true });
+    if (canContinueWithPathInput() && mintFlowState !== "authorizing" && mintFlowState !== "minting") {
+      await checkPathEligibility();
+    }
+  });
+});
+document.addEventListener("visibilitychange", () => {`,
+    `  resumeConflictingMintReceiptMonitoring();
+});
+document.addEventListener("visibilitychange", () => {`,
+  ]),
 ]);
 
 export const applyCurrentThoughtLaunchMainDeltas = (source, direction, replaceExactCount) => {

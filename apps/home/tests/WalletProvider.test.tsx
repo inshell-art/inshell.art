@@ -3,6 +3,19 @@ import { afterEach, beforeEach, describe, expect, jest, test } from "@jest/globa
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
+const mockCreateWalletConnectEthereumProvider = jest.fn();
+
+jest.mock("../../../packages/wallet/src/evm", () => {
+  const actual = jest.requireActual<typeof import("../../../packages/wallet/src/evm")>(
+    "../../../packages/wallet/src/evm"
+  );
+  return {
+    ...actual,
+    createWalletConnectEthereumProvider: (...args: unknown[]) =>
+      mockCreateWalletConnectEthereumProvider(...args),
+  };
+});
+
 import {
   EIP6963_ANNOUNCE_EVENT,
   EIP6963_REQUEST_EVENT,
@@ -46,9 +59,9 @@ function ConnectorHarness() {
 
 describe("WalletProvider", () => {
   beforeEach(() => {
+    mockCreateWalletConnectEthereumProvider.mockReset();
     window.localStorage.clear();
     window.sessionStorage.clear();
-    window.sessionStorage.setItem("inshell.wallet.soft-disconnected.v1", "1");
   });
 
   afterEach(() => {
@@ -111,6 +124,53 @@ describe("WalletProvider", () => {
     window.removeEventListener(EIP6963_REQUEST_EVENT, onProviderRequest);
   });
 
+  test("discovers a late EIP-6963 wallet without querying it", async () => {
+    const request = connectRequestMock();
+
+    const view = render(
+      <WalletProvider>
+        <ConnectorHarness />
+      </WalletProvider>
+    );
+
+    act(() => {
+      window.dispatchEvent(
+        new globalThis.CustomEvent(EIP6963_ANNOUNCE_EVENT, {
+          detail: {
+            info: {
+              uuid: "late-rabby-no-query",
+              name: "Rabby Wallet",
+              rdns: "io.rabby",
+            },
+            provider: {
+              isRabby: true,
+              isMetaMask: true,
+              on: jest.fn(),
+              removeListener: jest.fn(),
+              request,
+            },
+          },
+        })
+      );
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "connect Rabby Wallet" })
+      ).toBeInTheDocument();
+    });
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 450));
+      window.dispatchEvent(new globalThis.Event("focus"));
+      window.dispatchEvent(new globalThis.Event("pageshow"));
+      document.dispatchEvent(new globalThis.Event("visibilitychange"));
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+    });
+
+    expect(request).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
   test("selecting dual-flag Rabby sends connection requests only to Rabby", async () => {
     const metamaskRequest = connectRequestMock(METAMASK_ADDRESS);
     const rabbyRequest = connectRequestMock();
@@ -149,6 +209,113 @@ describe("WalletProvider", () => {
       "eth_chainId",
     ]);
     expect(metamaskRequest).not.toHaveBeenCalled();
+  });
+
+  test.each(["/", "/path", "/thought", "/gallery"])(
+    "does not request provider state while %s is passive",
+    async (pathname) => {
+      window.history.replaceState({}, "", pathname);
+      const request = connectRequestMock();
+      (window as typeof window & { ethereum?: unknown }).ethereum = {
+        isRabby: true,
+        isMetaMask: true,
+        on: jest.fn(),
+        removeListener: jest.fn(),
+        request,
+      };
+
+      const view = render(
+        <WalletProvider>
+          <ConnectorHarness />
+        </WalletProvider>
+      );
+
+      await act(async () => {
+        await new Promise((resolve) => window.setTimeout(resolve, 450));
+        window.dispatchEvent(new globalThis.Event("focus"));
+        window.dispatchEvent(new globalThis.Event("pageshow"));
+        document.dispatchEvent(new globalThis.Event("visibilitychange"));
+        await new Promise((resolve) => window.setTimeout(resolve, 50));
+      });
+
+      expect(request).not.toHaveBeenCalled();
+      expect(screen.getByTestId("wallet-address")).toHaveTextContent("none");
+      view.unmount();
+    }
+  );
+
+  test("requests accounts only after the visitor selects an injected wallet", async () => {
+    const request = connectRequestMock();
+    (window as typeof window & { ethereum?: unknown }).ethereum = {
+      isRabby: true,
+      isMetaMask: true,
+      on: jest.fn(),
+      removeListener: jest.fn(),
+      request,
+    };
+
+    render(
+      <WalletProvider>
+        <ConnectorHarness />
+      </WalletProvider>
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 450));
+      window.dispatchEvent(new globalThis.Event("focus"));
+      window.dispatchEvent(new globalThis.Event("pageshow"));
+      document.dispatchEvent(new globalThis.Event("visibilitychange"));
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+    });
+    expect(request).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "connect Rabby" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("wallet-address")).toHaveTextContent(RABBY_ADDRESS);
+    });
+    expect(request.mock.calls.map(([request]) => request.method)).toEqual([
+      "eth_requestAccounts",
+      "eth_chainId",
+    ]);
+  });
+
+  test("initializes WalletConnect only after the visitor selects it", async () => {
+    const request = connectRequestMock();
+    mockCreateWalletConnectEthereumProvider.mockResolvedValue({
+      on: jest.fn(),
+      removeListener: jest.fn(),
+      request,
+    });
+
+    render(
+      <WalletProvider>
+        <ConnectorHarness />
+      </WalletProvider>
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 450));
+      window.dispatchEvent(new globalThis.Event("focus"));
+      window.dispatchEvent(new globalThis.Event("pageshow"));
+      document.dispatchEvent(new globalThis.Event("visibilitychange"));
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+    });
+    expect(mockCreateWalletConnectEthereumProvider).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "connect WalletConnect" })
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("wallet-address")).toHaveTextContent(RABBY_ADDRESS);
+    });
+    expect(mockCreateWalletConnectEthereumProvider).toHaveBeenCalledTimes(1);
+    expect(request.mock.calls.map(([request]) => request.method)).toEqual([
+      "eth_requestAccounts",
+      "eth_chainId",
+    ]);
   });
 
   test("ensureWalletConnected maps an EIP-1193 4001 rejection to cancelled", async () => {
@@ -232,29 +399,6 @@ describe("WalletProvider", () => {
 
     expect(screen.getByTestId("wallet-address")).toHaveTextContent(NEXT_ADDRESS);
     expect(screen.getByTestId("wallet-chain")).toHaveTextContent("31338");
-  });
-
-  test("soft disconnect suppresses authorized injected-wallet auto-restore", async () => {
-    const rabbyRequest = connectRequestMock();
-    (window as typeof window & { ethereum?: unknown }).ethereum = {
-      isRabby: true,
-      isMetaMask: true,
-      on: jest.fn(),
-      removeListener: jest.fn(),
-      request: rabbyRequest,
-    };
-
-    render(
-      <WalletProvider>
-        <ConnectorHarness />
-      </WalletProvider>
-    );
-    await act(async () => {
-      await new Promise((resolve) => window.setTimeout(resolve, 450));
-    });
-
-    expect(rabbyRequest).not.toHaveBeenCalled();
-    expect(screen.getByTestId("wallet-address")).toHaveTextContent("none");
   });
 
   test("ensureWalletConnected fails closed on account and chain mismatch", async () => {

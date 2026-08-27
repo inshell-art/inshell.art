@@ -1617,11 +1617,11 @@ A valid proof can establish that certain bytes, hashes, addresses, or signatures
 
 - Authority: app-documentation
 
-When an approved deployment is available, the shell wallet menu reads the current account and network. Its Refresh action updates wallet and [$PATH](https://inshell.art/docs/path) inventory reads. Opening the menu itself never asks for a signature or transaction.
+Loading a page or opening the shell wallet menu does not initialize WalletConnect or query an account or network. Account access begins only after a visitor selects Connect and chooses a wallet. After connection, the explicit Refresh action can update the cached account, network, and [$PATH](https://inshell.art/docs/path) inventory.
 
 Product CTAs open wallet requests only when an action needs one: connect, mint $PATH, sign a one-mint $PATH permission, or mint [THOUGHT](https://inshell.art/docs/thought). Canceling a wallet request submits nothing.
 
-Without an approved deployment, Connect wallet opens guidance toward THOUGHT creation rather than a wallet connection. Mint on an accepted THOUGHT work explains that minting is not open. These controls request no account access, signature, transaction, network switch, or contract read.
+Without an approved deployment, Connect wallet opens guidance toward THOUGHT creation rather than initializing WalletConnect or requesting account access. Mint on an accepted THOUGHT work explains that minting is not open. No account access, signature, transaction, network switch, contract read, or mint can occur through these controls.
 
 A signature can authorize a narrowly defined action without sending a transaction or paying gas. A transaction can change chain state and requires wallet confirmation. The interface must name which one it is requesting.
 
@@ -1633,9 +1633,9 @@ Local Anvil, Sepolia, and Ethereum are separate chains with separate contracts, 
 
 - Authority: app-documentation
 
-Opening the wallet menu, refreshing account state, loading $PATH inventory, or reading public token records should not request a signature or transaction. These are passive reads.
+Page load, opening the wallet menu, and reading public token records do not initialize WalletConnect or access an account. After a visitor explicitly connects, Refresh may read the connected account and network and update cached wallet and $PATH inventory state. None of these reads requests a signature or transaction.
 
-A product action can open a wallet only when it needs account access, a signature, a network switch, or a transaction. The interface should name that boundary before the request appears.
+Account access begins with an explicit Connect selection. A later product action can open the connected wallet when it needs a signature, a network switch, or a transaction. The interface should name that boundary before the request appears.
 
 ### Signature versus transaction
 
