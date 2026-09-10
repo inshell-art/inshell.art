@@ -511,6 +511,69 @@ describe("chain cache Pages functions", () => {
     expect(diagnostics.kvRead).toBe(0);
   });
 
+  test("serves and persists the pulse snapshot after an empty D1 cache miss", async () => {
+    globalThis.Request = TestRequest as unknown as typeof Request;
+    globalThis.Response = TestResponse as unknown as typeof Response;
+    globalThis.Headers = TestHeaders as unknown as typeof Headers;
+    (globalThis as any).caches = undefined;
+    const d1 = createD1Mock();
+    const deployBlock = 10854123;
+    const latestBlock = deployBlock + 9;
+    const txHash = `0x${"1".padStart(64, "0")}`;
+    const fetchMock = jest.fn(async (url: unknown, init?: any) => {
+      expect(url).toBe("https://path-rpc.example/sepolia");
+      const body = JSON.parse(String(init?.body ?? "{}"));
+      if (body.method === "eth_blockNumber") return rpcResponse(`0x${latestBlock.toString(16)}`);
+      expect(body.method).toBe("eth_getLogs");
+      expect(body.params).toEqual([{
+        address: PULSE_AUCTION,
+        fromBlock: `0x${deployBlock.toString(16)}`,
+        toBlock: `0x${latestBlock.toString(16)}`,
+        topics: [PULSE_SALE_TOPIC],
+      }]);
+      return rpcResponse([{
+        address: PULSE_AUCTION,
+        blockNumber: `0x${latestBlock.toString(16)}`,
+        data: `0x${word(7n)}${word(1_780_000_000n)}${word(1n)}${word(2n)}`,
+        logIndex: "0x0",
+        topics: [PULSE_SALE_TOPIC, addressTopic(OWNER), tokenTopic(1n)],
+        transactionHash: txHash,
+      }]);
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const context = {
+      request: new Request("https://preview.inshell.art/api/pulse-auction"),
+      env: {
+        INSHELL_CHAIN_DATA_DB: d1.db,
+        PATH_PRIMARY_RPC_UPSTREAM: "https://path-rpc.example/sepolia",
+        CHAIN_CACHE_DIAGNOSTICS: "1",
+      },
+    };
+
+    const response = await onPulseAuctionGet(context);
+    const payload = await response.json();
+    expect(response.status).toBe(200);
+    expect(payload).toEqual({
+      cachedAt: expect.any(Number),
+      chainId: 11155111,
+      contract: PULSE_AUCTION,
+      fromBlock: deployBlock,
+      lastScannedBlock: latestBlock,
+      bids: [expect.objectContaining({ key: `tx:${txHash}`, blockNumber: latestBlock })],
+    });
+    expect(response.headers.get("x-live-rpc-calls")).toBe("2");
+    expect(response.headers.get("x-cache-snapshot-block")).toBe(String(latestBlock));
+    const stored = JSON.parse(d1.rows.get("pulse-auction:v1:sepolia") ?? "null");
+    expect(stored.items).toEqual(payload.bids);
+    expect(stored.lastScannedBlock).toBe(latestBlock);
+
+    clearChainCacheForTest();
+    const cachedResponse = await onPulseAuctionGet(context);
+    expect(await cachedResponse.json()).toEqual(payload);
+    expect(cachedResponse.headers.get("x-chain-cache-source")).toBe("d1");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   test("serves pulse auction D1 read model without live RPC", async () => {
     globalThis.Request = TestRequest as unknown as typeof Request;
     globalThis.Response = TestResponse as unknown as typeof Response;
