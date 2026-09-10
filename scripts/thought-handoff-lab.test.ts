@@ -19,16 +19,15 @@ import {
   buildThoughtClaudeTask,
 } from "../packages/thought-agent-protocol/src/index";
 
-// Models the observed loss of HTML-like labels, not a claim about any host's
-// private composer implementation. The API suite also uses a real DOM parser.
-const stripTagLikeText = (text: string) => text.replace(/<[^>]*>/g, "");
+// HTML-to-text transport is covered with a real DOM parser in
+// apps/home/tests/thoughtAgentFunction.test.ts. Keep this suite focused on
+// deep-link and plain-text transport; a regex is not an HTML sanitizer.
 
 for (const [agent, candidate, deepLink, buildTask, buildContract] of [
   ["Codex", thoughtCodexCanonicalCandidate, buildCodexDeepLink, buildThoughtCodexTask, buildThoughtCodexOperationContract],
   ["Claude", thoughtClaudeCanonicalCandidate, buildClaudeDeepLink, buildThoughtClaudeTask, buildThoughtClaudeOperationContract],
 ] as const) {
-  test(`${agent} protocol labels and exact request bodies survive deep-link and rich-text loss`, () => {
-    assert.equal(stripTagLikeText("<protocol> = inshell.thought.agent-run.v2"), " = inshell.thought.agent-run.v2");
+  test(`${agent} protocol labels and exact request bodies survive deep-link and plain-text transport`, () => {
     const input = {
       product: agent,
       runId: "tar_handoff_transport_regression",
@@ -37,7 +36,7 @@ for (const [agent, candidate, deepLink, buildTask, buildContract] of [
     };
     const task = buildTask(input);
     const decoded = new URL(deepLink(task)).searchParams.get(agent === "Codex" ? "prompt" : "q")!;
-    const transformed = stripTagLikeText(decoded).replace(/\\([_*])/g, "$1").replace(/\r?\n/g, "\r\n");
+    const transformed = decoded.replace(/\\([_*])/g, "$1").replace(/\r?\n/g, "\r\n");
     assert.equal(transformed.replaceAll("\r\n", "\n"), task);
     assert.doesNotMatch(task, /<[^>]+>/);
     assert.match(transformed, /^PROTOCOL_VERSION = inshell\.thought\.agent-run\.v2\r?$/m);
