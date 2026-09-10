@@ -7,9 +7,46 @@ import test from "node:test";
 import { load } from "js-yaml";
 import { checkReleaseEvidence, EVIDENCE_PATH, validateReleaseEvidence } from "./check-release-evidence.mjs";
 import { dependencySecurityErrors } from "./check-dependency-security.mjs";
+import { candidatePreviewInvocation } from "./preview-candidate.mjs";
 
 const commit = "a".repeat(40);
 const hash = `sha256:${"b".repeat(64)}`;
+
+test("candidate preview uses pinned Pages runtime without inherited deployment authority", () => {
+  const invocation = candidatePreviewInvocation("/fixture/repo", {
+    PATH: "/fixture/path", HOME: "/operator/home",
+    CLOUDFLARE_API_TOKEN: "synthetic-secret", VITE_DEPLOY_ENV: "prod",
+    NODE_OPTIONS: "--require=/unrelated/module", HTTPS_PROXY: "http://unrelated.invalid",
+  }, "/fixture/node/bin/node");
+  assert.equal(invocation.command, "/fixture/node/bin/npx");
+  assert.deepEqual(invocation.args.slice(0, 5), ["--yes", "wrangler@4.94.0", "pages", "dev", "dist/home"]);
+  assert.ok(!invocation.args.includes("deploy") && !invocation.args.includes("--remote"));
+  assert.equal(invocation.args[invocation.args.indexOf("--ip") + 1], "127.0.0.1");
+  assert.equal(invocation.args[invocation.args.indexOf("--port") + 1], "4175");
+  assert.equal(invocation.args[invocation.args.indexOf("--compatibility-date") + 1], "2026-05-28");
+  assert.equal(invocation.env.npm_config_userconfig, "/fixture/repo/tmp/candidate-pages/npm-userconfig");
+  assert.equal(invocation.env.npm_config_globalconfig, "/fixture/repo/tmp/candidate-pages/npm-globalconfig");
+  assert.equal(Object.hasOwn(invocation.env, "HOME"), false);
+  assert.equal(invocation.env.XDG_CONFIG_HOME, "/fixture/repo/tmp/candidate-pages/config");
+  assert.equal(invocation.env.WRANGLER_SEND_METRICS, "false");
+  assert.equal(invocation.env.CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV, "false");
+  for (const name of ["CLOUDFLARE_API_TOKEN", "VITE_DEPLOY_ENV", "NODE_OPTIONS", "HTTPS_PROXY"]) {
+    assert.equal(Object.hasOwn(invocation.env, name), false, `${name} must not be inherited`);
+  }
+  const scripts = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).scripts;
+  assert.equal(scripts["preview:candidate"], "node scripts/preview-candidate.mjs");
+  assert.equal(scripts["test:candidate-browser"], "node scripts/check-candidate-browser.mjs");
+});
+
+test("Pages disables implicit all-path SPA fallback with an explicit top-level 404", () => {
+  // https://developers.cloudflare.com/pages/configuration/serving-pages/
+  // Known app routes are handled by functions/_middleware.ts. Missing assets
+  // and API routes must not become a successful Home document response.
+  const html = readFileSync(new URL("../apps/home/public/404.html", import.meta.url), "utf8");
+  assert.match(html, /<title>Page not found — Inshell<\/title>/);
+  assert.match(html, /<a href="\/">Return to Inshell<\/a>/);
+  assert.doesNotMatch(html, /<script\b|http-equiv=["']refresh/i);
+});
 // Synthetic metadata ONLY for validator tests. Never release evidence.
 function evidence() {
   return {

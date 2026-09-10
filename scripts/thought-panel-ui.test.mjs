@@ -182,7 +182,6 @@ test("canonical home proxies THOUGHT through the configured stack origin", () =>
     "/api/thought-contract",
     "/api/thought-agent",
     "/thought",
-    "/gallery",
   ]) {
     const routeStart = homeViteConfig.indexOf(`"${route}":`);
     assert.ok(routeStart >= 0, `missing home proxy route ${route}`);
@@ -191,6 +190,11 @@ test("canonical home proxies THOUGHT through the configured stack origin", () =>
       /target: thoughtAppOrigin/,
     );
   }
+  assert.doesNotMatch(
+    homeViteConfig,
+    /["']\/gallery["']\s*:/,
+    "canonical gallery belongs to the Home app in development as it does in Pages middleware",
+  );
   assert.match(
     homeViteConfig,
     /command !== "serve" \|\| mode !== "devnet"/,
@@ -2639,6 +2643,44 @@ test("standalone THOUGHT reads wallet state only after an explicit visitor actio
     /refreshWalletState\(\{ queryInjectedProvider: true, refreshPreflight: true \}\)/g,
   ) ?? [];
   assert.equal(explicitRefreshes.length, 8);
+});
+
+test("prelaunch THOUGHT detail displays its route id without gallery reads", async (t) => {
+  for (const [name, main] of [
+    ["current source", thoughtMain],
+    ["locked runtime", loadThoughtDevSnapshotFile(repoRoot, "main")],
+  ]) {
+    const ast = ts.createSourceFile("main.ts", main, ts.ScriptTarget.ES2022, true);
+    const declaration = ast.statements.find((statement) =>
+      ts.isVariableStatement(statement) && statement.declarationList.declarations.some((entry) =>
+        ts.isIdentifier(entry.name) && entry.name.text === "loadThoughtDetail",
+      ),
+    );
+    assert.ok(declaration, "missing actual detail loader");
+    const source = ts.transpileModule(`${declaration.getText(ast)}\nloadThoughtDetail();`, {
+      compilerOptions: { target: ts.ScriptTarget.ES2022 },
+    }).outputText;
+    for (const routeId of [1, 999999999, null]) {
+      await t.test(`${name}: route ${routeId}`, async () => {
+        const title = { textContent: "-" };
+        const status = { textContent: "" };
+        let galleryReads = 0;
+        await runInNewContext(source, {
+          ROUTE_THOUGHT_NFT_ID: routeId,
+          IS_THOUGHT_GALLERY_ACTIVE: false,
+          thoughtDetailTitleToken: title,
+          thoughtDetailStatus: status,
+          clearThoughtGalleryCache() {},
+          async readGalleryThoughts() { galleryReads += 1; throw new Error("gallery reads prohibited"); },
+        });
+        assert.equal(title.textContent, routeId === null ? "-" : String(routeId));
+        assert.equal(status.textContent, routeId === null
+          ? "THOUGHT unavailable."
+          : "Onchain THOUGHT details will appear when minting opens.");
+        assert.equal(galleryReads, 0);
+      });
+    }
+  }
 });
 
 test("retained mint recovery stays dormant in Studio Preview and resumes after deployment", async (t) => {

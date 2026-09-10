@@ -132,13 +132,6 @@ export default defineConfig(({ command, mode }) => {
           rewrite: (requestPath) =>
             requestPath.replace(/^\/thought(?=$|\?)/, "/thought/"),
         },
-        "/gallery": {
-          target: thoughtAppOrigin,
-          changeOrigin: true,
-          secure: false,
-          rewrite: (requestPath) =>
-            requestPath.replace(/^\/gallery\/?(?=$|\?)/, "/thought/"),
-        },
         "/api": {
           target: readDevApiOrigin(),
           changeOrigin: true,

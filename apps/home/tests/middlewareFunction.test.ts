@@ -245,6 +245,59 @@ describe("Pages middleware canonical routes", () => {
     expect(ctx.next).not.toHaveBeenCalled();
   });
 
+  test.each([
+    ["/thought", "/thought/"],
+    ["/thought/", "/thought/"],
+    ["/thought/7", "/thought/"],
+    ["/thought/plugin/codex", "/thought/"],
+    ["/thought/runs/tar_fixture", "/thought/"],
+    ["/gallery", "/"],
+    ["/gallery/", "/"],
+    ["/path/7", "/"],
+    ["/docs", "/"],
+    ["/docs/glossary", "/"],
+  ])("local candidate and hosted preview serve %s from %s", async (route, shell) => {
+    const fetchMock = jest.fn();
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    for (const origin of ["http://127.0.0.1:4175", "https://preview.inshell.art"]) {
+      for (const method of ["GET", "HEAD"]) {
+        const ctx = middlewareContext(`${origin}${route}?ref=navigation-check`, { method });
+        const response = await onRequest(ctx);
+
+        expect(response.status).toBe(200);
+        expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
+        expect(ctx.assetsFetch).toHaveBeenCalledWith(
+          expect.objectContaining({ url: `${origin}${shell}`, method }),
+        );
+        expect(ctx.next).not.toHaveBeenCalled();
+      }
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    "/assets/does-not-exist.js",
+    "/thought/assets/does-not-exist.js",
+    "/api/does-not-exist",
+    "/not-a-product-page",
+    "/pub/does-not-exist",
+    "/llms.txt",
+    "/pub.manifest.json",
+  ])("local candidate preserves missing-path status for %s instead of an app shell", async (route) => {
+    const fetchMock = jest.fn();
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const ctx = middlewareContext(`http://127.0.0.1:4175${route}`);
+    ctx.next.mockResolvedValueOnce(new Response("Page not found", { status: 404 }));
+
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(404);
+    expect(await response.text()).toBe("Page not found");
+    expect(ctx.next).toHaveBeenCalledTimes(1);
+    expect(ctx.assetsFetch).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   test("serves canonical WILL metadata from the current root app shell", async () => {
     const ctx = middlewareContext("https://inshell.art/will");
     ctx.assetsFetch.mockResolvedValueOnce(

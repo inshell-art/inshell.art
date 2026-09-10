@@ -16261,13 +16261,13 @@ const loadThoughtDetail = async () => {
     thoughtDetailStatus.textContent = "THOUGHT unavailable.";
     return;
   }
+  thoughtDetailTitleToken.textContent = ROUTE_THOUGHT_NFT_ID.toString();
   if (!IS_THOUGHT_GALLERY_ACTIVE) {
     clearThoughtGalleryCache();
     thoughtDetailStatus.textContent = "Onchain THOUGHT details will appear when minting opens.";
     return;
   }
 
-  thoughtDetailTitleToken.textContent = ROUTE_THOUGHT_NFT_ID.toString();
   thoughtDetailBody.classList.add("is-hidden");
   thoughtDetailStatus.textContent = `loading THOUGHT #${ROUTE_THOUGHT_NFT_ID}...`;
   currentThoughtDetail = null;

@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "68eecc7b4db900585463952c24bd635dfa0c541df6111db56422fa7caf6365b4",
+  "sourceTreeSha256": "370edca409723a6b7e04f8e1a526cdacf04829b7535851c99bebed5a2dc84287",
   "groups": [
     {
       "id": "public-docs",
@@ -67,7 +67,7 @@
       "title": "Home, $PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "f6b5b17b64d869e363b6eae1ff10a0c2d79511ccb2fdb464e06bfd40a67ef5ec",
+      "groupSha256": "55a580e4ac7638d9020adacec7b537c9975b32baf355bf878a0ca5bde1476600",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -326,8 +326,8 @@
         },
         {
           "path": "apps/home/vite.config.ts",
-          "byteLength": 4851,
-          "sha256": "ed2ef00f389c959a715f8b9636bd60e1a2d8b7b5e7ef191c1d8df4cad38503ab"
+          "byteLength": 4620,
+          "sha256": "5bb9cf715033d9530efd51ab17bf869ba701a11b46bf35c17e7266f3b4d7968d"
         }
       ]
     },
@@ -590,7 +590,7 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "f4f837304d1a9c126ebea94643d66ae7a5aa42a20a73195dd07577b17a60e9bc",
+      "groupSha256": "d7540ea81a1c3d466a76f15cf69840e1b7859c857ee1e47362644f9d007c2d9f",
       "files": [
         {
           "path": ".github/workflows/deploy-pages.yml",
@@ -619,8 +619,8 @@
         },
         {
           "path": "package.json",
-          "byteLength": 12726,
-          "sha256": "a268a85da77fe1f9efb2aa7f2a09b39d11c30d09cf63e37affe02f2668790567"
+          "byteLength": 12863,
+          "sha256": "4c0e97ce661f977b1c9103c8948561104ce17ea0b17a5f7409e1ea5fbe153b3c"
         },
         {
           "path": "scripts/check-dependency-security.mjs",
@@ -1044,7 +1044,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "418016af122e4f5143b1ce8eca0e63af5cd29d950750978b0c39e537859c9108",
+      "groupSha256": "1bba11ba3f272d7568b8dc4872c94a566b3e797d9e0d6a18ddba982c830cba4f",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1108,8 +1108,8 @@
         },
         {
           "path": "apps/thought/scripts/thought-launch-main-deltas.generated.mjs",
-          "byteLength": 91461,
-          "sha256": "6cb7eb85d6a67b3649a50cbe3128c2a4db497f21d9edd31a0356d67cf02ce6ee"
+          "byteLength": 92449,
+          "sha256": "c5665c99e53400fe39cc51c2116dc95646ae0afecab912efafe6449a26951305"
         },
         {
           "path": "apps/thought/src/color-font-doc.ts",
@@ -1124,7 +1124,7 @@
         {
           "path": "apps/thought/src/main.ts",
           "byteLength": 758513,
-          "sha256": "1bf5774e0ed954ba9cbcb67f838f40051b74c82cff0af33c1d7ae85b5ffbc534"
+          "sha256": "f76e965b1acd89144f9f92cdedbfe40f7dea6b8ceee0d941999592f378c21d90"
         },
         {
           "path": "apps/thought/src/rpc-provider.ts",

@@ -191,6 +191,46 @@ PATH note:
 
 ## 2) Run the FE
 
+### Review the composed candidate locally
+
+After building the candidate with the intended public environment, use:
+
+```bash
+pnpm preview:candidate
+# In another terminal:
+pnpm test:candidate-browser
+```
+
+Open `http://127.0.0.1:4175/`. This uses the same pinned Wrangler version as
+deployment and runs the actual Pages middleware with `dist/home`, including
+the nested THOUGHT build. Review clicks, reloads, back/forward navigation,
+mobile layout and guidance controls—not just direct page URLs.
+
+`preview:home` is Vite's single-app preview, not a composed release check:
+it inherits development proxies and does not run Pages middleware. Serving
+`dist/home` with a generic SPA server is also insufficient: `/thought` and
+`/thought/` must resolve to the same app, and `/gallery` belongs to Home.
+The top-level `404.html` disables Pages' implicit all-path SPA fallback;
+declared product routes remain owned by `functions/_middleware.ts`, while
+missing assets and unknown API paths must return 404 instead of Home HTML.
+
+The candidate command binds only `127.0.0.1:4175`, refuses an occupied port
+and automatic `.env`, `.dev.vars` or Wrangler configuration files, and uses a
+restricted child environment/private local configuration directory. Its npm
+cache, local runtime state and process temporaries stay under ignored `tmp/`
+paths; Wrangler's generated worker bundles stay under ignored `.wrangler/`.
+The explicit `2026-05-28` compatibility date (supported by the pinned local
+runtime) and `CF_PAGES_BRANCH=staging`
+binding are a local verification profile, not proof of hosted configuration.
+No remote resource bindings are supplied, and the command does not deploy.
+It may fetch the pinned CLI package if uncached. API/Agent/hosted resource
+integrations still require verification on `preview.inshell.art`; local
+middleware can still make the external requests implemented by the app.
+
+For source development/hot reload, run both existing commands below in
+separate terminals. Home owns `/gallery`; it proxies THOUGHT to the second
+Vite server. Those development API proxies are not the candidate runtime.
+
 ```bash
 # Minimum FE env
 export VITE_ETH_RPC="https://your-sepolia-rpc"

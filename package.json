@@ -89,6 +89,8 @@
     "sync:thought-v2-contract-release": "node scripts/sync-thought-v2-contract-release.mjs --from ../THOUGHT",
     "check:thought-v2-contract-release": "node scripts/sync-thought-v2-contract-release.mjs --check",
     "preview:home": "pnpm --filter @inshell/home preview",
+    "preview:candidate": "node scripts/preview-candidate.mjs",
+    "test:candidate-browser": "node scripts/check-candidate-browser.mjs",
     "e2e:staging": "NODE_ENV=staging cypress run --config-file cypress/cypress.config.ts",
     "e2e:prod": "NODE_ENV=prod cypress run --config-file cypress/cypress.config.ts",
     "prepare": "husky"

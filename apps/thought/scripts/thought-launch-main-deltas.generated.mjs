@@ -682,6 +682,35 @@ document.addEventListener("visibilitychange", () => {`,
   // Retain submitted hashes for recovery when an approved deployment is active.
   if (thoughtLaunchState.phase === "studio-preview" || !pending) {`,
   ]),
+  Object.freeze([
+    "launch state delta 200",
+    `const loadThoughtDetail = async () => {
+  if (ROUTE_THOUGHT_NFT_ID === null) {
+    thoughtDetailStatus.textContent = "THOUGHT unavailable.";
+    return;
+  }
+  if (!IS_THOUGHT_GALLERY_ACTIVE) {
+    clearThoughtGalleryCache();
+    thoughtDetailStatus.textContent = "Onchain THOUGHT details will appear when minting opens.";
+    return;
+  }
+
+  thoughtDetailTitleToken.textContent = ROUTE_THOUGHT_NFT_ID.toString();
+  thoughtDetailBody.classList.add("is-hidden");`,
+    `const loadThoughtDetail = async () => {
+  if (ROUTE_THOUGHT_NFT_ID === null) {
+    thoughtDetailStatus.textContent = "THOUGHT unavailable.";
+    return;
+  }
+  thoughtDetailTitleToken.textContent = ROUTE_THOUGHT_NFT_ID.toString();
+  if (!IS_THOUGHT_GALLERY_ACTIVE) {
+    clearThoughtGalleryCache();
+    thoughtDetailStatus.textContent = "Onchain THOUGHT details will appear when minting opens.";
+    return;
+  }
+
+  thoughtDetailBody.classList.add("is-hidden");`,
+  ]),
 ]);
 
 export const applyCurrentThoughtLaunchMainDeltas = (source, direction, replaceExactCount) => {
