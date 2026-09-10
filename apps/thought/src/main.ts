@@ -5007,12 +5007,15 @@ const noticeThoughtMintUnavailable = () => {
   const notice = getThoughtMintClosedNotice({
     state: thoughtLaunchState,
     workCompatible: isCurrentWorkLaunchCompatible(),
+    workSaved: currentWorkId !== null && Boolean(
+      getWorkById(readStoredThoughtWorks(), currentWorkId),
+    ),
   });
   emitThoughtConsoleEvent({
     kind: "thought_launch_mint_closed",
     title: notice.title,
     detail: notice.detail,
-    nextStep: notice.nextStep,
+    ...(notice.nextStep ? { nextStep: notice.nextStep } : {}),
     tone: "warning",
   });
 };
@@ -6309,7 +6312,7 @@ const runThoughtDockWalletCommand = async () => {
     return;
   }
 
-  await refreshWalletState();
+  await refreshWalletState({ queryInjectedProvider: true, refreshPreflight: true });
   if (walletState.address && walletState.chainId === THOUGHT_CHAIN_ID) {
     await refreshPathInventoryForCurrentWallet({ force: true });
   }
@@ -6884,7 +6887,6 @@ let walletNetworkSwitchRequestId = 0;
 let mintSheetPrimaryAction: MintSheetAction = "none";
 let mintSheetSecondaryAction: MintSheetAction = "none";
 let mintSheetTertiaryAction: MintSheetAction = "none";
-let lastMintSheetFocusRefreshAt = 0;
 
 type ThoughtAnalyticsEventType =
   | "wallet_connect_started"
@@ -7438,6 +7440,9 @@ const getReadProvider = () => {
 };
 
 const getWalletMintReceiptProvider = () => {
+  if (thoughtLaunchState.phase === "studio-preview") {
+    return null;
+  }
   const ethereum = getEthereumProvider();
   if (!ethereum) {
     mintReceiptBrowserProvider = null;
@@ -11243,7 +11248,23 @@ const refreshMintPreflight = async () => {
   }
 };
 
-const refreshWalletState = async () => {
+type RefreshWalletStateOptions = Readonly<{
+  queryInjectedProvider?: boolean;
+  refreshPreflight?: boolean;
+  injectedAccounts?: unknown;
+  injectedChainId?: unknown;
+}>;
+
+const parseWalletChainId = (value: unknown) => {
+  if (typeof value !== "string" || value.length === 0) return null;
+  try {
+    return Number(BigInt(value));
+  } catch {
+    return null;
+  }
+};
+
+const refreshWalletState = async (options: RefreshWalletStateOptions = {}) => {
   const previousAddress = walletState.address;
   const previousChainId = walletState.chainId;
   const sharedWallet = getThoughtShellWallet();
@@ -11265,7 +11286,7 @@ const refreshWalletState = async () => {
   } else if (!ethereum) {
     walletState.address = "";
     walletState.chainId = null;
-  } else {
+  } else if (options.queryInjectedProvider) {
     try {
       const [accounts, chainHex] = await Promise.all([
         ethereum.request({ method: "eth_accounts" }),
@@ -11274,11 +11295,17 @@ const refreshWalletState = async () => {
 
       walletState.address =
         Array.isArray(accounts) && typeof accounts[0] === "string" ? accounts[0] : "";
-      walletState.chainId =
-        typeof chainHex === "string" && chainHex.length > 0 ? Number(BigInt(chainHex)) : null;
+      walletState.chainId = parseWalletChainId(chainHex);
     } catch {
       walletState.address = "";
       walletState.chainId = null;
+    }
+  } else {
+    if (Object.prototype.hasOwnProperty.call(options, "injectedAccounts")) {
+      walletState.address = extractPrimaryAccount(options.injectedAccounts);
+    }
+    if (Object.prototype.hasOwnProperty.call(options, "injectedChainId")) {
+      walletState.chainId = parseWalletChainId(options.injectedChainId);
     }
   }
 
@@ -11332,7 +11359,17 @@ const refreshWalletState = async () => {
   }
 
   walletStateHydrated = true;
-  await refreshMintPreflight();
+  if (options.refreshPreflight) {
+    await refreshMintPreflight();
+  } else {
+    if (walletContextChanged) {
+      walletState.balance = null;
+      walletState.preflightLoading = false;
+      walletState.preflightError = "";
+    }
+    syncPrimaryCtaAvailability();
+    syncWalletMenu();
+  }
 };
 
 async function refreshThoughtWalletFromShell() {
@@ -11341,7 +11378,7 @@ async function refreshThoughtWalletFromShell() {
     mintFlowState === "path_ready" ||
     (mintFlowState === "error" && isPathRecoveryError());
 
-  await refreshWalletState();
+  await refreshWalletState({ queryInjectedProvider: true, refreshPreflight: true });
   syncMintFlowAfterWalletCommand();
 
   if (isTerminalMintFlowState(mintFlowState)) {
@@ -11408,15 +11445,19 @@ const bindWalletProviderEvents = () => {
     return;
   }
 
-  const handleWalletChange = () => {
-    void refreshWalletState().then(() => {
-      syncInterface();
-    });
-  };
-
   providers.forEach((provider) => {
-    provider.on?.("accountsChanged", handleWalletChange);
-    provider.on?.("chainChanged", handleWalletChange);
+    provider.on?.("accountsChanged", (accounts) => {
+      if (provider !== getEthereumProvider() || !walletState.address) return;
+      void refreshWalletState({ injectedAccounts: accounts }).then(() => {
+        syncInterface();
+      });
+    });
+    provider.on?.("chainChanged", (chainId) => {
+      if (provider !== getEthereumProvider() || !walletState.address) return;
+      void refreshWalletState({ injectedChainId: chainId }).then(() => {
+        syncInterface();
+      });
+    });
   });
   walletListenersBound = true;
 };
@@ -11542,7 +11583,7 @@ const requestWalletConnect = async () => {
           window.setTimeout(resolve, 100);
         });
       }
-      await refreshWalletState();
+      await refreshWalletState({ queryInjectedProvider: true, refreshPreflight: true });
       if (!walletState.address) {
         throw new Error("wallet did not expose an account.");
       }
@@ -11628,7 +11669,7 @@ const requestWalletConnect = async () => {
       }
     }
 
-    await refreshWalletState();
+    await refreshWalletState({ queryInjectedProvider: true, refreshPreflight: true });
 
     if (!walletState.address) {
       throw new Error("wallet did not expose an account.");
@@ -11758,7 +11799,7 @@ const switchWalletChain = async () => {
     }
   }
 
-  await refreshWalletState();
+  await refreshWalletState({ queryInjectedProvider: true, refreshPreflight: true });
   if (walletState.chainId !== THOUGHT_CHAIN_ID) {
     recordWalletNetworkSwitchFailure(
       new Error(`Wallet remained on chain ${walletState.chainId ?? "unknown"}.`),
@@ -12145,7 +12186,7 @@ const openMintFlow = async (
     }
 
     mintFlowData.pathId = parsePathTokenId(mintFlowData.pathIdInput);
-    await refreshWalletState();
+    await refreshWalletState({ queryInjectedProvider: true, refreshPreflight: true });
     const pathSelectionReady = moveMintFlowToWalletOrPathSelection();
     syncInterface();
     if (pathSelectionReady) {
@@ -12263,7 +12304,7 @@ const checkPathEligibility = async () => {
     return;
   }
 
-  await refreshWalletState();
+  await refreshWalletState({ queryInjectedProvider: true, refreshPreflight: true });
   if (isTerminalMintFlowState(mintFlowState)) {
     return;
   }
@@ -13133,6 +13174,7 @@ const startConflictingMintReceiptMonitor = (
   shouldAppendCliResult = false,
 ) => {
   if (
+    thoughtLaunchState.phase === "studio-preview" ||
     !isPendingMintDeploymentCompatible(transaction) ||
     conflictingMintReceiptMonitorHashes.has(transaction.hash)
   ) {
@@ -13271,7 +13313,8 @@ const registerSubmittedMintTx = async (
 
 const resumePendingMintReceiptMonitoring = () => {
   const pending = pendingMintTransaction;
-  if (!pending) {
+  // Retain submitted hashes for recovery when an approved deployment is active.
+  if (thoughtLaunchState.phase === "studio-preview" || !pending) {
     return false;
   }
 
@@ -16218,13 +16261,13 @@ const loadThoughtDetail = async () => {
     thoughtDetailStatus.textContent = "THOUGHT unavailable.";
     return;
   }
+  thoughtDetailTitleToken.textContent = ROUTE_THOUGHT_NFT_ID.toString();
   if (!IS_THOUGHT_GALLERY_ACTIVE) {
     clearThoughtGalleryCache();
     thoughtDetailStatus.textContent = "Onchain THOUGHT details will appear when minting opens.";
     return;
   }
 
-  thoughtDetailTitleToken.textContent = ROUTE_THOUGHT_NFT_ID.toString();
   thoughtDetailBody.classList.add("is-hidden");
   thoughtDetailStatus.textContent = `loading THOUGHT #${ROUTE_THOUGHT_NFT_ID}...`;
   currentThoughtDetail = null;
@@ -18580,9 +18623,7 @@ const promotePreviewedCandidateToWork = (
   walletState.mintedTokenId = null;
   syncCtaState();
   void preflightCurrentThoughtExistence();
-  void refreshWalletState().then(() => {
-    syncInterface();
-  });
+  // Wallet state changes only after an explicit wallet action.
   setStatus("");
   setWarning("");
   return true;
@@ -22158,7 +22199,7 @@ const appendCliPathInventory = (ownedPaths: Array<{ pathId: bigint; status: stri
 
 const listCliPaths = async () => {
   await withCliLoading("loading...", async () => {
-    await refreshWalletState();
+    await refreshWalletState({ queryInjectedProvider: true, refreshPreflight: true });
 
     if (!walletState.address) {
       appendCliOutput([
@@ -23621,27 +23662,6 @@ window.addEventListener("focus", () => {
   refreshThoughtDockPolling();
   resumePendingMintReceiptMonitoring();
   resumeConflictingMintReceiptMonitoring();
-  const canSoftRefresh =
-    mintFlowState === "path_required" ||
-    mintFlowState === "path_ready" ||
-    (mintFlowState === "error" && isPathRecoveryError());
-
-  if (
-    !canSoftRefresh ||
-    !walletState.address ||
-    Date.now() - lastMintSheetFocusRefreshAt < 8000
-  ) {
-    return;
-  }
-
-  lastMintSheetFocusRefreshAt = Date.now();
-  void refreshWalletState().then(async () => {
-    if (!walletState.address || walletState.chainId !== THOUGHT_CHAIN_ID) return;
-    await refreshPathInventoryForCurrentWallet({ force: true });
-    if (canContinueWithPathInput() && mintFlowState !== "authorizing" && mintFlowState !== "minting") {
-      await checkPathEligibility();
-    }
-  });
 });
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {

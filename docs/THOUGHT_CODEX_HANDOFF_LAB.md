@@ -19,7 +19,9 @@ The run is deliberately split into three independently checked layers:
   THOUGHT Work Specification and the smaller Agent Creative Brief. They have
   separate identities and hashes and must never be treated as aliases.
 
-Concrete private values are defined once using conventional placeholders such as `<run_id>` and `<app_endpoint>`. The successful claim defines `<bridge_credential>` from the exact top-level `bridgeToken` response field. The complete claim response and credential must be retained together before secondary validation, reused through the remaining operations, and never reacquired with a second claim. Every operation refers back to placeholders instead of repeating raw identifiers, URLs, or credentials. Payload requirements use exact dotted field paths such as `bridge.bridgeId`, which preserve nesting without exposing raw JSON programs.
+Concrete private values are defined once with markup-safe plain-text identifiers such as `RUN_ID` and `APP_ENDPOINT`. Angle-bracket labels are forbidden: a rich-text composer can interpret them as HTML and remove them. The successful claim defines `BRIDGE_CREDENTIAL` from the exact top-level `bridgeToken`; retain it with the claim response for every subsequent operation, without file persistence or a second claim.
+
+`CLAIM_BODY` and `READY_BODY` are explicit JSON data generated from the same operation contracts used by the protocol tests, not executable programs. Every request's root `protocolVersion` is `inshell.thought.agent-run.v2`. Only readiness `control.schema` uses `inshell.thought.agent-control.v1`. Claim uses `Authorization: Bearer LAUNCH_CREDENTIAL`; all later operations use the returned bridge credential. Substitute actual values, never identifier names. Credentials must not appear in request bodies, URLs, logs or files, and must not be forwarded across redirects.
 
 Codex chooses the available mechanics for those operations. It may not change endpoints, reorder operations, invent runtime identity, open creative input before readiness, or claim success without a receipt. The exact host-issued model is required; host-issued reasoning effort is retained when present but is not required. Runtime metadata is resolved once before readiness and reused without inference. The handoff contains no generated shell, JavaScript, raw JSON program, or temporary-file program.
 
@@ -50,7 +52,7 @@ not mean that Codex or its provider cryptographically signed the output, nor
 does it independently prove authorship, model identity, the truth of an Agent
 declaration, transcript purity, or absence of outside influence.
 
-Local App authorization is treated as Codex-turn scoped. The initial turn and every later `RETRY` turn must acquire the same narrow App permission before making an exchange. A loopback connection refusal without active permission is not accepted as evidence that the App itself stopped.
+Local App authorization is scoped to the Agent environment's permissions. Only an explicit host permission denial before creative start triggers the connection-approval message. HTTP/JSON rejection is not permission denial: `PROTOCOL_UNSUPPORTED` stops without guessing or downgrading the protocol; invalid, expired or already-claimed credentials require a fresh run. A sign-in redirect requires App access configuration. A network refusal proves only that the task cannot reach the endpoint, not that the App stopped. `RETRY` follows resolved permission/network blockers and must not repeat an accepted claim or creative generation; 429 respects `Retry-After` without loops.
 
 ## What is tested
 
@@ -67,7 +69,9 @@ The V1 matrix covers:
 - at most one result submission;
 - fail-closed behavior and redacted reports;
 - independent selected-spec and creative-brief hash checks;
-- no embedded shell/JavaScript/raw-JSON programs, defined angle-bracket placeholders, one occurrence of each private literal, four-operation structure, and a 7 KB visible-handoff ceiling.
+- no embedded shell/JavaScript programs, markup-safe identifiers, exact JSON request data, one occurrence of each private literal, four-operation structure, and a 7 KB visible-handoff ceiling.
+
+Regression tests also round-trip both deep links through tag-stripping/line-ending transformations, and use a DOM parser to reproduce the old missing-label failure. The API tests parse the delivered claim/readiness JSON and verify it is accepted only with the correct bearer role. Wrong protocol, body-only credentials and launch-token reuse after claim must leave run state unchanged. These are deterministic simulations, not proof of every Agent app's composer behavior.
 
 ## Deterministic workflow
 
@@ -122,3 +126,11 @@ The observer writes `real-canary-report.json` in the canary directory. The repor
 - **Both lanes fail:** fix the deterministic defect first, rerun the complete matrix, then repeat one real canary.
 
 Do not patch the handoff from a single anecdotal failure. Promote a change only after the failure is represented by a named case, the full deterministic matrix passes, and one real Codex canary returns successfully without unnecessary creator interaction.
+
+## Requalification after the 2026-08-26 transport correction
+
+The observed failure lost the `<protocol>` label and sent the control schema as the request protocol; the API correctly rejected it before claim. The exact host transformation point remains unproven. The correction changes both Codex and Claude Code handoff bytes, not the API protocol or contract release. Preserve older canary reports as historical evidence, not qualification for this revision.
+
+Before promotion, qualify all four cells again: Mac A × Codex/Claude Code and Mac B × Codex/Claude Code. Record the exact candidate and handoff hash, actual model, app version, received handoff shape, accepted receipt and control interventions. Include the real THOUGHT chooser/deep-link path: CLI-only runs do not prove rich-text transport. Do not copy tokens into reports. A fixture PASS does not certify a real Agent/model cell.
+
+Documentation impact: public handoff prose clarifies bootstrap versus creative input and permission versus protocol rejection; generated Agent docs must match. No contract pin, deployment approval, activation or mint-opening policy changes.

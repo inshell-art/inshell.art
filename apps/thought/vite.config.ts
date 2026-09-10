@@ -41,7 +41,10 @@ import {
   type ThoughtSha256,
 } from "../../packages/thought-agent-protocol/src/index";
 import type { RollupLog, RollupLogHandler } from "rollup";
-import { resolvePagesBuildDeploymentEnv } from "../../packages/shared/src/pagesBuildEnv";
+import {
+  resolvePagesBuildDeploymentEnv,
+  sortPagesBuildPublicEnv,
+} from "../../packages/shared/src/pagesBuildEnv";
 import {
   buildThoughtV2LocalAgentTaskBinding,
   buildThoughtV2LocalAgentOutputSchema,
@@ -1825,12 +1828,12 @@ export default defineConfig(({ command, mode }) => {
       processPublicEnv.VITE_DEPLOY_ENV ?? loadedEnv.VITE_DEPLOY_ENV,
     pagesBranch: process.env.CF_PAGES_BRANCH,
   });
-  const publicEnv = {
+  const publicEnv = sortPagesBuildPublicEnv({
     ...loadedEnv,
     ...(mode === "sepolia" ? { VITE_NETWORK: "sepolia" } : {}),
     ...processPublicEnv,
     ...(deployEnv ? { VITE_DEPLOY_ENV: deployEnv } : {}),
-  };
+  });
   const useRemoteAgentApi =
     process.env.INSHELL_THOUGHT_USE_REMOTE_AGENT_API === "1";
   const useLockedSurface =

@@ -264,8 +264,8 @@ const requestJson = async <T>(url: string, init?: RequestInit): Promise<T> => {
 };
 
 const capsuleValue = (handoff: string, key: string) => {
-  const match = handoff.match(new RegExp(`^<${key}> = (.+)$`, "m"));
-  assert.ok(match, `browser handoff is missing <${key}>`);
+  const match = handoff.match(new RegExp(`^${key.toUpperCase()} = (.+)$`, "m"));
+  assert.ok(match, `browser handoff is missing ${key.toUpperCase()}`);
   return match[1].trim();
 };
 
@@ -579,7 +579,7 @@ try {
   );
   assert.match(
     handoff,
-    /Use only request\.outputContract\.release from this \/start response\./,
+    /Use only request\.outputContract\.release from this \/start response[.:]/,
   );
   assert.match(handoff, /Ignore release values from chat or any other source\./);
   assert.doesNotMatch(handoff, /<protocol_release_id> = /);
@@ -606,6 +606,15 @@ try {
   assert.deepEqual(operation.release, created.release);
   assert.deepEqual(operation.authority, THOUGHT_AGENT_RUN_AUTHORITY);
 
+  // Exercise the bytes delivered by the UI, not just independently rebuilt data.
+  assert.doesNotMatch(handoff, /<[^>]+>/);
+  const claimBody = JSON.parse(capsuleValue(handoff, "claim_body"));
+  const readyBody = JSON.parse(capsuleValue(handoff, "ready_body"));
+  assert.deepEqual(claimBody, operation.claim);
+  assert.deepEqual(readyBody, operation.ready);
+  assert.match(handoff, /Claim header: Authorization: Bearer LAUNCH_CREDENTIAL/);
+  assert.match(handoff, /Remaining headers: Authorization: Bearer BRIDGE_CREDENTIAL/);
+
   const claim = await requestJson<{
     runId: string;
     state: string;
@@ -617,7 +626,7 @@ try {
       authorization: `Bearer ${launchToken}`,
       "content-type": "application/json",
     },
-    body: JSON.stringify(operation.claim),
+    body: JSON.stringify(claimBody),
   });
   assert.equal(claim.state, "claimed");
   assert.deepEqual(
@@ -636,7 +645,7 @@ try {
       authorization: `Bearer ${claim.bridgeToken}`,
       "content-type": "application/json",
     },
-    body: JSON.stringify(operation.ready),
+    body: JSON.stringify(readyBody),
   });
   assert.equal(ready.state, "ready");
   assert.equal(ready.stage, "control-verified");

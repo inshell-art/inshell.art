@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
 import {
   loadThoughtDevSnapshotFile,
   restoreThoughtDevIndexSnapshot,
@@ -101,6 +103,19 @@ test("THOUGHT route keeps its canonical stylesheet in the document head", () => 
   );
 });
 
+test("Home and THOUGHT serialize public build inputs deterministically", () => {
+  assert.match(
+    homeViteConfig,
+    /const publicEnv = sortPagesBuildPublicEnv\(\{/,
+    "Home must sort public build inputs before embedding them",
+  );
+  assert.match(
+    thoughtViteConfig,
+    /const publicEnv = sortPagesBuildPublicEnv\(\{/,
+    "THOUGHT must sort public build inputs before embedding them",
+  );
+});
+
 test("THOUGHT detail and home gallery retain their presentation order", () => {
   const detailStart = thoughtCss.indexOf(".thought-detail {");
   const detailEnd = thoughtCss.indexOf(".thought-detail.is-hidden", detailStart);
@@ -167,7 +182,6 @@ test("canonical home proxies THOUGHT through the configured stack origin", () =>
     "/api/thought-contract",
     "/api/thought-agent",
     "/thought",
-    "/gallery",
   ]) {
     const routeStart = homeViteConfig.indexOf(`"${route}":`);
     assert.ok(routeStart >= 0, `missing home proxy route ${route}`);
@@ -176,6 +190,11 @@ test("canonical home proxies THOUGHT through the configured stack origin", () =>
       /target: thoughtAppOrigin/,
     );
   }
+  assert.doesNotMatch(
+    homeViteConfig,
+    /["']\/gallery["']\s*:/,
+    "canonical gallery belongs to the Home app in development as it does in Pages middleware",
+  );
   assert.match(
     homeViteConfig,
     /command !== "serve" \|\| mode !== "devnet"/,
@@ -1988,7 +2007,7 @@ test("every canceled THOUGHT wallet request records its terminal outcome", () =>
   );
   assert.match(
     switchBody,
-    /await refreshWalletState\(\);[\s\S]*?walletState\.chainId !== THOUGHT_CHAIN_ID[\s\S]*?recordWalletNetworkSwitchFailure/,
+    /await refreshWalletState\(\{ queryInjectedProvider: true, refreshPreflight: true \}\);[\s\S]*?walletState\.chainId !== THOUGHT_CHAIN_ID[\s\S]*?recordWalletNetworkSwitchFailure/,
     "switch success must be verified from the wallet's live chain",
   );
 
@@ -2468,6 +2487,11 @@ test("Work prompt exposes persistent terminal-style history navigation", () => {
 });
 
 test("Studio Preview is controlled by the approved deployment, not localhost", () => {
+  assert.doesNotMatch(
+    thoughtShell,
+    /restoreSession/,
+    "wallet discovery must not opt into passive session restoration",
+  );
   assert.match(
     thoughtMain,
     /let thoughtLaunchState: ThoughtLaunchState =\s*simulatedThoughtLaunchState\(\) \?\?\s*deriveThoughtLaunchState\(\{\s*deployment: THOUGHT_LAUNCH_DEPLOYMENT,\s*activationApproved: THOUGHT_MINT_ACTIVATION_APPROVED,\s*readModel: null,\s*\}\)/,
@@ -2508,6 +2532,19 @@ test("Studio Preview is controlled by the approved deployment, not localhost", (
     /const currentOutputSessionIsMinted = async \(\) => \{[\s\S]*?thoughtLaunchState\.phase === "studio-preview"[\s\S]*?return false;/,
     "fresh creation must not probe mint state in Studio Preview",
   );
+  const promotionStart = thoughtMain.indexOf("const promotePreviewedCandidateToWork =");
+  const promotionEnd = thoughtMain.indexOf(
+    "const completeThoughtRunFromModelReturn =",
+    promotionStart,
+  );
+  const promotionBody = thoughtMain.slice(promotionStart, promotionEnd);
+  assert.ok(promotionStart >= 0 && promotionEnd > promotionStart);
+  assert.match(promotionBody, /void preflightCurrentThoughtExistence\(\)/);
+  assert.doesNotMatch(
+    promotionBody,
+    /refreshWalletState/,
+    "a returned work must not probe wallet state without an explicit wallet action",
+  );
   assert.match(
     thoughtMain,
     /const getReadProvider = \(\) => \{[\s\S]*?thoughtLaunchState\.phase === "studio-preview"[\s\S]*?return null;/,
@@ -2523,6 +2560,255 @@ test("Studio Preview is controlled by the approved deployment, not localhost", (
     /const selectThoughtPreviewProvider = async \(\) => \{[\s\S]*?thoughtLaunchState\.phase === "studio-preview"[\s\S]*?const provider = createPinnedBrowserPreviewProvider\(\);[\s\S]*?if \(IS_LOCAL_THOUGHT_V2\)/,
     "Studio Preview must render with the pinned browser artifact before any local-contract branch",
   );
+});
+
+test("standalone THOUGHT reads wallet state only after an explicit visitor action", () => {
+  const walletRefreshStart = thoughtMain.indexOf("type RefreshWalletStateOptions");
+  const walletRefreshEnd = thoughtMain.indexOf(
+    "async function refreshThoughtWalletFromShell",
+    walletRefreshStart,
+  );
+  const walletRefreshBody = thoughtMain.slice(walletRefreshStart, walletRefreshEnd);
+  assert.ok(walletRefreshStart >= 0 && walletRefreshEnd > walletRefreshStart);
+  assert.match(
+    walletRefreshBody,
+    /else if \(options\.queryInjectedProvider\) \{[\s\S]*?method: "eth_accounts"[\s\S]*?method: "eth_chainId"/,
+    "the injected-provider account and chain reads require an explicit opt-in",
+  );
+  assert.match(
+    walletRefreshBody,
+    /if \(options\.refreshPreflight\) \{\s*await refreshMintPreflight\(\)/,
+    "balance and mint preflight reads require an explicit opt-in",
+  );
+
+  const shellSubscriptionStart = thoughtMain.indexOf("const bindThoughtShellWallet =");
+  const shellSubscriptionEnd = thoughtMain.indexOf(
+    "const bindWalletProviderEvents =",
+    shellSubscriptionStart,
+  );
+  const shellSubscriptionBody = thoughtMain.slice(shellSubscriptionStart, shellSubscriptionEnd);
+  assert.match(shellSubscriptionBody, /void refreshWalletState\(\)\.then/);
+  assert.doesNotMatch(
+    shellSubscriptionBody,
+    /queryInjectedProvider|refreshPreflight|\.request\(/,
+    "shell snapshots hydrate cached state without probing a provider or contract",
+  );
+
+  const providerEventsStart = thoughtMain.indexOf("const bindWalletProviderEvents =");
+  const providerEventsEnd = thoughtMain.indexOf(
+    "const pendingMintIdentityMatches =",
+    providerEventsStart,
+  );
+  const providerEventsBody = thoughtMain.slice(providerEventsStart, providerEventsEnd);
+  assert.match(
+    providerEventsBody,
+    /"accountsChanged", \(accounts\) => \{\s*if \(provider !== getEthereumProvider\(\) \|\| !walletState\.address\) return;[\s\S]*?refreshWalletState\(\{ injectedAccounts: accounts \}\)/,
+    "account events require an already-authorized THOUGHT wallet session while still accepting an empty disconnect payload",
+  );
+  assert.match(
+    providerEventsBody,
+    /"chainChanged", \(chainId\) => \{\s*if \(provider !== getEthereumProvider\(\) \|\| !walletState\.address\) return;[\s\S]*?refreshWalletState\(\{ injectedChainId: chainId \}\)/,
+    "chain events require an already-authorized THOUGHT wallet session",
+  );
+  assert.doesNotMatch(
+    providerEventsBody,
+    /queryInjectedProvider|refreshPreflight|\.request\(/,
+    "provider events consume their payloads instead of re-querying the provider",
+  );
+
+  const focusStart = thoughtMain.indexOf('window.addEventListener("focus", () => {');
+  const focusEnd = thoughtMain.indexOf(
+    'document.addEventListener("visibilitychange"',
+    focusStart,
+  );
+  const focusBody = thoughtMain.slice(focusStart, focusEnd);
+  assert.ok(focusStart >= 0 && focusEnd > focusStart);
+  assert.doesNotMatch(
+    focusBody,
+    /refreshWalletState|refreshPathInventoryForCurrentWallet|checkPathEligibility|lastMintSheetFocusRefreshAt/,
+    "window focus must not probe wallet or chain state",
+  );
+
+  const bootStart = thoughtMain.indexOf("bindThoughtShellWallet();");
+  const bootEnd = thoughtMain.indexOf("const resumedPendingMint", bootStart);
+  const bootBody = thoughtMain.slice(bootStart, bootEnd);
+  assert.match(bootBody, /await refreshWalletState\(\);/);
+  assert.doesNotMatch(
+    bootBody,
+    /queryInjectedProvider|refreshPreflight/,
+    "boot hydrates cached state without provider or preflight reads",
+  );
+
+  const explicitRefreshes = thoughtMain.match(
+    /refreshWalletState\(\{ queryInjectedProvider: true, refreshPreflight: true \}\)/g,
+  ) ?? [];
+  assert.equal(explicitRefreshes.length, 8);
+});
+
+test("prelaunch THOUGHT detail displays its route id without gallery reads", async (t) => {
+  for (const [name, main] of [
+    ["current source", thoughtMain],
+    ["locked runtime", loadThoughtDevSnapshotFile(repoRoot, "main")],
+  ]) {
+    const ast = ts.createSourceFile("main.ts", main, ts.ScriptTarget.ES2022, true);
+    const declaration = ast.statements.find((statement) =>
+      ts.isVariableStatement(statement) && statement.declarationList.declarations.some((entry) =>
+        ts.isIdentifier(entry.name) && entry.name.text === "loadThoughtDetail",
+      ),
+    );
+    assert.ok(declaration, "missing actual detail loader");
+    const source = ts.transpileModule(`${declaration.getText(ast)}\nloadThoughtDetail();`, {
+      compilerOptions: { target: ts.ScriptTarget.ES2022 },
+    }).outputText;
+    for (const routeId of [1, 999999999, null]) {
+      await t.test(`${name}: route ${routeId}`, async () => {
+        const title = { textContent: "-" };
+        const status = { textContent: "" };
+        let galleryReads = 0;
+        await runInNewContext(source, {
+          ROUTE_THOUGHT_NFT_ID: routeId,
+          IS_THOUGHT_GALLERY_ACTIVE: false,
+          thoughtDetailTitleToken: title,
+          thoughtDetailStatus: status,
+          clearThoughtGalleryCache() {},
+          async readGalleryThoughts() { galleryReads += 1; throw new Error("gallery reads prohibited"); },
+        });
+        assert.equal(title.textContent, routeId === null ? "-" : String(routeId));
+        assert.equal(status.textContent, routeId === null
+          ? "THOUGHT unavailable."
+          : "Onchain THOUGHT details will appear when minting opens.");
+        assert.equal(galleryReads, 0);
+      });
+    }
+  }
+});
+
+test("retained mint recovery stays dormant in Studio Preview and resumes after deployment", async (t) => {
+  // Run the application entry points and lifecycle listeners, replacing only
+  // downstream receipt polling with one fake-provider request per monitor.
+  const sources = [
+    ["current source", thoughtMain],
+    ["locked runtime", loadThoughtDevSnapshotFile(repoRoot, "main")],
+  ].map(([name, main]) => {
+    const section = (start, end) => {
+      const from = main.indexOf(start);
+      const to = main.indexOf(end, from);
+      assert.ok(from >= 0 && to > from, `missing receipt recovery source: ${start}`);
+      return main.slice(from, to);
+    };
+    return [name, ts.transpileModule([
+      section("const getWalletMintReceiptProvider =", "const getPathReadProvider ="),
+      section("const startConflictingMintReceiptMonitor =", "const startMintReceiptMonitor ="),
+      section("const resumePendingMintReceiptMonitoring =", "const resumePendingMintTransaction ="),
+      section('window.addEventListener("focus", () => {', 'document.addEventListener("keydown", (event) => {'),
+      "globalThis.receiptRecovery = { getWalletMintReceiptProvider };",
+    ].join("\n"), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText];
+  });
+
+  const scenarios = sources.flatMap(([name, source]) =>
+    ["studio-preview", "onchain-countdown", "onchain-open"].flatMap((phase) =>
+      ["pending", "conflicting"].map((kind) => ({ name, source, phase, kind })),
+    ),
+  );
+  for (const { name, source, phase, kind } of scenarios) {
+      await t.test(`${name}: ${phase}: retained ${kind} mint`, async () => {
+        const retained = {
+          hash: `0x${"a".repeat(64)}`,
+          account: `0x${"b".repeat(40)}`,
+          thoughtNft: `0x${"c".repeat(40)}`,
+          chainId: 11155111,
+          nonce: 1,
+        };
+        const storage = new Map([
+          ["pending", JSON.stringify(kind === "pending" ? retained : null)],
+          ["conflicting", JSON.stringify(kind === "conflicting" ? [retained] : [])],
+        ]);
+        const originalStorage = [...storage];
+        const calls = [];
+        const monitors = [];
+        const jobs = [];
+        const listeners = new Map();
+        let providerCreations = 0;
+        const injected = {
+          async request(request) {
+            calls.push(request);
+            return { status: 1, logs: [] };
+          },
+        };
+        const environment = {
+          thoughtLaunchState: { phase },
+          pendingMintTransaction: JSON.parse(storage.get("pending")),
+          conflictingMintTransactions: JSON.parse(storage.get("conflicting")),
+          conflictingMintReceiptMonitorHashes: new Set(),
+          mintReceiptBrowserProvider: null,
+          mintReceiptBrowserProviderSource: null,
+          getEthereumProvider: () => injected,
+          getReadProvider: () => null,
+          BrowserProvider: class {
+            constructor(provider) {
+              providerCreations += 1;
+              this.provider = provider;
+            }
+            waitForTransaction(hash) {
+              return this.provider.request({ method: "eth_getTransactionReceipt", params: [hash] });
+            }
+          },
+          isPendingMintDeploymentCompatible: (transaction) =>
+            transaction.chainId === retained.chainId && transaction.thoughtNft === retained.thoughtNft,
+          startMintReceiptMonitor(tx) {
+            monitors.push("pending");
+            jobs.push(tx.wait());
+          },
+          monitorConflictingMintReceipt(transaction) {
+            monitors.push("conflicting");
+            const job = environment.receiptRecovery.getWalletMintReceiptProvider()
+              .waitForTransaction(transaction.hash);
+            jobs.push(job);
+            return job;
+          },
+          withTimeout: (job) => job,
+          MINT_RECEIPT_WAIT_TIMEOUT_MS: 1000,
+          MINT_RECEIPT_MONITOR_TIMEOUT_MESSAGE: "fake timeout",
+          refreshThoughtLaunchState: async () => {},
+          syncInterface() {},
+          refreshThoughtDockPolling() {},
+          restoreThoughtStylesheetAfterHistory() {},
+          requestAnimationFrame(callback) { callback(); },
+          pageUnloading: false,
+          window: {
+            addEventListener(name, callback) { listeners.set(`window:${name}`, callback); },
+          },
+          document: {
+            visibilityState: "visible",
+            addEventListener(name, callback) { listeners.set(`document:${name}`, callback); },
+          },
+        };
+        runInNewContext(source, environment);
+        const originalState = JSON.stringify([
+          environment.pendingMintTransaction, environment.conflictingMintTransactions,
+        ]);
+        for (const name of ["window:focus", "window:pageshow", "document:visibilitychange", "document:resume", "window:online"]) {
+          listeners.get(name)();
+          await Promise.all(jobs);
+        }
+
+        if (phase === "studio-preview") {
+          assert.deepEqual(calls, [], "retained mint recovery must not query the injected wallet");
+          assert.deepEqual(monitors, [], "retained mint recovery must not start passive polling");
+          assert.equal(environment.receiptRecovery.getWalletMintReceiptProvider(), null);
+          assert.equal(providerCreations, 0, "Studio Preview must not initialize a receipt provider");
+        } else {
+          assert.equal(calls.length, 5, "every lifecycle event should still resume deployed mint recovery");
+          assert.ok(calls.every((call) => call.method === "eth_getTransactionReceipt" && call.params[0] === retained.hash));
+          assert.deepEqual(monitors, Array(5).fill(kind));
+          assert.equal(providerCreations, 1, "deployed recovery reuses its wallet receipt provider");
+        }
+        assert.deepEqual([...storage], originalStorage, "retained transaction records must survive");
+        assert.equal(JSON.stringify([
+          environment.pendingMintTransaction, environment.conflictingMintTransactions,
+        ]), originalState, "retained in-memory transactions must survive");
+      });
+  }
 });
 
 test("Work owns mutually exclusive Mint and Load disclosures", () => {

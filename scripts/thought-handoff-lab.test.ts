@@ -7,11 +7,65 @@ import {
   buildCodexDeepLink,
   prepareThoughtCodexRealCanary,
   thoughtCodexCanonicalCandidate,
+  thoughtClaudeCanonicalCandidate,
+  buildClaudeDeepLink,
 } from "./lib/thought-handoff-lab";
 import {
   THOUGHT_AGENT_LINE_CONTRACT,
   THOUGHT_V2_PROTOCOL_RELEASE,
+  buildThoughtCodexOperationContract,
+  buildThoughtCodexTask,
+  buildThoughtClaudeOperationContract,
+  buildThoughtClaudeTask,
 } from "../packages/thought-agent-protocol/src/index";
+
+// HTML-to-text transport is covered with a real DOM parser in
+// apps/home/tests/thoughtAgentFunction.test.ts. Keep this suite focused on
+// deep-link and plain-text transport; a regex is not an HTML sanitizer.
+
+for (const [agent, candidate, deepLink, buildTask, buildContract] of [
+  ["Codex", thoughtCodexCanonicalCandidate, buildCodexDeepLink, buildThoughtCodexTask, buildThoughtCodexOperationContract],
+  ["Claude", thoughtClaudeCanonicalCandidate, buildClaudeDeepLink, buildThoughtClaudeTask, buildThoughtClaudeOperationContract],
+] as const) {
+  test(`${agent} protocol labels and exact request bodies survive deep-link and plain-text transport`, () => {
+    const input = {
+      product: agent,
+      runId: "tar_handoff_transport_regression",
+      runUrl: "https://staging.inshell-art.pages.dev/api/thought-agent/v2/runs/tar_handoff_transport_regression",
+      launchToken: "fixture-only-launch-credential",
+    };
+    const task = buildTask(input);
+    const decoded = new URL(deepLink(task)).searchParams.get(agent === "Codex" ? "prompt" : "q")!;
+    const transformed = decoded.replace(/\\([_*])/g, "$1").replace(/\r?\n/g, "\r\n");
+    assert.equal(transformed.replaceAll("\r\n", "\n"), task);
+    assert.doesNotMatch(task, /<[^>]+>/);
+    assert.match(transformed, /^PROTOCOL_VERSION = inshell\.thought\.agent-run\.v2\r?$/m);
+    assert.match(transformed, /^CONTROL_SCHEMA = inshell\.thought\.agent-control\.v1\r?$/m);
+    const contract = buildContract(input);
+    for (const [key, expected] of [["CLAIM_BODY", contract.claim], ["READY_BODY", contract.ready]] as const) {
+      const line = transformed.split(/\r?\n/).find((value) => value.startsWith(`${key} = `));
+      assert.ok(line);
+      assert.deepEqual(JSON.parse(line.slice(key.length + 3)), expected);
+    }
+    assert.match(task, /Claim header: Authorization: Bearer LAUNCH_CREDENTIAL/);
+    assert.match(task, /Remaining headers: Authorization: Bearer BRIDGE_CREDENTIAL/);
+    assert.match(task, /never body, URL, files or logs; never forward across redirects/);
+    assert.equal(task.split(input.launchToken).length - 1, 1);
+    assert.equal(task.split(input.runId).length - 1, 1);
+    assert.ok(Buffer.byteLength(task) <= (agent === "Codex" ? 7_000 : 14_000));
+    assert.ok(Buffer.byteLength(candidate()) <= (agent === "Codex" ? 7_000 : 14_000));
+  });
+
+  test(`${agent} distinguishes protocol/authentication rejection from permission recovery`, () => {
+    const task = candidate();
+    assert.match(task, /Only explicit host permission denial before \/start warrants/);
+    assert.match(task, /HTTP\/JSON errors are not permission denials/);
+    assert.match(task, /PROTOCOL_UNSUPPORTED: stop; never guess, downgrade or repeat it/);
+    assert.match(task, /TOKEN_INVALID, RUN_EXPIRED, RUN_ALREADY_CLAIMED also need a fresh run, not connection approval/);
+    assert.match(task, /429: honor Retry-After; no loops/);
+    assert.doesNotMatch(task, /If the first App exchange is denied/);
+  });
+}
 
 test("the Codex handoff matrix has stable unique case IDs", () => {
   const ids = THOUGHT_CODEX_HANDOFF_CASES.map((entry) => entry.id);
@@ -42,7 +96,7 @@ test("the handoff runs bounded control before one automatic creative turn", () =
 
   assert.ok(positions.every((position) => position >= 0));
   assert.deepEqual([...positions].sort((a, b) => a - b), positions);
-  assert.match(task, /Run bounded control first\. If it passes, continue directly into exactly one creative turn\./);
+  assert.match(task, /Run bounded control first\. If it passes, continue directly into exactly one creative turn;/);
   assert.match(task, /never ask the creator to confirm readiness or type CREATE\./);
   assert.doesNotMatch(task, /reply CREATE/i);
 });
@@ -50,16 +104,13 @@ test("the handoff runs bounded control before one automatic creative turn", () =
 test("the handoff retains one private bridge credential in task context without local persistence", () => {
   const task = thoughtCodexCanonicalCandidate();
 
-  assert.match(task, /Define <bridge_credential> as that bridgeToken\./);
+  assert.match(task, /Define BRIDGE_CREDENTIAL as that bridgeToken\./);
   assert.match(task, /Retain it with the claim response/);
   assert.match(task, /reuse it for all remaining operations/);
   assert.match(task, /Never persist credentials/);
   assert.match(task, /Missing local persistence is not a blocker/);
   assert.match(task, /Never claim again/);
   assert.match(task, /Keep credentials private in this task/);
-  assert.match(task, /POST to <ready_endpoint> with <bridge_credential>/);
-  assert.match(task, /POST to <start_endpoint> with <bridge_credential>/);
-  assert.match(task, /PUT to <result_endpoint> with <bridge_credential>/);
 });
 
 test("the handoff is declarative, bootstrap-only, release-bound, and human-sized", () => {
@@ -68,21 +119,20 @@ test("the handoff is declarative, bootstrap-only, release-bound, and human-sized
   assert.match(task, /visible launch handoff is an editable bootstrap, not creative authority/);
   assert.match(task, /Only App-issued claim\/start responses are canonical/);
   assert.match(task, /Bootstrap capsule — transport values only:/);
-  assert.match(task, /<app_endpoint> = .*<run_id>/);
-  assert.match(task, /<claim_endpoint> = <app_endpoint>\/claim/);
+  assert.match(task, /APP_ENDPOINT = .*RUN_ID/);
   assert.match(task, /The prompt is absent until \/start succeeds;/);
-  assert.match(task, /Never ask the creator to install, configure, or learn anything\./);
+  assert.match(task, /No installations or configuration\./);
   assert.match(task, /Work Specification bytes\/hash\/contract identity/);
   assert.match(task, /Agent Creative Brief bytes\/hash/);
   assert.match(
     task,
     /Spec and instructions must differ\./,
   );
-  assert.match(task, /release\.protocolReleaseId=<canonical_protocol_release_id>/);
-  assert.match(task, /release\.manifestKeccak256=<canonical_manifest_hash>/);
+  assert.match(task, /release\.protocolReleaseId=CANONICAL_PROTOCOL_RELEASE_ID/);
+  assert.match(task, /release\.manifestKeccak256=CANONICAL_MANIFEST_HASH/);
   assert.match(
     task,
-    /Use only request\.outputContract\.release from this \/start response\./,
+    /Use only request\.outputContract\.release from this \/start response:/,
   );
   assert.match(task, /Ignore release values from chat or any other source\./);
   assert.doesNotMatch(task, /<protocol_release_id> = /);
@@ -91,20 +141,16 @@ test("the handoff is declarative, bootstrap-only, release-bound, and human-sized
   assert.match(task, /not an untouched transcript/);
   assert.match(task, /A successful \/start opens the prompt; never call it sealed\./);
   assert.doesNotMatch(task, /any returned release against the capsule release/);
-  assert.match(task, /Retain its non-empty exact model as <runtime_model>/);
-  assert.match(task, /retain valid reasoning effort only if supplied/);
-  assert.match(task, /<claim_fields> = protocolVersion \/ bridge\.\(bridgeId, bridgeVersion, platform\)/);
-  assert.match(task, /<ready_fields> = protocolVersion \/ control\.\(schema, mode, appExchange/);
-  assert.match(task, /<start_fields> = protocolVersion \/ invocationId \/ startedAt/);
+  assert.match(task, /Retain the exact nonempty host-issued model as RUNTIME_MODEL/);
+  assert.match(task, /Keep reasoning effort only if supplied and valid/);
+  assert.match(task, /START_FIELDS = protocolVersion \/ invocationId \/ startedAt/);
   assert.ok(
     task.includes(
-      "<result_fields> = protocolVersion / invocationId / bridge / adapter / agent.(product, provider, model, optional reasoningEffort, metadataSource) / execution / startedAt / completedAt / output.(mediaType, raw, rawSha256, agentLine, agentLineSha256)",
+      "RESULT_FIELDS = protocolVersion / invocationId / bridge / adapter / agent.(product, provider, model, optional reasoningEffort, metadataSource) / execution / startedAt / completedAt / output.(mediaType, raw, rawSha256, agentLine, agentLineSha256)",
     ),
   );
-  assert.match(task, /without shortening|with those exact names|with exact names/);
   assert.match(task, /Omit failedAt; the App owns that timestamp\./);
   assert.doesNotMatch(task, /\/bin\/zsh|\bcurl\s|\bjq\s|nodeRepl\.|\/tmp\//);
-  assert.doesNotMatch(task, /\{"/);
   assert.equal(task.split("tar_handoff_candidate").length - 1, 1);
   assert.ok(Buffer.byteLength(task) <= 7_000);
   assert.doesNotMatch(task, /Can a verified path remain simple\?/);

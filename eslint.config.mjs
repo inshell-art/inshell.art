@@ -122,6 +122,7 @@ export default [
     ignores: [
       "**/coverage/**",
       "**/dist/**",
+      "**/.wrangler/**",
       "node_modules/**",
       ".eslintrc.cjs",
       "apps/thought/contract-integration/**/reference/**",

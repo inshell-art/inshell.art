@@ -11,7 +11,7 @@
   "completeJson": "/docs/content.json",
   "canonicalCompleteJson": "https://inshell.art/docs/content.json",
   "completeJsonMediaType": "application/json",
-  "completeJsonSha256": "d439a9ee7e10f06d8e58bb1142cf98e25b9ae0e9a6795753450427aab5337cc3",
+  "completeJsonSha256": "f768f1583b36d284066024fee1f03a259a37b35687d73278cd6c29245b84dfb1",
   "purpose": "Public, read-only discovery for visitors using their own Agents.",
   "sourceLock": {
     "url": "/docs/source-lock.json",
@@ -19,7 +19,7 @@
     "schemaUrl": "/docs/source-lock.schema.json",
     "canonicalSchemaUrl": "https://inshell.art/docs/source-lock.schema.json",
     "mediaType": "application/json",
-    "sha256": "8a8b7b7c39f1149da07595dbda151af214550650d0a932d0cbec6427b418b99c",
+    "sha256": "a26d108ca5c4189224e248e367b4df9bf46b830e28da3d44c1620f77f89bc20f",
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
@@ -239,11 +239,11 @@
       "markdown": "/docs/thought.md",
       "canonicalMarkdown": "https://inshell.art/docs/thought.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "d5efd07655b1c8d74134c66d580de030e57f41265f970b01ac4c9daa5ccea1c4",
+      "markdownSha256": "43d0dd199bbba9abbf4474d5f6833a4cd10a23eae1387f7f67b3b344032f1374",
       "json": "/docs/thought.json",
       "canonicalJson": "https://inshell.art/docs/thought.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "4886c8b975a1b2164705e7927b3364974b4cec00a4b66bf2ca85f1cc7c3e9589"
+      "jsonSha256": "3a4722187a52531a0bdec3b810230ea1968945f3a0ea3677fc3f3cb0edb6233b"
     },
     {
       "id": "will",
@@ -465,11 +465,11 @@
       "markdown": "/docs/wallet-local-data.md",
       "canonicalMarkdown": "https://inshell.art/docs/wallet-local-data.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "3935f08f1aeb9470312afa4f95910612752536f4dcae410601b939a4a6282988",
+      "markdownSha256": "2ac6e79ad13b9c327f74fd59f20868f75b94a8e2ca0dbd9be0d9e035bd3e8113",
       "json": "/docs/wallet-local-data.json",
       "canonicalJson": "https://inshell.art/docs/wallet-local-data.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "303dc099ee1aef60962a4e94362de79fdcfda81d8afbe92883ecc82cda89abba"
+      "jsonSha256": "9c5fdfc961b03db0738495d8bf45f77e55c55af09e7324f70e4bc6c925d4356c"
     },
     {
       "id": "source-release-boundaries",

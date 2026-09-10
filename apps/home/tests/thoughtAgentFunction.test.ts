@@ -22,6 +22,8 @@ import {
   THOUGHT_V2_PROTOCOL_RELEASE,
   parseThoughtAgentControlEvidence,
   sha256Hex,
+  buildThoughtCodexTask,
+  buildThoughtClaudeTask,
 } from "../../../packages/thought-agent-protocol/src/index";
 
 type Row = Record<string, unknown>;
@@ -316,7 +318,7 @@ function auth(token: string, extra: Record<string, string> = {}) {
   };
 }
 
-async function createRun(env: any, prompt = "make a quiet sky") {
+async function createRun(env: any, prompt = "make a quiet sky", adapterId = "codex") {
   const response = await onCreateRun({
     request: request(
       "https://thought.inshell.art/api/thought-agent/v1/runs",
@@ -325,7 +327,7 @@ async function createRun(env: any, prompt = "make a quiet sky") {
         promptLine: prompt,
         specId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
         requestedAgent: {
-          adapterId: "codex",
+          adapterId,
           model: null,
         },
         client: {
@@ -522,6 +524,68 @@ describe("THOUGHT Agent Pages API", () => {
       value: originalCrypto,
     });
     jest.restoreAllMocks();
+  });
+
+  test.each(["codex", "claude"] as const)("%s handoff survives HTML text conversion and supplies exact authenticated v2 requests", async (adapterId) => {
+    const d1 = createD1Mock();
+    const env = { INSHELL_CHAIN_DATA_DB: d1.db };
+    const created = await createRun(env, "handshake fixture", adapterId);
+    const launch = new URL(created.payload.launchUri);
+    const runId = launch.searchParams.get("run_id")!;
+    const launchToken = launch.searchParams.get("token")!;
+    const runUrl = `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}`;
+    const buildTask = adapterId === "codex" ? buildThoughtCodexTask : buildThoughtClaudeTask;
+    const handoff = buildTask({ product: adapterId === "codex" ? "Codex" : "Claude", runId, runUrl, launchToken });
+    const composer = document.createElement("div");
+    composer.innerHTML = "<protocol> = inshell.thought.agent-run.v2";
+    expect(composer.textContent).toBe(" = inshell.thought.agent-run.v2");
+    composer.innerHTML = handoff;
+    const transported = composer.textContent!;
+    expect(transported).toBe(handoff);
+    const body = (name: string) => JSON.parse(transported.split("\n").find((line) => line.startsWith(`${name} = `))!.slice(name.length + 3));
+    const claim = body("CLAIM_BODY");
+    const ready = body("READY_BODY");
+    expect(claim.protocolVersion).toBe(THOUGHT_AGENT_PROTOCOL_VERSION);
+    expect(ready.protocolVersion).toBe(THOUGHT_AGENT_PROTOCOL_VERSION);
+    expect(ready.control.schema).toBe(THOUGHT_AGENT_CONTROL_VERSION);
+    const before = { ...d1.rows.get(runId)! };
+
+    // Incident attempt 1: control.schema was incorrectly used as protocolVersion.
+    const wrongProtocol = await onClaimRunV2({
+      request: request(`${runUrl}/claim`, { ...claim, protocolVersion: THOUGHT_AGENT_CONTROL_VERSION }, auth(launchToken)),
+      env, params: { runId },
+    });
+    expect(wrongProtocol.status).toBe(400);
+    expect(await wrongProtocol.json()).toMatchObject({ protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION, error: { code: "PROTOCOL_UNSUPPORTED" } });
+    expect(d1.rows.get(runId)).toEqual(before);
+
+    // A body credential is not authentication, even with the correct protocol.
+    const bodyCredential = await onClaimRunV2({
+      request: request(`${runUrl}/claim`, { ...claim, launchCredential: launchToken }),
+      env, params: { runId },
+    });
+    expect(bodyCredential.status).toBe(401);
+    expect(await bodyCredential.json()).toMatchObject({ error: { code: "TOKEN_INVALID" } });
+    expect(d1.rows.get(runId)).toEqual(before);
+
+    const claimed = await onClaimRunV2({
+      request: request(`${runUrl}/claim`, claim, auth(launchToken)), env, params: { runId },
+    });
+    expect(claimed.status).toBe(200);
+    const claimedBody = await claimed.json();
+    expect(claimedBody.state).toBe("claimed");
+    expect(claimedBody.bridgeToken).toEqual(expect.any(String));
+    const afterClaim = { ...d1.rows.get(runId)! };
+    const launchOnReady = await onReadyRunV2({
+      request: request(`${runUrl}/ready`, ready, auth(launchToken)), env, params: { runId },
+    });
+    expect(launchOnReady.status).toBe(401);
+    expect(d1.rows.get(runId)).toEqual(afterClaim);
+    const readyResponse = await onReadyRunV2({
+      request: request(`${runUrl}/ready`, ready, auth(claimedBody.bridgeToken)), env, params: { runId },
+    });
+    expect(readyResponse.status).toBe(200);
+    expect(await readyResponse.json()).toMatchObject({ state: "ready", stage: "control-verified" });
   });
 
   test("runs create -> claim -> start -> result -> poll", async () => {
