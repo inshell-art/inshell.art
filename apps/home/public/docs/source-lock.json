@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "f9d36a1eeeeb42b642f97978b9514021de1af722a3641d5af75382afa1d18d89",
+  "sourceTreeSha256": "68eecc7b4db900585463952c24bd635dfa0c541df6111db56422fa7caf6365b4",
   "groups": [
     {
       "id": "public-docs",
@@ -1044,7 +1044,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "7bb8987bcf1f8ac2e75b6c6b4bc1c5d81f73bb7fd753774ed633c405a86d572a",
+      "groupSha256": "418016af122e4f5143b1ce8eca0e63af5cd29d950750978b0c39e537859c9108",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1108,8 +1108,8 @@
         },
         {
           "path": "apps/thought/scripts/thought-launch-main-deltas.generated.mjs",
-          "byteLength": 90230,
-          "sha256": "d284268b73c6a9d87d8c8ae192ec8d940fdd2543c2d2aafde994890edb963091"
+          "byteLength": 91461,
+          "sha256": "6cb7eb85d6a67b3649a50cbe3128c2a4db497f21d9edd31a0356d67cf02ce6ee"
         },
         {
           "path": "apps/thought/src/color-font-doc.ts",
@@ -1123,8 +1123,8 @@
         },
         {
           "path": "apps/thought/src/main.ts",
-          "byteLength": 758254,
-          "sha256": "8297f22747ea944b3fcc94f86a791907fca9e28d0e35082cc60b3652edd51a05"
+          "byteLength": 758513,
+          "sha256": "1bf5774e0ed954ba9cbcb67f838f40051b74c82cff0af33c1d7ae85b5ffbc534"
         },
         {
           "path": "apps/thought/src/rpc-provider.ts",

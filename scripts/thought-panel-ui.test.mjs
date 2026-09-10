@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
 import {
   loadThoughtDevSnapshotFile,
   restoreThoughtDevIndexSnapshot,
@@ -2637,6 +2639,134 @@ test("standalone THOUGHT reads wallet state only after an explicit visitor actio
     /refreshWalletState\(\{ queryInjectedProvider: true, refreshPreflight: true \}\)/g,
   ) ?? [];
   assert.equal(explicitRefreshes.length, 8);
+});
+
+test("retained mint recovery stays dormant in Studio Preview and resumes after deployment", async (t) => {
+  // Run the application entry points and lifecycle listeners, replacing only
+  // downstream receipt polling with one fake-provider request per monitor.
+  const sources = [
+    ["current source", thoughtMain],
+    ["locked runtime", loadThoughtDevSnapshotFile(repoRoot, "main")],
+  ].map(([name, main]) => {
+    const section = (start, end) => {
+      const from = main.indexOf(start);
+      const to = main.indexOf(end, from);
+      assert.ok(from >= 0 && to > from, `missing receipt recovery source: ${start}`);
+      return main.slice(from, to);
+    };
+    return [name, ts.transpileModule([
+      section("const getWalletMintReceiptProvider =", "const getPathReadProvider ="),
+      section("const startConflictingMintReceiptMonitor =", "const startMintReceiptMonitor ="),
+      section("const resumePendingMintReceiptMonitoring =", "const resumePendingMintTransaction ="),
+      section('window.addEventListener("focus", () => {', 'document.addEventListener("keydown", (event) => {'),
+      "globalThis.receiptRecovery = { getWalletMintReceiptProvider };",
+    ].join("\n"), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText];
+  });
+
+  const scenarios = sources.flatMap(([name, source]) =>
+    ["studio-preview", "onchain-countdown", "onchain-open"].flatMap((phase) =>
+      ["pending", "conflicting"].map((kind) => ({ name, source, phase, kind })),
+    ),
+  );
+  for (const { name, source, phase, kind } of scenarios) {
+      await t.test(`${name}: ${phase}: retained ${kind} mint`, async () => {
+        const retained = {
+          hash: `0x${"a".repeat(64)}`,
+          account: `0x${"b".repeat(40)}`,
+          thoughtNft: `0x${"c".repeat(40)}`,
+          chainId: 11155111,
+          nonce: 1,
+        };
+        const storage = new Map([
+          ["pending", JSON.stringify(kind === "pending" ? retained : null)],
+          ["conflicting", JSON.stringify(kind === "conflicting" ? [retained] : [])],
+        ]);
+        const originalStorage = [...storage];
+        const calls = [];
+        const monitors = [];
+        const jobs = [];
+        const listeners = new Map();
+        let providerCreations = 0;
+        const injected = {
+          async request(request) {
+            calls.push(request);
+            return { status: 1, logs: [] };
+          },
+        };
+        const environment = {
+          thoughtLaunchState: { phase },
+          pendingMintTransaction: JSON.parse(storage.get("pending")),
+          conflictingMintTransactions: JSON.parse(storage.get("conflicting")),
+          conflictingMintReceiptMonitorHashes: new Set(),
+          mintReceiptBrowserProvider: null,
+          mintReceiptBrowserProviderSource: null,
+          getEthereumProvider: () => injected,
+          getReadProvider: () => null,
+          BrowserProvider: class {
+            constructor(provider) {
+              providerCreations += 1;
+              this.provider = provider;
+            }
+            waitForTransaction(hash) {
+              return this.provider.request({ method: "eth_getTransactionReceipt", params: [hash] });
+            }
+          },
+          isPendingMintDeploymentCompatible: (transaction) =>
+            transaction.chainId === retained.chainId && transaction.thoughtNft === retained.thoughtNft,
+          startMintReceiptMonitor(tx) {
+            monitors.push("pending");
+            jobs.push(tx.wait());
+          },
+          monitorConflictingMintReceipt(transaction) {
+            monitors.push("conflicting");
+            const job = environment.receiptRecovery.getWalletMintReceiptProvider()
+              .waitForTransaction(transaction.hash);
+            jobs.push(job);
+            return job;
+          },
+          withTimeout: (job) => job,
+          MINT_RECEIPT_WAIT_TIMEOUT_MS: 1000,
+          MINT_RECEIPT_MONITOR_TIMEOUT_MESSAGE: "fake timeout",
+          refreshThoughtLaunchState: async () => {},
+          syncInterface() {},
+          refreshThoughtDockPolling() {},
+          restoreThoughtStylesheetAfterHistory() {},
+          requestAnimationFrame(callback) { callback(); },
+          pageUnloading: false,
+          window: {
+            addEventListener(name, callback) { listeners.set(`window:${name}`, callback); },
+          },
+          document: {
+            visibilityState: "visible",
+            addEventListener(name, callback) { listeners.set(`document:${name}`, callback); },
+          },
+        };
+        runInNewContext(source, environment);
+        const originalState = JSON.stringify([
+          environment.pendingMintTransaction, environment.conflictingMintTransactions,
+        ]);
+        for (const name of ["window:focus", "window:pageshow", "document:visibilitychange", "document:resume", "window:online"]) {
+          listeners.get(name)();
+          await Promise.all(jobs);
+        }
+
+        if (phase === "studio-preview") {
+          assert.deepEqual(calls, [], "retained mint recovery must not query the injected wallet");
+          assert.deepEqual(monitors, [], "retained mint recovery must not start passive polling");
+          assert.equal(environment.receiptRecovery.getWalletMintReceiptProvider(), null);
+          assert.equal(providerCreations, 0, "Studio Preview must not initialize a receipt provider");
+        } else {
+          assert.equal(calls.length, 5, "every lifecycle event should still resume deployed mint recovery");
+          assert.ok(calls.every((call) => call.method === "eth_getTransactionReceipt" && call.params[0] === retained.hash));
+          assert.deepEqual(monitors, Array(5).fill(kind));
+          assert.equal(providerCreations, 1, "deployed recovery reuses its wallet receipt provider");
+        }
+        assert.deepEqual([...storage], originalStorage, "retained transaction records must survive");
+        assert.equal(JSON.stringify([
+          environment.pendingMintTransaction, environment.conflictingMintTransactions,
+        ]), originalState, "retained in-memory transactions must survive");
+      });
+  }
 });
 
 test("Work owns mutually exclusive Mint and Load disclosures", () => {

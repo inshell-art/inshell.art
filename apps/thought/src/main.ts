@@ -7440,6 +7440,9 @@ const getReadProvider = () => {
 };
 
 const getWalletMintReceiptProvider = () => {
+  if (thoughtLaunchState.phase === "studio-preview") {
+    return null;
+  }
   const ethereum = getEthereumProvider();
   if (!ethereum) {
     mintReceiptBrowserProvider = null;
@@ -13171,6 +13174,7 @@ const startConflictingMintReceiptMonitor = (
   shouldAppendCliResult = false,
 ) => {
   if (
+    thoughtLaunchState.phase === "studio-preview" ||
     !isPendingMintDeploymentCompatible(transaction) ||
     conflictingMintReceiptMonitorHashes.has(transaction.hash)
   ) {
@@ -13309,7 +13313,8 @@ const registerSubmittedMintTx = async (
 
 const resumePendingMintReceiptMonitoring = () => {
   const pending = pendingMintTransaction;
-  if (!pending) {
+  // Retain submitted hashes for recovery when an approved deployment is active.
+  if (thoughtLaunchState.phase === "studio-preview" || !pending) {
     return false;
   }
 

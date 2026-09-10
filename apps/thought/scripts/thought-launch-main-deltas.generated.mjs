@@ -646,6 +646,42 @@ document.addEventListener("visibilitychange", () => {`,
 });
 document.addEventListener("visibilitychange", () => {`,
   ]),
+  Object.freeze([
+    "launch state delta 197",
+    `const getWalletMintReceiptProvider = () => {
+  const ethereum = getEthereumProvider();`,
+    `const getWalletMintReceiptProvider = () => {
+  if (thoughtLaunchState.phase === "studio-preview") {
+    return null;
+  }
+  const ethereum = getEthereumProvider();`,
+  ]),
+  Object.freeze([
+    "launch state delta 198",
+    `const startConflictingMintReceiptMonitor = (
+  transaction: PendingMintTransaction,
+  shouldAppendCliResult = false,
+) => {
+  if (
+    !isPendingMintDeploymentCompatible(transaction) ||`,
+    `const startConflictingMintReceiptMonitor = (
+  transaction: PendingMintTransaction,
+  shouldAppendCliResult = false,
+) => {
+  if (
+    thoughtLaunchState.phase === "studio-preview" ||
+    !isPendingMintDeploymentCompatible(transaction) ||`,
+  ]),
+  Object.freeze([
+    "launch state delta 199",
+    `const resumePendingMintReceiptMonitoring = () => {
+  const pending = pendingMintTransaction;
+  if (!pending) {`,
+    `const resumePendingMintReceiptMonitoring = () => {
+  const pending = pendingMintTransaction;
+  // Retain submitted hashes for recovery when an approved deployment is active.
+  if (thoughtLaunchState.phase === "studio-preview" || !pending) {`,
+  ]),
 ]);
 
 export const applyCurrentThoughtLaunchMainDeltas = (source, direction, replaceExactCount) => {
