@@ -59,7 +59,7 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
 
   const stats = createStats("path", "pulse-auction", ctx.env);
   try {
-    const snapshot = await loadPulseAuction(ctx.env, ctx, stats, diagnostics, previous);
+    const { snapshot } = await loadPulseAuction(ctx.env, ctx, stats, diagnostics, previous);
     emitUsage(ctx, stats);
     const response = responseFromSnapshot(snapshot);
     writeResponseCache(ctx, SNAPSHOT_KEY, response, RESPONSE_CACHE_SECONDS, snapshot.lastScannedBlock);

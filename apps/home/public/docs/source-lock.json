@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "370edca409723a6b7e04f8e1a526cdacf04829b7535851c99bebed5a2dc84287",
+  "sourceTreeSha256": "7676aa17cdd8c6dda8a7d654d1cb7d33bf501c229ea9d02a75a455ddc312e71b",
   "groups": [
     {
       "id": "public-docs",
@@ -336,7 +336,7 @@
       "title": "Public routes and read-only resource contracts",
       "owner": "inshell.art shared App infrastructure",
       "reason": "The Agent index advertises these routes and their read-only semantics.",
-      "groupSha256": "a707cd78a1366d835d64a26de34034ab3ff1e96d711a71e5cb58a6a95473f904",
+      "groupSha256": "9b9ec4ffbb7be0fbb2b3ebd8f7f0e2d9d1f7f1b2aa70c0f85be9c4520bd6c452",
       "files": [
         {
           "path": "apps/home/public/_headers",
@@ -425,8 +425,8 @@
         },
         {
           "path": "functions/api/pulse-auction.ts",
-          "byteLength": 9838,
-          "sha256": "21df4a7d8798c7418870519afa50c4e0ccf331ad0e03c34bbcdb3c264013f813"
+          "byteLength": 9842,
+          "sha256": "f9082888ed454d02b09d3550c8861da314ade33538a3acd17d7d18012efe327a"
         },
         {
           "path": "functions/api/rpc-gate.ts",
