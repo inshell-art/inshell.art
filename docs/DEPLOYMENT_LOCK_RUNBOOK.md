@@ -157,8 +157,8 @@ home and THOUGHT artifacts/API deployments where the workflow uses both.
 - Mint and Connect wallet show the approved guidance. No accidental wallet prompt,
   signing request, auction-open claim, or fallback to an old collection.
 - Check desktop/mobile presentation and Docs navigation against existing policies.
-- Run the agreed four real Agent cells on the same candidate:
-  Mac A × Codex/Claude; Mac B × Codex/Claude. Capture model/app versions, protocol
+- Run two required real Agent cells on the same candidate:
+  one operator Mac × Codex/Claude Code; a second Mac is optional. Capture model/app versions, protocol
   and release identity, accepted return, preview result, and report status.
   Never label a new candidate passed by assumption. The production gate below
   permits evidence-only follow-up commits, not automatic reuse after source changes.
@@ -183,17 +183,17 @@ production Pages publish jobs repeat it. Staging remains deployable while eviden
 is being collected. The empty committed evidence record intentionally fails.
 
 After all source changes are committed, deploy the actual staging candidate and
-record its full SHA. Run Mac A and Mac B with both Codex and Claude Code against
+record its full SHA. Run one operator Mac with both Codex and Claude Code against
 `https://preview.inshell.art`. Localhost tests are useful diagnostics, but do not
 establish public-host reachability. Record actual model/app/browser/OS versions;
-four cells qualify those combinations, not every model or operating system.
+two cells qualify those combinations, not every model or operating system. The 2026-09-11 operator decision supersedes the previous mandatory second Mac; historical evidence remains unchanged.
 
 After reviewing the results, fill `release-evidence/thought-canaries.json`:
 
 - `schema`: `inshell.thought.release-evidence.v1`;
 - `candidateCommit`: the full tested staging SHA;
 - `reviewedBy`, `reviewedAt`: the reviewer and ISO review timestamp;
-- `cells`: exactly `mac-a/codex`, `mac-a/claude`, `mac-b/codex`, `mac-b/claude`.
+- `cells`: require `mac-a/codex` and `mac-a/claude`; optional `mac-b/codex` and `mac-b/claude` are validated equally. Ordinary ChatGPT is not Codex. See [release testing](THOUGHT_RELEASE_TESTING.md).
 
 Each cell records `machine`, `agent`, `testedCommit`, `mode: real-canary`,
 `execution: desktop-deep-link` or `cli`, `surface` (`code` for Claude),

@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
+import { installSiteProblemReporting } from "@inshell/shared/problem-report";
 import { buildReportBugLink, shouldShowReportBug } from "@/config/publicLaunch";
 
 function currentPagePath(): string {
@@ -17,6 +18,7 @@ function currentPageState(): string {
 }
 
 export default function FloatingReportBug() {
+  useEffect(() => installSiteProblemReporting(), []);
   const reportBugLink = useMemo(() => {
     if (!shouldShowReportBug()) return null;
     return buildReportBugLink({
@@ -31,12 +33,12 @@ export default function FloatingReportBug() {
   return (
     <a
       className={`${reportBugLink.className} inshell-report-bug-link--floating`}
-      href={reportBugLink.href}
+      href="https://github.com/inshell-art/inshell.art/issues/new"
       target={reportBugLink.target}
       rel={reportBugLink.rel}
-      aria-label={reportBugLink.ariaLabel}
+      aria-label="Report a problem"
     >
-      {reportBugLink.label}
+      Report a problem
     </a>
   );
 }

@@ -52,7 +52,7 @@ function evidence() {
   return {
     schema: "inshell.thought.release-evidence.v1", candidateCommit: commit,
     reviewedBy: "test-reviewer", reviewedAt: "2026-08-26T01:00:00.000Z",
-    cells: ["mac-a", "mac-b"].flatMap((machine) => ["codex", "claude"].map((agent) => ({
+    cells: ["mac-a"].flatMap((machine) => ["codex", "claude"].map((agent) => ({
       machine, agent, testedCommit: commit, mode: "real-canary", execution: "desktop-deep-link",
       surface: agent === "claude" ? "code" : "codex", state: "returned", runId: `tar_${machine}_${agent}`,
       taskSha256: hash, receiptSha256: `sha256:${(machine === "mac-a" ? (agent === "codex" ? "1" : "2") : (agent === "codex" ? "3" : "4")).repeat(64)}`, agentLineSha256: hash,
@@ -64,14 +64,15 @@ function evidence() {
   };
 }
 
-test("four reviewed cells pass validation; an unqualified template never does", () => {
+test("two reviewed operator-Mac cells pass; an unqualified template never does", () => {
   assert.deepEqual(validateReleaseEvidence(evidence()), []);
   assert.ok(validateReleaseEvidence({ schema: "inshell.thought.release-evidence.v1", cells: [] }).length);
 });
 
 for (const [name, mutate] of Object.entries({
   "missing cell": (e) => e.cells.pop(),
-  "duplicate cell": (e) => { e.cells[3] = e.cells[0]; },
+  "duplicate cell": (e) => { e.cells[1] = e.cells[0]; },
+  "ordinary ChatGPT": (e) => { e.cells[0].surface = "chatgpt"; },
   "reused run": (e) => { e.cells[1].runId = e.cells[0].runId; },
   "reused receipt": (e) => { e.cells[1].receiptSha256 = e.cells[0].receiptSha256; },
   "wrong candidate": (e) => { e.cells[0].testedCommit = "c".repeat(40); },
@@ -100,6 +101,16 @@ for (const [name, mutate] of Object.entries({
 test("CLI protocol evidence remains valid with separately recorded launch/preview observations", () => {
   const value = evidence(); value.cells[0].execution = "cli";
   assert.deepEqual(validateReleaseEvidence(value), []);
+});
+
+test("optional second-Mac evidence is validated, never required or substituted", () => {
+  const value = evidence();
+  value.cells.push({ ...value.cells[0], machine: "mac-b", runId: "tar_mac_b_codex", receiptSha256: "sha256:" + "3".repeat(64) });
+  assert.deepEqual(validateReleaseEvidence(value), []);
+  value.cells[2].mode = "simulated";
+  assert.ok(validateReleaseEvidence(value).length);
+  value.cells.shift();
+  assert.ok(validateReleaseEvidence(value).some((error) => error.includes("Missing cell")));
 });
 
 test("git gate permits evidence-only commits and content-identical promotions, rejects drift and missing history", () => {

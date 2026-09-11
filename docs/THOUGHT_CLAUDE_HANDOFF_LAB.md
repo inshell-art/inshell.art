@@ -157,14 +157,14 @@ Observe the returned run using the exact command printed by `real-prepare`. Priv
 A Claude handoff revision is eligible for App rollout only when:
 
 1. the complete deterministic matrix passes;
-2. the browser release-parity canary passes for both ChatGPT/Codex and Claude;
+2. the automated browser integration tests pass for both Codex and Claude adapters (no real Agent execution);
 3. the Claude deep link preserves the exact sealed task within the supported URL limit;
 4. a real Claude Code canary returns a valid App receipt;
 5. no test or report exposes credentials or creative input before `/start`;
 6. Codex regression tests continue to pass.
 
 The 2026-08-26 markup-safe handoff correction changes both active candidates.
-Rerun the four real cells (Mac A/Mac B × Codex/Claude Code), including the actual
+Under the superseding 2026-09-11 operator decision, run two real cells on one operator Mac (Codex and Claude Code); second-Mac coverage is optional. Include the actual
 THOUGHT chooser and deep-link/composer path, before promotion. Older passing
 reports remain historical; they do not qualify new handoff bytes. The DOM and
 protocol regression tests prove the known failure mode, not universal host or

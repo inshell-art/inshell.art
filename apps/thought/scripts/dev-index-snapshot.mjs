@@ -1151,6 +1151,27 @@ const applyMono76DisplayDelta = (source, direction) => {
   return source;
 };
 
+const applyFailureReportDelta = (source, direction) => {
+  const pairs = [
+    ["  thoughtReportBugLink.href = link.href;\n  thoughtReportBugLink.target = link.target;\n  thoughtReportBugLink.rel = link.rel;\n  thoughtReportBugLink.ariaLabel = link.ariaLabel;\n  thoughtReportBugLink.textContent = link.label;", "  thoughtReportBugLink.href = \"https://github.com/inshell-art/inshell.art/issues/new\";\n  thoughtReportBugLink.target = link.target;\n  thoughtReportBugLink.rel = link.rel;\n  thoughtReportBugLink.ariaLabel = \"Report a problem\";\n  thoughtReportBugLink.textContent = \"Report a problem\";\n  thoughtReportBugLink.onclick = (event) => { event.preventDefault(); openSiteProblemReport(APP_BUILD); };"],
+    ["  thoughtConsoleHistory = next;\n  writeThoughtConsoleHistory();","  if (input.kind === \"work_run_failed\" || input.kind === \"work_failed\") {\n    const entry = next.entries.at(-1);\n    if (entry) failureReportContexts.set(entry.id, {\n      agent: thoughtDockAdapterId, surface: thoughtDockRun?.surface ?? \"unknown\",\n      appVersion: APP_VERSION, build: APP_BUILD,\n      stage: input.kind === \"work_run_failed\" ? \"agent-run\" : \"app-run\",\n      simulated: import.meta.env.DEV && thoughtDockState.kind === \"failed\" && thoughtDockState.simulatedReportTest === true,\n    });\n  }\n  const retainedIds = new Set(next.entries.map((entry) => entry.id));\n  for (const id of failureReportContexts.keys()) if (!retainedIds.has(id)) failureReportContexts.delete(id);\n  thoughtConsoleHistory = next;\n  writeThoughtConsoleHistory();"],
+    ["let thoughtDockState: ThoughtDockState = { kind: \"empty\" };","const failureReportContexts = new Map<string, Parameters<typeof openFailureReport>[0]>();\nlet thoughtDockState: ThoughtDockState = { kind: \"empty\" };"],
+    ['      confirmedRunFailure?: boolean;', '      confirmedRunFailure?: boolean;\n      simulatedReportTest?: boolean;'],
+    ['import "@inshell/shared/design.css";', 'import "@inshell/shared/design.css";\nimport { openFailureReport, installLocalFailureTest } from "./thought-failure-report";\nimport { openSiteProblemReport } from "@inshell/shared/problem-report";'],
+    ["const shortRunId = (runId: string) =>", "installLocalFailureTest(() => {\n  if (runInFlight) return;\n  setThoughtDockState({ kind: \"failed\", message: `Simulated local UI failure ${Date.now()}`, confirmedRunFailure: true, simulatedReportTest: true });\n});\n\nconst shortRunId = (runId: string) =>"],
+    ["const thoughtDockConsoleTime = () =>","const addThoughtConsoleFailureReportAction = (\n  element: HTMLElement,\n  entry: ThoughtConsoleEntry,\n) => {\n  const context = failureReportContexts.get(entry.id) ?? {\n    agent: \"unknown\", surface: \"unknown\", appVersion: \"unknown\", build: \"unknown\",\n    contextUnavailable: true,\n    stage: entry.kind === \"work_run_failed\" ? \"agent-run\" as const : \"app-run\" as const,\n  };\n  const line = statusScreenLine(\"\", { guidance: true });\n  const action = document.createElement(\"button\");\n  action.type = \"button\";\n  action.className = \"thought-dock-status-screen__link thought-dock-status-screen__action\";\n  action.textContent = \"[ Report this problem ]\";\n  action.setAttribute(\"aria-label\", \"Review a sanitized problem report\");\n  action.addEventListener(\"click\", () => openFailureReport(context));\n  line.append(action);\n  element.append(line);\n};\n\nconst thoughtDockConsoleTime = () =>"],
+    ["    const runRecoveryAvailable = entry.id === runRecoveryEntryId;","    const runRecoveryAvailable = entry.id === runRecoveryEntryId;\n    const failureReportAvailable = entry.kind === \"work_run_failed\" || entry.kind === \"work_failed\";"],
+    ["      runRecoveryAvailable,", "      runRecoveryAvailable,\n      failureReportAvailable,"],
+    ["    element.dataset.consoleEntryId = entry.id;","    if (failureReportAvailable) {\n      addThoughtConsoleFailureReportAction(element, entry);\n    }\n    element.dataset.consoleEntryId = entry.id;"],
+  ];
+  for (const [before, after] of pairs) {
+    source = replaceExactCount(source, "opt-in failure report",
+      direction === "restore" ? after : before,
+      direction === "restore" ? before : after);
+  }
+  return source;
+};
+
 const layerCurrentAgentLinePreviewUnavailableCopy = (source) => {
   let layered = replaceExactCount(
     source,
@@ -1430,6 +1451,7 @@ function layerTightDetailGrouping(source) {
 }
 
 function restoreMainSnapshot(source) {
+  source = applyFailureReportDelta(source, "restore");
   source = applyMono76DisplayDelta(source, "restore");
   let currentSource = applyCurrentThoughtLaunchMainDeltas(
     source,
@@ -1983,11 +2005,11 @@ export function loadThoughtDevSnapshotFile(workspaceRoot, fileKey) {
   const currentAgentLinePreview = layerCurrentAgentLinePreviewUnavailableCopy(
     currentTrustedAgentLinks,
   );
-  return applyMono76DisplayDelta(applyCurrentThoughtLaunchMainDeltas(
+  return applyFailureReportDelta(applyMono76DisplayDelta(applyCurrentThoughtLaunchMainDeltas(
     currentAgentLinePreview,
     "layer",
     replaceExactCount,
-  ), "layer");
+  ), "layer"), "layer");
 }
 
 export function loadThoughtDevSnapshotModule(workspaceRoot, id) {
