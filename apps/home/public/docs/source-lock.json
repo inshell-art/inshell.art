@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "7676aa17cdd8c6dda8a7d654d1cb7d33bf501c229ea9d02a75a455ddc312e71b",
+  "sourceTreeSha256": "fadf72426a4d5c9010501a09ff11f2e5e54ae75b02b0310e7279131e32531252",
   "groups": [
     {
       "id": "public-docs",
@@ -336,7 +336,7 @@
       "title": "Public routes and read-only resource contracts",
       "owner": "inshell.art shared App infrastructure",
       "reason": "The Agent index advertises these routes and their read-only semantics.",
-      "groupSha256": "9b9ec4ffbb7be0fbb2b3ebd8f7f0e2d9d1f7f1b2aa70c0f85be9c4520bd6c452",
+      "groupSha256": "77158bd4524d63d36a9f2655a8fcc3b6ffb463b276533b6ffc2b0edde3e4667a",
       "files": [
         {
           "path": "apps/home/public/_headers",
@@ -345,8 +345,8 @@
         },
         {
           "path": "functions/_middleware.ts",
-          "byteLength": 38985,
-          "sha256": "d1f83ab98b432c38db9b2a2feacebc6710ee6768c7c4bb45b4750aceee2bc8ae"
+          "byteLength": 31942,
+          "sha256": "548c601d5fbc17d047d5e2731ca4f88e56af0e17ebec76a8080207d374372ae2"
         },
         {
           "path": "functions/api/analytics/event.ts",

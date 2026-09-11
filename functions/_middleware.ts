@@ -17,10 +17,6 @@ const PUBLIC_FEED_SEPOLIA_RSS_URL = "https://inshell-public-feed.pages.dev/rss.s
 const PUBLIC_FEED_BASE_URL = "https://d807d286.inshell-public-feed.pages.dev";
 const PUB_UPSTREAM_DEFAULT = "https://inshell-pub.pages.dev";
 const APP_SHELL_CACHE_CONTROL = "public, max-age=60, stale-while-revalidate=300";
-const LEGACY_PROD_HOME_ORIGIN = "https://c02c54b0.inshell-art.pages.dev";
-const LEGACY_PROD_FRONTEND_MARKER = "20260610-02b53bb";
-const LEGACY_PROD_HOTFIX_BRANCH = "codex/prod-restore-20260610-fe";
-
 type PagesAssets = {
   fetch: (request: Request) => Promise<Response>;
 };
@@ -36,27 +32,6 @@ type MiddlewareContext = {
   next: (request?: Request) => Promise<Response>;
 };
 type UrlInstance = InstanceType<typeof globalThis.URL>;
-type LegacyProdResourceKind =
-  | "document"
-  | "javascript"
-  | "stylesheet"
-  | "font";
-type LegacyProdResource = {
-  kind: LegacyProdResourceKind;
-  injectPreviewWatermark?: boolean;
-};
-
-const LEGACY_PROD_ENTRY_ASSETS = new Map<string, LegacyProdResource>([
-  ["/assets/index-6XkpjGyk.js", { kind: "javascript" }],
-  ["/assets/index-CwenU7ox.css", { kind: "stylesheet" }],
-  ["/assets/source-code-pro-vietnamese-600-normal-NO4inUC1.woff2", { kind: "font" }],
-  ["/assets/source-code-pro-vietnamese-600-normal-RwzYAKw5.woff", { kind: "font" }],
-  ["/assets/source-code-pro-latin-ext-600-normal-ChD8h2GM.woff2", { kind: "font" }],
-  ["/assets/source-code-pro-latin-ext-600-normal-s-QVw45K.woff", { kind: "font" }],
-  ["/assets/source-code-pro-latin-600-normal-D9kwMNJ_.woff2", { kind: "font" }],
-  ["/assets/source-code-pro-latin-600-normal-DdCNScYx.woff", { kind: "font" }],
-]);
-
 export async function onRequest(ctx: MiddlewareContext): Promise<Response> {
   const url = new globalThis.URL(ctx.request.url);
   if (isPubRouteHost(url.hostname) && isPubReservedPathname(url.pathname)) {
@@ -93,7 +68,7 @@ export async function onRequest(ctx: MiddlewareContext): Promise<Response> {
     return worksRedirect;
   }
 
-  // Keep every current Function route ahead of the temporary frontend recovery proxy.
+  // APIs stay on the current deployment, ahead of frontend app-shell routing.
   if (isApiPathname(pathname)) {
     return ctx.next();
   }
@@ -111,10 +86,6 @@ export async function onRequest(ctx: MiddlewareContext): Promise<Response> {
   if (publicFeedArtifactUrl) {
     return proxyPublicFeedArtifact(publicFeedArtifactUrl, ctx.request);
   }
-  const legacyProdResource = getLegacyProdResource(ctx.request, url, pathname, ctx.env);
-  if (legacyProdResource) {
-    return proxyLegacyProdFrontend(ctx.request, url, legacyProdResource);
-  }
   if (isThoughtAppShellRoute(pathname)) {
     return serveThoughtAppShell(ctx);
   }
@@ -123,163 +94,6 @@ export async function onRequest(ctx: MiddlewareContext): Promise<Response> {
   }
 
   return ctx.next();
-}
-
-function getLegacyProdResource(
-  request: Request,
-  url: UrlInstance,
-  pathname: string,
-  env: MiddlewareContext["env"],
-): LegacyProdResource | null {
-  if (!isLegacyProdRecoveryHost(url.hostname, env)) return null;
-  if (request.method !== "GET" && request.method !== "HEAD") return null;
-  if (isLegacyProdHomeDocumentPathname(pathname)) {
-    return {
-      kind: "document",
-      injectPreviewWatermark: isLegacyProdHotfixBranchHost(url.hostname, env),
-    };
-  }
-
-  return LEGACY_PROD_ENTRY_ASSETS.get(url.pathname) ?? null;
-}
-
-function isLegacyProdRecoveryHost(hostname: string, env: MiddlewareContext["env"]) {
-  const host = hostname.toLowerCase();
-  if (host === "inshell.art") return true;
-  return isLegacyProdHotfixBranchHost(host, env);
-}
-
-function isLegacyProdHotfixBranchHost(hostname: string, env: MiddlewareContext["env"]) {
-  const host = hostname.toLowerCase();
-  return (
-    env.CF_PAGES_BRANCH === LEGACY_PROD_HOTFIX_BRANCH &&
-    (host === "inshell-art.pages.dev" || host.endsWith(".inshell-art.pages.dev"))
-  );
-}
-
-function isLegacyProdHomeDocumentPathname(pathname: string) {
-  return (
-    pathname === "/" ||
-    pathname === "/pulse" ||
-    pathname === "/color-font" ||
-    pathname === "/verify" ||
-    pathname === "/path" ||
-    isTokenRoute(pathname, "path")
-  );
-}
-
-async function proxyLegacyProdFrontend(
-  request: Request,
-  requestUrl: UrlInstance,
-  resource: LegacyProdResource,
-): Promise<Response> {
-  const upstreamUrl = new globalThis.URL(
-    resource.kind === "document" ? "/" : encodedPathnameForProxy(requestUrl.pathname),
-    LEGACY_PROD_HOME_ORIGIN,
-  );
-  const abortController = new globalThis.AbortController();
-  const timeout = setTimeout(() => abortController.abort(), 8000);
-  let upstream: Response;
-  try {
-    upstream = await fetch(upstreamUrl.toString(), {
-      method: request.method,
-      redirect: "manual",
-      signal: abortController.signal,
-      // Do not forward cookies, authorization, Access assertions, or request query data.
-      headers: {
-        accept: legacyProdAcceptHeader(resource.kind),
-      },
-    });
-  } catch {
-    return legacyProdFrontendUnavailable(502, "upstream-unavailable");
-  } finally {
-    clearTimeout(timeout);
-  }
-
-  if (!upstream.ok) {
-    return legacyProdFrontendUnavailable(resource.kind === "document" ? 502 : 404, "upstream-error");
-  }
-
-  const contentType = new Headers(upstream.headers).get("content-type") ?? "";
-  if (!isExpectedLegacyProdContentType(resource.kind, contentType)) {
-    return legacyProdFrontendUnavailable(resource.kind === "document" ? 502 : 404, "mime-rejected");
-  }
-
-  let body: ConstructorParameters<typeof Response>[0] =
-    request.method === "HEAD" ? null : upstream.body;
-  if (request.method === "GET" && resource.injectPreviewWatermark) {
-    try {
-      body = injectLegacyProdPreviewWatermark(await upstream.text());
-    } catch {
-      return legacyProdFrontendUnavailable(502, "body-unavailable");
-    }
-  }
-
-  return new Response(body, {
-    status: 200,
-    headers: legacyProdFrontendResponseHeaders(upstream, contentType, resource.kind),
-  });
-}
-
-function injectLegacyProdPreviewWatermark(html: string) {
-  const watermark = '<div class="inshell-preview-watermark" aria-hidden="true">preview</div>';
-  if (html.includes(watermark)) return html;
-  if (/<\/body>/i.test(html)) return html.replace(/<\/body>/i, `${watermark}</body>`);
-  return `${html}${watermark}`;
-}
-
-function legacyProdAcceptHeader(kind: LegacyProdResourceKind) {
-  if (kind === "document") return "text/html, application/xhtml+xml;q=0.9, */*;q=0.1";
-  if (kind === "javascript") return "application/javascript, text/javascript;q=0.9, */*;q=0.1";
-  if (kind === "stylesheet") return "text/css, */*;q=0.1";
-  return "font/woff2, font/woff, */*;q=0.1";
-}
-
-function isExpectedLegacyProdContentType(kind: LegacyProdResourceKind, contentType: string) {
-  const normalized = contentType.toLowerCase();
-  if (kind === "document") return normalized.startsWith("text/html");
-  if (kind === "javascript") return normalized.includes("javascript");
-  if (kind === "stylesheet") return normalized.startsWith("text/css");
-  return normalized.startsWith("font/woff");
-}
-
-function legacyProdFrontendResponseHeaders(
-  upstream: Response,
-  contentType: string,
-  kind: LegacyProdResourceKind,
-) {
-  const upstreamHeaders = new Headers(upstream.headers);
-  const headers = new Headers();
-  headers.set("content-type", contentType);
-  headers.set("cache-control", upstreamHeaders.get("cache-control") ?? "no-store");
-  headers.set("referrer-policy", "no-referrer");
-  headers.set("x-content-type-options", "nosniff");
-  headers.set("x-frame-options", "DENY");
-  headers.set("x-xss-protection", "1; mode=block");
-  headers.set("permissions-policy", "camera=(), microphone=(), geolocation=()");
-  headers.set("strict-transport-security", "max-age=31536000; includeSubDomains; preload");
-  headers.set("x-inshell-frontend-recovery", LEGACY_PROD_FRONTEND_MARKER);
-  headers.set("x-inshell-frontend-recovery-source", "home");
-  if (kind !== "document") {
-    const etag = upstreamHeaders.get("etag");
-    if (etag) headers.set("etag", etag);
-    const lastModified = upstreamHeaders.get("last-modified");
-    if (lastModified) headers.set("last-modified", lastModified);
-  }
-  return headers;
-}
-
-function legacyProdFrontendUnavailable(status: number, reason: string) {
-  return new Response(status === 404 ? "Frontend asset not found." : "Frontend unavailable.", {
-    status,
-    headers: {
-      "content-type": "text/plain; charset=utf-8",
-      "cache-control": "no-store",
-      "x-content-type-options": "nosniff",
-      "x-inshell-frontend-recovery": LEGACY_PROD_FRONTEND_MARKER,
-      "x-inshell-frontend-recovery-status": reason,
-    },
-  });
 }
 
 function isPubReservedPathname(pathname: string) {
