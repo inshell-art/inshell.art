@@ -2043,8 +2043,8 @@ describe("AuctionCanvas", () => {
       const report = screen.getByRole("link", { name: "Report a Sepolia bug" });
       expect(report).toHaveTextContent("report bug ↗");
       const url = new window.URL(report.getAttribute("href") ?? "");
-      expect(url.searchParams.get("body")).toContain("state: no_supported_wallet");
-      expect(url.searchParams.get("body")).toContain("Remove anything private");
+      expect(url.href).toBe("https://github.com/inshell-art/inshell.art/issues/new");
+      expect(url.searchParams.has("body")).toBe(false);
     });
   });
 
@@ -3069,8 +3069,8 @@ describe("AuctionCanvas", () => {
       });
       const report = screen.getByRole("link", { name: "Report a Sepolia bug" });
       const url = new window.URL(report.getAttribute("href") ?? "");
-      expect(url.searchParams.get("body")).toContain("state: mint_failed");
-      expect(url.searchParams.get("body")).toContain("error: user cancel");
+      expect(url.href).toBe("https://github.com/inshell-art/inshell.art/issues/new");
+      expect(url.searchParams.has("body")).toBe(false);
       expect(errorSpy).toHaveBeenCalledWith("mint failed", expect.anything());
     } finally {
       errorSpy.mockRestore();
@@ -3141,7 +3141,8 @@ describe("AuctionCanvas", () => {
       });
       const report = screen.getByRole("link", { name: "Report a Sepolia bug" });
       const url = new window.URL(report.getAttribute("href") ?? "");
-      expect(url.searchParams.get("body")).toContain("state: wallet_rpc_busy");
+      expect(url.href).toBe("https://github.com/inshell-art/inshell.art/issues/new");
+      expect(url.searchParams.has("body")).toBe(false);
       const requestCountBeforeCopy = request.mock.calls.length;
       await act(async () => {
         fireEvent.click(
