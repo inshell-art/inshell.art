@@ -8,6 +8,8 @@ import "@fontsource/source-code-pro/800.css";
 import "@fontsource/source-code-pro/900.css";
 import "@fontsource-variable/roboto-mono/wght.css";
 import "@inshell/shared/design.css";
+import { openFailureReport, installLocalFailureTest } from "./thought-failure-report";
+import { openSiteProblemReport } from "@inshell/shared/problem-report";
 import {
   BrowserProvider,
   Contract,
@@ -2788,6 +2790,7 @@ type ThoughtDockState =
       run?: AgentDemoRun;
       /** True only when the Agent service reported a terminal failed/cancelled state. */
       confirmedRunFailure?: boolean;
+      simulatedReportTest?: boolean;
     };
 
 type DockRailTone =
@@ -2854,6 +2857,7 @@ let agentDemoPhase: AgentDemoPhase = "draft";
 let agentDemoRun: AgentDemoRun | null = null;
 let agentDemoStatusDetail = "";
 let agentDemoPollGeneration = 0;
+const failureReportContexts = new Map<string, Parameters<typeof openFailureReport>[0]>();
 let thoughtDockState: ThoughtDockState = { kind: "empty" };
 let thoughtDockRun: AgentDemoRun | null = null;
 let thoughtDockAdapterId: ThoughtDockAgentAdapterId = "codex";
@@ -4309,6 +4313,26 @@ const addThoughtConsoleRunRecoveryAction = (
   element.append(line);
 };
 
+const addThoughtConsoleFailureReportAction = (
+  element: HTMLElement,
+  entry: ThoughtConsoleEntry,
+) => {
+  const context = failureReportContexts.get(entry.id) ?? {
+    agent: "unknown", surface: "unknown", appVersion: "unknown", build: "unknown",
+    contextUnavailable: true,
+    stage: entry.kind === "work_run_failed" ? "agent-run" as const : "app-run" as const,
+  };
+  const line = statusScreenLine("", { guidance: true });
+  const action = document.createElement("button");
+  action.type = "button";
+  action.className = "thought-dock-status-screen__link thought-dock-status-screen__action";
+  action.textContent = "[ Report this problem ]";
+  action.setAttribute("aria-label", "Review a sanitized problem report");
+  action.addEventListener("click", () => openFailureReport(context));
+  line.append(action);
+  element.append(line);
+};
+
 const thoughtDockConsoleTime = () =>
   new Date().toLocaleTimeString([], {
     hour: "2-digit",
@@ -4439,6 +4463,17 @@ const emitThoughtConsoleEvent = (input: ThoughtConsoleEventDraft) => {
   if (next === thoughtConsoleHistory) {
     return;
   }
+  if (input.kind === "work_run_failed" || input.kind === "work_failed") {
+    const entry = next.entries.at(-1);
+    if (entry) failureReportContexts.set(entry.id, {
+      agent: thoughtDockAdapterId, surface: thoughtDockRun?.surface ?? "unknown",
+      appVersion: APP_VERSION, build: APP_BUILD,
+      stage: input.kind === "work_run_failed" ? "agent-run" : "app-run",
+      simulated: import.meta.env.DEV && thoughtDockState.kind === "failed" && thoughtDockState.simulatedReportTest === true,
+    });
+  }
+  const retainedIds = new Set(next.entries.map((entry) => entry.id));
+  for (const id of failureReportContexts.keys()) if (!retainedIds.has(id)) failureReportContexts.delete(id);
   thoughtConsoleHistory = next;
   writeThoughtConsoleHistory();
 };
@@ -4768,12 +4803,14 @@ const renderThoughtConsoleHistory = (state: ThoughtDockState) => {
       entry.id === newestEntry?.id &&
       isThoughtConsoleProgressActive(entry, state);
     const runRecoveryAvailable = entry.id === runRecoveryEntryId;
+    const failureReportAvailable = entry.kind === "work_run_failed" || entry.kind === "work_failed";
     const renderSignature = hashText(JSON.stringify({
       entry,
       nextStep: nextStep ?? null,
       guidance,
       tone,
       runRecoveryAvailable,
+      failureReportAvailable,
     }));
     const currentElement = currentElements.get(entry.id);
     if (currentElement?.dataset.consoleRenderSignature === renderSignature) {
@@ -4806,6 +4843,9 @@ const renderThoughtConsoleHistory = (state: ThoughtDockState) => {
     const element = statusScreenEntry(lines);
     if (runRecoveryAvailable) {
       addThoughtConsoleRunRecoveryAction(element, state);
+    }
+    if (failureReportAvailable) {
+      addThoughtConsoleFailureReportAction(element, entry);
     }
     element.dataset.consoleEntryId = entry.id;
     element.dataset.consoleKind = entry.kind;
@@ -5298,6 +5338,11 @@ const getThoughtDockRailView = (state: ThoughtDockState): DockRailView => {
       };
   }
 };
+
+installLocalFailureTest(() => {
+  if (runInFlight) return;
+  setThoughtDockState({ kind: "failed", message: `Simulated local UI failure ${Date.now()}`, confirmedRunFailure: true, simulatedReportTest: true });
+});
 
 const shortRunId = (runId: string) =>
   runId.length > 14 ? `${runId.slice(0, 8)}...${runId.slice(-4)}` : runId;
@@ -8765,11 +8810,12 @@ const configureReportBugLink = () => {
     return;
   }
 
-  thoughtReportBugLink.href = link.href;
+  thoughtReportBugLink.href = "https://github.com/inshell-art/inshell.art/issues/new";
   thoughtReportBugLink.target = link.target;
   thoughtReportBugLink.rel = link.rel;
-  thoughtReportBugLink.ariaLabel = link.ariaLabel;
-  thoughtReportBugLink.textContent = link.label;
+  thoughtReportBugLink.ariaLabel = "Report a problem";
+  thoughtReportBugLink.textContent = "Report a problem";
+  thoughtReportBugLink.onclick = (event) => { event.preventDefault(); openSiteProblemReport(APP_BUILD); };
   thoughtReportBugLink.classList.remove("is-hidden");
 };
 

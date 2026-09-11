@@ -7085,7 +7085,7 @@ export default function AuctionCanvas({
           <>
             {" "}
             <a
-              href={displayNoticeReportLink.href}
+                    href="https://github.com/inshell-art/inshell.art/issues/new"
               target={displayNoticeReportLink.target}
               rel={displayNoticeReportLink.rel}
               aria-label={displayNoticeReportLink.ariaLabel}

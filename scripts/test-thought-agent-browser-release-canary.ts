@@ -812,6 +812,8 @@ try {
   fs.writeFileSync(screenshotPath, Buffer.from(screenshot.data, "base64"));
 
   console.log(JSON.stringify({
+    testKind: "automated-integration",
+    realAgentExecuted: false,
     runId: created.runId,
     adapterId,
     state: returned.state,

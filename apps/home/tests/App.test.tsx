@@ -1930,9 +1930,9 @@ describe("App Component", () => {
 
     render(<App />);
 
-    const report = screen.getByRole("link", { name: "Report a Sepolia bug" });
-    expect(report).toHaveTextContent("report bug ↗");
-    expect(report).toHaveAttribute("href", expect.stringContaining("template=sepolia-bug.md"));
+    const report = screen.getByRole("link", { name: "Report a problem" });
+    expect(report).toHaveTextContent("Report a problem");
+    expect(report).toHaveAttribute("href", "https://github.com/inshell-art/inshell.art/issues/new");
     expect(report.className).toContain("inshell-report-bug-link--floating");
     expect(report.closest("footer")).toBeNull();
   });
@@ -1980,11 +1980,12 @@ describe("App Component", () => {
       await flushAsyncEffects();
     }
 
-    const report = screen.getByRole("link", { name: "Report a Sepolia bug" });
+    const report = screen.getByRole("link", { name: "Report a problem" });
     expect(report.className).toContain("inshell-report-bug-link--floating");
     const url = new window.URL(report.getAttribute("href") ?? "");
-    expect(url.searchParams.get("body")).toContain(`page: ${route}`);
-    expect(url.searchParams.get("body")).toContain(`state: ${state}`);
+    // Context is reviewed in the shared dialog, not leaked into a fallback URL.
+    expect(url.pathname).toBe("/inshell-art/inshell.art/issues/new");
+    expect(url.search).toBe("");
   });
 
   test("renders the docs index with Agent-readable discovery metadata", () => {

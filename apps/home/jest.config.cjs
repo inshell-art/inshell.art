@@ -29,6 +29,7 @@ module.exports = {
   },
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
+    "^@inshell/shared/(problem-report|problem-report-data)$": "<rootDir>/../../packages/shared/src/$1.ts",
     "^@inshell/(.*)$": "<rootDir>/../../packages/$1/src",
     "\\.md\\?url$": "<rootDir>/tests/fileMock.cjs",
     "\\.css$": "identity-obj-proxy",

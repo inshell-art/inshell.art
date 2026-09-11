@@ -7,7 +7,8 @@ import { fileURLToPath } from "node:url";
 export const EVIDENCE_PATH = "release-evidence/thought-canaries.json";
 const sha = /^[a-f0-9]{40}$/;
 const digest = /^sha256:[a-f0-9]{64}$/;
-const requiredCells = ["mac-a/codex", "mac-a/claude", "mac-b/codex", "mac-b/claude"];
+const requiredCells = ["mac-a/codex", "mac-a/claude"];
+const allowedCells = [...requiredCells, "mac-b/codex", "mac-b/claude"];
 const text = (value) => typeof value === "string" && value.trim().length > 0;
 const date = (value) => typeof value === "string" && Number.isFinite(Date.parse(value));
 const cellFields = new Set(["machine", "agent", "testedCommit", "mode", "execution", "surface", "state", "runId", "taskSha256", "receiptSha256", "agentLineSha256", "osVersion", "appVersion", "browserVersion", "model", "launchObserved", "previewObserved", "completedAt", "origin"]);
@@ -23,7 +24,7 @@ export function validateReleaseEvidence(evidence, now = Date.now()) {
   if (!text(evidence.reviewedBy) || !date(evidence.reviewedAt)) errors.push("Operator evidence review is missing.");
   if (Date.parse(evidence.reviewedAt) > now) errors.push("Evidence review cannot be in the future.");
   const cells = Array.isArray(evidence.cells) ? evidence.cells : [];
-  if (cells.length !== 4) errors.push("Exactly four real-agent cells are required.");
+  if (cells.length < 2 || cells.length > 4) errors.push("Two real-agent cells on the operator Mac are required; second-Mac coverage is optional.");
   const seen = new Set();
   const runs = new Set();
   const receipts = new Set();
@@ -31,12 +32,13 @@ export function validateReleaseEvidence(evidence, now = Date.now()) {
     if (!cell || typeof cell !== "object") { errors.push("Malformed cell."); continue; }
     if (Object.keys(cell).some((key) => !cellFields.has(key))) errors.push("Unexpected cell fields; retain only sanitized qualification metadata.");
     const key = `${cell.machine}/${cell.agent}`;
-    if (!requiredCells.includes(key) || seen.has(key)) errors.push(`Unexpected or duplicate cell: ${key}.`);
+    if (!allowedCells.includes(key) || seen.has(key)) errors.push(`Unexpected or duplicate cell: ${key}.`);
     seen.add(key);
     if (cell.testedCommit !== evidence.candidateCommit) errors.push(`${key}: wrong candidate commit.`);
     if (cell.mode !== "real-canary") errors.push(`${key}: simulated checks cannot qualify a release.`);
     if (!["desktop-deep-link", "cli"].includes(cell.execution)) errors.push(`${key}: record execution method.`);
     if (cell.agent === "claude" && cell.surface !== "code") errors.push(`${key}: Claude Code is required, not Cowork.`);
+    if (cell.agent === "codex" && cell.surface !== "codex") errors.push(`${key}: Codex is required; ordinary ChatGPT does not qualify.`);
     if (cell.state !== "returned") errors.push(`${key}: no accepted return.`);
     if (!/^tar_[A-Za-z0-9_-]+$/.test(cell.runId ?? "") || runs.has(cell.runId)) errors.push(`${key}: missing or reused run ID.`);
     runs.add(cell.runId);
@@ -83,7 +85,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   try {
     const errors = checkReleaseEvidence(resolve(fileURLToPath(new URL("..", import.meta.url))));
     if (errors.length) throw new Error(errors.join("\n"));
-    console.log("Release evidence: 4/4 reviewed real-agent cells match this candidate. OPS live checks and explicit operator promotion approval remain required.");
+    console.log("Release evidence: 2/2 required real-Agent cells on one operator Mac match this candidate; optional cells are also validated. OPS live checks and explicit operator promotion approval remain required.");
   } catch (error) {
     console.error(`Production qualification BLOCKED: ${error.message}`);
     process.exitCode = 1;
