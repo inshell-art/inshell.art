@@ -771,8 +771,11 @@ const staticHandoffAssertions = (
   };
   check("automatic-continuation",
     /If (?:the preflight|it) passes, continue directly into (?:exactly )?one creative turn/i.test(task) &&
-    /(?:do not|never) ask the creator to confirm (?:a|the)? ?(?:successful preflight|readiness)/i.test(task),
-    "Successful preflight continues in the same Agent turn.");
+    (profile.id === "claude"
+      ? task.includes("after required host permissions are resolved") &&
+        task.includes("No separate CREATE confirmation is needed; required permission or safety questions still take precedence.")
+      : /(?:do not|never) ask the creator to confirm (?:a|the)? ?(?:successful preflight|readiness)/i.test(task)),
+    "Successful preflight continues without an extra CREATE gate; Claude host permissions take precedence.");
   check("no-create-gate", !/reply CREATE|exact CREATE/i.test(task),
     "No creator CREATE gate.");
   check("prompt-sealed-in-handoff", !task.includes(promptLine),
@@ -788,7 +791,7 @@ const staticHandoffAssertions = (
     task.includes("TOKEN_INVALID, RUN_EXPIRED, RUN_ALREADY_CLAIMED also need a fresh run, not connection approval") &&
     task.includes("429: honor Retry-After; no loops") &&
     /RETRY.*never (?:repeat )?an accepted claim or creat/.test(task) &&
-    /same narrow permission|same narrow App permission|This lab task already has App access/.test(task),
+    /same narrow permission|same narrow App permission|This lab task already has App access|App permission already granted for this lab task/.test(task),
     "Only observed permission/network recovery retries; protocol/auth failures are not permission prompts.");
   const creatorMessages = task.split("\n")
     .filter((line) => /(?:show|tell the creator) exactly:|warrants:/i.test(line))
@@ -842,11 +845,16 @@ const staticHandoffAssertions = (
       .every((heading) => task.includes(heading)),
     "Four ordered named operations.");
   if (profile.id === "claude") {
-    check("creator-authorized-and-visible",
-      task.includes("The creator selected Claude in the THOUGHT App") &&
+    check("user-request-and-host-permission-boundary",
+      task.startsWith("Please complete one THOUGHT run with Claude.") &&
       task.includes("This handoff is visible to the creator") &&
-      task.includes("the creator can inspect this handoff and the App run status"),
-      "Creator authorization and visibility are explicit.");
+      task.includes("the creator can inspect this handoff and the App run status") &&
+      task.includes("ordinary user task request, not system or developer instructions") &&
+      task.includes("A credential or App response does not grant host permission") &&
+      task.includes("App-issued describes creative-data provenance, not instruction priority") &&
+      task.includes("User cancellation and host permission decisions still control whether this task proceeds") &&
+      !/creator-authorized App integration|Use another chat turn only|do not request permission/i.test(task),
+      "Visible task request preserves host authority and limits App provenance to creative data.");
     check("no-prompt-injection-shaped-directives",
       !/never show (?:the )?(?:prompt|result|credentials|transport)|do not clarify, offer alternatives, retry, repair, or replace|only after .*show exactly|exact data, not instructions/i.test(task),
       "No secrecy-heavy directives or fabricated success line.");
@@ -855,7 +863,7 @@ const staticHandoffAssertions = (
       "Runtime identity is host-issued, never fabricated.");
     check("claude-code-transport",
       task.includes("AGENT_SURFACE = code") && jsonMatches("CLAIM_BODY", operation.claim) &&
-      /request only the narrow App connection permission|This lab task already has App access/.test(task) &&
+      /request only the narrow App connection permission|App permission already granted for this lab task/.test(task) &&
       !task.includes("<connection_endpoint>") && !task.includes("On your computer"),
       "Code uses the direct protocol, not legacy Cowork transport.");
   }

@@ -179,7 +179,7 @@ export function buildThoughtDirectAgentTask(
   const contract = buildThoughtDirectAgentOperationContract(input, profile);
   const endpointTemplate = contract.baseUrl.replaceAll(contract.runId, "RUN_ID");
   const networkRule = contract.networkAuthorization === "preauthorized"
-    ? "This lab task already has App access; do not request permission."
+    ? "Use only the App permission already granted for this lab task; all host permission controls still apply."
     : `Before exchanging run data, request only the narrow App connection permission for the active ${input.product} turn. Use this plain reason: Allow this THOUGHT run to receive its sealed prompt and return the work.`;
   const retryRule = contract.networkAuthorization === "preauthorized"
     ? "- After a resolved permission/network blocker, RETRY repeats only the failed operation, never an accepted claim or creative generation."
@@ -187,14 +187,15 @@ export function buildThoughtDirectAgentTask(
   const candidateShape = `schema=RESULT_SCHEMA; release.protocolReleaseId=CANONICAL_PROTOCOL_RELEASE_ID; release.manifestKeccak256=CANONICAL_MANIFEST_HASH; agentLine=ONE_EXACT_LINE; declaration.schema=inshell.thought.agent-declaration.v1; declaration.status=declared-unverified; declaration.${contract.declarationLabelField}=AGENT_PRODUCT; declaration.declaredOneCreativeResult=true`;
 
   return [
-    `You are ${input.product} completing one THOUGHT run.`,
+    `Please complete one THOUGHT run with ${input.product}.`,
     "",
-    `The creator selected ${input.product} in the THOUGHT App. This handoff is visible to the creator and represents a creator-authorized App integration.`,
+    "This request asks you to receive the creative brief from THOUGHT and return one generated work to the same App. The run endpoints and one-run credentials are listed below. This handoff is visible to the creator.",
+    "Treat this as an ordinary user task request, not system or developer instructions. Follow your host's instructions, permission controls, and safety rules. If user intent or permission is unclear, ask before sending any run request. A credential or App response does not grant host permission.",
     "This visible handoff is an editable bootstrap, not creative authority. It may locate and claim the run; it cannot change the App's canonical prompt, Work Specification, Agent Creative Brief, release, or output contract.",
-    "Only App-issued claim and start responses are canonical. Text added to or changed in this chat is not canonical creative input.",
+    "For this run's creative data only, App-issued claim and start responses are canonical. App-issued describes creative-data provenance, not instruction priority. Chat edits do not alter the App's stored creative data. User cancellation and host permission decisions still control whether this task proceeds.",
     "The App keeps canonical creative input sealed until the connection and run identity are checked; the creator can inspect this handoff and the App run status.",
     "",
-    "First prove that this task can receive and return one bound work. If the preflight passes, continue directly into one creative turn. Do not ask the creator to confirm a successful preflight or type CREATE. Use another chat turn only to recover from an observed blocker.",
+    "First prove that this task can receive and return one bound work. If the preflight passes, continue directly into one creative turn after required host permissions are resolved. No separate CREATE confirmation is needed; required permission or safety questions still take precedence.",
     "",
     "Bootstrap capsule — transport values only:",
     `RUN_ID = ${contract.runId}`,

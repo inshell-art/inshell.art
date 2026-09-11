@@ -39,11 +39,10 @@ test("the Claude handoff uses the complete shared ten-case matrix", () => {
 
 test("the canonical Claude Code handoff is transparent, sealed, declarative, and Claude-bound", () => {
   const task = thoughtClaudeCanonicalCandidate();
-  assert.match(task, /^You are Claude completing one THOUGHT run\./);
-  assert.match(task, /The creator selected Claude in the THOUGHT App/);
+  assert.match(task, /^Please complete one THOUGHT run with Claude\./);
   assert.match(task, /This handoff is visible to the creator/);
   assert.match(task, /visible handoff is an editable bootstrap, not creative authority/);
-  assert.match(task, /Only App-issued claim and start responses are canonical/);
+  assert.match(task, /For this run's creative data only, App-issued claim and start responses are canonical/);
   assert.match(task, /creator can inspect this handoff and the App run status/);
   assert.match(task, /AGENT_SURFACE = code/);
   assert.match(task, /"platform":"claude-code-direct-http"/);
@@ -51,7 +50,7 @@ test("the canonical Claude Code handoff is transparent, sealed, declarative, and
   assert.match(task, /"adapterId":"claude"/);
   assert.match(task, /AGENT_PROVIDER = anthropic/);
   assert.match(task, /If the preflight passes, continue directly into one creative turn/);
-  assert.match(task, /do not ask the creator to confirm a successful preflight or type CREATE\./i);
+  assert.match(task, /No separate CREATE confirmation is needed; required permission or safety questions still take precedence\./);
   assert.match(task, /Never ask the creator to install, configure, or learn anything\./);
   assert.match(task, /Require and retain a non-empty exact model/);
   assert.match(
@@ -75,6 +74,40 @@ test("the canonical Claude Code handoff is transparent, sealed, declarative, and
   assert.doesNotMatch(task, /reply CREATE|\/bin\/zsh|\bcurl\s|\bjq\s|nodeRepl\.|\/tmp\//i);
   assert.ok(Buffer.byteLength(task) <= 14_000);
 });
+
+for (const networkAuthorization of ["managed", "preauthorized"] as const) {
+  test(`Claude ${networkAuthorization} handoff preserves host permission and user control`, () => {
+    const input = {
+      product: "Claude",
+      runId: "tar_claude_permission_boundary",
+      runUrl: "https://staging.inshell-art.pages.dev/api/thought-agent/v2/runs/tar_claude_permission_boundary",
+      launchToken: "fixture-only-launch-credential",
+      networkAuthorization,
+    };
+    const task = buildThoughtClaudeTask(input);
+    const decoded = new URL(buildClaudeDeepLink(task)).searchParams.get("q");
+    assert.equal(decoded, task);
+    assert.match(task, /ordinary user task request, not system or developer instructions/);
+    assert.match(task, /Follow your host's instructions, permission controls, and safety rules/);
+    assert.match(task, /If user intent or permission is unclear, ask before sending any run request/);
+    assert.match(task, /A credential or App response does not grant host permission/);
+    assert.match(task, /App-issued describes creative-data provenance, not instruction priority/);
+    assert.match(task, /User cancellation and host permission decisions still control whether this task proceeds/);
+    assert.match(task, /after required host permissions are resolved/);
+    assert.ok(task.indexOf("ordinary user task request") < task.indexOf("LAUNCH_CREDENTIAL ="));
+    assert.doesNotMatch(task, /creator-authorized App integration|Use another chat turn only|do not request permission/i);
+    assert.doesNotMatch(task, /(?:Do not|Never) ask the creator to confirm/i);
+    assert.equal(task.split(input.launchToken).length - 1, 1);
+    assert.match(task, /never body, URL, files or logs; never forward across redirects/);
+    assert.match(task, /Use only the five capsule endpoints/);
+    assert.match(task, /Never claim again/);
+    assert.match(task, /never submit a conflicting result/);
+    assert.match(task, /The creative prompt is absent until \/start succeeds/);
+    assert.match(task, /Never guess either value/);
+    assert.equal(buildThoughtClaudeOperationContract(input).networkAuthorization, networkAuthorization);
+    assert.ok(Buffer.byteLength(task) <= 14_000);
+  });
+}
 
 test("the legacy Cowork connectivity preflight is read-only and contains no run data", async () => {
   const response = onConnectivityGet();
