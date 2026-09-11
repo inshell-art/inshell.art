@@ -262,7 +262,7 @@ import {
   thoughtV2EmptyFrameCanvasRect,
   type ThoughtV2EmptyFrameStyle,
 } from "./thought-v2-empty-frame";
-import { normalizeThoughtV2StoredVisual } from "./thought-v2-stored-visual";
+import { normalizeThoughtV2StoredVisual, thoughtV2DisplayImage } from "./thought-v2-stored-visual";
 import {
   describeThoughtTextPolicyIssue,
   type ThoughtTextPolicyIssue,
@@ -16724,7 +16724,7 @@ const normalizeStoredWorkVisual = (svg?: string, image?: string) =>
 
 const showContractImagePreview = (image: string) => {
   resizeWorkSurface();
-  thoughtSvgPreview.src = image;
+  thoughtSvgPreview.src = thoughtV2DisplayImage(image);
   thoughtSvgPreview.classList.remove("is-hidden");
   canvas.classList.add("is-hidden");
 };
