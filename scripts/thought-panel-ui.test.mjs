@@ -593,6 +593,8 @@ test("THOUGHT creation keeps the explicit CLI source and locks the Agent snapsho
 test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => {
   const restoredIndexHtml = restoreThoughtDevIndexSnapshot(indexHtml);
   const restoredMain = loadThoughtDevSnapshotFile(repoRoot, "main");
+  assert.match(restoredMain, /thoughtSvgPreview\.src = thoughtV2DisplayImage\(image\)/,
+    "the locked staging surface must apply the same display-only Mono 76 recovery");
   const restoredStyle = loadThoughtDevSnapshotFile(repoRoot, "style");
 
   assert.deepEqual(THOUGHT_DEV_INDEX_SNAPSHOT, {
@@ -1003,7 +1005,7 @@ test("Agent empty canvas and generated work preserve the active contract frame",
   const previewStart = thoughtMain.indexOf("const showContractImagePreview =");
   const previewEnd = thoughtMain.indexOf("const syncCurrentWorkVisual =", previewStart);
   const previewBody = thoughtMain.slice(previewStart, previewEnd);
-  assert.match(previewBody, /thoughtSvgPreview\.src = image/);
+  assert.match(previewBody, /thoughtSvgPreview\.src = thoughtV2DisplayImage\(image\)/);
   assert.match(previewBody, /thoughtSvgPreview\.classList\.remove\("is-hidden"\)/);
   assert.match(previewBody, /canvas\.classList\.add\("is-hidden"\)/);
   assert.equal(

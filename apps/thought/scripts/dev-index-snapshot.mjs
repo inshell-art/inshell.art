@@ -1137,6 +1137,20 @@ const applyCurrentPinnedBrowserPreviewDeltas = (source, direction) => {
   return current;
 };
 
+const applyMono76DisplayDelta = (source, direction) => {
+  const pairs = [
+    ['import { normalizeThoughtV2StoredVisual } from "./thought-v2-stored-visual";',
+      'import { normalizeThoughtV2StoredVisual, thoughtV2DisplayImage } from "./thought-v2-stored-visual";'],
+    ['  thoughtSvgPreview.src = image;', '  thoughtSvgPreview.src = thoughtV2DisplayImage(image);'],
+  ];
+  for (const [before, after] of pairs) {
+    source = replaceExactCount(source, "Mono 76 display-only recovery",
+      direction === "restore" ? after : before,
+      direction === "restore" ? before : after);
+  }
+  return source;
+};
+
 const layerCurrentAgentLinePreviewUnavailableCopy = (source) => {
   let layered = replaceExactCount(
     source,
@@ -1416,6 +1430,7 @@ function layerTightDetailGrouping(source) {
 }
 
 function restoreMainSnapshot(source) {
+  source = applyMono76DisplayDelta(source, "restore");
   let currentSource = applyCurrentThoughtLaunchMainDeltas(
     source,
     "restore",
@@ -1968,11 +1983,11 @@ export function loadThoughtDevSnapshotFile(workspaceRoot, fileKey) {
   const currentAgentLinePreview = layerCurrentAgentLinePreviewUnavailableCopy(
     currentTrustedAgentLinks,
   );
-  return applyCurrentThoughtLaunchMainDeltas(
+  return applyMono76DisplayDelta(applyCurrentThoughtLaunchMainDeltas(
     currentAgentLinePreview,
     "layer",
     replaceExactCount,
-  );
+  ), "layer");
 }
 
 export function loadThoughtDevSnapshotModule(workspaceRoot, id) {

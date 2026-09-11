@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "5337140d884fceada9079fbacf0120dee296b4a90eee03fb47fa918f38160f97",
+  "sourceTreeSha256": "08a6c1bbd1d1f653153a7f8a9c96b4afe852ffac8776fe4932eae4353fc7c9dc",
   "groups": [
     {
       "id": "public-docs",
@@ -1044,7 +1044,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "1bba11ba3f272d7568b8dc4872c94a566b3e797d9e0d6a18ddba982c830cba4f",
+      "groupSha256": "ba4474c0482428730dc378ed914764ca142e1d9aea3ca7bcdfddd1299269c152",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1088,8 +1088,8 @@
         },
         {
           "path": "apps/thought/scripts/dev-index-snapshot.mjs",
-          "byteLength": 92653,
-          "sha256": "be8edbf83f2522e627029edf70746900e2c2b6d6e5c5f2554c2936ed22c3e4a9"
+          "byteLength": 93353,
+          "sha256": "29a0e92df43754b361a7c5c8933f74f09c2610c5e108603625755ac37e775740"
         },
         {
           "path": "apps/thought/scripts/mock-thought-v2-anvil-signer.ts",
@@ -1123,8 +1123,8 @@
         },
         {
           "path": "apps/thought/src/main.ts",
-          "byteLength": 758513,
-          "sha256": "f76e965b1acd89144f9f92cdedbfe40f7dea6b8ceee0d941999592f378c21d90"
+          "byteLength": 758559,
+          "sha256": "5383a53ed8395dffd010a7db5a2edeaba9cc1158f91328dc76b024c7882e6aad"
         },
         {
           "path": "apps/thought/src/rpc-provider.ts",
@@ -1333,13 +1333,13 @@
         },
         {
           "path": "apps/thought/src/thought-v2-renderer.ts",
-          "byteLength": 3293,
-          "sha256": "b23b7fbb0cd984107cf61f04ad2312297c7eeffd8b553a6dc7a849edd9ef9f70"
+          "byteLength": 3428,
+          "sha256": "4e200c37ac01e5f2f5df9c5d4a0e78d2f546cc20fa1dbed15d611dfdd61db523"
         },
         {
           "path": "apps/thought/src/thought-v2-stored-visual.ts",
-          "byteLength": 2142,
-          "sha256": "7dc6e5bd5d5dd7c665c3b66955078b0585ee766ae66ab1d793342e418a74d27f"
+          "byteLength": 3602,
+          "sha256": "3092979c10eba6b14b29e5bead10697bec82ebaccd39ce3aeeb2f374c6084a88"
         },
         {
           "path": "apps/thought/src/works.ts",

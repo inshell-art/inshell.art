@@ -45,7 +45,7 @@ const renderRows = (rows: string[], field: "prompt" | "agent") => rows.map((row,
   const uses = [...row].map((character, index) => {
     if (character === " ") return "";
     const glyph = glyphs.get(character);
-    return glyph ? `<use href="#g-${character.codePointAt(0)!.toString(16)}" x="${index * ADVANCE}"/>` : "";
+    return glyph ? `<use href="#g-${character.codePointAt(0)!.toString(16)}" x="${index * ADVANCE + mono76.composition.defaultOriginShiftX}"/>` : "";
   }).join("");
   return `<g transform="translate(${x} ${y}) scale(${SCALE} -${SCALE})">${uses}</g>`;
 }).join("");
@@ -53,5 +53,5 @@ export const buildThoughtV2Svg = ({ promptLine, agentLine }: ThoughtV2SvgInput):
   const promptRows = wrapLine(promptLine);
   const agentRows = wrapLine(agentLine);
   const defs = [...glyphs.entries()].filter(([character]) => character !== " ").map(([character, glyph]) => `<path id="g-${character.codePointAt(0)!.toString(16)}" d="${escapeXml(glyph.d)}"/>`).join("");
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" data-renderer="inshell.thought.renderer.v2.mono-76-v1-im76-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom"><rect id="work-frame" width="1024" height="1024" fill="#006100"/><g id="work-canvas" transform="translate(32 32)"><rect id="canvas-bg" width="960" height="960" fill="#000000"/><defs>${defs}</defs><g id="prompt-line" fill="none" stroke="#00ff00" stroke-width="1.23" data-source="${escapeXml(promptLine)}" data-rows="${promptRows.length}">${renderRows(promptRows, "prompt")}</g><g id="agent-line" fill="none" stroke="#00ff00" stroke-width="1.23" data-source="${escapeXml(agentLine)}" data-rows="${agentRows.length}">${renderRows(agentRows, "agent")}</g></g></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" data-renderer="inshell.thought.renderer.v2.mono-76-v1-im76-native-paths-frame-32-006100-green-00ff00-prompt-top-agent-bottom"><rect id="work-frame" width="1024" height="1024" fill="#006100"/><g id="work-canvas" transform="translate(32 32)"><rect id="canvas-bg" width="960" height="960" fill="#000000"/><defs>${defs}</defs><g id="prompt-line" fill="none" stroke="#00ff00" stroke-width="1.23" stroke-linecap="round" stroke-linejoin="round" data-source="${escapeXml(promptLine)}" data-rows="${promptRows.length}">${renderRows(promptRows, "prompt")}</g><g id="agent-line" fill="none" stroke="#00ff00" stroke-width="1.23" stroke-linecap="round" stroke-linejoin="round" data-source="${escapeXml(agentLine)}" data-rows="${agentRows.length}">${renderRows(agentRows, "agent")}</g></g></svg>`;
 };

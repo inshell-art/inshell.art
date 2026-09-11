@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import "../apps/thought/src/thought-v2-mono76.test";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
