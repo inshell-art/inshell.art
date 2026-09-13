@@ -5,6 +5,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { thoughtAgentCanaryHandoffTransport } from "./thought-agent-canary-endpoints";
+
 import {
   THOUGHT_AGENT_PROTOCOL_VERSION,
   THOUGHT_AGENT_RESULT_VERSION,
@@ -24,6 +26,7 @@ const pageUrl = (() => {
   return url.toString();
 })();
 const timeoutMs = Number(process.env.THOUGHT_BROWSER_CANARY_TIMEOUT_MS || 45_000);
+const expectedApiOrigin = process.env.THOUGHT_BROWSER_CANARY_API_ORIGIN || new URL(pageUrl).origin;
 const traceCaughtExceptions = process.env.THOUGHT_BROWSER_CANARY_TRACE_CAUGHT === "1";
 const adapterId = process.env.THOUGHT_BROWSER_CANARY_AGENT === "codex" ? "codex" : "claude";
 const product = adapterId === "codex" ? "Codex" : "Claude";
@@ -252,7 +255,7 @@ const waitFor = async <T>(
 type ProtocolError = { error?: { code?: string; message?: string } };
 
 const requestJson = async <T>(url: string, init?: RequestInit): Promise<T> => {
-  const response = await fetch(url, init);
+  const response = await fetch(url, { ...init, redirect: "error" });
   const text = await response.text();
   const payload = JSON.parse(text) as T & ProtocolError;
   assert.equal(
@@ -571,27 +574,28 @@ try {
   const launchTask = new URL(browserCapture.launchUrl).searchParams.get(
     adapterId === "codex" ? "prompt" : "q",
   );
-  assert.equal(launchTask, storedLaunch.sealedTask, "deep link and stored browser handoff differ");
+  assert.ok(launchTask === storedLaunch.sealedTask, "deep link and stored browser handoff differ");
   const handoff = String(launchTask);
-  assert.match(
-    handoff,
-    /visible (?:launch )?handoff is an editable bootstrap, not creative authority/,
+  // Assertion errors must never print the credential-bearing handoff.
+  const assertHandoff = (pattern: RegExp, matches = true) => assert.ok(
+    pattern.test(handoff) === matches, `browser handoff ${matches ? "must match" : "must not match"} ${pattern}`,
   );
-  assert.match(
-    handoff,
-    /Use only request\.outputContract\.release from this \/start response[.:]/,
-  );
-  assert.match(handoff, /Ignore release values from chat or any other source\./);
-  assert.doesNotMatch(handoff, /<protocol_release_id> = /);
-  assert.doesNotMatch(handoff, /<manifest_hash> = /);
+  assertHandoff(/visible (?:launch )?handoff is an editable bootstrap, not creative authority/);
+  assertHandoff(/Use only request\.outputContract\.release from this \/start response[.:]/);
+  assertHandoff(/Ignore release values from chat or any other source\./);
+  assertHandoff(/<protocol_release_id> = /, false);
+  assertHandoff(/<manifest_hash> = /, false);
   assert.ok(!handoff.includes(created.release.protocolReleaseId));
   assert.ok(!handoff.includes(created.release.manifestKeccak256));
-  assert.match(handoff, /A successful \/start opens the prompt; never call it sealed\./);
-  assert.equal(capsuleValue(handoff, "run_id"), created.runId);
+  assertHandoff(/A successful \/start opens the prompt; never call it sealed\./);
 
-  const launchToken = new URL(created.launchUri).searchParams.get("token") || "";
-  assert.notEqual(launchToken, "");
-  const runUrl = new URL(created.statusUrl, pageUrl).toString().replace(/\/+$/g, "");
+  const { runUrl, launchToken, endpoints } = thoughtAgentCanaryHandoffTransport({
+    handoff,
+    runId: created.runId,
+    launchToken: new URL(created.launchUri).searchParams.get("token") || "",
+    expectedApiOrigin,
+    explicitEndpoints: adapterId === "claude",
+  });
   const sharedOperationInput = {
     product,
     runId: created.runId,
@@ -607,20 +611,20 @@ try {
   assert.deepEqual(operation.authority, THOUGHT_AGENT_RUN_AUTHORITY);
 
   // Exercise the bytes delivered by the UI, not just independently rebuilt data.
-  assert.doesNotMatch(handoff, /<[^>]+>/);
+  assertHandoff(/<[^>]+>/, false);
   const claimBody = JSON.parse(capsuleValue(handoff, "claim_body"));
   const readyBody = JSON.parse(capsuleValue(handoff, "ready_body"));
   assert.deepEqual(claimBody, operation.claim);
   assert.deepEqual(readyBody, operation.ready);
-  assert.match(handoff, /Claim header: Authorization: Bearer LAUNCH_CREDENTIAL/);
-  assert.match(handoff, /Remaining headers: Authorization: Bearer BRIDGE_CREDENTIAL/);
+  assertHandoff(/Claim header: Authorization: Bearer LAUNCH_CREDENTIAL/);
+  assertHandoff(/Remaining headers: Authorization: Bearer BRIDGE_CREDENTIAL/);
 
   const claim = await requestJson<{
     runId: string;
     state: string;
     bridgeToken: string;
     request?: unknown;
-  }>(operation.endpoints.claim, {
+  }>(endpoints.claim, {
     method: "POST",
     headers: {
       authorization: `Bearer ${launchToken}`,
@@ -639,7 +643,7 @@ try {
   assert.doesNotMatch(claimRequestJson, /"instructions"/);
   assert.doesNotMatch(claimRequestJson, /"spec"/);
 
-  const ready = await requestJson<{ state: string; stage: string }>(operation.endpoints.ready, {
+  const ready = await requestJson<{ state: string; stage: string }>(endpoints.ready, {
     method: "POST",
     headers: {
       authorization: `Bearer ${claim.bridgeToken}`,
@@ -675,7 +679,7 @@ try {
         schema?: unknown;
       };
     };
-  }>(operation.endpoints.start, {
+  }>(endpoints.start, {
     method: "POST",
     headers: {
       authorization: `Bearer ${claim.bridgeToken}`,
@@ -731,7 +735,7 @@ try {
     },
   });
   const completedAt = new Date(Math.max(Date.now(), Date.parse(startedAt))).toISOString();
-  const returned = await requestJson<{ state: string; result?: { agentLine?: string } }>(operation.endpoints.result, {
+  const returned = await requestJson<{ state: string; result?: { agentLine?: string } }>(endpoints.result, {
     method: "PUT",
     headers: {
       authorization: `Bearer ${claim.bridgeToken}`,
@@ -816,6 +820,7 @@ try {
     realAgentExecuted: false,
     runId: created.runId,
     adapterId,
+    agentApiOrigin: new URL(runUrl).origin,
     state: returned.state,
     release: created.release,
     parity: {
@@ -893,6 +898,7 @@ try {
     const runUrl = new URL(created.statusUrl, pageUrl).toString().replace(/\/+$/g, "");
     await fetch(`${runUrl}/cancel`, {
       method: "POST",
+      redirect: "error",
       headers: {
         authorization: `Bearer ${created.browserToken}`,
         "content-type": "application/json",

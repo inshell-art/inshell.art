@@ -4,6 +4,8 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { thoughtAgentCanaryLaunchTransport } from "./thought-agent-canary-endpoints";
+
 import {
   THOUGHT_AGENT_PROTOCOL_VERSION,
   buildThoughtCodexTask,
@@ -14,6 +16,7 @@ import {
 } from "../apps/thought/src/thought-v2-local-release";
 
 const origin = (process.env.THOUGHT_LIVE_ORIGIN || "http://127.0.0.1:5173").replace(/\/+$/g, "");
+const expectedApiOrigin = process.env.THOUGHT_LIVE_API_ORIGIN || origin;
 const apiBase = `${origin}/api/thought-agent/v2`;
 const promptLine = "Who are you?";
 const codexNetworkMode =
@@ -27,7 +30,7 @@ const localRuntime = JSON.parse(await readFile(
 const liveRelease = buildThoughtV2LocalRelease(localRuntime);
 
 const requestJson = async <T>(url: string, init?: RequestInit) => {
-  const response = await fetch(url, init);
+  const response = await fetch(url, { ...init, redirect: "error" });
   const payload = await response.json() as T & { error?: { code?: string; message?: string } };
   assert.equal(
     response.ok,
@@ -59,9 +62,11 @@ const created = await requestJson<{
 });
 
 assert.match(created.runId, /^tar_[A-Za-z0-9_-]+$/);
-const launchToken = new URL(created.launchUri).searchParams.get("token") ?? "";
-assert.notEqual(launchToken, "");
-const runUrl = new URL(created.statusUrl, origin).toString().replace(/\/+$/g, "");
+const { runUrl, launchToken } = thoughtAgentCanaryLaunchTransport(
+  created.launchUri, created.runId, expectedApiOrigin,
+);
+// Status polling uses the browser route; only Agent operations use the public origin.
+const browserStatusUrl = new URL(created.statusUrl, origin).toString().replace(/\/+$/g, "");
 const task = buildThoughtCodexTask({
   product: "Codex",
   runId: created.runId,
@@ -143,7 +148,7 @@ try {
       const status = await requestJson<{
         state: string;
         error?: { code?: string };
-      }>(runUrl, {
+      }>(browserStatusUrl, {
         headers: { Authorization: `Bearer ${created.browserToken}` },
       });
       runState = status.state;
@@ -191,7 +196,7 @@ try {
         metadataSource?: string | null;
       };
     };
-  }>(runUrl, {
+  }>(browserStatusUrl, {
     headers: { Authorization: `Bearer ${created.browserToken}` },
   });
   assert.equal(status.state, "returned");
