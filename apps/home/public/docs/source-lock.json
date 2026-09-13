@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "3580686972ddf75a658d9a6d79ee0f874812cc8ea51911a4b0d9bdce3b1797bd",
+  "sourceTreeSha256": "8fa5bb367a539611f37b2fe69a5b2be5fb28394f774c89d68fd28edd5fa883b6",
   "groups": [
     {
       "id": "public-docs",
@@ -336,7 +336,7 @@
       "title": "Public routes and read-only resource contracts",
       "owner": "inshell.art shared App infrastructure",
       "reason": "The Agent index advertises these routes and their read-only semantics.",
-      "groupSha256": "77158bd4524d63d36a9f2655a8fcc3b6ffb463b276533b6ffc2b0edde3e4667a",
+      "groupSha256": "9bf36b7d1bc39bed419b70c71bea023e08270a6c5031a56faa3d9a4a071d2acd",
       "files": [
         {
           "path": "apps/home/public/_headers",
@@ -484,6 +484,11 @@
           "sha256": "ca2a1cad81bab557b5a9897f33649ffda2e0b916384895f7a4e28f8ca3c92119"
         },
         {
+          "path": "functions/api/thought-agent/v2/_middleware.ts",
+          "byteLength": 1825,
+          "sha256": "044cb87c49e3998efc76a583fe19bda7f6e6a79d66f5d46bb21b52fb6d50f2db"
+        },
+        {
           "path": "functions/api/thought-agent/v2/client.ts",
           "byteLength": 718,
           "sha256": "c157096f238c7b7a7f99a85de68b3a33366c5d88d3204a24d00a69bd05fb5127"
@@ -590,12 +595,12 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "8beace1f69777d7cbf7e46458afb481be67ac092e67184fe22bd660c34deab51",
+      "groupSha256": "260629036174118d17b2c41b8cb9f83aa1e54f5dd7cf4b06147a0d0907162bc5",
       "files": [
         {
           "path": ".github/workflows/deploy-pages.yml",
-          "byteLength": 14140,
-          "sha256": "605fc6f2c35778ea443811778b4f9ea8a8ea3d88610700669e56c0a43e6c255b"
+          "byteLength": 14130,
+          "sha256": "4f3ec1a3630b5ed8b68ae31fea9800f908795d028302d3e3578f4d092225439a"
         },
         {
           "path": ".github/workflows/rollback-pages.yml",
