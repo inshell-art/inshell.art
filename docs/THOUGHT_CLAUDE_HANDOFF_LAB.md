@@ -12,7 +12,7 @@ The Claude handoff follows the same product principles as Codex:
 - extra chat turns only for evidenced control recovery;
 - bootstrap transport values grouped under markup-safe plain-text identifiers;
 - no installation or configuration request to the creator;
-- sealed creative input until control succeeds;
+- creative input withheld until authenticated control succeeds;
 - App-issued authority, release, Work Specification, Creative Brief, prompt,
   result, and runtime-evidence parity;
 - one adapter-bound claim and at most one creative result.
@@ -30,7 +30,8 @@ creator. It also must not prescribe a fabricated success line. Success means
 the App returned a real receipt.
 
 The visible handoff is editable bootstrap text and never a creative trust
-root. Claim and start responses carry the exact App-issued run-authority
+root. Its labels do not authenticate the handoff or make it immutable. Claim
+and start responses carry the exact App-issued run-authority
 contract. Only the start response supplies canonical creative input and
 release identity. A receipt proves App acceptance and binding, not transcript
 purity or absence of outside influence.
@@ -106,6 +107,22 @@ runs may still be resumed without changing their run ID or execution surface.
 
 Both surfaces retain the same `claude` adapter and `Claude` Agent identity. Their bridge platform and adapter-version fields distinguish how the run was transported.
 
+The documented Claude Desktop Code link supplies the task through `q`. It has
+no documented repository-isolation or permission-mode parameter. Claude Code
+may therefore open while an unrelated repository or folder is active. That
+repository is not an input to THOUGHT: the handoff must not inspect, modify,
+execute, commit, or rely on its files. This is a work-scope boundary, not a
+claim that the host isolated or trusted the open project.
+
+Do not add a `folder` parameter to simulate isolation. Claude documents
+`folder` as a working-directory selector that triggers its own untrusted-folder
+confirmation; it does not make the task repository-neutral. The creator still
+submits the prefilled Code task once, and Claude Code's real host permission
+and safety prompts remain authoritative. After those controls resolve, no
+second general trust, repository, intent, or `CREATE` confirmation is part of
+the THOUGHT protocol. A genuinely unresolved, specific permission or safety
+question may still stop the run and ask only for that decision.
+
 ## Real Claude Code canary
 
 Deploy the candidate THOUGHT App and Agent API at a publicly reachable HTTPS
@@ -136,7 +153,7 @@ pnpm dev:thought:stack:public-agent
 ```
 
 The browser sends same-origin `/api/thought-agent/v2` requests through the Vite
-proxy. The sealed Claude handoff receives the exact public run URL instead of
+proxy. The Claude bootstrap handoff receives the exact public run URL instead of
 the localhost proxy URL. Codex uses the same run service and protocol. No
 one-run folder, LAN permission, or local-file permission is part of this flow.
 
@@ -164,7 +181,7 @@ A Claude handoff revision is eligible for App rollout only when:
 
 1. the complete deterministic matrix passes;
 2. the automated browser integration tests pass for both Codex and Claude adapters (no real Agent execution);
-3. the Claude deep link preserves the exact sealed task within the supported URL limit;
+3. the Claude deep link preserves the exact bootstrap task within the supported URL limit;
 4. a real Claude Code canary returns a valid App receipt;
 5. no test or report exposes credentials or creative input before `/start`;
 6. Codex regression tests continue to pass.

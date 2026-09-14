@@ -11,14 +11,14 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "ce1519a38e56b92b64e121e366f0cf936cc94cc9196aab3f86b4bc22c7bdb0cc",
+  "sourceTreeSha256": "822394bd94a305cff24156a05daac8dfc71880a26148f53e35ab3284dc592d21",
   "groups": [
     {
       "id": "public-docs",
       "title": "Public documentation sources",
       "owner": "inshell.art docs",
       "reason": "Human articles, Agent-readable content, authority maps, and machine-handoff selection.",
-      "groupSha256": "b7de22d0bdb531131d2823462b6a5b9648c89fa3b2eae8e3a24d343c6cf88e3f",
+      "groupSha256": "fa084d18b59b388b1a06ebc1ddf81a61d827dfe03d36775c5c554a86c2deadb5",
       "files": [
         {
           "path": "apps/home/src/content/AGENTS.md",
@@ -37,8 +37,8 @@
         },
         {
           "path": "apps/home/src/content/docs.ts",
-          "byteLength": 178033,
-          "sha256": "1f929fe718bbea5b8d2f07033f4eb568a5725e0fe87cd5a26fc28ffb5b670dd7"
+          "byteLength": 178525,
+          "sha256": "4fc3b597cd1b9f2e21642a4a79413d712f0438bebcbe326bf5c707afa7262a9e"
         },
         {
           "path": "apps/home/src/content/thought-machine-handoff.ts",
@@ -708,7 +708,7 @@
       "title": "Shared product runtime",
       "owner": "inshell.art shared App infrastructure",
       "reason": "Shared Ethereum, surface, utility, and Agent-protocol code used by public routes.",
-      "groupSha256": "735be69c26f652f45f494faeb0d4e61438889efcdda01a45e02e5a94743f63f7",
+      "groupSha256": "3b26f3f9718c2fec53f6c92e45b46b1b66f6c9669e9d90634ab88de4c96a4e0e",
       "files": [
         {
           "path": "packages/ethereum/src/abi.ts",
@@ -817,8 +817,8 @@
         },
         {
           "path": "packages/thought-agent-protocol/src/direct-agent-task.ts",
-          "byteLength": 15692,
-          "sha256": "bb17695937e376359dc344cd181ddd52c1b18c146e9343939d1a861d28a5521b"
+          "byteLength": 16283,
+          "sha256": "5d9d2f52c36fe30410811767fc71664861d3913c4c5bb82d28667c84de93fa60"
         },
         {
           "path": "packages/thought-agent-protocol/src/handoff-http.ts",

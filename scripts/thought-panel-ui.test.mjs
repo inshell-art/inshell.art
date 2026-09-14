@@ -368,6 +368,16 @@ test("local Agent runs keep one release snapshot from creation through return", 
 test("the browser canary verifies release parity through the actual Agent deep links", () => {
   assert.match(thoughtBrowserReleaseCanary, /deep link and stored browser handoff differ/);
   assert.match(thoughtBrowserReleaseCanary, /editable bootstrap, not creative authority/);
+  assert.match(
+    thoughtBrowserReleaseCanary,
+    /editable bootstrap transport, not authentication or creative authority/,
+  );
+  assert.match(
+    thoughtBrowserReleaseCanary,
+    /After authenticated claim and start responses pass the exact checks below/,
+  );
+  assert.match(thoughtBrowserReleaseCanary, /standard host permission prompt/);
+  assert.match(thoughtBrowserReleaseCanary, /specific host permission or safety question remains unresolved/);
   assert.match(thoughtBrowserReleaseCanary, /!handoff\.includes\(created\.release\.protocolReleaseId\)/);
   assert.match(thoughtBrowserReleaseCanary, /!handoff\.includes\(created\.release\.manifestKeccak256\)/);
   assert.match(thoughtBrowserReleaseCanary, /operation\.release, created\.release/);
@@ -2382,8 +2392,21 @@ test("Agent launch uses direct data-only protocol calls without a client binding
 });
 
 test("Agent CTAs use product names and Claude launches Code while retaining Cowork only for legacy runs", () => {
+  const claudeLaunchStart = thoughtMain.indexOf("const buildClaudeAgentUrl");
+  const claudeLaunchEnd = thoughtMain.indexOf("const buildAgentDemoRun", claudeLaunchStart);
+  const claudeLaunchSource = thoughtMain.slice(claudeLaunchStart, claudeLaunchEnd);
   assert.match(thoughtMain, /const CLAUDE_COWORK_AGENT_ROUTE = "claude:\/\/cowork\/new"/);
   assert.match(thoughtMain, /const CLAUDE_CODE_AGENT_ROUTE = "claude:\/\/code\/new"/);
+  assert.match(
+    claudeLaunchSource,
+    /new URLSearchParams\(\{\s*q: sealedTask,\s*\}\)/,
+    "the active App must put only the exact bootstrap task in Claude's supported q parameter",
+  );
+  assert.doesNotMatch(
+    claudeLaunchSource,
+    /\b(?:folder|repo|branch|permissionMode)\b/,
+    "the active App must not invent Claude deep-link context or permission parameters",
+  );
   assert.match(
     thoughtMain,
     /id: "codex",[\s\S]*?label: "Codex",[\s\S]*?ctaLabel: "ChatGPT",[\s\S]*?defaultSurface: "codex"/,
