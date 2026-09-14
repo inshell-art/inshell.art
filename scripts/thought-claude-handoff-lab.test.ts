@@ -10,6 +10,7 @@ import {
 } from "./lib/thought-handoff-lab";
 import {
   THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION,
+  THOUGHT_AGENT_HTTP_USER_AGENT,
   buildThoughtClaudeOperationContract,
   buildThoughtClaudeTask,
   isThoughtClaudeCoworkPublicHttpsOrigin,
@@ -251,6 +252,10 @@ test("Cowork remains an explicit legacy deep-link surface", () => {
   assert.match(task, new RegExp(`<handoff_revision> = ${THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION.replaceAll(".", "\\.")}`));
   assert.match(task, /<agent_surface> = cowork/);
   assert.match(task, /Run this task set to On your computer/);
+  assert.ok(task.includes(`All requests: User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}. Identifies THOUGHT protocol;`));
+  assert.match(task, /never impersonate a browser or model/);
+  assert.ok(task.indexOf("All requests: User-Agent:") < task.indexOf("1. Check the connection"));
+  assert.ok(Buffer.byteLength(task) <= 14_000);
 });
 
 test("Claude Code is the canonical surface with the same Claude adapter identity", () => {

@@ -16,6 +16,7 @@ import { onRequestPut as onSubmitResult } from "../../../functions/api/thought-a
 import { onRequestPost as onStartRun } from "../../../functions/api/thought-agent/v1/runs/[runId]/start";
 import {
   THOUGHT_AGENT_CONTROL_VERSION,
+  THOUGHT_AGENT_HTTP_USER_AGENT,
   THOUGHT_AGENT_PROTOCOL_VERSION,
   THOUGHT_AGENT_RESULT_VERSION,
   THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
@@ -542,6 +543,8 @@ describe("THOUGHT Agent Pages API", () => {
     composer.innerHTML = handoff;
     const transported = composer.textContent!;
     expect(transported).toBe(handoff);
+    expect(transported).toContain(`User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}`);
+    const agentAuth = (token: string) => ({ ...auth(token), "user-agent": THOUGHT_AGENT_HTTP_USER_AGENT });
     const body = (name: string) => JSON.parse(transported.split("\n").find((line) => line.startsWith(`${name} = `))!.slice(name.length + 3));
     const claim = body("CLAIM_BODY");
     const ready = body("READY_BODY");
@@ -569,7 +572,7 @@ describe("THOUGHT Agent Pages API", () => {
     expect(d1.rows.get(runId)).toEqual(before);
 
     const claimed = await onClaimRunV2({
-      request: request(`${runUrl}/claim`, claim, auth(launchToken)), env, params: { runId },
+      request: request(`${runUrl}/claim`, claim, agentAuth(launchToken)), env, params: { runId },
     });
     expect(claimed.status).toBe(200);
     const claimedBody = await claimed.json();
@@ -582,7 +585,7 @@ describe("THOUGHT Agent Pages API", () => {
     expect(launchOnReady.status).toBe(401);
     expect(d1.rows.get(runId)).toEqual(afterClaim);
     const readyResponse = await onReadyRunV2({
-      request: request(`${runUrl}/ready`, ready, auth(claimedBody.bridgeToken)), env, params: { runId },
+      request: request(`${runUrl}/ready`, ready, agentAuth(claimedBody.bridgeToken)), env, params: { runId },
     });
     expect(readyResponse.status).toBe(200);
     expect(await readyResponse.json()).toMatchObject({ state: "ready", stage: "control-verified" });

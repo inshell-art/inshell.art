@@ -40,6 +40,12 @@ instructions. Root `protocolVersion` is `inshell.thought.agent-run.v2`, not
 readiness `control.schema` (`inshell.thought.agent-control.v1`). Claim uses the
 launch bearer in the Authorization header; remaining requests use the returned
 top-level `bridgeToken`. Neither credential belongs in JSON, URLs, files or logs.
+Every Agent request also sends `User-Agent: Inshell-THOUGHT-Agent/2`, including
+legacy Cowork connectivity checks. This truthfully identifies THOUGHT protocol
+traffic; it is not a browser identity, model claim, or authentication factor.
+The staging transport check reproduced HTTP 403/1010 with Python's default
+User-Agent while the same client with this application identity succeeded.
+Do not impersonate a browser or rotate identities to evade a denial.
 Protocol rejection stops the run rather than asking for network permission or
 retrying an identical rejected payload. Only an explicit host permission denial
 before creative start warrants the connection-approval message.
