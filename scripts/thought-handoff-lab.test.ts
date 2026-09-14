@@ -86,6 +86,27 @@ test("Codex handoff fits real run and credential lengths on staging origins", ()
   }
 });
 
+test("Claude handoff fits real run and credential lengths on staging origins", () => {
+  // The API emits 18 random bytes for run IDs and 32 for launch credentials,
+  // encoded as unpadded base64url (24 and 43 characters respectively).
+  const runId = `tar_${"x".repeat(24)}`;
+  for (const origin of ["https://preview.inshell.art", "https://staging.inshell-art.pages.dev"]) {
+    const task = buildThoughtClaudeTask({
+      product: "Claude",
+      runId,
+      runUrl: `${origin}/api/thought-agent/v2/runs/${runId}`,
+      launchToken: "x".repeat(43),
+      surface: "code",
+    });
+    const link = buildClaudeDeepLink(task);
+    const parsed = new URL(link);
+    assert.equal(parsed.searchParams.get("q"), task);
+    assert.equal(parsed.searchParams.get("folder"), null);
+    assert.equal(parsed.searchParams.size, 1);
+    assert.ok(Buffer.byteLength(task) <= 14_000, `${origin} handoff exceeds 14000 bytes`);
+  }
+});
+
 test("the Codex handoff matrix has stable unique case IDs", () => {
   const ids = THOUGHT_CODEX_HANDOFF_CASES.map((entry) => entry.id);
   assert.deepEqual(ids, [
