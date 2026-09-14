@@ -8,6 +8,7 @@ import path from "node:path";
 import { thoughtAgentCanaryHandoffTransport } from "./thought-agent-canary-endpoints";
 
 import {
+  THOUGHT_AGENT_HTTP_USER_AGENT,
   THOUGHT_AGENT_PROTOCOL_VERSION,
   THOUGHT_AGENT_RESULT_VERSION,
   THOUGHT_AGENT_RUN_AUTHORITY,
@@ -618,6 +619,26 @@ try {
   assert.deepEqual(readyBody, operation.ready);
   assertHandoff(/Claim header: Authorization: Bearer LAUNCH_CREDENTIAL/);
   assertHandoff(/Remaining headers: Authorization: Bearer BRIDGE_CREDENTIAL/);
+  assert.ok(handoff.includes(`User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}`));
+
+  // Use this existing fresh run: a nonexistent fixture's 404 proves no auth boundary.
+  const expectTokenRejection = async (url: string, body: unknown, token?: string) => {
+    const response = await fetch(url, {
+      method: "POST",
+      redirect: "error",
+      headers: {
+        "content-type": "application/json",
+        "user-agent": THOUGHT_AGENT_HTTP_USER_AGENT,
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+    assert.equal(response.status, 401, "existing run must reject missing/wrong credentials");
+    const payload = await response.json() as ProtocolError;
+    assert.equal(payload.error?.code, "TOKEN_INVALID");
+  };
+  await expectTokenRejection(endpoints.claim, claimBody);
+  await expectTokenRejection(endpoints.claim, claimBody, "invalid-canary-credential");
 
   const claim = await requestJson<{
     runId: string;
@@ -628,6 +649,7 @@ try {
     method: "POST",
     headers: {
       authorization: `Bearer ${launchToken}`,
+      "user-agent": THOUGHT_AGENT_HTTP_USER_AGENT,
       "content-type": "application/json",
     },
     body: JSON.stringify(claimBody),
@@ -643,10 +665,14 @@ try {
   assert.doesNotMatch(claimRequestJson, /"instructions"/);
   assert.doesNotMatch(claimRequestJson, /"spec"/);
 
+  await expectTokenRejection(endpoints.ready, readyBody, launchToken);
+  await expectTokenRejection(endpoints.ready, readyBody, "invalid-canary-credential");
+
   const ready = await requestJson<{ state: string; stage: string }>(endpoints.ready, {
     method: "POST",
     headers: {
       authorization: `Bearer ${claim.bridgeToken}`,
+      "user-agent": THOUGHT_AGENT_HTTP_USER_AGENT,
       "content-type": "application/json",
     },
     body: JSON.stringify(readyBody),
@@ -683,6 +709,7 @@ try {
     method: "POST",
     headers: {
       authorization: `Bearer ${claim.bridgeToken}`,
+      "user-agent": THOUGHT_AGENT_HTTP_USER_AGENT,
       "content-type": "application/json",
     },
     body: JSON.stringify({
@@ -739,6 +766,7 @@ try {
     method: "PUT",
     headers: {
       authorization: `Bearer ${claim.bridgeToken}`,
+      "user-agent": THOUGHT_AGENT_HTTP_USER_AGENT,
       "content-type": "application/json",
       "idempotency-key": operation.invocationId,
     },
@@ -828,6 +856,8 @@ try {
       browserHandoffToStart: true,
       creativeBindings: true,
       boundedControlClaim: true,
+      applicationHttpIdentity: true,
+      existingRunTokenRejections: 4,
       everyReleaseField: true,
       startToResult: true,
     },

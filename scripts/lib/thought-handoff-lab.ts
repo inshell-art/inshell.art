@@ -18,6 +18,7 @@ import { dirname, join, resolve } from "node:path";
 import {
   THOUGHT_AGENT_CREATIVE_BRIEF,
   THOUGHT_AGENT_CONTROL_VERSION,
+  THOUGHT_AGENT_HTTP_USER_AGENT,
   THOUGHT_AGENT_LINE_CONTRACT,
   THOUGHT_AGENT_PROTOCOL_VERSION,
   THOUGHT_AGENT_RUN_AUTHORITY,
@@ -283,6 +284,7 @@ export type ThoughtCodexLabEvent = {
   at: string;
   operation: string;
   method: string;
+  userAgent: string;
   requestSha256: string;
   requestContainsCreativeInput: boolean;
   responseStatus: number;
@@ -677,6 +679,7 @@ class ThoughtCodexFixtureServer {
       at: new Date().toISOString(),
       operation,
       method: request.method ?? "",
+      userAgent: String(request.headers["user-agent"] ?? ""),
       requestSha256: sha256(requestBody),
       requestContainsCreativeInput: requestContainsCreativeInput(requestBody),
       responseStatus: status,
@@ -820,6 +823,9 @@ const staticHandoffAssertions = (
     task.includes("Remaining headers: Authorization: Bearer BRIDGE_CREDENTIAL") &&
     task.includes("never body, URL, files or logs; never forward across redirects"),
     "The one-time bridgeToken stays private and authenticates every operation after claim.");
+  check("application-http-identity",
+    task.includes(`User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}`),
+    "Every Agent operation identifies the THOUGHT protocol, not an impersonated browser.");
   check("exact-nested-field-paths",
     jsonMatches("CLAIM_BODY", operation.claim) &&
     jsonMatches("READY_BODY", operation.ready) &&
@@ -888,6 +894,7 @@ const postJson = async (input: {
     method: input.method,
     headers: {
       "content-type": "application/json",
+      "user-agent": THOUGHT_AGENT_HTTP_USER_AGENT,
       authorization: `Bearer ${input.token}`,
       ...(input.idempotencyKey ? { "idempotency-key": input.idempotencyKey } : {}),
     },
@@ -1141,6 +1148,12 @@ const runDeterministicCase = async (
   }
 
   const operations = run.events.map((event) => event.operation);
+  pushAssertion(
+    assertions,
+    "application-http-identity-on-every-operation",
+    run.events.length > 0 && run.events.every((event) => event.userAgent === THOUGHT_AGENT_HTTP_USER_AGENT),
+    "The fixture observed the declared THOUGHT User-Agent on every request; this header is not authentication.",
+  );
   pushAssertion(
     assertions,
     "expected-operation-order",

@@ -12,6 +12,7 @@ import {
 } from "./lib/thought-handoff-lab";
 import {
   THOUGHT_AGENT_LINE_CONTRACT,
+  THOUGHT_AGENT_HTTP_USER_AGENT,
   THOUGHT_V2_PROTOCOL_RELEASE,
   buildThoughtCodexOperationContract,
   buildThoughtCodexTask,
@@ -49,6 +50,9 @@ for (const [agent, candidate, deepLink, buildTask, buildContract] of [
     }
     assert.match(task, /Claim header: Authorization: Bearer LAUNCH_CREDENTIAL/);
     assert.match(task, /Remaining headers: Authorization: Bearer BRIDGE_CREDENTIAL/);
+    assert.equal(THOUGHT_AGENT_HTTP_USER_AGENT, "Inshell-THOUGHT-Agent/2");
+    assert.ok(transformed.includes(`All requests: User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}. Identifies THOUGHT protocol;`));
+    assert.match(task, /never impersonate a browser or model/);
     assert.match(task, /never body, URL, files or logs; never forward across redirects/);
     assert.equal(task.split(input.launchToken).length - 1, 1);
     assert.equal(task.split(input.runId).length - 1, 1);
@@ -66,6 +70,21 @@ for (const [agent, candidate, deepLink, buildTask, buildContract] of [
     assert.doesNotMatch(task, /If the first App exchange is denied/);
   });
 }
+
+test("Codex handoff fits real run and credential lengths on staging origins", () => {
+  // The API emits 18 random bytes for run IDs and 32 for launch credentials,
+  // encoded as unpadded base64url (24 and 43 characters respectively).
+  const runId = `tar_${"x".repeat(24)}`;
+  for (const origin of ["https://preview.inshell.art", "https://staging.inshell-art.pages.dev"]) {
+    const task = buildThoughtCodexTask({
+      product: "Codex",
+      runId,
+      runUrl: `${origin}/api/thought-agent/v2/runs/${runId}`,
+      launchToken: "x".repeat(43),
+    });
+    assert.ok(Buffer.byteLength(task) <= 7_000, `${origin} handoff exceeds 7000 bytes`);
+  }
+});
 
 test("the Codex handoff matrix has stable unique case IDs", () => {
   const ids = THOUGHT_CODEX_HANDOFF_CASES.map((entry) => entry.id);

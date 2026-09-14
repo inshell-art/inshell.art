@@ -1828,7 +1828,18 @@ export default defineConfig(({ command, mode }) => {
       processPublicEnv.VITE_DEPLOY_ENV ?? loadedEnv.VITE_DEPLOY_ENV,
     pagesBranch: process.env.CF_PAGES_BRANCH,
   });
+  const homeStagingApiDefaults =
+    command === "build" &&
+    process.env.CF_PAGES_BRANCH?.trim() === "staging" &&
+    deployEnv === "preview" &&
+    readOutDir(rootDir) === path.resolve(workspaceRoot, "dist/home/thought")
+      ? {
+          VITE_THOUGHT_AGENT_PUBLIC_API_BASE:
+            "https://preview.inshell.art/api/thought-agent/v2",
+        }
+      : {};
   const publicEnv = sortPagesBuildPublicEnv({
+    ...homeStagingApiDefaults,
     ...loadedEnv,
     ...(mode === "sepolia" ? { VITE_NETWORK: "sepolia" } : {}),
     ...processPublicEnv,
