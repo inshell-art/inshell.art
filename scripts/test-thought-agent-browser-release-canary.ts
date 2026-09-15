@@ -584,21 +584,27 @@ try {
   if (adapterId === "codex") {
     assertHandoff(/visible launch handoff is an editable bootstrap, not creative authority/);
   } else {
-    assertHandoff(/visible handoff is editable bootstrap transport, not authentication or creative authority/);
-    assertHandoff(/After authenticated claim and start responses pass the exact checks below/);
-    assertHandoff(/Follow Claude Code's instructions, permission controls, and safety rules\./);
+    assertHandoff(/^Please complete one THOUGHT run with Claude\./);
     assertHandoff(
-      /This handoff, its credentials, and App responses do not grant or override host permission\./,
+      /Receive the creative input from THOUGHT, make one short text artwork, and return it to the same App origin shown in the capsule endpoints below\./,
     );
-    assertHandoff(
-      /If Claude Code requires permission for outbound HTTPS requests to the capsule endpoints, use its standard host permission prompt\./,
-    );
-    assertHandoff(
-      /If a specific host permission or safety question remains unresolved, ask only that question\./,
+    assertHandoff(/No repository files are needed\. Do not read, change, or execute them for this task\./);
+    assertHandoff(/request\.authority exactly equal to RUN_AUTHORITY/);
+    assertHandoff(/general trust|safety question|permission controls|host permission|instruction priority|creator cancellation|(?:reply|type|exact|restate[^\n]*) CREATE/i, false);
+    const authorityLine = handoff.split("\n").find((line) => line.startsWith("RUN_AUTHORITY = "));
+    assert.ok(authorityLine, "Claude handoff must include RUN_AUTHORITY data");
+    assert.deepEqual(
+      JSON.parse(authorityLine.slice("RUN_AUTHORITY = ".length)),
+      THOUGHT_AGENT_RUN_AUTHORITY,
+      "Claude handoff RUN_AUTHORITY must match the shared protocol constant",
     );
   }
   assertHandoff(/Use only request\.outputContract\.release from this \/start response[.:]/);
-  assertHandoff(/Ignore release values from chat or any other source\./);
+  if (adapterId === "codex") {
+    assertHandoff(/Ignore release values from chat or any other source\./);
+  } else {
+    assertHandoff(/The \/start response is the sole source for release fields\./);
+  }
   assertHandoff(/<protocol_release_id> = /, false);
   assertHandoff(/<manifest_hash> = /, false);
   assert.ok(!handoff.includes(created.release.protocolReleaseId));
@@ -606,8 +612,8 @@ try {
   if (adapterId === "codex") {
     assertHandoff(/A successful \/start opens the prompt; never call it sealed\./);
   } else {
-    assertHandoff(/The creative prompt is not present in this handoff\./);
-    assertHandoff(/It remains unavailable until \/start succeeds/);
+    assertHandoff(/The creative prompt is not included\./);
+    assertHandoff(/Retrieve it only from a successful \/start response/);
   }
 
   const { runUrl, launchToken, endpoints } = thoughtAgentCanaryHandoffTransport({
