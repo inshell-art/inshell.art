@@ -41,6 +41,13 @@ test("the Claude handoff uses the complete shared ten-case matrix", () => {
 
 test("the canonical Claude Code handoff is an ordinary purpose-first task with exact run data", () => {
   const task = thoughtClaudeCanonicalCandidate();
+  const exactHashInstruction = [
+    "Serialize the compact candidate once and set that exact string as output.raw.",
+    "Do not sort keys or apply JCS/canonical JSON.",
+    "Set output.rawSha256 to sha256: followed by 64 lowercase hex digits over the exact UTF-8 bytes of the decoded output.raw string.",
+    "Set output.agentLineSha256 the same way over the exact UTF-8 bytes of the decoded output.agentLine string, not its JSON-escaped literal.",
+    "After choosing those final strings, do not alter or re-serialize them; rehash both immediately before PUT.",
+  ].join(" ");
   assert.deepEqual(task.split("\n").slice(0, 4), [
     "Please complete one THOUGHT run with Claude.",
     "Receive the creative input from THOUGHT, make one short text artwork, and return it to the same App origin shown in the capsule endpoints below.",
@@ -71,6 +78,10 @@ test("the canonical Claude Code handoff is an ordinary purpose-first task with e
   assert.match(task, /CANONICAL_PROTOCOL_RELEASE_ID/);
   assert.match(task, /CANONICAL_MANIFEST_HASH/);
   assert.match(task, /The \/start response is the sole source for release fields\./);
+  assert.equal(
+    task.split("\n").filter((line) => line === exactHashInstruction).length,
+    1,
+  );
   assert.doesNotMatch(task, /<protocol_release_id> = /);
   assert.doesNotMatch(task, /<manifest_hash> = /);
   assert.match(task, /Only after the \/start response passes these checks is its creative input available/);

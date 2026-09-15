@@ -844,7 +844,13 @@ const staticHandoffAssertions = (
       ? task.includes("rawSha256/agentLineSha256 are sha256: plus 64 lowercase hex digits") &&
         task.includes("over exact UTF-8 raw/agentLine") &&
         task.includes("no newline/re-serialize") && task.includes("Rehash before PUT")
-      : task.includes("Supply lowercase sha256")),
+      : task.includes("Do not sort keys or apply JCS/canonical JSON") &&
+        task.includes("output.rawSha256 to sha256: followed by 64 lowercase hex digits") &&
+        task.includes("exact UTF-8 bytes of the decoded output.raw string") &&
+        task.includes("exact UTF-8 bytes of the decoded output.agentLine string") &&
+        task.includes("not its JSON-escaped literal") &&
+        task.includes("do not alter or re-serialize them") &&
+        task.includes("rehash both immediately before PUT")),
     "Parsed claim/readiness bodies equal the API contracts; other operations preserve exact nested fields.");
   check("private-literal-once",
     task.split(runId).length - 1 === 1 && task.split(launchToken).length - 1 === 1,

@@ -421,16 +421,19 @@ async function submitResult(
   invocationId: string,
   agentLine = "QUIET SKY",
   version: "v1" | "v2" = "v1",
-  hashOverrides: {
+  resultOverrides: {
+    raw?: string;
     rawSha256?: string;
     agentLineSha256?: string;
   } = {},
 ) {
-  const raw = JSON.stringify({
-    schema: THOUGHT_AGENT_RESULT_VERSION,
-    release: THOUGHT_V2_PROTOCOL_RELEASE.release,
-    agentLine,
-  });
+  const raw =
+    resultOverrides.raw ??
+    JSON.stringify({
+      schema: THOUGHT_AGENT_RESULT_VERSION,
+      release: THOUGHT_V2_PROTOCOL_RELEASE.release,
+      agentLine,
+    });
   const handler = version === "v2" ? onSubmitResultV2 : onSubmitResult;
   const response = await handler({
     request: request(
@@ -468,10 +471,10 @@ async function submitResult(
         output: {
           mediaType: "application/json",
           raw,
-          rawSha256: hashOverrides.rawSha256 ?? (await sha256Hex(raw)),
+          rawSha256: resultOverrides.rawSha256 ?? (await sha256Hex(raw)),
           agentLine,
           agentLineSha256:
-            hashOverrides.agentLineSha256 ?? (await sha256Hex(agentLine)),
+            resultOverrides.agentLineSha256 ?? (await sha256Hex(agentLine)),
         },
       },
       auth(bridgeToken, { "idempotency-key": invocationId }),
@@ -1031,7 +1034,13 @@ describe("THOUGHT Agent Pages API", () => {
       },
     });
 
-    const rejectedHash = await submitResult(
+    const canonicalRaw = JSON.stringify({
+      schema: THOUGHT_AGENT_RESULT_VERSION,
+      release: THOUGHT_V2_PROTOCOL_RELEASE.release,
+      agentLine: "QUIET SKY",
+    });
+    const canonicalRawSha256 = await sha256Hex(canonicalRaw);
+    const missingPrefix = await submitResult(
       env,
       runId,
       claimed.payload.bridgeToken,
@@ -1039,11 +1048,40 @@ describe("THOUGHT Agent Pages API", () => {
       "QUIET SKY",
       "v2",
       {
-        rawSha256: "0".repeat(64),
+        raw: canonicalRaw,
+        rawSha256: canonicalRawSha256.slice("sha256:".length),
       },
     );
-    expect(rejectedHash.response.status).toBe(409);
-    expect(rejectedHash.payload.error).toEqual({
+    expect(missingPrefix.response.status).toBe(409);
+    expect(missingPrefix.payload.error).toEqual({
+      code: "RESULT_HASH_MISMATCH",
+      message: "Submitted result hashes do not match exact bytes.",
+    });
+
+    const alternateRaw = JSON.stringify(
+      {
+        agentLine: "QUIET SKY",
+        release: THOUGHT_V2_PROTOCOL_RELEASE.release,
+        schema: THOUGHT_AGENT_RESULT_VERSION,
+      },
+      null,
+      2,
+    );
+    expect(alternateRaw).not.toBe(canonicalRaw);
+    const differentSerializationHash = await submitResult(
+      env,
+      runId,
+      claimed.payload.bridgeToken,
+      "tai_v2_lifecycle",
+      "QUIET SKY",
+      "v2",
+      {
+        raw: alternateRaw,
+        rawSha256: canonicalRawSha256,
+      },
+    );
+    expect(differentSerializationHash.response.status).toBe(409);
+    expect(differentSerializationHash.payload.error).toEqual({
       code: "RESULT_HASH_MISMATCH",
       message: "Submitted result hashes do not match exact bytes.",
     });
@@ -1071,6 +1109,7 @@ describe("THOUGHT Agent Pages API", () => {
       "tai_v2_lifecycle",
       "QUIET SKY",
       "v2",
+      { raw: alternateRaw },
     );
     expect(returned.response.status).toBe(200);
     expect(returned.payload).toMatchObject({
@@ -1080,6 +1119,7 @@ describe("THOUGHT Agent Pages API", () => {
         agentLine: "QUIET SKY",
       },
     });
+    expect(returned.payload.result.raw).toBe(alternateRaw);
 
     const conflictingResult = await submitResult(
       env,
