@@ -590,6 +590,15 @@ try {
     );
     assertHandoff(/No repository files are needed\. Do not read, change, or execute them for this task\./);
     assertHandoff(/request\.authority exactly equal to RUN_AUTHORITY/);
+    assertHandoff(/Serialize the compact candidate once and set that exact string as output\.raw\./);
+    assertHandoff(/Do not sort keys or apply JCS\/canonical JSON\./);
+    assertHandoff(
+      /output\.rawSha256 to sha256: followed by 64 lowercase hex digits over the exact UTF-8 bytes of the decoded output\.raw string/,
+    );
+    assertHandoff(
+      /output\.agentLineSha256 the same way over the exact UTF-8 bytes of the decoded output\.agentLine string, not its JSON-escaped literal/,
+    );
+    assertHandoff(/do not alter or re-serialize them; rehash both immediately before PUT/);
     assertHandoff(/general trust|safety question|permission controls|host permission|instruction priority|creator cancellation|(?:reply|type|exact|restate[^\n]*) CREATE/i, false);
     const authorityLine = handoff.split("\n").find((line) => line.startsWith("RUN_AUTHORITY = "));
     assert.ok(authorityLine, "Claude handoff must include RUN_AUTHORITY data");

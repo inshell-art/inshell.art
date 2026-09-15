@@ -47,6 +47,16 @@ top-level `bridgeToken`. Neither credential belongs in JSON, URLs, files or logs
 Every Agent request also sends `User-Agent: Inshell-THOUGHT-Agent/2`, including
 legacy Cowork connectivity checks. This truthfully identifies THOUGHT protocol
 traffic; it is not a browser identity, model claim, or authentication factor.
+For result delivery, `output.rawSha256` is `sha256:` plus 64 lowercase hex
+digits over the exact UTF-8 bytes of the decoded `output.raw` string;
+`output.agentLineSha256` follows the same rule for the decoded
+`output.agentLine` string, not its JSON-escaped representation. The candidate
+may use any valid JSON key order and whitespace. Claude must hash the final
+strings it submits rather than sorting keys, applying JCS, or hashing a later
+serialization. The surrounding PUT body may be serialized normally, but
+decoding it must yield the exact field strings that were hashed. An otherwise
+correct digest without the `sha256:` prefix is rejected.
+
 The staging transport check reproduced HTTP 403/1010 with Python's default
 User-Agent while the same client with this application identity succeeded.
 Do not impersonate a browser or rotate identities to evade a denial.

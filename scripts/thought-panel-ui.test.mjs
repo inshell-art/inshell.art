@@ -378,6 +378,16 @@ test("the browser canary verifies release parity through the actual Agent deep l
   );
   assert.match(thoughtBrowserReleaseCanary, /No repository files are needed/);
   assert.match(thoughtBrowserReleaseCanary, /request\\\.authority exactly equal to RUN_AUTHORITY/);
+  assert.match(thoughtBrowserReleaseCanary, /Serialize the compact candidate once/);
+  assert.match(thoughtBrowserReleaseCanary, /Do not sort keys or apply JCS/);
+  assert.match(
+    thoughtBrowserReleaseCanary,
+    /output\\\.rawSha256 to sha256: followed by 64 lowercase hex digits/,
+  );
+  assert.match(
+    thoughtBrowserReleaseCanary,
+    /decoded output\\\.agentLine string, not its JSON-escaped literal/,
+  );
   assert.match(thoughtBrowserReleaseCanary, /general trust\|safety question\|permission controls\|host permission/);
   assert.match(thoughtBrowserReleaseCanary, /sole source for release fields/);
   assert.match(thoughtBrowserReleaseCanary, /JSON\.parse\(authorityLine\.slice/);

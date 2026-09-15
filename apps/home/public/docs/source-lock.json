@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "709b0b40082cbc8a784ea9e8550d72ba9999f88a59e6753fce638a1f18005feb",
+  "sourceTreeSha256": "148209149cfe76550cb97ad9763cd1fe4dc21598d79523100d1b3b5728dbeee8",
   "groups": [
     {
       "id": "public-docs",
@@ -708,7 +708,7 @@
       "title": "Shared product runtime",
       "owner": "inshell.art shared App infrastructure",
       "reason": "Shared Ethereum, surface, utility, and Agent-protocol code used by public routes.",
-      "groupSha256": "407a6e89824d0bd441f2066e4f4f3052171fb72d026f3202a6f820235a220943",
+      "groupSha256": "a434be4b041257bfba685b8ad247954a361db98ad858b31375691a27899defd2",
       "files": [
         {
           "path": "packages/ethereum/src/abi.ts",
@@ -817,8 +817,8 @@
         },
         {
           "path": "packages/thought-agent-protocol/src/direct-agent-task.ts",
-          "byteLength": 13787,
-          "sha256": "61534b36974812f01cefd9ecc28131ba6137b75a44f9785634ed8502f099cc5a"
+          "byteLength": 14214,
+          "sha256": "99c99221fe76325c9b6d780e9412153695d6fc715aaf8edf0e1eae4c7b312cca"
         },
         {
           "path": "packages/thought-agent-protocol/src/handoff-http.ts",
