@@ -539,9 +539,10 @@ describe("Docs source editorial guardrails", () => {
       DOCS_SOURCE.topics.find(({ slug }) => slug === "pulse") as DocsTopic,
     );
 
-    expect(thought).toMatch(/bootstrap for one run, not the creative prompt itself/i);
-    expect(thought).toMatch(/after authenticated claim and readiness checks/i);
-    expect(thought).toMatch(/rejected protocol request is not a permission prompt/i);
+    expect(thought).toMatch(/active Claude Code handoff is an ordinary one-run request/i);
+    expect(thought).toMatch(/no repository changes, installation, or downloaded executable/i);
+    expect(thought).toMatch(/exact response data supplies and binds the prompt/i);
+    expect(thought).toMatch(/App operation requests send credentials only in Authorization headers/i);
     expect(thought).toMatch(/does not choose a \$PATH/i);
     expect(thought).toMatch(/direct mint/i);
     expect(thought).toMatch(/Unattested/i);

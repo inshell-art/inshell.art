@@ -370,14 +370,18 @@ test("the browser canary verifies release parity through the actual Agent deep l
   assert.match(thoughtBrowserReleaseCanary, /editable bootstrap, not creative authority/);
   assert.match(
     thoughtBrowserReleaseCanary,
-    /editable bootstrap transport, not authentication or creative authority/,
+    /Please complete one THOUGHT run with Claude/,
   );
   assert.match(
     thoughtBrowserReleaseCanary,
-    /After authenticated claim and start responses pass the exact checks below/,
+    /Receive the creative input from THOUGHT, make one short text artwork/,
   );
-  assert.match(thoughtBrowserReleaseCanary, /standard host permission prompt/);
-  assert.match(thoughtBrowserReleaseCanary, /specific host permission or safety question remains unresolved/);
+  assert.match(thoughtBrowserReleaseCanary, /No repository files are needed/);
+  assert.match(thoughtBrowserReleaseCanary, /request\\\.authority exactly equal to RUN_AUTHORITY/);
+  assert.match(thoughtBrowserReleaseCanary, /general trust\|safety question\|permission controls\|host permission/);
+  assert.match(thoughtBrowserReleaseCanary, /sole source for release fields/);
+  assert.match(thoughtBrowserReleaseCanary, /JSON\.parse\(authorityLine\.slice/);
+  assert.match(thoughtBrowserReleaseCanary, /THOUGHT_AGENT_RUN_AUTHORITY/);
   assert.match(thoughtBrowserReleaseCanary, /!handoff\.includes\(created\.release\.protocolReleaseId\)/);
   assert.match(thoughtBrowserReleaseCanary, /!handoff\.includes\(created\.release\.manifestKeccak256\)/);
   assert.match(thoughtBrowserReleaseCanary, /operation\.release, created\.release/);

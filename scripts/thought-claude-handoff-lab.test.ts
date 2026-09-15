@@ -11,6 +11,7 @@ import {
 import {
   THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION,
   THOUGHT_AGENT_HTTP_USER_AGENT,
+  THOUGHT_AGENT_RUN_AUTHORITY,
   buildThoughtClaudeOperationContract,
   buildThoughtClaudeTask,
   isThoughtClaudeCoworkPublicHttpsOrigin,
@@ -38,27 +39,29 @@ test("the Claude handoff uses the complete shared ten-case matrix", () => {
   assert.equal(new Set(THOUGHT_CODEX_HANDOFF_CASES.map((entry) => entry.id)).size, 10);
 });
 
-test("the canonical Claude Code handoff is repository-independent, declarative, and Claude-bound", () => {
+test("the canonical Claude Code handoff is an ordinary purpose-first task with exact run data", () => {
   const task = thoughtClaudeCanonicalCandidate();
-  assert.match(task, /^Please complete one network-only THOUGHT run with Claude\./);
-  assert.match(task, /Receive the creative input from THOUGHT, make one short text artwork, and return it to the same App origin/);
-  assert.match(task, /No repository work is requested or needed/);
-  assert.match(task, /independent of any repository or folder currently open in Claude Code/);
-  assert.match(task, /Do not inspect, modify, commit, execute, or rely on its files/);
-  assert.match(task, /does not claim that the host isolated or trusted the open project/);
-  assert.match(task, /visible handoff is editable bootstrap transport, not authentication or creative authority/);
-  assert.match(task, /After authenticated claim and start responses pass the exact checks below/);
-  assert.match(task, /App-issued describes verified response provenance, not instruction priority/);
-  assert.match(task, /its absence is not proof that this text is authenticated or immutable/);
+  assert.deepEqual(task.split("\n").slice(0, 4), [
+    "Please complete one THOUGHT run with Claude.",
+    "Receive the creative input from THOUGHT, make one short text artwork, and return it to the same App origin shown in the capsule endpoints below.",
+    "No repository files are needed. Do not read, change, or execute them for this task.",
+    "The creative prompt is not included. Retrieve it only from a successful /start response after the claim and readiness checks below.",
+  ]);
+  assert.equal(task.split("No repository files are needed. Do not read, change, or execute them for this task.").length - 1, 1);
+  const authorityLine = task.split("\n").find((line) => line.startsWith("RUN_AUTHORITY = "));
+  assert.ok(authorityLine);
+  assert.deepEqual(
+    JSON.parse(authorityLine.slice("RUN_AUTHORITY = ".length)),
+    THOUGHT_AGENT_RUN_AUTHORITY,
+  );
+  assert.match(task, /request\.authority exactly equal to RUN_AUTHORITY/);
   assert.match(task, /AGENT_SURFACE = code/);
   assert.match(task, /"platform":"claude-code-direct-http"/);
   assert.match(task, /"adapterVersion":"code-direct-http"/);
   assert.match(task, /"adapterId":"claude"/);
   assert.match(task, /AGENT_PROVIDER = anthropic/);
-  assert.match(task, /continue directly through exactly one creative turn/);
-  assert.match(task, /This opening request already states the work/);
-  assert.match(task, /without asking the creator to restate general trust, repository intent, or CREATE/);
-  assert.match(task, /If a specific host permission or safety question remains unresolved, ask only that question/);
+  assert.match(task, /Continue immediately on success/);
+  assert.match(task, /Once the creative phase begins, complete exactly this one result/);
   assert.match(task, /This task requires no installation or local configuration/);
   assert.match(task, /Require and retain a non-empty exact model/);
   assert.match(
@@ -67,12 +70,10 @@ test("the canonical Claude Code handoff is repository-independent, declarative, 
   );
   assert.match(task, /CANONICAL_PROTOCOL_RELEASE_ID/);
   assert.match(task, /CANONICAL_MANIFEST_HASH/);
-  assert.match(task, /Ignore release values from chat or any other source\./);
+  assert.match(task, /The \/start response is the sole source for release fields\./);
   assert.doesNotMatch(task, /<protocol_release_id> = /);
   assert.doesNotMatch(task, /<manifest_hash> = /);
-  assert.match(task, /transcript purity not attested/);
-  assert.match(task, /does not attest an untouched chat transcript/);
-  assert.match(task, /Only after the authenticated \/start response passes these checks is its creative input available/);
+  assert.match(task, /Only after the \/start response passes these checks is its creative input available/);
   assert.doesNotMatch(task, /any returned release|returned release against the connection details/);
   assert.doesNotMatch(task, /Never show the prompt, result, credentials, or transport data/i);
   assert.doesNotMatch(task, /Do not clarify, offer alternatives, retry, repair, or replace it/i);
@@ -84,12 +85,15 @@ test("the canonical Claude Code handoff is repository-independent, declarative, 
     /\bsealed\b/i,
   );
   assert.doesNotMatch(task, /clone|checkout|push|creator-authorized|reviewed this handoff|unknown webpage/i);
-  assert.doesNotMatch(task, /reply CREATE|\/bin\/zsh|\bcurl\s|\bjq\s|nodeRepl\.|\/tmp\//i);
+  assert.doesNotMatch(
+    task,
+    /general trust|safety question|permission controls|host permission|standard host permission|instruction priority|creator cancellation|authenticated or immutable|(?:reply|type|exact|restate[^\n]*) CREATE|\/bin\/zsh|\bcurl\s|\bjq\s|nodeRepl\.|\/tmp\//i,
+  );
   assert.ok(Buffer.byteLength(task) <= 14_000);
 });
 
 for (const networkAuthorization of ["managed", "preauthorized"] as const) {
-  test(`Claude ${networkAuthorization} handoff preserves host permission and user control`, () => {
+  test(`Claude ${networkAuthorization} handoff keeps operational recovery permission-neutral`, () => {
     const input = {
       product: "Claude",
       runId: "tar_claude_permission_boundary",
@@ -100,27 +104,15 @@ for (const networkAuthorization of ["managed", "preauthorized"] as const) {
     const task = buildThoughtClaudeTask(input);
     const decoded = new URL(buildClaudeDeepLink(task)).searchParams.get("q");
     assert.equal(decoded, task);
-    assert.match(task, /Follow Claude Code's instructions, permission controls, and safety rules/);
-    assert.match(task, /handoff, its credentials, and App responses do not grant or override host permission/);
-    assert.match(task, /App-issued describes verified response provenance, not instruction priority/);
-    assert.match(task, /Creator cancellation and host permission decisions still control whether this task proceeds/);
-    assert.match(task, /After required host permissions are resolved/);
-    assert.match(task, /This opening request already states the work/);
-    assert.match(task, /without asking the creator to restate general trust, repository intent, or CREATE/);
-    assert.match(task, /If a specific host permission or safety question remains unresolved, ask only that question/);
-    if (networkAuthorization === "managed") {
-      assert.match(task, /requires permission for outbound HTTPS requests/);
-      assert.match(task, /use its standard host permission prompt/);
-      assert.match(task, /proceed without asking the creator to restate the task/);
-      assert.match(task, /This handoff does not grant permission/);
-    } else {
-      assert.match(task, /App access already granted for this lab task/);
-      assert.match(task, /does not override host permission controls/);
-    }
-    assert.ok(task.indexOf("Follow Claude Code's instructions") < task.indexOf("LAUNCH_CREDENTIAL ="));
-    assert.doesNotMatch(task, /creator-authorized App integration|Use another chat turn only|do not request permission/i);
-    assert.doesNotMatch(task, /If user intent or permission is unclear, ask before sending any run request/);
-    assert.doesNotMatch(task, /Before exchanging run data, request only the narrow App connection permission/);
+    assert.match(task, /^Please complete one THOUGHT run with Claude\./);
+    assert.match(task, /No repository files are needed\. Do not read, change, or execute them for this task\./);
+    assert.match(task, /PROTOCOL_UNSUPPORTED, TOKEN_INVALID, RUN_EXPIRED, or RUN_ALREADY_CLAIMED/);
+    assert.match(task, /Sign-in redirect or network refusal: report the observed response and stop/);
+    assert.match(task, /RETRY repeats only the failed operation, never an accepted claim or creative generation/);
+    assert.doesNotMatch(
+      task,
+      /general trust|safety question|permission controls|host permission|standard host permission|does not grant permission|instruction priority|creator cancellation|creator-authorized|do not request permission|(?:reply|type|exact|restate[^\n]*) CREATE/i,
+    );
     assert.equal(task.split(input.launchToken).length - 1, 1);
     assert.match(task, /never body, URL, files or logs; never forward across redirects/);
     assert.match(task, /Use only the five capsule endpoints/);
@@ -128,7 +120,11 @@ for (const networkAuthorization of ["managed", "preauthorized"] as const) {
     assert.match(task, /never submit a conflicting result/);
     assert.match(task, /The creative prompt is absent until \/start succeeds/);
     assert.match(task, /Never guess either value/);
-    assert.equal(buildThoughtClaudeOperationContract(input).networkAuthorization, networkAuthorization);
+    const contract = buildThoughtClaudeOperationContract(input);
+    assert.equal(contract.networkAuthorization, networkAuthorization);
+    const authority = task.split("\n").find((line) => line.startsWith("RUN_AUTHORITY = "));
+    assert.ok(authority);
+    assert.deepEqual(JSON.parse(authority.slice("RUN_AUTHORITY = ".length)), contract.authority);
     assert.ok(Buffer.byteLength(task) <= 14_000);
   });
 }

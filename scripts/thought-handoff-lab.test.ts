@@ -13,6 +13,7 @@ import {
 import {
   THOUGHT_AGENT_LINE_CONTRACT,
   THOUGHT_AGENT_HTTP_USER_AGENT,
+  THOUGHT_AGENT_RUN_AUTHORITY,
   THOUGHT_V2_PROTOCOL_RELEASE,
   buildThoughtCodexOperationContract,
   buildThoughtCodexTask,
@@ -43,10 +44,16 @@ for (const [agent, candidate, deepLink, buildTask, buildContract] of [
     assert.match(transformed, /^PROTOCOL_VERSION = inshell\.thought\.agent-run\.v2\r?$/m);
     assert.match(transformed, /^CONTROL_SCHEMA = inshell\.thought\.agent-control\.v1\r?$/m);
     const contract = buildContract(input);
-    for (const [key, expected] of [["CLAIM_BODY", contract.claim], ["READY_BODY", contract.ready]] as const) {
+    const expectedData = agent === "Claude"
+      ? [["CLAIM_BODY", contract.claim], ["READY_BODY", contract.ready], ["RUN_AUTHORITY", contract.authority]] as const
+      : [["CLAIM_BODY", contract.claim], ["READY_BODY", contract.ready]] as const;
+    for (const [key, expected] of expectedData) {
       const line = transformed.split(/\r?\n/).find((value) => value.startsWith(`${key} = `));
       assert.ok(line);
       assert.deepEqual(JSON.parse(line.slice(key.length + 3)), expected);
+    }
+    if (agent === "Claude") {
+      assert.deepEqual(contract.authority, THOUGHT_AGENT_RUN_AUTHORITY);
     }
     assert.match(task, /Claim header: Authorization: Bearer LAUNCH_CREDENTIAL/);
     assert.match(task, /Remaining headers: Authorization: Bearer BRIDGE_CREDENTIAL/);
@@ -60,12 +67,19 @@ for (const [agent, candidate, deepLink, buildTask, buildContract] of [
     assert.ok(Buffer.byteLength(candidate()) <= (agent === "Codex" ? 7_000 : 14_000));
   });
 
-  test(`${agent} distinguishes protocol/authentication rejection from permission recovery`, () => {
+  test(`${agent} keeps protocol/authentication recovery bounded`, () => {
     const task = candidate();
-    assert.match(task, /Only explicit host permission denial before \/start warrants/);
-    assert.match(task, /HTTP\/JSON errors are not permission denials/);
-    assert.match(task, /PROTOCOL_UNSUPPORTED: stop; never guess, downgrade or repeat it/);
-    assert.match(task, /TOKEN_INVALID, RUN_EXPIRED, RUN_ALREADY_CLAIMED also need a fresh run, not connection approval/);
+    if (agent === "Codex") {
+      assert.match(task, /Only explicit host permission denial before \/start warrants/);
+      assert.match(task, /HTTP\/JSON errors are not permission denials/);
+      assert.match(task, /PROTOCOL_UNSUPPORTED: stop; never guess, downgrade or repeat it/);
+      assert.match(task, /TOKEN_INVALID, RUN_EXPIRED, RUN_ALREADY_CLAIMED also need a fresh run, not connection approval/);
+    } else {
+      assert.match(task, /PROTOCOL_UNSUPPORTED, TOKEN_INVALID, RUN_EXPIRED, or RUN_ALREADY_CLAIMED: stop and request a fresh THOUGHT run/);
+      assert.match(task, /Sign-in redirect or network refusal: report the observed response and stop/);
+      assert.match(task, /RETRY repeats only the failed operation, never an accepted claim or creative generation/);
+      assert.doesNotMatch(task, /permission denial|connection approval|host permission|chat approval/i);
+    }
     assert.match(task, /429: honor Retry-After; no loops/);
     assert.doesNotMatch(task, /If the first App exchange is denied/);
   });
