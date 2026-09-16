@@ -290,6 +290,7 @@ const server = createServer(async (request, response) => {
 });
 
 await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+try {
 const address = server.address();
 assert(address && typeof address === "object");
 const runUrl = `http://127.0.0.1:${address.port}/run`;
@@ -317,14 +318,14 @@ assert(!task.includes("Reply CREATE"));
 assert(task.includes("No installations or configuration"));
 assert(task.includes("Use only this turn's App connection permission"));
 assert(task.includes("to receive its sealed prompt and return the work."));
-assert(task.includes("it does not prove the App stopped."));
-assert(task.includes("RETRY with the same narrow permission"));
+assert(task.includes("U=uncertain after dispatch"));
+assert(task.includes("ready—replay exact READY_BODY+bridge once"));
 assert(task.includes("APP_ENDPOINT/claim"));
 assert(task.includes("APP_ENDPOINT"));
 assert(task.includes("APP_ENDPOINT/ready"));
 assert(task.includes("APP_ENDPOINT/start"));
 assert(task.includes("APP_ENDPOINT/result"));
-assert(task.includes("APP_ENDPOINT/fail"));
+assert(task.includes("POST /fail once"));
 assert(task.includes("CONTROL_SCHEMA = inshell.thought.agent-control.v1"));
 assert(task.includes("Compact output.raw once"));
 assert(task.includes("metadataSource=reported"));
@@ -339,7 +340,7 @@ assert(task.includes("3. Create once"));
 assert(task.includes("4. Return once"));
 assert(task.includes("Retain the exact nonempty host-issued model as RUNTIME_MODEL"));
 assert(task.includes("Keep reasoning effort only if supplied and valid"));
-assert(task.includes("Omit failedAt; the App owns that timestamp."));
+assert(task.includes("omit failedAt."));
 assert(!task.includes("Both values must be non-empty"));
 assert(!task.includes("current failedAt"));
 assert(!task.includes(clientUrl));
@@ -348,7 +349,7 @@ assert(!task.includes("THOUGHT_CLIENT_HASH_OK"));
 assert(!task.includes("reviewed-client execution"));
 assert(task.includes("1-64-byte Terminal English agentLine"));
 assert(task.includes("completing one THOUGHT run"));
-assert(task.includes("Other blockers: one observed reason"));
+assert(task.includes("Model missing after claim: POST /fail once"));
 assert(!task.includes("hello world?"));
 assert(!task.includes("one THOUGHT round"));
 assert(!task.includes("approval code"));
@@ -692,8 +693,11 @@ for (const agentLine of [
   assert(!invalid.stdout.includes("THOUGHT_RESULT_OK"));
 }
 
-await new Promise<void>((resolve, reject) => {
-  server.close((error) => error ? reject(error) : resolve());
-});
+} finally {
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => error ? reject(error) : resolve());
+    server.closeAllConnections();
+  });
+}
 
 console.log("THOUGHT Codex client stable and release-bound handshakes passed.");

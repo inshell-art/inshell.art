@@ -202,11 +202,17 @@ Each cell records `machine`, `agent`, `testedCommit`, `mode: real-canary`,
 `launchObserved: true`, and `previewObserved: true`.
 
 Copy run IDs and hashes from the real observer report. Record visible launch and
-preview observations separately: neither an accepted API return nor the observer's
-`launchSubmission` label proves those occurred. CLI runs need independent browser
-launch/preview evidence. Do not copy private session files, bearer credentials,
-deep-link URLs, prompts, or artwork into this record. Scan the sanitized record.
-This is reviewed operational evidence, not cryptographic provider attestation.
+preview observations separately. `launchSubmissionEvidence: operator-reported`
+is the operator's declaration, while `serverReturnObserved` is the state seen by
+polling. `qualificationEligible` remains false because qualification is decided
+only after separate launch and preview evidence review. None of
+those observer fields is click, provider, model, or rendered-preview
+attestation. CLI runs need independent
+browser launch/preview evidence. Do not copy private session files, bearer
+credentials, deep-link URLs, prompts, or artwork into this record. Scan the
+sanitized record. Older observer reports remain historical evidence rather than
+being rewritten against the current semantics. This is reviewed operational
+evidence, not cryptographic provider attestation.
 
 Retain the original sanitized observer reports and browser evidence in the release
 review record for OPS to inspect; the checked-in summary does not replace them.

@@ -60,6 +60,15 @@ const requireValue = (parsed: ParsedArguments, name: string) => {
   return value;
 };
 
+const readLaunchSubmissionDeclaration = (parsed: ParsedArguments) => {
+  const value = firstValue(parsed, "--launch-submission");
+  if (value === undefined) return undefined;
+  if (value !== "creator-clicked-submit") {
+    throw new Error("--launch-submission must be creator-clicked-submit when the operator observed that action.");
+  }
+  return value;
+};
+
 const gitText = (args: string[]) => execFileSync("git", args, {
   encoding: "utf8",
   stdio: ["ignore", "pipe", "ignore"],
@@ -157,6 +166,7 @@ const runRealObserve = async (parsed: ParsedArguments) => {
   const result = await observeThoughtCodexRealCanary({
     sessionPath: requireValue(parsed, "--session"),
     timeoutMs,
+    launchSubmissionDeclaration: readLaunchSubmissionDeclaration(parsed),
     creatorActions: firstValue(
       parsed,
       "--control-actions",
@@ -187,7 +197,7 @@ const showHelp = () => {
     `  pnpm handoff:lab:codex deterministic [--case ID[,ID]] [--out DIR]\n` +
     `  pnpm handoff:lab:codex list\n` +
     `  pnpm handoff:lab:codex real-prepare [--origin URL] [--prompt LINE] [--out DIR] [--open]\n` +
-    `  pnpm handoff:lab:codex real-observe --session FILE [--timeout-ms N] [--control-actions TEXT]\n`);
+    `  pnpm handoff:lab:codex real-observe --session FILE [--timeout-ms N] [--launch-submission creator-clicked-submit] [--control-actions TEXT]\n`);
 };
 
 const main = async () => {

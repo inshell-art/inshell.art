@@ -3068,11 +3068,11 @@ const thoughtDockAgentLifecycleStatus = (adapterId: ThoughtDockAgentAdapterId, r
   const product = thoughtAgentProductLabel(adapterId);
   switch (remoteState) {
     case "claimed":
-      return `${product} accepted task...`;
+      return `${product} connected...`;
     case "ready":
-      return `${product} creating...`;
+      return `${product} ready...`;
     case "running":
-      return `${product} running...`;
+      return "Creative phase opened...";
     case "returned":
       return "Return received...";
     default:
@@ -3089,11 +3089,11 @@ const thoughtDockAgentLifecycleTitle = (adapterId: ThoughtDockAgentAdapterId, re
 const thoughtDockAgentLifecycleDetail = (remoteState?: string | null) => {
   switch (remoteState) {
     case "claimed":
-      return "It has the prompt and is starting.";
+      return "Control checks are running. The prompt is still sealed.";
     case "ready":
-      return "It is preparing the work.";
+      return "Control checks passed. Waiting for start.";
     case "running":
-      return "It is writing the work now.";
+      return "Waiting for the returned work.";
     case "returned":
       return "The returned work is being checked.";
     default:
@@ -3785,12 +3785,12 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
         ? `${product} launch requested`
         : thoughtDockAgentLifecycleTitle(state.adapterId, state.run.remoteState),
       detail: controlVerified
-        ? "Control checks passed. Creation is continuing automatically."
+        ? "Control checks passed. Waiting for start."
         : state.run.remoteState === "created"
         ? thoughtAgentLaunchRequestedDetail(state.adapterId, state.run.surface)
         : thoughtDockAgentLifecycleDetail(state.run.remoteState),
       ...(controlVerified
-        ? { nextStep: `Keep this page open while ${product} creates` }
+        ? { nextStep: "Keep this page open; start is still pending" }
         : state.run.remoteState === "created"
         ? { nextStep: `Keep this page open while ${product} connects` }
         : { nextStep: `Keep this page open while ${product} finishes` }),
@@ -6002,11 +6002,15 @@ const startThoughtDockPolling = (
         kind: "waiting_for_agent",
         run: activeRun,
         adapterId,
-        message: remoteState === "ready"
-          ? `${thoughtAgentProductLabel(adapterId)} passed preflight and is continuing automatically.`
-          : remoteState === "created"
+        message: remoteState === "created"
           ? "Waiting for your Agent. Return here after it finishes."
-          : `Agent is ${remoteState}. Return here after it finishes.`,
+          : remoteState === "claimed"
+          ? `${thoughtAgentProductLabel(adapterId)} connected. Control checks are running; the prompt remains sealed.`
+          : remoteState === "ready"
+          ? `${thoughtAgentProductLabel(adapterId)} ready. Waiting for start.`
+          : remoteState === "running"
+          ? "Creative phase opened. Waiting for the returned work."
+          : `Run is ${remoteState}.`,
       });
     }
     return false;
@@ -17695,11 +17699,15 @@ const pollThoughtAgentRun = async (input: {
     }
 
     setStatus(
-      state === "ready"
-        ? `Codex passed preflight for ${input.runId} and is continuing automatically.`
-        : state === "created"
+      state === "created"
         ? `waiting for THOUGHT Bridge ${input.runId}...`
-        : `Codex running ${input.runId}...`,
+        : state === "claimed"
+        ? `Codex connected to ${input.runId}. Control checks are running.`
+        : state === "ready"
+        ? `Codex ready for ${input.runId}. Waiting for start.`
+        : state === "running"
+        ? `Creative phase opened for ${input.runId}. Waiting for return.`
+        : `Run ${input.runId} is ${state || "pending"}.`,
     );
     await new Promise((resolve) => window.setTimeout(resolve, THOUGHT_AGENT_STATUS_POLL_MS));
   }
@@ -17747,7 +17755,7 @@ const requestCodexAgent = async (payload: ThoughtRunPayload) => {
   writePendingThoughtAgentRun(pendingRun);
 
   if (createPayload.devAutoRun) {
-    setStatus(`Codex running ${createPayload.runId}...`);
+    setStatus(`Agent run ${createPayload.runId} created. Waiting for connection...`);
   } else {
     const resolvedLaunchUri = resolveThoughtAgentLaunchUri(createPayload.launchUri ?? "");
     setStatus(`opening THOUGHT Bridge ${createPayload.runId}...`);

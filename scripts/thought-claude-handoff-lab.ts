@@ -52,6 +52,15 @@ const requireValue = (parsed: ParsedArguments, name: string) => {
   return value;
 };
 
+const readLaunchSubmissionDeclaration = (parsed: ParsedArguments) => {
+  const value = firstValue(parsed, "--launch-submission");
+  if (value === undefined) return undefined;
+  if (value !== "creator-clicked-submit") {
+    throw new Error("--launch-submission must be creator-clicked-submit when the operator observed that action.");
+  }
+  return value;
+};
+
 const readClaudeSurface = (parsed: ParsedArguments) => {
   const value = firstValue(parsed, "--surface", "code");
   if (value !== "cowork" && value !== "code") {
@@ -164,6 +173,7 @@ const runRealObserve = async (parsed: ParsedArguments) => {
   const result = await observeThoughtClaudeRealCanary({
     sessionPath: requireValue(parsed, "--session"),
     timeoutMs,
+    launchSubmissionDeclaration: readLaunchSubmissionDeclaration(parsed),
     creatorActions: firstValue(
       parsed,
       "--control-actions",
@@ -197,7 +207,7 @@ const showHelp = () => {
     `  pnpm handoff:lab:claude list\n` +
     `  pnpm handoff:lab:claude real-prepare [--origin URL] [--prompt LINE] [--out DIR] [--surface code] [--open]\n` +
     `  pnpm handoff:lab:claude real-prepare --origin PUBLIC_HTTPS_URL [--prompt LINE] [--out DIR] --surface cowork [--open]  # legacy compatibility only\n` +
-    `  pnpm handoff:lab:claude real-observe --session FILE [--timeout-ms N] [--control-actions TEXT]\n`);
+    `  pnpm handoff:lab:claude real-observe --session FILE [--timeout-ms N] [--launch-submission creator-clicked-submit] [--control-actions TEXT]\n`);
 };
 
 const main = async () => {

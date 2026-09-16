@@ -60,9 +60,24 @@ correct digest without the `sha256:` prefix is rejected.
 The staging transport check reproduced HTTP 403/1010 with Python's default
 User-Agent while the same client with this application identity succeeded.
 Do not impersonate a browser or rotate identities to evade a denial.
-Protocol rejection stops the run rather than retrying an identical rejected
-payload. Other failures are reported from the observed response and remain
-bounded to the failed operation.
+The active Claude Code handoff classifies recovery as definitely not sent,
+definitely rejected by an established App error known not to have committed,
+or uncertain after dispatch. Gateway or proxy errors, malformed responses, and
+timeouts are uncertain. A pre-dispatch Agent-app permission refusal is a
+not-sent condition, not an HTTP, schema, or authentication rejection. A 429 may
+retry once only when `Retry-After` is usable and it is known that no commit
+occurred; otherwise
+the operation follows its uncertain-response rule.
+
+An uncertain claim stops for browser reconciliation because its credential is
+consumed and its bridge token is returned only once. Readiness may replay its
+exact body and bridge credential once. An uncertain start stops without another
+start or creative generation because a running run does not replay creative
+input. An uncertain result may replay only the frozen request once with the
+same invocation, idempotency key, raw bytes, and hashes; it never reserializes,
+repairs hashes, changes the artwork, or generates a replacement. An uncertain
+failure stops because `/fail` is terminal, not replayable, and cannot overwrite
+success.
 
 ## Deterministic matrix
 
@@ -137,8 +152,24 @@ pnpm handoff:lab:claude real-prepare --origin https://candidate.example --surfac
 
 Claude Desktop opens a new Code task using `claude://code/new?q=...`. The
 creator clicks Submit once. The run follows the bounded claim, readiness,
-creative start, and return operations. A retry repeats only the failed
-operation, never an accepted claim or creative generation.
+creative start, and return operations. Recovery follows the operation-specific
+certainty and replay limits above; it is not a generic retry of the last step.
+
+After the operator observes and performs that Submit action, inspect the run
+with:
+
+```text
+pnpm handoff:lab:claude real-observe --session '<sessionPath>' --launch-submission creator-clicked-submit --control-actions none
+```
+
+Omit `--launch-submission` when the action was not observed; the report then
+records `not-recorded`. `launchSubmissionEvidence: operator-reported` and
+`serverReturnObserved` deliberately separate the declaration from the App
+state seen by polling. `qualificationEligible` remains false; the
+observer cannot attest the visible desktop launch or rendered preview, so
+qualification is decided only from separate reviewed evidence. Terminal runs remove private session,
+task, and deep-link files, while a timeout preserves them for another poll.
+Older reports remain historical evidence and are not rewritten.
 
 Code can use a local, LAN, or public HTTPS App endpoint when that environment
 can reach it. No one-run folder is part of the protocol. To inspect the retired

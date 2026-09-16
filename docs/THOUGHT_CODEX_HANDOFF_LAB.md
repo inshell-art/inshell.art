@@ -52,7 +52,25 @@ not mean that Codex or its provider cryptographically signed the output, nor
 does it independently prove authorship, model identity, the truth of an Agent
 declaration, transcript purity, or absence of outside influence.
 
-Local App authorization is scoped to the Agent environment's permissions. Only an explicit host permission denial before creative start triggers the connection-approval message. HTTP/JSON rejection is not permission denial: `PROTOCOL_UNSUPPORTED` stops without guessing or downgrading the protocol; invalid, expired or already-claimed credentials require a fresh run. A sign-in redirect requires App access configuration. A network refusal proves only that the task cannot reach the endpoint, not that the App stopped. `RETRY` follows resolved permission/network blockers and must not repeat an accepted claim or creative generation; 429 respects `Retry-After` without loops.
+Recovery follows observed delivery state rather than a generic `RETRY`. A request
+is definitely not sent only when the transport proves it was not dispatched; a
+definite rejection is an established App error known not to have committed.
+Gateway or proxy errors, malformed responses, timeouts, and other ambiguous
+post-dispatch responses are uncertain. An explicit host permission denial
+before dispatch is a not-sent condition, not an HTTP, schema, or authentication
+rejection. A 429 permits at most one retry only with a usable `Retry-After` and
+known no-commit behavior; otherwise it is uncertain.
+
+The active Codex handoff applies operation-specific replay boundaries. An
+uncertain claim stops for reconciliation in THOUGHT because the launch
+credential is consumed and the bridge token is returned only once. Readiness
+may replay its exact body with the same bridge credential once. An uncertain
+start stops without another start or creative generation because a running run
+does not replay creative input. An uncertain result may replay the one frozen
+request once with the same invocation, idempotency key, raw bytes, and hashes;
+it never reserializes, repairs hashes, changes the artwork, or regenerates it.
+An uncertain failure stops because failure is terminal and `/fail` cannot
+overwrite a successful result.
 
 ## What is tested
 
@@ -112,12 +130,12 @@ The local THOUGHT stack must already be running. No Agent, browser extension, pa
 4. Copy the `sessionPath` printed by step 1 and observe the run:
 
    ```sh
-   pnpm handoff:lab:codex real-observe --session '<sessionPath>' --control-actions none
+   pnpm handoff:lab:codex real-observe --session '<sessionPath>' --launch-submission creator-clicked-submit --control-actions none
    ```
 
-   If a permission or `RETRY` was needed, replace `none` with a short factual value such as `approved App connection` or `one RETRY`. Do not count the required initial Submit click as a control action; it is recorded separately.
+   Include `--launch-submission creator-clicked-submit` only when the operator actually observed and performed that Submit action. If it was not observed, omit the option; the report records `not-recorded`. If a permission or `RETRY` was needed, replace `none` with a short factual value such as `approved App connection` or `one RETRY`. Do not count the required initial Submit click as a control action; it is recorded separately.
 
-The observer writes `real-canary-report.json` in the canary directory. The report records terminal state, receipt hash, model, reasoning effort, Agent-line hash, the required launch submission, and any later control intervention. It omits all transport credentials and creative text. Once the run reaches a terminal state, the observer deletes the private session, sealed-task, and deep-link files automatically.
+The observer writes `real-canary-report.json` in the canary directory. `launchSubmissionEvidence: operator-reported` identifies the Submit declaration; `serverReturnObserved` records what polling saw from the App. Neither field is click, provider, model, rendered-preview, or full qualification attestation. The report also records terminal state, receipt hash, model, reasoning effort, Agent-line hash, and later control intervention while omitting transport credentials and creative text. A run without the option reports `launchSubmission: not-recorded` even when the server returned successfully. Once the run reaches a terminal state, the observer deletes the private session, sealed-task, and deep-link files automatically; a timeout preserves them for a later poll. Older reports remain historical evidence and are not rewritten or retroactively upgraded.
 
 ## Reading failures
 

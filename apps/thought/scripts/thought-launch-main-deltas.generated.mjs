@@ -50,7 +50,7 @@ export const CURRENT_THOUGHT_LAUNCH_MAIN_DELTAS = Object.freeze([
   Object.freeze(["launch state delta 49", "    title: \"confirm $PATH mint in wallet\",\n    detail: \"Open your wallet and confirm the transaction. Gas applies.\",", "    title: \"waiting for your confirmation\",\n    detail: \"A $PATH mint transaction is open in your wallet. Confirm it to continue. Gas applies.\","]),
   Object.freeze(["launch state delta 50", "      title: \"close the previous wallet request\",\n      detail: \"No transaction was found. Cancel or reject the previous request in your wallet before retrying.\",", "      title: \"a previous wallet request is still open\",\n      detail: \"No transaction was found. Cancel or reject the earlier request in your wallet before retrying.\","]),
   Object.freeze(["launch state delta 51", "      detail: \"Choose an Agent available on this machine to receive the prompt.\",", "      detail: \"Only Agents installed on this machine can receive the prompt.\","]),
-  Object.freeze(["launch state delta 52", "const thoughtDockAgentLifecycleTitle = (adapterId: ThoughtDockAgentAdapterId, remoteState?: string | null) =>\n  thoughtDockAgentLifecycleStatus(adapterId, remoteState).replace(/\\.\\.\\.$/, \"\");", "const thoughtDockAgentLifecycleTitle = (adapterId: ThoughtDockAgentAdapterId, remoteState?: string | null) =>\n  thoughtDockAgentLifecycleStatus(adapterId, remoteState).replace(/\\.\\.\\.$/, \"\");\n\n// Each lifecycle state needs its own detail. A shared line made distinct states\n// read as one repeated event, and restating the product name added nothing the\n// title had not already said.\nconst thoughtDockAgentLifecycleDetail = (remoteState?: string | null) => {\n  switch (remoteState) {\n    case \"claimed\":\n      return \"It has the prompt and is starting.\";\n    case \"ready\":\n      return \"It is preparing the work.\";\n    case \"running\":\n      return \"It is writing the work now.\";\n    case \"returned\":\n      return \"The returned work is being checked.\";\n    default:\n      return \"The task has been sent and is not accepted yet.\";\n  }\n};"]),
+  Object.freeze(["launch state delta 52", "const thoughtDockAgentLifecycleTitle = (adapterId: ThoughtDockAgentAdapterId, remoteState?: string | null) =>\n  thoughtDockAgentLifecycleStatus(adapterId, remoteState).replace(/\\.\\.\\.$/, \"\");", "const thoughtDockAgentLifecycleTitle = (adapterId: ThoughtDockAgentAdapterId, remoteState?: string | null) =>\n  thoughtDockAgentLifecycleStatus(adapterId, remoteState).replace(/\\.\\.\\.$/, \"\");\n\n// Each lifecycle state needs its own detail. A shared line made distinct states\n// read as one repeated event, and restating the product name added nothing the\n// title had not already said.\nconst thoughtDockAgentLifecycleDetail = (remoteState?: string | null) => {\n  switch (remoteState) {\n    case \"claimed\":\n      return \"Control checks are running. The prompt is still sealed.\";\n    case \"ready\":\n      return \"Control checks passed. Waiting for start.\";\n    case \"running\":\n      return \"Waiting for the returned work.\";\n    case \"returned\":\n      return \"The returned work is being checked.\";\n    default:\n      return \"The task has been sent and is not accepted yet.\";\n  }\n};"]),
   Object.freeze(["launch state delta 53", "        : `${product} is working on this THOUGHT task.`,", "        : thoughtDockAgentLifecycleDetail(state.run.remoteState),"]),
   Object.freeze(["launch state delta 54", "      title: \"Agent request unavailable\",\n      detail: \"This Agent request cannot continue.\",", "      title: \"Agent request unavailable\",\n      detail: \"The App could not reach it on this machine.\","]),
   Object.freeze(["launch state delta 55", "      title: \"Agent request expired\",\n      detail: \"This Agent request cannot continue.\",", "      title: \"Agent request expired\",\n      detail: \"It was not accepted in time.\","]),
@@ -61,7 +61,7 @@ export const CURRENT_THOUGHT_LAUNCH_MAIN_DELTAS = Object.freeze([
   Object.freeze(["launch state delta 60", "        title: `allow ${product}`,", "        title: `Allow ${product}`,"]),
   Object.freeze(["launch state delta 61", "        nextStep: `allow ${product.toLowerCase()} above`,", "        nextStep: `Allow ${product.toLowerCase()} above`,"]),
   Object.freeze(["launch state delta 62", "        title: `authorizing ${product}`,", "        title: `Authorizing ${product}`,"]),
-  Object.freeze(["launch state delta 63", "        ? { nextStep: `keep this page open while ${product} creates` }", "        ? { nextStep: `Keep this page open while ${product} creates` }"]),
+  Object.freeze(["launch state delta 63", "        ? { nextStep: `keep this page open while ${product} creates` }", "        ? { nextStep: \"Keep this page open; start is still pending\" }"]),
   Object.freeze(["launch state delta 64", "        ? { nextStep: `keep this page open while ${product} connects` }\n        : { nextStep: `keep this page open while ${product} finishes` }),", "        ? { nextStep: `Keep this page open while ${product} connects` }\n        : { nextStep: `Keep this page open while ${product} finishes` }),"]),
   Object.freeze(["launch state delta 65", "      nextStep: \"canonical artwork preview is unavailable in this environment\",", "      nextStep: \"Canonical artwork preview is unavailable in this environment\","]),
   Object.freeze(["launch state delta 66", "      title: state.issue?.title ?? (textTooLong ? \"text too long\" : \"work rejected\"),", "      title: state.issue?.title ?? (textTooLong ? \"Text too long\" : \"Work rejected\"),"]),
@@ -710,6 +710,78 @@ document.addEventListener("visibilitychange", () => {`,
   }
 
   thoughtDetailBody.classList.add("is-hidden");`,
+  ]),
+  Object.freeze([
+    "launch state delta 201",
+    `    case "claimed":
+      return \`${"${product}"} accepted task...\`;
+    case "ready":
+      return \`${"${product}"} creating...\`;
+    case "running":
+      return \`${"${product}"} running...\`;`,
+    `    case "claimed":
+      return \`${"${product}"} connected...\`;
+    case "ready":
+      return \`${"${product}"} ready...\`;
+    case "running":
+      return "Creative phase opened...";`,
+  ]),
+  Object.freeze([
+    "launch state delta 202",
+    `      detail: controlVerified
+        ? "Control checks passed. Creation is continuing automatically."`,
+    `      detail: controlVerified
+        ? "Control checks passed. Waiting for start."`,
+  ]),
+  Object.freeze([
+    "launch state delta 203",
+    `        message: remoteState === "ready"
+          ? \`${"${thoughtAgentProductLabel(adapterId)}"} passed preflight and is continuing automatically.\``,
+    `        message: remoteState === "ready"
+          ? \`${"${thoughtAgentProductLabel(adapterId)}"} passed preflight. Waiting for start.\``,
+  ]),
+  Object.freeze([
+    "launch state delta 204",
+    `    setStatus(
+      state === "ready"
+        ? \`Codex passed preflight for ${"${input.runId}"} and is continuing automatically.\`
+        : state === "created"
+        ? \`waiting for THOUGHT Bridge ${"${input.runId}"}...\`
+        : \`Codex running ${"${input.runId}"}...\`,
+    );`,
+    `    setStatus(
+      state === "created"
+        ? \`waiting for THOUGHT Bridge ${"${input.runId}"}...\`
+        : state === "claimed"
+        ? \`Codex connected to ${"${input.runId}"}. Control checks are running.\`
+        : state === "ready"
+        ? \`Codex ready for ${"${input.runId}"}. Waiting for start.\`
+        : state === "running"
+        ? \`Creative phase opened for ${"${input.runId}"}. Waiting for return.\`
+        : \`Run ${"${input.runId}"} is ${"${state || \"pending\"}"}.\`,
+    );`,
+  ]),
+  Object.freeze([
+    "launch state delta 205",
+    `        message: remoteState === "ready"
+          ? \`${"${thoughtAgentProductLabel(adapterId)}"} passed preflight. Waiting for start.\`
+          : remoteState === "created"
+          ? "Waiting for your Agent. Return here after it finishes."
+          : \`Agent is ${"${remoteState}"}. Return here after it finishes.\`,`,
+    `        message: remoteState === "created"
+          ? "Waiting for your Agent. Return here after it finishes."
+          : remoteState === "claimed"
+          ? \`${"${thoughtAgentProductLabel(adapterId)}"} connected. Control checks are running; the prompt remains sealed.\`
+          : remoteState === "ready"
+          ? \`${"${thoughtAgentProductLabel(adapterId)}"} ready. Waiting for start.\`
+          : remoteState === "running"
+          ? "Creative phase opened. Waiting for the returned work."
+          : \`Run is ${"${remoteState}"}.\`,`,
+  ]),
+  Object.freeze([
+    "launch state delta 206",
+    "    setStatus(`Codex running ${createPayload.runId}...`);",
+    "    setStatus(`Agent run ${createPayload.runId} created. Waiting for connection...`);",
   ]),
 ]);
 
