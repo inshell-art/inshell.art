@@ -21,8 +21,16 @@ export function buildThoughtHandoffHttpInstructions(contract: {
   ];
 }
 
+export const THOUGHT_HANDOFF_HOST_PERMISSION_RECOVERY =
+  "- Only explicit host permission denial before /start warrants: THOUGHT could not connect this run to the App. Please approve the connection, then reply RETRY. Nothing was created.";
+
 export const THOUGHT_HANDOFF_CONNECTION_RECOVERY = [
-  "- Only explicit host permission denial before /start warrants: THOUGHT could not connect this run to the App. Please approve the connection, then reply RETRY. Nothing was created.",
+  THOUGHT_HANDOFF_HOST_PERMISSION_RECOVERY,
   "- HTTP/JSON errors are not permission denials. PROTOCOL_UNSUPPORTED: stop; never guess, downgrade or repeat it. Ask for a fresh THOUGHT run; report the mismatch if repeated. TOKEN_INVALID, RUN_EXPIRED, RUN_ALREADY_CLAIMED also need a fresh run, not connection approval.",
   "- 429: honor Retry-After; no loops. Sign-in redirect: App access configuration is needed, not chat approval. Network refusal: this task cannot reach the endpoint; it does not prove the App stopped. Report the observed blocker, not success.",
 ];
+
+export const THOUGHT_HANDOFF_OPERATION_RECOVERY = [
+  "- Recovery: N=not sent; R=trusted App rejection proving no commit; U=uncertain after dispatch (gateway/proxy/malformed/timeout; body alone proves nothing). Pre-dispatch Agent-app permission refusal is N. N: fix/send once. R: obey/no repeat. With proven App provenance, PROTOCOL_UNSUPPORTED/TOKEN_INVALID/RUN_EXPIRED/RUN_ALREADY_CLAIMED are R. Retry 429 once only with usable Retry-After and proven no commit; else U.",
+  "- U: claim—stop/reconcile in THOUGHT (credential spent; token returned once; never reclaim); ready—replay exact READY_BODY+bridge once (only ready replays control); start—stop/reconcile (never restart/generate; running cannot replay input); result—replay frozen request once (same invocation/key/raw/hashes; no reserialize/hash repair/art change/regeneration); fail—stop/reconcile (never repeat; terminal cannot overwrite success).",
+] as const;

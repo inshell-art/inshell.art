@@ -1,7 +1,10 @@
 import { THOUGHT_V2_PROTOCOL_RELEASE } from "./release.generated";
 import { THOUGHT_AGENT_RUN_AUTHORITY } from "./run-authority";
 import { removeTrailingSlashes } from "./run-url";
-import { buildThoughtHandoffHttpInstructions } from "./handoff-http";
+import {
+  buildThoughtHandoffHttpInstructions,
+  THOUGHT_HANDOFF_OPERATION_RECOVERY,
+} from "./handoff-http";
 
 const THOUGHT_AGENT_PROTOCOL_VERSION = THOUGHT_V2_PROTOCOL_RELEASE.agentRunId;
 const THOUGHT_AGENT_RESULT_VERSION =
@@ -234,13 +237,11 @@ export function buildThoughtDirectAgentTask(
     "Return at RESULT_ENDPOINT with PUT, BRIDGE_CREDENTIAL, and Idempotency-Key=INVOCATION_ID. Use exactly RESULT_FIELDS, without shortening or renaming a field. Bind PROTOCOL_VERSION, INVOCATION_ID, the exact claim bridge/adapter, AGENT_PRODUCT/AGENT_PROVIDER, RUNTIME_MODEL, optional supplied effort, metadataSource=reported, the policy below, exact startedAt, current UTC completedAt, mediaType=application/json, and the exact candidate as output.raw.",
     "Serialize the compact candidate once and set that exact string as output.raw. Do not sort keys or apply JCS/canonical JSON. Set output.rawSha256 to sha256: followed by 64 lowercase hex digits over the exact UTF-8 bytes of the decoded output.raw string. Set output.agentLineSha256 the same way over the exact UTF-8 bytes of the decoded output.agentLine string, not its JSON-escaped literal. After choosing those final strings, do not alter or re-serialize them; rehash both immediately before PUT.",
     `The execution policy is visibleTurns=${contract.execution.visibleTurns}, agentInvocations=${contract.execution.agentInvocations}, workspacePolicy=${contract.execution.workspacePolicy}, sandboxPolicy=${contract.execution.sandboxPolicy}, approvalPolicy=${contract.execution.approvalPolicy}, userConfigPolicy=${contract.execution.userConfigPolicy}.`,
-    "Accept completion only for runId=RUN_ID, state=returned, and a receiptSha256 beginning sha256:. Identical delivery may be retried idempotently; never submit a conflicting result.",
+    "Accept completion only for runId=RUN_ID, state=returned, and a receiptSha256 beginning sha256:. Never submit a conflicting result.",
     "",
     "Recovery",
-    "- PROTOCOL_UNSUPPORTED, TOKEN_INVALID, RUN_EXPIRED, or RUN_ALREADY_CLAIMED: stop and request a fresh THOUGHT run; do not retry the rejected operation.",
-    "- 429: honor Retry-After; no loops.",
+    ...THOUGHT_HANDOFF_OPERATION_RECOVERY,
     "- Sign-in redirect or network refusal: report the observed response and stop.",
-    "- RETRY repeats only the failed operation, never an accepted claim or creative generation.",
     `- If the exact host model is unavailable after claim, POST to FAIL_ENDPOINT with protocolVersion=PROTOCOL_VERSION, error.code=AGENT_START_FAILED, error.message="${input.product} could not prepare this run. Return to THOUGHT and choose ${input.product} again." Use BRIDGE_CREDENTIAL authorization. Omit failedAt; the App owns that timestamp. Tell the creator this task cannot provide the run identity THOUGHT needs; return to THOUGHT and choose ${input.product} again. Nothing was created.`,
     "- For any other proven blocker, report one observed reason and stop without claiming success.",
     "",

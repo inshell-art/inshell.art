@@ -2480,25 +2480,63 @@ test("Saved Agent handoffs carry and verify an integrity digest without becoming
   );
 });
 
-test("Agent readiness is an internal checkpoint that continues automatically", () => {
-  assert.match(
-    thoughtMain,
-    /case "ready":\s*return `\$\{product\} creating\.\.\.`/,
-  );
-  assert.match(
-    thoughtMain,
-    /const controlVerified = state\.run\.remoteState === "ready";[\s\S]*?detail: controlVerified[\s\S]*?"Control checks passed\. Creation is continuing automatically\."[\s\S]*?nextStep: `Keep this page open while \$\{product\} creates`/,
-  );
-  assert.match(
-    thoughtMain,
-    /message: remoteState === "ready"[\s\S]*?`\$\{thoughtAgentProductLabel\(adapterId\)\} passed preflight and is continuing automatically\.`/,
-  );
-  assert.doesNotMatch(thoughtMain, /Reply CREATE/);
-  assert.match(
-    thoughtMain,
-    /const submitAgentDemoProtocolResult = async[\s\S]*?fetchThoughtAgentJson<Record<string, unknown>>\(run\.readyUrl,[\s\S]*?control: agentDemoControlEvidence\(\)[\s\S]*?fetchThoughtAgentJson<Record<string, unknown>>\(run\.startUrl/,
-    "the manual demo callback must pass readiness before opening the creative request",
-  );
+test("Agent lifecycle reports observed control and creative-phase state without claiming prompt delivery", () => {
+  for (const [label, source] of [
+    ["source", thoughtMain],
+    ["locked runtime", loadThoughtDevSnapshotFile(repoRoot, "main")],
+  ]) {
+    assert.match(
+      source,
+      /case "claimed":\s*return `\$\{product\} connected\.\.\.`/,
+      `${label} must report the observed claim without saying creation started`,
+    );
+    assert.match(
+      source,
+      /case "ready":\s*return `\$\{product\} ready\.\.\.`/,
+      `${label} must report readiness without saying the Agent is starting`,
+    );
+    assert.match(
+      source,
+      /case "running":\s*return "Creative phase opened\.\.\."/,
+      `${label} must reserve creative-phase wording for running`,
+    );
+    assert.match(
+      source,
+      /case "claimed":\s*return "Control checks are running\. The prompt is still sealed\."/,
+    );
+    assert.match(
+      source,
+      /case "ready":\s*return "Control checks passed\. Waiting for start\."/,
+    );
+    assert.match(
+      source,
+      /case "running":\s*return "Waiting for the returned work\."/,
+      `${label} must not infer that a running Agent received the start response`,
+    );
+    assert.match(
+      source,
+      /const controlVerified = state\.run\.remoteState === "ready";[\s\S]*?detail: controlVerified[\s\S]*?"Control checks passed\. Waiting for start\."[\s\S]*?nextStep: "Keep this page open; start is still pending"/,
+    );
+    assert.match(
+      source,
+      /message: remoteState === "created"[\s\S]*?remoteState === "claimed"[\s\S]*?`\$\{thoughtAgentProductLabel\(adapterId\)\} connected\. Control checks are running; the prompt remains sealed\.`[\s\S]*?remoteState === "ready"[\s\S]*?`\$\{thoughtAgentProductLabel\(adapterId\)\} ready\. Waiting for start\.`[\s\S]*?remoteState === "running"[\s\S]*?"Creative phase opened\. Waiting for the returned work\."/,
+    );
+    assert.match(
+      source,
+      /state === "claimed"[\s\S]*?`Codex connected to \$\{input\.runId\}\. Control checks are running\.`[\s\S]*?state === "ready"[\s\S]*?`Codex ready for \$\{input\.runId\}\. Waiting for start\.`[\s\S]*?state === "running"[\s\S]*?`Creative phase opened for \$\{input\.runId\}\. Waiting for return\.`/,
+    );
+    assert.match(
+      source,
+      /createPayload\.devAutoRun[\s\S]*?`Agent run \$\{createPayload\.runId\} created\. Waiting for connection\.\.\.`/,
+    );
+    assert.doesNotMatch(source, /It has the prompt|Creation is continuing automatically|passed preflight and is starting automatically/);
+    assert.doesNotMatch(source, /Reply CREATE/);
+    assert.match(
+      source,
+      /const submitAgentDemoProtocolResult = async[\s\S]*?fetchThoughtAgentJson<Record<string, unknown>>\(run\.readyUrl,[\s\S]*?control: agentDemoControlEvidence\(\)[\s\S]*?fetchThoughtAgentJson<Record<string, unknown>>\(run\.startUrl/,
+      `${label} demo callback must pass readiness before opening the creative request`,
+    );
+  }
 });
 
 test("Work prompt exposes persistent terminal-style history navigation", () => {

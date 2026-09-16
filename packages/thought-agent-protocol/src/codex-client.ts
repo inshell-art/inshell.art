@@ -1,7 +1,11 @@
 import { THOUGHT_V2_PROTOCOL_RELEASE } from "./release.generated";
 import { THOUGHT_AGENT_RUN_AUTHORITY } from "./run-authority";
 import { removeTrailingSlashes } from "./run-url";
-import { buildThoughtHandoffHttpInstructions, THOUGHT_HANDOFF_CONNECTION_RECOVERY } from "./handoff-http";
+import {
+  buildThoughtHandoffHttpInstructions,
+  THOUGHT_HANDOFF_HOST_PERMISSION_RECOVERY,
+  THOUGHT_HANDOFF_OPERATION_RECOVERY,
+} from "./handoff-http";
 
 const THOUGHT_AGENT_PROTOCOL_VERSION = THOUGHT_V2_PROTOCOL_RELEASE.agentRunId;
 const THOUGHT_AGENT_RESULT_VERSION =
@@ -130,9 +134,6 @@ export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
   const networkRule = contract.networkAuthorization === "preauthorized"
     ? "This lab task already has App access; do not request permission."
     : "Use only this turn's App connection permission to receive its sealed prompt and return the work.";
-  const retryRule = contract.networkAuthorization === "preauthorized"
-    ? "- After permission/network recovery, RETRY only the failed operation; never repeat an accepted claim or creation."
-    : "- After permission/network recovery, RETRY with the same narrow permission; never repeat an accepted claim or creation.";
   const candidateShape = `schema=RESULT_SCHEMA; release.protocolReleaseId=CANONICAL_PROTOCOL_RELEASE_ID; release.manifestKeccak256=CANONICAL_MANIFEST_HASH; agentLine=ONE_EXACT_LINE; declaration.schema=inshell.thought.agent-declaration.v1; declaration.status=declared-unverified; declaration.${contract.declarationLabelField}=AGENT_PRODUCT; declaration.declaredOneCreativeResult=true`;
 
   return [
@@ -178,14 +179,13 @@ export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
     "4. Return once",
     "PUT to APP_ENDPOINT/result with Idempotency-Key: INVOCATION_ID. Use RESULT_FIELDS, exact claim bridge/adapter, AGENT_PRODUCT/codex, RUNTIME_MODEL, optional supplied effort, metadataSource=reported, policy, startedAt/completedAt UTC, mediaType=application/json. Compact output.raw once. rawSha256/agentLineSha256 are sha256: plus 64 lowercase hex digits over exact UTF-8 raw/agentLine; no newline/re-serialize. Rehash before PUT.",
     `Execution: visibleTurns=${contract.execution.visibleTurns}, agentInvocations=${contract.execution.agentInvocations}, workspacePolicy=${contract.execution.workspacePolicy}, sandboxPolicy=${contract.execution.sandboxPolicy}, approvalPolicy=${contract.execution.approvalPolicy}, userConfigPolicy=${contract.execution.userConfigPolicy}.`,
-    "Accept only runId=RUN_ID, state=returned, and receiptSha256 beginning sha256:. Retry only identical delivery; never conflict.",
+    "Accept only runId=RUN_ID, state=returned, and receiptSha256 beginning sha256:. Never submit a conflicting result.",
     "The receipt proves acceptance/binding, not an untouched transcript.",
     "",
     "Recovery",
-    ...THOUGHT_HANDOFF_CONNECTION_RECOVERY,
-    retryRule,
-    "- Host model unavailable after claim: POST to APP_ENDPOINT/fail with protocolVersion=PROTOCOL_VERSION, error.code=AGENT_START_FAILED, error.message=Codex could not prepare this run. Omit failedAt; the App owns that timestamp. Ask for a fresh Codex run; nothing was created.",
-    "- Other blockers: one observed reason and one plain creator action; no implementation details.",
+    THOUGHT_HANDOFF_HOST_PERMISSION_RECOVERY,
+    ...THOUGHT_HANDOFF_OPERATION_RECOVERY,
+    "- Model missing after claim: POST /fail once: protocolVersion=PROTOCOL_VERSION, error.code=AGENT_START_FAILED, error.message=Model unavailable; omit failedAt.",
     "",
     "After verifying the receipt, show:",
     "Return to THOUGHT; the browser will show the preview.",

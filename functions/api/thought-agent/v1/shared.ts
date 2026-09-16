@@ -750,7 +750,7 @@ export async function failRun(ctx: ThoughtAgentRouteContext): Promise<Response> 
     );
     if (!changed) throw stateConflict(current.state);
     const updated = await requireRun(db, current.run_id);
-    return protocolJson(ctx, 200, statusPayload(updated));
+    return protocolJson(ctx, 200, agentFailurePayload(updated));
   });
 }
 
@@ -1308,6 +1308,18 @@ function statusPayload(row: ThoughtAgentRow): Record<string, unknown> {
     };
   }
   return base;
+}
+
+function agentFailurePayload(row: ThoughtAgentRow): Record<string, unknown> {
+  if (row.state !== "failed") throw stateConflict(row.state);
+  return {
+    runId: row.run_id,
+    state: row.state,
+    error: {
+      code: row.error_code,
+      message: row.error_message,
+    },
+  };
 }
 
 function controlRequestPayload(row: ThoughtAgentRow): Record<string, unknown> {

@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
 import { readFileSync } from "node:fs";
+import { access, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import {
   THOUGHT_CODEX_HANDOFF_CASES,
   buildClaudeDeepLink,
+  observeThoughtClaudeRealCanary,
   thoughtClaudeCanonicalCandidate,
 } from "./lib/thought-handoff-lab";
 import {
@@ -117,9 +121,18 @@ for (const networkAuthorization of ["managed", "preauthorized"] as const) {
     assert.equal(decoded, task);
     assert.match(task, /^Please complete one THOUGHT run with Claude\./);
     assert.match(task, /No repository files are needed\. Do not read, change, or execute them for this task\./);
-    assert.match(task, /PROTOCOL_UNSUPPORTED, TOKEN_INVALID, RUN_EXPIRED, or RUN_ALREADY_CLAIMED/);
+    assert.match(task, /With proven App provenance, PROTOCOL_UNSUPPORTED\/TOKEN_INVALID\/RUN_EXPIRED\/RUN_ALREADY_CLAIMED are R/);
     assert.match(task, /Sign-in redirect or network refusal: report the observed response and stop/);
-    assert.match(task, /RETRY repeats only the failed operation, never an accepted claim or creative generation/);
+    assert.match(task, /Pre-dispatch Agent-app permission refusal is N\./);
+    assert.match(task, /R=trusted App rejection proving no commit/);
+    assert.match(task, /U=uncertain after dispatch \(gateway\/proxy\/malformed\/timeout; body alone proves nothing\)/);
+    assert.match(task, /claim—stop\/reconcile in THOUGHT \(credential spent; token returned once; never reclaim\)/);
+    assert.match(task, /ready—replay exact READY_BODY\+bridge once/);
+    assert.match(task, /start—stop\/reconcile \(never restart\/generate/);
+    assert.match(task, /result—replay frozen request once/);
+    assert.match(task, /no reserialize\/hash repair\/art change\/regeneration/);
+    assert.match(task, /fail—stop\/reconcile \(never repeat; terminal cannot overwrite success\)/);
+    assert.doesNotMatch(task, /RETRY repeats only the failed operation|After permission\/network recovery/);
     assert.doesNotMatch(
       task,
       /general trust|safety question|permission controls|host permission|standard host permission|does not grant permission|instruction priority|creator cancellation|creator-authorized|do not request permission|(?:reply|type|exact|restate[^\n]*) CREATE/i,
@@ -128,7 +141,7 @@ for (const networkAuthorization of ["managed", "preauthorized"] as const) {
     assert.match(task, /never body, URL, files or logs; never forward across redirects/);
     assert.match(task, /Use only the five capsule endpoints/);
     assert.match(task, /Never claim again/);
-    assert.match(task, /never submit a conflicting result/);
+    assert.match(task, /Never submit a conflicting result/);
     assert.match(task, /The creative prompt is absent until \/start succeeds/);
     assert.match(task, /Never guess either value/);
     const contract = buildThoughtClaudeOperationContract(input);
@@ -308,4 +321,126 @@ test("Claude Code is the canonical surface with the same Claude adapter identity
   assert.match(task, /AGENT_SURFACE = code/);
   assert.equal(parsed.hostname, "code");
   assert.equal(parsed.searchParams.get("q"), task);
+});
+
+const createClaudeObserverFixture = async (runId: string) => {
+  const outputDir = await mkdtemp(join(tmpdir(), "thought-claude-observer-"));
+  const sessionPath = join(outputDir, "session.json");
+  const taskPath = join(outputDir, "sealed-task.txt");
+  const claudeUrlPath = join(outputDir, "claude-url.txt");
+  await Promise.all([
+    writeFile(taskPath, "sealed"),
+    writeFile(claudeUrlPath, "claude://code/new"),
+    writeFile(sessionPath, JSON.stringify({
+      schema: "inshell.thought.claude-handoff-report.v1",
+      labVersion: "test",
+      mode: "real-canary",
+      agent: "Claude Desktop",
+      surface: "code",
+      origin: "https://candidate.example",
+      handoffRevision: null,
+      runId,
+      statusUrl: `https://candidate.example/api/thought-agent/v2/runs/${runId}`,
+      browserToken: "browser-token",
+      taskSha256: `sha256:${"a".repeat(64)}`,
+      taskByteLength: 6,
+      taskPath,
+      claudeUrlPath,
+      createdAt: "2026-09-16T00:00:00.000Z",
+      promptLine: "private prompt",
+    })),
+  ]);
+  return { outputDir, sessionPath, taskPath, claudeUrlPath };
+};
+
+const claudeReturnedResponse = () => Response.json({
+  state: "returned",
+  stage: "returned",
+  result: {
+    receipt: {
+      receiptSha256: `sha256:${"b".repeat(64)}`,
+      model: "claude-test",
+      reasoningEffort: "high",
+    },
+    agentLine: "One line.",
+  },
+});
+
+test("the Claude observer records a server return without inventing a launch submission", async () => {
+  const fixture = await createClaudeObserverFixture("tar_claude_observer_returned");
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => claudeReturnedResponse();
+
+  try {
+    const { report } = await observeThoughtClaudeRealCanary({
+      sessionPath: fixture.sessionPath,
+      timeoutMs: 1_000,
+      pollMs: 1,
+    });
+    assert.equal(report.launchSubmission, "not-recorded");
+    assert.equal(report.launchSubmissionEvidence, "not-recorded");
+    assert.equal(report.serverReturnObserved, true);
+    assert.equal(report.qualificationEligible, false);
+    assert.equal(report.privateArtifactsRemoved, true);
+    await Promise.all([
+      assert.rejects(access(fixture.sessionPath), { code: "ENOENT" }),
+      assert.rejects(access(fixture.taskPath), { code: "ENOENT" }),
+      assert.rejects(access(fixture.claudeUrlPath), { code: "ENOENT" }),
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+    await rm(fixture.outputDir, { recursive: true, force: true });
+  }
+});
+
+test("the Claude observer keeps declared launch evidence narrower than qualification", async () => {
+  const fixture = await createClaudeObserverFixture("tar_claude_observer_declared_return");
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => claudeReturnedResponse();
+
+  try {
+    const { report } = await observeThoughtClaudeRealCanary({
+      sessionPath: fixture.sessionPath,
+      timeoutMs: 1_000,
+      pollMs: 1,
+      launchSubmissionDeclaration: "creator-clicked-submit",
+    });
+    assert.equal(report.launchSubmission, "creator-clicked-submit");
+    assert.equal(report.launchSubmissionEvidence, "operator-reported");
+    assert.equal(report.serverReturnObserved, true);
+    assert.equal(report.qualificationEligible, false);
+    assert.equal(report.privateArtifactsRemoved, true);
+    await Promise.all([
+      assert.rejects(access(fixture.sessionPath), { code: "ENOENT" }),
+      assert.rejects(access(fixture.taskPath), { code: "ENOENT" }),
+      assert.rejects(access(fixture.claudeUrlPath), { code: "ENOENT" }),
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+    await rm(fixture.outputDir, { recursive: true, force: true });
+  }
+});
+
+test("a timed-out Claude observation preserves private artifacts for a later poll", async () => {
+  const fixture = await createClaudeObserverFixture("tar_claude_observer_timeout");
+
+  try {
+    const { report } = await observeThoughtClaudeRealCanary({
+      sessionPath: fixture.sessionPath,
+      timeoutMs: 0,
+      launchSubmissionDeclaration: "creator-clicked-submit",
+    });
+    assert.equal(report.launchSubmission, "creator-clicked-submit");
+    assert.equal(report.launchSubmissionEvidence, "operator-reported");
+    assert.equal(report.serverReturnObserved, false);
+    assert.equal(report.qualificationEligible, false);
+    assert.equal(report.privateArtifactsRemoved, false);
+    await Promise.all([
+      access(fixture.sessionPath),
+      access(fixture.taskPath),
+      access(fixture.claudeUrlPath),
+    ]);
+  } finally {
+    await rm(fixture.outputDir, { recursive: true, force: true });
+  }
 });
