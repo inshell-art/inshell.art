@@ -11,14 +11,14 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "c0f869584140a7b5d0a7427b59faa8111dde0b6a116ebd76be0d061a47517668",
+  "sourceTreeSha256": "aba9b00a23368976d87d9c8bf50ad7085a6ca0a0d13f80f48512b0b08bedac50",
   "groups": [
     {
       "id": "public-docs",
       "title": "Public documentation sources",
       "owner": "inshell.art docs",
       "reason": "Human articles, Agent-readable content, authority maps, and machine-handoff selection.",
-      "groupSha256": "0255a6095fcda6fc9d0a9caa43b0c9b8d0b6a3c49f1725021dc55b14ce62bc8c",
+      "groupSha256": "744bb6ee3650ae2356b1f07b67176b8df355e70e3052fce2f85f09adfa8e0ff1",
       "files": [
         {
           "path": "apps/home/src/content/AGENTS.md",
@@ -37,8 +37,8 @@
         },
         {
           "path": "apps/home/src/content/docs.ts",
-          "byteLength": 178745,
-          "sha256": "fa3b365fd6b8eb165b886ac10b3384413b7c0868575d0bd70a8c395969dcd15c"
+          "byteLength": 179055,
+          "sha256": "9d38825331a27f1454ff46865ac6ffe67964d9ae474afcaaa5e23fdc9154089a"
         },
         {
           "path": "apps/home/src/content/thought-machine-handoff.ts",
@@ -1064,7 +1064,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "b32bd959503c1b83fe1dde4f28a5896205c8a86c78fce70434e42a32d7bbc8dc",
+      "groupSha256": "d81d71d921a36b3f591a17b103ea848fbe976fc31f9eecd486ee3a26b0181f72",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1108,8 +1108,8 @@
         },
         {
           "path": "apps/thought/scripts/dev-index-snapshot.mjs",
-          "byteLength": 97685,
-          "sha256": "777747e67b7152867086349d1098b0ed88a916b63fa85c89c08daa444760d8d7"
+          "byteLength": 98568,
+          "sha256": "f092585162cfeb1a208d6d15004a2788277a5244a28a9aa256b2c9e122b201ce"
         },
         {
           "path": "apps/thought/scripts/mock-thought-v2-anvil-signer.ts",
@@ -1128,8 +1128,8 @@
         },
         {
           "path": "apps/thought/scripts/thought-launch-main-deltas.generated.mjs",
-          "byteLength": 98471,
-          "sha256": "9147f8b6da1baa0dd8931f6544c4c462d2a2ca2cf25490fc7daa5f8827154c29"
+          "byteLength": 99512,
+          "sha256": "1f5dfae6480765dff8e08314ed7b2241e7e3091da1c98c25ef4aea3a1075b49b"
         },
         {
           "path": "apps/thought/src/color-font-doc.ts",
@@ -1143,8 +1143,8 @@
         },
         {
           "path": "apps/thought/src/main.ts",
-          "byteLength": 761631,
-          "sha256": "c93841cc287c93d80c6cf7ec986e228862325174ec1ddee75e99a34702a68ca8"
+          "byteLength": 761912,
+          "sha256": "26a8ee7d22c89df171b0af214f96a340aa59ad3644579bfafa10b23672e3a6bc"
         },
         {
           "path": "apps/thought/src/rpc-provider.ts",
@@ -1153,8 +1153,8 @@
         },
         {
           "path": "apps/thought/src/style.css",
-          "byteLength": 103316,
-          "sha256": "e1db4235ddcc3d6d630541a310f7d5c36db200fdf522d3d7cb09938d3d762c73"
+          "byteLength": 103432,
+          "sha256": "b4739a4b49bf7ebf695c586c3383018553a86bc288ff7c3a12e2917f3bdea600"
         },
         {
           "path": "apps/thought/src/surfaceShell/thoughtCommandTree.ts",

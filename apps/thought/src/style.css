@@ -178,6 +178,7 @@ body {
 
 :root {
   --thought-stylesheet-ready: 1;
+  --status-warning-text: #b57a00;
   --main-area-width: 1120px;
   --thought-panel-width: 360px;
   --thought-create-column-gap: 36px;
@@ -1983,7 +1984,7 @@ body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-side {
 }
 
 .frontpage-action-status.is-warn {
-  color: #b57a00;
+  color: var(--status-warning-text);
 }
 
 .frontpage-action-status.is-error {
@@ -2701,8 +2702,9 @@ body.frontpage:has(.frontpage-stage:not(.is-hidden)) .frontpage-side {
   color: var(--muted);
 }
 
-.frontpage-warning.is-warn {
-  color: #b57a00;
+.frontpage-warning.is-warn,
+.thought-dock-status-screen__line--warning {
+  color: var(--status-warning-text);
 }
 
 .frontpage-warning.is-error {

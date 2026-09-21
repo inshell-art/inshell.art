@@ -608,6 +608,8 @@ The prompt on the Docs page is a read-only invitation to learn about Inshell. A 
 
 The active Claude Code handoff is an ordinary one-run request. It states what the Agent should make and where to return it before listing the connection data. It needs no repository changes, installation, or downloaded executable.
 
+For Claude Code, use a fresh chat with "No folder". THOUGHT is a standalone artwork task and needs no repository access. A repository-attached chat may carry unrelated instructions or permissions. This recommendation does not change Claude's permissions or guarantee that it will accept a run.
+
 The Agent validates the run through its exact endpoint, one-run bearer values, response shapes, and hashes. App operation requests send credentials only in Authorization headers, and the handoff never asks for a private key or seed phrase.
 
 The THOUGHT App does not place the creative prompt in the handoff. After the claim and readiness checks succeed, exact response data supplies and binds the prompt, specification, creative brief, release identity, and output boundary to that run. The Agent returns one exact candidate line. It does not choose a $PATH, select an account, approve a signature, or submit the mint transaction.
