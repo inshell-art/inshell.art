@@ -1,6 +1,7 @@
 import { assertThoughtV2Line } from "../contract-integration/current/reference/thought-v2-terminal-work-profile";
 import {
   formatThoughtAgentModelLabel,
+  parseAgentInfo,
   thoughtAgentModelIdentifier,
   type ThoughtCodexReleaseBinding,
   type ThoughtCodexResultContractBinding,
@@ -181,6 +182,36 @@ export const parseThoughtV2LocalAgentResult = (
   }
   return result;
 };
+
+export const thoughtV2AgentEvidenceModelRecord = (
+  evidence?: ThoughtV2LocalAgentEvidence,
+): string => {
+  if (!evidence) {
+    return "unknown";
+  }
+  if (evidence.metadataSource === undefined) {
+    if (Object.hasOwn(evidence, "model") || Object.hasOwn(evidence, "reasoningEffort")) {
+      throw new Error("Agent model metadata source is missing.");
+    }
+    return "unknown";
+  }
+  const parsed = parseAgentInfo({
+    product: thoughtV2AgentLabelForAdapter(evidence.adapter),
+    ...(Object.hasOwn(evidence, "model") ? { model: evidence.model } : {}),
+    ...(Object.hasOwn(evidence, "reasoningEffort")
+      ? { reasoningEffort: evidence.reasoningEffort }
+      : {}),
+    metadataSource: evidence.metadataSource,
+  });
+  return parsed.metadataSource === "reported" ? parsed.model! : "unknown";
+};
+
+export const thoughtV2RecordedModel = (
+  configuredModel: string,
+  evidence?: ThoughtV2LocalAgentEvidence,
+): string => evidence
+  ? thoughtV2AgentEvidenceModelRecord(evidence)
+  : configuredModel;
 
 export const buildThoughtV2LocalAgentProcess = (
   evidence: ThoughtV2LocalAgentEvidence,

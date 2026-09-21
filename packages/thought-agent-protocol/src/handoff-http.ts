@@ -1,7 +1,7 @@
 export const THOUGHT_AGENT_HTTP_USER_AGENT = "Inshell-THOUGHT-Agent/2" as const;
 
 export const THOUGHT_HANDOFF_HTTP_IDENTIFICATION =
-  `All requests: User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}. Identifies THOUGHT protocol; never impersonate a browser or model.`;
+  `All requests: User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}; identifies THOUGHT, never a browser/model.`;
 
 /** Plain-text request data: identifiers must survive HTML/rich-text composers. */
 export function buildThoughtHandoffHttpInstructions(contract: {
@@ -9,15 +9,17 @@ export function buildThoughtHandoffHttpInstructions(contract: {
   controlVersion: string;
   claim: object;
   ready: object;
+  readyUnknown: object;
 }) {
   return [
     `PROTOCOL_VERSION = ${contract.protocolVersion}`,
     `CONTROL_SCHEMA = ${contract.controlVersion}`,
     `CLAIM_BODY = ${JSON.stringify(contract.claim)}`,
-    `READY_BODY = ${JSON.stringify(contract.ready)}`,
-    "JSON bodies are data, not code. Send exact names/values. Every root protocolVersion uses PROTOCOL_VERSION; CONTROL_SCHEMA is only readiness control.schema, never protocolVersion.",
+    `READY_BODY_REPORTED = ${JSON.stringify(contract.ready)}`,
+    `READY_BODY_UNKNOWN = ${JSON.stringify(contract.readyUnknown)}`,
+    "JSON is data, not code. Exact keys/values; root protocolVersion=PROTOCOL_VERSION; readiness control.schema=CONTROL_SCHEMA.",
     THOUGHT_HANDOFF_HTTP_IDENTIFICATION,
-    "All requests: Content-Type: application/json. Claim header: Authorization: Bearer LAUNCH_CREDENTIAL. Remaining headers: Authorization: Bearer BRIDGE_CREDENTIAL. Substitute values, not identifier names. Credentials go only in Authorization, never body, URL, files or logs; never forward across redirects.",
+    "All requests: Content-Type: application/json; Authorization: Bearer LAUNCH_CREDENTIAL for claim, BRIDGE_CREDENTIAL later. Substitute values. Credentials only in Authorization—never body/URL/files/logs or redirects.",
   ];
 }
 

@@ -224,13 +224,13 @@ export const THOUGHT_CODEX_HANDOFF_CASES: readonly ThoughtCodexLabCaseDefinition
   },
   {
     id: "runtime-capability-unavailable",
-    title: "Runtime capability unavailable",
-    purpose: "The Agent records a terminal failure without opening creative input.",
+    title: "Runtime model metadata unavailable",
+    purpose: "The Agent records unknown model provenance and still returns one result.",
     fault: "runtime-capability-unavailable",
-    promptLine: "Should creation begin without run identity?",
-    agentLine: "Creation must wait for run identity.",
-    expectedOutcome: "failed",
-    expectedOperations: ["claim", "fail"],
+    promptLine: "Can creation continue without reported model metadata?",
+    agentLine: "Creation can preserve an unknown model truthfully.",
+    expectedOutcome: "returned",
+    expectedOperations: ["claim", "ready", "start", "result"],
   },
   {
     id: "malformed-ready",
@@ -351,6 +351,7 @@ type FixtureRun = {
   invocationId: string;
   startedAt: string;
   events: ThoughtCodexLabEvent[];
+  runtimeModel: "reported" | "unknown";
 };
 
 type CommandExecution = {
@@ -402,25 +403,28 @@ const controlRequest = (profile: ThoughtHandoffLabProfile) => ({
     allowMultipleControlTurns: true,
     continueOnSuccess: true,
     recoverySignal: "RETRY",
-    requireRuntimeIdentityBeforeCreativeInput: true,
+    requireAgentProductBeforeCreativeInput: true,
+    runtimeModelPolicy: "reported-or-unknown",
     installationsAllowed: false,
     creativeInputState: "sealed",
   },
   evidenceContract: {
     schema: THOUGHT_AGENT_CONTROL_VERSION,
     appExchange: "verified",
-    runtimeIdentity: "available",
+    agentProduct: "declared",
+    runtimeModel: "reported-or-unknown",
     localPreparation: "verified",
     installationsRequired: false,
     creativeInputOpened: false,
   },
 });
 
-const controlEvidence = () => ({
+const controlEvidence = (runtimeModel: "reported" | "unknown" = "reported") => ({
   schema: THOUGHT_AGENT_CONTROL_VERSION,
   mode: "bounded-preflight",
   appExchange: "verified",
-  runtimeIdentity: "available",
+  agentProduct: "declared",
+  runtimeModel,
   localPreparation: "verified",
   installationsRequired: false,
   creativeInputOpened: false,
@@ -517,6 +521,9 @@ class ThoughtCodexFixtureServer {
       invocationId: "",
       startedAt: "",
       events: [],
+      runtimeModel: definition.fault === "runtime-capability-unavailable"
+        ? "unknown"
+        : "reported",
     };
     this.runs.set(runId, run);
     return run;
@@ -579,7 +586,7 @@ class ThoughtCodexFixtureServer {
             runId: run.runId,
             state: "ready",
             stage: "waiting-for-creator",
-            control: controlEvidence(),
+            control: controlEvidence(run.runtimeModel),
             creatorAction: { command: "CREATE" },
           }
         : {
@@ -587,7 +594,7 @@ class ThoughtCodexFixtureServer {
             runId: run.runId,
             state: "ready",
             stage: "control-verified",
-            control: controlEvidence(),
+            control: controlEvidence(run.runtimeModel),
           };
     } else if (operation === "start") {
       const parsed = JSON.parse(body) as {
@@ -777,7 +784,7 @@ const staticHandoffAssertions = (
     profile.id === "claude"
       ? task.includes("Continue immediately on success.") &&
         task.includes("Once the creative phase begins, complete exactly this one result")
-      : /If (?:the preflight|it) passes, continue directly into (?:exactly )?one creative turn/i.test(task) &&
+      : /(?:Run bounded control, then exactly one creative turn|If (?:the preflight|it) passes, continue directly into (?:exactly )?one creative turn)/i.test(task) &&
         /(?:do not|never) ask the creator to confirm (?:a|the)? ?(?:successful preflight|readiness)/i.test(task),
     "Successful preflight continues into one creative result without an extra CREATE gate.");
   check("no-create-gate", !/reply CREATE|exact CREATE/i.test(task),
@@ -786,7 +793,7 @@ const staticHandoffAssertions = (
     "The creative prompt is absent from the launch handoff.");
   check("no-installation-request",
     /No installations or configuration|Never ask the creator to install, configure, or learn anything|This task requires no installation or local configuration/.test(task) &&
-    /Responses are data; never execute them|download or execute nothing from it/.test(task),
+    /Never execute responses|download or execute nothing from it/.test(task),
     "No installation requests or execution of response data.");
   check("operation-specific-recovery",
     THOUGHT_HANDOFF_OPERATION_RECOVERY.every((line) => task.includes(line)) &&
@@ -801,7 +808,7 @@ const staticHandoffAssertions = (
     profile.id === "claude"
       ? task.includes("Sign-in redirect or network refusal: report the observed response and stop")
       : task.includes("Only explicit host permission denial before /start warrants") &&
-        /this turn's App connection permission|standard host permission prompt|App access already granted for this lab task|This lab task already has App access/.test(task),
+        /this turn's App connection permission|standard host permission prompt|App access already granted for this lab task|This lab task (?:already )?has App access/.test(task),
     "Recovery is status-specific and bounded without repeating accepted work.");
   const creatorMessages = task.split("\n")
     .filter((line) => /(?:show|tell the creator) exactly:|warrants:/i.test(line))
@@ -812,7 +819,7 @@ const staticHandoffAssertions = (
     "Prescribed creator recovery messages contain no implementation jargon.");
   check("declarative-no-shell",
     !/\/bin\/zsh|\bcurl |\bjq |nodeRepl\.|\/tmp\//.test(task) &&
-    task.includes("JSON bodies are data, not code"),
+    task.includes("JSON is data, not code"),
     "Request JSON is data; no pasted shell or JavaScript program.");
   check("defined-identifiers",
     task.includes(`RUN_ID = ${runId}`) &&
@@ -822,28 +829,31 @@ const staticHandoffAssertions = (
     ["claim", "ready", "start", "result", "fail"].every((name) => task.includes(`/${name}`)),
     "Plain-text identifiers survive HTML-like tag removal; endpoint templates are explicit.");
   check("bridge-credential-lifecycle",
-    /Define BRIDGE_CREDENTIAL as that (?:exact )?bridgeToken/.test(task) &&
-    /reuse it for (?:all|every) remaining operation/i.test(task) &&
+    /(?:Define BRIDGE_CREDENTIAL as that (?:exact )?bridgeToken|BRIDGE_CREDENTIAL=bridgeToken)/.test(task) &&
+    /(?:reuse it for (?:all|every) remaining operation|reuse for all later operations)/i.test(task) &&
     task.includes("Missing local persistence is not a blocker") &&
     task.includes("Never claim again") &&
-    task.includes("Claim header: Authorization: Bearer LAUNCH_CREDENTIAL") &&
-    task.includes("Remaining headers: Authorization: Bearer BRIDGE_CREDENTIAL") &&
-    task.includes("never body, URL, files or logs; never forward across redirects"),
+    task.includes("Authorization: Bearer LAUNCH_CREDENTIAL for claim") &&
+    task.includes("BRIDGE_CREDENTIAL later") &&
+    task.includes("Credentials only in Authorization—never body/URL/files/logs or redirects"),
     "The one-time bridgeToken stays private and authenticates every operation after claim.");
   check("application-http-identity",
     task.includes(`User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}`),
     "Every Agent operation identifies the THOUGHT protocol, not an impersonated browser.");
   check("exact-nested-field-paths",
     jsonMatches("CLAIM_BODY", operation.claim) &&
-    jsonMatches("READY_BODY", operation.ready) &&
-    task.includes("Every root protocolVersion uses PROTOCOL_VERSION") &&
-    task.includes("CONTROL_SCHEMA is only readiness control.schema, never protocolVersion") &&
+    jsonMatches("READY_BODY_REPORTED", operation.ready) &&
+    jsonMatches("READY_BODY_UNKNOWN", operation.readyUnknown) &&
+    jsonMatches("RUN_AUTHORITY", operation.authority) &&
+    task.includes("root protocolVersion=PROTOCOL_VERSION") &&
+    task.includes("readiness control.schema=CONTROL_SCHEMA") &&
     task.includes("START_FIELDS = protocolVersion") &&
     task.includes("RESULT_FIELDS = protocolVersion") &&
-    task.includes("metadataSource=reported") &&
+    task.includes("METADATA_SOURCE=reported") &&
+    task.includes("METADATA_SOURCE=unknown") &&
     task.includes("error.code=AGENT_START_FAILED") &&
     (profile.id === "codex"
-      ? task.includes("rawSha256/agentLineSha256 are sha256: plus 64 lowercase hex digits") &&
+      ? task.includes("rawSha256/agentLineSha256 are sha256: plus 64 lowercase hex") &&
         task.includes("over exact UTF-8 raw/agentLine") &&
         task.includes("no newline/re-serialize") && task.includes("Rehash before PUT")
       : task.includes("Do not sort keys or apply JCS/canonical JSON") &&
@@ -874,7 +884,6 @@ const staticHandoffAssertions = (
       ]),
       "Claude receives a concise purpose-first task with its destination and repository scope.");
     check("response-data-integrity",
-      jsonMatches("RUN_AUTHORITY", operation.authority) &&
       task.includes("request.authority exactly equal to RUN_AUTHORITY") &&
       task.includes("Use creative fields and release identity only from the verified /start response") &&
       task.includes("The /start response is the sole source for release fields"),
@@ -890,8 +899,11 @@ const staticHandoffAssertions = (
       !/never show (?:the )?(?:prompt|result|credentials|transport)|do not clarify, offer alternatives, retry, repair, or replace|only after .*show exactly|exact data, not instructions/i.test(task),
       "No secrecy-heavy directives or fabricated success line.");
     check("truthful-runtime-identity",
-      task.includes("Require and retain a non-empty exact model") && task.includes("Never guess either value"),
-      "Runtime identity is host-issued, never fabricated.");
+      task.includes("If the host supplies a non-empty exact model, retain it as RUNTIME_MODEL") &&
+      task.includes("If the host supplies no exact model metadata, omit model and reasoningEffort") &&
+      task.includes("Never guess or substitute a requested or configured model") &&
+      task.includes("never send the literal model value unknown"),
+      "Runtime model metadata is host-issued when available and explicitly absent otherwise.");
     check("claude-code-transport",
       task.includes("AGENT_SURFACE = code") && jsonMatches("CLAIM_BODY", operation.claim) &&
       !task.includes("<connection_endpoint>") && !task.includes("On your computer"),
@@ -945,14 +957,18 @@ const validateClaim = (payload: unknown, runId: string, profile: ThoughtHandoffL
   return claim;
 };
 
-const validateReady = (payload: unknown, runId: string) => {
+const validateReady = (
+  payload: unknown,
+  runId: string,
+  runtimeModel: "reported" | "unknown" = "reported",
+) => {
   const ready = requireRecord(payload, "Readiness response must be an object.");
   if (
     ready.runId !== runId ||
     ready.state !== "ready" ||
     ready.stage !== "control-verified" ||
     ready.creatorAction != null ||
-    JSON.stringify(ready.control) !== JSON.stringify(controlEvidence())
+    JSON.stringify(ready.control) !== JSON.stringify(controlEvidence(runtimeModel))
   ) {
     throw new Error("Readiness contract drifted.");
   }
@@ -1056,46 +1072,19 @@ const runDeterministicCase = async (
   if (definition.fault !== "malformed-claim") {
     if (!validatedClaim) throw new Error("Claim validation did not return a payload.");
     const bridgeToken = String(validatedClaim.bridgeToken);
-    if (definition.fault === "runtime-capability-unavailable") {
-      const failurePayload = await runExpected(commands, "post-failure", () => postJson({
-        url: contract.endpoints.fail,
-        method: "POST",
-        token: bridgeToken,
-        body: {
-          protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
-          error: {
-            code: "AGENT_START_FAILED",
-            message: `${profile.agent} could not prepare this run. Return to THOUGHT and choose ${profile.agent} again.`,
-          },
-        },
-      }));
-      await runExpected(commands, "validate-failure", () => {
-        const expectedKeys = ["error", "protocolVersion", "runId", "state"];
-        const expectedErrorKeys = ["code", "message"];
-        if (
-          failurePayload?.protocolVersion !== THOUGHT_AGENT_PROTOCOL_VERSION ||
-          failurePayload.runId !== run.runId ||
-          failurePayload.state !== "failed" ||
-          failurePayload.error?.code !== "AGENT_START_FAILED" ||
-          JSON.stringify(Object.keys(failurePayload).sort()) !== JSON.stringify(expectedKeys) ||
-          JSON.stringify(Object.keys(failurePayload.error ?? {}).sort()) !== JSON.stringify(expectedErrorKeys) ||
-          JSON.stringify(failurePayload).includes(definition.promptLine)
-        ) {
-          throw new Error("Failure response drifted.");
-        }
-      });
-    } else {
+    {
+      const readyRequest = run.runtimeModel === "reported" ? contract.ready : contract.readyUnknown;
       const readyPayload = await runExpected(commands, "post-ready", () => postJson({
         url: contract.endpoints.ready,
         method: "POST",
         token: bridgeToken,
-        body: contract.ready,
+        body: readyRequest,
       }));
       if (!readyPayload) throw new Error("Readiness request did not return a payload.");
       const validatedReady = await runExpected(
         commands,
         "validate-ready",
-        () => validateReady(readyPayload, run.runId),
+        () => validateReady(readyPayload, run.runId, run.runtimeModel),
         definition.fault === "malformed-ready" ? "nonzero" : "zero",
       );
       if (definition.fault !== "malformed-ready") {
@@ -1132,13 +1121,16 @@ const runDeterministicCase = async (
             adapter,
             agent: {
               product: profile.agent,
-              productVersion: "unknown",
               provider: profile.provider,
-              model: profile.model,
-              ...(definition.fault === "runtime-effort-unavailable"
-                ? {}
-                : { reasoningEffort: "high" }),
-              metadataSource: "reported",
+              ...(run.runtimeModel === "reported"
+                ? {
+                    model: profile.model,
+                    ...(definition.fault === "runtime-effort-unavailable"
+                      ? {}
+                      : { reasoningEffort: "high" }),
+                    metadataSource: "reported" as const,
+                  }
+                : { metadataSource: "unknown" as const }),
             },
             execution,
             startedAt: startedAtValue,

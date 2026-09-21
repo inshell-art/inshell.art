@@ -11,7 +11,7 @@
   "completeJson": "/docs/content.json",
   "canonicalCompleteJson": "https://inshell.art/docs/content.json",
   "completeJsonMediaType": "application/json",
-  "completeJsonSha256": "d78e52ecb55f9c49edf2a5545cf4c0cd63565136cab4621f46e0feeef5fcba9f",
+  "completeJsonSha256": "cd365760a1be263e295178e16ebe582d48dbcea8a7431dad8649fa783af28b78",
   "purpose": "Public, read-only discovery for visitors using their own Agents.",
   "sourceLock": {
     "url": "/docs/source-lock.json",
@@ -19,7 +19,7 @@
     "schemaUrl": "/docs/source-lock.schema.json",
     "canonicalSchemaUrl": "https://inshell.art/docs/source-lock.schema.json",
     "mediaType": "application/json",
-    "sha256": "e401c8635d9247d8842c8d64eeaba79458dc76eee60c585dd5f5c3cdea244212",
+    "sha256": "a8c44022c7e5b45fc8604732d52860a89dbab6170786166ab89baa62c1d94d2e",
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
@@ -239,11 +239,11 @@
       "markdown": "/docs/thought.md",
       "canonicalMarkdown": "https://inshell.art/docs/thought.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "b6e309767adc1dbf96aed770dce7558e5416fa4e90b9cbc5e65fa063309d8523",
+      "markdownSha256": "b715f95d6d298202e556d7007ceab3491c123d5236bb5963dd255bb245bcce48",
       "json": "/docs/thought.json",
       "canonicalJson": "https://inshell.art/docs/thought.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "2a4be071a70b73e1d3fd46793266613408301bc92c0af63e1fe9ff893d95f14b"
+      "jsonSha256": "5c568aaff81505c3b4631874f3a307187d70f946fa464480918797dc252fc750"
     },
     {
       "id": "will",

@@ -783,6 +783,105 @@ document.addEventListener("visibilitychange", () => {`,
     "    setStatus(`Codex running ${createPayload.runId}...`);",
     "    setStatus(`Agent run ${createPayload.runId} created. Waiting for connection...`);",
   ]),
+  Object.freeze([
+    "launch state delta 207",
+    `  parseThoughtV2LocalAgentResult,
+  type ThoughtV2LocalAgentEvidence,`,
+    `  parseThoughtV2LocalAgentResult,
+  thoughtV2RecordedModel,
+  type ThoughtV2LocalAgentEvidence,`,
+  ]),
+  Object.freeze([
+    "launch state delta 208",
+    `const agentDemoAgentInfo = () => ({
+  product: "Codex",
+  productVersion: "demo",
+  provider: CODEX_PROVIDER,
+  model: CODEX_MODEL,
+  metadataSource: "configured",
+});`,
+    `const agentDemoAgentInfo = () => ({
+  product: "Codex",
+  productVersion: "demo",
+  provider: CODEX_PROVIDER,
+  metadataSource: "unknown",
+});`,
+  ]),
+  Object.freeze([
+    "launch state delta 209",
+    `  appExchange: "verified",
+  runtimeIdentity: "available",
+  localPreparation: "verified",`,
+    `  appExchange: "verified",
+  agentProduct: "declared",
+  runtimeModel: "unknown",
+  localPreparation: "verified",`,
+  ]),
+  Object.freeze([
+    "launch state delta 210",
+    `): ThoughtCandidate => {
+  const validation = prevalidateThoughtV2Preview({`,
+    `): ThoughtCandidate => {
+  const recordedModel = thoughtV2RecordedModel(payload.config.model, agentEvidence);
+  const validation = prevalidateThoughtV2Preview({`,
+  ]),
+  Object.freeze([
+    "launch state delta 211",
+    `    route: payload.config.route,
+    provider: payload.config.provider,
+    model: payload.config.model,
+    specAnchor: {`,
+    `    route: payload.config.route,
+    provider: payload.config.provider,
+    model: recordedModel,
+    specAnchor: {`,
+  ]),
+  Object.freeze([
+    "launch state delta 212",
+    `  const clientGeneratedAt = new Date().toISOString();
+  const provenanceConfig = thoughtRunProvenanceConfig(payload);
+  currentRunContext = {`,
+    `  const clientGeneratedAt = new Date().toISOString();
+  const provenanceConfig = thoughtRunProvenanceConfig(payload);
+  const recordedModel = thoughtV2RecordedModel(payload.config.model, agentEvidence);
+  currentRunContext = {`,
+  ]),
+  Object.freeze([
+    "launch state delta 213",
+    `  currentRunContext = {
+    mode: payload.config.route,
+    provider: payload.config.provider,
+    model: payload.config.model,`,
+    `  currentRunContext = {
+    mode: payload.config.route,
+    provider: payload.config.provider,
+    model: recordedModel,`,
+  ]),
+  Object.freeze([
+    "launch state delta 214",
+    `  const run = {
+    route: payload.config.route,
+    provider: payload.config.provider,
+    model: payload.config.model,`,
+    `  const run = {
+    route: payload.config.route,
+    provider: payload.config.provider,
+    model: recordedModel,`,
+  ]),
+  Object.freeze([
+    "launch state delta 215",
+    `    schema?: string;
+    mode?: string;
+    appExchange?: string;
+    runtimeIdentity?: string;
+    localPreparation?: string;`,
+    `    schema?: string;
+    mode?: string;
+    appExchange?: string;
+    agentProduct?: string;
+    runtimeModel?: string;
+    localPreparation?: string;`,
+  ]),
 ]);
 
 export const applyCurrentThoughtLaunchMainDeltas = (source, direction, replaceExactCount) => {
