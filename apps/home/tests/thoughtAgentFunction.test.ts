@@ -26,6 +26,7 @@ import {
   sha256Hex,
   buildThoughtCodexTask,
   buildThoughtClaudeTask,
+  type ThoughtAgentControlEvidence,
 } from "../../../packages/thought-agent-protocol/src/index";
 
 type Row = Record<string, unknown>;
@@ -366,7 +367,8 @@ const controlEvidence = parseThoughtAgentControlEvidence({
   schema: THOUGHT_AGENT_CONTROL_VERSION,
   mode: "bounded-preflight",
   appExchange: "verified",
-  runtimeIdentity: "available",
+  agentProduct: "declared",
+  runtimeModel: "unknown",
   localPreparation: "verified",
   installationsRequired: false,
   creativeInputOpened: false,
@@ -426,6 +428,7 @@ async function submitResult(
     raw?: string;
     rawSha256?: string;
     agentLineSha256?: string;
+    agent?: Record<string, unknown>;
   } = {},
 ) {
   const raw =
@@ -452,11 +455,10 @@ async function submitResult(
           adapterId: "codex",
           adapterVersion: "0.1.0",
         },
-        agent: {
+        agent: resultOverrides.agent ?? {
           product: "codex-cli",
           productVersion: "unknown",
           provider: "openai",
-          model: "unknown",
           metadataSource: "unknown",
         },
         execution: {
@@ -491,13 +493,14 @@ async function readyRunV2(
   env: any,
   runId: string,
   bridgeToken: string,
+  control: ThoughtAgentControlEvidence = controlEvidence,
 ) {
   const response = await onReadyRunV2({
     request: request(
       `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}/ready`,
       {
         protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
-        control: controlEvidence,
+        control,
       },
       auth(bridgeToken),
     ),
@@ -551,10 +554,16 @@ describe("THOUGHT Agent Pages API", () => {
     const agentAuth = (token: string) => ({ ...auth(token), "user-agent": THOUGHT_AGENT_HTTP_USER_AGENT });
     const body = (name: string) => JSON.parse(transported.split("\n").find((line) => line.startsWith(`${name} = `))!.slice(name.length + 3));
     const claim = body("CLAIM_BODY");
-    const ready = body("READY_BODY");
+    const readyReported = body("READY_BODY_REPORTED");
+    const readyUnknown = body("READY_BODY_UNKNOWN");
+    const ready = readyUnknown;
     expect(claim.protocolVersion).toBe(THOUGHT_AGENT_PROTOCOL_VERSION);
-    expect(ready.protocolVersion).toBe(THOUGHT_AGENT_PROTOCOL_VERSION);
-    expect(ready.control.schema).toBe(THOUGHT_AGENT_CONTROL_VERSION);
+    expect(readyReported.protocolVersion).toBe(THOUGHT_AGENT_PROTOCOL_VERSION);
+    expect(readyReported.control.schema).toBe(THOUGHT_AGENT_CONTROL_VERSION);
+    expect(readyReported.control.runtimeModel).toBe("reported");
+    expect(readyUnknown.protocolVersion).toBe(THOUGHT_AGENT_PROTOCOL_VERSION);
+    expect(readyUnknown.control.schema).toBe(THOUGHT_AGENT_CONTROL_VERSION);
+    expect(readyUnknown.control.runtimeModel).toBe("unknown");
     const before = { ...d1.rows.get(runId)! };
 
     // Incident attempt 1: control.schema was incorrectly used as protocolVersion.
@@ -964,7 +973,8 @@ describe("THOUGHT Agent Pages API", () => {
         evidenceContract: {
           schema: controlEvidence.schema,
           appExchange: controlEvidence.appExchange,
-          runtimeIdentity: controlEvidence.runtimeIdentity,
+          agentProduct: "declared",
+          runtimeModel: "reported-or-unknown",
           localPreparation: controlEvidence.localPreparation,
           installationsRequired: controlEvidence.installationsRequired,
           creativeInputOpened: controlEvidence.creativeInputOpened,
@@ -1079,6 +1089,27 @@ describe("THOUGHT Agent Pages API", () => {
       agentLine: "QUIET SKY",
     });
     const canonicalRawSha256 = await sha256Hex(canonicalRaw);
+    const readinessResultMismatch = await submitResult(
+      env,
+      runId,
+      claimed.payload.bridgeToken,
+      "tai_v2_lifecycle",
+      "QUIET SKY",
+      "v2",
+      {
+        agent: {
+          product: "codex-cli",
+          provider: "openai",
+          model: "gpt-5.6-sol",
+          metadataSource: "reported",
+        },
+      },
+    );
+    expect(readinessResultMismatch.response.status).toBe(400);
+    expect(readinessResultMismatch.payload.error).toEqual({
+      code: "AGENT_OUTPUT_SCHEMA_INVALID",
+      message: "Result model metadata does not match readiness evidence.",
+    });
     const missingPrefix = await submitResult(
       env,
       runId,
@@ -1159,6 +1190,11 @@ describe("THOUGHT Agent Pages API", () => {
       },
     });
     expect(returned.payload.result.raw).toBe(alternateRaw);
+    expect(returned.payload.result.receipt).toMatchObject({
+      metadataSource: "unknown",
+      model: null,
+      reasoningEffort: null,
+    });
 
     const rowAfterResult = { ...d1.rows.get(runId)! };
     const repeatedResult = await submitResult(
@@ -1234,6 +1270,76 @@ describe("THOUGHT Agent Pages API", () => {
         agentLine: "QUIET SKY",
       },
     });
+  });
+
+  test("preserves exact reported model metadata through the v2 result receipt", async () => {
+    const d1 = createD1Mock();
+    const env = { INSHELL_CHAIN_DATA_DB: d1.db };
+    const createdResponse = await onCreateRunV2({
+      request: request(
+        "https://thought.inshell.art/api/thought-agent/v2/runs",
+        {
+          protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+          promptLine: "name the exact model",
+          specId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+          requestedAgent: { adapterId: "codex", model: "requested-model" },
+          client: { surface: "thought-web", appVersion: "test" },
+        },
+        {
+          origin: "https://thought.inshell.art",
+          cookie: "inshell_anon_visitor=visitor-v2-reported-model",
+        },
+      ),
+      env,
+    });
+    const created = await createdResponse.json();
+    const launchUrl = new globalThis.URL(created.launchUri);
+    const runId = launchUrl.searchParams.get("run_id") ?? "";
+    const launchToken = launchUrl.searchParams.get("token") ?? "";
+    const claimed = await claimRun(env, runId, launchToken, "v2");
+    const reportedControl = parseThoughtAgentControlEvidence({
+      ...controlEvidence,
+      runtimeModel: "reported",
+    });
+    const ready = await readyRunV2(
+      env,
+      runId,
+      claimed.payload.bridgeToken,
+      reportedControl,
+    );
+    expect(ready.response.status).toBe(200);
+    const started = await startRun(
+      env,
+      runId,
+      claimed.payload.bridgeToken,
+      "tai_v2_reported_model",
+      "v2",
+    );
+    expect(started.status).toBe(200);
+    const returned = await submitResult(
+      env,
+      runId,
+      claimed.payload.bridgeToken,
+      "tai_v2_reported_model",
+      "EXACT MODEL",
+      "v2",
+      {
+        agent: {
+          product: "Codex",
+          provider: "openai",
+          model: "gpt-5.6-sol",
+          reasoningEffort: "high",
+          metadataSource: "reported",
+        },
+      },
+    );
+    expect(returned.response.status).toBe(200);
+    expect(returned.payload.result.receipt).toMatchObject({
+      model: "gpt-5.6-sol",
+      reasoningEffort: "high",
+      metadataSource: "reported",
+    });
+    expect(returned.payload.result.receipt.model).not.toBe("requested-model");
   });
 
   test.each(["claimed", "ready", "running"] as const)(

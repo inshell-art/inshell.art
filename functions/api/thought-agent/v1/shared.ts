@@ -10,6 +10,7 @@ import {
   THOUGHT_AGENT_RUN_TTL_MS,
   THOUGHT_V2_PROTOCOL_RELEASE,
   ThoughtAgentProtocolError,
+  assertThoughtAgentMetadataMatchesControl,
   assertThoughtLine,
   assertProtocolVersion,
   buildThoughtAgentInput,
@@ -643,6 +644,19 @@ export async function submitResult(ctx: ThoughtAgentRouteContext): Promise<Respo
         "ADAPTER_MISMATCH",
         "Result adapter does not match requested adapter.",
       );
+    }
+    if (current.execution_metadata_json) {
+      const control = parseThoughtAgentControlEvidence(
+        JSON.parse(current.execution_metadata_json),
+      );
+      try {
+        assertThoughtAgentMetadataMatchesControl(control, body.agent);
+      } catch (error) {
+        if (error instanceof ThoughtAgentProtocolError) {
+          throw new HttpProtocolError(400, error.code, error.message);
+        }
+        throw error;
+      }
     }
 
     const parsedOutput = await parseAgentOutput(
@@ -1335,14 +1349,16 @@ function controlRequestPayload(row: ThoughtAgentRow): Record<string, unknown> {
       allowMultipleControlTurns: true,
       continueOnSuccess: true,
       recoverySignal: "RETRY",
-      requireRuntimeIdentityBeforeCreativeInput: true,
+      requireAgentProductBeforeCreativeInput: true,
+      runtimeModelPolicy: "reported-or-unknown",
       installationsAllowed: false,
       creativeInputState: "sealed",
     },
     evidenceContract: {
       schema: THOUGHT_AGENT_CONTROL_VERSION,
       appExchange: "verified",
-      runtimeIdentity: "available",
+      agentProduct: "declared",
+      runtimeModel: "reported-or-unknown",
       localPreparation: "verified",
       installationsRequired: false,
       creativeInputOpened: false,
@@ -1423,13 +1439,13 @@ function stageForState(state: ThoughtAgentState): string {
 }
 
 function receiptAgentMetadata(agentJson: string | null): {
-  model: string;
+  model: string | null;
   reasoningEffort: string | null;
   metadataSource: string;
 } {
   if (!agentJson) {
     return {
-      model: "unknown",
+      model: null,
       reasoningEffort: null,
       metadataSource: "unknown",
     };
@@ -1444,7 +1460,7 @@ function receiptAgentMetadata(agentJson: string | null): {
       model:
         typeof parsed.model === "string" && parsed.model.length > 0
           ? parsed.model
-          : "unknown",
+          : null,
       reasoningEffort:
         typeof parsed.reasoningEffort === "string" &&
         parsed.reasoningEffort.length > 0
@@ -1458,7 +1474,7 @@ function receiptAgentMetadata(agentJson: string | null): {
     };
   } catch {
     return {
-      model: "unknown",
+      model: null,
       reasoningEffort: null,
       metadataSource: "unknown",
     };

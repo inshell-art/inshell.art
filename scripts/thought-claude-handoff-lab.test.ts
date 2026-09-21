@@ -74,7 +74,11 @@ test("the canonical Claude Code handoff is an ordinary purpose-first task with e
   assert.match(task, /Continue immediately on success/);
   assert.match(task, /Once the creative phase begins, complete exactly this one result/);
   assert.match(task, /This task requires no installation or local configuration/);
-  assert.match(task, /Require and retain a non-empty exact model/);
+  assert.match(task, /If the host supplies a non-empty exact model, retain it as RUNTIME_MODEL/);
+  assert.match(task, /If the host supplies no exact model metadata, omit model and reasoningEffort/);
+  assert.match(task, /Missing model metadata does not block creation/);
+  assert.match(task, /never guess or substitute a requested or configured model/i);
+  assert.match(task, /never send the literal model value unknown/);
   assert.match(
     task,
     /Use only request\.outputContract\.release from this \/start response\./,
@@ -138,12 +142,12 @@ for (const networkAuthorization of ["managed", "preauthorized"] as const) {
       /general trust|safety question|permission controls|host permission|standard host permission|does not grant permission|instruction priority|creator cancellation|creator-authorized|do not request permission|(?:reply|type|exact|restate[^\n]*) CREATE/i,
     );
     assert.equal(task.split(input.launchToken).length - 1, 1);
-    assert.match(task, /never body, URL, files or logs; never forward across redirects/);
+    assert.match(task, /Credentials only in Authorization—never body\/URL\/files\/logs or redirects/);
     assert.match(task, /Use only the five capsule endpoints/);
     assert.match(task, /Never claim again/);
     assert.match(task, /Never submit a conflicting result/);
     assert.match(task, /The creative prompt is absent until \/start succeeds/);
-    assert.match(task, /Never guess either value/);
+    assert.match(task, /Never guess or substitute a requested or configured model/i);
     const contract = buildThoughtClaudeOperationContract(input);
     assert.equal(contract.networkAuthorization, networkAuthorization);
     const authority = task.split("\n").find((line) => line.startsWith("RUN_AUTHORITY = "));
@@ -296,8 +300,8 @@ test("Cowork remains an explicit legacy deep-link surface", () => {
   assert.match(task, new RegExp(`<handoff_revision> = ${THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION.replaceAll(".", "\\.")}`));
   assert.match(task, /<agent_surface> = cowork/);
   assert.match(task, /Run this task set to On your computer/);
-  assert.ok(task.includes(`All requests: User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}. Identifies THOUGHT protocol;`));
-  assert.match(task, /never impersonate a browser or model/);
+  assert.ok(task.includes(`All requests: User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}; identifies THOUGHT`));
+  assert.match(task, /never a browser\/model/);
   assert.ok(task.indexOf("All requests: User-Agent:") < task.indexOf("1. Check the connection"));
   assert.ok(Buffer.byteLength(task) <= 14_000);
 });

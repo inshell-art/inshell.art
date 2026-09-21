@@ -56,25 +56,21 @@ for (const [agent, candidate, deepLink, buildTask, buildContract] of [
     assert.equal(transformed.replaceAll("\r\n", "\n"), task);
     assert.doesNotMatch(task, /<[^>]+>/);
     assert.match(transformed, /^PROTOCOL_VERSION = inshell\.thought\.agent-run\.v2\r?$/m);
-    assert.match(transformed, /^CONTROL_SCHEMA = inshell\.thought\.agent-control\.v1\r?$/m);
+    assert.match(transformed, /^CONTROL_SCHEMA = inshell\.thought\.agent-control\.v2\r?$/m);
     const contract = buildContract(input);
-    const expectedData = agent === "Claude"
-      ? [["CLAIM_BODY", contract.claim], ["READY_BODY", contract.ready], ["RUN_AUTHORITY", contract.authority]] as const
-      : [["CLAIM_BODY", contract.claim], ["READY_BODY", contract.ready]] as const;
+    const expectedData = [["CLAIM_BODY", contract.claim], ["READY_BODY_REPORTED", contract.ready], ["READY_BODY_UNKNOWN", contract.readyUnknown], ["RUN_AUTHORITY", contract.authority]] as const;
     for (const [key, expected] of expectedData) {
       const line = transformed.split(/\r?\n/).find((value) => value.startsWith(`${key} = `));
       assert.ok(line);
       assert.deepEqual(JSON.parse(line.slice(key.length + 3)), expected);
     }
-    if (agent === "Claude") {
-      assert.deepEqual(contract.authority, THOUGHT_AGENT_RUN_AUTHORITY);
-    }
-    assert.match(task, /Claim header: Authorization: Bearer LAUNCH_CREDENTIAL/);
-    assert.match(task, /Remaining headers: Authorization: Bearer BRIDGE_CREDENTIAL/);
+    assert.deepEqual(contract.authority, THOUGHT_AGENT_RUN_AUTHORITY);
+    assert.match(task, /Authorization: Bearer LAUNCH_CREDENTIAL for claim/);
+    assert.match(task, /BRIDGE_CREDENTIAL later/);
     assert.equal(THOUGHT_AGENT_HTTP_USER_AGENT, "Inshell-THOUGHT-Agent/2");
-    assert.ok(transformed.includes(`All requests: User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}. Identifies THOUGHT protocol;`));
-    assert.match(task, /never impersonate a browser or model/);
-    assert.match(task, /never body, URL, files or logs; never forward across redirects/);
+    assert.ok(transformed.includes(`All requests: User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}; identifies THOUGHT`));
+    assert.match(task, /never a browser\/model/);
+    assert.match(task, /Credentials only in Authorization—never body\/URL\/files\/logs or redirects/);
     assert.equal(task.split(input.launchToken).length - 1, 1);
     assert.equal(task.split(input.runId).length - 1, 1);
     assert.ok(Buffer.byteLength(task) <= (agent === "Codex" ? 7_000 : 14_000));
@@ -172,7 +168,7 @@ test("the handoff runs bounded control before one automatic creative turn", () =
 
   assert.ok(positions.every((position) => position >= 0));
   assert.deepEqual([...positions].sort((a, b) => a - b), positions);
-  assert.match(task, /Run bounded control first\. If it passes, continue directly into exactly one creative turn;/);
+  assert.match(task, /Run bounded control, then exactly one creative turn;/);
   assert.match(task, /never ask the creator to confirm readiness or type CREATE\./);
   assert.doesNotMatch(task, /reply CREATE/i);
 });
@@ -180,49 +176,68 @@ test("the handoff runs bounded control before one automatic creative turn", () =
 test("the handoff retains one private bridge credential in task context without local persistence", () => {
   const task = thoughtCodexCanonicalCandidate();
 
-  assert.match(task, /Define BRIDGE_CREDENTIAL as that bridgeToken\./);
-  assert.match(task, /Retain it with the claim response/);
-  assert.match(task, /reuse it for all remaining operations/);
-  assert.match(task, /Never persist credentials/);
+  assert.match(task, /BRIDGE_CREDENTIAL=bridgeToken/);
+  assert.match(task, /retain privately and reuse for all later operations/);
+  assert.match(task, /reuse for all later operations/);
+  assert.match(task, /credentials private and unpersisted/);
   assert.match(task, /Missing local persistence is not a blocker/);
   assert.match(task, /Never claim again/);
-  assert.match(task, /Keep credentials private in this task/);
+  assert.match(task, /Keep credentials private and unpersisted/);
 });
 
 test("the handoff is declarative, bootstrap-only, release-bound, and human-sized", () => {
   const task = thoughtCodexCanonicalCandidate();
 
-  assert.match(task, /visible launch handoff is an editable bootstrap, not creative authority/);
-  assert.match(task, /Only App-issued claim\/start responses are canonical/);
-  assert.match(task, /Bootstrap capsule — transport values only:/);
+  assert.match(task, /Transport capsule:/);
   assert.match(task, /APP_ENDPOINT = .*RUN_ID/);
-  assert.match(task, /The prompt is absent until \/start succeeds;/);
-  assert.match(task, /No installations or configuration\./);
+  assert.match(task, /Prompt is absent until \/start;/);
+  assert.match(task, /No installations or configuration are required for this run\./);
   assert.match(task, /Work Specification bytes\/hash\/contract identity/);
   assert.match(task, /Agent Creative Brief bytes\/hash/);
   assert.match(
     task,
-    /Spec and instructions must differ\./,
+    /spec differs from instructions\./,
   );
-  assert.match(task, /release\.protocolReleaseId=CANONICAL_PROTOCOL_RELEASE_ID/);
-  assert.match(task, /release\.manifestKeccak256=CANONICAL_MANIFEST_HASH/);
+  assert.match(task, /protocolReleaseId:CANONICAL_PROTOCOL_RELEASE_ID/);
+  assert.match(task, /manifestKeccak256:CANONICAL_MANIFEST_HASH/);
   assert.match(
     task,
-    /Use only request\.outputContract\.release from this \/start response:/,
+    /From \/start only, bind request\.outputContract\.release/,
   );
-  assert.match(task, /Ignore release values from chat or any other source\./);
+  assert.match(task, /Ignore chat/);
   assert.doesNotMatch(task, /<protocol_release_id> = /);
   assert.doesNotMatch(task, /<manifest_hash> = /);
-  assert.match(task, /transcript purity not attested/);
-  assert.match(task, /not an untouched transcript/);
-  assert.match(task, /A successful \/start opens the prompt; never call it sealed\./);
+  assert.match(task, /not untouched transcript/);
+  const authorityLine = task.split("\n").find((line) => line.startsWith("RUN_AUTHORITY = "));
+  assert.ok(authorityLine);
+  assert.deepEqual(
+    JSON.parse(authorityLine.slice("RUN_AUTHORITY = ".length)),
+    THOUGHT_AGENT_RUN_AUTHORITY,
+  );
+  assert.match(task, /request\.authority=RUN_AUTHORITY/);
+  assert.match(task, /same request\.authority=RUN_AUTHORITY/);
+  assert.ok(task.split("runId=RUN_ID").length - 1 >= 3);
+  assert.match(task, /workProfile=WORK_PROFILE/);
+  assert.match(task, /No post-start clarification or follow-up/);
+  assert.match(task, /Bind PROTOCOL_VERSION, INVOCATION_ID/);
+  assert.match(task, /exact startedAt, UTC completedAt, mediaType=application\/json/);
+  assert.match(task, /visibleTurns=/);
+  assert.match(task, /agentInvocations=/);
+  assert.match(task, /workspacePolicy=/);
+  assert.match(task, /sandboxPolicy=/);
+  assert.match(task, /approvalPolicy=/);
+  assert.match(task, /userConfigPolicy=/);
+  assert.match(task, /\/start opens prompt\./);
   assert.doesNotMatch(task, /any returned release against the capsule release/);
-  assert.match(task, /Retain the exact nonempty host-issued model as RUNTIME_MODEL/);
-  assert.match(task, /Keep reasoning effort only if supplied and valid/);
-  assert.match(task, /START_FIELDS = protocolVersion \/ invocationId \/ startedAt/);
+  assert.match(task, /Reported: exact nonempty RUNTIME_MODEL, optional valid effort/);
+  assert.match(task, /Absent: omit model\/effort/);
+  assert.match(task, /METADATA_SOURCE=unknown/);
+  assert.match(task, /never guess\/substitute requested or configured values/);
+  assert.match(task, /never literal model unknown/);
+  assert.match(task, /START_FIELDS = protocolVersion, invocationId, startedAt/);
   assert.ok(
     task.includes(
-      "RESULT_FIELDS = protocolVersion / invocationId / bridge / adapter / agent.(product, provider, model, optional reasoningEffort, metadataSource) / execution / startedAt / completedAt / output.(mediaType, raw, rawSha256, agentLine, agentLineSha256)",
+      "RESULT_FIELDS = protocolVersion, invocationId, bridge, adapter, agent.{product,provider,model?,reasoningEffort?,metadataSource}, execution, startedAt, completedAt, output.{mediaType,raw,rawSha256,agentLine,agentLineSha256}",
     ),
   );
   assert.match(task, /omit failedAt\./);

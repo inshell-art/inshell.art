@@ -22,6 +22,7 @@ import {
   THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
   THOUGHT_AGENT_CREATIVE_BRIEF,
   ThoughtAgentProtocolError,
+  assertThoughtAgentMetadataMatchesControl,
   assertProtocolVersion,
   buildThoughtAgentReceipt,
   formatThoughtAgentModelLabel,
@@ -609,7 +610,7 @@ function statusPayload(run: DevThoughtAgentRun) {
         receiptVersion: THOUGHT_AGENT_RECEIPT_VERSION,
         receiptSha256: run.receiptSha256,
         adapterId: run.requestedAdapterId,
-        model: run.agent?.model ?? "unknown",
+        model: run.agent?.model ?? null,
         reasoningEffort: run.agent?.reasoningEffort ?? null,
         metadataSource: run.agent?.metadataSource ?? "unknown",
         appAcceptedAndBound: true,
@@ -670,14 +671,16 @@ function controlRequestPayload(run: DevThoughtAgentRun) {
       allowMultipleControlTurns: true,
       continueOnSuccess: true,
       recoverySignal: "RETRY",
-      requireRuntimeIdentityBeforeCreativeInput: true,
+      requireAgentProductBeforeCreativeInput: true,
+      runtimeModelPolicy: "reported-or-unknown",
       installationsAllowed: false,
       creativeInputState: "sealed",
     },
     evidenceContract: {
       schema: THOUGHT_AGENT_CONTROL_VERSION,
       appExchange: "verified",
-      runtimeIdentity: "available",
+      agentProduct: "declared",
+      runtimeModel: "reported-or-unknown",
       localPreparation: "verified",
       installationsRequired: false,
       creativeInputOpened: false,
@@ -760,16 +763,14 @@ function devAgentInfo(): ThoughtAgentInfo {
     return {
       product: "THOUGHT Bridge dev fake",
       provider: "codex",
-      model: "fake-dev",
-      metadataSource: "configured",
+      metadataSource: "unknown",
     };
   }
 
   return {
     product: "Codex CLI",
     provider: "codex",
-    model: "codex",
-    metadataSource: "configured",
+    metadataSource: "unknown",
   };
 }
 
@@ -899,7 +900,8 @@ async function autoRunDevCodex(
     schema: THOUGHT_AGENT_CONTROL_VERSION,
     mode: "bounded-preflight",
     appExchange: "verified",
-    runtimeIdentity: "available",
+    agentProduct: "declared",
+    runtimeModel: "unknown",
     localPreparation: "verified",
     installationsRequired: false,
     creativeInputOpened: false,
@@ -1677,6 +1679,22 @@ function createThoughtAgentDevApiPlugin(
             if (body.adapter.adapterId !== run.requestedAdapterId) {
               protocolError(res, 409, "ADAPTER_MISMATCH", "Result adapter does not match requested adapter.");
               return;
+            }
+            if (run.control) {
+              try {
+                assertThoughtAgentMetadataMatchesControl(run.control, body.agent);
+              } catch (error) {
+                if (!(error instanceof ThoughtAgentProtocolError)) {
+                  throw error;
+                }
+                protocolError(
+                  res,
+                  400,
+                  error.code,
+                  error.message,
+                );
+                return;
+              }
             }
             run.bridge = body.bridge;
             run.adapter = body.adapter;

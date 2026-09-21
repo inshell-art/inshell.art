@@ -612,6 +612,10 @@ The Agent validates the run through its exact endpoint, one-run bearer values, r
 
 The THOUGHT App does not place the creative prompt in the handoff. After the claim and readiness checks succeed, exact response data supplies and binds the prompt, specification, creative brief, release identity, and output boundary to that run. The Agent returns one exact candidate line. It does not choose a $PATH, select an account, approve a signature, or submit the mint transaction.
 
+The App records an exact model only when the Agent host reports one for that run. If exact model metadata is unavailable, the returned candidate can still be previewed and kept through browser-local Save and Load; its model remains explicitly unknown rather than being filled from a requested or configured value. That candidate is not eligible for the current App-attested mint path, and another run cannot retrofit the original candidate's missing provenance.
+
+A run begun under an older control schema must be started again with the current handoff. This changes the fresh-run handshake; it does not rewrite saved works or accepted historical receipts.
+
 After the return, the App checks the exact bytes and assembles the creation record. The human reviews the candidate and canonical preview, decides whether to keep it, chooses the $PATH, and asks the wallet to sign and mint. This keeps creative participation, App orchestration, human selection, wallet consent, and contract validation as separate boundaries.
 
 The ordinary App flow can bind its record through a Creation Attestation. ThoughtNFT also permits a direct mint that satisfies its public contract checks without an App proof; that result is recorded as Unattested rather than being presented as an App-attested run.

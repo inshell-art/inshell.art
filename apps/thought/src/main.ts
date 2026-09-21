@@ -213,6 +213,7 @@ import {
   buildThoughtV2LocalAgentResult,
   buildThoughtV2LocalAgentTaskBinding,
   parseThoughtV2LocalAgentResult,
+  thoughtV2RecordedModel,
   type ThoughtV2LocalAgentEvidence,
 } from "./thought-v2-local-agent";
 import {
@@ -803,7 +804,8 @@ type ThoughtAgentRunStatusResponse = {
     schema?: string;
     mode?: string;
     appExchange?: string;
-    runtimeIdentity?: string;
+    agentProduct?: string;
+    runtimeModel?: string;
     localPreparation?: string;
     installationsRequired?: boolean;
     creativeInputOpened?: boolean;
@@ -2932,8 +2934,7 @@ const agentDemoAgentInfo = () => ({
   product: "Codex",
   productVersion: "demo",
   provider: CODEX_PROVIDER,
-  model: CODEX_MODEL,
-  metadataSource: "configured",
+  metadataSource: "unknown",
 });
 
 const agentDemoExecutionInfo = () => ({
@@ -2949,7 +2950,8 @@ const agentDemoControlEvidence = (): ThoughtAgentControlEvidence => ({
   schema: THOUGHT_AGENT_CONTROL_VERSION,
   mode: "bounded-preflight",
   appExchange: "verified",
-  runtimeIdentity: "available",
+  agentProduct: "declared",
+  runtimeModel: "unknown",
   localPreparation: "verified",
   installationsRequired: false,
   creativeInputOpened: false,
@@ -8308,6 +8310,7 @@ const createThoughtCandidate = (
   rawModelReturn: string,
   agentEvidence?: ThoughtV2LocalAgentEvidence,
 ): ThoughtCandidate => {
+  const recordedModel = thoughtV2RecordedModel(payload.config.model, agentEvidence);
   const validation = prevalidateThoughtV2Preview({
     rawPrompt: payload.input.promptLine,
     rawReturn: rawModelReturn,
@@ -8319,7 +8322,7 @@ const createThoughtCandidate = (
     rawModelReturn,
     route: payload.config.route,
     provider: payload.config.provider,
-    model: payload.config.model,
+    model: recordedModel,
     specAnchor: {
       id: payload.input.thoughtSpec.id,
       ref: payload.input.thoughtSpec.ref,
@@ -17133,10 +17136,11 @@ const recordThoughtRun = (
 ) => {
   const clientGeneratedAt = new Date().toISOString();
   const provenanceConfig = thoughtRunProvenanceConfig(payload);
+  const recordedModel = thoughtV2RecordedModel(payload.config.model, agentEvidence);
   currentRunContext = {
     mode: payload.config.route,
     provider: payload.config.provider,
-    model: payload.config.model,
+    model: recordedModel,
     prompt: payload.input.promptLine,
     returnedText: rawOutput,
     clientGeneratedAt,
@@ -17150,7 +17154,7 @@ const recordThoughtRun = (
   const run = {
     route: payload.config.route,
     provider: payload.config.provider,
-    model: payload.config.model,
+    model: recordedModel,
     prompt: payload.input.promptLine,
     request: provenanceConfig.request,
     web: provenanceConfig.web,

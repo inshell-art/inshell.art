@@ -281,13 +281,14 @@ export type ThoughtAgentExecutionInfo = {
 };
 
 export const THOUGHT_AGENT_CONTROL_VERSION =
-  "inshell.thought.agent-control.v1" as const;
+  "inshell.thought.agent-control.v2" as const;
 
 export type ThoughtAgentControlEvidence = {
   schema: typeof THOUGHT_AGENT_CONTROL_VERSION;
   mode: "bounded-preflight";
   appExchange: "verified";
-  runtimeIdentity: "available";
+  agentProduct: "declared";
+  runtimeModel: "reported" | "unknown";
   localPreparation: "verified";
   installationsRequired: false;
   creativeInputOpened: false;
@@ -613,13 +614,35 @@ export function parseAgentInfo(value: unknown): ThoughtAgentInfo {
       "Invalid agent reasoningEffort.",
     );
   }
+  const hasModel = Object.hasOwn(object, "model");
+  const hasReasoningEffort = Object.hasOwn(object, "reasoningEffort");
+  if (metadataSource === "unknown" && (hasModel || hasReasoningEffort)) {
+    throw new ThoughtAgentProtocolError(
+      "AGENT_OUTPUT_SCHEMA_INVALID",
+      "Unknown model metadata must omit model and reasoningEffort.",
+    );
+  }
+  const model = typeof object.model === "string" ? object.model : undefined;
+  if (
+    metadataSource !== "unknown" &&
+    (
+      !model ||
+      model !== model.trim() ||
+      model.toLowerCase() === "unknown"
+    )
+  ) {
+    throw new ThoughtAgentProtocolError(
+      "AGENT_OUTPUT_SCHEMA_INVALID",
+      "Reported or configured model metadata requires an exact model.",
+    );
+  }
   return {
     product: requireString(object.product, "agent.product"),
     ...(optionalString(object.productVersion)
       ? { productVersion: String(object.productVersion) }
       : {}),
     ...(optionalString(object.provider) ? { provider: String(object.provider) } : {}),
-    ...(optionalString(object.model) ? { model: String(object.model) } : {}),
+    ...(model ? { model } : {}),
     ...(reasoningEffort
       ? { reasoningEffort: reasoningEffort as ThoughtAgentReasoningEffort }
       : {}),
@@ -653,7 +676,8 @@ export function parseThoughtAgentControlEvidence(
     "schema",
     "mode",
     "appExchange",
-    "runtimeIdentity",
+    "agentProduct",
+    "runtimeModel",
     "localPreparation",
     "installationsRequired",
     "creativeInputOpened",
@@ -665,7 +689,8 @@ export function parseThoughtAgentControlEvidence(
     object.schema !== THOUGHT_AGENT_CONTROL_VERSION ||
     object.mode !== "bounded-preflight" ||
     object.appExchange !== "verified" ||
-    object.runtimeIdentity !== "available" ||
+    object.agentProduct !== "declared" ||
+    (object.runtimeModel !== "reported" && object.runtimeModel !== "unknown") ||
     object.localPreparation !== "verified" ||
     object.installationsRequired !== false ||
     object.creativeInputOpened !== false
@@ -679,11 +704,26 @@ export function parseThoughtAgentControlEvidence(
     schema: THOUGHT_AGENT_CONTROL_VERSION,
     mode: "bounded-preflight",
     appExchange: "verified",
-    runtimeIdentity: "available",
+    agentProduct: "declared",
+    runtimeModel: object.runtimeModel,
     localPreparation: "verified",
     installationsRequired: false,
     creativeInputOpened: false,
   };
+}
+
+export function assertThoughtAgentMetadataMatchesControl(
+  control: ThoughtAgentControlEvidence,
+  agent: ThoughtAgentInfo,
+): void {
+  const expectedMetadataSource =
+    control.runtimeModel === "reported" ? "reported" : "unknown";
+  if (agent.metadataSource !== expectedMetadataSource) {
+    throw new ThoughtAgentProtocolError(
+      "AGENT_OUTPUT_SCHEMA_INVALID",
+      "Result model metadata does not match readiness evidence.",
+    );
+  }
 }
 
 export async function parseAgentOutput(
