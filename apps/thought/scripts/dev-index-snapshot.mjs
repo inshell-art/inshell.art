@@ -1640,8 +1640,19 @@ function splitCurrentDetailStyle(source) {
   };
 }
 
+function applySharedWarningStyleDelta(source, direction) {
+  const deltas = [
+    ["shared warning token", "  --thought-stylesheet-ready: 1;", "  --thought-stylesheet-ready: 1;\n  --status-warning-text: #b57a00;"],
+    ["action warning token", ".frontpage-action-status.is-warn {\n  color: #b57a00;\n}", ".frontpage-action-status.is-warn {\n  color: var(--status-warning-text);\n}"],
+    ["shared console warning color", ".frontpage-warning.is-warn {\n  color: #b57a00;\n}", ".frontpage-warning.is-warn,\n.thought-dock-status-screen__line--warning {\n  color: var(--status-warning-text);\n}"],
+  ];
+  return deltas.reduce((current, [label, previous, next]) =>
+    replaceExactCount(current, label, direction === "restore" ? next : previous,
+      direction === "restore" ? previous : next), source);
+}
+
 function restoreStyleSnapshot(source) {
-  let restored = splitCurrentDetailStyle(source).base;
+  let restored = applySharedWarningStyleDelta(splitCurrentDetailStyle(source).base, "restore");
   const replacements = [
     [
       "CLI visual tokens",
@@ -1941,7 +1952,7 @@ export function loadThoughtDevSnapshotFile(workspaceRoot, fileKey) {
   const currentSource = readFileSync(path.resolve(workspaceRoot, snapshotFile.path), "utf8");
   const verifiedSnapshot = restoreThoughtDevSnapshotSource(currentSource, fileKey);
   if (fileKey === "style") {
-    return `${verifiedSnapshot}${splitCurrentDetailStyle(currentSource).overlay}`;
+    return `${applySharedWarningStyleDelta(verifiedSnapshot, "apply")}${splitCurrentDetailStyle(currentSource).overlay}`;
   }
 
   // Keep the tagged visual/runtime snapshot byte-verified, then layer only the

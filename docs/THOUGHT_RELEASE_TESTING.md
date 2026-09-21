@@ -23,6 +23,19 @@ The operator clicks Submit and approves host permissions. The observer records s
 the operator confirms the returned work is visible. No automated Submit or manufactured receipt.
 Record mac-a/codex and mac-a/claude; optional mac-b cells must meet the same checks.
 
+For Claude Code, use a fresh chat with **No folder**, the recommended launch
+context for this standalone artwork task. No repository access is needed.
+Record the actual launch context (No folder or folder-attached) with each
+canary observation, alongside the candidate and receipt. Keep any refused
+attempt separate from a later successful run; completion after clarification
+is not first-handoff acceptance. Never record an unknown launch context as
+No folder or infer visible-work / Save → refresh → Load success from a receipt.
+
+A folder-attached refusal followed by a No folder success supports context
+sensitivity, not proof of sole causation or guaranteed acceptance. Do not
+change host permissions or tell the Agent to ignore repository/security rules.
+Folder-attached compatibility is not an additional required acceptance cell.
+
 ## Optional failure report
 
 In every retained console failure entry: Report this problem → review summary → Continue to GitHub.

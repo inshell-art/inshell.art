@@ -3056,7 +3056,7 @@ const thoughtAgentLaunchRequestedDetail = (
     ? "The App asked the ChatGPT desktop app to open this THOUGHT task in Codex."
     : surface === "claude-cowork"
       ? "The App asked Claude Cowork to open this THOUGHT task on your computer."
-      : "The App asked Claude Code to open this THOUGHT task.";
+      : 'The App asked Claude Code to open this THOUGHT task. Use a fresh chat with "No folder": this artwork task needs no repository access.';
 
 const normalizeThoughtAgentProtocolError = (message: string, adapterId: ThoughtDockAgentAdapterId = "codex") => {
   const trimmed = message.trim();
@@ -3738,8 +3738,8 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
     emitThoughtConsoleEvent({
       kind: "work_agent_selection_ready",
       title: "Choose an Agent",
-      detail: "Only Agents installed on this machine can receive the prompt.",
-      tone: "neutral",
+      detail: 'Choose an installed Agent. For Claude Code, use a fresh chat with "No folder": this artwork task needs no repository access.',
+      tone: "warning",
       eventId: `work-agent-selection:${hashText(state.prompt)}`,
     });
     return;
@@ -3796,7 +3796,9 @@ const recordThoughtDockConsoleTransition = (state: ThoughtDockState) => {
         : state.run.remoteState === "created"
         ? { nextStep: `Keep this page open while ${product} connects` }
         : { nextStep: `Keep this page open while ${product} finishes` }),
-      tone: "neutral",
+      tone: state.adapterId === "claude" && state.run.surface === "claude-code" && state.run.remoteState === "created"
+        ? "warning"
+        : "neutral",
       eventId: `work-waiting:${state.run.runId}:${state.run.remoteState ?? "created"}`,
     });
     return;

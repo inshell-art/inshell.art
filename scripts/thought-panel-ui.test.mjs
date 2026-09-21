@@ -1631,7 +1631,7 @@ test("Work lifecycle messages move into Console history", () => {
   assert.match(recordBody, /emitThoughtConsoleEvent\(/);
   assert.match(
     recordBody,
-    /kind: "work_agent_selection_ready",[\s\S]*?title: "Choose an Agent",[\s\S]*?detail: "Only Agents installed on this machine can receive the prompt\."/
+    /kind: "work_agent_selection_ready",[\s\S]*?title: "Choose an Agent",[\s\S]*?detail: 'Choose an installed Agent\. For Claude Code, use a fresh chat with "No folder": this artwork task needs no repository access\.'/
   );
   assert.match(
     recordBody,
@@ -1653,6 +1653,34 @@ test("Work lifecycle messages move into Console history", () => {
     thoughtMain,
     /The App asked Claude Code to open this THOUGHT task\./,
   );
+});
+
+test("Claude Code launch guidance recommends No folder without changing other surfaces", () => {
+  const start = thoughtMain.indexOf("const thoughtAgentLaunchRequestedDetail =");
+  const end = thoughtMain.indexOf("const normalizeThoughtAgentProtocolError", start);
+  assert.ok(start >= 0 && end > start);
+  const source = thoughtMain.slice(start, end);
+  const js = ts.transpile(source + "\nglobalThis.describeLaunch = thoughtAgentLaunchRequestedDetail;");
+  const context = {};
+  runInNewContext(js, context);
+  assert.equal(context.describeLaunch("codex", "codex"),
+    "The App asked the ChatGPT desktop app to open this THOUGHT task in Codex.");
+  assert.equal(context.describeLaunch("claude", "claude-cowork"),
+    "The App asked Claude Cowork to open this THOUGHT task on your computer.");
+  assert.equal(context.describeLaunch("claude", "claude-code"),
+    'The App asked Claude Code to open this THOUGHT task. Use a fresh chat with "No folder": this artwork task needs no repository access.');
+});
+
+test("launch context guidance reuses the shared amber warning style", () => {
+  assert.match(thoughtMain, /eventId: `work-agent-selection/);
+  assert.match(thoughtMain, /kind: "work_agent_selection_ready",[\s\S]*?tone: "warning",/);
+  assert.match(thoughtMain, /tone: state\.adapterId === "claude" && state\.run\.surface === "claude-code" && state\.run\.remoteState === "created"\s*\? "warning"\s*: "neutral"/);
+  assert.match(thoughtCss, /--status-warning-text: #b57a00;/);
+  assert.match(thoughtCss, /\.frontpage-warning\.is-warn,\s*\.thought-dock-status-screen__line--warning\s*\{\s*color: var\(--status-warning-text\);/);
+  assert.match(thoughtCss, /\.frontpage-action-status\.is-warn\s*\{\s*color: var\(--status-warning-text\);/);
+  assert.doesNotMatch(thoughtCss, /claude.*warning|folder.*warning/i);
+  const lockedStyle = loadThoughtDevSnapshotFile(repoRoot, "style");
+  assert.match(lockedStyle, /\.thought-dock-status-screen__line--warning\s*\{\s*color: var\(--status-warning-text\);/);
 });
 
 test("a returned Agent line remains visible when canonical artwork preview is unavailable", () => {
